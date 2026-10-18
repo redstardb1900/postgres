@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * collationcmds.c
- *	  collation-related commands support code
+ *	  排序规则相关命令的辅助代码
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -42,9 +42,9 @@
 
 typedef struct
 {
-	char	   *localename;		/* name of locale, as per "locale -a" */
-	char	   *alias;			/* shortened alias for same */
-	int			enc;			/* encoding */
+	char	   *localename;		/* locale 的名称，同 "locale -a" 的输出 */
+	char	   *alias;			/* 它的缩短别名 */
+	int			enc;			/* 编码 */
 } CollAliasData;
 
 
@@ -166,8 +166,8 @@ DefineCollation(ParseState *pstate, List *names, List *parameters, bool if_not_e
 			colliculocale = NULL;
 
 		/*
-		 * When the ICU locale comes from an existing collation, do not
-		 * canonicalize to a language tag.
+		 * 当 ICU locale 来自现有排序规则时，
+		 * 不要规范化为语言标签。
 		 */
 
 		datum = SysCacheGetAttr(COLLOID, tp, Anum_pg_collation_collicurules, &isnull);
@@ -179,11 +179,11 @@ DefineCollation(ParseState *pstate, List *names, List *parameters, bool if_not_e
 		ReleaseSysCache(tp);
 
 		/*
-		 * Copying the "default" collation is not allowed because most code
-		 * checks for DEFAULT_COLLATION_OID instead of COLLPROVIDER_DEFAULT,
-		 * and so having a second collation with COLLPROVIDER_DEFAULT would
-		 * not work and potentially confuse or crash some code.  This could be
-		 * fixed with some legwork.
+		 * 不允许复制 "default" 排序规则，因为大多数代码
+		 * 检查 DEFAULT_COLLATION_OID 而不是 COLLPROVIDER_DEFAULT，
+		 * 所以再有第二个 COLLPROVIDER_DEFAULT 的排序规则将
+		 * 行不通，并可能迷惑或弄崩一些代码。
+		 * 花些功夫可以修复这一点。
 		 */
 		if (collprovider == COLLPROVIDER_DEFAULT)
 			ereport(ERROR,
@@ -268,8 +268,8 @@ DefineCollation(ParseState *pstate, List *names, List *parameters, bool if_not_e
 								"locale")));
 
 			/*
-			 * During binary upgrade, preserve the locale string. Otherwise,
-			 * canonicalize to a language tag.
+			 * 二进制升级期间保留 locale 字符串。
+			 * 否则规范化为语言标签。
 			 */
 			if (!IsBinaryUpgrade)
 			{
@@ -290,10 +290,10 @@ DefineCollation(ParseState *pstate, List *names, List *parameters, bool if_not_e
 		}
 
 		/*
-		 * Nondeterministic collations are currently only supported with ICU
-		 * because that's the only case where it can actually make a
-		 * difference. So we can save writing the code for the other
-		 * providers.
+		 * 非确定性排序规则目前仅受 ICU 支持，
+		 * 因为只有在那里它才真正
+		 * 有区别。这样我们就可以省去为其他
+		 * 提供者编写代码。
 		 */
 		if (!collisdeterministic && collprovider != COLLPROVIDER_ICU)
 			ereport(ERROR,
@@ -309,15 +309,15 @@ DefineCollation(ParseState *pstate, List *names, List *parameters, bool if_not_e
 		{
 #ifdef USE_ICU
 			/*
-			 * We could create ICU collations with collencoding == database
-			 * encoding, but it seems better to use -1 so that it matches the
-			 * way initdb would create ICU collations.  However, only allow
-			 * one to be created when the current database's encoding is
-			 * supported.  Otherwise the collation is useless, plus we get
-			 * surprising behaviors like not being able to drop the collation.
+			 * 我们可以用 collencoding == 数据库编码创建 ICU
+			 * 排序规则，但用 -1 更好，这样与 initdb 创建
+			 * ICU 排序规则的方式一致。不过，只有当
+			 * 当前数据库的编码受支持时才允许
+			 * 创建。否则排序规则毫无用处，而且还会出现
+			 * 无法删除该排序规则之类的意外行为。
 			 *
-			 * Skip this test when !USE_ICU, because the error we want to
-			 * throw for that isn't thrown till later.
+			 * 当 !USE_ICU 时跳过此测试，因为我们想为此
+			 * 抛出的错误要到后面才会抛出。
 			 */
 			if (!is_encoding_supported_by_icu(GetDatabaseEncoding()))
 				ereport(ERROR,
@@ -348,14 +348,14 @@ DefineCollation(ParseState *pstate, List *names, List *parameters, bool if_not_e
 							 collicurules,
 							 collversion,
 							 if_not_exists,
-							 false);	/* not quiet */
+							 false);	/* 非静默 */
 
 	if (!OidIsValid(newoid))
 		return InvalidObjectAddress;
 
 	/*
-	 * Check that the locales can be loaded.  NB: pg_newlocale_from_collation
-	 * is only supposed to be called on non-C-equivalent locales.
+	 * 检查这些 locale 能否装载。注意：pg_newlocale_from_collation
+	 * 只应针对非 C 等价 locale 调用。
 	 */
 	CommandCounterIncrement();
 	if (!lc_collate_is_c(newoid) || !lc_ctype_is_c(newoid))
@@ -367,15 +367,15 @@ DefineCollation(ParseState *pstate, List *names, List *parameters, bool if_not_e
 }
 
 /*
- * Subroutine for ALTER COLLATION SET SCHEMA and RENAME
+ * ALTER COLLATION SET SCHEMA 与 RENAME 的子例程
  *
- * Is there a collation with the same name of the given collation already in
- * the given namespace?  If so, raise an appropriate error message.
+ * 给定命名空间中是否已有与给定排序规则同名的
+ * 排序规则？若有，抛出合适的错误消息。
  */
 void
 IsThereCollationInNamespace(const char *collname, Oid nspOid)
 {
-	/* make sure the name doesn't already exist in new schema */
+	/* 确保新模式中还没有这个名称 */
 	if (SearchSysCacheExists3(COLLNAMEENCNSP,
 							  CStringGetDatum(collname),
 							  Int32GetDatum(GetDatabaseEncoding()),
@@ -386,7 +386,7 @@ IsThereCollationInNamespace(const char *collname, Oid nspOid)
 						collname, GetDatabaseEncodingName(),
 						get_namespace_name(nspOid))));
 
-	/* mustn't match an any-encoding entry, either */
+	/* 也不能匹配任何编码条目 */
 	if (SearchSysCacheExists3(COLLNAMEENCNSP,
 							  CStringGetDatum(collname),
 							  Int32GetDatum(-1),
@@ -438,7 +438,7 @@ AlterCollation(AlterCollationStmt *stmt)
 	datum = SysCacheGetAttrNotNull(COLLOID, tup, collForm->collprovider == COLLPROVIDER_ICU ? Anum_pg_collation_colliculocale : Anum_pg_collation_collcollate);
 	newversion = get_collation_actual_version(collForm->collprovider, TextDatumGetCString(datum));
 
-	/* cannot change from NULL to non-NULL or vice versa */
+	/* 无法从 NULL 改为非 NULL，反之亦然 */
 	if ((!oldversion && newversion) || (oldversion && !newversion))
 		elog(ERROR, "invalid collation version change");
 	else if (oldversion && newversion && strcmp(newversion, oldversion) != 0)
@@ -489,7 +489,7 @@ pg_collation_actual_version(PG_FUNCTION_ARGS)
 
 	if (collid == DEFAULT_COLLATION_OID)
 	{
-		/* retrieve from pg_database */
+		/* 从 pg_database 检索 */
 
 		HeapTuple	dbtup = SearchSysCache1(DATABASEOID, ObjectIdGetDatum(MyDatabaseId));
 
@@ -510,7 +510,7 @@ pg_collation_actual_version(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* retrieve from pg_collation */
+		/* 从 pg_collation 检索 */
 
 		HeapTuple	colltp = SearchSysCache1(COLLOID, ObjectIdGetDatum(collid));
 
@@ -538,12 +538,12 @@ pg_collation_actual_version(PG_FUNCTION_ARGS)
 }
 
 
-/* will we use "locale -a" in pg_import_system_collations? */
+/* pg_import_system_collations 中是否使用 "locale -a"？ */
 #if defined(HAVE_LOCALE_T) && !defined(WIN32)
 #define READ_LOCALE_A_OUTPUT
 #endif
 
-/* will we use EnumSystemLocalesEx in pg_import_system_collations? */
+/* pg_import_system_collations 中是否使用 EnumSystemLocalesEx？ */
 #ifdef WIN32
 #define ENUM_SYSTEM_LOCALE
 #endif
@@ -551,10 +551,10 @@ pg_collation_actual_version(PG_FUNCTION_ARGS)
 
 #ifdef READ_LOCALE_A_OUTPUT
 /*
- * "Normalize" a libc locale name, stripping off encoding tags such as
- * ".utf8" (e.g., "en_US.utf8" -> "en_US", but "br_FR.iso885915@euro"
- * -> "br_FR@euro").  Return true if a new, different name was
- * generated.
+ * "规范化" libc locale 名，剥掉 ".utf8" 之类的编码标签
+ * （例如 "en_US.utf8" -> "en_US"，但 "br_FR.iso885915@euro"
+ * -> "br_FR@euro"）。若生成了新的、不同的名称，
+ * 返回 true。
  */
 static bool
 normalize_libc_locale_name(char *new, const char *old)
@@ -567,7 +567,7 @@ normalize_libc_locale_name(char *new, const char *old)
 	{
 		if (*o == '.')
 		{
-			/* skip over encoding tag such as ".utf8" or ".UTF-8" */
+			/* 跳过 ".utf8" 或 ".UTF-8" 之类的编码标签 */
 			o++;
 			while ((*o >= 'A' && *o <= 'Z')
 				   || (*o >= 'a' && *o <= 'z')
@@ -585,7 +585,7 @@ normalize_libc_locale_name(char *new, const char *old)
 }
 
 /*
- * qsort comparator for CollAliasData items
+ * CollAliasData 项的 qsort 比较器
  */
 static int
 cmpaliases(const void *a, const void *b)
@@ -593,7 +593,7 @@ cmpaliases(const void *a, const void *b)
 	const CollAliasData *ca = (const CollAliasData *) a;
 	const CollAliasData *cb = (const CollAliasData *) b;
 
-	/* comparing localename is enough because other fields are derived */
+	/* 比较 localename 就够了，因为其他字段都由它派生 */
 	return strcmp(ca->localename, cb->localename);
 }
 #endif							/* READ_LOCALE_A_OUTPUT */
@@ -601,10 +601,10 @@ cmpaliases(const void *a, const void *b)
 
 #ifdef USE_ICU
 /*
- * Get a comment (specifically, the display name) for an ICU locale.
- * The result is a palloc'd string, or NULL if we can't get a comment
- * or find that it's not all ASCII.  (We can *not* accept non-ASCII
- * comments, because the contents of template0 must be encoding-agnostic.)
+ * 获取 ICU locale 的注释（具体是显示名称）。
+ * 结果是 palloc 分配的字符串；若拿不到注释，
+ * 或发现它不全是 ASCII，则为 NULL。（我们*不能*接受
+ * 非 ASCII 注释，因为 template0 的内容必须与编码无关。）
  */
 static char *
 get_icu_locale_comment(const char *localename)
@@ -620,16 +620,16 @@ get_icu_locale_comment(const char *localename)
 									displayname, lengthof(displayname),
 									&status);
 	if (U_FAILURE(status))
-		return NULL;			/* no good reason to raise an error */
+		return NULL;			/* 没有充分的理由抛错误 */
 
-	/* Check for non-ASCII comment (can't use pg_is_ascii for this) */
+	/* 检查非 ASCII 注释（这里不能用 pg_is_ascii） */
 	for (i = 0; i < len_uchar; i++)
 	{
 		if (displayname[i] > 127)
 			return NULL;
 	}
 
-	/* OK, transcribe */
+	/* 好，转写 */
 	result = palloc(len_uchar + 1);
 	for (i = 0; i < len_uchar; i++)
 		result[i] = displayname[i];
@@ -641,18 +641,18 @@ get_icu_locale_comment(const char *localename)
 
 
 /*
- * Create a new collation using the input locale 'locale'. (subroutine for
- * pg_import_system_collations())
+ * 用输入 locale 'locale' 创建新的排序规则。（pg_import_system_collations()
+ * 的子例程）
  *
- * 'nspid' is the namespace id where the collation will be created.
+ * 'nspid' 是将在其中创建排序规则的命名空间 id。
  *
- * 'nvalidp' is incremented if the locale has a valid encoding.
+ * 若 locale 的编码有效，'nvalidp' 递增。
  *
- * 'ncreatedp' is incremented if the collation is actually created.  If the
- * collation already exists it will quietly do nothing.
+ * 若排序规则确实被创建，'ncreatedp' 递增。若排序规则
+ * 已存在，则安静地什么也不做。
  *
- * The returned value is the encoding of the locale, -1 if the locale is not
- * valid for creating a collation.
+ * 返回值是 locale 的编码，若该 locale 不适合创建
+ * 排序规则则为 -1。
  *
  */
 pg_attribute_unused()
@@ -664,10 +664,10 @@ create_collation_from_locale(const char *locale, int nspid,
 	Oid			collid;
 
 	/*
-	 * Some systems have locale names that don't consist entirely of ASCII
-	 * letters (such as "bokm&aring;l" or "fran&ccedil;ais"). This is pretty
-	 * silly, since we need the locale itself to interpret the non-ASCII
-	 * characters. We can't do much with those, so we filter them out.
+	 * 有些系统的 locale 名不全是 ASCII 字母（如
+	 * "bokm&aring;l" 或 "fran&ccedil;ais"）。这相当愚蠢，
+	 * 因为我们需要 locale 本身来解释那些非 ASCII
+	 * 字符。我们对它们做不了什么，所以把它们过滤掉。
 	 */
 	if (!pg_is_ascii(locale))
 	{
@@ -687,18 +687,18 @@ create_collation_from_locale(const char *locale, int nspid,
 		return -1;
 	}
 	if (enc == PG_SQL_ASCII)
-		return -1;				/* C/POSIX are already in the catalog */
+		return -1;				/* C/POSIX 已经在目录里了 */
 
-	/* count valid locales found in operating system */
+	/* 统计在操作系统中找到的有效 locale */
 	(*nvalidp)++;
 
 	/*
-	 * Create a collation named the same as the locale, but quietly doing
-	 * nothing if it already exists.  This is the behavior we need even at
-	 * initdb time, because some versions of "locale -a" can report the same
-	 * locale name more than once.  And it's convenient for later import runs,
-	 * too, since you just about always want to add on new locales without a
-	 * lot of chatter about existing ones.
+	 * 创建与 locale 同名的排序规则，但若它已存在
+	 * 就安静地什么也不做。即使在 initdb 时我们也需要
+	 * 这种行为，因为某些版本的 "locale -a" 会多次报告
+	 * 同一个 locale 名。它对以后的导入运行也很方便，
+	 * 因为你几乎总是想添加新 locale，而不想为已有
+	 * 的那些产生大量唠叨。
 	 */
 	collid = CollationCreate(locale, nspid, GetUserId(),
 							 COLLPROVIDER_LIBC, true, enc,
@@ -709,7 +709,7 @@ create_collation_from_locale(const char *locale, int nspid,
 	{
 		(*ncreatedp)++;
 
-		/* Must do CCI between inserts to handle duplicates correctly */
+		/* 插入之间必须做 CCI，以正确处理重复 */
 		CommandCounterIncrement();
 	}
 
@@ -718,7 +718,7 @@ create_collation_from_locale(const char *locale, int nspid,
 
 
 #ifdef ENUM_SYSTEM_LOCALE
-/* parameter to be passed to the callback function win32_read_locale() */
+/* 传给回调函数 win32_read_locale() 的参数 */
 typedef struct
 {
 	Oid			nspid;
@@ -727,12 +727,12 @@ typedef struct
 } CollParam;
 
 /*
- * Callback function for EnumSystemLocalesEx() in
- * pg_import_system_collations().  Creates a collation for every valid locale
- * and a POSIX alias collation.
+ * pg_import_system_collations() 中 EnumSystemLocalesEx()
+ * 的回调函数。为每个有效 locale 创建一个排序规则，
+ * 以及一个 POSIX 别名排序规则。
  *
- * The callback contract is to return TRUE to continue enumerating and FALSE
- * to stop enumerating.  We always want to continue.
+ * 回调约定：返回 TRUE 继续枚举，FALSE
+ * 停止枚举。我们总是想继续。
  */
 static BOOL CALLBACK
 win32_read_locale(LPWSTR pStr, DWORD dwFlags, LPARAM lparam)
@@ -762,8 +762,8 @@ win32_read_locale(LPWSTR pStr, DWORD dwFlags, LPARAM lparam)
 		return TRUE;
 
 	/*
-	 * Windows will use hyphens between language and territory, where POSIX
-	 * uses an underscore. Simply create a POSIX alias.
+	 * Windows 在语言与地域之间用连字符，而 POSIX
+	 * 用下划线。直接创建一个 POSIX 别名。
 	 */
 	if (strchr(localebuf, '-'))
 	{
@@ -794,7 +794,7 @@ win32_read_locale(LPWSTR pStr, DWORD dwFlags, LPARAM lparam)
 
 
 /*
- * pg_import_system_collations: add known system collations to pg_collation
+ * pg_import_system_collations: 把已知系统排序规则加入 pg_collation
  */
 Datum
 pg_import_system_collations(PG_FUNCTION_ARGS)
@@ -812,7 +812,7 @@ pg_import_system_collations(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_UNDEFINED_SCHEMA),
 				 errmsg("schema with OID %u does not exist", nspid)));
 
-	/* Load collations known to libc, using "locale -a" to enumerate them */
+	/* 装载 libc 已知的排序规则，用 "locale -a" 枚举它们 */
 #ifdef READ_LOCALE_A_OUTPUT
 	{
 		FILE	   *locale_a_handle;
@@ -824,7 +824,7 @@ pg_import_system_collations(PG_FUNCTION_ARGS)
 					maxaliases,
 					i;
 
-		/* expansible array of aliases */
+		/* 可扩展的别名数组 */
 		maxaliases = 100;
 		aliases = (CollAliasData *) palloc(maxaliases * sizeof(CollAliasData));
 		naliases = 0;
@@ -856,14 +856,14 @@ pg_import_system_collations(PG_FUNCTION_ARGS)
 				continue;
 
 			/*
-			 * Generate aliases such as "en_US" in addition to "en_US.utf8"
-			 * for ease of use.  Note that collation names are unique per
-			 * encoding only, so this doesn't clash with "en_US" for LATIN1,
-			 * say.
+			 * 除了 "en_US.utf8"，还生成 "en_US" 之类的别名，
+			 * 以方便使用。注意排序规则名仅在每个编码内
+			 * 唯一，所以它不会与 LATIN1 的 "en_US"
+			 * 冲突。
 			 *
-			 * However, it might conflict with a name we'll see later in the
-			 * "locale -a" output.  So save up the aliases and try to add them
-			 * after we've read all the output.
+			 * 不过，它可能与我们稍后在 "locale -a" 输出中
+			 * 见到的名称冲突。所以先把别名攒起来，等
+			 * 读完全部输出后再尝试添加。
 			 */
 			if (normalize_libc_locale_name(alias, localebuf))
 			{
@@ -881,28 +881,28 @@ pg_import_system_collations(PG_FUNCTION_ARGS)
 		}
 
 		/*
-		 * We don't check the return value of this, because we want to support
-		 * the case where there "locale" command does not exist.  (This is
-		 * unusual but can happen on minimalized Linux distributions, for
-		 * example.)  We will warn below if no locales could be found.
+		 * 我们不检查它的返回值，因为我们想支持
+		 * "locale" 命令不存在的情形。（这不寻常，但
+		 * 例如精简 Linux 发行版上可能发生。）
+		 * 若找不到任何 locale，我们会在下面警告。
 		 */
 		ClosePipeStream(locale_a_handle);
 
 		/*
-		 * Before processing the aliases, sort them by locale name.  The point
-		 * here is that if "locale -a" gives us multiple locale names with the
-		 * same encoding and base name, say "en_US.utf8" and "en_US.utf-8", we
-		 * want to pick a deterministic one of them.  First in ASCII sort
-		 * order is a good enough rule.  (Before PG 10, the code corresponding
-		 * to this logic in initdb.c had an additional ordering rule, to
-		 * prefer the locale name exactly matching the alias, if any.  We
-		 * don't need to consider that here, because we would have already
-		 * created such a pg_collation entry above, and that one will win.)
+		 * 处理别名之前，按 locale 名排序。这里的要点是：
+		 * 若 "locale -a" 给了我们多个编码与基本名相同的
+		 * locale 名，比如 "en_US.utf8" 和 "en_US.utf-8"，
+		 * 我们想从中挑一个确定性的。ASCII 排序
+		 * 第一是足够好的规则。（PG 10 之前，initdb.c 中
+		 * 与此逻辑对应的代码还有一条附加排序规则：
+		 * 若有与别名完全相同的 locale 名就优先。
+		 * 我们这里不需要考虑它，因为上面早已创建了
+		 * 这样的 pg_collation 条目，它会胜出。）
 		 */
 		if (naliases > 1)
 			qsort(aliases, naliases, sizeof(CollAliasData), cmpaliases);
 
-		/* Now add aliases, ignoring any that match pre-existing entries */
+		/* 现在添加别名，忽略与既有条目匹配的 */
 		for (i = 0; i < naliases; i++)
 		{
 			char	   *locale = aliases[i].localename;
@@ -922,7 +922,7 @@ pg_import_system_collations(PG_FUNCTION_ARGS)
 			}
 		}
 
-		/* Give a warning if "locale -a" seems to be malfunctioning */
+		/* 若 "locale -a" 似乎出故障就发警告 */
 		if (nvalid == 0)
 			ereport(WARNING,
 					(errmsg("no usable system locales were found")));
@@ -930,22 +930,22 @@ pg_import_system_collations(PG_FUNCTION_ARGS)
 #endif							/* READ_LOCALE_A_OUTPUT */
 
 	/*
-	 * Load collations known to ICU
+	 * 装载 ICU 已知的排序规则
 	 *
-	 * We use uloc_countAvailable()/uloc_getAvailable() rather than
-	 * ucol_countAvailable()/ucol_getAvailable().  The former returns a full
-	 * set of language+region combinations, whereas the latter only returns
-	 * language+region combinations if they are distinct from the language's
-	 * base collation.  So there might not be a de-DE or en-GB, which would be
-	 * confusing.
+	 * 我们用 uloc_countAvailable()/uloc_getAvailable()
+	 * 而不是 ucol_countAvailable()/ucol_getAvailable()。
+	 * 前者返回完整的语言+地域组合集，而后者只在
+	 * 组合不同于该语言的基本排序规则时才返回。
+	 * 所以可能没有 de-DE 或 en-GB，
+	 * 这会让人困惑。
 	 */
 #ifdef USE_ICU
 	{
 		int			i;
 
 		/*
-		 * Start the loop at -1 to sneak in the root locale without too much
-		 * code duplication.
+		 * 循环从 -1 开始，把根 locale 塞进来，
+		 * 避免太多代码重复。
 		 */
 		for (i = -1; i < uloc_countAvailable(); i++)
 		{
@@ -955,15 +955,15 @@ pg_import_system_collations(PG_FUNCTION_ARGS)
 			Oid			collid;
 
 			if (i == -1)
-				name = "";		/* ICU root locale */
+				name = "";		/* ICU 根 locale */
 			else
 				name = uloc_getAvailable(i);
 
 			langtag = icu_language_tag(name, ERROR);
 
 			/*
-			 * Be paranoid about not allowing any non-ASCII strings into
-			 * pg_collation
+			 * 多疑一点：绝不允许任何非 ASCII 字符串
+			 * 进入 pg_collation
 			 */
 			if (!pg_is_ascii(langtag))
 				continue;
@@ -989,7 +989,7 @@ pg_import_system_collations(PG_FUNCTION_ARGS)
 	}
 #endif							/* USE_ICU */
 
-	/* Load collations known to WIN32 */
+	/* 装载 WIN32 已知的排序规则 */
 #ifdef ENUM_SYSTEM_LOCALE
 	{
 		int			nvalid = 0;
@@ -1000,14 +1000,14 @@ pg_import_system_collations(PG_FUNCTION_ARGS)
 		param.nvalidp = &nvalid;
 
 		/*
-		 * Enumerate the locales that are either installed on or supported by
-		 * the OS.
+		 * 枚举操作系统上已安装或受支持的
+		 * locale。
 		 */
 		if (!EnumSystemLocalesEx(win32_read_locale, LOCALE_ALL,
 								 (LPARAM) &param, NULL))
 			_dosmaperr(GetLastError());
 
-		/* Give a warning if EnumSystemLocalesEx seems to be malfunctioning */
+		/* 若 EnumSystemLocalesEx 似乎出故障就发警告 */
 		if (nvalid == 0)
 			ereport(WARNING,
 					(errmsg("no usable system locales were found")));

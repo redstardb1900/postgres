@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "batch_id": "0224-comment-commands-part3",
+  "title": "zh: translate commands comments (part 3)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "284e100542f73a048eae883973e85629872c2f9b",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/commands/collationcmds.c",
+      "kind": "c_comment",
+      "note": "collation-related commands support code"
+    },
+    {
+      "pattern": "src/backend/commands/matview.c",
+      "kind": "c_comment",
+      "note": "materialized view support"
+    },
+    {
+      "pattern": "src/backend/commands/operatorcmds.c",
+      "kind": "c_comment",
+      "note": "operator manipulation commands"
+    },
+    {
+      "pattern": "src/backend/commands/prepare.c",
+      "kind": "c_comment",
+      "note": "PREPARE/EXECUTE/DEALLOCATE statements"
+    },
+    {
+      "pattern": "src/backend/commands/seclabel.c",
+      "kind": "c_comment",
+      "note": "security label feature support"
+    },
+    {
+      "pattern": "src/backend/commands/statscmds.c",
+      "kind": "c_comment",
+      "note": "extended statistics object commands"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0224-comment-commands-part3.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/commands/collationcmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 60,
+      "translated": 51,
+      "preserved": 9,
+      "preserved_reasons": [
+        "SQL command-name section banners (CREATE COLLATION, ALTER COLLATION)",
+        "translator: comment",
+        "#endif condition labels (identifier-only)"
+      ],
+      "note": "collation-related commands; Copyright and IDENTIFICATION lines stay in English"
+    },
+    {
+      "path": "src/backend/commands/matview.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 79,
+      "translated": 79,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "materialized view support; Copyright and IDENTIFICATION lines stay in English"
+    },
+    {
+      "path": "src/backend/commands/operatorcmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 71,
+      "translated": 66,
+      "preserved": 5,
+      "preserved_reasons": [
+        "identifier-only comments (PlannerInfo, varRelid, jointype, SpecialJoinInfo)"
+      ],
+      "note": "operator manipulation commands; commutator/negator rendered as 交换操作符/否定操作符 (matching pg_operator.c and pgnls zh_CN), estimators as 选择率估计函数 per pgnls glossary (Selectivity → 选择率); Copyright and IDENTIFICATION lines stay in English"
+    },
+    {
+      "path": "src/backend/commands/prepare.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 72,
+      "translated": 72,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "PREPARE/EXECUTE/DEALLOCATE statements; Copyright and IDENTIFICATION lines stay in English"
+    },
+    {
+      "path": "src/backend/commands/seclabel.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 29,
+      "translated": 29,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "security label feature support; Copyright and IDENTIFICATION lines stay in English"
+    },
+    {
+      "path": "src/backend/commands/statscmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 76,
+      "translated": 74,
+      "preserved": 2,
+      "preserved_reasons": [
+        "SQL command-name section banners (CREATE STATISTICS, ALTER STATISTICS)"
+      ],
+      "note": "extended statistics object commands; Copyright and IDENTIFICATION lines stay in English"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0224-comment-commands-part3.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "notes": "Batch 0224 translates comments in six src/backend/commands/ .c files (part 3): collationcmds.c, matview.c, operatorcmds.c, prepare.c, seclabel.c, statscmds.c. 371 of 387 block comments translated, 16 preserved: SQL command-name section banners (CREATE COLLATION, ALTER COLLATION, CREATE STATISTICS, ALTER STATISTICS), one translator: comment, six #endif condition labels, and five identifier-only comments (PlannerInfo x2, varRelid, jointype, SpecialJoinInfo). Copyright and IDENTIFICATION lines stay in English. Operator terminology: commutator/negator → 交换操作符/否定操作符 (matching pg_operator.c and pgnls zh_CN), restriction/join estimator → 限制/连接选择率估计函数 (Selectivity → 选择率). Next suggested: copy.c / copyfrom.c / copyfromparse.c / copyto.c (copy family) or alter.c / cluster.c / variable.c."
+}

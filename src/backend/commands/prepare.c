@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * prepare.c
- *	  Prepareable SQL statements via PREPARE, EXECUTE and DEALLOCATE
+ *	  通过 PREPARE、EXECUTE 和 DEALLOCATE 实现的可准备 SQL 语句
  *
- * This module also implements storage of prepared statements that are
- * accessed via the extended FE/BE query protocol.
+ * 本模块还实现经由扩展 FE/BE 查询协议访问的
+ * 预备语句的存储。
  *
  *
  * Copyright (c) 2002-2023, PostgreSQL Global Development Group
@@ -39,10 +39,10 @@
 
 
 /*
- * The hash table in which prepared queries are stored. This is
- * per-backend: query plans are not shared between backends.
- * The keys for this hash table are the arguments to PREPARE and EXECUTE
- * (statement names); the entries are PreparedStatement structs.
+ * 存储预备查询的哈希表。这是每个后端
+ * 一份：查询计划不在后端之间共享。
+ * 此哈希表的键是 PREPARE 和 EXECUTE 的参数
+ * （语句名）；条目是 PreparedStatement 结构体。
  */
 static HTAB *prepared_queries = NULL;
 
@@ -53,7 +53,7 @@ static ParamListInfo EvaluateParams(ParseState *pstate,
 static Datum build_regtype_array(Oid *param_types, int num_params);
 
 /*
- * Implements the 'PREPARE' utility statement.
+ * 实现 'PREPARE' 工具语句。
  */
 void
 PrepareQuery(ParseState *pstate, PrepareStmt *stmt,
@@ -66,8 +66,8 @@ PrepareQuery(ParseState *pstate, PrepareStmt *stmt,
 	List	   *query_list;
 
 	/*
-	 * Disallow empty-string statement name (conflicts with protocol-level
-	 * unnamed statement).
+	 * 禁止空字符串语句名（与协议级未命名语句
+	 * 冲突）。
 	 */
 	if (!stmt->name || stmt->name[0] == '\0')
 		ereport(ERROR,
@@ -75,8 +75,8 @@ PrepareQuery(ParseState *pstate, PrepareStmt *stmt,
 				 errmsg("invalid statement name: must not be empty")));
 
 	/*
-	 * Need to wrap the contained statement in a RawStmt node to pass it to
-	 * parse analysis.
+	 * 需要把内含语句包进 RawStmt 节点，
+	 * 才能交给解析分析。
 	 */
 	rawstmt = makeNode(RawStmt);
 	rawstmt->stmt = stmt->query;
@@ -84,13 +84,13 @@ PrepareQuery(ParseState *pstate, PrepareStmt *stmt,
 	rawstmt->stmt_len = stmt_len;
 
 	/*
-	 * Create the CachedPlanSource before we do parse analysis, since it needs
-	 * to see the unmodified raw parse tree.
+	 * 在做解析分析之前创建 CachedPlanSource，
+	 * 因为它需要看到未修改的原始解析树。
 	 */
 	plansource = CreateCachedPlan(rawstmt, pstate->p_sourcetext,
 								  CreateCommandTag(stmt->query));
 
-	/* Transform list of TypeNames to array of type OIDs */
+	/* 把 TypeName 列表转换为类型 OID 数组 */
 	nargs = list_length(stmt->argtypes);
 
 	if (nargs)
@@ -111,15 +111,15 @@ PrepareQuery(ParseState *pstate, PrepareStmt *stmt,
 	}
 
 	/*
-	 * Analyze the statement using these parameter types (any parameters
-	 * passed in from above us will not be visible to it), allowing
-	 * information about unknown parameters to be deduced from context.
-	 * Rewrite the query. The result could be 0, 1, or many queries.
+	 * 用这些参数类型分析语句（从我们上方传入的任何
+	 * 参数对它不可见），允许从上下文
+	 * 推断未知参数的信息。
+	 * 重写查询。结果可能是 0、1 或多个查询。
 	 */
 	query_list = pg_analyze_and_rewrite_varparams(rawstmt, pstate->p_sourcetext,
 												  &argtypes, &nargs, NULL);
 
-	/* Finish filling in the CachedPlanSource */
+	/* 完成 CachedPlanSource 的填充 */
 	CompleteCachedPlan(plansource,
 					   query_list,
 					   NULL,
@@ -127,11 +127,11 @@ PrepareQuery(ParseState *pstate, PrepareStmt *stmt,
 					   nargs,
 					   NULL,
 					   NULL,
-					   CURSOR_OPT_PARALLEL_OK,	/* allow parallel mode */
-					   true);	/* fixed result */
+					   CURSOR_OPT_PARALLEL_OK,	/* 允许并行模式 */
+					   true);	/* 固定结果 */
 
 	/*
-	 * Save the results.
+	 * 保存结果。
 	 */
 	StorePreparedStatement(stmt->name,
 						   plansource,
@@ -139,12 +139,12 @@ PrepareQuery(ParseState *pstate, PrepareStmt *stmt,
 }
 
 /*
- * ExecuteQuery --- implement the 'EXECUTE' utility statement.
+ * ExecuteQuery --- 实现 'EXECUTE' 工具语句。
  *
- * This code also supports CREATE TABLE ... AS EXECUTE.  That case is
- * indicated by passing a non-null intoClause.  The DestReceiver is already
- * set up correctly for CREATE TABLE AS, but we still have to make a few
- * other adjustments here.
+ * 此代码还支持 CREATE TABLE ... AS EXECUTE。这种情况
+ * 以传入非空 intoClause 表示。DestReceiver 已经为
+ * CREATE TABLE AS 正确设置，但我们仍须在这里
+ * 做几处其他调整。
  */
 void
 ExecuteQuery(ParseState *pstate,
@@ -162,43 +162,43 @@ ExecuteQuery(ParseState *pstate,
 	int			eflags;
 	long		count;
 
-	/* Look it up in the hash table */
+	/* 在哈希表中查找它 */
 	entry = FetchPreparedStatement(stmt->name, true);
 
-	/* Shouldn't find a non-fixed-result cached plan */
+	/* 不应找到非固定结果的缓存计划 */
 	if (!entry->plansource->fixed_result)
 		elog(ERROR, "EXECUTE does not support variable-result cached plans");
 
-	/* Evaluate parameters, if any */
+	/* 若有参数，就求值 */
 	if (entry->plansource->num_params > 0)
 	{
 		/*
-		 * Need an EState to evaluate parameters; must not delete it till end
-		 * of query, in case parameters are pass-by-reference.  Note that the
-		 * passed-in "params" could possibly be referenced in the parameter
-		 * expressions.
+		 * 需要一个 EState 来求参数值；直到查询结束
+		 * 都不能删除它，以防参数是按引用传递的。
+		 * 注意传入的 "params" 可能被参数
+		 * 表达式引用。
 		 */
 		estate = CreateExecutorState();
 		estate->es_param_list_info = params;
 		paramLI = EvaluateParams(pstate, entry, stmt->params, estate);
 	}
 
-	/* Create a new portal to run the query in */
+	/* 创建新门户来运行查询 */
 	portal = CreateNewPortal();
-	/* Don't display the portal in pg_cursors, it is for internal use only */
+	/* 不要在 pg_cursors 中显示该门户，它仅供内部使用 */
 	portal->visible = false;
 
-	/* Copy the plan's saved query string into the portal's memory */
+	/* 把计划保存的查询字符串复制到门户内存中 */
 	query_string = MemoryContextStrdup(portal->portalContext,
 									   entry->plansource->query_string);
 
-	/* Replan if needed, and increment plan refcount for portal */
+	/* 如有需要就重新规划，并为门户递增计划引用计数 */
 	cplan = GetCachedPlan(entry->plansource, paramLI, NULL, NULL);
 	plan_list = cplan->stmt_list;
 
 	/*
-	 * DO NOT add any logic that could possibly throw an error between
-	 * GetCachedPlan and PortalDefineQuery, or you'll leak the plan refcount.
+	 * 不要在 GetCachedPlan 和 PortalDefineQuery 之间添加任何
+	 * 可能抛出错误的逻辑，否则会泄漏计划引用计数。
 	 */
 	PortalDefineQuery(portal,
 					  NULL,
@@ -208,17 +208,17 @@ ExecuteQuery(ParseState *pstate,
 					  cplan);
 
 	/*
-	 * For CREATE TABLE ... AS EXECUTE, we must verify that the prepared
-	 * statement is one that produces tuples.  Currently we insist that it be
-	 * a plain old SELECT.  In future we might consider supporting other
-	 * things such as INSERT ... RETURNING, but there are a couple of issues
-	 * to be settled first, notably how WITH NO DATA should be handled in such
-	 * a case (do we really want to suppress execution?) and how to pass down
-	 * the OID-determining eflags (PortalStart won't handle them in such a
-	 * case, and for that matter it's not clear the executor will either).
+	 * 对于 CREATE TABLE ... AS EXECUTE，我们必须验证预备语句
+	 * 是产生元组的语句。目前我们坚持它必须是普通 SELECT。
+	 * 将来我们可能考虑支持其他东西，比如
+	 * INSERT ... RETURNING，但有几个问题要先解决，特别是
+	 * 这种情况下 WITH NO DATA 应如何处理（我们真的想
+	 * 抑制执行吗？），以及如何把决定 OID 的 eflags
+	 * 传下去（PortalStart 在这种情况下不会处理它们，
+	 * 而且执行器会不会处理也不清楚）。
 	 *
-	 * For CREATE TABLE ... AS EXECUTE, we also have to ensure that the proper
-	 * eflags and fetch count are passed to PortalStart/PortalRun.
+	 * 对于 CREATE TABLE ... AS EXECUTE，我们还必须确保合适的
+	 * eflags 和 fetch 计数传给 PortalStart/PortalRun。
 	 */
 	if (intoClause)
 	{
@@ -234,10 +234,10 @@ ExecuteQuery(ParseState *pstate,
 					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
 					 errmsg("prepared statement is not a SELECT")));
 
-		/* Set appropriate eflags */
+		/* 设置合适的 eflags */
 		eflags = GetIntoRelEFlags(intoClause);
 
-		/* And tell PortalRun whether to run to completion or not */
+		/* 并告诉 PortalRun 是否要执行到底 */
 		if (intoClause->skipData)
 			count = 0;
 		else
@@ -245,13 +245,13 @@ ExecuteQuery(ParseState *pstate,
 	}
 	else
 	{
-		/* Plain old EXECUTE */
+		/* 普通 EXECUTE */
 		eflags = 0;
 		count = FETCH_ALL;
 	}
 
 	/*
-	 * Run the portal as appropriate.
+	 * 按需运行门户。
 	 */
 	PortalStart(portal, paramLI, eflags, GetActiveSnapshot());
 
@@ -262,20 +262,20 @@ ExecuteQuery(ParseState *pstate,
 	if (estate)
 		FreeExecutorState(estate);
 
-	/* No need to pfree other memory, MemoryContext will be reset */
+	/* 无需 pfree 其他内存，MemoryContext 会被重置 */
 }
 
 /*
- * EvaluateParams: evaluate a list of parameters.
+ * EvaluateParams: 求一组参数的值。
  *
- * pstate: parse state
- * pstmt: statement we are getting parameters for.
- * params: list of given parameter expressions (raw parser output!)
- * estate: executor state to use.
+ * pstate: 解析状态
+ * pstmt: 我们为其获取参数的语句。
+ * params: 给定参数表达式的列表（原始解析器输出！）
+ * estate: 要使用的执行器状态。
  *
- * Returns a filled-in ParamListInfo -- this can later be passed to
- * CreateQueryDesc(), which allows the executor to make use of the parameters
- * during query execution.
+ * 返回填充好的 ParamListInfo —— 它稍后可传给
+ * CreateQueryDesc()，使执行器能在查询执行期间
+ * 使用这些参数。
  */
 static ParamListInfo
 EvaluateParams(ParseState *pstate, PreparedStatement *pstmt, List *params,
@@ -297,13 +297,13 @@ EvaluateParams(ParseState *pstate, PreparedStatement *pstmt, List *params,
 				 errdetail("Expected %d parameters but got %d.",
 						   num_params, nparams)));
 
-	/* Quick exit if no parameters */
+	/* 若没有参数就快速退出 */
 	if (num_params == 0)
 		return NULL;
 
 	/*
-	 * We have to run parse analysis for the expressions.  Since the parser is
-	 * not cool about scribbling on its input, copy first.
+	 * 我们必须对表达式做解析分析。由于解析器
+	 * 不喜欢其输入被涂改，先复制一份。
 	 */
 	params = copyObject(params);
 
@@ -334,14 +334,14 @@ EvaluateParams(ParseState *pstate, PreparedStatement *pstmt, List *params,
 					 errhint("You will need to rewrite or cast the expression."),
 					 parser_errposition(pstate, exprLocation(lfirst(l)))));
 
-		/* Take care of collations in the finished expression. */
+		/* 处理成品表达式中的排序规则。 */
 		assign_expr_collations(pstate, expr);
 
 		lfirst(l) = expr;
 		i++;
 	}
 
-	/* Prepare the expressions for execution */
+	/* 为执行准备表达式 */
 	exprstates = ExecPrepareExprList(params, estate);
 
 	paramLI = makeParamList(num_params);
@@ -366,7 +366,7 @@ EvaluateParams(ParseState *pstate, PreparedStatement *pstmt, List *params,
 
 
 /*
- * Initialize query hash table upon first use.
+ * 首次使用时初始化查询哈希表。
  */
 static void
 InitQueryHashTable(void)
@@ -383,10 +383,10 @@ InitQueryHashTable(void)
 }
 
 /*
- * Store all the data pertaining to a query in the hash table using
- * the specified key.  The passed CachedPlanSource should be "unsaved"
- * in case we get an error here; we'll save it once we've created the hash
- * table entry.
+ * 用指定键把与查询有关的所有数据存入哈希表。
+ * 传入的 CachedPlanSource 应为 "unsaved" 状态，
+ * 以防这里出错；一旦创建了哈希表条目，
+ * 我们就会保存它。
  */
 void
 StorePreparedStatement(const char *stmt_name,
@@ -397,38 +397,38 @@ StorePreparedStatement(const char *stmt_name,
 	TimestampTz cur_ts = GetCurrentStatementStartTimestamp();
 	bool		found;
 
-	/* Initialize the hash table, if necessary */
+	/* 如有必要，初始化哈希表 */
 	if (!prepared_queries)
 		InitQueryHashTable();
 
-	/* Add entry to hash table */
+	/* 向哈希表添加条目 */
 	entry = (PreparedStatement *) hash_search(prepared_queries,
 											  stmt_name,
 											  HASH_ENTER,
 											  &found);
 
-	/* Shouldn't get a duplicate entry */
+	/* 不应得到重复条目 */
 	if (found)
 		ereport(ERROR,
 				(errcode(ERRCODE_DUPLICATE_PSTATEMENT),
 				 errmsg("prepared statement \"%s\" already exists",
 						stmt_name)));
 
-	/* Fill in the hash table entry */
+	/* 填充哈希表条目 */
 	entry->plansource = plansource;
 	entry->from_sql = from_sql;
 	entry->prepare_time = cur_ts;
 
-	/* Now it's safe to move the CachedPlanSource to permanent memory */
+	/* 现在把 CachedPlanSource 移到永久内存就安全了 */
 	SaveCachedPlan(plansource);
 }
 
 /*
- * Lookup an existing query in the hash table. If the query does not
- * actually exist, throw ereport(ERROR) or return NULL per second parameter.
+ * 在哈希表中查找现有查询。若查询实际上不存在，
+ * 根据第二个参数抛 ereport(ERROR) 或返回 NULL。
  *
- * Note: this does not force the referenced plancache entry to be valid,
- * since not all callers care.
+ * 注意：这不会强制被引用的 plancache 条目有效，
+ * 因为并非所有调用方都在意。
  */
 PreparedStatement *
 FetchPreparedStatement(const char *stmt_name, bool throwError)
@@ -436,8 +436,8 @@ FetchPreparedStatement(const char *stmt_name, bool throwError)
 	PreparedStatement *entry;
 
 	/*
-	 * If the hash table hasn't been initialized, it can't be storing
-	 * anything, therefore it couldn't possibly store our plan.
+	 * 若哈希表尚未初始化，它不可能存储任何东西，
+	 * 因此也不可能存储我们的计划。
 	 */
 	if (prepared_queries)
 		entry = (PreparedStatement *) hash_search(prepared_queries,
@@ -457,17 +457,17 @@ FetchPreparedStatement(const char *stmt_name, bool throwError)
 }
 
 /*
- * Given a prepared statement, determine the result tupledesc it will
- * produce.  Returns NULL if the execution will not return tuples.
+ * 给定预备语句，确定它将产生的结果 tupledesc。
+ * 若执行不返回元组则返回 NULL。
  *
- * Note: the result is created or copied into current memory context.
+ * 注意：结果在当前内存上下文中创建或复制。
  */
 TupleDesc
 FetchPreparedStatementResultDesc(PreparedStatement *stmt)
 {
 	/*
-	 * Since we don't allow prepared statements' result tupdescs to change,
-	 * there's no need to worry about revalidating the cached plan here.
+	 * 因为我们不允许预备语句的结果 tupdesc 改变，
+	 * 这里无需担心重新验证缓存计划。
 	 */
 	Assert(stmt->plansource->fixed_result);
 	if (stmt->plansource->resultDesc)
@@ -477,29 +477,29 @@ FetchPreparedStatementResultDesc(PreparedStatement *stmt)
 }
 
 /*
- * Given a prepared statement that returns tuples, extract the query
- * targetlist.  Returns NIL if the statement doesn't have a determinable
- * targetlist.
+ * 给定返回元组的预备语句，提取查询
+ * targetlist。若语句没有可确定的 targetlist，
+ * 返回 NIL。
  *
- * Note: this is pretty ugly, but since it's only used in corner cases like
- * Describe Statement on an EXECUTE command, we don't worry too much about
- * efficiency.
+ * 注意：这相当丑陋，但由于它只用于像对 EXECUTE 命令
+ * 做 Describe Statement 这样的边角情形，
+ * 我们不太担心效率。
  */
 List *
 FetchPreparedStatementTargetList(PreparedStatement *stmt)
 {
 	List	   *tlist;
 
-	/* Get the plan's primary targetlist */
+	/* 获取计划的主 targetlist */
 	tlist = CachedPlanGetTargetList(stmt->plansource, NULL);
 
-	/* Copy into caller's context in case plan gets invalidated */
+	/* 复制到调用方上下文，以防计划失效 */
 	return copyObject(tlist);
 }
 
 /*
- * Implements the 'DEALLOCATE' utility statement: deletes the
- * specified plan from storage.
+ * 实现 'DEALLOCATE' 工具语句：从存储中
+ * 删除指定计划。
  */
 void
 DeallocateQuery(DeallocateStmt *stmt)
@@ -511,30 +511,30 @@ DeallocateQuery(DeallocateStmt *stmt)
 }
 
 /*
- * Internal version of DEALLOCATE
+ * DEALLOCATE 的内部版本
  *
- * If showError is false, dropping a nonexistent statement is a no-op.
+ * 若 showError 为 false，删除不存在的语句是空操作。
  */
 void
 DropPreparedStatement(const char *stmt_name, bool showError)
 {
 	PreparedStatement *entry;
 
-	/* Find the query's hash table entry; raise error if wanted */
+	/* 找到查询的哈希表条目；若需要就报错 */
 	entry = FetchPreparedStatement(stmt_name, showError);
 
 	if (entry)
 	{
-		/* Release the plancache entry */
+		/* 释放 plancache 条目 */
 		DropCachedPlan(entry->plansource);
 
-		/* Now we can remove the hash table entry */
+		/* 现在可以移除哈希表条目 */
 		hash_search(prepared_queries, entry->stmt_name, HASH_REMOVE, NULL);
 	}
 }
 
 /*
- * Drop all cached statements.
+ * 删除所有缓存语句。
  */
 void
 DropAllPreparedStatements(void)
@@ -542,30 +542,30 @@ DropAllPreparedStatements(void)
 	HASH_SEQ_STATUS seq;
 	PreparedStatement *entry;
 
-	/* nothing cached */
+	/* 没有缓存任何东西 */
 	if (!prepared_queries)
 		return;
 
-	/* walk over cache */
+	/* 遍历缓存 */
 	hash_seq_init(&seq, prepared_queries);
 	while ((entry = hash_seq_search(&seq)) != NULL)
 	{
-		/* Release the plancache entry */
+		/* 释放 plancache 条目 */
 		DropCachedPlan(entry->plansource);
 
-		/* Now we can remove the hash table entry */
+		/* 现在可以移除哈希表条目 */
 		hash_search(prepared_queries, entry->stmt_name, HASH_REMOVE, NULL);
 	}
 }
 
 /*
- * Implements the 'EXPLAIN EXECUTE' utility statement.
+ * 实现 'EXPLAIN EXECUTE' 工具语句。
  *
- * "into" is NULL unless we are doing EXPLAIN CREATE TABLE AS EXECUTE,
- * in which case executing the query should result in creating that table.
+ * 除非我们在做 EXPLAIN CREATE TABLE AS EXECUTE，否则 "into"
+ * 为 NULL；在那种情况下执行查询应该会创建那张表。
  *
- * Note: the passed-in queryString is that of the EXPLAIN EXECUTE,
- * not the original PREPARE; we get the latter string from the plancache.
+ * 注意：传入的 queryString 是 EXPLAIN EXECUTE 的，不是
+ * 原始 PREPARE 的；后一个字符串我们从 plancache 获取。
  */
 void
 ExplainExecuteQuery(ExecuteStmt *execstmt, IntoClause *into, ExplainState *es,
@@ -588,16 +588,16 @@ ExplainExecuteQuery(ExecuteStmt *execstmt, IntoClause *into, ExplainState *es,
 		bufusage_start = pgBufferUsage;
 	INSTR_TIME_SET_CURRENT(planstart);
 
-	/* Look it up in the hash table */
+	/* 在哈希表中查找它 */
 	entry = FetchPreparedStatement(execstmt->name, true);
 
-	/* Shouldn't find a non-fixed-result cached plan */
+	/* 不应找到非固定结果的缓存计划 */
 	if (!entry->plansource->fixed_result)
 		elog(ERROR, "EXPLAIN EXECUTE does not support variable-result cached plans");
 
 	query_string = entry->plansource->query_string;
 
-	/* Evaluate parameters, if any */
+	/* 若有参数，就求值 */
 	if (entry->plansource->num_params)
 	{
 		ParseState *pstate;
@@ -606,10 +606,10 @@ ExplainExecuteQuery(ExecuteStmt *execstmt, IntoClause *into, ExplainState *es,
 		pstate->p_sourcetext = queryString;
 
 		/*
-		 * Need an EState to evaluate parameters; must not delete it till end
-		 * of query, in case parameters are pass-by-reference.  Note that the
-		 * passed-in "params" could possibly be referenced in the parameter
-		 * expressions.
+		 * 需要一个 EState 来求参数值；直到查询结束
+		 * 都不能删除它，以防参数是按引用传递的。
+		 * 注意传入的 "params" 可能被参数
+		 * 表达式引用。
 		 */
 		estate = CreateExecutorState();
 		estate->es_param_list_info = params;
@@ -617,14 +617,14 @@ ExplainExecuteQuery(ExecuteStmt *execstmt, IntoClause *into, ExplainState *es,
 		paramLI = EvaluateParams(pstate, entry, execstmt->params, estate);
 	}
 
-	/* Replan if needed, and acquire a transient refcount */
+	/* 如有需要就重新规划，并获取临时引用计数 */
 	cplan = GetCachedPlan(entry->plansource, paramLI,
 						  CurrentResourceOwner, queryEnv);
 
 	INSTR_TIME_SET_CURRENT(planduration);
 	INSTR_TIME_SUBTRACT(planduration, planstart);
 
-	/* calc differences of buffer counters. */
+	/* 计算缓冲区计数器的差值。 */
 	if (es->buffers)
 	{
 		memset(&bufusage, 0, sizeof(BufferUsage));
@@ -633,7 +633,7 @@ ExplainExecuteQuery(ExecuteStmt *execstmt, IntoClause *into, ExplainState *es,
 
 	plan_list = cplan->stmt_list;
 
-	/* Explain each query */
+	/* 解释每条查询 */
 	foreach(p, plan_list)
 	{
 		PlannedStmt *pstmt = lfirst_node(PlannedStmt, p);
@@ -645,9 +645,9 @@ ExplainExecuteQuery(ExecuteStmt *execstmt, IntoClause *into, ExplainState *es,
 			ExplainOneUtility(pstmt->utilityStmt, into, es, query_string,
 							  paramLI, queryEnv);
 
-		/* No need for CommandCounterIncrement, as ExplainOnePlan did it */
+		/* 无需 CommandCounterIncrement，ExplainOnePlan 已做过 */
 
-		/* Separate plans with an appropriate separator */
+		/* 用合适的分隔符分隔计划 */
 		if (lnext(plan_list, p) != NULL)
 			ExplainSeparatePlans(es);
 	}
@@ -659,9 +659,9 @@ ExplainExecuteQuery(ExecuteStmt *execstmt, IntoClause *into, ExplainState *es,
 }
 
 /*
- * This set returning function reads all the prepared statements and
- * returns a set of (name, statement, prepare_time, param_types, from_sql,
- * generic_plans, custom_plans).
+ * 此集合返回函数读取所有预备语句，并返回
+ * (name, statement, prepare_time, param_types, from_sql,
+ * generic_plans, custom_plans) 的集合。
  */
 Datum
 pg_prepared_statement(PG_FUNCTION_ARGS)
@@ -669,12 +669,12 @@ pg_prepared_statement(PG_FUNCTION_ARGS)
 	ReturnSetInfo *rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;
 
 	/*
-	 * We put all the tuples into a tuplestore in one scan of the hashtable.
-	 * This avoids any issue of the hashtable possibly changing between calls.
+	 * 在一次哈希表扫描中把所有元组放入 tuplestore。
+	 * 这避免了哈希表可能在调用之间变化的任何问题。
 	 */
 	InitMaterializedSRF(fcinfo, 0);
 
-	/* hash table might be uninitialized */
+	/* 哈希表可能未初始化 */
 	if (prepared_queries)
 	{
 		HASH_SEQ_STATUS hash_seq;
@@ -705,7 +705,7 @@ pg_prepared_statement(PG_FUNCTION_ARGS)
 			}
 			else
 			{
-				/* no result descriptor (for example, DML statement) */
+				/* 没有结果描述符（例如 DML 语句） */
 				nulls[4] = true;
 			}
 			values[5] = BoolGetDatum(prep_stmt->from_sql);
@@ -721,9 +721,9 @@ pg_prepared_statement(PG_FUNCTION_ARGS)
 }
 
 /*
- * This utility function takes a C array of Oids, and returns a Datum
- * pointing to a one-dimensional Postgres array of regtypes. An empty
- * array is returned as a zero-element array, not NULL.
+ * 此实用函数接收 C 的 Oid 数组，返回指向一维
+ * regtype Postgres 数组的 Datum。空数组以零元素
+ * 数组返回，而不是 NULL。
  */
 static Datum
 build_regtype_array(Oid *param_types, int num_params)

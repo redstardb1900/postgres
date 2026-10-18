@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * matview.c
- *	  materialized view support
+ *	  物化视图支持
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -49,13 +49,13 @@
 
 typedef struct
 {
-	DestReceiver pub;			/* publicly-known function pointers */
-	Oid			transientoid;	/* OID of new heap into which to store */
-	/* These fields are filled by transientrel_startup: */
-	Relation	transientrel;	/* relation to write to */
-	CommandId	output_cid;		/* cmin to insert in output tuples */
-	int			ti_options;		/* table_tuple_insert performance options */
-	BulkInsertState bistate;	/* bulk insert state */
+	DestReceiver pub;			/* 公开的函数指针 */
+	Oid			transientoid;	/* 要存储到的新堆的 OID */
+	/* 这些字段由 transientrel_startup 填充： */
+	Relation	transientrel;	/* 要写入的关系 */
+	CommandId	output_cid;		/* 插入输出元组的 cmin */
+	int			ti_options;		/* table_tuple_insert 的性能选项 */
+	BulkInsertState bistate;	/* 批量插入状态 */
 } DR_transientrel;
 
 static int	matview_maintenance_depth = 0;
@@ -76,9 +76,9 @@ static void CloseMatViewIncrementalMaintenance(void);
 
 /*
  * SetMatViewPopulatedState
- *		Mark a materialized view as populated, or not.
+ *		把物化视图标记为已填充，或未填充。
  *
- * NOTE: caller must be holding an appropriate lock on the relation.
+ * 注意：调用方必须持有该关系上的适当锁。
  */
 void
 SetMatViewPopulatedState(Relation relation, bool newstate)
@@ -89,9 +89,9 @@ SetMatViewPopulatedState(Relation relation, bool newstate)
 	Assert(relation->rd_rel->relkind == RELKIND_MATVIEW);
 
 	/*
-	 * Update relation's pg_class entry.  Crucial side-effect: other backends
-	 * (and this one too!) are sent SI message to make them rebuild relcache
-	 * entries.
+	 * 更新关系的 pg_class 条目。关键副作用：其他后端
+	 * （还有这个后端！）会收到 SI 消息，使它们
+	 * 重建 relcache 条目。
 	 */
 	pgrel = table_open(RelationRelationId, RowExclusiveLock);
 	tuple = SearchSysCacheCopy1(RELOID,
@@ -108,31 +108,31 @@ SetMatViewPopulatedState(Relation relation, bool newstate)
 	table_close(pgrel, RowExclusiveLock);
 
 	/*
-	 * Advance command counter to make the updated pg_class row locally
-	 * visible.
+	 * 推进命令计数器，使更新后的 pg_class 行
+	 * 在本地可见。
 	 */
 	CommandCounterIncrement();
 }
 
 /*
- * ExecRefreshMatView -- execute a REFRESH MATERIALIZED VIEW command
+ * ExecRefreshMatView -- 执行 REFRESH MATERIALIZED VIEW 命令
  *
- * This refreshes the materialized view by creating a new table and swapping
- * the relfilenumbers of the new table and the old materialized view, so the OID
- * of the original materialized view is preserved. Thus we do not lose GRANT
- * nor references to this materialized view.
+ * 它通过创建新表并交换新表与旧物化视图的
+ * relfilenumber 来刷新物化视图，从而保留原物化视图的
+ * OID。这样我们不会丢失 GRANT 或对该物化视图的
+ * 引用。
  *
- * If WITH NO DATA was specified, this is effectively like a TRUNCATE;
- * otherwise it is like a TRUNCATE followed by an INSERT using the SELECT
- * statement associated with the materialized view.  The statement node's
- * skipData field shows whether the clause was used.
+ * 若指定了 WITH NO DATA，这实际上相当于 TRUNCATE；
+ * 否则相当于 TRUNCATE 后用与该物化视图关联的
+ * SELECT 语句做 INSERT。语句节点的 skipData 字段
+ * 表明该子句是否被使用。
  *
- * Indexes are rebuilt too, via REINDEX. Since we are effectively bulk-loading
- * the new heap, it's better to create the indexes afterwards than to fill them
- * incrementally while we load.
+ * 索引也会通过 REINDEX 重建。由于我们实际上是在
+ * 批量装载新堆，装载完成后创建索引
+ * 比边装载边增量填充更好。
  *
- * The matview's "populated" state is changed based on whether the contents
- * reflect the result set of the materialized view's query.
+ * 物化视图的 "populated" 状态根据其内容是否反映
+ * 物化视图查询的结果集而改变。
  */
 ObjectAddress
 ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
@@ -156,12 +156,12 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 	int			save_nestlevel;
 	ObjectAddress address;
 
-	/* Determine strength of lock needed. */
+	/* 确定所需锁的强度。 */
 	concurrent = stmt->concurrent;
 	lockmode = concurrent ? ExclusiveLock : AccessExclusiveLock;
 
 	/*
-	 * Get a lock until end of transaction.
+	 * 获取锁直到事务结束。
 	 */
 	matviewOid = RangeVarGetRelidExtended(stmt->relation,
 										  lockmode, 0,
@@ -170,29 +170,29 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 	relowner = matviewRel->rd_rel->relowner;
 
 	/*
-	 * Switch to the owner's userid, so that any functions are run as that
-	 * user.  Also lock down security-restricted operations and arrange to
-	 * make GUC variable changes local to this command.
+	 * 切换到所有者的 userid，使任何函数都以该用户
+	 * 身份运行。同时锁定安全受限操作，并安排
+	 * 让 GUC 变量更改仅在本命令内生效。
 	 */
 	GetUserIdAndSecContext(&save_userid, &save_sec_context);
 	SetUserIdAndSecContext(relowner,
 						   save_sec_context | SECURITY_RESTRICTED_OPERATION);
 	save_nestlevel = NewGUCNestLevel();
 
-	/* Make sure it is a materialized view. */
+	/* 确保它是物化视图。 */
 	if (matviewRel->rd_rel->relkind != RELKIND_MATVIEW)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("\"%s\" is not a materialized view",
 						RelationGetRelationName(matviewRel))));
 
-	/* Check that CONCURRENTLY is not specified if not populated. */
+	/* 若未填充，检查没有指定 CONCURRENTLY。 */
 	if (concurrent && !RelationIsPopulated(matviewRel))
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("CONCURRENTLY cannot be used when the materialized view is not populated")));
 
-	/* Check that conflicting options have not been specified. */
+	/* 检查没有指定冲突的选项。 */
 	if (concurrent && stmt->skipData)
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
@@ -200,8 +200,8 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 						"CONCURRENTLY", "WITH NO DATA")));
 
 	/*
-	 * Check that everything is correct for a refresh. Problems at this point
-	 * are internal errors, so elog is sufficient.
+	 * 检查刷新所需的一切都正确。此时的问题
+	 * 是内部错误，所以用 elog 就够了。
 	 */
 	if (matviewRel->rd_rel->relhasrules == false ||
 		matviewRel->rd_rules->numLocks < 1)
@@ -227,8 +227,8 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 			 RelationGetRelationName(matviewRel));
 
 	/*
-	 * Check that there is a unique index with no WHERE clause on one or more
-	 * columns of the materialized view if CONCURRENTLY is specified.
+	 * 若指定了 CONCURRENTLY，检查物化视图的一列或多列上
+	 * 存在不带 WHERE 子句的唯一索引。
 	 */
 	if (concurrent)
 	{
@@ -260,27 +260,27 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 	}
 
 	/*
-	 * The stored query was rewritten at the time of the MV definition, but
-	 * has not been scribbled on by the planner.
+	 * 存储的查询在 MV 定义时已经重写过，
+	 * 但未被规划器涂改。
 	 */
 	dataQuery = linitial_node(Query, actions);
 
 	/*
-	 * Check for active uses of the relation in the current transaction, such
-	 * as open scans.
+	 * 检查当前事务中该关系是否有活跃使用，
+	 * 比如打开的扫描。
 	 *
-	 * NB: We count on this to protect us against problems with refreshing the
-	 * data using TABLE_INSERT_FROZEN.
+	 * 注意：我们指望它保护我们免受使用
+	 * TABLE_INSERT_FROZEN 刷新数据时的问题。
 	 */
 	CheckTableNotInUse(matviewRel, "REFRESH MATERIALIZED VIEW");
 
 	/*
-	 * Tentatively mark the matview as populated or not (this will roll back
-	 * if we fail later).
+	 * 暂时把物化视图标记为已填充或未填充
+	 * （若后面失败会回滚）。
 	 */
 	SetMatViewPopulatedState(matviewRel, !stmt->skipData);
 
-	/* Concurrent refresh builds new data in temp tablespace, and does diff. */
+	/* 并发刷新在临时表空间中构建新数据，并做 diff。 */
 	if (concurrent)
 	{
 		tableSpace = GetDefaultTablespace(RELPERSISTENCE_TEMP, false);
@@ -293,9 +293,9 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 	}
 
 	/*
-	 * Create the transient table that will receive the regenerated data. Lock
-	 * it against access by any other process until commit (by which time it
-	 * will be gone).
+	 * 创建将接收重新生成的数据的临时表。锁定它，
+	 * 禁止任何其他进程访问，直到提交
+	 * （那时它已消失）。
 	 */
 	OIDNewHeap = make_new_heap(matviewOid, tableSpace,
 							   matviewRel->rd_rel->relam,
@@ -303,11 +303,11 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 	LockRelationOid(OIDNewHeap, AccessExclusiveLock);
 	dest = CreateTransientRelDestReceiver(OIDNewHeap);
 
-	/* Generate the data, if wanted. */
+	/* 若需要，生成数据。 */
 	if (!stmt->skipData)
 		processed = refresh_matview_datafill(dest, dataQuery, queryString);
 
-	/* Make the matview match the newly generated data. */
+	/* 让物化视图匹配新生成的数据。 */
 	if (concurrent)
 	{
 		int			old_depth = matview_maintenance_depth;
@@ -330,10 +330,10 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 		refresh_by_heap_swap(matviewOid, OIDNewHeap, relpersistence);
 
 		/*
-		 * Inform cumulative stats system about our activity: basically, we
-		 * truncated the matview and inserted some new data.  (The concurrent
-		 * code path above doesn't need to worry about this because the
-		 * inserts and deletes it issues get counted by lower-level code.)
+		 * 把我们的活动告知累计统计系统：基本上，
+		 * 我们截断了物化视图并插入了一些新数据。
+		 * （上面的并发代码路径不需要担心这一点，因为它发出的
+		 * 插入和删除会被底层代码统计。）
 		 */
 		pgstat_count_truncate(matviewRel);
 		if (!stmt->skipData)
@@ -342,21 +342,21 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 
 	table_close(matviewRel, NoLock);
 
-	/* Roll back any GUC changes */
+	/* 回滚任何 GUC 更改 */
 	AtEOXact_GUC(false, save_nestlevel);
 
-	/* Restore userid and security context */
+	/* 恢复 userid 和安全上下文 */
 	SetUserIdAndSecContext(save_userid, save_sec_context);
 
 	ObjectAddressSet(address, RelationRelationId, matviewOid);
 
 	/*
-	 * Save the rowcount so that pg_stat_statements can track the total number
-	 * of rows processed by REFRESH MATERIALIZED VIEW command. Note that we
-	 * still don't display the rowcount in the command completion tag output,
-	 * i.e., the display_rowcount flag of CMDTAG_REFRESH_MATERIALIZED_VIEW
-	 * command tag is left false in cmdtaglist.h. Otherwise, the change of
-	 * completion tag output might break applications using it.
+	 * 保存行数，让 pg_stat_statements 能跟踪 REFRESH
+	 * MATERIALIZED VIEW 命令处理的总行数。注意我们
+	 * 仍不在命令完成标签输出中显示行数，也就是说，
+	 * CMDTAG_REFRESH_MATERIALIZED_VIEW 命令标签的
+	 * display_rowcount 标志在 cmdtaglist.h 中保持 false。
+	 * 否则，完成标签输出的变化可能破坏使用它的应用。
 	 */
 	if (qc)
 		SetQueryCompletion(qc, CMDTAG_REFRESH_MATERIALIZED_VIEW, processed);
@@ -367,10 +367,10 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 /*
  * refresh_matview_datafill
  *
- * Execute the given query, sending result rows to "dest" (which will
- * insert them into the target matview).
+ * 执行给定查询，把结果行发送到 "dest"
+ * （它会把它们插入目标物化视图）。
  *
- * Returns number of rows inserted.
+ * 返回插入的行数。
  */
 static uint64
 refresh_matview_datafill(DestReceiver *dest, Query *query,
@@ -382,45 +382,45 @@ refresh_matview_datafill(DestReceiver *dest, Query *query,
 	Query	   *copied_query;
 	uint64		processed;
 
-	/* Lock and rewrite, using a copy to preserve the original query. */
+	/* 加锁并重写，用副本保留原始查询。 */
 	copied_query = copyObject(query);
 	AcquireRewriteLocks(copied_query, true, false);
 	rewritten = QueryRewrite(copied_query);
 
-	/* SELECT should never rewrite to more or less than one SELECT query */
+	/* SELECT 重写后应该不多不少恰为一个 SELECT 查询 */
 	if (list_length(rewritten) != 1)
 		elog(ERROR, "unexpected rewrite result for REFRESH MATERIALIZED VIEW");
 	query = (Query *) linitial(rewritten);
 
-	/* Check for user-requested abort. */
+	/* 检查用户请求的中止。 */
 	CHECK_FOR_INTERRUPTS();
 
-	/* Plan the query which will generate data for the refresh. */
+	/* 规划将生成刷新数据的查询。 */
 	plan = pg_plan_query(query, queryString, CURSOR_OPT_PARALLEL_OK, NULL);
 
 	/*
-	 * Use a snapshot with an updated command ID to ensure this query sees
-	 * results of any previously executed queries.  (This could only matter if
-	 * the planner executed an allegedly-stable function that changed the
-	 * database contents, but let's do it anyway to be safe.)
+	 * 使用带有更新后的命令 ID 的快照，确保本查询能看到
+	 * 任何先前执行的查询的结果。（只有当规划器执行了
+	 * 某个号称稳定的函数、而它改变了数据库内容时
+	 * 这才重要，但为了保险我们还是照做。）
 	 */
 	PushCopiedSnapshot(GetActiveSnapshot());
 	UpdateActiveSnapshotCommandId();
 
-	/* Create a QueryDesc, redirecting output to our tuple receiver */
+	/* 创建 QueryDesc，把输出重定向到我们的元组接收器 */
 	queryDesc = CreateQueryDesc(plan, queryString,
 								GetActiveSnapshot(), InvalidSnapshot,
 								dest, NULL, NULL, 0);
 
-	/* call ExecutorStart to prepare the plan for execution */
+	/* 调用 ExecutorStart 为执行准备计划 */
 	ExecutorStart(queryDesc, 0);
 
-	/* run the plan */
+	/* 运行计划 */
 	ExecutorRun(queryDesc, ForwardScanDirection, 0, true);
 
 	processed = queryDesc->estate->es_processed;
 
-	/* and clean up */
+	/* 然后清理 */
 	ExecutorFinish(queryDesc);
 	ExecutorEnd(queryDesc);
 
@@ -447,7 +447,7 @@ CreateTransientRelDestReceiver(Oid transientoid)
 }
 
 /*
- * transientrel_startup --- executor startup
+ * transientrel_startup --- 执行器启动
  */
 static void
 transientrel_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
@@ -458,7 +458,7 @@ transientrel_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
 	transientrel = table_open(myState->transientoid, NoLock);
 
 	/*
-	 * Fill private fields of myState for use by later routines
+	 * 填充 myState 的私有字段，供后续例程使用
 	 */
 	myState->transientrel = transientrel;
 	myState->output_cid = GetCurrentCommandId(true);
@@ -466,14 +466,14 @@ transientrel_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
 	myState->bistate = GetBulkInsertState();
 
 	/*
-	 * Valid smgr_targblock implies something already wrote to the relation.
-	 * This may be harmless, but this function hasn't planned for it.
+	 * 有效的 smgr_targblock 意味着已有东西写过该关系。
+	 * 这也许无害，但本函数并未为此做准备。
 	 */
 	Assert(RelationGetTargetBlock(transientrel) == InvalidBlockNumber);
 }
 
 /*
- * transientrel_receive --- receive one tuple
+ * transientrel_receive --- 接收一个元组
  */
 static bool
 transientrel_receive(TupleTableSlot *slot, DestReceiver *self)
@@ -481,12 +481,12 @@ transientrel_receive(TupleTableSlot *slot, DestReceiver *self)
 	DR_transientrel *myState = (DR_transientrel *) self;
 
 	/*
-	 * Note that the input slot might not be of the type of the target
-	 * relation. That's supported by table_tuple_insert(), but slightly less
-	 * efficient than inserting with the right slot - but the alternative
-	 * would be to copy into a slot of the right type, which would not be
-	 * cheap either. This also doesn't allow accessing per-AM data (say a
-	 * tuple's xmin), but since we don't do that here...
+	 * 注意，输入槽的类型可能不同于目标关系的类型。
+	 * table_tuple_insert() 支持这一点，但比用正确的槽
+	 * 插入效率略低——不过另一种做法是复制进类型正确
+	 * 的槽，那也不便宜。这同样不允许访问每个 AM 的
+	 * 数据（比如元组的 xmin），但既然我们在这里
+	 * 不那样做……
 	 */
 
 	table_tuple_insert(myState->transientrel,
@@ -495,13 +495,13 @@ transientrel_receive(TupleTableSlot *slot, DestReceiver *self)
 					   myState->ti_options,
 					   myState->bistate);
 
-	/* We know this is a newly created relation, so there are no indexes */
+	/* 我们知道这是新建的关系，因此没有索引 */
 
 	return true;
 }
 
 /*
- * transientrel_shutdown --- executor end
+ * transientrel_shutdown --- 执行器结束
  */
 static void
 transientrel_shutdown(DestReceiver *self)
@@ -512,13 +512,13 @@ transientrel_shutdown(DestReceiver *self)
 
 	table_finish_bulk_insert(myState->transientrel, myState->ti_options);
 
-	/* close transientrel, but keep lock until commit */
+	/* 关闭 transientrel，但把锁保留到提交 */
 	table_close(myState->transientrel, NoLock);
 	myState->transientrel = NULL;
 }
 
 /*
- * transientrel_destroy --- release DestReceiver object
+ * transientrel_destroy --- 释放 DestReceiver 对象
  */
 static void
 transientrel_destroy(DestReceiver *self)
@@ -528,14 +528,14 @@ transientrel_destroy(DestReceiver *self)
 
 
 /*
- * Given a qualified temporary table name, append an underscore followed by
- * the given integer, to make a new table name based on the old one.
- * The result is a palloc'd string.
+ * 给定限定的临时表名，追加下划线加给定整数，
+ * 基于旧名构造新表名。
+ * 结果是 palloc 分配的字符串。
  *
- * As coded, this would fail to make a valid SQL name if the given name were,
- * say, "FOO"."BAR".  Currently, the table name portion of the input will
- * never be double-quoted because it's of the form "pg_temp_NNN", cf
- * make_new_heap().  But we might have to work harder someday.
+ * 按当前写法，若给定名称是 "FOO"."BAR" 之类，
+ * 这将无法构成合法的 SQL 名。目前，输入的表名部分
+ * 永远不会带双引号，因为它的形式是 "pg_temp_NNN"，
+ * 参见 make_new_heap()。但总有一天我们可能要更费劲些。
  */
 static char *
 make_temptable_name_n(char *tempname, int n)
@@ -551,34 +551,34 @@ make_temptable_name_n(char *tempname, int n)
 /*
  * refresh_by_match_merge
  *
- * Refresh a materialized view with transactional semantics, while allowing
- * concurrent reads.
+ * 以事务语义刷新物化视图，同时允许
+ * 并发读取。
  *
- * This is called after a new version of the data has been created in a
- * temporary table.  It performs a full outer join against the old version of
- * the data, producing "diff" results.  This join cannot work if there are any
- * duplicated rows in either the old or new versions, in the sense that every
- * column would compare as equal between the two rows.  It does work correctly
- * in the face of rows which have at least one NULL value, with all non-NULL
- * columns equal.  The behavior of NULLs on equality tests and on UNIQUE
- * indexes turns out to be quite convenient here; the tests we need to make
- * are consistent with default behavior.  If there is at least one UNIQUE
- * index on the materialized view, we have exactly the guarantee we need.
+ * 在新版本数据已在临时表中创建之后调用。它对
+ * 旧版本数据做全外连接，产生 "diff" 结果。若
+ * 新旧版本中有任何重复行（即两行之间每一列
+ * 都比较为相等），这个连接就无法工作。对于
+ * 至少有一个 NULL 值、其余非 NULL 列都相等的
+ * 行，它能正确工作。NULL 在相等测试和 UNIQUE
+ * 索引上的行为在这里恰好非常方便；我们需要
+ * 做的测试与默认行为一致。若物化视图上至少有
+ * 一个 UNIQUE 索引，我们恰好拥有所需的
+ * 保证。
  *
- * The temporary table used to hold the diff results contains just the TID of
- * the old record (if matched) and the ROW from the new table as a single
- * column of complex record type (if matched).
+ * 用于保存 diff 结果的临时表只包含旧记录的 TID
+ * （若匹配）和新表的 ROW，后者是复杂记录类型的
+ * 单列（若匹配）。
  *
- * Once we have the diff table, we perform set-based DELETE and INSERT
- * operations against the materialized view, and discard both temporary
- * tables.
+ * 有了 diff 表之后，我们对物化视图执行基于集合的
+ * DELETE 和 INSERT 操作，然后丢弃两个
+ * 临时表。
  *
- * Everything from the generation of the new data to applying the differences
- * takes place under cover of an ExclusiveLock, since it seems as though we
- * would want to prohibit not only concurrent REFRESH operations, but also
- * incremental maintenance.  It also doesn't seem reasonable or safe to allow
- * SELECT FOR UPDATE or SELECT FOR SHARE on rows being updated or deleted by
- * this command.
+ * 从生成新数据到应用差异，一切都在
+ * ExclusiveLock 的掩护下进行，因为我们似乎不仅想
+ * 禁止并发的 REFRESH 操作，还想禁止增量维护。
+ * 允许对本命令更新或删除的行做 SELECT FOR UPDATE
+ * 或 SELECT FOR SHARE 似乎也不合理
+ * 或不安全。
  */
 static void
 refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
@@ -608,25 +608,25 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 
 	relnatts = RelationGetNumberOfAttributes(matviewRel);
 
-	/* Open SPI context. */
+	/* 打开 SPI 上下文。 */
 	if (SPI_connect() != SPI_OK_CONNECT)
 		elog(ERROR, "SPI_connect failed");
 
-	/* Analyze the temp table with the new contents. */
+	/* 分析含有新内容的临时表。 */
 	appendStringInfo(&querybuf, "ANALYZE %s", tempname);
 	if (SPI_exec(querybuf.data, 0) != SPI_OK_UTILITY)
 		elog(ERROR, "SPI_exec failed: %s", querybuf.data);
 
 	/*
-	 * We need to ensure that there are not duplicate rows without NULLs in
-	 * the new data set before we can count on the "diff" results.  Check for
-	 * that in a way that allows showing the first duplicated row found.  Even
-	 * after we pass this test, a unique index on the materialized view may
-	 * find a duplicate key problem.
+	 * 在能依赖 "diff" 结果之前，我们需要确保新数据集中
+	 * 没有不带 NULL 的重复行。以能显示找到的第一个
+	 * 重复行的方式检查。即使通过了这个测试，物化视图
+	 * 上的唯一索引仍可能发现
+	 * 重复键问题。
 	 *
-	 * Note: here and below, we use "tablename.*::tablerowtype" as a hack to
-	 * keep ".*" from being expanded into multiple columns in a SELECT list.
-	 * Compare ruleutils.c's get_variable().
+	 * 注意：这里和下面，我们用 "tablename.*::tablerowtype"
+	 * 作为技巧，防止 ".*" 在 SELECT 列表中被展开为
+	 * 多列。比较 ruleutils.c 的 get_variable()。
 	 */
 	resetStringInfo(&querybuf);
 	appendStringInfo(&querybuf,
@@ -642,11 +642,11 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 	if (SPI_processed > 0)
 	{
 		/*
-		 * Note that this ereport() is returning data to the user.  Generally,
-		 * we would want to make sure that the user has been granted access to
-		 * this data.  However, REFRESH MAT VIEW is only able to be run by the
-		 * owner of the mat view (or a superuser) and therefore there is no
-		 * need to check for access to data in the mat view.
+		 * 注意这个 ereport() 正在向用户返回数据。一般来说，
+		 * 我们要确保用户已被授予访问这些数据的权限。
+		 * 不过，REFRESH MAT VIEW 只能由物化视图的所有者
+		 * （或超级用户）运行，因此没有必要检查对
+		 * 物化视图数据的访问。
 		 */
 		ereport(ERROR,
 				(errcode(ERRCODE_CARDINALITY_VIOLATION),
@@ -657,12 +657,12 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 	}
 
 	/*
-	 * Create the temporary "diff" table.
+	 * 创建临时 "diff" 表。
 	 *
-	 * Temporarily switch out of the SECURITY_RESTRICTED_OPERATION context,
-	 * because you cannot create temp tables in SRO context.  For extra
-	 * paranoia, add the composite type column only after switching back to
-	 * SRO context.
+	 * 暂时切出 SECURITY_RESTRICTED_OPERATION 上下文，
+	 * 因为在 SRO 上下文中无法创建临时表。为格外
+	 * 多疑起见，只在切回 SRO 上下文之后
+	 * 才添加复合类型列。
 	 */
 	SetUserIdAndSecContext(relowner,
 						   save_sec_context | SECURITY_LOCAL_USERID_CHANGE);
@@ -681,7 +681,7 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 	if (SPI_exec(querybuf.data, 0) != SPI_OK_UTILITY)
 		elog(ERROR, "SPI_exec failed: %s", querybuf.data);
 
-	/* Start building the query for populating the diff table. */
+	/* 开始构建填充 diff 表的查询。 */
 	resetStringInfo(&querybuf);
 	appendStringInfo(&querybuf,
 					 "INSERT INTO %s "
@@ -690,10 +690,10 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 					 diffname, tempname, matviewname, tempname);
 
 	/*
-	 * Get the list of index OIDs for the table from the relcache, and look up
-	 * each one in the pg_index syscache.  We will test for equality on all
-	 * columns present in all unique indexes which only reference columns and
-	 * include all rows.
+	 * 从 relcache 获取表的索引 OID 列表，并在 pg_index
+	 * syscache 中查找每一个。我们将对所有唯一索引中
+	 * 出现的所有列做相等性测试，这些索引只引用列
+	 * 且包含所有行。
 	 */
 	tupdesc = matviewRel->rd_att;
 	opUsedForQual = (Oid *) palloc0(sizeof(Oid) * relnatts);
@@ -715,13 +715,13 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 			Datum		indclassDatum;
 			int			i;
 
-			/* Must get indclass the hard way. */
+			/* 必须用麻烦的方式获取 indclass。 */
 			indclassDatum = SysCacheGetAttrNotNull(INDEXRELID,
 												   indexRel->rd_indextuple,
 												   Anum_pg_index_indclass);
 			indclass = (oidvector *) DatumGetPointer(indclassDatum);
 
-			/* Add quals for all columns from this index. */
+			/* 为该索引的所有列添加 quals。 */
 			for (i = 0; i < indnkeyatts; i++)
 			{
 				int			attnum = indexStruct->indkey.values[i];
@@ -737,8 +737,8 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 				const char *rightop;
 
 				/*
-				 * Identify the equality operator associated with this index
-				 * column.  First we need to look up the column's opclass.
+				 * 找出与该索引列关联的相等操作符。
+				 * 首先我们需要查找该列的 opclass。
 				 */
 				cla_ht = SearchSysCache1(CLAOID, ObjectIdGetDatum(opclass));
 				if (!HeapTupleIsValid(cla_ht))
@@ -756,22 +756,22 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 						 BTEqualStrategyNumber, opcintype, opcintype, opfamily);
 
 				/*
-				 * If we find the same column with the same equality semantics
-				 * in more than one index, we only need to emit the equality
-				 * clause once.
+				 * 若我们在多个索引中发现具有相同相等语义的
+				 * 同一列，就只需要输出一次
+				 * 相等子句。
 				 *
-				 * Since we only remember the last equality operator, this
-				 * code could be fooled into emitting duplicate clauses given
-				 * multiple indexes with several different opclasses ... but
-				 * that's so unlikely it doesn't seem worth spending extra
-				 * code to avoid.
+				 * 由于我们只记住最后一个相等操作符，在多个索引
+				 * 使用若干不同 opclass 的情况下，这段代码可能
+				 * 被愚弄而输出重复子句 …… 但那种情况太
+				 * 不可能，似乎不值得多花
+				 * 代码去避免。
 				 */
 				if (opUsedForQual[attnum - 1] == op)
 					continue;
 				opUsedForQual[attnum - 1] = op;
 
 				/*
-				 * Actually add the qual, ANDed with any others.
+				 * 实际添加该 qual，与其他的做 AND。
 				 */
 				if (foundUniqueIndex)
 					appendStringInfoString(&querybuf, " AND ");
@@ -790,20 +790,20 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 			}
 		}
 
-		/* Keep the locks, since we're about to run DML which needs them. */
+		/* 保留锁，因为我们即将运行需要它们的 DML。 */
 		index_close(indexRel, NoLock);
 	}
 
 	list_free(indexoidlist);
 
 	/*
-	 * There must be at least one usable unique index on the matview.
+	 * 物化视图上必须至少有一个可用的唯一索引。
 	 *
-	 * ExecRefreshMatView() checks that after taking the exclusive lock on the
-	 * matview. So at least one unique index is guaranteed to exist here
-	 * because the lock is still being held.  (One known exception is if a
-	 * function called as part of refreshing the matview drops the index.
-	 * That's a pretty silly thing to do.)
+	 * ExecRefreshMatView() 在取得物化视图上的排他锁之后
+	 * 检查了这一点。因此这里保证至少存在一个唯一索引，
+	 * 因为锁仍被持有。（一个已知的例外是：刷新
+	 * 物化视图时调用的某个函数删除了该索引。
+	 * 那是相当愚蠢的行为。）
 	 */
 	if (!foundUniqueIndex)
 		elog(ERROR, "could not find suitable unique index on materialized view");
@@ -813,16 +813,16 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 						   "WHERE newdata.* IS NULL OR mv.* IS NULL "
 						   "ORDER BY tid");
 
-	/* Populate the temporary "diff" table. */
+	/* 填充临时 "diff" 表。 */
 	if (SPI_exec(querybuf.data, 0) != SPI_OK_INSERT)
 		elog(ERROR, "SPI_exec failed: %s", querybuf.data);
 
 	/*
-	 * We have no further use for data from the "full-data" temp table, but we
-	 * must keep it around because its type is referenced from the diff table.
+	 * "full-data" 临时表的数据我们不再使用，但必须
+	 * 保留它，因为 diff 表引用了它的类型。
 	 */
 
-	/* Analyze the diff table. */
+	/* 分析 diff 表。 */
 	resetStringInfo(&querybuf);
 	appendStringInfo(&querybuf, "ANALYZE %s", diffname);
 	if (SPI_exec(querybuf.data, 0) != SPI_OK_UTILITY)
@@ -830,7 +830,7 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 
 	OpenMatViewIncrementalMaintenance();
 
-	/* Deletes must come before inserts; do them first. */
+	/* 删除必须先于插入；先做删除。 */
 	resetStringInfo(&querybuf);
 	appendStringInfo(&querybuf,
 					 "DELETE FROM %s mv WHERE ctid OPERATOR(pg_catalog.=) ANY "
@@ -841,7 +841,7 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 	if (SPI_exec(querybuf.data, 0) != SPI_OK_DELETE)
 		elog(ERROR, "SPI_exec failed: %s", querybuf.data);
 
-	/* Inserts go last. */
+	/* 插入放在最后。 */
 	resetStringInfo(&querybuf);
 	appendStringInfo(&querybuf,
 					 "INSERT INTO %s SELECT (diff.newdata).* "
@@ -850,26 +850,26 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 	if (SPI_exec(querybuf.data, 0) != SPI_OK_INSERT)
 		elog(ERROR, "SPI_exec failed: %s", querybuf.data);
 
-	/* We're done maintaining the materialized view. */
+	/* 物化视图维护完成。 */
 	CloseMatViewIncrementalMaintenance();
 	table_close(tempRel, NoLock);
 	table_close(matviewRel, NoLock);
 
-	/* Clean up temp tables. */
+	/* 清理临时表。 */
 	resetStringInfo(&querybuf);
 	appendStringInfo(&querybuf, "DROP TABLE %s, %s", diffname, tempname);
 	if (SPI_exec(querybuf.data, 0) != SPI_OK_UTILITY)
 		elog(ERROR, "SPI_exec failed: %s", querybuf.data);
 
-	/* Close SPI context. */
+	/* 关闭 SPI 上下文。 */
 	if (SPI_finish() != SPI_OK_FINISH)
 		elog(ERROR, "SPI_finish failed");
 }
 
 /*
- * Swap the physical files of the target and transient tables, then rebuild
- * the target's indexes and throw away the transient table.  Security context
- * swapping is handled by the called function, so it is not needed here.
+ * 交换目标表与临时表的物理文件，然后重建目标的索引
+ * 并丢弃临时表。安全上下文交换由被调用的函数处理，
+ * 所以这里不需要。
  */
 static void
 refresh_by_heap_swap(Oid matviewOid, Oid OIDNewHeap, char relpersistence)
@@ -879,7 +879,7 @@ refresh_by_heap_swap(Oid matviewOid, Oid OIDNewHeap, char relpersistence)
 }
 
 /*
- * Check whether specified index is usable for match merge.
+ * 检查指定索引是否可用于匹配合并。
  */
 static bool
 is_usable_unique_index(Relation indexRel)
@@ -887,12 +887,12 @@ is_usable_unique_index(Relation indexRel)
 	Form_pg_index indexStruct = indexRel->rd_index;
 
 	/*
-	 * Must be unique, valid, immediate, non-partial, and be defined over
-	 * plain user columns (not expressions).  We also require it to be a
-	 * btree.  Even if we had any other unique index kinds, we'd not know how
-	 * to identify the corresponding equality operator, nor could we be sure
-	 * that the planner could implement the required FULL JOIN with non-btree
-	 * operators.
+	 * 必须是唯一的、有效的、即时的、非部分的，并且定义在
+	 * 普通用户列上（不是表达式）。我们还需要它是
+	 * btree。即使我们有其他类型的唯一索引，我们也不知道
+	 * 如何找出相应的相等操作符，也无法确定规划器能用
+	 * 非 btree 操作符实现所需的
+	 * FULL JOIN。
 	 */
 	if (indexStruct->indisunique &&
 		indexStruct->indimmediate &&
@@ -902,11 +902,11 @@ is_usable_unique_index(Relation indexRel)
 		indexStruct->indnatts > 0)
 	{
 		/*
-		 * The point of groveling through the index columns individually is to
-		 * reject both index expressions and system columns.  Currently,
-		 * matviews couldn't have OID columns so there's no way to create an
-		 * index on a system column; but maybe someday that wouldn't be true,
-		 * so let's be safe.
+		 * 逐个检查索引列的意义在于同时拒绝索引表达式
+		 * 和系统列。目前，物化视图不可能有 OID 列，
+		 * 所以无法在系统列上创建索引；但也许
+		 * 有一天这不再成立，所以
+		 * 还是保险些好。
 		 */
 		int			numatts = indexStruct->indnatts;
 		int			i;
@@ -925,15 +925,15 @@ is_usable_unique_index(Relation indexRel)
 
 
 /*
- * This should be used to test whether the backend is in a context where it is
- * OK to allow DML statements to modify materialized views.  We only want to
- * allow that for internal code driven by the materialized view definition,
- * not for arbitrary user-supplied code.
+ * 这应用于测试后端是否处于允许 DML 语句修改
+ * 物化视图的上下文中。我们只想对由物化视图定义
+ * 驱动的内部代码允许这一点，而不是任意的
+ * 用户提供代码。
  *
- * While the function names reflect the fact that their main intended use is
- * incremental maintenance of materialized views (in response to changes to
- * the data in referenced relations), they are initially used to allow REFRESH
- * without blocking concurrent reads.
+ * 虽然函数名反映其主要预期用途是物化视图的
+ * 增量维护（响应被引用关系中数据的变化），
+ * 它们最初用于允许 REFRESH
+ * 而不阻塞并发读取。
  */
 bool
 MatViewIncrementalMaintenanceIsEnabled(void)

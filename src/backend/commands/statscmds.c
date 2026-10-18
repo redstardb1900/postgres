@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * statscmds.c
- *	  Commands for creating and altering extended statistics objects
+ *	  创建和更改扩展统计对象的命令
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -47,14 +47,14 @@ static char *ChooseExtendedStatisticName(const char *name1, const char *name2,
 static char *ChooseExtendedStatisticNameAddition(List *exprs);
 
 
-/* qsort comparator for the attnums in CreateStatistics */
+/* CreateStatistics 中 attnums 的 qsort 比较器 */
 static int
 compare_int16(const void *a, const void *b)
 {
 	int			av = *(const int16 *) a;
 	int			bv = *(const int16 *) b;
 
-	/* this can't overflow if int is wider than int16 */
+	/* 若 int 比 int16 宽，这不会溢出 */
 	return (av - bv);
 }
 
@@ -83,7 +83,7 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 	Oid			relid;
 	ObjectAddress parentobject,
 				myself;
-	Datum		types[4];		/* one for each possible type of statistic */
+	Datum		types[4];		/* 每种可能的统计类型一个 */
 	int			ntypes;
 	ArrayType  *stxkind;
 	bool		build_ndistinct;
@@ -98,10 +98,10 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 	Assert(IsA(stmt, CreateStatsStmt));
 
 	/*
-	 * Examine the FROM clause.  Currently, we only allow it to be a single
-	 * simple table, but later we'll probably allow multiple tables and JOIN
-	 * syntax.  The grammar is already prepared for that, so we have to check
-	 * here that what we got is what we can support.
+	 * 检查 FROM 子句。目前我们只允许它是单个简单表，
+	 * 但以后可能会允许多个表和 JOIN 语法。语法
+	 * 已为此做好准备，所以我们必须在这里检查
+	 * 我们得到的是我们能支持的。
 	 */
 	if (list_length(stmt->relations) != 1)
 		ereport(ERROR,
@@ -118,15 +118,15 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 					 errmsg("only a single relation is allowed in CREATE STATISTICS")));
 
 		/*
-		 * CREATE STATISTICS will influence future execution plans but does
-		 * not interfere with currently executing plans.  So it should be
-		 * enough to take only ShareUpdateExclusiveLock on relation,
-		 * conflicting with ANALYZE and other DDL that sets statistical
-		 * information, but not with normal queries.
+		 * CREATE STATISTICS 会影响未来的执行计划，但不
+		 * 干扰正在执行的计划。所以只对关系取
+		 * ShareUpdateExclusiveLock 应该就够了，它与 ANALYZE 和
+		 * 其他设置统计信息的 DDL 冲突，但不与
+		 * 普通查询冲突。
 		 */
 		rel = relation_openrv((RangeVar *) rln, ShareUpdateExclusiveLock);
 
-		/* Restrict to allowed relation types */
+		/* 限制为允许的关系类型 */
 		if (rel->rd_rel->relkind != RELKIND_RELATION &&
 			rel->rd_rel->relkind != RELKIND_MATVIEW &&
 			rel->rd_rel->relkind != RELKIND_FOREIGN_TABLE &&
@@ -137,12 +137,12 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 							RelationGetRelationName(rel)),
 					 errdetail_relkind_not_supported(rel->rd_rel->relkind)));
 
-		/* You must own the relation to create stats on it */
+		/* 必须拥有该关系才能在其上创建统计信息 */
 		if (!object_ownercheck(RelationRelationId, RelationGetRelid(rel), stxowner))
 			aclcheck_error(ACLCHECK_NOT_OWNER, get_relkind_objtype(rel->rd_rel->relkind),
 						   RelationGetRelationName(rel));
 
-		/* Creating statistics on system catalogs is not allowed */
+		/* 不允许在系统目录上创建统计信息 */
 		if (!allowSystemTableMods && IsSystemRelation(rel))
 			ereport(ERROR,
 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -154,10 +154,10 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 	relid = RelationGetRelid(rel);
 
 	/*
-	 * If the node has a name, split it up and determine creation namespace.
-	 * If not, put the object in the same namespace as the relation, and cons
-	 * up a name for it.  (This can happen either via "CREATE STATISTICS ..."
-	 * or via "CREATE TABLE ... (LIKE)".)
+	 * 若节点有名称，就拆分它并确定创建命名空间。
+	 * 若没有，把对象放到与关系相同的命名空间中，并为它
+	 * 编造一个名称。（这可以经由 "CREATE STATISTICS ..."
+	 * 或 "CREATE TABLE ... (LIKE)" 发生。）
 	 */
 	if (stmt->defnames)
 		namespaceId = QualifiedNameGetCreationNamespace(stmt->defnames,
@@ -173,8 +173,8 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 	namestrcpy(&stxname, namestr);
 
 	/*
-	 * Check we have creation rights in target namespace.  Skip check if
-	 * caller doesn't want it.
+	 * 检查我们在目标命名空间中有创建权限。
+	 * 若调用方不想要，就跳过检查。
 	 */
 	if (check_rights)
 	{
@@ -188,7 +188,7 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 	}
 
 	/*
-	 * Deal with the possibility that the statistics object already exists.
+	 * 处理统计对象已存在的可能性。
 	 */
 	if (SearchSysCacheExists2(STATEXTNAMENSP,
 							  CStringGetDatum(namestr),
@@ -197,8 +197,8 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 		if (stmt->if_not_exists)
 		{
 			/*
-			 * Since stats objects aren't members of extensions (see comments
-			 * below), no need for checkMembershipInCurrentExtension here.
+			 * 由于统计对象不是扩展的成员（见下面的注释），
+			 * 这里无需 checkMembershipInCurrentExtension。
 			 */
 			ereport(NOTICE,
 					(errcode(ERRCODE_DUPLICATE_OBJECT),
@@ -214,8 +214,8 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 	}
 
 	/*
-	 * Make sure no more than STATS_MAX_DIMENSIONS columns are used. There
-	 * might be duplicates and so on, but we'll deal with those later.
+	 * 确保使用的列数不超过 STATS_MAX_DIMENSIONS。可能
+	 * 有重复等等，但我们稍后再处理那些。
 	 */
 	numcols = list_length(stmt->exprs);
 	if (numcols > STATS_MAX_DIMENSIONS)
@@ -225,23 +225,23 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 						STATS_MAX_DIMENSIONS)));
 
 	/*
-	 * Convert the expression list to a simple array of attnums, but also keep
-	 * a list of more complex expressions.  While at it, enforce some
-	 * constraints - we don't allow extended statistics on system attributes,
-	 * and we require the data type to have a less-than operator.
+	 * 把表达式列表转换为简单的 attnum 数组，但同时也
+	 * 保留更复杂表达式的列表。顺便施加一些约束：
+	 * 我们不允许对系统属性做扩展统计，而且需要
+	 * 数据类型有小于操作符。
 	 *
-	 * There are many ways to "mask" a simple attribute reference as an
-	 * expression, for example "(a+0)" etc. We can't possibly detect all of
-	 * them, but we handle at least the simple case with the attribute in
-	 * parens. There'll always be a way around this, if the user is determined
-	 * (like the "(a+0)" example), but this makes it somewhat consistent with
-	 * how indexes treat attributes/expressions.
+	 * 有很多办法把简单的属性引用"伪装"成表达式，
+	 * 例如 "(a+0)" 等。我们不可能全部检测出来，
+	 * 但至少处理属性加括号的简单情形。若用户
+	 * 执意要绕过（像 "(a+0)" 的例子），总有办法，
+	 * 但这使它在一定程度上与索引处理属性/表达式
+	 * 的方式一致。
 	 */
 	foreach(cell, stmt->exprs)
 	{
 		StatsElem  *selem = lfirst_node(StatsElem, cell);
 
-		if (selem->name)		/* column reference */
+		if (selem->name)		/* 列引用 */
 		{
 			char	   *attname;
 			HeapTuple	atttuple;
@@ -258,13 +258,13 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 								attname)));
 			attForm = (Form_pg_attribute) GETSTRUCT(atttuple);
 
-			/* Disallow use of system attributes in extended stats */
+			/* 禁止在扩展统计中使用系统属性 */
 			if (attForm->attnum <= 0)
 				ereport(ERROR,
 						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 						 errmsg("statistics creation on system columns is not supported")));
 
-			/* Disallow data types without a less-than operator */
+			/* 禁止没有小于操作符的数据类型 */
 			type = lookup_type_cache(attForm->atttypid, TYPECACHE_LT_OPR);
 			if (type->lt_opr == InvalidOid)
 				ereport(ERROR,
@@ -276,18 +276,18 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 			nattnums++;
 			ReleaseSysCache(atttuple);
 		}
-		else if (IsA(selem->expr, Var)) /* column reference in parens */
+		else if (IsA(selem->expr, Var)) /* 加括号的列引用 */
 		{
 			Var		   *var = (Var *) selem->expr;
 			TypeCacheEntry *type;
 
-			/* Disallow use of system attributes in extended stats */
+			/* 禁止在扩展统计中使用系统属性 */
 			if (var->varattno <= 0)
 				ereport(ERROR,
 						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 						 errmsg("statistics creation on system columns is not supported")));
 
-			/* Disallow data types without a less-than operator */
+			/* 禁止没有小于操作符的数据类型 */
 			type = lookup_type_cache(var->vartype, TYPECACHE_LT_OPR);
 			if (type->lt_opr == InvalidOid)
 				ereport(ERROR,
@@ -298,7 +298,7 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 			attnums[nattnums] = var->varattno;
 			nattnums++;
 		}
-		else					/* expression */
+		else					/* 表达式 */
 		{
 			Node	   *expr = selem->expr;
 			Oid			atttype;
@@ -308,7 +308,7 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 
 			Assert(expr != NULL);
 
-			/* Disallow expressions referencing system attributes. */
+			/* 禁止引用系统属性的表达式。 */
 			pull_varattnos(expr, 1, &attnums);
 
 			k = -1;
@@ -323,11 +323,11 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 			}
 
 			/*
-			 * Disallow data types without a less-than operator.
+			 * 禁止没有小于操作符的数据类型。
 			 *
-			 * We ignore this for statistics on a single expression, in which
-			 * case we'll build the regular statistics only (and that code can
-			 * deal with such data types).
+			 * 对单个表达式上的统计，我们忽略这一点，
+			 * 那种情况下我们只构建常规统计（那个代码
+			 * 能处理这类数据类型）。
 			 */
 			if (list_length(stmt->exprs) > 1)
 			{
@@ -345,22 +345,22 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 	}
 
 	/*
-	 * Parse the statistics kinds.
+	 * 解析统计类型。
 	 *
-	 * First check that if this is the case with a single expression, there
-	 * are no statistics kinds specified (we don't allow that for the simple
-	 * CREATE STATISTICS form).
+	 * 首先检查：若是单个表达式的情形，就没有
+	 * 指定任何统计类型（对简单的 CREATE STATISTICS
+	 * 形式我们不允许那样做）。
 	 */
 	if ((list_length(stmt->exprs) == 1) && (list_length(stxexprs) == 1))
 	{
-		/* statistics kinds not specified */
+		/* 未指定统计类型 */
 		if (stmt->stat_types != NIL)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("when building statistics on a single expression, statistics kinds may not be specified")));
 	}
 
-	/* OK, let's check that we recognize the statistics kinds. */
+	/* 好，检查我们是否认识这些统计类型。 */
 	build_ndistinct = false;
 	build_dependencies = false;
 	build_mcv = false;
@@ -391,8 +391,8 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 	}
 
 	/*
-	 * If no statistic type was specified, build them all (but only when the
-	 * statistics is defined on more than one column/expression).
+	 * 若未指定统计类型，就全部构建（但仅在统计定义
+	 * 于多列/多表达式之上时）。
 	 */
 	if ((!requested_type) && (numcols >= 2))
 	{
@@ -402,15 +402,15 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 	}
 
 	/*
-	 * When there are non-trivial expressions, build the expression stats
-	 * automatically. This allows calculating good estimates for stats that
-	 * consider per-clause estimates (e.g. functional dependencies).
+	 * 有非平凡表达式时，自动构建表达式统计。
+	 * 这允许为考虑逐子句估计的统计计算
+	 * 良好估计（例如函数依赖）。
 	 */
 	build_expressions = (stxexprs != NIL);
 
 	/*
-	 * Check that at least two columns were specified in the statement, or
-	 * that we're building statistics on a single expression.
+	 * 检查语句中至少指定了两列，或者我们是在
+	 * 单个表达式上构建统计。
 	 */
 	if ((numcols < 2) && (list_length(stxexprs) != 1))
 		ereport(ERROR,
@@ -418,15 +418,15 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 				 errmsg("extended statistics require at least 2 columns")));
 
 	/*
-	 * Sort the attnums, which makes detecting duplicates somewhat easier, and
-	 * it does not hurt (it does not matter for the contents, unlike for
-	 * indexes, for example).
+	 * 对 attnum 排序，这使检测重复稍微容易些，
+	 * 而且没有坏处（与索引不同，它不影响
+	 * 内容）。
 	 */
 	qsort(attnums, nattnums, sizeof(int16), compare_int16);
 
 	/*
-	 * Check for duplicates in the list of columns. The attnums are sorted so
-	 * just check consecutive elements.
+	 * 检查列列表中的重复。attnum 已排序，
+	 * 所以只检查相邻元素。
 	 */
 	for (i = 1; i < nattnums; i++)
 	{
@@ -437,17 +437,17 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 	}
 
 	/*
-	 * Check for duplicate expressions. We do two loops, counting the
-	 * occurrences of each expression. This is O(N^2) but we only allow small
-	 * number of expressions and it's not executed often.
+	 * 检查重复的表达式。我们做两个循环，统计每个
+	 * 表达式的出现次数。这是 O(N^2)，但我们只允许少量
+	 * 表达式，而且它不会经常执行。
 	 *
-	 * XXX We don't cross-check attributes and expressions, because it does
-	 * not seem worth it. In principle we could check that expressions don't
-	 * contain trivial attribute references like "(a)", but the reasoning is
-	 * similar to why we don't bother with extracting columns from
-	 * expressions. It's either expensive or very easy to defeat for
-	 * determined user, and there's no risk if we allow such statistics (the
-	 * statistics is useless, but harmless).
+	 * XXX 我们不交叉检查属性与表达式，因为似乎不值得。
+	 * 原则上我们可以检查表达式不包含像 "(a)" 这样
+	 * 平凡的属性引用，但理由类似于为什么我们
+	 * 不费心从表达式中提取列。要么代价昂贵，
+	 * 要么对执意的用户来说很容易绕过，而且允许
+	 * 这样的统计没有风险（统计无用，
+	 * 但无害）。
 	 */
 	foreach(cell, stxexprs)
 	{
@@ -462,7 +462,7 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 				cnt += 1;
 		}
 
-		/* every expression should find at least itself */
+		/* 每个表达式至少应该找到它自己 */
 		Assert(cnt >= 1);
 
 		if (cnt > 1)
@@ -471,10 +471,10 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 					 errmsg("duplicate expression in statistics definition")));
 	}
 
-	/* Form an int2vector representation of the sorted column list */
+	/* 构造排序列列表的 int2vector 表示 */
 	stxkeys = buildint2vector(attnums, nattnums);
 
-	/* construct the char array of enabled statistic types */
+	/* 构造已启用统计类型的 char 数组 */
 	ntypes = 0;
 	if (build_ndistinct)
 		types[ntypes++] = CharGetDatum(STATS_EXT_NDISTINCT);
@@ -487,7 +487,7 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 	Assert(ntypes > 0 && ntypes <= lengthof(types));
 	stxkind = construct_array_builtin(types, ntypes, CHAROID);
 
-	/* convert the expressions (if any) to a text datum */
+	/* 把表达式（若有）转换为 text datum */
 	if (stxexprs != NIL)
 	{
 		char	   *exprsString;
@@ -502,7 +502,7 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 	statrel = table_open(StatisticExtRelationId, RowExclusiveLock);
 
 	/*
-	 * Everything seems fine, so let's build the pg_statistic_ext tuple.
+	 * 一切似乎正常，构建 pg_statistic_ext 元组。
 	 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
@@ -522,7 +522,7 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 	if (exprsDatum == (Datum) 0)
 		nulls[Anum_pg_statistic_ext_stxexprs - 1] = true;
 
-	/* insert it into pg_statistic_ext */
+	/* 把它插入 pg_statistic_ext */
 	htup = heap_form_tuple(statrel->rd_att, values, nulls);
 	CatalogTupleInsert(statrel, htup);
 	heap_freetuple(htup);
@@ -530,27 +530,27 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 	relation_close(statrel, RowExclusiveLock);
 
 	/*
-	 * We used to create the pg_statistic_ext_data tuple too, but it's not
-	 * clear what value should the stxdinherit flag have (it depends on
-	 * whether the rel is partitioned, contains data, etc.)
+	 * 我们以前也创建 pg_statistic_ext_data 元组，但不清楚
+	 * stxdinherit 标志应该是什么值（它取决于 rel 是否分区、
+	 * 是否包含数据，等等）。
 	 */
 
 	InvokeObjectPostCreateHook(StatisticExtRelationId, statoid, 0);
 
 	/*
-	 * Invalidate relcache so that others see the new statistics object.
+	 * 使 relcache 失效，让其他人看到新的统计对象。
 	 */
 	CacheInvalidateRelcache(rel);
 
 	relation_close(rel, NoLock);
 
 	/*
-	 * Add an AUTO dependency on each column used in the stats, so that the
-	 * stats object goes away if any or all of them get dropped.
+	 * 对统计中使用的每一列添加 AUTO 依赖，这样若其中
+	 * 任何或全部列被删除，统计对象也会消失。
 	 */
 	ObjectAddressSet(myself, StatisticExtRelationId, statoid);
 
-	/* add dependencies for plain column references */
+	/* 为普通列引用添加依赖 */
 	for (i = 0; i < nattnums; i++)
 	{
 		ObjectAddressSubSet(parentobject, RelationRelationId, relid, attnums[i]);
@@ -558,15 +558,15 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 	}
 
 	/*
-	 * If there are no dependencies on a column, give the statistics object an
-	 * auto dependency on the whole table.  In most cases, this will be
-	 * redundant, but it might not be if the statistics expressions contain no
-	 * Vars (which might seem strange but possible). This is consistent with
-	 * what we do for indexes in index_create.
+	 * 若没有对任何列的依赖，就给统计对象一个对整个表的
+	 * auto 依赖。多数情况下这是冗余的，但若统计表达式
+	 * 不含任何 Var（看似奇怪但可能），它可能不冗余。
+	 * 这与我们在 index_create 中对索引所做的
+	 * 一致。
 	 *
-	 * XXX We intentionally don't consider the expressions before adding this
-	 * dependency, because recordDependencyOnSingleRelExpr may not create any
-	 * dependencies for whole-row Vars.
+	 * XXX 添加这个依赖之前我们故意不考虑表达式，
+	 * 因为 recordDependencyOnSingleRelExpr 可能不为
+	 * 整行 Var 创建任何依赖。
 	 */
 	if (!nattnums)
 	{
@@ -575,8 +575,8 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 	}
 
 	/*
-	 * Store dependencies on anything mentioned in statistics expressions,
-	 * just like we do for index expressions.
+	 * 存储对统计表达式中提到的一切的依赖，
+	 * 就像我们对索引表达式所做的那样。
 	 */
 	if (stxexprs)
 		recordDependencyOnSingleRelExpr(&myself,
@@ -586,9 +586,9 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 										DEPENDENCY_AUTO, false);
 
 	/*
-	 * Also add dependencies on namespace and owner.  These are required
-	 * because the stats object might have a different namespace and/or owner
-	 * than the underlying table(s).
+	 * 还要添加对命名空间和所有者的依赖。这些是必需的，
+	 * 因为统计对象的命名空间和/或所有者可能不同于
+	 * 底层表。
 	 */
 	ObjectAddressSet(parentobject, NamespaceRelationId, namespaceId);
 	recordDependencyOn(&myself, &parentobject, DEPENDENCY_NORMAL);
@@ -596,17 +596,17 @@ CreateStatistics(CreateStatsStmt *stmt, bool check_rights)
 	recordDependencyOnOwner(StatisticExtRelationId, statoid, stxowner);
 
 	/*
-	 * XXX probably there should be a recordDependencyOnCurrentExtension call
-	 * here too, but we'd have to add support for ALTER EXTENSION ADD/DROP
-	 * STATISTICS, which is more work than it seems worth.
+	 * XXX 这里可能也应该有 recordDependencyOnCurrentExtension 调用，
+	 * 但我们必须添加对 ALTER EXTENSION ADD/DROP STATISTICS 的支持，
+	 * 那比看起来值得的工作量更大。
 	 */
 
-	/* Add any requested comment */
+	/* 添加任何请求的注释 */
 	if (stmt->stxcomment != NULL)
 		CreateComments(statoid, StatisticExtRelationId, 0,
 					   stmt->stxcomment);
 
-	/* Return stats object's address */
+	/* 返回统计对象的地址 */
 	return myself;
 }
 
@@ -626,7 +626,7 @@ AlterStatistics(AlterStatsStmt *stmt)
 	ObjectAddress address;
 	int			newtarget = stmt->stxstattarget;
 
-	/* Limit statistics target to a sane range */
+	/* 把统计目标限制在合理范围内 */
 	if (newtarget < -1)
 	{
 		ereport(ERROR,
@@ -643,13 +643,13 @@ AlterStatistics(AlterStatsStmt *stmt)
 						newtarget)));
 	}
 
-	/* lookup OID of the statistics object */
+	/* 查找统计对象的 OID */
 	stxoid = get_statistics_object_oid(stmt->defnames, stmt->missing_ok);
 
 	/*
-	 * If we got here and the OID is not valid, it means the statistics object
-	 * does not exist, but the command specified IF EXISTS. So report this as
-	 * a simple NOTICE and we're done.
+	 * 若走到这里且 OID 无效，意味着统计对象不存在，
+	 * 但命令指定了 IF EXISTS。所以把它报告为
+	 * 一条简单 NOTICE，然后我们就完成了。
 	 */
 	if (!OidIsValid(stxoid))
 	{
@@ -672,31 +672,31 @@ AlterStatistics(AlterStatsStmt *stmt)
 		return InvalidObjectAddress;
 	}
 
-	/* Search pg_statistic_ext */
+	/* 搜索 pg_statistic_ext */
 	rel = table_open(StatisticExtRelationId, RowExclusiveLock);
 
 	oldtup = SearchSysCache1(STATEXTOID, ObjectIdGetDatum(stxoid));
 	if (!HeapTupleIsValid(oldtup))
 		elog(ERROR, "cache lookup failed for extended statistics object %u", stxoid);
 
-	/* Must be owner of the existing statistics object */
+	/* 必须是现有统计对象的所有者 */
 	if (!object_ownercheck(StatisticExtRelationId, stxoid, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_STATISTIC_EXT,
 					   NameListToString(stmt->defnames));
 
-	/* Build new tuple. */
+	/* 构建新元组。 */
 	memset(repl_val, 0, sizeof(repl_val));
 	memset(repl_null, false, sizeof(repl_null));
 	memset(repl_repl, false, sizeof(repl_repl));
 
-	/* replace the stxstattarget column */
+	/* 替换 stxstattarget 列 */
 	repl_repl[Anum_pg_statistic_ext_stxstattarget - 1] = true;
 	repl_val[Anum_pg_statistic_ext_stxstattarget - 1] = Int32GetDatum(newtarget);
 
 	newtup = heap_modify_tuple(oldtup, RelationGetDescr(rel),
 							   repl_val, repl_null, repl_repl);
 
-	/* Update system catalog. */
+	/* 更新系统目录。 */
 	CatalogTupleUpdate(rel, &newtup->t_self, newtup);
 
 	InvokeObjectPostAlterHook(StatisticExtRelationId, stxoid, 0);
@@ -704,8 +704,8 @@ AlterStatistics(AlterStatsStmt *stmt)
 	ObjectAddressSet(address, StatisticExtRelationId, stxoid);
 
 	/*
-	 * NOTE: because we only support altering the statistics target, not the
-	 * other fields, there is no need to update dependencies.
+	 * 注意：因为我们只支持更改统计目标，不支持
+	 * 其他字段，所以无需更新依赖。
 	 */
 
 	heap_freetuple(newtup);
@@ -717,8 +717,8 @@ AlterStatistics(AlterStatsStmt *stmt)
 }
 
 /*
- * Delete entry in pg_statistic_ext_data catalog. We don't know if the row
- * exists, so don't error out.
+ * 删除 pg_statistic_ext_data 目录中的条目。我们不知道
+ * 行是否存在，所以不要报错。
  */
 void
 RemoveStatisticsDataById(Oid statsOid, bool inh)
@@ -731,7 +731,7 @@ RemoveStatisticsDataById(Oid statsOid, bool inh)
 	tup = SearchSysCache2(STATEXTDATASTXOID, ObjectIdGetDatum(statsOid),
 						  BoolGetDatum(inh));
 
-	/* We don't know if the data row for inh value exists. */
+	/* 我们不知道 inh 值对应的数据行是否存在。 */
 	if (HeapTupleIsValid(tup))
 	{
 		CatalogTupleDelete(relation, &tup->t_self);
@@ -743,7 +743,7 @@ RemoveStatisticsDataById(Oid statsOid, bool inh)
 }
 
 /*
- * Guts of statistics object deletion.
+ * 统计对象删除的核心。
  */
 void
 RemoveStatisticsById(Oid statsOid)
@@ -755,24 +755,24 @@ RemoveStatisticsById(Oid statsOid)
 	Oid			relid;
 
 	/*
-	 * Delete the pg_statistic_ext tuple.  Also send out a cache inval on the
-	 * associated table, so that dependent plans will be rebuilt.
+	 * 删除 pg_statistic_ext 元组。同时向关联表发出
+	 * 缓存失效，使依赖的计划被重建。
 	 */
 	relation = table_open(StatisticExtRelationId, RowExclusiveLock);
 
 	tup = SearchSysCache1(STATEXTOID, ObjectIdGetDatum(statsOid));
 
-	if (!HeapTupleIsValid(tup)) /* should not happen */
+	if (!HeapTupleIsValid(tup)) /* 不应该发生 */
 		elog(ERROR, "cache lookup failed for statistics object %u", statsOid);
 
 	statext = (Form_pg_statistic_ext) GETSTRUCT(tup);
 	relid = statext->stxrelid;
 
 	/*
-	 * Delete the pg_statistic_ext_data tuples holding the actual statistical
-	 * data. There might be data with/without inheritance, so attempt deleting
-	 * both. We lock the user table first, to prevent other processes (e.g.
-	 * DROP STATISTICS) from removing the row concurrently.
+	 * 删除保存实际统计数据的 pg_statistic_ext_data 元组。
+	 * 可能有带/不带继承的数据，所以尝试删除两者。
+	 * 我们先锁用户表，防止其他进程（例如
+	 * DROP STATISTICS）并发移除行。
 	 */
 	rel = table_open(relid, ShareUpdateExclusiveLock);
 
@@ -785,27 +785,27 @@ RemoveStatisticsById(Oid statsOid)
 
 	ReleaseSysCache(tup);
 
-	/* Keep lock until the end of the transaction. */
+	/* 把锁保留到事务结束。 */
 	table_close(rel, NoLock);
 
 	table_close(relation, RowExclusiveLock);
 }
 
 /*
- * Select a nonconflicting name for a new statistics object.
+ * 为新统计对象选择一个不冲突的名称。
  *
- * name1, name2, and label are used the same way as for makeObjectName(),
- * except that the label can't be NULL; digits will be appended to the label
- * if needed to create a name that is unique within the specified namespace.
+ * name1、name2 和 label 的用法与 makeObjectName() 相同，
+ * 只是 label 不能为 NULL；必要时会在 label 后面追加
+ * 数字，以创建在指定命名空间内唯一的名称。
  *
- * Returns a palloc'd string.
+ * 返回 palloc 分配的字符串。
  *
- * Note: it is theoretically possible to get a collision anyway, if someone
- * else chooses the same name concurrently.  This is fairly unlikely to be
- * a problem in practice, especially if one is holding a share update
- * exclusive lock on the relation identified by name1.  However, if choosing
- * multiple names within a single command, you'd better create the new object
- * and do CommandCounterIncrement before choosing the next one!
+ * 注意：理论上仍可能发生冲突，比如有人并发地选择了
+ * 相同的名称。实际上这不太可能成为问题，尤其是
+ * 若你在 name1 标识的关系上持有 share update exclusive
+ * 锁。不过，若在单个命令内选择多个名称，最好先
+ * 创建新对象并做 CommandCounterIncrement，
+ * 再选择下一个！
  */
 static char *
 ChooseExtendedStatisticName(const char *name1, const char *name2,
@@ -815,7 +815,7 @@ ChooseExtendedStatisticName(const char *name1, const char *name2,
 	char	   *stxname = NULL;
 	char		modlabel[NAMEDATALEN];
 
-	/* try the unmodified label first */
+	/* 先尝试未修改的 label */
 	strlcpy(modlabel, label, sizeof(modlabel));
 
 	for (;;)
@@ -830,7 +830,7 @@ ChooseExtendedStatisticName(const char *name1, const char *name2,
 		if (!OidIsValid(existingstats))
 			break;
 
-		/* found a conflict, so try a new name component */
+		/* 发现冲突，尝试新的名称组成部分 */
 		pfree(stxname);
 		snprintf(modlabel, sizeof(modlabel), "%s%d", label, ++pass);
 	}
@@ -839,15 +839,15 @@ ChooseExtendedStatisticName(const char *name1, const char *name2,
 }
 
 /*
- * Generate "name2" for a new statistics object given the list of column
- * names for it.  This will be passed to ChooseExtendedStatisticName along
- * with the parent table name and a suitable label.
+ * 给定新统计对象的列名列表，生成它的 "name2"。
+ * 它将与父表名和合适的 label 一起传给
+ * ChooseExtendedStatisticName。
  *
- * We know that less than NAMEDATALEN characters will actually be used,
- * so we can truncate the result once we've generated that many.
+ * 我们知道实际使用的字符数少于 NAMEDATALEN，
+ * 所以生成到那么多之后就可以截断结果。
  *
- * XXX see also ChooseForeignKeyConstraintNameAddition and
- * ChooseIndexNameAddition.
+ * XXX 另见 ChooseForeignKeyConstraintNameAddition 和
+ * ChooseIndexNameAddition。
  */
 static char *
 ChooseExtendedStatisticNameAddition(List *exprs)
@@ -862,27 +862,27 @@ ChooseExtendedStatisticNameAddition(List *exprs)
 		StatsElem  *selem = (StatsElem *) lfirst(lc);
 		const char *name;
 
-		/* It should be one of these, but just skip if it happens not to be */
+		/* 它应该是其中之一，但若不是就直接跳过 */
 		if (!IsA(selem, StatsElem))
 			continue;
 
 		name = selem->name;
 
 		if (buflen > 0)
-			buf[buflen++] = '_';	/* insert _ between names */
+			buf[buflen++] = '_';	/* 在名称之间插入 _ */
 
 		/*
-		 * We use fixed 'expr' for expressions, which have empty column names.
-		 * For indexes this is handled in ChooseIndexColumnNames, but we have
-		 * no such function for stats and it does not seem worth adding. If a
-		 * better name is needed, the user can specify it explicitly.
+		 * 对列名为空的表达式，我们使用固定的 'expr'。
+		 * 对索引这由 ChooseIndexColumnNames 处理，但我们
+		 * 没有用于统计的此类函数，似乎也不值得添加。
+		 * 若需要更好的名称，用户可以显式指定。
 		 */
 		if (!name)
 			name = "expr";
 
 		/*
-		 * At this point we have buflen <= NAMEDATALEN.  name should be less
-		 * than NAMEDATALEN already, but use strlcpy for paranoia.
+		 * 此时 buflen <= NAMEDATALEN。name 应该已经小于
+		 * NAMEDATALEN，但为多疑起见用 strlcpy。
 		 */
 		strlcpy(buf + buflen, name, NAMEDATALEN);
 		buflen += strlen(buf + buflen);
@@ -893,8 +893,8 @@ ChooseExtendedStatisticNameAddition(List *exprs)
 }
 
 /*
- * StatisticsGetRelation: given a statistics object's OID, get the OID of
- * the relation it is defined on.  Uses the system cache.
+ * StatisticsGetRelation: 给定统计对象的 OID，获取其
+ * 定义所在关系的 OID。使用系统缓存。
  */
 Oid
 StatisticsGetRelation(Oid statId, bool missing_ok)

@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "batch_id": "0223-comment-commands-part2",
+  "title": "zh: translate commands comments (part 2)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "e5992daea102881bb23cb60d9e5168634ccab9ad",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/commands/aggregatecmds.c",
+      "kind": "c_comment",
+      "note": "aggregate-manipulation commands"
+    },
+    {
+      "pattern": "src/backend/commands/comment.c",
+      "kind": "c_comment",
+      "note": "object comments utility code"
+    },
+    {
+      "pattern": "src/backend/commands/createas.c",
+      "kind": "c_comment",
+      "note": "CREATE TABLE AS and materialized view execution"
+    },
+    {
+      "pattern": "src/backend/commands/define.c",
+      "kind": "c_comment",
+      "note": "DefElem value extraction helpers"
+    },
+    {
+      "pattern": "src/backend/commands/dropcmds.c",
+      "kind": "c_comment",
+      "note": "DROP operations"
+    },
+    {
+      "pattern": "src/backend/commands/portalcmds.c",
+      "kind": "c_comment",
+      "note": "portal cursor commands"
+    },
+    {
+      "pattern": "src/backend/commands/schemacmds.c",
+      "kind": "c_comment",
+      "note": "schema creation/manipulation commands"
+    },
+    {
+      "pattern": "src/backend/commands/view.c",
+      "kind": "c_comment",
+      "note": "view construction via rewrite rules"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0223-comment-commands-part2.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/commands/aggregatecmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 44,
+      "translated": 44,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "aggregate-manipulation commands; transition-function terminology follows pg_aggregate.c precedent (转移函数/组合函数/移动聚合); Copyright and IDENTIFICATION lines stay in English"
+    },
+    {
+      "path": "src/backend/commands/comment.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 36,
+      "translated": 36,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "object comments utility code; Copyright and IDENTIFICATION lines stay in English"
+    },
+    {
+      "path": "src/backend/commands/createas.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 69,
+      "translated": 69,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "CREATE TABLE AS and materialized view execution; Copyright and IDENTIFICATION lines stay in English"
+    },
+    {
+      "path": "src/backend/commands/define.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 33,
+      "translated": 33,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "DefElem value extraction helpers; Copyright and IDENTIFICATION lines stay in English"
+    },
+    {
+      "path": "src/backend/commands/dropcmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 18,
+      "translated": 18,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "DROP operations; Copyright and IDENTIFICATION lines stay in English"
+    },
+    {
+      "path": "src/backend/commands/portalcmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 51,
+      "translated": 51,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "portal cursor commands; Copyright and IDENTIFICATION lines stay in English"
+    },
+    {
+      "path": "src/backend/commands/schemacmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 33,
+      "translated": 33,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "schema creation/manipulation commands; CREATE SCHEMA banner line stays in English within the translated comment; Copyright and IDENTIFICATION lines stay in English"
+    },
+    {
+      "path": "src/backend/commands/view.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 47,
+      "translated": 47,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "view construction via rewrite rules; Copyright and IDENTIFICATION lines stay in English"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0223-comment-commands-part2.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "notes": "Batch 0223 translates comments in eight small src/backend/commands/ .c files (part 2): aggregatecmds.c, comment.c, createas.c, define.c, dropcmds.c, portalcmds.c, schemacmds.c, view.c. 331 block comments translated, 0 preserved. Function-name banner lines stay in English inside translated comments (e.g. DefineAggregate, CREATE SCHEMA); Copyright and IDENTIFICATION lines stay in English. Aggregate terminology follows the pg_aggregate.c precedent and the pgnls glossary: 转移函数 (transition function), 组合函数 (combine function), 移动聚合 (moving-aggregate), 序列化/反序列化函数 (serialization/deserialization functions), 直接参数 (direct args), 有序集聚合 (ordered-set aggregate)."
+}

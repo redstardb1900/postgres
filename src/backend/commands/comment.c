@@ -2,7 +2,7 @@
  *
  * comment.c
  *
- * PostgreSQL object comments utility code.
+ * PostgreSQL 对象注释工具代码。
  *
  * Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -33,8 +33,8 @@
 /*
  * CommentObject --
  *
- * This routine is used to add the associated comment into
- * pg_description for the object specified by the given SQL command.
+ * 此例程用于为给定 SQL 命令指定的对象，把相关联的注释
+ * 加入 pg_description。
  */
 ObjectAddress
 CommentObject(CommentStmt *stmt)
@@ -43,12 +43,12 @@ CommentObject(CommentStmt *stmt)
 	ObjectAddress address = InvalidObjectAddress;
 
 	/*
-	 * When loading a dump, we may see a COMMENT ON DATABASE for the old name
-	 * of the database.  Erroring out would prevent pg_restore from completing
-	 * (which is really pg_restore's fault, but for now we will work around
-	 * the problem here).  Consensus is that the best fix is to treat wrong
-	 * database name as a WARNING not an ERROR; hence, the following special
-	 * case.
+	 * 装载转储时，我们可能见到针对数据库
+	 * 旧名称的 COMMENT ON DATABASE。报错会阻止
+	 * pg_restore 完成（这其实是 pg_restore 的问题，
+	 * 但眼下我们先在这里绕开这个问题）。共识是：
+	 * 最佳修复是把错误的数据库名称当作 WARNING 而不是
+	 * ERROR；因此有了下面的特殊情况。
 	 */
 	if (stmt->objtype == OBJECT_DATABASE)
 	{
@@ -64,31 +64,31 @@ CommentObject(CommentStmt *stmt)
 	}
 
 	/*
-	 * Translate the parser representation that identifies this object into an
-	 * ObjectAddress.  get_object_address() will throw an error if the object
-	 * does not exist, and will also acquire a lock on the target to guard
-	 * against concurrent DROP operations.
+	 * 把标识该对象的解析器表示转换为
+	 * ObjectAddress。get_object_address() 会在对象
+	 * 不存在时抛出错误，还会在目标上
+	 * 获取锁，以防并发的 DROP 操作。
 	 */
 	address = get_object_address(stmt->objtype, stmt->object,
 								 &relation, ShareUpdateExclusiveLock, false);
 
-	/* Require ownership of the target object. */
+	/* 必须拥有目标对象的所有权。 */
 	check_object_ownership(GetUserId(), stmt->objtype, address,
 						   stmt->object, relation);
 
-	/* Perform other integrity checks as needed. */
+	/* 按需执行其他完整性检查。 */
 	switch (stmt->objtype)
 	{
 		case OBJECT_COLUMN:
 
 			/*
-			 * Allow comments only on columns of tables, views, materialized
-			 * views, composite types, and foreign tables (which are the only
-			 * relkinds for which pg_dump will dump per-column comments).  In
-			 * particular we wish to disallow comments on index columns,
-			 * because the naming of an index's columns may change across PG
-			 * versions, so dumping per-column comments could create reload
-			 * failures.
+			 * 只允许对表、视图、物化视图、
+			 * 组合类型和外部表的列添加注释
+			 * （只有这些 relkind 会被 pg_dump 转储
+			 * 逐列注释）。我们尤其希望禁止
+			 * 对索引列添加注释，因为索引列的
+			 * 名称可能随 PG 版本变化，所以转储
+			 * 逐列注释可能造成重新装载失败。
 			 */
 			if (relation->rd_rel->relkind != RELKIND_RELATION &&
 				relation->rd_rel->relkind != RELKIND_VIEW &&
@@ -107,9 +107,9 @@ CommentObject(CommentStmt *stmt)
 	}
 
 	/*
-	 * Databases, tablespaces, and roles are cluster-wide objects, so any
-	 * comments on those objects are recorded in the shared pg_shdescription
-	 * catalog.  Comments on all other objects are recorded in pg_description.
+	 * 数据库、表空间和角色是集簇范围的对象，所以
+	 * 这些对象上的任何注释都记录在共享的 pg_shdescription
+	 * 目录中。其他所有对象的注释记录在 pg_description 中。
 	 */
 	if (stmt->objtype == OBJECT_DATABASE || stmt->objtype == OBJECT_TABLESPACE
 		|| stmt->objtype == OBJECT_ROLE)
@@ -119,10 +119,10 @@ CommentObject(CommentStmt *stmt)
 					   stmt->comment);
 
 	/*
-	 * If get_object_address() opened the relation for us, we close it to keep
-	 * the reference count correct - but we retain any locks acquired by
-	 * get_object_address() until commit time, to guard against concurrent
-	 * activity.
+	 * 若 get_object_address() 替我们打开了关系，
+	 * 就关闭它，以保持引用计数正确——但我们保留
+	 * get_object_address() 获取的任何锁直到提交时刻，
+	 * 以防并发活动。
 	 */
 	if (relation != NULL)
 		relation_close(relation, NoLock);
@@ -133,11 +133,11 @@ CommentObject(CommentStmt *stmt)
 /*
  * CreateComments --
  *
- * Create a comment for the specified object descriptor.  Inserts a new
- * pg_description tuple, or replaces an existing one with the same key.
+ * 为指定的对象描述符创建注释。插入一条新的
+ * pg_description 元组，或替换具有相同键的现有元组。
  *
- * If the comment given is null or an empty string, instead delete any
- * existing comment for the specified key.
+ * 若给定注释为 null 或空字符串，则改为删除
+ * 该键的任何现有注释。
  */
 void
 CreateComments(Oid oid, Oid classoid, int32 subid, const char *comment)
@@ -152,11 +152,11 @@ CreateComments(Oid oid, Oid classoid, int32 subid, const char *comment)
 	bool		replaces[Natts_pg_description];
 	int			i;
 
-	/* Reduce empty-string to NULL case */
+	/* 把空字符串归约为 NULL 情况 */
 	if (comment != NULL && strlen(comment) == 0)
 		comment = NULL;
 
-	/* Prepare to form or update a tuple, if necessary */
+	/* 如有必要，准备构造或更新元组 */
 	if (comment != NULL)
 	{
 		for (i = 0; i < Natts_pg_description; i++)
@@ -170,7 +170,7 @@ CreateComments(Oid oid, Oid classoid, int32 subid, const char *comment)
 		values[Anum_pg_description_description - 1] = CStringGetTextDatum(comment);
 	}
 
-	/* Use the index to search for a matching old tuple */
+	/* 使用索引搜索匹配的旧元组 */
 
 	ScanKeyInit(&skey[0],
 				Anum_pg_description_objoid,
@@ -192,7 +192,7 @@ CreateComments(Oid oid, Oid classoid, int32 subid, const char *comment)
 
 	while ((oldtuple = systable_getnext(sd)) != NULL)
 	{
-		/* Found the old tuple, so delete or update it */
+		/* 找到了旧元组，删除或更新它 */
 
 		if (comment == NULL)
 			CatalogTupleDelete(description, &oldtuple->t_self);
@@ -203,12 +203,12 @@ CreateComments(Oid oid, Oid classoid, int32 subid, const char *comment)
 			CatalogTupleUpdate(description, &oldtuple->t_self, newtuple);
 		}
 
-		break;					/* Assume there can be only one match */
+		break;					/* 假定只可能有一个匹配 */
 	}
 
 	systable_endscan(sd);
 
-	/* If we didn't find an old tuple, insert a new one */
+	/* 若未找到旧元组，就插入新元组 */
 
 	if (newtuple == NULL && comment != NULL)
 	{
@@ -220,7 +220,7 @@ CreateComments(Oid oid, Oid classoid, int32 subid, const char *comment)
 	if (newtuple != NULL)
 		heap_freetuple(newtuple);
 
-	/* Done */
+	/* 完成 */
 
 	table_close(description, NoLock);
 }
@@ -228,11 +228,11 @@ CreateComments(Oid oid, Oid classoid, int32 subid, const char *comment)
 /*
  * CreateSharedComments --
  *
- * Create a comment for the specified shared object descriptor.  Inserts a
- * new pg_shdescription tuple, or replaces an existing one with the same key.
+ * 为指定的共享对象描述符创建注释。插入一条
+ * 新的 pg_shdescription 元组，或替换具有相同键的现有元组。
  *
- * If the comment given is null or an empty string, instead delete any
- * existing comment for the specified key.
+ * 若给定注释为 null 或空字符串，则改为删除
+ * 该键的任何现有注释。
  */
 void
 CreateSharedComments(Oid oid, Oid classoid, const char *comment)
@@ -247,11 +247,11 @@ CreateSharedComments(Oid oid, Oid classoid, const char *comment)
 	bool		replaces[Natts_pg_shdescription];
 	int			i;
 
-	/* Reduce empty-string to NULL case */
+	/* 把空字符串归约为 NULL 情况 */
 	if (comment != NULL && strlen(comment) == 0)
 		comment = NULL;
 
-	/* Prepare to form or update a tuple, if necessary */
+	/* 如有必要，准备构造或更新元组 */
 	if (comment != NULL)
 	{
 		for (i = 0; i < Natts_pg_shdescription; i++)
@@ -264,7 +264,7 @@ CreateSharedComments(Oid oid, Oid classoid, const char *comment)
 		values[Anum_pg_shdescription_description - 1] = CStringGetTextDatum(comment);
 	}
 
-	/* Use the index to search for a matching old tuple */
+	/* 使用索引搜索匹配的旧元组 */
 
 	ScanKeyInit(&skey[0],
 				Anum_pg_shdescription_objoid,
@@ -282,7 +282,7 @@ CreateSharedComments(Oid oid, Oid classoid, const char *comment)
 
 	while ((oldtuple = systable_getnext(sd)) != NULL)
 	{
-		/* Found the old tuple, so delete or update it */
+		/* 找到了旧元组，删除或更新它 */
 
 		if (comment == NULL)
 			CatalogTupleDelete(shdescription, &oldtuple->t_self);
@@ -293,12 +293,12 @@ CreateSharedComments(Oid oid, Oid classoid, const char *comment)
 			CatalogTupleUpdate(shdescription, &oldtuple->t_self, newtuple);
 		}
 
-		break;					/* Assume there can be only one match */
+		break;					/* 假定只可能有一个匹配 */
 	}
 
 	systable_endscan(sd);
 
-	/* If we didn't find an old tuple, insert a new one */
+	/* 若未找到旧元组，就插入新元组 */
 
 	if (newtuple == NULL && comment != NULL)
 	{
@@ -310,17 +310,17 @@ CreateSharedComments(Oid oid, Oid classoid, const char *comment)
 	if (newtuple != NULL)
 		heap_freetuple(newtuple);
 
-	/* Done */
+	/* 完成 */
 
 	table_close(shdescription, NoLock);
 }
 
 /*
- * DeleteComments -- remove comments for an object
+ * DeleteComments -- 删除对象的注释
  *
- * If subid is nonzero then only comments matching it will be removed.
- * If subid is zero, all comments matching the oid/classoid will be removed
- * (this corresponds to deleting a whole object).
+ * 若 subid 非零，则只删除与之匹配的注释。
+ * 若 subid 为零，则删除与 oid/classoid 匹配的所有注释
+ * （这相当于删除整个对象）。
  */
 void
 DeleteComments(Oid oid, Oid classoid, int32 subid)
@@ -331,7 +331,7 @@ DeleteComments(Oid oid, Oid classoid, int32 subid)
 	SysScanDesc sd;
 	HeapTuple	oldtuple;
 
-	/* Use the index to search for all matching old tuples */
+	/* 使用索引搜索所有匹配的旧元组 */
 
 	ScanKeyInit(&skey[0],
 				Anum_pg_description_objoid,
@@ -361,14 +361,14 @@ DeleteComments(Oid oid, Oid classoid, int32 subid)
 	while ((oldtuple = systable_getnext(sd)) != NULL)
 		CatalogTupleDelete(description, &oldtuple->t_self);
 
-	/* Done */
+	/* 完成 */
 
 	systable_endscan(sd);
 	table_close(description, RowExclusiveLock);
 }
 
 /*
- * DeleteSharedComments -- remove comments for a shared object
+ * DeleteSharedComments -- 删除共享对象的注释
  */
 void
 DeleteSharedComments(Oid oid, Oid classoid)
@@ -378,7 +378,7 @@ DeleteSharedComments(Oid oid, Oid classoid)
 	SysScanDesc sd;
 	HeapTuple	oldtuple;
 
-	/* Use the index to search for all matching old tuples */
+	/* 使用索引搜索所有匹配的旧元组 */
 
 	ScanKeyInit(&skey[0],
 				Anum_pg_shdescription_objoid,
@@ -397,14 +397,14 @@ DeleteSharedComments(Oid oid, Oid classoid)
 	while ((oldtuple = systable_getnext(sd)) != NULL)
 		CatalogTupleDelete(shdescription, &oldtuple->t_self);
 
-	/* Done */
+	/* 完成 */
 
 	systable_endscan(sd);
 	table_close(shdescription, RowExclusiveLock);
 }
 
 /*
- * GetComment -- get the comment for an object, or null if not found.
+ * GetComment -- 获取对象的注释，若未找到则为 null。
  */
 char *
 GetComment(Oid oid, Oid classoid, int32 subid)
@@ -416,7 +416,7 @@ GetComment(Oid oid, Oid classoid, int32 subid)
 	HeapTuple	tuple;
 	char	   *comment;
 
-	/* Use the index to search for a matching old tuple */
+	/* 使用索引搜索匹配的旧元组 */
 
 	ScanKeyInit(&skey[0],
 				Anum_pg_description_objoid,
@@ -443,16 +443,16 @@ GetComment(Oid oid, Oid classoid, int32 subid)
 		Datum		value;
 		bool		isnull;
 
-		/* Found the tuple, get description field */
+		/* 找到了元组，获取 description 字段 */
 		value = heap_getattr(tuple, Anum_pg_description_description, tupdesc, &isnull);
 		if (!isnull)
 			comment = TextDatumGetCString(value);
-		break;					/* Assume there can be only one match */
+		break;					/* 假定只可能有一个匹配 */
 	}
 
 	systable_endscan(sd);
 
-	/* Done */
+	/* 完成 */
 	table_close(description, AccessShareLock);
 
 	return comment;

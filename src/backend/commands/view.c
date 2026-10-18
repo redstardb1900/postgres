@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * view.c
- *	  use rewrite rules to construct views
+ *	  使用重写规则构造视图
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -40,10 +40,10 @@ static void checkViewTupleDesc(TupleDesc newdesc, TupleDesc olddesc);
 /*---------------------------------------------------------------------
  * DefineVirtualRelation
  *
- * Create a view relation and use the rules system to store the query
- * for the view.
+ * 创建视图关系，并使用规则系统存储视图的
+ * 查询。
  *
- * EventTriggerAlterTableStart must have been called already.
+ * 必须先调用 EventTriggerAlterTableStart。
  *---------------------------------------------------------------------
  */
 static ObjectAddress
@@ -57,8 +57,8 @@ DefineVirtualRelation(RangeVar *relation, List *tlist, bool replace,
 	ListCell   *t;
 
 	/*
-	 * create a list of ColumnDef nodes based on the names and types of the
-	 * (non-junk) targetlist items from the view's SELECT list.
+	 * 根据视图 SELECT 列表中（非垃圾）targetlist 项的名称和
+	 * 类型创建 ColumnDef 节点列表。
 	 */
 	attrList = NIL;
 	foreach(t, tlist)
@@ -73,8 +73,8 @@ DefineVirtualRelation(RangeVar *relation, List *tlist, bool replace,
 											exprCollation((Node *) tle->expr));
 
 			/*
-			 * It's possible that the column is of a collatable type but the
-			 * collation could not be resolved, so double-check.
+			 * 该列可能属于可排序类型，但排序规则
+			 * 无法解析，所以要复查。
 			 */
 			if (type_is_collatable(exprType((Node *) tle->expr)))
 			{
@@ -93,10 +93,10 @@ DefineVirtualRelation(RangeVar *relation, List *tlist, bool replace,
 	}
 
 	/*
-	 * Look up, check permissions on, and lock the creation namespace; also
-	 * check for a preexisting view with the same name.  This will also set
-	 * relation->relpersistence to RELPERSISTENCE_TEMP if the selected
-	 * namespace is temporary.
+	 * 查找、检查权限并锁定创建命名空间；同时检查是否
+	 * 已有同名视图。若选中的命名空间是临时的，
+	 * 这还会把 relation->relpersistence 设为
+	 * RELPERSISTENCE_TEMP。
 	 */
 	lockmode = replace ? AccessExclusiveLock : NoLock;
 	(void) RangeVarGetAndCheckCreationNamespace(relation, lockmode, &viewOid);
@@ -109,46 +109,46 @@ DefineVirtualRelation(RangeVar *relation, List *tlist, bool replace,
 		AlterTableCmd *atcmd;
 		ObjectAddress address;
 
-		/* Relation is already locked, but we must build a relcache entry. */
+		/* 关系已锁定，但我们必须构建 relcache 条目。 */
 		rel = relation_open(viewOid, NoLock);
 
-		/* Make sure it *is* a view. */
+		/* 确保它*确实*是视图。 */
 		if (rel->rd_rel->relkind != RELKIND_VIEW)
 			ereport(ERROR,
 					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
 					 errmsg("\"%s\" is not a view",
 							RelationGetRelationName(rel))));
 
-		/* Also check it's not in use already */
+		/* 还要检查它没有正在被使用 */
 		CheckTableNotInUse(rel, "CREATE OR REPLACE VIEW");
 
 		/*
-		 * Due to the namespace visibility rules for temporary objects, we
-		 * should only end up replacing a temporary view with another
-		 * temporary view, and similarly for permanent views.
+		 * 由于临时对象的命名空间可见性规则，我们最终
+		 * 只会用一个临时视图替换另一个临时视图，
+		 * 永久视图也类似。
 		 */
 		Assert(relation->relpersistence == rel->rd_rel->relpersistence);
 
 		/*
-		 * Create a tuple descriptor to compare against the existing view, and
-		 * verify that the old column list is an initial prefix of the new
-		 * column list.
+		 * 创建元组描述符与现有视图比较，并验证
+		 * 旧列列表是新列列表的
+		 * 初始前缀。
 		 */
 		descriptor = BuildDescForRelation(attrList);
 		checkViewTupleDesc(descriptor, rel->rd_att);
 
 		/*
-		 * If new attributes have been added, we must add pg_attribute entries
-		 * for them.  It is convenient (although overkill) to use the ALTER
-		 * TABLE ADD COLUMN infrastructure for this.
+		 * 若添加了新属性，我们必须为它们添加 pg_attribute
+		 * 条目。使用 ALTER TABLE ADD COLUMN 基础设施做这件事
+		 * 很方便（虽然有些大材小用）。
 		 *
-		 * Note that we must do this before updating the query for the view,
-		 * since the rules system requires that the correct view columns be in
-		 * place when defining the new rules.
+		 * 注意我们必须在更新视图查询之前做这件事，
+		 * 因为规则系统需要正确的视图列在定义
+		 * 新规则时已经就位。
 		 *
-		 * Also note that ALTER TABLE doesn't run parse transformation on
-		 * AT_AddColumnToView commands.  The ColumnDef we supply must be ready
-		 * to execute as-is.
+		 * 还要注意 ALTER TABLE 不对 AT_AddColumnToView 命令
+		 * 运行解析变换。我们提供的 ColumnDef 必须
+		 * 可直接执行。
 		 */
 		if (list_length(attrList) > rel->rd_att->natts)
 		{
@@ -168,61 +168,61 @@ DefineVirtualRelation(RangeVar *relation, List *tlist, bool replace,
 				atcmds = lappend(atcmds, atcmd);
 			}
 
-			/* EventTriggerAlterTableStart called by ProcessUtilitySlow */
+			/* EventTriggerAlterTableStart 由 ProcessUtilitySlow 调用 */
 			AlterTableInternal(viewOid, atcmds, true);
 
-			/* Make the new view columns visible */
+			/* 使新的视图列可见 */
 			CommandCounterIncrement();
 		}
 
 		/*
-		 * Update the query for the view.
+		 * 更新视图的查询。
 		 *
-		 * Note that we must do this before updating the view options, because
-		 * the new options may not be compatible with the old view query (for
-		 * example if we attempt to add the WITH CHECK OPTION, we require that
-		 * the new view be automatically updatable, but the old view may not
-		 * have been).
+		 * 注意我们必须在更新视图选项之前做这件事，
+		 * 因为新选项可能与旧视图查询不兼容
+		 * （例如若我们试图添加 WITH CHECK OPTION，
+		 * 新视图就需要可自动更新，但旧视图
+		 * 可能不可以）。
 		 */
 		StoreViewQuery(viewOid, viewParse, replace);
 
-		/* Make the new view query visible */
+		/* 使新的视图查询可见 */
 		CommandCounterIncrement();
 
 		/*
-		 * Update the view's options.
+		 * 更新视图的选项。
 		 *
-		 * The new options list replaces the existing options list, even if
-		 * it's empty.
+		 * 新的选项列表替换现有选项列表，
+		 * 即使它为空。
 		 */
 		atcmd = makeNode(AlterTableCmd);
 		atcmd->subtype = AT_ReplaceRelOptions;
 		atcmd->def = (Node *) options;
 		atcmds = list_make1(atcmd);
 
-		/* EventTriggerAlterTableStart called by ProcessUtilitySlow */
+		/* EventTriggerAlterTableStart 由 ProcessUtilitySlow 调用 */
 		AlterTableInternal(viewOid, atcmds, true);
 
 		/*
-		 * There is very little to do here to update the view's dependencies.
-		 * Most view-level dependency relationships, such as those on the
-		 * owner, schema, and associated composite type, aren't changing.
-		 * Because we don't allow changing type or collation of an existing
-		 * view column, those dependencies of the existing columns don't
-		 * change either, while the AT_AddColumnToView machinery took care of
-		 * adding such dependencies for new view columns.  The dependencies of
-		 * the view's query could have changed arbitrarily, but that was dealt
-		 * with inside StoreViewQuery.  What remains is only to check that
-		 * view replacement is allowed when we're creating an extension.
+		 * 这里要更新视图依赖的地方非常少。大多数
+		 * 视图级依赖关系，比如与所有者、模式和关联
+		 * 组合类型的关系，都不会改变。因为我们不允许
+		 * 改变现有视图列的类型或排序规则，现有列
+		 * 的那些依赖也不会改变，而 AT_AddColumnToView
+		 * 机制已负责为新视图列添加此类依赖。视图
+		 * 查询的依赖可能任意改变，但那已在
+		 * StoreViewQuery 内部处理。剩下的只是
+		 * 检查在创建扩展时是否允许
+		 * 替换视图。
 		 */
 		ObjectAddressSet(address, RelationRelationId, viewOid);
 
 		recordDependencyOnCurrentExtension(&address, true);
 
 		/*
-		 * Seems okay, so return the OID of the pre-existing view.
+		 * 看来没问题，返回先前存在的视图的 OID。
 		 */
-		relation_close(rel, NoLock);	/* keep the lock! */
+		relation_close(rel, NoLock);	/* 保留锁！ */
 
 		return address;
 	}
@@ -231,8 +231,8 @@ DefineVirtualRelation(RangeVar *relation, List *tlist, bool replace,
 		ObjectAddress address;
 
 		/*
-		 * Set the parameters for keys/inheritance etc. All of these are
-		 * uninteresting for views...
+		 * 设置键/继承等的参数。这些对视图来说
+		 * 都不重要……
 		 */
 		createStmt->relation = relation;
 		createStmt->tableElts = attrList;
@@ -244,18 +244,18 @@ DefineVirtualRelation(RangeVar *relation, List *tlist, bool replace,
 		createStmt->if_not_exists = false;
 
 		/*
-		 * Create the relation (this will error out if there's an existing
-		 * view, so we don't need more code to complain if "replace" is
-		 * false).
+		 * 创建关系（若已存在视图会报错，所以若
+		 * "replace" 为 false，我们不需要更多代码
+		 * 来抱怨）。
 		 */
 		address = DefineRelation(createStmt, RELKIND_VIEW, InvalidOid, NULL,
 								 NULL);
 		Assert(address.objectId != InvalidOid);
 
-		/* Make the new view relation visible */
+		/* 使新的视图关系可见 */
 		CommandCounterIncrement();
 
-		/* Store the query for the view */
+		/* 存储视图的查询 */
 		StoreViewQuery(address.objectId, viewParse, replace);
 
 		return address;
@@ -263,10 +263,10 @@ DefineVirtualRelation(RangeVar *relation, List *tlist, bool replace,
 }
 
 /*
- * Verify that tupledesc associated with proposed new view definition
- * matches tupledesc of old view.  This is basically a cut-down version
- * of equalTupleDescs(), with code added to generate specific complaints.
- * Also, we allow the new tupledesc to have more columns than the old.
+ * 验证与提议的新视图定义关联的 tupledesc 与旧视图的
+ * tupledesc 匹配。这基本上是 equalTupleDescs() 的精简版，
+ * 添加了生成具体抱怨的代码。另外，我们允许新
+ * tupledesc 的列数多于旧的。
  */
 static void
 checkViewTupleDesc(TupleDesc newdesc, TupleDesc olddesc)
@@ -283,7 +283,7 @@ checkViewTupleDesc(TupleDesc newdesc, TupleDesc olddesc)
 		Form_pg_attribute newattr = TupleDescAttr(newdesc, i);
 		Form_pg_attribute oldattr = TupleDescAttr(olddesc, i);
 
-		/* XXX msg not right, but we don't support DROP COL on view anyway */
+		/* XXX 消息不对，但反正我们也不支持对视图 DROP COL */
 		if (newattr->attisdropped != oldattr->attisdropped)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_TABLE_DEFINITION),
@@ -298,9 +298,9 @@ checkViewTupleDesc(TupleDesc newdesc, TupleDesc olddesc)
 					 errhint("Use ALTER VIEW ... RENAME COLUMN ... to change name of view column instead.")));
 
 		/*
-		 * We cannot allow type, typmod, or collation to change, since these
-		 * properties may be embedded in Vars of other views/rules referencing
-		 * this one.  Other column attributes can be ignored.
+		 * 类型、typmod 或排序规则不允许改变，因为这些
+		 * 属性可能嵌入在引用本视图的其他视图/规则的
+		 * Var 中。其他列属性可以忽略。
 		 */
 		if (newattr->atttypid != oldattr->atttypid ||
 			newattr->atttypmod != oldattr->atttypmod)
@@ -314,8 +314,8 @@ checkViewTupleDesc(TupleDesc newdesc, TupleDesc olddesc)
 													 newattr->atttypmod))));
 
 		/*
-		 * At this point, attcollations should be both valid or both invalid,
-		 * so applying get_collation_name unconditionally should be fine.
+		 * 此时，attcollations 应两者都有效或两者都无效，
+		 * 所以无条件应用 get_collation_name 应该没问题。
 		 */
 		if (newattr->attcollation != oldattr->attcollation)
 			ereport(ERROR,
@@ -327,9 +327,9 @@ checkViewTupleDesc(TupleDesc newdesc, TupleDesc olddesc)
 	}
 
 	/*
-	 * We ignore the constraint fields.  The new view desc can't have any
-	 * constraints, and the only ones that could be on the old view are
-	 * defaults, which we are happy to leave in place.
+	 * 我们忽略约束字段。新视图 desc 不可能有任何约束，
+	 * 旧视图上可能有的唯一约束是默认值，我们乐意
+	 * 让它们保留原位。
 	 */
 }
 
@@ -337,8 +337,8 @@ static void
 DefineViewRules(Oid viewOid, Query *viewParse, bool replace)
 {
 	/*
-	 * Set up the ON SELECT rule.  Since the query has already been through
-	 * parse analysis, we use DefineQueryRewrite() directly.
+	 * 设置 ON SELECT 规则。由于查询已经经过解析
+	 * 分析，我们直接使用 DefineQueryRewrite()。
 	 */
 	DefineQueryRewrite(pstrdup(ViewSelectRuleName),
 					   viewOid,
@@ -349,13 +349,13 @@ DefineViewRules(Oid viewOid, Query *viewParse, bool replace)
 					   list_make1(viewParse));
 
 	/*
-	 * Someday: automatic ON INSERT, etc
+	 * 有朝一日：自动 ON INSERT 等
 	 */
 }
 
 /*
  * DefineView
- *		Execute a CREATE VIEW command.
+ *		执行 CREATE VIEW 命令。
  */
 ObjectAddress
 DefineView(ViewStmt *stmt, const char *queryString,
@@ -369,8 +369,8 @@ DefineView(ViewStmt *stmt, const char *queryString,
 	ObjectAddress address;
 
 	/*
-	 * Run parse analysis to convert the raw parse tree to a Query.  Note this
-	 * also acquires sufficient locks on the source table(s).
+	 * 运行解析分析，把原始解析树转换为 Query。注意这还会
+	 * 在源 table(s) 上获取足够的锁。
 	 */
 	rawstmt = makeNode(RawStmt);
 	rawstmt->stmt = stmt->query;
@@ -380,8 +380,8 @@ DefineView(ViewStmt *stmt, const char *queryString,
 	viewParse = parse_analyze_fixedparams(rawstmt, queryString, NULL, 0, NULL);
 
 	/*
-	 * The grammar should ensure that the result is a single SELECT Query.
-	 * However, it doesn't forbid SELECT INTO, so we have to check for that.
+	 * 语法应确保结果是单个 SELECT Query。
+	 * 但它不禁止 SELECT INTO，所以我们必须检查这一点。
 	 */
 	if (!IsA(viewParse, Query))
 		elog(ERROR, "unexpected parse analysis result");
@@ -394,9 +394,9 @@ DefineView(ViewStmt *stmt, const char *queryString,
 		elog(ERROR, "unexpected parse analysis result");
 
 	/*
-	 * Check for unsupported cases.  These tests are redundant with ones in
-	 * DefineQueryRewrite(), but that function will complain about a bogus ON
-	 * SELECT rule, and we'd rather the message complain about a view.
+	 * 检查不支持的情形。这些测试与 DefineQueryRewrite() 中的测试
+	 * 重复，但那个函数会抱怨伪造的 ON SELECT 规则，
+	 * 而我们宁愿消息抱怨的是视图。
 	 */
 	if (viewParse->hasModifyingCTE)
 		ereport(ERROR,
@@ -404,8 +404,8 @@ DefineView(ViewStmt *stmt, const char *queryString,
 				 errmsg("views must not contain data-modifying statements in WITH")));
 
 	/*
-	 * If the user specified the WITH CHECK OPTION, add it to the list of
-	 * reloptions.
+	 * 若用户指定了 WITH CHECK OPTION，就把它加入
+	 * reloptions 列表。
 	 */
 	if (stmt->withCheckOption == LOCAL_CHECK_OPTION)
 		stmt->options = lappend(stmt->options,
@@ -417,8 +417,8 @@ DefineView(ViewStmt *stmt, const char *queryString,
 											(Node *) makeString("cascaded"), -1));
 
 	/*
-	 * Check that the view is auto-updatable if WITH CHECK OPTION was
-	 * specified.
+	 * 若指定了 WITH CHECK OPTION，检查视图
+	 * 可自动更新。
 	 */
 	check_option = false;
 
@@ -431,8 +431,8 @@ DefineView(ViewStmt *stmt, const char *queryString,
 	}
 
 	/*
-	 * If the check option is specified, look to see if the view is actually
-	 * auto-updatable or not.
+	 * 若指定了 check option，查看视图实际上
+	 * 是否可自动更新。
 	 */
 	if (check_option)
 	{
@@ -447,8 +447,8 @@ DefineView(ViewStmt *stmt, const char *queryString,
 	}
 
 	/*
-	 * If a list of column names was given, run through and insert these into
-	 * the actual query tree. - thomas 2000-03-08
+	 * 若给出了列名列表，就遍历并把它们插入实际的
+	 * 查询树。- thomas 2000-03-08
 	 */
 	if (stmt->aliases != NIL)
 	{
@@ -459,13 +459,13 @@ DefineView(ViewStmt *stmt, const char *queryString,
 		{
 			TargetEntry *te = lfirst_node(TargetEntry, targetList);
 
-			/* junk columns don't get aliases */
+			/* 垃圾列不获得别名 */
 			if (te->resjunk)
 				continue;
 			te->resname = pstrdup(strVal(lfirst(alist_item)));
 			alist_item = lnext(stmt->aliases, alist_item);
 			if (alist_item == NULL)
-				break;			/* done assigning aliases */
+				break;			/* 别名分配完毕 */
 		}
 
 		if (alist_item != NULL)
@@ -475,19 +475,19 @@ DefineView(ViewStmt *stmt, const char *queryString,
 							"names than columns")));
 	}
 
-	/* Unlogged views are not sensible. */
+	/* 未记日志的视图没有意义。 */
 	if (stmt->view->relpersistence == RELPERSISTENCE_UNLOGGED)
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
 				 errmsg("views cannot be unlogged because they do not have storage")));
 
 	/*
-	 * If the user didn't explicitly ask for a temporary view, check whether
-	 * we need one implicitly.  We allow TEMP to be inserted automatically as
-	 * long as the CREATE command is consistent with that --- no explicit
-	 * schema name.
+	 * 若用户没有明确要求临时视图，检查我们是否
+	 * 隐含需要一个。只要 CREATE 命令与之相符——没有
+	 * 显式模式名——我们就允许自动
+	 * 插入 TEMP。
 	 */
-	view = copyObject(stmt->view);	/* don't corrupt original command */
+	view = copyObject(stmt->view);	/* 不要破坏原始命令 */
 	if (view->relpersistence == RELPERSISTENCE_PERMANENT
 		&& isQueryUsingTempRelation(viewParse))
 	{
@@ -498,10 +498,10 @@ DefineView(ViewStmt *stmt, const char *queryString,
 	}
 
 	/*
-	 * Create the view relation
+	 * 创建视图关系
 	 *
-	 * NOTE: if it already exists and replace is false, the xact will be
-	 * aborted.
+	 * 注意：若它已存在且 replace 为 false，
+	 * 事务将被中止。
 	 */
 	address = DefineVirtualRelation(view, viewParse->targetList,
 									stmt->replace, stmt->options, viewParse);
@@ -510,13 +510,13 @@ DefineView(ViewStmt *stmt, const char *queryString,
 }
 
 /*
- * Use the rules system to store the query for the view.
+ * 使用规则系统存储视图的查询。
  */
 void
 StoreViewQuery(Oid viewOid, Query *viewParse, bool replace)
 {
 	/*
-	 * Now create the rules associated with the view.
+	 * 现在创建与视图关联的规则。
 	 */
 	DefineViewRules(viewOid, viewParse, replace);
 }

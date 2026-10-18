@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * portalcmds.c
- *	  Utility commands affecting portals (that is, SQL cursor commands)
+ *	  影响门户（即 SQL 游标命令）的实用命令
  *
- * Note: see also tcop/pquery.c, which implements portal operations for
- * the FE/BE protocol.  This module uses pquery.c for some operations.
- * And both modules depend on utils/mmgr/portalmem.c, which controls
- * storage management for portals (but doesn't run any queries in them).
+ * 注意：另见 tcop/pquery.c，它为 FE/BE 协议实现门户操作。
+ * 本模块的一些操作使用 pquery.c。
+ * 这两个模块都依赖 utils/mmgr/portalmem.c，后者控制
+ * 门户的存储管理（但不在门户中运行任何查询）。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -37,7 +37,7 @@
 
 /*
  * PerformCursorOpen
- *		Execute SQL DECLARE CURSOR command.
+ *		执行 SQL DECLARE CURSOR 命令。
  */
 void
 PerformCursorOpen(ParseState *pstate, DeclareCursorStmt *cstmt, ParamListInfo params,
@@ -51,8 +51,8 @@ PerformCursorOpen(ParseState *pstate, DeclareCursorStmt *cstmt, ParamListInfo pa
 	char	   *queryString;
 
 	/*
-	 * Disallow empty-string cursor name (conflicts with protocol-level
-	 * unnamed portal).
+	 * 禁止空字符串游标名（与协议级未命名门户
+	 * 冲突）。
 	 */
 	if (!cstmt->portalname || cstmt->portalname[0] == '\0')
 		ereport(ERROR,
@@ -60,9 +60,9 @@ PerformCursorOpen(ParseState *pstate, DeclareCursorStmt *cstmt, ParamListInfo pa
 				 errmsg("invalid cursor name: must not be empty")));
 
 	/*
-	 * If this is a non-holdable cursor, we require that this statement has
-	 * been executed inside a transaction block (or else, it would have no
-	 * user-visible effect).
+	 * 若这是不可保持的游标，本语句必须已在
+	 * 事务块内执行（否则它将没有任何
+	 * 用户可见的效果）。
 	 */
 	if (!(cstmt->options & CURSOR_OPT_HOLD))
 		RequireTransactionBlock(isTopLevel, "DECLARE CURSOR");
@@ -72,14 +72,14 @@ PerformCursorOpen(ParseState *pstate, DeclareCursorStmt *cstmt, ParamListInfo pa
 				 errmsg("cannot create a cursor WITH HOLD within security-restricted operation")));
 
 	/*
-	 * Parse analysis was done already, but we still have to run the rule
-	 * rewriter.  We do not do AcquireRewriteLocks: we assume the query either
-	 * came straight from the parser, or suitable locks were acquired by
-	 * plancache.c.
+	 * 解析分析已完成，但我们仍须运行规则重写器。
+	 * 我们不调用 AcquireRewriteLocks：假定查询要么直接
+	 * 来自解析器，要么已由 plancache.c 获取了
+	 * 合适的锁。
 	 */
 	rewritten = QueryRewrite(query);
 
-	/* SELECT should never rewrite to more or less than one query */
+	/* SELECT 重写后应该不多不少恰为一个查询 */
 	if (list_length(rewritten) != 1)
 		elog(ERROR, "non-SELECT statement in DECLARE CURSOR");
 
@@ -88,11 +88,11 @@ PerformCursorOpen(ParseState *pstate, DeclareCursorStmt *cstmt, ParamListInfo pa
 	if (query->commandType != CMD_SELECT)
 		elog(ERROR, "non-SELECT statement in DECLARE CURSOR");
 
-	/* Plan the query, applying the specified options */
+	/* 规划查询，应用指定选项 */
 	plan = pg_plan_query(query, pstate->p_sourcetext, cstmt->options, params);
 
 	/*
-	 * Create a portal and copy the plan and query string into its memory.
+	 * 创建门户，并把计划和查询字符串复制进它的内存。
 	 */
 	portal = CreatePortal(cstmt->portalname, false, false);
 
@@ -105,18 +105,18 @@ PerformCursorOpen(ParseState *pstate, DeclareCursorStmt *cstmt, ParamListInfo pa
 	PortalDefineQuery(portal,
 					  NULL,
 					  queryString,
-					  CMDTAG_SELECT,	/* cursor's query is always a SELECT */
+					  CMDTAG_SELECT,	/* 游标的查询总是 SELECT */
 					  list_make1(plan),
 					  NULL);
 
 	/*----------
-	 * Also copy the outer portal's parameter list into the inner portal's
-	 * memory context.  We want to pass down the parameter values in case we
-	 * had a command like
+	 * 还要把外部门户的参数列表复制到内部门户的
+	 * 内存上下文中。我们希望把参数值传下去，以防有
+	 * 这样的命令：
 	 *		DECLARE c CURSOR FOR SELECT ... WHERE foo = $1
-	 * This will have been parsed using the outer parameter set and the
-	 * parameter value needs to be preserved for use when the cursor is
-	 * executed.
+	 * 该命令将使用外部参数集解析，参数值需要
+	 * 保留下来，以便游标执行时
+	 * 使用。
 	 *----------
 	 */
 	params = copyParamList(params);
@@ -124,11 +124,11 @@ PerformCursorOpen(ParseState *pstate, DeclareCursorStmt *cstmt, ParamListInfo pa
 	MemoryContextSwitchTo(oldContext);
 
 	/*
-	 * Set up options for portal.
+	 * 设置门户的选项。
 	 *
-	 * If the user didn't specify a SCROLL type, allow or disallow scrolling
-	 * based on whether it would require any additional runtime overhead to do
-	 * so.  Also, we disallow scrolling for FOR UPDATE cursors.
+	 * 若用户未指定 SCROLL 类型，就根据滚动是否需要
+	 * 额外的运行时开销来决定允许或禁止滚动。
+	 * 另外，我们禁止 FOR UPDATE 游标滚动。
 	 */
 	portal->cursorOptions = cstmt->options;
 	if (!(portal->cursorOptions & (CURSOR_OPT_SCROLL | CURSOR_OPT_NO_SCROLL)))
@@ -141,27 +141,27 @@ PerformCursorOpen(ParseState *pstate, DeclareCursorStmt *cstmt, ParamListInfo pa
 	}
 
 	/*
-	 * Start execution, inserting parameters if any.
+	 * 开始执行，若有参数就插入。
 	 */
 	PortalStart(portal, params, 0, GetActiveSnapshot());
 
 	Assert(portal->strategy == PORTAL_ONE_SELECT);
 
 	/*
-	 * We're done; the query won't actually be run until PerformPortalFetch is
-	 * called.
+	 * 我们完成了；查询实际上要到 PerformPortalFetch
+	 * 被调用时才会运行。
 	 */
 }
 
 /*
  * PerformPortalFetch
- *		Execute SQL FETCH or MOVE command.
+ *		执行 SQL FETCH 或 MOVE 命令。
  *
- *	stmt: parsetree node for command
- *	dest: where to send results
- *	qc: where to store a command completion status data.
+ *	stmt: 命令的解析树节点
+ *	dest: 结果发送到哪里
+ *	qc: 在哪里存储命令完成状态数据。
  *
- * qc may be NULL if caller doesn't want status data.
+ * 若调用方不想要状态数据，qc 可为 NULL。
  */
 void
 PerformPortalFetch(FetchStmt *stmt,
@@ -172,35 +172,35 @@ PerformPortalFetch(FetchStmt *stmt,
 	uint64		nprocessed;
 
 	/*
-	 * Disallow empty-string cursor name (conflicts with protocol-level
-	 * unnamed portal).
+	 * 禁止空字符串游标名（与协议级未命名门户
+	 * 冲突）。
 	 */
 	if (!stmt->portalname || stmt->portalname[0] == '\0')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_CURSOR_NAME),
 				 errmsg("invalid cursor name: must not be empty")));
 
-	/* get the portal from the portal name */
+	/* 从门户名获取门户 */
 	portal = GetPortalByName(stmt->portalname);
 	if (!PortalIsValid(portal))
 	{
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_CURSOR),
 				 errmsg("cursor \"%s\" does not exist", stmt->portalname)));
-		return;					/* keep compiler happy */
+		return;					/* 让编译器满意 */
 	}
 
-	/* Adjust dest if needed.  MOVE wants destination DestNone */
+	/* 如有需要调整 dest。MOVE 想要目的地 DestNone */
 	if (stmt->ismove)
 		dest = None_Receiver;
 
-	/* Do it */
+	/* 执行 */
 	nprocessed = PortalRunFetch(portal,
 								stmt->direction,
 								stmt->howMany,
 								dest);
 
-	/* Return command status if wanted */
+	/* 若需要就返回命令状态 */
 	if (qc)
 		SetQueryCompletion(qc, stmt->ismove ? CMDTAG_MOVE : CMDTAG_FETCH,
 						   nprocessed);
@@ -208,14 +208,14 @@ PerformPortalFetch(FetchStmt *stmt,
 
 /*
  * PerformPortalClose
- *		Close a cursor.
+ *		关闭游标。
  */
 void
 PerformPortalClose(const char *name)
 {
 	Portal		portal;
 
-	/* NULL means CLOSE ALL */
+	/* NULL 表示 CLOSE ALL */
 	if (name == NULL)
 	{
 		PortalHashTableDeleteAll();
@@ -223,8 +223,8 @@ PerformPortalClose(const char *name)
 	}
 
 	/*
-	 * Disallow empty-string cursor name (conflicts with protocol-level
-	 * unnamed portal).
+	 * 禁止空字符串游标名（与协议级未命名门户
+	 * 冲突）。
 	 */
 	if (name[0] == '\0')
 		ereport(ERROR,
@@ -232,7 +232,7 @@ PerformPortalClose(const char *name)
 				 errmsg("invalid cursor name: must not be empty")));
 
 	/*
-	 * get the portal from the portal name
+	 * 从门户名获取门户
 	 */
 	portal = GetPortalByName(name);
 	if (!PortalIsValid(portal))
@@ -240,11 +240,11 @@ PerformPortalClose(const char *name)
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_CURSOR),
 				 errmsg("cursor \"%s\" does not exist", name)));
-		return;					/* keep compiler happy */
+		return;					/* 让编译器满意 */
 	}
 
 	/*
-	 * Note: PortalCleanup is called as a side-effect, if not already done.
+	 * 注意：若尚未完成，PortalCleanup 会作为副作用被调用。
 	 */
 	PortalDrop(portal, false);
 }
@@ -252,12 +252,12 @@ PerformPortalClose(const char *name)
 /*
  * PortalCleanup
  *
- * Clean up a portal when it's dropped.  This is the standard cleanup hook
- * for portals.
+ * 门户被丢弃时清理它。这是门户的标准
+ * 清理钩子。
  *
- * Note: if portal->status is PORTAL_FAILED, we are probably being called
- * during error abort, and must be careful to avoid doing anything that
- * is likely to fail again.
+ * 注意：若 portal->status 是 PORTAL_FAILED，我们很可能是在
+ * 错误中止期间被调用的，必须小心避免做任何
+ * 可能再次失败的事情。
  */
 void
 PortalCleanup(Portal portal)
@@ -265,24 +265,24 @@ PortalCleanup(Portal portal)
 	QueryDesc  *queryDesc;
 
 	/*
-	 * sanity checks
+	 * 健全性检查
 	 */
 	Assert(PortalIsValid(portal));
 	Assert(portal->cleanup == PortalCleanup);
 
 	/*
-	 * Shut down executor, if still running.  We skip this during error abort,
-	 * since other mechanisms will take care of releasing executor resources,
-	 * and we can't be sure that ExecutorEnd itself wouldn't fail.
+	 * 若执行器仍在运行就关闭它。错误中止期间
+	 * 我们跳过这一步，因为其他机制会负责释放
+	 * 执行器资源，而且我们无法确定 ExecutorEnd 本身不会失败。
 	 */
 	queryDesc = portal->queryDesc;
 	if (queryDesc)
 	{
 		/*
-		 * Reset the queryDesc before anything else.  This prevents us from
-		 * trying to shut down the executor twice, in case of an error below.
-		 * The transaction abort mechanisms will take care of resource cleanup
-		 * in such a case.
+		 * 先把 queryDesc 重置，再做其他事。这防止我们
+		 * 在下方出错的情况下两次关闭执行器。
+		 * 事务中止机制会在那种情况下负责
+		 * 资源清理。
 		 */
 		portal->queryDesc = NULL;
 
@@ -290,7 +290,7 @@ PortalCleanup(Portal portal)
 		{
 			ResourceOwner saveResourceOwner;
 
-			/* We must make the portal's resource owner current */
+			/* 我们必须把门户的资源所有者设为当前 */
 			saveResourceOwner = CurrentResourceOwner;
 			if (portal->resowner)
 				CurrentResourceOwner = portal->resowner;
@@ -307,10 +307,10 @@ PortalCleanup(Portal portal)
 /*
  * PersistHoldablePortal
  *
- * Prepare the specified Portal for access outside of the current
- * transaction. When this function returns, all future accesses to the
- * portal must be done via the Tuplestore (not by invoking the
- * executor).
+ * 准备指定的 Portal，以便在当前事务之外访问它。
+ * 当本函数返回时，对门户的所有后续访问必须
+ * 通过 Tuplestore 完成（而不是调用
+ * 执行器）。
  */
 void
 PersistHoldablePortal(Portal portal)
@@ -322,22 +322,22 @@ PersistHoldablePortal(Portal portal)
 	MemoryContext oldcxt;
 
 	/*
-	 * If we're preserving a holdable portal, we had better be inside the
-	 * transaction that originally created it.
+	 * 若我们在保存一个可保持的门户，最好处于最初
+	 * 创建它的那个事务中。
 	 */
 	Assert(portal->createSubid != InvalidSubTransactionId);
 	Assert(queryDesc != NULL);
 
 	/*
-	 * Caller must have created the tuplestore already ... but not a snapshot.
+	 * 调用方一定已经创建了 tuplestore …… 但没有快照。
 	 */
 	Assert(portal->holdContext != NULL);
 	Assert(portal->holdStore != NULL);
 	Assert(portal->holdSnapshot == NULL);
 
 	/*
-	 * Before closing down the executor, we must copy the tupdesc into
-	 * long-term memory, since it was created in executor memory.
+	 * 关闭执行器之前，我们必须把 tupdesc 复制到
+	 * 长期内存中，因为它是在执行器内存中创建的。
 	 */
 	oldcxt = MemoryContextSwitchTo(portal->holdContext);
 
@@ -346,12 +346,12 @@ PersistHoldablePortal(Portal portal)
 	MemoryContextSwitchTo(oldcxt);
 
 	/*
-	 * Check for improper portal use, and mark portal active.
+	 * 检查门户使用是否不当，并把门户标记为活动。
 	 */
 	MarkPortalActive(portal);
 
 	/*
-	 * Set up global portal context pointers.
+	 * 设置全局门户上下文指针。
 	 */
 	saveActivePortal = ActivePortal;
 	saveResourceOwner = CurrentResourceOwner;
@@ -370,20 +370,20 @@ PersistHoldablePortal(Portal portal)
 		PushActiveSnapshot(queryDesc->snapshot);
 
 		/*
-		 * If the portal is marked scrollable, we need to store the entire
-		 * result set in the tuplestore, so that subsequent backward FETCHs
-		 * can be processed.  Otherwise, store only the not-yet-fetched rows.
-		 * (The latter is not only more efficient, but avoids semantic
-		 * problems if the query's output isn't stable.)
+		 * 若门户被标记为可滚动，我们需要把整个结果集
+		 * 存入 tuplestore，以便后续的向后 FETCH
+		 * 能够被处理。否则，只存储尚未取出的行。
+		 * （后者不仅更高效，而且若查询的输出不稳定，
+		 * 还能避免语义问题。）
 		 *
-		 * In the no-scroll case, tuple indexes in the tuplestore will not
-		 * match the cursor's nominal position (portalPos).  Currently this
-		 * causes no difficulty because we only navigate in the tuplestore by
-		 * relative position, except for the tuplestore_skiptuples call below
-		 * and the tuplestore_rescan call in DoPortalRewind, both of which are
-		 * disabled for no-scroll cursors.  But someday we might need to track
-		 * the offset between the holdStore and the cursor's nominal position
-		 * explicitly.
+		 * 在不可滚动的情况下，tuplestore 中的元组索引不会
+		 * 匹配游标的标称位置（portalPos）。目前这不会
+		 * 造成困难，因为我们只按相对位置在 tuplestore 中
+		 * 导航，除了下面的 tuplestore_skiptuples 调用和
+		 * DoPortalRewind 中的 tuplestore_rescan 调用，这两个调用
+		 * 对不可滚动游标都被禁用。但有一天我们可能
+		 * 需要显式跟踪 holdStore 与游标标称位置
+		 * 之间的偏移。
 		 */
 		if (portal->cursorOptions & CURSOR_OPT_SCROLL)
 		{
@@ -392,21 +392,21 @@ PersistHoldablePortal(Portal portal)
 		else
 		{
 			/*
-			 * If we already reached end-of-query, set the direction to
-			 * NoMovement to avoid trying to fetch any tuples.  (This check
-			 * exists because not all plan node types are robust about being
-			 * called again if they've already returned NULL once.)  We'll
-			 * still set up an empty tuplestore, though, to keep this from
-			 * being a special case later.
+			 * 若我们已到达查询末尾，就把方向设为 NoMovement，
+			 * 避免再取任何元组。（做这个检查是因为并非
+			 * 所有计划节点类型在已返回过 NULL 一次后
+			 * 都能稳健地再次被调用。）不过我们仍会
+			 * 设置一个空 tuplestore，免得后面把它
+			 * 当成特殊情况。
 			 */
 			if (portal->atEnd)
 				direction = NoMovementScanDirection;
 		}
 
 		/*
-		 * Change the destination to output to the tuplestore.  Note we tell
-		 * the tuplestore receiver to detoast all data passed through it; this
-		 * makes it safe to not keep a snapshot associated with the data.
+		 * 把目的地改为输出到 tuplestore。注意我们让 tuplestore
+		 * 接收器对所有经过它的数据做 detoast；这样不为数据
+		 * 保留关联快照也安全。
 		 */
 		queryDesc->dest = CreateDestReceiver(DestTuplestore);
 		SetTuplestoreDestReceiverParams(queryDesc->dest,
@@ -416,41 +416,41 @@ PersistHoldablePortal(Portal portal)
 										NULL,
 										NULL);
 
-		/* Fetch the result set into the tuplestore */
+		/* 把结果集取入 tuplestore */
 		ExecutorRun(queryDesc, direction, 0, false);
 
 		queryDesc->dest->rDestroy(queryDesc->dest);
 		queryDesc->dest = NULL;
 
 		/*
-		 * Now shut down the inner executor.
+		 * 现在关闭内部执行器。
 		 */
-		portal->queryDesc = NULL;	/* prevent double shutdown */
+		portal->queryDesc = NULL;	/* 防止二次关闭 */
 		ExecutorFinish(queryDesc);
 		ExecutorEnd(queryDesc);
 		FreeQueryDesc(queryDesc);
 
 		/*
-		 * Set the position in the result set.
+		 * 设置结果集中的位置。
 		 */
 		MemoryContextSwitchTo(portal->holdContext);
 
 		if (portal->atEnd)
 		{
 			/*
-			 * Just force the tuplestore forward to its end.  The size of the
-			 * skip request here is arbitrary.
+			 * 直接强制 tuplestore 前进到末尾。这里
+			 * 跳过请求的大小是任意的。
 			 */
 			while (tuplestore_skiptuples(portal->holdStore, 1000000, true))
-				 /* continue */ ;
+				 /* 继续 */ ;
 		}
 		else
 		{
 			tuplestore_rescan(portal->holdStore);
 
 			/*
-			 * In the no-scroll case, the start of the tuplestore is exactly
-			 * where we want to be, so no repositioning is wanted.
+			 * 在不可滚动的情况下，tuplestore 的起点正是
+			 * 我们想要的位置，所以不需要重新定位。
 			 */
 			if (portal->cursorOptions & CURSOR_OPT_SCROLL)
 			{
@@ -463,10 +463,10 @@ PersistHoldablePortal(Portal portal)
 	}
 	PG_CATCH();
 	{
-		/* Uncaught error while executing portal: mark it dead */
+		/* 执行门户时出现未捕获的错误：把它标记为死亡 */
 		MarkPortalFailed(portal);
 
-		/* Restore global vars and propagate error */
+		/* 恢复全局变量并传播错误 */
 		ActivePortal = saveActivePortal;
 		CurrentResourceOwner = saveResourceOwner;
 		PortalContext = savePortalContext;
@@ -477,7 +477,7 @@ PersistHoldablePortal(Portal portal)
 
 	MemoryContextSwitchTo(oldcxt);
 
-	/* Mark portal not active */
+	/* 把门户标记为不活动 */
 	portal->status = PORTAL_READY;
 
 	ActivePortal = saveActivePortal;
@@ -487,10 +487,10 @@ PersistHoldablePortal(Portal portal)
 	PopActiveSnapshot();
 
 	/*
-	 * We can now release any subsidiary memory of the portal's context; we'll
-	 * never use it again.  The executor already dropped its context, but this
-	 * will clean up anything that glommed onto the portal's context via
-	 * PortalContext.
+	 * 现在可以释放门户上下文的任何附属内存；我们
+	 * 再也不会用到它。执行器已经丢弃了它的上下文，
+	 * 但这样会清理任何经由 PortalContext
+	 * 吸附到门户上下文上的东西。
 	 */
 	MemoryContextDeleteChildren(portal->portalContext);
 }

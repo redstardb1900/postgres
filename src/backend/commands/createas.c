@@ -1,17 +1,17 @@
 /*-------------------------------------------------------------------------
  *
  * createas.c
- *	  Execution of CREATE TABLE ... AS, a/k/a SELECT INTO.
- *	  Since CREATE MATERIALIZED VIEW shares syntax and most behaviors,
- *	  we implement that here, too.
+ *	  CREATE TABLE ... AS（又称 SELECT INTO）的执行。
+ *	  由于 CREATE MATERIALIZED VIEW 与它共享语法和大部分行为，
+ *	  我们在这里一并实现。
  *
- * We implement this by diverting the query's normal output to a
- * specialized DestReceiver type.
+ * 我们把查询的正常输出转移到一种
+ * 专门的 DestReceiver 类型来实现这一点。
  *
- * Formerly, CTAS was implemented as a variant of SELECT, which led
- * to assorted legacy behaviors that we still try to preserve, notably that
- * we must return a tuples-processed count in the QueryCompletion.  (We no
- * longer do that for CTAS ... WITH NO DATA, however.)
+ * 以前，CTAS 被实现为 SELECT 的变体，这导致了
+ * 我们仍试图保留的各种遗留行为，特别是
+ * 我们必须在 QueryCompletion 中返回已处理元组数。（不过，
+ * 对于 CTAS ... WITH NO DATA 我们已不再这样做。）
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -53,21 +53,21 @@
 
 typedef struct
 {
-	DestReceiver pub;			/* publicly-known function pointers */
-	IntoClause *into;			/* target relation specification */
-	/* These fields are filled by intorel_startup: */
-	Relation	rel;			/* relation to write to */
-	ObjectAddress reladdr;		/* address of rel, for ExecCreateTableAs */
-	CommandId	output_cid;		/* cmin to insert in output tuples */
-	int			ti_options;		/* table_tuple_insert performance options */
-	BulkInsertState bistate;	/* bulk insert state */
+	DestReceiver pub;			/* 公开的函数指针 */
+	IntoClause *into;			/* 目标关系规格 */
+	/* 这些字段由 intorel_startup 填充： */
+	Relation	rel;			/* 要写入的关系 */
+	ObjectAddress reladdr;		/* rel 的地址，供 ExecCreateTableAs 使用 */
+	CommandId	output_cid;		/* 插入输出元组的 cmin */
+	int			ti_options;		/* table_tuple_insert 的性能选项 */
+	BulkInsertState bistate;	/* 批量插入状态 */
 } DR_intorel;
 
-/* utility functions for CTAS definition creation */
+/* 用于 CTAS 定义创建的实用函数 */
 static ObjectAddress create_ctas_internal(List *attrList, IntoClause *into);
 static ObjectAddress create_ctas_nodata(List *tlist, IntoClause *into);
 
-/* DestReceiver routines for collecting data */
+/* 用于收集数据的 DestReceiver 例程 */
 static void intorel_startup(DestReceiver *self, int operation, TupleDesc typeinfo);
 static bool intorel_receive(TupleTableSlot *slot, DestReceiver *self);
 static void intorel_shutdown(DestReceiver *self);
@@ -77,9 +77,9 @@ static void intorel_destroy(DestReceiver *self);
 /*
  * create_ctas_internal
  *
- * Internal utility used for the creation of the definition of a relation
- * created via CREATE TABLE AS or a materialized view.  Caller needs to
- * provide a list of attributes (ColumnDef nodes).
+ * 用于为经由 CREATE TABLE AS 或物化视图创建的关系
+ * 创建定义的内部实用函数。调用方需要
+ * 提供属性列表（ColumnDef 节点）。
  */
 static ObjectAddress
 create_ctas_internal(List *attrList, IntoClause *into)
@@ -91,13 +91,13 @@ create_ctas_internal(List *attrList, IntoClause *into)
 	static char *validnsps[] = HEAP_RELOPT_NAMESPACES;
 	ObjectAddress intoRelationAddr;
 
-	/* This code supports both CREATE TABLE AS and CREATE MATERIALIZED VIEW */
+	/* 此代码同时支持 CREATE TABLE AS 和 CREATE MATERIALIZED VIEW */
 	is_matview = (into->viewQuery != NULL);
 	relkind = is_matview ? RELKIND_MATVIEW : RELKIND_RELATION;
 
 	/*
-	 * Create the target relation by faking up a CREATE TABLE parsetree and
-	 * passing it to DefineRelation.
+	 * 通过伪造一棵 CREATE TABLE 解析树并把它传给
+	 * DefineRelation 来创建目标关系。
 	 */
 	create->relation = into->rel;
 	create->tableElts = attrList;
@@ -111,19 +111,19 @@ create_ctas_internal(List *attrList, IntoClause *into)
 	create->accessMethod = into->accessMethod;
 
 	/*
-	 * Create the relation.  (This will error out if there's an existing view,
-	 * so we don't need more code to complain if "replace" is false.)
+	 * 创建关系。（若已存在视图会报错，所以若
+	 * "replace" 为 false，我们不需要更多代码来抱怨。）
 	 */
 	intoRelationAddr = DefineRelation(create, relkind, InvalidOid, NULL, NULL);
 
 	/*
-	 * If necessary, create a TOAST table for the target table.  Note that
-	 * NewRelationCreateToastTable ends with CommandCounterIncrement(), so
-	 * that the TOAST table will be visible for insertion.
+	 * 如有必要，为目标表创建 TOAST 表。注意
+	 * NewRelationCreateToastTable 以 CommandCounterIncrement() 结束，
+	 * 因此 TOAST 表将对插入可见。
 	 */
 	CommandCounterIncrement();
 
-	/* parse and validate reloptions for the toast table */
+	/* 解析并校验 toast 表的 reloptions */
 	toast_options = transformRelOptions((Datum) 0,
 										create->options,
 										"toast",
@@ -134,10 +134,10 @@ create_ctas_internal(List *attrList, IntoClause *into)
 
 	NewRelationCreateToastTable(intoRelationAddr.objectId, toast_options);
 
-	/* Create the "view" part of a materialized view. */
+	/* 创建物化视图的 "view" 部分。 */
 	if (is_matview)
 	{
-		/* StoreViewQuery scribbles on tree, so make a copy */
+		/* StoreViewQuery 会涂改树，因此先复制一份 */
 		Query	   *query = (Query *) copyObject(into->viewQuery);
 
 		StoreViewQuery(intoRelationAddr.objectId, query, false);
@@ -151,8 +151,8 @@ create_ctas_internal(List *attrList, IntoClause *into)
 /*
  * create_ctas_nodata
  *
- * Create CTAS or materialized view when WITH NO DATA is used, starting from
- * the targetlist of the SELECT or view definition.
+ * 使用 WITH NO DATA 时，从 SELECT 或视图定义的
+ * targetlist 出发，创建 CTAS 或物化视图。
  */
 static ObjectAddress
 create_ctas_nodata(List *tlist, IntoClause *into)
@@ -162,9 +162,9 @@ create_ctas_nodata(List *tlist, IntoClause *into)
 			   *lc;
 
 	/*
-	 * Build list of ColumnDefs from non-junk elements of the tlist.  If a
-	 * column name list was specified in CREATE TABLE AS, override the column
-	 * names in the query.  (Too few column names are OK, too many are not.)
+	 * 从 tlist 的非垃圾元素构建 ColumnDefs 列表。
+	 * 若在 CREATE TABLE AS 中指定了列名列表，就覆盖查询中的
+	 * 列名。（列名过少没问题，过多不行。）
 	 */
 	attrList = NIL;
 	lc = list_head(into->colNames);
@@ -191,10 +191,10 @@ create_ctas_nodata(List *tlist, IntoClause *into)
 								exprCollation((Node *) tle->expr));
 
 			/*
-			 * It's possible that the column is of a collatable type but the
-			 * collation could not be resolved, so double-check.  (We must
-			 * check this here because DefineRelation would adopt the type's
-			 * default collation rather than complaining.)
+			 * 该列可能属于可排序类型，但排序规则无法
+			 * 解析，所以要复查。（我们必须在这里检查，因为
+			 * DefineRelation 会采用该类型的默认排序规则
+			 * 而不是报错。）
 			 */
 			if (!OidIsValid(col->collOid) &&
 				type_is_collatable(col->typeName->typeOid))
@@ -214,13 +214,13 @@ create_ctas_nodata(List *tlist, IntoClause *into)
 				(errcode(ERRCODE_SYNTAX_ERROR),
 				 errmsg("too many column names were specified")));
 
-	/* Create the relation definition using the ColumnDef list */
+	/* 使用 ColumnDef 列表创建关系定义 */
 	return create_ctas_internal(attrList, into);
 }
 
 
 /*
- * ExecCreateTableAs -- execute a CREATE TABLE AS command
+ * ExecCreateTableAs -- 执行 CREATE TABLE AS 命令
  */
 ObjectAddress
 ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
@@ -239,28 +239,28 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
 	PlannedStmt *plan;
 	QueryDesc  *queryDesc;
 
-	/* Check if the relation exists or not */
+	/* 检查关系是否存在 */
 	if (CreateTableAsRelExists(stmt))
 		return InvalidObjectAddress;
 
 	/*
-	 * Create the tuple receiver object and insert info it will need
+	 * 创建元组接收器对象并插入它需要的信息
 	 */
 	dest = CreateIntoRelDestReceiver(into);
 
 	/*
-	 * The contained Query could be a SELECT, or an EXECUTE utility command.
-	 * If the latter, we just pass it off to ExecuteQuery.
+	 * 内含的 Query 可能是 SELECT，也可能是 EXECUTE 工具命令。
+	 * 若是后者，我们直接把它转交给 ExecuteQuery。
 	 */
 	if (query->commandType == CMD_UTILITY &&
 		IsA(query->utilityStmt, ExecuteStmt))
 	{
 		ExecuteStmt *estmt = castNode(ExecuteStmt, query->utilityStmt);
 
-		Assert(!is_matview);	/* excluded by syntax */
+		Assert(!is_matview);	/* 语法已排除 */
 		ExecuteQuery(pstate, estmt, into, params, dest, qc);
 
-		/* get object address that intorel_startup saved for us */
+		/* 获取 intorel_startup 为我们保存的对象地址 */
 		address = ((DR_intorel *) dest)->reladdr;
 
 		return address;
@@ -268,11 +268,11 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
 	Assert(query->commandType == CMD_SELECT);
 
 	/*
-	 * For materialized views, lock down security-restricted operations and
-	 * arrange to make GUC variable changes local to this command.  This is
-	 * not necessary for security, but this keeps the behavior similar to
-	 * REFRESH MATERIALIZED VIEW.  Otherwise, one could create a materialized
-	 * view not possible to refresh.
+	 * 对于物化视图，锁定安全受限的操作，
+	 * 并安排让 GUC 变量更改仅在本命令内
+	 * 生效。这对安全并非必要，但能让行为
+	 * 与 REFRESH MATERIALIZED VIEW 类似。否则，
+	 * 有人可能创建出无法刷新的物化视图。
 	 */
 	if (is_matview)
 	{
@@ -285,24 +285,24 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
 	if (into->skipData)
 	{
 		/*
-		 * If WITH NO DATA was specified, do not go through the rewriter,
-		 * planner and executor.  Just define the relation using a code path
-		 * similar to CREATE VIEW.  This avoids dump/restore problems stemming
-		 * from running the planner before all dependencies are set up.
+		 * 若指定了 WITH NO DATA，就不经过重写器、
+		 * 规划器和执行器。直接用类似于 CREATE VIEW 的
+		 * 代码路径定义关系。这避免了在所有依赖建立
+		 * 之前运行规划器而导致的转储/恢复问题。
 		 */
 		address = create_ctas_nodata(query->targetList, into);
 	}
 	else
 	{
 		/*
-		 * Parse analysis was done already, but we still have to run the rule
-		 * rewriter.  We do not do AcquireRewriteLocks: we assume the query
-		 * either came straight from the parser, or suitable locks were
-		 * acquired by plancache.c.
+		 * 解析分析已完成，但我们仍须运行规则重写器。
+		 * 我们不调用 AcquireRewriteLocks：假定查询要么直接
+		 * 来自解析器，要么已由 plancache.c 获取了
+		 * 合适的锁。
 		 */
 		rewritten = QueryRewrite(query);
 
-		/* SELECT should never rewrite to more or less than one SELECT query */
+		/* SELECT 重写后应该不多不少恰为一个 SELECT 查询 */
 		if (list_length(rewritten) != 1)
 			elog(ERROR, "unexpected rewrite result for %s",
 				 is_matview ? "CREATE MATERIALIZED VIEW" :
@@ -310,39 +310,39 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
 		query = linitial_node(Query, rewritten);
 		Assert(query->commandType == CMD_SELECT);
 
-		/* plan the query */
+		/* 规划查询 */
 		plan = pg_plan_query(query, pstate->p_sourcetext,
 							 CURSOR_OPT_PARALLEL_OK, params);
 
 		/*
-		 * Use a snapshot with an updated command ID to ensure this query sees
-		 * results of any previously executed queries.  (This could only
-		 * matter if the planner executed an allegedly-stable function that
-		 * changed the database contents, but let's do it anyway to be
-		 * parallel to the EXPLAIN code path.)
+		 * 使用带有更新后的命令 ID 的快照，确保本查询
+		 * 能看到任何先前执行的查询的结果。（只有当
+		 * 规划器执行了某个号称稳定的函数、而它改变了
+		 * 数据库内容时这才重要，但为了与 EXPLAIN 代码
+		 * 路径保持一致，我们还是照做。）
 		 */
 		PushCopiedSnapshot(GetActiveSnapshot());
 		UpdateActiveSnapshotCommandId();
 
-		/* Create a QueryDesc, redirecting output to our tuple receiver */
+		/* 创建 QueryDesc，把输出重定向到我们的元组接收器 */
 		queryDesc = CreateQueryDesc(plan, pstate->p_sourcetext,
 									GetActiveSnapshot(), InvalidSnapshot,
 									dest, params, queryEnv, 0);
 
-		/* call ExecutorStart to prepare the plan for execution */
+		/* 调用 ExecutorStart 为执行准备计划 */
 		ExecutorStart(queryDesc, GetIntoRelEFlags(into));
 
-		/* run the plan to completion */
+		/* 把计划执行到底 */
 		ExecutorRun(queryDesc, ForwardScanDirection, 0, true);
 
-		/* save the rowcount if we're given a qc to fill */
+		/* 若给了我们要填充的 qc，就保存行数 */
 		if (qc)
 			SetQueryCompletion(qc, CMDTAG_SELECT, queryDesc->estate->es_processed);
 
-		/* get object address that intorel_startup saved for us */
+		/* 获取 intorel_startup 为我们保存的对象地址 */
 		address = ((DR_intorel *) dest)->reladdr;
 
-		/* and clean up */
+		/* 然后清理 */
 		ExecutorFinish(queryDesc);
 		ExecutorEnd(queryDesc);
 
@@ -353,10 +353,10 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
 
 	if (is_matview)
 	{
-		/* Roll back any GUC changes */
+		/* 回滚任何 GUC 更改 */
 		AtEOXact_GUC(false, save_nestlevel);
 
-		/* Restore userid and security context */
+		/* 恢复 userid 和安全上下文 */
 		SetUserIdAndSecContext(save_userid, save_sec_context);
 	}
 
@@ -364,12 +364,12 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
 }
 
 /*
- * GetIntoRelEFlags --- compute executor flags needed for CREATE TABLE AS
+ * GetIntoRelEFlags --- 计算 CREATE TABLE AS 所需的执行器标志
  *
- * This is exported because EXPLAIN and PREPARE need it too.  (Note: those
- * callers still need to deal explicitly with the skipData flag; since they
- * use different methods for suppressing execution, it doesn't seem worth
- * trying to encapsulate that part.)
+ * 此函数被导出，因为 EXPLAIN 和 PREPARE 也需要它。
+ * （注意：那些调用方仍需显式处理 skipData 标志；
+ * 由于它们用不同的方法抑制执行，似乎不值得
+ * 尝试把那部分封装起来。）
  */
 int
 GetIntoRelEFlags(IntoClause *intoClause)
@@ -383,11 +383,11 @@ GetIntoRelEFlags(IntoClause *intoClause)
 }
 
 /*
- * CreateTableAsRelExists --- check existence of relation for CreateTableAsStmt
+ * CreateTableAsRelExists --- 为 CreateTableAsStmt 检查关系是否存在
  *
- * Utility wrapper checking if the relation pending for creation in this
- * CreateTableAsStmt query already exists or not.  Returns true if the
- * relation exists, otherwise false.
+ * 实用包装函数：检查本 CreateTableAsStmt 查询中
+ * 待创建的关系是否已存在。若关系存在返回
+ * true，否则返回 false。
  */
 bool
 CreateTableAsRelExists(CreateTableAsStmt *ctas)
@@ -409,15 +409,15 @@ CreateTableAsRelExists(CreateTableAsStmt *ctas)
 							into->rel->relname)));
 
 		/*
-		 * The relation exists and IF NOT EXISTS has been specified.
+		 * 关系已存在，且指定了 IF NOT EXISTS。
 		 *
-		 * If we are in an extension script, insist that the pre-existing
-		 * object be a member of the extension, to avoid security risks.
+		 * 若我们处于扩展脚本中，坚持要求先前存在的
+		 * 对象是该扩展的成员，以避免安全风险。
 		 */
 		ObjectAddressSet(address, RelationRelationId, oldrelid);
 		checkMembershipInCurrentExtension(&address);
 
-		/* OK to skip */
+		/* 可以跳过 */
 		ereport(NOTICE,
 				(errcode(ERRCODE_DUPLICATE_TABLE),
 				 errmsg("relation \"%s\" already exists, skipping",
@@ -425,16 +425,16 @@ CreateTableAsRelExists(CreateTableAsStmt *ctas)
 		return true;
 	}
 
-	/* Relation does not exist, it can be created */
+	/* 关系不存在，可以创建 */
 	return false;
 }
 
 /*
- * CreateIntoRelDestReceiver -- create a suitable DestReceiver object
+ * CreateIntoRelDestReceiver -- 创建合适的 DestReceiver 对象
  *
- * intoClause will be NULL if called from CreateDestReceiver(), in which
- * case it has to be provided later.  However, it is convenient to allow
- * self->into to be filled in immediately for other callers.
+ * 若从 CreateDestReceiver() 调用，intoClause 将为 NULL，
+ * 此时它必须稍后再提供。不过，允许其他调用方
+ * 立即填好 self->into 也很方便。
  */
 DestReceiver *
 CreateIntoRelDestReceiver(IntoClause *intoClause)
@@ -447,13 +447,13 @@ CreateIntoRelDestReceiver(IntoClause *intoClause)
 	self->pub.rDestroy = intorel_destroy;
 	self->pub.mydest = DestIntoRel;
 	self->into = intoClause;
-	/* other private fields will be set during intorel_startup */
+	/* 其他私有字段将在 intorel_startup 期间设置 */
 
 	return (DestReceiver *) self;
 }
 
 /*
- * intorel_startup --- executor startup
+ * intorel_startup --- 执行器启动
  */
 static void
 intorel_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
@@ -467,16 +467,16 @@ intorel_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
 	ListCell   *lc;
 	int			attnum;
 
-	Assert(into != NULL);		/* else somebody forgot to set it */
+	Assert(into != NULL);		/* 否则就是有人忘了设置它 */
 
-	/* This code supports both CREATE TABLE AS and CREATE MATERIALIZED VIEW */
+	/* 此代码同时支持 CREATE TABLE AS 和 CREATE MATERIALIZED VIEW */
 	is_matview = (into->viewQuery != NULL);
 
 	/*
-	 * Build column definitions using "pre-cooked" type and collation info. If
-	 * a column name list was specified in CREATE TABLE AS, override the
-	 * column names derived from the query.  (Too few column names are OK, too
-	 * many are not.)
+	 * 使用"预制"的类型和排序规则信息构建列定义。
+	 * 若在 CREATE TABLE AS 中指定了列名列表，就覆盖
+	 * 从查询推导出的列名。（列名过少没问题，
+	 * 过多不行。）
 	 */
 	attrList = NIL;
 	lc = list_head(into->colNames);
@@ -500,10 +500,10 @@ intorel_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
 							attribute->attcollation);
 
 		/*
-		 * It's possible that the column is of a collatable type but the
-		 * collation could not be resolved, so double-check.  (We must check
-		 * this here because DefineRelation would adopt the type's default
-		 * collation rather than complaining.)
+		 * 该列可能属于可排序类型，但排序规则无法
+		 * 解析，所以要复查。（我们必须在这里检查，因为
+		 * DefineRelation 会采用该类型的默认排序规则
+		 * 而不是报错。）
 		 */
 		if (!OidIsValid(col->collOid) &&
 			type_is_collatable(col->typeName->typeOid))
@@ -523,22 +523,22 @@ intorel_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
 				 errmsg("too many column names were specified")));
 
 	/*
-	 * Actually create the target table
+	 * 实际创建目标表
 	 */
 	intoRelationAddr = create_ctas_internal(attrList, into);
 
 	/*
-	 * Finally we can open the target table
+	 * 最后我们可以打开目标表
 	 */
 	intoRelationDesc = table_open(intoRelationAddr.objectId, AccessExclusiveLock);
 
 	/*
-	 * Make sure the constructed table does not have RLS enabled.
+	 * 确保构造出来的表没有启用 RLS。
 	 *
-	 * check_enable_rls() will ereport(ERROR) itself if the user has requested
-	 * something invalid, and otherwise will return RLS_ENABLED if RLS should
-	 * be enabled here.  We don't actually support that currently, so throw
-	 * our own ereport(ERROR) if that happens.
+	 * 若用户请求了无效的东西，check_enable_rls() 会自己
+	 * ereport(ERROR)，否则若应在此启用 RLS 就返回
+	 * RLS_ENABLED。我们目前其实不支持这一点，
+	 * 所以若发生那种情况就抛自己的 ereport(ERROR)。
 	 */
 	if (check_enable_rls(intoRelationAddr.objectId, InvalidOid, false) == RLS_ENABLED)
 		ereport(ERROR,
@@ -546,14 +546,14 @@ intorel_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
 				 errmsg("policies not yet implemented for this command")));
 
 	/*
-	 * Tentatively mark the target as populated, if it's a matview and we're
-	 * going to fill it; otherwise, no change needed.
+	 * 若是物化视图且我们将填充它，就暂时把目标标记
+	 * 为已填充；否则无需更改。
 	 */
 	if (is_matview && !into->skipData)
 		SetMatViewPopulatedState(intoRelationDesc, true);
 
 	/*
-	 * Fill private fields of myState for use by later routines
+	 * 填充 myState 的私有字段，供后续例程使用
 	 */
 	myState->rel = intoRelationDesc;
 	myState->reladdr = intoRelationAddr;
@@ -561,8 +561,8 @@ intorel_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
 	myState->ti_options = TABLE_INSERT_SKIP_FSM;
 
 	/*
-	 * If WITH NO DATA is specified, there is no need to set up the state for
-	 * bulk inserts as there are no tuples to insert.
+	 * 若指定了 WITH NO DATA，就没有必要为批量插入
+	 * 设置状态，因为没有元组要插入。
 	 */
 	if (!into->skipData)
 		myState->bistate = GetBulkInsertState();
@@ -570,30 +570,30 @@ intorel_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
 		myState->bistate = NULL;
 
 	/*
-	 * Valid smgr_targblock implies something already wrote to the relation.
-	 * This may be harmless, but this function hasn't planned for it.
+	 * 有效的 smgr_targblock 意味着已有东西写过该关系。
+	 * 这也许无害，但本函数并未为此做准备。
 	 */
 	Assert(RelationGetTargetBlock(intoRelationDesc) == InvalidBlockNumber);
 }
 
 /*
- * intorel_receive --- receive one tuple
+ * intorel_receive --- 接收一个元组
  */
 static bool
 intorel_receive(TupleTableSlot *slot, DestReceiver *self)
 {
 	DR_intorel *myState = (DR_intorel *) self;
 
-	/* Nothing to insert if WITH NO DATA is specified. */
+	/* 若指定了 WITH NO DATA，就没有要插入的内容。 */
 	if (!myState->into->skipData)
 	{
 		/*
-		 * Note that the input slot might not be of the type of the target
-		 * relation. That's supported by table_tuple_insert(), but slightly
-		 * less efficient than inserting with the right slot - but the
-		 * alternative would be to copy into a slot of the right type, which
-		 * would not be cheap either. This also doesn't allow accessing per-AM
-		 * data (say a tuple's xmin), but since we don't do that here...
+		 * 注意，输入槽的类型可能不同于目标关系的类型。
+		 * table_tuple_insert() 支持这一点，但比用正确的槽
+		 * 插入效率略低——不过另一种做法是复制进类型正确
+		 * 的槽，那也不便宜。这同样不允许访问每个 AM 的
+		 * 数据（比如元组的 xmin），但既然我们在这里
+		 * 不那样做……
 		 */
 		table_tuple_insert(myState->rel,
 						   slot,
@@ -602,13 +602,13 @@ intorel_receive(TupleTableSlot *slot, DestReceiver *self)
 						   myState->bistate);
 	}
 
-	/* We know this is a newly created relation, so there are no indexes */
+	/* 我们知道这是新建的关系，因此没有索引 */
 
 	return true;
 }
 
 /*
- * intorel_shutdown --- executor end
+ * intorel_shutdown --- 执行器结束
  */
 static void
 intorel_shutdown(DestReceiver *self)
@@ -622,13 +622,13 @@ intorel_shutdown(DestReceiver *self)
 		table_finish_bulk_insert(myState->rel, myState->ti_options);
 	}
 
-	/* close rel, but keep lock until commit */
+	/* 关闭 rel，但把锁保留到提交 */
 	table_close(myState->rel, NoLock);
 	myState->rel = NULL;
 }
 
 /*
- * intorel_destroy --- release DestReceiver object
+ * intorel_destroy --- 释放 DestReceiver 对象
  */
 static void
 intorel_destroy(DestReceiver *self)

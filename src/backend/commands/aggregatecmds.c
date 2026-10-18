@@ -2,7 +2,7 @@
  *
  * aggregatecmds.c
  *
- *	  Routines for aggregate-manipulation commands
+ *	  操纵聚合的 SQL 命令的例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -12,11 +12,11 @@
  *	  src/backend/commands/aggregatecmds.c
  *
  * DESCRIPTION
- *	  The "DefineFoo" routines take the parse tree and pick out the
- *	  appropriate arguments/flags, passing the results to the
- *	  corresponding "FooDefine" routines (in src/catalog) that do
- *	  the actual catalog-munging.  These routines also verify permission
- *	  of the user to execute the command.
+ *	  "DefineFoo" 例程取出解析树并挑选出
+ *	  适当的参数/标志，把结果传给相应的
+ *	  "FooDefine" 例程（位于 src/catalog），
+ *	  由后者完成真正的目录修改。这些例程
+ *	  还会校验用户执行该命令的权限。
  *
  *-------------------------------------------------------------------------
  */
@@ -45,13 +45,13 @@ static char extractModify(DefElem *defel);
 /*
  *	DefineAggregate
  *
- * "oldstyle" signals the old (pre-8.2) style where the aggregate input type
- * is specified by a BASETYPE element in the parameters.  Otherwise,
- * "args" is a pair, whose first element is a list of FunctionParameter structs
- * defining the agg's arguments (both direct and aggregated), and whose second
- * element is an Integer node with the number of direct args, or -1 if this
- * isn't an ordered-set aggregate.
- * "parameters" is a list of DefElem representing the agg's definition clauses.
+ * "oldstyle" 表示旧式（8.2 之前）风格：聚合的输入类型
+ * 由参数中的 BASETYPE 元素指定。否则，"args" 是一对，
+ * 其第一个元素是 FunctionParameter 结构体列表，定义
+ * 聚合的参数（直接参数与聚合参数皆含），第二个元素
+ * 是表示直接参数个数的 Integer 节点，若这不是
+ * 有序集聚合则为 -1。
+ * "parameters" 是表示聚合定义子句的 DefElem 列表。
  */
 ObjectAddress
 DefineAggregate(ParseState *pstate,
@@ -101,16 +101,16 @@ DefineAggregate(ParseState *pstate,
 	char		proparallel = PROPARALLEL_UNSAFE;
 	ListCell   *pl;
 
-	/* Convert list of names to a name and namespace */
+	/* 将名称列表转换为名称与命名空间 */
 	aggNamespace = QualifiedNameGetCreationNamespace(name, &aggName);
 
-	/* Check we have creation rights in target namespace */
+	/* 检查我们在目标命名空间中是否有创建权限 */
 	aclresult = object_aclcheck(NamespaceRelationId, aggNamespace, GetUserId(), ACL_CREATE);
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error(aclresult, OBJECT_SCHEMA,
 					   get_namespace_name(aggNamespace));
 
-	/* Deconstruct the output of the aggr_args grammar production */
+	/* 拆解 aggr_args 语法产生式的输出 */
 	if (!oldstyle)
 	{
 		Assert(list_length(args) == 2);
@@ -122,14 +122,14 @@ DefineAggregate(ParseState *pstate,
 		args = linitial_node(List, args);
 	}
 
-	/* Examine aggregate's definition clauses */
+	/* 检查聚合的定义子句 */
 	foreach(pl, parameters)
 	{
 		DefElem    *defel = lfirst_node(DefElem, pl);
 
 		/*
-		 * sfunc1, stype1, and initcond1 are accepted as obsolete spellings
-		 * for sfunc, stype, initcond.
+		 * sfunc1、stype1 与 initcond1 被接受为过时拼写，
+		 * 对应 sfunc、stype、initcond。
 		 */
 		if (strcmp(defel->defname, "sfunc") == 0)
 			transfuncName = defGetQualifiedName(defel);
@@ -198,7 +198,7 @@ DefineAggregate(ParseState *pstate,
 	}
 
 	/*
-	 * make sure we have our required definitions
+	 * 确保我们拥有必需的定义
 	 */
 	if (transType == NULL)
 		ereport(ERROR,
@@ -210,9 +210,9 @@ DefineAggregate(ParseState *pstate,
 				 errmsg("aggregate sfunc must be specified")));
 
 	/*
-	 * if mtransType is given, mtransfuncName and minvtransfuncName must be as
-	 * well; if not, then none of the moving-aggregate options should have
-	 * been given.
+	 * 若给出了 mtransType，则 mtransfuncName 与
+	 * minvtransfuncName 也必须给出；若没有，则任何
+	 * 移动聚合选项都不应被给出。
 	 */
 	if (mtransType != NULL)
 	{
@@ -250,8 +250,8 @@ DefineAggregate(ParseState *pstate,
 	}
 
 	/*
-	 * Default values for modify flags can only be determined once we know the
-	 * aggKind.
+	 * 只有知道 aggKind 后才能确定
+	 * modify 标志的默认值。
 	 */
 	if (finalfuncModify == 0)
 		finalfuncModify = (aggKind == AGGKIND_NORMAL) ? AGGMODIFY_READ_ONLY : AGGMODIFY_READ_WRITE;
@@ -259,16 +259,16 @@ DefineAggregate(ParseState *pstate,
 		mfinalfuncModify = (aggKind == AGGKIND_NORMAL) ? AGGMODIFY_READ_ONLY : AGGMODIFY_READ_WRITE;
 
 	/*
-	 * look up the aggregate's input datatype(s).
+	 * 查找聚合的输入数据类型。
 	 */
 	if (oldstyle)
 	{
 		/*
-		 * Old style: use basetype parameter.  This supports aggregates of
-		 * zero or one input, with input type ANY meaning zero inputs.
+		 * 旧式：使用 basetype 参数。这支持零个或一个输入的聚合，
+		 * 输入类型 ANY 表示零个输入。
 		 *
-		 * Historically we allowed the command to look like basetype = 'ANY'
-		 * so we must do a case-insensitive comparison for the name ANY. Ugh.
+		 * 历史上我们允许命令看起来像 basetype = 'ANY'，
+		 * 因此必须对名称 ANY 做大小写不敏感的比较。唉。
 		 */
 		Oid			aggArgTypes[1];
 
@@ -297,8 +297,8 @@ DefineAggregate(ParseState *pstate,
 	else
 	{
 		/*
-		 * New style: args is a list of FunctionParameters (possibly zero of
-		 * 'em).  We share functioncmds.c's code for processing them.
+		 * 新式：args 是 FunctionParameters 列表（可能为零个）。
+		 * 我们共用 functioncmds.c 的代码来处理它们。
 		 */
 		Oid			requiredResultType;
 
@@ -321,22 +321,22 @@ DefineAggregate(ParseState *pstate,
 										  &parameterDefaults,
 										  &variadicArgType,
 										  &requiredResultType);
-		/* Parameter defaults are not currently allowed by the grammar */
+		/* 语法目前不允许参数默认值 */
 		Assert(parameterDefaults == NIL);
-		/* There shouldn't have been any OUT parameters, either */
+		/* 也不应该有任何 OUT 参数 */
 		Assert(requiredResultType == InvalidOid);
 	}
 
 	/*
-	 * look up the aggregate's transtype.
+	 * 查找聚合的 transtype。
 	 *
-	 * transtype can't be a pseudo-type, since we need to be able to store
-	 * values of the transtype.  However, we can allow polymorphic transtype
-	 * in some cases (AggregateCreate will check).  Also, we allow "internal"
-	 * for functions that want to pass pointers to private data structures;
-	 * but allow that only to superusers, since you could crash the system (or
-	 * worse) by connecting up incompatible internal-using functions in an
-	 * aggregate.
+	 * transtype 不能是伪类型，因为我们需要能够
+	 * 存储 transtype 类型的值。但在某些情况下可以
+	 * 允许多态 transtype（AggregateCreate 会检查）。
+	 * 另外，对于想要传递指向私有数据结构指针的函数，
+	 * 我们允许 "internal"；但只对超级用户开放，因为把
+	 * 不兼容的使用 internal 类型的函数连接到聚合中，
+	 * 可能让系统崩溃（或更糟）。
 	 */
 	transTypeId = typenameTypeId(NULL, transType);
 	transTypeType = get_typtype(transTypeId);
@@ -344,7 +344,7 @@ DefineAggregate(ParseState *pstate,
 		!IsPolymorphicType(transTypeId))
 	{
 		if (transTypeId == INTERNALOID && superuser())
-			 /* okay */ ;
+			 /* 可以 */ ;
 		else
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
@@ -355,7 +355,7 @@ DefineAggregate(ParseState *pstate,
 	if (serialfuncName && deserialfuncName)
 	{
 		/*
-		 * Serialization is only needed/allowed for transtype INTERNAL.
+		 * 序列化仅对 INTERNAL 类型的 transtype 需要/允许。
 		 */
 		if (transTypeId != INTERNALOID)
 			ereport(ERROR,
@@ -366,7 +366,7 @@ DefineAggregate(ParseState *pstate,
 	else if (serialfuncName || deserialfuncName)
 	{
 		/*
-		 * Cannot specify one function without the other.
+		 * 无法只指定其中一个函数而不指定另一个。
 		 */
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
@@ -374,8 +374,8 @@ DefineAggregate(ParseState *pstate,
 	}
 
 	/*
-	 * If a moving-aggregate transtype is specified, look that up.  Same
-	 * restrictions as for transtype.
+	 * 若指定了移动聚合的 transtype，就查找它。
+	 * 限制与 transtype 相同。
 	 */
 	if (mtransType)
 	{
@@ -385,7 +385,7 @@ DefineAggregate(ParseState *pstate,
 			!IsPolymorphicType(mtransTypeId))
 		{
 			if (mtransTypeId == INTERNALOID && superuser())
-				 /* okay */ ;
+				 /* 可以 */ ;
 			else
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
@@ -395,13 +395,13 @@ DefineAggregate(ParseState *pstate,
 	}
 
 	/*
-	 * If we have an initval, and it's not for a pseudotype (particularly a
-	 * polymorphic type), make sure it's acceptable to the type's input
-	 * function.  We will store the initval as text, because the input
-	 * function isn't necessarily immutable (consider "now" for timestamp),
-	 * and we want to use the runtime not creation-time interpretation of the
-	 * value.  However, if it's an incorrect value it seems much more
-	 * user-friendly to complain at CREATE AGGREGATE time.
+	 * 若我们有 initval，且它不用于伪类型
+	 * （尤其是多态类型），确保它能为该类型的
+	 * 输入函数接受。我们会把 initval 存为文本，
+	 * 因为输入函数未必不可变（想想 timestamp 的
+	 * "now"），而且我们希望使用值的运行时解释
+	 * 而非创建时解释。不过，若值不正确，在
+	 * CREATE AGGREGATE 时就报错似乎更友好。
 	 */
 	if (initval && transTypeType != TYPTYPE_PSEUDO)
 	{
@@ -413,7 +413,7 @@ DefineAggregate(ParseState *pstate,
 	}
 
 	/*
-	 * Likewise for moving-aggregate initval.
+	 * 移动聚合的 initval 同理。
 	 */
 	if (minitval && mtransTypeType != TYPTYPE_PSEUDO)
 	{
@@ -439,10 +439,10 @@ DefineAggregate(ParseState *pstate,
 	}
 
 	/*
-	 * Most of the argument-checking is done inside of AggregateCreate
+	 * 大部分参数检查在 AggregateCreate 内部完成
 	 */
-	return AggregateCreate(aggName, /* aggregate name */
-						   aggNamespace,	/* namespace */
+	return AggregateCreate(aggName, /* 聚合名 */
+						   aggNamespace,	/* 命名空间 */
 						   replace,
 						   aggKind,
 						   numArgs,
@@ -453,30 +453,30 @@ DefineAggregate(ParseState *pstate,
 						   PointerGetDatum(parameterNames),
 						   parameterDefaults,
 						   variadicArgType,
-						   transfuncName,	/* step function name */
-						   finalfuncName,	/* final function name */
-						   combinefuncName, /* combine function name */
-						   serialfuncName,	/* serial function name */
-						   deserialfuncName,	/* deserial function name */
-						   mtransfuncName,	/* fwd trans function name */
-						   minvtransfuncName,	/* inv trans function name */
-						   mfinalfuncName,	/* final function name */
+						   transfuncName,	/* 转移函数名 */
+						   finalfuncName,	/* 最终函数名 */
+						   combinefuncName, /* 组合函数名 */
+						   serialfuncName,	/* 序列化函数名 */
+						   deserialfuncName,	/* 反序列化函数名 */
+						   mtransfuncName,	/* 正向转移函数名 */
+						   minvtransfuncName,	/* 逆向转移函数名 */
+						   mfinalfuncName,	/* 最终函数名 */
 						   finalfuncExtraArgs,
 						   mfinalfuncExtraArgs,
 						   finalfuncModify,
 						   mfinalfuncModify,
-						   sortoperatorName,	/* sort operator name */
-						   transTypeId, /* transition data type */
-						   transSpace,	/* transition space */
-						   mtransTypeId,	/* transition data type */
-						   mtransSpace, /* transition space */
-						   initval, /* initial condition */
-						   minitval,	/* initial condition */
-						   proparallel);	/* parallel safe? */
+						   sortoperatorName,	/* 排序操作符名 */
+						   transTypeId, /* 转移数据类型 */
+						   transSpace,	/* 转移空间 */
+						   mtransTypeId,	/* 转移数据类型 */
+						   mtransSpace, /* 转移空间 */
+						   initval, /* 初始条件 */
+						   minitval,	/* 初始条件 */
+						   proparallel);	/* 并行安全？ */
 }
 
 /*
- * Convert the string form of [m]finalfunc_modify to the catalog representation
+ * 把 [m]finalfunc_modify 的字符串形式转换为目录表示
  */
 static char
 extractModify(DefElem *defel)
@@ -493,5 +493,5 @@ extractModify(DefElem *defel)
 			(errcode(ERRCODE_SYNTAX_ERROR),
 			 errmsg("parameter \"%s\" must be READ_ONLY, SHAREABLE, or READ_WRITE",
 					defel->defname)));
-	return 0;					/* keep compiler quiet */
+	return 0;					/* 让编译器安静 */
 }

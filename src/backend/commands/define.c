@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * define.c
- *	  Support routines for various kinds of object creation.
+ *	  各种对象创建的辅助例程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -12,20 +12,20 @@
  *	  src/backend/commands/define.c
  *
  * DESCRIPTION
- *	  The "DefineFoo" routines take the parse tree and pick out the
- *	  appropriate arguments/flags, passing the results to the
- *	  corresponding "FooDefine" routines (in src/catalog) that do
- *	  the actual catalog-munging.  These routines also verify permission
- *	  of the user to execute the command.
+ *	  "DefineFoo" 例程取出解析树并挑选出
+ *	  适当的参数/标志，把结果传给相应的
+ *	  "FooDefine" 例程（位于 src/catalog），
+ *	  由后者完成真正的目录修改。这些例程
+ *	  还会校验用户执行该命令的权限。
  *
  * NOTES
- *	  These things must be defined and committed in the following order:
- *		"create function":
- *				input/output, recv/send procedures
- *		"create type":
- *				type
- *		"create operator":
- *				operators
+ *	  这些东西必须按如下顺序定义和提交：
+ *		"create function"：
+ *			输入/输出、recv/send 过程
+ *		"create type"：
+ *			类型
+ *		"create operator"：
+ *			操作符
  *
  *
  *-------------------------------------------------------------------------
@@ -43,7 +43,7 @@
 #include "utils/builtins.h"
 
 /*
- * Extract a string value (otherwise uninterpreted) from a DefElem.
+ * 从 DefElem 中提取字符串值（否则不解释）。
  */
 char *
 defGetString(DefElem *def)
@@ -72,11 +72,11 @@ defGetString(DefElem *def)
 		default:
 			elog(ERROR, "unrecognized node type: %d", (int) nodeTag(def->arg));
 	}
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 让编译器安静 */
 }
 
 /*
- * Extract a numeric value (actually double) from a DefElem.
+ * 从 DefElem 中提取数值（实际上是 double）。
  */
 double
 defGetNumeric(DefElem *def)
@@ -98,23 +98,23 @@ defGetNumeric(DefElem *def)
 					 errmsg("%s requires a numeric value",
 							def->defname)));
 	}
-	return 0;					/* keep compiler quiet */
+	return 0;					/* 让编译器安静 */
 }
 
 /*
- * Extract a boolean value from a DefElem.
+ * 从 DefElem 中提取布尔值。
  */
 bool
 defGetBoolean(DefElem *def)
 {
 	/*
-	 * If no parameter value given, assume "true" is meant.
+	 * 若未给出参数值，就假定意思是 "true"。
 	 */
 	if (def->arg == NULL)
 		return true;
 
 	/*
-	 * Allow 0, 1, "true", "false", "on", "off"
+	 * 允许 0、1、"true"、"false"、"on"、"off"
 	 */
 	switch (nodeTag(def->arg))
 	{
@@ -126,7 +126,7 @@ defGetBoolean(DefElem *def)
 				case 1:
 					return true;
 				default:
-					/* otherwise, error out below */
+					/* 否则，在下面报错 */
 					break;
 			}
 			break;
@@ -135,8 +135,8 @@ defGetBoolean(DefElem *def)
 				char	   *sval = defGetString(def);
 
 				/*
-				 * The set of strings accepted here should match up with the
-				 * grammar's opt_boolean_or_string production.
+				 * 这里接受的字符串集合应当与语法的
+				 * opt_boolean_or_string 产生式相匹配。
 				 */
 				if (pg_strcasecmp(sval, "true") == 0)
 					return true;
@@ -153,11 +153,11 @@ defGetBoolean(DefElem *def)
 			(errcode(ERRCODE_SYNTAX_ERROR),
 			 errmsg("%s requires a Boolean value",
 					def->defname)));
-	return false;				/* keep compiler quiet */
+	return false;				/* 让编译器安静 */
 }
 
 /*
- * Extract an int32 value from a DefElem.
+ * 从 DefElem 中提取 int32 值。
  */
 int32
 defGetInt32(DefElem *def)
@@ -177,11 +177,11 @@ defGetInt32(DefElem *def)
 					 errmsg("%s requires an integer value",
 							def->defname)));
 	}
-	return 0;					/* keep compiler quiet */
+	return 0;					/* 让编译器安静 */
 }
 
 /*
- * Extract an int64 value from a DefElem.
+ * 从 DefElem 中提取 int64 值。
  */
 int64
 defGetInt64(DefElem *def)
@@ -198,9 +198,9 @@ defGetInt64(DefElem *def)
 		case T_Float:
 
 			/*
-			 * Values too large for int4 will be represented as Float
-			 * constants by the lexer.  Accept these if they are valid int8
-			 * strings.
+			 * 对 int4 来说太大的值会被词法器表示为
+			 * Float 常量。若它们是合法的 int8
+			 * 字符串就接受。
 			 */
 			return DatumGetInt64(DirectFunctionCall1(int8in,
 													 CStringGetDatum(castNode(Float, def->arg)->fval)));
@@ -210,11 +210,11 @@ defGetInt64(DefElem *def)
 					 errmsg("%s requires a numeric value",
 							def->defname)));
 	}
-	return 0;					/* keep compiler quiet */
+	return 0;					/* 让编译器安静 */
 }
 
 /*
- * Extract an OID value from a DefElem.
+ * 从 DefElem 中提取 OID 值。
  */
 Oid
 defGetObjectId(DefElem *def)
@@ -231,9 +231,9 @@ defGetObjectId(DefElem *def)
 		case T_Float:
 
 			/*
-			 * Values too large for int4 will be represented as Float
-			 * constants by the lexer.  Accept these if they are valid OID
-			 * strings.
+			 * 对 int4 来说太大的值会被词法器表示为
+			 * Float 常量。若它们是合法的 OID
+			 * 字符串就接受。
 			 */
 			return DatumGetObjectId(DirectFunctionCall1(oidin,
 														CStringGetDatum(castNode(Float, def->arg)->fval)));
@@ -243,11 +243,11 @@ defGetObjectId(DefElem *def)
 					 errmsg("%s requires a numeric value",
 							def->defname)));
 	}
-	return 0;					/* keep compiler quiet */
+	return 0;					/* 让编译器安静 */
 }
 
 /*
- * Extract a possibly-qualified name (as a List of Strings) from a DefElem.
+ * 从 DefElem 中提取可能限定的名称（作为 String 的 List）。
  */
 List *
 defGetQualifiedName(DefElem *def)
@@ -264,7 +264,7 @@ defGetQualifiedName(DefElem *def)
 		case T_List:
 			return (List *) def->arg;
 		case T_String:
-			/* Allow quoted name for backwards compatibility */
+			/* 为向后兼容允许带引号的名称 */
 			return list_make1(def->arg);
 		default:
 			ereport(ERROR,
@@ -272,14 +272,14 @@ defGetQualifiedName(DefElem *def)
 					 errmsg("argument of %s must be a name",
 							def->defname)));
 	}
-	return NIL;					/* keep compiler quiet */
+	return NIL;					/* 让编译器安静 */
 }
 
 /*
- * Extract a TypeName from a DefElem.
+ * 从 DefElem 中提取 TypeName。
  *
- * Note: we do not accept a List arg here, because the parser will only
- * return a bare List when the name looks like an operator name.
+ * 注意：这里不接受 List 参数，因为只有名称看起来像
+ * 操作符名时解析器才会返回裸 List。
  */
 TypeName *
 defGetTypeName(DefElem *def)
@@ -294,7 +294,7 @@ defGetTypeName(DefElem *def)
 		case T_TypeName:
 			return (TypeName *) def->arg;
 		case T_String:
-			/* Allow quoted typename for backwards compatibility */
+			/* 为向后兼容允许带引号的类型名 */
 			return makeTypeNameFromNameList(list_make1(def->arg));
 		default:
 			ereport(ERROR,
@@ -302,12 +302,12 @@ defGetTypeName(DefElem *def)
 					 errmsg("argument of %s must be a type name",
 							def->defname)));
 	}
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 让编译器安静 */
 }
 
 /*
- * Extract a type length indicator (either absolute bytes, or
- * -1 for "variable") from a DefElem.
+ * 从 DefElem 中提取类型长度指示符（要么是绝对字节数，
+ * 要么是表示 "variable" 的 -1）。
  */
 int
 defGetTypeLength(DefElem *def)
@@ -329,16 +329,16 @@ defGetTypeLength(DefElem *def)
 			break;
 		case T_String:
 			if (pg_strcasecmp(strVal(def->arg), "variable") == 0)
-				return -1;		/* variable length */
+				return -1;		/* 可变长度 */
 			break;
 		case T_TypeName:
-			/* cope if grammar chooses to believe "variable" is a typename */
+			/* 应对语法选择相信 "variable" 是类型名的情况 */
 			if (pg_strcasecmp(TypeNameToString((TypeName *) def->arg),
 							  "variable") == 0)
-				return -1;		/* variable length */
+				return -1;		/* 可变长度 */
 			break;
 		case T_List:
-			/* must be an operator name */
+			/* 一定是操作符名 */
 			break;
 		default:
 			elog(ERROR, "unrecognized node type: %d", (int) nodeTag(def->arg));
@@ -347,11 +347,11 @@ defGetTypeLength(DefElem *def)
 			(errcode(ERRCODE_SYNTAX_ERROR),
 			 errmsg("invalid argument for %s: \"%s\"",
 					def->defname, defGetString(def))));
-	return 0;					/* keep compiler quiet */
+	return 0;					/* 让编译器安静 */
 }
 
 /*
- * Extract a list of string values (otherwise uninterpreted) from a DefElem.
+ * 从 DefElem 中提取字符串值列表（否则不解释）。
  */
 List *
 defGetStringList(DefElem *def)
@@ -379,7 +379,7 @@ defGetStringList(DefElem *def)
 }
 
 /*
- * Raise an error about a conflicting DefElem.
+ * 就冲突的 DefElem 抛出错误。
  */
 void
 errorConflictingDefElem(DefElem *defel, ParseState *pstate)

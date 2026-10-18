@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "batch_id": "0222-comment-commands-part1",
+  "title": "zh: translate commands comments (part 1)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "74c06135356c51b863bc9173831fcbcf22d5bb9d",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/commands/discard.c",
+      "kind": "c_comment",
+      "note": "DISCARD command implementation"
+    },
+    {
+      "pattern": "src/backend/commands/conversioncmds.c",
+      "kind": "c_comment",
+      "note": "conversion creation command support"
+    },
+    {
+      "pattern": "src/backend/commands/constraint.c",
+      "kind": "c_comment",
+      "note": "unique_key_recheck deferred uniqueness/exclusion trigger"
+    },
+    {
+      "pattern": "src/backend/commands/amcmds.c",
+      "kind": "c_comment",
+      "note": "access-method SQL commands and AM OID/name lookups"
+    },
+    {
+      "pattern": "src/backend/commands/proclang.c",
+      "kind": "c_comment",
+      "note": "procedural-language creation and get_language_oid"
+    },
+    {
+      "pattern": "src/backend/commands/lockcmds.c",
+      "kind": "c_comment",
+      "note": "LOCK TABLE command support"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0222-comment-commands-part1.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/commands/discard.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 4,
+      "translated": 3,
+      "preserved": 1,
+      "preserved_reasons": [
+        "SQL command syntax synopsis"
+      ],
+      "note": "DISCARD command implementation; 1 DISCARD syntax synopsis comment kept in English; Copyright and IDENTIFICATION lines stay in English"
+    },
+    {
+      "path": "src/backend/commands/conversioncmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 12,
+      "translated": 11,
+      "preserved": 1,
+      "preserved_reasons": [
+        "SQL command-name section banner"
+      ],
+      "note": "conversion creation command support; 1 CREATE CONVERSION command-name banner kept in English; Copyright and IDENTIFICATION lines stay in English"
+    },
+    {
+      "path": "src/backend/commands/constraint.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 14,
+      "translated": 14,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "unique_key_recheck deferred uniqueness/exclusion trigger; Copyright and IDENTIFICATION lines stay in English"
+    },
+    {
+      "path": "src/backend/commands/amcmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 18,
+      "translated": 18,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "access-method SQL commands and AM OID/name lookups; Copyright and IDENTIFICATION lines stay in English"
+    },
+    {
+      "path": "src/backend/commands/proclang.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 24,
+      "translated": 23,
+      "preserved": 1,
+      "preserved_reasons": [
+        "SQL command-name section banner"
+      ],
+      "note": "procedural-language creation and get_language_oid; 1 CREATE LANGUAGE command-name banner kept in English; Copyright and IDENTIFICATION lines stay in English"
+    },
+    {
+      "path": "src/backend/commands/lockcmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 31,
+      "translated": 30,
+      "preserved": 1,
+      "preserved_reasons": [
+        "SQL command-name section banner"
+      ],
+      "note": "LOCK TABLE command support; 1 LOCK TABLE command-name banner kept in English; Copyright and IDENTIFICATION lines stay in English"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0222-comment-commands-part1.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "notes": "Batch 0222 translates comments in six small src/backend/commands/ .c files (part 1): discard.c, conversioncmds.c, constraint.c, amcmds.c, proclang.c, lockcmds.c. 4 comments stay in English: the DISCARD command syntax synopsis in discard.c and the SQL command-name section banners CREATE CONVERSION (conversioncmds.c), CREATE LANGUAGE (proclang.c) and LOCK TABLE (lockcmds.c); Copyright and IDENTIFICATION lines stay in English."
+}

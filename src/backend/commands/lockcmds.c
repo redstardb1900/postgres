@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * lockcmds.c
- *	  LOCK command support code
+ *	  LOCK 命令支持代码
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -44,7 +44,7 @@ LockTableCommand(LockStmt *lockstmt)
 	ListCell   *p;
 
 	/*
-	 * Iterate over the list and process the named relations one at a time
+	 * 遍历该列表，一次处理一个被命名的关系
 	 */
 	foreach(p, lockstmt->relations)
 	{
@@ -65,8 +65,8 @@ LockTableCommand(LockStmt *lockstmt)
 }
 
 /*
- * Before acquiring a table lock on the named table, check whether we have
- * permission to do so.
+ * 在获取被命名表的表锁之前，检查我们是否
+ * 有权这样做。
  */
 static void
 RangeVarCallbackForLockTable(const RangeVar *rv, Oid relid, Oid oldrelid,
@@ -78,13 +78,13 @@ RangeVarCallbackForLockTable(const RangeVar *rv, Oid relid, Oid oldrelid,
 	AclResult	aclresult;
 
 	if (!OidIsValid(relid))
-		return;					/* doesn't exist, so no permissions check */
+		return;					/* 不存在，因此无需权限检查 */
 	relkind = get_rel_relkind(relid);
 	if (!relkind)
-		return;					/* woops, concurrently dropped; no permissions
-								 * check */
+		return;					/* 糟糕，关系已被并发删除；无需权限
+								 * 检查 */
 
-	/* Currently, we only allow plain tables or views to be locked */
+	/* 目前，我们只允许锁定普通表或视图 */
 	if (relkind != RELKIND_RELATION && relkind != RELKIND_PARTITIONED_TABLE &&
 		relkind != RELKIND_VIEW)
 		ereport(ERROR,
@@ -94,25 +94,25 @@ RangeVarCallbackForLockTable(const RangeVar *rv, Oid relid, Oid oldrelid,
 				 errdetail_relkind_not_supported(relkind)));
 
 	/*
-	 * Make note if a temporary relation has been accessed in this
-	 * transaction.
+	 * 如果在此事务中访问了临时关系，
+	 * 则做记录。
 	 */
 	relpersistence = get_rel_persistence(relid);
 	if (relpersistence == RELPERSISTENCE_TEMP)
 		MyXactFlags |= XACT_FLAGS_ACCESSEDTEMPNAMESPACE;
 
-	/* Check permissions. */
+	/* 检查权限。 */
 	aclresult = LockTableAclCheck(relid, lockmode, GetUserId());
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error(aclresult, get_relkind_objtype(get_rel_relkind(relid)), rv->relname);
 }
 
 /*
- * Apply LOCK TABLE recursively over an inheritance tree
+ * 在继承树上递归应用 LOCK TABLE
  *
- * This doesn't check permission to perform LOCK TABLE on the child tables,
- * because getting here means that the user has permission to lock the
- * parent which is enough.
+ * 这不会检查对子表执行 LOCK TABLE 的权限，
+ * 因为能走到这里意味着用户有权限锁定
+ * 父表，而这已经足够了。
  */
 static void
 LockTableRecurse(Oid reloid, LOCKMODE lockmode, bool nowait)
@@ -126,7 +126,7 @@ LockTableRecurse(Oid reloid, LOCKMODE lockmode, bool nowait)
 	{
 		Oid			childreloid = lfirst_oid(lc);
 
-		/* Parent already locked. */
+		/* 父表已锁定。 */
 		if (childreloid == reloid)
 			continue;
 
@@ -134,11 +134,11 @@ LockTableRecurse(Oid reloid, LOCKMODE lockmode, bool nowait)
 			LockRelationOid(childreloid, lockmode);
 		else if (!ConditionalLockRelationOid(childreloid, lockmode))
 		{
-			/* try to throw error by name; relation could be deleted... */
+			/* 尝试按名称抛出错误；关系可能已被删除... */
 			char	   *relname = get_rel_name(childreloid);
 
 			if (!relname)
-				continue;		/* child concurrently dropped, just skip it */
+				continue;		/* 子关系已被并发删除，直接跳过它 */
 			ereport(ERROR,
 					(errcode(ERRCODE_LOCK_NOT_AVAILABLE),
 					 errmsg("could not obtain lock on relation \"%s\"",
@@ -146,12 +146,12 @@ LockTableRecurse(Oid reloid, LOCKMODE lockmode, bool nowait)
 		}
 
 		/*
-		 * Even if we got the lock, child might have been concurrently
-		 * dropped. If so, we can skip it.
+		 * 即使我们获取了锁，子关系也可能已被并发
+		 * 删除。如果是这样，我们可以跳过它。
 		 */
 		if (!SearchSysCacheExists1(RELOID, ObjectIdGetDatum(childreloid)))
 		{
-			/* Release useless lock */
+			/* 释放无用的锁 */
 			UnlockRelationOid(childreloid, lockmode);
 			continue;
 		}
@@ -159,19 +159,19 @@ LockTableRecurse(Oid reloid, LOCKMODE lockmode, bool nowait)
 }
 
 /*
- * Apply LOCK TABLE recursively over a view
+ * 在视图上递归应用 LOCK TABLE
  *
- * All tables and views appearing in the view definition query are locked
- * recursively with the same lock mode.
+ * 视图定义查询中出现的所有表和视图都会以相同的锁模式
+ * 被递归锁定。
  */
 
 typedef struct
 {
-	LOCKMODE	lockmode;		/* lock mode to use */
-	bool		nowait;			/* no wait mode */
-	Oid			check_as_user;	/* user for checking the privilege */
-	Oid			viewoid;		/* OID of the view to be locked */
-	List	   *ancestor_views; /* OIDs of ancestor views */
+	LOCKMODE	lockmode;		/* 要使用的锁模式 */
+	bool		nowait;			/* 无等待模式 */
+	Oid			check_as_user;	/* 用于检查权限的用户 */
+	Oid			viewoid;		/* 要锁定的视图的 OID */
+	List	   *ancestor_views; /* 祖先视图的 OIDs */
 } LockViewRecurse_context;
 
 static bool
@@ -194,28 +194,28 @@ LockViewRecurse_walker(Node *node, LockViewRecurse_context *context)
 			char		relkind = rte->relkind;
 			char	   *relname = get_rel_name(relid);
 
-			/* Currently, we only allow plain tables or views to be locked. */
+			/* 目前，我们只允许锁定普通表或视图。 */
 			if (relkind != RELKIND_RELATION && relkind != RELKIND_PARTITIONED_TABLE &&
 				relkind != RELKIND_VIEW)
 				continue;
 
 			/*
-			 * We might be dealing with a self-referential view.  If so, we
-			 * can just stop recursing, since we already locked it.
+			 * 我们可能正在处理一个自引用视图。如果是这样，
+			 * 我们只需停止递归，因为我们已经锁定了它。
 			 */
 			if (list_member_oid(context->ancestor_views, relid))
 				continue;
 
 			/*
-			 * Check permissions as the specified user.  This will either be
-			 * the view owner or the current user.
+			 * 以指定用户的身份检查权限。该用户要么是
+			 * 视图所有者，要么是当前用户。
 			 */
 			aclresult = LockTableAclCheck(relid, context->lockmode,
 										  context->check_as_user);
 			if (aclresult != ACLCHECK_OK)
 				aclcheck_error(aclresult, get_relkind_objtype(relkind), relname);
 
-			/* We have enough rights to lock the relation; do so. */
+			/* 我们有足够的权限锁定该关系；执行锁定。 */
 			if (!context->nowait)
 				LockRelationOid(relid, context->lockmode);
 			else if (!ConditionalLockRelationOid(relid, context->lockmode))
@@ -250,13 +250,13 @@ LockViewRecurse(Oid reloid, LOCKMODE lockmode, bool nowait,
 	Relation	view;
 	Query	   *viewquery;
 
-	/* caller has already locked the view */
+	/* 调用方已经锁定了该视图 */
 	view = table_open(reloid, NoLock);
 	viewquery = get_view_query(view);
 
 	/*
-	 * If the view has the security_invoker property set, check permissions as
-	 * the current user.  Otherwise, check permissions as the view owner.
+	 * 如果视图设置了 security_invoker 属性，则以当前用户的身份
+	 * 检查权限。否则，以视图所有者的身份检查权限。
 	 */
 	context.lockmode = lockmode;
 	context.nowait = nowait;
@@ -275,7 +275,7 @@ LockViewRecurse(Oid reloid, LOCKMODE lockmode, bool nowait,
 }
 
 /*
- * Check whether the current user is permitted to lock this relation.
+ * 检查当前用户是否被允许锁定该关系。
  */
 static AclResult
 LockTableAclCheck(Oid reloid, LOCKMODE lockmode, Oid userid)
@@ -283,14 +283,14 @@ LockTableAclCheck(Oid reloid, LOCKMODE lockmode, Oid userid)
 	AclResult	aclresult;
 	AclMode		aclmask;
 
-	/* any of these privileges permit any lock mode */
+	/* 这些权限中的任何一个都允许任意锁模式 */
 	aclmask = ACL_UPDATE | ACL_DELETE | ACL_TRUNCATE;
 
-	/* SELECT privileges also permit ACCESS SHARE and below */
+	/* SELECT 权限还允许 ACCESS SHARE 及以下级别的锁模式 */
 	if (lockmode <= AccessShareLock)
 		aclmask |= ACL_SELECT;
 
-	/* INSERT privileges also permit ROW EXCLUSIVE and below */
+	/* INSERT 权限还允许 ROW EXCLUSIVE 及以下级别的锁模式 */
 	if (lockmode <= RowExclusiveLock)
 		aclmask |= ACL_INSERT;
 

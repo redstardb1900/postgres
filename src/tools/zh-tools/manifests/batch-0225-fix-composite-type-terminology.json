@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "batch_id": "0225-fix-composite-type-terminology",
+  "title": "zh: fix composite type terminology in commands comments",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "56108b6dca245bbc51156aebb8a556a0a09251c7",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/commands/comment.c",
+      "kind": "c_comment",
+      "note": "fix composite type terminology (组合类型 → 复合类型)"
+    },
+    {
+      "pattern": "src/backend/commands/view.c",
+      "kind": "c_comment",
+      "note": "fix composite type terminology (组合类型 → 复合类型)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0225-fix-composite-type-terminology.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/commands/comment.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 36,
+      "translated": 36,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "terminology fix within one translated comment: composite types 组合类型 → 复合类型 (pgnls T0096); line count unchanged"
+    },
+    {
+      "path": "src/backend/commands/view.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 47,
+      "translated": 47,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "terminology fix within one translated comment: associated composite type 组合类型 → 复合类型 (pgnls T0096); line count unchanged"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0225-fix-composite-type-terminology.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "notes": "Batch 0225 fixes terminology in two comments introduced by batch 0223: composite type(s) rendered as 组合类型 in comment.c (Allow comments only on columns of tables, views, materialized views, composite types, and foreign tables) and view.c (Most view-level dependency relationships, such as those on the owner, schema, and associated composite type). The correct term per the pgnls glossary decision T0096 (composite type → 复合类型) is 复合类型, already used by 17 translated files in the tree. Both changes are single-line in-comment replacements; comment line counts and all code remain unchanged."
+}

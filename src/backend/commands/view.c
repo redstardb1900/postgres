@@ -206,7 +206,7 @@ DefineVirtualRelation(RangeVar *relation, List *tlist, bool replace,
 		/*
 		 * 这里要更新视图依赖的地方非常少。大多数
 		 * 视图级依赖关系，比如与所有者、模式和关联
-		 * 组合类型的关系，都不会改变。因为我们不允许
+		 * 复合类型的关系，都不会改变。因为我们不允许
 		 * 改变现有视图列的类型或排序规则，现有列
 		 * 的那些依赖也不会改变，而 AT_AddColumnToView
 		 * 机制已负责为新视图列添加此类依赖。视图

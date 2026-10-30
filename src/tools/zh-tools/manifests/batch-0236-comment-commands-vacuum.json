@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "batch_id": "0236-comment-commands-vacuum",
+  "title": "zh: translate commands comments — vacuum",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "79083e0f70165c92ed133cb7b9f1ecdeb6be8bf1",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/commands/vacuum.c",
+      "kind": "c_comment",
+      "note": "VACUUM command implementation"
+    },
+    {
+      "pattern": "src/backend/commands/vacuumparallel.c",
+      "kind": "c_comment",
+      "note": "parallel VACUUM worker implementation"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0236-comment-commands-vacuum.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/commands/vacuum.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 208,
+      "translated": 207,
+      "preserved": 1,
+      "preserved_reasons": ["Copyright header and IDENTIFICATION"],
+      "note": "VACUUM command; 2643 lines; cluster→数据库集簇 fix applied"
+    },
+    {
+      "path": "src/backend/commands/vacuumparallel.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 123,
+      "translated": 122,
+      "preserved": 1,
+      "preserved_reasons": ["Copyright header and IDENTIFICATION"],
+      "note": "parallel VACUUM; 1091 lines"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0236-comment-commands-vacuum.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "segments_total": 331,
+  "translated": 329,
+  "preserved": 2,
+  "notes": "Batch 0236: vacuum.c (208 segments, 207 translated), vacuumparallel.c (123 segments, 122 translated). 0 violations verify_c_comments.py, 0 error hits term_lint (after cluster→数据库集簇 fix)."
+}

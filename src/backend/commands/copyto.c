@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * copyto.c
- *		COPY <table> TO file/program/client
+ *		COPY <表> TO 文件/程序/客户端
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -44,30 +44,30 @@
 #include "utils/snapmgr.h"
 
 /*
- * Represents the different dest cases we need to worry about at
- * the bottom level
+ * 表示我们在底层需要关注的不同目标场景
+ *
  */
 typedef enum CopyDest
 {
-	COPY_FILE,					/* to file (or a piped program) */
-	COPY_FRONTEND,				/* to frontend */
-	COPY_CALLBACK				/* to callback function */
+	COPY_FILE,					/* 到文件（或管道程序） */
+	COPY_FRONTEND,				/* 到前端 */
+	COPY_CALLBACK				/* 到回调函数 */
 } CopyDest;
 
 /*
- * This struct contains all the state variables used throughout a COPY TO
- * operation.
+ * 此结构包含整个 COPY TO 操作中使用的所有状态变量。
  *
- * Multi-byte encodings: all supported client-side encodings encode multi-byte
- * characters by having the first byte's high bit set. Subsequent bytes of the
- * character can have the high bit not set. When scanning data in such an
- * encoding to look for a match to a single-byte (ie ASCII) character, we must
- * use the full pg_encoding_mblen() machinery to skip over multibyte
- * characters, else we might find a false match to a trailing byte. In
- * supported server encodings, there is no possibility of a false match, and
- * it's faster to make useless comparisons to trailing bytes than it is to
- * invoke pg_encoding_mblen() to skip over them. encoding_embeds_ascii is true
- * when we have to do it the hard way.
+ * 多字节编码：所有支持的客户端编码通过设置第一个字节的高位来编码多字节
+ * 字符。字符的后续字节可以不设置高位。在这样的编码中扫描数据
+ * 以查找单字节（即 ASCII）字符的匹配时，我们必须使用完整的 pg_encoding_mblen()
+ * 机制来跳过多字节字符，否则可能在尾随字节中找到错误匹配。在
+ * 支持的服务器编码中，不可能出现错误匹配，且对尾随字节做无用的比较
+ * 比调用 pg_encoding_mblen() 跳过它们更快。当我们必须采用困难方式时，
+ * encoding_embeds_ascii 为 true。
+ *
+ *
+ *
+ *
  */
 typedef struct CopyToStateData
 {
@@ -101,7 +101,7 @@ typedef struct CopyToStateData
 	uint64		bytes_processed;	/* number of bytes processed so far */
 } CopyToStateData;
 
-/* DestReceiver for COPY (query) TO */
+/* COPY（查询）TO 的 DestReceiver */
 typedef struct
 {
 	DestReceiver pub;			/* publicly-known function pointers */
@@ -109,11 +109,11 @@ typedef struct
 	uint64		processed;		/* # of tuples processed */
 } DR_copy;
 
-/* NOTE: there's a copy of this in copyfromparse.c */
+/* 注意：copyfromparse.c 中有此处的副本 */
 static const char BinarySignature[11] = "PGCOPY\n\377\r\n\0";
 
 
-/* non-export function prototypes */
+/* 非导出函数原型 */
 static void EndCopy(CopyToState cstate);
 static void ClosePipeToProgram(CopyToState cstate);
 static void CopyOneRowTo(CopyToState cstate, TupleTableSlot *slot);
@@ -121,7 +121,7 @@ static void CopyAttributeOutText(CopyToState cstate, const char *string);
 static void CopyAttributeOutCSV(CopyToState cstate, const char *string,
 								bool use_quote, bool single_attr);
 
-/* Low-level communications functions */
+/* 低层通信函数 */
 static void SendCopyBegin(CopyToState cstate);
 static void SendCopyEnd(CopyToState cstate);
 static void CopySendData(CopyToState cstate, const void *databuf, int datasize);
@@ -133,8 +133,8 @@ static void CopySendInt16(CopyToState cstate, int16 val);
 
 
 /*
- * Send copy start/stop messages for frontend copies.  These have changed
- * in past protocol redesigns.
+ * 发送前端复制的开始/停止消息。这些在过去的协议重设计中
+ * 已发生变化。
  */
 static void
 SendCopyBegin(CopyToState cstate)
@@ -145,10 +145,10 @@ SendCopyBegin(CopyToState cstate)
 	int			i;
 
 	pq_beginmessage(&buf, 'H');
-	pq_sendbyte(&buf, format);	/* overall format */
+	pq_sendbyte(&buf, format);	/* 整体格式 */
 	pq_sendint16(&buf, natts);
 	for (i = 0; i < natts; i++)
-		pq_sendint16(&buf, format); /* per-column formats */
+		pq_sendint16(&buf, format); /* 每列的格式 */
 	pq_endmessage(&buf);
 	cstate->copy_dest = COPY_FRONTEND;
 }
@@ -156,20 +156,20 @@ SendCopyBegin(CopyToState cstate)
 static void
 SendCopyEnd(CopyToState cstate)
 {
-	/* Shouldn't have any unsent data */
+	/* 不应有任何未发送的数据 */
 	Assert(cstate->fe_msgbuf->len == 0);
-	/* Send Copy Done message */
+	/* 发送 Copy Done 消息 */
 	pq_putemptymessage('c');
 }
 
 /*----------
- * CopySendData sends output data to the destination (file or frontend)
- * CopySendString does the same for null-terminated strings
- * CopySendChar does the same for single characters
- * CopySendEndOfRow does the appropriate thing at end of each data row
- *	(data is not actually flushed except by CopySendEndOfRow)
+ * CopySendData 向目标（文件或前端）发送输出数据
+ * CopySendString 对以 null 终止的字符串执行相同操作
+ * CopySendChar 对单个字符执行相同操作
+ * CopySendEndOfRow 在每个数据行结束时执行适当的操作
+ *	（数据实际上仅在 CopySendEndOfRow 时才会刷新）
  *
- * NB: no data conversion is applied by these functions
+ * 注意：这些函数不应用任何数据转换
  *----------
  */
 static void
@@ -262,11 +262,11 @@ CopySendEndOfRow(CopyToState cstate)
 }
 
 /*
- * These functions do apply some data conversion
+ * 以下函数确实应用一些数据转换
  */
 
 /*
- * CopySendInt32 sends an int32 in network byte order
+ * CopySendInt32 以网络字节序发送 int32
  */
 static inline void
 CopySendInt32(CopyToState cstate, int32 val)
@@ -278,7 +278,7 @@ CopySendInt32(CopyToState cstate, int32 val)
 }
 
 /*
- * CopySendInt16 sends an int16 in network byte order
+ * CopySendInt16 以网络字节序发送 int16
  */
 static inline void
 CopySendInt16(CopyToState cstate, int16 val)
@@ -290,7 +290,7 @@ CopySendInt16(CopyToState cstate, int16 val)
 }
 
 /*
- * Closes the pipe to an external program, checking the pclose() return code.
+ * 关闭到外部程序的管道，检查 pclose() 返回码。
  */
 static void
 ClosePipeToProgram(CopyToState cstate)
@@ -315,7 +315,7 @@ ClosePipeToProgram(CopyToState cstate)
 }
 
 /*
- * Release resources allocated in a cstate for COPY TO/FROM.
+ * 释放 COPY TO/FROM 的 cstate 中分配的资源。
  */
 static void
 EndCopy(CopyToState cstate)
@@ -340,18 +340,18 @@ EndCopy(CopyToState cstate)
 }
 
 /*
- * Setup CopyToState to read tuples from a table or a query for COPY TO.
+ * 设置 CopyToState 以从表或查询中读取元组用于 COPY TO。
  *
- * 'rel': Relation to be copied
- * 'raw_query': Query whose results are to be copied
- * 'queryRelId': OID of base relation to convert to a query (for RLS)
- * 'filename': Name of server-local file to write, NULL for STDOUT
- * 'is_program': true if 'filename' is program to execute
- * 'data_dest_cb': Callback that processes the output data
- * 'attnamelist': List of char *, columns to include. NIL selects all cols.
- * 'options': List of DefElem. See copy_opt_item in gram.y for selections.
+ * 'rel': 要复制的关系
+ * 'raw_query': 其结果要复制的查询
+ * 'queryRelId': 要转换为查询的基关系 OID（用于 RLS）
+ * 'filename': 要写入的服务器本地文件名，NULL 表示 STDOUT
+ * 'is_program': 如果 'filename' 是要执行的程序则为 true
+ * 'data_dest_cb': 处理输出数据的回调
+ * 'attnamelist': char * 列表，要包含的列。NIL 表示选择所有列。
+ * 'options': DefElem 列表。参见 gram.y 中的 copy_opt_item 以获取选项。
  *
- * Returns a CopyToState, to be passed to DoCopyTo() and related functions.
+ * 返回 CopyToState，传递给 DoCopyTo() 及相关函数。
  */
 CopyToState
 BeginCopyTo(ParseState *pstate,
@@ -417,12 +417,12 @@ BeginCopyTo(ParseState *pstate,
 	}
 
 
-	/* Allocate workspace and zero all fields */
+	/* 分配工作空间并将所有字段归零 */
 	cstate = (CopyToStateData *) palloc0(sizeof(CopyToStateData));
 
 	/*
-	 * We allocate everything used by a cstate in a new memory context. This
-	 * avoids memory leaks during repeated use of COPY in a query.
+	 * 我们在新的内存上下文中分配 cstate 使用的所有内容。
+	 * 这避免了在查询中重复使用 COPY 时的内存泄漏。
 	 */
 	cstate->copycontext = AllocSetContextCreate(CurrentMemoryContext,
 												"COPY",
@@ -430,10 +430,10 @@ BeginCopyTo(ParseState *pstate,
 
 	oldcontext = MemoryContextSwitchTo(cstate->copycontext);
 
-	/* Extract options from the statement node tree */
+	/* 从语句节点树中提取选项 */
 	ProcessCopyOptions(pstate, &cstate->opts, false /* is_from */ , options);
 
-	/* Process the source/target relation or query */
+	/* 处理源/目标关系或查询 */
 	if (rel)
 	{
 		Assert(!raw_query);
@@ -459,7 +459,7 @@ BeginCopyTo(ParseState *pstate,
 													   pstate->p_sourcetext, NULL, 0,
 													   NULL);
 
-		/* check that we got back something we can work with */
+		/* 检查我们是否得到了可用的结果 */
 		if (rewritten == NIL)
 		{
 			ereport(ERROR,
@@ -521,7 +521,7 @@ BeginCopyTo(ParseState *pstate,
 					 errmsg("COPY query must have a RETURNING clause")));
 		}
 
-		/* plan the query */
+		/* 计划查询 */
 		plan = pg_plan_query(query, pstate->p_sourcetext,
 							 CURSOR_OPT_PARALLEL_OK, NULL);
 
@@ -557,11 +557,11 @@ BeginCopyTo(ParseState *pstate,
 		PushCopiedSnapshot(GetActiveSnapshot());
 		UpdateActiveSnapshotCommandId();
 
-		/* Create dest receiver for COPY OUT */
+		/* 为 COPY OUT 创建目标接收器 */
 		dest = CreateDestReceiver(DestCopyOut);
 		((DR_copy *) dest)->cstate = cstate;
 
-		/* Create a QueryDesc requesting no output */
+		/* 创建一个不要求输出的 QueryDesc */
 		cstate->queryDesc = CreateQueryDesc(plan, pstate->p_sourcetext,
 											GetActiveSnapshot(),
 											InvalidSnapshot,
@@ -577,12 +577,12 @@ BeginCopyTo(ParseState *pstate,
 		tupDesc = cstate->queryDesc->tupDesc;
 	}
 
-	/* Generate or convert list of attributes to process */
+	/* 生成或转换要处理的属性列表 */
 	cstate->attnumlist = CopyGetAttnums(tupDesc, cstate->rel, attnamelist);
 
 	num_phys_attrs = tupDesc->natts;
 
-	/* Convert FORCE_QUOTE name list to per-column flags, check validity */
+	/* 将 FORCE_QUOTE 名称列表转换为每列标志，检查有效性 */
 	cstate->opts.force_quote_flags = (bool *) palloc0(num_phys_attrs * sizeof(bool));
 	if (cstate->opts.force_quote_all)
 	{
@@ -612,24 +612,24 @@ BeginCopyTo(ParseState *pstate,
 		}
 	}
 
-	/* Use client encoding when ENCODING option is not specified. */
+	/* 当未指定 ENCODING 选项时使用客户端编码。 */
 	if (cstate->opts.file_encoding < 0)
 		cstate->file_encoding = pg_get_client_encoding();
 	else
 		cstate->file_encoding = cstate->opts.file_encoding;
 
 	/*
-	 * Set up encoding conversion info.  Even if the file and server encodings
-	 * are the same, we must apply pg_any_to_server() to validate data in
-	 * multibyte encodings.
+	 * 设置编码转换信息。即使文件和服务器编码相同，
+	 * 我们也必须应用 pg_any_to_server() 来验证多字节编码中的数据。
+	 *
 	 */
 	cstate->need_transcoding =
 		(cstate->file_encoding != GetDatabaseEncoding() ||
 		 pg_database_encoding_max_length() > 1);
-	/* See Multibyte encoding comment above */
+	/* 参见上方的多字节编码注释 */
 	cstate->encoding_embeds_ascii = PG_ENCODING_IS_CLIENT_ONLY(cstate->file_encoding);
 
-	cstate->copy_dest = COPY_FILE;	/* default */
+	cstate->copy_dest = COPY_FILE;	/* 默认 */
 
 	if (data_dest_cb)
 	{
@@ -641,7 +641,7 @@ BeginCopyTo(ParseState *pstate,
 	{
 		progress_vals[1] = PROGRESS_COPY_TYPE_PIPE;
 
-		Assert(!is_program);	/* the grammar does not allow this */
+		Assert(!is_program);	/* 语法不允许这种情况 */
 		if (whereToSendOutput != DestRemote)
 			cstate->copy_file = stdout;
 	}
@@ -688,7 +688,7 @@ BeginCopyTo(ParseState *pstate,
 			PG_END_TRY();
 			if (cstate->copy_file == NULL)
 			{
-				/* copy errno because ereport subfunctions might change it */
+				/* 复制 errno，因为 ereport 子函数可能会更改它 */
 				int			save_errno = errno;
 
 				ereport(ERROR,
@@ -713,7 +713,7 @@ BeginCopyTo(ParseState *pstate,
 		}
 	}
 
-	/* initialize progress */
+	/* 初始化进度 */
 	pgstat_progress_start_command(PROGRESS_COMMAND_COPY,
 								  cstate->rel ? RelationGetRelid(cstate->rel) : InvalidOid);
 	pgstat_progress_update_multi_param(2, progress_cols, progress_vals);
@@ -726,28 +726,28 @@ BeginCopyTo(ParseState *pstate,
 }
 
 /*
- * Clean up storage and release resources for COPY TO.
+ * 清理 COPY TO 的存储并释放资源。
  */
 void
 EndCopyTo(CopyToState cstate)
 {
 	if (cstate->queryDesc != NULL)
 	{
-		/* Close down the query and free resources. */
+		/* 关闭查询并释放资源。 */
 		ExecutorFinish(cstate->queryDesc);
 		ExecutorEnd(cstate->queryDesc);
 		FreeQueryDesc(cstate->queryDesc);
 		PopActiveSnapshot();
 	}
 
-	/* Clean up storage */
+	/* 清理存储 */
 	EndCopy(cstate);
 }
 
 /*
- * Copy from relation or query TO file.
+ * 从关系或查询复制到文件。
  *
- * Returns the number of rows processed.
+ * 返回已处理的行数。
  */
 uint64
 DoCopyTo(CopyToState cstate)
@@ -767,12 +767,12 @@ DoCopyTo(CopyToState cstate)
 	else
 		tupDesc = cstate->queryDesc->tupDesc;
 	num_phys_attrs = tupDesc->natts;
-	cstate->opts.null_print_client = cstate->opts.null_print;	/* default */
+	cstate->opts.null_print_client = cstate->opts.null_print;	/* 默认 */
 
-	/* We use fe_msgbuf as a per-row buffer regardless of copy_dest */
+	/* 无论 copy_dest 为何，我们使用 fe_msgbuf 作为每行缓冲区 */
 	cstate->fe_msgbuf = makeStringInfo();
 
-	/* Get info about the columns we need to process. */
+	/* 获取我们需要处理的列的信息。 */
 	cstate->out_functions = (FmgrInfo *) palloc(num_phys_attrs * sizeof(FmgrInfo));
 	foreach(cur, cstate->attnumlist)
 	{
@@ -793,10 +793,10 @@ DoCopyTo(CopyToState cstate)
 	}
 
 	/*
-	 * Create a temporary memory context that we can reset once per row to
-	 * recover palloc'd memory.  This avoids any problems with leaks inside
-	 * datatype output routines, and should be faster than retail pfree's
-	 * anyway.  (We don't need a whole econtext as CopyFrom does.)
+	 * 创建一个临时内存上下文，每行可以重置以回收 palloc 的内存。
+	 * 这避免了数据类型输出例程内部的任何泄漏问题，且无论如何
+	 * 应该比零售的 pfree 更快。（我们不需要像 CopyFrom 那样的
+	 * 完整 econtext。）
 	 */
 	cstate->rowcontext = AllocSetContextCreate(CurrentMemoryContext,
 											   "COPY TO",
@@ -804,15 +804,15 @@ DoCopyTo(CopyToState cstate)
 
 	if (cstate->opts.binary)
 	{
-		/* Generate header for a binary copy */
+		/* 生成二进制复制的标头 */
 		int32		tmp;
 
-		/* Signature */
+		/* 签名 */
 		CopySendData(cstate, BinarySignature, 11);
-		/* Flags field */
+		/* 标志字段 */
 		tmp = 0;
 		CopySendInt32(cstate, tmp);
-		/* No header extension */
+		/* 无标头扩展 */
 		tmp = 0;
 		CopySendInt32(cstate, tmp);
 	}
@@ -827,7 +827,7 @@ DoCopyTo(CopyToState cstate)
 															  cstate->opts.null_print_len,
 															  cstate->file_encoding);
 
-		/* if a header has been requested send the line */
+		/* 如果已请求标头，则发送该行 */
 		if (cstate->opts.header_line)
 		{
 			bool		hdr_delim = false;
@@ -867,15 +867,15 @@ DoCopyTo(CopyToState cstate)
 		{
 			CHECK_FOR_INTERRUPTS();
 
-			/* Deconstruct the tuple ... */
+			/* 解构元组 ... */
 			slot_getallattrs(slot);
 
-			/* Format and send the data */
+			/* 格式化并发送数据 */
 			CopyOneRowTo(cstate, slot);
 
 			/*
-			 * Increment the number of processed tuples, and report the
-			 * progress.
+			 * 递增已处理的元组数，并报告进度。
+			 *
 			 */
 			pgstat_progress_update_param(PROGRESS_COPY_TUPLES_PROCESSED,
 										 ++processed);
@@ -886,16 +886,16 @@ DoCopyTo(CopyToState cstate)
 	}
 	else
 	{
-		/* run the plan --- the dest receiver will send tuples */
+		/* 运行计划 --- 目标接收器将发送元组 */
 		ExecutorRun(cstate->queryDesc, ForwardScanDirection, 0, true);
 		processed = ((DR_copy *) cstate->queryDesc->dest)->processed;
 	}
 
 	if (cstate->opts.binary)
 	{
-		/* Generate trailer for a binary copy */
+		/* 生成二进制复制的尾部 */
 		CopySendInt16(cstate, -1);
-		/* Need to flush out the trailer */
+		/* 需要刷新尾部数据 */
 		CopySendEndOfRow(cstate);
 	}
 
@@ -908,7 +908,7 @@ DoCopyTo(CopyToState cstate)
 }
 
 /*
- * Emit one row during DoCopyTo().
+ * 在 DoCopyTo() 中发送一行。
  */
 static void
 CopyOneRowTo(CopyToState cstate, TupleTableSlot *slot)
@@ -924,11 +924,11 @@ CopyOneRowTo(CopyToState cstate, TupleTableSlot *slot)
 
 	if (cstate->opts.binary)
 	{
-		/* Binary per-tuple header */
+		/* 二进制每元组标头 */
 		CopySendInt16(cstate, list_length(cstate->attnumlist));
 	}
 
-	/* Make sure the tuple is fully deconstructed */
+	/* 确保元组已完全解构 */
 	slot_getallattrs(slot);
 
 	foreach(cur, cstate->attnumlist)
@@ -983,7 +983,7 @@ CopyOneRowTo(CopyToState cstate, TupleTableSlot *slot)
 }
 
 /*
- * Send text representation of one attribute, with conversion and escaping
+ * 发送一个属性的文本表示，含转换和转义
  */
 #define DUMPSOFAR() \
 	do { \
@@ -1005,18 +1005,18 @@ CopyAttributeOutText(CopyToState cstate, const char *string)
 		ptr = string;
 
 	/*
-	 * We have to grovel through the string searching for control characters
-	 * and instances of the delimiter character.  In most cases, though, these
-	 * are infrequent.  To avoid overhead from calling CopySendData once per
-	 * character, we dump out all characters between escaped characters in a
-	 * single call.  The loop invariant is that the data from "start" to "ptr"
-	 * can be sent literally, but hasn't yet been.
+	 * 我们必须遍历字符串搜索控制字符和分隔符字符的实例。
+	 * 但在大多数情况下，这些情况并不频繁。为了避免每次字符调用
+	 * CopySendData 的开销，我们在一次调用中输出转义字符之间的所有
+	 * 字符。循环不变式是从 "start" 到 "ptr" 的数据可以原样发送，
+	 * 但尚未发送。
 	 *
-	 * We can skip pg_encoding_mblen() overhead when encoding is safe, because
-	 * in valid backend encodings, extra bytes of a multibyte character never
-	 * look like ASCII.  This loop is sufficiently performance-critical that
-	 * it's worth making two copies of it to get the IS_HIGHBIT_SET() test out
-	 * of the normal safe-encoding path.
+	 * 当编码是安全的时，我们可以跳过 pg_encoding_mblen() 的开销，
+	 * 因为在有效的后端编码中，多字节字符的额外字节永远不会
+	 * 看起来像 ASCII。此循环对性能非常关键，值得为它制作两份副本
+	 * 以便将 IS_HIGHBIT_SET() 测试从正常安全编码路径中移除。
+	 *
+	 *
 	 */
 	if (cstate->encoding_embeds_ascii)
 	{
@@ -1141,8 +1141,8 @@ CopyAttributeOutText(CopyToState cstate, const char *string)
 }
 
 /*
- * Send text representation of one attribute, with conversion and
- * CSV-style escaping
+ * 发送一个属性的文本表示，含转换和
+ * CSV 风格的转义
  */
 static void
 CopyAttributeOutCSV(CopyToState cstate, const char *string,
@@ -1155,7 +1155,7 @@ CopyAttributeOutCSV(CopyToState cstate, const char *string,
 	char		quotec = cstate->opts.quote[0];
 	char		escapec = cstate->opts.escape[0];
 
-	/* force quoting if it matches null_print (before conversion!) */
+	/* 如果匹配 null_print，则强制引用（在转换之前！） */
 	if (!use_quote && strcmp(string, cstate->opts.null_print) == 0)
 		use_quote = true;
 
@@ -1165,13 +1165,13 @@ CopyAttributeOutCSV(CopyToState cstate, const char *string,
 		ptr = string;
 
 	/*
-	 * Make a preliminary pass to discover if it needs quoting
+	 * 进行初步扫描以确定是否需要引用
 	 */
 	if (!use_quote)
 	{
 		/*
-		 * Because '\.' can be a data value, quote it if it appears alone on a
-		 * line so it is not interpreted as the end-of-data marker.
+		 * 因为 '\.' 可以是数据值，如果它单独出现在
+		 * 一行上，则引用它以避免被解释为数据结束标记。
 		 */
 		if (single_attr && strcmp(ptr, "\\.") == 0)
 			use_quote = true;
@@ -1199,7 +1199,7 @@ CopyAttributeOutCSV(CopyToState cstate, const char *string,
 		CopySendChar(cstate, quotec);
 
 		/*
-		 * We adopt the same optimization strategy as in CopyAttributeOutText
+		 * 我们采用与 CopyAttributeOutText 相同的优化策略
 		 */
 		start = ptr;
 		while ((c = *ptr) != '\0')
@@ -1208,7 +1208,7 @@ CopyAttributeOutCSV(CopyToState cstate, const char *string,
 			{
 				DUMPSOFAR();
 				CopySendChar(cstate, escapec);
-				start = ptr;	/* we include char in next run */
+				start = ptr;	/* 我们在下一轮中包含此字符 */
 			}
 			if (IS_HIGHBIT_SET(c) && cstate->encoding_embeds_ascii)
 				ptr += pg_encoding_mblen(cstate->file_encoding, ptr);
@@ -1221,22 +1221,22 @@ CopyAttributeOutCSV(CopyToState cstate, const char *string,
 	}
 	else
 	{
-		/* If it doesn't need quoting, we can just dump it as-is */
+		/* 如果不需要引用，我们可以直接原样输出 */
 		CopySendString(cstate, ptr);
 	}
 }
 
 /*
- * copy_dest_startup --- executor startup
+ * copy_dest_startup --- 执行器启动
  */
 static void
 copy_dest_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
 {
-	/* no-op */
+	/* 无操作 */
 }
 
 /*
- * copy_dest_receive --- receive one tuple
+ * copy_dest_receive --- 接收一个元组
  */
 static bool
 copy_dest_receive(TupleTableSlot *slot, DestReceiver *self)
@@ -1244,10 +1244,10 @@ copy_dest_receive(TupleTableSlot *slot, DestReceiver *self)
 	DR_copy    *myState = (DR_copy *) self;
 	CopyToState cstate = myState->cstate;
 
-	/* Send the data */
+	/* 发送数据 */
 	CopyOneRowTo(cstate, slot);
 
-	/* Increment the number of processed tuples, and report the progress */
+	/* 递增已处理的元组数，并报告进度 */
 	pgstat_progress_update_param(PROGRESS_COPY_TUPLES_PROCESSED,
 								 ++myState->processed);
 
@@ -1255,16 +1255,16 @@ copy_dest_receive(TupleTableSlot *slot, DestReceiver *self)
 }
 
 /*
- * copy_dest_shutdown --- executor end
+ * copy_dest_shutdown --- 执行器结束
  */
 static void
 copy_dest_shutdown(DestReceiver *self)
 {
-	/* no-op */
+	/* 无操作 */
 }
 
 /*
- * copy_dest_destroy --- release DestReceiver object
+ * copy_dest_destroy --- 释放 DestReceiver 对象
  */
 static void
 copy_dest_destroy(DestReceiver *self)
@@ -1273,7 +1273,7 @@ copy_dest_destroy(DestReceiver *self)
 }
 
 /*
- * CreateCopyDestReceiver -- create a suitable DestReceiver object
+ * CreateCopyDestReceiver -- 创建合适的 DestReceiver 对象
  */
 DestReceiver *
 CreateCopyDestReceiver(void)
@@ -1286,7 +1286,7 @@ CreateCopyDestReceiver(void)
 	self->pub.rDestroy = copy_dest_destroy;
 	self->pub.mydest = DestCopyOut;
 
-	self->cstate = NULL;		/* will be set later */
+	self->cstate = NULL;		/* 将在之后设置 */
 	self->processed = 0;
 
 	return (DestReceiver *) self;

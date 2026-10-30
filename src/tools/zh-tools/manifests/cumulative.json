@@ -4051,6 +4051,46 @@
       "pattern": "src/tools/zh-tools/manifests/batch-0233-comment-commands-event-trigger-publication-subscription.json",
       "kind": "tool",
       "note": "batch 0233 manifest infra"
+    },
+    {
+      "pattern": "src/backend/commands/copy.c",
+      "kind": "c_comment",
+      "note": "COPY command dispatch"
+    },
+    {
+      "pattern": "src/backend/commands/copyfrom.c",
+      "kind": "c_comment",
+      "note": "COPY FROM implementation"
+    },
+    {
+      "pattern": "src/backend/commands/copyfromparse.c",
+      "kind": "c_comment",
+      "note": "COPY FROM field/line parsing"
+    },
+    {
+      "pattern": "src/backend/commands/copyto.c",
+      "kind": "c_comment",
+      "note": "COPY TO implementation"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0232-comment-commands-copy-family.json",
+      "kind": "tool",
+      "note": "batch 0232 manifest infra"
+    },
+    {
+      "pattern": "src/backend/commands/vacuum.c",
+      "kind": "c_comment",
+      "note": "VACUUM command"
+    },
+    {
+      "pattern": "src/backend/commands/vacuumparallel.c",
+      "kind": "c_comment",
+      "note": "parallel VACUUM"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0236-comment-commands-vacuum.json",
+      "kind": "tool",
+      "note": "batch 0236 manifest infra"
     }
   ],
   "files": [
@@ -13596,6 +13636,66 @@
       "translated": 0,
       "preserved": 0,
       "preserved_reasons": [],
+      "note": "manifest"
+    },
+    {
+      "path": "src/backend/commands/copy.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 55, "translated": 53, "preserved": 2,
+      "preserved_reasons": ["Copyright header"],
+      "note": "COPY dispatch"
+    },
+    {
+      "path": "src/backend/commands/copyfrom.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 178, "translated": 166, "preserved": 12,
+      "preserved_reasons": ["Copyright", "banners", "fallthrough"],
+      "note": "COPY FROM"
+    },
+    {
+      "path": "src/backend/commands/copyfromparse.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 188, "translated": 157, "preserved": 31,
+      "preserved_reasons": ["Copyright", "ASCII art", "banners"],
+      "note": "COPY FROM parsing"
+    },
+    {
+      "path": "src/backend/commands/copyto.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 136, "translated": 121, "preserved": 15,
+      "preserved_reasons": ["Copyright", "banners"],
+      "note": "COPY TO"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0232-comment-commands-copy-family.json",
+      "kind": "manifest", "action": "add",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "manifest"
+    },
+    {
+      "path": "src/backend/commands/vacuum.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 208, "translated": 207, "preserved": 1,
+      "preserved_reasons": ["Copyright header"],
+      "note": "VACUUM"
+    },
+    {
+      "path": "src/backend/commands/vacuumparallel.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 123, "translated": 122, "preserved": 1,
+      "preserved_reasons": ["Copyright header"],
+      "note": "parallel VACUUM"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0236-comment-commands-vacuum.json",
+      "kind": "manifest", "action": "add",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
       "note": "manifest"
     }
   ],

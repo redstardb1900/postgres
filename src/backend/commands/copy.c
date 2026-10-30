@@ -42,23 +42,23 @@
 #include "utils/rls.h"
 
 /*
- *	 DoCopy executes the SQL COPY statement
+ *	 DoCopy - 执行 SQL COPY 语句
  *
- * Either unload or reload contents of table <relation>, depending on <from>.
- * (<from> = true means we are inserting into the table.)  In the "TO" case
- * we also support copying the output of an arbitrary SELECT, INSERT, UPDATE
- * or DELETE query.
+ * 根据 <from> 参数，卸载或重载表 <relation> 的内容。
+ * （<from> = true 表示我们正在向表中插入数据。）在 "TO" 场景中，
+ * 我们也支持复制任意 SELECT、INSERT、UPDATE 或 DELETE 查询的输出。
  *
- * If <pipe> is false, transfer is between the table and the file named
- * <filename>.  Otherwise, transfer is between the table and our regular
- * input/output stream. The latter could be either stdin/stdout or a
- * socket, depending on whether we're running under Postmaster control.
+ * 如果 <pipe> 为 false，则在表和名为 <filename> 的文件之间传输数据。
+ * 否则，在表和我们的常规输入/输出流之间传输数据。后者可以是 stdin/stdout
+ * 或套接字，取决于我们是否在 Postmaster 控制下运行。
  *
- * Do not allow a Postgres user without the 'pg_read_server_files' or
- * 'pg_write_server_files' role to read from or write to a file.
+ * 不允许没有 'pg_read_server_files' 或 'pg_write_server_files' 角色的
+ * Postgres 用户从文件读取或向文件写入。
  *
- * Do not allow the copy if user doesn't have proper permission to access
- * the table or the specifically requested columns.
+ * 如果用户没有适当的权限访问表或指定请求的列，则不允许复制。
+ *
+ *
+ *
  */
 void
 DoCopy(ParseState *pstate, const CopyStmt *stmt,
@@ -367,20 +367,20 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 }
 
 /*
- * Extract a CopyHeaderChoice value from a DefElem.  This is like
- * defGetBoolean() but also accepts the special value "match".
+ * 从 DefElem 中提取 CopyHeaderChoice 值。这类似于
+ * defGetBoolean()，但也接受特殊值 "match"。
  */
 static CopyHeaderChoice
 defGetCopyHeaderChoice(DefElem *def, bool is_from)
 {
 	/*
-	 * If no parameter value given, assume "true" is meant.
+	 * 如果未给定参数值，则假定为 "true"。
 	 */
 	if (def->arg == NULL)
 		return COPY_HEADER_TRUE;
 
 	/*
-	 * Allow 0, 1, "true", "false", "on", "off", or "match".
+	 * 允许 0、1、"true"、"false"、"on"、"off" 或 "match"。
 	 */
 	switch (nodeTag(def->arg))
 	{
@@ -392,7 +392,7 @@ defGetCopyHeaderChoice(DefElem *def, bool is_from)
 				case 1:
 					return COPY_HEADER_TRUE;
 				default:
-					/* otherwise, error out below */
+					/* 否则，在下面报错 */
 					break;
 			}
 			break;
@@ -401,8 +401,8 @@ defGetCopyHeaderChoice(DefElem *def, bool is_from)
 				char	   *sval = defGetString(def);
 
 				/*
-				 * The set of strings accepted here should match up with the
-				 * grammar's opt_boolean_or_string production.
+				 * 此处接受的字符串集合应与语法的 opt_boolean_or_string
+				 * 产生式相匹配。
 				 */
 				if (pg_strcasecmp(sval, "true") == 0)
 					return COPY_HEADER_TRUE;
@@ -432,20 +432,20 @@ defGetCopyHeaderChoice(DefElem *def, bool is_from)
 }
 
 /*
- * Process the statement option list for COPY.
+ * 处理 COPY 的语句选项列表。
  *
- * Scan the options list (a list of DefElem) and transpose the information
- * into *opts_out, applying appropriate error checking.
+ * 扫描选项列表（DefElem 列表）并将信息转换到 *opts_out 中，
+ * 同时应用适当的错误检查。
  *
- * If 'opts_out' is not NULL, it is assumed to be filled with zeroes initially.
+ * 如果 'opts_out' 不为 NULL，则假定它最初已用零填充。
  *
- * This is exported so that external users of the COPY API can sanity-check
- * a list of options.  In that usage, 'opts_out' can be passed as NULL and
- * the collected data is just leaked until CurrentMemoryContext is reset.
+ * 此函数被导出，以便 COPY API 的外部用户可以验证选项列表
+ * 的合理性。在这种用法中，'opts_out' 可以传递为 NULL，
+ * 收集的数据将泄漏直到 CurrentMemoryContext 被重置。
  *
- * Note that additional checking, such as whether column names listed in FORCE
- * QUOTE actually exist, has to be applied later.  This just checks for
- * self-consistency of the options list.
+ * 注意，额外的检查（例如 FORCE QUOTE 中列出的列名是否实际存在）
+ * 必须在之后应用。这里只检查选项列表的自洽性。
+ *
  */
 void
 ProcessCopyOptions(ParseState *pstate,
@@ -477,7 +477,7 @@ ProcessCopyOptions(ParseState *pstate,
 				errorConflictingDefElem(defel, pstate);
 			format_specified = true;
 			if (strcmp(fmt, "text") == 0)
-				 /* default format */ ;
+				 /* 默认格式 */ ;
 			else if (strcmp(fmt, "csv") == 0)
 				opts_out->csv_mode = true;
 			else if (strcmp(fmt, "binary") == 0)
@@ -802,18 +802,18 @@ ProcessCopyOptions(ParseState *pstate,
 }
 
 /*
- * CopyGetAttnums - build an integer list of attnums to be copied
+ * CopyGetAttnums - 构建要复制的属性号整数列表
  *
- * The input attnamelist is either the user-specified column list,
- * or NIL if there was none (in which case we want all the non-dropped
- * columns).
+ * 输入的 attnamelist 要么是用户指定的列列表，
+ * 要么为 NIL（表示没有指定，此时我们需要所有未删除的列）。
  *
- * We don't include generated columns in the generated full list and we don't
- * allow them to be specified explicitly.  They don't make sense for COPY
- * FROM, but we could possibly allow them for COPY TO.  But this way it's at
- * least ensured that whatever we copy out can be copied back in.
+ * 我们在生成的完整列表中不包含生成列，也不允许显式指定它们。
+ * 它们对 COPY FROM 没有意义，但我们可能允许它们在 COPY TO 中使用。
+ * 但这样至少确保了复制出的内容可以重新复制回去。
  *
- * rel can be NULL ... it's only used for error reports.
+ * rel 可以为 NULL ... 它仅用于错误报告。
+ *
+ *
  */
 List *
 CopyGetAttnums(TupleDesc tupDesc, Relation rel, List *attnamelist)

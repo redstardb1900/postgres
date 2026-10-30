@@ -80,20 +80,20 @@
 #define OCTVALUE(c) ((c) - '0')
 
 /*
- * These macros centralize code used to process line_buf and input_buf buffers.
- * They are macros because they often do continue/break control and to avoid
- * function call overhead in tight COPY loops.
+ * 这些宏集中处理 line_buf 和 input_buf 缓冲区的代码。
+ * 它们用宏实现是为了支持 continue/break 控制流，并避免
+ * 在紧凑的 COPY 循环中产生函数调用开销。
  *
- * We must use "if (1)" because the usual "do {...} while(0)" wrapper would
- * prevent the continue/break processing from working.  We end the "if (1)"
- * with "else ((void) 0)" to ensure the "if" does not unintentionally match
- * any "else" in the calling code, and to avoid any compiler warnings about
- * empty statements.  See http://www.cit.gu.edu.au/~anthony/info/C/C.macros.
+ * 我们必须使用 "if (1)" 形式，因为通常的 "do {...} while(0)" 包装会
+ * 阻止 continue/break 处理正常工作。以 "else ((void) 0)" 结束 "if (1)"
+ * 是为了确保该 "if" 不会意外匹配调用代码中的 "else"，同时避免编译器
+ * 对空语句发出警告。参见 http://www.cit.gu.edu.au/~anthony/info/C/C.macros。
+ *
  */
 
 /*
- * This keeps the character read at the top of the loop in the buffer
- * even if there is more than one read-ahead.
+ * 即使在多次预读的情况下，也能将循环顶部读取的字符
+ * 保留在缓冲区中。
  */
 #define IF_NEED_REFILL_AND_NOT_EOF_CONTINUE(extralen) \
 if (1) \
@@ -121,8 +121,8 @@ if (1) \
 } else ((void) 0)
 
 /*
- * Transfer any approved data to line_buf; must do this to be sure
- * there is some room in input_buf.
+ * 将已批准的数据传输到 line_buf；必须执行此操作以确保
+ * input_buf 中有空间。
  */
 #define REFILL_LINEBUF \
 if (1) \
@@ -144,11 +144,11 @@ if (1) \
 	goto not_end_of_copy; \
 } else ((void) 0)
 
-/* NOTE: there's a copy of this in copyto.c */
+/* 注意：copyto.c 中有此代码的副本 */
 static const char BinarySignature[11] = "PGCOPY\n\377\r\n\0";
 
 
-/* non-export function prototypes */
+/* 非导出函数原型 */
 static bool CopyReadLine(CopyFromState cstate);
 static bool CopyReadLineText(CopyFromState cstate);
 static int	CopyReadAttributesText(CopyFromState cstate);
@@ -158,7 +158,7 @@ static Datum CopyReadBinaryAttribute(CopyFromState cstate, FmgrInfo *flinfo,
 									 bool *isnull);
 
 
-/* Low-level communications functions */
+/* 低层通信函数 */
 static int	CopyGetData(CopyFromState cstate, void *databuf,
 						int minread, int maxread);
 static inline bool CopyGetInt32(CopyFromState cstate, int32 *val);
@@ -175,14 +175,14 @@ ReceiveCopyBegin(CopyFromState cstate)
 	int			i;
 
 	pq_beginmessage(&buf, 'G');
-	pq_sendbyte(&buf, format);	/* overall format */
+	pq_sendbyte(&buf, format);	/* 整体格式 */
 	pq_sendint16(&buf, natts);
 	for (i = 0; i < natts; i++)
 		pq_sendint16(&buf, format); /* per-column formats */
 	pq_endmessage(&buf);
 	cstate->copy_src = COPY_FRONTEND;
 	cstate->fe_msgbuf = makeStringInfo();
-	/* We *must* flush here to ensure FE knows it can send. */
+	/* 必须在此刷新以确保前端知道它可以发送。 */
 	pq_flush();
 }
 
@@ -192,13 +192,13 @@ ReceiveCopyBinaryHeader(CopyFromState cstate)
 	char		readSig[11];
 	int32		tmp;
 
-	/* Signature */
+	/* 签名 */
 	if (CopyReadBinaryData(cstate, readSig, 11) != 11 ||
 		memcmp(readSig, BinarySignature, 11) != 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_BAD_COPY_FILE_FORMAT),
 				 errmsg("COPY file signature not recognized")));
-	/* Flags field */
+	/* 标记字段 */
 	if (!CopyGetInt32(cstate, &tmp))
 		ereport(ERROR,
 				(errcode(ERRCODE_BAD_COPY_FILE_FORMAT),
@@ -212,13 +212,13 @@ ReceiveCopyBinaryHeader(CopyFromState cstate)
 		ereport(ERROR,
 				(errcode(ERRCODE_BAD_COPY_FILE_FORMAT),
 				 errmsg("unrecognized critical flags in COPY file header")));
-	/* Header extension length */
+	/* 标头扩展长度 */
 	if (!CopyGetInt32(cstate, &tmp) ||
 		tmp < 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_BAD_COPY_FILE_FORMAT),
 				 errmsg("invalid COPY file header (missing length)")));
-	/* Skip extension header, if present */
+	/* 如果存在则跳过扩展标头 */
 	while (tmp-- > 0)
 	{
 		if (CopyReadBinaryData(cstate, readSig, 1) != 1)
@@ -229,17 +229,17 @@ ReceiveCopyBinaryHeader(CopyFromState cstate)
 }
 
 /*
- * CopyGetData reads data from the source (file or frontend)
+ * CopyGetData - 从数据源（文件或前端）读取数据
  *
- * We attempt to read at least minread, and at most maxread, bytes from
- * the source.  The actual number of bytes read is returned; if this is
- * less than minread, EOF was detected.
+ * 尝试从数据源读取至少 minread 字节、最多 maxread 字节。
+ * 返回实际读取的字节数；如果少于 minread，则表示检测到 EOF。
  *
- * Note: when copying from the frontend, we expect a proper EOF mark per
- * protocol; if the frontend simply drops the connection, we raise error.
- * It seems unwise to allow the COPY IN to complete normally in that case.
+ * 注意：从前端复制时，期望按协议收到正确的 EOF 标记；
+ * 如果前端仅断开连接，我们会报告错误。在此情况下
+ * 允许 COPY IN 正常完成似乎是不明智的。
  *
- * NB: no data conversion is applied here.
+ * 注意：此处不进行数据转换。
+ *
  */
 static int
 CopyGetData(CopyFromState cstate, void *databuf, int minread, int maxread)
@@ -264,7 +264,7 @@ CopyGetData(CopyFromState cstate, void *databuf, int minread, int maxread)
 
 				while (cstate->fe_msgbuf->cursor >= cstate->fe_msgbuf->len)
 				{
-					/* Try to receive another message */
+					/* 尝试接收另一条消息 */
 					int			mtype;
 					int			maxmsglen;
 
@@ -276,7 +276,7 @@ CopyGetData(CopyFromState cstate, void *databuf, int minread, int maxread)
 						ereport(ERROR,
 								(errcode(ERRCODE_CONNECTION_FAILURE),
 								 errmsg("unexpected EOF on client connection with an open transaction")));
-					/* Validate message type and set packet size limit */
+					/* 验证消息类型并设置包大小限制 */
 					switch (mtype)
 					{
 						case 'd':	/* CopyData */
@@ -293,22 +293,22 @@ CopyGetData(CopyFromState cstate, void *databuf, int minread, int maxread)
 									(errcode(ERRCODE_PROTOCOL_VIOLATION),
 									 errmsg("unexpected message type 0x%02X during COPY from stdin",
 											mtype)));
-							maxmsglen = 0;	/* keep compiler quiet */
+							maxmsglen = 0;	/* 让编译器保持安静 */
 							break;
 					}
-					/* Now collect the message body */
+					/* 现在收集消息体 */
 					if (pq_getmessage(cstate->fe_msgbuf, maxmsglen))
 						ereport(ERROR,
 								(errcode(ERRCODE_CONNECTION_FAILURE),
 								 errmsg("unexpected EOF on client connection with an open transaction")));
 					RESUME_CANCEL_INTERRUPTS();
-					/* ... and process it */
+					/* ... 然后处理它 */
 					switch (mtype)
 					{
 						case 'd':	/* CopyData */
 							break;
 						case 'c':	/* CopyDone */
-							/* COPY IN correctly terminated by frontend */
+							/* COPY IN 被前端正确终止 */
 							cstate->raw_reached_eof = true;
 							return bytesread;
 						case 'f':	/* CopyFail */
@@ -321,10 +321,10 @@ CopyGetData(CopyFromState cstate, void *databuf, int minread, int maxread)
 						case 'S':	/* Sync */
 
 							/*
-							 * Ignore Flush/Sync for the convenience of client
-							 * libraries (such as libpq) that may send those
-							 * without noticing that the command they just
-							 * sent was COPY.
+							 * 忽略 Flush/Sync 以方便客户端库（如 libpq），
+							 * 它们可能在未注意到刚发送的命令是 COPY 的情况下
+							 * 发送这些消息。
+							 *
 							 */
 							goto readmessage;
 						default:
@@ -350,13 +350,13 @@ CopyGetData(CopyFromState cstate, void *databuf, int minread, int maxread)
 
 
 /*
- * These functions do apply some data conversion
+ * 以下函数会进行数据转换
  */
 
 /*
- * CopyGetInt32 reads an int32 that appears in network byte order
+ * CopyGetInt32 - 读取网络字节序的 int32
  *
- * Returns true if OK, false if EOF
+ * 成功返回 true，EOF 返回 false
  */
 static inline bool
 CopyGetInt32(CopyFromState cstate, int32 *val)
@@ -365,7 +365,7 @@ CopyGetInt32(CopyFromState cstate, int32 *val)
 
 	if (CopyReadBinaryData(cstate, (char *) &buf, sizeof(buf)) != sizeof(buf))
 	{
-		*val = 0;				/* suppress compiler warning */
+		*val = 0;				/* 抑制编译器警告 */
 		return false;
 	}
 	*val = (int32) pg_ntoh32(buf);
@@ -373,7 +373,7 @@ CopyGetInt32(CopyFromState cstate, int32 *val)
 }
 
 /*
- * CopyGetInt16 reads an int16 that appears in network byte order
+ * CopyGetInt16 - 读取网络字节序的 int16
  */
 static inline bool
 CopyGetInt16(CopyFromState cstate, int16 *val)
@@ -382,7 +382,7 @@ CopyGetInt16(CopyFromState cstate, int16 *val)
 
 	if (CopyReadBinaryData(cstate, (char *) &buf, sizeof(buf)) != sizeof(buf))
 	{
-		*val = 0;				/* suppress compiler warning */
+		*val = 0;				/* 抑制编译器警告 */
 		return false;
 	}
 	*val = (int16) pg_ntoh16(buf);
@@ -391,10 +391,10 @@ CopyGetInt16(CopyFromState cstate, int16 *val)
 
 
 /*
- * Perform encoding conversion on data in 'raw_buf', writing the converted
- * data into 'input_buf'.
+ * 对 'raw_buf' 中的数据执行编码转换，将转换后的数据
+ * 写入 'input_buf'。
  *
- * On entry, there must be some data to convert in 'raw_buf'.
+ * 入口处，'raw_buf' 中必须有需要转换的数据。
  */
 static void
 CopyConvertBuf(CopyFromState cstate)
@@ -527,7 +527,7 @@ CopyConvertBuf(CopyFromState cstate)
 }
 
 /*
- * Report an encoding or conversion error.
+ * 报告编码或转换错误。
  */
 static void
 CopyConversionError(CopyFromState cstate)
@@ -573,18 +573,18 @@ CopyConversionError(CopyFromState cstate)
 											 false);
 
 		/*
-		 * The conversion routine should have reported an error, so this
-		 * should not be reached.
+		 * 转换例程应该已经报告了错误，
+		 * 因此不应执行到这里。
 		 */
 		elog(ERROR, "encoding conversion failed without error");
 	}
 }
 
 /*
- * Load more data from data source to raw_buf.
+ * 从数据源加载更多数据到 raw_buf。
  *
- * If RAW_BUF_BYTES(cstate) > 0, the unprocessed bytes are moved to the
- * beginning of the buffer, and we load new data after that.
+ * 如果 RAW_BUF_BYTES(cstate) > 0，未处理的字节
+ * 会移到缓冲区开头，然后在其后加载新数据。
  */
 static void
 CopyLoadRawBuf(CopyFromState cstate)
@@ -593,8 +593,8 @@ CopyLoadRawBuf(CopyFromState cstate)
 	int			inbytes;
 
 	/*
-	 * In text mode, if encoding conversion is not required, raw_buf and
-	 * input_buf point to the same buffer.  Their len/index better agree, too.
+	 * 在文本模式中，如果不需要编码转换，raw_buf 和 input_buf
+	 * 指向同一缓冲区。它们的 len/index 也应该一致。
 	 */
 	if (cstate->raw_buf == cstate->input_buf)
 	{
@@ -604,7 +604,7 @@ CopyLoadRawBuf(CopyFromState cstate)
 	}
 
 	/*
-	 * Copy down the unprocessed data if any.
+	 * 如果有未处理的数据则复制下来。
 	 */
 	nbytes = RAW_BUF_BYTES(cstate);
 	if (nbytes > 0 && cstate->raw_buf_index > 0)
@@ -614,8 +614,8 @@ CopyLoadRawBuf(CopyFromState cstate)
 	cstate->raw_buf_index = 0;
 
 	/*
-	 * If raw_buf and input_buf are in fact the same buffer, adjust the
-	 * input_buf variables, too.
+	 * 如果 raw_buf 和 input_buf 实际上是同一缓冲区，
+	 * 也调整 input_buf 变量。
 	 */
 	if (cstate->raw_buf == cstate->input_buf)
 	{
@@ -623,7 +623,7 @@ CopyLoadRawBuf(CopyFromState cstate)
 		cstate->input_buf_index = 0;
 	}
 
-	/* Load more data */
+	/* 加载更多数据 */
 	inbytes = CopyGetData(cstate, cstate->raw_buf + cstate->raw_buf_len,
 						  1, RAW_BUF_SIZE - cstate->raw_buf_len);
 	nbytes += inbytes;
@@ -638,13 +638,13 @@ CopyLoadRawBuf(CopyFromState cstate)
 }
 
 /*
- * CopyLoadInputBuf loads some more data into input_buf
+ * CopyLoadInputBuf - 向 input_buf 加载更多数据
  *
- * On return, at least one more input character is loaded into
- * input_buf, or input_reached_eof is set.
+ * 返回时，至少一个输入字符被加载到 input_buf 中，
+ * 或者 input_reached_eof 被设置。
  *
- * If INPUT_BUF_BYTES(cstate) > 0, the unprocessed bytes are moved to the start
- * of the buffer and then we load more data after that.
+ * 如果 INPUT_BUF_BYTES(cstate) > 0，未处理的字节
+ * 移动到缓冲区开头，然后在其后加载更多数据。
  */
 static void
 CopyLoadInputBuf(CopyFromState cstate)
@@ -652,9 +652,9 @@ CopyLoadInputBuf(CopyFromState cstate)
 	int			nbytes = INPUT_BUF_BYTES(cstate);
 
 	/*
-	 * The caller has updated input_buf_index to indicate how much of the
-	 * input has been consumed and isn't needed anymore.  If input_buf is the
-	 * same physical area as raw_buf, update raw_buf_index accordingly.
+	 * 调用者已更新 input_buf_index 以指示已消耗且不再
+	 * 需要的输入量。如果 input_buf 与 raw_buf 是
+	 * 同一物理区域，则相应地更新 raw_buf_index。
 	 */
 	if (cstate->raw_buf == cstate->input_buf)
 	{
@@ -665,10 +665,10 @@ CopyLoadInputBuf(CopyFromState cstate)
 
 	for (;;)
 	{
-		/* If we now have some unconverted data, try to convert it */
+		/* 如果现在有未转换的数据，尝试转换它 */
 		CopyConvertBuf(cstate);
 
-		/* If we now have some more input bytes ready, return them */
+		/* 如果现在有更多输入字节就绪，返回它们 */
 		if (INPUT_BUF_BYTES(cstate) > nbytes)
 			return;
 
@@ -680,22 +680,22 @@ CopyLoadInputBuf(CopyFromState cstate)
 		if (cstate->input_reached_error)
 			CopyConversionError(cstate);
 
-		/* no more input, and everything has been converted */
+		/* 没有更多输入，且一切已转换 */
 		if (cstate->input_reached_eof)
 			break;
 
-		/* Try to load more raw data */
+		/* 尝试加载更多原始数据 */
 		Assert(!cstate->raw_reached_eof);
 		CopyLoadRawBuf(cstate);
 	}
 }
 
 /*
- * CopyReadBinaryData
+ * CopyReadBinaryData - 读取二进制数据
  *
- * Reads up to 'nbytes' bytes from cstate->copy_file via cstate->raw_buf
- * and writes them to 'dest'.  Returns the number of bytes read (which
- * would be less than 'nbytes' only if we reach EOF).
+ * 通过 cstate->raw_buf 从 cstate->copy_file 读取最多 'nbytes' 字节
+ * 并写入 'dest'。返回读取的字节数
+ * （仅在到达 EOF 时可能少于 'nbytes'）。
  */
 static int
 CopyReadBinaryData(CopyFromState cstate, char *dest, int nbytes)
@@ -704,7 +704,7 @@ CopyReadBinaryData(CopyFromState cstate, char *dest, int nbytes)
 
 	if (RAW_BUF_BYTES(cstate) >= nbytes)
 	{
-		/* Enough bytes are present in the buffer. */
+		/* 缓冲区中有足够多的字节。 */
 		memcpy(dest, cstate->raw_buf + cstate->raw_buf_index, nbytes);
 		cstate->raw_buf_index += nbytes;
 		copied_bytes = nbytes;
@@ -712,14 +712,14 @@ CopyReadBinaryData(CopyFromState cstate, char *dest, int nbytes)
 	else
 	{
 		/*
-		 * Not enough bytes in the buffer, so must read from the file.  Need
-		 * to loop since 'nbytes' could be larger than the buffer size.
+		 * 缓冲区中字节不足，因此必须从文件读取。
+		 * 需要循环，因为 'nbytes' 可能大于缓冲区大小。
 		 */
 		do
 		{
 			int			copy_bytes;
 
-			/* Load more data if buffer is empty. */
+			/* 如果缓冲区为空则加载更多数据。 */
 			if (RAW_BUF_BYTES(cstate) == 0)
 			{
 				CopyLoadRawBuf(cstate);
@@ -727,7 +727,7 @@ CopyReadBinaryData(CopyFromState cstate, char *dest, int nbytes)
 					break;		/* EOF */
 			}
 
-			/* Transfer some bytes. */
+			/* 传输一些字节。 */
 			copy_bytes = Min(nbytes - copied_bytes, RAW_BUF_BYTES(cstate));
 			memcpy(dest, cstate->raw_buf + cstate->raw_buf_index, copy_bytes);
 			cstate->raw_buf_index += copy_bytes;
@@ -740,15 +740,15 @@ CopyReadBinaryData(CopyFromState cstate, char *dest, int nbytes)
 }
 
 /*
- * Read raw fields in the next line for COPY FROM in text or csv mode.
- * Return false if no more lines.
+ * 读取文本或 CSV 模式 COPY FROM 的下一行原始字段。
+ * 如果没有更多行则返回 false。
  *
- * An internal temporary buffer is returned via 'fields'. It is valid until
- * the next call of the function. Since the function returns all raw fields
- * in the input file, 'nfields' could be different from the number of columns
- * in the relation.
+ * 通过 'fields' 返回内部临时缓冲区。该缓冲区在下次调用
+ * 本函数之前有效。由于函数返回输入文件中的所有原始字段，
+ * 'nfields' 可能与关系中的列数不同。
  *
- * NOTE: force_not_null option are not applied to the returned fields.
+ * 注意：返回的字段不应用 force_not_null 选项。
+ *
  */
 bool
 NextCopyFromRawFields(CopyFromState cstate, char ***fields, int *nfields)
@@ -756,10 +756,10 @@ NextCopyFromRawFields(CopyFromState cstate, char ***fields, int *nfields)
 	int			fldct;
 	bool		done;
 
-	/* only available for text or csv input */
+	/* 仅适用于文本或 CSV 输入 */
 	Assert(!cstate->opts.binary);
 
-	/* on input check that the header line is correct if needed */
+	/* 输入时检查标头行是否正确（如果需要） */
 	if (cstate->cur_lineno == 0 && cstate->opts.header_line)
 	{
 		ListCell   *cur;
@@ -817,18 +817,18 @@ NextCopyFromRawFields(CopyFromState cstate, char ***fields, int *nfields)
 
 	cstate->cur_lineno++;
 
-	/* Actually read the line into memory here */
+	/* 在此处实际将行读入内存 */
 	done = CopyReadLine(cstate);
 
 	/*
-	 * EOF at start of line means we're done.  If we see EOF after some
-	 * characters, we act as though it was newline followed by EOF, ie,
-	 * process the line and then exit loop on next iteration.
+	 * 行首 EOF 表示已完成。如果在某些字符后遇到 EOF，
+	 * 则视为换行后跟 EOF，即处理该行
+	 * 并在下次迭代时退出循环。
 	 */
 	if (done && cstate->line_buf.len == 0)
 		return false;
 
-	/* Parse the line into de-escaped field values */
+	/* 将行解析为去转义的字段值 */
 	if (cstate->opts.csv_mode)
 		fldct = CopyReadAttributesCSV(cstate);
 	else
@@ -840,15 +840,15 @@ NextCopyFromRawFields(CopyFromState cstate, char ***fields, int *nfields)
 }
 
 /*
- * Read next tuple from file for COPY FROM. Return false if no more tuples.
+ * 读取文件中 COPY FROM 的下一个元组。没有更多元组时返回 false。
  *
- * 'econtext' is used to evaluate default expression for each column that is
- * either not read from the file or is using the DEFAULT option of COPY FROM.
- * It can be NULL when no default values are used, i.e. when all columns are
- * read from the file, and DEFAULT option is unset.
+ * 'econtext' 用于评估每个列（未从文件读取或使用 COPY FROM 的 DEFAULT 选项）的默认表达式。
+ * 当没有使用默认值（即所有列都从文件读取且未设置 DEFAULT 选项）时，
+ * 它可以为 NULL。
  *
- * 'values' and 'nulls' arrays must be the same length as columns of the
- * relation passed to BeginCopyFrom. This function fills the arrays.
+ * 'values' 和 'nulls' 数组的长度必须与传递给
+ * BeginCopyFrom 的关系的列数相同。此函数填充这些数组。
+ *
  */
 bool
 NextCopyFrom(CopyFromState cstate, ExprContext *econtext,
@@ -868,7 +868,7 @@ NextCopyFrom(CopyFromState cstate, ExprContext *econtext,
 	num_phys_attrs = tupDesc->natts;
 	attr_count = list_length(cstate->attnumlist);
 
-	/* Initialize all values for row to NULL */
+	/* 将行的所有值初始化为 NULL */
 	MemSet(values, 0, num_phys_attrs * sizeof(Datum));
 	MemSet(nulls, true, num_phys_attrs * sizeof(bool));
 	MemSet(cstate->defaults, false, num_phys_attrs * sizeof(bool));
@@ -881,11 +881,11 @@ NextCopyFrom(CopyFromState cstate, ExprContext *econtext,
 		int			fieldno;
 		char	   *string;
 
-		/* read raw fields in the next line */
+		/* 读取下一行的原始字段 */
 		if (!NextCopyFromRawFields(cstate, &field_strings, &fldct))
 			return false;
 
-		/* check for overflowing fields */
+		/* 检查字段溢出 */
 		if (attr_count > 0 && fldct > attr_count)
 			ereport(ERROR,
 					(errcode(ERRCODE_BAD_COPY_FILE_FORMAT),
@@ -893,7 +893,7 @@ NextCopyFrom(CopyFromState cstate, ExprContext *econtext,
 
 		fieldno = 0;
 
-		/* Loop to read the user attributes on the line. */
+		/* 循环读取行上的用户属性。 */
 		foreach(cur, cstate->attnumlist)
 		{
 			int			attnum = lfirst_int(cur);
@@ -910,7 +910,7 @@ NextCopyFrom(CopyFromState cstate, ExprContext *econtext,
 			if (cstate->convert_select_flags &&
 				!cstate->convert_select_flags[m])
 			{
-				/* ignore input field, leaving column as NULL */
+				/* 忽略输入字段，将列保留为 NULL */
 				continue;
 			}
 
@@ -920,8 +920,8 @@ NextCopyFrom(CopyFromState cstate, ExprContext *econtext,
 					cstate->opts.force_notnull_flags[m])
 				{
 					/*
-					 * FORCE_NOT_NULL option is set and column is NULL -
-					 * convert it to the NULL string.
+					 * FORCE_NOT_NULL 选项已设置且列为 NULL ——
+					 * 将其转换为 NULL 字符串。
 					 */
 					string = cstate->opts.null_print;
 				}
@@ -929,10 +929,10 @@ NextCopyFrom(CopyFromState cstate, ExprContext *econtext,
 						 && strcmp(string, cstate->opts.null_print) == 0)
 				{
 					/*
-					 * FORCE_NULL option is set and column matches the NULL
-					 * string. It must have been quoted, or otherwise the
-					 * string would already have been set to NULL. Convert it
-					 * to NULL as specified.
+					 * FORCE_NULL 选项已设置且列与 NULL 字符串匹配。
+					 * 它一定被引用了，否则该字符串早已被设置为 NULL。
+					 * 按指定将其转换为 NULL。
+					 *
 					 */
 					string = NULL;
 				}
@@ -947,8 +947,8 @@ NextCopyFrom(CopyFromState cstate, ExprContext *econtext,
 			if (cstate->defaults[m])
 			{
 				/*
-				 * The caller must supply econtext and have switched into the
-				 * per-tuple memory context in it.
+				 * 调用者必须提供 econtext 并已切换
+				 * 到其中的每个元组内存上下文。
 				 */
 				Assert(econtext != NULL);
 				Assert(CurrentMemoryContext == econtext->ecxt_per_tuple_memory);
@@ -969,7 +969,7 @@ NextCopyFrom(CopyFromState cstate, ExprContext *econtext,
 	}
 	else
 	{
-		/* binary */
+		/* 二进制 */
 		int16		fld_count;
 		ListCell   *cur;
 
@@ -977,19 +977,19 @@ NextCopyFrom(CopyFromState cstate, ExprContext *econtext,
 
 		if (!CopyGetInt16(cstate, &fld_count))
 		{
-			/* EOF detected (end of file, or protocol-level EOF) */
+			/* 检测到 EOF（文件尾或协议级 EOF） */
 			return false;
 		}
 
 		if (fld_count == -1)
 		{
 			/*
-			 * Received EOF marker.  Wait for the protocol-level EOF, and
-			 * complain if it doesn't come immediately.  In COPY FROM STDIN,
-			 * this ensures that we correctly handle CopyFail, if client
-			 * chooses to send that now.  When copying from file, we could
-			 * ignore the rest of the file like in text mode, but we choose to
-			 * be consistent with the COPY FROM STDIN case.
+			 * 收到 EOF 标记。等待协议级 EOF，
+			 * 如果没有立即到达则报错。在 COPY FROM STDIN 中，
+			 * 这确保如果客户端选择此时发送 CopyFail，
+			 * 我们能正确处理。从文件复制时，我们可以像文本模式那样
+			 * 忽略文件其余部分，但我们选择与 COPY FROM STDIN 保持一致。
+			 *
 			 */
 			char		dummy;
 

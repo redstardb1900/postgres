@@ -1,13 +1,13 @@
 /*-------------------------------------------------------------------------
  *
  * copyfrom.c
- *		COPY <table> FROM file/program/client
+ *		COPY <表> FROM 文件/程序/客户端
  *
- * This file contains routines needed to efficiently load tuples into a
- * table.  That includes looking up the correct partition, firing triggers,
- * calling the table AM function to insert the data, and updating indexes.
- * Reading data from the input file or client and parsing it into Datums
- * is handled in copyfromparse.c.
+ * 本文件包含将元组高效加载到表中所需的例程。
+ * 这包括查找正确的分区、触发触发器、
+ * 调用表 AM 函数插入数据以及更新索引。
+ * 从输入文件或客户端读取数据并将其解析为 Datum
+ * 由 copyfromparse.c 处理。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -54,26 +54,26 @@
 #include "utils/snapmgr.h"
 
 /*
- * No more than this many tuples per CopyMultiInsertBuffer
+ * 每个 CopyMultiInsertBuffer 不超过此数量的元组
  *
- * Caution: Don't make this too big, as we could end up with this many
- * CopyMultiInsertBuffer items stored in CopyMultiInsertInfo's
- * multiInsertBuffers list.  Increasing this can cause quadratic growth in
- * memory requirements during copies into partitioned tables with a large
- * number of partitions.
+ * 注意：不要设置得太大，否则我们可能在 CopyMultiInsertInfo 的
+ * multiInsertBuffers 列表中存储这么多 CopyMultiInsertBuffer 项。
+ * 增大此值可能导致在向具有大量分区的分区表进行复制时，
+ * 内存需求呈二次增长。
+ *
  */
 #define MAX_BUFFERED_TUPLES		1000
 
 /*
- * Flush buffers if there are >= this many bytes, as counted by the input
- * size, of tuples stored.
+ * 如果存储的元组的输入大小达到或超过此字节数，则刷新缓冲区。
+ *
  */
 #define MAX_BUFFERED_BYTES		65535
 
-/* Trim the list of buffers back down to this number after flushing */
+/* 刷新后将缓冲区列表剪裁回此数量 */
 #define MAX_PARTITION_BUFFERS	32
 
-/* Stores multi-insert data related to a single relation in CopyFrom. */
+/* 存储 CopyFrom 中与单个关系相关的多重插入数据。 */
 typedef struct CopyMultiInsertBuffer
 {
 	TupleTableSlot *slots[MAX_BUFFERED_TUPLES]; /* Array to store tuples */
@@ -86,9 +86,9 @@ typedef struct CopyMultiInsertBuffer
 } CopyMultiInsertBuffer;
 
 /*
- * Stores one or many CopyMultiInsertBuffers and details about the size and
- * number of tuples which are stored in them.  This allows multiple buffers to
- * exist at once when COPYing into a partitioned table.
+ * 存储一个或多个 CopyMultiInsertBuffer 以及其中存储的元组
+ * 大小和数量的详细信息。这允许在向分区表进行 COPY 时
+ * 同时存在多个缓冲区。
  */
 typedef struct CopyMultiInsertInfo
 {
@@ -102,15 +102,15 @@ typedef struct CopyMultiInsertInfo
 } CopyMultiInsertInfo;
 
 
-/* non-export function prototypes */
+/* 非导出函数原型 */
 static char *limit_printout_length(const char *str);
 
 static void ClosePipeFromProgram(CopyFromState cstate);
 
 /*
- * error context callback for COPY FROM
+ * COPY FROM 的错误上下文回调
  *
- * The argument for the error context must be CopyFromState.
+ * 错误上下文的参数必须是 CopyFromState。
  */
 void
 CopyFromErrorCallback(void *arg)
@@ -187,9 +187,9 @@ CopyFromErrorCallback(void *arg)
 }
 
 /*
- * Make sure we don't print an unreasonable amount of COPY data in a message.
+ * 确保我们不会在消息中打印过多的 COPY 数据。
  *
- * Returns a pstrdup'd copy of the input.
+ * 返回输入的 pstrdup 副本。
  */
 static char *
 limit_printout_length(const char *str)
@@ -200,15 +200,15 @@ limit_printout_length(const char *str)
 	int			len;
 	char	   *res;
 
-	/* Fast path if definitely okay */
+	/* 如果确定没问题，走快速路径 */
 	if (slen <= MAX_COPY_DATA_DISPLAY)
 		return pstrdup(str);
 
-	/* Apply encoding-dependent truncation */
+	/* 应用编码相关的截断 */
 	len = pg_mbcliplen(str, slen, MAX_COPY_DATA_DISPLAY);
 
 	/*
-	 * Truncate, and add "..." to show we truncated the input.
+	 * 截断并添加 "..." 以表示我们已截断输入。
 	 */
 	res = (char *) palloc(len + 4);
 	memcpy(res, str, len);
@@ -218,8 +218,8 @@ limit_printout_length(const char *str)
 }
 
 /*
- * Allocate memory and initialize a new CopyMultiInsertBuffer for this
- * ResultRelInfo.
+ * 为此 ResultRelInfo 分配内存并初始化新的 CopyMultiInsertBuffer。
+ *
  */
 static CopyMultiInsertBuffer *
 CopyMultiInsertBufferInit(ResultRelInfo *rri)
@@ -236,7 +236,7 @@ CopyMultiInsertBufferInit(ResultRelInfo *rri)
 }
 
 /*
- * Make a new buffer for this ResultRelInfo.
+ * 为此 ResultRelInfo 创建新的缓冲区。
  */
 static inline void
 CopyMultiInsertInfoSetupBuffer(CopyMultiInsertInfo *miinfo,
@@ -246,17 +246,17 @@ CopyMultiInsertInfoSetupBuffer(CopyMultiInsertInfo *miinfo,
 
 	buffer = CopyMultiInsertBufferInit(rri);
 
-	/* Setup back-link so we can easily find this buffer again */
+	/* 设置反向链接，以便我们可以轻松再次找到此缓冲区 */
 	rri->ri_CopyMultiInsertBuffer = buffer;
-	/* Record that we're tracking this buffer */
+	/* 记录我们正在跟踪此缓冲区 */
 	miinfo->multiInsertBuffers = lappend(miinfo->multiInsertBuffers, buffer);
 }
 
 /*
- * Initialize an already allocated CopyMultiInsertInfo.
+ * 初始化已分配的 CopyMultiInsertInfo。
  *
- * If rri is a non-partitioned table then a CopyMultiInsertBuffer is set up
- * for that table.
+ * 如果 rri 是非分区表，则为该表设置一个 CopyMultiInsertBuffer。
+ *
  */
 static void
 CopyMultiInsertInfoInit(CopyMultiInsertInfo *miinfo, ResultRelInfo *rri,
@@ -272,16 +272,16 @@ CopyMultiInsertInfoInit(CopyMultiInsertInfo *miinfo, ResultRelInfo *rri,
 	miinfo->ti_options = ti_options;
 
 	/*
-	 * Only setup the buffer when not dealing with a partitioned table.
-	 * Buffers for partitioned tables will just be setup when we need to send
-	 * tuples their way for the first time.
+	 * 仅在不处理分区表时设置缓冲区。分区表的缓冲区
+	 * 将在我们首次需要向它们发送元组时再设置。
+	 *
 	 */
 	if (rri->ri_RelationDesc->rd_rel->relkind != RELKIND_PARTITIONED_TABLE)
 		CopyMultiInsertInfoSetupBuffer(miinfo, rri);
 }
 
 /*
- * Returns true if the buffers are full
+ * 如果缓冲区已满，则返回 true
  */
 static inline bool
 CopyMultiInsertInfoIsFull(CopyMultiInsertInfo *miinfo)
@@ -293,7 +293,7 @@ CopyMultiInsertInfoIsFull(CopyMultiInsertInfo *miinfo)
 }
 
 /*
- * Returns true if we have no buffered tuples
+ * 如果没有缓冲的元组，则返回 true
  */
 static inline bool
 CopyMultiInsertInfoIsEmpty(CopyMultiInsertInfo *miinfo)
@@ -302,7 +302,7 @@ CopyMultiInsertInfoIsEmpty(CopyMultiInsertInfo *miinfo)
 }
 
 /*
- * Write the tuples stored in 'buffer' out to the table.
+ * 将 'buffer' 中存储的元组写入表中。
  */
 static inline void
 CopyMultiInsertBufferFlush(CopyMultiInsertInfo *miinfo,
@@ -323,13 +323,13 @@ CopyMultiInsertBufferFlush(CopyMultiInsertInfo *miinfo,
 
 		Assert(buffer->bistate == NULL);
 
-		/* Ensure that the FDW supports batching and it's enabled */
+		/* 确保 FDW 支持批处理且已启用 */
 		Assert(resultRelInfo->ri_FdwRoutine->ExecForeignBatchInsert);
 		Assert(batch_size > 1);
 
 		/*
-		 * We suppress error context information other than the relation name,
-		 * if one of the operations below fails.
+		 * 如果下面的某个操作失败，我们会截断除关系名以外
+		 * 的错误上下文信息。
 		 */
 		Assert(!cstate->relname_only);
 		cstate->relname_only = true;
@@ -369,8 +369,8 @@ CopyMultiInsertBufferFlush(CopyMultiInsertInfo *miinfo,
 					TupleTableSlot *slot = rslots[i];
 
 					/*
-					 * AFTER ROW Triggers might reference the tableoid column,
-					 * so (re-)initialize tts_tableOid before evaluating them.
+					 * AFTER ROW 触发器可能引用 tableoid 列，
+					 * 所以在评估之前（重新）初始化 tts_tableOid。
 					 */
 					slot->tts_tableOid = relid;
 
@@ -380,7 +380,7 @@ CopyMultiInsertBufferFlush(CopyMultiInsertInfo *miinfo,
 				}
 			}
 
-			/* Update the row counter and progress of the COPY command */
+			/* 更新 COPY 命令的行计数器和进度 */
 			*processed += inserted;
 			pgstat_progress_update_param(PROGRESS_COPY_TUPLES_PROCESSED,
 										 *processed);
@@ -389,7 +389,7 @@ CopyMultiInsertBufferFlush(CopyMultiInsertInfo *miinfo,
 		for (i = 0; i < nused; i++)
 			ExecClearTuple(slots[i]);
 
-		/* reset relname_only */
+		/* 重置 relname_only */
 		cstate->relname_only = false;
 	}
 	else
@@ -403,14 +403,14 @@ CopyMultiInsertBufferFlush(CopyMultiInsertInfo *miinfo,
 		Assert(buffer->bistate != NULL);
 
 		/*
-		 * Print error context information correctly, if one of the operations
-		 * below fails.
+		 * 如果下面的某个操作失败，正确打印错误上下文信息。
+		 *
 		 */
 		cstate->line_buf_valid = false;
 
 		/*
-		 * table_multi_insert may leak memory, so switch to short-lived memory
-		 * context before calling it.
+		 * table_multi_insert 可能会泄漏内存，所以在调用之前
+		 * 切换到短生命内存上下文。
 		 */
 		oldcontext = MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
 		table_multi_insert(resultRelInfo->ri_RelationDesc,
@@ -424,8 +424,8 @@ CopyMultiInsertBufferFlush(CopyMultiInsertInfo *miinfo,
 		for (i = 0; i < nused; i++)
 		{
 			/*
-			 * If there are any indexes, update them for all the inserted
-			 * tuples, and run AFTER ROW INSERT triggers.
+			 * 如果有任何索引，则为所有插入的元组更新它们，
+			 * 并运行 AFTER ROW INSERT 触发器。
 			 */
 			if (resultRelInfo->ri_NumIndices > 0)
 			{
@@ -443,8 +443,8 @@ CopyMultiInsertBufferFlush(CopyMultiInsertInfo *miinfo,
 			}
 
 			/*
-			 * There's no indexes, but see if we need to run AFTER ROW INSERT
-			 * triggers anyway.
+			 * 没有索引，但检查是否仍然需要运行
+			 * AFTER ROW INSERT 触发器。
 			 */
 			else if (resultRelInfo->ri_TrigDesc != NULL &&
 					 (resultRelInfo->ri_TrigDesc->trig_insert_after_row ||
@@ -459,24 +459,24 @@ CopyMultiInsertBufferFlush(CopyMultiInsertInfo *miinfo,
 			ExecClearTuple(slots[i]);
 		}
 
-		/* Update the row counter and progress of the COPY command */
+		/* 更新 COPY 命令的行计数器和进度 */
 		*processed += nused;
 		pgstat_progress_update_param(PROGRESS_COPY_TUPLES_PROCESSED,
 									 *processed);
 
-		/* reset cur_lineno and line_buf_valid to what they were */
+		/* 将 cur_lineno 和 line_buf_valid 重置为原来的值 */
 		cstate->line_buf_valid = line_buf_valid;
 		cstate->cur_lineno = save_cur_lineno;
 	}
 
-	/* Mark that all slots are free */
+	/* 标记所有 slot 已释放 */
 	buffer->nused = 0;
 }
 
 /*
- * Drop used slots and free member for this buffer.
+ * 释放已用的 slot 并释放此缓冲区的成员。
  *
- * The buffer must be flushed before cleanup.
+ * 清理前必须先刷新缓冲区。
  */
 static inline void
 CopyMultiInsertBufferCleanup(CopyMultiInsertInfo *miinfo,
@@ -485,10 +485,10 @@ CopyMultiInsertBufferCleanup(CopyMultiInsertInfo *miinfo,
 	ResultRelInfo *resultRelInfo = buffer->resultRelInfo;
 	int			i;
 
-	/* Ensure buffer was flushed */
+	/* 确保缓冲区已刷新 */
 	Assert(buffer->nused == 0);
 
-	/* Remove back-link to ourself */
+	/* 移除指向我们自己的反向链接 */
 	resultRelInfo->ri_CopyMultiInsertBuffer = NULL;
 
 	if (resultRelInfo->ri_FdwRoutine == NULL)
@@ -499,7 +499,7 @@ CopyMultiInsertBufferCleanup(CopyMultiInsertInfo *miinfo,
 	else
 		Assert(buffer->bistate == NULL);
 
-	/* Since we only create slots on demand, just drop the non-null ones. */
+	/* 由于我们仅在需要时创建 slot，只释放非空的。 */
 	for (i = 0; i < MAX_BUFFERED_TUPLES && buffer->slots[i] != NULL; i++)
 		ExecDropSingleTupleTableSlot(buffer->slots[i]);
 
@@ -511,14 +511,14 @@ CopyMultiInsertBufferCleanup(CopyMultiInsertInfo *miinfo,
 }
 
 /*
- * Write out all stored tuples in all buffers out to the tables.
+ * 将所有缓冲区中的所有存储的元组写入表中。
  *
- * Once flushed we also trim the tracked buffers list down to size by removing
- * the buffers created earliest first.
+ * 刷新后，我们还通过优先移除最早创建的缓冲区来
+ * 将已跟踪的缓冲区列表剪裁到指定大小。
  *
- * Callers should pass 'curr_rri' as the ResultRelInfo that's currently being
- * used.  When cleaning up old buffers we'll never remove the one for
- * 'curr_rri'.
+ * 调用者应将当前正在使用的 ResultRelInfo 传递为 'curr_rri'。
+ * 在清理旧缓冲区时，我们永远不会移除 'curr_rri' 的缓冲区。
+ *
  */
 static inline void
 CopyMultiInsertInfoFlush(CopyMultiInsertInfo *miinfo, ResultRelInfo *curr_rri,
@@ -537,10 +537,10 @@ CopyMultiInsertInfoFlush(CopyMultiInsertInfo *miinfo, ResultRelInfo *curr_rri,
 	miinfo->bufferedBytes = 0;
 
 	/*
-	 * Trim the list of tracked buffers down if it exceeds the limit.  Here we
-	 * remove buffers starting with the ones we created first.  It seems less
-	 * likely that these older ones will be needed than the ones that were
-	 * just created.
+	 * 如果已跟踪的缓冲区列表超过限制，则剪裁它。我们
+	 * 从最先创建的缓冲区开始移除。这些旧缓冲区比刚创建的
+	 * 更不可能被需要。
+	 *
 	 */
 	while (list_length(miinfo->multiInsertBuffers) > MAX_PARTITION_BUFFERS)
 	{
@@ -549,8 +549,8 @@ CopyMultiInsertInfoFlush(CopyMultiInsertInfo *miinfo, ResultRelInfo *curr_rri,
 		buffer = (CopyMultiInsertBuffer *) linitial(miinfo->multiInsertBuffers);
 
 		/*
-		 * We never want to remove the buffer that's currently being used, so
-		 * if we happen to find that then move it to the end of the list.
+		 * 我们永远不想移除当前正在使用的缓冲区，
+		 * 所以如果碰到它，则将其移到列表末尾。
 		 */
 		if (buffer->resultRelInfo == curr_rri)
 		{
@@ -565,7 +565,7 @@ CopyMultiInsertInfoFlush(CopyMultiInsertInfo *miinfo, ResultRelInfo *curr_rri,
 }
 
 /*
- * Cleanup allocated buffers and free memory
+ * 清理已分配的缓冲区并释放内存
  */
 static inline void
 CopyMultiInsertInfoCleanup(CopyMultiInsertInfo *miinfo)
@@ -579,12 +579,12 @@ CopyMultiInsertInfoCleanup(CopyMultiInsertInfo *miinfo)
 }
 
 /*
- * Get the next TupleTableSlot that the next tuple should be stored in.
+ * 获取下一个元组应存储在其中的 TupleTableSlot。
  *
- * Callers must ensure that the buffer is not full.
+ * 调用者必须确保缓冲区未满。
  *
- * Note: 'miinfo' is unused but has been included for consistency with the
- * other functions in this area.
+ * 注意：'miinfo' 未使用，但为了与此区域中的其他函数保持一致而包含。
+ *
  */
 static inline TupleTableSlot *
 CopyMultiInsertInfoNextFreeSlot(CopyMultiInsertInfo *miinfo,
@@ -602,8 +602,8 @@ CopyMultiInsertInfoNextFreeSlot(CopyMultiInsertInfo *miinfo,
 }
 
 /*
- * Record the previously reserved TupleTableSlot that was reserved by
- * CopyMultiInsertInfoNextFreeSlot as being consumed.
+ * 记录之前由 CopyMultiInsertInfoNextFreeSlot 预留的
+ * TupleTableSlot 已被消费。
  */
 static inline void
 CopyMultiInsertInfoStore(CopyMultiInsertInfo *miinfo, ResultRelInfo *rri,
@@ -614,19 +614,19 @@ CopyMultiInsertInfoStore(CopyMultiInsertInfo *miinfo, ResultRelInfo *rri,
 	Assert(buffer != NULL);
 	Assert(slot == buffer->slots[buffer->nused]);
 
-	/* Store the line number so we can properly report any errors later */
+	/* 存储行号，以便之后能正确报告任何错误 */
 	buffer->linenos[buffer->nused] = lineno;
 
-	/* Record this slot as being used */
+	/* 记录此 slot 已被使用 */
 	buffer->nused++;
 
-	/* Update how many tuples are stored and their size */
+	/* 更新存储的元组数量和其大小 */
 	miinfo->bufferedTuples++;
 	miinfo->bufferedBytes += tuplen;
 }
 
 /*
- * Copy FROM file to relation.
+ * 从文件复制到关系。
  */
 uint64
 CopyFrom(CopyFromState cstate)
@@ -657,9 +657,9 @@ CopyFrom(CopyFromState cstate)
 	Assert(list_length(cstate->range_table) == 1);
 
 	/*
-	 * The target must be a plain, foreign, or partitioned relation, or have
-	 * an INSTEAD OF INSERT row trigger.  (Currently, such triggers are only
-	 * allowed on views, so we only hint about them in the view case.)
+	 * 目标必须是普通、外部或分区关系，或者具有 INSTEAD OF INSERT
+	 * 行触发器。（目前，此类触发器仅允许在视图上，
+	 * 所以我们仅在视图场景中提示它们。）
 	 */
 	if (cstate->rel->rd_rel->relkind != RELKIND_RELATION &&
 		cstate->rel->rd_rel->relkind != RELKIND_FOREIGN_TABLE &&
@@ -691,9 +691,9 @@ CopyFrom(CopyFromState cstate)
 	}
 
 	/*
-	 * If the target file is new-in-transaction, we assume that checking FSM
-	 * for free space is a waste of time.  This could possibly be wrong, but
-	 * it's unlikely.
+	 * 如果目标文件是事务内新创建的，我们假定检查 FSM
+	 * 中的空闲空间是浪费时间。这可能是错误的，但几乎不可能。
+	 *
 	 */
 	if (RELKIND_HAS_STORAGE(cstate->rel->rd_rel->relkind) &&
 		(cstate->rel->rd_createSubid != InvalidSubTransactionId ||
@@ -701,26 +701,26 @@ CopyFrom(CopyFromState cstate)
 		ti_options |= TABLE_INSERT_SKIP_FSM;
 
 	/*
-	 * Optimize if new relation storage was created in this subxact or one of
-	 * its committed children and we won't see those rows later as part of an
-	 * earlier scan or command. The subxact test ensures that if this subxact
-	 * aborts then the frozen rows won't be visible after xact cleanup.  Note
-	 * that the stronger test of exactly which subtransaction created it is
-	 * crucial for correctness of this optimization. The test for an earlier
-	 * scan or command tolerates false negatives. FREEZE causes other sessions
-	 * to see rows they would not see under MVCC, and a false negative merely
-	 * spreads that anomaly to the current session.
+	 * 如果在此子事务或其已提交的子事务中创建了新的关系存储，
+	 * 且我们不会在之后的扫描或命令中看到这些行，则进行优化。
+	 * 子事务测试确保如果此子事务中止，则冻结行在事务清理后不会可见。
+	 * 注意，精确确定是哪个子事务创建它的更强测试对此优化的
+	 * 正确性至关重要。对更早扫描或命令的测试允许假阴性。
+	 * FREEZE 会导致其他会话看到在 MVCC 下不会看到的行，
+	 * 假阴性仅将该异常扩展到当前会话。
+	 *
+	 *
 	 */
 	if (cstate->opts.freeze)
 	{
 		/*
-		 * We currently disallow COPY FREEZE on partitioned tables.  The
-		 * reason for this is that we've simply not yet opened the partitions
-		 * to determine if the optimization can be applied to them.  We could
-		 * go and open them all here, but doing so may be quite a costly
-		 * overhead for small copies.  In any case, we may just end up routing
-		 * tuples to a small number of partitions.  It seems better just to
-		 * raise an ERROR for partitioned tables.
+		 * 我们目前不允许在分区表上使用 COPY FREEZE。
+		 * 原因是我们尚未打开分区来确定是否可以应用此优化。
+		 * 我们可以在这里全部打开它们，但对于小型复制来说，
+		 * 这可能是相当昂贵的开销。无论如何，我们可能最终只将
+		 * 元组路由到少数分区。似乎更好的做法是对分区表
+		 * 直接抛出 ERROR。
+		 *
 		 */
 		if (cstate->rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
 		{
@@ -730,12 +730,12 @@ CopyFrom(CopyFromState cstate)
 		}
 
 		/*
-		 * Tolerate one registration for the benefit of FirstXactSnapshot.
-		 * Scan-bearing queries generally create at least two registrations,
-		 * though relying on that is fragile, as is ignoring ActiveSnapshot.
-		 * Clear CatalogSnapshot to avoid counting its registration.  We'll
-		 * still detect ongoing catalog scans, each of which separately
-		 * registers the snapshot it uses.
+		 * 为了 FirstXactSnapshot 的好处，容忍一次注册。
+		 * 带有扫描的查询通常会创建至少两次注册，不过
+		 * 依赖此点是脆弱的，就像忽略 ActiveSnapshot 一样。
+		 * 清除 CatalogSnapshot 以避免计算其注册。我们
+		 * 仍会检测到正在进行的目录扫描，每个扫描会单独
+		 * 注册其使用的快照。
 		 */
 		InvalidateCatalogSnapshot();
 		if (!ThereAreNoPriorRegisteredSnapshots() || !ThereAreNoReadyPortals())
@@ -753,22 +753,22 @@ CopyFrom(CopyFromState cstate)
 	}
 
 	/*
-	 * We need a ResultRelInfo so we can use the regular executor's
-	 * index-entry-making machinery.  (There used to be a huge amount of code
-	 * here that basically duplicated execUtils.c ...)
+	 * 我们需要 ResultRelInfo 以便可以使用普通执行器的
+	 * 索引项创建机制。（这里曾有大量代码基本上复制了
+	 * execUtils.c ...）
 	 */
 	ExecInitRangeTable(estate, cstate->range_table, cstate->rteperminfos);
 	resultRelInfo = target_resultRelInfo = makeNode(ResultRelInfo);
 	ExecInitResultRelation(estate, resultRelInfo, 1);
 
-	/* Verify the named relation is a valid target for INSERT */
+	/* 验证命名的关系是 INSERT 的有效目标 */
 	CheckValidResultRel(resultRelInfo, CMD_INSERT);
 
 	ExecOpenIndices(resultRelInfo, false);
 
 	/*
-	 * Set up a ModifyTableState so we can let FDW(s) init themselves for
-	 * foreign-table result relation(s).
+	 * 设置 ModifyTableState 以便我们可以让 FDW 为
+	 * 外部表结果关系自行初始化。
 	 */
 	mtstate = makeNode(ModifyTableState);
 	mtstate->ps.plan = NULL;
@@ -784,11 +784,11 @@ CopyFrom(CopyFromState cstate)
 														 resultRelInfo);
 
 	/*
-	 * Also, if the named relation is a foreign table, determine if the FDW
-	 * supports batch insert and determine the batch size (a FDW may support
-	 * batching, but it may be disabled for the server/table).
+	 * 此外，如果命名关系是外部表，则确定 FDW 是否
+	 * 支持批量插入并确定批量大小（FDW 可能支持批处理，
+	 * 但可能对服务器/表禁用）。
 	 *
-	 * If the FDW does not support batching, we set the batch size to 1.
+	 * 如果 FDW 不支持批处理，则将批量大小设置为 1。
 	 */
 	if (resultRelInfo->ri_FdwRoutine != NULL &&
 		resultRelInfo->ri_FdwRoutine->GetForeignModifyBatchSize &&
@@ -800,16 +800,16 @@ CopyFrom(CopyFromState cstate)
 
 	Assert(resultRelInfo->ri_BatchSize >= 1);
 
-	/* Prepare to catch AFTER triggers. */
+	/* 准备捕获 AFTER 触发器。 */
 	AfterTriggerBeginQuery();
 
 	/*
-	 * If there are any triggers with transition tables on the named relation,
-	 * we need to be prepared to capture transition tuples.
+	 * 如果命名关系上有任何带过渡表的触发器，
+	 * 我们需要准备捕获过渡元组。
 	 *
-	 * Because partition tuple routing would like to know about whether
-	 * transition capture is active, we also set it in mtstate, which is
-	 * passed to ExecFindPartition() below.
+	 * 因为分区元组路由需要知道过渡捕获是否活动，
+	 * 我们也在 mtstate 中设置它，该值会传递给下面的
+	 * ExecFindPartition()。
 	 */
 	cstate->transition_capture = mtstate->mt_transition_capture =
 		MakeTransitionCaptureState(cstate->rel->trigdesc,
@@ -817,8 +817,8 @@ CopyFrom(CopyFromState cstate)
 								   CMD_INSERT);
 
 	/*
-	 * If the named relation is a partitioned table, initialize state for
-	 * CopyFrom tuple routing.
+	 * 如果命名关系是分区表，则初始化 CopyFrom 元组路由的状态。
+	 *
 	 */
 	if (cstate->rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
 		proute = ExecSetupPartitionTupleRouting(estate, cstate->rel);
@@ -828,22 +828,22 @@ CopyFrom(CopyFromState cstate)
 										&mtstate->ps);
 
 	/*
-	 * It's generally more efficient to prepare a bunch of tuples for
-	 * insertion, and insert them in one
-	 * table_multi_insert()/ExecForeignBatchInsert() call, than call
-	 * table_tuple_insert()/ExecForeignInsert() separately for every tuple.
-	 * However, there are a number of reasons why we might not be able to do
-	 * this.  These are explained below.
+	 * 通常，准备一批元组并在一次
+	 * table_multi_insert()/ExecForeignBatchInsert() 调用中插入它们
+	 * 比为每个元组单独调用 table_tuple_insert()/ExecForeignInsert()
+	 * 更有效率。但是，有一些原因可能使我们无法这样做。
+	 * 这些原因在下面解释。
+	 *
 	 */
 	if (resultRelInfo->ri_TrigDesc != NULL &&
 		(resultRelInfo->ri_TrigDesc->trig_insert_before_row ||
 		 resultRelInfo->ri_TrigDesc->trig_insert_instead_row))
 	{
 		/*
-		 * Can't support multi-inserts when there are any BEFORE/INSTEAD OF
-		 * triggers on the table. Such triggers might query the table we're
-		 * inserting into and act differently if the tuples that have already
-		 * been processed and prepared for insertion are not there.
+		 * 当表上有任何 BEFORE/INSTEAD OF 触发器时，无法支持
+		 * 多重插入。这类触发器可能查询我们正在插入的表，
+		 * 如果已处理并准备插入的元组不在，则会产生不同的行为。
+		 *
 		 */
 		insertMethod = CIM_SINGLE;
 	}
@@ -851,8 +851,8 @@ CopyFrom(CopyFromState cstate)
 			 resultRelInfo->ri_BatchSize == 1)
 	{
 		/*
-		 * Can't support multi-inserts to a foreign table if the FDW does not
-		 * support batching, or it's disabled for the server or foreign table.
+		 * 如果 FDW 不支持批处理，或对服务器或外部表禁用，
+		 * 则无法支持向外部表进行多重插入。
 		 */
 		insertMethod = CIM_SINGLE;
 	}
@@ -860,53 +860,53 @@ CopyFrom(CopyFromState cstate)
 			 resultRelInfo->ri_TrigDesc->trig_insert_new_table)
 	{
 		/*
-		 * For partitioned tables we can't support multi-inserts when there
-		 * are any statement level insert triggers. It might be possible to
-		 * allow partitioned tables with such triggers in the future, but for
-		 * now, CopyMultiInsertInfoFlush expects that any after row insert and
-		 * statement level insert triggers are on the same relation.
+		 * 对于分区表，当存在任何语句级插入触发器时，
+		 * 无法支持多重插入。未来可能允许带有此类触发器的
+		 * 分区表，但目前 CopyMultiInsertInfoFlush 期望
+		 * after row insert 和语句级 insert 触发器在同一关系上。
+		 *
 		 */
 		insertMethod = CIM_SINGLE;
 	}
 	else if (cstate->volatile_defexprs)
 	{
 		/*
-		 * Can't support multi-inserts if there are any volatile default
-		 * expressions in the table.  Similarly to the trigger case above,
-		 * such expressions may query the table we're inserting into.
+		 * 如果表中有任何易变的默认表达式，则无法
+		 * 支持多重插入。与上述触发器场景类似，
+		 * 此类表达式可能查询我们正在插入的表。
 		 *
-		 * Note: It does not matter if any partitions have any volatile
-		 * default expressions as we use the defaults from the target of the
-		 * COPY command.
+		 * 注意：分区是否有易变的默认表达式无关紧要，
+		 * 因为我们使用 COPY 命令目标的默认值。
+		 *
 		 */
 		insertMethod = CIM_SINGLE;
 	}
 	else if (contain_volatile_functions(cstate->whereClause))
 	{
 		/*
-		 * Can't support multi-inserts if there are any volatile function
-		 * expressions in WHERE clause.  Similarly to the trigger case above,
-		 * such expressions may query the table we're inserting into.
+		 * 如果 WHERE 子句中有任何易变函数表达式，则
+		 * 无法支持多重插入。与上述触发器场景类似，
+		 * 此类表达式可能查询我们正在插入的表。
 		 *
-		 * Note: the whereClause was already preprocessed in DoCopy(), so it's
-		 * okay to use contain_volatile_functions() directly.
+		 * 注意：whereClause 已在 DoCopy() 中预处理，所以
+		 * 直接使用 contain_volatile_functions() 是可以的。
 		 */
 		insertMethod = CIM_SINGLE;
 	}
 	else
 	{
 		/*
-		 * For partitioned tables, we may still be able to perform bulk
-		 * inserts.  However, the possibility of this depends on which types
-		 * of triggers exist on the partition.  We must disable bulk inserts
-		 * if the partition is a foreign table that can't use batching or it
-		 * has any before row insert or insert instead triggers (same as we
-		 * checked above for the parent table).  Since the partition's
-		 * resultRelInfos are initialized only when we actually need to insert
-		 * the first tuple into them, we must have the intermediate insert
-		 * method of CIM_MULTI_CONDITIONAL to flag that we must later
-		 * determine if we can use bulk-inserts for the partition being
-		 * inserted into.
+		 * 对于分区表，我们可能仍然能够执行批量
+		 * 插入。但是，这种可能性取决于分区上存在哪些类型
+		 * 的触发器。如果分区是不能使用批处理的外部表，
+		 * 或者具有任何 before row insert 或 insert instead 触发器
+		 * （与我们上面对父表的检查相同），我们必须禁用批量插入。
+		 * 由于分区的 resultRelInfos 仅在我们实际需要向其插入第一个
+		 * 元组时才初始化，我们必须使用中间插入方法
+		 * CIM_MULTI_CONDITIONAL 来标记我们必须在之后确定是否可以对
+		 * 正在插入的分区使用批量插入。
+		 *
+		 *
 		 */
 		if (proute)
 			insertMethod = CIM_MULTI_CONDITIONAL;
@@ -918,10 +918,10 @@ CopyFrom(CopyFromState cstate)
 	}
 
 	/*
-	 * If not using batch mode (which allocates slots as needed) set up a
-	 * tuple slot too. When inserting into a partitioned table, we also need
-	 * one, even if we might batch insert, to read the tuple in the root
-	 * partition's form.
+	 * 如果不使用批处理模式（该模式会按需分配 slot），
+	 * 则也设置一个元组 slot。向分区表插入时，即使我们
+	 * 可能使用批量插入，也需要一个以便以根分区的形式读取元组。
+	 *
 	 */
 	if (insertMethod == CIM_SINGLE || insertMethod == CIM_MULTI_CONDITIONAL)
 	{
@@ -937,16 +937,16 @@ CopyFrom(CopyFromState cstate)
 								   resultRelInfo->ri_TrigDesc->trig_insert_instead_row);
 
 	/*
-	 * Check BEFORE STATEMENT insertion triggers. It's debatable whether we
-	 * should do this for COPY, since it's not really an "INSERT" statement as
-	 * such. However, executing these triggers maintains consistency with the
-	 * EACH ROW triggers that we already fire on COPY.
+	 * 检查 BEFORE STATEMENT 插入触发器。是否应当对 COPY 执行此操作
+	 * 存在争议，因为它并不是真正的 "INSERT" 语句。
+	 * 但是，执行这些触发器可以与我们在 COPY 上已触发的
+	 * EACH ROW 触发器保持一致性。
 	 */
 	ExecBSInsertTriggers(estate, resultRelInfo);
 
 	econtext = GetPerTupleExprContext(estate);
 
-	/* Set up callback to identify error line number */
+	/* 设置回调以标识错误行号 */
 	errcallback.callback = CopyFromErrorCallback;
 	errcallback.arg = (void *) cstate;
 	errcallback.previous = error_context_stack;
@@ -960,12 +960,12 @@ CopyFrom(CopyFromState cstate)
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * Reset the per-tuple exprcontext. We do this after every tuple, to
-		 * clean-up after expression evaluations etc.
+		 * 重置每元组的 exprcontext。我们在每个元组后执行此操作，
+		 * 以清理表达式评估等。
 		 */
 		ResetPerTupleExprContext(estate);
 
-		/* select slot to (initially) load row into */
+		/* 选择 slot 以（初始）加载行 */
 		if (insertMethod == CIM_SINGLE || proute)
 		{
 			myslot = singleslot;
@@ -981,22 +981,22 @@ CopyFrom(CopyFromState cstate)
 		}
 
 		/*
-		 * Switch to per-tuple context before calling NextCopyFrom, which does
-		 * evaluate default expressions etc. and requires per-tuple context.
+		 * 在调用 NextCopyFrom 之前切换到每元组上下文，NextCopyFrom
+		 * 会评估默认表达式等，需要每元组上下文。
 		 */
 		MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
 
 		ExecClearTuple(myslot);
 
-		/* Directly store the values/nulls array in the slot */
+		/* 直接将 values/nulls 数组存储在 slot 中 */
 		if (!NextCopyFrom(cstate, econtext, myslot->tts_values, myslot->tts_isnull))
 			break;
 
 		ExecStoreVirtualTuple(myslot);
 
 		/*
-		 * Constraints and where clause might reference the tableoid column,
-		 * so (re-)initialize tts_tableOid before evaluating them.
+		 * 约束和 where 子句可能引用 tableoid 列，
+		 * 所以在评估它们之前（重新）初始化 tts_tableOid。
 		 */
 		myslot->tts_tableOid = RelationGetRelid(target_resultRelInfo->ri_RelationDesc);
 
@@ -1010,8 +1010,8 @@ CopyFrom(CopyFromState cstate)
 			if (!ExecQual(cstate->qualexpr, econtext))
 			{
 				/*
-				 * Report that this tuple was filtered out by the WHERE
-				 * clause.
+				 * 报告此元组已被 WHERE 子句过滤。
+				 *
 				 */
 				pgstat_progress_update_param(PROGRESS_COPY_TUPLES_EXCLUDED,
 											 ++excluded);
@@ -1019,22 +1019,22 @@ CopyFrom(CopyFromState cstate)
 			}
 		}
 
-		/* Determine the partition to insert the tuple into */
+		/* 确定要将元组插入到哪个分区 */
 		if (proute)
 		{
 			TupleConversionMap *map;
 
 			/*
-			 * Attempt to find a partition suitable for this tuple.
-			 * ExecFindPartition() will raise an error if none can be found or
-			 * if the found partition is not suitable for INSERTs.
+			 * 尝试找到适合此元组的分区。
+			 * 如果找不到或找到的分区不适合 INSERT，
+			 * ExecFindPartition() 将抛出错误。
 			 */
 			resultRelInfo = ExecFindPartition(mtstate, target_resultRelInfo,
 											  proute, myslot, estate);
 
 			if (prevResultRelInfo != resultRelInfo)
 			{
-				/* Determine which triggers exist on this partition */
+				/* 确定此分区上存在哪些触发器 */
 				has_before_insert_row_trig = (resultRelInfo->ri_TrigDesc &&
 											  resultRelInfo->ri_TrigDesc->trig_insert_before_row);
 
@@ -1042,9 +1042,9 @@ CopyFrom(CopyFromState cstate)
 											   resultRelInfo->ri_TrigDesc->trig_insert_instead_row);
 
 				/*
-				 * Disable multi-inserts when the partition has BEFORE/INSTEAD
-				 * OF triggers, or if the partition is a foreign table that
-				 * can't use batching.
+				 * 当分区具有 BEFORE/INSTEAD OF 触发器时，
+				 * 或分区是不能使用批处理的外部表时，
+				 * 禁用多重插入。
 				 */
 				leafpart_use_multi_insert = insertMethod == CIM_MULTI_CONDITIONAL &&
 					!has_before_insert_row_trig &&
@@ -1052,7 +1052,7 @@ CopyFrom(CopyFromState cstate)
 					(resultRelInfo->ri_FdwRoutine == NULL ||
 					 resultRelInfo->ri_BatchSize > 1);
 
-				/* Set the multi-insert buffer to use for this partition. */
+				/* 设置此分区要使用的多重插入缓冲区。 */
 				if (leafpart_use_multi_insert)
 				{
 					if (resultRelInfo->ri_CopyMultiInsertBuffer == NULL)
@@ -1063,8 +1063,8 @@ CopyFrom(CopyFromState cstate)
 						 !CopyMultiInsertInfoIsEmpty(&multiInsertInfo))
 				{
 					/*
-					 * Flush pending inserts if this partition can't use
-					 * batching, so rows are visible to triggers etc.
+					 * 如果此分区不能使用批处理，则刷新待处理的
+					 * 插入，以便触发器等能看到行。
 					 */
 					CopyMultiInsertInfoFlush(&multiInsertInfo,
 											 resultRelInfo,
@@ -1077,24 +1077,24 @@ CopyFrom(CopyFromState cstate)
 			}
 
 			/*
-			 * If we're capturing transition tuples, we might need to convert
-			 * from the partition rowtype to root rowtype. But if there are no
-			 * BEFORE triggers on the partition that could change the tuple,
-			 * we can just remember the original unconverted tuple to avoid a
-			 * needless round trip conversion.
+			 * 如果我们正在捕获过渡元组，可能需要从
+			 * 分区行类型转换到根行类型。但如果分区上没有
+			 * 可以更改元组的 BEFORE 触发器，
+			 * 我们可以只记住原始未转换的元组，以避免
+			 * 不必要的往返转换。
 			 */
 			if (cstate->transition_capture != NULL)
 				cstate->transition_capture->tcs_original_insert_tuple =
 					!has_before_insert_row_trig ? myslot : NULL;
 
 			/*
-			 * We might need to convert from the root rowtype to the partition
-			 * rowtype.
+			 * 我们可能需要从根行类型转换到分区行类型。
+			 *
 			 */
 			map = ExecGetRootToChildMap(resultRelInfo, estate);
 			if (insertMethod == CIM_SINGLE || !leafpart_use_multi_insert)
 			{
-				/* non batch insert */
+				/* 非批量插入 */
 				if (map != NULL)
 				{
 					TupleTableSlot *new_slot;
@@ -1106,12 +1106,12 @@ CopyFrom(CopyFromState cstate)
 			else
 			{
 				/*
-				 * Prepare to queue up tuple for later batch insert into
-				 * current partition.
+				 * 准备将元组排队，以便之后批量插入到
+				 * 当前分区。
 				 */
 				TupleTableSlot *batchslot;
 
-				/* no other path available for partitioned table */
+				/* 分区表没有其他可用的路径 */
 				Assert(insertMethod == CIM_MULTI_CONDITIONAL);
 
 				batchslot = CopyMultiInsertInfoNextFreeSlot(&multiInsertInfo,
@@ -1123,36 +1123,36 @@ CopyFrom(CopyFromState cstate)
 				else
 				{
 					/*
-					 * This looks more expensive than it is (Believe me, I
-					 * optimized it away. Twice.). The input is in virtual
-					 * form, and we'll materialize the slot below - for most
-					 * slot types the copy performs the work materialization
-					 * would later require anyway.
+					 * 这看起来比实际更昂贵（相信我，我
+					 * 优化过它。两次。）。输入是虚拟形式，
+					 * 我们将在下面实体化 slot，对于大多数
+					 * slot 类型来说，拷贝会执行实体化操作
+					 * 后续无论如何都会需要的工作。
 					 */
 					ExecCopySlot(batchslot, myslot);
 					myslot = batchslot;
 				}
 			}
 
-			/* ensure that triggers etc see the right relation  */
+			/* 确保触发器等看到正确的关系 */
 			myslot->tts_tableOid = RelationGetRelid(resultRelInfo->ri_RelationDesc);
 		}
 
 		skip_tuple = false;
 
-		/* BEFORE ROW INSERT Triggers */
+		/* BEFORE ROW INSERT 触发器 */
 		if (has_before_insert_row_trig)
 		{
 			if (!ExecBRInsertTriggers(estate, resultRelInfo, myslot))
-				skip_tuple = true;	/* "do nothing" */
+				skip_tuple = true;	/* "不做任何事" */
 		}
 
 		if (!skip_tuple)
 		{
 			/*
-			 * If there is an INSTEAD OF INSERT ROW trigger, let it handle the
-			 * tuple.  Otherwise, proceed with inserting the tuple into the
-			 * table or foreign table.
+			 * 如果存在 INSTEAD OF INSERT ROW 触发器，让它处理
+			 * 元组。否则，继续将元组插入到表或外部表中。
+			 *
 			 */
 			if (has_instead_insert_row_trig)
 			{
@@ -1160,25 +1160,25 @@ CopyFrom(CopyFromState cstate)
 			}
 			else
 			{
-				/* Compute stored generated columns */
+				/* 计算存储的生成列 */
 				if (resultRelInfo->ri_RelationDesc->rd_att->constr &&
 					resultRelInfo->ri_RelationDesc->rd_att->constr->has_generated_stored)
 					ExecComputeStoredGenerated(resultRelInfo, estate, myslot,
 											   CMD_INSERT);
 
 				/*
-				 * If the target is a plain table, check the constraints of
-				 * the tuple.
+				 * 如果目标是普通表，检查元组的约束。
+				 *
 				 */
 				if (resultRelInfo->ri_FdwRoutine == NULL &&
 					resultRelInfo->ri_RelationDesc->rd_att->constr)
 					ExecConstraints(resultRelInfo, myslot, estate);
 
 				/*
-				 * Also check the tuple against the partition constraint, if
-				 * there is one; except that if we got here via tuple-routing,
-				 * we don't need to if there's no BR trigger defined on the
-				 * partition.
+				 * 同时检查元组是否符合分区约束（如果有的话）；
+				 * 但如果我们通过元组路由到达此处，
+				 * 且分区上没有定义 BR 触发器，则无需检查。
+				 *
 				 */
 				if (resultRelInfo->ri_RelationDesc->rd_rel->relispartition &&
 					(proute == NULL || has_before_insert_row_trig))
@@ -1188,20 +1188,20 @@ CopyFrom(CopyFromState cstate)
 				if (insertMethod == CIM_MULTI || leafpart_use_multi_insert)
 				{
 					/*
-					 * The slot previously might point into the per-tuple
-					 * context. For batching it needs to be longer lived.
+					 * slot 之前可能指向每元组上下文。
+					 * 对于批处理，它需要更长的生命周期。
 					 */
 					ExecMaterializeSlot(myslot);
 
-					/* Add this tuple to the tuple buffer */
+					/* 将此元组添加到元组缓冲区 */
 					CopyMultiInsertInfoStore(&multiInsertInfo,
 											 resultRelInfo, myslot,
 											 cstate->line_buf.len,
 											 cstate->cur_lineno);
 
 					/*
-					 * If enough inserts have queued up, then flush all
-					 * buffers out to their tables.
+					 * 如果已排队足够多的插入，则
+					 * 将所有缓冲区刷新到其表中。
 					 */
 					if (CopyMultiInsertInfoIsFull(&multiInsertInfo))
 						CopyMultiInsertInfoFlush(&multiInsertInfo,
@@ -1209,18 +1209,18 @@ CopyFrom(CopyFromState cstate)
 												 &processed);
 
 					/*
-					 * We delay updating the row counter and progress of the
-					 * COPY command until after writing the tuples stored in
-					 * the buffer out to the table, as in single insert mode.
-					 * See CopyMultiInsertBufferFlush().
+					 * 我们延迟更新 COPY 命令的行计数器和
+					 * 进度，直到将缓冲区中存储的元组写入
+					 * 表中之后，与单个插入模式一样。
+					 * 参见 CopyMultiInsertBufferFlush()。
 					 */
-					continue;	/* next tuple please */
+					continue;	/* 请继续处理下一个元组 */
 				}
 				else
 				{
 					List	   *recheckIndexes = NIL;
 
-					/* OK, store the tuple */
+					/* 好的，存储元组 */
 					if (resultRelInfo->ri_FdwRoutine != NULL)
 					{
 						myslot = resultRelInfo->ri_FdwRoutine->ExecForeignInsert(estate,
@@ -1228,19 +1228,19 @@ CopyFrom(CopyFromState cstate)
 																				 myslot,
 																				 NULL);
 
-						if (myslot == NULL) /* "do nothing" */
-							continue;	/* next tuple please */
+						if (myslot == NULL) /* "不做任何事" */
+							continue;	/* 请继续处理下一个元组 */
 
 						/*
-						 * AFTER ROW Triggers might reference the tableoid
-						 * column, so (re-)initialize tts_tableOid before
-						 * evaluating them.
+						 * AFTER ROW 触发器可能引用 tableoid
+						 * 列，所以在评估它们之前
+						 * （重新）初始化 tts_tableOid。
 						 */
 						myslot->tts_tableOid = RelationGetRelid(resultRelInfo->ri_RelationDesc);
 					}
 					else
 					{
-						/* OK, store the tuple and create index entries for it */
+						/* 好的，存储元组并为其创建索引项 */
 						table_tuple_insert(resultRelInfo->ri_RelationDesc,
 										   myslot, mycid, ti_options, bistate);
 
@@ -1255,7 +1255,7 @@ CopyFrom(CopyFromState cstate)
 																   false);
 					}
 
-					/* AFTER ROW INSERT Triggers */
+					/* AFTER ROW INSERT 触发器 */
 					ExecARInsertTriggers(estate, resultRelInfo, myslot,
 										 recheckIndexes, cstate->transition_capture);
 
@@ -1264,24 +1264,24 @@ CopyFrom(CopyFromState cstate)
 			}
 
 			/*
-			 * We count only tuples not suppressed by a BEFORE INSERT trigger
-			 * or FDW; this is the same definition used by nodeModifyTable.c
-			 * for counting tuples inserted by an INSERT command.  Update
-			 * progress of the COPY command as well.
+			 * 我们仅计数未被 BEFORE INSERT 触发器或 FDW 截断的元组；
+			 * 这与 nodeModifyTable.c 用于计数 INSERT 命令插入的元组的
+			 * 定义相同。同时更新 COPY 命令的进度。
+			 *
 			 */
 			pgstat_progress_update_param(PROGRESS_COPY_TUPLES_PROCESSED,
 										 ++processed);
 		}
 	}
 
-	/* Flush any remaining buffered tuples */
+	/* 刷新任何剩余的缓冲元组 */
 	if (insertMethod != CIM_SINGLE)
 	{
 		if (!CopyMultiInsertInfoIsEmpty(&multiInsertInfo))
 			CopyMultiInsertInfoFlush(&multiInsertInfo, NULL, &processed);
 	}
 
-	/* Done, clean up */
+	/* 完成，清理 */
 	error_context_stack = errcallback.previous;
 
 	if (bistate != NULL)
@@ -1289,29 +1289,29 @@ CopyFrom(CopyFromState cstate)
 
 	MemoryContextSwitchTo(oldcontext);
 
-	/* Execute AFTER STATEMENT insertion triggers */
+	/* 执行 AFTER STATEMENT 插入触发器 */
 	ExecASInsertTriggers(estate, target_resultRelInfo, cstate->transition_capture);
 
-	/* Handle queued AFTER triggers */
+	/* 处理排队的 AFTER 触发器 */
 	AfterTriggerEndQuery(estate);
 
 	ExecResetTupleTable(estate->es_tupleTable, false);
 
-	/* Allow the FDW to shut down */
+	/* 允许 FDW 关闭 */
 	if (target_resultRelInfo->ri_FdwRoutine != NULL &&
 		target_resultRelInfo->ri_FdwRoutine->EndForeignInsert != NULL)
 		target_resultRelInfo->ri_FdwRoutine->EndForeignInsert(estate,
 															  target_resultRelInfo);
 
-	/* Tear down the multi-insert buffer data */
+	/* 拆除多重插入缓冲区数据 */
 	if (insertMethod != CIM_SINGLE)
 		CopyMultiInsertInfoCleanup(&multiInsertInfo);
 
-	/* Close all the partitioned tables, leaf partitions, and their indices */
+	/* 关闭所有分区表、叶分区及其索引 */
 	if (proute)
 		ExecCleanupTupleRouting(mtstate, proute);
 
-	/* Close the result relations, including any trigger target relations */
+	/* 关闭结果关系，包括任何触发器目标关系 */
 	ExecCloseResultRelations(estate);
 	ExecCloseRangeTableRelations(estate);
 
@@ -1321,17 +1321,17 @@ CopyFrom(CopyFromState cstate)
 }
 
 /*
- * Setup to read tuples from a file for COPY FROM.
+ * 设置从文件读取元组用于 COPY FROM。
  *
- * 'rel': Used as a template for the tuples
- * 'whereClause': WHERE clause from the COPY FROM command
- * 'filename': Name of server-local file to read, NULL for STDIN
- * 'is_program': true if 'filename' is program to execute
- * 'data_source_cb': callback that provides the input data
- * 'attnamelist': List of char *, columns to include. NIL selects all cols.
- * 'options': List of DefElem. See copy_opt_item in gram.y for selections.
+ * 'rel': 用作元组的模板
+ * 'whereClause': 来自 COPY FROM 命令的 WHERE 子句
+ * 'filename': 要读取的服务器本地文件名，NULL 表示 STDIN
+ * 'is_program': 如果 'filename' 是要执行的程序则为 true
+ * 'data_source_cb': 提供输入数据的回调
+ * 'attnamelist': char * 列表，要包含的列。NIL 表示选择所有列。
+ * 'options': DefElem 列表。参见 gram.y 中的 copy_opt_item 以获取选项。
  *
- * Returns a CopyFromState, to be passed to NextCopyFrom and related functions.
+ * 返回 CopyFromState，传递给 NextCopyFrom 及相关函数。
  */
 CopyFromState
 BeginCopyFrom(ParseState *pstate,
@@ -1366,12 +1366,12 @@ BeginCopyFrom(ParseState *pstate,
 		0
 	};
 
-	/* Allocate workspace and zero all fields */
+	/* 分配工作空间并将所有字段归零 */
 	cstate = (CopyFromStateData *) palloc0(sizeof(CopyFromStateData));
 
 	/*
-	 * We allocate everything used by a cstate in a new memory context. This
-	 * avoids memory leaks during repeated use of COPY in a query.
+	 * 我们在新的内存上下文中分配 cstate 使用的所有内容。
+	 * 这避免了在查询中重复使用 COPY 时的内存泄漏。
 	 */
 	cstate->copycontext = AllocSetContextCreate(CurrentMemoryContext,
 												"COPY",
@@ -1379,22 +1379,22 @@ BeginCopyFrom(ParseState *pstate,
 
 	oldcontext = MemoryContextSwitchTo(cstate->copycontext);
 
-	/* Extract options from the statement node tree */
+	/* 从语句节点树中提取选项 */
 	ProcessCopyOptions(pstate, &cstate->opts, true /* is_from */ , options);
 
-	/* Process the target relation */
+	/* 处理目标关系 */
 	cstate->rel = rel;
 
 	tupDesc = RelationGetDescr(cstate->rel);
 
-	/* process common options or initialization */
+	/* 处理通用选项或初始化 */
 
-	/* Generate or convert list of attributes to process */
+	/* 生成或转换要处理的属性列表 */
 	cstate->attnumlist = CopyGetAttnums(tupDesc, cstate->rel, attnamelist);
 
 	num_phys_attrs = tupDesc->natts;
 
-	/* Convert FORCE_NOT_NULL name list to per-column flags, check validity */
+	/* 将 FORCE_NOT_NULL 名称列表转换为每列标志，检查有效性 */
 	cstate->opts.force_notnull_flags = (bool *) palloc0(num_phys_attrs * sizeof(bool));
 	if (cstate->opts.force_notnull)
 	{
@@ -1417,7 +1417,7 @@ BeginCopyFrom(ParseState *pstate,
 		}
 	}
 
-	/* Convert FORCE_NULL name list to per-column flags, check validity */
+	/* 将 FORCE_NULL 名称列表转换为每列标志，检查有效性 */
 	cstate->opts.force_null_flags = (bool *) palloc0(num_phys_attrs * sizeof(bool));
 	if (cstate->opts.force_null)
 	{
@@ -1440,7 +1440,7 @@ BeginCopyFrom(ParseState *pstate,
 		}
 	}
 
-	/* Convert convert_selectively name list to per-column flags */
+	/* 将 convert_selectively 名称列表转换为每列标志 */
 	if (cstate->opts.convert_selectively)
 	{
 		List	   *attnums;
@@ -1464,14 +1464,14 @@ BeginCopyFrom(ParseState *pstate,
 		}
 	}
 
-	/* Use client encoding when ENCODING option is not specified. */
+	/* 当未指定 ENCODING 选项时使用客户端编码。 */
 	if (cstate->opts.file_encoding < 0)
 		cstate->file_encoding = pg_get_client_encoding();
 	else
 		cstate->file_encoding = cstate->opts.file_encoding;
 
 	/*
-	 * Look up encoding conversion function.
+	 * 查找编码转换函数。
 	 */
 	if (cstate->file_encoding == GetDatabaseEncoding() ||
 		cstate->file_encoding == PG_SQL_ASCII ||
@@ -1492,11 +1492,11 @@ BeginCopyFrom(ParseState *pstate,
 							pg_encoding_to_char(GetDatabaseEncoding()))));
 	}
 
-	cstate->copy_src = COPY_FILE;	/* default */
+	cstate->copy_src = COPY_FILE;	/* 默认 */
 
 	cstate->whereClause = whereClause;
 
-	/* Initialize state variables */
+	/* 初始化状态变量 */
 	cstate->eol_type = EOL_UNKNOWN;
 	cstate->cur_relname = RelationGetRelationName(cstate->rel);
 	cstate->cur_lineno = 0;
@@ -1505,10 +1505,10 @@ BeginCopyFrom(ParseState *pstate,
 	cstate->relname_only = false;
 
 	/*
-	 * Allocate buffers for the input pipeline.
+	 * 为输入管道分配缓冲区。
 	 *
-	 * attribute_buf and raw_buf are used in both text and binary modes, but
-	 * input_buf and line_buf only in text mode.
+	 * attribute_buf 和 raw_buf 在文本和二进制模式下都使用，
+	 * 但 input_buf 和 line_buf 仅在文本模式下使用。
 	 */
 	cstate->raw_buf = palloc(RAW_BUF_SIZE + 1);
 	cstate->raw_buf_index = cstate->raw_buf_len = 0;
@@ -1517,9 +1517,9 @@ BeginCopyFrom(ParseState *pstate,
 	if (!cstate->opts.binary)
 	{
 		/*
-		 * If encoding conversion is needed, we need another buffer to hold
-		 * the converted input data.  Otherwise, we can just point input_buf
-		 * to the same buffer as raw_buf.
+		 * 如果需要编码转换，我们需要另一个缓冲区来
+		 * 存储转换后的输入数据。否则，我们可以直接将
+		 * input_buf 指向与 raw_buf 相同的缓冲区。
 		 */
 		if (cstate->need_transcoding)
 		{
@@ -1535,7 +1535,7 @@ BeginCopyFrom(ParseState *pstate,
 
 	initStringInfo(&cstate->attribute_buf);
 
-	/* Assign range table and rteperminfos, we'll need them in CopyFrom. */
+	/* 分配范围表和 rteperminfos，我们在 CopyFrom 中会需要它们。 */
 	if (pstate)
 	{
 		cstate->range_table = pstate->p_rtable;
@@ -1548,10 +1548,10 @@ BeginCopyFrom(ParseState *pstate,
 	volatile_defexprs = false;
 
 	/*
-	 * Pick up the required catalog information for each attribute in the
-	 * relation, including the input function, the element type (to pass to
-	 * the input function), and info about defaults and constraints. (Which
-	 * input function we use depends on text/binary format choice.)
+	 * 获取关系中每个属性所需的目录信息，包括输入函数、
+	 * 元素类型（传递给输入函数）和默认值及约束信息。
+	 * （使用哪个输入函数取决于文本/二进制格式选择。）
+	 *
 	 */
 	in_functions = (FmgrInfo *) palloc(num_phys_attrs * sizeof(FmgrInfo));
 	typioparams = (Oid *) palloc(num_phys_attrs * sizeof(Oid));
@@ -1562,11 +1562,11 @@ BeginCopyFrom(ParseState *pstate,
 	{
 		Form_pg_attribute att = TupleDescAttr(tupDesc, attnum - 1);
 
-		/* We don't need info for dropped attributes */
+		/* 我们不需要已删除属性的信息 */
 		if (att->attisdropped)
 			continue;
 
-		/* Fetch the input function and typioparam info */
+		/* 获取输入函数和 typioparam 信息 */
 		if (cstate->opts.binary)
 			getTypeBinaryInputInfo(att->atttypid,
 								   &in_func_oid, &typioparams[attnum - 1]);
@@ -1575,13 +1575,13 @@ BeginCopyFrom(ParseState *pstate,
 							 &in_func_oid, &typioparams[attnum - 1]);
 		fmgr_info(in_func_oid, &in_functions[attnum - 1]);
 
-		/* Get default info if available */
+		/* 如果有可用的默认值信息，则获取 */
 		defexprs[attnum - 1] = NULL;
 
 		/*
-		 * We only need the default values for columns that do not appear in
-		 * the column list, unless the DEFAULT option was given. We never need
-		 * default values for generated columns.
+		 * 我们仅需要未出现在列列表中的列的默认值，
+		 * 除非给定了 DEFAULT 选项。我们永远不需要
+		 * 生成列的默认值。
 		 */
 		if ((cstate->opts.default_print != NULL ||
 			 !list_member_int(cstate->attnumlist, attnum)) &&
@@ -1592,14 +1592,14 @@ BeginCopyFrom(ParseState *pstate,
 
 			if (defexpr != NULL)
 			{
-				/* Run the expression through planner */
+				/* 将表达式通过计划器运行 */
 				defexpr = expression_planner(defexpr);
 
-				/* Initialize executable expression in copycontext */
+				/* 在 copycontext 中初始化可执行表达式 */
 				defexprs[attnum - 1] = ExecInitExpr(defexpr, NULL);
 
-				/* if NOT copied from input */
-				/* use default value if one exists */
+				/* 如果不是从输入复制的 */
+				/* 如果存在默认值，则使用 */
 				if (!list_member_int(cstate->attnumlist, attnum))
 				{
 					defmap[num_defaults] = attnum - 1;
@@ -1607,18 +1607,18 @@ BeginCopyFrom(ParseState *pstate,
 				}
 
 				/*
-				 * If a default expression looks at the table being loaded,
-				 * then it could give the wrong answer when using
-				 * multi-insert. Since database access can be dynamic this is
-				 * hard to test for exactly, so we use the much wider test of
-				 * whether the default expression is volatile. We allow for
-				 * the special case of when the default expression is the
-				 * nextval() of a sequence which in this specific case is
-				 * known to be safe for use with the multi-insert
-				 * optimization. Hence we use this special case function
-				 * checker rather than the standard check for
-				 * contain_volatile_functions().  Note also that we already
-				 * ran the expression through expression_planner().
+				 * 如果默认表达式查看正在加载的表，
+				 * 则在使用多重插入时可能产生错误结果。
+				 * 由于数据库访问可以是动态的，这很难精确测试，
+				 * 所以我们使用更宽泛的测试：默认表达式是否是易变的。
+				 * 我们允许一个特例：当默认表达式是序列的
+				 * nextval() 时，在这个特定场景下已知其与多重插入
+				 * 优化兼容。因此我们使用这个特例函数检查器
+				 * 而不是 contain_volatile_functions() 的标准检查。
+				 * 另外注意，我们已经通过 expression_planner() 运行了表达式。
+				 *
+				 *
+				 *
 				 */
 				if (!volatile_defexprs)
 					volatile_defexprs = contain_volatile_functions_not_nextval((Node *) defexpr);
@@ -1628,12 +1628,12 @@ BeginCopyFrom(ParseState *pstate,
 
 	cstate->defaults = (bool *) palloc0(tupDesc->natts * sizeof(bool));
 
-	/* initialize progress */
+	/* 初始化进度 */
 	pgstat_progress_start_command(PROGRESS_COMMAND_COPY,
 								  cstate->rel ? RelationGetRelid(cstate->rel) : InvalidOid);
 	cstate->bytes_processed = 0;
 
-	/* We keep those variables in cstate. */
+	/* 我们将这些变量保留在 cstate 中。 */
 	cstate->in_functions = in_functions;
 	cstate->typioparams = typioparams;
 	cstate->defmap = defmap;
@@ -1651,7 +1651,7 @@ BeginCopyFrom(ParseState *pstate,
 	else if (pipe)
 	{
 		progress_vals[1] = PROGRESS_COPY_TYPE_PIPE;
-		Assert(!is_program);	/* the grammar does not allow this */
+		Assert(!is_program);	/* 语法不允许这种情况 */
 		if (whereToSendOutput == DestRemote)
 			ReceiveCopyBegin(cstate);
 		else
@@ -1679,7 +1679,7 @@ BeginCopyFrom(ParseState *pstate,
 			cstate->copy_file = AllocateFile(cstate->filename, PG_BINARY_R);
 			if (cstate->copy_file == NULL)
 			{
-				/* copy errno because ereport subfunctions might change it */
+				/* 复制 errno，因为 ereport 子函数可能会更改它 */
 				int			save_errno = errno;
 
 				ereport(ERROR,
@@ -1710,11 +1710,11 @@ BeginCopyFrom(ParseState *pstate,
 
 	if (cstate->opts.binary)
 	{
-		/* Read and verify binary header */
+		/* 读取并验证二进制标头 */
 		ReceiveCopyBinaryHeader(cstate);
 	}
 
-	/* create workspace for CopyReadAttributes results */
+	/* 为 CopyReadAttributes 结果创建工作空间 */
 	if (!cstate->opts.binary)
 	{
 		AttrNumber	attr_count = list_length(cstate->attnumlist);
@@ -1729,12 +1729,12 @@ BeginCopyFrom(ParseState *pstate,
 }
 
 /*
- * Clean up storage and release resources for COPY FROM.
+ * 清理 COPY FROM 的存储并释放资源。
  */
 void
 EndCopyFrom(CopyFromState cstate)
 {
-	/* No COPY FROM related resources except memory. */
+	/* 除内存外没有 COPY FROM 相关的资源。 */
 	if (cstate->is_program)
 	{
 		ClosePipeFromProgram(cstate);
@@ -1755,7 +1755,7 @@ EndCopyFrom(CopyFromState cstate)
 }
 
 /*
- * Closes the pipe from an external program, checking the pclose() return code.
+ * 关闭来自外部程序的管道，检查 pclose() 返回码。
  */
 static void
 ClosePipeFromProgram(CopyFromState cstate)
@@ -1772,10 +1772,10 @@ ClosePipeFromProgram(CopyFromState cstate)
 	else if (pclose_rc != 0)
 	{
 		/*
-		 * If we ended a COPY FROM PROGRAM before reaching EOF, then it's
-		 * expectable for the called program to fail with SIGPIPE, and we
-		 * should not report that as an error.  Otherwise, SIGPIPE indicates a
-		 * problem.
+		 * 如果我们在到达 EOF 之前结束了 COPY FROM PROGRAM，
+		 * 则被调用的程序因 SIGPIPE 失败是可以预期的，
+		 * 我们不应将其报告为错误。否则，SIGPIPE 表示有问题。
+		 *
 		 */
 		if (!cstate->raw_reached_eof &&
 			wait_result_is_signal(pclose_rc, SIGPIPE))

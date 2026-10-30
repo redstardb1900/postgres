@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "batch_id": "0232-comment-commands-copy-family",
+  "title": "zh: translate commands comments — copy family",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "79083e0f70165c92ed133cb7b9f1ecdeb6be8bf1",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/commands/copy.c",
+      "kind": "c_comment",
+      "note": "COPY command entry point / dispatch"
+    },
+    {
+      "pattern": "src/backend/commands/copyfrom.c",
+      "kind": "c_comment",
+      "note": "COPY FROM implementation"
+    },
+    {
+      "pattern": "src/backend/commands/copyfromparse.c",
+      "kind": "c_comment",
+      "note": "COPY FROM field/line parsing"
+    },
+    {
+      "pattern": "src/backend/commands/copyto.c",
+      "kind": "c_comment",
+      "note": "COPY TO implementation"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0232-comment-commands-copy-family.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/commands/copy.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 55,
+      "translated": 53,
+      "preserved": 2,
+      "preserved_reasons": ["Copyright header and IDENTIFICATION"],
+      "note": "COPY command dispatch; 893 lines"
+    },
+    {
+      "path": "src/backend/commands/copyfrom.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 178,
+      "translated": 166,
+      "preserved": 12,
+      "preserved_reasons": ["Copyright header", "section banners", "fallthrough markers"],
+      "note": "COPY FROM; 1790 lines"
+    },
+    {
+      "path": "src/backend/commands/copyfromparse.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 188,
+      "translated": 157,
+      "preserved": 31,
+      "preserved_reasons": ["Copyright header", "ASCII art diagrams", "section banners"],
+      "note": "COPY FROM parsing; 1990 lines"
+    },
+    {
+      "path": "src/backend/commands/copyto.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 136,
+      "translated": 121,
+      "preserved": 15,
+      "preserved_reasons": ["Copyright header", "section banners"],
+      "note": "COPY TO; 1293 lines"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0232-comment-commands-copy-family.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "segments_total": 557,
+  "translated": 498,
+  "preserved": 59,
+  "notes": "Batch 0232: copy.c, copyfrom.c, copyfromparse.c, copyto.c (5966 lines total). 0 violations verify_c_comments.py, 0 error hits term_lint."
+}

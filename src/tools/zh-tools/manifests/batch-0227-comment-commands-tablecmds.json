@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "batch_id": "0227-comment-commands-tablecmds",
+  "title": "zh: translate commands comments — tablecmds.c",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "a48f34ba8981799a4126f5ce42dc4ee06a51c403",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/commands/tablecmds.c",
+      "kind": "c_comment",
+      "note": "ALTER TABLE command support"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0227-comment-commands-tablecmds.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/commands/tablecmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1664,
+      "translated": 1465,
+      "preserved": 199,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION line",
+        "Section banner comments (8 SQL command-name banners)",
+        "translator: comments (6 instances)",
+        "fall through markers",
+        "Short inline control-flow / identifier-only comments"
+      ],
+      "note": "ALTER TABLE (ADD/DROP/ALTER COLUMN, constraints, partitions, inheritance), CREATE TABLE AS, etc.; 19826 lines, 1664 segments, 1465 translated, 199 preserved; 0 violations"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0227-comment-commands-tablecmds.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "segments_total": 1664,
+  "translated": 1465,
+  "preserved": 199,
+  "notes": "Batch 0227 translates tablecmds.c (19826 lines, 1664 segments, 1465 translated, 199 preserved). The largest single file in commands/. Preserved: Copyright header, section banners, fallthrough/translator: comments, and short inline comments. 0 violations verify_c_comments.py, 0 error hits term_lint."
+}

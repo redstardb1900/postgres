@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "batch_id": "0231-comment-commands-explain-analyze",
+  "title": "zh: translate commands comments — explain, analyze",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "a48f34ba8981799a4126f5ce42dc4ee06a51c403",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/commands/explain.c",
+      "kind": "c_comment",
+      "note": "EXPLAIN command support"
+    },
+    {
+      "pattern": "src/backend/commands/analyze.c",
+      "kind": "c_comment",
+      "note": "ANALYZE command support"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0231-comment-commands-explain-analyze.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/commands/explain.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 282,
+      "translated": 268,
+      "preserved": 14,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION line",
+        "Hook API identifiers (ExplainOneQuery_hook, etc.)",
+        "OR-able flag macros for ExplainXMLTag()",
+        "FALLTHROUGH markers",
+        "translator: comments"
+      ],
+      "note": "EXPLAIN command: query plan formatting (TEXT/XML/JSON/YAML), instrumentation, timing; 282 segments, 268 translated, 14 preserved"
+    },
+    {
+      "path": "src/backend/commands/analyze.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 262,
+      "translated": 247,
+      "preserved": 15,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION line",
+        "SQL command-name section banners (ANALYZE)",
+        "translator: comments"
+      ],
+      "note": "ANALYZE command: statistics collection, sampling, histogram/MCV computation; 262 segments, 247 translated, 15 preserved"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0231-comment-commands-explain-analyze.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "segments_total": 544,
+  "translated": 515,
+  "preserved": 29,
+  "notes": "Batch 0231 translates explain.c (5054 lines, 282 segments, 268 translated, 14 preserved) and analyze.c (3085 lines, 262 segments, 247 translated, 15 preserved). Total: 544 segments, 515 translated, 29 preserved. 0 violations verify_c_comments.py, 0 error hits term_lint."
+}

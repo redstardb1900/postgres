@@ -1,16 +1,14 @@
 /*-------------------------------------------------------------------------
  *
  * extension.c
- *	  Commands to manipulate extensions
+ *	  扩展操作命令。
  *
- * Extensions in PostgreSQL allow management of collections of SQL objects.
+ * PostgreSQL 扩展允许管理 SQL 对象集合。
  *
- * All we need internally to manage an extension is an OID so that the
- * dependent objects can be associated with it.  An extension is created by
- * populating the pg_extension catalog from a "control" file.
- * The extension control file is parsed with the same parser we use for
- * postgresql.conf.  An extension also has an installation script file,
- * containing SQL commands to create the extension's objects.
+ * 内部管理扩展只需一个 OID，依赖对象可与之关联。
+ * 扩展通过将"控制"文件的内容填入 pg_extension 系统目录来创建。
+ * 扩展控制文件使用与 postgresql.conf 相同的解析器解析。
+ * 扩展还有一个安装脚本文件，包含创建扩展对象的 SQL 命令。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -20,6 +18,8 @@
  *	  src/backend/commands/extension.c
  *
  *-------------------------------------------------------------------------
+*
+*
  */
 #include "postgres.h"
 
@@ -69,46 +69,46 @@
 #include "utils/varlena.h"
 
 
-/* Globally visible state variables */
+/* 全局可见的状态变量 */
 bool		creating_extension = false;
 Oid			CurrentExtensionObject = InvalidOid;
 
 /*
- * Internal data structure to hold the results of parsing a control file
+ * 存储控制文件解析结果的内部数据结构
  */
 typedef struct ExtensionControlFile
 {
-	char	   *name;			/* name of the extension */
-	char	   *directory;		/* directory for script files */
-	char	   *default_version;	/* default install target version, if any */
-	char	   *module_pathname;	/* string to substitute for
-									 * MODULE_PATHNAME */
-	char	   *comment;		/* comment, if any */
-	char	   *schema;			/* target schema (allowed if !relocatable) */
-	bool		relocatable;	/* is ALTER EXTENSION SET SCHEMA supported? */
-	bool		superuser;		/* must be superuser to install? */
-	bool		trusted;		/* allow becoming superuser on the fly? */
-	int			encoding;		/* encoding of the script file, or -1 */
-	List	   *requires;		/* names of prerequisite extensions */
-	List	   *no_relocate;	/* names of prerequisite extensions that
-								 * should not be relocated */
+	char	   *name;			/* 扩展名称 */
+	char	   *directory;		/* 脚本文件所在目录 */
+	char	   *default_version;	/* 默认安装目标版本 */
+	char	   *module_pathname;	/* 用于替换 MODULE_PATHNAME 的
+									 * 字符串 */
+	char	   *comment;		/* 注释（如有） */
+	char	   *schema;			/* 目标模式（非可重定位时允许） */
+	bool		relocatable;	/* 是否支持 ALTER EXTENSION SET SCHEMA？ */
+	bool		superuser;		/* 安装是否需要超级用户？ */
+	bool		trusted;		/* 是否允许临时切换为超级用户？ */
+	int			encoding;		/* 脚本文件编码，-1 表示未指定 */
+	List	   *requires;		/* 前置扩展名称 */
+	List	   *no_relocate;	/* 不应被重定位的
+								 * 前置扩展名称 */
 } ExtensionControlFile;
 
 /*
- * Internal data structure for update path information
+ * 更新路径信息的内部数据结构
  */
 typedef struct ExtensionVersionInfo
 {
-	char	   *name;			/* name of the starting version */
-	List	   *reachable;		/* List of ExtensionVersionInfo's */
-	bool		installable;	/* does this version have an install script? */
-	/* working state for Dijkstra's algorithm: */
-	bool		distance_known; /* is distance from start known yet? */
-	int			distance;		/* current worst-case distance estimate */
-	struct ExtensionVersionInfo *previous;	/* current best predecessor */
+	char	   *name;			/* 起始版本名称 */
+	List	   *reachable;		/* ExtensionVersionInfo 链表 */
+	bool		installable;	/* 此版本是否有安装脚本？ */
+	/* Dijkstra 算法工作状态： */
+	bool		distance_known; /* 距起点的距离是否已知？ */
+	int			distance;		/* 当前最坏情况距离估计 */
+	struct ExtensionVersionInfo *previous;	/* 当前最佳前驱 */
 } ExtensionVersionInfo;
 
-/* Local functions */
+/* 本地函数 */
 static List *find_update_path(List *evi_list,
 							  ExtensionVersionInfo *evi_start,
 							  ExtensionVersionInfo *evi_target,
@@ -135,10 +135,10 @@ static char *read_whole_file(const char *filename, int *length);
 
 
 /*
- * get_extension_oid - given an extension name, look up the OID
+ * get_extension_oid - 给定扩展名称，查找其 OID
  *
- * If missing_ok is false, throw an error if extension name not found.  If
- * true, just return InvalidOid.
+ * missing_ok 为 false 时，未找到则报错。为 true 则仅返回 InvalidOid。
+*
  */
 Oid
 get_extension_oid(const char *extname, bool missing_ok)
@@ -161,7 +161,7 @@ get_extension_oid(const char *extname, bool missing_ok)
 
 	tuple = systable_getnext(scandesc);
 
-	/* We assume that there can be at most one matching tuple */
+	/* 假定最多有一条匹配元组 */
 	if (HeapTupleIsValid(tuple))
 		result = ((Form_pg_extension) GETSTRUCT(tuple))->oid;
 	else
@@ -181,9 +181,9 @@ get_extension_oid(const char *extname, bool missing_ok)
 }
 
 /*
- * get_extension_name - given an extension OID, look up the name
+ * get_extension_name - 给定扩展 OID，查找其名称
  *
- * Returns a palloc'd string, or NULL if no such extension.
+ * 返回 palloc 分配的字符串，扩展不存在则返回 NULL。
  */
 char *
 get_extension_name(Oid ext_oid)
@@ -206,7 +206,7 @@ get_extension_name(Oid ext_oid)
 
 	tuple = systable_getnext(scandesc);
 
-	/* We assume that there can be at most one matching tuple */
+	/* 假定最多有一条匹配元组 */
 	if (HeapTupleIsValid(tuple))
 		result = pstrdup(NameStr(((Form_pg_extension) GETSTRUCT(tuple))->extname));
 	else
@@ -220,9 +220,9 @@ get_extension_name(Oid ext_oid)
 }
 
 /*
- * get_extension_schema - given an extension OID, fetch its extnamespace
+ * get_extension_schema - 给定扩展 OID，获取其 extnamespace
  *
- * Returns InvalidOid if no such extension.
+ * 扩展不存在则返回 InvalidOid。
  */
 Oid
 get_extension_schema(Oid ext_oid)
@@ -245,7 +245,7 @@ get_extension_schema(Oid ext_oid)
 
 	tuple = systable_getnext(scandesc);
 
-	/* We assume that there can be at most one matching tuple */
+	/* 假定最多有一条匹配元组 */
 	if (HeapTupleIsValid(tuple))
 		result = ((Form_pg_extension) GETSTRUCT(tuple))->extnamespace;
 	else
@@ -259,7 +259,7 @@ get_extension_schema(Oid ext_oid)
 }
 
 /*
- * Utility functions to check validity of extension and version names
+ * 检查扩展名和版本名有效性的工具函数
  */
 static void
 check_valid_extension_name(const char *extensionname)
@@ -267,8 +267,8 @@ check_valid_extension_name(const char *extensionname)
 	int			namelen = strlen(extensionname);
 
 	/*
-	 * Disallow empty names (the parser rejects empty identifiers anyway, but
-	 * let's check).
+	 * 不允许空名称（解析器已拒绝空标识符，但仍需检查）。
+	*
 	 */
 	if (namelen == 0)
 		ereport(ERROR,
@@ -277,7 +277,7 @@ check_valid_extension_name(const char *extensionname)
 				 errdetail("Extension names must not be empty.")));
 
 	/*
-	 * No double dashes, since that would make script filenames ambiguous.
+	 * 不允许双破折号，否则脚本文件名会有歧义。
 	 */
 	if (strstr(extensionname, "--"))
 		ereport(ERROR,
@@ -286,10 +286,10 @@ check_valid_extension_name(const char *extensionname)
 				 errdetail("Extension names must not contain \"--\".")));
 
 	/*
-	 * No leading or trailing dash either.  (We could probably allow this, but
-	 * it would require much care in filename parsing and would make filenames
-	 * visually if not formally ambiguous.  Since there's no real-world use
-	 * case, let's just forbid it.)
+	 * 也不允许开头或结尾的破折号。（可能可以允许，但需
+	 * 在文件名解析中格外小心，且会使文件名看起来有歧义。
+	 * 由于无实际用例，直接禁止。）
+	*
 	 */
 	if (extensionname[0] == '-' || extensionname[namelen - 1] == '-')
 		ereport(ERROR,
@@ -298,8 +298,8 @@ check_valid_extension_name(const char *extensionname)
 				 errdetail("Extension names must not begin or end with \"-\".")));
 
 	/*
-	 * No directory separators either (this is sufficient to prevent ".."
-	 * style attacks).
+	 * 也不允许目录分隔符（足以防止 ".." 式攻击）。
+	*
 	 */
 	if (first_dir_separator(extensionname) != NULL)
 		ereport(ERROR,
@@ -314,8 +314,8 @@ check_valid_version_name(const char *versionname)
 	int			namelen = strlen(versionname);
 
 	/*
-	 * Disallow empty names (we could possibly allow this, but there seems
-	 * little point).
+	 * 不允许空名称（或许可以允许，但似乎没有意义）。
+	*
 	 */
 	if (namelen == 0)
 		ereport(ERROR,
@@ -324,7 +324,7 @@ check_valid_version_name(const char *versionname)
 				 errdetail("Version names must not be empty.")));
 
 	/*
-	 * No double dashes, since that would make script filenames ambiguous.
+	 * 不允许双破折号，否则脚本文件名会有歧义。
 	 */
 	if (strstr(versionname, "--"))
 		ereport(ERROR,
@@ -333,7 +333,7 @@ check_valid_version_name(const char *versionname)
 				 errdetail("Version names must not contain \"--\".")));
 
 	/*
-	 * No leading or trailing dash either.
+	 * 也不允许开头或结尾的破折号。
 	 */
 	if (versionname[0] == '-' || versionname[namelen - 1] == '-')
 		ereport(ERROR,
@@ -342,8 +342,8 @@ check_valid_version_name(const char *versionname)
 				 errdetail("Version names must not begin or end with \"-\".")));
 
 	/*
-	 * No directory separators either (this is sufficient to prevent ".."
-	 * style attacks).
+	 * 也不允许目录分隔符（足以防止 ".." 式攻击）。
+	*
 	 */
 	if (first_dir_separator(versionname) != NULL)
 		ereport(ERROR,
@@ -353,7 +353,7 @@ check_valid_version_name(const char *versionname)
 }
 
 /*
- * Utility functions to handle extension-related path names
+ * 处理扩展相关路径名的工具函数
  */
 static bool
 is_extension_control_filename(const char *filename)
@@ -405,8 +405,8 @@ get_extension_script_directory(ExtensionControlFile *control)
 	char	   *result;
 
 	/*
-	 * The directory parameter can be omitted, absolute, or relative to the
-	 * installation's share directory.
+	 * directory 参数可省略、为绝对路径或相对于安装 share 目录。
+	*
 	 */
 	if (!control->directory)
 		return get_extension_control_directory();
@@ -463,13 +463,13 @@ get_extension_script_filename(ExtensionControlFile *control,
 
 
 /*
- * Parse contents of primary or auxiliary control file, and fill in
- * fields of *control.  We parse primary file if version == NULL,
- * else the optional auxiliary file for that version.
+ * 解析主或辅助控制文件内容，填入 *control。version == NULL
+ * 时解析主文件，否则解析该版本的辅助文件。
  *
- * Control files are supposed to be very short, half a dozen lines,
- * so we don't worry about memory allocation risks here.  Also we don't
- * worry about what encoding it's in; all values are expected to be ASCII.
+ * 控制文件通常非常短（几行），因此无需担心内存分配风险。
+ * 也不关心编码；所有值预期为 ASCII。
+*
+*
  */
 static void
 parse_extension_control_file(ExtensionControlFile *control,
@@ -482,7 +482,7 @@ parse_extension_control_file(ExtensionControlFile *control,
 			   *tail = NULL;
 
 	/*
-	 * Locate the file to read.  Auxiliary files are optional.
+	 * 定位待读取文件。辅助文件是可选的。
 	 */
 	if (version)
 		filename = get_extension_aux_control_filename(control, version);
@@ -493,14 +493,14 @@ parse_extension_control_file(ExtensionControlFile *control,
 	{
 		if (errno == ENOENT)
 		{
-			/* no complaint for missing auxiliary file */
+			/* 缺少辅助文件不报错 */
 			if (version)
 			{
 				pfree(filename);
 				return;
 			}
 
-			/* missing control file indicates extension is not installed */
+			/* 缺少控制文件表示扩展未安装 */
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("extension \"%s\" is not available", control->name),
@@ -515,8 +515,8 @@ parse_extension_control_file(ExtensionControlFile *control,
 	}
 
 	/*
-	 * Parse the file content, using GUC's file parsing code.  We need not
-	 * check the return value since any errors will be thrown at ERROR level.
+	 * 使用 GUC 文件解析代码解析文件内容。无需检查返回值，
+	 * 因为错误会以 ERROR 级别抛出。
 	 */
 	(void) ParseConfigFp(file, filename, CONF_FILE_START_DEPTH, ERROR,
 						 &head, &tail);
@@ -524,7 +524,7 @@ parse_extension_control_file(ExtensionControlFile *control,
 	FreeFile(file);
 
 	/*
-	 * Convert the ConfigVariable list into ExtensionControlFile entries.
+	 * 将 ConfigVariable 列表转换为 ExtensionControlFile 条目。
 	 */
 	for (item = head; item != NULL; item = item->next)
 	{
@@ -595,13 +595,13 @@ parse_extension_control_file(ExtensionControlFile *control,
 		}
 		else if (strcmp(item->name, "requires") == 0)
 		{
-			/* Need a modifiable copy of string */
+			/* 需要字符串的可修改副本 */
 			char	   *rawnames = pstrdup(item->value);
 
-			/* Parse string into list of identifiers */
+			/* 将字符串解析为标识符列表 */
 			if (!SplitIdentifierString(rawnames, ',', &control->requires))
 			{
-				/* syntax error in name list */
+				/* 名称列表语法错误 */
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 						 errmsg("parameter \"%s\" must be a list of extension names",
@@ -610,13 +610,13 @@ parse_extension_control_file(ExtensionControlFile *control,
 		}
 		else if (strcmp(item->name, "no_relocate") == 0)
 		{
-			/* Need a modifiable copy of string */
+			/* 需要字符串的可修改副本 */
 			char	   *rawnames = pstrdup(item->value);
 
-			/* Parse string into list of identifiers */
+			/* 将字符串解析为标识符列表 */
 			if (!SplitIdentifierString(rawnames, ',', &control->no_relocate))
 			{
-				/* syntax error in name list */
+				/* 名称列表语法错误 */
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 						 errmsg("parameter \"%s\" must be a list of extension names",
@@ -641,7 +641,7 @@ parse_extension_control_file(ExtensionControlFile *control,
 }
 
 /*
- * Read the primary control file for the specified extension.
+ * 读取指定扩展的主控制文件。
  */
 static ExtensionControlFile *
 read_extension_control_file(const char *extname)
@@ -649,7 +649,7 @@ read_extension_control_file(const char *extname)
 	ExtensionControlFile *control;
 
 	/*
-	 * Set up default values.  Pointer fields are initially null.
+	 * 设置默认值。指针字段初始为 null。
 	 */
 	control = (ExtensionControlFile *) palloc0(sizeof(ExtensionControlFile));
 	control->name = pstrdup(extname);
@@ -659,7 +659,7 @@ read_extension_control_file(const char *extname)
 	control->encoding = -1;
 
 	/*
-	 * Parse the primary control file.
+	 * 解析主控制文件。
 	 */
 	parse_extension_control_file(control, NULL);
 
@@ -667,10 +667,10 @@ read_extension_control_file(const char *extname)
 }
 
 /*
- * Read the auxiliary control file for the specified extension and version.
+ * 读取指定扩展和版本的辅助控制文件。
  *
- * Returns a new modified ExtensionControlFile struct; the original struct
- * (reflecting just the primary control file) is not modified.
+ * 返回新的修改后的 ExtensionControlFile 结构；
+ * 原始结构（仅反映主控制文件）不被修改。
  */
 static ExtensionControlFile *
 read_extension_aux_control_file(const ExtensionControlFile *pcontrol,
@@ -679,13 +679,13 @@ read_extension_aux_control_file(const ExtensionControlFile *pcontrol,
 	ExtensionControlFile *acontrol;
 
 	/*
-	 * Flat-copy the struct.  Pointer fields share values with original.
+	 * 浅拷贝结构。指针字段与原结构共享值。
 	 */
 	acontrol = (ExtensionControlFile *) palloc(sizeof(ExtensionControlFile));
 	memcpy(acontrol, pcontrol, sizeof(ExtensionControlFile));
 
 	/*
-	 * Parse the auxiliary control file, overwriting struct fields
+	 * 解析辅助控制文件，覆盖结构字段
 	 */
 	parse_extension_control_file(acontrol, version);
 
@@ -693,7 +693,7 @@ read_extension_aux_control_file(const ExtensionControlFile *pcontrol,
 }
 
 /*
- * Read an SQL script file into a string, and convert to database encoding
+ * 将 SQL 脚本文件读入字符串并转换为数据库编码
  */
 static char *
 read_extension_script_file(const ExtensionControlFile *control,
@@ -706,19 +706,19 @@ read_extension_script_file(const ExtensionControlFile *control,
 
 	src_str = read_whole_file(filename, &len);
 
-	/* use database encoding if not given */
+	/* 未给定时使用数据库编码 */
 	if (control->encoding < 0)
 		src_encoding = GetDatabaseEncoding();
 	else
 		src_encoding = control->encoding;
 
-	/* make sure that source string is valid in the expected encoding */
+	/* 确保源字符串在预期编码中有效 */
 	(void) pg_verify_mbstr(src_encoding, src_str, len, false);
 
 	/*
-	 * Convert the encoding to the database encoding. read_whole_file
-	 * null-terminated the string, so if no conversion happens the string is
-	 * valid as is.
+	 * 将编码转换为数据库编码。read_whole_file 以 null 结尾，
+	 * 无转换时字符串可直接使用。
+	*
 	 */
 	dest_str = pg_any_to_server(src_str, len, src_encoding);
 
@@ -726,15 +726,15 @@ read_extension_script_file(const ExtensionControlFile *control,
 }
 
 /*
- * Execute given SQL string.
+ * 执行给定的 SQL 字符串。
  *
- * Note: it's tempting to just use SPI to execute the string, but that does
- * not work very well.  The really serious problem is that SPI will parse,
- * analyze, and plan the whole string before executing any of it; of course
- * this fails if there are any plannable statements referring to objects
- * created earlier in the script.  A lesser annoyance is that SPI insists
- * on printing the whole string as errcontext in case of any error, and that
- * could be very long.
+ * 注意：直接使用 SPI 执行字符串看似方便，但并不理想。
+ * 关键问题是 SPI 会在执行任何语句前解析、分析并计划
+ * 整个字符串；若脚本中存在引用更早创建对象的可计划语句
+ * 则会失败。另一点是 SPI 会在出错时将整个字符串打印
+ * 为 errcontext，可能非常长。
+*
+*
  */
 static void
 execute_sql_string(const char *sql)
@@ -744,17 +744,17 @@ execute_sql_string(const char *sql)
 	ListCell   *lc1;
 
 	/*
-	 * Parse the SQL string into a list of raw parse trees.
+	 * 将 SQL 字符串解析为原始解析树列表。
 	 */
 	raw_parsetree_list = pg_parse_query(sql);
 
-	/* All output from SELECTs goes to the bit bucket */
+	/* SELECT 的所有输出被丢弃 */
 	dest = CreateDestReceiver(DestNone);
 
 	/*
-	 * Do parse analysis, rule rewrite, planning, and execution for each raw
-	 * parsetree.  We must fully execute each query before beginning parse
-	 * analysis on the next one, since there may be interdependencies.
+	 * 对每个原始解析树执行解析分析、规则重写、计划和执行。
+	 * 必须先完整执行每条查询再开始下一条的解析分析，
+	 * 因为可能存在相互依赖。
 	 */
 	foreach(lc1, raw_parsetree_list)
 	{
@@ -765,8 +765,8 @@ execute_sql_string(const char *sql)
 		ListCell   *lc2;
 
 		/*
-		 * We do the work for each parsetree in a short-lived context, to
-		 * limit the memory used when there are many commands in the string.
+		 * 在短期上下文中处理每个解析树，
+		 * 限制字符串包含多命令时的内存使用。
 		 */
 		per_parsetree_context =
 			AllocSetContextCreate(CurrentMemoryContext,
@@ -774,7 +774,7 @@ execute_sql_string(const char *sql)
 								  ALLOCSET_DEFAULT_SIZES);
 		oldcontext = MemoryContextSwitchTo(per_parsetree_context);
 
-		/* Be sure parser can see any DDL done so far */
+		/* 确保解析器能看到已完成的所有 DDL */
 		CommandCounterIncrement();
 
 		stmt_list = pg_analyze_and_rewrite_fixedparams(parsetree,
@@ -828,30 +828,30 @@ execute_sql_string(const char *sql)
 			PopActiveSnapshot();
 		}
 
-		/* Clean up per-parsetree context. */
+		/* 清理每个解析树的上下文。 */
 		MemoryContextSwitchTo(oldcontext);
 		MemoryContextDelete(per_parsetree_context);
 	}
 
-	/* Be sure to advance the command counter after the last script command */
+	/* 确保最后一条脚本命令后推进命令计数器 */
 	CommandCounterIncrement();
 }
 
 /*
- * Policy function: is the given extension trusted for installation by a
- * non-superuser?
+ * 策略函数：给定扩展是否允许非超级用户安装？
  *
- * (Update the errhint logic below if you change this.)
+ * （如果更改此逻辑请同步更新下方 errhint。）
+*
  */
 static bool
 extension_is_trusted(ExtensionControlFile *control)
 {
 	AclResult	aclresult;
 
-	/* Never trust unless extension's control file says it's okay */
+	/* 除非扩展控制文件声明可信，否则一律不信 */
 	if (!control->trusted)
 		return false;
-	/* Allow if user has CREATE privilege on current database */
+	/* 如果用户对当前数据库有 CREATE 权限则允许 */
 	aclresult = object_aclcheck(DatabaseRelationId, MyDatabaseId, GetUserId(), ACL_CREATE);
 	if (aclresult == ACLCHECK_OK)
 		return true;
@@ -859,11 +859,11 @@ extension_is_trusted(ExtensionControlFile *control)
 }
 
 /*
- * Execute the appropriate script file for installing or updating the extension
+ * 执行用于安装或更新扩展的脚本文件
  *
- * If from_version isn't NULL, it's an update
+ * 如果 from_version 非 NULL 则为更新操作
  *
- * Note: requiredSchemas must be one-for-one with the control->requires list
+ * 注意：requiredSchemas 必须与 control->requires 列表一一对应
  */
 static void
 execute_extension_script(Oid extensionOid, ExtensionControlFile *control,
@@ -882,9 +882,9 @@ execute_extension_script(Oid extensionOid, ExtensionControlFile *control,
 	ListCell   *lc2;
 
 	/*
-	 * Enforce superuser-ness if appropriate.  We postpone these checks until
-	 * here so that the control flags are correctly associated with the right
-	 * script(s) if they happen to be set in secondary control files.
+	 * 必要时强制执行超级用户要求。延迟检查至此，确保
+	 * 控制标志与正确的脚本关联（可能在辅助控制文件中设置）。
+	*
 	 */
 	if (control->superuser && !superuser())
 	{
@@ -916,9 +916,9 @@ execute_extension_script(Oid extensionOid, ExtensionControlFile *control,
 		elog(DEBUG1, "executing extension script for \"%s\" update from version '%s' to '%s'", control->name, from_version, version);
 
 	/*
-	 * If installing a trusted extension on behalf of a non-superuser, become
-	 * the bootstrap superuser.  (This switch will be cleaned up automatically
-	 * if the transaction aborts, as will the GUC changes below.)
+	 * 如为非超级用户安装受信扩展，临时成为 bootstrap 超级用户。
+	 * （若事务中止，此切换及下方 GUC 更改将自动清理。）
+	*
 	 */
 	if (switch_to_superuser)
 	{
@@ -928,16 +928,16 @@ execute_extension_script(Oid extensionOid, ExtensionControlFile *control,
 	}
 
 	/*
-	 * Force client_min_messages and log_min_messages to be at least WARNING,
-	 * so that we won't spam the user with useless NOTICE messages from common
-	 * script actions like creating shell types.
+	 * 强制 client_min_messages 和 log_min_messages 至少为 WARNING，
+	 * 避免常见脚本操作（如创建 shell 类型）产生无用的 NOTICE
+	 * 消息干扰用户。
 	 *
-	 * We use the equivalent of a function SET option to allow the setting to
-	 * persist for exactly the duration of the script execution.  guc.c also
-	 * takes care of undoing the setting on error.
+	 * 使用等效于函数 SET 选项的方式，使设置在脚本执行期间
+	 * 持续有效。guc.c 负责在出错时撤销设置。
 	 *
-	 * log_min_messages can't be set by ordinary users, so for that one we
-	 * pretend to be superuser.
+	 * log_min_messages 普通用户无法设置，因此假装为超级用户。
+	*
+	*
 	 */
 	save_nestlevel = NewGUCNestLevel();
 
@@ -952,8 +952,8 @@ execute_extension_script(Oid extensionOid, ExtensionControlFile *control,
 									 GUC_ACTION_SAVE, true, 0, false);
 
 	/*
-	 * Similarly disable check_function_bodies, to ensure that SQL functions
-	 * won't be parsed during creation.
+	 * 同样禁用 check_function_bodies，确保创建期间
+	 * SQL 函数不会被解析。
 	 */
 	if (check_function_bodies)
 		(void) set_config_option("check_function_bodies", "off",
@@ -961,17 +961,17 @@ execute_extension_script(Oid extensionOid, ExtensionControlFile *control,
 								 GUC_ACTION_SAVE, true, 0, false);
 
 	/*
-	 * Set up the search path to have the target schema first, making it be
-	 * the default creation target namespace.  Then add the schemas of any
-	 * prerequisite extensions, unless they are in pg_catalog which would be
-	 * searched anyway.  (Listing pg_catalog explicitly in a non-first
-	 * position would be bad for security.)  Finally add pg_temp to ensure
-	 * that temp objects can't take precedence over others.
+	 * 设置搜索路径，将目标模式放在首位使其成为默认
+	 * 创建目标命名空间。然后添加前置扩展的模式（已在
+	 * pg_catalog 中者除外，因其始终可搜索）。
+	 * （在非首位显式列出 pg_catalog 有安全隐患。）
+	 * 最后添加 pg_temp 确保临时对象不会优先于其他对象。
 	 *
-	 * Note: it might look tempting to use PushOverrideSearchPath for this,
-	 * but we cannot do that.  We have to actually set the search_path GUC in
-	 * case the extension script examines or changes it.  In any case, the
-	 * GUC_ACTION_SAVE method is just as convenient.
+	 * 注意：使用 PushOverrideSearchPath 看似方便，但不可行。
+	 * 必须实际设置 search_path GUC，因为扩展脚本可能检查
+	 * 或修改它。GUC_ACTION_SAVE 方法同样方便。
+	*
+	*
 	 */
 	initStringInfo(&pathbuf);
 	appendStringInfoString(&pathbuf, quote_identifier(schemaName));
@@ -990,9 +990,9 @@ execute_extension_script(Oid extensionOid, ExtensionControlFile *control,
 							 GUC_ACTION_SAVE, true, 0, false);
 
 	/*
-	 * Set creating_extension and related variables so that
-	 * recordDependencyOnCurrentExtension and other functions do the right
-	 * things.  On failure, ensure we reset these variables.
+	 * 设置 creating_extension 及相关变量，
+	 * 使 recordDependencyOnCurrentExtension 等函数正确执行。
+	 * 失败时务必重置这些变量。
 	 */
 	creating_extension = true;
 	CurrentExtensionObject = extensionOid;
@@ -1002,22 +1002,22 @@ execute_extension_script(Oid extensionOid, ExtensionControlFile *control,
 		Datum		t_sql;
 
 		/*
-		 * We filter each substitution through quote_identifier().  When the
-		 * arg contains one of the following characters, no one collection of
-		 * quoting can work inside $$dollar-quoted string literals$$,
-		 * 'single-quoted string literals', and outside of any literal.  To
-		 * avoid a security snare for extension authors, error on substitution
-		 * for arguments containing these.
+		 * 通过 quote_identifier() 过滤每个替换。若参数包含
+		 * 以下字符之一，则无法同时在 $$dollor-quoted$$、
+		 * 'single-quoted' 字面量内外安全引号。
+		 * 为保护扩展作者，含这些字符的参数替换时报错。
+		*
+		*
 		 */
 		const char *quoting_relevant_chars = "\"$'\\";
 
-		/* We use various functions that want to operate on text datums */
+		/* 使用各种操作 text datum 的函数 */
 		t_sql = CStringGetTextDatum(c_sql);
 
 		/*
-		 * Reduce any lines beginning with "\echo" to empty.  This allows
-		 * scripts to contain messages telling people not to run them via
-		 * psql, which has been found to be necessary due to old habits.
+		 * 将以 "\echo" 开头的行置空，使脚本可包含提醒
+		 * 不要通过 psql 运行的消息（因旧习惯而必要）。
+		*
 		 */
 		t_sql = DirectFunctionCall4Coll(textregexreplace,
 										C_COLLATION_OID,
@@ -1027,7 +1027,7 @@ execute_extension_script(Oid extensionOid, ExtensionControlFile *control,
 										CStringGetTextDatum("ng"));
 
 		/*
-		 * If the script uses @extowner@, substitute the calling username.
+		 * 若脚本使用 @extowner@，替换为调用用户名。
 		 */
 		if (strstr(c_sql, "@extowner@"))
 		{
@@ -1048,11 +1048,11 @@ execute_extension_script(Oid extensionOid, ExtensionControlFile *control,
 		}
 
 		/*
-		 * If it's not relocatable, substitute the target schema name for
-		 * occurrences of @extschema@.
+		 * 若非可重定位，将 @extschema@ 替换为目标模式名。
 		 *
-		 * For a relocatable extension, we needn't do this.  There cannot be
-		 * any need for @extschema@, else it wouldn't be relocatable.
+		 * 可重定位扩展无需此操作，否则其不可重定位。
+		*
+		*
 		 */
 		if (!control->relocatable)
 		{
@@ -1072,8 +1072,8 @@ execute_extension_script(Oid extensionOid, ExtensionControlFile *control,
 		}
 
 		/*
-		 * Likewise, substitute required extensions' schema names for
-		 * occurrences of @extschema:extension_name@.
+		 * 同样，将 @extschema:extension_name@ 替换为所需扩展的模式名。
+		*
 		 */
 		Assert(list_length(control->requires) == list_length(requiredSchemas));
 		forboth(lc, control->requires, lc2, requiredSchemas)
@@ -1099,8 +1099,8 @@ execute_extension_script(Oid extensionOid, ExtensionControlFile *control,
 		}
 
 		/*
-		 * If module_pathname was set in the control file, substitute its
-		 * value for occurrences of MODULE_PATHNAME.
+		 * 若控制文件中设置了 module_pathname，
+		 * 将其值替换 MODULE_PATHNAME。
 		 */
 		if (control->module_pathname)
 		{
@@ -1111,7 +1111,7 @@ execute_extension_script(Oid extensionOid, ExtensionControlFile *control,
 											CStringGetTextDatum(control->module_pathname));
 		}
 
-		/* And now back to C string */
+		/* 回到 C 字符串 */
 		c_sql = text_to_cstring(DatumGetTextPP(t_sql));
 
 		execute_sql_string(c_sql);
@@ -1124,24 +1124,24 @@ execute_extension_script(Oid extensionOid, ExtensionControlFile *control,
 	PG_END_TRY();
 
 	/*
-	 * Restore the GUC variables we set above.
+	 * 恢复上面设置的 GUC 变量。
 	 */
 	AtEOXact_GUC(true, save_nestlevel);
 
 	/*
-	 * Restore authentication state if needed.
+	 * 必要时恢复认证状态。
 	 */
 	if (switch_to_superuser)
 		SetUserIdAndSecContext(save_userid, save_sec_context);
 }
 
 /*
- * Find or create an ExtensionVersionInfo for the specified version name
+ * 查找或创建指定版本名的 ExtensionVersionInfo
  *
- * Currently, we just use a List of the ExtensionVersionInfo's.  Searching
- * for them therefore uses about O(N^2) time when there are N versions of
- * the extension.  We could change the data structure to a hash table if
- * this ever becomes a bottleneck.
+ * 当前使用 ExtensionVersionInfo 链表。搜索 N 个版本
+ * 耗时约 O(N^2)。若成为瓶颈可改为哈希表。
+*
+*
  */
 static ExtensionVersionInfo *
 get_ext_ver_info(const char *versionname, List **evi_list)
@@ -1160,7 +1160,7 @@ get_ext_ver_info(const char *versionname, List **evi_list)
 	evi->name = pstrdup(versionname);
 	evi->reachable = NIL;
 	evi->installable = false;
-	/* initialize for later application of Dijkstra's algorithm */
+	/* 初始化以供后续 Dijkstra 算法使用 */
 	evi->distance_known = false;
 	evi->distance = INT_MAX;
 	evi->previous = NULL;
@@ -1171,10 +1171,10 @@ get_ext_ver_info(const char *versionname, List **evi_list)
 }
 
 /*
- * Locate the nearest unprocessed ExtensionVersionInfo
+ * 定位最近未处理的 ExtensionVersionInfo
  *
- * This part of the algorithm is also about O(N^2).  A priority queue would
- * make it much faster, but for now there's no need.
+ * 算法此部分也约为 O(N^2)。优先队列可大幅加速，但目前无需。
+*
  */
 static ExtensionVersionInfo *
 get_nearest_unprocessed_vertex(List *evi_list)
@@ -1186,10 +1186,10 @@ get_nearest_unprocessed_vertex(List *evi_list)
 	{
 		ExtensionVersionInfo *evi2 = (ExtensionVersionInfo *) lfirst(lc);
 
-		/* only vertices whose distance is still uncertain are candidates */
+		/* 仅距离仍不确定的顶点是候选 */
 		if (evi2->distance_known)
 			continue;
-		/* remember the closest such vertex */
+		/* 记住最近的此类顶点 */
 		if (evi == NULL ||
 			evi->distance > evi2->distance)
 			evi = evi2;
@@ -1199,10 +1199,10 @@ get_nearest_unprocessed_vertex(List *evi_list)
 }
 
 /*
- * Obtain information about the set of update scripts available for the
- * specified extension.  The result is a List of ExtensionVersionInfo
- * structs, each with a subsidiary list of the ExtensionVersionInfos for
- * the versions that can be reached in one step from that version.
+ * 获取指定扩展可用更新脚本集的信息。
+ * 返回 ExtensionVersionInfo 结构链表，每个包含可从该版本
+ * 一步到达的版本的 ExtensionVersionInfo 子链表。
+*
  */
 static List *
 get_ext_ver_list(ExtensionControlFile *control)
@@ -1222,35 +1222,35 @@ get_ext_ver_list(ExtensionControlFile *control)
 		ExtensionVersionInfo *evi;
 		ExtensionVersionInfo *evi2;
 
-		/* must be a .sql file ... */
+		/* 必须是 .sql 文件 ... */
 		if (!is_extension_script_filename(de->d_name))
 			continue;
 
-		/* ... matching extension name followed by separator */
+		/* ... 匹配扩展名后跟分隔符 */
 		if (strncmp(de->d_name, control->name, extnamelen) != 0 ||
 			de->d_name[extnamelen] != '-' ||
 			de->d_name[extnamelen + 1] != '-')
 			continue;
 
-		/* extract version name(s) from 'extname--something.sql' filename */
+		/* 从 'extname--something.sql' 文件名中提取版本名 */
 		vername = pstrdup(de->d_name + extnamelen + 2);
 		*strrchr(vername, '.') = '\0';
 		vername2 = strstr(vername, "--");
 		if (!vername2)
 		{
-			/* It's an install, not update, script; record its version name */
+			/* 是安装脚本而非更新脚本；记录其版本名 */
 			evi = get_ext_ver_info(vername, &evi_list);
 			evi->installable = true;
 			continue;
 		}
-		*vername2 = '\0';		/* terminate first version */
-		vername2 += 2;			/* and point to second */
+		*vername2 = '\0';		/* 结束第一个版本 */
+		vername2 += 2;			/* 指向第二个 */
 
-		/* if there's a third --, it's bogus, ignore it */
+		/* 若有第三个 --，为非法的，忽略 */
 		if (strstr(vername2, "--"))
 			continue;
 
-		/* Create ExtensionVersionInfos and link them together */
+		/* 创建 ExtensionVersionInfo 并链接它们 */
 		evi = get_ext_ver_info(vername, &evi_list);
 		evi2 = get_ext_ver_info(vername2, &evi_list);
 		evi->reachable = lappend(evi->reachable, evi2);
@@ -1261,11 +1261,11 @@ get_ext_ver_list(ExtensionControlFile *control)
 }
 
 /*
- * Given an initial and final version name, identify the sequence of update
- * scripts that have to be applied to perform that update.
+ * 给定初始和最终版本名，识别执行更新所需的更新脚本序列。
  *
- * Result is a List of names of versions to transition through (the initial
- * version is *not* included).
+ * 返回需经过的版本名链表（初始版本*不*包含在内）。
+*
+*
  */
 static List *
 identify_update_path(ExtensionControlFile *control,
@@ -1276,14 +1276,14 @@ identify_update_path(ExtensionControlFile *control,
 	ExtensionVersionInfo *evi_start;
 	ExtensionVersionInfo *evi_target;
 
-	/* Extract the version update graph from the script directory */
+	/* 从脚本目录提取版本更新图 */
 	evi_list = get_ext_ver_list(control);
 
-	/* Initialize start and end vertices */
+	/* 初始化起点和终点 */
 	evi_start = get_ext_ver_info(oldVersion, &evi_list);
 	evi_target = get_ext_ver_info(newVersion, &evi_list);
 
-	/* Find shortest path */
+	/* 查找最短路径 */
 	result = find_update_path(evi_list, evi_start, evi_target, false, false);
 
 	if (result == NIL)
@@ -1296,19 +1296,19 @@ identify_update_path(ExtensionControlFile *control,
 }
 
 /*
- * Apply Dijkstra's algorithm to find the shortest path from evi_start to
- * evi_target.
+ * 应用 Dijkstra 算法查找 evi_start 到 evi_target 的最短路径。
  *
- * If reject_indirect is true, ignore paths that go through installable
- * versions.  This saves work when the caller will consider starting from
- * all installable versions anyway.
+ * reject_indirect 为 true 时忽略通过可安装版本的路径，
+ * 节省调用者从所有可安装版本出发时的工作量。
  *
- * If reinitialize is false, assume the ExtensionVersionInfo list has not
- * been used for this before, and the initialization done by get_ext_ver_info
- * is still good.  Otherwise, reinitialize all transient fields used here.
+ * reinitialize 为 false 时假定 ExtensionVersionInfo 链表
+ * 未被使用过，get_ext_ver_info 的初始化仍然有效。
+ * 否则重新初始化此处使用的所有临时字段。
  *
- * Result is a List of names of versions to transition through (the initial
- * version is *not* included).  Returns NIL if no such path.
+ * 返回需经过的版本名链表（初始版本*不*包含在内）。
+ * 无路径则返回 NIL。
+*
+*
  */
 static List *
 find_update_path(List *evi_list,
@@ -1321,9 +1321,9 @@ find_update_path(List *evi_list,
 	ExtensionVersionInfo *evi;
 	ListCell   *lc;
 
-	/* Caller error if start == target */
+	/* start == target 为调用者错误 */
 	Assert(evi_start != evi_target);
-	/* Caller error if reject_indirect and target is installable */
+	/* reject_indirect 且 target 可安装为调用者错误 */
 	Assert(!(reject_indirect && evi_target->installable));
 
 	if (reinitialize)
@@ -1342,16 +1342,16 @@ find_update_path(List *evi_list,
 	while ((evi = get_nearest_unprocessed_vertex(evi_list)) != NULL)
 	{
 		if (evi->distance == INT_MAX)
-			break;				/* all remaining vertices are unreachable */
+			break;				/* 所有剩余顶点不可达 */
 		evi->distance_known = true;
 		if (evi == evi_target)
-			break;				/* found shortest path to target */
+			break;				/* 找到到目标的最短路径 */
 		foreach(lc, evi->reachable)
 		{
 			ExtensionVersionInfo *evi2 = (ExtensionVersionInfo *) lfirst(lc);
 			int			newdist;
 
-			/* if reject_indirect, treat installable versions as unreachable */
+			/* reject_indirect 时，将可安装版本视为不可达 */
 			if (reject_indirect && evi2->installable)
 				continue;
 			newdist = evi->distance + 1;
@@ -1365,23 +1365,23 @@ find_update_path(List *evi_list,
 					 strcmp(evi->name, evi2->previous->name) < 0)
 			{
 				/*
-				 * Break ties in favor of the version name that comes first
-				 * according to strcmp().  This behavior is undocumented and
-				 * users shouldn't rely on it.  We do it just to ensure that
-				 * if there is a tie, the update path that is chosen does not
-				 * depend on random factors like the order in which directory
-				 * entries get visited.
+				 * 平局时倾向于 strcmp() 顺序中靠前的版本名。
+				 * 此行为未文档化且用户不应依赖。
+				 * 仅为确保平局时选择的更新路径不依赖于
+				 * 目录条目访问顺序等随机因素。
+				*
+				*
 				 */
 				evi2->previous = evi;
 			}
 		}
 	}
 
-	/* Return NIL if target is not reachable from start */
+	/* 目标从起点不可达则返回 NIL */
 	if (!evi_target->distance_known)
 		return NIL;
 
-	/* Build and return list of version names representing the update path */
+	/* 构建并返回表示更新路径的版本名链表 */
 	result = NIL;
 	for (evi = evi_target; evi != evi_start; evi = evi->previous)
 		result = lcons(evi->name, result);
@@ -1390,18 +1390,18 @@ find_update_path(List *evi_list,
 }
 
 /*
- * Given a target version that is not directly installable, find the
- * best installation sequence starting from a directly-installable version.
+ * 给定不直接可安装的目标版本，找到从直接可安装版本
+ * 出发的最佳安装序列。
  *
- * evi_list: previously-collected version update graph
- * evi_target: member of that list that we want to reach
+ * evi_list：先前收集的版本更新图
+ * evi_target：链表中我们要到达的目标成员
  *
- * Returns the best starting-point version, or NULL if there is none.
- * On success, *best_path is set to the path from the start point.
+ * 返回最佳起始版本，无则返回 NULL。成功时 *best_path
+ * 设为从起始点的路径。
  *
- * If there's more than one possible start point, prefer shorter update paths,
- * and break any ties arbitrarily on the basis of strcmp'ing the starting
- * versions' names.
+ * 多个起始点时优先较短更新路径，平局基于起始版本名
+ * strcmp 任意决定。
+*
  */
 static ExtensionVersionInfo *
 find_install_path(List *evi_list, ExtensionVersionInfo *evi_target,
@@ -1413,13 +1413,13 @@ find_install_path(List *evi_list, ExtensionVersionInfo *evi_target,
 	*best_path = NIL;
 
 	/*
-	 * We don't expect to be called for an installable target, but if we are,
-	 * the answer is easy: just start from there, with an empty update path.
+	 * 不应为可安装目标调用此处，但若调用了，
+	 * 答案很简单：从该版本开始，更新路径为空。
 	 */
 	if (evi_target->installable)
 		return evi_target;
 
-	/* Consider all installable versions as start points */
+	/* 将所有可安装版本视为起点 */
 	foreach(lc, evi_list)
 	{
 		ExtensionVersionInfo *evi1 = (ExtensionVersionInfo *) lfirst(lc);
@@ -1429,14 +1429,14 @@ find_install_path(List *evi_list, ExtensionVersionInfo *evi_target,
 			continue;
 
 		/*
-		 * Find shortest path from evi1 to evi_target; but no need to consider
-		 * paths going through other installable versions.
+		 * 查找 evi1 到 evi_target 的最短路径；
+		 * 无需考虑经过其他可安装版本的路径。
 		 */
 		path = find_update_path(evi_list, evi1, evi_target, true, true);
 		if (path == NIL)
 			continue;
 
-		/* Remember best path */
+		/* 记住最佳路径 */
 		if (evi_start == NULL ||
 			list_length(path) < list_length(*best_path) ||
 			(list_length(path) == list_length(*best_path) &&
@@ -1451,12 +1451,12 @@ find_install_path(List *evi_list, ExtensionVersionInfo *evi_target,
 }
 
 /*
- * CREATE EXTENSION worker
+ * CREATE EXTENSION 内部实现
  *
- * When CASCADE is specified, CreateExtensionInternal() recurses if required
- * extensions need to be installed.  To sanely handle cyclic dependencies,
- * the "parents" list contains a list of names of extensions already being
- * installed, allowing us to error out if we recurse to one of those.
+ * 指定 CASCADE 时，如需安装前置扩展则递归。为安全处理
+ * 循环依赖，"parents" 链表包含已在安装中的扩展名，
+ * 递归到其中某个时即可报错。
+*
  */
 static ObjectAddress
 CreateExtensionInternal(char *extensionName,
@@ -1481,14 +1481,14 @@ CreateExtensionInternal(char *extensionName,
 	ListCell   *lc;
 
 	/*
-	 * Read the primary control file.  Note we assume that it does not contain
-	 * any non-ASCII data, so there is no need to worry about encoding at this
-	 * point.
+	 * 读取主控制文件。假定不含非 ASCII 数据，
+	 * 此处无需关心编码。
+	*
 	 */
 	pcontrol = read_extension_control_file(extensionName);
 
 	/*
-	 * Determine the version to install
+	 * 确定要安装的版本
 	 */
 	if (versionName == NULL)
 	{
@@ -1502,67 +1502,67 @@ CreateExtensionInternal(char *extensionName,
 	check_valid_version_name(versionName);
 
 	/*
-	 * Figure out which script(s) we need to run to install the desired
-	 * version of the extension.  If we do not have a script that directly
-	 * does what is needed, we try to find a sequence of update scripts that
-	 * will get us there.
+	 * 确定安装目标扩展版本所需执行的脚本。若无直接脚本，
+	 * 尝试寻找能到达目标的更新脚本序列。
+	*
+	*
 	 */
 	filename = get_extension_script_filename(pcontrol, NULL, versionName);
 	if (stat(filename, &fst) == 0)
 	{
-		/* Easy, no extra scripts */
+		/* 简单情况，无需额外脚本 */
 		updateVersions = NIL;
 	}
 	else
 	{
-		/* Look for best way to install this version */
+		/* 寻找安装此版本的最佳方式 */
 		List	   *evi_list;
 		ExtensionVersionInfo *evi_start;
 		ExtensionVersionInfo *evi_target;
 
-		/* Extract the version update graph from the script directory */
+		/* 从脚本目录提取版本更新图 */
 		evi_list = get_ext_ver_list(pcontrol);
 
-		/* Identify the target version */
+		/* 识别目标版本 */
 		evi_target = get_ext_ver_info(versionName, &evi_list);
 
-		/* Identify best path to reach target */
+		/* 识别到达目标的最佳路径 */
 		evi_start = find_install_path(evi_list, evi_target,
 									  &updateVersions);
 
-		/* Fail if no path ... */
+		/* 无路径则失败 ... */
 		if (evi_start == NULL)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("extension \"%s\" has no installation script nor update path for version \"%s\"",
 							pcontrol->name, versionName)));
 
-		/* Otherwise, install best starting point and then upgrade */
+		/* 否则先安装最佳起点再升级 */
 		versionName = evi_start->name;
 	}
 
 	/*
-	 * Fetch control parameters for installation target version
+	 * 获取安装目标版本的控制参数
 	 */
 	control = read_extension_aux_control_file(pcontrol, versionName);
 
 	/*
-	 * Determine the target schema to install the extension into
+	 * 确定安装扩展的目标模式
 	 */
 	if (schemaName)
 	{
-		/* If the user is giving us the schema name, it must exist already. */
+		/* 若用户指定了模式名，该模式必须已存在。 */
 		schemaOid = get_namespace_oid(schemaName, false);
 	}
 
 	if (control->schema != NULL)
 	{
 		/*
-		 * The extension is not relocatable and the author gave us a schema
-		 * for it.
+		 * 扩展不可重定位且作者指定了模式。
 		 *
-		 * Unless CASCADE parameter was given, it's an error to give a schema
-		 * different from control->schema if control->schema is specified.
+		 * 若 control->schema 已指定，除非提供了 CASCADE，
+		 * 否则指定不同模式为错误。
+		*
 		 */
 		if (schemaName && strcmp(control->schema, schemaName) != 0 &&
 			!cascade)
@@ -1572,10 +1572,10 @@ CreateExtensionInternal(char *extensionName,
 							control->name,
 							control->schema)));
 
-		/* Always use the schema from control file for current extension. */
+		/* 始终使用控制文件中的模式。 */
 		schemaName = control->schema;
 
-		/* Find or create the schema in case it does not exist. */
+		/* 查找或创建模式。 */
 		schemaOid = get_namespace_oid(schemaName, true);
 
 		if (!OidIsValid(schemaOid))
@@ -1583,15 +1583,15 @@ CreateExtensionInternal(char *extensionName,
 			CreateSchemaStmt *csstmt = makeNode(CreateSchemaStmt);
 
 			csstmt->schemaname = schemaName;
-			csstmt->authrole = NULL;	/* will be created by current user */
+			csstmt->authrole = NULL;	/* 将由当前用户创建 */
 			csstmt->schemaElts = NIL;
 			csstmt->if_not_exists = false;
 			CreateSchemaCommand(csstmt, "(generated CREATE SCHEMA command)",
 								-1, -1);
 
 			/*
-			 * CreateSchemaCommand includes CommandCounterIncrement, so new
-			 * schema is now visible.
+			 * CreateSchemaCommand 包含 CommandCounterIncrement，
+			 * 新模式现已可见。
 			 */
 			schemaOid = get_namespace_oid(schemaName, false);
 		}
@@ -1599,19 +1599,19 @@ CreateExtensionInternal(char *extensionName,
 	else if (!OidIsValid(schemaOid))
 	{
 		/*
-		 * Neither user nor author of the extension specified schema; use the
-		 * current default creation namespace, which is the first explicit
-		 * entry in the search_path.
+		 * 用户和扩展作者均未指定模式；使用当前默认
+		 * 创建命名空间（search_path 的首个显式条目）。
+		*
 		 */
 		List	   *search_path = fetch_search_path(false);
 
-		if (search_path == NIL) /* nothing valid in search_path? */
+		if (search_path == NIL) /* search_path 中无有效项？ */
 			ereport(ERROR,
 					(errcode(ERRCODE_UNDEFINED_SCHEMA),
 					 errmsg("no schema has been selected to create in")));
 		schemaOid = linitial_oid(search_path);
 		schemaName = get_namespace_name(schemaOid);
-		if (schemaName == NULL) /* recently-deleted namespace? */
+		if (schemaName == NULL) /* 最近删除的命名空间？ */
 			ereport(ERROR,
 					(errcode(ERRCODE_UNDEFINED_SCHEMA),
 					 errmsg("no schema has been selected to create in")));
@@ -1620,24 +1620,24 @@ CreateExtensionInternal(char *extensionName,
 	}
 
 	/*
-	 * Make note if a temporary namespace has been accessed in this
-	 * transaction.
+	 * 在此事务中访问了临时命名空间则做记录。
+	*
 	 */
 	if (isTempNamespace(schemaOid))
 		MyXactFlags |= XACT_FLAGS_ACCESSEDTEMPNAMESPACE;
 
 	/*
-	 * We don't check creation rights on the target namespace here.  If the
-	 * extension script actually creates any objects there, it will fail if
-	 * the user doesn't have such permissions.  But there are cases such as
-	 * procedural languages where it's convenient to set schema = pg_catalog
-	 * yet we don't want to restrict the command to users with ACL_CREATE for
-	 * pg_catalog.
+	 * 此处不检查目标命名空间的创建权限。若扩展脚本
+	 * 实际在其中创建对象，用户无相应权限时会失败。
+	 * 但如过程语言等场景，设置为 schema = pg_catalog
+	 * 方便使用，不应限制为需有 pg_catalog ACL_CREATE。
+	*
+	*
 	 */
 
 	/*
-	 * Look up the prerequisite extensions, install them if necessary, and
-	 * build lists of their OIDs and the OIDs of their target schemas.
+	 * 查找前置扩展，必要时安装，构建其 OID 和
+	 * 目标模式 OID 的列表。
 	 */
 	requiredExtensions = NIL;
 	requiredSchemas = NIL;
@@ -1659,7 +1659,7 @@ CreateExtensionInternal(char *extensionName,
 	}
 
 	/*
-	 * Insert new tuple into pg_extension, and create dependency entries.
+	 * 向 pg_extension 插入新元组并创建依赖条目。
 	 */
 	address = InsertExtensionTuple(control->name, extowner,
 								   schemaOid, control->relocatable,
@@ -1670,13 +1670,13 @@ CreateExtensionInternal(char *extensionName,
 	extensionOid = address.objectId;
 
 	/*
-	 * Apply any control-file comment on extension
+	 * 应用控制文件中对扩展的描述
 	 */
 	if (control->comment != NULL)
 		CreateComments(extensionOid, ExtensionRelationId, 0, control->comment);
 
 	/*
-	 * Execute the installation script file
+	 * 执行安装脚本文件
 	 */
 	execute_extension_script(extensionOid, control,
 							 NULL, versionName,
@@ -1684,8 +1684,8 @@ CreateExtensionInternal(char *extensionName,
 							 schemaName, schemaOid);
 
 	/*
-	 * If additional update scripts have to be executed, apply the updates as
-	 * though a series of ALTER EXTENSION UPDATE commands were given
+	 * 若有额外更新脚本需执行，按一系列
+	 * ALTER EXTENSION UPDATE 命令的方式应用更新
 	 */
 	ApplyExtensionUpdates(extensionOid, pcontrol,
 						  versionName, updateVersions,
@@ -1695,7 +1695,7 @@ CreateExtensionInternal(char *extensionName,
 }
 
 /*
- * Get the OID of an extension listed in "requires", possibly creating it.
+ * 获取 "requires" 列表中扩展的 OID，可能需要创建它。
  */
 static Oid
 get_required_extension(char *reqExtensionName,
@@ -1712,15 +1712,15 @@ get_required_extension(char *reqExtensionName,
 	{
 		if (cascade)
 		{
-			/* Must install it. */
+			/* 必须安装它。 */
 			ObjectAddress addr;
 			List	   *cascade_parents;
 			ListCell   *lc;
 
-			/* Check extension name validity before trying to cascade. */
+			/* 级联前检查扩展名有效性。 */
 			check_valid_extension_name(reqExtensionName);
 
-			/* Check for cyclic dependency between extensions. */
+			/* 检查扩展间循环依赖。 */
 			foreach(lc, parents)
 			{
 				char	   *pname = (char *) lfirst(lc);
@@ -1736,12 +1736,12 @@ get_required_extension(char *reqExtensionName,
 					(errmsg("installing required extension \"%s\"",
 							reqExtensionName)));
 
-			/* Add current extension to list of parents to pass down. */
+			/* 将当前扩展添加到要传递的父级列表。 */
 			cascade_parents = lappend(list_copy(parents), extensionName);
 
 			/*
-			 * Create the required extension.  We propagate the SCHEMA option
-			 * if any, and CASCADE, but no other options.
+			 * 创建所需扩展。传播 SCHEMA 选项（如有）和 CASCADE，
+			 * 不传播其他选项。
 			 */
 			addr = CreateExtensionInternal(reqExtensionName,
 										   origSchemaName,
@@ -1750,7 +1750,7 @@ get_required_extension(char *reqExtensionName,
 										   cascade_parents,
 										   is_create);
 
-			/* Get its newly-assigned OID. */
+			/* 获取其新分配的 OID。 */
 			reqExtensionOid = addr.objectId;
 		}
 		else
@@ -1779,14 +1779,14 @@ CreateExtension(ParseState *pstate, CreateExtensionStmt *stmt)
 	bool		cascade = false;
 	ListCell   *lc;
 
-	/* Check extension name validity before any filesystem access */
+	/* 访问文件系统前检查扩展名有效性 */
 	check_valid_extension_name(stmt->extname);
 
 	/*
-	 * Check for duplicate extension name.  The unique index on
-	 * pg_extension.extname would catch this anyway, and serves as a backstop
-	 * in case of race conditions; but this is a friendlier error message, and
-	 * besides we need a check to support IF NOT EXISTS.
+	 * 检查扩展名重复。pg_extension.extname 上的唯一索引
+	 * 最终也会捕获，并作为竞态条件的最后防线；
+	 * 但此处的错误消息更友好，且需要检查以支持 IF NOT EXISTS。
+	*
 	 */
 	if (get_extension_oid(stmt->extname, true) != InvalidOid)
 	{
@@ -1806,15 +1806,15 @@ CreateExtension(ParseState *pstate, CreateExtensionStmt *stmt)
 	}
 
 	/*
-	 * We use global variables to track the extension being created, so we can
-	 * create only one extension at the same time.
+	 * 使用全局变量跟踪正在创建的扩展，同时只能创建一个。
+	*
 	 */
 	if (creating_extension)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("nested CREATE EXTENSION is not supported")));
 
-	/* Deconstruct the statement option list */
+	/* 解析语句选项列表 */
 	foreach(lc, stmt->options)
 	{
 		DefElem    *defel = (DefElem *) lfirst(lc);
@@ -1844,7 +1844,7 @@ CreateExtension(ParseState *pstate, CreateExtensionStmt *stmt)
 			elog(ERROR, "unrecognized option: %s", defel->defname);
 	}
 
-	/* Call CreateExtensionInternal to do the real work. */
+	/* 调用 CreateExtensionInternal 执行实际工作。 */
 	return CreateExtensionInternal(stmt->extname,
 								   schemaName,
 								   versionName,
@@ -1856,15 +1856,15 @@ CreateExtension(ParseState *pstate, CreateExtensionStmt *stmt)
 /*
  * InsertExtensionTuple
  *
- * Insert the new pg_extension row, and create extension's dependency entries.
- * Return the OID assigned to the new row.
+ * 插入新 pg_extension 行并创建扩展的依赖条目。
+ * 返回分配给新行的 OID。
  *
- * This is exported for the benefit of pg_upgrade, which has to create a
- * pg_extension entry (and the extension-level dependencies) without
- * actually running the extension's script.
+ * 导出此函数供 pg_upgrade 使用，需在不实际运行扩展脚本
+ * 的情况下创建 pg_extension 条目（及扩展级依赖）。
  *
- * extConfig and extCondition should be arrays or PointerGetDatum(NULL).
- * We declare them as plain Datum to avoid needing array.h in extension.h.
+ * extConfig 和 extCondition 应为数组或 PointerGetDatum(NULL)。
+ * 声明为普通 Datum 以避免 extension.h 需要 array.h。
+*
  */
 ObjectAddress
 InsertExtensionTuple(const char *extName, Oid extOwner,
@@ -1883,7 +1883,7 @@ InsertExtensionTuple(const char *extName, Oid extOwner,
 	ListCell   *lc;
 
 	/*
-	 * Build and insert the pg_extension tuple
+	 * 构建并插入 pg_extension 元组
 	 */
 	rel = table_open(ExtensionRelationId, RowExclusiveLock);
 
@@ -1918,7 +1918,7 @@ InsertExtensionTuple(const char *extName, Oid extOwner,
 	table_close(rel, RowExclusiveLock);
 
 	/*
-	 * Record dependencies on owner, schema, and prerequisite extensions
+	 * 记录对所有者、模式和前置扩展的依赖
 	 */
 	recordDependencyOnOwner(ExtensionRelationId, extensionOid, extOwner);
 
@@ -1938,21 +1938,21 @@ InsertExtensionTuple(const char *extName, Oid extOwner,
 		add_exact_object_address(&otherext, refobjs);
 	}
 
-	/* Record all of them (this includes duplicate elimination) */
+	/* 记录所有依赖（含去重） */
 	record_object_address_dependencies(&myself, refobjs, DEPENDENCY_NORMAL);
 	free_object_addresses(refobjs);
 
-	/* Post creation hook for new extension */
+	/* 新扩展的创建后钩子 */
 	InvokeObjectPostCreateHook(ExtensionRelationId, extensionOid, 0);
 
 	return myself;
 }
 
 /*
- * Guts of extension deletion.
+ * 扩展删除的内部实现。
  *
- * All we need do here is remove the pg_extension tuple itself.  Everything
- * else is taken care of by the dependency infrastructure.
+ * 只需删除 pg_extension 元组本身，其余由依赖基础设施处理。
+*
  */
 void
 RemoveExtensionById(Oid extId)
@@ -1963,15 +1963,15 @@ RemoveExtensionById(Oid extId)
 	ScanKeyData entry[1];
 
 	/*
-	 * Disallow deletion of any extension that's currently open for insertion;
-	 * else subsequent executions of recordDependencyOnCurrentExtension()
-	 * could create dangling pg_depend records that refer to a no-longer-valid
-	 * pg_extension OID.  This is needed not so much because we think people
-	 * might write "DROP EXTENSION foo" in foo's own script files, as because
-	 * errors in dependency management in extension script files could give
-	 * rise to cases where an extension is dropped as a result of recursing
-	 * from some contained object.  Because of that, we must test for the case
-	 * here, not at some higher level of the DROP EXTENSION command.
+	 * 禁止删除当前开放插入的扩展；否则后续
+	 * recordDependencyOnCurrentExtension() 可能创建引用
+	 * 不再有效的 pg_extension OID 的悬空 pg_depend 记录。
+	 * 这不仅因为可能有人在脚本中写了 "DROP EXTENSION foo"，
+	 * 更因为扩展脚本中的依赖管理错误可能导致从内部对象
+	 * 递归删除扩展。因此必须在此处而非更上层的
+	 * DROP EXTENSION 命令中检查。
+	*
+	*
 	 */
 	if (extId == CurrentExtensionObject)
 		ereport(ERROR,
@@ -1990,7 +1990,7 @@ RemoveExtensionById(Oid extId)
 
 	tuple = systable_getnext(scandesc);
 
-	/* We assume that there can be at most one matching tuple */
+	/* 假定最多有一条匹配元组 */
 	if (HeapTupleIsValid(tuple))
 		CatalogTupleDelete(rel, &tuple->t_self);
 
@@ -2000,13 +2000,13 @@ RemoveExtensionById(Oid extId)
 }
 
 /*
- * This function lists the available extensions (one row per primary control
- * file in the control directory).  We parse each control file and report the
- * interesting fields.
+ * 列出可用扩展（控制目录中每个主控制文件一行）。
+ * 解析每个控制文件并报告相关字段。
  *
- * The system view pg_available_extensions provides a user interface to this
- * SRF, adding information about whether the extensions are installed in the
- * current DB.
+ * 系统视图 pg_available_extensions 为此 SRF 提供用户接口，
+ * 添加扩展是否已在当前数据库安装的信息。
+*
+*
  */
 Datum
 pg_available_extensions(PG_FUNCTION_ARGS)
@@ -2016,19 +2016,19 @@ pg_available_extensions(PG_FUNCTION_ARGS)
 	DIR		   *dir;
 	struct dirent *de;
 
-	/* Build tuplestore to hold the result rows */
+	/* 构建 tuplestore 存放结果行 */
 	InitMaterializedSRF(fcinfo, 0);
 
 	location = get_extension_control_directory();
 	dir = AllocateDir(location);
 
 	/*
-	 * If the control directory doesn't exist, we want to silently return an
-	 * empty set.  Any other error will be reported by ReadDir.
+	 * 若控制目录不存在则静默返回空集。
+	 * 其他错误由 ReadDir 报告。
 	 */
 	if (dir == NULL && errno == ENOENT)
 	{
-		/* do nothing */
+		/* 不做任何事 */
 	}
 	else
 	{
@@ -2042,11 +2042,11 @@ pg_available_extensions(PG_FUNCTION_ARGS)
 			if (!is_extension_control_filename(de->d_name))
 				continue;
 
-			/* extract extension name from 'name.control' filename */
+			/* 从 'name.control' 文件名提取扩展名 */
 			extname = pstrdup(de->d_name);
 			*strrchr(extname, '.') = '\0';
 
-			/* ignore it if it's an auxiliary control file */
+			/* 辅助控制文件则忽略 */
 			if (strstr(extname, "--"))
 				continue;
 
@@ -2055,7 +2055,7 @@ pg_available_extensions(PG_FUNCTION_ARGS)
 			memset(values, 0, sizeof(values));
 			memset(nulls, 0, sizeof(nulls));
 
-			/* name */
+			/* 名称 */
 			values[0] = DirectFunctionCall1(namein,
 											CStringGetDatum(control->name));
 			/* default_version */
@@ -2063,7 +2063,7 @@ pg_available_extensions(PG_FUNCTION_ARGS)
 				nulls[1] = true;
 			else
 				values[1] = CStringGetTextDatum(control->default_version);
-			/* comment */
+			/* 注解 */
 			if (control->comment == NULL)
 				nulls[2] = true;
 			else
@@ -2080,13 +2080,13 @@ pg_available_extensions(PG_FUNCTION_ARGS)
 }
 
 /*
- * This function lists the available extension versions (one row per
- * extension installation script).  For each version, we parse the related
- * control file(s) and report the interesting fields.
+ * 列出可用扩展版本（每个安装脚本一行）。
+ * 对每个版本解析相关控制文件并报告相关字段。
  *
- * The system view pg_available_extension_versions provides a user interface
- * to this SRF, adding information about which versions are installed in the
- * current DB.
+ * 系统视图 pg_available_extension_versions 为此 SRF
+ * 提供用户接口，添加哪些版本已在当前数据库安装的信息。
+*
+*
  */
 Datum
 pg_available_extension_versions(PG_FUNCTION_ARGS)
@@ -2096,19 +2096,19 @@ pg_available_extension_versions(PG_FUNCTION_ARGS)
 	DIR		   *dir;
 	struct dirent *de;
 
-	/* Build tuplestore to hold the result rows */
+	/* 构建 tuplestore 存放结果行 */
 	InitMaterializedSRF(fcinfo, 0);
 
 	location = get_extension_control_directory();
 	dir = AllocateDir(location);
 
 	/*
-	 * If the control directory doesn't exist, we want to silently return an
-	 * empty set.  Any other error will be reported by ReadDir.
+	 * 若控制目录不存在则静默返回空集。
+	 * 其他错误由 ReadDir 报告。
 	 */
 	if (dir == NULL && errno == ENOENT)
 	{
-		/* do nothing */
+		/* 不做任何事 */
 	}
 	else
 	{
@@ -2120,18 +2120,18 @@ pg_available_extension_versions(PG_FUNCTION_ARGS)
 			if (!is_extension_control_filename(de->d_name))
 				continue;
 
-			/* extract extension name from 'name.control' filename */
+			/* 从 'name.control' 文件名提取扩展名 */
 			extname = pstrdup(de->d_name);
 			*strrchr(extname, '.') = '\0';
 
-			/* ignore it if it's an auxiliary control file */
+			/* 辅助控制文件则忽略 */
 			if (strstr(extname, "--"))
 				continue;
 
-			/* read the control file */
+			/* 读取控制文件 */
 			control = read_extension_control_file(extname);
 
-			/* scan extension's script directory for install scripts */
+			/* 扫描扩展脚本目录查找安装脚本 */
 			get_available_versions_for_extension(control, rsinfo->setResult,
 												 rsinfo->setDesc);
 		}
@@ -2143,8 +2143,8 @@ pg_available_extension_versions(PG_FUNCTION_ARGS)
 }
 
 /*
- * Inner loop for pg_available_extension_versions:
- *		read versions of one extension, add rows to tupstore
+ * pg_available_extension_versions 的内部循环：
+ *		读取一个扩展的版本，向 tupstore 添加行
  */
 static void
 get_available_versions_for_extension(ExtensionControlFile *pcontrol,
@@ -2154,10 +2154,10 @@ get_available_versions_for_extension(ExtensionControlFile *pcontrol,
 	List	   *evi_list;
 	ListCell   *lc;
 
-	/* Extract the version update graph from the script directory */
+	/* 从脚本目录提取版本更新图 */
 	evi_list = get_ext_ver_list(pcontrol);
 
-	/* For each installable version ... */
+	/* 对每个可安装版本 ... */
 	foreach(lc, evi_list)
 	{
 		ExtensionVersionInfo *evi = (ExtensionVersionInfo *) lfirst(lc);
@@ -2170,25 +2170,25 @@ get_available_versions_for_extension(ExtensionControlFile *pcontrol,
 			continue;
 
 		/*
-		 * Fetch parameters for specific version (pcontrol is not changed)
+		 * 获取特定版本的参数（pcontrol 不变）
 		 */
 		control = read_extension_aux_control_file(pcontrol, evi->name);
 
 		memset(values, 0, sizeof(values));
 		memset(nulls, 0, sizeof(nulls));
 
-		/* name */
+		/* 名称 */
 		values[0] = DirectFunctionCall1(namein,
 										CStringGetDatum(control->name));
-		/* version */
+		/* 版本 */
 		values[1] = CStringGetTextDatum(evi->name);
 		/* superuser */
 		values[2] = BoolGetDatum(control->superuser);
-		/* trusted */
+		/* 受信 */
 		values[3] = BoolGetDatum(control->trusted);
-		/* relocatable */
+		/* 可重定位 */
 		values[4] = BoolGetDatum(control->relocatable);
-		/* schema */
+		/* 模式 */
 		if (control->schema == NULL)
 			nulls[5] = true;
 		else
@@ -2199,7 +2199,7 @@ get_available_versions_for_extension(ExtensionControlFile *pcontrol,
 			nulls[6] = true;
 		else
 			values[6] = convert_requires_to_datum(control->requires);
-		/* comment */
+		/* 注解 */
 		if (control->comment == NULL)
 			nulls[7] = true;
 		else
@@ -2208,9 +2208,9 @@ get_available_versions_for_extension(ExtensionControlFile *pcontrol,
 		tuplestore_putvalues(tupstore, tupdesc, values, nulls);
 
 		/*
-		 * Find all non-directly-installable versions that would be installed
-		 * starting from this version, and report them, inheriting the
-		 * parameters that aren't changed in updates from this version.
+		 * 查找以此版本为起点可安装的所有非直接可安装版本，
+		 * 报告它们，继承此版本更新中未更改的参数。
+		*
 		 */
 		foreach(lc2, evi_list)
 		{
@@ -2222,20 +2222,20 @@ get_available_versions_for_extension(ExtensionControlFile *pcontrol,
 			if (find_install_path(evi_list, evi2, &best_path) == evi)
 			{
 				/*
-				 * Fetch parameters for this version (pcontrol is not changed)
+				 * 获取此版本的参数（pcontrol 不变）
 				 */
 				control = read_extension_aux_control_file(pcontrol, evi2->name);
 
-				/* name stays the same */
-				/* version */
+				/* 名称保持不变 */
+				/* 版本 */
 				values[1] = CStringGetTextDatum(evi2->name);
 				/* superuser */
 				values[2] = BoolGetDatum(control->superuser);
-				/* trusted */
+				/* 受信 */
 				values[3] = BoolGetDatum(control->trusted);
-				/* relocatable */
+				/* 可重定位 */
 				values[4] = BoolGetDatum(control->relocatable);
-				/* schema stays the same */
+				/* 模式保持不变 */
 				/* requires */
 				if (control->requires == NIL)
 					nulls[6] = true;
@@ -2244,7 +2244,7 @@ get_available_versions_for_extension(ExtensionControlFile *pcontrol,
 					values[6] = convert_requires_to_datum(control->requires);
 					nulls[6] = false;
 				}
-				/* comment stays the same */
+				/* 注解保持不变 */
 
 				tuplestore_putvalues(tupstore, tupdesc, values, nulls);
 			}
@@ -2253,12 +2253,12 @@ get_available_versions_for_extension(ExtensionControlFile *pcontrol,
 }
 
 /*
- * Test whether the given extension exists (not whether it's installed)
+ * 测试给定扩展是否存在（非是否已安装）
  *
- * This checks for the existence of a matching control file in the extension
- * directory.  That's not a bulletproof check, since the file might be
- * invalid, but this is only used for hints so it doesn't have to be 100%
- * right.
+ * 检查扩展目录中是否存在匹配的控制文件。
+ * 并非绝对可靠的检查（文件可能无效），
+ * 但仅用于提示，无需 100% 准确。
+*
  */
 bool
 extension_file_exists(const char *extensionName)
@@ -2272,12 +2272,12 @@ extension_file_exists(const char *extensionName)
 	dir = AllocateDir(location);
 
 	/*
-	 * If the control directory doesn't exist, we want to silently return
-	 * false.  Any other error will be reported by ReadDir.
+	 * 若控制目录不存在则静默返回 false。
+	 * 其他错误由 ReadDir 报告。
 	 */
 	if (dir == NULL && errno == ENOENT)
 	{
-		/* do nothing */
+		/* 不做任何事 */
 	}
 	else
 	{
@@ -2288,15 +2288,15 @@ extension_file_exists(const char *extensionName)
 			if (!is_extension_control_filename(de->d_name))
 				continue;
 
-			/* extract extension name from 'name.control' filename */
+			/* 从 'name.control' 文件名提取扩展名 */
 			extname = pstrdup(de->d_name);
 			*strrchr(extname, '.') = '\0';
 
-			/* ignore it if it's an auxiliary control file */
+			/* 辅助控制文件则忽略 */
 			if (strstr(extname, "--"))
 				continue;
 
-			/* done if it matches request */
+			/* 匹配请求则完成 */
 			if (strcmp(extname, extensionName) == 0)
 			{
 				result = true;
@@ -2311,7 +2311,7 @@ extension_file_exists(const char *extensionName)
 }
 
 /*
- * Convert a list of extension names to a name[] Datum
+ * 将扩展名列表转换为 name[] Datum
  */
 static Datum
 convert_requires_to_datum(List *requires)
@@ -2336,8 +2336,8 @@ convert_requires_to_datum(List *requires)
 }
 
 /*
- * This function reports the version update paths that exist for the
- * specified extension.
+ * 报告指定扩展存在的版本更新路径。
+*
  */
 Datum
 pg_extension_update_paths(PG_FUNCTION_ARGS)
@@ -2348,19 +2348,19 @@ pg_extension_update_paths(PG_FUNCTION_ARGS)
 	ExtensionControlFile *control;
 	ListCell   *lc1;
 
-	/* Check extension name validity before any filesystem access */
+	/* 访问文件系统前检查扩展名有效性 */
 	check_valid_extension_name(NameStr(*extname));
 
-	/* Build tuplestore to hold the result rows */
+	/* 构建 tuplestore 存放结果行 */
 	InitMaterializedSRF(fcinfo, 0);
 
-	/* Read the extension's control file */
+	/* 读取扩展的控制文件 */
 	control = read_extension_control_file(NameStr(*extname));
 
-	/* Extract the version update graph from the script directory */
+	/* 从脚本目录提取版本更新图 */
 	evi_list = get_ext_ver_list(control);
 
-	/* Iterate over all pairs of versions */
+	/* 遍历所有版本对 */
 	foreach(lc1, evi_list)
 	{
 		ExtensionVersionInfo *evi1 = (ExtensionVersionInfo *) lfirst(lc1);
@@ -2376,18 +2376,18 @@ pg_extension_update_paths(PG_FUNCTION_ARGS)
 			if (evi1 == evi2)
 				continue;
 
-			/* Find shortest path from evi1 to evi2 */
+			/* 查找 evi1 到 evi2 的最短路径 */
 			path = find_update_path(evi_list, evi1, evi2, false, true);
 
-			/* Emit result row */
+			/* 输出结果行 */
 			memset(values, 0, sizeof(values));
 			memset(nulls, 0, sizeof(nulls));
 
-			/* source */
+			/* 来源 */
 			values[0] = CStringGetTextDatum(evi1->name);
-			/* target */
+			/* 目标 */
 			values[1] = CStringGetTextDatum(evi2->name);
-			/* path */
+			/* 路径 */
 			if (path == NIL)
 				nulls[2] = true;
 			else
@@ -2396,7 +2396,7 @@ pg_extension_update_paths(PG_FUNCTION_ARGS)
 				ListCell   *lcv;
 
 				initStringInfo(&pathbuf);
-				/* The path doesn't include start vertex, but show it */
+				/* 路径不包含起点，但我们展示它 */
 				appendStringInfoString(&pathbuf, evi1->name);
 				foreach(lcv, path)
 				{
@@ -2420,9 +2420,9 @@ pg_extension_update_paths(PG_FUNCTION_ARGS)
 /*
  * pg_extension_config_dump
  *
- * Record information about a configuration table that belongs to an
- * extension being created, but whose contents should be dumped in whole
- * or in part during pg_dump.
+ * 记录属于正在创建的扩展的配置表信息，
+ * 该表内容应在 pg_dump 时全部或部分导出。
+*
  */
 Datum
 pg_extension_config_dump(PG_FUNCTION_ARGS)
@@ -2445,8 +2445,8 @@ pg_extension_config_dump(PG_FUNCTION_ARGS)
 	ArrayType  *a;
 
 	/*
-	 * We only allow this to be called from an extension's SQL script. We
-	 * shouldn't need any permissions check beyond that.
+	 * 仅允许从扩展 SQL 脚本中调用。除此之外无需权限检查。
+	*
 	 */
 	if (!creating_extension)
 		ereport(ERROR,
@@ -2455,9 +2455,9 @@ pg_extension_config_dump(PG_FUNCTION_ARGS)
 						"pg_extension_config_dump()")));
 
 	/*
-	 * Check that the table exists and is a member of the extension being
-	 * created.  This ensures that we don't need to register an additional
-	 * dependency to protect the extconfig entry.
+	 * 检查表是否存在且是正在创建的扩展的成员。
+	 * 这样无需注册额外依赖来保护 extconfig 条目。
+	*
 	 */
 	tablename = get_rel_name(tableoid);
 	if (tablename == NULL)
@@ -2472,14 +2472,14 @@ pg_extension_config_dump(PG_FUNCTION_ARGS)
 						tablename)));
 
 	/*
-	 * Add the table OID and WHERE condition to the extension's extconfig and
-	 * extcondition arrays.
+	 * 将表 OID 和 WHERE 条件添加到扩展的 extconfig 和
+	 * extcondition 数组。
 	 *
-	 * If the table is already in extconfig, treat this as an update of the
-	 * WHERE condition.
+	 * 若表已在 extconfig 中，视为对 WHERE 条件的更新。
+	*
 	 */
 
-	/* Find the pg_extension tuple */
+	/* 查找 pg_extension 元组 */
 	extRel = table_open(ExtensionRelationId, RowExclusiveLock);
 
 	ScanKeyInit(&key[0],
@@ -2492,7 +2492,7 @@ pg_extension_config_dump(PG_FUNCTION_ARGS)
 
 	extTup = systable_getnext(extScan);
 
-	if (!HeapTupleIsValid(extTup))	/* should not happen */
+	if (!HeapTupleIsValid(extTup))	/* 不应发生 */
 		elog(ERROR, "could not find tuple for extension %u",
 			 CurrentExtensionObject);
 
@@ -2500,14 +2500,14 @@ pg_extension_config_dump(PG_FUNCTION_ARGS)
 	memset(repl_null, false, sizeof(repl_null));
 	memset(repl_repl, false, sizeof(repl_repl));
 
-	/* Build or modify the extconfig value */
+	/* 构建或修改 extconfig 值 */
 	elementDatum = ObjectIdGetDatum(tableoid);
 
 	arrayDatum = heap_getattr(extTup, Anum_pg_extension_extconfig,
 							  RelationGetDescr(extRel), &isnull);
 	if (isnull)
 	{
-		/* Previously empty extconfig, so build 1-element array */
+		/* extconfig 之前为空，构建单元素数组 */
 		arrayLength = 0;
 		arrayIndex = 1;
 
@@ -2515,7 +2515,7 @@ pg_extension_config_dump(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* Modify or extend existing extconfig array */
+		/* 修改或扩展现有 extconfig 数组 */
 		Oid		   *arrayData;
 		int			i;
 
@@ -2530,13 +2530,13 @@ pg_extension_config_dump(PG_FUNCTION_ARGS)
 			elog(ERROR, "extconfig is not a 1-D Oid array");
 		arrayData = (Oid *) ARR_DATA_PTR(a);
 
-		arrayIndex = arrayLength + 1;	/* set up to add after end */
+		arrayIndex = arrayLength + 1;	/* 准备追加到末尾 */
 
 		for (i = 0; i < arrayLength; i++)
 		{
 			if (arrayData[i] == tableoid)
 			{
-				arrayIndex = i + 1; /* replace this element instead */
+				arrayIndex = i + 1; /* 替换此元素 */
 				break;
 			}
 		}
@@ -2544,15 +2544,15 @@ pg_extension_config_dump(PG_FUNCTION_ARGS)
 		a = array_set(a, 1, &arrayIndex,
 					  elementDatum,
 					  false,
-					  -1 /* varlena array */ ,
-					  sizeof(Oid) /* OID's typlen */ ,
-					  true /* OID's typbyval */ ,
-					  TYPALIGN_INT /* OID's typalign */ );
+					  -1 /* varlena 数组 */ ,
+					  sizeof(Oid) /* OID 的 typlen */ ,
+					  true /* OID 的 typbyval */ ,
+					  TYPALIGN_INT /* OID 的 typalign */ );
 	}
 	repl_val[Anum_pg_extension_extconfig - 1] = PointerGetDatum(a);
 	repl_repl[Anum_pg_extension_extconfig - 1] = true;
 
-	/* Build or modify the extcondition value */
+	/* 构建或修改 extcondition 值 */
 	elementDatum = PointerGetDatum(wherecond);
 
 	arrayDatum = heap_getattr(extTup, Anum_pg_extension_extcondition,
@@ -2576,14 +2576,14 @@ pg_extension_config_dump(PG_FUNCTION_ARGS)
 		if (ARR_DIMS(a)[0] != arrayLength)
 			elog(ERROR, "extconfig and extcondition arrays do not match");
 
-		/* Add or replace at same index as in extconfig */
+		/* 在与 extconfig 相同的索引处添加或替换 */
 		a = array_set(a, 1, &arrayIndex,
 					  elementDatum,
 					  false,
-					  -1 /* varlena array */ ,
-					  -1 /* TEXT's typlen */ ,
-					  false /* TEXT's typbyval */ ,
-					  TYPALIGN_INT /* TEXT's typalign */ );
+					  -1 /* varlena 数组 */ ,
+					  -1 /* TEXT 的 typlen */ ,
+					  false /* TEXT 的 typbyval */ ,
+					  TYPALIGN_INT /* TEXT 的 typalign */ );
 	}
 	repl_val[Anum_pg_extension_extcondition - 1] = PointerGetDatum(a);
 	repl_repl[Anum_pg_extension_extcondition - 1] = true;
@@ -2603,9 +2603,9 @@ pg_extension_config_dump(PG_FUNCTION_ARGS)
 /*
  * extension_config_remove
  *
- * Remove the specified table OID from extension's extconfig, if present.
- * This is not currently exposed as a function, but it could be;
- * for now, we just invoke it from ALTER EXTENSION DROP.
+ * 从扩展的 extconfig 中移除指定表 OID（如存在）。
+ * 当前未作为函数暴露，但可；目前仅从 ALTER EXTENSION DROP 调用。
+*
  */
 static void
 extension_config_remove(Oid extensionoid, Oid tableoid)
@@ -2623,7 +2623,7 @@ extension_config_remove(Oid extensionoid, Oid tableoid)
 	bool		repl_repl[Natts_pg_extension];
 	ArrayType  *a;
 
-	/* Find the pg_extension tuple */
+	/* 查找 pg_extension 元组 */
 	extRel = table_open(ExtensionRelationId, RowExclusiveLock);
 
 	ScanKeyInit(&key[0],
@@ -2636,16 +2636,16 @@ extension_config_remove(Oid extensionoid, Oid tableoid)
 
 	extTup = systable_getnext(extScan);
 
-	if (!HeapTupleIsValid(extTup))	/* should not happen */
+	if (!HeapTupleIsValid(extTup))	/* 不应发生 */
 		elog(ERROR, "could not find tuple for extension %u",
 			 extensionoid);
 
-	/* Search extconfig for the tableoid */
+	/* 在 extconfig 中搜索 tableoid */
 	arrayDatum = heap_getattr(extTup, Anum_pg_extension_extconfig,
 							  RelationGetDescr(extRel), &isnull);
 	if (isnull)
 	{
-		/* nothing to do */
+		/* 无需操作 */
 		a = NULL;
 		arrayLength = 0;
 		arrayIndex = -1;
@@ -2666,19 +2666,19 @@ extension_config_remove(Oid extensionoid, Oid tableoid)
 			elog(ERROR, "extconfig is not a 1-D Oid array");
 		arrayData = (Oid *) ARR_DATA_PTR(a);
 
-		arrayIndex = -1;		/* flag for no deletion needed */
+		arrayIndex = -1;		/* 无需删除的标志 */
 
 		for (i = 0; i < arrayLength; i++)
 		{
 			if (arrayData[i] == tableoid)
 			{
-				arrayIndex = i; /* index to remove */
+				arrayIndex = i; /* 要移除的索引 */
 				break;
 			}
 		}
 	}
 
-	/* If tableoid is not in extconfig, nothing to do */
+	/* tableoid 不在 extconfig 中则无需操作 */
 	if (arrayIndex < 0)
 	{
 		systable_endscan(extScan);
@@ -2686,24 +2686,24 @@ extension_config_remove(Oid extensionoid, Oid tableoid)
 		return;
 	}
 
-	/* Modify or delete the extconfig value */
+	/* 修改或删除 extconfig 值 */
 	memset(repl_val, 0, sizeof(repl_val));
 	memset(repl_null, false, sizeof(repl_null));
 	memset(repl_repl, false, sizeof(repl_repl));
 
 	if (arrayLength <= 1)
 	{
-		/* removing only element, just set array to null */
+		/* 仅剩一个元素，直接将数组设为 null */
 		repl_null[Anum_pg_extension_extconfig - 1] = true;
 	}
 	else
 	{
-		/* squeeze out the target element */
+		/* 挤出目标元素 */
 		Datum	   *dvalues;
 		int			nelems;
 		int			i;
 
-		/* We already checked there are no nulls */
+		/* 已检查无 null */
 		deconstruct_array_builtin(a, OIDOID, &dvalues, NULL, &nelems);
 
 		for (i = arrayIndex; i < arrayLength - 1; i++)
@@ -2715,7 +2715,7 @@ extension_config_remove(Oid extensionoid, Oid tableoid)
 	}
 	repl_repl[Anum_pg_extension_extconfig - 1] = true;
 
-	/* Modify or delete the extcondition value */
+	/* 修改或删除 extcondition 值 */
 	arrayDatum = heap_getattr(extTup, Anum_pg_extension_extcondition,
 							  RelationGetDescr(extRel), &isnull);
 	if (isnull)
@@ -2737,17 +2737,17 @@ extension_config_remove(Oid extensionoid, Oid tableoid)
 
 	if (arrayLength <= 1)
 	{
-		/* removing only element, just set array to null */
+		/* 仅剩一个元素，直接将数组设为 null */
 		repl_null[Anum_pg_extension_extcondition - 1] = true;
 	}
 	else
 	{
-		/* squeeze out the target element */
+		/* 挤出目标元素 */
 		Datum	   *dvalues;
 		int			nelems;
 		int			i;
 
-		/* We already checked there are no nulls */
+		/* 已检查无 null */
 		deconstruct_array_builtin(a, TEXTOID, &dvalues, NULL, &nelems);
 
 		for (i = arrayIndex; i < arrayLength - 1; i++)
@@ -2770,7 +2770,7 @@ extension_config_remove(Oid extensionoid, Oid tableoid)
 }
 
 /*
- * Execute ALTER EXTENSION SET SCHEMA
+ * 执行 ALTER EXTENSION SET SCHEMA
  */
 ObjectAddress
 AlterExtensionNamespace(const char *extensionName, const char *newschema, Oid *oldschema)
@@ -2795,21 +2795,21 @@ AlterExtensionNamespace(const char *extensionName, const char *newschema, Oid *o
 	nspOid = LookupCreationNamespace(newschema);
 
 	/*
-	 * Permission check: must own extension.  Note that we don't bother to
-	 * check ownership of the individual member objects ...
+	 * 权限检查：必须拥有扩展。注意不检查各个成员对象
+	 * 的所有权 ...
 	 */
 	if (!object_ownercheck(ExtensionRelationId, extensionOid, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_EXTENSION,
 					   extensionName);
 
-	/* Permission check: must have creation rights in target namespace */
+	/* 权限检查：必须有目标命名空间中的创建权限 */
 	aclresult = object_aclcheck(NamespaceRelationId, nspOid, GetUserId(), ACL_CREATE);
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error(aclresult, OBJECT_SCHEMA, newschema);
 
 	/*
-	 * If the schema is currently a member of the extension, disallow moving
-	 * the extension into the schema.  That would create a dependency loop.
+	 * 若模式当前是扩展成员，禁止将扩展移入该模式，
+	 * 否则会创建依赖循环。
 	 */
 	if (getExtensionOfObject(NamespaceRelationId, nspOid) == extensionOid)
 		ereport(ERROR,
@@ -2818,7 +2818,7 @@ AlterExtensionNamespace(const char *extensionName, const char *newschema, Oid *o
 						"because the extension contains the schema",
 						extensionName, newschema)));
 
-	/* Locate the pg_extension tuple */
+	/* 定位 pg_extension 元组 */
 	extRel = table_open(ExtensionRelationId, RowExclusiveLock);
 
 	ScanKeyInit(&key[0],
@@ -2831,19 +2831,19 @@ AlterExtensionNamespace(const char *extensionName, const char *newschema, Oid *o
 
 	extTup = systable_getnext(extScan);
 
-	if (!HeapTupleIsValid(extTup))	/* should not happen */
+	if (!HeapTupleIsValid(extTup))	/* 不应发生 */
 		elog(ERROR, "could not find tuple for extension %u",
 			 extensionOid);
 
-	/* Copy tuple so we can modify it below */
+	/* 复制元组以便下方修改 */
 	extTup = heap_copytuple(extTup);
 	extForm = (Form_pg_extension) GETSTRUCT(extTup);
 
 	systable_endscan(extScan);
 
 	/*
-	 * If the extension is already in the target schema, just silently do
-	 * nothing.
+	 * 若扩展已在目标模式中，静默不做任何操作。
+	*
 	 */
 	if (extForm->extnamespace == nspOid)
 	{
@@ -2851,7 +2851,7 @@ AlterExtensionNamespace(const char *extensionName, const char *newschema, Oid *o
 		return InvalidObjectAddress;
 	}
 
-	/* Check extension is supposed to be relocatable */
+	/* 检查扩展是否应为可重定位 */
 	if (!extForm->extrelocatable)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -2860,12 +2860,12 @@ AlterExtensionNamespace(const char *extensionName, const char *newschema, Oid *o
 
 	objsMoved = new_object_addresses();
 
-	/* store the OID of the namespace to-be-changed */
+	/* 存储待更改的命名空间 OID */
 	oldNspOid = extForm->extnamespace;
 
 	/*
-	 * Scan pg_depend to find objects that depend directly on the extension,
-	 * and alter each one's schema.
+	 * 扫描 pg_depend 查找直接依赖扩展的对象，
+	 * 更改每个对象的模式。
 	 */
 	depRel = table_open(DependRelationId, AccessShareLock);
 
@@ -2888,13 +2888,13 @@ AlterExtensionNamespace(const char *extensionName, const char *newschema, Oid *o
 		Oid			dep_oldNspOid;
 
 		/*
-		 * If a dependent extension has a no_relocate request for this
-		 * extension, disallow SET SCHEMA.  (XXX it's a bit ugly to do this in
-		 * the same loop that's actually executing the renames: we may detect
-		 * the error condition only after having expended a fair amount of
-		 * work.  However, the alternative is to do two scans of pg_depend,
-		 * which seems like optimizing for failure cases.  The rename work
-		 * will all roll back cleanly enough if we do fail here.)
+		 * 若依赖扩展对此扩展有 no_relocate 请求，
+		 * 禁止 SET SCHEMA。（XXX 在执行重命名的同一
+		 * 循环中进行检查不太优雅：可能在耗费大量工作后
+		 * 才发现错误。但替代方案是两次扫描 pg_depend，
+		 * 似乎是为失败情况优化。若此处失败，
+		 * 重命名工作可干净回滚。）
+		*
 		 */
 		if (pg_depend->deptype == DEPENDENCY_NORMAL &&
 			pg_depend->classid == ExtensionRelationId)
@@ -2922,9 +2922,9 @@ AlterExtensionNamespace(const char *extensionName, const char *newschema, Oid *o
 		}
 
 		/*
-		 * Otherwise, ignore non-membership dependencies.  (Currently, the
-		 * only other case we could see here is a normal dependency from
-		 * another extension.)
+		 * 否则忽略非成员依赖。
+		 * （目前唯一其他情况是来自另一个扩展的普通依赖。）
+		*
 		 */
 		if (pg_depend->deptype != DEPENDENCY_EXTENSION)
 			continue;
@@ -2933,18 +2933,18 @@ AlterExtensionNamespace(const char *extensionName, const char *newschema, Oid *o
 		dep.objectId = pg_depend->objid;
 		dep.objectSubId = pg_depend->objsubid;
 
-		if (dep.objectSubId != 0)	/* should not happen */
+		if (dep.objectSubId != 0)	/* 不应发生 */
 			elog(ERROR, "extension should not have a sub-object dependency");
 
-		/* Relocate the object */
+		/* 重定位对象 */
 		dep_oldNspOid = AlterObjectNamespace_oid(dep.classId,
 												 dep.objectId,
 												 nspOid,
 												 objsMoved);
 
 		/*
-		 * If not all the objects had the same old namespace (ignoring any
-		 * that are not in namespaces), complain.
+		 * 若非所有对象具有相同的旧命名空间
+		 * （忽略不在命名空间中的），则报错。
 		 */
 		if (dep_oldNspOid != InvalidOid && dep_oldNspOid != oldNspOid)
 			ereport(ERROR,
@@ -2956,7 +2956,7 @@ AlterExtensionNamespace(const char *extensionName, const char *newschema, Oid *o
 							   get_namespace_name(oldNspOid))));
 	}
 
-	/* report old schema, if caller wants it */
+	/* 若调用者需要，报告旧模式 */
 	if (oldschema)
 		*oldschema = oldNspOid;
 
@@ -2964,14 +2964,14 @@ AlterExtensionNamespace(const char *extensionName, const char *newschema, Oid *o
 
 	relation_close(depRel, AccessShareLock);
 
-	/* Now adjust pg_extension.extnamespace */
+	/* 现在调整 pg_extension.extnamespace */
 	extForm->extnamespace = nspOid;
 
 	CatalogTupleUpdate(extRel, &extTup->t_self, extTup);
 
 	table_close(extRel, RowExclusiveLock);
 
-	/* update dependencies to point to the new schema */
+	/* 更新依赖指向新模式 */
 	changeDependencyFor(ExtensionRelationId, extensionOid,
 						NamespaceRelationId, oldNspOid, nspOid);
 
@@ -2983,7 +2983,7 @@ AlterExtensionNamespace(const char *extensionName, const char *newschema, Oid *o
 }
 
 /*
- * Execute ALTER EXTENSION UPDATE
+ * 执行 ALTER EXTENSION UPDATE
  */
 ObjectAddress
 ExecAlterExtensionStmt(ParseState *pstate, AlterExtensionStmt *stmt)
@@ -3004,8 +3004,8 @@ ExecAlterExtensionStmt(ParseState *pstate, AlterExtensionStmt *stmt)
 	ObjectAddress address;
 
 	/*
-	 * We use global variables to track the extension being created, so we can
-	 * create/update only one extension at the same time.
+	 * 使用全局变量跟踪正在创建/更新的扩展，同时只能一个。
+	*
 	 */
 	if (creating_extension)
 		ereport(ERROR,
@@ -3013,7 +3013,7 @@ ExecAlterExtensionStmt(ParseState *pstate, AlterExtensionStmt *stmt)
 				 errmsg("nested ALTER EXTENSION is not supported")));
 
 	/*
-	 * Look up the extension --- it must already exist in pg_extension
+	 * 查找扩展 --- 必须已存在于 pg_extension
 	 */
 	extRel = table_open(ExtensionRelationId, AccessShareLock);
 
@@ -3036,7 +3036,7 @@ ExecAlterExtensionStmt(ParseState *pstate, AlterExtensionStmt *stmt)
 	extensionOid = ((Form_pg_extension) GETSTRUCT(extTup))->oid;
 
 	/*
-	 * Determine the existing version we are updating from
+	 * 确定当前从哪个版本更新
 	 */
 	datum = heap_getattr(extTup, Anum_pg_extension_extversion,
 						 RelationGetDescr(extRel), &isnull);
@@ -3048,20 +3048,20 @@ ExecAlterExtensionStmt(ParseState *pstate, AlterExtensionStmt *stmt)
 
 	table_close(extRel, AccessShareLock);
 
-	/* Permission check: must own extension */
+	/* 权限检查：必须拥有扩展 */
 	if (!object_ownercheck(ExtensionRelationId, extensionOid, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_EXTENSION,
 					   stmt->extname);
 
 	/*
-	 * Read the primary control file.  Note we assume that it does not contain
-	 * any non-ASCII data, so there is no need to worry about encoding at this
-	 * point.
+	 * 读取主控制文件。假定不含非 ASCII 数据，
+	 * 此处无需关心编码。
+	*
 	 */
 	control = read_extension_control_file(stmt->extname);
 
 	/*
-	 * Read the statement option list
+	 * 读取语句选项列表
 	 */
 	foreach(lc, stmt->options)
 	{
@@ -3078,7 +3078,7 @@ ExecAlterExtensionStmt(ParseState *pstate, AlterExtensionStmt *stmt)
 	}
 
 	/*
-	 * Determine the version to update to
+	 * 确定要更新到的目标版本
 	 */
 	if (d_new_version && d_new_version->arg)
 		versionName = strVal(d_new_version->arg);
@@ -3089,12 +3089,12 @@ ExecAlterExtensionStmt(ParseState *pstate, AlterExtensionStmt *stmt)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("version to install must be specified")));
-		versionName = NULL;		/* keep compiler quiet */
+		versionName = NULL;		/* 让编译器安静 */
 	}
 	check_valid_version_name(versionName);
 
 	/*
-	 * If we're already at that version, just say so
+	 * 若已在该版本，直接告知
 	 */
 	if (strcmp(oldVersionName, versionName) == 0)
 	{
@@ -3105,15 +3105,15 @@ ExecAlterExtensionStmt(ParseState *pstate, AlterExtensionStmt *stmt)
 	}
 
 	/*
-	 * Identify the series of update script files we need to execute
+	 * 确定需要执行的更新脚本文件序列
 	 */
 	updateVersions = identify_update_path(control,
 										  oldVersionName,
 										  versionName);
 
 	/*
-	 * Update the pg_extension row and execute the update scripts, one at a
-	 * time
+	 * 更新 pg_extension 行并逐个执行更新脚本
+	*
 	 */
 	ApplyExtensionUpdates(extensionOid, control,
 						  oldVersionName, updateVersions,
@@ -3125,12 +3125,12 @@ ExecAlterExtensionStmt(ParseState *pstate, AlterExtensionStmt *stmt)
 }
 
 /*
- * Apply a series of update scripts as though individual ALTER EXTENSION
- * UPDATE commands had been given, including altering the pg_extension row
- * and dependencies each time.
+ * 应用一系列更新脚本，如同依次执行 ALTER EXTENSION UPDATE，
+ * 包括每次更改 pg_extension 行和依赖。
  *
- * This might be more work than necessary, but it ensures that old update
- * scripts don't break if newer versions have different control parameters.
+ * 可能过多但确保旧更新脚本不会因新版本控制参数
+ * 不同而崩溃。
+*
  */
 static void
 ApplyExtensionUpdates(Oid extensionOid,
@@ -3164,11 +3164,11 @@ ApplyExtensionUpdates(Oid extensionOid,
 		ListCell   *lc;
 
 		/*
-		 * Fetch parameters for specific version (pcontrol is not changed)
+		 * 获取特定版本的参数（pcontrol 不变）
 		 */
 		control = read_extension_aux_control_file(pcontrol, versionName);
 
-		/* Find the pg_extension tuple */
+		/* 查找 pg_extension 元组 */
 		extRel = table_open(ExtensionRelationId, RowExclusiveLock);
 
 		ScanKeyInit(&key[0],
@@ -3181,20 +3181,20 @@ ApplyExtensionUpdates(Oid extensionOid,
 
 		extTup = systable_getnext(extScan);
 
-		if (!HeapTupleIsValid(extTup))	/* should not happen */
+		if (!HeapTupleIsValid(extTup))	/* 不应发生 */
 			elog(ERROR, "could not find tuple for extension %u",
 				 extensionOid);
 
 		extForm = (Form_pg_extension) GETSTRUCT(extTup);
 
 		/*
-		 * Determine the target schema (set by original install)
+		 * 确定目标模式（由初始安装设定）
 		 */
 		schemaOid = extForm->extnamespace;
 		schemaName = get_namespace_name(schemaOid);
 
 		/*
-		 * Modify extrelocatable and extversion in the pg_extension tuple
+		 * 修改 pg_extension 元组中的 extrelocatable 和 extversion
 		 */
 		memset(values, 0, sizeof(values));
 		memset(nulls, 0, sizeof(nulls));
@@ -3217,9 +3217,9 @@ ApplyExtensionUpdates(Oid extensionOid,
 		table_close(extRel, RowExclusiveLock);
 
 		/*
-		 * Look up the prerequisite extensions for this version, install them
-		 * if necessary, and build lists of their OIDs and the OIDs of their
-		 * target schemas.
+		 * 查找此版本的前置扩展，必要时安装，
+		 * 构建其 OID 和目标模式 OID 的列表。
+		*
 		 */
 		requiredExtensions = NIL;
 		requiredSchemas = NIL;
@@ -3241,7 +3241,7 @@ ApplyExtensionUpdates(Oid extensionOid,
 		}
 
 		/*
-		 * Remove and recreate dependencies on prerequisite extensions
+		 * 移除并重新创建对前置扩展的依赖
 		 */
 		deleteDependencyRecordsForClass(ExtensionRelationId, extensionOid,
 										ExtensionRelationId,
@@ -3266,7 +3266,7 @@ ApplyExtensionUpdates(Oid extensionOid,
 		InvokeObjectPostAlterHook(ExtensionRelationId, extensionOid, 0);
 
 		/*
-		 * Finally, execute the update script file
+		 * 最后，执行更新脚本文件
 		 */
 		execute_extension_script(extensionOid, control,
 								 oldVersionName, versionName,
@@ -3274,21 +3274,21 @@ ApplyExtensionUpdates(Oid extensionOid,
 								 schemaName, schemaOid);
 
 		/*
-		 * Update prior-version name and loop around.  Since
-		 * execute_sql_string did a final CommandCounterIncrement, we can
-		 * update the pg_extension row again.
+		 * 更新前一版本名并循环。
+		 * execute_sql_string 已完成 CommandCounterIncrement，
+		 * 可再次更新 pg_extension 行。
 		 */
 		oldVersionName = versionName;
 	}
 }
 
 /*
- * Execute ALTER EXTENSION ADD/DROP
+ * 执行 ALTER EXTENSION ADD/DROP
  *
- * Return value is the address of the altered extension.
+ * 返回值为被修改的扩展的地址。
  *
- * objAddr is an output argument which, if not NULL, is set to the address of
- * the added/dropped object.
+ * objAddr 是输出参数，非 NULL 时设置为添加/删除对象的地址。
+*
  */
 ObjectAddress
 ExecAlterExtensionContentsStmt(AlterExtensionContentsStmt *stmt,
@@ -3319,27 +3319,27 @@ ExecAlterExtensionContentsStmt(AlterExtensionContentsStmt *stmt,
 	}
 
 	/*
-	 * Find the extension and acquire a lock on it, to ensure it doesn't get
-	 * dropped concurrently.  A sharable lock seems sufficient: there's no
-	 * reason not to allow other sorts of manipulations, such as add/drop of
-	 * other objects, to occur concurrently.  Concurrently adding/dropping the
-	 * *same* object would be bad, but we prevent that by using a non-sharable
-	 * lock on the individual object, below.
+	 * 查找扩展并获取锁，防止并发删除。
+	 * 共享锁应足够：允许其他操作（如其他对象的 add/drop）并发。
+	 * 并发添加/删除*同一*对象会造成问题，
+	 * 但下方通过对个别对象使用非共享锁来防止。
+	*
+	*
 	 */
 	extension = get_object_address(OBJECT_EXTENSION,
 								   (Node *) makeString(stmt->extname),
 								   &relation, AccessShareLock, false);
 
-	/* Permission check: must own extension */
+	/* 权限检查：必须拥有扩展 */
 	if (!object_ownercheck(ExtensionRelationId, extension.objectId, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_EXTENSION,
 					   stmt->extname);
 
 	/*
-	 * Translate the parser representation that identifies the object into an
-	 * ObjectAddress.  get_object_address() will throw an error if the object
-	 * does not exist, and will also acquire a lock on the object to guard
-	 * against concurrent DROP and ALTER EXTENSION ADD/DROP operations.
+	 * 将标识对象的解析器表示转换为 ObjectAddress。
+	 * get_object_address() 在对象不存在时抛出错误，
+	 * 并获取对象锁以防御并发 DROP 和 ALTER EXTENSION ADD/DROP。
+	*
 	 */
 	object = get_object_address(stmt->objtype, stmt->object,
 								&relation, ShareUpdateExclusiveLock, false);
@@ -3348,19 +3348,19 @@ ExecAlterExtensionContentsStmt(AlterExtensionContentsStmt *stmt,
 	if (objAddr)
 		*objAddr = object;
 
-	/* Permission check: must own target object, too */
+	/* 权限检查：还必须拥有目标对象 */
 	check_object_ownership(GetUserId(), stmt->objtype, object,
 						   stmt->object, relation);
 
 	/*
-	 * Check existing extension membership.
+	 * 检查现有扩展成员关系。
 	 */
 	oldExtension = getExtensionOfObject(object.classId, object.objectId);
 
 	if (stmt->action > 0)
 	{
 		/*
-		 * ADD, so complain if object is already attached to some extension.
+		 * ADD，若对象已附加到某个扩展则报错。
 		 */
 		if (OidIsValid(oldExtension))
 			ereport(ERROR,
@@ -3370,8 +3370,8 @@ ExecAlterExtensionContentsStmt(AlterExtensionContentsStmt *stmt,
 							get_extension_name(oldExtension))));
 
 		/*
-		 * Prevent a schema from being added to an extension if the schema
-		 * contains the extension.  That would create a dependency loop.
+		 * 若模式包含扩展，禁止将模式添加到扩展，
+		 * 否则会创建依赖循环。
 		 */
 		if (object.classId == NamespaceRelationId &&
 			object.objectId == get_extension_schema(extension.objectId))
@@ -3383,24 +3383,24 @@ ExecAlterExtensionContentsStmt(AlterExtensionContentsStmt *stmt,
 							stmt->extname)));
 
 		/*
-		 * OK, add the dependency.
+		 * OK，添加依赖。
 		 */
 		recordDependencyOn(&object, &extension, DEPENDENCY_EXTENSION);
 
 		/*
-		 * Also record the initial ACL on the object, if any.
+		 * 同时记录对象上的初始 ACL（如有）。
 		 *
-		 * Note that this will handle the object's ACLs, as well as any ACLs
-		 * on object subIds.  (In other words, when the object is a table,
-		 * this will record the table's ACL and the ACLs for the columns on
-		 * the table, if any).
+		 * 注意：这包括对象的 ACL 和对象子 ID 上的 ACL。
+		 * （即当对象为表时，记录表 ACL 及列 ACL（如有））。
+		*
+		*
 		 */
 		recordExtObjInitPriv(object.objectId, object.classId);
 	}
 	else
 	{
 		/*
-		 * DROP, so complain if it's not a member.
+		 * DROP，若对象非成员则报错。
 		 */
 		if (oldExtension != extension.objectId)
 			ereport(ERROR,
@@ -3410,7 +3410,7 @@ ExecAlterExtensionContentsStmt(AlterExtensionContentsStmt *stmt,
 							stmt->extname)));
 
 		/*
-		 * OK, drop the dependency.
+		 * OK，删除依赖。
 		 */
 		if (deleteDependencyRecordsForClass(object.classId, object.objectId,
 											ExtensionRelationId,
@@ -3418,19 +3418,19 @@ ExecAlterExtensionContentsStmt(AlterExtensionContentsStmt *stmt,
 			elog(ERROR, "unexpected number of extension dependency records");
 
 		/*
-		 * If it's a relation, it might have an entry in the extension's
-		 * extconfig array, which we must remove.
+		 * 若为关系，可能在扩展的 extconfig 数组中有条目，
+		 * 必须移除。
 		 */
 		if (object.classId == RelationRelationId)
 			extension_config_remove(extension.objectId, object.objectId);
 
 		/*
-		 * Remove all the initial ACLs, if any.
+		 * 移除所有初始 ACL（如有）。
 		 *
-		 * Note that this will remove the object's ACLs, as well as any ACLs
-		 * on object subIds.  (In other words, when the object is a table,
-		 * this will remove the table's ACL and the ACLs for the columns on
-		 * the table, if any).
+		 * 注意：这包括移除对象的 ACL 和对象子 ID 上的 ACL。
+		 * （即当对象为表时，移除表 ACL 及列 ACL（如有））。
+		*
+		*
 		 */
 		removeExtObjInitPriv(object.objectId, object.classId);
 	}
@@ -3438,10 +3438,10 @@ ExecAlterExtensionContentsStmt(AlterExtensionContentsStmt *stmt,
 	InvokeObjectPostAlterHook(ExtensionRelationId, extension.objectId, 0);
 
 	/*
-	 * If get_object_address() opened the relation for us, we close it to keep
-	 * the reference count correct - but we retain any locks acquired by
-	 * get_object_address() until commit time, to guard against concurrent
-	 * activity.
+	 * 若 get_object_address() 打开了关系，则关闭以保持
+	 * 引用计数正确——但保留其获取的锁直到提交时刻，
+	 * 以防御并发活动。
+	*
 	 */
 	if (relation != NULL)
 		relation_close(relation, NoLock);
@@ -3450,10 +3450,10 @@ ExecAlterExtensionContentsStmt(AlterExtensionContentsStmt *stmt,
 }
 
 /*
- * Read the whole of file into memory.
+ * 将整个文件读入内存。
  *
- * The file contents are returned as a single palloc'd chunk. For convenience
- * of the callers, an extra \0 byte is added to the end.
+ * 文件内容以单个 palloc 分配块返回。为方便调用者，
+ * 末尾附加一个 \0 字节。
  */
 static char *
 read_whole_file(const char *filename, int *length)

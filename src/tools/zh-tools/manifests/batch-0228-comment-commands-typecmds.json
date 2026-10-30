@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "batch_id": "0228-comment-commands-typecmds",
+  "title": "zh: translate commands comments — typecmds.c",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "a48f34ba8981799a4126f5ce42dc4ee06a51c403",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/commands/typecmds.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP TYPE command support"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0228-comment-commands-typecmds.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/commands/typecmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 803,
+      "translated": 783,
+      "preserved": 20,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION line",
+        "SQL command-name section banners (CREATE TYPE, ALTER TYPE, DROP TYPE, etc.)",
+        "translator: comments",
+        "SQL keyword-only comments"
+      ],
+      "note": "CREATE/ALTER/DROP TYPE (composite, enum, range, base) command support; 803 segments, 783 translated, 20 preserved; 0 violations"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0228-comment-commands-typecmds.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "segments_total": 803,
+  "translated": 783,
+  "preserved": 20,
+  "notes": "Batch 0228 translates typecmds.c (4490 lines, 803 segments, 783 translated, 20 preserved). Preserved: Copyright header, SQL section banners (CREATE TYPE, ALTER TYPE, DROP TYPE), translator: comments, SQL keyword-only labels. 0 violations verify_c_comments.py, 0 error hits term_lint."
+}

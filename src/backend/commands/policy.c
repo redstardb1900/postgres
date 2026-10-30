@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * policy.c
- *	  Commands for manipulating policies.
+ *	  策略操作命令。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -54,14 +54,14 @@ static char parse_policy_command(const char *cmd_name);
 static Datum *policy_role_list_to_array(List *roles, int *num_roles);
 
 /*
- * Callback to RangeVarGetRelidExtended().
+ * RangeVarGetRelidExtended() 的回调函数。
  *
- * Checks the following:
- *	- the relation specified is a table.
- *	- current user owns the table.
- *	- the table is not a system table.
+ * 检查以下内容：
+ *	- 指定的关系是表。
+ *	- 当前用户拥有该表。
+ *	- 该表不是系统表。
  *
- * If any of these checks fails then an error is raised.
+ * 如果任一检查失败，则引发错误。
  */
 static void
 RangeVarCallbackForPolicy(const RangeVar *rv, Oid relid, Oid oldrelid,
@@ -78,18 +78,18 @@ RangeVarCallbackForPolicy(const RangeVar *rv, Oid relid, Oid oldrelid,
 	classform = (Form_pg_class) GETSTRUCT(tuple);
 	relkind = classform->relkind;
 
-	/* Must own relation. */
+	/* 必须拥有关系。 */
 	if (!object_ownercheck(RelationRelationId, relid, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, get_relkind_objtype(get_rel_relkind(relid)), rv->relname);
 
-	/* No system table modifications unless explicitly allowed. */
+	/* 除非明确允许，否则不允许修改系统表。 */
 	if (!allowSystemTableMods && IsSystemClass(relid, classform))
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 				 errmsg("permission denied: \"%s\" is a system catalog",
 						rv->relname)));
 
-	/* Relation type MUST be a table. */
+	/* 关系类型必须是表。 */
 	if (relkind != RELKIND_RELATION && relkind != RELKIND_PARTITIONED_TABLE)
 		ereport(ERROR,
 				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
@@ -100,12 +100,12 @@ RangeVarCallbackForPolicy(const RangeVar *rv, Oid relid, Oid oldrelid,
 
 /*
  * parse_policy_command -
- *	 helper function to convert full command strings to their char
- *	 representation.
+ *	 将完整命令字符串转换为其字符表示。
  *
- * cmd_name - full string command name. Valid values are 'all', 'select',
- *			  'insert', 'update' and 'delete'.
+ * cmd_name - 命令字符串。有效值为 'all'、'select'、
+ *			  'insert'、'update' 和 'delete'。
  *
+*
  */
 static char
 parse_policy_command(const char *cmd_name)
@@ -133,8 +133,8 @@ parse_policy_command(const char *cmd_name)
 
 /*
  * policy_role_list_to_array
- *	 helper function to convert a list of RoleSpecs to an array of
- *	 role id Datums.
+ *	 将 RoleSpec 列表转换为角色 ID Datum 数组。
+*
  */
 static Datum *
 policy_role_list_to_array(List *roles, int *num_roles)
@@ -143,7 +143,7 @@ policy_role_list_to_array(List *roles, int *num_roles)
 	ListCell   *cell;
 	int			i = 0;
 
-	/* Handle no roles being passed in as being for public */
+	/* 未传入角色则视为 public */
 	if (roles == NIL)
 	{
 		*num_roles = 1;
@@ -161,7 +161,7 @@ policy_role_list_to_array(List *roles, int *num_roles)
 		RoleSpec   *spec = lfirst(cell);
 
 		/*
-		 * PUBLIC covers all roles, so it only makes sense alone.
+		 * PUBLIC 涵盖所有角色，因此应单独使用。
 		 */
 		if (spec->roletype == ROLESPEC_PUBLIC)
 		{
@@ -186,11 +186,11 @@ policy_role_list_to_array(List *roles, int *num_roles)
 }
 
 /*
- * Load row security policy from the catalog, and store it in
- * the relation's relcache entry.
+ * 从系统目录加载行级安全策略，存入关系的
+ * relcache 条目。
  *
- * Note that caller should have verified that pg_class.relrowsecurity
- * is true for this relation.
+ * 调用者应已验证此关系的 pg_class.relrowsecurity 为 true。
+*
  */
 void
 RelationBuildRowSecurity(Relation relation)
@@ -204,10 +204,10 @@ RelationBuildRowSecurity(Relation relation)
 	HeapTuple	tuple;
 
 	/*
-	 * Create a memory context to hold everything associated with this
-	 * relation's row security policy.  This makes it easy to clean up during
-	 * a relcache flush.  However, to cover the possibility of an error
-	 * partway through, we don't make the context long-lived till we're done.
+	 * 创建内存上下文存放与此关系行级安全策略关联的全部内容。
+	 * 便于 relcache 刷新时清理。为应对中途出错，
+	 * 完成前不使上下文长期存在。
+	*
 	 */
 	rscxt = AllocSetContextCreate(CurrentMemoryContext,
 								  "row security descriptor",
@@ -219,10 +219,10 @@ RelationBuildRowSecurity(Relation relation)
 	rsdesc->rscxt = rscxt;
 
 	/*
-	 * Now scan pg_policy for RLS policies associated with this relation.
-	 * Because we use the index on (polrelid, polname), we should consistently
-	 * visit the rel's policies in name order, at least when system indexes
-	 * aren't disabled.  This simplifies equalRSDesc().
+	 * 扫描 pg_policy 中与此关系关联的 RLS 策略。
+	 * 使用 (polrelid, polname) 索引按名称顺序访问策略，
+	 * 系统索引未禁用时保持一致，简化 equalRSDesc()。
+	*
 	 */
 	catalog = table_open(PolicyRelationId, AccessShareLock);
 
@@ -245,32 +245,32 @@ RelationBuildRowSecurity(Relation relation)
 		policy = MemoryContextAllocZero(rscxt, sizeof(RowSecurityPolicy));
 
 		/*
-		 * Note: we must be sure that pass-by-reference data gets copied into
-		 * rscxt.  We avoid making that context current over wider spans than
-		 * we have to, though.
+		 * 确保按引用传递的数据被复制到 rscxt。尽量不在
+		 * 不必要的大跨度上将上下文设为当前上下文。
+		*
 		 */
 
-		/* Get policy command */
+		/* 获取策略命令 */
 		policy->polcmd = policy_form->polcmd;
 
-		/* Get policy, permissive or restrictive */
+		/* 获取策略类型：宽松或限制 */
 		policy->permissive = policy_form->polpermissive;
 
-		/* Get policy name */
+		/* 获取策略名称 */
 		policy->policy_name =
 			MemoryContextStrdup(rscxt, NameStr(policy_form->polname));
 
-		/* Get policy roles */
+		/* 获取策略角色 */
 		datum = heap_getattr(tuple, Anum_pg_policy_polroles,
 							 RelationGetDescr(catalog), &isnull);
-		/* shouldn't be null, but let's check for luck */
+		/* 不应为 null，谨慎起见检查 */
 		if (isnull)
 			elog(ERROR, "unexpected null value in pg_policy.polroles");
 		MemoryContextSwitchTo(rscxt);
 		policy->roles = DatumGetArrayTypePCopy(datum);
 		MemoryContextSwitchTo(oldcxt);
 
-		/* Get policy qual */
+		/* 获取策略限定条件 */
 		datum = heap_getattr(tuple, Anum_pg_policy_polqual,
 							 RelationGetDescr(catalog), &isnull);
 		if (!isnull)
@@ -284,7 +284,7 @@ RelationBuildRowSecurity(Relation relation)
 		else
 			policy->qual = NULL;
 
-		/* Get WITH CHECK qual */
+		/* 获取 WITH CHECK 限定条件 */
 		datum = heap_getattr(tuple, Anum_pg_policy_polwithcheck,
 							 RelationGetDescr(catalog), &isnull);
 		if (!isnull)
@@ -298,13 +298,13 @@ RelationBuildRowSecurity(Relation relation)
 		else
 			policy->with_check_qual = NULL;
 
-		/* We want to cache whether there are SubLinks in these expressions */
+		/* 缓存这些表达式中是否有 SubLinks */
 		policy->hassublinks = checkExprHasSubLink((Node *) policy->qual) ||
 			checkExprHasSubLink((Node *) policy->with_check_qual);
 
 		/*
-		 * Add this object to list.  For historical reasons, the list is built
-		 * in reverse order.
+		 * 将对象添加到列表。因历史原因，列表按逆序构建。
+		*
 		 */
 		MemoryContextSwitchTo(rscxt);
 		rsdesc->policies = lcons(policy, rsdesc->policies);
@@ -315,9 +315,9 @@ RelationBuildRowSecurity(Relation relation)
 	table_close(catalog, AccessShareLock);
 
 	/*
-	 * Success.  Reparent the descriptor's memory context under
-	 * CacheMemoryContext so that it will live indefinitely, then attach the
-	 * policy descriptor to the relcache entry.
+	 * 成功。将描述符的内存上下文重挂到 CacheMemoryContext 下
+	 * 使其永久存在，然后将策略描述符附加到 relcache 条目。
+	*
 	 */
 	MemoryContextSetParent(rscxt, CacheMemoryContext);
 
@@ -326,10 +326,10 @@ RelationBuildRowSecurity(Relation relation)
 
 /*
  * RemovePolicyById -
- *	 remove a policy by its OID.  If a policy does not exist with the provided
- *	 oid, then an error is raised.
+ *	 通过 OID 删除策略。提供的 OID 对应策略不存在则报错。
  *
- * policy_id - the oid of the policy.
+ * policy_id - 策略的 OID。
+*
  */
 void
 RemovePolicyById(Oid policy_id)
@@ -344,7 +344,7 @@ RemovePolicyById(Oid policy_id)
 	pg_policy_rel = table_open(PolicyRelationId, RowExclusiveLock);
 
 	/*
-	 * Find the policy to delete.
+	 * 找到待删除的策略。
 	 */
 	ScanKeyInit(&skey[0],
 				Anum_pg_policy_oid,
@@ -356,15 +356,15 @@ RemovePolicyById(Oid policy_id)
 
 	tuple = systable_getnext(sscan);
 
-	/* If the policy exists, then remove it, otherwise raise an error. */
+	/* 策略存在则删除，否则报错。 */
 	if (!HeapTupleIsValid(tuple))
 		elog(ERROR, "could not find tuple for policy %u", policy_id);
 
 	/*
-	 * Open and exclusive-lock the relation the policy belongs to.  (We need
-	 * exclusive lock to lock out queries that might otherwise depend on the
-	 * set of policies the rel has; furthermore we've got to hold the lock
-	 * till commit.)
+	 * 打开并以排他锁锁定策略所属关系。（排他锁阻止依赖
+	 * 该关系策略集的查询；且必须持有锁直至提交。）
+	*
+	*
 	 */
 	relid = ((Form_pg_policy) GETSTRUCT(tuple))->polrelid;
 
@@ -387,33 +387,33 @@ RemovePolicyById(Oid policy_id)
 	systable_endscan(sscan);
 
 	/*
-	 * Note that, unlike some of the other flags in pg_class, relrowsecurity
-	 * is not just an indication of if policies exist.  When relrowsecurity is
-	 * set by a user, then all access to the relation must be through a
-	 * policy.  If no policy is defined for the relation then a default-deny
-	 * policy is created and all records are filtered (except for queries from
-	 * the owner).
+	 * 注意：relrowsecurity 不仅指示策略是否存在。
+	 * 用户设置后所有关系访问必须通过策略。如关系未定义策略，
+	 * 创建默认拒绝策略并过滤所有记录（所有者查询除外）。
+	*
+	*
+	*
 	 */
 	CacheInvalidateRelcache(rel);
 
 	table_close(rel, NoLock);
 
-	/* Clean up */
+	/* 清理 */
 	table_close(pg_policy_rel, RowExclusiveLock);
 }
 
 /*
  * RemoveRoleFromObjectPolicy -
- *	 remove a role from a policy's applicable-roles list.
+ *	 从策略的可应用角色列表中移除角色。
  *
- * Returns true if the role was successfully removed from the policy.
- * Returns false if the role was not removed because it would have left
- * polroles empty (which is disallowed, though perhaps it should not be).
- * On false return, the caller should instead drop the policy altogether.
+ * 成功移除返回 true。返回 false 表示因移除后 polroles
+ * 为空而未移除（不允许，虽然或许应该允许）。
+ * 返回 false 时调用者应直接删除整个策略。
  *
- * roleid - the oid of the role to remove
- * classid - should always be PolicyRelationId
- * policy_id - the oid of the policy.
+ * roleid - 要移除的角色的 OID
+ * classid - 应始终为 PolicyRelationId
+ * policy_id - 策略的 OID。
+*
  */
 bool
 RemoveRoleFromObjectPolicy(Oid roleid, Oid classid, Oid policy_id)
@@ -438,7 +438,7 @@ RemoveRoleFromObjectPolicy(Oid roleid, Oid classid, Oid policy_id)
 	pg_policy_rel = table_open(PolicyRelationId, RowExclusiveLock);
 
 	/*
-	 * Find the policy to update.
+	 * 找到待更新的策略。
 	 */
 	ScanKeyInit(&skey[0],
 				Anum_pg_policy_oid,
@@ -450,14 +450,14 @@ RemoveRoleFromObjectPolicy(Oid roleid, Oid classid, Oid policy_id)
 
 	tuple = systable_getnext(sscan);
 
-	/* Raise an error if we don't find the policy. */
+	/* 找不到策略则报错。 */
 	if (!HeapTupleIsValid(tuple))
 		elog(ERROR, "could not find tuple for policy %u", policy_id);
 
-	/* Identify rel the policy belongs to */
+	/* 识别策略所属关系 */
 	relid = ((Form_pg_policy) GETSTRUCT(tuple))->polrelid;
 
-	/* Get the current set of roles */
+	/* 获取当前角色集 */
 	roles_datum = heap_getattr(tuple,
 							   Anum_pg_policy_polroles,
 							   RelationGetDescr(pg_policy_rel),
@@ -470,9 +470,9 @@ RemoveRoleFromObjectPolicy(Oid roleid, Oid classid, Oid policy_id)
 	num_roles = ARR_DIMS(policy_roles)[0];
 
 	/*
-	 * Rebuild the polroles array, without any mentions of the target role.
-	 * Ordinarily there'd be exactly one, but we must cope with duplicate
-	 * mentions, since CREATE/ALTER POLICY historically have allowed that.
+	 * 重建 polroles 数组，移除目标角色。通常只有一个，
+	 * 但须处理重复引用（CREATE/ALTER POLICY 历史允许）。
+	*
 	 */
 	role_oids = (Datum *) palloc(num_roles * sizeof(Datum));
 	for (i = 0, j = 0; i < num_roles; i++)
@@ -482,7 +482,7 @@ RemoveRoleFromObjectPolicy(Oid roleid, Oid classid, Oid policy_id)
 	}
 	num_roles = j;
 
-	/* If any roles remain, update the policy entry. */
+	/* 有角色剩余则更新策略条目。 */
 	if (num_roles > 0)
 	{
 		ArrayType  *role_ids;
@@ -494,12 +494,12 @@ RemoveRoleFromObjectPolicy(Oid roleid, Oid classid, Oid policy_id)
 		ObjectAddress target;
 		ObjectAddress myself;
 
-		/* zero-clear */
+		/* 清零 */
 		memset(values, 0, sizeof(values));
 		memset(replaces, 0, sizeof(replaces));
 		memset(isnull, 0, sizeof(isnull));
 
-		/* This is the array for the new tuple */
+		/* 新元组的数组 */
 		role_ids = construct_array_builtin(role_oids, num_roles, OIDOID);
 
 		replaces[Anum_pg_policy_polroles - 1] = true;
@@ -510,10 +510,10 @@ RemoveRoleFromObjectPolicy(Oid roleid, Oid classid, Oid policy_id)
 									  values, isnull, replaces);
 		CatalogTupleUpdate(pg_policy_rel, &new_tuple->t_self, new_tuple);
 
-		/* Remove all the old shared dependencies (roles) */
+		/* 移除旧共享依赖（角色） */
 		deleteSharedDependencyRecordsFor(PolicyRelationId, policy_id, 0);
 
-		/* Record the new shared dependencies (roles) */
+		/* 记录新共享依赖（角色） */
 		myself.classId = PolicyRelationId;
 		myself.objectId = policy_id;
 		myself.objectSubId = 0;
@@ -523,7 +523,7 @@ RemoveRoleFromObjectPolicy(Oid roleid, Oid classid, Oid policy_id)
 		for (i = 0; i < num_roles; i++)
 		{
 			target.objectId = DatumGetObjectId(role_oids[i]);
-			/* no need for dependency on the public role */
+			/* public 角色无需依赖 */
 			if (target.objectId != ACL_ID_PUBLIC)
 				recordSharedDependencyOn(&myself, &target,
 										 SHARED_DEPENDENCY_POLICY);
@@ -533,13 +533,13 @@ RemoveRoleFromObjectPolicy(Oid roleid, Oid classid, Oid policy_id)
 
 		heap_freetuple(new_tuple);
 
-		/* Make updates visible */
+		/* 使更新可见 */
 		CommandCounterIncrement();
 
 		/*
-		 * Invalidate relcache entry for rel the policy belongs to, to force
-		 * redoing any dependent plans.  In case of a race condition where the
-		 * rel was just dropped, we need do nothing.
+		 * 使策略所属关系的 relcache 条目失效，强制重做依赖计划。
+		 * 因竞态导致关系刚被删除则无需操作。
+		*
 		 */
 		reltup = SearchSysCache1(RELOID, ObjectIdGetDatum(relid));
 		if (HeapTupleIsValid(reltup))
@@ -550,11 +550,11 @@ RemoveRoleFromObjectPolicy(Oid roleid, Oid classid, Oid policy_id)
 	}
 	else
 	{
-		/* No roles would remain, so drop the policy instead. */
+		/* 无角色剩余，直接删除策略。 */
 		keep_policy = false;
 	}
 
-	/* Clean up. */
+	/* 清理。 */
 	systable_endscan(sscan);
 
 	table_close(pg_policy_rel, RowExclusiveLock);
@@ -564,9 +564,9 @@ RemoveRoleFromObjectPolicy(Oid roleid, Oid classid, Oid policy_id)
 
 /*
  * CreatePolicy -
- *	 handles the execution of the CREATE POLICY command.
+ *	 执行 CREATE POLICY 命令。
  *
- * stmt - the CreatePolicyStmt that describes the policy to create.
+ * stmt - 描述待创建策略的 CreatePolicyStmt。
  */
 ObjectAddress
 CreatePolicy(CreatePolicyStmt *stmt)
@@ -593,11 +593,11 @@ CreatePolicy(CreatePolicyStmt *stmt)
 	ObjectAddress myself;
 	int			i;
 
-	/* Parse command */
+	/* 解析命令 */
 	polcmd = parse_policy_command(stmt->cmd_name);
 
 	/*
-	 * If the command is SELECT or DELETE then WITH CHECK should be NULL.
+	 * 命令为 SELECT 或 DELETE 时 WITH CHECK 应为 NULL。
 	 */
 	if ((polcmd == ACL_SELECT_CHR || polcmd == ACL_DELETE_CHR)
 		&& stmt->with_check != NULL)
@@ -606,42 +606,42 @@ CreatePolicy(CreatePolicyStmt *stmt)
 				 errmsg("WITH CHECK cannot be applied to SELECT or DELETE")));
 
 	/*
-	 * If the command is INSERT then WITH CHECK should be the only expression
-	 * provided.
+	 * 命令为 INSERT 时 WITH CHECK 应为唯一提供的表达式。
+	*
 	 */
 	if (polcmd == ACL_INSERT_CHR && stmt->qual != NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
 				 errmsg("only WITH CHECK expression allowed for INSERT")));
 
-	/* Collect role ids */
+	/* 收集角色 ID */
 	role_oids = policy_role_list_to_array(stmt->roles, &nitems);
 	role_ids = construct_array_builtin(role_oids, nitems, OIDOID);
 
-	/* Parse the supplied clause */
+	/* 解析提供的子句 */
 	qual_pstate = make_parsestate(NULL);
 	with_check_pstate = make_parsestate(NULL);
 
-	/* zero-clear */
+	/* 清零 */
 	memset(values, 0, sizeof(values));
 	memset(isnull, 0, sizeof(isnull));
 
-	/* Get id of table.  Also handles permissions checks. */
+	/* 获取表 ID，同时处理权限检查。 */
 	table_id = RangeVarGetRelidExtended(stmt->table, AccessExclusiveLock,
 										0,
 										RangeVarCallbackForPolicy,
 										(void *) stmt);
 
-	/* Open target_table to build quals. No additional lock is necessary. */
+	/* 打开 target_table 构建限定条件，无需额外锁。 */
 	target_table = relation_open(table_id, NoLock);
 
-	/* Add for the regular security quals */
+	/* 添加常规安全限定条件 */
 	nsitem = addRangeTableEntryForRelation(qual_pstate, target_table,
 										   AccessShareLock,
 										   NULL, false, false);
 	addNSItemToQuery(qual_pstate, nsitem, false, true, true);
 
-	/* Add for the with-check quals */
+	/* 添加 WITH CHECK 限定条件 */
 	nsitem = addRangeTableEntryForRelation(with_check_pstate, target_table,
 										   AccessShareLock,
 										   NULL, false, false);
@@ -657,20 +657,20 @@ CreatePolicy(CreatePolicyStmt *stmt)
 										   EXPR_KIND_POLICY,
 										   "POLICY");
 
-	/* Fix up collation information */
+	/* 修正排序规则信息 */
 	assign_expr_collations(qual_pstate, qual);
 	assign_expr_collations(with_check_pstate, with_check_qual);
 
-	/* Open pg_policy catalog */
+	/* 打开 pg_policy 系统目录 */
 	pg_policy_rel = table_open(PolicyRelationId, RowExclusiveLock);
 
-	/* Set key - policy's relation id. */
+	/* 设置键 - 策略的关系 ID。 */
 	ScanKeyInit(&skey[0],
 				Anum_pg_policy_polrelid,
 				BTEqualStrategyNumber, F_OIDEQ,
 				ObjectIdGetDatum(table_id));
 
-	/* Set key - policy's name. */
+	/* 设置键 - 策略名称。 */
 	ScanKeyInit(&skey[1],
 				Anum_pg_policy_polname,
 				BTEqualStrategyNumber, F_NAMEEQ,
@@ -682,7 +682,7 @@ CreatePolicy(CreatePolicyStmt *stmt)
 
 	policy_tuple = systable_getnext(sscan);
 
-	/* Complain if the policy name already exists for the table */
+	/* 表上策略名已存在则报错 */
 	if (HeapTupleIsValid(policy_tuple))
 		ereport(ERROR,
 				(errcode(ERRCODE_DUPLICATE_OBJECT),
@@ -699,13 +699,13 @@ CreatePolicy(CreatePolicyStmt *stmt)
 	values[Anum_pg_policy_polpermissive - 1] = BoolGetDatum(stmt->permissive);
 	values[Anum_pg_policy_polroles - 1] = PointerGetDatum(role_ids);
 
-	/* Add qual if present. */
+	/* 有则添加限定条件。 */
 	if (qual)
 		values[Anum_pg_policy_polqual - 1] = CStringGetTextDatum(nodeToString(qual));
 	else
 		isnull[Anum_pg_policy_polqual - 1] = true;
 
-	/* Add WITH CHECK qual if present */
+	/* 有则添加 WITH CHECK 限定条件 */
 	if (with_check_qual)
 		values[Anum_pg_policy_polwithcheck - 1] = CStringGetTextDatum(nodeToString(with_check_qual));
 	else
@@ -716,7 +716,7 @@ CreatePolicy(CreatePolicyStmt *stmt)
 
 	CatalogTupleInsert(pg_policy_rel, policy_tuple);
 
-	/* Record Dependencies */
+	/* 记录依赖 */
 	target.classId = RelationRelationId;
 	target.objectId = table_id;
 	target.objectSubId = 0;
@@ -733,13 +733,13 @@ CreatePolicy(CreatePolicyStmt *stmt)
 	recordDependencyOnExpr(&myself, with_check_qual,
 						   with_check_pstate->p_rtable, DEPENDENCY_NORMAL);
 
-	/* Register role dependencies */
+	/* 注册角色依赖 */
 	target.classId = AuthIdRelationId;
 	target.objectSubId = 0;
 	for (i = 0; i < nitems; i++)
 	{
 		target.objectId = DatumGetObjectId(role_oids[i]);
-		/* no dependency if public */
+		/* public 则无需依赖 */
 		if (target.objectId != ACL_ID_PUBLIC)
 			recordSharedDependencyOn(&myself, &target,
 									 SHARED_DEPENDENCY_POLICY);
@@ -747,10 +747,10 @@ CreatePolicy(CreatePolicyStmt *stmt)
 
 	InvokeObjectPostCreateHook(PolicyRelationId, policy_id, 0);
 
-	/* Invalidate Relation Cache */
+	/* 使关系缓存失效 */
 	CacheInvalidateRelcache(target_table);
 
-	/* Clean up. */
+	/* 清理。 */
 	heap_freetuple(policy_tuple);
 	free_parsestate(qual_pstate);
 	free_parsestate(with_check_pstate);
@@ -763,9 +763,9 @@ CreatePolicy(CreatePolicyStmt *stmt)
 
 /*
  * AlterPolicy -
- *	 handles the execution of the ALTER POLICY command.
+ *	 执行 ALTER POLICY 命令。
  *
- * stmt - the AlterPolicyStmt that describes the policy and how to alter it.
+ * stmt - 描述策略及修改方式的 AlterPolicyStmt。
  */
 ObjectAddress
 AlterPolicy(AlterPolicyStmt *stmt)
@@ -795,14 +795,14 @@ AlterPolicy(AlterPolicyStmt *stmt)
 	bool		polcmd_isnull;
 	int			i;
 
-	/* Parse role_ids */
+	/* 解析 role_ids */
 	if (stmt->roles != NULL)
 	{
 		role_oids = policy_role_list_to_array(stmt->roles, &nitems);
 		role_ids = construct_array_builtin(role_oids, nitems, OIDOID);
 	}
 
-	/* Get id of table.  Also handles permissions checks. */
+	/* 获取表 ID，同时处理权限检查。 */
 	table_id = RangeVarGetRelidExtended(stmt->table, AccessExclusiveLock,
 										0,
 										RangeVarCallbackForPolicy,
@@ -810,7 +810,7 @@ AlterPolicy(AlterPolicyStmt *stmt)
 
 	target_table = relation_open(table_id, NoLock);
 
-	/* Parse the using policy clause */
+	/* 解析 USING 策略子句 */
 	if (stmt->qual)
 	{
 		ParseNamespaceItem *nsitem;
@@ -826,14 +826,14 @@ AlterPolicy(AlterPolicyStmt *stmt)
 									EXPR_KIND_POLICY,
 									"POLICY");
 
-		/* Fix up collation information */
+		/* 修正排序规则信息 */
 		assign_expr_collations(qual_pstate, qual);
 
 		qual_parse_rtable = qual_pstate->p_rtable;
 		free_parsestate(qual_pstate);
 	}
 
-	/* Parse the with-check policy clause */
+	/* 解析 WITH CHECK 策略子句 */
 	if (stmt->with_check)
 	{
 		ParseNamespaceItem *nsitem;
@@ -850,28 +850,28 @@ AlterPolicy(AlterPolicyStmt *stmt)
 											   EXPR_KIND_POLICY,
 											   "POLICY");
 
-		/* Fix up collation information */
+		/* 修正排序规则信息 */
 		assign_expr_collations(with_check_pstate, with_check_qual);
 
 		with_check_parse_rtable = with_check_pstate->p_rtable;
 		free_parsestate(with_check_pstate);
 	}
 
-	/* zero-clear */
+	/* 清零 */
 	memset(values, 0, sizeof(values));
 	memset(replaces, 0, sizeof(replaces));
 	memset(isnull, 0, sizeof(isnull));
 
-	/* Find policy to update. */
+	/* 找到待更新策略。 */
 	pg_policy_rel = table_open(PolicyRelationId, RowExclusiveLock);
 
-	/* Set key - policy's relation id. */
+	/* 设置键 - 策略的关系 ID。 */
 	ScanKeyInit(&skey[0],
 				Anum_pg_policy_polrelid,
 				BTEqualStrategyNumber, F_OIDEQ,
 				ObjectIdGetDatum(table_id));
 
-	/* Set key - policy's name. */
+	/* 设置键 - 策略名称。 */
 	ScanKeyInit(&skey[1],
 				Anum_pg_policy_polname,
 				BTEqualStrategyNumber, F_NAMEEQ,
@@ -883,7 +883,7 @@ AlterPolicy(AlterPolicyStmt *stmt)
 
 	policy_tuple = systable_getnext(sscan);
 
-	/* Check that the policy is found, raise an error if not. */
+	/* 检查策略是否找到，未找到则报错。 */
 	if (!HeapTupleIsValid(policy_tuple))
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_OBJECT),
@@ -891,7 +891,7 @@ AlterPolicy(AlterPolicyStmt *stmt)
 						stmt->policy_name,
 						RelationGetRelationName(target_table))));
 
-	/* Get policy command */
+	/* 获取策略命令 */
 	polcmd_datum = heap_getattr(policy_tuple, Anum_pg_policy_polcmd,
 								RelationGetDescr(pg_policy_rel),
 								&polcmd_isnull);
@@ -899,7 +899,7 @@ AlterPolicy(AlterPolicyStmt *stmt)
 	polcmd = DatumGetChar(polcmd_datum);
 
 	/*
-	 * If the command is SELECT or DELETE then WITH CHECK should be NULL.
+	 * 命令为 SELECT 或 DELETE 时 WITH CHECK 应为 NULL。
 	 */
 	if ((polcmd == ACL_SELECT_CHR || polcmd == ACL_DELETE_CHR)
 		&& stmt->with_check != NULL)
@@ -908,8 +908,8 @@ AlterPolicy(AlterPolicyStmt *stmt)
 				 errmsg("only USING expression allowed for SELECT, DELETE")));
 
 	/*
-	 * If the command is INSERT then WITH CHECK should be the only expression
-	 * provided.
+	 * 命令为 INSERT 时 WITH CHECK 应为唯一提供的表达式。
+	*
 	 */
 	if ((polcmd == ACL_INSERT_CHR)
 		&& stmt->qual != NULL)
@@ -932,9 +932,9 @@ AlterPolicy(AlterPolicyStmt *stmt)
 		ArrayType  *policy_roles;
 
 		/*
-		 * We need to pull the set of roles this policy applies to from what's
-		 * in the catalog, so that we can recreate the dependencies correctly
-		 * for the policy.
+		 * 从系统目录提取策略适用的角色集以便正确重建依赖。
+		*
+		*
 		 */
 
 		roles_datum = heap_getattr(policy_tuple, Anum_pg_policy_polroles,
@@ -966,12 +966,12 @@ AlterPolicy(AlterPolicyStmt *stmt)
 		bool		attr_isnull;
 
 		/*
-		 * We need to pull the USING expression and build the range table for
-		 * the policy from what's in the catalog, so that we can recreate the
-		 * dependencies correctly for the policy.
+		 * 从系统目录提取 USING 表达式并构建范围表
+		 * 以正确重建策略依赖。
+		*
 		 */
 
-		/* Check if the policy has a USING expr */
+		/* 检查策略是否有 USING 表达式 */
 		value_datum = heap_getattr(policy_tuple, Anum_pg_policy_polqual,
 								   RelationGetDescr(pg_policy_rel),
 								   &attr_isnull);
@@ -980,13 +980,13 @@ AlterPolicy(AlterPolicyStmt *stmt)
 			char	   *qual_value;
 			ParseState *qual_pstate;
 
-			/* parsestate is built just to build the range table */
+			/* parsestate 仅用于构建范围表 */
 			qual_pstate = make_parsestate(NULL);
 
 			qual_value = TextDatumGetCString(value_datum);
 			qual = stringToNode(qual_value);
 
-			/* Add this rel to the parsestate's rangetable, for dependencies */
+			/* 添加关系到 parsestate 范围表用于依赖 */
 			(void) addRangeTableEntryForRelation(qual_pstate, target_table,
 												 AccessShareLock,
 												 NULL, false, false);
@@ -1008,12 +1008,12 @@ AlterPolicy(AlterPolicyStmt *stmt)
 		bool		attr_isnull;
 
 		/*
-		 * We need to pull the WITH CHECK expression and build the range table
-		 * for the policy from what's in the catalog, so that we can recreate
-		 * the dependencies correctly for the policy.
+		 * 从系统目录提取 WITH CHECK 表达式并构建范围表
+		 * 以正确重建策略依赖。
+		*
 		 */
 
-		/* Check if the policy has a WITH CHECK expr */
+		/* 检查策略是否有 WITH CHECK 表达式 */
 		value_datum = heap_getattr(policy_tuple, Anum_pg_policy_polwithcheck,
 								   RelationGetDescr(pg_policy_rel),
 								   &attr_isnull);
@@ -1022,13 +1022,13 @@ AlterPolicy(AlterPolicyStmt *stmt)
 			char	   *with_check_value;
 			ParseState *with_check_pstate;
 
-			/* parsestate is built just to build the range table */
+			/* parsestate 仅用于构建范围表 */
 			with_check_pstate = make_parsestate(NULL);
 
 			with_check_value = TextDatumGetCString(value_datum);
 			with_check_qual = stringToNode(with_check_value);
 
-			/* Add this rel to the parsestate's rangetable, for dependencies */
+			/* 添加关系到 parsestate 范围表用于依赖 */
 			(void) addRangeTableEntryForRelation(with_check_pstate,
 												 target_table,
 												 AccessShareLock,
@@ -1044,10 +1044,10 @@ AlterPolicy(AlterPolicyStmt *stmt)
 								  values, isnull, replaces);
 	CatalogTupleUpdate(pg_policy_rel, &new_tuple->t_self, new_tuple);
 
-	/* Update Dependencies. */
+	/* 更新依赖。 */
 	deleteDependencyRecordsFor(PolicyRelationId, policy_id, false);
 
-	/* Record Dependencies */
+	/* 记录依赖 */
 	target.classId = RelationRelationId;
 	target.objectId = table_id;
 	target.objectSubId = 0;
@@ -1063,14 +1063,14 @@ AlterPolicy(AlterPolicyStmt *stmt)
 	recordDependencyOnExpr(&myself, with_check_qual, with_check_parse_rtable,
 						   DEPENDENCY_NORMAL);
 
-	/* Register role dependencies */
+	/* 注册角色依赖 */
 	deleteSharedDependencyRecordsFor(PolicyRelationId, policy_id, 0);
 	target.classId = AuthIdRelationId;
 	target.objectSubId = 0;
 	for (i = 0; i < nitems; i++)
 	{
 		target.objectId = DatumGetObjectId(role_oids[i]);
-		/* no dependency if public */
+		/* public 则无需依赖 */
 		if (target.objectId != ACL_ID_PUBLIC)
 			recordSharedDependencyOn(&myself, &target,
 									 SHARED_DEPENDENCY_POLICY);
@@ -1080,10 +1080,10 @@ AlterPolicy(AlterPolicyStmt *stmt)
 
 	heap_freetuple(new_tuple);
 
-	/* Invalidate Relation Cache */
+	/* 使关系缓存失效 */
 	CacheInvalidateRelcache(target_table);
 
-	/* Clean up. */
+	/* 清理。 */
 	systable_endscan(sscan);
 	relation_close(target_table, NoLock);
 	table_close(pg_policy_rel, RowExclusiveLock);
@@ -1093,7 +1093,7 @@ AlterPolicy(AlterPolicyStmt *stmt)
 
 /*
  * rename_policy -
- *	 change the name of a policy on a relation
+ *	 重命名关系上的策略
  */
 ObjectAddress
 rename_policy(RenameStmt *stmt)
@@ -1107,7 +1107,7 @@ rename_policy(RenameStmt *stmt)
 	HeapTuple	policy_tuple;
 	ObjectAddress address;
 
-	/* Get id of table.  Also handles permissions checks. */
+	/* 获取表 ID，同时处理权限检查。 */
 	table_id = RangeVarGetRelidExtended(stmt->relation, AccessExclusiveLock,
 										0,
 										RangeVarCallbackForPolicy,
@@ -1117,15 +1117,15 @@ rename_policy(RenameStmt *stmt)
 
 	pg_policy_rel = table_open(PolicyRelationId, RowExclusiveLock);
 
-	/* First pass -- check for conflict */
+	/* 第一遍 -- 检查冲突 */
 
-	/* Add key - policy's relation id. */
+	/* 添加键 - 策略的关系 ID。 */
 	ScanKeyInit(&skey[0],
 				Anum_pg_policy_polrelid,
 				BTEqualStrategyNumber, F_OIDEQ,
 				ObjectIdGetDatum(table_id));
 
-	/* Add key - policy's name. */
+	/* 添加键 - 策略名称。 */
 	ScanKeyInit(&skey[1],
 				Anum_pg_policy_polname,
 				BTEqualStrategyNumber, F_NAMEEQ,
@@ -1143,14 +1143,14 @@ rename_policy(RenameStmt *stmt)
 
 	systable_endscan(sscan);
 
-	/* Second pass -- find existing policy and update */
-	/* Add key - policy's relation id. */
+	/* 第二遍 -- 查找现有策略并更新 */
+	/* 添加键 - 策略的关系 ID。 */
 	ScanKeyInit(&skey[0],
 				Anum_pg_policy_polrelid,
 				BTEqualStrategyNumber, F_OIDEQ,
 				ObjectIdGetDatum(table_id));
 
-	/* Add key - policy's name. */
+	/* 添加键 - 策略名称。 */
 	ScanKeyInit(&skey[1],
 				Anum_pg_policy_polname,
 				BTEqualStrategyNumber, F_NAMEEQ,
@@ -1162,7 +1162,7 @@ rename_policy(RenameStmt *stmt)
 
 	policy_tuple = systable_getnext(sscan);
 
-	/* Complain if we did not find the policy */
+	/* 未找到策略则报错 */
 	if (!HeapTupleIsValid(policy_tuple))
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_OBJECT),
@@ -1183,13 +1183,13 @@ rename_policy(RenameStmt *stmt)
 	ObjectAddressSet(address, PolicyRelationId, opoloid);
 
 	/*
-	 * Invalidate relation's relcache entry so that other backends (and this
-	 * one too!) are sent SI message to make them rebuild relcache entries.
-	 * (Ideally this should happen automatically...)
+	 * 使关系 relcache 失效，向其他后端（及此后端！）发送 SI
+	 * 消息重建 relcache 条目。（理想情况下应自动发生……）
+	*
 	 */
 	CacheInvalidateRelcache(target_table);
 
-	/* Clean up. */
+	/* 清理。 */
 	systable_endscan(sscan);
 	table_close(pg_policy_rel, RowExclusiveLock);
 	relation_close(target_table, NoLock);
@@ -1198,10 +1198,10 @@ rename_policy(RenameStmt *stmt)
 }
 
 /*
- * get_relation_policy_oid - Look up a policy by name to find its OID
+ * get_relation_policy_oid - 按名称查找策略 OID
  *
- * If missing_ok is false, throw an error if policy not found.  If
- * true, just return InvalidOid.
+ * missing_ok 为 false 时未找到则报错，为 true 只返回 InvalidOid。
+*
  */
 Oid
 get_relation_policy_oid(Oid relid, const char *policy_name, bool missing_ok)
@@ -1214,13 +1214,13 @@ get_relation_policy_oid(Oid relid, const char *policy_name, bool missing_ok)
 
 	pg_policy_rel = table_open(PolicyRelationId, AccessShareLock);
 
-	/* Add key - policy's relation id. */
+	/* 添加键 - 策略的关系 ID。 */
 	ScanKeyInit(&skey[0],
 				Anum_pg_policy_polrelid,
 				BTEqualStrategyNumber, F_OIDEQ,
 				ObjectIdGetDatum(relid));
 
-	/* Add key - policy's name. */
+	/* 添加键 - 策略名称。 */
 	ScanKeyInit(&skey[1],
 				Anum_pg_policy_polname,
 				BTEqualStrategyNumber, F_NAMEEQ,
@@ -1245,7 +1245,7 @@ get_relation_policy_oid(Oid relid, const char *policy_name, bool missing_ok)
 	else
 		policy_oid = ((Form_pg_policy) GETSTRUCT(policy_tuple))->oid;
 
-	/* Clean up. */
+	/* 清理。 */
 	systable_endscan(sscan);
 	table_close(pg_policy_rel, AccessShareLock);
 
@@ -1253,7 +1253,7 @@ get_relation_policy_oid(Oid relid, const char *policy_name, bool missing_ok)
 }
 
 /*
- * relation_has_policies - Determine if relation has any policies
+ * relation_has_policies - 确定关系是否有策略
  */
 bool
 relation_has_policies(Relation rel)

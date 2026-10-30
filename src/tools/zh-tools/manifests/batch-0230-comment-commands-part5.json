@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "batch_id": "0230-comment-commands-part5",
+  "title": "zh: translate commands comments — extension, foreigncmds, policy",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "a48f34ba8981799a4126f5ce42dc4ee06a51c403",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/commands/extension.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP EXTENSION command support"
+    },
+    {
+      "pattern": "src/backend/commands/foreigncmds.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP FOREIGN DATA WRAPPER/SERVER/TABLE command support"
+    },
+    {
+      "pattern": "src/backend/commands/policy.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP POLICY (row-level security) command support"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0230-comment-commands-part5.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/commands/extension.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 326,
+      "translated": 319,
+      "preserved": 7,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION line",
+        "SQL command-name section banners (CREATE EXTENSION, ALTER EXTENSION, etc.)"
+      ],
+      "note": "extension management: CREATE/ALTER/DROP EXTENSION, ALTER EXTENSION ADD/DROP/SET SCHEMA/UPDATE; 326 segments, 319 translated, 7 preserved"
+    },
+    {
+      "path": "src/backend/commands/foreigncmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 120,
+      "translated": 120,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "foreign data wrapper/server/user mapping/table DDL; 120 segments, all translated"
+    },
+    {
+      "path": "src/backend/commands/policy.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 114,
+      "translated": 114,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "row-level security policy DDL; 114 segments, all translated"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0230-comment-commands-part5.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "segments_total": 560,
+  "translated": 553,
+  "preserved": 7,
+  "notes": "Batch 0230 translates three commands files: extension.c (3496 lines, 326 segments, 319 translated, 7 preserved), foreigncmds.c (1628 lines, 120 segments, all translated), policy.c (1282 lines, 114 segments, all translated). Total: 560 segments, 553 translated, 7 preserved. 0 violations verify_c_comments.py, 0 error hits term_lint."
+}

@@ -10,22 +10,22 @@
     {
       "pattern": "src/backend/commands/alter.c",
       "kind": "c_comment",
-      "note": "generic ALTER command drivers"
+      "note": "generic ALTER command dispatchers"
     },
     {
       "pattern": "src/backend/commands/dbcommands.c",
       "kind": "c_comment",
-      "note": "CREATE/ALTER/DROP DATABASE support"
+      "note": "CREATE/ALTER/DROP DATABASE command support"
     },
     {
       "pattern": "src/backend/commands/user.c",
       "kind": "c_comment",
-      "note": "CREATE/ALTER/DROP ROLE and role membership support"
+      "note": "CREATE/ALTER/DROP ROLE command support"
     },
     {
       "pattern": "src/backend/commands/variable.c",
       "kind": "c_comment",
-      "note": "specialized SET variable handlers (datestyle, timezone, role, etc.)"
+      "note": "specialized SET variable handlers (GUC hooks)"
     },
     {
       "pattern": "src/tools/zh-tools/manifests/batch-0226-comment-commands-part4.json",
@@ -47,7 +47,7 @@
       "translated": 58,
       "preserved": 0,
       "preserved_reasons": [],
-      "note": "generic ALTER commands: AlterObjectRename, ExecAlterObjectDependsStmt, ExecAlterObjectSchemaStmt, AlterObjectNamespace, ExecAlterOwnerStmt; Copyright and IDENTIFICATION stay in English"
+      "note": "generic ALTER command dispatchers (ExecRenameStmt, ExecAlterObjectDependsStmt, ExecAlterObjectSchemaStmt, ExecAlterOwnerStmt); Copyright and IDENTIFICATION lines stay in English"
     },
     {
       "path": "src/backend/commands/dbcommands.c",
@@ -57,12 +57,11 @@
       "translated": 173,
       "preserved": 81,
       "preserved_reasons": [
-        "Copyright/IDENTIFICATION header",
-        "SQL command section banners (CREATE DATABASE, DROP DATABASE, ALTER DATABASE SET TABLESPACE, ALTER DATABASE name ..., ALTER DATABASE name REFRESH COLLATION VERSION, ALTER DATABASE name SET ..., ALTER DATABASE name OWNER TO newowner)",
-        "inline identifier-only comments (function names, variable references)",
-        "very short control-flow comments"
+        "SQL command-name section banners (CREATE DATABASE, ALTER DATABASE, DROP DATABASE)",
+        "SQL-syntax reference headers in large SQL-syntax comment blocks",
+        "identifier-only and #endif/#ifdef label comments"
       ],
-      "note": "database lifecycle commands: createdb, dropdb, RenameDatabase, AlterDatabaseOwner, AlterDatabaseRefreshColl, movedb, WAL replay functions, and helper functions"
+      "note": "CREATE/ALTER/DROP DATABASE command support; 81 preserved segments are SQL syntax banners and identifier-only references; Copyright and IDENTIFICATION lines stay in English"
     },
     {
       "path": "src/backend/commands/user.c",
@@ -72,10 +71,9 @@
       "translated": 173,
       "preserved": 3,
       "preserved_reasons": [
-        "Copyright/IDENTIFICATION header",
-        "SQL command syntax references (ALTER ROLE ... SET)"
+        "SQL command-name section banners (CREATE ROLE, ALTER ROLE, DROP ROLE)"
       ],
-      "note": "role management: CreateRole, AlterRole, DropRole, RenameRole, GrantRole, RevokeRole, and role membership functions"
+      "note": "CREATE/ALTER/DROP ROLE command support; Copyright and IDENTIFICATION lines stay in English"
     },
     {
       "path": "src/backend/commands/variable.c",
@@ -85,10 +83,11 @@
       "translated": 104,
       "preserved": 8,
       "preserved_reasons": [
-        "Copyright/IDENTIFICATION header",
-        "very short inline comments"
+        "SQL/SET keyword section banners (DATESTYLE, TIMEZONE, LOG_TIMEZONE, TIMEZONE_ABBREVIATIONS)",
+        "SQL command-name banners (SET TRANSACTION [NOT] DEFERRABLE, SET CLIENT_ENCODING, SET SESSION AUTHORIZATION)",
+        "short section headers (PATH VARIABLES, MISCELLANEOUS)"
       ],
-      "note": "specialized SET variable handlers: datestyle, timezone, log_timezone, timezone_abbreviations, transaction_read_only, transaction_isolation, random_seed, client_encoding, session_authorization, role, canonical_path, application_name, cluster_name"
+      "note": "specialized SET variable handlers (GUC hooks for datestyle, timezone, log_timezone, timezone_abbreviations, transaction_*, random_seed, client_encoding, session_authorization, role, path variables); Copyright and IDENTIFICATION lines stay in English"
     },
     {
       "path": "src/tools/zh-tools/manifests/batch-0226-comment-commands-part4.json",
@@ -108,8 +107,11 @@
       "translated": 0,
       "preserved": 0,
       "preserved_reasons": [],
-      "note": "union manifest updated to include batch 0226"
+      "note": "union includes this batch"
     }
   ],
-  "notes": "Batch 0226 translates comments in four src/backend/commands/ .c files (part 4): alter.c, dbcommands.c, user.c, variable.c. 508 of 600 block comments translated, 92 preserved: Copyright/IDENTIFICATION headers (4), SQL command section banners (7: CREATE DATABASE, DROP DATABASE, 5x ALTER DATABASE variants), and 81 very short inline control-flow/identifier comments (mostly in dbcommands.c). Next suggested: remaining commands/ files (copy.c, copyfrom.c, copyto.c, cluster.c, etc.) or extension.c / event_trigger.c."
+  "segments_total": 600,
+  "translated": 508,
+  "preserved": 92,
+  "notes": "Batch 0226 translates comments in four src/backend/commands/ .c files: alter.c (58 segments, all translated), dbcommands.c (254 segments, 173 translated, 81 preserved), user.c (176 segments, 173 translated, 3 preserved), variable.c (112 segments, 104 translated, 8 preserved). Total batch: 600 segments, 508 translated, 92 preserved. Preserved segments are SQL command-name section banners, SQL-syntax reference headers, and short keyword section banners that consist solely of identifiers. All four files pass verify_c_comments.py with 0 violations. Next suggested: tablecmds.c (1664 segments)."
 }

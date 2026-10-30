@@ -53,7 +53,7 @@
 
 typedef struct EventTriggerQueryState
 {
-	/* memory context for this state's objects */
+	/* 此状态对象的内存上下文 */
 	MemoryContext cxt;
 
 	/* sql_drop */
@@ -61,15 +61,15 @@ typedef struct EventTriggerQueryState
 	bool		in_sql_drop;
 
 	/* table_rewrite */
-	Oid			table_rewrite_oid;	/* InvalidOid, or set for table_rewrite
-									 * event */
-	int			table_rewrite_reason;	/* AT_REWRITE reason */
+	Oid			table_rewrite_oid;	/* InvalidOid，或为 table_rewrite 事件
+									  * 而设置 */
+	int			table_rewrite_reason;	/* AT_REWRITE 原因 */
 
-	/* Support for command collection */
+	/* 支持命令收集 */
 	bool		commandCollectionInhibited;
 	CollectedCommand *currentCommand;
-	List	   *commandList;	/* list of CollectedCommand; see
-								 * deparse_utility.h */
+	List	   *commandList;	/* CollectedCommand 列表；参见
+								  * deparse_utility.h */
 	struct EventTriggerQueryState *previous;
 } EventTriggerQueryState;
 
@@ -107,7 +107,7 @@ static const char *stringify_grant_objtype(ObjectType objtype);
 static const char *stringify_adefprivs_objtype(ObjectType objtype);
 
 /*
- * Create an event trigger.
+  * 创建事件触发器。
  */
 Oid
 CreateEventTrigger(CreateEventTrigStmt *stmt)
@@ -120,9 +120,9 @@ CreateEventTrigger(CreateEventTrigStmt *stmt)
 	List	   *tags = NULL;
 
 	/*
-	 * It would be nice to allow database owners or even regular users to do
-	 * this, but there are obvious privilege escalation risks which would have
-	 * to somehow be plugged first.
+	  * 让数据库所有者甚至普通用户来做这件事会很好，但存在
+	  * 明显的权限提升风险，必须先堵住。
+	  *
 	 */
 	if (!superuser())
 		ereport(ERROR,
@@ -131,7 +131,7 @@ CreateEventTrigger(CreateEventTrigStmt *stmt)
 						stmt->trigname),
 				 errhint("Must be superuser to create an event trigger.")));
 
-	/* Validate event name. */
+	/* 验证事件名称。 */
 	if (strcmp(stmt->eventname, "ddl_command_start") != 0 &&
 		strcmp(stmt->eventname, "ddl_command_end") != 0 &&
 		strcmp(stmt->eventname, "sql_drop") != 0 &&
@@ -141,7 +141,7 @@ CreateEventTrigger(CreateEventTrigStmt *stmt)
 				 errmsg("unrecognized event name \"%s\"",
 						stmt->eventname)));
 
-	/* Validate filter conditions. */
+	/* 验证过滤条件。 */
 	foreach(lc, stmt->whenclause)
 	{
 		DefElem    *def = (DefElem *) lfirst(lc);
@@ -158,7 +158,7 @@ CreateEventTrigger(CreateEventTrigStmt *stmt)
 					 errmsg("unrecognized filter variable \"%s\"", def->defname)));
 	}
 
-	/* Validate tag list, if any. */
+	/* 验证标签列表（如果有）。 */
 	if ((strcmp(stmt->eventname, "ddl_command_start") == 0 ||
 		 strcmp(stmt->eventname, "ddl_command_end") == 0 ||
 		 strcmp(stmt->eventname, "sql_drop") == 0)
@@ -169,8 +169,8 @@ CreateEventTrigger(CreateEventTrigStmt *stmt)
 		validate_table_rewrite_tags("tag", tags);
 
 	/*
-	 * Give user a nice error message if an event trigger of the same name
-	 * already exists.
+	  * 若同名事件触发器已存在，给用户一个友好的错误消息。
+	  *
 	 */
 	tuple = SearchSysCache1(EVENTTRIGGERNAME, CStringGetDatum(stmt->trigname));
 	if (HeapTupleIsValid(tuple))
@@ -179,7 +179,7 @@ CreateEventTrigger(CreateEventTrigStmt *stmt)
 				 errmsg("event trigger \"%s\" already exists",
 						stmt->trigname)));
 
-	/* Find and validate the trigger function. */
+	/* 查找并验证触发器函数。 */
 	funcoid = LookupFuncName(stmt->funcname, 0, NULL, false);
 	funcrettype = get_func_rettype(funcoid);
 	if (funcrettype != EVENT_TRIGGEROID)
@@ -188,13 +188,13 @@ CreateEventTrigger(CreateEventTrigStmt *stmt)
 				 errmsg("function %s must return type %s",
 						NameListToString(stmt->funcname), "event_trigger")));
 
-	/* Insert catalog entries. */
+	/* 插入目录条目。 */
 	return insert_event_trigger_tuple(stmt->trigname, stmt->eventname,
 									  evtowner, funcoid, tags);
 }
 
 /*
- * Validate DDL command tags.
+  * 验证 DDL 命令标签。
  */
 static void
 validate_ddl_tags(const char *filtervar, List *taglist)
@@ -221,7 +221,7 @@ validate_ddl_tags(const char *filtervar, List *taglist)
 }
 
 /*
- * Validate DDL command tags for event table_rewrite.
+  * 验证 table_rewrite 事件搭配的 DDL 命令标签。
  */
 static void
 validate_table_rewrite_tags(const char *filtervar, List *taglist)
@@ -243,7 +243,7 @@ validate_table_rewrite_tags(const char *filtervar, List *taglist)
 }
 
 /*
- * Complain about a duplicate filter variable.
+  * 对重复的过滤变量报错。
  */
 static void
 error_duplicate_filter_variable(const char *defname)
@@ -255,7 +255,7 @@ error_duplicate_filter_variable(const char *defname)
 }
 
 /*
- * Insert the new pg_event_trigger row and record dependencies.
+  * 插入新 pg_event_trigger 行并记录依赖关系。
  */
 static Oid
 insert_event_trigger_tuple(const char *trigname, const char *eventname, Oid evtOwner,
@@ -271,10 +271,10 @@ insert_event_trigger_tuple(const char *trigname, const char *eventname, Oid evtO
 	ObjectAddress myself,
 				referenced;
 
-	/* Open pg_event_trigger. */
+	/* 打开 pg_event_trigger。 */
 	tgrel = table_open(EventTriggerRelationId, RowExclusiveLock);
 
-	/* Build the new pg_trigger tuple. */
+	/* 构建新的 pg_trigger 元组。 */
 	trigoid = GetNewOidWithIndex(tgrel, EventTriggerOidIndexId,
 								 Anum_pg_event_trigger_oid);
 	values[Anum_pg_event_trigger_oid - 1] = ObjectIdGetDatum(trigoid);
@@ -293,15 +293,15 @@ insert_event_trigger_tuple(const char *trigname, const char *eventname, Oid evtO
 		values[Anum_pg_event_trigger_evttags - 1] =
 			filter_list_to_array(taglist);
 
-	/* Insert heap tuple. */
+	/* 插入堆元组。 */
 	tuple = heap_form_tuple(tgrel->rd_att, values, nulls);
 	CatalogTupleInsert(tgrel, tuple);
 	heap_freetuple(tuple);
 
-	/* Depend on owner. */
+	/* 依赖于所有者。 */
 	recordDependencyOnOwner(EventTriggerRelationId, trigoid, evtOwner);
 
-	/* Depend on event trigger function. */
+	/* 依赖于事件触发器函数。 */
 	myself.classId = EventTriggerRelationId;
 	myself.objectId = trigoid;
 	myself.objectSubId = 0;
@@ -310,28 +310,28 @@ insert_event_trigger_tuple(const char *trigname, const char *eventname, Oid evtO
 	referenced.objectSubId = 0;
 	recordDependencyOn(&myself, &referenced, DEPENDENCY_NORMAL);
 
-	/* Depend on extension, if any. */
+	/* 依赖于扩展（如果有）。 */
 	recordDependencyOnCurrentExtension(&myself, false);
 
-	/* Post creation hook for new event trigger */
+	/* 新事件触发器的创建后钩子 */
 	InvokeObjectPostCreateHook(EventTriggerRelationId, trigoid, 0);
 
-	/* Close pg_event_trigger. */
+	/* 关闭 pg_event_trigger。 */
 	table_close(tgrel, RowExclusiveLock);
 
 	return trigoid;
 }
 
 /*
- * In the parser, a clause like WHEN tag IN ('cmd1', 'cmd2') is represented
- * by a DefElem whose value is a List of String nodes; in the catalog, we
- * store the list of strings as a text array.  This function transforms the
- * former representation into the latter one.
- *
- * For cleanliness, we store command tags in the catalog as text.  It's
- * possible (although not currently anticipated) that we might have
- * a case-sensitive filter variable in the future, in which case this would
- * need some further adjustment.
+  * 在解析器中，类似 WHEN tag IN ('cmd1', 'cmd2') 的子句
+  * 由一个其值为 String 节点 List 的 DefElem 表示；
+  * 在目录中，字符串列表存储为 text 数组。
+  * 此函数将前者表示转换为后者表示。
+  *
+  * 为保持整洁，命令标签在目录中以 text 存储。
+  * 未来可能出现大小写敏感的过滤变量（目前尚未预期），
+  * 届时此代码需做进一步调整。
+  *
  */
 static Datum
 filter_list_to_array(List *filterlist)
@@ -360,7 +360,7 @@ filter_list_to_array(List *filterlist)
 }
 
 /*
- * ALTER EVENT TRIGGER foo ENABLE|DISABLE|ENABLE ALWAYS|REPLICA
+  * ALTER EVENT TRIGGER foo ENABLE|DISABLE|ENABLE ALWAYS|REPLICA
  */
 Oid
 AlterEventTrigger(AlterEventTrigStmt *stmt)
@@ -388,7 +388,7 @@ AlterEventTrigger(AlterEventTrigStmt *stmt)
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_EVENT_TRIGGER,
 					   stmt->trigname);
 
-	/* tuple is a copy, so we can modify it below */
+	/* 元组是副本，可在下方修改 */
 	evtForm->evtenabled = tgenabled;
 
 	CatalogTupleUpdate(tgrel, &tup->t_self, tup);
@@ -396,7 +396,7 @@ AlterEventTrigger(AlterEventTrigStmt *stmt)
 	InvokeObjectPostAlterHook(EventTriggerRelationId,
 							  trigoid, 0);
 
-	/* clean up */
+	/* 清理 */
 	heap_freetuple(tup);
 	table_close(tgrel, RowExclusiveLock);
 
@@ -404,7 +404,7 @@ AlterEventTrigger(AlterEventTrigStmt *stmt)
 }
 
 /*
- * Change event trigger's owner -- by name
+  * 按名称更改事件触发器所有者
  */
 ObjectAddress
 AlterEventTriggerOwner(const char *name, Oid newOwnerId)
@@ -439,7 +439,7 @@ AlterEventTriggerOwner(const char *name, Oid newOwnerId)
 }
 
 /*
- * Change event trigger owner, by OID
+  * 按 OID 更改事件触发器所有者
  */
 void
 AlterEventTriggerOwner_oid(Oid trigOid, Oid newOwnerId)
@@ -464,7 +464,7 @@ AlterEventTriggerOwner_oid(Oid trigOid, Oid newOwnerId)
 }
 
 /*
- * Internal workhorse for changing an event trigger's owner
+  * 更改事件触发器所有者的内部核心函数
  */
 static void
 AlterEventTriggerOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
@@ -480,7 +480,7 @@ AlterEventTriggerOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_EVENT_TRIGGER,
 					   NameStr(form->evtname));
 
-	/* New owner must be a superuser */
+	/* 新所有者必须是超级用户 */
 	if (!superuser_arg(newOwnerId))
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -491,7 +491,7 @@ AlterEventTriggerOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 	form->evtowner = newOwnerId;
 	CatalogTupleUpdate(rel, &tup->t_self, tup);
 
-	/* Update owner dependency reference */
+	/* 更新所有者依赖引用 */
 	changeDependencyOnOwner(EventTriggerRelationId,
 							form->oid,
 							newOwnerId);
@@ -501,10 +501,10 @@ AlterEventTriggerOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 }
 
 /*
- * get_event_trigger_oid - Look up an event trigger by name to find its OID.
- *
- * If missing_ok is false, throw an error if trigger not found.  If
- * true, just return InvalidOid.
+  * get_event_trigger_oid - 按名称查找事件触发器 OID。
+  *
+  * 若 missing_ok 为 false，找不到时则报错。
+  * 若为 true，仅返回 InvalidOid。
  */
 Oid
 get_event_trigger_oid(const char *trigname, bool missing_ok)
@@ -521,16 +521,16 @@ get_event_trigger_oid(const char *trigname, bool missing_ok)
 }
 
 /*
- * Return true when we want to fire given Event Trigger and false otherwise,
- * filtering on the session replication role and the event trigger registered
- * tags matching.
+  * 需要触发指定事件触发器时返回 true，否则 false，
+  * 按会话复制角色及注册标签匹配过滤。
+  *
  */
 static bool
 filter_event_trigger(CommandTag tag, EventTriggerCacheItem *item)
 {
 	/*
-	 * Filter by session replication role, knowing that we never see disabled
-	 * items down here.
+	  * 按会话复制角色过滤，此处永远不会看到禁用项。
+	  *
 	 */
 	if (SessionReplicationRole == SESSION_REPLICATION_ROLE_REPLICA)
 	{
@@ -543,18 +543,18 @@ filter_event_trigger(CommandTag tag, EventTriggerCacheItem *item)
 			return false;
 	}
 
-	/* Filter by tags, if any were specified. */
+	/* 按标签过滤（如果指定了）。 */
 	if (!bms_is_empty(item->tagset) && !bms_is_member(tag, item->tagset))
 		return false;
 
-	/* if we reach that point, we're not filtering out this item */
+	/* 若执行到此说明未过滤此项 */
 	return true;
 }
 
 /*
- * Setup for running triggers for the given event.  Return value is an OID list
- * of functions to run; if there are any, trigdata is filled with an
- * appropriate EventTriggerData for them to receive.
+  * 为指定的触发事件做准备。返回值是待运行函数的 OID 列表；
+  * 若有，trigdata 填充相应的事件触发器数据供接收。
+  *
  */
 static List *
 EventTriggerCommonSetup(Node *parsetree,
@@ -567,18 +567,18 @@ EventTriggerCommonSetup(Node *parsetree,
 	List	   *runlist = NIL;
 
 	/*
-	 * We want the list of command tags for which this procedure is actually
-	 * invoked to match up exactly with the list that CREATE EVENT TRIGGER
-	 * accepts.  This debugging cross-check will throw an error if this
-	 * function is invoked for a command tag that CREATE EVENT TRIGGER won't
-	 * accept.  (Unfortunately, there doesn't seem to be any simple, automated
-	 * way to verify that CREATE EVENT TRIGGER doesn't accept extra stuff that
-	 * never reaches this control point.)
-	 *
-	 * If this cross-check fails for you, you probably need to either adjust
-	 * standard_ProcessUtility() not to invoke event triggers for the command
-	 * type in question, or you need to adjust event_trigger_ok to accept the
-	 * relevant command tag.
+	  * 希望被调用的命令标签列表与 CREATE EVENT TRIGGER 接受的
+	  * 列表完全一致。若此函数被用于不被 CREATE EVENT TRIGGER
+	  * 接受的命令标签时，此调试交叉检查会报错。
+	  * （遗憾似乎没有简单、自动的方式验证 CREATE EVENT TRIGGER
+	  * 是否未接受永不抵达此控制点的额外标签。）
+	  *
+	  * 若此交叉检查失败，可能需要调整 standard_ProcessUtility()
+	  * 不为相关命令类型调用事件触发器，或调整 event_trigger_ok
+	  * 以接受相关命令标签。
+	  *
+	  *
+	  *
 	 */
 #ifdef USE_ASSERT_CHECKING
 	{
@@ -600,20 +600,20 @@ EventTriggerCommonSetup(Node *parsetree,
 	}
 #endif
 
-	/* Use cache to find triggers for this event; fast exit if none. */
+	/* 使用缓存查找此事件触发器；若无则快速退出。 */
 	cachelist = EventCacheLookup(event);
 	if (cachelist == NIL)
 		return NIL;
 
-	/* Get the command tag. */
+	/* 获取命令标签。 */
 	tag = CreateCommandTag(parsetree);
 
 	/*
-	 * Filter list of event triggers by command tag, and copy them into our
-	 * memory context.  Once we start running the command triggers, or indeed
-	 * once we do anything at all that touches the catalogs, an invalidation
-	 * might leave cachelist pointing at garbage, so we must do this before we
-	 * can do much else.
+	  * 按命令标签过滤并复制到内存上下文中。
+	  * 一旦开始运行命令触发器或操作目录，
+	  * 失效可能使 cachelist 指向垃圾，须在此之前完成。
+	  *
+	  *
 	 */
 	foreach(lc, cachelist)
 	{
@@ -626,7 +626,7 @@ EventTriggerCommonSetup(Node *parsetree,
 		}
 	}
 
-	/* don't spend any more time on this if no functions to run */
+	/* 若无函数需运行则不再花费时间 */
 	if (runlist == NIL)
 		return NIL;
 
@@ -639,7 +639,7 @@ EventTriggerCommonSetup(Node *parsetree,
 }
 
 /*
- * Fire ddl_command_start triggers.
+  * 触发 ddl_command_start 触发器。
  */
 void
 EventTriggerDDLCommandStart(Node *parsetree)
@@ -648,20 +648,20 @@ EventTriggerDDLCommandStart(Node *parsetree)
 	EventTriggerData trigdata;
 
 	/*
-	 * Event Triggers are completely disabled in standalone mode.  There are
-	 * (at least) two reasons for this:
-	 *
-	 * 1. A sufficiently broken event trigger might not only render the
-	 * database unusable, but prevent disabling itself to fix the situation.
-	 * In this scenario, restarting in standalone mode provides an escape
-	 * hatch.
-	 *
-	 * 2. BuildEventTriggerCache relies on systable_beginscan_ordered, and
-	 * therefore will malfunction if pg_event_trigger's indexes are damaged.
-	 * To allow recovery from a damaged index, we need some operating mode
-	 * wherein event triggers are disabled.  (Or we could implement
-	 * heapscan-and-sort logic for that case, but having disaster recovery
-	 * scenarios depend on code that's otherwise untested isn't appetizing.)
+	  * 事件触发器在独立模式下完全禁用。至少有两点原因：
+	  *
+	  * 1. 严重问题的事件触发器不仅可能使数据库不可用，
+	  * 还可能阻止禁用自身来修复。以独立模式重启可作逃生舱口。
+	  *
+	  * 2. BuildEventTriggerCache 依赖于 systable_beginscan_ordered，
+	  * 若 pg_event_trigger 索引损坏将发生故障。
+	  * 为从损坏索引恢复，需有禁用事件触发器的操作模式。
+	  * （或可实现 heapscan-and-sort 逻辑，但依靠未经测试的代码
+	  * 来处理灾难恢复并不令人满意。）
+	  *
+	  *
+	  *
+	  *
 	 */
 	if (!IsUnderPostmaster)
 		return;
@@ -673,21 +673,21 @@ EventTriggerDDLCommandStart(Node *parsetree)
 	if (runlist == NIL)
 		return;
 
-	/* Run the triggers. */
+	/* 运行触发器。 */
 	EventTriggerInvoke(runlist, &trigdata);
 
-	/* Cleanup. */
+	/* 清理。 */
 	list_free(runlist);
 
 	/*
-	 * Make sure anything the event triggers did will be visible to the main
-	 * command.
+	  * 确保事件触发器所做一切对主命令可见。
+	  *
 	 */
 	CommandCounterIncrement();
 }
 
 /*
- * Fire ddl_command_end triggers.
+  * 触发 ddl_command_end 触发器。
  */
 void
 EventTriggerDDLCommandEnd(Node *parsetree)
@@ -696,21 +696,21 @@ EventTriggerDDLCommandEnd(Node *parsetree)
 	EventTriggerData trigdata;
 
 	/*
-	 * See EventTriggerDDLCommandStart for a discussion about why event
-	 * triggers are disabled in single user mode.
+	  * 关于单用户模式下为何禁用事件触发器的讨论，
+	  * 参见 EventTriggerDDLCommandStart。
 	 */
 	if (!IsUnderPostmaster)
 		return;
 
 	/*
-	 * Also do nothing if our state isn't set up, which it won't be if there
-	 * weren't any relevant event triggers at the start of the current DDL
-	 * command.  This test might therefore seem optional, but it's important
-	 * because EventTriggerCommonSetup might find triggers that didn't exist
-	 * at the time the command started.  Although this function itself
-	 * wouldn't crash, the event trigger functions would presumably call
-	 * pg_event_trigger_ddl_commands which would fail.  Better to do nothing
-	 * until the next command.
+	  * 若状态未设置也什么都不做，当前 DDL 命令开始
+	  * 时若无相关事件触发器状态就不会设置。此测试
+	  * 看似可选，实则重要——EventTriggerCommonSetup
+	  * 可能找到开始时并不存在的触发器。此函数虽不
+	  * 会崩溃，但事件触发器函数可能调用
+	  * pg_event_trigger_ddl_commands 导致失败。
+	  * 最好在下条命令前什么都不做。
+	  *
 	 */
 	if (!currentEventTriggerState)
 		return;
@@ -722,20 +722,20 @@ EventTriggerDDLCommandEnd(Node *parsetree)
 		return;
 
 	/*
-	 * Make sure anything the main command did will be visible to the event
-	 * triggers.
+	  * 确保主命令所做一切对事件触发器可见。
+	  *
 	 */
 	CommandCounterIncrement();
 
-	/* Run the triggers. */
+	/* 运行触发器。 */
 	EventTriggerInvoke(runlist, &trigdata);
 
-	/* Cleanup. */
+	/* 清理。 */
 	list_free(runlist);
 }
 
 /*
- * Fire sql_drop triggers.
+  * 触发 sql_drop 触发器。
  */
 void
 EventTriggerSQLDrop(Node *parsetree)
@@ -744,18 +744,18 @@ EventTriggerSQLDrop(Node *parsetree)
 	EventTriggerData trigdata;
 
 	/*
-	 * See EventTriggerDDLCommandStart for a discussion about why event
-	 * triggers are disabled in single user mode.
+	  * 关于单用户模式下为何禁用事件触发器的讨论，
+	  * 参见 EventTriggerDDLCommandStart。
 	 */
 	if (!IsUnderPostmaster)
 		return;
 
 	/*
-	 * Use current state to determine whether this event fires at all.  If
-	 * there are no triggers for the sql_drop event, then we don't have
-	 * anything to do here.  Note that dropped object collection is disabled
-	 * if this is the case, so even if we were to try to run, the list would
-	 * be empty.
+	  * 使用当前状态判断是否触发此事件。若无 sql_drop
+	  * 事件的触发器，则此处无事可做。注意在此情况下
+	  * 已删除对象收集被禁用，即使尝试运行列表也为空。
+	  *
+	  *
 	 */
 	if (!currentEventTriggerState ||
 		slist_is_empty(&currentEventTriggerState->SQLDropList))
@@ -766,30 +766,30 @@ EventTriggerSQLDrop(Node *parsetree)
 									  &trigdata);
 
 	/*
-	 * Nothing to do if run list is empty.  Note this typically can't happen,
-	 * because if there are no sql_drop events, then objects-to-drop wouldn't
-	 * have been collected in the first place and we would have quit above.
-	 * But it could occur if event triggers were dropped partway through.
+	  * 若运行列表为空则无事可做。注意这通常不会发生，
+	  * 若无 sql_drop 事件则不会收集待删除对象，上面
+	  * 便会退出。但若事件触发器中途被删除则可能发生。
+	  *
 	 */
 	if (runlist == NIL)
 		return;
 
 	/*
-	 * Make sure anything the main command did will be visible to the event
-	 * triggers.
+	  * 确保主命令所做一切对事件触发器可见。
+	  *
 	 */
 	CommandCounterIncrement();
 
 	/*
-	 * Make sure pg_event_trigger_dropped_objects only works when running
-	 * these triggers.  Use PG_TRY to ensure in_sql_drop is reset even when
-	 * one trigger fails.  (This is perhaps not necessary, as the currentState
-	 * variable will be removed shortly by our caller, but it seems better to
-	 * play safe.)
+	  * 确保 pg_event_trigger_dropped_objects 仅在运行
+	  * 这些触发器时工作。用 PG_TRY 确保即使一个触发器失败
+	  * in_sql_drop 也会重置。（可能非必需，currentState
+	  * 变量很快会被调用者删除，但稳妥起见。）
+	  *
 	 */
 	currentEventTriggerState->in_sql_drop = true;
 
-	/* Run the triggers. */
+	/* 运行触发器。 */
 	PG_TRY();
 	{
 		EventTriggerInvoke(runlist, &trigdata);
@@ -800,13 +800,13 @@ EventTriggerSQLDrop(Node *parsetree)
 	}
 	PG_END_TRY();
 
-	/* Cleanup. */
+	/* 清理。 */
 	list_free(runlist);
 }
 
 
 /*
- * Fire table_rewrite triggers.
+  * 触发 table_rewrite 触发器。
  */
 void
 EventTriggerTableRewrite(Node *parsetree, Oid tableOid, int reason)
@@ -815,18 +815,18 @@ EventTriggerTableRewrite(Node *parsetree, Oid tableOid, int reason)
 	EventTriggerData trigdata;
 
 	/*
-	 * See EventTriggerDDLCommandStart for a discussion about why event
-	 * triggers are disabled in single user mode.
+	  * 关于单用户模式下为何禁用事件触发器的讨论，
+	  * 参见 EventTriggerDDLCommandStart。
 	 */
 	if (!IsUnderPostmaster)
 		return;
 
 	/*
-	 * Also do nothing if our state isn't set up, which it won't be if there
-	 * weren't any relevant event triggers at the start of the current DDL
-	 * command.  This test might therefore seem optional, but it's
-	 * *necessary*, because EventTriggerCommonSetup might find triggers that
-	 * didn't exist at the time the command started.
+	  * 若状态未设置也什么都不做，当前 DDL 命令开始
+	  * 时若无相关事件触发器状态就不会设置。因此此测试
+	  * 可能看似可选，但它是*必需的*——
+	  * EventTriggerCommonSetup 可能找到开始时并不存在的
+	  * 触发器。
 	 */
 	if (!currentEventTriggerState)
 		return;
@@ -839,16 +839,16 @@ EventTriggerTableRewrite(Node *parsetree, Oid tableOid, int reason)
 		return;
 
 	/*
-	 * Make sure pg_event_trigger_table_rewrite_oid only works when running
-	 * these triggers. Use PG_TRY to ensure table_rewrite_oid is reset even
-	 * when one trigger fails. (This is perhaps not necessary, as the
-	 * currentState variable will be removed shortly by our caller, but it
-	 * seems better to play safe.)
+	  * 确保 pg_event_trigger_table_rewrite_oid 仅在运行
+	  * 这些触发器时工作。用 PG_TRY 确保即使一个触发器
+	  * 失败 table_rewrite_oid 也重置。（可能非必需，
+	  * currentState 变量很快会被调用者删除，但稳妥起见。）
+	  *
 	 */
 	currentEventTriggerState->table_rewrite_oid = tableOid;
 	currentEventTriggerState->table_rewrite_reason = reason;
 
-	/* Run the triggers. */
+	/* 运行触发器。 */
 	PG_TRY();
 	{
 		EventTriggerInvoke(runlist, &trigdata);
@@ -860,18 +860,18 @@ EventTriggerTableRewrite(Node *parsetree, Oid tableOid, int reason)
 	}
 	PG_END_TRY();
 
-	/* Cleanup. */
+	/* 清理。 */
 	list_free(runlist);
 
 	/*
-	 * Make sure anything the event triggers did will be visible to the main
-	 * command.
+	  * 确保事件触发器所做一切对主命令可见。
+	  *
 	 */
 	CommandCounterIncrement();
 }
 
 /*
- * Invoke each event trigger in a list of event triggers.
+  * 调用事件触发器列表中的每个事件触发器。
  */
 static void
 EventTriggerInvoke(List *fn_oid_list, EventTriggerData *trigdata)
@@ -881,19 +881,19 @@ EventTriggerInvoke(List *fn_oid_list, EventTriggerData *trigdata)
 	ListCell   *lc;
 	bool		first = true;
 
-	/* Guard against stack overflow due to recursive event trigger */
+	/* 防止递归事件触发器导致栈溢出 */
 	check_stack_depth();
 
 	/*
-	 * Let's evaluate event triggers in their own memory context, so that any
-	 * leaks get cleaned up promptly.
+	  * 在各自的内存上下文中评估事件触发器，以便泄漏得到
+	  * 及时清理。
 	 */
 	context = AllocSetContextCreate(CurrentMemoryContext,
 									"event trigger context",
 									ALLOCSET_DEFAULT_SIZES);
 	oldcontext = MemoryContextSwitchTo(context);
 
-	/* Call each event trigger. */
+	/* 调用每个事件触发器。 */
 	foreach(lc, fn_oid_list)
 	{
 		LOCAL_FCINFO(fcinfo, 0);
@@ -904,10 +904,10 @@ EventTriggerInvoke(List *fn_oid_list, EventTriggerData *trigdata)
 		elog(DEBUG1, "EventTriggerInvoke %u", fnoid);
 
 		/*
-		 * We want each event trigger to be able to see the results of the
-		 * previous event trigger's action.  Caller is responsible for any
-		 * command-counter increment that is needed between the event trigger
-		 * and anything else in the transaction.
+		  * 让每个事件触发器看到前一个的操作结果。
+		  * 调用者负责在事件触发器与事务中其他操作之间
+		  * 所需的命令计数器递增。
+		  *
 		 */
 		if (first)
 			first = false;
@@ -928,13 +928,13 @@ EventTriggerInvoke(List *fn_oid_list, EventTriggerData *trigdata)
 		MemoryContextReset(context);
 	}
 
-	/* Restore old memory context and delete the temporary one. */
+	/* 恢复旧内存上下文并删除临时上下文。 */
 	MemoryContextSwitchTo(oldcontext);
 	MemoryContextDelete(context);
 }
 
 /*
- * Do event triggers support this object type?
+  * 事件触发器是否支持此对象类型？
  */
 bool
 EventTriggerSupportsObjectType(ObjectType obtype)
@@ -1000,17 +1000,17 @@ EventTriggerSupportsObjectType(ObjectType obtype)
 			return true;
 
 			/*
-			 * There's intentionally no default: case here; we want the
-			 * compiler to warn if a new ObjectType hasn't been handled above.
+			  * 故意不放 default: case；
+			  * 期望编译器在新 ObjectType 未处理时告警。
 			 */
 	}
 
-	/* Shouldn't get here, but if we do, say "no support" */
+	/* 不应执行到此，若执行到则返回"不支持" */
 	return false;
 }
 
 /*
- * Do event triggers support this object class?
+  * 事件触发器是否支持此对象类？
  */
 bool
 EventTriggerSupportsObjectClass(ObjectClass objclass)
@@ -1065,20 +1065,20 @@ EventTriggerSupportsObjectClass(ObjectClass objclass)
 			return true;
 
 			/*
-			 * There's intentionally no default: case here; we want the
-			 * compiler to warn if a new OCLASS hasn't been handled above.
+			  * 故意不放 default: case；
+			  * 期望编译器在新 OCLASS 未处理时告警。
 			 */
 	}
 
-	/* Shouldn't get here, but if we do, say "no support" */
+	/* 不应执行到此，若执行到则返回"不支持" */
 	return false;
 }
 
 /*
- * Prepare event trigger state for a new complete query to run, if necessary;
- * returns whether this was done.  If it was, EventTriggerEndCompleteQuery must
- * be called when the query is done, regardless of whether it succeeds or fails
- * -- so use of a PG_TRY block is mandatory.
+  * 为执行新的完整查询准备事件触发器状态（必要时）；
+  * 返回是否已准备。若已准备，查询结束时必须
+  * 调用 EventTriggerEndCompleteQuery，无论成败——
+  * 因此必须使用 PG_TRY 块。
  */
 bool
 EventTriggerBeginCompleteQuery(void)
@@ -1087,9 +1087,9 @@ EventTriggerBeginCompleteQuery(void)
 	MemoryContext cxt;
 
 	/*
-	 * Currently, sql_drop, table_rewrite, ddl_command_end events are the only
-	 * reason to have event trigger state at all; so if there are none, don't
-	 * install one.
+	  * 目前，sql_drop、table_rewrite、ddl_command_end 是
+	  * 需要事件触发器状态的唯一原因；若无任何一个则不安装。
+	  *
 	 */
 	if (!trackDroppedObjectsNeeded())
 		return false;
@@ -1114,15 +1114,15 @@ EventTriggerBeginCompleteQuery(void)
 }
 
 /*
- * Query completed (or errored out) -- clean up local state, return to previous
- * one.
- *
- * Note: it's an error to call this routine if EventTriggerBeginCompleteQuery
- * returned false previously.
- *
- * Note: this might be called in the PG_CATCH block of a failing transaction,
- * so be wary of running anything unnecessary.  (In particular, it's probably
- * unwise to try to allocate memory.)
+  * 查询完成（或出错）——清理本地状态，恢复到上一个。
+  *
+  * 注意：若 EventTriggerBeginCompleteQuery 先前返回 false，
+  * 再调用此例程是错误的。
+  *
+  * 注意：此例程可能在失败事务的 PG_CATCH 块中调用，
+  * 因此小心不要运行非必要操作。（特别是
+  * 尝试分配内存可能不明智。）
+  *
  */
 void
 EventTriggerEndCompleteQuery(void)
@@ -1131,23 +1131,23 @@ EventTriggerEndCompleteQuery(void)
 
 	prevstate = currentEventTriggerState->previous;
 
-	/* this avoids the need for retail pfree of SQLDropList items: */
+	/* 避免对 SQLDropList 各项逐一 pfree： */
 	MemoryContextDelete(currentEventTriggerState->cxt);
 
 	currentEventTriggerState = prevstate;
 }
 
 /*
- * Do we need to keep close track of objects being dropped?
- *
- * This is useful because there is a cost to running with them enabled.
+  * 是否需要密切关注正在删除的对象？
+  *
+  * 这很有用，因为启用它们会带来开销。
  */
 bool
 trackDroppedObjectsNeeded(void)
 {
 	/*
-	 * true if any sql_drop, table_rewrite, ddl_command_end event trigger
-	 * exists
+	  * 若存在任何 sql_drop、table_rewrite、ddl_command_end
+	  * 事件触发器则返回 true
 	 */
 	return (EventCacheLookup(EVT_SQLDrop) != NIL) ||
 		(EventCacheLookup(EVT_TableRewrite) != NIL) ||
@@ -1155,24 +1155,24 @@ trackDroppedObjectsNeeded(void)
 }
 
 /*
- * Support for dropped objects information on event trigger functions.
- *
- * We keep the list of objects dropped by the current command in current
- * state's SQLDropList (comprising SQLDropObject items).  Each time a new
- * command is to start, a clean EventTriggerQueryState is created; commands
- * that drop objects do the dependency.c dance to drop objects, which
- * populates the current state's SQLDropList; when the event triggers are
- * invoked they can consume the list via pg_event_trigger_dropped_objects().
- * When the command finishes, the EventTriggerQueryState is cleared, and
- * the one from the previous command is restored (when no command is in
- * execution, the current state is NULL).
- *
- * All this lets us support the case that an event trigger function drops
- * objects "reentrantly".
+  * 支持事件触发器函数中的已删除对象信息。
+  *
+  * 在当前状态的 SQLDropList（含 SQLDropObject 项）中
+  * 保存当前命令删除的对象列表。每次新命令开始，
+  * 创建干净的 EventTriggerQueryState；删除对象的
+  * 命令执行 dependency.c 的删除流程，填充当前状态的
+  * SQLDropList；事件触发器被调用时可通过
+  * pg_event_trigger_dropped_objects() 使用该列表。
+  * 命令完成时，EventTriggerQueryState 被清除，
+  * 恢复前一条命令的状态（无命令执行时当前状态为 NULL）。
+  *
+  * 所有这些支持了事件触发器函数"可重入地"
+  * 删除对象的情况。
+  *
  */
 
 /*
- * Register one object as being dropped by the current command.
+  * 将一个对象注册为被当前命令删除。
  */
 void
 EventTriggerSQLDropAddObject(const ObjectAddress *object, bool original, bool normal)
@@ -1318,12 +1318,12 @@ EventTriggerSQLDropAddObject(const ObjectAddress *object, bool original, bool no
 		}
 	}
 
-	/* object identity, objname and objargs */
+	/* 对象标识、objname 和 objargs */
 	obj->objidentity =
 		getObjectIdentityParts(&obj->address, &obj->addrnames, &obj->addrargs,
 							   false);
 
-	/* object type */
+	/* 对象类型 */
 	obj->objecttype = getObjectTypeDescription(&obj->address, false);
 
 	slist_push_head(&(currentEventTriggerState->SQLDropList), &obj->next);
@@ -1332,22 +1332,22 @@ EventTriggerSQLDropAddObject(const ObjectAddress *object, bool original, bool no
 }
 
 /*
- * Fill obj->objname, obj->schemaname, and obj->istemp based on object.
- *
- * Returns true if this object should be reported, false if it should
- * be ignored because it is a temporary object of another session.
+  * 基于对象填充 obj->objname、obj->schemaname 和 obj->istemp。
+  *
+  * 若此对象应被报告返回 true，若应被忽略（因为是
+  * 其他会话的临时对象）返回 false。
  */
 static bool
 obtain_object_name_namespace(const ObjectAddress *object, SQLDropObject *obj)
 {
 	/*
-	 * Obtain schema names from the object's catalog tuple, if one exists;
-	 * this lets us skip objects in temp schemas.  We trust that
-	 * ObjectProperty contains all object classes that can be
-	 * schema-qualified.
-	 *
-	 * Currently, this function does nothing for object classes that are not
-	 * in ObjectProperty, but we might sometime add special cases for that.
+	  * 从对象目录元组中获取模式名（若存在）；
+	  * 这让我们跳过临时模式中的对象。信任
+	  * ObjectProperty 包含所有可按模式限定的对象类。
+	  *
+	  * 目前此函数对不在 ObjectProperty 中的对象类
+	  * 不做任何处理，但以后可能会单独处理它们。
+	  *
 	 */
 	if (is_objectclass_supported(object->classId))
 	{
@@ -1416,10 +1416,10 @@ obtain_object_name_namespace(const ObjectAddress *object, SQLDropObject *obj)
 }
 
 /*
- * pg_event_trigger_dropped_objects
- *
- * Make the list of dropped objects available to the user function run by the
- * Event Trigger.
+  * pg_event_trigger_dropped_objects
+  *
+  * 将已删除对象列表提供给事件触发器运行的用户函数。
+  *
  */
 Datum
 pg_event_trigger_dropped_objects(PG_FUNCTION_ARGS)
@@ -1428,7 +1428,7 @@ pg_event_trigger_dropped_objects(PG_FUNCTION_ARGS)
 	slist_iter	iter;
 
 	/*
-	 * Protect this function from being called out of context
+	  * 保护此函数不被越权调用
 	 */
 	if (!currentEventTriggerState ||
 		!currentEventTriggerState->in_sql_drop)
@@ -1437,7 +1437,7 @@ pg_event_trigger_dropped_objects(PG_FUNCTION_ARGS)
 				 errmsg("%s can only be called in a sql_drop event trigger function",
 						"pg_event_trigger_dropped_objects()")));
 
-	/* Build tuplestore to hold the result rows */
+	/* 构建元组存储以保存结果行 */
 	InitMaterializedSRF(fcinfo, 0);
 
 	slist_foreach(iter, &(currentEventTriggerState->SQLDropList))
@@ -1488,7 +1488,7 @@ pg_event_trigger_dropped_objects(PG_FUNCTION_ARGS)
 		else
 			nulls[i++] = true;
 
-		/* address_names and address_args */
+		/* address_names 和 address_args */
 		if (obj->addrnames)
 		{
 			values[i++] = PointerGetDatum(strlist_to_textarray(obj->addrnames));
@@ -1512,16 +1512,16 @@ pg_event_trigger_dropped_objects(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_event_trigger_table_rewrite_oid
- *
- * Make the Oid of the table going to be rewritten available to the user
- * function run by the Event Trigger.
+  * pg_event_trigger_table_rewrite_oid
+  *
+  * 将待重写表的 OID 提供给事件触发器运行的用户函数。
+  *
  */
 Datum
 pg_event_trigger_table_rewrite_oid(PG_FUNCTION_ARGS)
 {
 	/*
-	 * Protect this function from being called out of context
+	  * 保护此函数不被越权调用
 	 */
 	if (!currentEventTriggerState ||
 		currentEventTriggerState->table_rewrite_oid == InvalidOid)
@@ -1534,15 +1534,15 @@ pg_event_trigger_table_rewrite_oid(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_event_trigger_table_rewrite_reason
- *
- * Make the rewrite reason available to the user.
+  * pg_event_trigger_table_rewrite_reason
+  *
+  * 将重写原因提供给用户。
  */
 Datum
 pg_event_trigger_table_rewrite_reason(PG_FUNCTION_ARGS)
 {
 	/*
-	 * Protect this function from being called out of context
+	  * 保护此函数不被越权调用
 	 */
 	if (!currentEventTriggerState ||
 		currentEventTriggerState->table_rewrite_reason == 0)
@@ -1555,28 +1555,28 @@ pg_event_trigger_table_rewrite_reason(PG_FUNCTION_ARGS)
 }
 
 /*-------------------------------------------------------------------------
- * Support for DDL command deparsing
- *
- * The routines below enable an event trigger function to obtain a list of
- * DDL commands as they are executed.  There are three main pieces to this
- * feature:
- *
- * 1) Within ProcessUtilitySlow, or some sub-routine thereof, each DDL command
- * adds a struct CollectedCommand representation of itself to the command list,
- * using the routines below.
- *
- * 2) Some time after that, ddl_command_end fires and the command list is made
- * available to the event trigger function via pg_event_trigger_ddl_commands();
- * the complete command details are exposed as a column of type pg_ddl_command.
- *
- * 3) An extension can install a function capable of taking a value of type
- * pg_ddl_command and transform it into some external, user-visible and/or
- * -modifiable representation.
+  * 支持 DDL 命令逆解析
+  *
+  * 以下例程使事件触发器函数能获取正在执行的
+  * DDL 命令列表。此功能有三个主要部分：
+  *
+  * 1) 在 ProcessUtilitySlow 或其子例程中，每个 DDL 命令使用下面
+  * 的例程将其 CollectedCommand 表示添加到命令列表。
+  *
+  * 2) 之后，ddl_command_end 触发，命令列表通过
+  * pg_event_trigger_ddl_commands() 提供给事件触发器函数；
+  * 完整命令详情以 pg_ddl_command 类型列暴露。
+  *
+  * 3) 扩展可安装函数，接受 pg_ddl_command 类型的值
+  * 并将其转换为某种外部、用户可见和/或可修改的表示。
+  *
+  *
+  *
  *-------------------------------------------------------------------------
  */
 
 /*
- * Inhibit DDL command collection.
+  * 禁止 DDL 命令收集。
  */
 void
 EventTriggerInhibitCommandCollection(void)
@@ -1588,7 +1588,7 @@ EventTriggerInhibitCommandCollection(void)
 }
 
 /*
- * Re-establish DDL command collection.
+  * 重新启用 DDL 命令收集。
  */
 void
 EventTriggerUndoInhibitCommandCollection(void)
@@ -1600,17 +1600,17 @@ EventTriggerUndoInhibitCommandCollection(void)
 }
 
 /*
- * EventTriggerCollectSimpleCommand
+  * EventTriggerCollectSimpleCommand
  *		Save data about a simple DDL command that was just executed
- *
- * address identifies the object being operated on.  secondaryObject is an
- * object address that was related in some way to the executed command; its
- * meaning is command-specific.
- *
- * For instance, for an ALTER obj SET SCHEMA command, objtype is the type of
- * object being moved, objectId is its OID, and secondaryOid is the OID of the
- * old schema.  (The destination schema OID can be obtained by catalog lookup
- * of the object.)
+  * address 标识被操作的对象。secondaryObject 是
+  * 以某种方式与执行的命令相关的对象地址；其
+  * 含义因命令而异。
+  *
+  * 例如，对于 ALTER obj SET SCHEMA 命令，objtype 是被移动对象
+  * 的类型，objectId 是其 OID，secondaryOid 是旧模式的 OID。
+  * （目标模式 OID 可通过对象的目录查找获得。）
+  *
+  *
  */
 void
 EventTriggerCollectSimpleCommand(ObjectAddress address,
@@ -1620,7 +1620,7 @@ EventTriggerCollectSimpleCommand(ObjectAddress address,
 	MemoryContext oldcxt;
 	CollectedCommand *command;
 
-	/* ignore if event trigger context not set, or collection disabled */
+	/* 若事件触发器上下文未设置或收集禁用则忽略 */
 	if (!currentEventTriggerState ||
 		currentEventTriggerState->commandCollectionInhibited)
 		return;
@@ -1643,12 +1643,12 @@ EventTriggerCollectSimpleCommand(ObjectAddress address,
 }
 
 /*
- * EventTriggerAlterTableStart
+  * EventTriggerAlterTableStart
  *		Prepare to receive data on an ALTER TABLE command about to be executed
- *
- * Note we don't collect the command immediately; instead we keep it in
- * currentCommand, and only when we're done processing the subcommands we will
- * add it to the command list.
+  * 注意不立即收集命令；先保存在 currentCommand 中，
+  * 处理完所有子命令后才添加到命令列表。
+  *
+  *
  */
 void
 EventTriggerAlterTableStart(Node *parsetree)
@@ -1656,7 +1656,7 @@ EventTriggerAlterTableStart(Node *parsetree)
 	MemoryContext oldcxt;
 	CollectedCommand *command;
 
-	/* ignore if event trigger context not set, or collection disabled */
+	/* 若事件触发器上下文未设置或收集禁用则忽略 */
 	if (!currentEventTriggerState ||
 		currentEventTriggerState->commandCollectionInhibited)
 		return;
@@ -1680,9 +1680,9 @@ EventTriggerAlterTableStart(Node *parsetree)
 }
 
 /*
- * Remember the OID of the object being affected by an ALTER TABLE.
- *
- * This is needed because in some cases we don't know the OID until later.
+  * 记录受 ALTER TABLE 影响的对象的 OID。
+  *
+  * 必要因为某些情况下到稍后才知道 OID。
  */
 void
 EventTriggerAlterTableRelid(Oid objectId)
@@ -1695,12 +1695,12 @@ EventTriggerAlterTableRelid(Oid objectId)
 }
 
 /*
- * EventTriggerCollectAlterTableSubcmd
+  * EventTriggerCollectAlterTableSubcmd
  *		Save data about a single part of an ALTER TABLE.
- *
- * Several different commands go through this path, but apart from ALTER TABLE
- * itself, they are all concerned with AlterTableCmd nodes that are generated
- * internally, so that's all that this code needs to handle at the moment.
+  * 多个不同命令经过此路径，但除 ALTER TABLE 本身外
+  * 都涉及内部生成的 AlterTableCmd 节点，
+  * 因此此代码当前只需处理这些内容。
+  *
  */
 void
 EventTriggerCollectAlterTableSubcmd(Node *subcmd, ObjectAddress address)
@@ -1708,7 +1708,7 @@ EventTriggerCollectAlterTableSubcmd(Node *subcmd, ObjectAddress address)
 	MemoryContext oldcxt;
 	CollectedATSubcmd *newsub;
 
-	/* ignore if event trigger context not set, or collection disabled */
+	/* 若事件触发器上下文未设置或收集禁用则忽略 */
 	if (!currentEventTriggerState ||
 		currentEventTriggerState->commandCollectionInhibited)
 		return;
@@ -1730,26 +1730,26 @@ EventTriggerCollectAlterTableSubcmd(Node *subcmd, ObjectAddress address)
 }
 
 /*
- * EventTriggerAlterTableEnd
+  * EventTriggerAlterTableEnd
  *		Finish up saving an ALTER TABLE command, and add it to command list.
- *
- * FIXME this API isn't considering the possibility that an xact/subxact is
- * aborted partway through.  Probably it's best to add an
- * AtEOSubXact_EventTriggers() to fix this.
+  * FIXME 此 API 未考虑事务/子事务半途被中止的可能。
+  * 最好添加 AtEOSubXact_EventTriggers() 来修复。
+  *
+  *
  */
 void
 EventTriggerAlterTableEnd(void)
 {
 	CollectedCommand *parent;
 
-	/* ignore if event trigger context not set, or collection disabled */
+	/* 若事件触发器上下文未设置或收集禁用则忽略 */
 	if (!currentEventTriggerState ||
 		currentEventTriggerState->commandCollectionInhibited)
 		return;
 
 	parent = currentEventTriggerState->currentCommand->parent;
 
-	/* If no subcommands, don't collect */
+	/* 若无子命令则不收集 */
 	if (currentEventTriggerState->currentCommand->d.alterTable.subcmds != NIL)
 	{
 		MemoryContext oldcxt;
@@ -1769,11 +1769,11 @@ EventTriggerAlterTableEnd(void)
 }
 
 /*
- * EventTriggerCollectGrant
+  * EventTriggerCollectGrant
  *		Save data about a GRANT/REVOKE command being executed
- *
- * This function creates a copy of the InternalGrant, as the original might
- * not have the right lifetime.
+  * 此函数创建 InternalGrant 的副本，因原始对象
+  * 可能没有正确的生命周期。
+  *
  */
 void
 EventTriggerCollectGrant(InternalGrant *istmt)
@@ -1783,7 +1783,7 @@ EventTriggerCollectGrant(InternalGrant *istmt)
 	InternalGrant *icopy;
 	ListCell   *cell;
 
-	/* ignore if event trigger context not set, or collection disabled */
+	/* 若事件触发器上下文未设置或收集禁用则忽略 */
 	if (!currentEventTriggerState ||
 		currentEventTriggerState->commandCollectionInhibited)
 		return;
@@ -1791,7 +1791,7 @@ EventTriggerCollectGrant(InternalGrant *istmt)
 	oldcxt = MemoryContextSwitchTo(currentEventTriggerState->cxt);
 
 	/*
-	 * This is tedious, but necessary.
+	  * 繁琐，但必要。
 	 */
 	icopy = palloc(sizeof(InternalGrant));
 	memcpy(icopy, istmt, sizeof(InternalGrant));
@@ -1801,7 +1801,7 @@ EventTriggerCollectGrant(InternalGrant *istmt)
 	foreach(cell, istmt->col_privs)
 		icopy->col_privs = lappend(icopy->col_privs, copyObject(lfirst(cell)));
 
-	/* Now collect it, using the copied InternalGrant */
+	/* 用复制的 InternalGrant 收集 */
 	command = palloc(sizeof(CollectedCommand));
 	command->type = SCT_Grant;
 	command->in_extension = creating_extension;
@@ -1815,7 +1815,7 @@ EventTriggerCollectGrant(InternalGrant *istmt)
 }
 
 /*
- * EventTriggerCollectAlterOpFam
+  * EventTriggerCollectAlterOpFam
  *		Save data about an ALTER OPERATOR FAMILY ADD/DROP command being
  *		executed
  */
@@ -1826,7 +1826,7 @@ EventTriggerCollectAlterOpFam(AlterOpFamilyStmt *stmt, Oid opfamoid,
 	MemoryContext oldcxt;
 	CollectedCommand *command;
 
-	/* ignore if event trigger context not set, or collection disabled */
+	/* 若事件触发器上下文未设置或收集禁用则忽略 */
 	if (!currentEventTriggerState ||
 		currentEventTriggerState->commandCollectionInhibited)
 		return;
@@ -1849,7 +1849,7 @@ EventTriggerCollectAlterOpFam(AlterOpFamilyStmt *stmt, Oid opfamoid,
 }
 
 /*
- * EventTriggerCollectCreateOpClass
+  * EventTriggerCollectCreateOpClass
  *		Save data about a CREATE OPERATOR CLASS command being executed
  */
 void
@@ -1859,7 +1859,7 @@ EventTriggerCollectCreateOpClass(CreateOpClassStmt *stmt, Oid opcoid,
 	MemoryContext oldcxt;
 	CollectedCommand *command;
 
-	/* ignore if event trigger context not set, or collection disabled */
+	/* 若事件触发器上下文未设置或收集禁用则忽略 */
 	if (!currentEventTriggerState ||
 		currentEventTriggerState->commandCollectionInhibited)
 		return;
@@ -1882,7 +1882,7 @@ EventTriggerCollectCreateOpClass(CreateOpClassStmt *stmt, Oid opcoid,
 }
 
 /*
- * EventTriggerCollectAlterTSConfig
+  * EventTriggerCollectAlterTSConfig
  *		Save data about an ALTER TEXT SEARCH CONFIGURATION command being
  *		executed
  */
@@ -1893,7 +1893,7 @@ EventTriggerCollectAlterTSConfig(AlterTSConfigurationStmt *stmt, Oid cfgId,
 	MemoryContext oldcxt;
 	CollectedCommand *command;
 
-	/* ignore if event trigger context not set, or collection disabled */
+	/* 若事件触发器上下文未设置或收集禁用则忽略 */
 	if (!currentEventTriggerState ||
 		currentEventTriggerState->commandCollectionInhibited)
 		return;
@@ -1917,7 +1917,7 @@ EventTriggerCollectAlterTSConfig(AlterTSConfigurationStmt *stmt, Oid cfgId,
 }
 
 /*
- * EventTriggerCollectAlterDefPrivs
+  * EventTriggerCollectAlterDefPrivs
  *		Save data about an ALTER DEFAULT PRIVILEGES command being
  *		executed
  */
@@ -1927,7 +1927,7 @@ EventTriggerCollectAlterDefPrivs(AlterDefaultPrivilegesStmt *stmt)
 	MemoryContext oldcxt;
 	CollectedCommand *command;
 
-	/* ignore if event trigger context not set, or collection disabled */
+	/* 若事件触发器上下文未设置或收集禁用则忽略 */
 	if (!currentEventTriggerState ||
 		currentEventTriggerState->commandCollectionInhibited)
 		return;
@@ -1946,8 +1946,8 @@ EventTriggerCollectAlterDefPrivs(AlterDefaultPrivilegesStmt *stmt)
 }
 
 /*
- * In a ddl_command_end event trigger, this function reports the DDL commands
- * being run.
+  * 在 ddl_command_end 事件触发器中，此函数报告正在运行的
+  * DDL 命令。
  */
 Datum
 pg_event_trigger_ddl_commands(PG_FUNCTION_ARGS)
@@ -1956,7 +1956,7 @@ pg_event_trigger_ddl_commands(PG_FUNCTION_ARGS)
 	ListCell   *lc;
 
 	/*
-	 * Protect this function from being called out of context
+	  * 保护此函数不被越权调用
 	 */
 	if (!currentEventTriggerState)
 		ereport(ERROR,
@@ -1964,7 +1964,7 @@ pg_event_trigger_ddl_commands(PG_FUNCTION_ARGS)
 				 errmsg("%s can only be called in an event trigger function",
 						"pg_event_trigger_ddl_commands()")));
 
-	/* Build tuplestore to hold the result rows */
+	/* 构建元组存储以保存结果行 */
 	InitMaterializedSRF(fcinfo, 0);
 
 	foreach(lc, currentEventTriggerState->commandList)
@@ -1976,14 +1976,14 @@ pg_event_trigger_ddl_commands(PG_FUNCTION_ARGS)
 		int			i = 0;
 
 		/*
-		 * For IF NOT EXISTS commands that attempt to create an existing
-		 * object, the returned OID is Invalid.  Don't return anything.
-		 *
-		 * One might think that a viable alternative would be to look up the
-		 * Oid of the existing object and run the deparse with that.  But
-		 * since the parse tree might be different from the one that created
-		 * the object in the first place, we might not end up in a consistent
-		 * state anyway.
+		  * 对于 IF NOT EXISTS 尝试创建已存在对象的命令，
+		  * 返回的 OID 为 Invalid。不返回任何内容。
+		  *
+		  * 可能的替代方案是查找已存在对象的 OID
+		  * 并用它运行逆解析。但解析树可能
+		  * 与最初创建对象的不同，可能无论如何
+		  * 都无法达到一致状态。
+		  *
 		 */
 		if (cmd->type == SCT_Simple &&
 			!OidIsValid(cmd->d.simple.address.objectId))
@@ -2015,11 +2015,11 @@ pg_event_trigger_ddl_commands(PG_FUNCTION_ARGS)
 						addr = cmd->d.atscfg.address;
 
 					/*
-					 * If an object was dropped in the same command we may end
-					 * up in a situation where we generated a message but can
-					 * no longer look for the object information, so skip it
-					 * rather than failing.  This can happen for example with
-					 * some subcommand combinations of ALTER TABLE.
+					  * 若同一命令中删除了对象，可能处于已生成消息
+					  * 却无法再查找对象信息的状态，因此跳过而非失败。
+					  * 例如，某些 ALTER TABLE 子命令组合可能导致此情况。
+					  *
+					  *
 					 */
 					identity = getObjectIdentity(&addr, true);
 					if (identity == NULL)
@@ -2029,10 +2029,10 @@ pg_event_trigger_ddl_commands(PG_FUNCTION_ARGS)
 					type = getObjectTypeDescription(&addr, true);
 
 					/*
-					 * Obtain schema name, if any ("pg_temp" if a temp
-					 * object). If the object class is not in the supported
-					 * list here, we assume it's a schema-less object type,
-					 * and thus "schema" remains set to NULL.
+					  * 获取模式名（若为 temp 对象则为 "pg_temp"）。
+					  * 若对象类不在支持列表中，假设它是无模式的对象类型，
+					  * 因此 "schema" 保持 NULL。
+					  *
 					 */
 					if (is_objectclass_supported(addr.classId))
 					{
@@ -2142,8 +2142,8 @@ pg_event_trigger_ddl_commands(PG_FUNCTION_ARGS)
 }
 
 /*
- * Return the ObjectType as a string, as it would appear in GRANT and
- * REVOKE commands.
+  * 以字符串形式返回 ObjectType，如其在 GRANT 和
+  * REVOKE 命令中所用。
  */
 static const char *
 stringify_grant_objtype(ObjectType objtype)
@@ -2226,9 +2226,9 @@ stringify_grant_objtype(ObjectType objtype)
 }
 
 /*
- * Return the ObjectType as a string; as above, but use the spelling
- * in ALTER DEFAULT PRIVILEGES commands instead.  Generally this is just
- * the plural.
+  * 返回 ObjectType 的字符串形式；与上面类似，但使用
+  * ALTER DEFAULT PRIVILEGES 命令中的拼写。
+  * 通常只是复数形式。
  */
 static const char *
 stringify_adefprivs_objtype(ObjectType objtype)

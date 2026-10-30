@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "batch_id": "0233-comment-commands-event-trigger-publication-subscription",
+  "title": "zh: translate commands comments — event_trigger, publication, subscription",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "d0146339bbfb48a4ba767e7aa0085fee818b792b",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/commands/event_trigger.c",
+      "kind": "c_comment",
+      "note": "event trigger DDL/DML support"
+    },
+    {
+      "pattern": "src/backend/commands/publicationcmds.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP PUBLICATION"
+    },
+    {
+      "pattern": "src/backend/commands/subscriptioncmds.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP SUBSCRIPTION"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0233-comment-commands-event-trigger-publication-subscription.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/commands/event_trigger.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 211,
+      "translated": 136,
+      "preserved": 75,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "SQL section banners",
+        "short inline field documentation comments",
+        "identifier-only comments"
+      ],
+      "note": "event trigger DDL/DML support; 2310 lines"
+    },
+    {
+      "path": "src/backend/commands/publicationcmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 139,
+      "translated": 96,
+      "preserved": 43,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "SQL section banners",
+        "short inline comments"
+      ],
+      "note": "CREATE/ALTER/DROP PUBLICATION; 2007 lines"
+    },
+    {
+      "path": "src/backend/commands/subscriptioncmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 152,
+      "translated": 107,
+      "preserved": 45,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "SQL section banners",
+        "short inline field documentation"
+      ],
+      "note": "CREATE/ALTER/DROP SUBSCRIPTION; 2360 lines"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0233-comment-commands-event-trigger-publication-subscription.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "segments_total": 502,
+  "translated": 339,
+  "preserved": 163,
+  "notes": "Batch 0233: event_trigger.c (211 segments, 136 translated), publicationcmds.c (139 segments, 96 translated), subscriptioncmds.c (152 segments, 107 translated). 0 violations verify_c_comments.py."
+}

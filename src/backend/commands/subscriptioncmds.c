@@ -53,8 +53,8 @@
 #include "utils/syscache.h"
 
 /*
- * Options that can be specified by the user in CREATE/ALTER SUBSCRIPTION
- * command.
+  * 用户可在 CREATE/ALTER SUBSCRIPTION 命令中指定的选项。
+  *
  */
 #define SUBOPT_CONNECT				0x00000001
 #define SUBOPT_ENABLED				0x00000002
@@ -76,8 +76,8 @@
 #define IsSet(val, bits)  (((val) & (bits)) == (bits))
 
 /*
- * Structure to hold a bitmap representing the user-provided CREATE/ALTER
- * SUBSCRIPTION command options and the parsed/default values of each of them.
+  * 保存用户提供的 CREATE/ALTER SUBSCRIPTION 命令选项位图
+  * 及每个选项解析/默认值的结构体。
  */
 typedef struct SubOpts
 {
@@ -110,10 +110,10 @@ static void ReportSlotConnectionError(List *rstates, Oid subid, char *slotname, 
 
 
 /*
- * Common option parsing function for CREATE and ALTER SUBSCRIPTION commands.
- *
- * Since not all options can be specified in both commands, this function
- * will report an error if mutually exclusive options are specified.
+  * CREATE 和 ALTER SUBSCRIPTION 命令的通用选项解析函数。
+  *
+  * 并非所有选项都同时适用于两个命令，此函数
+  * 会在互斥选项被指定时报错。
  */
 static void
 parse_subscription_options(ParseState *pstate, List *stmt_options,
@@ -121,18 +121,18 @@ parse_subscription_options(ParseState *pstate, List *stmt_options,
 {
 	ListCell   *lc;
 
-	/* Start out with cleared opts. */
+	/* 从清除 opts 开始。 */
 	memset(opts, 0, sizeof(SubOpts));
 
-	/* caller must expect some option */
+	/* 调用者必须预期某些选项 */
 	Assert(supported_opts != 0);
 
-	/* If connect option is supported, these others also need to be. */
+	/* 若支持 connect 选项，其他选项也需支持。 */
 	Assert(!IsSet(supported_opts, SUBOPT_CONNECT) ||
 		   IsSet(supported_opts, SUBOPT_ENABLED | SUBOPT_CREATE_SLOT |
 				 SUBOPT_COPY_DATA));
 
-	/* Set default values for the supported options. */
+	/* 设置受支持选项的默认值。 */
 	if (IsSet(supported_opts, SUBOPT_CONNECT))
 		opts->connect = true;
 	if (IsSet(supported_opts, SUBOPT_ENABLED))
@@ -158,7 +158,7 @@ parse_subscription_options(ParseState *pstate, List *stmt_options,
 	if (IsSet(supported_opts, SUBOPT_ORIGIN))
 		opts->origin = pstrdup(LOGICALREP_ORIGIN_ANY);
 
-	/* Parse options */
+	/* 解析选项 */
 	foreach(lc, stmt_options)
 	{
 		DefElem    *defel = (DefElem *) lfirst(lc);
@@ -258,12 +258,12 @@ parse_subscription_options(ParseState *pstate, List *stmt_options,
 		else if (strcmp(defel->defname, "two_phase") == 0)
 		{
 			/*
-			 * Do not allow toggling of two_phase option. Doing so could cause
-			 * missing of transactions and lead to an inconsistent replica.
-			 * See comments atop worker.c
-			 *
-			 * Note: Unsupported twophase indicates that this call originated
-			 * from AlterSubscription.
+			  * 不允许切换 two_phase 选项。这可能导致
+			  * 事务丢失并造成副本不一致。
+			  * 参见 worker.c 顶部的注释。
+			  *
+			  * 注意：unsupported twophase 表明此调用来自
+			  * AlterSubscription。
 			 */
 			if (!IsSet(supported_opts, SUBOPT_TWOPHASE_COMMIT))
 				ereport(ERROR,
@@ -313,10 +313,10 @@ parse_subscription_options(ParseState *pstate, List *stmt_options,
 			pfree(opts->origin);
 
 			/*
-			 * Even though the "origin" parameter allows only "none" and "any"
-			 * values, it is implemented as a string type so that the
-			 * parameter can be extended in future versions to support
-			 * filtering using origin names specified by the user.
+			  * 尽管 "origin" 参数仅允许 "none" 和 "any" 值，
+			  * 但它实现为字符串类型，以便未来版本可将
+			  * 该参数扩展为支持按用户指定的源名称过滤。
+			  *
 			 */
 			opts->origin = defGetString(defel);
 
@@ -360,8 +360,8 @@ parse_subscription_options(ParseState *pstate, List *stmt_options,
 	}
 
 	/*
-	 * We've been explicitly asked to not connect, that requires some
-	 * additional processing.
+	  * 显式要求不连接，需要一些额外处理。
+	  *
 	 */
 	if (!opts->connect && IsSet(supported_opts, SUBOPT_CONNECT))
 	{
@@ -395,8 +395,8 @@ parse_subscription_options(ParseState *pstate, List *stmt_options,
 	}
 
 	/*
-	 * Do additional checking for disallowed combination when slot_name = NONE
-	 * was used.
+	  * 对 slot_name = NONE 时不允许的组合进行额外检查。
+	  *
 	 */
 	if (!opts->slot_name &&
 		IsSet(opts->specified_opts, SUBOPT_SLOT_NAME))
@@ -436,7 +436,7 @@ parse_subscription_options(ParseState *pstate, List *stmt_options,
 }
 
 /*
- * Add publication names from the list to a string.
+  * 将发布名列表添加到字符串。
  */
 static void
 get_publications_str(List *publications, StringInfo dest, bool quote_literal)
@@ -467,7 +467,7 @@ get_publications_str(List *publications, StringInfo dest, bool quote_literal)
 }
 
 /*
- * Check that the specified publications are present on the publisher.
+  * 检查指定发布在发布者上是否存在。
  */
 static void
 check_publications(WalReceiverConn *wrconn, List *publications)
@@ -496,7 +496,7 @@ check_publications(WalReceiverConn *wrconn, List *publications)
 
 	publicationsCopy = list_copy(publications);
 
-	/* Process publication(s). */
+	/* 处理发布。 */
 	slot = MakeSingleTupleTableSlot(res->tupledesc, &TTSOpsMinimalTuple);
 	while (tuplestore_gettupleslot(res->tuplestore, true, false, slot))
 	{
@@ -531,7 +531,7 @@ check_publications(WalReceiverConn *wrconn, List *publications)
 }
 
 /*
- * Auxiliary function to build a text array out of a list of String nodes.
+  * 将发布列表转换为 text 数组的辅助函数。
  */
 static Datum
 publicationListToArray(List *publist)
@@ -541,7 +541,7 @@ publicationListToArray(List *publist)
 	MemoryContext memcxt;
 	MemoryContext oldcxt;
 
-	/* Create memory context for temporary allocations. */
+	/* 为临时分配创建内存上下文。 */
 	memcxt = AllocSetContextCreate(CurrentMemoryContext,
 								   "publicationListToArray to array",
 								   ALLOCSET_DEFAULT_SIZES);
@@ -561,7 +561,7 @@ publicationListToArray(List *publist)
 }
 
 /*
- * Create new subscription.
+  * 创建新订阅。
  */
 ObjectAddress
 CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
@@ -582,9 +582,9 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 	AclResult	aclresult;
 
 	/*
-	 * Parse and check options.
-	 *
-	 * Connection and publication should not be specified here.
+	  * 解析并检查选项。
+	  *
+	  * 连接和发布不应在此指定。
 	 */
 	supported_opts = (SUBOPT_CONNECT | SUBOPT_ENABLED | SUBOPT_CREATE_SLOT |
 					  SUBOPT_SLOT_NAME | SUBOPT_COPY_DATA |
@@ -595,18 +595,18 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 	parse_subscription_options(pstate, stmt->options, supported_opts, &opts);
 
 	/*
-	 * Since creating a replication slot is not transactional, rolling back
-	 * the transaction leaves the created replication slot.  So we cannot run
-	 * CREATE SUBSCRIPTION inside a transaction block if creating a
-	 * replication slot.
+	  * 由于创建复制槽是非事务性的，回滚事务时
+	  * 已创建的复制槽仍会保留。因此若需创建复制槽，
+	  * 不能在事务块内执行 CREATE SUBSCRIPTION。
+	  *
 	 */
 	if (opts.create_slot)
 		PreventInTransactionBlock(isTopLevel, "CREATE SUBSCRIPTION ... WITH (create_slot = true)");
 
 	/*
-	 * We don't want to allow unprivileged users to be able to trigger
-	 * attempts to access arbitrary network destinations, so require the user
-	 * to have been specifically authorized to create subscriptions.
+	  * 不希望非特权用户能够触发任意网络目标的
+	  * 连接尝试，故要求用户被明确授权创建订阅。
+	  *
 	 */
 	if (!has_privs_of_role(owner, ROLE_PG_CREATE_SUBSCRIPTION))
 		ereport(ERROR,
@@ -616,8 +616,8 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 						   "pg_create_subscription")));
 
 	/*
-	 * Since a subscription is a database object, we also check for CREATE
-	 * permission on the database.
+	  * 由于订阅是数据库对象，还需检查对数据库的
+	  * CREATE 权限。
 	 */
 	aclresult = object_aclcheck(DatabaseRelationId, MyDatabaseId,
 								owner, ACL_CREATE);
@@ -626,9 +626,9 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 					   get_database_name(MyDatabaseId));
 
 	/*
-	 * Non-superusers are required to set a password for authentication, and
-	 * that password must be used by the target server, but the superuser can
-	 * exempt a subscription from this requirement.
+	  * 非超级用户必须设置密码进行认证，且目标服务器
+	  * 必须使用该密码，但超级用户可豁免此要求。
+	  *
 	 */
 	if (!opts.passwordrequired && !superuser_arg(owner))
 		ereport(ERROR,
@@ -637,8 +637,8 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 				 errhint("Subscriptions with the password_required option set to false may only be created or modified by the superuser.")));
 
 	/*
-	 * If built with appropriate switch, whine when regression-testing
-	 * conventions for subscription names are violated.
+	  * 若以适当开关编译，当回归测试的订阅命名规范
+	  * 被违反时发出警告。
 	 */
 #ifdef ENFORCE_REGRESSION_TEST_NAME_RESTRICTIONS
 	if (strncmp(stmt->subname, "regress_", 8) != 0)
@@ -647,7 +647,7 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 
 	rel = table_open(SubscriptionRelationId, RowExclusiveLock);
 
-	/* Check if name is used */
+	/* 检查名称是否已使用 */
 	subid = GetSysCacheOid2(SUBSCRIPTIONNAME, Anum_pg_subscription_oid,
 							MyDatabaseId, CStringGetDatum(stmt->subname));
 	if (OidIsValid(subid))
@@ -662,20 +662,20 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 		opts.slot_name == NULL)
 		opts.slot_name = stmt->subname;
 
-	/* The default for synchronous_commit of subscriptions is off. */
+	/* 订阅的 synchronous_commit 默认为 off。 */
 	if (opts.synchronous_commit == NULL)
 		opts.synchronous_commit = "off";
 
 	conninfo = stmt->conninfo;
 	publications = stmt->publication;
 
-	/* Load the library providing us libpq calls. */
+	/* 加载提供 libpq 调用的库。 */
 	load_file("libpqwalreceiver", false);
 
-	/* Check the connection info string. */
+	/* 检查连接信息字符串。 */
 	walrcv_check_conninfo(conninfo, opts.passwordrequired && !superuser());
 
-	/* Everything ok, form a new tuple. */
+	/* 一切正常，构造新元组。 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
 
@@ -713,7 +713,7 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 
 	tup = heap_form_tuple(RelationGetDescr(rel), values, nulls);
 
-	/* Insert tuple into catalog. */
+	/* 将元组插入目录。 */
 	CatalogTupleInsert(rel, tup);
 	heap_freetuple(tup);
 
@@ -723,8 +723,8 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 	replorigin_create(originname);
 
 	/*
-	 * Connect to remote side to execute requested commands and fetch table
-	 * info.
+	  * 连接到远程端以执行请求的命令并获取
+	  * 表信息。
 	 */
 	if (opts.connect)
 	{
@@ -751,14 +751,14 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 									  opts.origin, NULL, 0, stmt->subname);
 
 			/*
-			 * Set sync state based on if we were asked to do data copy or
-			 * not.
+			  * 根据是否要求进行数据复制来设置同步状态。
+			  *
 			 */
 			table_state = opts.copy_data ? SUBREL_STATE_INIT : SUBREL_STATE_READY;
 
 			/*
-			 * Get the table list from publisher and build local table status
-			 * info.
+			  * 从发布者获取表列表并构建本地表状态
+			  * 信息。
 			 */
 			tables = fetch_table_list(wrconn, publications);
 			foreach(lc, tables)
@@ -777,9 +777,9 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 			}
 
 			/*
-			 * If requested, create permanent slot for the subscription. We
-			 * won't use the initial snapshot for anything, so no need to
-			 * export it.
+			  * 若要求，为订阅创建永久槽。初始快照
+			  * 不做任何用途，故无需导出。
+			  *
 			 */
 			if (opts.create_slot)
 			{
@@ -788,20 +788,20 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 				Assert(opts.slot_name);
 
 				/*
-				 * Even if two_phase is set, don't create the slot with
-				 * two-phase enabled. Will enable it once all the tables are
-				 * synced and ready. This avoids race-conditions like prepared
-				 * transactions being skipped due to changes not being applied
-				 * due to checks in should_apply_changes_for_rel() when
-				 * tablesync for the corresponding tables are in progress. See
-				 * comments atop worker.c.
-				 *
-				 * Note that if tables were specified but copy_data is false
-				 * then it is safe to enable two_phase up-front because those
-				 * tables are already initially in READY state. When the
-				 * subscription has no tables, we leave the twophase state as
-				 * PENDING, to allow ALTER SUBSCRIPTION ... REFRESH
-				 * PUBLICATION to work.
+				  * 即使设置了 two_phase，也不要创建启用两阶段的槽。
+				  * 等所有表同步完成并就绪后再启用。这可避免
+				  * 竞态条件——因对应表的表同步正在进行时，
+				  * should_apply_changes_for_rel() 中的检查会导致预制备
+				  * 事务因变更未被应用而被跳过。参见 worker.c
+				  * 顶部的注释。
+				  *
+				  * 注意若指定了表但 copy_data 为 false，则可安全地
+				  * 提前启用 two_phase，因那些表已初始处于 READY 状态。
+				  * 当订阅无表时，将 twophase 状态保持为 PENDING，
+				  * 以允许 ALTER SUBSCRIPTION ... REFRESH PUBLICATION 工作。
+				  *
+				  *
+				  *
 				 */
 				if (opts.twophase && !opts.copy_data && tables != NIL)
 					twophase_enabled = true;
@@ -865,10 +865,10 @@ AlterSubscription_refresh(Subscription *sub, bool copy_data,
 	WalReceiverConn *wrconn;
 	bool		must_use_password;
 
-	/* Load the library providing us libpq calls. */
+	/* 加载提供 libpq 调用的库。 */
 	load_file("libpqwalreceiver", false);
 
-	/* Try to connect to the publisher. */
+	/* 尝试连接到发布者。 */
 	must_use_password = !superuser_arg(sub->owner) && sub->passwordrequired;
 	wrconn = walrcv_connect(sub->conninfo, true, must_use_password,
 							sub->name, &err);
@@ -890,9 +890,9 @@ AlterSubscription_refresh(Subscription *sub, bool copy_data,
 		subrel_count = list_length(subrel_states);
 
 		/*
-		 * Build qsorted array of local table oids for faster lookup. This can
-		 * potentially contain all tables in the database so speed of lookup
-		 * is important.
+		  * 构建已排序的本地表 OID 数组以加快查找。
+		  * 此数组可能含数据库中所有表，故查找速度
+		  * 很重要。
 		 */
 		subrel_local_oids = palloc(subrel_count * sizeof(Oid));
 		off = 0;
@@ -910,17 +910,17 @@ AlterSubscription_refresh(Subscription *sub, bool copy_data,
 								  subrel_count, sub->name);
 
 		/*
-		 * Rels that we want to remove from subscription and drop any slots
-		 * and origins corresponding to them.
+		  * 我们想从订阅中移除的关系及其对应的槽
+		  * 和源。
 		 */
 		sub_remove_rels = palloc(subrel_count * sizeof(SubRemoveRels));
 
 		/*
-		 * Walk over the remote tables and try to match them to locally known
-		 * tables. If the table is not known locally create a new state for
-		 * it.
-		 *
-		 * Also builds array of local oids of remote tables for the next step.
+		  * 遍历远程表并尝试匹配本地已知表。
+		  * 若本地未知则为其创建新状态。
+		  *
+		  * 同时构建远程表本地 OID 数组供下一步使用。
+		  *
 		 */
 		off = 0;
 		pubrel_local_oids = palloc(list_length(pubrel_names) * sizeof(Oid));
@@ -951,8 +951,8 @@ AlterSubscription_refresh(Subscription *sub, bool copy_data,
 		}
 
 		/*
-		 * Next remove state for tables we should not care about anymore using
-		 * the data we collected above
+		  * 接下来用上面收集的数据移除不应再关注
+		  * 的表的状态。
 		 */
 		qsort(pubrel_local_oids, list_length(pubrel_names),
 			  sizeof(Oid), oid_cmp);
@@ -969,18 +969,18 @@ AlterSubscription_refresh(Subscription *sub, bool copy_data,
 				XLogRecPtr	statelsn;
 
 				/*
-				 * Lock pg_subscription_rel with AccessExclusiveLock to
-				 * prevent any race conditions with the apply worker
-				 * re-launching workers at the same time this code is trying
-				 * to remove those tables.
-				 *
-				 * Even if new worker for this particular rel is restarted it
-				 * won't be able to make any progress as we hold exclusive
-				 * lock on pg_subscription_rel till the transaction end. It
-				 * will simply exit as there is no corresponding rel entry.
-				 *
-				 * This locking also ensures that the state of rels won't
-				 * change till we are done with this refresh operation.
+				  * 用 AccessExclusiveLock 锁定 pg_subscription_rel
+				  * 以防止应用工作进程与此代码同时重启动
+				  * 工作进程时发生竞态。
+				  *
+				  * 即使此特定关系的新工作进程被重启，
+				  * 由于我们持有 pg_subscription_rel 的排他锁
+				  * 直到事务结束，它也无法取得任何进展。
+				  * 它将因无对应 rel 条目而直接退出。
+				  *
+				  * 此锁定还确保在刷新操作完成前
+				  * 关系状态不会改变。
+				  *
 				 */
 				if (!rel)
 					rel = table_open(SubscriptionRelRelationId, AccessExclusiveLock);
@@ -996,22 +996,22 @@ AlterSubscription_refresh(Subscription *sub, bool copy_data,
 				logicalrep_worker_stop(sub->oid, relid);
 
 				/*
-				 * For READY state, we would have already dropped the
-				 * tablesync origin.
+				  * 对于 READY 状态，表同步源应当已被删除。
+				  *
 				 */
 				if (state != SUBREL_STATE_READY)
 				{
 					char		originname[NAMEDATALEN];
 
 					/*
-					 * Drop the tablesync's origin tracking if exists.
-					 *
-					 * It is possible that the origin is not yet created for
-					 * tablesync worker, this can happen for the states before
-					 * SUBREL_STATE_FINISHEDCOPY. The tablesync worker or
-					 * apply worker can also concurrently try to drop the
-					 * origin and by this time the origin might be already
-					 * removed. For these reasons, passing missing_ok = true.
+					  * 若存在则删除表同步的源跟踪。
+					  *
+					  * 表同步工作进程的源可能尚未创建，
+					  * 这在 SUBREL_STATE_FINISHEDCOPY 之前的状态
+					  * 可能发生。表同步或应用工作进程也可能
+					  * 并发尝试删除源，而此时源可能已被移除。
+					  * 基于这些原因，传递 missing_ok = true。
+					  *
 					 */
 					ReplicationOriginNameForLogicalRep(sub->oid, relid, originname,
 													   sizeof(originname));
@@ -1027,9 +1027,9 @@ AlterSubscription_refresh(Subscription *sub, bool copy_data,
 		}
 
 		/*
-		 * Drop the tablesync slots associated with removed tables. This has
-		 * to be at the end because otherwise if there is an error while doing
-		 * the database operations we won't be able to rollback dropped slots.
+		  * 删除与已移除表关联的表同步槽。必须在最后执行，
+		  * 否则若数据库操作出错，我们将无法回滚已删除
+		  * 的槽。
 		 */
 		for (off = 0; off < remove_rel_len; off++)
 		{
@@ -1039,14 +1039,14 @@ AlterSubscription_refresh(Subscription *sub, bool copy_data,
 				char		syncslotname[NAMEDATALEN] = {0};
 
 				/*
-				 * For READY/SYNCDONE states we know the tablesync slot has
-				 * already been dropped by the tablesync worker.
-				 *
-				 * For other states, there is no certainty, maybe the slot
-				 * does not exist yet. Also, if we fail after removing some of
-				 * the slots, next time, it will again try to drop already
-				 * dropped slots and fail. For these reasons, we allow
-				 * missing_ok = true for the drop.
+				  * 对于 READY/SYNCDONE 状态，我们已知表同步槽
+				  * 已被表同步工作进程删除。
+				  *
+				  * 对于其他状态，无法确定，槽可能尚不存在。
+				  * 此外，若在删除部分槽后失败，下次将再次尝试
+				  * 删除已删除的槽并失败。基于这些原因，允许
+				  * missing_ok = true 进行删除。
+				  *
 				 */
 				ReplicationSlotNameForTablesync(sub->oid, sub_remove_rels[off].relid,
 												syncslotname, sizeof(syncslotname));
@@ -1065,7 +1065,7 @@ AlterSubscription_refresh(Subscription *sub, bool copy_data,
 }
 
 /*
- * Alter the existing subscription.
+  * 修改现有订阅。
  */
 ObjectAddress
 AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
@@ -1086,7 +1086,7 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 
 	rel = table_open(SubscriptionRelationId, RowExclusiveLock);
 
-	/* Fetch the existing tuple. */
+	/* 获取现有元组。 */
 	tup = SearchSysCacheCopy2(SUBSCRIPTIONNAME, MyDatabaseId,
 							  CStringGetDatum(stmt->subname));
 
@@ -1099,7 +1099,7 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 	form = (Form_pg_subscription) GETSTRUCT(tup);
 	subid = form->oid;
 
-	/* must be owner */
+	/* 必须是所有者 */
 	if (!object_ownercheck(SubscriptionRelationId, subid, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_SUBSCRIPTION,
 					   stmt->subname);
@@ -1107,8 +1107,8 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 	sub = GetSubscription(subid, false);
 
 	/*
-	 * Don't allow non-superuser modification of a subscription with
-	 * password_required=false.
+	  * 不允许非超级用户修改
+	  * password_required=false 的订阅。
 	 */
 	if (!sub->passwordrequired && !superuser())
 		ereport(ERROR,
@@ -1116,10 +1116,10 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 				 errmsg("password_required=false is superuser-only"),
 				 errhint("Subscriptions with the password_required option set to false may only be created or modified by the superuser.")));
 
-	/* Lock the subscription so nobody else can do anything with it. */
+	/* 锁定订阅以防他人操作。 */
 	LockSharedObject(SubscriptionRelationId, subid, 0, AccessExclusiveLock);
 
-	/* Form a new tuple. */
+	/* 构造新元组。 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
 	memset(replaces, false, sizeof(replaces));
@@ -1140,11 +1140,11 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 				if (IsSet(opts.specified_opts, SUBOPT_SLOT_NAME))
 				{
 					/*
-					 * The subscription must be disabled to allow slot_name as
-					 * 'none', otherwise, the apply worker will repeatedly try
-					 * to stream the data using that slot_name which neither
-					 * exists on the publisher nor the user will be allowed to
-					 * create it.
+					  * 订阅必须处于禁用状态才能将 slot_name
+					  * 设置为 'none'，否则 apply worker 将重复尝试
+					  * 使用该 slot_name 流式传输数据，而该槽在
+					  * 发布者上不存在，用户也不被允许创建它。
+					  *
 					 */
 					if (sub->enabled && !opts.slot_name)
 						ereport(ERROR,
@@ -1279,8 +1279,8 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 								 errhint("Use ALTER SUBSCRIPTION ... SET PUBLICATION ... WITH (refresh = false).")));
 
 					/*
-					 * See ALTER_SUBSCRIPTION_REFRESH for details why this is
-					 * not allowed.
+					  * 关于为何不允许，详见
+					  * ALTER_SUBSCRIPTION_REFRESH。
 					 */
 					if (sub->twophasestate == LOGICALREP_TWOPHASE_STATE_ENABLED && opts.copy_data)
 						ereport(ERROR,
@@ -1334,8 +1334,8 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 										 "ALTER SUBSCRIPTION ... DROP PUBLICATION ... WITH (refresh = false)")));
 
 					/*
-					 * See ALTER_SUBSCRIPTION_REFRESH for details why this is
-					 * not allowed.
+					  * 关于为何不允许，详见
+					  * ALTER_SUBSCRIPTION_REFRESH。
 					 */
 					if (sub->twophasestate == LOGICALREP_TWOPHASE_STATE_ENABLED && opts.copy_data)
 						ereport(ERROR,
@@ -1370,21 +1370,21 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 										   SUBOPT_COPY_DATA, &opts);
 
 				/*
-				 * The subscription option "two_phase" requires that
-				 * replication has passed the initial table synchronization
-				 * phase before the two_phase becomes properly enabled.
-				 *
-				 * But, having reached this two-phase commit "enabled" state
-				 * we must not allow any subsequent table initialization to
-				 * occur. So the ALTER SUBSCRIPTION ... REFRESH is disallowed
-				 * when the user had requested two_phase = on mode.
-				 *
-				 * The exception to this restriction is when copy_data =
-				 * false, because when copy_data is false the tablesync will
-				 * start already in READY state and will exit directly without
-				 * doing anything.
-				 *
-				 * For more details see comments atop worker.c.
+				  * 订阅选项 "two_phase" 要求复制已通过初始表
+				  * 同步阶段后 two_phase 才正确启用。
+				  *
+				  * 但一旦达到两阶段提交 "enabled" 状态，我们
+				  * 不得允许任何后续表初始化发生。因此当用户
+				  * 请求 two_phase = on 模式时，
+				  * ALTER SUBSCRIPTION ... REFRESH 不被允许。
+				  *
+				  * 此限制的例外是 copy_data = false，
+				  * 因为 copy_data 为 false 时表同步将以
+				  * READY 状态启动并直接退出而不做任何事。
+				  *
+				  * 更多详情参见 worker.c 顶部的注释。
+				  *
+				  *
 				 */
 				if (sub->twophasestate == LOGICALREP_TWOPHASE_STATE_ENABLED && opts.copy_data)
 					ereport(ERROR,
@@ -1407,8 +1407,8 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 				Assert(IsSet(opts.specified_opts, SUBOPT_LSN));
 
 				/*
-				 * If the user sets subskiplsn, we do a sanity check to make
-				 * sure that the specified LSN is a probable value.
+				  * 若用户设置 subskiplsn，进行合理性检查确保
+				  * 指定 LSN 是合理值。
 				 */
 				if (!XLogRecPtrIsInvalid(opts.lsn))
 				{
@@ -1442,7 +1442,7 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 				 stmt->kind);
 	}
 
-	/* Update the catalog if needed. */
+	/* 若需要则更新目录。 */
 	if (update_tuple)
 	{
 		tup = heap_modify_tuple(tup, RelationGetDescr(rel), values, nulls,
@@ -1459,14 +1459,14 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 
 	InvokeObjectPostAlterHook(SubscriptionRelationId, subid, 0);
 
-	/* Wake up related replication workers to handle this change quickly. */
+	/* 唤醒相关复制工作进程以快速处理此变更。 */
 	LogicalRepWorkersWakeupAtCommit(subid);
 
 	return myself;
 }
 
 /*
- * Drop a subscription
+  * 删除订阅
  */
 void
 DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
@@ -1491,10 +1491,10 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 	bool		must_use_password;
 
 	/*
-	 * The launcher may concurrently start a new worker for this subscription.
-	 * During initialization, the worker checks for subscription validity and
-	 * exits if the subscription has already been dropped. See
-	 * InitializeLogRepWorker.
+	  * 启动器可能并行为此订阅启动新工作进程。
+	  * 初始化期间工作进程检查订阅有效性，若订阅
+	  * 已被删除则退出。参见 InitializeLogRepWorker。
+	  *
 	 */
 	rel = table_open(SubscriptionRelationId, RowExclusiveLock);
 
@@ -1523,31 +1523,31 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 	subowner = form->subowner;
 	must_use_password = !superuser_arg(subowner) && form->subpasswordrequired;
 
-	/* must be owner */
+	/* 必须是所有者 */
 	if (!object_ownercheck(SubscriptionRelationId, subid, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_SUBSCRIPTION,
 					   stmt->subname);
 
-	/* DROP hook for the subscription being removed */
+	/* 正在删除的订阅的 DROP 钩子 */
 	InvokeObjectDropHook(SubscriptionRelationId, subid, 0);
 
 	/*
-	 * Lock the subscription so nobody else can do anything with it (including
-	 * the replication workers).
+	  * 锁定订阅，不让任何人（包括复制工作进程）
+	  * 对其做任何操作。
 	 */
 	LockSharedObject(SubscriptionRelationId, subid, 0, AccessExclusiveLock);
 
-	/* Get subname */
+	/* 获取 subname */
 	datum = SysCacheGetAttrNotNull(SUBSCRIPTIONOID, tup,
 								   Anum_pg_subscription_subname);
 	subname = pstrdup(NameStr(*DatumGetName(datum)));
 
-	/* Get conninfo */
+	/* 获取 conninfo */
 	datum = SysCacheGetAttrNotNull(SUBSCRIPTIONOID, tup,
 								   Anum_pg_subscription_subconninfo);
 	conninfo = TextDatumGetCString(datum);
 
-	/* Get slotname */
+	/* 获取 slotname */
 	datum = SysCacheGetAttr(SUBSCRIPTIONOID, tup,
 							Anum_pg_subscription_subslotname, &isnull);
 	if (!isnull)
@@ -1556,15 +1556,15 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 		slotname = NULL;
 
 	/*
-	 * Since dropping a replication slot is not transactional, the replication
-	 * slot stays dropped even if the transaction rolls back.  So we cannot
-	 * run DROP SUBSCRIPTION inside a transaction block if dropping the
-	 * replication slot.  Also, in this case, we report a message for dropping
-	 * the subscription to the cumulative stats system.
-	 *
-	 * XXX The command name should really be something like "DROP SUBSCRIPTION
-	 * of a subscription that is associated with a replication slot", but we
-	 * don't have the proper facilities for that.
+	  * 由于删除复制槽是非事务性的，即使回滚事务
+	  * 复制槽也保持删除。因此若需删除复制槽，
+	  * 不能在事务块内运行 DROP SUBSCRIPTION。
+	  * 同时在此情况下我们向累积统计系统报告
+	  * 删除订阅的消息。
+	  *
+	  * XXX 命令名实际上应类似 "DROP SUBSCRIPTION of a
+	  * subscription that is associated with a replication slot"，
+	  * 但我们没有适当的设施支持。
 	 */
 	if (slotname)
 		PreventInTransactionBlock(isTopLevel, "DROP SUBSCRIPTION");
@@ -1572,26 +1572,26 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 	ObjectAddressSet(myself, SubscriptionRelationId, subid);
 	EventTriggerSQLDropAddObject(&myself, true, true);
 
-	/* Remove the tuple from catalog. */
+	/* 从目录中删除元组。 */
 	CatalogTupleDelete(rel, &tup->t_self);
 
 	ReleaseSysCache(tup);
 
 	/*
-	 * Stop all the subscription workers immediately.
-	 *
-	 * This is necessary if we are dropping the replication slot, so that the
-	 * slot becomes accessible.
-	 *
-	 * It is also necessary if the subscription is disabled and was disabled
-	 * in the same transaction.  Then the workers haven't seen the disabling
-	 * yet and will still be running, leading to hangs later when we want to
-	 * drop the replication origin.  If the subscription was disabled before
-	 * this transaction, then there shouldn't be any workers left, so this
-	 * won't make a difference.
-	 *
-	 * New workers won't be started because we hold an exclusive lock on the
-	 * subscription till the end of the transaction.
+	  * 立即停止所有订阅工作进程。
+	  *
+	  * 若需删除复制槽则此步骤必要，以使槽变为可用。
+	  *
+	  * 若订阅被禁用且在同事务中禁用，此步骤也必要。
+	  * 因工作进程尚未感知禁用且仍在运行，后续删除复制源
+	  * 时会导致挂起。若订阅在此事务之前就被禁用，
+	  * 则不应有剩余工作进程，此步骤无影响。
+	  *
+	  * 新工作进程不会启动，因我们持有订阅的排他锁
+	  * 直到事务结束。
+	  *
+	  *
+	  *
 	 */
 	LWLockAcquire(LogicalRepWorkerLock, LW_SHARED);
 	subworkers = logicalrep_workers_find(subid, false);
@@ -1605,23 +1605,23 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 	list_free(subworkers);
 
 	/*
-	 * Remove the no-longer-useful entry in the launcher's table of apply
-	 * worker start times.
-	 *
-	 * If this transaction rolls back, the launcher might restart a failed
-	 * apply worker before wal_retrieve_retry_interval milliseconds have
-	 * elapsed, but that's pretty harmless.
+	  * 删除启动器 apply worker 启动时间表中
+	  * 不再有用的条目。
+	  *
+	  * 若此事务回滚，启动器可能在
+	  * wal_retrieve_retry_interval 毫秒之前重启
+	  * 失败的 apply worker，但这无害。
 	 */
 	ApplyLauncherForgetWorkerStartTime(subid);
 
 	/*
-	 * Cleanup of tablesync replication origins.
-	 *
-	 * Any READY-state relations would already have dealt with clean-ups.
-	 *
-	 * Note that the state can't change because we have already stopped both
-	 * the apply and tablesync workers and they can't restart because of
-	 * exclusive lock on the subscription.
+	  * 清理表同步复制源。
+	  *
+	  * 任何 READY 状态的关系已自行完成清理。
+	  *
+	  * 注意状态不会改变，因为我们已停止 apply
+	  * 和 tablesync 工作进程，且它们因订阅的
+	  * 排他锁无法重启。
 	 */
 	rstates = GetSubscriptionRelations(subid, true);
 	foreach(lc, rstates)
@@ -1634,36 +1634,36 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 			continue;
 
 		/*
-		 * Drop the tablesync's origin tracking if exists.
-		 *
-		 * It is possible that the origin is not yet created for tablesync
-		 * worker so passing missing_ok = true. This can happen for the states
-		 * before SUBREL_STATE_FINISHEDCOPY.
+		  * 若存在则删除表同步的源跟踪。
+		  *
+		  * 表同步工作进程的源可能尚未创建，故传递
+		  * missing_ok = true。这在 SUBREL_STATE_FINISHEDCOPY
+		  * 之前的状态可能发生。
 		 */
 		ReplicationOriginNameForLogicalRep(subid, relid, originname,
 										   sizeof(originname));
 		replorigin_drop_by_name(originname, true, false);
 	}
 
-	/* Clean up dependencies */
+	/* 清理依赖 */
 	deleteSharedDependencyRecordsFor(SubscriptionRelationId, subid, 0);
 
-	/* Remove any associated relation synchronization states. */
+	/* 删除关联的关系同步状态。 */
 	RemoveSubscriptionRel(subid, InvalidOid);
 
-	/* Remove the origin tracking if exists. */
+	/* 若存在则删除源跟踪。 */
 	ReplicationOriginNameForLogicalRep(subid, InvalidOid, originname, sizeof(originname));
 	replorigin_drop_by_name(originname, true, false);
 
 	/*
-	 * Tell the cumulative stats system that the subscription is getting
-	 * dropped.
+	  * 告知累积统计系统订阅正在被删除。
+	  *
 	 */
 	pgstat_drop_subscription(subid);
 
 	/*
-	 * If there is no slot associated with the subscription, we can finish
-	 * here.
+	  * 若无关联槽，可在此完成。
+	  *
 	 */
 	if (!slotname && rstates == NIL)
 	{
@@ -1672,15 +1672,15 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 	}
 
 	/*
-	 * Try to acquire the connection necessary for dropping slots.
-	 *
-	 * Note: If the slotname is NONE/NULL then we allow the command to finish
-	 * and users need to manually cleanup the apply and tablesync worker slots
-	 * later.
-	 *
-	 * This has to be at the end because otherwise if there is an error while
-	 * doing the database operations we won't be able to rollback dropped
-	 * slot.
+	  * 尝试获取删除槽所需的连接。
+	  *
+	  * 注意：若 slotname 为 NONE/NULL 则允许命令完成，
+	  * 用户需稍后手动清理 apply 和 tablesync worker 槽。
+	  *
+	  * 必须在最后执行，否则若数据库操作出错，
+	  * 我们将无法回滚已删除的槽。
+	  *
+	  *
 	 */
 	load_file("libpqwalreceiver", false);
 
@@ -1713,16 +1713,16 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 				continue;
 
 			/*
-			 * Drop the tablesync slots associated with removed tables.
-			 *
-			 * For SYNCDONE/READY states, the tablesync slot is known to have
-			 * already been dropped by the tablesync worker.
-			 *
-			 * For other states, there is no certainty, maybe the slot does
-			 * not exist yet. Also, if we fail after removing some of the
-			 * slots, next time, it will again try to drop already dropped
-			 * slots and fail. For these reasons, we allow missing_ok = true
-			 * for the drop.
+			  * 删除与已移除表关联的表同步槽。
+			  *
+			  * 对于 SYNCDONE/READY 状态，已知表同步槽
+			  * 已被表同步工作进程删除。
+			  *
+			  * 对于其他状态无法确定，槽可能尚不存在。
+			  * 此外，若在删除部分槽后失败，下次将再次
+			  * 尝试删除已删除槽并失败。基于这些原因，
+			  * 允许 missing_ok = true 进行删除。
+			  *
 			 */
 			if (rstate->state != SUBREL_STATE_SYNCDONE)
 			{
@@ -1737,8 +1737,8 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 		list_free(rstates);
 
 		/*
-		 * If there is a slot associated with the subscription, then drop the
-		 * replication slot at the publisher.
+		  * 若有关联槽，则在发布者上删除复制槽。
+		  *
 		 */
 		if (slotname)
 			ReplicationSlotDropAtPubNode(wrconn, slotname, false);
@@ -1753,11 +1753,11 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 }
 
 /*
- * Drop the replication slot at the publisher node using the replication
- * connection.
- *
- * missing_ok - if true then only issue a LOG message if the slot doesn't
- * exist.
+  * 使用复制连接删除发布者节点上的复制槽。
+  *
+  * missing_ok - 若为 true 则槽不存在时仅发 LOG 消息。
+  *
+  *
  */
 void
 ReplicationSlotDropAtPubNode(WalReceiverConn *wrconn, char *slotname, bool missing_ok)
@@ -1812,7 +1812,7 @@ ReplicationSlotDropAtPubNode(WalReceiverConn *wrconn, char *slotname, bool missi
 }
 
 /*
- * Internal workhorse for changing a subscription owner
+  * 更改订阅所有者的内部核心函数
  */
 static void
 AlterSubscriptionOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
@@ -1830,8 +1830,8 @@ AlterSubscriptionOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 					   NameStr(form->subname));
 
 	/*
-	 * Don't allow non-superuser modification of a subscription with
-	 * password_required=false.
+	  * 不允许非超级用户修改
+	  * password_required=false 的订阅。
 	 */
 	if (!form->subpasswordrequired && !superuser())
 		ereport(ERROR,
@@ -1839,15 +1839,15 @@ AlterSubscriptionOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 				 errmsg("password_required=false is superuser-only"),
 				 errhint("Subscriptions with the password_required option set to false may only be created or modified by the superuser.")));
 
-	/* Must be able to become new owner */
+	/* 必须能成为新所有者 */
 	check_can_set_role(GetUserId(), newOwnerId);
 
 	/*
-	 * current owner must have CREATE on database
-	 *
-	 * This is consistent with how ALTER SCHEMA ... OWNER TO works, but some
-	 * other object types behave differently (e.g. you can't give a table to a
-	 * user who lacks CREATE privileges on a schema).
+	  * 当前所有者必须对数据库有 CREATE 权限
+	  *
+	  * 这与 ALTER SCHEMA ... OWNER TO 的行为一致，
+	  * 但某些其他对象类型行为不同（例如不能将表
+	  * 给缺少模式 CREATE 权限的用户）。
 	 */
 	aclresult = object_aclcheck(DatabaseRelationId, MyDatabaseId,
 								GetUserId(), ACL_CREATE);
@@ -1858,7 +1858,7 @@ AlterSubscriptionOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 	form->subowner = newOwnerId;
 	CatalogTupleUpdate(rel, &tup->t_self, tup);
 
-	/* Update owner dependency reference */
+	/* 更新所有者依赖引用 */
 	changeDependencyOnOwner(SubscriptionRelationId,
 							form->oid,
 							newOwnerId);
@@ -1866,13 +1866,13 @@ AlterSubscriptionOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 	InvokeObjectPostAlterHook(SubscriptionRelationId,
 							  form->oid, 0);
 
-	/* Wake up related background processes to handle this change quickly. */
+	/* 唤醒相关后台进程以快速处理此变更。 */
 	ApplyLauncherWakeupAtCommit();
 	LogicalRepWorkersWakeupAtCommit(form->oid);
 }
 
 /*
- * Change subscription owner -- by name
+  * 更改订阅所有者——按名称
  */
 ObjectAddress
 AlterSubscriptionOwner(const char *name, Oid newOwnerId)
@@ -1908,7 +1908,7 @@ AlterSubscriptionOwner(const char *name, Oid newOwnerId)
 }
 
 /*
- * Change subscription owner -- by OID
+  * 更改订阅所有者——按 OID
  */
 void
 AlterSubscriptionOwner_oid(Oid subid, Oid newOwnerId)
@@ -1933,19 +1933,19 @@ AlterSubscriptionOwner_oid(Oid subid, Oid newOwnerId)
 }
 
 /*
- * Check and log a warning if the publisher has subscribed to the same table,
- * its partition ancestors (if it's a partition), or its partition children (if
- * it's a partitioned table), from some other publishers. This check is
- * required only if "copy_data = true" and "origin = none" for CREATE
- * SUBSCRIPTION and ALTER SUBSCRIPTION ... REFRESH statements to notify the
- * user that data having origin might have been copied.
- *
- * This check need not be performed on the tables that are already added
- * because incremental sync for those tables will happen through WAL and the
- * origin of the data can be identified from the WAL records.
- *
- * subrel_local_oids contains the list of relation oids that are already
- * present on the subscriber.
+  * 若发布者从其他发布者订阅了同一表、其分区祖先
+  * （若为分区）或其分区子表（若为分区表），则检查并
+  * 记录警告。此检查仅在 CREATE SUBSCRIPTION 和
+  * ALTER SUBSCRIPTION ... REFRESH 语句中
+  * "copy_data = true" 且 "origin = none" 时需要，
+  * 以通知用户可能复制了带来源标识的数据。
+  *
+  * 对已添加的表不需执行此检查，
+  * 因为那些表将通过 WAL 增量同步，
+  * 数据来源可从 WAL 记录中识别。
+  *
+  * subrel_local_oids 包含已在订阅者上的
+  * 关系 OID 列表。
  */
 static void
 check_publications_origin(WalReceiverConn *wrconn, List *publications,
@@ -1977,9 +1977,9 @@ check_publications_origin(WalReceiverConn *wrconn, List *publications,
 	appendStringInfoString(&cmd, ")\n");
 
 	/*
-	 * In case of ALTER SUBSCRIPTION ... REFRESH, subrel_local_oids contains
-	 * the list of relation oids that are already present on the subscriber.
-	 * This check should be skipped for these tables.
+	  * 对于 ALTER SUBSCRIPTION ... REFRESH，
+	  * subrel_local_oids 包含已在订阅者上的
+	  * 关系 OID 列表。应对这些表跳过此检查。
 	 */
 	for (i = 0; i < subrel_count; i++)
 	{
@@ -2000,7 +2000,7 @@ check_publications_origin(WalReceiverConn *wrconn, List *publications,
 				 errmsg("could not receive list of replicated tables from the publisher: %s",
 						res->err)));
 
-	/* Process tables. */
+	/* 处理表。 */
 	slot = MakeSingleTupleTableSlot(res->tupledesc, &TTSOpsMinimalTuple);
 	while (tuplestore_gettupleslot(res->tuplestore, true, false, slot))
 	{
@@ -2015,15 +2015,15 @@ check_publications_origin(WalReceiverConn *wrconn, List *publications,
 	}
 
 	/*
-	 * Log a warning if the publisher has subscribed to the same table from
-	 * some other publisher. We cannot know the origin of data during the
-	 * initial sync. Data origins can be found only from the WAL by looking at
-	 * the origin id.
-	 *
-	 * XXX: For simplicity, we don't check whether the table has any data or
-	 * not. If the table doesn't have any data then we don't need to
-	 * distinguish between data having origin and data not having origin so we
-	 * can avoid logging a warning in that case.
+	  * 若发布者从其他发布者订阅了同一表，记录警告。
+	  * 初始同步期间无法知晓数据来源。数据来源
+	  * 只能从 WAL 中通过源 ID 识别。
+	  *
+	  * XXX：为简单起见，不检查表是否有数据。
+	  * 若表无数据则无需区分有来源和无来源数据，
+	  * 此时可避免记录警告。
+	  *
+	  *
 	 */
 	if (publist)
 	{
@@ -2047,13 +2047,13 @@ check_publications_origin(WalReceiverConn *wrconn, List *publications,
 }
 
 /*
- * Get the list of tables which belong to specified publications on the
- * publisher connection.
- *
- * Note that we don't support the case where the column list is different for
- * the same table in different publications to avoid sending unwanted column
- * information for some of the rows. This can happen when both the column
- * list and row filter are specified for different publications.
+  * 获取属于发布者连接上指定发布的表列表。
+  *
+  * 注意不支持同一表在不同发布中有不同列列表的情况，
+  * 以避免为某些行发送不需要的列信息。
+  * 当不同发布同时指定列列表和行过滤器时可能发生。
+  *
+  *
  */
 static List *
 fetch_table_list(WalReceiverConn *wrconn, List *publications)
@@ -2068,7 +2068,7 @@ fetch_table_list(WalReceiverConn *wrconn, List *publications)
 
 	initStringInfo(&cmd);
 
-	/* Get the list of tables from the publisher. */
+	/* 从发布者获取表列表。 */
 	if (server_version >= 160000)
 	{
 		StringInfoData pub_names;
@@ -2078,17 +2078,17 @@ fetch_table_list(WalReceiverConn *wrconn, List *publications)
 		get_publications_str(publications, &pub_names, true);
 
 		/*
-		 * From version 16, we allowed passing multiple publications to the
-		 * function pg_get_publication_tables. This helped to filter out the
-		 * partition table whose ancestor is also published in this
-		 * publication array.
-		 *
-		 * Join pg_get_publication_tables with pg_publication to exclude
-		 * non-existing publications.
-		 *
-		 * Note that attrs are always stored in sorted order so we don't need
-		 * to worry if different publications have specified them in a
-		 * different order. See publication_translate_columns.
+		  * 从版本 16 开始，允许向 pg_get_publication_tables
+		  * 函数传递多个发布。这有助于过滤掉其祖先也在此
+		  * 发布数组中发布的分区表。
+		  *
+		  * 将 pg_get_publication_tables 与 pg_publication 连接以
+		  * 排除不存在的发布。
+		  *
+		  * 注意 attrs 始终以排序顺序存储，因此无需担心
+		  * 不同发布以不同顺序指定它们。参见
+		  * publication_translate_columns。
+		  *
 		 */
 		appendStringInfo(&cmd, "SELECT DISTINCT n.nspname, c.relname, gpt.attrs\n"
 						 "       FROM pg_class c\n"
@@ -2125,7 +2125,7 @@ fetch_table_list(WalReceiverConn *wrconn, List *publications)
 				 errmsg("could not receive list of replicated tables from the publisher: %s",
 						res->err)));
 
-	/* Process tables. */
+	/* 处理表。 */
 	slot = MakeSingleTupleTableSlot(res->tupledesc, &TTSOpsMinimalTuple);
 	while (tuplestore_gettupleslot(res->tuplestore, true, false, slot))
 	{
@@ -2159,9 +2159,9 @@ fetch_table_list(WalReceiverConn *wrconn, List *publications)
 }
 
 /*
- * This is to report the connection failure while dropping replication slots.
- * Here, we report the WARNING for all tablesync slots so that user can drop
- * them manually, if required.
+  * 报告删除复制槽时连接失败的错误。
+  * 这里对所有表同步槽发出 WARNING，以便用户
+  * 可在需要时手动删除它们。
  */
 static void
 ReportSlotConnectionError(List *rstates, Oid subid, char *slotname, char *err)
@@ -2178,8 +2178,8 @@ ReportSlotConnectionError(List *rstates, Oid subid, char *slotname, char *err)
 			continue;
 
 		/*
-		 * Caller needs to ensure that relstate doesn't change underneath us.
-		 * See DropSubscription where we get the relstates.
+		  * 调用者需确保 relstate 不在我们之下更改。
+		  * 参见 DropSubscription 中我们获取 relstates 的方式。
 		 */
 		if (rstate->state != SUBREL_STATE_SYNCDONE)
 		{
@@ -2203,9 +2203,9 @@ ReportSlotConnectionError(List *rstates, Oid subid, char *slotname, char *err)
 }
 
 /*
- * Check for duplicates in the given list of publications and error out if
- * found one.  Add publications to datums as text datums, if datums is not
- * NULL.
+  * 检查给定发布列表中是否有重复项，如有则报错。
+  * 若 datums 非 NULL，将发布添加为 text 数据。
+  *
  */
 static void
 check_duplicates_in_publist(List *publist, Datum *datums)
@@ -2238,14 +2238,14 @@ check_duplicates_in_publist(List *publist, Datum *datums)
 }
 
 /*
- * Merge current subscription's publications and user-specified publications
- * from ADD/DROP PUBLICATIONS.
- *
- * If addpub is true, we will add the list of publications into oldpublist.
- * Otherwise, we will delete the list of publications from oldpublist.  The
- * returned list is a copy, oldpublist itself is not changed.
- *
- * subname is the subscription name, for error messages.
+  * 合并当前订阅的发布和用户从 ADD/DROP PUBLICATIONS
+  * 指定的发布。
+  *
+  * 若 addpub 为 true，将发布列表添加到 oldpublist。
+  * 否则从 oldpublist 删除发布列表。
+  * 返回的列表是副本，oldpublist 本身不变。
+  *
+  * subname 是订阅名称，用于错误消息。
  */
 static List *
 merge_publications(List *oldpublist, List *newpublist, bool addpub, const char *subname)
@@ -2291,8 +2291,8 @@ merge_publications(List *oldpublist, List *newpublist, bool addpub, const char *
 	}
 
 	/*
-	 * XXX Probably no strong reason for this, but for now it's to make ALTER
-	 * SUBSCRIPTION ... DROP PUBLICATION consistent with SET PUBLICATION.
+	  * XXX 可能没有充分理由，但目前是为了让 ALTER SUBSCRIPTION
+	  * ... DROP PUBLICATION 与 SET PUBLICATION 保持一致。
 	 */
 	if (!oldpublist)
 		ereport(ERROR,
@@ -2303,20 +2303,20 @@ merge_publications(List *oldpublist, List *newpublist, bool addpub, const char *
 }
 
 /*
- * Extract the streaming mode value from a DefElem.  This is like
- * defGetBoolean() but also accepts the special value of "parallel".
+  * 从 DefElem 提取流式模式值。类似 defGetBoolean()，
+  * 但也接受特殊值 "parallel"。
  */
 char
 defGetStreamingMode(DefElem *def)
 {
 	/*
-	 * If no parameter value given, assume "true" is meant.
+	  * 若未给参数值，假定意为 "true"。
 	 */
 	if (!def->arg)
 		return LOGICALREP_STREAM_ON;
 
 	/*
-	 * Allow 0, 1, "false", "true", "off", "on" or "parallel".
+	  * 允许 0, 1, "false", "true", "off", "on" 或 "parallel"。
 	 */
 	switch (nodeTag(def->arg))
 	{
@@ -2337,8 +2337,8 @@ defGetStreamingMode(DefElem *def)
 				char	   *sval = defGetString(def);
 
 				/*
-				 * The set of strings accepted here should match up with the
-				 * grammar's opt_boolean_or_string production.
+				  * 此处接受的字符串集应与语法中的
+				  * opt_boolean_or_string 产生式匹配。
 				 */
 				if (pg_strcasecmp(sval, "false") == 0 ||
 					pg_strcasecmp(sval, "off") == 0)

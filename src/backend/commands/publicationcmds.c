@@ -56,16 +56,16 @@
 
 
 /*
- * Information used to validate the columns in the row filter expression. See
- * contain_invalid_rfcolumn_walker for details.
+  * 用于验证行过滤器表达式中列的信息。
+  * 详见 contain_invalid_rfcolumn_walker。
  */
 typedef struct rf_context
 {
-	Bitmapset  *bms_replident;	/* bitset of replica identity columns */
-	bool		pubviaroot;		/* true if we are validating the parent
-								 * relation's row filter */
-	Oid			relid;			/* relid of the relation */
-	Oid			parentid;		/* relid of the parent relation */
+	Bitmapset  *bms_replident;	/* 副本标识列的位集 */
+	bool		pubviaroot;		/* 验证父关系的行过滤器
+								  * 则为 true */
+	Oid			relid;			/* 关系的 relid */
+	Oid			parentid;		/* 父关系的 relid */
 } rf_context;
 
 static List *OpenTableList(List *tables);
@@ -92,14 +92,14 @@ parse_publication_options(ParseState *pstate,
 	*publish_given = false;
 	*publish_via_partition_root_given = false;
 
-	/* defaults */
+	/* 默认值 */
 	pubactions->pubinsert = true;
 	pubactions->pubupdate = true;
 	pubactions->pubdelete = true;
 	pubactions->pubtruncate = true;
 	*publish_via_partition_root = false;
 
-	/* Parse options */
+	/* 解析选项 */
 	foreach(lc, options)
 	{
 		DefElem    *defel = (DefElem *) lfirst(lc);
@@ -114,8 +114,8 @@ parse_publication_options(ParseState *pstate,
 				errorConflictingDefElem(defel, pstate);
 
 			/*
-			 * If publish option was given only the explicitly listed actions
-			 * should be published.
+			  * 若给出 publish 选项，仅发布显式列出的操作。
+			  *
 			 */
 			pubactions->pubinsert = false;
 			pubactions->pubupdate = false;
@@ -166,8 +166,8 @@ parse_publication_options(ParseState *pstate,
 }
 
 /*
- * Convert the PublicationObjSpecType list into schema oid list and
- * PublicationTable list.
+  * 将 PublicationObjSpecType 列表转换为模式 OID 列表和
+  * PublicationTable 列表。
  */
 static void
 ObjectsInPublicationToOids(List *pubobjspec_list, ParseState *pstate,
@@ -219,8 +219,8 @@ ObjectsInPublicationToOids(List *pubobjspec_list, ParseState *pstate,
 }
 
 /*
- * Returns true if any of the columns used in the row filter WHERE expression is
- * not part of REPLICA IDENTITY, false otherwise.
+  * 若行过滤器 WHERE 表达式中使用的任何列不属于
+  * REPLICA IDENTITY 则返回 true，否则 false。
  */
 static bool
 contain_invalid_rfcolumn_walker(Node *node, rf_context *context)
@@ -234,10 +234,10 @@ contain_invalid_rfcolumn_walker(Node *node, rf_context *context)
 		AttrNumber	attnum = var->varattno;
 
 		/*
-		 * If pubviaroot is true, we are validating the row filter of the
-		 * parent table, but the bitmap contains the replica identity
-		 * information of the child table. So, get the column number of the
-		 * child table as parent and child column order could be different.
+		  * 若 pubviaroot 为 true，在验证父表的行过滤器，
+		  * 但位图含子表的副本标识信息。
+		  * 需获取子表列号，
+		  * 因父表和子表列顺序可能不同。
 		 */
 		if (context->pubviaroot)
 		{
@@ -256,10 +256,10 @@ contain_invalid_rfcolumn_walker(Node *node, rf_context *context)
 }
 
 /*
- * Check if all columns referenced in the filter expression are part of the
- * REPLICA IDENTITY index or not.
- *
- * Returns true if any invalid column is found.
+  * 检查过滤器表达式引用的所有列是否在
+  * REPLICA IDENTITY 索引中。
+  *
+  * 若发现无效列则返回 true。
  */
 bool
 pub_rf_contains_invalid_column(Oid pubid, Relation relation, List *ancestors,
@@ -273,19 +273,19 @@ pub_rf_contains_invalid_column(Oid pubid, Relation relation, List *ancestors,
 	bool		rfisnull;
 
 	/*
-	 * FULL means all columns are in the REPLICA IDENTITY, so all columns are
-	 * allowed in the row filter and we can skip the validation.
+	  * FULL 表示所有列均在 REPLICA IDENTITY 中，因此所有列
+	  * 在行过滤器中均允许，可跳过验证。
 	 */
 	if (relation->rd_rel->relreplident == REPLICA_IDENTITY_FULL)
 		return false;
 
 	/*
-	 * For a partition, if pubviaroot is true, find the topmost ancestor that
-	 * is published via this publication as we need to use its row filter
-	 * expression to filter the partition's changes.
-	 *
-	 * Note that even though the row filter used is for an ancestor, the
-	 * REPLICA IDENTITY used will be for the actual child table.
+	  * 对于分区，若 pubviaroot 为 true，找到通过此发布
+	  * 发布的最顶层祖先，因需用其行过滤器表达式
+	  * 过滤分区更改。
+	  *
+	  * 注意即使用祖先的行过滤器，
+	  * REPLICA IDENTITY 使用的是实际子表的。
 	 */
 	if (pubviaroot && relation->rd_rel->relispartition)
 	{
@@ -332,10 +332,10 @@ pub_rf_contains_invalid_column(Oid pubid, Relation relation, List *ancestors,
 }
 
 /*
- * Check if all columns referenced in the REPLICA IDENTITY are covered by
- * the column list.
- *
- * Returns true if any replica identity column is not covered by column list.
+  * 检查 REPLICA IDENTITY 中引用的所有列是否被
+  * 列列表覆盖。
+  *
+  * 若有副本标识列未被列列表覆盖则返回 true。
  */
 bool
 pub_collist_contains_invalid_column(Oid pubid, Relation relation, List *ancestors,
@@ -349,12 +349,12 @@ pub_collist_contains_invalid_column(Oid pubid, Relation relation, List *ancestor
 	bool		isnull;
 
 	/*
-	 * For a partition, if pubviaroot is true, find the topmost ancestor that
-	 * is published via this publication as we need to use its column list for
-	 * the changes.
-	 *
-	 * Note that even though the column list used is for an ancestor, the
-	 * REPLICA IDENTITY used will be for the actual child table.
+	  * 对于分区，若 pubviaroot 为 true，找到通过此发布
+	  * 发布的最顶层祖先，因需用其列列表处理更改。
+	  *
+	  * 注意即使用祖先的列列表，
+	  * REPLICA IDENTITY 使用的是实际子表的。
+	  *
 	 */
 	if (pubviaroot && relation->rd_rel->relispartition)
 	{
@@ -393,11 +393,11 @@ pub_collist_contains_invalid_column(Oid pubid, Relation relation, List *ancestor
 											 INDEX_ATTR_BITMAP_IDENTITY_KEY);
 
 		/*
-		 * Attnums in the bitmap returned by RelationGetIndexAttrBitmap are
-		 * offset (to handle system columns the usual way), while column list
-		 * does not use offset, so we can't do bms_is_subset(). Instead, we
-		 * have to loop over the idattrs and check all of them are in the
-		 * list.
+		  * RelationGetIndexAttrBitmap 返回的位图 Attnum 是偏移的
+		  * （以通常方式处理系统列），而列列表不使用偏移，
+		  * 因此不能做 bms_is_subset()。
+		  * 必须遍历 idattrs 检查所有是否在列表中。
+		  *
 		 */
 		x = -1;
 		while ((x = bms_next_member(idattrs, x)) >= 0)
@@ -405,11 +405,11 @@ pub_collist_contains_invalid_column(Oid pubid, Relation relation, List *ancestor
 			AttrNumber	attnum = (x + FirstLowInvalidHeapAttributeNumber);
 
 			/*
-			 * If pubviaroot is true, we are validating the column list of the
-			 * parent table, but the bitmap contains the replica identity
-			 * information of the child table. The parent/child attnums may
-			 * not match, so translate them to the parent - get the attname
-			 * from the child, and look it up in the parent.
+			  * 若 pubviaroot 为 true，在验证父表的列列表，
+			  * 但位图含子表的副本标识信息。
+			  * 父/子 attnum 可能不匹配，需转换到父表——
+			  * 从子表获取 attname，在父表查找。
+			  *
 			 */
 			if (pubviaroot)
 			{
@@ -417,8 +417,8 @@ pub_collist_contains_invalid_column(Oid pubid, Relation relation, List *ancestor
 				char	   *colname = get_attname(relid, attnum, false);
 
 				/*
-				 * Determine the attnum for the attribute name in parent (we
-				 * are using the column list defined on the parent).
+				  * 确定属性名在父表中的 attnum（使用
+				  * 父表上定义的列列表）。
 				 */
 				attnum = get_attnum(publish_as_relid, colname);
 			}
@@ -449,42 +449,42 @@ contain_mutable_or_user_functions_checker(Oid func_id, void *context)
 }
 
 /*
- * The row filter walker checks if the row filter expression is a "simple
- * expression".
- *
- * It allows only simple or compound expressions such as:
- * - (Var Op Const)
- * - (Var Op Var)
- * - (Var Op Const) AND/OR (Var Op Const)
- * - etc
- * (where Var is a column of the table this filter belongs to)
- *
- * The simple expression has the following restrictions:
- * - User-defined operators are not allowed;
- * - User-defined functions are not allowed;
- * - User-defined types are not allowed;
- * - User-defined collations are not allowed;
- * - Non-immutable built-in functions are not allowed;
- * - System columns are not allowed.
- *
- * NOTES
- *
- * We don't allow user-defined functions/operators/types/collations because
- * (a) if a user drops a user-defined object used in a row filter expression or
- * if there is any other error while using it, the logical decoding
- * infrastructure won't be able to recover from such an error even if the
- * object is recreated again because a historic snapshot is used to evaluate
- * the row filter;
- * (b) a user-defined function can be used to access tables that could have
- * unpleasant results because a historic snapshot is used. That's why only
- * immutable built-in functions are allowed in row filter expressions.
- *
- * We don't allow system columns because currently, we don't have that
- * information in the tuple passed to downstream. Also, as we don't replicate
- * those to subscribers, there doesn't seem to be a need for a filter on those
- * columns.
- *
- * We can allow other node types after more analysis and testing.
+  * 行过滤器遍历器检查行过滤器表达式是否为"简单表达式"。
+  *
+  * 仅允许简单或复合表达式，如：
+  * - (Var Op Const)
+  * - (Var Op Var)
+  * - (Var Op Const) AND/OR (Var Op Const)
+  * - 等等
+  * （其中 Var 是此过滤器所属表的列）
+  *
+  * 简单表达式有以下限制：
+  * - 不允许用户自定义运算符；
+  * - 不允许用户自定义函数；
+  * - 不允许用户自定义类型；
+  * - 不允许用户自定义排序规则；
+  * - 不允许非不可变的內建函数；
+  * - 不允许系统列。
+  *
+  * 注意事项
+  * ---------
+  *
+  * 不允许用户自定义函数/运算符/类型/排序规则，原因如下：
+  * (a) 若用户删除行过滤器表达式中使用的用户自定义对象，
+  * 或使用时发生其他错误，逻辑解码基础设施将无法
+  * 从此错误中恢复，即使对象被重新创建，
+  * 因历史快照用于评估行过滤器；
+  * (b) 用户自定义函数可能访问表，可能产生
+  * 不愉快的结果，因使用历史快照。故仅允许
+  * 不可变的內建函数在行过滤器表达式中使用。
+  *
+  * 不允许系统列，因目前未在传递给下游的元组中
+  * 包含这些信息。且由于不将这些列复制到订阅者，
+  * 对这些列的过滤器似无需求。
+  *
+  * 经过更多分析和测试后可允许其他节点类型。
+  *
+  *
  */
 static bool
 check_simple_rowfilter_expr_walker(Node *node, ParseState *pstate)
@@ -514,9 +514,9 @@ check_simple_rowfilter_expr_walker(Node *node, ParseState *pstate)
 				errdetail_msg = _("User-defined operators are not allowed.");
 
 			/*
-			 * We don't need to check the hashfuncid and negfuncid of
-			 * ScalarArrayOpExpr as those functions are only built for a
-			 * subquery.
+			  * 不需检查 ScalarArrayOpExpr 的 hashfuncid 和
+			  * negfuncid，因这些函数仅为子查询构建。
+			  *
 			 */
 			break;
 		case T_RowCompareExpr:
@@ -557,9 +557,9 @@ check_simple_rowfilter_expr_walker(Node *node, ParseState *pstate)
 	}
 
 	/*
-	 * For all the supported nodes, if we haven't already found a problem,
-	 * check the types, functions, and collations used in it.  We check List
-	 * by walking through each element.
+	  * 对所有支持的节点，若尚未发现问题，
+	  * 检查其中使用的类型、函数和排序规则。
+	  * 通过遍历每个元素检查 List。
 	 */
 	if (!errdetail_msg && !IsA(node, List))
 	{
@@ -574,8 +574,8 @@ check_simple_rowfilter_expr_walker(Node *node, ParseState *pstate)
 	}
 
 	/*
-	 * If we found a problem in this node, throw error now. Otherwise keep
-	 * going.
+	  * 若此节点发现任何问题，立即报错。否则继续。
+	  *
 	 */
 	if (errdetail_msg)
 		ereport(ERROR,
@@ -589,9 +589,9 @@ check_simple_rowfilter_expr_walker(Node *node, ParseState *pstate)
 }
 
 /*
- * Check if the row filter expression is a "simple expression".
- *
- * See check_simple_rowfilter_expr_walker for details.
+  * 检查行过滤器表达式是否为"简单表达式"。
+  *
+  * 详见 check_simple_rowfilter_expr_walker。
  */
 static bool
 check_simple_rowfilter_expr(Node *node, ParseState *pstate)
@@ -600,13 +600,13 @@ check_simple_rowfilter_expr(Node *node, ParseState *pstate)
 }
 
 /*
- * Transform the publication WHERE expression for all the relations in the list,
- * ensuring it is coerced to boolean and necessary collation information is
- * added if required, and add a new nsitem/RTE for the associated relation to
- * the ParseState's namespace list.
- *
- * Also check the publication row filter expression and throw an error if
- * anything not permitted or unexpected is encountered.
+  * 转换列表中所有关系的发布 WHERE 表达式，
+  * 确保强制转为布尔，按需添加排序规则信息，
+  * 并为关联关系在 ParseState 命名空间列表中添加
+  * 新的 nsitem/RTE。
+  *
+  * 同时检查发布行过滤器表达式，遇到不允许或意料之外的
+  * 内容则报错。
  */
 static void
 TransformPubWhereClauses(List *tables, const char *queryString,
@@ -625,9 +625,9 @@ TransformPubWhereClauses(List *tables, const char *queryString,
 			continue;
 
 		/*
-		 * If the publication doesn't publish changes via the root partitioned
-		 * table, the partition's row filter will be used. So disallow using
-		 * WHERE clause on partitioned table in this case.
+		  * 若发布不通过根分区表发布更改，
+		  * 将用分区的行过滤器。故不允许
+		  * 对分区表使用 WHERE 子句。
 		 */
 		if (!pubviaroot &&
 			pri->relation->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
@@ -639,8 +639,8 @@ TransformPubWhereClauses(List *tables, const char *queryString,
 							   "publish_via_partition_root")));
 
 		/*
-		 * A fresh pstate is required so that we only have "this" table in its
-		 * rangetable
+		  * 需新 pstate，使其范围表中仅有"此"表
+		  *
 		 */
 		pstate = make_parsestate(NULL);
 		pstate->p_sourcetext = queryString;
@@ -658,8 +658,8 @@ TransformPubWhereClauses(List *tables, const char *queryString,
 		assign_expr_collations(pstate, whereclause);
 
 		/*
-		 * We allow only simple expressions in row filters. See
-		 * check_simple_rowfilter_expr_walker.
+		  * 行过滤器中只允许简单表达式。参见
+		  * check_simple_rowfilter_expr_walker。
 		 */
 		check_simple_rowfilter_expr(whereclause, pstate);
 
@@ -671,14 +671,14 @@ TransformPubWhereClauses(List *tables, const char *queryString,
 
 
 /*
- * Given a list of tables that are going to be added to a publication,
- * verify that they fulfill the necessary preconditions, namely: no tables
- * have a column list if any schema is published; and partitioned tables do
- * not have column lists if publish_via_partition_root is not set.
- *
- * 'publish_schema' indicates that the publication contains any TABLES IN
- * SCHEMA elements (newly added in this command, or preexisting).
- * 'pubviaroot' is the value of publish_via_partition_root.
+  * 给定要添加到发布的表列表，
+  * 验证它们满足必要前置条件，即：若有模式被发布则表
+  * 不能有列列表；若 publish_via_partition_root 未设置则
+  * 分区表不能有列列表。
+  *
+  * 'publish_schema' 指示发布是否包含 TABLES IN SCHEMA 元素
+  * （新增或已有）。'pubviaroot' 为 publish_via_partition_root
+  * 的值。
  */
 static void
 CheckPubRelationColumnList(char *pubname, List *tables,
@@ -694,14 +694,14 @@ CheckPubRelationColumnList(char *pubname, List *tables,
 			continue;
 
 		/*
-		 * Disallow specifying column list if any schema is in the
-		 * publication.
-		 *
-		 * XXX We could instead just forbid the case when the publication
-		 * tries to publish the table with a column list and a schema for that
-		 * table. However, if we do that then we need a restriction during
-		 * ALTER TABLE ... SET SCHEMA to prevent such a case which doesn't
-		 * seem to be a good idea.
+		  * 若发布中有任何模式，禁止指定列列表。
+		  *
+		  * XXX 可改为仅禁止发布包含有列列表的表及
+		  * 对应模式的情况。但若如此需在
+		  * ALTER TABLE ... SET SCHEMA 时加限制，似非好主意。
+		  *
+		  *
+		  *
 		 */
 		if (publish_schema)
 			ereport(ERROR,
@@ -712,9 +712,9 @@ CheckPubRelationColumnList(char *pubname, List *tables,
 					errdetail("Column lists cannot be specified in publications containing FOR TABLES IN SCHEMA elements."));
 
 		/*
-		 * If the publication doesn't publish changes via the root partitioned
-		 * table, the partition's column list will be used. So disallow using
-		 * a column list on the partitioned table in this case.
+		  * 若发布不通过根分区表发布更改，
+		  * 将用分区的列列表。故不允许
+		  * 对分区表使用列列表。
 		 */
 		if (!pubviaroot &&
 			pri->relation->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
@@ -729,7 +729,7 @@ CheckPubRelationColumnList(char *pubname, List *tables,
 }
 
 /*
- * Create new publication.
+  * 创建新发布。
  */
 ObjectAddress
 CreatePublication(ParseState *pstate, CreatePublicationStmt *stmt)
@@ -748,13 +748,13 @@ CreatePublication(ParseState *pstate, CreatePublicationStmt *stmt)
 	List	   *relations = NIL;
 	List	   *schemaidlist = NIL;
 
-	/* must have CREATE privilege on database */
+	/* 必须对数据库有 CREATE 权限 */
 	aclresult = object_aclcheck(DatabaseRelationId, MyDatabaseId, GetUserId(), ACL_CREATE);
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error(aclresult, OBJECT_DATABASE,
 					   get_database_name(MyDatabaseId));
 
-	/* FOR ALL TABLES requires superuser */
+	/* FOR ALL TABLES 需超级用户 */
 	if (stmt->for_all_tables && !superuser())
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -762,7 +762,7 @@ CreatePublication(ParseState *pstate, CreatePublicationStmt *stmt)
 
 	rel = table_open(PublicationRelationId, RowExclusiveLock);
 
-	/* Check if name is used */
+	/* 检查名称是否已使用 */
 	puboid = GetSysCacheOid1(PUBLICATIONNAME, Anum_pg_publication_oid,
 							 CStringGetDatum(stmt->pubname));
 	if (OidIsValid(puboid))
@@ -771,7 +771,7 @@ CreatePublication(ParseState *pstate, CreatePublicationStmt *stmt)
 				 errmsg("publication \"%s\" already exists",
 						stmt->pubname)));
 
-	/* Form a tuple. */
+	/* 构造元组。 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
 
@@ -803,7 +803,7 @@ CreatePublication(ParseState *pstate, CreatePublicationStmt *stmt)
 
 	tup = heap_form_tuple(RelationGetDescr(rel), values, nulls);
 
-	/* Insert tuple into catalog. */
+	/* 将元组插入目录。 */
 	CatalogTupleInsert(rel, tup);
 	heap_freetuple(tup);
 
@@ -811,10 +811,10 @@ CreatePublication(ParseState *pstate, CreatePublicationStmt *stmt)
 
 	ObjectAddressSet(myself, PublicationRelationId, puboid);
 
-	/* Make the changes visible. */
+	/* 使更改可见。 */
 	CommandCounterIncrement();
 
-	/* Associate objects with the publication. */
+	/* 将对象与发布关联。 */
 	if (stmt->for_all_tables)
 	{
 		/* Invalidate relcache so that publication info is rebuilt. */
@@ -850,8 +850,8 @@ CreatePublication(ParseState *pstate, CreatePublicationStmt *stmt)
 		if (schemaidlist != NIL)
 		{
 			/*
-			 * Schema lock is held until the publication is created to prevent
-			 * concurrent schema deletion.
+			  * 模式锁保持至发布创建完，防止并发模式删除。
+			  *
 			 */
 			LockSchemaList(schemaidlist);
 			PublicationAddSchemas(puboid, schemaidlist, true, NULL);
@@ -872,7 +872,7 @@ CreatePublication(ParseState *pstate, CreatePublicationStmt *stmt)
 }
 
 /*
- * Change options of a publication.
+  * 更改发布选项。
  */
 static void
 AlterPublicationOptions(ParseState *pstate, AlterPublicationStmt *stmt,
@@ -899,19 +899,19 @@ AlterPublicationOptions(ParseState *pstate, AlterPublicationStmt *stmt,
 	pubform = (Form_pg_publication) GETSTRUCT(tup);
 
 	/*
-	 * If the publication doesn't publish changes via the root partitioned
-	 * table, the partition's row filter and column list will be used. So
-	 * disallow using WHERE clause and column lists on partitioned table in
-	 * this case.
+	  * 若发布不通过根分区表发布更改，
+	  * 将用分区的行过滤器和列列表。故不允许
+	  * 对分区表使用 WHERE 子句和列列表。
+	  *
 	 */
 	if (!pubform->puballtables && publish_via_partition_root_given &&
 		!publish_via_partition_root)
 	{
 		/*
-		 * Lock the publication so nobody else can do anything with it. This
-		 * prevents concurrent alter to add partitioned table(s) with WHERE
-		 * clause(s) and/or column lists which we don't allow when not
-		 * publishing via root.
+		  * 锁定发布以防他人操作。防止并发 alter 添加
+		  * 带 WHERE 子句和/或列列表的分区表，
+		  * 不通过根发布时不允许。
+		  *
 		 */
 		LockDatabaseObject(PublicationRelationId, pubform->oid, 0,
 						   AccessShareLock);
@@ -929,8 +929,8 @@ AlterPublicationOptions(ParseState *pstate, AlterPublicationStmt *stmt,
 			bool		has_collist;
 
 			/*
-			 * Beware: we don't have lock on the relations, so cope silently
-			 * with the cache lookups returning NULL.
+			  * 注意：未对关系加锁，故对缓存查找返回 NULL
+			  * 静默处理。
 			 */
 
 			rftuple = SearchSysCache2(PUBLICATIONRELMAP,
@@ -978,7 +978,7 @@ AlterPublicationOptions(ParseState *pstate, AlterPublicationStmt *stmt,
 		}
 	}
 
-	/* Everything ok, form a new tuple. */
+	/* 一切正常，构造新元组。 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
 	memset(replaces, false, sizeof(replaces));
@@ -1007,14 +1007,14 @@ AlterPublicationOptions(ParseState *pstate, AlterPublicationStmt *stmt,
 	tup = heap_modify_tuple(tup, RelationGetDescr(rel), values, nulls,
 							replaces);
 
-	/* Update the catalog. */
+	/* 更新目录。 */
 	CatalogTupleUpdate(rel, &tup->t_self, tup);
 
 	CommandCounterIncrement();
 
 	pubform = (Form_pg_publication) GETSTRUCT(tup);
 
-	/* Invalidate the relcache. */
+	/* 使 relcache 失效。 */
 	if (pubform->puballtables)
 	{
 		CacheInvalidateRelcacheAll();
@@ -1025,9 +1025,9 @@ AlterPublicationOptions(ParseState *pstate, AlterPublicationStmt *stmt,
 		List	   *schemarelids = NIL;
 
 		/*
-		 * For any partitioned tables contained in the publication, we must
-		 * invalidate all partitions contained in the respective partition
-		 * trees, not just those explicitly mentioned in the publication.
+		  * 对于发布中包含的任何分区表，须失效相应分区树中的
+		  * 所有分区，不仅发布中显式提及的。
+		  *
 		 */
 		if (root_relids == NIL)
 			relids = GetPublicationRelations(pubform->oid,
@@ -1035,8 +1035,8 @@ AlterPublicationOptions(ParseState *pstate, AlterPublicationStmt *stmt,
 		else
 		{
 			/*
-			 * We already got tables explicitly mentioned in the publication.
-			 * Now get all partitions for the partitioned table in the list.
+			  * 已获取发布中显式提及的表。
+			  * 现在获取列表中分区表的所有分区。
 			 */
 			foreach(lc, root_relids)
 				relids = GetPubPartitionOptionRelations(relids,
@@ -1059,14 +1059,14 @@ AlterPublicationOptions(ParseState *pstate, AlterPublicationStmt *stmt,
 }
 
 /*
- * Invalidate the relations.
+  * 使关系失效。
  */
 void
 InvalidatePublicationRels(List *relids)
 {
 	/*
-	 * We don't want to send too many individual messages, at some point it's
-	 * cheaper to just reset whole relcache.
+	  * 不想发太多单独消息，某种程度
+	  * 直接重置整个 relcache 更便宜。
 	 */
 	if (list_length(relids) < MAX_RELCACHE_INVAL_MSGS)
 	{
@@ -1080,7 +1080,7 @@ InvalidatePublicationRels(List *relids)
 }
 
 /*
- * Add or remove table to/from publication.
+  * 向发布中增删表。
  */
 static void
 AlterPublicationTables(AlterPublicationStmt *stmt, HeapTuple tup,
@@ -1092,9 +1092,9 @@ AlterPublicationTables(AlterPublicationStmt *stmt, HeapTuple tup,
 	Oid			pubid = pubform->oid;
 
 	/*
-	 * Nothing to do if no objects, except in SET: for that it is quite
-	 * possible that user has not specified any tables in which case we need
-	 * to remove all the existing tables.
+	  * 若无对象则无事可做，SET 除外：此时用户可能
+	  * 未指定任何表，需删除所有现有表。
+	  *
 	 */
 	if (!tables && stmt->action != AP_SetObjects)
 		return;
@@ -1127,8 +1127,8 @@ AlterPublicationTables(AlterPublicationStmt *stmt, HeapTuple tup,
 								   pubform->pubviaroot);
 
 		/*
-		 * To recreate the relation list for the publication, look for
-		 * existing relations that do not need to be dropped.
+		  * 重建发布的关系列表，查找不需删除的现有关系。
+		  *
 		 */
 		foreach(oldlc, oldrelids)
 		{
@@ -1146,8 +1146,8 @@ AlterPublicationTables(AlterPublicationStmt *stmt, HeapTuple tup,
 									  ObjectIdGetDatum(pubid));
 
 			/*
-			 * See if the existing relation currently has a WHERE clause or a
-			 * column list. We need to compare those too.
+			  * 查看现有关系当前是否有 WHERE 子句或
+			  * 列列表。也需要比较这些。
 			 */
 			if (HeapTupleIsValid(rftuple))
 			{
@@ -1183,8 +1183,8 @@ AlterPublicationTables(AlterPublicationStmt *stmt, HeapTuple tup,
 				newrelid = RelationGetRelid(newpubrel->relation);
 
 				/*
-				 * If the new publication has column list, transform it to a
-				 * bitmap too.
+				  * 若新发布有列列表，同样转为位图。
+				  *
 				 */
 				if (newpubrel->columns)
 				{
@@ -1200,11 +1200,11 @@ AlterPublicationTables(AlterPublicationStmt *stmt, HeapTuple tup,
 				}
 
 				/*
-				 * Check if any of the new set of relations matches with the
-				 * existing relations in the publication. Additionally, if the
-				 * relation has an associated WHERE clause, check the WHERE
-				 * expressions also match. Same for the column list. Drop the
-				 * rest.
+				  * 检查新关系集是否有匹配发布中现有关系的。
+				  * 此外若有关联 WHERE 子句，检查 WHERE 表达式
+				  * 也匹配。列列表同理。删除其余。
+				  *
+				  *
 				 */
 				if (RelationGetRelid(newpubrel->relation) == oldrelid)
 				{
@@ -1218,8 +1218,8 @@ AlterPublicationTables(AlterPublicationStmt *stmt, HeapTuple tup,
 			}
 
 			/*
-			 * Add the non-matched relations to a list so that they can be
-			 * dropped.
+			  * 将不匹配的关系加入列表以便删除。
+			  *
 			 */
 			if (!found)
 			{
@@ -1236,8 +1236,8 @@ AlterPublicationTables(AlterPublicationStmt *stmt, HeapTuple tup,
 		PublicationDropTables(pubid, delrels, true);
 
 		/*
-		 * Don't bother calculating the difference for adding, we'll catch and
-		 * skip existing ones when doing catalog update.
+		  * 不需计算差异来添加，目录更新时会捕获
+		  * 并跳过已有项。
 		 */
 		PublicationAddTables(pubid, rels, true, stmt);
 
@@ -1248,9 +1248,9 @@ AlterPublicationTables(AlterPublicationStmt *stmt, HeapTuple tup,
 }
 
 /*
- * Alter the publication schemas.
- *
- * Add or remove schemas to/from publication.
+  * 更改发布模式。
+  *
+  * 向发布中增删模式。
  */
 static void
 AlterPublicationSchemas(AlterPublicationStmt *stmt,
@@ -1259,16 +1259,16 @@ AlterPublicationSchemas(AlterPublicationStmt *stmt,
 	Form_pg_publication pubform = (Form_pg_publication) GETSTRUCT(tup);
 
 	/*
-	 * Nothing to do if no objects, except in SET: for that it is quite
-	 * possible that user has not specified any schemas in which case we need
-	 * to remove all the existing schemas.
+	  * 若无对象则无事可做，SET 除外：此时用户可能
+	  * 未指定模式，需删除所有现有模式。
+	  *
 	 */
 	if (!schemaidlist && stmt->action != AP_SetObjects)
 		return;
 
 	/*
-	 * Schema lock is held until the publication is altered to prevent
-	 * concurrent schema deletion.
+	  * 模式锁保持至发布更改完，防止并发模式删除。
+	  *
 	 */
 	LockSchemaList(schemaidlist);
 	if (stmt->action == AP_AddObjects)
@@ -1290,8 +1290,8 @@ AlterPublicationSchemas(AlterPublicationStmt *stmt,
 				continue;
 
 			/*
-			 * Disallow adding schema if column list is already part of the
-			 * publication. See CheckPubRelationColumnList.
+			  * 若发布中已有列列表，禁止添加模式。
+			  * 参见 CheckPubRelationColumnList。
 			 */
 			if (!heap_attisnull(coltuple, Anum_pg_publication_rel_prattrs, NULL))
 				ereport(ERROR,
@@ -1316,8 +1316,8 @@ AlterPublicationSchemas(AlterPublicationStmt *stmt,
 		delschemas = list_difference_oid(oldschemaids, schemaidlist);
 
 		/*
-		 * Schema lock is held until the publication is altered to prevent
-		 * concurrent schema deletion.
+		  * 模式锁保持至发布更改完，防止并发模式删除。
+		  *
 		 */
 		LockSchemaList(delschemas);
 
@@ -1325,16 +1325,16 @@ AlterPublicationSchemas(AlterPublicationStmt *stmt,
 		PublicationDropSchemas(pubform->oid, delschemas, true);
 
 		/*
-		 * Don't bother calculating the difference for adding, we'll catch and
-		 * skip existing ones when doing catalog update.
+		  * 不需计算差异来添加，目录更新时会捕获
+		  * 并跳过已有项。
 		 */
 		PublicationAddSchemas(pubform->oid, schemaidlist, true, stmt);
 	}
 }
 
 /*
- * Check if relations and schemas can be in a given publication and throw
- * appropriate error if not.
+  * 检查关系和模式是否可放入指定发布，
+  * 若不可则报错。
  */
 static void
 CheckAlterPublication(AlterPublicationStmt *stmt, HeapTuple tup,
@@ -1349,8 +1349,8 @@ CheckAlterPublication(AlterPublicationStmt *stmt, HeapTuple tup,
 				 errmsg("must be superuser to add or set schemas")));
 
 	/*
-	 * Check that user is allowed to manipulate the publication tables in
-	 * schema
+	  * 检查用户是否有权操作发布中的模式内表
+	  *
 	 */
 	if (schemaidlist && pubform->puballtables)
 		ereport(ERROR,
@@ -1359,7 +1359,7 @@ CheckAlterPublication(AlterPublicationStmt *stmt, HeapTuple tup,
 						NameStr(pubform->pubname)),
 				 errdetail("Schemas cannot be added to or dropped from FOR ALL TABLES publications.")));
 
-	/* Check that user is allowed to manipulate the publication tables. */
+	/* 检查用户是否有权操作发布表。 */
 	if (tables && pubform->puballtables)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -1369,10 +1369,10 @@ CheckAlterPublication(AlterPublicationStmt *stmt, HeapTuple tup,
 }
 
 /*
- * Alter the existing publication.
- *
- * This is dispatcher function for AlterPublicationOptions,
- * AlterPublicationSchemas and AlterPublicationTables.
+  * 更改现有发布。
+  *
+  * 这是 AlterPublicationOptions、AlterPublicationSchemas
+  * 和 AlterPublicationTables 的分发函数。
  */
 void
 AlterPublication(ParseState *pstate, AlterPublicationStmt *stmt)
@@ -1394,7 +1394,7 @@ AlterPublication(ParseState *pstate, AlterPublicationStmt *stmt)
 
 	pubform = (Form_pg_publication) GETSTRUCT(tup);
 
-	/* must be owner */
+	/* 必须是所有者 */
 	if (!object_ownercheck(PublicationRelationId, pubform->oid, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_PUBLICATION,
 					   stmt->pubname);
@@ -1419,10 +1419,10 @@ AlterPublication(ParseState *pstate, AlterPublicationStmt *stmt)
 						   AccessExclusiveLock);
 
 		/*
-		 * It is possible that by the time we acquire the lock on publication,
-		 * concurrent DDL has removed it. We can test this by checking the
-		 * existence of publication. We get the tuple again to avoid the risk
-		 * of any publication option getting changed.
+		  * 可能在我们获取发布锁时，并发 DDL 已将其删除。
+		  * 可通过检查发布存在性来验证。重新获取元组
+		  * 以避免发布选项被更改的风险。
+		  *
 		 */
 		tup = SearchSysCacheCopy1(PUBLICATIONOID, ObjectIdGetDatum(pubid));
 		if (!HeapTupleIsValid(tup))
@@ -1436,13 +1436,13 @@ AlterPublication(ParseState *pstate, AlterPublicationStmt *stmt)
 		AlterPublicationSchemas(stmt, tup, schemaidlist);
 	}
 
-	/* Cleanup. */
+	/* 清理。 */
 	heap_freetuple(tup);
 	table_close(rel, RowExclusiveLock);
 }
 
 /*
- * Remove relation from publication by mapping OID.
+  * 按映射 OID 从发布中移除关系。
  */
 void
 RemovePublicationRelById(Oid proid)
@@ -1463,12 +1463,12 @@ RemovePublicationRelById(Oid proid)
 	pubrel = (Form_pg_publication_rel) GETSTRUCT(tup);
 
 	/*
-	 * Invalidate relcache so that publication info is rebuilt.
-	 *
-	 * For the partitioned tables, we must invalidate all partitions contained
-	 * in the respective partition hierarchies, not just the one explicitly
-	 * mentioned in the publication. This is required because we implicitly
-	 * publish the child tables when the parent table is published.
+	  * 使 relcache 失效以重建发布信息。
+	  *
+	  * 对于分区表，须失效相应分区层次结构中的所有分区，
+	  * 不仅发布中显式提及的。因为当父表发布时
+	  * 隐式地发布了子表。
+	  *
 	 */
 	relids = GetPubPartitionOptionRelations(relids, PUBLICATION_PART_ALL,
 											pubrel->prrelid);
@@ -1483,7 +1483,7 @@ RemovePublicationRelById(Oid proid)
 }
 
 /*
- * Remove the publication by mapping OID.
+  * 按映射 OID 删除发布。
  */
 void
 RemovePublicationById(Oid pubid)
@@ -1500,7 +1500,7 @@ RemovePublicationById(Oid pubid)
 
 	pubform = (Form_pg_publication) GETSTRUCT(tup);
 
-	/* Invalidate relcache so that publication info is rebuilt. */
+	/* 使 relcache 失效以重建发布信息。 */
 	if (pubform->puballtables)
 		CacheInvalidateRelcacheAll();
 
@@ -1512,7 +1512,7 @@ RemovePublicationById(Oid pubid)
 }
 
 /*
- * Remove schema from publication by mapping OID.
+  * 按映射 OID 从发布中移除模式。
  */
 void
 RemovePublicationSchemaById(Oid psoid)
@@ -1532,9 +1532,9 @@ RemovePublicationSchemaById(Oid psoid)
 	pubsch = (Form_pg_publication_namespace) GETSTRUCT(tup);
 
 	/*
-	 * Invalidate relcache so that publication info is rebuilt. See
-	 * RemovePublicationRelById for why we need to consider all the
-	 * partitions.
+	  * 使 relcache 失效以重建发布信息。关于为何需考虑
+	  * 所有分区，见 RemovePublicationRelById。
+	  *
 	 */
 	schemaRels = GetSchemaPublicationRelations(pubsch->pnnspid,
 											   PUBLICATION_PART_ALL);
@@ -1548,9 +1548,9 @@ RemovePublicationSchemaById(Oid psoid)
 }
 
 /*
- * Open relations specified by a PublicationTable list.
- * The returned tables are locked in ShareUpdateExclusiveLock mode in order to
- * add them to a publication.
+  * 打开 PublicationTable 列表指定的关系。
+  * 返回的表在 ShareUpdateExclusiveLock 模式下锁定以便
+  * 添加到发布。
  */
 static List *
 OpenTableList(List *tables)
@@ -1562,7 +1562,7 @@ OpenTableList(List *tables)
 	List	   *relids_with_collist = NIL;
 
 	/*
-	 * Open, share-lock, and check all the explicitly-specified relations
+	  * 打开、共享锁定并检查所有显式指定的关系
 	 */
 	foreach(lc, tables)
 	{
@@ -1579,11 +1579,11 @@ OpenTableList(List *tables)
 		myrelid = RelationGetRelid(rel);
 
 		/*
-		 * Filter out duplicates if user specifies "foo, foo".
-		 *
-		 * Note that this algorithm is known to not be very efficient (O(N^2))
-		 * but given that it only works on list of tables given to us by user
-		 * it's deemed acceptable.
+		  * 若用户指定重复项（如"foo, foo"）则过滤。
+		  *
+		  * 此算法已知效率不高（O(N^2)），
+		  * 但仅处理用户给定的表列表，可接受。
+		  *
 		 */
 		if (list_member_oid(relids, myrelid))
 		{
@@ -1619,10 +1619,10 @@ OpenTableList(List *tables)
 			relids_with_collist = lappend_oid(relids_with_collist, myrelid);
 
 		/*
-		 * Add children of this rel, if requested, so that they too are added
-		 * to the publication.  A partitioned table can't have any inheritance
-		 * children other than its partitions, which need not be explicitly
-		 * added to the publication.
+		  * 若要求，添加此关系的子项，令其也加入
+		  * 发布。分区表除其分区外不能有继承子项，
+		  * 且分区无需显式添加到发布。
+		  *
 		 */
 		if (recurse && rel->rd_rel->relkind != RELKIND_PARTITIONED_TABLE)
 		{
@@ -1640,15 +1640,15 @@ OpenTableList(List *tables)
 				CHECK_FOR_INTERRUPTS();
 
 				/*
-				 * Skip duplicates if user specified both parent and child
-				 * tables.
+				  * 若用户同时指定了父表和子表，跳过重复。
+				  *
 				 */
 				if (list_member_oid(relids, childrelid))
 				{
 					/*
-					 * We don't allow to specify row filter for both parent
-					 * and child table at the same time as it is not very
-					 * clear which one should be given preference.
+					  * 不允许同时对父表和子表指定行过滤器，
+					  * 因不清楚应优先哪个。
+					  *
 					 */
 					if (childrelid != myrelid &&
 						(t->whereClause || list_member_oid(relids_with_rf, childrelid)))
@@ -1658,9 +1658,9 @@ OpenTableList(List *tables)
 										RelationGetRelationName(rel))));
 
 					/*
-					 * We don't allow to specify column list for both parent
-					 * and child table at the same time as it is not very
-					 * clear which one should be given preference.
+					  * 不允许同时对父表和子表指定列列表，
+					  * 因不清楚应优先哪个。
+					  *
 					 */
 					if (childrelid != myrelid &&
 						(t->columns || list_member_oid(relids_with_collist, childrelid)))
@@ -1700,7 +1700,7 @@ OpenTableList(List *tables)
 }
 
 /*
- * Close all relations in the list.
+  * 关闭列表中的所有关系。
  */
 static void
 CloseTableList(List *rels)
@@ -1719,8 +1719,8 @@ CloseTableList(List *rels)
 }
 
 /*
- * Lock the schemas specified in the schema list in AccessShareLock mode in
- * order to prevent concurrent schema deletion.
+  * 以 AccessShareLock 模式锁定模式列表中指定的模式，
+  * 防止并发模式删除。
  */
 static void
 LockSchemaList(List *schemalist)
@@ -1736,9 +1736,9 @@ LockSchemaList(List *schemalist)
 		LockDatabaseObject(NamespaceRelationId, schemaid, 0, AccessShareLock);
 
 		/*
-		 * It is possible that by the time we acquire the lock on schema,
-		 * concurrent DDL has removed it. We can test this by checking the
-		 * existence of schema.
+		  * 可能获取模式锁时，并发 DDL 已将其删除。
+		  * 通过检查模式存在性验证。
+		  *
 		 */
 		if (!SearchSysCacheExists1(NAMESPACEOID, ObjectIdGetDatum(schemaid)))
 			ereport(ERROR,
@@ -1748,7 +1748,7 @@ LockSchemaList(List *schemalist)
 }
 
 /*
- * Add listed tables to the publication.
+  * 将列出的表添加到发布。
  */
 static void
 PublicationAddTables(Oid pubid, List *rels, bool if_not_exists,
@@ -1782,7 +1782,7 @@ PublicationAddTables(Oid pubid, List *rels, bool if_not_exists,
 }
 
 /*
- * Remove listed tables from the publication.
+  * 从发布中删除列出的表。
  */
 static void
 PublicationDropTables(Oid pubid, List *rels, bool missing_ok)
@@ -1827,7 +1827,7 @@ PublicationDropTables(Oid pubid, List *rels, bool missing_ok)
 }
 
 /*
- * Add listed schemas to the publication.
+  * 将列出的模式添加到发布。
  */
 static void
 PublicationAddSchemas(Oid pubid, List *schemas, bool if_not_exists,
@@ -1855,7 +1855,7 @@ PublicationAddSchemas(Oid pubid, List *schemas, bool if_not_exists,
 }
 
 /*
- * Remove listed schemas from the publication.
+  * 从发布中删除列出的模式。
  */
 static void
 PublicationDropSchemas(Oid pubid, List *schemas, bool missing_ok)
@@ -1889,7 +1889,7 @@ PublicationDropSchemas(Oid pubid, List *schemas, bool missing_ok)
 }
 
 /*
- * Internal workhorse for changing a publication owner
+  * 更改发布所有者的内部核心函数
  */
 static void
 AlterPublicationOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
@@ -1937,7 +1937,7 @@ AlterPublicationOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 	form->pubowner = newOwnerId;
 	CatalogTupleUpdate(rel, &tup->t_self, tup);
 
-	/* Update owner dependency reference */
+	/* 更新所有者依赖引用 */
 	changeDependencyOnOwner(PublicationRelationId,
 							form->oid,
 							newOwnerId);
@@ -1947,7 +1947,7 @@ AlterPublicationOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 }
 
 /*
- * Change publication owner -- by name
+  * 按名称更改发布所有者
  */
 ObjectAddress
 AlterPublicationOwner(const char *name, Oid newOwnerId)
@@ -1982,7 +1982,7 @@ AlterPublicationOwner(const char *name, Oid newOwnerId)
 }
 
 /*
- * Change publication owner -- by OID
+  * 按 OID 更改发布所有者
  */
 void
 AlterPublicationOwner_oid(Oid subid, Oid newOwnerId)

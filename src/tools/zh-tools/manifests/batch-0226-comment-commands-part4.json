@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "batch_id": "0226-comment-commands-part4",
+  "title": "zh: translate commands comments (part 4)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "e735da633fc04ff16c57b1c4ad2b965be7614bcd",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/commands/alter.c",
+      "kind": "c_comment",
+      "note": "generic ALTER command drivers"
+    },
+    {
+      "pattern": "src/backend/commands/dbcommands.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP DATABASE support"
+    },
+    {
+      "pattern": "src/backend/commands/user.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP ROLE and role membership support"
+    },
+    {
+      "pattern": "src/backend/commands/variable.c",
+      "kind": "c_comment",
+      "note": "specialized SET variable handlers (datestyle, timezone, role, etc.)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0226-comment-commands-part4.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/commands/alter.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 58,
+      "translated": 58,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "generic ALTER commands: AlterObjectRename, ExecAlterObjectDependsStmt, ExecAlterObjectSchemaStmt, AlterObjectNamespace, ExecAlterOwnerStmt; Copyright and IDENTIFICATION stay in English"
+    },
+    {
+      "path": "src/backend/commands/dbcommands.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 254,
+      "translated": 173,
+      "preserved": 81,
+      "preserved_reasons": [
+        "Copyright/IDENTIFICATION header",
+        "SQL command section banners (CREATE DATABASE, DROP DATABASE, ALTER DATABASE SET TABLESPACE, ALTER DATABASE name ..., ALTER DATABASE name REFRESH COLLATION VERSION, ALTER DATABASE name SET ..., ALTER DATABASE name OWNER TO newowner)",
+        "inline identifier-only comments (function names, variable references)",
+        "very short control-flow comments"
+      ],
+      "note": "database lifecycle commands: createdb, dropdb, RenameDatabase, AlterDatabaseOwner, AlterDatabaseRefreshColl, movedb, WAL replay functions, and helper functions"
+    },
+    {
+      "path": "src/backend/commands/user.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 176,
+      "translated": 173,
+      "preserved": 3,
+      "preserved_reasons": [
+        "Copyright/IDENTIFICATION header",
+        "SQL command syntax references (ALTER ROLE ... SET)"
+      ],
+      "note": "role management: CreateRole, AlterRole, DropRole, RenameRole, GrantRole, RevokeRole, and role membership functions"
+    },
+    {
+      "path": "src/backend/commands/variable.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 112,
+      "translated": 104,
+      "preserved": 8,
+      "preserved_reasons": [
+        "Copyright/IDENTIFICATION header",
+        "very short inline comments"
+      ],
+      "note": "specialized SET variable handlers: datestyle, timezone, log_timezone, timezone_abbreviations, transaction_read_only, transaction_isolation, random_seed, client_encoding, session_authorization, role, canonical_path, application_name, cluster_name"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0226-comment-commands-part4.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union manifest updated to include batch 0226"
+    }
+  ],
+  "notes": "Batch 0226 translates comments in four src/backend/commands/ .c files (part 4): alter.c, dbcommands.c, user.c, variable.c. 508 of 600 block comments translated, 92 preserved: Copyright/IDENTIFICATION headers (4), SQL command section banners (7: CREATE DATABASE, DROP DATABASE, 5x ALTER DATABASE variants), and 81 very short inline control-flow/identifier comments (mostly in dbcommands.c). Next suggested: remaining commands/ files (copy.c, copyfrom.c, copyto.c, cluster.c, etc.) or extension.c / event_trigger.c."
+}

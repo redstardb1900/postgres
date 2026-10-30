@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * variable.c
- *		Routines for handling specialized SET variables.
+ *	  处理专用 SET 变量的例程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -46,7 +46,7 @@
  */
 
 /*
- * check_datestyle: GUC check_hook for datestyle
+ * check_datestyle: datestyle 的 GUC check_hook
  */
 bool
 check_datestyle(char **newval, void **extra, GucSource source)
@@ -62,13 +62,13 @@ check_datestyle(char **newval, void **extra, GucSource source)
 	List	   *elemlist;
 	ListCell   *l;
 
-	/* Need a modifiable copy of string */
+	/* 需要字符串的可修改副本 */
 	rawstring = pstrdup(*newval);
 
-	/* Parse string into list of identifiers */
+	/* 将字符串解析为标识符列表 */
 	if (!SplitIdentifierString(rawstring, ',', &elemlist))
 	{
-		/* syntax error in list */
+		/* 列表语法错误 */
 		GUC_check_errdetail("List syntax is invalid.");
 		pfree(rawstring);
 		list_free(elemlist);
@@ -79,43 +79,43 @@ check_datestyle(char **newval, void **extra, GucSource source)
 	{
 		char	   *tok = (char *) lfirst(l);
 
-		/* Ugh. Somebody ought to write a table driven version -- mjl */
+		/* 呃。应该有人写一个表驱动版本 -- mjl */
 
 		if (pg_strcasecmp(tok, "ISO") == 0)
 		{
 			if (have_style && newDateStyle != USE_ISO_DATES)
-				ok = false;		/* conflicting styles */
+				ok = false;		/* 样式冲突 */
 			newDateStyle = USE_ISO_DATES;
 			have_style = true;
 		}
 		else if (pg_strcasecmp(tok, "SQL") == 0)
 		{
 			if (have_style && newDateStyle != USE_SQL_DATES)
-				ok = false;		/* conflicting styles */
+				ok = false;		/* 样式冲突 */
 			newDateStyle = USE_SQL_DATES;
 			have_style = true;
 		}
 		else if (pg_strncasecmp(tok, "POSTGRES", 8) == 0)
 		{
 			if (have_style && newDateStyle != USE_POSTGRES_DATES)
-				ok = false;		/* conflicting styles */
+				ok = false;		/* 样式冲突 */
 			newDateStyle = USE_POSTGRES_DATES;
 			have_style = true;
 		}
 		else if (pg_strcasecmp(tok, "GERMAN") == 0)
 		{
 			if (have_style && newDateStyle != USE_GERMAN_DATES)
-				ok = false;		/* conflicting styles */
+				ok = false;		/* 样式冲突 */
 			newDateStyle = USE_GERMAN_DATES;
 			have_style = true;
-			/* GERMAN also sets DMY, unless explicitly overridden */
+			/* GERMAN 同时设置 DMY，除非显式覆盖 */
 			if (!have_order)
 				newDateOrder = DATEORDER_DMY;
 		}
 		else if (pg_strcasecmp(tok, "YMD") == 0)
 		{
 			if (have_order && newDateOrder != DATEORDER_YMD)
-				ok = false;		/* conflicting orders */
+				ok = false;		/* 排序冲突 */
 			newDateOrder = DATEORDER_YMD;
 			have_order = true;
 		}
@@ -123,7 +123,7 @@ check_datestyle(char **newval, void **extra, GucSource source)
 				 pg_strncasecmp(tok, "EURO", 4) == 0)
 		{
 			if (have_order && newDateOrder != DATEORDER_DMY)
-				ok = false;		/* conflicting orders */
+				ok = false;		/* 排序冲突 */
 			newDateOrder = DATEORDER_DMY;
 			have_order = true;
 		}
@@ -132,18 +132,18 @@ check_datestyle(char **newval, void **extra, GucSource source)
 				 pg_strncasecmp(tok, "NONEURO", 7) == 0)
 		{
 			if (have_order && newDateOrder != DATEORDER_MDY)
-				ok = false;		/* conflicting orders */
+				ok = false;		/* 排序冲突 */
 			newDateOrder = DATEORDER_MDY;
 			have_order = true;
 		}
 		else if (pg_strcasecmp(tok, "DEFAULT") == 0)
 		{
 			/*
-			 * Easiest way to get the current DEFAULT state is to fetch the
-			 * DEFAULT string from guc.c and recursively parse it.
+			 * 获取当前 DEFAULT 状态的最简单方法是
+			 * 从 guc.c 获取 DEFAULT 字符串并递归解析。
 			 *
-			 * We can't simply "return check_datestyle(...)" because we need
-			 * to handle constructs like "DEFAULT, ISO".
+			 * 我们不能简单地 "return check_datestyle(...)"，
+			 * 因为需要处理 "DEFAULT, ISO" 这样的构造。
 			 */
 			char	   *subval;
 			void	   *subextra = NULL;
@@ -187,7 +187,7 @@ check_datestyle(char **newval, void **extra, GucSource source)
 	}
 
 	/*
-	 * Prepare the canonical string to return.  GUC wants it guc_malloc'd.
+	 * 准备规范字符串以返回。GUC 要求用 guc_malloc 分配。
 	 */
 	result = (char *) guc_malloc(LOG, 32);
 	if (!result)
@@ -225,7 +225,7 @@ check_datestyle(char **newval, void **extra, GucSource source)
 	*newval = result;
 
 	/*
-	 * Set up the "extra" struct actually used by assign_datestyle.
+	 * 设置 assign_datestyle 实际使用的 "extra" 结构。
 	 */
 	myextra = (int *) guc_malloc(LOG, 2 * sizeof(int));
 	if (!myextra)
@@ -238,7 +238,7 @@ check_datestyle(char **newval, void **extra, GucSource source)
 }
 
 /*
- * assign_datestyle: GUC assign_hook for datestyle
+ * assign_datestyle: datestyle 的 GUC assign_hook
  */
 void
 assign_datestyle(const char *newval, void *extra)
@@ -255,7 +255,7 @@ assign_datestyle(const char *newval, void *extra)
  */
 
 /*
- * check_timezone: GUC check_hook for timezone
+ * check_timezone: timezone 的 GUC check_hook
  */
 bool
 check_timezone(char **newval, void **extra, GucSource source)
@@ -268,8 +268,8 @@ check_timezone(char **newval, void **extra, GucSource source)
 	if (pg_strncasecmp(*newval, "interval", 8) == 0)
 	{
 		/*
-		 * Support INTERVAL 'foo'.  This is for SQL spec compliance, not
-		 * because it has any actual real-world usefulness.
+		 * 支持 INTERVAL 'foo'。这是为了 SQL 规范合规，
+		 * 并非有任何实际用途。
 		 */
 		const char *valueptr = *newval;
 		char	   *val;
@@ -281,7 +281,7 @@ check_timezone(char **newval, void **extra, GucSource source)
 		if (*valueptr++ != '\'')
 			return false;
 		val = pstrdup(valueptr);
-		/* Check and remove trailing quote */
+		/* 检查并移除尾部引号 */
 		endptr = strchr(val, '\'');
 		if (!endptr || endptr[1] != '\0')
 		{
@@ -291,10 +291,10 @@ check_timezone(char **newval, void **extra, GucSource source)
 		*endptr = '\0';
 
 		/*
-		 * Try to parse it.  XXX an invalid interval format will result in
-		 * ereport(ERROR), which is not desirable for GUC.  We did what we
-		 * could to guard against this in flatten_set_variable_args, but a
-		 * string coming in from postgresql.conf might contain anything.
+		 * 尝试解析。XXX 无效的区间格式会导致
+		 * ereport(ERROR)，这对 GUC 来说不理想。
+		 * 我们在 flatten_set_variable_args 中已经尽力防范，
+		 * 但来自 postgresql.conf 的字符串可能包含任何内容。
 		 */
 		interval = DatumGetIntervalP(DirectFunctionCall3(interval_in,
 														 CStringGetDatum(val),
@@ -315,7 +315,7 @@ check_timezone(char **newval, void **extra, GucSource source)
 			return false;
 		}
 
-		/* Here we change from SQL to Unix sign convention */
+		/* 这里我们从 SQL 符号约定更改为 Unix 符号约定 */
 		gmtoffset = -(interval->time / USECS_PER_SEC);
 		new_tz = pg_tzset_offset(gmtoffset);
 
@@ -324,25 +324,25 @@ check_timezone(char **newval, void **extra, GucSource source)
 	else
 	{
 		/*
-		 * Try it as a numeric number of hours (possibly fractional).
+		 * 尝试作为数字小时数（可能带小数）。
 		 */
 		hours = strtod(*newval, &endptr);
 		if (endptr != *newval && *endptr == '\0')
 		{
-			/* Here we change from SQL to Unix sign convention */
+			/* 这里我们从 SQL 符号约定更改为 Unix 符号约定 */
 			gmtoffset = -hours * SECS_PER_HOUR;
 			new_tz = pg_tzset_offset(gmtoffset);
 		}
 		else
 		{
 			/*
-			 * Otherwise assume it is a timezone name, and try to load it.
+			 * 否则假定它是时区名称，并尝试加载。
 			 */
 			new_tz = pg_tzset(*newval);
 
 			if (!new_tz)
 			{
-				/* Doesn't seem to be any great value in errdetail here */
+				/* 这里在 errdetail 中似乎没有太大价值 */
 				return false;
 			}
 
@@ -356,7 +356,7 @@ check_timezone(char **newval, void **extra, GucSource source)
 		}
 	}
 
-	/* Test for failure in pg_tzset_offset, which we assume is out-of-range */
+	/* 测试 pg_tzset_offset 失败，我们假设是超出范围 */
 	if (!new_tz)
 	{
 		GUC_check_errdetail("UTC timezone offset is out of range.");
@@ -364,7 +364,7 @@ check_timezone(char **newval, void **extra, GucSource source)
 	}
 
 	/*
-	 * Pass back data for assign_timezone to use
+	 * 传递数据供 assign_timezone 使用
 	 */
 	*extra = guc_malloc(LOG, sizeof(pg_tz *));
 	if (!*extra)
@@ -375,7 +375,7 @@ check_timezone(char **newval, void **extra, GucSource source)
 }
 
 /*
- * assign_timezone: GUC assign_hook for timezone
+ * assign_timezone: timezone 的 GUC assign_hook
  */
 void
 assign_timezone(const char *newval, void *extra)
@@ -384,14 +384,14 @@ assign_timezone(const char *newval, void *extra)
 }
 
 /*
- * show_timezone: GUC show_hook for timezone
+ * show_timezone: timezone 的 GUC show_hook
  */
 const char *
 show_timezone(void)
 {
 	const char *tzn;
 
-	/* Always show the zone's canonical name */
+	/* 始终显示区域的规范名称 */
 	tzn = pg_get_timezone_name(session_timezone);
 
 	if (tzn != NULL)
@@ -404,13 +404,13 @@ show_timezone(void)
 /*
  * LOG_TIMEZONE
  *
- * For log_timezone, we don't support the interval-based methods of setting a
- * zone, which are only there for SQL spec compliance not because they're
- * actually useful.
+ * 对于 log_timezone，我们不支持基于区间的时区设置方法，
+ * 这些方法仅用于 SQL 规范合规，
+ * 并非实际有用。
  */
 
 /*
- * check_log_timezone: GUC check_hook for log_timezone
+ * check_log_timezone: log_timezone 的 GUC check_hook
  */
 bool
 check_log_timezone(char **newval, void **extra, GucSource source)
@@ -418,13 +418,13 @@ check_log_timezone(char **newval, void **extra, GucSource source)
 	pg_tz	   *new_tz;
 
 	/*
-	 * Assume it is a timezone name, and try to load it.
+	 * 假定它是时区名称，并尝试加载。
 	 */
 	new_tz = pg_tzset(*newval);
 
 	if (!new_tz)
 	{
-		/* Doesn't seem to be any great value in errdetail here */
+		/* 这里在 errdetail 中似乎没有太大价值 */
 		return false;
 	}
 
@@ -437,7 +437,7 @@ check_log_timezone(char **newval, void **extra, GucSource source)
 	}
 
 	/*
-	 * Pass back data for assign_log_timezone to use
+	 * 传递数据供 assign_log_timezone 使用
 	 */
 	*extra = guc_malloc(LOG, sizeof(pg_tz *));
 	if (!*extra)
@@ -448,7 +448,7 @@ check_log_timezone(char **newval, void **extra, GucSource source)
 }
 
 /*
- * assign_log_timezone: GUC assign_hook for log_timezone
+ * assign_log_timezone: log_timezone 的 GUC assign_hook
  */
 void
 assign_log_timezone(const char *newval, void *extra)
@@ -457,14 +457,14 @@ assign_log_timezone(const char *newval, void *extra)
 }
 
 /*
- * show_log_timezone: GUC show_hook for log_timezone
+ * show_log_timezone: log_timezone 的 GUC show_hook
  */
 const char *
 show_log_timezone(void)
 {
 	const char *tzn;
 
-	/* Always show the zone's canonical name */
+	/* 始终显示区域的规范名称 */
 	tzn = pg_get_timezone_name(log_timezone);
 
 	if (tzn != NULL)
@@ -479,20 +479,20 @@ show_log_timezone(void)
  */
 
 /*
- * GUC check_hook for timezone_abbreviations
+ * timezone_abbreviations 的 GUC check_hook
  */
 bool
 check_timezone_abbreviations(char **newval, void **extra, GucSource source)
 {
 	/*
-	 * The boot_val for timezone_abbreviations is NULL.  When we see that we
-	 * just do nothing.  If the value isn't overridden from the config file
-	 * then pg_timezone_abbrev_initialize() will eventually replace it with
-	 * "Default".  This hack has two purposes: to avoid wasting cycles loading
-	 * values that might soon be overridden from the config file, and to avoid
-	 * trying to read the timezone abbrev files during InitializeGUCOptions().
-	 * The latter doesn't work in an EXEC_BACKEND subprocess because
-	 * my_exec_path hasn't been set yet and so we can't locate PGSHAREDIR.
+	 * timezone_abbreviations 的 boot_val 是 NULL。
+	 * 当我们看到它时什么也不做。如果配置文件中没有覆盖该值，
+	 * 则 pg_timezone_abbrev_initialize() 最终会用 "Default" 替换它。
+	 * 此 hack 有两个目的：避免浪费周期加载
+	 * 可能很快会被配置文件覆盖的值，
+	 * 以及避免在 InitializeGUCOptions() 期间尝试读取时区缩写文件。
+	 * 后者在 EXEC_BACKEND 子进程中不起作用，因为 my_exec_path 尚未设置，
+	 * 因此无法定位 PGSHAREDIR。
 	 */
 	if (*newval == NULL)
 	{
@@ -500,10 +500,10 @@ check_timezone_abbreviations(char **newval, void **extra, GucSource source)
 		return true;
 	}
 
-	/* OK, load the file and produce a guc_malloc'd TimeZoneAbbrevTable */
+	/* 好的，加载文件并生成 guc_malloc 分配的 TimeZoneAbbrevTable */
 	*extra = load_tzoffsets(*newval);
 
-	/* tzparser.c returns NULL on failure, reporting via GUC_check_errmsg */
+	/* tzparser.c 在失败时返回 NULL，通过 GUC_check_errmsg 报告 */
 	if (!*extra)
 		return false;
 
@@ -511,12 +511,12 @@ check_timezone_abbreviations(char **newval, void **extra, GucSource source)
 }
 
 /*
- * GUC assign_hook for timezone_abbreviations
+ * timezone_abbreviations 的 GUC assign_hook
  */
 void
 assign_timezone_abbreviations(const char *newval, void *extra)
 {
-	/* Do nothing for the boot_val default of NULL */
+	/* 对于 boot_val 默认值 NULL 不执行任何操作 */
 	if (!extra)
 		return;
 
@@ -525,41 +525,41 @@ assign_timezone_abbreviations(const char *newval, void *extra)
 
 
 /*
- * SET TRANSACTION READ ONLY and SET TRANSACTION READ WRITE
+ * SET TRANSACTION READ ONLY 和 SET TRANSACTION READ WRITE
  *
- * We allow idempotent changes (r/w -> r/w and r/o -> r/o) at any time, and
- * we also always allow changes from read-write to read-only.  However,
- * read-only may be changed to read-write only when in a top-level transaction
- * that has not yet taken an initial snapshot.  Can't do it in a hot standby,
- * either.
+ * 我们允许在任何时候进行幂等变更（r/w -> r/w 和 r/o -> r/o），
+ * 并且始终允许从读写更改为只读。但是，
+ * 只读只能在尚未获取初始快照的顶级事务中
+ * 更改为读写。
+ * 在热备中也不能更改。
  *
- * If we are not in a transaction at all, just allow the change; it means
- * nothing since XactReadOnly will be reset by the next StartTransaction().
- * The IsTransactionState() test protects us against trying to check
- * RecoveryInProgress() in contexts where shared memory is not accessible.
- * (Similarly, if we're restoring state in a parallel worker, just allow
- * the change.)
+ * 如果根本不在事务中，则直接允许更改；这没有任何意义，
+ * 因为 XactReadOnly 将在下次 StartTransaction() 时被重置。
+ * IsTransactionState() 测试保护我们免于在不访问共享内存的上下文中
+ * 尝试检查 RecoveryInProgress()。
+ * （同样，如果我们在并行工作进程中恢复状态，
+ * 也直接允许更改。）
  */
 bool
 check_transaction_read_only(bool *newval, void **extra, GucSource source)
 {
 	if (*newval == false && XactReadOnly && IsTransactionState() && !InitializingParallelWorker)
 	{
-		/* Can't go to r/w mode inside a r/o transaction */
+		/* 不能在只读事务内切换到读写模式 */
 		if (IsSubTransaction())
 		{
 			GUC_check_errcode(ERRCODE_ACTIVE_SQL_TRANSACTION);
 			GUC_check_errmsg("cannot set transaction read-write mode inside a read-only transaction");
 			return false;
 		}
-		/* Top level transaction can't change to r/w after first snapshot. */
+		/* 顶级事务在获取第一个快照后无法更改为读写。 */
 		if (FirstSnapshotSet)
 		{
 			GUC_check_errcode(ERRCODE_ACTIVE_SQL_TRANSACTION);
 			GUC_check_errmsg("transaction read-write mode must be set before any query");
 			return false;
 		}
-		/* Can't go to r/w mode while recovery is still active */
+		/* 恢复期间无法切换到读写模式 */
 		if (RecoveryInProgress())
 		{
 			GUC_check_errcode(ERRCODE_FEATURE_NOT_SUPPORTED);
@@ -574,10 +574,10 @@ check_transaction_read_only(bool *newval, void **extra, GucSource source)
 /*
  * SET TRANSACTION ISOLATION LEVEL
  *
- * We allow idempotent changes at any time, but otherwise this can only be
- * changed in a toplevel transaction that has not yet taken a snapshot.
+ * 我们允许在任何时候进行幂等变更，但除此之外，
+ * 只能在尚未获取快照的顶级事务中更改。
  *
- * As in check_transaction_read_only, allow it if not inside a transaction.
+ * 与 check_transaction_read_only 一样，如果不在事务中也允许。
  */
 bool
 check_transaction_isolation(int *newval, void **extra, GucSource source)
@@ -592,14 +592,14 @@ check_transaction_isolation(int *newval, void **extra, GucSource source)
 			GUC_check_errmsg("SET TRANSACTION ISOLATION LEVEL must be called before any query");
 			return false;
 		}
-		/* We ignore a subtransaction setting it to the existing value. */
+		/* 我们忽略子事务将其设置为现有值。 */
 		if (IsSubTransaction())
 		{
 			GUC_check_errcode(ERRCODE_ACTIVE_SQL_TRANSACTION);
 			GUC_check_errmsg("SET TRANSACTION ISOLATION LEVEL must not be called in a subtransaction");
 			return false;
 		}
-		/* Can't go to serializable mode while recovery is still active */
+		/* 恢复期间无法切换到可序列化模式 */
 		if (newXactIsoLevel == XACT_SERIALIZABLE && RecoveryInProgress())
 		{
 			GUC_check_errcode(ERRCODE_FEATURE_NOT_SUPPORTED);
@@ -636,12 +636,12 @@ check_transaction_deferrable(bool *newval, void **extra, GucSource source)
 }
 
 /*
- * Random number seed
+ * 随机数种子
  *
- * We can't roll back the random sequence on error, and we don't want
- * config file reloads to affect it, so we only want interactive SET SEED
- * commands to set it.  We use the "extra" storage to ensure that rollbacks
- * don't try to do the operation again.
+ * 我们不能在出错时回滚随机序列，也不希望配置
+ * 文件重载影响它，因此只允许交互式 SET SEED 命令设置它。
+ * 我们使用 "extra" 存储来确保回滚
+ * 不会再次尝试执行该操作。
  */
 
 bool
@@ -650,7 +650,7 @@ check_random_seed(double *newval, void **extra, GucSource source)
 	*extra = guc_malloc(LOG, sizeof(int));
 	if (!*extra)
 		return false;
-	/* Arm the assign only if source of value is an interactive SET */
+	/* 仅当值来源是交互式 SET 时才启用 assign */
 	*((int *) *extra) = (source >= PGC_S_INTERACTIVE);
 
 	return true;
@@ -659,7 +659,7 @@ check_random_seed(double *newval, void **extra, GucSource source)
 void
 assign_random_seed(double newval, void *extra)
 {
-	/* We'll do this at most once for any setting of the GUC variable */
+	/* 对于 GUC 变量的任何设置，我们最多执行一次此操作 */
 	if (*((int *) extra))
 		DirectFunctionCall1(setseed, Float8GetDatum(newval));
 	*((int *) extra) = 0;
@@ -682,33 +682,33 @@ check_client_encoding(char **newval, void **extra, GucSource source)
 	int			encoding;
 	const char *canonical_name;
 
-	/* Look up the encoding by name */
+	/* 按名称查找编码 */
 	encoding = pg_valid_client_encoding(*newval);
 	if (encoding < 0)
 		return false;
 
-	/* Get the canonical name (no aliases, uniform case) */
+	/* 获取规范名称（无别名，统一大小写） */
 	canonical_name = pg_encoding_to_char(encoding);
 
 	/*
-	 * If we are not within a transaction then PrepareClientEncoding will not
-	 * be able to look up the necessary conversion procs.  If we are still
-	 * starting up, it will return "OK" anyway, and InitializeClientEncoding
-	 * will fix things once initialization is far enough along.  After
-	 * startup, we'll fail.  This would only happen if someone tries to change
-	 * client_encoding in postgresql.conf and then SIGHUP existing sessions.
-	 * It seems like a bad idea for client_encoding to change that way anyhow,
-	 * so we don't go out of our way to support it.
+	 * 如果不在事务中，PrepareClientEncoding 将无法查找必要的
+	 * 转换过程。如果仍在启动中，它会返回 "OK"，
+	 * InitializeClientEncoding 将在初始化足够深入后修复问题。
+	 * 启动后，我们将失败。这只会发生在有人尝试在 postgresql.conf
+	 * 中更改 client_encoding 然后 SIGHUP 现有会话的情况下。
+	 * 无论如何，以这种方式更改 client_encoding
+	 * 似乎是个坏主意，
+	 * 因此我们不会特意支持它。
 	 *
-	 * Note: in the postmaster, or any other process that never calls
-	 * InitializeClientEncoding, PrepareClientEncoding will always succeed,
-	 * and so will SetClientEncoding; but they won't do anything, which is OK.
+	 * 注意：在 postmaster 或任何从不调用 InitializeClientEncoding
+	 * 的其他进程中，PrepareClientEncoding 将始终成功，
+	 * SetClientEncoding 也将成功；但它们不会做任何事情，这没问题。
 	 */
 	if (PrepareClientEncoding(encoding) < 0)
 	{
 		if (IsTransactionState())
 		{
-			/* Must be a genuine no-such-conversion problem */
+			/* 必须是真正的无此类转换问题 */
 			GUC_check_errcode(ERRCODE_FEATURE_NOT_SUPPORTED);
 			GUC_check_errdetail("Conversion between %s and %s is not supported.",
 								canonical_name,
@@ -716,21 +716,21 @@ check_client_encoding(char **newval, void **extra, GucSource source)
 		}
 		else
 		{
-			/* Provide a useful complaint */
+			/* 提供有用的投诉信息 */
 			GUC_check_errdetail("Cannot change \"client_encoding\" now.");
 		}
 		return false;
 	}
 
 	/*
-	 * Replace the user-supplied string with the encoding's canonical name.
-	 * This gets rid of aliases and case-folding variations.
+	 * 用编码的规范名称替换用户提供的字符串。
+	 * 这消除了别名和大小写变化。
 	 *
-	 * XXX Although canonicalizing seems like a good idea in the abstract, it
-	 * breaks pre-9.1 JDBC drivers, which expect that if they send "UNICODE"
-	 * as the client_encoding setting then it will read back the same way. As
-	 * a workaround, don't replace the string if it's "UNICODE".  Remove that
-	 * hack when pre-9.1 JDBC drivers are no longer in use.
+	 * XXX 尽管规范化在抽象上是好主意，但它会破坏 pre-9.1
+	 * JDBC 驱动程序，这些驱动程序期望如果发送 "UNICODE"
+	 * 作为 client_encoding 设置，则读回的值也相同。
+	 * 作为变通方案，如果字符串是 "UNICODE" 则不替换。
+	 * 当 pre-9.1 JDBC 驱动程序不再使用时移除此 hack。
 	 */
 	if (strcmp(*newval, canonical_name) != 0 &&
 		strcmp(*newval, "UNICODE") != 0)
@@ -742,7 +742,7 @@ check_client_encoding(char **newval, void **extra, GucSource source)
 	}
 
 	/*
-	 * Save the encoding's ID in *extra, for use by assign_client_encoding.
+	 * 将编码 ID 保存在 *extra 中，供 assign_client_encoding 使用。
 	 */
 	*extra = guc_malloc(LOG, sizeof(int));
 	if (!*extra)
@@ -758,30 +758,30 @@ assign_client_encoding(const char *newval, void *extra)
 	int			encoding = *((int *) extra);
 
 	/*
-	 * Parallel workers send data to the leader, not the client.  They always
-	 * send data using the database encoding.
+	 * 并行工作进程向领导者发送数据，而不是客户端。
+	 * 它们始终使用数据库编码发送数据。
 	 */
 	if (IsParallelWorker())
 	{
 		/*
-		 * During parallel worker startup, we want to accept the leader's
-		 * client_encoding setting so that anyone who looks at the value in
-		 * the worker sees the same value that they would see in the leader.
+		 * 在并行工作进程启动期间，我们要接受领导者的
+		 * client_encoding 设置，以便在工作进程中查看该值的
+		 * 任何人看到的值与在领导者中看到的相同。
 		 */
 		if (InitializingParallelWorker)
 			return;
 
 		/*
-		 * A change other than during startup, for example due to a SET clause
-		 * attached to a function definition, should be rejected, as there is
-		 * nothing we can do inside the worker to make it take effect.
+		 * 在启动期间以外的更改，例如附加到函数定义中的 SET 子句，
+		 * 应被拒绝，
+		 * 因为我们在工作进程中无法使其生效。
 		 */
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TRANSACTION_STATE),
 				 errmsg("cannot change client_encoding during a parallel operation")));
 	}
 
-	/* We do not expect an error if PrepareClientEncoding succeeded */
+	/* 如果 PrepareClientEncoding 成功，我们不期望出现错误 */
 	if (SetClientEncoding(encoding) < 0)
 		elog(LOG, "SetClientEncoding(%d) failed", encoding);
 }
@@ -793,7 +793,7 @@ assign_client_encoding(const char *newval, void *extra)
 
 typedef struct
 {
-	/* This is the "extra" state for both SESSION AUTHORIZATION and ROLE */
+	/* 这是 SESSION AUTHORIZATION 和 ROLE 共用的 "extra" 状态 */
 	Oid			roleid;
 	bool		is_superuser;
 } role_auth_extra;
@@ -807,16 +807,16 @@ check_session_authorization(char **newval, void **extra, GucSource source)
 	bool		is_superuser;
 	role_auth_extra *myextra;
 
-	/* Do nothing for the boot_val default of NULL */
+	/* 对于 boot_val 默认值 NULL 不执行任何操作 */
 	if (*newval == NULL)
 		return true;
 
 	if (InitializingParallelWorker)
 	{
 		/*
-		 * In parallel worker initialization, we want to copy the leader's
-		 * state even if it no longer matches the catalogs. ParallelWorkerMain
-		 * already installed the correct role OID and superuser state.
+		 * 在并行工作进程初始化中，我们要复制领导者的状态，
+		 * 即使它不再匹配目录。ParallelWorkerMain 已经安装了
+		 * 正确的角色 OID 和超级用户状态。
 		 */
 		roleid = GetSessionUserId();
 		is_superuser = GetSessionUserIsSuperuser();
@@ -826,21 +826,21 @@ check_session_authorization(char **newval, void **extra, GucSource source)
 		if (!IsTransactionState())
 		{
 			/*
-			 * Can't do catalog lookups, so fail.  The result of this is that
-			 * session_authorization cannot be set in postgresql.conf, which
-			 * seems like a good thing anyway, so we don't work hard to avoid
-			 * it.
+			 * 无法进行目录查找，因此失败。
+			 * 这样做的结果是 session_authorization 不能在 postgresql.conf
+			 * 中设置，这似乎无论如何都是件好事，
+			 * 所以我们不努力避免它。
 			 */
 			return false;
 		}
 
 		/*
-		 * When source == PGC_S_TEST, we don't throw a hard error for a
-		 * nonexistent user name or insufficient privileges, only a NOTICE.
-		 * See comments in guc.h.
+		 * 当 source == PGC_S_TEST 时，对于不存在的用户名或
+		 * 权限不足，我们不会抛出硬错误，只发出 NOTICE。
+		 * 参见 guc.h 中的注释。
 		 */
 
-		/* Look up the username */
+		/* 查找用户名 */
 		roleTup = SearchSysCache1(AUTHNAME, PointerGetDatum(*newval));
 		if (!HeapTupleIsValid(roleTup))
 		{
@@ -862,9 +862,9 @@ check_session_authorization(char **newval, void **extra, GucSource source)
 		ReleaseSysCache(roleTup);
 
 		/*
-		 * Only superusers may SET SESSION AUTHORIZATION a role other than
-		 * itself. Note that in case of multiple SETs in a single session, the
-		 * original authenticated user's superuserness is what matters.
+		 * 只有超级用户可以 SET SESSION AUTHORIZATION 为自身以外的
+		 * 角色。注意，在单个会话中多次 SET 的情况下，
+		 * 原始认证用户的超级用户状态才是重要的。
 		 */
 		if (roleid != GetAuthenticatedUserId() &&
 			!GetAuthenticatedUserIsSuperuser())
@@ -884,7 +884,7 @@ check_session_authorization(char **newval, void **extra, GucSource source)
 		}
 	}
 
-	/* Set up "extra" struct for assign_session_authorization to use */
+	/* 设置 "extra" 结构供 assign_session_authorization 使用 */
 	myextra = (role_auth_extra *) guc_malloc(LOG, sizeof(role_auth_extra));
 	if (!myextra)
 		return false;
@@ -900,7 +900,7 @@ assign_session_authorization(const char *newval, void *extra)
 {
 	role_auth_extra *myextra = (role_auth_extra *) extra;
 
-	/* Do nothing for the boot_val default of NULL */
+	/* 对于 boot_val 默认值 NULL 不执行任何操作 */
 	if (!myextra)
 		return;
 
@@ -911,11 +911,11 @@ assign_session_authorization(const char *newval, void *extra)
 /*
  * SET ROLE
  *
- * The SQL spec requires "SET ROLE NONE" to unset the role, so we hardwire
- * a translation of "none" to InvalidOid.  Otherwise this is much like
- * SET SESSION AUTHORIZATION.
+ * SQL 规范要求 "SET ROLE NONE" 来取消角色，因此我们将
+ * "none" 硬编码翻译为 InvalidOid。除此之外，
+ * 这与 SET SESSION AUTHORIZATION 非常相似。
  */
-extern char *role_string;		/* in guc_tables.c */
+extern char *role_string;		/* 在 guc_tables.c 中 */
 
 bool
 check_role(char **newval, void **extra, GucSource source)
@@ -928,16 +928,16 @@ check_role(char **newval, void **extra, GucSource source)
 
 	if (strcmp(*newval, "none") == 0)
 	{
-		/* hardwired translation */
+		/* 硬编码翻译 */
 		roleid = InvalidOid;
 		is_superuser = false;
 	}
 	else if (InitializingParallelWorker)
 	{
 		/*
-		 * In parallel worker initialization, we want to copy the leader's
-		 * state even if it no longer matches the catalogs. ParallelWorkerMain
-		 * already installed the correct role OID and superuser state.
+		 * 在并行工作进程初始化中，我们要复制领导者的状态，
+		 * 即使它不再匹配目录。ParallelWorkerMain 已经安装了
+		 * 正确的角色 OID 和超级用户状态。
 		 */
 		roleid = GetCurrentRoleId();
 		is_superuser = session_auth_is_superuser;
@@ -947,20 +947,20 @@ check_role(char **newval, void **extra, GucSource source)
 		if (!IsTransactionState())
 		{
 			/*
-			 * Can't do catalog lookups, so fail.  The result of this is that
-			 * role cannot be set in postgresql.conf, which seems like a good
-			 * thing anyway, so we don't work hard to avoid it.
+			 * 无法进行目录查找，因此失败。这样做的结果是
+			 * role 不能在 postgresql.conf 中设置，
+			 * 这似乎无论如何都是件好事，所以我们不努力避免它。
 			 */
 			return false;
 		}
 
 		/*
-		 * When source == PGC_S_TEST, we don't throw a hard error for a
-		 * nonexistent user name or insufficient privileges, only a NOTICE.
-		 * See comments in guc.h.
+		 * 当 source == PGC_S_TEST 时，对于不存在的用户名或
+		 * 权限不足，我们不会抛出硬错误，只发出 NOTICE。
+		 * 参见 guc.h 中的注释。
 		 */
 
-		/* Look up the username */
+		/* 查找用户名 */
 		roleTup = SearchSysCache1(AUTHNAME, PointerGetDatum(*newval));
 		if (!HeapTupleIsValid(roleTup))
 		{
@@ -981,7 +981,7 @@ check_role(char **newval, void **extra, GucSource source)
 
 		ReleaseSysCache(roleTup);
 
-		/* Verify that session user is allowed to become this role */
+		/* 验证会话用户是否被允许成为此角色 */
 		if (!member_can_set_role(GetSessionUserId(), roleid))
 		{
 			if (source == PGC_S_TEST)
@@ -999,7 +999,7 @@ check_role(char **newval, void **extra, GucSource source)
 		}
 	}
 
-	/* Set up "extra" struct for assign_role to use */
+	/* 设置 "extra" 结构供 assign_role 使用 */
 	myextra = (role_auth_extra *) guc_malloc(LOG, sizeof(role_auth_extra));
 	if (!myextra)
 		return false;
@@ -1022,34 +1022,34 @@ const char *
 show_role(void)
 {
 	/*
-	 * Check whether SET ROLE is active; if not return "none".  This is a
-	 * kluge to deal with the fact that SET SESSION AUTHORIZATION logically
-	 * resets SET ROLE to NONE, but we cannot set the GUC role variable from
-	 * assign_session_authorization (because we haven't got enough info to
-	 * call set_config_option).
+	 * 检查 SET ROLE 是否活跃；如果不活跃则返回 "none"。
+	 * 这是一个 kluge，用于处理 SET SESSION AUTHORIZATION 逻辑上
+	 * 将 SET ROLE 重置为 NONE，但我们不能从
+	 * assign_session_authorization 设置 GUC role 变量
+	 * （因为我们没有足够的信息来调用 set_config_option）的事实。
 	 */
 	if (!OidIsValid(GetCurrentRoleId()))
 		return "none";
 
-	/* Otherwise we can just use the GUC string */
+	/* 否则我们可以直接使用 GUC 字符串 */
 	return role_string ? role_string : "none";
 }
 
 
 /*
- * PATH VARIABLES
+ * 路径变量
  *
- * check_canonical_path is used for log_directory and some other GUCs where
- * all we want to do is canonicalize the represented path name.
+ * check_canonical_path 用于 log_directory 和其他一些 GUC，
+ * 我们只需要规范化表示的路径名。
  */
 
 bool
 check_canonical_path(char **newval, void **extra, GucSource source)
 {
 	/*
-	 * Since canonicalize_path never enlarges the string, we can just modify
-	 * newval in-place.  But watch out for NULL, which is the default value
-	 * for external_pid_file.
+	 * 由于 canonicalize_path 从不放大字符串，我们可以直接就地
+	 * 修改 newval。但要注意 NULL，它是 external_pid_file 的
+	 * 默认值。
 	 */
 	if (*newval)
 		canonicalize_path(*newval);
@@ -1058,11 +1058,11 @@ check_canonical_path(char **newval, void **extra, GucSource source)
 
 
 /*
- * MISCELLANEOUS
+ * 杂项
  */
 
 /*
- * GUC check_hook for application_name
+ * application_name 的 GUC check_hook
  */
 bool
 check_application_name(char **newval, void **extra, GucSource source)
@@ -1070,7 +1070,7 @@ check_application_name(char **newval, void **extra, GucSource source)
 	char	   *clean;
 	char	   *ret;
 
-	/* Only allow clean ASCII chars in the application name */
+	/* 只允许应用程序名称中包含干净的 ASCII 字符 */
 	clean = pg_clean_ascii(*newval, MCXT_ALLOC_NO_OOM);
 	if (!clean)
 		return false;
@@ -1090,17 +1090,17 @@ check_application_name(char **newval, void **extra, GucSource source)
 }
 
 /*
- * GUC assign_hook for application_name
+ * application_name 的 GUC assign_hook
  */
 void
 assign_application_name(const char *newval, void *extra)
 {
-	/* Update the pg_stat_activity view */
+	/* 更新 pg_stat_activity 视图 */
 	pgstat_report_appname(newval);
 }
 
 /*
- * GUC check_hook for cluster_name
+ * cluster_name 的 GUC check_hook
  */
 bool
 check_cluster_name(char **newval, void **extra, GucSource source)
@@ -1108,7 +1108,7 @@ check_cluster_name(char **newval, void **extra, GucSource source)
 	char	   *clean;
 	char	   *ret;
 
-	/* Only allow clean ASCII chars in the cluster name */
+	/* 只允许集簇名称中包含干净的 ASCII 字符 */
 	clean = pg_clean_ascii(*newval, MCXT_ALLOC_NO_OOM);
 	if (!clean)
 		return false;
@@ -1128,15 +1128,15 @@ check_cluster_name(char **newval, void **extra, GucSource source)
 }
 
 /*
- * GUC assign_hook for maintenance_io_concurrency
+ * maintenance_io_concurrency 的 GUC assign_hook
  */
 void
 assign_maintenance_io_concurrency(int newval, void *extra)
 {
 #ifdef USE_PREFETCH
 	/*
-	 * Reconfigure recovery prefetching, because a setting it depends on
-	 * changed.
+	 * 重新配置恢复预取，因为其依赖的设置
+	 * 发生了更改。
 	 */
 	maintenance_io_concurrency = newval;
 	if (AmStartupProcess())
@@ -1146,11 +1146,11 @@ assign_maintenance_io_concurrency(int newval, void *extra)
 
 
 /*
- * These show hooks just exist because we want to show the values in octal.
+ * 这些 show hook 存在的原因是我们要以八进制显示值。
  */
 
 /*
- * GUC show_hook for data_directory_mode
+ * data_directory_mode 的 GUC show_hook
  */
 const char *
 show_data_directory_mode(void)
@@ -1162,7 +1162,7 @@ show_data_directory_mode(void)
 }
 
 /*
- * GUC show_hook for log_file_mode
+ * log_file_mode 的 GUC show_hook
  */
 const char *
 show_log_file_mode(void)
@@ -1174,7 +1174,7 @@ show_log_file_mode(void)
 }
 
 /*
- * GUC show_hook for unix_socket_permissions
+ * unix_socket_permissions 的 GUC show_hook
  */
 const char *
 show_unix_socket_permissions(void)
@@ -1187,8 +1187,8 @@ show_unix_socket_permissions(void)
 
 
 /*
- * These check hooks do nothing more than reject non-default settings
- * in builds that don't support them.
+ * 这些 check hook 在不支持相关功能的构建中
+ * 仅拒绝非默认设置。
  */
 
 bool
@@ -1209,7 +1209,7 @@ check_default_with_oids(bool *newval, void **extra, GucSource source)
 {
 	if (*newval)
 	{
-		/* check the GUC's definition for an explanation */
+		/* 检查 GUC 的定义以获取解释 */
 		GUC_check_errcode(ERRCODE_FEATURE_NOT_SUPPORTED);
 		GUC_check_errmsg("tables declared WITH OIDS are not supported");
 

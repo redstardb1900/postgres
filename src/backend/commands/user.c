@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * user.c
- *	  Commands for manipulating roles (formerly called users).
+ *    用于操作角色的命令（早期称为用户）。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -42,21 +42,21 @@
 #include "utils/varlena.h"
 
 /*
- * Removing a role grant - or the admin option on it - might recurse to
- * dependent grants. We use these values to reason about what would need to
- * be done in such cases.
+ * 移除角色授权（或其 ADMIN OPTION）时，可能需要递归处理依赖的授权。
+ * 我们使用下列值来判断在此类情况下需要执行的操作。
  *
- * RRG_NOOP indicates a grant that would not need to be altered by the
- * operation.
+ * RRG_NOOP 表示当前操作无需修改的授权。
  *
- * RRG_REMOVE_ADMIN_OPTION indicates a grant that would need to have
- * admin_option set to false by the operation.
+ * RRG_REMOVE_ADMIN_OPTION 表示需要将 admin_option 设置为 false 的授权。
  *
- * Similarly, RRG_REMOVE_INHERIT_OPTION and RRG_REMOVE_SET_OPTION indicate
- * grants that would need to have the corresponding options set to false.
+ * RRG_REMOVE_INHERIT_OPTION 和 RRG_REMOVE_SET_OPTION 同理，表示需要将
+ * 相应选项设置为 false 的授权。
  *
- * RRG_DELETE_GRANT indicates a grant that would need to be removed entirely
- * by the operation.
+ * RRG_DELETE_GRANT 表示需要完全删除的授权。
+ *
+ *
+ *
+ *
  */
 typedef enum
 {
@@ -67,7 +67,7 @@ typedef enum
 	RRG_DELETE_GRANT
 } RevokeRoleGrantAction;
 
-/* Potentially set by pg_upgrade_support functions */
+/* 可由 pg_upgrade_support 函数设置 */
 Oid			binary_upgrade_next_pg_authid_oid = InvalidOid;
 
 typedef struct
@@ -82,13 +82,13 @@ typedef struct
 #define GRANT_ROLE_SPECIFIED_INHERIT		0x0002
 #define GRANT_ROLE_SPECIFIED_SET			0x0004
 
-/* GUC parameters */
+/* GUC 参数 */
 int			Password_encryption = PASSWORD_TYPE_SCRAM_SHA_256;
 char	   *createrole_self_grant = "";
 bool		createrole_self_grant_enabled = false;
 GrantRoleOptions createrole_self_grant_options;
 
-/* Hook to check passwords in CreateRole() and AlterRole() */
+/* CreateRole() 和 AlterRole() 中用于校验密码的钩子 */
 check_password_hook_type check_password_hook = NULL;
 
 static void AddRoleMems(Oid currentUserId, const char *rolename, Oid roleid,
@@ -118,7 +118,7 @@ static void plan_recursive_revoke(CatCList *memlist,
 static void InitGrantRoleOptions(GrantRoleOptions *popt);
 
 
-/* Check if current user has createrole privileges */
+/* 检查当前用户是否具有 createrole 权限 */
 static bool
 have_createrole_privilege(void)
 {
@@ -141,20 +141,20 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 	Oid			roleid;
 	ListCell   *item;
 	ListCell   *option;
-	char	   *password = NULL;	/* user password */
-	bool		issuper = false;	/* Make the user a superuser? */
-	bool		inherit = true; /* Auto inherit privileges? */
-	bool		createrole = false; /* Can this user create roles? */
-	bool		createdb = false;	/* Can the user create databases? */
-	bool		canlogin = false;	/* Can this user login? */
-	bool		isreplication = false;	/* Is this a replication role? */
-	bool		bypassrls = false;	/* Is this a row security enabled role? */
-	int			connlimit = -1; /* maximum connections allowed */
-	List	   *addroleto = NIL;	/* roles to make this a member of */
-	List	   *rolemembers = NIL;	/* roles to be members of this role */
-	List	   *adminmembers = NIL; /* roles to be admins of this role */
-	char	   *validUntil = NULL;	/* time the login is valid until */
-	Datum		validUntil_datum;	/* same, as timestamptz Datum */
+	char	   *password = NULL;	/* 用户密码 */
+	bool		issuper = false;	/* 是否将该用户设为超级用户？ */
+	bool		inherit = true; /* 是否自动继承权限？ */
+	bool		createrole = false; /* 该用户是否可以创建角色？ */
+	bool		createdb = false;	/* 该用户是否可以创建数据库？ */
+	bool		canlogin = false;	/* 该用户是否可以登录？ */
+	bool		isreplication = false;	/* 该用户是否为复制角色？ */
+	bool		bypassrls = false;	/* 该用户是否为行安全启用角色？ */
+	int			connlimit = -1; /* 最大允许连接数 */
+	List	   *addroleto = NIL;	/* 将此角色添加为其中成员的角色列表 */
+	List	   *rolemembers = NIL;	/* 将其添加为此角色成员的角色列表 */
+	List	   *adminmembers = NIL; /* 将其添加为此角色管理员的角色列表 */
+	char	   *validUntil = NULL;	/* 登录有效截止时间 */
+	Datum		validUntil_datum;	/* 同上，以 timestamptz Datum 形式 */
 	bool		validUntil_null;
 	DefElem    *dpassword = NULL;
 	DefElem    *dissuper = NULL;
@@ -171,20 +171,20 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 	DefElem    *dbypassRLS = NULL;
 	GrantRoleOptions popt;
 
-	/* The defaults can vary depending on the original statement type */
+	/* 默认值可能因原始语句类型而异 */
 	switch (stmt->stmt_type)
 	{
 		case ROLESTMT_ROLE:
 			break;
 		case ROLESTMT_USER:
 			canlogin = true;
-			/* may eventually want inherit to default to false here */
+			/* 将来可能希望此处 inherit 默认值为 false */
 			break;
 		case ROLESTMT_GROUP:
 			break;
 	}
 
-	/* Extract options from the statement node tree */
+	/* 从语句节点树中提取选项 */
 	foreach(option, stmt->options)
 	{
 		DefElem    *defel = (DefElem *) lfirst(option);
@@ -310,7 +310,7 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 	if (dbypassRLS)
 		bypassrls = boolVal(dbypassRLS->arg);
 
-	/* Check some permissions first */
+	/* 先检查部分权限 */
 	if (!superuser_arg(currentUserId))
 	{
 		if (!has_createrole_privilege(currentUserId))
@@ -346,9 +346,9 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 	}
 
 	/*
-	 * Check that the user is not trying to create a role in the reserved
-	 * "pg_" namespace.
-	 */
+     * 检查用户是否在尝试创建保留的 "pg_" 命名空间中的角色。
+ *
+     */
 	if (IsReservedName(stmt->role))
 		ereport(ERROR,
 				(errcode(ERRCODE_RESERVED_NAME),
@@ -357,18 +357,18 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 				 errdetail("Role names starting with \"pg_\" are reserved.")));
 
 	/*
-	 * If built with appropriate switch, whine when regression-testing
-	 * conventions for role names are violated.
-	 */
+     * 如果编译时启用了相应开关，当违反回归测试的角色命名约定时
+     * 发出警告。
+     */
 #ifdef ENFORCE_REGRESSION_TEST_NAME_RESTRICTIONS
 	if (strncmp(stmt->role, "regress_", 8) != 0)
 		elog(WARNING, "roles created by regression test cases should have names starting with \"regress_\"");
 #endif
 
 	/*
-	 * Check the pg_authid relation to be certain the role doesn't already
-	 * exist.
-	 */
+     * 检查 pg_authid 关系以确保该角色尚不存在。
+ *
+     */
 	pg_authid_rel = table_open(AuthIdRelationId, RowExclusiveLock);
 	pg_authid_dsc = RelationGetDescr(pg_authid_rel);
 
@@ -378,7 +378,7 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 				 errmsg("role \"%s\" already exists",
 						stmt->role)));
 
-	/* Convert validuntil to internal form */
+	/* 将 validuntil 转换为内部格式 */
 	if (validUntil)
 	{
 		validUntil_datum = DirectFunctionCall3(timestamptz_in,
@@ -394,8 +394,8 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 	}
 
 	/*
-	 * Call the password checking hook if there is one defined
-	 */
+     * 如果定义了密码检查钩子，则调用它
+     */
 	if (check_password_hook && password)
 		(*check_password_hook) (stmt->role,
 								password,
@@ -404,8 +404,8 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 								validUntil_null);
 
 	/*
-	 * Build a tuple to insert
-	 */
+     * 构建要插入的元组
+     */
 	new_record[Anum_pg_authid_rolname - 1] =
 		DirectFunctionCall1(namein, CStringGetDatum(stmt->role));
 	new_record[Anum_pg_authid_rolsuper - 1] = BoolGetDatum(issuper);
@@ -422,17 +422,17 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 		const char *logdetail = NULL;
 
 		/*
-		 * Don't allow an empty password. Libpq treats an empty password the
-		 * same as no password at all, and won't even try to authenticate. But
-		 * other clients might, so allowing it would be confusing. By clearing
-		 * the password when an empty string is specified, the account is
-		 * consistently locked for all clients.
-		 *
-		 * Note that this only covers passwords stored in the database itself.
-		 * There are also checks in the authentication code, to forbid an
-		 * empty password from being used with authentication methods that
-		 * fetch the password from an external system, like LDAP or PAM.
-		 */
+         * 不允许空密码。Libpq 将空密码视为无密码，甚至不会尝试
+         * 认证。但其他客户端可能会尝试，因此允许空密码会造成困惑。
+         * 当指定空字符串时清除密码，可以使所有客户端一致地锁定
+         * 该账户。
+         *
+         * 注意：这仅涵盖存储在数据库内部的密码。认证代码中还有
+         * 额外的检查，用于禁止空密码与从外部系统（如 LDAP 或 PAM）
+         * 获取密码的认证方法一起使用。
+ *
+ *
+         */
 		if (password[0] == '\0' ||
 			plain_crypt_verify(stmt->role, password, "", &logdetail) == STATUS_OK)
 		{
@@ -442,7 +442,7 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 		}
 		else
 		{
-			/* Encrypt the password to the requested format. */
+			/* 将密码加密为所请求的格式。 */
 			shadow_pass = encrypt_password(Password_encryption, stmt->role,
 										   password);
 			new_record[Anum_pg_authid_rolpassword - 1] =
@@ -458,9 +458,9 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 	new_record[Anum_pg_authid_rolbypassrls - 1] = BoolGetDatum(bypassrls);
 
 	/*
-	 * pg_largeobject_metadata contains pg_authid.oid's, so we use the
-	 * binary-upgrade override.
-	 */
+     * pg_largeobject_metadata 中包含 pg_authid.oid，因此我们使用
+     * 二进制升级覆盖。
+     */
 	if (IsBinaryUpgrade)
 	{
 		if (!OidIsValid(binary_upgrade_next_pg_authid_oid))
@@ -482,23 +482,23 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 	tuple = heap_form_tuple(pg_authid_dsc, new_record, new_record_nulls);
 
 	/*
-	 * Insert new record in the pg_authid table
-	 */
+     * 在 pg_authid 表中插入新记录
+     */
 	CatalogTupleInsert(pg_authid_rel, tuple);
 
 	/*
-	 * Advance command counter so we can see new record; else tests in
-	 * AddRoleMems may fail.
-	 */
+     * 推进命令计数器以使新记录可见；否则 AddRoleMems 中的
+     * 测试可能会失败。
+     */
 	if (addroleto || adminmembers || rolemembers)
 		CommandCounterIncrement();
 
-	/* Default grant. */
+	/* 默认授权。 */
 	InitGrantRoleOptions(&popt);
 
 	/*
-	 * Add the new role to the specified existing roles.
-	 */
+     * 将新角色添加到指定的已有角色中。
+     */
 	if (addroleto)
 	{
 		RoleSpec   *thisrole = makeNode(RoleSpec);
@@ -517,7 +517,7 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 			Oid			oldroleid = oldroleform->oid;
 			char	   *oldrolename = NameStr(oldroleform->rolname);
 
-			/* can only add this role to roles for which you have rights */
+			/* 只能将此角色添加到您拥有权限的角色中 */
 			check_role_membership_authorization(currentUserId, oldroleid, true);
 			AddRoleMems(currentUserId, oldrolename, oldroleid,
 						thisrole_list,
@@ -529,15 +529,15 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 	}
 
 	/*
-	 * If the current user isn't a superuser, make them an admin of the new
-	 * role so that they can administer the new object they just created.
-	 * Superusers will be able to do that anyway.
-	 *
-	 * The grantor of record for this implicit grant is the bootstrap
-	 * superuser, which means that the CREATEROLE user cannot revoke the
-	 * grant. They can however grant the created role back to themselves with
-	 * different options, since they enjoy ADMIN OPTION on it.
-	 */
+     * 如果当前用户不是超级用户，则使其成为新角色的管理员，
+     * 以便他们可以管理刚刚创建的新对象。超级用户无论如何
+     * 都能做到这一点。
+     *
+     * 此隐式授权的记录授权者为初始引导超级用户，这意味着
+     * CREATEROLE 用户无法撤销此授权。但基于他们对该角色享有
+     * ADMIN OPTION，他们可以将该角色通过其他选项重新授权给自己。
+ *
+     */
 	if (!superuser())
 	{
 		RoleSpec   *current_role = makeNode(RoleSpec);
@@ -561,20 +561,20 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 					BOOTSTRAP_SUPERUSERID, &poptself);
 
 		/*
-		 * We must make the implicit grant visible to the code below, else the
-		 * additional grants will fail.
-		 */
+         * 必须使隐式授权对下方代码可见，否则附加的 GRANT 将失败。
+ *
+         */
 		CommandCounterIncrement();
 
 		/*
-		 * Because of the implicit grant above, a CREATEROLE user who creates
-		 * a role has the ability to grant that role back to themselves with
-		 * the INHERIT or SET options, if they wish to inherit the role's
-		 * privileges or be able to SET ROLE to it. The createrole_self_grant
-		 * GUC can be used to make this happen automatically. This has no
-		 * security implications since the same user is able to make the same
-		 * grant using an explicit GRANT statement; it's just convenient.
-		 */
+         * 由于上述隐式授权，创建角色的 CREATEROLE 用户有权
+         * 通过 INHERIT 或 SET 选项将该角色授权回自己，以便
+         * 继承该角色的权限或能 SET ROLE 到该角色。
+         * createrole_self_grant GUC 可用于自动执行此操作。
+         * 这没有安全隐患，因为同一用户完全可以通过显式的
+         * GRANT 语句进行相同的授权；这只是提供便利。
+ *
+         */
 		if (createrole_self_grant_enabled)
 			AddRoleMems(currentUserId, stmt->role, roleid,
 						memberSpecs, memberIds,
@@ -582,12 +582,12 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 	}
 
 	/*
-	 * Add the specified members to this new role. adminmembers get the admin
-	 * option, rolemembers don't.
-	 *
-	 * NB: No permissions check is required here. If you have enough rights to
-	 * create a role, you can add any members you like.
-	 */
+     * 将指定的成员添加到这个新角色中。adminmembers 获得 admin
+     * 选项，rolemembers 不获得。
+     *
+     * 注意：此处不需要权限检查。如果您有足够的权限创建角色，
+     * 就可以添加任何您想要的成员。
+     */
 	AddRoleMems(currentUserId, stmt->role, roleid,
 				rolemembers, roleSpecsToIds(rolemembers),
 				InvalidOid, &popt);
@@ -597,12 +597,12 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 				adminmembers, roleSpecsToIds(adminmembers),
 				InvalidOid, &popt);
 
-	/* Post creation hook for new role */
+	/* 新角色的创建后钩子 */
 	InvokeObjectPostCreateHook(AuthIdRelationId, roleid, 0);
 
 	/*
-	 * Close pg_authid, but keep lock till commit.
-	 */
+     * 关闭 pg_authid，但保留锁直到提交。
+     */
 	table_close(pg_authid_rel, NoLock);
 
 	return roleid;
@@ -612,9 +612,9 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 /*
  * ALTER ROLE
  *
- * Note: the rolemembers option accepted here is intended to support the
- * backwards-compatible ALTER GROUP syntax.  Although it will work to say
- * "ALTER ROLE role ROLE rolenames", we don't document it.
+ * 注意：此处接受的 rolemembers 选项旨在支持向后兼容的
+ * ALTER GROUP 语法。虽然使用 "ALTER ROLE role ROLE rolenames" 也能
+ * 正常工作，但我们不对此进行文档化。
  */
 Oid
 AlterRole(ParseState *pstate, AlterRoleStmt *stmt)
@@ -629,10 +629,10 @@ AlterRole(ParseState *pstate, AlterRoleStmt *stmt)
 	Form_pg_authid authform;
 	ListCell   *option;
 	char	   *rolename;
-	char	   *password = NULL;	/* user password */
-	int			connlimit = -1; /* maximum connections allowed */
-	char	   *validUntil = NULL;	/* time the login is valid until */
-	Datum		validUntil_datum;	/* same, as timestamptz Datum */
+	char	   *password = NULL;	/* 用户密码 */
+	int			connlimit = -1; /* 最大允许连接数 */
+	char	   *validUntil = NULL;	/* 登录有效截止时间 */
+	Datum		validUntil_datum;	/* 同上，以 timestamptz Datum 形式 */
 	bool		validUntil_null;
 	DefElem    *dpassword = NULL;
 	DefElem    *dissuper = NULL;
@@ -652,7 +652,7 @@ AlterRole(ParseState *pstate, AlterRoleStmt *stmt)
 	check_rolespec_name(stmt->role,
 						_("Cannot alter reserved roles."));
 
-	/* Extract options from the statement node tree */
+	/* 从语句节点树中提取选项 */
 	foreach(option, stmt->options)
 	{
 		DefElem    *defel = (DefElem *) lfirst(option);
@@ -743,8 +743,8 @@ AlterRole(ParseState *pstate, AlterRoleStmt *stmt)
 		validUntil = strVal(dvalidUntil->arg);
 
 	/*
-	 * Scan the pg_authid relation to be certain the user exists.
-	 */
+     * 扫描 pg_authid 关系以确认该用户存在。
+     */
 	pg_authid_rel = table_open(AuthIdRelationId, RowExclusiveLock);
 	pg_authid_dsc = RelationGetDescr(pg_authid_rel);
 
@@ -753,7 +753,7 @@ AlterRole(ParseState *pstate, AlterRoleStmt *stmt)
 	rolename = pstrdup(NameStr(authform->rolname));
 	roleid = authform->oid;
 
-	/* To mess with a superuser in any way you gotta be superuser. */
+	/* 要想以任何方式操作超级用户，您必须是超级用户。 */
 	if (!superuser() && authform->rolsuper)
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -768,13 +768,13 @@ AlterRole(ParseState *pstate, AlterRoleStmt *stmt)
 						   "SUPERUSER", "SUPERUSER")));
 
 	/*
-	 * Most changes to a role require that you both have CREATEROLE privileges
-	 * and also ADMIN OPTION on the role.
-	 */
+     * 对角色的大多数更改要求您同时具有 CREATEROLE 权限和
+     * 对该角色的 ADMIN OPTION 权限。
+     */
 	if (!have_createrole_privilege() ||
 		!is_admin_of_role(GetUserId(), roleid))
 	{
-		/* things an unprivileged user certainly can't do */
+		/* 无权限用户肯定不能做的事情 */
 		if (dinherit || dcreaterole || dcreatedb || dcanlogin || dconnlimit ||
 			dvalidUntil || disreplication || dbypassRLS)
 			ereport(ERROR,
@@ -783,7 +783,7 @@ AlterRole(ParseState *pstate, AlterRoleStmt *stmt)
 					 errdetail("Only roles with the %s attribute and the %s option on role \"%s\" may alter this role.",
 							   "CREATEROLE", "ADMIN", rolename)));
 
-		/* an unprivileged user can change their own password */
+		/* 无权限用户可以更改自己的密码 */
 		if (dpassword && roleid != currentUserId)
 			ereport(ERROR,
 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -794,10 +794,10 @@ AlterRole(ParseState *pstate, AlterRoleStmt *stmt)
 	else if (!superuser())
 	{
 		/*
-		 * Even if you have both CREATEROLE and ADMIN OPTION on a role, you
-		 * can only change the CREATEDB, REPLICATION, or BYPASSRLS attributes
-		 * if they are set for your own role (or you are the superuser).
-		 */
+         * 即使您对某角色同时具有 CREATEROLE 和 ADMIN OPTION，
+         * 也只有在 CREATEDB、REPLICATION 或 BYPASSRLS 属性
+         * 已为您自己的角色设置（或您是超级用户）的情况下，      * 才能更改这些属性。
+         */
 		if (dcreatedb && !have_createdb_privilege())
 			ereport(ERROR,
 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -818,7 +818,7 @@ AlterRole(ParseState *pstate, AlterRoleStmt *stmt)
 							   "BYPASSRLS", "BYPASSRLS")));
 	}
 
-	/* To add or drop members, you need ADMIN OPTION. */
+	/* 要添加或删除成员，需要 ADMIN OPTION。 */
 	if (drolemembers && !is_admin_of_role(currentUserId, roleid))
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -826,7 +826,7 @@ AlterRole(ParseState *pstate, AlterRoleStmt *stmt)
 				 errdetail("Only roles with the %s option on role \"%s\" may add or drop members.",
 						   "ADMIN", rolename)));
 
-	/* Convert validuntil to internal form */
+	/* 将 validuntil 转换为内部格式 */
 	if (dvalidUntil)
 	{
 		validUntil_datum = DirectFunctionCall3(timestamptz_in,
@@ -837,15 +837,15 @@ AlterRole(ParseState *pstate, AlterRoleStmt *stmt)
 	}
 	else
 	{
-		/* fetch existing setting in case hook needs it */
+		/* 提取现有设置，以便钩子可能需要 */
 		validUntil_datum = SysCacheGetAttr(AUTHNAME, tuple,
 										   Anum_pg_authid_rolvaliduntil,
 										   &validUntil_null);
 	}
 
 	/*
-	 * Call the password checking hook if there is one defined
-	 */
+     * 如果定义了密码检查钩子，则调用它
+     */
 	if (check_password_hook && password)
 		(*check_password_hook) (rolename,
 								password,
@@ -854,12 +854,12 @@ AlterRole(ParseState *pstate, AlterRoleStmt *stmt)
 								validUntil_null);
 
 	/*
-	 * Build an updated tuple, perusing the information just obtained
-	 */
+     * 构建更新后的元组，使用刚刚获取的信息
+     */
 
 	/*
-	 * issuper/createrole/etc
-	 */
+     * issuper/createrole 等
+     */
 	if (dissuper)
 	{
 		bool		should_be_super = boolVal(dissuper->arg);
@@ -911,13 +911,13 @@ AlterRole(ParseState *pstate, AlterRoleStmt *stmt)
 		new_record_repl[Anum_pg_authid_rolconnlimit - 1] = true;
 	}
 
-	/* password */
+	/* 密码 */
 	if (password)
 	{
 		char	   *shadow_pass;
 		const char *logdetail = NULL;
 
-		/* Like in CREATE USER, don't allow an empty password. */
+		/* 与 CREATE USER 中一样，不允许空密码。 */
 		if (password[0] == '\0' ||
 			plain_crypt_verify(rolename, password, "", &logdetail) == STATUS_OK)
 		{
@@ -927,7 +927,7 @@ AlterRole(ParseState *pstate, AlterRoleStmt *stmt)
 		}
 		else
 		{
-			/* Encrypt the password to the requested format. */
+			/* 将密码加密为所请求的格式。 */
 			shadow_pass = encrypt_password(Password_encryption, rolename,
 										   password);
 			new_record[Anum_pg_authid_rolpassword - 1] =
@@ -936,14 +936,14 @@ AlterRole(ParseState *pstate, AlterRoleStmt *stmt)
 		new_record_repl[Anum_pg_authid_rolpassword - 1] = true;
 	}
 
-	/* unset password */
+	/* 取消设置密码 */
 	if (dpassword && dpassword->arg == NULL)
 	{
 		new_record_repl[Anum_pg_authid_rolpassword - 1] = true;
 		new_record_nulls[Anum_pg_authid_rolpassword - 1] = true;
 	}
 
-	/* valid until */
+	/* 有效截止时间 */
 	new_record[Anum_pg_authid_rolvaliduntil - 1] = validUntil_datum;
 	new_record_nulls[Anum_pg_authid_rolvaliduntil - 1] = validUntil_null;
 	new_record_repl[Anum_pg_authid_rolvaliduntil - 1] = true;
@@ -966,28 +966,28 @@ AlterRole(ParseState *pstate, AlterRoleStmt *stmt)
 	InitGrantRoleOptions(&popt);
 
 	/*
-	 * Advance command counter so we can see new record; else tests in
-	 * AddRoleMems may fail.
-	 */
+     * 推进命令计数器以使新记录可见；否则 AddRoleMems 中的
+     * 测试可能会失败。
+     */
 	if (drolemembers)
 	{
 		List	   *rolemembers = (List *) drolemembers->arg;
 
 		CommandCounterIncrement();
 
-		if (stmt->action == +1) /* add members to role */
+		if (stmt->action == +1) /* 向角色添加成员 */
 			AddRoleMems(currentUserId, rolename, roleid,
 						rolemembers, roleSpecsToIds(rolemembers),
 						InvalidOid, &popt);
-		else if (stmt->action == -1)	/* drop members from role */
+		else if (stmt->action == -1)	/* 从角色移除成员 */
 			DelRoleMems(currentUserId, rolename, roleid,
 						rolemembers, roleSpecsToIds(rolemembers),
 						InvalidOid, &popt, DROP_RESTRICT);
 	}
 
 	/*
-	 * Close pg_authid, but keep lock till commit.
-	 */
+     * 关闭 pg_authid，但保留锁直到提交。
+     */
 	table_close(pg_authid_rel, NoLock);
 
 	return roleid;
@@ -1015,16 +1015,16 @@ AlterRoleSet(AlterRoleSetStmt *stmt)
 		roleid = roleform->oid;
 
 		/*
-		 * Obtain a lock on the role and make sure it didn't go away in the
-		 * meantime.
-		 */
+         * 获取角色的锁，并确保它在此期间没有被删除。
+ *
+         */
 		shdepLockAndCheckObject(AuthIdRelationId, roleid);
 
 		/*
-		 * To mess with a superuser you gotta be superuser; otherwise you need
-		 * CREATEROLE plus admin option on the target role; unless you're just
-		 * trying to change your own settings
-		 */
+         * 要操作超级用户，您必须是超级用户；否则需要 CREATEROLE
+         * 加上对目标角色的 admin 选项；除非您只是想更改
+         * 自己的设置
+         */
 		if (roleform->rolsuper)
 		{
 			if (!superuser())
@@ -1049,7 +1049,7 @@ AlterRoleSet(AlterRoleSetStmt *stmt)
 		ReleaseSysCache(roletuple);
 	}
 
-	/* look up and lock the database, if specified */
+	/* 如果指定了数据库，则查找并锁定该数据库 */
 	if (stmt->database != NULL)
 	{
 		databaseid = get_database_oid(stmt->database, false);
@@ -1058,9 +1058,9 @@ AlterRoleSet(AlterRoleSetStmt *stmt)
 		if (!stmt->role)
 		{
 			/*
-			 * If no role is specified, then this is effectively the same as
-			 * ALTER DATABASE ... SET, so use the same permission check.
-			 */
+             * 如果没有指定角色，则此操作实际上等同于
+             * ALTER DATABASE ... SET，因此使用相同的权限检查。
+             */
 			if (!object_ownercheck(DatabaseRelationId, databaseid, GetUserId()))
 				aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_DATABASE,
 							   stmt->database);
@@ -1069,7 +1069,7 @@ AlterRoleSet(AlterRoleSetStmt *stmt)
 
 	if (!stmt->role && !stmt->database)
 	{
-		/* Must be superuser to alter settings globally. */
+		/* 必须是超级用户才能全局更改设置。 */
 		if (!superuser())
 			ereport(ERROR,
 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -1103,9 +1103,9 @@ DropRole(DropRoleStmt *stmt)
 						   "CREATEROLE", "ADMIN")));
 
 	/*
-	 * Scan the pg_authid relation to find the Oid of the role(s) to be
-	 * deleted and perform preliminary permissions and sanity checks.
-	 */
+     * 扫描 pg_authid 关系以找到待删除角色的 OID，
+     * 并执行初步的权限和合理性检查。
+     */
 	pg_authid_rel = table_open(AuthIdRelationId, RowExclusiveLock);
 	pg_auth_members_rel = table_open(AuthMemRelationId, RowExclusiveLock);
 
@@ -1162,10 +1162,10 @@ DropRole(DropRoleStmt *stmt)
 					 errmsg("session user cannot be dropped")));
 
 		/*
-		 * For safety's sake, we allow createrole holders to drop ordinary
-		 * roles but not superuser roles, and only if they also have ADMIN
-		 * OPTION.
-		 */
+         * 为了安全起见，我们允许拥有 createrole 权限的用户删除
+         * 普通角色，但不能删除超级用户角色，并且必须同时具备
+         * ADMIN OPTION。
+         */
 		if (roleform->rolsuper && !superuser())
 			ereport(ERROR,
 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -1179,35 +1179,35 @@ DropRole(DropRoleStmt *stmt)
 					 errdetail("Only roles with the %s attribute and the %s option on role \"%s\" may drop this role.",
 							   "CREATEROLE", "ADMIN", NameStr(roleform->rolname))));
 
-		/* DROP hook for the role being removed */
+		/* 被删除角色的 DROP 钩子 */
 		InvokeObjectDropHook(AuthIdRelationId, roleid, 0);
 
-		/* Don't leak the syscache tuple */
+		/* 不要泄漏 syscache 元组 */
 		ReleaseSysCache(tuple);
 
 		/*
-		 * Lock the role, so nobody can add dependencies to her while we drop
-		 * her.  We keep the lock until the end of transaction.
-		 */
+         * 锁定角色，以便在我们删除它期间没有人可以添加依赖关系。
+         * 我们保留此锁直到事务结束。
+         */
 		LockSharedObject(AuthIdRelationId, roleid, 0, AccessExclusiveLock);
 
 		/*
-		 * If there is a pg_auth_members entry that has one of the roles to be
-		 * dropped as the roleid or member, it should be silently removed, but
-		 * if there is a pg_auth_members entry that has one of the roles to be
-		 * dropped as the grantor, the operation should fail.
-		 *
-		 * It's possible, however, that a single pg_auth_members entry could
-		 * fall into multiple categories - e.g. the user could do "GRANT foo
-		 * TO bar GRANTED BY baz" and then "DROP ROLE baz, bar". We want such
-		 * an operation to succeed regardless of the order in which the
-		 * to-be-dropped roles are passed to DROP ROLE.
-		 *
-		 * To make that work, we remove all pg_auth_members entries that can
-		 * be silently removed in this loop, and then below we'll make a
-		 * second pass over the list of roles to be removed and check for any
-		 * remaining dependencies.
-		 */
+         * 如果 pg_auth_members 中存在以要删除角色之一作为
+         * roleid 或 member 的条目，则应静默删除；但如果
+         * pg_auth_members 中存在以要删除角色之一作为 grantor
+         * 的条目，则操作应失败。
+         *
+         * 但是，单个 pg_auth_members 条目可能属于多个类别 —
+         * 例如，用户可能执行 "GRANT foo TO bar GRANTED BY baz"
+         * 然后再 "DROP ROLE baz, bar"。我们希望这样的操作成功，
+         * 而不管 DROP ROLE 中传入待删除角色的顺序如何。
+         *
+         * 为了实现这一点，我们在此循环中删除所有可以静默删除的
+         * pg_auth_members 条目，然后在下面第二次遍历要删除的角色
+         * 列表时，检查任何剩余的依赖关系。
+ *
+ *
+         */
 		ScanKeyInit(&scankey,
 					Anum_pg_auth_members_roleid,
 					BTEqualStrategyNumber, F_OIDEQ,
@@ -1249,23 +1249,23 @@ DropRole(DropRoleStmt *stmt)
 		systable_endscan(sscan);
 
 		/*
-		 * Advance command counter so that later iterations of this loop will
-		 * see the changes already made.  This is essential if, for example,
-		 * we are trying to drop both a role and one of its direct members ---
-		 * we'll get an error if we try to delete the linking pg_auth_members
-		 * tuple twice.  (We do not need a CCI between the two delete loops
-		 * above, because it's not allowed for a role to directly contain
-		 * itself.)
-		 */
+         * 推进命令计数器，使得此循环的后续迭代能够看到
+         * 已经完成的更改。这一点很关键，例如当我们尝试同时
+         * 删除一个角色及其直接成员时 — 如果尝试两次删除
+         * 链接的 pg_auth_members 元组将会出错。（上面两个删除
+         * 循环之间不需要 CCI，因为不允许角色直接包含自身。）
+ *
+ *
+         */
 		CommandCounterIncrement();
 
-		/* Looks tentatively OK, add it to the list if not there yet. */
+		/* 初步看起来可以，如果尚未存在则将其添加到列表中。 */
 		role_oids = list_append_unique_oid(role_oids, roleid);
 	}
 
 	/*
-	 * Second pass over the roles to be removed.
-	 */
+     * 对要删除的角色进行第二次遍历。
+     */
 	foreach(item, role_oids)
 	{
 		Oid			roleid = lfirst_oid(item);
@@ -1275,24 +1275,24 @@ DropRole(DropRoleStmt *stmt)
 		char	   *detail_log;
 
 		/*
-		 * Re-find the pg_authid tuple.
-		 *
-		 * Since we've taken a lock on the role OID, it shouldn't be possible
-		 * for the tuple to have been deleted -- or for that matter updated --
-		 * unless the user is manually modifying the system catalogs.
-		 */
+         * 重新查找 pg_authid 元组。
+         *
+         * 由于我们已经对该角色 OID 进行了锁定，除非用户手动
+         * 修改系统目录，否则元组不应该被删除 — 甚至不应该
+         * 被更新。
+         */
 		tuple = SearchSysCache1(AUTHOID, ObjectIdGetDatum(roleid));
 		if (!HeapTupleIsValid(tuple))
 			elog(ERROR, "could not find tuple for role %u", roleid);
 		roleform = (Form_pg_authid) GETSTRUCT(tuple);
 
 		/*
-		 * Check for pg_shdepend entries depending on this role.
-		 *
-		 * This needs to happen after we've completed removing any
-		 * pg_auth_members entries that can be removed silently, in order to
-		 * avoid spurious failures. See notes above for more details.
-		 */
+         * 检查依赖于此角色的 pg_shdepend 条目。
+         *
+         * 这需要在完成所有可静默删除的 pg_auth_members 条目
+         * 之后进行，以避免虚假失败。详见上方的注释。
+ *
+         */
 		if (checkSharedDependencies(AuthIdRelationId, roleid,
 									&detail, &detail_log))
 			ereport(ERROR,
@@ -1303,33 +1303,33 @@ DropRole(DropRoleStmt *stmt)
 					 errdetail_log("%s", detail_log)));
 
 		/*
-		 * Remove the role from the pg_authid table
-		 */
+         * 从 pg_authid 表中删除该角色
+         */
 		CatalogTupleDelete(pg_authid_rel, &tuple->t_self);
 
 		ReleaseSysCache(tuple);
 
 		/*
-		 * Remove any comments or security labels on this role.
-		 */
+         * 删除该角色上的任何注释或安全标签。
+         */
 		DeleteSharedComments(roleid, AuthIdRelationId);
 		DeleteSharedSecurityLabel(roleid, AuthIdRelationId);
 
 		/*
-		 * Remove settings for this role.
-		 */
+         * 删除该角色的设置。
+         */
 		DropSetting(InvalidOid, roleid);
 	}
 
 	/*
-	 * Now we can clean up; but keep locks until commit.
-	 */
+     * 现在可以清理了；但保留锁直到提交。
+     */
 	table_close(pg_auth_members_rel, NoLock);
 	table_close(pg_authid_rel, NoLock);
 }
 
 /*
- * Rename role
+ * 重命名角色
  */
 ObjectAddress
 RenameRole(const char *oldname, const char *newname)
@@ -1358,12 +1358,12 @@ RenameRole(const char *oldname, const char *newname)
 				 errmsg("role \"%s\" does not exist", oldname)));
 
 	/*
-	 * XXX Client applications probably store the session user somewhere, so
-	 * renaming it could cause confusion.  On the other hand, there may not be
-	 * an actual problem besides a little confusion, so think about this and
-	 * decide.  Same for SET ROLE ... we don't restrict renaming the current
-	 * effective userid, though.
-	 */
+     * XXX 客户端应用程序可能在某个地方存储了会话用户，
+     * 因此重命名它可能会造成混淆。另一方面，除了让用户
+     * 感到困惑之外，可能没有其他实际问题，因此请考虑
+     * 这一点并做出决定。对于 SET ROLE 也是如此... 不过，
+     * 我们不限制重命名当前有效用户 ID。
+     */
 
 	authform = (Form_pg_authid) GETSTRUCT(oldtuple);
 	roleid = authform->oid;
@@ -1378,9 +1378,9 @@ RenameRole(const char *oldname, const char *newname)
 				 errmsg("current user cannot be renamed")));
 
 	/*
-	 * Check that the user is not trying to rename a system role and not
-	 * trying to rename a role into the reserved "pg_" namespace.
-	 */
+     * 检查用户是否没有尝试重命名系统角色，也没有尝试
+     * 将角色重命名为保留的 "pg_" 命名空间中的名称。
+     */
 	if (IsReservedName(NameStr(authform->rolname)))
 		ereport(ERROR,
 				(errcode(ERRCODE_RESERVED_NAME),
@@ -1396,24 +1396,24 @@ RenameRole(const char *oldname, const char *newname)
 				 errdetail("Role names starting with \"pg_\" are reserved.")));
 
 	/*
-	 * If built with appropriate switch, whine when regression-testing
-	 * conventions for role names are violated.
-	 */
+     * 如果编译时启用了相应开关，当违反回归测试的角色命名约定时
+     * 发出警告。
+     */
 #ifdef ENFORCE_REGRESSION_TEST_NAME_RESTRICTIONS
 	if (strncmp(newname, "regress_", 8) != 0)
 		elog(WARNING, "roles created by regression test cases should have names starting with \"regress_\"");
 #endif
 
-	/* make sure the new name doesn't exist */
+	/* 确保新名称不存在 */
 	if (SearchSysCacheExists1(AUTHNAME, CStringGetDatum(newname)))
 		ereport(ERROR,
 				(errcode(ERRCODE_DUPLICATE_OBJECT),
 				 errmsg("role \"%s\" already exists", newname)));
 
 	/*
-	 * Only superusers can mess with superusers. Otherwise, a user with
-	 * CREATEROLE can rename a role for which they have ADMIN OPTION.
-	 */
+     * 只有超级用户可以操作超级用户。否则，拥有 CREATEROLE 权限的
+     * 用户可以重命名其拥有 ADMIN OPTION 的角色。
+     */
 	if (authform->rolsuper)
 	{
 		if (!superuser())
@@ -1434,7 +1434,7 @@ RenameRole(const char *oldname, const char *newname)
 							   "CREATEROLE", "ADMIN", NameStr(authform->rolname))));
 	}
 
-	/* OK, construct the modified tuple */
+	/* 好的，构造修改后的元组 */
 	for (i = 0; i < Natts_pg_authid; i++)
 		repl_repl[i] = false;
 
@@ -1447,7 +1447,7 @@ RenameRole(const char *oldname, const char *newname)
 
 	if (!isnull && get_password_type(TextDatumGetCString(datum)) == PASSWORD_TYPE_MD5)
 	{
-		/* MD5 uses the username as salt, so just clear it on a rename */
+		/* MD5 使用用户名作为 salt，因此重命名时只需清除它 */
 		repl_repl[Anum_pg_authid_rolpassword - 1] = true;
 		repl_null[Anum_pg_authid_rolpassword - 1] = true;
 
@@ -1465,8 +1465,8 @@ RenameRole(const char *oldname, const char *newname)
 	ReleaseSysCache(oldtuple);
 
 	/*
-	 * Close pg_authid, but keep lock till commit.
-	 */
+     * 关闭 pg_authid，但保留锁直到提交。
+     */
 	table_close(rel, NoLock);
 
 	return address;
@@ -1475,7 +1475,7 @@ RenameRole(const char *oldname, const char *newname)
 /*
  * GrantRoleStmt
  *
- * Grant/Revoke roles to/from roles
+ * GRANT/REVOKE 角色到/自角色
  */
 void
 GrantRole(ParseState *pstate, GrantRoleStmt *stmt)
@@ -1487,7 +1487,7 @@ GrantRole(ParseState *pstate, GrantRoleStmt *stmt)
 	GrantRoleOptions popt;
 	Oid			currentUserId = GetUserId();
 
-	/* Parse options list. */
+	/* 解析选项列表。 */
 	InitGrantRoleOptions(&popt);
 	foreach(item, stmt->opt)
 	{
@@ -1526,7 +1526,7 @@ GrantRole(ParseState *pstate, GrantRoleStmt *stmt)
 				 parser_errposition(pstate, opt->location)));
 	}
 
-	/* Lookup OID of grantor, if specified. */
+	/* 如果指定了授权者，查找其 OID。 */
 	if (stmt->grantor)
 		grantor = get_rolespec_oid(stmt->grantor, false);
 	else
@@ -1534,23 +1534,23 @@ GrantRole(ParseState *pstate, GrantRoleStmt *stmt)
 
 	grantee_ids = roleSpecsToIds(stmt->grantee_roles);
 
-	/* AccessShareLock is enough since we aren't modifying pg_authid */
+	/* AccessShareLock 就足够了，因为我们不修改 pg_authid */
 	pg_authid_rel = table_open(AuthIdRelationId, AccessShareLock);
 
 	/*
-	 * Step through all of the granted roles and add, update, or remove
-	 * entries in pg_auth_members as appropriate. If stmt->is_grant is true,
-	 * we are adding new grants or, if they already exist, updating options on
-	 * those grants. If stmt->is_grant is false, we are revoking grants or
-	 * removing options from them.
-	 */
+     * 遍历所有被授权的角色，根据需要添加、更新或删除
+     * pg_auth_members 中的条目。如果 stmt->is_grant 为 true，
+     * 我们正在添加新的授权，或者如果已存在则更新授权上的
+     * 选项。如果 stmt->is_grant 为 false，我们正在撤销授权
+     * 或移除其中的选项。
+     */
 	foreach(item, stmt->granted_roles)
 	{
 		AccessPriv *priv = (AccessPriv *) lfirst(item);
 		char	   *rolename = priv->priv_name;
 		Oid			roleid;
 
-		/* Must reject priv(columns) and ALL PRIVILEGES(columns) */
+		/* 必须拒绝 priv(columns) 和 ALL PRIVILEGES(columns) */
 		if (rolename == NULL || priv->cols != NIL)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_GRANT_OPERATION),
@@ -1570,15 +1570,15 @@ GrantRole(ParseState *pstate, GrantRoleStmt *stmt)
 	}
 
 	/*
-	 * Close pg_authid, but keep lock till commit.
-	 */
+     * 关闭 pg_authid，但保留锁直到提交。
+     */
 	table_close(pg_authid_rel, NoLock);
 }
 
 /*
  * DropOwnedObjects
  *
- * Drop the objects owned by a given list of roles.
+ * 删除给定角色列表所拥有的对象。
  */
 void
 DropOwnedObjects(DropOwnedStmt *stmt)
@@ -1586,7 +1586,7 @@ DropOwnedObjects(DropOwnedStmt *stmt)
 	List	   *role_ids = roleSpecsToIds(stmt->roles);
 	ListCell   *cell;
 
-	/* Check privileges */
+	/* 检查权限 */
 	foreach(cell, role_ids)
 	{
 		Oid			roleid = lfirst_oid(cell);
@@ -1599,14 +1599,14 @@ DropOwnedObjects(DropOwnedStmt *stmt)
 							   GetUserNameFromId(roleid, false))));
 	}
 
-	/* Ok, do it */
+	/* 好的，执行 */
 	shdepDropOwned(role_ids, stmt->behavior);
 }
 
 /*
  * ReassignOwnedObjects
  *
- * Give the objects owned by a given list of roles away to another user.
+ * 将给定角色列表所拥有的对象转让给另一个用户。
  */
 void
 ReassignOwnedObjects(ReassignOwnedStmt *stmt)
@@ -1615,7 +1615,7 @@ ReassignOwnedObjects(ReassignOwnedStmt *stmt)
 	ListCell   *cell;
 	Oid			newrole;
 
-	/* Check privileges */
+	/* 检查权限 */
 	foreach(cell, role_ids)
 	{
 		Oid			roleid = lfirst_oid(cell);
@@ -1628,7 +1628,7 @@ ReassignOwnedObjects(ReassignOwnedStmt *stmt)
 							   GetUserNameFromId(roleid, false))));
 	}
 
-	/* Must have privileges on the receiving side too */
+	/* 在接收方也必须具有权限 */
 	newrole = get_rolespec_oid(stmt->newrole, false);
 
 	if (!has_privs_of_role(GetUserId(), newrole))
@@ -1638,16 +1638,16 @@ ReassignOwnedObjects(ReassignOwnedStmt *stmt)
 				 errdetail("Only roles with privileges of role \"%s\" may reassign objects to it.",
 						   GetUserNameFromId(newrole, false))));
 
-	/* Ok, do it */
+	/* 好的，执行 */
 	shdepReassignOwned(role_ids, newrole);
 }
 
 /*
  * roleSpecsToIds
  *
- * Given a list of RoleSpecs, generate a list of role OIDs in the same order.
+ * 给定 RoleSpec 列表，按相同顺序生成角色 OID 列表。
  *
- * ROLESPEC_PUBLIC is not allowed.
+ * 不允许 ROLESPEC_PUBLIC。
  */
 List *
 roleSpecsToIds(List *memberNames)
@@ -1667,16 +1667,16 @@ roleSpecsToIds(List *memberNames)
 }
 
 /*
- * AddRoleMems -- Add given members to the specified role
+ * AddRoleMems -- 将给定成员添加到指定角色
  *
- * currentUserId: OID of role performing the operation
- * rolename: name of role to add to (used only for error messages)
- * roleid: OID of role to add to
- * memberSpecs: list of RoleSpec of roles to add (used only for error messages)
- * memberIds: OIDs of roles to add
- * grantorId: OID that should be recorded as having granted the membership
- * (InvalidOid if not set explicitly)
- * popt: information about grant options
+ * currentUserId: 执行操作的角色的 OID
+ * rolename: 要添加到的角色名称（仅用于错误消息）
+ * roleid: 要添加到的角色的 OID
+ * memberSpecs: 要添加的角色的 RoleSpec 列表（仅用于错误消息）
+ * memberIds: 要添加的角色的 OID
+ * grantorId: 应记录为授权该成员关系的 OID
+ * （如果未显式设置则为 InvalidOid）
+ * popt: 关于授权选项的信息
  */
 static void
 AddRoleMems(Oid currentUserId, const char *rolename, Oid roleid,
@@ -1690,57 +1690,57 @@ AddRoleMems(Oid currentUserId, const char *rolename, Oid roleid,
 
 	Assert(list_length(memberSpecs) == list_length(memberIds));
 
-	/* Validate grantor (and resolve implicit grantor if not specified). */
+	/* 验证授权者（如果未指定则解析隐式授权者）。 */
 	grantorId = check_role_grantor(currentUserId, roleid, grantorId, true);
 
 	pg_authmem_rel = table_open(AuthMemRelationId, RowExclusiveLock);
 	pg_authmem_dsc = RelationGetDescr(pg_authmem_rel);
 
 	/*
-	 * Only allow changes to this role by one backend at a time, so that we
-	 * can check integrity constraints like the lack of circular ADMIN OPTION
-	 * grants without fear of race conditions.
-	 */
+     * 一次只允许一个后端更改此角色，这样我们就可以检查
+     * 完整性约束（如防止循环 ADMIN OPTION 授权），
+     * 而不必担心竞争条件。
+     */
 	LockSharedObject(AuthIdRelationId, roleid, 0,
 					 ShareUpdateExclusiveLock);
 
-	/* Preliminary sanity checks. */
+	/* 初步合理性检查。 */
 	forboth(specitem, memberSpecs, iditem, memberIds)
 	{
 		RoleSpec   *memberRole = lfirst_node(RoleSpec, specitem);
 		Oid			memberid = lfirst_oid(iditem);
 
 		/*
-		 * pg_database_owner is never a role member.  Lifting this restriction
-		 * would require a policy decision about membership loops.  One could
-		 * prevent loops, which would include making "ALTER DATABASE x OWNER
-		 * TO proposed_datdba" fail if is_member_of_role(pg_database_owner,
-		 * proposed_datdba).  Hence, gaining a membership could reduce what a
-		 * role could do.  Alternately, one could allow these memberships to
-		 * complete loops.  A role could then have actual WITH ADMIN OPTION on
-		 * itself, prompting a decision about is_admin_of_role() treatment of
-		 * the case.
-		 *
-		 * Lifting this restriction also has policy implications for ownership
-		 * of shared objects (databases and tablespaces).  We allow such
-		 * ownership, but we might find cause to ban it in the future.
-		 * Designing such a ban would more troublesome if the design had to
-		 * address pg_database_owner being a member of role FOO that owns a
-		 * shared object.  (The effect of such ownership is that any owner of
-		 * another database can act as the owner of affected shared objects.)
-		 */
+         * pg_database_owner 从来不是角色成员。解除此限制
+         * 需要对成员关系环做出策略决策。一种方案是防止环，
+         * 这将包括使 "ALTER DATABASE x OWNER TO proposed_datdba"
+         * 在 is_member_of_role(pg_database_owner, proposed_datdba)
+         * 为真时失败。因此，获得一个成员关系可能会减少
+         * 角色可以执行的操作。另一种方案是允许这些成员关系
+         * 完成环。然后角色实际上可以对自己拥有 WITH ADMIN OPTION，
+         * 从而引发关于 is_admin_of_role() 如何处理这种情况的决策。
+         *
+         * 解除此限制还对共享对象（数据库和表空间）的所有权
+         * 有策略影响。我们允许这样的所有权，但可能在未来
+         * 找到禁止它的理由。如果设计必须处理 pg_database_owner
+         * 是拥有共享对象的角色 FOO 的成员的情况，设计这种
+         * 禁止将更加棘手。（这种所有权的效果是任何其他数据库
+         * 的所有者都可以作为受影响的共享对象的所有者行事。）
+ *
+ *
+         */
 		if (memberid == ROLE_PG_DATABASE_OWNER)
 			ereport(ERROR,
 					errmsg("role \"%s\" cannot be a member of any role",
 						   get_rolespec_name(memberRole)));
 
 		/*
-		 * Refuse creation of membership loops, including the trivial case
-		 * where a role is made a member of itself.  We do this by checking to
-		 * see if the target role is already a member of the proposed member
-		 * role.  We have to ignore possible superuserness, however, else we
-		 * could never grant membership in a superuser-privileged role.
-		 */
+         * 拒绝创建成员关系环，包括角色成为自身成员的平凡情况。
+         * 我们通过检查目标角色是否已经是所提议成员角色的成员
+         * 来实现。但是，我们必须忽略可能的超级用户身份，
+         * 否则我们永远无法授予超级用户特权角色中的成员资格。
+ *
+         */
 		if (is_member_of_role_nosuper(roleid, memberid))
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_GRANT_OPERATION),
@@ -1749,33 +1749,33 @@ AddRoleMems(Oid currentUserId, const char *rolename, Oid roleid,
 	}
 
 	/*
-	 * Disallow attempts to grant ADMIN OPTION back to a user who granted it
-	 * to you, similar to what check_circularity does for ACLs. We want the
-	 * chains of grants to remain acyclic, so that it's always possible to use
-	 * REVOKE .. CASCADE to clean up all grants that depend on the one being
-	 * revoked.
-	 *
-	 * NB: This check might look redundant with the check for membership loops
-	 * above, but it isn't. That's checking for role-member loop (e.g. A is a
-	 * member of B and B is a member of A) while this is checking for a
-	 * member-grantor loop (e.g. A gave ADMIN OPTION on X to B and now B, who
-	 * has no other source of ADMIN OPTION on X, tries to give ADMIN OPTION on
-	 * X back to A).
-	 */
+     * 禁止尝试将 ADMIN OPTION 授权回给您授予它的用户，
+     * 类似于 check_circularity 对 ACL 所做的处理。我们希望
+     * 授权链保持无环，以便始终可以使用 REVOKE .. CASCADE
+     * 清理所有依赖于被撤销授权的授权。
+     *
+     * 注意：此检查可能看起来与上面的成员关系环检查重复，
+     * 但实际上不是。上面检查的是角色-成员环
+     * （例如 A 是 B 的成员且 B 是 A 的成员），
+     * 而此处检查的是成员-授权者环
+     * （例如 A 授权了 B 对 X 的 ADMIN OPTION，而 B 没有
+     * 来自其他来源的对 X 的 ADMIN OPTION，现在试图将
+     * 对 X 的 ADMIN OPTION 授权回 A）。
+     */
 	if (popt->admin && grantorId != BOOTSTRAP_SUPERUSERID)
 	{
 		CatCList   *memlist;
 		RevokeRoleGrantAction *actions;
 		int			i;
 
-		/* Get the list of members for this role. */
+		/* 获取此角色的成员列表。 */
 		memlist = SearchSysCacheList1(AUTHMEMROLEMEM,
 									  ObjectIdGetDatum(roleid));
 
 		/*
-		 * Figure out what would happen if we removed all existing grants to
-		 * every role to which we've been asked to make a new grant.
-		 */
+         * 计算如果我们移除每个被请求进行新授权的角色的
+         * 所有现有授权后会发生什么。
+         */
 		actions = initialize_revoke_actions(memlist);
 		foreach(iditem, memberIds)
 		{
@@ -1790,10 +1790,10 @@ AddRoleMems(Oid currentUserId, const char *rolename, Oid roleid,
 		}
 
 		/*
-		 * If the result would be that the grantor role would no longer have
-		 * the ability to perform the grant, then the proposed grant would
-		 * create a circularity.
-		 */
+         * 如果结果是授权者角色将不再具有执行授权的
+         * 能力，那么提议的授权将导致循环。
+ *
+         */
 		for (i = 0; i < memlist->n_members; ++i)
 		{
 			HeapTuple	authmem_tuple;
@@ -1816,7 +1816,7 @@ AddRoleMems(Oid currentUserId, const char *rolename, Oid roleid,
 		ReleaseSysCacheList(memlist);
 	}
 
-	/* Now perform the catalog updates. */
+	/* 现在执行目录更新。 */
 	forboth(specitem, memberSpecs, iditem, memberIds)
 	{
 		RoleSpec   *memberRole = lfirst_node(RoleSpec, specitem);
@@ -1827,7 +1827,7 @@ AddRoleMems(Oid currentUserId, const char *rolename, Oid roleid,
 		bool		new_record_nulls[Natts_pg_auth_members] = {0};
 		bool		new_record_repl[Natts_pg_auth_members] = {0};
 
-		/* Common initialization for possible insert or update */
+		/* 可能插入或更新的公共初始化 */
 		new_record[Anum_pg_auth_members_roleid - 1] =
 			ObjectIdGetDatum(roleid);
 		new_record[Anum_pg_auth_members_member - 1] =
@@ -1835,18 +1835,18 @@ AddRoleMems(Oid currentUserId, const char *rolename, Oid roleid,
 		new_record[Anum_pg_auth_members_grantor - 1] =
 			ObjectIdGetDatum(grantorId);
 
-		/* Find any existing tuple */
+		/* 查找任何现有元组 */
 		authmem_tuple = SearchSysCache3(AUTHMEMROLEMEM,
 										ObjectIdGetDatum(roleid),
 										ObjectIdGetDatum(memberid),
 										ObjectIdGetDatum(grantorId));
 
 		/*
-		 * If we found a tuple, update it with new option values, unless there
-		 * are no changes, in which case issue a WARNING.
-		 *
-		 * If we didn't find a tuple, just insert one.
-		 */
+         * 如果找到了元组，则用新选项值更新它，
+         * 除非没有变化，此时发出 WARNING。
+         *
+         * 如果没有找到元组，则直接插入一个。
+         */
 		if (HeapTupleIsValid(authmem_tuple))
 		{
 			Form_pg_auth_members authmem_form;
@@ -1907,20 +1907,20 @@ AddRoleMems(Oid currentUserId, const char *rolename, Oid roleid,
 			Oid		   *newmembers = palloc(sizeof(Oid));
 
 			/*
-			 * The values for these options can be taken directly from 'popt'.
-			 * Either they were specified, or the defaults as set by
-			 * InitGrantRoleOptions are correct.
-			 */
+             * 这些选项的值可以直接取自 'popt'。要么它们已通过
+             * 参数指定，要么由 InitGrantRoleOptions 设置的默认值
+             * 是正确的。
+             */
 			new_record[Anum_pg_auth_members_admin_option - 1] =
 				BoolGetDatum(popt->admin);
 			new_record[Anum_pg_auth_members_set_option - 1] =
 				BoolGetDatum(popt->set);
 
 			/*
-			 * If the user specified a value for the inherit option, use
-			 * whatever was specified. Otherwise, set the default value based
-			 * on the role-level property.
-			 */
+             * 如果用户指定了 inherit 选项的值，则使用该值。
+             * 否则，根据角色级别的属性设置默认值。
+ *
+             */
 			if ((popt->specified & GRANT_ROLE_SPECIFIED_INHERIT) != 0)
 				new_record[Anum_pg_auth_members_inherit_option - 1] =
 					popt->inherit;
@@ -1938,7 +1938,7 @@ AddRoleMems(Oid currentUserId, const char *rolename, Oid roleid,
 				ReleaseSysCache(mrtup);
 			}
 
-			/* get an OID for the new row and insert it */
+			/* 为新行获取一个 OID 并插入 */
 			objectId = GetNewOidWithIndex(pg_authmem_rel, AuthMemOidIndexId,
 										  Anum_pg_auth_members_oid);
 			new_record[Anum_pg_auth_members_oid - 1] = objectId;
@@ -1946,7 +1946,7 @@ AddRoleMems(Oid currentUserId, const char *rolename, Oid roleid,
 									new_record, new_record_nulls);
 			CatalogTupleInsert(pg_authmem_rel, tuple);
 
-			/* updateAclDependencies wants to pfree array inputs */
+			/* updateAclDependencies 想要 pfree 数组输入 */
 			newmembers[0] = grantorId;
 			updateAclDependencies(AuthMemRelationId, objectId,
 								  0, InvalidOid,
@@ -1954,26 +1954,26 @@ AddRoleMems(Oid currentUserId, const char *rolename, Oid roleid,
 								  1, newmembers);
 		}
 
-		/* CCI after each change, in case there are duplicates in list */
+		/* 每次更改后 CCI，以处理列表中的重复项 */
 		CommandCounterIncrement();
 	}
 
 	/*
-	 * Close pg_authmem, but keep lock till commit.
-	 */
+     * 关闭 pg_authmem，但保留锁直到提交。
+     */
 	table_close(pg_authmem_rel, NoLock);
 }
 
 /*
- * DelRoleMems -- Remove given members from the specified role
+ * DelRoleMems -- 从指定角色中移除给定成员
  *
- * rolename: name of role to del from (used only for error messages)
- * roleid: OID of role to del from
- * memberSpecs: list of RoleSpec of roles to del (used only for error messages)
- * memberIds: OIDs of roles to del
- * grantorId: who is revoking the membership
- * popt: information about grant options
- * behavior: RESTRICT or CASCADE behavior for recursive removal
+ * rolename: 要从中删除的角色名称（仅用于错误消息）
+ * roleid: 要从中删除的角色的 OID
+ * memberSpecs: 要删除的角色的 RoleSpec 列表（仅用于错误消息）
+ * memberIds: 要删除的角色的 OID
+ * grantorId: 撤销成员关系者
+ * popt: 关于授权选项的信息
+ * behavior: 递归删除的 RESTRICT 或 CASCADE 行为
  */
 static void
 DelRoleMems(Oid currentUserId, const char *rolename, Oid roleid,
@@ -1990,17 +1990,17 @@ DelRoleMems(Oid currentUserId, const char *rolename, Oid roleid,
 
 	Assert(list_length(memberSpecs) == list_length(memberIds));
 
-	/* Validate grantor (and resolve implicit grantor if not specified). */
+	/* 验证授权者（如果未指定则解析隐式授权者）。 */
 	grantorId = check_role_grantor(currentUserId, roleid, grantorId, false);
 
 	pg_authmem_rel = table_open(AuthMemRelationId, RowExclusiveLock);
 	pg_authmem_dsc = RelationGetDescr(pg_authmem_rel);
 
 	/*
-	 * Only allow changes to this role by one backend at a time, so that we
-	 * can check for things like dependent privileges without fear of race
-	 * conditions.
-	 */
+     * 一次只允许一个后端更改此角色，这样我们就可以检查
+     * 诸如依赖权限之类的事项，而不必担心竞争条件。
+ *
+     */
 	LockSharedObject(AuthIdRelationId, roleid, 0,
 					 ShareUpdateExclusiveLock);
 
@@ -2008,11 +2008,11 @@ DelRoleMems(Oid currentUserId, const char *rolename, Oid roleid,
 	actions = initialize_revoke_actions(memlist);
 
 	/*
-	 * We may need to recurse to dependent privileges if DROP_CASCADE was
-	 * specified, or refuse to perform the operation if dependent privileges
-	 * exist and DROP_RESTRICT was specified. plan_single_revoke() will figure
-	 * out what to do with each catalog tuple.
-	 */
+     * 如果指定了 DROP_CASCADE，我们可能需要递归到依赖
+     * 的权限；如果存在依赖权限且指定了 DROP_RESTRICT，
+     * 则需要拒绝执行操作。plan_single_revoke() 将决定
+     * 如何处理每个目录元组。
+     */
 	forboth(specitem, memberSpecs, iditem, memberIds)
 	{
 		RoleSpec   *memberRole = lfirst(specitem);
@@ -2030,10 +2030,10 @@ DelRoleMems(Oid currentUserId, const char *rolename, Oid roleid,
 	}
 
 	/*
-	 * We now know what to do with each catalog tuple: it should either be
-	 * left alone, deleted, or just have the admin_option flag cleared.
-	 * Perform the appropriate action in each case.
-	 */
+     * 现在我们知道了如何处理每个目录元组：它应该被
+     * 保持不变、删除，或者只是清除 admin_option 标志。
+     * 在每种情况下执行适当的操作。
+     */
 	for (i = 0; i < memlist->n_members; ++i)
 	{
 		HeapTuple	authmem_tuple;
@@ -2048,22 +2048,22 @@ DelRoleMems(Oid currentUserId, const char *rolename, Oid roleid,
 		if (actions[i] == RRG_DELETE_GRANT)
 		{
 			/*
-			 * Remove the entry altogether, after first removing its
-			 * dependencies
-			 */
+             * 完全删除条目，首先删除其依赖关系
+ *
+             */
 			deleteSharedDependencyRecordsFor(AuthMemRelationId,
 											 authmem_form->oid, 0);
 			CatalogTupleDelete(pg_authmem_rel, &authmem_tuple->t_self);
 		}
 		else
 		{
-			/* Just turn off the specified option */
+			/* 仅关闭指定的选项 */
 			HeapTuple	tuple;
 			Datum		new_record[Natts_pg_auth_members] = {0};
 			bool		new_record_nulls[Natts_pg_auth_members] = {0};
 			bool		new_record_repl[Natts_pg_auth_members] = {0};
 
-			/* Build a tuple to update with */
+			/* 构建一个用于更新的元组 */
 			if (actions[i] == RRG_REMOVE_ADMIN_OPTION)
 			{
 				new_record[Anum_pg_auth_members_admin_option - 1] =
@@ -2098,34 +2098,34 @@ DelRoleMems(Oid currentUserId, const char *rolename, Oid roleid,
 	ReleaseSysCacheList(memlist);
 
 	/*
-	 * Close pg_authmem, but keep lock till commit.
-	 */
+     * 关闭 pg_authmem，但保留锁直到提交。
+     */
 	table_close(pg_authmem_rel, NoLock);
 }
 
 /*
- * Check that currentUserId has permission to modify the membership list for
- * roleid. Throw an error if not.
+ * 检查 currentUserId 是否有权修改 roleid 的成员列表。
+ * 如果没有则抛出错误。
  */
 static void
 check_role_membership_authorization(Oid currentUserId, Oid roleid,
 									bool is_grant)
 {
 	/*
-	 * The charter of pg_database_owner is to have exactly one, implicit,
-	 * situation-dependent member.  There's no technical need for this
-	 * restriction.  (One could lift it and take the further step of making
-	 * object_ownercheck(DatabaseRelationId, ...) equivalent to
-	 * has_privs_of_role(roleid, ROLE_PG_DATABASE_OWNER), in which case
-	 * explicit, situation-independent members could act as the owner of any
-	 * database.)
-	 */
+     * pg_database_owner 的职责是拥有正好一个隐式的、
+     * 依赖于情境的成员。这个限制没有技术上的必要性。
+     * （可以解除它，并进一步使
+     * object_ownercheck(DatabaseRelationId, ...) 等同于
+     * has_privs_of_role(roleid, ROLE_PG_DATABASE_OWNER)，
+     * 在这种情况下，显式的、不依赖于情境的成员可以充当
+     * 任何数据库的所有者。）
+     */
 	if (is_grant && roleid == ROLE_PG_DATABASE_OWNER)
 		ereport(ERROR,
 				errmsg("role \"%s\" cannot have explicit members",
 					   GetUserNameFromId(roleid, false)));
 
-	/* To mess with a superuser role, you gotta be superuser. */
+	/* 要操作超级用户角色，您必须是超级用户。 */
 	if (superuser_arg(roleid))
 	{
 		if (!superuser_arg(currentUserId))
@@ -2149,8 +2149,8 @@ check_role_membership_authorization(Oid currentUserId, Oid roleid,
 	else
 	{
 		/*
-		 * Otherwise, must have admin option on the role to be changed.
-		 */
+         * 否则，必须对要更改的角色具有 admin 选项。
+         */
 		if (!is_admin_of_role(currentUserId, roleid))
 		{
 			if (is_grant)
@@ -2172,59 +2172,59 @@ check_role_membership_authorization(Oid currentUserId, Oid roleid,
 }
 
 /*
- * Sanity-check, or infer, the grantor for a GRANT or REVOKE statement
- * targeting a role.
+ * 对目标角色的 GRANT 或 REVOKE 语句的授权者进行合理性检查或推断。
  *
- * The grantor must always be either a role with ADMIN OPTION on the role in
- * which membership is being granted, or the bootstrap superuser. This is
- * similar to the restriction enforced by select_best_grantor, except that
- * roles don't have owners, so we regard the bootstrap superuser as the
- * implicit owner.
+ * 授权者必须始终是对被授予成员关系的角色具有 ADMIN OPTION 的
+ * 角色，或者是引导超级用户。这类似于 select_best_grantor 强制
+ * 执行的限制，只是角色没有所有者，因此我们将引导超级用户视为
+ * 隐式所有者。
  *
- * If the grantor was not explicitly specified by the user, grantorId should
- * be passed as InvalidOid, and this function will infer the user to be
- * recorded as the grantor. In many cases, this will be the current user, but
- * things get more complicated when the current user doesn't possess ADMIN
- * OPTION on the role but rather relies on having SUPERUSER privileges, or
- * on inheriting the privileges of a role which does have ADMIN OPTION. See
- * below for details.
+ * 如果用户未显式指定授权者，grantorId 应传入 InvalidOid，
+ * 此函数将推断要记录为授权者的用户。在许多情况下，这将是
+ * 当前用户，但当当前用户不直接拥有该角色的 ADMIN OPTION 而是
+ * 依赖具有 SUPERUSER 权限或通过继承具有 ADMIN OPTION 的角色
+ * 的权限时，情况会更复杂。详见下文。
  *
- * If the grantor was specified by the user, then it must be a user that
- * can legally be recorded as the grantor, as per the rule stated above.
- * This is an integrity constraint, not a permissions check, and thus even
- * superusers are subject to this restriction. However, there is also a
- * permissions check: to specify a role as the grantor, the current user
- * must possess the privileges of that role. Superusers will always pass
- * this check, but for non-superusers it may lead to an error.
+ * 如果用户指定了授权者，则该授权者必须是能够合法地被记录为
+ * 授权者的用户，符合上述规则。这是完整性约束，而非权限检查，
+ * 因此即使是超级用户也受此限制。然而，还有一个权限检查：
+ * 要将一个角色指定为授权者，当前用户必须拥有该角色的权限。
+ * 超级用户将始终通过此检查，但对于非超级用户，可能导致错误。
  *
- * The return value is the OID to be regarded as the grantor when executing
- * the operation.
+ * 返回值是被视为执行操作的授权者的 OID。
+ *
+ *
+ *
+ *
+ *
+ *
+ *
  */
 static Oid
 check_role_grantor(Oid currentUserId, Oid roleid, Oid grantorId, bool is_grant)
 {
-	/* If the grantor ID was not specified, pick one to use. */
+	/* 如果未指定授权者 ID，则选择一个。 */
 	if (!OidIsValid(grantorId))
 	{
 		/*
-		 * Grants where the grantor is recorded as the bootstrap superuser do
-		 * not depend on any other existing grants, so always default to this
-		 * interpretation when possible.
-		 */
+         * 将授权者记录为引导超级用户的授权不依赖于任何
+         * 其他现有授权，因此在可能的情况下始终默认使用
+         * 这种解释。
+         */
 		if (superuser_arg(currentUserId))
 			return BOOTSTRAP_SUPERUSERID;
 
 		/*
-		 * Otherwise, the grantor must either have ADMIN OPTION on the role or
-		 * inherit the privileges of a role which does. In the former case,
-		 * record the grantor as the current user; in the latter, pick one of
-		 * the roles that is "most directly" inherited by the current role
-		 * (i.e. fewest "hops").
-		 *
-		 * (We shouldn't fail to find a best grantor, because we've already
-		 * established that the current user has permission to perform the
-		 * operation.)
-		 */
+         * 否则，授权者必须或者对该角色具有 ADMIN OPTION，
+         * 或者继承具有 ADMIN OPTION 的角色的权限。
+         * 在前一种情况下，将授权者记录为当前用户；
+         * 在后一种情况下，选择当前角色"最直接"继承的
+         * 角色之一（即最少的"跳数"）。
+         *
+         * （我们不应当找不到最佳授权者，因为我们已经
+         * 确定当前用户有权执行操作。）
+ *
+         */
 		grantorId = select_best_admin(currentUserId, roleid);
 		if (!OidIsValid(grantorId))
 			elog(ERROR, "no possible grantors");
@@ -2232,14 +2232,14 @@ check_role_grantor(Oid currentUserId, Oid roleid, Oid grantorId, bool is_grant)
 	}
 
 	/*
-	 * If an explicit grantor is specified, it must be a role whose privileges
-	 * the current user possesses.
-	 *
-	 * It should also be a role that has ADMIN OPTION on the target role, but
-	 * we check this condition only in case of GRANT. For REVOKE, no matching
-	 * grant should exist anyway, but if it somehow does, let the user get rid
-	 * of it.
-	 */
+     * 如果指定了显式授权者，则该授权者必须是当前用户
+     * 拥有其权限的角色。
+     *
+     * 它还应是对目标角色具有 ADMIN OPTION 的角色，
+     * 但我们只在 GRANT 情况下检查此条件。对于 REVOKE，
+     * 不应存在匹配的授权，但如果由于某种原因确实存在，
+     * 则让用户将其删除。
+     */
 	if (is_grant)
 	{
 		if (!has_privs_of_role(currentUserId, grantorId))
@@ -2271,19 +2271,19 @@ check_role_grantor(Oid currentUserId, Oid roleid, Oid grantorId, bool is_grant)
 	}
 
 	/*
-	 * If a grantor was specified explicitly, always attribute the grant to
-	 * that role (unless we error out above).
-	 */
+     * 如果显式指定了授权者，始终将授权归于该角色
+     * （除非上面出错）。
+     */
 	return grantorId;
 }
 
 /*
- * Initialize an array of RevokeRoleGrantAction objects.
+ * 初始化 RevokeRoleGrantAction 对象数组。
  *
- * 'memlist' should be a list of all grants for the target role.
+ * 'memlist' 应为目标角色的所有授权列表。
  *
- * This constructs an array indicating that no actions are to be performed;
- * that is, every element is initially RRG_NOOP.
+ * 此函数构造一个数组，指示不执行任何操作；
+ * 即每个元素初始化为 RRG_NOOP。
  */
 static RevokeRoleGrantAction *
 initialize_revoke_actions(CatCList *memlist)
@@ -2301,20 +2301,20 @@ initialize_revoke_actions(CatCList *memlist)
 }
 
 /*
- * Figure out what we would need to do in order to revoke a grant, or just the
- * admin option on a grant, given that there might be dependent privileges.
+ * 确定为了撤销一个授权（或仅撤销该授权的 admin 选项）
+ * 需要做什么，考虑到可能存在依赖权限。
  *
- * 'memlist' should be a list of all grants for the target role.
+ * 'memlist' 应为目标角色的所有授权列表。
  *
- * Whatever actions prove to be necessary will be signalled by updating
- * 'actions'.
+ * 任何证明是必要的操作将通过更新 'actions' 来表示。
  *
- * If behavior is DROP_RESTRICT, an error will occur if there are dependent
- * role membership grants; if DROP_CASCADE, those grants will be scheduled
- * for deletion.
+ * 如果 behavior 是 DROP_RESTRICT，则存在依赖角色成员关系
+ * 授权时将发生错误；如果是 DROP_CASCADE，这些授权将被安排
+ * 删除。
  *
- * The return value is true if the matching grant was found in the list,
- * and false if not.
+ * 如果在列表中找到了匹配的授权，返回值为 true，
+ * 否则为 false。
+ *
  */
 static bool
 plan_single_revoke(CatCList *memlist, RevokeRoleGrantAction *actions,
@@ -2324,13 +2324,13 @@ plan_single_revoke(CatCList *memlist, RevokeRoleGrantAction *actions,
 	int			i;
 
 	/*
-	 * If popt.specified == 0, we're revoking the grant entirely; otherwise,
-	 * we expect just one bit to be set, and we're revoking the corresponding
-	 * option. As of this writing, there's no syntax that would allow for an
-	 * attempt to revoke multiple options at once, and the logic below
-	 * wouldn't work properly if such syntax were added, so assert that our
-	 * caller isn't trying to do that.
-	 */
+     * 如果 popt.specified == 0，我们正在完全撤销授权；
+     * 否则，我们期望只设置了一个位，并且正在撤销相应的
+     * 选项。截至本文撰写时，没有允许一次尝试撤销多个选项
+     * 的语法，并且如果添加了这样的语法，下面的逻辑将无法
+     * 正确工作，因此断言我们的调用者没有尝试这样做。
+ *
+     */
 	Assert(pg_popcount32(popt->specified) <= 1);
 
 	for (i = 0; i < memlist->n_members; ++i)
@@ -2347,14 +2347,14 @@ plan_single_revoke(CatCList *memlist, RevokeRoleGrantAction *actions,
 			if ((popt->specified & GRANT_ROLE_SPECIFIED_INHERIT) != 0)
 			{
 				/*
-				 * Revoking the INHERIT option doesn't change anything for
-				 * dependent privileges, so we don't need to recurse.
-				 */
+                 * 撤销 INHERIT 选项不会改变依赖权限的
+                 * 任何内容，因此不需要递归。
+                 */
 				actions[i] = RRG_REMOVE_INHERIT_OPTION;
 			}
 			else if ((popt->specified & GRANT_ROLE_SPECIFIED_SET) != 0)
 			{
-				/* Here too, no need to recurse. */
+				/* 此处也不需要递归。 */
 				actions[i] = RRG_REMOVE_SET_OPTION;
 			}
 			else
@@ -2362,9 +2362,9 @@ plan_single_revoke(CatCList *memlist, RevokeRoleGrantAction *actions,
 				bool		revoke_admin_option_only;
 
 				/*
-				 * Revoking the grant entirely, or ADMIN option on a grant,
-				 * implicates dependent privileges, so we may need to recurse.
-				 */
+                 * 完全撤销授权或撤销授权的 ADMIN 选项
+                 * 会涉及依赖权限，因此可能需要递归。
+                 */
 				revoke_admin_option_only =
 					(popt->specified & GRANT_ROLE_SPECIFIED_ADMIN) != 0;
 				plan_recursive_revoke(memlist, actions, i,
@@ -2378,13 +2378,13 @@ plan_single_revoke(CatCList *memlist, RevokeRoleGrantAction *actions,
 }
 
 /*
- * Figure out what we would need to do in order to revoke all grants to
- * a given member, given that there might be dependent privileges.
+ * 确定为了撤销对给定成员的所有授权需要做什么，
+ * 考虑到可能存在依赖权限。
  *
- * 'memlist' should be a list of all grants for the target role.
+ * 'memlist' 应为目标角色的所有授权列表。
  *
- * Whatever actions prove to be necessary will be signalled by updating
- * 'actions'.
+ * 任何证明是必要的操作将通过更新 'actions' 来表示。
+ *
  */
 static void
 plan_member_revoke(CatCList *memlist, RevokeRoleGrantAction *actions,
@@ -2406,9 +2406,9 @@ plan_member_revoke(CatCList *memlist, RevokeRoleGrantAction *actions,
 }
 
 /*
- * Workhorse for figuring out recursive revocation of role grants.
+ * 确定递归撤销角色授权的主力函数。
  *
- * This is similar to what recursive_revoke() does for ACLs.
+ * 这类似于 recursive_revoke() 对 ACL 所做的处理。
  */
 static void
 plan_recursive_revoke(CatCList *memlist, RevokeRoleGrantAction *actions,
@@ -2420,23 +2420,23 @@ plan_recursive_revoke(CatCList *memlist, RevokeRoleGrantAction *actions,
 	Form_pg_auth_members authmem_form;
 	int			i;
 
-	/* If it's already been done, we can just return. */
+	/* 如果已经完成了，则直接返回。 */
 	if (actions[index] == RRG_DELETE_GRANT)
 		return;
 	if (actions[index] == RRG_REMOVE_ADMIN_OPTION &&
 		revoke_admin_option_only)
 		return;
 
-	/* Locate tuple data. */
+	/* 定位元组数据。 */
 	authmem_tuple = &memlist->members[index]->tuple;
 	authmem_form = (Form_pg_auth_members) GETSTRUCT(authmem_tuple);
 
 	/*
-	 * If the existing tuple does not have admin_option set, then we do not
-	 * need to recurse. If we're just supposed to clear that bit we don't need
-	 * to do anything at all; if we're supposed to remove the grant, we need
-	 * to do something, but only to the tuple, and not any others.
-	 */
+     * 如果现有元组没有设置 admin_option，那么我们不需要
+     * 递归。如果我们只是应该清除该位，那么根本不需要做
+     * 任何事情；如果我们应该删除授权，那么只需要对元组
+     * 执行操作，而不需要涉及其他元组。
+     */
 	if (!revoke_admin_option_only)
 	{
 		actions[index] = RRG_DELETE_GRANT;
@@ -2450,7 +2450,7 @@ plan_recursive_revoke(CatCList *memlist, RevokeRoleGrantAction *actions,
 		actions[index] = RRG_REMOVE_ADMIN_OPTION;
 	}
 
-	/* Determine whether the member would still have ADMIN OPTION. */
+	/* 确定该成员是否仍将具有 ADMIN OPTION。 */
 	for (i = 0; i < memlist->n_members; ++i)
 	{
 		HeapTuple	am_cascade_tuple;
@@ -2467,14 +2467,14 @@ plan_recursive_revoke(CatCList *memlist, RevokeRoleGrantAction *actions,
 		}
 	}
 
-	/* If the member would still have ADMIN OPTION, we need not recurse. */
+	/* 如果该成员仍将具有 ADMIN OPTION，则不需要递归。 */
 	if (would_still_have_admin_option)
 		return;
 
 	/*
-	 * Recurse to grants that are not yet slated for deletion which have this
-	 * member as the grantor.
-	 */
+     * 递归到尚未计划删除的、以此成员作为授权者的授权。
+ *
+     */
 	for (i = 0; i < memlist->n_members; ++i)
 	{
 		HeapTuple	am_cascade_tuple;
@@ -2498,7 +2498,7 @@ plan_recursive_revoke(CatCList *memlist, RevokeRoleGrantAction *actions,
 }
 
 /*
- * Initialize a GrantRoleOptions object with default values.
+ * 使用默认值初始化 GrantRoleOptions 对象。
  */
 static void
 InitGrantRoleOptions(GrantRoleOptions *popt)
@@ -2510,7 +2510,7 @@ InitGrantRoleOptions(GrantRoleOptions *popt)
 }
 
 /*
- * GUC check_hook for createrole_self_grant
+ * createrole_self_grant 的 GUC check_hook
  */
 bool
 check_createrole_self_grant(char **newval, void **extra, GucSource source)
@@ -2521,12 +2521,12 @@ check_createrole_self_grant(char **newval, void **extra, GucSource source)
 	unsigned	options = 0;
 	unsigned   *result;
 
-	/* Need a modifiable copy of string */
+	/* 需要一个可修改的字符串副本 */
 	rawstring = pstrdup(*newval);
 
 	if (!SplitIdentifierString(rawstring, ',', &elemlist))
 	{
-		/* syntax error in list */
+		/* 列表语法错误 */
 		GUC_check_errdetail("List syntax is invalid.");
 		pfree(rawstring);
 		list_free(elemlist);
@@ -2563,7 +2563,7 @@ check_createrole_self_grant(char **newval, void **extra, GucSource source)
 }
 
 /*
- * GUC assign_hook for createrole_self_grant
+ * createrole_self_grant 的 GUC assign_hook
  */
 void
 assign_createrole_self_grant(const char *newval, void *extra)

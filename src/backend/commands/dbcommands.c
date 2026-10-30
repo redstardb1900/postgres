@@ -1,12 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * dbcommands.c
- *		Database management commands (create/drop database).
+ *		数据库管理命令（创建/删除数据库）。
  *
- * Note: database creation/destruction commands use exclusive locks on
- * the database objects (as expressed by LockSharedObject()) to avoid
- * stepping on each others' toes.  Formerly we used table-level locks
- * on pg_database, but that's too coarse-grained.
+ * 注意：数据库创建/删除命令使用数据库对象上的排他锁
+ * （通过 LockSharedObject() 表达）来避免互相干扰。
+ * 以前我们对 pg_database 使用表级锁，但那粒度过粗。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -16,6 +15,7 @@
  *	  src/backend/commands/dbcommands.c
  *
  *-------------------------------------------------------------------------
+ 
  */
 #include "postgres.h"
 
@@ -71,14 +71,14 @@
 #include "utils/syscache.h"
 
 /*
- * Create database strategy.
+ * 创建数据库的策略。
  *
- * CREATEDB_WAL_LOG will copy the database at the block level and WAL log each
- * copied block.
+ * CREATEDB_WAL_LOG 将在块级别复制数据库，并对每个复制的块
+ * 记录 WAL 日志。
  *
- * CREATEDB_FILE_COPY will simply perform a file system level copy of the
- * database and log a single record for each tablespace copied. To make this
- * safe, it also triggers checkpoints before and after the operation.
+ * CREATEDB_FILE_COPY 将简单地在文件系统级别执行数据库复制，
+ * 并为每个复制的表空间记录一条记录。为了确保安全，
+ * 它还在操作前后触发检查点。
  */
 typedef enum CreateDBStrategy
 {
@@ -88,29 +88,29 @@ typedef enum CreateDBStrategy
 
 typedef struct
 {
-	Oid			src_dboid;		/* source (template) DB */
-	Oid			dest_dboid;		/* DB we are trying to create */
-	CreateDBStrategy strategy;	/* create db strategy */
+	Oid			src_dboid;		/* 源（模板）数据库 */
+	Oid			dest_dboid;		/* 我们尝试创建的数据库 */
+	CreateDBStrategy strategy;	/* 创建数据库策略 */
 } createdb_failure_params;
 
 typedef struct
 {
-	Oid			dest_dboid;		/* DB we are trying to move */
-	Oid			dest_tsoid;		/* tablespace we are trying to move to */
+	Oid			dest_dboid;		/* 我们尝试移动的数据库 */
+	Oid			dest_tsoid;		/* 我们尝试移动到的表空间 */
 } movedb_failure_params;
 
 /*
- * Information about a relation to be copied when creating a database.
+ * 创建数据库时要复制的关系的信息。
  */
 typedef struct CreateDBRelInfo
 {
-	RelFileLocator rlocator;	/* physical relation identifier */
-	Oid			reloid;			/* relation oid */
-	bool		permanent;		/* relation is permanent or unlogged */
+	RelFileLocator rlocator;	/* 物理关系标识符 */
+	Oid			reloid;			/* 关系的 OID */
+	bool		permanent;		/* 关系是永久的还是非日志的 */
 } CreateDBRelInfo;
 
 
-/* non-export function prototypes */
+/* 非导出函数原型 */
 static void createdb_failure_callback(int code, Datum arg);
 static void movedb(const char *dbname, const char *tblspcname);
 static void movedb_failure_callback(int code, Datum arg);
@@ -141,9 +141,9 @@ static void CreateDatabaseUsingFileCopy(Oid src_dboid, Oid dst_dboid,
 static void recovery_create_dbdir(char *path, bool only_tblspc);
 
 /*
- * Create a new database using the WAL_LOG strategy.
+ * 使用 WAL_LOG 策略创建新数据库。
  *
- * Each copied block is separately written to the write-ahead log.
+ * 每个复制的块都会单独写入预写日志。
  */
 static void
 CreateDatabaseUsingWalLog(Oid src_dboid, Oid dst_dboid,
@@ -159,39 +159,39 @@ CreateDatabaseUsingWalLog(Oid src_dboid, Oid dst_dboid,
 	RelFileLocator dstrlocator;
 	CreateDBRelInfo *relinfo;
 
-	/* Get source and destination database paths. */
+	/* 获取源数据库和目标数据库路径。 */
 	srcpath = GetDatabasePath(src_dboid, src_tsid);
 	dstpath = GetDatabasePath(dst_dboid, dst_tsid);
 
-	/* Create database directory and write PG_VERSION file. */
+	/* 创建数据库目录并写入 PG_VERSION 文件。 */
 	CreateDirAndVersionFile(dstpath, dst_dboid, dst_tsid, false);
 
-	/* Copy relmap file from source database to the destination database. */
+	/* 将 relmap 文件从源数据库复制到目标数据库。 */
 	RelationMapCopy(dst_dboid, dst_tsid, srcpath, dstpath);
 
-	/* Get list of relfilelocators to copy from the source database. */
+	/* 获取要从源数据库复制的 relfilelocator 列表。 */
 	rlocatorlist = ScanSourceDatabasePgClass(src_tsid, src_dboid, srcpath);
 	Assert(rlocatorlist != NIL);
 
 	/*
-	 * Database IDs will be the same for all relations so set them before
-	 * entering the loop.
-	 */
+	 * 所有关系的数据库 ID 都相同，因此进入循环前预先设置。
+	 
+ */
 	srcrelid.dbId = src_dboid;
 	dstrelid.dbId = dst_dboid;
 
-	/* Loop over our list of relfilelocators and copy each one. */
+	/* 遍历 relfilelocator 列表并复制每一个。 */
 	foreach(cell, rlocatorlist)
 	{
 		relinfo = lfirst(cell);
 		srcrlocator = relinfo->rlocator;
 
 		/*
-		 * If the relation is from the source db's default tablespace then we
-		 * need to create it in the destination db's default tablespace.
-		 * Otherwise, we need to create in the same tablespace as it is in the
-		 * source database.
-		 */
+		 * 如果关系来自源数据库的默认表空间，则需要在目标数据库的
+		 * 默认表空间中创建。否则需要在源数据库中所在的同一表空间中创建。
+		 
+ *
+ */
 		if (srcrlocator.spcOid == src_tsid)
 			dstrlocator.spcOid = dst_tsid;
 		else
@@ -201,22 +201,22 @@ CreateDatabaseUsingWalLog(Oid src_dboid, Oid dst_dboid,
 		dstrlocator.relNumber = srcrlocator.relNumber;
 
 		/*
-		 * Acquire locks on source and target relations before copying.
+		 * 在复制之前获取源和目标关系的锁。
 		 *
-		 * We typically do not read relation data into shared_buffers without
-		 * holding a relation lock. It's unclear what could go wrong if we
-		 * skipped it in this case, because nobody can be modifying either the
-		 * source or destination database at this point, and we have locks on
-		 * both databases, too, but let's take the conservative route.
-		 */
+		 * 我们通常不会在未持有关系锁的情况下将关系数据读入
+		 * shared_buffers。在这种情况下跳过它会发生什么问题
+		 * 尚不清楚，因为此时没有人可以修改源或目标数据库，
+		 * 而且我们对两个数据库都持有锁，但让我们采取保守的做法。
+		 
+ */
 		dstrelid.relId = srcrelid.relId = relinfo->reloid;
 		LockRelationId(&srcrelid, AccessShareLock);
 		LockRelationId(&dstrelid, AccessShareLock);
 
-		/* Copy relation storage from source to the destination. */
+		/* 将关系存储从源复制到目标。 */
 		CreateAndCopyRelationData(srcrlocator, dstrlocator, relinfo->permanent);
 
-		/* Release the relation locks. */
+		/* 释放关系锁。 */
 		UnlockRelationId(&srcrelid, AccessShareLock);
 		UnlockRelationId(&dstrelid, AccessShareLock);
 	}
@@ -227,25 +227,25 @@ CreateDatabaseUsingWalLog(Oid src_dboid, Oid dst_dboid,
 }
 
 /*
- * Scan the pg_class table in the source database to identify the relations
- * that need to be copied to the destination database.
+ * 扫描源数据库中的 pg_class 表，识别需要复制到
+ * 目标数据库的关系。
  *
- * This is an exception to the usual rule that cross-database access is
- * not possible. We can make it work here because we know that there are no
- * connections to the source database and (since there can't be prepared
- * transactions touching that database) no in-doubt tuples either. This
- * means that we don't need to worry about pruning removing anything from
- * under us, and we don't need to be too picky about our snapshot either.
- * As long as it sees all previously-committed XIDs as committed and all
- * aborted XIDs as aborted, we should be fine: nothing else is possible
- * here.
+ * 这是跨数据库访问通常不可行这一常规规则的例外。
+ * 我们可以在这里实现它，因为我们知道没有到源数据库的连接，
+ * 并且（因为没有准备好的事务触及该数据库）也没有存疑元组。
+ * 这意味着我们不需要担心清理操作会在我们脚下移除任何东西，
+ * 我们也不需要过于挑剔快照。只要它将所有先前提交的 XID
+ * 视为已提交，所有已中止的 XID 视为已中止，我们就没问题：
+ * 在这里不可能有其他情况。
  *
- * We can't rely on the relcache for anything here, because that only knows
- * about the database to which we are connected, and can't handle access to
- * other databases. That also means we can't rely on the heap scan
- * infrastructure, which would be a bad idea anyway since it might try
- * to do things like HOT pruning which we definitely can't do safely in
- * a database to which we're not even connected.
+ * 我们在这里不能依赖 relcache，因为它只知道我们连接到的
+ * 数据库，并且无法处理对其他数据库的访问。这也意味着
+ * 我们不能依赖堆扫描基础设施，这在任何情况下都是个坏主意，
+ * 因为它可能会尝试进行 HOT 清理等操作，而我们绝对无法在
+ * 我们甚至未连接的数据库中安全地执行这些操作。
+ 
+ *
+ *
  */
 static List *
 ScanSourceDatabasePgClass(Oid tbid, Oid dbid, char *srcpath)
@@ -262,16 +262,16 @@ ScanSourceDatabasePgClass(Oid tbid, Oid dbid, char *srcpath)
 	SMgrRelation smgr;
 	BufferAccessStrategy bstrategy;
 
-	/* Get pg_class relfilenumber. */
+	/* 获取 pg_class 的 relfilenumber。 */
 	relfilenumber = RelationMapOidToFilenumberForDatabase(srcpath,
 														  RelationRelationId);
 
-	/* Don't read data into shared_buffers without holding a relation lock. */
+	/* 不要在未持有关系锁的情况下将数据读入 shared_buffers。 */
 	relid.dbId = dbid;
 	relid.relId = RelationRelationId;
 	LockRelationId(&relid, AccessShareLock);
 
-	/* Prepare a RelFileLocator for the pg_class relation. */
+	/* 为 pg_class 关系准备 RelFileLocator。 */
 	rlocator.spcOid = tbid;
 	rlocator.dbOid = dbid;
 	rlocator.relNumber = relfilenumber;
@@ -280,18 +280,18 @@ ScanSourceDatabasePgClass(Oid tbid, Oid dbid, char *srcpath)
 	nblocks = smgrnblocks(smgr, MAIN_FORKNUM);
 	smgrclose(smgr);
 
-	/* Use a buffer access strategy since this is a bulk read operation. */
+	/* 由于这是批量读取操作，使用缓冲区访问策略。 */
 	bstrategy = GetAccessStrategy(BAS_BULKREAD);
 
 	/*
-	 * As explained in the function header comments, we need a snapshot that
-	 * will see all committed transactions as committed, and our transaction
-	 * snapshot - or the active snapshot - might not be new enough for that,
-	 * but the return value of GetLatestSnapshot() should work fine.
-	 */
+	 * 如函数头部注释所述，我们需要一个快照将所有已提交的
+	 * 事务视为已提交，而我们的事务快照（或活动快照）
+	 * 可能不够新，但 GetLatestSnapshot() 的返回值应该可以。
+	 
+ */
 	snapshot = GetLatestSnapshot();
 
-	/* Process the relation block by block. */
+	/* 逐块处理该关系。 */
 	for (blkno = 0; blkno < nblocks; blkno++)
 	{
 		CHECK_FOR_INTERRUPTS();
@@ -307,7 +307,7 @@ ScanSourceDatabasePgClass(Oid tbid, Oid dbid, char *srcpath)
 			continue;
 		}
 
-		/* Append relevant pg_class tuples for current page to rlocatorlist. */
+		/* 将当前页的相关 pg_class 元组追加到 rlocatorlist。 */
 		rlocatorlist = ScanSourceDatabasePgClassPage(page, buf, tbid, dbid,
 													 srcpath, rlocatorlist,
 													 snapshot);
@@ -315,15 +315,15 @@ ScanSourceDatabasePgClass(Oid tbid, Oid dbid, char *srcpath)
 		UnlockReleaseBuffer(buf);
 	}
 
-	/* Release relation lock. */
+	/* 释放关系锁。 */
 	UnlockRelationId(&relid, AccessShareLock);
 
 	return rlocatorlist;
 }
 
 /*
- * Scan one page of the source database's pg_class relation and add relevant
- * entries to rlocatorlist. The return value is the updated list.
+ * 扫描源数据库 pg_class 关系的一页，并将相关条目
+ * 添加到 rlocatorlist。返回值是更新后的列表。
  */
 static List *
 ScanSourceDatabasePgClassPage(Page page, Buffer buf, Oid tbid, Oid dbid,
@@ -337,7 +337,7 @@ ScanSourceDatabasePgClassPage(Page page, Buffer buf, Oid tbid, Oid dbid,
 
 	maxoff = PageGetMaxOffsetNumber(page);
 
-	/* Loop over offsets. */
+	/* 遍历偏移量。 */
 	for (offnum = FirstOffsetNumber;
 		 offnum <= maxoff;
 		 offnum = OffsetNumberNext(offnum))
@@ -346,7 +346,7 @@ ScanSourceDatabasePgClassPage(Page page, Buffer buf, Oid tbid, Oid dbid,
 
 		itemid = PageGetItemId(page, offnum);
 
-		/* Nothing to do if slot is empty or already dead. */
+		/* 如果槽为空或已死亡，则无需处理。 */
 		if (!ItemIdIsUsed(itemid) || ItemIdIsDead(itemid) ||
 			ItemIdIsRedirected(itemid))
 			continue;
@@ -354,22 +354,22 @@ ScanSourceDatabasePgClassPage(Page page, Buffer buf, Oid tbid, Oid dbid,
 		Assert(ItemIdIsNormal(itemid));
 		ItemPointerSet(&(tuple.t_self), blkno, offnum);
 
-		/* Initialize a HeapTupleData structure. */
+		/* 初始化 HeapTupleData 结构。 */
 		tuple.t_data = (HeapTupleHeader) PageGetItem(page, itemid);
 		tuple.t_len = ItemIdGetLength(itemid);
 		tuple.t_tableOid = RelationRelationId;
 
-		/* Skip tuples that are not visible to this snapshot. */
+		/* 跳过对此快照不可见的元组。 */
 		if (HeapTupleSatisfiesVisibility(&tuple, snapshot, buf))
 		{
 			CreateDBRelInfo *relinfo;
 
 			/*
-			 * ScanSourceDatabasePgClassTuple is in charge of constructing a
-			 * CreateDBRelInfo object for this tuple, but can also decide that
-			 * this tuple isn't something we need to copy. If we do need to
-			 * copy the relation, add it to the list.
-			 */
+			 * ScanSourceDatabasePgClassTuple 负责为此元组构造
+			 * CreateDBRelInfo 对象，但也可以判断不需要复制
+			 * 此元组。如果确实需要复制该关系，则将其添加到列表中。
+			 
+ */
 			relinfo = ScanSourceDatabasePgClassTuple(&tuple, tbid, dbid,
 													 srcpath);
 			if (relinfo != NULL)
@@ -381,12 +381,12 @@ ScanSourceDatabasePgClassPage(Page page, Buffer buf, Oid tbid, Oid dbid,
 }
 
 /*
- * Decide whether a certain pg_class tuple represents something that
- * needs to be copied from the source database to the destination database,
- * and if so, construct a CreateDBRelInfo for it.
+ * 判断某个 pg_class 元组是否表示需要从源数据库复制到
+ * 目标数据库的内容，如果是，则为其构造
+ * CreateDBRelInfo。
  *
- * Visibility checks are handled by the caller, so our job here is just
- * to assess the data stored in the tuple.
+ * 可见性检查由调用方处理，因此我们这里的工作只是
+ * 评估元组中存储的数据。
  */
 CreateDBRelInfo *
 ScanSourceDatabasePgClassTuple(HeapTupleData *tuple, Oid tbid, Oid dbid,
@@ -399,37 +399,37 @@ ScanSourceDatabasePgClassTuple(HeapTupleData *tuple, Oid tbid, Oid dbid,
 	classForm = (Form_pg_class) GETSTRUCT(tuple);
 
 	/*
-	 * Return NULL if this object does not need to be copied.
+	 * 返回 NULL 如果此对象不需要复制。
 	 *
-	 * Shared objects don't need to be copied, because they are shared.
-	 * Objects without storage can't be copied, because there's nothing to
-	 * copy. Temporary relations don't need to be copied either, because they
-	 * are inaccessible outside of the session that created them, which must
-	 * be gone already, and couldn't connect to a different database if it
-	 * still existed. autovacuum will eventually remove the pg_class entries
-	 * as well.
-	 */
+	 * 共享对象不需要复制，因为它们是共享的。
+	 * 没有存储的对象无法复制，因为没有内容可复制。
+	 * 临时关系也不需要复制，因为它们在创建它们的
+	 * 会话之外不可访问，该会话必定已经消失，
+	 * 即使仍存在也无法连接到其他数据库。autovacuum
+	 * 最终也会移除这些 pg_class 条目。
+	 
+ */
 	if (classForm->reltablespace == GLOBALTABLESPACE_OID ||
 		!RELKIND_HAS_STORAGE(classForm->relkind) ||
 		classForm->relpersistence == RELPERSISTENCE_TEMP)
 		return NULL;
 
 	/*
-	 * If relfilenumber is valid then directly use it.  Otherwise, consult the
-	 * relmap.
-	 */
+	 * 如果 relfilenumber 有效则直接使用。否则查询 relmap。
+	 
+ */
 	if (RelFileNumberIsValid(classForm->relfilenode))
 		relfilenumber = classForm->relfilenode;
 	else
 		relfilenumber = RelationMapOidToFilenumberForDatabase(srcpath,
 															  classForm->oid);
 
-	/* We must have a valid relfilenumber. */
+	/* 我们必须拥有有效的 relfilenumber。 */
 	if (!RelFileNumberIsValid(relfilenumber))
 		elog(ERROR, "relation with OID %u does not have a valid relfilenumber",
 			 classForm->oid);
 
-	/* Prepare a rel info element and add it to the list. */
+	/* 准备关系信息元素并将其添加到列表中。 */
 	relinfo = (CreateDBRelInfo *) palloc(sizeof(CreateDBRelInfo));
 	if (OidIsValid(classForm->reltablespace))
 		relinfo->rlocator.spcOid = classForm->reltablespace;
@@ -440,7 +440,7 @@ ScanSourceDatabasePgClassTuple(HeapTupleData *tuple, Oid tbid, Oid dbid,
 	relinfo->rlocator.relNumber = relfilenumber;
 	relinfo->reloid = classForm->oid;
 
-	/* Temporary relations were rejected above. */
+	/* 临时关系已在上面被拒绝。 */
 	Assert(classForm->relpersistence != RELPERSISTENCE_TEMP);
 	relinfo->permanent =
 		(classForm->relpersistence == RELPERSISTENCE_PERMANENT) ? true : false;
@@ -449,9 +449,9 @@ ScanSourceDatabasePgClassTuple(HeapTupleData *tuple, Oid tbid, Oid dbid,
 }
 
 /*
- * Create database directory and write out the PG_VERSION file in the database
- * path.  If isRedo is true, it's okay for the database directory to exist
- * already.
+ * 创建数据库目录并在数据库路径中写出 PG_VERSION 文件。
+ * 如果 isRedo 为 true，数据库目录已存在也没问题。
+ 
  */
 static void
 CreateDirAndVersionFile(char *dbpath, Oid dbid, Oid tsid, bool isRedo)
@@ -462,16 +462,16 @@ CreateDirAndVersionFile(char *dbpath, Oid dbid, Oid tsid, bool isRedo)
 	char		buf[16];
 
 	/*
-	 * Note that we don't have to copy version data from the source database;
-	 * there's only one legal value.
+	 * 注意我们不必从源数据库复制版本数据；
+	 * 只有一个合法的值。
 	 */
 	sprintf(buf, "%s\n", PG_MAJORVERSION);
 	nbytes = strlen(PG_MAJORVERSION) + 1;
 
-	/* Create database directory. */
+	/* 创建数据库目录。 */
 	if (MakePGDirectory(dbpath) < 0)
 	{
-		/* Failure other than already exists or not in WAL replay? */
+		/* 除了已存在或不在 WAL 重放中之外的其他失败？ */
 		if (errno != EEXIST || !isRedo)
 			ereport(ERROR,
 					(errcode_for_file_access(),
@@ -479,10 +479,10 @@ CreateDirAndVersionFile(char *dbpath, Oid dbid, Oid tsid, bool isRedo)
 	}
 
 	/*
-	 * Create PG_VERSION file in the database path.  If the file already
-	 * exists and we are in WAL replay then try again to open it in write
-	 * mode.
-	 */
+	 * 在数据库路径中创建 PG_VERSION 文件。如果文件已
+	 * 存在且我们处于 WAL 重放中，则再次尝试以写模式打开。
+	 
+ */
 	snprintf(versionfile, sizeof(versionfile), "%s/%s", dbpath, "PG_VERSION");
 
 	fd = OpenTransientFile(versionfile, O_WRONLY | O_CREAT | O_EXCL | PG_BINARY);
@@ -494,12 +494,12 @@ CreateDirAndVersionFile(char *dbpath, Oid dbid, Oid tsid, bool isRedo)
 				(errcode_for_file_access(),
 				 errmsg("could not create file \"%s\": %m", versionfile)));
 
-	/* Write PG_MAJORVERSION in the PG_VERSION file. */
+	/* 在 PG_VERSION 文件中写入 PG_MAJORVERSION。 */
 	pgstat_report_wait_start(WAIT_EVENT_VERSION_FILE_WRITE);
 	errno = 0;
 	if ((int) write(fd, buf, nbytes) != nbytes)
 	{
-		/* If write didn't set errno, assume problem is no disk space. */
+		/* 如果 write 没有设置 errno，则假设问题是磁盘空间不足。 */
 		if (errno == 0)
 			errno = ENOSPC;
 		ereport(ERROR,
@@ -516,10 +516,10 @@ CreateDirAndVersionFile(char *dbpath, Oid dbid, Oid tsid, bool isRedo)
 	fsync_fname(dbpath, true);
 	pgstat_report_wait_end();
 
-	/* Close the version file. */
+	/* 关闭版本文件。 */
 	CloseTransientFile(fd);
 
-	/* If we are not in WAL replay then write the WAL. */
+	/* 如果我们不在 WAL 重放中，则写入 WAL 记录。 */
 	if (!isRedo)
 	{
 		xl_dbase_create_wal_log_rec xlrec;
@@ -540,12 +540,12 @@ CreateDirAndVersionFile(char *dbpath, Oid dbid, Oid tsid, bool isRedo)
 }
 
 /*
- * Create a new database using the FILE_COPY strategy.
+ * 使用 FILE_COPY 策略创建新数据库。
  *
- * Copy each tablespace at the filesystem level, and log a single WAL record
- * for each tablespace copied.  This requires a checkpoint before and after the
- * copy, which may be expensive, but it does greatly reduce WAL generation
- * if the copied database is large.
+ * 在文件系统级别复制每个表空间，并为每个复制的表空间
+ * 记录一条 WAL 记录。这需要在复制前后各执行一次
+ * 检查点，开销可能很大，但如果复制的数据库很大，
+ * 可以大大减少 WAL 生成量。
  */
 static void
 CreateDatabaseUsingFileCopy(Oid src_dboid, Oid dst_dboid, Oid src_tsid,
@@ -556,21 +556,21 @@ CreateDatabaseUsingFileCopy(Oid src_dboid, Oid dst_dboid, Oid src_tsid,
 	HeapTuple	tuple;
 
 	/*
-	 * Force a checkpoint before starting the copy. This will force all dirty
-	 * buffers, including those of unlogged tables, out to disk, to ensure
-	 * source database is up-to-date on disk for the copy.
-	 * FlushDatabaseBuffers() would suffice for that, but we also want to
-	 * process any pending unlink requests. Otherwise, if a checkpoint
-	 * happened while we're copying files, a file might be deleted just when
-	 * we're about to copy it, causing the lstat() call in copydir() to fail
-	 * with ENOENT.
-	 */
+	 * 在开始复制前强制执行检查点。这将强制将所有脏缓冲区
+	 * （包括无日志表的）刷新到磁盘，以确保源数据库在磁盘上
+	 * 是最新的。FlushDatabaseBuffers() 能做到这一点，但
+	 * 我们还需要处理任何待处理的 unlink 请求。否则，
+	 * 如果在复制文件时发生检查点，某个文件可能在我们
+	 * 即将复制它时被删除，导致 copydir() 中的
+	 * lstat() 调用因 ENOENT 失败。
+	 
+ */
 	RequestCheckpoint(CHECKPOINT_IMMEDIATE | CHECKPOINT_FORCE |
 					  CHECKPOINT_WAIT | CHECKPOINT_FLUSH_ALL);
 
 	/*
-	 * Iterate through all tablespaces of the template database, and copy each
-	 * one to the new database.
+	 * 遍历模板数据库的所有表空间，并将每个表空间复制到
+	 * 新数据库。
 	 */
 	rel = table_open(TableSpaceRelationId, AccessShareLock);
 	scan = table_beginscan_catalog(rel, 0, NULL);
@@ -583,7 +583,7 @@ CreateDatabaseUsingFileCopy(Oid src_dboid, Oid dst_dboid, Oid src_tsid,
 		char	   *dstpath;
 		struct stat st;
 
-		/* No need to copy global tablespace */
+		/* 无需复制全局表空间 */
 		if (srctablespace == GLOBALTABLESPACE_OID)
 			continue;
 
@@ -592,7 +592,7 @@ CreateDatabaseUsingFileCopy(Oid src_dboid, Oid dst_dboid, Oid src_tsid,
 		if (stat(srcpath, &st) < 0 || !S_ISDIR(st.st_mode) ||
 			directory_is_empty(srcpath))
 		{
-			/* Assume we can ignore it */
+			/* 假设可以忽略 */
 			pfree(srcpath);
 			continue;
 		}
@@ -605,13 +605,13 @@ CreateDatabaseUsingFileCopy(Oid src_dboid, Oid dst_dboid, Oid src_tsid,
 		dstpath = GetDatabasePath(dst_dboid, dsttablespace);
 
 		/*
-		 * Copy this subdirectory to the new location
+		 * 将此子目录复制到新位置
 		 *
-		 * We don't need to copy subdirectories
+		 * 我们不需要复制子目录
 		 */
 		copydir(srcpath, dstpath, false);
 
-		/* Record the filesystem change in XLOG */
+		/* 在 XLOG 中记录文件系统变更 */
 		{
 			xl_dbase_create_file_copy_rec xlrec;
 
@@ -634,33 +634,33 @@ CreateDatabaseUsingFileCopy(Oid src_dboid, Oid dst_dboid, Oid src_tsid,
 	table_close(rel, AccessShareLock);
 
 	/*
-	 * We force a checkpoint before committing.  This effectively means that
-	 * committed XLOG_DBASE_CREATE_FILE_COPY operations will never need to be
-	 * replayed (at least not in ordinary crash recovery; we still have to
-	 * make the XLOG entry for the benefit of PITR operations). This avoids
-	 * two nasty scenarios:
+	 * 在提交前强制执行检查点。这实际上意味着已提交的
+	 * XLOG_DBASE_CREATE_FILE_COPY 操作永远不需要重放
+	 * （至少在普通崩溃恢复中不需要；我们仍然需要为
+	 * PITR 操作创建 XLOG 条目）。这避免了两种糟糕的情况：
 	 *
-	 * #1: When PITR is off, we don't XLOG the contents of newly created
-	 * indexes; therefore the drop-and-recreate-whole-directory behavior of
-	 * DBASE_CREATE replay would lose such indexes.
+	 * #1: 当 PITR 关闭时，我们不会 XLOG 新创建索引的内容；
+	 * 因此 DBASE_CREATE 重放的
+	 * "删除并重建整个目录"行为会丢失这些索引。
 	 *
-	 * #2: Since we have to recopy the source database during DBASE_CREATE
-	 * replay, we run the risk of copying changes in it that were committed
-	 * after the original CREATE DATABASE command but before the system crash
-	 * that led to the replay.  This is at least unexpected and at worst could
-	 * lead to inconsistencies, eg duplicate table names.
+	 * #2: 由于我们必须在 DBASE_CREATE 重放期间重新复制
+	 * 源数据库，我们冒着复制在原始 CREATE DATABASE 命令
+	 * 之后但在导致重放的系统崩溃之前提交的变更的风险。
+	 * 这至少是意外行为，最坏情况下可能导致不一致，
+	 * 例如重复的表名。
 	 *
-	 * (Both of these were real bugs in releases 8.0 through 8.0.3.)
+	 * （这两个都是 8.0 到 8.0.3 版本中的真实 bug。）
 	 *
-	 * In PITR replay, the first of these isn't an issue, and the second is
-	 * only a risk if the CREATE DATABASE and subsequent template database
-	 * change both occur while a base backup is being taken. There doesn't
-	 * seem to be much we can do about that except document it as a
-	 * limitation.
+	 * 在 PITR 重放中，第一个不是问题，第二个只有在
+	 * CREATE DATABASE 和后续模板数据库变更都在进行
+	 * 基础备份时发生才有风险。似乎除了将其记录为
+	 * 限制外，我们对此无能为力。
 	 *
-	 * See CreateDatabaseUsingWalLog() for a less cheesy CREATE DATABASE
-	 * strategy that avoids these problems.
-	 */
+	 * 参见 CreateDatabaseUsingWalLog() 获取不那么
+	 * 粗糙的 CREATE DATABASE 策略，该策略避免了这些问题。
+	 
+ *
+ */
 	RequestCheckpoint(CHECKPOINT_IMMEDIATE | CHECKPOINT_FORCE | CHECKPOINT_WAIT);
 }
 
@@ -828,19 +828,19 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 			dboid = defGetObjectId(defel);
 
 			/*
-			 * We don't normally permit new databases to be created with
-			 * system-assigned OIDs. pg_upgrade tries to preserve database
-			 * OIDs, so we can't allow any database to be created with an OID
-			 * that might be in use in a freshly-initialized cluster created
-			 * by some future version. We assume all such OIDs will be from
-			 * the system-managed OID range.
+			 * 我们通常不允许使用系统分配的 OID 创建新数据库。
+			 * pg_upgrade 尝试保留数据库 OID，因此我们不能
+			 * 允许使用某个未来版本创建的新初始化集簇中可能
+			 * 已在使用的 OID 创建数据库。我们假设所有此类
+			 * OID 来自系统管理的 OID 范围。
 			 *
-			 * As an exception, however, we permit any OID to be assigned when
-			 * allow_system_table_mods=on (so that initdb can assign system
-			 * OIDs to template0 and postgres) or when performing a binary
-			 * upgrade (so that pg_upgrade can preserve whatever OIDs it finds
-			 * in the source cluster).
-			 */
+			 * 但作为例外，当
+			 * allow_system_table_mods=on 时（使 initdb 可以
+			 * 为 template0 和 postgres 分配系统 OID）或执行
+			 * 二进制升级时（使 pg_upgrade 可以保留源集簇中
+			 * 找到的任何 OID），我们允许分配任何 OID。
+			 
+ */
 			if (dboid < FirstNormalObjectId &&
 				!allowSystemTableMods && !IsBinaryUpgrade)
 				ereport(ERROR,
@@ -941,12 +941,12 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 		datdba = GetUserId();
 
 	/*
-	 * To create a database, must have createdb privilege and must be able to
-	 * become the target role (this does not imply that the target role itself
-	 * must have createdb privilege).  The latter provision guards against
-	 * "giveaway" attacks.  Note that a superuser will always have both of
-	 * these privileges a fortiori.
-	 */
+	 * 要创建数据库，必须具有 createdb 权限并且必须能够
+	 * 成为目标角色（这并不意味着目标角色本身必须具有
+	 * createdb 权限）。后一项规定防范
+	 * "赠予"攻击。注意超级用户总是同时具有这两项特权。
+	 
+ */
 	if (!have_createdb_privilege())
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -955,13 +955,13 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 	check_can_set_role(GetUserId(), datdba);
 
 	/*
-	 * Lookup database (template) to be cloned, and obtain share lock on it.
-	 * ShareLock allows two CREATE DATABASEs to work from the same template
-	 * concurrently, while ensuring no one is busy dropping it in parallel
-	 * (which would be Very Bad since we'd likely get an incomplete copy
-	 * without knowing it).  This also prevents any new connections from being
-	 * made to the source until we finish copying it, so we can be sure it
-	 * won't change underneath us.
+	 * 查找要克隆的数据库（模板），并获取其共享锁。
+	 * ShareLock 允许两个 CREATE DATABASE 并发地从同一
+	 * 模板工作，同时确保没有人在并行地删除它（这将
+	 * 非常糟糕，因为我们可能在不知情的情况下获得不完整
+	 * 的副本）。这也阻止了在完成复制之前对源数据库
+	 * 建立任何新连接，因此我们可以确保它不会在我们
+	 * 脚下发生变化。
 	 */
 	if (!dbtemplate)
 		dbtemplate = "template1";	/* Default template database name */
@@ -978,9 +978,9 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 						dbtemplate)));
 
 	/*
-	 * If the source database was in the process of being dropped, we can't
-	 * use it as a template.
-	 */
+	 * 如果源数据库正在被删除，则不能将其用作模板。
+	 
+ */
 	if (database_is_invalid_oid(src_dboid))
 		ereport(ERROR,
 				errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -988,8 +988,8 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 				errhint("Use DROP DATABASE to drop invalid databases."));
 
 	/*
-	 * Permission check: to copy a DB that's not marked datistemplate, you
-	 * must be superuser or the owner thereof.
+	 * 权限检查：要复制未标记为 datistemplate 的数据库，
+	 * 您必须是超级用户或其所有者。
 	 */
 	if (!src_istemplate)
 	{
@@ -1067,8 +1067,8 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 							pg_encoding_to_char(encoding))));
 
 		/*
-		 * This would happen if template0 uses the libc provider but the new
-		 * database uses icu.
+		 * 如果 template0 使用 libc 提供程序但新数据库
+		 * 使用 icu，则会发生这种情况。
 		 */
 		if (!dbiculocale)
 			ereport(ERROR,
@@ -1076,10 +1076,10 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 					 errmsg("LOCALE or ICU_LOCALE must be specified")));
 
 		/*
-		 * During binary upgrade, or when the locale came from the template
-		 * database, preserve locale string. Otherwise, canonicalize to a
-		 * language tag.
-		 */
+		 * 在二进制升级期间，或当语言环境来自模板数据库时，
+		 * 保留语言环境字符串。否则，规范化为语言标签。
+		 
+ */
 		if (!IsBinaryUpgrade && dbiculocale != src_iculocale)
 		{
 			char	   *langtag = icu_language_tag(dbiculocale,
@@ -1111,14 +1111,14 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 	}
 
 	/*
-	 * Check that the new encoding and locale settings match the source
-	 * database.  We insist on this because we simply copy the source data ---
-	 * any non-ASCII data would be wrongly encoded, and any indexes sorted
-	 * according to the source locale would be wrong.
+	 * 检查新编码和语言环境设置是否与源数据库匹配。
+	 * 我们坚持这样做，因为我们只是复制源数据 ---
+	 * 任何非 ASCII 数据会被错误编码，任何按源语言环境
+	 * 排序的索引会出错。
 	 *
-	 * However, we assume that template0 doesn't contain any non-ASCII data
-	 * nor any indexes that depend on collation or ctype, so template0 can be
-	 * used as template for creating a database with any encoding or locale.
+	 * 但是，我们假设 template0 不包含任何非 ASCII 数据
+	 * 或依赖排序规则/ctype 的索引，因此 template0 可以
+	 * 用作创建具有任何编码或语言环境数据库的模板。
 	 */
 	if (strcmp(dbtemplate, "template0") != 0)
 	{
@@ -1181,17 +1181,17 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 	}
 
 	/*
-	 * If we got a collation version for the template database, check that it
-	 * matches the actual OS collation version.  Otherwise error; the user
-	 * needs to fix the template database first.  Don't complain if a
-	 * collation version was specified explicitly as a statement option; that
-	 * is used by pg_upgrade to reproduce the old state exactly.
+	 * 如果我们获取了模板数据库的排序规则版本，检查它是否
+	 * 与实际操作系统排序规则版本匹配。否则报错；用户需要
+	 * 先修复模板数据库。如果排序规则版本作为语句选项
+	 * 显式指定，则不要抱怨；这由 pg_upgrade 用于精确
+	 * 重现旧状态。
 	 *
-	 * (If the template database has no collation version, then either the
-	 * platform/provider does not support collation versioning, or it's
-	 * template0, for which we stipulate that it does not contain
-	 * collation-using objects.)
-	 */
+	 * （如果模板数据库没有排序规则版本，则要么
+	 * 平台/提供程序不支持排序规则版本控制，要么它是
+	 * template0，我们规定它不包含使用排序规则的对象。）
+	 
+ */
 	if (src_collversion && !dcollversion)
 	{
 		char	   *actual_versionstr;
@@ -1219,9 +1219,9 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 		dbcollversion = src_collversion;
 
 	/*
-	 * Normally, we copy the collation version from the template database.
-	 * This last resort only applies if the template database does not have a
-	 * collation version, which is normally only the case for template0.
+	 * 通常，我们从模板数据库复制排序规则版本。
+	 * 此最后手段仅在模板数据库没有排序规则版本时适用，
+	 * 这通常只对 template0 成立。
 	 */
 	if (dbcollversion == NULL)
 		dbcollversion = get_collation_actual_version(dblocprovider, dblocprovider == COLLPROVIDER_ICU ? dbiculocale : dbcollate);
@@ -1248,17 +1248,17 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 					 errmsg("pg_global cannot be used as default tablespace")));
 
 		/*
-		 * If we are trying to change the default tablespace of the template,
-		 * we require that the template not have any files in the new default
-		 * tablespace.  This is necessary because otherwise the copied
-		 * database would contain pg_class rows that refer to its default
-		 * tablespace both explicitly (by OID) and implicitly (as zero), which
-		 * would cause problems.  For example another CREATE DATABASE using
-		 * the copied database as template, and trying to change its default
-		 * tablespace again, would yield outright incorrect results (it would
-		 * improperly move tables to the new default tablespace that should
-		 * stay in the same tablespace).
-		 */
+		 * 如果我们尝试更改模板的默认表空间，则要求模板
+		 * 在新的默认表空间中没有任何文件。这是必要的，
+		 * 因为否则复制的数据库将包含同时显式（通过 OID）
+		 * 和隐式（作为零）引用其默认表空间的 pg_class
+		 * 行，这会导致问题。例如，另一个使用复制的数据库
+		 * 作为模板并再次尝试更改其默认表空间的
+		 * CREATE DATABASE 会产生完全错误的结果（它会
+		 * 不正确地将在同一表空间中保留的表移动到新的
+		 * 默认表空间）。
+		 
+ */
 		if (dst_deftablespace != src_deftablespace)
 		{
 			char	   *srcpath;
@@ -1286,19 +1286,19 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 	}
 
 	/*
-	 * If built with appropriate switch, whine when regression-testing
-	 * conventions for database names are violated.  But don't complain during
-	 * initdb.
-	 */
+	 * 如果使用适当的开关构建，当违反回归测试的数据库名称
+	 * 约定时发出警告。但在 initdb 期间不要抱怨。
+	 
+ */
 #ifdef ENFORCE_REGRESSION_TEST_NAME_RESTRICTIONS
 	if (IsUnderPostmaster && strstr(dbname, "regression") == NULL)
 		elog(WARNING, "databases created by regression test cases should have names including \"regression\"");
 #endif
 
 	/*
-	 * Check for db name conflict.  This is just to give a more friendly error
-	 * message than "unique index violation".  There's a race condition but
-	 * we're willing to accept the less friendly message in that case.
+	 * 检查数据库名称冲突。这只是为了提供比
+	 * "唯一索引冲突"更友好的错误消息。存在竞争条件，
+	 * 但在此情况下我们愿意接受不太友好的消息。
 	 */
 	if (OidIsValid(get_database_oid(dbname, true)))
 		ereport(ERROR,
@@ -1306,14 +1306,14 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 				 errmsg("database \"%s\" already exists", dbname)));
 
 	/*
-	 * The source DB can't have any active backends, except this one
-	 * (exception is to allow CREATE DB while connected to template1).
-	 * Otherwise we might copy inconsistent data.
+	 * 源数据库不能有任何活动后端，除了当前这个
+	 * （例外是允许在连接到 template1 时 CREATE DB）。
+	 * 否则我们可能会复制不一致的数据。
 	 *
-	 * This should be last among the basic error checks, because it involves
-	 * potential waiting; we may as well throw an error first if we're gonna
-	 * throw one.
-	 */
+	 * 这应该是基本错误检查中的最后一项，因为它涉及
+	 * 潜在等待；如果要抛出错误，还不如先抛出。
+	 
+ */
 	if (CountOtherDBBackends(src_dboid, &notherbackends, &npreparedxacts))
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_IN_USE),
@@ -1322,15 +1322,15 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 				 errdetail_busy_db(notherbackends, npreparedxacts)));
 
 	/*
-	 * Select an OID for the new database, checking that it doesn't have a
-	 * filename conflict with anything already existing in the tablespace
-	 * directories.
-	 */
+	 * 为新数据库选择一个 OID，检查它是否与表空间目录中
+	 * 已有的任何内容有文件名冲突。
+	 
+ */
 	pg_database_rel = table_open(DatabaseRelationId, RowExclusiveLock);
 
 	/*
-	 * If database OID is configured, check if the OID is already in use or
-	 * data directory already exists.
+	 * 如果配置了数据库 OID，检查该 OID 是否已被使用或
+	 * 数据目录是否已存在。
 	 */
 	if (OidIsValid(dboid))
 	{
@@ -1358,9 +1358,9 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 	}
 
 	/*
-	 * Insert a new tuple into pg_database.  This establishes our ownership of
-	 * the new database name (anyone else trying to insert the same name will
-	 * block on the unique index, and fail after we commit).
+	 * 向 pg_database 插入新元组。这建立了我们对新数据库
+	 * 名称的所有权（任何其他尝试插入相同名称的人将在
+	 * 唯一索引上阻塞，并在我们提交后失败）。
 	 */
 
 	Assert((dblocprovider == COLLPROVIDER_ICU && dbiculocale) ||
@@ -1395,9 +1395,9 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 		new_record_nulls[Anum_pg_database_datcollversion - 1] = true;
 
 	/*
-	 * We deliberately set datacl to default (NULL), rather than copying it
-	 * from the template database.  Copying it would be a bad idea when the
-	 * owner is not the same as the template's owner.
+	 * 我们特意将 datacl 设置为默认值（NULL），而不是从
+	 * 模板数据库复制它。当所有者与模板的所有者不同时，
+	 * 复制它会是个坏主意。
 	 */
 	new_record_nulls[Anum_pg_database_datacl - 1] = true;
 
@@ -1407,7 +1407,7 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 	CatalogTupleInsert(pg_database_rel, tuple);
 
 	/*
-	 * Now generate additional catalog entries associated with the new DB
+	 * 现在生成与新数据库关联的额外目录条目
 	 */
 
 	/* Register owner dependency */
@@ -1420,26 +1420,26 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 	InvokeObjectPostCreateHook(DatabaseRelationId, dboid, 0);
 
 	/*
-	 * If we're going to be reading data for the to-be-created database into
-	 * shared_buffers, take a lock on it. Nobody should know that this
-	 * database exists yet, but it's good to maintain the invariant that an
-	 * AccessExclusiveLock on the database is sufficient to drop all of its
-	 * buffers without worrying about more being read later.
+	 * 如果我们要将要创建的数据库的数据读入 shared_buffers，
+	 * 则获取其锁。此时应该没有人知道这个数据库存在，
+	 * 但保持以下不变式是好的：数据库上的
+	 * AccessExclusiveLock 足以删除其所有缓冲区，而无需
+	 * 担心稍后有更多数据被读入。
 	 *
-	 * Note that we need to do this before entering the
-	 * PG_ENSURE_ERROR_CLEANUP block below, because createdb_failure_callback
-	 * expects this lock to be held already.
+	 * 注意我们需要在进入下面的 PG_ENSURE_ERROR_CLEANUP
+	 * 块之前执行此操作，因为 createdb_failure_callback
+	 * 期望此锁已被持有。
 	 */
 	if (dbstrategy == CREATEDB_WAL_LOG)
 		LockSharedObject(DatabaseRelationId, dboid, 0, AccessShareLock);
 
 	/*
-	 * Once we start copying subdirectories, we need to be able to clean 'em
-	 * up if we fail.  Use an ENSURE block to make sure this happens.  (This
-	 * is not a 100% solution, because of the possibility of failure during
-	 * transaction commit after we leave this routine, but it should handle
-	 * most scenarios.)
-	 */
+	 * 一旦开始复制子目录，如果失败，我们需要能够清理
+	 * 它们。使用 ENSURE 块确保发生清理。（这不是 100%
+	 * 的解决方案，因为在我们离开此例程后事务提交期间
+	 * 也可能失败，但它应该处理大多数场景。）
+	 
+ */
 	fparms.src_dboid = src_dboid;
 	fparms.dest_dboid = dboid;
 	fparms.strategy = dbstrategy;
@@ -1448,11 +1448,11 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 							PointerGetDatum(&fparms));
 	{
 		/*
-		 * If the user has asked to create a database with WAL_LOG strategy
-		 * then call CreateDatabaseUsingWalLog, which will copy the database
-		 * at the block level and it will WAL log each copied block.
-		 * Otherwise, call CreateDatabaseUsingFileCopy that will copy the
-		 * database file by file.
+		 * 如果用户要求使用 WAL_LOG 策略创建数据库，则调用
+		 * CreateDatabaseUsingWalLog，它将在块级别复制
+		 * 数据库，并为每个复制的块记录 WAL。
+		 * 否则，调用 CreateDatabaseUsingFileCopy，它将
+		 * 逐文件复制数据库。
 		 */
 		if (dbstrategy == CREATEDB_WAL_LOG)
 			CreateDatabaseUsingWalLog(src_dboid, dboid, src_deftablespace,
@@ -1462,15 +1462,15 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 										dst_deftablespace);
 
 		/*
-		 * Close pg_database, but keep lock till commit.
+		 * 关闭 pg_database，但保持锁定直到提交。
 		 */
 		table_close(pg_database_rel, NoLock);
 
 		/*
-		 * Force synchronous commit, thus minimizing the window between
-		 * creation of the database files and committal of the transaction. If
-		 * we crash before committing, we'll have a DB that's taking up disk
-		 * space but is not in pg_database, which is not good.
+		 * 强制同步提交，从而最小化数据库文件创建和事务
+		 * 提交之间的窗口。如果我们在提交前崩溃，将有一个
+		 * 占用磁盘空间但不在 pg_database 中的数据库，
+		 * 这不好。
 		 */
 		ForceSyncCommit();
 	}
@@ -1481,26 +1481,26 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 }
 
 /*
- * Check whether chosen encoding matches chosen locale settings.  This
- * restriction is necessary because libc's locale-specific code usually
- * fails when presented with data in an encoding it's not expecting. We
- * allow mismatch in four cases:
+ * 检查选择的编码是否与选择的语言环境设置匹配。此限制
+ * 是必要的，因为 libc 的语言环境特定代码在收到不期望的
+ * 编码数据时通常会失败。我们在四种情况下允许不匹配：
  *
- * 1. locale encoding = SQL_ASCII, which means that the locale is C/POSIX
- * which works with any encoding.
+ * 1. 语言环境编码 = SQL_ASCII，意味着语言环境是 C/POSIX，
+ * 可以与任何编码一起工作。
  *
- * 2. locale encoding = -1, which means that we couldn't determine the
- * locale's encoding and have to trust the user to get it right.
+ * 2. 语言环境编码 = -1，意味着我们无法确定语言环境的
+ * 编码，必须信任用户能正确设置。
  *
- * 3. selected encoding is UTF8 and platform is win32. This is because
- * UTF8 is a pseudo codepage that is supported in all locales since it's
- * converted to UTF16 before being used.
+ * 3. 选择的编码是 UTF8 且平台是 win32。这是因为 UTF8
+ * 是一个伪代码页，在所有语言环境中都受支持，因为它在
+ * 使用前会转换为 UTF16。
  *
- * 4. selected encoding is SQL_ASCII, but only if you're a superuser. This
- * is risky but we have historically allowed it --- notably, the
- * regression tests require it.
+ * 4. 选择的编码是 SQL_ASCII，但仅限超级用户。这有风险，
+ * 但我们历史上一直允许 --- 值得注意的是，回归测试
+ * 需要它。
  *
- * Note: if you change this policy, fix initdb to match.
+ * 注意：如果更改此策略，请相应修改 initdb。
+ 
  */
 void
 check_encoding_locale_matches(int encoding, const char *collate, const char *ctype)
@@ -1546,13 +1546,13 @@ createdb_failure_callback(int code, Datum arg)
 	createdb_failure_params *fparms = (createdb_failure_params *) DatumGetPointer(arg);
 
 	/*
-	 * If we were copying database at block levels then drop pages for the
-	 * destination database that are in the shared buffer cache.  And tell
-	 * checkpointer to forget any pending fsync and unlink requests for files
-	 * in the database.  The reasoning behind doing this is same as explained
-	 * in dropdb function.  But unlike dropdb we don't need to call
-	 * pgstat_drop_database because this database is still not created so
-	 * there should not be any stat for this.
+	 * 如果我们在块级别复制数据库，则删除共享缓冲区
+	 * 缓存中目标数据库的页面。并告知 checkpointer
+	 * 忘记数据库中文件的任何待处理 fsync 和 unlink 请求。
+	 * 这样做背后的原因与 dropdb 函数中解释的相同。
+	 * 但与 dropdb 不同，我们不需要调用
+	 * pgstat_drop_database，因为此数据库尚未创建，
+	 * 因此不应该有任何统计信息。
 	 */
 	if (fparms->strategy == CREATEDB_WAL_LOG)
 	{
@@ -1565,10 +1565,10 @@ createdb_failure_callback(int code, Datum arg)
 	}
 
 	/*
-	 * Release lock on source database before doing recursive remove. This is
-	 * not essential but it seems desirable to release the lock as soon as
-	 * possible.
-	 */
+	 * 在执行递归删除之前释放源数据库的锁。这不是必需的，
+	 * 但似乎应该尽快释放锁。
+	 
+ */
 	UnlockSharedObject(DatabaseRelationId, fparms->src_dboid, 0, ShareLock);
 
 	/* Throw away any successfully copied subdirectories */
@@ -1596,12 +1596,12 @@ dropdb(const char *dbname, bool missing_ok, bool force)
 	int			nsubscriptions;
 
 	/*
-	 * Look up the target database's OID, and get exclusive lock on it. We
-	 * need this to ensure that no new backend starts up in the target
-	 * database while we are deleting it (see postinit.c), and that no one is
-	 * using it as a CREATE DATABASE template or trying to delete it for
-	 * themselves.
-	 */
+	 * 查找目标数据库的 OID，并获取其排他锁。我们需要
+	 * 此锁来确保在删除目标数据库时没有新后端启动
+	 * （参见 postinit.c），并且没有人将其用作
+	 * CREATE DATABASE 模板或试图自行删除它。
+	 
+ */
 	pgdbrel = table_open(DatabaseRelationId, RowExclusiveLock);
 
 	if (!get_db_info(dbname, AccessExclusiveLock, &db_id, NULL, NULL,
@@ -1625,7 +1625,7 @@ dropdb(const char *dbname, bool missing_ok, bool force)
 	}
 
 	/*
-	 * Permission checks
+	 * 权限检查
 	 */
 	if (!object_ownercheck(DatabaseRelationId, db_id, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_DATABASE,
@@ -1635,9 +1635,9 @@ dropdb(const char *dbname, bool missing_ok, bool force)
 	InvokeObjectDropHook(DatabaseRelationId, db_id, 0);
 
 	/*
-	 * Disallow dropping a DB that is marked istemplate.  This is just to
-	 * prevent people from accidentally dropping template0 or template1; they
-	 * can do so if they're really determined ...
+	 * 禁止删除标记为 istemplate 的数据库。这只是为了防止
+	 * 人们意外删除 template0 或 template1；如果他们真的
+	 * 执意要删除，也可以 ...
 	 */
 	if (db_istemplate)
 		ereport(ERROR,
@@ -1651,11 +1651,11 @@ dropdb(const char *dbname, bool missing_ok, bool force)
 				 errmsg("cannot drop the currently open database")));
 
 	/*
-	 * Check whether there are active logical slots that refer to the
-	 * to-be-dropped database. The database lock we are holding prevents the
-	 * creation of new slots using the database or existing slots becoming
-	 * active.
-	 */
+	 * 检查是否存在引用待删除数据库的活动逻辑插槽。
+	 * 我们持有的数据库锁阻止使用该数据库创建新插槽
+	 * 或现有插槽变为活动状态。
+	 
+ */
 	(void) ReplicationSlotsCountDBSlots(db_id, &nslots, &nslots_active);
 	if (nslots_active)
 	{
@@ -1669,10 +1669,10 @@ dropdb(const char *dbname, bool missing_ok, bool force)
 	}
 
 	/*
-	 * Check if there are subscriptions defined in the target database.
+	 * 检查目标数据库中是否定义了订阅。
 	 *
-	 * We can't drop them automatically because they might be holding
-	 * resources in other databases/instances.
+	 * 我们不能自动删除它们，因为它们可能持有其他
+	 * 数据库/实例中的资源。
 	 */
 	if ((nsubscriptions = CountDBSubscriptions(db_id)) > 0)
 		ereport(ERROR,
@@ -1685,17 +1685,17 @@ dropdb(const char *dbname, bool missing_ok, bool force)
 
 
 	/*
-	 * Attempt to terminate all existing connections to the target database if
-	 * the user has requested to do so.
-	 */
+	 * 如果用户请求，尝试终止到目标数据库的所有现有连接。
+	 
+ */
 	if (force)
 		TerminateOtherDBBackends(db_id);
 
 	/*
-	 * Check for other backends in the target database.  (Because we hold the
-	 * database lock, no new ones can start after this.)
+	 * 检查目标数据库中的其他后端。（因为我们持有数据库
+	 * 锁，在此之后没有新的可以启动。）
 	 *
-	 * As in CREATE DATABASE, check this after other error conditions.
+	 * 与 CREATE DATABASE 一样，在其他错误条件之后检查此项。
 	 */
 	if (CountOtherDBBackends(db_id, &notherbackends, &npreparedxacts))
 		ereport(ERROR,
@@ -1705,37 +1705,37 @@ dropdb(const char *dbname, bool missing_ok, bool force)
 				 errdetail_busy_db(notherbackends, npreparedxacts)));
 
 	/*
-	 * Delete any comments or security labels associated with the database.
+	 * 删除与数据库关联的任何注释或安全标签。
 	 */
 	DeleteSharedComments(db_id, DatabaseRelationId);
 	DeleteSharedSecurityLabel(db_id, DatabaseRelationId);
 
 	/*
-	 * Remove settings associated with this database
+	 * 删除与此数据库关联的设置
 	 */
 	DropSetting(db_id, InvalidOid);
 
 	/*
-	 * Remove shared dependency references for the database.
+	 * 删除数据库的共享依赖引用。
 	 */
 	dropDatabaseDependencies(db_id);
 
 	/*
-	 * Tell the cumulative stats system to forget it immediately, too.
+	 * 告知累积统计系统也立即忘记它。
 	 */
 	pgstat_drop_database(db_id);
 
 	/*
-	 * Except for the deletion of the catalog row, subsequent actions are not
-	 * transactional (consider DropDatabaseBuffers() discarding modified
-	 * buffers). But we might crash or get interrupted below. To prevent
-	 * accesses to a database with invalid contents, mark the database as
-	 * invalid using an in-place update.
+	 * 除了删除目录行外，后续操作不是事务性的（考虑
+	 * DropDatabaseBuffers() 丢弃已修改的缓冲区）。但
+	 * 我们可能在下面崩溃或中断。为防止访问内容无效的
+	 * 数据库，使用就地更新将数据库标记为无效。
 	 *
-	 * We need to flush the WAL before continuing, to guarantee the
-	 * modification is durable before performing irreversible filesystem
-	 * operations.
-	 */
+	 * 我们需要在继续之前刷新 WAL，以保证修改在执行
+	 * 不可逆文件系统操作之前是持久的。
+	 
+ *
+ */
 	ScanKeyInit(&scankey,
 				Anum_pg_database_datname,
 				BTEqualStrategyNumber, F_NAMEEQ,
@@ -1750,35 +1750,35 @@ dropdb(const char *dbname, bool missing_ok, bool force)
 	XLogFlush(XactLastRecEnd);
 
 	/*
-	 * Also delete the tuple - transactionally. If this transaction commits,
-	 * the row will be gone, but if we fail, dropdb() can be invoked again.
+	 * 同时事务性地删除元组。如果此事务提交，行将消失，
+	 * 但如果失败，可以再次调用 dropdb()。
 	 */
 	CatalogTupleDelete(pgdbrel, &tup->t_self);
 	heap_freetuple(tup);
 
 	/*
-	 * Drop db-specific replication slots.
+	 * 删除数据库特定的复制槽。
 	 */
 	ReplicationSlotsDropDBSlots(db_id);
 
 	/*
-	 * Drop pages for this database that are in the shared buffer cache. This
-	 * is important to ensure that no remaining backend tries to write out a
-	 * dirty buffer to the dead database later...
+	 * 删除共享缓冲区缓存中此数据库的页面。这很重要，
+	 * 以确保没有剩余后端稍后尝试将脏缓冲区写出到
+	 * 已死数据库 ...
 	 */
 	DropDatabaseBuffers(db_id);
 
 	/*
-	 * Tell checkpointer to forget any pending fsync and unlink requests for
-	 * files in the database; else the fsyncs will fail at next checkpoint, or
-	 * worse, it will delete files that belong to a newly created database
-	 * with the same OID.
+	 * 告知 checkpointer 忘记数据库中文件的任何待处理
+	 * fsync 和 unlink 请求；否则 fsync 将在下次检查点
+	 * 失败，或更糟的是，将删除属于具有相同 OID 的
+	 * 新创建数据库的文件。
 	 */
 	ForgetDatabaseSyncRequests(db_id);
 
 	/*
-	 * Force a checkpoint to make sure the checkpointer has received the
-	 * message sent by ForgetDatabaseSyncRequests.
+	 * 强制执行检查点以确保 checkpointer 已收到
+	 * ForgetDatabaseSyncRequests 发送的消息。
 	 */
 	RequestCheckpoint(CHECKPOINT_IMMEDIATE | CHECKPOINT_FORCE | CHECKPOINT_WAIT);
 
@@ -1786,27 +1786,27 @@ dropdb(const char *dbname, bool missing_ok, bool force)
 	WaitForProcSignalBarrier(EmitProcSignalBarrier(PROCSIGNAL_BARRIER_SMGRRELEASE));
 
 	/*
-	 * Remove all tablespace subdirs belonging to the database.
+	 * 删除属于数据库的所有表空间子目录。
 	 */
 	remove_dbtablespaces(db_id);
 
 	/*
-	 * Close pg_database, but keep lock till commit.
+	 * 关闭 pg_database，但保持锁定直到提交。
 	 */
 	table_close(pgdbrel, NoLock);
 
 	/*
-	 * Force synchronous commit, thus minimizing the window between removal of
-	 * the database files and committal of the transaction. If we crash before
-	 * committing, we'll have a DB that's gone on disk but still there
-	 * according to pg_database, which is not good.
+	 * 强制同步提交，从而最小化数据库文件删除和事务
+	 * 提交之间的窗口。如果我们在提交前崩溃，将有一个
+	 * 在磁盘上已消失但根据 pg_database 仍存在的数据库，
+	 * 这不好。
 	 */
 	ForceSyncCommit();
 }
 
 
 /*
- * Rename database
+ * 重命名数据库
  */
 ObjectAddress
 RenameDatabase(const char *oldname, const char *newname)
@@ -1820,8 +1820,8 @@ RenameDatabase(const char *oldname, const char *newname)
 	ObjectAddress address;
 
 	/*
-	 * Look up the target database's OID, and get exclusive lock on it. We
-	 * need this for the same reasons as DROP DATABASE.
+	 * 查找目标数据库的 OID，并获取其排他锁。我们
+	 * 出于与 DROP DATABASE 相同的原因需要此锁。
 	 */
 	rel = table_open(DatabaseRelationId, RowExclusiveLock);
 
@@ -1843,8 +1843,8 @@ RenameDatabase(const char *oldname, const char *newname)
 				 errmsg("permission denied to rename database")));
 
 	/*
-	 * If built with appropriate switch, whine when regression-testing
-	 * conventions for database names are violated.
+	 * 如果使用适当的开关构建，当违反回归测试的数据库
+	 * 名称约定时发出警告。
 	 */
 #ifdef ENFORCE_REGRESSION_TEST_NAME_RESTRICTIONS
 	if (strstr(newname, "regression") == NULL)
@@ -1852,8 +1852,8 @@ RenameDatabase(const char *oldname, const char *newname)
 #endif
 
 	/*
-	 * Make sure the new name doesn't exist.  See notes for same error in
-	 * CREATE DATABASE.
+	 * 确保新名称不存在。参见 CREATE DATABASE 中相同
+	 * 错误的说明。
 	 */
 	if (OidIsValid(get_database_oid(newname, true)))
 		ereport(ERROR,
@@ -1861,21 +1861,21 @@ RenameDatabase(const char *oldname, const char *newname)
 				 errmsg("database \"%s\" already exists", newname)));
 
 	/*
-	 * XXX Client applications probably store the current database somewhere,
-	 * so renaming it could cause confusion.  On the other hand, there may not
-	 * be an actual problem besides a little confusion, so think about this
-	 * and decide.
-	 */
+	 * XXX 客户端应用程序可能在某处存储了当前数据库名称，
+	 * 因此重命名它可能会导致混淆。另一方面，除了
+	 * 一点混淆之外，可能没有实际问题，所以请思考并决定。
+	 
+ */
 	if (db_id == MyDatabaseId)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("current database cannot be renamed")));
 
 	/*
-	 * Make sure the database does not have active sessions.  This is the same
-	 * concern as above, but applied to other sessions.
+	 * 确保数据库没有活动会话。这与上面的担忧相同，
+	 * 但适用于其他会话。
 	 *
-	 * As in CREATE DATABASE, check this after other error conditions.
+	 * 与 CREATE DATABASE 一样，在其他错误条件之后检查此项。
 	 */
 	if (CountOtherDBBackends(db_id, &notherbackends, &npreparedxacts))
 		ereport(ERROR,
@@ -1898,7 +1898,7 @@ RenameDatabase(const char *oldname, const char *newname)
 	ObjectAddressSet(address, DatabaseRelationId, db_id);
 
 	/*
-	 * Close pg_database, but keep lock till commit.
+	 * 关闭 pg_database，但保持锁定直到提交。
 	 */
 	table_close(rel, NoLock);
 
@@ -1930,11 +1930,11 @@ movedb(const char *dbname, const char *tblspcname)
 	movedb_failure_params fparms;
 
 	/*
-	 * Look up the target database's OID, and get exclusive lock on it. We
-	 * need this to ensure that no new backend starts up in the database while
-	 * we are moving it, and that no one is using it as a CREATE DATABASE
-	 * template or trying to delete it.
-	 */
+	 * 查找目标数据库的 OID，并获取其排他锁。我们需要
+	 * 此锁来确保在移动数据库时没有新后端启动，并且
+	 * 没有人将其用作 CREATE DATABASE 模板或试图删除它。
+	 
+ */
 	pgdbrel = table_open(DatabaseRelationId, RowExclusiveLock);
 
 	if (!get_db_info(dbname, AccessExclusiveLock, &db_id, NULL, NULL,
@@ -1944,23 +1944,23 @@ movedb(const char *dbname, const char *tblspcname)
 				 errmsg("database \"%s\" does not exist", dbname)));
 
 	/*
-	 * We actually need a session lock, so that the lock will persist across
-	 * the commit/restart below.  (We could almost get away with letting the
-	 * lock be released at commit, except that someone could try to move
-	 * relations of the DB back into the old directory while we rmtree() it.)
+	 * 我们实际上需要一个会话锁，以便锁在下面的
+	 * commit/restart 之后持续存在。（我们几乎可以
+	 * 让锁在提交时释放，除了有人可能会在我们
+	 * rmtree() 旧目录时尝试将数据库的关系移回旧目录。）
 	 */
 	LockSharedObjectForSession(DatabaseRelationId, db_id, 0,
 							   AccessExclusiveLock);
 
 	/*
-	 * Permission checks
+	 * 权限检查
 	 */
 	if (!object_ownercheck(DatabaseRelationId, db_id, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_DATABASE,
 					   dbname);
 
 	/*
-	 * Obviously can't move the tables of my own database
+	 * 显然不能移动自己数据库的表空间
 	 */
 	if (db_id == MyDatabaseId)
 		ereport(ERROR,
@@ -1968,12 +1968,12 @@ movedb(const char *dbname, const char *tblspcname)
 				 errmsg("cannot change the tablespace of the currently open database")));
 
 	/*
-	 * Get tablespace's oid
+	 * 获取表空间的 oid
 	 */
 	dst_tblspcoid = get_tablespace_oid(tblspcname, false);
 
 	/*
-	 * Permission checks
+	 * 权限检查
 	 */
 	aclresult = object_aclcheck(TableSpaceRelationId, dst_tblspcoid, GetUserId(),
 								ACL_CREATE);
@@ -1982,7 +1982,7 @@ movedb(const char *dbname, const char *tblspcname)
 					   tblspcname);
 
 	/*
-	 * pg_global must never be the default tablespace
+	 * pg_global 绝不能是默认表空间
 	 */
 	if (dst_tblspcoid == GLOBALTABLESPACE_OID)
 		ereport(ERROR,
@@ -1990,7 +1990,7 @@ movedb(const char *dbname, const char *tblspcname)
 				 errmsg("pg_global cannot be used as default tablespace")));
 
 	/*
-	 * No-op if same tablespace
+	 * 如果是相同表空间则无操作
 	 */
 	if (src_tblspcoid == dst_tblspcoid)
 	{
@@ -2001,10 +2001,10 @@ movedb(const char *dbname, const char *tblspcname)
 	}
 
 	/*
-	 * Check for other backends in the target database.  (Because we hold the
-	 * database lock, no new ones can start after this.)
+	 * 检查目标数据库中的其他后端。（因为我们持有数据库
+	 * 锁，在此之后没有新的可以启动。）
 	 *
-	 * As in CREATE DATABASE, check this after other error conditions.
+	 * 与 CREATE DATABASE 一样，在其他错误条件之后检查此项。
 	 */
 	if (CountOtherDBBackends(db_id, &notherbackends, &npreparedxacts))
 		ereport(ERROR,
@@ -2014,22 +2014,22 @@ movedb(const char *dbname, const char *tblspcname)
 				 errdetail_busy_db(notherbackends, npreparedxacts)));
 
 	/*
-	 * Get old and new database paths
+	 * 获取旧的和新的数据库路径
 	 */
 	src_dbpath = GetDatabasePath(db_id, src_tblspcoid);
 	dst_dbpath = GetDatabasePath(db_id, dst_tblspcoid);
 
 	/*
-	 * Force a checkpoint before proceeding. This will force all dirty
-	 * buffers, including those of unlogged tables, out to disk, to ensure
-	 * source database is up-to-date on disk for the copy.
-	 * FlushDatabaseBuffers() would suffice for that, but we also want to
-	 * process any pending unlink requests. Otherwise, the check for existing
-	 * files in the target directory might fail unnecessarily, not to mention
-	 * that the copy might fail due to source files getting deleted under it.
-	 * On Windows, this also ensures that background procs don't hold any open
-	 * files, which would cause rmdir() to fail.
-	 */
+	 * 在继续之前强制执行检查点。这将强制将所有脏缓冲区
+	 * （包括无日志表的）刷新到磁盘，以确保源数据库
+	 * 在磁盘上是最新的。FlushDatabaseBuffers() 能够
+	 * 做到这一点，但我们还需要处理任何待处理的 unlink
+	 * 请求。否则，目标目录中现有文件的检查可能不必要
+	 * 地失败，更不用说复制可能因源文件在复制过程中
+	 * 被删除而失败。在 Windows 上，这也确保后台进程
+	 * 不持有任何打开文件，否则会导致 rmdir() 失败。
+	 
+ */
 	RequestCheckpoint(CHECKPOINT_IMMEDIATE | CHECKPOINT_FORCE | CHECKPOINT_WAIT
 					  | CHECKPOINT_FLUSH_ALL);
 
@@ -2037,28 +2037,28 @@ movedb(const char *dbname, const char *tblspcname)
 	WaitForProcSignalBarrier(EmitProcSignalBarrier(PROCSIGNAL_BARRIER_SMGRRELEASE));
 
 	/*
-	 * Now drop all buffers holding data of the target database; they should
-	 * no longer be dirty so DropDatabaseBuffers is safe.
+	 * 现在丢弃所有包含目标数据库数据的缓冲区；它们应该
+	 * 不再是脏的了，因此 DropDatabaseBuffers 是安全的。
 	 *
-	 * It might seem that we could just let these buffers age out of shared
-	 * buffers naturally, since they should not get referenced anymore.  The
-	 * problem with that is that if the user later moves the database back to
-	 * its original tablespace, any still-surviving buffers would appear to
-	 * contain valid data again --- but they'd be missing any changes made in
-	 * the database while it was in the new tablespace.  In any case, freeing
-	 * buffers that should never be used again seems worth the cycles.
+	 * 看起来我们可以让这些缓冲区自然地从共享缓冲区中
+	 * 老化，因为它们不应该再被引用。问题在于，如果用户
+	 * 稍后将数据库移回其原始表空间，任何仍然存活的
+	 * 缓冲区似乎又会包含有效数据 --- 但它们会丢失
+	 * 数据库在新表空间中发生的任何更改。无论如何，
+	 * 释放永远不应再使用的缓冲区似乎是值得的。
 	 *
-	 * Note: it'd be sufficient to get rid of buffers matching db_id and
-	 * src_tblspcoid, but bufmgr.c presently provides no API for that.
+	 * 注意：只要去除与 db_id 和 src_tblspcoid 匹配的
+	 * 缓冲区就足够了，但 bufmgr.c 目前没有提供
+	 * 相应的 API。
 	 */
 	DropDatabaseBuffers(db_id);
 
 	/*
-	 * Check for existence of files in the target directory, i.e., objects of
-	 * this database that are already in the target tablespace.  We can't
-	 * allow the move in such a case, because we would need to change those
-	 * relations' pg_class.reltablespace entries to zero, and we don't have
-	 * access to the DB's pg_class to do so.
+	 * 检查目标目录中是否存在文件，即已存在于目标
+	 * 表空间中的此数据库的对象。我们无法在这种情况下
+	 * 允许移动，因为我们需要将这些关系的
+	 * pg_class.reltablespace 条目更改为零，而我们
+	 * 无法访问数据库的 pg_class 来执行此操作。
 	 */
 	dstdir = AllocateDir(dst_dbpath);
 	if (dstdir != NULL)
@@ -2079,8 +2079,8 @@ movedb(const char *dbname, const char *tblspcname)
 		FreeDir(dstdir);
 
 		/*
-		 * The directory exists but is empty. We must remove it before using
-		 * the copydir function.
+		 * 目录存在但为空。我们必须在调用 copydir 函数
+		 * 之前删除它。
 		 */
 		if (rmdir(dst_dbpath) != 0)
 			elog(ERROR, "could not remove directory \"%s\": %m",
@@ -2088,11 +2088,11 @@ movedb(const char *dbname, const char *tblspcname)
 	}
 
 	/*
-	 * Use an ENSURE block to make sure we remove the debris if the copy fails
-	 * (eg, due to out-of-disk-space).  This is not a 100% solution, because
-	 * of the possibility of failure during transaction commit, but it should
-	 * handle most scenarios.
-	 */
+	 * 使用 ENSURE 块确保在复制失败时（例如磁盘空间不足）
+	 * 清除碎片。这不是 100% 的解决方案，因为事务提交
+	 * 期间也可能失败，但它应该处理大多数场景。
+	 
+ */
 	fparms.dest_dboid = db_id;
 	fparms.dest_tsoid = dst_tblspcoid;
 	PG_ENSURE_ERROR_CLEANUP(movedb_failure_callback,
@@ -2103,12 +2103,12 @@ movedb(const char *dbname, const char *tblspcname)
 		bool		new_record_repl[Natts_pg_database] = {0};
 
 		/*
-		 * Copy files from the old tablespace to the new one
+		 * 将文件从旧表空间复制到新表空间
 		 */
 		copydir(src_dbpath, dst_dbpath, false);
 
 		/*
-		 * Record the filesystem change in XLOG
+		 * 在 XLOG 中记录文件系统变更
 		 */
 		{
 			xl_dbase_create_file_copy_rec xlrec;
@@ -2127,7 +2127,7 @@ movedb(const char *dbname, const char *tblspcname)
 		}
 
 		/*
-		 * Update the database's pg_database tuple
+		 * 更新数据库的 pg_database 元组
 		 */
 		ScanKeyInit(&scankey,
 					Anum_pg_database_datname,
@@ -2156,24 +2156,24 @@ movedb(const char *dbname, const char *tblspcname)
 		systable_endscan(sysscan);
 
 		/*
-		 * Force another checkpoint here.  As in CREATE DATABASE, this is to
-		 * ensure that we don't have to replay a committed
-		 * XLOG_DBASE_CREATE_FILE_COPY operation, which would cause us to lose
-		 * any unlogged operations done in the new DB tablespace before the
-		 * next checkpoint.
+		 * 在此处强制执行另一个检查点。与 CREATE DATABASE
+		 * 一样，这是为了确保我们不必重放已提交的
+		 * XLOG_DBASE_CREATE_FILE_COPY 操作，这会导致我们
+		 * 丢失在下一个检查点之前在新数据库表空间中执行的
+		 * 任何无日志操作。
 		 */
 		RequestCheckpoint(CHECKPOINT_IMMEDIATE | CHECKPOINT_FORCE | CHECKPOINT_WAIT);
 
 		/*
-		 * Force synchronous commit, thus minimizing the window between
-		 * copying the database files and committal of the transaction. If we
-		 * crash before committing, we'll leave an orphaned set of files on
-		 * disk, which is not fatal but not good either.
-		 */
+		 * 强制同步提交，从而最小化数据库文件复制和事务
+		 * 提交之间的窗口。如果我们在提交前崩溃，将在磁盘上
+		 * 留下孤立的一组文件，这不是致命的但也不好。
+		 
+ */
 		ForceSyncCommit();
 
 		/*
-		 * Close pg_database, but keep lock till commit.
+		 * 关闭 pg_database，但保持锁定直到提交。
 		 */
 		table_close(pgdbrel, NoLock);
 	}
@@ -2181,16 +2181,16 @@ movedb(const char *dbname, const char *tblspcname)
 								PointerGetDatum(&fparms));
 
 	/*
-	 * Commit the transaction so that the pg_database update is committed. If
-	 * we crash while removing files, the database won't be corrupt, we'll
-	 * just leave some orphaned files in the old directory.
+	 * 提交事务以使 pg_database 更新被提交。如果我们在
+	 * 删除文件时崩溃，数据库不会损坏，我们只会在旧目录
+	 * 中留下一些孤立文件。
 	 *
-	 * (This is OK because we know we aren't inside a transaction block.)
+	 * （这没问题，因为我们知道不在事务块中。）
 	 *
-	 * XXX would it be safe/better to do this inside the ensure block?	Not
-	 * convinced it's a good idea; consider elog just after the transaction
-	 * really commits.
-	 */
+	 * XXX 在 ensure 块内执行此操作是否安全/更好？不认为
+	 * 这是个好主意；考虑在事务真正提交后立即 elog。
+	 
+ */
 	PopActiveSnapshot();
 	CommitTransactionCommand();
 
@@ -2198,7 +2198,7 @@ movedb(const char *dbname, const char *tblspcname)
 	StartTransactionCommand();
 
 	/*
-	 * Remove files from the old tablespace
+	 * 从旧表空间中删除文件
 	 */
 	if (!rmtree(src_dbpath, true))
 		ereport(WARNING,
@@ -2206,7 +2206,7 @@ movedb(const char *dbname, const char *tblspcname)
 						src_dbpath)));
 
 	/*
-	 * Record the filesystem change in XLOG
+	 * 在 XLOG 中记录文件系统变更
 	 */
 	{
 		xl_dbase_drop_rec xlrec;
@@ -2246,7 +2246,7 @@ movedb_failure_callback(int code, Datum arg)
 }
 
 /*
- * Process options and call dropdb function.
+ * 处理选项并调用 dropdb 函数。
  */
 void
 DropDatabase(ParseState *pstate, DropdbStmt *stmt)
@@ -2334,9 +2334,9 @@ AlterDatabase(ParseState *pstate, AlterDatabaseStmt *stmt, bool isTopLevel)
 	if (dtablespace)
 	{
 		/*
-		 * While the SET TABLESPACE syntax doesn't allow any other options,
-		 * somebody could write "WITH TABLESPACE ...".  Forbid any other
-		 * options from being specified in that case.
+		 * 虽然 SET TABLESPACE 语法不允许任何其他选项，
+		 * 但有人可能会写 "WITH TABLESPACE ..."。在这种情况下，
+		 * 禁止指定任何其他选项。
 		 */
 		if (list_length(stmt->options) != 1)
 			ereport(ERROR,
@@ -2364,10 +2364,10 @@ AlterDatabase(ParseState *pstate, AlterDatabaseStmt *stmt, bool isTopLevel)
 	}
 
 	/*
-	 * Get the old tuple.  We don't need a lock on the database per se,
-	 * because we're not going to do anything that would mess up incoming
-	 * connections.
-	 */
+	 * 获取旧元组。我们不需要数据库本身的锁，因为我们
+	 * 不会做任何会扰乱传入连接的事情。
+	 
+ */
 	rel = table_open(DatabaseRelationId, RowExclusiveLock);
 	ScanKeyInit(&scankey,
 				Anum_pg_database_datname,
@@ -2398,18 +2398,18 @@ AlterDatabase(ParseState *pstate, AlterDatabaseStmt *stmt, bool isTopLevel)
 					   stmt->dbname);
 
 	/*
-	 * In order to avoid getting locked out and having to go through
-	 * standalone mode, we refuse to disallow connections to the database
-	 * we're currently connected to.  Lockout can still happen with concurrent
-	 * sessions but the likeliness of that is not high enough to worry about.
-	 */
+	 * 为了避免被锁定在外并不得不通过单用户模式，我们
+	 * 拒绝对当前连接的数据库禁止连接。锁定仍然可能
+	 * 在并发会话中发生，但可能性不高，不值得担心。
+	 
+ */
 	if (!dballowconnections && dboid == MyDatabaseId)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("cannot disallow connections for current database")));
 
 	/*
-	 * Build an updated tuple, perusing the information just obtained
+	 * 构建更新后的元组，使用刚刚获取的信息
 	 */
 	if (distemplate)
 	{
@@ -2538,9 +2538,9 @@ AlterDatabaseSet(AlterDatabaseSetStmt *stmt)
 	Oid			datid = get_database_oid(stmt->dbname, false);
 
 	/*
-	 * Obtain a lock on the database and make sure it didn't go away in the
-	 * meantime.
-	 */
+	 * 获取数据库的锁，并确保它在此期间没有消失。
+	 
+ */
 	shdepLockAndCheckObject(DatabaseRelationId, datid);
 
 	if (!object_ownercheck(DatabaseRelationId, datid, GetUserId()))
@@ -2570,10 +2570,10 @@ AlterDatabaseOwner(const char *dbname, Oid newOwnerId)
 	ObjectAddress address;
 
 	/*
-	 * Get the old tuple.  We don't need a lock on the database per se,
-	 * because we're not going to do anything that would mess up incoming
-	 * connections.
-	 */
+	 * 获取旧元组。我们不需要数据库本身的锁，因为我们
+	 * 不会做任何会扰乱传入连接的事情。
+	 
+ */
 	rel = table_open(DatabaseRelationId, RowExclusiveLock);
 	ScanKeyInit(&scankey,
 				Anum_pg_database_datname,
@@ -2591,10 +2591,10 @@ AlterDatabaseOwner(const char *dbname, Oid newOwnerId)
 	db_id = datForm->oid;
 
 	/*
-	 * If the new owner is the same as the existing owner, consider the
-	 * command to have succeeded.  This is to be consistent with other
-	 * objects.
-	 */
+	 * 如果新所有者与现有所有者相同，则认为命令成功。
+	 * 这是为了与其他对象保持一致。
+	 
+ */
 	if (datForm->datdba != newOwnerId)
 	{
 		Datum		repl_val[Natts_pg_database];
@@ -2614,13 +2614,13 @@ AlterDatabaseOwner(const char *dbname, Oid newOwnerId)
 		check_can_set_role(GetUserId(), newOwnerId);
 
 		/*
-		 * must have createdb rights
+		 * 必须具有 createdb 权限
 		 *
-		 * NOTE: This is different from other alter-owner checks in that the
-		 * current user is checked for createdb privileges instead of the
-		 * destination owner.  This is consistent with the CREATE case for
-		 * databases.  Because superusers will always have this right, we need
-		 * no special case for them.
+		 * 注意：这不同于其他 alter-owner 检查，
+		 * 因为检查的是当前用户的 createdb 权限，而不是
+		 * 目标所有者。这与数据库的 CREATE 情况一致。
+		 * 由于超级用户总是具有此权限，我们不需要
+		 * 为他们设置特殊情况。
 		 */
 		if (!have_createdb_privilege())
 			ereport(ERROR,
@@ -2633,8 +2633,8 @@ AlterDatabaseOwner(const char *dbname, Oid newOwnerId)
 		repl_val[Anum_pg_database_datdba - 1] = ObjectIdGetDatum(newOwnerId);
 
 		/*
-		 * Determine the modified ACL for the new owner.  This is only
-		 * necessary when the ACL is non-null.
+		 * 确定新所有者的修改后的 ACL。这仅在 ACL
+		 * 非空时才需要。
 		 */
 		aclDatum = heap_getattr(tuple,
 								Anum_pg_database_datacl,
@@ -2701,14 +2701,14 @@ pg_database_collation_actual_version(PG_FUNCTION_ARGS)
 
 
 /*
- * Helper functions
+ * 辅助函数
  */
 
 /*
- * Look up info about the database named "name".  If the database exists,
- * obtain the specified lock type on it, fill in any of the remaining
- * parameters that aren't NULL, and return true.  If no such database,
- * return false.
+ * 查找名为 "name" 的数据库的信息。如果数据库存在，
+ * 获取其指定锁类型，填充任何非 NULL 的剩余参数，
+ * 并返回 true。如果没有这样的数据库，返回 false。
+ 
  */
 static bool
 get_db_info(const char *name, LOCKMODE lockmode,
@@ -2729,10 +2729,10 @@ get_db_info(const char *name, LOCKMODE lockmode,
 	relation = table_open(DatabaseRelationId, AccessShareLock);
 
 	/*
-	 * Loop covers the rare case where the database is renamed before we can
-	 * lock it.  We try again just in case we can find a new one of the same
-	 * name.
-	 */
+	 * 循环处理数据库在我们锁定它之前被重命名的罕见情况。
+	 * 我们再次尝试，以防能找到同名的新的数据库。
+	 
+ */
 	for (;;)
 	{
 		ScanKeyData scanKey;
@@ -2741,9 +2741,9 @@ get_db_info(const char *name, LOCKMODE lockmode,
 		Oid			dbOid;
 
 		/*
-		 * there's no syscache for database-indexed-by-name, so must do it the
-		 * hard way
-		 */
+		 * 没有按名称索引的数据库 syscache，因此必须用笨办法
+		 
+ */
 		ScanKeyInit(&scanKey,
 					Anum_pg_database_datname,
 					BTEqualStrategyNumber, F_NAMEEQ,
@@ -2766,15 +2766,15 @@ get_db_info(const char *name, LOCKMODE lockmode,
 		systable_endscan(scan);
 
 		/*
-		 * Now that we have a database OID, we can try to lock the DB.
+		 * 现在我们有了数据库 OID，可以尝试锁定数据库。
 		 */
 		if (lockmode != NoLock)
 			LockSharedObject(DatabaseRelationId, dbOid, 0, lockmode);
 
 		/*
-		 * And now, re-fetch the tuple by OID.  If it's still there and still
-		 * the same name, we win; else, drop the lock and loop back to try
-		 * again.
+		 * 现在，通过 OID 重新获取元组。如果它仍然存在且
+		 * 仍然是相同名称，则我们胜出；否则，放弃锁并
+		 * 循环回去重试。
 		 */
 		tuple = SearchSysCache1(DATABASEOID, ObjectIdGetDatum(dbOid));
 		if (HeapTupleIsValid(tuple))
@@ -2885,10 +2885,10 @@ have_createdb_privilege(void)
 }
 
 /*
- * Remove tablespace directories
+ * 删除表空间目录
  *
- * We don't know what tablespaces db_id is using, so iterate through all
- * tablespaces removing <tablespace>/db_id
+ * 我们不知道 db_id 正在使用哪些表空间，因此遍历所有
+ * 表空间，删除 <tablespace>/db_id
  */
 static void
 remove_dbtablespaces(Oid db_id)
@@ -2969,16 +2969,16 @@ remove_dbtablespaces(Oid db_id)
 }
 
 /*
- * Check for existing files that conflict with a proposed new DB OID;
- * return true if there are any
+ * 检查是否存在与提议的新数据库 OID 冲突的现有文件；
+ * 如果有，返回 true
  *
- * If there were a subdirectory in any tablespace matching the proposed new
- * OID, we'd get a create failure due to the duplicate name ... and then we'd
- * try to remove that already-existing subdirectory during the cleanup in
- * remove_dbtablespaces.  Nuking existing files seems like a bad idea, so
- * instead we make this extra check before settling on the OID of the new
- * database.  This exactly parallels what GetNewRelFileNumber() does for table
- * relfilenumber values.
+ * 如果在任何表空间中存在与提议的新 OID 匹配的子目录，
+ * 我们将因重复名称而导致创建失败 ... 然后我们将在
+ * remove_dbtablespaces 的清理过程中尝试删除该已存在的
+ * 子目录。清除现有文件似乎是个坏主意，因此我们改为
+ * 在确定新数据库的 OID 之前进行此额外检查。这与
+ * GetNewRelFileNumber() 对表 relfilenumber 值所做的
+ * 完全一致。
  */
 static bool
 check_db_file_conflict(Oid db_id)
@@ -3021,7 +3021,7 @@ check_db_file_conflict(Oid db_id)
 }
 
 /*
- * Issue a suitable errdetail message for a busy database
+ * 为繁忙的数据库发出合适的 errdetail 消息
  */
 static int
 errdetail_busy_db(int notherbackends, int npreparedxacts)
@@ -3029,8 +3029,8 @@ errdetail_busy_db(int notherbackends, int npreparedxacts)
 	if (notherbackends > 0 && npreparedxacts > 0)
 
 		/*
-		 * We don't deal with singular versus plural here, since gettext
-		 * doesn't support multiple plurals in one string.
+		 * 我们在这里不处理单复数，因为 gettext 不支持
+		 * 一个字符串中的多个复数形式。
 		 */
 		errdetail("There are %d other session(s) and %d prepared transaction(s) using the database.",
 				  notherbackends, npreparedxacts);
@@ -3048,10 +3048,10 @@ errdetail_busy_db(int notherbackends, int npreparedxacts)
 }
 
 /*
- * get_database_oid - given a database name, look up the OID
+ * get_database_oid - 给定数据库名称，查找 OID
  *
- * If missing_ok is false, throw an error if database name not found.  If
- * true, just return InvalidOid.
+ * 如果 missing_ok 为 false，数据库名称未找到时抛出错误。
+ * 如果为 true，则仅返回 InvalidOid。
  */
 Oid
 get_database_oid(const char *dbname, bool missing_ok)
@@ -3063,8 +3063,8 @@ get_database_oid(const char *dbname, bool missing_ok)
 	Oid			oid;
 
 	/*
-	 * There's no syscache for pg_database indexed by name, so we must look
-	 * the hard way.
+	 * pg_database 没有按名称索引的 syscache，因此我们必须
+	 * 用笨办法查找。
 	 */
 	pg_database = table_open(DatabaseRelationId, AccessShareLock);
 	ScanKeyInit(&entry[0],
@@ -3096,9 +3096,9 @@ get_database_oid(const char *dbname, bool missing_ok)
 
 
 /*
- * get_database_name - given a database OID, look up the name
+ * get_database_name - 给定数据库 OID，查找名称
  *
- * Returns a palloc'd string, or NULL if no such database.
+ * 返回 palloc'd 字符串，如果没有这样的数据库则返回 NULL。
  */
 char *
 get_database_name(Oid dbid)
@@ -3120,9 +3120,9 @@ get_database_name(Oid dbid)
 
 
 /*
- * While dropping a database the pg_database row is marked invalid, but the
- * catalog contents still exist. Connections to such a database are not
- * allowed.
+ * 在删除数据库时，pg_database 行被标记为无效，但
+ * 目录内容仍然存在。不允许连接到这样的数据库。
+ 
  */
 bool
 database_is_invalid_form(Form_pg_database datform)
@@ -3132,7 +3132,7 @@ database_is_invalid_form(Form_pg_database datform)
 
 
 /*
- * Convenience wrapper around database_is_invalid_form()
+ * database_is_invalid_form() 的便利包装
  */
 bool
 database_is_invalid_oid(Oid dboid)
@@ -3154,18 +3154,18 @@ database_is_invalid_oid(Oid dboid)
 }
 
 
-/*
- * recovery_create_dbdir()
+/* * recovery_create_dbdir()
  *
- * During recovery, there's a case where we validly need to recover a missing
- * tablespace directory so that recovery can continue.  This happens when
- * recovery wants to create a database but the holding tablespace has been
- * removed before the server stopped.  Since we expect that the directory will
- * be gone before reaching recovery consistency, and we have no knowledge about
- * the tablespace other than its OID here, we create a real directory under
- * pg_tblspc here instead of restoring the symlink.
- *
- * If only_tblspc is true, then the requested directory must be in pg_tblspc/
+ * 在恢复期间，存在一种情况需要恢复缺失的表空间目录
+ * 以便恢复可以继续。当恢复想要创建数据库但持有
+ * 该数据库的表空间在服务器停止前被删除时，就会
+ * 发生这种情况。由于我们预期在达到恢复一致性之前
+ * 该目录将消失，并且我们除了其 OID 之外对表空间
+ * 一无所知，因此我们在此处在 pg_tblspc 下创建一个
+ * 真实目录，而不是恢复符号链接。
+ * 如果 only_tblspc 为 true，则请求的目录必须在
+ * pg_tblspc/ 下
+ 
  */
 static void
 recovery_create_dbdir(char *path, bool only_tblspc)
@@ -3194,7 +3194,7 @@ recovery_create_dbdir(char *path, bool only_tblspc)
 
 
 /*
- * DATABASE resource manager's routines
+ * DATABASE 资源管理器的例程
  */
 void
 dbase_redo(XLogReaderState *record)
@@ -3217,9 +3217,9 @@ dbase_redo(XLogReaderState *record)
 		dst_path = GetDatabasePath(xlrec->db_id, xlrec->tablespace_id);
 
 		/*
-		 * Our theory for replaying a CREATE is to forcibly drop the target
-		 * subdirectory if present, then re-copy the source data. This may be
-		 * more work than needed, but it is simple to implement.
+		 * 我们重放 CREATE 的理论是：如果目标子目录存在，
+		 * 则强制删除它，然后重新复制源数据。这可能比
+		 * 需要的更繁琐，但实现简单。
 		 */
 		if (stat(dst_path, &st) == 0 && S_ISDIR(st.st_mode))
 		{
@@ -3231,8 +3231,8 @@ dbase_redo(XLogReaderState *record)
 		}
 
 		/*
-		 * If the parent of the target path doesn't exist, create it now. This
-		 * enables us to create the target underneath later.
+		 * 如果目标路径的父目录不存在，则立即创建它。
+		 * 这使我们以后能够在下面创建目标。
 		 */
 		parent_path = pstrdup(dst_path);
 		get_parent_directory(parent_path);
@@ -3249,17 +3249,17 @@ dbase_redo(XLogReaderState *record)
 		pfree(parent_path);
 
 		/*
-		 * There's a case where the copy source directory is missing for the
-		 * same reason above.  Create the empty source directory so that
-		 * copydir below doesn't fail.  The directory will be dropped soon by
-		 * recovery.
-		 */
+		 * 存在一种情况，由于与上面相同的原因，复制源目录
+		 * 不存在。创建空的源目录，以便下面的 copydir
+		 * 不会失败。该目录将很快被恢复删除。
+		 
+ */
 		if (stat(src_path, &st) < 0 && errno == ENOENT)
 			recovery_create_dbdir(src_path, false);
 
 		/*
-		 * Force dirty buffers out to disk, to ensure source database is
-		 * up-to-date for the copy.
+		 * 强制将脏缓冲区刷新到磁盘，以确保源数据库在复制
+		 * 前是最新的。
 		 */
 		FlushDatabaseBuffers(xlrec->src_db_id);
 
@@ -3267,9 +3267,9 @@ dbase_redo(XLogReaderState *record)
 		WaitForProcSignalBarrier(EmitProcSignalBarrier(PROCSIGNAL_BARRIER_SMGRRELEASE));
 
 		/*
-		 * Copy this subdirectory to the new location
+		 * 将此子目录复制到新位置
 		 *
-		 * We don't need to copy subdirectories
+		 * 我们不需要复制子目录
 		 */
 		copydir(src_path, dst_path, false);
 
@@ -3305,15 +3305,15 @@ dbase_redo(XLogReaderState *record)
 		if (InHotStandby)
 		{
 			/*
-			 * Lock database while we resolve conflicts to ensure that
-			 * InitPostgres() cannot fully re-execute concurrently. This
-			 * avoids backends re-connecting automatically to same database,
-			 * which can happen in some cases.
+			 * 在解决冲突时锁定数据库，以确保
+			 * InitPostgres() 不能完全并发地重新执行。
+			 * 这避免了后端在某些情况下自动重新连接
+			 * 到同一数据库的问题。
 			 *
-			 * This will lock out walsenders trying to connect to db-specific
-			 * slots for logical decoding too, so it's safe for us to drop
-			 * slots.
-			 */
+			 * 这也将锁定尝试连接到数据库特定逻辑解码槽的
+			 * walsender，因此我们可以安全地删除槽。
+			 
+ */
 			LockSharedObjectForSession(DatabaseRelationId, xlrec->db_id, 0, AccessExclusiveLock);
 			ResolveRecoveryConflictWithDatabase(xlrec->db_id);
 		}
@@ -3348,12 +3348,12 @@ dbase_redo(XLogReaderState *record)
 		if (InHotStandby)
 		{
 			/*
-			 * Release locks prior to commit. XXX There is a race condition
-			 * here that may allow backends to reconnect, but the window for
-			 * this is small because the gap between here and commit is mostly
-			 * fairly small and it is unlikely that people will be dropping
-			 * databases that we are trying to connect to anyway.
-			 */
+			 * 在提交之前释放锁。XXX 这里存在竞争条件，
+			 * 可能允许后端重新连接，但此窗口很小，因为
+			 * 此处到提交之间的间隙通常相当小，且人们
+			 * 不太可能删除我们试图连接的数据库。
+			 
+ */
 			UnlockSharedObjectForSession(DatabaseRelationId, xlrec->db_id, 0, AccessExclusiveLock);
 		}
 	}

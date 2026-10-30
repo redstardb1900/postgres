@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "batch_id": "0229-comment-commands-trigger-indexcmds",
+  "title": "zh: translate commands comments — trigger, indexcmds",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "c3a118c0ba24903ea3ba31960ef8d3c9b7752e53",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/commands/trigger.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP TRIGGER, RI (referential integrity) trigger support"
+    },
+    {
+      "pattern": "src/backend/commands/indexcmds.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP INDEX command support"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0229-comment-commands-trigger-indexcmds.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/commands/trigger.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 478,
+      "translated": 436,
+      "preserved": 42,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION line",
+        "SQL command-name section banners",
+        "fallthrough markers",
+        "Function name banner lines"
+      ],
+      "note": "CREATE/ALTER/DROP TRIGGER, constraint triggers, referential integrity action triggers, AFTER-ROW event triggers, transition tables; 6632 lines, 478 segments, 436 translated"
+    },
+    {
+      "path": "src/backend/commands/indexcmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 352,
+      "translated": 323,
+      "preserved": 29,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION line",
+        "SQL command-name section banners",
+        "Short identifier-only coments"
+      ],
+      "note": "CREATE/ALTER/DROP INDEX, REINDEX, index constraint support; 4457 lines, 352 segments, 323 translated"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0229-comment-commands-trigger-indexcmds.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "segments_total": 830,
+  "translated": 759,
+  "preserved": 71,
+  "notes": "Batch 0229 translates trigger.c (6632 lines, 478 segments, 436 translated) and indexcmds.c (4457 lines, 352 segments, 323 translated). Total 830 segments, 759 translated, 71 preserved. 0 violations verify_c_comments.py."
+}

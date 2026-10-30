@@ -3950,6 +3950,81 @@
       "pattern": "src/tools/zh-tools/manifests/batch-0226-comment-commands-part4.json",
       "kind": "tool",
       "note": "batch 0226 manifest infra"
+    },
+    {
+      "pattern": "src/backend/commands/tablecmds.c",
+      "kind": "c_comment",
+      "note": "ALTER TABLE (all variants) command support"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0227-comment-commands-tablecmds.json",
+      "kind": "tool",
+      "note": "batch 0227 manifest infra"
+    },
+    {
+      "pattern": "src/backend/commands/typecmds.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP TYPE command support"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0228-comment-commands-typecmds.json",
+      "kind": "tool",
+      "note": "batch 0228 manifest infra"
+    },
+    {
+      "pattern": "src/backend/commands/trigger.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP TRIGGER, RI action triggers"
+    },
+    {
+      "pattern": "src/backend/commands/indexcmds.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP INDEX, REINDEX"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0229-comment-commands-trigger-indexcmds.json",
+      "kind": "tool",
+      "note": "batch 0229 manifest infra"
+    },
+    {
+      "pattern": "src/backend/commands/extension.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP EXTENSION"
+    },
+    {
+      "pattern": "src/backend/commands/foreigncmds.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP FOREIGN DATA WRAPPER/SERVER/TABLE"
+    },
+    {
+      "pattern": "src/backend/commands/policy.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP POLICY (row-level security)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0230-comment-commands-part5.json",
+      "kind": "tool",
+      "note": "batch 0230 manifest infra"
+    },
+    {
+      "pattern": "src/backend/commands/explain.c",
+      "kind": "c_comment",
+      "note": "EXPLAIN command"
+    },
+    {
+      "pattern": "src/backend/commands/analyze.c",
+      "kind": "c_comment",
+      "note": "ANALYZE command (statistics collection)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0231-comment-commands-explain-analyze.json",
+      "kind": "tool",
+      "note": "batch 0231 manifest infra"
+    },
+    {
+      "pattern": "src/tools/zh-tools/__pycache__/**",
+      "kind": "tool",
+      "note": "Python cache dir; not translation content"
     }
   ],
   "files": [
@@ -13391,6 +13466,44 @@
     },
     {
       "path": "src/tools/zh-tools/manifests/batch-0231-comment-commands-explain-analyze.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "manifest"
+    },
+    {
+      "path": "src/backend/commands/trigger.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 478,
+      "translated": 436,
+      "preserved": 42,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "SQL section banners",
+        "fallthrough markers",
+        "function name banners"
+      ],
+      "note": "CREATE/ALTER/DROP TRIGGER, RI triggers"
+    },
+    {
+      "path": "src/backend/commands/indexcmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 352,
+      "translated": 323,
+      "preserved": 29,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "SQL section banners"
+      ],
+      "note": "CREATE/ALTER/DROP INDEX, REINDEX"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0229-comment-commands-trigger-indexcmds.json",
       "kind": "manifest",
       "action": "add",
       "segments_total": 0,

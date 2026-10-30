@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * async.c
- *	  Asynchronous notification: NOTIFY, LISTEN, UNLISTEN
+ *	  异步通知：NOTIFY、LISTEN、UNLISTEN
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,115 +13,115 @@
  */
 
 /*-------------------------------------------------------------------------
- * Async Notification Model as of 9.0:
+ * 异步通知模型（9.0 起）：
  *
- * 1. Multiple backends on same machine. Multiple backends listening on
- *	  several channels. (Channels are also called "conditions" in other
- *	  parts of the code.)
+ * 1. 同一台机器上的多个后端可以监听多个通道。（代码的其他部分
+ *	  也将通道称为"条件"。）
  *
- * 2. There is one central queue in disk-based storage (directory pg_notify/),
- *	  with actively-used pages mapped into shared memory by the slru.c module.
- *	  All notification messages are placed in the queue and later read out
- *	  by listening backends.
+ * 2. 磁盘存储中有一个中央队列（目录 pg_notify/），slru.c 模块
+ *	  将活跃页面映射到共享内存中。所有通知消息放入队列，由监听
+ *	  后端读取。
  *
- *	  There is no central knowledge of which backend listens on which channel;
- *	  every backend has its own list of interesting channels.
+ *	  没有中央记录来跟踪哪个后端监听哪个通道；每个后端维护
+ *	  自己感兴趣的通道列表。
  *
- *	  Although there is only one queue, notifications are treated as being
- *	  database-local; this is done by including the sender's database OID
- *	  in each notification message.  Listening backends ignore messages
- *	  that don't match their database OID.  This is important because it
- *	  ensures senders and receivers have the same database encoding and won't
- *	  misinterpret non-ASCII text in the channel name or payload string.
+ *	  虽然只有一个队列，但通知被视为数据库局部的：这是通过在
+ *	  每个通知消息中包含发送者的数据库 OID 来实现的。监听后端
+ *	  忽略不匹配其数据库 OID 的消息。这很重要，因为它确保
+ *	  发送者和接收者具有相同的数据库编码，不会错误解释通道
+ *	  名称或负载字符串中的非 ASCII 文本。
  *
- *	  Since notifications are not expected to survive database crashes,
- *	  we can simply clean out the pg_notify data at any reboot, and there
- *	  is no need for WAL support or fsync'ing.
+ *	  由于不期望通知在数据库崩溃后存活，我们可以在任何
+ *	  重启时简单地清理 pg_notify 数据，无需 WAL 支持或 fsync。
  *
- * 3. Every backend that is listening on at least one channel registers by
- *	  entering its PID into the array in AsyncQueueControl. It then scans all
- *	  incoming notifications in the central queue and first compares the
- *	  database OID of the notification with its own database OID and then
- *	  compares the notified channel with the list of channels that it listens
- *	  to. In case there is a match it delivers the notification event to its
- *	  frontend.  Non-matching events are simply skipped.
+ * 3. 每个至少监听一个通道的后端通过将其 PID 填入
+ *	  AsyncQueueControl 中的数组进行注册。然后它扫描中央
+ *	  队列中所有传入的通知，首先比较通知的数据库 OID 与
+ *	  自身的数据库 OID，然后比较被通知的通道与它监听的
+ *	  通道列表。如匹配，则将通知事件传递给其前端。不匹配
+ *	  的事件则跳过。
  *
- * 4. The NOTIFY statement (routine Async_Notify) stores the notification in
- *	  a backend-local list which will not be processed until transaction end.
+ * 4. NOTIFY 语句（例程 Async_Notify）将通知存储在本地后端
+ *	  列表中，直到事务结束才处理。
  *
- *	  Duplicate notifications from the same transaction are sent out as one
- *	  notification only. This is done to save work when for example a trigger
- *	  on a 2 million row table fires a notification for each row that has been
- *	  changed. If the application needs to receive every single notification
- *	  that has been sent, it can easily add some unique string into the extra
- *	  payload parameter.
+ *	  同一事务中的重复通知只发送一次。这是为了节省工作，
+ *	  例如，当 200 万行表上的触发器为每一行更改触发通知时。
+ *	  如果应用需要接收每一个已发送的通知，可以轻松地在
+ *	  额外负载参数中添加唯一字符串。
  *
- *	  When the transaction is ready to commit, PreCommit_Notify() adds the
- *	  pending notifications to the head of the queue. The head pointer of the
- *	  queue always points to the next free position and a position is just a
- *	  page number and the offset in that page. This is done before marking the
- *	  transaction as committed in clog. If we run into problems writing the
- *	  notifications, we can still call elog(ERROR, ...) and the transaction
- *	  will roll back.
+ *	  当事务准备提交时，PreCommit_Notify() 将待处理的通知
+ *	  添加到队列头部。队列的头指针始终指向下一个空闲位置，
+ *	  位置只是一个页码和该页中的偏移量。这是在 clog 中
+ *	  标记事务已提交之前完成的。如果写入通知时遇到问题，
+ *	  仍可以调用 elog(ERROR, ...)，事务将回滚。
  *
- *	  Once we have put all of the notifications into the queue, we return to
- *	  CommitTransaction() which will then do the actual transaction commit.
+ *	  一旦所有通知都已放入队列，我们返回到
+ *	  CommitTransaction()，后者将执行实际的事务提交。
  *
- *	  After commit we are called another time (AtCommit_Notify()). Here we
- *	  make any actual updates to the effective listen state (listenChannels).
- *	  Then we signal any backends that may be interested in our messages
- *	  (including our own backend, if listening).  This is done by
- *	  SignalBackends(), which scans the list of listening backends and sends a
- *	  PROCSIG_NOTIFY_INTERRUPT signal to every listening backend (we don't
- *	  know which backend is listening on which channel so we must signal them
- *	  all).  We can exclude backends that are already up to date, though, and
- *	  we can also exclude backends that are in other databases (unless they
- *	  are way behind and should be kicked to make them advance their
- *	  pointers).
+ *	  提交后，我们再次被调用（AtCommit_Notify()）。在此
+ *	  执行对有效监听状态（listenChannels）的实际更新。然后
+ *	  向可能对我们消息感兴趣的后端发送信号（包括我们自己的
+ *	  后端，如果正在监听）。这由 SignalBackends() 完成，它
+ *	  扫描监听后端列表并向每个监听后端发送
+ *	  PROCSIG_NOTIFY_INTERRUPT 信号（我们不知道哪个后端在
+ *	  监听哪个通道，所以必须向所有后端发送信号）。不过，
+ *	  可以排除已经是最新状态的后端，也可以排除其他数据库
+ *	  中的后端（除非它们太落后，应被踢掉以推进其指针）。
  *
- *	  Finally, after we are out of the transaction altogether and about to go
- *	  idle, we scan the queue for messages that need to be sent to our
- *	  frontend (which might be notifies from other backends, or self-notifies
- *	  from our own).  This step is not part of the CommitTransaction sequence
- *	  for two important reasons.  First, we could get errors while sending
- *	  data to our frontend, and it's really bad for errors to happen in
- *	  post-commit cleanup.  Second, in cases where a procedure issues commits
- *	  within a single frontend command, we don't want to send notifies to our
- *	  frontend until the command is done; but notifies to other backends
- *	  should go out immediately after each commit.
+ *	  最后，在我们完全退出事务并即将进入空闲状态时，扫描
+ *	  队列中需要发送到前端的消息（可能是来自其他后端的
+ *	  通知，也可能是来自自身的自通知）。这一步不属于
+ *	  CommitTransaction 序列，原因有二。首先，向前端发送
+ *	  数据时可能会出错，而在提交后清理期间出错非常糟糕。
+ *	  其次，在过程在单个前端命令中执行多次提交的情况下，
+ *	  我们希望命令完成之前不向前端发送通知；但给其他后端
+ *	  的通知应在每次提交后立即发出。
  *
- * 5. Upon receipt of a PROCSIG_NOTIFY_INTERRUPT signal, the signal handler
- *	  sets the process's latch, which triggers the event to be processed
- *	  immediately if this backend is idle (i.e., it is waiting for a frontend
- *	  command and is not within a transaction block. C.f.
- *	  ProcessClientReadInterrupt()).  Otherwise the handler may only set a
- *	  flag, which will cause the processing to occur just before we next go
- *	  idle.
+ * 5. 收到 PROCSIG_NOTIFY_INTERRUPT 信号后，信号处理程序
+ *	  设置进程的锁存器，如果此后端空闲（即正在等待前端命令
+ *	  且不在事务块内。参见 ProcessClientReadInterrupt()），
+ *	  则立即触发事件处理。否则，处理程序可能只设置标志，
+ *	  导致在下一次进入空闲状态之前进行处理。
  *
- *	  Inbound-notify processing consists of reading all of the notifications
- *	  that have arrived since scanning last time. We read every notification
- *	  until we reach either a notification from an uncommitted transaction or
- *	  the head pointer's position.
+ *	  入站通知处理包括读取自上次扫描以来到达的所有通知。
+ *	  读取每个通知直到到达来自未提交事务的通知或头指针的
+ *	  位置。
  *
- * 6. To avoid SLRU wraparound and limit disk space consumption, the tail
- *	  pointer needs to be advanced so that old pages can be truncated.
- *	  This is relatively expensive (notably, it requires an exclusive lock),
- *	  so we don't want to do it often.  We make sending backends do this work
- *	  if they advanced the queue head into a new page, but only once every
- *	  QUEUE_CLEANUP_DELAY pages.
+ * 6. 为避免 SLRU 回绕并限制磁盘空间消耗，需要推进尾指针
+ *	  以便截断旧页面。这成本相对较高（特别是需要独占锁），
+ *	  因此不想频繁执行。让发送后端在将队列头推进到新页面
+ *	  时执行此工作，但每 QUEUE_CLEANUP_DELAY 页只执行一次。
  *
- * An application that listens on the same channel it notifies will get
- * NOTIFY messages for its own NOTIFYs.  These can be ignored, if not useful,
- * by comparing be_pid in the NOTIFY message to the application's own backend's
- * PID.  (As of FE/BE protocol 2.0, the backend's PID is provided to the
- * frontend during startup.)  The above design guarantees that notifies from
- * other backends will never be missed by ignoring self-notifies.
+ * 在同一通道上监听和通知的应用程序会收到自身 NOTIFY
+ * 的 NOTIFY 消息。如无用处，可通过将 NOTIFY 消息中的
+ * be_pid 与应用程序自身后端的 PID 比较来忽略。（从 FE/BE
+ * 协议 2.0 起，后端的 PID 在启动期间提供给前端。）上述
+ * 设计保证通过忽略自通知不会错过其他后端的通知。
  *
- * The amount of shared memory used for notify management (NUM_NOTIFY_BUFFERS)
- * can be varied without affecting anything but performance.  The maximum
- * amount of notification data that can be queued at one time is determined
- * by slru.c's wraparound limit; see QUEUE_MAX_PAGE below.
+ * 用于通知管理的共享内存量（NUM_NOTIFY_BUFFERS）可以变化，
+ * 只影响性能。一次可排队的最大通知数据量由 slru.c 的回绕
+ * 限制决定；参见下方 QUEUE_MAX_PAGE。
  *-------------------------------------------------------------------------
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
  */
 
 #include "postgres.h"
@@ -156,48 +156,48 @@
 
 
 /*
- * Maximum size of a NOTIFY payload, including terminating NULL.  This
- * must be kept small enough so that a notification message fits on one
- * SLRU page.  The magic fudge factor here is noncritical as long as it's
- * more than AsyncQueueEntryEmptySize --- we make it significantly bigger
- * than that, so changes in that data structure won't affect user-visible
- * restrictions.
+ * NOTIFY 负载的最大大小，包括终止 NULL。必须保持足够小以便
+ * 通知消息容纳在一个 SLRU 页面中。这里的魔法调节因子并不关键，
+ * 只要大于 AsyncQueueEntryEmptySize 即可 --- 我们把它设得
+ * 显著更大，这样该数据结构的变更就不会影响用户可见的限制。
+*
+*
  */
 #define NOTIFY_PAYLOAD_MAX_LENGTH	(BLCKSZ - NAMEDATALEN - 128)
 
 /*
- * Struct representing an entry in the global notify queue
+ * 表示全局通知队列中条目的结构体
  *
- * This struct declaration has the maximal length, but in a real queue entry
- * the data area is only big enough for the actual channel and payload strings
- * (each null-terminated).  AsyncQueueEntryEmptySize is the minimum possible
- * entry size, if both channel and payload strings are empty (but note it
- * doesn't include alignment padding).
+ * 此结构体声明具有最大长度，但实际队列条目中数据区域只够
+ * 容纳实际的通道和负载字符串（各自以 null 结尾）。
+ * AsyncQueueEntryEmptySize 是最小可能的条目大小，适用于通道
+ * 和负载字符串都为空的情况（注意不包括对齐填充）。
  *
- * The "length" field should always be rounded up to the next QUEUEALIGN
- * multiple so that all fields are properly aligned.
+ * "length" 字段应始终向上舍入到下一个 QUEUEALIGN 倍数，
+ * 以确保所有字段正确对齐。
+*
  */
 typedef struct AsyncQueueEntry
 {
-	int			length;			/* total allocated length of entry */
-	Oid			dboid;			/* sender's database OID */
-	TransactionId xid;			/* sender's XID */
-	int32		srcPid;			/* sender's PID */
+	int			length;			/* 条目的总分配长度 */
+	Oid			dboid;			/* 发送者的数据库 OID */
+	TransactionId xid;			/* 发送者的 XID */
+	int32		srcPid;			/* 发送者的 PID */
 	char		data[NAMEDATALEN + NOTIFY_PAYLOAD_MAX_LENGTH];
 } AsyncQueueEntry;
 
-/* Currently, no field of AsyncQueueEntry requires more than int alignment */
+/* 当前 AsyncQueueEntry 所有字段均不需要超过 int 对齐 */
 #define QUEUEALIGN(len)		INTALIGN(len)
 
 #define AsyncQueueEntryEmptySize	(offsetof(AsyncQueueEntry, data) + 2)
 
 /*
- * Struct describing a queue position, and assorted macros for working with it
+ * 描述队列位置的结构体，以及操作它的相关宏
  */
 typedef struct QueuePosition
 {
-	int			page;			/* SLRU page number */
-	int			offset;			/* byte offset within page */
+	int			page;			/* SLRU 页码 */
+	int			offset;			/* 页面内的字节偏移量 */
 } QueuePosition;
 
 #define QUEUE_POS_PAGE(x)		((x).page)
@@ -215,83 +215,83 @@ typedef struct QueuePosition
 #define QUEUE_POS_IS_ZERO(x) \
 	((x).page == 0 && (x).offset == 0)
 
-/* choose logically smaller QueuePosition */
+/* 选择逻辑上较小的 QueuePosition */
 #define QUEUE_POS_MIN(x,y) \
 	(asyncQueuePagePrecedes((x).page, (y).page) ? (x) : \
 	 (x).page != (y).page ? (y) : \
 	 (x).offset < (y).offset ? (x) : (y))
 
-/* choose logically larger QueuePosition */
+/* 选择逻辑上较大的 QueuePosition */
 #define QUEUE_POS_MAX(x,y) \
 	(asyncQueuePagePrecedes((x).page, (y).page) ? (y) : \
 	 (x).page != (y).page ? (x) : \
 	 (x).offset > (y).offset ? (x) : (y))
 
 /*
- * Parameter determining how often we try to advance the tail pointer:
- * we do that after every QUEUE_CLEANUP_DELAY pages of NOTIFY data.  This is
- * also the distance by which a backend in another database needs to be
- * behind before we'll decide we need to wake it up to advance its pointer.
+ * 决定尝试推进尾指针频率的参数：每 QUEUE_CLEANUP_DELAY
+ * 页 NOTIFY 数据执行一次。这也是其他数据库中后端需落后多少
+ * 才会决定唤醒它来推进其指针的距离。
  *
- * Resist the temptation to make this really large.  While that would save
- * work in some places, it would add cost in others.  In particular, this
- * should likely be less than NUM_NOTIFY_BUFFERS, to ensure that backends
- * catch up before the pages they'll need to read fall out of SLRU cache.
+ * 不要将此值设得非常大。虽然某些地方能节省工作，但其他地方
+ * 会增加成本。特别是该值应小于 NUM_NOTIFY_BUFFERS，以确保
+ * 后端在需读取的页面从 SLRU 缓存中移除前能够赶上。
+*
+*
  */
 #define QUEUE_CLEANUP_DELAY 4
 
 /*
- * Struct describing a listening backend's status
+ * 描述监听后端状态的结构体
  */
 typedef struct QueueBackendStatus
 {
-	int32		pid;			/* either a PID or InvalidPid */
-	Oid			dboid;			/* backend's database OID, or InvalidOid */
-	BackendId	nextListener;	/* id of next listener, or InvalidBackendId */
-	QueuePosition pos;			/* backend has read queue up to here */
+	int32		pid;			/* PID 或 InvalidPid */
+	Oid			dboid;			/* 后端的数据库 OID，或 InvalidOid */
+	BackendId	nextListener;	/* 下一个监听者的 ID，或 InvalidBackendId */
+	QueuePosition pos;			/* 后端已读取队列到此位置 */
 } QueueBackendStatus;
 
 /*
- * Shared memory state for LISTEN/NOTIFY (excluding its SLRU stuff)
+ * LISTEN/NOTIFY 的共享内存状态（不包括 SLRU 相关内容）
  *
- * The AsyncQueueControl structure is protected by the NotifyQueueLock and
- * NotifyQueueTailLock.
+ * AsyncQueueControl 结构体受 NotifyQueueLock 和
+ * NotifyQueueTailLock 保护。
  *
- * When holding NotifyQueueLock in SHARED mode, backends may only inspect
- * their own entries as well as the head and tail pointers. Consequently we
- * can allow a backend to update its own record while holding only SHARED lock
- * (since no other backend will inspect it).
+ * 以 SHARED 模式持有 NotifyQueueLock 时，后端只能检查自己的
+ * 条目以及头尾指针。因此可允许后端在仅持有 SHARED 锁的
+ * 情况下更新自身记录（因为没有其他后端会检查它）。
  *
- * When holding NotifyQueueLock in EXCLUSIVE mode, backends can inspect the
- * entries of other backends and also change the head pointer. When holding
- * both NotifyQueueLock and NotifyQueueTailLock in EXCLUSIVE mode, backends
- * can change the tail pointers.
+ * 以 EXCLUSIVE 模式持有 NotifyQueueLock 时，后端可以检查
+ * 其他后端的条目，也可以修改头指针。同时以 EXCLUSIVE 模式
+ * 持有 NotifyQueueLock 和 NotifyQueueTailLock 时，后端可以
+ * 修改尾指针。
  *
- * NotifySLRULock is used as the control lock for the pg_notify SLRU buffers.
- * In order to avoid deadlocks, whenever we need multiple locks, we first get
- * NotifyQueueTailLock, then NotifyQueueLock, and lastly NotifySLRULock.
+ * NotifySLRULock 用作 pg_notify SLRU 缓冲区的控制锁。为
+ * 避免死锁，每当需要多个锁时，先获取 NotifyQueueTailLock，
+ * 然后是 NotifyQueueLock，最后是 NotifySLRULock。
  *
- * Each backend uses the backend[] array entry with index equal to its
- * BackendId (which can range from 1 to MaxBackends).  We rely on this to make
- * SendProcSignal fast.
+ * 每个后端使用 backend[] 数组中索引等于其 BackendId 的
+ * 条目（范围从 1 到 MaxBackends）。依赖这一点来使
+ * SendProcSignal 快速。
  *
- * The backend[] array entries for actively-listening backends are threaded
- * together using firstListener and the nextListener links, so that we can
- * scan them without having to iterate over inactive entries.  We keep this
- * list in order by BackendId so that the scan is cache-friendly when there
- * are many active entries.
+ * 活跃监听后端的 backend[] 数组条目通过 firstListener 和
+ * nextListener 链接串联在一起，因此可扫描它们而无需遍历
+ * 非活跃条目。按 BackendId 排序此列表，以便有大量活跃
+ * 条目时扫描对缓存友好。
+*
+*
  */
 typedef struct AsyncQueueControl
 {
-	QueuePosition head;			/* head points to the next free location */
-	QueuePosition tail;			/* tail must be <= the queue position of every
-								 * listening backend */
-	int			stopPage;		/* oldest unrecycled page; must be <=
-								 * tail.page */
-	BackendId	firstListener;	/* id of first listener, or InvalidBackendId */
-	TimestampTz lastQueueFillWarn;	/* time of last queue-full msg */
+	QueuePosition head;			/* head 指向下一个空闲位置 */
+	QueuePosition tail;			/* tail 必须 <= 每个监听后端的
+					 * 队列位置 */
+	int			stopPage;		/* 最旧的未回收页面；必须 <=
+					 * tail.page */
+	BackendId	firstListener;	/* 第一个监听者的 ID，或 InvalidBackendId */
+	TimestampTz lastQueueFillWarn;	/* 上次队列已满消息的时间 */
 	QueueBackendStatus backend[FLEXIBLE_ARRAY_MEMBER];
-	/* backend[0] is not used; used entries are from [1] to [MaxBackends] */
+	/* backend[0] 未使用；使用条目从 [1] 到 [MaxBackends] */
 } AsyncQueueControl;
 
 static AsyncQueueControl *asyncQueueControl;
@@ -306,46 +306,46 @@ static AsyncQueueControl *asyncQueueControl;
 #define QUEUE_BACKEND_POS(i)		(asyncQueueControl->backend[i].pos)
 
 /*
- * The SLRU buffer area through which we access the notification queue
+ * 用于访问通知队列的 SLRU 缓冲区区域
  */
 static SlruCtlData NotifyCtlData;
 
 #define NotifyCtl					(&NotifyCtlData)
 #define QUEUE_PAGESIZE				BLCKSZ
-#define QUEUE_FULL_WARN_INTERVAL	5000	/* warn at most once every 5s */
+#define QUEUE_FULL_WARN_INTERVAL	5000	/* 每 5 秒最多警告一次 */
 
 /*
- * Use segments 0000 through FFFF.  Each contains SLRU_PAGES_PER_SEGMENT pages
- * which gives us the pages from 0 to SLRU_PAGES_PER_SEGMENT * 0x10000 - 1.
- * We could use as many segments as SlruScanDirectory() allows, but this gives
- * us so much space already that it doesn't seem worth the trouble.
+ * 使用段 0000 到 FFFF。每个段包含 SLRU_PAGES_PER_SEGMENT
+ * 个页面，即页面从 0 到 SLRU_PAGES_PER_SEGMENT * 0x10000
+ * - 1。可用 SlruScanDirectory() 允许的最大段数，但已提供
+ * 充足空间，不值得再麻烦。
  *
- * The most data we can have in the queue at a time is QUEUE_MAX_PAGE/2
- * pages, because more than that would confuse slru.c into thinking there
- * was a wraparound condition.  With the default BLCKSZ this means there
- * can be up to 8GB of queued-and-not-read data.
+ * 队列中一次最多 QUEUE_MAX_PAGE/2 页数据，超过会混淆
+ * slru.c 令其认为发生回绕。默认 BLCKSZ 下最多 8GB
+ * 已排队但未读取的数据。
  *
- * Note: it's possible to redefine QUEUE_MAX_PAGE with a smaller multiple of
- * SLRU_PAGES_PER_SEGMENT, for easier testing of queue-full behaviour.
+ * 注意：可将 QUEUE_MAX_PAGE 重定义为
+ * SLRU_PAGES_PER_SEGMENT 的较小倍数，便于测试队列满行为。
+*
  */
 #define QUEUE_MAX_PAGE			(SLRU_PAGES_PER_SEGMENT * 0x10000 - 1)
 
 /*
- * listenChannels identifies the channels we are actually listening to
- * (ie, have committed a LISTEN on).  It is a simple list of channel names,
- * allocated in TopMemoryContext.
+ * listenChannels 标识实际监听的通道（即已提交 LISTEN
+ * 的通道）。它是通道名称的简单列表，分配在
+ * TopMemoryContext 中。
  */
-static List *listenChannels = NIL;	/* list of C strings */
+static List *listenChannels = NIL;	/* C 字符串列表 */
 
 /*
- * State for pending LISTEN/UNLISTEN actions consists of an ordered list of
- * all actions requested in the current transaction.  As explained above,
- * we don't actually change listenChannels until we reach transaction commit.
+ * 待处理 LISTEN/UNLISTEN 操作的状态由当前事务中请求的
+ * 所有操作的有序列表组成。如上所述，在到达事务提交之前
+ * 不实际修改 listenChannels。
  *
- * The list is kept in CurTransactionContext.  In subtransactions, each
- * subtransaction has its own list in its own CurTransactionContext, but
- * successful subtransactions attach their lists to their parent's list.
- * Failed subtransactions simply discard their lists.
+ * 该列表保存在 CurTransactionContext 中。在子事务中，
+ * 每个子事务在其自己的 CurTransactionContext 中有自己的
+ * 列表，但成功的子事务将其列表附加到父事务的列表中。
+ * 失败的子事务则丢弃其列表。
  */
 typedef enum
 {
@@ -357,92 +357,92 @@ typedef enum
 typedef struct
 {
 	ListenActionKind action;
-	char		channel[FLEXIBLE_ARRAY_MEMBER]; /* nul-terminated string */
+	char		channel[FLEXIBLE_ARRAY_MEMBER]; /* 以 null 结尾的字符串 */
 } ListenAction;
 
 typedef struct ActionList
 {
-	int			nestingLevel;	/* current transaction nesting depth */
-	List	   *actions;		/* list of ListenAction structs */
-	struct ActionList *upper;	/* details for upper transaction levels */
+	int			nestingLevel;	/* 当前事务嵌套深度 */
+	List	   *actions;		/* ListenAction 结构体列表 */
+	struct ActionList *upper;	/* 上层事务级别的详细信息 */
 } ActionList;
 
 static ActionList *pendingActions = NULL;
 
 /*
- * State for outbound notifies consists of a list of all channels+payloads
- * NOTIFYed in the current transaction.  We do not actually perform a NOTIFY
- * until and unless the transaction commits.  pendingNotifies is NULL if no
- * NOTIFYs have been done in the current (sub) transaction.
+ * 传出通知的状态由当前事务中 NOTIFY 的所有通道+负载
+ * 列表组成。仅在事务提交时才实际执行 NOTIFY。如果当前
+ * （子）事务中无 NOTIFY，则 pendingNotifies 为 NULL。
  *
- * We discard duplicate notify events issued in the same transaction.
- * Hence, in addition to the list proper (which we need to track the order
- * of the events, since we guarantee to deliver them in order), we build a
- * hash table which we can probe to detect duplicates.  Since building the
- * hash table is somewhat expensive, we do so only once we have at least
- * MIN_HASHABLE_NOTIFIES events queued in the current (sub) transaction;
- * before that we just scan the events linearly.
+ * 丢弃同一事务中发出的重复通知事件。因此除列表本身
+ * （需跟踪事件顺序，因保证按顺序传递）外，还构建
+ * 哈希表用于检测重复。由于构建哈希表成本较高，仅在
+ * 当前（子）事务中排队的通知达 MIN_HASHABLE_NOTIFIES 个
+ * 时才构建；在此之前只是线性扫描事件。
  *
- * The list is kept in CurTransactionContext.  In subtransactions, each
- * subtransaction has its own list in its own CurTransactionContext, but
- * successful subtransactions add their entries to their parent's list.
- * Failed subtransactions simply discard their lists.  Since these lists
- * are independent, there may be notify events in a subtransaction's list
- * that duplicate events in some ancestor (sub) transaction; we get rid of
- * the dups when merging the subtransaction's list into its parent's.
+ * 该列表保存在 CurTransactionContext 中。在子事务中，
+ * 每个子事务在其自己的 CurTransactionContext 中有自己的
+ * 列表，但成功的子事务将其条目添加到父事务的列表中。
+ * 失败的子事务则丢弃其列表。由于这些列表是独立的，
+ * 子事务的列表中可能存在与某祖先（子）事务重复的事件；
+ * 合并子事务列表到父事务时消除重复。
  *
- * Note: the action and notify lists do not interact within a transaction.
- * In particular, if a transaction does NOTIFY and then LISTEN on the same
- * condition name, it will get a self-notify at commit.  This is a bit odd
- * but is consistent with our historical behavior.
+ * 注意：操作列表和通知列表在事务内不交互。特别是，
+ * 如事务对同一条件名称先 NOTIFY 再 LISTEN，将在提交时
+ * 收到自通知。这有点奇怪，但与历史行为一致。
+*
+*
+*
+*
+*
  */
 typedef struct Notification
 {
-	uint16		channel_len;	/* length of channel-name string */
-	uint16		payload_len;	/* length of payload string */
-	/* null-terminated channel name, then null-terminated payload follow */
+	uint16		channel_len;	/* 通道名称字符串的长度 */
+	uint16		payload_len;	/* 负载字符串的长度 */
+	/* 以 null 结尾的通道名称，后跟以 null 结尾的负载 */
 	char		data[FLEXIBLE_ARRAY_MEMBER];
 } Notification;
 
 typedef struct NotificationList
 {
-	int			nestingLevel;	/* current transaction nesting depth */
-	List	   *events;			/* list of Notification structs */
-	HTAB	   *hashtab;		/* hash of NotificationHash structs, or NULL */
-	struct NotificationList *upper; /* details for upper transaction levels */
+	int			nestingLevel;	/* 当前事务嵌套深度 */
+	List	   *events;			/* Notification 结构体列表 */
+	HTAB	   *hashtab;		/* NotificationHash 结构体的哈希表，或 NULL */
+	struct NotificationList *upper; /* 上层事务级别的详细信息 */
 } NotificationList;
 
-#define MIN_HASHABLE_NOTIFIES 16	/* threshold to build hashtab */
+#define MIN_HASHABLE_NOTIFIES 16	/* 构建哈希表的阈值 */
 
 typedef struct NotificationHash
 {
-	Notification *event;		/* => the actual Notification struct */
+	Notification *event;		/* => 实际的 Notification 结构体 */
 } NotificationHash;
 
 static NotificationList *pendingNotifies = NULL;
 
 /*
- * Inbound notifications are initially processed by HandleNotifyInterrupt(),
- * called from inside a signal handler. That just sets the
- * notifyInterruptPending flag and sets the process
- * latch. ProcessNotifyInterrupt() will then be called whenever it's safe to
- * actually deal with the interrupt.
+ * 入站通知最初由 HandleNotifyInterrupt() 处理，从信号
+ * 处理程序内部调用。它只设置 notifyInterruptPending 标志
+ * 并设置进程锁存器。然后在安全处理中断时调用
+ * ProcessNotifyInterrupt()。
+*
  */
 volatile sig_atomic_t notifyInterruptPending = false;
 
-/* True if we've registered an on_shmem_exit cleanup */
+/* 如已注册 on_shmem_exit 清理则为真 */
 static bool unlistenExitRegistered = false;
 
-/* True if we're currently registered as a listener in asyncQueueControl */
+/* 如当前在 asyncQueueControl 中注册为监听者则为真 */
 static bool amRegisteredListener = false;
 
-/* have we advanced to a page that's a multiple of QUEUE_CLEANUP_DELAY? */
+/* 是否已推进到 QUEUE_CLEANUP_DELAY 倍数的页？ */
 static bool tryAdvanceTail = false;
 
-/* GUC parameter */
+/* GUC 参数 */
 bool		Trace_notify = false;
 
-/* local function prototypes */
+/* 本地函数原型 */
 static int	asyncQueuePageDiff(int p, int q);
 static bool asyncQueuePagePrecedes(int p, int q);
 static void queue_listen(ListenActionKind action, const char *channel);
@@ -474,8 +474,8 @@ static int	notification_match(const void *key1, const void *key2, Size keysize);
 static void ClearPendingActionsAndNotifies(void);
 
 /*
- * Compute the difference between two queue page numbers (i.e., p - q),
- * accounting for wraparound.
+ * 计算两个队列页码之间的差值（即 p - q），考虑回绕。
+*
  */
 static int
 asyncQueuePageDiff(int p, int q)
@@ -483,9 +483,9 @@ asyncQueuePageDiff(int p, int q)
 	int			diff;
 
 	/*
-	 * We have to compare modulo (QUEUE_MAX_PAGE+1)/2.  Both inputs should be
-	 * in the range 0..QUEUE_MAX_PAGE.
-	 */
+		 * 必须对 (QUEUE_MAX_PAGE+1)/2 取模比较。两个输入
+		 * 应在 0..QUEUE_MAX_PAGE 范围内。
+		 */
 	Assert(p >= 0 && p <= QUEUE_MAX_PAGE);
 	Assert(q >= 0 && q <= QUEUE_MAX_PAGE);
 
@@ -498,10 +498,10 @@ asyncQueuePageDiff(int p, int q)
 }
 
 /*
- * Is p < q, accounting for wraparound?
+ * 考虑回绕时 p < q 吗？
  *
- * Since asyncQueueIsFull() blocks creation of a page that could precede any
- * extant page, we need not assess entries within a page.
+ * 由于 asyncQueueIsFull() 阻止创建可能领先于任何现有
+ * 页面的页面，不需要评估页面内的条目。
  */
 static bool
 asyncQueuePagePrecedes(int p, int q)
@@ -510,14 +510,14 @@ asyncQueuePagePrecedes(int p, int q)
 }
 
 /*
- * Report space needed for our shared memory area
+ * 报告共享内存区域所需的空间
  */
 Size
 AsyncShmemSize(void)
 {
 	Size		size;
 
-	/* This had better match AsyncShmemInit */
+	/* 最好与 AsyncShmemInit 匹配 */
 	size = mul_size(MaxBackends + 1, sizeof(QueueBackendStatus));
 	size = add_size(size, offsetof(AsyncQueueControl, backend));
 
@@ -527,7 +527,7 @@ AsyncShmemSize(void)
 }
 
 /*
- * Initialize our shared memory area
+ * 初始化共享内存区域
  */
 void
 AsyncShmemInit(void)
@@ -536,11 +536,11 @@ AsyncShmemInit(void)
 	Size		size;
 
 	/*
-	 * Create or attach to the AsyncQueueControl structure.
-	 *
-	 * The used entries in the backend[] array run from 1 to MaxBackends; the
-	 * zero'th entry is unused but must be allocated.
-	 */
+		 * 创建或附加到 AsyncQueueControl 结构体。
+		 *
+		 * backend[] 数组中使用条目从 1 到 MaxBackends；
+		 * 第零个条目未使用但必须分配。
+		 */
 	size = mul_size(MaxBackends + 1, sizeof(QueueBackendStatus));
 	size = add_size(size, offsetof(AsyncQueueControl, backend));
 
@@ -549,13 +549,13 @@ AsyncShmemInit(void)
 
 	if (!found)
 	{
-		/* First time through, so initialize it */
+		/* 首次使用，初始化它 */
 		SET_QUEUE_POS(QUEUE_HEAD, 0, 0);
 		SET_QUEUE_POS(QUEUE_TAIL, 0, 0);
 		QUEUE_STOP_PAGE = 0;
 		QUEUE_FIRST_LISTENER = InvalidBackendId;
 		asyncQueueControl->lastQueueFillWarn = 0;
-		/* zero'th entry won't be used, but let's initialize it anyway */
+		/* 第零个条目不会被使用，但还是初始化一下 */
 		for (int i = 0; i <= MaxBackends; i++)
 		{
 			QUEUE_BACKEND_PID(i) = InvalidPid;
@@ -566,8 +566,8 @@ AsyncShmemInit(void)
 	}
 
 	/*
-	 * Set up SLRU management of the pg_notify data.
-	 */
+		 * 设置 pg_notify 数据的 SLRU 管理。
+		 */
 	NotifyCtl->PagePrecedes = asyncQueuePagePrecedes;
 	SimpleLruInit(NotifyCtl, "Notify", NUM_NOTIFY_BUFFERS, 0,
 				  NotifySLRULock, "pg_notify", LWTRANCHE_NOTIFY_BUFFER,
@@ -576,8 +576,8 @@ AsyncShmemInit(void)
 	if (!found)
 	{
 		/*
-		 * During start or reboot, clean out the pg_notify directory.
-		 */
+			 * 启动或重启期间，清理 pg_notify 目录。
+			 */
 		(void) SlruScanDirectory(NotifyCtl, SlruScanDirCbDeleteAll, NULL);
 	}
 }
@@ -585,7 +585,7 @@ AsyncShmemInit(void)
 
 /*
  * pg_notify -
- *	  SQL function to send a notification event
+ *	  发送通知事件的 SQL 函数
  */
 Datum
 pg_notify(PG_FUNCTION_ARGS)
@@ -603,7 +603,7 @@ pg_notify(PG_FUNCTION_ARGS)
 	else
 		payload = text_to_cstring(PG_GETARG_TEXT_PP(1));
 
-	/* For NOTIFY as a statement, this is checked in ProcessUtility */
+	/* 对于作为语句的 NOTIFY，这在 ProcessUtility 中检查 */
 	PreventCommandDuringRecovery("NOTIFY");
 
 	Async_Notify(channel, payload);
@@ -615,11 +615,11 @@ pg_notify(PG_FUNCTION_ARGS)
 /*
  * Async_Notify
  *
- *		This is executed by the SQL notify command.
+ *		由 SQL notify 命令执行。
  *
- *		Adds the message to the list of pending notifies.
- *		Actual notification happens during transaction commit.
- *		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ *		将消息添加到待处理通知列表。
+ *		实际通知在事务提交期间发生。
+ *		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
  */
 void
 Async_Notify(const char *channel, const char *payload)
@@ -639,13 +639,13 @@ Async_Notify(const char *channel, const char *payload)
 	channel_len = channel ? strlen(channel) : 0;
 	payload_len = payload ? strlen(payload) : 0;
 
-	/* a channel name must be specified */
+	/* 必须指定通道名称 */
 	if (channel_len == 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("channel name cannot be empty")));
 
-	/* enforce length limits */
+	/* 强制执行长度限制 */
 	if (channel_len >= NAMEDATALEN)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -657,12 +657,12 @@ Async_Notify(const char *channel, const char *payload)
 				 errmsg("payload string too long")));
 
 	/*
-	 * We must construct the Notification entry, even if we end up not using
-	 * it, in order to compare it cheaply to existing list entries.
-	 *
-	 * The notification list needs to live until end of transaction, so store
-	 * it in the transaction context.
-	 */
+		 * 必须构造 Notification 条目，即使最终不使用，
+		 * 以便与现有列表条目进行廉价比较。
+		 *
+		 * 通知列表需存活到事务结束，因此存储在事务上下文中。
+		*
+		 */
 	oldcontext = MemoryContextSwitchTo(CurTransactionContext);
 
 	n = (Notification *) palloc(offsetof(Notification, data) +
@@ -680,32 +680,32 @@ Async_Notify(const char *channel, const char *payload)
 		NotificationList *notifies;
 
 		/*
-		 * First notify event in current (sub)xact. Note that we allocate the
-		 * NotificationList in TopTransactionContext; the nestingLevel might
-		 * get changed later by AtSubCommit_Notify.
-		 */
+			 * 当前（子）事务中的第一个通知事件。注意在
+			 * TopTransactionContext 中分配 NotificationList；
+			 * nestingLevel 可能在之后被 AtSubCommit_Notify 修改。
+			 */
 		notifies = (NotificationList *)
 			MemoryContextAlloc(TopTransactionContext,
 							   sizeof(NotificationList));
 		notifies->nestingLevel = my_level;
 		notifies->events = list_make1(n);
-		/* We certainly don't need a hashtable yet */
+		/* 肯定还不需要哈希表 */
 		notifies->hashtab = NULL;
 		notifies->upper = pendingNotifies;
 		pendingNotifies = notifies;
 	}
 	else
 	{
-		/* Now check for duplicates */
+		/* 现在检查重复 */
 		if (AsyncExistsPendingNotify(n))
 		{
-			/* It's a dup, so forget it */
+			/* 是重复的，丢弃 */
 			pfree(n);
 			MemoryContextSwitchTo(oldcontext);
 			return;
 		}
 
-		/* Append more events to existing list */
+		/* 将更多事件追加到现有列表 */
 		AddEventToPendingNotifies(n);
 	}
 
@@ -714,11 +714,11 @@ Async_Notify(const char *channel, const char *payload)
 
 /*
  * queue_listen
- *		Common code for listen, unlisten, unlisten all commands.
+ *		listen、unlisten、unlisten all 命令的公共代码。
  *
- *		Adds the request to the list of pending actions.
- *		Actual update of the listenChannels list happens during transaction
- *		commit.
+ *		将请求添加到待处理操作列表。
+ *		listenChannels 列表的实际更新发生在事务提交期间。
+*
  */
 static void
 queue_listen(ListenActionKind action, const char *channel)
@@ -728,14 +728,14 @@ queue_listen(ListenActionKind action, const char *channel)
 	int			my_level = GetCurrentTransactionNestLevel();
 
 	/*
-	 * Unlike Async_Notify, we don't try to collapse out duplicates. It would
-	 * be too complicated to ensure we get the right interactions of
-	 * conflicting LISTEN/UNLISTEN/UNLISTEN_ALL, and it's unlikely that there
-	 * would be any performance benefit anyway in sane applications.
-	 */
+		 * 与 Async_Notify 不同，不尝试折叠重复。确保冲突的
+		 * LISTEN/UNLISTEN/UNLISTEN_ALL 正确交互太复杂，而且
+		 * 在合理应用中不太可能有性能收益。
+		*
+		 */
 	oldcontext = MemoryContextSwitchTo(CurTransactionContext);
 
-	/* space for terminating null is included in sizeof(ListenAction) */
+	/* sizeof(ListenAction) 中包含终止 null 的空间 */
 	actrec = (ListenAction *) palloc(offsetof(ListenAction, channel) +
 									 strlen(channel) + 1);
 	actrec->action = action;
@@ -746,10 +746,10 @@ queue_listen(ListenActionKind action, const char *channel)
 		ActionList *actions;
 
 		/*
-		 * First action in current sub(xact). Note that we allocate the
-		 * ActionList in TopTransactionContext; the nestingLevel might get
-		 * changed later by AtSubCommit_Notify.
-		 */
+			 * 当前子事务中的第一个操作。注意在
+			 * TopTransactionContext 中分配 ActionList；
+			 * nestingLevel 可能在之后被 AtSubCommit_Notify 修改。
+			 */
 		actions = (ActionList *)
 			MemoryContextAlloc(TopTransactionContext, sizeof(ActionList));
 		actions->nestingLevel = my_level;
@@ -766,7 +766,7 @@ queue_listen(ListenActionKind action, const char *channel)
 /*
  * Async_Listen
  *
- *		This is executed by the SQL listen command.
+ *		由 SQL listen 命令执行。
  */
 void
 Async_Listen(const char *channel)
@@ -780,7 +780,7 @@ Async_Listen(const char *channel)
 /*
  * Async_Unlisten
  *
- *		This is executed by the SQL unlisten command.
+ *		由 SQL unlisten 命令执行。
  */
 void
 Async_Unlisten(const char *channel)
@@ -788,7 +788,7 @@ Async_Unlisten(const char *channel)
 	if (Trace_notify)
 		elog(DEBUG1, "Async_Unlisten(%s,%d)", channel, MyProcPid);
 
-	/* If we couldn't possibly be listening, no need to queue anything */
+	/* 如不可能在监听，则无需排队 */
 	if (pendingActions == NULL && !unlistenExitRegistered)
 		return;
 
@@ -798,7 +798,7 @@ Async_Unlisten(const char *channel)
 /*
  * Async_UnlistenAll
  *
- *		This is invoked by UNLISTEN * command, and also at backend exit.
+ *		由 UNLISTEN * 命令调用，也在后端退出时调用。
  */
 void
 Async_UnlistenAll(void)
@@ -806,7 +806,7 @@ Async_UnlistenAll(void)
 	if (Trace_notify)
 		elog(DEBUG1, "Async_UnlistenAll(%d)", MyProcPid);
 
-	/* If we couldn't possibly be listening, no need to queue anything */
+	/* 如不可能在监听，则无需排队 */
 	if (pendingActions == NULL && !unlistenExitRegistered)
 		return;
 
@@ -814,25 +814,25 @@ Async_UnlistenAll(void)
 }
 
 /*
- * SQL function: return a set of the channel names this backend is actively
- * listening to.
+ * SQL 函数：返回此后端正主动监听的通道名称集合。
  *
- * Note: this coding relies on the fact that the listenChannels list cannot
- * change within a transaction.
+ * 注意：此编码依赖 listenChannels 列表在事务内不能
+ * 更改的事实。
+*
  */
 Datum
 pg_listening_channels(PG_FUNCTION_ARGS)
 {
 	FuncCallContext *funcctx;
 
-	/* stuff done only on the first call of the function */
+	/* 仅在函数首次调用时执行的操作 */
 	if (SRF_IS_FIRSTCALL())
 	{
-		/* create a function context for cross-call persistence */
+		/* 创建用于跨调用持久化的函数上下文 */
 		funcctx = SRF_FIRSTCALL_INIT();
 	}
 
-	/* stuff done on every call of the function */
+	/* 每次函数调用时执行的操作 */
 	funcctx = SRF_PERCALL_SETUP();
 
 	if (funcctx->call_cntr < list_length(listenChannels))
@@ -849,9 +849,9 @@ pg_listening_channels(PG_FUNCTION_ARGS)
 /*
  * Async_UnlistenOnExit
  *
- * This is executed at backend exit if we have done any LISTENs in this
- * backend.  It might not be necessary anymore, if the user UNLISTENed
- * everything, but we don't try to detect that case.
+ * 如在此后端中执行过任何 LISTEN，则在后端退出时执行。
+ * 如用户已 UNLISTEN 所有内容，可能不再需要，但不尝试
+ * 检测这种情况。
  */
 static void
 Async_UnlistenOnExit(int code, Datum arg)
@@ -863,13 +863,13 @@ Async_UnlistenOnExit(int code, Datum arg)
 /*
  * AtPrepare_Notify
  *
- *		This is called at the prepare phase of a two-phase
- *		transaction.  Save the state for possible commit later.
+ *		在两阶段事务的准备阶段调用。保存状态以供
+ *		稍后可能的提交使用。
  */
 void
 AtPrepare_Notify(void)
 {
-	/* It's not allowed to have any pending LISTEN/UNLISTEN/NOTIFY actions */
+	/* 不允许有任何待处理的 LISTEN/UNLISTEN/NOTIFY 操作 */
 	if (pendingActions || pendingNotifies)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -879,17 +879,17 @@ AtPrepare_Notify(void)
 /*
  * PreCommit_Notify
  *
- *		This is called at transaction commit, before actually committing to
- *		clog.
+ *		在事务提交时调用，在实际提交到 clog 之前。
  *
- *		If there are pending LISTEN actions, make sure we are listed in the
- *		shared-memory listener array.  This must happen before commit to
- *		ensure we don't miss any notifies from transactions that commit
- *		just after ours.
+ *		如有待处理的 LISTEN 操作，确保在共享内存监听者
+ *		数组中列出。必须在提交前发生，以确保不会错过
+ *		刚好在我们之后提交的事务的通知。
  *
- *		If there are outbound notify requests in the pendingNotifies list,
- *		add them to the global queue.  We do that before commit so that
- *		we can still throw error if we run out of queue space.
+ *		如 pendingNotifies 列表中有传出通知请求，将
+ *		它们添加到全局队列。在提交前执行，以便队列空间
+ *		不足时仍可抛出错误。
+*
+*
  */
 void
 PreCommit_Notify(void)
@@ -897,12 +897,12 @@ PreCommit_Notify(void)
 	ListCell   *p;
 
 	if (!pendingActions && !pendingNotifies)
-		return;					/* no relevant statements in this xact */
+		return;					/* 此事务中无相关语句 */
 
 	if (Trace_notify)
 		elog(DEBUG1, "PreCommit_Notify");
 
-	/* Preflight for any pending listen/unlisten actions */
+	/* 预检查任何待处理的 listen/unlisten 操作 */
 	if (pendingActions != NULL)
 	{
 		foreach(p, pendingActions->actions)
@@ -915,63 +915,63 @@ PreCommit_Notify(void)
 					Exec_ListenPreCommit();
 					break;
 				case LISTEN_UNLISTEN:
-					/* there is no Exec_UnlistenPreCommit() */
+					/* 没有 Exec_UnlistenPreCommit() */
 					break;
 				case LISTEN_UNLISTEN_ALL:
-					/* there is no Exec_UnlistenAllPreCommit() */
+					/* 没有 Exec_UnlistenAllPreCommit() */
 					break;
 			}
 		}
 	}
 
-	/* Queue any pending notifies (must happen after the above) */
+	/* 排队任何待处理的通知（必须在上述操作之后） */
 	if (pendingNotifies)
 	{
 		ListCell   *nextNotify;
 
 		/*
-		 * Make sure that we have an XID assigned to the current transaction.
-		 * GetCurrentTransactionId is cheap if we already have an XID, but not
-		 * so cheap if we don't, and we'd prefer not to do that work while
-		 * holding NotifyQueueLock.
-		 */
+			 * 确保当前事务已分配 XID。已有 XID 时
+			 * GetCurrentTransactionId 很便宜，否则不然，
+			 * 希望不在持有 NotifyQueueLock 时做这项工作。
+			*
+			 */
 		(void) GetCurrentTransactionId();
 
 		/*
-		 * Serialize writers by acquiring a special lock that we hold till
-		 * after commit.  This ensures that queue entries appear in commit
-		 * order, and in particular that there are never uncommitted queue
-		 * entries ahead of committed ones, so an uncommitted transaction
-		 * can't block delivery of deliverable notifications.
-		 *
-		 * We use a heavyweight lock so that it'll automatically be released
-		 * after either commit or abort.  This also allows deadlocks to be
-		 * detected, though really a deadlock shouldn't be possible here.
-		 *
-		 * The lock is on "database 0", which is pretty ugly but it doesn't
-		 * seem worth inventing a special locktag category just for this.
-		 * (Historical note: before PG 9.0, a similar lock on "database 0" was
-		 * used by the flatfiles mechanism.)
-		 */
+			 * 通过获取提交后仍持有的特殊锁来序列化写入者。
+			 * 这确保队列条目按提交顺序出现，特别是已提交条目
+			 * 之前永远不会存在未提交队列条目，因此未提交事务
+			 * 不能阻止可传递通知的投递。
+			 *
+			 * 使用重量级锁，以便在提交或中止后自动释放。
+			 * 这也允许检测死锁，尽管此处不应死锁。
+			 *
+			 * 锁在 "database 0" 上，这很难看但似乎不值得专门
+			 * 发明特殊锁标签类别。（历史说明：PG 9.0 之前
+			 * flatfiles 机制使用类似锁。）
+			*
+			*
+			*
+			 */
 		LockSharedObject(DatabaseRelationId, InvalidOid, 0,
 						 AccessExclusiveLock);
 
-		/* Now push the notifications into the queue */
+		/* 现在将通知推入队列 */
 		nextNotify = list_head(pendingNotifies->events);
 		while (nextNotify != NULL)
 		{
 			/*
-			 * Add the pending notifications to the queue.  We acquire and
-			 * release NotifyQueueLock once per page, which might be overkill
-			 * but it does allow readers to get in while we're doing this.
-			 *
-			 * A full queue is very uncommon and should really not happen,
-			 * given that we have so much space available in the SLRU pages.
-			 * Nevertheless we need to deal with this possibility. Note that
-			 * when we get here we are in the process of committing our
-			 * transaction, but we have not yet committed to clog, so at this
-			 * point in time we can still roll the transaction back.
-			 */
+				 * 将待处理通知添加到队列。每页获取和释放
+				 * NotifyQueueLock 一次，这可能过度，但确实
+				 * 允许读取者在此期间进入。
+				 *
+				 * 队列满非常罕见，考虑到 SLRU 页面有大量
+				 * 可用空间，实际上不应发生。然而需要处理这
+				 * 种可能。注意，到达此处时正在提交事务，
+				 * 但尚未提交到 clog，因此此时仍可回滚事务。
+				*
+				*
+				 */
 			LWLockAcquire(NotifyQueueLock, LW_EXCLUSIVE);
 			asyncQueueFillWarning();
 			if (asyncQueueIsFull())
@@ -982,21 +982,21 @@ PreCommit_Notify(void)
 			LWLockRelease(NotifyQueueLock);
 		}
 
-		/* Note that we don't clear pendingNotifies; AtCommit_Notify will. */
+		/* 注意，不清理 pendingNotifies；AtCommit_Notify 会处理 */
 	}
 }
 
 /*
  * AtCommit_Notify
  *
- *		This is called at transaction commit, after committing to clog.
+ *		在事务提交时调用，在提交到 clog 之后。
  *
- *		Update listenChannels and clear transaction-local state.
+ *		更新 listenChannels 并清除事务本地状态。
  *
- *		If we issued any notifications in the transaction, send signals to
- *		listening backends (possibly including ourselves) to process them.
- *		Also, if we filled enough queue pages with new notifies, try to
- *		advance the queue tail pointer.
+ *		如我们在事务中发出了通知，向监听后端（可能
+ *		包括我们自己）发送信号来处理它们。另外，如用
+ *		新通知填充了足够的队列页面，尝试推进队列尾指针。
+*
  */
 void
 AtCommit_Notify(void)
@@ -1004,16 +1004,16 @@ AtCommit_Notify(void)
 	ListCell   *p;
 
 	/*
-	 * Allow transactions that have not executed LISTEN/UNLISTEN/NOTIFY to
-	 * return as soon as possible
-	 */
+		 * 允许未执行 LISTEN/UNLISTEN/NOTIFY 的事务尽快返回
+		*
+		 */
 	if (!pendingActions && !pendingNotifies)
 		return;
 
 	if (Trace_notify)
 		elog(DEBUG1, "AtCommit_Notify");
 
-	/* Perform any pending listen/unlisten actions */
+	/* 执行任何待处理的 listen/unlisten 操作 */
 	if (pendingActions != NULL)
 	{
 		foreach(p, pendingActions->actions)
@@ -1035,41 +1035,41 @@ AtCommit_Notify(void)
 		}
 	}
 
-	/* If no longer listening to anything, get out of listener array */
+	/* 如不再监听任何内容，退出监听者数组 */
 	if (amRegisteredListener && listenChannels == NIL)
 		asyncQueueUnregister();
 
 	/*
-	 * Send signals to listening backends.  We need do this only if there are
-	 * pending notifies, which were previously added to the shared queue by
-	 * PreCommit_Notify().
-	 */
+		 * 向监听后端发送信号。仅当存在待处理通知时需
+		 * 这样做，这些通知之前由 PreCommit_Notify() 添加
+		 * 到了共享队列。
+		 */
 	if (pendingNotifies != NULL)
 		SignalBackends();
 
 	/*
-	 * If it's time to try to advance the global tail pointer, do that.
-	 *
-	 * (It might seem odd to do this in the sender, when more than likely the
-	 * listeners won't yet have read the messages we just sent.  However,
-	 * there's less contention if only the sender does it, and there is little
-	 * need for urgency in advancing the global tail.  So this typically will
-	 * be clearing out messages that were sent some time ago.)
-	 */
+		 * 如到了尝试推进全局尾指针的时候，执行此操作。
+		 *
+		 * （在发送者中执行此操作似乎奇怪，因为监听者
+		 * 很可能尚未读取刚发送的消息。但只有发送者执行
+		 * 此操作争用更少，且推进全局尾部无紧迫性。因此
+		 * 这通常会清理较早发送的消息。）
+		*
+		 */
 	if (tryAdvanceTail)
 	{
 		tryAdvanceTail = false;
 		asyncQueueAdvanceTail();
 	}
 
-	/* And clean up */
+	/* 然后清理 */
 	ClearPendingActionsAndNotifies();
 }
 
 /*
- * Exec_ListenPreCommit --- subroutine for PreCommit_Notify
+ * Exec_ListenPreCommit --- PreCommit_Notify 的子例程
  *
- * This function must make sure we are ready to catch any incoming messages.
+ * 此函数必须确保准备好接收任何传入的消息。
  */
 static void
 Exec_ListenPreCommit(void)
@@ -1079,9 +1079,9 @@ Exec_ListenPreCommit(void)
 	BackendId	prevListener;
 
 	/*
-	 * Nothing to do if we are already listening to something, nor if we
-	 * already ran this routine in this transaction.
-	 */
+		 * 如已在监听某些内容，或已在此事务中运行过
+		 * 此例程，则无需执行任何操作。
+		 */
 	if (amRegisteredListener)
 		return;
 
@@ -1089,9 +1089,9 @@ Exec_ListenPreCommit(void)
 		elog(DEBUG1, "Exec_ListenPreCommit(%d)", MyProcPid);
 
 	/*
-	 * Before registering, make sure we will unlisten before dying. (Note:
-	 * this action does not get undone if we abort later.)
-	 */
+		 * 注册前，确保退出前取消监听。（注意：如稍后
+		 * 中止，此操作不会被撤销。）
+		 */
 	if (!unlistenExitRegistered)
 	{
 		before_shmem_exit(Async_UnlistenOnExit, 0);
@@ -1099,25 +1099,25 @@ Exec_ListenPreCommit(void)
 	}
 
 	/*
-	 * This is our first LISTEN, so establish our pointer.
-	 *
-	 * We set our pointer to the global tail pointer and then move it forward
-	 * over already-committed notifications.  This ensures we cannot miss any
-	 * not-yet-committed notifications.  We might get a few more but that
-	 * doesn't hurt.
-	 *
-	 * In some scenarios there might be a lot of committed notifications that
-	 * have not yet been pruned away (because some backend is being lazy about
-	 * reading them).  To reduce our startup time, we can look at other
-	 * backends and adopt the maximum "pos" pointer of any backend that's in
-	 * our database; any notifications it's already advanced over are surely
-	 * committed and need not be re-examined by us.  (We must consider only
-	 * backends connected to our DB, because others will not have bothered to
-	 * check committed-ness of notifications in our DB.)
-	 *
-	 * We need exclusive lock here so we can look at other backends' entries
-	 * and manipulate the list links.
-	 */
+		 * 这是首个 LISTEN，因此建立指针。
+		 *
+		 * 将指针设为全局尾指针，然后向前移动到已提交
+		 * 通知上。确保不会错过尚未提交的通知。可能多
+		 * 收到几个但无害。
+		 *
+		 * 某些场景中可能有很多已提交通知尚未被清除
+		 * （因某后端读取偷懒）。为减少启动时间，查看
+		 * 其他后端，采用数据库中任何后端的最大 "pos"
+		 * 指针；它已越过的通知肯定已提交，无需重新检查。
+		 * （必须只考虑连接到我们 DB 的后端，因其他后端
+		 * 不会费心检查我们 DB 中通知的提交状态。）
+		 *
+		 * 此处需独占锁以查看其他后端条目并操作列表链接。
+		*
+		*
+		*
+		*
+		 */
 	LWLockAcquire(NotifyQueueLock, LW_EXCLUSIVE);
 	head = QUEUE_HEAD;
 	max = QUEUE_TAIL;
@@ -1126,14 +1126,14 @@ Exec_ListenPreCommit(void)
 	{
 		if (QUEUE_BACKEND_DBOID(i) == MyDatabaseId)
 			max = QUEUE_POS_MAX(max, QUEUE_BACKEND_POS(i));
-		/* Also find last listening backend before this one */
+		/* 同时找到此后端之前的最后一个监听后端 */
 		if (i < MyBackendId)
 			prevListener = i;
 	}
 	QUEUE_BACKEND_POS(MyBackendId) = max;
 	QUEUE_BACKEND_PID(MyBackendId) = MyProcPid;
 	QUEUE_BACKEND_DBOID(MyBackendId) = MyDatabaseId;
-	/* Insert backend into list of listeners at correct position */
+	/* 将后端插入监听者列表的正确位置 */
 	if (prevListener > 0)
 	{
 		QUEUE_NEXT_LISTENER(MyBackendId) = QUEUE_NEXT_LISTENER(prevListener);
@@ -1146,52 +1146,52 @@ Exec_ListenPreCommit(void)
 	}
 	LWLockRelease(NotifyQueueLock);
 
-	/* Now we are listed in the global array, so remember we're listening */
+	/* 现在已列在全局数组中，记住正在监听 */
 	amRegisteredListener = true;
 
 	/*
-	 * Try to move our pointer forward as far as possible.  This will skip
-	 * over already-committed notifications, which we want to do because they
-	 * might be quite stale.  Note that we are not yet listening on anything,
-	 * so we won't deliver such notifications to our frontend.  Also, although
-	 * our transaction might have executed NOTIFY, those message(s) aren't
-	 * queued yet so we won't skip them here.
-	 */
+		 * 尝试尽可能向前移动指针。将跳过已提交通知，
+		 * 它们可能很陈旧了。注意，尚未监听任何内容，
+		 * 因此不会将这些通知传递给前端。此外，尽管
+		 * 事务可能执行了 NOTIFY，这些消息尚未入队，
+		 * 因此不会跳过它们。
+		*
+		 */
 	if (!QUEUE_POS_EQUAL(max, head))
 		asyncQueueReadAllNotifications();
 }
 
 /*
- * Exec_ListenCommit --- subroutine for AtCommit_Notify
+ * Exec_ListenCommit --- AtCommit_Notify 的子例程
  *
- * Add the channel to the list of channels we are listening on.
+ * 将通道添加到我正在监听的通道列表中。
  */
 static void
 Exec_ListenCommit(const char *channel)
 {
 	MemoryContext oldcontext;
 
-	/* Do nothing if we are already listening on this channel */
+	/* 如已在监听此通道则什么都不做 */
 	if (IsListeningOn(channel))
 		return;
 
 	/*
-	 * Add the new channel name to listenChannels.
-	 *
-	 * XXX It is theoretically possible to get an out-of-memory failure here,
-	 * which would be bad because we already committed.  For the moment it
-	 * doesn't seem worth trying to guard against that, but maybe improve this
-	 * later.
-	 */
+		 * 将新通道名称添加到 listenChannels。
+		 *
+		 * XXX 理论上此处可能内存不足，这很糟糕因为
+		 * 已提交。目前似乎不值得防护，也许以后改进。
+		*
+		*
+		 */
 	oldcontext = MemoryContextSwitchTo(TopMemoryContext);
 	listenChannels = lappend(listenChannels, pstrdup(channel));
 	MemoryContextSwitchTo(oldcontext);
 }
 
 /*
- * Exec_UnlistenCommit --- subroutine for AtCommit_Notify
+ * Exec_UnlistenCommit --- AtCommit_Notify 的子例程
  *
- * Remove the specified channel name from listenChannels.
+ * 从 listenChannels 中移除指定的通道名称。
  */
 static void
 Exec_UnlistenCommit(const char *channel)
@@ -1214,15 +1214,15 @@ Exec_UnlistenCommit(const char *channel)
 	}
 
 	/*
-	 * We do not complain about unlistening something not being listened;
-	 * should we?
-	 */
+		 * 对取消监听不在监听的内容不作抱怨；
+		 * 该抱怨吗？
+		 */
 }
 
 /*
- * Exec_UnlistenAllCommit --- subroutine for AtCommit_Notify
+ * Exec_UnlistenAllCommit --- AtCommit_Notify 的子例程
  *
- *		Unlisten on all channels for this backend.
+ *		取消此后端在所有通道上的监听。
  */
 static void
 Exec_UnlistenAllCommit(void)
@@ -1235,12 +1235,12 @@ Exec_UnlistenAllCommit(void)
 }
 
 /*
- * Test whether we are actively listening on the given channel name.
+ * 测试是否在主动监听给定的通道名称。
  *
- * Note: this function is executed for every notification found in the queue.
- * Perhaps it is worth further optimization, eg convert the list to a sorted
- * array so we can binary-search it.  In practice the list is likely to be
- * fairly short, though.
+ * 注意：对队列中找到的每个通知执行此函数。
+ * 也许值得进一步优化，例如将列表转换为排序数组
+ * 以便二分查找。不过实践中列表可能相当短。
+*
  */
 static bool
 IsListeningOn(const char *channel)
@@ -1258,25 +1258,25 @@ IsListeningOn(const char *channel)
 }
 
 /*
- * Remove our entry from the listeners array when we are no longer listening
- * on any channel.  NB: must not fail if we're already not listening.
+ * 不再监听任何通道时从监听者数组中移除条目。
+ * 注意：如已不在监听则不能失败。
  */
 static void
 asyncQueueUnregister(void)
 {
-	Assert(listenChannels == NIL);	/* else caller error */
+	Assert(listenChannels == NIL);	/* 否则调用者错误 */
 
-	if (!amRegisteredListener)	/* nothing to do */
+	if (!amRegisteredListener)	/* 无事可做 */
 		return;
 
 	/*
-	 * Need exclusive lock here to manipulate list links.
-	 */
+		 * 此处需独占锁以操作列表链接。
+		 */
 	LWLockAcquire(NotifyQueueLock, LW_EXCLUSIVE);
-	/* Mark our entry as invalid */
+	/* 标记条目为无效 */
 	QUEUE_BACKEND_PID(MyBackendId) = InvalidPid;
 	QUEUE_BACKEND_DBOID(MyBackendId) = InvalidOid;
-	/* and remove it from the list */
+	/* 并将其从列表中移除 */
 	if (QUEUE_FIRST_LISTENER == MyBackendId)
 		QUEUE_FIRST_LISTENER = QUEUE_NEXT_LISTENER(MyBackendId);
 	else
@@ -1293,14 +1293,14 @@ asyncQueueUnregister(void)
 	QUEUE_NEXT_LISTENER(MyBackendId) = InvalidBackendId;
 	LWLockRelease(NotifyQueueLock);
 
-	/* mark ourselves as no longer listed in the global array */
+	/* 标记不再列在全局数组中 */
 	amRegisteredListener = false;
 }
 
 /*
- * Test whether there is room to insert more notification messages.
+ * 测试是否有空间插入更多通知消息。
  *
- * Caller must hold at least shared NotifyQueueLock.
+ * 调用者必须至少持有共享的 NotifyQueueLock。
  */
 static bool
 asyncQueueIsFull(void)
@@ -1309,29 +1309,29 @@ asyncQueueIsFull(void)
 	int			boundary;
 
 	/*
-	 * The queue is full if creating a new head page would create a page that
-	 * logically precedes the current global tail pointer, ie, the head
-	 * pointer would wrap around compared to the tail.  We cannot create such
-	 * a head page for fear of confusing slru.c.  For safety we round the tail
-	 * pointer back to a segment boundary (truncation logic in
-	 * asyncQueueAdvanceTail does not do this, so doing it here is optional).
-	 *
-	 * Note that this test is *not* dependent on how much space there is on
-	 * the current head page.  This is necessary because asyncQueueAddEntries
-	 * might try to create the next head page in any case.
-	 */
+		 * 如创建新头页面会导致页面在逻辑上领先于
+		 * 当前全局尾指针（即头指针相对于尾部回绕），
+		 * 则队列已满。不能创建此类头页面以免混淆
+		 * slru.c。为安全起见，将尾指针舍入回段边界
+		 * （asyncQueueAdvanceTail 中的截断逻辑不做此，
+		 * 因此此处可选）。
+		 *
+		 * 注意，此测试*不*依赖当前头页面空间。这是
+		 * 必要的，因 asyncQueueAddEntries 可能在任何
+		 * 情况下尝试创建下一个头页面。
+		 */
 	nexthead = QUEUE_POS_PAGE(QUEUE_HEAD) + 1;
 	if (nexthead > QUEUE_MAX_PAGE)
-		nexthead = 0;			/* wrap around */
+		nexthead = 0;			/* 回绕 */
 	boundary = QUEUE_STOP_PAGE;
 	boundary -= boundary % SLRU_PAGES_PER_SEGMENT;
 	return asyncQueuePagePrecedes(nexthead, boundary);
 }
 
 /*
- * Advance the QueuePosition to the next entry, assuming that the current
- * entry is of length entryLength.  If we jump to a new page the function
- * returns true, else false.
+ * 假设当前条目长度为 entryLength，将 QueuePosition
+ * 推进到下一个条目。如跳转到新页面返回 true，否则 false。
+*
  */
 static bool
 asyncQueueAdvance(volatile QueuePosition *position, int entryLength)
@@ -1341,22 +1341,22 @@ asyncQueueAdvance(volatile QueuePosition *position, int entryLength)
 	bool		pageJump = false;
 
 	/*
-	 * Move to the next writing position: First jump over what we have just
-	 * written or read.
-	 */
+		 * 移至下一写入位置：首先跳过刚写入或读取的内容。
+		*
+		 */
 	offset += entryLength;
 	Assert(offset <= QUEUE_PAGESIZE);
 
 	/*
-	 * In a second step check if another entry can possibly be written to the
-	 * page. If so, stay here, we have reached the next position. If not, then
-	 * we need to move on to the next page.
-	 */
+		 * 第二步，检查页面是否可写入另一条目。如可以，
+		 * 留在此处，已到达下一个位置。如不可以，需移动
+		 * 到下一页。
+		 */
 	if (offset + QUEUEALIGN(AsyncQueueEntryEmptySize) > QUEUE_PAGESIZE)
 	{
 		pageno++;
 		if (pageno > QUEUE_MAX_PAGE)
-			pageno = 0;			/* wrap around */
+			pageno = 0;			/* 回绕 */
 		offset = 0;
 		pageJump = true;
 	}
@@ -1366,7 +1366,7 @@ asyncQueueAdvance(volatile QueuePosition *position, int entryLength)
 }
 
 /*
- * Fill the AsyncQueueEntry at *qe with an outbound notification message.
+ * 用传出通知消息填充 *qe 处的 AsyncQueueEntry。
  */
 static void
 asyncQueueNotificationToEntry(Notification *n, AsyncQueueEntry *qe)
@@ -1378,7 +1378,7 @@ asyncQueueNotificationToEntry(Notification *n, AsyncQueueEntry *qe)
 	Assert(channellen < NAMEDATALEN);
 	Assert(payloadlen < NOTIFY_PAYLOAD_MAX_LENGTH);
 
-	/* The terminators are already included in AsyncQueueEntryEmptySize */
+	/* 终止符已包含在 AsyncQueueEntryEmptySize 中 */
 	entryLength = AsyncQueueEntryEmptySize + payloadlen + channellen;
 	entryLength = QUEUEALIGN(entryLength);
 	qe->length = entryLength;
@@ -1389,20 +1389,20 @@ asyncQueueNotificationToEntry(Notification *n, AsyncQueueEntry *qe)
 }
 
 /*
- * Add pending notifications to the queue.
+ * 将待处理的通知添加到队列。
  *
- * We go page by page here, i.e. we stop once we have to go to a new page but
- * we will be called again and then fill that next page. If an entry does not
- * fit into the current page, we write a dummy entry with an InvalidOid as the
- * database OID in order to fill the page. So every page is always used up to
- * the last byte which simplifies reading the page later.
+ * 逐页处理，即一旦需转到新页面就停止，但会被再次
+ * 调用填充下一页。如条目不适合当前页面，写入带有
+ * InvalidOid 作为数据库 OID 的虚拟条目填充页面。因此
+ * 每个页面总是用至最后一个字节，简化稍后读取。
  *
- * We are passed the list cell (in pendingNotifies->events) containing the next
- * notification to write and return the first still-unwritten cell back.
- * Eventually we will return NULL indicating all is done.
+ * 被传入包含下一个要写通知的列表单元（在
+ * pendingNotifies->events 中），返回第一个仍未写的
+ * 单元。最终返回 NULL 表示全部完成。
  *
- * We are holding NotifyQueueLock already from the caller and grab
- * NotifySLRULock locally in this function.
+ * 已从调用者持有 NotifyQueueLock，并在此函数中本地
+ * 获取 NotifySLRULock。
+*
  */
 static ListCell *
 asyncQueueAddEntries(ListCell *nextNotify)
@@ -1413,30 +1413,30 @@ asyncQueueAddEntries(ListCell *nextNotify)
 	int			offset;
 	int			slotno;
 
-	/* We hold both NotifyQueueLock and NotifySLRULock during this operation */
+	/* 此操作期间同时持有 NotifyQueueLock 和 NotifySLRULock */
 	LWLockAcquire(NotifySLRULock, LW_EXCLUSIVE);
 
 	/*
-	 * We work with a local copy of QUEUE_HEAD, which we write back to shared
-	 * memory upon exiting.  The reason for this is that if we have to advance
-	 * to a new page, SimpleLruZeroPage might fail (out of disk space, for
-	 * instance), and we must not advance QUEUE_HEAD if it does.  (Otherwise,
-	 * subsequent insertions would try to put entries into a page that slru.c
-	 * thinks doesn't exist yet.)  So, use a local position variable.  Note
-	 * that if we do fail, any already-inserted queue entries are forgotten;
-	 * this is okay, since they'd be useless anyway after our transaction
-	 * rolls back.
-	 */
+		 * 使用 QUEUE_HEAD 本地副本，退出时写回共享内存。
+		 * 原因是如需推进到新页面，SimpleLruZeroPage 可能
+		 * 失败（如磁盘空间不足），失败则不能推进
+		 * QUEUE_HEAD。（否则后续插入会尝试将条目放入
+		 * slru.c 认为尚不存在的页面。）因此使用本地位置
+		 * 变量。注意如确实失败，已插入的队列条目被遗忘；
+		 * 这可以，事务回滚后它们无用。
+		*
+		*
+		 */
 	queue_head = QUEUE_HEAD;
 
 	/*
-	 * If this is the first write since the postmaster started, we need to
-	 * initialize the first page of the async SLRU.  Otherwise, the current
-	 * page should be initialized already, so just fetch it.
-	 *
-	 * (We could also take the first path when the SLRU position has just
-	 * wrapped around, but re-zeroing the page is harmless in that case.)
-	 */
+		 * 如这是 postmaster 启动以来首次写入，需初始化
+		 * 异步 SLRU 第一页。否则当前页应已初始化，只需
+		 * 获取。
+		 *
+		 * （SLRU 位置刚回绕时也可走第一条路径，但重新
+		 * 清零页面无害。）
+		 */
 	pageno = QUEUE_POS_PAGE(queue_head);
 	if (QUEUE_POS_IS_ZERO(queue_head))
 		slotno = SimpleLruZeroPage(NotifyCtl, pageno);
@@ -1444,69 +1444,69 @@ asyncQueueAddEntries(ListCell *nextNotify)
 		slotno = SimpleLruReadPage(NotifyCtl, pageno, true,
 								   InvalidTransactionId);
 
-	/* Note we mark the page dirty before writing in it */
+	/* 注意写前将页面标记为脏 */
 	NotifyCtl->shared->page_dirty[slotno] = true;
 
 	while (nextNotify != NULL)
 	{
 		Notification *n = (Notification *) lfirst(nextNotify);
 
-		/* Construct a valid queue entry in local variable qe */
+		/* 在局部变量 qe 中构造有效队列条目 */
 		asyncQueueNotificationToEntry(n, &qe);
 
 		offset = QUEUE_POS_OFFSET(queue_head);
 
-		/* Check whether the entry really fits on the current page */
+		/* 检查条目是否真正适合当前页面 */
 		if (offset + qe.length <= QUEUE_PAGESIZE)
 		{
-			/* OK, so advance nextNotify past this item */
+			/* 好的，将 nextNotify 推进过此条目 */
 			nextNotify = lnext(pendingNotifies->events, nextNotify);
 		}
 		else
 		{
 			/*
-			 * Write a dummy entry to fill up the page. Actually readers will
-			 * only check dboid and since it won't match any reader's database
-			 * OID, they will ignore this entry and move on.
-			 */
+				 * 写入虚拟条目填满页面。实际上读取者
+				 * 只检查 dboid，因不匹配任何读取者的
+				 * 数据库 OID，会忽略此条目继续。
+				 */
 			qe.length = QUEUE_PAGESIZE - offset;
 			qe.dboid = InvalidOid;
-			qe.data[0] = '\0';	/* empty channel */
-			qe.data[1] = '\0';	/* empty payload */
+			qe.data[0] = '\0';	/* 空通道 */
+			qe.data[1] = '\0';	/* 空负载 */
 		}
 
-		/* Now copy qe into the shared buffer page */
+		/* 现在将 qe 复制到共享缓冲区页面 */
 		memcpy(NotifyCtl->shared->page_buffer[slotno] + offset,
 			   &qe,
 			   qe.length);
 
-		/* Advance queue_head appropriately, and detect if page is full */
+		/* 适当推进 queue_head，检测页面是否已满 */
 		if (asyncQueueAdvance(&(queue_head), qe.length))
 		{
 			/*
-			 * Page is full, so we're done here, but first fill the next page
-			 * with zeroes.  The reason to do this is to ensure that slru.c's
-			 * idea of the head page is always the same as ours, which avoids
-			 * boundary problems in SimpleLruTruncate.  The test in
-			 * asyncQueueIsFull() ensured that there is room to create this
-			 * page without overrunning the queue.
-			 */
+				 * 页面已满，在此完成，但首先用零填充下一页。
+				 * 这是为确保 slru.c 对头页面的理解始终与
+				 * 我们一致，避免 SimpleLruTruncate 中的边界
+				 * 问题。asyncQueueIsFull() 的测试确保有空间
+				 * 创建此页面而不溢出队列。
+				*
+				 */
 			slotno = SimpleLruZeroPage(NotifyCtl, QUEUE_POS_PAGE(queue_head));
 
 			/*
-			 * If the new page address is a multiple of QUEUE_CLEANUP_DELAY,
-			 * set flag to remember that we should try to advance the tail
-			 * pointer (we don't want to actually do that right here).
-			 */
+				 * 如新页面地址是 QUEUE_CLEANUP_DELAY 的
+				 * 倍数，设置标志以记住应尝试推进尾指针
+				 * （不想在此处实际做）。
+				 */
 			if (QUEUE_POS_PAGE(queue_head) % QUEUE_CLEANUP_DELAY == 0)
 				tryAdvanceTail = true;
 
-			/* And exit the loop */
+			/* 并退出循环 */
 			break;
 		}
 	}
 
-	/* Success, so update the global QUEUE_HEAD */
+	/* 成功，更新全局 QUEUE_HEAD */
 	QUEUE_HEAD = queue_head;
 
 	LWLockRelease(NotifySLRULock);
@@ -1515,15 +1515,15 @@ asyncQueueAddEntries(ListCell *nextNotify)
 }
 
 /*
- * SQL function to return the fraction of the notification queue currently
- * occupied.
+ * 返回当前通知队列占用比例的 SQL 函数。
+*
  */
 Datum
 pg_notification_queue_usage(PG_FUNCTION_ARGS)
 {
 	double		usage;
 
-	/* Advance the queue tail so we don't report a too-large result */
+	/* 推进队列尾部以不报告过大结果 */
 	asyncQueueAdvanceTail();
 
 	LWLockAcquire(NotifyQueueLock, LW_SHARED);
@@ -1534,14 +1534,14 @@ pg_notification_queue_usage(PG_FUNCTION_ARGS)
 }
 
 /*
- * Return the fraction of the queue that is currently occupied.
+ * 返回当前占用的队列比例。
  *
- * The caller must hold NotifyQueueLock in (at least) shared mode.
+ * 调用者必须（至少）以共享模式持有 NotifyQueueLock。
  *
- * Note: we measure the distance to the logical tail page, not the physical
- * tail page.  In some sense that's wrong, but the relative position of the
- * physical tail is affected by details such as SLRU segment boundaries,
- * so that a result based on that is unpleasantly unstable.
+ * 注意：测量到逻辑尾页面的距离，而非物理尾页面。
+ * 某种意义上这不正确，但物理尾部位置受 SLRU 段边界
+ * 等细节影响，基于此的结果会非常不稳定。
+*
  */
 static double
 asyncQueueUsage(void)
@@ -1553,11 +1553,11 @@ asyncQueueUsage(void)
 	occupied = headPage - tailPage;
 
 	if (occupied == 0)
-		return (double) 0;		/* fast exit for common case */
+		return (double) 0;		/* 常见情况的快速退出 */
 
 	if (occupied < 0)
 	{
-		/* head has wrapped around, tail not yet */
+		/* 头部已回绕，尾部尚未 */
 		occupied += QUEUE_MAX_PAGE + 1;
 	}
 
@@ -1565,12 +1565,12 @@ asyncQueueUsage(void)
 }
 
 /*
- * Check whether the queue is at least half full, and emit a warning if so.
+ * 检查队列是否至少一半满，如是则发出警告。
  *
- * This is unlikely given the size of the queue, but possible.
- * The warnings show up at most once every QUEUE_FULL_WARN_INTERVAL.
+ * 考虑到队列大小这不太可能但有可能。
+ * 警告最多每 QUEUE_FULL_WARN_INTERVAL 显示一次。
  *
- * Caller must hold exclusive NotifyQueueLock.
+ * 调用者必须持有独占 NotifyQueueLock。
  */
 static void
 asyncQueueFillWarning(void)
@@ -1612,19 +1612,19 @@ asyncQueueFillWarning(void)
 }
 
 /*
- * Send signals to listening backends.
+ * 向监听后端发送信号。
  *
- * Normally we signal only backends in our own database, since only those
- * backends could be interested in notifies we send.  However, if there's
- * notify traffic in our database but no traffic in another database that
- * does have listener(s), those listeners will fall further and further
- * behind.  Waken them anyway if they're far enough behind, so that they'll
- * advance their queue position pointers, allowing the global tail to advance.
+ * 通常只向自己数据库中的后端发送信号，因只有它们
+ * 可能对我们发送的通知感兴趣。然而，如数据库中有
+ * 通知流量但其他有监听者的数据库中没有，那些监听
+ * 者会越来越落后。如足够落后则唤醒它们，以便推进
+ * 其队列位置指针，允许全局尾部推进。
  *
- * Since we know the BackendId and the Pid the signaling is quite cheap.
+ * 由于知道 BackendId 和 Pid，发送信号成本很低。
  *
- * This is called during CommitTransaction(), so it's important for it
- * to have very low probability of failure.
+ * 在 CommitTransaction() 期间调用，因此失败概率
+ * 必须非常低。
+*
  */
 static void
 SignalBackends(void)
@@ -1634,13 +1634,13 @@ SignalBackends(void)
 	int			count;
 
 	/*
-	 * Identify backends that we need to signal.  We don't want to send
-	 * signals while holding the NotifyQueueLock, so this loop just builds a
-	 * list of target PIDs.
-	 *
-	 * XXX in principle these pallocs could fail, which would be bad. Maybe
-	 * preallocate the arrays?  They're not that large, though.
-	 */
+		 * 识别需发信号的后端。不想在持有
+		 * NotifyQueueLock 时发送信号，因此此循环只
+		 * 构建目标 PID 列表。
+		 *
+		 * XXX 原则上这些 palloc 可能失败，会很糟。
+		 * 也许预分配数组？不过它们不大。
+		 */
 	pids = (int32 *) palloc(MaxBackends * sizeof(int32));
 	ids = (BackendId *) palloc(MaxBackends * sizeof(BackendId));
 	count = 0;
@@ -1656,38 +1656,38 @@ SignalBackends(void)
 		if (QUEUE_BACKEND_DBOID(i) == MyDatabaseId)
 		{
 			/*
-			 * Always signal listeners in our own database, unless they're
-			 * already caught up (unlikely, but possible).
-			 */
+				 * 始终向自己数据库中的监听者发送信号，
+				 * 除非他们已追上（不太可能但可能）。
+				 */
 			if (QUEUE_POS_EQUAL(pos, QUEUE_HEAD))
 				continue;
 		}
 		else
 		{
 			/*
-			 * Listeners in other databases should be signaled only if they
-			 * are far behind.
-			 */
+				 * 其他数据库中的监听者仅在远远落后时
+				 * 才应被发信号。
+				 */
 			if (asyncQueuePageDiff(QUEUE_POS_PAGE(QUEUE_HEAD),
 								   QUEUE_POS_PAGE(pos)) < QUEUE_CLEANUP_DELAY)
 				continue;
 		}
-		/* OK, need to signal this one */
+		/* 好的，需向此进程发信号 */
 		pids[count] = pid;
 		ids[count] = i;
 		count++;
 	}
 	LWLockRelease(NotifyQueueLock);
 
-	/* Now send signals */
+	/* 现在发送信号 */
 	for (int i = 0; i < count; i++)
 	{
 		int32		pid = pids[i];
 
 		/*
-		 * If we are signaling our own process, no need to involve the kernel;
-		 * just set the flag directly.
-		 */
+			 * 如向自己进程发信号，无需涉及内核；
+			 * 直接设置标志。
+			 */
 		if (pid == MyProcPid)
 		{
 			notifyInterruptPending = true;
@@ -1695,11 +1695,11 @@ SignalBackends(void)
 		}
 
 		/*
-		 * Note: assuming things aren't broken, a signal failure here could
-		 * only occur if the target backend exited since we released
-		 * NotifyQueueLock; which is unlikely but certainly possible. So we
-		 * just log a low-level debug message if it happens.
-		 */
+			 * 注意：假设一切正常，此处的信号失败仅
+			 * 可能在目标后端自我们释放
+			 * NotifyQueueLock 后退出时发生；这不太可能
+			 * 但确实可能。因此如发生只记录低级别调试消息。
+			 */
 		if (SendProcSignal(pid, PROCSIG_NOTIFY_INTERRUPT, ids[i]) < 0)
 			elog(DEBUG3, "could not signal backend with PID %d: %m", pid);
 	}
@@ -1711,44 +1711,44 @@ SignalBackends(void)
 /*
  * AtAbort_Notify
  *
- *	This is called at transaction abort.
+ *	在事务中止时调用。
  *
- *	Gets rid of pending actions and outbound notifies that we would have
- *	executed if the transaction got committed.
+ *	清除如事务提交将会执行的待处理操作和传出通知。
+*
  */
 void
 AtAbort_Notify(void)
 {
 	/*
-	 * If we LISTEN but then roll back the transaction after PreCommit_Notify,
-	 * we have registered as a listener but have not made any entry in
-	 * listenChannels.  In that case, deregister again.
-	 */
+		 * 如 LISTEN 但在 PreCommit_Notify 后回滚事务，
+		 * 已注册为监听者但未在 listenChannels 中创建
+		 * 条目。此种情况下再次取消注册。
+		 */
 	if (amRegisteredListener && listenChannels == NIL)
 		asyncQueueUnregister();
 
-	/* And clean up */
+	/* 然后清理 */
 	ClearPendingActionsAndNotifies();
 }
 
 /*
- * AtSubCommit_Notify() --- Take care of subtransaction commit.
+ * AtSubCommit_Notify() --- 处理子事务提交。
  *
- * Reassign all items in the pending lists to the parent transaction.
+ * 将待处理列表中的所有项重新分配给父事务。
  */
 void
 AtSubCommit_Notify(void)
 {
 	int			my_level = GetCurrentTransactionNestLevel();
 
-	/* If there are actions at our nesting level, we must reparent them. */
+	/* 如嵌套级别有操作，必须重新分配给父事务 */
 	if (pendingActions != NULL &&
 		pendingActions->nestingLevel >= my_level)
 	{
 		if (pendingActions->upper == NULL ||
 			pendingActions->upper->nestingLevel < my_level - 1)
 		{
-			/* nothing to merge; give the whole thing to the parent */
+			/* 没有需合并的；整体交给父事务 */
 			--pendingActions->nestingLevel;
 		}
 		else
@@ -1758,7 +1758,7 @@ AtSubCommit_Notify(void)
 			pendingActions = pendingActions->upper;
 
 			/*
-			 * Mustn't try to eliminate duplicates here --- see queue_listen()
+			 * 此处一定不要尝试消除重复 --- 参见 queue_listen()
 			 */
 			pendingActions->actions =
 				list_concat(pendingActions->actions,
@@ -1767,7 +1767,7 @@ AtSubCommit_Notify(void)
 		}
 	}
 
-	/* If there are notifies at our nesting level, we must reparent them. */
+	/* 如嵌套级别有通知，必须重新分配给父事务 */
 	if (pendingNotifies != NULL &&
 		pendingNotifies->nestingLevel >= my_level)
 	{
@@ -1776,21 +1776,21 @@ AtSubCommit_Notify(void)
 		if (pendingNotifies->upper == NULL ||
 			pendingNotifies->upper->nestingLevel < my_level - 1)
 		{
-			/* nothing to merge; give the whole thing to the parent */
+			/* 没有需合并的；整体交给父事务 */
 			--pendingNotifies->nestingLevel;
 		}
 		else
 		{
 			/*
-			 * Formerly, we didn't bother to eliminate duplicates here, but
-			 * now we must, else we fall foul of "Assert(!found)", either here
-			 * or during a later attempt to build the parent-level hashtable.
-			 */
+				 * 以前不在此处消除重复，但现在必须，
+				 * 否则会违反 "Assert(!found)"，在此处
+				 * 或稍后尝试构建父级哈希表时。
+				 */
 			NotificationList *childPendingNotifies = pendingNotifies;
 			ListCell   *l;
 
 			pendingNotifies = pendingNotifies->upper;
-			/* Insert all the subxact's events into parent, except for dups */
+			/* 将子事务所有事件插入父事务，重复的除外 */
 			foreach(l, childPendingNotifies->events)
 			{
 				Notification *childn = (Notification *) lfirst(l);
@@ -1804,7 +1804,7 @@ AtSubCommit_Notify(void)
 }
 
 /*
- * AtSubAbort_Notify() --- Take care of subtransaction abort.
+ * AtSubAbort_Notify() --- 处理子事务中止。
  */
 void
 AtSubAbort_Notify(void)
@@ -1812,16 +1812,16 @@ AtSubAbort_Notify(void)
 	int			my_level = GetCurrentTransactionNestLevel();
 
 	/*
-	 * All we have to do is pop the stack --- the actions/notifies made in
-	 * this subxact are no longer interesting, and the space will be freed
-	 * when CurTransactionContext is recycled. We still have to free the
-	 * ActionList and NotificationList objects themselves, though, because
-	 * those are allocated in TopTransactionContext.
-	 *
-	 * Note that there might be no entries at all, or no entries for the
-	 * current subtransaction level, either because none were ever created, or
-	 * because we reentered this routine due to trouble during subxact abort.
-	 */
+		 * 只需弹出堆栈 --- 此子事务中创建的操作/通知
+		 * 不再有意义，CurTransactionContext 回收时空间
+		 * 被释放。但仍需释放 ActionList 和
+		 * NotificationList 对象本身，因它们分配在
+		 * TopTransactionContext 中。
+		 *
+		 * 注意，可能完全没有条目，或当前子事务级别
+		 * 无条目，要么从未创建，要么因子事务中止期间
+		 * 出问题重新进入此例程。
+		 */
 	while (pendingActions != NULL &&
 		   pendingActions->nestingLevel >= my_level)
 	{
@@ -1844,57 +1844,57 @@ AtSubAbort_Notify(void)
 /*
  * HandleNotifyInterrupt
  *
- *		Signal handler portion of interrupt handling. Let the backend know
- *		that there's a pending notify interrupt. If we're currently reading
- *		from the client, this will interrupt the read and
- *		ProcessClientReadInterrupt() will call ProcessNotifyInterrupt().
+ *		中断处理的信号处理程序部分。让后端知道
+ *		有待处理通知中断。如当前正在从客户端读取，
+ *		这将中断读取，ProcessClientReadInterrupt()
+ *		将调用 ProcessNotifyInterrupt()。
  */
 void
 HandleNotifyInterrupt(void)
 {
 	/*
-	 * Note: this is called by a SIGNAL HANDLER. You must be very wary what
-	 * you do here.
-	 */
+		 * 注意：这由信号处理程序调用。必须非常
+		 * 小心在这里做什么。
+		 */
 
-	/* signal that work needs to be done */
+	/* 发出需要工作的信号 */
 	notifyInterruptPending = true;
 
-	/* make sure the event is processed in due course */
+	/* 确保事件在适当时被处理 */
 	SetLatch(MyLatch);
 }
 
 /*
  * ProcessNotifyInterrupt
  *
- *		This is called if we see notifyInterruptPending set, just before
- *		transmitting ReadyForQuery at the end of a frontend command, and
- *		also if a notify signal occurs while reading from the frontend.
- *		HandleNotifyInterrupt() will cause the read to be interrupted
- *		via the process's latch, and this routine will get called.
- *		If we are truly idle (ie, *not* inside a transaction block),
- *		process the incoming notifies.
+ *		如看到 notifyInterruptPending 被设置，则在
+ *		前端命令结束发送 ReadyForQuery 前调用，也在
+ *		从前端读取时收到通知信号时调用。
+ *		HandleNotifyInterrupt() 将通过进程锁存器导致
+ *		读取被中断，然后调用此例程。如真正空闲
+ *		（即*不在*事务块内），处理传入通知。
  *
- *		If "flush" is true, force any frontend messages out immediately.
- *		This can be false when being called at the end of a frontend command,
- *		since we'll flush after sending ReadyForQuery.
+ *		如 "flush" 为 true，立即强制发送所有前端
+ *		消息。在前端命令结束时调用时可为 false，
+ *		因发送 ReadyForQuery 后会刷新。
+*
  */
 void
 ProcessNotifyInterrupt(bool flush)
 {
 	if (IsTransactionOrTransactionBlock())
-		return;					/* not really idle */
+		return;					/* 并非真正空闲 */
 
-	/* Loop in case another signal arrives while sending messages */
+	/* 循环以防发送消息时有另一信号到达 */
 	while (notifyInterruptPending)
 		ProcessIncomingNotify(flush);
 }
 
 
 /*
- * Read all pending notifications from the queue, and deliver appropriate
- * ones to my frontend.  Stop when we reach queue head or an uncommitted
- * notification.
+ * 从队列读取所有待处理通知，将合适的传递给
+ * 前端。到达队列头或未提交通知时停止。
+*
  */
 static void
 asyncQueueReadAllNotifications(void)
@@ -1903,16 +1903,16 @@ asyncQueueReadAllNotifications(void)
 	QueuePosition head;
 	Snapshot	snapshot;
 
-	/* page_buffer must be adequately aligned, so use a union */
+	/* page_buffer 必须充分对齐，使用联合 */
 	union
 	{
 		char		buf[QUEUE_PAGESIZE];
 		AsyncQueueEntry align;
 	}			page_buffer;
 
-	/* Fetch current state */
+	/* 获取当前状态 */
 	LWLockAcquire(NotifyQueueLock, LW_SHARED);
-	/* Assert checks that we have a valid state entry */
+	/* 断言检查有有效状态条目 */
 	Assert(MyProcPid == QUEUE_BACKEND_PID(MyBackendId));
 	pos = QUEUE_BACKEND_POS(MyBackendId);
 	head = QUEUE_HEAD;
@@ -1920,61 +1920,61 @@ asyncQueueReadAllNotifications(void)
 
 	if (QUEUE_POS_EQUAL(pos, head))
 	{
-		/* Nothing to do, we have read all notifications already. */
+		/* 无事可做，已读取所有通知 */
 		return;
 	}
 
 	/*----------
-	 * Get snapshot we'll use to decide which xacts are still in progress.
-	 * This is trickier than it might seem, because of race conditions.
-	 * Consider the following example:
-	 *
-	 * Backend 1:					 Backend 2:
-	 *
-	 * transaction starts
-	 * UPDATE foo SET ...;
-	 * NOTIFY foo;
-	 * commit starts
-	 * queue the notify message
-	 *								 transaction starts
-	 *								 LISTEN foo;  -- first LISTEN in session
-	 *								 SELECT * FROM foo WHERE ...;
-	 * commit to clog
-	 *								 commit starts
-	 *								 add backend 2 to array of listeners
-	 *								 advance to queue head (this code)
-	 *								 commit to clog
-	 *
-	 * Transaction 2's SELECT has not seen the UPDATE's effects, since that
-	 * wasn't committed yet.  Ideally we'd ensure that client 2 would
-	 * eventually get transaction 1's notify message, but there's no way
-	 * to do that; until we're in the listener array, there's no guarantee
-	 * that the notify message doesn't get removed from the queue.
-	 *
-	 * Therefore the coding technique transaction 2 is using is unsafe:
-	 * applications must commit a LISTEN before inspecting database state,
-	 * if they want to ensure they will see notifications about subsequent
-	 * changes to that state.
-	 *
-	 * What we do guarantee is that we'll see all notifications from
-	 * transactions committing after the snapshot we take here.
-	 * Exec_ListenPreCommit has already added us to the listener array,
-	 * so no not-yet-committed messages can be removed from the queue
-	 * before we see them.
-	 *----------
-	 */
+		 * 获取用于决定哪些事务仍在进行中的快照。
+		 * 因竞态条件比看上去更复杂。考虑以下示例：
+		 *
+		 * 后端 1:					 后端 2:
+		 *
+		 * 事务开始
+		 * UPDATE foo SET ...;
+		 * NOTIFY foo;
+		 * 提交开始
+		 * 将通知消息入队
+		 *								 事务开始
+		 *								 LISTEN foo;  -- 会话首次 LISTEN
+		 *								 SELECT * FROM foo WHERE ...;
+		 * 提交到 clog
+		 *								 提交开始
+		 *								 将后端 2 添加到监听者数组
+		 *								 推进到队列头（此代码）
+		 *								 提交到 clog
+		 *
+		 * 事务 2 的 SELECT 未看到 UPDATE 效果，因更新
+		 * 尚未提交。理想情况下应确保客户端 2 最终收到
+		 * 事务 1 的通知消息，但无法做到；在进入监听者
+		 * 数组前，无法保证通知消息不从队列中删除。
+		 *
+		 * 因此事务 2 使用的编码技术不安全：应用程序
+		 * 必须在检查数据库状态前提交 LISTEN，如希望确保
+		 * 看到该状态后续更改的通知。
+		 *
+		 * 我们保证的是将看到在此处获取快照之后提交的
+		 * 事务的所有通知。Exec_ListenPreCommit 已将
+		 * 我们添加到监听者数组，因此在我们看到前，
+		 * 没有未提交消息可从队列中删除。
+		 *----------
+		*
+		*
+		*
+		*
+		 */
 	snapshot = RegisterSnapshot(GetLatestSnapshot());
 
 	/*
-	 * It is possible that we fail while trying to send a message to our
-	 * frontend (for example, because of encoding conversion failure).  If
-	 * that happens it is critical that we not try to send the same message
-	 * over and over again.  Therefore, we place a PG_TRY block here that will
-	 * forcibly advance our queue position before we lose control to an error.
-	 * (We could alternatively retake NotifyQueueLock and move the position
-	 * before handling each individual message, but that seems like too much
-	 * lock traffic.)
-	 */
+		 * 尝试向前端发送消息时可能失败（如编码转换
+		 * 失败）。如发生，关键是不要反复发送同一消息。
+		 * 因此在此放置 PG_TRY 块，在失去控制给错误前
+		 * 强制推进队列位置。（可重新获取 NotifyQueueLock
+		 * 并在处理每条单独消息前移动位置，但锁流量
+		 * 过多。）
+		*
+		*
+		 */
 	PG_TRY();
 	{
 		bool		reachedStop;
@@ -1987,46 +1987,46 @@ asyncQueueReadAllNotifications(void)
 			int			copysize;
 
 			/*
-			 * We copy the data from SLRU into a local buffer, so as to avoid
-			 * holding the NotifySLRULock while we are examining the entries
-			 * and possibly transmitting them to our frontend.  Copy only the
-			 * part of the page we will actually inspect.
-			 */
+				 * 从 SLRU 复制数据到本地缓冲区，避免
+				 * 在检查条目并可能传输到前端时持有
+				 * NotifySLRULock。只复制将实际检查的
+				 * 页面部分。
+				 */
 			slotno = SimpleLruReadPage_ReadOnly(NotifyCtl, curpage,
 												InvalidTransactionId);
 			if (curpage == QUEUE_POS_PAGE(head))
 			{
-				/* we only want to read as far as head */
+				/* 只想读到头位置 */
 				copysize = QUEUE_POS_OFFSET(head) - curoffset;
 				if (copysize < 0)
-					copysize = 0;	/* just for safety */
+					copysize = 0;	/* 仅为安全 */
 			}
 			else
 			{
-				/* fetch all the rest of the page */
+				/* 获取页面剩余部分 */
 				copysize = QUEUE_PAGESIZE - curoffset;
 			}
 			memcpy(page_buffer.buf + curoffset,
 				   NotifyCtl->shared->page_buffer[slotno] + curoffset,
 				   copysize);
-			/* Release lock that we got from SimpleLruReadPage_ReadOnly() */
+			/* 释放从 SimpleLruReadPage_ReadOnly() 获取的锁 */
 			LWLockRelease(NotifySLRULock);
 
 			/*
-			 * Process messages up to the stop position, end of page, or an
-			 * uncommitted message.
-			 *
-			 * Our stop position is what we found to be the head's position
-			 * when we entered this function. It might have changed already.
-			 * But if it has, we will receive (or have already received and
-			 * queued) another signal and come here again.
-			 *
-			 * We are not holding NotifyQueueLock here! The queue can only
-			 * extend beyond the head pointer (see above) and we leave our
-			 * backend's pointer where it is so nobody will truncate or
-			 * rewrite pages under us. Especially we don't want to hold a lock
-			 * while sending the notifications to the frontend.
-			 */
+				 * 处理消息直到停止位置、页面末尾或
+				 * 未提交消息。
+				 *
+				 * 停止位置是进入此函数时发现的头位置。
+				 * 可能已更改。如已更改，将接收（或已接收
+				 * 并排队）另一信号并再次回到此处。
+				 *
+				 * 此处不持有 NotifyQueueLock！队列只能
+				 * 扩展到头指针外（见上），保留后端指针
+				 * 不变，因此无人会在下方截断或重写页面。
+				 * 特别是不想在向前端发通知时持有锁。
+				*
+				*
+				 */
 			reachedStop = asyncQueueProcessPageEntries(&pos, head,
 													   page_buffer.buf,
 													   snapshot);
@@ -2034,32 +2034,32 @@ asyncQueueReadAllNotifications(void)
 	}
 	PG_FINALLY();
 	{
-		/* Update shared state */
+		/* 更新共享状态 */
 		LWLockAcquire(NotifyQueueLock, LW_SHARED);
 		QUEUE_BACKEND_POS(MyBackendId) = pos;
 		LWLockRelease(NotifyQueueLock);
 	}
 	PG_END_TRY();
 
-	/* Done with snapshot */
+	/* 快照使用完毕 */
 	UnregisterSnapshot(snapshot);
 }
 
 /*
- * Fetch notifications from the shared queue, beginning at position current,
- * and deliver relevant ones to my frontend.
+ * 从共享队列获取通知（从 position current 开始），
+ * 将相关通知传递给前端。
  *
- * The current page must have been fetched into page_buffer from shared
- * memory.  (We could access the page right in shared memory, but that
- * would imply holding the NotifySLRULock throughout this routine.)
+ * 当前页面须已从共享内存获取到 page_buffer（可直接
+ * 访问共享内存中页面，但意味着整个例程持有
+ * NotifySLRULock）。
  *
- * We stop if we reach the "stop" position, or reach a notification from an
- * uncommitted transaction, or reach the end of the page.
+ * 到达 "stop" 位置、或未提交事务的通知、或页面
+ * 末尾时停止。
  *
- * The function returns true once we have reached the stop position or an
- * uncommitted notification, and false if we have finished with the page.
- * In other words: once it returns true there is no need to look further.
- * The QueuePosition *current is advanced past all processed messages.
+ * 到达停止位置或未提交通知时返回 true，页面处理
+ * 完毕则返回 false。即：一旦返回 true 无需继续查找。
+ * QueuePosition *current 被推进到所有已处理消息之后。
+*
  */
 static bool
 asyncQueueProcessPageEntries(volatile QueuePosition *current,
@@ -2081,48 +2081,48 @@ asyncQueueProcessPageEntries(volatile QueuePosition *current,
 		qe = (AsyncQueueEntry *) (page_buffer + QUEUE_POS_OFFSET(thisentry));
 
 		/*
-		 * Advance *current over this message, possibly to the next page. As
-		 * noted in the comments for asyncQueueReadAllNotifications, we must
-		 * do this before possibly failing while processing the message.
-		 */
+			 * 将此消息的 *current 推进，可能到下一页。
+			 * 如 asyncQueueReadAllNotifications 注释所述，
+			 * 必须在处理消息可能失败前执行此操作。
+			 */
 		reachedEndOfPage = asyncQueueAdvance(current, qe->length);
 
-		/* Ignore messages destined for other databases */
+		/* 忽略发往其他数据库的消息 */
 		if (qe->dboid == MyDatabaseId)
 		{
 			if (XidInMVCCSnapshot(qe->xid, snapshot))
 			{
 				/*
-				 * The source transaction is still in progress, so we can't
-				 * process this message yet.  Break out of the loop, but first
-				 * back up *current so we will reprocess the message next
-				 * time.  (Note: it is unlikely but not impossible for
-				 * TransactionIdDidCommit to fail, so we can't really avoid
-				 * this advance-then-back-up behavior when dealing with an
-				 * uncommitted message.)
-				 *
-				 * Note that we must test XidInMVCCSnapshot before we test
-				 * TransactionIdDidCommit, else we might return a message from
-				 * a transaction that is not yet visible to snapshots; compare
-				 * the comments at the head of heapam_visibility.c.
-				 *
-				 * Also, while our own xact won't be listed in the snapshot,
-				 * we need not check for TransactionIdIsCurrentTransactionId
-				 * because our transaction cannot (yet) have queued any
-				 * messages.
-				 */
+					 * 源事务仍在进行中，因此尚不能处理
+					 * 此消息。跳出循环，但首先回退 *current
+					 * 以便下次重新处理。（注意：
+					 * TransactionIdDidCommit 失败不太可能但
+					 * 也非不可能，因此处理未提交消息时无法
+					 * 真正避免先推进后退回行为。）
+					 *
+					 * 注意，必须在测试
+					 * TransactionIdDidCommit 前测试
+					 * XidInMVCCSnapshot，否则可能返回快照
+					 * 尚不可见事务的消息；比较
+					 * heapam_visibility.c 头部注释。
+					 *
+					 * 此外，虽自己事务不在快照中列出，
+					 * 无需检查
+					 * TransactionIdIsCurrentTransactionId，
+					 * 因事务（尚）不能排队任何消息。
+					 */
 				*current = thisentry;
 				reachedStop = true;
 				break;
 			}
 			else if (TransactionIdDidCommit(qe->xid))
 			{
-				/* qe->data is the null-terminated channel name */
+				/* qe->data 是以 null 结尾的通道名称 */
 				char	   *channel = qe->data;
 
 				if (IsListeningOn(channel))
 				{
-					/* payload follows channel name */
+					/* 负载跟在通道名称之后 */
 					char	   *payload = qe->data + strlen(channel) + 1;
 
 					NotifyMyFrontEnd(channel, payload, qe->srcPid);
@@ -2131,13 +2131,13 @@ asyncQueueProcessPageEntries(volatile QueuePosition *current,
 			else
 			{
 				/*
-				 * The source transaction aborted or crashed, so we just
-				 * ignore its notifications.
-				 */
+					 * 源事务已中止或崩溃，忽略其通知。
+					*
+					 */
 			}
 		}
 
-		/* Loop back if we're not at end of page */
+		/* 如不在页面末尾则循环回去 */
 	} while (!reachedEndOfPage);
 
 	if (QUEUE_POS_EQUAL(*current, stop))
@@ -2147,11 +2147,11 @@ asyncQueueProcessPageEntries(volatile QueuePosition *current,
 }
 
 /*
- * Advance the shared queue tail variable to the minimum of all the
- * per-backend tail pointers.  Truncate pg_notify space if possible.
+ * 将共享队列尾变量推进到所有按后端尾指针的
+ * 最小值。如可能，截断 pg_notify 空间。
  *
- * This is (usually) called during CommitTransaction(), so it's important for
- * it to have very low probability of failure.
+ * 通常在 CommitTransaction() 期间调用，因此
+ * 失败概率必须非常低。
  */
 static void
 asyncQueueAdvanceTail(void)
@@ -2161,26 +2161,26 @@ asyncQueueAdvanceTail(void)
 	int			newtailpage;
 	int			boundary;
 
-	/* Restrict task to one backend per cluster; see SimpleLruTruncate(). */
+	/* 限制任务为每数据库集簇一个后端；参见 SimpleLruTruncate() */
 	LWLockAcquire(NotifyQueueTailLock, LW_EXCLUSIVE);
 
 	/*
-	 * Compute the new tail.  Pre-v13, it's essential that QUEUE_TAIL be exact
-	 * (ie, exactly match at least one backend's queue position), so it must
-	 * be updated atomically with the actual computation.  Since v13, we could
-	 * get away with not doing it like that, but it seems prudent to keep it
-	 * so.
-	 *
-	 * Also, because incoming backends will scan forward from QUEUE_TAIL, that
-	 * must be advanced before we can truncate any data.  Thus, QUEUE_TAIL is
-	 * the logical tail, while QUEUE_STOP_PAGE is the physical tail, or oldest
-	 * un-truncated page.  When QUEUE_STOP_PAGE != QUEUE_POS_PAGE(QUEUE_TAIL),
-	 * there are pages we can truncate but haven't yet finished doing so.
-	 *
-	 * For concurrency's sake, we don't want to hold NotifyQueueLock while
-	 * performing SimpleLruTruncate.  This is OK because no backend will try
-	 * to access the pages we are in the midst of truncating.
-	 */
+		 * 计算新尾部。v13 前 QUEUE_TAIL 须精确
+		 * （即精确匹配至少一个后端队列位置），因此
+		 * 须与实际计算一起原子更新。从 v13 起可不
+		 * 如此，但保持这样更审慎。
+		 *
+		 * 此外，因传入后端从 QUEUE_TAIL 向前扫描，
+		 * 截断数据前该值须被推进。因此 QUEUE_TAIL
+		 * 是逻辑尾部，QUEUE_STOP_PAGE 是物理尾部
+		 * 即最旧未截断页。当 QUEUE_STOP_PAGE !=
+		 * QUEUE_POS_PAGE(QUEUE_TAIL) 时，有可截断
+		 * 但尚未完成的页面。
+		 *
+		 * 为并发性，不想在执行 SimpleLruTruncate
+		 * 时持有 NotifyQueueLock。这可以，因无后端
+		 * 尝试访问正截断的页面。
+		 */
 	LWLockAcquire(NotifyQueueLock, LW_EXCLUSIVE);
 	min = QUEUE_HEAD;
 	for (BackendId i = QUEUE_FIRST_LISTENER; i > 0; i = QUEUE_NEXT_LISTENER(i))
@@ -2193,27 +2193,27 @@ asyncQueueAdvanceTail(void)
 	LWLockRelease(NotifyQueueLock);
 
 	/*
-	 * We can truncate something if the global tail advanced across an SLRU
-	 * segment boundary.
-	 *
-	 * XXX it might be better to truncate only once every several segments, to
-	 * reduce the number of directory scans.
-	 */
+		 * 如全局尾部跨过 SLRU 段边界推进，可截断。
+		 *
+		 * XXX 可能每几个段截断一次更好，减少目录
+		 * 扫描次数。
+		*
+		 */
 	newtailpage = QUEUE_POS_PAGE(min);
 	boundary = newtailpage - (newtailpage % SLRU_PAGES_PER_SEGMENT);
 	if (asyncQueuePagePrecedes(oldtailpage, boundary))
 	{
 		/*
-		 * SimpleLruTruncate() will ask for NotifySLRULock but will also
-		 * release the lock again.
-		 */
+			 * SimpleLruTruncate() 将请求 NotifySLRULock
+			 * 但也将再次释放该锁。
+			 */
 		SimpleLruTruncate(NotifyCtl, newtailpage);
 
 		/*
-		 * Update QUEUE_STOP_PAGE.  This changes asyncQueueIsFull()'s verdict
-		 * for the segment immediately prior to the old tail, allowing fresh
-		 * data into that segment.
-		 */
+			 * 更新 QUEUE_STOP_PAGE。改变
+			 * asyncQueueIsFull() 对紧邻旧尾之前段的
+			 * 判定，允许新数据进入该段。
+			 */
 		LWLockAcquire(NotifyQueueLock, LW_EXCLUSIVE);
 		QUEUE_STOP_PAGE = newtailpage;
 		LWLockRelease(NotifyQueueLock);
@@ -2225,23 +2225,23 @@ asyncQueueAdvanceTail(void)
 /*
  * ProcessIncomingNotify
  *
- *		Scan the queue for arriving notifications and report them to the front
- *		end.  The notifications might be from other sessions, or our own;
- *		there's no need to distinguish here.
+ *		扫描队列中到达的通知，报告给前端。通知
+ *		可能来自其他会话或自己；无需区分。
  *
- *		If "flush" is true, force any frontend messages out immediately.
+ *		如 "flush" 为 true，立即强制发送所有前端消息。
  *
- *		NOTE: since we are outside any transaction, we must create our own.
+ *		注意：因在任何事务外，须创建自己的事务。
+*
  */
 static void
 ProcessIncomingNotify(bool flush)
 {
 	MemoryContext oldcontext;
 
-	/* We *must* reset the flag */
+	/* 必须重置标志 */
 	notifyInterruptPending = false;
 
-	/* Do nothing else if we aren't actively listening */
+	/* 如未主动监听则无事可做 */
 	if (listenChannels == NIL)
 		return;
 
@@ -2251,10 +2251,10 @@ ProcessIncomingNotify(bool flush)
 	set_ps_display("notify interrupt");
 
 	/*
-	 * We must run asyncQueueReadAllNotifications inside a transaction, else
-	 * bad things happen if it gets an error.  However, we need to preserve
-	 * the caller's memory context (typically MessageContext).
-	 */
+		 * 须在事务内运行 asyncQueueReadAllNotifications，
+		 * 否则如出错会很糟。但需保留调用者的内存
+		 * 上下文（通常是 MessageContext）。
+		 */
 	oldcontext = CurrentMemoryContext;
 
 	StartTransactionCommand();
@@ -2263,14 +2263,14 @@ ProcessIncomingNotify(bool flush)
 
 	CommitTransactionCommand();
 
-	/* Caller's context had better not have been transaction-local */
+	/* 调用者上下文最好不要是事务本地的 */
 	Assert(MemoryContextIsValid(oldcontext));
 	MemoryContextSwitchTo(oldcontext);
 
 	/*
-	 * If this isn't an end-of-command case, we must flush the notify messages
-	 * to ensure frontend gets them promptly.
-	 */
+		 * 如非命令结束情况，须刷新通知消息
+		 * 以确保前端及时收到。
+		 */
 	if (flush)
 		pq_flush();
 
@@ -2281,7 +2281,7 @@ ProcessIncomingNotify(bool flush)
 }
 
 /*
- * Send NOTIFY message to my front end.
+ * 向我的前端发送 NOTIFY 消息。
  */
 void
 NotifyMyFrontEnd(const char *channel, const char *payload, int32 srcPid)
@@ -2297,16 +2297,16 @@ NotifyMyFrontEnd(const char *channel, const char *payload, int32 srcPid)
 		pq_endmessage(&buf);
 
 		/*
-		 * NOTE: we do not do pq_flush() here.  Some level of caller will
-		 * handle it later, allowing this message to be combined into a packet
-		 * with other ones.
-		 */
+			 * 注意：不在此处执行 pq_flush()。
+			 * 上层调用者稍后处理，允许将此消息
+			 * 与其他消息组合到同一数据包。
+			 */
 	}
 	else
 		elog(INFO, "NOTIFY for \"%s\" payload \"%s\"", channel, payload);
 }
 
-/* Does pendingNotifies include a match for the given event? */
+/* pendingNotifies 是否包含与给定事件匹配的项？ */
 static bool
 AsyncExistsPendingNotify(Notification *n)
 {
@@ -2315,7 +2315,7 @@ AsyncExistsPendingNotify(Notification *n)
 
 	if (pendingNotifies->hashtab != NULL)
 	{
-		/* Use the hash table to probe for a match */
+		/* 使用哈希表探测匹配项 */
 		if (hash_search(pendingNotifies->hashtab,
 						&n,
 						HASH_FIND,
@@ -2324,7 +2324,7 @@ AsyncExistsPendingNotify(Notification *n)
 	}
 	else
 	{
-		/* Must scan the event list */
+		/* 必须扫描事件列表 */
 		ListCell   *l;
 
 		foreach(l, pendingNotifies->events)
@@ -2343,24 +2343,24 @@ AsyncExistsPendingNotify(Notification *n)
 }
 
 /*
- * Add a notification event to a pre-existing pendingNotifies list.
+ * 将通知事件添加到已存在的 pendingNotifies 列表。
  *
- * Because pendingNotifies->events is already nonempty, this works
- * correctly no matter what CurrentMemoryContext is.
+ * 因 pendingNotifies->events 已是非空，所以无论
+ * CurrentMemoryContext 是什么，此操作正确。
  */
 static void
 AddEventToPendingNotifies(Notification *n)
 {
 	Assert(pendingNotifies->events != NIL);
 
-	/* Create the hash table if it's time to */
+	/* 如时机合适，创建哈希表 */
 	if (list_length(pendingNotifies->events) >= MIN_HASHABLE_NOTIFIES &&
 		pendingNotifies->hashtab == NULL)
 	{
 		HASHCTL		hash_ctl;
 		ListCell   *l;
 
-		/* Create the hash table */
+		/* 创建哈希表 */
 		hash_ctl.keysize = sizeof(Notification *);
 		hash_ctl.entrysize = sizeof(NotificationHash);
 		hash_ctl.hash = notification_hash;
@@ -2372,7 +2372,7 @@ AddEventToPendingNotifies(Notification *n)
 						&hash_ctl,
 						HASH_ELEM | HASH_FUNCTION | HASH_COMPARE | HASH_CONTEXT);
 
-		/* Insert all the already-existing events */
+		/* 插入所有已存在的事件 */
 		foreach(l, pendingNotifies->events)
 		{
 			Notification *oldn = (Notification *) lfirst(l);
@@ -2388,10 +2388,10 @@ AddEventToPendingNotifies(Notification *n)
 		}
 	}
 
-	/* Add new event to the list, in order */
+	/* 按序将新事件添加到列表 */
 	pendingNotifies->events = lappend(pendingNotifies->events, n);
 
-	/* Add event to the hash table if needed */
+	/* 如需要，将事件添加到哈希表 */
 	if (pendingNotifies->hashtab != NULL)
 	{
 		NotificationHash *hentry;
@@ -2407,9 +2407,9 @@ AddEventToPendingNotifies(Notification *n)
 }
 
 /*
- * notification_hash: hash function for notification hash table
+ * notification_hash：通知哈希表的哈希函数
  *
- * The hash "keys" are pointers to Notification structs.
+ * 哈希"键"是指向 Notification 结构体的指针。
  */
 static uint32
 notification_hash(const void *key, Size keysize)
@@ -2417,13 +2417,13 @@ notification_hash(const void *key, Size keysize)
 	const Notification *k = *(const Notification *const *) key;
 
 	Assert(keysize == sizeof(Notification *));
-	/* We don't bother to include the payload's trailing null in the hash */
+	/* 哈希中不包含负载的尾随 null */
 	return DatumGetUInt32(hash_any((const unsigned char *) k->data,
 								   k->channel_len + k->payload_len + 1));
 }
 
 /*
- * notification_match: match function to use with notification_hash
+ * notification_match：与 notification_hash 配合使用的匹配函数
  */
 static int
 notification_match(const void *key1, const void *key2, Size keysize)
@@ -2436,20 +2436,20 @@ notification_match(const void *key1, const void *key2, Size keysize)
 		k1->payload_len == k2->payload_len &&
 		memcmp(k1->data, k2->data,
 			   k1->channel_len + k1->payload_len + 2) == 0)
-		return 0;				/* equal */
-	return 1;					/* not equal */
+		return 0;				/* 相等 */
+	return 1;					/* 不相等 */
 }
 
-/* Clear the pendingActions and pendingNotifies lists. */
+/* 清空 pendingActions 和 pendingNotifies 列表 */
 static void
 ClearPendingActionsAndNotifies(void)
 {
 	/*
-	 * Everything's allocated in either TopTransactionContext or the context
-	 * for the subtransaction to which it corresponds.  So, there's nothing to
-	 * do here except reset the pointers; the space will be reclaimed when the
-	 * contexts are deleted.
-	 */
+		 * 所有内容分配在 TopTransactionContext 或
+		 * 对应子事务的上下文中。因此只需重置指针；
+		 * 上下文被删除时空间被回收。
+		*
+		 */
 	pendingActions = NULL;
 	pendingNotifies = NULL;
 }

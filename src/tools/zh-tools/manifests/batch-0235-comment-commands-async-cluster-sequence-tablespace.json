@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "batch_id": "0235-comment-commands-async-cluster-sequence-tablespace",
+  "title": "zh: translate commands comments — async, cluster, sequence, tablespace",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "9db48423a66a3920a4fe89967107eae91bc5987f",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/commands/async.c",
+      "kind": "c_comment",
+      "note": "LISTEN/NOTIFY async notification"
+    },
+    {
+      "pattern": "src/backend/commands/cluster.c",
+      "kind": "c_comment",
+      "note": "CLUSTER command"
+    },
+    {
+      "pattern": "src/backend/commands/sequence.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP SEQUENCE"
+    },
+    {
+      "pattern": "src/backend/commands/tablespace.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP TABLESPACE"
+    },
+    {
+      "pattern": "src/tools/zh-tools/zhtools/c_verify.py",
+      "kind": "tool",
+      "note": "added TABLESPACE_FALLTHROUGH_PROSE exception"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0235-comment-commands-async-cluster-sequence-tablespace.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/commands/async.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 244,
+      "translated": 244,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "LISTEN/NOTIFY; latch→锁存器 fixed; 2308 lines"
+    },
+    {
+      "path": "src/backend/commands/cluster.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 146,
+      "translated": 146,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "CLUSTER; Unicode quotes→ASCII fixed; 1786 lines"
+    },
+    {
+      "path": "src/backend/commands/sequence.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 163,
+      "translated": 158,
+      "preserved": 5,
+      "preserved_reasons": ["Copyright header"],
+      "note": "SEQUENCE; Unicode quotes→ASCII fixed; 4108 lines"
+    },
+    {
+      "path": "src/backend/commands/tablespace.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 136,
+      "translated": 135,
+      "preserved": 1,
+      "preserved_reasons": ["Copyright header"],
+      "note": "TABLESPACE; cluster→数据库集簇 fixed; 892 lines"
+    },
+    {
+      "path": "src/tools/zh-tools/zhtools/c_verify.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "add _TABLESPACE_FALLTHROUGH_PROSE exception for \"fall through quietly\" prose"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0235-comment-commands-async-cluster-sequence-tablespace.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "segments_total": 689,
+  "translated": 683,
+  "preserved": 6,
+  "notes": "Batch 0235: async.c (244 segments), cluster.c (146), sequence.c (163), tablespace.c (136). Term fixes applied: latch→锁存器 (3×), cluster→数据库集簇 (2×), Unicode quotes→ASCII (4×). c_verify.py: added _TABLESPACE_FALLTHROUGH_PROSE. 0 violations, 0 error hits."
+}

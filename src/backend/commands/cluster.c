@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * cluster.c
- *	  CLUSTER a table on an index.  This is now also used for VACUUM FULL.
+ *	  CLUSTER一个表，基于指定索引。现在也用于 VACUUM FULL。
  *
- * There is hardly anything left of Paul Brown's original implementation...
+ * Paul Brown 的原始实现已几乎没剩什么了...
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -61,9 +61,9 @@
 #include "utils/tuplesort.h"
 
 /*
- * This struct is used to pass around the information on tables to be
- * clustered. We need this so we can make a list of them when invoked without
- * a specific table/index pair.
+ * 该结构体用于传递要聚簇的表的信息。
+ * 我们需要它是因为在没有指定特定表/索引对时，
+ * 可以将它们组成列表。
  */
 typedef struct
 {
@@ -83,28 +83,28 @@ static List *get_tables_to_cluster_partitioned(MemoryContext cluster_context,
 
 
 /*---------------------------------------------------------------------------
- * This cluster code allows for clustering multiple tables at once. Because
- * of this, we cannot just run everything on a single transaction, or we
- * would be forced to acquire exclusive locks on all the tables being
- * clustered, simultaneously --- very likely leading to deadlock.
+ * 这个 CLUSTER 代码允许同时聚簇多个表。
+ * 正因为如此，我们不能在单个事务中运行所有操作，
+ * 否则我们将被迫同时获取所有被聚簇表的排他锁，
+ * --- 很可能导致死锁。
  *
- * To solve this we follow a similar strategy to VACUUM code,
- * clustering each relation in a separate transaction. For this to work,
- * we need to:
- *	- provide a separate memory context so that we can pass information in
- *	  a way that survives across transactions
- *	- start a new transaction every time a new relation is clustered
- *	- check for validity of the information on to-be-clustered relations,
- *	  as someone might have deleted a relation behind our back, or
- *	  clustered one on a different index
- *	- end the transaction
+ * 为了解决这个问题，我们采用了与 VACUUM 代码类似的策略，
+ * 在单独的事务中聚簇每个关系。为此，我们需要：
+ *	- 提供一个单独的内存上下文，以便我们可以以
+ *	   跨事务的方式传递信息
+ *	- 每次聚簇新关系时开启一个新事务
+ *	- 检查待聚簇关系信息的有效性，
+ *	   因为有人可能在我们背后删除了关系，
+ *	   或者已经基于不同的索引聚簇了它
+ *	- 结束事务
  *
- * The single-relation case does not have any such overhead.
+ * 单关系情况不会有这样的额外开销。
  *
- * We also allow a relation to be specified without index.  In that case,
- * the indisclustered bit will be looked up, and an ERROR will be thrown
- * if there is no index with the bit set.
- *---------------------------------------------------------------------------
+ * 我们也允许指定关系时不指定索引。在那种情况下，
+ * 将查找 indisclustered 位，如果没有索引设置该位，
+ * 则抛出 ERROR。
+ *-------------------------------------
+ *--------------------------------------
  */
 void
 cluster(ParseState *pstate, ClusterStmt *stmt, bool isTopLevel)
@@ -117,7 +117,7 @@ cluster(ParseState *pstate, ClusterStmt *stmt, bool isTopLevel)
 	MemoryContext cluster_context;
 	List	   *rtcs;
 
-	/* Parse option list */
+	/* 解析选项列表 */
 	foreach(lc, stmt->params)
 	{
 		DefElem    *opt = (DefElem *) lfirst(lc);
@@ -136,13 +136,13 @@ cluster(ParseState *pstate, ClusterStmt *stmt, bool isTopLevel)
 
 	if (stmt->relation != NULL)
 	{
-		/* This is the single-relation case. */
+		/* 这是单关系情况。 */
 		Oid			tableOid;
 
 		/*
-		 * Find, lock, and check permissions on the table.  We obtain
-		 * AccessExclusiveLock right away to avoid lock-upgrade hazard in the
-		 * single-transaction case.
+		 * 查找、加锁并检查表的权限。
+		 * 我们立即获取 AccessExclusiveLock，
+		 * 以避免单事务情况下的锁升级风险。
 		 */
 		tableOid = RangeVarGetRelidExtended(stmt->relation,
 											AccessExclusiveLock,
@@ -151,8 +151,8 @@ cluster(ParseState *pstate, ClusterStmt *stmt, bool isTopLevel)
 		rel = table_open(tableOid, NoLock);
 
 		/*
-		 * Reject clustering a remote temp table ... their local buffer
-		 * manager is not going to cope.
+		 * 拒绝聚簇远程临时表...它们的本地缓冲区
+		 * 管理器无法处理。
 		 */
 		if (RELATION_IS_OTHER_TEMP(rel))
 			ereport(ERROR,
@@ -163,7 +163,7 @@ cluster(ParseState *pstate, ClusterStmt *stmt, bool isTopLevel)
 		{
 			ListCell   *index;
 
-			/* We need to find the index that has indisclustered set. */
+			/* 我们需要找到设置了 indisclustered 的索引。 */
 			foreach(index, RelationGetIndexList(rel))
 			{
 				indexOid = lfirst_oid(index);
@@ -181,8 +181,8 @@ cluster(ParseState *pstate, ClusterStmt *stmt, bool isTopLevel)
 		else
 		{
 			/*
-			 * The index is expected to be in the same namespace as the
-			 * relation.
+			 * 索引应位于与关系相同的
+			 * 命名空间中。
 			 */
 			indexOid = get_relname_relid(stmt->indexname,
 										 rel->rd_rel->relnamespace);
@@ -195,10 +195,10 @@ cluster(ParseState *pstate, ClusterStmt *stmt, bool isTopLevel)
 
 		if (rel->rd_rel->relkind != RELKIND_PARTITIONED_TABLE)
 		{
-			/* close relation, keep lock till commit */
+			/* 关闭关系，保持锁直到提交 */
 			table_close(rel, NoLock);
 
-			/* Do the job. */
+			/* 执行工作。 */
 			cluster_rel(tableOid, indexOid, &params);
 
 			return;
@@ -206,29 +206,29 @@ cluster(ParseState *pstate, ClusterStmt *stmt, bool isTopLevel)
 	}
 
 	/*
-	 * By here, we know we are in a multi-table situation.  In order to avoid
-	 * holding locks for too long, we want to process each table in its own
-	 * transaction.  This forces us to disallow running inside a user
-	 * transaction block.
+	 * 到这里，我们知道我们处于多表情况。
+	 * 为了避免持有锁的时间过长，我们想要在单独的
+	 * 事务中处理每个表。这迫使我们不允许在用户
+	 * 事务块内运行。
 	 */
 	PreventInTransactionBlock(isTopLevel, "CLUSTER");
 
-	/* Also, we need a memory context to hold our list of relations */
+	/* 此外，我们需要一个内存上下文来保存关系列表 */
 	cluster_context = AllocSetContextCreate(PortalContext,
 											"Cluster",
 											ALLOCSET_DEFAULT_SIZES);
 
 	/*
-	 * Either we're processing a partitioned table, or we were not given any
-	 * table name at all.  In either case, obtain a list of relations to
-	 * process.
+	 * 我们要么在处理分区表，要么完全没有指定
+	 * 表名。无论哪种情况，都会获取要处理的
+	 * 关系列表。
 	 *
-	 * In the former case, an index name must have been given, so we don't
-	 * need to recheck its "indisclustered" bit, but we have to check that it
-	 * is an index that we can cluster on.  In the latter case, we set the
-	 * option bit to have indisclustered verified.
+	 * 在前者情况下，必须指定索引名，所以我们不需要
+	 * 重新检查它的"indisclustered"位，但我们必须检查它
+	 * 是我们可以用来聚簇的索引。在后者情况下，我们
+	 * 设置选项位以验证 indisclustered。
 	 *
-	 * Rechecking the relation itself is necessary here in all cases.
+	 * 在所有情况下，重新检查关系本身在这里都是必要的。
 	 */
 	params.options |= CLUOPT_RECHECK;
 	if (rel != NULL)
@@ -237,7 +237,7 @@ cluster(ParseState *pstate, ClusterStmt *stmt, bool isTopLevel)
 		check_index_is_clusterable(rel, indexOid, AccessShareLock);
 		rtcs = get_tables_to_cluster_partitioned(cluster_context, indexOid);
 
-		/* close relation, releasing lock on parent table */
+		/* 关闭关系，释放父表上的锁 */
 		table_close(rel, AccessExclusiveLock);
 	}
 	else
@@ -246,44 +246,44 @@ cluster(ParseState *pstate, ClusterStmt *stmt, bool isTopLevel)
 		params.options |= CLUOPT_RECHECK_ISCLUSTERED;
 	}
 
-	/* Do the job. */
+	/* 执行工作。 */
 	cluster_multiple_rels(rtcs, &params);
 
-	/* Start a new transaction for the cleanup work. */
+	/* 为清理工作开启一个新事务。 */
 	StartTransactionCommand();
 
-	/* Clean up working storage */
+	/* 清理工作存储 */
 	MemoryContextDelete(cluster_context);
 }
 
 /*
- * Given a list of relations to cluster, process each of them in a separate
- * transaction.
+ * 给定要聚簇的关系列表，在单独的事务中
+ * 处理其中每一个关系。
  *
- * We expect to be in a transaction at start, but there isn't one when we
- * return.
+ * 我们期望在开始时处于一个事务中，但返回时
+ * 没有事务。
  */
 static void
 cluster_multiple_rels(List *rtcs, ClusterParams *params)
 {
 	ListCell   *lc;
 
-	/* Commit to get out of starting transaction */
+	/* 提交以退出起始事务 */
 	PopActiveSnapshot();
 	CommitTransactionCommand();
 
-	/* Cluster the tables, each in a separate transaction */
+	/* 聚簇表，每个在单独的事务中 */
 	foreach(lc, rtcs)
 	{
 		RelToCluster *rtc = (RelToCluster *) lfirst(lc);
 
-		/* Start a new transaction for each relation. */
+		/* 为每个关系开启一个新事务。 */
 		StartTransactionCommand();
 
-		/* functions in indexes may want a snapshot set */
+		/* 索引中的函数可能需要设置快照 */
 		PushActiveSnapshot(GetTransactionSnapshot());
 
-		/* Do the job. */
+		/* 执行工作。 */
 		cluster_rel(rtc->tableOid, rtc->indexOid, params);
 
 		PopActiveSnapshot();
@@ -294,19 +294,19 @@ cluster_multiple_rels(List *rtcs, ClusterParams *params)
 /*
  * cluster_rel
  *
- * This clusters the table by creating a new, clustered table and
- * swapping the relfilenumbers of the new table and the old table, so
- * the OID of the original table is preserved.  Thus we do not lose
- * GRANT, inheritance nor references to this table (this was a bug
- * in releases through 7.3).
+ * 通过创建一个新的已聚簇表并交换新表和旧表的
+ * relfilenumber 来聚簇表，以便保留原始表的 OID。
+ * 因此我们不会丢失 GRANT、继承或对此表的引用
+ * （这在 7.3 及之前的版本中是一个 bug）。
  *
- * Indexes are rebuilt too, via REINDEX. Since we are effectively bulk-loading
- * the new table, it's better to create the indexes afterwards than to fill
- * them incrementally while we load the table.
+ * 索引也通过 REINDEX 进行重建。由于我们实际上是在
+ * 批量加载新表，在加载表之后创建索引比在加载时
+ * 逐步填充索引更好。
  *
- * If indexOid is InvalidOid, the table will be rewritten in physical order
- * instead of index order.  This is the new implementation of VACUUM FULL,
- * and error messages should refer to the operation as VACUUM not CLUSTER.
+ * 如果 indexOid 为 InvalidOid，
+ * 表将按物理顺序而非索引顺序
+ * 重写。这是 VACUUM FULL 的新实现，错误消息应将操作称为
+ * VACUUM 而非 CLUSTER。
  */
 void
 cluster_rel(Oid tableOid, Oid indexOid, ClusterParams *params)
@@ -318,7 +318,7 @@ cluster_rel(Oid tableOid, Oid indexOid, ClusterParams *params)
 	bool		verbose = ((params->options & CLUOPT_VERBOSE) != 0);
 	bool		recheck = ((params->options & CLUOPT_RECHECK) != 0);
 
-	/* Check for user-requested abort. */
+	/* 检查用户请求的中止。 */
 	CHECK_FOR_INTERRUPTS();
 
 	pgstat_progress_start_command(PROGRESS_COMMAND_CLUSTER, tableOid);
@@ -330,14 +330,14 @@ cluster_rel(Oid tableOid, Oid indexOid, ClusterParams *params)
 									 PROGRESS_CLUSTER_COMMAND_VACUUM_FULL);
 
 	/*
-	 * We grab exclusive access to the target rel and index for the duration
-	 * of the transaction.  (This is redundant for the single-transaction
-	 * case, since cluster() already did it.)  The index lock is taken inside
-	 * check_index_is_clusterable.
+	 * 我们在事务持续期间获取对目标关系和索引的
+	 * 排他访问权。（这对于单事务情况是冗余的，
+	 * 因为 cluster() 已经这样做了。）
+	 * 索引锁在 check_index_is_clusterable 内部获取。
 	 */
 	OldHeap = try_relation_open(tableOid, AccessExclusiveLock);
 
-	/* If the table has gone away, we can skip processing it */
+	/* 如果表已消失，我们可以跳过对它的处理 */
 	if (!OldHeap)
 	{
 		pgstat_progress_end_command();
@@ -345,9 +345,9 @@ cluster_rel(Oid tableOid, Oid indexOid, ClusterParams *params)
 	}
 
 	/*
-	 * Switch to the table owner's userid, so that any index functions are run
-	 * as that user.  Also lock down security-restricted operations and
-	 * arrange to make GUC variable changes local to this command.
+	 * 切换到表所有者的 userid，以便任何索引函数
+	 * 作为该用户运行。同时锁定安全限制操作并
+	 * 安排使 GUC 变量更改局部于此命令。
 	 */
 	GetUserIdAndSecContext(&save_userid, &save_sec_context);
 	SetUserIdAndSecContext(OldHeap->rd_rel->relowner,
@@ -355,16 +355,16 @@ cluster_rel(Oid tableOid, Oid indexOid, ClusterParams *params)
 	save_nestlevel = NewGUCNestLevel();
 
 	/*
-	 * Since we may open a new transaction for each relation, we have to check
-	 * that the relation still is what we think it is.
+	 * 由于我们可能为每个关系开启新事务，我们必须
+	 * 检查关系仍然是我们所认为的那样。
 	 *
-	 * If this is a single-transaction CLUSTER, we can skip these tests. We
-	 * *must* skip the one on indisclustered since it would reject an attempt
-	 * to cluster a not-previously-clustered index.
+	 * 如果这是单事务 CLUSTER，我们可以跳过这些测试。
+	 * 我们 *必须* 跳过 indisclustered 检查，因为它会拒绝
+	 * 聚簇一个之前未聚簇过的索引的尝试。
 	 */
 	if (recheck)
 	{
-		/* Check that the user still owns the relation */
+		/* 检查用户仍然拥有该关系 */
 		if (!object_ownercheck(RelationRelationId, tableOid, save_userid))
 		{
 			relation_close(OldHeap, AccessExclusiveLock);
@@ -372,13 +372,13 @@ cluster_rel(Oid tableOid, Oid indexOid, ClusterParams *params)
 		}
 
 		/*
-		 * Silently skip a temp table for a remote session.  Only doing this
-		 * check in the "recheck" case is appropriate (which currently means
-		 * somebody is executing a database-wide CLUSTER or on a partitioned
-		 * table), because there is another check in cluster() which will stop
-		 * any attempt to cluster remote temp tables by name.  There is
-		 * another check in cluster_rel which is redundant, but we leave it
-		 * for extra safety.
+		 * 安静地跳过远程会话的临时表。仅在"recheck"情况下
+		 * 执行此检查是合适的（当前意味着有人执行整个数据库范围的
+		 * CLUSTER 或对分区表的 CLUSTER）
+		 * ，因为 cluster() 中
+		 * 还有一个检查会阻止任何通过名称聚簇远程临时表的尝试。
+		 * cluster_rel 中还有一个冗余的检查，但我们保留它
+		 * 以确保额外的安全性。
 		 */
 		if (RELATION_IS_OTHER_TEMP(OldHeap))
 		{
@@ -389,7 +389,7 @@ cluster_rel(Oid tableOid, Oid indexOid, ClusterParams *params)
 		if (OidIsValid(indexOid))
 		{
 			/*
-			 * Check that the index still exists
+			 * 检查索引是否仍然存在
 			 */
 			if (!SearchSysCacheExists1(RELOID, ObjectIdGetDatum(indexOid)))
 			{
@@ -398,8 +398,8 @@ cluster_rel(Oid tableOid, Oid indexOid, ClusterParams *params)
 			}
 
 			/*
-			 * Check that the index is still the one with indisclustered set,
-			 * if needed.
+			 * 检查索引是否仍是设置 indisclustered 的那个，
+			 * 如果需要的话。
 			 */
 			if ((params->options & CLUOPT_RECHECK_ISCLUSTERED) != 0 &&
 				!get_index_isclustered(indexOid))
@@ -411,10 +411,10 @@ cluster_rel(Oid tableOid, Oid indexOid, ClusterParams *params)
 	}
 
 	/*
-	 * We allow VACUUM FULL, but not CLUSTER, on shared catalogs.  CLUSTER
-	 * would work in most respects, but the index would only get marked as
-	 * indisclustered in the current database, leading to unexpected behavior
-	 * if CLUSTER were later invoked in another database.
+	 * 我们允许对共享系统目录执行 VACUUM FULL，但不允许 CLUSTER。
+	 * CLUSTER 在大多数方面都可以工作，但索引只会在当前数据库中
+	 * 被标记为 indisclustered，如果事后在另一个数据库中调用 CLUSTER，
+	 * 将导致意想不到的行为。
 	 */
 	if (OidIsValid(indexOid) && OldHeap->rd_rel->relisshared)
 		ereport(ERROR,
@@ -422,8 +422,8 @@ cluster_rel(Oid tableOid, Oid indexOid, ClusterParams *params)
 				 errmsg("cannot cluster a shared catalog")));
 
 	/*
-	 * Don't process temp tables of other backends ... their local buffer
-	 * manager is not going to cope.
+	 * 不要处理其他后端的临时表...它们的本地缓冲区
+	 * 管理器无法处理。
 	 */
 	if (RELATION_IS_OTHER_TEMP(OldHeap))
 	{
@@ -438,21 +438,21 @@ cluster_rel(Oid tableOid, Oid indexOid, ClusterParams *params)
 	}
 
 	/*
-	 * Also check for active uses of the relation in the current transaction,
-	 * including open scans and pending AFTER trigger events.
+	 * 同时检查当前事务中关系的活跃使用，
+	 * 包括开放的扫描和待处理的 AFTER 触发器事件。
 	 */
 	CheckTableNotInUse(OldHeap, OidIsValid(indexOid) ? "CLUSTER" : "VACUUM");
 
-	/* Check heap and index are valid to cluster on */
+	/* 检查堆和索引是否有效可以聚簇 */
 	if (OidIsValid(indexOid))
 		check_index_is_clusterable(OldHeap, indexOid, AccessExclusiveLock);
 
 	/*
-	 * Quietly ignore the request if this is a materialized view which has not
-	 * been populated from its query. No harm is done because there is no data
-	 * to deal with, and we don't want to throw an error if this is part of a
-	 * multi-relation request -- for example, CLUSTER was run on the entire
-	 * database.
+	 * 如果这是一个尚未从其查询中填充数据的物化视图，
+	 * 则安静地忽略请求。这不会有任何损害，因为没有数据
+	 * 需要处理，而且如果这是多关系请求的一部分
+	 * -- 例如，在整个数据库上运行 CLUSTER --
+	 * 我们不想抛出错误。
 	 */
 	if (OldHeap->rd_rel->relkind == RELKIND_MATVIEW &&
 		!RelationIsPopulated(OldHeap))
@@ -466,35 +466,35 @@ cluster_rel(Oid tableOid, Oid indexOid, ClusterParams *params)
 		   OldHeap->rd_rel->relkind == RELKIND_TOASTVALUE);
 
 	/*
-	 * All predicate locks on the tuples or pages are about to be made
-	 * invalid, because we move tuples around.  Promote them to relation
-	 * locks.  Predicate locks on indexes will be promoted when they are
-	 * reindexed.
+	 * 元组或页上的所有谓词锁即将变得无效，
+	 * 因为我们会移动元组。将它们升级为关系
+	 * 锁。索引上的谓词锁将在重建索引时升级。
+	 * 
 	 */
 	TransferPredicateLocksToHeapRelation(OldHeap);
 
-	/* rebuild_relation does all the dirty work */
+	/* rebuild_relation 执行所有脏活 */
 	rebuild_relation(OldHeap, indexOid, verbose);
 
-	/* NB: rebuild_relation does table_close() on OldHeap */
+	/* 注意：rebuild_relation 会对 OldHeap 执行 table_close() */
 
 out:
-	/* Roll back any GUC changes executed by index functions */
+	/* 回滚索引函数所执行的任何 GUC 更改 */
 	AtEOXact_GUC(false, save_nestlevel);
 
-	/* Restore userid and security context */
+	/* 恢复 userid 和安全上下文 */
 	SetUserIdAndSecContext(save_userid, save_sec_context);
 
 	pgstat_progress_end_command();
 }
 
 /*
- * Verify that the specified heap and index are valid to cluster on
+ * 验证指定的堆和索引是否有效可以聚簇
  *
- * Side effect: obtains lock on the index.  The caller may
- * in some cases already have AccessExclusiveLock on the table, but
- * not in all cases so we can't rely on the table-level lock for
- * protection here.
+ * 副作用：获取索引上的锁。调用者在某些情况下
+ * 可能已经持有表的 AccessExclusiveLock，
+ * 但并非所有情况
+ * 都如此，所以我们不能依赖表级锁来保护这里。
  */
 void
 check_index_is_clusterable(Relation OldHeap, Oid indexOid, LOCKMODE lockmode)
@@ -504,7 +504,7 @@ check_index_is_clusterable(Relation OldHeap, Oid indexOid, LOCKMODE lockmode)
 	OldIndex = index_open(indexOid, lockmode);
 
 	/*
-	 * Check that index is in fact an index on the given relation
+	 * 检查索引确实是给定关系上的索引
 	 */
 	if (OldIndex->rd_index == NULL ||
 		OldIndex->rd_index->indrelid != RelationGetRelid(OldHeap))
@@ -514,7 +514,7 @@ check_index_is_clusterable(Relation OldHeap, Oid indexOid, LOCKMODE lockmode)
 						RelationGetRelationName(OldIndex),
 						RelationGetRelationName(OldHeap))));
 
-	/* Index AM must allow clustering */
+	/* 索引访问方法必须允许聚簇 */
 	if (!OldIndex->rd_indam->amclusterable)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -522,10 +522,10 @@ check_index_is_clusterable(Relation OldHeap, Oid indexOid, LOCKMODE lockmode)
 						RelationGetRelationName(OldIndex))));
 
 	/*
-	 * Disallow clustering on incomplete indexes (those that might not index
-	 * every row of the relation).  We could relax this by making a separate
-	 * seqscan pass over the table to copy the missing rows, but that seems
-	 * expensive and tedious.
+	 * 不允许对不完整的索引进行聚簇（那些可能不会索引
+	 * 关系中每一行的索引）。我们可以通过在表上进行单独的
+	 * 顺序扫描来复制缺失的行以放宽此限制，但那样似乎
+	 * 代价高且繁琐。
 	 */
 	if (!heap_attisnull(OldIndex->rd_indextuple, Anum_pg_index_indpred, NULL))
 		ereport(ERROR,
@@ -534,12 +534,12 @@ check_index_is_clusterable(Relation OldHeap, Oid indexOid, LOCKMODE lockmode)
 						RelationGetRelationName(OldIndex))));
 
 	/*
-	 * Disallow if index is left over from a failed CREATE INDEX CONCURRENTLY;
-	 * it might well not contain entries for every heap row, or might not even
-	 * be internally consistent.  (But note that we don't check indcheckxmin;
-	 * the worst consequence of following broken HOT chains would be that we
-	 * might put recently-dead tuples out-of-order in the new table, and there
-	 * is little harm in that.)
+	 * 不允许对失败的 CREATE INDEX CONCURRENTLY 留下的索引进行聚簇；
+	 * 它很可能不包含每个堆行的条目，甚至可能内部
+	 * 不一致。（但请注意，我们不检查 indcheckxmin；
+	 * 跟随破损的 HOT 链的最坏后果只是可能将最近死亡的
+	 * 元组以无序方式放入新表，这不会有什么太大的
+	 * 危害。）
 	 */
 	if (!OldIndex->rd_index->indisvalid)
 		ereport(ERROR,
@@ -547,14 +547,14 @@ check_index_is_clusterable(Relation OldHeap, Oid indexOid, LOCKMODE lockmode)
 				 errmsg("cannot cluster on invalid index \"%s\"",
 						RelationGetRelationName(OldIndex))));
 
-	/* Drop relcache refcnt on OldIndex, but keep lock */
+	/* 释放 OldIndex 的 relcache 引用计数，但保持锁 */
 	index_close(OldIndex, NoLock);
 }
 
 /*
- * mark_index_clustered: mark the specified index as the one clustered on
+ * mark_index_clustered: 将指定的索引标记为被聚簇的索引
  *
- * With indexOid == InvalidOid, will mark all indexes of rel not-clustered.
+ * 当 indexOid == InvalidOid 时，将将 rel 的所有索引标记为非聚簇。
  */
 void
 mark_index_clustered(Relation rel, Oid indexOid, bool is_internal)
@@ -564,14 +564,14 @@ mark_index_clustered(Relation rel, Oid indexOid, bool is_internal)
 	Relation	pg_index;
 	ListCell   *index;
 
-	/* Disallow applying to a partitioned table */
+	/* 不允许对分区表应用 */
 	if (rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("cannot mark index clustered in partitioned table")));
 
 	/*
-	 * If the index is already marked clustered, no need to do anything.
+	 * 如果索引已经被标记为聚簇，则不需要做任何事。
 	 */
 	if (OidIsValid(indexOid))
 	{
@@ -580,7 +580,7 @@ mark_index_clustered(Relation rel, Oid indexOid, bool is_internal)
 	}
 
 	/*
-	 * Check each index of the relation and set/clear the bit as needed.
+	 * 检查关系的每个索引并按需要设置/清除位。
 	 */
 	pg_index = table_open(IndexRelationId, RowExclusiveLock);
 
@@ -595,8 +595,8 @@ mark_index_clustered(Relation rel, Oid indexOid, bool is_internal)
 		indexForm = (Form_pg_index) GETSTRUCT(indexTuple);
 
 		/*
-		 * Unset the bit if set.  We know it's wrong because we checked this
-		 * earlier.
+		 * 如果位已设置则清除。我们知道它是错误的，
+		 * 因为我们之前已经检查过了。
 		 */
 		if (indexForm->indisclustered)
 		{
@@ -605,7 +605,7 @@ mark_index_clustered(Relation rel, Oid indexOid, bool is_internal)
 		}
 		else if (thisIndexOid == indexOid)
 		{
-			/* this was checked earlier, but let's be real sure */
+			/* 这之前已经检查过了，但让我们确实一点 */
 			if (!indexForm->indisvalid)
 				elog(ERROR, "cannot cluster on invalid index %u", indexOid);
 			indexForm->indisclustered = true;
@@ -622,12 +622,12 @@ mark_index_clustered(Relation rel, Oid indexOid, bool is_internal)
 }
 
 /*
- * rebuild_relation: rebuild an existing relation in index or physical order
+ * rebuild_relation: 按索引或物理顺序重建现有关系
  *
- * OldHeap: table to rebuild --- must be opened and exclusive-locked!
- * indexOid: index to cluster by, or InvalidOid to rewrite in physical order.
+ * OldHeap: 要重建的表 --- 必须已打开并且已加排他锁！
+ * indexOid: 用于聚簇的索引，或 InvalidOid 以按物理顺序重写。
  *
- * NB: this routine closes OldHeap at the right time; caller should not.
+ * 注意：此例程会在适当时机关闭 OldHeap；调用者不应关闭。
  */
 static void
 rebuild_relation(Relation OldHeap, Oid indexOid, bool verbose)
@@ -643,29 +643,29 @@ rebuild_relation(Relation OldHeap, Oid indexOid, bool verbose)
 	MultiXactId cutoffMulti;
 
 	if (OidIsValid(indexOid))
-		/* Mark the correct index as clustered */
+		/* 将正确的索引标记为聚簇 */
 		mark_index_clustered(OldHeap, indexOid, true);
 
-	/* Remember info about rel before closing OldHeap */
+	/* 在关闭 OldHeap 之前记住 rel 的信息 */
 	relpersistence = OldHeap->rd_rel->relpersistence;
 	is_system_catalog = IsSystemRelation(OldHeap);
 
-	/* Close relcache entry, but keep lock until transaction commit */
+	/* 关闭 relcache 条目，但保持锁直到事务提交 */
 	table_close(OldHeap, NoLock);
 
-	/* Create the transient table that will receive the re-ordered data */
+	/* 创建将接收重新排序数据的临时表 */
 	OIDNewHeap = make_new_heap(tableOid, tableSpace,
 							   accessMethod,
 							   relpersistence,
 							   AccessExclusiveLock);
 
-	/* Copy the heap data into the new table in the desired order */
+	/* 以所需顺序将堆数据复制到新表中 */
 	copy_table_data(OIDNewHeap, tableOid, indexOid, verbose,
 					&swap_toast_by_content, &frozenXid, &cutoffMulti);
 
 	/*
-	 * Swap the physical files of the target and transient tables, then
-	 * rebuild the target's indexes and throw away the transient table.
+	 * 交换目标表和临时表的物理文件，然后
+	 * 重建目标表的索引并丢弃临时表。
 	 */
 	finish_heap_swap(tableOid, OIDNewHeap, is_system_catalog,
 					 swap_toast_by_content, false, true,
@@ -675,14 +675,14 @@ rebuild_relation(Relation OldHeap, Oid indexOid, bool verbose)
 
 
 /*
- * Create the transient table that will be filled with new data during
- * CLUSTER, ALTER TABLE, and similar operations.  The transient table
- * duplicates the logical structure of the OldHeap; but will have the
- * specified physical storage properties NewTableSpace, NewAccessMethod, and
- * relpersistence.
+ * 创建临时表，该表将在 CLUSTER、ALTER TABLE 等类似操作中
+ * 被填充新数据。临时表复制了 OldHeap 的逻辑结构，
+ * 但将具有指定的物理存储属性 NewTableSpace、
+ * NewAccessMethod 和
+ * relpersistence。
  *
- * After this, the caller should load the new heap with transferred/modified
- * data, then call finish_heap_swap to complete the operation.
+ * 之后，调用者应加载转移/修改后的数据到新堆，
+ * 然后调用 finish_heap_swap 完成操作。
  */
 Oid
 make_new_heap(Oid OIDOldHeap, Oid NewTableSpace, Oid NewAccessMethod,
@@ -702,14 +702,14 @@ make_new_heap(Oid OIDOldHeap, Oid NewTableSpace, Oid NewAccessMethod,
 	OldHeapDesc = RelationGetDescr(OldHeap);
 
 	/*
-	 * Note that the NewHeap will not receive any of the defaults or
-	 * constraints associated with the OldHeap; we don't need 'em, and there's
-	 * no reason to spend cycles inserting them into the catalogs only to
-	 * delete them.
+	 * 请注意，
+	 * NewHeap 不会接收与 OldHeap 相关的任何默认值
+	 * 或约束；我们不需要它们，而且没有理由花费周期
+	 * 将它们插入到系统目录中只为了再删除它们。
 	 */
 
 	/*
-	 * But we do want to use reloptions of the old heap for new heap.
+	 * 但我们确实想要为新堆使用旧堆的 reloptions。
 	 */
 	tuple = SearchSysCache1(RELOID, ObjectIdGetDatum(OIDOldHeap));
 	if (!HeapTupleIsValid(tuple))
@@ -725,16 +725,16 @@ make_new_heap(Oid OIDOldHeap, Oid NewTableSpace, Oid NewAccessMethod,
 		namespaceid = RelationGetNamespace(OldHeap);
 
 	/*
-	 * Create the new heap, using a temporary name in the same namespace as
-	 * the existing table.  NOTE: there is some risk of collision with user
-	 * relnames.  Working around this seems more trouble than it's worth; in
-	 * particular, we can't create the new heap in a different namespace from
-	 * the old, or we will have problems with the TEMP status of temp tables.
+	 * 使用与现有表相同的命名空间中的临时名称
+	 * 创建新堆。注意：与用户 relname 碰撞有一定风险。
+	 * 解决这个问题似乎更麻烦，不值得；特别是，我们
+	 * 不能在与旧表不同的命名空间中创建新堆，否则
+	 * 我们会遇到临时表的 TEMP 状态问题。
 	 *
-	 * Note: the new heap is not a shared relation, even if we are rebuilding
-	 * a shared rel.  However, we do make the new heap mapped if the source is
-	 * mapped.  This simplifies swap_relation_files, and is absolutely
-	 * necessary for rebuilding pg_class, for reasons explained there.
+	 * 注意：新堆不是共享关系，即使我们在重建共享
+	 * 关系也是如此。但是，如果源是映射的，我们会将新堆
+	 * 也设为映射的。这简化了 swap_relation_files，而且
+	 * 对于重建 pg_class 是绝对必要的，原因在那里解释。
 	 */
 	snprintf(NewHeapName, sizeof(NewHeapName), "pg_temp_%u", OIDOldHeap);
 
@@ -764,26 +764,26 @@ make_new_heap(Oid OIDOldHeap, Oid NewTableSpace, Oid NewAccessMethod,
 	ReleaseSysCache(tuple);
 
 	/*
-	 * Advance command counter so that the newly-created relation's catalog
-	 * tuples will be visible to table_open.
+	 * 前进命令计数器，以便新创建关系的系统目录
+	 * 元组对 table_open 可见。
 	 */
 	CommandCounterIncrement();
 
 	/*
-	 * If necessary, create a TOAST table for the new relation.
+	 * 如果需要，为新关系创建 TOAST 表。
 	 *
-	 * If the relation doesn't have a TOAST table already, we can't need one
-	 * for the new relation.  The other way around is possible though: if some
-	 * wide columns have been dropped, NewHeapCreateToastTable can decide that
-	 * no TOAST table is needed for the new table.
+	 * 如果关系尚没有 TOAST 表，我们不可能需要为新关系
+	 * 创建一个。但反过来是可能的：如果某些宽列被删除了，
+	 * NewHeapCreateToastTable 可以决定新表不需要 TOAST 表。
 	 *
-	 * Note that NewHeapCreateToastTable ends with CommandCounterIncrement, so
-	 * that the TOAST table will be visible for insertion.
+	 * 请注意，
+	 * NewHeapCreateToastTable 以 CommandCounterIncrement 结束，
+	 * 因此 TOAST 表将对插入可见。
 	 */
 	toastid = OldHeap->rd_rel->reltoastrelid;
 	if (OidIsValid(toastid))
 	{
-		/* keep the existing toast table's reloptions, if any */
+		/* 保留现有 toast 表的 reloptions，如果有的话 */
 		tuple = SearchSysCache1(RELOID, ObjectIdGetDatum(toastid));
 		if (!HeapTupleIsValid(tuple))
 			elog(ERROR, "cache lookup failed for relation %u", toastid);
@@ -803,12 +803,12 @@ make_new_heap(Oid OIDOldHeap, Oid NewTableSpace, Oid NewAccessMethod,
 }
 
 /*
- * Do the physical copying of table data.
+ * 执行表数据的物理复制。
  *
- * There are three output parameters:
- * *pSwapToastByContent is set true if toast tables must be swapped by content.
- * *pFreezeXid receives the TransactionId used as freeze cutoff point.
- * *pCutoffMulti receives the MultiXactId used as a cutoff point.
+ * 有三个输出参数：
+ * *pSwapToastByContent 如果 toast 表必须通过内容交换则设为 true。
+ * *pFreezeXid 接收作为冻结截止点的 TransactionId。
+ * *pCutoffMulti 接收作为截止点的 MultiXactId。
  */
 static void
 copy_table_data(Oid OIDNewHeap, Oid OIDOldHeap, Oid OIDOldIndex, bool verbose,
@@ -837,7 +837,7 @@ copy_table_data(Oid OIDNewHeap, Oid OIDOldHeap, Oid OIDOldIndex, bool verbose,
 	pg_rusage_init(&ru0);
 
 	/*
-	 * Open the relations we need.
+	 * 打开我们需要的关系。
 	 */
 	NewHeap = table_open(OIDNewHeap, AccessExclusiveLock);
 	OldHeap = table_open(OIDOldHeap, AccessExclusiveLock);
@@ -846,61 +846,61 @@ copy_table_data(Oid OIDNewHeap, Oid OIDOldHeap, Oid OIDOldIndex, bool verbose,
 	else
 		OldIndex = NULL;
 
-	/* Store a copy of the namespace name for logging purposes */
+	/* 保存命名空间名称的副本以供日志记录 */
 	nspname = get_namespace_name(RelationGetNamespace(OldHeap));
 
 	/*
-	 * Their tuple descriptors should be exactly alike, but here we only need
-	 * assume that they have the same number of columns.
+	 * 它们的元组描述符应该完全相同，
+	 * 但这里我们只需要假定它们有相同数量的列。
 	 */
 	oldTupDesc = RelationGetDescr(OldHeap);
 	newTupDesc = RelationGetDescr(NewHeap);
 	Assert(newTupDesc->natts == oldTupDesc->natts);
 
 	/*
-	 * If the OldHeap has a toast table, get lock on the toast table to keep
-	 * it from being vacuumed.  This is needed because autovacuum processes
-	 * toast tables independently of their main tables, with no lock on the
-	 * latter.  If an autovacuum were to start on the toast table after we
-	 * compute our OldestXmin below, it would use a later OldestXmin, and then
-	 * possibly remove as DEAD toast tuples belonging to main tuples we think
-	 * are only RECENTLY_DEAD.  Then we'd fail while trying to copy those
-	 * tuples.
+	 * 如果 OldHeap 有 toast 表，则获取 toast 表上的锁以防止它
+	 * 被清理。这是必要的，因为 autovacuum 进程独立于它们的
+	 * 主表处理 toast 表，没有对主表的锁。如果 autovacuum
+	 * 在我们在下面计算 OldestXmin 之后开始处理 toast 表，
+	 * 它将使用更晚的 OldestXmin，然后可能将属于我们认为
+	 * 只是 RECENTLY_DEAD 的主表
+	 * 元组对应的 toast 元组作为 DEAD
+	 * 删除。那样我们在尝试复制那些元组时将会失败。
 	 *
-	 * We don't need to open the toast relation here, just lock it.  The lock
-	 * will be held till end of transaction.
+	 * 我们不需要在这里打开 toast 关系，只需要加锁。该锁
+	 * 将保持到事务结束。
 	 */
 	if (OldHeap->rd_rel->reltoastrelid)
 		LockRelationOid(OldHeap->rd_rel->reltoastrelid, AccessExclusiveLock);
 
 	/*
-	 * If both tables have TOAST tables, perform toast swap by content.  It is
-	 * possible that the old table has a toast table but the new one doesn't,
-	 * if toastable columns have been dropped.  In that case we have to do
-	 * swap by links.  This is okay because swap by content is only essential
-	 * for system catalogs, and we don't support schema changes for them.
+	 * 如果两个表都有 TOAST 表，则通过内容执行 toast
+	 * 交换。旧表有 toast 表但新表没有是可能的，
+	 * 如果 toastable 列被删除了。在那种情况下，我们必须
+	 * 通过链接交换。这是可以的，因为通过内容交换仅对
+	 * 系统目录至关重要，而我们不支持对它们的架构更改。
 	 */
 	if (OldHeap->rd_rel->reltoastrelid && NewHeap->rd_rel->reltoastrelid)
 	{
 		*pSwapToastByContent = true;
 
 		/*
-		 * When doing swap by content, any toast pointers written into NewHeap
-		 * must use the old toast table's OID, because that's where the toast
-		 * data will eventually be found.  Set this up by setting rd_toastoid.
-		 * This also tells toast_save_datum() to preserve the toast value
-		 * OIDs, which we want so as not to invalidate toast pointers in
-		 * system catalog caches, and to avoid making multiple copies of a
-		 * single toast value.
+		 * 当通过内容交换时，写入 NewHeap 的任何 toast 指针
+		 * 必须使用旧 toast 表的 OID，因为那是 toast 数据
+		 * 最终所在的地方。通过设置 rd_toastoid 来配置此设置。
+		 * 这也告诉 toast_save_datum() 保留 toast 值 OID，
+		 * 
+		 * 这是我们
+		 * 希望的，以便不会使系统目录缓存中的 toast 指针
+		 * 失效，并避免为单个 toast 值创建多个副本。
 		 *
-		 * Note that we must hold NewHeap open until we are done writing data,
-		 * since the relcache will not guarantee to remember this setting once
-		 * the relation is closed.  Also, this technique depends on the fact
-		 * that no one will try to read from the NewHeap until after we've
-		 * finished writing it and swapping the rels --- otherwise they could
-		 * follow the toast pointers to the wrong place.  (It would actually
-		 * work for values copied over from the old toast table, but not for
-		 * any values that we toast which were previously not toasted.)
+		 * 请注意，我们必须保持 NewHeap 打开直到我们完成写入数据，
+		 * 因为一旦关系关闭，relcache 将不会保证记住此设置。
+		 * 此外，这种技术依赖于没有人会在我们完成写入它
+		 * 并交换关系之前尝试从 NewHeap 读取的事实 --- 否则他们
+		 * 可能会将 toast 指针跟到错误的地方。（它实际上对于从
+		 * 旧 toast 表复制过来的值是可以工作的，但对于我们
+		 * 新 toast 的任何以前未 toast 的值则不行。）
 		 */
 		NewHeap->rd_toastoid = OldHeap->rd_rel->reltoastrelid;
 	}
@@ -908,16 +908,16 @@ copy_table_data(Oid OIDNewHeap, Oid OIDOldHeap, Oid OIDOldIndex, bool verbose,
 		*pSwapToastByContent = false;
 
 	/*
-	 * Compute xids used to freeze and weed out dead tuples and multixacts.
-	 * Since we're going to rewrite the whole table anyway, there's no reason
-	 * not to be aggressive about this.
+	 * 计算用于冻结和清除死亡元组和 multixact 的 xid。
+	 * 由于我们无论如何都要重写整个表，没有理由不
+	 * 在这方面积极一些。
 	 */
 	memset(&params, 0, sizeof(VacuumParams));
 	vacuum_get_cutoffs(OldHeap, &params, &cutoffs);
 
 	/*
-	 * FreezeXid will become the table's new relfrozenxid, and that mustn't go
-	 * backwards, so take the max.
+	 * FreezeXid 将成为表的新 relfrozenxid，这个值不能回退，
+	 * 所以取最大值。
 	 */
 	if (TransactionIdIsValid(OldHeap->rd_rel->relfrozenxid) &&
 		TransactionIdPrecedes(cutoffs.FreezeLimit,
@@ -925,7 +925,7 @@ copy_table_data(Oid OIDNewHeap, Oid OIDOldHeap, Oid OIDOldIndex, bool verbose,
 		cutoffs.FreezeLimit = OldHeap->rd_rel->relfrozenxid;
 
 	/*
-	 * MultiXactCutoff, similarly, shouldn't go backwards either.
+	 * MultiXactCutoff 同样也不应回退。
 	 */
 	if (MultiXactIdIsValid(OldHeap->rd_rel->relminmxid) &&
 		MultiXactIdPrecedes(cutoffs.MultiXactCutoff,
@@ -933,18 +933,18 @@ copy_table_data(Oid OIDNewHeap, Oid OIDOldHeap, Oid OIDOldIndex, bool verbose,
 		cutoffs.MultiXactCutoff = OldHeap->rd_rel->relminmxid;
 
 	/*
-	 * Decide whether to use an indexscan or seqscan-and-optional-sort to scan
-	 * the OldHeap.  We know how to use a sort to duplicate the ordering of a
-	 * btree index, and will use seqscan-and-sort for that case if the planner
-	 * tells us it's cheaper.  Otherwise, always indexscan if an index is
-	 * provided, else plain seqscan.
+	 * 决定是使用索引扫描还是顺序扫描加可选排序来扫描
+	 * OldHeap。我们知道如何用排序来复制 btree 索引的顺序，
+	 * 并且如果计划器告诉我们更便宜的话，将对那种情况
+	 * 使用顺序扫描加排序。否则，如果提供了索引则始终
+	 * 使用索引扫描，否则为纯顺序扫描。
 	 */
 	if (OldIndex != NULL && OldIndex->rd_rel->relam == BTREE_AM_OID)
 		use_sort = plan_cluster_use_sort(OIDOldHeap, OIDOldIndex);
 	else
 		use_sort = false;
 
-	/* Log what we're doing */
+	/* 记录我们正在做什么 */
 	if (OldIndex != NULL && !use_sort)
 		ereport(elevel,
 				(errmsg("clustering \"%s.%s\" using index scan on \"%s\"",
@@ -963,10 +963,10 @@ copy_table_data(Oid OIDNewHeap, Oid OIDOldHeap, Oid OIDOldIndex, bool verbose,
 						RelationGetRelationName(OldHeap))));
 
 	/*
-	 * Hand off the actual copying to AM specific function, the generic code
-	 * cannot know how to deal with visibility across AMs. Note that this
-	 * routine is allowed to set FreezeXid / MultiXactCutoff to different
-	 * values (e.g. because the AM doesn't use freezing).
+	 * 将实际的复制工作交给访问方法特定的函数，
+	 * 通用代码无法知道如何处理不同访问方法之间的
+	 * 可见性。请注意，此例程允许将 FreezeXid / MultiXactCutoff
+	 * 设置为不同的值（例如，因为访问方法不使用冻结）。
 	 */
 	table_relation_copy_for_cluster(OldHeap, NewHeap, OldIndex, use_sort,
 									cutoffs.OldestXmin, &cutoffs.FreezeLimit,
@@ -974,16 +974,16 @@ copy_table_data(Oid OIDNewHeap, Oid OIDOldHeap, Oid OIDOldIndex, bool verbose,
 									&num_tuples, &tups_vacuumed,
 									&tups_recently_dead);
 
-	/* return selected values to caller, get set as relfrozenxid/minmxid */
+	/* 将选定的值返回给调用者，将被设置为 relfrozenxid/minmxid */
 	*pFreezeXid = cutoffs.FreezeLimit;
 	*pCutoffMulti = cutoffs.MultiXactCutoff;
 
-	/* Reset rd_toastoid just to be tidy --- it shouldn't be looked at again */
+	/* 重置 rd_toastoid 仅为整洁 --- 不应再查看它 */
 	NewHeap->rd_toastoid = InvalidOid;
 
 	num_pages = RelationGetNumberOfBlocks(NewHeap);
 
-	/* Log what we did */
+	/* 记录我们做了什么 */
 	ereport(elevel,
 			(errmsg("\"%s.%s\": found %.0f removable, %.0f nonremovable row versions in %u pages",
 					nspname,
@@ -1000,7 +1000,7 @@ copy_table_data(Oid OIDNewHeap, Oid OIDOldHeap, Oid OIDOldIndex, bool verbose,
 	table_close(OldHeap, NoLock);
 	table_close(NewHeap, NoLock);
 
-	/* Update pg_class to reflect the correct values of pages and tuples. */
+	/* 更新 pg_class 以反映页和元组的正确值。 */
 	relRelation = table_open(RelationRelationId, RowExclusiveLock);
 
 	reltup = SearchSysCacheCopy1(RELOID, ObjectIdGetDatum(OIDNewHeap));
@@ -1011,45 +1011,45 @@ copy_table_data(Oid OIDNewHeap, Oid OIDOldHeap, Oid OIDOldIndex, bool verbose,
 	relform->relpages = num_pages;
 	relform->reltuples = num_tuples;
 
-	/* Don't update the stats for pg_class.  See swap_relation_files. */
+	/* 不要更新 pg_class 的统计信息。参见 swap_relation_files。 */
 	if (OIDOldHeap != RelationRelationId)
 		CatalogTupleUpdate(relRelation, &reltup->t_self, reltup);
 	else
 		CacheInvalidateRelcacheByTuple(reltup);
 
-	/* Clean up. */
+	/* 清理。 */
 	heap_freetuple(reltup);
 	table_close(relRelation, RowExclusiveLock);
 
-	/* Make the update visible */
+	/* 使更新可见 */
 	CommandCounterIncrement();
 }
 
 /*
- * Swap the physical files of two given relations.
+ * 交换两个给定关系的物理文件。
  *
- * We swap the physical identity (reltablespace, relfilenumber) while keeping
- * the same logical identities of the two relations.  relpersistence is also
- * swapped, which is critical since it determines where buffers live for each
- * relation.
+ * 我们交换物理标识（reltablespace、relfilenumber），同时保持
+ * 两个关系的逻辑标识不变。relpersistence 也被交换，
+ * 这是至关重要的，因为它决定了每个关系的缓冲区存放位置。
  *
- * We can swap associated TOAST data in either of two ways: recursively swap
- * the physical content of the toast tables (and their indexes), or swap the
- * TOAST links in the given relations' pg_class entries.  The former is needed
- * to manage rewrites of shared catalogs (where we cannot change the pg_class
- * links) while the latter is the only way to handle cases in which a toast
- * table is added or removed altogether.
+ * 我们可以用两种方式之一交换关联的 TOAST 数据：递归地交换
+ * toast 表（及其索引）的物理内容，或者交换给定关系的
+ * pg_class 条目中的 TOAST 链接。前者是管理共享系统目录重写
+ * 所必需的（在那里我们不能更改 pg_class 链接），而后者是
+ * 处理 toast 表被添加或完全删除情况的唯一方式。
  *
- * Additionally, the first relation is marked with relfrozenxid set to
- * frozenXid.  It seems a bit ugly to have this here, but the caller would
- * have to do it anyway, so having it here saves a heap_update.  Note: in
- * the swap-toast-links case, we assume we don't need to change the toast
- * table's relfrozenxid: the new version of the toast table should already
- * have relfrozenxid set to RecentXmin, which is good enough.
+ * 此外，第一个关系被标记为 relfrozenxid 设置为 frozenXid。
+ * 将这个放在这里似乎有点丑陋，但调用者无论如何都得做这件事，
+ * 所以放在这里可以省去一次 heap_update。注意：在交换 toast 链接
+ * 的情况下，我们假设不需要更改 toast 表的 relfrozenxid：
+ * toast 表的新版本应已经将 relfrozenxid 设置为 RecentXmin，
+ * 
+ * 
+ * 这就够了。
  *
- * Lastly, if r2 and its toast table and toast index (if any) are mapped,
- * their OIDs are emitted into mapped_tables[].  This is hacky but beats
- * having to look the information up again later in finish_heap_swap.
+ * 最后，如果 r2 及其 toast 表和 toast 索引（如果有的话）是映射的，
+ * 它们的 OID 会被发布到 mapped_tables[] 中。这有点土办法，但比
+ * 在 finish_heap_swap 中后续再次查找这些信息要好。
  */
 static void
 swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
@@ -1071,7 +1071,7 @@ swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
 	Oid			relam1,
 				relam2;
 
-	/* We need writable copies of both pg_class tuples. */
+	/* 我们需要两个 pg_class 元组的可写副本。 */
 	relRelation = table_open(RelationRelationId, RowExclusiveLock);
 
 	reltup1 = SearchSysCacheCopy1(RELOID, ObjectIdGetDatum(r1));
@@ -1093,7 +1093,7 @@ swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
 		RelFileNumberIsValid(relfilenumber2))
 	{
 		/*
-		 * Normal non-mapped relations: swap relfilenumbers, reltablespaces,
+		 * 普通非映射关系：交换 relfilenumber、reltablespace、
 		 * relpersistence
 		 */
 		Assert(!target_is_pg_class);
@@ -1114,7 +1114,7 @@ swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
 		relform1->relpersistence = relform2->relpersistence;
 		relform2->relpersistence = swptmpchr;
 
-		/* Also swap toast links, if we're swapping by links */
+		/* 如果我们通过链接交换，也交换 toast 链接 */
 		if (!swap_toast_by_content)
 		{
 			swaptemp = relform1->reltoastrelid;
@@ -1125,8 +1125,8 @@ swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
 	else
 	{
 		/*
-		 * Mapped-relation case.  Here we have to swap the relation mappings
-		 * instead of modifying the pg_class columns.  Both must be mapped.
+		 * 映射关系情况。这里我们必须交换关系映射
+		 * 而不是修改 pg_class 列。两者都必须是映射的。
 		 */
 		if (RelFileNumberIsValid(relfilenumber1) ||
 			RelFileNumberIsValid(relfilenumber2))
@@ -1134,11 +1134,11 @@ swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
 				 NameStr(relform1->relname));
 
 		/*
-		 * We can't change the tablespace nor persistence of a mapped rel, and
-		 * we can't handle toast link swapping for one either, because we must
-		 * not apply any critical changes to its pg_class row.  These cases
-		 * should be prevented by upstream permissions tests, so these checks
-		 * are non-user-facing emergency backstop.
+		 * 我们不能更改映射关系的表空间或持久性，
+		 * 也不能处理它的 toast 链接交换，因为我们不能
+		 * 对其 pg_class 行应用任何关键更改。
+		 * 这些情况应由上游的
+		 * 权限测试防止，所以这些检查是非用户面向的紧急后备。
 		 */
 		if (relform1->reltablespace != relform2->reltablespace)
 			elog(ERROR, "cannot change tablespace of mapped relation \"%s\"",
@@ -1155,7 +1155,7 @@ swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
 				 NameStr(relform1->relname));
 
 		/*
-		 * Fetch the mappings --- shouldn't fail, but be paranoid
+		 * 获取映射 --- 不应失败，但保持谨慎
 		 */
 		relfilenumber1 = RelationMapOidToFilenumber(r1, relform1->relisshared);
 		if (!RelFileNumberIsValid(relfilenumber1))
@@ -1167,20 +1167,20 @@ swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
 				 NameStr(relform2->relname), r2);
 
 		/*
-		 * Send replacement mappings to relmapper.  Note these won't actually
-		 * take effect until CommandCounterIncrement.
+		 * 向 relmapper 发送替换映射。请注意，这些映射
+		 * 直到 CommandCounterIncrement 才会实际生效。
 		 */
 		RelationMapUpdateMap(r1, relfilenumber2, relform1->relisshared, false);
 		RelationMapUpdateMap(r2, relfilenumber1, relform2->relisshared, false);
 
-		/* Pass OIDs of mapped r2 tables back to caller */
+		/* 将映射的 r2 表的 OID 传递回给调用者 */
 		*mapped_tables++ = r2;
 	}
 
 	/*
-	 * Recognize that rel1's relfilenumber (swapped from rel2) is new in this
-	 * subtransaction. The rel2 storage (swapped from rel1) may or may not be
-	 * new.
+	 * 识别 rel1 的 relfilenumber（从 rel2 交换而来）在此
+	 * 子事务中是新的。rel2 的存储（从 rel1 交换而来）
+	 * 可能是新的，也可能不是。
 	 */
 	{
 		Relation	rel1,
@@ -1197,14 +1197,14 @@ swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
 	}
 
 	/*
-	 * In the case of a shared catalog, these next few steps will only affect
-	 * our own database's pg_class row; but that's okay, because they are all
-	 * noncritical updates.  That's also an important fact for the case of a
-	 * mapped catalog, because it's possible that we'll commit the map change
-	 * and then fail to commit the pg_class update.
+	 * 在共享系统目录的情况下，接下来的几个步骤只会影响
+	 * 我们自己数据库的 pg_class 行；但这没关系，因为它们都是
+	 * 非关键更新。这对于映射系统目录的情况也是一个重要事实，
+	 * 因为可能出现我们提交了映射更改但然后无法提交
+	 * pg_class 更新的情况。
 	 */
 
-	/* set rel1's frozen Xid and minimum MultiXid */
+	/* 设置 rel1 的冻结 Xid 和最小 MultiXid */
 	if (relform1->relkind != RELKIND_INDEX)
 	{
 		Assert(!TransactionIdIsValid(frozenXid) ||
@@ -1213,7 +1213,7 @@ swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
 		relform1->relminmxid = cutoffMulti;
 	}
 
-	/* swap size statistics too, since new rel has freshly-updated stats */
+	/* 同时交换大小统计信息，因为新关系有新更新的统计数据 */
 	{
 		int32		swap_pages;
 		float4		swap_tuples;
@@ -1233,13 +1233,13 @@ swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
 	}
 
 	/*
-	 * Update the tuples in pg_class --- unless the target relation of the
-	 * swap is pg_class itself.  In that case, there is zero point in making
-	 * changes because we'd be updating the old data that we're about to throw
-	 * away.  Because the real work being done here for a mapped relation is
-	 * just to change the relation map settings, it's all right to not update
-	 * the pg_class rows in this case. The most important changes will instead
-	 * performed later, in finish_heap_swap() itself.
+	 * 更新 pg_class 中的元组 --- 除非交换的目标关系
+	 * 是 pg_class 本身。在那种情况下，进行更改毫无意义，
+	 * 因为我们会更新我们即将抛弃的旧数据。因为在这里
+	 * 对映射关系真正做的工作只是更改关系映射设置，
+	 * 在这种情况下不更新 pg_class 行是可以的。
+	 * 最重要的更改
+	 * 将在后续的 finish_heap_swap() 本身中执行。
 	 */
 	if (!target_is_pg_class)
 	{
@@ -1254,15 +1254,15 @@ swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
 	}
 	else
 	{
-		/* no update ... but we do still need relcache inval */
+		/* 不更新 ... 但我们仍然需要 relcache 无效化 */
 		CacheInvalidateRelcacheByTuple(reltup1);
 		CacheInvalidateRelcacheByTuple(reltup2);
 	}
 
 	/*
-	 * Now that pg_class has been updated with its relevant information for
-	 * the swap, update the dependency of the relations to point to their new
-	 * table AM, if it has changed.
+	 * 现在 pg_class 已经更新了其与交换相关的信息，
+	 * 更新关系的依赖关系以指向它们新的表访问方法，
+	 * 如果它发生了变化的话。
 	 */
 	if (relam1 != relam2)
 	{
@@ -1285,8 +1285,8 @@ swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
 	}
 
 	/*
-	 * Post alter hook for modified relations. The change to r2 is always
-	 * internal, but r1 depends on the invocation context.
+	 * 修改后关系的 Post alter 钩子。r2 的更改始终是内部的，
+	 * 但 r1 取决于调用上下文。
 	 */
 	InvokeObjectPostAlterHookArg(RelationRelationId, r1, 0,
 								 InvalidOid, is_internal);
@@ -1294,8 +1294,8 @@ swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
 								 InvalidOid, true);
 
 	/*
-	 * If we have toast tables associated with the relations being swapped,
-	 * deal with them too.
+	 * 如果我们有与被交换的关系相关联的 toast 表，
+	 * 也要处理它们。
 	 */
 	if (relform1->reltoastrelid || relform2->reltoastrelid)
 	{
@@ -1303,7 +1303,7 @@ swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
 		{
 			if (relform1->reltoastrelid && relform2->reltoastrelid)
 			{
-				/* Recursively swap the contents of the toast tables */
+				/* 递归地交换 toast 表的内容 */
 				swap_relation_files(relform1->reltoastrelid,
 									relform2->reltoastrelid,
 									target_is_pg_class,
@@ -1315,37 +1315,37 @@ swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
 			}
 			else
 			{
-				/* caller messed up */
+				/* 调用者搞砸了 */
 				elog(ERROR, "cannot swap toast files by content when there's only one");
 			}
 		}
 		else
 		{
 			/*
-			 * We swapped the ownership links, so we need to change dependency
-			 * data to match.
+			 * 我们交换了所有权链接，所以我们需要更改依赖
+			 * 数据以匹配。
 			 *
-			 * NOTE: it is possible that only one table has a toast table.
+			 * 注意：可能只有一个表有 toast 表。
 			 *
-			 * NOTE: at present, a TOAST table's only dependency is the one on
-			 * its owning table.  If more are ever created, we'd need to use
-			 * something more selective than deleteDependencyRecordsFor() to
-			 * get rid of just the link we want.
+			 * 注意：当前，TOAST 表的唯一依赖是对其拥有表的依赖。
+			 * 如果将来创建更多的依赖，我们需要使用比
+			 * deleteDependencyRecordsFor() 更有选择性的方法来只删除
+			 * 我们想要的链接。
 			 */
 			ObjectAddress baseobject,
 						toastobject;
 			long		count;
 
 			/*
-			 * We disallow this case for system catalogs, to avoid the
-			 * possibility that the catalog we're rebuilding is one of the
-			 * ones the dependency changes would change.  It's too late to be
-			 * making any data changes to the target catalog.
+			 * 我们不允许对系统目录出现这种情况，以避免
+			 * 我们正在重建的目录就是依赖更改会更改的目录之一的
+			 * 可能性。现在对目标目录进行任何数据更改都已经太晚了。
+			 * 
 			 */
 			if (IsSystemClass(r1, relform1))
 				elog(ERROR, "cannot swap toast files by links for system catalogs");
 
-			/* Delete old dependencies */
+			/* 删除旧的依赖关系 */
 			if (relform1->reltoastrelid)
 			{
 				count = deleteDependencyRecordsFor(RelationRelationId,
@@ -1365,7 +1365,7 @@ swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
 						 count);
 			}
 
-			/* Register new dependencies */
+			/* 注册新的依赖关系 */
 			baseobject.classId = RelationRelationId;
 			baseobject.objectSubId = 0;
 			toastobject.classId = RelationRelationId;
@@ -1390,9 +1390,9 @@ swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
 	}
 
 	/*
-	 * If we're swapping two toast tables by content, do the same for their
-	 * valid index. The swap can actually be safely done only if the relations
-	 * have indexes.
+	 * 如果我们通过内容交换两个 toast 表，也对它们的
+	 * 有效索引执行相同操作。实际上，只有当关系有索引时
+	 * 才能安全地执行交换。
 	 */
 	if (swap_toast_by_content &&
 		relform1->relkind == RELKIND_TOASTVALUE &&
@@ -1401,7 +1401,7 @@ swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
 		Oid			toastIndex1,
 					toastIndex2;
 
-		/* Get valid index for each relation */
+		/* 获取每个关系的有效索引 */
 		toastIndex1 = toast_get_valid_index(r1,
 											AccessExclusiveLock);
 		toastIndex2 = toast_get_valid_index(r2,
@@ -1417,35 +1417,35 @@ swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
 							mapped_tables);
 	}
 
-	/* Clean up. */
+	/* 清理。 */
 	heap_freetuple(reltup1);
 	heap_freetuple(reltup2);
 
 	table_close(relRelation, RowExclusiveLock);
 
 	/*
-	 * Close both relcache entries' smgr links.  We need this kluge because
-	 * both links will be invalidated during upcoming CommandCounterIncrement.
-	 * Whichever of the rels is the second to be cleared will have a dangling
-	 * reference to the other's smgr entry.  Rather than trying to avoid this
-	 * by ordering operations just so, it's easiest to close the links first.
-	 * (Fortunately, since one of the entries is local in our transaction,
-	 * it's sufficient to clear out our own relcache this way; the problem
-	 * cannot arise for other backends when they see our update on the
-	 * non-transient relation.)
+	 * 关闭两个 relcache 条目的 smgr 链接。我们需要这个歪招
+	 * 因为两个链接都将在即将到来的 Comma
+	 * ndCounterIncrement 中
+	 * 被无效化。无论哪个关系第二个被清除，都会有一个
+	 * 挂起的对另一个 smgr 条目的引用。与其尝试通过
+	 * 精心安排操作顺序来避免这个问题，不如先关闭链接。
+	 * （幸运的是，由于其中一个条目在我们的事务中是本地的，
+	 * 只需要用这种方式清除我们自己的 relcache 就足够了；
+	 * 当其他后端看到我们对非临时关系的更新时，
+	 * 这个问题不会出现。）
 	 *
-	 * Caution: the placement of this step interacts with the decision to
-	 * handle toast rels by recursion.  When we are trying to rebuild pg_class
-	 * itself, the smgr close on pg_class must happen after all accesses in
-	 * this function.
+	 * 警告：此步骤的位置与通过递归处理 toast rels 的决定
+	 * 相互作用。当我们尝试重建 pg_class 本身时，对 pg_class
+	 * 的 smgr 关闭必须在此函数中的所有访问之后发生。
 	 */
 	RelationCloseSmgrByOid(r1);
 	RelationCloseSmgrByOid(r2);
 }
 
 /*
- * Remove the transient table that was built by make_new_heap, and finish
- * cleaning up (including rebuilding all indexes on the old heap).
+ * 删除由 make_new_heap 构建的临时表，并完成
+ * 清理工作（包括重建旧堆上的所有索引）。
  */
 void
 finish_heap_swap(Oid OIDOldHeap, Oid OIDNewHeap,
@@ -1463,16 +1463,16 @@ finish_heap_swap(Oid OIDOldHeap, Oid OIDNewHeap,
 	ReindexParams reindex_params = {0};
 	int			i;
 
-	/* Report that we are now swapping relation files */
+	/* 报告我们现在正在交换关系文件 */
 	pgstat_progress_update_param(PROGRESS_CLUSTER_PHASE,
 								 PROGRESS_CLUSTER_PHASE_SWAP_REL_FILES);
 
-	/* Zero out possible results from swapped_relation_files */
+	/* 将 swapped_relation_files 的可能结果零化 */
 	memset(mapped_tables, 0, sizeof(mapped_tables));
 
 	/*
-	 * Swap the contents of the heap relations (including any toast tables).
-	 * Also set old heap's relfrozenxid to frozenXid.
+	 * 交换堆关系的内容（包括任何 toast 表）。
+	 * 同时将旧堆的 relfrozenxid 设置为 frozenXid。
 	 */
 	swap_relation_files(OIDOldHeap, OIDNewHeap,
 						(OIDOldHeap == RelationRelationId),
@@ -1480,61 +1480,61 @@ finish_heap_swap(Oid OIDOldHeap, Oid OIDNewHeap,
 						frozenXid, cutoffMulti, mapped_tables);
 
 	/*
-	 * If it's a system catalog, queue a sinval message to flush all catcaches
-	 * on the catalog when we reach CommandCounterIncrement.
+	 * 如果是系统目录，排队一个 sinval 消息以在我们
+	 * 到达 CommandCounterIncrement 时刷新目录上的所有目录缓存。
 	 */
 	if (is_system_catalog)
 		CacheInvalidateCatalog(OIDOldHeap);
 
 	/*
-	 * Rebuild each index on the relation (but not the toast table, which is
-	 * all-new at this point).  It is important to do this before the DROP
-	 * step because if we are processing a system catalog that will be used
-	 * during DROP, we want to have its indexes available.  There is no
-	 * advantage to the other order anyway because this is all transactional,
-	 * so no chance to reclaim disk space before commit.  We do not need a
-	 * final CommandCounterIncrement() because reindex_relation does it.
+	 * 重建关系上的每个索引（但不包括 toast 表，在这个时候
+	 * 它已经是全新的）。重要的是在 DROP 步骤之前执行此操作，
+	 * 因为如果我们正在处理一个将在 DROP 期间使用的系统目录，
+	 * 我们希望其索引可用。另一种顺序也没有好处，因为
+	 * 这一切都是事务性的，所以在提交之前没有机会回收磁盘
+	 * 空间。我们不需要最后的 CommandCounterIncrement()，
+	 * 因为 reindex_relation 会执行它。
 	 *
-	 * Note: because index_build is called via reindex_relation, it will never
-	 * set indcheckxmin true for the indexes.  This is OK even though in some
-	 * sense we are building new indexes rather than rebuilding existing ones,
-	 * because the new heap won't contain any HOT chains at all, let alone
-	 * broken ones, so it can't be necessary to set indcheckxmin.
+	 * 注意：因为 index_build 是通过 reindex_relation 调用的，它永远不会
+	 * 为索引设置 indcheckxmin 为 true。这是可以的，即使从某种意义上
+	 * 说我们在构建新索引而不是重建现有索引，因为新堆
+	 * 完全不会包含任何 HOT 链，更不用说破损的链了，
+	 * 所以不可能需要设置 indcheckxmin。
 	 */
 	reindex_flags = REINDEX_REL_SUPPRESS_INDEX_USE;
 	if (check_constraints)
 		reindex_flags |= REINDEX_REL_CHECK_CONSTRAINTS;
 
 	/*
-	 * Ensure that the indexes have the same persistence as the parent
-	 * relation.
+	 * 确保索引具有与父关系相同的
+	 * 持久性。
 	 */
 	if (newrelpersistence == RELPERSISTENCE_UNLOGGED)
 		reindex_flags |= REINDEX_REL_FORCE_INDEXES_UNLOGGED;
 	else if (newrelpersistence == RELPERSISTENCE_PERMANENT)
 		reindex_flags |= REINDEX_REL_FORCE_INDEXES_PERMANENT;
 
-	/* Report that we are now reindexing relations */
+	/* 报告我们现在正在重建索引 */
 	pgstat_progress_update_param(PROGRESS_CLUSTER_PHASE,
 								 PROGRESS_CLUSTER_PHASE_REBUILD_INDEX);
 
 	reindex_relation(OIDOldHeap, reindex_flags, &reindex_params);
 
-	/* Report that we are now doing clean up */
+	/* 报告我们现在正在清理 */
 	pgstat_progress_update_param(PROGRESS_CLUSTER_PHASE,
 								 PROGRESS_CLUSTER_PHASE_FINAL_CLEANUP);
 
 	/*
-	 * If the relation being rebuilt is pg_class, swap_relation_files()
-	 * couldn't update pg_class's own pg_class entry (check comments in
-	 * swap_relation_files()), thus relfrozenxid was not updated. That's
-	 * annoying because a potential reason for doing a VACUUM FULL is a
-	 * imminent or actual anti-wraparound shutdown.  So, now that we can
-	 * access the new relation using its indices, update relfrozenxid.
-	 * pg_class doesn't have a toast relation, so we don't need to update the
-	 * corresponding toast relation. Not that there's little point moving all
-	 * relfrozenxid updates here since swap_relation_files() needs to write to
-	 * pg_class for non-mapped relations anyway.
+	 * 如果被重建的关系是 pg_class，swap_relation_files()
+	 * 无法更新 pg_class 自己的 pg_class 条目（参见
+	 * swap_relation_files() 中的注释），因此 relfrozenxid 没有被更新。
+	 * 这很烦人，因为执行 VACUUM FULL 的一个潜在原因是
+	 * 即将到来或实际发生的反回绕关闭。所以，现在我们可以
+	 * 使用其索引访问新关系，更新 relfrozenxid。
+	 * pg_class 没有 toast 关系，所以我们不需要更新对应的
+	 * toast 关系。并非所有 relfrozenxid 更新都应移到这里，
+	 * 因为 swap_relation_files() 无论如何都需要为非映射关系
+	 * 写入 pg_class。
 	 */
 	if (OIDOldHeap == RelationRelationId)
 	{
@@ -1557,37 +1557,37 @@ finish_heap_swap(Oid OIDOldHeap, Oid OIDNewHeap,
 		table_close(relRelation, RowExclusiveLock);
 	}
 
-	/* Destroy new heap with old filenumber */
+	/* 使用旧 filenumber 销毁新堆 */
 	object.classId = RelationRelationId;
 	object.objectId = OIDNewHeap;
 	object.objectSubId = 0;
 
 	/*
-	 * The new relation is local to our transaction and we know nothing
-	 * depends on it, so DROP_RESTRICT should be OK.
+	 * 新关系是我们事务的本地关系，我们知道没有任何东西
+	 * 依赖它，所以 DROP_RESTRICT 应该是可以的。
 	 */
 	performDeletion(&object, DROP_RESTRICT, PERFORM_DELETION_INTERNAL);
 
-	/* performDeletion does CommandCounterIncrement at end */
+	/* performDeletion 在末尾执行 CommandCounterIncrement */
 
 	/*
-	 * Now we must remove any relation mapping entries that we set up for the
-	 * transient table, as well as its toast table and toast index if any. If
-	 * we fail to do this before commit, the relmapper will complain about new
-	 * permanent map entries being added post-bootstrap.
+	 * 现在我们必须删除为临时表以及其 toast 表和 toast
+	 * 索引（如果有的话）设置的任何关系映射条目。如果我们
+	 * 未能在提交前执行此操作，relmapper 会抱怨在 bootstrap 之后
+	 * 添加了新的永久映射条目。
 	 */
 	for (i = 0; OidIsValid(mapped_tables[i]); i++)
 		RelationMapRemoveMapping(mapped_tables[i]);
 
 	/*
-	 * At this point, everything is kosher except that, if we did toast swap
-	 * by links, the toast table's name corresponds to the transient table.
-	 * The name is irrelevant to the backend because it's referenced by OID,
-	 * but users looking at the catalogs could be confused.  Rename it to
-	 * prevent this problem.
+	 * 到此时，一切就绪，除了如果我们通过链接进行了
+	 * toast 交换，那么 toast 表的名称对应于临时表。
+	 * 名称对后端无关紧要，因为它通过 OID 引用，
+	 * 但查看系统目录的用户可能会感到困惑。
+	 * 重命名它以防止这个问题。
 	 *
-	 * Note no lock required on the relation, because we already hold an
-	 * exclusive lock on it.
+	 * 请注意，不需要对关系加锁，
+	 * 因为我们已经持有它的排他锁。
 	 */
 	if (!swap_toast_by_content)
 	{
@@ -1599,17 +1599,17 @@ finish_heap_swap(Oid OIDOldHeap, Oid OIDNewHeap,
 			Oid			toastidx;
 			char		NewToastName[NAMEDATALEN];
 
-			/* Get the associated valid index to be renamed */
+			/* 获取要重命名的关联有效索引 */
 			toastidx = toast_get_valid_index(newrel->rd_rel->reltoastrelid,
 											 NoLock);
 
-			/* rename the toast table ... */
+			/* 重命名 toast 表 ... */
 			snprintf(NewToastName, NAMEDATALEN, "pg_toast_%u",
 					 OIDOldHeap);
 			RenameRelationInternal(newrel->rd_rel->reltoastrelid,
 								   NewToastName, true, false);
 
-			/* ... and its valid index too. */
+			/* ... 以及其有效索引。 */
 			snprintf(NewToastName, NAMEDATALEN, "pg_toast_%u_index",
 					 OIDOldHeap);
 
@@ -1617,9 +1617,9 @@ finish_heap_swap(Oid OIDOldHeap, Oid OIDNewHeap,
 								   NewToastName, true, true);
 
 			/*
-			 * Reset the relrewrite for the toast. The command-counter
-			 * increment is required here as we are about to update the tuple
-			 * that is updated as part of RenameRelationInternal.
+			 * 重置 toast 的 relrewrite。这里需要命令计数器
+			 * 增量，因为我们即将更新作为
+			 * RenameRelationInternal 一部分被更新的元组。
 			 */
 			CommandCounterIncrement();
 			ResetRelRewrite(newrel->rd_rel->reltoastrelid);
@@ -1627,7 +1627,7 @@ finish_heap_swap(Oid OIDOldHeap, Oid OIDNewHeap,
 		relation_close(newrel, NoLock);
 	}
 
-	/* if it's not a catalog table, clear any missing attribute settings */
+	/* 如果不是系统目录表，清除任何缺失属性设置 */
 	if (!is_system_catalog)
 	{
 		Relation	newrel;
@@ -1640,10 +1640,10 @@ finish_heap_swap(Oid OIDOldHeap, Oid OIDNewHeap,
 
 
 /*
- * Get a list of tables that the current user owns and
- * have indisclustered set.  Return the list in a List * of RelToCluster
- * (stored in the specified memory context), each one giving the tableOid
- * and the indexOid on which the table is already clustered.
+ * 获取当前用户拥有且设置了 indisclustered 的表的列表。
+ * 以 RelToCluster 的 List * 格式返回列表
+ * （存储在指定的内存上下文中），每个元素给出 tableOid
+ * 和表已被聚簇的索引 indexOid。
  */
 static List *
 get_tables_to_cluster(MemoryContext cluster_context)
@@ -1657,8 +1657,8 @@ get_tables_to_cluster(MemoryContext cluster_context)
 	List	   *rtcs = NIL;
 
 	/*
-	 * Get all indexes that have indisclustered set and are owned by
-	 * appropriate user.
+	 * 获取所有设置了 indisclustered 且由合适用户
+	 * 拥有的索引。
 	 */
 	indRelation = table_open(IndexRelationId, AccessShareLock);
 	ScanKeyInit(&entry,
@@ -1675,7 +1675,7 @@ get_tables_to_cluster(MemoryContext cluster_context)
 		if (!object_ownercheck(RelationRelationId, index->indrelid, GetUserId()))
 			continue;
 
-		/* Use a permanent memory context for the result list */
+		/* 为结果列表使用永久性内存上下文 */
 		old_context = MemoryContextSwitchTo(cluster_context);
 
 		rtc = (RelToCluster *) palloc(sizeof(RelToCluster));
@@ -1693,11 +1693,11 @@ get_tables_to_cluster(MemoryContext cluster_context)
 }
 
 /*
- * Given an index on a partitioned table, return a list of RelToCluster for
- * all the children leaves tables/indexes.
+ * 给定分区表上的一个索引，返回所有
+ * 子叶子表/索引的 RelToCluster 列表。
  *
- * Like expand_vacuum_rel, but here caller must hold AccessExclusiveLock
- * on the table containing the index.
+ * 类似于 expand_vacuum_rel，但在这里调用者必须持有
+ * 包含该索引的表上的 AccessExclusiveLock。
  */
 static List *
 get_tables_to_cluster_partitioned(MemoryContext cluster_context, Oid indexOid)
@@ -1707,7 +1707,7 @@ get_tables_to_cluster_partitioned(MemoryContext cluster_context, Oid indexOid)
 	List	   *rtcs = NIL;
 	MemoryContext old_context;
 
-	/* Do not lock the children until they're processed */
+	/* 在处理子表之前不要加锁 */
 	inhoids = find_all_inheritors(indexOid, NoLock, NULL);
 
 	foreach(lc, inhoids)
@@ -1716,17 +1716,17 @@ get_tables_to_cluster_partitioned(MemoryContext cluster_context, Oid indexOid)
 		Oid			relid = IndexGetRelation(indexrelid, false);
 		RelToCluster *rtc;
 
-		/* consider only leaf indexes */
+		/* 仅考虑叶子索引 */
 		if (get_rel_relkind(indexrelid) != RELKIND_INDEX)
 			continue;
 
-		/* Silently skip partitions which the user has no access to. */
+		/* 安静地跳过用户无访问权限的分区。 */
 		if (!object_ownercheck(RelationRelationId, relid, GetUserId()) &&
 			(!object_ownercheck(DatabaseRelationId, MyDatabaseId, GetUserId()) ||
 			 IsSharedRelation(relid)))
 			continue;
 
-		/* Use a permanent memory context for the result list */
+		/* 为结果列表使用永久性内存上下文 */
 		old_context = MemoryContextSwitchTo(cluster_context);
 
 		rtc = (RelToCluster *) palloc(sizeof(RelToCluster));

@@ -163,6 +163,11 @@ _HEAPAM_LOCK_NOWAIT_FALLTHROUGH_PROSE = re.compile(
 _HEAPAM_LOCK_ALLOW_FALLTHROUGH_PROSE = re.compile(
     rb"fall through to allow the current\s*\n\s*\*\s*transaction to lock the tuple")
 
+# tablespace.c TablespaceCreateDbspace "fall through quietly" is prose:
+# the subdirectory already exists so we continue without action; not a
+# switch annotation, and GCC -Wimplicit-fallthrough does not consult it.
+_TABLESPACE_FALLTHROUGH_PROSE = re.compile(rb"fall through quietly")
+
 
 def legal_protected_segments(old_text):
     """Return Copyright/IDENTIFICATION/licence line blobs that must survive.
@@ -234,7 +239,8 @@ def protected_reason(old_text):
                     or _DIRTY_XMAX_FALLTHROUGH_PROSE.search(old_text)
                     or _HEAPAM_MULTI_FALLTHROUGH_PROSE.search(old_text)
                     or _HEAPAM_LOCK_NOWAIT_FALLTHROUGH_PROSE.search(old_text)
-                    or _HEAPAM_LOCK_ALLOW_FALLTHROUGH_PROSE.search(old_text)):
+                    or _HEAPAM_LOCK_ALLOW_FALLTHROUGH_PROSE.search(old_text)
+                    or _TABLESPACE_FALLTHROUGH_PROSE.search(old_text)):
                 continue
             return name
     return None

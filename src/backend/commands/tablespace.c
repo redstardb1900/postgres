@@ -1,38 +1,38 @@
 /*-------------------------------------------------------------------------
  *
  * tablespace.c
- *	  Commands to manipulate table spaces
+ *	  操作表空间的命令
  *
- * Tablespaces in PostgreSQL are designed to allow users to determine
- * where the data file(s) for a given database object reside on the file
- * system.
+ * PostgreSQL 中的表空间允许用户决定
+ * 给定数据库对象的数据文件在文件系统
+ * 中的存储位置。
  *
- * A tablespace represents a directory on the file system. At tablespace
- * creation time, the directory must be empty. To simplify things and
- * remove the possibility of having file name conflicts, we isolate
- * files within a tablespace into database-specific subdirectories.
+ * 表空间代表文件系统上的一个目录。在
+ * 创建表空间时，该目录必须为空。为了
+ * 简化操作并消除文件名冲突的可能性，
+ * 我们将表空间中的文件隔离到按数据库划分的子目录中。
  *
- * To support file access via the information given in RelFileLocator, we
- * maintain a symbolic-link map in $PGDATA/pg_tblspc. The symlinks are
- * named by tablespace OIDs and point to the actual tablespace directories.
- * There is also a per-cluster version directory in each tablespace.
- * Thus the full path to an arbitrary file is
+ * 为了支持通过 RelFileLocator 中给出的信息
+ * 进行文件访问，我们在 $PGDATA/pg_tblspc
+ * 中维护了符号链接映射。符号链接以表空间 OIDs
+ * 命名并指向实际的表空间目录。每个表空间中
+ * 还有按数据库集簇版本划分的目录。因此，任意文件的
  *			$PGDATA/pg_tblspc/spcoid/PG_MAJORVER_CATVER/dboid/relfilenumber
- * e.g.
+ * 例如
  *			$PGDATA/pg_tblspc/20981/PG_9.0_201002161/719849/83292814
  *
- * There are two tablespaces created at initdb time: pg_global (for shared
- * tables) and pg_default (for everything else).  For backwards compatibility
- * and to remain functional on platforms without symlinks, these tablespaces
- * are accessed specially: they are respectively
+ * initdb 时会创建两个表空间：pg_global
+ * （用于共享表）和 pg_default（用于其他
+ * 所有内容）。为了向后兼容并确保在不支持
+ * 符号链接的平台上仍能正常工作，这两个表空间
  *			$PGDATA/global/relfilenumber
  *			$PGDATA/base/dboid/relfilenumber
  *
- * To allow CREATE DATABASE to give a new database a default tablespace
- * that's different from the template database's default, we make the
- * provision that a zero in pg_class.reltablespace means the database's
- * default tablespace.  Without this, CREATE DATABASE would have to go in
- * and munge the system catalogs of the new database.
+ * 为了支持 CREATE DATABASE 为新数据库指定
+ * 与模板数据库默认值不同的默认表空间，
+ * 我们约定 pg_class.reltablespace 中的
+ * 零值表示数据库的默认表空间。如果没有
+ * 这个约定，CREATE DATABASE 就必须修改新数据库的系统目录。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -85,7 +85,7 @@
 #include "utils/rel.h"
 #include "utils/varlena.h"
 
-/* GUC variables */
+/* GUC 变量 */
 char	   *default_tablespace = NULL;
 char	   *temp_tablespaces = NULL;
 bool		allow_in_place_tablespaces = false;
@@ -121,8 +121,8 @@ TablespaceCreateDbspace(Oid spcOid, Oid dbOid, bool isRedo)
 	char	   *dir;
 
 	/*
-	 * The global tablespace doesn't have per-database subdirectories, so
-	 * nothing to do for it.
+	 * 全局表空间没有按数据库划分的子目录，因此
+	 * 无需任何操作。
 	 */
 	if (spcOid == GLOBALTABLESPACE_OID)
 		return;
@@ -134,29 +134,29 @@ TablespaceCreateDbspace(Oid spcOid, Oid dbOid, bool isRedo)
 
 	if (stat(dir, &st) < 0)
 	{
-		/* Directory does not exist? */
+		/* 目录不存在？ */
 		if (errno == ENOENT)
 		{
 			/*
-			 * Acquire TablespaceCreateLock to ensure that no DROP TABLESPACE
-			 * or TablespaceCreateDbspace is running concurrently.
+			 * 获取 TablespaceCreateLock 以确保没有并发的
+			 * DROP TABLESPACE 或 TablespaceCreateDbspace 操作。
 			 */
 			LWLockAcquire(TablespaceCreateLock, LW_EXCLUSIVE);
 
 			/*
-			 * Recheck to see if someone created the directory while we were
-			 * waiting for lock.
+			 * 重新检查是否有人在我们等待锁期间
+			 * 创建了目录。
 			 */
 			if (stat(dir, &st) == 0 && S_ISDIR(st.st_mode))
 			{
-				/* Directory was created */
+				/* 目录已创建 */
 			}
 			else
 			{
-				/* Directory creation failed? */
+				/* 目录创建失败？ */
 				if (MakePGDirectory(dir) < 0)
 				{
-					/* Failure other than not exists or not in WAL replay? */
+					/* 失败原因不是不存在或不在 WAL 重放中？ */
 					if (errno != ENOENT || !isRedo)
 						ereport(ERROR,
 								(errcode_for_file_access(),
@@ -164,14 +164,14 @@ TablespaceCreateDbspace(Oid spcOid, Oid dbOid, bool isRedo)
 										dir)));
 
 					/*
-					 * During WAL replay, it's conceivable that several levels
-					 * of directories are missing if tablespaces are dropped
-					 * further ahead of the WAL stream than we're currently
-					 * replaying.  An easy way forward is to create them as
-					 * plain directories and hope they are removed by further
-					 * WAL replay if necessary.  If this also fails, there is
-					 * trouble we cannot get out of, so just report that and
-					 * bail out.
+					 * 在 WAL 重放期间，如果表空间在 WAL
+					 * 流中的删除位置比当前重放位置更靠前，
+					 * 则可能出现多层目录缺失的情况。
+					 * 一个简单的解决方案是将它们创建为普通目录，
+					 * 并希望后续的 WAL 重放能在必要时
+					 * 删除它们。如果这也失败了，
+					 * 那就是无法摆脱的困境，因此只能报告
+					 * 该情况并终止。
 					 */
 					if (pg_mkdir_p(dir, pg_dir_create_mode) < 0)
 						ereport(ERROR,
@@ -192,7 +192,7 @@ TablespaceCreateDbspace(Oid spcOid, Oid dbOid, bool isRedo)
 	}
 	else
 	{
-		/* Is it not a directory? */
+		/* 它不是目录？ */
 		if (!S_ISDIR(st.st_mode))
 			ereport(ERROR,
 					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
@@ -204,11 +204,11 @@ TablespaceCreateDbspace(Oid spcOid, Oid dbOid, bool isRedo)
 }
 
 /*
- * Create a table space
+ * 创建表空间
  *
- * Only superusers can create a tablespace. This seems a reasonable restriction
- * since we're determining the system layout and, anyway, we probably have
- * root if we're doing this kind of activity
+ * 仅超级用户可以创建表空间。这是一个合理的限制，
+ * 因为我们正在决定系统布局，而且无论如何，
+ * 执行此类操作的用户通常拥有 root 权限。
  */
 Oid
 CreateTableSpace(CreateTableSpaceStmt *stmt)
@@ -223,7 +223,7 @@ CreateTableSpace(CreateTableSpaceStmt *stmt)
 	Datum		newOptions;
 	bool		in_place;
 
-	/* Must be superuser */
+	/* 必须是超级用户 */
 	if (!superuser())
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -231,17 +231,17 @@ CreateTableSpace(CreateTableSpaceStmt *stmt)
 						stmt->tablespacename),
 				 errhint("Must be superuser to create a tablespace.")));
 
-	/* However, the eventual owner of the tablespace need not be */
+	/* 但是，表空间的最终所有者可以不是超级用户 */
 	if (stmt->owner)
 		ownerId = get_rolespec_oid(stmt->owner, false);
 	else
 		ownerId = GetUserId();
 
-	/* Unix-ify the offered path, and strip any trailing slashes */
+	/* 将路径转换为 Unix 格式，并去除尾部斜杠 */
 	location = pstrdup(stmt->location);
 	canonicalize_path(location);
 
-	/* disallow quotes, else CREATE DATABASE would be at risk */
+	/* 禁止使用引号，否则 CREATE DATABASE 会有风险 */
 	if (strchr(location, '\''))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_NAME),
@@ -250,10 +250,10 @@ CreateTableSpace(CreateTableSpaceStmt *stmt)
 	in_place = allow_in_place_tablespaces && strlen(location) == 0;
 
 	/*
-	 * Allowing relative paths seems risky
+	 * 允许相对路径似乎有风险
 	 *
-	 * This also helps us ensure that location is not empty or whitespace,
-	 * unless specifying a developer-only in-place tablespace.
+	 * 这也有助于我们确保位置不为空或不为空白，
+	 * 除非指定的是仅限开发者的就地表空间。
 	 */
 	if (!in_place && !is_absolute_path(location))
 		ereport(ERROR,
@@ -261,10 +261,10 @@ CreateTableSpace(CreateTableSpaceStmt *stmt)
 				 errmsg("tablespace location must be an absolute path")));
 
 	/*
-	 * Check that location isn't too long. Remember that we're going to append
-	 * 'PG_XXX/<dboid>/<relid>_<fork>.<nnn>'.  FYI, we never actually
-	 * reference the whole path here, but MakePGDirectory() uses the first two
-	 * parts.
+	 * 检查位置是否过长。请注意，我们还要追加
+	 * 'PG_XXX/<dboid>/<relid>_<fork>.<nnn>'。
+	 * 顺带一提，我们这里实际上从未引用完整路径，
+	 * 但 MakePGDirectory() 使用了前两部分。
 	 */
 	if (strlen(location) + 1 + strlen(TABLESPACE_VERSION_DIRECTORY) + 1 +
 		OIDCHARS + 1 + OIDCHARS + 1 + FORKNAMECHARS + 1 + OIDCHARS > MAXPGPATH)
@@ -273,15 +273,15 @@ CreateTableSpace(CreateTableSpaceStmt *stmt)
 				 errmsg("tablespace location \"%s\" is too long",
 						location)));
 
-	/* Warn if the tablespace is in the data directory. */
+	/* 如果表空间位于数据目录中则发出警告。 */
 	if (path_is_prefix_of_path(DataDir, location))
 		ereport(WARNING,
 				(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
 				 errmsg("tablespace location should not be inside the data directory")));
 
 	/*
-	 * Disallow creation of tablespaces named "pg_xxx"; we reserve this
-	 * namespace for system purposes.
+	 * 禁止创建名为 "pg_xxx" 的表空间；我们将此
+	 * 命名空间保留用于系统目的。
 	 */
 	if (!allowSystemTableMods && IsReservedName(stmt->tablespacename))
 		ereport(ERROR,
@@ -291,8 +291,8 @@ CreateTableSpace(CreateTableSpaceStmt *stmt)
 				 errdetail("The prefix \"pg_\" is reserved for system tablespaces.")));
 
 	/*
-	 * If built with appropriate switch, whine when regression-testing
-	 * conventions for tablespace names are violated.
+	 * 如果构建时启用了相应开关，则在违反回归测试
+	 * 中表空间命名约定时发出警告。
 	 */
 #ifdef ENFORCE_REGRESSION_TEST_NAME_RESTRICTIONS
 	if (strncmp(stmt->tablespacename, "regress_", 8) != 0)
@@ -300,9 +300,9 @@ CreateTableSpace(CreateTableSpaceStmt *stmt)
 #endif
 
 	/*
-	 * Check that there is no other tablespace by this name.  (The unique
-	 * index would catch this anyway, but might as well give a friendlier
-	 * message.)
+	 * 检查是否已存在同名的其他表空间。（唯一索引
+	 * 本就会捕捉到此情况，但提供更友好的错误消息
+	 * 也无妨。）
 	 */
 	if (OidIsValid(get_tablespace_oid(stmt->tablespacename, true)))
 		ereport(ERROR,
@@ -311,15 +311,15 @@ CreateTableSpace(CreateTableSpaceStmt *stmt)
 						stmt->tablespacename)));
 
 	/*
-	 * Insert tuple into pg_tablespace.  The purpose of doing this first is to
-	 * lock the proposed tablename against other would-be creators. The
-	 * insertion will roll back if we find problems below.
+	 * 将元组插入 pg_tablespace。首先执行此操作
+	 * 是为了锁定提议的表名以防止其他创建者。
+	 * 如果后续发现问题，插入操作将会回滚。
 	 */
 	rel = table_open(TableSpaceRelationId, RowExclusiveLock);
 
 	if (IsBinaryUpgrade)
 	{
-		/* Use binary-upgrade override for tablespace oid */
+		/* 使用 binary-upgrade 覆盖表空间的 OID */
 		if (!OidIsValid(binary_upgrade_next_pg_tablespace_oid))
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -338,7 +338,7 @@ CreateTableSpace(CreateTableSpaceStmt *stmt)
 		ObjectIdGetDatum(ownerId);
 	nulls[Anum_pg_tablespace_spcacl - 1] = true;
 
-	/* Generate new proposed spcoptions (text array) */
+	/* 生成新的建议 spcoptions（文本数组） */
 	newOptions = transformRelOptions((Datum) 0,
 									 stmt->options,
 									 NULL, NULL, false, false);
@@ -354,15 +354,15 @@ CreateTableSpace(CreateTableSpaceStmt *stmt)
 
 	heap_freetuple(tuple);
 
-	/* Record dependency on owner */
+	/* 记录对所有者依赖 */
 	recordDependencyOnOwner(TableSpaceRelationId, tablespaceoid, ownerId);
 
-	/* Post creation hook for new tablespace */
+	/* 新表空间的创建后钩子 */
 	InvokeObjectPostCreateHook(TableSpaceRelationId, tablespaceoid, 0);
 
 	create_tablespace_directories(location, tablespaceoid);
 
-	/* Record the filesystem change in XLOG */
+	/* 在 XLOG 中记录文件系统更改 */
 	{
 		xl_tblspc_create_rec xlrec;
 
@@ -377,25 +377,25 @@ CreateTableSpace(CreateTableSpaceStmt *stmt)
 	}
 
 	/*
-	 * Force synchronous commit, to minimize the window between creating the
-	 * symlink on-disk and marking the transaction committed.  It's not great
-	 * that there is any window at all, but definitely we don't want to make
-	 * it larger than necessary.
+	 * 强制同步提交，以最小化创建磁盘上的符号链接
+	 * 与标记事务已提交之间的时间窗口。存在任何
+	 * 窗口期都不理想，但我们绝不想使其超过
+	 * 必要的大小。
 	 */
 	ForceSyncCommit();
 
 	pfree(location);
 
-	/* We keep the lock on pg_tablespace until commit */
+	/* 我们保持 pg_tablespace 上的锁直到提交 */
 	table_close(rel, NoLock);
 
 	return tablespaceoid;
 }
 
 /*
- * Drop a table space
+ * 删除表空间
  *
- * Be careful to check that the tablespace is empty.
+ * 请注意检查表空间是否为空。
  */
 void
 DropTableSpace(DropTableSpaceStmt *stmt)
@@ -411,7 +411,7 @@ DropTableSpace(DropTableSpaceStmt *stmt)
 	char	   *detail_log;
 
 	/*
-	 * Find the target tuple
+	 * 查找目标元组
 	 */
 	rel = table_open(TableSpaceRelationId, RowExclusiveLock);
 
@@ -445,17 +445,17 @@ DropTableSpace(DropTableSpaceStmt *stmt)
 	spcform = (Form_pg_tablespace) GETSTRUCT(tuple);
 	tablespaceoid = spcform->oid;
 
-	/* Must be tablespace owner */
+	/* 必须是表空间所有者 */
 	if (!object_ownercheck(TableSpaceRelationId, tablespaceoid, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_TABLESPACE,
 					   tablespacename);
 
-	/* Disallow drop of the standard tablespaces, even by superuser */
+	/* 禁止删除标准表空间，即使是超级用户也不行 */
 	if (IsPinnedObject(TableSpaceRelationId, tablespaceoid))
 		aclcheck_error(ACLCHECK_NO_PRIV, OBJECT_TABLESPACE,
 					   tablespacename);
 
-	/* Check for pg_shdepend entries depending on this tablespace */
+	/* 检查是否有依赖于此表空间的 pg_shdepend 条目 */
 	if (checkSharedDependencies(TableSpaceRelationId, tablespaceoid,
 								&detail, &detail_log))
 		ereport(ERROR,
@@ -465,66 +465,66 @@ DropTableSpace(DropTableSpaceStmt *stmt)
 				 errdetail_internal("%s", detail),
 				 errdetail_log("%s", detail_log)));
 
-	/* DROP hook for the tablespace being removed */
+	/* 被删除表空间的 DROP 钩子 */
 	InvokeObjectDropHook(TableSpaceRelationId, tablespaceoid, 0);
 
 	/*
-	 * Remove the pg_tablespace tuple (this will roll back if we fail below)
+	 * 删除 pg_tablespace 元组（如果后续失败，此操作将回滚）
 	 */
 	CatalogTupleDelete(rel, &tuple->t_self);
 
 	table_endscan(scandesc);
 
 	/*
-	 * Remove any comments or security labels on this tablespace.
+	 * 删除该表空间上的所有注释或安全标签。
 	 */
 	DeleteSharedComments(tablespaceoid, TableSpaceRelationId);
 	DeleteSharedSecurityLabel(tablespaceoid, TableSpaceRelationId);
 
 	/*
-	 * Remove dependency on owner.
+	 * 删除对所有者依赖的记录。
 	 */
 	deleteSharedDependencyRecordsFor(TableSpaceRelationId, tablespaceoid, 0);
 
 	/*
-	 * Acquire TablespaceCreateLock to ensure that no TablespaceCreateDbspace
-	 * is running concurrently.
+	 * 获取 TablespaceCreateLock 以确保没有并发的
+	 * TablespaceCreateDbspace 调用。
 	 */
 	LWLockAcquire(TablespaceCreateLock, LW_EXCLUSIVE);
 
 	/*
-	 * Try to remove the physical infrastructure.
+	 * 尝试删除物理基础设施。
 	 */
 	if (!destroy_tablespace_directories(tablespaceoid, false))
 	{
 		/*
-		 * Not all files deleted?  However, there can be lingering empty files
-		 * in the directories, left behind by for example DROP TABLE, that
-		 * have been scheduled for deletion at next checkpoint (see comments
-		 * in mdunlink() for details).  We could just delete them immediately,
-		 * but we can't tell them apart from important data files that we
-		 * mustn't delete.  So instead, we force a checkpoint which will clean
-		 * out any lingering files, and try again.
+		 * 并非所有文件都已删除？然而，目录中可能存在
+		 * 残留的空文件，这些文件可能是 DROP TABLE 等
+		 * 操作留下的，已被安排在下一个检查点时删除
+		 * （详见 mdunlink() 中的注释）。我们可以立即
+		 * 删除它们，但无法将它们与不能删除的重要
+		 * 数据文件区分开来。因此，我们强制执行一个
+		 * 检查点来清理所有残留文件，然后重试。
 		 */
 		RequestCheckpoint(CHECKPOINT_IMMEDIATE | CHECKPOINT_FORCE | CHECKPOINT_WAIT);
 
 		/*
-		 * On Windows, an unlinked file persists in the directory listing
-		 * until no process retains an open handle for the file.  The DDL
-		 * commands that schedule files for unlink send invalidation messages
-		 * directing other PostgreSQL processes to close the files, but
-		 * nothing guarantees they'll be processed in time.  So, we'll also
-		 * use a global barrier to ask all backends to close all files, and
-		 * wait until they're finished.
+		 * 在 Windows 上，已解除链接的文件会一直保留
+		 * 在目录列表中，直到没有进程持有该文件的
+		 * 打开句柄。安排文件取消链接的 DDL 命令会
+		 * 发送失效消息，指示其他 PostgreSQL 进程
+		 * 关闭这些文件，但无法保证它们会及时处理。
+		 * 因此，我们还将使用全局屏障要求所有后端
+		 * 进程关闭所有文件，并等待它们完成。
 		 */
 		LWLockRelease(TablespaceCreateLock);
 		WaitForProcSignalBarrier(EmitProcSignalBarrier(PROCSIGNAL_BARRIER_SMGRRELEASE));
 		LWLockAcquire(TablespaceCreateLock, LW_EXCLUSIVE);
 
-		/* And now try again. */
+		/* 现在重试。 */
 		if (!destroy_tablespace_directories(tablespaceoid, false))
 		{
-			/* Still not empty, the files must be important then */
+			/* 仍然非空，那这些文件一定是重要的 */
 			ereport(ERROR,
 					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 					 errmsg("tablespace \"%s\" is not empty",
@@ -532,7 +532,7 @@ DropTableSpace(DropTableSpaceStmt *stmt)
 		}
 	}
 
-	/* Record the filesystem change in XLOG */
+	/* 在 XLOG 中记录文件系统更改 */
 	{
 		xl_tblspc_drop_rec xlrec;
 
@@ -545,25 +545,25 @@ DropTableSpace(DropTableSpaceStmt *stmt)
 	}
 
 	/*
-	 * Note: because we checked that the tablespace was empty, there should be
-	 * no need to worry about flushing shared buffers or free space map
-	 * entries for relations in the tablespace.
+	 * 注意：由于我们已检查表空间为空，因此
+	 * 无需担心刷新表空间中关系的共享缓冲区
+	 * 或空闲空间映射条目。
 	 */
 
 	/*
-	 * Force synchronous commit, to minimize the window between removing the
-	 * files on-disk and marking the transaction committed.  It's not great
-	 * that there is any window at all, but definitely we don't want to make
-	 * it larger than necessary.
+	 * 强制同步提交，以最小化删除磁盘上的文件
+	 * 与标记事务已提交之间的时间窗口。存在任何
+	 * 窗口期都不理想，但我们绝不想使其超过
+	 * 必要的大小。
 	 */
 	ForceSyncCommit();
 
 	/*
-	 * Allow TablespaceCreateDbspace again.
+	 * 再次允许 TablespaceCreateDbspace。
 	 */
 	LWLockRelease(TablespaceCreateLock);
 
-	/* We keep the lock on pg_tablespace until commit */
+	/* 我们保持 pg_tablespace 上的锁直到提交 */
 	table_close(rel, NoLock);
 }
 
@@ -571,8 +571,8 @@ DropTableSpace(DropTableSpaceStmt *stmt)
 /*
  * create_tablespace_directories
  *
- *	Attempt to create filesystem infrastructure linking $PGDATA/pg_tblspc/
- *	to the specified directory
+ *	尝试创建将 $PGDATA/pg_tblspc/ 链接到
+ *	指定目录的文件系统基础设施
  */
 static void
 create_tablespace_directories(const char *location, const Oid tablespaceoid)
@@ -585,9 +585,9 @@ create_tablespace_directories(const char *location, const Oid tablespaceoid)
 	linkloc = psprintf("pg_tblspc/%u", tablespaceoid);
 
 	/*
-	 * If we're asked to make an 'in place' tablespace, create the directory
-	 * directly where the symlink would normally go.  This is a developer-only
-	 * option for now, to facilitate regression testing.
+	 * 如果要求创建'就地'表空间，则直接在符号链接
+	 * 通常所在的位置创建目录。目前这是一个仅限
+	 * 开发者使用的选项，用于简化回归测试。
 	 */
 	in_place = strlen(location) == 0;
 
@@ -604,10 +604,10 @@ create_tablespace_directories(const char *location, const Oid tablespaceoid)
 										 TABLESPACE_VERSION_DIRECTORY);
 
 	/*
-	 * Attempt to coerce target directory to safe permissions.  If this fails,
-	 * it doesn't exist or has the wrong owner.  Not needed for in-place mode,
-	 * because in that case we created the directory with the desired
-	 * permissions.
+	 * 尝试将目标目录设置为安全权限。如果失败，
+	 * 说明目录不存在或所有者错误。就地模式下
+	 * 不需要此步骤，因为在这种情况下我们创建
+	 * 目录时已使用了所需的权限。
 	 */
 	if (!in_place && chmod(location, pg_dir_create_mode) != 0)
 	{
@@ -625,11 +625,11 @@ create_tablespace_directories(const char *location, const Oid tablespaceoid)
 	}
 
 	/*
-	 * The creation of the version directory prevents more than one tablespace
-	 * in a single location.  This imitates TablespaceCreateDbspace(), but it
-	 * ignores concurrency and missing parent directories.  The chmod() would
-	 * have failed in the absence of a parent.  pg_tablespace_spcname_index
-	 * prevents concurrency.
+	 * 版本目录的创建可防止在同一位置存在
+	 * 多个表空间。这模仿了 TablespaceCreateDbspace()，
+	 * 但它忽略了并发性和缺失父目录的情况。
+	 * 如果缺少父目录，chmod() 会失败。
+	 * pg_tablespace_spcname_index 可防止并发问题。
 	 */
 	if (stat(location_with_version_dir, &st) < 0)
 	{
@@ -656,13 +656,13 @@ create_tablespace_directories(const char *location, const Oid tablespaceoid)
 						location_with_version_dir)));
 
 	/*
-	 * In recovery, remove old symlink, in case it points to the wrong place.
+	 * 在恢复期间，删除旧的符号链接，以防它指向
 	 */
 	if (!in_place && InRecovery)
 		remove_tablespace_symlink(linkloc);
 
 	/*
-	 * Create the symlink under PGDATA
+	 * 在 PGDATA 下创建符号链接
 	 */
 	if (!in_place && symlink(location, linkloc) < 0)
 		ereport(ERROR,
@@ -678,15 +678,15 @@ create_tablespace_directories(const char *location, const Oid tablespaceoid)
 /*
  * destroy_tablespace_directories
  *
- * Attempt to remove filesystem infrastructure for the tablespace.
+ * 尝试删除表空间的文件系统基础设施。
  *
- * 'redo' indicates we are redoing a drop from XLOG; in that case we should
- * not throw an ERROR for problems, just LOG them.  The worst consequence of
- * not removing files here would be failure to release some disk space, which
- * does not justify throwing an error that would require manual intervention
- * to get the database running again.
+ * 'redo' 表示我们正在从 XLOG 重放删除操作；
+ * 在这种情况下，出错时不应抛出 ERROR，只需
+ * LOG 即可。此处未能删除文件的最严重后果
+ * 是未能释放部分磁盘空间，这不足以证明
+ * 抛出需要手动干预才能让数据库重新运行的错误是合理的。
  *
- * Returns true if successful, false if some subdirectory is not empty
+ * 成功返回 true，如果某些子目录非空则返回 false
  */
 static bool
 destroy_tablespace_directories(Oid tablespaceoid, bool redo)
@@ -702,26 +702,26 @@ destroy_tablespace_directories(Oid tablespaceoid, bool redo)
 										TABLESPACE_VERSION_DIRECTORY);
 
 	/*
-	 * Check if the tablespace still contains any files.  We try to rmdir each
-	 * per-database directory we find in it.  rmdir failure implies there are
-	 * still files in that subdirectory, so give up.  (We do not have to worry
-	 * about undoing any already completed rmdirs, since the next attempt to
-	 * use the tablespace from that database will simply recreate the
-	 * subdirectory via TablespaceCreateDbspace.)
+	 * 检查表空间是否仍包含任何文件。我们尝试 rmdir
+	 * 其中的每个按数据库划分的子目录。rmdir 失败
+	 * 意味着该子目录中仍有文件，因此放弃。
+	 * （我们不必担心撤销任何已完成的 rmdir，
+	 * 因为下次使用该数据库的表空间时会通过
+	 * TablespaceCreateDbspace 重新创建子目录。）
 	 *
-	 * Since we hold TablespaceCreateLock, no one else should be creating any
-	 * fresh subdirectories in parallel. It is possible that new files are
-	 * being created within subdirectories, though, so the rmdir call could
-	 * fail.  Worst consequence is a less friendly error message.
+	 * 由于我们持有 TablespaceCreateLock，其他人不
+	 * 应并行创建任何新的子目录。不过，新文件
+	 * 可能仍在子目录中被创建，因此 rmdir 调用
+	 * 可能失败。最坏的结果是收到不太友好的错误消息。
 	 *
-	 * If redo is true then ENOENT is a likely outcome here, and we allow it
-	 * to pass without comment.  In normal operation we still allow it, but
-	 * with a warning.  This is because even though ProcessUtility disallows
-	 * DROP TABLESPACE in a transaction block, it's possible that a previous
-	 * DROP failed and rolled back after removing the tablespace directories
-	 * and/or symlink.  We want to allow a new DROP attempt to succeed at
-	 * removing the catalog entries (and symlink if still present), so we
-	 * should not give a hard error here.
+	 * 如果 redo 为 true，则 ENOENT 可能是预期的
+	 * 结果，我们允许它静默通过。在正常操作中
+	 * 我们仍然允许它，但会发出警告。这是因为即使
+	 * ProcessUtility 不允许在事务块中使用 DROP
+	 * TABLESPACE，之前的 DROP 可能在删除表空间
+	 * 目录和/或符号链接后失败并回滚。我们想要
+	 * 允许新的 DROP 尝试成功删除目录条目
+	 * （和符号链接，如果仍存在的话），因此不应在此处给出硬错误。
 	 */
 	dirdesc = AllocateDir(linkloc_with_version_dir);
 	if (dirdesc == NULL)
@@ -733,12 +733,12 @@ destroy_tablespace_directories(Oid tablespaceoid, bool redo)
 						(errcode_for_file_access(),
 						 errmsg("could not open directory \"%s\": %m",
 								linkloc_with_version_dir)));
-			/* The symlink might still exist, so go try to remove it */
+			/* 符号链接可能仍然存在，尝试将其删除 */
 			goto remove_symlink;
 		}
 		else if (redo)
 		{
-			/* in redo, just log other types of error */
+			/* 在 redo 中，仅记录其他类型的错误 */
 			ereport(LOG,
 					(errcode_for_file_access(),
 					 errmsg("could not open directory \"%s\": %m",
@@ -746,7 +746,7 @@ destroy_tablespace_directories(Oid tablespaceoid, bool redo)
 			pfree(linkloc_with_version_dir);
 			return false;
 		}
-		/* else let ReadDir report the error */
+		/* 否则让 ReadDir 报告错误 */
 	}
 
 	while ((de = ReadDir(dirdesc, linkloc_with_version_dir)) != NULL)
@@ -757,7 +757,7 @@ destroy_tablespace_directories(Oid tablespaceoid, bool redo)
 
 		subfile = psprintf("%s/%s", linkloc_with_version_dir, de->d_name);
 
-		/* This check is just to deliver a friendlier error message */
+		/* 此检查只是为了提供更友好的错误消息 */
 		if (!redo && !directory_is_empty(subfile))
 		{
 			FreeDir(dirdesc);
@@ -766,7 +766,7 @@ destroy_tablespace_directories(Oid tablespaceoid, bool redo)
 			return false;
 		}
 
-		/* remove empty directory */
+		/* 删除空目录 */
 		if (rmdir(subfile) < 0)
 			ereport(redo ? LOG : ERROR,
 					(errcode_for_file_access(),
@@ -778,7 +778,7 @@ destroy_tablespace_directories(Oid tablespaceoid, bool redo)
 
 	FreeDir(dirdesc);
 
-	/* remove version directory */
+	/* 删除版本目录 */
 	if (rmdir(linkloc_with_version_dir) < 0)
 	{
 		ereport(redo ? LOG : ERROR,
@@ -790,13 +790,13 @@ destroy_tablespace_directories(Oid tablespaceoid, bool redo)
 	}
 
 	/*
-	 * Try to remove the symlink.  We must however deal with the possibility
-	 * that it's a directory instead of a symlink --- this could happen during
-	 * WAL replay (see TablespaceCreateDbspace).
+	 * 尝试删除符号链接。然而我们必须处理它可能是
+	 * 目录而非符号链接的情况 --- 这种情况可能发生在
+	 * WAL 重放期间（参见 TablespaceCreateDbspace）。
 	 *
-	 * Note: in the redo case, we'll return true if this final step fails;
-	 * there's no point in retrying it.  Also, ENOENT should provoke no more
-	 * than a warning.
+	 * 注意：在 redo 情况下，如果最后一步失败，
+	 * 我们将返回 true；重试没有意义。此外，ENOENT
+	 * 不应触发超过警告级别的响应。
 	 */
 remove_symlink:
 	linkloc = pstrdup(linkloc_with_version_dir);
@@ -836,7 +836,7 @@ remove_symlink:
 	}
 	else
 	{
-		/* Refuse to remove anything that's not a directory or symlink */
+		/* 拒绝删除任何非目录或符号链接的内容 */
 		ereport(redo ? LOG : ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("\"%s\" is not a directory or symbolic link",
@@ -851,9 +851,9 @@ remove_symlink:
 
 
 /*
- * Check if a directory is empty.
+ * 检查目录是否为空。
  *
- * This probably belongs somewhere else, but not sure where...
+ * 这个函数可能应该放在其他地方，但不确定放在哪里...
  */
 bool
 directory_is_empty(const char *path)
@@ -879,11 +879,11 @@ directory_is_empty(const char *path)
 /*
  *	remove_tablespace_symlink
  *
- * This function removes symlinks in pg_tblspc.  On Windows, junction points
- * act like directories so we must be able to apply rmdir.  This function
- * works like the symlink removal code in destroy_tablespace_directories,
- * except that failure to remove is always an ERROR.  But if the file doesn't
- * exist at all, that's OK.
+ * 此函数删除 pg_tblspc 中的符号链接。在 Windows
+ * 上，junction points 的行为类似于目录，因此我们必须
+ * 能够使用 rmdir。与 destroy_tablespace_directories 中的
+ * tablespace_directories 中的符号链接删除代码
+ * 类似，区别仅在于删除失败时始终是 ERROR。但如果文件根本不存在，则没有问题。
  */
 void
 remove_tablespace_symlink(const char *linkloc)
@@ -902,8 +902,8 @@ remove_tablespace_symlink(const char *linkloc)
 	if (S_ISDIR(st.st_mode))
 	{
 		/*
-		 * This will fail if the directory isn't empty, but not if it's a
-		 * junction point.
+		 * 如果目录非空则会失败，
+		 * 但如果是 junction point 则不会。
 		 */
 		if (rmdir(linkloc) < 0 && errno != ENOENT)
 			ereport(ERROR,
@@ -921,7 +921,7 @@ remove_tablespace_symlink(const char *linkloc)
 	}
 	else
 	{
-		/* Refuse to remove anything that's not a directory or symlink */
+		/* 拒绝删除任何非目录或符号链接的内容 */
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("\"%s\" is not a directory or symbolic link",
@@ -930,7 +930,7 @@ remove_tablespace_symlink(const char *linkloc)
 }
 
 /*
- * Rename a tablespace
+ * 重命名表空间
  */
 ObjectAddress
 RenameTableSpace(const char *oldname, const char *newname)
@@ -944,7 +944,7 @@ RenameTableSpace(const char *oldname, const char *newname)
 	Form_pg_tablespace newform;
 	ObjectAddress address;
 
-	/* Search pg_tablespace */
+	/* 搜索 pg_tablespace */
 	rel = table_open(TableSpaceRelationId, RowExclusiveLock);
 
 	ScanKeyInit(&entry[0],
@@ -965,11 +965,11 @@ RenameTableSpace(const char *oldname, const char *newname)
 
 	table_endscan(scan);
 
-	/* Must be owner */
+	/* 必须是所有者 */
 	if (!object_ownercheck(TableSpaceRelationId, tspId, GetUserId()))
 		aclcheck_error(ACLCHECK_NO_PRIV, OBJECT_TABLESPACE, oldname);
 
-	/* Validate new name */
+	/* 验证新名称 */
 	if (!allowSystemTableMods && IsReservedName(newname))
 		ereport(ERROR,
 				(errcode(ERRCODE_RESERVED_NAME),
@@ -977,15 +977,15 @@ RenameTableSpace(const char *oldname, const char *newname)
 				 errdetail("The prefix \"pg_\" is reserved for system tablespaces.")));
 
 	/*
-	 * If built with appropriate switch, whine when regression-testing
-	 * conventions for tablespace names are violated.
+	 * 如果构建时启用了相应开关，则在违反回归测试
+	 * 中表空间命名约定时发出警告。
 	 */
 #ifdef ENFORCE_REGRESSION_TEST_NAME_RESTRICTIONS
 	if (strncmp(newname, "regress_", 8) != 0)
 		elog(WARNING, "tablespaces created by regression test cases should have names starting with \"regress_\"");
 #endif
 
-	/* Make sure the new name doesn't exist */
+	/* 确保新名称不存在 */
 	ScanKeyInit(&entry[0],
 				Anum_pg_tablespace_spcname,
 				BTEqualStrategyNumber, F_NAMEEQ,
@@ -1000,7 +1000,7 @@ RenameTableSpace(const char *oldname, const char *newname)
 
 	table_endscan(scan);
 
-	/* OK, update the entry */
+	/* 好，更新条目 */
 	namestrcpy(&(newform->spcname), newname);
 
 	CatalogTupleUpdate(rel, &newtuple->t_self, newtuple);
@@ -1015,7 +1015,7 @@ RenameTableSpace(const char *oldname, const char *newname)
 }
 
 /*
- * Alter table space options
+ * 修改表空间选项
  */
 Oid
 AlterTableSpaceOptions(AlterTableSpaceOptionsStmt *stmt)
@@ -1033,7 +1033,7 @@ AlterTableSpaceOptions(AlterTableSpaceOptionsStmt *stmt)
 	bool		repl_repl[Natts_pg_tablespace];
 	HeapTuple	newtuple;
 
-	/* Search pg_tablespace */
+	/* 搜索 pg_tablespace */
 	rel = table_open(TableSpaceRelationId, RowExclusiveLock);
 
 	ScanKeyInit(&entry[0],
@@ -1050,12 +1050,12 @@ AlterTableSpaceOptions(AlterTableSpaceOptionsStmt *stmt)
 
 	tablespaceoid = ((Form_pg_tablespace) GETSTRUCT(tup))->oid;
 
-	/* Must be owner of the existing object */
+	/* 必须是现有对象的所有者 */
 	if (!object_ownercheck(TableSpaceRelationId, tablespaceoid, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_TABLESPACE,
 					   stmt->tablespacename);
 
-	/* Generate new proposed spcoptions (text array) */
+	/* 生成新的建议 spcoptions（文本数组） */
 	datum = heap_getattr(tup, Anum_pg_tablespace_spcoptions,
 						 RelationGetDescr(rel), &isnull);
 	newOptions = transformRelOptions(isnull ? (Datum) 0 : datum,
@@ -1063,7 +1063,7 @@ AlterTableSpaceOptions(AlterTableSpaceOptionsStmt *stmt)
 									 stmt->isReset);
 	(void) tablespace_reloptions(newOptions, true);
 
-	/* Build new tuple. */
+	/* 构建新元组。 */
 	memset(repl_null, false, sizeof(repl_null));
 	memset(repl_repl, false, sizeof(repl_repl));
 	if (newOptions != (Datum) 0)
@@ -1074,14 +1074,14 @@ AlterTableSpaceOptions(AlterTableSpaceOptionsStmt *stmt)
 	newtuple = heap_modify_tuple(tup, RelationGetDescr(rel), repl_val,
 								 repl_null, repl_repl);
 
-	/* Update system catalog. */
+	/* 更新系统目录。 */
 	CatalogTupleUpdate(rel, &newtuple->t_self, newtuple);
 
 	InvokeObjectPostAlterHook(TableSpaceRelationId, tablespaceoid, 0);
 
 	heap_freetuple(newtuple);
 
-	/* Conclude heap scan. */
+	/* 结束堆扫描。 */
 	table_endscan(scandesc);
 	table_close(rel, NoLock);
 
@@ -1089,17 +1089,17 @@ AlterTableSpaceOptions(AlterTableSpaceOptionsStmt *stmt)
 }
 
 /*
- * Routines for handling the GUC variable 'default_tablespace'.
+ * 处理 GUC 变量 'default_tablespace' 的例程。
  */
 
-/* check_hook: validate new default_tablespace */
+/* check_hook: 验证新的 default_tablespace */
 bool
 check_default_tablespace(char **newval, void **extra, GucSource source)
 {
 	/*
-	 * If we aren't inside a transaction, or connected to a database, we
-	 * cannot do the catalog accesses necessary to verify the name.  Must
-	 * accept the value on faith.
+	 * 如果我们不在事务内，或者未连接到数据库，
+	 * 则无法进行验证名称所需的目录访问。
+	 * 此时只能接受该值。
 	 */
 	if (IsTransactionState() && MyDatabaseId != InvalidOid)
 	{
@@ -1107,8 +1107,8 @@ check_default_tablespace(char **newval, void **extra, GucSource source)
 			!OidIsValid(get_tablespace_oid(*newval, true)))
 		{
 			/*
-			 * When source == PGC_S_TEST, don't throw a hard error for a
-			 * nonexistent tablespace, only a NOTICE.  See comments in guc.h.
+			 * 当 source == PGC_S_TEST 时，对不存在的
+			 * 表空间不抛出硬错误，仅给出 NOTICE。参见 guc.h 中的注释。
 			 */
 			if (source == PGC_S_TEST)
 			{
@@ -1130,51 +1130,51 @@ check_default_tablespace(char **newval, void **extra, GucSource source)
 }
 
 /*
- * GetDefaultTablespace -- get the OID of the current default tablespace
+ * GetDefaultTablespace -- 获取当前默认表空间的 OID
  *
- * Temporary objects have different default tablespaces, hence the
- * relpersistence parameter must be specified.  Also, for partitioned tables,
- * we disallow specifying the database default, so that needs to be specified
- * too.
+ * 临时对象有不同的默认表空间，因此必须
+ * 指定 relpersistence 参数。此外，对于分区表，
+ * 我们禁止指定数据库默认值，因此这也需要
+ * 指定。
  *
- * May return InvalidOid to indicate "use the database's default tablespace".
+ * 可能返回 InvalidOid 以表示"使用数据库的默认表空间"。
  *
- * Note that caller is expected to check appropriate permissions for any
- * result other than InvalidOid.
+ * 注意：调用者应检查除 InvalidOid 之外的
+ * 任何结果的相应权限。
  *
- * This exists to hide (and possibly optimize the use of) the
- * default_tablespace GUC variable.
+ * 此函数的存在是为了隐藏（并可能优化使用）
+ * default_tablespace GUC 变量。
  */
 Oid
 GetDefaultTablespace(char relpersistence, bool partitioned)
 {
 	Oid			result;
 
-	/* The temp-table case is handled elsewhere */
+	/* 临时表的情况在其他地方处理 */
 	if (relpersistence == RELPERSISTENCE_TEMP)
 	{
 		PrepareTempTablespaces();
 		return GetNextTempTableSpace();
 	}
 
-	/* Fast path for default_tablespace == "" */
+	/* default_tablespace == "" 的快速路径 */
 	if (default_tablespace == NULL || default_tablespace[0] == '\0')
 		return InvalidOid;
 
 	/*
-	 * It is tempting to cache this lookup for more speed, but then we would
-	 * fail to detect the case where the tablespace was dropped since the GUC
-	 * variable was set.  Note also that we don't complain if the value fails
-	 * to refer to an existing tablespace; we just silently return InvalidOid,
-	 * causing the new object to be created in the database's tablespace.
+	 * 缓存此查找以获得更快速度很有诱惑力，但那样
+	 * 会无法检测到 GUC 变量设置后表空间被删除的
+	 * 情况。另请注意，如果值未能引用现有表空间，
+	 * 我们不会报错；只是静默返回 InvalidOid，
+	 * 使新对象在数据库的表空间中创建。
 	 */
 	result = get_tablespace_oid(default_tablespace, true);
 
 	/*
-	 * Allow explicit specification of database's default tablespace in
-	 * default_tablespace without triggering permissions checks.  Don't allow
-	 * specifying that when creating a partitioned table, however, since the
-	 * result is confusing.
+	 * 允许在 default_tablespace 中显式指定数据库
+	 * 的默认表空间，而无需触发权限检查。但在
+	 * 创建分区表时不允许这样做，因为结果会
+	 * 令人困惑。
 	 */
 	if (result == MyDatabaseTableSpace)
 	{
@@ -1189,30 +1189,30 @@ GetDefaultTablespace(char relpersistence, bool partitioned)
 
 
 /*
- * Routines for handling the GUC variable 'temp_tablespaces'.
+ * 处理 GUC 变量 'temp_tablespaces' 的例程。
  */
 
 typedef struct
 {
-	/* Array of OIDs to be passed to SetTempTablespaces() */
+	/* 要传递给 SetTempTablespaces() 的 OIDs 数组 */
 	int			numSpcs;
 	Oid			tblSpcs[FLEXIBLE_ARRAY_MEMBER];
 } temp_tablespaces_extra;
 
-/* check_hook: validate new temp_tablespaces */
+/* check_hook: 验证新的 temp_tablespaces */
 bool
 check_temp_tablespaces(char **newval, void **extra, GucSource source)
 {
 	char	   *rawname;
 	List	   *namelist;
 
-	/* Need a modifiable copy of string */
+	/* 需要字符串的可修改副本 */
 	rawname = pstrdup(*newval);
 
-	/* Parse string into list of identifiers */
+	/* 将字符串解析为标识符列表 */
 	if (!SplitIdentifierString(rawname, ',', &namelist))
 	{
-		/* syntax error in name list */
+		/* 名称列表中的语法错误 */
 		GUC_check_errdetail("List syntax is invalid.");
 		pfree(rawname);
 		list_free(namelist);
@@ -1220,10 +1220,10 @@ check_temp_tablespaces(char **newval, void **extra, GucSource source)
 	}
 
 	/*
-	 * If we aren't inside a transaction, or connected to a database, we
-	 * cannot do the catalog accesses necessary to verify the name.  Must
-	 * accept the value on faith. Fortunately, there's then also no need to
-	 * pass the data to fd.c.
+	 * 如果我们不在事务内，或者未连接到数据库，
+	 * 则无法进行验证名称所需的目录访问。
+	 * 此时只能接受该值。幸运的是，此时也
+	 * 不需要将数据传递给 fd.c。
 	 */
 	if (IsTransactionState() && MyDatabaseId != InvalidOid)
 	{
@@ -1232,7 +1232,7 @@ check_temp_tablespaces(char **newval, void **extra, GucSource source)
 		int			numSpcs;
 		ListCell   *l;
 
-		/* temporary workspace until we are done verifying the list */
+		/* 临时工作空间，直到我们完成列表验证 */
 		tblSpcs = (Oid *) palloc(list_length(namelist) * sizeof(Oid));
 		numSpcs = 0;
 		foreach(l, namelist)
@@ -1241,18 +1241,18 @@ check_temp_tablespaces(char **newval, void **extra, GucSource source)
 			Oid			curoid;
 			AclResult	aclresult;
 
-			/* Allow an empty string (signifying database default) */
+			/* 允许空字符串（表示数据库默认值） */
 			if (curname[0] == '\0')
 			{
-				/* InvalidOid signifies database's default tablespace */
+				/* InvalidOid 表示数据库的默认表空间 */
 				tblSpcs[numSpcs++] = InvalidOid;
 				continue;
 			}
 
 			/*
-			 * In an interactive SET command, we ereport for bad info.  When
-			 * source == PGC_S_TEST, don't throw a hard error for a
-			 * nonexistent tablespace, only a NOTICE.  See comments in guc.h.
+			 * 在交互式 SET 命令中，我们使用 ereport
+			 * 处理错误信息。当 source == PGC_S_TEST
+			 * 时，对不存在的表空间仅给出 NOTICE。参见 guc.h 中的注释。
 			 */
 			curoid = get_tablespace_oid(curname, source <= PGC_S_TEST);
 			if (curoid == InvalidOid)
@@ -1266,17 +1266,17 @@ check_temp_tablespaces(char **newval, void **extra, GucSource source)
 			}
 
 			/*
-			 * Allow explicit specification of database's default tablespace
-			 * in temp_tablespaces without triggering permissions checks.
+			 * 允许在 temp_tablespaces 中显式指定
+			 * 数据库的默认表空间，而无需触发权限检查。
 			 */
 			if (curoid == MyDatabaseTableSpace)
 			{
-				/* InvalidOid signifies database's default tablespace */
+				/* InvalidOid 表示数据库的默认表空间 */
 				tblSpcs[numSpcs++] = InvalidOid;
 				continue;
 			}
 
-			/* Check permissions, similarly complaining only if interactive */
+			/* 检查权限，类似地仅在交互式情况下才报错 */
 			aclresult = object_aclcheck(TableSpaceRelationId, curoid, GetUserId(),
 										ACL_CREATE);
 			if (aclresult != ACLCHECK_OK)
@@ -1289,7 +1289,7 @@ check_temp_tablespaces(char **newval, void **extra, GucSource source)
 			tblSpcs[numSpcs++] = curoid;
 		}
 
-		/* Now prepare an "extra" struct for assign_temp_tablespaces */
+		/* 现在为 assign_temp_tablespaces 准备 "extra" 结构体 */
 		myextra = guc_malloc(LOG, offsetof(temp_tablespaces_extra, tblSpcs) +
 							 numSpcs * sizeof(Oid));
 		if (!myextra)
@@ -1307,18 +1307,18 @@ check_temp_tablespaces(char **newval, void **extra, GucSource source)
 	return true;
 }
 
-/* assign_hook: do extra actions as needed */
+/* assign_hook: 根据需要执行额外操作 */
 void
 assign_temp_tablespaces(const char *newval, void *extra)
 {
 	temp_tablespaces_extra *myextra = (temp_tablespaces_extra *) extra;
 
 	/*
-	 * If check_temp_tablespaces was executed inside a transaction, then pass
-	 * the list it made to fd.c.  Otherwise, clear fd.c's list; we must be
-	 * still outside a transaction, or else restoring during transaction exit,
-	 * and in either case we can just let the next PrepareTempTablespaces call
-	 * make things sane.
+	 * 如果 check_temp_tablespaces 在事务内执行，
+	 * 则将其生成的列表传递给 fd.c。否则，清除
+	 * fd.c 的列表；我们必须仍在事务之外，或者正在
+	 * 事务退出时恢复中，无论哪种情况，都可以
+	 * 让下一次 PrepareTempTablespaces 调用来恢复正常。
 	 */
 	if (myextra)
 		SetTempTablespaces(myextra->tblSpcs, myextra->numSpcs);
@@ -1327,11 +1327,11 @@ assign_temp_tablespaces(const char *newval, void *extra)
 }
 
 /*
- * PrepareTempTablespaces -- prepare to use temp tablespaces
+ * PrepareTempTablespaces -- 准备使用临时表空间
  *
- * If we have not already done so in the current transaction, parse the
- * temp_tablespaces GUC variable and tell fd.c which tablespace(s) to use
- * for temp files.
+ * 如果我们在当前事务中尚未执行此操作，
+ * 则解析 temp_tablespaces GUC 变量并告知 fd.c 使用哪些 tablespace
+ * fd.c 将哪些表空间用于临时文件。
  */
 void
 PrepareTempTablespaces(void)
@@ -1342,34 +1342,34 @@ PrepareTempTablespaces(void)
 	int			numSpcs;
 	ListCell   *l;
 
-	/* No work if already done in current transaction */
+	/* 如果在当前事务中已完成则无需操作 */
 	if (TempTablespacesAreSet())
 		return;
 
 	/*
-	 * Can't do catalog access unless within a transaction.  This is just a
-	 * safety check in case this function is called by low-level code that
-	 * could conceivably execute outside a transaction.  Note that in such a
-	 * scenario, fd.c will fall back to using the current database's default
-	 * tablespace, which should always be OK.
+	 * 除非在事务内，否则无法进行目录访问。
+	 * 这只是一个安全检查，以防此函数被可能在
+	 * 事务外执行的低级代码调用。注意，在此
+	 * 场景下，fd.c 将回退到使用当前数据库的
+	 * 默认表空间，这应该总是安全的。
 	 */
 	if (!IsTransactionState())
 		return;
 
-	/* Need a modifiable copy of string */
+	/* 需要字符串的可修改副本 */
 	rawname = pstrdup(temp_tablespaces);
 
-	/* Parse string into list of identifiers */
+	/* 将字符串解析为标识符列表 */
 	if (!SplitIdentifierString(rawname, ',', &namelist))
 	{
-		/* syntax error in name list */
+		/* 名称列表中的语法错误 */
 		SetTempTablespaces(NULL, 0);
 		pfree(rawname);
 		list_free(namelist);
 		return;
 	}
 
-	/* Store tablespace OIDs in an array in TopTransactionContext */
+	/* 将表空间 OIDs 存储在 TopTransactionContext 的数组中 */
 	tblSpcs = (Oid *) MemoryContextAlloc(TopTransactionContext,
 										 list_length(namelist) * sizeof(Oid));
 	numSpcs = 0;
@@ -1379,34 +1379,34 @@ PrepareTempTablespaces(void)
 		Oid			curoid;
 		AclResult	aclresult;
 
-		/* Allow an empty string (signifying database default) */
+		/* 允许空字符串（表示数据库默认值） */
 		if (curname[0] == '\0')
 		{
-			/* InvalidOid signifies database's default tablespace */
+			/* InvalidOid 表示数据库的默认表空间 */
 			tblSpcs[numSpcs++] = InvalidOid;
 			continue;
 		}
 
-		/* Else verify that name is a valid tablespace name */
+		/* 否则验证名称是否为有效的表空间名称 */
 		curoid = get_tablespace_oid(curname, true);
 		if (curoid == InvalidOid)
 		{
-			/* Skip any bad list elements */
+			/* 跳过任何无效的列表元素 */
 			continue;
 		}
 
 		/*
-		 * Allow explicit specification of database's default tablespace in
-		 * temp_tablespaces without triggering permissions checks.
+		 * 允许在 temp_tablespaces 中显式指定
+		 * 数据库的默认表空间，而无需触发权限检查。
 		 */
 		if (curoid == MyDatabaseTableSpace)
 		{
-			/* InvalidOid signifies database's default tablespace */
+			/* InvalidOid 表示数据库的默认表空间 */
 			tblSpcs[numSpcs++] = InvalidOid;
 			continue;
 		}
 
-		/* Check permissions similarly */
+		/* 类似地检查权限 */
 		aclresult = object_aclcheck(TableSpaceRelationId, curoid, GetUserId(),
 									ACL_CREATE);
 		if (aclresult != ACLCHECK_OK)
@@ -1423,10 +1423,10 @@ PrepareTempTablespaces(void)
 
 
 /*
- * get_tablespace_oid - given a tablespace name, look up the OID
+ * get_tablespace_oid - 给定表空间名称，查找其 OID
  *
- * If missing_ok is false, throw an error if tablespace name not found.  If
- * true, just return InvalidOid.
+ * 如果 missing_ok 为 false，在找不到表空间名称时
+ * 抛出错误。如果为 true，则仅返回 InvalidOid。
  */
 Oid
 get_tablespace_oid(const char *tablespacename, bool missing_ok)
@@ -1438,9 +1438,9 @@ get_tablespace_oid(const char *tablespacename, bool missing_ok)
 	ScanKeyData entry[1];
 
 	/*
-	 * Search pg_tablespace.  We use a heapscan here even though there is an
-	 * index on name, on the theory that pg_tablespace will usually have just
-	 * a few entries and so an indexed lookup is a waste of effort.
+	 * 搜索 pg_tablespace。我们在这里使用堆扫描而非
+	 * 索引扫描，尽管存在名称上的索引，但理论是
+	 * pg_tablespace 通常只有少量条目，因此索引查找是浪费精力。
 	 */
 	rel = table_open(TableSpaceRelationId, AccessShareLock);
 
@@ -1451,7 +1451,7 @@ get_tablespace_oid(const char *tablespacename, bool missing_ok)
 	scandesc = table_beginscan_catalog(rel, 1, entry);
 	tuple = heap_getnext(scandesc, ForwardScanDirection);
 
-	/* We assume that there can be at most one matching tuple */
+	/* 我们假设最多只有一个匹配的元组 */
 	if (HeapTupleIsValid(tuple))
 		result = ((Form_pg_tablespace) GETSTRUCT(tuple))->oid;
 	else
@@ -1470,9 +1470,9 @@ get_tablespace_oid(const char *tablespacename, bool missing_ok)
 }
 
 /*
- * get_tablespace_name - given a tablespace OID, look up the name
+ * get_tablespace_name - 给定表空间 OID，查找其名称
  *
- * Returns a palloc'd string, or NULL if no such tablespace.
+ * 返回一个 palloc 分配的字符串，如果不存在该表空间则返回 NULL。
  */
 char *
 get_tablespace_name(Oid spc_oid)
@@ -1484,9 +1484,9 @@ get_tablespace_name(Oid spc_oid)
 	ScanKeyData entry[1];
 
 	/*
-	 * Search pg_tablespace.  We use a heapscan here even though there is an
-	 * index on oid, on the theory that pg_tablespace will usually have just a
-	 * few entries and so an indexed lookup is a waste of effort.
+	 * 搜索 pg_tablespace。我们在这里使用堆扫描而非
+	 * 索引扫描，尽管存在 OID 上的索引，但理论是
+	 * pg_tablespace 通常只有少量条目，因此索引查找是浪费精力。
 	 */
 	rel = table_open(TableSpaceRelationId, AccessShareLock);
 
@@ -1497,7 +1497,7 @@ get_tablespace_name(Oid spc_oid)
 	scandesc = table_beginscan_catalog(rel, 1, entry);
 	tuple = heap_getnext(scandesc, ForwardScanDirection);
 
-	/* We assume that there can be at most one matching tuple */
+	/* 我们假设最多只有一个匹配的元组 */
 	if (HeapTupleIsValid(tuple))
 		result = pstrdup(NameStr(((Form_pg_tablespace) GETSTRUCT(tuple))->spcname));
 	else
@@ -1511,14 +1511,14 @@ get_tablespace_name(Oid spc_oid)
 
 
 /*
- * TABLESPACE resource manager's routines
+ * TABLESPACE 资源管理器的例程
  */
 void
 tblspc_redo(XLogReaderState *record)
 {
 	uint8		info = XLogRecGetInfo(record) & ~XLR_INFO_MASK;
 
-	/* Backup blocks are not used in tblspc records */
+	/* 备份块不使用 tblspc 记录 */
 	Assert(!XLogRecHasAnyBlockRefs(record));
 
 	if (info == XLOG_TBLSPC_CREATE)
@@ -1532,35 +1532,35 @@ tblspc_redo(XLogReaderState *record)
 	{
 		xl_tblspc_drop_rec *xlrec = (xl_tblspc_drop_rec *) XLogRecGetData(record);
 
-		/* Close all smgr fds in all backends. */
+		/* 在所有后端中关闭所有 smgr 文件描述符。 */
 		WaitForProcSignalBarrier(EmitProcSignalBarrier(PROCSIGNAL_BARRIER_SMGRRELEASE));
 
 		/*
-		 * If we issued a WAL record for a drop tablespace it implies that
-		 * there were no files in it at all when the DROP was done. That means
-		 * that no permanent objects can exist in it at this point.
+		 * 如果我们为删除表空间发出了 WAL 记录，
+		 * 这意味着在执行 DROP 时其中没有任何文件。
+		 * 这意味着此时其中不可能存在任何永久对象。
 		 *
-		 * It is possible for standby users to be using this tablespace as a
-		 * location for their temporary files, so if we fail to remove all
-		 * files then do conflict processing and try again, if currently
-		 * enabled.
+		 * 备用服务器上的用户可能将此表空间用作其
+		 * 临时文件的位置，因此如果我们未能删除所有
+		 * 文件，则执行冲突处理并重试（如果当前已
+		 * 启用）。
 		 *
-		 * Other possible reasons for failure include bollixed file
-		 * permissions on a standby server when they were okay on the primary,
-		 * etc etc. There's not much we can do about that, so just remove what
-		 * we can and press on.
+		 * 其他可能的失败原因包括备用服务器上的文件
+		 * 权限被搞乱，而主服务器上一切正常等等。
+		 * 对此我们能做的有限，因此只能尽量删除
+		 * 并继续。
 		 */
 		if (!destroy_tablespace_directories(xlrec->ts_id, true))
 		{
 			ResolveRecoveryConflictWithTablespace(xlrec->ts_id);
 
 			/*
-			 * If we did recovery processing then hopefully the backends who
-			 * wrote temp files should have cleaned up and exited by now.  So
-			 * retry before complaining.  If we fail again, this is just a LOG
-			 * condition, because it's not worth throwing an ERROR for (as
-			 * that would crash the database and require manual intervention
-			 * before we could get past this WAL record on restart).
+			 * 如果我们进行了恢复处理，那么希望写入
+			 * 临时文件的后端进程此时应该已经清理并退出。
+			 * 因此在报错前重试。如果再次失败，这只是
+			 * 一个 LOG 条件，因为不值得为此抛出 ERROR
+			 * （因为那会导致数据库崩溃，并且在重启时
+			 * 需要通过手动干预才能越过此 WAL 记录）。
 			 */
 			if (!destroy_tablespace_directories(xlrec->ts_id, true))
 				ereport(LOG,

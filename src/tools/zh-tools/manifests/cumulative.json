@@ -4091,6 +4091,36 @@
       "pattern": "src/tools/zh-tools/manifests/batch-0236-comment-commands-vacuum.json",
       "kind": "tool",
       "note": "batch 0236 manifest infra"
+    },
+    {
+      "pattern": "src/backend/commands/async.c",
+      "kind": "c_comment",
+      "note": "LISTEN/NOTIFY"
+    },
+    {
+      "pattern": "src/backend/commands/cluster.c",
+      "kind": "c_comment",
+      "note": "CLUSTER command"
+    },
+    {
+      "pattern": "src/backend/commands/sequence.c",
+      "kind": "c_comment",
+      "note": "SEQUENCE DDL"
+    },
+    {
+      "pattern": "src/backend/commands/tablespace.c",
+      "kind": "c_comment",
+      "note": "TABLESPACE DDL"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0235-comment-commands-async-cluster-sequence-tablespace.json",
+      "kind": "tool",
+      "note": "batch 0235 manifest infra"
+    },
+    {
+      "pattern": "src/tools/zh-tools/zhtools/c_verify.py",
+      "kind": "tool",
+      "note": "TABLESPACE_FALLTHROUGH_PROSE exception"
     }
   ],
   "files": [
@@ -13694,6 +13724,51 @@
     },
     {
       "path": "src/tools/zh-tools/manifests/batch-0236-comment-commands-vacuum.json",
+      "kind": "manifest", "action": "add",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "manifest"
+    },
+    {
+      "path": "src/backend/commands/async.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 244, "translated": 244, "preserved": 0,
+      "preserved_reasons": [],
+      "note": "LISTEN/NOTIFY"
+    },
+    {
+      "path": "src/backend/commands/cluster.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 146, "translated": 146, "preserved": 0,
+      "preserved_reasons": [],
+      "note": "CLUSTER"
+    },
+    {
+      "path": "src/backend/commands/sequence.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 163, "translated": 158, "preserved": 5,
+      "preserved_reasons": ["Copyright header"],
+      "note": "SEQUENCE"
+    },
+    {
+      "path": "src/backend/commands/tablespace.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 136, "translated": 135, "preserved": 1,
+      "preserved_reasons": ["Copyright header"],
+      "note": "TABLESPACE"
+    },
+    {
+      "path": "src/tools/zh-tools/zhtools/c_verify.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "TABLESPACE_FALLTHROUGH_PROSE exception"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0235-comment-commands-async-cluster-sequence-tablespace.json",
       "kind": "manifest", "action": "add",
       "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
       "note": "manifest"

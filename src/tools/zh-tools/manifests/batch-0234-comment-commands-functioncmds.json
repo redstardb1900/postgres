@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "batch_id": "0234-comment-commands-functioncmds",
+  "title": "zh: translate commands comments — functioncmds",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "7726708d9a4cac768aa19d13de379f4524cee40b",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/commands/functioncmds.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP FUNCTION/PROCEDURE/AGGREGATE"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0234-comment-commands-functioncmds.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/commands/functioncmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 135,
+      "translated": 131,
+      "preserved": 4,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "SQL section banners (CREATE TRANSFORM)"
+      ],
+      "note": "CREATE/ALTER/DROP FUNCTION/PROCEDURE/AGGREGATE/TRANSFORM; 2398 lines"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0234-comment-commands-functioncmds.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "segments_total": 135,
+  "translated": 131,
+  "preserved": 4,
+  "notes": "Batch 0234: functioncmds.c (135 segments, 131 translated). 0 violations verify_c_comments.py, 0 error hits term_lint. opclasscmds.c and tsearchcmds.c deferred to batch 0237."
+}

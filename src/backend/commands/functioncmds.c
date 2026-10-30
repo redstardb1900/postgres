@@ -79,16 +79,16 @@
 #include "utils/typcache.h"
 
 /*
- *	 Examine the RETURNS clause of the CREATE FUNCTION statement
- *	 and return information about it as *prorettype_p and *returnsSet.
+ * 检查 CREATE FUNCTION 语句的 RETURNS 子句，
+ * 并将信息作为 *prorettype_p 和 *returnsSet 返回。
  *
- * This is more complex than the average typename lookup because we want to
- * allow a shell type to be used, or even created if the specified return type
- * doesn't exist yet.  (Without this, there's no way to define the I/O procs
- * for a new type.)  But SQL function creation won't cope, so error out if
- * the target language is SQL.  (We do this here, not in the SQL-function
- * validator, so as not to produce a NOTICE and then an ERROR for the same
- * condition.)
+ * 这比普通的类型名查找更复杂，因为我们希望允许使用壳
+ * 类型，甚至在指定的返回类型尚不存在时创建它。
+ * （没有这个机制，就无法为新类型定义 I/O 过程。）
+ * 但如果目标语言是 SQL 则报错，因为 SQL 函数创建
+ * 无法处理这种情况。（我们在这里处理，而不是在
+ * SQL 函数校验器中，以避免对同一情况先产生 NOTICE
+ * 后又产生 ERROR。）
  */
 static void
 compute_return_type(TypeName *returnType, Oid languageOid,
@@ -126,10 +126,10 @@ compute_return_type(TypeName *returnType, Oid languageOid,
 		ObjectAddress address;
 
 		/*
-		 * Only C-coded functions can be I/O functions.  We enforce this
-		 * restriction here mainly to prevent littering the catalogs with
-		 * shell types due to simple typos in user-defined function
-		 * definitions.
+		 * 只有 C 编码的函数才能作为 I/O 函数。我们在这里强制
+		 * 此限制，主要是为了防止因用户定义函数中的
+		 * 简单输入错误而导致系统目录被壳类型污染。
+		 *
 		 */
 		if (languageOid != INTERNALlanguageId &&
 			languageOid != ClanguageId)
@@ -137,14 +137,14 @@ compute_return_type(TypeName *returnType, Oid languageOid,
 					(errcode(ERRCODE_UNDEFINED_OBJECT),
 					 errmsg("type \"%s\" does not exist", typnam)));
 
-		/* Reject if there's typmod decoration, too */
+		/* 同样拒绝类型修饰符装饰 */
 		if (returnType->typmods != NIL)
 			ereport(ERROR,
 					(errcode(ERRCODE_SYNTAX_ERROR),
 					 errmsg("type modifier cannot be specified for shell type \"%s\"",
 							typnam)));
 
-		/* Otherwise, go ahead and make a shell type */
+		/* 否则，继续创建一个壳类型 */
 		ereport(NOTICE,
 				(errcode(ERRCODE_UNDEFINED_OBJECT),
 				 errmsg("type \"%s\" is not yet defined", typnam),
@@ -170,20 +170,20 @@ compute_return_type(TypeName *returnType, Oid languageOid,
 }
 
 /*
- * Interpret the function parameter list of a CREATE FUNCTION,
- * CREATE PROCEDURE, or CREATE AGGREGATE statement.
+ * 解释 CREATE FUNCTION、CREATE PROCEDURE 或 CREATE AGGREGATE
+ * 语句的函数参数列表。
  *
- * Input parameters:
- * parameters: list of FunctionParameter structs
- * languageOid: OID of function language (InvalidOid if it's CREATE AGGREGATE)
- * objtype: identifies type of object being created
+ * 输入参数：
+ * parameters：FunctionParameter 结构体的列表
+ * languageOid：函数语言的 OID（若是 CREATE AGGREGATE 则为 InvalidOid）
+ * objtype：标识正在创建的对象的类型
  *
- * Results are stored into output parameters.  parameterTypes must always
- * be created, but the other arrays/lists can be NULL pointers if not needed.
- * variadicArgType is set to the variadic array type if there's a VARIADIC
- * parameter (there can be only one); or to InvalidOid if not.
- * requiredResultType is set to InvalidOid if there are no OUT parameters,
- * else it is set to the OID of the implied result type.
+ * 结果存储在输出参数中。parameterTypes 必须始终被创建，
+ * 但如果不需要，其他数组/列表可以为 NULL 指针。
+ * 如果存在 VARIADIC 参数，variadicArgType 会设置为可变数组
+ * 类型（只能有一个）；否则设置为 InvalidOid。
+ * 如果没有 OUT 参数，requiredResultType 设置为 InvalidOid，
+ * 否则设置为隐含结果类型的 OID。
  */
 void
 interpret_function_parameter_list(ParseState *pstate,
@@ -213,8 +213,8 @@ interpret_function_parameter_list(ParseState *pstate,
 	ListCell   *x;
 	int			i;
 
-	*variadicArgType = InvalidOid;	/* default result */
-	*requiredResultType = InvalidOid;	/* default result */
+	*variadicArgType = InvalidOid;	/* 默认结果 */
+	*requiredResultType = InvalidOid;	/* 默认结果 */
 
 	inTypes = (Oid *) palloc(parameterCount * sizeof(Oid));
 	allTypes = (Datum *) palloc(parameterCount * sizeof(Datum));
@@ -222,7 +222,7 @@ interpret_function_parameter_list(ParseState *pstate,
 	paramNames = (Datum *) palloc0(parameterCount * sizeof(Datum));
 	*parameterDefaults = NIL;
 
-	/* Scan the list and extract data into work arrays */
+	/* 扫描列表并将数据提取到工作数组中 */
 	i = 0;
 	foreach(x, parameters)
 	{
@@ -234,7 +234,7 @@ interpret_function_parameter_list(ParseState *pstate,
 		Type		typtup;
 		AclResult	aclresult;
 
-		/* For our purposes here, a defaulted mode spec is identical to IN */
+		/* 在此处的处理中，默认模式规范等同于 IN */
 		if (fpmode == FUNC_PARAM_DEFAULT)
 			fpmode = FUNC_PARAM_IN;
 
@@ -243,13 +243,13 @@ interpret_function_parameter_list(ParseState *pstate,
 		{
 			if (!((Form_pg_type) GETSTRUCT(typtup))->typisdefined)
 			{
-				/* As above, hard error if language is SQL */
+				/* 同上，如果语言是 SQL 则报硬错误 */
 				if (languageOid == SQLlanguageId)
 					ereport(ERROR,
 							(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
 							 errmsg("SQL function cannot accept shell type %s",
 									TypeNameToString(t))));
-				/* We don't allow creating aggregates on shell types either */
+				/* 我们也不允许在壳类型上创建聚合 */
 				else if (objtype == OBJECT_AGGREGATE)
 					ereport(ERROR,
 							(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
@@ -270,7 +270,7 @@ interpret_function_parameter_list(ParseState *pstate,
 					(errcode(ERRCODE_UNDEFINED_OBJECT),
 					 errmsg("type %s does not exist",
 							TypeNameToString(t))));
-			toid = InvalidOid;	/* keep compiler quiet */
+			toid = InvalidOid;	/* 让编译器安静 */
 		}
 
 		aclresult = object_aclcheck(TypeRelationId, toid, GetUserId(), ACL_USAGE);
@@ -293,10 +293,10 @@ interpret_function_parameter_list(ParseState *pstate,
 						 errmsg("functions cannot accept set arguments")));
 		}
 
-		/* handle input parameters */
+		/* 处理输入参数 */
 		if (fpmode != FUNC_PARAM_OUT && fpmode != FUNC_PARAM_TABLE)
 		{
-			/* other input parameters can't follow a VARIADIC parameter */
+			/* 其他输入参数不能位于 VARIADIC 参数之后 */
 			if (varCount > 0)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
@@ -307,24 +307,24 @@ interpret_function_parameter_list(ParseState *pstate,
 				*parameterTypes_list = lappend_oid(*parameterTypes_list, toid);
 		}
 
-		/* handle output parameters */
+		/* 处理输出参数 */
 		if (fpmode != FUNC_PARAM_IN && fpmode != FUNC_PARAM_VARIADIC)
 		{
 			if (objtype == OBJECT_PROCEDURE)
 			{
 				/*
-				 * We disallow OUT-after-VARIADIC only for procedures.  While
-				 * such a case causes no confusion in ordinary function calls,
-				 * it would cause confusion in a CALL statement.
+				 * 仅对过程禁止 VARIADIC 后跟 OUT 参数。虽然这种情况
+				 * 在普通函数调用中不会造成混淆，但在 CALL 语句中
+				 * 会造成混淆。
 				 */
 				if (varCount > 0)
 					ereport(ERROR,
 							(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
 							 errmsg("VARIADIC parameter must be the last parameter")));
-				/* Procedures with output parameters always return RECORD */
+				/* 带有输出参数的过程始终返回 RECORD */
 				*requiredResultType = RECORDOID;
 			}
-			else if (outCount == 0) /* save first output param's type */
+			else if (outCount == 0) /* 保存第一个输出参数的类型 */
 				*requiredResultType = toid;
 			outCount++;
 		}
@@ -333,13 +333,13 @@ interpret_function_parameter_list(ParseState *pstate,
 		{
 			*variadicArgType = toid;
 			varCount++;
-			/* validate variadic parameter type */
+			/* 验证可变参数类型 */
 			switch (toid)
 			{
 				case ANYARRAYOID:
 				case ANYCOMPATIBLEARRAYOID:
 				case ANYOID:
-					/* okay */
+					/* 允许 */
 					break;
 				default:
 					if (!OidIsValid(get_element_type(toid)))
@@ -359,10 +359,10 @@ interpret_function_parameter_list(ParseState *pstate,
 			ListCell   *px;
 
 			/*
-			 * As of Postgres 9.0 we disallow using the same name for two
-			 * input or two output function parameters.  Depending on the
-			 * function's language, conflicting input and output names might
-			 * be bad too, but we leave it to the PL to complain if so.
+			 * 从 Postgres 9.0 开始，我们禁止对两个输入或两个输出
+			 * 函数参数使用相同的名称。依赖函数的语言，冲突的
+			 * 输入和输出名称也可能不好，但我们将其留给 PL 来
+			 * 抱怨。
 			 */
 			foreach(px, parameters)
 			{
@@ -371,11 +371,11 @@ interpret_function_parameter_list(ParseState *pstate,
 
 				if (prevfp == fp)
 					break;
-				/* as above, default mode is IN */
+				/* 同上，默认模式为 IN */
 				prevfpmode = prevfp->mode;
 				if (prevfpmode == FUNC_PARAM_DEFAULT)
 					prevfpmode = FUNC_PARAM_IN;
-				/* pure in doesn't conflict with pure out */
+				/* 纯 IN 不与纯 OUT 冲突 */
 				if ((fpmode == FUNC_PARAM_IN ||
 					 fpmode == FUNC_PARAM_VARIADIC) &&
 					(prevfpmode == FUNC_PARAM_OUT ||
@@ -416,8 +416,8 @@ interpret_function_parameter_list(ParseState *pstate,
 			assign_expr_collations(pstate, def);
 
 			/*
-			 * Make sure no variables are referred to (this is probably dead
-			 * code now that add_missing_from is history).
+			 * 确保没有引用变量（鉴于 add_missing_from 已成为
+			 * 历史，这可能已是死代码）。
 			 */
 			if (pstate->p_rtable != NIL ||
 				contain_var_clause(def))
@@ -426,17 +426,17 @@ interpret_function_parameter_list(ParseState *pstate,
 						 errmsg("cannot use table references in parameter default value")));
 
 			/*
-			 * transformExpr() should have already rejected subqueries,
-			 * aggregates, and window functions, based on the EXPR_KIND_ for a
-			 * default expression.
+			 * transformExpr() 应该已根据默认表达式
+			 * 的 EXPR_KIND_ 拒绝了子查询、
+			 * 聚合和窗口函数。
 			 *
-			 * It can't return a set either --- but coerce_to_specific_type
-			 * already checked that for us.
+			 * 它也不能返回集合 --- 但 coerce_to_specific_type
+			 * 已经帮我们检查了这一点。
 			 *
-			 * Note: the point of these restrictions is to ensure that an
-			 * expression that, on its face, hasn't got subplans, aggregates,
-			 * etc cannot suddenly have them after function default arguments
-			 * are inserted.
+			 * 注意：这些限制的目的是确保表面上
+			 * 没有子计划、聚合等的表达式，
+			 * 在插入函数默认参数后
+			 * 不会突然拥有它们。
 			 */
 
 			*parameterDefaults = lappend(*parameterDefaults, def);
@@ -450,9 +450,9 @@ interpret_function_parameter_list(ParseState *pstate,
 						 errmsg("input parameters after one with a default value must also have defaults")));
 
 			/*
-			 * For procedures, we also can't allow OUT parameters after one
-			 * with a default, because the same sort of confusion arises in a
-			 * CALL statement.
+			 * 对于过程，我们也不允许在带有默认值的参数之后
+			 * 出现 OUT 参数，因为 CALL 语句中会出现相同
+			 * 类型的混淆。
 			 */
 			if (objtype == OBJECT_PROCEDURE && have_defaults)
 				ereport(ERROR,
@@ -463,7 +463,7 @@ interpret_function_parameter_list(ParseState *pstate,
 		i++;
 	}
 
-	/* Now construct the proper outputs as needed */
+	/* 现在根据需要构造适当的输出 */
 	*parameterTypes = buildoidvector(inTypes, inCount);
 
 	if (outCount > 0 || varCount > 0)
@@ -472,7 +472,7 @@ interpret_function_parameter_list(ParseState *pstate,
 		*parameterModes = construct_array_builtin(paramModes, parameterCount, CHAROID);
 		if (outCount > 1)
 			*requiredResultType = RECORDOID;
-		/* otherwise we set requiredResultType correctly above */
+		/* 否则我们在上面已正确设置了 requiredResultType */
 	}
 	else
 	{
@@ -495,12 +495,12 @@ interpret_function_parameter_list(ParseState *pstate,
 
 
 /*
- * Recognize one of the options that can be passed to both CREATE
- * FUNCTION and ALTER FUNCTION and return it via one of the out
- * parameters. Returns true if the passed option was recognized. If
- * the out parameter we were going to assign to points to non-NULL,
- * raise a duplicate-clause error.  (We don't try to detect duplicate
- * SET parameters though --- if you're redundant, the last one wins.)
+ * 识别可同时传递给 CREATE FUNCTION 和 ALTER FUNCTION
+ * 的选项之一，并通过输出参数
+ * 返回。如果传入的选项被识别，则返回 true。
+ * 如果要赋值的输出参数指向非 NULL，
+ * 则引发重复子句错误。（但我们不会尝试
+ * 检测重复的 SET 参数 --- 如果重复，最后一个生效。）
  */
 static bool
 compute_common_attribute(ParseState *pstate,
@@ -593,7 +593,7 @@ compute_common_attribute(ParseState *pstate,
 	else
 		return false;
 
-	/* Recognized an option */
+	/* 识别到一个选项 */
 	return true;
 
 procedure_error:
@@ -618,7 +618,7 @@ interpret_func_volatility(DefElem *defel)
 	else
 	{
 		elog(ERROR, "invalid volatility \"%s\"", str);
-		return 0;				/* keep compiler quiet */
+		return 0;				/* 让编译器安静 */
 	}
 }
 
@@ -638,14 +638,14 @@ interpret_func_parallel(DefElem *defel)
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
 				 errmsg("parameter \"parallel\" must be SAFE, RESTRICTED, or UNSAFE")));
-		return PROPARALLEL_UNSAFE;	/* keep compiler quiet */
+		return PROPARALLEL_UNSAFE;	/* 让编译器安静 */
 	}
 }
 
 /*
- * Update a proconfig value according to a list of VariableSetStmt items.
+ * 根据 VariableSetStmt 项列表更新 proconfig 值。
  *
- * The input and result may be NULL to signify a null entry.
+ * 输入和结果可以为 NULL，表示空条目。
  */
 static ArrayType *
 update_proconfig_value(ArrayType *a, List *set_items)
@@ -680,8 +680,8 @@ interpret_func_support(DefElem *defel)
 	Oid			argList[1];
 
 	/*
-	 * Support functions always take one INTERNAL argument and return
-	 * INTERNAL.
+	 * 支持函数始终接受一个 INTERNAL 参数并返回
+	 * INTERNAL。
 	 */
 	argList[0] = INTERNALOID;
 
@@ -699,9 +699,9 @@ interpret_func_support(DefElem *defel)
 						NameListToString(procName), "internal")));
 
 	/*
-	 * Someday we might want an ACL check here; but for now, we insist that
-	 * you be superuser to specify a support function, so privilege on the
-	 * support function is moot.
+	 * 也许有一天我们会想要在这里进行 ACL 检查；但目前，
+	 * 我们坚持必须是超级用户才能指定支持函数，因此
+	 * 支持函数的权限问题不重要。
 	 */
 	if (!superuser())
 		ereport(ERROR,
@@ -713,8 +713,8 @@ interpret_func_support(DefElem *defel)
 
 
 /*
- * Dissect the list of options assembled in gram.y into function
- * attributes.
+ * 将 gram.y 中组装的选项列表分解为函数
+ * 属性。
  */
 static void
 compute_function_attributes(ParseState *pstate,
@@ -795,7 +795,7 @@ compute_function_attributes(ParseState *pstate,
 										  &support_item,
 										  &parallel_item))
 		{
-			/* recognized common option */
+			/* 已识别通用选项 */
 			continue;
 		}
 		else
@@ -845,13 +845,13 @@ compute_function_attributes(ParseState *pstate,
 
 
 /*
- * For a dynamically linked C language object, the form of the clause is
+ * 对于动态链接的 C 语言对象，子句的形式为
  *
- *	   AS <object file name> [, <link symbol name> ]
+ *	   AS <目标文件名> [, <链接符号名> ]
  *
- * In all other cases
+ * 在所有其他情况下：
  *
- *	   AS <object reference, or sql code>
+ *	   AS <对象引用或 SQL 代码>
  */
 static void
 interpret_AS_clause(Oid languageOid, const char *languageName,
@@ -881,12 +881,12 @@ interpret_AS_clause(Oid languageOid, const char *languageName,
 	if (languageOid == ClanguageId)
 	{
 		/*
-		 * For "C" language, store the file name in probin and, when given,
-		 * the link symbol name in prosrc.  If link symbol is omitted,
-		 * substitute procedure name.  We also allow link symbol to be
-		 * specified as "-", since that was the habit in PG versions before
-		 * 8.4, and there might be dump files out there that don't translate
-		 * that back to "omitted".
+		 * 对于 "C" 语言，将文件名存储在 probin 中，
+		 * 并在提供时将链接符号名存储在 prosrc 中。
+		 * 如果链接符号被省略，则替换为过程名。
+		 * 我们也允许将链接符号指定为 "-"，
+		 * 因为在 8.4 之前的 PG 版本中这是惯例，
+		 * 并且可能仍有旧的转储文件未经处理。
 		 */
 		*probin_str_p = strVal(linitial(as));
 		if (list_length(as) == 1)
@@ -969,20 +969,20 @@ interpret_AS_clause(Oid languageOid, const char *languageName,
 		}
 
 		/*
-		 * We must put something in prosrc.  For the moment, just record an
-		 * empty string.  It might be useful to store the original text of the
-		 * CREATE FUNCTION statement --- but to make actual use of that in
-		 * error reports, we'd also have to adjust readfuncs.c to not throw
-		 * away node location fields when reading prosqlbody.
+		 * 我们必须在 prosrc 中放入一些内容。目前，只记录
+		 * 一个空字符串。存储 CREATE FUNCTION 语句的原始文本
+		 * 可能有用 --- 但在错误报告中实际使用时，我们还
+		 * 需要调整 readfuncs.c，使其在读取 prosqlbody 时
+		 * 不丢弃节点位置字段。
 		 */
 		*prosrc_str_p = pstrdup("");
 
-		/* But we definitely don't need probin. */
+		/* 但我们绝对不需要 probin。 */
 		*probin_str_p = NULL;
 	}
 	else
 	{
-		/* Everything else wants the given string in prosrc. */
+		/* 其他所有情况都需要将给定字符串放在 prosrc 中。 */
 		*prosrc_str_p = strVal(linitial(as));
 		*probin_str_p = NULL;
 
@@ -995,12 +995,12 @@ interpret_AS_clause(Oid languageOid, const char *languageName,
 		if (languageOid == INTERNALlanguageId)
 		{
 			/*
-			 * In PostgreSQL versions before 6.5, the SQL name of the created
-			 * function could not be different from the internal name, and
-			 * "prosrc" wasn't used.  So there is code out there that does
-			 * CREATE FUNCTION xyz AS '' LANGUAGE internal. To preserve some
-			 * modicum of backwards compatibility, accept an empty "prosrc"
-			 * value as meaning the supplied SQL function name.
+			 * 在 6.5 之前的 PostgreSQL 版本中，创建的函数的
+			 * SQL 名称不能与内部名称不同，且不使用
+			 * "prosrc"。因此有些代码会执行
+			 * CREATE FUNCTION xyz AS '' LANGUAGE internal。
+			 * 为保持一定程度的向后兼容性，接受空的
+			 * "prosrc" 值，其含义等同于提供的 SQL 函数名称。
 			 */
 			if (strlen(*prosrc_str_p) == 0)
 				*prosrc_str_p = funcname;
@@ -1011,7 +1011,7 @@ interpret_AS_clause(Oid languageOid, const char *languageName,
 
 /*
  * CreateFunction
- *	 Execute a CREATE FUNCTION (or CREATE PROCEDURE) utility statement.
+ *	 执行 CREATE FUNCTION（或 CREATE PROCEDURE）工具语句。
  */
 ObjectAddress
 CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt)
@@ -1053,17 +1053,17 @@ CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt)
 	List	   *as_clause;
 	char		parallel;
 
-	/* Convert list of names to a name and namespace */
+	/* 将名称列表转换为名称和命名空间 */
 	namespaceId = QualifiedNameGetCreationNamespace(stmt->funcname,
 													&funcname);
 
-	/* Check we have creation rights in target namespace */
+	/* 检查我们在目标命名空间中是否有创建权限 */
 	aclresult = object_aclcheck(NamespaceRelationId, namespaceId, GetUserId(), ACL_CREATE);
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error(aclresult, OBJECT_SCHEMA,
 					   get_namespace_name(namespaceId));
 
-	/* Set default attributes */
+	/* 设置默认属性 */
 	as_clause = NIL;
 	language = NULL;
 	isWindowFunc = false;
@@ -1072,12 +1072,12 @@ CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt)
 	isLeakProof = false;
 	volatility = PROVOLATILE_VOLATILE;
 	proconfig = NULL;
-	procost = -1;				/* indicates not set */
-	prorows = -1;				/* indicates not set */
+	procost = -1;				/* 表示未设置 */
+	prorows = -1;				/* 表示未设置 */
 	prosupport = InvalidOid;
 	parallel = PROPARALLEL_UNSAFE;
 
-	/* Extract non-default attributes from stmt->options list */
+	/* 从 stmt->options 列表中提取非默认属性 */
 	compute_function_attributes(pstate,
 								stmt->is_procedure,
 								stmt->options,
@@ -1097,7 +1097,7 @@ CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt)
 					 errmsg("no language specified")));
 	}
 
-	/* Look up the language and validate permissions */
+	/* 查找语言并验证权限 */
 	languageTuple = SearchSysCache1(LANGNAME, PointerGetDatum(language));
 	if (!HeapTupleIsValid(languageTuple))
 		ereport(ERROR,
@@ -1111,7 +1111,7 @@ CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt)
 
 	if (languageStruct->lanpltrusted)
 	{
-		/* if trusted language, need USAGE privilege */
+		/* 如果是受信语言，需要 USAGE 权限 */
 		aclresult = object_aclcheck(LanguageRelationId, languageOid, GetUserId(), ACL_USAGE);
 		if (aclresult != ACLCHECK_OK)
 			aclcheck_error(aclresult, OBJECT_LANGUAGE,
@@ -1119,7 +1119,7 @@ CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt)
 	}
 	else
 	{
-		/* if untrusted language, must be superuser */
+		/* 如果是非受信语言，必须是超级用户 */
 		if (!superuser())
 			aclcheck_error(ACLCHECK_NO_PRIV, OBJECT_LANGUAGE,
 						   NameStr(languageStruct->lanname));
@@ -1130,9 +1130,9 @@ CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt)
 	ReleaseSysCache(languageTuple);
 
 	/*
-	 * Only superuser is allowed to create leakproof functions because
-	 * leakproof functions can see tuples which have not yet been filtered out
-	 * by security barrier views or row-level security policies.
+	 * 只允许超级用户创建防泄漏函数，因为防泄漏函数
+	 * 可以看到尚未被安全屏障视图或行级安全策略过滤
+	 * 掉的元组。
 	 */
 	if (isLeakProof && !superuser())
 		ereport(ERROR,
@@ -1157,8 +1157,8 @@ CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt)
 	}
 
 	/*
-	 * Convert remaining parameters of CREATE to form wanted by
-	 * ProcedureCreate.
+	 * 将 CREATE 的剩余参数转换为 ProcedureCreate 所需的
+	 * 形式。
 	 */
 	interpret_function_parameter_list(pstate,
 									  stmt->parameters,
@@ -1182,7 +1182,7 @@ CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt)
 	}
 	else if (stmt->returnType)
 	{
-		/* explicit RETURNS clause */
+		/* 显式 RETURNS 子句 */
 		compute_return_type(stmt->returnType, languageOid,
 							&prorettype, &returnsSet);
 		if (OidIsValid(requiredResultType) && prorettype != requiredResultType)
@@ -1193,7 +1193,7 @@ CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt)
 	}
 	else if (OidIsValid(requiredResultType))
 	{
-		/* default RETURNS clause from OUT parameters */
+		/* 来自 OUT 参数的默认 RETURNS 子句 */
 		prorettype = requiredResultType;
 		returnsSet = false;
 	}
@@ -1202,7 +1202,7 @@ CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
 				 errmsg("function result type must be specified")));
-		/* Alternative possibility: default to RETURNS VOID */
+		/* 另一种可能：默认使用 RETURNS VOID */
 		prorettype = VOIDOID;
 		returnsSet = false;
 	}
@@ -1221,7 +1221,7 @@ CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt)
 	}
 	else
 	{
-		/* store SQL NULL instead of empty array */
+		/* 存储 SQL NULL 而非空数组 */
 		trftypes = NULL;
 	}
 
@@ -1231,13 +1231,13 @@ CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt)
 						pstate->p_sourcetext);
 
 	/*
-	 * Set default values for COST and ROWS depending on other parameters;
-	 * reject ROWS if it's not returnsSet.  NB: pg_dump knows these default
-	 * values, keep it in sync if you change them.
+	 * 根据其他参数设置 COST 和 ROWS 的默认值；如果不是
+	 * returnsSet 则拒绝 ROWS。注意：pg_dump 知道这些默认值，
+	 * 如果更改它们请保持同步。
 	 */
 	if (procost < 0)
 	{
-		/* SQL and PL-language functions are assumed more expensive */
+		/* SQL 和 PL 语言函数默认代价更高 */
 		if (languageOid == INTERNALlanguageId ||
 			languageOid == ClanguageId)
 			procost = 1;
@@ -1249,7 +1249,7 @@ CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt)
 		if (returnsSet)
 			prorows = 1000;
 		else
-			prorows = 0;		/* dummy value if not returnsSet */
+			prorows = 0;		/* 若非 returnsSet 则为虚拟值 */
 	}
 	else if (!returnsSet)
 		ereport(ERROR,
@@ -1257,8 +1257,8 @@ CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt)
 				 errmsg("ROWS is not applicable when function does not return a set")));
 
 	/*
-	 * And now that we have all the parameters, and know we're permitted to do
-	 * so, go ahead and create the function.
+	 * 现在我们已经拥有了所有参数，并且知道我们被允许这样
+	 * 做，继续创建函数。
 	 */
 	return ProcedureCreate(funcname,
 						   namespaceId,
@@ -1268,8 +1268,8 @@ CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt)
 						   GetUserId(),
 						   languageOid,
 						   languageValidator,
-						   prosrc_str,	/* converted to text later */
-						   probin_str,	/* converted to text later */
+						   prosrc_str,	/* 稍后转换为 text */
+						   probin_str,	/* 稍后转换为 text */
 						   prosqlbody,
 						   stmt->is_procedure ? PROKIND_PROCEDURE : (isWindowFunc ? PROKIND_WINDOW : PROKIND_FUNCTION),
 						   security,
@@ -1290,10 +1290,10 @@ CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt)
 }
 
 /*
- * Guts of function deletion.
- *
- * Note: this is also used for aggregate deletion, since the OIDs of
- * both functions and aggregates point to pg_proc.
+	 * 函数删除的核心逻辑。
+	 *
+	 * 注意：此函数也用于聚合删除，因为函数和聚合的 OID
+	 * 都指向 pg_proc。
  */
 void
 RemoveFunctionById(Oid funcOid)
@@ -1303,12 +1303,12 @@ RemoveFunctionById(Oid funcOid)
 	char		prokind;
 
 	/*
-	 * Delete the pg_proc tuple.
+	 * 删除 pg_proc 元组。
 	 */
 	relation = table_open(ProcedureRelationId, RowExclusiveLock);
 
 	tup = SearchSysCache1(PROCOID, ObjectIdGetDatum(funcOid));
-	if (!HeapTupleIsValid(tup)) /* should not happen */
+	if (!HeapTupleIsValid(tup)) /* 不应发生 */
 		elog(ERROR, "cache lookup failed for function %u", funcOid);
 
 	prokind = ((Form_pg_proc) GETSTRUCT(tup))->prokind;
@@ -1322,14 +1322,14 @@ RemoveFunctionById(Oid funcOid)
 	pgstat_drop_function(funcOid);
 
 	/*
-	 * If there's a pg_aggregate tuple, delete that too.
+	 * 如果存在 pg_aggregate 元组，也将其删除。
 	 */
 	if (prokind == PROKIND_AGGREGATE)
 	{
 		relation = table_open(AggregateRelationId, RowExclusiveLock);
 
 		tup = SearchSysCache1(AGGFNOID, ObjectIdGetDatum(funcOid));
-		if (!HeapTupleIsValid(tup)) /* should not happen */
+		if (!HeapTupleIsValid(tup)) /* 不应发生 */
 			elog(ERROR, "cache lookup failed for pg_aggregate tuple for function %u", funcOid);
 
 		CatalogTupleDelete(relation, &tup->t_self);
@@ -1341,9 +1341,9 @@ RemoveFunctionById(Oid funcOid)
 }
 
 /*
- * Implements the ALTER FUNCTION utility command (except for the
- * RENAME and OWNER clauses, which are handled as part of the generic
- * ALTER framework).
+ * 实现 ALTER FUNCTION 工具命令
+ * （除了 RENAME 和 OWNER 子句，
+ * 这些子句作为通用 ALTER 框架的一部分处理）。
  */
 ObjectAddress
 AlterFunction(ParseState *pstate, AlterFunctionStmt *stmt)
@@ -1372,12 +1372,12 @@ AlterFunction(ParseState *pstate, AlterFunctionStmt *stmt)
 	ObjectAddressSet(address, ProcedureRelationId, funcOid);
 
 	tup = SearchSysCacheCopy1(PROCOID, ObjectIdGetDatum(funcOid));
-	if (!HeapTupleIsValid(tup)) /* should not happen */
+	if (!HeapTupleIsValid(tup)) /* 不应发生 */
 		elog(ERROR, "cache lookup failed for function %u", funcOid);
 
 	procForm = (Form_pg_proc) GETSTRUCT(tup);
 
-	/* Permission check: must own function */
+	/* 权限检查：必须拥有该函数 */
 	if (!object_ownercheck(ProcedureRelationId, funcOid, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, stmt->objtype,
 					   NameListToString(stmt->func->objname));
@@ -1390,7 +1390,7 @@ AlterFunction(ParseState *pstate, AlterFunctionStmt *stmt)
 
 	is_procedure = (procForm->prokind == PROKIND_PROCEDURE);
 
-	/* Examine requested actions. */
+	/* 检查请求的操作。 */
 	foreach(l, stmt->actions)
 	{
 		DefElem    *defel = (DefElem *) lfirst(l);
@@ -1446,10 +1446,10 @@ AlterFunction(ParseState *pstate, AlterFunctionStmt *stmt)
 	}
 	if (support_item)
 	{
-		/* interpret_func_support handles the privilege check */
+		/* interpret_func_support 处理权限检查 */
 		Oid			newsupport = interpret_func_support(support_item);
 
-		/* Add or replace dependency on support function */
+		/* 添加或替换对支持函数的依赖 */
 		if (OidIsValid(procForm->prosupport))
 			changeDependencyFor(ProcedureRelationId, funcOid,
 								ProcedureRelationId, procForm->prosupport,
@@ -1477,14 +1477,14 @@ AlterFunction(ParseState *pstate, AlterFunctionStmt *stmt)
 		bool		repl_null[Natts_pg_proc];
 		bool		repl_repl[Natts_pg_proc];
 
-		/* extract existing proconfig setting */
+		/* 提取现有的 proconfig 设置 */
 		datum = SysCacheGetAttr(PROCOID, tup, Anum_pg_proc_proconfig, &isnull);
 		a = isnull ? NULL : DatumGetArrayTypeP(datum);
 
-		/* update according to each SET or RESET item, left to right */
+		/* 按从左到右的顺序，根据每个 SET 或 RESET 项更新 */
 		a = update_proconfig_value(a, set_items);
 
-		/* update the tuple */
+		/* 更新元组 */
 		memset(repl_repl, false, sizeof(repl_repl));
 		repl_repl[Anum_pg_proc_proconfig - 1] = true;
 
@@ -1502,9 +1502,9 @@ AlterFunction(ParseState *pstate, AlterFunctionStmt *stmt)
 		tup = heap_modify_tuple(tup, RelationGetDescr(rel),
 								repl_val, repl_null, repl_repl);
 	}
-	/* DO NOT put more touches of procForm below here; it's now dangling. */
+	/* 请勿在此下方继续触碰 procForm；它现在是悬空的。 */
 
-	/* Do the update */
+	/* 执行更新 */
 	CatalogTupleUpdate(rel, &tup->t_self, tup);
 
 	InvokeObjectPostAlterHook(ProcedureRelationId, funcOid, 0);
@@ -1541,7 +1541,7 @@ CreateCast(CreateCastStmt *stmt)
 	sourcetyptype = get_typtype(sourcetypeid);
 	targettyptype = get_typtype(targettypeid);
 
-	/* No pseudo-types allowed */
+	/* 不允许伪类型 */
 	if (sourcetyptype == TYPTYPE_PSEUDO)
 		ereport(ERROR,
 				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
@@ -1554,7 +1554,7 @@ CreateCast(CreateCastStmt *stmt)
 				 errmsg("target data type %s is a pseudo-type",
 						TypeNameToString(stmt->targettype))));
 
-	/* Permission check */
+	/* 权限检查 */
 	if (!object_ownercheck(TypeRelationId, sourcetypeid, GetUserId())
 		&& !object_ownercheck(TypeRelationId, targettypeid, GetUserId()))
 		ereport(ERROR,
@@ -1571,7 +1571,7 @@ CreateCast(CreateCastStmt *stmt)
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error_type(aclresult, targettypeid);
 
-	/* Domains are allowed for historical reasons, but we warn */
+	/* 出于历史原因允许域类型，但我们给出警告 */
 	if (sourcetyptype == TYPTYPE_DOMAIN)
 		ereport(WARNING,
 				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
@@ -1582,7 +1582,7 @@ CreateCast(CreateCastStmt *stmt)
 				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
 				 errmsg("cast will be ignored because the target data type is a domain")));
 
-	/* Determine the cast method */
+	/* 确定转换方法 */
 	if (stmt->func != NULL)
 		castmethod = COERCION_METHOD_FUNCTION;
 	else if (stmt->inout)
@@ -1630,9 +1630,9 @@ CreateCast(CreateCastStmt *stmt)
 					 errmsg("return data type of cast function must match or be binary-coercible to target data type")));
 
 		/*
-		 * Restricting the volatility of a cast function may or may not be a
-		 * good idea in the abstract, but it definitely breaks many old
-		 * user-defined types.  Disable this check --- tgl 2/1/03
+		 * 限制转换函数的易变性在理论上可能是个
+		 * 好主意，也可能不是，但它确实会破坏许多旧的
+		 * 用户定义类型。禁用此检查 --- tgl 2/1/03
 		 */
 #ifdef NOT_USED
 		if (procstruct->provolatile == PROVOLATILE_VOLATILE)
@@ -1667,8 +1667,8 @@ CreateCast(CreateCastStmt *stmt)
 		char		typ2align;
 
 		/*
-		 * Must be superuser to create binary-compatible casts, since
-		 * erroneous casts can easily crash the backend.
+		 * 必须是超级用户才能创建二进制兼容转换，因为错误的
+		 * 转换很容易使后端崩溃。
 		 */
 		if (!superuser())
 			ereport(ERROR,
@@ -1676,10 +1676,10 @@ CreateCast(CreateCastStmt *stmt)
 					 errmsg("must be superuser to create a cast WITHOUT FUNCTION")));
 
 		/*
-		 * Also, insist that the types match as to size, alignment, and
-		 * pass-by-value attributes; this provides at least a crude check that
-		 * they have similar representations.  A pair of types that fail this
-		 * test should certainly not be equated.
+		 * 此外，坚持要求类型在大小、对齐和按值传递属性上
+		 * 匹配；这至少提供了一个粗略的检查，确保它们具有
+		 * 相似的表示。未通过此测试的类型对绝对不应该
+		 * 被视为等同。
 		 */
 		get_typlenbyvalalign(sourcetypeid, &typ1len, &typ1byval, &typ1align);
 		get_typlenbyvalalign(targettypeid, &typ2len, &typ2byval, &typ2align);
@@ -1691,13 +1691,13 @@ CreateCast(CreateCastStmt *stmt)
 					 errmsg("source and target data types are not physically compatible")));
 
 		/*
-		 * We know that composite, enum and array types are never binary-
-		 * compatible with each other.  They all have OIDs embedded in them.
-		 *
-		 * Theoretically you could build a user-defined base type that is
-		 * binary-compatible with a composite, enum, or array type.  But we
-		 * disallow that too, as in practice such a cast is surely a mistake.
-		 * You can always work around that by writing a cast function.
+		 * 我们知道复合类型、枚举类型和数组类型之间永远
+		 * 不是二进制兼容的。它们都嵌入了 OID。
+				 *
+		 * 理论上你可以构建一个与复合类型、枚举类型或
+		 * 数组类型二进制兼容的用户定义基础类型。但我们
+		 * 也不允许这样做，因为实际上这种转换肯定是错误。
+		 * 你总是可以通过编写转换函数来解决这个问题。
 		 */
 		if (sourcetyptype == TYPTYPE_COMPOSITE ||
 			targettyptype == TYPTYPE_COMPOSITE)
@@ -1718,15 +1718,15 @@ CreateCast(CreateCastStmt *stmt)
 					 errmsg("array data types are not binary-compatible")));
 
 		/*
-		 * We also disallow creating binary-compatibility casts involving
-		 * domains.  Casting from a domain to its base type is already
-		 * allowed, and casting the other way ought to go through domain
-		 * coercion to permit constraint checking.  Again, if you're intent on
-		 * having your own semantics for that, create a no-op cast function.
+		 * 我们也禁止创建涉及域的二进制兼容转换。
+		 * 从域到其基础类型的转换已经允许，而反向转换
+		 * 应该通过域强制转换来允许约束检查。同样，
+		 * 如果你坚持要有自己的语义，请创建一个空操作
+		 * 转换函数。
 		 *
-		 * NOTE: if we were to relax this, the above checks for composites
-		 * etc. would have to be modified to look through domains to their
-		 * base types.
+		 * 注意：如果要放宽此限制，上述对复合类型等
+		 * 的检查必须修改为穿透域类型
+		 * 到达其基础类型。
 		 */
 		if (sourcetyptype == TYPTYPE_DOMAIN ||
 			targettyptype == TYPTYPE_DOMAIN)
@@ -1736,15 +1736,15 @@ CreateCast(CreateCastStmt *stmt)
 	}
 
 	/*
-	 * Allow source and target types to be same only for length coercion
-	 * functions.  We assume a multi-arg function does length coercion.
+	 * 仅对长度强转函数允许源类型和目标类型相同。
+	 * 我们假定多参数函数执行长度强转。
 	 */
 	if (sourcetypeid == targettypeid && nargs < 2)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
 				 errmsg("source data type and target data type are the same")));
 
-	/* convert CoercionContext enum to char value for castcontext */
+	/* 将 CoercionContext 枚举转换为 castcontext 的 char 值 */
 	switch (stmt->context)
 	{
 		case COERCION_IMPLICIT:
@@ -1753,13 +1753,13 @@ CreateCast(CreateCastStmt *stmt)
 		case COERCION_ASSIGNMENT:
 			castcontext = COERCION_CODE_ASSIGNMENT;
 			break;
-			/* COERCION_PLPGSQL is intentionally not covered here */
+			/* COERCION_PLPGSQL 有意不在此处处理 */
 		case COERCION_EXPLICIT:
 			castcontext = COERCION_CODE_EXPLICIT;
 			break;
 		default:
 			elog(ERROR, "unrecognized CoercionContext: %d", stmt->context);
-			castcontext = 0;	/* keep compiler quiet */
+			castcontext = 0;	/* 让编译器安静 */
 			break;
 	}
 
@@ -1822,7 +1822,7 @@ CreateTransform(CreateTransformStmt *stmt)
 	bool		is_replace;
 
 	/*
-	 * Get the type
+	 * 获取类型
 	 */
 	typeid = typenameTypeId(NULL, stmt->type_name);
 	typtype = get_typtype(typeid);
@@ -1847,7 +1847,7 @@ CreateTransform(CreateTransformStmt *stmt)
 		aclcheck_error_type(aclresult, typeid);
 
 	/*
-	 * Get the language
+	 * 获取语言
 	 */
 	langid = get_language_oid(stmt->lang, false);
 
@@ -1856,7 +1856,7 @@ CreateTransform(CreateTransformStmt *stmt)
 		aclcheck_error(aclresult, OBJECT_LANGUAGE, stmt->lang);
 
 	/*
-	 * Get the functions
+	 * 获取函数
 	 */
 	if (stmt->fromsql)
 	{
@@ -1910,7 +1910,7 @@ CreateTransform(CreateTransformStmt *stmt)
 		tosqlfuncid = InvalidOid;
 
 	/*
-	 * Ready to go
+	 * 准备就绪
 	 */
 	values[Anum_pg_transform_trftype - 1] = ObjectIdGetDatum(typeid);
 	values[Anum_pg_transform_trflang - 1] = ObjectIdGetDatum(langid);
@@ -1958,18 +1958,18 @@ CreateTransform(CreateTransformStmt *stmt)
 
 	addrs = new_object_addresses();
 
-	/* make dependency entries */
+	/* 建立依赖条目 */
 	ObjectAddressSet(myself, TransformRelationId, transformid);
 
-	/* dependency on language */
+	/* 对语言的依赖 */
 	ObjectAddressSet(referenced, LanguageRelationId, langid);
 	add_exact_object_address(&referenced, addrs);
 
-	/* dependency on type */
+	/* 对类型的依赖 */
 	ObjectAddressSet(referenced, TypeRelationId, typeid);
 	add_exact_object_address(&referenced, addrs);
 
-	/* dependencies on functions */
+	/* 对函数的依赖 */
 	if (OidIsValid(fromsqlfuncid))
 	{
 		ObjectAddressSet(referenced, ProcedureRelationId, fromsqlfuncid);
@@ -1984,10 +1984,10 @@ CreateTransform(CreateTransformStmt *stmt)
 	record_object_address_dependencies(&myself, addrs, DEPENDENCY_NORMAL);
 	free_object_addresses(addrs);
 
-	/* dependency on extension */
+	/* 对扩展的依赖 */
 	recordDependencyOnCurrentExtension(&myself, is_replace);
 
-	/* Post creation hook for new transform */
+	/* 新转换的创建后钩子 */
 	InvokeObjectPostCreateHook(TransformRelationId, transformid, 0);
 
 	heap_freetuple(newtuple);
@@ -1999,10 +1999,10 @@ CreateTransform(CreateTransformStmt *stmt)
 
 
 /*
- * get_transform_oid - given type OID and language OID, look up a transform OID
+ * get_transform_oid - 给定类型 OID 和语言 OID，查找转换 OID
  *
- * If missing_ok is false, throw an error if the transform is not found.  If
- * true, just return InvalidOid.
+ * 如果 missing_ok 为 false 且未找到转换，则抛出错误。
+ * 如果为 true，则仅返回 InvalidOid。
  */
 Oid
 get_transform_oid(Oid type_id, Oid lang_id, bool missing_ok)
@@ -2023,16 +2023,16 @@ get_transform_oid(Oid type_id, Oid lang_id, bool missing_ok)
 
 
 /*
- * Subroutine for ALTER FUNCTION/AGGREGATE SET SCHEMA/RENAME
+ * ALTER FUNCTION/AGGREGATE SET SCHEMA/RENAME 的子过程
  *
- * Is there a function with the given name and signature already in the given
- * namespace?  If so, raise an appropriate error message.
+ * 给定的命名空间中是否已存在具有给定名称和签名
+ * 的函数？如果是，则引发相应的错误消息。
  */
 void
 IsThereFunctionInNamespace(const char *proname, int pronargs,
 						   oidvector *proargtypes, Oid nspOid)
 {
-	/* check for duplicate name (more friendly than unique-index failure) */
+	/* 检查重复名称（比唯一索引失败更友好） */
 	if (SearchSysCacheExists3(PROCNAMEARGSNSP,
 							  CStringGetDatum(proname),
 							  PointerGetDatum(proargtypes),
@@ -2047,9 +2047,9 @@ IsThereFunctionInNamespace(const char *proname, int pronargs,
 
 /*
  * ExecuteDoStmt
- *		Execute inline procedural-language code
+ *		执行内联过程语言代码
  *
- * See at ExecuteCallStmt() about the atomic argument.
+ * 关于 atomic 参数请参阅 ExecuteCallStmt()。
  */
 void
 ExecuteDoStmt(ParseState *pstate, DoStmt *stmt, bool atomic)
@@ -2063,7 +2063,7 @@ ExecuteDoStmt(ParseState *pstate, DoStmt *stmt, bool atomic)
 	HeapTuple	languageTuple;
 	Form_pg_language languageStruct;
 
-	/* Process options we got from gram.y */
+	/* 处理从 gram.y 获取的选项 */
 	foreach(arg, stmt->args)
 	{
 		DefElem    *defel = (DefElem *) lfirst(arg);
@@ -2092,13 +2092,13 @@ ExecuteDoStmt(ParseState *pstate, DoStmt *stmt, bool atomic)
 				(errcode(ERRCODE_SYNTAX_ERROR),
 				 errmsg("no inline code specified")));
 
-	/* if LANGUAGE option wasn't specified, use the default */
+	/* 如果未指定 LANGUAGE 选项，使用默认值 */
 	if (language_item)
 		language = strVal(language_item->arg);
 	else
 		language = "plpgsql";
 
-	/* Look up the language and validate permissions */
+	/* 查找语言并验证权限 */
 	languageTuple = SearchSysCache1(LANGNAME, PointerGetDatum(language));
 	if (!HeapTupleIsValid(languageTuple))
 		ereport(ERROR,
@@ -2114,7 +2114,7 @@ ExecuteDoStmt(ParseState *pstate, DoStmt *stmt, bool atomic)
 
 	if (languageStruct->lanpltrusted)
 	{
-		/* if trusted language, need USAGE privilege */
+		/* 如果是受信语言，需要 USAGE 权限 */
 		AclResult	aclresult;
 
 		aclresult = object_aclcheck(LanguageRelationId, codeblock->langOid, GetUserId(),
@@ -2125,13 +2125,13 @@ ExecuteDoStmt(ParseState *pstate, DoStmt *stmt, bool atomic)
 	}
 	else
 	{
-		/* if untrusted language, must be superuser */
+		/* 如果是非受信语言，必须是超级用户 */
 		if (!superuser())
 			aclcheck_error(ACLCHECK_NO_PRIV, OBJECT_LANGUAGE,
 						   NameStr(languageStruct->lanname));
 	}
 
-	/* get the handler function's OID */
+	/* 获取处理器函数的 OID */
 	laninline = languageStruct->laninline;
 	if (!OidIsValid(laninline))
 		ereport(ERROR,
@@ -2141,37 +2141,37 @@ ExecuteDoStmt(ParseState *pstate, DoStmt *stmt, bool atomic)
 
 	ReleaseSysCache(languageTuple);
 
-	/* execute the inline handler */
+	/* 执行内联处理器 */
 	OidFunctionCall1(laninline, PointerGetDatum(codeblock));
 }
 
 /*
- * Execute CALL statement
- *
- * Inside a top-level CALL statement, transaction-terminating commands such as
- * COMMIT or a PL-specific equivalent are allowed.  The terminology in the SQL
- * standard is that CALL establishes a non-atomic execution context.  Most
- * other commands establish an atomic execution context, in which transaction
- * control actions are not allowed.  If there are nested executions of CALL,
- * we want to track the execution context recursively, so that the nested
- * CALLs can also do transaction control.  Note, however, that for example in
- * CALL -> SELECT -> CALL, the second call cannot do transaction control,
- * because the SELECT in between establishes an atomic execution context.
- *
- * So when ExecuteCallStmt() is called from the top level, we pass in atomic =
- * false (recall that that means transactions = yes).  We then create a
- * CallContext node with content atomic = false, which is passed in the
- * fcinfo->context field to the procedure invocation.  The language
- * implementation should then take appropriate measures to allow or prevent
- * transaction commands based on that information, e.g., call
- * SPI_connect_ext(SPI_OPT_NONATOMIC).  The language should also pass on the
- * atomic flag to any nested invocations to CALL.
- *
- * The expression data structures and execution context that we create
- * within this function are children of the portalContext of the Portal
- * that the CALL utility statement runs in.  Therefore, any pass-by-ref
- * values that we're passing to the procedure will survive transaction
- * commits that might occur inside the procedure.
+	 * 执行 CALL 语句
+	 *
+	 * 在顶层 CALL 语句中，允许使用事务终止命令
+	 * （如 COMMIT 或 PL 特定等价命令）。SQL 标准中的
+	 * CALL 建立一个非原子执行上下文。大多数其他命令
+	 * 建立一个原子执行上下文，在其中不允许事务控制操作。
+	 * 如果存在嵌套的 CALL 执行，我们希望递归跟踪执行
+	 * 上下文，以便嵌套的 CALL 也能够进行事务控制。但请
+	 * 注意，例如在 CALL -> SELECT -> CALL 中，第二个
+	 * 调用不能进行事务控制，因为中间的 SELECT 建立了一个
+	 * 原子执行上下文。
+	 *
+	 * 因此，当 ExecuteCallStmt() 从顶层调用时，我们传入
+	 * atomic = false（请记住这意味着允许事务）。然后我们
+	 * 创建一个内容为 atomic = false 的 CallContext 节点，
+	 * 该节点通过 fcinfo->context 字段传递给过程调用。
+	 * 语言实现应根据该信息采取适当措施
+	 * 来允许或禁止
+	 * 事务命令，例如调用
+	 * SPI_connect_ext(SPI_OPT_NONATOMIC)。语言还应将
+	 * atomic 标志传递给任何嵌套的 CALL 调用。
+	 *
+	 * 我们在此函数内创建的表达式数据结构和执行上下文
+	 * 是 CALL 工具语句运行的 Portal 的 portalContext
+	 * 的子项。因此，我们传递给过程的任何按引用传递
+	 * 的值将在过程内部可能发生的事务提交中保持不变。
  */
 void
 ExecuteCallStmt(CallStmt *stmt, ParamListInfo params, bool atomic, DestReceiver *dest)
@@ -2198,7 +2198,7 @@ ExecuteCallStmt(CallStmt *stmt, ParamListInfo params, bool atomic, DestReceiver 
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error(aclresult, OBJECT_PROCEDURE, get_func_name(fexpr->funcid));
 
-	/* Prep the context object we'll pass to the procedure */
+	/* 准备我们将传递给过程的上下文对象 */
 	callcontext = makeNode(CallContext);
 	callcontext->atomic = atomic;
 
@@ -2207,26 +2207,26 @@ ExecuteCallStmt(CallStmt *stmt, ParamListInfo params, bool atomic, DestReceiver 
 		elog(ERROR, "cache lookup failed for function %u", fexpr->funcid);
 
 	/*
-	 * If proconfig is set we can't allow transaction commands because of the
-	 * way the GUC stacking works: The transaction boundary would have to pop
-	 * the proconfig setting off the stack.  That restriction could be lifted
-	 * by redesigning the GUC nesting mechanism a bit.
+	 * 如果设置了 proconfig，由于 GUC 堆叠的工作方式，
+	 * 我们不能允许事务命令：事务边界必须将 proconfig
+	 * 设置从栈中弹出。通过稍微重新设计 GUC 嵌套机制
+	 * 可以解除此限制。
 	 */
 	if (!heap_attisnull(tp, Anum_pg_proc_proconfig, NULL))
 		callcontext->atomic = true;
 
 	/*
-	 * In security definer procedures, we can't allow transaction commands.
-	 * StartTransaction() insists that the security context stack is empty,
-	 * and AbortTransaction() resets the security context.  This could be
-	 * reorganized, but right now it doesn't work.
+	 * 在 SECURITY DEFINER 过程中，我们不能允许事务命令。
+	 * StartTransaction() 坚持安全上下文栈为空，而
+	 * AbortTransaction() 会重置安全上下文。这可以重新
+	 * 组织，但目前它不能工作。
 	 */
 	if (((Form_pg_proc) GETSTRUCT(tp))->prosecdef)
 		callcontext->atomic = true;
 
 	ReleaseSysCache(tp);
 
-	/* safety check; see ExecInitFunc() */
+	/* 安全检查；参见 ExecInitFunc() */
 	nargs = list_length(fexpr->args);
 	if (nargs > FUNC_MAX_ARGS)
 		ereport(ERROR,
@@ -2236,7 +2236,7 @@ ExecuteCallStmt(CallStmt *stmt, ParamListInfo params, bool atomic, DestReceiver 
 							   FUNC_MAX_ARGS,
 							   FUNC_MAX_ARGS)));
 
-	/* Initialize function call structure */
+	/* 初始化函数调用结构 */
 	InvokeFunctionExecuteHook(fexpr->funcid);
 	fmgr_info(fexpr->funcid, &flinfo);
 	fmgr_info_set_expr((Node *) fexpr, &flinfo);
@@ -2244,19 +2244,19 @@ ExecuteCallStmt(CallStmt *stmt, ParamListInfo params, bool atomic, DestReceiver 
 							 (Node *) callcontext, NULL);
 
 	/*
-	 * Evaluate procedure arguments inside a suitable execution context.  Note
-	 * we can't free this context till the procedure returns.
+	 * 在适当的执行上下文中求值过程参数。注意，直到过程
+	 * 返回我们才能释放此上下文。
 	 */
 	estate = CreateExecutorState();
 	estate->es_param_list_info = params;
 	econtext = CreateExprContext(estate);
 
 	/*
-	 * If we're called in non-atomic context, we also have to ensure that the
-	 * argument expressions run with an up-to-date snapshot.  Our caller will
-	 * have provided a current snapshot in atomic contexts, but not in
-	 * non-atomic contexts, because the possibility of a COMMIT/ROLLBACK
-	 * destroying the snapshot makes higher-level management too complicated.
+	 * 如果我们在非原子上下文中被调用，我们还必须确保
+	 * 参数表达式使用最新的快照运行。我们的调用者会在
+	 * 原子上下文中提供当前快照，但不会在非原子上下文
+	 * 中提供，因为 COMMIT/ROLLBACK 可能破坏快照使得
+	 * 高层管理过于复杂。
 	 */
 	if (!atomic)
 		PushActiveSnapshot(GetTransactionSnapshot());
@@ -2278,23 +2278,23 @@ ExecuteCallStmt(CallStmt *stmt, ParamListInfo params, bool atomic, DestReceiver 
 		i++;
 	}
 
-	/* Get rid of temporary snapshot for arguments, if we made one */
+	/* 清除参数的临时快照（如果我们创建过一个） */
 	if (!atomic)
 		PopActiveSnapshot();
 
-	/* Here we actually call the procedure */
+	/* 在这里我们实际调用过程 */
 	pgstat_init_function_usage(fcinfo, &fcusage);
 	retval = FunctionCallInvoke(fcinfo);
 	pgstat_end_function_usage(&fcusage, true);
 
-	/* Handle the procedure's outputs */
+	/* 处理过程的输出 */
 	if (fexpr->funcresulttype == VOIDOID)
 	{
-		/* do nothing */
+		/* 无操作 */
 	}
 	else if (fexpr->funcresulttype == RECORDOID)
 	{
-		/* send tuple to client */
+		/* 发送元组到客户端 */
 		HeapTupleHeader td;
 		Oid			tupType;
 		int32		tupTypmod;
@@ -2307,16 +2307,16 @@ ExecuteCallStmt(CallStmt *stmt, ParamListInfo params, bool atomic, DestReceiver 
 			elog(ERROR, "procedure returned null record");
 
 		/*
-		 * Ensure there's an active snapshot whilst we execute whatever's
-		 * involved here.  Note that this is *not* sufficient to make the
-		 * world safe for TOAST pointers to be included in the returned data:
-		 * the referenced data could have gone away while we didn't hold a
-		 * snapshot.  Hence, it's incumbent on PLs that can do COMMIT/ROLLBACK
-		 * to not return TOAST pointers, unless those pointers were fetched
-		 * after the last COMMIT/ROLLBACK in the procedure.
+		 * 在执行操作时确保有活动快照。
+		 * 注意，这*不*足以使返回数据中包含的 TOAST 指针
+		 * 变得安全：引用的
+		 * 数据可能在我们不持有快照期间被清除了。因此，
+		 * 能够执行 COMMIT/ROLLBACK 的 PL 有责任不返回
+		 * TOAST 指针，除非这些指针是在过程中最后一次
+		 * COMMIT/ROLLBACK 之后获取的。
 		 *
-		 * XXX that is a really nasty, hard-to-test requirement.  Is there a
-		 * way to remove it?
+		 * XXX 这是一个非常讨厌的、难以测试的需求。有没有
+		 * 办法移除它？
 		 */
 		EnsurePortalSnapshotExists();
 
@@ -2348,7 +2348,7 @@ ExecuteCallStmt(CallStmt *stmt, ParamListInfo params, bool atomic, DestReceiver 
 }
 
 /*
- * Construct the tuple descriptor for a CALL statement return
+ * 为 CALL 语句返回值构造元组描述符
  */
 TupleDesc
 CallStmtResultDesc(CallStmt *stmt)
@@ -2368,14 +2368,14 @@ CallStmtResultDesc(CallStmt *stmt)
 	ReleaseSysCache(tuple);
 
 	/*
-	 * The result of build_function_result_tupdesc_t has the right column
-	 * names, but it just has the declared output argument types, which is the
-	 * wrong thing in polymorphic cases.  Get the correct types by examining
-	 * stmt->outargs.  We intentionally keep the atttypmod as -1 and the
-	 * attcollation as the type's default, since that's always the appropriate
-	 * thing for function outputs; there's no point in considering any
-	 * additional info available from outargs.  Note that tupdesc is null if
-	 * there are no outargs.
+	 * build_function_result_tupdesc_t 的结果具有正确的列名称，
+	 * 但它只有声明的输出参数类型，在多态情况下这是错误的。
+	 * 通过检查 stmt->outargs 获取正确的类型。我们有意将
+	 * atttypmod 保持为 -1，attcollation 保持为类型的默认值，
+	 * 因为这对函数输出总是合适的；没理由考虑 outargs 中
+	 * 可用的任何额外信息。
+	 * 注意，如果没有 outargs，
+	 * tupdesc 为 null。
 	 */
 	if (tupdesc)
 	{

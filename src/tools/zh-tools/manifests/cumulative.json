@@ -4113,6 +4113,16 @@
       "note": "TABLESPACE DDL"
     },
     {
+      "pattern": "src/backend/commands/functioncmds.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP FUNCTION/PROCEDURE/AGGREGATE/TRANSFORM"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0234-comment-commands-functioncmds.json",
+      "kind": "tool",
+      "note": "batch 0234 manifest infra"
+    },
+    {
       "pattern": "src/tools/zh-tools/manifests/batch-0235-comment-commands-async-cluster-sequence-tablespace.json",
       "kind": "tool",
       "note": "batch 0235 manifest infra"
@@ -13766,6 +13776,20 @@
       "action": "modify",
       "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
       "note": "TABLESPACE_FALLTHROUGH_PROSE exception"
+    },
+    {
+      "path": "src/backend/commands/functioncmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 135, "translated": 131, "preserved": 4,
+      "preserved_reasons": ["Copyright header", "SQL section banners"],
+      "note": "FUNCTION/PROCEDURE/AGGREGATE/TRANSFORM"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0234-comment-commands-functioncmds.json",
+      "kind": "manifest", "action": "add",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "manifest"
     },
     {
       "path": "src/tools/zh-tools/manifests/batch-0235-comment-commands-async-cluster-sequence-tablespace.json",

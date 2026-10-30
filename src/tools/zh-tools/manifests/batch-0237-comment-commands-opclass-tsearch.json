@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "batch_id": "0237-comment-commands-opclass-tsearch",
+  "title": "zh: translate commands comments — opclass, tsearch (part 15)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "e9b39eb2546098f65ca3899bb445aab781839d3e",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/commands/opclasscmds.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP OPERATOR CLASS/FAMILY"
+    },
+    {
+      "pattern": "src/backend/commands/tsearchcmds.c",
+      "kind": "c_comment",
+      "note": "CREATE/ALTER/DROP TEXT SEARCH CONFIG/DICT/PARSER/TEMPLATE"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0237-comment-commands-opclass-tsearch.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/commands/opclasscmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 174,
+      "translated": 171,
+      "preserved": 3,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "SQL section banners"
+      ],
+      "note": "CREATE/ALTER/DROP OPERATOR CLASS/FAMILY; Unicode quotes→ASCII fixed; 1843 lines"
+    },
+    {
+      "path": "src/backend/commands/tsearchcmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 132,
+      "translated": 126,
+      "preserved": 6,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "SQL section banners"
+      ],
+      "note": "TEXT SEARCH CONFIG/DICT/PARSER/TEMPLATE; 1870 lines"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0237-comment-commands-opclass-tsearch.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "segments_total": 306,
+  "translated": 297,
+  "preserved": 9,
+  "notes": "Batch 0237: opclasscmds.c (174 segments, 171 translated) + tsearchcmds.c (132 segments, 126 translated). Unicode quotes→ASCII fixed. 0 violations verify_c_comments.py, 0 error hits term_lint. This completes src/backend/commands/ directory."
+}

@@ -100,7 +100,7 @@ if (1) \
 { \
 	if (input_buf_ptr + (extralen) >= copy_buf_len && !hit_eof) \
 	{ \
-		input_buf_ptr = prev_raw_ptr; /* undo fetch */ \
+		input_buf_ptr = prev_raw_ptr; /* 撤销获取 */ \
 		need_data = true; \
 		continue; \
 	} \
@@ -113,8 +113,8 @@ if (1) \
 	if (input_buf_ptr + (extralen) >= copy_buf_len && hit_eof) \
 	{ \
 		if (extralen) \
-			input_buf_ptr = copy_buf_len; /* consume the partial character */ \
-		/* backslash just before EOF, treat as data char */ \
+			input_buf_ptr = copy_buf_len; /* 消耗部分字符 */ \
+		/* EOF 前的反斜杠，视为数据字符 */ \
 		result = true; \
 		break; \
 	} \
@@ -136,7 +136,7 @@ if (1) \
 	} \
 } else ((void) 0)
 
-/* Undo any read-ahead and jump out of the block. */
+/* 撤销预读并跳出该块。 */
 #define NO_END_OF_COPY_GOTO \
 if (1) \
 { \
@@ -178,7 +178,7 @@ ReceiveCopyBegin(CopyFromState cstate)
 	pq_sendbyte(&buf, format);	/* 整体格式 */
 	pq_sendint16(&buf, natts);
 	for (i = 0; i < natts; i++)
-		pq_sendint16(&buf, format); /* per-column formats */
+		pq_sendint16(&buf, format); /* 每列格式 */
 	pq_endmessage(&buf);
 	cstate->copy_src = COPY_FRONTEND;
 	cstate->fe_msgbuf = makeStringInfo();
@@ -382,7 +382,7 @@ CopyGetInt16(CopyFromState cstate, int16 *val)
 
 	if (CopyReadBinaryData(cstate, (char *) &buf, sizeof(buf)) != sizeof(buf))
 	{
-		*val = 0;				/* 抑制编译器警告 */
+		*val = 0;				/* suppress compiler warning */
 		return false;
 	}
 	*val = (int16) pg_ntoh16(buf);
@@ -400,18 +400,18 @@ static void
 CopyConvertBuf(CopyFromState cstate)
 {
 	/*
-	 * If the file and server encoding are the same, no encoding conversion is
-	 * required.  However, we still need to verify that the input is valid for
-	 * the encoding.
-	 */
+		 * 如果文件和服务器编码相同，则不需要编码转换。
+		 * 但是我们仍需验证输入对该编码有效。
+		 *
+		 */
 	if (!cstate->need_transcoding)
 	{
 		/*
-		 * When conversion is not required, input_buf and raw_buf are the
-		 * same.  raw_buf_len is the total number of bytes in the buffer, and
-		 * input_buf_len tracks how many of those bytes have already been
-		 * verified.
-		 */
+			 * 当不需要转换时，input_buf 和 raw_buf 是相同的。
+			 * raw_buf_len 是缓冲区中的总字节数，
+			 * input_buf_len 跟踪其中已验证的字节数。
+			 *
+			 */
 		int			preverifiedlen = cstate->input_buf_len;
 		int			unverifiedlen = cstate->raw_buf_len - cstate->input_buf_len;
 		int			nverified;
@@ -419,31 +419,31 @@ CopyConvertBuf(CopyFromState cstate)
 		if (unverifiedlen == 0)
 		{
 			/*
-			 * If no more raw data is coming, report the EOF to the caller.
-			 */
+				 * 如果没有更多原始数据，向调用者报告 EOF。
+				 */
 			if (cstate->raw_reached_eof)
 				cstate->input_reached_eof = true;
 			return;
 		}
 
 		/*
-		 * Verify the new data, including any residual unverified bytes from
-		 * previous round.
-		 */
+			 * 验证新数据，包括上一轮中剩余的
+			 * 未验证字节。
+			 */
 		nverified = pg_encoding_verifymbstr(cstate->file_encoding,
 											cstate->raw_buf + preverifiedlen,
 											unverifiedlen);
 		if (nverified == 0)
 		{
 			/*
-			 * Could not verify anything.
-			 *
-			 * If there is no more raw input data coming, it means that there
-			 * was an incomplete multi-byte sequence at the end.  Also, if
-			 * there's "enough" input left, we should be able to verify at
-			 * least one character, and a failure to do so means that we've
-			 * hit an invalid byte sequence.
-			 */
+				 * 无法验证任何内容。
+				 *
+				 * 如果没有更多的原始输入数据，意味着末尾有不完整的
+				 * 多字节序列。另外，如果剩余的输入"足够"多，
+				 * 我们应该能够验证至少一个字符，失败则意味着
+				 * 遇到了无效字节序列。
+				 *
+				 */
 			if (cstate->raw_reached_eof || unverifiedlen >= pg_encoding_max_length(cstate->file_encoding))
 				cstate->input_reached_error = true;
 			return;
@@ -453,8 +453,8 @@ CopyConvertBuf(CopyFromState cstate)
 	else
 	{
 		/*
-		 * Encoding conversion is needed.
-		 */
+			 * 需要进行编码转换。
+			 */
 		int			nbytes;
 		unsigned char *src;
 		int			srclen;
@@ -473,8 +473,8 @@ CopyConvertBuf(CopyFromState cstate)
 		}
 
 		/*
-		 * First, copy down any unprocessed data.
-		 */
+			 * 首先，复制所有未处理的数据。
+			 */
 		nbytes = INPUT_BUF_BYTES(cstate);
 		if (nbytes > 0 && cstate->input_buf_index > 0)
 			memmove(cstate->input_buf, cstate->input_buf + cstate->input_buf_index,
@@ -489,18 +489,18 @@ CopyConvertBuf(CopyFromState cstate)
 		dstlen = INPUT_BUF_SIZE - cstate->input_buf_len + 1;
 
 		/*
-		 * Do the conversion.  This might stop short, if there is an invalid
-		 * byte sequence in the input.  We'll convert as much as we can in
-		 * that case.
-		 *
-		 * Note: Even if we hit an invalid byte sequence, we don't report the
-		 * error until all the valid bytes have been consumed.  The input
-		 * might contain an end-of-input marker (\.), and we don't want to
-		 * report an error if the invalid byte sequence is after the
-		 * end-of-input marker.  We might unnecessarily convert some data
-		 * after the end-of-input marker as long as it's valid for the
-		 * encoding, but that's harmless.
-		 */
+			 * 执行转换。如果输入中有无效字节序列，转换可能提前停止。
+			 * 在这种情况下，我们会转换尽可能多的数据。
+			 *
+			 * 注意：即使遇到无效字节序列，我们也不会报告错误，
+			 * 直到所有有效字节都被消耗。输入可能包含输入结束标记 (\.)，
+			 * 我们不希望在无效字节序列位于输入结束标记之后时报告错误。
+			 * 我们可能会不必要地转换输入结束标记之后的一些数据，
+			 * 只要它对编码有效，但这是无害的。
+			 *
+			 *
+			 *
+			 */
 		convertedlen = pg_do_encoding_conversion_buf(cstate->conversion_proc,
 													 cstate->file_encoding,
 													 GetDatabaseEncoding(),
@@ -510,13 +510,13 @@ CopyConvertBuf(CopyFromState cstate)
 		if (convertedlen == 0)
 		{
 			/*
-			 * Could not convert anything.  If there is no more raw input data
-			 * coming, it means that there was an incomplete multi-byte
-			 * sequence at the end.  Also, if there is plenty of input left,
-			 * we should be able to convert at least one character, so a
-			 * failure to do so must mean that we've hit a byte sequence
-			 * that's invalid.
-			 */
+				 * 无法转换任何内容。如果没有更多的原始输入数据，
+				 * 意味着末尾有不完整的多字节序列。另外，
+				 * 如果剩余大量输入，我们应该能转换至少一个字符，
+				 * 失败则必须意味着遇到了无效字节序列。
+				 *
+				 *
+				 */
 			if (cstate->raw_reached_eof || srclen >= MAX_CONVERSION_INPUT_LENGTH)
 				cstate->input_reached_error = true;
 			return;
@@ -538,9 +538,9 @@ CopyConversionError(CopyFromState cstate)
 	if (!cstate->need_transcoding)
 	{
 		/*
-		 * Everything up to input_buf_len was successfully verified, and
-		 * input_buf_len points to the invalid or incomplete character.
-		 */
+			 * input_buf_len 之前的所有内容都已成功验证，
+			 * input_buf_len 指向无效或不完整的字符。
+			 */
 		report_invalid_encoding(cstate->file_encoding,
 								cstate->raw_buf + cstate->input_buf_len,
 								cstate->raw_buf_len - cstate->input_buf_len);
@@ -548,13 +548,13 @@ CopyConversionError(CopyFromState cstate)
 	else
 	{
 		/*
-		 * raw_buf_index points to the invalid or untranslatable character. We
-		 * let the conversion routine report the error, because it can provide
-		 * a more specific error message than we could here.  An earlier call
-		 * to the conversion routine in CopyConvertBuf() detected that there
-		 * is an error, now we call the conversion routine again with
-		 * noError=false, to have it throw the error.
-		 */
+			 * raw_buf_index 指向无效或无法翻译的字符。
+			 * 我们让转换例程报告错误，因为它可以提供比我们
+			 * 更具体的错误消息。之前 CopyConvertBuf() 中
+			 * 对转换例程的调用检测到有错误，现在再次调用
+			 * 转换例程（noError=false）以使其抛出错误。
+			 *
+			 */
 		unsigned char *src;
 		int			srclen;
 		unsigned char *dst;
@@ -623,7 +623,7 @@ CopyLoadRawBuf(CopyFromState cstate)
 		cstate->input_buf_index = 0;
 	}
 
-	/* 加载更多数据 */
+	/* 需要更多数据 */
 	inbytes = CopyGetData(cstate, cstate->raw_buf + cstate->raw_buf_len,
 						  1, RAW_BUF_SIZE - cstate->raw_buf_len);
 	nbytes += inbytes;
@@ -673,10 +673,10 @@ CopyLoadInputBuf(CopyFromState cstate)
 			return;
 
 		/*
-		 * If we reached an invalid byte sequence, or we're at an incomplete
-		 * multi-byte character but there is no more raw input data, report
-		 * conversion error.
-		 */
+			 * 如果遇到无效字节序列，或者处于不完整的多字节字符
+			 * 但没有更多原始输入数据，报告转换错误。
+			 *
+			 */
 		if (cstate->input_reached_error)
 			CopyConversionError(cstate);
 
@@ -1938,7 +1938,7 @@ endfield:
 
 
 /*
- * Read a binary attribute
+ * 读取二进制属性
  */
 static Datum
 CopyReadBinaryAttribute(CopyFromState cstate, FmgrInfo *flinfo,

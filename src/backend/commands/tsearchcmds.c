@@ -48,11 +48,11 @@
 #include "utils/rel.h"
 #include "utils/syscache.h"
 
-/* Single entry of List returned by getTokenTypes() */
+/* getTokenTypes() 返回的列表的单个条目   */
 typedef struct
 {
-	int			num;			/* token type number */
-	char	   *name;			/* token type name */
+	int			num;			/* 记号类型编号 */
+	char	   *name;			/* 记号类型名称 */
 } TSTokenTypeItem;
 
 static void MakeConfigurationMapping(AlterTSConfigurationStmt *stmt,
@@ -63,13 +63,13 @@ static DefElem *buildDefItem(const char *name, const char *val,
 							 bool was_quoted);
 
 
-/* --------------------- TS Parser commands ------------------------ */
+/* --------------------- TS 解析器命令 ------------------------ */
 
 /*
- * lookup a parser support function and return its OID (as a Datum)
+ * 查找解析器支持函数并返回其 OID（作为 Datum）
  *
- * attnum is the pg_ts_parser column the function will go into
- */
+ * attnum 是函数将要进入的 pg_ts_parser 列
+               */
 static Datum
 get_ts_parser_func(DefElem *defel, int attnum)
 {
@@ -79,7 +79,7 @@ get_ts_parser_func(DefElem *defel, int attnum)
 	int			nargs;
 	Oid			procOid;
 
-	retTypeId = INTERNALOID;	/* correct for most */
+	retTypeId = INTERNALOID;	/* 对大多数情况正确 */
 	typeId[0] = INTERNALOID;
 	switch (attnum)
 	{
@@ -105,16 +105,16 @@ get_ts_parser_func(DefElem *defel, int attnum)
 			nargs = 1;
 
 			/*
-			 * Note: because the lextype method returns type internal, it must
-			 * have an internal-type argument for security reasons.  The
-			 * argument is not actually used, but is just passed as a zero.
-			 */
+			 * 注意：由于 lextype 方法返回类型 internal，出于安全原因，
+			 * 它必须具有 internal 类型的参数。该参数实际上未被使用，
+			 * 仅作为零传递。
+			         */
 			break;
 		default:
-			/* should not be here */
+			/* 不应该到达这里 */
 			elog(ERROR, "unrecognized attribute for text search parser: %d",
 				 attnum);
-			nargs = 0;			/* keep compiler quiet */
+			nargs = 0;			/* 让编译器安静  */
 	}
 
 	procOid = LookupFuncName(funcName, nargs, typeId, false);
@@ -129,10 +129,10 @@ get_ts_parser_func(DefElem *defel, int attnum)
 }
 
 /*
- * make pg_depend entries for a new pg_ts_parser entry
+ * 为新 pg_ts_parser 条目创建 pg_depend 条目
  *
- * Return value is the address of said new entry.
- */
+ * 返回值是所述新条目的地址。
+          */
 static ObjectAddress
 makeParserDependencies(HeapTuple tuple)
 {
@@ -143,16 +143,16 @@ makeParserDependencies(HeapTuple tuple)
 
 	ObjectAddressSet(myself, TSParserRelationId, prs->oid);
 
-	/* dependency on extension */
+	/* 依赖于扩展         */
 	recordDependencyOnCurrentExtension(&myself, false);
 
 	addrs = new_object_addresses();
 
-	/* dependency on namespace */
+	/* 依赖于命名空间   */
 	ObjectAddressSet(referenced, NamespaceRelationId, prs->prsnamespace);
 	add_exact_object_address(&referenced, addrs);
 
-	/* dependencies on functions */
+	/* 依赖于函数           */
 	ObjectAddressSet(referenced, ProcedureRelationId, prs->prsstart);
 	add_exact_object_address(&referenced, addrs);
 
@@ -201,10 +201,10 @@ DefineTSParser(List *names, List *parameters)
 
 	prsRel = table_open(TSParserRelationId, RowExclusiveLock);
 
-	/* Convert list of names to a name and namespace */
+	/* 将名称列表转换为名称和命名空间 */
 	namespaceoid = QualifiedNameGetCreationNamespace(names, &prsname);
 
-	/* initialize tuple fields with name/namespace */
+	/* 用名称/命名空间初始化元组字段 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
 
@@ -216,8 +216,8 @@ DefineTSParser(List *names, List *parameters)
 	values[Anum_pg_ts_parser_prsnamespace - 1] = ObjectIdGetDatum(namespaceoid);
 
 	/*
-	 * loop over the definition list and extract the information we need.
-	 */
+	 * 遍历定义列表并提取所需信息。
+	                         */
 	foreach(pl, parameters)
 	{
 		DefElem    *defel = (DefElem *) lfirst(pl);
@@ -255,8 +255,8 @@ DefineTSParser(List *names, List *parameters)
 	}
 
 	/*
-	 * Validation
-	 */
+	 * 验证
+	     */
 	if (!OidIsValid(DatumGetObjectId(values[Anum_pg_ts_parser_prsstart - 1])))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
@@ -278,7 +278,7 @@ DefineTSParser(List *names, List *parameters)
 				 errmsg("text search parser lextypes method is required")));
 
 	/*
-	 * Looks good, insert
+	 * 看起来不错，插入
 	 */
 	tup = heap_form_tuple(prsRel->rd_att, values, nulls);
 
@@ -286,7 +286,7 @@ DefineTSParser(List *names, List *parameters)
 
 	address = makeParserDependencies(tup);
 
-	/* Post creation hook for new text search parser */
+	/* 新文本搜索解析器的创建后钩子    */
 	InvokeObjectPostCreateHook(TSParserRelationId, prsOid, 0);
 
 	heap_freetuple(tup);
@@ -296,13 +296,13 @@ DefineTSParser(List *names, List *parameters)
 	return address;
 }
 
-/* ---------------------- TS Dictionary commands -----------------------*/
+/* ---------------------- TS 词典命令 -----------------------       */
 
 /*
- * make pg_depend entries for a new pg_ts_dict entry
+ * 为新 pg_ts_dict 条目创建 pg_depend 条目
  *
- * Return value is address of the new entry
- */
+ * 返回值是新条目的地址
+             */
 static ObjectAddress
 makeDictionaryDependencies(HeapTuple tuple)
 {
@@ -313,19 +313,19 @@ makeDictionaryDependencies(HeapTuple tuple)
 
 	ObjectAddressSet(myself, TSDictionaryRelationId, dict->oid);
 
-	/* dependency on owner */
+	/* 依赖于所有者  */
 	recordDependencyOnOwner(myself.classId, myself.objectId, dict->dictowner);
 
-	/* dependency on extension */
+	/* 依赖于扩展         */
 	recordDependencyOnCurrentExtension(&myself, false);
 
 	addrs = new_object_addresses();
 
-	/* dependency on namespace */
+	/* 依赖于命名空间   */
 	ObjectAddressSet(referenced, NamespaceRelationId, dict->dictnamespace);
 	add_exact_object_address(&referenced, addrs);
 
-	/* dependency on template */
+	/* 依赖于模板        */
 	ObjectAddressSet(referenced, TSTemplateRelationId, dict->dicttemplate);
 	add_exact_object_address(&referenced, addrs);
 
@@ -336,8 +336,8 @@ makeDictionaryDependencies(HeapTuple tuple)
 }
 
 /*
- * verify that a template's init method accepts a proposed option list
- */
+ * 验证模板的 init 方法是否接受提议的选项列表
+        */
 static void
 verify_dictoptions(Oid tmplId, List *dictoptions)
 {
@@ -346,17 +346,17 @@ verify_dictoptions(Oid tmplId, List *dictoptions)
 	Oid			initmethod;
 
 	/*
-	 * Suppress this test when running in a standalone backend.  This is a
-	 * hack to allow initdb to create prefab dictionaries that might not
-	 * actually be usable in template1's encoding (due to using external files
-	 * that can't be translated into template1's encoding).  We want to create
-	 * them anyway, since they might be usable later in other databases.
-	 */
+	 * 在独立后端中运行时抑制此测试。这是一个 hack，允许 initdb
+	 * 创建在 template1 编码中可能实际上不可用的预构建词典
+	 * （由于使用无法转换为 template1 编码的外部文件）。
+	 * 我们无论如何都要创建它们，因为它们可能在其他数据库中
+	 * 以后可用。
+	                              */
 	if (!IsUnderPostmaster)
 		return;
 
 	tup = SearchSysCache1(TSTEMPLATEOID, ObjectIdGetDatum(tmplId));
-	if (!HeapTupleIsValid(tup)) /* should not happen */
+	if (!HeapTupleIsValid(tup)) /* 不应该发生   */
 		elog(ERROR, "cache lookup failed for text search template %u",
 			 tmplId);
 	tform = (Form_pg_ts_template) GETSTRUCT(tup);
@@ -365,7 +365,7 @@ verify_dictoptions(Oid tmplId, List *dictoptions)
 
 	if (!OidIsValid(initmethod))
 	{
-		/* If there is no init method, disallow any options */
+		/* 如果没有 init 方法，则不允许任何选项 */
 		if (dictoptions)
 			ereport(ERROR,
 					(errcode(ERRCODE_SYNTAX_ERROR),
@@ -375,15 +375,15 @@ verify_dictoptions(Oid tmplId, List *dictoptions)
 	else
 	{
 		/*
-		 * Copy the options just in case init method thinks it can scribble on
-		 * them ...
-		 */
+		 * 复制选项，以防 init 方法认为它可以
+		 * 随意修改它们...
+		       */
 		dictoptions = copyObject(dictoptions);
 
 		/*
-		 * Call the init method and see if it complains.  We don't worry about
-		 * it leaking memory, since our command will soon be over anyway.
-		 */
+		 * 调用 init 方法并查看它是否报错。我们不担心内存泄漏，
+		 * 因为我们的命令很快就要结束了。
+		          */
 		(void) OidFunctionCall1(initmethod, PointerGetDatum(dictoptions));
 	}
 
@@ -410,18 +410,18 @@ DefineTSDictionary(List *names, List *parameters)
 	char	   *dictname;
 	ObjectAddress address;
 
-	/* Convert list of names to a name and namespace */
+	/* 将名称列表转换为名称和命名空间 */
 	namespaceoid = QualifiedNameGetCreationNamespace(names, &dictname);
 
-	/* Check we have creation rights in target namespace */
+	/* 检查我们在目标命名空间中是否有创建权限 */
 	aclresult = object_aclcheck(NamespaceRelationId, namespaceoid, GetUserId(), ACL_CREATE);
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error(aclresult, OBJECT_SCHEMA,
 					   get_namespace_name(namespaceoid));
 
 	/*
-	 * loop over the definition list and extract the information we need.
-	 */
+	 * 遍历定义列表并提取所需信息。
+	                         */
 	foreach(pl, parameters)
 	{
 		DefElem    *defel = (DefElem *) lfirst(pl);
@@ -432,14 +432,14 @@ DefineTSDictionary(List *names, List *parameters)
 		}
 		else
 		{
-			/* Assume it's an option for the dictionary itself */
+			/* 假设它是词典本身的选项               */
 			dictoptions = lappend(dictoptions, defel);
 		}
 	}
 
 	/*
-	 * Validation
-	 */
+	 * 验证
+	     */
 	if (!OidIsValid(templId))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
@@ -451,7 +451,7 @@ DefineTSDictionary(List *names, List *parameters)
 	dictRel = table_open(TSDictionaryRelationId, RowExclusiveLock);
 
 	/*
-	 * Looks good, insert
+	 * 看起来不错，插入
 	 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
@@ -476,7 +476,7 @@ DefineTSDictionary(List *names, List *parameters)
 
 	address = makeDictionaryDependencies(tup);
 
-	/* Post creation hook for new text search dictionary */
+	/* 新文本搜索词典的创建后钩子           */
 	InvokeObjectPostCreateHook(TSDictionaryRelationId, dictOid, 0);
 
 	heap_freetuple(tup);
@@ -515,12 +515,12 @@ AlterTSDictionary(AlterTSDictionaryStmt *stmt)
 		elog(ERROR, "cache lookup failed for text search dictionary %u",
 			 dictId);
 
-	/* must be owner */
+	/* 必须是所有者 */
 	if (!object_ownercheck(TSDictionaryRelationId, dictId, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_TSDICTIONARY,
 					   NameListToString(stmt->dictname));
 
-	/* deserialize the existing set of options */
+	/* 反序列化现有的选项集          */
 	opt = SysCacheGetAttr(TSDICTOID, tup,
 						  Anum_pg_ts_dict_dictinitoption,
 						  &isnull);
@@ -530,15 +530,15 @@ AlterTSDictionary(AlterTSDictionaryStmt *stmt)
 		dictoptions = deserialize_deflist(opt);
 
 	/*
-	 * Modify the options list as per specified changes
-	 */
+	 * 根据指定的更改修改选项列表
+	          */
 	foreach(pl, stmt->options)
 	{
 		DefElem    *defel = (DefElem *) lfirst(pl);
 		ListCell   *cell;
 
 		/*
-		 * Remove any matches ...
+		 * 删除任何匹配项...
 		 */
 		foreach(cell, dictoptions)
 		{
@@ -549,20 +549,20 @@ AlterTSDictionary(AlterTSDictionaryStmt *stmt)
 		}
 
 		/*
-		 * and add new value if it's got one
-		 */
+		 * 如果有新值则添加
+		          */
 		if (defel->arg)
 			dictoptions = lappend(dictoptions, defel);
 	}
 
 	/*
-	 * Validate
-	 */
+	 * 验证
+	   */
 	verify_dictoptions(((Form_pg_ts_dict) GETSTRUCT(tup))->dicttemplate,
 					   dictoptions);
 
 	/*
-	 * Looks good, update
+	 * 看起来不错，更新
 	 */
 	memset(repl_val, 0, sizeof(repl_val));
 	memset(repl_null, false, sizeof(repl_null));
@@ -585,10 +585,10 @@ AlterTSDictionary(AlterTSDictionaryStmt *stmt)
 	ObjectAddressSet(address, TSDictionaryRelationId, dictId);
 
 	/*
-	 * NOTE: because we only support altering the options, not the template,
-	 * there is no need to update dependencies.  This might have to change if
-	 * the options ever reference inside-the-database objects.
-	 */
+	 * 注意：因为我们只支持修改选项，不支持模板，所以无需更新
+	 * 依赖关系。如果选项曾经引用数据库内部对象，则可能需要改变。
+ *
+	                                */
 
 	heap_freetuple(newtup);
 	ReleaseSysCache(tup);
@@ -598,13 +598,13 @@ AlterTSDictionary(AlterTSDictionaryStmt *stmt)
 	return address;
 }
 
-/* ---------------------- TS Template commands -----------------------*/
+/* ---------------------- TS 模板命令 -----------------------     */
 
 /*
- * lookup a template support function and return its OID (as a Datum)
+ * 查找模板支持函数并返回其 OID（作为 Datum）
  *
- * attnum is the pg_ts_template column the function will go into
- */
+ * attnum 是函数将要进入的 pg_ts_template 列
+                    */
 static Datum
 get_ts_template_func(DefElem *defel, int attnum)
 {
@@ -628,10 +628,10 @@ get_ts_template_func(DefElem *defel, int attnum)
 			nargs = 4;
 			break;
 		default:
-			/* should not be here */
+			/* 不应该到达这里 */
 			elog(ERROR, "unrecognized attribute for text search template: %d",
 				 attnum);
-			nargs = 0;			/* keep compiler quiet */
+			nargs = 0;			/* 让编译器安静  */
 	}
 
 	procOid = LookupFuncName(funcName, nargs, typeId, false);
@@ -646,8 +646,8 @@ get_ts_template_func(DefElem *defel, int attnum)
 }
 
 /*
- * make pg_depend entries for a new pg_ts_template entry
- */
+ * 为新 pg_ts_template 条目创建 pg_depend 条目
+   */
 static ObjectAddress
 makeTSTemplateDependencies(HeapTuple tuple)
 {
@@ -658,16 +658,16 @@ makeTSTemplateDependencies(HeapTuple tuple)
 
 	ObjectAddressSet(myself, TSTemplateRelationId, tmpl->oid);
 
-	/* dependency on extension */
+	/* 依赖于扩展         */
 	recordDependencyOnCurrentExtension(&myself, false);
 
 	addrs = new_object_addresses();
 
-	/* dependency on namespace */
+	/* 依赖于命名空间   */
 	ObjectAddressSet(referenced, NamespaceRelationId, tmpl->tmplnamespace);
 	add_exact_object_address(&referenced, addrs);
 
-	/* dependencies on functions */
+	/* 依赖于函数           */
 	ObjectAddressSet(referenced, ProcedureRelationId, tmpl->tmpllexize);
 	add_exact_object_address(&referenced, addrs);
 
@@ -706,7 +706,7 @@ DefineTSTemplate(List *names, List *parameters)
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 				 errmsg("must be superuser to create text search templates")));
 
-	/* Convert list of names to a name and namespace */
+	/* 将名称列表转换为名称和命名空间 */
 	namespaceoid = QualifiedNameGetCreationNamespace(names, &tmplname);
 
 	tmplRel = table_open(TSTemplateRelationId, RowExclusiveLock);
@@ -725,8 +725,8 @@ DefineTSTemplate(List *names, List *parameters)
 	values[Anum_pg_ts_template_tmplnamespace - 1] = ObjectIdGetDatum(namespaceoid);
 
 	/*
-	 * loop over the definition list and extract the information we need.
-	 */
+	 * 遍历定义列表并提取所需信息。
+	                         */
 	foreach(pl, parameters)
 	{
 		DefElem    *defel = (DefElem *) lfirst(pl);
@@ -751,15 +751,15 @@ DefineTSTemplate(List *names, List *parameters)
 	}
 
 	/*
-	 * Validation
-	 */
+	 * 验证
+	     */
 	if (!OidIsValid(DatumGetObjectId(values[Anum_pg_ts_template_tmpllexize - 1])))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
 				 errmsg("text search template lexize method is required")));
 
 	/*
-	 * Looks good, insert
+	 * 看起来不错，插入
 	 */
 	tup = heap_form_tuple(tmplRel->rd_att, values, nulls);
 
@@ -767,7 +767,7 @@ DefineTSTemplate(List *names, List *parameters)
 
 	address = makeTSTemplateDependencies(tup);
 
-	/* Post creation hook for new text search template */
+	/* 新文本搜索模板的创建后钩子         */
 	InvokeObjectPostCreateHook(TSTemplateRelationId, tmplOid, 0);
 
 	heap_freetuple(tup);
@@ -777,11 +777,11 @@ DefineTSTemplate(List *names, List *parameters)
 	return address;
 }
 
-/* ---------------------- TS Configuration commands -----------------------*/
+/* ---------------------- TS 配置命令 -----------------------          */
 
 /*
- * Finds syscache tuple of configuration.
- * Returns NULL if no such cfg.
+ * 查找配置的系统缓存元组。
+ * 如果没有这样的配置，返回 NULL。
  */
 static HeapTuple
 GetTSConfigTuple(List *names)
@@ -795,7 +795,7 @@ GetTSConfigTuple(List *names)
 
 	tup = SearchSysCache1(TSCONFIGOID, ObjectIdGetDatum(cfgId));
 
-	if (!HeapTupleIsValid(tup)) /* should not happen */
+	if (!HeapTupleIsValid(tup)) /* 不应该发生   */
 		elog(ERROR, "cache lookup failed for text search configuration %u",
 			 cfgId);
 
@@ -803,11 +803,11 @@ GetTSConfigTuple(List *names)
 }
 
 /*
- * make pg_depend entries for a new or updated pg_ts_config entry
+ * 为新或更新的 pg_ts_config 条目创建 pg_depend 条目
  *
- * Pass opened pg_ts_config_map relation if there might be any config map
- * entries for the config.
- */
+ * 如果配置可能有任何配置映射条目，则传递打开的 pg_ts_config_map 关系。
+ *
+      */
 static ObjectAddress
 makeConfigurationDependencies(HeapTuple tuple, bool removeOld,
 							  Relation mapRel)
@@ -821,7 +821,7 @@ makeConfigurationDependencies(HeapTuple tuple, bool removeOld,
 	myself.objectId = cfg->oid;
 	myself.objectSubId = 0;
 
-	/* for ALTER case, first flush old dependencies, except extension deps */
+	/* 对于 ALTER 情况，首先刷新旧的依赖关系，扩展依赖除外 */
 	if (removeOld)
 	{
 		deleteDependencyRecordsFor(myself.classId, myself.objectId, true);
@@ -829,38 +829,38 @@ makeConfigurationDependencies(HeapTuple tuple, bool removeOld,
 	}
 
 	/*
-	 * We use an ObjectAddresses list to remove possible duplicate
-	 * dependencies from the config map info.  The pg_ts_config items
-	 * shouldn't be duplicates, but might as well fold them all into one call.
-	 */
+	 * 我们使用 ObjectAddresses 列表来删除配置映射信息中可能的重复
+	 * 依赖关系。pg_ts_config 项目不应该是重复的，但不妨将它们全部
+	 * 合并到一个调用中。
+	    */
 	addrs = new_object_addresses();
 
-	/* dependency on namespace */
+	/* 依赖于命名空间   */
 	referenced.classId = NamespaceRelationId;
 	referenced.objectId = cfg->cfgnamespace;
 	referenced.objectSubId = 0;
 	add_exact_object_address(&referenced, addrs);
 
-	/* dependency on owner */
+	/* 依赖于所有者  */
 	recordDependencyOnOwner(myself.classId, myself.objectId, cfg->cfgowner);
 
-	/* dependency on extension */
+	/* 依赖于扩展         */
 	recordDependencyOnCurrentExtension(&myself, removeOld);
 
-	/* dependency on parser */
+	/* 依赖于解析器   */
 	referenced.classId = TSParserRelationId;
 	referenced.objectId = cfg->cfgparser;
 	referenced.objectSubId = 0;
 	add_exact_object_address(&referenced, addrs);
 
-	/* dependencies on dictionaries listed in config map */
+	/* 依赖于配置映射中列出的词典           */
 	if (mapRel)
 	{
 		ScanKeyData skey;
 		SysScanDesc scan;
 		HeapTuple	maptup;
 
-		/* CCI to ensure we can see effects of caller's changes */
+		/* CCI 以确保我们可以看到调用者更改的效果 */
 		CommandCounterIncrement();
 
 		ScanKeyInit(&skey,
@@ -884,7 +884,7 @@ makeConfigurationDependencies(HeapTuple tuple, bool removeOld,
 		systable_endscan(scan);
 	}
 
-	/* Record 'em (this includes duplicate elimination) */
+	/* 记录它们（这包括去重）                */
 	record_object_address_dependencies(&myself, addrs, DEPENDENCY_NORMAL);
 
 	free_object_addresses(addrs);
@@ -913,18 +913,18 @@ DefineTSConfiguration(List *names, List *parameters, ObjectAddress *copied)
 	ListCell   *pl;
 	ObjectAddress address;
 
-	/* Convert list of names to a name and namespace */
+	/* 将名称列表转换为名称和命名空间 */
 	namespaceoid = QualifiedNameGetCreationNamespace(names, &cfgname);
 
-	/* Check we have creation rights in target namespace */
+	/* 检查我们在目标命名空间中是否有创建权限 */
 	aclresult = object_aclcheck(NamespaceRelationId, namespaceoid, GetUserId(), ACL_CREATE);
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error(aclresult, OBJECT_SCHEMA,
 					   get_namespace_name(namespaceoid));
 
 	/*
-	 * loop over the definition list and extract the information we need.
-	 */
+	 * 遍历定义列表并提取所需信息。
+	                         */
 	foreach(pl, parameters)
 	{
 		DefElem    *defel = (DefElem *) lfirst(pl);
@@ -945,7 +945,7 @@ DefineTSConfiguration(List *names, List *parameters, ObjectAddress *copied)
 				(errcode(ERRCODE_SYNTAX_ERROR),
 				 errmsg("cannot specify both PARSER and COPY options")));
 
-	/* make copied tsconfig available to callers */
+	/* 使复制的 tsconfig 对调用者可用  */
 	if (copied && OidIsValid(sourceOid))
 	{
 		ObjectAddressSet(*copied,
@@ -954,7 +954,7 @@ DefineTSConfiguration(List *names, List *parameters, ObjectAddress *copied)
 	}
 
 	/*
-	 * Look up source config if given.
+	 * 如果给定，查找源配置。
 	 */
 	if (OidIsValid(sourceOid))
 	{
@@ -967,15 +967,15 @@ DefineTSConfiguration(List *names, List *parameters, ObjectAddress *copied)
 
 		cfg = (Form_pg_ts_config) GETSTRUCT(tup);
 
-		/* use source's parser */
+		/* 使用源的解析器 */
 		prsOid = cfg->cfgparser;
 
 		ReleaseSysCache(tup);
 	}
 
 	/*
-	 * Validation
-	 */
+	 * 验证
+	     */
 	if (!OidIsValid(prsOid))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
@@ -984,7 +984,7 @@ DefineTSConfiguration(List *names, List *parameters, ObjectAddress *copied)
 	cfgRel = table_open(TSConfigRelationId, RowExclusiveLock);
 
 	/*
-	 * Looks good, build tuple and insert
+	 * 看起来不错，构建元组并插入
 	 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
@@ -1005,8 +1005,8 @@ DefineTSConfiguration(List *names, List *parameters, ObjectAddress *copied)
 	if (OidIsValid(sourceOid))
 	{
 		/*
-		 * Copy token-dicts map from source config
-		 */
+		 * 从源配置复制记号-词典映射
+		   */
 		ScanKeyData skey;
 		SysScanDesc scan;
 		HeapTuple	maptup;
@@ -1023,8 +1023,8 @@ DefineTSConfiguration(List *names, List *parameters, ObjectAddress *copied)
 		indstate = CatalogOpenIndexes(mapRel);
 
 		/*
-		 * Allocate the slots to use, but delay costly initialization until we
-		 * know that they will be used.
+		 * 分配要使用的槽，但延迟代价高昂的初始化，直到我们知道
+		 * 它们将被使用。
 		 */
 		max_slots = MAX_CATALOG_MULTI_INSERT_BYTES / sizeof(FormData_pg_ts_config_map);
 		slot = palloc(sizeof(TupleTableSlot *) * max_slots);
@@ -1037,9 +1037,9 @@ DefineTSConfiguration(List *names, List *parameters, ObjectAddress *copied)
 		scan = systable_beginscan(mapRel, TSConfigMapIndexId, true,
 								  NULL, 1, &skey);
 
-		/* number of slots currently storing tuples */
+		/* 当前存储元组的槽数              */
 		slot_stored_count = 0;
-		/* number of slots currently initialized */
+		/* 当前已初始化的槽数           */
 		slot_init_count = 0;
 
 		while (HeapTupleIsValid((maptup = systable_getnext(scan))))
@@ -1066,7 +1066,7 @@ DefineTSConfiguration(List *names, List *parameters, ObjectAddress *copied)
 			ExecStoreVirtualTuple(slot[slot_stored_count]);
 			slot_stored_count++;
 
-			/* If slots are full, insert a batch of tuples */
+			/* 如果槽已满，插入一批元组        */
 			if (slot_stored_count == max_slots)
 			{
 				CatalogTuplesMultiInsertWithInfo(mapRel, slot, slot_stored_count,
@@ -1075,7 +1075,7 @@ DefineTSConfiguration(List *names, List *parameters, ObjectAddress *copied)
 			}
 		}
 
-		/* Insert any tuples left in the buffer */
+		/* 插入缓冲区中剩余的任何元组 */
 		if (slot_stored_count > 0)
 			CatalogTuplesMultiInsertWithInfo(mapRel, slot, slot_stored_count,
 											 indstate);
@@ -1089,7 +1089,7 @@ DefineTSConfiguration(List *names, List *parameters, ObjectAddress *copied)
 
 	address = makeConfigurationDependencies(tup, false, mapRel);
 
-	/* Post creation hook for new text search configuration */
+	/* 新文本搜索配置的创建后钩子              */
 	InvokeObjectPostCreateHook(TSConfigRelationId, cfgOid, 0);
 
 	heap_freetuple(tup);
@@ -1102,8 +1102,8 @@ DefineTSConfiguration(List *names, List *parameters, ObjectAddress *copied)
 }
 
 /*
- * Guts of TS configuration deletion.
- */
+ * TS 配置删除的核心实现。
+  */
 void
 RemoveTSConfigurationById(Oid cfgId)
 {
@@ -1113,7 +1113,7 @@ RemoveTSConfigurationById(Oid cfgId)
 	ScanKeyData skey;
 	SysScanDesc scan;
 
-	/* Remove the pg_ts_config entry */
+	/* 删除 pg_ts_config 条目    */
 	relCfg = table_open(TSConfigRelationId, RowExclusiveLock);
 
 	tup = SearchSysCache1(TSCONFIGOID, ObjectIdGetDatum(cfgId));
@@ -1128,7 +1128,7 @@ RemoveTSConfigurationById(Oid cfgId)
 
 	table_close(relCfg, RowExclusiveLock);
 
-	/* Remove any pg_ts_config_map entries */
+	/* 删除任何 pg_ts_config_map 条目 */
 	relMap = table_open(TSConfigMapRelationId, RowExclusiveLock);
 
 	ScanKeyInit(&skey,
@@ -1150,8 +1150,8 @@ RemoveTSConfigurationById(Oid cfgId)
 }
 
 /*
- * ALTER TEXT SEARCH CONFIGURATION - main entry point
- */
+ * ALTER TEXT SEARCH CONFIGURATION - 主入口点
+     */
 ObjectAddress
 AlterTSConfiguration(AlterTSConfigurationStmt *stmt)
 {
@@ -1160,7 +1160,7 @@ AlterTSConfiguration(AlterTSConfigurationStmt *stmt)
 	Relation	relMap;
 	ObjectAddress address;
 
-	/* Find the configuration */
+	/* 查找配置           */
 	tup = GetTSConfigTuple(stmt->cfgname);
 	if (!HeapTupleIsValid(tup))
 		ereport(ERROR,
@@ -1170,20 +1170,20 @@ AlterTSConfiguration(AlterTSConfigurationStmt *stmt)
 
 	cfgId = ((Form_pg_ts_config) GETSTRUCT(tup))->oid;
 
-	/* must be owner */
+	/* 必须是所有者 */
 	if (!object_ownercheck(TSConfigRelationId, cfgId, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_TSCONFIGURATION,
 					   NameListToString(stmt->cfgname));
 
 	relMap = table_open(TSConfigMapRelationId, RowExclusiveLock);
 
-	/* Add or drop mappings */
+	/* 添加或删除映射 */
 	if (stmt->dicts)
 		MakeConfigurationMapping(stmt, tup, relMap);
 	else if (stmt->tokentype)
 		DropConfigurationMapping(stmt, tup, relMap);
 
-	/* Update dependencies */
+	/* 更新依赖关系  */
 	makeConfigurationDependencies(tup, true, relMap);
 
 	InvokeObjectPostAlterHook(TSConfigRelationId, cfgId, 0);
@@ -1198,8 +1198,8 @@ AlterTSConfiguration(AlterTSConfigurationStmt *stmt)
 }
 
 /*
- * Check whether a token type name is a member of a TSTokenTypeItem list.
- */
+ * 检查记号类型名称是否是 TSTokenTypeItem 列表的成员。
+   */
 static bool
 tstoken_list_member(char *token_name, List *tokens)
 {
@@ -1221,10 +1221,10 @@ tstoken_list_member(char *token_name, List *tokens)
 }
 
 /*
- * Translate a list of token type names to a list of unique TSTokenTypeItem.
+ * 将记号类型名称列表转换为唯一的 TSTokenTypeItem 列表。
  *
- * Duplicated entries list are removed from tokennames.
- */
+ * 重复的条目列表将从 tokennames 中删除。
+    */
 static List *
 getTokenTypes(Oid prsId, List *tokennames)
 {
@@ -1242,7 +1242,7 @@ getTokenTypes(Oid prsId, List *tokennames)
 		elog(ERROR, "method lextype isn't defined for text search parser %u",
 			 prsId);
 
-	/* lextype takes one dummy argument */
+	/* lextype 接受一个虚拟参数 */
 	list = (LexDescr *) DatumGetPointer(OidFunctionCall1(prs->lextypeOid,
 														 (Datum) 0));
 
@@ -1252,7 +1252,7 @@ getTokenTypes(Oid prsId, List *tokennames)
 		bool		found = false;
 		int			j;
 
-		/* Skip if this token is already in the result */
+		/* 如果此记号已在结果中，则跳过  */
 		if (tstoken_list_member(strVal(val), result))
 			continue;
 
@@ -1313,8 +1313,8 @@ MakeConfigurationMapping(AlterTSConfigurationStmt *stmt,
 	if (stmt->override)
 	{
 		/*
-		 * delete maps for tokens if they exist and command was ALTER
-		 */
+		 * 如果存在且命令是 ALTER，则删除记号的映射
+		  */
 		foreach(c, tokens)
 		{
 			TSTokenTypeItem *ts = (TSTokenTypeItem *) lfirst(c);
@@ -1341,8 +1341,8 @@ MakeConfigurationMapping(AlterTSConfigurationStmt *stmt,
 	}
 
 	/*
-	 * Convert list of dictionary names to array of dict OIDs
-	 */
+	 * 将词典名称列表转换为词典 OIDs数组
+	        */
 	ndict = list_length(stmt->dicts);
 	dictIds = (Oid *) palloc(sizeof(Oid) * ndict);
 	i = 0;
@@ -1359,8 +1359,8 @@ MakeConfigurationMapping(AlterTSConfigurationStmt *stmt,
 	if (stmt->replace)
 	{
 		/*
-		 * Replace a specific dictionary in existing entries
-		 */
+		 * 替换现有条目中的特定词典
+		              */
 		Oid			dictOld = dictIds[0],
 					dictNew = dictIds[1];
 
@@ -1377,7 +1377,7 @@ MakeConfigurationMapping(AlterTSConfigurationStmt *stmt,
 			Form_pg_ts_config_map cfgmap = (Form_pg_ts_config_map) GETSTRUCT(maptup);
 
 			/*
-			 * check if it's one of target token types
+			 * 检查它是否是目标记号类型之一
 			 */
 			if (tokens)
 			{
@@ -1398,7 +1398,7 @@ MakeConfigurationMapping(AlterTSConfigurationStmt *stmt,
 			}
 
 			/*
-			 * replace dictionary if match
+			 * 如果匹配则替换词典
 			 */
 			if (cfgmap->mapdict == dictOld)
 			{
@@ -1429,7 +1429,7 @@ MakeConfigurationMapping(AlterTSConfigurationStmt *stmt,
 		int			slotCount = 0;
 		int			nslots;
 
-		/* Allocate the slots to use and initialize them */
+		/* 分配要使用的槽并初始化它们       */
 		nslots = Min(ntoken * ndict,
 					 MAX_CATALOG_MULTI_INSERT_BYTES / sizeof(FormData_pg_ts_config_map));
 		slot = palloc(sizeof(TupleTableSlot *) * nslots);
@@ -1438,8 +1438,8 @@ MakeConfigurationMapping(AlterTSConfigurationStmt *stmt,
 											   &TTSOpsHeapTuple);
 
 		/*
-		 * Insertion of new entries
-		 */
+		 * 插入新条目
+		          */
 		foreach(c, tokens)
 		{
 			TSTokenTypeItem *ts = (TSTokenTypeItem *) lfirst(c);
@@ -1459,7 +1459,7 @@ MakeConfigurationMapping(AlterTSConfigurationStmt *stmt,
 				ExecStoreVirtualTuple(slot[slotCount]);
 				slotCount++;
 
-				/* If slots are full, insert a batch of tuples */
+				/* 如果槽已满，插入一批元组        */
 				if (slotCount == nslots)
 				{
 					CatalogTuplesMultiInsertWithInfo(relMap, slot, slotCount,
@@ -1469,7 +1469,7 @@ MakeConfigurationMapping(AlterTSConfigurationStmt *stmt,
 			}
 		}
 
-		/* Insert any tuples left in the buffer */
+		/* 插入缓冲区中剩余的任何元组 */
 		if (slotCount > 0)
 			CatalogTuplesMultiInsertWithInfo(relMap, slot, slotCount,
 											 indstate);
@@ -1478,7 +1478,7 @@ MakeConfigurationMapping(AlterTSConfigurationStmt *stmt,
 			ExecDropSingleTupleTableSlot(slot[i]);
 	}
 
-	/* clean up */
+	/* 清理   */
 	CatalogCloseIndexes(indstate);
 
 	EventTriggerCollectAlterTSConfig(stmt, cfgId, dictIds, ndict);
@@ -1554,13 +1554,13 @@ DropConfigurationMapping(AlterTSConfigurationStmt *stmt,
 
 
 /*
- * Serialize dictionary options, producing a TEXT datum from a List of DefElem
+ * 序列化词典选项，从 DefElem 列表生成 TEXT 数据
  *
- * This is used to form the value stored in pg_ts_dict.dictinitoption.
- * For the convenience of pg_dump, the output is formatted exactly as it
- * would need to appear in CREATE TEXT SEARCH DICTIONARY to reproduce the
- * same options.
- */
+ * 这用于形成存储在 pg_ts_dict.dictinitoption 中的值。
+ * 为了方便 pg_dump，输出格式与 CREATE TEXT SEARCH DICTIONARY
+ * 中重现相同选项所需出现的格式完全相同。
+ *
+                                                   */
 text *
 serialize_deflist(List *deflist)
 {
@@ -1579,15 +1579,15 @@ serialize_deflist(List *deflist)
 						 quote_identifier(defel->defname));
 
 		/*
-		 * If the value is a T_Integer or T_Float, emit it without quotes,
-		 * otherwise with quotes.  This is essential to allow correct
-		 * reconstruction of the node type as well as the value.
-		 */
+		 * 如果值是 T_Integer 或 T_Float，则不带引号发出，否则带引号。
+		 * 这对于正确重构节点类型和值是必不可少的。
+ *
+		                                          */
 		if (IsA(defel->arg, Integer) || IsA(defel->arg, Float))
 			appendStringInfoString(&buf, val);
 		else
 		{
-			/* If backslashes appear, force E syntax to quote them safely */
+			/* 如果出现反斜杠，则强制使用 E 语法以安全地引用它们 */
 			if (strchr(val, '\\'))
 				appendStringInfoChar(&buf, ESCAPE_STRING_SYNTAX);
 			appendStringInfoChar(&buf, '\'');
@@ -1611,16 +1611,16 @@ serialize_deflist(List *deflist)
 }
 
 /*
- * Deserialize dictionary options, reconstructing a List of DefElem from TEXT
+ * 反序列化词典选项，从 TEXT 重构 DefElem 列表
  *
- * This is also used for prsheadline options, so for backward compatibility
- * we need to accept a few things serialize_deflist() will never emit:
- * in particular, unquoted and double-quoted strings.
- */
+ * 这也用于 prsheadline 选项，因此为了向后兼容，我们需要接受
+ * serialize_deflist() 永远不会发出的一些内容：特别是未引用和
+ * 双引号字符串。
+                              */
 List *
 deserialize_deflist(Datum txt)
 {
-	text	   *in = DatumGetTextPP(txt);	/* in case it's toasted */
+	text	   *in = DatumGetTextPP(txt);	/* 以防它被 TOAST 处理过 */
 	List	   *result = NIL;
 	int			len = VARSIZE_ANY_EXHDR(in);
 	char	   *ptr,
@@ -1641,7 +1641,7 @@ deserialize_deflist(Datum txt)
 	} ds_state;
 	ds_state	state = CS_WAITKEY;
 
-	workspace = (char *) palloc(len + 1);	/* certainly enough room */
+	workspace = (char *) palloc(len + 1);	/* 肯定有足够的空间 */
 	ptr = VARDATA_ANY(in);
 	endptr = ptr + len;
 	for (; ptr < endptr; ptr++)
@@ -1684,7 +1684,7 @@ deserialize_deflist(Datum txt)
 				{
 					if (ptr + 1 < endptr && ptr[1] == '"')
 					{
-						/* copy only one of the two quotes */
+						/* 仅复制两个引号中的一个 */
 						*wsptr++ = *ptr++;
 					}
 					else
@@ -1736,7 +1736,7 @@ deserialize_deflist(Datum txt)
 				{
 					if (ptr + 1 < endptr && ptr[1] == '\'')
 					{
-						/* copy only one of the two quotes */
+						/* 仅复制两个引号中的一个 */
 						*wsptr++ = *ptr++;
 					}
 					else
@@ -1753,7 +1753,7 @@ deserialize_deflist(Datum txt)
 				{
 					if (ptr + 1 < endptr && ptr[1] == '\\')
 					{
-						/* copy only one of the two backslashes */
+						/* 仅复制两个反斜杠中的一个 */
 						*wsptr++ = *ptr++;
 					}
 					else
@@ -1769,7 +1769,7 @@ deserialize_deflist(Datum txt)
 				{
 					if (ptr + 1 < endptr && ptr[1] == '"')
 					{
-						/* copy only one of the two quotes */
+						/* 仅复制两个引号中的一个 */
 						*wsptr++ = *ptr++;
 					}
 					else
@@ -1828,25 +1828,25 @@ deserialize_deflist(Datum txt)
 }
 
 /*
- * Build one DefElem for deserialize_deflist
+ * 为 deserialize_deflist 构建一个 DefElem
  */
 static DefElem *
 buildDefItem(const char *name, const char *val, bool was_quoted)
 {
-	/* If input was quoted, always emit as string */
+	/* 如果输入被引用，则始终作为字符串发出 */
 	if (!was_quoted && val[0] != '\0')
 	{
 		int			v;
 		char	   *endptr;
 
-		/* Try to parse as an integer */
+		/* 尝试解析为整数      */
 		errno = 0;
 		v = strtoint(val, &endptr, 10);
 		if (errno == 0 && *endptr == '\0')
 			return makeDefElem(pstrdup(name),
 							   (Node *) makeInteger(v),
 							   -1);
-		/* Nope, how about as a float? */
+		/* 不是，那么作为浮点数呢？ */
 		errno = 0;
 		(void) strtod(val, &endptr);
 		if (errno == 0 && *endptr == '\0')
@@ -1863,7 +1863,7 @@ buildDefItem(const char *name, const char *val, bool was_quoted)
 							   (Node *) makeBoolean(false),
 							   -1);
 	}
-	/* Just make it a string */
+	/* 就把它当作字符串 */
 	return makeDefElem(pstrdup(name),
 					   (Node *) makeString(pstrdup(val)),
 					   -1);

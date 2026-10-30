@@ -74,9 +74,9 @@ static void dropProcedures(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 
 /*
  * OpFamilyCacheLookup
- *		Look up an existing opfamily by name.
+ *   通过名称查找现有的操作符族。
  *
- * Returns a syscache tuple reference, or NULL if not found.
+ * 返回系统缓存元组引用，如果未找到则返回 NULL。
  */
 static HeapTuple
 OpFamilyCacheLookup(Oid amID, List *opfamilyname, bool missing_ok)
@@ -85,12 +85,12 @@ OpFamilyCacheLookup(Oid amID, List *opfamilyname, bool missing_ok)
 	char	   *opfname;
 	HeapTuple	htup;
 
-	/* deconstruct the name list */
+	/* 解析名称列表        */
 	DeconstructQualifiedName(opfamilyname, &schemaname, &opfname);
 
 	if (schemaname)
 	{
-		/* Look in specific schema only */
+		/* 仅在特定模式中查找  */
 		Oid			namespaceId;
 
 		namespaceId = LookupExplicitNamespace(schemaname, missing_ok);
@@ -104,7 +104,7 @@ OpFamilyCacheLookup(Oid amID, List *opfamilyname, bool missing_ok)
 	}
 	else
 	{
-		/* Unqualified opfamily name, so search the search path */
+		/* 非限定操作符族名称，因此搜索搜索路径 */
 		Oid			opfID = OpfamilynameGetOpfid(amID, opfname);
 
 		if (!OidIsValid(opfID))
@@ -132,9 +132,9 @@ OpFamilyCacheLookup(Oid amID, List *opfamilyname, bool missing_ok)
 
 /*
  * get_opfamily_oid
- *	  find an opfamily OID by possibly qualified name
+ *   通过可能限定的名称查找操作符族 OID。
  *
- * If not found, returns InvalidOid if missing_ok, else throws error.
+ * 如果未找到，当 missing_ok 时返回 InvalidOid，否则抛出错误。
  */
 Oid
 get_opfamily_oid(Oid amID, List *opfamilyname, bool missing_ok)
@@ -155,9 +155,9 @@ get_opfamily_oid(Oid amID, List *opfamilyname, bool missing_ok)
 
 /*
  * OpClassCacheLookup
- *		Look up an existing opclass by name.
+ *   通过名称查找现有的操作符类。
  *
- * Returns a syscache tuple reference, or NULL if not found.
+ * 返回系统缓存元组引用，如果未找到则返回 NULL。
  */
 static HeapTuple
 OpClassCacheLookup(Oid amID, List *opclassname, bool missing_ok)
@@ -166,12 +166,12 @@ OpClassCacheLookup(Oid amID, List *opclassname, bool missing_ok)
 	char	   *opcname;
 	HeapTuple	htup;
 
-	/* deconstruct the name list */
+	/* 解析名称列表        */
 	DeconstructQualifiedName(opclassname, &schemaname, &opcname);
 
 	if (schemaname)
 	{
-		/* Look in specific schema only */
+		/* 仅在特定模式中查找  */
 		Oid			namespaceId;
 
 		namespaceId = LookupExplicitNamespace(schemaname, missing_ok);
@@ -185,7 +185,7 @@ OpClassCacheLookup(Oid amID, List *opclassname, bool missing_ok)
 	}
 	else
 	{
-		/* Unqualified opclass name, so search the search path */
+		/* 非限定操作符类名称，因此搜索搜索路径 */
 		Oid			opcID = OpclassnameGetOpcid(amID, opcname);
 
 		if (!OidIsValid(opcID))
@@ -213,9 +213,9 @@ OpClassCacheLookup(Oid amID, List *opclassname, bool missing_ok)
 
 /*
  * get_opclass_oid
- *	  find an opclass OID by possibly qualified name
+ *   通过可能限定的名称查找操作符类 OID。
  *
- * If not found, returns InvalidOid if missing_ok, else throws error.
+ * 如果未找到，当 missing_ok 时返回 InvalidOid，否则抛出错误。
  */
 Oid
 get_opclass_oid(Oid amID, List *opclassname, bool missing_ok)
@@ -236,10 +236,10 @@ get_opclass_oid(Oid amID, List *opclassname, bool missing_ok)
 
 /*
  * CreateOpFamily
- *		Internal routine to make the catalog entry for a new operator family.
+ *   为新操作符族创建目录条目的内部例程。
  *
- * Caller must have done permissions checks etc. already.
- */
+ * 调用者必须已经完成权限检查等操作。
+                  */
 static ObjectAddress
 CreateOpFamily(CreateOpFamilyStmt *stmt, const char *opfname,
 			   Oid namespaceoid, Oid amoid)
@@ -256,9 +256,9 @@ CreateOpFamily(CreateOpFamilyStmt *stmt, const char *opfname,
 	rel = table_open(OperatorFamilyRelationId, RowExclusiveLock);
 
 	/*
-	 * Make sure there is no existing opfamily of this name (this is just to
-	 * give a more friendly error message than "duplicate key").
-	 */
+		 * 确保没有同名的现有操作符族（这仅是为了提供比
+		 * "重复键"更友好的错误消息）。
+		             */
 	if (SearchSysCacheExists3(OPFAMILYAMNAMENSP,
 							  ObjectIdGetDatum(amoid),
 							  CStringGetDatum(opfname),
@@ -269,8 +269,8 @@ CreateOpFamily(CreateOpFamilyStmt *stmt, const char *opfname,
 						opfname, stmt->amname)));
 
 	/*
-	 * Okay, let's create the pg_opfamily entry.
-	 */
+		 * 好的，让我们创建 pg_opfamily 条目。
+		 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
 
@@ -290,35 +290,35 @@ CreateOpFamily(CreateOpFamilyStmt *stmt, const char *opfname,
 	heap_freetuple(tup);
 
 	/*
-	 * Create dependencies for the opfamily proper.
-	 */
+		 * 为操作符族本身创建依赖关系。
+		 */
 	myself.classId = OperatorFamilyRelationId;
 	myself.objectId = opfamilyoid;
 	myself.objectSubId = 0;
 
-	/* dependency on access method */
+	/* 依赖于访问方法       */
 	referenced.classId = AccessMethodRelationId;
 	referenced.objectId = amoid;
 	referenced.objectSubId = 0;
 	recordDependencyOn(&myself, &referenced, DEPENDENCY_AUTO);
 
-	/* dependency on namespace */
+	/* 依赖于命名空间   */
 	referenced.classId = NamespaceRelationId;
 	referenced.objectId = namespaceoid;
 	referenced.objectSubId = 0;
 	recordDependencyOn(&myself, &referenced, DEPENDENCY_NORMAL);
 
-	/* dependency on owner */
+	/* 依赖于所有者  */
 	recordDependencyOnOwner(OperatorFamilyRelationId, opfamilyoid, GetUserId());
 
-	/* dependency on extension */
+	/* 依赖于扩展         */
 	recordDependencyOnCurrentExtension(&myself, false);
 
-	/* Report the new operator family to possibly interested event triggers */
+	/* 将新的操作符族报告给可能感兴趣的事件触发器      */
 	EventTriggerCollectSimpleCommand(myself, InvalidObjectAddress,
 									 (Node *) stmt);
 
-	/* Post creation hook for new operator family */
+	/* 新操作符族的创建后钩子          */
 	InvokeObjectPostCreateHook(OperatorFamilyRelationId, opfamilyoid, 0);
 
 	table_close(rel, RowExclusiveLock);
@@ -328,24 +328,24 @@ CreateOpFamily(CreateOpFamilyStmt *stmt, const char *opfname,
 
 /*
  * DefineOpClass
- *		Define a new index operator class.
+ *   定义一个新的索引操作符类。
  */
 ObjectAddress
 DefineOpClass(CreateOpClassStmt *stmt)
 {
-	char	   *opcname;		/* name of opclass we're creating */
-	Oid			amoid,			/* our AM's oid */
-				typeoid,		/* indexable datatype oid */
-				storageoid,		/* storage datatype oid, if any */
-				namespaceoid,	/* namespace to create opclass in */
-				opfamilyoid,	/* oid of containing opfamily */
-				opclassoid;		/* oid of opclass we create */
-	int			maxOpNumber,	/* amstrategies value */
-				optsProcNumber, /* amoptsprocnum value */
-				maxProcNumber;	/* amsupport value */
-	bool		amstorage;		/* amstorage flag */
-	List	   *operators;		/* OpFamilyMember list for operators */
-	List	   *procedures;		/* OpFamilyMember list for support procs */
+	char	   *opcname;		/* 我们正在创建的操作符类的名称 */
+	Oid			amoid,			/* 我们的访问方法的 OID */
+				typeoid,		/* 可索引数据类型的 OID */
+				storageoid,		/* 存储数据类型的 OID（如果有） */
+				namespaceoid,	/* 创建操作符类的命名空间 */
+				opfamilyoid,	/* 包含的操作符族的 OID */
+				opclassoid;		/* 我们创建的操作符类的 OID */
+	int			maxOpNumber,	/* amstrategies 值   */
+				optsProcNumber, /* amoptsprocnum 值   */
+				maxProcNumber;	/* amsupport 值   */
+	bool		amstorage;		/* amstorage 标志 */
+	List	   *operators;		/* 操作符的 OpFamilyMember 列表 */
+	List	   *procedures;		/* 支持过程的 OpFamilyMember 列表 */
 	ListCell   *l;
 	Relation	rel;
 	HeapTuple	tup;
@@ -358,17 +358,17 @@ DefineOpClass(CreateOpClassStmt *stmt)
 	ObjectAddress myself,
 				referenced;
 
-	/* Convert list of names to a name and namespace */
+	/* 将名称列表转换为名称和命名空间 */
 	namespaceoid = QualifiedNameGetCreationNamespace(stmt->opclassname,
 													 &opcname);
 
-	/* Check we have creation rights in target namespace */
+	/* 检查我们在目标命名空间中是否有创建权限 */
 	aclresult = object_aclcheck(NamespaceRelationId, namespaceoid, GetUserId(), ACL_CREATE);
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error(aclresult, OBJECT_SCHEMA,
 					   get_namespace_name(namespaceoid));
 
-	/* Get necessary info about access method */
+	/* 获取有关访问方法的必要信息 */
 	tup = SearchSysCache1(AMNAME, CStringGetDatum(stmt->amname));
 	if (!HeapTupleIsValid(tup))
 		ereport(ERROR,
@@ -382,61 +382,61 @@ DefineOpClass(CreateOpClassStmt *stmt)
 	ReleaseSysCache(tup);
 
 	maxOpNumber = amroutine->amstrategies;
-	/* if amstrategies is zero, just enforce that op numbers fit in int16 */
+	/* 如果 amstrategies 为零，仅强制操作符号适配 int16     */
 	if (maxOpNumber <= 0)
 		maxOpNumber = SHRT_MAX;
 	maxProcNumber = amroutine->amsupport;
 	optsProcNumber = amroutine->amoptsprocnum;
 	amstorage = amroutine->amstorage;
 
-	/* XXX Should we make any privilege check against the AM? */
+	/* XXX 我们是否应该对访问方法进行任何权限检查？ */
 
 	/*
-	 * The question of appropriate permissions for CREATE OPERATOR CLASS is
-	 * interesting.  Creating an opclass is tantamount to granting public
-	 * execute access on the functions involved, since the index machinery
-	 * generally does not check access permission before using the functions.
-	 * A minimum expectation therefore is that the caller have execute
-	 * privilege with grant option.  Since we don't have a way to make the
-	 * opclass go away if the grant option is revoked, we choose instead to
-	 * require ownership of the functions.  It's also not entirely clear what
-	 * permissions should be required on the datatype, but ownership seems
-	 * like a safe choice.
+	 * CREATE OPERATOR CLASS 的适当权限问题很有趣。创建操作符类
+	 * 等同于授予对所涉及函数的公共执行权限，因为索引机制
+	 * 通常在使用函数之前不检查访问权限。
+	 * 因此，最低期望是调用者具有带授权选项的执行权限。
+	 * 由于我们没有办法在授权选项被撤销时使操作符类消失，
+	 * 我们选择要求拥有函数的所有权。此外，关于数据类型
+	 * 需要什么权限也不完全清楚，但所有权似乎是一个安全的选择。
 	 *
-	 * Currently, we require superuser privileges to create an opclass. This
-	 * seems necessary because we have no way to validate that the offered set
-	 * of operators and functions are consistent with the AM's expectations.
-	 * It would be nice to provide such a check someday, if it can be done
-	 * without solving the halting problem :-(
+	 * 目前，我们要求超级用户权限来创建操作符类。这似乎是必要的，
+	 * 因为我们无法验证所提供的操作符和函数集合是否与访问方法
+	 * 的期望一致。如果能在不解决停机问题的情况下提供这样的检查，
+	 * 那就太好了 :(
 	 *
-	 * XXX re-enable NOT_USED code sections below if you remove this test.
-	 */
+	 * XXX 如果你移除此测试，请重新启用下面的 NOT_USED 代码段。
+ *
+ *
+ *
+ *
+	                                                                                                                                                                                */
 	if (!superuser())
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 				 errmsg("must be superuser to create an operator class")));
 
-	/* Look up the datatype */
+	/* 查找数据类型   */
 	typeoid = typenameTypeId(NULL, stmt->datatype);
 
 #ifdef NOT_USED
-	/* XXX this is unnecessary given the superuser check above */
-	/* Check we have ownership of the datatype */
+	/* XXX 鉴于上面的超级用户检查，这是不必要的 */
+	/* 检查我们是否拥有该数据类型 */
 	if (!object_ownercheck(TypeRelationId, typeoid, GetUserId()))
 		aclcheck_error_type(ACLCHECK_NOT_OWNER, typeoid);
 #endif
 
 	/*
-	 * Look up the containing operator family, or create one if FAMILY option
-	 * was omitted and there's not a match already.
-	 */
+	 * 查找包含的操作符族，或者如果省略了 FAMILY 选项
+	 * 且尚未存在匹配，则创建一个。
+	        */
 	if (stmt->opfamilyname)
 	{
 		opfamilyoid = get_opfamily_oid(amoid, stmt->opfamilyname, false);
 	}
 	else
 	{
-		/* Lookup existing family of same name and namespace */
+		/* 查找同名的现有族和命名空间           */
 		tup = SearchSysCache3(OPFAMILYAMNAMENSP,
 							  ObjectIdGetDatum(amoid),
 							  PointerGetDatum(opcname),
@@ -446,9 +446,9 @@ DefineOpClass(CreateOpClassStmt *stmt)
 			opfamilyoid = ((Form_pg_opfamily) GETSTRUCT(tup))->oid;
 
 			/*
-			 * XXX given the superuser check above, there's no need for an
-			 * ownership check here
-			 */
+			 * XXX 鉴于上面的超级用户检查，
+			 * 这里不需要所有权检查
+			          */
 			ReleaseSysCache(tup);
 		}
 		else
@@ -461,8 +461,8 @@ DefineOpClass(CreateOpClassStmt *stmt)
 			opfstmt->amname = stmt->amname;
 
 			/*
-			 * Create it ... again no need for more permissions ...
-			 */
+			 * 创建它...再次不需要更多权限...
+			           */
 			tmpAddr = CreateOpFamily(opfstmt, opcname, namespaceoid, amoid);
 			opfamilyoid = tmpAddr.objectId;
 		}
@@ -471,12 +471,12 @@ DefineOpClass(CreateOpClassStmt *stmt)
 	operators = NIL;
 	procedures = NIL;
 
-	/* Storage datatype is optional */
+	/* 存储数据类型是可选的 */
 	storageoid = InvalidOid;
 
 	/*
-	 * Scan the "items" list to obtain additional info.
-	 */
+	 * 扫描 "items" 列表以获取额外信息。
+	    */
 	foreach(l, stmt->items)
 	{
 		CreateOpClassItem *item = lfirst_node(CreateOpClassItem, l);
@@ -498,7 +498,7 @@ DefineOpClass(CreateOpClassStmt *stmt)
 					operOid = LookupOperWithArgs(item->name, false);
 				else
 				{
-					/* Default to binary op on input datatype */
+					/* 默认使用输入数据类型上的二元操作符 */
 					operOid = LookupOperName(NULL, item->name->objname,
 											 typeoid, typeoid,
 											 false, -1);
@@ -512,8 +512,8 @@ DefineOpClass(CreateOpClassStmt *stmt)
 					sortfamilyOid = InvalidOid;
 
 #ifdef NOT_USED
-				/* XXX this is unnecessary given the superuser check above */
-				/* Caller must own operator and its underlying function */
+				/* XXX 鉴于上面的超级用户检查，这是不必要的 */
+				/* 调用者必须拥有操作符及其底层函数     */
 				if (!object_ownercheck(OperatorRelationId, operOid, GetUserId()))
 					aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_OPERATOR,
 								   get_opname(operOid));
@@ -523,7 +523,7 @@ DefineOpClass(CreateOpClassStmt *stmt)
 								   get_func_name(funcOid));
 #endif
 
-				/* Save the info */
+				/* 保存信息  */
 				member = (OpFamilyMember *) palloc0(sizeof(OpFamilyMember));
 				member->is_func = false;
 				member->object = operOid;
@@ -541,19 +541,19 @@ DefineOpClass(CreateOpClassStmt *stmt)
 									item->number, maxProcNumber)));
 				funcOid = LookupFuncWithArgs(OBJECT_FUNCTION, item->name, false);
 #ifdef NOT_USED
-				/* XXX this is unnecessary given the superuser check above */
-				/* Caller must own function */
+				/* XXX 鉴于上面的超级用户检查，这是不必要的 */
+				/* 调用者必须拥有函数 */
 				if (!object_ownercheck(ProcedureRelationId, funcOid, GetUserId()))
 					aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_FUNCTION,
 								   get_func_name(funcOid));
 #endif
-				/* Save the info */
+				/* 保存信息  */
 				member = (OpFamilyMember *) palloc0(sizeof(OpFamilyMember));
 				member->is_func = true;
 				member->object = funcOid;
 				member->number = item->number;
 
-				/* allow overriding of the function's actual arg types */
+				/* 允许覆盖函数的实际参数类型             */
 				if (item->class_args)
 					processTypesSpec(item->class_args,
 									 &member->lefttype, &member->righttype);
@@ -569,8 +569,8 @@ DefineOpClass(CreateOpClassStmt *stmt)
 				storageoid = typenameTypeId(NULL, item->storedtype);
 
 #ifdef NOT_USED
-				/* XXX this is unnecessary given the superuser check above */
-				/* Check we have ownership of the datatype */
+				/* XXX 鉴于上面的超级用户检查，这是不必要的 */
+				/* 检查我们是否拥有该数据类型 */
 				if (!object_ownercheck(TypeRelationId, storageoid, GetUserId()))
 					aclcheck_error_type(ACLCHECK_NOT_OWNER, storageoid);
 #endif
@@ -582,11 +582,11 @@ DefineOpClass(CreateOpClassStmt *stmt)
 	}
 
 	/*
-	 * If storagetype is specified, make sure it's legal.
+	 * 如果指定了存储类型，确保它是合法的。
 	 */
 	if (OidIsValid(storageoid))
 	{
-		/* Just drop the spec if same as column datatype */
+		/* 如果与列数据类型相同，则丢弃该规范 */
 		if (storageoid == typeoid)
 			storageoid = InvalidOid;
 		else if (!amstorage)
@@ -599,9 +599,9 @@ DefineOpClass(CreateOpClassStmt *stmt)
 	rel = table_open(OperatorClassRelationId, RowExclusiveLock);
 
 	/*
-	 * Make sure there is no existing opclass of this name (this is just to
-	 * give a more friendly error message than "duplicate key").
-	 */
+	 * 确保没有同名的现有操作符类（这仅是为了提供比
+	 * "重复键"更友好的错误消息）。
+	               */
 	if (SearchSysCacheExists3(CLAAMNAMENSP,
 							  ObjectIdGetDatum(amoid),
 							  CStringGetDatum(opcname),
@@ -612,9 +612,9 @@ DefineOpClass(CreateOpClassStmt *stmt)
 						opcname, stmt->amname)));
 
 	/*
-	 * If we are creating a default opclass, check there isn't one already.
-	 * (Note we do not restrict this test to visible opclasses; this ensures
-	 * that typcache.c can find unique solutions to its questions.)
+	 * 如果我们正在创建一个默认操作符类，请检查是否已经有一个。
+	 * （注意我们不将此测试限制为可见的操作符类；这确保 typcache.c
+	 * 可以为其查询找到唯一解。）
 	 */
 	if (stmt->isDefault)
 	{
@@ -647,7 +647,7 @@ DefineOpClass(CreateOpClassStmt *stmt)
 	}
 
 	/*
-	 * Okay, let's create the pg_opclass entry.
+	 * 好的，让我们创建 pg_opclass 条目。
 	 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
@@ -672,10 +672,10 @@ DefineOpClass(CreateOpClassStmt *stmt)
 	heap_freetuple(tup);
 
 	/*
-	 * Now that we have the opclass OID, set up default dependency info for
-	 * the pg_amop and pg_amproc entries.  Historically, CREATE OPERATOR CLASS
-	 * has created hard dependencies on the opclass, so that's what we use.
-	 */
+	 * 现在我们有了操作符类 OID，为 pg_amop 和 pg_amproc 条目设置
+	 * 默认依赖信息。历史上，CREATE OPERATOR CLASS 已创建了对
+	 * 操作符类的硬依赖，所以我们就使用这个。
+	      */
 	foreach(l, operators)
 	{
 		OpFamilyMember *op = (OpFamilyMember *) lfirst(l);
@@ -694,9 +694,9 @@ DefineOpClass(CreateOpClassStmt *stmt)
 	}
 
 	/*
-	 * Let the index AM editorialize on the dependency choices.  It could also
-	 * do further validation on the operators and functions, if it likes.
-	 */
+	 * 让索引访问方法对依赖选择进行编辑。如果它喜欢，也可以
+	 * 对操作符和函数进行进一步验证。
+	               */
 	if (amroutine->amadjustmembers)
 		amroutine->amadjustmembers(opfamilyoid,
 								   opclassoid,
@@ -704,44 +704,44 @@ DefineOpClass(CreateOpClassStmt *stmt)
 								   procedures);
 
 	/*
-	 * Now add tuples to pg_amop and pg_amproc tying in the operators and
-	 * functions.  Dependencies on them are inserted, too.
-	 */
+	 * 现在添加元组到 pg_amop 和 pg_amproc，绑定操作符和函数。
+	 * 同时插入对它们的依赖关系。
+	      */
 	storeOperators(stmt->opfamilyname, amoid, opfamilyoid,
 				   operators, false);
 	storeProcedures(stmt->opfamilyname, amoid, opfamilyoid,
 					procedures, false);
 
-	/* let event triggers know what happened */
+	/* 让事件触发器知道发生了什么 */
 	EventTriggerCollectCreateOpClass(stmt, opclassoid, operators, procedures);
 
 	/*
-	 * Create dependencies for the opclass proper.  Note: we do not need a
-	 * dependency link to the AM, because that exists through the opfamily.
+	 * 为操作符类本身创建依赖关系。注意：我们不需要到访问方法的
+	 * 依赖链接，因为该链接通过操作符族存在。
 	 */
 	myself.classId = OperatorClassRelationId;
 	myself.objectId = opclassoid;
 	myself.objectSubId = 0;
 
-	/* dependency on namespace */
+	/* 依赖于命名空间   */
 	referenced.classId = NamespaceRelationId;
 	referenced.objectId = namespaceoid;
 	referenced.objectSubId = 0;
 	recordDependencyOn(&myself, &referenced, DEPENDENCY_NORMAL);
 
-	/* dependency on opfamily */
+	/* 依赖于操作符族  */
 	referenced.classId = OperatorFamilyRelationId;
 	referenced.objectId = opfamilyoid;
 	referenced.objectSubId = 0;
 	recordDependencyOn(&myself, &referenced, DEPENDENCY_AUTO);
 
-	/* dependency on indexed datatype */
+	/* 依赖于被索引的数据类型 */
 	referenced.classId = TypeRelationId;
 	referenced.objectId = typeoid;
 	referenced.objectSubId = 0;
 	recordDependencyOn(&myself, &referenced, DEPENDENCY_NORMAL);
 
-	/* dependency on storage datatype */
+	/* 依赖于存储数据类型    */
 	if (OidIsValid(storageoid))
 	{
 		referenced.classId = TypeRelationId;
@@ -750,13 +750,13 @@ DefineOpClass(CreateOpClassStmt *stmt)
 		recordDependencyOn(&myself, &referenced, DEPENDENCY_NORMAL);
 	}
 
-	/* dependency on owner */
+	/* 依赖于所有者  */
 	recordDependencyOnOwner(OperatorClassRelationId, opclassoid, GetUserId());
 
-	/* dependency on extension */
+	/* 依赖于扩展         */
 	recordDependencyOnCurrentExtension(&myself, false);
 
-	/* Post creation hook for new operator class */
+	/* 新操作符类的创建后钩子         */
 	InvokeObjectPostCreateHook(OperatorClassRelationId, opclassoid, 0);
 
 	table_close(rel, RowExclusiveLock);
@@ -767,66 +767,66 @@ DefineOpClass(CreateOpClassStmt *stmt)
 
 /*
  * DefineOpFamily
- *		Define a new index operator family.
+ *   定义一个新的索引操作符族。
  */
 ObjectAddress
 DefineOpFamily(CreateOpFamilyStmt *stmt)
 {
-	char	   *opfname;		/* name of opfamily we're creating */
-	Oid			amoid,			/* our AM's oid */
-				namespaceoid;	/* namespace to create opfamily in */
+	char	   *opfname;		/* 我们正在创建的操作符族的名称 */
+	Oid			amoid,			/* 我们的访问方法的 OID */
+				namespaceoid;	/* 创建操作符族的命名空间 */
 	AclResult	aclresult;
 
-	/* Convert list of names to a name and namespace */
+	/* 将名称列表转换为名称和命名空间 */
 	namespaceoid = QualifiedNameGetCreationNamespace(stmt->opfamilyname,
 													 &opfname);
 
-	/* Check we have creation rights in target namespace */
+	/* 检查我们在目标命名空间中是否有创建权限 */
 	aclresult = object_aclcheck(NamespaceRelationId, namespaceoid, GetUserId(), ACL_CREATE);
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error(aclresult, OBJECT_SCHEMA,
 					   get_namespace_name(namespaceoid));
 
-	/* Get access method OID, throwing an error if it doesn't exist. */
+	/* 获取访问方法 OID，如果不存在则抛出错误。    */
 	amoid = get_index_am_oid(stmt->amname, false);
 
-	/* XXX Should we make any privilege check against the AM? */
+	/* XXX 我们是否应该对访问方法进行任何权限检查？ */
 
 	/*
-	 * Currently, we require superuser privileges to create an opfamily. See
-	 * comments in DefineOpClass.
+	 * 目前，我们要求超级用户权限来创建操作符族。请参阅
+	 * DefineOpClass 中的注释。
 	 */
 	if (!superuser())
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 				 errmsg("must be superuser to create an operator family")));
 
-	/* Insert pg_opfamily catalog entry */
+	/* 插入 pg_opfamily 目录条目  */
 	return CreateOpFamily(stmt, opfname, namespaceoid, amoid);
 }
 
 
 /*
  * AlterOpFamily
- *		Add or remove operators/procedures within an existing operator family.
+ *   在现有操作符族中添加或删除操作符/过程。
  *
- * Note: this implements only ALTER OPERATOR FAMILY ... ADD/DROP.  Some
- * other commands called ALTER OPERATOR FAMILY exist, but go through
- * different code paths.
- */
+ * 注意：这里只实现 ALTER OPERATOR FAMILY ... ADD/DROP。其他的
+ * ALTER OPERATOR FAMILY 命令存在，但通过不同的代码路径处理。
+ *
+                       */
 Oid
 AlterOpFamily(AlterOpFamilyStmt *stmt)
 {
-	Oid			amoid,			/* our AM's oid */
-				opfamilyoid;	/* oid of opfamily */
-	int			maxOpNumber,	/* amstrategies value */
-				optsProcNumber, /* amoptsprocnum value */
-				maxProcNumber;	/* amsupport value */
+	Oid			amoid,			/* 我们的访问方法的 OID */
+				opfamilyoid;	/* 操作符族的 OID */
+	int			maxOpNumber,	/* amstrategies 值   */
+				optsProcNumber, /* amoptsprocnum 值   */
+				maxProcNumber;	/* amsupport 值   */
 	HeapTuple	tup;
 	Form_pg_am	amform;
 	IndexAmRoutine *amroutine;
 
-	/* Get necessary info about access method */
+	/* 获取有关访问方法的必要信息 */
 	tup = SearchSysCache1(AMNAME, CStringGetDatum(stmt->amname));
 	if (!HeapTupleIsValid(tup))
 		ereport(ERROR,
@@ -840,21 +840,21 @@ AlterOpFamily(AlterOpFamilyStmt *stmt)
 	ReleaseSysCache(tup);
 
 	maxOpNumber = amroutine->amstrategies;
-	/* if amstrategies is zero, just enforce that op numbers fit in int16 */
+	/* 如果 amstrategies 为零，仅强制操作符号适配 int16     */
 	if (maxOpNumber <= 0)
 		maxOpNumber = SHRT_MAX;
 	maxProcNumber = amroutine->amsupport;
 	optsProcNumber = amroutine->amoptsprocnum;
 
-	/* XXX Should we make any privilege check against the AM? */
+	/* XXX 我们是否应该对访问方法进行任何权限检查？ */
 
-	/* Look up the opfamily */
+	/* 查找操作符族   */
 	opfamilyoid = get_opfamily_oid(amoid, stmt->opfamilyname, false);
 
 	/*
-	 * Currently, we require superuser privileges to alter an opfamily.
+	 * 目前，我们要求超级用户权限来修改操作符族。
 	 *
-	 * XXX re-enable NOT_USED code sections below if you remove this test.
+	 * XXX 如果你移除此测试，请重新启用下面的 NOT_USED 代码段。
 	 */
 	if (!superuser())
 		ereport(ERROR,
@@ -862,7 +862,7 @@ AlterOpFamily(AlterOpFamilyStmt *stmt)
 				 errmsg("must be superuser to alter an operator family")));
 
 	/*
-	 * ADD and DROP cases need separate code from here on down.
+	 * ADD 和 DROP 情况从此处开始需要不同的代码。
 	 */
 	if (stmt->isDrop)
 		AlterOpFamilyDrop(stmt, amoid, opfamilyoid,
@@ -876,7 +876,7 @@ AlterOpFamily(AlterOpFamilyStmt *stmt)
 }
 
 /*
- * ADD part of ALTER OP FAMILY
+ * ALTER OP FAMILY 的 ADD 部分
  */
 static void
 AlterOpFamilyAdd(AlterOpFamilyStmt *stmt, Oid amoid, Oid opfamilyoid,
@@ -884,16 +884,16 @@ AlterOpFamilyAdd(AlterOpFamilyStmt *stmt, Oid amoid, Oid opfamilyoid,
 				 List *items)
 {
 	IndexAmRoutine *amroutine = GetIndexAmRoutineByAmId(amoid, false);
-	List	   *operators;		/* OpFamilyMember list for operators */
-	List	   *procedures;		/* OpFamilyMember list for support procs */
+	List	   *operators;		/* 操作符的 OpFamilyMember 列表 */
+	List	   *procedures;		/* 支持过程的 OpFamilyMember 列表 */
 	ListCell   *l;
 
 	operators = NIL;
 	procedures = NIL;
 
 	/*
-	 * Scan the "items" list to obtain additional info.
-	 */
+	 * 扫描 "items" 列表以获取额外信息。
+	    */
 	foreach(l, items)
 	{
 		CreateOpClassItem *item = lfirst_node(CreateOpClassItem, l);
@@ -918,7 +918,7 @@ AlterOpFamilyAdd(AlterOpFamilyStmt *stmt, Oid amoid, Oid opfamilyoid,
 					ereport(ERROR,
 							(errcode(ERRCODE_SYNTAX_ERROR),
 							 errmsg("operator argument types must be specified in ALTER OPERATOR FAMILY")));
-					operOid = InvalidOid;	/* keep compiler quiet */
+					operOid = InvalidOid;	/* 让编译器安静  */
 				}
 
 				if (item->order_family)
@@ -929,8 +929,8 @@ AlterOpFamilyAdd(AlterOpFamilyStmt *stmt, Oid amoid, Oid opfamilyoid,
 					sortfamilyOid = InvalidOid;
 
 #ifdef NOT_USED
-				/* XXX this is unnecessary given the superuser check above */
-				/* Caller must own operator and its underlying function */
+				/* XXX 鉴于上面的超级用户检查，这是不必要的 */
+				/* 调用者必须拥有操作符及其底层函数     */
 				if (!object_ownercheck(OperatorRelationId, operOid, GetUserId()))
 					aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_OPERATOR,
 								   get_opname(operOid));
@@ -940,14 +940,14 @@ AlterOpFamilyAdd(AlterOpFamilyStmt *stmt, Oid amoid, Oid opfamilyoid,
 								   get_func_name(funcOid));
 #endif
 
-				/* Save the info */
+				/* 保存信息  */
 				member = (OpFamilyMember *) palloc0(sizeof(OpFamilyMember));
 				member->is_func = false;
 				member->object = operOid;
 				member->number = item->number;
 				member->sortfamily = sortfamilyOid;
-				/* We can set up dependency fields immediately */
-				/* Historically, ALTER ADD has created soft dependencies */
+				/* 我们可以立即设置依赖字段        */
+				/* 历史上，ALTER ADD 创建的是软依赖           */
 				member->ref_is_hard = false;
 				member->ref_is_family = true;
 				member->refobjid = opfamilyoid;
@@ -963,25 +963,25 @@ AlterOpFamilyAdd(AlterOpFamilyStmt *stmt, Oid amoid, Oid opfamilyoid,
 									item->number, maxProcNumber)));
 				funcOid = LookupFuncWithArgs(OBJECT_FUNCTION, item->name, false);
 #ifdef NOT_USED
-				/* XXX this is unnecessary given the superuser check above */
-				/* Caller must own function */
+				/* XXX 鉴于上面的超级用户检查，这是不必要的 */
+				/* 调用者必须拥有函数 */
 				if (!object_ownercheck(ProcedureRelationId, funcOid, GetUserId()))
 					aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_FUNCTION,
 								   get_func_name(funcOid));
 #endif
 
-				/* Save the info */
+				/* 保存信息  */
 				member = (OpFamilyMember *) palloc0(sizeof(OpFamilyMember));
 				member->is_func = true;
 				member->object = funcOid;
 				member->number = item->number;
-				/* We can set up dependency fields immediately */
-				/* Historically, ALTER ADD has created soft dependencies */
+				/* 我们可以立即设置依赖字段        */
+				/* 历史上，ALTER ADD 创建的是软依赖           */
 				member->ref_is_hard = false;
 				member->ref_is_family = true;
 				member->refobjid = opfamilyoid;
 
-				/* allow overriding of the function's actual arg types */
+				/* 允许覆盖函数的实际参数类型             */
 				if (item->class_args)
 					processTypesSpec(item->class_args,
 									 &member->lefttype, &member->righttype);
@@ -1001,46 +1001,46 @@ AlterOpFamilyAdd(AlterOpFamilyStmt *stmt, Oid amoid, Oid opfamilyoid,
 	}
 
 	/*
-	 * Let the index AM editorialize on the dependency choices.  It could also
-	 * do further validation on the operators and functions, if it likes.
-	 */
+	 * 让索引访问方法对依赖选择进行编辑。如果它喜欢，也可以
+	 * 对操作符和函数进行进一步验证。
+	               */
 	if (amroutine->amadjustmembers)
 		amroutine->amadjustmembers(opfamilyoid,
-								   InvalidOid,	/* no specific opclass */
+								   InvalidOid,	/*无特定操作符类*/
 								   operators,
 								   procedures);
 
 	/*
-	 * Add tuples to pg_amop and pg_amproc tying in the operators and
-	 * functions.  Dependencies on them are inserted, too.
-	 */
+	 * 添加元组到 pg_amop 和 pg_amproc，绑定操作符和函数。
+	 * 同时插入对它们的依赖关系。
+	        */
 	storeOperators(stmt->opfamilyname, amoid, opfamilyoid,
 				   operators, true);
 	storeProcedures(stmt->opfamilyname, amoid, opfamilyoid,
 					procedures, true);
 
-	/* make information available to event triggers */
+	/* 使信息对事件触发器可用            */
 	EventTriggerCollectAlterOpFam(stmt, opfamilyoid,
 								  operators, procedures);
 }
 
 /*
- * DROP part of ALTER OP FAMILY
+ * ALTER OP FAMILY 的 DROP 部分
  */
 static void
 AlterOpFamilyDrop(AlterOpFamilyStmt *stmt, Oid amoid, Oid opfamilyoid,
 				  int maxOpNumber, int maxProcNumber, List *items)
 {
-	List	   *operators;		/* OpFamilyMember list for operators */
-	List	   *procedures;		/* OpFamilyMember list for support procs */
+	List	   *operators;		/* 操作符的 OpFamilyMember 列表 */
+	List	   *procedures;		/* 支持过程的 OpFamilyMember 列表 */
 	ListCell   *l;
 
 	operators = NIL;
 	procedures = NIL;
 
 	/*
-	 * Scan the "items" list to obtain additional info.
-	 */
+	 * 扫描 "items" 列表以获取额外信息。
+	    */
 	foreach(l, items)
 	{
 		CreateOpClassItem *item = lfirst_node(CreateOpClassItem, l);
@@ -1058,7 +1058,7 @@ AlterOpFamilyDrop(AlterOpFamilyStmt *stmt, Oid amoid, Oid opfamilyoid,
 									" must be between 1 and %d",
 									item->number, maxOpNumber)));
 				processTypesSpec(item->class_args, &lefttype, &righttype);
-				/* Save the info */
+				/* 保存信息  */
 				member = (OpFamilyMember *) palloc0(sizeof(OpFamilyMember));
 				member->is_func = false;
 				member->number = item->number;
@@ -1074,7 +1074,7 @@ AlterOpFamilyDrop(AlterOpFamilyStmt *stmt, Oid amoid, Oid opfamilyoid,
 									" must be between 1 and %d",
 									item->number, maxProcNumber)));
 				processTypesSpec(item->class_args, &lefttype, &righttype);
-				/* Save the info */
+				/* 保存信息  */
 				member = (OpFamilyMember *) palloc0(sizeof(OpFamilyMember));
 				member->is_func = true;
 				member->number = item->number;
@@ -1083,7 +1083,7 @@ AlterOpFamilyDrop(AlterOpFamilyStmt *stmt, Oid amoid, Oid opfamilyoid,
 				addFamilyMember(&procedures, member);
 				break;
 			case OPCLASS_ITEM_STORAGETYPE:
-				/* grammar prevents this from appearing */
+				/* 语法阻止此情况出现          */
 			default:
 				elog(ERROR, "unrecognized item type: %d", item->itemtype);
 				break;
@@ -1091,19 +1091,19 @@ AlterOpFamilyDrop(AlterOpFamilyStmt *stmt, Oid amoid, Oid opfamilyoid,
 	}
 
 	/*
-	 * Remove tuples from pg_amop and pg_amproc.
+	 * 从 pg_amop 和 pg_amproc 中删除元组。
 	 */
 	dropOperators(stmt->opfamilyname, amoid, opfamilyoid, operators);
 	dropProcedures(stmt->opfamilyname, amoid, opfamilyoid, procedures);
 
-	/* make information available to event triggers */
+	/* 使信息对事件触发器可用            */
 	EventTriggerCollectAlterOpFam(stmt, opfamilyoid,
 								  operators, procedures);
 }
 
 
 /*
- * Deal with explicit arg types used in ALTER ADD/DROP
+ * 处理 ALTER ADD/DROP 中使用的显式参数类型
  */
 static void
 processTypesSpec(List *args, Oid *lefttype, Oid *righttype)
@@ -1131,23 +1131,23 @@ processTypesSpec(List *args, Oid *lefttype, Oid *righttype)
 
 
 /*
- * Determine the lefttype/righttype to assign to an operator,
- * and do any validity checking we can manage.
- */
+ * 确定要分配给操作符的 lefttype/righttype，
+ * 并执行我们能做的任何有效性检查。
+  */
 static void
 assignOperTypes(OpFamilyMember *member, Oid amoid, Oid typeoid)
 {
 	Operator	optup;
 	Form_pg_operator opform;
 
-	/* Fetch the operator definition */
+	/* 获取操作符定义         */
 	optup = SearchSysCache1(OPEROID, ObjectIdGetDatum(member->object));
 	if (!HeapTupleIsValid(optup))
 		elog(ERROR, "cache lookup failed for operator %u", member->object);
 	opform = (Form_pg_operator) GETSTRUCT(optup);
 
 	/*
-	 * Opfamily operators must be binary.
+	 * 操作符族操作符必须是二元的。
 	 */
 	if (opform->oprkind != 'b')
 		ereport(ERROR,
@@ -1157,15 +1157,15 @@ assignOperTypes(OpFamilyMember *member, Oid amoid, Oid typeoid)
 	if (OidIsValid(member->sortfamily))
 	{
 		/*
-		 * Ordering op, check index supports that.  (We could perhaps also
-		 * check that the operator returns a type supported by the sortfamily,
-		 * but that seems more trouble than it's worth here.  If it does not,
-		 * the operator will never be matchable to any ORDER BY clause, but no
-		 * worse consequences can ensue.  Also, trying to check that would
-		 * create an ordering hazard during dump/reload: it's possible that
-		 * the family has been created but not yet populated with the required
-		 * operators.)
-		 */
+		 * 排序操作符，检查索引是否支持。（我们或许也可以检查
+		 * 操作符是否返回排序族支持的类型，但这在这里似乎比
+		 * 其价值更麻烦。如果不支持，操作符将永远无法与任何
+		 * ORDER BY 子句匹配，但不会产生更糟的后果。此外，
+		 * 尝试检查将在转储/重新加载期间创建排序风险：
+		 * 族可能已经创建但尚未填充所需的操作符。）
+ *
+ *
+		                                                                        */
 		IndexAmRoutine *amroutine = GetIndexAmRoutineByAmId(amoid, false);
 
 		if (!amroutine->amcanorderbyop)
@@ -1177,7 +1177,7 @@ assignOperTypes(OpFamilyMember *member, Oid amoid, Oid typeoid)
 	else
 	{
 		/*
-		 * Search operators must return boolean.
+		 * 搜索操作符必须返回布尔值。
 		 */
 		if (opform->oprresult != BOOLOID)
 			ereport(ERROR,
@@ -1186,7 +1186,7 @@ assignOperTypes(OpFamilyMember *member, Oid amoid, Oid typeoid)
 	}
 
 	/*
-	 * If lefttype/righttype isn't specified, use the operator's input types
+	 * 如果未指定 lefttype/righttype，则使用操作符的输入类型
 	 */
 	if (!OidIsValid(member->lefttype))
 		member->lefttype = opform->oprleft;
@@ -1197,9 +1197,9 @@ assignOperTypes(OpFamilyMember *member, Oid amoid, Oid typeoid)
 }
 
 /*
- * Determine the lefttype/righttype to assign to a support procedure,
- * and do any validity checking we can manage.
- */
+ * 确定要分配给支持过程的 lefttype/righttype，
+ * 并执行我们能做的任何有效性检查。
+       */
 static void
 assignProcTypes(OpFamilyMember *member, Oid amoid, Oid typeoid,
 				int opclassOptsProcNum)
@@ -1207,13 +1207,13 @@ assignProcTypes(OpFamilyMember *member, Oid amoid, Oid typeoid,
 	HeapTuple	proctup;
 	Form_pg_proc procform;
 
-	/* Fetch the procedure definition */
+	/* 获取过程定义             */
 	proctup = SearchSysCache1(PROCOID, ObjectIdGetDatum(member->object));
 	if (!HeapTupleIsValid(proctup))
 		elog(ERROR, "cache lookup failed for function %u", member->object);
 	procform = (Form_pg_proc) GETSTRUCT(proctup);
 
-	/* Check the signature of the opclass options parsing function */
+	/* 检查操作符类选项解析函数的签名               */
 	if (member->number == opclassOptsProcNum)
 	{
 		if (OidIsValid(typeoid))
@@ -1243,12 +1243,12 @@ assignProcTypes(OpFamilyMember *member, Oid amoid, Oid typeoid,
 	}
 
 	/*
-	 * btree comparison procs must be 2-arg procs returning int4.  btree
-	 * sortsupport procs must take internal and return void.  btree in_range
-	 * procs must be 5-arg procs returning bool.  btree equalimage procs must
-	 * take 1 arg and return bool.  hash support proc 1 must be a 1-arg proc
-	 * returning int4, while proc 2 must be a 2-arg proc returning int8.
-	 * Otherwise we don't know.
+	 * btree 比较过程必须是返回 int4 的二元过程。btree
+	 * sortsupport 过程必须接受 internal 并返回 void。btree in_range
+	 * 过程必须是返回 bool 的五元过程。btree equalimage 过程必须
+	 * 接受 1 个参数并返回 bool。hash 支持过程 1 必须是返回 int4
+	 * 的一元过程，而过程 2 必须是返回 int8 的二元过程。
+	 * 否则我们不知道。
 	 */
 	else if (amoid == BTREE_AM_OID)
 	{
@@ -1264,8 +1264,8 @@ assignProcTypes(OpFamilyMember *member, Oid amoid, Oid typeoid,
 						 errmsg("btree comparison functions must return integer")));
 
 			/*
-			 * If lefttype/righttype isn't specified, use the proc's input
-			 * types
+			 * 如果未指定 lefttype/righttype，
+			 * 则使用过程的输入类型
 			 */
 			if (!OidIsValid(member->lefttype))
 				member->lefttype = procform->proargtypes.values[0];
@@ -1285,7 +1285,7 @@ assignProcTypes(OpFamilyMember *member, Oid amoid, Oid typeoid,
 						 errmsg("btree sort support functions must return void")));
 
 			/*
-			 * Can't infer lefttype/righttype from proc, so use default rule
+			 * 无法从过程推断 lefttype/righttype，因此使用默认规则
 			 */
 		}
 		else if (member->number == BTINRANGE_PROC)
@@ -1300,9 +1300,9 @@ assignProcTypes(OpFamilyMember *member, Oid amoid, Oid typeoid,
 						 errmsg("btree in_range functions must return boolean")));
 
 			/*
-			 * If lefttype/righttype isn't specified, use the proc's input
-			 * types (we look at the test-value and offset arguments)
-			 */
+			 * 如果未指定 lefttype/righttype，则使用过程的输入类型
+			 * （我们查看测试值和偏移参数）
+			     */
 			if (!OidIsValid(member->lefttype))
 				member->lefttype = procform->proargtypes.values[0];
 			if (!OidIsValid(member->righttype))
@@ -1320,13 +1320,13 @@ assignProcTypes(OpFamilyMember *member, Oid amoid, Oid typeoid,
 						 errmsg("btree equal image functions must return boolean")));
 
 			/*
-			 * pg_amproc functions are indexed by (lefttype, righttype), but
-			 * an equalimage function can only be called at CREATE INDEX time.
-			 * The same opclass opcintype OID is always used for lefttype and
-			 * righttype.  Providing a cross-type routine isn't sensible.
-			 * Reject cross-type ALTER OPERATOR FAMILY ...  ADD FUNCTION 4
-			 * statements here.
-			 */
+			 * pg_amproc 函数按 (lefttype, righttype) 索引，但
+			 * equalimage 函数只能在 CREATE INDEX 时调用。
+			 * 相同的操作符类 opcintype OID 始终用于 lefttype 和
+			 * righttype。提供跨类型例程不合理。
+			 * 在此拒绝跨类型的 ALTER OPERATOR FAMILY ... ADD FUNCTION 4
+			 * 语句。
+			                                  */
 			if (member->lefttype != member->righttype)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
@@ -1359,7 +1359,7 @@ assignProcTypes(OpFamilyMember *member, Oid amoid, Oid typeoid,
 		}
 
 		/*
-		 * If lefttype/righttype isn't specified, use the proc's input type
+		 * 如果未指定 lefttype/righttype，则使用过程的输入类型
 		 */
 		if (!OidIsValid(member->lefttype))
 			member->lefttype = procform->proargtypes.values[0];
@@ -1368,9 +1368,9 @@ assignProcTypes(OpFamilyMember *member, Oid amoid, Oid typeoid,
 	}
 
 	/*
-	 * The default in CREATE OPERATOR CLASS is to use the class' opcintype as
-	 * lefttype and righttype.  In CREATE or ALTER OPERATOR FAMILY, opcintype
-	 * isn't available, so make the user specify the types.
+	 * CREATE OPERATOR CLASS 中的默认行为是使用类的 opcintype 作为
+	 * lefttype 和 righttype。在 CREATE 或 ALTER OPERATOR FAMILY 中，
+	 * opcintype 不可用，因此要求用户指定类型。
 	 */
 	if (!OidIsValid(member->lefttype))
 		member->lefttype = typeoid;
@@ -1386,9 +1386,9 @@ assignProcTypes(OpFamilyMember *member, Oid amoid, Oid typeoid,
 }
 
 /*
- * Add a new family member to the appropriate list, after checking for
- * duplicated strategy or proc number.
- */
+ * 在检查重复的策略号或过程号之后，将新的族成员添加到
+ * 适当的列表中。
+       */
 static void
 addFamilyMember(List **list, OpFamilyMember *member)
 {
@@ -1422,10 +1422,10 @@ addFamilyMember(List **list, OpFamilyMember *member)
 }
 
 /*
- * Dump the operators to pg_amop
+ * 将操作符转储到 pg_amop
  *
- * We also make dependency entries in pg_depend for the pg_amop entries.
- */
+ * 我们还在 pg_depend 中为 pg_amop 条目创建依赖项。
+        */
 static void
 storeOperators(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 			   List *operators, bool isAdd)
@@ -1447,9 +1447,9 @@ storeOperators(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 		char		oppurpose;
 
 		/*
-		 * If adding to an existing family, check for conflict with an
-		 * existing pg_amop entry (just to give a nicer error message)
-		 */
+		 * 如果添加到现有族，检查与现有 pg_amop 条目的冲突
+		 * （仅为了提供更好的错误消息）
+		           */
 		if (isAdd &&
 			SearchSysCacheExists4(AMOPSTRATEGY,
 								  ObjectIdGetDatum(opfamilyoid),
@@ -1466,7 +1466,7 @@ storeOperators(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 
 		oppurpose = OidIsValid(op->sortfamily) ? AMOP_ORDER : AMOP_SEARCH;
 
-		/* Create the pg_amop entry */
+		/* 创建 pg_amop 条目    */
 		memset(values, 0, sizeof(values));
 		memset(nulls, false, sizeof(nulls));
 
@@ -1488,7 +1488,7 @@ storeOperators(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 
 		heap_freetuple(tup);
 
-		/* Make its dependencies */
+		/* 创建其依赖关系 */
 		myself.classId = AccessMethodOperatorRelationId;
 		myself.objectId = entryoid;
 		myself.objectSubId = 0;
@@ -1497,7 +1497,7 @@ storeOperators(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 		referenced.objectId = op->object;
 		referenced.objectSubId = 0;
 
-		/* see comments in amapi.h about dependency strength */
+		/* 有关依赖强度，请参阅 amapi.h 中的注释 */
 		recordDependencyOn(&myself, &referenced,
 						   op->ref_is_hard ? DEPENDENCY_NORMAL : DEPENDENCY_AUTO);
 
@@ -1515,7 +1515,7 @@ storeOperators(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 			referenced.objectId = op->lefttype;
 			referenced.objectSubId = 0;
 
-			/* see comments in amapi.h about dependency strength */
+			/* 有关依赖强度，请参阅 amapi.h 中的注释 */
 			recordDependencyOn(&myself, &referenced,
 							   op->ref_is_hard ? DEPENDENCY_NORMAL : DEPENDENCY_AUTO);
 		}
@@ -1527,12 +1527,12 @@ storeOperators(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 			referenced.objectId = op->righttype;
 			referenced.objectSubId = 0;
 
-			/* see comments in amapi.h about dependency strength */
+			/* 有关依赖强度，请参阅 amapi.h 中的注释 */
 			recordDependencyOn(&myself, &referenced,
 							   op->ref_is_hard ? DEPENDENCY_NORMAL : DEPENDENCY_AUTO);
 		}
 
-		/* A search operator also needs a dep on the referenced opfamily */
+		/* 搜索操作符还需要依赖于引用的操作符族        */
 		if (OidIsValid(op->sortfamily))
 		{
 			referenced.classId = OperatorFamilyRelationId;
@@ -1543,7 +1543,7 @@ storeOperators(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 							   op->ref_is_hard ? DEPENDENCY_NORMAL : DEPENDENCY_AUTO);
 		}
 
-		/* Post create hook of this access method operator */
+		/* 此访问方法操作符的创建后钩子      */
 		InvokeObjectPostCreateHook(AccessMethodOperatorRelationId,
 								   entryoid, 0);
 	}
@@ -1552,10 +1552,10 @@ storeOperators(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 }
 
 /*
- * Dump the procedures (support routines) to pg_amproc
+ * 将过程（支持例程）转储到 pg_amproc
  *
- * We also make dependency entries in pg_depend for the pg_amproc entries.
- */
+ * 我们还在 pg_depend 中为 pg_amproc 条目创建依赖项。
+             */
 static void
 storeProcedures(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 				List *procedures, bool isAdd)
@@ -1576,9 +1576,9 @@ storeProcedures(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 		OpFamilyMember *proc = (OpFamilyMember *) lfirst(l);
 
 		/*
-		 * If adding to an existing family, check for conflict with an
-		 * existing pg_amproc entry (just to give a nicer error message)
-		 */
+		 * 如果添加到现有族，检查与现有 pg_amproc 条目的冲突
+		 * （仅为了提供更好的错误消息）
+		           */
 		if (isAdd &&
 			SearchSysCacheExists4(AMPROCNUM,
 								  ObjectIdGetDatum(opfamilyoid),
@@ -1593,7 +1593,7 @@ storeProcedures(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 							format_type_be(proc->righttype),
 							NameListToString(opfamilyname))));
 
-		/* Create the pg_amproc entry */
+		/* 创建 pg_amproc 条目    */
 		memset(values, 0, sizeof(values));
 		memset(nulls, false, sizeof(nulls));
 
@@ -1612,7 +1612,7 @@ storeProcedures(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 
 		heap_freetuple(tup);
 
-		/* Make its dependencies */
+		/* 创建其依赖关系 */
 		myself.classId = AccessMethodProcedureRelationId;
 		myself.objectId = entryoid;
 		myself.objectSubId = 0;
@@ -1621,7 +1621,7 @@ storeProcedures(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 		referenced.objectId = proc->object;
 		referenced.objectSubId = 0;
 
-		/* see comments in amapi.h about dependency strength */
+		/* 有关依赖强度，请参阅 amapi.h 中的注释 */
 		recordDependencyOn(&myself, &referenced,
 						   proc->ref_is_hard ? DEPENDENCY_NORMAL : DEPENDENCY_AUTO);
 
@@ -1639,7 +1639,7 @@ storeProcedures(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 			referenced.objectId = proc->lefttype;
 			referenced.objectSubId = 0;
 
-			/* see comments in amapi.h about dependency strength */
+			/* 有关依赖强度，请参阅 amapi.h 中的注释 */
 			recordDependencyOn(&myself, &referenced,
 							   proc->ref_is_hard ? DEPENDENCY_NORMAL : DEPENDENCY_AUTO);
 		}
@@ -1651,12 +1651,12 @@ storeProcedures(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 			referenced.objectId = proc->righttype;
 			referenced.objectSubId = 0;
 
-			/* see comments in amapi.h about dependency strength */
+			/* 有关依赖强度，请参阅 amapi.h 中的注释 */
 			recordDependencyOn(&myself, &referenced,
 							   proc->ref_is_hard ? DEPENDENCY_NORMAL : DEPENDENCY_AUTO);
 		}
 
-		/* Post create hook of access method procedure */
+		/* 访问方法过程的创建后钩子        */
 		InvokeObjectPostCreateHook(AccessMethodProcedureRelationId,
 								   entryoid, 0);
 	}
@@ -1665,28 +1665,28 @@ storeProcedures(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 }
 
 /*
- * Detect whether a pg_amop or pg_amproc entry needs an explicit dependency
- * on its lefttype or righttype.
+ * 检测 pg_amop 或 pg_amproc 条目是否需要对其 lefttype 或
+ * righttype 的显式依赖。
  *
- * We make such a dependency unless the entry has an indirect dependency
- * via its referenced operator or function.  That's nearly always true
- * for operators, but might well not be true for support functions.
- */
+ * 我们创建这样的依赖，除非该条目通过其引用的操作符或函数
+ * 有间接依赖。这对于操作符几乎总是成立，但对于支持函数
+ * 可能不是。
+                                  */
 static bool
 typeDepNeeded(Oid typid, OpFamilyMember *member)
 {
 	bool		result = true;
 
 	/*
-	 * If the type is pinned, we don't need a dependency.  This is a bit of a
-	 * layering violation perhaps (recordDependencyOn would ignore the request
-	 * anyway), but it's a cheap test and will frequently save a syscache
-	 * lookup here.
-	 */
+	 * 如果类型是固定的，我们不需要依赖。这或许有点违反分层
+	 * （recordDependencyOn 无论如何都会忽略请求），但这是一个
+	 * 廉价的测试，并且通常会在此处省去系统缓存查找。
+ *
+	     */
 	if (IsPinnedObject(TypeRelationId, typid))
 		return false;
 
-	/* Nope, so check the input types of the function or operator. */
+	/* 不，所以检查函数或操作符的输入类型。      */
 	if (member->is_func)
 	{
 		Oid		   *argtypes;
@@ -1697,7 +1697,7 @@ typeDepNeeded(Oid typid, OpFamilyMember *member)
 		{
 			if (typid == argtypes[i])
 			{
-				result = false; /* match, no dependency needed */
+				result = false; /* 匹配，无需依赖      */
 				break;
 			}
 		}
@@ -1710,18 +1710,18 @@ typeDepNeeded(Oid typid, OpFamilyMember *member)
 
 		op_input_types(member->object, &lefttype, &righttype);
 		if (typid == lefttype || typid == righttype)
-			result = false;		/* match, no dependency needed */
+			result = false;		/* 匹配，不需要依赖    */
 	}
 	return result;
 }
 
 
 /*
- * Remove operator entries from an opfamily.
+ * 从操作符族中删除操作符条目。
  *
- * Note: this is only allowed for "loose" members of an opfamily, hence
- * behavior is always RESTRICT.
- */
+ * 注意：这仅允许用于操作符族的"松散"成员，因此行为始终是 RESTRICT。
+ *
+    */
 static void
 dropOperators(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 			  List *operators)
@@ -1757,11 +1757,11 @@ dropOperators(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 }
 
 /*
- * Remove procedure entries from an opfamily.
+ * 从操作符族中删除过程条目。
  *
- * Note: this is only allowed for "loose" members of an opfamily, hence
- * behavior is always RESTRICT.
- */
+ * 注意：这仅允许用于操作符族的"松散"成员，因此行为始终是 RESTRICT。
+ *
+        */
 static void
 dropProcedures(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 			   List *procedures)
@@ -1797,16 +1797,16 @@ dropProcedures(List *opfamilyname, Oid amoid, Oid opfamilyoid,
 }
 
 /*
- * Subroutine for ALTER OPERATOR CLASS SET SCHEMA/RENAME
+ * ALTER OPERATOR CLASS SET SCHEMA/RENAME 的子例程
  *
- * Is there an operator class with the given name and signature already
- * in the given namespace?	If so, raise an appropriate error message.
- */
+ * 给定命名空间中是否已存在具有给定名称和签名的
+ * 操作符类？如果存在，则引发适当的错误消息。
+        */
 void
 IsThereOpClassInNamespace(const char *opcname, Oid opcmethod,
 						  Oid opcnamespace)
 {
-	/* make sure the new name doesn't exist */
+	/* 确保新名称不存在             */
 	if (SearchSysCacheExists3(CLAAMNAMENSP,
 							  ObjectIdGetDatum(opcmethod),
 							  CStringGetDatum(opcname),
@@ -1820,16 +1820,16 @@ IsThereOpClassInNamespace(const char *opcname, Oid opcmethod,
 }
 
 /*
- * Subroutine for ALTER OPERATOR FAMILY SET SCHEMA/RENAME
+ * ALTER OPERATOR FAMILY SET SCHEMA/RENAME 的子例程
  *
- * Is there an operator family with the given name and signature already
- * in the given namespace?	If so, raise an appropriate error message.
- */
+ * 给定命名空间中是否已存在具有给定名称和签名的
+ * 操作符族？如果存在，则引发适当的错误消息。
+         */
 void
 IsThereOpFamilyInNamespace(const char *opfname, Oid opfmethod,
 						   Oid opfnamespace)
 {
-	/* make sure the new name doesn't exist */
+	/* 确保新名称不存在             */
 	if (SearchSysCacheExists3(OPFAMILYAMNAMENSP,
 							  ObjectIdGetDatum(opfmethod),
 							  CStringGetDatum(opfname),

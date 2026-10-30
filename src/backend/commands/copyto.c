@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * copyto.c
- *		COPY <表> TO 文件/程序/客户端
+ *		COPY <table> TO file/program/client
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -71,42 +71,42 @@ typedef enum CopyDest
  */
 typedef struct CopyToStateData
 {
-	/* low-level state data */
-	CopyDest	copy_dest;		/* type of copy source/destination */
-	FILE	   *copy_file;		/* used if copy_dest == COPY_FILE */
-	StringInfo	fe_msgbuf;		/* used for all dests during COPY TO */
+	/* 低层状态数据 */
+	CopyDest	copy_dest;		/* 复制源/目标的类型 */
+	FILE	   *copy_file;		/* 当 copy_dest == COPY_FILE 时使用 */
+	StringInfo	fe_msgbuf;		/* 在 COPY TO 期间对所有目标使用 */
 
-	int			file_encoding;	/* file or remote side's character encoding */
-	bool		need_transcoding;	/* file encoding diff from server? */
-	bool		encoding_embeds_ascii;	/* ASCII can be non-first byte? */
+	int			file_encoding;	/* 文件或远端的字符编码 */
+	bool		need_transcoding;	/* 文件编码与服务器不同？ */
+	bool		encoding_embeds_ascii;	/* ASCII 可以是非首字节？ */
 
-	/* parameters from the COPY command */
-	Relation	rel;			/* relation to copy to */
-	QueryDesc  *queryDesc;		/* executable query to copy from */
-	List	   *attnumlist;		/* integer list of attnums to copy */
-	char	   *filename;		/* filename, or NULL for STDOUT */
-	bool		is_program;		/* is 'filename' a program to popen? */
-	copy_data_dest_cb data_dest_cb; /* function for writing data */
+	/* 来自 COPY 命令的参数 */
+	Relation	rel;			/* 要复制到的关系 */
+	QueryDesc  *queryDesc;		/* 要复制的可执行查询 */
+	List	   *attnumlist;		/* 要复制的属性号整数列表 */
+	char	   *filename;		/* 文件名，或为 STDOUT 时为 NULL */
+	bool		is_program;		/* 'filename' 是否为要 popen 的程序？ */
+	copy_data_dest_cb data_dest_cb; /* 用于写入数据的函数 */
 
 	CopyFormatOptions opts;
 	Node	   *whereClause;	/* WHERE condition (or NULL) */
 
 	/*
-	 * Working state
-	 */
-	MemoryContext copycontext;	/* per-copy execution context */
+		 * 工作状态
+		 */
+	MemoryContext copycontext;	/* 每次复制的执行上下文 */
 
-	FmgrInfo   *out_functions;	/* lookup info for output functions */
-	MemoryContext rowcontext;	/* per-row evaluation context */
-	uint64		bytes_processed;	/* number of bytes processed so far */
+	FmgrInfo   *out_functions;	/* 输出函数的查找信息 */
+	MemoryContext rowcontext;	/* 每行评估上下文 */
+	uint64		bytes_processed;	/* 已处理的字节数 */
 } CopyToStateData;
 
 /* COPY（查询）TO 的 DestReceiver */
 typedef struct
 {
-	DestReceiver pub;			/* publicly-known function pointers */
-	CopyToState cstate;			/* CopyToStateData for the command */
-	uint64		processed;		/* # of tuples processed */
+	DestReceiver pub;			/* 公开的函数指针 */
+	CopyToState cstate;			/* 命令的 CopyToStateData */
+	uint64		processed;		/* 已处理的元组数 */
 } DR_copy;
 
 /* 注意：copyfromparse.c 中有此处的副本 */
@@ -200,7 +200,7 @@ CopySendEndOfRow(CopyToState cstate)
 		case COPY_FILE:
 			if (!cstate->opts.binary)
 			{
-				/* Default line termination depends on platform */
+				/* 默认行终止符取决于平台 */
 #ifndef WIN32
 				CopySendChar(cstate, '\n');
 #else
@@ -217,18 +217,18 @@ CopySendEndOfRow(CopyToState cstate)
 					if (errno == EPIPE)
 					{
 						/*
-						 * The pipe will be closed automatically on error at
-						 * the end of transaction, but we might get a better
-						 * error message from the subprocess' exit code than
-						 * just "Broken Pipe"
-						 */
+							 * 管道将在事务结束时自动关闭，但我们可能
+							 * 从子进程的退出码中获得比简单的
+							 * "Broken Pipe" 更好的错误消息
+							 *
+							 */
 						ClosePipeToProgram(cstate);
 
 						/*
-						 * If ClosePipeToProgram() didn't throw an error, the
-						 * program terminated normally, but closed the pipe
-						 * first. Restore errno, and throw an error.
-						 */
+							 * 如果 ClosePipeToProgram() 未抛出错误，则
+							 * 程序正常终止，但先关闭了管道。
+							 * 恢复 errno 并抛出错误。
+							 */
 						errno = EPIPE;
 					}
 					ereport(ERROR,
@@ -242,11 +242,11 @@ CopySendEndOfRow(CopyToState cstate)
 			}
 			break;
 		case COPY_FRONTEND:
-			/* The FE/BE protocol uses \n as newline for all platforms */
+			/* FE/BE 协议在所有平台上使用 \n 作为换行符 */
 			if (!cstate->opts.binary)
 				CopySendChar(cstate, '\n');
 
-			/* Dump the accumulated row as one CopyData message */
+			/* 将累积的行作为一条 CopyData 消息输出 */
 			(void) pq_putmessage('d', fe_msgbuf->data, fe_msgbuf->len);
 			break;
 		case COPY_CALLBACK:
@@ -254,7 +254,7 @@ CopySendEndOfRow(CopyToState cstate)
 			break;
 	}
 
-	/* Update the progress */
+	/* 更新进度 */
 	cstate->bytes_processed += fe_msgbuf->len;
 	pgstat_progress_update_param(PROGRESS_COPY_BYTES_PROCESSED, cstate->bytes_processed);
 
@@ -452,9 +452,9 @@ BeginCopyTo(ParseState *pstate,
 		cstate->rel = NULL;
 
 		/*
-		 * Run parse analysis and rewrite.  Note this also acquires sufficient
-		 * locks on the source table(s).
-		 */
+			 * 运行解析分析和重写。注意，这也会获取源表上
+			 * 足够的锁。
+			 */
 		rewritten = pg_analyze_and_rewrite_fixedparams(raw_query,
 													   pstate->p_sourcetext, NULL, 0,
 													   NULL);
@@ -506,9 +506,9 @@ BeginCopyTo(ParseState *pstate,
 					 errmsg("COPY query must not be a utility command")));
 
 		/*
-		 * Similarly the grammar doesn't enforce the presence of a RETURNING
-		 * clause, but this is required here.
-		 */
+			 * 同样，语法不强制要求 RETURNING 子句的存在，
+			 * 但这里必须要求。
+			 */
 		if (query->commandType != CMD_SELECT &&
 			query->returningList == NIL)
 		{
@@ -526,24 +526,24 @@ BeginCopyTo(ParseState *pstate,
 							 CURSOR_OPT_PARALLEL_OK, NULL);
 
 		/*
-		 * With row-level security and a user using "COPY relation TO", we
-		 * have to convert the "COPY relation TO" to a query-based COPY (eg:
-		 * "COPY (SELECT * FROM ONLY relation) TO"), to allow the rewriter to
-		 * add in any RLS clauses.
-		 *
-		 * When this happens, we are passed in the relid of the originally
-		 * found relation (which we have locked).  As the planner will look up
-		 * the relation again, we double-check here to make sure it found the
-		 * same one that we have locked.
-		 */
+			 * 当使用行级安全且用户使用 "COPY relation TO" 时，
+			 * 我们必须将 "COPY relation TO" 转换为基于查询的 COPY
+			 * （例如 "COPY (SELECT * FROM ONLY relation) TO"），以允许
+			 * 重写器添加 RLS 子句。
+			 *
+			 * 当发生此情况时，传入最初找到的关系 relid
+			 * （我们已经锁定它）。由于计划器会再次查找关系，
+			 * 我们在这里双重检查以确保它找到的与我们已锁定的相同。
+			 *
+			 */
 		if (queryRelId != InvalidOid)
 		{
 			/*
-			 * Note that with RLS involved there may be multiple relations,
-			 * and while the one we need is almost certainly first, we don't
-			 * make any guarantees of that in the planner, so check the whole
-			 * list and make sure we find the original relation.
-			 */
+				 * 注意，RLS 涉及时可能有多个关系，虽然我们
+				 * 需要的那个几乎肯定在第一个，但计划器不
+				 * 保证这一点，所以检查整个列表确保找到
+				 * 原始关系。
+				 */
 			if (!list_member_oid(plan->relationOids, queryRelId))
 				ereport(ERROR,
 						(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -551,9 +551,9 @@ BeginCopyTo(ParseState *pstate,
 		}
 
 		/*
-		 * Use a snapshot with an updated command ID to ensure this query sees
-		 * results of any previously executed queries.
-		 */
+			 * 使用带更新的命令 ID 的快照，以确保此查询能看到
+			 * 之前执行的任何查询的结果。
+			 */
 		PushCopiedSnapshot(GetActiveSnapshot());
 		UpdateActiveSnapshotCommandId();
 
@@ -568,10 +568,10 @@ BeginCopyTo(ParseState *pstate,
 											dest, NULL, NULL, 0);
 
 		/*
-		 * Call ExecutorStart to prepare the plan for execution.
-		 *
-		 * ExecutorStart computes a result tupdesc for us
-		 */
+			 * 调用 ExecutorStart 以准备计划执行。
+			 *
+			 * ExecutorStart 为我们计算结果 tupdesc
+			 */
 		ExecutorStart(cstate->queryDesc, 0);
 
 		tupDesc = cstate->queryDesc->tupDesc;
@@ -662,15 +662,15 @@ BeginCopyTo(ParseState *pstate,
 		}
 		else
 		{
-			mode_t		oumask; /* Pre-existing umask value */
+			mode_t		oumask; /* 现有的 umask 值 */
 			struct stat st;
 
 			progress_vals[1] = PROGRESS_COPY_TYPE_FILE;
 
 			/*
-			 * Prevent write to relative path ... too easy to shoot oneself in
-			 * the foot by overwriting a database file ...
-			 */
+				 * 防止写入相对路径 ... 太容易因覆盖数据库文件
+				 * 而自寻烦恼 ...
+				 */
 			if (!is_absolute_path(filename))
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_NAME),
@@ -819,9 +819,9 @@ DoCopyTo(CopyToState cstate)
 	else
 	{
 		/*
-		 * For non-binary copy, we need to convert null_print to file
-		 * encoding, because it will be sent directly with CopySendString.
-		 */
+			 * 对于非二进制复制，我们需要将 null_print
+			 * 转换为文件编码，因为它将通过 CopySendString 直接发送。
+			 */
 		if (cstate->need_transcoding)
 			cstate->opts.null_print_client = pg_server_to_any(cstate->opts.null_print,
 															  cstate->opts.null_print_len,
@@ -1026,12 +1026,12 @@ CopyAttributeOutText(CopyToState cstate, const char *string)
 			if ((unsigned char) c < (unsigned char) 0x20)
 			{
 				/*
-				 * \r and \n must be escaped, the others are traditional. We
-				 * prefer to dump these using the C-like notation, rather than
-				 * a backslash and the literal character, because it makes the
-				 * dump file a bit more proof against Microsoftish data
-				 * mangling.
-				 */
+					 * \r 和 \n 必须转义，其他属于传统做法。我们
+					 * 更喜欢使用类 C 的记法输出这些字符，而不是
+					 * 反斜杠加原始字符，因为这可以使转储文件
+					 * 更能抵御 Microsoft 风格的数据破坏。
+					 *
+					 */
 				switch (c)
 				{
 					case '\b':
@@ -1053,24 +1053,24 @@ CopyAttributeOutText(CopyToState cstate, const char *string)
 						c = 'v';
 						break;
 					default:
-						/* If it's the delimiter, must backslash it */
+						/* 如果是分隔符，必须加反斜杠 */
 						if (c == delimc)
 							break;
-						/* All ASCII control chars are length 1 */
+						/* 所有 ASCII 控制字符长度为 1 */
 						ptr++;
-						continue;	/* fall to end of loop */
+						continue;	/* 转到循环末尾 */
 				}
-				/* if we get here, we need to convert the control char */
+				/* 如果到了这里，我们需要转换控制字符 */
 				DUMPSOFAR();
 				CopySendChar(cstate, '\\');
 				CopySendChar(cstate, c);
-				start = ++ptr;	/* do not include char in next run */
+				start = ++ptr;	/* 不要在下一轮中包含此字符 */
 			}
 			else if (c == '\\' || c == delimc)
 			{
 				DUMPSOFAR();
 				CopySendChar(cstate, '\\');
-				start = ptr++;	/* we include char in next run */
+				start = ptr++;	/* 我们在下一轮中包含此字符 */
 			}
 			else if (IS_HIGHBIT_SET(c))
 				ptr += pg_encoding_mblen(cstate->file_encoding, ptr);
@@ -1086,12 +1086,12 @@ CopyAttributeOutText(CopyToState cstate, const char *string)
 			if ((unsigned char) c < (unsigned char) 0x20)
 			{
 				/*
-				 * \r and \n must be escaped, the others are traditional. We
-				 * prefer to dump these using the C-like notation, rather than
-				 * a backslash and the literal character, because it makes the
-				 * dump file a bit more proof against Microsoftish data
-				 * mangling.
-				 */
+					 * \r 和 \n 必须转义，其他属于传统做法。我们
+					 * 更喜欢使用类 C 的记法输出这些字符，而不是
+					 * 反斜杠加原始字符，因为这可以使转储文件
+					 * 更能抵御 Microsoft 风格的数据破坏。
+					 *
+					 */
 				switch (c)
 				{
 					case '\b':
@@ -1113,24 +1113,24 @@ CopyAttributeOutText(CopyToState cstate, const char *string)
 						c = 'v';
 						break;
 					default:
-						/* If it's the delimiter, must backslash it */
+						/* 如果是分隔符，必须加反斜杠 */
 						if (c == delimc)
 							break;
-						/* All ASCII control chars are length 1 */
+						/* 所有 ASCII 控制字符长度为 1 */
 						ptr++;
-						continue;	/* fall to end of loop */
+						continue;	/* 转到循环末尾 */
 				}
-				/* if we get here, we need to convert the control char */
+				/* 如果到了这里，我们需要转换控制字符 */
 				DUMPSOFAR();
 				CopySendChar(cstate, '\\');
 				CopySendChar(cstate, c);
-				start = ++ptr;	/* do not include char in next run */
+				start = ++ptr;	/* 不要在下一轮中包含此字符 */
 			}
 			else if (c == '\\' || c == delimc)
 			{
 				DUMPSOFAR();
 				CopySendChar(cstate, '\\');
-				start = ptr++;	/* we include char in next run */
+				start = ptr++;	/* 我们在下一轮中包含此字符 */
 			}
 			else
 				ptr++;

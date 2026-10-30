@@ -73,9 +73,9 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 	Node	   *whereClause = NULL;
 
 	/*
-	 * Disallow COPY to/from file or program except to users with the
-	 * appropriate role.
-	 */
+		 * 禁止没有相应角色的用户使用 COPY 读写文件或程序。
+		 *
+		 */
 	if (!pipe)
 	{
 		if (stmt->is_program)
@@ -122,7 +122,7 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 
 		Assert(!stmt->query);
 
-		/* Open and lock the relation, using the appropriate lock type. */
+		/* 使用适当的锁类型打开并锁定该关系。 */
 		rel = table_openrv(stmt->relation, lockmode);
 
 		relid = RelationGetRelid(rel);
@@ -138,23 +138,23 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 			Bitmapset  *expr_attrs = NULL;
 			int			i;
 
-			/* add nsitem to query namespace */
+			/* 将 nsitem 添加到查询命名空间 */
 			addNSItemToQuery(pstate, nsitem, false, true, true);
 
-			/* Transform the raw expression tree */
+			/* 转换原始表达式树 */
 			whereClause = transformExpr(pstate, stmt->whereClause, EXPR_KIND_COPY_WHERE);
 
-			/* Make sure it yields a boolean result. */
+			/* 确保它产生布尔结果。 */
 			whereClause = coerce_to_boolean(pstate, whereClause, "WHERE");
 
-			/* we have to fix its collations too */
+			/* 我们也必须修正其排序规则 */
 			assign_expr_collations(pstate, whereClause);
 
 			/*
-			 * Examine all the columns in the WHERE clause expression.  When
-			 * the whole-row reference is present, examine all the columns of
-			 * the table.
-			 */
+				 * 检查 WHERE 子句表达式中的所有列。当存在整行引用时，
+				 * 检查表的所有列。
+				 *
+				 */
 			pull_varattnos(whereClause, 1, &expr_attrs);
 			if (bms_is_member(0 - FirstLowInvalidHeapAttributeNumber, expr_attrs))
 			{
@@ -172,10 +172,10 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 				Assert(attno != 0);
 
 				/*
-				 * Prohibit generated columns in the WHERE clause.  Stored
-				 * generated columns are not yet computed when the filtering
-				 * happens.
-				 */
+					 * 禁止在 WHERE 子句中使用生成列。在进行过滤时，
+					 * 存储的生成列尚未计算。
+					 *
+					 */
 				if (TupleDescAttr(RelationGetDescr(rel), attno - 1)->attgenerated)
 					ereport(ERROR,
 							errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
@@ -233,17 +233,17 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 						 errhint("Use INSERT statements instead.")));
 
 			/*
-			 * Build target list
-			 *
-			 * If no columns are specified in the attribute list of the COPY
-			 * command, then the target list is 'all' columns. Therefore, '*'
-			 * should be used as the target list for the resulting SELECT
-			 * statement.
-			 *
-			 * In the case that columns are specified in the attribute list,
-			 * create a ColumnRef and ResTarget for each column and add them
-			 * to the target list for the resulting SELECT statement.
-			 */
+				 * 构建目标列表
+				 *
+				 * 如果 COPY 命令的属性列表中未指定列，则目标列表为"所有"列。
+				 * 因此，应在生成的 SELECT 语句中使用 '*' 作为目标列表。
+				 *
+				 * 如果属性列表中指定了列，则为每列创建 ColumnRef 和 ResTarget，
+				 * 并将它们添加到生成的 SELECT 语句的目标列表中。
+				 *
+				 *
+				 *
+				 */
 			if (!stmt->attlist)
 			{
 				cr = makeNode(ColumnRef);
@@ -265,38 +265,38 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 				foreach(lc, stmt->attlist)
 				{
 					/*
-					 * Build the ColumnRef for each column.  The ColumnRef
-					 * 'fields' property is a String node that corresponds to
-					 * the column name respectively.
-					 */
+						 * 为每列构建 ColumnRef。ColumnRef 的 'fields' 属性
+						 * 是分别对应列名的 String 节点。
+						 *
+						 */
 					cr = makeNode(ColumnRef);
 					cr->fields = list_make1(lfirst(lc));
 					cr->location = -1;
 
-					/* Build the ResTarget and add the ColumnRef to it. */
+					/* 构建 ResTarget 并将 ColumnRef 添加到其中。 */
 					target = makeNode(ResTarget);
 					target->name = NULL;
 					target->indirection = NIL;
 					target->val = (Node *) cr;
 					target->location = -1;
 
-					/* Add each column to the SELECT statement's target list */
+					/* 将每列添加到 SELECT 语句的目标列表中 */
 					targetList = lappend(targetList, target);
 				}
 			}
 
 			/*
-			 * Build RangeVar for from clause, fully qualified based on the
-			 * relation which we have opened and locked.  Use "ONLY" so that
-			 * COPY retrieves rows from only the target table not any
-			 * inheritance children, the same as when RLS doesn't apply.
-			 */
+				 * 为 from 子句构建 RangeVar，基于我们已打开并锁定的关系
+				 * 进行完全限定。使用 "ONLY" 使得 COPY 仅从目标表中检索行，
+				 * 而不是任何继承子表，这与不应用 RLS 时相同。
+				 *
+				 */
 			from = makeRangeVar(get_namespace_name(RelationGetNamespace(rel)),
 								pstrdup(RelationGetRelationName(rel)),
 								-1);
-			from->inh = false;	/* apply ONLY */
+			from->inh = false;	/* 应用 ONLY */
 
-			/* Build query */
+			/* 构建查询 */
 			select = makeNode(SelectStmt);
 			select->targetList = targetList;
 			select->fromClause = list_make1(from);
@@ -307,11 +307,11 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 			query->stmt_len = stmt_len;
 
 			/*
-			 * Close the relation for now, but keep the lock on it to prevent
-			 * changes between now and when we start the query-based COPY.
-			 *
-			 * We'll reopen it later as part of the query-based COPY.
-			 */
+				 * 现在关闭关系，但保留锁以防止从现在到我们启动基于查询的
+				 * COPY 之间发生更改。
+				 *
+				 * 之后我们将作为基于查询的 COPY 的一部分重新打开它。
+				 */
 			table_close(rel, NoLock);
 			rel = NULL;
 		}
@@ -320,7 +320,7 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 	{
 		Assert(stmt->query);
 
-		/* MERGE is allowed by parser, but unimplemented. Reject for now */
+		/* MERGE 被解析器允许，但尚未实现。目前拒绝 */
 		if (IsA(stmt->query, MergeStmt))
 			ereport(ERROR,
 					errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -341,14 +341,14 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 
 		Assert(rel);
 
-		/* check read-only transaction and parallel mode */
+		/* 检查只读事务和并行模式 */
 		if (XactReadOnly && !rel->rd_islocaltemp)
 			PreventCommandIfReadOnly("COPY FROM");
 
 		cstate = BeginCopyFrom(pstate, rel, whereClause,
 							   stmt->filename, stmt->is_program,
 							   NULL, stmt->attlist, stmt->options);
-		*processed = CopyFrom(cstate);	/* copy from file to database */
+		*processed = CopyFrom(cstate);	/* 从文件复制到数据库 */
 		EndCopyFrom(cstate);
 	}
 	else
@@ -358,7 +358,7 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 		cstate = BeginCopyTo(pstate, rel, query, relid,
 							 stmt->filename, stmt->is_program,
 							 NULL, stmt->attlist, stmt->options);
-		*processed = DoCopyTo(cstate);	/* copy from database to file */
+		*processed = DoCopyTo(cstate);	/* 从数据库复制到文件 */
 		EndCopyTo(cstate);
 	}
 
@@ -428,7 +428,7 @@ defGetCopyHeaderChoice(DefElem *def, bool is_from)
 			(errcode(ERRCODE_SYNTAX_ERROR),
 			 errmsg("%s requires a Boolean value or \"match\"",
 					def->defname)));
-	return COPY_HEADER_FALSE;	/* keep compiler quiet */
+	return COPY_HEADER_FALSE;	/* 让编译器保持安静 */
 }
 
 /*
@@ -458,13 +458,13 @@ ProcessCopyOptions(ParseState *pstate,
 	bool		header_specified = false;
 	ListCell   *option;
 
-	/* Support external use for option sanity checking */
+	/* 支持外部使用选项合理性检查 */
 	if (opts_out == NULL)
 		opts_out = (CopyFormatOptions *) palloc0(sizeof(CopyFormatOptions));
 
 	opts_out->file_encoding = -1;
 
-	/* Extract options from the statement node tree */
+	/* 从语句节点树中提取选项 */
 	foreach(option, options)
 	{
 		DefElem    *defel = lfirst_node(DefElem, option);
@@ -576,10 +576,10 @@ ProcessCopyOptions(ParseState *pstate,
 		else if (strcmp(defel->defname, "convert_selectively") == 0)
 		{
 			/*
-			 * Undocumented, not-accessible-from-SQL option: convert only the
-			 * named columns to binary form, storing the rest as NULLs. It's
-			 * allowed for the column list to be NIL.
-			 */
+				 * 未记录的、SQL 不可访问的选项：仅将命名的列转换为二进制形式，
+				 * 其余存储为 NULL。允许列列表为 NIL。
+				 *
+				 */
 			if (opts_out->convert_selectively)
 				errorConflictingDefElem(defel, pstate);
 			opts_out->convert_selectively = true;
@@ -613,9 +613,9 @@ ProcessCopyOptions(ParseState *pstate,
 	}
 
 	/*
-	 * Check for incompatible options (must do these two before inserting
-	 * defaults)
-	 */
+		 * 检查不兼容的选项（必须在插入默认值之前执行这两个检查）
+		 *
+		 */
 	if (opts_out->binary && opts_out->delim)
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
@@ -631,7 +631,7 @@ ProcessCopyOptions(ParseState *pstate,
 				(errcode(ERRCODE_SYNTAX_ERROR),
 				 errmsg("cannot specify DEFAULT in BINARY mode")));
 
-	/* Set defaults for omitted options */
+	/* 为省略的选项设置默认值 */
 	if (!opts_out->delim)
 		opts_out->delim = opts_out->csv_mode ? "," : "\t";
 
@@ -647,13 +647,13 @@ ProcessCopyOptions(ParseState *pstate,
 			opts_out->escape = opts_out->quote;
 	}
 
-	/* Only single-byte delimiter strings are supported. */
+	/* 仅支持单字节分隔符字符串。 */
 	if (strlen(opts_out->delim) != 1)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("COPY delimiter must be a single one-byte character")));
 
-	/* Disallow end-of-line characters */
+	/* 禁止行尾字符 */
 	if (strchr(opts_out->delim, '\r') != NULL ||
 		strchr(opts_out->delim, '\n') != NULL)
 		ereport(ERROR,
@@ -678,15 +678,15 @@ ProcessCopyOptions(ParseState *pstate,
 	}
 
 	/*
-	 * Disallow unsafe delimiter characters in non-CSV mode.  We can't allow
-	 * backslash because it would be ambiguous.  We can't allow the other
-	 * cases because data characters matching the delimiter must be
-	 * backslashed, and certain backslash combinations are interpreted
-	 * non-literally by COPY IN.  Disallowing all lower case ASCII letters is
-	 * more than strictly necessary, but seems best for consistency and
-	 * future-proofing.  Likewise we disallow all digits though only octal
-	 * digits are actually dangerous.
-	 */
+		 * 在非 CSV 模式下禁止不安全的分隔符字符。我们不能允许反斜杠，
+		 * 因为它会产生歧义。我们不能允许其他情况，因为匹配分隔符的
+		 * 数据字符必须加反斜杠，而某些反斜杠组合会被 COPY IN 字面解释。
+		 * 禁止所有小写 ASCII 字母虽然比严格需要的多，但为了保持一致性
+		 * 和面向未来性似乎是最好的。同样，我们禁止所有数字，
+		 * 尽管只有八进制数字实际上是有危险的。
+		 *
+		 *
+		 */
 	if (!opts_out->csv_mode &&
 		strchr("\\.abcdefghijklmnopqrstuvwxyz0123456789",
 			   opts_out->delim[0]) != NULL)
@@ -694,13 +694,13 @@ ProcessCopyOptions(ParseState *pstate,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("COPY delimiter cannot be \"%s\"", opts_out->delim)));
 
-	/* Check header */
+	/* 检查 header */
 	if (opts_out->binary && opts_out->header_line)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("cannot specify HEADER in BINARY mode")));
 
-	/* Check quote */
+	/* 检查 quote */
 	if (!opts_out->csv_mode && opts_out->quote != NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -716,7 +716,7 @@ ProcessCopyOptions(ParseState *pstate,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("COPY delimiter and quote must be different")));
 
-	/* Check escape */
+	/* 检查 escape */
 	if (!opts_out->csv_mode && opts_out->escape != NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -727,7 +727,7 @@ ProcessCopyOptions(ParseState *pstate,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("COPY escape must be a single one-byte character")));
 
-	/* Check force_quote */
+	/* 检查 force_quote */
 	if (!opts_out->csv_mode && (opts_out->force_quote || opts_out->force_quote_all))
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -737,7 +737,7 @@ ProcessCopyOptions(ParseState *pstate,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("COPY force quote only available using COPY TO")));
 
-	/* Check force_notnull */
+	/* 检查 force_notnull */
 	if (!opts_out->csv_mode && opts_out->force_notnull != NIL)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -747,7 +747,7 @@ ProcessCopyOptions(ParseState *pstate,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("COPY force not null only available using COPY FROM")));
 
-	/* Check force_null */
+	/* 检查 force_null */
 	if (!opts_out->csv_mode && opts_out->force_null != NIL)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -758,13 +758,13 @@ ProcessCopyOptions(ParseState *pstate,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("COPY force null only available using COPY FROM")));
 
-	/* Don't allow the delimiter to appear in the null string. */
+	/* 不允许分隔符出现在 NULL 字符串中。 */
 	if (strchr(opts_out->null_print, opts_out->delim[0]) != NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("COPY delimiter must not appear in the NULL specification")));
 
-	/* Don't allow the CSV quote char to appear in the null string. */
+	/* 不允许 CSV 引号字符出现在 NULL 字符串中。 */
 	if (opts_out->csv_mode &&
 		strchr(opts_out->null_print, opts_out->quote[0]) != NULL)
 		ereport(ERROR,
@@ -778,20 +778,20 @@ ProcessCopyOptions(ParseState *pstate,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("COPY DEFAULT only available using COPY FROM")));
 
-		/* Don't allow the delimiter to appear in the default string. */
+		/* 不允许分隔符出现在 DEFAULT 字符串中。 */
 		if (strchr(opts_out->default_print, opts_out->delim[0]) != NULL)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("COPY delimiter must not appear in the DEFAULT specification")));
 
-		/* Don't allow the CSV quote char to appear in the default string. */
+		/* 不允许 CSV 引号字符出现在 DEFAULT 字符串中。 */
 		if (opts_out->csv_mode &&
 			strchr(opts_out->default_print, opts_out->quote[0]) != NULL)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("CSV quote character must not appear in the DEFAULT specification")));
 
-		/* Don't allow the NULL and DEFAULT string to be the same */
+		/* 不允许 NULL 和 DEFAULT 字符串相同 */
 		if (opts_out->null_print_len == opts_out->default_print_len &&
 			strncmp(opts_out->null_print, opts_out->default_print,
 					opts_out->null_print_len) == 0)
@@ -822,7 +822,7 @@ CopyGetAttnums(TupleDesc tupDesc, Relation rel, List *attnamelist)
 
 	if (attnamelist == NIL)
 	{
-		/* Generate default column list */
+		/* 生成默认列列表 */
 		int			attr_count = tupDesc->natts;
 		int			i;
 
@@ -837,7 +837,7 @@ CopyGetAttnums(TupleDesc tupDesc, Relation rel, List *attnamelist)
 	}
 	else
 	{
-		/* Validate the user-supplied list and extract attnums */
+		/* 验证用户提供的列表并提取属性号 */
 		ListCell   *l;
 
 		foreach(l, attnamelist)
@@ -846,7 +846,7 @@ CopyGetAttnums(TupleDesc tupDesc, Relation rel, List *attnamelist)
 			int			attnum;
 			int			i;
 
-			/* Lookup column name */
+			/* 查找列名 */
 			attnum = InvalidAttrNumber;
 			for (i = 0; i < tupDesc->natts; i++)
 			{
@@ -879,7 +879,7 @@ CopyGetAttnums(TupleDesc tupDesc, Relation rel, List *attnamelist)
 							 errmsg("column \"%s\" does not exist",
 									name)));
 			}
-			/* Check for duplicates */
+			/* 检查重复项 */
 			if (list_member_int(attnums, attnum))
 				ereport(ERROR,
 						(errcode(ERRCODE_DUPLICATE_COLUMN),

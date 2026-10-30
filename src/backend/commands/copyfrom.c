@@ -1,13 +1,13 @@
 /*-------------------------------------------------------------------------
  *
  * copyfrom.c
- *		COPY <表> FROM 文件/程序/客户端
+ *		COPY <table> FROM file/program/client
  *
- * 本文件包含将元组高效加载到表中所需的例程。
- * 这包括查找正确的分区、触发触发器、
- * 调用表 AM 函数插入数据以及更新索引。
- * 从输入文件或客户端读取数据并将其解析为 Datum
- * 由 copyfromparse.c 处理。
+ * This file contains routines needed to efficiently load tuples into a
+ * table.  That includes looking up the correct partition, firing triggers,
+ * calling the table AM function to insert the data, and updating indexes.
+ * Reading data from the input file or client and parsing it into Datums
+ * is handled in copyfromparse.c.
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -76,13 +76,13 @@
 /* 存储 CopyFrom 中与单个关系相关的多重插入数据。 */
 typedef struct CopyMultiInsertBuffer
 {
-	TupleTableSlot *slots[MAX_BUFFERED_TUPLES]; /* Array to store tuples */
-	ResultRelInfo *resultRelInfo;	/* ResultRelInfo for 'relid' */
-	BulkInsertState bistate;	/* BulkInsertState for this rel if plain
-								 * table; NULL if foreign table */
-	int			nused;			/* number of 'slots' containing tuples */
-	uint64		linenos[MAX_BUFFERED_TUPLES];	/* Line # of tuple in copy
-												 * stream */
+	TupleTableSlot *slots[MAX_BUFFERED_TUPLES]; /* 存储元组的数组 */
+	ResultRelInfo *resultRelInfo;	/* 'relid' 的 ResultRelInfo */
+	BulkInsertState bistate;	/* 如果是普通表，则为此 rel 的
+									 * BulkInsertState；若为外部表则为 NULL */
+	int			nused;			/* 包含元组的 'slots' 数量 */
+	uint64		linenos[MAX_BUFFERED_TUPLES];	/* 复制流中元组的行号
+						 */
 } CopyMultiInsertBuffer;
 
 /*
@@ -92,13 +92,13 @@ typedef struct CopyMultiInsertBuffer
  */
 typedef struct CopyMultiInsertInfo
 {
-	List	   *multiInsertBuffers; /* List of tracked CopyMultiInsertBuffers */
-	int			bufferedTuples; /* number of tuples buffered over all buffers */
-	int			bufferedBytes;	/* number of bytes from all buffered tuples */
-	CopyFromState cstate;		/* Copy state for this CopyMultiInsertInfo */
-	EState	   *estate;			/* Executor state used for COPY */
-	CommandId	mycid;			/* Command Id used for COPY */
-	int			ti_options;		/* table insert options */
+	List	   *multiInsertBuffers; /* 已跟踪的 CopyMultiInsertBuffer 列表 */
+	int			bufferedTuples; /* 所有缓冲区中缓冲的元组数 */
+	int			bufferedBytes;	/* 所有缓冲元组的字节数 */
+	CopyFromState cstate;		/* 此 CopyMultiInsertInfo 的复制状态 */
+	EState	   *estate;			/* 用于 COPY 的执行器状态 */
+	CommandId	mycid;			/* 用于 COPY 的命令 ID */
+	int			ti_options;		/* 表插入选项 */
 } CopyMultiInsertInfo;
 
 
@@ -125,7 +125,7 @@ CopyFromErrorCallback(void *arg)
 	}
 	if (cstate->opts.binary)
 	{
-		/* can't usefully display the data */
+		/* 无法有用地显示数据 */
 		if (cstate->cur_attname)
 			errcontext("COPY %s, line %llu, column %s",
 					   cstate->cur_relname,
@@ -140,7 +140,7 @@ CopyFromErrorCallback(void *arg)
 	{
 		if (cstate->cur_attname && cstate->cur_attval)
 		{
-			/* error is relevant to a particular column */
+			/* 错误与特定列相关 */
 			char	   *attval;
 
 			attval = limit_printout_length(cstate->cur_attval);
@@ -153,7 +153,7 @@ CopyFromErrorCallback(void *arg)
 		}
 		else if (cstate->cur_attname)
 		{
-			/* error is relevant to a particular column, value is NULL */
+			/* 错误与特定列相关，值为 NULL */
 			errcontext("COPY %s, line %llu, column %s: null input",
 					   cstate->cur_relname,
 					   (unsigned long long) cstate->cur_lineno,
@@ -162,10 +162,10 @@ CopyFromErrorCallback(void *arg)
 		else
 		{
 			/*
-			 * Error is relevant to a particular line.
-			 *
-			 * If line_buf still contains the correct line, print it.
-			 */
+				 * 错误与特定行相关。
+				 *
+				 * 如果 line_buf 仍包含正确的行，则打印它。
+				 */
 			if (cstate->line_buf_valid)
 			{
 				char	   *lineval;
@@ -340,7 +340,7 @@ CopyMultiInsertBufferFlush(CopyMultiInsertInfo *miinfo,
 			int			inserted = size;
 			TupleTableSlot **rslots;
 
-			/* insert into foreign table: let the FDW do it */
+			/* 插入到外部表：让 FDW 来做 */
 			rslots =
 				resultRelInfo->ri_FdwRoutine->ExecForeignBatchInsert(estate,
 																	 resultRelInfo,
@@ -350,15 +350,15 @@ CopyMultiInsertBufferFlush(CopyMultiInsertInfo *miinfo,
 
 			sent += size;
 
-			/* No need to do anything if there are no inserted rows */
+			/* 如果没有插入的行，无需做任何操作 */
 			if (inserted <= 0)
 				continue;
 
-			/* Triggers on foreign tables should not have transition tables */
+			/* 外部表上的触发器不应有过渡表 */
 			Assert(resultRelInfo->ri_TrigDesc == NULL ||
 				   resultRelInfo->ri_TrigDesc->trig_insert_new_table == false);
 
-			/* Run AFTER ROW INSERT triggers */
+			/* 运行 AFTER ROW INSERT 触发器 */
 			if (resultRelInfo->ri_TrigDesc != NULL &&
 				resultRelInfo->ri_TrigDesc->trig_insert_after_row)
 			{
@@ -634,7 +634,7 @@ CopyFrom(CopyFromState cstate)
 	ResultRelInfo *resultRelInfo;
 	ResultRelInfo *target_resultRelInfo;
 	ResultRelInfo *prevResultRelInfo = NULL;
-	EState	   *estate = CreateExecutorState(); /* for ExecConstraints() */
+	EState	   *estate = CreateExecutorState(); /* 用于 ExecConstraints() */
 	ModifyTableState *mtstate;
 	ExprContext *econtext;
 	TupleTableSlot *singleslot = NULL;
@@ -643,10 +643,10 @@ CopyFrom(CopyFromState cstate)
 	PartitionTupleRouting *proute = NULL;
 	ErrorContextCallback errcallback;
 	CommandId	mycid = GetCurrentCommandId(true);
-	int			ti_options = 0; /* start with default options for insert */
+	int			ti_options = 0; /* 从插入的默认选项开始 */
 	BulkInsertState bistate = NULL;
 	CopyInsertMethod insertMethod;
-	CopyMultiInsertInfo multiInsertInfo = {0};	/* pacify compiler */
+	CopyMultiInsertInfo multiInsertInfo = {0};	/* 让编译器保持安静 */
 	int64		processed = 0;
 	int64		excluded = 0;
 	bool		has_before_insert_row_trig;
@@ -1006,7 +1006,7 @@ CopyFrom(CopyFromState cstate)
 		if (cstate->whereClause)
 		{
 			econtext->ecxt_scantuple = myslot;
-			/* Skip items that don't match COPY's WHERE clause */
+			/* 跳过不匹配 COPY WHERE 子句的项 */
 			if (!ExecQual(cstate->qualexpr, econtext))
 			{
 				/*
@@ -1184,7 +1184,7 @@ CopyFrom(CopyFromState cstate)
 					(proute == NULL || has_before_insert_row_trig))
 					ExecPartitionCheck(resultRelInfo, myslot, estate, true);
 
-				/* Store the slot in the multi-insert buffer, when enabled. */
+				/* 当启用时，将 slot 存储在多重插入缓冲区中。 */
 				if (insertMethod == CIM_MULTI || leafpart_use_multi_insert)
 				{
 					/*

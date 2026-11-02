@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "batch_id": "0250-comment-libpq-fe-exec",
+  "title": "translate fe-exec.c comments — batch 0250",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "9b8deceb91ae50d08d60a6841e1b07c4e6e7b1aa",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {"pattern": "src/interfaces/libpq/fe-exec.c", "kind": "c_comment", "note": "batch 0250 fe-exec — query execution"},
+    {"pattern": "src/tools/zh-tools/manifests/batch-0250-comment-libpq-fe-exec.json", "kind": "manifest", "note": "batch 0250 manifest"}
+  ],
+  "files": [
+    {
+      "path": "src/interfaces/libpq/fe-exec.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 391,
+      "translated": 368,
+      "preserved": 23,
+      "preserved_reasons": {
+        "1": "Copyright header",
+        "141": "Macro comment (from configure)",
+        "210": "Overflow (too long for Chinese)",
+        "250": "Overflow (too long for Chinese)",
+        "258": "Overflow (too long for Chinese)",
+        "454": "Overflow (too long for Chinese)",
+        "458": "Overflow (too long for Chinese)",
+        "542": "Overflow (too long for Chinese)",
+        "775": "Overflow (too long for Chinese)",
+        "870": "Overflow (too long for Chinese)",
+        "883": "Overflow (too long for Chinese)",
+        "1072": "Overflow (too long for Chinese)",
+        "1674": "Overflow (too long for Chinese)",
+        "2057": "Overflow (too long for Chinese)",
+        "2602": "Overflow (too long for Chinese)",
+        "2665": "Overflow (too long for Chinese)",
+        "2983": "Overflow (too long for Chinese)",
+        "3104": "Overflow (too long for Chinese)",
+        "3497": "Fallthrough comment",
+        "3704": "Overflow (too long for Chinese)",
+        "4189": "Overflow (too long for Chinese)",
+        "4363": "Overflow (too long for Chinese)",
+        "4540": "Overflow (too long for Chinese)"
+      }
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0250-comment-libpq-fe-exec.json",
+      "kind": "manifest",
+      "action": "add",
+      "translated": 0,
+      "preserved": 0,
+      "segments_total": 0
+    }
+  ]
+}

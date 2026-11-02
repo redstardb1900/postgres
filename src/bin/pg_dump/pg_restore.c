@@ -107,7 +107,7 @@ main(int argc, char **argv)
 		{"single-transaction", 0, NULL, '1'},
 
 		/*
-		 * the following options don't have an equivalent short option letter
+		 * 以下选项没有对应的短选项字母
 		 */
 		{"disable-triggers", no_argument, &disable_triggers, 1},
 		{"enable-row-security", no_argument, &enable_row_security, 1},
@@ -157,10 +157,10 @@ main(int argc, char **argv)
 	{
 		switch (c)
 		{
-			case 'a':			/* Dump data only */
+			case 'a':			/* 仅导出数据 */
 				opts->dataOnly = 1;
 				break;
-			case 'c':			/* clean (i.e., drop) schema prior to create */
+			case 'c':			/* 在创建之前清理（即删除）模式 */
 				opts->dropSchema = 1;
 				break;
 			case 'C':
@@ -172,7 +172,7 @@ main(int argc, char **argv)
 			case 'e':
 				opts->exit_on_error = true;
 				break;
-			case 'f':			/* output file name */
+			case 'f':			/* 输出文件名称 */
 				opts->filename = pg_strdup(optarg);
 				break;
 			case 'F':
@@ -184,26 +184,26 @@ main(int argc, char **argv)
 					opts->cparams.pghost = pg_strdup(optarg);
 				break;
 
-			case 'j':			/* number of restore jobs */
+			case 'j':			/* 恢复作业数量 */
 				if (!option_parse_int(optarg, "-j/--jobs", 1,
 									  PG_MAX_JOBS,
 									  &numWorkers))
 					exit(1);
 				break;
 
-			case 'l':			/* Dump the TOC summary */
+			case 'l':			/* 导出 TOC 摘要 */
 				opts->tocSummary = 1;
 				break;
 
-			case 'L':			/* input TOC summary file name */
+			case 'L':			/* 输入 TOC 摘要文件名称 */
 				opts->tocFile = pg_strdup(optarg);
 				break;
 
-			case 'n':			/* Dump data for this schema only */
+			case 'n':			/* 仅导出此模式的数据 */
 				simple_string_list_append(&opts->schemaNames, optarg);
 				break;
 
-			case 'N':			/* Do not dump data for this schema */
+			case 'N':			/* 不导出此模式的数据 */
 				simple_string_list_append(&opts->schemaExcludeNames, optarg);
 				break;
 
@@ -216,31 +216,31 @@ main(int argc, char **argv)
 					opts->cparams.pgport = pg_strdup(optarg);
 				break;
 			case 'R':
-				/* no-op, still accepted for backwards compatibility */
+				/* 空操作，为向后兼容仍可接受 */
 				break;
-			case 'P':			/* Function */
+			case 'P':			/* 函数 */
 				opts->selTypes = 1;
 				opts->selFunction = 1;
 				simple_string_list_append(&opts->functionNames, optarg);
 				break;
-			case 'I':			/* Index */
+			case 'I':			/* 索引 */
 				opts->selTypes = 1;
 				opts->selIndex = 1;
 				simple_string_list_append(&opts->indexNames, optarg);
 				break;
-			case 'T':			/* Trigger */
+			case 'T':			/* 触发器 */
 				opts->selTypes = 1;
 				opts->selTrigger = 1;
 				simple_string_list_append(&opts->triggerNames, optarg);
 				break;
-			case 's':			/* dump schema only */
+			case 's':			/* 仅导出模式 */
 				opts->schemaOnly = 1;
 				break;
-			case 'S':			/* Superuser username */
+			case 'S':			/* 超级用户名称 */
 				if (strlen(optarg) != 0)
 					opts->superuser = pg_strdup(optarg);
 				break;
-			case 't':			/* Dump specified table(s) only */
+			case 't':			/* 仅导出指定的表 */
 				opts->selTypes = 1;
 				opts->selTable = 1;
 				simple_string_list_append(&opts->tableNames, optarg);
@@ -250,7 +250,7 @@ main(int argc, char **argv)
 				opts->cparams.username = pg_strdup(optarg);
 				break;
 
-			case 'v':			/* verbose */
+			case 'v':			/* 详细 */
 				opts->verbose = 1;
 				pg_logging_increase_verbosity();
 				break;
@@ -263,11 +263,11 @@ main(int argc, char **argv)
 				opts->cparams.promptPassword = TRI_YES;
 				break;
 
-			case 'x':			/* skip ACL dump */
+			case 'x':			/* 跳过 ACL 导出 */
 				opts->aclsSkip = 1;
 				break;
 
-			case '1':			/* Restore data in a single transaction */
+			case '1':			/* 在单事务中恢复数据 */
 				opts->single_txn = true;
 				opts->exit_on_error = true;
 				break;
@@ -275,7 +275,7 @@ main(int argc, char **argv)
 			case 0:
 
 				/*
-				 * This covers the long options without a short equivalent.
+				 * 这涵盖了没有对应短选项的长选项。
 				 */
 				break;
 
@@ -283,7 +283,7 @@ main(int argc, char **argv)
 				opts->use_role = pg_strdup(optarg);
 				break;
 
-			case 3:				/* section */
+			case 3:				/* 节 */
 				set_dump_section(optarg, &(opts->dumpSections));
 				break;
 
@@ -298,13 +298,13 @@ main(int argc, char **argv)
 		}
 	}
 
-	/* Get file name from command line */
+	/* 从命令行获取文件名 */
 	if (optind < argc)
 		inputFileSpec = argv[optind++];
 	else
 		inputFileSpec = NULL;
 
-	/* Complain if any arguments remain */
+	/* 如果有剩余参数则报错 */
 	if (optind < argc)
 	{
 		pg_log_error("too many command-line arguments (first is \"%s\")",
@@ -313,11 +313,11 @@ main(int argc, char **argv)
 		exit_nicely(1);
 	}
 
-	/* Complain if neither -f nor -d was specified (except if dumping TOC) */
+	/* 如果既未指定 -f 也未指定 -d 则报错（导出 TOC 时除外） */
 	if (!opts->cparams.dbname && !opts->filename && !opts->tocSummary)
 		pg_fatal("one of -d/--dbname and -f/--file must be specified");
 
-	/* Should get at most one of -d and -f, else user is confused */
+	/* -d 和 -f 最多只能指定一个，否则用户会困惑 */
 	if (opts->cparams.dbname)
 	{
 		if (opts->filename)
@@ -335,7 +335,7 @@ main(int argc, char **argv)
 	else
 	{
 		/*
-		 * If you don't provide a restrict key, one will be appointed for you.
+		 * 如果不提供限制键，系统将为您指定一个。
 		 */
 		if (!opts->restrict_key)
 			opts->restrict_key = generate_restrict_key();
@@ -352,13 +352,13 @@ main(int argc, char **argv)
 		pg_fatal("options -c/--clean and -a/--data-only cannot be used together");
 
 	/*
-	 * -C is not compatible with -1, because we can't create a database inside
-	 * a transaction block.
+	 * -C 与 -1 不兼容，因为我们无法在事务块中
+	 * 创建数据库。
 	 */
 	if (opts->createDB && opts->single_txn)
 		pg_fatal("options -C/--create and -1/--single-transaction cannot be used together");
 
-	/* Can't do single-txn mode with multiple connections */
+	/* 单事务模式不能与多个连接同时使用 */
 	if (opts->single_txn && numWorkers > 1)
 		pg_fatal("cannot specify both --single-transaction and multiple jobs");
 
@@ -408,17 +408,17 @@ main(int argc, char **argv)
 	SetArchiveOptions(AH, NULL, opts);
 
 	/*
-	 * We don't have a connection yet but that doesn't matter. The connection
-	 * is initialized to NULL and if we terminate through exit_nicely() while
-	 * it's still NULL, the cleanup function will just be a no-op.
+	 * 我们尚未建立连接，但这并不重要。连接初始化为 NULL，
+	 * 如果在它仍为 NULL 时通过 exit_nicely() 终止，
+	 * 清理函数将仅是一个空操作。
 	 */
 	on_exit_close_archive(AH);
 
-	/* Let the archiver know how noisy to be */
+	/* 告知归档器输出详细程度 */
 	AH->verbose = opts->verbose;
 
 	/*
-	 * Whether to keep submitting sql commands as "pg_restore ... | psql ... "
+	 * 是否保持将 SQL 命令以 "pg_restore ... | psql ... " 方式提交
 	 */
 	AH->exit_on_error = opts->exit_on_error;
 
@@ -435,11 +435,11 @@ main(int argc, char **argv)
 		RestoreArchive(AH);
 	}
 
-	/* done, print a summary of ignored errors */
+	/* 完成，打印被忽略的错误的摘要 */
 	if (AH->n_errors)
 		pg_log_warning("errors ignored on restore: %d", AH->n_errors);
 
-	/* AH may be freed in CloseArchive? */
+	/* AH 可能在 CloseArchive 中被释放？ */
 	exit_code = AH->n_errors ? 1 : 0;
 
 	CloseArchive(AH);

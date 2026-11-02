@@ -29,7 +29,7 @@
 #include "getopt_long.h"
 #include "pg_backup.h"
 
-/* version string we expect back from pg_dump */
+/* 期望从 pg_dump 收到的版本字符串 */
 #define PGDUMP_VERSIONSTR "pg_dump (PostgreSQL) " PG_VERSION "\n"
 
 static uint32 hash_string_pointer(char *s);
@@ -151,8 +151,8 @@ main(int argc, char *argv[])
 		{"no-acl", no_argument, NULL, 'x'},
 
 		/*
-		 * the following options don't have an equivalent short option letter
-		 */
+			 * 以下选项没有对应的短选项字母
+			 */
 		{"attribute-inserts", no_argument, &column_inserts, 1},
 		{"binary-upgrade", no_argument, &binary_upgrade, 1},
 		{"column-inserts", no_argument, &column_inserts, 1},
@@ -370,13 +370,13 @@ main(int argc, char *argv[])
 				break;
 
 			default:
-				/* getopt_long already emitted a complaint */
+				/* getopt_long 已经输出了错误信息 */
 				pg_log_error_hint("Try \"%s --help\" for more information.", progname);
 				exit_nicely(1);
 		}
 	}
 
-	/* Complain if any arguments remain */
+	/* 如果有剩余参数则报错 */
 	if (optind < argc)
 	{
 		pg_log_error("too many command-line arguments (first is \"%s\")",
@@ -393,7 +393,7 @@ main(int argc, char *argv[])
 		exit_nicely(1);
 	}
 
-	/* Make sure the user hasn't specified a mix of globals-only options */
+	/* 确保用户没有混用 globals-only 相关的选项 */
 	if (globals_only && roles_only)
 	{
 		pg_log_error("options -g/--globals-only and -r/--roles-only cannot be used together");
@@ -419,16 +419,16 @@ main(int argc, char *argv[])
 	}
 
 	/*
-	 * If password values are not required in the dump, switch to using
-	 * pg_roles which is equally useful, just more likely to have unrestricted
-	 * access than pg_authid.
+	 * 如果导出中不需要密码值，则切换为使用 pg_roles，
+	 * 它同样有用，且比 pg_authid 更可能具有不受限制的
+	 * 访问权限。
 	 */
 	if (no_role_passwords)
 		sprintf(role_catalog, "%s", PG_ROLES);
 	else
 		sprintf(role_catalog, "%s", PG_AUTHID);
 
-	/* Add long options to the pg_dump argument list */
+	/* 将长选项添加到 pg_dump 参数列表 */
 	if (binary_upgrade)
 		appendPQExpBufferStr(pgdumpopts, " --binary-upgrade");
 	if (column_inserts)
@@ -465,7 +465,7 @@ main(int argc, char *argv[])
 		appendPQExpBufferStr(pgdumpopts, " --on-conflict-do-nothing");
 
 	/*
-	 * If you don't provide a restrict key, one will be appointed for you.
+	 * 如果不提供限制键，系统会自动生成一个。
 	 */
 	if (!restrict_key)
 		restrict_key = generate_restrict_key();
@@ -475,9 +475,9 @@ main(int argc, char *argv[])
 		pg_fatal("invalid restrict key");
 
 	/*
-	 * If there was a database specified on the command line, use that,
-	 * otherwise try to connect to database "postgres", and failing that
-	 * "template1".
+	 * 如果在命令行指定了数据库，则使用该数据库，
+	 * 否则尝试连接数据库 "postgres"，如果失败则连接
+	 * "template1"。
 	 */
 	if (pgdb)
 	{
@@ -505,13 +505,13 @@ main(int argc, char *argv[])
 	}
 
 	/*
-	 * Get a list of database names that match the exclude patterns
+	 * 获取匹配排除模式的数据库名称列表
 	 */
 	expand_dbname_patterns(conn, &database_exclude_patterns,
 						   &database_exclude_names);
 
 	/*
-	 * Open the output file if required, otherwise use stdout
+	 * 如果需要则打开输出文件，否则使用 stdout
 	 */
 	if (filename)
 	{
@@ -524,7 +524,7 @@ main(int argc, char *argv[])
 		OPF = stdout;
 
 	/*
-	 * Set the client encoding if requested.
+	 * 如果请求了则设置客户端编码。
 	 */
 	if (dumpencoding)
 	{
@@ -534,8 +534,8 @@ main(int argc, char *argv[])
 	}
 
 	/*
-	 * Get the active encoding and the standard_conforming_strings setting, so
-	 * we know how to escape strings.
+	 * 获取活动编码和 standard_conforming_strings 设置，以便
+	 * 我们知道如何转义字符串。
 	 */
 	encoding = PQclientEncoding(conn);
 	setFmtEncoding(encoding);
@@ -543,7 +543,7 @@ main(int argc, char *argv[])
 	if (!std_strings)
 		std_strings = "off";
 
-	/* Set the role if requested */
+	/* 如果请求了则设置角色 */
 	if (use_role)
 	{
 		PQExpBuffer query = createPQExpBuffer();
@@ -553,7 +553,7 @@ main(int argc, char *argv[])
 		destroyPQExpBuffer(query);
 	}
 
-	/* Force quoting of all identifiers if requested. */
+	/* 如果请求了则强制引用所有标识符。 */
 	if (quote_all_identifiers)
 		executeCommand(conn, "SET quote_all_identifiers = true");
 
@@ -562,26 +562,26 @@ main(int argc, char *argv[])
 		dumpTimestamp("Started on");
 
 	/*
-	 * Enter restricted mode to block any unexpected psql meta-commands.  A
-	 * malicious source might try to inject a variety of things via bogus
-	 * responses to queries.  While we cannot prevent such sources from
-	 * affecting the destination at restore time, we can block psql
-	 * meta-commands so that the client machine that runs psql with the dump
-	 * output remains unaffected.
+	 * 进入受限模式以阻止任何意外的 psql 元命令。恶意数据源可能
+	 * 试图通过伪造的查询响应注入各种内容。虽然我们无法阻止此类
+	 * 数据源在恢复时影响目标数据库，但我们可以阻止 psql 元命令，
+	 * 以便运行 psql 并处理导出输出的客户端机器
+	 * 不受影响。
+	 *
 	 */
 	fprintf(OPF, "\\restrict %s\n\n", restrict_key);
 
 	/*
-	 * We used to emit \connect postgres here, but that served no purpose
-	 * other than to break things for installations without a postgres
-	 * database.  Everything we're restoring here is a global, so whichever
-	 * database we're connected to at the moment is fine.
+	 * 我们过去在这里输出 \connect postgres，但这除了破坏
+	 * 没有 postgres 数据库的安装之外没有任何作用。
+	 * 我们在这里恢复的所有内容都是全局的，因此当前连接到
+	 * 哪个数据库都可以。
 	 */
 
-	/* Restore will need to write to the target cluster */
+	/* 恢复将需要写入目标集簇 */
 	fprintf(OPF, "SET default_transaction_read_only = off;\n\n");
 
-	/* Replicate encoding and std_strings in output */
+	/* 在输出中复制编码和 std_strings */
 	fprintf(OPF, "SET client_encoding = '%s';\n",
 			pg_encoding_to_char(encoding));
 	fprintf(OPF, "SET standard_conforming_strings = %s;\n", std_strings);
@@ -592,11 +592,11 @@ main(int argc, char *argv[])
 	if (!data_only)
 	{
 		/*
-		 * If asked to --clean, do that first.  We can avoid detailed
-		 * dependency analysis because databases never depend on each other,
-		 * and tablespaces never depend on each other.  Roles could have
-		 * grants to each other, but DROP ROLE will clean those up silently.
-		 */
+			 * 如果指定了 --clean，则先执行清理。我们可以避免详细的
+			 * 依赖分析，因为数据库之间从不相互依赖，
+			 * 表空间之间也从不相互依赖。角色之间可能存在
+			 * 授权关系，但 DROP ROLE 会静默清理这些。
+			 */
 		if (output_clean)
 		{
 			if (!globals_only && !roles_only && !tablespaces_only)
@@ -610,30 +610,30 @@ main(int argc, char *argv[])
 		}
 
 		/*
-		 * Now create objects as requested.  Be careful that option logic here
-		 * is the same as for drops above.
-		 */
+			 * 现在按要求创建对象。注意此处的选项逻辑
+			 * 必须与上面的删除逻辑一致。
+			 */
 		if (!tablespaces_only)
 		{
-			/* Dump roles (users) */
+			/* 导出角色（用户） */
 			dumpRoles(conn);
 
-			/* Dump role memberships */
+			/* 导出角色成员关系 */
 			dumpRoleMembership(conn);
 
-			/* Dump role GUC privileges */
+			/* 导出角色 GUC 权限 */
 			if (server_version >= 150000 && !skip_acls)
 				dumpRoleGUCPrivs(conn);
 		}
 
-		/* Dump tablespaces */
+		/* 导出表空间 */
 		if (!roles_only && !no_tablespaces)
 			dumpTablespaces(conn);
 	}
 
 	/*
-	 * Exit restricted mode just before dumping the databases.  pg_dump will
-	 * handle entering restricted mode again as appropriate.
+	 * 在导出数据库之前退出受限模式。pg_dump 将
+	 * 根据需要再次进入受限模式。
 	 */
 	fprintf(OPF, "\\unrestrict %s\n\n", restrict_key);
 
@@ -650,7 +650,7 @@ main(int argc, char *argv[])
 	{
 		fclose(OPF);
 
-		/* sync the resulting file, errors are not fatal */
+		/* 同步输出文件，错误不致命 */
 		if (dosync)
 			(void) fsync_fname(filename, false);
 	}
@@ -728,7 +728,7 @@ help(void)
 
 
 /*
- * Drop roles
+ * 删除角色
  */
 static void
 dropRoles(PGconn *conn)
@@ -775,7 +775,7 @@ dropRoles(PGconn *conn)
 }
 
 /*
- * Dump roles
+ * 导出角色
  */
 static void
 dumpRoles(PGconn *conn)
@@ -799,9 +799,9 @@ dumpRoles(PGconn *conn)
 	int			i;
 
 	/*
-	 * Notes: rolconfig is dumped later, and pg_authid must be used for
-	 * extracting rolcomment regardless of role_catalog.
-	 */
+		 * 注意：rolconfig 稍后导出，且无论 role_catalog 如何，
+		 * 都必须使用 pg_authid 提取 rolcomment。
+		 */
 	if (server_version >= 90600)
 		printfPQExpBuffer(buf,
 						  "SELECT oid, rolname, rolsuper, rolinherit, "
@@ -881,13 +881,13 @@ dumpRoles(PGconn *conn)
 		}
 
 		/*
-		 * We dump CREATE ROLE followed by ALTER ROLE to ensure that the role
-		 * will acquire the right properties even if it already exists (ie, it
-		 * won't hurt for the CREATE to fail).  This is particularly important
-		 * for the role we are connected as, since even with --clean we will
-		 * have failed to drop it.  binary_upgrade cannot generate any errors,
-		 * so we assume the current role is already created.
-		 */
+			 * 我们导出 CREATE ROLE 后跟 ALTER ROLE，以确保即使角色
+			 * 已存在也能获得正确的属性（即 CREATE 失败也无妨）。
+			 * 这对我们连接所用的角色尤为重要，因为即使使用 --clean，
+			 * 我们也无法删除它。binary_upgrade 不能产生任何错误，
+			 * 因此我们假设当前角色已经创建。
+			 *
+			 */
 		if (!binary_upgrade ||
 			strcmp(PQgetvalue(res, i, i_is_current_user), "f") == 0)
 			appendPQExpBuffer(buf, "CREATE ROLE %s;\n", fmtId(rolename));
@@ -961,10 +961,10 @@ dumpRoles(PGconn *conn)
 	}
 
 	/*
-	 * Dump configuration settings for roles after all roles have been dumped.
-	 * We do it this way because config settings for roles could mention the
-	 * names of other roles.
-	 */
+		 * 在所有角色导出后，再导出角色的配置设置。
+		 * 我们这样做是因为角色的配置设置可能引用
+		 * 其他角色的名称。
+		 */
 	if (PQntuples(res) > 0)
 		fprintf(OPF, "\n--\n-- User Configurations\n--\n");
 
@@ -980,11 +980,11 @@ dumpRoles(PGconn *conn)
 
 
 /*
- * Dump role memberships.
- *
- * Note: we expect dumpRoles already created all the roles, but there is
- * no membership yet.
- */
+	 * 导出角色成员关系。
+	 *
+	 * 注意：我们期望 dumpRoles 已经创建了所有角色，但
+	 * 尚未建立成员关系。
+	 */
 static void
 dumpRoleMembership(PGconn *conn)
 {
@@ -1007,24 +1007,24 @@ dumpRoleMembership(PGconn *conn)
 	int			i_set_option;
 
 	/*
-	 * Previous versions of PostgreSQL didn't used to track the grantor very
-	 * carefully in the backend, and the grantor could be any user even if
-	 * they didn't have ADMIN OPTION on the role, or a user that no longer
-	 * existed. To avoid dump and restore failures, don't dump the grantor
-	 * when talking to an old server version.
-	 *
-	 * Also, in older versions the roleid and/or member could be role OIDs
-	 * that no longer exist.  If we find such cases, print a warning and skip
-	 * the entry.
-	 */
+		 * 旧版 PostgreSQL 在后台对授予者的追踪不够仔细，
+		 * 授予者可能是任何用户，即使他们没有角色的 ADMIN OPTION，
+		 * 或者是不再存在的用户。为避免导出和恢复失败，
+		 * 在连接旧版服务器时不导出授予者。
+		 *
+		 * 此外，在旧版本中 roleid 和/或 member 可能是不再存在的
+		 * 角色 OID。如果发现这种情况，打印警告并跳过该条目。
+		 *
+		 *
+		 */
 	dump_grantors = (PQserverVersion(conn) >= 160000);
 
 	/*
-	 * Previous versions of PostgreSQL also did not have grant-level options.
-	 */
+		 * 旧版 PostgreSQL 也没有授予级别的选项。
+		 */
 	dump_grant_options = (server_version >= 160000);
 
-	/* Generate and execute query. */
+	/* 生成并执行查询。 */
 	printfPQExpBuffer(buf, "SELECT ur.rolname AS role, "
 					  "um.rolname AS member, "
 					  "ug.rolname AS grantor, "
@@ -1055,19 +1055,19 @@ dumpRoleMembership(PGconn *conn)
 		fprintf(OPF, "--\n-- Role memberships\n--\n\n");
 
 	/*
-	 * We can't dump these GRANT commands in arbitrary order, because a role
-	 * that is named as a grantor must already have ADMIN OPTION on the role
-	 * for which it is granting permissions, except for the bootstrap
-	 * superuser, who can always be named as the grantor.
-	 *
-	 * We handle this by considering these grants role by role. For each role,
-	 * we initially consider the only allowable grantor to be the bootstrap
-	 * superuser. Every time we grant ADMIN OPTION on the role to some user,
-	 * that user also becomes an allowable grantor. We make repeated passes
-	 * over the grants for the role, each time dumping those whose grantors
-	 * are allowable and which we haven't done yet. Eventually this should let
-	 * us dump all the grants.
-	 */
+		 * 我们不能按任意顺序导出这些 GRANT 命令，因为被指定为
+		 * 授予者的角色必须已经对其授予权限的角色拥有 ADMIN OPTION，
+		 * 唯一的例外是引导超级用户，它始终可以作为授予者。
+		 *
+		 * 我们通过逐个角色处理这些授权来解决。对于每个角色，
+		 * 我们最初只允许引导超级用户作为授予者。每次我们向某个用户
+		 * 授予角色的 ADMIN OPTION 后，该用户也变成允许的授予者。
+		 * 我们对角色的授权进行多次遍历，每次导出那些授予者被允许
+		 * 且尚未处理过的授权。最终这应该能让我们
+		 * 导出所有授权。
+		 *
+		 *
+		 */
 	total = PQntuples(res);
 	while (start < total)
 	{
@@ -1078,7 +1078,7 @@ dumpRoleMembership(PGconn *conn)
 		int			prev_remaining = 0;
 		rolename_hash *ht;
 
-		/* If we hit a null roleid, we're done (nulls sort to the end). */
+		/* 如果遇到空的 roleid，表示已完成（空值排在末尾）。 */
 		if (PQgetisnull(res, start, i_role))
 		{
 			/* translator: %s represents a numeric role OID */
@@ -1087,7 +1087,7 @@ dumpRoleMembership(PGconn *conn)
 			break;
 		}
 
-		/* All memberships for a single role should be adjacent. */
+		/* 单个角色的所有成员关系应该是相邻的。 */
 		for (end = start; end < total; ++end)
 		{
 			char	   *otherrole;
@@ -1102,17 +1102,17 @@ dumpRoleMembership(PGconn *conn)
 		ht = rolename_create(remaining, NULL);
 
 		/*
-		 * Make repeated passes over the grants for this role until all have
-		 * been dumped.
-		 */
+			 * 对该角色的授权进行多次遍历，直到所有授权
+			 * 都已导出。
+			 */
 		while (remaining > 0)
 		{
 			/*
-			 * We should make progress on every iteration, because a notional
-			 * graph whose vertices are grants and whose edges point from
-			 * grantors to members should be connected and acyclic. If we fail
-			 * to make progress, either we or the server have messed up.
-			 */
+				 * 每次迭代都应该有所进展，因为一个以授权为顶点、
+				 * 以授予者到成员为边的概念图应该是
+				 * 连通且无环的。如果无法取得进展，
+				 * 说明我们或服务器出了问题。
+				 */
 			if (remaining == prev_remaining)
 			{
 				pg_log_error("could not find a legal dump ordering for memberships in role \"%s\"",
@@ -1122,7 +1122,7 @@ dumpRoleMembership(PGconn *conn)
 			}
 			prev_remaining = remaining;
 
-			/* Make one pass over the grants for this role. */
+			/* 对该角色的授权进行一次遍历。 */
 			for (i = start; i < end; ++i)
 			{
 				char	   *member;
@@ -1132,11 +1132,11 @@ dumpRoleMembership(PGconn *conn)
 				char	   *set_option = "true";
 				bool		found;
 
-				/* If we already did this grant, don't do it again. */
+				/* 如果已处理过此授权，则不再重复。 */
 				if (done[i - start])
 					continue;
 
-				/* Complain about, then ignore, entries with orphaned OIDs. */
+				/* 对存在孤立 OID 的条目报错，然后忽略。 */
 				if (PQgetisnull(res, i, i_member))
 				{
 					/* translator: %s represents a numeric role OID */
@@ -1164,28 +1164,28 @@ dumpRoleMembership(PGconn *conn)
 					set_option = PQgetvalue(res, i, i_set_option);
 
 				/*
-				 * If we're not dumping grantors or if the grantor is the
-				 * bootstrap superuser, it's fine to dump this now. Otherwise,
-				 * it's got to be someone who has already been granted ADMIN
-				 * OPTION.
-				 */
+					 * 如果不导出授予者，或者授予者是
+					 * 引导超级用户，现在就可以导出。否则，
+					 * 必须是已被授予 ADMIN OPTION 的
+					 * 用户。
+					 */
 				if (dump_grantors &&
 					atooid(grantorid) != BOOTSTRAP_SUPERUSERID &&
 					rolename_lookup(ht, grantor) == NULL)
 					continue;
 
-				/* Remember that we did this so that we don't do it again. */
+				/* 记录已完成，以免重复处理。 */
 				done[i - start] = true;
 				--remaining;
 
 				/*
-				 * If ADMIN OPTION is being granted, remember that grants
-				 * listing this member as the grantor can now be dumped.
-				 */
+					 * 如果正在授予 ADMIN OPTION，记住现在可以导出
+					 * 以此成员为授予者的授权。
+					 */
 				if (*admin_option == 't')
 					rolename_insert(ht, member, &found);
 
-				/* Generate the actual GRANT statement. */
+				/* 生成实际的 GRANT 语句。 */
 				resetPQExpBuffer(optbuf);
 				fprintf(OPF, "GRANT %s", fmtId(role));
 				fprintf(OPF, " TO %s", fmtId(member));
@@ -1229,12 +1229,12 @@ dumpRoleMembership(PGconn *conn)
 
 
 /*
- * Dump role configuration parameter privileges.  This code is used for 15.0
- * and later servers.
- *
- * Note: we expect dumpRoles already created all the roles, but there are
- * no per-role configuration parameter privileges yet.
- */
+	 * 导出角色配置参数权限。此代码用于 15.0
+	 * 及更高版本的服务器。
+	 *
+	 * 注意：我们期望 dumpRoles 已经创建了所有角色，但
+	 * 尚未有按角色的配置参数权限。
+	 */
 static void
 dumpRoleGUCPrivs(PGconn *conn)
 {
@@ -1242,8 +1242,8 @@ dumpRoleGUCPrivs(PGconn *conn)
 	int			i;
 
 	/*
-	 * Get all parameters that have non-default acls defined.
-	 */
+		 * 获取所有定义了非默认 ACL 的参数。
+		 */
 	res = executeQuery(conn, "SELECT parname, "
 					   "pg_catalog.pg_get_userbyid(" CppAsString2(BOOTSTRAP_SUPERUSERID) ") AS parowner, "
 					   "paracl, "
@@ -1263,7 +1263,7 @@ dumpRoleGUCPrivs(PGconn *conn)
 		char	   *acldefault = PQgetvalue(res, i, 3);
 		char	   *fparname;
 
-		/* needed for buildACLCommands() */
+		/* buildACLCommands() 所需 */
 		fparname = pg_strdup(fmtId(parname));
 
 		if (!buildACLCommands(fparname, NULL, NULL, "PARAMETER",
@@ -1288,8 +1288,8 @@ dumpRoleGUCPrivs(PGconn *conn)
 
 
 /*
- * Drop tablespaces.
- */
+	 * 删除表空间。
+	 */
 static void
 dropTablespaces(PGconn *conn)
 {
@@ -1297,9 +1297,9 @@ dropTablespaces(PGconn *conn)
 	int			i;
 
 	/*
-	 * Get all tablespaces except built-in ones (which we assume are named
-	 * pg_xxx)
-	 */
+		 * 获取所有表空间，内置的除外（假设内置表空间命名为
+		 * pg_xxx）
+		 */
 	res = executeQuery(conn, "SELECT spcname "
 					   "FROM pg_catalog.pg_tablespace "
 					   "WHERE spcname !~ '^pg_' "
@@ -1323,8 +1323,8 @@ dropTablespaces(PGconn *conn)
 }
 
 /*
- * Dump tablespaces.
- */
+	 * 导出表空间。
+	 */
 static void
 dumpTablespaces(PGconn *conn)
 {
@@ -1332,9 +1332,9 @@ dumpTablespaces(PGconn *conn)
 	int			i;
 
 	/*
-	 * Get all tablespaces except built-in ones (which we assume are named
-	 * pg_xxx)
-	 */
+		 * 获取所有表空间，内置的除外（假设内置表空间命名为
+		 * pg_xxx）
+		 */
 	res = executeQuery(conn, "SELECT oid, spcname, "
 					   "pg_catalog.pg_get_userbyid(spcowner) AS spcowner, "
 					   "pg_catalog.pg_tablespace_location(oid), "
@@ -1361,7 +1361,7 @@ dumpTablespaces(PGconn *conn)
 		char	   *spccomment = PQgetvalue(res, i, 7);
 		char	   *fspcname;
 
-		/* needed for buildACLCommands() */
+		/* buildACLCommands() 所需 */
 		fspcname = pg_strdup(fmtId(spcname));
 
 		if (binary_upgrade)
@@ -1381,7 +1381,7 @@ dumpTablespaces(PGconn *conn)
 			appendPQExpBuffer(buf, "ALTER TABLESPACE %s SET (%s);\n",
 							  fspcname, spcoptions);
 
-		/* tablespaces can't have initprivs */
+		/* 表空间不能有 initprivs */
 
 		if (!skip_acls &&
 			!buildACLCommands(fspcname, NULL, NULL, "TABLESPACE",
@@ -1418,8 +1418,8 @@ dumpTablespaces(PGconn *conn)
 
 
 /*
- * Dump commands to drop each database.
- */
+	 * 导出用于删除每个数据库的命令。
+	 */
 static void
 dropDBs(PGconn *conn)
 {
@@ -1427,9 +1427,9 @@ dropDBs(PGconn *conn)
 	int			i;
 
 	/*
-	 * Skip databases marked not datallowconn, since we'd be unable to connect
-	 * to them anyway.  This must agree with dumpDatabases().
-	 */
+		 * 跳过标记为 datallowconn 为 false 的数据库，因为我们无论如何
+		 * 也无法连接它们。这必须与 dumpDatabases() 保持一致。
+		 */
 	res = executeQuery(conn,
 					   "SELECT datname "
 					   "FROM pg_database d "
@@ -1444,10 +1444,10 @@ dropDBs(PGconn *conn)
 		char	   *dbname = PQgetvalue(res, i, 0);
 
 		/*
-		 * Skip "postgres" and "template1"; dumpDatabases() will deal with
-		 * them specially.  Also, be sure to skip "template0", even if for
-		 * some reason it's not marked !datallowconn.
-		 */
+			 * 跳过 "postgres" 和 "template1"；dumpDatabases() 将
+			 * 特殊处理它们。此外，务必跳过 "template0"，即使
+			 * 出于某种原因它没有被标记为 !datallowconn。
+			 */
 		if (strcmp(dbname, "template1") != 0 &&
 			strcmp(dbname, "template0") != 0 &&
 			strcmp(dbname, "postgres") != 0)
@@ -1465,8 +1465,8 @@ dropDBs(PGconn *conn)
 
 
 /*
- * Dump user-specific configuration
- */
+	 * 导出用户特定的配置
+	 */
 static void
 dumpUserConfig(PGconn *conn, const char *username)
 {
@@ -1506,9 +1506,9 @@ dumpUserConfig(PGconn *conn, const char *username)
 }
 
 /*
- * Find a list of database names that match the given patterns.
- * See also expand_table_name_patterns() in pg_dump.c
- */
+	 * 查找匹配给定模式的数据库名称列表。
+	 * 另见 pg_dump.c 中的 expand_table_name_patterns()
+	 */
 static void
 expand_dbname_patterns(PGconn *conn,
 					   SimpleStringList *patterns,
@@ -1518,15 +1518,15 @@ expand_dbname_patterns(PGconn *conn,
 	PGresult   *res;
 
 	if (patterns->head == NULL)
-		return;					/* nothing to do */
+		return;					/* 无事可做 */
 
 	query = createPQExpBuffer();
 
 	/*
-	 * The loop below runs multiple SELECTs, which might sometimes result in
-	 * duplicate entries in the name list, but we don't care, since all we're
-	 * going to do is test membership of the list.
-	 */
+		 * 下面的循环运行多个 SELECT，有时可能导致名称列表中出现
+		 * 重复条目，但我们不关心，因为我们只是用来
+		 * 测试列表成员关系。
+		 */
 
 	for (SimpleStringListCell *cell = patterns->head; cell; cell = cell->next)
 	{
@@ -1560,8 +1560,8 @@ expand_dbname_patterns(PGconn *conn,
 }
 
 /*
- * Dump contents of databases.
- */
+	 * 导出数据库内容。
+	 */
 static void
 dumpDatabases(PGconn *conn)
 {
@@ -1569,16 +1569,16 @@ dumpDatabases(PGconn *conn)
 	int			i;
 
 	/*
-	 * Skip databases marked not datallowconn, since we'd be unable to connect
-	 * to them anyway.  This must agree with dropDBs().
-	 *
-	 * We arrange for template1 to be processed first, then we process other
-	 * DBs in alphabetical order.  If we just did them all alphabetically, we
-	 * might find ourselves trying to drop the "postgres" database while still
-	 * connected to it.  This makes trying to run the restore script while
-	 * connected to "template1" a bad idea, but there's no fixed order that
-	 * doesn't have some failure mode with --clean.
-	 */
+		 * 跳过标记为 datallowconn 为 false 的数据库，因为我们无论如何
+		 * 也无法连接它们。这必须与 dropDBs() 保持一致。
+		 *
+		 * 我们安排先处理 template1，然后按字母顺序处理其他数据库。
+		 * 如果全部按字母顺序处理，可能会在仍连接着 "postgres" 时
+		 * 尝试删除它。这使得在连接 "template1" 时运行恢复脚本
+		 * 是个坏主意，但在 --clean 模式下，没有哪种固定顺序
+		 * 能避免所有失败模式。
+		 *
+		 */
 	res = executeQuery(conn,
 					   "SELECT datname "
 					   "FROM pg_database d "
@@ -1595,11 +1595,11 @@ dumpDatabases(PGconn *conn)
 		const char *create_opts;
 		int			ret;
 
-		/* Skip template0, even if it's not marked !datallowconn. */
+		/* 跳过 template0，即使它没有被标记为 !datallowconn。 */
 		if (strcmp(dbname, "template0") == 0)
 			continue;
 
-		/* Skip any explicitly excluded database */
+		/* 跳过任何被明确排除的数据库 */
 		if (simple_string_list_member(&database_exclude_names, dbname))
 		{
 			pg_log_info("excluding database \"%s\"", dbname);
@@ -1613,13 +1613,13 @@ dumpDatabases(PGconn *conn)
 		free(sanitized);
 
 		/*
-		 * We assume that "template1" and "postgres" already exist in the
-		 * target installation.  dropDBs() won't have removed them, for fear
-		 * of removing the DB the restore script is initially connected to. If
-		 * --clean was specified, tell pg_dump to drop and recreate them;
-		 * otherwise we'll merely restore their contents.  Other databases
-		 * should simply be created.
-		 */
+			 * 我们假设 "template1" 和 "postgres" 已存在于
+			 * 目标安装中。dropDBs() 不会删除它们，因为担心
+			 * 会删除恢复脚本最初连接的数据库。如果指定了
+			 * --clean，则告诉 pg_dump 删除并重建它们；
+			 * 否则只恢复它们的内容。其他数据库
+			 * 应该直接创建。
+			 */
 		if (strcmp(dbname, "template1") == 0 || strcmp(dbname, "postgres") == 0)
 		{
 			if (output_clean)
@@ -1627,7 +1627,7 @@ dumpDatabases(PGconn *conn)
 			else
 			{
 				create_opts = "";
-				/* Since pg_dump won't emit a \connect command, we must */
+				/* pg_dump 不会输出 \connect 命令，我们必须 */
 				fprintf(OPF, "\\connect %s\n\n", dbname);
 			}
 		}
@@ -1656,8 +1656,8 @@ dumpDatabases(PGconn *conn)
 
 
 /*
- * Run pg_dump on dbname, with specified options.
- */
+	 * 在 dbname 上运行 pg_dump，使用指定的选项。
+	 */
 static int
 runPgDump(const char *dbname, const char *create_opts)
 {
@@ -1669,18 +1669,18 @@ runPgDump(const char *dbname, const char *create_opts)
 					  pgdumpopts->data, create_opts);
 
 	/*
-	 * If we have a filename, use the undocumented plain-append pg_dump
-	 * format.
-	 */
+		 * 如果有文件名，使用未公开的 plain-append pg_dump
+		 * 格式。
+		 */
 	if (filename)
 		appendPQExpBufferStr(cmd, " -Fa ");
 	else
 		appendPQExpBufferStr(cmd, " -Fp ");
 
 	/*
-	 * Append the database name to the already-constructed stem of connection
-	 * string.
-	 */
+		 * 将数据库名称追加到已构造的连接字符串
+		 * 主干。
+		 */
 	appendPQExpBuffer(connstrbuf, "%s dbname=", connstr);
 	appendConnStrVal(connstrbuf, dbname);
 
@@ -1699,16 +1699,16 @@ runPgDump(const char *dbname, const char *create_opts)
 }
 
 /*
- * buildShSecLabels
- *
- * Build SECURITY LABEL command(s) for a shared object
- *
- * The caller has to provide object type and identity in two separate formats:
- * catalog_name (e.g., "pg_database") and object OID, as well as
- * type name (e.g., "DATABASE") and object name (not pre-quoted).
- *
- * The command(s) are appended to "buffer".
- */
+	 * buildShSecLabels
+	 *
+	 * 为共享对象构建 SECURITY LABEL 命令
+	 *
+	 * 调用者必须以两种不同格式提供对象类型和标识：
+	 * catalog_name（例如 "pg_database"）和对象 OID，以及
+	 * 类型名称（例如 "DATABASE"）和对象名称（未预引用）。
+	 *
+	 * 命令被追加到 "buffer"。
+	 */
 static void
 buildShSecLabels(PGconn *conn, const char *catalog_name, Oid objectId,
 				 const char *objtype, const char *objname,
@@ -1726,15 +1726,15 @@ buildShSecLabels(PGconn *conn, const char *catalog_name, Oid objectId,
 }
 
 /*
- * Make a database connection with the given parameters.  An
- * interactive password prompt is automatically issued if required.
- *
- * If fail_on_error is false, we return NULL without printing any message
- * on failure, but preserve any prompted password for the next try.
- *
- * On success, the global variable 'connstr' is set to a connection string
- * containing the options used.
- */
+	 * 使用给定的参数建立数据库连接。如果需要，
+	 * 会自动发出交互式密码提示。
+	 *
+	 * 如果 fail_on_error 为 false，失败时返回 NULL 且不打印任何消息，
+	 * 但保留已提示的密码供下次尝试。
+	 *
+	 * 成功时，全局变量 'connstr' 被设置为包含所用选项的
+	 * 连接字符串。
+	 */
 static PGconn *
 connectDatabase(const char *dbname, const char *connection_string,
 				const char *pghost, const char *pgport, const char *pguser,
@@ -1753,9 +1753,9 @@ connectDatabase(const char *dbname, const char *connection_string,
 		password = simple_prompt("Password: ", false);
 
 	/*
-	 * Start the connection.  Loop until we have a password if requested by
-	 * backend.
-	 */
+		 * 开始连接。如果后端要求密码，则循环直到
+		 * 获得密码。
+		 */
 	do
 	{
 		int			argcount = 6;
@@ -1768,11 +1768,11 @@ connectDatabase(const char *dbname, const char *connection_string,
 		PQconninfoFree(conn_opts);
 
 		/*
-		 * Merge the connection info inputs given in form of connection string
-		 * and other options.  Explicitly discard any dbname value in the
-		 * connection string; otherwise, PQconnectdbParams() would interpret
-		 * that value as being itself a connection string.
-		 */
+			 * 合并以连接字符串形式和其他选项形式给定的
+			 * 连接信息输入。显式丢弃连接字符串中的任何 dbname 值，
+			 * 否则 PQconnectdbParams() 会将该值
+			 * 解释为连接字符串本身。
+			 */
 		if (connection_string)
 		{
 			conn_opts = PQconninfoParse(connection_string, &err_msg);
@@ -1857,7 +1857,7 @@ connectDatabase(const char *dbname, const char *connection_string,
 		}
 	} while (new_pass);
 
-	/* check to see that the backend connection was successfully made */
+	/* 检查后端连接是否成功建立 */
 	if (PQstatus(conn) == CONNECTION_BAD)
 	{
 		if (fail_on_error)
@@ -1875,16 +1875,16 @@ connectDatabase(const char *dbname, const char *connection_string,
 	}
 
 	/*
-	 * Ok, connected successfully. Remember the options used, in the form of a
-	 * connection string.
-	 */
+		 * 好，连接成功。以连接字符串的形式
+		 * 记住使用的选项。
+		 */
 	connstr = constructConnStr(keywords, values);
 
 	free(keywords);
 	free(values);
 	PQconninfoFree(conn_opts);
 
-	/* Check version */
+	/* 检查版本 */
 	remoteversion_str = PQparameterStatus(conn, "server_version");
 	if (!remoteversion_str)
 		pg_fatal("could not get server version");
@@ -1896,9 +1896,9 @@ connectDatabase(const char *dbname, const char *connection_string,
 	my_version = PG_VERSION_NUM;
 
 	/*
-	 * We allow the server to be back to 9.2, and up to any minor release of
-	 * our own major version.  (See also version check in pg_dump.c.)
-	 */
+		 * 我们允许服务器版本回溯到 9.2，以及我们自己主版本的
+		 * 任何小版本。（另见 pg_dump.c 中的版本检查。）
+		 */
 	if (my_version != server_version
 		&& (server_version < 90200 ||
 			(server_version / 100) > (my_version / 100)))
@@ -1915,15 +1915,15 @@ connectDatabase(const char *dbname, const char *connection_string,
 }
 
 /* ----------
- * Construct a connection string from the given keyword/value pairs. It is
- * used to pass the connection options to the pg_dump subprocess.
- *
- * The following parameters are excluded:
- *	dbname		- varies in each pg_dump invocation
- *	password	- it's not secure to pass a password on the command line
- *	fallback_application_name - we'll let pg_dump set it
- * ----------
- */
+	 * 从给定的关键字/值对构造连接字符串。
+	 * 它用于将连接选项传递给 pg_dump 子进程。
+	 *
+	 * 以下参数被排除：
+	 *	dbname		- 每次 pg_dump 调用都不同
+	 *	password	- 在命令行传递密码不安全
+	 *	fallback_application_name - 让 pg_dump 自行设置
+	 * ----------
+	 */
 static char *
 constructConnStr(const char **keywords, const char **values)
 {
@@ -1932,7 +1932,7 @@ constructConnStr(const char **keywords, const char **values)
 	int			i;
 	bool		firstkeyword = true;
 
-	/* Construct a new connection string in key='value' format. */
+	/* 以 key='value' 格式构造新的连接字符串。 */
 	for (i = 0; keywords[i] != NULL; i++)
 	{
 		if (strcmp(keywords[i], "dbname") == 0 ||
@@ -1953,8 +1953,8 @@ constructConnStr(const char **keywords, const char **values)
 }
 
 /*
- * Run a query, return the results, exit program on failure.
- */
+	 * 运行查询，返回结果，失败时退出程序。
+	 */
 static PGresult *
 executeQuery(PGconn *conn, const char *query)
 {
@@ -1976,8 +1976,8 @@ executeQuery(PGconn *conn, const char *query)
 }
 
 /*
- * As above for a SQL command (which returns nothing).
- */
+	 * 同上，但用于 SQL 命令（不返回结果）。
+	 */
 static void
 executeCommand(PGconn *conn, const char *query)
 {
@@ -2000,8 +2000,8 @@ executeCommand(PGconn *conn, const char *query)
 
 
 /*
- * dumpTimestamp
- */
+	 * dumpTimestamp — 输出时间戳
+	 */
 static void
 dumpTimestamp(const char *msg)
 {
@@ -2013,8 +2013,8 @@ dumpTimestamp(const char *msg)
 }
 
 /*
- * Helper function for rolename_hash hash table.
- */
+	 * rolename_hash 哈希表的辅助函数。
+	 */
 static uint32
 hash_string_pointer(char *s)
 {

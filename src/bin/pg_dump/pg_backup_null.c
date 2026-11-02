@@ -2,11 +2,11 @@
  *
  * pg_backup_null.c
  *
- *	Implementation of an archive that is never saved; it is used by
- *	pg_dump to output a plain text SQL script instead of saving
- *	a real archive.
+ *	 实现一种永不保存的归档；pg_dump 使用它
+ *	 来输出纯文本 SQL 脚本，而不是保存
+ *	 真实的归档。
  *
- *	See the headers to pg_restore for more details.
+ *	 更多详情请参见 pg_restore 的头文件。
  *
  * Copyright (c) 2000, Philip Warner
  *		Rights are granted to use this software in any way so long
@@ -42,12 +42,12 @@ static void _EndLOs(ArchiveHandle *AH, TocEntry *te);
 
 
 /*
- *	Initializer
+ *	初始化器
  */
 void
 InitArchiveFmt_Null(ArchiveHandle *AH)
 {
-	/* Assuming static functions, this can be copied for each format. */
+	/* 假设使用静态函数，这对每种格式都一样。 */
 	AH->WriteDataPtr = _WriteData;
 	AH->EndDataPtr = _EndData;
 	AH->WriteBytePtr = _WriteByte;
@@ -63,34 +63,34 @@ InitArchiveFmt_Null(ArchiveHandle *AH)
 	AH->ClonePtr = NULL;
 	AH->DeClonePtr = NULL;
 
-	/* Initialize LO buffering */
+	/* 初始化 LO 缓冲 */
 	AH->lo_buf_size = LOBBUFSIZE;
 	AH->lo_buf = (void *) pg_malloc(LOBBUFSIZE);
 
 	/*
-	 * Now prevent reading...
+	 * 现在阻止读取...
 	 */
 	if (AH->mode == archModeRead)
 		pg_fatal("this format cannot be read");
 }
 
 /*
- * - Start a new TOC entry
+ * - 开始一个新的 TOC 条目
  */
 
 /*
- * Called by dumper via archiver from within a data dump routine
+ * 由 dumper 通过 archiver 在数据导出例程中调用
  */
 static void
 _WriteData(ArchiveHandle *AH, const void *data, size_t dLen)
 {
-	/* Just send it to output, ahwrite() already errors on failure */
+	/* 直接发送到输出，ahwrite() 已在失败时报告错误 */
 	ahwrite(data, 1, dLen, AH);
 }
 
 /*
- * Called by dumper via archiver from within a data dump routine
- * We substitute this for _WriteData while emitting a LO
+ * 由 dumper 通过 archiver 在数据导出例程中调用
+ * 在发出 LO 时用此函数替代 _WriteData
  */
 static void
 _WriteLOData(ArchiveHandle *AH, const void *data, size_t dLen)
@@ -117,13 +117,13 @@ _EndData(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*
- * Called by the archiver when starting to save all BLOB DATA (not schema).
- * This routine should save whatever format-specific information is needed
- * to read the LOs back into memory.
+ * 当开始保存所有 BLOB 数据（非模式）时由 archiver 调用。
+ * 此例程应保存恢复时读取 LO 所需的
+ * 格式特定信息。
  *
- * It is called just prior to the dumper's DataDumper routine.
+ * 它在 dumper 的 DataDumper 例程之前调用。
  *
- * Optional, but strongly recommended.
+ * 可选，但强烈推荐。
  */
 static void
 _StartLOs(ArchiveHandle *AH, TocEntry *te)
@@ -132,11 +132,11 @@ _StartLOs(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*
- * Called by the archiver when the dumper calls StartLO.
+ * 当 dumper 调用 StartLO 时由 archiver 调用。
  *
- * Mandatory.
+ * 强制性。
  *
- * Must save the passed OID for retrieval at restore-time.
+ * 必须保存传入的 OID 以便在恢复时检索。
  */
 static void
 _StartLO(ArchiveHandle *AH, TocEntry *te, Oid oid)
@@ -146,7 +146,7 @@ _StartLO(ArchiveHandle *AH, TocEntry *te, Oid oid)
 	if (oid == 0)
 		pg_fatal("invalid OID for large object");
 
-	/* With an old archive we must do drop and create logic here */
+	/* 对于旧归档，我们必须在这里处理 drop 和 create 逻辑 */
 	if (old_lo_style && AH->public.ropt->dropSchema)
 		DropLOIfExists(AH, oid);
 
@@ -161,9 +161,9 @@ _StartLO(ArchiveHandle *AH, TocEntry *te, Oid oid)
 }
 
 /*
- * Called by the archiver when the dumper calls EndLO.
+ * 当 dumper 调用 EndLO 时由 archiver 调用。
  *
- * Optional.
+ * 可选。
  */
 static void
 _EndLO(ArchiveHandle *AH, TocEntry *te, Oid oid)
@@ -174,9 +174,9 @@ _EndLO(ArchiveHandle *AH, TocEntry *te, Oid oid)
 }
 
 /*
- * Called by the archiver when finishing saving all BLOB DATA.
+ * 当完成保存所有 BLOB 数据时由 archiver 调用。
  *
- * Optional.
+ * 可选。
  */
 static void
 _EndLOs(ArchiveHandle *AH, TocEntry *te)
@@ -185,8 +185,8 @@ _EndLOs(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*------
- * Called as part of a RestoreArchive call; for the NULL archive, this
- * just sends the data for a given TOC entry to the output.
+ * 作为 RestoreArchive 调用的一部分调用；对于 NULL 归档，
+ * 这只是将给定 TOC 条目的数据发送到输出。
  *------
  */
 static void
@@ -211,18 +211,18 @@ _PrintTocData(ArchiveHandle *AH, TocEntry *te)
 static int
 _WriteByte(ArchiveHandle *AH, const int i)
 {
-	/* Don't do anything */
+	/* 不做任何事 */
 	return 0;
 }
 
 static void
 _WriteBuf(ArchiveHandle *AH, const void *buf, size_t len)
 {
-	/* Don't do anything */
+	/* 不做任何事 */
 }
 
 static void
 _CloseArchive(ArchiveHandle *AH)
 {
-	/* Nothing to do */
+	/* 无事可做 */
 }

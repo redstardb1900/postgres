@@ -70,14 +70,14 @@ typedef struct
 {
 	CompressorState *cs;
 	int			hasSeek;
-	/* lastFilePos is used only when reading, and may be invalid if !hasSeek */
-	pgoff_t		lastFilePos;	/* position after last data block we've read */
+	/* lastFilePos 仅在读取时使用，如果 !hasSeek 可能无效 */
+	pgoff_t		lastFilePos;	/* 上一个已读数据块之后的位置 */
 } lclContext;
 
 typedef struct
 {
 	int			dataState;
-	pgoff_t		dataPos;		/* valid only if dataState=K_OFFSET_POS_SET */
+	pgoff_t		dataPos;		/* 仅在 dataState=K_OFFSET_POS_SET 时有效 */
 } lclTocEntry;
 
 
@@ -93,21 +93,21 @@ static size_t _CustomReadFunc(ArchiveHandle *AH, char **buf, size_t *buflen);
 
 
 /*
- *	Init routine required by ALL formats. This is a global routine
- *	and should be declared in pg_backup_archiver.h
+ *	所有格式必需执行的初始化例程。这是一个全局例程，
+ *	应在 pg_backup_archiver.h 中声明。
  *
- *	It's task is to create any extra archive context (using AH->formatData),
- *	and to initialize the supported function pointers.
+ *	其任务是创建任意的额外归档上下文（使用 AH->formatData），
+ *	并初始化支持的函数指针。
  *
- *	It should also prepare whatever its input source is for reading/writing,
- *	and in the case of a read mode connection, it should load the Header & TOC.
+ *	它还应为其输入源做好读/写准备，
+ *	在读模式连接的情况下，应加载文件头和 TOC。
  */
 void
 InitArchiveFmt_Custom(ArchiveHandle *AH)
 {
 	lclContext *ctx;
 
-	/* Assuming static functions, this can be copied for each format. */
+	/* 假定为静态函数，可以针对每种格式复制。 */
 	AH->ArchiveEntryPtr = _ArchiveEntry;
 	AH->StartDataPtr = _StartData;
 	AH->WriteDataPtr = _WriteData;
@@ -132,20 +132,20 @@ InitArchiveFmt_Custom(ArchiveHandle *AH)
 	AH->ClonePtr = _Clone;
 	AH->DeClonePtr = _DeClone;
 
-	/* no parallel dump in the custom archive, only parallel restore */
+	/* 自定义归档不支持并行导出，仅支持并行恢复 */
 	AH->WorkerJobDumpPtr = NULL;
 	AH->WorkerJobRestorePtr = _WorkerJobRestoreCustom;
 
-	/* Set up a private area. */
+	/* 设置私有区域。 */
 	ctx = (lclContext *) pg_malloc0(sizeof(lclContext));
 	AH->formatData = (void *) ctx;
 
-	/* Initialize LO buffering */
+	/* 初始化 LO 缓冲 */
 	AH->lo_buf_size = LOBBUFSIZE;
 	AH->lo_buf = (void *) pg_malloc(LOBBUFSIZE);
 
 	/*
-	 * Now open the file
+	 * 现在打开文件
 	 */
 	if (AH->mode == archModeWrite)
 	{
@@ -185,19 +185,19 @@ InitArchiveFmt_Custom(ArchiveHandle *AH)
 		ReadToc(AH);
 
 		/*
-		 * Remember location of first data block (i.e., the point after TOC)
-		 * in case we have to search for desired data blocks.
+		 * 记住第一个数据块的位置（即 TOC 之后的点），
+		 * 以备我们需要搜索所需的数据块。
 		 */
 		ctx->lastFilePos = _getFilePos(AH, ctx);
 	}
 }
 
 /*
- * Called by the Archiver when the dumper creates a new TOC entry.
+ * 当导出器创建新的 TOC 条目时由归档器调用。
  *
- * Optional.
+ * 可选。
  *
- * Set up extract format-related TOC data.
+ * 设置导出格式相关的 TOC 数据。
 */
 static void
 _ArchiveEntry(ArchiveHandle *AH, TocEntry *te)
@@ -214,13 +214,13 @@ _ArchiveEntry(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*
- * Called by the Archiver to save any extra format-related TOC entry
- * data.
+ * 由归档器调用以保存任意额外的格式相关 TOC 条目数据。
  *
- * Optional.
+ * 可选。
  *
- * Use the Archiver routines to write data - they are non-endian, and
- * maintain other important file information.
+ * 使用归档器例程来写入数据——它们是与字节序无关的，
+ * 并能维护其他重要的文件信息。
+ *
  */
 static void
 _WriteExtraToc(ArchiveHandle *AH, TocEntry *te)
@@ -231,12 +231,12 @@ _WriteExtraToc(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*
- * Called by the Archiver to read any extra format-related TOC data.
+ * 由归档器调用以读取任意额外的格式相关 TOC 数据。
  *
- * Optional.
+ * 可选。
  *
- * Needs to match the order defined in _WriteExtraToc, and should also
- * use the Archiver input routines.
+ * 需要与 _WriteExtraToc 中定义的顺序匹配，
+ * 并且也应使用归档器输入例程。
  */
 static void
 _ReadExtraToc(ArchiveHandle *AH, TocEntry *te)
@@ -252,18 +252,18 @@ _ReadExtraToc(ArchiveHandle *AH, TocEntry *te)
 	ctx->dataState = ReadOffset(AH, &(ctx->dataPos));
 
 	/*
-	 * Prior to V1.7 (pg7.3), we dumped the data size as an int now we don't
-	 * dump it at all.
+	 * 在 V1.7 (pg7.3) 之前，我们将数据大小导出为 int，
+	 * 现在已不再导出。
 	 */
 	if (AH->version < K_VERS_1_7)
 		ReadInt(AH);
 }
 
 /*
- * Called by the Archiver when restoring an archive to output a comment
- * that includes useful information about the TOC entry.
+ * 由归档器在恢复归档时调用，以输出包含
+ * TOC 条目有用信息的注释。
  *
- * Optional.
+ * 可选。
  */
 static void
 _PrintExtraToc(ArchiveHandle *AH, TocEntry *te)
@@ -276,13 +276,13 @@ _PrintExtraToc(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*
- * Called by the archiver when saving TABLE DATA (not schema). This routine
- * should save whatever format-specific information is needed to read
- * the archive back.
+ * 归档器保存表数据（非模式）时调用。此例程应保存
+ * 读取归档所需的所有格式特定信息。
  *
- * It is called just prior to the dumper's 'DataDumper' routine being called.
+ * 在导出器的 'DataDumper' 例程被调用之前调用。
  *
- * Optional, but strongly recommended.
+ * 可选，但强烈建议实现。
+ *
  *
  */
 static void
@@ -295,8 +295,8 @@ _StartData(ArchiveHandle *AH, TocEntry *te)
 	if (tctx->dataPos >= 0)
 		tctx->dataState = K_OFFSET_POS_SET;
 
-	_WriteByte(AH, BLK_DATA);	/* Block type */
-	WriteInt(AH, te->dumpId);	/* For sanity check */
+	_WriteByte(AH, BLK_DATA);	/* 块类型 */
+	WriteInt(AH, te->dumpId);	/* 用于完整性检查 */
 
 	ctx->cs = AllocateCompressor(AH->compression_spec,
 								 NULL,
@@ -304,13 +304,13 @@ _StartData(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*
- * Called by archiver when dumper calls WriteData. This routine is
- * called for both LO and table data; it is the responsibility of
- * the format to manage each kind of data using StartLO/StartData.
+ * 当导出器调用 WriteData 时由归档器调用。
+ * 此例程针对 LO 和表数据都会被调用；
+ * 格式负责使用 StartLO/StartData 管理各种数据。
  *
- * It should only be called from within a DataDumper routine.
+ * 只应在 DataDumper 例程内调用。
  *
- * Mandatory.
+ * 必需。
  */
 static void
 _WriteData(ArchiveHandle *AH, const void *data, size_t dLen)
@@ -319,15 +319,15 @@ _WriteData(ArchiveHandle *AH, const void *data, size_t dLen)
 	CompressorState *cs = ctx->cs;
 
 	if (dLen > 0)
-		/* writeData() internally throws write errors */
+		/* writeData() 内部抛出写入错误 */
 		cs->writeData(AH, cs, data, dLen);
 }
 
 /*
- * Called by the archiver when a dumper's 'DataDumper' routine has
- * finished.
+ * 当导出器的 'DataDumper' 例程完成时由归档器调用。
  *
- * Mandatory.
+ * 必需。
+ *
  */
 static void
 _EndData(ArchiveHandle *AH, TocEntry *te)
@@ -337,18 +337,18 @@ _EndData(ArchiveHandle *AH, TocEntry *te)
 	EndCompressor(AH, ctx->cs);
 	ctx->cs = NULL;
 
-	/* Send the end marker */
+	/* 发送结束标记 */
 	WriteInt(AH, 0);
 }
 
 /*
- * Called by the archiver when starting to save all BLOB DATA (not schema).
- * This routine should save whatever format-specific information is needed
- * to read the LOs back into memory.
+ * 归档器开始保存所有 BLOB 数据（非模式）时调用。
+ * 此例程应保存将 LOs 读回内存所需的所有格式特定信息。
  *
- * It is called just prior to the dumper's DataDumper routine.
+ * 在导出器的 DataDumper 例程之前调用。
  *
- * Optional, but strongly recommended.
+ * 可选，但强烈建议实现。
+ *
  */
 static void
 _StartLOs(ArchiveHandle *AH, TocEntry *te)
@@ -360,16 +360,16 @@ _StartLOs(ArchiveHandle *AH, TocEntry *te)
 	if (tctx->dataPos >= 0)
 		tctx->dataState = K_OFFSET_POS_SET;
 
-	_WriteByte(AH, BLK_BLOBS);	/* Block type */
-	WriteInt(AH, te->dumpId);	/* For sanity check */
+	_WriteByte(AH, BLK_BLOBS);	/* 块类型 */
+	WriteInt(AH, te->dumpId);	/* 用于完整性检查 */
 }
 
 /*
- * Called by the archiver when the dumper calls StartLO.
+ * 当导出器调用 StartLO 时由归档器调用。
  *
- * Mandatory.
+ * 必需。
  *
- * Must save the passed OID for retrieval at restore-time.
+ * 必须保存传入的 OID 以便在恢复时检索。
  */
 static void
 _StartLO(ArchiveHandle *AH, TocEntry *te, Oid oid)
@@ -387,9 +387,9 @@ _StartLO(ArchiveHandle *AH, TocEntry *te, Oid oid)
 }
 
 /*
- * Called by the archiver when the dumper calls EndLO.
+ * 当导出器调用 EndLO 时由归档器调用。
  *
- * Optional.
+ * 可选。
  */
 static void
 _EndLO(ArchiveHandle *AH, TocEntry *te, Oid oid)
@@ -397,24 +397,24 @@ _EndLO(ArchiveHandle *AH, TocEntry *te, Oid oid)
 	lclContext *ctx = (lclContext *) AH->formatData;
 
 	EndCompressor(AH, ctx->cs);
-	/* Send the end marker */
+	/* 发送结束标记 */
 	WriteInt(AH, 0);
 }
 
 /*
- * Called by the archiver when finishing saving all BLOB DATA.
+ * 归档器完成保存所有 BLOB 数据时调用。
  *
- * Optional.
+ * 可选。
  */
 static void
 _EndLOs(ArchiveHandle *AH, TocEntry *te)
 {
-	/* Write out a fake zero OID to mark end-of-LOs. */
+	/* 写入一个伪造的零 OID 以标记 LOs 结束。 */
 	WriteInt(AH, 0);
 }
 
 /*
- * Print data for a given TOC entry
+ * 为给定的 TOC 条目打印数据
  */
 static void
 _PrintTocData(ArchiveHandle *AH, TocEntry *te)
@@ -430,14 +430,14 @@ _PrintTocData(ArchiveHandle *AH, TocEntry *te)
 	if (!ctx->hasSeek || tctx->dataState == K_OFFSET_POS_NOT_SET)
 	{
 		/*
-		 * We cannot seek directly to the desired block.  Instead, skip over
-		 * block headers until we find the one we want.  Remember the
-		 * positions of skipped-over blocks, so that if we later decide we
-		 * need to read one, we'll be able to seek to it.
+		 * 我们无法直接寻道到所需的数据块。作为替代，
+		 * 跳过块头直到找到我们想要的那个。记住被跳过块的位置，
+		 * 这样如果我们后来决定需要读取某个块时，可以寻道到它。
 		 *
-		 * When our input file is seekable, we can do the search starting from
-		 * the point after the last data block we scanned in previous
-		 * iterations of this function.
+		 * 当输入文件可寻道时，我们可以从上一个数据块
+		 * 在之前迭代中扫描到的位置开始搜索。
+		 *
+		 *
 		 */
 		if (ctx->hasSeek)
 		{
@@ -454,7 +454,7 @@ _PrintTocData(ArchiveHandle *AH, TocEntry *te)
 			if (blkType == EOF || id == te->dumpId)
 				break;
 
-			/* Remember the block position, if we got one */
+			/* 记住块位置（如果获取到了） */
 			if (thisBlkPos >= 0)
 			{
 				TocEntry   *otherte = getTocEntryByDumpId(AH, id);
@@ -464,13 +464,13 @@ _PrintTocData(ArchiveHandle *AH, TocEntry *te)
 					lclTocEntry *othertctx = (lclTocEntry *) otherte->formatData;
 
 					/*
-					 * Note: on Windows, multiple threads might access/update
-					 * the same lclTocEntry concurrently, but that should be
-					 * safe as long as we update dataPos before dataState.
-					 * Ideally, we'd use pg_write_barrier() to enforce that,
-					 * but the needed infrastructure doesn't exist in frontend
-					 * code.  But Windows only runs on machines with strong
-					 * store ordering, so it should be okay for now.
+					 * 注意：在 Windows 上，多个线程可能并发访问/更新
+					 * 同一个 lclTocEntry，但只要我们在 dataState 之前
+					 * 更新 dataPos，这应该是安全的。
+					 * 理想情况下，我们会使用 pg_write_barrier() 来强制执行，
+					 * 但前端代码中不存在所需的基础设施。
+					 * 不过 Windows 仅在强存储序的机器上运行，所以目前应该没问题。
+					 *
 					 */
 					if (othertctx->dataState == K_OFFSET_POS_NOT_SET)
 					{
@@ -480,7 +480,7 @@ _PrintTocData(ArchiveHandle *AH, TocEntry *te)
 					else if (othertctx->dataPos != thisBlkPos ||
 							 othertctx->dataState != K_OFFSET_POS_SET)
 					{
-						/* sanity check */
+						/* 完整性检查 */
 						pg_log_warning("data block %d has wrong seek position",
 									   id);
 					}
@@ -497,7 +497,7 @@ _PrintTocData(ArchiveHandle *AH, TocEntry *te)
 					_skipLOs(AH);
 					break;
 
-				default:		/* Always have a default */
+				default:		/* 始终保留 default 分支 */
 					pg_fatal("unrecognized data block type (%d) while searching archive",
 							 blkType);
 					break;
@@ -506,7 +506,7 @@ _PrintTocData(ArchiveHandle *AH, TocEntry *te)
 	}
 	else
 	{
-		/* We can just seek to the place we need to be. */
+		/* 我们可以直接寻道到所需位置。 */
 		if (fseeko(AH->FH, tctx->dataPos, SEEK_SET) != 0)
 			pg_fatal("error during file seek: %m");
 
@@ -514,8 +514,8 @@ _PrintTocData(ArchiveHandle *AH, TocEntry *te)
 	}
 
 	/*
-	 * If we reached EOF without finding the block we want, then either it
-	 * doesn't exist, or it does but we lack the ability to seek back to it.
+	 * 如果到达 EOF 而没有找到我们想要的块，那么
+	 * 要么它不存在，要么它存在但我们无力寻道回去。
 	 */
 	if (blkType == EOF)
 	{
@@ -530,7 +530,7 @@ _PrintTocData(ArchiveHandle *AH, TocEntry *te)
 					 te->dumpId);
 	}
 
-	/* Are we sane? */
+	/* 数据是否完好？ */
 	if (id != te->dumpId)
 		pg_fatal("found unexpected block ID (%d) when reading data -- expected %d",
 				 id, te->dumpId);
@@ -545,17 +545,17 @@ _PrintTocData(ArchiveHandle *AH, TocEntry *te)
 			_LoadLOs(AH, AH->public.ropt->dropSchema);
 			break;
 
-		default:				/* Always have a default */
+		default:				/* 始终保留 default 分支 */
 			pg_fatal("unrecognized data block type %d while restoring archive",
 					 blkType);
 			break;
 	}
 
 	/*
-	 * If our input file is seekable but lacks data offsets, update our
-	 * knowledge of where to start future searches from.  (Note that we did
-	 * not update the current TE's dataState/dataPos.  We could have, but
-	 * there is no point since it will not be visited again.)
+	 * 如果输入文件可寻道但缺少数据偏移量，
+	 * 更新我们关于未来搜索起始位置的知识。
+	 * （注意我们没有更新当前 TE 的 dataState/dataPos。
+	 * 我们可以但没必要，因为它不会再被访问。）
 	 */
 	if (ctx->hasSeek && tctx->dataState == K_OFFSET_POS_NOT_SET)
 	{
@@ -567,7 +567,7 @@ _PrintTocData(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*
- * Print data from current file position.
+ * 从当前文件位置打印数据。
 */
 static void
 _PrintData(ArchiveHandle *AH)
@@ -600,10 +600,10 @@ _LoadLOs(ArchiveHandle *AH, bool drop)
 }
 
 /*
- * Skip the LOs from the current file position.
- * LOs are written sequentially as data blocks (see below).
- * Each LO is preceded by its original OID.
- * A zero OID indicates the end of the LOs.
+ * 从当前文件位置跳过 LOs。
+ * LOs 以数据块的形式顺序写入（见下文）。
+ * 每个 LO 之前是其原始 OID。
+ * 零 OID 表示 LOs 结束。
  */
 static void
 _skipLOs(ArchiveHandle *AH)
@@ -619,9 +619,9 @@ _skipLOs(ArchiveHandle *AH)
 }
 
 /*
- * Skip data from current file position.
- * Data blocks are formatted as an integer length, followed by data.
- * A zero length indicates the end of the block.
+ * 从当前文件位置跳过数据。
+ * 数据块格式为一个整数长度，后跟数据。
+ * 零长度表示块结束。
 */
 static void
 _skipData(ArchiveHandle *AH)
@@ -663,11 +663,11 @@ _skipData(ArchiveHandle *AH)
 }
 
 /*
- * Write a byte of data to the archive.
+ * 向归档写入一个字节数据。
  *
- * Mandatory.
+ * 必需。
  *
- * Called by the archiver to do integer & byte output to the archive.
+ * 由归档器调用，用于向归档输出整数和字节。
  */
 static int
 _WriteByte(ArchiveHandle *AH, const int i)
@@ -679,12 +679,12 @@ _WriteByte(ArchiveHandle *AH, const int i)
 }
 
 /*
- * Read a byte of data from the archive.
+ * 从归档读取一个字节数据。
  *
- * Mandatory
+ * 必需
  *
- * Called by the archiver to read bytes & integers from the archive.
- * EOF should be treated as a fatal error.
+ * 由归档器调用，用于从归档读取字节和整数。
+ * EOF 应被视为致命错误。
  */
 static int
 _ReadByte(ArchiveHandle *AH)
@@ -698,11 +698,11 @@ _ReadByte(ArchiveHandle *AH)
 }
 
 /*
- * Write a buffer of data to the archive.
+ * 向归档写入一个缓冲区的数据。
  *
- * Mandatory.
+ * 必需。
  *
- * Called by the archiver to write a block of bytes to the archive.
+ * 由归档器调用，用于向归档写入一个字节块。
  */
 static void
 _WriteBuf(ArchiveHandle *AH, const void *buf, size_t len)
@@ -712,11 +712,11 @@ _WriteBuf(ArchiveHandle *AH, const void *buf, size_t len)
 }
 
 /*
- * Read a block of bytes from the archive.
+ * 从归档读取一个字节块。
  *
- * Mandatory.
+ * 必需。
  *
- * Called by the archiver to read a block of bytes from the archive
+ * 由归档器调用，用于从归档读取一个字节块
  */
 static void
 _ReadBuf(ArchiveHandle *AH, void *buf, size_t len)
@@ -726,18 +726,18 @@ _ReadBuf(ArchiveHandle *AH, void *buf, size_t len)
 }
 
 /*
- * Close the archive.
+ * 关闭归档。
  *
- * Mandatory.
+ * 必需。
  *
- * When writing the archive, this is the routine that actually starts
- * the process of saving it to files. No data should be written prior
- * to this point, since the user could sort the TOC after creating it.
+ * 写入归档时，此例程实际启动将其保存到文件的过程。
+ * 在此之前不应写入任何数据，因为用户可以在创建之后
+ * 对 TOC 进行排序。
  *
- * If an archive is to be written, this routine must call:
- *		WriteHead			to save the archive header
- *		WriteToc			to save the TOC entries
- *		WriteDataChunks		to save all data & LOs.
+ * 如果归档需要写入，此例程必须调用：
+ *		WriteHead			以保存归档文件头
+ *		WriteToc			以保存 TOC 条目
+ *		WriteDataChunks		以保存所有数据和 LOs。
  *
  */
 static void
@@ -749,7 +749,7 @@ _CloseArchive(ArchiveHandle *AH)
 	if (AH->mode == archModeWrite)
 	{
 		WriteHead(AH);
-		/* Remember TOC's seek position for use below */
+		/* 记住 TOC 的寻道位置以便后续使用 */
 		tpos = ftello(AH->FH);
 		if (tpos < 0 && ctx->hasSeek)
 			pg_fatal("could not determine seek position in archive file: %m");
@@ -757,10 +757,10 @@ _CloseArchive(ArchiveHandle *AH)
 		WriteDataChunks(AH, NULL);
 
 		/*
-		 * If possible, re-write the TOC in order to update the data offset
-		 * information.  This is not essential, as pg_restore can cope in most
-		 * cases without it; but it can make pg_restore significantly faster
-		 * in some situations (especially parallel restore).
+		 * 如果可能的话，重新写入 TOC 以更新数据偏移量信息。
+		 * 这不是必需的，因为 pg_restore 在大多数情况下都能应对；
+		 * 但在某些情况下（特别是并行恢复），它可以显著加快 pg_restore 的速度。
+		 *
 		 */
 		if (ctx->hasSeek &&
 			fseeko(AH->FH, tpos, SEEK_SET) == 0)
@@ -770,7 +770,7 @@ _CloseArchive(ArchiveHandle *AH)
 	if (fclose(AH->FH) != 0)
 		pg_fatal("could not close archive file: %m");
 
-	/* Sync the output file if one is defined */
+	/* 如果定义了输出文件则同步 */
 	if (AH->dosync && AH->mode == archModeWrite && AH->fSpec)
 		(void) fsync_fname(AH->fSpec, false);
 
@@ -778,11 +778,11 @@ _CloseArchive(ArchiveHandle *AH)
 }
 
 /*
- * Reopen the archive's file handle.
+ * 重新打开归档的文件句柄。
  *
- * We close the original file handle, except on Windows.  (The difference
- * is because on Windows, this is used within a multithreading context,
- * and we don't want a thread closing the parent file handle.)
+ * 我们关闭原始文件句柄，但在 Windows 上例外。
+ * （不同之处在于，Windows 上这是在多线程上下文中使用的，
+ * 我们不希望某个线程关闭父文件句柄。）
  */
 static void
 _ReopenArchive(ArchiveHandle *AH)
@@ -794,8 +794,8 @@ _ReopenArchive(ArchiveHandle *AH)
 		pg_fatal("can only reopen input archives");
 
 	/*
-	 * These two cases are user-facing errors since they represent unsupported
-	 * (but not invalid) use-cases.  Word the error messages appropriately.
+	 * 以下两种情况是面向用户的错误，因为它们表示不支持
+	 * （但并非无效）的用例。相应地措辞错误消息。
 	 */
 	if (AH->fSpec == NULL || strcmp(AH->fSpec, "") == 0)
 		pg_fatal("parallel restore from standard input is not supported");
@@ -820,14 +820,14 @@ _ReopenArchive(ArchiveHandle *AH)
 }
 
 /*
- * Prepare for parallel restore.
+ * 为并行恢复做准备。
  *
- * The main thing that needs to happen here is to fill in TABLE DATA and BLOBS
- * TOC entries' dataLength fields with appropriate values to guide the
- * ordering of restore jobs.  The source of said data is format-dependent,
- * as is the exact meaning of the values.
+ * 主要需要做的是为 TABLE DATA 和 BLOBS 的 TOC 条目
+ * 填充 dataLength 字段，使用适当的值来指导恢复作业的排序。
+ * 这些数据的来源取决于格式，值的具体含义也是如此。
  *
- * A format module might also choose to do other setup here.
+ * 格式模块也可以选择在此处进行其他设置。
+ *
  */
 static void
 _PrepParallelRestore(ArchiveHandle *AH)
@@ -838,23 +838,23 @@ _PrepParallelRestore(ArchiveHandle *AH)
 	TocEntry   *te;
 
 	/*
-	 * Knowing that the data items were dumped out in TOC order, we can
-	 * reconstruct the length of each item as the delta to the start offset of
-	 * the next data item.
+	 * 知道数据项是按照 TOC 顺序导出的，我们可以
+	 * 将每个项的长度重建为与下一个数据项起始偏移量的差值。
+	 *
 	 */
 	for (te = AH->toc->next; te != AH->toc; te = te->next)
 	{
 		lclTocEntry *tctx = (lclTocEntry *) te->formatData;
 
 		/*
-		 * Ignore entries without a known data offset; if we were unable to
-		 * seek to rewrite the TOC when creating the archive, this'll be all
-		 * of them, and we'll end up with no size estimates.
+		 * 忽略没有已知数据偏移量的条目；如果在创建归档时
+		 * 我们无法寻道重写 TOC，那么所有条目都将如此，
+		 * 最终我们将没有任何大小估算值。
 		 */
 		if (tctx->dataState != K_OFFSET_POS_SET)
 			continue;
 
-		/* Compute previous data item's length */
+		/* 计算上一个数据项的长度 */
 		if (prev_te)
 		{
 			if (tctx->dataPos > prev_tctx->dataPos)
@@ -865,7 +865,7 @@ _PrepParallelRestore(ArchiveHandle *AH)
 		prev_tctx = tctx;
 	}
 
-	/* If OK to seek, we can determine the length of the last item */
+	/* 如果可以寻道，我们可以确定最后一个项的长度 */
 	if (prev_te && ctx->hasSeek)
 	{
 		pgoff_t		endpos;
@@ -879,7 +879,7 @@ _PrepParallelRestore(ArchiveHandle *AH)
 }
 
 /*
- * Clone format-specific fields during parallel restoration.
+ * 并行恢复期间克隆格式特定的字段。
  */
 static void
 _Clone(ArchiveHandle *AH)
@@ -887,24 +887,24 @@ _Clone(ArchiveHandle *AH)
 	lclContext *ctx = (lclContext *) AH->formatData;
 
 	/*
-	 * Each thread must have private lclContext working state.
+	 * 每个线程必须有私有的 lclContext 工作状态。
 	 */
 	AH->formatData = (lclContext *) pg_malloc(sizeof(lclContext));
 	memcpy(AH->formatData, ctx, sizeof(lclContext));
 	ctx = (lclContext *) AH->formatData;
 
-	/* sanity check, shouldn't happen */
+	/* 完整性检查，不应发生 */
 	if (ctx->cs != NULL)
 		pg_fatal("compressor active");
 
 	/*
-	 * We intentionally do not clone TOC-entry-local state: it's useful to
-	 * share knowledge about where the data blocks are across threads.
-	 * _PrintTocData has to be careful about the order of operations on that
-	 * state, though.
+	 * 我们有意不克隆 TOC 条目本地状态：
+	 * 跨线程共享数据块位置信息是有用的。
+	 * 但 _PrintTocData 必须注意该状态上的操作顺序。
 	 *
-	 * Note: we do not make a local lo_buf because we expect at most one BLOBS
-	 * entry per archive, so no parallelism is possible.
+	 * 注意：我们不创建本地 lo_buf，
+	 * 因为每个归档最多一个 BLOBS 条目，
+	 * 因此不可能并行。
 	 */
 }
 
@@ -917,8 +917,8 @@ _DeClone(ArchiveHandle *AH)
 }
 
 /*
- * This function is executed in the child of a parallel restore from a
- * custom-format archive and restores the actual data for one TOC entry.
+ * 此函数在并行恢复自定义格式归档的子进程中执行，
+ * 为一个 TOC 条目恢复实际数据。
  */
 static int
 _WorkerJobRestoreCustom(ArchiveHandle *AH, TocEntry *te)
@@ -932,12 +932,12 @@ _WorkerJobRestoreCustom(ArchiveHandle *AH, TocEntry *te)
  */
 
 /*
- * Get the current position in the archive file.
+ * 获取归档文件中当前的位置。
  *
- * With a non-seekable archive file, we may not be able to obtain the
- * file position.  If so, just return -1.  It's not too important in
- * that case because we won't be able to rewrite the TOC to fill in
- * data block offsets anyway.
+ * 对于不可寻道的归档文件，我们可能无法获取文件位置。
+ * 如果是这样，只需返回 -1。这在那种情况下不太重要，
+ * 因为我们无论如何也无法重写 TOC 来填充数据块偏移量。
+ *
  */
 static pgoff_t
 _getFilePos(ArchiveHandle *AH, lclContext *ctx)
@@ -947,7 +947,7 @@ _getFilePos(ArchiveHandle *AH, lclContext *ctx)
 	pos = ftello(AH->FH);
 	if (pos < 0)
 	{
-		/* Not expected if we found we can seek. */
+		/* 如果我们发现可以寻道，不应该发生此情况。 */
 		if (ctx->hasSeek)
 			pg_fatal("could not determine seek position in archive file: %m");
 	}
@@ -955,9 +955,9 @@ _getFilePos(ArchiveHandle *AH, lclContext *ctx)
 }
 
 /*
- * Read a data block header. The format changed in V1.3, so we
- * centralize the code here for simplicity.  Returns *type = EOF
- * if at EOF.
+ * 读取数据块头。格式在 V1.3 中发生了变化，
+ * 因此为简单起见我们在此集中处理。如果位于 EOF，
+ * 返回 *type = EOF。
  */
 static void
 _readBlockHeader(ArchiveHandle *AH, int *type, int *id)
@@ -965,11 +965,11 @@ _readBlockHeader(ArchiveHandle *AH, int *type, int *id)
 	int			byt;
 
 	/*
-	 * Note: if we are at EOF with a pre-1.3 input file, we'll pg_fatal()
-	 * inside ReadInt rather than returning EOF.  It doesn't seem worth
-	 * jumping through hoops to deal with that case better, because no such
-	 * files are likely to exist in the wild: only some 7.1 development
-	 * versions of pg_dump ever generated such files.
+	 * 注意：如果是 pre-1.3 的输入文件且在 EOF 处，
+	 * 我们会在 ReadInt 内部 pg_fatal() 而不是返回 EOF。
+	 * 似乎不值得费力去更好地处理这种情况，
+	 * 因为这类文件在实际环境中几乎不可能存在：
+	 * 只有某些 7.1 开发版本的 pg_dump 才会生成这样的文件。
 	 */
 	if (AH->version < K_VERS_1_3)
 		*type = BLK_DATA;
@@ -979,7 +979,7 @@ _readBlockHeader(ArchiveHandle *AH, int *type, int *id)
 		*type = byt;
 		if (byt == EOF)
 		{
-			*id = 0;			/* don't return an uninitialized value */
+			*id = 0;			/* 不要返回未初始化的值 */
 			return;
 		}
 	}
@@ -988,13 +988,13 @@ _readBlockHeader(ArchiveHandle *AH, int *type, int *id)
 }
 
 /*
- * Callback function for writeData. Writes one block of (compressed)
- * data to the archive.
+ * writeData 的回调函数。向归档写入一个（压缩后的）数据块。
+ *
  */
 static void
 _CustomWriteFunc(ArchiveHandle *AH, const char *buf, size_t len)
 {
-	/* never write 0-byte blocks (this should not happen) */
+	/* 绝不写入 0 字节的块（这不应发生） */
 	if (len > 0)
 	{
 		WriteInt(AH, len);
@@ -1003,20 +1003,20 @@ _CustomWriteFunc(ArchiveHandle *AH, const char *buf, size_t len)
 }
 
 /*
- * Callback function for readData. To keep things simple, we
- * always read one compressed block at a time.
+ * readData 的回调函数。为简单起见，
+ * 我们一次读取一个压缩块。
  */
 static size_t
 _CustomReadFunc(ArchiveHandle *AH, char **buf, size_t *buflen)
 {
 	size_t		blkLen;
 
-	/* Read length */
+	/* 读取长度 */
 	blkLen = ReadInt(AH);
 	if (blkLen == 0)
 		return 0;
 
-	/* If the caller's buffer is not large enough, allocate a bigger one */
+	/* 如果调用者的缓冲区不够大，则分配更大的 */
 	if (blkLen > *buflen)
 	{
 		free(*buf);
@@ -1024,7 +1024,7 @@ _CustomReadFunc(ArchiveHandle *AH, char **buf, size_t *buflen)
 		*buflen = blkLen;
 	}
 
-	/* exits app on read errors */
+	/* 读取错误时退出应用 */
 	_ReadBuf(AH, *buf, blkLen);
 
 	return blkLen;

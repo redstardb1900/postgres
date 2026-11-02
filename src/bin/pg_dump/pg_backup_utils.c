@@ -16,7 +16,7 @@
 #include "parallel.h"
 #include "pg_backup_utils.h"
 
-/* Globals exported by this file */
+/* 本文件导出的全局变量 */
 const char *progname = NULL;
 
 #define MAX_ON_EXIT_NICELY				20
@@ -30,16 +30,16 @@ static struct
 static int	on_exit_nicely_index;
 
 /*
- * Parse a --section=foo command line argument.
+ * 解析 --section=foo 命令行参数。
  *
- * Set or update the bitmask in *dumpSections according to arg.
- * dumpSections is initialised as DUMP_UNSECTIONED by pg_dump and
- * pg_restore so they can know if this has even been called.
+ * 根据 arg 设置或更新 *dumpSections 中的位掩码。
+ * dumpSections 由 pg_dump 和 pg_restore 初始化为 DUMP_UNSECTIONED，
+ * 这样它们可以知道该函数是否曾被调用过。
  */
 void
 set_dump_section(const char *arg, int *dumpSections)
 {
-	/* if this is the first call, clear all the bits */
+	/* 如果是首次调用，清除所有位 */
 	if (*dumpSections == DUMP_UNSECTIONED)
 		*dumpSections = 0;
 
@@ -58,7 +58,7 @@ set_dump_section(const char *arg, int *dumpSections)
 }
 
 
-/* Register a callback to be run when exit_nicely is invoked. */
+/* 注册一个回调，该回调将在 exit_nicely 被调用时执行。 */
 void
 on_exit_nicely(on_exit_nicely_callback function, void *arg)
 {
@@ -70,21 +70,21 @@ on_exit_nicely(on_exit_nicely_callback function, void *arg)
 }
 
 /*
- * Run accumulated on_exit_nicely callbacks in reverse order and then exit
- * without printing any message.
+ * 按逆序运行累积的 on_exit_nicely 回调，然后退出，
+ * 不打印任何消息。
  *
- * If running in a parallel worker thread on Windows, we only exit the thread,
- * not the whole process.
+ * 如果在 Windows 上运行于并行工作线程中，我们仅退出线程，
+ * 而非整个进程。
  *
- * Note that in parallel operation on Windows, the callback(s) will be run
- * by each thread since the list state is necessarily shared by all threads;
- * each callback must contain logic to ensure it does only what's appropriate
- * for its thread.  On Unix, callbacks are also run by each process, but only
- * for callbacks established before we fork off the child processes.  (It'd
- * be cleaner to reset the list after fork(), and let each child establish
- * its own callbacks; but then the behavior would be completely inconsistent
- * between Windows and Unix.  For now, just be sure to establish callbacks
- * before forking to avoid inconsistency.)
+ * 注意：在 Windows 上的并行操作中，回调将由每个线程运行，
+ * 因为列表状态必然由所有线程共享；每个回调必须包含逻辑，
+ * 以确保它仅对其线程执行适当的操作。在 Unix 上，回调也由
+ * 每个进程运行，但仅限于我们在派生子进程之前建立的那些回调。
+ * （更干净的做法是在 fork() 之后重置列表，
+ * 并让每个子进程建立自己的回调；
+ * 但那样的话，Windows 和 Unix 之间的行为将完全不一致。
+ * 目前，只需确保在派生之前建立回调，
+ * 以避免不一致。）
  */
 void
 exit_nicely(int code)

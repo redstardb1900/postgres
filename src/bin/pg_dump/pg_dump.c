@@ -70,25 +70,25 @@
 
 typedef struct
 {
-	Oid			roleoid;		/* role's OID */
-	const char *rolename;		/* role's name */
+	Oid			roleoid;		/* 角色的 OID */
+	const char *rolename;		/* 角色名称 */
 } RoleNameItem;
 
 typedef struct
 {
-	const char *descr;			/* comment for an object */
-	Oid			classoid;		/* object class (catalog OID) */
-	Oid			objoid;			/* object OID */
-	int			objsubid;		/* subobject (table column #) */
+	const char *descr;			/* 对象的注释 */
+	Oid			classoid;		/* 对象类别（目录 OID） */
+	Oid			objoid;			/* 对象 OID */
+	int			objsubid;		/* 子对象（表列编号） */
 } CommentItem;
 
 typedef struct
 {
-	const char *provider;		/* label provider of this security label */
-	const char *label;			/* security label for an object */
-	Oid			classoid;		/* object class (catalog OID) */
-	Oid			objoid;			/* object OID */
-	int			objsubid;		/* subobject (table column #) */
+	const char *provider;		/* 此安全标签的标签提供者 */
+	const char *label;			/* 对象的安全标签 */
+	Oid			classoid;		/* 对象类别（目录 OID） */
+	Oid			objoid;			/* 对象 OID */
+	int			objsubid;		/* 子对象（表列编号） */
 } SecLabelItem;
 
 typedef enum OidOptions
@@ -98,21 +98,21 @@ typedef enum OidOptions
 	zeroAsNone = 4
 } OidOptions;
 
-/* global decls */
-static bool dosync = true;		/* Issue fsync() to make dump durable on disk. */
+/* 全局声明 */
+static bool dosync = true;		/* 执行 fsync() 以使导出持久化到磁盘。 */
 
-static Oid	g_last_builtin_oid; /* value of the last builtin oid */
+static Oid	g_last_builtin_oid; /* 最后内置 OID 的值 */
 
-/* The specified names/patterns should to match at least one entity */
+/* 指定的名称/模式至少应匹配一个实体 */
 static int	strict_names = 0;
 
 static pg_compress_algorithm compression_algorithm = PG_COMPRESSION_NONE;
 
 /*
- * Object inclusion/exclusion lists
- *
- * The string lists record the patterns given by command-line switches,
- * which we then convert to lists of OIDs of matching objects.
+ * 对象包含/排除列表
+ * 
+ * 字符串列表记录命令行开关给出的模式，
+ * 我们随后将其转换为匹配对象的 OID 列表。
  */
 static SimpleStringList schema_include_patterns = {NULL, NULL};
 static SimpleOidList schema_include_oids = {NULL, NULL};
@@ -137,30 +137,30 @@ static SimpleOidList extension_include_oids = {NULL, NULL};
 
 static const CatalogId nilCatalogId = {0, 0};
 
-/* override for standard extra_float_digits setting */
+/* 覆盖标准的 extra_float_digits 设置 */
 static bool have_extra_float_digits = false;
 static int	extra_float_digits;
 
-/* sorted table of role names */
+/* 排序的角色名称表 */
 static RoleNameItem *rolenames = NULL;
 static int	nrolenames = 0;
 
-/* sorted table of comments */
+/* 排序的注释表 */
 static CommentItem *comments = NULL;
 static int	ncomments = 0;
 
-/* sorted table of security labels */
+/* 排序的安全标签表 */
 static SecLabelItem *seclabels = NULL;
 static int	nseclabels = 0;
 
 /*
- * The default number of rows per INSERT when
- * --inserts is specified without --rows-per-insert
+ * 指定 --inserts 而未指定 --rows-per-insert 时
+ * 每个 INSERT 的默认行数
  */
 #define DUMP_DEFAULT_ROWS_PER_INSERT 1
 
 /*
- * Macro for producing quoted, schema-qualified name of a dumpable object.
+ * 用于生成可导出对象的带引号、模式限定名称的宏。
  */
 #define fmtQualifiedDumpable(obj) \
 	fmtQualifiedId((obj)->dobj.namespace->dobj.name, \
@@ -344,7 +344,7 @@ main(int argc, char **argv)
 	int			i;
 	int			optindex;
 	RestoreOptions *ropt;
-	Archive    *fout;			/* the script file */
+	Archive    *fout;			/* 脚本文件 */
 	bool		g_verbose = false;
 	const char *dumpencoding = NULL;
 	const char *dumpsnapshot = NULL;
@@ -396,7 +396,7 @@ main(int argc, char **argv)
 		{"version", no_argument, NULL, 'V'},
 
 		/*
-		 * the following options don't have an equivalent short option letter
+		 * 以下选项没有对应的短选项字母
 		 */
 		{"attribute-inserts", no_argument, &dopt.column_inserts, 1},
 		{"binary-upgrade", no_argument, &dopt.binary_upgrade, 1},
@@ -442,8 +442,8 @@ main(int argc, char **argv)
 	set_pglocale_pgservice(argv[0], PG_TEXTDOMAIN("pg_dump"));
 
 	/*
-	 * Initialize what we need for parallel execution, especially for thread
-	 * support on Windows.
+	 * 初始化并行执行所需的内容，特别是 Windows 上的线程支持。
+	 * 
 	 */
 	init_parallel_dump_utils();
 
@@ -470,36 +470,36 @@ main(int argc, char **argv)
 	{
 		switch (c)
 		{
-			case 'a':			/* Dump data only */
+			case 'a':			/* 仅导出数据 */
 				dopt.dataOnly = true;
 				break;
 
-			case 'b':			/* Dump LOs */
+			case 'b':			/* 导出大对象 */
 				dopt.outputLOs = true;
 				break;
 
-			case 'B':			/* Don't dump LOs */
+			case 'B':			/* 不导出大对象 */
 				dopt.dontOutputLOs = true;
 				break;
 
-			case 'c':			/* clean (i.e., drop) schema prior to create */
+			case 'c':			/* 创建前清理（即删除）模式 */
 				dopt.outputClean = 1;
 				break;
 
-			case 'C':			/* Create DB */
+			case 'C':			/* 创建数据库 */
 				dopt.outputCreateDB = 1;
 				break;
 
-			case 'd':			/* database name */
+			case 'd':			/* 数据库名称 */
 				dopt.cparams.dbname = pg_strdup(optarg);
 				break;
 
-			case 'e':			/* include extension(s) */
+			case 'e':			/* 包含扩展 */
 				simple_string_list_append(&extension_include_patterns, optarg);
 				dopt.include_everything = false;
 				break;
 
-			case 'E':			/* Dump encoding */
+			case 'E':			/* 导出编码 */
 				dumpencoding = pg_strdup(optarg);
 				break;
 
@@ -511,52 +511,52 @@ main(int argc, char **argv)
 				format = pg_strdup(optarg);
 				break;
 
-			case 'h':			/* server host */
+			case 'h':			/* 服务器主机 */
 				dopt.cparams.pghost = pg_strdup(optarg);
 				break;
 
-			case 'j':			/* number of dump jobs */
+			case 'j':			/* 导出任务数 */
 				if (!option_parse_int(optarg, "-j/--jobs", 1,
 									  PG_MAX_JOBS,
 									  &numWorkers))
 					exit_nicely(1);
 				break;
 
-			case 'n':			/* include schema(s) */
+			case 'n':			/* 包含模式 */
 				simple_string_list_append(&schema_include_patterns, optarg);
 				dopt.include_everything = false;
 				break;
 
-			case 'N':			/* exclude schema(s) */
+			case 'N':			/* 排除模式 */
 				simple_string_list_append(&schema_exclude_patterns, optarg);
 				break;
 
-			case 'O':			/* Don't reconnect to match owner */
+			case 'O':			/* 不重新连接以匹配所有者 */
 				dopt.outputNoOwner = 1;
 				break;
 
-			case 'p':			/* server port */
+			case 'p':			/* 服务器端口 */
 				dopt.cparams.pgport = pg_strdup(optarg);
 				break;
 
 			case 'R':
-				/* no-op, still accepted for backwards compatibility */
+				/* 无操作，为了向后兼容仍接受该选项 */
 				break;
 
-			case 's':			/* dump schema only */
+			case 's':			/* 仅导出模式 */
 				dopt.schemaOnly = true;
 				break;
 
-			case 'S':			/* Username for superuser in plain text output */
+			case 'S':			/* 纯文本输出中超级用户的用户名 */
 				dopt.outputSuperuser = pg_strdup(optarg);
 				break;
 
-			case 't':			/* include table(s) */
+			case 't':			/* 包含表 */
 				simple_string_list_append(&table_include_patterns, optarg);
 				dopt.include_everything = false;
 				break;
 
-			case 'T':			/* exclude table(s) */
+			case 'T':			/* 排除表 */
 				simple_string_list_append(&table_exclude_patterns, optarg);
 				break;
 
@@ -564,7 +564,7 @@ main(int argc, char **argv)
 				dopt.cparams.username = pg_strdup(optarg);
 				break;
 
-			case 'v':			/* verbose */
+			case 'v':			/* 详细模式 */
 				g_verbose = true;
 				pg_logging_increase_verbosity();
 				break;
@@ -577,21 +577,21 @@ main(int argc, char **argv)
 				dopt.cparams.promptPassword = TRI_YES;
 				break;
 
-			case 'x':			/* skip ACL dump */
+			case 'x':			/* 跳过 ACL 导出 */
 				dopt.aclsSkip = true;
 				break;
 
-			case 'Z':			/* Compression */
+			case 'Z':			/* 压缩 */
 				parse_compress_options(optarg, &compression_algorithm_str,
 									   &compression_detail);
 				user_compression_defined = true;
 				break;
 
 			case 0:
-				/* This covers the long options. */
+				/* 涵盖长选项。 */
 				break;
 
-			case 2:				/* lock-wait-timeout */
+			case 2:				/* 锁等待超时 */
 				dopt.lockWaitTimeout = pg_strdup(optarg);
 				break;
 
@@ -599,19 +599,19 @@ main(int argc, char **argv)
 				use_role = pg_strdup(optarg);
 				break;
 
-			case 4:				/* exclude table(s) data */
+			case 4:				/* 排除表数据 */
 				simple_string_list_append(&tabledata_exclude_patterns, optarg);
 				break;
 
-			case 5:				/* section */
+			case 5:				/* 节 */
 				set_dump_section(optarg, &dopt.dumpSections);
 				break;
 
-			case 6:				/* snapshot */
+			case 6:				/* 快照 */
 				dumpsnapshot = pg_strdup(optarg);
 				break;
 
-			case 7:				/* no-sync */
+			case 7:				/* 不同步 */
 				dosync = false;
 				break;
 
@@ -622,39 +622,39 @@ main(int argc, char **argv)
 					exit_nicely(1);
 				break;
 
-			case 9:				/* inserts */
+			case 9:				/* INSERT 格式 */
 
 				/*
-				 * dump_inserts also stores --rows-per-insert, careful not to
-				 * overwrite that.
+				 * dump_inserts 也存储 --rows-per-insert，注意不要覆盖它。
+				 * 
 				 */
 				if (dopt.dump_inserts == 0)
 					dopt.dump_inserts = DUMP_DEFAULT_ROWS_PER_INSERT;
 				break;
 
-			case 10:			/* rows per insert */
+			case 10:			/* 每次插入行数 */
 				if (!option_parse_int(optarg, "--rows-per-insert", 1, INT_MAX,
 									  &dopt.dump_inserts))
 					exit_nicely(1);
 				break;
 
-			case 11:			/* include foreign data */
+			case 11:			/* 包含外部数据 */
 				simple_string_list_append(&foreign_servers_include_patterns,
 										  optarg);
 				break;
 
-			case 12:			/* include table(s) and their children */
+			case 12:			/* 包含表及其子表 */
 				simple_string_list_append(&table_include_patterns_and_children,
 										  optarg);
 				dopt.include_everything = false;
 				break;
 
-			case 13:			/* exclude table(s) and their children */
+			case 13:			/* 排除表及其子表 */
 				simple_string_list_append(&table_exclude_patterns_and_children,
 										  optarg);
 				break;
 
-			case 14:			/* exclude data of table(s) and children */
+			case 14:			/* 排除表及其子表的数据 */
 				simple_string_list_append(&tabledata_exclude_patterns_and_children,
 										  optarg);
 				break;
@@ -664,20 +664,20 @@ main(int argc, char **argv)
 				break;
 
 			default:
-				/* getopt_long already emitted a complaint */
+				/* getopt_long 已发出警告 */
 				pg_log_error_hint("Try \"%s --help\" for more information.", progname);
 				exit_nicely(1);
 		}
 	}
 
 	/*
-	 * Non-option argument specifies database name as long as it wasn't
-	 * already specified with -d / --dbname
+	 * 非选项参数指定数据库名称，除非已通过 -d / --dbname 指定。
+	 * 
 	 */
 	if (optind < argc && dopt.cparams.dbname == NULL)
 		dopt.cparams.dbname = argv[optind++];
 
-	/* Complain if any arguments remain */
+	/* 如果还有剩余参数则报错 */
 	if (optind < argc)
 	{
 		pg_log_error("too many command-line arguments (first is \"%s\")",
@@ -686,14 +686,14 @@ main(int argc, char **argv)
 		exit_nicely(1);
 	}
 
-	/* --column-inserts implies --inserts */
+	/* --column-inserts 暗含 --inserts */
 	if (dopt.column_inserts && dopt.dump_inserts == 0)
 		dopt.dump_inserts = DUMP_DEFAULT_ROWS_PER_INSERT;
 
 	/*
-	 * Binary upgrade mode implies dumping sequence data even in schema-only
-	 * mode.  This is not exposed as a separate option, but kept separate
-	 * internally for clarity.
+	 * 二进制升级模式暗含即使在仅模式模式下也导出序列数据。
+	 * 这不会作为单独选项暴露，但为了清晰内部保持独立。
+	 * 
 	 */
 	if (dopt.binary_upgrade)
 		dopt.sequence_data = 1;
@@ -714,22 +714,22 @@ main(int argc, char **argv)
 		pg_fatal("option --if-exists requires option -c/--clean");
 
 	/*
-	 * --inserts are already implied above if --column-inserts or
-	 * --rows-per-insert were specified.
+	 * 如果已指定 --column-inserts 或 --rows-per-insert，
+	 * 则 --inserts 已在上方隐式启用。
 	 */
 	if (dopt.do_nothing && dopt.dump_inserts == 0)
 		pg_fatal("option --on-conflict-do-nothing requires option --inserts, --rows-per-insert, or --column-inserts");
 
-	/* Identify archive format to emit */
+	/* 识别要输出的归档格式 */
 	archiveFormat = parseArchiveFormat(format, &archiveMode);
 
-	/* archiveFormat specific setup */
+	/* 归档格式特定设置 */
 	if (archiveFormat == archNull)
 	{
 		plainText = 1;
 
 		/*
-		 * If you don't provide a restrict key, one will be appointed for you.
+		 * 如果你不提供限制键，系统会为你指定一个。
 		 */
 		if (!dopt.restrict_key)
 			dopt.restrict_key = generate_restrict_key();
@@ -742,9 +742,9 @@ main(int argc, char **argv)
 		pg_fatal("option --restrict-key can only be used with --format=plain");
 
 	/*
-	 * Custom and directory formats are compressed by default with gzip when
-	 * available, not the others.  If gzip is not available, no compression is
-	 * done by default.
+	 * 自定义和目录格式在可用时默认使用 gzip 压缩，
+	 * 其他格式则不会。如果 gzip 不可用，
+	 * 默认不进行压缩。
 	 */
 	if ((archiveFormat == archCustom || archiveFormat == archDirectory) &&
 		!user_compression_defined)
@@ -757,7 +757,7 @@ main(int argc, char **argv)
 	}
 
 	/*
-	 * Compression options
+	 * 压缩选项
 	 */
 	if (!parse_compress_algorithm(compression_algorithm_str,
 								  &compression_algorithm))
@@ -776,42 +776,42 @@ main(int argc, char **argv)
 		pg_fatal("%s", error_detail);
 
 	/*
-	 * Disable support for zstd workers for now - these are based on
-	 * threading, and it's unclear how it interacts with parallel dumps on
-	 * platforms where that relies on threads too (e.g. Windows).
+	 * 暂时禁用 zstd workers 支持 —— 这些基于线程，
+	 * 目前尚不清楚它与同样依赖线程的并行导出（例如 Windows 上）
+	 * 如何交互。
 	 */
 	if (compression_spec.options & PG_COMPRESSION_OPTION_WORKERS)
 		pg_log_warning("compression option \"%s\" is not currently supported by pg_dump",
 					   "workers");
 
 	/*
-	 * If emitting an archive format, we always want to emit a DATABASE item,
-	 * in case --create is specified at pg_restore time.
+	 * 如果输出归档格式，我们总是要输出 DATABASE 条目，
+	 * 以备在 pg_restore 时指定 --create。
 	 */
 	if (!plainText)
 		dopt.outputCreateDB = 1;
 
-	/* Parallel backup only in the directory archive format so far */
+	/* 目前仅目录归档格式支持并行备份 */
 	if (archiveFormat != archDirectory && numWorkers > 1)
 		pg_fatal("parallel backup only supported by the directory format");
 
-	/* Open the output file */
+	/* 打开输出文件 */
 	fout = CreateArchive(filename, archiveFormat, compression_spec,
 						 dosync, archiveMode, setupDumpWorker);
 
-	/* Make dump options accessible right away */
+	/* 使导出选项立即可用 */
 	SetArchiveOptions(fout, &dopt, NULL);
 
-	/* Register the cleanup hook */
+	/* 注册清理钩子 */
 	on_exit_close_archive(fout);
 
-	/* Let the archiver know how noisy to be */
+	/* 告知归档器输出详细程度 */
 	fout->verbose = g_verbose;
 
 
 	/*
-	 * We allow the server to be back to 9.2, and up to any minor release of
-	 * our own major version.  (See also version check in pg_dumpall.c.)
+	 * 我们允许服务器版本回溯至 9.2，以及我们自身主版本的
+	 * 任何次版本。（另见 pg_dumpall.c 中的版本检查。）
 	 */
 	fout->minRemoteVersion = 90200;
 	fout->maxRemoteVersion = (PG_VERSION_NUM / 100) * 100 + 99;
@@ -819,29 +819,29 @@ main(int argc, char **argv)
 	fout->numWorkers = numWorkers;
 
 	/*
-	 * Open the database using the Archiver, so it knows about it. Errors mean
-	 * death.
+	 * 使用归档器打开数据库，以便它知道数据库信息。错误意味着终止。
+	 *
 	 */
 	ConnectDatabase(fout, &dopt.cparams, false);
 	setup_connection(fout, dumpencoding, dumpsnapshot, use_role);
 
 	/*
-	 * On hot standbys, never try to dump unlogged table data, since it will
-	 * just throw an error.
+	 * 在热备上，永远不要尝试导出未记录日志的表数据，
+	 * 因为这只会抛出错误。
 	 */
 	if (fout->isStandby)
 		dopt.no_unlogged_table_data = true;
 
 	/*
-	 * Find the last built-in OID, if needed (prior to 8.1)
-	 *
-	 * With 8.1 and above, we can just use FirstNormalObjectId - 1.
+	 * 查找最后的内置 OID（8.1 之前需要）
+	 * 
+	 * 8.1 及以上版本可以直接使用 FirstNormalObjectId - 1。
 	 */
 	g_last_builtin_oid = FirstNormalObjectId - 1;
 
 	pg_log_info("last built-in OID is %u", g_last_builtin_oid);
 
-	/* Expand schema selection patterns into OID lists */
+	/* 将模式选择模式展开为 OID 列表 */
 	if (schema_include_patterns.head != NULL)
 	{
 		expand_schema_name_patterns(fout, &schema_include_patterns,
@@ -853,9 +853,9 @@ main(int argc, char **argv)
 	expand_schema_name_patterns(fout, &schema_exclude_patterns,
 								&schema_exclude_oids,
 								false);
-	/* non-matching exclusion patterns aren't an error */
+	/* 不匹配的排除模式不算错误 */
 
-	/* Expand table selection patterns into OID lists */
+	/* 将表选择模式展开为 OID 列表 */
 	expand_table_name_patterns(fout, &table_include_patterns,
 							   &table_include_oids,
 							   strict_names, false);
@@ -884,9 +884,9 @@ main(int argc, char **argv)
 	expand_foreign_server_name_patterns(fout, &foreign_servers_include_patterns,
 										&foreign_servers_include_oids);
 
-	/* non-matching exclusion patterns aren't an error */
+	/* 不匹配的排除模式不算错误 */
 
-	/* Expand extension selection patterns into OID lists */
+	/* 将扩展选择模式展开为 OID 列表 */
 	if (extension_include_patterns.head != NULL)
 	{
 		expand_extension_name_patterns(fout, &extension_include_patterns,
@@ -897,25 +897,25 @@ main(int argc, char **argv)
 	}
 
 	/*
-	 * Dumping LOs is the default for dumps where an inclusion switch is not
-	 * used (an "include everything" dump).  -B can be used to exclude LOs
-	 * from those dumps.  -b can be used to include LOs even when an inclusion
-	 * switch is used.
+	 * 对于未使用包含开关的导出（"全部包含"导出），默认导出大对象。
+	 * -B 可用于从这些导出中排除大对象。-b 可用于即使使用了
+	 * 包含开关也包含大对象。
+	 * 
+	 * -s 表示"仅模式"，而大对象是数据而不是模式，
+	 * 因此使用 -s 时绝不包含大对象。
 	 *
-	 * -s means "schema only" and LOs are data, not schema, so we never
-	 * include LOs when -s is used.
 	 */
 	if (dopt.include_everything && !dopt.schemaOnly && !dopt.dontOutputLOs)
 		dopt.outputLOs = true;
 
 	/*
-	 * Collect role names so we can map object owner OIDs to names.
+	 * 收集角色名称，以便将对象所有者 OID 映射到名称。
 	 */
 	collectRoleNames(fout);
 
 	/*
-	 * Now scan the database and create DumpableObject structs for all the
-	 * objects we intend to dump.
+	 * 现在扫描数据库并为所有我们打算导出的对象
+	 * 创建 DumpableObject 结构。
 	 */
 	tblinfo = getSchemaData(fout, &numTables);
 
@@ -931,23 +931,23 @@ main(int argc, char **argv)
 		getTableData(&dopt, tblinfo, numTables, RELKIND_SEQUENCE);
 
 	/*
-	 * In binary-upgrade mode, we do not have to worry about the actual LO
-	 * data or the associated metadata that resides in the pg_largeobject and
-	 * pg_largeobject_metadata tables, respectively.
-	 *
-	 * However, we do need to collect LO information as there may be comments
-	 * or other information on LOs that we do need to dump out.
+	 * 在二进制升级模式下，我们不必担心实际的大对象数据
+	 * 或驻留在 pg_largeobject 和 pg_largeobject_metadata 表中
+	 * 的关联元数据。
+	 * 
+	 * 但是，我们确实需要收集大对象信息，因为可能存在需要导出的
+	 * 大对象上的注释或其他信息。
 	 */
 	if (dopt.outputLOs || dopt.binary_upgrade)
 		getLOs(fout);
 
 	/*
-	 * Collect dependency data to assist in ordering the objects.
+	 * 收集依赖数据以协助对象排序。
 	 */
 	getDependencies(fout);
 
 	/*
-	 * Collect ACLs, comments, and security labels, if wanted.
+	 * 如果需要，收集 ACL、注释和安全标签。
 	 */
 	if (!dopt.aclsSkip)
 		getAdditionalACLs(fout);
@@ -956,23 +956,23 @@ main(int argc, char **argv)
 	if (!dopt.no_security_labels)
 		collectSecLabels(fout);
 
-	/* Lastly, create dummy objects to represent the section boundaries */
+	/* 最后，创建虚拟对象来表示节边界 */
 	boundaryObjs = createBoundaryObjects();
 
-	/* Get pointers to all the known DumpableObjects */
+	/* 获取指向所有已知 DumpableObject 的指针 */
 	getDumpableObjects(&dobjs, &numObjs);
 
 	/*
-	 * Add dummy dependencies to enforce the dump section ordering.
+	 * 添加虚拟依赖以强制执行导出节排序。
 	 */
 	addBoundaryDependencies(dobjs, numObjs, boundaryObjs);
 
 	/*
-	 * Sort the objects into a safe dump order (no forward references).
+	 * 将对象排序为安全的导出顺序（无前向引用）。
+	 * 
+	 * 我们依赖依赖信息来帮助确定安全顺序，因此初始排序主要用于
+	 * 美观目的：我们按名称排序以确保逻辑上相同的模式将以相同方式导出。
 	 *
-	 * We rely on dependency information to help us determine a safe order, so
-	 * the initial sort is mostly for cosmetic purposes: we sort by name to
-	 * ensure that logically identical schemas will dump identically.
 	 */
 	sortDumpableObjectsByTypeName(dobjs, numObjs);
 
@@ -980,32 +980,32 @@ main(int argc, char **argv)
 						boundaryObjs[0].dumpId, boundaryObjs[1].dumpId);
 
 	/*
-	 * Create archive TOC entries for all the objects to be dumped, in a safe
-	 * order.
+	 * 为所有要导出的对象按安全顺序创建归档 TOC 条目。
+	 *
 	 */
 
 	/*
-	 * First the special entries for ENCODING, STDSTRINGS, and SEARCHPATH.
+	 * 首先是 ENCODING、STDSTRINGS 和 SEARCHPATH 的特殊条目。
 	 */
 	dumpEncoding(fout);
 	dumpStdStrings(fout);
 	dumpSearchPath(fout);
 
-	/* The database items are always next, unless we don't want them at all */
+	/* 数据库条目总是紧随其后，除非我们完全不想要它们 */
 	if (dopt.outputCreateDB)
 		dumpDatabase(fout);
 
-	/* Now the rearrangeable objects. */
+	/* 现在是可重新排列的对象。 */
 	for (i = 0; i < numObjs; i++)
 		dumpDumpableObject(fout, dobjs[i]);
 
 	/*
-	 * Set up options info to ensure we dump what we want.
+	 * 设置选项信息以确保我们导出所需内容。
 	 */
 	ropt = NewRestoreOptions();
 	ropt->filename = filename;
 
-	/* if you change this list, see dumpOptionsFromRestoreOptions */
+	/* 如果你更改此列表，请参见 dumpOptionsFromRestoreOptions */
 	ropt->cparams.dbname = dopt.cparams.dbname ? pg_strdup(dopt.cparams.dbname) : NULL;
 	ropt->cparams.pgport = dopt.cparams.pgport ? pg_strdup(dopt.cparams.pgport) : NULL;
 	ropt->cparams.pghost = dopt.cparams.pghost ? pg_strdup(dopt.cparams.pghost) : NULL;
@@ -1040,27 +1040,27 @@ main(int argc, char **argv)
 
 	ropt->compression_spec = compression_spec;
 
-	ropt->suppressDumpWarnings = true;	/* We've already shown them */
+	ropt->suppressDumpWarnings = true;	/* 我们已经显示过它们了 */
 
 	SetArchiveOptions(fout, &dopt, ropt);
 
-	/* Mark which entries should be output */
+	/* 标记应输出哪些条目 */
 	ProcessArchiveRestoreOptions(fout);
 
 	/*
-	 * The archive's TOC entries are now marked as to which ones will actually
-	 * be output, so we can set up their dependency lists properly. This isn't
-	 * necessary for plain-text output, though.
+	 * 归档的 TOC 条目现在已标记哪些将实际输出，
+	 * 因此我们可以正确设置它们的依赖列表。
+	 * 不过，对于纯文本输出，这不是必需的。
 	 */
 	if (!plainText)
 		BuildArchiveDependencies(fout);
 
 	/*
-	 * And finally we can do the actual output.
+	 * 最后我们可以进行实际输出了。
+	 * 
+	 * 注意：对于非纯文本输出格式，输出文件在 CloseArchive()
+	 * 内部写入。这，嗯，有点奇怪；但现在不值得改变。
 	 *
-	 * Note: for non-plain-text output formats, the output file is written
-	 * inside CloseArchive().  This is, um, bizarre; but not worth changing
-	 * right now.
 	 */
 	if (plainText)
 		RestoreArchive(fout);
@@ -1179,7 +1179,7 @@ setup_connection(Archive *AH, const char *dumpencoding,
 	PQclear(ExecuteSqlQueryForSingleRow(AH, ALWAYS_SECURE_SEARCH_PATH_SQL));
 
 	/*
-	 * Set the client encoding if requested.
+	 * 如果请求，则设置客户端编码。
 	 */
 	if (dumpencoding)
 	{
@@ -1189,8 +1189,8 @@ setup_connection(Archive *AH, const char *dumpencoding,
 	}
 
 	/*
-	 * Get the active encoding and the standard_conforming_strings setting, so
-	 * we know how to escape strings.
+	 * 获取活动编码和 standard_conforming_strings 设置，
+	 * 以便我们知道如何转义字符串。
 	 */
 	AH->encoding = PQclientEncoding(conn);
 	setFmtEncoding(AH->encoding);
@@ -1199,14 +1199,14 @@ setup_connection(Archive *AH, const char *dumpencoding,
 	AH->std_strings = (std_strings && strcmp(std_strings, "on") == 0);
 
 	/*
-	 * Set the role if requested.  In a parallel dump worker, we'll be passed
-	 * use_role == NULL, but AH->use_role is already set (if user specified it
-	 * originally) and we should use that.
+	 * 如果请求，则设置角色。在并行导出工作进程中，
+	 * 我们会收到 use_role == NULL，但 AH->use_role 已设置
+	 * （如果用户最初指定了），我们应该使用它。
 	 */
 	if (!use_role && AH->use_role)
 		use_role = AH->use_role;
 
-	/* Set the role if requested */
+	/* 如果请求，则设置角色 */
 	if (use_role)
 	{
 		PQExpBuffer query = createPQExpBuffer();
@@ -1215,21 +1215,21 @@ setup_connection(Archive *AH, const char *dumpencoding,
 		ExecuteSqlStatement(AH, query->data);
 		destroyPQExpBuffer(query);
 
-		/* save it for possible later use by parallel workers */
+		/* 保存以备并行工作进程后续使用 */
 		if (!AH->use_role)
 			AH->use_role = pg_strdup(use_role);
 	}
 
-	/* Set the datestyle to ISO to ensure the dump's portability */
+	/* 将日期样式设为 ISO 以确保导出的可移植性 */
 	ExecuteSqlStatement(AH, "SET DATESTYLE = ISO");
 
-	/* Likewise, avoid using sql_standard intervalstyle */
+	/* 同样，避免使用 sql_standard 间隔样式 */
 	ExecuteSqlStatement(AH, "SET INTERVALSTYLE = POSTGRES");
 
 	/*
-	 * Use an explicitly specified extra_float_digits if it has been provided.
-	 * Otherwise, set extra_float_digits so that we can dump float data
-	 * exactly (given correctly implemented float I/O code, anyway).
+	 * 如果提供了显式指定的 extra_float_digits，则使用它。
+	 * 否则，设置 extra_float_digits 以便我们精确导出浮点数据
+	 * （前提是正确实现了浮点 I/O 代码，无论如何）。
 	 */
 	if (have_extra_float_digits)
 	{
@@ -1244,13 +1244,13 @@ setup_connection(Archive *AH, const char *dumpencoding,
 		ExecuteSqlStatement(AH, "SET extra_float_digits TO 3");
 
 	/*
-	 * Disable synchronized scanning, to prevent unpredictable changes in row
-	 * ordering across a dump and reload.
+	 * 禁用同步扫描，以防止转储和重新加载之间
+	 * 行顺序发生不可预测的变化。
 	 */
 	ExecuteSqlStatement(AH, "SET synchronize_seqscans TO off");
 
 	/*
-	 * Disable timeouts if supported.
+	 * 如果支持，禁用超时。
 	 */
 	ExecuteSqlStatement(AH, "SET statement_timeout = 0");
 	if (AH->remoteVersion >= 90300)
@@ -1259,13 +1259,13 @@ setup_connection(Archive *AH, const char *dumpencoding,
 		ExecuteSqlStatement(AH, "SET idle_in_transaction_session_timeout = 0");
 
 	/*
-	 * Quote all identifiers, if requested.
+	 * 如果请求，引用所有标识符。
 	 */
 	if (quote_all_identifiers)
 		ExecuteSqlStatement(AH, "SET quote_all_identifiers = true");
 
 	/*
-	 * Adjust row-security mode, if supported.
+	 * 如果支持，调整行安全性模式。
 	 */
 	if (AH->remoteVersion >= 90500)
 	{
@@ -1276,30 +1276,30 @@ setup_connection(Archive *AH, const char *dumpencoding,
 	}
 
 	/*
-	 * For security reasons, we restrict the expansion of non-system views and
-	 * access to foreign tables during the pg_dump process. This restriction
-	 * is adjusted when dumping foreign table data.
+	 * 出于安全原因，我们在 pg_dump 过程中限制非系统视图的展开
+	 * 和对外部表的访问。导出外部表数据时会调整此限制。
+	 *
 	 */
 	set_restrict_relation_kind(AH, "view, foreign-table");
 
 	/*
-	 * Initialize prepared-query state to "nothing prepared".  We do this here
-	 * so that a parallel dump worker will have its own state.
+	 * 将预编译查询状态初始化为"无预编译"。我们在此处执行此操作
+	 * 以便并行导出工作进程拥有自己的状态。
 	 */
 	AH->is_prepared = (bool *) pg_malloc0(NUM_PREP_QUERIES * sizeof(bool));
 
 	/*
-	 * Start transaction-snapshot mode transaction to dump consistent data.
+	 * 启动事务快照模式事务以导出一致数据。
 	 */
 	ExecuteSqlStatement(AH, "BEGIN");
 
 	/*
-	 * To support the combination of serializable_deferrable with the jobs
-	 * option we use REPEATABLE READ for the worker connections that are
-	 * passed a snapshot.  As long as the snapshot is acquired in a
-	 * SERIALIZABLE, READ ONLY, DEFERRABLE transaction, its use within a
-	 * REPEATABLE READ transaction provides the appropriate integrity
-	 * guarantees.  This is a kluge, but safe for back-patching.
+	 * 为了支持 serializable_deferrable 与 jobs 选项的组合，
+	 * 我们对传入快照的工作进程连接使用 REPEATABLE READ。
+	 * 只要快照在 SERIALIZABLE, READ ONLY, DEFERRABLE 事务中获取，
+	 * 在 REPEATABLE READ 事务中使用它就能提供适当的完整性保证。
+	 * 这是一个权宜之计，但对于向后移植是安全的。
+	 *
 	 */
 	if (dopt->serializable_deferrable && AH->sync_snapshot_id == NULL)
 		ExecuteSqlStatement(AH,
@@ -1311,9 +1311,9 @@ setup_connection(Archive *AH, const char *dumpencoding,
 							"REPEATABLE READ, READ ONLY");
 
 	/*
-	 * If user specified a snapshot to use, select that.  In a parallel dump
-	 * worker, we'll be passed dumpsnapshot == NULL, but AH->sync_snapshot_id
-	 * is already set (if the server can handle it) and we should use that.
+	 * 如果用户指定了要使用的快照，则选择它。在并行导出
+	 * 工作进程中，我们会收到 dumpsnapshot == NULL，
+	 * 但 AH->sync_snapshot_id 已设置（如果服务器可以处理），
 	 */
 	if (dumpsnapshot)
 		AH->sync_snapshot_id = pg_strdup(dumpsnapshot);
@@ -1335,15 +1335,15 @@ setup_connection(Archive *AH, const char *dumpencoding,
 	}
 }
 
-/* Set up connection for a parallel worker process */
+/* 为并行工作进程设置连接 */
 static void
 setupDumpWorker(Archive *AH)
 {
 	/*
-	 * We want to re-select all the same values the leader connection is
-	 * using.  We'll have inherited directly-usable values in
-	 * AH->sync_snapshot_id and AH->use_role, but we need to translate the
-	 * inherited encoding value back to a string to pass to setup_connection.
+	 * 我们希望重新选择主连接使用的所有相同的值。
+	 * 我们将直接继承 AH->sync_snapshot_id 和 AH->use_role 中的值，
+	 * 但需要将继承的编码值转换回字符串以传递给 setup_connection。
+	 * 
 	 */
 	setup_connection(AH,
 					 pg_encoding_to_char(AH->encoding),
@@ -1374,7 +1374,7 @@ parseArchiveFormat(const char *format, ArchiveMode *mode)
 
 	if (pg_strcasecmp(format, "a") == 0 || pg_strcasecmp(format, "append") == 0)
 	{
-		/* This is used by pg_dumpall, and is not documented */
+		/* 由 pg_dumpall 使用，未在文档中记录 */
 		archiveFormat = archNull;
 		*mode = archModeAppend;
 	}
@@ -1400,8 +1400,8 @@ parseArchiveFormat(const char *format, ArchiveMode *mode)
 }
 
 /*
- * Find the OIDs of all schemas matching the given list of patterns,
- * and append them to the given OID list.
+ * 查找匹配给定模式列表的所有模式的 OID，
+ * 并将它们追加到给定的 OID 列表中。
  */
 static void
 expand_schema_name_patterns(Archive *fout,
@@ -1415,13 +1415,13 @@ expand_schema_name_patterns(Archive *fout,
 	int			i;
 
 	if (patterns->head == NULL)
-		return;					/* nothing to do */
+		return;					/* 无事可做 */
 
 	query = createPQExpBuffer();
 
 	/*
-	 * The loop below runs multiple SELECTs might sometimes result in
-	 * duplicate entries in the OID list, but we don't care.
+	 * 下面的循环运行多个 SELECT，有时可能导致 OID 列表中出现重复条目，
+	 * 但我们事后会去重。
 	 */
 
 	for (cell = patterns->head; cell; cell = cell->next)
@@ -1459,8 +1459,8 @@ expand_schema_name_patterns(Archive *fout,
 }
 
 /*
- * Find the OIDs of all extensions matching the given list of patterns,
- * and append them to the given OID list.
+ * 查找匹配给定模式列表的所有扩展的 OID，
+ * 并将它们追加到给定的 OID 列表中。
  */
 static void
 expand_extension_name_patterns(Archive *fout,
@@ -1474,13 +1474,13 @@ expand_extension_name_patterns(Archive *fout,
 	int			i;
 
 	if (patterns->head == NULL)
-		return;					/* nothing to do */
+		return;					/* 无事可做 */
 
 	query = createPQExpBuffer();
 
 	/*
-	 * The loop below runs multiple SELECTs might sometimes result in
-	 * duplicate entries in the OID list, but we don't care.
+	 * 下面的循环运行多个 SELECT，有时可能导致 OID 列表中出现重复条目，
+	 * 但我们事后会去重。
 	 */
 	for (cell = patterns->head; cell; cell = cell->next)
 	{
@@ -1512,8 +1512,8 @@ expand_extension_name_patterns(Archive *fout,
 }
 
 /*
- * Find the OIDs of all foreign servers matching the given list of patterns,
- * and append them to the given OID list.
+ * 查找匹配给定模式列表的所有外部服务器的 OID，
+ * 并将它们追加到给定的 OID 列表中。
  */
 static void
 expand_foreign_server_name_patterns(Archive *fout,
@@ -1526,13 +1526,13 @@ expand_foreign_server_name_patterns(Archive *fout,
 	int			i;
 
 	if (patterns->head == NULL)
-		return;					/* nothing to do */
+		return;					/* 无事可做 */
 
 	query = createPQExpBuffer();
 
 	/*
-	 * The loop below runs multiple SELECTs might sometimes result in
-	 * duplicate entries in the OID list, but we don't care.
+	 * 下面的循环运行多个 SELECT，有时可能导致 OID 列表中
+	 * 出现重复条目，但我们不在乎。
 	 */
 
 	for (cell = patterns->head; cell; cell = cell->next)
@@ -1563,9 +1563,9 @@ expand_foreign_server_name_patterns(Archive *fout,
 }
 
 /*
- * Find the OIDs of all tables matching the given list of patterns,
- * and append them to the given OID list. See also expand_dbname_patterns()
- * in pg_dumpall.c
+ * 查找匹配给定模式列表的所有表的 OID，
+ * 并将它们追加到给定的 OID 列表中。
+ * 另见 pg_dumpall.c 中的 expand_dbname_patterns()。
  */
 static void
 expand_table_name_patterns(Archive *fout,
@@ -1578,13 +1578,13 @@ expand_table_name_patterns(Archive *fout,
 	int			i;
 
 	if (patterns->head == NULL)
-		return;					/* nothing to do */
+		return;					/* 无事可做 */
 
 	query = createPQExpBuffer();
 
 	/*
-	 * this might sometimes result in duplicate entries in the OID list, but
-	 * we don't care.
+	 * 有时可能导致 OID 列表中出现重复条目，
+	 * 但我们不在乎。
 	 */
 
 	for (cell = patterns->head; cell; cell = cell->next)
@@ -1593,12 +1593,12 @@ expand_table_name_patterns(Archive *fout,
 		int			dotcnt;
 
 		/*
-		 * Query must remain ABSOLUTELY devoid of unqualified names.  This
-		 * would be unnecessary given a pg_table_is_visible() variant taking a
-		 * search_path argument.
-		 *
-		 * For with_child_tables, we start with the basic query's results and
-		 * recursively search the inheritance tree to add child tables.
+		 * 查询必须绝对不包含非限定名称。如果有一个接受
+		 * search_path 参数的 pg_table_is_visible() 变体，
+		 * 这就不必要了。
+		 * 
+		 * 对于 with_child_tables，我们从基本查询的结果开始，
+		 * 递归搜索继承树以添加子表。
 		 */
 		if (with_child_tables)
 		{
@@ -1658,10 +1658,10 @@ expand_table_name_patterns(Archive *fout,
 }
 
 /*
- * Verifies that the connected database name matches the given database name,
- * and if not, dies with an error about the given pattern.
- *
- * The 'dbname' argument should be a literal name parsed from 'pattern'.
+ * 验证连接的数据库名称是否匹配给定的数据库名称，
+ * 如果不匹配，则因关于给定模式的错误而终止。
+ * 
+ * 'dbname' 参数应是从 'pattern' 解析出的字面名称。
  */
 static void
 prohibit_crossdb_refs(PGconn *conn, const char *dbname, const char *pattern)
@@ -1679,14 +1679,14 @@ prohibit_crossdb_refs(PGconn *conn, const char *dbname, const char *pattern)
 
 /*
  * checkExtensionMembership
- *		Determine whether object is an extension member, and if so,
- *		record an appropriate dependency and set the object's dump flag.
- *
- * It's important to call this for each object that could be an extension
- * member.  Generally, we integrate this with determining the object's
- * to-be-dumped-ness, since extension membership overrides other rules for that.
- *
- * Returns true if object is an extension member, else false.
+ *   确定对象是否为扩展成员，如果是，
+ *   则记录适当的依赖并设置对象的导出标志。
+ * 
+ * 对每个可能是扩展成员的对象调用此函数非常重要。
+ * 通常，我们将其与确定对象是否应被导出集成在一起，
+ * 因为扩展成员身份会覆盖其他规则。
+ * 
+ * 如果对象是扩展成员则返回 true，否则返回 false。
  */
 static bool
 checkExtensionMembership(DumpableObject *dobj, Archive *fout)
@@ -1698,28 +1698,28 @@ checkExtensionMembership(DumpableObject *dobj, Archive *fout)
 
 	dobj->ext_member = true;
 
-	/* Record dependency so that getDependencies needn't deal with that */
+	/* 记录依赖，以便 getDependencies 无需处理它 */
 	addObjectDependency(dobj, ext->dobj.dumpId);
 
 	/*
-	 * In 9.6 and above, mark the member object to have any non-initial ACLs
-	 * dumped.  (Any initial ACLs will be removed later, using data from
-	 * pg_init_privs, so that we'll dump only the delta from the extension's
-	 * initial setup.)
+	 * 在 9.6 及以上版本中，标记成员对象以导出所有非初始 ACL。
+	 * （所有初始 ACL 将稍后使用 pg_init_privs 的数据被删除，
+	 * 以便我们只导出与扩展初始设置的差异部分。）
+	 * 
+	 * 在 9.6 之前，我们不包含任何扩展成员组件。
+	 * 
+	 * 在二进制升级中，我们仍然分别导出成员的所有组件，
+	 * 因为其理念是精确复制数据库内容，
+	 * 而不是用不同的内容替换扩展内容。
+	 * 
+	 * 注意：将来实现扩展成员 RLS 策略和/或安全标签的
+	 * 存储和增量导出可能会很有趣。但 RLS 策略存在一个陷阱：
+	 * 尝试导出它们需要锁定其表，而调用用户可能没有相应的权限。
+	 * 我们检查表的 ACL 不需要锁定，
+	 * 因此当前功能不存在此类问题。
 	 *
-	 * Prior to 9.6, we do not include any extension member components.
 	 *
-	 * In binary upgrades, we still dump all components of the members
-	 * individually, since the idea is to exactly reproduce the database
-	 * contents rather than replace the extension contents with something
-	 * different.
 	 *
-	 * Note: it might be interesting someday to implement storage and delta
-	 * dumping of extension members' RLS policies and/or security labels.
-	 * However there is a pitfall for RLS policies: trying to dump them
-	 * requires getting a lock on their tables, and the calling user might not
-	 * have privileges for that.  We need no lock to examine a table's ACLs,
-	 * so the current feature doesn't have a problem of that sort.
 	 */
 	if (fout->dopt->binary_upgrade)
 		dobj->dump = ext->dobj.dump;
@@ -1735,23 +1735,23 @@ checkExtensionMembership(DumpableObject *dobj, Archive *fout)
 }
 
 /*
- * selectDumpableNamespace: policy-setting subroutine
- *		Mark a namespace as to be dumped or not
+ * selectDumpableNamespace：策略设置子程序
+ *   标记一个模式是否应被导出
  */
 static void
 selectDumpableNamespace(NamespaceInfo *nsinfo, Archive *fout)
 {
 	/*
-	 * DUMP_COMPONENT_DEFINITION typically implies a CREATE SCHEMA statement
-	 * and (for --clean) a DROP SCHEMA statement.  (In the absence of
-	 * DUMP_COMPONENT_DEFINITION, this value is irrelevant.)
+	 * DUMP_COMPONENT_DEFINITION 通常意味着 CREATE SCHEMA 语句
+	 * 和（对于 --clean）DROP SCHEMA 语句。
+	 * （在没有 DUMP_COMPONENT_DEFINITION 的情况下，此值无关紧要。）
 	 */
 	nsinfo->create = true;
 
 	/*
-	 * If specific tables are being dumped, do not dump any complete
-	 * namespaces. If specific namespaces are being dumped, dump just those
-	 * namespaces. Otherwise, dump all non-system namespaces.
+	 * 如果正在导出特定表，则不导出任何完整的模式。
+	 * 如果正在导出特定模式，则仅导出这些模式。
+	 * 否则，导出所有非系统模式。
 	 */
 	if (table_include_oids.head != NULL)
 		nsinfo->dobj.dump_contains = nsinfo->dobj.dump = DUMP_COMPONENT_NONE;
@@ -1764,27 +1764,27 @@ selectDumpableNamespace(NamespaceInfo *nsinfo, Archive *fout)
 			 strcmp(nsinfo->dobj.name, "pg_catalog") == 0)
 	{
 		/*
-		 * In 9.6 and above, we dump out any ACLs defined in pg_catalog, if
-		 * they are interesting (and not the original ACLs which were set at
-		 * initdb time, see pg_init_privs).
+		 * 在 9.6 及以上版本中，我们导出 pg_catalog 中定义的所有 ACL，
+		 * 只要它们是有意义的（而不是在 initdb 时设置的原始 ACL，
+		 * 参见 pg_init_privs）。
 		 */
 		nsinfo->dobj.dump_contains = nsinfo->dobj.dump = DUMP_COMPONENT_ACL;
 	}
 	else if (strncmp(nsinfo->dobj.name, "pg_", 3) == 0 ||
 			 strcmp(nsinfo->dobj.name, "information_schema") == 0)
 	{
-		/* Other system schemas don't get dumped */
+		/* 其他系统模式不被导出 */
 		nsinfo->dobj.dump_contains = nsinfo->dobj.dump = DUMP_COMPONENT_NONE;
 	}
 	else if (strcmp(nsinfo->dobj.name, "public") == 0)
 	{
 		/*
-		 * The public schema is a strange beast that sits in a sort of
-		 * no-mans-land between being a system object and a user object.
-		 * CREATE SCHEMA would fail, so its DUMP_COMPONENT_DEFINITION is just
-		 * a comment and an indication of ownership.  If the owner is the
-		 * default, omit that superfluous DUMP_COMPONENT_DEFINITION.  Before
-		 * v15, the default owner was BOOTSTRAP_SUPERUSERID.
+		 * public 模式是一个特殊的实体，
+		 * 介于系统对象和用户对象之间。
+		 * CREATE SCHEMA 会失败，因此其 DUMP_COMPONENT_DEFINITION
+		 * 只是一个注释和所有权指示。
+		 * 如果所有者是默认的，则省略多余的 DUMP_COMPONENT_DEFINITION。
+		 * 在 v15 之前，默认所有者是 BOOTSTRAP_SUPERUSERID。
 		 */
 		nsinfo->create = false;
 		nsinfo->dobj.dump = DUMP_COMPONENT_ALL;
@@ -1793,9 +1793,9 @@ selectDumpableNamespace(NamespaceInfo *nsinfo, Archive *fout)
 		nsinfo->dobj.dump_contains = DUMP_COMPONENT_ALL;
 
 		/*
-		 * Also, make like it has a comment even if it doesn't; this is so
-		 * that we'll emit a command to drop the comment, if appropriate.
-		 * (Without this, we'd not call dumpCommentExtended for it.)
+		 * 另外，即使它没有注释，也要表现得好像它有注释；
+		 * 这样我们会在适当的时候发出删除注释的命令。
+		 * （没有这个，我们不会为它调用 dumpCommentExtended。）
 		 */
 		nsinfo->dobj.components |= DUMP_COMPONENT_COMMENT;
 	}
@@ -1803,7 +1803,7 @@ selectDumpableNamespace(NamespaceInfo *nsinfo, Archive *fout)
 		nsinfo->dobj.dump_contains = nsinfo->dobj.dump = DUMP_COMPONENT_ALL;
 
 	/*
-	 * In any case, a namespace can be excluded by an exclusion switch
+	 * 在任何情况下，模式都可以被排除开关排除
 	 */
 	if (nsinfo->dobj.dump_contains &&
 		simple_oid_list_member(&schema_exclude_oids,
@@ -1811,28 +1811,28 @@ selectDumpableNamespace(NamespaceInfo *nsinfo, Archive *fout)
 		nsinfo->dobj.dump_contains = nsinfo->dobj.dump = DUMP_COMPONENT_NONE;
 
 	/*
-	 * If the schema belongs to an extension, allow extension membership to
-	 * override the dump decision for the schema itself.  However, this does
-	 * not change dump_contains, so this won't change what we do with objects
-	 * within the schema.  (If they belong to the extension, they'll get
-	 * suppressed by it, otherwise not.)
+	 * 如果模式属于扩展，允许扩展成员身份覆盖
+	 * 模式本身的导出决策。然而，这不会改变 dump_contains，
+	 * 因此这不会改变我们对模式内对象的处理方式。
+	 * （如果它们属于扩展，将被扩展抑制，否则不会。）
+	 *
 	 */
 	(void) checkExtensionMembership(&nsinfo->dobj, fout);
 }
 
 /*
- * selectDumpableTable: policy-setting subroutine
- *		Mark a table as to be dumped or not
+ * selectDumpableTable：策略设置子程序
+ *   标记一个表是否应被导出
  */
 static void
 selectDumpableTable(TableInfo *tbinfo, Archive *fout)
 {
 	if (checkExtensionMembership(&tbinfo->dobj, fout))
-		return;					/* extension membership overrides all else */
+		return;					/* 扩展成员身份覆盖所有其他规则 */
 
 	/*
-	 * If specific tables are being dumped, dump just those tables; else, dump
-	 * according to the parent namespace's dump flag.
+	 * 如果正在导出特定表，则仅导出这些表；否则，
+	 * 根据父模式的导出标志导出。
 	 */
 	if (table_include_oids.head != NULL)
 		tbinfo->dobj.dump = simple_oid_list_member(&table_include_oids,
@@ -1842,7 +1842,7 @@ selectDumpableTable(TableInfo *tbinfo, Archive *fout)
 		tbinfo->dobj.dump = tbinfo->dobj.namespace->dobj.dump_contains;
 
 	/*
-	 * In any case, a table can be excluded by an exclusion switch
+	 * 在任何情况下，表都可以被排除开关排除
 	 */
 	if (tbinfo->dobj.dump &&
 		simple_oid_list_member(&table_exclude_oids,
@@ -1851,22 +1851,22 @@ selectDumpableTable(TableInfo *tbinfo, Archive *fout)
 }
 
 /*
- * selectDumpableType: policy-setting subroutine
- *		Mark a type as to be dumped or not
+ * selectDumpableType：策略设置子程序
+ *   标记一个类型是否应被导出
+ * 
+ * 如果它是表的行类型或自动生成的数组类型，我们还应用一个
+ * 特殊类型代码以方便按所需顺序排序。（我们不想将它们
+ * 视为普通类型，因为那会将表提升到导出顺序的数据类型部分。）
+ * 我们仍然设置对象的导出标志；这不会导致虚拟类型被导出，
+ * 但我们需要它以便涉及此类类型的转换能被正确导出——参见 dumpCast。
+ * 这意味着标志的设置应与底层对象（表或基础类型）的设置相同。
  *
- * If it's a table's rowtype or an autogenerated array type, we also apply a
- * special type code to facilitate sorting into the desired order.  (We don't
- * want to consider those to be ordinary types because that would bring tables
- * up into the datatype part of the dump order.)  We still set the object's
- * dump flag; that's not going to cause the dummy type to be dumped, but we
- * need it so that casts involving such types will be dumped correctly -- see
- * dumpCast.  This means the flag should be set the same as for the underlying
- * object (the table or base type).
+ *
  */
 static void
 selectDumpableType(TypeInfo *tyinfo, Archive *fout)
 {
-	/* skip complex types, except for standalone composite types */
+	/* 跳过复杂类型，独立组合类型除外 */
 	if (OidIsValid(tyinfo->typrelid) &&
 		tyinfo->typrelkind != RELKIND_COMPOSITE_TYPE)
 	{
@@ -1880,7 +1880,7 @@ selectDumpableType(TypeInfo *tyinfo, Archive *fout)
 		return;
 	}
 
-	/* skip auto-generated array types */
+	/* 跳过自动生成的数组类型 */
 	if (tyinfo->isArray || tyinfo->isMultirange)
 	{
 		tyinfo->dobj.objType = DO_DUMMY_TYPE;
@@ -1894,27 +1894,27 @@ selectDumpableType(TypeInfo *tyinfo, Archive *fout)
 	}
 
 	if (checkExtensionMembership(&tyinfo->dobj, fout))
-		return;					/* extension membership overrides all else */
+		return;					/* 扩展成员身份覆盖所有其他规则 */
 
-	/* Dump based on if the contents of the namespace are being dumped */
+	/* 根据命名空间的内容是否被导出决定导出 */
 	tyinfo->dobj.dump = tyinfo->dobj.namespace->dobj.dump_contains;
 }
 
 /*
- * selectDumpableDefaultACL: policy-setting subroutine
- *		Mark a default ACL as to be dumped or not
+ * selectDumpableDefaultACL：策略设置子程序
+ *   标记一个默认 ACL 是否应被导出
+ * 
+ * 对于按模式划分的默认 ACL，我们在对象意向的上下文中使用它们。
  *
- * For per-schema default ACLs, dump if the schema is to be dumped.
- * Otherwise dump if we are dumping "everything".  Note that dataOnly
- * and aclsSkip are checked separately.
+ *
  */
 static void
 selectDumpableDefaultACL(DefaultACLInfo *dinfo, DumpOptions *dopt)
 {
-	/* Default ACLs can't be extension members */
+	/* 默认 ACL 不能是扩展成员 */
 
 	if (dinfo->dobj.namespace)
-		/* default ACLs are considered part of the namespace */
+		/* 默认 ACL 被视为命名空间的一部分 */
 		dinfo->dobj.dump = dinfo->dobj.namespace->dobj.dump_contains;
 	else
 		dinfo->dobj.dump = dopt->include_everything ?
@@ -1922,23 +1922,23 @@ selectDumpableDefaultACL(DefaultACLInfo *dinfo, DumpOptions *dopt)
 }
 
 /*
- * selectDumpableCast: policy-setting subroutine
- *		Mark a cast as to be dumped or not
+ * selectDumpableCast：策略设置子程序
+ *   标记一个转换是否应被导出
+ * 
+ * 转换不属于任何命名空间（因为它们没有名称），
+ * 也没有可识别的所有者。为了区分子定义转换和内置转换，
+ * 我们必须检查转换的 OID 是否在 initdb 保留的范围内。
  *
- * Casts do not belong to any particular namespace (since they haven't got
- * names), nor do they have identifiable owners.  To distinguish user-defined
- * casts from built-in ones, we must resort to checking whether the cast's
- * OID is in the range reserved for initdb.
  */
 static void
 selectDumpableCast(CastInfo *cast, Archive *fout)
 {
 	if (checkExtensionMembership(&cast->dobj, fout))
-		return;					/* extension membership overrides all else */
+		return;					/* 扩展成员身份覆盖所有其他规则 */
 
 	/*
-	 * This would be DUMP_COMPONENT_ACL for from-initdb casts, but they do not
-	 * support ACLs currently.
+	 * 对于来自 initdb 的转换，这将是 DUMP_COMPONENT_ACL，
+	 * 但它们目前不支持 ACL。
 	 */
 	if (cast->dobj.catId.oid <= (Oid) g_last_builtin_oid)
 		cast->dobj.dump = DUMP_COMPONENT_NONE;
@@ -1948,25 +1948,25 @@ selectDumpableCast(CastInfo *cast, Archive *fout)
 }
 
 /*
- * selectDumpableProcLang: policy-setting subroutine
- *		Mark a procedural language as to be dumped or not
- *
- * Procedural languages do not belong to any particular namespace.  To
- * identify built-in languages, we must resort to checking whether the
- * language's OID is in the range reserved for initdb.
+ * selectDumpableProcLang：策略设置子程序
+ *   标记一个过程语言是否应被导出
+ * 
+ * 过程语言不属于任何命名空间。
+ * 为了识别内置语言，我们必须检查该语言的 OID
+ * 是否在 initdb 保留的范围内。
  */
 static void
 selectDumpableProcLang(ProcLangInfo *plang, Archive *fout)
 {
 	if (checkExtensionMembership(&plang->dobj, fout))
-		return;					/* extension membership overrides all else */
+		return;					/* 扩展成员身份覆盖所有其他规则 */
 
 	/*
-	 * Only include procedural languages when we are dumping everything.
+	 * 仅在导出所有内容时才包含过程语言。
+	 * 
+	 * 对于来自 initdb 的过程语言，我们仍然仅在执行包含所有内容的导出时才包含它们。
+	 * 我们还标记它们以便 dumpProcLang 可以发出 ALTER EXTENSION ADD。
 	 *
-	 * For from-initdb procedural languages, only include ACLs, as we do for
-	 * the pg_catalog namespace.  We need this because procedural languages do
-	 * not live in any namespace.
 	 */
 	if (!fout->dopt->include_everything)
 		plang->dobj.dump = DUMP_COMPONENT_NONE;
@@ -1981,17 +1981,17 @@ selectDumpableProcLang(ProcLangInfo *plang, Archive *fout)
 }
 
 /*
- * selectDumpableAccessMethod: policy-setting subroutine
- *		Mark an access method as to be dumped or not
- *
- * Access methods do not belong to any particular namespace.  To identify
- * built-in access methods, we must resort to checking whether the
- * method's OID is in the range reserved for initdb.
+ * selectDumpableAccessMethod：策略设置子程序
+ *   标记一个访问方法是否应被导出
+ * 
+ * 访问方法不属于任何命名空间。
+ * 为了识别内置访问方法，我们必须检查该方法的 OID
+ * 是否在 initdb 保留的范围内。
  */
 static void
 selectDumpableAccessMethod(AccessMethodInfo *method, Archive *fout)
 {
-	/* see getAccessMethods() comment about v9.6. */
+	/* 参见 getAccessMethods() 中关于 v9.6 的注释。 */
 	if (fout->remoteVersion < 90600)
 	{
 		method->dobj.dump = DUMP_COMPONENT_NONE;
@@ -1999,11 +1999,11 @@ selectDumpableAccessMethod(AccessMethodInfo *method, Archive *fout)
 	}
 
 	if (checkExtensionMembership(&method->dobj, fout))
-		return;					/* extension membership overrides all else */
+		return;					/* 扩展成员身份覆盖所有其他规则 */
 
 	/*
-	 * This would be DUMP_COMPONENT_ACL for from-initdb access methods, but
-	 * they do not support ACLs currently.
+	 * 对于来自 initdb 的访问方法，这将是 DUMP_COMPONENT_ACL，
+	 * 但它们目前不支持 ACL。
 	 */
 	if (method->dobj.catId.oid <= (Oid) g_last_builtin_oid)
 		method->dobj.dump = DUMP_COMPONENT_NONE;
@@ -2013,29 +2013,29 @@ selectDumpableAccessMethod(AccessMethodInfo *method, Archive *fout)
 }
 
 /*
- * selectDumpableExtension: policy-setting subroutine
- *		Mark an extension as to be dumped or not
+ * selectDumpableExtension：策略设置子程序
+ *   标记一个扩展是否应被导出
+ * 
+ * 内置扩展始终存在，在 pg_dump 运行期间无法被删除。
+ * 我们仍然希望导出它们的内容（成员对象），
+ * 即使不能按名称包含/排除它们。
+ * 
+ * 注意：getExtension 已应用了用户指定的模式匹配。
  *
- * Built-in extensions should be skipped except for checking ACLs, since we
- * assume those will already be installed in the target database.  We identify
- * such extensions by their having OIDs in the range reserved for initdb.
- * We dump all user-added extensions by default.  No extensions are dumped
- * if include_everything is false (i.e., a --schema or --table switch was
- * given), except if --extension specifies a list of extensions to dump.
  */
 static void
 selectDumpableExtension(ExtensionInfo *extinfo, DumpOptions *dopt)
 {
 	/*
-	 * Use DUMP_COMPONENT_ACL for built-in extensions, to allow users to
-	 * change permissions on their member objects, if they wish to, and have
-	 * those changes preserved.
+	 * 对内置扩展使用 DUMP_COMPONENT_ACL，
+	 * 允许用户通过其成员对象更改权限。
+	 *
 	 */
 	if (extinfo->dobj.catId.oid <= (Oid) g_last_builtin_oid)
 		extinfo->dobj.dump = extinfo->dobj.dump_contains = DUMP_COMPONENT_ACL;
 	else
 	{
-		/* check if there is a list of extensions to dump */
+		/* 检查是否有要导出的扩展列表 */
 		if (extension_include_oids.head != NULL)
 			extinfo->dobj.dump = extinfo->dobj.dump_contains =
 				simple_oid_list_member(&extension_include_oids,
@@ -2049,36 +2049,36 @@ selectDumpableExtension(ExtensionInfo *extinfo, DumpOptions *dopt)
 }
 
 /*
- * selectDumpablePublicationObject: policy-setting subroutine
- *		Mark a publication object as to be dumped or not
+ * selectDumpablePublicationObject：策略设置子程序
+ *   标记一个发布对象是否应被导出
+ * 
+ * 发布不属于任何命名空间。
  *
- * A publication can have schemas and tables which have schemas, but those are
- * ignored in decision making, because publications are only dumped when we are
- * dumping everything.
+ *
  */
 static void
 selectDumpablePublicationObject(DumpableObject *dobj, Archive *fout)
 {
 	if (checkExtensionMembership(dobj, fout))
-		return;					/* extension membership overrides all else */
+		return;					/* 扩展成员身份覆盖所有其他规则 */
 
 	dobj->dump = fout->dopt->include_everything ?
 		DUMP_COMPONENT_ALL : DUMP_COMPONENT_NONE;
 }
 
 /*
- * selectDumpableStatisticsObject: policy-setting subroutine
- *		Mark an extended statistics object as to be dumped or not
+ * selectDumpableStatisticsObject：策略设置子程序
+ *   标记一个扩展统计对象是否应被导出
+ * 
+ * 扩展统计对象位于包含它们的模式中。
  *
- * We dump an extended statistics object if the schema it's in and the table
- * it's for are being dumped.  (This'll need more thought if statistics
- * objects ever support cross-table stats.)
+ *
  */
 static void
 selectDumpableStatisticsObject(StatsExtInfo *sobj, Archive *fout)
 {
 	if (checkExtensionMembership(&sobj->dobj, fout))
-		return;					/* extension membership overrides all else */
+		return;					/* 扩展成员身份覆盖所有其他规则 */
 
 	sobj->dobj.dump = sobj->dobj.namespace->dobj.dump_contains;
 	if (sobj->stattable == NULL ||
@@ -2087,20 +2087,20 @@ selectDumpableStatisticsObject(StatsExtInfo *sobj, Archive *fout)
 }
 
 /*
- * selectDumpableObject: policy-setting subroutine
- *		Mark a generic dumpable object as to be dumped or not
- *
- * Use this only for object types without a special-case routine above.
+ * selectDumpableObject：策略设置子程序
+ *   标记一个通用可导出对象是否应被导出
+ * 
+ * 用于没有更具体策略函数的对象类型。
  */
 static void
 selectDumpableObject(DumpableObject *dobj, Archive *fout)
 {
 	if (checkExtensionMembership(dobj, fout))
-		return;					/* extension membership overrides all else */
+		return;					/* 扩展成员身份覆盖所有其他规则 */
 
 	/*
-	 * Default policy is to dump if parent namespace is dumpable, or for
-	 * non-namespace-associated items, dump if we're dumping "everything".
+	 * 默认策略是：如果父命名空间可导出则导出，
+	 * 或者对于非命名空间关联的项目，如果我们在"包含所有内容"模式下则导出。
 	 */
 	if (dobj->namespace)
 		dobj->dump = dobj->namespace->dobj.dump_contains;
@@ -2110,9 +2110,9 @@ selectDumpableObject(DumpableObject *dobj, Archive *fout)
 }
 
 /*
- *	Dump a table's contents for loading using the COPY command
- *	- this routine is called by the Archiver when it wants the table
- *	  to be dumped.
+ * 使用 COPY 命令导出表内容以供加载
+ * - 当归档器需要时由归档器调用此例程。
+ *
  */
 static int
 dumpTableData_copy(Archive *fout, const void *dcontext)
@@ -2123,8 +2123,8 @@ dumpTableData_copy(Archive *fout, const void *dcontext)
 	PQExpBuffer q = createPQExpBuffer();
 
 	/*
-	 * Note: can't use getThreadLocalPQExpBuffer() here, we're calling fmtId
-	 * which uses it already.
+	 * 注意：此处不能使用 getThreadLocalPQExpBuffer()，
+	 * 我们正在调用 fmtId，它已经使用了该缓冲区。
 	 */
 	PQExpBuffer clistBuf = createPQExpBuffer();
 	PGconn	   *conn = GetConnection(fout);
@@ -2137,26 +2137,26 @@ dumpTableData_copy(Archive *fout, const void *dcontext)
 				tbinfo->dobj.namespace->dobj.name, classname);
 
 	/*
-	 * Specify the column list explicitly so that we have no possibility of
-	 * retrieving data in the wrong column order.  (The default column
-	 * ordering of COPY will not be what we want in certain corner cases
-	 * involving ADD COLUMN and inheritance.)
+	 * 显式指定列列表，以便我们不会以错误的列顺序
+	 * 检索数据，等等。这还会确保在转储和重新加载之间
+	 * 添加或删除列时不会出现问题。
+	 *
 	 */
 	column_list = fmtCopyColumnList(tbinfo, clistBuf);
 
 	/*
-	 * Use COPY (SELECT ...) TO when dumping a foreign table's data, and when
-	 * a filter condition was specified.  For other cases a simple COPY
-	 * suffices.
+	 * 在导出外部表数据时以及指定了过滤条件时
+	 * 使用 COPY (SELECT ...) TO。对于其他所有情况，我们在这里使用 COPY table TO。
+	 *
 	 */
 	if (tdinfo->filtercond || tbinfo->relkind == RELKIND_FOREIGN_TABLE)
 	{
-		/* Temporary allows to access to foreign tables to dump data */
+		/* 临时允许访问外部表以导出数据 */
 		if (tbinfo->relkind == RELKIND_FOREIGN_TABLE)
 			set_restrict_relation_kind(fout, "view");
 
 		appendPQExpBufferStr(q, "COPY (SELECT ");
-		/* klugery to get rid of parens in column list */
+		/* 去除列列表中括号的权宜之计 */
 		if (strlen(column_list) > 2)
 		{
 			appendPQExpBufferStr(q, column_list + 1);
@@ -2184,7 +2184,7 @@ dumpTableData_copy(Archive *fout, const void *dcontext)
 		ret = PQgetCopyData(conn, &copybuf, 0);
 
 		if (ret < 0)
-			break;				/* done or error */
+			break;				/* 完成或出错 */
 
 		if (copybuf)
 		{
@@ -2242,14 +2242,14 @@ dumpTableData_copy(Archive *fout, const void *dcontext)
 
 	if (ret == -2)
 	{
-		/* copy data transfer failed */
+		/* 复制数据传输失败 */
 		pg_log_error("Dumping the contents of table \"%s\" failed: PQgetCopyData() failed.", classname);
 		pg_log_error_detail("Error message from server: %s", PQerrorMessage(conn));
 		pg_log_error_detail("Command was: %s", q->data);
 		exit_nicely(1);
 	}
 
-	/* Check command status and return to normal libpq state */
+	/* 检查命令状态并返回到正常的 libpq 状态 */
 	res = PQgetResult(conn);
 	if (PQresultStatus(res) != PGRES_COMMAND_OK)
 	{
@@ -2260,14 +2260,14 @@ dumpTableData_copy(Archive *fout, const void *dcontext)
 	}
 	PQclear(res);
 
-	/* Do this to ensure we've pumped libpq back to idle state */
+	/* 执行此操作以确保我们已将 libpq 泵送回空闲状态 */
 	if (PQgetResult(conn) != NULL)
 		pg_log_warning("unexpected extra results during COPY of table \"%s\"",
 					   classname);
 
 	destroyPQExpBuffer(q);
 
-	/* Revert back the setting */
+	/* 恢复设置 */
 	if (tbinfo->relkind == RELKIND_FOREIGN_TABLE)
 		set_restrict_relation_kind(fout, "view, foreign-table");
 
@@ -2275,12 +2275,12 @@ dumpTableData_copy(Archive *fout, const void *dcontext)
 }
 
 /*
- * Dump table data using INSERT commands.
+ * 使用 INSERT 命令导出表数据。
+ * 
+ * 注意：当我们从归档文件直接恢复到数据库时，INSERT 命令
+ * 必须被格式化为一个字符串，然后可以传递给 PQexec。
+ * 让调用者担心这一点——我们只返回一个预先构建的 INSERT 字符串。
  *
- * Caution: when we restore from an archive file direct to database, the
- * INSERT commands emitted by this function have to be parsed by
- * pg_backup_db.c's ExecuteSimpleCommands(), which will not handle comments,
- * E'' strings, or dollar-quoted strings.  So don't emit anything like that.
  */
 static int
 dumpTableData_insert(Archive *fout, const void *dcontext)
@@ -2297,16 +2297,16 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 	int			rows_per_statement = dopt->dump_inserts;
 	int			rows_this_statement = 0;
 
-	/* Temporary allows to access to foreign tables to dump data */
+	/* 临时允许访问外部表以导出数据 */
 	if (tbinfo->relkind == RELKIND_FOREIGN_TABLE)
 		set_restrict_relation_kind(fout, "view");
 
 	/*
-	 * If we're going to emit INSERTs with column names, the most efficient
-	 * way to deal with generated columns is to exclude them entirely.  For
-	 * INSERTs without column names, we have to emit DEFAULT rather than the
-	 * actual column value --- but we can save a few cycles by fetching nulls
-	 * rather than the uninteresting-to-us value.
+	 * 如果我们要发出带列名的 INSERT，处理生成列最有效的
+	 * 方式是将其放在列列表中的默认位置。但如果我们没有列名，
+	 * 在列列表中使用 DEFAULT 是无效的，因此我们必须检索生成列的值。
+	 *
+	 *
 	 */
 	attgenerated = (char *) pg_malloc(tbinfo->numatts * sizeof(char));
 	appendPQExpBufferStr(q, "DECLARE _pg_dump_cursor CURSOR FOR SELECT ");
@@ -2326,7 +2326,7 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 		attgenerated[nfields] = tbinfo->attgenerated[i];
 		nfields++;
 	}
-	/* Servers before 9.4 will complain about zero-column SELECT */
+	/* 9.4 之前的服务器会对零列 SELECT 报错 */
 	if (nfields == 0)
 		appendPQExpBufferStr(q, "NULL");
 	appendPQExpBuffer(q, " FROM ONLY %s",
@@ -2341,18 +2341,18 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 		res = ExecuteSqlQuery(fout, "FETCH 100 FROM _pg_dump_cursor",
 							  PGRES_TUPLES_OK);
 
-		/* cross-check field count, allowing for dummy NULL if any */
+		/* 交叉检查字段计数，如有虚拟 NULL 则予以考虑 */
 		if (nfields != PQnfields(res) &&
 			!(nfields == 0 && PQnfields(res) == 1))
 			pg_fatal("wrong number of fields retrieved from table \"%s\"",
 					 tbinfo->dobj.name);
 
 		/*
-		 * First time through, we build as much of the INSERT statement as
-		 * possible in "insertStmt", which we can then just print for each
-		 * statement. If the table happens to have zero dumpable columns then
-		 * this will be a complete statement, otherwise it will end in
-		 * "VALUES" and be ready to have the row's column values printed.
+		 * 第一次通过时，我们尽可能构建 INSERT 语句的
+		 * 完整内容到 insertStmt 中，然后可以重复使用。
+		 * 如果表中有生成列，那么对于不同的行，
+		 * 列列表会有所不同，因此我们将列列表构建推迟到当前行。
+		 *
 		 */
 		if (insertStmt == NULL)
 		{
@@ -2361,9 +2361,9 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 			insertStmt = createPQExpBuffer();
 
 			/*
-			 * When load-via-partition-root is set or forced, get the root
-			 * table name for the partition table, so that we can reload data
-			 * through the root table.
+			 * 当设置 load-via-partition-root 或强制使用时，
+			 * 获取分区表的根表名称，以便数据被加载到分区根中。
+			 *
 			 */
 			if (tbinfo->ispartition &&
 				(dopt->load_via_partition_root ||
@@ -2375,14 +2375,14 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 			appendPQExpBuffer(insertStmt, "INSERT INTO %s ",
 							  fmtQualifiedDumpable(targettab));
 
-			/* corner case for zero-column table */
+			/* 零列表的边界情况 */
 			if (nfields == 0)
 			{
 				appendPQExpBufferStr(insertStmt, "DEFAULT VALUES;\n");
 			}
 			else
 			{
-				/* append the list of column names if required */
+				/* 如果需要，追加列名列表 */
 				if (dopt->column_inserts)
 				{
 					appendPQExpBufferChar(insertStmt, '(');
@@ -2405,23 +2405,23 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 
 		for (int tuple = 0; tuple < PQntuples(res); tuple++)
 		{
-			/* Write the INSERT if not in the middle of a multi-row INSERT. */
+			/* 如果不处于多行 INSERT 的中间，则写入 INSERT */
 			if (rows_this_statement == 0)
 				archputs(insertStmt->data, fout);
 
 			/*
-			 * If it is zero-column table then we've already written the
-			 * complete statement, which will mean we've disobeyed
-			 * --rows-per-insert when it's set greater than 1.  We do support
-			 * a way to make this multi-row with: SELECT UNION ALL SELECT
-			 * UNION ALL ... but that's non-standard so we should avoid it
-			 * given that using INSERTs is mostly only ever needed for
-			 * cross-database exports.
+			 * 如果是零列表，那么我们已经写出了完整的语句，
+			 * 这意味着我们已经输出了足够的数据作为一行。
+			 * 如果我们不在多行 INSERT 块的中间，则跳过这一行。
+			 * 
+			 * 如果我们完全处于多行 INSERT 块的中间，
+			 * 我们就把它展开成一组单行 INSERT 语句。
+			 *
 			 */
 			if (nfields == 0)
 				continue;
 
-			/* Emit a row heading */
+			/* 输出行标题 */
 			if (rows_per_statement == 1)
 				archputs(" (", fout);
 			else if (rows_this_statement > 0)
@@ -2444,7 +2444,7 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 					continue;
 				}
 
-				/* XXX This code is partially duplicated in ruleutils.c */
+				/* XXX 此代码在 ruleutils.c 中有部分重复 */
 				switch (PQftype(res, field))
 				{
 					case INT2OID:
@@ -2456,15 +2456,15 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 					case NUMERICOID:
 						{
 							/*
-							 * These types are printed without quotes unless
-							 * they contain values that aren't accepted by the
-							 * scanner unquoted (e.g., 'NaN').  Note that
-							 * strtod() and friends might accept NaN, so we
-							 * can't use that to test.
+							 * 这些类型不带引号打印，除非它们包含不被类型输入函数
+							 * 接受的值（数据类型的输入函数将正确处理），
+							 * 或者如果它们是数值类型并带有 Infinity、-Infinity 或 NaN。
+							 * 
+							 * 这里我们以引号形式输出这些特定的引用值。
+							 * 
+							 * 然而，为了可移植性，其他平台特定的无限大和 NaN 表示
+							 * 仍然以不带引号的形式输出。这包括 inf 和 -inf 用于 float4/float8。
 							 *
-							 * In reality we only need to defend against
-							 * infinity and NaN, so we need not get too crazy
-							 * about pattern matching here.
 							 */
 							const char *s = PQgetvalue(res, tuple, field);
 
@@ -2489,7 +2489,7 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 						break;
 
 					default:
-						/* All other types are printed as string literals. */
+						/* 所有其他类型都以字符串字面量打印。 */
 						resetPQExpBuffer(q);
 						appendStringLiteralAH(q,
 											  PQgetvalue(res, tuple, field),
@@ -2499,17 +2499,17 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 				}
 			}
 
-			/* Terminate the row ... */
+			/* 终止该行... */
 			archputs(")", fout);
 
-			/* ... and the statement, if the target no. of rows is reached */
+			/* ...并在达到目标行数时终止语句 */
 			if (++rows_this_statement >= rows_per_statement)
 			{
 				if (dopt->do_nothing)
 					archputs(" ON CONFLICT DO NOTHING;\n", fout);
 				else
 					archputs(";\n", fout);
-				/* Reset the row counter */
+				/* 重置行计数器 */
 				rows_this_statement = 0;
 			}
 		}
@@ -2522,7 +2522,7 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 		PQclear(res);
 	}
 
-	/* Terminate any statements that didn't make the row count. */
+	/* 终止所有未达到行数的语句。 */
 	if (rows_this_statement > 0)
 	{
 		if (dopt->do_nothing)
@@ -2540,7 +2540,7 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 		destroyPQExpBuffer(insertStmt);
 	free(attgenerated);
 
-	/* Revert back the setting */
+	/* 恢复设置 */
 	if (tbinfo->relkind == RELKIND_FOREIGN_TABLE)
 		set_restrict_relation_kind(fout, "view, foreign-table");
 
@@ -2548,8 +2548,8 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 }
 
 /*
- * getRootTableInfo:
- *     get the root TableInfo for the given partition table.
+ * getRootTableInfo：
+ *     获取给定分区表的根 TableInfo。
  */
 static TableInfo *
 getRootTableInfo(const TableInfo *tbinfo)
@@ -2571,10 +2571,10 @@ getRootTableInfo(const TableInfo *tbinfo)
 
 /*
  * forcePartitionRootLoad
- *     Check if we must force load_via_partition_root for this partition.
- *
- * This is required if any level of ancestral partitioned table has an
- * unsafe partitioning scheme.
+ *     检查我们是否必须为此表强制 load_via_partition_root。
+ * 
+ * 我们必须为分区表强制使用此选项，
+ * 因为其父表可能不存在于归档文件中。
  */
 static bool
 forcePartitionRootLoad(const TableInfo *tbinfo)
@@ -2600,9 +2600,9 @@ forcePartitionRootLoad(const TableInfo *tbinfo)
 
 /*
  * dumpTableData -
- *	  dump the contents of a single table
- *
- * Actually, this just makes an ArchiveEntry for the table contents.
+ *   导出单个表的内容
+ * 
+ * 实际上，这只是通过归档器调度转储。
  */
 static void
 dumpTableData(Archive *fout, const TableDataInfo *tdinfo)
@@ -2616,14 +2616,14 @@ dumpTableData(Archive *fout, const TableDataInfo *tdinfo)
 	char	   *copyStmt;
 	const char *copyFrom;
 
-	/* We had better have loaded per-column details about this table */
+	/* 我们最好已经加载了此表的逐列详细信息 */
 	Assert(tbinfo->interesting);
 
 	/*
-	 * When load-via-partition-root is set or forced, get the root table name
-	 * for the partition table, so that we can reload data through the root
-	 * table.  Then construct a comment to be inserted into the TOC entry's
-	 * defn field, so that such cases can be identified reliably.
+	 * 当设置 load-via-partition-root 或强制使用时，
+	 * 获取分区表的根表名称，以便数据被加载到分区根中。
+	 * 当使用 load-via-partition-root 时，
+	 * 数据会被加载到分区根表中。
 	 */
 	if (tbinfo->ispartition &&
 		(dopt->load_via_partition_root ||
@@ -2645,9 +2645,9 @@ dumpTableData(Archive *fout, const TableDataInfo *tdinfo)
 
 	if (dopt->dump_inserts == 0)
 	{
-		/* Dump/restore using COPY */
+		/* 使用 COPY 导出/恢复 */
 		dumpFn = dumpTableData_copy;
-		/* must use 2 steps here 'cause fmtId is nonreentrant */
+		/* 必须使用两个步骤，因为 fmtId 不可重入 */
 		printfPQExpBuffer(copyBuf, "COPY %s ",
 						  copyFrom);
 		appendPQExpBuffer(copyBuf, "%s FROM stdin;\n",
@@ -2656,15 +2656,15 @@ dumpTableData(Archive *fout, const TableDataInfo *tdinfo)
 	}
 	else
 	{
-		/* Restore using INSERT */
+		/* 使用 INSERT 恢复 */
 		dumpFn = dumpTableData_insert;
 		copyStmt = NULL;
 	}
 
 	/*
-	 * Note: although the TableDataInfo is a full DumpableObject, we treat its
-	 * dependency on its table as "special" and pass it to ArchiveEntry now.
-	 * See comments for BuildArchiveDependencies.
+	 * 注意：虽然 TableDataInfo 是一个完整的 DumpableObject，
+	 * 我们将其依赖关系视为与表的数据对象的依赖关系一样精细。
+	 * 这样做是为了帮助我们正确排序。
 	 */
 	if (tdinfo->dobj.dump & DUMP_COMPONENT_DATA)
 	{
@@ -2684,23 +2684,23 @@ dumpTableData(Archive *fout, const TableDataInfo *tdinfo)
 									   .dumpArg = tdinfo));
 
 		/*
-		 * Set the TocEntry's dataLength in case we are doing a parallel dump
-		 * and want to order dump jobs by table size.  We choose to measure
-		 * dataLength in table pages (including TOAST pages) during dump, so
-		 * no scaling is needed.
+		 * 设置 TocEntry 的 dataLength，以便我们进行并行导出并按表大小
+		 * 排序导出作业。我们选择在导出期间以表页（包括 TOAST 页）
+		 * 为单位度量 dataLength，因此不需要缩放。
+		 * 
+		 * 但是，relpages 在 pg_class 中声明为 "integer"，
+		 * 因此在 TableInfo 中也是如此，但它实际上是 BlockNumber，
+		 * 即 unsigned int。进行强制转换，以便对超过 INT_MAX 页的
+		 * 表大小获得正确的解释。
 		 *
-		 * However, relpages is declared as "integer" in pg_class, and hence
-		 * also in TableInfo, but it's really BlockNumber a/k/a unsigned int.
-		 * Cast so that we get the right interpretation of table sizes
-		 * exceeding INT_MAX pages.
 		 */
 		te->dataLength = (BlockNumber) tbinfo->relpages;
 		te->dataLength += (BlockNumber) tbinfo->toastpages;
 
 		/*
-		 * If pgoff_t is only 32 bits wide, the above refinement is useless,
-		 * and instead we'd better worry about integer overflow.  Clamp to
-		 * INT_MAX if the correct result exceeds that.
+		 * 如果 pgoff_t 只有 32 位宽，上述细化是无用的，
+		 * 相反，我们使用估算的文件系统页面大小以避免溢出。
+		 *
 		 */
 		if (sizeof(te->dataLength) == 4 &&
 			(tbinfo->relpages < 0 || tbinfo->toastpages < 0 ||
@@ -2714,10 +2714,10 @@ dumpTableData(Archive *fout, const TableDataInfo *tdinfo)
 
 /*
  * refreshMatViewData -
- *	  load or refresh the contents of a single materialized view
+ *   加载或刷新单个物化视图的内容
+ * 
+ * 这实际上只是通过归档器调度刷新。
  *
- * Actually, this just makes an ArchiveEntry for the REFRESH MATERIALIZED VIEW
- * statement.
  */
 static void
 refreshMatViewData(Archive *fout, const TableDataInfo *tdinfo)
@@ -2725,7 +2725,7 @@ refreshMatViewData(Archive *fout, const TableDataInfo *tdinfo)
 	TableInfo  *tbinfo = tdinfo->tdtable;
 	PQExpBuffer q;
 
-	/* If the materialized view is not flagged as populated, skip this. */
+	/* 如果物化视图未标记为已填充，则跳过。 */
 	if (!tbinfo->relispopulated)
 		return;
 
@@ -2736,8 +2736,8 @@ refreshMatViewData(Archive *fout, const TableDataInfo *tdinfo)
 
 	if (tdinfo->dobj.dump & DUMP_COMPONENT_DATA)
 		ArchiveEntry(fout,
-					 tdinfo->dobj.catId,	/* catalog ID */
-					 tdinfo->dobj.dumpId,	/* dump ID */
+					 tdinfo->dobj.catId,	/* 目录 ID */
+					 tdinfo->dobj.dumpId,	/* 导出 ID */
 					 ARCHIVE_OPTS(.tag = tbinfo->dobj.name,
 								  .namespace = tbinfo->dobj.namespace->dobj.name,
 								  .owner = tbinfo->rolname,
@@ -2752,7 +2752,7 @@ refreshMatViewData(Archive *fout, const TableDataInfo *tdinfo)
 
 /*
  * getTableData -
- *	  set up dumpable objects representing the contents of tables
+ *   设置表示表内容的可导出对象
  */
 static void
 getTableData(DumpOptions *dopt, TableInfo *tblinfo, int numTables, char relkind)
@@ -2768,10 +2768,10 @@ getTableData(DumpOptions *dopt, TableInfo *tblinfo, int numTables, char relkind)
 }
 
 /*
- * Make a dumpable object for the data of this specific table
+ * 为此特定表的数据创建可导出对象
+ * 
+ * 注意：我们为每个要导出数据的表创建一个 TableDataInfo。
  *
- * Note: we make a TableDataInfo if and only if we are going to dump the
- * table data; the "dump" field in such objects isn't very interesting.
  */
 static void
 makeTableDataInfo(DumpOptions *dopt, TableInfo *tbinfo)
@@ -2779,36 +2779,36 @@ makeTableDataInfo(DumpOptions *dopt, TableInfo *tbinfo)
 	TableDataInfo *tdinfo;
 
 	/*
-	 * Nothing to do if we already decided to dump the table.  This will
-	 * happen for "config" tables.
+	 * 如果我们已经决定导出该表，则无事可做。
+	 * 如果为表指定了 --data-only，就会发生这种情况。
 	 */
 	if (tbinfo->dataObj != NULL)
 		return;
 
-	/* Skip VIEWs (no data to dump) */
+	/* 跳过视图（没有数据可导出） */
 	if (tbinfo->relkind == RELKIND_VIEW)
 		return;
-	/* Skip FOREIGN TABLEs (no data to dump) unless requested explicitly */
+	/* 跳过外部表（没有数据可导出），除非显式请求 */
 	if (tbinfo->relkind == RELKIND_FOREIGN_TABLE &&
 		(foreign_servers_include_oids.head == NULL ||
 		 !simple_oid_list_member(&foreign_servers_include_oids,
 								 tbinfo->foreign_server)))
 		return;
-	/* Skip partitioned tables (data in partitions) */
+	/* 跳过分区表（数据在分区中） */
 	if (tbinfo->relkind == RELKIND_PARTITIONED_TABLE)
 		return;
 
-	/* Don't dump data in unlogged tables, if so requested */
+	/* 如果请求，不要导出未记录日志的表中的数据 */
 	if (tbinfo->relpersistence == RELPERSISTENCE_UNLOGGED &&
 		dopt->no_unlogged_table_data)
 		return;
 
-	/* Check that the data is not explicitly excluded */
+	/* 检查数据是否被显式排除 */
 	if (simple_oid_list_member(&tabledata_exclude_oids,
 							   tbinfo->dobj.catId.oid))
 		return;
 
-	/* OK, let's dump it */
+	/* 好的，让我们导出它 */
 	tdinfo = (TableDataInfo *) pg_malloc(sizeof(TableDataInfo));
 
 	if (tbinfo->relkind == RELKIND_MATVIEW)
@@ -2819,8 +2819,8 @@ makeTableDataInfo(DumpOptions *dopt, TableInfo *tbinfo)
 		tdinfo->dobj.objType = DO_TABLE_DATA;
 
 	/*
-	 * Note: use tableoid 0 so that this object won't be mistaken for
-	 * something that pg_depend entries apply to.
+	 * 注意：使用 tableoid 0，这样此对象不会被误认为
+	 * 可能与普通表有依赖关系的东西。
 	 */
 	tdinfo->dobj.catId.tableoid = 0;
 	tdinfo->dobj.catId.oid = tbinfo->dobj.catId.oid;
@@ -2828,24 +2828,24 @@ makeTableDataInfo(DumpOptions *dopt, TableInfo *tbinfo)
 	tdinfo->dobj.name = tbinfo->dobj.name;
 	tdinfo->dobj.namespace = tbinfo->dobj.namespace;
 	tdinfo->tdtable = tbinfo;
-	tdinfo->filtercond = NULL;	/* might get set later */
+	tdinfo->filtercond = NULL;	/* 稍后可能会设置 */
 	addObjectDependency(&tdinfo->dobj, tbinfo->dobj.dumpId);
 
-	/* A TableDataInfo contains data, of course */
+	/* TableDataInfo 当然包含数据 */
 	tdinfo->dobj.components |= DUMP_COMPONENT_DATA;
 
 	tbinfo->dataObj = tdinfo;
 
-	/* Make sure that we'll collect per-column info for this table. */
+	/* 确保我们将收集此表的逐列信息。 */
 	tbinfo->interesting = true;
 }
 
 /*
- * The refresh for a materialized view must be dependent on the refresh for
- * any materialized view that this one is dependent on.
- *
- * This must be called after all the objects are created, but before they are
- * sorted.
+ * 物化视图的刷新必须依赖于该视图依赖的任何
+ * 物化视图的刷新，以便在依赖视图的数据之后
+ * 自动刷新视图。
+ * 
+ * 原始 SQL 视图的转储中没有物化视图，因此仅当
  */
 static void
 buildMatViewRefreshDependencies(Archive *fout)
@@ -2858,7 +2858,7 @@ buildMatViewRefreshDependencies(Archive *fout)
 				i_objid,
 				i_refobjid;
 
-	/* No Mat Views before 9.3. */
+	/* 9.3 之前没有物化视图。 */
 	if (fout->remoteVersion < 90300)
 		return;
 
@@ -2952,15 +2952,15 @@ buildMatViewRefreshDependencies(Archive *fout)
 
 /*
  * getTableDataFKConstraints -
- *	  add dump-order dependencies reflecting foreign key constraints
+ *   添加反映外键约束的导出顺序依赖
+ * 
+ * 这些依赖确保外键所引用的表的表数据在外键
+ * 所属表的表数据之前被导出。
+ * 
+ * 对于 --data-only，我们通过确保约束在数据之后而不是
+ * 之前创建来避免外键检查，因此不需要额外的依赖。
  *
- * This code is executed only in a data-only dump --- in schema+data dumps
- * we handle foreign key issues by not creating the FK constraints until
- * after the data is loaded.  In a data-only dump, however, we want to
- * order the table data objects in such a way that a table's referenced
- * tables are restored first.  (In the presence of circular references or
- * self-references this may be impossible; we'll detect and complain about
- * that during the dependency sorting step.)
+ *
  */
 static void
 getTableDataFKConstraints(void)
@@ -2969,7 +2969,7 @@ getTableDataFKConstraints(void)
 	int			numObjs;
 	int			i;
 
-	/* Search through all the dumpable objects for FK constraints */
+	/* 在所有可导出对象中搜索 FK 约束 */
 	getDumpableObjects(&dobjs, &numObjs);
 	for (i = 0; i < numObjs; i++)
 	{
@@ -2978,7 +2978,7 @@ getTableDataFKConstraints(void)
 			ConstraintInfo *cinfo = (ConstraintInfo *) dobjs[i];
 			TableInfo  *ftable;
 
-			/* Not interesting unless both tables are to be dumped */
+			/* 除非两个表都要导出，否则不感兴趣 */
 			if (cinfo->contable == NULL ||
 				cinfo->contable->dataObj == NULL)
 				continue;
@@ -2988,8 +2988,8 @@ getTableDataFKConstraints(void)
 				continue;
 
 			/*
-			 * Okay, make referencing table's TABLE_DATA object depend on the
-			 * referenced table's TABLE_DATA object.
+			 * 好的，让引用表的 TABLE_DATA 对象依赖于被引用表的 TABLE_DATA。
+			 * 
 			 */
 			addObjectDependency(&cinfo->contable->dataObj->dobj,
 								ftable->dataObj->dobj.dumpId);
@@ -3001,7 +3001,7 @@ getTableDataFKConstraints(void)
 
 /*
  * dumpDatabase:
- *	dump the database definition
+ *   导出数据库定义
  */
 static void
 dumpDatabase(Archive *fout)
@@ -3052,7 +3052,7 @@ dumpDatabase(Archive *fout)
 	pg_log_info("saving database definition");
 
 	/*
-	 * Fetch the database-level properties for this database.
+	 * 获取此数据库的数据库级别属性。
 	 */
 	appendPQExpBufferStr(dbQry, "SELECT tableoid, oid, datname, "
 						 "datdba, "
@@ -3126,11 +3126,11 @@ dumpDatabase(Archive *fout)
 	qdatname = pg_strdup(fmtId(datname));
 
 	/*
-	 * Prepare the CREATE DATABASE command.  We must specify OID (if we want
-	 * to preserve that), as well as the encoding, locale, and tablespace
-	 * since those can't be altered later.  Other DB properties are left to
-	 * the DATABASE PROPERTIES entry, so that they can be applied after
-	 * reconnecting to the target DB.
+	 * 准备 CREATE DATABASE 命令。如果需要保留 OID，必须指定它，
+	 * 并且还需要设置其他一些选项。
+	 * 注意：我们无法使用 fmtQualifiedId，因为它会生成多余的引号。
+	 * 
+	 *
 	 */
 	if (dopt->binary_upgrade)
 	{
@@ -3187,8 +3187,8 @@ dumpDatabase(Archive *fout)
 	}
 
 	/*
-	 * For binary upgrade, carry over the collation version.  For normal
-	 * dump/restore, omit the version, so that it is computed upon restore.
+	 * 对于二进制升级，继承排序规则版本。
+	 * 对于正常的导出/恢复，省略该设置。
 	 */
 	if (dopt->binary_upgrade)
 	{
@@ -3202,12 +3202,12 @@ dumpDatabase(Archive *fout)
 	}
 
 	/*
-	 * Note: looking at dopt->outputNoTablespaces here is completely the wrong
-	 * thing; the decision whether to specify a tablespace should be left till
-	 * pg_restore, so that pg_restore --no-tablespaces applies.  Ideally we'd
-	 * label the DATABASE entry with the tablespace and let the normal
-	 * tablespace selection logic work ... but CREATE DATABASE doesn't pay
-	 * attention to default_tablespace, so that won't work.
+	 * 注意：此处查看 dopt->outputNoTablespaces 是完全错误的；
+	 * 决定在 pg_restore 中做出。但是它提供了恢复选项的
+	 * 非常有用的使用方式。这可能应该改变。
+	 * 
+	 * 为清楚起见，在二进制升级模式下始终设置表空间。
+	 *
 	 */
 	if (strlen(tablespace) > 0 && strcmp(tablespace, "pg_default") != 0 &&
 		!dopt->outputNoTablespaces)
@@ -3221,8 +3221,8 @@ dumpDatabase(Archive *fout)
 	dbDumpId = createDumpId();
 
 	ArchiveEntry(fout,
-				 dbCatId,		/* catalog ID */
-				 dbDumpId,		/* dump ID */
+				 dbCatId,		/* 目录 ID */
+				 dbDumpId,		/* 导出 ID */
 				 ARCHIVE_OPTS(.tag = datname,
 							  .owner = dba,
 							  .description = "DATABASE",
@@ -3230,15 +3230,15 @@ dumpDatabase(Archive *fout)
 							  .createStmt = creaQry->data,
 							  .dropStmt = delQry->data));
 
-	/* Compute correct tag for archive entry */
+	/* 为归档条目计算正确的标签 */
 	appendPQExpBuffer(labelq, "DATABASE %s", qdatname);
 
-	/* Dump DB comment if any */
+	/* 导出数据库注释（如果有） */
 	{
 		/*
-		 * 8.2 and up keep comments on shared objects in a shared table, so we
-		 * cannot use the dumpComment() code used for other database objects.
-		 * Be careful that the ArchiveEntry parameters match that function.
+		 * 8.2 及以上版本将共享对象上的注释保存在共享表中，
+		 * 因此我们不能使用 dumpComment。
+		 * 
 		 */
 		char	   *comment = PQgetvalue(res, 0, PQfnumber(res, "description"));
 
@@ -3247,8 +3247,8 @@ dumpDatabase(Archive *fout)
 			resetPQExpBuffer(dbQry);
 
 			/*
-			 * Generates warning when loaded into a differently-named
-			 * database.
+			 * 加载到不同名称的数据库时生成警告。
+			 * 
 			 */
 			appendPQExpBuffer(dbQry, "COMMENT ON DATABASE %s IS ", qdatname);
 			appendStringLiteralAH(dbQry, comment, fout);
@@ -3265,7 +3265,7 @@ dumpDatabase(Archive *fout)
 		}
 	}
 
-	/* Dump DB security label, if enabled */
+	/* 导出数据库安全标签（如果启用） */
 	if (!dopt->no_security_labels)
 	{
 		PGresult   *shres;
@@ -3291,8 +3291,8 @@ dumpDatabase(Archive *fout)
 	}
 
 	/*
-	 * Dump ACL if any.  Note that we do not support initial privileges
-	 * (pg_init_privs) on databases.
+	 * 导出 ACL（如果有）。注意，我们不支持数据库上
+	 * 的初始特权（pg_init_privs），因为它们始终是默认的。
 	 */
 	dbdacl.privtype = 0;
 	dbdacl.initprivs = NULL;
@@ -3302,12 +3302,12 @@ dumpDatabase(Archive *fout)
 			dba, &dbdacl);
 
 	/*
-	 * Now construct a DATABASE PROPERTIES archive entry to restore any
-	 * non-default database-level properties.  (The reason this must be
-	 * separate is that we cannot put any additional commands into the TOC
-	 * entry that has CREATE DATABASE.  pg_restore would execute such a group
-	 * in an implicit transaction block, and the backend won't allow CREATE
-	 * DATABASE in that context.)
+	 * 现在构造一个 DATABASE PROPERTIES 归档条目，
+	 * 以恢复可能已更改的非默认数据库级 GUC 变量。
+	 * 此外，在二进制升级模式下，我们向此条目添加查询，
+	 * 以重置某些关键系统目录的 relfrozenxid 和相关字段。
+	 * 
+	 * 这必须在加载其他内容之前发生。
 	 */
 	resetPQExpBuffer(creaQry);
 	resetPQExpBuffer(delQry);
@@ -3322,11 +3322,11 @@ dumpDatabase(Archive *fout)
 						  qdatname);
 
 		/*
-		 * The backend won't accept DROP DATABASE on a template database.  We
-		 * can deal with that by removing the template marking before the DROP
-		 * gets issued.  We'd prefer to use ALTER DATABASE IF EXISTS here, but
-		 * since no such command is currently supported, fake it with a direct
-		 * UPDATE on pg_database.
+		 * 后端不会接受对模板数据库执行 DROP DATABASE。
+		 * 我们可以将 ALTER 用于此处感兴趣的变量
+		 * （它们不会被 CREATE DATABASE 设置），
+		 * 因此输出用于模板数据库和普通数据库的
+		 * ALTER DATABASE SET 命令。
 		 */
 		appendPQExpBufferStr(delQry, "UPDATE pg_catalog.pg_database "
 							 "SET datistemplate = false WHERE datname = ");
@@ -3334,12 +3334,12 @@ dumpDatabase(Archive *fout)
 		appendPQExpBufferStr(delQry, ";\n");
 	}
 
-	/* Add database-specific SET options */
+	/* 添加特定于数据库的 SET 选项 */
 	dumpDatabaseConfig(fout, creaQry, datname, dbCatId.oid);
 
 	/*
-	 * We stick this binary-upgrade query into the DATABASE PROPERTIES archive
-	 * entry, too, for lack of a better place.
+	 * 我们将此二进制升级查询也放入 DATABASE PROPERTIES 归档条目中，
+	 * 以便在恢复期间尽早执行。
 	 */
 	if (dopt->binary_upgrade)
 	{
@@ -3363,8 +3363,8 @@ dumpDatabase(Archive *fout)
 								  .deps = &dbDumpId));
 
 	/*
-	 * pg_largeobject comes from the old system intact, so set its
-	 * relfrozenxids, relminmxids and relfilenode.
+	 * pg_largeobject 来自旧系统且保持完整，
+	 * 因此设置其 relfrozenxids、relminmxids 和相关字段。
 	 */
 	if (dopt->binary_upgrade)
 	{
@@ -3452,8 +3452,8 @@ dumpDatabase(Archive *fout)
 }
 
 /*
- * Collect any database-specific or role-and-database-specific SET options
- * for this database, and append them to outbuf.
+ * 为此数据库收集任何数据库特定或角色及数据库特定的
+ * SET 选项，并返回它们以便构建 DATABASE PROPERTIES 条目。
  */
 static void
 dumpDatabaseConfig(Archive *AH, PQExpBuffer outbuf,
@@ -3463,7 +3463,7 @@ dumpDatabaseConfig(Archive *AH, PQExpBuffer outbuf,
 	PQExpBuffer buf = createPQExpBuffer();
 	PGresult   *res;
 
-	/* First collect database-specific options */
+	/* 首先收集数据库特定的选项 */
 	printfPQExpBuffer(buf, "SELECT unnest(setconfig) FROM pg_db_role_setting "
 					  "WHERE setrole = 0 AND setdatabase = '%u'::oid",
 					  dboid);
@@ -3477,7 +3477,7 @@ dumpDatabaseConfig(Archive *AH, PQExpBuffer outbuf,
 
 	PQclear(res);
 
-	/* Now look for role-and-database-specific options */
+	/* 现在查找角色及数据库特定的选项 */
 	printfPQExpBuffer(buf, "SELECT rolname, unnest(setconfig) "
 					  "FROM pg_db_role_setting s, pg_roles r "
 					  "WHERE setrole = r.oid AND setdatabase = '%u'::oid",
@@ -3497,7 +3497,7 @@ dumpDatabaseConfig(Archive *AH, PQExpBuffer outbuf,
 }
 
 /*
- * dumpEncoding: put the correct encoding into the archive
+ * dumpEncoding：将正确的编码放入归档
  */
 static void
 dumpEncoding(Archive *AH)
@@ -3522,7 +3522,7 @@ dumpEncoding(Archive *AH)
 
 
 /*
- * dumpStdStrings: put the correct escape string behavior into the archive
+ * dumpStdStrings：将正确的转义字符串行为放入归档
  */
 static void
 dumpStdStrings(Archive *AH)
@@ -3546,7 +3546,7 @@ dumpStdStrings(Archive *AH)
 }
 
 /*
- * dumpSearchPath: record the active search_path in the archive
+ * dumpSearchPath：在归档中记录活动的 search_path
  */
 static void
 dumpSearchPath(Archive *AH)
@@ -3559,11 +3559,11 @@ dumpSearchPath(Archive *AH)
 	int			i;
 
 	/*
-	 * We use the result of current_schemas(), not the search_path GUC,
-	 * because that might contain wildcards such as "$user", which won't
-	 * necessarily have the same value during restore.  Also, this way avoids
-	 * listing schemas that may appear in search_path but not actually exist,
-	 * which seems like a prudent exclusion.
+	 * 我们使用 current_schemas() 的结果，而不是 search_path GUC，
+	 * 因为后者可能包含我们不关心的模式名，
+	 * 例如在自引用视图中。
+	 *
+	 *
 	 */
 	res = ExecuteSqlQueryForSingleRow(AH,
 									  "SELECT pg_catalog.current_schemas(false)");
@@ -3572,10 +3572,10 @@ dumpSearchPath(Archive *AH)
 		pg_fatal("could not parse result of current_schemas()");
 
 	/*
-	 * We use set_config(), not a simple "SET search_path" command, because
-	 * the latter has less-clean behavior if the search path is empty.  While
-	 * that's likely to get fixed at some point, it seems like a good idea to
-	 * be as backwards-compatible as possible in what we put into archives.
+	 * 我们使用 set_config()，而不是简单的 "SET search_path"，
+	 * 因为后者在解析 search_path 值的方式上灵活性较差。
+	 * 具体来说，它不处理嵌入的空格或引号。
+	 *
 	 */
 	for (i = 0; i < nschemanames; i++)
 	{
@@ -3596,7 +3596,7 @@ dumpSearchPath(Archive *AH)
 							  .section = SECTION_PRE_DATA,
 							  .createStmt = qry->data));
 
-	/* Also save it in AH->searchpath, in case we're doing plain text dump */
+	/* 同时保存到 AH->searchpath，以备进行纯文本导出 */
 	AH->searchpath = pg_strdup(qry->data);
 
 	free(schemanames);
@@ -3608,7 +3608,7 @@ dumpSearchPath(Archive *AH)
 
 /*
  * getLOs:
- *	Collect schema-level data about large objects
+ *   收集大对象的模式级别数据
  */
 static void
 getLOs(Archive *fout)
@@ -3627,7 +3627,7 @@ getLOs(Archive *fout)
 
 	pg_log_info("reading large objects");
 
-	/* Fetch LO OIDs, and owner/ACL data */
+	/* 获取大对象 OID 以及所有者/ACL 数据 */
 	appendPQExpBufferStr(loQry,
 						 "SELECT oid, lomowner, lomacl, "
 						 "acldefault('L', lomowner) AS acldefault "
@@ -3643,7 +3643,7 @@ getLOs(Archive *fout)
 	ntups = PQntuples(res);
 
 	/*
-	 * Each large object has its own "BLOB" archive entry.
+	 * 每个大对象都有自己的 "BLOB" 归档条目。
 	 */
 	loinfo = (LoInfo *) pg_malloc(ntups * sizeof(LoInfo));
 
@@ -3661,27 +3661,27 @@ getLOs(Archive *fout)
 		loinfo[i].dacl.initprivs = NULL;
 		loinfo[i].rolname = getRoleName(PQgetvalue(res, i, i_lomowner));
 
-		/* LOs have data */
+		/* 大对象有数据 */
 		loinfo[i].dobj.components |= DUMP_COMPONENT_DATA;
 
-		/* Mark whether LO has an ACL */
+		/* 标记大对象是否有 ACL */
 		if (!PQgetisnull(res, i, i_lomacl))
 			loinfo[i].dobj.components |= DUMP_COMPONENT_ACL;
 
 		/*
-		 * In binary-upgrade mode for LOs, we do *not* dump out the LO data,
-		 * as it will be copied by pg_upgrade, which simply copies the
-		 * pg_largeobject table. We *do* however dump out anything but the
-		 * data, as pg_upgrade copies just pg_largeobject, but not
-		 * pg_largeobject_metadata, after the dump is restored.
+		 * 在大对象的二进制升级模式中，我们*不*导出大对象数据，
+		 * 因为它将*原样*从旧集群复制过来。
+		 * 但是，我们仍然会导出元数据（注释/安全标签），
+		 * 因为 pg_largeobject_metadata 不会被复制。
+		 *
 		 */
 		if (dopt->binary_upgrade)
 			loinfo[i].dobj.dump &= ~DUMP_COMPONENT_DATA;
 	}
 
 	/*
-	 * If we have any large objects, a "BLOBS" archive entry is needed. This
-	 * is just a placeholder for sorting; it carries no data now.
+	 * 如果我们有任何大对象，则需要 "BLOBS" 归档条目。
+	 * 这只是一个占位符，用于决定是否在恢复时执行
 	 */
 	if (ntups > 0)
 	{
@@ -3699,8 +3699,8 @@ getLOs(Archive *fout)
 
 /*
  * dumpLO
- *
- * dump the definition (metadata) of the given large object
+ * 
+ *   导出给定大对象的定义（元数据）
  */
 static void
 dumpLO(Archive *fout, const LoInfo *loinfo)
@@ -3725,19 +3725,19 @@ dumpLO(Archive *fout, const LoInfo *loinfo)
 								  .createStmt = cquery->data,
 								  .dropStmt = dquery->data));
 
-	/* Dump comment if any */
+	/* 导出注释（如果有） */
 	if (loinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "LARGE OBJECT", loinfo->dobj.name,
 					NULL, loinfo->rolname,
 					loinfo->dobj.catId, 0, loinfo->dobj.dumpId);
 
-	/* Dump security label if any */
+	/* 导出安全标签（如果有） */
 	if (loinfo->dobj.dump & DUMP_COMPONENT_SECLABEL)
 		dumpSecLabel(fout, "LARGE OBJECT", loinfo->dobj.name,
 					 NULL, loinfo->rolname,
 					 loinfo->dobj.catId, 0, loinfo->dobj.dumpId);
 
-	/* Dump ACL if any */
+	/* 导出 ACL（如果有） */
 	if (loinfo->dobj.dump & DUMP_COMPONENT_ACL)
 		dumpACL(fout, loinfo->dobj.dumpId, InvalidDumpId, "LARGE OBJECT",
 				loinfo->dobj.name, NULL,
@@ -3749,7 +3749,7 @@ dumpLO(Archive *fout, const LoInfo *loinfo)
 
 /*
  * dumpLOs:
- *	dump the data contents of all large objects
+ *   导出所有大对象的数据内容
  */
 static int
 dumpLOs(Archive *fout, const void *arg)
@@ -3766,8 +3766,8 @@ dumpLOs(Archive *fout, const void *arg)
 	pg_log_info("saving large objects");
 
 	/*
-	 * Currently, we re-fetch all LO OIDs using a cursor.  Consider scanning
-	 * the already-in-memory dumpable objects instead...
+	 * 目前，我们使用游标重新获取所有大对象 OID。
+	 * 考虑改为扫描已加载到内存中的 LoInfo 数组。
 	 */
 	loQry =
 		"DECLARE looid CURSOR FOR "
@@ -3775,15 +3775,15 @@ dumpLOs(Archive *fout, const void *arg)
 
 	ExecuteSqlStatement(fout, loQry);
 
-	/* Command to fetch from cursor */
+	/* 从游标获取的命令 */
 	loFetchQry = "FETCH 1000 IN looid";
 
 	do
 	{
-		/* Do a fetch */
+		/* 执行获取 */
 		res = ExecuteSqlQuery(fout, loFetchQry, PGRES_TUPLES_OK);
 
-		/* Process the tuples, if any */
+		/* 处理元组（如果有） */
 		ntups = PQntuples(res);
 		for (i = 0; i < ntups; i++)
 		{
@@ -3791,7 +3791,7 @@ dumpLOs(Archive *fout, const void *arg)
 			int			loFd;
 
 			loOid = atooid(PQgetvalue(res, i, 0));
-			/* Open the LO */
+			/* 打开大对象 */
 			loFd = lo_open(conn, loOid, INV_READ);
 			if (loFd == -1)
 				pg_fatal("could not open large object %u: %s",
@@ -3799,7 +3799,7 @@ dumpLOs(Archive *fout, const void *arg)
 
 			StartLO(fout, loOid);
 
-			/* Now read it in chunks, sending data to archive */
+			/* 现在分块读取它，将数据发送到归档 */
 			do
 			{
 				cnt = lo_read(conn, loFd, buf, LOBBUFSIZE);
@@ -3823,7 +3823,7 @@ dumpLOs(Archive *fout, const void *arg)
 
 /*
  * getPolicies
- *	  get information about all RLS policies on dumpable tables.
+ *   获取可导出表上所有 RLS 策略的信息。
  */
 void
 getPolicies(Archive *fout, TableInfo tblinfo[], int numTables)
@@ -3845,7 +3845,7 @@ getPolicies(Archive *fout, TableInfo tblinfo[], int numTables)
 				j,
 				ntups;
 
-	/* No policies before 9.5 */
+	/* 9.5 之前没有策略 */
 	if (fout->remoteVersion < 90500)
 		return;
 
@@ -3853,38 +3853,38 @@ getPolicies(Archive *fout, TableInfo tblinfo[], int numTables)
 	tbloids = createPQExpBuffer();
 
 	/*
-	 * Identify tables of interest, and check which ones have RLS enabled.
+	 * 识别感兴趣的表，并检查哪些启用了 RLS。
 	 */
 	appendPQExpBufferChar(tbloids, '{');
 	for (i = 0; i < numTables; i++)
 	{
 		TableInfo  *tbinfo = &tblinfo[i];
 
-		/* Ignore row security on tables not to be dumped */
+		/* 忽略不导出的表上的行安全性 */
 		if (!(tbinfo->dobj.dump & DUMP_COMPONENT_POLICY))
 			continue;
 
-		/* It can't have RLS or policies if it's not a table */
+		/* 如果不是表，则不能有 RLS 或策略 */
 		if (tbinfo->relkind != RELKIND_RELATION &&
 			tbinfo->relkind != RELKIND_PARTITIONED_TABLE)
 			continue;
 
-		/* Add it to the list of table OIDs to be probed below */
-		if (tbloids->len > 1)	/* do we have more than the '{'? */
+		/* 将其添加到下面要探测的表 OID 列表中 */
+		if (tbloids->len > 1)	/* 我们是否有超过 '{' 的内容？ */
 			appendPQExpBufferChar(tbloids, ',');
 		appendPQExpBuffer(tbloids, "%u", tbinfo->dobj.catId.oid);
 
-		/* Is RLS enabled?  (That's separate from whether it has policies) */
+		/* RLS 是否已启用？（这与是否有策略是分开的） */
 		if (tbinfo->rowsec)
 		{
 			tbinfo->dobj.components |= DUMP_COMPONENT_POLICY;
 
 			/*
-			 * We represent RLS being enabled on a table by creating a
-			 * PolicyInfo object with null polname.
+			 * 我们通过在表上创建一个带有空 polname 的 PolicyInfo 对象
+			 * 来表示表上启用了 RLS。
+			 * 
+			 * 然后 dumpPolicy 写出启用 ROW LEVEL SECURITY 所需的命令。
 			 *
-			 * Note: use tableoid 0 so that this object won't be mistaken for
-			 * something that pg_depend entries apply to.
 			 */
 			polinfo = pg_malloc(sizeof(PolicyInfo));
 			polinfo->dobj.objType = DO_POLICY;
@@ -3905,10 +3905,10 @@ getPolicies(Archive *fout, TableInfo tblinfo[], int numTables)
 	appendPQExpBufferChar(tbloids, '}');
 
 	/*
-	 * Now, read all RLS policies belonging to the tables of interest, and
-	 * create PolicyInfo objects for them.  (Note that we must filter the
-	 * results server-side not locally, because we dare not apply pg_get_expr
-	 * to tables we don't have lock on.)
+	 * 现在，读取属于感兴趣表的所有 RLS 策略，
+	 * 并为每个策略创建 PolicyInfo 对象。
+	 * 
+	 * 这包括一切 —— 甚至是默认策略。
 	 */
 	pg_log_info("reading row-level security policies");
 
@@ -3990,7 +3990,7 @@ getPolicies(Archive *fout, TableInfo tblinfo[], int numTables)
 
 /*
  * dumpPolicy
- *	  dump the definition of the given policy
+ *   导出给定策略的定义
  */
 static void
 dumpPolicy(Archive *fout, const PolicyInfo *polinfo)
@@ -4004,14 +4004,14 @@ dumpPolicy(Archive *fout, const PolicyInfo *polinfo)
 	const char *cmd;
 	char	   *tag;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
 	/*
-	 * If polname is NULL, then this record is just indicating that ROW LEVEL
-	 * SECURITY is enabled for the table. Dump as ALTER TABLE <table> ENABLE
-	 * ROW LEVEL SECURITY.
+	 * 如果 polname 为 NULL，则此记录仅指示 ROW LEVEL SECURITY 已启用（见上文）。
+	 *
+	 *
 	 */
 	if (polinfo->polname == NULL)
 	{
@@ -4021,9 +4021,9 @@ dumpPolicy(Archive *fout, const PolicyInfo *polinfo)
 						  fmtQualifiedDumpable(tbinfo));
 
 		/*
-		 * We must emit the ROW SECURITY object's dependency on its table
-		 * explicitly, because it will not match anything in pg_depend (unlike
-		 * the case for other PolicyInfo objects).
+		 * 我们必须显式发出 ROW SECURITY 对象对其表的依赖，
+		 * 因为它将引用一个不存在的对象。
+		 *
 		 */
 		if (polinfo->dobj.dump & DUMP_COMPONENT_DEFINITION)
 			ArchiveEntry(fout, polinfo->dobj.catId, polinfo->dobj.dumpId,
@@ -4108,7 +4108,7 @@ dumpPolicy(Archive *fout, const PolicyInfo *polinfo)
 
 /*
  * getPublications
- *	  get information about publications
+ *   获取有关发布的信息
  */
 PublicationInfo *
 getPublications(Archive *fout, int *numPublications)
@@ -4140,7 +4140,7 @@ getPublications(Archive *fout, int *numPublications)
 
 	resetPQExpBuffer(query);
 
-	/* Get the publications. */
+	/* 获取发布。 */
 	if (fout->remoteVersion >= 130000)
 		appendPQExpBufferStr(query,
 							 "SELECT p.tableoid, p.oid, p.pubname, "
@@ -4199,7 +4199,7 @@ getPublications(Archive *fout, int *numPublications)
 		pubinfo[i].pubviaroot =
 			(strcmp(PQgetvalue(res, i, i_pubviaroot), "t") == 0);
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableObject(&(pubinfo[i].dobj), fout);
 	}
 	PQclear(res);
@@ -4212,7 +4212,7 @@ getPublications(Archive *fout, int *numPublications)
 
 /*
  * dumpPublication
- *	  dump the definition of the given publication
+ *   导出给定发布的定义
  */
 static void
 dumpPublication(Archive *fout, const PublicationInfo *pubinfo)
@@ -4223,7 +4223,7 @@ dumpPublication(Archive *fout, const PublicationInfo *pubinfo)
 	char	   *qpubname;
 	bool		first = true;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -4308,7 +4308,7 @@ dumpPublication(Archive *fout, const PublicationInfo *pubinfo)
 
 /*
  * getPublicationNamespaces
- *	  get information about publication membership for dumpable schemas.
+ *   获取可导出模式的发布成员资格信息。
  */
 void
 getPublicationNamespaces(Archive *fout)
@@ -4330,7 +4330,7 @@ getPublicationNamespaces(Archive *fout)
 
 	query = createPQExpBuffer();
 
-	/* Collect all publication membership info. */
+	/* 收集所有发布成员资格信息。 */
 	appendPQExpBufferStr(query,
 						 "SELECT tableoid, oid, pnpubid, pnnspid "
 						 "FROM pg_catalog.pg_publication_namespace");
@@ -4343,7 +4343,7 @@ getPublicationNamespaces(Archive *fout)
 	i_pnpubid = PQfnumber(res, "pnpubid");
 	i_pnnspid = PQfnumber(res, "pnnspid");
 
-	/* this allocation may be more than we need */
+	/* 此分配可能超过所需 */
 	pubsinfo = pg_malloc(ntups * sizeof(PublicationSchemaInfo));
 	j = 0;
 
@@ -4355,8 +4355,8 @@ getPublicationNamespaces(Archive *fout)
 		NamespaceInfo *nspinfo;
 
 		/*
-		 * Ignore any entries for which we aren't interested in either the
-		 * publication or the rel.
+		 * 忽略我们不关心的发布或引用模式的所有条目。
+		 *
 		 */
 		pubinfo = findPublicationByOid(pnpubid);
 		if (pubinfo == NULL)
@@ -4366,13 +4366,13 @@ getPublicationNamespaces(Archive *fout)
 			continue;
 
 		/*
-		 * We always dump publication namespaces unless the corresponding
-		 * namespace is excluded from the dump.
+		 * 我们总是导出发布命名空间，除非相应的命名空间被排除在导出之外。
+		 *
 		 */
 		if (nspinfo->dobj.dump == DUMP_COMPONENT_NONE)
 			continue;
 
-		/* OK, make a DumpableObject for this relationship */
+		/* 好的，为此关系创建 DumpableObject */
 		pubsinfo[j].dobj.objType = DO_PUBLICATION_TABLE_IN_SCHEMA;
 		pubsinfo[j].dobj.catId.tableoid =
 			atooid(PQgetvalue(res, i, i_tableoid));
@@ -4383,7 +4383,7 @@ getPublicationNamespaces(Archive *fout)
 		pubsinfo[j].publication = pubinfo;
 		pubsinfo[j].pubschema = nspinfo;
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpablePublicationObject(&(pubsinfo[j].dobj), fout);
 
 		j++;
@@ -4395,7 +4395,7 @@ getPublicationNamespaces(Archive *fout)
 
 /*
  * getPublicationTables
- *	  get information about publication membership for dumpable tables.
+ *   获取可导出表的发布成员资格信息。
  */
 void
 getPublicationTables(Archive *fout, TableInfo tblinfo[], int numTables)
@@ -4419,7 +4419,7 @@ getPublicationTables(Archive *fout, TableInfo tblinfo[], int numTables)
 
 	query = createPQExpBuffer();
 
-	/* Collect all publication membership info. */
+	/* 收集所有发布成员资格信息。 */
 	if (fout->remoteVersion >= 150000)
 		appendPQExpBufferStr(query,
 							 "SELECT tableoid, oid, prpubid, prrelid, "
@@ -4449,7 +4449,7 @@ getPublicationTables(Archive *fout, TableInfo tblinfo[], int numTables)
 	i_prrelqual = PQfnumber(res, "prrelqual");
 	i_prattrs = PQfnumber(res, "prattrs");
 
-	/* this allocation may be more than we need */
+	/* 此分配可能超过所需 */
 	pubrinfo = pg_malloc(ntups * sizeof(PublicationRelInfo));
 	j = 0;
 
@@ -4461,8 +4461,8 @@ getPublicationTables(Archive *fout, TableInfo tblinfo[], int numTables)
 		TableInfo  *tbinfo;
 
 		/*
-		 * Ignore any entries for which we aren't interested in either the
-		 * publication or the rel.
+		 * 忽略我们不关心的发布或引用表的所有条目。
+		 *
 		 */
 		pubinfo = findPublicationByOid(prpubid);
 		if (pubinfo == NULL)
@@ -4472,13 +4472,13 @@ getPublicationTables(Archive *fout, TableInfo tblinfo[], int numTables)
 			continue;
 
 		/*
-		 * Ignore publication membership of tables whose definitions are not
-		 * to be dumped.
+		 * 忽略定义不导出的表的发布成员资格。
+		 *
 		 */
 		if (!(tbinfo->dobj.dump & DUMP_COMPONENT_DEFINITION))
 			continue;
 
-		/* OK, make a DumpableObject for this relationship */
+		/* 好的，为此关系创建 DumpableObject */
 		pubrinfo[j].dobj.objType = DO_PUBLICATION_REL;
 		pubrinfo[j].dobj.catId.tableoid =
 			atooid(PQgetvalue(res, i, i_tableoid));
@@ -4515,7 +4515,7 @@ getPublicationTables(Archive *fout, TableInfo tblinfo[], int numTables)
 		else
 			pubrinfo[j].pubrattrs = NULL;
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpablePublicationObject(&(pubrinfo[j].dobj), fout);
 
 		j++;
@@ -4527,7 +4527,7 @@ getPublicationTables(Archive *fout, TableInfo tblinfo[], int numTables)
 
 /*
  * dumpPublicationNamespace
- *	  dump the definition of the given publication schema mapping.
+ *   导出给定发布模式映射的定义。
  */
 static void
 dumpPublicationNamespace(Archive *fout, const PublicationSchemaInfo *pubsinfo)
@@ -4538,7 +4538,7 @@ dumpPublicationNamespace(Archive *fout, const PublicationSchemaInfo *pubsinfo)
 	PQExpBuffer query;
 	char	   *tag;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -4550,8 +4550,8 @@ dumpPublicationNamespace(Archive *fout, const PublicationSchemaInfo *pubsinfo)
 	appendPQExpBuffer(query, "ADD TABLES IN SCHEMA %s;\n", fmtId(schemainfo->dobj.name));
 
 	/*
-	 * There is no point in creating drop query as the drop is done by schema
-	 * drop.
+	 * 创建删除查询毫无意义，因为删除是通过模式删除完成的。
+	 *
 	 */
 	if (pubsinfo->dobj.dump & DUMP_COMPONENT_DEFINITION)
 		ArchiveEntry(fout, pubsinfo->dobj.catId, pubsinfo->dobj.dumpId,
@@ -4562,7 +4562,7 @@ dumpPublicationNamespace(Archive *fout, const PublicationSchemaInfo *pubsinfo)
 								  .section = SECTION_POST_DATA,
 								  .createStmt = query->data));
 
-	/* These objects can't currently have comments or seclabels */
+	/* 这些对象目前不能有注释或安全标签 */
 
 	free(tag);
 	destroyPQExpBuffer(query);
@@ -4570,7 +4570,7 @@ dumpPublicationNamespace(Archive *fout, const PublicationSchemaInfo *pubsinfo)
 
 /*
  * dumpPublicationTable
- *	  dump the definition of the given publication table mapping
+ *   导出给定发布表映射的定义
  */
 static void
 dumpPublicationTable(Archive *fout, const PublicationRelInfo *pubrinfo)
@@ -4581,7 +4581,7 @@ dumpPublicationTable(Archive *fout, const PublicationRelInfo *pubrinfo)
 	PQExpBuffer query;
 	char	   *tag;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -4600,20 +4600,20 @@ dumpPublicationTable(Archive *fout, const PublicationRelInfo *pubrinfo)
 	if (pubrinfo->pubrelqual)
 	{
 		/*
-		 * It's necessary to add parentheses around the expression because
-		 * pg_get_expr won't supply the parentheses for things like WHERE
-		 * TRUE.
+		 * 需要在表达式周围添加括号，因为 pg_get_expr 不会为顶层表达式提供括号。
+		 *
+		 *
 		 */
 		appendPQExpBuffer(query, " WHERE (%s)", pubrinfo->pubrelqual);
 	}
 	appendPQExpBufferStr(query, ";\n");
 
 	/*
-	 * There is no point in creating a drop query as the drop is done by table
-	 * drop.  (If you think to change this, see also _printTocEntry().)
-	 * Although this object doesn't really have ownership as such, set the
-	 * owner field anyway to ensure that the command is run by the correct
-	 * role at restore time.
+	 * 创建删除查询毫无意义，因为删除是通过表删除完成的。
+	 * （如果你想实现它，请确保在发布或其订阅者被删除时处理级联情况。）
+	 *
+	 *
+	 *
 	 */
 	if (pubrinfo->dobj.dump & DUMP_COMPONENT_DEFINITION)
 		ArchiveEntry(fout, pubrinfo->dobj.catId, pubrinfo->dobj.dumpId,
@@ -4624,14 +4624,14 @@ dumpPublicationTable(Archive *fout, const PublicationRelInfo *pubrinfo)
 								  .section = SECTION_POST_DATA,
 								  .createStmt = query->data));
 
-	/* These objects can't currently have comments or seclabels */
+	/* 这些对象目前不能有注释或安全标签 */
 
 	free(tag);
 	destroyPQExpBuffer(query);
 }
 
 /*
- * Is the currently connected user a superuser?
+ * 当前连接的用户是超级用户吗？
  */
 static bool
 is_superuser(Archive *fout)
@@ -4648,9 +4648,9 @@ is_superuser(Archive *fout)
 }
 
 /*
- * Set the given value to restrict_nonsystem_relation_kind value. Since
- * restrict_nonsystem_relation_kind is introduced in minor version releases,
- * the setting query is effective only where available.
+ * 将 restrict_nonsystem_relation_kind 设置为给定的值。
+ * 由于它是 SUSET，只有超级用户可以无错误地更改它。
+ * 
  */
 static void
 set_restrict_relation_kind(Archive *AH, const char *value)
@@ -4671,7 +4671,7 @@ set_restrict_relation_kind(Archive *AH, const char *value)
 
 /*
  * getSubscriptions
- *	  get information about subscriptions
+ *   获取有关订阅的信息
  */
 void
 getSubscriptions(Archive *fout)
@@ -4719,7 +4719,7 @@ getSubscriptions(Archive *fout)
 
 	query = createPQExpBuffer();
 
-	/* Get the subscriptions in current database. */
+	/* 获取当前数据库中的订阅。 */
 	appendPQExpBufferStr(query,
 						 "SELECT s.tableoid, s.oid, s.subname,\n"
 						 " s.subowner,\n"
@@ -4768,8 +4768,8 @@ getSubscriptions(Archive *fout)
 	ntups = PQntuples(res);
 
 	/*
-	 * Get subscription fields. We don't include subskiplsn in the dump as
-	 * after restoring the dump this value may no longer be relevant.
+	 * 获取订阅字段。我们不在导出中包含 subskiplsn，
+	 * 因为在恢复订阅后 LSN 将无效。改为由用户手动设置它。
 	 */
 	i_tableoid = PQfnumber(res, "tableoid");
 	i_oid = PQfnumber(res, "oid");
@@ -4824,7 +4824,7 @@ getSubscriptions(Archive *fout)
 			pg_strdup(PQgetvalue(res, i, i_subpublications));
 		subinfo[i].suborigin = pg_strdup(PQgetvalue(res, i, i_suborigin));
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableObject(&(subinfo[i].dobj), fout);
 	}
 	PQclear(res);
@@ -4834,7 +4834,7 @@ getSubscriptions(Archive *fout)
 
 /*
  * dumpSubscription
- *	  dump the definition of the given subscription
+ *   导出给定订阅的定义
  */
 static void
 dumpSubscription(Archive *fout, const SubscriptionInfo *subinfo)
@@ -4849,7 +4849,7 @@ dumpSubscription(Archive *fout, const SubscriptionInfo *subinfo)
 	int			i;
 	char		two_phase_disabled[] = {LOGICALREP_TWOPHASE_STATE_DISABLED, '\0'};
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -4865,7 +4865,7 @@ dumpSubscription(Archive *fout, const SubscriptionInfo *subinfo)
 					  qsubname);
 	appendStringLiteralAH(query, subinfo->subconninfo, fout);
 
-	/* Build list of quoted publications and append them to query. */
+	/* 构建带引号的发布列表并将其附加到查询中。 */
 	if (!parsePGArray(subinfo->subpublications, &pubnames, &npubnames))
 		pg_fatal("could not parse %s array", "subpublications");
 
@@ -4940,8 +4940,8 @@ dumpSubscription(Archive *fout, const SubscriptionInfo *subinfo)
 }
 
 /*
- * Given a "create query", append as many ALTER ... DEPENDS ON EXTENSION as
- * the object needs.
+ * 给定"创建查询"，追加对象所需的多个 ALTER ... DEPENDS ON EXTENSION。
+ *
  */
 static void
 append_depends_on_extension(Archive *fout,
@@ -4960,7 +4960,7 @@ append_depends_on_extension(Archive *fout,
 		int			i_extname;
 		int			i;
 
-		/* dodge fmtId() non-reentrancy */
+		/* 避免 fmtId() 不可重入 */
 		nm = pg_strdup(objname);
 
 		query = createPQExpBuffer();
@@ -4992,12 +4992,12 @@ static Oid
 get_next_possible_free_pg_type_oid(Archive *fout, PQExpBuffer upgrade_query)
 {
 	/*
-	 * If the old version didn't assign an array type, but the new version
-	 * does, we must select an unused type OID to assign.  This currently only
-	 * happens for domains, when upgrading pre-v11 to v11 and up.
-	 *
-	 * Note: local state here is kind of ugly, but we must have some, since we
-	 * mustn't choose the same unused OID more than once.
+	 * 如果旧版本未分配数组类型，但新版本分配了，
+	 * 我们必须选择一个未使用的 OID 来分配。
+	 * 
+	 * 数组类型的 OID 由其基本类型确定，因此我们必须确保
+	 * 我们选择的基本类型的 OID 是自由的。
+	 * 我们还需要确保我们为数组类型选择的 OID 是自由的。
 	 */
 	static Oid	next_possible_free_oid = FirstNormalObjectId;
 	PGresult   *res;
@@ -5062,7 +5062,7 @@ binary_upgrade_set_type_oids_by_type_oid(Archive *fout,
 	}
 
 	/*
-	 * Pre-set the multirange type oid and its own array type oid.
+	 * 预设 multirange 类型 OID 及其自身的数组类型 OID。
 	 */
 	if (include_multirange_type)
 	{
@@ -5131,15 +5131,15 @@ binary_upgrade_set_pg_class_oids(Archive *fout,
 	RelFileNumber toast_index_relfilenumber;
 
 	/*
-	 * Preserve the OID and relfilenumber of the table, table's index, table's
-	 * toast table and toast table's index if any.
+	 * 保留表的 OID 和 relfilenumber、表的索引、
+	 * 表的 TOAST 表和 TOAST 表的索引。
+	 * 还需要为其 TOAST 表保留 OID，
+	 * 并且如果它是 ACL 条目的目标，我们可能还需要
+	 * 为表的 TOAST 表插入一个 ACL 条目。
+	 * 
+	 * 但请注意：仅在二进制升级模式下执行此操作。
 	 *
-	 * One complexity is that the current table definition might not require
-	 * the creation of a TOAST table, but the old database might have a TOAST
-	 * table that was created earlier, before some wide columns were dropped.
-	 * By setting the TOAST oid we force creation of the TOAST heap and index
-	 * by the new backend, so we can copy the files during binary upgrade
-	 * without worrying about this case.
+	 *
 	 */
 	appendPQExpBuffer(upgrade_query,
 					  "SELECT c.relkind, c.relfilenode, c.reltoastrelid, ct.relfilenode AS toast_relfilenode, i.indexrelid, cti.relfilenode AS toast_index_relfilenode "
@@ -5175,9 +5175,9 @@ binary_upgrade_set_pg_class_oids(Archive *fout,
 						  pg_class_oid);
 
 		/*
-		 * Not every relation has storage. Also, in a pre-v12 database,
-		 * partitioned tables have a relfilenumber, which should not be
-		 * preserved when upgrading.
+		 * 并非每个关系都有存储。此外，在 v12 之前的数据库中，
+		 * 分区表有 relfilenode，但不应设置它。
+		 *
 		 */
 		if (RelFileNumberIsValid(relfilenumber) && relkind != RELKIND_PARTITIONED_TABLE)
 			appendPQExpBuffer(upgrade_buffer,
@@ -5185,8 +5185,8 @@ binary_upgrade_set_pg_class_oids(Archive *fout,
 							  relfilenumber);
 
 		/*
-		 * In a pre-v12 database, partitioned tables might be marked as having
-		 * toast tables, but we should ignore them if so.
+		 * 在 v12 之前的数据库中，分区表可能被标记为有 TOAST 表，
+		 * 但我们不应该为它们生成 TOAST 表创建。
 		 */
 		if (OidIsValid(toast_oid) &&
 			relkind != RELKIND_PARTITIONED_TABLE)
@@ -5198,7 +5198,7 @@ binary_upgrade_set_pg_class_oids(Archive *fout,
 							  "SELECT pg_catalog.binary_upgrade_set_next_toast_relfilenode('%u'::pg_catalog.oid);\n",
 							  toast_relfilenumber);
 
-			/* every toast table has an index */
+			/* 每个 TOAST 表都有一个索引 */
 			appendPQExpBuffer(upgrade_buffer,
 							  "SELECT pg_catalog.binary_upgrade_set_next_index_pg_class_oid('%u'::pg_catalog.oid);\n",
 							  toast_index_oid);
@@ -5209,7 +5209,7 @@ binary_upgrade_set_pg_class_oids(Archive *fout,
 	}
 	else
 	{
-		/* Preserve the OID and relfilenumber of the index */
+		/* 保留索引的 OID 和 relfilenumber */
 		appendPQExpBuffer(upgrade_buffer,
 						  "SELECT pg_catalog.binary_upgrade_set_next_index_pg_class_oid('%u'::pg_catalog.oid);\n",
 						  pg_class_oid);
@@ -5226,11 +5226,11 @@ binary_upgrade_set_pg_class_oids(Archive *fout,
 }
 
 /*
- * If the DumpableObject is a member of an extension, add a suitable
- * ALTER EXTENSION ADD command to the creation commands in upgrade_buffer.
- *
- * For somewhat historical reasons, objname should already be quoted,
- * but not objnamespace (if any).
+ * 如果 DumpableObject 是扩展的成员，
+ * 向创建查询中添加适当的 ALTER EXTENSION ADD 命令。
+ * 
+ * 目前这总是输出。但我们可能希望有一天实现
+ * 一些巧妙的过滤。
  */
 static void
 binary_upgrade_extension_member(PQExpBuffer upgrade_buffer,
@@ -5246,10 +5246,10 @@ binary_upgrade_extension_member(PQExpBuffer upgrade_buffer,
 		return;
 
 	/*
-	 * Find the parent extension.  We could avoid this search if we wanted to
-	 * add a link field to DumpableObject, but the space costs of that would
-	 * be considerable.  We assume that member objects could only have a
-	 * direct dependency on their own extension, not any others.
+	 * 查找父扩展。如果我们想向 DumpableObject 添加链接字段，
+	 * 可以避免此搜索，但这样做不值得。
+	 *
+	 *
 	 */
 	for (i = 0; i < dobj->nDeps; i++)
 	{
@@ -5274,10 +5274,10 @@ binary_upgrade_extension_member(PQExpBuffer upgrade_buffer,
 
 /*
  * getNamespaces:
- *	  read all namespaces in the system catalogs and return them in the
- * NamespaceInfo* structure
+ *   读取系统目录中的所有命名空间，并将它们返回到 NamespaceInfo* 结构中
  *
- *	numNamespaces is set to the number of namespaces read in
+ *
+ *
  */
 NamespaceInfo *
 getNamespaces(Archive *fout, int *numNamespaces)
@@ -5297,8 +5297,8 @@ getNamespaces(Archive *fout, int *numNamespaces)
 	query = createPQExpBuffer();
 
 	/*
-	 * we fetch all namespaces including system ones, so that every object we
-	 * read in can be linked to a containing namespace.
+	 * 我们获取所有命名空间，包括系统命名空间，
+	 * 以便我们读取的每个对象都可以链接到包含它的命名空间。
 	 */
 	appendPQExpBufferStr(query, "SELECT n.tableoid, n.oid, n.nspname, "
 						 "n.nspowner, "
@@ -5336,35 +5336,35 @@ getNamespaces(Archive *fout, int *numNamespaces)
 		nsinfo[i].nspowner = atooid(nspowner);
 		nsinfo[i].rolname = getRoleName(nspowner);
 
-		/* Decide whether to dump this namespace */
+		/* 决定是否导出此命名空间 */
 		selectDumpableNamespace(&nsinfo[i], fout);
 
-		/* Mark whether namespace has an ACL */
+		/* 标记命名空间是否有 ACL */
 		if (!PQgetisnull(res, i, i_nspacl))
 			nsinfo[i].dobj.components |= DUMP_COMPONENT_ACL;
 
 		/*
-		 * We ignore any pg_init_privs.initprivs entry for the public schema
-		 * and assume a predetermined default, for several reasons.  First,
-		 * dropping and recreating the schema removes its pg_init_privs entry,
-		 * but an empty destination database starts with this ACL nonetheless.
-		 * Second, we support dump/reload of public schema ownership changes.
-		 * ALTER SCHEMA OWNER filters nspacl through aclnewowner(), but
-		 * initprivs continues to reflect the initial owner.  Hence,
-		 * synthesize the value that nspacl will have after the restore's
-		 * ALTER SCHEMA OWNER.  Third, this makes the destination database
-		 * match the source's ACL, even if the latter was an initdb-default
-		 * ACL, which changed in v15.  An upgrade pulls in changes to most
-		 * system object ACLs that the DBA had not customized.  We've made the
-		 * public schema depart from that, because changing its ACL so easily
-		 * breaks applications.
+		 * 我们忽略 public 模式的任何 pg_init_privs.initprivs 条目，
+		 * 并假设使用预先确定的默认值。
+		 * 这些在 v15 中已更改，因此逻辑取决于服务器版本。
+		 * 
+		 * 此外，对于每个现有模式，我们检查 initdb 是否设置了任何
+		 * initprivs，并将它们与我们期望的值进行比较。
+		 * 如果一致，则对象报告其默认 ACL，我们什么都不做。
+		 * 如果不一致，则对象报告其非默认 ACL 包含在转储中。
+		 * 
+		 * 对于 pg_catalog，我们始终包含其 ACL，否则在转储 pg_catalog 的
+		 * ACL 时，我们将无法区分已撤销和未撤销的 ACL。
+		 *
+		 *
+		 *
 		 */
 		if (strcmp(nsinfo[i].dobj.name, "public") == 0)
 		{
 			PQExpBuffer aclarray = createPQExpBuffer();
 			PQExpBuffer aclitem = createPQExpBuffer();
 
-			/* Standard ACL as of v15 is {owner=UC/owner,=U/owner} */
+			/* v15 的标准 ACL 是 {owner=UC/owner,=U/owner} */
 			appendPQExpBufferChar(aclarray, '{');
 			quoteAclUserName(aclitem, nsinfo[i].rolname);
 			appendPQExpBufferStr(aclitem, "=UC/");
@@ -5395,7 +5395,7 @@ getNamespaces(Archive *fout, int *numNamespaces)
 
 /*
  * findNamespace:
- *		given a namespace OID, look up the info read by getNamespaces
+ *   给定命名空间 OID，查找 getNamespaces 读取的信息
  */
 static NamespaceInfo *
 findNamespace(Oid nsoid)
@@ -5410,10 +5410,10 @@ findNamespace(Oid nsoid)
 
 /*
  * getExtensions:
- *	  read all extensions in the system catalogs and return them in the
- * ExtensionInfo* structure
+ *   读取系统目录中的所有扩展，并将它们返回到 ExtensionInfo* 结构中
  *
- *	numExtensions is set to the number of extensions read in
+ *
+ *
  */
 ExtensionInfo *
 getExtensions(Archive *fout, int *numExtensions)
@@ -5468,7 +5468,7 @@ getExtensions(Archive *fout, int *numExtensions)
 		extinfo[i].extconfig = pg_strdup(PQgetvalue(res, i, i_extconfig));
 		extinfo[i].extcondition = pg_strdup(PQgetvalue(res, i, i_extcondition));
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableExtension(&(extinfo[i]), dopt);
 	}
 
@@ -5482,13 +5482,13 @@ getExtensions(Archive *fout, int *numExtensions)
 
 /*
  * getTypes:
- *	  read all types in the system catalogs and return them in the
- * TypeInfo* structure
+ *   读取系统目录中的所有类型，并将它们返回到 TypeInfo* 结构中
+ * 
+ * 注意：对于可以隐式创建的数组类型，如果基本类型被导出，则隐式创建的数组类型也会被导出。
+ * 它们不会被显式创建，但我们需要它们以便数组引用的类型能够正确识别别名。
  *
- *	numTypes is set to the number of types read in
  *
- * NB: this must run after getFuncs() because we assume we can do
- * findFuncByOid().
+ *
  */
 TypeInfo *
 getTypes(Archive *fout, int *numTypes)
@@ -5514,19 +5514,19 @@ getTypes(Archive *fout, int *numTypes)
 	int			i_isarray;
 
 	/*
-	 * we include even the built-in types because those may be used as array
-	 * elements by user-defined types
+	 * 我们甚至包括内置类型，因为用户定义类型可能将它们用作数组元素。
+	 * 我们过滤掉系统定义的类型（在 dump-out 时），但我们仍然需要它们的
+	 * 信息以正确排序。
+	 * 
+	 * 但是，对于关系复合类型（pg_class.reltype），我们只包括那些
+	 * 我们没有相关表的类型。
+	 * 我们通过检查 typrelid 是否与 pg_class 中的任何 OID 匹配来实现这一点。
+	 * 这避免了我们获取两次相同信息的可能性。
+	 * 尽管 pg_class 和 pg_type 之间存在一对一的关系，
+	 * 但这无法通过简单的连接完成。（为什么？想不出来……）
 	 *
-	 * we filter out the built-in types when we dump out the types
 	 *
-	 * same approach for undefined (shell) types and array types
 	 *
-	 * Note: as of 8.3 we can reliably detect whether a type is an
-	 * auto-generated array type by checking the element type's typarray.
-	 * (Before that the test is capable of generating false positives.) We
-	 * still check for name beginning with '_', though, so as to avoid the
-	 * cost of the subselect probe for all standard types.  This would have to
-	 * be revisited if the backend ever allows renaming of array types.
 	 */
 	appendPQExpBufferStr(query, "SELECT tableoid, oid, typname, "
 						 "typnamespace, typacl, "
@@ -5573,7 +5573,7 @@ getTypes(Archive *fout, int *numTypes)
 		tyinfo[i].dacl.acldefault = pg_strdup(PQgetvalue(res, i, i_acldefault));
 		tyinfo[i].dacl.privtype = 0;
 		tyinfo[i].dacl.initprivs = NULL;
-		tyinfo[i].ftypname = NULL;	/* may get filled later */
+		tyinfo[i].ftypname = NULL;	/* 稍后可能会填充 */
 		tyinfo[i].rolname = getRoleName(PQgetvalue(res, i, i_typowner));
 		tyinfo[i].typelem = atooid(PQgetvalue(res, i, i_typelem));
 		tyinfo[i].typrelid = atooid(PQgetvalue(res, i, i_typrelid));
@@ -5596,15 +5596,15 @@ getTypes(Archive *fout, int *numTypes)
 		else
 			tyinfo[i].isMultirange = false;
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableType(&tyinfo[i], fout);
 
-		/* Mark whether type has an ACL */
+		/* 标记类型是否有 ACL */
 		if (!PQgetisnull(res, i, i_typacl))
 			tyinfo[i].dobj.components |= DUMP_COMPONENT_ACL;
 
 		/*
-		 * If it's a domain, fetch info about its constraints, if any
+		 * 如果是域，则获取其约束信息（如果有）
 		 */
 		tyinfo[i].nDomChecks = 0;
 		tyinfo[i].domChecks = NULL;
@@ -5613,14 +5613,14 @@ getTypes(Archive *fout, int *numTypes)
 			getDomainConstraints(fout, &(tyinfo[i]));
 
 		/*
-		 * If it's a base type, make a DumpableObject representing a shell
-		 * definition of the type.  We will need to dump that ahead of the I/O
-		 * functions for the type.  Similarly, range types need a shell
-		 * definition in case they have a canonicalize function.
-		 *
-		 * Note: the shell type doesn't have a catId.  You might think it
-		 * should copy the base type's catId, but then it might capture the
-		 * pg_depend entries for the type, which we don't want.
+		 * 如果是基本类型，则创建一个表示该类型的 shell 定义的 DumpableObject。
+		 * 我们将仅在实际的 I/O 函数和/或规范化分析函数
+		 * 不在 initdb 中的情况下导出 shell 类型。
+		 * 
+		 * 注意：在转储中，shell 类型总是出现在基本类型之前，
+		 * 因为它们的排序类别（DO_SHELL_TYPE）低于 DO_TYPE。
+		 * 这很重要，因为类型必须先作为 shell 类型存在，
+		 * 然后才能被定义为完整类型。
 		 */
 		if ((tyinfo[i].dobj.dump & DUMP_COMPONENT_DEFINITION) &&
 			(tyinfo[i].typtype == TYPTYPE_BASE ||
@@ -5636,9 +5636,9 @@ getTypes(Archive *fout, int *numTypes)
 			tyinfo[i].shellType = stinfo;
 
 			/*
-			 * Initially mark the shell type as not to be dumped.  We'll only
-			 * dump it if the I/O or canonicalize functions need to be dumped;
-			 * this is taken care of while sorting dependencies.
+			 * 最初将 shell 类型标记为不导出。
+			 * 仅当 I/O 或规范化分析函数不是 initdb 值时才导出它。
+			 *
 			 */
 			stinfo->dobj.dump = DUMP_COMPONENT_NONE;
 		}
@@ -5655,10 +5655,10 @@ getTypes(Archive *fout, int *numTypes)
 
 /*
  * getOperators:
- *	  read all operators in the system catalogs and return them in the
- * OprInfo* structure
+ *   读取系统目录中的所有操作符，并将它们返回到 OprInfo* 结构中
  *
- *	numOprs is set to the number of operators read in
+ *
+ *
  */
 OprInfo *
 getOperators(Archive *fout, int *numOprs)
@@ -5679,8 +5679,8 @@ getOperators(Archive *fout, int *numOprs)
 	int			i_oprcode;
 
 	/*
-	 * find all operators, including builtin operators; we filter out
-	 * system-defined operators at dump-out time.
+	 * 查找所有操作符，包括内置操作符；
+	 * 我们在导出输出时过滤掉系统定义的操作符。
 	 */
 
 	appendPQExpBufferStr(query, "SELECT tableoid, oid, oprname, "
@@ -5724,7 +5724,7 @@ getOperators(Archive *fout, int *numOprs)
 		oprinfo[i].oprright = atooid(PQgetvalue(res, i, i_oprright));
 		oprinfo[i].oprcode = atooid(PQgetvalue(res, i, i_oprcode));
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableObject(&(oprinfo[i].dobj), fout);
 	}
 
@@ -5737,10 +5737,10 @@ getOperators(Archive *fout, int *numOprs)
 
 /*
  * getCollations:
- *	  read all collations in the system catalogs and return them in the
- * CollInfo* structure
+ *   读取系统目录中的所有排序规则，并将它们返回到 CollInfo* 结构中
  *
- *	numCollations is set to the number of collations read in
+ *
+ *
  */
 CollInfo *
 getCollations(Archive *fout, int *numCollations)
@@ -5760,8 +5760,8 @@ getCollations(Archive *fout, int *numCollations)
 	query = createPQExpBuffer();
 
 	/*
-	 * find all collations, including builtin collations; we filter out
-	 * system-defined collations at dump-out time.
+	 * 查找所有排序规则，包括内置排序规则；
+	 * 我们在导出输出时过滤掉系统定义的排序规则。
 	 */
 
 	appendPQExpBufferStr(query, "SELECT tableoid, oid, collname, "
@@ -5796,7 +5796,7 @@ getCollations(Archive *fout, int *numCollations)
 		collinfo[i].rolname = getRoleName(PQgetvalue(res, i, i_collowner));
 		collinfo[i].collencoding = atoi(PQgetvalue(res, i, i_collencoding));
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableObject(&(collinfo[i].dobj), fout);
 	}
 
@@ -5809,10 +5809,10 @@ getCollations(Archive *fout, int *numCollations)
 
 /*
  * getConversions:
- *	  read all conversions in the system catalogs and return them in the
- * ConvInfo* structure
+ *   读取系统目录中的所有转换，并将它们返回到 ConvInfo* 结构中
  *
- *	numConversions is set to the number of conversions read in
+ *
+ *
  */
 ConvInfo *
 getConversions(Archive *fout, int *numConversions)
@@ -5831,8 +5831,8 @@ getConversions(Archive *fout, int *numConversions)
 	query = createPQExpBuffer();
 
 	/*
-	 * find all conversions, including builtin conversions; we filter out
-	 * system-defined conversions at dump-out time.
+	 * 查找所有转换，包括内置转换；
+	 * 我们在导出输出时过滤掉系统定义的转换。
 	 */
 
 	appendPQExpBufferStr(query, "SELECT tableoid, oid, conname, "
@@ -5864,7 +5864,7 @@ getConversions(Archive *fout, int *numConversions)
 			findNamespace(atooid(PQgetvalue(res, i, i_connamespace)));
 		convinfo[i].rolname = getRoleName(PQgetvalue(res, i, i_conowner));
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableObject(&(convinfo[i].dobj), fout);
 	}
 
@@ -5877,10 +5877,10 @@ getConversions(Archive *fout, int *numConversions)
 
 /*
  * getAccessMethods:
- *	  read all user-defined access methods in the system catalogs and return
- *	  them in the AccessMethodInfo* structure
+ *   读取系统目录中所有用户定义的访问方法，并将它们返回到 AccessMethodInfo* 结构中
  *
- *	numAccessMethods is set to the number of access methods read in
+ *
+ *
  */
 AccessMethodInfo *
 getAccessMethods(Archive *fout, int *numAccessMethods)
@@ -5899,14 +5899,14 @@ getAccessMethods(Archive *fout, int *numAccessMethods)
 	query = createPQExpBuffer();
 
 	/*
-	 * Select all access methods from pg_am table.  v9.6 introduced CREATE
-	 * ACCESS METHOD, so earlier versions usually have only built-in access
-	 * methods.  v9.6 also changed the access method API, replacing dozens of
-	 * pg_am columns with amhandler.  Even if a user created an access method
-	 * by "INSERT INTO pg_am", we have no way to translate pre-v9.6 pg_am
-	 * columns to a v9.6+ CREATE ACCESS METHOD.  Hence, before v9.6, read
-	 * pg_am just to facilitate findAccessMethodByOid() providing the
-	 * OID-to-name mapping.
+	 * 从 pg_am 表中选择所有访问方法。v9.6 引入了 CREATE ACCESS METHOD，
+	 * 因此早期版本通常只有内置访问方法。v9.6 还更改了访问方法 API，
+	 * 用 amhandler 替换了数十个 pg_am 列。即使用户通过
+	 * "INSERT INTO pg_am" 创建了访问方法，我们也无法将 v9.6 之前的
+	 * pg_am 列转换为 v9.6+ 的 CREATE ACCESS METHOD。因此，
+	 * 在 v9.6 之前，读取 pg_am 仅是为了方便 findAccessMethodByOid()
+	 * 提供 OID 到名称的映射。
+	 *
 	 */
 	appendPQExpBufferStr(query, "SELECT tableoid, oid, amname, ");
 	if (fout->remoteVersion >= 90600)
@@ -5943,7 +5943,7 @@ getAccessMethods(Archive *fout, int *numAccessMethods)
 		aminfo[i].amhandler = pg_strdup(PQgetvalue(res, i, i_amhandler));
 		aminfo[i].amtype = *(PQgetvalue(res, i, i_amtype));
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableAccessMethod(&(aminfo[i]), fout);
 	}
 
@@ -5957,10 +5957,10 @@ getAccessMethods(Archive *fout, int *numAccessMethods)
 
 /*
  * getOpclasses:
- *	  read all opclasses in the system catalogs and return them in the
- * OpclassInfo* structure
+ *   读取系统目录中的所有操作符类，并将它们返回到 OpclassInfo* 结构中
  *
- *	numOpclasses is set to the number of opclasses read in
+ *
+ *
  */
 OpclassInfo *
 getOpclasses(Archive *fout, int *numOpclasses)
@@ -5978,8 +5978,8 @@ getOpclasses(Archive *fout, int *numOpclasses)
 	int			i_opcowner;
 
 	/*
-	 * find all opclasses, including builtin opclasses; we filter out
-	 * system-defined opclasses at dump-out time.
+	 * 查找所有操作符类，包括内置操作符类；
+	 * 我们在导出输出时过滤掉系统定义的操作符类。
 	 */
 
 	appendPQExpBufferStr(query, "SELECT tableoid, oid, opcmethod, opcname, "
@@ -6013,7 +6013,7 @@ getOpclasses(Archive *fout, int *numOpclasses)
 		opcinfo[i].opcmethod = atooid(PQgetvalue(res, i, i_opcmethod));
 		opcinfo[i].rolname = getRoleName(PQgetvalue(res, i, i_opcowner));
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableObject(&(opcinfo[i].dobj), fout);
 	}
 
@@ -6026,10 +6026,10 @@ getOpclasses(Archive *fout, int *numOpclasses)
 
 /*
  * getOpfamilies:
- *	  read all opfamilies in the system catalogs and return them in the
- * OpfamilyInfo* structure
+ *   读取系统目录中的所有操作符族，并将它们返回到 OpfamilyInfo* 结构中
  *
- *	numOpfamilies is set to the number of opfamilies read in
+ *
+ *
  */
 OpfamilyInfo *
 getOpfamilies(Archive *fout, int *numOpfamilies)
@@ -6049,8 +6049,8 @@ getOpfamilies(Archive *fout, int *numOpfamilies)
 	query = createPQExpBuffer();
 
 	/*
-	 * find all opfamilies, including builtin opfamilies; we filter out
-	 * system-defined opfamilies at dump-out time.
+	 * 查找所有操作符族，包括内置操作符族；
+	 * 我们在导出输出时过滤掉系统定义的操作符族。
 	 */
 
 	appendPQExpBufferStr(query, "SELECT tableoid, oid, opfmethod, opfname, "
@@ -6084,7 +6084,7 @@ getOpfamilies(Archive *fout, int *numOpfamilies)
 		opfinfo[i].opfmethod = atooid(PQgetvalue(res, i, i_opfmethod));
 		opfinfo[i].rolname = getRoleName(PQgetvalue(res, i, i_opfowner));
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableObject(&(opfinfo[i].dobj), fout);
 	}
 
@@ -6097,10 +6097,10 @@ getOpfamilies(Archive *fout, int *numOpfamilies)
 
 /*
  * getAggregates:
- *	  read all the user-defined aggregates in the system catalogs and
- * return them in the AggInfo* structure
+ *   读取系统目录中所有用户定义的聚合，并将它们返回到 AggInfo* 结构中
  *
- * numAggs is set to the number of aggregates read in
+ *
+ *
  */
 AggInfo *
 getAggregates(Archive *fout, int *numAggs)
@@ -6122,8 +6122,8 @@ getAggregates(Archive *fout, int *numAggs)
 	int			i_acldefault;
 
 	/*
-	 * Find all interesting aggregates.  See comment in getFuncs() for the
-	 * rationale behind the filtering logic.
+	 * 查找所有有趣的聚合。有关过滤逻辑的基本原理，
+	 * 请参阅 getFuncs() 中的注释。
 	 */
 	if (fout->remoteVersion >= 90600)
 	{
@@ -6213,8 +6213,8 @@ getAggregates(Archive *fout, int *numAggs)
 		agginfo[i].aggfn.dacl.privtype = 0;
 		agginfo[i].aggfn.dacl.initprivs = NULL;
 		agginfo[i].aggfn.rolname = getRoleName(PQgetvalue(res, i, i_proowner));
-		agginfo[i].aggfn.lang = InvalidOid; /* not currently interesting */
-		agginfo[i].aggfn.prorettype = InvalidOid;	/* not saved */
+		agginfo[i].aggfn.lang = InvalidOid; /* 目前不感兴趣 */
+		agginfo[i].aggfn.prorettype = InvalidOid;	/* 未保存 */
 		agginfo[i].aggfn.nargs = atoi(PQgetvalue(res, i, i_pronargs));
 		if (agginfo[i].aggfn.nargs == 0)
 			agginfo[i].aggfn.argtypes = NULL;
@@ -6225,12 +6225,12 @@ getAggregates(Archive *fout, int *numAggs)
 						  agginfo[i].aggfn.argtypes,
 						  agginfo[i].aggfn.nargs);
 		}
-		agginfo[i].aggfn.postponed_def = false; /* might get set during sort */
+		agginfo[i].aggfn.postponed_def = false; /* 在排序期间可能会设置 */
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableObject(&(agginfo[i].aggfn.dobj), fout);
 
-		/* Mark whether aggregate has an ACL */
+		/* 标记聚合是否有 ACL */
 		if (!PQgetisnull(res, i, i_aggacl))
 			agginfo[i].aggfn.dobj.components |= DUMP_COMPONENT_ACL;
 	}
@@ -6244,10 +6244,10 @@ getAggregates(Archive *fout, int *numAggs)
 
 /*
  * getFuncs:
- *	  read all the user-defined functions in the system catalogs and
- * return them in the FuncInfo* structure
+ *   读取系统目录中所有用户定义的函数，并将它们返回到 FuncInfo* 结构中
  *
- * numFuncs is set to the number of functions read in
+ *
+ *
  */
 FuncInfo *
 getFuncs(Archive *fout, int *numFuncs)
@@ -6271,25 +6271,25 @@ getFuncs(Archive *fout, int *numFuncs)
 	int			i_acldefault;
 
 	/*
-	 * Find all interesting functions.  This is a bit complicated:
+	 * 查找所有有趣的函数。这有点复杂：
+	 * 
+	 * 1. 始终排除聚合；这些由 getAggregates 处理。
+	 * 2. 始终排除转换函数；这些由 getConversions 处理。
+	 * 3. 始终排除扩展的成员；getExtensions 仅转储扩展本身。
+	 * 4. 排除属于扩展操作符类/操作符族的支持函数；
+	 *    这些是扩展的一部分，应单独处理。
+	 * 5. 通过检查函数的所有者是否在 pg_authid 中来确认函数未被孤立。
+	 * 6. 排除不属于扩展的 SQL 语言函数，
+	 *    我们可以通过重新执行其查询将其内联。
+	 * 7. 始终包含不属于任何命名空间的函数（因为对象没有命名空间）。
 	 *
-	 * 1. Always exclude aggregates; those are handled elsewhere.
 	 *
-	 * 2. Always exclude functions that are internally dependent on something
-	 * else, since presumably those will be created as a result of creating
-	 * the something else.  This currently acts only to suppress constructor
-	 * functions for range types.  Note this is OK only because the
-	 * constructors don't have any dependencies the range type doesn't have;
-	 * otherwise we might not get creation ordering correct.
 	 *
-	 * 3. Otherwise, we normally exclude functions in pg_catalog.  However, if
-	 * they're members of extensions and we are in binary-upgrade mode then
-	 * include them, since we want to dump extension members individually in
-	 * that mode.  Also, if they are used by casts or transforms then we need
-	 * to gather the information about them, though they won't be dumped if
-	 * they are built-in.  Also, in 9.6 and up, include functions in
-	 * pg_catalog if they have an ACL different from what's shown in
-	 * pg_init_privs (so we have to join to pg_init_privs; annoying).
+	 *
+	 *
+	 *
+	 *
+	 *
 	 */
 	if (fout->remoteVersion >= 90600)
 	{
@@ -6424,12 +6424,12 @@ getFuncs(Archive *fout, int *numFuncs)
 			parseOidArray(PQgetvalue(res, i, i_proargtypes),
 						  finfo[i].argtypes, finfo[i].nargs);
 		}
-		finfo[i].postponed_def = false; /* might get set during sort */
+		finfo[i].postponed_def = false; /* 在排序期间可能会设置 */
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableObject(&(finfo[i].dobj), fout);
 
-		/* Mark whether function has an ACL */
+		/* 标记函数是否有 ACL */
 		if (!PQgetisnull(res, i, i_proacl))
 			finfo[i].dobj.components |= DUMP_COMPONENT_ACL;
 	}
@@ -6443,10 +6443,10 @@ getFuncs(Archive *fout, int *numFuncs)
 
 /*
  * getTables
- *	  read all the tables (no indexes) in the system catalogs,
- *	  and return them as an array of TableInfo structures
+ *   读取系统目录中的所有表（不包括索引），
+ *   并将它们作为 TableInfo* 结构的数组返回
  *
- * *numTables is set to the number of tables read in
+ *
  */
 TableInfo *
 getTables(Archive *fout, int *numTables)
@@ -6496,20 +6496,20 @@ getTables(Archive *fout, int *numTables)
 	int			i_ispartition;
 
 	/*
-	 * Find all the tables and table-like objects.
+	 * 查找所有表和类似表的对象。
+	 * 
+	 * 我们必须在此阶段获取所有表，因为其他读取过程需要
+	 * 每个表的完整信息。
+	 * 
+	 * 我们获取：表（常规和分区）、视图、物化视图、序列、外部表、
+	 * 复合类型和 TOAST 表。
+	 * 
+	 * 请注意，我们获取索引和统计信息，但在另一个查询中，
+	 * 因此我们将其排除在 relkind 列表之外。
 	 *
-	 * We must fetch all tables in this phase because otherwise we cannot
-	 * correctly identify inherited columns, owned sequences, etc.
 	 *
-	 * We include system catalogs, so that we can work if a user table is
-	 * defined to inherit from a system catalog (pretty weird, but...)
 	 *
-	 * Note: in this phase we should collect only a minimal amount of
-	 * information about each table, basically just enough to decide if it is
-	 * interesting.  In particular, since we do not yet have lock on any user
-	 * table, we MUST NOT invoke any server-side data collection functions
-	 * (for instance, pg_get_partkeydef()).  Those are likely to fail or give
-	 * wrong answers if any concurrent DDL is happening.
+	 *
 	 */
 
 	appendPQExpBufferStr(query,
@@ -6602,10 +6602,10 @@ getTables(Archive *fout, int *numTables)
 							 "false AS ispartition ");
 
 	/*
-	 * Left join to pg_depend to pick up dependency info linking sequences to
-	 * their owning column, if any (note this dependency is AUTO except for
-	 * identity sequences, where it's INTERNAL). Also join to pg_tablespace to
-	 * collect the spcname.
+	 * 左连接 pg_depend 以获取将序列链接到其所属列的依赖信息（如果有）。
+	 *
+	 *
+	 *
 	 */
 	appendPQExpBufferStr(query,
 						 "\nFROM pg_class c\n"
@@ -6617,16 +6617,16 @@ getTables(Archive *fout, int *numTables)
 						 "LEFT JOIN pg_tablespace tsp ON (tsp.oid = c.reltablespace)\n");
 
 	/*
-	 * In 9.6 and up, left join to pg_am to pick up the amname.
+	 * 在 9.6 及以上版本中，左连接 pg_am 以获取 amname。
 	 */
 	if (fout->remoteVersion >= 90600)
 		appendPQExpBufferStr(query,
 							 "LEFT JOIN pg_am am ON (c.relam = am.oid)\n");
 
 	/*
-	 * We purposefully ignore toast OIDs for partitioned tables; the reason is
-	 * that versions 10 and 11 have them, but later versions do not, so
-	 * emitting them causes the upgrade to fail.
+	 * 我们故意忽略分区表的 TOAST OID；原因是版本 10 和 11
+	 * 对分区表的 reltoastrelid 使用了无效值。
+	 *
 	 */
 	appendPQExpBufferStr(query,
 						 "LEFT JOIN pg_class tc ON (c.reltoastrelid = tc.oid"
@@ -6634,14 +6634,14 @@ getTables(Archive *fout, int *numTables)
 						 " AND c.relkind <> " CppAsString2(RELKIND_PARTITIONED_TABLE) ")\n");
 
 	/*
-	 * Restrict to interesting relkinds (in particular, not indexes).  Not all
-	 * relkinds are possible in older servers, but it's not worth the trouble
-	 * to emit a version-dependent list.
+	 * 限制为有趣的 relkind（特别是，不包含索引）。
+	 * 并非所有 relkind 在所有服务器中都可能，
+	 * 但查询会忽略缺失的 relkind。
+	 * 
+	 * 注意：在 v16 及更高版本中，pg_class 可能包含我们不关心的
+	 * 其他 relkind，因此最好明确列出我们关心的 relkind。
 	 *
-	 * Composite-type table entries won't be dumped as such, but we have to
-	 * make a DumpableObject for them so that we can track dependencies of the
-	 * composite type (pg_depend entries for columns of the composite type
-	 * link to the pg_class entry not the pg_type entry).
+	 *
 	 */
 	appendPQExpBufferStr(query,
 						 "WHERE c.relkind IN ("
@@ -6661,13 +6661,13 @@ getTables(Archive *fout, int *numTables)
 	*numTables = ntups;
 
 	/*
-	 * Extract data from result and lock dumpable tables.  We do the locking
-	 * before anything else, to minimize the window wherein a table could
-	 * disappear under us.
+	 * 从结果中提取数据并锁定可导出表。
+	 * 我们在其他任何事情之前进行锁定，以最小化死锁的机会
+	 * 并避免在尝试锁定一系列表时出现模式更改。
 	 *
-	 * Note that we have to save info about all tables here, even when dumping
-	 * only one, because we don't yet know which tables might be inheritance
-	 * ancestors of the target table.
+	 *
+	 *
+	 *
 	 */
 	tblinfo = (TableInfo *) pg_malloc0(ntups * sizeof(TableInfo));
 
@@ -6712,11 +6712,11 @@ getTables(Archive *fout, int *numTables)
 	if (dopt->lockWaitTimeout)
 	{
 		/*
-		 * Arrange to fail instead of waiting forever for a table lock.
+		 * 安排在等待表锁时失败而不是永远等待。
+		 * 
+		 * 注意：此编码假设初始设置对所有连接
+		 * 都有效。可能理想情况下我们不会重复执行此操作。
 		 *
-		 * NB: this coding assumes that the only queries issued within the
-		 * following loop are LOCK TABLEs; else the timeout may be undesirably
-		 * applied to other things too.
 		 */
 		resetPQExpBuffer(query);
 		appendPQExpBufferStr(query, "SET statement_timeout = ");
@@ -6788,10 +6788,10 @@ getTables(Archive *fout, int *numTables)
 		tblinfo[i].is_identity_sequence = (strcmp(PQgetvalue(res, i, i_is_identity_sequence), "t") == 0);
 		tblinfo[i].ispartition = (strcmp(PQgetvalue(res, i, i_ispartition), "t") == 0);
 
-		/* other fields were zeroed above */
+		/* 其他字段已在上面清零 */
 
 		/*
-		 * Decide whether we want to dump this table.
+		 * 决定是否要导出此表。
 		 */
 		if (tblinfo[i].relkind == RELKIND_COMPOSITE_TYPE)
 			tblinfo[i].dobj.dump = DUMP_COMPONENT_NONE;
@@ -6799,54 +6799,54 @@ getTables(Archive *fout, int *numTables)
 			selectDumpableTable(&tblinfo[i], fout);
 
 		/*
-		 * Now, consider the table "interesting" if we need to dump its
-		 * definition or its data.  Later on, we'll skip a lot of data
-		 * collection for uninteresting tables.
+		 * 现在，如果我们需要导出其定义或数据，
+		 * 就将表视为"有趣的"。稍后，当我们扫描索引时，
+		 * 我们将标记需要导出的索引。
+		 * 
+		 * 但要注意：这可能会被扩展成员身份覆盖。
+		 * 
+		 * 我们还确定表是否包含任何列级 ACL，
+		 * 或者是否包含任何生成列。
 		 *
-		 * Note: the "interesting" flag will also be set by flagInhTables for
-		 * parents of interesting tables, so that we collect necessary
-		 * inheritance info even when the parents are not themselves being
-		 * dumped.  This is the main reason why we need an "interesting" flag
-		 * that's separate from the components-to-dump bitmask.
 		 */
 		tblinfo[i].interesting = (tblinfo[i].dobj.dump &
 								  (DUMP_COMPONENT_DEFINITION |
 								   DUMP_COMPONENT_DATA)) != 0;
 
-		tblinfo[i].dummy_view = false;	/* might get set during sort */
-		tblinfo[i].postponed_def = false;	/* might get set during sort */
+		tblinfo[i].dummy_view = false;	/* 在排序期间可能会设置 */
+		tblinfo[i].postponed_def = false;	/* 在排序期间可能会设置 */
 
-		/* Tables have data */
+		/* 表有数据 */
 		tblinfo[i].dobj.components |= DUMP_COMPONENT_DATA;
 
-		/* Mark whether table has an ACL */
+		/* 标记表是否有 ACL */
 		if (!PQgetisnull(res, i, i_relacl))
 			tblinfo[i].dobj.components |= DUMP_COMPONENT_ACL;
-		tblinfo[i].hascolumnACLs = false;	/* may get set later */
+		tblinfo[i].hascolumnACLs = false;	/* 稍后可能会设置 */
 
 		/*
-		 * Read-lock target tables to make sure they aren't DROPPED or altered
-		 * in schema before we get around to dumping them.
+		 * 对目标表加读锁，以确保在我们进行 DDL 提取之前
+		 * 它们不会被 DROP 或修改模式。
+		 * 请注意，我们不锁定父表（通过 pg_inherits 找到），
+		 * 因此我们必须假定在转储期间不会更改子表的任何父表。
+		 * 
+		 * 注意：我们使用 MySQL 样式的 ORDER BY 限制来确保
+		 * 我们不会一次锁定太多表，因为这会消耗大量
+		 * 共享内存并获得不可预测的锁定顺序。
+		 * 
+		 * 同样，在远程服务器上，批处理很有用，因为它减少了
+		 * 网络往返次数。
 		 *
-		 * Note that we don't explicitly lock parents of the target tables; we
-		 * assume our lock on the child is enough to prevent schema
-		 * alterations to parent tables.
 		 *
-		 * NOTE: it'd be kinda nice to lock other relations too, not only
-		 * plain or partitioned tables, but the backend doesn't presently
-		 * allow that.
-		 *
-		 * We only need to lock the table for certain components; see
-		 * pg_dump.h
 		 */
 		if ((tblinfo[i].dobj.dump & DUMP_COMPONENTS_REQUIRING_LOCK) &&
 			(tblinfo[i].relkind == RELKIND_RELATION ||
 			 tblinfo[i].relkind == RELKIND_PARTITIONED_TABLE))
 		{
 			/*
-			 * Tables are locked in batches.  When dumping from a remote
-			 * server this can save a significant amount of time by reducing
-			 * the number of round trips.
+			 * 表是批量锁定的。从远程服务器转储时，
+			 * 这可以节省大量的网络开销。
+			 *
 			 */
 			if (query->len == 0)
 				appendPQExpBuffer(query, "LOCK TABLE %s",
@@ -6856,10 +6856,10 @@ getTables(Archive *fout, int *numTables)
 				appendPQExpBuffer(query, ", %s",
 								  fmtQualifiedDumpable(&tblinfo[i]));
 
-				/* Arbitrarily end a batch when query length reaches 100K. */
+				/* 当查询长度达到 100K 时任意结束批处理。 */
 				if (query->len >= 100000)
 				{
-					/* Lock another batch of tables. */
+					/* 锁定另一批表。 */
 					appendPQExpBufferStr(query, " IN ACCESS SHARE MODE");
 					ExecuteSqlStatement(fout, query->data);
 					resetPQExpBuffer(query);
@@ -6870,7 +6870,7 @@ getTables(Archive *fout, int *numTables)
 
 	if (query->len != 0)
 	{
-		/* Lock the tables in the last batch. */
+		/* 锁定最后一批中的表。 */
 		appendPQExpBufferStr(query, " IN ACCESS SHARE MODE");
 		ExecuteSqlStatement(fout, query->data);
 	}
@@ -6889,10 +6889,10 @@ getTables(Archive *fout, int *numTables)
 
 /*
  * getOwnedSeqs
- *	  identify owned sequences and mark them as dumpable if owning table is
- *
- * We used to do this in getTables(), but it's better to do it after the
- * index used by findTableByOid() has been set up.
+ *   识别拥有的序列，如果拥有表被导出，则将其标记为可导出。
+ * 
+ * 我们过去常常在 getTables 中处理拥有的序列，但将其移出
+ * 使分区处理的逻辑更简单，并确保我们不会意外地
  */
 void
 getOwnedSeqs(Archive *fout, TableInfo tblinfo[], int numTables)
@@ -6900,8 +6900,8 @@ getOwnedSeqs(Archive *fout, TableInfo tblinfo[], int numTables)
 	int			i;
 
 	/*
-	 * Force sequences that are "owned" by table columns to be dumped whenever
-	 * their owning table is being dumped.
+	 * 强制被表列"拥有"的序列在其拥有表被导出时导出。
+	 *
 	 */
 	for (i = 0; i < numTables; i++)
 	{
@@ -6909,7 +6909,7 @@ getOwnedSeqs(Archive *fout, TableInfo tblinfo[], int numTables)
 		TableInfo  *owning_tab;
 
 		if (!OidIsValid(seqinfo->owning_tab))
-			continue;			/* not an owned sequence */
+			continue;			/* 不是拥有的序列 */
 
 		owning_tab = findTableByOid(seqinfo->owning_tab);
 		if (owning_tab == NULL)
@@ -6917,33 +6917,33 @@ getOwnedSeqs(Archive *fout, TableInfo tblinfo[], int numTables)
 					 seqinfo->owning_tab, seqinfo->dobj.catId.oid);
 
 		/*
-		 * For an identity sequence, dump exactly the same components for the
-		 * sequence as for the owning table.  This is important because we
-		 * treat the identity sequence as an integral part of the table.  For
-		 * example, there is not any DDL command that allows creation of such
-		 * a sequence independently of the table.
+		 * 对于标识序列，导出与拥有表的序列完全相同的组件。
+		 * 此外，如果拥有表将被导出，则始终导出序列。
+		 * 如果没有，则可能仍需要序列的 ACL，
+		 * 因此我们根据通常的规则进行决定。
+		 * 
+		 * 在二进制升级模式下，我们确实需要序列定义
+		 * （以设置 pg_sequence 的值）和数据（以调用 pg_catalog.setval）。
+		 * 
+		 * 不要将序列数据设置为无条件导出；
+		 * 如果我们正在导出表数据，则只需要序列数据。
 		 *
-		 * For other owned sequences such as serial sequences, we need to dump
-		 * the components that are being dumped for the table and any
-		 * components that the sequence is explicitly marked with.
 		 *
-		 * We can't simply use the set of components which are being dumped
-		 * for the table as the table might be in an extension (and only the
-		 * non-extension components, eg: ACLs if changed, security labels, and
-		 * policies, are being dumped) while the sequence is not (and
-		 * therefore the definition and other components should also be
-		 * dumped).
 		 *
-		 * If the sequence is part of the extension then it should be properly
-		 * marked by checkExtensionMembership() and this will be a no-op as
-		 * the table will be equivalently marked.
+		 *
+		 *
+		 *
+		 *
+		 *
+		 *
+		 *
 		 */
 		if (seqinfo->is_identity_sequence)
 			seqinfo->dobj.dump = owning_tab->dobj.dump;
 		else
 			seqinfo->dobj.dump |= owning_tab->dobj.dump;
 
-		/* Make sure that necessary data is available if we're dumping it */
+		/* 确保在我们导出它时必要的数椐可用 */
 		if (seqinfo->dobj.dump != DUMP_COMPONENT_NONE)
 		{
 			seqinfo->interesting = true;
@@ -6954,10 +6954,10 @@ getOwnedSeqs(Archive *fout, TableInfo tblinfo[], int numTables)
 
 /*
  * getInherits
- *	  read all the inheritance information
- * from the system catalogs return them in the InhInfo* structure
+ *   读取系统目录中的所有继承信息，
+ *   并将它们返回到 InhInfo* 结构的数组中
  *
- * numInherits is set to the number of pairs read in
+ *
  */
 InhInfo *
 getInherits(Archive *fout, int *numInherits)
@@ -6971,7 +6971,7 @@ getInherits(Archive *fout, int *numInherits)
 	int			i_inhrelid;
 	int			i_inhparent;
 
-	/* find all the inheritance information */
+	/* 查找所有继承信息 */
 	appendPQExpBufferStr(query, "SELECT inhrelid, inhparent FROM pg_inherits");
 
 	res = ExecuteSqlQuery(fout, query->data, PGRES_TUPLES_OK);
@@ -7000,20 +7000,20 @@ getInherits(Archive *fout, int *numInherits)
 
 /*
  * getPartitioningInfo
- *	  get information about partitioning
+ *   获取有关分区的信息
+ * 
+ * 在大多数情况下，我们仅为我们要转储的表收集分区信息，
+ * 以减少要处理的数据量。但是，对于通过分区根加载，
+ * 我们需要目标表的所有分区的完整列表。
+ * 
+ * 因为我们允许用户指定分区层次结构中任何级别的表，
+ * 我们需要从 pg_inherits 中读取以获取子分区。
+ * 我们不获取完整的层次结构，仅获取最近的子分区。
  *
- * For the most part, we only collect partitioning info about tables we
- * intend to dump.  However, this function has to consider all partitioned
- * tables in the database, because we need to know about parents of partitions
- * we are going to dump even if the parents themselves won't be dumped.
  *
- * Specifically, what we need to know is whether each partitioned table
- * has an "unsafe" partitioning scheme that requires us to force
- * load-via-partition-root mode for its children.  Currently the only case
- * for which we force that is hash partitioning on enum columns, since the
- * hash codes depend on enum value OIDs which won't be replicated across
- * dump-and-reload.  There are other cases in which load-via-partition-root
- * might be necessary, but we expect users to cope with them.
+ *
+ *
+ *
  */
 void
 getPartitioningInfo(Archive *fout)
@@ -7022,22 +7022,22 @@ getPartitioningInfo(Archive *fout)
 	PGresult   *res;
 	int			ntups;
 
-	/* hash partitioning didn't exist before v11 */
+	/* 哈希分区在 v11 之前不存在 */
 	if (fout->remoteVersion < 110000)
 		return;
-	/* needn't bother if schema-only dump */
+	/* 如果仅模式导出，则无需费心 */
 	if (fout->dopt->schemaOnly)
 		return;
 
 	query = createPQExpBuffer();
 
 	/*
-	 * Unsafe partitioning schemes are exactly those for which hash enum_ops
-	 * appears among the partition opclasses.  We needn't check partstrat.
+	 * 不安全的划分方案正是那些在分区边界中
+	 * 出现 hash enum_ops 的方案。这些方案中，
+	 * 哈希分区函数的语义可能因平台而异。
+	 * 我们无法安全地转储不安全的划分方案。
 	 *
-	 * Note that this query may well retrieve info about tables we aren't
-	 * going to dump and hence have no lock on.  That's okay since we need not
-	 * invoke any unsafe server-side functions.
+	 *
 	 */
 	appendPQExpBufferStr(query,
 						 "SELECT partrelid FROM pg_partitioned_table WHERE\n"
@@ -7070,10 +7070,10 @@ getPartitioningInfo(Archive *fout)
 
 /*
  * getIndexes
- *	  get information about every index on a dumpable table
- *
- * Note: index data is not returned directly to the caller, but it
- * does get entered into the DumpableObject tables.
+ *   获取可导出表上每个索引的信息
+ * 
+ * 注意：索引数据不作为此结构的一部分返回；
+ * 它在 createDummyIndexObjects() 之后单独获取。
  */
 void
 getIndexes(Archive *fout, TableInfo tblinfo[], int numTables)
@@ -7109,12 +7109,12 @@ getIndexes(Archive *fout, TableInfo tblinfo[], int numTables)
 				i_indstatvals;
 
 	/*
-	 * We want to perform just one query against pg_index.  However, we
-	 * mustn't try to select every row of the catalog and then sort it out on
-	 * the client side, because some of the server-side functions we need
-	 * would be unsafe to apply to tables we don't have lock on.  Hence, we
-	 * build an array of the OIDs of tables we care about (and now have lock
-	 * on!), and use a WHERE clause to constrain which rows are selected.
+	 * 我们希望只对 pg_index 执行一次查询。但是，我们不能尝试选择
+	 * 目录的每一行然后在客户端进行排序，因为某些我们需要的服务器端函数
+	 * 应用于我们未加锁的表上是不安全的。因此，我们构建一个包含我们关心
+	 * （现已加锁）的表的 OID 数组，并使用 WHERE 子句来限制选择哪些行。
+	 *
+	 *
 	 */
 	appendPQExpBufferChar(tbloids, '{');
 	for (int i = 0; i < numTables; i++)
@@ -7125,13 +7125,13 @@ getIndexes(Archive *fout, TableInfo tblinfo[], int numTables)
 			continue;
 
 		/*
-		 * We can ignore indexes of uninteresting tables.
+		 * 我们可以忽略不感兴趣表的索引。
 		 */
 		if (!tbinfo->interesting)
 			continue;
 
-		/* OK, we need info for this table */
-		if (tbloids->len > 1)	/* do we have more than the '{'? */
+		/* 好的，我们需要此表的信息 */
+		if (tbloids->len > 1)	/* 检查是否有多于 '{' 的内容 */
 			appendPQExpBufferChar(tbloids, ',');
 		appendPQExpBuffer(tbloids, "%u", tbinfo->dobj.catId.oid);
 	}
@@ -7187,13 +7187,13 @@ getIndexes(Archive *fout, TableInfo tblinfo[], int numTables)
 							 "false AS indnullsnotdistinct ");
 
 	/*
-	 * The point of the messy-looking outer join is to find a constraint that
-	 * is related by an internal dependency link to the index. If we find one,
-	 * create a CONSTRAINT entry linked to the INDEX entry.  We assume an
-	 * index won't have more than one internal dependency.
+	 * 看起来凌乱的外连接的目的是找到一个通过内部依赖链接
+	 * 与索引关联的约束。如果找到，则创建一个 CONSTRAINT 条目
+	 * 链接到 INDEX 条目。我们假设一个索引不会有多个内部依赖。
+	 * 
+	 * 注意：对 conrelid 的检查是冗余的，但很有用，因为
+	 * 该列有索引而 conindid 没有。
 	 *
-	 * Note: the check on conrelid is redundant, but useful because that
-	 * column is indexed while conindid is not.
 	 */
 	if (fout->remoteVersion >= 110000)
 	{
@@ -7216,8 +7216,8 @@ getIndexes(Archive *fout, TableInfo tblinfo[], int numTables)
 	else
 	{
 		/*
-		 * the test on indisready is necessary in 9.2, and harmless in
-		 * earlier/later versions
+		 * 对 indisready 的测试在 9.2 中是必要的，
+		 * 在更早/更晚的版本中无害
 		 */
 		appendPQExpBuffer(query,
 						  "FROM unnest('%s'::pg_catalog.oid[]) AS src(tbloid)\n"
@@ -7263,8 +7263,8 @@ getIndexes(Archive *fout, TableInfo tblinfo[], int numTables)
 	indxinfo = (IndxInfo *) pg_malloc(ntups * sizeof(IndxInfo));
 
 	/*
-	 * Outer loop iterates once per table, not once per row.  Incrementing of
-	 * j is handled by the inner loop.
+	 * 外循环对每个表迭代一次，而不是每行一次。
+	 * j 的递增由内循环处理。
 	 */
 	curtblindx = -1;
 	for (int j = 0; j < ntups;)
@@ -7273,14 +7273,14 @@ getIndexes(Archive *fout, TableInfo tblinfo[], int numTables)
 		TableInfo  *tbinfo = NULL;
 		int			numinds;
 
-		/* Count rows for this table */
+		/* 计算此表的行数 */
 		for (numinds = 1; numinds < ntups - j; numinds++)
 			if (atooid(PQgetvalue(res, j + numinds, i_indrelid)) != indrelid)
 				break;
 
 		/*
-		 * Locate the associated TableInfo; we rely on tblinfo[] being in OID
-		 * order.
+		 * 定位关联的 TableInfo；我们依赖 tblinfo[] 按 OID 排序。
+		 *
 		 */
 		while (++curtblindx < numTables)
 		{
@@ -7290,13 +7290,13 @@ getIndexes(Archive *fout, TableInfo tblinfo[], int numTables)
 		}
 		if (curtblindx >= numTables)
 			pg_fatal("unrecognized table OID %u", indrelid);
-		/* cross-check that we only got requested tables */
+		/* 交叉检查我们是否只获取了请求的表 */
 		if (!tbinfo->hasindex ||
 			!tbinfo->interesting)
 			pg_fatal("unexpected index data for table \"%s\"",
 					 tbinfo->dobj.name);
 
-		/* Save data for this table */
+		/* 保存此表的数据 */
 		tbinfo->indexes = indxinfo + j;
 		tbinfo->numIndexes = numinds;
 
@@ -7335,8 +7335,8 @@ getIndexes(Archive *fout, TableInfo tblinfo[], int numTables)
 			if (contype == 'p' || contype == 'u' || contype == 'x')
 			{
 				/*
-				 * If we found a constraint matching the index, create an
-				 * entry for it.
+				 * 如果我们找到与索引匹配的约束，为其创建一个条目。
+				 *
 				 */
 				ConstraintInfo *constrinfo;
 
@@ -7366,7 +7366,7 @@ getIndexes(Archive *fout, TableInfo tblinfo[], int numTables)
 			}
 			else
 			{
-				/* Plain secondary index */
+				/* 普通次级索引 */
 				indxinfo[j].indexconstraint = 0;
 			}
 		}
@@ -7380,10 +7380,10 @@ getIndexes(Archive *fout, TableInfo tblinfo[], int numTables)
 
 /*
  * getExtendedStatistics
- *	  get information about extended-statistics objects.
- *
- * Note: extended statistics data is not returned directly to the caller, but
- * it does get entered into the DumpableObject tables.
+ *   获取扩展统计对象的信息。
+ * 
+ * 注意：扩展统计数据不直接返回给调用者，
+ * 而是记录到 DumpableObject 表中。
  */
 void
 getExtendedStatistics(Archive *fout)
@@ -7401,7 +7401,7 @@ getExtendedStatistics(Archive *fout)
 	int			i_stattarget;
 	int			i;
 
-	/* Extended statistics were new in v10 */
+	/* 扩展统计在 v10 中新增 */
 	if (fout->remoteVersion < 100000)
 		return;
 
@@ -7444,7 +7444,7 @@ getExtendedStatistics(Archive *fout)
 			findTableByOid(atooid(PQgetvalue(res, i, i_stxrelid)));
 		statsextinfo[i].stattarget = atoi(PQgetvalue(res, i, i_stattarget));
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableStatisticsObject(&(statsextinfo[i]), fout);
 	}
 
@@ -7454,12 +7454,12 @@ getExtendedStatistics(Archive *fout)
 
 /*
  * getConstraints
- *
- * Get info about constraints on dumpable tables.
- *
- * Currently handles foreign keys only.
- * Unique and primary key constraints are handled with indexes,
- * while check constraints are processed in getTableAttrs().
+ * 
+ * 获取可导出表上约束的信息。
+ * 
+ * 当前处理外键。
+ * 唯一键和主键约束与索引一起处理，
+ * 而检查约束在 getTableAttrs() 中处理。
  */
 void
 getConstraints(Archive *fout, TableInfo tblinfo[], int numTables)
@@ -7480,12 +7480,12 @@ getConstraints(Archive *fout, TableInfo tblinfo[], int numTables)
 				i_condef;
 
 	/*
-	 * We want to perform just one query against pg_constraint.  However, we
-	 * mustn't try to select every row of the catalog and then sort it out on
-	 * the client side, because some of the server-side functions we need
-	 * would be unsafe to apply to tables we don't have lock on.  Hence, we
-	 * build an array of the OIDs of tables we care about (and now have lock
-	 * on!), and use a WHERE clause to constrain which rows are selected.
+	 * 我们希望只对 pg_constraint 执行一次查询。但是，我们不能尝试选择
+	 * 目录的每一行然后在客户端进行排序，因为某些我们需要的服务器端函数
+	 * 应用于我们未加锁的表上是不安全的。因此，我们构建一个包含我们关心
+	 * （现已加锁）的表的 OID 数组，并使用 WHERE 子句来限制选择哪些行。
+	 *
+	 *
 	 */
 	appendPQExpBufferChar(tbloids, '{');
 	for (int i = 0; i < numTables; i++)
@@ -7493,16 +7493,16 @@ getConstraints(Archive *fout, TableInfo tblinfo[], int numTables)
 		TableInfo  *tinfo = &tblinfo[i];
 
 		/*
-		 * For partitioned tables, foreign keys have no triggers so they must
-		 * be included anyway in case some foreign keys are defined.
+		 * 对于分区表，外键没有触发器，因此无论如何都必须
+		 * 包含它们，以防定义了某些外键。
 		 */
 		if ((!tinfo->hastriggers &&
 			 tinfo->relkind != RELKIND_PARTITIONED_TABLE) ||
 			!(tinfo->dobj.dump & DUMP_COMPONENT_DEFINITION))
 			continue;
 
-		/* OK, we need info for this table */
-		if (tbloids->len > 1)	/* do we have more than the '{'? */
+		/* 好的，我们需要此表的信息 */
+		if (tbloids->len > 1)	/* 检查是否有多于 '{' 的内容 */
 			appendPQExpBufferChar(tbloids, ',');
 		appendPQExpBuffer(tbloids, "%u", tinfo->dobj.catId.oid);
 	}
@@ -7548,8 +7548,8 @@ getConstraints(Archive *fout, TableInfo tblinfo[], int numTables)
 		TableInfo  *reftable;
 
 		/*
-		 * Locate the associated TableInfo; we rely on tblinfo[] being in OID
-		 * order.
+		 * 定位关联的 TableInfo；我们依赖 tblinfo[] 按 OID 排序。
+		 *
 		 */
 		if (tbinfo == NULL || tbinfo->dobj.catId.oid != conrelid)
 		{
@@ -7581,10 +7581,10 @@ getConstraints(Archive *fout, TableInfo tblinfo[], int numTables)
 		constrinfo[j].separate = true;
 
 		/*
-		 * Restoring an FK that points to a partitioned table requires that
-		 * all partition indexes have been attached beforehand. Ensure that
-		 * happens by making the constraint depend on each index partition
-		 * attach object.
+		 * 恢复指向分区表的 FK 要求所有分区索引已事先附加。
+		 * 通过使约束依赖于每个索引分区附加对象来确保这一点。
+		 *
+		 *
 		 */
 		reftable = findTableByOid(constrinfo[j].confrelid);
 		if (reftable && reftable->relkind == RELKIND_PARTITIONED_TABLE)
@@ -7597,7 +7597,7 @@ getConstraints(Archive *fout, TableInfo tblinfo[], int numTables)
 				{
 					IndxInfo   *refidx;
 
-					/* not our index? */
+					/* 不是我们的索引？ */
 					if (reftable->indexes[k].dobj.catId.oid != indexOid)
 						continue;
 
@@ -7617,14 +7617,14 @@ getConstraints(Archive *fout, TableInfo tblinfo[], int numTables)
 
 /*
  * addConstrChildIdxDeps
+ * 
+ * getConstraints 的递归子程序
+ * 
+ * 给定一个表示外键约束的对象和一个它引用的分区表上的索引，
+ * 将约束对象标记为依赖于每个索引分区的 DO_INDEX_ATTACH 对象，
+ * 递归地向下钻取到它们的分区（如果有）。这确保在索引完全标记为
+ * 有效之前不会恢复 FK。
  *
- * Recursive subroutine for getConstraints
- *
- * Given an object representing a foreign key constraint and an index on the
- * partitioned table it references, mark the constraint object as dependent
- * on the DO_INDEX_ATTACH object of each index partition, recursively
- * drilling down to their partitions if any.  This ensures that the FK is not
- * restored until the index is fully marked valid.
  */
 static void
 addConstrChildIdxDeps(DumpableObject *dobj, const IndxInfo *refidx)
@@ -7646,8 +7646,8 @@ addConstrChildIdxDeps(DumpableObject *dobj, const IndxInfo *refidx)
 
 /*
  * getDomainConstraints
- *
- * Get info about constraints on a domain.
+ * 
+ * 获取域上约束的信息。
  */
 static void
 getDomainConstraints(Archive *fout, TypeInfo *tyinfo)
@@ -7664,7 +7664,7 @@ getDomainConstraints(Archive *fout, TypeInfo *tyinfo)
 
 	if (!fout->is_prepared[PREPQUERY_GETDOMAINCONSTRAINTS])
 	{
-		/* Set up query for constraint-specific details */
+		/* 设置查询以获取特定于约束的详细信息 */
 		appendPQExpBufferStr(query,
 							 "PREPARE getDomainConstraints(pg_catalog.oid) AS\n"
 							 "SELECT tableoid, oid, conname, "
@@ -7720,10 +7720,10 @@ getDomainConstraints(Archive *fout, TypeInfo *tyinfo)
 		constrinfo[i].separate = !validated;
 
 		/*
-		 * Make the domain depend on the constraint, ensuring it won't be
-		 * output till any constraint dependencies are OK.  If the constraint
-		 * has not been validated, it's going to be dumped after the domain
-		 * anyway, so this doesn't matter.
+		 * 使域依赖于约束，确保在约束依赖项
+		 * 都 OK 之前不会输出它。如果约束未经验证，
+		 * 它无论如何都会在域之后导出，因此这无关紧要。
+		 *
 		 */
 		if (validated)
 			addObjectDependency(&tyinfo->dobj,
@@ -7737,9 +7737,9 @@ getDomainConstraints(Archive *fout, TypeInfo *tyinfo)
 
 /*
  * getRules
- *	  get basic information about every rule in the system
- *
- * numRules is set to the number of rules read in
+ *   获取系统中每个规则的基本信息
+ * 
+ * numRules 设置为读取到的规则数
  */
 RuleInfo *
 getRules(Archive *fout, int *numRules)
@@ -7802,11 +7802,11 @@ getRules(Archive *fout, int *numRules)
 		if (ruleinfo[i].ruletable)
 		{
 			/*
-			 * If the table is a view or materialized view, force its ON
-			 * SELECT rule to be sorted before the view itself --- this
-			 * ensures that any dependencies for the rule affect the table's
-			 * positioning. Other rules are forced to appear after their
-			 * table.
+			 * 如果表是视图或物化视图，强制其 ON SELECT 规则
+			 * 在视图本身之前排序 —— 这确保规则的任何依赖项
+			 * 影响表的定位。其他规则强制出现在其表之后。
+			 *
+			 *
 			 */
 			if ((ruleinfo[i].ruletable->relkind == RELKIND_VIEW ||
 				 ruleinfo[i].ruletable->relkind == RELKIND_MATVIEW) &&
@@ -7814,7 +7814,7 @@ getRules(Archive *fout, int *numRules)
 			{
 				addObjectDependency(&ruleinfo[i].ruletable->dobj,
 									ruleinfo[i].dobj.dumpId);
-				/* We'll merge the rule into CREATE VIEW, if possible */
+				/* 如果可能，我们会将规则合并到 CREATE VIEW 中 */
 				ruleinfo[i].separate = false;
 			}
 			else
@@ -7837,10 +7837,10 @@ getRules(Archive *fout, int *numRules)
 
 /*
  * getTriggers
- *	  get information about every trigger on a dumpable table
- *
- * Note: trigger data is not returned directly to the caller, but it
- * does get entered into the DumpableObject tables.
+ *   获取可导出表上每个触发器的信息
+ * 
+ * 注意：触发器数据不直接返回给调用者，
+ * 而是记录到 DumpableObject 表中。
  */
 void
 getTriggers(Archive *fout, TableInfo tblinfo[], int numTables)
@@ -7870,12 +7870,12 @@ getTriggers(Archive *fout, TableInfo tblinfo[], int numTables)
 				i_tgdef;
 
 	/*
-	 * We want to perform just one query against pg_trigger.  However, we
-	 * mustn't try to select every row of the catalog and then sort it out on
-	 * the client side, because some of the server-side functions we need
-	 * would be unsafe to apply to tables we don't have lock on.  Hence, we
-	 * build an array of the OIDs of tables we care about (and now have lock
-	 * on!), and use a WHERE clause to constrain which rows are selected.
+	 * 我们希望只对 pg_trigger 执行一次查询。但是，我们不能尝试选择
+	 * 目录的每一行然后在客户端进行排序，因为某些我们需要的服务器端函数
+	 * 应用于我们未加锁的表上是不安全的。因此，我们构建一个包含我们关心
+	 * （现已加锁）的表的 OID 数组，并使用 WHERE 子句来限制选择哪些行。
+	 *
+	 *
 	 */
 	appendPQExpBufferChar(tbloids, '{');
 	for (int i = 0; i < numTables; i++)
@@ -7886,8 +7886,8 @@ getTriggers(Archive *fout, TableInfo tblinfo[], int numTables)
 			!(tbinfo->dobj.dump & DUMP_COMPONENT_DEFINITION))
 			continue;
 
-		/* OK, we need info for this table */
-		if (tbloids->len > 1)	/* do we have more than the '{'? */
+		/* 好的，我们需要此表的信息 */
+		if (tbloids->len > 1)	/* 检查是否有多于 '{' 的内容 */
 			appendPQExpBufferChar(tbloids, ',');
 		appendPQExpBuffer(tbloids, "%u", tbinfo->dobj.catId.oid);
 	}
@@ -7896,12 +7896,12 @@ getTriggers(Archive *fout, TableInfo tblinfo[], int numTables)
 	if (fout->remoteVersion >= 150000)
 	{
 		/*
-		 * NB: think not to use pretty=true in pg_get_triggerdef.  It could
-		 * result in non-forward-compatible dumps of WHEN clauses due to
-		 * under-parenthesization.
-		 *
-		 * NB: We need to see partition triggers in case the tgenabled flag
-		 * has been changed from the parent.
+		 * 注意：不要在 pg_get_triggerdef 中使用 pretty=true。
+		 * 由于括号不足，它可能导致 WHEN 子句的导出结果
+		 * 不向前兼容。
+		 * 
+		 * 注意：我们需要查看分区触发器，因为 tgenabled 标志
+		 * 可能已从父表更改。
 		 */
 		appendPQExpBuffer(query,
 						  "SELECT t.tgrelid, t.tgname, "
@@ -7920,12 +7920,12 @@ getTriggers(Archive *fout, TableInfo tblinfo[], int numTables)
 	else if (fout->remoteVersion >= 130000)
 	{
 		/*
-		 * NB: think not to use pretty=true in pg_get_triggerdef.  It could
-		 * result in non-forward-compatible dumps of WHEN clauses due to
-		 * under-parenthesization.
-		 *
-		 * NB: We need to see tgisinternal triggers in partitions, in case the
-		 * tgenabled flag has been changed from the parent.
+		 * 注意：不要在 pg_get_triggerdef 中使用 pretty=true。
+		 * 由于括号不足，它可能导致 WHEN 子句的导出结果
+		 * 不向前兼容。
+		 * 
+		 * 注意：我们需要在分区中查看 tgisinternal 触发器，
+		 * 因为 tgenabled 标志可能已从父表更改。
 		 */
 		appendPQExpBuffer(query,
 						  "SELECT t.tgrelid, t.tgname, "
@@ -7942,11 +7942,11 @@ getTriggers(Archive *fout, TableInfo tblinfo[], int numTables)
 	else if (fout->remoteVersion >= 110000)
 	{
 		/*
-		 * NB: We need to see tgisinternal triggers in partitions, in case the
-		 * tgenabled flag has been changed from the parent. No tgparentid in
-		 * version 11-12, so we have to match them via pg_depend.
-		 *
-		 * See above about pretty=true in pg_get_triggerdef.
+		 * 注意：我们需要查看分区中的 tgisinternal 触发器，
+		 * 因为 tgenabled 标志可能已从父表更改。
+		 * 版本 11-12 中没有 tgparentid，因此我们必须通过
+		 * pg_depend 来匹配它们。
+		 * 
 		 */
 		appendPQExpBuffer(query,
 						  "SELECT t.tgrelid, t.tgname, "
@@ -7966,7 +7966,7 @@ getTriggers(Archive *fout, TableInfo tblinfo[], int numTables)
 	}
 	else
 	{
-		/* See above about pretty=true in pg_get_triggerdef */
+		/* 关于 pg_get_triggerdef 中 pretty=true 的说明同上 */
 		appendPQExpBuffer(query,
 						  "SELECT t.tgrelid, t.tgname, "
 						  "t.tgfoid::pg_catalog.regproc AS tgfname, "
@@ -8005,8 +8005,8 @@ getTriggers(Archive *fout, TableInfo tblinfo[], int numTables)
 	tginfo = (TriggerInfo *) pg_malloc(ntups * sizeof(TriggerInfo));
 
 	/*
-	 * Outer loop iterates once per table, not once per row.  Incrementing of
-	 * j is handled by the inner loop.
+	 * 外循环对每个表迭代一次，而不是每行一次。
+	 * j 的递增由内循环处理。
 	 */
 	curtblindx = -1;
 	for (int j = 0; j < ntups;)
@@ -8015,14 +8015,14 @@ getTriggers(Archive *fout, TableInfo tblinfo[], int numTables)
 		TableInfo  *tbinfo = NULL;
 		int			numtrigs;
 
-		/* Count rows for this table */
+		/* 计算此表的行数 */
 		for (numtrigs = 1; numtrigs < ntups - j; numtrigs++)
 			if (atooid(PQgetvalue(res, j + numtrigs, i_tgrelid)) != tgrelid)
 				break;
 
 		/*
-		 * Locate the associated TableInfo; we rely on tblinfo[] being in OID
-		 * order.
+		 * 定位关联的 TableInfo；我们依赖 tblinfo[] 按 OID 排序。
+		 *
 		 */
 		while (++curtblindx < numTables)
 		{
@@ -8033,7 +8033,7 @@ getTriggers(Archive *fout, TableInfo tblinfo[], int numTables)
 		if (curtblindx >= numTables)
 			pg_fatal("unrecognized table OID %u", tgrelid);
 
-		/* Save data for this table */
+		/* 保存此表的数据 */
 		tbinfo->triggers = tginfo + j;
 		tbinfo->numTriggers = numtrigs;
 
@@ -8052,7 +8052,7 @@ getTriggers(Archive *fout, TableInfo tblinfo[], int numTables)
 			{
 				tginfo[j].tgdef = pg_strdup(PQgetvalue(res, j, i_tgdef));
 
-				/* remaining fields are not valid if we have tgdef */
+				/* 如果有 tgdef，其余字段无效 */
 				tginfo[j].tgfname = NULL;
 				tginfo[j].tgtype = 0;
 				tginfo[j].tgnargs = 0;
@@ -8110,7 +8110,7 @@ getTriggers(Archive *fout, TableInfo tblinfo[], int numTables)
 
 /*
  * getEventTriggers
- *	  get information about event triggers
+ *   获取事件触发器的信息
  */
 EventTriggerInfo *
 getEventTriggers(Archive *fout, int *numEventTriggers)
@@ -8129,7 +8129,7 @@ getEventTriggers(Archive *fout, int *numEventTriggers)
 				i_evtenabled;
 	int			ntups;
 
-	/* Before 9.3, there are no event triggers */
+	/* 9.3 之前没有事件触发器 */
 	if (fout->remoteVersion < 90300)
 	{
 		*numEventTriggers = 0;
@@ -8179,7 +8179,7 @@ getEventTriggers(Archive *fout, int *numEventTriggers)
 		evtinfo[i].evtfname = pg_strdup(PQgetvalue(res, i, i_evtfname));
 		evtinfo[i].evtenabled = *(PQgetvalue(res, i, i_evtenabled));
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableObject(&(evtinfo[i].dobj), fout);
 	}
 
@@ -8192,12 +8192,12 @@ getEventTriggers(Archive *fout, int *numEventTriggers)
 
 /*
  * getProcLangs
- *	  get basic information about every procedural language in the system
- *
- * numProcLangs is set to the number of langs read in
- *
- * NB: this must run after getFuncs() because we assume we can do
- * findFuncByOid().
+ *   获取系统中每个过程语言的基本信息
+ * 
+ * numProcLangs 设置为读取到的语言数
+ * 
+ * 注意：这必须在 getFuncs() 之后运行，因为我们假设
+ * 可以使用 findFuncByOid()。
  */
 ProcLangInfo *
 getProcLangs(Archive *fout, int *numProcLangs)
@@ -8265,10 +8265,10 @@ getProcLangs(Archive *fout, int *numProcLangs)
 		planginfo[i].lanvalidator = atooid(PQgetvalue(res, i, i_lanvalidator));
 		planginfo[i].lanowner = getRoleName(PQgetvalue(res, i, i_lanowner));
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableProcLang(&(planginfo[i]), fout);
 
-		/* Mark whether language has an ACL */
+		/* 标记语言是否有 ACL */
 		if (!PQgetisnull(res, i, i_lanacl))
 			planginfo[i].dobj.components |= DUMP_COMPONENT_ACL;
 	}
@@ -8282,12 +8282,12 @@ getProcLangs(Archive *fout, int *numProcLangs)
 
 /*
  * getCasts
- *	  get basic information about most casts in the system
- *
- * numCasts is set to the number of casts read in
- *
- * Skip casts from a range to its multirange, since we'll create those
- * automatically.
+ *   获取系统中大多数类型转换的基本信息
+ * 
+ * numCasts 设置为读取到的类型转换数
+ * 
+ * 跳过从 range 到其 multirange 的类型转换，
+ * 因为我们会自动创建这些。
  */
 CastInfo *
 getCasts(Archive *fout, int *numCasts)
@@ -8359,9 +8359,9 @@ getCasts(Archive *fout, int *numCasts)
 		castinfo[i].castmethod = *(PQgetvalue(res, i, i_castmethod));
 
 		/*
-		 * Try to name cast as concatenation of typnames.  This is only used
-		 * for purposes of sorting.  If we fail to find either type, the name
-		 * will be an empty string.
+		 * 尝试将类型转换命名为 typname 的连接。这仅用于
+		 * 排序目的。如果找不到任一类型，名称将为空字符串。
+		 *
 		 */
 		initPQExpBuffer(&namebuf);
 		sTypeInfo = findTypeByOid(castinfo[i].castsource);
@@ -8371,7 +8371,7 @@ getCasts(Archive *fout, int *numCasts)
 							  sTypeInfo->dobj.name, tTypeInfo->dobj.name);
 		castinfo[i].dobj.name = namebuf.data;
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableCast(&(castinfo[i]), fout);
 	}
 
@@ -8401,9 +8401,9 @@ get_language_name(Archive *fout, Oid langid)
 
 /*
  * getTransforms
- *	  get basic information about every transform in the system
- *
- * numTransforms is set to the number of transforms read in
+ *   获取系统中每个转换的基本信息
+ * 
+ * numTransforms 设置为读取到的转换数
  */
 TransformInfo *
 getTransforms(Archive *fout, int *numTransforms)
@@ -8420,7 +8420,7 @@ getTransforms(Archive *fout, int *numTransforms)
 	int			i_trffromsql;
 	int			i_trftosql;
 
-	/* Transforms didn't exist pre-9.5 */
+	/* 转换在 9.5 之前不存在 */
 	if (fout->remoteVersion < 90500)
 	{
 		*numTransforms = 0;
@@ -8465,9 +8465,9 @@ getTransforms(Archive *fout, int *numTransforms)
 		transforminfo[i].trftosql = atooid(PQgetvalue(res, i, i_trftosql));
 
 		/*
-		 * Try to name transform as concatenation of type and language name.
-		 * This is only used for purposes of sorting.  If we fail to find
-		 * either, the name will be an empty string.
+		 * 尝试将转换命名为类型和语言名称的连接。这仅用于
+		 * 排序目的。如果找不到任一，名称将为空字符串。
+		 *
 		 */
 		initPQExpBuffer(&namebuf);
 		typeInfo = findTypeByOid(transforminfo[i].trftype);
@@ -8478,7 +8478,7 @@ getTransforms(Archive *fout, int *numTransforms)
 		transforminfo[i].dobj.name = namebuf.data;
 		free(lanname);
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableObject(&(transforminfo[i].dobj), fout);
 	}
 
@@ -8491,10 +8491,10 @@ getTransforms(Archive *fout, int *numTransforms)
 
 /*
  * getTableAttrs -
- *	  for each interesting table, read info about its attributes
- *	  (names, types, default values, CHECK constraints, etc)
- *
- *	modifies tblinfo
+ *   对于每个感兴趣的表，读取其属性信息
+ *   （名称、类型、默认值、CHECK 约束等）
+ * 
+ *   修改 tblinfo
  */
 void
 getTableAttrs(Archive *fout, TableInfo *tblinfo, int numTables)
@@ -8528,14 +8528,14 @@ getTableAttrs(Archive *fout, TableInfo *tblinfo, int numTables)
 	int			i_atthasdef;
 
 	/*
-	 * We want to perform just one query against pg_attribute, and then just
-	 * one against pg_attrdef (for DEFAULTs) and one against pg_constraint
-	 * (for CHECK constraints).  However, we mustn't try to select every row
-	 * of those catalogs and then sort it out on the client side, because some
-	 * of the server-side functions we need would be unsafe to apply to tables
-	 * we don't have lock on.  Hence, we build an array of the OIDs of tables
-	 * we care about (and now have lock on!), and use a WHERE clause to
-	 * constrain which rows are selected.
+	 * 我们希望只对 pg_attribute 执行一次查询，然后只对
+	 * pg_attrdef（用于 DEFAULT）和 pg_constraint（用于 CHECK 约束）
+	 * 各执行一次查询。但是，我们不能尝试选择这些目录的每一行然后
+	 * 在客户端进行排序，因为某些我们需要的服务器端函数应用于
+	 * 我们未加锁的表上是不安全的。因此，我们构建一个包含我们关心
+	 * （现已加锁）的表的 OID 数组，并使用 WHERE 子句来限制选择哪些行。
+	 *
+	 *
 	 */
 	appendPQExpBufferChar(tbloids, '{');
 	appendPQExpBufferChar(checkoids, '{');
@@ -8543,23 +8543,23 @@ getTableAttrs(Archive *fout, TableInfo *tblinfo, int numTables)
 	{
 		TableInfo  *tbinfo = &tblinfo[i];
 
-		/* Don't bother to collect info for sequences */
+		/* 不费心为序列收集信息 */
 		if (tbinfo->relkind == RELKIND_SEQUENCE)
 			continue;
 
-		/* Don't bother with uninteresting tables, either */
+		/* 也不费心处理不感兴趣的表 */
 		if (!tbinfo->interesting)
 			continue;
 
-		/* OK, we need info for this table */
-		if (tbloids->len > 1)	/* do we have more than the '{'? */
+		/* 好的，我们需要此表的信息 */
+		if (tbloids->len > 1)	/* 检查是否有多于 '{' 的内容 */
 			appendPQExpBufferChar(tbloids, ',');
 		appendPQExpBuffer(tbloids, "%u", tbinfo->dobj.catId.oid);
 
 		if (tbinfo->ncheck > 0)
 		{
-			/* Also make a list of the ones with check constraints */
-			if (checkoids->len > 1) /* do we have more than the '{'? */
+			/* 还为具有检查约束的表制作一个列表 */
+			if (checkoids->len > 1) /* 检查是否有多于 '{' 的内容 */
 				appendPQExpBufferChar(checkoids, ',');
 			appendPQExpBuffer(checkoids, "%u", tbinfo->dobj.catId.oid);
 		}
@@ -8568,11 +8568,11 @@ getTableAttrs(Archive *fout, TableInfo *tblinfo, int numTables)
 	appendPQExpBufferChar(checkoids, '}');
 
 	/*
-	 * Find all the user attributes and their types.
-	 *
-	 * Since we only want to dump COLLATE clauses for attributes whose
-	 * collation is different from their type's default, we use a CASE here to
-	 * suppress uninteresting attcollations cheaply.
+	 * 查找所有用户属性及其类型。
+	 * 
+	 * 由于我们只想为排序规则与其类型默认值不同的属性
+	 * 导出 COLLATE 子句，我们在此使用 CASE 来廉价地抑制
+	 * 不感兴趣的 attcollation。
 	 */
 	appendPQExpBufferStr(q,
 						 "SELECT\n"
@@ -8628,7 +8628,7 @@ getTableAttrs(Archive *fout, TableInfo *tblinfo, int numTables)
 		appendPQExpBufferStr(q,
 							 "'' AS attgenerated\n");
 
-	/* need left join to pg_type to not fail on dropped columns ... */
+	/* 需要对 pg_type 的左连接以避免删除列时失败 ... */
 	appendPQExpBuffer(q,
 					  "FROM unnest('%s'::pg_catalog.oid[]) AS src(tbloid)\n"
 					  "JOIN pg_catalog.pg_attribute a ON (src.tbloid = a.attrelid) "
@@ -8663,13 +8663,13 @@ getTableAttrs(Archive *fout, TableInfo *tblinfo, int numTables)
 	i_attmissingval = PQfnumber(res, "attmissingval");
 	i_atthasdef = PQfnumber(res, "atthasdef");
 
-	/* Within the next loop, we'll accumulate OIDs of tables with defaults */
+	/* 在下一个循环中，我们将累积具有默认值的表的 OID */
 	resetPQExpBuffer(tbloids);
 	appendPQExpBufferChar(tbloids, '{');
 
 	/*
-	 * Outer loop iterates once per table, not once per row.  Incrementing of
-	 * r is handled by the inner loop.
+	 * 外循环对每个表迭代一次，而不是每行一次。
+	 * r 的递增由内循环处理。
 	 */
 	curtblindx = -1;
 	for (int r = 0; r < ntups;)
@@ -8679,14 +8679,14 @@ getTableAttrs(Archive *fout, TableInfo *tblinfo, int numTables)
 		int			numatts;
 		bool		hasdefaults;
 
-		/* Count rows for this table */
+		/* 计算此表的行数 */
 		for (numatts = 1; numatts < ntups - r; numatts++)
 			if (atooid(PQgetvalue(res, r + numatts, i_attrelid)) != attrelid)
 				break;
 
 		/*
-		 * Locate the associated TableInfo; we rely on tblinfo[] being in OID
-		 * order.
+		 * 定位关联的 TableInfo；我们依赖 tblinfo[] 按 OID 排序。
+		 *
 		 */
 		while (++curtblindx < numTables)
 		{
@@ -8696,13 +8696,13 @@ getTableAttrs(Archive *fout, TableInfo *tblinfo, int numTables)
 		}
 		if (curtblindx >= numTables)
 			pg_fatal("unrecognized table OID %u", attrelid);
-		/* cross-check that we only got requested tables */
+		/* 交叉检查我们是否只获取了请求的表 */
 		if (tbinfo->relkind == RELKIND_SEQUENCE ||
 			!tbinfo->interesting)
 			pg_fatal("unexpected column data for table \"%s\"",
 					 tbinfo->dobj.name);
 
-		/* Save data for this table */
+		/* 保存此表的数据 */
 		tbinfo->numatts = numatts;
 		tbinfo->attnames = (char **) pg_malloc(numatts * sizeof(char *));
 		tbinfo->atttypnames = (char **) pg_malloc(numatts * sizeof(char *));
@@ -8748,17 +8748,17 @@ getTableAttrs(Archive *fout, TableInfo *tblinfo, int numTables)
 			tbinfo->attcompression[j] = *(PQgetvalue(res, r, i_attcompression));
 			tbinfo->attfdwoptions[j] = pg_strdup(PQgetvalue(res, r, i_attfdwoptions));
 			tbinfo->attmissingval[j] = pg_strdup(PQgetvalue(res, r, i_attmissingval));
-			tbinfo->attrdefs[j] = NULL; /* fix below */
+			tbinfo->attrdefs[j] = NULL; /* 下面修正 */
 			if (PQgetvalue(res, r, i_atthasdef)[0] == 't')
 				hasdefaults = true;
-			/* these flags will be set in flagInhAttrs() */
+			/* 这些标志将在 flagInhAttrs() 中设置 */
 			tbinfo->inhNotNull[j] = false;
 		}
 
 		if (hasdefaults)
 		{
-			/* Collect OIDs of interesting tables that have defaults */
-			if (tbloids->len > 1)	/* do we have more than the '{'? */
+			/* 收集具有默认值的感兴趣表的 OID */
+			if (tbloids->len > 1)	/* 检查是否有多于 '{' 的内容 */
 				appendPQExpBufferChar(tbloids, ',');
 			appendPQExpBuffer(tbloids, "%u", tbinfo->dobj.catId.oid);
 		}
@@ -8767,8 +8767,8 @@ getTableAttrs(Archive *fout, TableInfo *tblinfo, int numTables)
 	PQclear(res);
 
 	/*
-	 * Now get info about column defaults.  This is skipped for a data-only
-	 * dump, as it is only needed for table schemas.
+	 * 现在获取列默认值的信息。仅数据导出时跳过此步骤，
+	 * 因为仅表模式需要它。
 	 */
 	if (!dopt->dataOnly && tbloids->len > 1)
 	{
@@ -8802,8 +8802,8 @@ getTableAttrs(Archive *fout, TableInfo *tblinfo, int numTables)
 			char	   *adsrc = PQgetvalue(res, j, 4);
 
 			/*
-			 * Locate the associated TableInfo; we rely on tblinfo[] being in
-			 * OID order.
+			 * 定位关联的 TableInfo；我们依赖 tblinfo[] 按 OID 排序。
+			 *
 			 */
 			if (tbinfo == NULL || tbinfo->dobj.catId.oid != adrelid)
 			{
@@ -8822,8 +8822,8 @@ getTableAttrs(Archive *fout, TableInfo *tblinfo, int numTables)
 						 adnum, tbinfo->dobj.name);
 
 			/*
-			 * dropped columns shouldn't have defaults, but just in case,
-			 * ignore 'em
+			 * 已删除的列不应该有默认值，但为安全起见，忽略它们
+			 *
 			 */
 			if (tbinfo->attisdropped[adnum - 1])
 				continue;
@@ -8842,35 +8842,35 @@ getTableAttrs(Archive *fout, TableInfo *tblinfo, int numTables)
 			attrdefs[j].dobj.dump = tbinfo->dobj.dump;
 
 			/*
-			 * Figure out whether the default/generation expression should be
-			 * dumped as part of the main CREATE TABLE (or similar) command or
-			 * as a separate ALTER TABLE (or similar) command. The preference
-			 * is to put it into the CREATE command, but in some cases that's
-			 * not possible.
+			 * 确定默认值/生成表达式是作为主 CREATE TABLE
+			 * （或类似）命令的一部分导出，还是作为单独的
+			 * ALTER TABLE（或类似）命令导出。优先方案是放入
+			 * CREATE 命令中，但在某些情况下这不可行。
+			 *
 			 */
 			if (tbinfo->attgenerated[adnum - 1])
 			{
 				/*
-				 * Column generation expressions cannot be dumped separately,
-				 * because there is no syntax for it.  By setting separate to
-				 * false here we prevent the "default" from being processed as
-				 * its own dumpable object.  Later, flagInhAttrs() will mark
-				 * it as not to be dumped at all, if possible (that is, if it
-				 * can be inherited from a parent).
+				 * 列生成表达式不能单独导出，因为没有相应的语法。
+				 * 通过在此处将 separate 设置为 false，我们防止
+				 * "default" 被作为自己的可导出对象处理。稍后，
+				 * flagInhAttrs() 会将其标记为完全不要导出，
+				 * 如果可能的话（即如果可以从父表继承）。
+				 *
 				 */
 				attrdefs[j].separate = false;
 			}
 			else if (tbinfo->relkind == RELKIND_VIEW)
 			{
 				/*
-				 * Defaults on a VIEW must always be dumped as separate ALTER
-				 * TABLE commands.
+				 * VIEW 上的默认值必须始终作为单独的 ALTER TABLE
+				 * 命令导出。
 				 */
 				attrdefs[j].separate = true;
 			}
 			else if (!shouldPrintColumn(dopt, tbinfo, adnum - 1))
 			{
-				/* column will be suppressed, print default separately */
+				/* 列将被抑制，单独输出默认值 */
 				attrdefs[j].separate = true;
 			}
 			else
@@ -8881,10 +8881,10 @@ getTableAttrs(Archive *fout, TableInfo *tblinfo, int numTables)
 			if (!attrdefs[j].separate)
 			{
 				/*
-				 * Mark the default as needing to appear before the table, so
-				 * that any dependencies it has must be emitted before the
-				 * CREATE TABLE.  If this is not possible, we'll change to
-				 * "separate" mode while sorting dependencies.
+				 * 将默认值标记为需要出现在表之前，
+				 * 以便它的任何依赖项必须在 CREATE TABLE 之前发出。
+				 * 如果这不可能，我们将在排序依赖项时切换到
+				 * "separate" 模式。
 				 */
 				addObjectDependency(&tbinfo->dobj,
 									attrdefs[j].dobj.dumpId);
@@ -8897,8 +8897,8 @@ getTableAttrs(Archive *fout, TableInfo *tblinfo, int numTables)
 	}
 
 	/*
-	 * Get info about table CHECK constraints.  This is skipped for a
-	 * data-only dump, as it is only needed for table schemas.
+	 * 获取表 CHECK 约束的信息。仅数据导出时跳过此步骤，
+	 * 因为仅表模式需要它。
 	 */
 	if (!dopt->dataOnly && checkoids->len > 2)
 	{
@@ -8938,7 +8938,7 @@ getTableAttrs(Archive *fout, TableInfo *tblinfo, int numTables)
 		i_conislocal = PQfnumber(res, "conislocal");
 		i_convalidated = PQfnumber(res, "convalidated");
 
-		/* As above, this loop iterates once per table, not once per row */
+		/* 如上所述，此循环对每个表迭代一次，而不是每行一次 */
 		curtblindx = -1;
 		for (int j = 0; j < numConstrs;)
 		{
@@ -8946,14 +8946,14 @@ getTableAttrs(Archive *fout, TableInfo *tblinfo, int numTables)
 			TableInfo  *tbinfo = NULL;
 			int			numcons;
 
-			/* Count rows for this table */
+			/* 计算此表的行数 */
 			for (numcons = 1; numcons < numConstrs - j; numcons++)
 				if (atooid(PQgetvalue(res, j + numcons, i_conrelid)) != conrelid)
 					break;
 
 			/*
-			 * Locate the associated TableInfo; we rely on tblinfo[] being in
-			 * OID order.
+			 * 定位关联的 TableInfo；我们依赖 tblinfo[] 按 OID 排序。
+			 *
 			 */
 			while (++curtblindx < numTables)
 			{
@@ -8997,30 +8997,30 @@ getTableAttrs(Archive *fout, TableInfo *tblinfo, int numTables)
 				constrs[j].conislocal = (PQgetvalue(res, j, i_conislocal)[0] == 't');
 
 				/*
-				 * An unvalidated constraint needs to be dumped separately, so
-				 * that potentially-violating existing data is loaded before
-				 * the constraint.
+				 * 未经验证的约束需要单独导出，
+				 * 以便可能违规的现有数据在约束之前加载。
+				 *
 				 */
 				constrs[j].separate = !validated;
 
 				constrs[j].dobj.dump = tbinfo->dobj.dump;
 
 				/*
-				 * Mark the constraint as needing to appear before the table
-				 * --- this is so that any other dependencies of the
-				 * constraint will be emitted before we try to create the
-				 * table.  If the constraint is to be dumped separately, it
-				 * will be dumped after data is loaded anyway, so don't do it.
-				 * (There's an automatic dependency in the opposite direction
-				 * anyway, so don't need to add one manually here.)
+				 * 将约束标记为需要出现在表之前 —— 这样约束的任何
+				 * 其他依赖项将在我们尝试创建表之前发出。如果约束
+				 * 要单独导出，它将在数据加载后导出，因此不需要。
+				 * （无论如何都有一个相反方向的自动依赖，
+				 * 因此不需要在此手动添加。）
+				 *
+				 *
 				 */
 				if (!constrs[j].separate)
 					addObjectDependency(&tbinfo->dobj,
 										constrs[j].dobj.dumpId);
 
 				/*
-				 * We will detect later whether the constraint must be split
-				 * out from the table definition.
+				 * 我们稍后将检测约束是否必须从表定义中分离出来。
+				 *
 				 */
 			}
 		}
@@ -9034,21 +9034,21 @@ getTableAttrs(Archive *fout, TableInfo *tblinfo, int numTables)
 }
 
 /*
- * Test whether a column should be printed as part of table's CREATE TABLE.
- * Column number is zero-based.
+ * 测试列是否应作为表的 CREATE TABLE 的一部分输出。
+ * 列号从零开始。
+ * 
+ * 通常这始终为 true，但对于已删除的列以及那些没有任何
+ * 本地定义的继承列为 false。（如果我们输出这样的列，
+ * 它会错误地将 pg_attribute.attislocal 设置为 true。）
+ * 对于分区，它始终为 true，因为我们希望分区独立创建
+ * 并随后使用 ATTACH PARTITION。
+ * 
+ * 在二进制升级模式下，我们必须输出所有列并在之后
+ * 修正 attislocal/attisdropped 状态，以便控制物理列顺序。
+ * 
+ * 此函数存在是因为有许多分散且不明显的地方
+ * 必须与此决策保持同步。
  *
- * Normally this is always true, but it's false for dropped columns, as well
- * as those that were inherited without any local definition.  (If we print
- * such a column it will mistakenly get pg_attribute.attislocal set to true.)
- * For partitions, it's always true, because we want the partitions to be
- * created independently and ATTACH PARTITION used afterwards.
- *
- * In binary_upgrade mode, we must print all columns and fix the attislocal/
- * attisdropped state later, so as to keep control of the physical column
- * order.
- *
- * This function exists because there are scattered nonobvious places that
- * must be kept in sync with this decision.
  */
 bool
 shouldPrintColumn(const DumpOptions *dopt, const TableInfo *tbinfo, int colno)
@@ -9063,10 +9063,10 @@ shouldPrintColumn(const DumpOptions *dopt, const TableInfo *tbinfo, int colno)
 
 /*
  * getTSParsers:
- *	  read all text search parsers in the system catalogs and return them
- *	  in the TSParserInfo* structure
- *
- *	numTSParsers is set to the number of parsers read in
+ *   读取系统目录中的所有文本搜索解析器，并将它们返回到
+ *   TSParserInfo* 结构中
+ * 
+ *   numTSParsers 设置为读取到的解析器数
  */
 TSParserInfo *
 getTSParsers(Archive *fout, int *numTSParsers)
@@ -9089,8 +9089,8 @@ getTSParsers(Archive *fout, int *numTSParsers)
 	query = createPQExpBuffer();
 
 	/*
-	 * find all text search objects, including builtin ones; we filter out
-	 * system-defined objects at dump-out time.
+	 * 查找所有文本搜索对象，包括内置对象；
+	 * 我们在导出时过滤掉系统定义的对象。
 	 */
 
 	appendPQExpBufferStr(query, "SELECT tableoid, oid, prsname, prsnamespace, "
@@ -9130,7 +9130,7 @@ getTSParsers(Archive *fout, int *numTSParsers)
 		prsinfo[i].prsheadline = atooid(PQgetvalue(res, i, i_prsheadline));
 		prsinfo[i].prslextype = atooid(PQgetvalue(res, i, i_prslextype));
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableObject(&(prsinfo[i].dobj), fout);
 	}
 
@@ -9143,10 +9143,10 @@ getTSParsers(Archive *fout, int *numTSParsers)
 
 /*
  * getTSDictionaries:
- *	  read all text search dictionaries in the system catalogs and return them
- *	  in the TSDictInfo* structure
- *
- *	numTSDicts is set to the number of dictionaries read in
+ *   读取系统目录中的所有文本搜索字典，并将它们返回到
+ *   TSDictInfo* 结构中
+ * 
+ *   numTSDicts 设置为读取到的字典数
  */
 TSDictInfo *
 getTSDictionaries(Archive *fout, int *numTSDicts)
@@ -9202,7 +9202,7 @@ getTSDictionaries(Archive *fout, int *numTSDicts)
 		else
 			dictinfo[i].dictinitoption = pg_strdup(PQgetvalue(res, i, i_dictinitoption));
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableObject(&(dictinfo[i].dobj), fout);
 	}
 
@@ -9215,10 +9215,10 @@ getTSDictionaries(Archive *fout, int *numTSDicts)
 
 /*
  * getTSTemplates:
- *	  read all text search templates in the system catalogs and return them
- *	  in the TSTemplateInfo* structure
- *
- *	numTSTemplates is set to the number of templates read in
+ *   读取系统目录中的所有文本搜索模板，并将它们返回到
+ *   TSTemplateInfo* 结构中
+ * 
+ *   numTSTemplates 设置为读取到的模板数
  */
 TSTemplateInfo *
 getTSTemplates(Archive *fout, int *numTSTemplates)
@@ -9267,7 +9267,7 @@ getTSTemplates(Archive *fout, int *numTSTemplates)
 		tmplinfo[i].tmplinit = atooid(PQgetvalue(res, i, i_tmplinit));
 		tmplinfo[i].tmpllexize = atooid(PQgetvalue(res, i, i_tmpllexize));
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableObject(&(tmplinfo[i].dobj), fout);
 	}
 
@@ -9280,10 +9280,10 @@ getTSTemplates(Archive *fout, int *numTSTemplates)
 
 /*
  * getTSConfigurations:
- *	  read all text search configurations in the system catalogs and return
- *	  them in the TSConfigInfo* structure
- *
- *	numTSConfigs is set to the number of configurations read in
+ *   读取系统目录中的所有文本搜索配置，并将它们返回到
+ *   TSConfigInfo* 结构中
+ * 
+ *   numTSConfigs 设置为读取到的配置数
  */
 TSConfigInfo *
 getTSConfigurations(Archive *fout, int *numTSConfigs)
@@ -9332,7 +9332,7 @@ getTSConfigurations(Archive *fout, int *numTSConfigs)
 		cfginfo[i].rolname = getRoleName(PQgetvalue(res, i, i_cfgowner));
 		cfginfo[i].cfgparser = atooid(PQgetvalue(res, i, i_cfgparser));
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableObject(&(cfginfo[i].dobj), fout);
 	}
 
@@ -9345,10 +9345,10 @@ getTSConfigurations(Archive *fout, int *numTSConfigs)
 
 /*
  * getForeignDataWrappers:
- *	  read all foreign-data wrappers in the system catalogs and return
- *	  them in the FdwInfo* structure
- *
- *	numForeignDataWrappers is set to the number of fdws read in
+ *   读取系统目录中的所有 FDW，并将它们返回到
+ *   FdwInfo* 结构中
+ * 
+ *   numForeignDataWrappers 设置为读取到的 FDW 数
  */
 FdwInfo *
 getForeignDataWrappers(Archive *fout, int *numForeignDataWrappers)
@@ -9418,10 +9418,10 @@ getForeignDataWrappers(Archive *fout, int *numForeignDataWrappers)
 		fdwinfo[i].fdwvalidator = pg_strdup(PQgetvalue(res, i, i_fdwvalidator));
 		fdwinfo[i].fdwoptions = pg_strdup(PQgetvalue(res, i, i_fdwoptions));
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableObject(&(fdwinfo[i].dobj), fout);
 
-		/* Mark whether FDW has an ACL */
+		/* 标记 FDW 是否有 ACL */
 		if (!PQgetisnull(res, i, i_fdwacl))
 			fdwinfo[i].dobj.components |= DUMP_COMPONENT_ACL;
 	}
@@ -9435,10 +9435,10 @@ getForeignDataWrappers(Archive *fout, int *numForeignDataWrappers)
 
 /*
  * getForeignServers:
- *	  read all foreign servers in the system catalogs and return
- *	  them in the ForeignServerInfo * structure
- *
- *	numForeignServers is set to the number of servers read in
+ *   读取系统目录中的所有外部服务器，并将它们返回到
+ *   ForeignServerInfo * 结构中
+ * 
+ *   numForeignServers 设置为读取到的服务器数
  */
 ForeignServerInfo *
 getForeignServers(Archive *fout, int *numForeignServers)
@@ -9509,13 +9509,13 @@ getForeignServers(Archive *fout, int *numForeignServers)
 		srvinfo[i].srvversion = pg_strdup(PQgetvalue(res, i, i_srvversion));
 		srvinfo[i].srvoptions = pg_strdup(PQgetvalue(res, i, i_srvoptions));
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableObject(&(srvinfo[i].dobj), fout);
 
-		/* Servers have user mappings */
+		/* 服务器有用户映射 */
 		srvinfo[i].dobj.components |= DUMP_COMPONENT_USERMAP;
 
-		/* Mark whether server has an ACL */
+		/* 标记服务器是否有 ACL */
 		if (!PQgetisnull(res, i, i_srvacl))
 			srvinfo[i].dobj.components |= DUMP_COMPONENT_ACL;
 	}
@@ -9529,10 +9529,10 @@ getForeignServers(Archive *fout, int *numForeignServers)
 
 /*
  * getDefaultACLs:
- *	  read all default ACL information in the system catalogs and return
- *	  them in the DefaultACLInfo structure
- *
- *	numDefaultACLs is set to the number of ACLs read in
+ *   读取系统目录中的所有默认 ACL 信息，并将它们返回到
+ *   DefaultACLInfo 结构中
+ * 
+ *   numDefaultACLs 设置为读取到的 ACL 数
  */
 DefaultACLInfo *
 getDefaultACLs(Archive *fout, int *numDefaultACLs)
@@ -9554,16 +9554,16 @@ getDefaultACLs(Archive *fout, int *numDefaultACLs)
 	query = createPQExpBuffer();
 
 	/*
-	 * Global entries (with defaclnamespace=0) replace the hard-wired default
-	 * ACL for their object type.  We should dump them as deltas from the
-	 * default ACL, since that will be used as a starting point for
-	 * interpreting the ALTER DEFAULT PRIVILEGES commands.  On the other hand,
-	 * non-global entries can only add privileges not revoke them.  We must
-	 * dump those as-is (i.e., as deltas from an empty ACL).
+	 * 全局条目（defaclnamespace=0）替代其对象类型的硬编码默认
+	 * ACL。我们应该将它们作为相对于默认 ACL 的增量来导出，
+	 * 因为那将被用作解释 ALTER DEFAULT PRIVILEGES 命令的起点。
+	 * 另一方面，非全局条目只能添加权限而不能撤销它们。
+	 * 我们必须按原样导出这些条目（即作为空 ACL 的增量）。
+	 * 
+	 * 我们可以使用 defaclobjtype 作为 acldefault() 的对象类型，
+	 * 除了 'S'（DEFACLOBJ_SEQUENCE）的情况，它必须转换为 's'。
 	 *
-	 * We can use defaclobjtype as the object type for acldefault(), except
-	 * for the case of 'S' (DEFACLOBJ_SEQUENCE) which must be converted to
-	 * 's'.
+	 *
 	 */
 	appendPQExpBufferStr(query,
 						 "SELECT oid, tableoid, "
@@ -9600,7 +9600,7 @@ getDefaultACLs(Archive *fout, int *numDefaultACLs)
 		daclinfo[i].dobj.catId.tableoid = atooid(PQgetvalue(res, i, i_tableoid));
 		daclinfo[i].dobj.catId.oid = atooid(PQgetvalue(res, i, i_oid));
 		AssignDumpId(&daclinfo[i].dobj);
-		/* cheesy ... is it worth coming up with a better object name? */
+		/* 有点取巧 ... 值得想一个更好的对象名称吗？ */
 		daclinfo[i].dobj.name = pg_strdup(PQgetvalue(res, i, i_defaclobjtype));
 
 		if (nspid != InvalidOid)
@@ -9615,10 +9615,10 @@ getDefaultACLs(Archive *fout, int *numDefaultACLs)
 		daclinfo[i].defaclrole = getRoleName(PQgetvalue(res, i, i_defaclrole));
 		daclinfo[i].defaclobjtype = *(PQgetvalue(res, i, i_defaclobjtype));
 
-		/* Default ACLs are ACLs, of course */
+		/* 默认 ACL 当然是 ACL */
 		daclinfo[i].dobj.components |= DUMP_COMPONENT_ACL;
 
-		/* Decide whether we want to dump it */
+		/* 决定是否要导出它 */
 		selectDumpableDefaultACL(&(daclinfo[i]), dopt);
 	}
 
@@ -9630,9 +9630,9 @@ getDefaultACLs(Archive *fout, int *numDefaultACLs)
 }
 
 /*
- * getRoleName -- look up the name of a role, given its OID
- *
- * In current usage, we don't expect failures, so error out for a bad OID.
+ * getRoleName -- 根据 OID 查找角色的名称
+ * 
+ * 在当前用法中，我们不期望失败，因此对于错误的 OID 直接报错。
  */
 static const char *
 getRoleName(const char *roleoid_str)
@@ -9640,7 +9640,7 @@ getRoleName(const char *roleoid_str)
 	Oid			roleoid = atooid(roleoid_str);
 
 	/*
-	 * Do binary search to find the appropriate item.
+	 * 执行二分查找以找到适当的条目。
 	 */
 	if (nrolenames > 0)
 	{
@@ -9656,19 +9656,19 @@ getRoleName(const char *roleoid_str)
 			else if (roleoid > middle->roleoid)
 				low = middle + 1;
 			else
-				return middle->rolename;	/* found a match */
+				return middle->rolename;	/* 找到匹配 */
 		}
 	}
 
 	pg_fatal("role with OID %u does not exist", roleoid);
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 使编译器保持安静 */
 }
 
 /*
  * collectRoleNames --
- *
- * Construct a table of all known roles.
- * The table is sorted by OID for speed in lookup.
+ * 
+ * 构建一个包含所有已知角色的表。
+ * 该表按 OID 排序以提高查找速度。
  */
 static void
 collectRoleNames(Archive *fout)
@@ -9696,14 +9696,14 @@ collectRoleNames(Archive *fout)
 
 /*
  * getAdditionalACLs
- *
- * We have now created all the DumpableObjects, and collected the ACL data
- * that appears in the directly-associated catalog entries.  However, there's
- * more ACL-related info to collect.  If any of a table's columns have ACLs,
- * we must set the TableInfo's DUMP_COMPONENT_ACL components flag, as well as
- * its hascolumnACLs flag (we won't store the ACLs themselves here, though).
- * Also, in versions having the pg_init_privs catalog, read that and load the
- * information into the relevant DumpableObjects.
+ * 
+ * 我们现在已经创建了所有 DumpableObject，并收集了出现在
+ * 直接关联的目录条目中的 ACL 数据。但是，还有更多与 ACL
+ * 相关的信息需要收集。如果表的任何列有 ACL，我们必须设置
+ * TableInfo 的 DUMP_COMPONENT_ACL 组件标志以及其
+ * hascolumnACLs 标志（但我们不会在此存储 ACL 本身）。
+ * 此外，在具有 pg_init_privs 目录的版本中，读取该目录并
+ * 将信息加载到相关的 DumpableObject 中。
  */
 static void
 getAdditionalACLs(Archive *fout)
@@ -9713,7 +9713,7 @@ getAdditionalACLs(Archive *fout)
 	int			ntups,
 				i;
 
-	/* Check for per-column ACLs */
+	/* 检查每列 ACL */
 	appendPQExpBufferStr(query,
 						 "SELECT DISTINCT attrelid FROM pg_attribute "
 						 "WHERE attacl IS NOT NULL");
@@ -9727,7 +9727,7 @@ getAdditionalACLs(Archive *fout)
 		TableInfo  *tblinfo;
 
 		tblinfo = findTableByOid(relid);
-		/* OK to ignore tables we haven't got a DumpableObject for */
+		/* 忽略我们没有 DumpableObject 的表是可以的 */
 		if (tblinfo)
 		{
 			tblinfo->dobj.components |= DUMP_COMPONENT_ACL;
@@ -9736,7 +9736,7 @@ getAdditionalACLs(Archive *fout)
 	}
 	PQclear(res);
 
-	/* Fetch initial-privileges data */
+	/* 获取初始权限数据 */
 	if (fout->remoteVersion >= 90600)
 	{
 		printfPQExpBuffer(query,
@@ -9759,15 +9759,15 @@ getAdditionalACLs(Archive *fout)
 			objId.tableoid = classoid;
 			objId.oid = objoid;
 			dobj = findObjectByCatalogId(objId);
-			/* OK to ignore entries we haven't got a DumpableObject for */
+			/* 忽略我们没有 DumpableObject 的条目是可以的 */
 			if (dobj)
 			{
-				/* Cope with sub-object initprivs */
+				/* 处理子对象 initprivs */
 				if (objsubid != 0)
 				{
 					if (dobj->objType == DO_TABLE)
 					{
-						/* For a column initprivs, set the table's ACL flags */
+						/* 对于列 initprivs，设置表的 ACL 标志 */
 						dobj->components |= DUMP_COMPONENT_ACL;
 						((TableInfo *) dobj)->hascolumnACLs = true;
 					}
@@ -9778,14 +9778,14 @@ getAdditionalACLs(Archive *fout)
 				}
 
 				/*
-				 * We ignore any pg_init_privs.initprivs entry for the public
-				 * schema, as explained in getNamespaces().
+				 * 我们忽略 public 模式的 pg_init_privs.initprivs 条目，
+				 * 如 getNamespaces() 中所述。
 				 */
 				if (dobj->objType == DO_NAMESPACE &&
 					strcmp(dobj->name, "public") == 0)
 					continue;
 
-				/* Else it had better be of a type we think has ACLs */
+				/* 否则，它最好是我们认为具有 ACL 的类型 */
 				if (dobj->objType == DO_NAMESPACE ||
 					dobj->objType == DO_TYPE ||
 					dobj->objType == DO_FUNC ||
@@ -9813,26 +9813,26 @@ getAdditionalACLs(Archive *fout)
 
 /*
  * dumpCommentExtended --
- *
- * This routine is used to dump any comments associated with the
- * object handed to this routine. The routine takes the object type
- * and object name (ready to print, except for schema decoration), plus
- * the namespace and owner of the object (for labeling the ArchiveEntry),
- * plus catalog ID and subid which are the lookup key for pg_description,
- * plus the dump ID for the object (for setting a dependency).
- * If a matching pg_description entry is found, it is dumped.
- *
- * Note: in some cases, such as comments for triggers and rules, the "type"
- * string really looks like, e.g., "TRIGGER name ON".  This is a bit of a hack
- * but it doesn't seem worth complicating the API for all callers to make
- * it cleaner.
- *
- * Note: although this routine takes a dumpId for dependency purposes,
- * that purpose is just to mark the dependency in the emitted dump file
- * for possible future use by pg_restore.  We do NOT use it for determining
- * ordering of the comment in the dump file, because this routine is called
- * after dependency sorting occurs.  This routine should be called just after
- * calling ArchiveEntry() for the specified object.
+ * 
+ * 此例程用于导出与传递给此例程的对象关联的任何注释。
+ * 该例程接受对象类型和对象名称（可直接输出，
+ * 仅需要装饰模式名），加上对象的命名空间和所有者
+ * （用于标记 ArchiveEntry），加上目录 ID 和 subid
+ * （作为 pg_description 的查找键），加上对象的导出 ID
+ * （用于设置依赖）。如果找到匹配的 pg_description 条目，
+ * 则导出。
+ * 
+ * 注意：在某些情况下，例如触发器和规则的注释，
+ * "类型"字符串实际上类似于 "TRIGGER name ON"。
+ * 这有点取巧，但为了使其更清晰而使所有调用者的
+ * API 复杂化似乎不值得。
+ * 
+ * 注意：虽然此例程接受一个 dumpId 用于依赖目的，
+ * 但该目的仅是在发出的导出文件中标记依赖，
+ * 以供 pg_restore 将来使用。我们不会将其用于确定
+ * 注释在导出文件中的排序，因为此例程在依赖排序
+ * 之后调用。此例程应在为指定对象调用
+ * ArchiveEntry() 之后立即调用。
  */
 static void
 dumpCommentExtended(Archive *fout, const char *type,
@@ -9845,11 +9845,11 @@ dumpCommentExtended(Archive *fout, const char *type,
 	CommentItem *comments;
 	int			ncomments;
 
-	/* do nothing, if --no-comments is supplied */
+	/* 如果提供了 --no-comments，则不执行任何操作 */
 	if (dopt->no_comments)
 		return;
 
-	/* Comments are schema not data ... except LO comments are data */
+	/* 注释是模式而非数据 ... 但大对象注释是数据 */
 	if (strcmp(type, "LARGE OBJECT") != 0)
 	{
 		if (dopt->dataOnly)
@@ -9857,16 +9857,16 @@ dumpCommentExtended(Archive *fout, const char *type,
 	}
 	else
 	{
-		/* We do dump LO comments in binary-upgrade mode */
+		/* 我们在二进制升级模式下确实会导出大对象注释 */
 		if (dopt->schemaOnly && !dopt->binary_upgrade)
 			return;
 	}
 
-	/* Search for comments associated with catalogId, using table */
+	/* 使用表搜索与 catalogId 关联的注释 */
 	ncomments = findComments(catalogId.tableoid, catalogId.oid,
 							 &comments);
 
-	/* Is there one matching the subid? */
+	/* 是否有匹配 subid 的条目？ */
 	while (ncomments > 0)
 	{
 		if (comments->objsubid == subid)
@@ -9880,10 +9880,10 @@ dumpCommentExtended(Archive *fout, const char *type,
 		static CommentItem empty_comment = {.descr = ""};
 
 		/*
-		 * initdb creates this object with a comment.  Skip dumping the
-		 * initdb-provided comment, which would complicate matters for
-		 * non-superuser use of pg_dump.  When the DBA has removed initdb's
-		 * comment, replicate that.
+		 * initdb 创建此对象时附带了注释。跳过导出
+		 * initdb 提供的注释，这会为非超级用户使用
+		 * pg_dump 带来复杂性。当 DBA 已删除 initdb 的
+		 * 注释时，复制该行为。
 		 */
 		if (ncomments == 0)
 		{
@@ -9894,7 +9894,7 @@ dumpCommentExtended(Archive *fout, const char *type,
 			ncomments = 0;
 	}
 
-	/* If a comment exists, build COMMENT ON statement */
+	/* 如果存在注释，构建 COMMENT ON 语句 */
 	if (ncomments > 0)
 	{
 		PQExpBuffer query = createPQExpBuffer();
@@ -9910,9 +9910,9 @@ dumpCommentExtended(Archive *fout, const char *type,
 		appendPQExpBuffer(tag, "%s %s", type, name);
 
 		/*
-		 * We mark comments as SECTION_NONE because they really belong in the
-		 * same section as their parent, whether that is pre-data or
-		 * post-data.
+		 * 我们将注释标记为 SECTION_NONE，因为它们实际上
+		 * 与父对象属于相同的部分，无论是 pre-data 还是
+		 * post-data。
 		 */
 		ArchiveEntry(fout, nilCatalogId, createDumpId(),
 					 ARCHIVE_OPTS(.tag = tag->data,
@@ -9931,8 +9931,8 @@ dumpCommentExtended(Archive *fout, const char *type,
 
 /*
  * dumpComment --
- *
- * Typical simplification of the above function.
+ * 
+ * 上述函数的典型简化。
  */
 static inline void
 dumpComment(Archive *fout, const char *type,
@@ -9946,9 +9946,9 @@ dumpComment(Archive *fout, const char *type,
 
 /*
  * dumpTableComment --
+ * 
+ * 如上所述，但导出指定表（或视图）及其列的注释。
  *
- * As above, but dump comments for both the specified table (or view)
- * and its columns.
  */
 static void
 dumpTableComment(Archive *fout, const TableInfo *tbinfo,
@@ -9960,20 +9960,20 @@ dumpTableComment(Archive *fout, const TableInfo *tbinfo,
 	PQExpBuffer query;
 	PQExpBuffer tag;
 
-	/* do nothing, if --no-comments is supplied */
+	/* 如果提供了 --no-comments，则不执行任何操作 */
 	if (dopt->no_comments)
 		return;
 
-	/* Comments are SCHEMA not data */
+	/* 注释是模式而非数据 */
 	if (dopt->dataOnly)
 		return;
 
-	/* Search for comments associated with relation, using table */
+	/* 使用表搜索与关系关联的注释 */
 	ncomments = findComments(tbinfo->dobj.catId.tableoid,
 							 tbinfo->dobj.catId.oid,
 							 &comments);
 
-	/* If comments exist, build COMMENT ON statements */
+	/* 如果存在注释，构建 COMMENT ON 语句 */
 	if (ncomments <= 0)
 		return;
 
@@ -10043,10 +10043,10 @@ dumpTableComment(Archive *fout, const TableInfo *tbinfo,
 
 /*
  * findComments --
- *
- * Find the comment(s), if any, associated with the given object.  All the
- * objsubid values associated with the given classoid/objoid are found with
- * one search.
+ * 
+ * 查找与给定对象关联的注释（如果有）。与给定
+ * classoid/objoid 关联的所有 objsubid 值通过
+ * 一次搜索找到。
  */
 static int
 findComments(Oid classoid, Oid objoid, CommentItem **items)
@@ -10057,7 +10057,7 @@ findComments(Oid classoid, Oid objoid, CommentItem **items)
 	int			nmatch;
 
 	/*
-	 * Do binary search to find some item matching the object.
+	 * 执行二分查找以找到与对象匹配的某个条目。
 	 */
 	low = &comments[0];
 	high = &comments[ncomments - 1];
@@ -10074,19 +10074,19 @@ findComments(Oid classoid, Oid objoid, CommentItem **items)
 		else if (objoid > middle->objoid)
 			low = middle + 1;
 		else
-			break;				/* found a match */
+			break;				/* 找到匹配 */
 	}
 
-	if (low > high)				/* no matches */
+	if (low > high)				/* 无匹配 */
 	{
 		*items = NULL;
 		return 0;
 	}
 
 	/*
-	 * Now determine how many items match the object.  The search loop
-	 * invariant still holds: only items between low and high inclusive could
-	 * match.
+	 * 现在确定有多少条目与对象匹配。搜索循环不变式
+	 * 仍然成立：只有 low 和 high 之间（含）的条目可能匹配。
+	 *
 	 */
 	nmatch = 1;
 	while (middle > low)
@@ -10115,15 +10115,15 @@ findComments(Oid classoid, Oid objoid, CommentItem **items)
 
 /*
  * collectComments --
- *
- * Construct a table of all comments available for database objects;
- * also set the has-comment component flag for each relevant object.
- *
- * We used to do per-object queries for the comments, but it's much faster
- * to pull them all over at once, and on most databases the memory cost
- * isn't high.
- *
- * The table is sorted by classoid/objid/objsubid for speed in lookup.
+ * 
+ * 构建一个包含所有可用于数据库对象的注释的表；
+ * 还为每个相关对象设置 has-comment 组件标志。
+ * 
+ * 我们过去常常为注释执行逐对象查询，但一次性
+ * 全部拉取要快得多，而且在大多数数据库上内存成本
+ * 不高。
+ * 
+ * 该表按 classoid/objid/objsubid 排序以提高查找速度。
  */
 static void
 collectComments(Archive *fout)
@@ -10146,7 +10146,7 @@ collectComments(Archive *fout)
 
 	res = ExecuteSqlQuery(fout, query->data, PGRES_TUPLES_OK);
 
-	/* Construct lookup table containing OIDs in numeric form */
+	/* 构建包含数值形式 OID 的查找表 */
 
 	i_description = PQfnumber(res, "description");
 	i_classoid = PQfnumber(res, "classoid");
@@ -10168,7 +10168,7 @@ collectComments(Archive *fout)
 		objId.oid = atooid(PQgetvalue(res, i, i_objoid));
 		subid = atoi(PQgetvalue(res, i, i_objsubid));
 
-		/* We needn't remember comments that don't match any dumpable object */
+		/* 我们不需要记住不匹配任何可导出对象的注释 */
 		if (dobj == NULL ||
 			dobj->catId.tableoid != objId.tableoid ||
 			dobj->catId.oid != objId.oid)
@@ -10177,9 +10177,9 @@ collectComments(Archive *fout)
 			continue;
 
 		/*
-		 * Comments on columns of composite types are linked to the type's
-		 * pg_class entry, but we need to set the DUMP_COMPONENT_COMMENT flag
-		 * in the type's own DumpableObject.
+		 * 复合类型的列的注释链接到该类型的 pg_class 条目，
+		 * 但我们需要在该类型自身的 DumpableObject 中设置
+		 * DUMP_COMPONENT_COMMENT 标志。
 		 */
 		if (subid != 0 && dobj->objType == DO_TABLE &&
 			((TableInfo *) dobj)->relkind == RELKIND_COMPOSITE_TYPE)
@@ -10206,21 +10206,21 @@ collectComments(Archive *fout)
 
 /*
  * dumpDumpableObject
- *
- * This routine and its subsidiaries are responsible for creating
- * ArchiveEntries (TOC objects) for each object to be dumped.
+ * 
+ * 此例程及其子例程负责为每个要导出的对象创建
+ * ArchiveEntry（TOC 对象）。
  */
 static void
 dumpDumpableObject(Archive *fout, DumpableObject *dobj)
 {
 	/*
-	 * Clear any dump-request bits for components that don't exist for this
-	 * object.  (This makes it safe to initially use DUMP_COMPONENT_ALL as the
-	 * request for every kind of object.)
+	 * 清除此对象不存在的组件的任何导出请求位。
+	 * （这使得最初对所有对象类型使用 DUMP_COMPONENT_ALL
+	 * 作为请求是安全的。）
 	 */
 	dobj->dump &= dobj->components;
 
-	/* Now, short-circuit if there's nothing to be done here. */
+	/* 现在，如果此处无事可做，则短路返回。 */
 	if (dobj->dump == 0)
 		return;
 
@@ -10314,7 +10314,7 @@ dumpDumpableObject(Archive *fout, DumpableObject *dobj)
 			dumpTableData(fout, (const TableDataInfo *) dobj);
 			break;
 		case DO_DUMMY_TYPE:
-			/* table rowtypes and array types are never dumped separately */
+			/* 表行类型和数组类型从不单独导出 */
 			break;
 		case DO_TSPARSER:
 			dumpTSParser(fout, (const TSParserInfo *) dobj);
@@ -10352,17 +10352,17 @@ dumpDumpableObject(Archive *fout, DumpableObject *dobj)
 											   .dumpFn = dumpLOs));
 
 				/*
-				 * Set the TocEntry's dataLength in case we are doing a
-				 * parallel dump and want to order dump jobs by table size.
-				 * (We need some size estimate for every TocEntry with a
-				 * DataDumper function.)  We don't currently have any cheap
-				 * way to estimate the size of LOs, but it doesn't matter;
-				 * let's just set the size to a large value so parallel dumps
-				 * will launch this job first.  If there's lots of LOs, we
-				 * win, and if there aren't, we don't lose much.  (If you want
-				 * to improve on this, really what you should be thinking
-				 * about is allowing LO dumping to be parallelized, not just
-				 * getting a smarter estimate for the single TOC entry.)
+				 * 设置 TocEntry 的 dataLength，以防我们正在进行
+				 * 并行导出并希望按表大小排序导出作业。
+				 * （我们需要为每个具有 DataDumper 函数的 TocEntry
+				 * 提供某种大小估计。）我们目前没有任何廉价的方法来
+				 * 估计大对象的大小，但这无关紧要；让我们将大小设置为
+				 * 一个较大的值，以便并行导出会首先启动此作业。
+				 * 如果有很多大对象，我们赚了；如果没有，
+				 * 我们也没损失多少。（如果你想改进这一点，
+				 * 你真正应该考虑的是允许大对象导出并行化，
+				 * 而不仅仅是为单个 TOC 条目获取更智能的估计。）
+				 *
 				 */
 				te->dataLength = INT_MAX;
 			}
@@ -10385,14 +10385,14 @@ dumpDumpableObject(Archive *fout, DumpableObject *dobj)
 			break;
 		case DO_PRE_DATA_BOUNDARY:
 		case DO_POST_DATA_BOUNDARY:
-			/* never dumped, nothing to do */
+			/* 从不导出，无事可做 */
 			break;
 	}
 }
 
 /*
  * dumpNamespace
- *	  writes out to fout the queries to recreate a user-defined namespace
+ *   输出到 fout 以重建用户定义命名空间的查询
  */
 static void
 dumpNamespace(Archive *fout, const NamespaceInfo *nspinfo)
@@ -10402,7 +10402,7 @@ dumpNamespace(Archive *fout, const NamespaceInfo *nspinfo)
 	PQExpBuffer delq;
 	char	   *qnspname;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -10418,7 +10418,7 @@ dumpNamespace(Archive *fout, const NamespaceInfo *nspinfo)
 	}
 	else
 	{
-		/* see selectDumpableNamespace() */
+		/* 参见 selectDumpableNamespace() */
 		appendPQExpBufferStr(delq,
 							 "-- *not* dropping schema, since initdb creates it\n");
 		appendPQExpBufferStr(q,
@@ -10438,7 +10438,7 @@ dumpNamespace(Archive *fout, const NamespaceInfo *nspinfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Schema Comments and Security Labels */
+	/* 导出模式注释和安全标签 */
 	if (nspinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 	{
 		const char *initdb_comment = NULL;
@@ -10469,7 +10469,7 @@ dumpNamespace(Archive *fout, const NamespaceInfo *nspinfo)
 
 /*
  * dumpExtension
- *	  writes out to fout the queries to recreate an extension
+ *   输出到 fout 以重建扩展的查询
  */
 static void
 dumpExtension(Archive *fout, const ExtensionInfo *extinfo)
@@ -10479,7 +10479,7 @@ dumpExtension(Archive *fout, const ExtensionInfo *extinfo)
 	PQExpBuffer delq;
 	char	   *qextname;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -10493,14 +10493,14 @@ dumpExtension(Archive *fout, const ExtensionInfo *extinfo)
 	if (!dopt->binary_upgrade)
 	{
 		/*
-		 * In a regular dump, we simply create the extension, intentionally
-		 * not specifying a version, so that the destination installation's
-		 * default version is used.
+		 * 在常规导出中，我们简单地创建扩展，有意不指定版本，
+		 * 以便使用目标安装的默认版本。
+		 * 
+		 * 在此使用 IF NOT EXISTS 与我们对其他对象类型的行为不同；
+		 * 但存在多种场景，在恢复之前手动创建所需的扩展很方便，
+		 * 因此我们更愿意允许它已经存在。
 		 *
-		 * Use of IF NOT EXISTS here is unlike our behavior for other object
-		 * types; but there are various scenarios in which it's convenient to
-		 * manually create the desired extension before restoring, so we
-		 * prefer to allow it to exist already.
+		 *
 		 */
 		appendPQExpBuffer(q, "CREATE EXTENSION IF NOT EXISTS %s WITH SCHEMA %s;\n",
 						  qextname, fmtId(extinfo->namespace));
@@ -10508,12 +10508,12 @@ dumpExtension(Archive *fout, const ExtensionInfo *extinfo)
 	else
 	{
 		/*
-		 * In binary-upgrade mode, it's critical to reproduce the state of the
-		 * database exactly, so our procedure is to create an empty extension,
-		 * restore all the contained objects normally, and add them to the
-		 * extension one by one.  This function performs just the first of
-		 * those steps.  binary_upgrade_extension_member() takes care of
-		 * adding member objects as they're created.
+		 * 在二进制升级模式中，精确复制数据库的状态至关重要，
+		 * 因此我们的过程是创建一个空扩展，正常恢复所有包含的
+		 * 对象，然后逐个将它们添加到扩展中。此函数仅执行这些
+		 * 步骤中的第一步。binary_upgrade_extension_member()
+		 * 负责在创建成员对象时添加它们。
+		 *
 		 */
 		int			i;
 		int			n;
@@ -10521,9 +10521,9 @@ dumpExtension(Archive *fout, const ExtensionInfo *extinfo)
 		appendPQExpBufferStr(q, "-- For binary upgrade, create an empty extension and insert objects into it\n");
 
 		/*
-		 * We unconditionally create the extension, so we must drop it if it
-		 * exists.  This could happen if the user deleted 'plpgsql' and then
-		 * readded it, causing its oid to be greater than g_last_builtin_oid.
+		 * 我们无条件创建扩展，因此如果它已存在则必须删除它。
+		 * 如果用户删除了 'plpgsql' 然后重新添加，导致其 OID
+		 * 大于 g_last_builtin_oid，就可能发生这种情况。
 		 */
 		appendPQExpBuffer(q, "DROP EXTENSION IF EXISTS %s;\n", qextname);
 
@@ -10538,9 +10538,9 @@ dumpExtension(Archive *fout, const ExtensionInfo *extinfo)
 		appendPQExpBufferStr(q, ", ");
 
 		/*
-		 * Note that we're pushing extconfig (an OID array) back into
-		 * pg_extension exactly as-is.  This is OK because pg_class OIDs are
-		 * preserved in binary upgrade.
+		 * 注意，我们将 extconfig（一个 OID 数组）原样推回
+		 * pg_extension。这是可以的，因为 pg_class OID 在
+		 * 二进制升级中得以保留。
 		 */
 		if (strlen(extinfo->extconfig) > 2)
 			appendStringLiteralAH(q, extinfo->extconfig, fout);
@@ -10578,7 +10578,7 @@ dumpExtension(Archive *fout, const ExtensionInfo *extinfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Extension Comments and Security Labels */
+	/* 导出扩展注释和安全标签 */
 	if (extinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "EXTENSION", qextname,
 					NULL, "",
@@ -10597,18 +10597,18 @@ dumpExtension(Archive *fout, const ExtensionInfo *extinfo)
 
 /*
  * dumpType
- *	  writes out to fout the queries to recreate a user-defined type
+ *   输出到 fout 以重建用户定义类型的查询
  */
 static void
 dumpType(Archive *fout, const TypeInfo *tyinfo)
 {
 	DumpOptions *dopt = fout->dopt;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
-	/* Dump out in proper style */
+	/* 以适当的格式导出 */
 	if (tyinfo->typtype == TYPTYPE_BASE)
 		dumpBaseType(fout, tyinfo);
 	else if (tyinfo->typtype == TYPTYPE_DOMAIN)
@@ -10628,7 +10628,7 @@ dumpType(Archive *fout, const TypeInfo *tyinfo)
 
 /*
  * dumpEnumType
- *	  writes out to fout the queries to recreate a user-defined enum type
+ *   输出到 fout 以重建用户定义枚举类型的查询
  */
 static void
 dumpEnumType(Archive *fout, const TypeInfo *tyinfo)
@@ -10649,7 +10649,7 @@ dumpEnumType(Archive *fout, const TypeInfo *tyinfo)
 
 	if (!fout->is_prepared[PREPQUERY_DUMPENUMTYPE])
 	{
-		/* Set up query for enum-specific details */
+		/* 设置查询以获取特定于枚举的详细信息 */
 		appendPQExpBufferStr(query,
 							 "PREPARE dumpEnumType(pg_catalog.oid) AS\n"
 							 "SELECT oid, enumlabel "
@@ -10674,8 +10674,8 @@ dumpEnumType(Archive *fout, const TypeInfo *tyinfo)
 	qualtypname = pg_strdup(fmtQualifiedDumpable(tyinfo));
 
 	/*
-	 * CASCADE shouldn't be required here as for normal types since the I/O
-	 * functions are generic and do not get dropped.
+	 * 与普通类型不同，这里不应需要 CASCADE，因为 I/O
+	 * 函数是通用的并且不会被删除。
 	 */
 	appendPQExpBuffer(delq, "DROP TYPE %s;\n", qualtypname);
 
@@ -10691,7 +10691,7 @@ dumpEnumType(Archive *fout, const TypeInfo *tyinfo)
 	{
 		i_enumlabel = PQfnumber(res, "enumlabel");
 
-		/* Labels with server-assigned oids */
+		/* 具有服务器分配 OID 的标签 */
 		for (i = 0; i < num; i++)
 		{
 			label = PQgetvalue(res, i, i_enumlabel);
@@ -10709,7 +10709,7 @@ dumpEnumType(Archive *fout, const TypeInfo *tyinfo)
 		i_oid = PQfnumber(res, "oid");
 		i_enumlabel = PQfnumber(res, "enumlabel");
 
-		/* Labels with dump-assigned (preserved) oids */
+		/* 具有导出分配（保留）OID 的标签 */
 		for (i = 0; i < num; i++)
 		{
 			enum_oid = atooid(PQgetvalue(res, i, i_oid));
@@ -10741,7 +10741,7 @@ dumpEnumType(Archive *fout, const TypeInfo *tyinfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Type Comments and Security Labels */
+	/* 导出类型注释和安全标签 */
 	if (tyinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "TYPE", qtypname,
 					tyinfo->dobj.namespace->dobj.name, tyinfo->rolname,
@@ -10768,7 +10768,7 @@ dumpEnumType(Archive *fout, const TypeInfo *tyinfo)
 
 /*
  * dumpRangeType
- *	  writes out to fout the queries to recreate a user-defined range type
+ *   输出到 fout 以重建用户定义范围类型的查询
  */
 static void
 dumpRangeType(Archive *fout, const TypeInfo *tyinfo)
@@ -10785,7 +10785,7 @@ dumpRangeType(Archive *fout, const TypeInfo *tyinfo)
 
 	if (!fout->is_prepared[PREPQUERY_DUMPRANGETYPE])
 	{
-		/* Set up query for range-specific details */
+		/* 设置查询以获取特定于范围的详细信息 */
 		appendPQExpBufferStr(query,
 							 "PREPARE dumpRangeType(pg_catalog.oid) AS\n");
 
@@ -10828,8 +10828,8 @@ dumpRangeType(Archive *fout, const TypeInfo *tyinfo)
 	qualtypname = pg_strdup(fmtQualifiedDumpable(tyinfo));
 
 	/*
-	 * CASCADE shouldn't be required here as for normal types since the I/O
-	 * functions are generic and do not get dropped.
+	 * 与普通类型不同，这里不应需要 CASCADE，因为 I/O
+	 * 函数是通用的并且不会被删除。
 	 */
 	appendPQExpBuffer(delq, "DROP TYPE %s;\n", qualtypname);
 
@@ -10848,7 +10848,7 @@ dumpRangeType(Archive *fout, const TypeInfo *tyinfo)
 		appendPQExpBuffer(q, ",\n    multirange_type_name = %s",
 						  PQgetvalue(res, 0, PQfnumber(res, "rngmultitype")));
 
-	/* print subtype_opclass only if not default for subtype */
+	/* 仅在不是子类型的默认值时输出 subtype_opclass */
 	if (PQgetvalue(res, 0, PQfnumber(res, "opcdefault"))[0] != 't')
 	{
 		char	   *opcname = PQgetvalue(res, 0, PQfnumber(res, "opcname"));
@@ -10894,7 +10894,7 @@ dumpRangeType(Archive *fout, const TypeInfo *tyinfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Type Comments and Security Labels */
+	/* 导出类型注释和安全标签 */
 	if (tyinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "TYPE", qtypname,
 					tyinfo->dobj.namespace->dobj.name, tyinfo->rolname,
@@ -10921,12 +10921,12 @@ dumpRangeType(Archive *fout, const TypeInfo *tyinfo)
 
 /*
  * dumpUndefinedType
- *	  writes out to fout the queries to recreate a !typisdefined type
- *
- * This is a shell type, but we use different terminology to distinguish
- * this case from where we have to emit a shell type definition to break
- * circular dependencies.  An undefined type shouldn't ever have anything
- * depending on it.
+ *   输出到 fout 以重建 !typisdefined 类型的查询
+ * 
+ * 这是一个壳类型，但我们使用不同的术语来区分
+ * 这种情况与我们不得不发出壳类型定义以打破
+ * 循环依赖的情况。未定义类型不应该有任何
+ * 依赖它的东西。
  */
 static void
 dumpUndefinedType(Archive *fout, const TypeInfo *tyinfo)
@@ -10965,7 +10965,7 @@ dumpUndefinedType(Archive *fout, const TypeInfo *tyinfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Type Comments and Security Labels */
+	/* 导出类型注释和安全标签 */
 	if (tyinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "TYPE", qtypname,
 					tyinfo->dobj.namespace->dobj.name, tyinfo->rolname,
@@ -10990,7 +10990,7 @@ dumpUndefinedType(Archive *fout, const TypeInfo *tyinfo)
 
 /*
  * dumpBaseType
- *	  writes out to fout the queries to recreate a user-defined base type
+ *   输出到 fout 以重建用户定义基础类型的查询
  */
 static void
 dumpBaseType(Archive *fout, const TypeInfo *tyinfo)
@@ -11029,7 +11029,7 @@ dumpBaseType(Archive *fout, const TypeInfo *tyinfo)
 
 	if (!fout->is_prepared[PREPQUERY_DUMPBASETYPE])
 	{
-		/* Set up query for type-specific details */
+		/* 设置查询以获取特定于类型的详细信息 */
 		appendPQExpBufferStr(query,
 							 "PREPARE dumpBaseType(pg_catalog.oid) AS\n"
 							 "SELECT typlen, "
@@ -11095,7 +11095,7 @@ dumpBaseType(Archive *fout, const TypeInfo *tyinfo)
 	else if (!PQgetisnull(res, 0, PQfnumber(res, "typdefault")))
 	{
 		typdefault = PQgetvalue(res, 0, PQfnumber(res, "typdefault"));
-		typdefault_is_literal = true;	/* it needs quotes */
+		typdefault_is_literal = true;	/* 需要引号 */
 	}
 	else
 		typdefault = NULL;
@@ -11104,15 +11104,15 @@ dumpBaseType(Archive *fout, const TypeInfo *tyinfo)
 	qualtypname = pg_strdup(fmtQualifiedDumpable(tyinfo));
 
 	/*
-	 * The reason we include CASCADE is that the circular dependency between
-	 * the type and its I/O functions makes it impossible to drop the type any
-	 * other way.
+	 * 我们包含 CASCADE 的原因是类型与其 I/O 函数之间的
+	 * 循环依赖使得无法以任何其他方式删除该类型。
+	 *
 	 */
 	appendPQExpBuffer(delq, "DROP TYPE %s CASCADE;\n", qualtypname);
 
 	/*
-	 * We might already have a shell type, but setting pg_type_oid is
-	 * harmless, and in any case we'd better set the array type OID.
+	 * 我们可能已经有壳类型，但设置 pg_type_oid 是无害的，
+	 * 无论如何我们最好设置数组类型 OID。
 	 */
 	if (dopt->binary_upgrade)
 		binary_upgrade_set_type_oids_by_type_oid(fout, q,
@@ -11125,7 +11125,7 @@ dumpBaseType(Archive *fout, const TypeInfo *tyinfo)
 					  qualtypname,
 					  (strcmp(typlen, "-1") == 0) ? "variable" : typlen);
 
-	/* regproc result is sufficiently quoted already */
+	/* regproc 结果已充分加引号 */
 	appendPQExpBuffer(q, ",\n    INPUT = %s", typinput);
 	appendPQExpBuffer(q, ",\n    OUTPUT = %s", typoutput);
 	if (OidIsValid(typreceiveoid))
@@ -11212,7 +11212,7 @@ dumpBaseType(Archive *fout, const TypeInfo *tyinfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Type Comments and Security Labels */
+	/* 导出类型注释和安全标签 */
 	if (tyinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "TYPE", qtypname,
 					tyinfo->dobj.namespace->dobj.name, tyinfo->rolname,
@@ -11239,7 +11239,7 @@ dumpBaseType(Archive *fout, const TypeInfo *tyinfo)
 
 /*
  * dumpDomain
- *	  writes out to fout the queries to recreate a user-defined domain
+ *   输出到 fout 以重建用户定义域的查询
  */
 static void
 dumpDomain(Archive *fout, const TypeInfo *tyinfo)
@@ -11260,7 +11260,7 @@ dumpDomain(Archive *fout, const TypeInfo *tyinfo)
 
 	if (!fout->is_prepared[PREPQUERY_DUMPDOMAIN])
 	{
-		/* Set up query for domain-specific details */
+		/* 设置查询以获取特定于域的详细信息 */
 		appendPQExpBufferStr(query,
 							 "PREPARE dumpDomain(pg_catalog.oid) AS\n");
 
@@ -11292,7 +11292,7 @@ dumpDomain(Archive *fout, const TypeInfo *tyinfo)
 	else if (!PQgetisnull(res, 0, PQfnumber(res, "typdefault")))
 	{
 		typdefault = PQgetvalue(res, 0, PQfnumber(res, "typdefault"));
-		typdefault_is_literal = true;	/* it needs quotes */
+		typdefault_is_literal = true;	/* 需要引号 */
 	}
 	else
 		typdefault = NULL;
@@ -11301,8 +11301,8 @@ dumpDomain(Archive *fout, const TypeInfo *tyinfo)
 	if (dopt->binary_upgrade)
 		binary_upgrade_set_type_oids_by_type_oid(fout, q,
 												 tyinfo->dobj.catId.oid,
-												 true,	/* force array type */
-												 false);	/* force multirange type */
+												 true,	/* 强制数组类型 */
+												 false);	/* 强制 multirange 类型 */
 
 	qtypname = pg_strdup(fmtId(tyinfo->dobj.name));
 	qualtypname = pg_strdup(fmtQualifiedDumpable(tyinfo));
@@ -11312,7 +11312,7 @@ dumpDomain(Archive *fout, const TypeInfo *tyinfo)
 					  qualtypname,
 					  typdefn);
 
-	/* Print collation only if different from base type's collation */
+	/* 仅在排序规则与基本类型的排序规则不同时输出 */
 	if (OidIsValid(typcollation))
 	{
 		CollInfo   *coll;
@@ -11337,7 +11337,7 @@ dumpDomain(Archive *fout, const TypeInfo *tyinfo)
 	PQclear(res);
 
 	/*
-	 * Add any CHECK constraints for the domain
+	 * 为域添加任何 CHECK 约束
 	 */
 	for (i = 0; i < tyinfo->nDomChecks; i++)
 	{
@@ -11367,7 +11367,7 @@ dumpDomain(Archive *fout, const TypeInfo *tyinfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Domain Comments and Security Labels */
+	/* 导出域注释和安全标签 */
 	if (tyinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "DOMAIN", qtypname,
 					tyinfo->dobj.namespace->dobj.name, tyinfo->rolname,
@@ -11384,13 +11384,13 @@ dumpDomain(Archive *fout, const TypeInfo *tyinfo)
 				tyinfo->dobj.namespace->dobj.name,
 				tyinfo->rolname, &tyinfo->dacl);
 
-	/* Dump any per-constraint comments */
+	/* 导出每个约束的注释 */
 	for (i = 0; i < tyinfo->nDomChecks; i++)
 	{
 		ConstraintInfo *domcheck = &(tyinfo->domChecks[i]);
 		PQExpBuffer conprefix;
 
-		/* but only if the constraint itself was dumped here */
+		/* 但仅在约束本身在此处被导出时 */
 		if (domcheck->separate)
 			continue;
 
@@ -11416,8 +11416,8 @@ dumpDomain(Archive *fout, const TypeInfo *tyinfo)
 
 /*
  * dumpCompositeType
- *	  writes out to fout the queries to recreate a user-defined stand-alone
- *	  composite type
+ *   输出到 fout 以重建用户定义独立复合类型的查询
+ *
  */
 static void
 dumpCompositeType(Archive *fout, const TypeInfo *tyinfo)
@@ -11443,12 +11443,12 @@ dumpCompositeType(Archive *fout, const TypeInfo *tyinfo)
 	if (!fout->is_prepared[PREPQUERY_DUMPCOMPOSITETYPE])
 	{
 		/*
-		 * Set up query for type-specific details.
-		 *
-		 * Since we only want to dump COLLATE clauses for attributes whose
-		 * collation is different from their type's default, we use a CASE
-		 * here to suppress uninteresting attcollations cheaply.  atttypid
-		 * will be 0 for dropped columns; collation does not matter for those.
+		 * 设置查询以获取特定于类型的详细信息。
+		 * 
+		 * 由于我们只想为排序规则与其类型默认值不同的属性
+		 * 导出 COLLATE 子句，我们在此使用 CASE 来廉价地抑制
+		 * 不感兴趣的 attcollation。对于已删除的列，
+		 * atttypid 将为 0；排序规则对这些列无关紧要。
 		 */
 		appendPQExpBufferStr(query,
 							 "PREPARE dumpCompositeType(pg_catalog.oid) AS\n"
@@ -11517,7 +11517,7 @@ dumpCompositeType(Archive *fout, const TypeInfo *tyinfo)
 		if (attisdropped && !dopt->binary_upgrade)
 			continue;
 
-		/* Format properly if not first attr */
+		/* 如果不是第一个属性则正确格式化 */
 		if (actual_atts++ > 0)
 			appendPQExpBufferChar(q, ',');
 		appendPQExpBufferStr(q, "\n\t");
@@ -11526,7 +11526,7 @@ dumpCompositeType(Archive *fout, const TypeInfo *tyinfo)
 		{
 			appendPQExpBuffer(q, "%s %s", fmtId(attname), atttypdefn);
 
-			/* Add collation if not default for the column type */
+			/* 如果排序规则不是列类型默认值则添加 */
 			if (OidIsValid(attcollation))
 			{
 				CollInfo   *coll;
@@ -11540,14 +11540,14 @@ dumpCompositeType(Archive *fout, const TypeInfo *tyinfo)
 		else
 		{
 			/*
-			 * This is a dropped attribute and we're in binary_upgrade mode.
-			 * Insert a placeholder for it in the CREATE TYPE command, and set
-			 * length and alignment with direct UPDATE to the catalogs
-			 * afterwards. See similar code in dumpTableSchema().
+			 * 这是一个已删除的属性并且我们处于二进制升级模式。
+			 * 在 CREATE TYPE 命令中为其插入一个占位符，
+			 * 然后在之后通过直接 UPDATE 到目录来设置长度和对齐。
+			 * 参见 dumpTableSchema() 中的类似代码。
 			 */
 			appendPQExpBuffer(q, "%s INTEGER /* dummy */", fmtId(attname));
 
-			/* stash separately for insertion after the CREATE TYPE */
+			/* 单独存储以在 CREATE TYPE 之后插入 */
 			appendPQExpBufferStr(dropped,
 								 "\n-- For binary upgrade, recreate dropped column.\n");
 			appendPQExpBuffer(dropped, "UPDATE pg_catalog.pg_attribute\n"
@@ -11586,7 +11586,7 @@ dumpCompositeType(Archive *fout, const TypeInfo *tyinfo)
 								  .dropStmt = delq->data));
 
 
-	/* Dump Type Comments and Security Labels */
+	/* 导出类型注释和安全标签 */
 	if (tyinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "TYPE", qtypname,
 					tyinfo->dobj.namespace->dobj.name, tyinfo->rolname,
@@ -11603,7 +11603,7 @@ dumpCompositeType(Archive *fout, const TypeInfo *tyinfo)
 				tyinfo->dobj.namespace->dobj.name,
 				tyinfo->rolname, &tyinfo->dacl);
 
-	/* Dump any per-column comments */
+	/* 导出每列注释 */
 	if (tyinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpCompositeTypeColComments(fout, tyinfo, res);
 
@@ -11618,12 +11618,12 @@ dumpCompositeType(Archive *fout, const TypeInfo *tyinfo)
 
 /*
  * dumpCompositeTypeColComments
- *	  writes out to fout the queries to recreate comments on the columns of
- *	  a user-defined stand-alone composite type.
+ *   输出到 fout 以重建用户定义独立复合类型列的注释。
+ * 
+ * 调用者已执行查询来收集类型列的名称和 attnum，
+ * 因此我们仅将该结果传递到这里，而不是重新读取。
  *
- * The caller has already made a query to collect the names and attnums
- * of the type's columns, so we just pass that result into here rather
- * than reading them again.
+ *
  */
 static void
 dumpCompositeTypeColComments(Archive *fout, const TypeInfo *tyinfo,
@@ -11639,19 +11639,19 @@ dumpCompositeTypeColComments(Archive *fout, const TypeInfo *tyinfo,
 	int			i_attnum;
 	int			i_attisdropped;
 
-	/* do nothing, if --no-comments is supplied */
+	/* 如果提供了 --no-comments，则不执行任何操作 */
 	if (fout->dopt->no_comments)
 		return;
 
-	/* Search for comments associated with type's pg_class OID */
+	/* 搜索与类型 pg_class OID 关联的注释 */
 	ncomments = findComments(RelationRelationId, tyinfo->typrelid,
 							 &comments);
 
-	/* If no comments exist, we're done */
+	/* 如果没有注释存在，则完成 */
 	if (ncomments <= 0)
 		return;
 
-	/* Build COMMENT ON statements */
+	/* 构建 COMMENT ON 语句 */
 	query = createPQExpBuffer();
 	target = createPQExpBuffer();
 
@@ -11673,7 +11673,7 @@ dumpCompositeTypeColComments(Archive *fout, const TypeInfo *tyinfo,
 				break;
 			}
 		}
-		if (attname)			/* just in case we don't find it */
+		if (attname)			/* 以防我们找不到它 */
 		{
 			const char *descr = comments->descr;
 
@@ -11710,9 +11710,9 @@ dumpCompositeTypeColComments(Archive *fout, const TypeInfo *tyinfo,
 
 /*
  * dumpShellType
- *	  writes out to fout the queries to create a shell type
- *
- * We dump a shell definition in advance of the I/O functions for the type.
+ *   输出到 fout 以创建壳类型的查询
+ * 
+ * 我们在类型的 I/O 函数之前导出一个壳定义。
  */
 static void
 dumpShellType(Archive *fout, const ShellTypeInfo *stinfo)
@@ -11720,19 +11720,19 @@ dumpShellType(Archive *fout, const ShellTypeInfo *stinfo)
 	DumpOptions *dopt = fout->dopt;
 	PQExpBuffer q;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
 	q = createPQExpBuffer();
 
 	/*
-	 * Note the lack of a DROP command for the shell type; any required DROP
-	 * is driven off the base type entry, instead.  This interacts with
-	 * _printTocEntry()'s use of the presence of a DROP command to decide
-	 * whether an entry needs an ALTER OWNER command.  We don't want to alter
-	 * the shell type's owner immediately on creation; that should happen only
-	 * after it's filled in, otherwise the backend complains.
+	 * 注意壳类型没有 DROP 命令；任何必需的 DROP
+	 * 都由基础类型条目驱动。这与 _printTocEntry()
+	 * 使用 DROP 命令的存在来决定条目是否需要
+	 * ALTER OWNER 命令的方式交互。我们不想在创建时
+	 * 立即更改壳类型的所有者；这应该只在它被填充后
+	 * 发生，否则后端会报错。
 	 */
 
 	if (dopt->binary_upgrade)
@@ -11757,8 +11757,8 @@ dumpShellType(Archive *fout, const ShellTypeInfo *stinfo)
 
 /*
  * dumpProcLang
- *		  writes out to fout the queries to recreate a user-defined
- *		  procedural language
+ *   输出到 fout 以重建用户定义过程语言的查询
+ *
  */
 static void
 dumpProcLang(Archive *fout, const ProcLangInfo *plang)
@@ -11772,21 +11772,21 @@ dumpProcLang(Archive *fout, const ProcLangInfo *plang)
 	FuncInfo   *inlineInfo = NULL;
 	FuncInfo   *validatorInfo = NULL;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
 	/*
-	 * Try to find the support function(s).  It is not an error if we don't
-	 * find them --- if the functions are in the pg_catalog schema, as is
-	 * standard in 8.1 and up, then we won't have loaded them. (In this case
-	 * we will emit a parameterless CREATE LANGUAGE command, which will
-	 * require PL template knowledge in the backend to reload.)
+	 * 尝试查找支持函数。找不到它们不是错误 ——
+	 * 如果函数在 pg_catalog 模式中（如 8.1 及以上版本的标准），
+	 * 则我们不会加载它们。（在这种情况下，我们将发出
+	 * 无参数的 CREATE LANGUAGE 命令，这需要后端的 PL
+	 * 模板知识来重新加载。）
 	 */
 
 	funcInfo = findFuncByOid(plang->lanplcallfoid);
 	if (funcInfo != NULL && !funcInfo->dobj.dump)
-		funcInfo = NULL;		/* treat not-dumped same as not-found */
+		funcInfo = NULL;		/* 将未导出的视为与未找到相同 */
 
 	if (OidIsValid(plang->laninline))
 	{
@@ -11803,9 +11803,9 @@ dumpProcLang(Archive *fout, const ProcLangInfo *plang)
 	}
 
 	/*
-	 * If the functions are dumpable then emit a complete CREATE LANGUAGE with
-	 * parameters.  Otherwise, we'll write a parameterless command, which will
-	 * be interpreted as CREATE EXTENSION.
+	 * 如果函数是可导出的，则发出带有参数的完整
+	 * CREATE LANGUAGE。否则，我们将编写无参数命令，
+	 * 它将被解释为 CREATE EXTENSION。
 	 */
 	useParams = (funcInfo != NULL &&
 				 (inlineInfo != NULL || !OidIsValid(plang->laninline)) &&
@@ -11836,13 +11836,13 @@ dumpProcLang(Archive *fout, const ProcLangInfo *plang)
 	else
 	{
 		/*
-		 * If not dumping parameters, then use CREATE OR REPLACE so that the
-		 * command will not fail if the language is preinstalled in the target
-		 * database.
+		 * 如果不导出参数，则使用 CREATE OR REPLACE，
+		 * 以便在目标数据库中预安装了该语言时命令不会失败。
+		 * 
+		 * 现代服务器会将其解释为 CREATE EXTENSION IF NOT EXISTS；
+		 * 也许我们应该改为发出那个？但这可能只会增加混乱。
 		 *
-		 * Modern servers will interpret this as CREATE EXTENSION IF NOT
-		 * EXISTS; perhaps we should emit that instead?  But it might just add
-		 * confusion.
+		 *
 		 */
 		appendPQExpBuffer(defqry, "CREATE OR REPLACE PROCEDURAL LANGUAGE %s",
 						  qlanname);
@@ -11863,7 +11863,7 @@ dumpProcLang(Archive *fout, const ProcLangInfo *plang)
 								  .dropStmt = delqry->data,
 								  ));
 
-	/* Dump Proc Lang Comments and Security Labels */
+	/* 导出过程语言注释和安全标签 */
 	if (plang->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "LANGUAGE", qlanname,
 					NULL, plang->lanowner,
@@ -11886,11 +11886,11 @@ dumpProcLang(Archive *fout, const ProcLangInfo *plang)
 }
 
 /*
- * format_function_arguments: generate function name and argument list
+ * format_function_arguments: 生成函数名称和参数列表
+ * 
+ * 当我们依赖 pg_get_function_arguments 来格式化参数列表时使用。
+ * 但请注意，pg_get_function_arguments 不会特殊处理零参数聚合。
  *
- * This is used when we can rely on pg_get_function_arguments to format
- * the argument list.  Note, however, that pg_get_function_arguments
- * does not special-case zero-argument aggregates.
  */
 static char *
 format_function_arguments(const FuncInfo *finfo, const char *funcargs, bool is_agg)
@@ -11907,13 +11907,13 @@ format_function_arguments(const FuncInfo *finfo, const char *funcargs, bool is_a
 }
 
 /*
- * format_function_signature: generate function name and argument list
- *
- * Only a minimal list of input argument types is generated; this is
- * sufficient to reference the function, but not to define it.
- *
- * If honor_quotes is false then the function name is never quoted.
- * This is appropriate for use in TOC tags, but not in SQL commands.
+ * format_function_signature: 生成函数名称和参数列表
+ * 
+ * 仅生成最小列表的输入参数类型；这足以引用函数，
+ * 但不足以定义它。
+ * 
+ * 如果 honor_quotes 为 false，则函数名从不加引号。
+ * 这适用于 TOC 标签，但不适用于 SQL 命令。
  */
 static char *
 format_function_signature(Archive *fout, const FuncInfo *finfo, bool honor_quotes)
@@ -11942,7 +11942,7 @@ format_function_signature(Archive *fout, const FuncInfo *finfo, bool honor_quote
 
 /*
  * dumpFunc:
- *	  dump out one function
+ *   导出一个函数
  */
 static void
 dumpFunc(Archive *fout, const FuncInfo *finfo)
@@ -11953,8 +11953,8 @@ dumpFunc(Archive *fout, const FuncInfo *finfo)
 	PQExpBuffer delqry;
 	PQExpBuffer asPart;
 	PGresult   *res;
-	char	   *funcsig;		/* identity signature */
-	char	   *funcfullsig = NULL; /* full signature */
+	char	   *funcsig;		/* 身份签名 */
+	char	   *funcfullsig = NULL; /* 完整签名 */
 	char	   *funcsig_tag;
 	char	   *qual_funcsig;
 	char	   *proretset;
@@ -11980,7 +11980,7 @@ dumpFunc(Archive *fout, const FuncInfo *finfo)
 	int			nconfigitems = 0;
 	const char *keyword;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -11991,7 +11991,7 @@ dumpFunc(Archive *fout, const FuncInfo *finfo)
 
 	if (!fout->is_prepared[PREPQUERY_DUMPFUNC])
 	{
-		/* Set up query for function-specific details */
+		/* 设置查询以获取特定于函数的详细信息 */
 		appendPQExpBufferStr(query,
 							 "PREPARE dumpFunc(pg_catalog.oid) AS\n");
 
@@ -12093,8 +12093,8 @@ dumpFunc(Archive *fout, const FuncInfo *finfo)
 	lanname = PQgetvalue(res, 0, PQfnumber(res, "lanname"));
 
 	/*
-	 * See backend/commands/functioncmds.c for details of how the 'AS' clause
-	 * is used.
+	 * 有关 'AS' 子句如何使用的详细信息，
+	 * 请参见 backend/commands/functioncmds.c。
 	 */
 	if (prosqlbody)
 	{
@@ -12109,8 +12109,8 @@ dumpFunc(Archive *fout, const FuncInfo *finfo)
 			appendPQExpBufferStr(asPart, ", ");
 
 			/*
-			 * where we have bin, use dollar quoting if allowed and src
-			 * contains quote or backslash; else use regular quoting.
+			 * 在有 bin 的情况下，如果允许且 src 包含引号或反斜杠，
+			 * 则使用美元引号；否则使用常规引号。
 			 */
 			if (dopt->disable_dollar_quoting ||
 				(strchr(prosrc, '\'') == NULL && strchr(prosrc, '\\') == NULL))
@@ -12122,7 +12122,7 @@ dumpFunc(Archive *fout, const FuncInfo *finfo)
 	else
 	{
 		appendPQExpBufferStr(asPart, "AS ");
-		/* with no bin, dollar quote src unconditionally if allowed */
+		/* 没有 bin 时，如果允许则无条件使用美元引号 */
 		if (dopt->disable_dollar_quoting)
 			appendStringLiteralAH(asPart, prosrc, fout);
 		else
@@ -12152,7 +12152,7 @@ dumpFunc(Archive *fout, const FuncInfo *finfo)
 	if (prokind[0] == PROKIND_PROCEDURE)
 		keyword = "PROCEDURE";
 	else
-		keyword = "FUNCTION";	/* works for window functions too */
+		keyword = "FUNCTION";	/* 也适用于窗口函数 */
 
 	appendPQExpBuffer(delqry, "DROP %s %s;\n",
 					  keyword, qual_funcsig);
@@ -12164,7 +12164,7 @@ dumpFunc(Archive *fout, const FuncInfo *finfo)
 					  funcsig);
 
 	if (prokind[0] == PROKIND_PROCEDURE)
-		 /* no result type to output */ ;
+		 /* 没有结果类型可输出 */ ;
 	else if (funcresult)
 		appendPQExpBuffer(q, " RETURNS %s", funcresult);
 	else
@@ -12215,21 +12215,21 @@ dumpFunc(Archive *fout, const FuncInfo *finfo)
 		appendPQExpBufferStr(q, " LEAKPROOF");
 
 	/*
-	 * COST and ROWS are emitted only if present and not default, so as not to
-	 * break backwards-compatibility of the dump without need.  Keep this code
-	 * in sync with the defaults in functioncmds.c.
+	 * COST 和 ROWS 仅在存在且非默认值时才发出，
+	 * 以避免不必要地破坏导出的向后兼容性。
+	 * 请将此代码与 functioncmds.c 中的默认值保持同步。
 	 */
 	if (strcmp(procost, "0") != 0)
 	{
 		if (strcmp(lanname, "internal") == 0 || strcmp(lanname, "c") == 0)
 		{
-			/* default cost is 1 */
+			/* 默认成本为 1 */
 			if (strcmp(procost, "1") != 0)
 				appendPQExpBuffer(q, " COST %s", procost);
 		}
 		else
 		{
-			/* default cost is 100 */
+			/* 默认成本为 100 */
 			if (strcmp(procost, "100") != 0)
 				appendPQExpBuffer(q, " COST %s", procost);
 		}
@@ -12240,7 +12240,7 @@ dumpFunc(Archive *fout, const FuncInfo *finfo)
 
 	if (strcmp(prosupport, "-") != 0)
 	{
-		/* We rely on regprocout to provide quoting and qualification */
+		/* 我们依赖 regprocout 来提供引号和限定 */
 		appendPQExpBuffer(q, " SUPPORT %s", prosupport);
 	}
 
@@ -12257,7 +12257,7 @@ dumpFunc(Archive *fout, const FuncInfo *finfo)
 
 	for (int i = 0; i < nconfigitems; i++)
 	{
-		/* we feel free to scribble on configitems[] here */
+		/* 我们可以在此随意修改 configitems[] */
 		char	   *configitem = configitems[i];
 		char	   *pos;
 
@@ -12268,27 +12268,27 @@ dumpFunc(Archive *fout, const FuncInfo *finfo)
 		appendPQExpBuffer(q, "\n    SET %s TO ", fmtId(configitem));
 
 		/*
-		 * Variables that are marked GUC_LIST_QUOTE were already fully quoted
-		 * by flatten_set_variable_args() before they were put into the
-		 * proconfig array.  However, because the quoting rules used there
-		 * aren't exactly like SQL's, we have to break the list value apart
-		 * and then quote the elements as string literals.  (The elements may
-		 * be double-quoted as-is, but we can't just feed them to the SQL
-		 * parser; it would do the wrong thing with elements that are
-		 * zero-length or longer than NAMEDATALEN.)
+		 * 标记为 GUC_LIST_QUOTE 的变量在被放入 proconfig 数组之前
+		 * 已由 flatten_set_variable_args() 完全引用。但是，由于
+		 * 那里使用的引用规则与 SQL 不完全相同，我们必须将列表值
+		 * 拆分开，然后将元素作为字符串字面量引用。（元素可以
+		 * 原样双引号引用，但我们不能直接将其输入 SQL 解析器；
+		 * 对于长度为零或超过 NAMEDATALEN 的元素，它会做错误的事情。）
+		 * 
+		 * 未标记的变量应该作为简单的字符串字面量发出。如果变量
+		 * 不被 variable_is_guc_list_quote() 所知，我们会这样做；
+		 * 这使得对扩展变量使用 GUC_LIST_QUOTE 变得不安全。
 		 *
-		 * Variables that are not so marked should just be emitted as simple
-		 * string literals.  If the variable is not known to
-		 * variable_is_guc_list_quote(), we'll do that; this makes it unsafe
-		 * to use GUC_LIST_QUOTE for extension variables.
+		 *
+		 *
 		 */
 		if (variable_is_guc_list_quote(configitem))
 		{
 			char	  **namelist;
 			char	  **nameptr;
 
-			/* Parse string into list of identifiers */
-			/* this shouldn't fail really */
+			/* 将字符串解析为标识符列表 */
+			/* 这实际上不应该失败 */
 			if (SplitGUCList(pos, ',', &namelist))
 			{
 				for (nameptr = namelist; *nameptr; nameptr++)
@@ -12326,7 +12326,7 @@ dumpFunc(Archive *fout, const FuncInfo *finfo)
 								  .createStmt = q->data,
 								  .dropStmt = delqry->data));
 
-	/* Dump Function Comments and Security Labels */
+	/* 导出函数注释和安全标签 */
 	if (finfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, keyword, funcsig,
 					finfo->dobj.namespace->dobj.name, finfo->rolname,
@@ -12358,7 +12358,7 @@ dumpFunc(Archive *fout, const FuncInfo *finfo)
 
 
 /*
- * Dump a user-defined cast
+ * 导出一个用户定义的类型转换
  */
 static void
 dumpCast(Archive *fout, const CastInfo *cast)
@@ -12372,11 +12372,11 @@ dumpCast(Archive *fout, const CastInfo *cast)
 	const char *sourceType;
 	const char *targetType;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
-	/* Cannot dump if we don't have the cast function's info */
+	/* 如果没有类型转换函数的信息则无法导出 */
 	if (OidIsValid(cast->castfunc))
 	{
 		funcInfo = findFuncByOid(cast->castfunc);
@@ -12412,8 +12412,8 @@ dumpCast(Archive *fout, const CastInfo *cast)
 				char	   *fsig = format_function_signature(fout, funcInfo, true);
 
 				/*
-				 * Always qualify the function name (format_function_signature
-				 * won't qualify it).
+				 * 始终限定函数名（format_function_signature 不会限定它）。
+				 *
 				 */
 				appendPQExpBuffer(defqry, "WITH FUNCTION %s.%s",
 								  fmtId(funcInfo->dobj.namespace->dobj.name), fsig);
@@ -12450,7 +12450,7 @@ dumpCast(Archive *fout, const CastInfo *cast)
 								  .createStmt = defqry->data,
 								  .dropStmt = delqry->data));
 
-	/* Dump Cast Comments */
+	/* 导出类型转换注释 */
 	if (cast->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "CAST", castargs->data,
 					NULL, "",
@@ -12463,7 +12463,7 @@ dumpCast(Archive *fout, const CastInfo *cast)
 }
 
 /*
- * Dump a transform
+ * 导出一个转换
  */
 static void
 dumpTransform(Archive *fout, const TransformInfo *transform)
@@ -12478,11 +12478,11 @@ dumpTransform(Archive *fout, const TransformInfo *transform)
 	char	   *lanname;
 	const char *transformType;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
-	/* Cannot dump if we don't have the transform functions' info */
+	/* 如果没有转换函数的信息则无法导出 */
 	if (OidIsValid(transform->trffromsql))
 	{
 		fromsqlFuncInfo = findFuncByOid(transform->trffromsql);
@@ -12522,8 +12522,8 @@ dumpTransform(Archive *fout, const TransformInfo *transform)
 			char	   *fsig = format_function_signature(fout, fromsqlFuncInfo, true);
 
 			/*
-			 * Always qualify the function name (format_function_signature
-			 * won't qualify it).
+			 * 始终限定函数名（format_function_signature 不会限定它）。
+			 *
 			 */
 			appendPQExpBuffer(defqry, "FROM SQL WITH FUNCTION %s.%s",
 							  fmtId(fromsqlFuncInfo->dobj.namespace->dobj.name), fsig);
@@ -12543,8 +12543,8 @@ dumpTransform(Archive *fout, const TransformInfo *transform)
 			char	   *fsig = format_function_signature(fout, tosqlFuncInfo, true);
 
 			/*
-			 * Always qualify the function name (format_function_signature
-			 * won't qualify it).
+			 * 始终限定函数名（format_function_signature 不会限定它）。
+			 *
 			 */
 			appendPQExpBuffer(defqry, "TO SQL WITH FUNCTION %s.%s",
 							  fmtId(tosqlFuncInfo->dobj.namespace->dobj.name), fsig);
@@ -12576,7 +12576,7 @@ dumpTransform(Archive *fout, const TransformInfo *transform)
 								  .deps = transform->dobj.dependencies,
 								  .nDeps = transform->dobj.nDeps));
 
-	/* Dump Transform Comments */
+	/* 导出转换注释 */
 	if (transform->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "TRANSFORM", transformargs->data,
 					NULL, "",
@@ -12592,7 +12592,7 @@ dumpTransform(Archive *fout, const TransformInfo *transform)
 
 /*
  * dumpOpr
- *	  write out a single operator definition
+ *   写出单个操作符定义
  */
 static void
 dumpOpr(Archive *fout, const OprInfo *oprinfo)
@@ -12627,13 +12627,13 @@ dumpOpr(Archive *fout, const OprInfo *oprinfo)
 	char	   *oprregproc;
 	char	   *oprref;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
 	/*
-	 * some operators are invalid because they were the result of user
-	 * defining operators before commutators exist
+	 * 某些操作符无效，因为它们是用户在换向器存在之前
+	 * 定义操作符的结果
 	 */
 	if (!OidIsValid(oprinfo->oprcode))
 		return;
@@ -12646,7 +12646,7 @@ dumpOpr(Archive *fout, const OprInfo *oprinfo)
 
 	if (!fout->is_prepared[PREPQUERY_DUMPOPR])
 	{
-		/* Set up query for operator-specific details */
+		/* 设置查询以获取特定于操作符的详细信息 */
 		appendPQExpBufferStr(query,
 							 "PREPARE dumpOpr(pg_catalog.oid) AS\n"
 							 "SELECT oprkind, "
@@ -12694,7 +12694,7 @@ dumpOpr(Archive *fout, const OprInfo *oprinfo)
 	oprcanmerge = PQgetvalue(res, 0, i_oprcanmerge);
 	oprcanhash = PQgetvalue(res, 0, i_oprcanhash);
 
-	/* In PG14 upwards postfix operator support does not exist anymore. */
+	/* 在 PG14 及以上版本中，后缀操作符支持不再存在。 */
 	if (strcmp(oprkind, "r") == 0)
 		pg_log_warning("postfix operators are not supported anymore (operator \"%s\")",
 					   oprcode);
@@ -12710,9 +12710,9 @@ dumpOpr(Archive *fout, const OprInfo *oprinfo)
 					  oprinfo->dobj.name);
 
 	/*
-	 * right unary means there's a left arg and left unary means there's a
-	 * right arg.  (Although the "r" case is dead code for PG14 and later,
-	 * continue to support it in case we're dumping from an old server.)
+	 * 右一元意味着有左参数，左一元意味着有右参数。
+	 * （尽管 "r" 情况对于 PG14 及更高版本是死代码，
+	 * 但继续支持它，以防我们从旧服务器导出。）
 	 */
 	if (strcmp(oprkind, "r") == 0 ||
 		strcmp(oprkind, "b") == 0)
@@ -12789,7 +12789,7 @@ dumpOpr(Archive *fout, const OprInfo *oprinfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Operator Comments */
+	/* 导出操作符注释 */
 	if (oprinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "OPERATOR", oprid->data,
 					oprinfo->dobj.namespace->dobj.name, oprinfo->rolname,
@@ -12805,13 +12805,13 @@ dumpOpr(Archive *fout, const OprInfo *oprinfo)
 }
 
 /*
- * Convert a function reference obtained from pg_operator
+ * 转换从 pg_operator 获取的函数引用
+ * 
+ * 返回分配的要输出内容的字符串，如果函数引用
+ * 是 InvalidOid 则返回 NULL。返回的字符串应由调用者释放。
+ * 
+ * 输入是 REGPROCEDURE 显示；我们必须去除参数类型部分。
  *
- * Returns allocated string of what to print, or NULL if function references
- * is InvalidOid. Returned string is expected to be free'd by the caller.
- *
- * The input is a REGPROCEDURE display; we have to strip the argument-types
- * part.
  */
 static char *
 convertRegProcReference(const char *proc)
@@ -12820,12 +12820,12 @@ convertRegProcReference(const char *proc)
 	char	   *paren;
 	bool		inquote;
 
-	/* In all cases "-" means a null reference */
+	/* 在所有情况下 "-" 都表示空引用 */
 	if (strcmp(proc, "-") == 0)
 		return NULL;
 
 	name = pg_strdup(proc);
-	/* find non-double-quoted left paren */
+	/* 查找非双引号的左括号 */
 	inquote = false;
 	for (paren = name; *paren; paren++)
 	{
@@ -12841,25 +12841,25 @@ convertRegProcReference(const char *proc)
 }
 
 /*
- * getFormattedOperatorName - retrieve the operator name for the
- * given operator OID (presented in string form).
+ * getFormattedOperatorName - 为给定的操作符 OID
+ * （以字符串形式表示）检索操作符名称。
+ * 
+ * 返回分配的字符串，如果给定的 OID 无效则返回 NULL。
+ * 调用者负责释放结果字符串。
+ * 
+ * 我们生成的内容具有格式 "OPERATOR(schema.oprname)"。
+ * 这仅在可以从上下文推断操作符参数类型的命令中有用。
+ * 我们始终对名称进行模式限定。此代码的前身尝试
+ * 在可能时跳过模式限定，但这在边界情况下导致错误结果，
+ * 例如操作符和其否定器位于不同的模式中。
  *
- * Returns an allocated string, or NULL if the given OID is invalid.
- * Caller is responsible for free'ing result string.
- *
- * What we produce has the format "OPERATOR(schema.oprname)".  This is only
- * useful in commands where the operator's argument types can be inferred from
- * context.  We always schema-qualify the name, though.  The predecessor to
- * this code tried to skip the schema qualification if possible, but that led
- * to wrong results in corner cases, such as if an operator and its negator
- * are in different schemas.
  */
 static char *
 getFormattedOperatorName(const char *oproid)
 {
 	OprInfo    *oprInfo;
 
-	/* In all cases "0" means a null reference */
+	/* 在所有情况下 "0" 都表示空引用 */
 	if (strcmp(oproid, "0") == 0)
 		return NULL;
 
@@ -12877,12 +12877,12 @@ getFormattedOperatorName(const char *oproid)
 }
 
 /*
- * Convert a function OID obtained from pg_ts_parser or pg_ts_template
+ * 转换从 pg_ts_parser 或 pg_ts_template 获取的函数 OID
+ * 
+ * 使用 REGPROC 而不是 REGPROCEDURE 就足够了，因为这些
+ * 函数的参数列表是预定的。请注意，调用者应确保
+ * 我们在正确的模式中，因为结果是依赖于搜索路径的！
  *
- * It is sufficient to use REGPROC rather than REGPROCEDURE, since the
- * argument lists of these functions are predetermined.  Note that the
- * caller should ensure we are in the proper schema, because the results
- * are search path dependent!
  */
 static char *
 convertTSFunction(Archive *fout, Oid funcOid)
@@ -12904,7 +12904,7 @@ convertTSFunction(Archive *fout, Oid funcOid)
 
 /*
  * dumpAccessMethod
- *	  write out a single access method definition
+ *   写出单个访问方法定义
  */
 static void
 dumpAccessMethod(Archive *fout, const AccessMethodInfo *aminfo)
@@ -12914,7 +12914,7 @@ dumpAccessMethod(Archive *fout, const AccessMethodInfo *aminfo)
 	PQExpBuffer delq;
 	char	   *qamname;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -12959,7 +12959,7 @@ dumpAccessMethod(Archive *fout, const AccessMethodInfo *aminfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Access Method Comments */
+	/* 导出访问方法注释 */
 	if (aminfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "ACCESS METHOD", qamname,
 					NULL, "",
@@ -12972,7 +12972,7 @@ dumpAccessMethod(Archive *fout, const AccessMethodInfo *aminfo)
 
 /*
  * dumpOpclass
- *	  write out a single operator class definition
+ *   写出单个操作符类定义
  */
 static void
 dumpOpclass(Archive *fout, const OpclassInfo *opcinfo)
@@ -13017,7 +13017,7 @@ dumpOpclass(Archive *fout, const OpclassInfo *opcinfo)
 	bool		needComma;
 	int			i;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -13026,7 +13026,7 @@ dumpOpclass(Archive *fout, const OpclassInfo *opcinfo)
 	delq = createPQExpBuffer();
 	nameusing = createPQExpBuffer();
 
-	/* Get additional fields from the pg_opclass row */
+	/* 从 pg_opclass 行获取附加字段 */
 	appendPQExpBuffer(query, "SELECT opcintype::pg_catalog.regtype, "
 					  "opckeytype::pg_catalog.regtype, "
 					  "opcdefault, opcfamily, "
@@ -13049,15 +13049,15 @@ dumpOpclass(Archive *fout, const OpclassInfo *opcinfo)
 	i_opcfamilynsp = PQfnumber(res, "opcfamilynsp");
 	i_amname = PQfnumber(res, "amname");
 
-	/* opcintype may still be needed after we PQclear res */
+	/* 在 PQclear res 之后可能仍需要 opcintype */
 	opcintype = pg_strdup(PQgetvalue(res, 0, i_opcintype));
 	opckeytype = PQgetvalue(res, 0, i_opckeytype);
 	opcdefault = PQgetvalue(res, 0, i_opcdefault);
-	/* opcfamily will still be needed after we PQclear res */
+	/* 在 PQclear res 之后仍需要 opcfamily */
 	opcfamily = pg_strdup(PQgetvalue(res, 0, i_opcfamily));
 	opcfamilyname = PQgetvalue(res, 0, i_opcfamilyname);
 	opcfamilynsp = PQgetvalue(res, 0, i_opcfamilynsp);
-	/* amname will still be needed after we PQclear res */
+	/* 在 PQclear res 之后仍需要 amname */
 	amname = pg_strdup(PQgetvalue(res, 0, i_amname));
 
 	appendPQExpBuffer(delq, "DROP OPERATOR CLASS %s",
@@ -13065,7 +13065,7 @@ dumpOpclass(Archive *fout, const OpclassInfo *opcinfo)
 	appendPQExpBuffer(delq, " USING %s;\n",
 					  fmtId(amname));
 
-	/* Build the fixed portion of the CREATE command */
+	/* 构建 CREATE 命令的固定部分 */
 	appendPQExpBuffer(q, "CREATE OPERATOR CLASS %s\n    ",
 					  fmtQualifiedDumpable(opcinfo));
 	if (strcmp(opcdefault, "t") == 0)
@@ -13093,10 +13093,10 @@ dumpOpclass(Archive *fout, const OpclassInfo *opcinfo)
 	PQclear(res);
 
 	/*
-	 * Now fetch and print the OPERATOR entries (pg_amop rows).
-	 *
-	 * Print only those opfamily members that are tied to the opclass by
-	 * pg_depend entries.
+	 * 现在获取并输出 OPERATOR 条目（pg_amop 行）。
+	 * 
+	 * 仅输出那些通过 pg_depend 条目绑定到操作符类的
+	 * 操作符族成员。
 	 */
 	resetPQExpBuffer(query);
 	appendPQExpBuffer(query, "SELECT amopstrategy, "
@@ -13149,14 +13149,14 @@ dumpOpclass(Archive *fout, const OpclassInfo *opcinfo)
 	PQclear(res);
 
 	/*
-	 * Now fetch and print the FUNCTION entries (pg_amproc rows).
-	 *
-	 * Print only those opfamily members that are tied to the opclass by
-	 * pg_depend entries.
-	 *
-	 * We print the amproclefttype/amprocrighttype even though in most cases
-	 * the backend could deduce the right values, because of the corner case
-	 * of a btree sort support function for a cross-type comparison.
+	 * 现在获取并输出 FUNCTION 条目（pg_amproc 行）。
+	 * 
+	 * 仅输出那些通过 pg_depend 条目绑定到操作符类的
+	 * 操作符族成员。
+	 * 
+	 * 我们输出 amproclefttype/amprocrighttype，即使在大多数情况下
+	 * 后端可以推导出正确的值，因为存在跨类型比较的 btree
+	 * 排序支持函数的边界情况。
 	 */
 	resetPQExpBuffer(query);
 
@@ -13204,10 +13204,10 @@ dumpOpclass(Archive *fout, const OpclassInfo *opcinfo)
 	PQclear(res);
 
 	/*
-	 * If needComma is still false it means we haven't added anything after
-	 * the AS keyword.  To avoid printing broken SQL, append a dummy STORAGE
-	 * clause with the same datatype.  This isn't sanctioned by the
-	 * documentation, but actually DefineOpClass will treat it as a no-op.
+	 * 如果 needComma 仍为 false，意味着我们在 AS 关键字之后
+	 * 没有添加任何内容。为避免输出损坏的 SQL，添加一个具有
+	 * 相同数据类型的虚拟 STORAGE 子句。文档中没有规定这一点，
+	 * 但实际上 DefineOpClass 会将其视为无操作。
 	 */
 	if (!needComma)
 		appendPQExpBuffer(q, "STORAGE %s", opcintype);
@@ -13233,7 +13233,7 @@ dumpOpclass(Archive *fout, const OpclassInfo *opcinfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Operator Class Comments */
+	/* 导出操作符类注释 */
 	if (opcinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "OPERATOR CLASS", nameusing->data,
 					opcinfo->dobj.namespace->dobj.name, opcinfo->rolname,
@@ -13250,10 +13250,10 @@ dumpOpclass(Archive *fout, const OpclassInfo *opcinfo)
 
 /*
  * dumpOpfamily
- *	  write out a single operator family definition
- *
- * Note: this also dumps any "loose" operator members that aren't bound to a
- * specific opclass within the opfamily.
+ *   写出单个操作符族定义
+ * 
+ * 注意：这还会导出那些未绑定到操作符族中特定
+ * 操作符类的"松散"操作符成员。
  */
 static void
 dumpOpfamily(Archive *fout, const OpfamilyInfo *opfinfo)
@@ -13288,7 +13288,7 @@ dumpOpfamily(Archive *fout, const OpfamilyInfo *opfinfo)
 	bool		needComma;
 	int			i;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -13298,8 +13298,8 @@ dumpOpfamily(Archive *fout, const OpfamilyInfo *opfinfo)
 	nameusing = createPQExpBuffer();
 
 	/*
-	 * Fetch only those opfamily members that are tied directly to the
-	 * opfamily by pg_depend entries.
+	 * 仅获取那些通过 pg_depend 条目直接绑定到
+	 * 操作符族的操作符族成员。
 	 */
 	appendPQExpBuffer(query, "SELECT amopstrategy, "
 					  "amopopr::pg_catalog.regoperator, "
@@ -13334,7 +13334,7 @@ dumpOpfamily(Archive *fout, const OpfamilyInfo *opfinfo)
 
 	res_procs = ExecuteSqlQuery(fout, query->data, PGRES_TUPLES_OK);
 
-	/* Get additional fields from the pg_opfamily row */
+	/* 从 pg_opfamily 行获取附加字段 */
 	resetPQExpBuffer(query);
 
 	appendPQExpBuffer(query, "SELECT "
@@ -13347,7 +13347,7 @@ dumpOpfamily(Archive *fout, const OpfamilyInfo *opfinfo)
 
 	i_amname = PQfnumber(res, "amname");
 
-	/* amname will still be needed after we PQclear res */
+	/* 在 PQclear res 之后仍需要 amname */
 	amname = pg_strdup(PQgetvalue(res, 0, i_amname));
 
 	appendPQExpBuffer(delq, "DROP OPERATOR FAMILY %s",
@@ -13355,7 +13355,7 @@ dumpOpfamily(Archive *fout, const OpfamilyInfo *opfinfo)
 	appendPQExpBuffer(delq, " USING %s;\n",
 					  fmtId(amname));
 
-	/* Build the fixed portion of the CREATE command */
+	/* 构建 CREATE 命令的固定部分 */
 	appendPQExpBuffer(q, "CREATE OPERATOR FAMILY %s",
 					  fmtQualifiedDumpable(opfinfo));
 	appendPQExpBuffer(q, " USING %s;\n",
@@ -13363,7 +13363,7 @@ dumpOpfamily(Archive *fout, const OpfamilyInfo *opfinfo)
 
 	PQclear(res);
 
-	/* Do we need an ALTER to add loose members? */
+	/* 是否需要 ALTER 来添加松散成员？ */
 	if (PQntuples(res_ops) > 0 || PQntuples(res_procs) > 0)
 	{
 		appendPQExpBuffer(q, "ALTER OPERATOR FAMILY %s",
@@ -13374,7 +13374,7 @@ dumpOpfamily(Archive *fout, const OpfamilyInfo *opfinfo)
 		needComma = false;
 
 		/*
-		 * Now fetch and print the OPERATOR entries (pg_amop rows).
+		 * 现在获取并输出 OPERATOR 条目（pg_amop 行）。
 		 */
 		ntups = PQntuples(res_ops);
 
@@ -13407,7 +13407,7 @@ dumpOpfamily(Archive *fout, const OpfamilyInfo *opfinfo)
 		}
 
 		/*
-		 * Now fetch and print the FUNCTION entries (pg_amproc rows).
+		 * 现在获取并输出 FUNCTION 条目（pg_amproc 行）。
 		 */
 		ntups = PQntuples(res_procs);
 
@@ -13455,7 +13455,7 @@ dumpOpfamily(Archive *fout, const OpfamilyInfo *opfinfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Operator Family Comments */
+	/* 导出操作符族注释 */
 	if (opfinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "OPERATOR FAMILY", nameusing->data,
 					opfinfo->dobj.namespace->dobj.name, opfinfo->rolname,
@@ -13472,7 +13472,7 @@ dumpOpfamily(Archive *fout, const OpfamilyInfo *opfinfo)
 
 /*
  * dumpCollation
- *	  write out a single collation definition
+ *   写出单个排序规则定义
  */
 static void
 dumpCollation(Archive *fout, const CollInfo *collinfo)
@@ -13495,7 +13495,7 @@ dumpCollation(Archive *fout, const CollInfo *collinfo)
 	const char *colliculocale;
 	const char *collicurules;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -13505,7 +13505,7 @@ dumpCollation(Archive *fout, const CollInfo *collinfo)
 
 	qcollname = pg_strdup(fmtId(collinfo->dobj.name));
 
-	/* Get collation-specific details */
+	/* 获取特定于排序规则的详细信息 */
 	appendPQExpBufferStr(query, "SELECT ");
 
 	if (fout->remoteVersion >= 100000)
@@ -13567,8 +13567,8 @@ dumpCollation(Archive *fout, const CollInfo *collinfo)
 		collctype = NULL;
 
 	/*
-	 * Before version 15, collcollate and collctype were of type NAME and
-	 * non-nullable. Treat empty strings as NULL for consistency.
+	 * 在版本 15 之前，collcollate 和 collctype 是 NAME 类型且
+	 * 不可为空。为了一致性，将空字符串视为 NULL。
 	 */
 	if (fout->remoteVersion < 150000)
 	{
@@ -13600,7 +13600,7 @@ dumpCollation(Archive *fout, const CollInfo *collinfo)
 	else if (collprovider[0] == 'i')
 		appendPQExpBufferStr(q, "icu");
 	else if (collprovider[0] == 'd')
-		/* to allow dumping pg_catalog; not accepted on input */
+		/* 允许导出 pg_catalog；输入时不接受 */
 		appendPQExpBufferStr(q, "default");
 	else
 		pg_fatal("unrecognized collation provider: %s",
@@ -13614,7 +13614,7 @@ dumpCollation(Archive *fout, const CollInfo *collinfo)
 		if (collcollate || collctype || colliculocale || collicurules)
 			pg_log_warning("invalid collation \"%s\"", qcollname);
 
-		/* no locale -- the default collation cannot be reloaded anyway */
+		/* 无 locale -- 默认排序规则无论如何都无法重新加载 */
 	}
 	else if (collprovider[0] == 'i')
 	{
@@ -13665,8 +13665,8 @@ dumpCollation(Archive *fout, const CollInfo *collinfo)
 		pg_fatal("unrecognized collation provider: %s", collprovider);
 
 	/*
-	 * For binary upgrade, carry over the collation version.  For normal
-	 * dump/restore, omit the version, so that it is computed upon restore.
+	 * 对于二进制升级，携带排序规则版本。对于正常的
+	 * 导出/恢复，省略版本，以便在恢复时计算。
 	 */
 	if (dopt->binary_upgrade)
 	{
@@ -13699,7 +13699,7 @@ dumpCollation(Archive *fout, const CollInfo *collinfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Collation Comments */
+	/* 导出排序规则注释 */
 	if (collinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "COLLATION", qcollname,
 					collinfo->dobj.namespace->dobj.name, collinfo->rolname,
@@ -13715,7 +13715,7 @@ dumpCollation(Archive *fout, const CollInfo *collinfo)
 
 /*
  * dumpConversion
- *	  write out a single conversion definition
+ *   写出单个转换定义
  */
 static void
 dumpConversion(Archive *fout, const ConvInfo *convinfo)
@@ -13735,7 +13735,7 @@ dumpConversion(Archive *fout, const ConvInfo *convinfo)
 	const char *conproc;
 	bool		condefault;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -13745,7 +13745,7 @@ dumpConversion(Archive *fout, const ConvInfo *convinfo)
 
 	qconvname = pg_strdup(fmtId(convinfo->dobj.name));
 
-	/* Get conversion-specific details */
+	/* 获取特定于转换的详细信息 */
 	appendPQExpBuffer(query, "SELECT "
 					  "pg_catalog.pg_encoding_to_char(conforencoding) AS conforencoding, "
 					  "pg_catalog.pg_encoding_to_char(contoencoding) AS contoencoding, "
@@ -13775,7 +13775,7 @@ dumpConversion(Archive *fout, const ConvInfo *convinfo)
 	appendStringLiteralAH(q, conforencoding, fout);
 	appendPQExpBufferStr(q, " TO ");
 	appendStringLiteralAH(q, contoencoding, fout);
-	/* regproc output is already sufficiently quoted */
+	/* regproc 输出已充分加引号 */
 	appendPQExpBuffer(q, " FROM %s;\n", conproc);
 
 	if (dopt->binary_upgrade)
@@ -13793,7 +13793,7 @@ dumpConversion(Archive *fout, const ConvInfo *convinfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Conversion Comments */
+	/* 导出转换注释 */
 	if (convinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "CONVERSION", qconvname,
 					convinfo->dobj.namespace->dobj.name, convinfo->rolname,
@@ -13808,10 +13808,10 @@ dumpConversion(Archive *fout, const ConvInfo *convinfo)
 }
 
 /*
- * format_aggregate_signature: generate aggregate name and argument list
+ * format_aggregate_signature: 生成聚合名称和参数列表
+ * 
+ * 如果需要，参数类型名称会进行限定。聚合名称从不限定。
  *
- * The argument type names are qualified if needed.  The aggregate name
- * is never qualified.
  */
 static char *
 format_aggregate_signature(const AggInfo *agginfo, Archive *fout, bool honor_quotes)
@@ -13843,7 +13843,7 @@ format_aggregate_signature(const AggInfo *agginfo, Archive *fout, bool honor_quo
 
 /*
  * dumpAgg
- *	  write out a single aggregate definition
+ *   写出单个聚合定义
  */
 static void
 dumpAgg(Archive *fout, const AggInfo *agginfo)
@@ -13853,8 +13853,8 @@ dumpAgg(Archive *fout, const AggInfo *agginfo)
 	PQExpBuffer q;
 	PQExpBuffer delq;
 	PQExpBuffer details;
-	char	   *aggsig;			/* identity signature */
-	char	   *aggfullsig = NULL;	/* full signature */
+	char	   *aggsig;			/* 身份签名 */
+	char	   *aggfullsig = NULL;	/* 完整签名 */
 	char	   *aggsig_tag;
 	PGresult   *res;
 	int			i_agginitval;
@@ -13883,7 +13883,7 @@ dumpAgg(Archive *fout, const AggInfo *agginfo)
 	const char *proparallel;
 	char		defaultfinalmodify;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -13894,7 +13894,7 @@ dumpAgg(Archive *fout, const AggInfo *agginfo)
 
 	if (!fout->is_prepared[PREPQUERY_DUMPAGG])
 	{
-		/* Set up query for aggregate-specific details */
+		/* 设置查询以获取特定于聚合的详细信息 */
 		appendPQExpBufferStr(query,
 							 "PREPARE dumpAgg(pg_catalog.oid) AS\n");
 
@@ -14008,15 +14008,15 @@ dumpAgg(Archive *fout, const AggInfo *agginfo)
 
 	aggsig_tag = format_aggregate_signature(agginfo, fout, false);
 
-	/* identify default modify flag for aggkind (must match DefineAggregate) */
+	/* 识别 aggkind 的默认 modify 标志（必须匹配 DefineAggregate） */
 	defaultfinalmodify = (aggkind == AGGKIND_NORMAL) ? AGGMODIFY_READ_ONLY : AGGMODIFY_READ_WRITE;
-	/* replace omitted flags for old versions */
+	/* 替换旧版本中省略的标志 */
 	if (aggfinalmodify == '0')
 		aggfinalmodify = defaultfinalmodify;
 	if (aggmfinalmodify == '0')
 		aggmfinalmodify = defaultfinalmodify;
 
-	/* regproc and regtype output is already sufficiently quoted */
+	/* regproc 和 regtype 输出已充分加引号 */
 	appendPQExpBuffer(details, "    SFUNC = %s,\n    STYPE = %s",
 					  aggtransfn, aggtranstype);
 
@@ -14161,7 +14161,7 @@ dumpAgg(Archive *fout, const AggInfo *agginfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Aggregate Comments */
+	/* 导出聚合注释 */
 	if (agginfo->aggfn.dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "AGGREGATE", aggsig,
 					agginfo->aggfn.dobj.namespace->dobj.name,
@@ -14175,9 +14175,9 @@ dumpAgg(Archive *fout, const AggInfo *agginfo)
 					 agginfo->aggfn.dobj.catId, 0, agginfo->aggfn.dobj.dumpId);
 
 	/*
-	 * Since there is no GRANT ON AGGREGATE syntax, we have to make the ACL
-	 * command look like a function's GRANT; in particular this affects the
-	 * syntax for zero-argument aggregates and ordered-set aggregates.
+	 * 由于没有 GRANT ON AGGREGATE 语法，我们必须使 ACL
+	 * 命令看起来像函数的 GRANT；特别地，这影响零参数
+	 * 聚合和有序集聚合的语法。
 	 */
 	free(aggsig);
 
@@ -14203,7 +14203,7 @@ dumpAgg(Archive *fout, const AggInfo *agginfo)
 
 /*
  * dumpTSParser
- *	  write out a single text search parser
+ *   写出单个文本搜索解析器
  */
 static void
 dumpTSParser(Archive *fout, const TSParserInfo *prsinfo)
@@ -14213,7 +14213,7 @@ dumpTSParser(Archive *fout, const TSParserInfo *prsinfo)
 	PQExpBuffer delq;
 	char	   *qprsname;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -14254,7 +14254,7 @@ dumpTSParser(Archive *fout, const TSParserInfo *prsinfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Parser Comments */
+	/* 导出解析器注释 */
 	if (prsinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "TEXT SEARCH PARSER", qprsname,
 					prsinfo->dobj.namespace->dobj.name, "",
@@ -14267,7 +14267,7 @@ dumpTSParser(Archive *fout, const TSParserInfo *prsinfo)
 
 /*
  * dumpTSDictionary
- *	  write out a single text search dictionary
+ *   写出单个文本搜索字典
  */
 static void
 dumpTSDictionary(Archive *fout, const TSDictInfo *dictinfo)
@@ -14281,7 +14281,7 @@ dumpTSDictionary(Archive *fout, const TSDictInfo *dictinfo)
 	char	   *nspname;
 	char	   *tmplname;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -14291,7 +14291,7 @@ dumpTSDictionary(Archive *fout, const TSDictInfo *dictinfo)
 
 	qdictname = pg_strdup(fmtId(dictinfo->dobj.name));
 
-	/* Fetch name and namespace of the dictionary's template */
+	/* 获取字典模板的名称和命名空间 */
 	appendPQExpBuffer(query, "SELECT nspname, tmplname "
 					  "FROM pg_ts_template p, pg_namespace n "
 					  "WHERE p.oid = '%u' AND n.oid = tmplnamespace",
@@ -14309,7 +14309,7 @@ dumpTSDictionary(Archive *fout, const TSDictInfo *dictinfo)
 
 	PQclear(res);
 
-	/* the dictinitoption can be dumped straight into the command */
+	/* dictinitoption 可以直接导出到命令中 */
 	if (dictinfo->dictinitoption)
 		appendPQExpBuffer(q, ",\n    %s", dictinfo->dictinitoption);
 
@@ -14333,7 +14333,7 @@ dumpTSDictionary(Archive *fout, const TSDictInfo *dictinfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Dictionary Comments */
+	/* 导出字典注释 */
 	if (dictinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "TEXT SEARCH DICTIONARY", qdictname,
 					dictinfo->dobj.namespace->dobj.name, dictinfo->rolname,
@@ -14347,7 +14347,7 @@ dumpTSDictionary(Archive *fout, const TSDictInfo *dictinfo)
 
 /*
  * dumpTSTemplate
- *	  write out a single text search template
+ *   写出单个文本搜索模板
  */
 static void
 dumpTSTemplate(Archive *fout, const TSTemplateInfo *tmplinfo)
@@ -14357,7 +14357,7 @@ dumpTSTemplate(Archive *fout, const TSTemplateInfo *tmplinfo)
 	PQExpBuffer delq;
 	char	   *qtmplname;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -14392,7 +14392,7 @@ dumpTSTemplate(Archive *fout, const TSTemplateInfo *tmplinfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Template Comments */
+	/* 导出模板注释 */
 	if (tmplinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "TEXT SEARCH TEMPLATE", qtmplname,
 					tmplinfo->dobj.namespace->dobj.name, "",
@@ -14405,7 +14405,7 @@ dumpTSTemplate(Archive *fout, const TSTemplateInfo *tmplinfo)
 
 /*
  * dumpTSConfig
- *	  write out a single text search configuration
+ *   写出单个文本搜索配置
  */
 static void
 dumpTSConfig(Archive *fout, const TSConfigInfo *cfginfo)
@@ -14423,7 +14423,7 @@ dumpTSConfig(Archive *fout, const TSConfigInfo *cfginfo)
 	int			i_tokenname;
 	int			i_dictname;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -14433,7 +14433,7 @@ dumpTSConfig(Archive *fout, const TSConfigInfo *cfginfo)
 
 	qcfgname = pg_strdup(fmtId(cfginfo->dobj.name));
 
-	/* Fetch name and namespace of the config's parser */
+	/* 获取配置解析器的名称和命名空间 */
 	appendPQExpBuffer(query, "SELECT nspname, prsname "
 					  "FROM pg_ts_parser p, pg_namespace n "
 					  "WHERE p.oid = '%u' AND n.oid = prsnamespace",
@@ -14475,12 +14475,12 @@ dumpTSConfig(Archive *fout, const TSConfigInfo *cfginfo)
 		if (i == 0 ||
 			strcmp(tokenname, PQgetvalue(res, i - 1, i_tokenname)) != 0)
 		{
-			/* starting a new token type, so start a new command */
+			/* 开始一个新的标记类型，因此开始一个新的命令 */
 			if (i > 0)
 				appendPQExpBufferStr(q, ";\n");
 			appendPQExpBuffer(q, "\nALTER TEXT SEARCH CONFIGURATION %s\n",
 							  fmtQualifiedDumpable(cfginfo));
-			/* tokenname needs quoting, dictname does NOT */
+			/* tokenname 需要加引号，dictname 不需要 */
 			appendPQExpBuffer(q, "    ADD MAPPING FOR %s WITH %s",
 							  fmtId(tokenname), dictname);
 		}
@@ -14511,7 +14511,7 @@ dumpTSConfig(Archive *fout, const TSConfigInfo *cfginfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Configuration Comments */
+	/* 导出配置注释 */
 	if (cfginfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "TEXT SEARCH CONFIGURATION", qcfgname,
 					cfginfo->dobj.namespace->dobj.name, cfginfo->rolname,
@@ -14525,7 +14525,7 @@ dumpTSConfig(Archive *fout, const TSConfigInfo *cfginfo)
 
 /*
  * dumpForeignDataWrapper
- *	  write out a single foreign-data wrapper definition
+ *   写出单个 FDW 定义
  */
 static void
 dumpForeignDataWrapper(Archive *fout, const FdwInfo *fdwinfo)
@@ -14535,7 +14535,7 @@ dumpForeignDataWrapper(Archive *fout, const FdwInfo *fdwinfo)
 	PQExpBuffer delq;
 	char	   *qfdwname;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -14575,13 +14575,13 @@ dumpForeignDataWrapper(Archive *fout, const FdwInfo *fdwinfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Foreign Data Wrapper Comments */
+	/* 导出 FDW 注释 */
 	if (fdwinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "FOREIGN DATA WRAPPER", qfdwname,
 					NULL, fdwinfo->rolname,
 					fdwinfo->dobj.catId, 0, fdwinfo->dobj.dumpId);
 
-	/* Handle the ACL */
+	/* 处理 ACL */
 	if (fdwinfo->dobj.dump & DUMP_COMPONENT_ACL)
 		dumpACL(fout, fdwinfo->dobj.dumpId, InvalidDumpId,
 				"FOREIGN DATA WRAPPER", qfdwname, NULL,
@@ -14595,7 +14595,7 @@ dumpForeignDataWrapper(Archive *fout, const FdwInfo *fdwinfo)
 
 /*
  * dumpForeignServer
- *	  write out a foreign server definition
+ *   写出一个外部服务器定义
  */
 static void
 dumpForeignServer(Archive *fout, const ForeignServerInfo *srvinfo)
@@ -14608,7 +14608,7 @@ dumpForeignServer(Archive *fout, const ForeignServerInfo *srvinfo)
 	char	   *qsrvname;
 	char	   *fdwname;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -14618,7 +14618,7 @@ dumpForeignServer(Archive *fout, const ForeignServerInfo *srvinfo)
 
 	qsrvname = pg_strdup(fmtId(srvinfo->dobj.name));
 
-	/* look up the foreign-data wrapper */
+	/* 查找 FDW */
 	appendPQExpBuffer(query, "SELECT fdwname "
 					  "FROM pg_foreign_data_wrapper w "
 					  "WHERE w.oid = '%u'",
@@ -14662,19 +14662,19 @@ dumpForeignServer(Archive *fout, const ForeignServerInfo *srvinfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Foreign Server Comments */
+	/* 导出外部服务器注释 */
 	if (srvinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "SERVER", qsrvname,
 					NULL, srvinfo->rolname,
 					srvinfo->dobj.catId, 0, srvinfo->dobj.dumpId);
 
-	/* Handle the ACL */
+	/* 处理 ACL */
 	if (srvinfo->dobj.dump & DUMP_COMPONENT_ACL)
 		dumpACL(fout, srvinfo->dobj.dumpId, InvalidDumpId,
 				"FOREIGN SERVER", qsrvname, NULL,
 				NULL, srvinfo->rolname, &srvinfo->dacl);
 
-	/* Dump user mappings */
+	/* 导出用户映射 */
 	if (srvinfo->dobj.dump & DUMP_COMPONENT_USERMAP)
 		dumpUserMappings(fout,
 						 srvinfo->dobj.name, NULL,
@@ -14692,10 +14692,10 @@ dumpForeignServer(Archive *fout, const ForeignServerInfo *srvinfo)
 
 /*
  * dumpUserMappings
+ * 
+ * 此例程用于导出与传递给此例程的服务器关联的任何
+ * 用户映射。应在服务器的 ArchiveEntry() 之后调用。
  *
- * This routine is used to dump any user mappings associated with the
- * server handed to this routine. Should be called after ArchiveEntry()
- * for the server.
  */
 static void
 dumpUserMappings(Archive *fout,
@@ -14719,12 +14719,12 @@ dumpUserMappings(Archive *fout,
 	query = createPQExpBuffer();
 
 	/*
-	 * We read from the publicly accessible view pg_user_mappings, so as not
-	 * to fail if run by a non-superuser.  Note that the view will show
-	 * umoptions as null if the user hasn't got privileges for the associated
-	 * server; this means that pg_dump will dump such a mapping, but with no
-	 * OPTIONS clause.  A possible alternative is to skip such mappings
-	 * altogether, but it's not clear that that's an improvement.
+	 * 我们从公开可访问的视图 pg_user_mappings 读取，
+	 * 以免在由非超级用户运行时失败。请注意，如果用户
+	 * 对关联的服务器没有权限，该视图将显示 umoptions
+	 * 为 null；这意味着 pg_dump 将导出这样的映射，但
+	 * 没有 OPTIONS 子句。一个可能的替代方案是完全跳过
+	 * 这样的映射，但不清楚那是否是一种改进。
 	 */
 	appendPQExpBuffer(query,
 					  "SELECT usename, "
@@ -14789,7 +14789,7 @@ dumpUserMappings(Archive *fout,
 }
 
 /*
- * Write out default privileges information
+ * 输出默认权限信息
  */
 static void
 dumpDefaultACL(Archive *fout, const DefaultACLInfo *daclinfo)
@@ -14799,7 +14799,7 @@ dumpDefaultACL(Archive *fout, const DefaultACLInfo *daclinfo)
 	PQExpBuffer tag;
 	const char *type;
 
-	/* Do nothing in data-only dump, or if we're skipping ACLs */
+	/* 在仅数据导出中不执行任何操作，或者如果我们正在跳过 ACL */
 	if (dopt->dataOnly || dopt->aclsSkip)
 		return;
 
@@ -14824,15 +14824,15 @@ dumpDefaultACL(Archive *fout, const DefaultACLInfo *daclinfo)
 			type = "SCHEMAS";
 			break;
 		default:
-			/* shouldn't get here */
+			/* 不应该到达这里 */
 			pg_fatal("unrecognized object type in default privileges: %d",
 					 (int) daclinfo->defaclobjtype);
-			type = "";			/* keep compiler quiet */
+			type = "";			/* 使编译器保持安静 */
 	}
 
 	appendPQExpBuffer(tag, "DEFAULT PRIVILEGES FOR %s", type);
 
-	/* build the actual command(s) for this tuple */
+	/* 为此元组构建实际的命令 */
 	if (!buildDefaultACLCommands(type,
 								 daclinfo->dobj.namespace != NULL ?
 								 daclinfo->dobj.namespace->dobj.name : NULL,
@@ -14858,25 +14858,25 @@ dumpDefaultACL(Archive *fout, const DefaultACLInfo *daclinfo)
 	destroyPQExpBuffer(q);
 }
 
-/*----------
- * Write out grant/revoke information
- *
- * 'objDumpId' is the dump ID of the underlying object.
- * 'altDumpId' can be a second dumpId that the ACL entry must also depend on,
- *		or InvalidDumpId if there is no need for a second dependency.
- * 'type' must be one of
- *		TABLE, SEQUENCE, FUNCTION, LANGUAGE, SCHEMA, DATABASE, TABLESPACE,
- *		FOREIGN DATA WRAPPER, SERVER, or LARGE OBJECT.
- * 'name' is the formatted name of the object.  Must be quoted etc. already.
- * 'subname' is the formatted name of the sub-object, if any.  Must be quoted.
- *		(Currently we assume that subname is only provided for table columns.)
- * 'nspname' is the namespace the object is in (NULL if none).
- * 'owner' is the owner, NULL if there is no owner (for languages).
- * 'dacl' is the DumpableAcl struct fpr the object.
- *
- * Returns the dump ID assigned to the ACL TocEntry, or InvalidDumpId if
- * no ACL entry was created.
- *----------
+/*
+ * ----------
+ *  输出授予/撤销信息
+ * 
+ *  'objDumpId' 是底层对象的导出 ID。
+ *  'altDumpId' 可以是 ACL 条目还必须依赖的第二个 dumpId，
+ *      或者如果没有第二个依赖的需要则为 InvalidDumpId。
+ *  'type' 必须是以下之一
+ *      TABLE、SEQUENCE、FUNCTION、LANGUAGE、SCHEMA、DATABASE、
+ *      TABLESPACE、FOREIGN DATA WRAPPER、SERVER 或 LARGE OBJECT。
+ *  'name' 是对象的格式化名称。必须已加引号等。
+ *  'subname' 是子对象的格式化名称（如果有）。必须加引号。
+ *      （当前我们假设 subname 仅为表列提供。）
+ *  'nspname' 是对象所在的命名空间（如果没有则为 NULL）。
+ *  'owner' 是所有者，如果没有所有者则为 NULL（对于语言）。
+ *  'dacl' 是对象的 DumpableAcl 结构。
+ * 
+ *  返回分配给 ACL TocEntry 的导出 ID，如果未创建 ACL 条目
+ *  则返回 InvalidDumpId。
  */
 static DumpId
 dumpACL(Archive *fout, DumpId objDumpId, DumpId altDumpId,
@@ -14893,28 +14893,28 @@ dumpACL(Archive *fout, DumpId objDumpId, DumpId altDumpId,
 	const char *baseacls;
 	PQExpBuffer sql;
 
-	/* Do nothing if ACL dump is not enabled */
+	/* 如果未启用 ACL 导出则不执行任何操作 */
 	if (dopt->aclsSkip)
 		return InvalidDumpId;
 
-	/* --data-only skips ACLs *except* large object ACLs */
+	/* --data-only 跳过 ACL，但大对象 ACL 除外 */
 	if (dopt->dataOnly && strcmp(type, "LARGE OBJECT") != 0)
 		return InvalidDumpId;
 
 	sql = createPQExpBuffer();
 
 	/*
-	 * In binary upgrade mode, we don't run an extension's script but instead
-	 * dump out the objects independently and then recreate them.  To preserve
-	 * any initial privileges which were set on extension objects, we need to
-	 * compute the set of GRANT and REVOKE commands necessary to get from the
-	 * default privileges of an object to its initial privileges as recorded
-	 * in pg_init_privs.
+	 * 在二进制升级模式下，我们不运行扩展的脚本，而是
+	 * 独立导出对象然后重新创建它们。为了保留扩展对象上
+	 * 设置的任何初始权限，我们需要计算从对象的默认权限
+	 * 到其 pg_init_privs 中记录的初始权限所需的 GRANT 和
+	 * REVOKE 命令集。
+	 * 
+	 * 在恢复时，我们在调用
+	 * binary_upgrade_set_record_init_privs(true) 之后应用
+	 * 这些命令。这告诉后端将结果复制到 pg_init_privs 中。
+	 * 这就是我们跨二进制升级保留该目录内容的方式。
 	 *
-	 * At restore time, we apply these commands after having called
-	 * binary_upgrade_set_record_init_privs(true).  That tells the backend to
-	 * copy the results into pg_init_privs.  This is how we preserve the
-	 * contents of that catalog across binary upgrades.
 	 */
 	if (dopt->binary_upgrade && privtype == 'e' &&
 		initprivs && *initprivs != '\0')
@@ -14929,12 +14929,12 @@ dumpACL(Archive *fout, DumpId objDumpId, DumpId altDumpId,
 	}
 
 	/*
-	 * Now figure the GRANT and REVOKE commands needed to get to the object's
-	 * actual current ACL, starting from the initprivs if given, else from the
-	 * object-type-specific default.  Also, while buildACLCommands will assume
-	 * that a NULL/empty acls string means it needn't do anything, what that
-	 * actually represents is the object-type-specific default; so we need to
-	 * substitute the acldefault string to get the right results in that case.
+	 * 现在计算从 initprivs（如果提供）或从对象类型特定的
+	 * 默认值开始，到达对象的实际当前 ACL 所需的 GRANT 和
+	 * REVOKE 命令。此外，虽然 buildACLCommands 会假定
+	 * NULL/空 acls 字符串意味着不需要执行任何操作，但实际
+	 * 表示的是对象类型特定的默认值；因此我们需要在这种情况下
+	 * 替换 acldefault 字符串以获得正确的结果。
 	 */
 	if (initprivs && *initprivs != '\0')
 	{
@@ -14988,21 +14988,21 @@ dumpACL(Archive *fout, DumpId objDumpId, DumpId altDumpId,
 
 /*
  * dumpSecLabel
- *
- * This routine is used to dump any security labels associated with the
- * object handed to this routine. The routine takes the object type
- * and object name (ready to print, except for schema decoration), plus
- * the namespace and owner of the object (for labeling the ArchiveEntry),
- * plus catalog ID and subid which are the lookup key for pg_seclabel,
- * plus the dump ID for the object (for setting a dependency).
- * If a matching pg_seclabel entry is found, it is dumped.
- *
- * Note: although this routine takes a dumpId for dependency purposes,
- * that purpose is just to mark the dependency in the emitted dump file
- * for possible future use by pg_restore.  We do NOT use it for determining
- * ordering of the label in the dump file, because this routine is called
- * after dependency sorting occurs.  This routine should be called just after
- * calling ArchiveEntry() for the specified object.
+ * 
+ * 此例程用于导出与传递给此例程的对象关联的任何
+ * 安全标签。该例程接受对象类型和对象名称（可直接输出，
+ * 仅需要装饰模式名），加上对象的命名空间和所有者
+ * （用于标记 ArchiveEntry），加上目录 ID 和 subid
+ * （作为 pg_seclabel 的查找键），加上对象的导出 ID
+ * （用于设置依赖）。如果找到匹配的 pg_seclabel 条目，
+ * 则导出。
+ * 
+ * 注意：虽然此例程接受一个 dumpId 用于依赖目的，
+ * 但该目的仅是在发出的导出文件中标记依赖，
+ * 以供 pg_restore 将来使用。我们不会将其用于确定
+ * 标签在导出文件中的排序，因为此例程在依赖排序
+ * 之后调用。此例程应在为指定对象调用
+ * ArchiveEntry() 之后立即调用。
  */
 static void
 dumpSecLabel(Archive *fout, const char *type, const char *name,
@@ -15015,13 +15015,13 @@ dumpSecLabel(Archive *fout, const char *type, const char *name,
 	int			i;
 	PQExpBuffer query;
 
-	/* do nothing, if --no-security-labels is supplied */
+	/* 如果提供了 --no-security-labels，则不执行任何操作 */
 	if (dopt->no_security_labels)
 		return;
 
 	/*
-	 * Security labels are schema not data ... except large object labels are
-	 * data
+	 * 安全标签是模式而非数据 ... 但大对象标签是数据
+	 *
 	 */
 	if (strcmp(type, "LARGE OBJECT") != 0)
 	{
@@ -15030,12 +15030,12 @@ dumpSecLabel(Archive *fout, const char *type, const char *name,
 	}
 	else
 	{
-		/* We do dump large object security labels in binary-upgrade mode */
+		/* 我们在二进制升级模式下确实会导出大对象安全标签 */
 		if (dopt->schemaOnly && !dopt->binary_upgrade)
 			return;
 	}
 
-	/* Search for security labels associated with catalogId, using table */
+	/* 使用表搜索与 catalogId 关联的安全标签 */
 	nlabels = findSecLabels(catalogId.tableoid, catalogId.oid, &labels);
 
 	query = createPQExpBuffer();
@@ -15043,7 +15043,7 @@ dumpSecLabel(Archive *fout, const char *type, const char *name,
 	for (i = 0; i < nlabels; i++)
 	{
 		/*
-		 * Ignore label entries for which the subid doesn't match.
+		 * 忽略 subid 不匹配的标签条目。
 		 */
 		if (labels[i].objsubid != subid)
 			continue;
@@ -15080,9 +15080,9 @@ dumpSecLabel(Archive *fout, const char *type, const char *name,
 
 /*
  * dumpTableSecLabel
+ * 
+ * 如上所述，但为指定表（或视图）及其列导出安全标签。
  *
- * As above, but dump security label for both the specified table (or view)
- * and its columns.
  */
 static void
 dumpTableSecLabel(Archive *fout, const TableInfo *tbinfo, const char *reltypename)
@@ -15094,20 +15094,20 @@ dumpTableSecLabel(Archive *fout, const TableInfo *tbinfo, const char *reltypenam
 	PQExpBuffer query;
 	PQExpBuffer target;
 
-	/* do nothing, if --no-security-labels is supplied */
+	/* 如果提供了 --no-security-labels，则不执行任何操作 */
 	if (dopt->no_security_labels)
 		return;
 
-	/* SecLabel are SCHEMA not data */
+	/* 安全标签是模式而非数据 */
 	if (dopt->dataOnly)
 		return;
 
-	/* Search for comments associated with relation, using table */
+	/* 使用表搜索与关系关联的注释 */
 	nlabels = findSecLabels(tbinfo->dobj.catId.tableoid,
 							tbinfo->dobj.catId.oid,
 							&labels);
 
-	/* If security labels exist, build SECURITY LABEL statements */
+	/* 如果安全标签存在，构建 SECURITY LABEL 语句 */
 	if (nlabels <= 0)
 		return;
 
@@ -15130,7 +15130,7 @@ dumpTableSecLabel(Archive *fout, const TableInfo *tbinfo, const char *reltypenam
 		else
 		{
 			colname = getAttrName(objsubid, tbinfo);
-			/* first fmtXXX result must be consumed before calling again */
+			/* 在再次调用之前必须先消耗第一次 fmtXXX 结果 */
 			appendPQExpBuffer(target, "COLUMN %s",
 							  fmtQualifiedDumpable(tbinfo));
 			appendPQExpBuffer(target, ".%s", fmtId(colname));
@@ -15161,10 +15161,10 @@ dumpTableSecLabel(Archive *fout, const TableInfo *tbinfo, const char *reltypenam
 
 /*
  * findSecLabels
- *
- * Find the security label(s), if any, associated with the given object.
- * All the objsubid values associated with the given classoid/objoid are
- * found with one search.
+ * 
+ * 查找与给定对象关联的安全标签（如果有）。与给定
+ * classoid/objoid 关联的所有 objsubid 值通过一次
+ * 搜索找到。
  */
 static int
 findSecLabels(Oid classoid, Oid objoid, SecLabelItem **items)
@@ -15174,14 +15174,14 @@ findSecLabels(Oid classoid, Oid objoid, SecLabelItem **items)
 	SecLabelItem *high;
 	int			nmatch;
 
-	if (nseclabels <= 0)		/* no labels, so no match is possible */
+	if (nseclabels <= 0)		/* 没有标签，因此不可能匹配 */
 	{
 		*items = NULL;
 		return 0;
 	}
 
 	/*
-	 * Do binary search to find some item matching the object.
+	 * 执行二分查找以找到与对象匹配的某个条目。
 	 */
 	low = &seclabels[0];
 	high = &seclabels[nseclabels - 1];
@@ -15198,19 +15198,19 @@ findSecLabels(Oid classoid, Oid objoid, SecLabelItem **items)
 		else if (objoid > middle->objoid)
 			low = middle + 1;
 		else
-			break;				/* found a match */
+			break;				/* 找到匹配 */
 	}
 
-	if (low > high)				/* no matches */
+	if (low > high)				/* 无匹配 */
 	{
 		*items = NULL;
 		return 0;
 	}
 
 	/*
-	 * Now determine how many items match the object.  The search loop
-	 * invariant still holds: only items between low and high inclusive could
-	 * match.
+	 * 现在确定有多少条目与对象匹配。搜索循环不变式
+	 * 仍然成立：只有 low 和 high 之间（含）的条目可能匹配。
+	 *
 	 */
 	nmatch = 1;
 	while (middle > low)
@@ -15239,11 +15239,11 @@ findSecLabels(Oid classoid, Oid objoid, SecLabelItem **items)
 
 /*
  * collectSecLabels
- *
- * Construct a table of all security labels available for database objects;
- * also set the has-seclabel component flag for each relevant object.
- *
- * The table is sorted by classoid/objid/objsubid for speed in lookup.
+ * 
+ * 构建一个包含所有可用于数据库对象的安全标签的表；
+ * 还为每个相关对象设置 has-seclabel 组件标志。
+ * 
+ * 该表按 classoid/objid/objsubid 排序以提高查找速度。
  */
 static void
 collectSecLabels(Archive *fout)
@@ -15268,7 +15268,7 @@ collectSecLabels(Archive *fout)
 
 	res = ExecuteSqlQuery(fout, query->data, PGRES_TUPLES_OK);
 
-	/* Construct lookup table containing OIDs in numeric form */
+	/* 构建包含数值形式 OID 的查找表 */
 	i_label = PQfnumber(res, "label");
 	i_provider = PQfnumber(res, "provider");
 	i_classoid = PQfnumber(res, "classoid");
@@ -15290,7 +15290,7 @@ collectSecLabels(Archive *fout)
 		objId.oid = atooid(PQgetvalue(res, i, i_objoid));
 		subid = atoi(PQgetvalue(res, i, i_objsubid));
 
-		/* We needn't remember labels that don't match any dumpable object */
+		/* 我们不需要记住不匹配任何可导出对象的标签 */
 		if (dobj == NULL ||
 			dobj->catId.tableoid != objId.tableoid ||
 			dobj->catId.oid != objId.oid)
@@ -15299,9 +15299,9 @@ collectSecLabels(Archive *fout)
 			continue;
 
 		/*
-		 * Labels on columns of composite types are linked to the type's
-		 * pg_class entry, but we need to set the DUMP_COMPONENT_SECLABEL flag
-		 * in the type's own DumpableObject.
+		 * 复合类型的列上的标签链接到该类型的 pg_class 条目，
+		 * 但我们需要在该类型自身的 DumpableObject 中设置
+		 * DUMP_COMPONENT_SECLABEL 标志。
 		 */
 		if (subid != 0 && dobj->objType == DO_TABLE &&
 			((TableInfo *) dobj)->relkind == RELKIND_COMPOSITE_TYPE)
@@ -15329,7 +15329,7 @@ collectSecLabels(Archive *fout)
 
 /*
  * dumpTable
- *	  write out to fout the declarations (not data) of a user-defined table
+ *   输出到 fout 用户定义表的声明（非数据）
  */
 static void
 dumpTable(Archive *fout, const TableInfo *tbinfo)
@@ -15338,7 +15338,7 @@ dumpTable(Archive *fout, const TableInfo *tbinfo)
 	DumpId		tableAclDumpId = InvalidDumpId;
 	char	   *namecopy;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -15350,7 +15350,7 @@ dumpTable(Archive *fout, const TableInfo *tbinfo)
 			dumpTableSchema(fout, tbinfo);
 	}
 
-	/* Handle the ACL here */
+	/* 在此处理 ACL */
 	namecopy = pg_strdup(fmtId(tbinfo->dobj.name));
 	if (tbinfo->dobj.dump & DUMP_COMPONENT_ACL)
 	{
@@ -15365,10 +15365,10 @@ dumpTable(Archive *fout, const TableInfo *tbinfo)
 	}
 
 	/*
-	 * Handle column ACLs, if any.  Note: we pull these with a separate query
-	 * rather than trying to fetch them during getTableAttrs, so that we won't
-	 * miss ACLs on system columns.  Doing it this way also allows us to dump
-	 * ACLs for catalogs that we didn't mark "interesting" back in getTables.
+	 * 处理列 ACL（如果有）。注意：我们通过单独的查询拉取
+	 * 这些，而不是在 getTableAttrs 期间获取它们，以便不会
+	 * 遗漏系统列上的 ACL。这种方式还允许我们为在 getTables
+	 * 中没有标记为"感兴趣"的目录导出 ACL。
 	 */
 	if ((tbinfo->dobj.dump & DUMP_COMPONENT_ACL) && tbinfo->hascolumnACLs)
 	{
@@ -15378,21 +15378,21 @@ dumpTable(Archive *fout, const TableInfo *tbinfo)
 
 		if (!fout->is_prepared[PREPQUERY_GETCOLUMNACLS])
 		{
-			/* Set up query for column ACLs */
+			/* 设置查询以获取列 ACL */
 			appendPQExpBufferStr(query,
 								 "PREPARE getColumnACLs(pg_catalog.oid) AS\n");
 
 			if (fout->remoteVersion >= 90600)
 			{
 				/*
-				 * In principle we should call acldefault('c', relowner) to
-				 * get the default ACL for a column.  However, we don't
-				 * currently store the numeric OID of the relowner in
-				 * TableInfo.  We could convert the owner name using regrole,
-				 * but that creates a risk of failure due to concurrent role
-				 * renames.  Given that the default ACL for columns is empty
-				 * and is likely to stay that way, it's not worth extra cycles
-				 * and risk to avoid hard-wiring that knowledge here.
+				 * 原则上我们应该调用 acldefault('c', relowner) 来获取
+				 * 列的默认 ACL。但是，我们目前不在 TableInfo 中存储
+				 * relowner 的数值 OID。我们可以使用 regrole 转换所有者
+				 * 名称，但这会因并发的角色重命名而产生失败风险。
+				 * 鉴于列的默认 ACL 为空且可能保持这种状态，
+				 * 在这里硬编码这些知识比额外的周期和风险更值得。
+				 *
+				 *
 				 */
 				appendPQExpBufferStr(query,
 									 "SELECT at.attname, "
@@ -15448,9 +15448,9 @@ dumpTable(Archive *fout, const TableInfo *tbinfo)
 			attnamecopy = pg_strdup(fmtId(attname));
 
 			/*
-			 * Column's GRANT type is always TABLE.  Each column ACL depends
-			 * on the table-level ACL, since we can restore column ACLs in
-			 * parallel but the table-level ACL has to be done first.
+			 * 列的 GRANT 类型始终是 TABLE。每个列 ACL 依赖于
+			 * 表级 ACL，因为我们可以并行恢复列 ACL，
+			 * 但表级 ACL 必须先完成。
 			 */
 			dumpACL(fout, tbinfo->dobj.dumpId, tableAclDumpId,
 					"TABLE", namecopy, attnamecopy,
@@ -15466,10 +15466,10 @@ dumpTable(Archive *fout, const TableInfo *tbinfo)
 }
 
 /*
- * Create the AS clause for a view or materialized view. The semicolon is
- * stripped because a materialized view must add a WITH NO DATA clause.
- *
- * This returns a new buffer which must be freed by the caller.
+ * 为视图或物化视图创建 AS 子句。去掉分号，
+ * 因为物化视图必须添加 WITH NO DATA 子句。
+ * 
+ * 返回一个新的缓冲区，调用者必须释放。
  */
 static PQExpBuffer
 createViewAsClause(Archive *fout, const TableInfo *tbinfo)
@@ -15479,7 +15479,7 @@ createViewAsClause(Archive *fout, const TableInfo *tbinfo)
 	PGresult   *res;
 	int			len;
 
-	/* Fetch the view definition */
+	/* 获取视图定义 */
 	appendPQExpBuffer(query,
 					  "SELECT pg_catalog.pg_get_viewdef('%u'::pg_catalog.oid) AS viewdef",
 					  tbinfo->dobj.catId.oid);
@@ -15502,7 +15502,7 @@ createViewAsClause(Archive *fout, const TableInfo *tbinfo)
 		pg_fatal("definition of view \"%s\" appears to be empty (length zero)",
 				 tbinfo->dobj.name);
 
-	/* Strip off the trailing semicolon so that other things may follow. */
+	/* 去掉尾部分号，以便其他内容可以跟随。 */
 	Assert(PQgetvalue(res, 0, 0)[len - 1] == ';');
 	appendBinaryPQExpBuffer(result, PQgetvalue(res, 0, 0), len - 1);
 
@@ -15513,12 +15513,12 @@ createViewAsClause(Archive *fout, const TableInfo *tbinfo)
 }
 
 /*
- * Create a dummy AS clause for a view.  This is used when the real view
- * definition has to be postponed because of circular dependencies.
- * We must duplicate the view's external properties -- column names and types
- * (including collation) -- so that it works for subsequent references.
- *
- * This returns a new buffer which must be freed by the caller.
+ * 为视图创建一个虚拟 AS 子句。当真实的视图定义因
+ * 循环依赖而必须推迟时使用。我们必须复制视图的外部
+ * 属性 —— 列名和类型（包括排序规则）—— 以便它能
+ * 用于后续引用。
+ * 
+ * 返回一个新的缓冲区，调用者必须释放。
  */
 static PQExpBuffer
 createDummyViewAsClause(Archive *fout, const TableInfo *tbinfo)
@@ -15537,8 +15537,8 @@ createDummyViewAsClause(Archive *fout, const TableInfo *tbinfo)
 		appendPQExpBuffer(result, "NULL::%s", tbinfo->atttypnames[j]);
 
 		/*
-		 * Must add collation if not default for the type, because CREATE OR
-		 * REPLACE VIEW won't change it
+		 * 如果排序规则不是类型的默认值，则必须添加，
+		 * 因为 CREATE OR REPLACE VIEW 不会更改它
 		 */
 		if (OidIsValid(tbinfo->attcollation[j]))
 		{
@@ -15558,7 +15558,7 @@ createDummyViewAsClause(Archive *fout, const TableInfo *tbinfo)
 
 /*
  * dumpTableSchema
- *	  write the declaration (not data) of one user-defined table or view
+ *   写出一个用户定义表或视图的声明（非数据）
  */
 static void
 dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
@@ -15570,13 +15570,13 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 	char	   *qualrelname;
 	int			numParents;
 	TableInfo **parents;
-	int			actual_atts;	/* number of attrs in this CREATE statement */
+	int			actual_atts;	/* 此 CREATE 语句中的属性数 */
 	const char *reltypename;
 	char	   *storage;
 	int			j,
 				k;
 
-	/* We had better have loaded per-column details about this table */
+	/* 我们最好已经加载了此表的每列详细信息 */
 	Assert(tbinfo->interesting);
 
 	qrelname = pg_strdup(fmtId(tbinfo->dobj.name));
@@ -15589,13 +15589,13 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 	if (dopt->binary_upgrade)
 		binary_upgrade_set_type_oids_by_rel(fout, q, tbinfo);
 
-	/* Is it a table or a view? */
+	/* 是表还是视图？ */
 	if (tbinfo->relkind == RELKIND_VIEW)
 	{
 		PQExpBuffer result;
 
 		/*
-		 * Note: keep this code in sync with the is_view case in dumpRule()
+		 * 注意：使此代码与 dumpRule() 中的 is_view 情况保持同步
 		 */
 
 		reltypename = "VIEW";
@@ -15635,8 +15635,8 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 		char	   *foreign = "";
 
 		/*
-		 * Set reltypename, and collect any relkind-specific data that we
-		 * didn't fetch during getTables().
+		 * 设置 reltypename，并收集我们在 getTables() 期间
+		 * 未获取的任何 relkind 特定数据。
 		 */
 		switch (tbinfo->relkind)
 		{
@@ -15647,7 +15647,7 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 
 					reltypename = "TABLE";
 
-					/* retrieve partition key definition */
+					/* 检索分区键定义 */
 					appendPQExpBuffer(query,
 									  "SELECT pg_get_partkeydef('%u')",
 									  tbinfo->dobj.catId.oid);
@@ -15666,7 +15666,7 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 
 					reltypename = "FOREIGN TABLE";
 
-					/* retrieve name of foreign server and generic options */
+					/* 检索外部服务器名称和通用选项 */
 					appendPQExpBuffer(query,
 									  "SELECT fs.srvname, "
 									  "pg_catalog.array_to_string(ARRAY("
@@ -15715,8 +15715,8 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 						  qualrelname);
 
 		/*
-		 * Attach to type, if reloftype; except in case of a binary upgrade,
-		 * we dump the table normally and attach it to the type afterward.
+		 * 如果是 reloftype，则附加到类型；但在二进制升级情况下，
+		 * 我们正常导出表，之后将其附加到类型。
 		 */
 		if (OidIsValid(tbinfo->reloftype) && !dopt->binary_upgrade)
 			appendPQExpBuffer(q, " OF %s",
@@ -15725,15 +15725,15 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 
 		if (tbinfo->relkind != RELKIND_MATVIEW)
 		{
-			/* Dump the attributes */
+			/* 导出属性 */
 			actual_atts = 0;
 			for (j = 0; j < tbinfo->numatts; j++)
 			{
 				/*
-				 * Normally, dump if it's locally defined in this table, and
-				 * not dropped.  But for binary upgrade, we'll dump all the
-				 * columns, and then fix up the dropped and nonlocal cases
-				 * below.
+				 * 通常，如果在本表中本地定义且未删除则导出。
+				 * 但对于二进制升级，我们将导出所有列，然后在下面
+				 * 修正已删除和非本地的情况。
+				 *
 				 */
 				if (shouldPrintColumn(dopt, tbinfo, j))
 				{
@@ -15741,32 +15741,32 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 					bool		print_notnull;
 
 					/*
-					 * Default value --- suppress if to be printed separately
-					 * or not at all.
+					 * 默认值 —— 如果要单独输出或根本不输出则抑制。
+					 *
 					 */
 					print_default = (tbinfo->attrdefs[j] != NULL &&
 									 tbinfo->attrdefs[j]->dobj.dump &&
 									 !tbinfo->attrdefs[j]->separate);
 
 					/*
-					 * Not Null constraint --- suppress if inherited, except
-					 * if partition, or in binary-upgrade case where that
-					 * won't work.
+					 * Not Null 约束 —— 如果是继承的则抑制，
+					 * 除非是分区，或在不起作用的二进制升级情况下。
+					 *
 					 */
 					print_notnull = (tbinfo->notnull[j] &&
 									 (!tbinfo->inhNotNull[j] ||
 									  tbinfo->ispartition || dopt->binary_upgrade));
 
 					/*
-					 * Skip column if fully defined by reloftype, except in
-					 * binary upgrade
+					 * 如果完全由 reloftype 定义则跳过列，
+					 * 但在二进制升级中除外
 					 */
 					if (OidIsValid(tbinfo->reloftype) &&
 						!print_default && !print_notnull &&
 						!dopt->binary_upgrade)
 						continue;
 
-					/* Format properly if not first attr */
+					/* 如果不是第一个属性则正确格式化 */
 					if (actual_atts == 0)
 						appendPQExpBufferStr(q, " (");
 					else
@@ -15774,26 +15774,26 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 					appendPQExpBufferStr(q, "\n    ");
 					actual_atts++;
 
-					/* Attribute name */
+					/* 属性名称 */
 					appendPQExpBufferStr(q, fmtId(tbinfo->attnames[j]));
 
 					if (tbinfo->attisdropped[j])
 					{
 						/*
-						 * ALTER TABLE DROP COLUMN clears
-						 * pg_attribute.atttypid, so we will not have gotten a
-						 * valid type name; insert INTEGER as a stopgap. We'll
-						 * clean things up later.
+						 * ALTER TABLE DROP COLUMN 清除 pg_attribute.atttypid，
+						 * 因此我们不会获得有效的类型名称；插入 INTEGER 作为
+						 * 权宜之计。我们稍后会清理。
+						 *
 						 */
 						appendPQExpBufferStr(q, " INTEGER /* dummy */");
-						/* and skip to the next column */
+						/* 然后跳到下一列 */
 						continue;
 					}
 
 					/*
-					 * Attribute type; print it except when creating a typed
-					 * table ('OF type_name'), but in binary-upgrade mode,
-					 * print it in that case too.
+					 * 属性类型；在创建类型化表（'OF type_name'）时不输出，
+					 * 但在二进制升级模式下也在该情况下输出。
+					 *
 					 */
 					if (dopt->binary_upgrade || !OidIsValid(tbinfo->reloftype))
 					{
@@ -15815,7 +15815,7 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 					if (print_notnull)
 						appendPQExpBufferStr(q, " NOT NULL");
 
-					/* Add collation if not default for the type */
+					/* 如果排序规则不是类型默认值则添加 */
 					if (OidIsValid(tbinfo->attcollation[j]))
 					{
 						CollInfo   *coll;
@@ -15829,12 +15829,12 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 			}
 
 			/*
-			 * Add non-inherited CHECK constraints, if any.
-			 *
-			 * For partitions, we need to include check constraints even if
-			 * they're not defined locally, because the ALTER TABLE ATTACH
-			 * PARTITION that we'll emit later expects the constraint to be
-			 * there.  (No need to fix conislocal: ATTACH PARTITION does that)
+			 * 添加非继承的 CHECK 约束（如果有）。
+			 * 
+			 * 对于分区，即使检查约束不是在本地定义的，也需要
+			 * 包含它们，因为我们稍后将发出的 ALTER TABLE ATTACH
+			 * PARTITION 期望约束存在。（不需要修正 conislocal：
+			 * ATTACH PARTITION 会处理）
 			 */
 			for (j = 0; j < tbinfo->ncheck; j++)
 			{
@@ -15861,15 +15861,15 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 			else if (!(OidIsValid(tbinfo->reloftype) && !dopt->binary_upgrade))
 			{
 				/*
-				 * No attributes? we must have a parenthesized attribute list,
-				 * even though empty, when not using the OF TYPE syntax.
+				 * 没有属性？我们必须有一个带括号的属性列表，
+				 * 即使是空的，当不使用 OF TYPE 语法时。
 				 */
 				appendPQExpBufferStr(q, " (\n)");
 			}
 
 			/*
-			 * Emit the INHERITS clause (not for partitions), except in
-			 * binary-upgrade mode.
+			 * 发出 INHERITS 子句（分区不适用），
+			 * 但在二进制升级模式下除外。
 			 */
 			if (numParents > 0 && !tbinfo->ispartition &&
 				!dopt->binary_upgrade)
@@ -15914,13 +15914,13 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 			appendPQExpBufferChar(q, ')');
 		}
 
-		/* Dump generic options if any */
+		/* 导出通用选项（如果有） */
 		if (ftoptions && ftoptions[0])
 			appendPQExpBuffer(q, "\nOPTIONS (\n    %s\n)", ftoptions);
 
 		/*
-		 * For materialized views, create the AS clause just like a view. At
-		 * this point, we always mark the view as not populated.
+		 * 对于物化视图，创建像视图一样的 AS 子句。
+		 * 此时，我们始终将视图标记为未填充。
 		 */
 		if (tbinfo->relkind == RELKIND_MATVIEW)
 		{
@@ -15934,7 +15934,7 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 		else
 			appendPQExpBufferStr(q, ";\n");
 
-		/* Materialized views can depend on extensions */
+		/* 物化视图可以依赖于扩展 */
 		if (tbinfo->relkind == RELKIND_MATVIEW)
 			append_depends_on_extension(fout, q, &tbinfo->dobj,
 										"pg_catalog.pg_class",
@@ -15942,8 +15942,8 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 										qualrelname);
 
 		/*
-		 * in binary upgrade mode, update the catalog with any missing values
-		 * that might be present.
+		 * 在二进制升级模式下，使用可能存在的任何缺失值
+		 * 更新目录。
 		 */
 		if (dopt->binary_upgrade)
 		{
@@ -15965,25 +15965,25 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 		}
 
 		/*
-		 * To create binary-compatible heap files, we have to ensure the same
-		 * physical column order, including dropped columns, as in the
-		 * original.  Therefore, we create dropped columns above and drop them
-		 * here, also updating their attlen/attalign values so that the
-		 * dropped column can be skipped properly.  (We do not bother with
-		 * restoring the original attbyval setting.)  Also, inheritance
-		 * relationships are set up by doing ALTER TABLE INHERIT rather than
-		 * using an INHERITS clause --- the latter would possibly mess up the
-		 * column order.  That also means we have to take care about setting
-		 * attislocal correctly, plus fix up any inherited CHECK constraints.
-		 * Analogously, we set up typed tables using ALTER TABLE / OF here.
+		 * 要创建二进制兼容的堆文件，我们必须确保相同的
+		 * 物理列顺序，包括已删除的列，与原始相同。因此，
+		 * 我们在上面创建已删除的列并在此处删除它们，
+		 * 同时更新它们的 attlen/attalign 值，以便已删除的
+		 * 列可以被正确跳过。（我们不费心恢复原始的
+		 * attbyval 设置。）此外，继承关系是通过执行
+		 * ALTER TABLE INHERIT 而不是使用 INHERITS 子句来建立的
+		 * —— 后者可能会搞乱列顺序。这也意味着我们必须注意
+		 * 正确设置 attislocal，并修正任何继承的 CHECK 约束。
+		 * 类似地，我们使用 ALTER TABLE / OF 在此处设置类型化表。
+		 * 
+		 * 我们在此处理外部表和分区表，尽管它们缺乏堆存储，
+		 * 因为它们可以参与继承关系，并且我们希望这些
+		 * 在继承树中保持一致。我们可以排除索引、TOAST 表、
+		 * 序列和物化视图，即使它们有存储，因为我们不支持
+		 * 在其中更改或删除列，也不能成为继承树的一部分。
 		 *
-		 * We process foreign and partitioned tables here, even though they
-		 * lack heap storage, because they can participate in inheritance
-		 * relationships and we want this stuff to be consistent across the
-		 * inheritance tree.  We can exclude indexes, toast tables, sequences
-		 * and matviews, even though they have storage, because we don't
-		 * support altering or dropping columns in them, nor can they be part
-		 * of inheritance trees.
+		 *
+		 *
 		 */
 		if (dopt->binary_upgrade &&
 			(tbinfo->relkind == RELKIND_RELATION ||
@@ -16030,10 +16030,10 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 			}
 
 			/*
-			 * Add inherited CHECK constraints, if any.
+			 * 添加继承的 CHECK 约束（如果有）。
+			 * 
+			 * 对于分区，它们已经导出，且 conislocal 不需要修正。
 			 *
-			 * For partitions, they were already dumped, and conislocal
-			 * doesn't need fixing.
 			 */
 			for (k = 0; k < tbinfo->ncheck; k++)
 			{
@@ -16080,11 +16080,11 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 		}
 
 		/*
-		 * In binary_upgrade mode, arrange to restore the old relfrozenxid and
-		 * relminmxid of all vacuumable relations.  (While vacuum.c processes
-		 * TOAST tables semi-independently, here we see them only as children
-		 * of other relations; so this "if" lacks RELKIND_TOASTVALUE, and the
-		 * child toast table is handled below.)
+		 * 在二进制升级模式下，安排恢复所有可 vacuum 的关系
+		 * 的旧 relfrozenxid 和 relminmxid。（虽然 vacuum.c
+		 * 半独立地处理 TOAST 表，但这里我们只将它们视为
+		 * 其他关系的子表；因此此 "if" 缺少 RELKIND_TOASTVALUE，
+		 * 并且子 TOAST 表在下面处理。）
 		 */
 		if (dopt->binary_upgrade &&
 			(tbinfo->relkind == RELKIND_RELATION ||
@@ -16101,8 +16101,8 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 			if (tbinfo->toast_oid)
 			{
 				/*
-				 * The toast table will have the same OID at restore, so we
-				 * can safely target it by OID.
+				 * TOAST 表在恢复时具有相同的 OID，因此我们可以
+				 * 安全地按 OID 定位它。
 				 */
 				appendPQExpBufferStr(q, "\n-- For binary upgrade, set toast's relfrozenxid and relminmxid\n");
 				appendPQExpBuffer(q, "UPDATE pg_catalog.pg_class\n"
@@ -16114,11 +16114,11 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 		}
 
 		/*
-		 * In binary_upgrade mode, restore matviews' populated status by
-		 * poking pg_class directly.  This is pretty ugly, but we can't use
-		 * REFRESH MATERIALIZED VIEW since it's possible that some underlying
-		 * matview is not populated even though this matview is; in any case,
-		 * we want to transfer the matview's heap storage, not run REFRESH.
+		 * 在二进制升级模式下，通过直接修改 pg_class 来恢复
+		 * 物化视图的填充状态。这相当丑陋，但我们不能使用
+		 * REFRESH MATERIALIZED VIEW，因为即使此物化视图已填充，
+		 * 某些底层物化视图可能未填充；无论如何，我们想传输
+		 * 物化视图的堆存储，而不是运行 REFRESH。
 		 */
 		if (dopt->binary_upgrade && tbinfo->relkind == RELKIND_MATVIEW &&
 			tbinfo->relispopulated)
@@ -16132,19 +16132,19 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 		}
 
 		/*
-		 * Dump additional per-column properties that we can't handle in the
-		 * main CREATE TABLE command.
+		 * 导出在主 CREATE TABLE 命令中无法处理的附加每列属性。
+		 *
 		 */
 		for (j = 0; j < tbinfo->numatts; j++)
 		{
-			/* None of this applies to dropped columns */
+			/* 这些都不适用于已删除的列 */
 			if (tbinfo->attisdropped[j])
 				continue;
 
 			/*
-			 * If we didn't dump the column definition explicitly above, and
-			 * it is NOT NULL and did not inherit that property from a parent,
-			 * we have to mark it separately.
+			 * 如果我们在上面没有显式导出列定义，并且它是
+			 * NOT NULL 且未从父表继承该属性，则必须单独标记。
+			 *
 			 */
 			if (!shouldPrintColumn(dopt, tbinfo, j) &&
 				tbinfo->notnull[j] && !tbinfo->inhNotNull[j])
@@ -16154,9 +16154,9 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 								  fmtId(tbinfo->attnames[j]));
 
 			/*
-			 * Dump per-column statistics information. We only issue an ALTER
-			 * TABLE statement if the attstattarget entry for this column is
-			 * non-negative (i.e. it's not the default value)
+			 * 导出每列统计信息。我们仅在列的 attstattarget
+			 * 条目为非负值时发出 ALTER TABLE 语句
+			 * （即它不是默认值）
 			 */
 			if (tbinfo->attstattarget[j] >= 0)
 				appendPQExpBuffer(q, "ALTER %sTABLE ONLY %s ALTER COLUMN %s SET STATISTICS %d;\n",
@@ -16165,8 +16165,8 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 								  tbinfo->attstattarget[j]);
 
 			/*
-			 * Dump per-column storage information.  The statement is only
-			 * dumped if the storage has been changed from the type's default.
+			 * 导出每列存储信息。仅在存储已从类型默认值
+			 * 更改时才导出该语句。
 			 */
 			if (tbinfo->attstorage[j] != tbinfo->typstorage[j])
 			{
@@ -16189,7 +16189,7 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 				}
 
 				/*
-				 * Only dump the statement if it's a storage type we recognize
+				 * 仅在我们识别的存储类型时才导出该语句
 				 */
 				if (storage != NULL)
 					appendPQExpBuffer(q, "ALTER %sTABLE ONLY %s ALTER COLUMN %s SET STORAGE %s;\n",
@@ -16199,7 +16199,7 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 			}
 
 			/*
-			 * Dump per-column compression, if it's been set.
+			 * 导出每列压缩设置（如果有）。
 			 */
 			if (!dopt->no_toast_compression)
 			{
@@ -16226,7 +16226,7 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 			}
 
 			/*
-			 * Dump per-column attributes.
+			 * 导出每列属性。
 			 */
 			if (tbinfo->attoptions[j][0] != '\0')
 				appendPQExpBuffer(q, "ALTER %sTABLE ONLY %s ALTER COLUMN %s SET (%s);\n",
@@ -16235,7 +16235,7 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 								  tbinfo->attoptions[j]);
 
 			/*
-			 * Dump per-column fdw options.
+			 * 导出每列 FDW 选项。
 			 */
 			if (tbinfo->relkind == RELKIND_FOREIGN_TABLE &&
 				tbinfo->attfdwoptions[j][0] != '\0')
@@ -16246,7 +16246,7 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 								  qualrelname,
 								  fmtId(tbinfo->attnames[j]),
 								  tbinfo->attfdwoptions[j]);
-		}						/* end loop over columns */
+		}						/* 结束列循环 */
 
 		free(partkeydef);
 		free(ftoptions);
@@ -16254,7 +16254,7 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 	}
 
 	/*
-	 * dump properties we only have ALTER TABLE syntax for
+	 * 导出我们只有 ALTER TABLE 语法的属性
 	 */
 	if ((tbinfo->relkind == RELKIND_RELATION ||
 		 tbinfo->relkind == RELKIND_PARTITIONED_TABLE ||
@@ -16263,7 +16263,7 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 	{
 		if (tbinfo->relreplident == REPLICA_IDENTITY_INDEX)
 		{
-			/* nothing to do, will be set when the index is dumped */
+			/* 无需处理，将在导出索引时设置 */
 		}
 		else if (tbinfo->relreplident == REPLICA_IDENTITY_NOTHING)
 		{
@@ -16292,11 +16292,11 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 		char	   *tableam = NULL;
 
 		/*
-		 * _selectTablespace() relies on tablespace-enabled objects in the
-		 * default tablespace to have a tablespace of "" (empty string) versus
-		 * non-tablespace-enabled objects to have a tablespace of NULL.
-		 * getTables() sets tbinfo->reltablespace to "" for the default
-		 * tablespace (not NULL).
+		 * _selectTablespace() 依赖默认表空间中的表空间启用对象
+		 * 具有 ""（空字符串）的表空间，而非表空间启用对象具有
+		 * NULL 的表空间。getTables() 将默认表空间的
+		 * tbinfo->reltablespace 设置为 ""（而非 NULL）。
+		 *
 		 */
 		if (RELKIND_HAS_TABLESPACE(tbinfo->relkind))
 			tablespace = tbinfo->reltablespace;
@@ -16317,15 +16317,15 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 								  .dropStmt = delq->data));
 	}
 
-	/* Dump Table Comments */
+	/* 导出表注释 */
 	if (tbinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpTableComment(fout, tbinfo, reltypename);
 
-	/* Dump Table Security Labels */
+	/* 导出表安全标签 */
 	if (tbinfo->dobj.dump & DUMP_COMPONENT_SECLABEL)
 		dumpTableSecLabel(fout, tbinfo, reltypename);
 
-	/* Dump comments on inlined table constraints */
+	/* 导出内联表约束的注释 */
 	for (j = 0; j < tbinfo->ncheck; j++)
 	{
 		ConstraintInfo *constr = &(tbinfo->checkexprs[j]);
@@ -16345,18 +16345,18 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 
 /*
  * dumpTableAttach
- *	  write to fout the commands to attach a child partition
+ *   向 fout 写入附加子分区的命令
+ * 
+ * 子分区总是通过单独创建然后使用 ATTACH PARTITION 来创建，
+ * 而不是使用 CREATE TABLE ... PARTITION OF。这对于保留列布局
+ * 中任何可能的差异很重要，允许在表空间不同时分配正确的
+ * 表空间，并且可以在不恢复父表的情况下恢复分区。
+ * （你会从 ATTACH PARTITION 命令收到错误，但可以忽略，
+ * 或者如果你愿意，可以使用 "pg_restore -L" 跳过。）
+ * 最后一点促使将 ATTACH PARTITION 视为完全独立的
+ * ArchiveEntry，而不是在子分区的 ArchiveEntry 中发出。
  *
- * Child partitions are always made by creating them separately
- * and then using ATTACH PARTITION, rather than using
- * CREATE TABLE ... PARTITION OF.  This is important for preserving
- * any possible discrepancy in column layout, to allow assigning the
- * correct tablespace if different, and so that it's possible to restore
- * a partition without restoring its parent.  (You'll get an error from
- * the ATTACH PARTITION command, but that can be ignored, or skipped
- * using "pg_restore -L" if you prefer.)  The last point motivates
- * treating ATTACH PARTITION as a completely separate ArchiveEntry
- * rather than emitting it within the child partition's ArchiveEntry.
+ *
  */
 static void
 dumpTableAttach(Archive *fout, const TableAttachInfo *attachinfo)
@@ -16366,7 +16366,7 @@ dumpTableAttach(Archive *fout, const TableAttachInfo *attachinfo)
 	PGresult   *res;
 	char	   *partbound;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -16374,7 +16374,7 @@ dumpTableAttach(Archive *fout, const TableAttachInfo *attachinfo)
 
 	if (!fout->is_prepared[PREPQUERY_DUMPTABLEATTACH])
 	{
-		/* Set up query for partbound details */
+		/* 设置查询以获取 partbound 详细信息 */
 		appendPQExpBufferStr(q,
 							 "PREPARE dumpTableAttach(pg_catalog.oid) AS\n");
 
@@ -16395,7 +16395,7 @@ dumpTableAttach(Archive *fout, const TableAttachInfo *attachinfo)
 	res = ExecuteSqlQueryForSingleRow(fout, q->data);
 	partbound = PQgetvalue(res, 0, 0);
 
-	/* Perform ALTER TABLE on the parent */
+	/* 对父表执行 ALTER TABLE */
 	printfPQExpBuffer(q,
 					  "ALTER TABLE ONLY %s ",
 					  fmtQualifiedDumpable(attachinfo->parentTbl));
@@ -16405,11 +16405,11 @@ dumpTableAttach(Archive *fout, const TableAttachInfo *attachinfo)
 					  partbound);
 
 	/*
-	 * There is no point in creating a drop query as the drop is done by table
-	 * drop.  (If you think to change this, see also _printTocEntry().)
-	 * Although this object doesn't really have ownership as such, set the
-	 * owner field anyway to ensure that the command is run by the correct
-	 * role at restore time.
+	 * 创建 drop 查询没有意义，因为 drop 是由表 drop 完成的。
+	 * （如果你考虑更改这一点，也请参见 _printTocEntry()。）
+	 * 虽然此对象实际上没有这样的所有权，但还是设置 owner 字段
+	 * 以确保命令在恢复时由正确的角色运行。
+	 *
 	 */
 	ArchiveEntry(fout, attachinfo->dobj.catId, attachinfo->dobj.dumpId,
 				 ARCHIVE_OPTS(.tag = attachinfo->dobj.name,
@@ -16424,7 +16424,7 @@ dumpTableAttach(Archive *fout, const TableAttachInfo *attachinfo)
 }
 
 /*
- * dumpAttrDef --- dump an attribute's default-value declaration
+ * dumpAttrDef --- 导出属性的默认值声明
  */
 static void
 dumpAttrDef(Archive *fout, const AttrDefInfo *adinfo)
@@ -16438,11 +16438,11 @@ dumpAttrDef(Archive *fout, const AttrDefInfo *adinfo)
 	char	   *tag;
 	char	   *foreign;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
-	/* Skip if not "separate"; it was dumped in the table's definition */
+	/* 如果不是 "separate" 则跳过；它已在表定义中导出 */
 	if (!adinfo->separate)
 		return;
 
@@ -16481,11 +16481,11 @@ dumpAttrDef(Archive *fout, const AttrDefInfo *adinfo)
 }
 
 /*
- * getAttrName: extract the correct name for an attribute
- *
- * The array tblInfo->attnames[] only provides names of user attributes;
- * if a system attribute number is supplied, we have to fake it.
- * We also do a little bit of bounds checking for safety's sake.
+ * getAttrName: 提取属性的正确名称
+ * 
+ * 数组 tblInfo->attnames[] 仅提供用户属性的名称；
+ * 如果提供了系统属性号，我们必须伪造它。
+ * 我们还做了一点边界检查以确保安全。
  */
 static const char *
 getAttrName(int attrnum, const TableInfo *tblInfo)
@@ -16509,12 +16509,12 @@ getAttrName(int attrnum, const TableInfo *tblInfo)
 	}
 	pg_fatal("invalid column number %d for table \"%s\"",
 			 attrnum, tblInfo->dobj.name);
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 使编译器保持安静 */
 }
 
 /*
  * dumpIndex
- *	  write out to fout a user-defined index
+ *   向 fout 写出用户定义的索引
  */
 static void
 dumpIndex(Archive *fout, const IndxInfo *indxinfo)
@@ -16527,7 +16527,7 @@ dumpIndex(Archive *fout, const IndxInfo *indxinfo)
 	char	   *qindxname;
 	char	   *qqindxname;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -16538,11 +16538,11 @@ dumpIndex(Archive *fout, const IndxInfo *indxinfo)
 	qqindxname = pg_strdup(fmtQualifiedDumpable(indxinfo));
 
 	/*
-	 * If there's an associated constraint, don't dump the index per se, but
-	 * do dump any comment for it.  (This is safe because dependency ordering
-	 * will have ensured the constraint is emitted first.)	Note that the
-	 * emitted comment has to be shown as depending on the constraint, not the
-	 * index, in such cases.
+	 * 如果有关联的约束，则不导出索引本身，
+	 * 但导出其任何注释。（这是安全的，因为依赖排序
+	 * 将确保约束先被发出。）注意，在这种情况下，
+	 * 发出的注释必须显示为依赖于约束，而非索引。
+	 *
 	 */
 	if (!is_constraint)
 	{
@@ -16557,28 +16557,28 @@ dumpIndex(Archive *fout, const IndxInfo *indxinfo)
 			binary_upgrade_set_pg_class_oids(fout, q,
 											 indxinfo->dobj.catId.oid, true);
 
-		/* Plain secondary index */
+		/* 普通次级索引 */
 		appendPQExpBuffer(q, "%s;\n", indxinfo->indexdef);
 
 		/*
-		 * Append ALTER TABLE commands as needed to set properties that we
-		 * only have ALTER TABLE syntax for.  Keep this in sync with the
-		 * similar code in dumpConstraint!
+		 * 根据需要附加 ALTER TABLE 命令以设置我们只有
+		 * ALTER TABLE 语法的属性。使此代码与 dumpConstraint
+		 * 中的类似代码保持同步！
 		 */
 
-		/* If the index is clustered, we need to record that. */
+		/* 如果索引是聚集的，我们需要记录这一点。 */
 		if (indxinfo->indisclustered)
 		{
 			appendPQExpBuffer(q, "\nALTER TABLE %s CLUSTER",
 							  fmtQualifiedDumpable(tbinfo));
-			/* index name is not qualified in this syntax */
+			/* 索引名在此语法中不限定 */
 			appendPQExpBuffer(q, " ON %s;\n",
 							  qindxname);
 		}
 
 		/*
-		 * If the index has any statistics on some of its columns, generate
-		 * the associated ALTER INDEX queries.
+		 * 如果索引在某些列上有统计信息，
+		 * 生成关联的 ALTER INDEX 查询。
 		 */
 		if (strlen(indstatcols) != 0 || strlen(indstatvals) != 0)
 		{
@@ -16596,8 +16596,8 @@ dumpIndex(Archive *fout, const IndxInfo *indxinfo)
 				appendPQExpBuffer(q, "ALTER INDEX %s ", qqindxname);
 
 				/*
-				 * Note that this is a column number, so no quotes should be
-				 * used.
+				 * 注意，这是列号，因此不应使用引号。
+				 *
 				 */
 				appendPQExpBuffer(q, "ALTER COLUMN %s ",
 								  indstatcolsarray[j]);
@@ -16606,29 +16606,29 @@ dumpIndex(Archive *fout, const IndxInfo *indxinfo)
 			}
 		}
 
-		/* Indexes can depend on extensions */
+		/* 索引可以依赖于扩展 */
 		append_depends_on_extension(fout, q, &indxinfo->dobj,
 									"pg_catalog.pg_class",
 									"INDEX", qqindxname);
 
-		/* If the index defines identity, we need to record that. */
+		/* 如果索引定义身份，我们需要记录这一点。 */
 		if (indxinfo->indisreplident)
 		{
 			appendPQExpBuffer(q, "\nALTER TABLE ONLY %s REPLICA IDENTITY USING",
 							  fmtQualifiedDumpable(tbinfo));
-			/* index name is not qualified in this syntax */
+			/* 索引名在此语法中不限定 */
 			appendPQExpBuffer(q, " INDEX %s;\n",
 							  qindxname);
 		}
 
 		/*
-		 * If this index is a member of a partitioned index, the backend will
-		 * not allow us to drop it separately, so don't try.  It will go away
-		 * automatically when we drop either the index's table or the
-		 * partitioned index.  (If, in a selective restore with --clean, we
-		 * drop neither of those, then this index will not be dropped either.
-		 * But that's fine, and even if you think it's not, the backend won't
-		 * let us do differently.)
+		 * 如果此索引是分区索引的成员，后端将不允许我们
+		 * 单独删除它，因此不要尝试。当我们删除索引的表或
+		 * 分区索引时，它会自动消失。（如果在使用 --clean 的
+		 * 选择性恢复中，我们都不删除这两者，那么此索引也不会
+		 * 被删除。但这没关系，即使你认为不好，后端也不会
+		 * 允许我们以其他方式操作。）
+		 *
 		 */
 		if (indxinfo->parentidx == 0)
 			appendPQExpBuffer(delq, "DROP INDEX %s;\n", qqindxname);
@@ -16648,7 +16648,7 @@ dumpIndex(Archive *fout, const IndxInfo *indxinfo)
 		free(indstatvalsarray);
 	}
 
-	/* Dump Index Comments */
+	/* 导出索引注释 */
 	if (indxinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "INDEX", qindxname,
 					tbinfo->dobj.namespace->dobj.name,
@@ -16665,12 +16665,12 @@ dumpIndex(Archive *fout, const IndxInfo *indxinfo)
 
 /*
  * dumpIndexAttach
- *	  write out to fout a partitioned-index attachment clause
+ *   向 fout 写出分区索引附加子句
  */
 static void
 dumpIndexAttach(Archive *fout, const IndexAttachInfo *attachinfo)
 {
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (fout->dopt->dataOnly)
 		return;
 
@@ -16684,15 +16684,15 @@ dumpIndexAttach(Archive *fout, const IndexAttachInfo *attachinfo)
 						  fmtQualifiedDumpable(attachinfo->partitionIdx));
 
 		/*
-		 * There is no need for a dropStmt since the drop is done implicitly
-		 * when we drop either the index's table or the partitioned index.
-		 * Moreover, since there's no ALTER INDEX DETACH PARTITION command,
-		 * there's no way to do it anyway.  (If you think to change this,
-		 * consider also what to do with --if-exists.)
+		 * 不需要 dropStmt，因为当我们删除索引的表或分区索引时
+		 * drop 是隐式完成的。此外，由于没有
+		 * ALTER INDEX DETACH PARTITION 命令，无论如何也无法执行。
+		 * （如果你考虑更改这一点，也请考虑如何处理 --if-exists。）
+		 * 
+		 * 虽然此对象实际上没有这样的所有权，但还是设置 owner 字段
+		 * 以确保命令在恢复时由正确的角色运行。
 		 *
-		 * Although this object doesn't really have ownership as such, set the
-		 * owner field anyway to ensure that the command is run by the correct
-		 * role at restore time.
+		 *
 		 */
 		ArchiveEntry(fout, attachinfo->dobj.catId, attachinfo->dobj.dumpId,
 					 ARCHIVE_OPTS(.tag = attachinfo->dobj.name,
@@ -16708,7 +16708,7 @@ dumpIndexAttach(Archive *fout, const IndexAttachInfo *attachinfo)
 
 /*
  * dumpStatisticsExt
- *	  write out to fout an extended statistics object
+ *   向 fout 写出扩展统计对象
  */
 static void
 dumpStatisticsExt(Archive *fout, const StatsExtInfo *statsextinfo)
@@ -16721,7 +16721,7 @@ dumpStatisticsExt(Archive *fout, const StatsExtInfo *statsextinfo)
 	PGresult   *res;
 	char	   *stxdef;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -16739,13 +16739,13 @@ dumpStatisticsExt(Archive *fout, const StatsExtInfo *statsextinfo)
 
 	stxdef = PQgetvalue(res, 0, 0);
 
-	/* Result of pg_get_statisticsobjdef is complete except for semicolon */
+	/* pg_get_statisticsobjdef 的结果除分号外是完整的 */
 	appendPQExpBuffer(q, "%s;\n", stxdef);
 
 	/*
-	 * We only issue an ALTER STATISTICS statement if the stxstattarget entry
-	 * for this statistics object is non-negative (i.e. it's not the default
-	 * value).
+	 * 我们仅在此统计对象的 stxstattarget 条目为非负时
+	 * 发出 ALTER STATISTICS 语句（即它不是默认值）。
+	 *
 	 */
 	if (statsextinfo->stattarget >= 0)
 	{
@@ -16769,7 +16769,7 @@ dumpStatisticsExt(Archive *fout, const StatsExtInfo *statsextinfo)
 								  .createStmt = q->data,
 								  .dropStmt = delq->data));
 
-	/* Dump Statistics Comments */
+	/* 导出统计注释 */
 	if (statsextinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "STATISTICS", qstatsextname,
 					statsextinfo->dobj.namespace->dobj.name,
@@ -16786,7 +16786,7 @@ dumpStatisticsExt(Archive *fout, const StatsExtInfo *statsextinfo)
 
 /*
  * dumpConstraint
- *	  write out to fout a user-defined constraint
+ *   向 fout 写出用户定义的约束
  */
 static void
 dumpConstraint(Archive *fout, const ConstraintInfo *coninfo)
@@ -16798,7 +16798,7 @@ dumpConstraint(Archive *fout, const ConstraintInfo *coninfo)
 	char	   *tag = NULL;
 	char	   *foreign;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -16812,7 +16812,7 @@ dumpConstraint(Archive *fout, const ConstraintInfo *coninfo)
 		coninfo->contype == 'u' ||
 		coninfo->contype == 'x')
 	{
-		/* Index-related constraint */
+		/* 与索引相关的约束 */
 		IndxInfo   *indxinfo;
 		int			k;
 
@@ -16833,7 +16833,7 @@ dumpConstraint(Archive *fout, const ConstraintInfo *coninfo)
 
 		if (coninfo->condef)
 		{
-			/* pg_get_constraintdef should have provided everything */
+			/* pg_get_constraintdef 应该提供了所有内容 */
 			appendPQExpBuffer(q, "%s;\n", coninfo->condef);
 		}
 		else
@@ -16842,10 +16842,10 @@ dumpConstraint(Archive *fout, const ConstraintInfo *coninfo)
 								 coninfo->contype == 'p' ? "PRIMARY KEY" : "UNIQUE");
 
 			/*
-			 * PRIMARY KEY constraints should not be using NULLS NOT DISTINCT
-			 * indexes. Being able to create this was fixed, but we need to
-			 * make the index distinct in order to be able to restore the
-			 * dump.
+			 * PRIMARY KEY 约束不应使用 NULLS NOT DISTINCT 索引。
+			 * 能够创建这一点已得到修复，但我们需要使索引为
+			 * DISTINCT 才能恢复导出。
+			 *
 			 */
 			if (indxinfo->indnullsnotdistinct && coninfo->contype != 'p')
 				appendPQExpBufferStr(q, " NULLS NOT DISTINCT");
@@ -16901,32 +16901,32 @@ dumpConstraint(Archive *fout, const ConstraintInfo *coninfo)
 		}
 
 		/*
-		 * Append ALTER TABLE commands as needed to set properties that we
-		 * only have ALTER TABLE syntax for.  Keep this in sync with the
-		 * similar code in dumpIndex!
+		 * 根据需要附加 ALTER TABLE 命令以设置我们只有
+		 * ALTER TABLE 语法的属性。使此代码与 dumpIndex
+		 * 中的类似代码保持同步！
 		 */
 
-		/* If the index is clustered, we need to record that. */
+		/* 如果索引是聚集的，我们需要记录这一点。 */
 		if (indxinfo->indisclustered)
 		{
 			appendPQExpBuffer(q, "\nALTER TABLE %s CLUSTER",
 							  fmtQualifiedDumpable(tbinfo));
-			/* index name is not qualified in this syntax */
+			/* 索引名在此语法中不限定 */
 			appendPQExpBuffer(q, " ON %s;\n",
 							  fmtId(indxinfo->dobj.name));
 		}
 
-		/* If the index defines identity, we need to record that. */
+		/* 如果索引定义身份，我们需要记录这一点。 */
 		if (indxinfo->indisreplident)
 		{
 			appendPQExpBuffer(q, "\nALTER TABLE ONLY %s REPLICA IDENTITY USING",
 							  fmtQualifiedDumpable(tbinfo));
-			/* index name is not qualified in this syntax */
+			/* 索引名在此语法中不限定 */
 			appendPQExpBuffer(q, " INDEX %s;\n",
 							  fmtId(indxinfo->dobj.name));
 		}
 
-		/* Indexes can depend on extensions */
+		/* 索引可以依赖于扩展 */
 		append_depends_on_extension(fout, q, &indxinfo->dobj,
 									"pg_catalog.pg_class", "INDEX",
 									fmtQualifiedDumpable(indxinfo));
@@ -16954,16 +16954,16 @@ dumpConstraint(Archive *fout, const ConstraintInfo *coninfo)
 		char	   *only;
 
 		/*
-		 * Foreign keys on partitioned tables are always declared as
-		 * inheriting to partitions; for all other cases, emit them as
-		 * applying ONLY directly to the named table, because that's how they
-		 * work for regular inherited tables.
+		 * 分区表上的外键始终声明为继承到分区；
+		 * 对于所有其他情况，将它们发出为仅直接应用于
+		 * 指定表，因为这就是它们对常规继承表的工作方式。
+		 *
 		 */
 		only = tbinfo->relkind == RELKIND_PARTITIONED_TABLE ? "" : "ONLY ";
 
 		/*
-		 * XXX Potentially wrap in a 'SET CONSTRAINTS OFF' block so that the
-		 * current table data is not processed
+		 * XXX 可能包装在 'SET CONSTRAINTS OFF' 块中，
+		 * 以便不处理当前表数据
 		 */
 		appendPQExpBuffer(q, "ALTER %sTABLE %s%s\n", foreign,
 						  only, fmtQualifiedDumpable(tbinfo));
@@ -16990,12 +16990,12 @@ dumpConstraint(Archive *fout, const ConstraintInfo *coninfo)
 	}
 	else if (coninfo->contype == 'c' && tbinfo)
 	{
-		/* CHECK constraint on a table */
+		/* 表上的 CHECK 约束 */
 
-		/* Ignore if not to be dumped separately, or if it was inherited */
+		/* 如果不是单独导出的或如果是继承的则忽略 */
 		if (coninfo->separate && coninfo->conislocal)
 		{
-			/* not ONLY since we want it to propagate to children */
+			/* 不是 ONLY，因为我们希望它传播到子表 */
 			appendPQExpBuffer(q, "ALTER %sTABLE %s\n", foreign,
 							  fmtQualifiedDumpable(tbinfo));
 			appendPQExpBuffer(q, "    ADD CONSTRAINT %s %s;\n",
@@ -17022,10 +17022,10 @@ dumpConstraint(Archive *fout, const ConstraintInfo *coninfo)
 	}
 	else if (coninfo->contype == 'c' && tbinfo == NULL)
 	{
-		/* CHECK constraint on a domain */
+		/* 域上的 CHECK 约束 */
 		TypeInfo   *tyinfo = coninfo->condomain;
 
-		/* Ignore if not to be dumped separately */
+		/* 如果不是单独导出的则忽略 */
 		if (coninfo->separate)
 		{
 			appendPQExpBuffer(q, "ALTER DOMAIN %s\n",
@@ -17074,7 +17074,7 @@ dumpConstraint(Archive *fout, const ConstraintInfo *coninfo)
 				 coninfo->contype);
 	}
 
-	/* Dump Constraint Comments --- only works for table constraints */
+	/* 导出约束注释 --- 仅适用于表约束 */
 	if (tbinfo && coninfo->separate &&
 		coninfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpTableConstraintComment(fout, coninfo);
@@ -17085,11 +17085,11 @@ dumpConstraint(Archive *fout, const ConstraintInfo *coninfo)
 }
 
 /*
- * dumpTableConstraintComment --- dump a constraint's comment if any
- *
- * This is split out because we need the function in two different places
- * depending on whether the constraint is dumped as part of CREATE TABLE
- * or as a separate ALTER command.
+ * dumpTableConstraintComment --- 导出约束的注释（如果有）
+ * 
+ * 将其分离出来是因为我们在两个不同的地方需要该函数，
+ * 具体取决于约束是作为 CREATE TABLE 的一部分导出
+ * 还是作为单独的 ALTER 命令导出。
  */
 static void
 dumpTableConstraintComment(Archive *fout, const ConstraintInfo *coninfo)
@@ -17116,7 +17116,7 @@ dumpTableConstraintComment(Archive *fout, const ConstraintInfo *coninfo)
 
 /*
  * dumpSequence
- *	  write the declaration (not data) of one user-defined sequence
+ *   写出一个用户定义序列的声明（非数据）
  */
 static void
 dumpSequence(Archive *fout, const TableInfo *tbinfo)
@@ -17156,10 +17156,10 @@ dumpSequence(Archive *fout, const TableInfo *tbinfo)
 	else
 	{
 		/*
-		 * Before PostgreSQL 10, sequence metadata is in the sequence itself.
-		 *
-		 * Note: it might seem that 'bigint' potentially needs to be
-		 * schema-qualified, but actually that's a keyword.
+		 * 在 PostgreSQL 10 之前，序列元数据位于序列自身中。
+		 * 
+		 * 注意：可能看起来 'bigint' 可能需要模式限定，
+		 * 但实际上它是一个关键字。
 		 */
 		appendPQExpBuffer(query,
 						  "SELECT 'bigint' AS sequence_type, "
@@ -17184,7 +17184,7 @@ dumpSequence(Archive *fout, const TableInfo *tbinfo)
 	cache = PQgetvalue(res, 0, 5);
 	cycled = (strcmp(PQgetvalue(res, 0, 6), "t") == 0);
 
-	/* Calculate default limits for a sequence of this type */
+	/* 计算此类型序列的默认限制 */
 	is_ascending = (incby[0] != '-');
 	if (strcmp(seqtype, "smallint") == 0)
 	{
@@ -17204,24 +17204,24 @@ dumpSequence(Archive *fout, const TableInfo *tbinfo)
 	else
 	{
 		pg_fatal("unrecognized sequence type: %s", seqtype);
-		default_minv = default_maxv = 0;	/* keep compiler quiet */
+		default_minv = default_maxv = 0;	/* 使编译器保持安静 */
 	}
 
 	/*
-	 * 64-bit strtol() isn't very portable, so convert the limits to strings
-	 * and compare that way.
+	 * 64 位 strtol() 的可移植性不太好，因此将限制转换为
+	 * 字符串并以此方式进行比较。
 	 */
 	snprintf(bufm, sizeof(bufm), INT64_FORMAT, default_minv);
 	snprintf(bufx, sizeof(bufx), INT64_FORMAT, default_maxv);
 
-	/* Don't print minv/maxv if they match the respective default limit */
+	/* 如果 minv/maxv 匹配相应的默认限制则不输出 */
 	if (strcmp(minv, bufm) == 0)
 		minv = NULL;
 	if (strcmp(maxv, bufx) == 0)
 		maxv = NULL;
 
 	/*
-	 * Identity sequences are not to be dropped separately.
+	 * 标识序列不应单独删除。
 	 */
 	if (!tbinfo->is_identity_sequence)
 	{
@@ -17237,8 +17237,8 @@ dumpSequence(Archive *fout, const TableInfo *tbinfo)
 										 tbinfo->dobj.catId.oid, false);
 
 		/*
-		 * In older PG versions a sequence will have a pg_type entry, but v14
-		 * and up don't use that, so don't attempt to preserve the type OID.
+		 * 在较旧的 PG 版本中，序列将有一个 pg_type 条目，
+		 * 但 v14 及以上版本不使用它，因此不要尝试保留类型 OID。
 		 */
 	}
 
@@ -17260,8 +17260,8 @@ dumpSequence(Archive *fout, const TableInfo *tbinfo)
 						  fmtQualifiedDumpable(tbinfo));
 
 		/*
-		 * Emit persistence option only if it's different from the owning
-		 * table's.  This avoids using this new syntax unnecessarily.
+		 * 仅在持久性选项与拥有表不同时才发出。
+		 * 这避免了不必要地使用此新语法。
 		 */
 		if (tbinfo->relpersistence != owning_tab->relpersistence)
 			appendPQExpBuffer(query, "    %s\n",
@@ -17303,7 +17303,7 @@ dumpSequence(Archive *fout, const TableInfo *tbinfo)
 	else
 		appendPQExpBufferStr(query, ";\n");
 
-	/* binary_upgrade:	no need to clear TOAST table oid */
+	/* 二进制升级：不需要清除 TOAST 表 OID */
 
 	if (dopt->binary_upgrade)
 		binary_upgrade_extension_member(query, &tbinfo->dobj,
@@ -17321,16 +17321,16 @@ dumpSequence(Archive *fout, const TableInfo *tbinfo)
 								  .dropStmt = delqry->data));
 
 	/*
-	 * If the sequence is owned by a table column, emit the ALTER for it as a
-	 * separate TOC entry immediately following the sequence's own entry. It's
-	 * OK to do this rather than using full sorting logic, because the
-	 * dependency that tells us it's owned will have forced the table to be
-	 * created first.  We can't just include the ALTER in the TOC entry
-	 * because it will fail if we haven't reassigned the sequence owner to
-	 * match the table's owner.
+	 * 如果序列由表列拥有，则为其发出 ALTER 作为单独的
+	 * TOC 条目，紧跟在序列自己的条目之后。这样做而不是
+	 * 使用完全排序逻辑是可以的，因为告诉我们它被拥有的
+	 * 依赖关系将强制先创建表。我们不能只是将 ALTER 包含
+	 * 在 TOC 条目中，因为如果我们尚未重新分配序列所有者
+	 * 以匹配表的所有者，它会失败。
+	 * 
+	 * 我们不需要对表引用进行模式限定，因为序列和表
+	 * 必须在同一模式中。
 	 *
-	 * We need not schema-qualify the table reference because both sequence
-	 * and table must be in the same schema.
 	 */
 	if (OidIsValid(tbinfo->owning_tab) && !tbinfo->is_identity_sequence)
 	{
@@ -17363,7 +17363,7 @@ dumpSequence(Archive *fout, const TableInfo *tbinfo)
 		}
 	}
 
-	/* Dump Sequence Comments and Security Labels */
+	/* 导出序列注释和安全标签 */
 	if (tbinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, "SEQUENCE", qseqname,
 					tbinfo->dobj.namespace->dobj.name, tbinfo->rolname,
@@ -17383,7 +17383,7 @@ dumpSequence(Archive *fout, const TableInfo *tbinfo)
 
 /*
  * dumpSequenceData
- *	  write the data of one user-defined sequence
+ *   写出一个用户定义序列的数据
  */
 static void
 dumpSequenceData(Archive *fout, const TableDataInfo *tdinfo)
@@ -17433,7 +17433,7 @@ dumpSequenceData(Archive *fout, const TableDataInfo *tdinfo)
 
 /*
  * dumpTrigger
- *	  write the declaration of one user-defined table trigger
+ *   写出一个用户定义表触发器的声明
  */
 static void
 dumpTrigger(Archive *fout, const TriggerInfo *tginfo)
@@ -17451,7 +17451,7 @@ dumpTrigger(Archive *fout, const TriggerInfo *tginfo)
 	int			findx;
 	char	   *tag;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -17485,7 +17485,7 @@ dumpTrigger(Archive *fout, const TriggerInfo *tginfo)
 		}
 		appendPQExpBufferStr(query, "\n    ");
 
-		/* Trigger type */
+		/* 触发器类型 */
 		if (TRIGGER_FOR_BEFORE(tginfo->tgtype))
 			appendPQExpBufferStr(query, "BEFORE");
 		else if (TRIGGER_FOR_AFTER(tginfo->tgtype))
@@ -17532,7 +17532,7 @@ dumpTrigger(Archive *fout, const TriggerInfo *tginfo)
 		{
 			if (OidIsValid(tginfo->tgconstrrelid))
 			{
-				/* regclass output is already quoted */
+				/* regclass 输出已加引号 */
 				appendPQExpBuffer(query, "    FROM %s\n    ",
 								  tginfo->tgconstrrelname);
 			}
@@ -17550,7 +17550,7 @@ dumpTrigger(Archive *fout, const TriggerInfo *tginfo)
 		else
 			appendPQExpBufferStr(query, "    FOR EACH STATEMENT\n    ");
 
-		/* regproc output is already sufficiently quoted */
+		/* regproc 输出已充分加引号 */
 		appendPQExpBuffer(query, "EXECUTE FUNCTION %s(",
 						  tginfo->tgfname);
 
@@ -17559,12 +17559,12 @@ dumpTrigger(Archive *fout, const TriggerInfo *tginfo)
 		p = tgargs;
 		for (findx = 0; findx < tginfo->tgnargs; findx++)
 		{
-			/* find the embedded null that terminates this trigger argument */
+			/* 查找终止此触发器参数的嵌入 null */
 			size_t		tlen = strlen(p);
 
 			if (p + tlen >= tgargs + lentgargs)
 			{
-				/* hm, not found before end of bytea value... */
+				/* 嗯，在 bytea 值结束前未找到... */
 				pg_fatal("invalid argument string (%s) for trigger \"%s\" on table \"%s\"",
 						 tginfo->tgargs,
 						 tginfo->dobj.name,
@@ -17580,7 +17580,7 @@ dumpTrigger(Archive *fout, const TriggerInfo *tginfo)
 		appendPQExpBufferStr(query, ");\n");
 	}
 
-	/* Triggers can depend on extensions */
+	/* 触发器可以依赖于扩展 */
 	append_depends_on_extension(fout, query, &tginfo->dobj,
 								"pg_catalog.pg_trigger", "TRIGGER",
 								trigidentity->data);
@@ -17590,10 +17590,10 @@ dumpTrigger(Archive *fout, const TriggerInfo *tginfo)
 		Assert(tbinfo->ispartition);
 
 		/*
-		 * Partition triggers only appear here because their 'tgenabled' flag
-		 * differs from its parent's.  The trigger is created already, so
-		 * remove the CREATE and replace it with an ALTER.  (Clear out the
-		 * DROP query too, so that pg_dump --create does not cause errors.)
+		 * 分区触发器仅在此处出现，因为它们的 'tgenabled' 标志
+		 * 与其父表不同。触发器已创建，因此移除 CREATE 并用
+		 * ALTER 替换。（同时清除 DROP 查询，以便 pg_dump --create
+		 * 不会导致错误。）
 		 */
 		resetPQExpBuffer(query);
 		resetPQExpBuffer(delqry);
@@ -17675,7 +17675,7 @@ dumpTrigger(Archive *fout, const TriggerInfo *tginfo)
 
 /*
  * dumpEventTrigger
- *	  write the declaration of one user-defined event trigger
+ *   写出一个用户定义事件触发器的声明
  */
 static void
 dumpEventTrigger(Archive *fout, const EventTriggerInfo *evtinfo)
@@ -17685,7 +17685,7 @@ dumpEventTrigger(Archive *fout, const EventTriggerInfo *evtinfo)
 	PQExpBuffer delqry;
 	char	   *qevtname;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
@@ -17765,7 +17765,7 @@ dumpEventTrigger(Archive *fout, const EventTriggerInfo *evtinfo)
 
 /*
  * dumpRule
- *		Dump a rule
+ *   导出一个规则
  */
 static void
 dumpRule(Archive *fout, const RuleInfo *rinfo)
@@ -17781,20 +17781,20 @@ dumpRule(Archive *fout, const RuleInfo *rinfo)
 	PGresult   *res;
 	char	   *tag;
 
-	/* Do nothing in data-only dump */
+	/* 在仅数据导出中不执行任何操作 */
 	if (dopt->dataOnly)
 		return;
 
 	/*
-	 * If it is an ON SELECT rule that is created implicitly by CREATE VIEW,
-	 * we do not want to dump it as a separate object.
+	 * 如果是由 CREATE VIEW 隐式创建的 ON SELECT 规则，
+	 * 我们不希望将其作为单独的对象导出。
 	 */
 	if (!rinfo->separate)
 		return;
 
 	/*
-	 * If it's an ON SELECT rule, we want to print it as a view definition,
-	 * instead of a rule.
+	 * 如果是 ON SELECT 规则，我们希望将其输出为视图定义，
+	 * 而不是规则。
 	 */
 	is_view = (rinfo->ev_type == '1' && rinfo->is_instead);
 
@@ -17810,8 +17810,8 @@ dumpRule(Archive *fout, const RuleInfo *rinfo)
 		PQExpBuffer result;
 
 		/*
-		 * We need OR REPLACE here because we'll be replacing a dummy view.
-		 * Otherwise this should look largely like the regular view dump code.
+		 * 我们在此需要 OR REPLACE，因为我们将替换一个虚拟视图。
+		 * 除此之外，这应该与常规视图导出代码基本相似。
 		 */
 		appendPQExpBuffer(cmd, "CREATE OR REPLACE VIEW %s",
 						  fmtQualifiedDumpable(tbinfo));
@@ -17831,7 +17831,7 @@ dumpRule(Archive *fout, const RuleInfo *rinfo)
 	}
 	else
 	{
-		/* In the rule case, just print pg_get_ruledef's result verbatim */
+		/* 在规则情况下，只需按原样输出 pg_get_ruledef 的结果 */
 		appendPQExpBuffer(query,
 						  "SELECT pg_catalog.pg_get_ruledef('%u'::pg_catalog.oid)",
 						  rinfo->dobj.catId.oid);
@@ -17848,8 +17848,8 @@ dumpRule(Archive *fout, const RuleInfo *rinfo)
 	}
 
 	/*
-	 * Add the command to alter the rules replication firing semantics if it
-	 * differs from the default.
+	 * 添加更改规则复制触发语义的命令，如果它与默认值不同。
+	 *
 	 */
 	if (rinfo->ev_enabled != 'O')
 	{
@@ -17874,9 +17874,9 @@ dumpRule(Archive *fout, const RuleInfo *rinfo)
 	if (is_view)
 	{
 		/*
-		 * We can't DROP a view's ON SELECT rule.  Instead, use CREATE OR
-		 * REPLACE VIEW to replace the rule with something with minimal
-		 * dependencies.
+		 * 我们不能 DROP 视图的 ON SELECT 规则。相反，使用
+		 * CREATE OR REPLACE VIEW 将规则替换为具有最小依赖的内容。
+		 *
 		 */
 		PQExpBuffer result;
 
@@ -17909,7 +17909,7 @@ dumpRule(Archive *fout, const RuleInfo *rinfo)
 								  .createStmt = cmd->data,
 								  .dropStmt = delcmd->data));
 
-	/* Dump rule comments */
+	/* 导出规则注释 */
 	if (rinfo->dobj.dump & DUMP_COMPONENT_COMMENT)
 		dumpComment(fout, ruleprefix->data, qtabname,
 					tbinfo->dobj.namespace->dobj.name,
@@ -17925,14 +17925,14 @@ dumpRule(Archive *fout, const RuleInfo *rinfo)
 }
 
 /*
- * getExtensionMembership --- obtain extension membership data
+ * getExtensionMembership --- 获取扩展成员资格数据
+ * 
+ * 我们需要在加载对象时尽快识别扩展成员对象，以便正确确定
+ * 它们是否需要导出。一般来说，扩展成员对象将被标记为*不*
+ * 导出，因为它们将由单个 CREATE EXTENSION 命令重新创建。
+ * 但是，在二进制升级模式下，我们仍然需要单独导出成员。
  *
- * We need to identify objects that are extension members as soon as they're
- * loaded, so that we can correctly determine whether they need to be dumped.
- * Generally speaking, extension member objects will get marked as *not* to
- * be dumped, as they will be recreated by the single CREATE EXTENSION
- * command.  However, in binary upgrade mode we still need to dump the members
- * individually.
+ *
  */
 void
 getExtensionMembership(Archive *fout, ExtensionInfo extinfo[],
@@ -17947,13 +17947,13 @@ getExtensionMembership(Archive *fout, ExtensionInfo extinfo[],
 				i_refobjid;
 	ExtensionInfo *ext;
 
-	/* Nothing to do if no extensions */
+	/* 如果没有扩展则无需处理 */
 	if (numExtensions == 0)
 		return;
 
 	query = createPQExpBuffer();
 
-	/* refclassid constraint is redundant but may speed the search */
+	/* refclassid 约束是冗余的但可能加快搜索 */
 	appendPQExpBufferStr(query, "SELECT "
 						 "classid, objid, refobjid "
 						 "FROM pg_depend "
@@ -17970,9 +17970,9 @@ getExtensionMembership(Archive *fout, ExtensionInfo extinfo[],
 	i_refobjid = PQfnumber(res, "refobjid");
 
 	/*
-	 * Since we ordered the SELECT by referenced ID, we can expect that
-	 * multiple entries for the same extension will appear together; this
-	 * saves on searches.
+	 * 由于我们按引用 ID 排序 SELECT，我们可以预期同一扩展的
+	 * 多个条目将一起出现；这节省了搜索。
+	 *
 	 */
 	ext = NULL;
 
@@ -17991,7 +17991,7 @@ getExtensionMembership(Archive *fout, ExtensionInfo extinfo[],
 
 		if (ext == NULL)
 		{
-			/* shouldn't happen */
+			/* 不应该发生 */
 			pg_log_warning("could not find referenced extension %u", extId);
 			continue;
 		}
@@ -18005,27 +18005,27 @@ getExtensionMembership(Archive *fout, ExtensionInfo extinfo[],
 }
 
 /*
- * processExtensionTables --- deal with extension configuration tables
+ * processExtensionTables --- 处理扩展配置表
+ * 
+ * 此过程有两部分：
+ * 
+ * 1. 识别并创建扩展配置表的导出记录。
+ * 
+ *   扩展可以将表标记为"配置"，这意味着用户能够且期望
+ *   在扩展加载后修改这些表。对于这些表，我们仅导出
+ *   数据 —— 结构预期在 CREATE EXTENSION 时处理，包括
+ *   任何索引或外键，这就引出了 ——
+ * 
+ * 2. 记录配置表之间的 FK 依赖。
+ * 
+ *   由于 FK 是在 CREATE EXTENSION 时创建的，因此在数据
+ *   加载之前创建，我们必须确定重新加载数据的最佳顺序，
+ *   以避免在恢复表时出现 FK 违规。这并不完美 —— 我们
+ *   无法处理循环依赖，如果存在循环依赖，将导致生成
+ *   无效的导出（尽管至少所有数据都包含在内供用户手动
+ *   恢复）。这目前已有文档记录，但也许我们将来可以提供
+ *   更好的解决方案。
  *
- * There are two parts to this process:
- *
- * 1. Identify and create dump records for extension configuration tables.
- *
- *	  Extensions can mark tables as "configuration", which means that the user
- *	  is able and expected to modify those tables after the extension has been
- *	  loaded.  For these tables, we dump out only the data- the structure is
- *	  expected to be handled at CREATE EXTENSION time, including any indexes or
- *	  foreign keys, which brings us to-
- *
- * 2. Record FK dependencies between configuration tables.
- *
- *	  Due to the FKs being created at CREATE EXTENSION time and therefore before
- *	  the data is loaded, we have to work out what the best order for reloading
- *	  the data is, to avoid FK violations when the tables are restored.  This is
- *	  not perfect- we can't handle circular dependencies and if any exist they
- *	  will cause an invalid dump to be produced (though at least all of the data
- *	  is included for a user to manually restore).  This is currently documented
- *	  but perhaps we can provide a better solution in the future.
  */
 void
 processExtensionTables(Archive *fout, ExtensionInfo extinfo[],
@@ -18039,20 +18039,20 @@ processExtensionTables(Archive *fout, ExtensionInfo extinfo[],
 	int			i_conrelid,
 				i_confrelid;
 
-	/* Nothing to do if no extensions */
+	/* 如果没有扩展则无需处理 */
 	if (numExtensions == 0)
 		return;
 
 	/*
-	 * Identify extension configuration tables and create TableDataInfo
-	 * objects for them, ensuring their data will be dumped even though the
-	 * tables themselves won't be.
+	 * 识别扩展配置表并为其创建 TableDataInfo 对象，
+	 * 确保即使表本身不会被导出，它们的数据也会被导出。
+	 * 
+	 * 注意，即使在 schemaOnly 模式下，我们也会创建
+	 * TableDataInfo 对象，即配置表中的用户数据被视为模式数据。
+	 * 这似乎是合适的，因为配置表中的系统数据将由
+	 * CREATE EXTENSION 重新加载。如果扩展不在要包含的扩展
+	 * 列表中，则不会导出其任何数据。
 	 *
-	 * Note that we create TableDataInfo objects even in schemaOnly mode, ie,
-	 * user data in a configuration table is treated like schema data. This
-	 * seems appropriate since system data in a config table would get
-	 * reloaded by CREATE EXTENSION.  If the extension is not listed in the
-	 * list of extensions to be included, none of its data is dumped.
 	 */
 	for (i = 0; i < numExtensions; i++)
 	{
@@ -18065,8 +18065,8 @@ processExtensionTables(Archive *fout, ExtensionInfo extinfo[],
 		int			nconditionitems = 0;
 
 		/*
-		 * Check if this extension is listed as to include in the dump.  If
-		 * not, any table data associated with it is discarded.
+		 * 检查此扩展是否在导出中列为要包含的。如果不是，
+		 * 则丢弃与之关联的任何表数据。
 		 */
 		if (extension_include_oids.head != NULL &&
 			!simple_oid_list_member(&extension_include_oids,
@@ -18096,30 +18096,30 @@ processExtensionTables(Archive *fout, ExtensionInfo extinfo[],
 					continue;
 
 				/*
-				 * Tables of not-to-be-dumped extensions shouldn't be dumped
-				 * unless the table or its schema is explicitly included
+				 * 不应导出的扩展的表不应导出，
+				 * 除非表或其模式被显式包含
 				 */
 				if (!(curext->dobj.dump & DUMP_COMPONENT_DEFINITION))
 				{
-					/* check table explicitly requested */
+					/* 检查表是否被显式请求 */
 					if (table_include_oids.head != NULL &&
 						simple_oid_list_member(&table_include_oids,
 											   configtbloid))
 						dumpobj = true;
 
-					/* check table's schema explicitly requested */
+					/* 检查表的模式是否被显式请求 */
 					if (configtbl->dobj.namespace->dobj.dump &
 						DUMP_COMPONENT_DATA)
 						dumpobj = true;
 				}
 
-				/* check table excluded by an exclusion switch */
+				/* 检查表是否被排除开关排除 */
 				if (table_exclude_oids.head != NULL &&
 					simple_oid_list_member(&table_exclude_oids,
 										   configtbloid))
 					dumpobj = false;
 
-				/* check schema excluded by an exclusion switch */
+				/* 检查模式是否被排除开关排除 */
 				if (simple_oid_list_member(&schema_exclude_oids,
 										   configtbl->dobj.namespace->dobj.catId.oid))
 					dumpobj = false;
@@ -18142,12 +18142,12 @@ processExtensionTables(Archive *fout, ExtensionInfo extinfo[],
 	}
 
 	/*
-	 * Now that all the TableDataInfo objects have been created for all the
-	 * extensions, check their FK dependencies and register them to try and
-	 * dump the data out in an order that they can be restored in.
-	 *
-	 * Note that this is not a problem for user tables as their FKs are
-	 * recreated after the data has been loaded.
+	 * 现在所有扩展的所有 TableDataInfo 对象都已创建，
+	 * 检查它们的 FK 依赖并注册它们，以尝试按可恢复的
+	 * 顺序导出数据。
+	 * 
+	 * 注意，这对于用户表不是问题，因为它们的 FK 在
+	 * 数据加载后重新创建。
 	 */
 
 	query = createPQExpBuffer();
@@ -18166,7 +18166,7 @@ processExtensionTables(Archive *fout, ExtensionInfo extinfo[],
 	i_conrelid = PQfnumber(res, "conrelid");
 	i_confrelid = PQfnumber(res, "confrelid");
 
-	/* Now get the dependencies and register them */
+	/* 现在获取依赖并注册它们 */
 	for (i = 0; i < ntups; i++)
 	{
 		Oid			conrelid,
@@ -18186,8 +18186,8 @@ processExtensionTables(Archive *fout, ExtensionInfo extinfo[],
 			continue;
 
 		/*
-		 * Make referencing TABLE_DATA object depend on the referenced table's
-		 * TABLE_DATA object.
+		 * 使引用 TABLE_DATA 对象依赖于被引用表的 TABLE_DATA 对象。
+		 *
 		 */
 		addObjectDependency(&contable->dataObj->dobj,
 							reftable->dataObj->dobj.dumpId);
@@ -18197,7 +18197,7 @@ processExtensionTables(Archive *fout, ExtensionInfo extinfo[],
 }
 
 /*
- * getDependencies --- obtain available dependency data
+ * getDependencies --- 获取可用的依赖数据
  */
 static void
 getDependencies(Archive *fout)
@@ -18219,12 +18219,12 @@ getDependencies(Archive *fout)
 	query = createPQExpBuffer();
 
 	/*
-	 * Messy query to collect the dependency data we need.  Note that we
-	 * ignore the sub-object column, so that dependencies of or on a column
-	 * look the same as dependencies of or on a whole table.
-	 *
-	 * PIN dependencies aren't interesting, and EXTENSION dependencies were
-	 * already processed by getExtensionMembership.
+	 * 收集我们需要的依赖数据的凌乱查询。注意，我们忽略
+	 * 子对象列，因此列上的依赖或依赖于列的依赖看起来
+	 * 与整个表上的依赖相同。
+	 * 
+	 * PIN 依赖不感兴趣，EXTENSION 依赖已由
+	 * getExtensionMembership 处理。
 	 */
 	appendPQExpBufferStr(query, "SELECT "
 						 "classid, objid, refclassid, refobjid, deptype "
@@ -18232,14 +18232,14 @@ getDependencies(Archive *fout)
 						 "WHERE deptype != 'p' AND deptype != 'e'\n");
 
 	/*
-	 * Since we don't treat pg_amop entries as separate DumpableObjects, we
-	 * have to translate their dependencies into dependencies of their parent
-	 * opfamily.  Ignore internal dependencies though, as those will point to
-	 * their parent opclass, which we needn't consider here (and if we did,
-	 * it'd just result in circular dependencies).  Also, "loose" opfamily
-	 * entries will have dependencies on their parent opfamily, which we
-	 * should drop since they'd likewise become useless self-dependencies.
-	 * (But be sure to keep deps on *other* opfamilies; see amopsortfamily.)
+	 * 由于我们不将 pg_amop 条目视为单独的 DumpableObject，
+	 * 我们必须将它们的依赖转换为其父操作符族的依赖。
+	 * 不过忽略内部依赖，因为它们会指向其父操作符类，
+	 * 我们在此不需要考虑（如果我们考虑，只会导致循环依赖）。
+	 * 此外，"松散"操作符族条目将依赖于其父操作符族，
+	 * 我们应该删除这些依赖，因为它们同样会变成无用的
+	 * 自依赖。（但一定要保留对*其他*操作符族的依赖；
+	 * 参见 amopsortfamily。）
 	 */
 	appendPQExpBufferStr(query, "UNION ALL\n"
 						 "SELECT 'pg_opfamily'::regclass AS classid, amopfamily AS objid, refclassid, refobjid, deptype "
@@ -18248,7 +18248,7 @@ getDependencies(Archive *fout)
 						 "classid = 'pg_amop'::regclass AND objid = o.oid "
 						 "AND NOT (refclassid = 'pg_opfamily'::regclass AND amopfamily = refobjid)\n");
 
-	/* Likewise for pg_amproc entries */
+	/* 同样适用于 pg_amproc 条目 */
 	appendPQExpBufferStr(query, "UNION ALL\n"
 						 "SELECT 'pg_opfamily'::regclass AS classid, amprocfamily AS objid, refclassid, refobjid, deptype "
 						 "FROM pg_depend d, pg_amproc p "
@@ -18256,7 +18256,7 @@ getDependencies(Archive *fout)
 						 "classid = 'pg_amproc'::regclass AND objid = p.oid "
 						 "AND NOT (refclassid = 'pg_opfamily'::regclass AND amprocfamily = refobjid)\n");
 
-	/* Sort the output for efficiency below */
+	/* 为后续效率对输出进行排序 */
 	appendPQExpBufferStr(query, "ORDER BY 1,2");
 
 	res = ExecuteSqlQuery(fout, query->data, PGRES_TUPLES_OK);
@@ -18270,9 +18270,9 @@ getDependencies(Archive *fout)
 	i_deptype = PQfnumber(res, "deptype");
 
 	/*
-	 * Since we ordered the SELECT by referencing ID, we can expect that
-	 * multiple entries for the same object will appear together; this saves
-	 * on searches.
+	 * 由于我们按引用 ID 排序 SELECT，我们可以预期同一对象的
+	 * 多个条目将一起出现；这节省了搜索。
+	 *
 	 */
 	dobj = NULL;
 
@@ -18294,8 +18294,8 @@ getDependencies(Archive *fout)
 			dobj = findObjectByCatalogId(objId);
 
 		/*
-		 * Failure to find objects mentioned in pg_depend is not unexpected,
-		 * since for example we don't collect info about TOAST tables.
+		 * 找不到 pg_depend 中提到的对象并不意外，
+		 * 因为例如我们不收集关于 TOAST 表的信息。
 		 */
 		if (dobj == NULL)
 		{
@@ -18318,27 +18318,27 @@ getDependencies(Archive *fout)
 		}
 
 		/*
-		 * For 'x' dependencies, mark the object for later; we still add the
-		 * normal dependency, for possible ordering purposes.  Currently
-		 * pg_dump_sort.c knows to put extensions ahead of all object types
-		 * that could possibly depend on them, but this is safer.
+		 * 对于 'x' 依赖，标记对象以备后用；我们仍然添加
+		 * 正常的依赖，用于可能的排序目的。目前
+		 * pg_dump_sort.c 知道将扩展放在可能依赖它们的
+		 * 所有对象类型之前，但这更安全。
 		 */
 		if (deptype == 'x')
 			dobj->depends_on_ext = true;
 
 		/*
-		 * Ordinarily, table rowtypes have implicit dependencies on their
-		 * tables.  However, for a composite type the implicit dependency goes
-		 * the other way in pg_depend; which is the right thing for DROP but
-		 * it doesn't produce the dependency ordering we need. So in that one
-		 * case, we reverse the direction of the dependency.
+		 * 通常，表行类型具有对其表的隐式依赖。然而，对于复合类型，
+		 * 隐式依赖在 pg_depend 中是相反方向的；这对 DROP 是正确的，
+		 * 但它不会产生我们需要的依赖排序。因此，在这种情况下，
+		 * 我们反转依赖的方向。
+		 *
 		 */
 		if (deptype == 'i' &&
 			dobj->objType == DO_TABLE &&
 			refdobj->objType == DO_TYPE)
 			addObjectDependency(refdobj, dobj->dumpId);
 		else
-			/* normal case */
+			/* 正常情况 */
 			addObjectDependency(dobj, refdobj->dumpId);
 	}
 
@@ -18349,8 +18349,8 @@ getDependencies(Archive *fout)
 
 
 /*
- * createBoundaryObjects - create dummy DumpableObjects to represent
- * dump section boundaries.
+ * createBoundaryObjects - 创建虚拟 DumpableObject
+ * 以表示导出节边界。
  */
 static DumpableObject *
 createBoundaryObjects(void)
@@ -18373,8 +18373,8 @@ createBoundaryObjects(void)
 }
 
 /*
- * addBoundaryDependencies - add dependencies as needed to enforce the dump
- * section boundaries.
+ * addBoundaryDependencies - 根据需要添加依赖
+ * 以强制执行导出节边界。
  */
 static void
 addBoundaryDependencies(DumpableObject **dobjs, int numObjs,
@@ -18389,8 +18389,8 @@ addBoundaryDependencies(DumpableObject **dobjs, int numObjs,
 		DumpableObject *dobj = dobjs[i];
 
 		/*
-		 * The classification of object types here must match the SECTION_xxx
-		 * values assigned during subsequent ArchiveEntry calls!
+		 * 此处的对象类型分类必须与后续 ArchiveEntry 调用
+		 * 中分配的 SECTION_xxx 值匹配！
 		 */
 		switch (dobj->objType)
 		{
@@ -18420,13 +18420,13 @@ addBoundaryDependencies(DumpableObject **dobjs, int numObjs,
 			case DO_FOREIGN_SERVER:
 			case DO_TRANSFORM:
 			case DO_LARGE_OBJECT:
-				/* Pre-data objects: must come before the pre-data boundary */
+				/* Pre-data 对象：必须位于 pre-data 边界之前 */
 				addObjectDependency(preDataBound, dobj->dumpId);
 				break;
 			case DO_TABLE_DATA:
 			case DO_SEQUENCE_SET:
 			case DO_LARGE_OBJECT_DATA:
-				/* Data objects: must come between the boundaries */
+				/* Data 对象：必须位于边界之间 */
 				addObjectDependency(dobj, preDataBound->dumpId);
 				addObjectDependency(postDataBound, dobj->dumpId);
 				break;
@@ -18442,25 +18442,25 @@ addBoundaryDependencies(DumpableObject **dobjs, int numObjs,
 			case DO_PUBLICATION_REL:
 			case DO_PUBLICATION_TABLE_IN_SCHEMA:
 			case DO_SUBSCRIPTION:
-				/* Post-data objects: must come after the post-data boundary */
+				/* Post-data 对象：必须位于 post-data 边界之后 */
 				addObjectDependency(dobj, postDataBound->dumpId);
 				break;
 			case DO_RULE:
-				/* Rules are post-data, but only if dumped separately */
+				/* 规则是 post-data，但仅在单独导出时 */
 				if (((RuleInfo *) dobj)->separate)
 					addObjectDependency(dobj, postDataBound->dumpId);
 				break;
 			case DO_CONSTRAINT:
 			case DO_FK_CONSTRAINT:
-				/* Constraints are post-data, but only if dumped separately */
+				/* 约束是 post-data，但仅在单独导出时 */
 				if (((ConstraintInfo *) dobj)->separate)
 					addObjectDependency(dobj, postDataBound->dumpId);
 				break;
 			case DO_PRE_DATA_BOUNDARY:
-				/* nothing to do */
+				/* 无事可做 */
 				break;
 			case DO_POST_DATA_BOUNDARY:
-				/* must come after the pre-data boundary */
+				/* 必须位于 pre-data 边界之后 */
 				addObjectDependency(dobj, preDataBound->dumpId);
 				break;
 		}
@@ -18469,27 +18469,27 @@ addBoundaryDependencies(DumpableObject **dobjs, int numObjs,
 
 
 /*
- * BuildArchiveDependencies - create dependency data for archive TOC entries
+ * BuildArchiveDependencies - 为归档 TOC 条目创建依赖数据
+ * 
+ * getDependencies() 获取的原始依赖数据在归档导出中不太有用，
+ * 因为在许多情况下，依赖链通过不在导出中显式出现的对象。
+ * 例如，视图将依赖于其 _RETURN 规则，而 _RETURN 规则
+ * 将依赖于其他对象 —— 但规则不会在导出中作为单独的对象
+ * 出现。我们需要调整视图的依赖以包含规则依赖的任何
+ * 包含在导出中的内容。
+ * 
+ * 更复杂的是，还存在"特殊"依赖，例如 TABLE DATA 项
+ * 对其 TABLE 的依赖，我们不能重新排列这些依赖，因为
+ * pg_restore 知道 TABLE DATA 只依赖于其表。在这些情况下，
+ * 我们必须严格保持依赖原样，即使它们引用不导出的对象。
+ * 
+ * 为处理这一点，约定是"特殊"依赖在 ArchiveEntry 调用
+ * 期间创建，并且具有任何此类条目的归档 TOC 项在此处不会
+ * 被修改。否则，我们递归搜索 DumpableObject 数据结构
+ * 以为每个归档 TOC 项构建正确的依赖。
  *
- * The raw dependency data obtained by getDependencies() is not terribly
- * useful in an archive dump, because in many cases there are dependency
- * chains linking through objects that don't appear explicitly in the dump.
- * For example, a view will depend on its _RETURN rule while the _RETURN rule
- * will depend on other objects --- but the rule will not appear as a separate
- * object in the dump.  We need to adjust the view's dependencies to include
- * whatever the rule depends on that is included in the dump.
  *
- * Just to make things more complicated, there are also "special" dependencies
- * such as the dependency of a TABLE DATA item on its TABLE, which we must
- * not rearrange because pg_restore knows that TABLE DATA only depends on
- * its table.  In these cases we must leave the dependencies strictly as-is
- * even if they refer to not-to-be-dumped objects.
  *
- * To handle this, the convention is that "special" dependencies are created
- * during ArchiveEntry calls, and an archive TOC item that has any such
- * entries will not be touched here.  Otherwise, we recursively search the
- * DumpableObject data structures to build the correct dependencies for each
- * archive TOC item.
  */
 static void
 BuildArchiveDependencies(Archive *fout)
@@ -18497,7 +18497,7 @@ BuildArchiveDependencies(Archive *fout)
 	ArchiveHandle *AH = (ArchiveHandle *) fout;
 	TocEntry   *te;
 
-	/* Scan all TOC entries in the archive */
+	/* 扫描归档中的所有 TOC 条目 */
 	for (te = AH->toc->next; te != AH->toc; te = te->next)
 	{
 		DumpableObject *dobj;
@@ -18505,27 +18505,27 @@ BuildArchiveDependencies(Archive *fout)
 		int			nDeps;
 		int			allocDeps;
 
-		/* No need to process entries that will not be dumped */
+		/* 无需处理不会被导出的条目 */
 		if (te->reqs == 0)
 			continue;
-		/* Ignore entries that already have "special" dependencies */
+		/* 忽略已经具有"特殊"依赖的条目 */
 		if (te->nDeps > 0)
 			continue;
-		/* Otherwise, look up the item's original DumpableObject, if any */
+		/* 否则，查找条目的原始 DumpableObject（如果有） */
 		dobj = findObjectByDumpId(te->dumpId);
 		if (dobj == NULL)
 			continue;
-		/* No work if it has no dependencies */
+		/* 如果没有依赖则无需工作 */
 		if (dobj->nDeps <= 0)
 			continue;
-		/* Set up work array */
+		/* 设置工作数组 */
 		allocDeps = 64;
 		dependencies = (DumpId *) pg_malloc(allocDeps * sizeof(DumpId));
 		nDeps = 0;
-		/* Recursively find all dumpable dependencies */
+		/* 递归查找所有可导出的依赖 */
 		findDumpableDependencies(AH, dobj,
 								 &dependencies, &nDeps, &allocDeps);
-		/* And save 'em ... */
+		/* 并保存它们 ... */
 		if (nDeps > 0)
 		{
 			dependencies = (DumpId *) pg_realloc(dependencies,
@@ -18538,7 +18538,7 @@ BuildArchiveDependencies(Archive *fout)
 	}
 }
 
-/* Recursive search subroutine for BuildArchiveDependencies */
+/* BuildArchiveDependencies 的递归搜索子程序 */
 static void
 findDumpableDependencies(ArchiveHandle *AH, const DumpableObject *dobj,
 						 DumpId **dependencies, int *nDeps, int *allocDeps)
@@ -18546,8 +18546,8 @@ findDumpableDependencies(ArchiveHandle *AH, const DumpableObject *dobj,
 	int			i;
 
 	/*
-	 * Ignore section boundary objects: if we search through them, we'll
-	 * report lots of bogus dependencies.
+	 * 忽略节边界对象：如果我们搜索它们，我们将报告
+	 * 许多虚假的依赖。
 	 */
 	if (dobj->objType == DO_PRE_DATA_BOUNDARY ||
 		dobj->objType == DO_POST_DATA_BOUNDARY)
@@ -18559,7 +18559,7 @@ findDumpableDependencies(ArchiveHandle *AH, const DumpableObject *dobj,
 
 		if (TocIDRequired(AH, depid) != 0)
 		{
-			/* Object will be dumped, so just reference it as a dependency */
+			/* 对象将被导出，因此仅将其引用为依赖 */
 			if (*nDeps >= *allocDeps)
 			{
 				*allocDeps *= 2;
@@ -18572,9 +18572,9 @@ findDumpableDependencies(ArchiveHandle *AH, const DumpableObject *dobj,
 		else
 		{
 			/*
-			 * Object will not be dumped, so recursively consider its deps. We
-			 * rely on the assumption that sortDumpableObjects already broke
-			 * any dependency loops, else we might recurse infinitely.
+			 * 对象不会被导出，因此递归考虑其依赖。我们依赖
+			 * sortDumpableObjects 已打破任何依赖循环的假设，
+			 * 否则我们可能会无限递归。
 			 */
 			DumpableObject *otherdobj = findObjectByDumpId(depid);
 
@@ -18587,13 +18587,13 @@ findDumpableDependencies(ArchiveHandle *AH, const DumpableObject *dobj,
 
 
 /*
- * getFormattedTypeName - retrieve a nicely-formatted type name for the
- * given type OID.
- *
- * This does not guarantee to schema-qualify the output, so it should not
- * be used to create the target object name for CREATE or ALTER commands.
- *
- * Note that the result is cached and must not be freed by the caller.
+ * getFormattedTypeName - 为给定类型 OID 检索
+ * 格式良好的类型名称。
+ * 
+ * 这不保证对输出进行模式限定，因此不应用于创建
+ * CREATE 或 ALTER 命令的目标对象名称。
+ * 
+ * 注意，结果被缓存，调用者不得释放。
  */
 static const char *
 getFormattedTypeName(Archive *fout, Oid oid, OidOptions opts)
@@ -18611,7 +18611,7 @@ getFormattedTypeName(Archive *fout, Oid oid, OidOptions opts)
 			return "NONE";
 	}
 
-	/* see if we have the result cached in the type's TypeInfo record */
+	/* 查看我们是否已将结果缓存在类型的 TypeInfo 记录中 */
 	typeInfo = findTypeByOid(oid);
 	if (typeInfo && typeInfo->ftypname)
 		return typeInfo->ftypname;
@@ -18622,17 +18622,17 @@ getFormattedTypeName(Archive *fout, Oid oid, OidOptions opts)
 
 	res = ExecuteSqlQueryForSingleRow(fout, query->data);
 
-	/* result of format_type is already quoted */
+	/* format_type 的结果已加引号 */
 	result = pg_strdup(PQgetvalue(res, 0, 0));
 
 	PQclear(res);
 	destroyPQExpBuffer(query);
 
 	/*
-	 * Cache the result for re-use in later requests, if possible.  If we
-	 * don't have a TypeInfo for the type, the string will be leaked once the
-	 * caller is done with it ... but that case really should not happen, so
-	 * leaking if it does seems acceptable.
+	 * 如果可能，缓存结果以供以后请求重用。如果我们没有
+	 * 类型的 TypeInfo，字符串将在调用者使用完后泄漏 ...
+	 * 但这种情况确实不应该发生，因此如果发生，泄漏似乎
+	 * 可以接受。
 	 */
 	if (typeInfo)
 		typeInfo->ftypname = result;
@@ -18641,10 +18641,10 @@ getFormattedTypeName(Archive *fout, Oid oid, OidOptions opts)
 }
 
 /*
- * Return a column list clause for the given relation.
- *
- * Special case: if there are no undropped columns in the relation, return
- * "", not an invalid "()" column list.
+ * 返回给定关系的列列表子句。
+ * 
+ * 特殊情况：如果关系中没有未删除的列，返回 ""，
+ * 而不是无效的 "()" 列列表。
  */
 static const char *
 fmtCopyColumnList(const TableInfo *ti, PQExpBuffer buffer)
@@ -18671,26 +18671,26 @@ fmtCopyColumnList(const TableInfo *ti, PQExpBuffer buffer)
 	}
 
 	if (!needComma)
-		return "";				/* no undropped columns */
+		return "";				/* 没有未删除的列 */
 
 	appendPQExpBufferChar(buffer, ')');
 	return buffer->data;
 }
 
 /*
- * Check if a reloptions array is nonempty.
+ * 检查 reloptions 数组是否非空。
  */
 static bool
 nonemptyReloptions(const char *reloptions)
 {
-	/* Don't want to print it if it's just "{}" */
+	/* 如果只是 "{}" 则不想输出 */
 	return (reloptions != NULL && strlen(reloptions) > 2);
 }
 
 /*
- * Format a reloptions array and append it to the given buffer.
- *
- * "prefix" is prepended to the option names; typically it's "" or "toast.".
+ * 格式化 reloptions 数组并将其附加到给定缓冲区。
+ * 
+ * "prefix" 被添加到选项名称前面；通常是 "" 或 "toast."。
  */
 static void
 appendReloptionsArrayAH(PQExpBuffer buffer, const char *reloptions,

@@ -23,7 +23,7 @@
  */
 
 /*
- * Private routines
+ * 私有例程
  */
 
 static void
@@ -55,11 +55,11 @@ WriteDataToArchiveNone(ArchiveHandle *AH, CompressorState *cs,
 static void
 EndCompressorNone(ArchiveHandle *AH, CompressorState *cs)
 {
-	/* no op */
+	/* 无操作 */
 }
 
 /*
- * Public interface
+ * 公共接口
  */
 
 void
@@ -80,7 +80,7 @@ InitCompressorNone(CompressorState *cs,
  */
 
 /*
- * Private routines
+ * 私有例程
  */
 
 static size_t
@@ -195,7 +195,7 @@ open_write_none(const char *path, const char *mode, CompressFileHandle *CFH)
 }
 
 /*
- * Public interface
+ * 公共接口
  */
 
 void

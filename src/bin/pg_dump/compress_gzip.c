@@ -21,11 +21,11 @@
 #include "zlib.h"
 
 /*
- * We don't use the gzgetc() macro, because zlib's configuration logic is not
- * robust enough to guarantee that the macro will have the same ideas about
- * struct field layout as the library itself does; see for example
+ * 我们不使用 gzgetc() 宏，因为 zlib 的配置逻辑
+ * 不足以保证该宏对结构体字段布局的理解
+ * 与库本身一致；示例参见
  * https://gnats.netbsd.org/cgi-bin/query-pr-single.pl?number=59711
- * Instead, #undef the macro and fall back to the underlying function.
+ * 因此，我们 #undef 该宏并回退到底层函数。
  */
 #undef gzgetc
 
@@ -41,7 +41,7 @@ typedef struct GzipCompressorState
 	size_t		outsize;
 } GzipCompressorState;
 
-/* Private routines that support gzip compressed data I/O */
+/* 支持 gzip 压缩数据 I/O 的私有例程 */
 static void DeflateCompressorInit(CompressorState *cs);
 static void DeflateCompressorEnd(ArchiveHandle *AH, CompressorState *cs);
 static void DeflateCompressorCommon(ArchiveHandle *AH, CompressorState *cs,
@@ -64,24 +64,24 @@ DeflateCompressorInit(CompressorState *cs)
 	zp->opaque = Z_NULL;
 
 	/*
-	 * outsize is the buffer size we tell zlib it can output to.  We actually
-	 * allocate one extra byte because some routines want to append a trailing
-	 * zero byte to the zlib output.
+	 * outsize 是告知 zlib 可输出的缓冲区大小。
+	 * 我们实际多分配一个字节，因为某些例程需要在
+	 * zlib 输出的末尾追加一个尾随零字节。
 	 */
 	gzipcs->outsize = DEFAULT_IO_BUFFER_SIZE;
 	gzipcs->outbuf = pg_malloc(gzipcs->outsize + 1);
 
-	/* -Z 0 uses the "None" compressor -- not zlib with no compression */
+	/* -Z 0 使用 "None" 压缩器 -- 而非无压缩级别的 zlib */
 	Assert(cs->compression_spec.level != 0);
 
 	if (deflateInit(zp, cs->compression_spec.level) != Z_OK)
 		pg_fatal("could not initialize compression library: %s", zp->msg);
 
-	/* Just be paranoid - maybe End is called after Start, with no Write */
+	/* 谨慎起见 —— 可能在 Start 之后直接调用 End，中间没有 Write */
 	zp->next_out = gzipcs->outbuf;
 	zp->avail_out = gzipcs->outsize;
 
-	/* Keep track of gzipcs */
+	/* 记录 gzipcs */
 	cs->private_data = gzipcs;
 }
 
@@ -95,7 +95,7 @@ DeflateCompressorEnd(ArchiveHandle *AH, CompressorState *cs)
 	zp->next_in = NULL;
 	zp->avail_in = 0;
 
-	/* Flush any remaining data from zlib buffer */
+	/* 刷新 zlib 缓冲区中的剩余数据 */
 	DeflateCompressorCommon(AH, cs, true);
 
 	if (deflateEnd(zp) != Z_OK)
@@ -126,15 +126,15 @@ DeflateCompressorCommon(ArchiveHandle *AH, CompressorState *cs, bool flush)
 			)
 		{
 			/*
-			 * Extra paranoia: avoid zero-length chunks, since a zero length
-			 * chunk is the EOF marker in the custom format. This should never
-			 * happen but ...
+			 * 额外谨慎：避免零长度块，因为零长度块在自定义格式中是 EOF
+			 * 标记。这不应发生，
+			 * 但以防万一...
 			 */
 			if (zp->avail_out < gzipcs->outsize)
 			{
 				/*
-				 * Any write function should do its own error checking but to
-				 * make sure we do a check here as well ...
+				 * 任何写入函数都应自行进行错误检查，但为确保安全，
+				 * 我们在此也进行检查...
 				 */
 				size_t		len = gzipcs->outsize - zp->avail_out;
 
@@ -152,7 +152,7 @@ DeflateCompressorCommon(ArchiveHandle *AH, CompressorState *cs, bool flush)
 static void
 EndCompressorGzip(ArchiveHandle *AH, CompressorState *cs)
 {
-	/* If deflation was initialized, finalize it */
+	/* 如果 deflation 已初始化，则完成它 */
 	if (cs->private_data)
 		DeflateCompressorEnd(AH, cs);
 }
@@ -192,7 +192,7 @@ ReadDataFromArchiveGzip(ArchiveHandle *AH, CompressorState *cs)
 		pg_fatal("could not initialize compression library: %s",
 				 zp->msg);
 
-	/* no minimal chunk size for zlib */
+	/* zlib 没有最小块大小要求 */
 	while ((cnt = cs->readF(AH, &buf, &buflen)))
 	{
 		zp->next_in = (void *) buf;
@@ -234,7 +234,7 @@ ReadDataFromArchiveGzip(ArchiveHandle *AH, CompressorState *cs)
 	free(zp);
 }
 
-/* Public routines that support gzip compressed data I/O */
+/* 支持 gzip 压缩数据 I/O 的公共例程 */
 void
 InitCompressorGzip(CompressorState *cs,
 				   const pg_compress_specification compression_spec)
@@ -246,9 +246,9 @@ InitCompressorGzip(CompressorState *cs,
 	cs->compression_spec = compression_spec;
 
 	/*
-	 * If the caller has defined a write function, prepare the necessary
-	 * state.  Note that if the data is empty, End may be called immediately
-	 * after Init, without ever calling Write.
+	 * 如果调用者定义了写入函数，则准备必要的状态。
+	 * 注意：如果数据为空，End 可能直接在 Init 之后立即调用，
+	 * 而无需调用 Write。
 	 */
 	if (cs->writeF)
 		DeflateCompressorInit(cs);
@@ -266,16 +266,16 @@ Gzip_read(void *ptr, size_t size, CompressFileHandle *CFH)
 	gzFile		gzfp = (gzFile) CFH->private_data;
 	int			gzret;
 
-	/* Reading zero bytes must be a no-op */
+	/* 读取零字节必须为空操作 */
 	if (size == 0)
 		return 0;
 
 	gzret = gzread(gzfp, ptr, size);
 
 	/*
-	 * gzread returns zero on EOF as well as some error conditions, and less
-	 * than zero on other error conditions, so we need to inspect for EOF on
-	 * zero.
+	 * gzread 在 EOF 和某些错误条件下返回零，在其他错误条件下返回
+	 * 小于零的值，因此返回零时需要检查是否为
+	 * EOF。
 	 */
 	if (gzret <= 0)
 	{
@@ -377,7 +377,7 @@ Gzip_open(const char *path, int fd, const char *mode, CompressFileHandle *CFH)
 	if (CFH->compression_spec.level != Z_DEFAULT_COMPRESSION)
 	{
 		/*
-		 * user has specified a compression level, so tell zlib to use it
+		 * 用户指定了压缩级别，因此告知 zlib 使用它
 		 */
 		snprintf(mode_compression, sizeof(mode_compression), "%s%d",
 				 mode, CFH->compression_spec.level);

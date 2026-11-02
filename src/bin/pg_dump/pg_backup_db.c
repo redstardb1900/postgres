@@ -57,8 +57,8 @@ _check_database_version(ArchiveHandle *AH)
 	}
 
 	/*
-	 * Check if server is in recovery mode, which means we are on a hot
-	 * standby.
+	 * 检查服务器是否处于恢复模式，这意味着我们在热备
+	 * 节点上。
 	 */
 	res = ExecuteSqlQueryForSingleRow((Archive *) AH,
 									  "SELECT pg_catalog.pg_is_in_recovery()");
@@ -67,8 +67,8 @@ _check_database_version(ArchiveHandle *AH)
 }
 
 /*
- * Reconnect to the server.  If dbname is not NULL, use that database,
- * else the one associated with the archive handle.
+ * 重新连接到服务器。如果 dbname 不为 NULL，则使用该数据库，
+ * 否则使用与归档句柄关联的数据库。
  */
 void
 ReconnectToServer(ArchiveHandle *AH, const char *dbname)
@@ -77,18 +77,18 @@ ReconnectToServer(ArchiveHandle *AH, const char *dbname)
 	RestoreOptions *ropt = AH->public.ropt;
 
 	/*
-	 * Save the dbname, if given, in override_dbname so that it will also
-	 * affect any later reconnection attempt.
+	 * 将 dbname（如果给定）保存到 override_dbname 中，使其也
+	 * 影响后续的重新连接尝试。
 	 */
 	if (dbname)
 		ropt->cparams.override_dbname = pg_strdup(dbname);
 
 	/*
-	 * Note: we want to establish the new connection, and in particular update
-	 * ArchiveHandle's connCancel, before closing old connection.  Otherwise
-	 * an ill-timed SIGINT could try to access a dead connection.
+	 * 注意：我们希望在关闭旧连接之前建立新连接，特别是更新
+	 * ArchiveHandle 的 connCancel。否则，不合时宜的 SIGINT
+	 * 可能会尝试访问已断开的连接。
 	 */
-	AH->connection = NULL;		/* dodge error check in ConnectDatabase */
+	AH->connection = NULL;		/* 避开 ConnectDatabase 中的错误检查 */
 
 	ConnectDatabase((Archive *) AH, &ropt->cparams, true);
 
@@ -96,15 +96,15 @@ ReconnectToServer(ArchiveHandle *AH, const char *dbname)
 }
 
 /*
- * Make, or remake, a database connection with the given parameters.
+ * 使用给定参数建立或重新建立数据库连接。
  *
- * The resulting connection handle is stored in AHX->connection.
+ * 生成的连接句柄存储在 AHX->connection 中。
  *
- * An interactive password prompt is automatically issued if required.
- * We store the results of that in AHX->savedPassword.
- * Note: it's not really all that sensible to use a single-entry password
- * cache if the username keeps changing.  In current usage, however, the
- * username never does change, so one savedPassword is sufficient.
+ * 如果需要，会自动发出交互式密码提示。
+ * 我们将其结果存储在 AHX->savedPassword 中。
+ * 注意：如果用户名不断变化，使用单项密码缓存并不真正
+ * 合理。但在当前使用中，用户名从不会改变，因此单个
+ * savedPassword 已足够。
  */
 void
 ConnectDatabase(Archive *AHX,
@@ -119,7 +119,7 @@ ConnectDatabase(Archive *AHX,
 	if (AH->connection)
 		pg_fatal("already connected to a database");
 
-	/* Never prompt for a password during a reconnection */
+	/* 重新连接期间绝不提示密码 */
 	prompt_password = isReconnect ? TRI_NO : cparams->promptPassword;
 
 	password = AH->savedPassword;
@@ -128,8 +128,8 @@ ConnectDatabase(Archive *AHX,
 		password = simple_prompt("Password: ", false);
 
 	/*
-	 * Start the connection.  Loop until we have a password if requested by
-	 * backend.
+	 * 开始连接。如果后端请求密码，则循环直到获取
+	 * 密码。
 	 */
 	do
 	{
@@ -138,9 +138,9 @@ ConnectDatabase(Archive *AHX,
 		int			i = 0;
 
 		/*
-		 * If dbname is a connstring, its entries can override the other
-		 * values obtained from cparams; but in turn, override_dbname can
-		 * override the dbname component of it.
+		 * 如果 dbname 是连接字符串，其条目可以覆盖从 cparams
+		 * 获取的其他值；但反过来，override_dbname 可以覆盖
+		 * 其中的 dbname 组件。
 		 */
 		keywords[i] = "host";
 		values[i++] = cparams->pghost;
@@ -180,7 +180,7 @@ ConnectDatabase(Archive *AHX,
 		}
 	} while (new_pass);
 
-	/* check to see that the backend connection was successfully made */
+	/* 检查后端连接是否成功建立 */
 	if (PQstatus(AH->connection) == CONNECTION_BAD)
 	{
 		if (isReconnect)
@@ -191,7 +191,7 @@ ConnectDatabase(Archive *AHX,
 					 PQerrorMessage(AH->connection));
 	}
 
-	/* Start strict; later phases may override this. */
+	/* 以严格模式启动；后续阶段可能会覆盖此设置。 */
 	PQclear(ExecuteSqlQueryForSingleRow((Archive *) AH,
 										ALWAYS_SECURE_SEARCH_PATH_SQL));
 
@@ -199,8 +199,8 @@ ConnectDatabase(Archive *AHX,
 		free(password);
 
 	/*
-	 * We want to remember connection's actual password, whether or not we got
-	 * it by prompting.  So we don't just store the password variable.
+	 * 我们希望记住连接的实际密码，无论是否通过提示获取。
+	 * 因此我们不仅仅存储 password 变量。
 	 */
 	if (PQconnectionUsedPassword(AH->connection))
 	{
@@ -208,18 +208,18 @@ ConnectDatabase(Archive *AHX,
 		AH->savedPassword = pg_strdup(PQpass(AH->connection));
 	}
 
-	/* check for version mismatch */
+	/* 检查版本不匹配 */
 	_check_database_version(AH);
 
 	PQsetNoticeProcessor(AH->connection, notice_processor, NULL);
 
-	/* arrange for SIGINT to issue a query cancel on this connection */
+	/* 安排 SIGINT 在此连接上发出查询取消 */
 	set_archive_cancel_info(AH, AH->connection);
 }
 
 /*
- * Close the connection to the database and also cancel off the query if we
- * have one running.
+ * 关闭数据库连接，如果有正在运行的查询，
+ * 也会取消。
  */
 void
 DisconnectDatabase(Archive *AHX)
@@ -233,15 +233,15 @@ DisconnectDatabase(Archive *AHX)
 	if (AH->connCancel)
 	{
 		/*
-		 * If we have an active query, send a cancel before closing, ignoring
-		 * any errors.  This is of no use for a normal exit, but might be
-		 * helpful during pg_fatal().
+		 * 如果有活动查询，在关闭之前发送取消请求，忽略
+		 * 任何错误。这对正常退出没有作用，但在 pg_fatal()
+		 * 期间可能有用。
 		 */
 		if (PQtransactionStatus(AH->connection) == PQTRANS_ACTIVE)
 			(void) PQcancel(AH->connCancel, errbuf, sizeof(errbuf));
 
 		/*
-		 * Prevent signal handler from sending a cancel after this.
+		 * 防止信号处理器在此之后发送取消。
 		 */
 		set_archive_cancel_info(AH, NULL);
 	}
@@ -264,7 +264,7 @@ notice_processor(void *arg, const char *message)
 	pg_log_info("%s", message);
 }
 
-/* Like pg_fatal(), but with a complaint about a particular query. */
+/* 类似 pg_fatal()，但带有关于特定查询的投诉。 */
 static void
 die_on_query_failure(ArchiveHandle *AH, const char *query)
 {
@@ -299,7 +299,7 @@ ExecuteSqlQuery(Archive *AHX, const char *query, ExecStatusType status)
 }
 
 /*
- * Execute an SQL query and verify that we got exactly one row back.
+ * 执行 SQL 查询并验证恰好返回了一行。
  */
 PGresult *
 ExecuteSqlQueryForSingleRow(Archive *fout, const char *query)
@@ -309,7 +309,7 @@ ExecuteSqlQueryForSingleRow(Archive *fout, const char *query)
 
 	res = ExecuteSqlQuery(fout, query, PGRES_TUPLES_OK);
 
-	/* Expecting a single result only */
+	/* 仅期待单个结果 */
 	ntups = PQntuples(res);
 	if (ntups != 1)
 		pg_fatal(ngettext("query returned %d row instead of one: %s",
@@ -321,8 +321,8 @@ ExecuteSqlQueryForSingleRow(Archive *fout, const char *query)
 }
 
 /*
- * Convenience function to send a query.
- * Monitors result to detect COPY statements
+ * 发送查询的便捷函数。
+ * 监控结果以检测 COPY 语句
  */
 static void
 ExecuteSqlCommand(ArchiveHandle *AH, const char *qry, const char *desc)
@@ -340,14 +340,14 @@ ExecuteSqlCommand(ArchiveHandle *AH, const char *qry, const char *desc)
 		case PGRES_COMMAND_OK:
 		case PGRES_TUPLES_OK:
 		case PGRES_EMPTY_QUERY:
-			/* A-OK */
+			/* 一切正常 */
 			break;
 		case PGRES_COPY_IN:
-			/* Assume this is an expected result */
+			/* 假定这是预期结果 */
 			AH->pgCopyIn = true;
 			break;
 		default:
-			/* trouble */
+			/* 出问题了 */
 			warn_or_exit_horribly(AH, "%s: %sCommand was: %s",
 								  desc, PQerrorMessage(conn), qry);
 			break;
@@ -358,23 +358,23 @@ ExecuteSqlCommand(ArchiveHandle *AH, const char *qry, const char *desc)
 
 
 /*
- * Process non-COPY table data (that is, INSERT commands).
+ * 处理非 COPY 表数据（即 INSERT 命令）。
  *
- * The commands have been run together as one long string for compressibility,
- * and we are receiving them in bufferloads with arbitrary boundaries, so we
- * have to locate command boundaries and save partial commands across calls.
- * All state must be kept in AH->sqlparse, not in local variables of this
- * routine.  We assume that AH->sqlparse was filled with zeroes when created.
+ * 这些命令为了可压缩性被合并为一个长字符串，
+ * 我们以任意边界的缓冲区块接收它们，
+ * 因此我们必须定位命令边界并跨调用保存部分命令。
+ * 所有状态必须保存在 AH->sqlparse 中，而不能存在于该例程的
+ * 局部变量中。我们假定 AH->sqlparse 在创建时已填充零。
  *
- * We have to lex the data to the extent of identifying literals and quoted
- * identifiers, so that we can recognize statement-terminating semicolons.
- * We assume that INSERT data will not contain SQL comments, E'' literals,
- * or dollar-quoted strings, so this is much simpler than a full SQL lexer.
+ * 我们必须对数据进行词法分析，以识别字面量和带引号的
+ * 标识符，从而识别语句终止分号。我们假定 INSERT 数据不包含
+ * SQL 注释、E'' 字面量或美元引号字符串，因此这比完整的 SQL 词法
+ * 分析器简单得多。
  *
- * Note: when restoring from a pre-9.0 dump file, this code is also used to
- * process BLOB COMMENTS data, which has the same problem of containing
- * multiple SQL commands that might be split across bufferloads.  Fortunately,
- * that data won't contain anything complicated to lex either.
+ * 注意：从 9.0 之前的导出文件恢复时，此代码也用于
+ * 处理 BLOB COMMENTS 数据，该数据同样存在包含多个可能
+ * 跨缓冲区块分割的 SQL 命令的问题。幸运的是，
+ * 那些数据也不会包含任何复杂的词法内容。
  */
 static void
 ExecuteSimpleCommands(ArchiveHandle *AH, const char *buf, size_t bufLen)
@@ -382,7 +382,7 @@ ExecuteSimpleCommands(ArchiveHandle *AH, const char *buf, size_t bufLen)
 	const char *qry = buf;
 	const char *eos = buf + bufLen;
 
-	/* initialize command buffer if first time through */
+	/* 如果是初次处理，则初始化命令缓冲区 */
 	if (AH->sqlparse.curCmd == NULL)
 		AH->sqlparse.curCmd = createPQExpBuffer();
 
@@ -390,18 +390,18 @@ ExecuteSimpleCommands(ArchiveHandle *AH, const char *buf, size_t bufLen)
 	{
 		char		ch = *qry;
 
-		/* For neatness, we skip any newlines between commands */
+		/* 为整洁起见，跳过命令间的换行符 */
 		if (!(ch == '\n' && AH->sqlparse.curCmd->len == 0))
 			appendPQExpBufferChar(AH->sqlparse.curCmd, ch);
 
 		switch (AH->sqlparse.state)
 		{
-			case SQL_SCAN:		/* Default state == 0, set in _allocAH */
+			case SQL_SCAN:		/* 默认状态 == 0，在 _allocAH 中设置 */
 				if (ch == ';')
 				{
 					/*
-					 * We've found the end of a statement. Send it and reset
-					 * the buffer.
+					 * 已找到语句结尾。发送并重置
+					 * 缓冲区。
 					 */
 					ExecuteSqlCommand(AH, AH->sqlparse.curCmd->data,
 									  "could not execute query");
@@ -419,7 +419,7 @@ ExecuteSimpleCommands(ArchiveHandle *AH, const char *buf, size_t bufLen)
 				break;
 
 			case SQL_IN_SINGLE_QUOTE:
-				/* We needn't handle '' specially */
+				/* 我们无需特殊处理 '' */
 				if (ch == '\'' && !AH->sqlparse.backSlash)
 					AH->sqlparse.state = SQL_SCAN;
 				else if (ch == '\\' && !AH->public.std_strings)
@@ -429,7 +429,7 @@ ExecuteSimpleCommands(ArchiveHandle *AH, const char *buf, size_t bufLen)
 				break;
 
 			case SQL_IN_DOUBLE_QUOTE:
-				/* We needn't handle "" specially */
+				/* 我们无需特殊处理 "" */
 				if (ch == '"')
 					AH->sqlparse.state = SQL_SCAN;
 				break;
@@ -439,7 +439,7 @@ ExecuteSimpleCommands(ArchiveHandle *AH, const char *buf, size_t bufLen)
 
 
 /*
- * Implement ahwrite() for direct-to-DB restore
+ * 实现用于直连数据库恢复的 ahwrite()
  */
 int
 ExecuteSqlCommandBuf(Archive *AHX, const char *buf, size_t bufLen)
@@ -449,11 +449,11 @@ ExecuteSqlCommandBuf(Archive *AHX, const char *buf, size_t bufLen)
 	if (AH->outputKind == OUTPUT_COPYDATA)
 	{
 		/*
-		 * COPY data.
+		 * COPY 数据。
 		 *
-		 * We drop the data on the floor if libpq has failed to enter COPY
-		 * mode; this allows us to behave reasonably when trying to continue
-		 * after an error in a COPY command.
+		 * 如果 libpq 未能进入 COPY 模式，我们将丢弃数据；
+		 * 这使我们在 COPY 命令出错后尝试继续时
+		 * 能够合理地运行。
 		 */
 		if (AH->pgCopyIn &&
 			PQputCopyData(AH->connection, buf, bufLen) <= 0)
@@ -463,19 +463,19 @@ ExecuteSqlCommandBuf(Archive *AHX, const char *buf, size_t bufLen)
 	else if (AH->outputKind == OUTPUT_OTHERDATA)
 	{
 		/*
-		 * Table data expressed as INSERT commands; or, in old dump files,
-		 * BLOB COMMENTS data (which is expressed as COMMENT ON commands).
+		 * 以 INSERT 命令表示的表数据；或在旧的导出文件中，
+		 * BLOB COMMENTS 数据（以 COMMENT ON 命令表示）。
 		 */
 		ExecuteSimpleCommands(AH, buf, bufLen);
 	}
 	else
 	{
 		/*
-		 * General SQL commands; we assume that commands will not be split
-		 * across calls.
+		 * 通用 SQL 命令；我们假定命令不会跨调用
+		 * 分割。
 		 *
-		 * In most cases the data passed to us will be a null-terminated
-		 * string, but if it's not, we have to add a trailing null.
+		 * 在大多数情况下，传递给我们的数据是空终止
+		 * 字符串，但如果不是，我们必须添加尾随 null。
 		 */
 		if (buf[bufLen] == '\0')
 			ExecuteSqlCommand(AH, buf, "could not execute query");
@@ -494,7 +494,7 @@ ExecuteSqlCommandBuf(Archive *AHX, const char *buf, size_t bufLen)
 }
 
 /*
- * Terminate a COPY operation during direct-to-DB restore
+ * 在直连数据库恢复期间终止 COPY 操作
  */
 void
 EndDBCopyMode(Archive *AHX, const char *tocEntryTag)
@@ -509,14 +509,14 @@ EndDBCopyMode(Archive *AHX, const char *tocEntryTag)
 			pg_fatal("error returned by PQputCopyEnd: %s",
 					 PQerrorMessage(AH->connection));
 
-		/* Check command status and return to normal libpq state */
+		/* 检查命令状态并返回到正常的 libpq 状态 */
 		res = PQgetResult(AH->connection);
 		if (PQresultStatus(res) != PGRES_COMMAND_OK)
 			warn_or_exit_horribly(AH, "COPY failed for table \"%s\": %s",
 								  tocEntryTag, PQerrorMessage(AH->connection));
 		PQclear(res);
 
-		/* Do this to ensure we've pumped libpq back to idle state */
+		/* 执行此操作以确保将 libpq 泵回空闲状态 */
 		if (PQgetResult(AH->connection) != NULL)
 			pg_log_warning("unexpected extra results during COPY of table \"%s\"",
 						   tocEntryTag);
@@ -545,8 +545,8 @@ void
 DropLOIfExists(ArchiveHandle *AH, Oid oid)
 {
 	/*
-	 * If we are not restoring to a direct database connection, we have to
-	 * guess about how to detect whether the LO exists.  Assume new-style.
+	 * 如果不恢复到直接数据库连接，我们必须猜测如何
+	 * 检测 LO 是否存在。假定为新型。
 	 */
 	if (AH->connection == NULL ||
 		PQserverVersion(AH->connection) >= 90000)
@@ -559,7 +559,7 @@ DropLOIfExists(ArchiveHandle *AH, Oid oid)
 	}
 	else
 	{
-		/* Restoring to pre-9.0 server, so do it the old way */
+		/* 恢复到 9.0 之前的服务器，因此使用旧方式 */
 		ahprintf(AH,
 				 "SELECT CASE WHEN EXISTS("
 				 "SELECT 1 FROM pg_catalog.pg_largeobject WHERE loid = '%u'"

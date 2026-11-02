@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * compress_lz4.c
- *	 Routines for archivers to write a LZ4 compressed data stream.
+ *	 归档器用于写入 LZ4 压缩数据流的例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -22,25 +22,25 @@
 #include <lz4frame.h>
 
 /*
- * LZ4F_HEADER_SIZE_MAX first appeared in v1.7.5 of the library.
- * Redefine it for installations with a lesser version.
+ * LZ4F_HEADER_SIZE_MAX 首次出现在库的 v1.7.5 版本中。
+ * 为安装较低版本的用户重新定义它。
  */
 #ifndef LZ4F_HEADER_SIZE_MAX
 #define LZ4F_HEADER_SIZE_MAX	32
 #endif
 
 /*---------------------------------
- * Common to both compression APIs
+ * 两种压缩 API 共用
  *---------------------------------
  */
 
 /*
- * (de)compression state used by both the Compressor and Stream APIs.
+ * 供 Compressor 和 Stream API 两者使用的（解）压缩状态。
  */
 typedef struct LZ4State
 {
 	/*
-	 * Used by the Stream API to keep track of the file stream.
+	 * 由 Stream API 用于跟踪文件流。
 	 */
 	FILE	   *fp;
 
@@ -50,19 +50,19 @@ typedef struct LZ4State
 	LZ4F_decompressionContext_t dtx;
 
 	/*
-	 * Used by the Stream API's lazy initialization.
+	 * 由 Stream API 的延迟初始化使用。
 	 */
 	bool		inited;
 
 	/*
-	 * Used by the Stream API to distinguish between compression and
-	 * decompression operations.
+	 * 由 Stream API 用于区分压缩和
+	 * 解压操作。
 	 */
 	bool		compressing;
 
 	/*
-	 * Used by the Compressor API to mark if the compression headers have been
-	 * written after initialization.
+	 * 由 Compressor API 用于标记压缩头部是否
+	 * 在初始化后已写入。
 	 */
 	bool		needs_header_flush;
 
@@ -70,34 +70,34 @@ typedef struct LZ4State
 	char	   *buffer;
 
 	/*
-	 * Used by the Stream API to store already uncompressed data that the
-	 * caller has not consumed.
+	 * 由 Stream API 用于存储调用者尚未
+	 * 消费的已解压数据。
 	 */
 	size_t		overflowalloclen;
 	size_t		overflowlen;
 	char	   *overflowbuf;
 
 	/*
-	 * Used by both APIs to keep track of the compressed data length stored in
-	 * the buffer.
+	 * 由两种 API 用于跟踪缓冲区中存储的
+	 * 压缩数据长度。
 	 */
 	size_t		compressedlen;
 
 	/*
-	 * Used by both APIs to keep track of error codes.
+	 * 由两种 API 用于跟踪错误码。
 	 */
 	size_t		errcode;
 } LZ4State;
 
 /*
  * LZ4State_compression_init
- *		Initialize the required LZ4State members for compression.
+ *		初始化压缩所需的 LZ4State 成员。
  *
- * Write the LZ4 frame header in a buffer keeping track of its length. Users of
- * this function can choose when and how to write the header to a file stream.
+ * 将 LZ4 帧头部写入缓冲区并跟踪其长度。此函数的使用者
+ * 可以选择何时以及如何将头部写入文件流。
  *
- * Returns true on success. In case of a failure returns false, and stores the
- * error code in state->errcode.
+ * 成功时返回 true。失败时返回 false，并将
+ * 错误码存储在 state->errcode 中。
  */
 static bool
 LZ4State_compression_init(LZ4State *state)
@@ -107,8 +107,8 @@ LZ4State_compression_init(LZ4State *state)
 	state->buflen = LZ4F_compressBound(DEFAULT_IO_BUFFER_SIZE, &state->prefs);
 
 	/*
-	 * LZ4F_compressBegin requires a buffer that is greater or equal to
-	 * LZ4F_HEADER_SIZE_MAX. Verify that the requirement is met.
+	 * LZ4F_compressBegin 需要一个大于或等于
+	 * LZ4F_HEADER_SIZE_MAX 的缓冲区。验证是否满足该要求。
 	 */
 	if (state->buflen < LZ4F_HEADER_SIZE_MAX)
 		state->buflen = LZ4F_HEADER_SIZE_MAX;
@@ -140,7 +140,7 @@ LZ4State_compression_init(LZ4State *state)
  *----------------------
  */
 
-/* Private routines that support LZ4 compressed data I/O */
+/* 支持 LZ4 压缩数据 I/O 的私有例程 */
 
 static void
 ReadDataFromArchiveLZ4(ArchiveHandle *AH, CompressorState *cs)
@@ -167,7 +167,7 @@ ReadDataFromArchiveLZ4(ArchiveHandle *AH, CompressorState *cs)
 		char	   *readp;
 		char	   *readend;
 
-		/* Process one chunk */
+		/* 处理一个块 */
 		readp = readbuf;
 		readend = readbuf + r;
 		while (readp < readend)
@@ -205,7 +205,7 @@ WriteDataToArchiveLZ4(ArchiveHandle *AH, CompressorState *cs,
 	size_t		status;
 	size_t		chunk;
 
-	/* Write the header if not yet written. */
+	/* 如果尚未写入，则写入头部。 */
 	if (state->needs_header_flush)
 	{
 		cs->writeF(AH, state->buffer, state->compressedlen);
@@ -241,15 +241,15 @@ EndCompressorLZ4(ArchiveHandle *AH, CompressorState *cs)
 	LZ4State   *state = (LZ4State *) cs->private_data;
 	size_t		status;
 
-	/* Nothing needs to be done */
+	/* 无事可做 */
 	if (!state)
 		return;
 
 	/*
-	 * Write the header if not yet written. The caller is not required to call
-	 * writeData if the relation does not contain any data. Thus it is
-	 * possible to reach here without having flushed the header. Do it before
-	 * ending the compression.
+	 * 如果尚未写入，则写入头部。调用者不需要在
+	 * 关系中不包含任何数据时调用 writeData。因此可能
+	 * 在尚未刷新头部的情况下到达此处。在
+	 * 结束压缩之前执行此操作。
 	 */
 	if (state->needs_header_flush)
 		cs->writeF(AH, state->buffer, state->compressedlen);
@@ -275,7 +275,7 @@ EndCompressorLZ4(ArchiveHandle *AH, CompressorState *cs)
 }
 
 /*
- * Public routines that support LZ4 compressed data I/O
+ * 支持 LZ4 压缩数据 I/O 的公共例程
  */
 void
 InitCompressorLZ4(CompressorState *cs, const pg_compress_specification compression_spec)
@@ -289,8 +289,8 @@ InitCompressorLZ4(CompressorState *cs, const pg_compress_specification compressi
 	cs->compression_spec = compression_spec;
 
 	/*
-	 * Read operations have access to the whole input. No state needs to be
-	 * carried between calls.
+	 * 读取操作可以访问整个输入。不需要在
+	 * 调用之间携带状态。
 	 */
 	if (cs->readF)
 		return;
@@ -303,7 +303,7 @@ InitCompressorLZ4(CompressorState *cs, const pg_compress_specification compressi
 		pg_fatal("could not initialize LZ4 compression: %s",
 				 LZ4F_getErrorName(state->errcode));
 
-	/* Remember that the header has not been written. */
+	/* 记住头部尚未写入。 */
 	state->needs_header_flush = true;
 	cs->private_data = state;
 }
@@ -315,9 +315,9 @@ InitCompressorLZ4(CompressorState *cs, const pg_compress_specification compressi
 
 
 /*
- * LZ4 equivalent to feof() or gzeof().  Return true iff there is no
- * decompressed output in the overflow buffer and the end of the backing file
- * is reached.
+ * feof() 或 gzeof() 的 LZ4 等效实现。当溢出缓冲区
+ * 中没有解压输出且后备文件的末尾
+ * 已到达时返回 true。
  */
 static bool
 LZ4Stream_eof(CompressFileHandle *CFH)
@@ -342,14 +342,14 @@ LZ4Stream_get_error(CompressFileHandle *CFH)
 }
 
 /*
- * Initialize an already alloc'ed LZ4State struct for subsequent calls.
+ * 为后续调用初始化已分配的 LZ4State 结构。
  *
- * Creates the necessary contexts for either compression or decompression. When
- * compressing data (indicated by compressing=true), it additionally writes the
- * LZ4 header in the output stream.
+ * 创建压缩或解压所需的上下文。压缩数据时
+ * （由 compressing=true 指示），它额外将
+ * LZ4 头部写入输出流。
  *
- * Returns true on success. In case of a failure returns false, and stores the
- * error code in state->errcode.
+ * 成功时返回 true。失败时返回 false，并将
+ * 错误码存储在 state->errcode 中。
  */
 static bool
 LZ4Stream_init(LZ4State *state, int size, bool compressing)
@@ -361,7 +361,7 @@ LZ4Stream_init(LZ4State *state, int size, bool compressing)
 
 	state->compressing = compressing;
 
-	/* When compressing, write LZ4 header to the output stream. */
+	/* 压缩时，将 LZ4 头部写入输出流。 */
 	if (state->compressing)
 	{
 
@@ -397,14 +397,14 @@ LZ4Stream_init(LZ4State *state, int size, bool compressing)
 }
 
 /*
- * Read already decompressed content from the overflow buffer into 'ptr' up to
- * 'size' bytes, if available. If the eol_flag is set, then stop at the first
- * occurrence of the newline char prior to 'size' bytes.
+ * 将溢出缓冲区中已解压的内容读取到 'ptr' 中，最多
+ * 'size' 字节（如果可用）。如果设置了 eol_flag，
+ * 则在达到 'size' 字节之前遇到换行符时停止。
  *
- * Any unread content in the overflow buffer is moved to the beginning.
+ * 溢出缓冲区中任何未读的内容将移到开头。
  *
- * Returns the number of bytes read from the overflow buffer (and copied into
- * the 'ptr' buffer), or 0 if the overflow buffer is empty.
+ * 返回从溢出缓冲区读取（并复制到 'ptr' 缓冲区）的
+ * 字节数，如果溢出缓冲区为空则返回 0。
  */
 static int
 LZ4Stream_read_overflow(LZ4State *state, void *ptr, int size, bool eol_flag)
@@ -421,7 +421,7 @@ LZ4Stream_read_overflow(LZ4State *state, void *ptr, int size, bool eol_flag)
 		readlen = state->overflowlen;
 
 	if (eol_flag && (p = memchr(state->overflowbuf, '\n', readlen)))
-		/* Include the line terminating char */
+		/* 包含行终止字符 */
 		readlen = p - state->overflowbuf + 1;
 
 	memcpy(ptr, state->overflowbuf, readlen);
@@ -434,19 +434,19 @@ LZ4Stream_read_overflow(LZ4State *state, void *ptr, int size, bool eol_flag)
 }
 
 /*
- * The workhorse for reading decompressed content out of an LZ4 compressed
- * stream.
+ * 从 LZ4 压缩流中读取解压内容的主工作函数。
  *
- * It will read up to 'ptrsize' decompressed content, or up to the new line
- * char if found first when the eol_flag is set. It is possible that the
- * decompressed output generated by reading any compressed input via the
- * LZ4F API, exceeds 'ptrsize'. Any exceeding decompressed content is stored
- * at an overflow buffer within LZ4State. Of course, when the function is
- * called, it will first try to consume any decompressed content already
- * present in the overflow buffer, before decompressing new content.
+ * 它将读取最多 'ptrsize' 的解压内容，如果设置了 eol_flag
+ * 且先找到换行符则提前停止。通过 LZ4F API 读取
+ * 压缩输入生成的解压输出可能超过 'ptrsize'。
+ * 任何超出的解压内容存储在 LZ4State 的溢出缓冲区中。
+ * 当然，调用此函数时，它首先尝试消费溢出缓冲区中
+ * 已存在的解压内容，然后再解压新内容。
  *
- * Returns the number of bytes of decompressed data copied into the ptr
- * buffer, or -1 in case of error.
+ *
+ *
+ * 返回复制到 ptr 缓冲区中的解压数据字节数，
+ * 出错时返回 -1。
  */
 static int
 LZ4Stream_read_internal(LZ4State *state, void *ptr, int ptrsize, bool eol_flag)
@@ -458,26 +458,26 @@ LZ4Stream_read_internal(LZ4State *state, void *ptr, int ptrsize, bool eol_flag)
 
 	void	   *readbuf;
 
-	/* Lazy init */
-	if (!LZ4Stream_init(state, size, false /* decompressing */ ))
+	/* 延迟初始化 */
+	if (!LZ4Stream_init(state, size, false /* 解压 */ ))
 	{
 		pg_log_error("unable to initialize LZ4 library: %s",
 					 LZ4F_getErrorName(state->errcode));
 		return -1;
 	}
 
-	/* No work needs to be done for a zero-sized output buffer */
+	/* 对于零大小的输出缓冲区无需做任何工作 */
 	if (size <= 0)
 		return 0;
 
-	/* Verify that there is enough space in the outbuf */
+	/* 验证输出缓冲区是否有足够的空间 */
 	if (size > state->buflen)
 	{
 		state->buflen = size;
 		state->buffer = pg_realloc(state->buffer, size);
 	}
 
-	/* use already decompressed content if available */
+	/* 如果有已解压的内容则使用它 */
 	dsize = LZ4Stream_read_overflow(state, ptr, size, eol_flag);
 	if (dsize == size || (eol_flag && memchr(ptr, '\n', dsize)))
 		return dsize;
@@ -519,9 +519,9 @@ LZ4Stream_read_internal(LZ4State *state, void *ptr, int ptrsize, bool eol_flag)
 			rp += read_remain;
 
 			/*
-			 * fill in what space is available in ptr if the eol flag is set,
-			 * either skip if one already found or fill up to EOL if present
-			 * in the outbuf
+			 * 如果设置了 eol 标志，填充 ptr 中可用的空间，
+			 * 如果已找到 eol 则跳过，如果输出缓冲区中存在
+			 * eol 则填充到该位置
 			 */
 			if (outlen > 0 && dsize < size && eol_found == false)
 			{
@@ -540,13 +540,13 @@ LZ4Stream_read_internal(LZ4State *state, void *ptr, int ptrsize, bool eol_flag)
 				memcpy((char *) ptr + dsize, state->buffer, len);
 				dsize += len;
 
-				/* move what did not fit, if any, at the beginning of the buf */
+				/* 将未容纳的部分（如果有）移到缓冲区开头 */
 				if (len < outlen)
 					memmove(state->buffer, state->buffer + len, outlen - len);
 				outlen -= len;
 			}
 
-			/* if there is available output, save it */
+			/* 如果有可用的输出，则保存它 */
 			if (outlen > 0)
 			{
 				while (state->overflowlen + outlen > state->overflowalloclen)
@@ -568,7 +568,7 @@ LZ4Stream_read_internal(LZ4State *state, void *ptr, int ptrsize, bool eol_flag)
 }
 
 /*
- * Compress size bytes from ptr and write them to the stream.
+ * 将 ptr 中的 size 字节压缩并写入流。
  */
 static void
 LZ4Stream_write(const void *ptr, size_t size, CompressFileHandle *CFH)
@@ -577,7 +577,7 @@ LZ4Stream_write(const void *ptr, size_t size, CompressFileHandle *CFH)
 	size_t		status;
 	int			remaining = size;
 
-	/* Lazy init */
+	/* 延迟初始化 */
 	if (!LZ4Stream_init(state, size, true))
 		pg_fatal("unable to initialize LZ4 library: %s",
 				 LZ4F_getErrorName(state->errcode));
@@ -605,7 +605,7 @@ LZ4Stream_write(const void *ptr, size_t size, CompressFileHandle *CFH)
 }
 
 /*
- * fread() equivalent implementation for LZ4 compressed files.
+ * LZ4 压缩文件的 fread() 等效实现。
  */
 static size_t
 LZ4Stream_read(void *ptr, size_t size, CompressFileHandle *CFH)
@@ -620,7 +620,7 @@ LZ4Stream_read(void *ptr, size_t size, CompressFileHandle *CFH)
 }
 
 /*
- * fgetc() equivalent implementation for LZ4 compressed files.
+ * LZ4 压缩文件的 fgetc() 等效实现。
  */
 static int
 LZ4Stream_getc(CompressFileHandle *CFH)
@@ -640,7 +640,7 @@ LZ4Stream_getc(CompressFileHandle *CFH)
 }
 
 /*
- * fgets() equivalent implementation for LZ4 compressed files.
+ * LZ4 压缩文件的 fgets() 等效实现。
  */
 static char *
 LZ4Stream_gets(char *ptr, int size, CompressFileHandle *CFH)
@@ -651,16 +651,16 @@ LZ4Stream_gets(char *ptr, int size, CompressFileHandle *CFH)
 	ret = LZ4Stream_read_internal(state, ptr, size - 1, true);
 
 	/*
-	 * LZ4Stream_read_internal returning 0 or -1 means that it was either an
-	 * EOF or an error, but gets_func is defined to return NULL in either case
-	 * so we can treat both the same here.
+	 * LZ4Stream_read_internal 返回 0 或 -1 意味着
+	 * 发生了 EOF 或错误，但 gets_func 定义为在
+	 * 两种情况下都返回 NULL，因此我们在这里可以一视同仁。
 	 */
 	if (ret <= 0)
 		return NULL;
 
 	/*
-	 * Our caller expects the return string to be NULL terminated and we know
-	 * that ret is greater than zero.
+	 * 我们的调用者期望返回的字符串以 NULL 结尾，并且我们知道
+	 * ret 大于零。
 	 */
 	ptr[ret - 1] = '\0';
 
@@ -668,8 +668,8 @@ LZ4Stream_gets(char *ptr, int size, CompressFileHandle *CFH)
 }
 
 /*
- * Finalize (de)compression of a stream. When compressing it will write any
- * remaining content and/or generated footer from the LZ4 API.
+ * 完成流的（解）压缩。压缩时将写入 LZ4 API
+ * 生成的任何剩余内容和/或尾部。
  */
 static bool
 LZ4Stream_close(CompressFileHandle *CFH)
@@ -768,7 +768,7 @@ LZ4Stream_open_write(const char *path, const char *mode, CompressFileHandle *CFH
 }
 
 /*
- * Public routines
+ * 公共例程
  */
 void
 InitCompressFileHandleLZ4(CompressFileHandle *CFH,

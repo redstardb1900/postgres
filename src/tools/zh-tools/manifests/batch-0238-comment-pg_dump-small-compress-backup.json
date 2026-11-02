@@ -1,0 +1,171 @@
+{
+  "schema_version": 1,
+  "batch_id": "0238-comment-pg_dump-small-compress-backup",
+  "title": "zh: translate pg_dump comments — small compress/backup files",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "9e35d3ca8d93319cefa8b762ee014241e9a2f9a9",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/bin/pg_dump/pg_backup_utils.c",
+      "kind": "c_comment",
+      "note": "backup utility functions"
+    },
+    {
+      "pattern": "src/bin/pg_dump/compress_none.c",
+      "kind": "c_comment",
+      "note": "no-op compression"
+    },
+    {
+      "pattern": "src/bin/pg_dump/compress_io.c",
+      "kind": "c_comment",
+      "note": "compression I/O dispatch"
+    },
+    {
+      "pattern": "src/bin/pg_dump/pg_backup_null.c",
+      "kind": "c_comment",
+      "note": "null archive format"
+    },
+    {
+      "pattern": "src/bin/pg_dump/compress_gzip.c",
+      "kind": "c_comment",
+      "note": "gzip compression"
+    },
+    {
+      "pattern": "src/bin/pg_dump/compress_zstd.c",
+      "kind": "c_comment",
+      "note": "zstd compression"
+    },
+    {
+      "pattern": "src/bin/pg_dump/pg_restore.c",
+      "kind": "c_comment",
+      "note": "pg_restore command"
+    },
+    {
+      "pattern": "src/bin/pg_dump/pg_backup_db.c",
+      "kind": "c_comment",
+      "note": "database connection for backup"
+    },
+    {
+      "pattern": "src/bin/pg_dump/compress_lz4.c",
+      "kind": "c_comment",
+      "note": "LZ4 compression"
+    },
+    {
+      "pattern": "src/bin/pg_dump/pg_backup_directory.c",
+      "kind": "c_comment",
+      "note": "directory-format archive"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0238-comment-pg_dump-small-compress-backup.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/bin/pg_dump/pg_backup_utils.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 6, "translated": 5, "preserved": 1,
+      "preserved_reasons": ["Copyright header"],
+      "note": "backup utility functions; 104 lines"
+    },
+    {
+      "path": "src/bin/pg_dump/compress_none.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8, "translated": 5, "preserved": 3,
+      "preserved_reasons": ["Copyright header", "Section banners"],
+      "note": "no-op compression; 216 lines"
+    },
+    {
+      "path": "src/bin/pg_dump/compress_io.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 14, "translated": 13, "preserved": 1,
+      "preserved_reasons": ["Section banner"],
+      "note": "compression I/O dispatch; 301 lines"
+    },
+    {
+      "path": "src/bin/pg_dump/pg_backup_null.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 18, "translated": 18, "preserved": 0,
+      "preserved_reasons": [],
+      "note": "null archive format; 228 lines"
+    },
+    {
+      "path": "src/bin/pg_dump/compress_gzip.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 21, "translated": 16, "preserved": 5,
+      "preserved_reasons": ["Copyright header", "Section banners", "#else block"],
+      "note": "gzip compression; 450 lines"
+    },
+    {
+      "path": "src/bin/pg_dump/compress_zstd.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 34, "translated": 32, "preserved": 2,
+      "preserved_reasons": ["Copyright header"],
+      "note": "zstd compression; 577 lines"
+    },
+    {
+      "path": "src/bin/pg_dump/pg_restore.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 36, "translated": 35, "preserved": 1,
+      "preserved_reasons": ["Copyright header"],
+      "note": "pg_restore command; 518 lines"
+    },
+    {
+      "path": "src/bin/pg_dump/pg_backup_db.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 41, "translated": 40, "preserved": 1,
+      "preserved_reasons": ["Copyright header"],
+      "note": "database connection for backup; 569 lines"
+    },
+    {
+      "path": "src/bin/pg_dump/compress_lz4.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 48, "translated": 44, "preserved": 4,
+      "preserved_reasons": ["Section banners", "#ifdef/#else/#endif guard labels"],
+      "note": "LZ4 compression; 810 lines"
+    },
+    {
+      "path": "src/bin/pg_dump/pg_backup_directory.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 61, "translated": 61, "preserved": 0,
+      "preserved_reasons": [],
+      "note": "directory-format archive; 841 lines"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0238-comment-pg_dump-small-compress-backup.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "segments_total": 287,
+  "translated": 267,
+  "preserved": 20,
+  "notes": "Batch 0238: 10 small pg_dump files (287 segments, 267 changed). 4 files (compress_io, pg_backup_null, compress_lz4, pg_backup_directory) required repair re-translation due to R1_SKELETON violations in first pass. Gate 2: 0 violations (10 ok). Gate 3: 0 error hits."
+}

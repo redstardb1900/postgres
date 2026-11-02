@@ -21,35 +21,35 @@
 #include "pg_dump.h"
 
 /*
- * Sort priority for database object types.
- * Objects are sorted by type, and within a type by name.
+* 数据库对象类型的排序优先级。
+* 对象先按类型排序，再按名称排序。
+*
+* 触发器、事件触发器和物化视图被有意排在较后位置。触发器必须在所有数据修改之后
+* 恢复，以免干扰数据加载。事件触发器排在倒数第二位，以免它们干扰任何类型的对象
+* 创建。物化视图刷新排在最后，因为它们应在数据库正常状态下执行（例如，它们必须
+* 在所有 ACL 恢复之后执行；此外，如果它们选择查看系统目录，应看到最终的恢复状态）。
+* 如果考虑修改此顺序，请同时查看 pg_backup_archiver.c 中的 RestorePass 机制。
+*
+* 另一方面，类型转换被有意排得比预期更早；从逻辑上讲它们应在函数之后，因为它们
+* 通常依赖于函数。这变通解决了后端将使用了类型转换的视图记录为依赖于该类型转换
+* 底层函数的习惯。我们先对类型转换排序，然后类型转换使用的所有函数会被提升到
+* 类型转换之前，进而这些函数所依赖的视图会被提升到函数之前。但未通过该方式使用
+* 的视图不会被提升。
+*
+* 注意：对象类型优先级必须与 pg_dump.c 中的段分配一致；即 PRE_DATA 对象必须排在
+* DO_PRE_DATA_BOUNDARY 之前，POST_DATA 对象必须排在 DO_POST_DATA_BOUNDARY 之后，
+* DATA 对象必须排在两者之间。
  *
- * Triggers, event triggers, and materialized views are intentionally sorted
- * late.  Triggers must be restored after all data modifications, so that
- * they don't interfere with loading data.  Event triggers are restored
- * next-to-last so that they don't interfere with object creations of any
- * kind.  Matview refreshes are last because they should execute in the
- * database's normal state (e.g., they must come after all ACLs are restored;
- * also, if they choose to look at system catalogs, they should see the final
- * restore state).  If you think to change this, see also the RestorePass
- * mechanism in pg_backup_archiver.c.
  *
- * On the other hand, casts are intentionally sorted earlier than you might
- * expect; logically they should come after functions, since they usually
- * depend on those.  This works around the backend's habit of recording
- * views that use casts as dependent on the cast's underlying function.
- * We initially sort casts first, and then any functions used by casts
- * will be hoisted above the casts, and in turn views that those functions
- * depend on will be hoisted above the functions.  But views not used that
- * way won't be hoisted.
  *
- * NOTE: object-type priorities must match the section assignments made in
- * pg_dump.c; that is, PRE_DATA objects must sort before DO_PRE_DATA_BOUNDARY,
- * POST_DATA objects must sort after DO_POST_DATA_BOUNDARY, and DATA objects
- * must sort between them.
- */
+ *
+ *
+ *
+ *
+ *
+*/
 
-/* This enum lists the priority levels in order */
+/* 此枚举按顺序列出优先级 */
 enum dbObjectTypePriorities
 {
 	PRIO_NAMESPACE = 1,
@@ -57,13 +57,13 @@ enum dbObjectTypePriorities
 	PRIO_COLLATION,
 	PRIO_TRANSFORM,
 	PRIO_EXTENSION,
-	PRIO_TYPE,					/* used for DO_TYPE and DO_SHELL_TYPE */
+	PRIO_TYPE,					/* 用于 DO_TYPE 和 DO_SHELL_TYPE */
 	PRIO_CAST,
 	PRIO_FUNC,
 	PRIO_AGG,
 	PRIO_ACCESS_METHOD,
 	PRIO_OPERATOR,
-	PRIO_OPFAMILY,				/* used for DO_OPFAMILY and DO_OPCLASS */
+	PRIO_OPFAMILY,				/* 用于 DO_OPFAMILY 和 DO_OPCLASS */
 	PRIO_CONVERSION,
 	PRIO_TSPARSER,
 	PRIO_TSTEMPLATE,
@@ -76,11 +76,11 @@ enum dbObjectTypePriorities
 	PRIO_DUMMY_TYPE,
 	PRIO_ATTRDEF,
 	PRIO_LARGE_OBJECT,
-	PRIO_PRE_DATA_BOUNDARY,		/* boundary! */
+	PRIO_PRE_DATA_BOUNDARY,		/* 边界！ */
 	PRIO_TABLE_DATA,
 	PRIO_SEQUENCE_SET,
 	PRIO_LARGE_OBJECT_DATA,
-	PRIO_POST_DATA_BOUNDARY,	/* boundary! */
+	PRIO_POST_DATA_BOUNDARY,	/* 边界！ */
 	PRIO_CONSTRAINT,
 	PRIO_INDEX,
 	PRIO_INDEX_ATTACH,
@@ -93,12 +93,12 @@ enum dbObjectTypePriorities
 	PRIO_PUBLICATION_REL,
 	PRIO_PUBLICATION_TABLE_IN_SCHEMA,
 	PRIO_SUBSCRIPTION,
-	PRIO_DEFAULT_ACL,			/* done in ACL pass */
-	PRIO_EVENT_TRIGGER,			/* must be next to last! */
-	PRIO_REFRESH_MATVIEW		/* must be last! */
+	PRIO_DEFAULT_ACL,			/* 在 ACL 遍中完成 */
+	PRIO_EVENT_TRIGGER,			/* 必须倒数第二！ */
+	PRIO_REFRESH_MATVIEW		/* 必须最后！ */
 };
 
-/* This table is indexed by enum DumpableObjectType */
+/* 此表按枚举 DumpableObjectType 索引 */
 static const int dbObjectTypePriority[] =
 {
 	PRIO_NAMESPACE,				/* DO_NAMESPACE */
@@ -179,11 +179,11 @@ static void describeDumpableObject(DumpableObject *obj,
 
 
 /*
- * Sort the given objects into a type/name-based ordering
+* 将给定对象按类型/名称排序
+*
+* 通常这只是基于依赖排序的起点。
  *
- * Normally this is just the starting point for the dependency-based
- * ordering.
- */
+*/
 void
 sortDumpableObjectsByTypeName(DumpableObject **objs, int numObjs)
 {
@@ -199,7 +199,7 @@ DOTypeNameCompare(const void *p1, const void *p2)
 	DumpableObject *obj2 = *(DumpableObject *const *) p2;
 	int			cmpval;
 
-	/* Sort by type's priority */
+	/* 按类型的优先级排序 */
 	cmpval = dbObjectTypePriority[obj1->objType] -
 		dbObjectTypePriority[obj2->objType];
 
@@ -207,10 +207,10 @@ DOTypeNameCompare(const void *p1, const void *p2)
 		return cmpval;
 
 	/*
-	 * Sort by namespace.  Typically, all objects of the same priority would
-	 * either have or not have a namespace link, but there are exceptions.
-	 * Sort NULL namespace after non-NULL in such cases.
-	 */
+	* 按模式排序。通常，相同优先级的所有对象要么都有模式链接，
+	* 要么都没有，但也有例外。这种情况下 NULL 模式排在非 NULL 之后。
+	 *
+	*/
 	if (obj1->namespace)
 	{
 		if (obj2->namespace)
@@ -227,45 +227,45 @@ DOTypeNameCompare(const void *p1, const void *p2)
 		return 1;
 
 	/*
-	 * Sort by name.  With a few exceptions, names here are single catalog
-	 * columns.  To get a fuller picture, grep pg_dump.c for "dobj.name = ".
-	 * Names here don't match "Name:" in plain format output, which is a
-	 * _tocEntry.tag.  For example, DumpableObject.name of a constraint is
-	 * pg_constraint.conname, but _tocEntry.tag of a constraint is relname and
-	 * conname joined with a space.
-	 */
+	* 按名称排序。除少数例外，这里的名称是单个目录列。
+	* 要获取更完整的图景，请在 pg_dump.c 中搜索 "dobj.name = "。
+	* 这里的名称与纯文本格式输出中的 "Name:" 不匹配，
+	* 后者是 _tocEntry.tag。例如，约束的 DumpableObject.name 是
+	* pg_constraint.conname，但约束的 _tocEntry.tag 是 relname 和
+	* conname 以空格连接。
+	*/
 	cmpval = strcmp(obj1->name, obj2->name);
 	if (cmpval != 0)
 		return cmpval;
 
 	/*
-	 * Sort by type.  This helps types that share a type priority without
-	 * sharing a unique name constraint, e.g. opclass and opfamily.
-	 */
+	* 按类型排序。这有助于那些共享类型优先级但不共享唯一名称约束的类型，
+	* 例如操作符类和操作符族。
+	*/
 	cmpval = obj1->objType - obj2->objType;
 	if (cmpval != 0)
 		return cmpval;
 
 	/*
-	 * To have a stable sort order, break ties for some object types.  Most
-	 * catalogs have a natural key, e.g. pg_proc_proname_args_nsp_index. Where
-	 * the above "namespace" and "name" comparisons don't cover all natural
-	 * key columns, compare the rest here.
+	* 为获得稳定排序，对某些对象类型要打破平局。大多数目录都有自然键，
+	* 例如 pg_proc_proname_args_nsp_index。当上述"模式"和"名称"比较
+	* 未涵盖所有自然键列时，在这里比较剩余的列。
+	*
+	* 自然键通常通过代理键引用其他目录。因此，这里将每个引用转换为
+	* 被引用目录的自然键。这可能通过多层目录引用下溯。
+	* 例如，要按 pg_proc.proargtypes 排序，需下溯到每个 pg_type，
+	* 再进一步到其 pg_namespace，以实现按 (nspname, typname) 的整体排序。
 	 *
-	 * The natural key usually refers to other catalogs by surrogate keys.
-	 * Hence, this translates each of those references to the natural key of
-	 * the referenced catalog.  That may descend through multiple levels of
-	 * catalog references.  For example, to sort by pg_proc.proargtypes,
-	 * descend to each pg_type and then further to its pg_namespace, for an
-	 * overall sort by (nspname, typname).
-	 */
+	 *
+	 *
+	*/
 	if (obj1->objType == DO_FUNC || obj1->objType == DO_AGG)
 	{
 		FuncInfo   *fobj1 = *(FuncInfo *const *) p1;
 		FuncInfo   *fobj2 = *(FuncInfo *const *) p2;
 		int			i;
 
-		/* Sort by number of arguments, then argument type names */
+		/* 先按参数个数排序，再按参数类型名排序 */
 		cmpval = fobj1->nargs - fobj2->nargs;
 		if (cmpval != 0)
 			return cmpval;
@@ -282,11 +282,11 @@ DOTypeNameCompare(const void *p1, const void *p2)
 		OprInfo    *oobj1 = *(OprInfo *const *) p1;
 		OprInfo    *oobj2 = *(OprInfo *const *) p2;
 
-		/* oprkind is 'l', 'r', or 'b'; this sorts prefix, postfix, infix */
+		/* oprkind 为 'l'、'r' 或 'b'；此排序为前缀、后缀、中缀 */
 		cmpval = (oobj2->oprkind - oobj1->oprkind);
 		if (cmpval != 0)
 			return cmpval;
-		/* Within an oprkind, sort by argument type names */
+		/* 同一种 oprkind 内，按参数类型名排序 */
 		cmpval = pgTypeNameCompare(oobj1->oprleft, oobj2->oprleft);
 		if (cmpval != 0)
 			return cmpval;
@@ -299,7 +299,7 @@ DOTypeNameCompare(const void *p1, const void *p2)
 		OpclassInfo *opcobj1 = *(OpclassInfo *const *) p1;
 		OpclassInfo *opcobj2 = *(OpclassInfo *const *) p2;
 
-		/* Sort by access method name, per pg_opclass_am_name_nsp_index */
+		/* 按访问方法名排序，遵循 pg_opclass_am_name_nsp_index */
 		cmpval = accessMethodNameCompare(opcobj1->opcmethod,
 										 opcobj2->opcmethod);
 		if (cmpval != 0)
@@ -310,7 +310,7 @@ DOTypeNameCompare(const void *p1, const void *p2)
 		OpfamilyInfo *opfobj1 = *(OpfamilyInfo *const *) p1;
 		OpfamilyInfo *opfobj2 = *(OpfamilyInfo *const *) p2;
 
-		/* Sort by access method name, per pg_opfamily_am_name_nsp_index */
+		/* 按访问方法名排序，遵循 pg_opfamily_am_name_nsp_index */
 		cmpval = accessMethodNameCompare(opfobj1->opfmethod,
 										 opfobj2->opfmethod);
 		if (cmpval != 0)
@@ -322,18 +322,18 @@ DOTypeNameCompare(const void *p1, const void *p2)
 		CollInfo   *cobj2 = *(CollInfo *const *) p2;
 
 		/*
-		 * Sort by encoding, per pg_collation_name_enc_nsp_index. Technically,
-		 * this is not necessary, because wherever this changes dump order,
-		 * restoring the dump fails anyway.  CREATE COLLATION can't create a
-		 * tie for this to break, because it imposes restrictions to make
-		 * (nspname, collname) uniquely identify a collation within a given
-		 * DatabaseEncoding.  While pg_import_system_collations() can create a
-		 * tie, pg_dump+restore fails after
-		 * pg_import_system_collations('my_schema') does so. However, there's
-		 * little to gain by ignoring one natural key column on the basis of
-		 * those limitations elsewhere, so respect the full natural key like
-		 * we do for other object types.
-		 */
+		* 按编码排序，遵循 pg_collation_name_enc_nsp_index。从技术上讲，
+		* 这不是必须的，因为凡此改变导出顺序的地方，恢复导出都会失败。
+		* CREATE COLLATION 无法创建需要此排序打破的平局，因为它施加了
+		* 限制以确保 (nspname, collname) 在给定 DatabaseEncoding 内唯一
+		* 标识排序规则。虽然 pg_import_system_collations() 可以创建平局，
+		* 但在 pg_import_system_collations('my_schema') 之后
+		* pg_dump+restore 会失败。然而，基于其他地方的那些限制而忽略
+		* 一个自然键列收益甚微，因此像处理其他对象类型一样，
+		* 尊重完整的自然键。
+		 *
+		 *
+		*/
 		cmpval = cobj1->collencoding - cobj2->collencoding;
 		if (cmpval != 0)
 			return cmpval;
@@ -343,7 +343,7 @@ DOTypeNameCompare(const void *p1, const void *p2)
 		AttrDefInfo *adobj1 = *(AttrDefInfo *const *) p1;
 		AttrDefInfo *adobj2 = *(AttrDefInfo *const *) p2;
 
-		/* Sort by attribute number */
+		/* 按属性号排序 */
 		cmpval = (adobj1->adnum - adobj2->adnum);
 		if (cmpval != 0)
 			return cmpval;
@@ -353,7 +353,7 @@ DOTypeNameCompare(const void *p1, const void *p2)
 		PolicyInfo *pobj1 = *(PolicyInfo *const *) p1;
 		PolicyInfo *pobj2 = *(PolicyInfo *const *) p2;
 
-		/* Sort by table name (table namespace was considered already) */
+		/* 按表名排序（表模式已考虑） */
 		cmpval = strcmp(pobj1->poltable->dobj.name,
 						pobj2->poltable->dobj.name);
 		if (cmpval != 0)
@@ -364,7 +364,7 @@ DOTypeNameCompare(const void *p1, const void *p2)
 		RuleInfo   *robj1 = *(RuleInfo *const *) p1;
 		RuleInfo   *robj2 = *(RuleInfo *const *) p2;
 
-		/* Sort by table name (table namespace was considered already) */
+		/* 按表名排序（表模式已考虑） */
 		cmpval = strcmp(robj1->ruletable->dobj.name,
 						robj2->ruletable->dobj.name);
 		if (cmpval != 0)
@@ -375,7 +375,7 @@ DOTypeNameCompare(const void *p1, const void *p2)
 		TriggerInfo *tobj1 = *(TriggerInfo *const *) p1;
 		TriggerInfo *tobj2 = *(TriggerInfo *const *) p2;
 
-		/* Sort by table name (table namespace was considered already) */
+		/* 按表名排序（表模式已考虑） */
 		cmpval = strcmp(tobj1->tgtable->dobj.name,
 						tobj2->tgtable->dobj.name);
 		if (cmpval != 0)
@@ -388,14 +388,14 @@ DOTypeNameCompare(const void *p1, const void *p2)
 		ConstraintInfo *robj2 = *(ConstraintInfo *const *) p2;
 
 		/*
-		 * Sort domain constraints before table constraints, for consistency
-		 * with our decision to sort CREATE DOMAIN before CREATE TABLE.
-		 */
+		* 将域约束排在表约束之前，以与我们将 CREATE DOMAIN 排在
+		* CREATE TABLE 之前的决定保持一致。
+		*/
 		if (robj1->condomain)
 		{
 			if (robj2->condomain)
 			{
-				/* Sort by domain name (domain namespace was considered) */
+				/* 按域名排序（域模式已考虑） */
 				cmpval = strcmp(robj1->condomain->dobj.name,
 								robj2->condomain->dobj.name);
 				if (cmpval != 0)
@@ -408,7 +408,7 @@ DOTypeNameCompare(const void *p1, const void *p2)
 			return PRIO_TABLE - PRIO_TYPE;
 		else
 		{
-			/* Sort by table name (table namespace was considered already) */
+			/* 按表名排序（表模式已考虑） */
 			cmpval = strcmp(robj1->contable->dobj.name,
 							robj2->contable->dobj.name);
 			if (cmpval != 0)
@@ -421,9 +421,9 @@ DOTypeNameCompare(const void *p1, const void *p2)
 		DefaultACLInfo *daclobj2 = *(DefaultACLInfo *const *) p2;
 
 		/*
-		 * Sort by defaclrole, per pg_default_acl_role_nsp_obj_index.  The
-		 * (namespace, name) match (defaclnamespace, defaclobjtype).
-		 */
+		* 按 defaclrole 排序，遵循 pg_default_acl_role_nsp_obj_index。
+		* (namespace, name) 匹配 (defaclnamespace, defaclobjtype)。
+		*/
 		cmpval = strcmp(daclobj1->defaclrole, daclobj2->defaclrole);
 		if (cmpval != 0)
 			return cmpval;
@@ -433,7 +433,7 @@ DOTypeNameCompare(const void *p1, const void *p2)
 		PublicationRelInfo *probj1 = *(PublicationRelInfo *const *) p1;
 		PublicationRelInfo *probj2 = *(PublicationRelInfo *const *) p2;
 
-		/* Sort by publication name, since (namespace, name) match the rel */
+		/* 按发布名排序，因为 (namespace, name) 匹配 rel */
 		cmpval = strcmp(probj1->publication->dobj.name,
 						probj2->publication->dobj.name);
 		if (cmpval != 0)
@@ -444,7 +444,7 @@ DOTypeNameCompare(const void *p1, const void *p2)
 		PublicationSchemaInfo *psobj1 = *(PublicationSchemaInfo *const *) p1;
 		PublicationSchemaInfo *psobj2 = *(PublicationSchemaInfo *const *) p2;
 
-		/* Sort by publication name, since ->name is just nspname */
+		/* 按发布名排序，因为 ->name 仅是 nspname */
 		cmpval = strcmp(psobj1->publication->dobj.name,
 						psobj2->publication->dobj.name);
 		if (cmpval != 0)
@@ -452,19 +452,19 @@ DOTypeNameCompare(const void *p1, const void *p2)
 	}
 
 	/*
-	 * Shouldn't get here except after catalog corruption, but if we do, sort
-	 * by OID.  This may make logically-identical databases differ in the
-	 * order of objects in dump output.  Users will get spurious schema diffs.
-	 * Expect flaky failures of 002_pg_upgrade.pl test 'dump outputs from
-	 * original and restored regression databases match' if the regression
-	 * database contains objects allowing that test to reach here.  That's a
-	 * consequence of the test using "pg_restore -j", which doesn't fully
-	 * constrain OID assignment order.
-	 */
+	* 正常情况下不会执行到这里，除非目录损坏，但如果真的到了这里，则按 OID 排序。
+	* 这可能使逻辑上完全相同的数据库在导出输出中的对象顺序不同。
+	* 用户将看到虚假的模式差异。如果回归数据库包含允许测试到达此处的对象，
+	* 002_pg_upgrade.pl 测试的 "原始和恢复的回归数据库的导出输出匹配"
+	* 将出现不稳定失败。这是该测试使用 "pg_restore -j" 的结果，
+	* 它不能完全约束 OID 分配顺序。
+	 *
+	 *
+	*/
 	return oidcmp(obj1->catId.oid, obj2->catId.oid);
 }
 
-/* Compare two OID-identified pg_type values by nspname, then by typname. */
+/* 按 nspname 然后按 typname 比较两个 OID 标识的 pg_type 值。 */
 static int
 pgTypeNameCompare(Oid typid1, Oid typid2)
 {
@@ -481,23 +481,23 @@ pgTypeNameCompare(Oid typid1, Oid typid2)
 	if (!typobj1 || !typobj2)
 	{
 		/*
-		 * getTypes() didn't find some OID.  Assume catalog corruption, e.g.
-		 * an oprright value without the corresponding OID in a pg_type row.
-		 * Report as "equal", so the caller uses the next available basis for
-		 * comparison, e.g. the next function argument.
+		* getTypes() 未找到某个 OID。假定目录损坏，例如 oprright 值
+		* 在 pg_type 行中没有对应的 OID。报告为"相等"，
+		* 以便调用者使用下一个可用的比较依据，例如下一个函数参数。
+		*
+		* 一元操作符在 oprleft（oprkind='r' 时）或 oprright（oprkind='l' 时）中
+		* 使用 InvalidOid。调用者已按 oprkind 排序，仅对同类操作符调用我们。
+		* 因此，"typid1 == typid2" 已处理了 InvalidOid。（v14 移除了后缀操作符
+		* 支持。因此，从 v14+ 导出时，只有 oprleft 可能为 InvalidOid。）
 		 *
-		 * Unary operators have InvalidOid in oprleft (if oprkind='r') or in
-		 * oprright (if oprkind='l').  Caller already sorted by oprkind,
-		 * calling us only for like-kind operators.  Hence, "typid1 == typid2"
-		 * took care of InvalidOid.  (v14 removed postfix operator support.
-		 * Hence, when dumping from v14+, only oprleft can be InvalidOid.)
-		 */
+		 *
+		*/
 		Assert(false);
 		return 0;
 	}
 
 	if (!typobj1->dobj.namespace || !typobj2->dobj.namespace)
-		Assert(false);			/* catalog corruption */
+		Assert(false);			/* 目录损坏 */
 	else
 	{
 		cmpval = strcmp(typobj1->dobj.namespace->dobj.name,
@@ -508,7 +508,7 @@ pgTypeNameCompare(Oid typid1, Oid typid2)
 	return strcmp(typobj1->dobj.name, typobj2->dobj.name);
 }
 
-/* Compare two OID-identified pg_am values by amname. */
+/* 按 amname 比较两个 OID 标识的 pg_am 值。 */
 static int
 accessMethodNameCompare(Oid am1, Oid am2)
 {
@@ -523,7 +523,7 @@ accessMethodNameCompare(Oid am1, Oid am2)
 
 	if (!amobj1 || !amobj2)
 	{
-		/* catalog corruption: handle like pgTypeNameCompare() does */
+		/* 目录损坏：以与 pgTypeNameCompare() 相同的方式处理 */
 		Assert(false);
 		return 0;
 	}
@@ -533,12 +533,12 @@ accessMethodNameCompare(Oid am1, Oid am2)
 
 
 /*
- * Sort the given objects into a safe dump order using dependency
- * information (to the extent we have it available).
+* 使用依赖信息（在可获取的范围内）将给定对象排序为安全的导出顺序。
+*
+* PRE_DATA_BOUNDARY 和 POST_DATA_BOUNDARY 对象的 DumpId 被单独传入，
+* 以供依赖循环修复时使用。
  *
- * The DumpIds of the PRE_DATA_BOUNDARY and POST_DATA_BOUNDARY objects are
- * passed in separately, in case we need them during dependency loop repair.
- */
+*/
 void
 sortDumpableObjects(DumpableObject **objs, int numObjs,
 					DumpId preBoundaryId, DumpId postBoundaryId)
@@ -546,13 +546,13 @@ sortDumpableObjects(DumpableObject **objs, int numObjs,
 	DumpableObject **ordering;
 	int			nOrdering;
 
-	if (numObjs <= 0)			/* can't happen anymore ... */
+	if (numObjs <= 0)			/* 不会再发生了 ... */
 		return;
 
 	/*
-	 * Saving the boundary IDs in static variables is a bit grotty, but seems
-	 * better than adding them to parameter lists of subsidiary functions.
-	 */
+	* 将边界 ID 存入静态变量有点笨拙，但似乎比将它们添加到子函数的
+	* 参数列表中更好。
+	*/
 	preDataBoundId = preBoundaryId;
 	postDataBoundId = postBoundaryId;
 
@@ -566,36 +566,36 @@ sortDumpableObjects(DumpableObject **objs, int numObjs,
 }
 
 /*
- * TopoSort -- topological sort of a dump list
+* TopoSort -- 导出列表的拓扑排序
+*
+* 生成满足导出列表中所有依赖约束的重排序。
+* （每个此类约束都是偏序关系的一个事实。）
+* 在满足偏序关系的前提下，最小化不必要的列表重排。
+*
+* 输入为 objs[] 中的 numObjs 个对象列表。此列表不会被修改。
+*
+* 如果能够构建满足所有约束的排序，则返回 true；
+* 如果不能（存在矛盾约束），则返回 false。
+*
+* 成功时（true 结果），ordering[] 填充为排序后的 DumpableObject
+* 指针数组，长度等于输入列表长度。
+*
+* 失败时（false 结果），ordering[] 填充为未排序的 DumpableObject
+* 指针数组，长度为 *nOrdering，列出阻止排序完成的对象。
+* 一般来说，这些对象要么直接参与依赖循环，要么被循环中的对象所依赖。
+* （后者实际上不是问题所在，但需要进一步分析才能区分哪些是哪些。）
+*
+* 调用者负责在 *ordering 处分配足够的空间。
  *
- * Generate a re-ordering of the dump list that satisfies all the dependency
- * constraints shown in the dump list.  (Each such constraint is a fact of a
- * partial ordering.)  Minimize rearrangement of the list not needed to
- * achieve the partial ordering.
  *
- * The input is the list of numObjs objects in objs[].  This list is not
- * modified.
  *
- * Returns true if able to build an ordering that satisfies all the
- * constraints, false if not (there are contradictory constraints).
  *
- * On success (true result), ordering[] is filled with a sorted array of
- * DumpableObject pointers, of length equal to the input list length.
- *
- * On failure (false result), ordering[] is filled with an unsorted array of
- * DumpableObject pointers of length *nOrdering, listing the objects that
- * prevented the sort from being completed.  In general, these objects either
- * participate directly in a dependency cycle, or are depended on by objects
- * that are in a cycle.  (The latter objects are not actually problematic,
- * but it takes further analysis to identify which are which.)
- *
- * The caller is responsible for allocating sufficient space at *ordering.
- */
+*/
 static bool
 TopoSort(DumpableObject **objs,
 		 int numObjs,
-		 DumpableObject **ordering, /* output argument */
-		 int *nOrdering)		/* output argument */
+		 DumpableObject **ordering, /* 输出参数 */
+		 int *nOrdering)		/* 输出参数 */
 {
 	DumpId		maxDumpId = getMaxDumpId();
 	int		   *pendingHeap;
@@ -608,34 +608,34 @@ TopoSort(DumpableObject **objs,
 				k;
 
 	/*
-	 * This is basically the same algorithm shown for topological sorting in
-	 * Knuth's Volume 1.  However, we would like to minimize unnecessary
-	 * rearrangement of the input ordering; that is, when we have a choice of
-	 * which item to output next, we always want to take the one highest in
-	 * the original list.  Therefore, instead of maintaining an unordered
-	 * linked list of items-ready-to-output as Knuth does, we maintain a heap
-	 * of their item numbers, which we can use as a priority queue.  This
-	 * turns the algorithm from O(N) to O(N log N) because each insertion or
-	 * removal of a heap item takes O(log N) time.  However, that's still
-	 * plenty fast enough for this application.
-	 */
+	* 这基本上是 Knuth 第一卷中所示的拓扑排序算法。然而，我们希望
+	* 最小化输入顺序的不必要重排；也就是说，当有多个选项选择下一个
+	* 输出项时，我们总是选择原始列表中排位最高的那个。因此，我们不使用
+	* Knuth 那样的无序就绪链表，而是维护一个就绪项编号的堆，
+	* 用作优先队列。这将算法从 O(N) 变为 O(N log N)，因为每次插入或
+	* 移除堆项需要 O(log N) 时间。但对于此应用程序来说仍然足够快。
+	 *
+	 *
+	 *
+	 *
+	*/
 
-	*nOrdering = numObjs;		/* for success return */
+	*nOrdering = numObjs;		/* 用于成功返回 */
 
-	/* Eliminate the null case */
+	/* 排除空情况 */
 	if (numObjs <= 0)
 		return true;
 
-	/* Create workspace for the above-described heap */
+	/* 为上述堆创建工作空间 */
 	pendingHeap = (int *) pg_malloc(numObjs * sizeof(int));
 
 	/*
-	 * Scan the constraints, and for each item in the input, generate a count
-	 * of the number of constraints that say it must be before something else.
-	 * The count for the item with dumpId j is stored in beforeConstraints[j].
-	 * We also make a map showing the input-order index of the item with
-	 * dumpId j.
-	 */
+	* 扫描约束，对输入中的每一项，生成一个计数，表示有多少约束要求它
+	* 必须排在其他项之前。dumpId 为 j 的项的计数存储在
+	* beforeConstraints[j] 中。我们还创建一个映射，显示 dumpId 为 j
+	* 的项在输入顺序中的索引。
+	 *
+	*/
 	beforeConstraints = (int *) pg_malloc0((maxDumpId + 1) * sizeof(int));
 	idMap = (int *) pg_malloc((maxDumpId + 1) * sizeof(int));
 	for (i = 0; i < numObjs; i++)
@@ -655,16 +655,16 @@ TopoSort(DumpableObject **objs,
 	}
 
 	/*
-	 * Now initialize the heap of items-ready-to-output by filling it with the
-	 * indexes of items that already have beforeConstraints[id] == 0.
+	* 现在通过填入那些 already have beforeConstraints[id] == 0 的项的
+	* 索引来初始化就绪输出项的堆。
+	*
+	* 堆的基本属性是 heap[(j-1)/2] >= heap[j] 对 j 在 1..heapLength-1
+	* 范围内的每个 j 成立（注意这里使用基于 0 的下标，而 Knuth 的讨论假设
+	* 基于 1 的下标）。因此，如果我们简单地将索引以降序填入
+	* pendingHeap[]，则在此循环完成时堆不变量（fortiori）得到满足，
+	* 无需进行任何上滤比较。
 	 *
-	 * The essential property of a heap is heap[(j-1)/2] >= heap[j] for each j
-	 * in the range 1..heapLength-1 (note we are using 0-based subscripts
-	 * here, while the discussion in Knuth assumes 1-based subscripts). So, if
-	 * we simply enter the indexes into pendingHeap[] in decreasing order, we
-	 * a-fortiori have the heap invariant satisfied at completion of this
-	 * loop, and don't need to do any sift-up comparisons.
-	 */
+	*/
 	heapLength = 0;
 	for (i = numObjs; --i >= 0;)
 	{
@@ -673,29 +673,29 @@ TopoSort(DumpableObject **objs,
 	}
 
 	/*--------------------
-	 * Now emit objects, working backwards in the output list.  At each step,
-	 * we use the priority heap to select the last item that has no remaining
-	 * before-constraints.  We remove that item from the heap, output it to
-	 * ordering[], and decrease the beforeConstraints count of each of the
-	 * items it was constrained against.  Whenever an item's beforeConstraints
-	 * count is thereby decreased to zero, we insert it into the priority heap
-	 * to show that it is a candidate to output.  We are done when the heap
-	 * becomes empty; if we have output every element then we succeeded,
-	 * otherwise we failed.
-	 * i = number of ordering[] entries left to output
-	 * j = objs[] index of item we are outputting
-	 * k = temp for scanning constraint list for item j
-	 *--------------------
-	 */
+	* 现在输出对象，反向填充输出列表。每一步使用优先堆选择最后一个
+	* 没有剩余前置约束的项。我们从堆中移除该项，将其输出到 ordering[]，
+	* 并递减它所约束的每个项的前置约束计数。每当某个项的前置约束计数
+	* 因此递减为零，我们将其插入优先堆，表示它成为输出候选。
+	* 堆变空时完成；如果我们输出了所有元素则成功，否则失败。
+	* i = 剩余待输出的 ordering[] 条目数
+	* j = 正在输出的项的 objs[] 索引
+	* k = 用于扫描项 j 的约束列表的临时变量
+	*--------------------
+	 *
+	 *
+	 *
+	 *
+	*/
 	i = numObjs;
 	while (heapLength > 0)
 	{
-		/* Select object to output by removing largest heap member */
+		/* 通过移除最大堆成员来选择要输出的对象 */
 		j = removeHeapElement(pendingHeap, heapLength--);
 		obj = objs[j];
-		/* Output candidate to ordering[] */
+		/* 将候选对象输出到 ordering[] */
 		ordering[--i] = obj;
-		/* Update beforeConstraints counts of its predecessors */
+		/* 更新其前驱的 beforeConstraints 计数 */
 		for (k = 0; k < obj->nDeps; k++)
 		{
 			int			id = obj->dependencies[k];
@@ -706,9 +706,9 @@ TopoSort(DumpableObject **objs,
 	}
 
 	/*
-	 * If we failed, report the objects that couldn't be output; these are the
-	 * ones with beforeConstraints[] still nonzero.
-	 */
+	* 如果失败，报告无法输出的对象；这些是 beforeConstraints[] 仍为非零值的对象。
+	 *
+	*/
 	if (i != 0)
 	{
 		k = 0;
@@ -720,7 +720,7 @@ TopoSort(DumpableObject **objs,
 		*nOrdering = k;
 	}
 
-	/* Done */
+	/* 完成 */
 	free(pendingHeap);
 	free(beforeConstraints);
 	free(idMap);
@@ -729,20 +729,20 @@ TopoSort(DumpableObject **objs,
 }
 
 /*
- * Add an item to a heap (priority queue)
- *
- * heapLength is the current heap size; caller is responsible for increasing
- * its value after the call.  There must be sufficient storage at *heap.
- */
+* 向堆（优先队列）添加一项
+*
+* heapLength 是当前堆大小；调用者负责在调用后增加其值。
+* *heap 处必须有足够的存储空间。
+*/
 static void
 addHeapElement(int val, int *heap, int heapLength)
 {
 	int			j;
 
 	/*
-	 * Sift-up the new entry, per Knuth 5.2.3 exercise 16. Note that Knuth is
-	 * using 1-based array indexes, not 0-based.
-	 */
+	* 按 Knuth 5.2.3 练习 16 对新条目进行上滤。注意 Knuth 使用基于 1
+	* 的数组索引，而非基于 0。
+	*/
 	j = heapLength;
 	while (j > 0)
 	{
@@ -757,14 +757,14 @@ addHeapElement(int val, int *heap, int heapLength)
 }
 
 /*
- * Remove the largest item present in a heap (priority queue)
+* 移除堆（优先队列）中的最大项
+*
+* heapLength 是当前堆大小；调用者负责在调用后减少其值。
+*
+* 我们移除并返回 heap[0]（始终是堆的最大元素），
+* 然后"上滤"以维护堆不变量。
  *
- * heapLength is the current heap size; caller is responsible for decreasing
- * its value after the call.
- *
- * We remove and return heap[0], which is always the largest element of
- * the heap, and then "sift up" to maintain the heap invariant.
- */
+*/
 static int
 removeHeapElement(int *heap, int heapLength)
 {
@@ -774,8 +774,8 @@ removeHeapElement(int *heap, int heapLength)
 
 	if (--heapLength <= 0)
 		return result;
-	val = heap[heapLength];		/* value that must be reinserted */
-	i = 0;						/* i is where the "hole" is */
+	val = heap[heapLength];		/* 必须重新插入的值 */
+	i = 0;						/* i 是"空洞"所在位置 */
 	for (;;)
 	{
 		int			j = 2 * i + 1;
@@ -795,46 +795,46 @@ removeHeapElement(int *heap, int heapLength)
 }
 
 /*
- * findDependencyLoops - identify loops in TopoSort's failure output,
- *		and pass each such loop to repairDependencyLoop() for action
+* findDependencyLoops - 识别 TopoSort 失败输出中的循环，
+*		并将每个此类循环传递给 repairDependencyLoop() 处理
+*
+* 一般情况下，TopoSort 返回的对象集中可能存在多个循环；
+* 为了提高速度，我们应尽可能多地修复循环后再重试 TopoSort。
+* 我们可以安全地修复不相交的循环（没有共同成员）；
+* 如果发现重叠的循环，则只修复第一个发现的循环，
+* 因为修复第一个循环的操作可能也已修复了其他循环。
+* （如果没有，我们会在下一轮修复。）
+*
+* objs[] 列出 TopoSort 无法排序的对象
+* nObjs 是此类对象的数量
+* totObjs 是整个范围内的对象总数
  *
- * In general there may be many loops in the set of objects returned by
- * TopoSort; for speed we should try to repair as many loops as we can
- * before trying TopoSort again.  We can safely repair loops that are
- * disjoint (have no members in common); if we find overlapping loops
- * then we repair only the first one found, because the action taken to
- * repair the first might have repaired the other as well.  (If not,
- * we'll fix it on the next go-round.)
- *
- * objs[] lists the objects TopoSort couldn't sort
- * nObjs is the number of such objects
- * totObjs is the total number of objects in the universe
- */
+*/
 static void
 findDependencyLoops(DumpableObject **objs, int nObjs, int totObjs)
 {
 	/*
-	 * We use three data structures here:
+	* 这里使用三个数据结构：
+	*
+	* processed[] 是按 dump ID 索引的 bool 数组，标记在本次
+	* findDependencyLoops() 调用中已处理的对象。
+	*
+	* searchFailed[] 是另一个按 dump ID 索引的数组。如果我们已证明
+	* 不存在从对象 j 回到起始点 k 的依赖路径，则 searchFailed[j]
+	* 设为 dump ID k。这使我们在存在多条从 k 到 j 的依赖路径时
+	* 可以跳过无用搜索（这是常见情况）。我们可以用简单的 bool 数组，
+	* 但那样就需要对每个起始点重新清零，导致 O(N^2) 的清零工作。
+	* 使用起始点的 dump ID 作为"真"值，
+	* 使我们可以跳过在考虑下一个起始点之前清除数组。
+	*
+	* workspace[] 是 DumpableObject 指针数组，我们在其中尝试构建
+	* 构成循环的对象列表。我们使 workspace[] 大到足以容纳 TopoSort
+	* 输出中的所有对象，这在大多数情况下极为过度，但理论上如果存在
+	* 一条依赖链连接所有对象，则可能是必要的。
 	 *
-	 * processed[] is a bool array indexed by dump ID, marking the objects
-	 * already processed during this invocation of findDependencyLoops().
 	 *
-	 * searchFailed[] is another array indexed by dump ID.  searchFailed[j] is
-	 * set to dump ID k if we have proven that there is no dependency path
-	 * leading from object j back to start point k.  This allows us to skip
-	 * useless searching when there are multiple dependency paths from k to j,
-	 * which is a common situation.  We could use a simple bool array for
-	 * this, but then we'd need to re-zero it for each start point, resulting
-	 * in O(N^2) zeroing work.  Using the start point's dump ID as the "true"
-	 * value lets us skip clearing the array before we consider the next start
-	 * point.
 	 *
-	 * workspace[] is an array of DumpableObject pointers, in which we try to
-	 * build lists of objects constituting loops.  We make workspace[] large
-	 * enough to hold all the objects in TopoSort's output, which is huge
-	 * overkill in most cases but could theoretically be necessary if there is
-	 * a single dependency chain linking all the objects.
-	 */
+	*/
 	bool	   *processed;
 	DumpId	   *searchFailed;
 	DumpableObject **workspace;
@@ -861,26 +861,26 @@ findDependencyLoops(DumpableObject **objs, int nObjs, int totObjs)
 
 		if (looplen > 0)
 		{
-			/* Found a loop, repair it */
+			/* 发现循环，修复它 */
 			repairDependencyLoop(workspace, looplen);
 			fixedloop = true;
-			/* Mark loop members as processed */
+			/* 将循环成员标记为已处理 */
 			for (j = 0; j < looplen; j++)
 				processed[workspace[j]->dumpId] = true;
 		}
 		else
 		{
 			/*
-			 * There's no loop starting at this object, but mark it processed
-			 * anyway.  This is not necessary for correctness, but saves later
-			 * invocations of findLoop() from uselessly chasing references to
-			 * such an object.
-			 */
+			* 没有以该对象为起点的循环，但仍将其标记为已处理。
+			* 这对于正确性并非必需，但可以节省后续 findLoop() 调用
+			* 无用地追踪对该对象的引用。
+			 *
+			*/
 			processed[obj->dumpId] = true;
 		}
 	}
 
-	/* We'd better have fixed at least one loop */
+	/* 我们至少应修复了一个循环 */
 	if (!fixedloop)
 		pg_fatal("could not identify dependency loop");
 
@@ -890,22 +890,22 @@ findDependencyLoops(DumpableObject **objs, int nObjs, int totObjs)
 }
 
 /*
- * Recursively search for a circular dependency loop that doesn't include
- * any already-processed objects.
+* 递归搜索不包含任何已处理对象的循环依赖。
+*
+*	obj: 当前正在检查的对象
+*	startPoint: 期望循环的起始对象的 dumpId
+*	processed[]: 标记已处理对象的标志数组
+*	searchFailed[]: 标记已访问但未成功找到路径的对象的标志数组
+*	workspace[]: 正在其中构建循环成员列表的工作数组
+*	depth: 调用时 workspace[] 中的有效条目数
+*
+* 成功时，返回循环长度，workspace[] 填充为循环成员的指针。
+* 失败时，返回 0。
+*
+* 注意：给定的起始对象可能属于多个循环；如果是这样，
+* 我们将找到其中任意一个循环。
  *
- *	obj: object we are examining now
- *	startPoint: dumpId of starting object for the hoped-for circular loop
- *	processed[]: flag array marking already-processed objects
- *	searchFailed[]: flag array marking already-unsuccessfully-visited objects
- *	workspace[]: work array in which we are building list of loop members
- *	depth: number of valid entries in workspace[] at call
- *
- * On success, the length of the loop is returned, and workspace[] is filled
- * with pointers to the members of the loop.  On failure, we return 0.
- *
- * Note: it is possible that the given starting object is a member of more
- * than one cycle; if so, we will find an arbitrary one of the cycles.
- */
+*/
 static int
 findLoop(DumpableObject *obj,
 		 DumpId startPoint,
@@ -917,25 +917,25 @@ findLoop(DumpableObject *obj,
 	int			i;
 
 	/*
-	 * Reject if obj is already processed.  This test prevents us from finding
-	 * loops that overlap previously-processed loops.
-	 */
+	* 如果 obj 已处理则拒绝。此检查防止我们发现与先前已处理循环
+	* 重叠的循环。
+	*/
 	if (processed[obj->dumpId])
 		return 0;
 
 	/*
-	 * If we've already proven there is no path from this object back to the
-	 * startPoint, forget it.
-	 */
+	* 如果我们已证明不存在从该对象回到 startPoint 的路径，
+	* 则跳过。
+	*/
 	if (searchFailed[obj->dumpId] == startPoint)
 		return 0;
 
 	/*
-	 * Reject if obj is already present in workspace.  This test prevents us
-	 * from going into infinite recursion if we are given a startPoint object
-	 * that links to a cycle it's not a member of, and it guarantees that we
-	 * can't overflow the allocated size of workspace[].
-	 */
+	* 如果 obj 已存在于 workspace 中则拒绝。此检查防止在以下情况下
+	* 进入无限递归：给定的 startPoint 对象链接到它不所属的循环，
+	* 并且它保证我们不会溢出 workspace[] 的分配大小。
+	 *
+	*/
 	for (i = 0; i < depth; i++)
 	{
 		if (workspace[i] == obj)
@@ -943,13 +943,13 @@ findLoop(DumpableObject *obj,
 	}
 
 	/*
-	 * Okay, tentatively add obj to workspace
-	 */
+	* 好的，暂将 obj 添加到 workspace
+	*/
 	workspace[depth++] = obj;
 
 	/*
-	 * See if we've found a loop back to the desired startPoint; if so, done
-	 */
+	* 检查是否已找到回到期望 startPoint 的循环；如果是，完成
+	*/
 	for (i = 0; i < obj->nDeps; i++)
 	{
 		if (obj->dependencies[i] == startPoint)
@@ -957,15 +957,15 @@ findLoop(DumpableObject *obj,
 	}
 
 	/*
-	 * Recurse down each outgoing branch
-	 */
+	* 沿每条出边递归
+	*/
 	for (i = 0; i < obj->nDeps; i++)
 	{
 		DumpableObject *nextobj = findObjectByDumpId(obj->dependencies[i]);
 		int			newDepth;
 
 		if (!nextobj)
-			continue;			/* ignore dependencies on undumped objects */
+			continue;			/* 忽略对未导出对象的依赖 */
 		newDepth = findLoop(nextobj,
 							startPoint,
 							processed,
@@ -977,38 +977,38 @@ findLoop(DumpableObject *obj,
 	}
 
 	/*
-	 * Remember there is no path from here back to startPoint
-	 */
+	* 记住不存在从此处回到 startPoint 的路径
+	*/
 	searchFailed[obj->dumpId] = startPoint;
 
 	return 0;
 }
 
 /*
- * A user-defined datatype will have a dependency loop with each of its
- * I/O functions (since those have the datatype as input or output).
- * Similarly, a range type will have a loop with its canonicalize function,
- * if any.  Break the loop by making the function depend on the associated
- * shell type, instead.
- */
+* 用户定义的数据类型与其每个 I/O 函数之间存在依赖循环
+* （因为这些函数以该数据类型作为输入或输出）。
+* 类似地，范围类型与其规范化函数（如果有）之间也存在循环。
+* 打破循环的方法是让函数改为依赖于关联的壳类型。
+ *
+*/
 static void
 repairTypeFuncLoop(DumpableObject *typeobj, DumpableObject *funcobj)
 {
 	TypeInfo   *typeInfo = (TypeInfo *) typeobj;
 
-	/* remove function's dependency on type */
+	/* 移除函数对类型的依赖 */
 	removeObjectDependency(funcobj, typeobj->dumpId);
 
-	/* add function's dependency on shell type, instead */
+	/* 改为添加函数对壳类型的依赖 */
 	if (typeInfo->shellType)
 	{
 		addObjectDependency(funcobj, typeInfo->shellType->dobj.dumpId);
 
 		/*
-		 * Mark shell type (always including the definition, as we need the
-		 * shell type defined to identify the function fully) as to be dumped
-		 * if any such function is
-		 */
+		* 标记壳类型（始终包含定义，因为我们需要壳类型被定义
+		* 才能完全标识函数）如有任何此类函数需要导出则一并导出
+		 *
+		*/
 		if (funcobj->dump)
 			typeInfo->shellType->dobj.dump = funcobj->dump |
 				DUMP_COMPONENT_DEFINITION;
@@ -1016,32 +1016,32 @@ repairTypeFuncLoop(DumpableObject *typeobj, DumpableObject *funcobj)
 }
 
 /*
- * Because we force a view to depend on its ON SELECT rule, while there
- * will be an implicit dependency in the other direction, we need to break
- * the loop.  If there are no other objects in the loop then we can remove
- * the implicit dependency and leave the ON SELECT rule non-separate.
- * This applies to matviews, as well.
- */
+* 因为我们强制视图依赖于其 ON SELECT 规则，而另一个方向存在隐含依赖，
+* 所以我们需要打破循环。如果循环中没有其他对象，我们可以移除隐含依赖
+* 并保持 ON SELECT 规则为非分离的。这也适用于物化视图。
+ *
+ *
+*/
 static void
 repairViewRuleLoop(DumpableObject *viewobj,
 				   DumpableObject *ruleobj)
 {
-	/* remove rule's dependency on view */
+	/* 移除规则对视图的依赖 */
 	removeObjectDependency(ruleobj, viewobj->dumpId);
-	/* flags on the two objects are already set correctly for this case */
+	/* 两个对象的标志已为此情况正确设置 */
 }
 
 /*
- * However, if there are other objects in the loop, we must break the loop
- * by making the ON SELECT rule a separately-dumped object.
+* 然而，如果循环中还有其他对象，我们必须通过将 ON SELECT 规则
+* 变为单独导出的对象来打破循环。
+*
+* 因为 findLoop() 先找到较短的循环再找到较长的循环，很可能我们
+* 先前已触发了 repairViewRuleLoop() 并移除了规则对视图的依赖。
+* 将其放回以确保规则不会在视图之前输出。
+*
+* 注意：此方法目前不适用于物化视图。
  *
- * Because findLoop() finds shorter cycles before longer ones, it's likely
- * that we will have previously fired repairViewRuleLoop() and removed the
- * rule's dependency on the view.  Put it back to ensure the rule won't be
- * emitted before the view.
- *
- * Note: this approach does *not* work for matviews, at the moment.
- */
+*/
 static void
 repairViewRuleMultiLoop(DumpableObject *viewobj,
 						DumpableObject *ruleobj)
@@ -1049,40 +1049,40 @@ repairViewRuleMultiLoop(DumpableObject *viewobj,
 	TableInfo  *viewinfo = (TableInfo *) viewobj;
 	RuleInfo   *ruleinfo = (RuleInfo *) ruleobj;
 
-	/* remove view's dependency on rule */
+	/* 移除视图对规则的依赖 */
 	removeObjectDependency(viewobj, ruleobj->dumpId);
-	/* mark view to be printed with a dummy definition */
+	/* 标记视图将以虚拟定义打印 */
 	viewinfo->dummy_view = true;
-	/* mark rule as needing its own dump */
+	/* 标记规则需要单独的导出 */
 	ruleinfo->separate = true;
-	/* put back rule's dependency on view */
+	/* 放回规则对视图的依赖 */
 	addObjectDependency(ruleobj, viewobj->dumpId);
-	/* now that rule is separate, it must be post-data */
+	/* 现在规则分离了，必须为 post-data */
 	addObjectDependency(ruleobj, postDataBoundId);
 }
 
 /*
- * If a matview is involved in a multi-object loop, we can't currently fix
- * that by splitting off the rule.  As a stopgap, we try to fix it by
- * dropping the constraint that the matview be dumped in the pre-data section.
- * This is sufficient to handle cases where a matview depends on some unique
- * index, as can happen if it has a GROUP BY for example.
+* 如果物化视图涉及多对象循环，目前无法通过分离规则来修复。
+* 作为权宜之计，我们尝试通过放弃物化视图必须在 pre-data 段中导出的约束
+* 来修复。这足以处理物化视图依赖于某个唯一索引的情况，
+* 例如当它有 GROUP BY 时。
+*
+* 注意"下一个对象"不一定是物化视图本身；
+* 例如它可能是物化视图的行类型。在移除所有 pre-data 链接的过程中，
+* 我们可能多次经过这里。特别是，如果有其他物化视图依赖于有问题
+* 的物化视图，我们会为每个这样的物化视图经过这里，并将它们都标记为
+* 延迟。（这之所以有效，是因为所有 MV 初始都有 pre-data 依赖，
+* 所以每个 MV 都会被访问到。）
  *
- * Note that the "next object" is not necessarily the matview itself;
- * it could be the matview's rowtype, for example.  We may come through here
- * several times while removing all the pre-data linkages.  In particular,
- * if there are other matviews that depend on the one with the circularity
- * problem, we'll come through here for each such matview and mark them all
- * as postponed.  (This works because all MVs have pre-data dependencies
- * to begin with, so each of them will get visited.)
- */
+ *
+*/
 static void
 repairMatViewBoundaryMultiLoop(DumpableObject *boundaryobj,
 							   DumpableObject *nextobj)
 {
-	/* remove boundary's dependency on object after it in loop */
+	/* 移除边界对循环中其后对象的依赖 */
 	removeObjectDependency(boundaryobj, nextobj->dumpId);
-	/* if that object is a matview, mark it as postponed into post-data */
+	/* 如果该对象是物化视图，将其标记为延迟到 post-data */
 	if (nextobj->objType == DO_TABLE)
 	{
 		TableInfo  *nextinfo = (TableInfo *) nextobj;
@@ -1093,19 +1093,19 @@ repairMatViewBoundaryMultiLoop(DumpableObject *boundaryobj,
 }
 
 /*
- * If a function is involved in a multi-object loop, we can't currently fix
- * that by splitting it into two DumpableObjects.  As a stopgap, we try to fix
- * it by dropping the constraint that the function be dumped in the pre-data
- * section.  This is sufficient to handle cases where a function depends on
- * some unique index, as can happen if it has a GROUP BY for example.
- */
+* 如果函数涉及多对象循环，目前无法通过将其拆分为两个 DumpableObject
+* 来修复。作为权宜之计，我们尝试通过放弃函数必须在 pre-data 段中导出
+* 的约束来修复。这足以处理函数依赖于某个唯一索引的情况，
+* 例如当它有 GROUP BY 时。
+ *
+*/
 static void
 repairFunctionBoundaryMultiLoop(DumpableObject *boundaryobj,
 								DumpableObject *nextobj)
 {
-	/* remove boundary's dependency on object after it in loop */
+	/* 移除边界对循环中其后对象的依赖 */
 	removeObjectDependency(boundaryobj, nextobj->dumpId);
-	/* if that object is a function, mark it as postponed into post-data */
+	/* 如果该对象是函数，将其标记为延迟到 post-data */
 	if (nextobj->objType == DO_FUNC)
 	{
 		FuncInfo   *nextinfo = (FuncInfo *) nextobj;
@@ -1115,50 +1115,50 @@ repairFunctionBoundaryMultiLoop(DumpableObject *boundaryobj,
 }
 
 /*
- * Because we make tables depend on their CHECK constraints, while there
- * will be an automatic dependency in the other direction, we need to break
- * the loop.  If there are no other objects in the loop then we can remove
- * the automatic dependency and leave the CHECK constraint non-separate.
- */
+* 因为我们使表依赖于其 CHECK 约束，而另一个方向存在自动依赖，
+* 所以我们需要打破循环。如果循环中没有其他对象，我们可以移除
+* 自动依赖并保持 CHECK 约束为非分离的。
+ *
+*/
 static void
 repairTableConstraintLoop(DumpableObject *tableobj,
 						  DumpableObject *constraintobj)
 {
-	/* remove constraint's dependency on table */
+	/* 移除约束对表的依赖 */
 	removeObjectDependency(constraintobj, tableobj->dumpId);
 }
 
 /*
- * However, if there are other objects in the loop, we must break the loop
- * by making the CHECK constraint a separately-dumped object.
+* 然而，如果循环中还有其他对象，我们必须通过将 CHECK 约束
+* 变为单独导出的对象来打破循环。
+*
+* 因为 findLoop() 先找到较短的循环再找到较长的循环，很可能我们
+* 先前已触发了 repairTableConstraintLoop() 并移除了约束对表的依赖。
+* 将其放回以确保约束不会在表之前输出...
  *
- * Because findLoop() finds shorter cycles before longer ones, it's likely
- * that we will have previously fired repairTableConstraintLoop() and
- * removed the constraint's dependency on the table.  Put it back to ensure
- * the constraint won't be emitted before the table...
- */
+*/
 static void
 repairTableConstraintMultiLoop(DumpableObject *tableobj,
 							   DumpableObject *constraintobj)
 {
-	/* remove table's dependency on constraint */
+	/* 移除表对约束的依赖 */
 	removeObjectDependency(tableobj, constraintobj->dumpId);
-	/* mark constraint as needing its own dump */
+	/* 标记约束需要单独的导出 */
 	((ConstraintInfo *) constraintobj)->separate = true;
-	/* put back constraint's dependency on table */
+	/* 放回约束对表的依赖 */
 	addObjectDependency(constraintobj, tableobj->dumpId);
-	/* now that constraint is separate, it must be post-data */
+	/* 现在约束分离了，必须为 post-data */
 	addObjectDependency(constraintobj, postDataBoundId);
 }
 
 /*
- * Attribute defaults behave exactly the same as CHECK constraints...
- */
+* 属性默认值的行为与 CHECK 约束完全相同...
+*/
 static void
 repairTableAttrDefLoop(DumpableObject *tableobj,
 					   DumpableObject *attrdefobj)
 {
-	/* remove attrdef's dependency on table */
+	/* 移除属性默认值对表的依赖 */
 	removeObjectDependency(attrdefobj, tableobj->dumpId);
 }
 
@@ -1166,22 +1166,22 @@ static void
 repairTableAttrDefMultiLoop(DumpableObject *tableobj,
 							DumpableObject *attrdefobj)
 {
-	/* remove table's dependency on attrdef */
+	/* 移除表对属性默认值的依赖 */
 	removeObjectDependency(tableobj, attrdefobj->dumpId);
-	/* mark attrdef as needing its own dump */
+	/* 标记属性默认值需要单独的导出 */
 	((AttrDefInfo *) attrdefobj)->separate = true;
-	/* put back attrdef's dependency on table */
+	/* 放回属性默认值对表的依赖 */
 	addObjectDependency(attrdefobj, tableobj->dumpId);
 }
 
 /*
- * CHECK constraints on domains work just like those on tables ...
- */
+* 域上的 CHECK 约束与表上的行为完全相同...
+*/
 static void
 repairDomainConstraintLoop(DumpableObject *domainobj,
 						   DumpableObject *constraintobj)
 {
-	/* remove constraint's dependency on domain */
+	/* 移除约束对域的依赖 */
 	removeObjectDependency(constraintobj, domainobj->dumpId);
 }
 
@@ -1189,13 +1189,13 @@ static void
 repairDomainConstraintMultiLoop(DumpableObject *domainobj,
 								DumpableObject *constraintobj)
 {
-	/* remove domain's dependency on constraint */
+	/* 移除域对约束的依赖 */
 	removeObjectDependency(domainobj, constraintobj->dumpId);
-	/* mark constraint as needing its own dump */
+	/* 标记约束需要单独的导出 */
 	((ConstraintInfo *) constraintobj)->separate = true;
-	/* put back constraint's dependency on domain */
+	/* 放回约束对域的依赖 */
 	addObjectDependency(constraintobj, domainobj->dumpId);
-	/* now that constraint is separate, it must be post-data */
+	/* 现在约束分离了，必须为 post-data */
 	addObjectDependency(constraintobj, postDataBoundId);
 }
 
@@ -1207,12 +1207,12 @@ repairIndexLoop(DumpableObject *partedindex,
 }
 
 /*
- * Fix a dependency loop, or die trying ...
+* 修复依赖循环，或尝试至死...
+*
+* 此例程主要关注将循环的各种出现形式归约为常见情况，
+* 然后交给上面的"修复器"例程处理。
  *
- * This routine is mainly concerned with reducing the multiple ways that
- * a loop might appear to common cases, which it passes off to the
- * "fixer" routines above.
- */
+*/
 static void
 repairDependencyLoop(DumpableObject **loop,
 					 int nLoop)
@@ -1220,7 +1220,7 @@ repairDependencyLoop(DumpableObject **loop,
 	int			i,
 				j;
 
-	/* Datatype and one of its I/O or canonicalize functions */
+	/* 数据类型及其 I/O 或规范化函数之一 */
 	if (nLoop == 2 &&
 		loop[0]->objType == DO_TYPE &&
 		loop[1]->objType == DO_FUNC)
@@ -1236,7 +1236,7 @@ repairDependencyLoop(DumpableObject **loop,
 		return;
 	}
 
-	/* View (including matview) and its ON SELECT rule */
+	/* 视图（包括物化视图）及其 ON SELECT 规则 */
 	if (nLoop == 2 &&
 		loop[0]->objType == DO_TABLE &&
 		loop[1]->objType == DO_RULE &&
@@ -1262,7 +1262,7 @@ repairDependencyLoop(DumpableObject **loop,
 		return;
 	}
 
-	/* Indirect loop involving view (but not matview) and ON SELECT rule */
+	/* 涉及视图（但不包括物化视图）和 ON SELECT 规则的间接循环 */
 	if (nLoop > 2)
 	{
 		for (i = 0; i < nLoop; i++)
@@ -1285,7 +1285,7 @@ repairDependencyLoop(DumpableObject **loop,
 		}
 	}
 
-	/* Indirect loop involving matview and data boundary */
+	/* 涉及物化视图和数据边界的间接循环 */
 	if (nLoop > 2)
 	{
 		for (i = 0; i < nLoop; i++)
@@ -1308,7 +1308,7 @@ repairDependencyLoop(DumpableObject **loop,
 		}
 	}
 
-	/* Indirect loop involving function and data boundary */
+	/* 涉及函数和数据边界的间接循环 */
 	if (nLoop > 2)
 	{
 		for (i = 0; i < nLoop; i++)
@@ -1330,7 +1330,7 @@ repairDependencyLoop(DumpableObject **loop,
 		}
 	}
 
-	/* Table and CHECK constraint */
+	/* 表和 CHECK 约束 */
 	if (nLoop == 2 &&
 		loop[0]->objType == DO_TABLE &&
 		loop[1]->objType == DO_CONSTRAINT &&
@@ -1350,7 +1350,7 @@ repairDependencyLoop(DumpableObject **loop,
 		return;
 	}
 
-	/* Indirect loop involving table and CHECK constraint */
+	/* 涉及表和 CHECK 约束的间接循环 */
 	if (nLoop > 2)
 	{
 		for (i = 0; i < nLoop; i++)
@@ -1371,7 +1371,7 @@ repairDependencyLoop(DumpableObject **loop,
 		}
 	}
 
-	/* Table and attribute default */
+	/* 表和属性默认值 */
 	if (nLoop == 2 &&
 		loop[0]->objType == DO_TABLE &&
 		loop[1]->objType == DO_ATTRDEF &&
@@ -1389,7 +1389,7 @@ repairDependencyLoop(DumpableObject **loop,
 		return;
 	}
 
-	/* index on partitioned table and corresponding index on partition */
+	/* 分区表上的索引和对应分区上的索引 */
 	if (nLoop == 2 &&
 		loop[0]->objType == DO_INDEX &&
 		loop[1]->objType == DO_INDEX)
@@ -1406,7 +1406,7 @@ repairDependencyLoop(DumpableObject **loop,
 		}
 	}
 
-	/* Indirect loop involving table and attribute default */
+	/* 涉及表和属性默认值的间接循环 */
 	if (nLoop > 2)
 	{
 		for (i = 0; i < nLoop; i++)
@@ -1426,7 +1426,7 @@ repairDependencyLoop(DumpableObject **loop,
 		}
 	}
 
-	/* Domain and CHECK constraint */
+	/* 域和 CHECK 约束 */
 	if (nLoop == 2 &&
 		loop[0]->objType == DO_TYPE &&
 		loop[1]->objType == DO_CONSTRAINT &&
@@ -1446,7 +1446,7 @@ repairDependencyLoop(DumpableObject **loop,
 		return;
 	}
 
-	/* Indirect loop involving domain and CHECK constraint */
+	/* 涉及域和 CHECK 约束的间接循环 */
 	if (nLoop > 2)
 	{
 		for (i = 0; i < nLoop; i++)
@@ -1468,14 +1468,14 @@ repairDependencyLoop(DumpableObject **loop,
 	}
 
 	/*
-	 * Loop of table with itself --- just ignore it.
+	* 表自身的循环 --- 直接忽略。
+	*
+	* （实际上，这源自表列对另一列的依赖，在 v15 之前生成列会出现；
+	* 或者表列对整个表的依赖，分区时会出现。但我们在收集依赖数据时
+	* 未关注子对象 ID，因此这里无法看到这些细节。）
 	 *
-	 * (Actually, what this arises from is a dependency of a table column on
-	 * another column, which happened with generated columns before v15; or a
-	 * dependency of a table column on the whole table, which happens with
-	 * partitioning.  But we didn't pay attention to sub-object IDs while
-	 * collecting the dependency data, so we can't see that here.)
-	 */
+	 *
+	*/
 	if (nLoop == 1)
 	{
 		if (loop[0]->objType == DO_TABLE)
@@ -1486,10 +1486,10 @@ repairDependencyLoop(DumpableObject **loop,
 	}
 
 	/*
-	 * If all the objects are TABLE_DATA items, what we must have is a
-	 * circular set of foreign key constraints (or a single self-referential
-	 * table).  Print an appropriate complaint and break the loop arbitrarily.
-	 */
+	* 如果所有对象都是 TABLE_DATA 项，则必定是循环外键约束集
+	* （或单个自引用表）。打印适当的投诉并任意打破循环。
+	 *
+	*/
 	for (i = 0; i < nLoop; i++)
 	{
 		if (loop[i]->objType != DO_TABLE_DATA)
@@ -1506,15 +1506,15 @@ repairDependencyLoop(DumpableObject **loop,
 		pg_log_warning_hint("Consider using a full dump instead of a --data-only dump to avoid this problem.");
 		if (nLoop > 1)
 			removeObjectDependency(loop[0], loop[1]->dumpId);
-		else					/* must be a self-dependency */
+		else					/* 必为自依赖 */
 			removeObjectDependency(loop[0], loop[0]->dumpId);
 		return;
 	}
 
 	/*
-	 * If we can't find a principled way to break the loop, complain and break
-	 * it in an arbitrary fashion.
-	 */
+	* 如果找不到原则性的方法来打破循环，则投诉并任意打破。
+	 *
+	*/
 	pg_log_warning("could not resolve dependency loop among these items:");
 	for (i = 0; i < nLoop; i++)
 	{
@@ -1526,15 +1526,15 @@ repairDependencyLoop(DumpableObject **loop,
 
 	if (nLoop > 1)
 		removeObjectDependency(loop[0], loop[1]->dumpId);
-	else						/* must be a self-dependency */
+	else						/* 必为自依赖 */
 		removeObjectDependency(loop[0], loop[0]->dumpId);
 }
 
 /*
- * Describe a dumpable object usefully for errors
- *
- * This should probably go somewhere else...
- */
+* 为错误描述可导出对象
+*
+* 这可能应该放在其他地方...
+*/
 static void
 describeDumpableObject(DumpableObject *obj, char *buf, int bufsize)
 {
@@ -1777,7 +1777,7 @@ describeDumpableObject(DumpableObject *obj, char *buf, int bufsize)
 					 obj->dumpId);
 			return;
 	}
-	/* shouldn't get here */
+	/* 不应执行到这里 */
 	snprintf(buf, bufsize,
 			 "object type %d  (ID %d OID %u)",
 			 (int) obj->objType,

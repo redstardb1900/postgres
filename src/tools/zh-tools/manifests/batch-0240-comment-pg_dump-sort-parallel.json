@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "batch_id": "0240-comment-pg_dump-sort-parallel",
+  "title": "zh: translate pg_dump comments — sort, parallel",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "9e35d3ca8d93319cefa8b762ee014241e9a2f9a9",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/bin/pg_dump/pg_dump_sort.c",
+      "kind": "c_comment",
+      "note": "topological sort for dump ordering"
+    },
+    {
+      "pattern": "src/bin/pg_dump/parallel.c",
+      "kind": "c_comment",
+      "note": "parallel backup/restore support"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0240-comment-pg_dump-sort-parallel.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/bin/pg_dump/pg_dump_sort.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 180,
+      "translated": 133,
+      "preserved": 47,
+      "preserved_reasons": ["Copyright header", "46 DO_* label banners"],
+      "note": "topological sort for dump ordering; tab indentation fixed; 1785 lines"
+    },
+    {
+      "path": "src/bin/pg_dump/parallel.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 194,
+      "translated": 181,
+      "preserved": 13,
+      "preserved_reasons": ["Copyright header", "12 #ifdef/#endif markers"],
+      "note": "parallel backup/restore; tab indentation fixed; 1801 lines"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0240-comment-pg_dump-sort-parallel.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "segments_total": 374,
+  "translated": 314,
+  "preserved": 60,
+  "notes": "Batch 0240: pg_dump_sort.c (180 segments, 133 translated, 47 preserved: copyright + 46 DO_* labels) + parallel.c (194 segments, 181 translated, 13 preserved: copyright + 12 ifdef markers). Tab indentation fixed. 0 violations verify_c_comments.py, 0 error hits term_lint."
+}

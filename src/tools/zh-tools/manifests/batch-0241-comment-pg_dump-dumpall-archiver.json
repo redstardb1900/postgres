@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "batch_id": "0241-comment-pg_dump-dumpall-archiver",
+  "title": "zh: translate pg_dump comments — dumpall, archiver",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "9e35d3ca8d93319cefa8b762ee014241e9a2f9a9",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/bin/pg_dump/pg_dumpall.c",
+      "kind": "c_comment",
+      "note": "pg_dumpall command"
+    },
+    {
+      "pattern": "src/bin/pg_dump/pg_backup_archiver.c",
+      "kind": "c_comment",
+      "note": "archive/restore engine"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0241-comment-pg_dump-dumpall-archiver.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/bin/pg_dump/pg_dumpall.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 91, "translated": 87, "preserved": 4,
+      "preserved_reasons": ["Copyright header", "translator: comments"],
+      "note": "pg_dumpall command; 2024 lines"
+    },
+    {
+      "path": "src/bin/pg_dump/pg_backup_archiver.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 406, "translated": 401, "preserved": 5,
+      "preserved_reasons": ["Copyright header", "Section banners/commented-out code"],
+      "note": "archive/restore core engine; 4901 lines"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0241-comment-pg_dump-dumpall-archiver.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "segments_total": 497,
+  "translated": 488,
+  "preserved": 9,
+  "notes": "Batch 0241: pg_dumpall.c (91 segments, 87 translated) + pg_backup_archiver.c (406 segments, 401 translated). Gate 2: 0 violations (2 ok). Gate 3: 0 error hits."
+}

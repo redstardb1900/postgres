@@ -2,19 +2,19 @@
  *
  * pg_backup_directory.c
  *
- *	A directory format dump is a directory, which contains a "toc.dat" file
- *	for the TOC, and a separate file for each data entry, named "<oid>.dat".
- *	Large objects are stored in separate files named "blob_<oid>.dat",
- *	and there's a plain-text TOC file for them called "blobs.toc". If
- *	compression is used, each data file is individually compressed and the
- *	".gz" suffix is added to the filenames. The TOC files are never
- *	compressed by pg_dump, however they are accepted with the .gz suffix too,
- *	in case the user has manually compressed them with 'gzip'.
+ *	 目录格式导出是一个目录，其中包含一个 "toc.dat" 文件
+ *	 用于 TOC，以及每个数据条目单独的 "<oid>.dat" 文件。
+ *	 大对象存储在以 "blob_<oid>.dat" 命名的单独文件中，
+ *	 并有一个名为 "blobs.toc" 的纯文本 TOC 文件。如果
+ *	 使用压缩，每个数据文件会单独压缩，并在文件名
+ *	 后添加 ".gz" 后缀。TOC 文件从未被 pg_dump 压缩，
+ *	 不过也接受带 .gz 后缀的文件，以防用户手动
+ *	 用 'gzip' 压缩它们。
  *
- *	NOTE: This format is identical to the files written in the tar file in
- *	the 'tar' format, except that we don't write the restore.sql file (TODO),
- *	and the tar format doesn't support compression. Please keep the formats in
- *	sync.
+ *	 注意：此格式与 tar 格式中写入的 tar 文件
+ *	 完全相同，只是我们不写 restore.sql 文件（TODO），
+ *	 且 tar 格式不支持压缩。请保持这两种格式
+ *	 同步。
  *
  *
  *	Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -45,22 +45,22 @@
 typedef struct
 {
 	/*
-	 * Our archive location. This is basically what the user specified as his
-	 * backup file but of course here it is a directory.
+	 * 我们的归档位置。基本上就是用户指定的
+	 * 备份文件，但这里它是一个目录。
 	 */
 	char	   *directory;
 
-	CompressFileHandle *dataFH; /* currently open data file */
-	CompressFileHandle *LOsTocFH;	/* file handle for blobs.toc */
-	ParallelState *pstate;		/* for parallel backup / restore */
+	CompressFileHandle *dataFH; /* 当前打开的数据文件 */
+	CompressFileHandle *LOsTocFH;	/* blobs.toc 的文件句柄 */
+	ParallelState *pstate;		/* 用于并行备份 / 恢复 */
 } lclContext;
 
 typedef struct
 {
-	char	   *filename;		/* filename excluding the directory (basename) */
+	char	   *filename;		/* 文件名，不包含目录（基本名称） */
 } lclTocEntry;
 
-/* prototypes for private functions */
+/* 私有函数的原型 */
 static void _ArchiveEntry(ArchiveHandle *AH, TocEntry *te);
 static void _StartData(ArchiveHandle *AH, TocEntry *te);
 static void _EndData(ArchiveHandle *AH, TocEntry *te);
@@ -94,21 +94,21 @@ static void setFilePath(ArchiveHandle *AH, char *buf,
 						const char *relativeFilename);
 
 /*
- *	Init routine required by ALL formats. This is a global routine
- *	and should be declared in pg_backup_archiver.h
+ *	所有格式都需要的初始化例程。这是一个全局例程，
+ *	应在 pg_backup_archiver.h 中声明。
  *
- *	Its task is to create any extra archive context (using AH->formatData),
- *	and to initialize the supported function pointers.
+ *	其任务是创建任何额外的归档上下文（使用 AH->formatData），
+ *	并初始化支持的函数指针。
  *
- *	It should also prepare whatever its input source is for reading/writing,
- *	and in the case of a read mode connection, it should load the Header & TOC.
+ *	它还应为读/写准备输入源，
+ *	在读取模式下，应加载头部和 TOC。
  */
 void
 InitArchiveFmt_Directory(ArchiveHandle *AH)
 {
 	lclContext *ctx;
 
-	/* Assuming static functions, this can be copied for each format. */
+	/* 假设使用静态函数，这对每种格式都一样。 */
 	AH->ArchiveEntryPtr = _ArchiveEntry;
 	AH->StartDataPtr = _StartData;
 	AH->WriteDataPtr = _WriteData;
@@ -136,19 +136,19 @@ InitArchiveFmt_Directory(ArchiveHandle *AH)
 	AH->WorkerJobRestorePtr = _WorkerJobRestoreDirectory;
 	AH->WorkerJobDumpPtr = _WorkerJobDumpDirectory;
 
-	/* Set up our private context */
+	/* 设置我们的私有上下文 */
 	ctx = (lclContext *) pg_malloc0(sizeof(lclContext));
 	AH->formatData = (void *) ctx;
 
 	ctx->dataFH = NULL;
 	ctx->LOsTocFH = NULL;
 
-	/* Initialize LO buffering */
+	/* 初始化 LO 缓冲 */
 	AH->lo_buf_size = LOBBUFSIZE;
 	AH->lo_buf = (void *) pg_malloc(LOBBUFSIZE);
 
 	/*
-	 * Now open the TOC file
+	 * 现在打开 TOC 文件
 	 */
 
 	if (!AH->fSpec || strcmp(AH->fSpec, "") == 0)
@@ -161,7 +161,7 @@ InitArchiveFmt_Directory(ArchiveHandle *AH)
 		struct stat st;
 		bool		is_empty = false;
 
-		/* we accept an empty existing directory */
+		/* 我们接受一个空的现有目录 */
 		if (stat(ctx->directory, &st) == 0 && S_ISDIR(st.st_mode))
 		{
 			DIR		   *dir = opendir(ctx->directory);
@@ -195,7 +195,7 @@ InitArchiveFmt_Directory(ArchiveHandle *AH)
 					 ctx->directory);
 	}
 	else
-	{							/* Read Mode */
+	{							/* 读取模式 */
 		char		fname[MAXPGPATH];
 		CompressFileHandle *tocFH;
 
@@ -208,15 +208,15 @@ InitArchiveFmt_Directory(ArchiveHandle *AH)
 		ctx->dataFH = tocFH;
 
 		/*
-		 * The TOC of a directory format dump shares the format code of the
-		 * tar format.
+		 * 目录格式导出的 TOC 与 tar 格式
+		 * 共享格式代码。
 		 */
 		AH->format = archTar;
 		ReadHead(AH);
 		AH->format = archDirectory;
 		ReadToc(AH);
 
-		/* Nothing else in the file, so close it again... */
+		/* 文件中没有其他内容，因此再次关闭它... */
 		if (!EndCompressFileHandle(tocFH))
 			pg_fatal("could not close TOC file: %m");
 		ctx->dataFH = NULL;
@@ -224,9 +224,9 @@ InitArchiveFmt_Directory(ArchiveHandle *AH)
 }
 
 /*
- * Called by the Archiver when the dumper creates a new TOC entry.
+ * 当 dumper 创建新的 TOC 条目时由 Archiver 调用。
  *
- * We determine the filename for this entry.
+ * 我们为该条目确定文件名。
 */
 static void
 _ArchiveEntry(ArchiveHandle *AH, TocEntry *te)
@@ -249,11 +249,11 @@ _ArchiveEntry(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*
- * Called by the Archiver to save any extra format-related TOC entry
- * data.
+ * 由 Archiver 调用以保存任何额外的格式相关 TOC 条目
+ * 数据。
  *
- * Use the Archiver routines to write data - they are non-endian, and
- * maintain other important file information.
+ * 使用 Archiver 例程写入数据——它们是非端序的，并
+ * 维护其他重要的文件信息。
  */
 static void
 _WriteExtraToc(ArchiveHandle *AH, TocEntry *te)
@@ -261,8 +261,8 @@ _WriteExtraToc(ArchiveHandle *AH, TocEntry *te)
 	lclTocEntry *tctx = (lclTocEntry *) te->formatData;
 
 	/*
-	 * A dumpable object has set tctx->filename, any other object has not.
-	 * (see _ArchiveEntry).
+	 * 可导出的对象设置了 tctx->filename，其他对象没有。
+	 * （参见 _ArchiveEntry）。
 	 */
 	if (tctx->filename)
 		WriteStr(AH, tctx->filename);
@@ -271,10 +271,10 @@ _WriteExtraToc(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*
- * Called by the Archiver to read any extra format-related TOC data.
+ * 由 Archiver 调用以读取任何额外的格式相关 TOC 数据。
  *
- * Needs to match the order defined in _WriteExtraToc, and should also
- * use the Archiver input routines.
+ * 需要匹配 _WriteExtraToc 中定义的顺序，也应
+ * 使用 Archiver 输入例程。
  */
 static void
 _ReadExtraToc(ArchiveHandle *AH, TocEntry *te)
@@ -296,8 +296,8 @@ _ReadExtraToc(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*
- * Called by the Archiver when restoring an archive to output a comment
- * that includes useful information about the TOC entry.
+ * 当恢复归档时由 Archiver 调用，输出一条
+ * 包含 TOC 条目有用信息的注释。
  */
 static void
 _PrintExtraToc(ArchiveHandle *AH, TocEntry *te)
@@ -309,13 +309,13 @@ _PrintExtraToc(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*
- * Called by the archiver when saving TABLE DATA (not schema). This routine
- * should save whatever format-specific information is needed to read
- * the archive back.
+ * 当保存表数据（非模式）时由 archiver 调用。此例程
+ * 应保存恢复归档时读取所需的格式特定
+ * 信息。
  *
- * It is called just prior to the dumper's 'DataDumper' routine being called.
+ * 它在 dumper 的 'DataDumper' 例程被调用之前调用。
  *
- * We create the data file for writing.
+ * 我们创建数据文件以供写入。
  */
 static void
 _StartData(ArchiveHandle *AH, TocEntry *te)
@@ -333,13 +333,13 @@ _StartData(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*
- * Called by archiver when dumper calls WriteData. This routine is
- * called for both LO and table data; it is the responsibility of
- * the format to manage each kind of data using StartLO/StartData.
+ * 当 dumper 调用 WriteData 时由 archiver 调用。此例程
+ * 同时为 LO 和表数据调用；格式的责任是
+ * 使用 StartLO/StartData 管理每种数据。
  *
- * It should only be called from within a DataDumper routine.
+ * 它应仅在 DataDumper 例程中调用。
  *
- * We write the data to the open data file.
+ * 我们将数据写入打开的数据文件。
  */
 static void
 _WriteData(ArchiveHandle *AH, const void *data, size_t dLen)
@@ -353,17 +353,17 @@ _WriteData(ArchiveHandle *AH, const void *data, size_t dLen)
 }
 
 /*
- * Called by the archiver when a dumper's 'DataDumper' routine has
- * finished.
+ * 当 dumper 的 'DataDumper' 例程完成后
+ * 由 archiver 调用。
  *
- * We close the data file.
+ * 我们关闭数据文件。
  */
 static void
 _EndData(ArchiveHandle *AH, TocEntry *te)
 {
 	lclContext *ctx = (lclContext *) AH->formatData;
 
-	/* Close the file */
+	/* 关闭文件 */
 	if (!EndCompressFileHandle(ctx->dataFH))
 		pg_fatal("could not close data file: %m");
 
@@ -371,7 +371,7 @@ _EndData(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*
- * Print data for a given file (can be a LO as well)
+ * 打印给定文件的数据（也可以是 LO）
  */
 static void
 _PrintFileData(ArchiveHandle *AH, char *filename)
@@ -402,7 +402,7 @@ _PrintFileData(ArchiveHandle *AH, char *filename)
 }
 
 /*
- * Print data for a given TOC entry
+ * 打印给定 TOC 条目的数据
 */
 static void
 _PrintTocData(ArchiveHandle *AH, TocEntry *te)
@@ -442,13 +442,13 @@ _LoadLOs(ArchiveHandle *AH)
 		pg_fatal("could not open large object TOC file \"%s\" for input: %m",
 				 tocfname);
 
-	/* Read the LOs TOC file line-by-line, and process each LO */
+	/* 逐行读取 LOs TOC 文件，并处理每个 LO */
 	while ((CFH->gets_func(line, MAXPGPATH, CFH)) != NULL)
 	{
 		char		lofname[MAXPGPATH + 1];
 		char		path[MAXPGPATH];
 
-		/* Can't overflow because line and lofname are the same length */
+		/* 不会溢出，因为 line 和 lofname 长度相同 */
 		if (sscanf(line, "%u %" CppAsString2(MAXPGPATH) "s\n", &oid, lofname) != 2)
 			pg_fatal("invalid line in large object TOC file \"%s\": \"%s\"",
 					 tocfname, line);
@@ -473,9 +473,9 @@ _LoadLOs(ArchiveHandle *AH)
 
 
 /*
- * Write a byte of data to the archive.
- * Called by the archiver to do integer & byte output to the archive.
- * These routines are only used to read & write the headers & TOC.
+ * 向归档写入一个字节的数据。
+ * 由 archiver 调用以进行整数和字节输出到归档。
+ * 这些例程仅用于读取和写入头部和 TOC。
  */
 static int
 _WriteByte(ArchiveHandle *AH, const int i)
@@ -489,10 +489,10 @@ _WriteByte(ArchiveHandle *AH, const int i)
 }
 
 /*
- * Read a byte of data from the archive.
- * Called by the archiver to read bytes & integers from the archive.
- * These routines are only used to read & write headers & TOC.
- * EOF should be treated as a fatal error.
+ * 从归档读取一个字节的数据。
+ * 由 archiver 调用以从归档读取字节和整数。
+ * 这些例程仅用于读取和写入头部和 TOC。
+ * EOF 应被视为致命错误。
  */
 static int
 _ReadByte(ArchiveHandle *AH)
@@ -504,8 +504,8 @@ _ReadByte(ArchiveHandle *AH)
 }
 
 /*
- * Write a buffer of data to the archive.
- * Called by the archiver to write a block of bytes to the TOC or a data file.
+ * 向归档写入一个数据缓冲区。
+ * 由 archiver 调用以将一块字节写入 TOC 或数据文件。
  */
 static void
 _WriteBuf(ArchiveHandle *AH, const void *buf, size_t len)
@@ -517,9 +517,9 @@ _WriteBuf(ArchiveHandle *AH, const void *buf, size_t len)
 }
 
 /*
- * Read a block of bytes from the archive.
+ * 从归档读取一块字节。
  *
- * Called by the archiver to read a block of bytes from the archive
+ * 由 archiver 调用以从归档读取一块字节
  */
 static void
 _ReadBuf(ArchiveHandle *AH, void *buf, size_t len)
@@ -528,24 +528,24 @@ _ReadBuf(ArchiveHandle *AH, void *buf, size_t len)
 	CompressFileHandle *CFH = ctx->dataFH;
 
 	/*
-	 * We do not expect a short read, so fail if we get one.  The read_func
-	 * already dealt with any outright I/O error.
+	 * 我们不期望短读取，因此如果遇到就失败。read_func
+	 * 已处理任何直接的 I/O 错误。
 	 */
 	if (CFH->read_func(buf, len, CFH) != len)
 		pg_fatal("could not read from input file: end of file");
 }
 
 /*
- * Close the archive.
+ * 关闭归档。
  *
- * When writing the archive, this is the routine that actually starts
- * the process of saving it to files. No data should be written prior
- * to this point, since the user could sort the TOC after creating it.
+ * 写入归档时，这是实际启动
+ * 将其保存到文件过程的例程。在此点之前不应写入数据，
+ * 因为用户可以在创建 TOC 后对其进行排序。
  *
- * If an archive is to be written, this routine must call:
- *		WriteHead			to save the archive header
- *		WriteToc			to save the TOC entries
- *		WriteDataChunks		to save all data & LOs.
+ * 如果要写入归档，此例程必须调用：
+ *      WriteHead        保存归档头部
+ *      WriteToc         保存 TOC 条目
+ *      WriteDataChunks  保存所有数据和 LO。
  */
 static void
 _CloseArchive(ArchiveHandle *AH)
@@ -560,10 +560,10 @@ _CloseArchive(ArchiveHandle *AH)
 
 		setFilePath(AH, fname, "toc.dat");
 
-		/* this will actually fork the processes for a parallel backup */
+		/* 这将为并行备份实际 fork 进程 */
 		ctx->pstate = ParallelBackupStart(AH);
 
-		/* The TOC is always created uncompressed */
+		/* TOC 总是以未压缩方式创建 */
 		compression_spec.algorithm = PG_COMPRESSION_NONE;
 		tocFH = InitCompressFileHandle(compression_spec);
 		if (!tocFH->open_write_func(fname, PG_BINARY_W, tocFH))
@@ -571,9 +571,9 @@ _CloseArchive(ArchiveHandle *AH)
 		ctx->dataFH = tocFH;
 
 		/*
-		 * Write 'tar' in the format field of the toc.dat file. The directory
-		 * is compatible with 'tar', so there's no point having a different
-		 * format code for it.
+		 * 在 toc.dat 文件的格式字段中写入 'tar'。目录
+		 * 与 'tar' 兼容，因此没有必要为其使用不同的
+		 * 格式代码。
 		 */
 		AH->format = archTar;
 		WriteHead(AH);
@@ -586,8 +586,8 @@ _CloseArchive(ArchiveHandle *AH)
 		ParallelBackupEnd(AH, ctx->pstate);
 
 		/*
-		 * In directory mode, there is no need to sync all the entries
-		 * individually. Just recurse once through all the files generated.
+		 * 在目录模式下，无需单独同步所有条目。
+		 * 只需递归遍历一次所有生成的文件。
 		 */
 		if (AH->dosync)
 			fsync_dir_recurse(ctx->directory);
@@ -596,28 +596,28 @@ _CloseArchive(ArchiveHandle *AH)
 }
 
 /*
- * Reopen the archive's file handle.
+ * 重新打开归档的文件句柄。
  */
 static void
 _ReopenArchive(ArchiveHandle *AH)
 {
 	/*
-	 * Our TOC is in memory, our data files are opened by each child anyway as
-	 * they are separate. We support reopening the archive by just doing
-	 * nothing.
+	 * 我们的 TOC 在内存中，数据文件由每个子进程单独打开，
+	 * 因为它们是分开的。我们通过简单地不做任何事情来
+	 * 支持重新打开归档。
 	 */
 }
 
 /*
- * LO support
+ * LO 支持
  */
 
 /*
- * Called by the archiver when starting to save all BLOB DATA (not schema).
- * It is called just prior to the dumper's DataDumper routine.
+ * 当开始保存所有 BLOB 数据（非模式）时由 archiver 调用。
+ * 它在 dumper 的 DataDumper 例程之前调用。
  *
- * We open the large object TOC file here, so that we can append a line to
- * it for each LO.
+ * 我们在此处打开大对象 TOC 文件，以便可以为
+ * 每个 LO 追加一行。
  */
 static void
 _StartLOs(ArchiveHandle *AH, TocEntry *te)
@@ -628,7 +628,7 @@ _StartLOs(ArchiveHandle *AH, TocEntry *te)
 
 	setFilePath(AH, fname, "blobs.toc");
 
-	/* The LO TOC file is never compressed */
+	/* LO TOC 文件从不压缩 */
 	compression_spec.algorithm = PG_COMPRESSION_NONE;
 	ctx->LOsTocFH = InitCompressFileHandle(compression_spec);
 	if (!ctx->LOsTocFH->open_write_func(fname, "ab", ctx->LOsTocFH))
@@ -636,9 +636,9 @@ _StartLOs(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*
- * Called by the archiver when we're about to start dumping a LO.
+ * 当我们要开始导出 LO 时由 archiver 调用。
  *
- * We create a file to write the LO to.
+ * 我们创建一个文件来写入 LO。
  */
 static void
 _StartLO(ArchiveHandle *AH, TocEntry *te, Oid oid)
@@ -654,9 +654,9 @@ _StartLO(ArchiveHandle *AH, TocEntry *te, Oid oid)
 }
 
 /*
- * Called by the archiver when the dumper is finished writing a LO.
+ * 当 dumper 完成写入 LO 时由 archiver 调用。
  *
- * We close the LO file and write an entry to the LO TOC file for it.
+ * 我们关闭 LO 文件并为其在 LO TOC 文件中写入一个条目。
  */
 static void
 _EndLO(ArchiveHandle *AH, TocEntry *te, Oid oid)
@@ -666,20 +666,20 @@ _EndLO(ArchiveHandle *AH, TocEntry *te, Oid oid)
 	char		buf[50];
 	int			len;
 
-	/* Close the BLOB data file itself */
+	/* 关闭 BLOB 数据文件本身 */
 	if (!EndCompressFileHandle(ctx->dataFH))
 		pg_fatal("could not close LO data file: %m");
 	ctx->dataFH = NULL;
 
-	/* register the LO in blobs.toc */
+	/* 在 blobs.toc 中注册该 LO */
 	len = snprintf(buf, sizeof(buf), "%u blob_%u.dat\n", oid, oid);
 	CFH->write_func(buf, len, CFH);
 }
 
 /*
- * Called by the archiver when finishing saving all BLOB DATA.
+ * 当完成保存所有 BLOB 数据时由 archiver 调用。
  *
- * We close the LOs TOC file.
+ * 我们关闭 LOs TOC 文件。
  */
 static void
 _EndLOs(ArchiveHandle *AH, TocEntry *te)
@@ -692,10 +692,10 @@ _EndLOs(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*
- * Gets a relative file name and prepends the output directory, writing the
- * result to buf. The caller needs to make sure that buf is MAXPGPATH bytes
- * big. Can't use a static char[MAXPGPATH] inside the function because we run
- * multithreaded on Windows.
+ * 获取相对文件名并在其前面加上输出目录，将
+ * 结果写入 buf。调用者需要确保 buf 的大小为 MAXPGPATH 字节。
+ * 不能在函数内使用 static char[MAXPGPATH]，因为我们在
+ * Windows 上是多线程运行的。
  */
 static void
 setFilePath(ArchiveHandle *AH, char *buf, const char *relativeFilename)
@@ -714,14 +714,14 @@ setFilePath(ArchiveHandle *AH, char *buf, const char *relativeFilename)
 }
 
 /*
- * Prepare for parallel restore.
+ * 准备并行恢复。
  *
- * The main thing that needs to happen here is to fill in TABLE DATA and BLOBS
- * TOC entries' dataLength fields with appropriate values to guide the
- * ordering of restore jobs.  The source of said data is format-dependent,
- * as is the exact meaning of the values.
+ * 这里需要做的主要事情是用适当的值填充 TABLE DATA
+ * 和 BLOBS TOC 条目的 dataLength 字段，以指导
+ * 恢复作业的排序。所述数据的来源依赖于格式，
+ * 值的具体含义也是如此。
  *
- * A format module might also choose to do other setup here.
+ * 格式模块也可能选择在此处进行其他设置。
  */
 static void
 _PrepParallelRestore(ArchiveHandle *AH)
@@ -735,21 +735,21 @@ _PrepParallelRestore(ArchiveHandle *AH)
 		struct stat st;
 
 		/*
-		 * A dumpable object has set tctx->filename, any other object has not.
-		 * (see _ArchiveEntry).
+		 * 可导出的对象设置了 tctx->filename，其他对象没有。
+		 * （参见 _ArchiveEntry）。
 		 */
 		if (tctx->filename == NULL)
 			continue;
 
-		/* We may ignore items not due to be restored */
+		/* 我们可以忽略不需要恢复的条目 */
 		if ((te->reqs & REQ_DATA) == 0)
 			continue;
 
 		/*
-		 * Stat the file and, if successful, put its size in dataLength.  When
-		 * using compression, the physical file size might not be a very good
-		 * guide to the amount of work involved in restoring the file, but we
-		 * only need an approximate indicator of that.
+		 * 对文件执行 stat，如果成功，将其大小放入 dataLength。
+		 * 使用压缩时，物理文件大小可能不是恢复文件
+		 * 所需工作量的很好指标，但我们只需要一个
+		 * 近似的指示。
 		 */
 		setFilePath(AH, fname, tctx->filename);
 
@@ -769,11 +769,11 @@ _PrepParallelRestore(ArchiveHandle *AH)
 		}
 
 		/*
-		 * If this is the BLOBS entry, what we stat'd was blobs.toc, which
-		 * most likely is a lot smaller than the actual blob data.  We don't
-		 * have a cheap way to estimate how much smaller, but fortunately it
-		 * doesn't matter too much as long as we get the LOs processed
-		 * reasonably early.  Arbitrarily scale up by a factor of 1K.
+		 * 如果这是 BLOBS 条目，我们 stat 的是 blobs.toc，
+		 * 它很可能比实际的 blob 数据小得多。我们
+		 * 无法廉价地估计小了多少，但幸运的是，
+		 * 只要 LOs 被合理地尽早处理，就不太重要。
+		 * 任意放大 1K 倍。
 		 */
 		if (strcmp(te->desc, "BLOBS") == 0)
 			te->dataLength *= 1024;
@@ -781,7 +781,7 @@ _PrepParallelRestore(ArchiveHandle *AH)
 }
 
 /*
- * Clone format-specific fields during parallel restoration.
+ * 在并行恢复期间克隆格式特定字段。
  */
 static void
 _Clone(ArchiveHandle *AH)
@@ -793,15 +793,15 @@ _Clone(ArchiveHandle *AH)
 	ctx = (lclContext *) AH->formatData;
 
 	/*
-	 * Note: we do not make a local lo_buf because we expect at most one BLOBS
-	 * entry per archive, so no parallelism is possible.  Likewise,
-	 * TOC-entry-local state isn't an issue because any one TOC entry is
-	 * touched by just one worker child.
+	 * 注意：我们不会创建本地 lo_buf，因为我们期望
+	 * 每个归档最多一个 BLOBS 条目，因此不可能并行处理。
+	 * 同样，TOC 条目局部状态也不是问题，因为
+	 * 任何 TOC 条目只由一个工作子进程处理。
 	 */
 
 	/*
-	 * We also don't copy the ParallelState pointer (pstate), only the leader
-	 * process ever writes to it.
+	 * 我们也不复制 ParallelState 指针 (pstate)，只有
+	 * 领导者进程才会写入它。
 	 */
 }
 
@@ -814,16 +814,16 @@ _DeClone(ArchiveHandle *AH)
 }
 
 /*
- * This function is executed in the child of a parallel backup for a
- * directory-format archive and dumps the actual data for one TOC entry.
+ * 此函数在目录格式归档的并行备份子进程中
+ * 执行，并为一个 TOC 条目导出实际数据。
  */
 static int
 _WorkerJobDumpDirectory(ArchiveHandle *AH, TocEntry *te)
 {
 	/*
-	 * This function returns void. We either fail and die horribly or
-	 * succeed... A failure will be detected by the parent when the child dies
-	 * unexpectedly.
+	 * 此函数返回 void。我们要么失败并惨死，
+	 * 要么成功... 失败将由父进程在子进程
+	 * 意外死亡时检测到。
 	 */
 	WriteDataChunksForTocEntry(AH, te);
 
@@ -831,8 +831,8 @@ _WorkerJobDumpDirectory(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*
- * This function is executed in the child of a parallel restore from a
- * directory-format archive and restores the actual data for one TOC entry.
+ * 此函数在目录格式归档的并行恢复子进程中
+ * 执行，并为一个 TOC 条目恢复实际数据。
  */
 static int
 _WorkerJobRestoreDirectory(ArchiveHandle *AH, TocEntry *te)

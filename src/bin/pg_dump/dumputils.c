@@ -31,20 +31,20 @@ static void AddAcl(PQExpBuffer aclbuf, const char *keyword,
 
 
 /*
- * Sanitize a string to be included in an SQL comment or TOC listing, by
- * replacing any newlines with spaces.  This ensures each logical output line
- * is in fact one physical output line, to prevent corruption of the dump
- * (which could, in the worst case, present an SQL injection vulnerability
- * if someone were to incautiously load a dump containing objects with
- * maliciously crafted names).
+ * 净化字符串，使其可以安全地包含在 SQL 注释或 TOC 列表中，通过将所有
+ * 换行符替换为空格来实现。这确保每个逻辑输出行实际上就是一个物理输出行，
+ * 从而防止导出数据损坏（最坏情况下，如果某些人贸然加载一个包含
+ * 恶意构造名称的对象的导出文件，可能会出现 SQL 注入漏洞）。
  *
- * The result is a freshly malloc'd string.  If the input string is NULL,
- * return a malloc'ed empty string, unless want_hyphen, in which case return a
- * malloc'ed hyphen.
+ * 返回值是 malloc 分配的新字符串。如果输入字符串为 NULL，
+ * 则返回 malloc 分配的空字符串，除非 want_hyphen 为真，在此情况下返回
+ * malloc 分配的连字符。
  *
- * Note that we currently don't bother to quote names, meaning that the name
- * fields aren't automatically parseable.  "pg_restore -L" doesn't care because
- * it only examines the dumpId field, but someday we might want to try harder.
+ * 注意，当前我们并未费心去引用名称，这意味着名称字段不会自动可解析。
+ * "pg_restore -L" 不关心这一点，因为它只检查 dumpId 字段，
+ * 但将来我们可能想要在这方面做得更好。
+ *
+ *
  */
 char *
 sanitize_line(const char *str, bool want_hyphen)
@@ -68,35 +68,35 @@ sanitize_line(const char *str, bool want_hyphen)
 
 
 /*
- * Build GRANT/REVOKE command(s) for an object.
+ * 为对象构建 GRANT/REVOKE 命令。
  *
- *	name: the object name, in the form to use in the commands (already quoted)
- *	subname: the sub-object name, if any (already quoted); NULL if none
- *	nspname: the namespace the object is in (NULL if none); not pre-quoted
- *	type: the object type (as seen in GRANT command: must be one of
- *		TABLE, SEQUENCE, FUNCTION, PROCEDURE, LANGUAGE, SCHEMA, DATABASE, TABLESPACE,
- *		FOREIGN DATA WRAPPER, SERVER, PARAMETER or LARGE OBJECT)
- *	acls: the ACL string fetched from the database
- *	baseacls: the initial ACL string for this object
- *	owner: username of object owner (will be passed through fmtId); can be
- *		NULL or empty string to indicate "no owner known"
- *	prefix: string to prefix to each generated command; typically empty
- *	remoteVersion: version of database
+ *	name: 对象名称，格式适用于命令中（已引用）
+ *	subname: 子对象名称（如有，已引用）；无则为 NULL
+ *	nspname: 对象所在的命名空间（无则为 NULL）；未预先引用
+ *	type: 对象类型（见 GRANT 命令中的格式：必须为以下之一：
+ *		TABLE、SEQUENCE、FUNCTION、PROCEDURE、LANGUAGE、SCHEMA、DATABASE、TABLESPACE、
+ *		FOREIGN DATA WRAPPER、SERVER、PARAMETER 或 LARGE OBJECT）
+ *	acls: 从数据库获取的 ACL 字符串
+ *	baseacls: 此对象的初始 ACL 字符串
+ *	owner: 对象所有者的用户名（将通过 fmtId 处理）；可以为 NULL
+ *		或空字符串表示"未知所有者"
+ *	prefix: 每个生成命令前添加的字符串前缀；通常为空
+ *	remoteVersion: 数据库版本
  *
- * Returns true if okay, false if could not parse the acl string.
- * The resulting commands (if any) are appended to the contents of 'sql'.
+ * 成功返回 true，无法解析 acl 字符串则返回 false。
+ * 生成的命令（如有）将追加到 'sql' 的内容之后。
  *
- * baseacls is typically the result of acldefault() for the object's type
- * and owner.  However, if there is a pg_init_privs entry for the object,
- * it should instead be the initprivs ACLs.  When acls is itself a
- * pg_init_privs entry, baseacls is what to dump that relative to; then
- * it can be either an acldefault() value or an empty ACL "{}".
+ * baseacls 通常是该对象类型的 acldefault() 的结果。
+ * 然而，如果对象有 pg_init_privs 条目，则应改用该 initprivs ACL。
+ * 当 acls 本身是 pg_init_privs 条目时，baseacls 是相对于它导出的基础；
+ * 此时它可以是 acldefault() 值或空 ACL "{}"。
  *
- * Note: when processing a default ACL, prefix is "ALTER DEFAULT PRIVILEGES "
- * or something similar, and name is an empty string.
+ * 注意：处理默认 ACL 时，prefix 是 "ALTER DEFAULT PRIVILEGES " 或类似内容，
+ * name 为空字符串。
  *
- * Note: beware of passing a fmtId() result directly as 'name' or 'subname',
- * since this routine uses fmtId() internally.
+ * 注意：谨防将 fmtId() 的结果直接作为 'name' 或 'subname' 传入，
+ * 因为此例程内部也使用了 fmtId()。
+ *
  */
 bool
 buildACLCommands(const char *name, const char *subname, const char *nspname,
@@ -122,25 +122,25 @@ buildACLCommands(const char *name, const char *subname, const char *nspname,
 				secondsql;
 
 	/*
-	 * If the acl was NULL (initial default state), we need do nothing.  Note
-	 * that this is distinguishable from all-privileges-revoked, which will
-	 * look like an empty array ("{}").
+	 * 如果 acl 为 NULL（初始默认状态），我们无需做任何事。注意，
+	 * 这与所有权限被撤销的情况不同，后者看起来像空数组（"{}"）。
+	 *
 	 */
 	if (acls == NULL || *acls == '\0')
-		return true;			/* object has default permissions */
+		return true;			/* 对象具有默认权限 */
 
-	/* treat empty-string owner same as NULL */
+	/* 将空字符串所有者视为 NULL */
 	if (owner && *owner == '\0')
 		owner = NULL;
 
-	/* Parse the acls array */
+	/* 解析 acls 数组 */
 	if (!parsePGArray(acls, &aclitems, &naclitems))
 	{
 		free(aclitems);
 		return false;
 	}
 
-	/* Parse the baseacls too */
+	/* 同时解析 baseacls */
 	if (!parsePGArray(baseacls, &baseitems, &nbaseitems))
 	{
 		free(aclitems);
@@ -149,14 +149,14 @@ buildACLCommands(const char *name, const char *subname, const char *nspname,
 	}
 
 	/*
-	 * Compare the actual ACL with the base ACL, extracting the privileges
-	 * that need to be granted (i.e., are in the actual ACL but not the base
-	 * ACL) and the ones that need to be revoked (the reverse).  We use plain
-	 * string comparisons to check for matches.  In principle that could be
-	 * fooled by extraneous issues such as whitespace, but since all these
-	 * strings are the work of aclitemout(), it should be OK in practice.
-	 * Besides, a false mismatch will just cause the output to be a little
-	 * more verbose than it really needed to be.
+	 * 将实际 ACL 与基础 ACL 进行比较，提取需要授予的权限
+	 * （即在实际 ACL 中但不在基础 ACL 中）和需要撤销的权限
+	 * （与之相反）。我们使用普通的字符串比较来检查匹配。
+	 * 原则上，这可能会被空格等无关问题愚弄，但由于所有这些字符串
+	 * 都是 aclitemout() 的工作成果，在实践中应该没问题。
+	 * 此外，错误的失配只是会让输出比实际需要的稍微冗长一些。
+	 *
+	 *
 	 */
 	grantitems = (char **) pg_malloc(naclitems * sizeof(char *));
 	for (i = 0; i < naclitems; i++)
@@ -191,20 +191,20 @@ buildACLCommands(const char *name, const char *subname, const char *nspname,
 			revokeitems[nrevokeitems++] = baseitems[i];
 	}
 
-	/* Prepare working buffers */
+	/* 准备工作缓冲区 */
 	grantee = createPQExpBuffer();
 	grantor = createPQExpBuffer();
 	privs = createPQExpBuffer();
 	privswgo = createPQExpBuffer();
 
 	/*
-	 * At the end, these two will be pasted together to form the result.
+	 * 最后，以下两个缓冲区会被拼接在一起形成结果。
 	 */
 	firstsql = createPQExpBuffer();
 	secondsql = createPQExpBuffer();
 
 	/*
-	 * Build REVOKE statements for ACLs listed in revokeitems[].
+	 * 为 revokeitems[] 中列出的 ACL 构建 REVOKE 语句。
 	 */
 	for (i = 0; i < nrevokeitems; i++)
 	{
@@ -234,27 +234,27 @@ buildACLCommands(const char *name, const char *subname, const char *nspname,
 	}
 
 	/*
-	 * At this point we have issued REVOKE statements for all initial and
-	 * default privileges that are no longer present on the object, so we are
-	 * almost ready to GRANT the privileges listed in grantitems[].
+	 * 此时我们已为所有不再在对象上存在的初始和默认权限
+	 * 发出了 REVOKE 语句，因此我们几乎准备好 GRANT
+	 * grantitems[] 中列出的权限。
 	 *
-	 * We still need some hacking though to cover the case where new default
-	 * public privileges are added in new versions: the REVOKE ALL will revoke
-	 * them, leading to behavior different from what the old version had,
-	 * which is generally not what's wanted.  So add back default privs if the
-	 * source database is too old to have had that particular priv.  (As of
-	 * right now, no such cases exist in supported versions.)
+	 * 不过我们仍需做一些处理来应对新版本中新增默认公共权限的情况：
+	 * REVOKE ALL 会撤销它们，导致行为与旧版本不同，
+	 * 而这通常不是我们想要的。因此，如果源数据库版本太旧，
+	 * 我们没有特定权限，则需要重新加回默认权限。
+	 * （截至目前，支持的版本中不存在此类情况。）
+	 *
 	 */
 
 	/*
-	 * Scan individual ACL items to be granted.
+	 * 扫描待授予的单个 ACL 条目。
 	 *
-	 * The order in which privileges appear in the ACL string (the order they
-	 * have been GRANT'd in, which the backend maintains) must be preserved to
-	 * ensure that GRANTs WITH GRANT OPTION and subsequent GRANTs based on
-	 * those are dumped in the correct order.  However, some old server
-	 * versions will show grants to PUBLIC before the owner's own grants; for
-	 * consistency's sake, force the owner's grants to be output first.
+	 * 权限在 ACL 字符串中出现的顺序（即它们被 GRANT 的顺序，
+	 * 由后端维护）必须保留，以确保 WITH GRANT OPTION 的 GRANT
+	 * 和基于这些的后续 GRANT 以正确的顺序导出。
+	 * 然而，某些旧服务器版本会在所有者的授予之前显示对 PUBLIC 的授予；
+	 * 为了一致性，强制先输出所有者的授予。
+	 *
 	 */
 	for (i = 0; i < ngrantitems; i++)
 	{
@@ -262,19 +262,19 @@ buildACLCommands(const char *name, const char *subname, const char *nspname,
 						 grantee, grantor, privs, privswgo))
 		{
 			/*
-			 * If the grantor isn't the owner, we'll need to use SET SESSION
-			 * AUTHORIZATION to become the grantor.  Issue the SET/RESET only
-			 * if there's something useful to do.
+			 * 如果授予者不是所有者，我们需要使用 SET SESSION
+			 * AUTHORIZATION 来成为授予者。仅在有实际内容
+			 * 需要执行时才发出 SET/RESET。
 			 */
 			if (privs->len > 0 || privswgo->len > 0)
 			{
 				PQExpBuffer thissql;
 
-				/* Set owner as grantor if that's not explicit in the ACL */
+				/* 如果 ACL 中没有显式指定授予者，则将所有者设为授予者 */
 				if (grantor->len == 0 && owner)
 					printfPQExpBuffer(grantor, "%s", owner);
 
-				/* Make sure owner's own grants are output before others */
+				/* 确保所有者自身的授予在他人之前输出 */
 				if (owner &&
 					strcmp(grantee->data, owner) == 0 &&
 					strcmp(grantor->data, owner) == 0)
@@ -324,7 +324,7 @@ buildACLCommands(const char *name, const char *subname, const char *nspname,
 		}
 		else
 		{
-			/* parseAclItem failed, give up */
+			/* parseAclItem 失败，放弃 */
 			ok = false;
 			break;
 		}
@@ -348,17 +348,17 @@ buildACLCommands(const char *name, const char *subname, const char *nspname,
 }
 
 /*
- * Build ALTER DEFAULT PRIVILEGES command(s) for a single pg_default_acl entry.
+ * 为单个 pg_default_acl 条目构建 ALTER DEFAULT PRIVILEGES 命令。
  *
- *	type: the object type (TABLES, FUNCTIONS, etc)
- *	nspname: schema name, or NULL for global default privileges
- *	acls: the ACL string fetched from the database
- *	acldefault: the appropriate default ACL for the object type and owner
- *	owner: username of privileges owner (will be passed through fmtId)
- *	remoteVersion: version of database
+ *	type: 对象类型（TABLES、FUNCTIONS 等）
+ *	nspname: 模式名称，或 NULL 表示全局默认权限
+ *	acls: 从数据库获取的 ACL 字符串
+ *	acldefault: 适用于该对象类型和所有者的默认 ACL
+ *	owner: 权限所有者的用户名（将通过 fmtId 处理）
+ *	remoteVersion: 数据库版本
  *
- * Returns true if okay, false if could not parse the acl string.
- * The resulting commands (if any) are appended to the contents of 'sql'.
+ * 成功返回 true，无法解析 acl 字符串则返回 false。
+ * 生成的命令（如有）将追加到 'sql' 的内容之后。
  */
 bool
 buildDefaultACLCommands(const char *type, const char *nspname,
@@ -372,10 +372,10 @@ buildDefaultACLCommands(const char *type, const char *nspname,
 	prefix = createPQExpBuffer();
 
 	/*
-	 * We incorporate the target role directly into the command, rather than
-	 * playing around with SET ROLE or anything like that.  This is so that a
-	 * permissions error leads to nothing happening, rather than changing
-	 * default privileges for the wrong user.
+	 * 我们将目标角色直接嵌入到命令中，
+	 * 而不是通过 SET ROLE 或类似方式来处理。
+	 * 这样权限错误只导致不做任何操作，而不是
+	 * 为错误的用户更改默认权限。
 	 */
 	appendPQExpBuffer(prefix, "ALTER DEFAULT PRIVILEGES FOR ROLE %s ",
 					  fmtId(owner));
@@ -383,8 +383,8 @@ buildDefaultACLCommands(const char *type, const char *nspname,
 		appendPQExpBuffer(prefix, "IN SCHEMA %s ", fmtId(nspname));
 
 	/*
-	 * There's no such thing as initprivs for a default ACL, so the base ACL
-	 * is always just the object-type-specific default.
+	 * 默认 ACL 不存在 initprivs，因此基础 ACL
+	 * 始终只是特定对象类型的默认值。
 	 */
 	if (!buildACLCommands("", NULL, NULL, type,
 						  acls, acldefault, owner,
@@ -400,22 +400,22 @@ buildDefaultACLCommands(const char *type, const char *nspname,
 }
 
 /*
- * This will parse an aclitem string, having the general form
+ * 解析 aclitem 字符串，其一般形式为
  *		username=privilegecodes/grantor
  *
- * Returns true on success, false on parse error.  On success, the components
- * of the string are returned in the PQExpBuffer parameters.
+ * 成功返回 true，解析错误返回 false。成功时，字符串的组成部分
+ * 将通过 PQExpBuffer 参数返回。
  *
- * The returned grantee string will be the dequoted username, or an empty
- * string in the case of a grant to PUBLIC.  The returned grantor is the
- * dequoted grantor name.  Privilege characters are translated to GRANT/REVOKE
- * comma-separated privileges lists.  If "privswgo" is non-NULL, the result is
- * separate lists for privileges with grant option ("privswgo") and without
- * ("privs").  Otherwise, "privs" bears every relevant privilege, ignoring the
- * grant option distinction.
+ * 返回的 grantee 字符串将是去引用后的用户名，或在授予 PUBLIC
+ * 的情况下为空字符串。返回的 grantor 是去引用后的授予者名称。
+ * 权限字符被转换为 GRANT/REVOKE 逗号分隔的权限列表。
+ * 如果 "privswgo" 非 NULL，结果分别为带授予选项的权限列表
+ * （"privswgo"）和不带授予选项的权限列表（"privs"）。
+ * 否则，"privs" 承载所有相关权限，忽略授予选项的区分。
  *
- * Note: for cross-version compatibility, it's important to use ALL to
- * represent the privilege sets whenever appropriate.
+ * 注意：为了跨版本兼容性，尽可能使用 ALL 来表示权限集很重要。
+ *
+ *
  */
 static bool
 parseAclItem(const char *item, const char *type,
@@ -432,7 +432,7 @@ parseAclItem(const char *item, const char *type,
 
 	buf = pg_strdup(item);
 
-	/* user or group name is string up to = */
+	/* 用户名或组名是直到 = 的字符串 */
 	eqpos = dequoteAclUserName(grantee, buf);
 	if (*eqpos != '=')
 	{
@@ -440,7 +440,7 @@ parseAclItem(const char *item, const char *type,
 		return false;
 	}
 
-	/* grantor should appear after / */
+	/* 授予者应出现在 / 之后 */
 	slpos = strchr(eqpos + 1, '/');
 	if (slpos)
 	{
@@ -458,7 +458,7 @@ parseAclItem(const char *item, const char *type,
 		return false;
 	}
 
-	/* privilege codes */
+	/* 权限码 */
 #define CONVERT_PRIV(code, keywd) \
 do { \
 	if ((pos = strchr(eqpos + 1, code))) \
@@ -488,14 +488,14 @@ do { \
 
 		if (strcmp(type, "SEQUENCE") == 0 ||
 			strcmp(type, "SEQUENCES") == 0)
-			/* sequence only */
+			/* 仅适用于序列 */
 			CONVERT_PRIV('U', "USAGE");
 		else
 		{
-			/* table only */
+			/* 仅适用于表 */
 			CONVERT_PRIV('a', "INSERT");
 			CONVERT_PRIV('x', "REFERENCES");
-			/* rest are not applicable to columns */
+			/* 其余权限不适用于列 */
 			if (subname == NULL)
 			{
 				CONVERT_PRIV('d', "DELETE");
@@ -574,8 +574,8 @@ do { \
 }
 
 /*
- * Transfer the role name at *input into the output buffer, adding
- * quoting according to the same rules as putid() in backend's acl.c.
+ * 将 *input 处的角色名称传输到输出缓冲区，
+ * 并按照后端 acl.c 中 putid() 相同的规则添加引用。
  */
 void
 quoteAclUserName(PQExpBuffer output, const char *input)
@@ -585,7 +585,7 @@ quoteAclUserName(PQExpBuffer output, const char *input)
 
 	for (src = input; *src; src++)
 	{
-		/* This test had better match what putid() does */
+		/* 此测试必须与 putid() 的操作匹配 */
 		if (!isalnum((unsigned char) *src) && *src != '_')
 		{
 			safe = false;
@@ -596,7 +596,7 @@ quoteAclUserName(PQExpBuffer output, const char *input)
 		appendPQExpBufferChar(output, '"');
 	for (src = input; *src; src++)
 	{
-		/* A double quote character in a username is encoded as "" */
+		/* 用户名中的双引号字符被编码为 "" */
 		if (*src == '"')
 			appendPQExpBufferChar(output, '"');
 		appendPQExpBufferChar(output, *src);
@@ -606,10 +606,10 @@ quoteAclUserName(PQExpBuffer output, const char *input)
 }
 
 /*
- * Transfer a user or group name starting at *input into the output buffer,
- * dequoting if needed.  Returns a pointer to just past the input name.
- * The name is taken to end at an unquoted '=' or end of string.
- * Note: unlike quoteAclUserName(), this first clears the output buffer.
+ * 将以 *input 开始的用户名或组名传输到输出缓冲区，
+ * 必要时进行去引用。返回一个指向输入名后的指针。
+ * 名称以未引用的 '=' 或字符串结束为结束标记。
+ * 注意：与 quoteAclUserName() 不同，此函数首先清空输出缓冲区。
  */
 static char *
 dequoteAclUserName(PQExpBuffer output, char *input)
@@ -619,23 +619,23 @@ dequoteAclUserName(PQExpBuffer output, char *input)
 	while (*input && *input != '=')
 	{
 		/*
-		 * If user name isn't quoted, then just add it to the output buffer
+		 * 如果用户名未被引用，直接添加到输出缓冲区
 		 */
 		if (*input != '"')
 			appendPQExpBufferChar(output, *input++);
 		else
 		{
-			/* Otherwise, it's a quoted username */
+			/* 否则，这是一个被引用的用户名 */
 			input++;
-			/* Loop until we come across an unescaped quote */
+			/* 循环直到遇到未转义的引号 */
 			while (!(*input == '"' && *(input + 1) != '"'))
 			{
 				if (*input == '\0')
-					return input;	/* really a syntax error... */
+					return input;	/* 实际上是语法错误... */
 
 				/*
-				 * Quoting convention is to escape " as "".  Keep this code in
-				 * sync with putid() in backend's acl.c.
+				 * 引用约定是将 " 转义为 ""。保持此代码
+				 * 与后端 acl.c 中的 putid() 同步。
 				 */
 				if (*input == '"' && *(input + 1) == '"')
 					input++;
@@ -648,7 +648,7 @@ dequoteAclUserName(PQExpBuffer output, char *input)
 }
 
 /*
- * Append a privilege keyword to a keyword list, inserting comma if needed.
+ * 将权限关键字追加到关键字列表，必要时插入逗号。
  */
 static void
 AddAcl(PQExpBuffer aclbuf, const char *keyword, const char *subname)
@@ -664,11 +664,11 @@ AddAcl(PQExpBuffer aclbuf, const char *keyword, const char *subname)
 /*
  * buildShSecLabelQuery
  *
- * Build a query to retrieve security labels for a shared object.
- * The object is identified by its OID plus the name of the catalog
- * it can be found in (e.g., "pg_database" for database names).
- * The query is appended to "sql".  (We don't execute it here so as to
- * keep this file free of assumptions about how to deal with SQL errors.)
+ * 构建用于检索共享对象安全标签的查询。
+ * 对象通过其 OID 加上所在目录的名称来标识
+ * （例如，"pg_database" 用于数据库名称）。
+ * 查询被追加到 "sql"。（我们不在此执行查询，以便
+ * 保持此文件不依赖任何处理 SQL 错误的假设。）
  */
 void
 buildShSecLabelQuery(const char *catalog_name, Oid objectId,
@@ -683,10 +683,10 @@ buildShSecLabelQuery(const char *catalog_name, Oid objectId,
 /*
  * emitShSecLabels
  *
- * Construct SECURITY LABEL commands using the data retrieved by the query
- * generated by buildShSecLabelQuery, and append them to "buffer".
- * Here, the target object is identified by its type name (e.g. "DATABASE")
- * and its name (not pre-quoted).
+ * 使用 buildShSecLabelQuery 生成的查询所获取的数据构建
+ * SECURITY LABEL 命令，并将其追加到 "buffer"。
+ * 此处，目标对象由其类型名称（例如 "DATABASE"）及其名称
+ * （未预先引用）来标识。
  */
 void
 emitShSecLabels(PGconn *conn, PGresult *res, PQExpBuffer buffer,
@@ -699,7 +699,7 @@ emitShSecLabels(PGconn *conn, PGresult *res, PQExpBuffer buffer,
 		char	   *provider = PQgetvalue(res, i, 0);
 		char	   *label = PQgetvalue(res, i, 1);
 
-		/* must use fmtId result before calling it again */
+		/* 必须先使用 fmtId 结果，然后再调用它 */
 		appendPQExpBuffer(buffer,
 						  "SECURITY LABEL FOR %s ON %s",
 						  fmtId(provider), objtype);
@@ -713,14 +713,14 @@ emitShSecLabels(PGconn *conn, PGresult *res, PQExpBuffer buffer,
 
 
 /*
- * Detect whether the given GUC variable is of GUC_LIST_QUOTE type.
+ * 检测给定的 GUC 变量是否为 GUC_LIST_QUOTE 类型。
  *
- * It'd be better if we could inquire this directly from the backend; but even
- * if there were a function for that, it could only tell us about variables
- * currently known to guc.c, so that it'd be unsafe for extensions to declare
- * GUC_LIST_QUOTE variables anyway.  Lacking a solution for that, it doesn't
- * seem worth the work to do more than have this list, which must be kept in
- * sync with the variables actually marked GUC_LIST_QUOTE in guc_tables.c.
+ * 如果能直接从后端查询会更好；但即使有相应的函数，
+ * 它也只能告诉我们 guc.c 当前已知的变量，因此对于扩展
+ * 声明 GUC_LIST_QUOTE 变量仍然是不安全的。在缺乏解决方案的情况下，
+ * 除了维护此列表外，似乎不值得做更多工作，此列表必须
+ * 与 guc_tables.c 中实际标记为 GUC_LIST_QUOTE 的变量保持同步。
+ *
  */
 bool
 variable_is_guc_list_quote(const char *name)
@@ -737,24 +737,24 @@ variable_is_guc_list_quote(const char *name)
 }
 
 /*
- * SplitGUCList --- parse a string containing identifiers or file names
+ * SplitGUCList --- 解析包含标识符或文件名的字符串
  *
- * This is used to split the value of a GUC_LIST_QUOTE GUC variable, without
- * presuming whether the elements will be taken as identifiers or file names.
- * See comparable code in src/backend/utils/adt/varlena.c.
+ * 用于分割 GUC_LIST_QUOTE GUC 变量的值，
+ * 不预设元素会被视为标识符还是文件名。
+ * 参见 src/backend/utils/adt/varlena.c 中的类似代码。
  *
- * Inputs:
- *	rawstring: the input string; must be overwritable!	On return, it's
- *			   been modified to contain the separated identifiers.
- *	separator: the separator punctuation expected between identifiers
- *			   (typically '.' or ',').  Whitespace may also appear around
- *			   identifiers.
- * Outputs:
- *	namelist: receives a malloc'd, null-terminated array of pointers to
- *			  identifiers within rawstring.  Caller should free this
- *			  even on error return.
+ * 输入：
+ *	rawstring: 输入字符串；必须可覆盖！返回时，
+ *		它已被修改为包含分隔后的标识符。
+ *	separator: 期望在标识符之间出现的分隔标点
+ *		（通常是 '.' 或 ','）。标识符周围也可能出现空白。
+ * 输出：
+ *	namelist: 接收一个 malloc 分配的、以 NULL 结尾的指针数组，
+ *		指向 rawstring 内的标识符。调用者应释放此数组，
+ *		即使是在错误返回时。
  *
- * Returns true if okay, false if there is a syntax error in the string.
+ * 成功返回 true，字符串存在语法错误则返回 false。
+ *
  */
 bool
 SplitGUCList(char *rawstring, char separator,
@@ -765,21 +765,21 @@ SplitGUCList(char *rawstring, char separator,
 	char	  **nextptr;
 
 	/*
-	 * Since we disallow empty identifiers, this is a conservative
-	 * overestimate of the number of pointers we could need.  Allow one for
-	 * list terminator.
+	 * 由于我们不允许空标识符，这是对可能需要的指针数量的
+	 * 保守高估。保留一个用于列表终止符。
+	 *
 	 */
 	*namelist = nextptr = (char **)
 		pg_malloc((strlen(rawstring) / 2 + 2) * sizeof(char *));
 	*nextptr = NULL;
 
 	while (isspace((unsigned char) *nextp))
-		nextp++;				/* skip leading whitespace */
+		nextp++;				/* 跳过前导空白 */
 
 	if (*nextp == '\0')
-		return true;			/* allow empty string */
+		return true;			/* 允许空字符串 */
 
-	/* At the top of the loop, we are at start of a new identifier. */
+	/* 循环顶部，我们处于新标识符的开始位置。 */
 	do
 	{
 		char	   *curname;
@@ -787,58 +787,58 @@ SplitGUCList(char *rawstring, char separator,
 
 		if (*nextp == '"')
 		{
-			/* Quoted name --- collapse quote-quote pairs */
+			/* 引用的名称 --- 折叠引号-引号对 */
 			curname = nextp + 1;
 			for (;;)
 			{
 				endp = strchr(nextp + 1, '"');
 				if (endp == NULL)
-					return false;	/* mismatched quotes */
+					return false;	/* 引号不匹配 */
 				if (endp[1] != '"')
-					break;		/* found end of quoted name */
-				/* Collapse adjacent quotes into one quote, and look again */
+					break;		/* 找到了引用名称的结束 */
+				/* 将相邻引号折叠为一个引号，然后再次查找 */
 				memmove(endp, endp + 1, strlen(endp));
 				nextp = endp;
 			}
-			/* endp now points at the terminating quote */
+			/* endp 现在指向终止引号 */
 			nextp = endp + 1;
 		}
 		else
 		{
-			/* Unquoted name --- extends to separator or whitespace */
+			/* 未引用的名称 --- 延伸到分隔符或空白 */
 			curname = nextp;
 			while (*nextp && *nextp != separator &&
 				   !isspace((unsigned char) *nextp))
 				nextp++;
 			endp = nextp;
 			if (curname == nextp)
-				return false;	/* empty unquoted name not allowed */
+				return false;	/* 不允许空的未引用名称 */
 		}
 
 		while (isspace((unsigned char) *nextp))
-			nextp++;			/* skip trailing whitespace */
+			nextp++;			/* 跳过尾部空白 */
 
 		if (*nextp == separator)
 		{
 			nextp++;
 			while (isspace((unsigned char) *nextp))
-				nextp++;		/* skip leading whitespace for next */
-			/* we expect another name, so done remains false */
+				nextp++;		/* 跳过下一个的前导空白 */
+			/* 我们期望另一个名称，因此 done 保持 false */
 		}
 		else if (*nextp == '\0')
 			done = true;
 		else
-			return false;		/* invalid syntax */
+			return false;		/* 无效语法 */
 
-		/* Now safe to overwrite separator with a null */
+		/* 现在可以安全地用空字符覆盖分隔符 */
 		*endp = '\0';
 
 		/*
-		 * Finished isolating current name --- add it to output array
+		 * 完成当前名称的隔离 --- 将其添加到输出数组
 		 */
 		*nextptr++ = curname;
 
-		/* Loop back if we didn't reach end of string */
+		/* 如果未到达字符串末尾则循环回去 */
 	} while (!done);
 
 	*nextptr = NULL;
@@ -846,15 +846,15 @@ SplitGUCList(char *rawstring, char separator,
 }
 
 /*
- * Helper function for dumping "ALTER DATABASE/ROLE SET ..." commands.
+ * 用于导出 "ALTER DATABASE/ROLE SET ..." 命令的辅助函数。
  *
- * Parse the contents of configitem (a "name=value" string), wrap it in
- * a complete ALTER command, and append it to buf.
+ * 解析 configitem 的内容（"名称=值" 字符串），将其包装在
+ * 完整的 ALTER 命令中，并追加到 buf。
  *
- * type is DATABASE or ROLE, and name is the name of the database or role.
- * If we need an "IN" clause, type2 and name2 similarly define what to put
- * there; otherwise they should be NULL.
- * conn is used only to determine string-literal quoting conventions.
+ * type 是 DATABASE 或 ROLE，name 是数据库或角色的名称。
+ * 如果需要 "IN" 子句，type2 和 name2 类似地定义其中的内容；
+ * 否则它们应为 NULL。
+ * conn 仅用于确定字符串字面量的引用约定。
  */
 void
 makeAlterConfigCommand(PGconn *conn, const char *configitem,
@@ -865,7 +865,7 @@ makeAlterConfigCommand(PGconn *conn, const char *configitem,
 	char	   *mine;
 	char	   *pos;
 
-	/* Parse the configitem.  If we can't find an "=", silently do nothing. */
+	/* 解析 configitem。如果找不到 "="，则静默不做任何操作。 */
 	mine = pg_strdup(configitem);
 	pos = strchr(mine, '=');
 	if (pos == NULL)
@@ -875,33 +875,33 @@ makeAlterConfigCommand(PGconn *conn, const char *configitem,
 	}
 	*pos++ = '\0';
 
-	/* Build the command, with suitable quoting for everything. */
+	/* 构建命令，对所有内容进行适当引用。 */
 	appendPQExpBuffer(buf, "ALTER %s %s ", type, fmtId(name));
 	if (type2 != NULL && name2 != NULL)
 		appendPQExpBuffer(buf, "IN %s %s ", type2, fmtId(name2));
 	appendPQExpBuffer(buf, "SET %s TO ", fmtId(mine));
 
 	/*
-	 * Variables that are marked GUC_LIST_QUOTE were already fully quoted by
-	 * flatten_set_variable_args() before they were put into the setconfig
-	 * array.  However, because the quoting rules used there aren't exactly
-	 * like SQL's, we have to break the list value apart and then quote the
-	 * elements as string literals.  (The elements may be double-quoted as-is,
-	 * but we can't just feed them to the SQL parser; it would do the wrong
-	 * thing with elements that are zero-length or longer than NAMEDATALEN.)
+	 * 标记为 GUC_LIST_QUOTE 的变量在放入 setconfig 数组之前
+	 * 已被 flatten_set_variable_args() 完全引用。然而，
+	 * 由于那里使用的引用规则与 SQL 不完全相同，
+	 * 我们必须拆分列表值，然后将元素作为字符串字面量引用。
+	 * （元素可以保持原有的双引号形式，但不能直接提供给 SQL 解析器；
+	 * 这对零长度或超 NAMEDATALEN 的元素会做错误处理。）
 	 *
-	 * Variables that are not so marked should just be emitted as simple
-	 * string literals.  If the variable is not known to
-	 * variable_is_guc_list_quote(), we'll do that; this makes it unsafe to
-	 * use GUC_LIST_QUOTE for extension variables.
+	 * 未标记为此类别的变量应直接作为简单的字符串字面量输出。
+	 * 如果变量不在 variable_is_guc_list_quote() 的已知范围内，
+	 * 我们将这样做；这使得扩展变量使用 GUC_LIST_QUOTE 不安全。
+	 *
+	 *
 	 */
 	if (variable_is_guc_list_quote(mine))
 	{
 		char	  **namelist;
 		char	  **nameptr;
 
-		/* Parse string into list of identifiers */
-		/* this shouldn't fail really */
+		/* 将字符串解析为标识符列表 */
+		/* 这实际上不应该失败 */
 		if (SplitGUCList(pos, ',', &namelist))
 		{
 			for (nameptr = namelist; *nameptr; nameptr++)
@@ -922,9 +922,9 @@ makeAlterConfigCommand(PGconn *conn, const char *configitem,
 }
 
 /*
- * Generates a valid restrict key (i.e., an alphanumeric string) for use with
- * psql's \restrict and \unrestrict meta-commands.  For safety, the value is
- * chosen at random.
+ * 生成一个有效的限制键（即字母数字字符串），用于
+ * psql 的 \restrict 和 \unrestrict 元命令。为安全起见，
+ * 值是随机选择的。
  */
 char *
 generate_restrict_key(void)
@@ -947,8 +947,8 @@ generate_restrict_key(void)
 }
 
 /*
- * Checks that a given restrict key (intended for use with psql's \restrict and
- * \unrestrict meta-commands) contains only alphanumeric characters.
+ * 检查给定的限制键（用于 psql 的 \restrict 和
+ * \unrestrict 元命令）是否仅包含字母数字字符。
  */
 bool
 valid_restrict_key(const char *restrict_key)

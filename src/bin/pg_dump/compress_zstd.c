@@ -38,7 +38,7 @@ InitCompressFileHandleZstd(CompressFileHandle *CFH, const pg_compress_specificat
 
 typedef struct ZstdCompressorState
 {
-	/* This is a normal file to which we read/write compressed data */
+	/* 用于读取/写入压缩数据的普通文件 */
 	FILE	   *fp;
 
 	ZSTD_CStream *cstream;
@@ -46,7 +46,7 @@ typedef struct ZstdCompressorState
 	ZSTD_outBuffer output;
 	ZSTD_inBuffer input;
 
-	/* pointer to a static string like from strerror(), for Zstd_write() */
+	/* 指向静态字符串的指针，如 strerror() 返回的，供 Zstd_write() 使用 */
 	const char *zstderror;
 } ZstdCompressorState;
 
@@ -68,7 +68,7 @@ _Zstd_CCtx_setParam_or_die(ZSTD_CStream *cstream,
 				 paramname, ZSTD_getErrorName(res));
 }
 
-/* Return a compression stream with parameters set per argument */
+/* 返回根据参数设置相应参数的压缩流 */
 static ZSTD_CStream *
 _ZstdCStreamParams(pg_compress_specification compress)
 {
@@ -89,7 +89,7 @@ _ZstdCStreamParams(pg_compress_specification compress)
 	return cstream;
 }
 
-/* Helper function for WriteDataToArchiveZstd and EndCompressorZstd */
+/* WriteDataToArchiveZstd 和 EndCompressorZstd 的辅助函数 */
 static void
 _ZstdWriteCommon(ArchiveHandle *AH, CompressorState *cs, bool flush)
 {
@@ -97,7 +97,7 @@ _ZstdWriteCommon(ArchiveHandle *AH, CompressorState *cs, bool flush)
 	ZSTD_inBuffer *input = &zstdcs->input;
 	ZSTD_outBuffer *output = &zstdcs->output;
 
-	/* Loop while there's any input or until flushed */
+	/* 当有输入时循环，或直到刷新完成 */
 	while (input->pos != input->size || flush)
 	{
 		size_t		res;
@@ -110,15 +110,15 @@ _ZstdWriteCommon(ArchiveHandle *AH, CompressorState *cs, bool flush)
 			pg_fatal("could not compress data: %s", ZSTD_getErrorName(res));
 
 		/*
-		 * Extra paranoia: avoid zero-length chunks, since a zero length chunk
-		 * is the EOF marker in the custom format. This should never happen
-		 * but...
+		 * 额外谨慎：避免零长度块，因为零长度块在自定义格式中是 EOF
+		 * 标记。这不应发生，
+		 * 但以防万一...
 		 */
 		if (output->pos > 0)
 			cs->writeF(AH, output->dst, output->pos);
 
 		if (res == 0)
-			break;				/* End of frame or all input consumed */
+			break;				/* 帧结束或所有输入已消费 */
 	}
 }
 
@@ -140,7 +140,7 @@ EndCompressorZstd(ArchiveHandle *AH, CompressorState *cs)
 		ZSTD_freeCStream(zstdcs->cstream);
 	}
 
-	/* output buffer may be allocated in either mode */
+	/* 输出缓冲区可能在任一模式下分配 */
 	pg_free(zstdcs->output.dst);
 	pg_free(zstdcs);
 }
@@ -172,13 +172,13 @@ ReadDataFromArchiveZstd(ArchiveHandle *AH, CompressorState *cs)
 		size_t		cnt;
 
 		/*
-		 * Read compressed data.  Note that readF can resize the buffer; the
-		 * new size is tracked and used for future loops.
+		 * 读取压缩数据。注意 readF 可以调整缓冲区大小；
+		 * 新大小会被记录并在后续循环中使用。
 		 */
 		input->size = input_allocated_size;
 		cnt = cs->readF(AH, (char **) unconstify(void **, &input->src), &input->size);
 
-		/* ensure that readF didn't *shrink* the buffer */
+		/* 确保 readF 没有缩小缓冲区 */
 		Assert(input->size >= input_allocated_size);
 		input_allocated_size = input->size;
 		input->size = cnt;
@@ -187,7 +187,7 @@ ReadDataFromArchiveZstd(ArchiveHandle *AH, CompressorState *cs)
 		if (cnt == 0)
 			break;
 
-		/* Now decompress */
+		/* 现在解压 */
 		while (input->pos < input->size)
 		{
 			output->pos = 0;
@@ -196,18 +196,18 @@ ReadDataFromArchiveZstd(ArchiveHandle *AH, CompressorState *cs)
 				pg_fatal("could not decompress data: %s", ZSTD_getErrorName(res));
 
 			/*
-			 * then write the decompressed data to the output handle
+			 * 然后将解压后的数据写入输出句柄
 			 */
 			((char *) output->dst)[output->pos] = '\0';
 			ahwrite(output->dst, 1, output->pos, AH);
 
 			if (res == 0)
-				break;			/* End of frame */
+				break;			/* 帧结束 */
 		}
 	}
 }
 
-/* Public routine that supports Zstd compressed data I/O */
+/* 支持 Zstd 压缩数据 I/O 的公共例程 */
 void
 InitCompressorZstd(CompressorState *cs,
 				   const pg_compress_specification compression_spec)
@@ -223,7 +223,7 @@ InitCompressorZstd(CompressorState *cs,
 	zstdcs = (ZstdCompressorState *) pg_malloc0(sizeof(*zstdcs));
 	cs->private_data = zstdcs;
 
-	/* We expect that exactly one of readF/writeF is specified */
+	/* 期望 readF/writeF 中有且仅有一个被指定 */
 	Assert((cs->readF == NULL) != (cs->writeF == NULL));
 
 	if (cs->readF != NULL)
@@ -236,10 +236,10 @@ InitCompressorZstd(CompressorState *cs,
 		zstdcs->input.src = pg_malloc(zstdcs->input.size);
 
 		/*
-		 * output.size is the buffer size we tell zstd it can output to.
-		 * Allocate an additional byte such that ReadDataFromArchiveZstd() can
-		 * call ahwrite() with a null-terminated string, which is an optimized
-		 * case in ExecuteSqlCommandBuf().
+		 * output.size 是告知 zstd 可输出的缓冲区大小。
+		 * 额外分配一个字节，使 ReadDataFromArchiveZstd() 能够以
+		 * 空字符结尾的字符串调用 ahwrite()，这是 ExecuteSqlCommandBuf()
+		 * 中的优化情形。
 		 */
 		zstdcs->output.size = ZSTD_DStreamOutSize();
 		zstdcs->output.dst = pg_malloc(zstdcs->output.size + 1);
@@ -255,7 +255,7 @@ InitCompressorZstd(CompressorState *cs,
 }
 
 /*
- * Compressed stream API
+ * 压缩流 API
  */
 
 static size_t
@@ -269,8 +269,8 @@ Zstd_read_internal(void *ptr, size_t size, CompressFileHandle *CFH, bool exit_on
 				cnt;
 
 	/*
-	 * If this is the first call to the reading function, initialize the
-	 * required datastructures.
+	 * 如果这是对读取函数的第一次调用，则初始化所需的
+	 * 数据结构。
 	 */
 	if (zstdcs->dstream == NULL)
 	{
@@ -294,17 +294,17 @@ Zstd_read_internal(void *ptr, size_t size, CompressFileHandle *CFH, bool exit_on
 		Assert(input->size <= input_allocated_size);
 
 		/*
-		 * If the input is completely consumed, start back at the beginning
+		 * 如果输入已完全消费，则从头开始
 		 */
 		if (input->pos == input->size)
 		{
-			/* input->size is size produced by "fread" */
+			/* input->size 是 "fread" 产生的数据大小 */
 			input->size = 0;
-			/* input->pos is position consumed by decompress */
+			/* input->pos 是解压已消费的位置 */
 			input->pos = 0;
 		}
 
-		/* read compressed data if we must produce more input */
+		/* 如果需要生成更多输入，则读取压缩数据 */
 		if (input->pos == input->size)
 		{
 			cnt = fread(unconstify(void *, input->src), 1, input_allocated_size, zstdcs->fp);
@@ -319,14 +319,14 @@ Zstd_read_internal(void *ptr, size_t size, CompressFileHandle *CFH, bool exit_on
 
 			Assert(cnt <= input_allocated_size);
 
-			/* If we have no more input to consume, we're done */
+			/* 如果没有更多输入可消费，则完成 */
 			if (cnt == 0)
 				break;
 		}
 
 		while (input->pos < input->size)
 		{
-			/* now decompress */
+			/* 现在解压 */
 			res = ZSTD_decompressStream(zstdcs->dstream, output, input);
 
 			if (ZSTD_isError(res))
@@ -337,14 +337,14 @@ Zstd_read_internal(void *ptr, size_t size, CompressFileHandle *CFH, bool exit_on
 			}
 
 			if (output->pos == output->size)
-				break;			/* No more room for output */
+				break;			/* 输出空间已满 */
 
 			if (res == 0)
-				break;			/* End of frame */
+				break;			/* 帧结束 */
 		}
 
 		if (output->pos == output->size)
-			break;				/* We read all the data that fits */
+			break;				/* 已读取所有能容纳的数据 */
 	}
 
 	return output->pos;
@@ -372,7 +372,7 @@ Zstd_write(const void *ptr, size_t size, CompressFileHandle *CFH)
 			pg_fatal("could not initialize compression library");
 	}
 
-	/* Consume all input, to be flushed later */
+	/* 消费所有输入，稍后刷新 */
 	while (input->pos != input->size)
 	{
 		output->pos = 0;
@@ -408,8 +408,8 @@ Zstd_gets(char *buf, int len, CompressFileHandle *CFH)
 	Assert(len > 0);
 
 	/*
-	 * Read one byte at a time until newline or EOF. This is only used to read
-	 * the list of LOs, and the I/O is buffered anyway.
+	 * 逐字节读取直到换行符或 EOF。仅用于读取 LO
+	 * 列表，而且 I/O 本身是有缓冲的。
 	 */
 	for (i = 0; i < len - 1; ++i)
 	{
@@ -444,7 +444,7 @@ Zstd_close(CompressFileHandle *CFH)
 		ZSTD_inBuffer *input = &zstdcs->input;
 		ZSTD_outBuffer *output = &zstdcs->output;
 
-		/* Loop until the compression buffers are fully consumed */
+		/* 循环直到压缩缓冲区完全消费 */
 		for (;;)
 		{
 			output->pos = 0;
@@ -467,7 +467,7 @@ Zstd_close(CompressFileHandle *CFH)
 			}
 
 			if (res == 0)
-				break;			/* End of frame */
+				break;			/* 帧结束 */
 		}
 
 		ZSTD_freeCStream(zstdcs->cstream);
@@ -508,8 +508,8 @@ Zstd_open(const char *path, int fd, const char *mode,
 	ZstdCompressorState *zstdcs;
 
 	/*
-	 * Clear state storage to avoid having the fd point to non-NULL memory on
-	 * error return.
+	 * 清除状态存储，避免在错误返回时 fd 指向非 NULL
+	 * 内存。
 	 */
 	CFH->private_data = NULL;
 

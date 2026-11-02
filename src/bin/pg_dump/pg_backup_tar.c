@@ -115,14 +115,14 @@ static size_t _tarReadRaw(ArchiveHandle *AH, void *buf, size_t len, TAR_MEMBER *
 static size_t _scriptOut(ArchiveHandle *AH, const void *buf, size_t len);
 
 /*
- *	Initializer
+ *	初始化器
  */
 void
 InitArchiveFmt_Tar(ArchiveHandle *AH)
 {
 	lclContext *ctx;
 
-	/* Assuming static functions, this can be copied for each format. */
+	/* 假定为静态函数，可以针对每种格式复制。 */
 	AH->ArchiveEntryPtr = _ArchiveEntry;
 	AH->StartDataPtr = _StartData;
 	AH->WriteDataPtr = _WriteData;
@@ -149,19 +149,19 @@ InitArchiveFmt_Tar(ArchiveHandle *AH)
 	AH->WorkerJobRestorePtr = NULL;
 
 	/*
-	 * Set up some special context used in compressing data.
+	 * 设置用于压缩数据的一些特殊上下文。
 	 */
 	ctx = pg_malloc0_object(lclContext);
 	AH->formatData = (void *) ctx;
 	ctx->filePos = 0;
 	ctx->isSpecialScript = 0;
 
-	/* Initialize LO buffering */
+	/* 初始化 LO 缓冲 */
 	AH->lo_buf_size = LOBBUFSIZE;
 	AH->lo_buf = (void *) pg_malloc(LOBBUFSIZE);
 
 	/*
-	 * Now open the tar file, and load the TOC if we're in read mode.
+	 * 现在打开 tar 文件，如果是读模式则加载 TOC。
 	 */
 	if (AH->mode == archModeWrite)
 	{
@@ -182,23 +182,23 @@ InitArchiveFmt_Tar(ArchiveHandle *AH)
 		ctx->tarFHpos = 0;
 
 		/*
-		 * Make unbuffered since we will dup() it, and the buffers screw each
-		 * other
+		 * 设为无缓冲，因为我们会 dup() 它，而缓冲区会相互干扰
+		 *
 		 */
 		/* setvbuf(ctx->tarFH, NULL, _IONBF, 0); */
 
 		ctx->hasSeek = checkSeek(ctx->tarFH);
 
 		/*
-		 * We don't support compression because reading the files back is not
-		 * possible since gzdopen uses buffered IO which totally screws file
-		 * positioning.
+		 * 我们不支持压缩，因为读取回文件是不可能的，
+		 * 由于 gzdopen 使用缓冲 IO 会完全破坏文件定位。
+		 *
 		 */
 		if (AH->compression_spec.algorithm != PG_COMPRESSION_NONE)
 			pg_fatal("compression is not supported by tar archive format");
 	}
 	else
-	{							/* Read Mode */
+	{							/* 读模式 */
 		if (AH->fSpec && strcmp(AH->fSpec, "") != 0)
 		{
 			ctx->tarFH = fopen(AH->fSpec, PG_BINARY_R);
@@ -214,8 +214,8 @@ InitArchiveFmt_Tar(ArchiveHandle *AH)
 		}
 
 		/*
-		 * Make unbuffered since we will dup() it, and the buffers screw each
-		 * other
+		 * 设为无缓冲，因为我们会 dup() 它，而缓冲区会相互干扰
+		 *
 		 */
 		/* setvbuf(ctx->tarFH, NULL, _IONBF, 0); */
 
@@ -226,13 +226,13 @@ InitArchiveFmt_Tar(ArchiveHandle *AH)
 		ctx->FH = (void *) tarOpen(AH, "toc.dat", 'r');
 		ReadHead(AH);
 		ReadToc(AH);
-		tarClose(AH, ctx->FH);	/* Nothing else in the file... */
+		tarClose(AH, ctx->FH);	/* 文件中没有其他内容了... */
 	}
 }
 
 /*
- * - Start a new TOC entry
- *	 Setup the output file name.
+ * - 开始一个新的 TOC 条目
+ *	 设置输出文件名。
  */
 static void
 _ArchiveEntry(ArchiveHandle *AH, TocEntry *te)
@@ -311,19 +311,19 @@ tarOpen(ArchiveHandle *AH, const char *filename, char mode)
 	if (mode == 'r')
 	{
 		tm = _tarPositionTo(AH, filename);
-		if (!tm)				/* Not found */
+		if (!tm)				/* 未找到 */
 		{
 			if (filename)
 			{
 				/*
-				 * Couldn't find the requested file. Future: do SEEK(0) and
-				 * retry.
+				 * 找不到请求的文件。将来：执行 SEEK(0) 并重试。
+				 *
 				 */
 				pg_fatal("could not find file \"%s\" in archive", filename);
 			}
 			else
 			{
-				/* Any file OK, none left, so return NULL */
+				/* 任何文件都可以，没有剩余了，因此返回 NULL */
 				return NULL;
 			}
 		}
@@ -340,10 +340,10 @@ tarOpen(ArchiveHandle *AH, const char *filename, char mode)
 		tm = pg_malloc0_object(TAR_MEMBER);
 
 		/*
-		 * POSIX does not require, but permits, tmpfile() to restrict file
-		 * permissions.  Given an OS crash after we write data, the filesystem
-		 * might retain the data but forget tmpfile()'s unlink().  If so, the
-		 * file mode protects confidentiality of the data written.
+		 * POSIX 不要求但允许 tmpfile() 限制文件权限。
+		 * 假定写入数据后发生操作系统崩溃，
+		 * 文件系统可能保留数据但忘记 tmpfile() 的 unlink()。
+		 * 如果是这样，文件模式可保护所写数据的机密性。
 		 */
 		old_umask = umask(S_IRWXG | S_IRWXO);
 
@@ -352,9 +352,9 @@ tarOpen(ArchiveHandle *AH, const char *filename, char mode)
 #else
 
 		/*
-		 * On WIN32, tmpfile() generates a filename in the root directory,
-		 * which requires administrative permissions on certain systems. Loop
-		 * until we find a unique file name we can create.
+		 * 在 WIN32 上，tmpfile() 在根目录生成文件名，
+		 * 在某些系统上需要管理员权限。循环
+		 * 直到找到一个可以创建的唯一文件名。
 		 */
 		while (1)
 		{
@@ -368,12 +368,12 @@ tarOpen(ArchiveHandle *AH, const char *filename, char mode)
 					  O_TEMPORARY, S_IRUSR | S_IWUSR);
 			free(name);
 
-			if (fd != -1)		/* created a file */
+			if (fd != -1)		/* 创建了文件 */
 			{
 				tm->tmpFH = fdopen(fd, "w+b");
 				break;
 			}
-			else if (errno != EEXIST)	/* failure other than file exists */
+			else if (errno != EEXIST)	/* 不是文件已存在的错误 */
 				break;
 		}
 #endif
@@ -405,11 +405,11 @@ tarClose(ArchiveHandle *AH, TAR_MEMBER *th)
 		pg_fatal("compression is not supported by tar archive format");
 
 	if (th->mode == 'w')
-		_tarAddFile(AH, th);	/* This will close the temp file */
+		_tarAddFile(AH, th);	/* 这将关闭临时文件 */
 
 	/*
-	 * else Nothing to do for normal read since we don't dup() normal file
-	 * handle, and we don't use temp files.
+	 * 否则，对于正常读取无需做任何事，
+	 * 因为我们不 dup() 正常文件句柄，也不使用临时文件。
 	 */
 
 	free(th->targetFile);
@@ -426,7 +426,7 @@ tarGets(char *buf, size_t len, TAR_MEMBER *th)
 	char		c = ' ';
 	int			eof = 0;
 
-	/* Can't read past logical EOF */
+	/* 不能读取超过逻辑 EOF 的内容 */
 	if (len > (th->fileLen - th->pos))
 		len = th->fileLen - th->pos;
 
@@ -459,8 +459,8 @@ tarGets(char *buf, size_t len, TAR_MEMBER *th)
 #endif
 
 /*
- * Just read bytes from the archive. This is the low level read routine
- * that is used for ALL reads on a tar file.
+ * 从归档中读取字节。这是用于 tar 文件上所有读取的
+ * 低级读取例程。
  */
 static size_t
 _tarReadRaw(ArchiveHandle *AH, void *buf, size_t len, TAR_MEMBER *th, FILE *fh)
@@ -475,21 +475,21 @@ _tarReadRaw(ArchiveHandle *AH, void *buf, size_t len, TAR_MEMBER *th, FILE *fh)
 	avail = AH->lookaheadLen - AH->lookaheadPos;
 	if (avail > 0)
 	{
-		/* We have some lookahead bytes to use */
-		if (avail >= len)		/* Just use the lookahead buffer */
+		/* 我们有一些预读字节可用 */
+		if (avail >= len)		/* 直接使用预读缓冲区 */
 			used = len;
 		else
 			used = avail;
 
-		/* Copy, and adjust buffer pos */
+		/* 复制并调整缓冲区位置 */
 		memcpy(buf, AH->lookahead + AH->lookaheadPos, used);
 		AH->lookaheadPos += used;
 
-		/* Adjust required length */
+		/* 调整所需长度 */
 		len -= used;
 	}
 
-	/* Read the file if len > 0 */
+	/* 如果 len > 0，读取文件 */
 	if (len > 0)
 	{
 		if (fh)
@@ -554,13 +554,13 @@ _EndData(ArchiveHandle *AH, TocEntry *te)
 {
 	lclTocEntry *tctx = (lclTocEntry *) te->formatData;
 
-	/* Close the file */
+	/* 关闭文件 */
 	tarClose(AH, tctx->TH);
 	tctx->TH = NULL;
 }
 
 /*
- * Print data for a given file
+ * 为给定文件打印数据
  */
 static void
 _PrintFileData(ArchiveHandle *AH, char *filename)
@@ -587,7 +587,7 @@ _PrintFileData(ArchiveHandle *AH, char *filename)
 
 
 /*
- * Print data for a given TOC entry
+ * 为给定 TOC 条目打印数据
 */
 static void
 _PrintTocData(ArchiveHandle *AH, TocEntry *te)
@@ -600,22 +600,22 @@ _PrintTocData(ArchiveHandle *AH, TocEntry *te)
 		return;
 
 	/*
-	 * If we're writing the special restore.sql script, emit a suitable
-	 * command to include each table's data from the corresponding file.
+	 * 如果我们正在写入特殊的 restore.sql 脚本，发出一条适当的
+	 * 命令以包含来自相应文件的每个表的数据。
 	 *
-	 * In the COPY case this is a bit klugy because the regular COPY command
-	 * was already printed before we get control.
+	 * 在 COPY 情况下这有些取巧，因为常规的 COPY 命令
+	 * 在我们获得控制权之前就已经打印了。
 	 */
 	if (ctx->isSpecialScript)
 	{
 		if (te->copyStmt)
 		{
-			/* Abort the COPY FROM stdin */
+			/* 中止 COPY FROM stdin */
 			ahprintf(AH, "\\.\n");
 
 			/*
-			 * The COPY statement should look like "COPY ... FROM stdin;\n",
-			 * see dumpTableData().
+			 * COPY 语句应看起来像 "COPY ... FROM stdin;\n"，
+			 * 参见 dumpTableData()。
 			 */
 			pos1 = (int) strlen(te->copyStmt) - 13;
 			if (pos1 < 6 || strncmp(te->copyStmt, "COPY ", 5) != 0 ||
@@ -623,14 +623,14 @@ _PrintTocData(ArchiveHandle *AH, TocEntry *te)
 				pg_fatal("unexpected COPY statement syntax: \"%s\"",
 						 te->copyStmt);
 
-			/* Emit all but the FROM part ... */
+			/* 发出除 FROM 部分之外的所有内容... */
 			ahwrite(te->copyStmt, 1, pos1, AH);
-			/* ... and insert modified FROM */
+			/* ...并插入修改后的 FROM */
 			ahprintf(AH, " FROM '$$PATH$$/%s';\n\n", tctx->filename);
 		}
 		else
 		{
-			/* --inserts mode, no worries, just include the data file */
+			/* --inserts 模式，无需担心，只需包含数据文件 */
 			ahprintf(AH, "\\i $$PATH$$/%s\n\n", tctx->filename);
 		}
 
@@ -655,7 +655,7 @@ _LoadLOs(ArchiveHandle *AH)
 
 	StartRestoreLOs(AH);
 
-	th = tarOpen(AH, NULL, 'r');	/* Open next file */
+	th = tarOpen(AH, NULL, 'r');	/* 打开下一个文件 */
 	while (th != NULL)
 	{
 		ctx->FH = th;
@@ -684,10 +684,10 @@ _LoadLOs(ArchiveHandle *AH)
 			tarClose(AH, th);
 
 			/*
-			 * Once we have found the first LO, stop at the first non-LO entry
-			 * (which will be 'blobs.toc').  This coding would eat all the
-			 * rest of the archive if there are no LOs ... but this function
-			 * shouldn't be called at all in that case.
+			 * 一旦找到第一个 LO，就在第一个非 LO 条目处停止
+			 * （这将是 'blobs.toc'）。如果没有 LO，
+			 * 此代码会耗尽归档的其余部分...
+			 * 但此函数在那情况下根本不应被调用。
 			 */
 			if (foundLO)
 				break;
@@ -703,7 +703,7 @@ static int
 _WriteByte(ArchiveHandle *AH, const int i)
 {
 	lclContext *ctx = (lclContext *) AH->formatData;
-	char		b = i;			/* Avoid endian problems */
+	char		b = i;			/* 避免字节序问题 */
 
 	if (tarWrite(&b, 1, ctx->FH) != 1)
 		WRITE_ERROR_EXIT;
@@ -721,7 +721,7 @@ _ReadByte(ArchiveHandle *AH)
 
 	res = tarRead(&c, 1, ctx->FH);
 	if (res != 1)
-		/* We already would have exited for errors on reads, must be EOF */
+		/* 读取错误时我们已经退出，此处一定是 EOF */
 		pg_fatal("could not read from input file: end of file");
 	ctx->filePos += 1;
 	return c;
@@ -744,7 +744,7 @@ _ReadBuf(ArchiveHandle *AH, void *buf, size_t len)
 	lclContext *ctx = (lclContext *) AH->formatData;
 
 	if (tarRead(buf, len, ctx->FH) != len)
-		/* We already would have exited for errors on reads, must be EOF */
+		/* 读取错误时我们已经退出，此处一定是 EOF */
 		pg_fatal("could not read from input file: end of file");
 
 	ctx->filePos += len;
@@ -764,22 +764,22 @@ _CloseArchive(ArchiveHandle *AH)
 	if (AH->mode == archModeWrite)
 	{
 		/*
-		 * Write the Header & TOC to the archive FIRST
+		 * 先将文件头和 TOC 写入归档
 		 */
 		th = tarOpen(AH, "toc.dat", 'w');
 		ctx->FH = th;
 		WriteHead(AH);
 		WriteToc(AH);
-		tarClose(AH, th);		/* Not needed any more */
+		tarClose(AH, th);		/* 不再需要 */
 
 		/*
-		 * Now send the data (tables & LOs)
+		 * 现在发送数据（表和 LOs）
 		 */
 		WriteDataChunks(AH, NULL);
 
 		/*
-		 * Now this format wants to append a script which does a full restore
-		 * if the files have been extracted.
+		 * 现在此格式想要追加一个脚本，该脚本在文件
+		 * 被提取后能够执行完整恢复。
 		 */
 		th = tarOpen(AH, "restore.sql", 'w');
 
@@ -822,7 +822,7 @@ _CloseArchive(ArchiveHandle *AH)
 		ctx->isSpecialScript = 0;
 
 		/*
-		 * EOF marker for tar files is two blocks of NULLs.
+		 * tar 文件的 EOF 标记是两个 NULL 块。
 		 */
 		for (i = 0; i < TAR_BLOCK_SIZE * 2; i++)
 		{
@@ -830,7 +830,7 @@ _CloseArchive(ArchiveHandle *AH)
 				WRITE_ERROR_EXIT;
 		}
 
-		/* Sync the output file if one is defined */
+		/* 如果定义了输出文件则同步 */
 		if (AH->dosync && AH->fSpec)
 			(void) fsync_fname(AH->fSpec, false);
 	}
@@ -847,17 +847,17 @@ _scriptOut(ArchiveHandle *AH, const void *buf, size_t len)
 }
 
 /*
- * Large Object support
+ * 大对象支持
  */
 
 /*
- * Called by the archiver when starting to save all BLOB DATA (not schema).
- * This routine should save whatever format-specific information is needed
- * to read the LOs back into memory.
+ * 归档器开始保存所有 BLOB 数据（非模式）时调用。
+ * 此例程应保存将 LOs 读回内存所需的所有格式特定信息。
  *
- * It is called just prior to the dumper's DataDumper routine.
+ * 在导出器的 DataDumper 例程之前调用。
  *
- * Optional, but strongly recommended.
+ * 可选，但强烈建议实现。
+ *
  *
  */
 static void
@@ -871,11 +871,11 @@ _StartLOs(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*
- * Called by the archiver when the dumper calls StartLO.
+ * 当导出器调用 StartLO 时由归档器调用。
  *
- * Mandatory.
+ * 必需。
  *
- * Must save the passed OID for retrieval at restore-time.
+ * 必须保存传入的 OID 以便在恢复时检索。
  */
 static void
 _StartLO(ArchiveHandle *AH, TocEntry *te, Oid oid)
@@ -898,9 +898,9 @@ _StartLO(ArchiveHandle *AH, TocEntry *te, Oid oid)
 }
 
 /*
- * Called by the archiver when the dumper calls EndLO.
+ * 当导出器调用 EndLO 时由归档器调用。
  *
- * Optional.
+ * 可选。
  *
  */
 static void
@@ -912,9 +912,9 @@ _EndLO(ArchiveHandle *AH, TocEntry *te, Oid oid)
 }
 
 /*
- * Called by the archiver when finishing saving all BLOB DATA.
+ * 归档器完成保存所有 BLOB 数据时调用。
  *
- * Optional.
+ * 可选。
  *
  */
 static void
@@ -922,7 +922,7 @@ _EndLOs(ArchiveHandle *AH, TocEntry *te)
 {
 	lclContext *ctx = (lclContext *) AH->formatData;
 
-	/* Write out a fake zero OID to mark end-of-LOs. */
+	/* 写入一个伪造的零 OID 以标记 LOs 结束。 */
 	/* WriteInt(AH, 0); */
 
 	tarClose(AH, ctx->loToc);
@@ -931,7 +931,7 @@ _EndLOs(ArchiveHandle *AH, TocEntry *te)
 
 
 /*------------
- * TAR Support
+ * TAR 支持
  *------------
  */
 
@@ -940,26 +940,26 @@ tarPrintf(TAR_MEMBER *th, const char *fmt,...)
 {
 	int			save_errno = errno;
 	char	   *p;
-	size_t		len = 128;		/* initial assumption about buffer size */
+	size_t		len = 128;		/* 初始缓冲区大小假设 */
 	size_t		cnt;
 
 	for (;;)
 	{
 		va_list		args;
 
-		/* Allocate work buffer. */
+		/* 分配工作缓冲区。 */
 		p = (char *) pg_malloc(len);
 
-		/* Try to format the data. */
+		/* 尝试格式化数据。 */
 		errno = save_errno;
 		va_start(args, fmt);
 		cnt = pvsnprintf(p, len, fmt, args);
 		va_end(args);
 
 		if (cnt < len)
-			break;				/* success */
+			break;				/* 成功 */
 
-		/* Release buffer and loop around to try again with larger len. */
+		/* 释放缓冲区并循环重试更大的 len。 */
 		free(p);
 		len = cnt;
 	}
@@ -980,26 +980,26 @@ isValidTarHeader(char *header)
 	if (sum != chk)
 		return false;
 
-	/* POSIX tar format */
+	/* POSIX tar 格式 */
 	if (memcmp(&header[257], "ustar\0", 6) == 0 &&
 		memcmp(&header[263], "00", 2) == 0)
 		return true;
-	/* GNU tar format */
+	/* GNU tar 格式 */
 	if (memcmp(&header[257], "ustar  \0", 8) == 0)
 		return true;
-	/* not-quite-POSIX format written by pre-9.3 pg_dump */
+	/* 由 pre-9.3 pg_dump 写入的非完全 POSIX 格式 */
 	if (memcmp(&header[257], "ustar00\0", 8) == 0)
 		return true;
 
 	return false;
 }
 
-/* Given the member, write the TAR header & copy the file */
+/* 给定成员，写入 TAR 文件头并复制文件 */
 static void
 _tarAddFile(ArchiveHandle *AH, TAR_MEMBER *th)
 {
 	lclContext *ctx = (lclContext *) AH->formatData;
-	FILE	   *tmp = th->tmpFH;	/* Grab it for convenience */
+	FILE	   *tmp = th->tmpFH;	/* 方便使用的引用 */
 	char		buf[32768];
 	size_t		cnt;
 	pgoff_t		len = 0;
@@ -1008,7 +1008,7 @@ _tarAddFile(ArchiveHandle *AH, TAR_MEMBER *th)
 				pad;
 
 	/*
-	 * Find file len & go back to start.
+	 * 查找文件长度并回到开始位置。
 	 */
 	if (fseeko(tmp, 0, SEEK_END) != 0)
 		pg_fatal("error during file seek: %m");
@@ -1029,7 +1029,7 @@ _tarAddFile(ArchiveHandle *AH, TAR_MEMBER *th)
 	if (!feof(tmp))
 		READ_ERROR_EXIT(tmp);
 
-	if (fclose(tmp) != 0)		/* This *should* delete it... */
+	if (fclose(tmp) != 0)		/* 这*应该*会删除它... */
 		pg_fatal("could not close temporary file: %m");
 
 	if (len != th->fileLen)
@@ -1046,7 +1046,7 @@ _tarAddFile(ArchiveHandle *AH, TAR_MEMBER *th)
 	ctx->tarFHpos += len + pad;
 }
 
-/* Locate the file in the archive, read header and position to data */
+/* 在归档中定位文件，读取文件头并定位到数据 */
 static TAR_MEMBER *
 _tarPositionTo(ArchiveHandle *AH, const char *filename)
 {
@@ -1061,7 +1061,7 @@ _tarPositionTo(ArchiveHandle *AH, const char *filename)
 
 	th->AH = AH;
 
-	/* Go to end of current file, if any */
+	/* 如果有当前文件，跳转到其末尾 */
 	if (ctx->tarFHpos != 0)
 	{
 		pg_log_debug("moving from position %lld to next member at file position %lld",
@@ -1073,9 +1073,9 @@ _tarPositionTo(ArchiveHandle *AH, const char *filename)
 
 	pg_log_debug("now at file position %lld", (long long) ctx->tarFHpos);
 
-	/* We are at the start of the file, or at the next member */
+	/* 我们位于文件开头，或下一个成员处 */
 
-	/* Get the header */
+	/* 获取文件头 */
 	if (!_tarGetHeader(AH, th))
 	{
 		if (filename)
@@ -1083,8 +1083,8 @@ _tarPositionTo(ArchiveHandle *AH, const char *filename)
 		else
 		{
 			/*
-			 * We're just scanning the archive for the next file, so return
-			 * null
+			 * 我们只是在扫描归档寻找下一个文件，
+			 * 因此返回 null
 			 */
 			free(th);
 			return NULL;
@@ -1101,10 +1101,10 @@ _tarPositionTo(ArchiveHandle *AH, const char *filename)
 					 "\"%s\" is required, but comes before \"%s\" in the archive file.",
 					 th->targetFile, filename);
 
-		/* Header doesn't match, so read to next header */
+		/* 文件头不匹配，因此读取到下一个文件头 */
 		len = th->fileLen;
 		len += tarPaddingBytesRequired(th->fileLen);
-		blks = len / TAR_BLOCK_SIZE;	/* # of tar blocks */
+		blks = len / TAR_BLOCK_SIZE;	/* tar 块数 */
 
 		for (i = 0; i < blks; i++)
 			_tarReadRaw(AH, &header[0], TAR_BLOCK_SIZE, NULL, ctx->tarFH);
@@ -1120,7 +1120,7 @@ _tarPositionTo(ArchiveHandle *AH, const char *filename)
 	return th;
 }
 
-/* Read & verify a header */
+/* 读取并验证文件头 */
 static int
 _tarGetHeader(ArchiveHandle *AH, TAR_MEMBER *th)
 {
@@ -1135,10 +1135,10 @@ _tarGetHeader(ArchiveHandle *AH, TAR_MEMBER *th)
 
 	while (!gotBlock)
 	{
-		/* Save the pos for reporting purposes */
+		/* 保存位置以供报告 */
 		hPos = ctx->tarFHpos;
 
-		/* Read the next tar block, return EOF, exit if short */
+		/* 读取下一个 tar 块，返回 EOF，数据不足则退出 */
 		len = _tarReadRaw(AH, h, TAR_BLOCK_SIZE, NULL, ctx->tarFH);
 		if (len == 0)			/* EOF */
 			return 0;
@@ -1149,13 +1149,13 @@ _tarGetHeader(ArchiveHandle *AH, TAR_MEMBER *th)
 							  len),
 					 (unsigned long) len);
 
-		/* Calc checksum */
+		/* 计算校验和 */
 		chk = tarChecksum(h);
 		sum = read_tar_number(&h[148], 8);
 
 		/*
-		 * If the checksum failed, see if it is a null block. If so, silently
-		 * continue to the next block.
+		 * 如果校验和失败，检查是否为空块。如果是，
+		 * 静默继续到下一个块。
 		 */
 		if (chk == sum)
 			gotBlock = true;
@@ -1174,7 +1174,7 @@ _tarGetHeader(ArchiveHandle *AH, TAR_MEMBER *th)
 		}
 	}
 
-	/* Name field is 100 bytes, might not be null-terminated */
+	/* 名称字段为 100 字节，可能不是 null 结尾的 */
 	strlcpy(tag, &h[0], 100 + 1);
 
 	len = read_tar_number(&h[124], 12);
@@ -1201,7 +1201,7 @@ _tarWriteHeader(TAR_MEMBER *th)
 	tarCreateHeader(h, th->targetFile, NULL, th->fileLen,
 					0600, 04000, 02000, time(NULL));
 
-	/* Now write the completed header. */
+	/* 现在写入完成的文件头。 */
 	if (fwrite(h, 1, TAR_BLOCK_SIZE, th->tarFH) != TAR_BLOCK_SIZE)
 		WRITE_ERROR_EXIT;
 }

@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "batch_id": "0242-comment-pg_dump-main",
+  "title": "zh: translate pg_dump comments — pg_dump.c",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "9e35d3ca8d93319cefa8b762ee014241e9a2f9a9",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/bin/pg_dump/pg_dump.c",
+      "kind": "c_comment",
+      "note": "main pg_dump program"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0242-comment-pg_dump-main.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/bin/pg_dump/pg_dump.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1026,
+      "translated": 1021,
+      "preserved": 5,
+      "preserved_reasons": ["Copyright header", "Section banners"],
+      "note": "main pg_dump program; 18705 lines"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0242-comment-pg_dump-main.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "segments_total": 1026,
+  "translated": 1021,
+  "preserved": 5,
+  "notes": "Batch 0242: pg_dump.c (1026 segments, 1021 translated). Largest single file in pg_dump. R1_SKELETON violation at line 2769 was auto-fixed by agent. Gate 2: 0 violations (1 ok). Gate 3: 0 error hits. This completes src/bin/pg_dump/ directory."
+}

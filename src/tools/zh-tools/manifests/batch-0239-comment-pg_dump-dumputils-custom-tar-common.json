@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "batch_id": "0239-comment-pg_dump-dumputils-custom-tar-common",
+  "title": "zh: translate pg_dump comments — dumputils, custom, tar, common",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "9e35d3ca8d93319cefa8b762ee014241e9a2f9a9",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/bin/pg_dump/dumputils.c",
+      "kind": "c_comment",
+      "note": "pg_dump/pg_restore utility functions"
+    },
+    {
+      "pattern": "src/bin/pg_dump/pg_backup_custom.c",
+      "kind": "c_comment",
+      "note": "custom format archive"
+    },
+    {
+      "pattern": "src/bin/pg_dump/pg_backup_tar.c",
+      "kind": "c_comment",
+      "note": "tar format archive"
+    },
+    {
+      "pattern": "src/bin/pg_dump/common.c",
+      "kind": "c_comment",
+      "note": "common dump routines"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0239-comment-pg_dump-dumputils-custom-tar-common.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/bin/pg_dump/dumputils.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 70,
+      "translated": 69,
+      "preserved": 1,
+      "preserved_reasons": ["Copyright header"],
+      "note": "pg_dump/pg_restore utility functions; 959 lines"
+    },
+    {
+      "path": "src/bin/pg_dump/pg_backup_custom.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 79,
+      "translated": 75,
+      "preserved": 4,
+      "preserved_reasons": ["Copyright header", "Section banners"],
+      "note": "custom format archive; 1031 lines"
+    },
+    {
+      "path": "src/bin/pg_dump/pg_backup_tar.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 85,
+      "translated": 84,
+      "preserved": 1,
+      "preserved_reasons": ["Copyright header"],
+      "note": "tar format archive; 1207 lines"
+    },
+    {
+      "path": "src/bin/pg_dump/common.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 86,
+      "translated": 85,
+      "preserved": 1,
+      "preserved_reasons": ["Copyright header"],
+      "note": "common dump routines (findTablesBySelector etc); 1108 lines"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0239-comment-pg_dump-dumputils-custom-tar-common.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "segments_total": 320,
+  "translated": 313,
+  "preserved": 7,
+  "notes": "Batch 0239: dumputils.c (70 segments, 69 translated), pg_backup_custom.c (79 segments, 75 translated), pg_backup_tar.c (85 segments, 84 translated), common.c (86 segments, 85 translated). 0 violations verify_c_comments.py, 0 error hits term_lint."
+}

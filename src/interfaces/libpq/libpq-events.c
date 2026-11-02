@@ -19,22 +19,22 @@
 
 
 /*
- * Registers an event proc with the given PGconn.
+ * 为指定的 PGconn 注册事件处理器。
  *
- * The same proc can't be registered more than once in a PGconn.  This
- * restriction is required because we use the proc address to identify
- * the event for purposes such as PQinstanceData().
+ * 同一个处理器不能在 PGconn 中注册多次。此限制是必需的，
+ * 因为我们使用处理器地址来标识事件，
+ * 以用于 PQinstanceData() 等目的。
  *
- * The name argument is used within error messages to aid in debugging.
- * A name must be supplied, but it needn't be unique.  The string is
- * copied, so the passed value needn't be long-lived.
+ * name 参数用于错误消息中以辅助调试。必须提供名称，
+ * 但不必唯一。该字符串会被复制，
+ * 因此传入的值不必长期存在。
  *
- * The passThrough argument is an application specific pointer and can be set
- * to NULL if not required.  It is passed through to the event proc whenever
- * the event proc is called, and is not otherwise touched by libpq.
+ * passThrough 参数是应用程序特定的指针，如果不需要，
+ * 可以设为 NULL。每当事件处理器被调用时，
+ * 它会被传递给事件处理器，libpq 不会以其他方式使用它。
  *
- * The function returns a non-zero if successful.  If the function fails,
- * zero is returned.
+ * 成功时函数返回非零值。如果失败，返回零。
+ *
  */
 int
 PQregisterEventProc(PGconn *conn, PGEventProc proc,
@@ -91,8 +91,8 @@ PQregisterEventProc(PGconn *conn, PGEventProc proc,
 }
 
 /*
- * Set some "instance data" for an event within a PGconn.
- * Returns nonzero on success, zero on failure.
+ * 在 PGconn 中为事件设置"实例数据"。
+ * 成功时返回非零值，失败时返回零。
  */
 int
 PQsetInstanceData(PGconn *conn, PGEventProc proc, void *data)
@@ -115,7 +115,7 @@ PQsetInstanceData(PGconn *conn, PGEventProc proc, void *data)
 }
 
 /*
- * Obtain the "instance data", if any, for the event.
+ * 获取事件的"实例数据"（如果有）。
  */
 void *
 PQinstanceData(const PGconn *conn, PGEventProc proc)
@@ -135,8 +135,8 @@ PQinstanceData(const PGconn *conn, PGEventProc proc)
 }
 
 /*
- * Set some "instance data" for an event within a PGresult.
- * Returns nonzero on success, zero on failure.
+ * 在 PGresult 中为事件设置"实例数据"。
+ * 成功时返回非零值，失败时返回零。
  */
 int
 PQresultSetInstanceData(PGresult *result, PGEventProc proc, void *data)
@@ -159,7 +159,7 @@ PQresultSetInstanceData(PGresult *result, PGEventProc proc, void *data)
 }
 
 /*
- * Obtain the "instance data", if any, for the event.
+ * 获取事件的"实例数据"（如果有）。
  */
 void *
 PQresultInstanceData(const PGresult *result, PGEventProc proc)
@@ -177,9 +177,9 @@ PQresultInstanceData(const PGresult *result, PGEventProc proc)
 }
 
 /*
- * Fire RESULTCREATE events for an application-created PGresult.
+ * 触发应用程序创建的 PGresult 的 RESULTCREATE 事件。
  *
- * The conn argument can be NULL if event procedures won't use it.
+ * 如果事件过程不使用 conn，则 conn 参数可以为 NULL。
  */
 int
 PQfireResultCreateEvents(PGconn *conn, PGresult *res)
@@ -192,7 +192,7 @@ PQfireResultCreateEvents(PGconn *conn, PGresult *res)
 
 	for (i = 0; i < res->nEvents; i++)
 	{
-		/* It's possible event was already fired, if so don't repeat it */
+		/* 事件可能已经触发，如果是这样则不要重复触发 */
 		if (!res->events[i].resultInitialized)
 		{
 			PGEventResultCreate evt;

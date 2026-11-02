@@ -41,13 +41,13 @@ pthread_mutex_init(pthread_mutex_t *mp, void *attr)
 int
 pthread_mutex_lock(pthread_mutex_t *mp)
 {
-	/* Initialize the csection if not already done */
+	/* 初始化临界区（如果尚未完成） */
 	if (mp->initstate != 1)
 	{
 		LONG		istate;
 
 		while ((istate = InterlockedExchange(&mp->initstate, 2)) == 2)
-			Sleep(0);			/* wait, another thread is doing this */
+			Sleep(0);			/* 等待，另一个线程正在执行此操作 */
 		if (istate != 1)
 			InitializeCriticalSection(&mp->csection);
 		InterlockedExchange(&mp->initstate, 1);

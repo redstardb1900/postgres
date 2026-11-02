@@ -19,8 +19,8 @@
 #include "pqexpbuffer.h"
 
 /*
- * Fetch all errors of a specific type and append to "str".
- * Each error string is preceded by a space.
+ * 获取指定类型的所有错误并追加到 "str"。
+ * 每条错误字符串前加一个空格。
  */
 static void
 pg_GSS_error_int(PQExpBuffer str, OM_uint32 stat, int type)
@@ -41,7 +41,7 @@ pg_GSS_error_int(PQExpBuffer str, OM_uint32 stat, int type)
 }
 
 /*
- * GSSAPI errors contain two parts; put both into conn->errorMessage.
+ * GSSAPI 错误包含两部分；将两者都放入 conn->errorMessage。
  */
 void
 pg_GSS_error(const char *mprefix, PGconn *conn,
@@ -55,7 +55,7 @@ pg_GSS_error(const char *mprefix, PGconn *conn,
 }
 
 /*
- * Check if we can acquire credentials at all (and yield them if so).
+ * 检查是否能够获取凭据（如果能够则返回它们）。
  */
 bool
 pg_GSS_have_cred_cache(gss_cred_id_t *cred_out)
@@ -76,7 +76,7 @@ pg_GSS_have_cred_cache(gss_cred_id_t *cred_out)
 }
 
 /*
- * Try to load service name for a connection
+ * 尝试为连接加载服务名称
  */
 int
 pg_GSS_load_servicename(PGconn *conn)
@@ -88,7 +88,7 @@ pg_GSS_load_servicename(PGconn *conn)
 	char	   *host;
 
 	if (conn->gtarg_nam != NULL)
-		/* Already taken care of - move along */
+		/* 已处理完毕 — 继续 */
 		return STATUS_OK;
 
 	host = PQhost(conn);
@@ -99,8 +99,8 @@ pg_GSS_load_servicename(PGconn *conn)
 	}
 
 	/*
-	 * Import service principal name so the proper ticket can be acquired by
-	 * the GSSAPI system.
+	 * 导入服务主体名称，以便 GSSAPI 系统获取适当的票据。
+	 *
 	 */
 	maxlen = strlen(conn->krbsrvname) + strlen(host) + 2;
 	temp_gbuf.value = (char *) malloc(maxlen);

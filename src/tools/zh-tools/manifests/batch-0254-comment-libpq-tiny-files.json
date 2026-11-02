@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "batch_id": "0254-comment-libpq-tiny-files",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "82c5b7abd4a9b45ebf888bf5944864d03da5d041",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/interfaces/libpq/fe-secure-common.c",
+      "kind": "c_comment",
+      "note": "batch 0254 fe-secure-common"
+    },
+    {
+      "pattern": "src/interfaces/libpq/libpq-events.c",
+      "kind": "c_comment",
+      "note": "batch 0254 libpq-events"
+    },
+    {
+      "pattern": "src/interfaces/libpq/win32.c",
+      "kind": "c_comment",
+      "note": "batch 0254 win32"
+    },
+    {
+      "pattern": "src/interfaces/libpq/fe-gssapi-common.c",
+      "kind": "c_comment",
+      "note": "batch 0254 fe-gssapi-common"
+    },
+    {
+      "pattern": "src/interfaces/libpq/legacy-pqsignal.c",
+      "kind": "c_comment",
+      "note": "batch 0254 legacy-pqsignal"
+    },
+    {
+      "pattern": "src/interfaces/libpq/pthread-win32.c",
+      "kind": "c_comment",
+      "note": "batch 0254 pthread-win32"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0254-comment-libpq-tiny-files.json",
+      "kind": "manifest",
+      "note": "batch 0254 manifest"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/interfaces/libpq/fe-secure-common.c",
+      "segments_total": 25,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "14": "abbreviation",
+        "17": "abbreviation"
+      },
+      "kind": "c_comment",
+      "action": "modify",
+      "translated": 22,
+      "preserved": 3
+    },
+    {
+      "path": "src/interfaces/libpq/libpq-events.c",
+      "segments_total": 10,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "2": "code_annotation",
+        "3": "code_annotation"
+      },
+      "kind": "c_comment",
+      "action": "modify",
+      "translated": 7,
+      "preserved": 3
+    },
+    {
+      "path": "src/interfaces/libpq/win32.c",
+      "segments_total": 10,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "5": "abbreviation"
+      },
+      "kind": "c_comment",
+      "action": "modify",
+      "translated": 8,
+      "preserved": 2
+    },
+    {
+      "path": "src/interfaces/libpq/fe-gssapi-common.c",
+      "segments_total": 7,
+      "preserved_reasons": {
+        "0": "copyright_header"
+      },
+      "kind": "c_comment",
+      "action": "modify",
+      "translated": 6,
+      "preserved": 1
+    },
+    {
+      "path": "src/interfaces/libpq/legacy-pqsignal.c",
+      "segments_total": 3,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "2": "ifdef_label"
+      },
+      "kind": "c_comment",
+      "action": "modify",
+      "translated": 1,
+      "preserved": 2
+    },
+    {
+      "path": "src/interfaces/libpq/pthread-win32.c",
+      "segments_total": 3,
+      "preserved_reasons": {
+        "0": "copyright_header"
+      },
+      "kind": "c_comment",
+      "action": "modify",
+      "translated": 2,
+      "preserved": 1
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0254-comment-libpq-tiny-files.json",
+      "kind": "manifest",
+      "action": "add",
+      "translated": 0,
+      "preserved": 0,
+      "segments_total": 0
+    }
+  ],
+  "title": "translate libpq tiny files comments — batch 0254"
+}

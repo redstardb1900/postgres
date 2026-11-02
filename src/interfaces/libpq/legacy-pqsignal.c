@@ -19,21 +19,21 @@
 
 
 /*
- * This version of pqsignal() exists only because pre-9.3 releases
- * of libpq exported pqsignal(), and some old client programs still
- * depend on that.  (Since 9.3, clients are supposed to get it from
- * libpgport instead.)
+ * 此版本的 pqsignal() 仅因为 9.3 之前的 libpq 版本导出了 pqsignal()，
+ * 而某些旧客户端程序仍依赖它而存在。（自 9.3 起，客户端应改为从
+ * libpgport 获取。）
  *
- * Because it is only intended for backwards compatibility, we freeze it
- * with the semantics it had in 9.2; in particular, this has different
- * behavior for SIGALRM than the version in src/port/pqsignal.c.
+ * 由于它仅用于向后兼容，我们将其冻结在 9.2 的语义中；
+ * 特别地，其 SIGALRM 行为与 src/port/pqsignal.c 中的版本不同。
  *
- * libpq itself does not use this, nor does anything else in our code.
+ * libpq 自身不使用此函数，我们代码中的任何其他部分也不使用。
  *
- * src/include/port.h will #define pqsignal as pqsignal_fe,
- * but here we want to export just plain "pqsignal".  We can't rely on
- * port.h's extern declaration either.  (The point of that #define
- * is to ensure that no in-tree code accidentally calls this version.)
+ * src/include/port.h 将 #define pqsignal 定义为 pqsignal_fe，
+ * 但此处我们希望导出普通的 "pqsignal"。我们也不能依赖
+ * port.h 的外部声明。（该 #define 的目的是确保树内代码
+ * 不会意外调用此版本。）
+ *
+ *
  */
 #undef pqsignal
 extern pqsigfunc pqsignal(int signo, pqsigfunc func);

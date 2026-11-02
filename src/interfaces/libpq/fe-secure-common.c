@@ -27,19 +27,19 @@
 #include "pqexpbuffer.h"
 
 /*
- * Check if a wildcard certificate matches the server hostname.
+ * 检查通配符证书是否与服务器主机名匹配。
  *
- * The rule for this is:
- *	1. We only match the '*' character as wildcard
- *	2. We match only wildcards at the start of the string
- *	3. The '*' character does *not* match '.', meaning that we match only
- *	   a single pathname component.
- *	4. We don't support more than one '*' in a single pattern.
+ * 匹配规则如下：
+ *	1. 仅将 '*' 字符视为通配符
+ *	2. 仅匹配字符串开头的通配符
+ *	3. '*' 字符*不*匹配 '.'，即仅匹配
+ *	   单个路径名组件。
+ *	4. 单个模式不支持多个 '*'。
  *
- * This is roughly in line with RFC2818, but contrary to what most browsers
- * appear to be implementing (point 3 being the difference)
+ * 这大致符合 RFC2818，但与大多数浏览器的实现不同
+ * （差异在于第 3 点）
  *
- * Matching is always case-insensitive, since DNS is case insensitive.
+ * 由于 DNS 不区分大小写，匹配始终不区分大小写。
  */
 static bool
 wildcard_certificate_match(const char *pattern, const char *string)
@@ -47,41 +47,41 @@ wildcard_certificate_match(const char *pattern, const char *string)
 	int			lenpat = strlen(pattern);
 	int			lenstr = strlen(string);
 
-	/* If we don't start with a wildcard, it's not a match (rule 1 & 2) */
+	/* 如果不以通配符开头，则不匹配（规则 1 和 2） */
 	if (lenpat < 3 ||
 		pattern[0] != '*' ||
 		pattern[1] != '.')
 		return false;
 
-	/* If pattern is longer than the string, we can never match */
+	/* 如果模式比字符串长，则永远无法匹配 */
 	if (lenpat > lenstr)
 		return false;
 
 	/*
-	 * If string does not end in pattern (minus the wildcard), we don't match
+	 * 如果字符串不以模式（减去通配符部分）结尾，则不匹配
 	 */
 	if (pg_strcasecmp(pattern + 1, string + lenstr - lenpat + 1) != 0)
 		return false;
 
 	/*
-	 * If there is a dot left of where the pattern started to match, we don't
-	 * match (rule 3)
+	 * 如果在模式匹配起始位置左侧有点，则不匹配
+	 * （规则 3）
 	 */
 	if (strchr(string, '.') < string + lenstr - lenpat)
 		return false;
 
-	/* String ended with pattern, and didn't have a dot before, so we match */
+	/* 字符串以模式结尾且之前没有点，因此匹配 */
 	return true;
 }
 
 /*
- * Check if a name from a server's certificate matches the peer's hostname.
+ * 检查服务器证书中的名称是否与对等方的主机名匹配。
  *
- * Returns 1 if the name matches, and 0 if it does not. On error, returns
- * -1, and sets the libpq error message.
+ * 如果名称匹配则返回 1，如果不匹配则返回 0。
+ * 出错时返回 -1，并设置 libpq 错误消息。
  *
- * The name extracted from the certificate is returned in *store_name. The
- * caller is responsible for freeing it.
+ * 从证书中提取的名称通过 *store_name 返回。
+ * 调用者负责释放它。
  */
 int
 pq_verify_peer_name_matches_certificate_name(PGconn *conn,
@@ -101,8 +101,8 @@ pq_verify_peer_name_matches_certificate_name(PGconn *conn,
 	}
 
 	/*
-	 * There is no guarantee the string returned from the certificate is
-	 * NULL-terminated, so make a copy that is.
+	 * 无法保证从证书返回的字符串是以 NULL 结尾的，
+	 * 因此创建一个以 NULL 结尾的副本。
 	 */
 	name = malloc(namelen + 1);
 	if (name == NULL)
@@ -114,8 +114,8 @@ pq_verify_peer_name_matches_certificate_name(PGconn *conn,
 	name[namelen] = '\0';
 
 	/*
-	 * Reject embedded NULLs in certificate common or alternative name to
-	 * prevent attacks like CVE-2009-4034.
+	 * 拒绝证书通用名称或备用名称中的嵌入式 NULLs，
+	 * 以防止类似 CVE-2009-4034 的攻击。
 	 */
 	if (namelen != strlen(name))
 	{
@@ -126,12 +126,12 @@ pq_verify_peer_name_matches_certificate_name(PGconn *conn,
 
 	if (pg_strcasecmp(name, host) == 0)
 	{
-		/* Exact name match */
+		/* 精确名称匹配 */
 		result = 1;
 	}
 	else if (wildcard_certificate_match(name, host))
 	{
-		/* Matched wildcard name */
+		/* 通配符名称匹配 */
 		result = 1;
 	}
 	else
@@ -144,14 +144,14 @@ pq_verify_peer_name_matches_certificate_name(PGconn *conn,
 }
 
 /*
- * Check if an IP address from a server's certificate matches the peer's
- * hostname (which must itself be an IPv4/6 address).
+ * 检查服务器证书中的 IP 地址是否与对等方的主机名匹配
+ * （主机名本身必须是 IPv4/6 地址）。
  *
- * Returns 1 if the address matches, and 0 if it does not. On error, returns
- * -1, and sets the libpq error message.
+ * 如果地址匹配则返回 1，如果不匹配则返回 0。
+ * 出错时返回 -1，并设置 libpq 错误消息。
  *
- * A string representation of the certificate's IP address is returned in
- * *store_name. The caller is responsible for freeing it.
+ * 证书 IP 地址的字符串表示通过 *store_name 返回。
+ * 调用者负责释放它。
  */
 int
 pq_verify_peer_name_matches_certificate_ip(PGconn *conn,
@@ -175,11 +175,11 @@ pq_verify_peer_name_matches_certificate_ip(PGconn *conn,
 	}
 
 	/*
-	 * The data from the certificate is in network byte order. Convert our
-	 * host string to network-ordered bytes as well, for comparison. (The host
-	 * string isn't guaranteed to actually be an IP address, so if this
-	 * conversion fails we need to consider it a mismatch rather than an
-	 * error.)
+	 * 证书中的数据使用网络字节序。将我们的主机字符串也转换为
+	 * 网络序字节以进行比较。（主机字符串不保证实际上是 IP 地址，
+	 * 因此如果此转换失败，我们需要将其视为不匹配
+	 * 而非错误。）
+	 *
 	 */
 	if (iplen == 4)
 	{
@@ -189,9 +189,9 @@ pq_verify_peer_name_matches_certificate_ip(PGconn *conn,
 		family = AF_INET;
 
 		/*
-		 * The use of inet_aton() is deliberate; we accept alternative IPv4
-		 * address notations that are accepted by inet_aton() but not
-		 * inet_pton() as server addresses.
+		 * 故意使用 inet_aton()；我们接受 inet_aton() 接受的
+		 * 但 inet_pton() 不接受的替代 IPv4 地址表示法
+		 * 作为服务器地址。
 		 */
 		if (inet_aton(host, &addr))
 		{
@@ -201,8 +201,8 @@ pq_verify_peer_name_matches_certificate_ip(PGconn *conn,
 	}
 
 	/*
-	 * If they don't have inet_pton(), skip this.  Then, an IPv6 address in a
-	 * certificate will cause an error.
+	 * 如果没有 inet_pton()，跳过此步骤。此时，证书中的 IPv6 地址
+	 * 将导致错误。
 	 */
 #ifdef HAVE_INET_PTON
 	else if (iplen == 16)
@@ -222,15 +222,15 @@ pq_verify_peer_name_matches_certificate_ip(PGconn *conn,
 	else
 	{
 		/*
-		 * Not IPv4 or IPv6. We could ignore the field, but leniency seems
-		 * wrong given the subject matter.
+		 * 非 IPv4 或 IPv6。我们可以忽略此字段，但鉴于主题，
+		 * 宽大处理似乎不合适。
 		 */
 		libpq_append_conn_error(conn, "certificate contains IP address with invalid length %zu",
 								iplen);
 		return -1;
 	}
 
-	/* Generate a human-readable representation of the certificate's IP. */
+	/* 生成证书 IP 的可读表示。 */
 	addrstr = pg_inet_net_ntop(family, ipdata, 8 * iplen, tmp, sizeof(tmp));
 	if (!addrstr)
 	{
@@ -244,9 +244,9 @@ pq_verify_peer_name_matches_certificate_ip(PGconn *conn,
 }
 
 /*
- * Verify that the server certificate matches the hostname we connected to.
+ * 验证服务器证书是否与我们连接的主机名匹配。
  *
- * The certificate's Common Name and Subject Alternative Names are considered.
+ * 考虑证书的通用名称和主题备用名称。
  */
 bool
 pq_verify_peer_name_matches_certificate(PGconn *conn)
@@ -257,13 +257,13 @@ pq_verify_peer_name_matches_certificate(PGconn *conn)
 	char	   *first_name = NULL;
 
 	/*
-	 * If told not to verify the peer name, don't do it. Return true
-	 * indicating that the verification was successful.
+	 * 如果被告知不验证对等方名称，则不执行。返回 true
+	 * 表示验证成功。
 	 */
 	if (strcmp(conn->sslmode, "verify-full") != 0)
 		return true;
 
-	/* Check that we have a hostname to compare with. */
+	/* 检查是否有主机名可供比较。 */
 	if (!(host && host[0] != '\0'))
 	{
 		libpq_append_conn_error(conn, "host name must be specified for a verified SSL connection");
@@ -275,10 +275,10 @@ pq_verify_peer_name_matches_certificate(PGconn *conn)
 	if (rc == 0)
 	{
 		/*
-		 * No match. Include the name from the server certificate in the error
-		 * message, to aid debugging broken configurations. If there are
-		 * multiple names, only print the first one to avoid an overly long
-		 * error message.
+		 * 不匹配。在错误消息中包含服务器证书中的名称，
+		 * 以辅助调试损坏的配置。如果有多个名称，
+		 * 仅打印第一个以避免错误消息过长。
+		 *
 		 */
 		if (names_examined > 1)
 		{
@@ -300,7 +300,7 @@ pq_verify_peer_name_matches_certificate(PGconn *conn)
 		}
 	}
 
-	/* clean up */
+	/* 清理 */
 	free(first_name);
 
 	return (rc == 1);

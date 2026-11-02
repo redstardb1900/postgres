@@ -37,7 +37,7 @@
 /* All "broken" PQExpBuffers point to this string. */
 static const char oom_buffer[1] = "";
 
-/* Need a char * for unconstify() compatibility */
+/* 需要一个 char * 以兼容 unconstify()   */
 static const char *oom_buffer_ptr = oom_buffer;
 
 
@@ -52,12 +52,12 @@ markPQExpBufferBroken(PQExpBuffer str)
 	if (str->data != oom_buffer)
 		free(str->data);
 
-	/*
-	 * Casting away const here is a bit ugly, but it seems preferable to not
-	 * marking oom_buffer const.  We want to do that to encourage the compiler
-	 * to put oom_buffer in read-only storage, so that anyone who tries to
-	 * scribble on a broken PQExpBuffer will get a failure.
-	 */
+	/*此处去除 const 有点丑陋，但似乎比不将 oom_buffer 标记为
+	 * const 更好。我们想这样做以鼓励编译器将 oom_buffer 放在
+	 * 只读存储中，这样任何试图在损坏的 PQExpBuffer 上乱写的人
+	 * 都会得到失败。
+	 * 
+	                  */
 	str->data = unconstify(char *, oom_buffer_ptr);
 	str->len = 0;
 	str->maxlen = 0;
@@ -80,12 +80,12 @@ createPQExpBuffer(void)
 	return res;
 }
 
-/*
- * initPQExpBuffer
- *
- * Initialize a PQExpBufferData struct (with previously undefined contents)
- * to describe an empty string.
- */
+/*initPQExpBuffer
+ * 
+ *初始化一个 PQExpBufferData 结构体（先前内容未定义）
+ * 以描述一个空字符串。
+ * 
+   */
 void
 initPQExpBuffer(PQExpBuffer str)
 {
@@ -104,12 +104,12 @@ initPQExpBuffer(PQExpBuffer str)
 	}
 }
 
-/*
- * destroyPQExpBuffer(str);
- *
- *		free()s both the data buffer and the PQExpBufferData.
- *		This is the inverse of createPQExpBuffer().
- */
+/*destroyPQExpBuffer(str);
+ * 
+ *		释放数据缓冲区和 PQExpBufferData。
+ *		这是 createPQExpBuffer() 的逆操作。
+ *	
+           */
 void
 destroyPQExpBuffer(PQExpBuffer str)
 {
@@ -120,17 +120,17 @@ destroyPQExpBuffer(PQExpBuffer str)
 	}
 }
 
-/*
- * termPQExpBuffer(str)
- *		free()s the data buffer but not the PQExpBufferData itself.
- *		This is the inverse of initPQExpBuffer().
+/*termPQExpBuffer(str)
+ * 		释放数据缓冲区但不释放 PQExpBufferData 本身。
+ *		这是 initPQExpBuffer() 的逆操作。
+ *	
  */
 void
 termPQExpBuffer(PQExpBuffer str)
 {
 	if (str->data != oom_buffer)
 		free(str->data);
-	/* just for luck, make the buffer validly empty. */
+	/* 为保险起见，使缓冲区合法为空。 */
 	str->data = unconstify(char *, oom_buffer_ptr); /* see comment above */
 	str->maxlen = 0;
 	str->len = 0;
@@ -160,14 +160,14 @@ resetPQExpBuffer(PQExpBuffer str)
 	}
 }
 
-/*
- * enlargePQExpBuffer
- * Make sure there is enough space for 'needed' more bytes in the buffer
- * ('needed' does not include the terminating null).
- *
- * Returns 1 if OK, 0 if failed to enlarge buffer.  (In the latter case
- * the buffer is left in "broken" state.)
- */
+/*enlargePQExpBuffer
+ * 确保缓冲区中有足够空间容纳 'needed' 个以上的字节
+ * （'needed' 不包括终止 null）。
+ * 
+ *成功则返回 1，扩大缓冲区失败则返回 0。（后一种情况
+ * 缓冲区将处于"损坏"状态。）
+ * 
+         */
 int
 enlargePQExpBuffer(PQExpBuffer str, size_t needed)
 {
@@ -175,40 +175,40 @@ enlargePQExpBuffer(PQExpBuffer str, size_t needed)
 	char	   *newdata;
 
 	if (PQExpBufferBroken(str))
-		return 0;				/* already failed */
+		return 0;				/* 已经失败   */
 
-	/*
-	 * Guard against ridiculous "needed" values, which can occur if we're fed
-	 * bogus data.  Without this, we can get an overflow or infinite loop in
-	 * the following.
-	 */
+	/*防止荒谬的 "needed" 值，这可能在输入虚假数据时发生。
+	 * 没有此防护，后续可能出现溢出或无限循环。
+	 * 
+	 * 
+	                     */
 	if (needed >= ((size_t) INT_MAX - str->len))
 	{
 		markPQExpBufferBroken(str);
 		return 0;
 	}
 
-	needed += str->len + 1;		/* total space required now */
+	needed += str->len + 1;		/* 现在所需的总空间 */
 
-	/* Because of the above test, we now have needed <= INT_MAX */
+	/* 由于上述测试，现在 needed <= INT_MAX            */
 
 	if (needed <= str->maxlen)
-		return 1;				/* got enough space already */
+		return 1;				/* 已有足够空间       */
 
-	/*
-	 * We don't want to allocate just a little more space with each append;
-	 * for efficiency, double the buffer size each time it overflows.
-	 * Actually, we might need to more than double it if 'needed' is big...
-	 */
+	/*我们不想每次追加时只分配一点点额外空间；为效率起见，
+	 * 每次溢出时将缓冲区大小加倍。实际上，如果 'needed' 很大，
+	 * 可能需要加倍以上……
+	 * 
+	            */
 	newlen = (str->maxlen > 0) ? (2 * str->maxlen) : 64;
 	while (needed > newlen)
 		newlen = 2 * newlen;
 
-	/*
-	 * Clamp to INT_MAX in case we went past it.  Note we are assuming here
-	 * that INT_MAX <= UINT_MAX/2, else the above loop could overflow.  We
-	 * will still have newlen >= needed.
-	 */
+	/*如果超过 INT_MAX 则限制到 INT_MAX。注意这里假设
+	 * INT_MAX <= UINT_MAX/2，否则上述循环可能溢出。我们仍然会
+	 * 有 newlen >= needed。
+	 * 
+	            */
 	if (newlen > (size_t) INT_MAX)
 		newlen = (size_t) INT_MAX;
 
@@ -224,13 +224,13 @@ enlargePQExpBuffer(PQExpBuffer str, size_t needed)
 	return 0;
 }
 
-/*
- * printfPQExpBuffer
- * Format text data under the control of fmt (an sprintf-like format string)
- * and insert it into str.  More space is allocated to str if necessary.
- * This is a convenience routine that does the same thing as
- * resetPQExpBuffer() followed by appendPQExpBuffer().
- */
+/*printfPQExpBuffer
+ * 在 fmt（类似 sprintf 的格式字符串）控制下格式化文本数据
+ * 并将其插入 str。必要时为 str 分配更多空间。
+ * 这是一个便捷例程，等效于 resetPQExpBuffer() 后再调用
+ * appendPQExpBuffer()。
+ * 
+                         */
 void
 printfPQExpBuffer(PQExpBuffer str, const char *fmt,...)
 {
@@ -241,9 +241,9 @@ printfPQExpBuffer(PQExpBuffer str, const char *fmt,...)
 	resetPQExpBuffer(str);
 
 	if (PQExpBufferBroken(str))
-		return;					/* already failed */
+		return;					/* 已经失败   */
 
-	/* Loop in case we have to retry after enlarging the buffer. */
+	/* 循环，以防扩大缓冲区后需要重试。          */
 	do
 	{
 		errno = save_errno;
@@ -253,14 +253,14 @@ printfPQExpBuffer(PQExpBuffer str, const char *fmt,...)
 	} while (!done);
 }
 
-/*
- * appendPQExpBuffer
- *
- * Format text data under the control of fmt (an sprintf-like format string)
- * and append it to whatever is already in str.  More space is allocated
- * to str if necessary.  This is sort of like a combination of sprintf and
- * strcat.
- */
+/*appendPQExpBuffer
+ * 
+ *在 fmt（类似 sprintf 的格式字符串）控制下格式化文本数据
+ * 并将其追加到 str 中已有的内容。必要时为 str 分配更多空间。
+ * 这有点像是 sprintf 和 strcat 的组合。
+ * 
+ * 
+                */
 void
 appendPQExpBuffer(PQExpBuffer str, const char *fmt,...)
 {
@@ -269,9 +269,9 @@ appendPQExpBuffer(PQExpBuffer str, const char *fmt,...)
 	bool		done;
 
 	if (PQExpBufferBroken(str))
-		return;					/* already failed */
+		return;					/* 已经失败   */
 
-	/* Loop in case we have to retry after enlarging the buffer. */
+	/* 循环，以防扩大缓冲区后需要重试。          */
 	do
 	{
 		errno = save_errno;
@@ -281,15 +281,15 @@ appendPQExpBuffer(PQExpBuffer str, const char *fmt,...)
 	} while (!done);
 }
 
-/*
- * appendPQExpBufferVA
- * Shared guts of printfPQExpBuffer/appendPQExpBuffer.
- * Attempt to format data and append it to str.  Returns true if done
- * (either successful or hard failure), false if need to retry.
- *
- * Caution: callers must be sure to preserve their entry-time errno
- * when looping, in case the fmt contains "%m".
- */
+/*appendPQExpBufferVA
+ * printfPQExpBuffer/appendPQExpBuffer 的共享核心。
+ * 尝试格式化数据并将其追加到 str。完成时返回 true（成功或
+ * 硬失败），需要重试时返回 false。
+ * 
+ *注意：调用者必须确保在循环时保留其进入时的 errno，以防
+ * fmt 包含 "%m"。
+ * 
+             */
 bool
 appendPQExpBufferVA(PQExpBuffer str, const char *fmt, va_list args)
 {
@@ -297,20 +297,20 @@ appendPQExpBufferVA(PQExpBuffer str, const char *fmt, va_list args)
 	size_t		needed;
 	int			nprinted;
 
-	/*
-	 * Try to format the given string into the available space; but if there's
-	 * hardly any space, don't bother trying, just enlarge the buffer first.
-	 */
+	/*尝试将给定字符串格式化到可用空间中；但如果空间很少，
+	 * 则不必尝试，先扩大缓冲区。
+	 * 
+	                        */
 	if (str->maxlen > str->len + 16)
 	{
 		avail = str->maxlen - str->len;
 
 		nprinted = vsnprintf(str->data + str->len, avail, fmt, args);
 
-		/*
-		 * If vsnprintf reports an error, fail (we assume this means there's
-		 * something wrong with the format string).
-		 */
+		/*如果 vsnprintf 报告错误，则失败（我们假定这意味着格式
+	字符串有问题）。
+	
+	                 */
 		if (unlikely(nprinted < 0))
 		{
 			markPQExpBufferBroken(str);
@@ -319,19 +319,19 @@ appendPQExpBufferVA(PQExpBuffer str, const char *fmt, va_list args)
 
 		if ((size_t) nprinted < avail)
 		{
-			/* Success.  Note nprinted does not include trailing null. */
+			/* 成功。注意 nprinted 不包括结尾的 null。     */
 			str->len += nprinted;
 			return true;
 		}
 
-		/*
-		 * We assume a C99-compliant vsnprintf, so believe its estimate of the
-		 * required space, and add one for the trailing null.  (If it's wrong,
-		 * the logic will still work, but we may loop multiple times.)
-		 *
-		 * Choke if the required space would exceed INT_MAX, since str->maxlen
-		 * can't represent more than that.
-		 */
+		/*我们假定 vsnprintf 符合 C99 标准，因此相信其对所需空间的
+	估计，并为结尾 null 加一。（如果错了，逻辑仍然可以工作，
+	但可能会循环多次。）
+	
+	如果所需空间超过 INT_MAX 则阻塞，因为 str->maxlen 不能
+	表示超过此值。
+	
+	                                      */
 		if (unlikely(nprinted > INT_MAX - 1))
 		{
 			markPQExpBufferBroken(str);
@@ -341,28 +341,28 @@ appendPQExpBufferVA(PQExpBuffer str, const char *fmt, va_list args)
 	}
 	else
 	{
-		/*
-		 * We have to guess at how much to enlarge, since we're skipping the
-		 * formatting work.  Fortunately, because of enlargePQExpBuffer's
-		 * preference for power-of-2 sizes, this number isn't very sensitive;
-		 * the net effect is that we'll double the buffer size before trying
-		 * to run vsnprintf, which seems sensible.
-		 */
+		/*由于跳过了格式化工作，我们必须猜测扩大多少。幸运的是，
+	由于 enlargePQExpBuffer 偏好 2 的幂次大小，此数字不太敏感；
+	最终效果是在尝试运行 vsnprintf 之前将缓冲区大小加倍，
+	这似乎是合理的。
+	
+	
+	                                                               */
 		needed = 32;
 	}
 
-	/* Increase the buffer size and try again. */
+	/* 增加缓冲区大小并重试。       */
 	if (!enlargePQExpBuffer(str, needed))
 		return true;			/* oops, out of memory */
 
 	return false;
 }
 
-/*
- * appendPQExpBufferStr
- * Append the given string to a PQExpBuffer, allocating more space
- * if necessary.
- */
+/*appendPQExpBufferStr
+ * 将给定字符串追加到 PQExpBuffer，必要时分配更多空间。
+ * 
+ * 
+     */
 void
 appendPQExpBufferStr(PQExpBuffer str, const char *data)
 {
@@ -381,18 +381,18 @@ appendPQExpBufferChar(PQExpBuffer str, char ch)
 	if (!enlargePQExpBuffer(str, 1))
 		return;
 
-	/* OK, append the character */
+	/* 好的，追加字符    */
 	str->data[str->len] = ch;
 	str->len++;
 	str->data[str->len] = '\0';
 }
 
-/*
- * appendBinaryPQExpBuffer
- *
- * Append arbitrary binary data to a PQExpBuffer, allocating more space
- * if necessary.
- */
+/*appendBinaryPQExpBuffer
+ * 
+ *将任意二进制数据追加到 PQExpBuffer，必要时分配更多空间。
+ * 
+ * 
+    */
 void
 appendBinaryPQExpBuffer(PQExpBuffer str, const char *data, size_t datalen)
 {

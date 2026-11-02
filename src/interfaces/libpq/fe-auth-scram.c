@@ -21,7 +21,7 @@
 #include "fe-auth.h"
 
 
-/* The exported SCRAM callback mechanism. */
+/* 导出的 SCRAM 回调机制。        */
 static void *scram_init(PGconn *conn, const char *password,
 						const char *sasl_mechanism);
 static void scram_exchange(void *opaq, char *input, int inputlen,
@@ -37,10 +37,10 @@ const pg_fe_sasl_mech pg_scram_mech = {
 	scram_free
 };
 
-/*
- * Status of exchange messages used for SCRAM authentication via the
- * SASL protocol.
- */
+/*通过 SASL 协议进行 SCRAM 认证的交换消息状态。
+ * 
+ * 
+                   */
 typedef enum
 {
 	FE_SCRAM_INIT,
@@ -53,22 +53,22 @@ typedef struct
 {
 	fe_scram_state_enum state;
 
-	/* These are supplied by the user */
+	/* 这些由用户提供          */
 	PGconn	   *conn;
 	char	   *password;
 	char	   *sasl_mechanism;
 
-	/* State data depending on the hash type */
+	/* 取决于哈希类型的状态数据  */
 	pg_cryptohash_type hash_type;
 	int			key_length;
 
-	/* We construct these */
+	/* 我们构造这些 */
 	uint8		SaltedPassword[SCRAM_MAX_KEY_LEN];
 	char	   *client_nonce;
 	char	   *client_first_message_bare;
 	char	   *client_final_message_without_proof;
 
-	/* These come from the server-first message */
+	/* 这些来自服务器的第一条消息  */
 	char	   *server_first_message;
 	char	   *salt;
 	int			saltlen;
@@ -90,9 +90,9 @@ static bool calculate_client_proof(fe_scram_state *state,
 								   const char *client_final_message_without_proof,
 								   uint8 *result, const char **errstr);
 
-/*
- * Initialize SCRAM exchange status.
- */
+/*初始化 SCRAM 交换状态。
+ * 
+   */
 static void *
 scram_init(PGconn *conn,
 		   const char *password,
@@ -120,7 +120,7 @@ scram_init(PGconn *conn,
 		return NULL;
 	}
 
-	/* Normalize the password with SASLprep, if possible */
+	/* 如果可能，使用 SASLprep 规范化密码    */
 	rc = pg_saslprep(password, &prep_password);
 	if (rc == SASLPREP_OOM)
 	{
@@ -143,28 +143,28 @@ scram_init(PGconn *conn,
 	return state;
 }
 
-/*
- * Return true if channel binding was employed and the SCRAM exchange
- * completed. This should be used after a successful exchange to determine
- * whether the server authenticated itself to the client.
+/*如果使用了通道绑定且 SCRAM 交换完成，则返回 true。
+ * 这应在交换成功后用于确定服务器是否已向客户端认证自己。
+ * 
+ * 注意调用者还必须确保交换确实成功了。
  *
- * Note that the caller must also ensure that the exchange was actually
- * successful.
- */
+ * 
+ * 
+                                                                   */
 static bool
 scram_channel_bound(void *opaq)
 {
 	fe_scram_state *state = (fe_scram_state *) opaq;
 
-	/* no SCRAM exchange done */
+	/* 未进行 SCRAM 交换 */
 	if (state == NULL)
 		return false;
 
-	/* SCRAM exchange not completed */
+	/* SCRAM 交换未完成        */
 	if (state->state != FE_SCRAM_FINISHED)
 		return false;
 
-	/* channel binding mechanism not used */
+	/* 未使用通道绑定机制        */
 	if (strcmp(state->sasl_mechanism, SCRAM_SHA_256_PLUS_NAME) != 0)
 		return false;
 
@@ -172,9 +172,9 @@ scram_channel_bound(void *opaq)
 	return true;
 }
 
-/*
- * Free SCRAM exchange status
- */
+/*释放 SCRAM 交换状态
+ * 
+  */
 static void
 scram_free(void *opaq)
 {
@@ -183,7 +183,7 @@ scram_free(void *opaq)
 	free(state->password);
 	free(state->sasl_mechanism);
 
-	/* client messages */
+	/* 客户端消息 */
 	free(state->client_nonce);
 	free(state->client_first_message_bare);
 	free(state->client_final_message_without_proof);
@@ -199,9 +199,9 @@ scram_free(void *opaq)
 	free(state);
 }
 
-/*
- * Exchange a SCRAM message with backend.
- */
+/*与后端交换 SCRAM 消息。
+ * 
+        */
 static void
 scram_exchange(void *opaq, char *input, int inputlen,
 			   char **output, int *outputlen,
@@ -216,10 +216,10 @@ scram_exchange(void *opaq, char *input, int inputlen,
 	*output = NULL;
 	*outputlen = 0;
 
-	/*
-	 * Check that the input length agrees with the string length of the input.
-	 * We can ignore inputlen after this.
-	 */
+	/*检查输入长度是否与输入的字符串长度一致。此后我们可以忽略 inputlen。
+	 * 
+	 * 
+	          */
 	if (state->state != FE_SCRAM_INIT)
 	{
 		if (inputlen == 0)
@@ -237,7 +237,7 @@ scram_exchange(void *opaq, char *input, int inputlen,
 	switch (state->state)
 	{
 		case FE_SCRAM_INIT:
-			/* Begin the SCRAM handshake, by sending client nonce */
+			/* 开始 SCRAM 握手，发送客户端 nonce        */
 			*output = build_client_first_message(state);
 			if (*output == NULL)
 				goto error;
@@ -262,14 +262,14 @@ scram_exchange(void *opaq, char *input, int inputlen,
 			break;
 
 		case FE_SCRAM_PROOF_SENT:
-			/* Receive server signature */
+			/* 接收服务器签名    */
 			if (!read_server_final_message(state, input))
 				goto error;
 
-			/*
-			 * Verify server signature, to make sure we're talking to the
-			 * genuine server.
-			 */
+			/*验证服务器签名，确保我们在与真正的服务器通信。
+	
+	
+	                 */
 			if (!verify_server_signature(state, success, &errstr))
 			{
 				libpq_append_conn_error(conn, "could not verify server signature: %s", errstr);
@@ -286,7 +286,7 @@ scram_exchange(void *opaq, char *input, int inputlen,
 			break;
 
 		default:
-			/* shouldn't happen */
+			/* 不应该发生  */
 			libpq_append_conn_error(conn, "invalid SCRAM exchange state");
 			goto error;
 	}
@@ -297,14 +297,14 @@ error:
 	*success = false;
 }
 
-/*
- * Read value for an attribute part of a SCRAM message.
- *
- * The buffer at **input is destructively modified, and *input is
- * advanced over the "attr=value" string and any following comma.
- *
- * On failure, append an error message to *errorMessage and return NULL.
- */
+/*读取 SCRAM 消息中属性部分的值。
+ * 
+ ***input 处的缓冲区会被破坏性修改，*input 会前进越过
+ * "attr=value" 字符串及任何后续逗号。
+ * 
+ *失败时，向 *errorMessage 追加错误消息并返回 NULL。
+ * 
+                       */
 static char *
 read_attr_value(char **input, char attr, PQExpBuffer errorMessage)
 {
@@ -344,9 +344,9 @@ read_attr_value(char **input, char attr, PQExpBuffer errorMessage)
 	return begin;
 }
 
-/*
- * Build the first exchange message sent by the client.
- */
+/*构建客户端发送的第一条交换消息。
+ * 
+     */
 static char *
 build_client_first_message(fe_scram_state *state)
 {
@@ -357,9 +357,9 @@ build_client_first_message(fe_scram_state *state)
 	int			encoded_len;
 	PQExpBufferData buf;
 
-	/*
-	 * Generate a "raw" nonce.  This is converted to ASCII-printable form by
-	 * base64-encoding it.
+	/*生成一个"原始"nonce。通过 base64 编码将其转换为 ASCII 可打印形式。
+	 * 
+	 * 
 	 */
 	if (!pg_strong_random(raw_nonce, SCRAM_RAW_NONCE_LEN))
 	{
@@ -368,7 +368,7 @@ build_client_first_message(fe_scram_state *state)
 	}
 
 	encoded_len = pg_b64_enc_len(SCRAM_RAW_NONCE_LEN);
-	/* don't forget the zero-terminator */
+	/* 不要忘记零终止符         */
 	state->client_nonce = malloc(encoded_len + 1);
 	if (state->client_nonce == NULL)
 	{
@@ -384,18 +384,18 @@ build_client_first_message(fe_scram_state *state)
 	}
 	state->client_nonce[encoded_len] = '\0';
 
-	/*
-	 * Generate message.  The username is left empty as the backend uses the
-	 * value provided by the startup packet.  Also, as this username is not
-	 * prepared with SASLprep, the message parsing would fail if it includes
-	 * '=' or ',' characters.
-	 */
+	/*生成消息。用户名为空，因为后端使用启动数据包提供的值。
+	 * 此外，由于此用户名未使用 SASLprep 准备，如果包含 '=' 或
+	 * ',' 字符，消息解析将失败。
+	 * 
+	 * 
+	                                    */
 
 	initPQExpBuffer(&buf);
 
-	/*
-	 * First build the gs2-header with channel binding information.
-	 */
+	/*首先构建包含通道绑定信息的 gs2-header。
+	 * 
+	        */
 	if (strcmp(state->sasl_mechanism, SCRAM_SHA_256_PLUS_NAME) == 0)
 	{
 		Assert(conn->ssl_in_use);
@@ -405,17 +405,17 @@ build_client_first_message(fe_scram_state *state)
 	else if (conn->channel_binding[0] != 'd' && /* disable */
 			 conn->ssl_in_use)
 	{
-		/*
-		 * Client supports channel binding, but thinks the server does not.
-		 */
+		/*客户端支持通道绑定，但认为服务器不支持。
+	
+	          */
 		appendPQExpBufferChar(&buf, 'y');
 	}
 #endif
 	else
 	{
-		/*
-		 * Client does not support channel binding, or has disabled it.
-		 */
+		/*客户端不支持通道绑定，或已禁用它。
+	
+	               */
 		appendPQExpBufferChar(&buf, 'n');
 	}
 
@@ -428,10 +428,10 @@ build_client_first_message(fe_scram_state *state)
 	if (PQExpBufferDataBroken(buf))
 		goto oom_error;
 
-	/*
-	 * The first message content needs to be saved without channel binding
-	 * information.
-	 */
+	/*第一条消息内容需要在不包含通道绑定信息的情况下保存。
+	 * 
+	 * 
+	  */
 	state->client_first_message_bare = strdup(buf.data + channel_info_len + 2);
 	if (!state->client_first_message_bare)
 		goto oom_error;
@@ -449,9 +449,9 @@ oom_error:
 	return NULL;
 }
 
-/*
- * Build the final exchange message sent from the client.
- */
+/*构建客户端发送的最后一条交换消息。
+ * 
+    */
 static char *
 build_client_final_message(fe_scram_state *state)
 {
@@ -464,14 +464,14 @@ build_client_final_message(fe_scram_state *state)
 
 	initPQExpBuffer(&buf);
 
-	/*
-	 * Construct client-final-message-without-proof.  We need to remember it
-	 * for verifying the server proof in the final step of authentication.
-	 *
-	 * The channel binding flag handling (p/y/n) must be consistent with
-	 * build_client_first_message(), because the server will check that it's
-	 * the same flag both times.
-	 */
+	/*构造 client-final-message-without-proof。我们需要记住它，
+	 * 以便在认证的最后一步验证服务器证明。
+	 * 
+	 *通道绑定标志处理（p/y/n）必须与
+	 * build_client_first_message() 一致，因为服务器会检查两次
+	 * 的标志是否相同。
+	 * 
+	                                      */
 	if (strcmp(state->sasl_mechanism, SCRAM_SHA_256_PLUS_NAME) == 0)
 	{
 #ifdef HAVE_PGTLS_GET_PEER_CERTIFICATE_HASH
@@ -482,13 +482,13 @@ build_client_final_message(fe_scram_state *state)
 		size_t		cbind_input_len;
 		int			encoded_cbind_len;
 
-		/* Fetch hash data of server's SSL certificate */
+		/* 获取服务器 SSL 证书的哈希数据   */
 		cbind_data =
 			pgtls_get_peer_certificate_hash(state->conn,
 											&cbind_data_len);
 		if (cbind_data == NULL)
 		{
-			/* error message is already set on error */
+			/* 错误消息已在出错时设置     */
 			termPQExpBuffer(&buf);
 			return NULL;
 		}
@@ -532,10 +532,10 @@ build_client_final_message(fe_scram_state *state)
 		free(cbind_data);
 		free(cbind_input);
 #else
-		/*
-		 * Chose channel binding, but the SSL library doesn't support it.
-		 * Shouldn't happen.
-		 */
+		/*选择了通道绑定，但 SSL 库不支持。不应该发生。
+	
+	
+	                        */
 		termPQExpBuffer(&buf);
 		appendPQExpBufferStr(&conn->errorMessage,
 							 "channel binding not supported by this build\n");
@@ -601,9 +601,9 @@ oom_error:
 	return NULL;
 }
 
-/*
- * Read the first exchange message coming from the server.
- */
+/*读取来自服务器的第一条交换消息。
+ * 
+        */
 static bool
 read_server_first_message(fe_scram_state *state, char *input)
 {
@@ -621,16 +621,16 @@ read_server_first_message(fe_scram_state *state, char *input)
 		return false;
 	}
 
-	/* parse the message */
+	/* 解析消息      */
 	nonce = read_attr_value(&input, 'r',
 							&conn->errorMessage);
 	if (nonce == NULL)
 	{
-		/* read_attr_value() has appended an error string */
+		/* read_attr_value() 已追加错误字符串     */
 		return false;
 	}
 
-	/* Verify immediately that the server used our part of the nonce */
+	/* 立即验证服务器使用了我们那部分的 nonce        */
 	if (strlen(nonce) < strlen(state->client_nonce) ||
 		memcmp(nonce, state->client_nonce, strlen(state->client_nonce)) != 0)
 	{
@@ -648,7 +648,7 @@ read_server_first_message(fe_scram_state *state, char *input)
 	encoded_salt = read_attr_value(&input, 's', &conn->errorMessage);
 	if (encoded_salt == NULL)
 	{
-		/* read_attr_value() has appended an error string */
+		/* read_attr_value() 已追加错误字符串     */
 		return false;
 	}
 	decoded_salt_len = pg_b64_dec_len(strlen(encoded_salt));
@@ -671,7 +671,7 @@ read_server_first_message(fe_scram_state *state, char *input)
 	iterations_str = read_attr_value(&input, 'i', &conn->errorMessage);
 	if (iterations_str == NULL)
 	{
-		/* read_attr_value() has appended an error string */
+		/* read_attr_value() 已追加错误字符串     */
 		return false;
 	}
 	state->iterations = strtol(iterations_str, &endptr, 10);
@@ -687,9 +687,9 @@ read_server_first_message(fe_scram_state *state, char *input)
 	return true;
 }
 
-/*
- * Read the final exchange message coming from the server.
- */
+/*读取来自服务器的最后一条交换消息。
+ * 
+     */
 static bool
 read_server_final_message(fe_scram_state *state, char *input)
 {
@@ -705,7 +705,7 @@ read_server_final_message(fe_scram_state *state, char *input)
 		return false;
 	}
 
-	/* Check for error result. */
+	/* 检查错误结果。   */
 	if (*input == 'e')
 	{
 		char	   *errmsg = read_attr_value(&input, 'e',
@@ -713,7 +713,7 @@ read_server_final_message(fe_scram_state *state, char *input)
 
 		if (errmsg == NULL)
 		{
-			/* read_attr_value() has appended an error message */
+			/* read_attr_value() 已追加错误消息         */
 			return false;
 		}
 		libpq_append_conn_error(conn, "error received from server in SCRAM exchange: %s",
@@ -721,12 +721,12 @@ read_server_final_message(fe_scram_state *state, char *input)
 		return false;
 	}
 
-	/* Parse the message. */
+	/* 解析消息。    */
 	encoded_server_signature = read_attr_value(&input, 'v',
 											   &conn->errorMessage);
 	if (encoded_server_signature == NULL)
 	{
-		/* read_attr_value() has appended an error message */
+		/* read_attr_value() 已追加错误消息         */
 		return false;
 	}
 
@@ -758,11 +758,11 @@ read_server_final_message(fe_scram_state *state, char *input)
 	return true;
 }
 
-/*
- * Calculate the client proof, part of the final exchange message sent
- * by the client.  Returns true on success, false on failure with *errstr
- * pointing to a message about the error details.
- */
+/*计算客户端证明，这是客户端发送的最后一条交换消息的一部分。
+ * 成功时返回 true，失败时返回 false，*errstr 指向有关错误
+ * 详情的消息。
+ * 
+      */
 static bool
 calculate_client_proof(fe_scram_state *state,
 					   const char *client_final_message_without_proof,
@@ -777,7 +777,7 @@ calculate_client_proof(fe_scram_state *state,
 	ctx = pg_hmac_create(state->hash_type);
 	if (ctx == NULL)
 	{
-		*errstr = pg_hmac_error(NULL);	/* returns OOM */
+		*errstr = pg_hmac_error(NULL);	/* 返回 OOM  */
 		return false;
 	}
 
@@ -794,7 +794,7 @@ calculate_client_proof(fe_scram_state *state,
 		scram_H(ClientKey, state->hash_type, state->key_length,
 				StoredKey, errstr) < 0)
 	{
-		/* errstr is already filled here */
+		/* errstr 已在此处填充     */
 		pg_hmac_free(ctx);
 		return false;
 	}
@@ -825,13 +825,13 @@ calculate_client_proof(fe_scram_state *state,
 	return true;
 }
 
-/*
- * Validate the server signature, received as part of the final exchange
- * message received from the server.  *match tracks if the server signature
- * matched or not. Returns true if the server signature got verified, and
- * false for a processing error with *errstr pointing to a message about the
- * error details.
- */
+/*验证服务器签名，作为从服务器接收的最后一条交换消息的一部分。
+ * *match 跟踪服务器签名是否匹配。如果服务器签名得到验证则返回
+ * true，处理错误时返回 false，*errstr 指向有关错误详情的消息。
+ * 
+ * 
+ * 
+                                           */
 static bool
 verify_server_signature(fe_scram_state *state, bool *match,
 						const char **errstr)
@@ -843,19 +843,19 @@ verify_server_signature(fe_scram_state *state, bool *match,
 	ctx = pg_hmac_create(state->hash_type);
 	if (ctx == NULL)
 	{
-		*errstr = pg_hmac_error(NULL);	/* returns OOM */
+		*errstr = pg_hmac_error(NULL);	/* 返回 OOM  */
 		return false;
 	}
 
 	if (scram_ServerKey(state->SaltedPassword, state->hash_type,
 						state->key_length, ServerKey, errstr) < 0)
 	{
-		/* errstr is filled already */
+		/* errstr 已填充         */
 		pg_hmac_free(ctx);
 		return false;
 	}
 
-	/* calculate ServerSignature */
+	/* 计算 ServerSignature    */
 	if (pg_hmac_init(ctx, ServerKey, state->key_length) < 0 ||
 		pg_hmac_update(ctx,
 					   (uint8 *) state->client_first_message_bare,
@@ -878,7 +878,7 @@ verify_server_signature(fe_scram_state *state, bool *match,
 
 	pg_hmac_free(ctx);
 
-	/* signature processed, so now check after it */
+	/* 签名已处理，现在检查它          */
 	if (memcmp(expected_ServerSignature, state->ServerSignature,
 			   state->key_length) != 0)
 		*match = false;
@@ -888,12 +888,12 @@ verify_server_signature(fe_scram_state *state, bool *match,
 	return true;
 }
 
-/*
- * Build a new SCRAM secret.
- *
- * On error, returns NULL and sets *errstr to point to a message about the
- * error details.
- */
+/*构建新的 SCRAM 密钥。
+ * 
+ *出错时返回 NULL，并设置 *errstr 指向有关错误详情的消息。
+ * 
+ * 
+      */
 char *
 pg_fe_scram_build_secret(const char *password, int iterations, const char **errstr)
 {
@@ -902,12 +902,12 @@ pg_fe_scram_build_secret(const char *password, int iterations, const char **errs
 	char		saltbuf[SCRAM_DEFAULT_SALT_LEN];
 	char	   *result;
 
-	/*
-	 * Normalize the password with SASLprep.  If that doesn't work, because
-	 * the password isn't valid UTF-8 or contains prohibited characters, just
-	 * proceed with the original password.  (See comments at the top of
-	 * auth-scram.c.)
-	 */
+	/*使用 SASLprep 规范化密码。如果不行（因为密码不是有效的
+	 * UTF-8 或包含禁止字符），则直接使用原始密码继续。
+	 * （参见 auth-scram.c 顶部的注释。）
+	 * 
+	 * 
+	                            */
 	rc = pg_saslprep(password, &prep_password);
 	if (rc == SASLPREP_OOM)
 	{
@@ -917,7 +917,7 @@ pg_fe_scram_build_secret(const char *password, int iterations, const char **errs
 	if (rc == SASLPREP_SUCCESS)
 		password = (const char *) prep_password;
 
-	/* Generate a random salt */
+	/* 生成随机 salt      */
 	if (!pg_strong_random(saltbuf, SCRAM_DEFAULT_SALT_LEN))
 	{
 		*errstr = libpq_gettext("could not generate random salt");

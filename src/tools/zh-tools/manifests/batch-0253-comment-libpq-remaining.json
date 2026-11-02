@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "batch_id": "0253-comment-libpq-remaining",
+  "title": "translate libpq remaining files comments — batch 0253",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "575c779b2e7a0237ca36d746a02a2b5705a236b7",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/interfaces/libpq/fe-secure-gssapi.c",
+      "kind": "c_comment",
+      "note": "batch 0253 fe-secure-gssapi — GSSAPI encryption"
+    },
+    {
+      "pattern": "src/interfaces/libpq/fe-auth-scram.c",
+      "kind": "c_comment",
+      "note": "batch 0253 fe-auth-scram — SCRAM authentication"
+    },
+    {
+      "pattern": "src/interfaces/libpq/fe-lobj.c",
+      "kind": "c_comment",
+      "note": "batch 0253 fe-lobj — large object interface"
+    },
+    {
+      "pattern": "src/interfaces/libpq/fe-secure.c",
+      "kind": "c_comment",
+      "note": "batch 0253 fe-secure — secure connection layer"
+    },
+    {
+      "pattern": "src/interfaces/libpq/fe-print.c",
+      "kind": "c_comment",
+      "note": "batch 0253 fe-print — pretty-printing functions"
+    },
+    {
+      "pattern": "src/interfaces/libpq/pqexpbuffer.c",
+      "kind": "c_comment",
+      "note": "batch 0253 pqexpbuffer — expandable buffer"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0253-comment-libpq-remaining.json",
+      "kind": "manifest",
+      "note": "batch 0253 manifest"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/interfaces/libpq/fe-secure-gssapi.c",
+      "segments_total": 79,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "14": "overflow",
+        "16": "overflow",
+        "17": "overflow",
+        "18": "overflow",
+        "19": "overflow",
+        "20": "overflow",
+        "22": "overflow",
+        "23": "overflow",
+        "24": "overflow",
+        "30": "overflow",
+        "34": "overflow",
+        "37": "overflow",
+        "39": "overflow",
+        "42": "overflow",
+        "43": "overflow",
+        "46": "overflow",
+        "51": "overflow",
+        "53": "overflow",
+        "54": "overflow",
+        "62": "overflow",
+        "65": "overflow",
+        "66": "overflow",
+        "78": "overflow"
+      },
+      "kind": "c_comment",
+      "action": "modify",
+      "translated": 55,
+      "preserved": 24
+    },
+    {
+      "path": "src/interfaces/libpq/fe-auth-scram.c",
+      "segments_total": 70,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "7": "overflow",
+        "14": "overflow",
+        "17": "overflow",
+        "18": "overflow",
+        "22": "overflow",
+        "32": "overflow",
+        "40": "overflow",
+        "42": "ifdef_label",
+        "43": "overflow",
+        "44": "overflow",
+        "45": "overflow",
+        "46": "overflow",
+        "60": "overflow"
+      },
+      "kind": "c_comment",
+      "action": "modify",
+      "translated": 56,
+      "preserved": 14
+    },
+    {
+      "path": "src/interfaces/libpq/fe-lobj.c",
+      "segments_total": 59,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "1": "ifdef_label",
+        "2": "overflow",
+        "20": "overflow",
+        "25": "overflow",
+        "31": "overflow",
+        "34": "overflow",
+        "38": "overflow",
+        "40": "overflow",
+        "41": "overflow",
+        "43": "overflow",
+        "44": "overflow",
+        "47": "overflow",
+        "49": "overflow",
+        "51": "overflow",
+        "56": "overflow",
+        "57": "overflow"
+      },
+      "kind": "c_comment",
+      "action": "modify",
+      "translated": 42,
+      "preserved": 17
+    },
+    {
+      "path": "src/interfaces/libpq/fe-secure.c",
+      "segments_total": 53,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "2": "ifdef_label",
+        "3": "ifdef_label",
+        "4": "ifdef_label",
+        "5": "ifdef_label",
+        "6": "preprocessor_comment",
+        "8": "preprocessor_comment",
+        "13": "overflow",
+        "16": "overflow",
+        "23": "ifdef_label",
+        "24": "ifdef_label",
+        "25": "ifdef_label",
+        "26": "overflow",
+        "28": "overflow",
+        "29": "overflow",
+        "30": "overflow",
+        "31": "overflow",
+        "32": "overflow",
+        "34": "overflow",
+        "35": "overflow",
+        "36": "overflow",
+        "40": "ifdef_label",
+        "42": "ifdef_label",
+        "44": "ifdef_label",
+        "46": "overflow",
+        "48": "overflow",
+        "50": "overflow",
+        "51": "overflow",
+        "52": "ifdef_label"
+      },
+      "kind": "c_comment",
+      "action": "modify",
+      "translated": 24,
+      "preserved": 29
+    },
+    {
+      "path": "src/interfaces/libpq/fe-print.c",
+      "segments_total": 41,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "2": "overflow",
+        "3": "overflow",
+        "7": "overflow",
+        "8": "overflow",
+        "9": "ifdef_label",
+        "10": "ifdef_label",
+        "11": "overflow",
+        "12": "overflow",
+        "13": "ifdef_label",
+        "14": "ifdef_label",
+        "20": "overflow",
+        "29": "overflow",
+        "30": "overflow",
+        "31": "overflow",
+        "37": "overflow",
+        "38": "overflow",
+        "39": "overflow"
+      },
+      "kind": "c_comment",
+      "action": "modify",
+      "translated": 23,
+      "preserved": 18
+    },
+    {
+      "path": "src/interfaces/libpq/pqexpbuffer.c",
+      "segments_total": 44,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "1": "overflow",
+        "3": "overflow",
+        "5": "overflow",
+        "7": "overflow",
+        "11": "overflow",
+        "12": "overflow",
+        "13": "overflow",
+        "35": "overflow",
+        "37": "overflow",
+        "38": "overflow",
+        "41": "overflow",
+        "42": "overflow",
+        "43": "overflow"
+      },
+      "kind": "c_comment",
+      "action": "modify",
+      "translated": 30,
+      "preserved": 14
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0253-comment-libpq-remaining.json",
+      "kind": "manifest",
+      "action": "add",
+      "translated": 0,
+      "preserved": 0,
+      "segments_total": 0
+    }
+  ]
+}

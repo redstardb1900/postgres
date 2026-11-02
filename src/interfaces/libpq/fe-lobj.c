@@ -46,13 +46,13 @@ static Oid	lo_import_internal(PGconn *conn, const char *filename, Oid oid);
 static pg_int64 lo_hton64(pg_int64 host64);
 static pg_int64 lo_ntoh64(pg_int64 net64);
 
-/*
- * lo_open
- *	  opens an existing large object
- *
- * returns the file descriptor for use in later lo_* calls
- * return -1 upon failure.
- */
+/*lo_open
+ * 	  打开一个现有的大对象
+ *	
+ *返回文件描述符供后续 lo_* 调用使用
+ * 失败时返回 -1。
+ * 
+         */
 int
 lo_open(PGconn *conn, Oid lobjId, int mode)
 {
@@ -85,13 +85,13 @@ lo_open(PGconn *conn, Oid lobjId, int mode)
 	}
 }
 
-/*
- * lo_close
- *	  closes an existing large object
- *
- * returns 0 upon success
- * returns -1 upon failure.
- */
+/*lo_close
+ * 	  关闭一个现有的大对象
+ *	
+ *成功时返回 0
+ * 失败时返回 -1。
+ * 
+         */
 int
 lo_close(PGconn *conn, int fd)
 {
@@ -120,13 +120,13 @@ lo_close(PGconn *conn, int fd)
 	}
 }
 
-/*
- * lo_truncate
- *	  truncates an existing large object to the given size
- *
- * returns 0 upon success
- * returns -1 upon failure
- */
+/*lo_truncate
+ * 	  将现有大对象截断到给定大小
+ *	
+ *成功时返回 0
+ * 失败时返回 -1
+ * 
+                       */
 int
 lo_truncate(PGconn *conn, int fd, size_t len)
 {
@@ -138,7 +138,7 @@ lo_truncate(PGconn *conn, int fd, size_t len)
 	if (lo_initialize(conn) < 0)
 		return -1;
 
-	/* Must check this on-the-fly because it's not there pre-8.3 */
+	/* 必须动态检查，因为 8.3 之前没有此函数     */
 	if (conn->lobjfuncs->fn_lo_truncate == 0)
 	{
 		libpq_append_conn_error(conn, "cannot determine OID of function %s",
@@ -146,15 +146,15 @@ lo_truncate(PGconn *conn, int fd, size_t len)
 		return -1;
 	}
 
-	/*
-	 * Long ago, somebody thought it'd be a good idea to declare this function
-	 * as taking size_t ... but the underlying backend function only accepts a
-	 * signed int32 length.  So throw error if the given value overflows
-	 * int32.  (A possible alternative is to automatically redirect the call
-	 * to lo_truncate64; but if the caller wanted to rely on that backend
-	 * function being available, he could have called lo_truncate64 for
-	 * himself.)
-	 */
+	/*很久以前，有人觉得将此函数声明为接收 size_t 是个好主意……
+	 * 但底层后端函数只接受有符号 int32 长度。因此如果给定值溢出
+	 * int32 则抛出错误。（一个可能的替代方案是自动将调用重定向到
+	 * lo_truncate64；但如果调用者想要依赖该后端函数可用，他本可以
+	 * 自己调用 lo_truncate64。）
+	 * 
+	 * 
+	 * 
+	                                                     */
 	if (len > (size_t) INT_MAX)
 	{
 		libpq_append_conn_error(conn, "argument of lo_truncate exceeds integer range");
@@ -184,13 +184,13 @@ lo_truncate(PGconn *conn, int fd, size_t len)
 	}
 }
 
-/*
- * lo_truncate64
- *	  truncates an existing large object to the given size
- *
- * returns 0 upon success
- * returns -1 upon failure
- */
+/*lo_truncate64
+ * 	  将现有大对象截断到给定大小
+ *	
+ *成功时返回 0
+ * 失败时返回 -1
+ * 
+                       */
 int
 lo_truncate64(PGconn *conn, int fd, pg_int64 len)
 {
@@ -233,13 +233,13 @@ lo_truncate64(PGconn *conn, int fd, pg_int64 len)
 	}
 }
 
-/*
- * lo_read
- *	  read len bytes of the large object into buf
- *
- * returns the number of bytes read, or -1 on failure.
- * the CALLER must have allocated enough space to hold the result returned
- */
+/*lo_read
+ * 	  从大对象中读取 len 字节到 buf
+ *	
+ *返回读取的字节数，失败时返回 -1。
+ * 调用者必须已分配足够空间来保存返回的结果
+ * 
+                  */
 
 int
 lo_read(PGconn *conn, int fd, char *buf, size_t len)
@@ -251,12 +251,12 @@ lo_read(PGconn *conn, int fd, char *buf, size_t len)
 	if (lo_initialize(conn) < 0)
 		return -1;
 
-	/*
-	 * Long ago, somebody thought it'd be a good idea to declare this function
-	 * as taking size_t ... but the underlying backend function only accepts a
-	 * signed int32 length.  So throw error if the given value overflows
-	 * int32.
-	 */
+	/*很久以前，有人觉得将此函数声明为接收 size_t 是个好主意……
+	 * 但底层后端函数只接受有符号 int32 长度。因此如果给定值溢出
+	 * int32 则抛出错误。
+	 * 
+	 * 
+	                         */
 	if (len > (size_t) INT_MAX)
 	{
 		libpq_append_conn_error(conn, "argument of lo_read exceeds integer range");
@@ -285,12 +285,12 @@ lo_read(PGconn *conn, int fd, char *buf, size_t len)
 	}
 }
 
-/*
- * lo_write
- *	  write len bytes of buf into the large object fd
- *
- * returns the number of bytes written, or -1 on failure.
- */
+/*lo_write
+ * 	  将 buf 的 len 字节写入大对象 fd
+ *	
+ *返回写入的字节数，失败时返回 -1。
+ * 
+             */
 int
 lo_write(PGconn *conn, int fd, const char *buf, size_t len)
 {
@@ -302,12 +302,12 @@ lo_write(PGconn *conn, int fd, const char *buf, size_t len)
 	if (lo_initialize(conn) < 0)
 		return -1;
 
-	/*
-	 * Long ago, somebody thought it'd be a good idea to declare this function
-	 * as taking size_t ... but the underlying backend function only accepts a
-	 * signed int32 length.  So throw error if the given value overflows
-	 * int32.
-	 */
+	/*很久以前，有人觉得将此函数声明为接收 size_t 是个好主意……
+	 * 但底层后端函数只接受有符号 int32 长度。因此如果给定值溢出
+	 * int32 则抛出错误。
+	 * 
+	 * 
+	                         */
 	if (len > (size_t) INT_MAX)
 	{
 		libpq_append_conn_error(conn, "argument of lo_write exceeds integer range");
@@ -336,10 +336,10 @@ lo_write(PGconn *conn, int fd, const char *buf, size_t len)
 	}
 }
 
-/*
- * lo_lseek
- *	  change the current read or write location on a large object
- */
+/*lo_lseek
+ * 	  更改大对象上的当前读写位置
+ *	
+                    */
 int
 lo_lseek(PGconn *conn, int fd, int offset, int whence)
 {
@@ -377,10 +377,10 @@ lo_lseek(PGconn *conn, int fd, int offset, int whence)
 	}
 }
 
-/*
- * lo_lseek64
- *	  change the current read or write location on a large object
- */
+/*lo_lseek64
+ * 	  更改大对象上的当前读写位置
+ *	
+                    */
 pg_int64
 lo_lseek64(PGconn *conn, int fd, pg_int64 offset, int whence)
 {
@@ -426,14 +426,14 @@ lo_lseek64(PGconn *conn, int fd, pg_int64 offset, int whence)
 	}
 }
 
-/*
- * lo_creat
- *	  create a new large object
- * the mode is ignored (once upon a time it had a use)
- *
- * returns the oid of the large object created or
- * InvalidOid upon failure
- */
+/*lo_creat
+ * 	  创建一个新的大对象
+ *	mode 被忽略（曾经有过用途）
+ * 
+ *返回创建的大对象的 OID，或失败时返回
+ * InvalidOid
+ * 
+                  */
 Oid
 lo_creat(PGconn *conn, int mode)
 {
@@ -462,14 +462,14 @@ lo_creat(PGconn *conn, int mode)
 	}
 }
 
-/*
- * lo_create
- *	  create a new large object
- * if lobjId isn't InvalidOid, it specifies the OID to (attempt to) create
- *
- * returns the oid of the large object created or
- * InvalidOid upon failure
- */
+/*lo_create
+ * 	  创建一个新的大对象
+ *	如果 lobjId 不是 InvalidOid，则指定要（尝试）创建的 OID
+ * 
+ *返回创建的大对象的 OID，或失败时返回
+ * InvalidOid
+ * 
+     */
 Oid
 lo_create(PGconn *conn, Oid lobjId)
 {
@@ -481,7 +481,7 @@ lo_create(PGconn *conn, Oid lobjId)
 	if (lo_initialize(conn) < 0)
 		return InvalidOid;
 
-	/* Must check this on-the-fly because it's not there pre-8.1 */
+	/* 必须动态检查，因为 8.1 之前没有此函数     */
 	if (conn->lobjfuncs->fn_lo_create == 0)
 	{
 		libpq_append_conn_error(conn, "cannot determine OID of function %s",
@@ -507,10 +507,10 @@ lo_create(PGconn *conn, Oid lobjId)
 }
 
 
-/*
- * lo_tell
- *	  returns the current seek location of the large object
- */
+/*lo_tell
+ * 	  返回大对象的当前查找位置
+ *	
+                 */
 int
 lo_tell(PGconn *conn, int fd)
 {
@@ -540,10 +540,10 @@ lo_tell(PGconn *conn, int fd)
 	}
 }
 
-/*
- * lo_tell64
- *	  returns the current seek location of the large object
- */
+/*lo_tell64
+ * 	  返回大对象的当前查找位置
+ *	
+                 */
 pg_int64
 lo_tell64(PGconn *conn, int fd)
 {
@@ -614,13 +614,13 @@ lo_unlink(PGconn *conn, Oid lobjId)
 	}
 }
 
-/*
- * lo_import -
- *	  imports a file as an (inversion) large object.
- *
- * returns the oid of that object upon success,
- * returns InvalidOid upon failure
- */
+/*lo_import -
+ * 	  将文件导入为（反转）大对象。
+ *	
+ *成功时返回该对象的 OID，
+ * 失败时返回 InvalidOid
+ * 
+                   */
 
 Oid
 lo_import(PGconn *conn, const char *filename)
@@ -628,14 +628,14 @@ lo_import(PGconn *conn, const char *filename)
 	return lo_import_internal(conn, filename, InvalidOid);
 }
 
-/*
- * lo_import_with_oid -
- *	  imports a file as an (inversion) large object.
- *	  large object id can be specified.
- *
- * returns the oid of that object upon success,
- * returns InvalidOid upon failure
- */
+/*lo_import_with_oid -
+ * 	  将文件导入为（反转）大对象。
+ *	  可以指定大对象 ID。
+ *	
+ *成功时返回该对象的 OID，
+ * 失败时返回 InvalidOid
+ * 
+                         */
 
 Oid
 lo_import_with_oid(PGconn *conn, const char *filename, Oid lobjId)
@@ -657,12 +657,12 @@ lo_import_internal(PGconn *conn, const char *filename, Oid oid)
 	if (conn == NULL)
 		return InvalidOid;
 
-	/* Since this is the beginning of a query cycle, reset the error state */
+	/* 由于这是查询周期的开始，重置错误状态              */
 	pqClearConnErrorState(conn);
 
-	/*
-	 * open the file to be read in
-	 */
+	/*打开要读取的文件
+	 * 
+	    */
 	fd = open(filename, O_RDONLY | PG_BINARY, 0666);
 	if (fd < 0)
 	{							/* error */
@@ -671,9 +671,9 @@ lo_import_internal(PGconn *conn, const char *filename, Oid oid)
 		return InvalidOid;
 	}
 
-	/*
-	 * create an inversion object
-	 */
+	/*创建一个反转对象
+	 * 
+	   */
 	if (oid == InvalidOid)
 		lobjOid = lo_creat(conn, INV_READ | INV_WRITE);
 	else
@@ -681,7 +681,7 @@ lo_import_internal(PGconn *conn, const char *filename, Oid oid)
 
 	if (lobjOid == InvalidOid)
 	{
-		/* we assume lo_create() already set a suitable error message */
+		/* 我们假定 lo_create() 已设置了适当的错误消息 */
 		(void) close(fd);
 		return InvalidOid;
 	}
@@ -689,25 +689,25 @@ lo_import_internal(PGconn *conn, const char *filename, Oid oid)
 	lobj = lo_open(conn, lobjOid, INV_WRITE);
 	if (lobj == -1)
 	{
-		/* we assume lo_open() already set a suitable error message */
+		/* 我们假定 lo_open() 已设置了适当的错误消息 */
 		(void) close(fd);
 		return InvalidOid;
 	}
 
-	/*
-	 * read in from the file and write to the large object
-	 */
+	/*从文件读取并写入大对象
+	 * 
+	                   */
 	while ((nbytes = read(fd, buf, LO_BUFSIZE)) > 0)
 	{
 		tmp = lo_write(conn, lobj, buf, nbytes);
 		if (tmp != nbytes)
 		{
-			/*
-			 * If lo_write() failed, we are now in an aborted transaction so
-			 * there's no need for lo_close(); furthermore, if we tried it
-			 * we'd overwrite the useful error result with a useless one. So
-			 * just nail the doors shut and get out of town.
-			 */
+			/*如果 lo_write() 失败，我们现在处于已中止事务中，因此
+	不需要 lo_close()；而且，如果尝试调用它，我们会用无用的
+	错误结果覆盖有用的错误结果。所以直接关门走人。
+	
+	
+	                               */
 			(void) close(fd);
 			return InvalidOid;
 		}
@@ -720,7 +720,7 @@ lo_import_internal(PGconn *conn, const char *filename, Oid oid)
 
 		(void) lo_close(conn, lobj);
 		(void) close(fd);
-		/* deliberately overwrite any error from lo_close */
+		/* 故意覆盖来自 lo_close 的任何错误    */
 		pqClearConnErrorState(conn);
 		libpq_append_conn_error(conn, "could not read from file \"%s\": %s",
 								filename,
@@ -732,7 +732,7 @@ lo_import_internal(PGconn *conn, const char *filename, Oid oid)
 
 	if (lo_close(conn, lobj) != 0)
 	{
-		/* we assume lo_close() already set a suitable error message */
+		/* 我们假定 lo_close() 已设置了适当的错误消息 */
 		return InvalidOid;
 	}
 
@@ -755,19 +755,19 @@ lo_export(PGconn *conn, Oid lobjId, const char *filename)
 	int			lobj;
 	char		sebuf[PG_STRERROR_R_BUFLEN];
 
-	/*
-	 * open the large object.
-	 */
+	/*打开大对象。
+	 * 
+	     */
 	lobj = lo_open(conn, lobjId, INV_READ);
 	if (lobj == -1)
 	{
-		/* we assume lo_open() already set a suitable error message */
+		/* 我们假定 lo_open() 已设置了适当的错误消息 */
 		return -1;
 	}
 
-	/*
-	 * create the file to be written to
-	 */
+	/*创建要写入的文件
+	 * 
+	         */
 	fd = open(filename, O_CREAT | O_WRONLY | O_TRUNC | PG_BINARY, 0666);
 	if (fd < 0)
 	{
@@ -775,7 +775,7 @@ lo_export(PGconn *conn, Oid lobjId, const char *filename)
 		int			save_errno = errno;
 
 		(void) lo_close(conn, lobj);
-		/* deliberately overwrite any error from lo_close */
+		/* 故意覆盖来自 lo_close 的任何错误    */
 		pqClearConnErrorState(conn);
 		libpq_append_conn_error(conn, "could not open file \"%s\": %s",
 								filename,
@@ -796,7 +796,7 @@ lo_export(PGconn *conn, Oid lobjId, const char *filename)
 
 			(void) lo_close(conn, lobj);
 			(void) close(fd);
-			/* deliberately overwrite any error from lo_close */
+			/* 故意覆盖来自 lo_close 的任何错误    */
 			pqClearConnErrorState(conn);
 			libpq_append_conn_error(conn, "could not write to file \"%s\": %s",
 									filename,
@@ -818,7 +818,7 @@ lo_export(PGconn *conn, Oid lobjId, const char *filename)
 		result = -1;
 	}
 
-	/* if we already failed, don't overwrite that msg with a close error */
+	/* 如果已经失败，不要用 close 错误覆盖该消息        */
 	if (close(fd) != 0 && result >= 0)
 	{
 		libpq_append_conn_error(conn, "could not write to file \"%s\": %s",
@@ -830,15 +830,15 @@ lo_export(PGconn *conn, Oid lobjId, const char *filename)
 }
 
 
-/*
- * lo_initialize
- *
- * Initialize for a new large-object operation on an existing connection.
- * Return 0 if OK, -1 on failure.
- *
- * If we haven't previously done so, we collect the function OIDs from
- * pg_proc for all functions that are required for large object operations.
- */
+/*lo_initialize
+ * 
+ *为现有连接上的新大对象操作进行初始化。
+ * 成功时返回 0，失败时返回 -1。
+ * 
+ *如果我们之前没有这样做，则从 pg_proc 收集大对象操作所需的
+ * 所有函数的 OID。
+ * 
+                                       */
 static int
 lo_initialize(PGconn *conn)
 {
@@ -853,17 +853,17 @@ lo_initialize(PGconn *conn)
 	if (conn == NULL)
 		return -1;
 
-	/* Since this is the beginning of a query cycle, reset the error state */
+	/* 由于这是查询周期的开始，重置错误状态              */
 	pqClearConnErrorState(conn);
 
 	/* Nothing else to do if we already collected info */
 	if (conn->lobjfuncs != NULL)
 		return 0;
 
-	/*
-	 * Allocate the structure to hold the function OIDs.  We don't store it
-	 * into the PGconn until it's successfully filled.
-	 */
+	/*分配结构来保存函数 OID。在成功填充之前，我们不将其存储到
+	 * PGconn 中。
+	 * 
+	                     */
 	lobjfuncs = (PGlobjfuncs *) malloc(sizeof(PGlobjfuncs));
 	if (lobjfuncs == NULL)
 	{
@@ -909,9 +909,9 @@ lo_initialize(PGconn *conn)
 		return -1;
 	}
 
-	/*
-	 * Examine the result and put the OID's into the struct
-	 */
+	/*检查结果并将 OID 放入结构中
+	 * 
+	               */
 	for (n = 0; n < PQntuples(res); n++)
 	{
 		fname = PQgetvalue(res, n, 0);
@@ -946,11 +946,11 @@ lo_initialize(PGconn *conn)
 
 	PQclear(res);
 
-	/*
-	 * Finally check that we got all required large object interface functions
-	 * (ones that have been added later than the stone age are instead checked
-	 * only if used)
-	 */
+	/*最后检查是否获取了所有必需的大对象接口函数
+	 * （晚于石器时代添加的函数仅在使用时检查）
+	 * 
+	 * 
+	                                 */
 	if (lobjfuncs->fn_lo_open == 0)
 	{
 		libpq_append_conn_error(conn, "cannot determine OID of function %s",
@@ -1008,17 +1008,17 @@ lo_initialize(PGconn *conn)
 		return -1;
 	}
 
-	/*
-	 * Put the structure into the connection control
-	 */
+	/*将结构放入连接控制中
+	 * 
+	                */
 	conn->lobjfuncs = lobjfuncs;
 	return 0;
 }
 
-/*
- * lo_hton64
- *	  converts a 64-bit integer from host byte order to network byte order
- */
+/*lo_hton64
+ * 	  将 64 位整数从主机字节序转换为网络字节序
+ *	
+          */
 static pg_int64
 lo_hton64(pg_int64 host64)
 {
@@ -1040,10 +1040,10 @@ lo_hton64(pg_int64 host64)
 	return swap.i64;
 }
 
-/*
- * lo_ntoh64
- *	  converts a 64-bit integer from network byte order to host byte order
- */
+/*lo_ntoh64
+ * 	  将 64 位整数从网络字节序转换为主机字节序
+ *	
+          */
 static pg_int64
 lo_ntoh64(pg_int64 net64)
 {

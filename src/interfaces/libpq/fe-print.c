@@ -51,19 +51,19 @@ static void output_row(FILE *fout, const PQprintOpt *po, const int nFields, char
 					   const int row_index);
 static void fill(int length, int max, char filler, FILE *fp);
 
-/*
- * PQprint()
- *
- * Format results of a query for printing.
- *
- * PQprintOpt is a typedef (structure) that contains
- * various flags and options. consult libpq-fe.h for
- * details
- *
- * This function should probably be removed sometime since psql
- * doesn't use it anymore. It is unclear to what extent this is used
- * by external clients, however.
- */
+/*PQprint()
+ * 
+ *格式化查询结果以供打印。
+ * 
+ *PQprintOpt 是一个 typedef（结构体），包含各种标志
+ * 和选项。详情请参阅 libpq-fe.h。
+ * 
+ * 此函数可能应该在某时移除，因为 psql 不再使用它。
+ *然而，外部客户端在多大程度上使用它尚不清楚。
+ * 
+ * 
+ * 
+                       */
 void
 PQprint(FILE *fout, const PGresult *res, const PQprintOpt *po)
 {
@@ -107,10 +107,10 @@ PQprint(FILE *fout, const PGresult *res, const PQprintOpt *po)
 		}			screen_size;
 #endif
 
-		/*
-		 * Quick sanity check on po->fieldSep, since we make heavy use of int
-		 * math throughout.
-		 */
+		/*快速检查 po->fieldSep 的合理性，因为我们大量使用整数运算。
+	
+	
+	            */
 		if (fs_len < strlen(po->fieldSep))
 		{
 			fprintf(stderr, libpq_gettext("overlong field separator\n"));
@@ -152,10 +152,10 @@ PQprint(FILE *fout, const PGresult *res, const PQprintOpt *po)
 		if (po->pager && fout == stdout && isatty(fileno(stdin)) &&
 			isatty(fileno(stdout)))
 		{
-			/*
-			 * If we think there'll be more than one screen of output, try to
-			 * pipe to the pager program.
-			 */
+			/*如果认为输出会超过一屏，尝试管道到分页程序。
+	
+	
+	                                   */
 #ifdef TIOCGWINSZ
 			if (ioctl(fileno(stdout), TIOCGWINSZ, &screen_size) == -1 ||
 				screen_size.ws_col == 0 ||
@@ -169,12 +169,12 @@ PQprint(FILE *fout, const PGresult *res, const PQprintOpt *po)
 			screen_size.ws_col = 80;
 #endif
 
-			/*
-			 * Since this function is no longer used by psql, we don't examine
-			 * PSQL_PAGER.  It's possible that the hypothetical external users
-			 * of the function would like that to happen, but in the name of
-			 * backwards compatibility, we'll stick to just examining PAGER.
-			 */
+			/*由于此函数不再被 psql 使用，我们不检查 PSQL_PAGER。
+	假设的外部用户可能希望这样做，但为了向后兼容，我们仅
+	检查 PAGER。
+	
+	
+	                                                                                                              */
 			pagerenv = getenv("PAGER");
 			/* if PAGER is unset, empty or all-white-space, don't use pager */
 			if (pagerenv != NULL &&
@@ -380,7 +380,7 @@ do_field(const PQprintOpt *po, const PGresult *res,
 	{
 		if (po->align && !fieldNotNum[j])
 		{
-			/* Detect whether field contains non-numeric data */
+			/* 检测字段是否包含非数值数据        */
 			char		ch = '0';
 
 			for (p = pval; *p; p += PQmblenBounded(p, res->client_encoding))
@@ -398,11 +398,11 @@ do_field(const PQprintOpt *po, const PGresult *res,
 				}
 			}
 
-			/*
-			 * Above loop will believe E in first column is numeric; also, we
-			 * insist on a digit in the last column for a numeric. This test
-			 * is still not bulletproof but it handles most cases.
-			 */
+			/*上述循环会认为第一列的 E 是数值；此外，我们坚持要求
+	数值的最后一列是数字。此测试仍非万无一失，但能处理大多数
+	情况。
+	
+	                        */
 			if (*pval == 'E' || *pval == 'e' ||
 				!(ch >= '0' && ch <= '9'))
 				fieldNotNum[j] = 1;
@@ -462,13 +462,13 @@ do_field(const PQprintOpt *po, const PGresult *res,
 }
 
 
-/*
- * Frontend version of the backend's add_size(), intended to be API-compatible
- * with the pg_add_*_overflow() helpers. Stores the result into *dst on success.
- * Returns true instead if the addition overflows.
- *
- * TODO: move to common/int.h
- */
+/*后端 add_size() 的前端版本，旨在与 pg_add_*_overflow()
+ * 辅助函数保持 API 兼容。成功时将结果存储到 *dst 中。
+ * 如果加法溢出则返回 true。
+ * 
+ *TODO: 移到 common/int.h
+ * 
+                              */
 static bool
 add_size_overflow(size_t s1, size_t s2, size_t *dst)
 {
@@ -488,7 +488,7 @@ do_header(FILE *fout, const PQprintOpt *po, const int nFields, int *fieldMax,
 		  const char **fieldNames, unsigned char *fieldNotNum,
 		  const int fs_len, const PGresult *res)
 {
-	int			j;				/* for loop index */
+	int			j;				/* 循环索引   */
 	char	   *border = NULL;
 
 	if (po->html3)
@@ -499,7 +499,7 @@ do_header(FILE *fout, const PQprintOpt *po, const int nFields, int *fieldMax,
 		int			n = 0;
 		char	   *p = NULL;
 
-		/* Calculate the border size, checking for overflow. */
+		/* 计算边框大小，检查溢出。              */
 		for (; n < nFields; n++)
 		{
 			/* Field plus separator, plus 2 extra '-' in standard format. */
@@ -510,13 +510,13 @@ do_header(FILE *fout, const PQprintOpt *po, const int nFields, int *fieldMax,
 		}
 		if (po->standard)
 		{
-			/* An extra separator at the front and back. */
+			/* 前后各加一个额外的分隔符。   */
 			if (add_size_overflow(tot, fs_len, &tot) ||
 				add_size_overflow(tot, fs_len, &tot) ||
 				add_size_overflow(tot, 2, &tot))
 				goto overflow;
 		}
-		if (add_size_overflow(tot, 1, &tot))	/* terminator */
+		if (add_size_overflow(tot, 1, &tot))	/* 终止符  */
 			goto overflow;
 
 		border = malloc(tot);
@@ -594,7 +594,7 @@ output_row(FILE *fout, const PQprintOpt *po, const int nFields, char **fields,
 		   unsigned char *fieldNotNum, int *fieldMax, char *border,
 		   const int row_index)
 {
-	int			field_index;	/* for loop index */
+	int			field_index;	/* 循环索引   */
 
 	if (po->html3)
 		fputs("<tr>", fout);
@@ -628,16 +628,16 @@ output_row(FILE *fout, const PQprintOpt *po, const int nFields, char **fields,
 
 
 
-/*
- * really old printing routines
- */
+/*非常旧的打印例程
+ * 
+     */
 
 void
 PQdisplayTuples(const PGresult *res,
-				FILE *fp,		/* where to send the output */
-				int fillAlign,	/* pad the fields with spaces */
-				const char *fieldSep,	/* field separator */
-				int printHeader,	/* display headers? */
+				FILE *fp,		/* 输出发送到哪里    */
+				int fillAlign,	/* 用空格填充字段      */
+				const char *fieldSep,	/* 字段分隔符 */
+				int printHeader,	/* 显示表头？  */
 				int quiet
 )
 {
@@ -685,7 +685,7 @@ PQdisplayTuples(const PGresult *res,
 
 	if (printHeader)
 	{
-		/* first, print out the attribute names */
+		/* 首先，打印属性名称          */
 		for (i = 0; i < nFields; i++)
 		{
 			fputs(PQfname(res, i), fp);
@@ -695,7 +695,7 @@ PQdisplayTuples(const PGresult *res,
 		}
 		fprintf(fp, "\n");
 
-		/* Underline the attribute names */
+		/* 在属性名称下划线      */
 		for (i = 0; i < nFields; i++)
 		{
 			if (fillAlign)
@@ -705,7 +705,7 @@ PQdisplayTuples(const PGresult *res,
 		fprintf(fp, "\n");
 	}
 
-	/* next, print out the instances */
+	/* 接下来，打印实例      */
 	for (i = 0; i < nTuples; i++)
 	{
 		for (j = 0; j < nFields; j++)
@@ -731,8 +731,8 @@ PQdisplayTuples(const PGresult *res,
 
 void
 PQprintTuples(const PGresult *res,
-			  FILE *fout,		/* output stream */
-			  int PrintAttNames,	/* print attribute names or not */
+			  FILE *fout,		/* 输出流     */
+			  int PrintAttNames,	/* 是否打印属性名称     */
 			  int TerseOutput,	/* delimiter bars or not? */
 			  int colWidth		/* width of column, if 0, use variable width */
 )
@@ -811,7 +811,7 @@ PQprintTuples(const PGresult *res,
 }
 
 
-/* simply send out max-length number of filler characters to fp */
+/* 简单地向 fp 发送最大长度数量的填充字符      */
 
 static void
 fill(int length, int max, char filler, FILE *fp)

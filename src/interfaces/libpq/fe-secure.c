@@ -47,10 +47,10 @@
 #include "libpq-fe.h"
 #include "libpq-int.h"
 
-/*
- * Macros to handle disabling and then restoring the state of SIGPIPE handling.
- * On Windows, these are all no-ops since there's no SIGPIPEs.
- */
+/*用于禁用然后恢复 SIGPIPE 处理状态的宏。
+ * 在 Windows 上，这些都是空操作，因为不存在 SIGPIPE。
+ * 
+              */
 
 #ifndef WIN32
 
@@ -117,7 +117,7 @@ struct sigpipe_info
 #endif							/* WIN32 */
 
 /* ------------------------------------------------------------ */
-/*			 Procedures common to all secure sessions			*/
+/*    所有安全会话通用的过程          */
 /* ------------------------------------------------------------ */
 
 
@@ -129,10 +129,10 @@ PQsslInUse(PGconn *conn)
 	return conn->ssl_in_use;
 }
 
-/*
- *	Exported function to allow application to tell us it's already
- *	initialized OpenSSL.
- */
+/*导出的函数，允许应用程序告诉我们它已经初始化了 OpenSSL。
+ *	
+ *	
+   */
 void
 PQinitSSL(int do_init)
 {
@@ -141,10 +141,10 @@ PQinitSSL(int do_init)
 #endif
 }
 
-/*
- *	Exported function to allow application to tell us it's already
- *	initialized OpenSSL and/or libcrypto.
- */
+/*导出的函数，允许应用程序告诉我们它已经初始化了 OpenSSL 和/或 libcrypto。
+ *	
+ *	
+  */
 void
 PQinitOpenSSL(int do_ssl, int do_crypto)
 {
@@ -153,8 +153,8 @@ PQinitOpenSSL(int do_ssl, int do_crypto)
 #endif
 }
 
-/*
- *	Initialize global SSL context
+/*初始化全局 SSL 上下文
+ *	
  */
 int
 pqsecure_initialize(PGconn *conn, bool do_ssl, bool do_crypto)
@@ -168,9 +168,9 @@ pqsecure_initialize(PGconn *conn, bool do_ssl, bool do_crypto)
 	return r;
 }
 
-/*
- *	Begin or continue negotiating a secure session.
- */
+/*开始或继续协商安全会话。
+ *	
+            */
 PostgresPollingStatusType
 pqsecure_open_client(PGconn *conn)
 {
@@ -182,8 +182,8 @@ pqsecure_open_client(PGconn *conn)
 #endif
 }
 
-/*
- *	Close secure session.
+/*关闭安全会话。
+ *	
  */
 void
 pqsecure_close(PGconn *conn)
@@ -193,13 +193,13 @@ pqsecure_close(PGconn *conn)
 #endif
 }
 
-/*
- *	Read data from a secure connection.
- *
- * On failure, this function is responsible for appending a suitable message
- * to conn->errorMessage.  The caller must still inspect errno, but only
- * to determine whether to continue/retry after error.
- */
+/*从安全连接读取数据。
+ *	
+ *失败时，此函数负责向 conn->errorMessage 追加适当的消息。
+ * 调用者仍必须检查 errno，但仅用于确定出错后是继续还是重试。
+ * 
+ * 
+                                         */
 ssize_t
 pqsecure_read(PGconn *conn, void *ptr, size_t len)
 {
@@ -251,7 +251,7 @@ pqsecure_raw_read(PGconn *conn, void *ptr, size_t len)
 			case EWOULDBLOCK:
 #endif
 			case EINTR:
-				/* no error message, caller is expected to retry */
+				/* 无错误消息，调用者应重试          */
 				break;
 
 			case EPIPE:
@@ -262,7 +262,7 @@ pqsecure_raw_read(PGconn *conn, void *ptr, size_t len)
 				break;
 
 			case 0:
-				/* If errno didn't get set, treat it as regular EOF */
+				/* 如果 errno 未设置，将其视为常规 EOF  */
 				n = 0;
 				break;
 
@@ -274,32 +274,32 @@ pqsecure_raw_read(PGconn *conn, void *ptr, size_t len)
 		}
 	}
 
-	/* ensure we return the intended errno to caller */
+	/* 确保将预期的 errno 返回给调用者   */
 	SOCK_ERRNO_SET(result_errno);
 
 	return n;
 }
 
-/*
- *	Write data to a secure connection.
+/*向安全连接写入数据。
+ *	
+ *返回写入的字节数，失败时返回负值（并设置 errno）。
+ * 写入计数可能少于请求的数量。
+ * 
+ *注意套接字级别的硬故障对调用者隐藏，而是设置
+ * conn->write_failed 并将错误消息存储在 conn->write_err_msg
+ * 中；参见 pqsecure_raw_write。这允许我们推迟报告写入失败，
+ * 直到我们确定服务器没有可用的错误消息。
+ * 
+ * 然而，在 SSL 或 GSS 管理层级检测到的错误通过负结果报告，
+ *消息追加到 conn->errorMessage。通常不清楚这些错误应被视
+ * 为读错误还是写错误，因此我们不尝试推迟报告它们。
+ * 
+ * 调用者仍必须在失败时检查 errno，但仅用于确定是继续还是
+ * 重试；无论如何消息已保存在某处。
  *
- * Returns the number of bytes written, or a negative value (with errno
- * set) upon failure.  The write count could be less than requested.
- *
- * Note that socket-level hard failures are masked from the caller,
- * instead setting conn->write_failed and storing an error message
- * in conn->write_err_msg; see pqsecure_raw_write.  This allows us to
- * postpone reporting of write failures until we're sure no error
- * message is available from the server.
- *
- * However, errors detected in the SSL or GSS management level are reported
- * via a negative result, with message appended to conn->errorMessage.
- * It's frequently unclear whether such errors should be considered read or
- * write errors, so we don't attempt to postpone reporting them.
- *
- * The caller must still inspect errno upon failure, but only to determine
- * whether to continue/retry; a message has been saved someplace in any case.
- */
+ * 
+ * 
+                                                                                                                      */
 ssize_t
 pqsecure_write(PGconn *conn, const void *ptr, size_t len)
 {
@@ -326,29 +326,29 @@ pqsecure_write(PGconn *conn, const void *ptr, size_t len)
 	return n;
 }
 
-/*
- * Low-level implementation of pqsecure_write.
+/*pqsecure_write 的低级实现。
+ * 
+ *对于未加密连接直接使用。对于加密连接，它代表 pgtls_write
+ * 或 pg_GSS_write 执行物理 I/O。
+ * 
+ * 此函数仅对可重试错误（如 EINTR）报告失败（即返回负值）。
+ *此类情况的循环应在某个外部层级处理，可能一直到应用程序。
+ * 对于硬故障，我们设置 conn->write_failed 并在
+ * conn->write_err_msg 中存储错误消息，但随后声称已完成写入。
+ * 这是因为只要有可能从服务器读取并获得解释连接为何断开的
+ * 错误消息，我们就不想报告写入失败。许多 TCP 栈存在竞争
+ * 条件，使得写入失败可能在所有传入数据被读取之前或之后
+ * 才被报告。
+ * 
+ * 注意使用 SSL 时，此错误行为发生在 SSL 管理层级之下。这是
+ * 因为至少某些版本的 OpenSSL 在仍有可能从服务器获取更有用
+ * 的错误时过于迅速地报告写入失败。
  *
- * This is used directly for an unencrypted connection.  For encrypted
- * connections, this does the physical I/O on behalf of pgtls_write or
- * pg_GSS_write.
- *
- * This function reports failure (i.e., returns a negative result) only
- * for retryable errors such as EINTR.  Looping for such cases is to be
- * handled at some outer level, maybe all the way up to the application.
- * For hard failures, we set conn->write_failed and store an error message
- * in conn->write_err_msg, but then claim to have written the data anyway.
- * This is because we don't want to report write failures so long as there
- * is a possibility of reading from the server and getting an error message
- * that could explain why the connection dropped.  Many TCP stacks have
- * race conditions such that a write failure may or may not be reported
- * before all incoming data has been read.
- *
- * Note that this error behavior happens below the SSL management level when
- * we are using SSL.  That's because at least some versions of OpenSSL are
- * too quick to report a write failure when there's still a possibility to
- * get a more useful error from the server.
- */
+ * 
+ * 
+ * 
+ * 
+                                                                                                                                                                                                                  */
 ssize_t
 pqsecure_raw_write(PGconn *conn, const void *ptr, size_t len)
 {
@@ -360,13 +360,13 @@ pqsecure_raw_write(PGconn *conn, const void *ptr, size_t len)
 
 	DECLARE_SIGPIPE_INFO(spinfo);
 
-	/*
-	 * If we already had a write failure, we will never again try to send data
-	 * on that connection.  Even if the kernel would let us, we've probably
-	 * lost message boundary sync with the server.  conn->write_failed
-	 * therefore persists until the connection is reset, and we just discard
-	 * all data presented to be written.
-	 */
+	/*如果已经发生写入失败，我们永远不会再次尝试在该连接上发送
+	 * 数据。即使内核允许，我们也可能已经与服务器失去了消息边界
+	 * 同步。因此 conn->write_failed 持续到连接重置，我们只是
+	 * 丢弃所有要写入的数据。
+	 * 
+	 * 
+	                                 */
 	if (conn->write_failed)
 		return len;
 
@@ -385,11 +385,11 @@ retry_masked:
 	{
 		result_errno = SOCK_ERRNO;
 
-		/*
-		 * If we see an EINVAL, it may be because MSG_NOSIGNAL isn't available
-		 * on this machine.  So, clear sigpipe_flag so we don't try the flag
-		 * again, and retry the send().
-		 */
+		/*如果看到 EINVAL，可能是因为此机器上 MSG_NOSIGNAL 不可用。
+	因此清除 sigpipe_flag 以便不再尝试该标志，然后重试
+	send()。
+	
+	                      */
 #ifdef MSG_NOSIGNAL
 		if (flags != 0 && result_errno == EINVAL)
 		{
@@ -409,7 +409,7 @@ retry_masked:
 			case EWOULDBLOCK:
 #endif
 			case EINTR:
-				/* no error message, caller is expected to retry */
+				/* 无错误消息，调用者应重试          */
 				break;
 
 			case EPIPE:
@@ -429,7 +429,7 @@ retry_masked:
 				/* keep newline out of translated string */
 				strlcat(msgbuf, "\n", sizeof(msgbuf));
 				conn->write_err_msg = strdup(msgbuf);
-				/* Now claim the write succeeded */
+				/* 现在声称写入成功      */
 				n = len;
 				break;
 
@@ -444,7 +444,7 @@ retry_masked:
 				/* keep newline out of translated string */
 				strlcat(msgbuf, "\n", sizeof(msgbuf));
 				conn->write_err_msg = strdup(msgbuf);
-				/* Now claim the write succeeded */
+				/* 现在声称写入成功      */
 				n = len;
 				break;
 		}
@@ -452,13 +452,13 @@ retry_masked:
 
 	RESTORE_SIGPIPE(conn, spinfo);
 
-	/* ensure we return the intended errno to caller */
+	/* 确保将预期的 errno 返回给调用者   */
 	SOCK_ERRNO_SET(result_errno);
 
 	return n;
 }
 
-/* Dummy versions of SSL info functions, when built without SSL support */
+/* 无 SSL 支持构建时的 SSL 信息函数桩版本                 */
 #ifndef USE_SSL
 
 void *
@@ -488,10 +488,10 @@ PQsslAttributeNames(PGconn *conn)
 }
 #endif							/* USE_SSL */
 
-/*
- * Dummy versions of OpenSSL key password hook functions, when built without
- * OpenSSL.
- */
+/*无 OpenSSL 构建时的 OpenSSL 密钥密码钩子函数桩版本。
+ * 
+ * 
+             */
 #ifndef USE_OPENSSL
 
 PQsslKeyPassHook_OpenSSL_type
@@ -513,7 +513,7 @@ PQdefaultSSLKeyPassHook_OpenSSL(char *buf, int size, PGconn *conn)
 }
 #endif							/* USE_OPENSSL */
 
-/* Dummy version of GSSAPI information functions, when built without GSS support */
+/* 无 GSS 支持构建时的 GSSAPI 信息函数桩版本                       */
 #ifndef ENABLE_GSS
 
 void *
@@ -533,10 +533,10 @@ PQgssEncInUse(PGconn *conn)
 
 #if defined(ENABLE_THREAD_SAFETY) && !defined(WIN32)
 
-/*
- *	Block SIGPIPE for this thread.  This prevents send()/write() from exiting
- *	the application.
- */
+/*为此线程阻塞 SIGPIPE。这可以防止 send()/write() 退出应用程序。
+ *	
+ *	
+         */
 int
 pq_block_sigpipe(sigset_t *osigset, bool *sigpipe_pending)
 {
@@ -551,7 +551,7 @@ pq_block_sigpipe(sigset_t *osigset, bool *sigpipe_pending)
 	if (SOCK_ERRNO)
 		return -1;
 
-	/* We can have a pending SIGPIPE only if it was blocked before */
+	/* 只有之前被阻塞时，才可能有待处理的 SIGPIPE */
 	if (sigismember(osigset, SIGPIPE))
 	{
 		/* Is there a pending SIGPIPE? */
@@ -569,24 +569,24 @@ pq_block_sigpipe(sigset_t *osigset, bool *sigpipe_pending)
 	return 0;
 }
 
-/*
- *	Discard any pending SIGPIPE and reset the signal mask.
- *
- * Note: we are effectively assuming here that the C library doesn't queue
- * up multiple SIGPIPE events.  If it did, then we'd accidentally leave
- * ours in the queue when an event was already pending and we got another.
- * As long as it doesn't queue multiple events, we're OK because the caller
- * can't tell the difference.
- *
- * The caller should say got_epipe = false if it is certain that it
- * didn't get an EPIPE error; in that case we'll skip the clear operation
- * and things are definitely OK, queuing or no.  If it got one or might have
- * gotten one, pass got_epipe = true.
- *
- * We do not want this to change errno, since if it did that could lose
- * the error code from a preceding send().  We essentially assume that if
- * we were able to do pq_block_sigpipe(), this can't fail.
- */
+/*丢弃任何待处理的 SIGPIPE 并重置信号掩码。
+ *	
+ *注意：我们实际上假设 C 库不会排队多个 SIGPIPE 事件。如果
+ * 它会，那么当事件已待处理而我们又收到另一个时，我们会意外
+ * 地将我们的事件留在队列中。只要它不排队多个事件就没问题，
+ * 因为调用者无法区分。
+ * 
+ * 如果调用者确定没有收到 EPIPE 错误，应设 got_epipe = false；
+ *在这种情况下，我们将跳过清除操作，一切都肯定没问题，无论
+ * 是否排队。如果收到或可能收到，则传递 got_epipe = true。
+ * 
+ * 我们不希望这改变 errno，因为如果改变了，可能丢失之前
+ * send() 的错误码。我们基本上假设如果能够执行
+ *pq_block_sigpipe()，这就不会失败。
+ * 
+ * 
+ * 
+                                                    */
 void
 pq_reset_sigpipe(sigset_t *osigset, bool sigpipe_pending, bool got_epipe)
 {

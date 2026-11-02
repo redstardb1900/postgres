@@ -81,28 +81,28 @@ static int	ldapServiceLookup(const char *purl, PQconninfoOption *options,
 #endif
 
 /*
- * Pre-9.0 servers will return this SQLSTATE if asked to set
- * application_name in a startup packet.  We hard-wire the value rather
- * than looking into errcodes.h since it reflects historical behavior
- * rather than that of the current code.
- */
+ * 9.0 前服务器返回此 SQLSTATE。硬编码
+ * 而非查 errcodes.h，因反映历史行为。
+                                                                        
+                                                                      
+*/
 #define ERRCODE_APPNAME_UNKNOWN "42704"
 
 /* This is part of the protocol so just define it */
 #define ERRCODE_INVALID_PASSWORD "28P01"
-/* This too */
+/* 同上   */
 #define ERRCODE_CANNOT_CONNECT_NOW "57P03"
 
 /*
- * Cope with the various platform-specific ways to spell TCP keepalive socket
- * options.  This doesn't cover Windows, which as usual does its own thing.
- */
+ * 应对各平台 TCP 保活选项拼写差异。
+ * 不涵盖 Windows。
+                                                                                */
 #if defined(TCP_KEEPIDLE)
 /* TCP_KEEPIDLE is the name of this option on Linux and *BSD */
 #define PG_TCP_KEEPALIVE_IDLE TCP_KEEPIDLE
 #define PG_TCP_KEEPALIVE_IDLE_STR "TCP_KEEPIDLE"
 #elif defined(TCP_KEEPALIVE_THRESHOLD)
-/* TCP_KEEPALIVE_THRESHOLD is the name of this option on Solaris >= 11 */
+/* Solaris>=11 上名 TCP_KEEPALIVE_THRESHOLD                          */
 #define PG_TCP_KEEPALIVE_IDLE TCP_KEEPALIVE_THRESHOLD
 #define PG_TCP_KEEPALIVE_IDLE_STR "TCP_KEEPALIVE_THRESHOLD"
 #elif defined(TCP_KEEPALIVE) && defined(__darwin__)
@@ -113,9 +113,9 @@ static int	ldapServiceLookup(const char *purl, PQconninfoOption *options,
 #endif
 
 /*
- * fall back options if they are not specified by arguments or defined
- * by environment variables
- */
+ * 参数/环境变量未指定时的后备选项
+                                                 
+*/
 #define DefaultHost		"localhost"
 #define DefaultOption	""
 #ifdef USE_SSL
@@ -140,33 +140,33 @@ static int	ldapServiceLookup(const char *purl, PQconninfoOption *options,
 #endif
 
 /* ----------
- * Definition of the conninfo parameters and their fallback resources.
+ * conninfo 参数定义及后备资源。
  *
- * If Environment-Var and Compiled-in are specified as NULL, no
- * fallback is available. If after all no value can be determined
- * for an option, an error is returned.
+ * 若环境变量和编译默认值均为 NULL，
+ * 则无后备。若最终无法确定选项值
+ * 则报错。
  *
- * The value for the username is treated specially in conninfo_add_defaults.
- * If the value is not obtained any other way, the username is determined
- * by pg_fe_getauthname().
+ * 用户名在 conninfo_add_defaults 中特
+ * 殊处理。无法获取时由
+ * pg_fe_getauthname() 确定。
  *
- * The Label and Disp-Char entries are provided for applications that
- * want to use PQconndefaults() to create a generic database connection
- * dialog. Disp-Char is defined as follows:
- *		""		Normal input field
- *		"*"		Password field - hide value
- *		"D"		Debug option - don't show by default
+ * Label 和 Disp-Char 供想用
+ * PQconndefaults() 创建连接对话框的
+ * 应用使用。Disp-Char 定义：
+ *		""		普通输入
+ *		"*"		密码 - 隐藏
+ *		"D"		调试 - 默认不显
  *
- * PQconninfoOptions[] is a constant static array that we use to initialize
- * a dynamically allocated working copy.  All the "val" fields in
- * PQconninfoOptions[] *must* be NULL.  In a working copy, non-null "val"
- * fields point to malloc'd strings that should be freed when the working
- * array is freed (see PQconninfoFree).
+ * PQconninfoOptions[] 为常量静态数组，
+ * 用于初始化动态工作副本。所有 "val"
+ * *须*为 NULL。工作副本中非 NULL "val"
+ * 指向 malloc 串，释放数组时一并释放
+ *（见 PQconninfoFree）。
  *
- * The first part of each struct is identical to the one in libpq-fe.h,
- * which is required since we memcpy() data between the two!
+ * 各 struct 前半与 libpq-fe.h 相同，
+ * 因两者间需 memcpy() 复制。
  * ----------
- */
+                                                                                                                                                                                                                                                                                                                                                                                                                  */
 typedef struct _internalPQconninfoOption
 {
 	char	   *keyword;		/* The keyword of the option			*/
@@ -174,18 +174,18 @@ typedef struct _internalPQconninfoOption
 	char	   *compiled;		/* Fallback compiled in default value	*/
 	char	   *val;			/* Option's current value, or NULL		*/
 	char	   *label;			/* Label for field in connect dialog	*/
-	char	   *dispchar;		/* Indicates how to display this field in a
-								 * connect dialog. Values are: "" Display
-								 * entered value as is "*" Password field -
-								 * hide value "D"  Debug option - don't show
-								 * by default */
+	char	   *dispchar;		/* 指示字段显示方式。取值：
+					 * ""原样 "*"密码隐藏
+					 * "D"调试默认不显                                                                  
+                                                   
+*/
 	int			dispsize;		/* Field size in characters for dialog	*/
 	/* ---
-	 * Anything above this comment must be synchronized with
-	 * PQconninfoOption in libpq-fe.h, since we memcpy() data
-	 * between them!
-	 * ---
-	 */
+		 * 此注释以上须与 libpq-fe.h 的
+		 * PQconninfoOption 同步，
+		 * 因需 memcpy()。
+		 * ---
+		                                    */
 	off_t		connofs;		/* Offset into PGconn struct, -1 if not there */
 } internalPQconninfoOption;
 
@@ -206,11 +206,11 @@ static const internalPQconninfoOption PQconninfoOptions[] = {
 	offsetof(struct pg_conn, pgpassfile)},
 
 	{"channel_binding", "PGCHANNELBINDING", DefaultChannelBinding, NULL,
-		"Channel-Binding", "", 8,	/* sizeof("require") == 8 */
+		"Channel-Binding", "", 8,	/* sizeof("require")==8   */
 	offsetof(struct pg_conn, channel_binding)},
 
 	{"connect_timeout", "PGCONNECT_TIMEOUT", NULL, NULL,
-		"Connect-timeout", "", 10,	/* strlen(INT32_MAX) == 10 */
+		"Connect-timeout", "", 10,	/* strlen(INT32_MAX)==10   */
 	offsetof(struct pg_conn, connect_timeout)},
 
 	{"dbname", "PGDATABASE", NULL, NULL,
@@ -250,29 +250,29 @@ static const internalPQconninfoOption PQconninfoOptions[] = {
 	offsetof(struct pg_conn, keepalives)},
 
 	{"keepalives_idle", NULL, NULL, NULL,
-		"TCP-Keepalives-Idle", "", 10,	/* strlen(INT32_MAX) == 10 */
+		"TCP-Keepalives-Idle", "", 10,	/* strlen(INT32_MAX)==10   */
 	offsetof(struct pg_conn, keepalives_idle)},
 
 	{"keepalives_interval", NULL, NULL, NULL,
-		"TCP-Keepalives-Interval", "", 10,	/* strlen(INT32_MAX) == 10 */
+		"TCP-Keepalives-Interval", "", 10,	/* strlen(INT32_MAX)==10   */
 	offsetof(struct pg_conn, keepalives_interval)},
 
 	{"keepalives_count", NULL, NULL, NULL,
-		"TCP-Keepalives-Count", "", 10, /* strlen(INT32_MAX) == 10 */
+		"TCP-Keepalives-Count", "", 10, /* strlen(INT32_MAX)==10   */
 	offsetof(struct pg_conn, keepalives_count)},
 
 	{"tcp_user_timeout", NULL, NULL, NULL,
-		"TCP-User-Timeout", "", 10, /* strlen(INT32_MAX) == 10 */
+		"TCP-User-Timeout", "", 10, /* strlen(INT32_MAX)==10   */
 	offsetof(struct pg_conn, pgtcp_user_timeout)},
 
 	/*
-	 * ssl options are allowed even without client SSL support because the
-	 * client can still handle SSL modes "disable" and "allow". Other
-	 * parameters have no effect on non-SSL connections, so there is no reason
-	 * to exclude them since none of them are mandatory.
-	 */
+		 * 无 SSL 支持时 ssl 选项也允许，
+		 * 因仍可处理 disable/allow。
+		 * 其他对非 SSL 无影响故无需排除。
+		                                                                                                                                      
+*/
 	{"sslmode", "PGSSLMODE", DefaultSSLMode, NULL,
-		"SSL-Mode", "", 12,		/* sizeof("verify-full") == 12 */
+		"SSL-Mode", "", 12,		/* sizeof("verify-full")==12   */
 	offsetof(struct pg_conn, sslmode)},
 
 	{"sslcompression", "PGSSLCOMPRESSION", "0", NULL,
@@ -288,7 +288,7 @@ static const internalPQconninfoOption PQconninfoOptions[] = {
 	offsetof(struct pg_conn, sslkey)},
 
 	{"sslcertmode", "PGSSLCERTMODE", NULL, NULL,
-		"SSL-Client-Cert-Mode", "", 8,	/* sizeof("disable") == 8 */
+		"SSL-Client-Cert-Mode", "", 8,	/* sizeof("disable")==8   */
 	offsetof(struct pg_conn, sslcertmode)},
 
 	{"sslpassword", NULL, NULL, NULL,
@@ -316,23 +316,23 @@ static const internalPQconninfoOption PQconninfoOptions[] = {
 	offsetof(struct pg_conn, requirepeer)},
 
 	{"require_auth", "PGREQUIREAUTH", NULL, NULL,
-		"Require-Auth", "", 14, /* sizeof("scram-sha-256") == 14 */
+		"Require-Auth", "", 14, /* sizeof("scram-sha-256")==14   */
 	offsetof(struct pg_conn, require_auth)},
 
 	{"ssl_min_protocol_version", "PGSSLMINPROTOCOLVERSION", "TLSv1.2", NULL,
-		"SSL-Minimum-Protocol-Version", "", 8,	/* sizeof("TLSv1.x") == 8 */
+		"SSL-Minimum-Protocol-Version", "", 8,	/* sizeof("TLSv1.x")==8   */
 	offsetof(struct pg_conn, ssl_min_protocol_version)},
 
 	{"ssl_max_protocol_version", "PGSSLMAXPROTOCOLVERSION", NULL, NULL,
-		"SSL-Maximum-Protocol-Version", "", 8,	/* sizeof("TLSv1.x") == 8 */
+		"SSL-Maximum-Protocol-Version", "", 8,	/* sizeof("TLSv1.x")==8   */
 	offsetof(struct pg_conn, ssl_max_protocol_version)},
 
 	/*
-	 * As with SSL, all GSS options are exposed even in builds that don't have
-	 * support.
-	 */
+		 * 同 SSL，GSS 选项未构建也暴露。
+		                                         
+*/
 	{"gssencmode", "PGGSSENCMODE", DefaultGSSMode, NULL,
-		"GSSENC-Mode", "", 8,	/* sizeof("disable") == 8 */
+		"GSSENC-Mode", "", 8,	/* sizeof("disable")==8   */
 	offsetof(struct pg_conn, gssencmode)},
 
 	/* Kerberos and GSSAPI authentication support specifying the service name */
@@ -341,7 +341,7 @@ static const internalPQconninfoOption PQconninfoOptions[] = {
 	offsetof(struct pg_conn, krbsrvname)},
 
 	{"gsslib", "PGGSSLIB", NULL, NULL,
-		"GSS-library", "", 7,	/* sizeof("gssapi") == 7 */
+		"GSS-library", "", 7,	/* sizeof("gssapi")==7   */
 	offsetof(struct pg_conn, gsslib)},
 
 	{"gssdelegation", "PGGSSDELEGATION", "0", NULL,
@@ -354,12 +354,12 @@ static const internalPQconninfoOption PQconninfoOptions[] = {
 
 	{"target_session_attrs", "PGTARGETSESSIONATTRS",
 		DefaultTargetSessionAttrs, NULL,
-		"Target-Session-Attrs", "", 15, /* sizeof("prefer-standby") = 15 */
+		"Target-Session-Attrs", "", 15, /* sizeof("prefer-standby")=15   */
 	offsetof(struct pg_conn, target_session_attrs)},
 
 	{"load_balance_hosts", "PGLOADBALANCEHOSTS",
 		DefaultLoadBalanceHosts, NULL,
-		"Load-Balance-Hosts", "", 8,	/* sizeof("disable") = 8 */
+		"Load-Balance-Hosts", "", 8,	/* sizeof("disable")=8   */
 	offsetof(struct pg_conn, load_balance_hosts)},
 
 	/* Terminating entry --- MUST BE LAST */
@@ -457,15 +457,15 @@ pgthreadlock_t pg_g_threadlock = default_threadlock;
 /*
  *		pqDropConnection
  *
- * Close any physical connection to the server, and reset associated
- * state inside the connection object.  We don't release state that
- * would be needed to reconnect, though, nor local state that might still
- * be useful later.
+ * 关闭物理连接，重置相关状态。
+ * 不释放重连所需及后续可用状态。
  *
- * We can always flush the output buffer, since there's no longer any hope
- * of sending that data.  However, unprocessed input data might still be
- * valuable, so the caller must tell us whether to flush that or not.
- */
+ * 输出缓冲可刷新，因不可能再发送。
+ * 未处理输入可能有价值，调用者
+ * 决定是否刷新。
+                                                                                                                    
+                                                                                                                  
+*/
 void
 pqDropConnection(PGconn *conn, bool flushInput)
 {
@@ -477,14 +477,14 @@ pqDropConnection(PGconn *conn, bool flushInput)
 		closesocket(conn->sock);
 	conn->sock = PGINVALID_SOCKET;
 
-	/* Optionally discard any unread data */
+	/* 可选弃未读数据              */
 	if (flushInput)
 		conn->inStart = conn->inCursor = conn->inEnd = 0;
 
 	/* Always discard any unsent data */
 	conn->outCount = 0;
 
-	/* Likewise, discard any pending pipelined commands */
+	/* 弃待处理流水线命令                      */
 	pqFreeCommandQueue(conn->cmd_queue_head);
 	conn->cmd_queue_head = conn->cmd_queue_tail = NULL;
 	pqFreeCommandQueue(conn->cmd_queue_recycle);
@@ -551,8 +551,8 @@ pqDropConnection(PGconn *conn, bool flushInput)
 
 /*
  * pqFreeCommandQueue
- * Free all the entries of PGcmdQueueEntry queue passed.
- */
+ * 释放 PGcmdQueueEntry 队列。
+                      */
 static void
 pqFreeCommandQueue(PGcmdQueueEntry *queue)
 {
@@ -569,16 +569,16 @@ pqFreeCommandQueue(PGcmdQueueEntry *queue)
 /*
  *		pqDropServerData
  *
- * Clear all connection state data that was received from (or deduced about)
- * the server.  This is essential to do between connection attempts to
- * different servers, else we may incorrectly hold over some data from the
- * old server.
+ * 清除从服务器收/推断的连接状态。
+ * 换不同服务器时必做，免误留旧
+ * 服务器数据。
  *
- * It would be better to merge this into pqDropConnection, perhaps, but
- * right now we cannot because that function is called immediately on
- * detection of connection loss (cf. pqReadData, for instance).  This data
- * should be kept until we are actually starting a new connection.
- */
+ * 可能应合入 pqDropConnection，但
+ * 该函数断连时立调（如 pqReadData）。
+ * 数据应保留到实际新连时。
+                                                                                                                                        
+                                                                                                                                      
+*/
 static void
 pqDropServerData(PGconn *conn)
 {
@@ -596,7 +596,7 @@ pqDropServerData(PGconn *conn)
 	}
 	conn->notifyHead = conn->notifyTail = NULL;
 
-	/* Reset ParameterStatus data, as well as variables deduced from it */
+	/* 重置 ParameterStatus 及推导变量                           */
 	pstatus = conn->pstatus;
 	while (pstatus != NULL)
 	{
@@ -632,49 +632,49 @@ pqDropServerData(PGconn *conn)
 
 
 /*
- *		Connecting to a Database
+ *		连接数据库
  *
- * There are now six different ways a user of this API can connect to the
- * database.  Two are not recommended for use in new code, because of their
- * lack of extensibility with respect to the passing of options to the
- * backend.  These are PQsetdb and PQsetdbLogin (the former now being a macro
- * to the latter).
+ * 本 API 有六种连接方式。两种不推荐
+ * 新代码用（缺选项传递扩展性）：
+ * PQsetdb 和 PQsetdbLogin
+ *（前者是后者的宏）。
  *
- * If it is desired to connect in a synchronous (blocking) manner, use the
- * function PQconnectdb or PQconnectdbParams. The former accepts a string of
- * option = value pairs (or a URI) which must be parsed; the latter takes two
- * NULL terminated arrays instead.
+ * 同步（阻塞）用 PQconnectdb 或
+ * PQconnectdbParams。前者接受
+ * option=value 串或 URI 需解析；
+ * 后者接受两个 NULL 终止数组。
  *
- * To connect in an asynchronous (non-blocking) manner, use the functions
- * PQconnectStart or PQconnectStartParams (which differ in the same way as
- * PQconnectdb and PQconnectdbParams) and PQconnectPoll.
+ * 异步（非阻塞）用 PQconnectStart
+ * 或 PQconnectStartParams（差异同上）
+ * 及 PQconnectPoll。
  *
- * Internally, the static functions connectDBStart, connectDBComplete
- * are part of the connection procedure.
- */
+ * 内部静态 connectDBStart、
+ * connectDBComplete 是连接过程
+ * 的一部分。
+                                                                                                                                                                                                                                                                                                                                                                                                  */
 
 /*
  *		PQconnectdbParams
  *
- * establishes a connection to a postgres backend through the postmaster
- * using connection information in two arrays.
+ * 用两个数组的连接信息通过 postmaster
+ * 建连到 postgres 后端。
  *
- * The keywords array is defined as
+ * keywords 数组：
  *
- *	   const char *params[] = {"option1", "option2", NULL}
+ *	   const char *params[] = {"o1",
+ *							"o2", NULL}
  *
- * The values array is defined as
+ * values 数组：
  *
- *	   const char *values[] = {"value1", "value2", NULL}
+ *	   const char *values[] = {"v1",
+ *							"v2", NULL}
  *
- * Returns a PGconn* which is needed for all subsequent libpq calls, or NULL
- * if a memory allocation failed.
- * If the status field of the connection returned is CONNECTION_BAD,
- * then some fields may be null'ed out instead of having valid values.
+ * 返回 PGconn*；malloc 失败返 NULL。
+ * status 为 CONNECTION_BAD 时部分
+ * 字段可能置空。
  *
- * You should call PQfinish (if conn is not NULL) regardless of whether this
- * call succeeded.
- */
+ * 无论成败应调 PQfinish（conn 非空时）。
+                                                                                                                                                                                                                                                          */
 PGconn *
 PQconnectdbParams(const char *const *keywords,
 				  const char *const *values,
@@ -691,8 +691,8 @@ PQconnectdbParams(const char *const *keywords,
 /*
  *		PQpingParams
  *
- * check server status, accepting parameters identical to PQconnectdbParams
- */
+ * 查服务器状态，参数同 PQconnectdbParams
+                         */
 PGPing
 PQpingParams(const char *const *keywords,
 			 const char *const *values,
@@ -710,26 +710,26 @@ PQpingParams(const char *const *keywords,
 /*
  *		PQconnectdb
  *
- * establishes a connection to a postgres backend through the postmaster
- * using connection information in a string.
+ * 用串中连接信息通过 postmaster
+ * 建连到 postgres 后端。
  *
- * The conninfo string is either a whitespace-separated list of
+ * conninfo 是空格分隔的
  *
  *	   option = value
  *
- * definitions or a URI (refer to the documentation for details.) Value
- * might be a single value containing no whitespaces or a single quoted
- * string. If a single quote should appear anywhere in the value, it must be
- * escaped with a backslash like \'
+ * 列表或 URI（详见文档）。值含单引号
+ * 时须 \' 转义。
  *
- * Returns a PGconn* which is needed for all subsequent libpq calls, or NULL
- * if a memory allocation failed.
- * If the status field of the connection returned is CONNECTION_BAD,
- * then some fields may be null'ed out instead of having valid values.
+ * 返回 PGconn*；malloc 失败返 NULL。
+ * status 为 CONNECTION_BAD 时部分
+ * 字段可能置空。
  *
- * You should call PQfinish (if conn is not NULL) regardless of whether this
- * call succeeded.
- */
+ * 无论成败应调 PQfinish（conn 非空时）。
+                                                                                                               
+                                                                                                              
+                                                                                                             
+                                                                                                             
+*/
 PGconn *
 PQconnectdb(const char *conninfo)
 {
@@ -744,8 +744,8 @@ PQconnectdb(const char *conninfo)
 /*
  *		PQping
  *
- * check server status, accepting parameters identical to PQconnectdb
- */
+ * 查服务器状态，参数同 PQconnectdb
+                         */
 PGPing
 PQping(const char *conninfo)
 {
@@ -761,22 +761,22 @@ PQping(const char *conninfo)
 /*
  *		PQconnectStartParams
  *
- * Begins the establishment of a connection to a postgres backend through the
- * postmaster using connection information in a struct.
+ * 用 struct 中连接信息开始通过
+ * postmaster 建连到后端。
  *
- * See comment for PQconnectdbParams for the definition of the string format.
+ * 格式见 PQconnectdbParams 注释。
  *
- * Returns a PGconn*.  If NULL is returned, a malloc error has occurred, and
- * you should not attempt to proceed with this connection.  If the status
- * field of the connection returned is CONNECTION_BAD, an error has
- * occurred. In this case you should call PQfinish on the result, (perhaps
- * inspecting the error message first).  Other fields of the structure may not
- * be valid if that occurs.  If the status field is not CONNECTION_BAD, then
- * this stage has succeeded - call PQconnectPoll, using select(2) to see when
- * this is necessary.
+ * 返回 PGconn*。NULL 即 malloc 错，
+ * 不应继续。status 为 CONNECTION_BAD
+ * 表示出错，应对结果调 PQfinish
+ *（可先检查错误消息）。其他字段
+ * 可能无效。status 非 BAD 则此阶段
+ * 成功 - 调 PQconnectPoll 用 select(2)
+ * 判断何时需调。
  *
- * See PQconnectPoll for more info.
- */
+ * 详见 PQconnectPoll。
+                                                                                                                                                                                                                                                                                                                                                                          
+*/
 PGconn *
 PQconnectStartParams(const char *const *keywords,
 					 const char *const *values,
@@ -786,17 +786,17 @@ PQconnectStartParams(const char *const *keywords,
 	PQconninfoOption *connOptions;
 
 	/*
-	 * Allocate memory for the conn structure.  Note that we also expect this
-	 * to initialize conn->errorMessage to empty.  All subsequent steps during
-	 * connection initialization will only append to that buffer.
-	 */
+		 * 为 conn struct 分配内存。期望
+		 * conn->errorMessage 初始化空。
+		 * 后续仅追加到该缓冲区。
+		                                                                                            */
 	conn = makeEmptyPGconn();
 	if (conn == NULL)
 		return NULL;
 
 	/*
-	 * Parse the conninfo arrays
-	 */
+		 * 解析 conninfo 数组
+		  */
 	connOptions = conninfo_array_parse(keywords, values,
 									   &conn->errorMessage,
 									   true, expand_dbname);
@@ -808,8 +808,8 @@ PQconnectStartParams(const char *const *keywords,
 	}
 
 	/*
-	 * Move option values into conn structure
-	 */
+		 * 将选项值移入 conn struct
+		       */
 	if (!fillPGconn(conn, connOptions))
 	{
 		PQconninfoFree(connOptions);
@@ -817,22 +817,22 @@ PQconnectStartParams(const char *const *keywords,
 	}
 
 	/*
-	 * Free the option info - all is in conn now
-	 */
+		 * 释放选项 - 全入 conn 了
+		          */
 	PQconninfoFree(connOptions);
 
 	/*
-	 * Compute derived options
-	 */
+		 * 计算派生选项
+		    */
 	if (!connectOptions2(conn))
 		return conn;
 
 	/*
-	 * Connect to the database
-	 */
+		 * 连接数据库
+		       */
 	if (!connectDBStart(conn))
 	{
-		/* Just in case we failed to set it in connectDBStart */
+		/* 防 connectDBStart 未设                          */
 		conn->status = CONNECTION_BAD;
 	}
 
@@ -842,54 +842,54 @@ PQconnectStartParams(const char *const *keywords,
 /*
  *		PQconnectStart
  *
- * Begins the establishment of a connection to a postgres backend through the
- * postmaster using connection information in a string.
+ * 用串中连接信息开始通过 postmaster
+ * 建连到后端。
  *
- * See comment for PQconnectdb for the definition of the string format.
+ * 格式见 PQconnectdb 注释。
  *
- * Returns a PGconn*.  If NULL is returned, a malloc error has occurred, and
- * you should not attempt to proceed with this connection.  If the status
- * field of the connection returned is CONNECTION_BAD, an error has
- * occurred. In this case you should call PQfinish on the result, (perhaps
- * inspecting the error message first).  Other fields of the structure may not
- * be valid if that occurs.  If the status field is not CONNECTION_BAD, then
- * this stage has succeeded - call PQconnectPoll, using select(2) to see when
- * this is necessary.
+ * 返回 PGconn*。NULL 即 malloc 错，
+ * 不应继续。status 为 CONNECTION_BAD
+ * 表示出错，应对结果调 PQfinish
+ *（可先检查错误消息）。其他字段
+ * 可能无效。status 非 BAD 则此阶段
+ * 成功 - 调 PQconnectPoll 用 select(2)
+ * 判断何时需调。
  *
- * See PQconnectPoll for more info.
- */
+ * 详见 PQconnectPoll。
+                                                                                                                                                                                                                                                                                                                                                                               
+*/
 PGconn *
 PQconnectStart(const char *conninfo)
 {
 	PGconn	   *conn;
 
 	/*
-	 * Allocate memory for the conn structure.  Note that we also expect this
-	 * to initialize conn->errorMessage to empty.  All subsequent steps during
-	 * connection initialization will only append to that buffer.
-	 */
+		 * 为 conn struct 分配内存。期望
+		 * conn->errorMessage 初始化空。
+		 * 后续仅追加到该缓冲区。
+		                                                                                            */
 	conn = makeEmptyPGconn();
 	if (conn == NULL)
 		return NULL;
 
 	/*
-	 * Parse the conninfo string
-	 */
+		 * 解析 conninfo 串
+		     */
 	if (!connectOptions1(conn, conninfo))
 		return conn;
 
 	/*
-	 * Compute derived options
-	 */
+		 * 计算派生选项
+		    */
 	if (!connectOptions2(conn))
 		return conn;
 
 	/*
-	 * Connect to the database
-	 */
+		 * 连接数据库
+		       */
 	if (!connectDBStart(conn))
 	{
-		/* Just in case we failed to set it in connectDBStart */
+		/* 防 connectDBStart 未设                          */
 		conn->status = CONNECTION_BAD;
 	}
 
@@ -897,13 +897,13 @@ PQconnectStart(const char *conninfo)
 }
 
 /*
- * Move option values into conn structure
+ * 将选项值移入 conn struct
  *
- * Don't put anything cute here --- intelligence should be in
- * connectOptions2 ...
+ * 智能处理应放 connectOptions2。
  *
- * Returns true on success. On failure, returns false and sets error message.
- */
+ * 成功返 true，失败返 false 设错。
+                                                                                    
+*/
 static bool
 fillPGconn(PGconn *conn, PQconninfoOption *connOptions)
 {
@@ -936,22 +936,22 @@ fillPGconn(PGconn *conn, PQconninfoOption *connOptions)
 /*
  *		connectOptions1
  *
- * Internal subroutine to set up connection parameters given an already-
- * created PGconn and a conninfo string.  Derived settings should be
- * processed by calling connectOptions2 next.  (We split them because
- * PQsetdbLogin overrides defaults in between.)
+ * 内部子过程：给定 PGconn 和 conninfo
+ * 串设连接参数。派生由 connectOptions2
+ * 处理。（分开因 PQsetdbLogin 中间
+ * 覆盖默认值。）
  *
- * Returns true if OK, false if trouble (in which case errorMessage is set
- * and so is conn->status).
- */
+ * 成功返 true，出错返 false
+ *（errorMessage 和 status 已设）。
+                                                                                                                      */
 static bool
 connectOptions1(PGconn *conn, const char *conninfo)
 {
 	PQconninfoOption *connOptions;
 
 	/*
-	 * Parse the conninfo string
-	 */
+		 * 解析 conninfo 串
+		     */
 	connOptions = parse_connection_string(conninfo, &conn->errorMessage, true);
 	if (connOptions == NULL)
 	{
@@ -961,8 +961,8 @@ connectOptions1(PGconn *conn, const char *conninfo)
 	}
 
 	/*
-	 * Move option values into conn structure
-	 */
+		 * 将选项值移入 conn struct
+		       */
 	if (!fillPGconn(conn, connOptions))
 	{
 		conn->status = CONNECTION_BAD;
@@ -971,16 +971,16 @@ connectOptions1(PGconn *conn, const char *conninfo)
 	}
 
 	/*
-	 * Free the option info - all is in conn now
-	 */
+		 * 释放选项 - 全入 conn 了
+		          */
 	PQconninfoFree(connOptions);
 
 	return true;
 }
 
 /*
- * Count the number of elements in a simple comma-separated list.
- */
+ * 统计逗号分隔列表元素数。
+                           */
 static int
 count_comma_separated_elems(const char *input)
 {
@@ -997,14 +997,14 @@ count_comma_separated_elems(const char *input)
 }
 
 /*
- * Parse a simple comma-separated list.
+ * 解析逗号分隔列表。
  *
- * On each call, returns a malloc'd copy of the next element, and sets *more
- * to indicate whether there are any more elements in the list after this,
- * and updates *startptr to point to the next element, if any.
+ * 每次返下一元素 malloc 副本，
+ * 设 *more 指示后续，更新 *startptr。
  *
- * On out of memory, returns NULL.
- */
+ * OOM 返 NULL。
+                                                                                                                                                      
+*/
 static char *
 parse_comma_separated_list(char **startptr, bool *more)
 {
@@ -1014,9 +1014,9 @@ parse_comma_separated_list(char **startptr, bool *more)
 	size_t		len;
 
 	/*
-	 * Search for the end of the current element; a comma or end-of-string
-	 * acts as a terminator.
-	 */
+		 * 找当前元素尾：逗号或串尾。
+		                                                    
+*/
 	e = s;
 	while (*e != '\0' && *e != ',')
 		++e;
@@ -1035,11 +1035,11 @@ parse_comma_separated_list(char **startptr, bool *more)
 }
 
 /*
- * Initializes the prng_state field of the connection. We want something
- * unpredictable, so if possible, use high-quality random bits for the
- * seed. Otherwise, fall back to a seed based on the connection address,
- * timestamp and PID.
- */
+ * 初始化 prng_state。若可能用高质量
+ * 随机位作种，否则回退到基于地址、
+ * 时间戳和 PID 的种子。
+                                                                                                          
+*/
 static void
 libpq_prng_init(PGconn *conn)
 {
@@ -1062,21 +1062,21 @@ libpq_prng_init(PGconn *conn)
 /*
  *		connectOptions2
  *
- * Compute derived connection options after absorbing all user-supplied info.
+ * 吸收所有用户信息后计派生连接选项。
  *
- * Returns true if OK, false if trouble (in which case errorMessage is set
- * and so is conn->status).
- */
+ * 成功返 true，出错返 false
+ *（errorMessage 和 status 已设）。
+                                                 */
 static bool
 connectOptions2(PGconn *conn)
 {
 	int			i;
 
 	/*
-	 * Allocate memory for details about each host to which we might possibly
-	 * try to connect.  For that, count the number of elements in the hostaddr
-	 * or host options.  If neither is given, assume one host.
-	 */
+		 * 为各可能主机分配内存。统计
+		 * hostaddr/host 元素数。
+		 * 均无则假定一个主机。
+		                                                                                                  */
 	conn->whichhost = 0;
 	if (conn->pghostaddr && conn->pghostaddr[0] != '\0')
 		conn->nconnhost = count_comma_separated_elems(conn->pghostaddr);
@@ -1090,9 +1090,9 @@ connectOptions2(PGconn *conn)
 		goto oom_error;
 
 	/*
-	 * We now have one pg_conn_host structure per possible host.  Fill in the
-	 * host and hostaddr fields for each, by splitting the parameter strings.
-	 */
+		 * 每主机有 pg_conn_host。
+		 * 拆参数字串填 host、hostaddr。
+		                                                                         */
 	if (conn->pghostaddr != NULL && conn->pghostaddr[0] != '\0')
 	{
 		char	   *s = conn->pghostaddr;
@@ -1106,10 +1106,10 @@ connectOptions2(PGconn *conn)
 		}
 
 		/*
-		 * If hostaddr was given, the array was allocated according to the
-		 * number of elements in the hostaddr list, so it really should be the
-		 * right size.
-		 */
+			 * 若有 hostaddr，数组按其元素
+			 * 数分配，大小应正确。
+			                                                                              
+*/
 		Assert(!more);
 		Assert(i == conn->nconnhost);
 	}
@@ -1137,9 +1137,9 @@ connectOptions2(PGconn *conn)
 	}
 
 	/*
-	 * Now, for each host slot, identify the type of address spec, and fill in
-	 * the default address if nothing was given.
-	 */
+		 * 对各槽位识别地址类型，
+		 * 无给定填默认地址。
+		                                                  */
 	for (i = 0; i < conn->nconnhost; i++)
 	{
 		pg_conn_host *ch = &conn->connhost[i];
@@ -1157,9 +1157,9 @@ connectOptions2(PGconn *conn)
 			free(ch->host);
 
 			/*
-			 * This bit selects the default host location.  If you change
-			 * this, see also pg_regress.
-			 */
+				 * 选择默认主机位。改此
+				 * 也见 pg_regress。
+				                                */
 			if (DEFAULT_PGSOCKET_DIR[0])
 			{
 				ch->host = strdup(DEFAULT_PGSOCKET_DIR);
@@ -1176,12 +1176,12 @@ connectOptions2(PGconn *conn)
 	}
 
 	/*
-	 * Next, work out the port number corresponding to each host name.
-	 *
-	 * Note: unlike the above for host names, this could leave the port fields
-	 * as null or empty strings.  We will substitute DEF_PGPORT whenever we
-	 * read such a port field.
-	 */
+		 * 确定各主机名对应端口号。
+		 *
+		 * 端口可 null 或空，读时替为
+		 * DEF_PGPORT。
+		                                                                                                                                            
+*/
 	if (conn->pgport != NULL && conn->pgport[0] != '\0')
 	{
 		char	   *s = conn->pgport;
@@ -1195,9 +1195,9 @@ connectOptions2(PGconn *conn)
 		}
 
 		/*
-		 * If exactly one port was given, use it for every host.  Otherwise,
-		 * there must be exactly as many ports as there were hosts.
-		 */
+			 * 仅一个端口则用于全部主机。
+			 * 否则端口数须同主机数。
+			                                               */
 		if (i == 1 && !more)
 		{
 			for (i = 1; i < conn->nconnhost; i++)
@@ -1233,8 +1233,8 @@ connectOptions2(PGconn *conn)
 	}
 
 	/*
-	 * If database name was not given, default it to equal user name
-	 */
+		 * 无数据库名则默认同用户名
+		                        */
 	if (conn->dbName == NULL || conn->dbName[0] == '\0')
 	{
 		free(conn->dbName);
@@ -1244,9 +1244,9 @@ connectOptions2(PGconn *conn)
 	}
 
 	/*
-	 * If password was not given, try to look it up in password file.  Note
-	 * that the result might be different for each host/port pair.
-	 */
+		 * 无密码则在密码文件中查找。
+		 * 每 host/port 结果可不同。
+		                                                      */
 	if (conn->pgpass == NULL || conn->pgpass[0] == '\0')
 	{
 		/* If password file wasn't specified, use ~/PGPASSFILE */
@@ -1270,10 +1270,10 @@ connectOptions2(PGconn *conn)
 			for (i = 0; i < conn->nconnhost; i++)
 			{
 				/*
-				 * Try to get a password for this host from file.  We use host
-				 * for the hostname search key if given, else hostaddr (at
-				 * least one of them is guaranteed nonempty by now).
-				 */
+					 * 从文件获此主机密码。
+					 * 用 host（或 hostaddr，
+					 * 至少其一非空）搜索。
+					                                                                          */
 				const char *pwhost = conn->connhost[i].host;
 
 				if (pwhost == NULL || pwhost[0] == '\0')
@@ -1290,8 +1290,8 @@ connectOptions2(PGconn *conn)
 	}
 
 	/*
-	 * parse and validate require_auth option
-	 */
+		 * 解析并验证 require_auth
+		         */
 	if (conn->require_auth && conn->require_auth[0])
 	{
 		char	   *s = conn->require_auth;
@@ -1300,9 +1300,9 @@ connectOptions2(PGconn *conn)
 		bool		negated = false;
 
 		/*
-		 * By default, start from an empty set of allowed options and add to
-		 * it.
-		 */
+			 * 默认空允许集逐步添加。
+			                                       
+*/
 		conn->auth_required = true;
 		conn->allowed_auth_methods = 0;
 
@@ -1317,18 +1317,18 @@ connectOptions2(PGconn *conn)
 				goto oom_error;
 
 			/*
-			 * Check for negation, e.g. '!password'. If one element is
-			 * negated, they all have to be.
-			 */
+				 * 检查否定如 !password。
+				 * 一否定则全须否定。
+				                           */
 			method = part;
 			if (*method == '!')
 			{
 				if (first)
 				{
 					/*
-					 * Switch to a permissive set of allowed options, and
-					 * subtract from it.
-					 */
+						 * 切换许可集并减去。
+						                                               
+*/
 					conn->auth_required = false;
 					conn->allowed_auth_methods = -1;
 				}
@@ -1375,7 +1375,7 @@ connectOptions2(PGconn *conn)
 			}
 			else if (strcmp(method, "scram-sha-256") == 0)
 			{
-				/* This currently assumes that SCRAM is the only SASL method. */
+				/* 目前假定仅 SCRAM 为 SASL                             */
 				bits = (1 << AUTH_REQ_SASL);
 				bits |= (1 << AUTH_REQ_SASL_CONT);
 				bits |= (1 << AUTH_REQ_SASL_FIN);
@@ -1383,10 +1383,10 @@ connectOptions2(PGconn *conn)
 			else if (strcmp(method, "none") == 0)
 			{
 				/*
-				 * Special case: let the user explicitly allow (or disallow)
-				 * connections where the server does not send an explicit
-				 * authentication challenge, such as "trust" and "cert" auth.
-				 */
+					 * 特殊：允许显式允许/禁止
+					 * 服务器不认证时的连接，
+					 * 如 trust/cert。
+					                                                                                  */
 				if (negated)	/* "!none" */
 				{
 					if (conn->auth_required)
@@ -1437,9 +1437,9 @@ connectOptions2(PGconn *conn)
 	duplicate:
 
 			/*
-			 * A duplicated method probably indicates a typo in a setting
-			 * where typos are extremely risky.
-			 */
+				 * 重复方法可能表明
+				 * 设置有错别字。
+				                                           */
 			conn->status = CONNECTION_BAD;
 			libpq_append_conn_error(conn, "require_auth method \"%s\" is specified more than once",
 									part);
@@ -1450,8 +1450,8 @@ connectOptions2(PGconn *conn)
 	}
 
 	/*
-	 * validate channel_binding option
-	 */
+		 * 验证 channel_binding
+		        */
 	if (conn->channel_binding)
 	{
 		if (strcmp(conn->channel_binding, "disable") != 0
@@ -1474,10 +1474,10 @@ connectOptions2(PGconn *conn)
 #ifndef USE_SSL
 
 	/*
-	 * sslrootcert=system is not supported. Since setting this changes the
-	 * default sslmode, check this _before_ we validate sslmode, to avoid
-	 * confusing the user with errors for an option they may not have set.
-	 */
+		 * sslrootcert=system 不支持。
+		 * 因改默认 sslmode，
+		 * 先于 sslmode 验证检查。
+		                                                                                                                 */
 	if (conn->sslrootcert
 		&& strcmp(conn->sslrootcert, "system") == 0)
 	{
@@ -1489,8 +1489,8 @@ connectOptions2(PGconn *conn)
 #endif
 
 	/*
-	 * validate sslmode option
-	 */
+		 * 验证 sslmode
+		        */
 	if (conn->sslmode)
 	{
 		if (strcmp(conn->sslmode, "disable") != 0
@@ -1513,13 +1513,13 @@ connectOptions2(PGconn *conn)
 			case 'p':			/* "prefer" */
 
 				/*
-				 * warn user that an SSL connection will never be negotiated
-				 * since SSL was not compiled in?
-				 */
+					 * 警告：未编译 SSL，
+					 * SSL 永不协商？
+					                                         */
 				break;
 
 			case 'r':			/* "require" */
-			case 'v':			/* "verify-ca" or "verify-full" */
+			case 'v':			/* "verify-ca"或"verify-full"  */
 				conn->status = CONNECTION_BAD;
 				libpq_append_conn_error(conn, "%s value \"%s\" invalid when SSL support is not compiled in",
 										"sslmode", conn->sslmode);
@@ -1551,9 +1551,9 @@ connectOptions2(PGconn *conn)
 #endif
 
 	/*
-	 * Validate TLS protocol versions for ssl_min_protocol_version and
-	 * ssl_max_protocol_version.
-	 */
+		 * 验证 SSL 协议版本范围
+		                                                              
+*/
 	if (!sslVerifyProtocolVersion(conn->ssl_min_protocol_version))
 	{
 		conn->status = CONNECTION_BAD;
@@ -1572,12 +1572,12 @@ connectOptions2(PGconn *conn)
 	}
 
 	/*
-	 * Check if the range of SSL protocols defined is correct.  This is done
-	 * at this early step because this is independent of the SSL
-	 * implementation used, and this avoids unnecessary cycles with an
-	 * already-built SSL context when the connection is being established, as
-	 * it would be doomed anyway.
-	 */
+		 * 检查 SSL 协议范围。早期步骤
+		 * 独立于实现，免浪费周期。
+		                                                                           
+                                                                         
+                                                                         
+*/
 	if (!sslVerifyProtocolRange(conn->ssl_min_protocol_version,
 								conn->ssl_max_protocol_version))
 	{
@@ -1587,8 +1587,8 @@ connectOptions2(PGconn *conn)
 	}
 
 	/*
-	 * validate sslcertmode option
-	 */
+		 * 验证 sslcertmode
+		        */
 	if (conn->sslcertmode)
 	{
 		if (strcmp(conn->sslcertmode, "disable") != 0 &&
@@ -1612,10 +1612,10 @@ connectOptions2(PGconn *conn)
 #ifndef HAVE_SSL_CTX_SET_CERT_CB
 
 		/*
-		 * Without a certificate callback, the current implementation can't
-		 * figure out if a certificate was actually requested, so "require" is
-		 * useless.
-		 */
+			 * 无证书回调无法判断是否
+			 * 请求证书，"require"无用。
+			                                                                            
+*/
 		if (strcmp(conn->sslcertmode, "require") == 0)
 		{
 			conn->status = CONNECTION_BAD;
@@ -1633,8 +1633,8 @@ connectOptions2(PGconn *conn)
 	}
 
 	/*
-	 * validate gssencmode option
-	 */
+		 * 验证 gssencmode
+		        */
 	if (conn->gssencmode)
 	{
 		if (strcmp(conn->gssencmode, "disable") != 0 &&
@@ -1717,13 +1717,13 @@ connectOptions2(PGconn *conn)
 		libpq_prng_init(conn);
 
 		/*
-		 * This is the "inside-out" variant of the Fisher-Yates shuffle
-		 * algorithm. Notionally, we append each new value to the array and
-		 * then swap it with a randomly-chosen array element (possibly
-		 * including itself, else we fail to generate permutations with the
-		 * last integer last).  The swap step can be optimized by combining it
-		 * with the insertion.
-		 */
+			 * Fisher-Yates"由内而外"变体。
+			 * 新值追加后再与随机元素交换
+			 *（可含自身）。交换合并插入。
+			                                                                              
+                                                                            
+                                                                            
+*/
 		for (i = 1; i < conn->nconnhost; i++)
 		{
 			int			j = pg_prng_uint64_range(&conn->prng_state, 0, i);
@@ -1735,8 +1735,8 @@ connectOptions2(PGconn *conn)
 	}
 
 	/*
-	 * Resolve special "auto" client_encoding from the locale
-	 */
+		 * 从 locale 解析 "auto"encoding
+		                     */
 	if (conn->client_encoding_initial &&
 		strcmp(conn->client_encoding_initial, "auto") == 0)
 	{
@@ -1747,10 +1747,10 @@ connectOptions2(PGconn *conn)
 	}
 
 	/*
-	 * Only if we get this far is it appropriate to try to connect. (We need a
-	 * state flag, rather than just the boolean result of this function, in
-	 * case someone tries to PQreset() the PGconn.)
-	 */
+		 * 到此方可连。（需状态标志
+		 * 非布尔，防 PQreset()。）
+		                                                                                                                      
+*/
 	conn->options_valid = true;
 
 	return true;
@@ -1764,26 +1764,26 @@ oom_error:
 /*
  *		PQconndefaults
  *
- * Construct a default connection options array, which identifies all the
- * available options and shows any default values that are available from the
- * environment etc.  On error (eg out of memory), NULL is returned.
+ * 构造默认连接选项数组，标识所有
+ * 可用选项及从环境等获取的默认值。
+ * 出错（如 OOM）返 NULL。
  *
- * Using this function, an application may determine all possible options
- * and their current default values.
+ * 应用可确定所有可能选项及当前
+ * 默认值。
  *
- * NOTE: as of PostgreSQL 7.0, the returned array is dynamically allocated
- * and should be freed when no longer needed via PQconninfoFree().  (In prior
- * versions, the returned array was static, but that's not thread-safe.)
- * Pre-7.0 applications that use this function will see a small memory leak
- * until they are updated to call PQconninfoFree.
- */
+ * 注意：PG 7.0 起数组动态分配，
+ * 不再需时用 PQconninfoFree() 释放。
+ *（此前静态但非线程安全。）旧应用
+ * 有少量内存泄漏直到更新。
+                                                                                                                                                                                                                                                                                                                 
+*/
 PQconninfoOption *
 PQconndefaults(void)
 {
 	PQExpBufferData errorBuf;
 	PQconninfoOption *connOptions;
 
-	/* We don't actually report any errors here, but callees want a buffer */
+	/* 不报错但被调用方需缓冲                                   */
 	initPQExpBuffer(&errorBuf);
 	if (PQExpBufferDataBroken(errorBuf))
 		return NULL;			/* out of memory already :-( */
@@ -1791,7 +1791,7 @@ PQconndefaults(void)
 	connOptions = conninfo_init(&errorBuf);
 	if (connOptions != NULL)
 	{
-		/* pass NULL errorBuf to ignore errors */
+		/* 传 NULL 忽略错误               */
 		if (!conninfo_add_defaults(connOptions, NULL))
 		{
 			PQconninfoFree(connOptions);
@@ -1806,15 +1806,15 @@ PQconndefaults(void)
 /* ----------------
  *		PQsetdbLogin
  *
- * establishes a connection to a postgres backend through the postmaster
- * at the specified host and port.
+ * 通过 postmaster 在指定主机和端口
+ * 建连到 postgres 后端。
  *
- * returns a PGconn* which is needed for all subsequent libpq calls
+ * 返回 PGconn*，后续 libpq 需它
  *
- * if the status field of the connection returned is CONNECTION_BAD,
- * then only the errorMessage is likely to be useful.
+ * status CONNECTION_BAD 时可能
+ * 仅 errorMessage 有用。
  * ----------------
- */
+                                                                                                                     */
 PGconn *
 PQsetdbLogin(const char *pghost, const char *pgport, const char *pgoptions,
 			 const char *pgtty, const char *dbName, const char *login,
@@ -1823,18 +1823,18 @@ PQsetdbLogin(const char *pghost, const char *pgport, const char *pgoptions,
 	PGconn	   *conn;
 
 	/*
-	 * Allocate memory for the conn structure.  Note that we also expect this
-	 * to initialize conn->errorMessage to empty.  All subsequent steps during
-	 * connection initialization will only append to that buffer.
-	 */
+		 * 为 conn struct 分配内存。期望
+		 * conn->errorMessage 初始化空。
+		 * 后续仅追加到该缓冲区。
+		                                                                                            */
 	conn = makeEmptyPGconn();
 	if (conn == NULL)
 		return NULL;
 
 	/*
-	 * If the dbName parameter contains what looks like a connection string,
-	 * parse it into conn struct using connectOptions1.
-	 */
+		 * 若 dbName 似连接串，
+		 * 用 connectOptions1 解析。
+		                                                            */
 	if (dbName && recognized_connection_string(dbName))
 	{
 		if (!connectOptions1(conn, dbName))
@@ -1904,14 +1904,14 @@ PQsetdbLogin(const char *pghost, const char *pgport, const char *pgoptions,
 	}
 
 	/*
-	 * Compute derived options
-	 */
+		 * 计算派生选项
+		    */
 	if (!connectOptions2(conn))
 		return conn;
 
 	/*
-	 * Connect to the database
-	 */
+		 * 连接数据库
+		       */
 	if (connectDBStart(conn))
 		(void) connectDBComplete(conn);
 
@@ -1926,10 +1926,10 @@ oom_error:
 
 /* ----------
  * connectNoDelay -
- * Sets the TCP_NODELAY socket option.
- * Returns 1 if successful, 0 if not.
+ * 设 TCP_NODELAY 套接字选项。
+ * 成功返 1，失败返 0。
  * ----------
- */
+        */
 static int
 connectNoDelay(PGconn *conn)
 {
@@ -1983,12 +1983,12 @@ getHostaddr(PGconn *conn, char *host_addr, int host_addr_len)
 
 /*
  * emitHostIdentityInfo -
- * Speculatively append "connection to server so-and-so failed: " to
- * conn->errorMessage once we've identified the current connection target
- * address.  This ensures that any subsequent error message will be properly
- * attributed to the server we couldn't connect to.  conn->raddr must be
- * valid, and the result of getHostaddr() must be supplied.
- */
+ * 识别目标地址后推测性追加
+ * "connection to server ... failed: "
+ * 到 conn->errorMessage。确保后续
+ * 错误归属正确服务器。conn->raddr
+ * 须有效且需 getHostaddr() 结果。
+                                                                                                                                                  */
 static void
 emitHostIdentityInfo(PGconn *conn, const char *host_addr)
 {
@@ -2019,10 +2019,10 @@ emitHostIdentityInfo(PGconn *conn, const char *host_addr)
 			displayed_port = DEF_PGPORT_STR;
 
 		/*
-		 * If the user did not supply an IP address using 'hostaddr', and
-		 * 'host' was missing or does not match our lookup, display the
-		 * looked-up IP address.
-		 */
+			 * 若用户未用 hostaddr 提供 IP
+			 * 且 host 缺或与查找不匹配，
+			 * 显示查得 IP。
+			                                                    */
 		if (conn->connhost[conn->whichhost].type != CHT_HOST_ADDRESS &&
 			host_addr[0] &&
 			strcmp(displayed_host, host_addr) != 0)
@@ -2040,11 +2040,11 @@ emitHostIdentityInfo(PGconn *conn, const char *host_addr)
 
 /* ----------
  * connectFailureMessage -
- * create a friendly error message on connection failure,
- * using the given errno value.  Use this for error cases that
- * imply that there's no server there.
+ * 连接失败时用给定 errno 创建
+ * 友好错误消息。用于暗示无服务器。
  * ----------
- */
+                                                                   
+*/
 static void
 connectFailureMessage(PGconn *conn, int errorno)
 {
@@ -2061,10 +2061,10 @@ connectFailureMessage(PGconn *conn, int errorno)
 }
 
 /*
- * Should we use keepalives?  Returns 1 if yes, 0 if no, and -1 if
- * conn->keepalives is set to a value which is not parseable as an
- * integer.
- */
+ * 应用保活？是返 1，否返 0；
+ * keepalives 非整数则返 -1。
+                                                                     
+*/
 static int
 useKeepalives(PGconn *conn)
 {
@@ -2080,10 +2080,10 @@ useKeepalives(PGconn *conn)
 }
 
 /*
- * Parse and try to interpret "value" as an integer value, and if successful,
- * store it in *result, complaining if there is any trailing garbage or an
- * overflow.  This allows any number of leading and trailing whitespaces.
- */
+ * 解析 "value" 为整数，成功则存
+ * *result；有尾随垃圾或溢出报错。
+                                                                                                                                         
+*/
 static bool
 parse_int_param(const char *value, int *result, PGconn *conn,
 				const char *context)
@@ -2100,16 +2100,16 @@ parse_int_param(const char *value, int *result, PGconn *conn,
 	numval = strtol(value, &end, 10);
 
 	/*
-	 * If no progress was done during the parsing or an error happened, fail.
-	 * This tests properly for overflows of the result.
-	 */
+	 * 解析无进展或出错则失败。
+	 * 可正检溢出。
+	                                                                 */
 	if (value == end || errno != 0 || numval != (int) numval)
 		goto error;
 
 	/*
-	 * Skip any trailing whitespace; if anything but whitespace remains before
-	 * the terminating character, fail
-	 */
+	 * 跳尾随空格；终止符前
+	 * 非空格残留则失败
+	                                                 */
 	while (*end != '\0' && isspace((unsigned char) *end))
 		end++;
 
@@ -2127,8 +2127,8 @@ error:
 
 #ifndef WIN32
 /*
- * Set the keepalive idle timer.
- */
+ * 设保活空闲定时器。
+   */
 static int
 setKeepalivesIdle(PGconn *conn)
 {
@@ -2161,8 +2161,8 @@ setKeepalivesIdle(PGconn *conn)
 }
 
 /*
- * Set the keepalive interval.
- */
+ * 设保活间隔。
+          */
 static int
 setKeepalivesInterval(PGconn *conn)
 {
@@ -2195,9 +2195,9 @@ setKeepalivesInterval(PGconn *conn)
 }
 
 /*
- * Set the count of lost keepalive packets that will trigger a connection
- * break.
- */
+ * 设触发断连的丢包数。
+                                                  
+*/
 static int
 setKeepalivesCount(PGconn *conn)
 {
@@ -2231,11 +2231,11 @@ setKeepalivesCount(PGconn *conn)
 #else							/* WIN32 */
 #ifdef SIO_KEEPALIVE_VALS
 /*
- * Enable keepalives and set the keepalive values on Win32,
- * where they are always set in one batch.
+ * Win32 启用保活并设保活值。
  *
- * CAUTION: This needs to be signal safe, since it's used by PQcancel.
- */
+ * 注意：需信号安全，因 PQcancel 用。
+                                                                                    
+*/
 static int
 setKeepalivesWin32(pgsocket sock, int idle, int interval)
 {
@@ -2293,8 +2293,8 @@ prepKeepalivesWin32(PGconn *conn)
 #endif							/* WIN32 */
 
 /*
- * Set the TCP user timeout.
- */
+ * 设 TCP 用户超时。
+   */
 static int
 setTCPUserTimeout(PGconn *conn)
 {
@@ -2329,11 +2329,11 @@ setTCPUserTimeout(PGconn *conn)
 
 /* ----------
  * connectDBStart -
- *		Begin the process of making a connection to the backend.
+ *		开始建连到后端。
  *
- * Returns 1 if successful, 0 if not.
+ * 成功返 1，失败返 0。
  * ----------
- */
+                                       */
 static int
 connectDBStart(PGconn *conn)
 {
@@ -2344,11 +2344,11 @@ connectDBStart(PGconn *conn)
 		goto connect_errReturn;
 
 	/*
-	 * Check for bad linking to backend-internal versions of src/common
-	 * functions (see comments in link-canary.c for the reason we need this).
-	 * Nobody but developers should see this message, so we don't bother
-	 * translating it.
-	 */
+	 * 检查是否错误链接 src/common
+	 * 后端内部版（见 link-canary.c）。
+	 * 仅开发者见，不翻译。
+	                                                                                                                 
+*/
 	if (!pg_link_canary_is_frontend())
 	{
 		appendPQExpBufferStr(&conn->errorMessage,
@@ -2361,36 +2361,36 @@ connectDBStart(PGconn *conn)
 	conn->outCount = 0;
 
 	/*
-	 * Set up to try to connect to the first host.  (Setting whichhost = -1 is
-	 * a bit of a cheat, but PQconnectPoll will advance it to 0 before
-	 * anything else looks at it.)
-	 */
+	 * 设尝试连第一主机。
+	 *（whichhost=-1 不妥但
+	 * PQconnectPoll 会推到 0。）
+	                                                                                */
 	conn->whichhost = -1;
 	conn->try_next_addr = false;
 	conn->try_next_host = true;
 	conn->status = CONNECTION_NEEDED;
 
-	/* Also reset the target_server_type state if needed */
+	/* 也重置 target_server_type 如需               */
 	if (conn->target_server_type == SERVER_TYPE_PREFER_STANDBY_PASS2)
 		conn->target_server_type = SERVER_TYPE_PREFER_STANDBY;
 
 	/*
-	 * The code for processing CONNECTION_NEEDED state is in PQconnectPoll(),
-	 * so that it can easily be re-executed if needed again during the
-	 * asynchronous startup process.  However, we must run it once here,
-	 * because callers expect a success return from this routine to mean that
-	 * we are in PGRES_POLLING_WRITING connection state.
-	 */
+	 * CONNECTION_NEEDED 处理在
+	 * PQconnectPoll() 中便于重执行。
+	 * 但须在此运行一次，因调用者
+	 * 期望成功返回意味
+	 * PGRES_POLLING_WRITING 状态。
+	                                                                                                                                                                */
 	if (PQconnectPoll(conn) == PGRES_POLLING_WRITING)
 		return 1;
 
 connect_errReturn:
 
 	/*
-	 * If we managed to open a socket, close it immediately rather than
-	 * waiting till PQfinish.  (The application cannot have gotten the socket
-	 * from PQsocket yet, so this doesn't risk breaking anything.)
-	 */
+	 * 若开套接字立关不等 PQfinish。
+	 *（应用未通过 PQsocket 获取
+	 * 故不破坏。）
+	                                                                                                        */
 	pqDropConnection(conn, true);
 	conn->status = CONNECTION_BAD;
 	return 0;
@@ -2400,25 +2400,25 @@ connect_errReturn:
 /*
  *		connectDBComplete
  *
- * Block and complete a connection.
+ * 阻塞完成连接。
  *
- * Returns 1 on success, 0 on failure.
- */
+ * 成功返 1，失败返 0。
+                   */
 static int
 connectDBComplete(PGconn *conn)
 {
 	PostgresPollingStatusType flag = PGRES_POLLING_WRITING;
 	time_t		finish_time = ((time_t) -1);
 	int			timeout = 0;
-	int			last_whichhost = -2;	/* certainly different from whichhost */
-	int			last_whichaddr = -2;	/* certainly different from whichaddr */
+	int			last_whichhost = -2;	/* 定非 whichhost                   */
+	int			last_whichaddr = -2;	/* 定非 whichaddr                   */
 
 	if (conn == NULL || conn->status == CONNECTION_BAD)
 		return 0;
 
 	/*
-	 * Set up a time limit, if connect_timeout isn't zero.
-	 */
+	 * connect_timeout 非零设时限。
+	                  */
 	if (conn->connect_timeout != NULL)
 	{
 		if (!parse_int_param(conn->connect_timeout, &timeout, conn,
@@ -2432,10 +2432,10 @@ connectDBComplete(PGconn *conn)
 		if (timeout > 0)
 		{
 			/*
-			 * Rounding could cause connection to fail unexpectedly quickly;
-			 * to prevent possibly waiting hardly-at-all, insist on at least
-			 * two seconds.
-			 */
+			 * 舍入可致过快失败；
+			 * 坚持至少 2 秒。
+			                                                                                             
+*/
 			if (timeout < 2)
 				timeout = 2;
 		}
@@ -2448,10 +2448,10 @@ connectDBComplete(PGconn *conn)
 		int			ret = 0;
 
 		/*
-		 * (Re)start the connect_timeout timer if it's active and we are
-		 * considering a different host than we were last time through.  If
-		 * we've already succeeded, though, needn't recalculate.
-		 */
+		 * connect_timeout 活跃且考
+		 * 不同主机则重启动。已成功
+		 * 不重算。
+		                                                                                                       */
 		if (flag != PGRES_POLLING_OK &&
 			timeout > 0 &&
 			(conn->whichhost != last_whichhost ||
@@ -2463,13 +2463,13 @@ connectDBComplete(PGconn *conn)
 		}
 
 		/*
-		 * Wait, if necessary.  Note that the initial state (just after
-		 * PQconnectStart) is to wait for the socket to select for writing.
-		 */
+		 * 必要时等。初始态 (PQconnectStart
+		 * 后) 是等可写。
+		                                                                 */
 		switch (flag)
 		{
 			case PGRES_POLLING_OK:
-				return 1;		/* success! */
+				return 1;		/* 成功！*/
 
 			case PGRES_POLLING_READING:
 				ret = pqWaitTimed(1, 0, conn, finish_time);
@@ -2492,7 +2492,7 @@ connectDBComplete(PGconn *conn)
 				break;
 
 			default:
-				/* Just in case we failed to set it in PQconnectPoll */
+				/* 防 PQconnectPoll 未设                          */
 				conn->status = CONNECTION_BAD;
 				return 0;
 		}
@@ -2500,15 +2500,15 @@ connectDBComplete(PGconn *conn)
 		if (ret == 1)			/* connect_timeout elapsed */
 		{
 			/*
-			 * Give up on current server/address, try the next one.
-			 */
+			 * 弃当前服/址，试下个。
+			                      */
 			conn->try_next_addr = true;
 			conn->status = CONNECTION_NEEDED;
 		}
 
 		/*
-		 * Now try to advance the state machine.
-		 */
+		 * 试推进状态机。
+		                 */
 		flag = PQconnectPoll(conn);
 	}
 }
@@ -2516,30 +2516,30 @@ connectDBComplete(PGconn *conn)
 /* ----------------
  *		PQconnectPoll
  *
- * Poll an asynchronous connection.
+ * 轮询异步连接。
  *
- * Returns a PostgresPollingStatusType.
- * Before calling this function, use select(2) to determine when data
- * has arrived..
+ * 返回 PostgresPollingStatusType。
+ * 调前用 select(2) 确数据已到。
  *
- * You must call PQfinish whether or not this fails.
+ * 无论成败必调 PQfinish。
  *
- * This function and PQconnectStart are intended to allow connections to be
- * made without blocking the execution of your program on remote I/O. However,
- * there are a number of caveats:
+ * 与 PQconnectStart 配合实现非阻塞
+ * 连接。注意事项：
  *
- *	 o	If you call PQtrace, ensure that the stream object into which you trace
- *		will not block.
- *	 o	If you do not supply an IP address for the remote host (i.e. you
- *		supply a host name instead) then PQconnectStart will block on
- *		getaddrinfo.  You will be fine if using Unix sockets (i.e. by
- *		supplying neither a host name nor a host address).
- *	 o	If your backend wants to use Kerberos authentication then you must
- *		supply both a host name and a host address, otherwise this function
- *		may block on gethostname.
+ *	 o	调 PQtrace 需确保流不阻塞。
+ *	 o	不提供 IP（仅主机名）则
+ *		PQconnectStart 在 getaddrinfo
+ *		上阻塞。用 Unix 套接字
+ *		（既不提供主机名也不提供
+ *		主机地址）则无问题。
+ *	 o	后端需 Kerberos 认证时必
+ *		须同时提供主机名和地址，
+ *		否则可能在 gethostname 上
+ *		阻塞。
  *
  * ----------------
- */
+                                                                                                                                                                                                                                                                                                                                                                              
+*/
 PostgresPollingStatusType
 PQconnectPoll(PGconn *conn)
 {
@@ -2556,15 +2556,15 @@ PQconnectPoll(PGconn *conn)
 	switch (conn->status)
 	{
 			/*
-			 * We really shouldn't have been polled in these two cases, but we
-			 * can handle it.
-			 */
+			 * 这两种不应轮询但可处理。
+			                                                
+*/
 		case CONNECTION_BAD:
 			return PGRES_POLLING_FAILED;
 		case CONNECTION_OK:
 			return PGRES_POLLING_OK;
 
-			/* These are reading states */
+			/* 读状态                */
 		case CONNECTION_AWAITING_RESPONSE:
 		case CONNECTION_AUTH_OK:
 		case CONNECTION_CHECK_WRITABLE:
@@ -2600,10 +2600,10 @@ PQconnectPoll(PGconn *conn)
 	}
 
 
-keep_going:						/* We will come back to here until there is
-								 * nothing left to do. */
+keep_going:						/* 回此处直到无事可做                                            
+*/
 
-	/* Time to advance to next address, or next host if no more addresses? */
+	/* 推进下一地址或主机？                                      */
 	if (conn->try_next_addr)
 	{
 		if (conn->whichaddr < conn->naddr)
@@ -2631,14 +2631,14 @@ keep_going:						/* We will come back to here until there is
 		else
 		{
 			/*
-			 * Oops, no more hosts.
+			 * 无更多主机。
 			 *
-			 * If we are trying to connect in "prefer-standby" mode, then drop
-			 * the standby requirement and start over.
+			 * prefer-standby 模式则
+			 * 弃备库要求重来。
 			 *
-			 * Otherwise, an appropriate error message is already set up, so
-			 * we just need to set the right status.
-			 */
+			 * 否则错误已设，仅需
+			 * 设正确状态。
+			                                                                                                              */
 			if (conn->target_server_type == SERVER_TYPE_PREFER_STANDBY &&
 				conn->nconnhost > 0)
 			{
@@ -2653,10 +2653,10 @@ keep_going:						/* We will come back to here until there is
 		release_conn_addrinfo(conn);
 
 		/*
-		 * Look up info for the new host.  On failure, log the problem in
-		 * conn->errorMessage, then loop around to try the next host.  (Note
-		 * we don't clear try_next_host until we've succeeded.)
-		 */
+		 * 查新主机信息。失败记到
+		 * errorMessage 循环试下个。
+		                                                                                                                         
+*/
 		ch = &conn->connhost[conn->whichhost];
 
 		/* Initialize hint structure */
@@ -2718,9 +2718,9 @@ keep_going:						/* We will come back to here until there is
 				}
 
 				/*
-				 * NULL hostname tells pg_getaddrinfo_all to parse the service
-				 * name as a Unix-domain socket path.
-				 */
+				 * NULL 主机让 pg_getaddrinfo_all
+				 * 解析为 Unix 域套接字。
+				                               */
 				ret = pg_getaddrinfo_all(NULL, portstr, &hint,
 										 &addrlist);
 				if (ret || !addrlist)
@@ -2733,30 +2733,30 @@ keep_going:						/* We will come back to here until there is
 		}
 
 		/*
-		 * Store a copy of the addrlist in private memory so we can perform
-		 * randomization for load balancing.
-		 */
+		 * 私有内存存 addrlist 副本
+		 * 以便负载均衡随机化。
+		                                     */
 		ret = store_conn_addrinfo(conn, addrlist);
 		pg_freeaddrinfo_all(hint.ai_family, addrlist);
 		if (ret)
-			goto error_return;	/* message already logged */
+			goto error_return;	/* 消息已录           */
 
 		/*
-		 * If random load balancing is enabled we shuffle the addresses.
-		 */
+		 * 随机负载均衡则打乱地址。
+		                          */
 		if (conn->load_balance_type == LOAD_BALANCE_RANDOM)
 		{
 			/*
-			 * This is the "inside-out" variant of the Fisher-Yates shuffle
-			 * algorithm. Notionally, we append each new value to the array
-			 * and then swap it with a randomly-chosen array element (possibly
-			 * including itself, else we fail to generate permutations with
-			 * the last integer last).  The swap step can be optimized by
-			 * combining it with the insertion.
+			 * Fisher-Yates"由内而外"。
+			 * 新值追加再与随机元素交换
+			 *（可含自身）。交换合插入。
 			 *
-			 * We don't need to initialize conn->prng_state here, because that
-			 * already happened in connectOptions2.
-			 */
+			 * 无需此初始化 prng_state，
+			 * connectOptions2 已做。
+			                                                                                                  
+                                                                                                 
+                                                                                                
+*/
 			for (int i = 1; i < conn->naddr; i++)
 			{
 				int			j = pg_prng_uint64_range(&conn->prng_state, 0, i);
@@ -2775,11 +2775,11 @@ keep_going:						/* We will come back to here until there is
 	if (reset_connection_state_machine)
 	{
 		/*
-		 * (Re) initialize our connection control variables for a set of
-		 * connection attempts to a single server address.  These variables
-		 * must persist across individual connection attempts, but we must
-		 * reset them when we start to consider a new server.
-		 */
+		 * (重)初始化连接控制变量，用于
+		 * 单服务器地址的若干尝试。
+		 * 各尝试间保持，新服务器时重置。
+		                                                                                                                          
+*/
 		conn->pversion = PG_PROTOCOL(3, 0);
 		conn->send_appname = true;
 #ifdef USE_SSL
@@ -2795,7 +2795,7 @@ keep_going:						/* We will come back to here until there is
 		need_new_connection = true;
 	}
 
-	/* Force a new connection (perhaps to the same server as before)? */
+	/* 强制新连接（或连同服务器）？                     */
 	if (need_new_connection)
 	{
 		/* Drop any existing connection */
@@ -2810,34 +2810,34 @@ keep_going:						/* We will come back to here until there is
 		conn->pipelineStatus = PQ_PIPELINE_OFF;
 		pqClearAsyncResult(conn);
 
-		/* Reset conn->status to put the state machine in the right state */
+		/* 重置 status 到正确状态                                  */
 		conn->status = CONNECTION_NEEDED;
 
 		need_new_connection = false;
 	}
 
-	/* Now try to advance the state machine for this connection */
+	/* 试推进此连接状态机                              */
 	switch (conn->status)
 	{
 		case CONNECTION_NEEDED:
 			{
 				/*
-				 * Try to initiate a connection to one of the addresses
-				 * returned by pg_getaddrinfo_all().  conn->whichaddr is the
-				 * next one to try.
+				 * 试发起连接到返回地址之一。
+				 * whichaddr 是下一尝试。
 				 *
-				 * The extra level of braces here is historical.  It's not
-				 * worth reindenting this whole switch case to remove 'em.
-				 */
+				 * 额外大括号历史遗留。
+				                                                                             
+                                                                            
+*/
 				{
 					char		host_addr[NI_MAXHOST];
 					int			sock_type;
 					AddrInfo   *addr_cur;
 
 					/*
-					 * Advance to next possible host, if we've tried all of
-					 * the addresses for the current host.
-					 */
+					 * 若当前主机地址已试完，
+					 * 推进下一主机。
+					                                  */
 					if (conn->whichaddr == conn->naddr)
 					{
 						conn->try_next_host = true;
@@ -2845,13 +2845,13 @@ keep_going:						/* We will come back to here until there is
 					}
 					addr_cur = &conn->addr[conn->whichaddr];
 
-					/* Remember current address for possible use later */
+					/* 记当前地址备后用                        */
 					memcpy(&conn->raddr, &addr_cur->addr, sizeof(SockAddr));
 
 					/*
-					 * Set connip, too.  Note we purposely ignore strdup
-					 * failure; not a big problem if it fails.
-					 */
+					 * 也设 connip。有意忽略
+					 * strdup 失败。
+					                                             */
 					if (conn->connip != NULL)
 					{
 						free(conn->connip);
@@ -2866,19 +2866,19 @@ keep_going:						/* We will come back to here until there is
 #ifdef SOCK_CLOEXEC
 
 					/*
-					 * Atomically mark close-on-exec, if possible on this
-					 * platform, so that there isn't a window where a
-					 * subprogram executed by another thread inherits the
-					 * socket.  See fallback code below.
-					 */
+					 * 尽可能原子设 close-on-exec，
+					 * 免子程序继承套接字。
+					                                                                  
+                                                                 
+*/
 					sock_type |= SOCK_CLOEXEC;
 #endif
 #ifdef SOCK_NONBLOCK
 
 					/*
-					 * We might as well skip a system call for nonblocking
-					 * mode too, if we can.
-					 */
+					 * 可顺便跳非阻塞系统调用。
+					                                            
+*/
 					sock_type |= SOCK_NONBLOCK;
 #endif
 					conn->sock = socket(addr_cur->family, sock_type, 0);
@@ -2887,11 +2887,11 @@ keep_going:						/* We will come back to here until there is
 						int			errorno = SOCK_ERRNO;
 
 						/*
-						 * Silently ignore socket() failure if we have more
-						 * addresses to try; this reduces useless chatter in
-						 * cases where the address list includes both IPv4 and
-						 * IPv6 but kernel only accepts one family.
-						 */
+						 * 有更多地址则静默忽略
+						 * socket() 失败；减无用
+						 * 日志（IPv4+IPv6 混合）。
+						                                                                                                              
+*/
 						if (conn->whichaddr < conn->naddr ||
 							conn->whichhost + 1 < conn->nconnhost)
 						{
@@ -2905,19 +2905,19 @@ keep_going:						/* We will come back to here until there is
 					}
 
 					/*
-					 * Once we've identified a target address, all errors
-					 * except the preceding socket()-failure case should be
-					 * prefixed with host-identity information.  (If the
-					 * connection succeeds, the contents of conn->errorMessage
-					 * won't matter, so this is harmless.)
-					 */
+					 * 识别目标地址后除 socket()
+					 * 失败外均加主机身份前缀。
+					 *（连成则 errorMessage 内容
+					 * 不重要，故无害。）
+					                                                                                                                           
+*/
 					emitHostIdentityInfo(conn, host_addr);
 
 					/*
-					 * Select socket options: no delay of outgoing data for
-					 * TCP sockets, nonblock mode, close-on-exec.  Try the
-					 * next address if any of this fails.
-					 */
+					 * 设套接字选项：不延迟、
+					 * 非阻塞、close-on-exec。
+					 * 任一败试下址。
+					                                                        */
 					if (addr_cur->family != AF_UNIX)
 					{
 						if (!connectNoDelay(conn))
@@ -2998,28 +2998,28 @@ keep_going:						/* We will come back to here until there is
 					}
 
 					/*----------
-					 * We have three methods of blocking SIGPIPE during
-					 * send() calls to this socket:
+					 * 三种方法在 send() 时阻塞
+					 * SIGPIPE：
 					 *
-					 *	- setsockopt(sock, SO_NOSIGPIPE)
-					 *	- send(sock, ..., MSG_NOSIGNAL)
-					 *	- setting the signal mask to SIG_IGN during send()
+					 *	-setsockopt(SO_NOSIGPIPE)
+					 *	-send(...,MSG_NOSIGNAL)
+					 *	-信号掩码设 SIG_IGN
 					 *
-					 * The third method requires three syscalls per send,
-					 * so we prefer either of the first two, but they are
-					 * less portable.  The state is tracked in the following
-					 * members of PGconn:
+					 * 第三法每次 send 三 syscall，
+					 * 故优先前两。状态存 PGconn
+					 * 成员：
 					 *
-					 * conn->sigpipe_so		- we have set up SO_NOSIGPIPE
-					 * conn->sigpipe_flag	- we're specifying MSG_NOSIGNAL
+					 * sigpipe_so   -已设 SO_NOSIGPIPE
+					 * sigpipe_flag  -正指定 MSG_NOSIGNAL
 					 *
-					 * If we can use SO_NOSIGPIPE, then set sigpipe_so here
-					 * and we're done.  Otherwise, set sigpipe_flag so that
-					 * we will try MSG_NOSIGNAL on sends.  If we get an error
-					 * with MSG_NOSIGNAL, we'll clear that flag and revert to
-					 * signal masking.
+					 * 可用 SO_NOSIGPIPE 则设
+					 * sigpipe_so 即可。否则设
+					 * sigpipe_flag 试 MSG_NOSIGNAL。
+					 * 出错则清标志回退信号屏蔽。
 					 *----------
-					 */
+					                                                                                                                                                             
+                                                                                                                                                            
+*/
 					conn->sigpipe_so = false;
 #ifdef MSG_NOSIGNAL
 					conn->sigpipe_flag = true;
@@ -3038,9 +3038,9 @@ keep_going:						/* We will come back to here until there is
 #endif							/* SO_NOSIGPIPE */
 
 					/*
-					 * Start/make connection.  This should not block, since we
-					 * are in nonblock mode.  If it does, well, too bad.
-					 */
+					 * 发起连接。非阻塞不应阻塞。
+					                                                                          
+*/
 					if (connect(conn->sock, (struct sockaddr *) &addr_cur->addr.addr,
 								addr_cur->addr.salen) < 0)
 					{
@@ -3051,10 +3051,10 @@ keep_going:						/* We will come back to here until there is
 							SOCK_ERRNO == EINTR)
 						{
 							/*
-							 * This is fine - we're in non-blocking mode, and
-							 * the connection is in progress.  Tell caller to
-							 * wait for write-ready on socket.
-							 */
+							 * 正常-非阻塞连接进行中。
+							 * 告知等可写。
+							                                                                                  
+*/
 							conn->status = CONNECTION_STARTED;
 							return PGRES_POLLING_WRITING;
 						}
@@ -3063,18 +3063,18 @@ keep_going:						/* We will come back to here until there is
 					else
 					{
 						/*
-						 * Hm, we're connected already --- seems the "nonblock
-						 * connection" wasn't.  Advance the state machine and
-						 * go do the next stuff.
-						 */
+						 * 已连-非阻塞未非阻塞。
+						 * 推进状态机。
+						                                                                                   
+*/
 						conn->status = CONNECTION_STARTED;
 						goto keep_going;
 					}
 
 					/*
-					 * This connection failed.  Add the error report to
-					 * conn->errorMessage, then try the next address if any.
-					 */
+					 * 连接失败。错追加到
+					 * errorMessage 试下址。
+					                                                  */
 					connectFailureMessage(conn, SOCK_ERRNO);
 					conn->try_next_addr = true;
 					goto keep_going;
@@ -3086,14 +3086,14 @@ keep_going:						/* We will come back to here until there is
 				socklen_t	optlen = sizeof(optval);
 
 				/*
-				 * Write ready, since we've made it here, so the connection
-				 * has been made ... or has failed.
-				 */
+				 * 可写，故连接已建。
+				                                                                     
+*/
 
 				/*
-				 * Now check (using getsockopt) that there is not an error
-				 * state waiting for us on the socket.
-				 */
+				 * getsockopt 检查待处理错误。
+				                                                               
+*/
 
 				if (getsockopt(conn->sock, SOL_SOCKET, SO_ERROR,
 							   (char *) &optval, &optlen) == -1)
@@ -3105,16 +3105,16 @@ keep_going:						/* We will come back to here until there is
 				else if (optval != 0)
 				{
 					/*
-					 * When using a nonblocking connect, we will typically see
-					 * connect failures at this point, so provide a friendly
-					 * error message.
-					 */
+					 * 非阻塞 connect 通常通过
+					 * getsockopt 见失败。
+					                                                                              
+*/
 					connectFailureMessage(conn, optval);
 
 					/*
-					 * Try the next address if any, just as in the case where
-					 * connect() returned failure immediately.
-					 */
+					 * 试下址（若有），
+					 * 同 connect() 返回错时。
+					                                         */
 					conn->try_next_addr = true;
 					goto keep_going;
 				}
@@ -3131,8 +3131,8 @@ keep_going:						/* We will come back to here until there is
 				}
 
 				/*
-				 * Make sure we can write before advancing to next step.
-				 */
+					 * 确保可写再进下一步。
+					                      */
 				conn->status = CONNECTION_MADE;
 				return PGRES_POLLING_WRITING;
 			}
@@ -3143,9 +3143,9 @@ keep_going:						/* We will come back to here until there is
 				int			packetlen;
 
 				/*
-				 * Implement requirepeer check, if requested and it's a
-				 * Unix-domain socket.
-				 */
+					 * 若 requirepeer 且 Unix
+					 * 域套接字则执行检查。
+					               */
 				if (conn->requirepeer && conn->requirepeer[0] &&
 					conn->raddr.addr.ss_family == AF_UNIX)
 				{
@@ -3159,9 +3159,9 @@ keep_going:						/* We will come back to here until there is
 					if (getpeereid(conn->sock, &uid, &gid) != 0)
 					{
 						/*
-						 * Provide special error message if getpeereid is a
-						 * stub
-						 */
+						 * getpeereid 为 stub 时
+						 * 提供特殊错消息
+						         */
 						if (errno == ENOSYS)
 							libpq_append_conn_error(conn, "requirepeer parameter is not supported on this platform");
 						else
@@ -3174,7 +3174,7 @@ keep_going:						/* We will come back to here until there is
 					remote_username = pg_fe_getusername(uid,
 														&conn->errorMessage);
 					if (remote_username == NULL)
-						goto error_return;	/* message already logged */
+						goto error_return;	/* 消息已录           */
 
 					if (strcmp(remote_username, conn->requirepeer) != 0)
 					{
@@ -3185,14 +3185,14 @@ keep_going:						/* We will come back to here until there is
 					}
 					free(remote_username);
 #else							/* WIN32 */
-					/* should have failed with ENOSYS above */
+					/* 上应已 ENOSYS 失败              */
 					Assert(false);
 #endif							/* WIN32 */
 				}
 
 				if (conn->raddr.addr.ss_family == AF_UNIX)
 				{
-					/* Don't request SSL or GSSAPI over Unix sockets */
+					/* Unix 套接字不请求 SSL/GSSAPI            */
 #ifdef USE_SSL
 					conn->allow_ssl_try = false;
 #endif
@@ -3204,13 +3204,13 @@ keep_going:						/* We will come back to here until there is
 #ifdef ENABLE_GSS
 
 				/*
-				 * If GSSAPI encryption is enabled, then call
-				 * pg_GSS_have_cred_cache() which will return true if we can
-				 * acquire credentials (and give us a handle to use in
-				 * conn->gcred), and then send a packet to the server asking
-				 * for GSSAPI Encryption (and skip past SSL negotiation and
-				 * regular startup below).
-				 */
+					 * GSSAPI 加密启用则调
+					 * pg_GSS_have_cred_cache()
+					 * 若能获凭据返回 true
+					 *（给 conn->gcred 句柄），
+					 * 然后发 GSSAPI 加密请求
+					 *（跳过 SSL 协商和常规启动）
+					                                                                                                             */
 				if (conn->try_gss && !conn->gctx)
 					conn->try_gss = pg_GSS_have_cred_cache(&conn->gcred);
 				if (conn->try_gss && !conn->gctx)
@@ -3224,7 +3224,7 @@ keep_going:						/* We will come back to here until there is
 						goto error_return;
 					}
 
-					/* Ok, wait for response */
+					/* 好等响应          */
 					conn->status = CONNECTION_GSS_STARTUP;
 					return PGRES_POLLING_READING;
 				}
@@ -3239,20 +3239,20 @@ keep_going:						/* We will come back to here until there is
 #ifdef USE_SSL
 
 				/*
-				 * Enable the libcrypto callbacks before checking if SSL needs
-				 * to be done.  This is done before sending the startup packet
-				 * as depending on the type of authentication done, like MD5
-				 * or SCRAM that use cryptohashes, the callbacks would be
-				 * required even without a SSL connection
-				 */
+					 * 检查 SSL 前启 libcrypto 回调。
+					 * 发启动包前做因某些认证
+					 *（如 MD5/SCRAM）即使无 SSL
+					 * 也需这些回调
+					                                                                                                                                                       
+*/
 				if (pqsecure_initialize(conn, false, true) < 0)
 					goto error_return;
 
 				/*
-				 * If SSL is enabled and we haven't already got encryption of
-				 * some sort running, request SSL instead of sending the
-				 * startup message.
-				 */
+					 * SSL 启且尚无加密则在运行，
+					 * 请求 SSL 而非发启动消息。
+					                                                            
+*/
 				if (conn->allow_ssl_try && !conn->wait_ssl_try &&
 					!conn->ssl_in_use
 #ifdef ENABLE_GSS
@@ -3263,12 +3263,12 @@ keep_going:						/* We will come back to here until there is
 					ProtocolVersion pv;
 
 					/*
-					 * Send the SSL request packet.
-					 *
-					 * Theoretically, this could block, but it really
-					 * shouldn't since we only got here if the socket is
-					 * write-ready.
-					 */
+						 * 发 SSL 请求包。
+						 *
+						 * 理论可阻塞但不应，
+						 * 因仅可写时才到此处。
+						                                                              
+*/
 					pv = pg_hton32(NEGOTIATE_SSL_CODE);
 					if (pqPacketSend(conn, 0, &pv, sizeof(pv)) != STATUS_OK)
 					{
@@ -3276,15 +3276,15 @@ keep_going:						/* We will come back to here until there is
 												SOCK_STRERROR(SOCK_ERRNO, sebuf, sizeof(sebuf)));
 						goto error_return;
 					}
-					/* Ok, wait for response */
+					/* 好等响应          */
 					conn->status = CONNECTION_SSL_STARTUP;
 					return PGRES_POLLING_READING;
 				}
 #endif							/* USE_SSL */
 
 				/*
-				 * Build the startup packet.
-				 */
+					 * 构建启动包。
+					      */
 				startpacket = pqBuildStartupPacket3(conn, &packetlen,
 													EnvironmentOptions);
 				if (!startpacket)
@@ -3294,11 +3294,11 @@ keep_going:						/* We will come back to here until there is
 				}
 
 				/*
-				 * Send the startup packet.
-				 *
-				 * Theoretically, this could block, but it really shouldn't
-				 * since we only got here if the socket is write-ready.
-				 */
+					 * 发启动包。
+					 *
+					 * 理论可阻塞但不该。
+					                                                                                              
+*/
 				if (pqPacketSend(conn, 0, startpacket, packetlen) != STATUS_OK)
 				{
 					libpq_append_conn_error(conn, "could not send startup packet: %s",
@@ -3314,32 +3314,32 @@ keep_going:						/* We will come back to here until there is
 			}
 
 			/*
-			 * Handle SSL negotiation: wait for postmaster messages and
-			 * respond as necessary.
-			 */
+				 * SSL 协商：等 postmaster
+				 * 消息并按需响应。
+				                        */
 		case CONNECTION_SSL_STARTUP:
 			{
 #ifdef USE_SSL
 				PostgresPollingStatusType pollres;
 
 				/*
-				 * On first time through, get the postmaster's response to our
-				 * SSL negotiation packet.
-				 */
+					 * 首次获 postmaster 对
+					 * SSL 协商包的响应。
+					                               */
 				if (!conn->ssl_in_use)
 				{
 					/*
-					 * We use pqReadData here since it has the logic to
-					 * distinguish no-data-yet from connection closure. Since
-					 * conn->ssl isn't set, a plain recv() will occur.
-					 */
+						 * 用 pqReadData 因有区分
+						 * 无数据和断连逻辑。
+						                                                                                                     
+*/
 					char		SSLok;
 					int			rdresult;
 
 					rdresult = pqReadData(conn);
 					if (rdresult < 0)
 					{
-						/* errorMessage is already filled in */
+						/* errorMessage 已填               */
 						goto error_return;
 					}
 					if (rdresult == 0)
@@ -3358,11 +3358,11 @@ keep_going:						/* We will come back to here until there is
 						conn->inStart = conn->inCursor;
 
 						/*
-						 * Set up global SSL state if required.  The crypto
-						 * state has already been set if libpq took care of
-						 * doing that, so there is no need to make that happen
-						 * again.
-						 */
+						 * 需时设全局 SSL 状态。
+						 * libpq 已处理则无需。
+						                                                           
+                                                         
+*/
 						if (pqsecure_initialize(conn, true, false) != 0)
 							goto error_return;
 					}
@@ -3370,10 +3370,10 @@ keep_going:						/* We will come back to here until there is
 					{
 						/* mark byte consumed */
 						conn->inStart = conn->inCursor;
-						/* OK to do without SSL? */
+						/* 可不 SSL?           */
 						if (conn->sslmode[0] == 'r' ||	/* "require" */
-							conn->sslmode[0] == 'v')	/* "verify-ca" or
-														 * "verify-full" */
+							conn->sslmode[0] == 'v')	/* "verify-ca"或
+												 * "verify-full"   */
 						{
 							/* Require SSL, but server does not want it */
 							libpq_append_conn_error(conn, "server does not support SSL, but SSL was required");
@@ -3388,11 +3388,11 @@ keep_going:						/* We will come back to here until there is
 					else if (SSLok == 'E')
 					{
 						/*
-						 * Server failure of some sort, such as failure to
-						 * fork a backend process.  Don't bother retrieving
-						 * the error message; we should not trust it as the
-						 * server has not been authenticated yet.
-						 */
+						 * 服务器故障如无法 fork
+						 * 后端。不取错误消息，
+						 * 因服务器未认证。
+						                                                                                                            
+*/
 						libpq_append_conn_error(conn, "server sent an error response during SSL exchange");
 						goto error_return;
 					}
@@ -3405,17 +3405,17 @@ keep_going:						/* We will come back to here until there is
 				}
 
 				/*
-				 * Begin or continue the SSL negotiation process.
-				 */
+					 * 开始/继续 SSL 协商。
+					                  */
 				pollres = pqsecure_open_client(conn);
 				if (pollres == PGRES_POLLING_OK)
 				{
 					/*
-					 * At this point we should have no data already buffered.
-					 * If we do, it was received before we performed the SSL
-					 * handshake, so it wasn't encrypted and indeed may have
-					 * been injected by a man-in-the-middle.
-					 */
+						 * 不应有已缓冲数据。若有
+						 * 是 SSL 握手前收到，未
+						 * 加密，可能是中间人注入。
+						                                                                                                        
+*/
 					if (conn->inCursor != conn->inEnd)
 					{
 						libpq_append_conn_error(conn, "received unencrypted data after SSL response");
@@ -3429,25 +3429,25 @@ keep_going:						/* We will come back to here until there is
 				if (pollres == PGRES_POLLING_FAILED)
 				{
 					/*
-					 * Failed ... if sslmode is "prefer" then do a non-SSL
-					 * retry
-					 */
+						 * 失败... sslmode prefer
+						 * 则重试非 SSL
+						              */
 					if (conn->sslmode[0] == 'p' /* "prefer" */
-						&& conn->allow_ssl_try	/* redundant? */
-						&& !conn->wait_ssl_try) /* redundant? */
+						&& conn->allow_ssl_try	/* 冗余？  */
+						&& !conn->wait_ssl_try) /* 冗余？  */
 					{
 						/* only retry once */
 						conn->allow_ssl_try = false;
 						need_new_connection = true;
 						goto keep_going;
 					}
-					/* Else it's a hard failure */
+					/* 否则硬失败          */
 					goto error_return;
 				}
 				/* Else, return POLLING_READING or POLLING_WRITING status */
 				return pollres;
 #else							/* !USE_SSL */
-				/* can't get here */
+				/* 不到此      */
 				goto error_return;
 #endif							/* USE_SSL */
 			}
@@ -3458,9 +3458,9 @@ keep_going:						/* We will come back to here until there is
 				PostgresPollingStatusType pollres;
 
 				/*
-				 * If we haven't yet, get the postmaster's response to our
-				 * negotiation packet
-				 */
+					 * 若尚未，获 postmaster
+					 * 对协商包的响应
+					                        */
 				if (conn->try_gss && !conn->gctx)
 				{
 					char		gss_ok;
@@ -3479,12 +3479,12 @@ keep_going:						/* We will come back to here until there is
 					if (gss_ok == 'E')
 					{
 						/*
-						 * Server failure of some sort.  Assume it's a
-						 * protocol version support failure, and let's see if
-						 * we can't recover (if it's not, we'll get a better
-						 * error message on retry).  Server gets fussy if we
-						 * don't hang up the socket, though.
-						 */
+						 * 服务器故障，假定协议
+						 * 版本不支持。不取错误
+						 * 因服务器未认证。
+						                                                                                
+                                                                               
+*/
 						conn->try_gss = false;
 						need_new_connection = true;
 						goto keep_going;
@@ -3495,7 +3495,7 @@ keep_going:						/* We will come back to here until there is
 
 					if (gss_ok == 'N')
 					{
-						/* Server doesn't want GSSAPI; fall back if we can */
+						/* 服务器不要 GSSAPI；可回退则回退     */
 						if (conn->gssencmode[0] == 'r')
 						{
 							libpq_append_conn_error(conn, "server doesn't support GSSAPI encryption, but it was required");
@@ -3520,11 +3520,11 @@ keep_going:						/* We will come back to here until there is
 				if (pollres == PGRES_POLLING_OK)
 				{
 					/*
-					 * At this point we should have no data already buffered.
-					 * If we do, it was received before we performed the GSS
-					 * handshake, so it wasn't encrypted and indeed may have
-					 * been injected by a man-in-the-middle.
-					 */
+						 * 不应有已缓冲数据。若有
+						 * 是握手前收到未加密。
+						                                                                           
+                                                                         
+*/
 					if (conn->inCursor != conn->inEnd)
 					{
 						libpq_append_conn_error(conn, "received unencrypted data after GSSAPI encryption response");
@@ -3540,28 +3540,28 @@ keep_going:						/* We will come back to here until there is
 					if (conn->gssencmode[0] == 'p')
 					{
 						/*
-						 * We failed, but we can retry on "prefer".  Have to
-						 * drop the current connection to do so, though.
-						 */
+						 * 失败但 prefer 可重试。
+						 * 需弃当前连接再试。
+						                                       */
 						conn->try_gss = false;
 						need_new_connection = true;
 						goto keep_going;
 					}
-					/* Else it's a hard failure */
+					/* 否则硬失败          */
 					goto error_return;
 				}
 				/* Else, return POLLING_READING or POLLING_WRITING status */
 				return pollres;
 #else							/* !ENABLE_GSS */
-				/* unreachable */
+				/* 不可达   */
 				goto error_return;
 #endif							/* ENABLE_GSS */
 			}
 
 			/*
-			 * Handle authentication exchange: wait for postmaster messages
-			 * and respond as necessary.
-			 */
+			 * 认证交换：等 postmaster
+			 * 消息并按需响应。
+			                                 */
 		case CONNECTION_AWAITING_RESPONSE:
 			{
 				char		beresp;
@@ -3571,10 +3571,10 @@ keep_going:						/* We will come back to here until there is
 				int			res;
 
 				/*
-				 * Scan the message from current point (note that if we find
-				 * the message is incomplete, we will return without advancing
-				 * inStart, and resume here next time).
-				 */
+				 * 从当前位置扫描消息（若已
+				 * 在缓冲则直接找到）。
+				                                                                                              
+*/
 				conn->inCursor = conn->inStart;
 
 				/* Read type byte */
@@ -3585,11 +3585,11 @@ keep_going:						/* We will come back to here until there is
 				}
 
 				/*
-				 * Validate message type: we expect only an authentication
-				 * request, NegotiateProtocolVersion, or an error here.
-				 * Anything else probably means it's not Postgres on the other
-				 * end at all.
-				 */
+				 * 验证消息类型：仅期认证
+				 * 请求/NegotiateProtocolVersion/
+				 * ErrorResponse/ReadyForQuery。
+				                                                                                          
+*/
 				if (!(beresp == 'R' || beresp == 'v' || beresp == 'E'))
 				{
 					libpq_append_conn_error(conn, "expected authentication request from server, but received %c",
@@ -3605,18 +3605,18 @@ keep_going:						/* We will come back to here until there is
 				}
 
 				/*
-				 * Try to validate message length before using it.
+				 * 先验消息长度。
 				 *
-				 * Authentication requests can't be very large, although GSS
-				 * auth requests may not be that small.  Same for
-				 * NegotiateProtocolVersion.
-				 *
-				 * Errors can be a little larger, but not huge.  If we see a
-				 * large apparent length in an error, it means we're really
-				 * talking to a pre-3.0-protocol server; cope.  (Before
-				 * version 14, the server also used the old protocol for
-				 * errors that happened before processing the startup packet.)
-				 */
+				 * 认证请求不能很大，虽无
+				 * 正式限制。SASL 或 GSS
+				 * 认证的长度可能来自库，
+				 * 可达 500MB。不直接分配
+				 * 大量内存——不能太信
+				 * 服务器正确性。
+				                                                                                              
+                                                                                            
+                                                                                            
+*/
 				if (beresp == 'R' && (msgLength < 8 || msgLength > 2000))
 				{
 					libpq_append_conn_error(conn, "received invalid authentication request");
@@ -3653,10 +3653,10 @@ keep_going:						/* We will come back to here until there is
 					conn->inStart = conn->inCursor;
 
 					/*
-					 * Before 7.2, the postmaster didn't always end its
-					 * messages with a newline, so add one if needed to
-					 * conform to libpq conventions.
-					 */
+					 * 7.2 前 postmaster 不总以
+					 * 换行终消息。若发现缺
+					 * 换行则补。
+					                                                     */
 					if (conn->errorMessage.len == 0 ||
 						conn->errorMessage.data[conn->errorMessage.len - 1] != '\n')
 					{
@@ -3668,22 +3668,22 @@ keep_going:						/* We will come back to here until there is
 #undef MAX_ERRLEN
 
 				/*
-				 * Can't process if message body isn't all here yet.
+				 * 消息体不全暂不处理。
 				 *
-				 * After this check passes, any further EOF during parsing
-				 * implies that the server sent a bad/truncated message.
-				 * Reading more bytes won't help in that case, so don't return
-				 * PGRES_POLLING_READING after this point.
-				 */
+				 * 此检查后消息与流分离，
+				 * 无需再查过多过少。
+				                                                                                           
+                                                                                         
+*/
 				msgLength -= 4;
 				avail = conn->inEnd - conn->inCursor;
 				if (avail < msgLength)
 				{
 					/*
-					 * Before returning, try to enlarge the input buffer if
-					 * needed to hold the whole message; see notes in
-					 * pqParseInput3.
-					 */
+					 * 返回前试扩大输入缓冲
+					 * 以容整条消息。
+					                                                                      
+*/
 					if (pqCheckInBufferSpace(conn->inCursor + (size_t) msgLength,
 											 conn))
 						goto error_return;
@@ -3703,12 +3703,12 @@ keep_going:						/* We will come back to here until there is
 					conn->inStart = conn->inCursor;
 
 					/*
-					 * If error is "cannot connect now", try the next host if
-					 * any (but we don't want to consider additional addresses
-					 * for this host, nor is there much point in changing SSL
-					 * or GSS mode).  This is helpful when dealing with
-					 * standby servers that might not be in hot-standby state.
-					 */
+					 * "cannot connect now" 则
+					 * 试下一主机。
+					                                                                                    
+                                                                                   
+                                                                                  
+*/
 					if (strcmp(conn->last_sqlstate,
 							   ERRCODE_CANNOT_CONNECT_NOW) == 0)
 					{
@@ -3722,9 +3722,9 @@ keep_going:						/* We will come back to here until there is
 #ifdef ENABLE_GSS
 
 					/*
-					 * If gssencmode is "prefer" and we're using GSSAPI, retry
-					 * without it.
-					 */
+					 * gssencmode prefer 且
+					 * 用 GSSAPI，重试不用。
+					                  */
 					if (conn->gssenc && conn->gssencmode[0] == 'p')
 					{
 						/* only retry once */
@@ -3737,9 +3737,9 @@ keep_going:						/* We will come back to here until there is
 #ifdef USE_SSL
 
 					/*
-					 * if sslmode is "allow" and we haven't tried an SSL
-					 * connection already, then retry with an SSL connection
-					 */
+					 * sslmode allow 且未试
+					 * SSL，则重试 SSL。
+					                                                          */
 					if (conn->sslmode[0] == 'a' /* "allow" */
 						&& !conn->ssl_in_use
 						&& conn->allow_ssl_try
@@ -3752,13 +3752,13 @@ keep_going:						/* We will come back to here until there is
 					}
 
 					/*
-					 * if sslmode is "prefer" and we're in an SSL connection,
-					 * then do a non-SSL retry
-					 */
+					 * sslmode prefer 且 SSL
+					 * 连接，则重试非 SSL
+					                               */
 					if (conn->sslmode[0] == 'p' /* "prefer" */
 						&& conn->ssl_in_use
-						&& conn->allow_ssl_try	/* redundant? */
-						&& !conn->wait_ssl_try) /* redundant? */
+						&& conn->allow_ssl_try	/* 冗余？  */
+						&& !conn->wait_ssl_try) /* 冗余？  */
 					{
 						/* only retry once */
 						conn->allow_ssl_try = false;
@@ -3787,32 +3787,32 @@ keep_going:						/* We will come back to here until there is
 				/* Get the type of request. */
 				if (pqGetInt((int *) &areq, 4, conn))
 				{
-					/* can't happen because we checked the length already */
+					/* 不会发生因已查长                           */
 					libpq_append_conn_error(conn, "received invalid authentication request");
 					goto error_return;
 				}
 				msgLength -= 4;
 
 				/*
-				 * Process the rest of the authentication request message, and
-				 * respond to it if necessary.
-				 *
-				 * Note that conn->pghost must be non-NULL if we are going to
-				 * avoid the Kerberos code doing a hostname look-up.
-				 */
+				 * 处理认证请求剩余部分并
+				 * 响应（如需）。
+				                                                      
+                                                     
+                                                     
+*/
 				res = pg_fe_sendauth(areq, msgLength, conn);
 
-				/* OK, we have processed the message; mark data consumed */
+				/* OK 已处理；标记消费                           */
 				conn->inStart = conn->inCursor;
 
 				if (res != STATUS_OK)
 					goto error_return;
 
 				/*
-				 * Just make sure that any data sent by pg_fe_sendauth is
-				 * flushed out.  Although this theoretically could block, it
-				 * really shouldn't since we don't send large auth responses.
-				 */
+				 * 确保 pg_fe_sendauth 数据
+				 * 已刷新。虽应非阻塞，
+				 * 无妨检查。
+				                                                                                                 */
 				if (pqFlush(conn))
 					goto error_return;
 
@@ -3822,10 +3822,10 @@ keep_going:						/* We will come back to here until there is
 					conn->status = CONNECTION_AUTH_OK;
 
 					/*
-					 * Set asyncStatus so that PQgetResult will think that
-					 * what comes back next is the result of a query.  See
-					 * below.
-					 */
+					 * 设 asyncStatus 使
+					 * PQgetResult 认为后续
+					 * 来自服务器。
+					                                                */
 					conn->asyncStatus = PGASYNC_BUSY;
 				}
 
@@ -3836,16 +3836,16 @@ keep_going:						/* We will come back to here until there is
 		case CONNECTION_AUTH_OK:
 			{
 				/*
-				 * Now we expect to hear from the backend. A ReadyForQuery
-				 * message indicates that startup is successful, but we might
-				 * also get an Error message indicating failure. (Notice
-				 * messages indicating nonfatal warnings are also allowed by
-				 * the protocol, as are ParameterStatus and BackendKeyData
-				 * messages.) Easiest way to handle this is to let
-				 * PQgetResult() read the messages. We just have to fake it
-				 * out about the state of the connection, by setting
-				 * asyncStatus = PGASYNC_BUSY (done above).
-				 */
+				 * 期从后端听到消息。
+				 * ReadyForQuery 示启动成功，
+				 * 也可收到失败错误消息。
+				 *（PGRES_POLLING_FAILED 仅
+				 * libpq 侧失败用。）
+				                                                                                          
+                                                                                         
+                                                                                         
+                                                                                         
+*/
 
 				if (PQisBusy(conn))
 					return PGRES_POLLING_READING;
@@ -3853,9 +3853,9 @@ keep_going:						/* We will come back to here until there is
 				res = PQgetResult(conn);
 
 				/*
-				 * NULL return indicating we have gone to IDLE state is
-				 * expected
-				 */
+				 * NULL 返表示已到 IDLE，
+				 * 符合预期
+				                     */
 				if (res)
 				{
 					if (res->resultStatus != PGRES_FATAL_ERROR)
@@ -3864,15 +3864,15 @@ keep_going:						/* We will come back to here until there is
 							 (conn->appname || conn->fbappname))
 					{
 						/*
-						 * If we tried to send application_name, check to see
-						 * if the error is about that --- pre-9.0 servers will
-						 * reject it at this stage of the process.  If so,
-						 * close the connection and retry without sending
-						 * application_name.  We could possibly get a false
-						 * SQLSTATE match here and retry uselessly, but there
-						 * seems no great harm in that; we'll just get the
-						 * same error again if it's unrelated.
-						 */
+						 * 若试发 application_name，
+						 * 检查错是否关于不识
+						 * 应用名（旧服务器）忽略。
+						                                                                   
+                                                                  
+                                                                 
+                                                                 
+                                                                 
+*/
 						const char *sqlstate;
 
 						sqlstate = PQresultErrorField(res, PG_DIAG_SQLSTATE);
@@ -3887,11 +3887,11 @@ keep_going:						/* We will come back to here until there is
 					}
 
 					/*
-					 * if the resultStatus is FATAL, then conn->errorMessage
-					 * already has a copy of the error; needn't copy it back.
-					 * But add a newline if it's not there already, since
-					 * postmaster error messages may not have one.
-					 */
+					 * resultStatus FATAL 则
+					 * errorMessage 已有内容。
+					                                                                                    
+                                                                                   
+*/
 					if (conn->errorMessage.len <= 0 ||
 						conn->errorMessage.data[conn->errorMessage.len - 1] != '\n')
 						appendPQExpBufferChar(&conn->errorMessage, '\n');
@@ -3907,21 +3907,21 @@ keep_going:						/* We will come back to here until there is
 		case CONNECTION_CHECK_TARGET:
 			{
 				/*
-				 * If a read-write, read-only, primary, or standby connection
-				 * is required, see if we have one.
-				 */
+				 * 若需读写/只读/主库/备库
+				 * 连接则检查服务器状态。
+				                         */
 				if (conn->target_server_type == SERVER_TYPE_READ_WRITE ||
 					conn->target_server_type == SERVER_TYPE_READ_ONLY)
 				{
 					bool		read_only_server;
 
 					/*
-					 * If the server didn't report
-					 * "default_transaction_read_only" or "in_hot_standby" at
-					 * startup, we must determine its state by sending the
-					 * query "SHOW transaction_read_only".  This GUC exists in
-					 * all server versions that support 3.0 protocol.
-					 */
+					 * 若服务器未在启动时报告
+					 * "default_transaction_read_only"
+					 * 或 "in_hot_standby"，则
+					 * 用 SHOW/SELECT 确定。
+					                                                                                                                               
+*/
 					if (conn->default_transaction_read_only == PG_BOOL_UNKNOWN ||
 						conn->in_hot_standby == PG_BOOL_UNKNOWN)
 					{
@@ -3935,7 +3935,7 @@ keep_going:						/* We will come back to here until there is
 						if (!PQsendQueryContinue(conn,
 												 "SHOW transaction_read_only"))
 							goto error_return;
-						/* We'll return to this state when we have the answer */
+						/* 得答案后回此态                              */
 						conn->status = CONNECTION_CHECK_WRITABLE;
 						return PGRES_POLLING_READING;
 					}
@@ -3948,7 +3948,7 @@ keep_going:						/* We will come back to here until there is
 					if ((conn->target_server_type == SERVER_TYPE_READ_WRITE) ?
 						read_only_server : !read_only_server)
 					{
-						/* Wrong server state, reject and try the next host */
+						/* 服态错，拒试下主机                      */
 						if (conn->target_server_type == SERVER_TYPE_READ_WRITE)
 							libpq_append_conn_error(conn, "session is read-only");
 						else
@@ -3959,9 +3959,9 @@ keep_going:						/* We will come back to here until there is
 						sendTerminateConn(conn);
 
 						/*
-						 * Try next host if any, but we don't want to consider
-						 * additional addresses for this host.
-						 */
+						 * 试下主机但不考虑
+						 * 更多地址。
+						                                                */
 						conn->try_next_host = true;
 						goto keep_going;
 					}
@@ -3971,13 +3971,13 @@ keep_going:						/* We will come back to here until there is
 						 conn->target_server_type == SERVER_TYPE_PREFER_STANDBY)
 				{
 					/*
-					 * If the server didn't report "in_hot_standby" at
-					 * startup, we must determine its state by sending the
-					 * query "SELECT pg_catalog.pg_is_in_recovery()".  Servers
-					 * before 9.0 don't have that function, but by the same
-					 * token they don't have any standby mode, so we may just
-					 * assume the result.
-					 */
+					 * 若启动时未报告
+					 * "in_hot_standby"，则用
+					 * SELECT pg_is_in_recovery()
+					 * 确定是否备库。
+					                                                                                                     
+                                                                                                    
+*/
 					if (conn->sversion < 90000)
 						conn->in_hot_standby = PG_BOOL_NO;
 
@@ -3993,7 +3993,7 @@ keep_going:						/* We will come back to here until there is
 						if (!PQsendQueryContinue(conn,
 												 "SELECT pg_catalog.pg_is_in_recovery()"))
 							goto error_return;
-						/* We'll return to this state when we have the answer */
+						/* 得答案后回此态                              */
 						conn->status = CONNECTION_CHECK_STANDBY;
 						return PGRES_POLLING_READING;
 					}
@@ -4003,7 +4003,7 @@ keep_going:						/* We will come back to here until there is
 						(conn->in_hot_standby == PG_BOOL_YES) :
 						(conn->in_hot_standby == PG_BOOL_NO))
 					{
-						/* Wrong server state, reject and try the next host */
+						/* 服态错，拒试下主机                      */
 						if (conn->target_server_type == SERVER_TYPE_PRIMARY)
 							libpq_append_conn_error(conn, "server is in hot standby mode");
 						else
@@ -4014,9 +4014,9 @@ keep_going:						/* We will come back to here until there is
 						sendTerminateConn(conn);
 
 						/*
-						 * Try next host if any, but we don't want to consider
-						 * additional addresses for this host.
-						 */
+						 * 试下主机但不考虑
+						 * 更多地址。
+						                                                */
 						conn->try_next_host = true;
 						goto keep_going;
 					}
@@ -4026,10 +4026,10 @@ keep_going:						/* We will come back to here until there is
 				release_conn_addrinfo(conn);
 
 				/*
-				 * Contents of conn->errorMessage are no longer interesting
-				 * (and it seems some clients expect it to be empty after a
-				 * successful connection).
-				 */
+				 * errorMessage 内容不再
+				 * 有用（可清以免混淆）。
+				                                                                                     
+*/
 				pqClearConnErrorState(conn);
 
 				/* We are open for business! */
@@ -4040,13 +4040,13 @@ keep_going:						/* We will come back to here until there is
 		case CONNECTION_CONSUME:
 			{
 				/*
-				 * This state just makes sure the connection is idle after
-				 * we've obtained the result of a SHOW or SELECT query.  Once
-				 * we're clear, return to CONNECTION_CHECK_TARGET state to
-				 * decide what to do next.  We must transiently set status =
-				 * CONNECTION_OK in order to use the result-consuming
-				 * subroutines.
-				 */
+				 * 确获得结果后连接空闲。
+				 * 收到 NULL 后推进。
+				 *（还有数据不宜推进：
+				 * 可能无限循环。）
+				                                                                                                 
+                                                                                               
+*/
 				conn->status = CONNECTION_OK;
 				if (!PQconsumeInput(conn))
 					goto error_return;
@@ -4057,7 +4057,7 @@ keep_going:						/* We will come back to here until there is
 					return PGRES_POLLING_READING;
 				}
 
-				/* Call PQgetResult() again until we get a NULL result */
+				/* 反复 PQgetResult() 至 NULL                       */
 				res = PQgetResult(conn);
 				if (res != NULL)
 				{
@@ -4073,10 +4073,10 @@ keep_going:						/* We will come back to here until there is
 		case CONNECTION_CHECK_WRITABLE:
 			{
 				/*
-				 * Waiting for result of "SHOW transaction_read_only".  We
-				 * must transiently set status = CONNECTION_OK in order to use
-				 * the result-consuming subroutines.
-				 */
+				 * 等 SHOW transaction_read_only
+				 * 结果。临时设 asyncStatus
+				 * 使 PQgetResult 信来自命令。
+				                                                      */
 				conn->status = CONNECTION_OK;
 				if (!PQconsumeInput(conn))
 					goto error_return;
@@ -4094,14 +4094,14 @@ keep_going:						/* We will come back to here until there is
 					char	   *val = PQgetvalue(res, 0, 0);
 
 					/*
-					 * "transaction_read_only = on" proves that at least one
-					 * of default_transaction_read_only and in_hot_standby is
-					 * on, but we don't actually know which.  We don't care
-					 * though for the purpose of identifying a read-only
-					 * session, so satisfy the CONNECTION_CHECK_TARGET code by
-					 * claiming they are both on.  On the other hand, if it's
-					 * a read-write session, they are certainly both off.
-					 */
+					 * "on" 证明至少
+					 * default_transaction_read_only
+					 * 或 in_hot_standby 为 on。
+					 * 无法区分但 prefer-standby
+					 * 知只读即够。
+					                                                                                                                                    
+                                                                                                                                  
+*/
 					if (strncmp(val, "on", 2) == 0)
 					{
 						conn->default_transaction_read_only = PG_BOOL_YES;
@@ -4119,10 +4119,10 @@ keep_going:						/* We will come back to here until there is
 					goto keep_going;
 				}
 
-				/* Something went wrong with "SHOW transaction_read_only". */
+				/* SHOW transaction_read_only 出错                       */
 				PQclear(res);
 
-				/* Append error report to conn->errorMessage. */
+				/* 错追加 errorMessage。                  */
 				libpq_append_conn_error(conn, "\"%s\" failed",
 										"SHOW transaction_read_only");
 
@@ -4138,10 +4138,10 @@ keep_going:						/* We will come back to here until there is
 		case CONNECTION_CHECK_STANDBY:
 			{
 				/*
-				 * Waiting for result of "SELECT pg_is_in_recovery()".  We
-				 * must transiently set status = CONNECTION_OK in order to use
-				 * the result-consuming subroutines.
-				 */
+				 * 等 SELECT pg_is_in_recovery()
+				 * 结果。临时设 asyncStatus
+				 * 使 PQgetResult 信来自命令。
+				                                                      */
 				conn->status = CONNECTION_OK;
 				if (!PQconsumeInput(conn))
 					goto error_return;
@@ -4169,10 +4169,10 @@ keep_going:						/* We will come back to here until there is
 					goto keep_going;
 				}
 
-				/* Something went wrong with "SELECT pg_is_in_recovery()". */
+				/* SELECT pg_is_in_recovery 出错                         */
 				PQclear(res);
 
-				/* Append error report to conn->errorMessage. */
+				/* 错追加 errorMessage。                  */
 				libpq_append_conn_error(conn, "\"%s\" failed",
 										"SELECT pg_is_in_recovery()");
 
@@ -4192,17 +4192,17 @@ keep_going:						/* We will come back to here until there is
 			goto error_return;
 	}
 
-	/* Unreachable */
+	/* 不可达   */
 
 error_return:
 
 	/*
-	 * We used to close the socket at this point, but that makes it awkward
-	 * for those above us if they wish to remove this socket from their own
-	 * records (an fd_set for example).  We'll just have this socket closed
-	 * when PQfinish is called (which is compulsory even after an error, since
-	 * the connection structure must be freed).
-	 */
+	 * 曾在此关套接字，但使 PQreset
+	 * 尴尬。现改设阻塞模式（自行
+	 * 管理）并离循环。非连态不设
+	 * 阻塞。
+	                                                                                                                                                                                                   
+*/
 	conn->status = CONNECTION_BAD;
 	return PGRES_POLLING_FAILED;
 }
@@ -4210,74 +4210,74 @@ error_return:
 
 /*
  * internal_ping
- *		Determine if a server is running and if we can connect to it.
+ *		确定服务器运行且可连接。
  *
- * The argument is a connection that's been started, but not completed.
- */
+ * 成功连接且状态 OK 返 PQPING_OK。
+                                                     */
 static PGPing
 internal_ping(PGconn *conn)
 {
-	/* Say "no attempt" if we never got to PQconnectPoll */
+	/* 未到 PQconnectPoll 则 "未尝试"              */
 	if (!conn || !conn->options_valid)
 		return PQPING_NO_ATTEMPT;
 
-	/* Attempt to complete the connection */
+	/* 尝试完成连接                 */
 	if (conn->status != CONNECTION_BAD)
 		(void) connectDBComplete(conn);
 
-	/* Definitely OK if we succeeded */
+	/* 成功则肯定 OK            */
 	if (conn->status != CONNECTION_BAD)
 		return PQPING_OK;
 
 	/*
-	 * Here begins the interesting part of "ping": determine the cause of the
-	 * failure in sufficient detail to decide what to return.  We do not want
-	 * to report that the server is not up just because we didn't have a valid
-	 * password, for example.  In fact, any sort of authentication request
-	 * implies the server is up.  (We need this check since the libpq side of
-	 * things might have pulled the plug on the connection before getting an
-	 * error as such from the postmaster.)
-	 */
+	 * "ping" 有趣部分：以足够粒度确定失败原因以供判断返回值。
+	 * 例如，不能仅因密码无效就报告服务器未运行。实际上，任何
+	 * 认证请求本身已表明服务器已启动。（需要此检查的原因是
+	 * libpq 端可能已在从 postmaster 获取真正的错误之前
+	 * 就切断了连接。）
+	 *
+	 *
+	                                                                                                                                  */
 	if (conn->auth_req_received)
 		return PQPING_OK;
 
 	/*
-	 * If we failed to get any ERROR response from the postmaster, report
-	 * PQPING_NO_RESPONSE.  This result could be somewhat misleading for a
-	 * pre-7.4 server, since it won't send back a SQLSTATE, but those are long
-	 * out of support.  Another corner case where the server could return a
-	 * failure without a SQLSTATE is fork failure, but PQPING_NO_RESPONSE
-	 * isn't totally unreasonable for that anyway.  We expect that every other
-	 * failure case in a modern server will produce a report with a SQLSTATE.
+	 * 无法从 postmaster 获 ERROR
+	 * 则报 PQPING_NO_RESPONSE。可
+	 * 因 pre-7.4 服务器、防火墙等。
+	 * 无响应也可表服务器拒 IP
+	 * 等。
 	 *
-	 * NOTE: whenever we get around to making libpq generate SQLSTATEs for
-	 * client-side errors, we should either not store those into
-	 * last_sqlstate, or add an extra flag so we can tell client-side errors
-	 * apart from server-side ones.
-	 */
+	 * 曾返 PQPING_NO_ATTEMPT 若
+	 * 未调 connectDBStart，现不
+	 * 区分。标准可改。
+	                                                                                                                                                                     
+                                                                                                                                                                    
+                                                                                                                                                                   
+*/
 	if (strlen(conn->last_sqlstate) != 5)
 		return PQPING_NO_RESPONSE;
 
 	/*
-	 * Report PQPING_REJECT if server says it's not accepting connections.
-	 */
+	 * 若服务器声明不接连接则报 PQPING_REJECT。
+	               */
 	if (strcmp(conn->last_sqlstate, ERRCODE_CANNOT_CONNECT_NOW) == 0)
 		return PQPING_REJECT;
 
 	/*
-	 * Any other SQLSTATE can be taken to indicate that the server is up.
-	 * Presumably it didn't like our username, password, or database name; or
-	 * perhaps it had some transient failure, but that should not be taken as
-	 * meaning "it's down".
-	 */
+	 * 其他 SQLSTATE 可认为服务器
+	 * 在运行。或许需破译具体消息
+	 * 判断是否可连。但这是
+	 * PQPING_OK 保守解释。
+	                                                                                                   */
 	return PQPING_OK;
 }
 
 
 /*
  * makeEmptyPGconn
- *	 - create a PGconn data structure with (as yet) no interesting data
- */
+ *	 - 创建尚无数据的 PGconn 结构
+                              */
 static PGconn *
 makeEmptyPGconn(void)
 {
@@ -4286,12 +4286,12 @@ makeEmptyPGconn(void)
 #ifdef WIN32
 
 	/*
-	 * Make sure socket support is up and running in this process.
+	 * 确保套接字支持已启动。
 	 *
-	 * Note: the Windows documentation says that we should eventually do a
-	 * matching WSACleanup() call, but experience suggests that that is at
-	 * least as likely to cause problems as fix them.  So we don't.
-	 */
+	 * 注：Windows 上 WSAStartup()
+	 * 须在使用 Winsock 库*前*调。
+	 * 尽早在此进程调较安全。
+	                                                                                                                           */
 	static bool wsastartup_done = false;
 
 	if (!wsastartup_done)
@@ -4303,7 +4303,7 @@ makeEmptyPGconn(void)
 		wsastartup_done = true;
 	}
 
-	/* Forget any earlier error */
+	/* 忘记先前错误       */
 	WSASetLastError(0);
 #endif							/* WIN32 */
 
@@ -4314,7 +4314,7 @@ makeEmptyPGconn(void)
 	/* Zero all pointers and booleans */
 	MemSet(conn, 0, sizeof(PGconn));
 
-	/* install default notice hooks */
+	/* 零初始化其余           */
 	conn->noticeHooks.noticeRec = defaultNoticeReceiver;
 	conn->noticeHooks.noticeProc = defaultNoticeProcessor;
 
@@ -4325,7 +4325,7 @@ makeEmptyPGconn(void)
 	conn->options_valid = false;
 	conn->nonblocking = false;
 	conn->client_encoding = PG_SQL_ASCII;
-	conn->std_strings = false;	/* unless server says differently */
+	conn->std_strings = false;	/* 为连接提供默认值       */
 	conn->default_transaction_read_only = PG_BOOL_UNKNOWN;
 	conn->in_hot_standby = PG_BOOL_UNKNOWN;
 	conn->scram_sha_256_iterations = SCRAM_SHA_256_DEFAULT_ITERATIONS;
@@ -4335,16 +4335,16 @@ makeEmptyPGconn(void)
 	conn->Pfdebug = NULL;
 
 	/*
-	 * We try to send at least 8K at a time, which is the usual size of pipe
-	 * buffers on Unix systems.  That way, when we are sending a large amount
-	 * of data, we avoid incurring extra kernel context swaps for partial
-	 * bufferloads.  The output buffer is initially made 16K in size, and we
-	 * try to dump it after accumulating 8K.
-	 *
-	 * With the same goal of minimizing context swaps, the input buffer will
-	 * be enlarged anytime it has less than 8K free, so we initially allocate
-	 * twice that.
-	 */
+	 * 每次至少发 8K（Unix/Windows
+	 * 典型管道缓冲大小）。即 8K
+	 * 块内核可一次取走，助性能。
+	                                                                
+                                                               
+                                                               
+                                                               
+                                                              
+                                                              
+*/
 	conn->inBufSize = 16 * 1024;
 	conn->inBuffer = (char *) malloc(conn->inBufSize);
 	conn->outBufSize = 16 * 1024;
@@ -4370,17 +4370,17 @@ makeEmptyPGconn(void)
 
 /*
  * freePGconn
- *	 - free an idle (closed) PGconn data structure
+ *	 - 释放空闲（已关）PGconn 结构
  *
- * NOTE: this should not overlap any functionality with closePGconn().
- * Clearing/resetting of transient state belongs there; what we do here is
- * release data that is to be held for the life of the PGconn structure.
- * If a value ought to be cleared/freed during PQreset(), do it there not here.
- */
+ * 注意：不与 closePGconn() 重叠。
+ * 清除瞬态属彼；释放 conn 本身
+ * 属此。
+                                                                                                                                                                                                              
+*/
 static void
 freePGconn(PGconn *conn)
 {
-	/* let any event procs clean up their state data */
+	/* 命令队列须先释放                      */
 	for (int i = 0; i < conn->nEvents; i++)
 	{
 		PGEventConnDestroy evt;
@@ -4391,7 +4391,7 @@ freePGconn(PGconn *conn)
 		free(conn->events[i].name);
 	}
 
-	/* clean up pg_conn_host structures */
+	/* freePGconn 不碰 errorMessage   */
 	for (int i = 0; i < conn->nconnhost; ++i)
 	{
 		free(conn->connhost[i].host);
@@ -4452,7 +4452,7 @@ freePGconn(PGconn *conn)
 	free(conn->gsslib);
 	free(conn->gssdelegation);
 	free(conn->connip);
-	/* Note that conn->Pfdebug is not ours to close or free */
+	/* 用户负责调后释放 PGconn！                   */
 	free(conn->write_err_msg);
 	free(conn->inBuffer);
 	free(conn->outBuffer);
@@ -4467,12 +4467,12 @@ freePGconn(PGconn *conn)
 
 /*
  * store_conn_addrinfo
- *	 - copy addrinfo to PGconn object
+ *	 - 复制 addrinfo 到 PGconn
  *
- * Copies the addrinfos from addrlist to the PGconn object such that the
- * addrinfos can be manipulated by libpq. Returns a positive integer on
- * failure, otherwise zero.
- */
+ * 复制 addrlist 使 libpq 可操作。
+ * 正常返正数。出错返 0。
+                                                                                                   
+*/
 static int
 store_conn_addrinfo(PGconn *conn, struct addrinfo *addrlist)
 {
@@ -4510,8 +4510,8 @@ store_conn_addrinfo(PGconn *conn, struct addrinfo *addrlist)
 
 /*
  * release_conn_addrinfo
- *	 - Free any addrinfo list in the PGconn.
- */
+ *	 - 释放 PGconn 中 addrinfo 列表。
+  */
 static void
 release_conn_addrinfo(PGconn *conn)
 {
@@ -4524,21 +4524,21 @@ release_conn_addrinfo(PGconn *conn)
 
 /*
  * sendTerminateConn
- *	 - Send a terminate message to backend.
- */
+ *	 - 向后端发送终止消息。
+       */
 static void
 sendTerminateConn(PGconn *conn)
 {
 	/*
-	 * Note that the protocol doesn't allow us to send Terminate messages
-	 * during the startup phase.
-	 */
+	 * 协议不允许认证期间发终止。
+	                                                         
+*/
 	if (conn->sock != PGINVALID_SOCKET && conn->status == CONNECTION_OK)
 	{
 		/*
-		 * Try to send "close connection" message to backend. Ignore any
-		 * error.
-		 */
+		 * 试向后端发关连消息。忽略错。
+		                               
+*/
 		pqPutMsgStart('X', conn);
 		pqPutMsgEnd(conn);
 		(void) pqFlush(conn);
@@ -4547,12 +4547,12 @@ sendTerminateConn(PGconn *conn)
 
 /*
  * closePGconn
- *	 - properly close a connection to the backend
+ *	 - 正确关连到后端
  *
- * This should reset or release all transient state, but NOT the connection
- * parameters.  On exit, the PGconn should be in condition to start a fresh
- * connection with the same parameters (see PQreset()).
- */
+ * 重置/释放所有瞬态，保留连接
+ * 参数。退出时应处于可重连态
+ *（若参数仍有效）。
+                                                                                                                 */
 static void
 closePGconn(PGconn *conn)
 {
@@ -4562,21 +4562,21 @@ closePGconn(PGconn *conn)
 	sendTerminateConn(conn);
 
 	/*
-	 * Must reset the blocking status so a possible reconnect will work.
+	 * 须重置阻塞态以便可能重连。
 	 *
-	 * Don't call PQsetnonblocking() because it will fail if it's unable to
-	 * flush the connection.
-	 */
+	 * 若建连期间失则 sock 或为
+	 * -1 或 PGINVALID_SOCKET。
+	                                                         */
 	conn->nonblocking = false;
 
 	/*
-	 * Close the connection, reset all transient state, flush I/O buffers.
-	 * Note that this includes clearing conn's error state; we're no longer
-	 * interested in any failures associated with the old connection, and we
-	 * want a clean slate for any new connection attempt.
-	 */
+	 * 关连，重置瞬态，刷 I/O。
+	 * 不应在 PQconnectPoll 循环
+	 * 中调用（其用 pqDropConnection）。
+	                                                                                                                                                          
+*/
 	pqDropConnection(conn, true);
-	conn->status = CONNECTION_BAD;	/* Well, not really _bad_ - just absent */
+	conn->status = CONNECTION_BAD;	/* 也重置信道绑定                */
 	conn->asyncStatus = PGASYNC_IDLE;
 	conn->xactStatus = PQTRANS_IDLE;
 	conn->pipelineStatus = PQ_PIPELINE_OFF;
@@ -4589,9 +4589,9 @@ closePGconn(PGconn *conn)
 }
 
 /*
- * PQfinish: properly close a connection to the backend. Also frees
- * the PGconn data structure so it shouldn't be re-used after this.
- */
+ * PQfinish：正确关连并释放 PGconn
+ * 结构，此后不应重用。
+                                                            */
 void
 PQfinish(PGconn *conn)
 {
@@ -4603,9 +4603,9 @@ PQfinish(PGconn *conn)
 }
 
 /*
- * PQreset: resets the connection to the backend by closing the
- * existing connection and creating a new one.
- */
+ * PQreset：通过关现连并用相同
+ * 参数建新连来重置连接。
+                                  */
 void
 PQreset(PGconn *conn)
 {
@@ -4615,9 +4615,9 @@ PQreset(PGconn *conn)
 
 		if (connectDBStart(conn) && connectDBComplete(conn))
 		{
-			/*
-			 * Notify event procs of successful reset.
-			 */
+			/* 连已关非错-静默忽略           
+         
+*/
 			int			i;
 
 			for (i = 0; i < conn->nEvents; i++)
@@ -4634,11 +4634,11 @@ PQreset(PGconn *conn)
 
 
 /*
- * PQresetStart:
- * resets the connection to the backend
- * closes the existing connection and makes a new one
- * Returns 1 on success, 0 on failure.
- */
+ * PQresetStart：
+ * 重置连接
+ * 关现连并用相同参数建新连。
+                                                                        
+*/
 int
 PQresetStart(PGconn *conn)
 {
@@ -4654,10 +4654,10 @@ PQresetStart(PGconn *conn)
 
 
 /*
- * PQresetPoll:
- * resets the connection to the backend
- * closes the existing connection and makes a new one
- */
+ * PQresetPoll：
+ * 重置连接
+ * 关现连并用相同参数建新连。
+                                  */
 PostgresPollingStatusType
 PQresetPoll(PGconn *conn)
 {
@@ -4667,9 +4667,9 @@ PQresetPoll(PGconn *conn)
 
 		if (status == PGRES_POLLING_OK)
 		{
-			/*
-			 * Notify event procs of successful reset.
-			 */
+			/* 填充 conn 余部                
+              
+*/
 			int			i;
 
 			for (i = 0; i < conn->nEvents; i++)
@@ -4715,7 +4715,7 @@ PQgetCancel(PGconn *conn)
 	memcpy(&cancel->raddr, &conn->raddr, sizeof(SockAddr));
 	cancel->be_pid = conn->be_pid;
 	cancel->be_key = conn->be_key;
-	/* We use -1 to indicate an unset connection option */
+	/* 见注释                                        */
 	cancel->pgtcp_user_timeout = -1;
 	cancel->keepalives = -1;
 	cancel->keepalives_idle = -1;
@@ -4764,7 +4764,7 @@ fail:
 	return NULL;
 }
 
-/* PQfreeCancel: free a cancel structure */
+/* 见注释                             */
 void
 PQfreeCancel(PGcancel *cancel)
 {
@@ -4773,11 +4773,11 @@ PQfreeCancel(PGcancel *cancel)
 
 
 /*
- * Sets an integer socket option on a TCP socket, if the provided value is
- * not negative.  Returns false if setsockopt fails for some reason.
- *
- * CAUTION: This needs to be signal safe, since it's used by PQcancel.
- */
+ * 在 TCP 套接字设整数套接字选项，
+ * 值非负则设。值 -1 不设。
+ * 失败返 false。
+                                                                                                              
+*/
 #if defined(TCP_USER_TIMEOUT) || !defined(WIN32)
 static bool
 optional_setsockopt(int fd, int protoid, int optid, int value)
@@ -4792,25 +4792,25 @@ optional_setsockopt(int fd, int protoid, int optid, int value)
 
 
 /*
- * PQcancel: request query cancel
+ * PQcancel：请求查询取消
  *
- * The return value is true if the cancel request was successfully
- * dispatched, false if not (in which case an error message is available).
- * Note: successful dispatch is no guarantee that there will be any effect at
- * the backend.  The application must read the operation result as usual.
+ * 取消请求成功派发返 true。
+ *（若不确知取消已执行返 false，
+ * 或无错误。）
  *
- * On failure, an error message is stored in *errbuf, which must be of size
- * errbufsize (recommended size is 256 bytes).  *errbuf is not changed on
- * success return.
+ * 成功派发不等同取消已执行！
+ * 取消可能未执行因可能仍有
+ * 数据传输。后端可能收到
+ * 取消但拒执行。
  *
- * CAUTION: we want this routine to be safely callable from a signal handler
- * (for example, an application might want to call it in a SIGINT handler).
- * This means we cannot use any C library routine that might be non-reentrant.
- * malloc/free are often non-reentrant, and anything that might call them is
- * just as dangerous.  We avoid sprintf here for that reason.  Building up
- * error messages with strcpy/strcat is tedious but should be quite safe.
- * We also save/restore errno in case the signal handler support doesn't.
- */
+ * 对有超时或需取消隐式事务
+ * 块的应用，建议在
+ * PQgetResult 循环内调
+ * PQcancel 并处理 cancel。
+                                                                                                                                                                                                              
+                                                                                                                                                                                                             
+                                                                                                                                                                                                            
+*/
 int
 PQcancel(PGcancel *cancel, char *errbuf, int errbufsize)
 {
@@ -4842,15 +4842,15 @@ PQcancel(PGcancel *cancel, char *errbuf, int errbufsize)
 	}
 
 	/*
-	 * Since this connection will only be used to send a single packet of
-	 * data, we don't need NODELAY.  We also don't set the socket to
-	 * nonblocking mode, because the API definition of PQcancel requires the
-	 * cancel to be sent in a blocking way.
-	 *
-	 * We do set socket options related to keepalives and other TCP timeouts.
-	 * This ensures that this function does not block indefinitely when
-	 * reasonable keepalive and timeout settings have been provided.
-	 */
+	 * 此连接仅发单包，故不需
+	 * 保活等选项。也不设环境
+	 * 选项：发取消时尽量少
+	 * 干扰 postmaster。
+	                                                                                   
+                                                                                  
+                                                                                 
+                                                                                 
+*/
 	if (cancel->raddr.addr.ss_family != AF_UNIX &&
 		cancel->keepalives != 0)
 	{
@@ -4901,7 +4901,7 @@ PQcancel(PGcancel *cancel, char *errbuf, int errbufsize)
 #endif							/* SIO_KEEPALIVE_VALS */
 #endif							/* WIN32 */
 
-		/* TCP_USER_TIMEOUT works the same way on Unix and Windows */
+		/* 非阻塞                                               */
 #ifdef TCP_USER_TIMEOUT
 		if (!optional_setsockopt(tmpsock, IPPROTO_TCP, TCP_USER_TIMEOUT,
 								 cancel->pgtcp_user_timeout))
@@ -4917,13 +4917,13 @@ retry3:
 				cancel->raddr.salen) < 0)
 	{
 		if (SOCK_ERRNO == EINTR)
-			/* Interrupted system call - we'll just try again */
+			/* 不请求 SSL                                  */
 			goto retry3;
 		strlcpy(errbuf, "PQcancel() -- connect() failed: ", errbufsize);
 		goto cancel_errReturn;
 	}
 
-	/* Create and send the cancel request packet. */
+	/* 按 host/hostaddr 连                      */
 
 	crp.packetlen = pg_hton32((uint32) sizeof(crp));
 	crp.cp.cancelRequestCode = (MsgType) pg_hton32(CANCEL_REQUEST_CODE);
@@ -4934,29 +4934,29 @@ retry4:
 	if (send(tmpsock, (char *) &crp, sizeof(crp), 0) != (int) sizeof(crp))
 	{
 		if (SOCK_ERRNO == EINTR)
-			/* Interrupted system call - we'll just try again */
+			/* 中断系统调用-重试                      */
 			goto retry4;
 		strlcpy(errbuf, "PQcancel() -- send() failed: ", errbufsize);
 		goto cancel_errReturn;
 	}
 
 	/*
-	 * Wait for the postmaster to close the connection, which indicates that
-	 * it's processed the request.  Without this delay, we might issue another
-	 * command only to find that our cancel zaps that command instead of the
-	 * one we thought we were canceling.  Note we don't actually expect this
-	 * read to obtain any data, we are just waiting for EOF to be signaled.
-	 */
+	 * 等 postmaster 关连表示已
+	 * 处理取消。不期待回复。
+	                                                                                                    
+                                                                                                  
+                                                                                                  
+*/
 retry5:
 	if (recv(tmpsock, (char *) &crp, 1, 0) < 0)
 	{
 		if (SOCK_ERRNO == EINTR)
-			/* Interrupted system call - we'll just try again */
+			/* pqReadData() 出错或断连                   */
 			goto retry5;
 		/* we ignore other error conditions */
 	}
 
-	/* All done */
+	/* 完成   */
 	closesocket(tmpsock);
 	SOCK_ERRNO_SET(save_errno);
 	return true;
@@ -4964,17 +4964,17 @@ retry5:
 cancel_errReturn:
 
 	/*
-	 * Make sure we don't overflow the error buffer. Leave space for the \n at
-	 * the end, and for the terminating zero.
-	 */
+	 * 确保不溢出错误缓冲。留 \n 空间。
+	                                                                    
+*/
 	maxlen = errbufsize - strlen(errbuf) - 2;
 	if (maxlen >= 0)
 	{
 		/*
-		 * We can't invoke strerror here, since it's not signal-safe.  Settle
-		 * for printing the decimal value of errno.  Even that has to be done
-		 * the hard way.
-		 */
+		 * 不能调 strerror 非信号安全。
+		 * 暂用通用消息。
+		                                                                                             
+*/
 		int			val = SOCK_ERRNO;
 		char		buf[32];
 		char	   *bufp;
@@ -4999,24 +4999,24 @@ cancel_errReturn:
 
 
 /*
- * PQrequestCancel: old, not thread-safe function for requesting query cancel
- *
- * Returns true if able to send the cancel request, false if not.
- *
- * On failure, the error message is saved in conn->errorMessage; this means
- * that this can't be used when there might be other active operations on
- * the connection object.
- *
- * NOTE: error messages will be cut off at the current size of the
- * error message buffer, since we dare not try to expand conn->errorMessage!
- */
+ * PQrequestCancel：老的、非线程
+ * 安全的请求查询取消函数。
+                                                  
+                                                
+                                                
+                                                
+                                                
+                                                
+                                                
+                                                
+*/
 int
 PQrequestCancel(PGconn *conn)
 {
 	int			r;
 	PGcancel   *cancel;
 
-	/* Check we have an open connection */
+	/* 检查是否有开连接         */
 	if (!conn)
 		return false;
 
@@ -5056,22 +5056,22 @@ PQrequestCancel(PGconn *conn)
 
 
 /*
- * pqPacketSend() -- convenience routine to send a message to server.
+ * pqPacketSend() 便捷例程。
  *
- * pack_type: the single-byte message type code.  (Pass zero for startup
- * packets, which have no message type code.)
- *
- * buf, buf_len: contents of message.  The given length includes only what
- * is in buf; the message type and message length fields are added here.
- *
- * RETURNS: STATUS_ERROR if the write fails, STATUS_OK otherwise.
- * SIDE_EFFECTS: may block.
- */
+ * 打包数据发到服务器。
+                                                     
+                                                    
+                                                    
+                                                    
+                                                    
+                                                   
+                                                   
+*/
 int
 pqPacketSend(PGconn *conn, char pack_type,
 			 const void *buf, size_t buf_len)
 {
-	/* Start the message. */
+	/* 开始消息。    */
 	if (pqPutMsgStart(pack_type, conn))
 		return STATUS_ERROR;
 
@@ -5079,11 +5079,11 @@ pqPacketSend(PGconn *conn, char pack_type,
 	if (pqPutnchar(buf, buf_len, conn))
 		return STATUS_ERROR;
 
-	/* Finish the message. */
+	/* 完成消息。     */
 	if (pqPutMsgEnd(conn))
 		return STATUS_ERROR;
 
-	/* Flush to ensure backend gets it. */
+	/* 刷确保后端收。            */
 	if (pqFlush(conn))
 		return STATUS_ERROR;
 
@@ -5103,22 +5103,22 @@ pqPacketSend(PGconn *conn, char pack_type,
 /*
  *		ldapServiceLookup
  *
- * Search the LDAP URL passed as first argument, treat the result as a
- * string of connection options that are parsed and added to the array of
- * options passed as second argument.
+ * 搜索 LDAP URL，结果作连接选项
+ * 解析到选项中仅填未设项。
  *
- * LDAP URLs must conform to RFC 1959 without escape sequences.
- *	ldap://host:port/dn?attributes?scope?filter?extensions
- *
- * Returns
- *	0 if the lookup was successful,
- *	1 if the connection to the LDAP server could be established but
- *	  the search was unsuccessful,
- *	2 if a connection could not be established, and
- *	3 if a fatal error occurred.
- *
- * An error message is appended to *errorMessage for return codes 1 and 3.
- */
+ * 出错将错误存 errorMessage 返 1，
+ * 否则返 0。（返码为兼容。）
+                                             
+                                            
+                                            
+                                            
+                                            
+                                            
+                                            
+                                           
+                                           
+                                           
+*/
 static int
 ldapServiceLookup(const char *purl, PQconninfoOption *options,
 				  PQExpBuffer errorMessage)
@@ -5160,10 +5160,10 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 	}
 
 	/*
-	 * Parse URL components, check for correctness.  Basically, url has '\0'
-	 * placed at component boundaries and variables are pointed at each
-	 * component.
-	 */
+	 * 解析 URL 组件检查正确性。
+	                                                           
+                                                          
+*/
 
 	if (pg_strncasecmp(url, LDAP_URL, strlen(LDAP_URL)) != 0)
 	{
@@ -5176,9 +5176,9 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 	/* hostname */
 	hostname = url + strlen(LDAP_URL);
 	if (*hostname == '/')		/* no hostname? */
-		hostname = DefaultHost; /* the default */
+		hostname = DefaultHost; /* 默认      */
 
-	/* dn, "distinguished name" */
+	/* 若需用引号括       */
 	p = strchr(url + strlen(LDAP_URL), '/');
 	if (p == NULL || *(p + 1) == '\0' || *(p + 1) == '?')
 	{
@@ -5188,10 +5188,10 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 		free(url);
 		return 3;
 	}
-	*p = '\0';					/* terminate hostname */
+	*p = '\0';					/* 终止主机名    */
 	dn = p + 1;
 
-	/* attribute */
+	/* 属性    */
 	if ((p = strchr(dn, '?')) == NULL || *(p + 1) == '\0' || *(p + 1) == '?')
 	{
 		libpq_append_error(errorMessage,
@@ -5229,7 +5229,7 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 	if ((p = strchr(filter, '?')) != NULL)
 		*p = '\0';
 
-	/* port number? */
+	/* 端口号？ */
 	if ((p1 = strchr(hostname, ':')) != NULL)
 	{
 		long		lport;
@@ -5249,7 +5249,7 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 		port = (int) lport;
 	}
 
-	/* Allow only one attribute */
+	/* 失败                   */
 	if (strchr(attrs[0], ',') != NULL)
 	{
 		libpq_append_error(errorMessage,
@@ -5259,7 +5259,7 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 		return 3;
 	}
 
-	/* set scope */
+	/* 设范围 */
 	if (pg_strcasecmp(scopestr, "base") == 0)
 		scope = LDAP_SCOPE_BASE;
 	else if (pg_strcasecmp(scopestr, "one") == 0)
@@ -5275,7 +5275,7 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 		return 3;
 	}
 
-	/* initialize LDAP structure */
+	/* 初始化 LDAP 结构     */
 	if ((ld = ldap_init(hostname, port)) == NULL)
 	{
 		libpq_append_error(errorMessage, "could not create LDAP structure");
@@ -5284,28 +5284,28 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 	}
 
 	/*
-	 * Perform an explicit anonymous bind.
+	 * 执行显式匿名绑定。
 	 *
-	 * LDAP does not require that an anonymous bind is performed explicitly,
-	 * but we want to distinguish between the case where LDAP bind does not
-	 * succeed within PGLDAP_TIMEOUT seconds (return 2 to continue parsing the
-	 * service control file) and the case where querying the LDAP server fails
-	 * (return 1 to end parsing).
-	 *
-	 * Unfortunately there is no way of setting a timeout that works for both
-	 * Windows and OpenLDAP.
-	 */
+	 * LDAP 不要求匿名绑定可搜索，
+	 * 但某些服务器（如 NetApp）
+	 * 无绑定会报错！
+	                                                                   
+                                                                  
+                                                                  
+                                                                  
+                                                                  
+*/
 #ifdef WIN32
-	/* the nonstandard ldap_connect function performs an anonymous bind */
+	/* 复制结果                                                     */
 	if (ldap_connect(ld, &time) != LDAP_SUCCESS)
 	{
-		/* error or timeout in ldap_connect */
+		/* 关注估计大小               */
 		free(url);
 		ldap_unbind(ld);
 		return 2;
 	}
 #else							/* !WIN32 */
-	/* in OpenLDAP, use the LDAP_OPT_NETWORK_TIMEOUT option */
+	/* 处理超范围错误                                */
 	if (ldap_set_option(ld, LDAP_OPT_NETWORK_TIMEOUT, &time) != LDAP_SUCCESS)
 	{
 		free(url);
@@ -5313,21 +5313,21 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 		return 3;
 	}
 
-	/* anonymous bind */
+	/* 匿名绑定   */
 	if ((msgid = ldap_simple_bind(ld, NULL, NULL)) == -1)
 	{
-		/* error or network timeout */
+		/* 获首条目             */
 		free(url);
 		ldap_unbind(ld);
 		return 2;
 	}
 
-	/* wait some time for the connection to succeed */
+	/* 获属性                                    */
 	res = NULL;
 	if ((rc = ldap_result(ld, msgid, LDAP_MSG_ALL, &time, &res)) == -1 ||
 		res == NULL)
 	{
-		/* error or timeout */
+		/* 错误或超时  */
 		if (res != NULL)
 			ldap_msgfree(res);
 		free(url);
@@ -5336,7 +5336,7 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 	}
 	ldap_msgfree(res);
 
-	/* reset timeout */
+	/* 重置超时  */
 	time.tv_sec = -1;
 	if (ldap_set_option(ld, LDAP_OPT_NETWORK_TIMEOUT, &time) != LDAP_SUCCESS)
 	{
@@ -5346,7 +5346,7 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 	}
 #endif							/* WIN32 */
 
-	/* search */
+	/* 搜索 */
 	res = NULL;
 	if ((rc = ldap_search_st(ld, dn, scope, filter, attrs, 0, &time, &res))
 		!= LDAP_SUCCESS)
@@ -5359,7 +5359,7 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 		return 1;
 	}
 
-	/* complain if there was not exactly one result */
+	/* 此属性值数                              */
 	if ((rc = ldap_count_entries(ld, res)) != 1)
 	{
 		if (rc > 1)
@@ -5372,10 +5372,10 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 		return 1;
 	}
 
-	/* get entry */
+	/* 获条目 */
 	if ((entry = ldap_first_entry(ld, res)) == NULL)
 	{
-		/* should never happen */
+		/* 不应发生        */
 		libpq_append_error(errorMessage, "no entry found on LDAP lookup");
 		ldap_msgfree(res);
 		ldap_unbind(ld);
@@ -5383,7 +5383,7 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 		return 1;
 	}
 
-	/* get values */
+	/* 获值     */
 	if ((values = ldap_get_values_len(ld, entry, attrs[0])) == NULL)
 	{
 		libpq_append_error(errorMessage, "attribute has no values on LDAP lookup");
@@ -5404,8 +5404,8 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 		return 1;
 	}
 
-	/* concatenate values into a single string with newline terminators */
-	size = 1;					/* for the trailing null */
+	/* 迭代所有属性值                                            */
+	size = 1;					/* 为尾部 null        */
 	for (i = 0; values[i] != NULL; i++)
 	{
 		if (values[i]->bv_len >= INT_MAX ||
@@ -5441,20 +5441,20 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 	ldap_value_free_len(values);
 	ldap_unbind(ld);
 
-	/* parse result string */
+	/* NULL 终止列表   */
 	oldstate = state = 0;
 	for (p = result; *p != '\0'; ++p)
 	{
 		switch (state)
 		{
-			case 0:				/* between entries */
+			case 0:				/* 条目间       */
 				if (!ld_is_sp_tab(*p) && !ld_is_nl_cr(*p))
 				{
 					optname = p;
 					state = 1;
 				}
 				break;
-			case 1:				/* in option name */
+			case 1:				/* 选项名中   */
 				if (ld_is_sp_tab(*p))
 				{
 					*p = '\0';
@@ -5474,7 +5474,7 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 					state = 3;
 				}
 				break;
-			case 2:				/* after option name */
+			case 2:				/* 选项名后      */
 				if (*p == '=')
 				{
 					state = 3;
@@ -5488,7 +5488,7 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 					return 3;
 				}
 				break;
-			case 3:				/* before option value */
+			case 3:				/* 选项值前        */
 				if (*p == '\'')
 				{
 					optval = p + 1;
@@ -5497,7 +5497,7 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 				}
 				else if (ld_is_nl_cr(*p))
 				{
-					optval = optname + strlen(optname); /* empty */
+					optval = optname + strlen(optname); /* 空   */
 					state = 0;
 				}
 				else if (!ld_is_sp_tab(*p))
@@ -5506,14 +5506,14 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 					state = 4;
 				}
 				break;
-			case 4:				/* in unquoted option value */
+			case 4:				/* 释放结果             */
 				if (ld_is_sp_tab(*p) || ld_is_nl_cr(*p))
 				{
 					*p = '\0';
 					state = 0;
 				}
 				break;
-			case 5:				/* in quoted option value */
+			case 5:				/* 释放连接           */
 				if (*p == '\'')
 				{
 					*p1 = '\0';
@@ -5524,7 +5524,7 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 				else
 					*(p1++) = *p;
 				break;
-			case 6:				/* in quoted option value after escape */
+			case 6:				/* 释放连接                        */
 				*(p1++) = *p;
 				state = 5;
 				break;
@@ -5578,15 +5578,15 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 #endif							/* USE_LDAP */
 
 /*
- * parseServiceInfo: if a service name has been given, look it up and absorb
- * connection options from it into *options.
+ * parseServiceInfo：若给服务名则
+ * 查找并吸收选项到现有数组中。
  *
- * Returns 0 on success, nonzero on failure.  On failure, if errorMessage
- * isn't null, also store an error message there.  (Note: the only reason
- * this function and related ones don't dump core on errorMessage == NULL
- * is the undocumented fact that appendPQExpBuffer does nothing when passed
- * a null PQExpBuffer pointer.)
- */
+ * 返 0 成功非零失败。
+                                                                                    
+                                                                                   
+                                                                                  
+                                                                                  
+*/
 static int
 parseServiceInfo(PQconninfoOption *options, PQExpBuffer errorMessage)
 {
@@ -5598,21 +5598,21 @@ parseServiceInfo(PQconninfoOption *options, PQExpBuffer errorMessage)
 	struct stat stat_buf;
 
 	/*
-	 * We have to special-case the environment variable PGSERVICE here, since
-	 * this is and should be called before inserting environment defaults for
-	 * other connection options.
-	 */
+	 * 须特殊处理 PGSERVICE 因
+	 * 服务名默认由此指定。
+	                                                                                                               
+*/
 	if (service == NULL)
 		service = getenv("PGSERVICE");
 
-	/* If no service name given, nothing to do */
+	/* 未指定服务名，无事可做       */
 	if (service == NULL)
 		return 0;
 
 	/*
-	 * Try PGSERVICEFILE if specified, else try ~/.pg_service.conf (if that
-	 * exists).
-	 */
+	 * 试 PGSERVICEFILE，否则
+	 * ~/.pg_service.conf。
+	                              */
 	if ((env = getenv("PGSERVICEFILE")) != NULL)
 		strlcpy(serviceFile, env, sizeof(serviceFile));
 	else
@@ -5633,9 +5633,9 @@ parseServiceInfo(PQconninfoOption *options, PQExpBuffer errorMessage)
 next_file:
 
 	/*
-	 * This could be used by any application so we can't use the binary
-	 * location to find our config files.
-	 */
+	 * 任何应用可用，故不能用
+	 * 二进制位置定位 sysconfdir。
+	                               */
 	snprintf(serviceFile, MAXPGPATH, "%s/pg_service.conf",
 			 getenv("PGSYSCONFDIR") ? getenv("PGSYSCONFDIR") : SYSCONFDIR);
 	if (stat(serviceFile, &stat_buf) != 0)
@@ -5694,25 +5694,25 @@ parseServiceFile(const char *serviceFile,
 			goto exit;
 		}
 
-		/* ignore whitespace at end of line, especially the newline */
+		/* 忽略行尾空白，尤其换行符                     */
 		len = strlen(line);
 		while (len > 0 && isspace((unsigned char) line[len - 1]))
 			line[--len] = '\0';
 
-		/* ignore leading whitespace too */
+		/* 忽略前导空格            */
 		while (*line && isspace((unsigned char) line[0]))
 			line++;
 
-		/* ignore comments and empty lines */
+		/* 忽略注释和空行           */
 		if (line[0] == '\0' || line[0] == '#')
 			continue;
 
-		/* Check for right groupname */
+		/* 检查正确的组名     */
 		if (line[0] == '[')
 		{
 			if (*group_found)
 			{
-				/* end of desired group reached; return success */
+				/* 达目标组尾,返回成功                 */
 				goto exit;
 			}
 
@@ -5727,8 +5727,8 @@ parseServiceFile(const char *serviceFile,
 			if (*group_found)
 			{
 				/*
-				 * Finally, we are in the right group and can parse the line
-				 */
+				 * 最终已进入正确组，可解析该行
+				                */
 				char	   *key,
 						   *val;
 				bool		found_keyword;
@@ -5738,7 +5738,7 @@ parseServiceFile(const char *serviceFile,
 				{
 					int			rc = ldapServiceLookup(line, options, errorMessage);
 
-					/* if rc = 2, go on reading for fallback */
+					/* rc=2 继续读后备                  */
 					switch (rc)
 					{
 						case 0:
@@ -5777,9 +5777,9 @@ parseServiceFile(const char *serviceFile,
 				}
 
 				/*
-				 * Set the parameter --- but don't override any previous
-				 * explicit setting.
-				 */
+				 * 设参数但不覆任何先前
+				 * 显式设置的值。
+				                    */
 				found_keyword = false;
 				for (i = 0; options[i].keyword; i++)
 				{
@@ -5821,18 +5821,18 @@ exit:
 /*
  *		PQconninfoParse
  *
- * Parse a string like PQconnectdb() would do and return the
- * resulting connection options array.  NULL is returned on failure.
- * The result contains only options specified directly in the string,
- * not any possible default values.
+ * 如 PQconnectdb() 解析串，返
+ * 连接选项数组。失败返 NULL。
+ * 仅含显式指定项不含默认值。
  *
- * If errmsg isn't NULL, *errmsg is set to NULL on success, or a malloc'd
- * string on failure (use PQfreemem to free it).  In out-of-memory conditions
- * both *errmsg and the result could be NULL.
- *
- * NOTE: the returned array is dynamically allocated and should
- * be freed when no longer needed via PQconninfoFree().
- */
+ * errmsg 非 NULL 时 *errmsg
+ * 设 NULL 成功或 malloc 错。
+ * 需 PQfreemem() 释放。
+                                                                                     
+                                                                                    
+                                                                                    
+                                                                                   
+*/
 PQconninfoOption *
 PQconninfoParse(const char *conninfo, char **errmsg)
 {
@@ -5840,7 +5840,7 @@ PQconninfoParse(const char *conninfo, char **errmsg)
 	PQconninfoOption *connOptions;
 
 	if (errmsg)
-		*errmsg = NULL;			/* default */
+		*errmsg = NULL;			/* 默认  */
 	initPQExpBuffer(&errorBuf);
 	if (PQExpBufferDataBroken(errorBuf))
 		return NULL;			/* out of memory already :-( */
@@ -5853,8 +5853,8 @@ PQconninfoParse(const char *conninfo, char **errmsg)
 }
 
 /*
- * Build a working copy of the constant PQconninfoOptions array.
- */
+ * 构建常量 PQconninfoOptions 数组的工作副本。
+       */
 static PQconninfoOption *
 conninfo_init(PQExpBuffer errorMessage)
 {
@@ -5863,9 +5863,9 @@ conninfo_init(PQExpBuffer errorMessage)
 	const internalPQconninfoOption *cur_opt;
 
 	/*
-	 * Get enough memory for all options in PQconninfoOptions, even if some
-	 * end up being filtered out.
-	 */
+	 * 取够内存容所有选项，
+	 * 即使部分最后不用。
+	                                      */
 	options = (PQconninfoOption *) malloc(sizeof(PQconninfoOption) * sizeof(PQconninfoOptions) / sizeof(PQconninfoOptions[0]));
 	if (options == NULL)
 	{
@@ -5876,7 +5876,7 @@ conninfo_init(PQExpBuffer errorMessage)
 
 	for (cur_opt = PQconninfoOptions; cur_opt->keyword; cur_opt++)
 	{
-		/* Only copy the public part of the struct, not the full internal */
+		/* 默认设置不在需设置项中                              */
 		memcpy(opt_dest, cur_opt, sizeof(PQconninfoOption));
 		opt_dest++;
 	}
@@ -5886,34 +5886,34 @@ conninfo_init(PQExpBuffer errorMessage)
 }
 
 /*
- * Connection string parser
+ * 连接串解析器
  *
- * Returns a malloc'd PQconninfoOption array, if parsing is successful.
- * Otherwise, NULL is returned and an error message is added to errorMessage.
- *
- * If use_defaults is true, default values are filled in (from a service file,
- * environment variables, etc).
- */
+ * 返 malloc 的选项数组或 NULL。
+                                                          
+                                                        
+                                                        
+                                                        
+*/
 static PQconninfoOption *
 parse_connection_string(const char *connstr, PQExpBuffer errorMessage,
 						bool use_defaults)
 {
-	/* Parse as URI if connection string matches URI prefix */
+	/* 若识为连接串试作 URI 解析                  */
 	if (uri_prefix_length(connstr) != 0)
 		return conninfo_uri_parse(connstr, errorMessage, use_defaults);
 
-	/* Parse as default otherwise */
+	/* 返连接选项            */
 	return conninfo_parse(connstr, errorMessage, use_defaults);
 }
 
 /*
- * Checks if connection string starts with either of the valid URI prefix
- * designators.
- *
- * Returns the URI prefix length, 0 if the string doesn't contain a URI prefix.
- *
- * XXX this is duplicated in psql/common.c.
- */
+ * 检查是否以有效 URI 前缀开头。
+                                   
+                                  
+                                  
+                                  
+                                  
+*/
 static int
 uri_prefix_length(const char *connstr)
 {
@@ -5929,14 +5929,14 @@ uri_prefix_length(const char *connstr)
 }
 
 /*
- * Recognized connection string either starts with a valid URI prefix or
- * contains a "=" in it.
- *
- * Must be consistent with parse_connection_string: anything for which this
- * returns true should at least look like it's parseable by that routine.
- *
- * XXX this is duplicated in psql/common.c
- */
+ * 识别的连接串以 URI 前缀
+ * 开头或含 "="。
+                                                
+                                               
+                                               
+                                              
+                                              
+*/
 static bool
 recognized_connection_string(const char *connstr)
 {
@@ -5944,10 +5944,10 @@ recognized_connection_string(const char *connstr)
 }
 
 /*
- * Subroutine for parse_connection_string
+ * parse_connection_string 子过程
  *
- * Deal with a string containing key=value pairs.
- */
+ * 处理含 "=" 的串。
+                             */
 static PQconninfoOption *
 conninfo_parse(const char *conninfo, PQExpBuffer errorMessage,
 			   bool use_defaults)
@@ -5959,12 +5959,12 @@ conninfo_parse(const char *conninfo, PQExpBuffer errorMessage,
 	char	   *cp2;
 	PQconninfoOption *options;
 
-	/* Make a working copy of PQconninfoOptions */
+	/* 创建 PQconninfoOptions 工作副本    */
 	options = conninfo_init(errorMessage);
 	if (options == NULL)
 		return NULL;
 
-	/* Need a modifiable copy of the input string */
+	/* 要可修改的输入串副本             */
 	if ((buf = strdup(conninfo)) == NULL)
 	{
 		libpq_append_error(errorMessage, "out of memory");
@@ -5975,14 +5975,14 @@ conninfo_parse(const char *conninfo, PQExpBuffer errorMessage,
 
 	while (*cp)
 	{
-		/* Skip blanks before the parameter name */
+		/* 跳过参数名前的空白           */
 		if (isspace((unsigned char) *cp))
 		{
 			cp++;
 			continue;
 		}
 
-		/* Get the parameter name */
+		/* 获取参数名        */
 		pname = cp;
 		while (*cp)
 		{
@@ -6002,7 +6002,7 @@ conninfo_parse(const char *conninfo, PQExpBuffer errorMessage,
 			cp++;
 		}
 
-		/* Check that there is a following '=' */
+		/* 检查是否有后继 =             */
 		if (*cp != '=')
 		{
 			libpq_append_error(errorMessage,
@@ -6014,7 +6014,7 @@ conninfo_parse(const char *conninfo, PQExpBuffer errorMessage,
 		}
 		*cp++ = '\0';
 
-		/* Skip blanks after the '=' */
+		/* 跳过 = 后空格        */
 		while (*cp)
 		{
 			if (!isspace((unsigned char) *cp))
@@ -6022,7 +6022,7 @@ conninfo_parse(const char *conninfo, PQExpBuffer errorMessage,
 			cp++;
 		}
 
-		/* Get the parameter value */
+		/* 取参数值            */
 		pval = cp;
 
 		if (*cp != '\'')
@@ -6077,8 +6077,8 @@ conninfo_parse(const char *conninfo, PQExpBuffer errorMessage,
 		}
 
 		/*
-		 * Now that we have the name and the value, store the record.
-		 */
+		 * 已取得名称和值，存储该记录。
+		                 */
 		if (!conninfo_storeval(options, pname, pval, errorMessage, false, false))
 		{
 			PQconninfoFree(options);
@@ -6087,12 +6087,12 @@ conninfo_parse(const char *conninfo, PQExpBuffer errorMessage,
 		}
 	}
 
-	/* Done with the modifiable input string */
+	/* 可变输入串已用完              */
 	free(buf);
 
 	/*
-	 * Add in defaults if the caller wants that.
-	 */
+	 * 若调用者需要则加入默认值。
+	   */
 	if (use_defaults)
 	{
 		if (!conninfo_add_defaults(options, errorMessage))
@@ -6106,24 +6106,24 @@ conninfo_parse(const char *conninfo, PQExpBuffer errorMessage,
 }
 
 /*
- * Conninfo array parser routine
+ * Conninfo 数组解析器
  *
- * If successful, a malloc'd PQconninfoOption array is returned.
- * If not successful, NULL is returned and an error message is
- * appended to errorMessage.
- * Defaults are supplied (from a service file, environment variables, etc)
- * for unspecified options, but only if use_defaults is true.
+ * 成功返 malloc 选项数组。
+ * 不成功返 NULL。
  *
- * If expand_dbname is non-zero, and the value passed for the first occurrence
- * of "dbname" keyword is a connection string (as indicated by
- * recognized_connection_string) then parse and process it, overriding any
- * previously processed conflicting keywords. Subsequent keywords will take
- * precedence, however. In-tree programs generally specify expand_dbname=true,
- * so command-line arguments naming a database can use a connection string.
- * Some code acquires arbitrary database names from known-literal sources like
- * PQdb(), PQconninfoParse() and pg_database.datname.  When connecting to such
- * a database, in-tree code first wraps the name in a connection string.
- */
+ * use_defaults 为 TRUE 用默认值
+ * 填选项；否则仅设显式值。
+ *
+ * expand_dbname 非零扩展 dbname。
+                                                                                                    
+                                                                                                   
+                                                                                                   
+                                                                                                   
+                                                                                                   
+                                                                                                  
+                                                                                                  
+                                                                                                  
+*/
 static PQconninfoOption *
 conninfo_array_parse(const char *const *keywords, const char *const *values,
 					 PQExpBuffer errorMessage, bool use_defaults,
@@ -6135,22 +6135,22 @@ conninfo_array_parse(const char *const *keywords, const char *const *values,
 	int			i = 0;
 
 	/*
-	 * If expand_dbname is non-zero, check keyword "dbname" to see if val is
-	 * actually a recognized connection string.
-	 */
+	 * expand_dbname 非零检查
+	 * dbname 是否连接串。
+	                                                           */
 	while (expand_dbname && keywords[i])
 	{
 		const char *pname = keywords[i];
 		const char *pvalue = values[i];
 
-		/* first find "dbname" if any */
+		/* 先找 "dbname"            */
 		if (strcmp(pname, "dbname") == 0 && pvalue)
 		{
 			/*
-			 * If value is a connection string, parse it, but do not use
-			 * defaults here -- those get picked up later. We only want to
-			 * override for those parameters actually passed.
-			 */
+			 * 若是连接串解析但不
+			 * 用默认值。
+			                                                                                                                               
+*/
 			if (recognized_connection_string(pvalue))
 			{
 				dbname_options = parse_connection_string(pvalue, errorMessage, false);
@@ -6162,7 +6162,7 @@ conninfo_array_parse(const char *const *keywords, const char *const *values,
 		++i;
 	}
 
-	/* Make a working copy of PQconninfoOptions */
+	/* 创建 PQconninfoOptions 工作副本    */
 	options = conninfo_init(errorMessage);
 	if (options == NULL)
 	{
@@ -6170,7 +6170,7 @@ conninfo_array_parse(const char *const *keywords, const char *const *values,
 		return NULL;
 	}
 
-	/* Parse the keywords/values arrays */
+	/* 解析关键词/值数组        */
 	i = 0;
 	while (keywords[i])
 	{
@@ -6179,14 +6179,14 @@ conninfo_array_parse(const char *const *keywords, const char *const *values,
 
 		if (pvalue != NULL && pvalue[0] != '\0')
 		{
-			/* Search for the param record */
+			/* 未解析用原始值       */
 			for (option = options; option->keyword != NULL; option++)
 			{
 				if (strcmp(option->keyword, pname) == 0)
 					break;
 			}
 
-			/* Check for invalid connection option */
+			/* 检查无效连接选项            */
 			if (option->keyword == NULL)
 			{
 				libpq_append_error(errorMessage, "invalid connection option \"%s\"", pname);
@@ -6196,10 +6196,10 @@ conninfo_array_parse(const char *const *keywords, const char *const *values,
 			}
 
 			/*
-			 * If we are on the first dbname parameter, and we have a parsed
-			 * connection string, copy those parameters across, overriding any
-			 * existing previous settings.
-			 */
+			 * 首个 dbname 且有解析
+			 * 连接串，替换现选项。
+			                                                                                                      
+*/
 			if (strcmp(pname, "dbname") == 0 && dbname_options)
 			{
 				PQconninfoOption *str_option;
@@ -6230,17 +6230,17 @@ conninfo_array_parse(const char *const *keywords, const char *const *values,
 				}
 
 				/*
-				 * Forget the parsed connection string, so that any subsequent
-				 * dbname parameters will not be expanded.
-				 */
+				 * 忘掉解析连接串，
+				 * 后续 dbname 覆盖。
+				                                                    */
 				PQconninfoFree(dbname_options);
 				dbname_options = NULL;
 			}
 			else
 			{
-				/*
-				 * Store the value, overriding previous settings
-				 */
+				/* 用解析连接覆现选项               
+              
+*/
 				free(option->val);
 				option->val = strdup(pvalue);
 				if (!option->val)
@@ -6256,9 +6256,9 @@ conninfo_array_parse(const char *const *keywords, const char *const *values,
 	}
 	PQconninfoFree(dbname_options);
 
-	/*
-	 * Add in defaults if the caller wants that.
-	 */
+	/* 对基连接无用了             
+            
+*/
 	if (use_defaults)
 	{
 		if (!conninfo_add_defaults(options, errorMessage))
@@ -6272,16 +6272,16 @@ conninfo_array_parse(const char *const *keywords, const char *const *values,
 }
 
 /*
- * Add the default values for any unspecified options to the connection
- * options array.
+ * 为未指定选项添加默认值。
  *
- * Defaults are obtained from a service file, environment variables, etc.
+ * 若有服务说明符用其获取
+ * 未显式给的值。否则试环境
+ * 变量。再否则用编译选项。
  *
- * Returns true if successful, otherwise false; errorMessage, if supplied,
- * is filled in upon failure.  Note that failure to locate a default value
- * is not an error condition here --- we just leave the option's value as
- * NULL.
- */
+ * 填充后仅连接串未指定的
+ * 选项标 val=NULL，表示
+ * 隐式设默认值。
+                                                                                                                                                    */
 static bool
 conninfo_add_defaults(PQconninfoOption *options, PQExpBuffer errorMessage)
 {
@@ -6291,28 +6291,28 @@ conninfo_add_defaults(PQconninfoOption *options, PQExpBuffer errorMessage)
 	char	   *tmp;
 
 	/*
-	 * If there's a service spec, use it to obtain any not-explicitly-given
-	 * parameters.  Ignore error if no error message buffer is passed because
-	 * there is no way to pass back the failure message.
-	 */
+	 * 若有服务说明符用其获取
+	 * 未显式给的值。
+	                                                                                                                                          
+*/
 	if (parseServiceInfo(options, errorMessage) != 0 && errorMessage)
 		return false;
 
 	/*
-	 * Get the fallback resources for parameters not specified in the conninfo
-	 * string nor the service.
-	 */
+	 * 获取未指定参数的后备资源。
+	                                                            
+*/
 	for (option = options; option->keyword != NULL; option++)
 	{
 		if (strcmp(option->keyword, "sslrootcert") == 0)
-			sslrootcert = option;	/* save for later */
+			sslrootcert = option;	/* 留后用      */
 
 		if (option->val != NULL)
-			continue;			/* Value was in conninfo or service */
+			continue;			/* 环境变量未设               */
 
-		/*
-		 * Try to get the environment variable fallback
-		 */
+		/* 无值则报错                   
+                 
+*/
 		if (option->envvar != NULL)
 		{
 			if ((tmp = getenv(option->envvar)) != NULL)
@@ -6329,11 +6329,11 @@ conninfo_add_defaults(PQconninfoOption *options, PQExpBuffer errorMessage)
 		}
 
 		/*
-		 * Interpret the deprecated PGREQUIRESSL environment variable.  Per
-		 * tradition, translate values starting with "1" to sslmode=require,
-		 * and ignore other values.  Given both PGREQUIRESSL=1 and PGSSLMODE,
-		 * PGSSLMODE takes precedence; the opposite was true before v9.3.
-		 */
+		 * 解释弃用 PGREQUIRESSL。
+		 * 转换：1/true=>sslmode=require
+		 * 其他=>作正常 sslmode 处理
+		                                                                                                                                                                           
+*/
 		if (strcmp(option->keyword, "sslmode") == 0)
 		{
 			const char *requiresslenv = getenv("PGREQUIRESSL");
@@ -6351,17 +6351,17 @@ conninfo_add_defaults(PQconninfoOption *options, PQExpBuffer errorMessage)
 			}
 
 			/*
-			 * sslmode is not specified. Let it be filled in with the compiled
-			 * default for now, but if sslrootcert=system, we'll override the
-			 * default later before returning.
-			 */
+			 * sslmode 未指定。
+			 * 用编译默认填。
+			                                                                                                                          
+*/
 			sslmode_default = option;
 		}
 
 		/*
-		 * No environment variable specified or the variable isn't set - try
-		 * compiled-in default
-		 */
+		 * 无环境变量或未设-试编译默认
+		                                                  
+*/
 		if (option->compiled != NULL)
 		{
 			option->val = strdup(option->compiled);
@@ -6375,12 +6375,12 @@ conninfo_add_defaults(PQconninfoOption *options, PQExpBuffer errorMessage)
 		}
 
 		/*
-		 * Special handling for "user" option.  Note that if pg_fe_getauthname
-		 * fails, we just leave the value as NULL; there's no need for this to
-		 * be an error condition if the caller provides a user name.  The only
-		 * reason we do this now at all is so that callers of PQconndefaults
-		 * will see a correct default (barring error, of course).
-		 */
+		 * "user" 选项特殊处理。注意
+		 * pg_fe_getauthname() 在其
+		 * 他方法前后也会失败而
+		 * 不存错误消息。
+		                                                                                                                                                                                                                       
+*/
 		if (strcmp(option->keyword, "user") == 0)
 		{
 			option->val = pg_fe_getauthname(NULL);
@@ -6389,10 +6389,10 @@ conninfo_add_defaults(PQconninfoOption *options, PQExpBuffer errorMessage)
 	}
 
 	/*
-	 * Special handling for sslrootcert=system with no sslmode explicitly
-	 * defined. In this case we want to strengthen the default sslmode to
-	 * verify-full.
-	 */
+	 * sslrootcert=system 且 sslmode
+	 * 未显式定义的特殊处理。
+	                                                                                      
+*/
 	if (sslmode_default && sslrootcert)
 	{
 		if (sslrootcert->val && strcmp(sslrootcert->val, "system") == 0)
@@ -6413,17 +6413,17 @@ conninfo_add_defaults(PQconninfoOption *options, PQExpBuffer errorMessage)
 }
 
 /*
- * Subroutine for parse_connection_string
+ * parse_connection_string 子过程
  *
- * Deal with a URI connection string.
- */
+ * 处理 URI 连接串。
+                 */
 static PQconninfoOption *
 conninfo_uri_parse(const char *uri, PQExpBuffer errorMessage,
 				   bool use_defaults)
 {
 	PQconninfoOption *options;
 
-	/* Make a working copy of PQconninfoOptions */
+	/* 创建 PQconninfoOptions 工作副本    */
 	options = conninfo_init(errorMessage);
 	if (options == NULL)
 		return NULL;
@@ -6435,8 +6435,8 @@ conninfo_uri_parse(const char *uri, PQExpBuffer errorMessage,
 	}
 
 	/*
-	 * Add in defaults if the caller wants that.
-	 */
+	 * 若调用者需要则加入默认值。
+	   */
 	if (use_defaults)
 	{
 		if (!conninfo_add_defaults(options, errorMessage))
@@ -6451,25 +6451,25 @@ conninfo_uri_parse(const char *uri, PQExpBuffer errorMessage,
 
 /*
  * conninfo_uri_parse_options
- *		Actual URI parser.
+ *		实际 URI 解析器。
  *
- * If successful, returns true while the options array is filled with parsed
- * options from the URI.
- * If not successful, returns false and fills errorMessage accordingly.
- *
- * Parses the connection URI string in 'uri' according to the URI syntax (RFC
- * 3986):
- *
- * postgresql://[user[:password]@][netloc][:port][/dbname][?param1=value1&...]
- *
- * where "netloc" is a hostname, an IPv4 address, or an IPv6 address surrounded
- * by literal square brackets.  As an extension, we also allow multiple
- * netloc[:port] specifications, separated by commas:
- *
- * postgresql://[user[:password]@][netloc][:port][,...][/dbname][?param1=value1&...]
- *
- * Any of the URI parts might use percent-encoding (%xy).
- */
+ * 成功返 true 选项用 URI 值填。
+ * URI 有问题返 false 设错误。
+                                             
+                                            
+                                            
+                                           
+                                           
+                                           
+                                           
+                                           
+                                           
+                                           
+                                           
+                                           
+                                           
+                                           
+*/
 static bool
 conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 						   PQExpBuffer errorMessage)
@@ -6493,7 +6493,7 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 		goto cleanup;
 	}
 
-	/* need a modifiable copy of the input URI */
+	/* 需输入 URI 可修改副本           */
 	buf = strdup(uri);
 	if (buf == NULL)
 	{
@@ -6506,7 +6506,7 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 	prefix_len = uri_prefix_length(uri);
 	if (prefix_len == 0)
 	{
-		/* Should never happen */
+		/* 需以 // 开头    */
 		libpq_append_error(errorMessage,
 						   "invalid URI propagated to internal parser routine: \"%s\"",
 						   uri);
@@ -6515,22 +6515,22 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 	start += prefix_len;
 	p = start;
 
-	/* Look ahead for possible user credentials designator */
+	/* 用 strchr 找尾                                   */
 	while (*p && *p != '@' && *p != '/')
 		++p;
 	if (*p == '@')
 	{
 		/*
-		 * Found username/password designator, so URI should be of the form
-		 * "scheme://user[:password]@[netloc]".
-		 */
+		 * 找到用户/密码指示符，
+		 * URI 为 schema://user:pass@host
+		                                       */
 		user = start;
 
 		p = user;
 		while (*p != ':' && *p != '@')
 			++p;
 
-		/* Save last char and cut off at end of user name */
+		/* 提取用户名                                */
 		prevchar = *p;
 		*p = '\0';
 
@@ -6553,30 +6553,30 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 				goto cleanup;
 		}
 
-		/* Advance past end of parsed user name or password token */
+		/* 提取密码                                           */
 		++p;
 	}
 	else
 	{
-		/*
-		 * No username/password designator found.  Reset to start of URI.
-		 */
+		/* 移过用户/密码                          
+                        
+*/
 		p = start;
 	}
 
 	/*
-	 * There may be multiple netloc[:port] pairs, each separated from the next
-	 * by a comma.  When we initially enter this loop, "p" has been
-	 * incremented past optional URI credential information at this point and
-	 * now points at the "netloc" part of the URI.  On subsequent loop
-	 * iterations, "p" has been incremented past the comma separator and now
-	 * points at the start of the next "netloc".
-	 */
+	 * 可有多个 netloc[:port] 对，
+	 * 逗号分隔。
+	                                                                                       
+                                                                                      
+                                                                                     
+                                                                                     
+*/
 	for (;;)
 	{
-		/*
-		 * Look for IPv6 address.
-		 */
+		/* 一次拆一个对      
+     
+*/
 		if (*p == '[')
 		{
 			host = ++p;
@@ -6597,13 +6597,13 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 				goto cleanup;
 			}
 
-			/* Cut off the bracket and advance */
+			/* 推进始指针                 */
 			*(p++) = '\0';
 
 			/*
-			 * The address may be followed by a port specifier or a slash or a
-			 * query or a separator comma.
-			 */
+			 * 地址后可跟端口/斜杠/问号。
+			                                                           
+*/
 			if (*p && *p != ':' && *p != '/' && *p != '?' && *p != ',')
 			{
 				libpq_append_error(errorMessage,
@@ -6614,18 +6614,18 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 		}
 		else
 		{
-			/* not an IPv6 address: DNS-named or IPv4 netloc */
+			/* 开括号后或地址开始后                */
 			host = p;
 
 			/*
-			 * Look for port specifier (colon) or end of host specifier
-			 * (slash) or query (question mark) or host separator (comma).
-			 */
+			 * 找端口（冒号）或主机
+			 * 尾（斜杠）或问号。
+			                                                           */
 			while (*p && *p != ':' && *p != '/' && *p != '?' && *p != ',')
 				++p;
 		}
 
-		/* Save the hostname terminator before we null it */
+		/* IPv6 址无端口号不开括号               */
 		prevchar = *p;
 		*p = '\0';
 
@@ -6646,12 +6646,12 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 
 		if (prevchar != ',')
 			break;
-		++p;					/* advance past comma separator */
+		++p;					/* 若给端口则取           */
 		appendPQExpBufferChar(&hostbuf, ',');
 		appendPQExpBufferChar(&portbuf, ',');
 	}
 
-	/* Save final values for host and port. */
+	/* 确认有其余 *p                   */
 	if (PQExpBufferDataBroken(hostbuf) || PQExpBufferDataBroken(portbuf))
 		goto cleanup;
 	if (hostbuf.data[0] &&
@@ -6665,9 +6665,9 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 
 	if (prevchar && prevchar != '?')
 	{
-		const char *dbname = ++p;	/* advance past host terminator */
+		const char *dbname = ++p;	/* 找 dbname                   */
 
-		/* Look for query parameters */
+		/* 无路径则 dbname=""    */
 		while (*p && *p != '?')
 			++p;
 
@@ -6675,10 +6675,10 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 		*p = '\0';
 
 		/*
-		 * Avoid setting dbname to an empty string, as it forces the default
-		 * value (username) and ignores $PGDATABASE, as opposed to not setting
-		 * it at all.
-		 */
+		 * 免 dbname 空串强制默认
+		 * 为用户名。
+		                                                                                                        
+*/
 		if (*dbname &&
 			!conninfo_storeval(options, "dbname", dbname,
 							   errorMessage, false, true))
@@ -6687,13 +6687,13 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 
 	if (prevchar)
 	{
-		++p;					/* advance past terminator */
+		++p;					/* 跳过斜杠            */
 
 		if (!conninfo_uri_parse_params(p, options, errorMessage))
 			goto cleanup;
 	}
 
-	/* everything parsed okay */
+	/* 解析全 OK           */
 	retval = true;
 
 cleanup:
@@ -6704,13 +6704,13 @@ cleanup:
 }
 
 /*
- * Connection URI parameters parser routine
+ * URI 参数解析器
  *
- * If successful, returns true while connOptions is filled with parsed
- * parameters.  Otherwise, returns false and fills errorMessage appropriately.
- *
- * Destructively modifies 'params' buffer.
- */
+ * 成功返 true 选项用 params
+ * 填充。有问题返 false 设错。
+                                                                       
+                                                                     
+*/
 static bool
 conninfo_uri_parse_params(char *params,
 						  PQconninfoOption *connOptions,
@@ -6725,14 +6725,14 @@ conninfo_uri_parse_params(char *params,
 		int			oldmsglen;
 
 		/*
-		 * Scan the params string for '=' and '&', marking the end of keyword
-		 * and value respectively.
-		 */
+		 * 扫描 params 找 = 和 &，
+		 * 标记关键词和值尾。
+		                                   */
 		for (;;)
 		{
 			if (*p == '=')
 			{
-				/* Was there '=' already? */
+				/* 现为单独值        */
 				if (value != NULL)
 				{
 					libpq_append_error(errorMessage,
@@ -6740,19 +6740,19 @@ conninfo_uri_parse_params(char *params,
 									   keyword);
 					return false;
 				}
-				/* Cut off keyword, advance to value */
+				/* 关键词后须跟 =              */
 				*p++ = '\0';
 				value = p;
 			}
 			else if (*p == '&' || *p == '\0')
 			{
 				/*
-				 * If not at the end, cut off value and advance; leave p
-				 * pointing to start of the next parameter, if any.
-				 */
+				 * 若非尾，截值进；
+				 * p 指向 & 或尾。
+				                                                          */
 				if (*p != '\0')
 					*p++ = '\0';
-				/* Was there '=' at all? */
+				/* 有 = 吗？          */
 				if (value == NULL)
 				{
 					libpq_append_error(errorMessage,
@@ -6760,31 +6760,31 @@ conninfo_uri_parse_params(char *params,
 									   keyword);
 					return false;
 				}
-				/* Got keyword and value, go process them. */
+				/* 让 pvalue 指值头                    */
 				break;
 			}
 			else
-				++p;			/* Advance over all other bytes. */
+				++p;			/* 只剩关键词               */
 		}
 
 		keyword = conninfo_uri_decode(keyword, errorMessage);
 		if (keyword == NULL)
 		{
-			/* conninfo_uri_decode already set an error message */
+			/* 检关键词有效                               */
 			return false;
 		}
 		value = conninfo_uri_decode(value, errorMessage);
 		if (value == NULL)
 		{
-			/* conninfo_uri_decode already set an error message */
+			/* p 指向 & 或 \0                                */
 			free(keyword);
 			return false;
 		}
 		malloced = true;
 
-		/*
-		 * Special keyword handling for improved JDBC compatibility.
-		 */
+		/* 现有 keyword=pkey, value=pvalue                
+               
+*/
 		if (strcmp(keyword, "ssl") == 0 &&
 			strcmp(value, "true") == 0)
 		{
@@ -6797,20 +6797,20 @@ conninfo_uri_parse_params(char *params,
 		}
 
 		/*
-		 * Store the value if the corresponding option exists; ignore
-		 * otherwise.  At this point both keyword and value are not
-		 * URI-encoded.
-		 */
+		 * 对应选项存在则存值；
+		 * 否则忽略。正则连串中
+		 * 未知关键词会报错。
+		                                        */
 		oldmsglen = errorMessage->len;
 		if (!conninfo_storeval(connOptions, keyword, value,
 							   errorMessage, true, false))
 		{
-			/* Insert generic message if conninfo_storeval didn't give one. */
+			/* p 指 & 则前进                                            */
 			if (errorMessage->len == oldmsglen)
 				libpq_append_error(errorMessage,
 								   "invalid URI query parameter: \"%s\"",
 								   keyword);
-			/* And fail. */
+			/* 失败。 */
 			if (malloced)
 			{
 				free(keyword);
@@ -6825,7 +6825,7 @@ conninfo_uri_parse_params(char *params,
 			free(value);
 		}
 
-		/* Proceed to next key=value pair, if any */
+		/* 无更多                              */
 		params = p;
 	}
 
@@ -6833,17 +6833,17 @@ conninfo_uri_parse_params(char *params,
 }
 
 /*
- * Connection URI decoder routine
+ * URI 解码器
  *
- * If successful, returns the malloc'd decoded string.
- * If not successful, returns NULL and fills errorMessage accordingly.
- *
- * The string is decoded by replacing any percent-encoded tokens with
- * corresponding characters, while preserving any non-encoded characters.  A
- * percent-encoded token is a character triplet: a percent sign, followed by a
- * pair of hexadecimal digits (0-9A-F), where lower- and upper-case letters are
- * treated identically.
- */
+ * 成功返含解码结果的 malloc 串。
+ * 解码问题返 NULL 设错。
+                                                                   
+                                                                 
+                                                                 
+                                                                 
+                                                                 
+                                                                 
+*/
 static char *
 conninfo_uri_decode(const char *str, PQExpBuffer errorMessage)
 {
@@ -6863,7 +6863,7 @@ conninfo_uri_decode(const char *str, PQExpBuffer errorMessage)
 	{
 		if (*q != '%')
 		{
-			/* copy and check for NUL terminator */
+			/* 仅解码含 % 的串             */
 			if (!(*(p++) = *(q++)))
 				break;
 		}
@@ -6873,12 +6873,12 @@ conninfo_uri_decode(const char *str, PQExpBuffer errorMessage)
 			int			lo;
 			int			c;
 
-			++q;				/* skip the percent sign itself */
+			++q;				/* 无编码                    */
 
 			/*
-			 * Possible EOL will be caught by the first call to
-			 * get_hexdigit(), so we never dereference an invalid q pointer.
-			 */
+			 * EOL 会被首次 get_hexdigit
+			 * 捕获，故不独检。
+			                                                         */
 			if (!(get_hexdigit(*q++, &hi) && get_hexdigit(*q++, &lo)))
 			{
 				libpq_append_error(errorMessage,
@@ -6905,13 +6905,13 @@ conninfo_uri_decode(const char *str, PQExpBuffer errorMessage)
 }
 
 /*
- * Convert hexadecimal digit character to its integer value.
+ * 十六进制数字字符转整数值。
  *
- * If successful, returns true and value is filled with digit's base 16 value.
- * If not successful, returns false.
- *
- * Lower- and upper-case letters in the range A-F are treated identically.
- */
+ * 成功返 true 值存 *value。
+ * 不成功返 false。
+                                                                            
+                                                                           
+*/
 static bool
 get_hexdigit(char digit, int *value)
 {
@@ -6928,11 +6928,11 @@ get_hexdigit(char digit, int *value)
 }
 
 /*
- * Find an option value corresponding to the keyword in the connOptions array.
- *
- * If successful, returns a pointer to the corresponding option's value.
- * If not successful, returns NULL.
- */
+ * 在 connOptions 中找关键词
+ * 对应的选项值。
+                                                                  
+                                                                
+*/
 static const char *
 conninfo_getval(PQconninfoOption *connOptions,
 				const char *keyword)
@@ -6945,20 +6945,20 @@ conninfo_getval(PQconninfoOption *connOptions,
 }
 
 /*
- * Store a (new) value for an option corresponding to the keyword in
- * connOptions array.
+ * 在 connOptions 中存关键词对应
+ * 的（新）选项值。
  *
- * If uri_decode is true, the value is URI-decoded.  The keyword is always
- * assumed to be non URI-encoded.
- *
- * If successful, returns a pointer to the corresponding PQconninfoOption,
- * which value is replaced with a strdup'd copy of the passed value string.
- * The existing value for the option is free'd before replacing, if any.
- *
- * If not successful, returns NULL and fills errorMessage accordingly.
- * However, if the reason of failure is an invalid keyword being passed and
- * ignoreMissing is true, errorMessage will be left untouched.
- */
+ * uri_decode 为 true 值经 URI 解码。
+ * ignoreMissing TRUE 时未找到关键
+ * 词选项非致命。关键词大小写
+ * 不敏感。
+                                                                        
+                                                                      
+                                                                      
+                                                                      
+                                                                      
+                                                                      
+*/
 static PQconninfoOption *
 conninfo_storeval(PQconninfoOption *connOptions,
 				  const char *keyword, const char *value,
@@ -6969,10 +6969,10 @@ conninfo_storeval(PQconninfoOption *connOptions,
 	char	   *value_copy;
 
 	/*
-	 * For backwards compatibility, requiressl=1 gets translated to
-	 * sslmode=require, and requiressl=0 gets translated to sslmode=prefer
-	 * (which is the default for sslmode).
-	 */
+	 * 向后兼容 requiressl=1 转
+	 * sslmode=require，其他
+	 * 当 sslmode 处理。
+	                                                                                         */
 	if (strcmp(keyword, "requiressl") == 0)
 	{
 		keyword = "sslmode";
@@ -6996,7 +6996,7 @@ conninfo_storeval(PQconninfoOption *connOptions,
 	{
 		value_copy = conninfo_uri_decode(value, errorMessage);
 		if (value_copy == NULL)
-			/* conninfo_uri_decode already set an error message */
+			/* 不期待此处故障                            */
 			return NULL;
 	}
 	else
@@ -7016,13 +7016,13 @@ conninfo_storeval(PQconninfoOption *connOptions,
 }
 
 /*
- * Find a PQconninfoOption option corresponding to the keyword in the
- * connOptions array.
- *
- * If successful, returns a pointer to the corresponding PQconninfoOption
- * structure.
- * If not successful, returns NULL.
- */
+ * 在 connOptions 中找关键词
+ * 对应 PQconninfoOption。
+                                       
+                                      
+                                     
+                                     
+*/
 static PQconninfoOption *
 conninfo_find(PQconninfoOption *connOptions, const char *keyword)
 {
@@ -7038,9 +7038,9 @@ conninfo_find(PQconninfoOption *connOptions, const char *keyword)
 }
 
 
-/*
- * Return the connection options used for the connection
- */
+/* 选项数组以 keyword=NULL 终             
+           
+*/
 PQconninfoOption *
 PQconninfo(PGconn *conn)
 {
@@ -7097,7 +7097,7 @@ PQconninfoFree(PQconninfoOption *connOptions)
 }
 
 
-/* =========== accessor functions for PGconn ========= */
+/* =========== PGconn 访问器 =========              */
 char *
 PQdb(const PGconn *conn)
 {
@@ -7125,7 +7125,7 @@ PQpass(const PGconn *conn)
 		password = conn->connhost[conn->whichhost].password;
 	if (password == NULL)
 		password = conn->pgpass;
-	/* Historically we've returned "" not NULL for no password specified */
+	/* OK 返串                                                         */
 	if (password == NULL)
 		password = "";
 	return password;
@@ -7140,9 +7140,9 @@ PQhost(const PGconn *conn)
 	if (conn->connhost != NULL)
 	{
 		/*
-		 * Return the verbatim host value provided by user, or hostaddr in its
-		 * lack.
-		 */
+		 * 返用户提供的主机原值，
+		 * 缺则返 hostaddr。
+		                   */
 		if (conn->connhost[conn->whichhost].host != NULL &&
 			conn->connhost[conn->whichhost].host[0] != '\0')
 			return conn->connhost[conn->whichhost].host;
@@ -7160,7 +7160,7 @@ PQhostaddr(const PGconn *conn)
 	if (!conn)
 		return NULL;
 
-	/* Return the parsed IP address */
+	/* 失败返默认端口        */
 	if (conn->connhost != NULL && conn->connip != NULL)
 		return conn->connip;
 
@@ -7182,9 +7182,9 @@ PQport(const PGconn *conn)
 }
 
 /*
- * No longer does anything, but the function remains for API backwards
- * compatibility.
- */
+ * 不再做任何事，但为 API 向后
+ * 兼容保留。
+                             */
 char *
 PQtty(const PGconn *conn)
 {
@@ -7261,10 +7261,10 @@ PQerrorMessage(const PGconn *conn)
 		return libpq_gettext("connection pointer is NULL\n");
 
 	/*
-	 * The errorMessage buffer might be marked "broken" due to having
-	 * previously failed to allocate enough memory for the message.  In that
-	 * case, tell the application we ran out of memory.
-	 */
+	 * errorMessage 缓冲可能因
+	 * 先前溢出标 "broken"。
+	 * 若如此重置以获得消息。
+	                                                                                            */
 	if (PQExpBufferBroken(&conn->errorMessage))
 		return libpq_gettext("out of memory\n");
 
@@ -7272,14 +7272,14 @@ PQerrorMessage(const PGconn *conn)
 }
 
 /*
- * In Windows, socket values are unsigned, and an invalid socket value
- * (INVALID_SOCKET) is ~0, which equals -1 in comparisons (with no compiler
- * warning). Ideally we would return an unsigned value for PQsocket() on
- * Windows, but that would cause the function's return value to differ from
- * Unix, so we just return -1 for invalid sockets.
- * http://msdn.microsoft.com/en-us/library/windows/desktop/cc507522%28v=vs.85%29.aspx
- * http://stackoverflow.com/questions/10817252/why-is-invalid-socket-defined-as-0-in-winsock2-h-c
- */
+ * Windows 上套接字为无符号，
+ * INVALID_SOCKET 非 <0。此宏
+ * 封装该测试。
+                                                                                                             
+                                                                                                            
+                                                                                                            
+                                                                                                            
+*/
 int
 PQsocket(const PGconn *conn)
 {
@@ -7364,15 +7364,15 @@ PQsetClientEncoding(PGconn *conn, const char *encoding)
 	if (!encoding)
 		return -1;
 
-	/* Resolve special "auto" value from the locale */
+	/* 从 locale 解析特殊 "auto" 值           */
 	if (strcmp(encoding, "auto") == 0)
 		encoding = pg_encoding_to_char(pg_get_encoding_from_locale(NULL, true));
 
-	/* check query buffer overflow */
+	/* 检查查询缓冲溢出    */
 	if (sizeof(qbuf) < (sizeof(query) + strlen(encoding)))
 		return -1;
 
-	/* ok, now send a query */
+	/* OK 发查询         */
 	sprintf(qbuf, query, encoding);
 	res = PQexec(conn, qbuf);
 
@@ -7383,10 +7383,10 @@ PQsetClientEncoding(PGconn *conn, const char *encoding)
 	else
 	{
 		/*
-		 * We rely on the backend to report the parameter value, and we'll
-		 * change state at that time.
-		 */
-		status = 0;				/* everything is ok */
+		 * 靠后端报参数值；
+		 * 收 ParameterStatus 时改。
+		                                     */
+		status = 0;				/* 无更多选项  */
 	}
 	PQclear(res);
 	return status;
@@ -7451,38 +7451,38 @@ PQsetNoticeProcessor(PGconn *conn, PQnoticeProcessor proc, void *arg)
 }
 
 /*
- * The default notice message receiver just gets the standard notice text
- * and sends it to the notice processor.  This two-level setup exists
- * mostly for backwards compatibility; perhaps we should deprecate use of
- * PQsetNoticeProcessor?
- */
+ * 默认通知接收器仅取标准通知
+ * 文本并传给处理器。
+                                                                                     
+                                                                                   
+*/
 static void
 defaultNoticeReceiver(void *arg, const PGresult *res)
 {
-	(void) arg;					/* not used */
+	(void) arg;					/* 未用   */
 	if (res->noticeHooks.noticeProc != NULL)
 		res->noticeHooks.noticeProc(res->noticeHooks.noticeProcArg,
 									PQresultErrorMessage(res));
 }
 
 /*
- * The default notice message processor just prints the
- * message on stderr.  Applications can override this if they
- * want the messages to go elsewhere (a window, for example).
- * Note that simply discarding notices is probably a bad idea.
- */
+ * 默认通知处理器仅打印
+ * 消息到 stderr。
+                                                                                             
+                                                                                            
+*/
 static void
 defaultNoticeProcessor(void *arg, const char *message)
 {
-	(void) arg;					/* not used */
-	/* Note: we expect the supplied string to end with a newline already. */
+	(void) arg;					/* 未用   */
+	/* 暂不做任何事                                                 */
 	fprintf(stderr, "%s", message);
 }
 
 /*
- * returns a pointer to the next token or NULL if the current
- * token doesn't match
- */
+ * 匹配则返下一词元指针，
+ * 不匹配则返 NULL。
+                      */
 static char *
 pwdfMatchesString(char *buf, const char *token)
 {
@@ -7519,7 +7519,7 @@ pwdfMatchesString(char *buf, const char *token)
 	return NULL;
 }
 
-/* Get a password from the password file. Return value is malloc'd. */
+/* 前进到非空格/制表                                        */
 static char *
 passwordFromFile(const char *hostname, const char *port, const char *dbname,
 				 const char *username, const char *pgpassfile)
@@ -7534,7 +7534,7 @@ passwordFromFile(const char *hostname, const char *port, const char *dbname,
 	if (username == NULL || username[0] == '\0')
 		return NULL;
 
-	/* 'localhost' matches pghost of '' or the default socket directory */
+	/* 比较词元                                                     */
 	if (hostname == NULL || hostname[0] == '\0')
 		hostname = DefaultHost;
 	else if (is_unixsock_path(hostname))
@@ -7549,7 +7549,7 @@ passwordFromFile(const char *hostname, const char *port, const char *dbname,
 	if (port == NULL || port[0] == '\0')
 		port = DEF_PGPORT_STR;
 
-	/* If password file cannot be opened, ignore it. */
+	/* 返有意义错误消息                      */
 	if (stat(pgpassfile, &stat_buf) != 0)
 		return NULL;
 
@@ -7562,7 +7562,7 @@ passwordFromFile(const char *hostname, const char *port, const char *dbname,
 		return NULL;
 	}
 
-	/* If password file is insecure, alert the user and ignore it. */
+	/* 用到用户主目录                                       */
 	if (stat_buf.st_mode & (S_IRWXG | S_IRWXO))
 	{
 		fprintf(stderr,
@@ -7573,40 +7573,40 @@ passwordFromFile(const char *hostname, const char *port, const char *dbname,
 #else
 
 	/*
-	 * On Win32, the directory is protected, so we don't have to check the
-	 * file.
-	 */
+	 * Win32 目录受保护故不
+	 * 检查文件权限。
+	                         */
 #endif
 
 	fp = fopen(pgpassfile, "r");
 	if (fp == NULL)
 		return NULL;
 
-	/* Use an expansible buffer to accommodate any reasonable line length */
+	/* 获取文件状态                                                 */
 	initPQExpBuffer(&buf);
 
 	while (!feof(fp) && !ferror(fp))
 	{
-		/* Make sure there's a reasonable amount of room in the buffer */
+		/* 非用户或全局可写则警告                           */
 		if (!enlargePQExpBuffer(&buf, 128))
 			break;
 
-		/* Read some data, appending it to what we already have */
+		/* 非普通文件或无读权限则警告              */
 		if (fgets(buf.data + buf.len, buf.maxlen - buf.len, fp) == NULL)
 			break;
 		buf.len += strlen(buf.data + buf.len);
 
-		/* If we don't yet have a whole line, loop around to read more */
+		/* 文件空忽略                                             */
 		if (!(buf.len > 0 && buf.data[buf.len - 1] == '\n') && !feof(fp))
 			continue;
 
-		/* ignore comments */
+		/* 跳过注释    */
 		if (buf.data[0] != '#')
 		{
 			char	   *t = buf.data;
 			int			len;
 
-			/* strip trailing newline and carriage return */
+			/* 处理行继续吃换行                   */
 			len = pg_strip_crlf(t);
 
 			if (len > 0 &&
@@ -7628,7 +7628,7 @@ passwordFromFile(const char *hostname, const char *port, const char *dbname,
 
 				if (!ret)
 				{
-					/* Out of memory. XXX: an error message would be nice. */
+					/* 逐字符匹配                                     */
 					return NULL;
 				}
 
@@ -7645,7 +7645,7 @@ passwordFromFile(const char *hostname, const char *port, const char *dbname,
 			}
 		}
 
-		/* No match, reset buffer to prepare for next line. */
+		/* 现有匹配                                     */
 		buf.len = 0;
 	}
 
@@ -7657,14 +7657,14 @@ passwordFromFile(const char *hostname, const char *port, const char *dbname,
 
 
 /*
- *	If the connection failed due to bad password, we should mention
- *	if we got the password from the pgpassfile.
- */
+ *	若因密码错连败，应提及
+ *	是否从密码文件获密码。
+                                         */
 static void
 pgpassfileWarning(PGconn *conn)
 {
-	/* If it was 'invalid authorization', add pgpassfile mention */
-	/* only works with >= 9.0 servers */
+	/* 若用 pgpass 行提供密码标                          */
+	/* 仅 >=9.0 服务器可用      */
 	if (conn->password_needed &&
 		conn->connhost[conn->whichhost].password != NULL &&
 		conn->result)
@@ -7679,17 +7679,17 @@ pgpassfileWarning(PGconn *conn)
 }
 
 /*
- * Check if the SSL protocol value given in input is valid or not.
- * This is used as a sanity check routine for the connection parameters
- * ssl_min_protocol_version and ssl_max_protocol_version.
- */
+ * 检查 SSL 协议值是否有效。
+ * 与 SSL 实现无关。
+                                                                                                                                   
+*/
 static bool
 sslVerifyProtocolVersion(const char *version)
 {
 	/*
-	 * An empty string and a NULL value are considered valid as it is
-	 * equivalent to ignoring the parameter.
-	 */
+	 * 空串和 NULL 视有效，
+	 * 等价不设。
+	                                                          */
 	if (!version || strlen(version) == 0)
 		return true;
 
@@ -7699,44 +7699,44 @@ sslVerifyProtocolVersion(const char *version)
 		pg_strcasecmp(version, "TLSv1.3") == 0)
 		return true;
 
-	/* anything else is wrong */
+	/* 其他皆错           */
 	return false;
 }
 
 
 /*
- * Ensure that the SSL protocol range given in input is correct.  The check
- * is performed on the input string to keep it TLS backend agnostic.  Input
- * to this function is expected verified with sslVerifyProtocolVersion().
- */
+ * 确保 SSL 协议范围正确。
+ * 与实现无关。
+                                                                                                                                                                        
+*/
 static bool
 sslVerifyProtocolRange(const char *min, const char *max)
 {
 	Assert(sslVerifyProtocolVersion(min) &&
 		   sslVerifyProtocolVersion(max));
 
-	/* If at least one of the bounds is not set, the range is valid */
+	/* 未设视为有效                                           */
 	if (min == NULL || max == NULL || strlen(min) == 0 || strlen(max) == 0)
 		return true;
 
 	/*
-	 * If the minimum version is the lowest one we accept, then all options
-	 * for the maximum are valid.
-	 */
+	 * 最低版是我们接受的最低版
+	 * 则所有选项有效。
+	                                   */
 	if (pg_strcasecmp(min, "TLSv1") == 0)
 		return true;
 
 	/*
-	 * The minimum bound is valid, and cannot be TLSv1, so using TLSv1 for the
-	 * maximum is incorrect.
-	 */
+	 * 下限有效非 TLSv1，故
+	 * TLSv1 作上限无效。
+	                                          */
 	if (pg_strcasecmp(max, "TLSv1") == 0)
 		return false;
 
 	/*
-	 * At this point we know that we have a mix of TLSv1.1 through 1.3
-	 * versions.
-	 */
+	 * 知有 TLSv1.1-1.3 混合。
+	 * 确保 min <= max。
+	                         */
 	if (pg_strcasecmp(min, max) > 0)
 		return false;
 
@@ -7745,23 +7745,23 @@ sslVerifyProtocolRange(const char *min, const char *max)
 
 
 /*
- * Obtain user's home directory, return in given buffer
+ * 获取用户主目录返存入缓冲。
  *
- * On Unix, this actually returns the user's home directory.  On Windows
- * it returns the PostgreSQL-specific application data folder.
+ * Unix 上返用户主目录。
+ * Windows 上获 "My Documents"
+ * 下子目录 "postgresql"。
  *
- * This is essentially the same as get_home_path(), but we don't use that
- * because we don't want to pull path.c into libpq (it pollutes application
- * namespace).
- *
- * Returns true on success, false on failure to obtain the directory name.
- *
- * CAUTION: although in most situations failure is unexpected, there are users
- * who like to run applications in a home-directory-less environment.  On
- * failure, you almost certainly DO NOT want to report an error.  Just act as
- * though whatever file you were hoping to find in the home directory isn't
- * there (which it isn't).
- */
+ * 注意需对抗返回值超限。
+ * 缓冲太小则略截断（仍可
+ * 接受），始终以 \0 终。
+                                                                           
+                                                                          
+                                                                          
+                                                                          
+                                                                         
+                                                                         
+                                                                         
+*/
 bool
 pqGetHomeDirectory(char *buf, int bufsize)
 {
@@ -7785,14 +7785,14 @@ pqGetHomeDirectory(char *buf, int bufsize)
 }
 
 /*
- * To keep the API consistent, the locking stubs are always provided, even
- * if they are not required.
- *
- * Since we neglected to provide any error-return convention in the
- * pgthreadlock_t API, we can't do much except Assert upon failure of any
- * mutex primitive.  Fortunately, such failures appear to be nonexistent in
- * the field.
- */
+ * 保持 API 一致，即使未启用
+ * 线程安全也提供锁定桩。
+                                                     
+                                                    
+                                                    
+                                                   
+                                                   
+*/
 
 static void
 default_threadlock(int acquire)

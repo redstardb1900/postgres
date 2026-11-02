@@ -58,7 +58,7 @@ static int	pqSocketCheck(PGconn *conn, int forRead, int forWrite,
 static int	pqSocketPoll(int sock, int forRead, int forWrite, time_t end_time);
 
 /*
- * PQlibVersion: return the libpq version number
+ * PQlibVersion: 返回 libpq 版本号
  */
 int
 PQlibVersion(void)
@@ -68,11 +68,11 @@ PQlibVersion(void)
 
 
 /*
- * pqGetc: get 1 character from the connection
+ * pqGetc: 从连接获取 1 个字符
  *
- *	All these routines return 0 on success, EOF on error.
- *	Note that for the Get routines, EOF only means there is not enough
- *	data in the buffer, not that there is necessarily a hard error.
+ *	成功返回 0，错误返回 EOF。
+ *	注意：Get 例程返回 EOF 仅表示缓冲区数据
+ *	不足，不一定表示硬错误。
  */
 int
 pqGetc(char *result, PGconn *conn)
@@ -87,7 +87,7 @@ pqGetc(char *result, PGconn *conn)
 
 
 /*
- * pqPutc: write 1 char to the current message
+ * pqPutc: 向当前消息写入 1 个字符
  */
 int
 pqPutc(char c, PGconn *conn)
@@ -101,15 +101,15 @@ pqPutc(char c, PGconn *conn)
 
 /*
  * pqGets[_append]:
- * get a null-terminated string from the connection,
- * and store it in an expansible PQExpBuffer.
- * If we run out of memory, all of the string is still read,
- * but the excess characters are silently discarded.
+ * 从连接获取以空字符结尾的字符串，
+ * 并存入可扩展的 PQExpBuffer。
+ * 若内存耗尽，字符串仍会被完整读取，
+ * 但超出部分被静默丢弃。
  */
 static int
 pqGets_internal(PQExpBuffer buf, PGconn *conn, bool resetbuffer)
 {
-	/* Copy conn data to locals for faster search loop */
+	/* 将连接数据复制到局部变量以加速搜索 */
 	char	   *inBuffer = conn->inBuffer;
 	int			inCursor = conn->inCursor;
 	int			inEnd = conn->inEnd;
@@ -147,7 +147,7 @@ pqGets_append(PQExpBuffer buf, PGconn *conn)
 
 
 /*
- * pqPuts: write a null-terminated string to the current message
+ * pqPuts: 向当前消息写入以空字符结尾的字符串
  */
 int
 pqPuts(const char *s, PGconn *conn)
@@ -160,7 +160,7 @@ pqPuts(const char *s, PGconn *conn)
 
 /*
  * pqGetnchar:
- *	get a string of exactly len bytes in buffer s, no null termination
+ *	从缓冲区 s 获取恰好 len 字节，不追加空终止符
  */
 int
 pqGetnchar(char *s, size_t len, PGconn *conn)
@@ -169,7 +169,7 @@ pqGetnchar(char *s, size_t len, PGconn *conn)
 		return EOF;
 
 	memcpy(s, conn->inBuffer + conn->inCursor, len);
-	/* no terminating null */
+	/* 不追加空终止符 */
 
 	conn->inCursor += len;
 
@@ -178,11 +178,11 @@ pqGetnchar(char *s, size_t len, PGconn *conn)
 
 /*
  * pqSkipnchar:
- *	skip over len bytes in input buffer.
+ *	跳过输入缓冲区中 len 字节。
  *
- * Note: this is primarily useful for its debug output, which should
- * be exactly the same as for pqGetnchar.  We assume the data in question
- * will actually be used, but just isn't getting copied anywhere as yet.
+ * 主要用途：其调试输出应与 pqGetnchar 完全相同。
+ * 我们假设这些数据最终会被使用，只是尚未复制到任何地方。
+ *
  */
 int
 pqSkipnchar(size_t len, PGconn *conn)
@@ -197,7 +197,7 @@ pqSkipnchar(size_t len, PGconn *conn)
 
 /*
  * pqPutnchar:
- *	write exactly len bytes to the current message
+ *	向当前消息写入恰好 len 字节
  */
 int
 pqPutnchar(const char *s, size_t len, PGconn *conn)
@@ -210,8 +210,8 @@ pqPutnchar(const char *s, size_t len, PGconn *conn)
 
 /*
  * pqGetInt
- *	read a 2 or 4 byte integer and convert from network byte order
- *	to local byte order
+ *	读取 2 或 4 字节整数，从网络字节序
+ *	转换为本地字节序
  */
 int
 pqGetInt(int *result, size_t bytes, PGconn *conn)
@@ -247,8 +247,8 @@ pqGetInt(int *result, size_t bytes, PGconn *conn)
 
 /*
  * pqPutInt
- * write an integer of 2 or 4 bytes, converting from host byte order
- * to network byte order.
+ * 写入 2 或 4 字节整数，从主机字节序
+ * 转换为网络字节序。
  */
 int
 pqPutInt(int value, size_t bytes, PGconn *conn)
@@ -279,10 +279,10 @@ pqPutInt(int value, size_t bytes, PGconn *conn)
 }
 
 /*
- * Make sure conn's output buffer can hold bytes_needed bytes (caller must
- * include already-stored data into the value!)
+ * 确保 conn 输出缓冲区能容纳 bytes_needed 字节
+ * （调用者须将已存数据计入该值！）
  *
- * Returns 0 on success, EOF if failed to enlarge buffer
+ * 成功返回 0，扩缓冲区失败返回 EOF
  */
 int
 pqCheckOutBufferSpace(size_t bytes_needed, PGconn *conn)
@@ -290,16 +290,16 @@ pqCheckOutBufferSpace(size_t bytes_needed, PGconn *conn)
 	int			newsize = conn->outBufSize;
 	char	   *newbuf;
 
-	/* Quick exit if we have enough space */
+	/* 空间足够则快速退出 */
 	if (bytes_needed <= (size_t) newsize)
 		return 0;
 
 	/*
-	 * If we need to enlarge the buffer, we first try to double it in size; if
-	 * that doesn't work, enlarge in multiples of 8K.  This avoids thrashing
-	 * the malloc pool by repeated small enlargements.
+	 * 需扩缓冲区时先尝试翻倍；若不行则以 8K 倍数扩。
+	 * 这避免了反复小幅扩大导致的 malloc 池抖动。
 	 *
-	 * Note: tests for newsize > 0 are to catch integer overflow.
+	 * 注意：newsize > 0 检查用于捕获整数溢出。
+	 *
 	 */
 	do
 	{
@@ -311,7 +311,7 @@ pqCheckOutBufferSpace(size_t bytes_needed, PGconn *conn)
 		newbuf = realloc(conn->outBuffer, newsize);
 		if (newbuf)
 		{
-			/* realloc succeeded */
+			/* realloc 成功 */
 			conn->outBuffer = newbuf;
 			conn->outBufSize = newsize;
 			return 0;
@@ -329,24 +329,24 @@ pqCheckOutBufferSpace(size_t bytes_needed, PGconn *conn)
 		newbuf = realloc(conn->outBuffer, newsize);
 		if (newbuf)
 		{
-			/* realloc succeeded */
+			/* realloc 成功 */
 			conn->outBuffer = newbuf;
 			conn->outBufSize = newsize;
 			return 0;
 		}
 	}
 
-	/* realloc failed. Probably out of memory */
+	/* realloc 失败。可能内存不足 */
 	appendPQExpBufferStr(&conn->errorMessage,
 						 "cannot allocate memory for output buffer\n");
 	return EOF;
 }
 
 /*
- * Make sure conn's input buffer can hold bytes_needed bytes (caller must
- * include already-stored data into the value!)
+ * 确保 conn 输入缓冲区能容纳 bytes_needed 字节
+ * （调用者须将已存数据计入该值！）
  *
- * Returns 0 on success, EOF if failed to enlarge buffer
+ * 成功返回 0，扩缓冲区失败返回 EOF
  */
 int
 pqCheckInBufferSpace(size_t bytes_needed, PGconn *conn)
@@ -354,16 +354,16 @@ pqCheckInBufferSpace(size_t bytes_needed, PGconn *conn)
 	int			newsize = conn->inBufSize;
 	char	   *newbuf;
 
-	/* Quick exit if we have enough space */
+	/* 空间足够则快速退出 */
 	if (bytes_needed <= (size_t) newsize)
 		return 0;
 
 	/*
-	 * Before concluding that we need to enlarge the buffer, left-justify
-	 * whatever is in it and recheck.  The caller's value of bytes_needed
-	 * includes any data to the left of inStart, but we can delete that in
-	 * preference to enlarging the buffer.  It's slightly ugly to have this
-	 * function do this, but it's better than making callers worry about it.
+	 * 在确定需要扩大缓冲区之前，先左对齐缓冲区内容并
+	 * 重新检查。调用者的 bytes_needed 包含 inStart 左侧的数据，
+	 * 但我们可以优先删除这些而非扩大缓冲区。
+	 * 让这个函数来做这件事虽然不太优雅，但比让
+	 * 调用者自己操心要好。
 	 */
 	bytes_needed -= conn->inStart;
 
@@ -380,20 +380,20 @@ pqCheckInBufferSpace(size_t bytes_needed, PGconn *conn)
 	}
 	else
 	{
-		/* buffer is logically empty, reset it */
+		/* 缓冲区逻辑为空，重置 */
 		conn->inStart = conn->inCursor = conn->inEnd = 0;
 	}
 
-	/* Recheck whether we have enough space */
+	/* 重新检查空间是否足够 */
 	if (bytes_needed <= (size_t) newsize)
 		return 0;
 
 	/*
-	 * If we need to enlarge the buffer, we first try to double it in size; if
-	 * that doesn't work, enlarge in multiples of 8K.  This avoids thrashing
-	 * the malloc pool by repeated small enlargements.
+	 * 需扩缓冲区时先尝试翻倍；若不行则以 8K 倍数扩。
+	 * 这避免了反复小幅扩大导致的 malloc 池抖动。
 	 *
-	 * Note: tests for newsize > 0 are to catch integer overflow.
+	 * 注意：newsize > 0 检查用于捕获整数溢出。
+	 *
 	 */
 	do
 	{
@@ -405,7 +405,7 @@ pqCheckInBufferSpace(size_t bytes_needed, PGconn *conn)
 		newbuf = realloc(conn->inBuffer, newsize);
 		if (newbuf)
 		{
-			/* realloc succeeded */
+			/* realloc 成功 */
 			conn->inBuffer = newbuf;
 			conn->inBufSize = newsize;
 			return 0;
@@ -423,37 +423,37 @@ pqCheckInBufferSpace(size_t bytes_needed, PGconn *conn)
 		newbuf = realloc(conn->inBuffer, newsize);
 		if (newbuf)
 		{
-			/* realloc succeeded */
+			/* realloc 成功 */
 			conn->inBuffer = newbuf;
 			conn->inBufSize = newsize;
 			return 0;
 		}
 	}
 
-	/* realloc failed. Probably out of memory */
+	/* realloc 失败。可能内存不足 */
 	appendPQExpBufferStr(&conn->errorMessage,
 						 "cannot allocate memory for input buffer\n");
 	return EOF;
 }
 
 /*
- * pqPutMsgStart: begin construction of a message to the server
+ * pqPutMsgStart: 开始构造发往服务器的消息
  *
- * msg_type is the message type byte, or 0 for a message without type byte
- * (only startup messages have no type byte)
+ * msg_type 是消息类型字节，无类型字节时取 0
+ * （仅启动消息没有类型字节）
  *
- * Returns 0 on success, EOF on error
+ * 成功返回 0，错误返回 EOF
  *
- * The idea here is that we construct the message in conn->outBuffer,
- * beginning just past any data already in outBuffer (ie, at
- * outBuffer+outCount).  We enlarge the buffer as needed to hold the message.
- * When the message is complete, we fill in the length word (if needed) and
- * then advance outCount past the message, making it eligible to send.
+ * 基本意图：在 conn->outBuffer 中构造消息，
+ * 从 outBuffer 已有数据之后开始（即 outBuffer+outCount 处）。
+ * 缓冲区会根据需要扩大以容纳消息。
+ * 消息构造完成后填入长度字（如需要），然后将 outCount
+ * 推进到消息末尾，使其可以发送。
  *
- * The state variable conn->outMsgStart points to the incomplete message's
- * length word: it is either outCount or outCount+1 depending on whether
- * there is a type byte.  The state variable conn->outMsgEnd is the end of
- * the data collected so far.
+ * 状态变量 conn->outMsgStart 指向未完成消息的长度字位置：
+ * 取决于是否有类型字节，为 outCount 或 outCount+1。
+ * 状态变量 conn->outMsgEnd 是
+ * 目前已收集数据的末尾。
  */
 int
 pqPutMsgStart(char msg_type, PGconn *conn)
@@ -461,63 +461,63 @@ pqPutMsgStart(char msg_type, PGconn *conn)
 	int			lenPos;
 	int			endPos;
 
-	/* allow room for message type byte */
+	/* 为消息类型字节预留空间 */
 	if (msg_type)
 		endPos = conn->outCount + 1;
 	else
 		endPos = conn->outCount;
 
-	/* do we want a length word? */
+	/* 是否需要长度字？ */
 	lenPos = endPos;
-	/* allow room for message length */
+	/* 为消息长度预留空间 */
 	endPos += 4;
 
-	/* make sure there is room for message header */
+	/* 确保消息头有足够空间 */
 	if (pqCheckOutBufferSpace(endPos, conn))
 		return EOF;
-	/* okay, save the message type byte if any */
+	/* 如果有类型字节则保存 */
 	if (msg_type)
 		conn->outBuffer[conn->outCount] = msg_type;
-	/* set up the message pointers */
+	/* 设置消息指针 */
 	conn->outMsgStart = lenPos;
 	conn->outMsgEnd = endPos;
-	/* length word, if needed, will be filled in by pqPutMsgEnd */
+	/* 长度字（如需要）由 pqPutMsgEnd 填入 */
 
 	return 0;
 }
 
 /*
- * pqPutMsgBytes: add bytes to a partially-constructed message
+ * pqPutMsgBytes: 向未完成的消息追加字节
  *
- * Returns 0 on success, EOF on error
+ * 成功返回 0，错误返回 EOF
  */
 static int
 pqPutMsgBytes(const void *buf, size_t len, PGconn *conn)
 {
-	/* make sure there is room for it */
+	/* 确保有足够空间 */
 	if (pqCheckOutBufferSpace(conn->outMsgEnd + len, conn))
 		return EOF;
-	/* okay, save the data */
+	/* 保存数据 */
 	memcpy(conn->outBuffer + conn->outMsgEnd, buf, len);
 	conn->outMsgEnd += len;
-	/* no Pfdebug call here, caller should do it */
+	/* 此处不调用 Pfdebug，由调用者负责 */
 	return 0;
 }
 
 /*
- * pqPutMsgEnd: finish constructing a message and possibly send it
+ * pqPutMsgEnd: 完成构造消息并可能发送
  *
- * Returns 0 on success, EOF on error
+ * 成功返回 0，错误返回 EOF
  *
- * We don't actually send anything here unless we've accumulated at least
- * 8K worth of data (the typical size of a pipe buffer on Unix systems).
- * This avoids sending small partial packets.  The caller must use pqFlush
- * when it's important to flush all the data out to the server.
+ * 我们在这里不会立即发送，除非已累积至少 8K
+ * 的数据（Unix 系统管道缓冲区的典型大小）。
+ * 这避免了发送小部分包。调用者必须使用 pqFlush
+ * 当需要确保所有数据都发送到服务器时。
  */
 int
 pqPutMsgEnd(PGconn *conn)
 {
-	/* Fill in length word if needed */
+	/* 如需要则填入长度字 */
 	if (conn->outMsgStart >= 0)
 	{
 		uint32		msgLen = conn->outMsgEnd - conn->outMsgStart;
@@ -526,7 +526,7 @@ pqPutMsgEnd(PGconn *conn)
 		memcpy(conn->outBuffer + conn->outMsgStart, &msgLen, 4);
 	}
 
-	/* trace client-to-server message */
+	/* 跟踪客户端到服务器的消息 */
 	if (conn->Pfdebug)
 	{
 		if (conn->outCount < conn->outMsgStart)
@@ -536,27 +536,27 @@ pqPutMsgEnd(PGconn *conn)
 										   conn->outBuffer + conn->outMsgStart);
 	}
 
-	/* Make message eligible to send */
+	/* 使消息可以发送 */
 	conn->outCount = conn->outMsgEnd;
 
-	/* If appropriate, try to push out some data */
+	/* 如适当，尝试推送一些数据 */
 	if (conn->outCount >= 8192)
 	{
 		int			toSend = conn->outCount;
 
 		/*
-		 * On Unix-pipe connections, it seems profitable to prefer sending
-		 * pipe-buffer-sized packets not randomly-sized ones, so retain the
-		 * last partial-8K chunk in our buffer for now.  On TCP connections,
-		 * the advantage of that is far less clear.  Moreover, it flat out
-		 * isn't safe when using SSL or GSSAPI, because those code paths have
-		 * API stipulations that if they fail to send all the data that was
-		 * offered in the previous write attempt, we mustn't offer less data
-		 * in this write attempt.  The previous write attempt might've been
-		 * pqFlush attempting to send everything in the buffer, so we mustn't
-		 * offer less now.  (Presently, we won't try to use SSL or GSSAPI on
-		 * Unix connections, so those checks are just Asserts.  They'll have
-		 * to become part of the regular if-test if we ever change that.)
+		 * 在 Unix 管道连接上，似乎更有利于发送
+		 * 管道缓冲区大小的包而非随机大小的包，因此
+		 * 暂时保留最后一个不完整的 8K 块在缓冲区中。在 TCP 连接上，
+		 * 这种做法的优势远不那么明显。此外，在使用
+		 * SSL 或 GSSAPI 时这样做绝对不安全，因为那些代码路径的
+		 * API 规定，如果上次写操作未能发送所有提供的数据，
+		 * 我们就不能在本次写操作中提供更少的数据。
+		 * 上次写操作可能是 pqFlush 尝试发送缓冲区中的所有内容，
+		 * 所以我们现在不能提供更少。（目前，我们不会在
+		 * Unix 连接上尝试使用 SSL 或 GSSAPI，所以这些检查只是
+		 * 断言。如果将来改变这一点，它们将需要成为
+		 * 常规 if 测试的一部分。）
 		 */
 		if (conn->raddr.addr.ss_family == AF_UNIX)
 		{
@@ -571,21 +571,21 @@ pqPutMsgEnd(PGconn *conn)
 
 		if (pqSendSome(conn, toSend) < 0)
 			return EOF;
-		/* in nonblock mode, don't complain if unable to send it all */
+		/* 非阻塞模式下，无法全部发送也不抱怨 */
 	}
 
 	return 0;
 }
 
 /* ----------
- * pqReadData: read more data, if any is available
- * Possible return values:
- *	 1: successfully loaded at least one more byte
- *	 0: no data is presently available, but no error detected
- *	-1: error detected (including EOF = connection closure);
- *		conn->errorMessage set
- * NOTE: callers must not assume that pointers or indexes into conn->inBuffer
- * remain valid across this call!
+ * pqReadData: 读取更多数据（如果有可用的话）
+ * 可能的返回值：
+ *	 1: 成功加载了至少一个字节
+ *	 0: 当前没有可用数据，但未检测到错误
+ *	-1: 检测到错误（包括 EOF = 连接关闭）；
+ *		conn->errorMessage 已设置
+ * 注意：调用者不能假定 conn->inBuffer 中的指针或
+ * 索引在此调用之后仍然有效！
  * ----------
  */
 int
@@ -600,7 +600,7 @@ pqReadData(PGconn *conn)
 		return -1;
 	}
 
-	/* Left-justify any data in the buffer to make room */
+	/* 将缓冲区中的数据左对齐以腾出空间 */
 	if (conn->inStart < conn->inEnd)
 	{
 		if (conn->inStart > 0)
@@ -614,31 +614,31 @@ pqReadData(PGconn *conn)
 	}
 	else
 	{
-		/* buffer is logically empty, reset it */
+		/* 缓冲区逻辑为空，重置 */
 		conn->inStart = conn->inCursor = conn->inEnd = 0;
 	}
 
 	/*
-	 * If the buffer is fairly full, enlarge it. We need to be able to enlarge
-	 * the buffer in case a single message exceeds the initial buffer size. We
-	 * enlarge before filling the buffer entirely so as to avoid asking the
-	 * kernel for a partial packet. The magic constant here should be large
-	 * enough for a TCP packet or Unix pipe bufferload.  8K is the usual pipe
-	 * buffer size, so...
+	 * 如果缓冲区基本满了，扩大它。我们需要能够扩大
+	 * 缓冲区，以便在单个消息超过初始缓冲区大小时能处理。我们
+	 * 在完全填满缓冲区之前扩大，以避免向内核
+	 * 请求不完整的包。这里的魔术常量应足够大以容纳
+	 * 一个 TCP 包或 Unix 管道缓冲区负载。8K 是通常的管道
+	 * 缓冲区大小，所以…
 	 */
 	if (conn->inBufSize - conn->inEnd < 8192)
 	{
 		if (pqCheckInBufferSpace(conn->inEnd + (size_t) 8192, conn))
 		{
 			/*
-			 * We don't insist that the enlarge worked, but we need some room
+			 * 我们不坚持扩大必须成功，但我们需要一些空间
 			 */
 			if (conn->inBufSize - conn->inEnd < 100)
-				return -1;		/* errorMessage already set */
+				return -1;		/* errorMessage 已设置 */
 		}
 	}
 
-	/* OK, try to read some data */
+	/* 好，尝试读取一些数据 */
 retry3:
 	nread = pqsecure_read(conn, conn->inBuffer + conn->inEnd,
 						  conn->inBufSize - conn->inEnd);
@@ -649,7 +649,7 @@ retry3:
 			case EINTR:
 				goto retry3;
 
-				/* Some systems return EAGAIN/EWOULDBLOCK for no data */
+				/* 某些系统对无数据返回 EAGAIN/EWOULDBLOCK */
 #ifdef EAGAIN
 			case EAGAIN:
 				return someread;
@@ -659,12 +659,12 @@ retry3:
 				return someread;
 #endif
 
-				/* We might get ECONNRESET etc here if connection failed */
+				/* 连接失败时可能收到 ECONNRESET 等 */
 			case ALL_CONNECTION_FAILURE_ERRNOS:
 				goto definitelyFailed;
 
 			default:
-				/* pqsecure_read set the error message for us */
+				/* pqsecure_read 已为我们设置错误消息 */
 				return -1;
 		}
 	}
@@ -673,16 +673,16 @@ retry3:
 		conn->inEnd += nread;
 
 		/*
-		 * Hack to deal with the fact that some kernels will only give us back
-		 * 1 packet per recv() call, even if we asked for more and there is
-		 * more available.  If it looks like we are reading a long message,
-		 * loop back to recv() again immediately, until we run out of data or
-		 * buffer space.  Without this, the block-and-restart behavior of
-		 * libpq's higher levels leads to O(N^2) performance on long messages.
+		 * 用于处理某些内核每次 recv() 调用
+		 * 只返回 1 个包的问题，即使我们请求更多且更多内容
+		 * 可用。如果看起来我们正在读取一个长消息，
+		 * 立即回到 recv() 再次循环，直到数据或缓冲区
+		 * 空间耗尽为止。没有这个处理，libpq 高层的
+		 * 阻塞和重启行为会导致长消息的 O(N^2) 性能问题。
 		 *
-		 * Since we left-justified the data above, conn->inEnd gives the
-		 * amount of data already read in the current message.  We consider
-		 * the message "long" once we have acquired 32k ...
+		 * 由于我们在上面左对齐了数据，conn->inEnd 给出了
+		 * 当前消息中已读取的数据量。我们认为
+		 * 获得 32k 之后消息就是"长"的…
 		 */
 		if (conn->inEnd > 32768 &&
 			(conn->inBufSize - conn->inEnd) >= 8192)
@@ -694,22 +694,22 @@ retry3:
 	}
 
 	if (someread)
-		return 1;				/* got a zero read after successful tries */
+		return 1;				/* 成功尝试后读取到零字节 */
 
 	/*
-	 * A return value of 0 could mean just that no data is now available, or
-	 * it could mean EOF --- that is, the server has closed the connection.
-	 * Since we have the socket in nonblock mode, the only way to tell the
-	 * difference is to see if select() is saying that the file is ready.
-	 * Grumble.  Fortunately, we don't expect this path to be taken much,
-	 * since in normal practice we should not be trying to read data unless
-	 * the file selected for reading already.
+	 * 返回值 0 可能仅表示当前没有可用数据，也
+	 * 可能表示 EOF ——即服务器已关闭连接。
+	 * 由于我们将套接字设为非阻塞模式，区别两者的唯一方法
+	 * 是看 select() 是否表示文件已经可读。
+	 * 啧。幸运的是，我们不期望这条路径被频繁使用，
+	 * 因为在正常实践中，我们应该不会尝试读取数据，
+	 * 除非文件已经选择为可读。
 	 *
-	 * In SSL mode it's even worse: SSL_read() could say WANT_READ and then
-	 * data could arrive before we make the pqReadReady() test, but the second
-	 * SSL_read() could still say WANT_READ because the data received was not
-	 * a complete SSL record.  So we must play dumb and assume there is more
-	 * data, relying on the SSL layer to detect true EOF.
+	 * 在 SSL 模式下更糟：SSL_read() 可能说 WANT_READ，
+	 * 然后数据可能在我们执行 pqReadReady() 测试之前到达，
+	 * 但第二次 SSL_read() 仍可能说 WANT_READ，因为收到的数据
+	 * 不是完整的 SSL 记录。因此我们必须装傻并假设有更多
+	 * 数据，依赖 SSL 层来检测真正的 EOF。
 	 */
 
 #ifdef USE_SSL
@@ -720,19 +720,19 @@ retry3:
 	switch (pqReadReady(conn))
 	{
 		case 0:
-			/* definitely no data available */
+			/* 确定没有可用数据 */
 			return 0;
 		case 1:
-			/* ready for read */
+			/* 可以读取 */
 			break;
 		default:
-			/* we override pqReadReady's message with something more useful */
+			/* 我们用更有用的消息覆盖 pqReadReady 的消息 */
 			goto definitelyEOF;
 	}
 
 	/*
-	 * Still not sure that it's EOF, because some data could have just
-	 * arrived.
+	 * 仍不确定是 EOF，因为可能刚有一些数据
+	 * 到达。
 	 */
 retry4:
 	nread = pqsecure_read(conn, conn->inBuffer + conn->inEnd,
@@ -744,7 +744,7 @@ retry4:
 			case EINTR:
 				goto retry4;
 
-				/* Some systems return EAGAIN/EWOULDBLOCK for no data */
+				/* 某些系统对无数据返回 EAGAIN/EWOULDBLOCK */
 #ifdef EAGAIN
 			case EAGAIN:
 				return 0;
@@ -754,12 +754,12 @@ retry4:
 				return 0;
 #endif
 
-				/* We might get ECONNRESET etc here if connection failed */
+				/* 连接失败时可能收到 ECONNRESET 等 */
 			case ALL_CONNECTION_FAILURE_ERRNOS:
 				goto definitelyFailed;
 
 			default:
-				/* pqsecure_read set the error message for us */
+				/* pqsecure_read 已为我们设置错误消息 */
 				return -1;
 		}
 	}
@@ -770,42 +770,42 @@ retry4:
 	}
 
 	/*
-	 * OK, we are getting a zero read even though select() says ready. This
-	 * means the connection has been closed.  Cope.
+	 * 好吧，即使 select() 说就绪，我们也收到了零字节读取。
+	 * 这意味着连接已被关闭。勉为其难吧。
 	 */
 definitelyEOF:
 	libpq_append_conn_error(conn, "server closed the connection unexpectedly\n"
 							"\tThis probably means the server terminated abnormally\n"
 							"\tbefore or while processing the request.");
 
-	/* Come here if lower-level code already set a suitable errorMessage */
+	/* 如果低层代码已设置了合适的 errorMessage，到这里来 */
 definitelyFailed:
-	/* Do *not* drop any already-read data; caller still wants it */
+	/* 千万不要丢弃已读取的数据；调用者仍需要它 */
 	pqDropConnection(conn, false);
-	conn->status = CONNECTION_BAD;	/* No more connection to backend */
+	conn->status = CONNECTION_BAD;	/* 不再有到后端的连接 */
 	return -1;
 }
 
 /*
- * pqSendSome: send data waiting in the output buffer.
+ * pqSendSome: 发送输出缓冲区中等待的数据。
  *
- * len is how much to try to send (typically equal to outCount, but may
- * be less).
+ * len 是尝试发送的量（通常等于 outCount，但可能
+ * 更少）。
  *
- * Return 0 on success, -1 on failure and 1 when not all data could be sent
- * because the socket would block and the connection is non-blocking.
+ * 成功返回 0，失败返回 -1，当套接字会阻塞且
+ * 连接为非阻塞模式时无法发送所有数据则返回 1。
  *
- * Note that this is also responsible for consuming data from the socket
- * (putting it in conn->inBuffer) in any situation where we can't send
- * all the specified data immediately.
+ * 注意：这个函数还负责在无法立即发送所有
+ * 指定数据的情况下从套接字消耗数据
+ * （将其放入 conn->inBuffer）。
  *
- * If a socket-level write failure occurs, conn->write_failed is set and the
- * error message is saved in conn->write_err_msg, but we clear the output
- * buffer and return zero anyway; this is because callers should soldier on
- * until we have read what we can from the server and checked for an error
- * message.  write_err_msg should be reported only when we are unable to
- * obtain a server error first.  Much of that behavior is implemented at
- * lower levels, but this function deals with some edge cases.
+ * 如果发生套接字级别的写失败，设置 conn->write_failed
+ * 并将错误消息保存在 conn->write_err_msg 中，但仍然
+ * 清除输出缓冲区并返回零；这是因为调用者应该
+ * 坚持读取服务器发来的内容并检查错误消息。
+ * 只有在无法先获取服务器错误时才应报告
+ * write_err_msg。这些行为的大部分在更低层实现，
+ * 但此函数处理一些边界情况。
  */
 static int
 pqSendSome(PGconn *conn, int len)
@@ -815,19 +815,19 @@ pqSendSome(PGconn *conn, int len)
 	int			result = 0;
 
 	/*
-	 * If we already had a write failure, we will never again try to send data
-	 * on that connection.  Even if the kernel would let us, we've probably
-	 * lost message boundary sync with the server.  conn->write_failed
-	 * therefore persists until the connection is reset, and we just discard
-	 * all data presented to be written.  However, as long as we still have a
-	 * valid socket, we should continue to absorb data from the backend, so
-	 * that we can collect any final error messages.
+	 * 如果已经有写失败，我们将不会再尝试在该连接上
+	 * 发送数据。即使内核允许，我们可能也已经
+	 * 失去了与服务器的消息边界同步。因此
+	 * conn->write_failed 将持续到连接被重置为止，
+	 * 我们只是丢弃所有提交给写入的数据。
+	 * 然而，只要还有有效的套接字，我们应该继续吸收
+	 * 后端发来的数据，以便收集任何最终的错误消息。
 	 */
 	if (conn->write_failed)
 	{
-		/* conn->write_err_msg should be set up already */
+		/* conn->write_err_msg 应已设置好 */
 		conn->outCount = 0;
-		/* Absorb input data if any, and detect socket closure */
+		/* 吸收输入数据（如果有的话），并检测套接字关闭 */
 		if (conn->sock != PGINVALID_SOCKET)
 		{
 			if (pqReadData(conn) < 0)
@@ -839,15 +839,15 @@ pqSendSome(PGconn *conn, int len)
 	if (conn->sock == PGINVALID_SOCKET)
 	{
 		conn->write_failed = true;
-		/* Store error message in conn->write_err_msg, if possible */
-		/* (strdup failure is OK, we'll cope later) */
+		/* 将错误消息存储到 conn->write_err_msg，如果可能的话 */
+		/* （strdup 失败没关系，我们稍后处理） */
 		conn->write_err_msg = strdup(libpq_gettext("connection not open\n"));
-		/* Discard queued data; no chance it'll ever be sent */
+		/* 丢弃队列中的数据；没有机会发送它们了 */
 		conn->outCount = 0;
 		return 0;
 	}
 
-	/* while there's still data to send */
+	/* 当还有数据要发送时 */
 	while (len > 0)
 	{
 		int			sent;
@@ -857,16 +857,16 @@ pqSendSome(PGconn *conn, int len)
 #else
 
 		/*
-		 * Windows can fail on large sends, per KB article Q201213. The
-		 * failure-point appears to be different in different versions of
-		 * Windows, but 64k should always be safe.
+		 * Windows 在大数据发送时可能失败，参见 KB 文章 Q201213。
+		 * 失败点在不同版本的 Windows 中似乎不同，但
+		 * 64k 应始终是安全的。
 		 */
 		sent = pqsecure_write(conn, ptr, Min(len, 65536));
 #endif
 
 		if (sent < 0)
 		{
-			/* Anything except EAGAIN/EWOULDBLOCK/EINTR is trouble */
+			/* 除 EAGAIN/EWOULDBLOCK/EINTR 之外都是问题 */
 			switch (SOCK_ERRNO)
 			{
 #ifdef EAGAIN
@@ -881,10 +881,10 @@ pqSendSome(PGconn *conn, int len)
 					continue;
 
 				default:
-					/* Discard queued data; no chance it'll ever be sent */
+					/* 丢弃队列中的数据；没有机会发送它们了 */
 					conn->outCount = 0;
 
-					/* Absorb input data if any, and detect socket closure */
+					/* 吸收输入数据（如果有的话），并检测套接字关闭 */
 					if (conn->sock != PGINVALID_SOCKET)
 					{
 						if (pqReadData(conn) < 0)
@@ -892,12 +892,12 @@ pqSendSome(PGconn *conn, int len)
 					}
 
 					/*
-					 * Lower-level code should already have filled
-					 * conn->write_err_msg (and set conn->write_failed) or
-					 * conn->errorMessage.  In the former case, we pretend
-					 * there's no problem; the write_failed condition will be
-					 * dealt with later.  Otherwise, report the error now.
-					 */
+				 * 低层代码应已填充
+				 * conn->write_err_msg（并设置 conn->write_failed）或
+				 * conn->errorMessage。在前者情况下，我们假装
+				 * 没有问题；write_failed 条件将在之后处理。
+				 * 否则，现在报告错误。
+				 */
 					if (conn->write_failed)
 						return 0;
 					else
@@ -914,35 +914,35 @@ pqSendSome(PGconn *conn, int len)
 		if (len > 0)
 		{
 			/*
-			 * We didn't send it all, wait till we can send more.
+			 * 我们没有全部发送，等待能够发送更多。
 			 *
-			 * There are scenarios in which we can't send data because the
-			 * communications channel is full, but we cannot expect the server
-			 * to clear the channel eventually because it's blocked trying to
-			 * send data to us.  (This can happen when we are sending a large
-			 * amount of COPY data, and the server has generated lots of
-			 * NOTICE responses.)  To avoid a deadlock situation, we must be
-			 * prepared to accept and buffer incoming data before we try
-			 * again.  Furthermore, it is possible that such incoming data
-			 * might not arrive until after we've gone to sleep.  Therefore,
-			 * we wait for either read ready or write ready.
+			 * 有些情况下我们无法发送数据，因为通信信道已满，
+			 * 但我们不能期望服务器最终清空信道，因为它正
+			 * 被阻塞在试图向我们发送数据中。（这可能发生在
+			 * 我们正在发送大量 COPY 数据时，服务器已经生成了
+			 * 大量 NOTICE 响应。）为了避免死锁情况，我们必须准备
+			 * 在再次尝试之前接受并缓冲进来的数据。
+			 * 此外，这些进来的数据可能在我们已经睡眠后才到达。
+			 * 因此，我们等待读就绪或写就绪。
 			 *
-			 * In non-blocking mode, we don't wait here directly, but return 1
-			 * to indicate that data is still pending.  The caller should wait
-			 * for both read and write ready conditions, and call
-			 * PQconsumeInput() on read ready, but just in case it doesn't, we
-			 * call pqReadData() ourselves before returning.  That's not
-			 * enough if the data has not arrived yet, but it's the best we
-			 * can do, and works pretty well in practice.  (The documentation
-			 * used to say that you only need to wait for write-ready, so
-			 * there are still plenty of applications like that out there.)
+			 * 在非阻塞模式下，我们不在这里直接等待，而是返回 1
+			 * 表示数据仍在等待。调用者应该等待读和写就绪条件，
+			 * 并在读就绪时调用 PQconsumeInput()，但为了以防万一，
+			 * 我们在返回之前自己调用 pqReadData()。
+			 * 如果数据还没有到达，这不够，但已经是我们能做的
+			 * 最好的了，并且在实践中效果很好。（文档过去
+			 * 说只需要等待写就绪，所以仍有很ve多
+			 * 应用程序是这样做的。）
 			 *
-			 * Note that errors here don't result in write_failed becoming
-			 * set.
+			 * 注意：此处的错误不会导致 write_failed
+			 * 被设置。
+			 *
+			 *
+			 *
 			 */
 			if (pqReadData(conn) < 0)
 			{
-				result = -1;	/* error message already set up */
+				result = -1;	/* 错误消息已设置 */
 				break;
 			}
 
@@ -960,7 +960,7 @@ pqSendSome(PGconn *conn, int len)
 		}
 	}
 
-	/* shift the remaining contents of the buffer */
+	/* 移动缓冲区剩余内容 */
 	if (remaining > 0)
 		memmove(conn->outBuffer, ptr, remaining);
 	conn->outCount = remaining;
@@ -970,11 +970,11 @@ pqSendSome(PGconn *conn, int len)
 
 
 /*
- * pqFlush: send any data waiting in the output buffer
+ * pqFlush: 发送输出缓冲区中等待的任何数据
  *
- * Return 0 on success, -1 on failure and 1 when not all data could be sent
- * because the socket would block and the connection is non-blocking.
- * (See pqSendSome comments about how failure should be handled.)
+ * 成功返回 0，失败返回 -1，当套接字会阻塞且
+ * 连接为非阻塞模式时无法发送所有数据则返回 1。
+ * （参见 pqSendSome 关于如何处理失败的注释。）
  */
 int
 pqFlush(PGconn *conn)
@@ -992,14 +992,14 @@ pqFlush(PGconn *conn)
 
 
 /*
- * pqWait: wait until we can read or write the connection socket
+ * pqWait: 等待直到可以读取或写入连接套接字
  *
- * JAB: If SSL enabled and used and forRead, buffered bytes short-circuit the
- * call to select().
+ * JAB: 如果启用且使用了 SSL，并为读取目的，
+ * 缓冲的字节会短路 select() 的调用。
  *
- * We also stop waiting and return if the kernel flags an exception condition
- * on the socket.  The actual error condition will be detected and reported
- * when the caller tries to read or write the socket.
+ * 如果内核在套接字上标记了异常条件，我们也停止等待并返回。
+ * 实际的错误条件将在调用者尝试读取或写入套接字时
+ * 被检测和报告。
  */
 int
 pqWait(int forRead, int forWrite, PGconn *conn)
@@ -1008,11 +1008,11 @@ pqWait(int forRead, int forWrite, PGconn *conn)
 }
 
 /*
- * pqWaitTimed: wait, but not past finish_time.
+ * pqWaitTimed: 等待，但不超过 finish_time。
  *
- * finish_time = ((time_t) -1) disables the wait limit.
+ * finish_time = ((time_t) -1) 禁用等待限制。
  *
- * Returns -1 on failure, 0 if the socket is readable/writable, 1 if it timed out.
+ * 失败返回 -1，套接字可读/可写时返回 0，超时返回 1。
  */
 int
 pqWaitTimed(int forRead, int forWrite, PGconn *conn, time_t finish_time)
@@ -1022,7 +1022,7 @@ pqWaitTimed(int forRead, int forWrite, PGconn *conn, time_t finish_time)
 	result = pqSocketCheck(conn, forRead, forWrite, finish_time);
 
 	if (result < 0)
-		return -1;				/* errorMessage is already set */
+		return -1;				/* errorMessage 已设置 */
 
 	if (result == 0)
 	{
@@ -1034,8 +1034,8 @@ pqWaitTimed(int forRead, int forWrite, PGconn *conn, time_t finish_time)
 }
 
 /*
- * pqReadReady: is select() saying the file is ready to read?
- * Returns -1 on failure, 0 if not ready, 1 if ready.
+ * pqReadReady: select() 是否表示文件已可读？
+ * 失败返回 -1，未就绪返回 0，就绪返回 1。
  */
 int
 pqReadReady(PGconn *conn)
@@ -1044,8 +1044,8 @@ pqReadReady(PGconn *conn)
 }
 
 /*
- * pqWriteReady: is select() saying the file is ready to write?
- * Returns -1 on failure, 0 if not ready, 1 if ready.
+ * pqWriteReady: select() 是否表示文件已可写？
+ * 失败返回 -1，未就绪返回 0，就绪返回 1。
  */
 int
 pqWriteReady(PGconn *conn)
@@ -1054,12 +1054,12 @@ pqWriteReady(PGconn *conn)
 }
 
 /*
- * Checks a socket, using poll or select, for data to be read, written,
- * or both.  Returns >0 if one or more conditions are met, 0 if it timed
- * out, -1 if an error occurred.
+ * 检查套接字，使用 poll 或 select，用于数据读取、写入
+ * 或两者。如果一个或多个条件满足则返回 >0，
+ * 超时返回 0，发生错误返回 -1。
  *
- * If SSL is in use, the SSL buffer is checked prior to checking the socket
- * for read data directly.
+ * 如果使用了 SSL，在直接检查套接字之前先检查 SSL 缓冲区
+ * 中的读取数据。
  */
 static int
 pqSocketCheck(PGconn *conn, int forRead, int forWrite, time_t end_time)
@@ -1075,15 +1075,15 @@ pqSocketCheck(PGconn *conn, int forRead, int forWrite, time_t end_time)
 	}
 
 #ifdef USE_SSL
-	/* Check for SSL library buffering read bytes */
+	/* 检查 SSL 库是否缓冲了读取字节 */
 	if (forRead && conn->ssl_in_use && pgtls_read_pending(conn))
 	{
-		/* short-circuit the select */
+		/* 绕过 select */
 		return 1;
 	}
 #endif
 
-	/* We will retry as long as we get EINTR */
+	/* 只要收到 EINTR 就会重试 */
 	do
 		result = pqSocketPoll(conn->sock, forRead, forWrite, end_time);
 	while (result < 0 && SOCK_ERRNO == EINTR);
@@ -1101,18 +1101,18 @@ pqSocketCheck(PGconn *conn, int forRead, int forWrite, time_t end_time)
 
 
 /*
- * Check a file descriptor for read and/or write data, possibly waiting.
- * If neither forRead nor forWrite are set, immediately return a timeout
- * condition (without waiting).  Return >0 if condition is met, 0
- * if a timeout occurred, -1 if an error or interrupt occurred.
+ * 检查文件描述符的读和/或写数据，可能等待。
+ * 如果 neither forRead nor forWrite 都未设置，立即返回超时
+ * 条件（不等待）。如果条件满足返回 >0，
+ * 如果超时返回 0，如果发生错误或中断返回 -1。
  *
- * Timeout is infinite if end_time is -1.  Timeout is immediate (no blocking)
- * if end_time is 0 (or indeed, any time before now).
+ * 如果 end_time 为 -1，超时无限（永不阻塞）。
+ * 如果 end_time 为 0（或任何早于当前时间的时间），超时即时。
  */
 static int
 pqSocketPoll(int sock, int forRead, int forWrite, time_t end_time)
 {
-	/* We use poll(2) if available, otherwise select(2) */
+	/* 如果可用则使用 poll(2)，否则使用 select(2) */
 #ifdef HAVE_POLL
 	struct pollfd input_fd;
 	int			timeout_ms;
@@ -1129,7 +1129,7 @@ pqSocketPoll(int sock, int forRead, int forWrite, time_t end_time)
 	if (forWrite)
 		input_fd.events |= POLLOUT;
 
-	/* Compute appropriate timeout interval */
+	/* 计算合适的超时间隔 */
 	if (end_time == ((time_t) -1))
 		timeout_ms = -1;
 	else
@@ -1164,7 +1164,7 @@ pqSocketPoll(int sock, int forRead, int forWrite, time_t end_time)
 		FD_SET(sock, &output_mask);
 	FD_SET(sock, &except_mask);
 
-	/* Compute appropriate timeout interval */
+	/* 计算合适的超时间隔 */
 	if (end_time == ((time_t) -1))
 		ptr_timeout = NULL;
 	else
@@ -1186,14 +1186,14 @@ pqSocketPoll(int sock, int forRead, int forWrite, time_t end_time)
 
 
 /*
- * A couple of "miscellaneous" multibyte related functions. They used
- * to be in fe-print.c but that file is doomed.
+ * 一些"杂项"多字节相关函数。它们原来
+ * 在 fe-print.c 中，但那个文件已经注定要被淘汰了。
  */
 
 /*
- * Like pg_encoding_mblen().  Use this in callers that want the
- * dynamically-linked libpq's stance on encodings, even if that means
- * different behavior in different startups of the executable.
+ * 类似 pg_encoding_mblen()。对于希望使用动态链接的 libpq
+ * 编码立场的调用者，请使用此函数，即使这意味着
+ * 在不同的可执行文件启动中表现不同。
  */
 int
 PQmblen(const char *s, int encoding)
@@ -1202,9 +1202,9 @@ PQmblen(const char *s, int encoding)
 }
 
 /*
- * Like pg_encoding_mblen_bounded().  Use this in callers that want the
- * dynamically-linked libpq's stance on encodings, even if that means
- * different behavior in different startups of the executable.
+ * 类似 pg_encoding_mblen_bounded()。对于希望使用动态链接的
+ * libpq 编码立场的调用者，请使用此函数，即使这意味着
+ * 在不同的可执行文件启动中表现不同。
  */
 int
 PQmblenBounded(const char *s, int encoding)
@@ -1213,8 +1213,8 @@ PQmblenBounded(const char *s, int encoding)
 }
 
 /*
- * Returns the display length of the character beginning at s, using the
- * specified encoding.
+ * 返回从 s 开始的字符的显示长度，使用
+ * 指定的编码。
  */
 int
 PQdsplen(const char *s, int encoding)
@@ -1223,7 +1223,7 @@ PQdsplen(const char *s, int encoding)
 }
 
 /*
- * Get encoding id from environment variable PGCLIENTENCODING.
+ * 从环境变量 PGCLIENTENCODING 获取编码 id。
  */
 int
 PQenv2encoding(void)
@@ -1248,18 +1248,18 @@ static void
 libpq_binddomain(void)
 {
 	/*
-	 * At least on Windows, there are gettext implementations that fail if
-	 * multiple threads call bindtextdomain() concurrently.  Use a mutex and
-	 * flag variable to ensure that we call it just once per process.  It is
-	 * not known that similar bugs exist on non-Windows platforms, but we
-	 * might as well do it the same way everywhere.
+	 * 至少在 Windows 上，有一些 gettext 实现如果
+	 * 多个线程同时调用 bindtextdomain() 会失败。使用互斥锁和
+	 * 标志变量来确保每个进程只调用一次。尚不确定
+	 * 非 Windows 平台上是否存在类似的 bug，但我们
+	 * 不妨在所有地方都以相同的方式做。
 	 */
 	static volatile bool already_bound = false;
 	static pthread_mutex_t binddomain_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 	if (!already_bound)
 	{
-		/* bindtextdomain() does not preserve errno */
+		/* bindtextdomain() 不保留 errno */
 #ifdef WIN32
 		int			save_errno = GetLastError();
 #else
@@ -1273,8 +1273,8 @@ libpq_binddomain(void)
 			const char *ldir;
 
 			/*
-			 * No relocatable lookup here because the calling executable could
-			 * be anywhere
+			 * 这里不进行可重定位查找，因为调用可执行文件
+			 * 可能在任意位置
 			 */
 			ldir = getenv("PGLOCALEDIR");
 			if (!ldir)
@@ -1311,9 +1311,9 @@ libpq_ngettext(const char *msgid, const char *msgid_plural, unsigned long n)
 
 
 /*
- * Append a formatted string to the given buffer, after translating it.  A
- * newline is automatically appended; the format should not end with a
- * newline.
+ * 向给定缓冲区追加格式化字符串，翻译后追加。
+ * 自动追加换行符；格式不应以换行符结尾。
+ *
  */
 void
 libpq_append_error(PQExpBuffer errorMessage, const char *fmt,...)
@@ -1325,9 +1325,9 @@ libpq_append_error(PQExpBuffer errorMessage, const char *fmt,...)
 	Assert(fmt[strlen(fmt) - 1] != '\n');
 
 	if (PQExpBufferBroken(errorMessage))
-		return;					/* already failed */
+		return;					/* 已经失败 */
 
-	/* Loop in case we have to retry after enlarging the buffer. */
+	/* 循环以便在扩大缓冲区后重试 */
 	do
 	{
 		errno = save_errno;
@@ -1340,9 +1340,9 @@ libpq_append_error(PQExpBuffer errorMessage, const char *fmt,...)
 }
 
 /*
- * Append a formatted string to the error message buffer of the given
- * connection, after translating it.  A newline is automatically appended; the
- * format should not end with a newline.
+ * 向给定连接的错误消息缓冲区追加格式化字符串，
+ * 翻译后追加。自动追加换行符；格式不应以
+ * 换行符结尾。
  */
 void
 libpq_append_conn_error(PGconn *conn, const char *fmt,...)
@@ -1354,9 +1354,9 @@ libpq_append_conn_error(PGconn *conn, const char *fmt,...)
 	Assert(fmt[strlen(fmt) - 1] != '\n');
 
 	if (PQExpBufferBroken(&conn->errorMessage))
-		return;					/* already failed */
+		return;					/* 已经失败 */
 
-	/* Loop in case we have to retry after enlarging the buffer. */
+	/* 循环以便在扩大缓冲区后重试 */
 	do
 	{
 		errno = save_errno;

@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "batch_id": "0252-comment-libpq-misc-auth-trace",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "82c5b7abd4a9b45ebf888bf5944864d03da5d041",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/interfaces/libpq/fe-misc.c",
+      "kind": "c_comment",
+      "note": "batch 0252 fe-misc — miscellaneous libpq"
+    },
+    {
+      "pattern": "src/interfaces/libpq/fe-auth.c",
+      "kind": "c_comment",
+      "note": "batch 0252 fe-auth — authentication"
+    },
+    {
+      "pattern": "src/interfaces/libpq/fe-trace.c",
+      "kind": "c_comment",
+      "note": "batch 0252 fe-trace — tracing"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0252-comment-libpq-misc-auth-trace.json",
+      "kind": "manifest",
+      "note": "batch 0252 manifest"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/interfaces/libpq/fe-misc.c",
+      "segments_total": 118,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "100": "ifdef_label",
+        "102": "ifdef_label",
+        "111": "ifdef_label"
+      },
+      "kind": "c_comment",
+      "action": "modify",
+      "translated": 114,
+      "preserved": 4
+    },
+    {
+      "path": "src/interfaces/libpq/fe-auth.c",
+      "segments_total": 96,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "12": "ifdef_label",
+        "27": "ifdef_label",
+        "69": "preprocessor_comment",
+        "73": "ifdef_label",
+        "74": "preprocessor_comment",
+        "75": "ifdef_label",
+        "79": "ifdef_label",
+        "80": "ifdef_label"
+      },
+      "kind": "c_comment",
+      "action": "modify",
+      "translated": 87,
+      "preserved": 9
+    },
+    {
+      "path": "src/interfaces/libpq/fe-trace.c",
+      "segments_total": 77,
+      "preserved_reasons": {
+        "0": "copyright_header"
+      },
+      "kind": "c_comment",
+      "action": "modify",
+      "translated": 76,
+      "preserved": 1
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0252-comment-libpq-misc-auth-trace.json",
+      "kind": "manifest",
+      "action": "add",
+      "translated": 0,
+      "preserved": 0,
+      "segments_total": 0
+    }
+  ],
+  "title": "translate fe-misc, fe-auth, fe-trace comments — batch 0252"
+}

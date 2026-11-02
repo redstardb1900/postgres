@@ -30,7 +30,7 @@
 #include "port/pg_bswap.h"
 
 
-/* Enable tracing */
+/* 启用跟踪 */
 void
 PQtrace(PGconn *conn, FILE *debug_port)
 {
@@ -44,7 +44,7 @@ PQtrace(PGconn *conn, FILE *debug_port)
 	conn->traceFlags = 0;
 }
 
-/* Disable tracing */
+/* 禁用跟踪 */
 void
 PQuntrace(PGconn *conn)
 {
@@ -59,22 +59,22 @@ PQuntrace(PGconn *conn)
 	conn->traceFlags = 0;
 }
 
-/* Set flags for current tracing session */
+/* 设置当前跟踪会话的标志 */
 void
 PQsetTraceFlags(PGconn *conn, int flags)
 {
 	if (conn == NULL)
 		return;
-	/* If PQtrace() failed, do nothing. */
+	/* 如果 PQtrace() 失败，什么也不做。 */
 	if (conn->Pfdebug == NULL)
 		return;
 	conn->traceFlags = flags;
 }
 
 /*
- * Print the current time, with microseconds, into a caller-supplied
- * buffer.
- * Cribbed from get_formatted_log_time, but much simpler.
+ * 将当前时间（含微秒）打印到调用者提供的
+ * 缓冲区中。
+ * 借鉴自 get_formatted_log_time，但简单得多。
  */
 static void
 pqTraceFormatTimestamp(char *timestr, size_t ts_len)
@@ -85,22 +85,22 @@ pqTraceFormatTimestamp(char *timestr, size_t ts_len)
 	gettimeofday(&tval, NULL);
 
 	/*
-	 * MSVC's implementation of timeval uses a long for tv_sec, however,
-	 * localtime() expects a time_t pointer.  Here we'll assign tv_sec to a
-	 * local time_t variable so that we pass localtime() the correct pointer
-	 * type.
+	 * MSVC 中 timeval 使用 long 表示 tv_sec，然而
+	 * localtime() 期望 time_t 指针。这里将 tv_sec
+	 * 赋值给局部 time_t 变量，以便向 localtime()
+	 * 传递正确的指针类型。
 	 */
 	now = tval.tv_sec;
 	strftime(timestr, ts_len,
 			 "%Y-%m-%d %H:%M:%S",
 			 localtime(&now));
-	/* append microseconds */
+	/* 追加微秒 */
 	snprintf(timestr + strlen(timestr), ts_len - strlen(timestr),
 			 ".%06u", (unsigned int) (tval.tv_usec));
 }
 
 /*
- *   pqTraceOutputByte1: output a 1-char message to the log
+ *   pqTraceOutputByte1: 将 1 字节消息输出到日志
  */
 static void
 pqTraceOutputByte1(FILE *pfdebug, const char *data, int *cursor)
@@ -108,8 +108,8 @@ pqTraceOutputByte1(FILE *pfdebug, const char *data, int *cursor)
 	const char *v = data + *cursor;
 
 	/*
-	 * Show non-printable data in hex format, including the terminating \0
-	 * that completes ErrorResponse and NoticeResponse messages.
+	 * 以十六进制格式显示不可打印数据，包括完成
+	 * ErrorResponse 和 NoticeResponse 消息的结尾 \0。
 	 */
 	if (!isprint((unsigned char) *v))
 		fprintf(pfdebug, " \\x%02x", (unsigned char) *v);
@@ -119,7 +119,7 @@ pqTraceOutputByte1(FILE *pfdebug, const char *data, int *cursor)
 }
 
 /*
- *   pqTraceOutputInt16: output a 2-byte integer message to the log
+ *   pqTraceOutputInt16: 将 2 字节整数消息输出到日志
  */
 static int
 pqTraceOutputInt16(FILE *pfdebug, const char *data, int *cursor)
@@ -136,9 +136,9 @@ pqTraceOutputInt16(FILE *pfdebug, const char *data, int *cursor)
 }
 
 /*
- *   pqTraceOutputInt32: output a 4-byte integer message to the log
+ *   pqTraceOutputInt32: 将 4 字节整数消息输出到日志
  *
- * If 'suppress' is true, print a literal NNNN instead of the actual number.
+ * 如果 'suppress' 为 true，打印字面量 NNNN 而非实际数字。
  */
 static int
 pqTraceOutputInt32(FILE *pfdebug, const char *data, int *cursor, bool suppress)
@@ -157,7 +157,7 @@ pqTraceOutputInt32(FILE *pfdebug, const char *data, int *cursor, bool suppress)
 }
 
 /*
- *   pqTraceOutputString: output a string message to the log
+ *   pqTraceOutputString: 将字符串消息输出到日志
  */
 static void
 pqTraceOutputString(FILE *pfdebug, const char *data, int *cursor, bool suppress)
@@ -174,21 +174,21 @@ pqTraceOutputString(FILE *pfdebug, const char *data, int *cursor, bool suppress)
 		len = fprintf(pfdebug, " \"%s\"", data + *cursor);
 
 		/*
-		 * This is a null-terminated string. So add 1 after subtracting 3
-		 * which is the double quotes and space length from len.
+		 * 这是一个以空字符结尾的字符串。因此从 len
+		 * 减去代表双引号和空格长度的 3 后加 1。
 		 */
 		*cursor += (len - 3 + 1);
 	}
 }
 
 /*
- * pqTraceOutputNchar: output a string of exactly len bytes message to the log
+ * pqTraceOutputNchar: 将恰好 len 字节的消息输出到日志
  */
 static void
 pqTraceOutputNchar(FILE *pfdebug, int len, const char *data, int *cursor)
 {
 	int			i,
-				next;			/* first char not yet printed */
+				next;			/* 尚未打印的第一个字符 */
 	const char *v = data + *cursor;
 
 	fprintf(pfdebug, " \'");
@@ -212,10 +212,10 @@ pqTraceOutputNchar(FILE *pfdebug, int len, const char *data, int *cursor)
 }
 
 /*
- * Output functions by protocol message type
+ * 按协议消息类型的输出函数
  */
 
-/* NotificationResponse */
+/* NotificationResponse 通知响应 */
 static void
 pqTraceOutputA(FILE *f, const char *message, int *cursor, bool regress)
 {
@@ -225,7 +225,7 @@ pqTraceOutputA(FILE *f, const char *message, int *cursor, bool regress)
 	pqTraceOutputString(f, message, cursor, false);
 }
 
-/* Bind */
+/* Bind 绑定 */
 static void
 pqTraceOutputB(FILE *f, const char *message, int *cursor)
 {
@@ -256,7 +256,7 @@ pqTraceOutputB(FILE *f, const char *message, int *cursor)
 		pqTraceOutputInt16(f, message, cursor);
 }
 
-/* Close(F) or CommandComplete(B) */
+/* Close(F) 关闭(前端) 或 CommandComplete(B) 命令完成(后端) */
 static void
 pqTraceOutputC(FILE *f, bool toServer, const char *message, int *cursor)
 {
@@ -273,7 +273,7 @@ pqTraceOutputC(FILE *f, bool toServer, const char *message, int *cursor)
 	}
 }
 
-/* Describe(F) or DataRow(B) */
+/* Describe(F) 描述(前端) 或 DataRow(B) 数据行(后端) */
 static void
 pqTraceOutputD(FILE *f, bool toServer, const char *message, int *cursor)
 {
@@ -301,7 +301,7 @@ pqTraceOutputD(FILE *f, bool toServer, const char *message, int *cursor)
 	}
 }
 
-/* NoticeResponse / ErrorResponse */
+/* NoticeResponse 通知响应 / ErrorResponse 错误响应 */
 static void
 pqTraceOutputNR(FILE *f, const char *type, const char *message, int *cursor,
 				bool regress)
@@ -322,7 +322,7 @@ pqTraceOutputNR(FILE *f, const char *type, const char *message, int *cursor,
 	}
 }
 
-/* Execute(F) or ErrorResponse(B) */
+/* Execute(F) 执行(前端) 或 ErrorResponse(B) 错误响应(后端) */
 static void
 pqTraceOutputE(FILE *f, bool toServer, const char *message, int *cursor, bool regress)
 {
@@ -336,7 +336,7 @@ pqTraceOutputE(FILE *f, bool toServer, const char *message, int *cursor, bool re
 		pqTraceOutputNR(f, "ErrorResponse", message, cursor, regress);
 }
 
-/* CopyFail */
+/* CopyFail 复制失败 */
 static void
 pqTraceOutputf(FILE *f, const char *message, int *cursor)
 {
@@ -344,7 +344,7 @@ pqTraceOutputf(FILE *f, const char *message, int *cursor)
 	pqTraceOutputString(f, message, cursor, false);
 }
 
-/* FunctionCall */
+/* FunctionCall 函数调用 */
 static void
 pqTraceOutputF(FILE *f, const char *message, int *cursor, bool regress)
 {
@@ -371,7 +371,7 @@ pqTraceOutputF(FILE *f, const char *message, int *cursor, bool regress)
 	pqTraceOutputInt16(f, message, cursor);
 }
 
-/* CopyInResponse */
+/* CopyInResponse 复制输入响应 */
 static void
 pqTraceOutputG(FILE *f, const char *message, int *cursor)
 {
@@ -385,7 +385,7 @@ pqTraceOutputG(FILE *f, const char *message, int *cursor)
 		pqTraceOutputInt16(f, message, cursor);
 }
 
-/* CopyOutResponse */
+/* CopyOutResponse 复制输出响应 */
 static void
 pqTraceOutputH(FILE *f, const char *message, int *cursor)
 {
@@ -399,7 +399,7 @@ pqTraceOutputH(FILE *f, const char *message, int *cursor)
 		pqTraceOutputInt16(f, message, cursor);
 }
 
-/* BackendKeyData */
+/* BackendKeyData 后端密钥数据 */
 static void
 pqTraceOutputK(FILE *f, const char *message, int *cursor, bool regress)
 {
@@ -408,7 +408,7 @@ pqTraceOutputK(FILE *f, const char *message, int *cursor, bool regress)
 	pqTraceOutputInt32(f, message, cursor, regress);
 }
 
-/* Parse */
+/* Parse 解析 */
 static void
 pqTraceOutputP(FILE *f, const char *message, int *cursor, bool regress)
 {
@@ -423,7 +423,7 @@ pqTraceOutputP(FILE *f, const char *message, int *cursor, bool regress)
 		pqTraceOutputInt32(f, message, cursor, regress);
 }
 
-/* Query */
+/* Query 查询 */
 static void
 pqTraceOutputQ(FILE *f, const char *message, int *cursor)
 {
@@ -431,7 +431,7 @@ pqTraceOutputQ(FILE *f, const char *message, int *cursor)
 	pqTraceOutputString(f, message, cursor, false);
 }
 
-/* Authentication */
+/* Authentication 认证 */
 static void
 pqTraceOutputR(FILE *f, const char *message, int *cursor)
 {
@@ -439,7 +439,7 @@ pqTraceOutputR(FILE *f, const char *message, int *cursor)
 	pqTraceOutputInt32(f, message, cursor, false);
 }
 
-/* ParameterStatus */
+/* ParameterStatus 参数状态 */
 static void
 pqTraceOutputS(FILE *f, const char *message, int *cursor)
 {
@@ -448,7 +448,7 @@ pqTraceOutputS(FILE *f, const char *message, int *cursor)
 	pqTraceOutputString(f, message, cursor, false);
 }
 
-/* ParameterDescription */
+/* ParameterDescription 参数描述 */
 static void
 pqTraceOutputt(FILE *f, const char *message, int *cursor, bool regress)
 {
@@ -461,7 +461,7 @@ pqTraceOutputt(FILE *f, const char *message, int *cursor, bool regress)
 		pqTraceOutputInt32(f, message, cursor, regress);
 }
 
-/* RowDescription */
+/* RowDescription 行描述 */
 static void
 pqTraceOutputT(FILE *f, const char *message, int *cursor, bool regress)
 {
@@ -482,7 +482,7 @@ pqTraceOutputT(FILE *f, const char *message, int *cursor, bool regress)
 	}
 }
 
-/* NegotiateProtocolVersion */
+/* NegotiateProtocolVersion 协商协议版本 */
 static void
 pqTraceOutputv(FILE *f, const char *message, int *cursor)
 {
@@ -491,7 +491,7 @@ pqTraceOutputv(FILE *f, const char *message, int *cursor)
 	pqTraceOutputInt32(f, message, cursor, false);
 }
 
-/* FunctionCallResponse */
+/* FunctionCallResponse 函数调用响应 */
 static void
 pqTraceOutputV(FILE *f, const char *message, int *cursor)
 {
@@ -503,7 +503,7 @@ pqTraceOutputV(FILE *f, const char *message, int *cursor)
 		pqTraceOutputNchar(f, len, message, cursor);
 }
 
-/* CopyBothResponse */
+/* CopyBothResponse 双向复制响应 */
 static void
 pqTraceOutputW(FILE *f, const char *message, int *cursor, int length)
 {
@@ -514,7 +514,7 @@ pqTraceOutputW(FILE *f, const char *message, int *cursor, int length)
 		pqTraceOutputInt16(f, message, cursor);
 }
 
-/* ReadyForQuery */
+/* ReadyForQuery 就绪查询 */
 static void
 pqTraceOutputZ(FILE *f, const char *message, int *cursor)
 {
@@ -523,7 +523,7 @@ pqTraceOutputZ(FILE *f, const char *message, int *cursor)
 }
 
 /*
- * Print the given message to the trace output stream.
+ * 将给定消息打印到跟踪输出流。
  */
 void
 pqTraceOutputMessage(PGconn *conn, const char *message, bool toServer)
@@ -550,10 +550,10 @@ pqTraceOutputMessage(PGconn *conn, const char *message, bool toServer)
 	logCursor += 4;
 
 	/*
-	 * In regress mode, suppress the length of ErrorResponse and
-	 * NoticeResponse.  The F (file name), L (line number) and R (routine
-	 * name) fields can change as server code is modified, and if their
-	 * lengths differ from the originals, that would break tests.
+	 * 在回归模式下，抑制 ErrorResponse 和
+	 * NoticeResponse 的长度。F（文件名）、L（行号）和 R（例程名）
+	 * 字段可能随着服务器代码修改而改变，如果它们的
+	 * 长度与原长度不同，会破坏测试。
 	 */
 	if (regress && !toServer && (id == 'E' || id == 'N'))
 		fprintf(conn->Pfdebug, "%s\tNN\t", prefix);
@@ -564,108 +564,108 @@ pqTraceOutputMessage(PGconn *conn, const char *message, bool toServer)
 	{
 		case '1':
 			fprintf(conn->Pfdebug, "ParseComplete");
-			/* No message content */
+			/* 无消息内容 */
 			break;
 		case '2':
 			fprintf(conn->Pfdebug, "BindComplete");
-			/* No message content */
+			/* 无消息内容 */
 			break;
 		case '3':
 			fprintf(conn->Pfdebug, "CloseComplete");
-			/* No message content */
+			/* 无消息内容 */
 			break;
-		case 'A':				/* Notification Response */
+		case 'A':				/* 通知响应 */
 			pqTraceOutputA(conn->Pfdebug, message, &logCursor, regress);
 			break;
-		case 'B':				/* Bind */
+		case 'B':				/* 绑定 */
 			pqTraceOutputB(conn->Pfdebug, message, &logCursor);
 			break;
 		case 'c':
 			fprintf(conn->Pfdebug, "CopyDone");
-			/* No message content */
+			/* 无消息内容 */
 			break;
-		case 'C':				/* Close(F) or Command Complete(B) */
+		case 'C':				/* 关闭(前端) 或 命令完成(后端) */
 			pqTraceOutputC(conn->Pfdebug, toServer, message, &logCursor);
 			break;
-		case 'd':				/* Copy Data */
-			/* Drop COPY data to reduce the overhead of logging. */
+		case 'd':				/* 复制数据 */
+			/* 丢弃 COPY 数据以减少日志开销。 */
 			break;
-		case 'D':				/* Describe(F) or Data Row(B) */
+		case 'D':				/* 描述(前端) 或 数据行(后端) */
 			pqTraceOutputD(conn->Pfdebug, toServer, message, &logCursor);
 			break;
-		case 'E':				/* Execute(F) or Error Response(B) */
+		case 'E':				/* 执行(前端) 或 错误响应(后端) */
 			pqTraceOutputE(conn->Pfdebug, toServer, message, &logCursor,
 						   regress);
 			break;
-		case 'f':				/* Copy Fail */
+		case 'f':				/* 复制失败 */
 			pqTraceOutputf(conn->Pfdebug, message, &logCursor);
 			break;
-		case 'F':				/* Function Call */
+		case 'F':				/* 函数调用 */
 			pqTraceOutputF(conn->Pfdebug, message, &logCursor, regress);
 			break;
-		case 'G':				/* Start Copy In */
+		case 'G':				/* 开始复制输入 */
 			pqTraceOutputG(conn->Pfdebug, message, &logCursor);
 			break;
-		case 'H':				/* Flush(F) or Start Copy Out(B) */
+		case 'H':				/* 刷新(前端) 或 开始复制输出(后端) */
 			if (!toServer)
 				pqTraceOutputH(conn->Pfdebug, message, &logCursor);
 			else
-				fprintf(conn->Pfdebug, "Flush");	/* no message content */
+				fprintf(conn->Pfdebug, "Flush");	/* 无消息内容 */
 			break;
 		case 'I':
 			fprintf(conn->Pfdebug, "EmptyQueryResponse");
-			/* No message content */
+			/* 无消息内容 */
 			break;
-		case 'K':				/* secret key data from the backend */
+		case 'K':				/* 来自后端的密钥数据 */
 			pqTraceOutputK(conn->Pfdebug, message, &logCursor, regress);
 			break;
 		case 'n':
 			fprintf(conn->Pfdebug, "NoData");
-			/* No message content */
+			/* 无消息内容 */
 			break;
 		case 'N':
 			pqTraceOutputNR(conn->Pfdebug, "NoticeResponse", message,
 							&logCursor, regress);
 			break;
-		case 'P':				/* Parse */
+		case 'P':				/* 解析 */
 			pqTraceOutputP(conn->Pfdebug, message, &logCursor, regress);
 			break;
-		case 'Q':				/* Query */
+		case 'Q':				/* 查询 */
 			pqTraceOutputQ(conn->Pfdebug, message, &logCursor);
 			break;
-		case 'R':				/* Authentication */
+		case 'R':				/* 认证 */
 			pqTraceOutputR(conn->Pfdebug, message, &logCursor);
 			break;
 		case 's':
 			fprintf(conn->Pfdebug, "PortalSuspended");
-			/* No message content */
+			/* 无消息内容 */
 			break;
-		case 'S':				/* Parameter Status(B) or Sync(F) */
+		case 'S':				/* 参数状态(后端) 或 同步(前端) */
 			if (!toServer)
 				pqTraceOutputS(conn->Pfdebug, message, &logCursor);
 			else
-				fprintf(conn->Pfdebug, "Sync"); /* no message content */
+				fprintf(conn->Pfdebug, "Sync"); /* 无消息内容 */
 			break;
-		case 't':				/* Parameter Description */
+		case 't':				/* 参数描述 */
 			pqTraceOutputt(conn->Pfdebug, message, &logCursor, regress);
 			break;
-		case 'T':				/* Row Description */
+		case 'T':				/* 行描述 */
 			pqTraceOutputT(conn->Pfdebug, message, &logCursor, regress);
 			break;
-		case 'v':				/* Negotiate Protocol Version */
+		case 'v':				/* 协商协议版本 */
 			pqTraceOutputv(conn->Pfdebug, message, &logCursor);
 			break;
-		case 'V':				/* Function Call response */
+		case 'V':				/* 函数调用响应 */
 			pqTraceOutputV(conn->Pfdebug, message, &logCursor);
 			break;
-		case 'W':				/* Start Copy Both */
+		case 'W':				/* 开始双向复制 */
 			pqTraceOutputW(conn->Pfdebug, message, &logCursor, length);
 			break;
 		case 'X':
 			fprintf(conn->Pfdebug, "Terminate");
-			/* No message content */
+			/* 无消息内容 */
 			break;
-		case 'Z':				/* Ready For Query */
+		case 'Z':				/* 就绪查询 */
 			pqTraceOutputZ(conn->Pfdebug, message, &logCursor);
 			break;
 		default:
@@ -676,9 +676,9 @@ pqTraceOutputMessage(PGconn *conn, const char *message, bool toServer)
 	fputc('\n', conn->Pfdebug);
 
 	/*
-	 * Verify the printing routine did it right.  Note that the one-byte
-	 * message identifier is not included in the length, but our cursor does
-	 * include it.
+	 * 验证打印例程是否正确。注意：1 字节消息标识符
+	 * 不包含在长度中，但我们的游标包含它。
+	 *
 	 */
 	if (logCursor - 1 != length)
 		fprintf(conn->Pfdebug,
@@ -687,8 +687,8 @@ pqTraceOutputMessage(PGconn *conn, const char *message, bool toServer)
 }
 
 /*
- * Print special messages (those containing no type byte) to the trace output
- * stream.
+ * 将特殊消息（不含类型字节的消息）打印到跟踪输出流。
+ *
  */
 void
 pqTraceOutputNoTypeByteMessage(PGconn *conn, const char *message)
@@ -712,14 +712,14 @@ pqTraceOutputNoTypeByteMessage(PGconn *conn, const char *message)
 
 	switch (length)
 	{
-		case 16:				/* CancelRequest */
+		case 16:				/* 取消请求 */
 			fprintf(conn->Pfdebug, "CancelRequest\t");
 			pqTraceOutputInt32(conn->Pfdebug, message, &logCursor, false);
 			pqTraceOutputInt32(conn->Pfdebug, message, &logCursor, false);
 			pqTraceOutputInt32(conn->Pfdebug, message, &logCursor, false);
 			break;
-		case 8:					/* GSSENCRequest or SSLRequest */
-			/* These messages do not reach here. */
+		case 8:					/* GSSENCRequest 或 SSLRequest */
+			/* 这些消息不会到达此处。 */
 		default:
 			fprintf(conn->Pfdebug, "Unknown message: length is %d", length);
 			break;

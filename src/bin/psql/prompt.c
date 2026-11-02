@@ -22,43 +22,43 @@
 /*--------------------------
  * get_prompt
  *
- * Returns a statically allocated prompt made by interpolating certain
- * tcsh style escape sequences into pset.vars "PROMPT1|2|3".
- * (might not be completely multibyte safe)
+ * 通过在 pset.vars "PROMPT1|2|3" 中插值某些 tcsh 风格的转义序列
+ * 构建一个静态分配的提示符。
+ * （可能不完全多字节安全）
  *
- * Defined interpolations are:
- * %M - database server "hostname.domainname", "[local]" for AF_UNIX
- *		sockets, "[local:/dir/name]" if not default
- * %m - like %M, but hostname only (before first dot), or always "[local]"
- * %p - backend pid
- * %> - database server port number
- * %n - database user name
- * %/ - current database
- * %~ - like %/ but "~" when database name equals user name
- * %w - whitespace of the same width as the most recent output of PROMPT1
- * %# - "#" if superuser, ">" otherwise
- * %R - in prompt1 normally =, or ^ if single line mode,
- *			or a ! if session is not connected to a database;
- *		in prompt2 -, *, ', or ";
- *		in prompt3 nothing
- * %x - transaction status: empty, *, !, ? (unknown or no connection)
- * %l - The line number inside the current statement, starting from 1.
- * %? - the error code of the last query (not yet implemented)
- * %% - a percent sign
+ * 定义的插值如下：
+ * %M - 数据库服务器"主机名.域名"，AF_UNIX 套接字为"[local]"
+ *		非默认时为 "[local:/目录/名]"
+ * %m - 同 %M，但仅显示主机名（第一个点之前），或始终为"[local]"
+ * %p - 后端进程 PID
+ * %> - 数据库服务器端口号
+ * %n - 数据库用户名
+ * %/ - 当前数据库
+ * %~ - 同 %/，但数据库名等于用户名时显示"~"
+ * %w - 与最近一次 PROMPT1 输出相同宽度的空白
+ * %# - 超级用户时为"#"，否则为">"
+ * %R - 在 prompt1 中通常为 =，单行模式时为 ^，
+ *			或者会话未连接到数据库时为 !；
+ *		在 prompt2 中为 -、*、'、" 或 $；
+ *		在 prompt3 中为空
+ * %x - 事务状态：空、*、!、? （未知或无连接）
+ * %l - 当前语句中的行号，从 1 开始。
+ * %? - 上次查询的错误代码（尚未实现）
+ * %% - 百分号
  *
- * %[0-9]		   - the character with the given decimal code
- * %0[0-7]		   - the character with the given octal code
- * %0x[0-9A-Fa-f]  - the character with the given hexadecimal code
+ * %[0-9]		   - 指定十进制编码的字符
+ * %0[0-7]		   - 指定八进制编码的字符
+ * %0x[0-9A-Fa-f]  - 指定十六进制编码的字符
  *
- * %`command`	   - The result of executing command in /bin/sh with trailing
- *					 newline stripped.
- * %:name:		   - The value of the psql variable 'name'
- * (those will not be rescanned for more escape sequences!)
+ * %`command`	   - 在 /bin/sh 中执行命令的结果，去除
+ *					 尾随换行符。
+ * %:name:		   - psql 变量 "name" 的值
+ * （这些将不会被重新扫描更多转义序列！）
  *
- * %[ ... %]	   - tell readline that the contained text is invisible
+ * %[ ... %]	   - 告诉 readline 包含的文本是不可见的
  *
- * If the application-wide prompts become NULL somehow, the returned string
- * will be empty (not NULL!).
+ * 如果应用范围的提示符不知何故变为 NULL，返回的字符串将为空
+ * （不是 NULL！）。
  *--------------------------
  */
 
@@ -104,7 +104,7 @@ get_prompt(promptStatus_t status, ConditionalStack cstack)
 		{
 			switch (*p)
 			{
-					/* Current database */
+					/* 当前数据库 */
 				case '/':
 					if (pset.db)
 						strlcpy(buf, PQdb(pset.db), sizeof(buf));
@@ -122,28 +122,28 @@ get_prompt(promptStatus_t status, ConditionalStack cstack)
 					}
 					break;
 
-					/* Whitespace of the same width as the last PROMPT1 */
+					/* 与最近一次 PROMPT1 相同宽度的空白 */
 				case 'w':
 					if (pset.db)
 						memset(buf, ' ',
 							   Min(last_prompt1_width, sizeof(buf) - 1));
 					break;
 
-					/* DB server hostname (long/short) */
+					/* 数据库服务器主机名（长/短） */
 				case 'M':
 				case 'm':
 					if (pset.db)
 					{
 						const char *host = PQhost(pset.db);
 
-						/* INET socket */
+						/* INET 套接字 */
 						if (host && host[0] && !is_unixsock_path(host))
 						{
 							strlcpy(buf, host, sizeof(buf));
 							if (*p == 'm')
 								buf[strcspn(buf, ".")] = '\0';
 						}
-						/* UNIX socket */
+						/* UNIX 套接字 */
 						else
 						{
 							if (!host
@@ -155,17 +155,17 @@ get_prompt(promptStatus_t status, ConditionalStack cstack)
 						}
 					}
 					break;
-					/* DB server port number */
+					/* 数据库服务器端口号 */
 				case '>':
 					if (pset.db && PQport(pset.db))
 						strlcpy(buf, PQport(pset.db), sizeof(buf));
 					break;
-					/* DB server user name */
+					/* 数据库用户名 */
 				case 'n':
 					if (pset.db)
 						strlcpy(buf, session_username(), sizeof(buf));
 					break;
-					/* backend pid */
+					/* 后端进程 PID */
 				case 'p':
 					if (pset.db)
 					{
@@ -251,7 +251,7 @@ get_prompt(promptStatus_t status, ConditionalStack cstack)
 					break;
 
 				case '?':
-					/* not here yet */
+					/* 尚未实现 */
 					break;
 
 				case '#':
@@ -261,7 +261,7 @@ get_prompt(promptStatus_t status, ConditionalStack cstack)
 						buf[0] = '>';
 					break;
 
-					/* execute command */
+					/* 执行命令 */
 				case '`':
 					{
 						int			cmdend = strcspn(p + 1, "`");
@@ -277,7 +277,7 @@ get_prompt(promptStatus_t status, ConditionalStack cstack)
 							pclose(fd);
 						}
 
-						/* strip trailing newline and carriage return */
+						/* 去除尾随换行符和回车符 */
 						(void) pg_strip_crlf(buf);
 
 						free(file);
@@ -285,7 +285,7 @@ get_prompt(promptStatus_t status, ConditionalStack cstack)
 						break;
 					}
 
-					/* interpolate variable */
+					/* 插值变量 */
 				case ':':
 					{
 						int			nameend = strcspn(p + 1, ":");
@@ -305,9 +305,9 @@ get_prompt(promptStatus_t status, ConditionalStack cstack)
 #if defined(USE_READLINE) && defined(RL_PROMPT_START_IGNORE)
 
 					/*
-					 * readline >=4.0 undocumented feature: non-printing
-					 * characters in prompt strings must be marked as such, in
-					 * order to properly display the line during editing.
+					 * readline >=4.0 未文档化功能：提示符字符串中的
+					 * 非打印字符必须标记，以便在编辑时正确显示行。
+					 *
 					 */
 					buf[0] = (*p == '[') ? RL_PROMPT_START_IGNORE : RL_PROMPT_END_IGNORE;
 					buf[1] = '\0';
@@ -334,7 +334,7 @@ get_prompt(promptStatus_t status, ConditionalStack cstack)
 			strlcat(destination, buf, sizeof(destination));
 	}
 
-	/* Compute the visible width of PROMPT1, for PROMPT2's %w */
+	/* 计算 PROMPT1 的可见宽度，用于 PROMPT2 的 %w */
 	if (prompt_string == pset.prompt1)
 	{
 		char	   *p = destination;
@@ -363,7 +363,7 @@ get_prompt(promptStatus_t status, ConditionalStack cstack)
 
 				chlen = PQmblen(p, pset.encoding);
 				if (p + chlen > end)
-					break;		/* Invalid string */
+					break;		/* 无效字符串 */
 
 				if (visible)
 				{

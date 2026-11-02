@@ -15,65 +15,65 @@
 #include "settings.h"
 
 /*
- * Value/position from the resultset that goes into the horizontal or vertical
- * crosstabview header.
+ * 结果集中进入交叉表视图水平或垂直
+ * 表头的值/位置。
  */
 typedef struct _pivot_field
 {
 	/*
-	 * Pointer obtained from PQgetvalue() for colV or colH. Each distinct
-	 * value becomes an entry in the vertical header (colV), or horizontal
-	 * header (colH). A Null value is represented by a NULL pointer.
+	 * 从 colV 或 colH 的 PQgetvalue() 获取的指针。每个不同的
+	 * 值成为垂直表头 (colV) 或水平表头 (colH) 中的一个条目。
+	 * Null 值由 NULL 指针表示。
 	 */
 	char	   *name;
 
 	/*
-	 * When a sort is requested on an alternative column, this holds
-	 * PQgetvalue() for the sort column corresponding to <name>. If <name>
-	 * appear multiple times, it's the first value in the order of the results
-	 * that is kept. A Null value is represented by a NULL pointer.
+	 * 当请求在备用列上排序时，这里保存与 <name> 对应的
+	 * 排序列的 PQgetvalue()。如果 <name> 出现多次，保留的是
+	 * 结果集中第一次出现的值。Null 值由 NULL 指针表示。
+	 *
 	 */
 	char	   *sort_value;
 
 	/*
-	 * Rank of this value, starting at 0. Initially, it's the relative
-	 * position of the first appearance of <name> in the resultset. For
-	 * example, if successive rows contain B,A,C,A,D then it's B:0,A:1,C:2,D:3
-	 * When a sort column is specified, ranks get updated in a final pass to
-	 * reflect the desired order.
+	 * 此值的排名，从 0 开始。初始为 <name> 在结果集中
+	 * 第一次出现的相对位置。例如，如果连续行包含
+	 * B,A,C,A,D，则为 B:0,A:1,C:2,D:3。
+	 * 当指定排序列时，排名会在最终遍历中更新以反映
+	 * 所需的顺序。
 	 */
 	int			rank;
 } pivot_field;
 
-/* Node in avl_tree */
+/* avl_tree 中的节点 */
 typedef struct _avl_node
 {
-	/* Node contents */
+	/* 节点内容 */
 	pivot_field field;
 
 	/*
-	 * Height of this node in the tree (number of nodes on the longest path to
-	 * a leaf).
+	 * 树中此节点的高度（从该节点到叶子节点的最长路径上的
+	 * 节点数）。
 	 */
 	int			height;
 
 	/*
-	 * Child nodes. [0] points to left subtree, [1] to right subtree. Never
-	 * NULL, points to the empty node avl_tree.end when no left or right
-	 * value.
+	 * 子节点。[0] 指向左子树，[1] 指向右子树。
+	 * 永不为 NULL，当没有左值或右值时指向空节点
+	 * avl_tree.end。
 	 */
 	struct _avl_node *children[2];
 } avl_node;
 
 /*
- * Control structure for the AVL tree (binary search tree kept
- * balanced with the AVL algorithm)
+ * AVL 树的控制结构（使用 AVL 算法保持平衡的
+ * 二叉搜索树）
  */
 typedef struct _avl_tree
 {
-	int			count;			/* Total number of nodes */
-	avl_node   *root;			/* root of the tree */
-	avl_node   *end;			/* Immutable dereferenceable empty tree */
+	int			count;			/* 节点总数 */
+	avl_node   *root;			/* 树的根节点 */
+	avl_node   *end;			/* 不可变且可解引用的空树 */
 } avl_tree;
 
 
@@ -93,11 +93,11 @@ static int	rankCompare(const void *a, const void *b);
 
 
 /*
- * Main entry point to this module.
+ * 本模块的主入口点。
  *
- * Process the data from *res according to the options in pset (global),
- * to generate the horizontal and vertical headers contents,
- * then call printCrosstab() for the actual output.
+ * 根据 pset（全局）中的选项处理 *res 中的数据，
+ * 生成水平和垂直表头内容，然后调用 printCrosstab()
+ * 进行实际输出。
  */
 bool
 PrintResultInCrosstab(const PGresult *res)
@@ -130,7 +130,7 @@ PrintResultInCrosstab(const PGresult *res)
 		goto error_return;
 	}
 
-	/* Process first optional arg (vertical header column) */
+	/* 处理第一个可选参数（垂直表头列） */
 	if (pset.ctv_args[0] == NULL)
 		field_for_rows = 0;
 	else
@@ -140,7 +140,7 @@ PrintResultInCrosstab(const PGresult *res)
 			goto error_return;
 	}
 
-	/* Process second optional arg (horizontal header column) */
+	/* 处理第二个可选参数（水平表头列） */
 	if (pset.ctv_args[1] == NULL)
 		field_for_columns = 1;
 	else
@@ -150,22 +150,22 @@ PrintResultInCrosstab(const PGresult *res)
 			goto error_return;
 	}
 
-	/* Insist that header columns be distinct */
+	/* 坚持表头列不同 */
 	if (field_for_columns == field_for_rows)
 	{
 		pg_log_error("\\crosstabview: vertical and horizontal headers must be different columns");
 		goto error_return;
 	}
 
-	/* Process third optional arg (data column) */
+	/* 处理第三个可选参数（数据列） */
 	if (pset.ctv_args[2] == NULL)
 	{
 		int			i;
 
 		/*
-		 * If the data column was not specified, we search for the one not
-		 * used as either vertical or horizontal headers.  Must be exactly
-		 * three columns, or this won't be unique.
+			 * 如果未指定数据列，我们搜索既未用作垂直表头
+			 * 也未用作水平表头的那一列。查询结果必须恰好
+			 * 有三列，否则这不会是唯一的。
 		 */
 		if (PQnfields(res) != 3)
 		{
@@ -191,9 +191,9 @@ PrintResultInCrosstab(const PGresult *res)
 			goto error_return;
 	}
 
-	/* Process fourth optional arg (horizontal header sort column) */
+	/* 处理第四个可选参数（水平表头排序列） */
 	if (pset.ctv_args[3] == NULL)
-		sort_field_for_columns = -1;	/* no sort column */
+		sort_field_for_columns = -1;	/* 无排序列 */
 	else
 	{
 		sort_field_for_columns = indexOfColumn(pset.ctv_args[3], res);
@@ -202,9 +202,9 @@ PrintResultInCrosstab(const PGresult *res)
 	}
 
 	/*
-	 * First part: accumulate the names that go into the vertical and
-	 * horizontal headers, each into an AVL binary tree to build the set of
-	 * DISTINCT values.
+	 * 第一部分：累积将进入垂直和水平表头的名称，
+	 * 每个名称放入一个 AVL 二叉树中以构建
+	 * DISTINCT 值的集合。
 	 */
 
 	for (rn = 0; rn < PQntuples(res); rn++)
@@ -212,7 +212,7 @@ PrintResultInCrosstab(const PGresult *res)
 		char	   *val;
 		char	   *val1;
 
-		/* horizontal */
+		/* 水平 */
 		val = PQgetisnull(res, rn, field_for_columns) ? NULL :
 			PQgetvalue(res, rn, field_for_columns);
 		val1 = NULL;
@@ -230,7 +230,7 @@ PrintResultInCrosstab(const PGresult *res)
 			goto error_return;
 		}
 
-		/* vertical */
+		/* 垂直 */
 		val = PQgetisnull(res, rn, field_for_rows) ? NULL :
 			PQgetvalue(res, rn, field_for_rows);
 
@@ -238,7 +238,7 @@ PrintResultInCrosstab(const PGresult *res)
 	}
 
 	/*
-	 * Second part: Generate sorted arrays from the AVL trees.
+	 * 第二部分：从 AVL 树生成排序数组。
 	 */
 
 	num_columns = piv_columns.count;
@@ -254,14 +254,14 @@ PrintResultInCrosstab(const PGresult *res)
 	avlCollectFields(&piv_rows, piv_rows.root, array_rows, 0);
 
 	/*
-	 * Third part: optionally, process the ranking data for the horizontal
-	 * header
+	 * 第三部分：可选地处理水平表头的排名数据
+	 *
 	 */
 	if (sort_field_for_columns >= 0)
 		rankSort(num_columns, array_columns);
 
 	/*
-	 * Fourth part: print the crosstab'ed result.
+	 * 第四部分：打印数据透视结果。
 	 */
 	retval = printCrosstab(res,
 						   num_columns, array_columns, field_for_columns,
@@ -278,8 +278,8 @@ error_return:
 }
 
 /*
- * Output the pivoted resultset with the printTable* functions.  Return true
- * if successful, false otherwise.
+ * 使用 printTable* 函数输出数据透视结果集。成功返回 true，
+ * 失败返回 false。
  */
 static bool
 printCrosstab(const PGresult *result,
@@ -297,9 +297,9 @@ printCrosstab(const PGresult *result,
 
 	printTableInit(&cont, &popt.topt, popt.title, num_columns + 1, num_rows);
 
-	/* Step 1: set target column names (horizontal header) */
+	/* 步骤 1：设置目标列名（水平表头） */
 
-	/* The name of the first column is kept unchanged by the pivoting */
+	/* 第一列的名称经数据透视后保持不变 */
 	printTableAddHeader(&cont,
 						PQfname(result, field_for_rows),
 						false,
@@ -307,16 +307,16 @@ printCrosstab(const PGresult *result,
 													  field_for_rows)));
 
 	/*
-	 * To iterate over piv_columns[] by piv_columns[].rank, create a reverse
-	 * map associating each piv_columns[].rank to its index in piv_columns.
-	 * This avoids an O(N^2) loop later.
+	 * 要按 piv_columns[].rank 迭代 piv_columns[]，创建一个反向
+	 * 映射，将每个 piv_columns[].rank 关联到它在 piv_columns
+	 * 中的索引。这避免了后续的 O(N^2) 循环。
 	 */
 	horiz_map = (int *) pg_malloc(sizeof(int) * num_columns);
 	for (i = 0; i < num_columns; i++)
 		horiz_map[piv_columns[i].rank] = i;
 
 	/*
-	 * The display alignment depends on its PQftype().
+	 * 显示对齐取决于其 PQftype()。
 	 */
 	col_align = column_type_alignment(PQftype(result, field_for_data));
 
@@ -332,7 +332,7 @@ printCrosstab(const PGresult *result,
 	}
 	pg_free(horiz_map);
 
-	/* Step 2: set row names in the first output column (vertical header) */
+	/* 步骤 2：在第一输出列中设置行名（垂直表头） */
 	for (i = 0; i < num_rows; i++)
 	{
 		int			k = piv_rows[i].rank;
@@ -344,7 +344,7 @@ printCrosstab(const PGresult *result,
 	cont.cellsadded = num_rows * (num_columns + 1);
 
 	/*
-	 * Step 3: fill in the content cells.
+	 * 步骤 3：填充内容单元格。
 	 */
 	for (rn = 0; rn < PQntuples(result); rn++)
 	{
@@ -354,7 +354,7 @@ printCrosstab(const PGresult *result,
 				   *cp;
 		pivot_field elt;
 
-		/* Find target row */
+		/* 查找目标行 */
 		if (!PQgetisnull(result, rn, field_for_rows))
 			elt.name = PQgetvalue(result, rn, field_for_rows);
 		else
@@ -367,7 +367,7 @@ printCrosstab(const PGresult *result,
 		Assert(rp != NULL);
 		row_number = rp->rank;
 
-		/* Find target column */
+		/* 查找目标列 */
 		if (!PQgetisnull(result, rn, field_for_columns))
 			elt.name = PQgetvalue(result, rn, field_for_columns);
 		else
@@ -381,16 +381,16 @@ printCrosstab(const PGresult *result,
 		Assert(cp != NULL);
 		col_number = cp->rank;
 
-		/* Place value into cell */
+		/* 将值放入单元格 */
 		if (col_number >= 0 && row_number >= 0)
 		{
 			int			idx;
 
-			/* index into the cont.cells array */
+			/* cont.cells 数组中的索引 */
 			idx = 1 + col_number + row_number * (num_columns + 1);
 
 			/*
-			 * If the cell already contains a value, raise an error.
+				 * 如果单元格已包含值，则引发错误。
 			 */
 			if (cont.cells[idx] != NULL)
 			{
@@ -409,8 +409,8 @@ printCrosstab(const PGresult *result,
 	}
 
 	/*
-	 * The non-initialized cells must be set to an empty string for the print
-	 * functions
+	 * 未初始化的单元格必须为打印函数设置为空字符串
+	 *
 	 */
 	for (i = 0; i < cont.cellsadded; i++)
 	{
@@ -428,10 +428,10 @@ error:
 }
 
 /*
- * The avl* functions below provide a minimalistic implementation of AVL binary
- * trees, to efficiently collect the distinct values that will form the horizontal
- * and vertical headers. It only supports adding new values, no removal or even
- * search.
+ * 下面的 avl* 函数提供了一个最小化的 AVL 二叉树实现，
+ * 用于高效收集将形成水平和垂直表头的不同值。
+ * 它只支持添加新值，不支持删除甚至搜索。
+ *
  */
 static void
 avlInit(avl_tree *tree)
@@ -442,7 +442,7 @@ avlInit(avl_tree *tree)
 	tree->root = tree->end;
 }
 
-/* Deallocate recursively an AVL tree, starting from node */
+/* 从节点开始递归释放 AVL 树 */
 static void
 avlFree(avl_tree *tree, avl_node *node)
 {
@@ -458,15 +458,15 @@ avlFree(avl_tree *tree, avl_node *node)
 	}
 	if (node == tree->root)
 	{
-		/* free the root separately as it's not child of anything */
+		/* 单独释放根节点，因为它不是任何节点的子节点 */
 		if (node != tree->end)
 			pg_free(node);
-		/* free the tree->end struct only once and when all else is freed */
+		/* 仅在其它所有都已释放后释放 tree->end 结构体 */
 		pg_free(tree->end);
 	}
 }
 
-/* Set the height to 1 plus the greatest of left and right heights */
+/* 将高度设置为左右高度中较大者加 1 */
 static void
 avlUpdateHeight(avl_node *n)
 {
@@ -475,7 +475,7 @@ avlUpdateHeight(avl_node *n)
 					 n->children[1]->height);
 }
 
-/* Rotate a subtree left (dir=0) or right (dir=1). Not recursive */
+/* 向左 (dir=0) 或向右 (dir=1) 旋转子树。非递归 */
 static avl_node *
 avlRotate(avl_node **current, int dir)
 {
@@ -497,9 +497,9 @@ avlBalance(avl_node *n)
 }
 
 /*
- * After an insertion, possibly rebalance the tree so that the left and right
- * node heights don't differ by more than 1.
- * May update *node.
+	 * 插入后，可能需要对树重新平衡，使左右节点高度
+	 * 之差不超过 1。可能更新 *node。
+	 *
  */
 static void
 avlAdjustBalance(avl_tree *tree, avl_node **node)
@@ -520,9 +520,9 @@ avlAdjustBalance(avl_tree *tree, avl_node **node)
 }
 
 /*
- * Insert a new value/field, starting from *node, reaching the correct position
- * in the tree by recursion.  Possibly rebalance the tree and possibly update
- * *node.  Do nothing if the value is already present in the tree.
+	 * 插入一个新值/字段，从 *node 开始，通过递归到达树中
+	 * 正确的位置。可能重新平衡树，可能更新 *node。
+	 * 如果值已存在于树中，则不执行任何操作。
  */
 static void
 avlInsertNode(avl_tree *tree, avl_node **node, pivot_field field)
@@ -554,7 +554,7 @@ avlInsertNode(avl_tree *tree, avl_node **node, pivot_field field)
 	}
 }
 
-/* Insert the value into the AVL tree, if it does not preexist */
+/* 如果值尚不存在，则将其插入 AVL 树 */
 static void
 avlMergeValue(avl_tree *tree, char *name, char *sort_value)
 {
@@ -567,10 +567,10 @@ avlMergeValue(avl_tree *tree, char *name, char *sort_value)
 }
 
 /*
- * Recursively extract node values into the names array, in sorted order with a
- * left-to-right tree traversal.
- * Return the next candidate offset to write into the names array.
- * fields[] must be preallocated to hold tree->count entries
+	 * 递归提取节点值到 names 数组中，按排序顺序通过
+	 * 从左到右的树遍历。
+	 * 返回要写入 names 数组的下一个候选偏移量。
+	 * fields[] 必须预分配以容纳 tree->count 个条目
  */
 static int
 avlCollectFields(avl_tree *tree, avl_node *node, pivot_field *fields, int idx)
@@ -595,7 +595,7 @@ rankSort(int num_columns, pivot_field *piv_columns)
 	{
 		char	   *val = piv_columns[i].sort_value;
 
-		/* ranking information is valid if non null and matches /^-?\d+$/ */
+		/* 排名信息在非空且匹配 /^-?\d+$/ 时有效 */
 		if (val &&
 			((*val == '-' &&
 			  strspn(val + 1, "0123456789") == strlen(val + 1)) ||
@@ -606,7 +606,7 @@ rankSort(int num_columns, pivot_field *piv_columns)
 		}
 		else
 		{
-			/* invalid rank information ignored (equivalent to rank 0) */
+			/* 无效的排名信息被忽略（等效于排名 0） */
 			hmap[i * 2] = 0;
 			hmap[i * 2 + 1] = i;
 		}
@@ -623,13 +623,13 @@ rankSort(int num_columns, pivot_field *piv_columns)
 }
 
 /*
- * Look up a column reference, which can be either:
- * - a number from 1 to PQnfields(res)
- * - a column name matching one of PQfname(res,...)
+ * 查找列引用，可以是：
+ * - 从 1 到 PQnfields(res) 的数字
+ * - 与 PQfname(res,...) 之一匹配的列名
  *
- * Returns zero-based column number, or -1 if not found or ambiguous.
+ * 返回从 0 开始的列号，如果未找到或模糊则返回 -1。
  *
- * Note: may modify contents of "arg" string.
+ * 注意：可能修改 "arg" 字符串的内容。
  */
 static int
 indexOfColumn(char *arg, const PGresult *res)
@@ -638,7 +638,7 @@ indexOfColumn(char *arg, const PGresult *res)
 
 	if (arg[0] && strspn(arg, "0123456789") == strlen(arg))
 	{
-		/* if arg contains only digits, it's a column number */
+		/* 如果 arg 仅包含数字，则它是一个列号 */
 		idx = atoi(arg) - 1;
 		if (idx < 0 || idx >= PQnfields(res))
 		{
@@ -652,13 +652,13 @@ indexOfColumn(char *arg, const PGresult *res)
 		int			i;
 
 		/*
-		 * Dequote and downcase the column name.  By checking for all-digits
-		 * before doing this, we can ensure that a quoted name is treated as a
-		 * name even if it's all digits.
+			 * 解引号并将列名转为小写。在此之前检查是否为
+			 * 全数字，可以确保即使引号中的名称全是数字，
+			 * 也会被当作名称而非数字处理。
 		 */
 		dequote_downcase_identifier(arg, true, pset.encoding);
 
-		/* Now look for match(es) among res' column names */
+		/* 现在在 res 的列名中查找匹配 */
 		idx = -1;
 		for (i = 0; i < PQnfields(res); i++)
 		{
@@ -666,7 +666,7 @@ indexOfColumn(char *arg, const PGresult *res)
 			{
 				if (idx >= 0)
 				{
-					/* another idx was already found for the same name */
+					/* 已找到另一个同名的 idx */
 					pg_log_error("\\crosstabview: ambiguous column name: \"%s\"", arg);
 					return -1;
 				}
@@ -684,11 +684,11 @@ indexOfColumn(char *arg, const PGresult *res)
 }
 
 /*
- * Value comparator for vertical and horizontal headers
- * used for deduplication only.
- * - null values are considered equal
- * - non-null < null
- * - non-null values are compared with strcmp()
+ * 垂直和水平表头的值比较器
+ * 仅用于去重。
+ * - 空值被视为相等
+ * - 非空值 < 空值
+ * - 非空值通过 strcmp() 比较
  */
 static int
 pivotFieldCompare(const void *a, const void *b)
@@ -696,13 +696,13 @@ pivotFieldCompare(const void *a, const void *b)
 	const pivot_field *pa = (const pivot_field *) a;
 	const pivot_field *pb = (const pivot_field *) b;
 
-	/* test null values */
+	/* 测试空值 */
 	if (!pb->name)
 		return pa->name ? -1 : 0;
 	else if (!pa->name)
 		return 1;
 
-	/* non-null values */
+	/* 非空值 */
 	return strcmp(pa->name, pb->name);
 }
 

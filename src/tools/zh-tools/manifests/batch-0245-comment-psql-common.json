@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "batch_id": "0245-comment-psql-common",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "9be3971277f1813b29fe86b4b14f4b53bc71ad72",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    "src/bin/psql/common.c",
+    "src/tools/zh-tools/manifests/batch-0245-comment-psql-common.json",
+    "src/tools/zh-tools/manifests/cumulative.json"
+  ],
+  "files": [
+    {
+      "path": "src/bin/psql/common.c",
+      "segments_total": 163,
+      "segments_translated": 157,
+      "segments_preserved": 6,
+      "preserved_reasons": {
+        "0": "copyright_header"
+      }
+    }
+  ]
+}

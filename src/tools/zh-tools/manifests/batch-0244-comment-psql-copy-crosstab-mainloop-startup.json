@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "batch_id": "0244-comment-psql-copy-crosstab-mainloop-startup",
+  "title": "zh: translate psql comments — copy, crosstabview, mainloop, startup",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "9be3971277f1813b29fe86b4b14f4b53bc71ad72",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {"pattern": "src/bin/psql/copy.c", "kind": "c_comment", "note": "batch 0244 psql copy comment translation"},
+    {"pattern": "src/bin/psql/crosstabview.c", "kind": "c_comment", "note": "batch 0244 psql crosstabview comment translation"},
+    {"pattern": "src/bin/psql/mainloop.c", "kind": "c_comment", "note": "batch 0244 psql mainloop comment translation"},
+    {"pattern": "src/bin/psql/startup.c", "kind": "c_comment", "note": "batch 0244 psql startup comment translation"},
+    {"pattern": "src/tools/zh-tools/manifests/batch-0244-comment-psql-copy-crosstab-mainloop-startup.json", "kind": "manifest", "note": "batch manifest"}
+  ],
+  "files": [
+    {
+      "path": "src/bin/psql/copy.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 51,
+      "translated": 43,
+      "preserved": 8,
+      "preserved_reasons": ["copyright_header", "translator_comment", "section_banner", "other_untouched"],
+      "note": "\\copy command parsing, COPY IN/OUT data transfer, text mode buffer management"
+    },
+    {
+      "path": "src/bin/psql/crosstabview.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 61,
+      "translated": 59,
+      "preserved": 2,
+      "preserved_reasons": ["copyright_header", "other_untouched"],
+      "note": "pivot_field struct, AVL tree implementation, PrintResultInCrosstab, column index lookup"
+    },
+    {
+      "path": "src/bin/psql/mainloop.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 76,
+      "translated": 73,
+      "preserved": 3,
+      "preserved_reasons": ["copyright_header", "other_untouched"],
+      "note": "MainLoop, help/quit/exit handling, backslash command parsing, history management, \\if blocks"
+    },
+    {
+      "path": "src/bin/psql/startup.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 48,
+      "translated": 44,
+      "preserved": 4,
+      "preserved_reasons": ["copyright_header", "translator_comment", "section_banner", "other_untouched"],
+      "note": "main(), option parsing, variable hooks, .psqlrc loading, substitute/assign hooks"
+    }
+  ],
+  "notes": "Batch 0244: Translate C source comment blocks from English to Simplified Chinese for 4 psql files. Total 236 comments, 219 translated, 17 preserved (copyright headers, translator comments, section banners). Verified with verify_c_comments.py (0 violations) and term_lint.py (0 errors)."
+}

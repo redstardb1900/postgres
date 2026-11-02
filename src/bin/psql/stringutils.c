@@ -14,39 +14,39 @@
 
 
 /*
- * Replacement for strtok() (a.k.a. poor man's flex)
+ * strtok() 的替代品（又名穷人的 flex）
  *
- * Splits a string into tokens, returning one token per call, then NULL
- * when no more tokens exist in the given string.
+ * 将字符串拆分为 token，每次调用返回一个 token，
+ * 当给定字符串中没有更多 token 时返回 NULL。
  *
- * The calling convention is similar to that of strtok, but with more
- * frammishes.
+ * 调用约定类似于 strtok，但有更多特性。
  *
- * s -			string to parse, if NULL continue parsing the last string
- * whitespace - set of whitespace characters that separate tokens
- * delim -		set of non-whitespace separator characters (or NULL)
- * quote -		set of characters that can quote a token (NULL if none)
- * escape -		character that can quote quotes (0 if none)
- * e_strings -	if true, treat E'...' syntax as a valid token
- * del_quotes - if true, strip quotes from the returned token, else return
- *				it exactly as found in the string
- * encoding -	the active character-set encoding
+ * s -			要解析的字符串，如果为 NULL 则继续解析上一个字符串
+ * whitespace - 分隔 token 的空白字符集合
+ * delim -		非空白分隔符字符集合（或 NULL）
+ * quote -		可以引用 token 的字符集合（如果无则为 NULL）
+ * escape -		可以转义引号的字符（如果无则为 0）
+ * e_strings -	如果为 true，则将 E'...' 语法视为有效 token
+ * del_quotes - 如果为 true，从返回的 token 中去除引号，否则
+ *				按字符串中的原样返回
+ * encoding -	活动的字符集编码
  *
- * Characters in 'delim', if any, will be returned as single-character
- * tokens unless part of a quoted token.
+ * 'delim' 中的字符（如果有）将作为单字符 token 返回，
+ * 除非是引用 token 的一部分。
  *
- * Double occurrences of the quoting character are always taken to represent
- * a single quote character in the data.  If escape isn't 0, then escape
- * followed by anything (except \0) is a data character too.
+ * 引号字符的双次出现始终被视为表示数据中的单个引号字符。
+ * 如果 escape 不为 0，则 escape 后跟任何字符（\0 除外）也是数据字符。
  *
- * The combination of e_strings and del_quotes both true is not currently
- * handled.  This could be fixed but it's not needed anywhere at the moment.
+ * e_strings 和 del_quotes 都为 true 的组合目前尚未处理。
+ * 这可以修复，但目前不需要。
  *
- * Note that the string s is _not_ overwritten in this implementation.
+ * 注意：在此实现中，字符串 s _不会_被覆盖。
  *
- * NB: it's okay to vary delim, quote, and escape from one call to the
- * next on a single source string, but changing whitespace is a bad idea
- * since you might lose data.
+ * 注意：可以在单个源字符串的连续调用中变化 delim、quote 和 escape，
+ * 但更改 whitespace 是个坏主意，因为你可能会丢失数据。
+ *
+ *
+ *
  */
 char *
 strtokx(const char *s,
@@ -59,11 +59,11 @@ strtokx(const char *s,
 		int encoding)
 {
 	static char *storage = NULL;	/* store the local copy of the users
-									 * string here */
+									 * 字符串本地副本 */
 	static char *string = NULL; /* pointer into storage where to continue on
 								 * next call */
 
-	/* variously abused variables: */
+	/* 被滥用的变量： */
 	unsigned int offset;
 	char	   *start;
 	char	   *p;
@@ -73,9 +73,9 @@ strtokx(const char *s,
 		free(storage);
 
 		/*
-		 * We may need extra space to insert delimiter nulls for adjacent
-		 * tokens.  2X the space is a gross overestimate, but it's unlikely
-		 * that this code will be used on huge strings anyway.
+		 * 我们可能需要额外空间来为相邻 token 插入分隔符空字符。
+		 * 2 倍空间是一个较大的高估，但无论如何此代码不太可能
+		 * 用于巨大的字符串。
 		 */
 		storage = pg_malloc(2 * strlen(s) + 1);
 		strcpy(storage, s);
@@ -85,29 +85,29 @@ strtokx(const char *s,
 	if (!storage)
 		return NULL;
 
-	/* skip leading whitespace */
+	/* 跳过前导空白 */
 	offset = strspn(string, whitespace);
 	start = &string[offset];
 
-	/* end of string reached? */
+	/* 到达字符串末尾？ */
 	if (*start == '\0')
 	{
-		/* technically we don't need to free here, but we're nice */
+		/* 技术上此处不需要释放，但我们比较友好 */
 		free(storage);
 		storage = NULL;
 		string = NULL;
 		return NULL;
 	}
 
-	/* test if delimiter character */
+	/* 测试是否为分隔符字符 */
 	if (delim && strchr(delim, *start))
 	{
 		/*
-		 * If not at end of string, we need to insert a null to terminate the
-		 * returned token.  We can just overwrite the next character if it
-		 * happens to be in the whitespace set ... otherwise move over the
-		 * rest of the string to make room.  (This is why we allocated extra
-		 * space above).
+		 * 如果不在字符串末尾，我们需要插入空字符来终止返回的 token。
+		 * 如果下一个字符恰好属于空白集，我们可以直接覆盖它……
+		 * 否则移动字符串的其余部分以腾出空间。
+		 * （这就是我们在上面分配额外空间的原因。）
+		 *
 		 */
 		p = start + 1;
 		if (*p != '\0')
@@ -119,46 +119,46 @@ strtokx(const char *s,
 		}
 		else
 		{
-			/* at end of string, so no extra work */
+			/* 在字符串末尾，无需额外工作 */
 			string = p;
 		}
 
 		return start;
 	}
 
-	/* check for E string */
+	/* 检查 E 字符串 */
 	p = start;
 	if (e_strings &&
 		(*p == 'E' || *p == 'e') &&
 		p[1] == '\'')
 	{
 		quote = "'";
-		escape = '\\';			/* if std strings before, not any more */
+		escape = '\\';			/* 如果之前是标准字符串，不再是了 */
 		p++;
 	}
 
-	/* test if quoting character */
+	/* 测试是否为引号字符 */
 	if (quote && strchr(quote, *p))
 	{
-		/* okay, we have a quoted token, now scan for the closer */
+		/* 好的，我们有一个被引用的 token，现在扫描结束引号 */
 		char		thisquote = *p++;
 
 		for (; *p; p += PQmblenBounded(p, encoding))
 		{
 			if (*p == escape && p[1] != '\0')
-				p++;			/* process escaped anything */
+				p++;			/* 处理转义的任何内容 */
 			else if (*p == thisquote && p[1] == thisquote)
-				p++;			/* process doubled quote */
+				p++;			/* 处理双引号 */
 			else if (*p == thisquote)
 			{
-				p++;			/* skip trailing quote */
+				p++;			/* 跳过尾随引号 */
 				break;
 			}
 		}
 
 		/*
-		 * If not at end of string, we need to insert a null to terminate the
-		 * returned token.  See notes above.
+		 * 如果不在字符串末尾，我们需要插入空字符来终止返回的 token。
+		 * 请参阅上面的说明。
 		 */
 		if (*p != '\0')
 		{
@@ -169,11 +169,11 @@ strtokx(const char *s,
 		}
 		else
 		{
-			/* at end of string, so no extra work */
+			/* 字符串末尾，无需额外工作 */
 			string = p;
 		}
 
-		/* Clean up the token if caller wants that */
+		/* 如果调用者需要，清理 token */
 		if (del_quotes)
 			strip_quotes(start, thisquote, escape, encoding);
 
@@ -181,9 +181,9 @@ strtokx(const char *s,
 	}
 
 	/*
-	 * Otherwise no quoting character.  Scan till next whitespace, delimiter
-	 * or quote.  NB: at this point, *start is known not to be '\0',
-	 * whitespace, delim, or quote, so we will consume at least one character.
+	 * 否则没有引号字符。扫描直到下一个空白、分隔符或引号。
+	 * 注意：此时已知 *start 不是 '\0'、空白、分隔符或引号，
+	 * 因此我们将消耗至少一个字符。
 	 */
 	offset = strcspn(start, whitespace);
 
@@ -206,8 +206,8 @@ strtokx(const char *s,
 	p = start + offset;
 
 	/*
-	 * If not at end of string, we need to insert a null to terminate the
-	 * returned token.  See notes above.
+	 * 如果不在字符串末尾，我们需要插入空字符来终止返回的 token。
+	 * 请参阅上面的说明。
 	 */
 	if (*p != '\0')
 	{
@@ -218,7 +218,7 @@ strtokx(const char *s,
 	}
 	else
 	{
-		/* at end of string, so no extra work */
+		/* 字符串末尾，无需额外工作 */
 		string = p;
 	}
 
@@ -229,12 +229,12 @@ strtokx(const char *s,
 /*
  * strip_quotes
  *
- * Remove quotes from the string at *source.  Leading and trailing occurrences
- * of 'quote' are removed; embedded double occurrences of 'quote' are reduced
- * to single occurrences; if 'escape' is not 0 then 'escape' removes special
- * significance of next character.
+ * 从 *source 处的字符串中移除引号。前导和尾随的 'quote' 出现
+ * 被移除；嵌入的 'quote' 双次出现被缩减为单次出现；
+ * 如果 'escape' 不为 0，则 'escape' 移除下一个字符的特殊意义。
  *
- * Note that the source string is overwritten in-place.
+ * 注意源字符串会被原地覆盖。
+ *
  */
 void
 strip_quotes(char *source, char quote, char escape, int encoding)
@@ -248,7 +248,7 @@ strip_quotes(char *source, char quote, char escape, int encoding)
 	src = dst = source;
 
 	if (*src && *src == quote)
-		src++;					/* skip leading quote */
+		src++;					/* 跳过前导引号 */
 
 	while (*src)
 	{
@@ -256,11 +256,11 @@ strip_quotes(char *source, char quote, char escape, int encoding)
 		int			i;
 
 		if (c == quote && src[1] == '\0')
-			break;				/* skip trailing quote */
+			break;				/* 跳过尾随引号 */
 		else if (c == quote && src[1] == quote)
-			src++;				/* process doubled quote */
+			src++;				/* 处理双引号 */
 		else if (c == escape && src[1] != '\0')
-			src++;				/* process escaped character */
+			src++;				/* 处理转义字符 */
 
 		i = PQmblenBounded(src, encoding);
 		while (i--)
@@ -274,19 +274,19 @@ strip_quotes(char *source, char quote, char escape, int encoding)
 /*
  * quote_if_needed
  *
- * Opposite of strip_quotes().  If "source" denotes itself literally without
- * quoting or escaping, returns NULL.  Otherwise, returns a malloc'd copy with
- * quoting and escaping applied:
+ * strip_quotes() 的反操作。如果 "source" 字面上表示自身
+ * 而无需引用或转义，则返回 NULL。否则，返回一个 malloc'd 的副本，
+ * 应用了引用和转义：
  *
- * source -			string to parse
- * entails_quote -	any of these present?  need outer quotes
- * quote -			doubled within string, affixed to both ends
- * escape -			doubled within string
- * force_quote -	if true, quote the output even if it doesn't "need" it
- * encoding -		the active character-set encoding
+ * source -			要解析的字符串
+ * entails_quote -	这些字符中任何一个存在？需要外部引号
+ * quote -			在字符串内双写，附加到两端
+ * escape -			在字符串内双写
+ * force_quote -	如果为 true，即使输出不"需要"也引用它
+ * encoding -		活动的字符集编码
  *
- * Do not use this as a substitute for PQescapeStringConn().  Use it for
- * strings to be parsed by strtokx() or psql_scan_slash_option().
+ * 不要将此用作 PQescapeStringConn() 的替代品。将其用于
+ * 将由 strtokx() 或 psql_scan_slash_option() 解析的字符串。
  */
 char *
 quote_if_needed(const char *source, const char *entails_quote,
@@ -302,7 +302,7 @@ quote_if_needed(const char *source, const char *entails_quote,
 	Assert(quote != '\0');
 
 	src = source;
-	dst = ret = pg_malloc(2 * strlen(src) + 3); /* excess */
+	dst = ret = pg_malloc(2 * strlen(src) + 3); /* 余量 */
 
 	*dst++ = quote;
 

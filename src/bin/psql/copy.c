@@ -10,9 +10,9 @@
 #include <signal.h>
 #include <sys/stat.h>
 #ifndef WIN32
-#include <unistd.h>				/* for isatty */
+#include <unistd.h>				/* 用于isatty */
 #else
-#include <io.h>					/* I think */
+#include <io.h>					/* 我认为 */
 #endif
 
 #include "common.h"
@@ -26,28 +26,28 @@
 
 /*
  * parse_slash_copy
- * -- parses \copy command line
+ * -- 解析 \copy 命令行
  *
- * The documented syntax is:
- *	\copy tablename [(columnlist)] from|to filename [options]
- *	\copy ( query stmt ) to filename [options]
+ * 文档记录的语法为：
+ *  \copy 表名 [(列列表)] from|to 文件名 [选项]
+ *  \copy ( 查询语句 ) to 文件名 [选项]
  *
- * where 'filename' can be one of the following:
- *	'<file path>' | PROGRAM '<command>' | stdin | stdout | pstdout | pstdout
- * and 'query' can be one of the following:
- *	SELECT | UPDATE | INSERT | DELETE
+ * 其中 'filename' 可为以下之一：
+ *  '<文件路径>' | PROGRAM '<命令>' | stdin | stdout | pstdout | pstdout
+ * 而 'query' 可为以下之一：
+ *  SELECT | UPDATE | INSERT | DELETE
  *
- * An undocumented fact is that you can still write BINARY before the
- * tablename; this is a hangover from the pre-7.3 syntax.  The options
- * syntax varies across backend versions, but we avoid all that mess
- * by just transmitting the stuff after the filename literally.
+ * 一个未记录的事实是，你仍然可以在表名前写 BINARY；
+ * 这是 7.3 之前语法的遗留。选项语法在不同后端版本间有所不同，
+ * 但我们通过直接原样传递文件名之后的内容来避免这些混乱。
  *
- * table name can be double-quoted and can have a schema part.
- * column names can be double-quoted.
- * filename can be single-quoted like SQL literals.
- * command must be single-quoted like SQL literals.
+ * 表名可以用双引号括起来，并且可以包含模式部分。
+ * 列名可以用双引号括起来。
+ * 文件名可以像 SQL 字面量一样用单引号括起来。
+ * 命令必须像 SQL 字面量一样用单引号括起来。
  *
- * returns a malloc'ed structure with the options, or NULL on parsing error
+ * 返回一个 malloc 分配的结构体，包含选项；解析错误时返回 NULL
+ *
  */
 
 struct copy_options
@@ -73,7 +73,7 @@ free_copy_options(struct copy_options *ptr)
 }
 
 
-/* concatenate "more" onto "var", freeing the original value of *var */
+/* 将 "more" 拼接到 "var" 上，释放 *var 的原始值 */
 static void
 xstrcat(char **var, const char *more)
 {
@@ -101,14 +101,14 @@ parse_slash_copy(const char *args)
 
 	result = pg_malloc0(sizeof(struct copy_options));
 
-	result->before_tofrom = pg_strdup("");	/* initialize for appending */
+	result->before_tofrom = pg_strdup("");	/* 初始化用于追加 */
 
 	token = strtokx(args, whitespace, ".,()", "\"",
 					0, false, false, pset.encoding);
 	if (!token)
 		goto error;
 
-	/* The following can be removed when we drop 7.3 syntax support */
+	/* 放弃 7.3 语法支持时可移除此处 */
 	if (pg_strcasecmp(token, "binary") == 0)
 	{
 		xstrcat(&result->before_tofrom, token);
@@ -118,7 +118,7 @@ parse_slash_copy(const char *args)
 			goto error;
 	}
 
-	/* Handle COPY (query) case */
+	/* 处理 COPY (查询) 的情况 */
 	if (token[0] == '(')
 	{
 		int			parens = 1;
@@ -146,12 +146,12 @@ parse_slash_copy(const char *args)
 		goto error;
 
 	/*
-	 * strtokx() will not have returned a multi-character token starting with
-	 * '.', so we don't need strcmp() here.  Likewise for '(', etc, below.
+	 * strtokx() 不会返回以 '.' 开头的多字符 token，
+	 * 因此这里不需要 strcmp()。下面的 '(' 等也同样。
 	 */
 	if (token[0] == '.')
 	{
-		/* handle schema . table */
+		/* 处理 schema . table */
 		xstrcat(&result->before_tofrom, token);
 		token = strtokx(NULL, whitespace, ".,()", "\"",
 						0, false, false, pset.encoding);
@@ -166,7 +166,7 @@ parse_slash_copy(const char *args)
 
 	if (token[0] == '(')
 	{
-		/* handle parenthesized column list */
+		/* 处理带括号的列列表 */
 		for (;;)
 		{
 			xstrcat(&result->before_tofrom, " ");
@@ -209,8 +209,8 @@ parse_slash_copy(const char *args)
 			goto error;
 
 		/*
-		 * The shell command must be quoted. This isn't fool-proof, but
-		 * catches most quoting errors.
+			 * shell 命令必须用引号括起来。这不是万无一失的，但
+			 * 能捕获大多数引号错误。
 		 */
 		toklen = strlen(token);
 		if (token[0] != '\'' || toklen < 2 || token[toklen - 1] != '\'')
@@ -234,13 +234,13 @@ parse_slash_copy(const char *args)
 	}
 	else
 	{
-		/* filename can be optionally quoted */
+		/* 文件名可以选择用引号括起来 */
 		strip_quotes(token, '\'', 0, pset.encoding);
 		result->file = pg_strdup(token);
 		expand_tilde(&result->file);
 	}
 
-	/* Collect the rest of the line (COPY options) */
+	/* 收集行的剩余部分（COPY 选项） */
 	token = strtokx(NULL, "", NULL, NULL,
 					0, false, false, pset.encoding);
 	if (token)
@@ -260,9 +260,9 @@ error:
 
 
 /*
- * Execute a \copy command (frontend copy). We have to open a file (or execute
- * a command), then submit a COPY query to the backend and either feed it data
- * from the file or route its response into the file.
+ * 执行 \copy 命令（前端复制）。我们必须打开一个文件（或执行
+ * 一个命令），然后向后台提交一个 COPY 查询，并将数据从文件
+ * 传入或将其响应路由到文件。
  */
 bool
 do_copy(const char *args)
@@ -272,13 +272,13 @@ do_copy(const char *args)
 	struct copy_options *options;
 	bool		success;
 
-	/* parse options */
+	/* 解析选项 */
 	options = parse_slash_copy(args);
 
 	if (!options)
 		return false;
 
-	/* prepare to read or write the target file */
+	/* 准备读取或写入目标文件 */
 	if (options->file && !options->program)
 		canonicalize_path_enc(options->file, pset.encoding);
 
@@ -337,7 +337,7 @@ do_copy(const char *args)
 		struct stat st;
 		int			result;
 
-		/* make sure the specified file is not a directory */
+		/* 确保指定的文件不是目录 */
 		if ((result = fstat(fileno(copystream), &st)) < 0)
 			pg_log_error("could not stat file \"%s\": %m",
 						 options->file);
@@ -354,7 +354,7 @@ do_copy(const char *args)
 		}
 	}
 
-	/* build the command we will send to the backend */
+	/* 构建将发送到后台的命令 */
 	initPQExpBuffer(&query);
 	printfPQExpBuffer(&query, "COPY ");
 	appendPQExpBufferStr(&query, options->before_tofrom);
@@ -365,7 +365,7 @@ do_copy(const char *args)
 	if (options->after_tofrom)
 		appendPQExpBufferStr(&query, options->after_tofrom);
 
-	/* run it like a user command, but with copystream as data source/sink */
+	/* 像用户命令一样运行，但以 copystream 作为数据源/接收端 */
 	pset.copyStream = copystream;
 	success = SendQuery(query.data);
 	pset.copyStream = NULL;
@@ -409,26 +409,26 @@ do_copy(const char *args)
 
 
 /*
- * Functions for handling COPY IN/OUT data transfer.
+ * 处理 COPY IN/OUT 数据传输的函数。
  *
- * If you want to use COPY TO STDOUT/FROM STDIN in your application,
- * this is the code to steal ;)
+ * 如果你想在应用程序中使用 COPY TO STDOUT/FROM STDIN，
+ * 这就是值得借鉴的代码 ;)
  */
 
 /*
  * handleCopyOut
- * receives data as a result of a COPY ... TO STDOUT command
+ * 接收 COPY ... TO STDOUT 命令的结果数据
  *
- * conn should be a database connection that you just issued COPY TO on
- * and got back a PGRES_COPY_OUT result.
+ * conn 应该是你刚刚对其发出 COPY TO 并收到
+ * PGRES_COPY_OUT 结果的数据库连接。
  *
- * copystream is the file stream for the data to go to.
- * copystream can be NULL to eat the data without writing it anywhere.
+ * copystream 是数据要写入的文件流。
+ * copystream 可以为 NULL，以丢弃数据而不写入任何地方。
  *
- * The final status for the COPY is returned into *res (but note
- * we already reported the error, if it's not a success result).
+ * COPY 的最终状态返回到 *res 中（但请注意，
+ * 如果不是成功结果，我们已经报告了错误）。
  *
- * result is true if successful, false if not.
+ * 成功返回 true，失败返回 false。
  */
 bool
 handleCopyOut(PGconn *conn, FILE *copystream, PGresult **res)
@@ -442,14 +442,14 @@ handleCopyOut(PGconn *conn, FILE *copystream, PGresult **res)
 		ret = PQgetCopyData(conn, &buf, 0);
 
 		if (ret < 0)
-			break;				/* done or server/connection error */
+			break;				/* 完成或服务器/连接错误 */
 
 		if (buf)
 		{
 			if (OK && copystream && fwrite(buf, 1, ret, copystream) != ret)
 			{
 				pg_log_error("could not write COPY data: %m");
-				/* complain only once, keep reading data from server */
+				/* 只抱怨一次，继续从服务器读取数据 */
 				OK = false;
 			}
 			PQfreemem(buf);
@@ -469,16 +469,16 @@ handleCopyOut(PGconn *conn, FILE *copystream, PGresult **res)
 	}
 
 	/*
-	 * Check command status and return to normal libpq state.
+	 * 检查命令状态并返回正常的 libpq 状态。
 	 *
-	 * If for some reason libpq is still reporting PGRES_COPY_OUT state, we
-	 * would like to forcibly exit that state, since our caller would be
-	 * unable to distinguish that situation from reaching the next COPY in a
-	 * command string that happened to contain two consecutive COPY TO STDOUT
-	 * commands.  However, libpq provides no API for doing that, and in
-	 * principle it's a libpq bug anyway if PQgetCopyData() returns -1 or -2
-	 * but hasn't exited COPY_OUT state internally.  So we ignore the
-	 * possibility here.
+	 * 如果由于某种原因 libpq 仍报告 PGRES_COPY_OUT 状态，我们
+	 * 希望强制退出该状态，因为调用者无法区分这种情形与在包含
+	 * 两个连续 COPY TO STDOUT 命令的命令字符串中到达下一个 COPY。
+	 * 然而，libpq 没有提供这样做的 API，而且原则上，如果
+	 * PQgetCopyData() 返回 -1 或 -2 但尚未在内部退出 COPY_OUT
+	 * 状态，这本身就是 libpq 的 bug。所以我们在此忽略这种可能性。
+	 *
+	 *
 	 */
 	*res = PQgetResult(conn);
 	if (PQresultStatus(*res) != PGRES_COMMAND_OK)
@@ -492,19 +492,19 @@ handleCopyOut(PGconn *conn, FILE *copystream, PGresult **res)
 
 /*
  * handleCopyIn
- * sends data to complete a COPY ... FROM STDIN command
+ * 发送数据以完成 COPY ... FROM STDIN 命令
  *
- * conn should be a database connection that you just issued COPY FROM on
- * and got back a PGRES_COPY_IN result.
- * copystream is the file stream to read the data from.
- * isbinary can be set from PQbinaryTuples().
- * The final status for the COPY is returned into *res (but note
- * we already reported the error, if it's not a success result).
+ * conn 应该是你刚刚对其发出 COPY FROM 并收到
+ * PGRES_COPY_IN 结果的数据库连接。
+ * copystream 是要从中读取数据的文件流。
+ * isbinary 可以从 PQbinaryTuples() 设置。
+ * COPY 的最终状态返回到 *res 中（但请注意，
+ * 如果不是成功结果，我们已经报告了错误）。
  *
- * result is true if successful, false if not.
+ * 成功返回 true，失败返回 false。
  */
 
-/* read chunk size for COPY IN - size is not critical */
+/* COPY IN 的读取块大小 - 大小并不关键 */
 #define COPYBUFSIZ 8192
 
 bool
@@ -515,14 +515,14 @@ handleCopyIn(PGconn *conn, FILE *copystream, bool isbinary, PGresult **res)
 	bool		showprompt;
 
 	/*
-	 * Establish longjmp destination for exiting from wait-for-input. (This is
-	 * only effective while sigint_interrupt_enabled is TRUE.)
+	 * 建立用于退出等待输入状态的 longjmp 目标。
+	 * （仅在 sigint_interrupt_enabled 为 TRUE 时生效。）
 	 */
 	if (sigsetjmp(sigint_interrupt_jmp, 1) != 0)
 	{
-		/* got here with longjmp */
+		/* 通过 longjmp 到达此处 */
 
-		/* Terminate data transfer */
+		/* 终止数据传输 */
 		PQputCopyEnd(conn,
 					 (PQprotocolVersion(conn) < 3) ? NULL :
 					 _("canceled by user"));
@@ -531,7 +531,7 @@ handleCopyIn(PGconn *conn, FILE *copystream, bool isbinary, PGresult **res)
 		goto copyin_cleanup;
 	}
 
-	/* Prompt if interactive input */
+	/* 交互式输入时发出提示 */
 	if (isatty(fileno(copystream)))
 	{
 		showprompt = true;
@@ -546,7 +546,7 @@ handleCopyIn(PGconn *conn, FILE *copystream, bool isbinary, PGresult **res)
 
 	if (isbinary)
 	{
-		/* interactive input probably silly, but give one prompt anyway */
+		/* 交互式输入可能不合适，但无论如何给出一次提示 */
 		if (showprompt)
 		{
 			const char *prompt = get_prompt(PROMPT_COPY, NULL);
@@ -559,7 +559,7 @@ handleCopyIn(PGconn *conn, FILE *copystream, bool isbinary, PGresult **res)
 		{
 			int			buflen;
 
-			/* enable longjmp while waiting for input */
+			/* 等待输入时启用 longjmp */
 			sigint_interrupt_enabled = true;
 
 			buflen = fread(buf, 1, COPYBUFSIZ, copystream);
@@ -583,10 +583,10 @@ handleCopyIn(PGconn *conn, FILE *copystream, bool isbinary, PGresult **res)
 		bool		at_line_begin = true;
 
 		/*
-		 * In text mode, we have to read the input one line at a time, so that
-		 * we can stop reading at the EOF marker (\.).  We mustn't read beyond
-		 * the EOF marker, because if the data was inlined in a SQL script, we
-		 * would eat up the commands after the EOF marker.
+		 * 在文本模式下，我们必须一次读取一行输入，这样才能
+		 * 在 EOF 标记 (\.) 处停止读取。我们不能读取超过
+		 * EOF 标记的内容，因为如果数据内联在 SQL 脚本中，
+		 * 我们会吞掉 EOF 标记之后的命令。
 		 */
 		buflen = 0;
 		while (!copydone)
@@ -601,7 +601,7 @@ handleCopyIn(PGconn *conn, FILE *copystream, bool isbinary, PGresult **res)
 				fflush(stdout);
 			}
 
-			/* enable longjmp while waiting for input */
+			/* 等待输入时启用 longjmp */
 			sigint_interrupt_enabled = true;
 
 			fgresult = fgets(&buf[buflen], COPYBUFSIZ - buflen, copystream);
@@ -617,17 +617,17 @@ handleCopyIn(PGconn *conn, FILE *copystream, bool isbinary, PGresult **res)
 				linelen = strlen(fgresult);
 				buflen += linelen;
 
-				/* current line is done? */
+				/* 当前行已完成？ */
 				if (buf[buflen - 1] == '\n')
 				{
-					/* check for EOF marker, but not on a partial line */
+					/* 检查 EOF 标记，但不在不完整的行上 */
 					if (at_line_begin)
 					{
 						/*
-						 * This code erroneously assumes '\.' on a line alone
-						 * inside a quoted CSV string terminates the \copy.
-						 * https://www.postgresql.org/message-id/E1TdNVQ-0001ju-GO@wrigleys.postgresql.org
-						 * https://www.postgresql.org/message-id/bfcd57e4-8f23-4c3e-a5db-2571d09208e2@beta.fastmail.com
+							 * 此代码错误地假定在带引号的 CSV 字符串中
+							 * 单独一行上的 '\.' 会终止 \copy。
+							 * https://www.postgresql.org/message-id/E1TdNVQ-0001ju-GO@wrigleys.postgresql.org
+							 * https://www.postgresql.org/message-id/bfcd57e4-8f23-4c3e-a5db-2571d09208e2@beta.fastmail.com
 						 */
 						if ((linelen == 3 && memcmp(fgresult, "\\.\n", 3) == 0) ||
 							(linelen == 4 && memcmp(fgresult, "\\.\r\n", 4) == 0))
@@ -648,12 +648,12 @@ handleCopyIn(PGconn *conn, FILE *copystream, bool isbinary, PGresult **res)
 			}
 
 			/*
-			 * If the buffer is full, or we've reached the EOF, flush it.
+			 * 如果缓冲区已满，或者我们已到达 EOF，则刷新它。
 			 *
-			 * Make sure there's always space for four more bytes in the
-			 * buffer, plus a NUL terminator.  That way, an EOF marker is
-			 * never split across two fgets() calls, which simplifies the
-			 * logic.
+			 * 确保缓冲区中始终有四个额外字节的空间，加上 NUL
+			 * 终止符。这样，EOF 标记就不会跨两次 fgets()
+			 * 调用而拆分，从而简化了逻辑。
+			 *
 			 */
 			if (buflen >= COPYBUFSIZ - 5 || (copydone && buflen > 0))
 			{
@@ -668,15 +668,15 @@ handleCopyIn(PGconn *conn, FILE *copystream, bool isbinary, PGresult **res)
 		}
 	}
 
-	/* Check for read error */
+	/* 检查读取错误 */
 	if (ferror(copystream))
 		OK = false;
 
 	/*
-	 * Terminate data transfer.  We can't send an error message if we're using
-	 * protocol version 2.  (libpq no longer supports protocol version 2, but
-	 * keep the version checks just in case you're using a pre-v14 libpq.so at
-	 * runtime)
+	 * 终止数据传输。如果使用协议版本 2，我们无法发送错误消息。
+	 * （libpq 不再支持协议版本 2，但保留版本检查以防在
+	 * 运行时使用 pre-v14 libpq.so）
+	 *
 	 */
 	if (PQputCopyEnd(conn,
 					 (OK || PQprotocolVersion(conn) < 3) ? NULL :
@@ -686,32 +686,32 @@ handleCopyIn(PGconn *conn, FILE *copystream, bool isbinary, PGresult **res)
 copyin_cleanup:
 
 	/*
-	 * Clear the EOF flag on the stream, in case copying ended due to an EOF
-	 * signal.  This allows an interactive TTY session to perform another COPY
-	 * FROM STDIN later.  (In non-STDIN cases, we're about to close the file
-	 * anyway, so it doesn't matter.)  Although we don't ever test the flag
-	 * with feof(), some fread() implementations won't read more data if it's
-	 * set.  This also clears the error flag, but we already checked that.
+	 * 清除流上的 EOF 标志，以防复制由于 EOF 信号而结束。
+	 * 这允许交互式 TTY 会话稍后执行另一个 COPY FROM
+	 * STDIN。（在非 STDIN 情况下，我们即将关闭文件，
+	 * 所以无关紧要。）虽然我们不会用 feof() 测试该标志，
+	 * 但某些 fread() 实现在设置该标志后不会再读取更多数据。
+	 * 这也会清除错误标志，但我们已经检查过了。
 	 */
 	clearerr(copystream);
 
 	/*
-	 * Check command status and return to normal libpq state.
+	 * 检查命令状态并返回正常的 libpq 状态。
 	 *
-	 * We do not want to return with the status still PGRES_COPY_IN: our
-	 * caller would be unable to distinguish that situation from reaching the
-	 * next COPY in a command string that happened to contain two consecutive
-	 * COPY FROM STDIN commands.  We keep trying PQputCopyEnd() in the hope
-	 * it'll work eventually.  (What's actually likely to happen is that in
-	 * attempting to flush the data, libpq will eventually realize that the
-	 * connection is lost.  But that's fine; it will get us out of COPY_IN
-	 * state, which is what we need.)
+	 * 我们不希望在状态仍为 PGRES_COPY_IN 时返回：
+	 * 调用者将无法区分这种情形与在包含两个连续
+	 * COPY FROM STDIN 命令的命令字符串中到达下一个 COPY。
+	 * 我们持续尝试 PQputCopyEnd()，希望它最终会生效。
+	 * （实际上可能发生的是，在尝试刷新数据时，libpq
+	 * 最终会意识到连接已丢失。但这没关系；它会让我们
+	 * 退出 COPY_IN 状态，这正是我们需要的。）
+	 *
 	 */
 	while (*res = PQgetResult(conn), PQresultStatus(*res) == PGRES_COPY_IN)
 	{
 		OK = false;
 		PQclear(*res);
-		/* We can't send an error message if we're using protocol version 2 */
+		/* 使用协议版本 2 时无法发送错误消息 */
 		PQputCopyEnd(conn,
 					 (PQprotocolVersion(conn) < 3) ? NULL :
 					 _("trying to exit copy mode"));

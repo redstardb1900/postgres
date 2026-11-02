@@ -12,18 +12,18 @@
 #include "variables.h"
 
 /*
- * Check whether a variable's name is allowed.
+ * 检查变量名是否允许。
  *
- * We allow any non-ASCII character, as well as ASCII letters, digits, and
- * underscore.  Keep this in sync with the definition of variable_char in
- * psqlscan.l and psqlscanslash.l.
+ * 我们允许任何非 ASCII 字符，以及 ASCII 字母、数字和下划线。
+ * 请与 psqlscan.l 和 psqlscanslash.l 中的 variable_char 定义
+ * 保持同步。
  */
 static bool
 valid_variable_name(const char *name)
 {
 	const unsigned char *ptr = (const unsigned char *) name;
 
-	/* Mustn't be zero-length */
+	/* 不能为零长度 */
 	if (*ptr == '\0')
 		return false;
 
@@ -41,11 +41,11 @@ valid_variable_name(const char *name)
 }
 
 /*
- * A "variable space" is represented by an otherwise-unused struct _variable
- * that serves as list header.
+ * "变量空间"由一个原本未使用的 struct _variable 表示，
+ * 该结构体用作列表头。
  *
- * The list entries are kept in name order (according to strcmp).  This
- * is mainly to make the output of PrintVariables() more pleasing.
+ * 列表条目按名称顺序（根据 strcmp）排列。这主要是为了让
+ * PrintVariables() 的输出更加美观。
  */
 VariableSpace
 CreateVariableSpace(void)
@@ -63,9 +63,9 @@ CreateVariableSpace(void)
 }
 
 /*
- * Get string value of variable, or NULL if it's not defined.
+ * 获取变量的字符串值，如果未定义则返回 NULL。
  *
- * Note: result is valid until variable is next assigned to.
+ * 注意：结果在下一次变量赋值之前有效。
  */
 const char *
 GetVariable(VariableSpace space, const char *name)
@@ -81,27 +81,27 @@ GetVariable(VariableSpace space, const char *name)
 
 		if (cmp == 0)
 		{
-			/* this is correct answer when value is NULL, too */
+			/* 当值为 NULL 时，这也是正确答案 */
 			return current->value;
 		}
 		if (cmp > 0)
-			break;				/* it's not there */
+			break;				/* 不存在 */
 	}
 
 	return NULL;
 }
 
 /*
- * Try to interpret "value" as a boolean value, and if successful,
- * store it in *result.  Otherwise don't clobber *result.
+ * 尝试将 "value" 解释为布尔值，如果成功则将其存储到 *result 中。
+ * 否则不要覆盖 *result。
  *
- * Valid values are: true, false, yes, no, on, off, 1, 0; as well as unique
- * prefixes thereof.
+ * 有效值为：true、false、yes、no、on、off、1、0；以及它们的
+ * 唯一前缀。
  *
- * "name" is the name of the variable we're assigning to, to use in error
- * report if any.  Pass name == NULL to suppress the error report.
+ * "name" 是我们要赋值的变量名，用于错误报告（如果有的话）。
+ * 传入 name == NULL 以抑制错误报告。
  *
- * Return true when "value" is syntactically valid, false otherwise.
+ * 当 "value" 语法有效时返回 true，否则返回 false。
  */
 bool
 ParseVariableBool(const char *value, const char *name, bool *result)
@@ -109,7 +109,7 @@ ParseVariableBool(const char *value, const char *name, bool *result)
 	size_t		len;
 	bool		valid = true;
 
-	/* Treat "unset" as an empty string, which will lead to error below */
+	/* 将 "unset" 视为空字符串，这将导致下面的错误 */
 	if (value == NULL)
 		value = "";
 
@@ -123,7 +123,7 @@ ParseVariableBool(const char *value, const char *name, bool *result)
 		*result = true;
 	else if (len > 0 && pg_strncasecmp(value, "no", len) == 0)
 		*result = false;
-	/* 'o' is not unique enough */
+	/* 'o' 不够唯一 */
 	else if (pg_strncasecmp(value, "on", (len > 2 ? len : 2)) == 0)
 		*result = true;
 	else if (pg_strncasecmp(value, "off", (len > 2 ? len : 2)) == 0)
@@ -134,7 +134,7 @@ ParseVariableBool(const char *value, const char *name, bool *result)
 		*result = false;
 	else
 	{
-		/* string is not recognized; don't clobber *result */
+		/* 字符串无法识别；不要覆盖 *result */
 		if (name)
 			pg_log_error("unrecognized value \"%s\" for \"%s\": Boolean expected",
 						 value, name);
@@ -144,13 +144,13 @@ ParseVariableBool(const char *value, const char *name, bool *result)
 }
 
 /*
- * Try to interpret "value" as an integer value, and if successful,
- * store it in *result.  Otherwise don't clobber *result.
+ * 尝试将 "value" 解释为整数值，如果成功则将其存储到 *result 中。
+ * 否则不要覆盖 *result。
  *
- * "name" is the name of the variable we're assigning to, to use in error
- * report if any.  Pass name == NULL to suppress the error report.
+ * "name" 是我们要赋值的变量名，用于错误报告（如果有的话）。
+ * 传入 name == NULL 以抑制错误报告。
  *
- * Return true when "value" is syntactically valid, false otherwise.
+ * 当 "value" 语法有效时返回 true，否则返回 false。
  */
 bool
 ParseVariableNum(const char *value, const char *name, int *result)
@@ -158,7 +158,7 @@ ParseVariableNum(const char *value, const char *name, int *result)
 	char	   *end;
 	long		numval;
 
-	/* Treat "unset" as an empty string, which will lead to error below */
+	/* 将 "unset" 视为空字符串，这将导致下面的错误 */
 	if (value == NULL)
 		value = "";
 
@@ -171,7 +171,7 @@ ParseVariableNum(const char *value, const char *name, int *result)
 	}
 	else
 	{
-		/* string is not recognized; don't clobber *result */
+		/* 字符串无法识别；不要覆盖 *result */
 		if (name)
 			pg_log_error("invalid value \"%s\" for \"%s\": integer expected",
 						 value, name);
@@ -180,7 +180,7 @@ ParseVariableNum(const char *value, const char *name, int *result)
 }
 
 /*
- * Print values of all variables.
+ * 打印所有变量的值。
  */
 void
 PrintVariables(VariableSpace space)
@@ -200,12 +200,12 @@ PrintVariables(VariableSpace space)
 }
 
 /*
- * Set the variable named "name" to value "value",
- * or delete it if "value" is NULL.
+ * 将名为 "name" 的变量设置为值 "value"，
+ * 如果 "value" 为 NULL 则删除它。
  *
- * Returns true if successful, false if not; in the latter case a suitable
- * error message has been printed, except for the unexpected case of
- * space or name being NULL.
+ * 成功时返回 true，失败时返回 false；在后一种情况下会打印
+ * 适当的错误消息，除非 space 或 name 为 NULL。
+ *
  */
 bool
 SetVariable(VariableSpace space, const char *name, const char *value)
@@ -218,7 +218,7 @@ SetVariable(VariableSpace space, const char *name, const char *value)
 
 	if (!valid_variable_name(name))
 	{
-		/* Deletion of non-existent variable is not an error */
+		/* 删除不存在的变量不是错误 */
 		if (!value)
 			return true;
 		pg_log_error("invalid variable name: \"%s\"", name);
@@ -234,13 +234,13 @@ SetVariable(VariableSpace space, const char *name, const char *value)
 		if (cmp == 0)
 		{
 			/*
-			 * Found entry, so update, unless assign hook returns false.
+			 * 找到条目，因此更新，除非 assign hook 返回 false。
 			 *
-			 * We must duplicate the passed value to start with.  This
-			 * simplifies the API for substitute hooks.  Moreover, some assign
-			 * hooks assume that the passed value has the same lifespan as the
-			 * variable.  Having to free the string again on failure is a
-			 * small price to pay for keeping these APIs simple.
+			 * 我们必须先复制传入的值。这简化了 substitute hook
+			 * 的 API。此外，某些 assign hook 假设传入的值与变量
+			 * 具有相同的生命周期。在失败时需要再次释放字符串，
+			 * 这是保持这些 API 简洁的小代价。
+			 *
 			 */
 			char	   *new_value = value ? pg_strdup(value) : NULL;
 			bool		confirmed;
@@ -259,8 +259,8 @@ SetVariable(VariableSpace space, const char *name, const char *value)
 				current->value = new_value;
 
 				/*
-				 * If we deleted the value, and there are no hooks to
-				 * remember, we can discard the variable altogether.
+				 * 如果我们删除了值，并且没有钩子需要记住，
+				 * 我们可以完全丢弃该变量。
 				 */
 				if (new_value == NULL &&
 					current->substitute_hook == NULL &&
@@ -272,7 +272,7 @@ SetVariable(VariableSpace space, const char *name, const char *value)
 				}
 			}
 			else
-				pg_free(new_value); /* current->value is left unchanged */
+				pg_free(new_value); /* current->value 保持不变 */
 
 			return confirmed;
 		}
@@ -280,7 +280,7 @@ SetVariable(VariableSpace space, const char *name, const char *value)
 			break;				/* it's not there */
 	}
 
-	/* not present, make new entry ... unless we were asked to delete */
+	/* 不存在，创建新条目……除非我们被要求删除 */
 	if (value)
 	{
 		current = pg_malloc(sizeof *current);
@@ -295,20 +295,20 @@ SetVariable(VariableSpace space, const char *name, const char *value)
 }
 
 /*
- * Attach substitute and/or assign hook functions to the named variable.
- * If you need only one hook, pass NULL for the other.
+ * 将 substitute 和/或 assign hook 函数附加到指定的变量。
+ * 如果只需要一个 hook，则为另一个传入 NULL。
  *
- * If the variable doesn't already exist, create it with value NULL, just so
- * we have a place to store the hook function(s).  (The substitute hook might
- * immediately change the NULL to something else; if not, this state is
- * externally the same as the variable not being defined.)
+ * 如果变量尚不存在，则以 NULL 值创建它，只是为了有一个
+ * 地方存储 hook 函数。（substitute hook 可能会立即将 NULL
+ * 更改为其他值；如果不更改，则此状态在外部看来与变量
+ * 未定义相同。）
  *
- * The substitute hook, if given, is immediately called on the variable's
- * value.  Then the assign hook, if given, is called on the variable's value.
- * This is meant to let it update any derived psql state.  If the assign hook
- * doesn't like the current value, it will print a message to that effect,
- * but we'll ignore it.  Generally we do not expect any such failure here,
- * because this should get called before any user-supplied value is assigned.
+ * 如果提供了 substitute hook，则立即对变量的值调用它。
+ * 然后如果提供了 assign hook，则对变量的值调用它。
+ * 这旨在让它更新任何派生的 psql 状态。如果 assign hook
+ * 不喜欢当前值，它会打印相应的消息，但我们会忽略它。
+ * 通常我们不期望在此处发生此类失败，因为这应该在分配
+ * 任何用户提供的值之前调用。
  */
 void
 SetVariableHooks(VariableSpace space, const char *name,
@@ -332,7 +332,7 @@ SetVariableHooks(VariableSpace space, const char *name,
 
 		if (cmp == 0)
 		{
-			/* found entry, so update */
+			/* 找到条目，更新 */
 			current->substitute_hook = shook;
 			current->assign_hook = ahook;
 			if (shook)
@@ -345,7 +345,7 @@ SetVariableHooks(VariableSpace space, const char *name,
 			break;				/* it's not there */
 	}
 
-	/* not present, make new entry */
+	/* 不存在，创建新条目 */
 	current = pg_malloc(sizeof *current);
 	current->name = pg_strdup(name);
 	current->value = NULL;
@@ -360,8 +360,8 @@ SetVariableHooks(VariableSpace space, const char *name,
 }
 
 /*
- * Return true iff the named variable has substitute and/or assign hook
- * functions.
+ * 如果指定变量具有 substitute 和/或 assign hook 函数，
+ * 则返回 true。
  */
 bool
 VariableHasHook(VariableSpace space, const char *name)
@@ -386,7 +386,7 @@ VariableHasHook(VariableSpace space, const char *name)
 }
 
 /*
- * Convenience function to set a variable's value to "on".
+ * 便捷函数，将变量的值设置为 "on"。
  */
 bool
 SetVariableBool(VariableSpace space, const char *name)
@@ -395,10 +395,10 @@ SetVariableBool(VariableSpace space, const char *name)
 }
 
 /*
- * Attempt to delete variable.
+ * 尝试删除变量。
  *
- * If unsuccessful, print a message and return "false".
- * Deleting a nonexistent variable is not an error.
+ * 如果不成功，打印消息并返回 "false"。
+ * 删除不存在的变量不是错误。
  */
 bool
 DeleteVariable(VariableSpace space, const char *name)
@@ -407,10 +407,10 @@ DeleteVariable(VariableSpace space, const char *name)
 }
 
 /*
- * Emit error with suggestions for variables or commands
- * accepting enum-style arguments.
- * This function just exists to standardize the wording.
- * suggestions should follow the format "fee, fi, fo, fum".
+ * 为接受枚举风格参数的变量或命令发送带有建议的错误。
+ * 此函数仅用于标准化措辞。
+ * suggestions 应遵循格式 "fee, fi, fo, fum"。
+ *
  */
 void
 PsqlVarEnumError(const char *name, const char *value, const char *suggestions)

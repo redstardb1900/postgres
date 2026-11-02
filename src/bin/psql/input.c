@@ -25,8 +25,8 @@
 #define PSQLHISTORY "psql_history"
 #endif
 
-/* Runtime options for turning off readline and history */
-/* (of course there is no runtime command for doing that :) */
+/* 关闭 readline 和历史记录的运行时选项 */
+/* （当然没有用于执行此操作的运行时命令 :) */
 #ifdef USE_READLINE
 static bool useReadline;
 static bool useHistory;
@@ -37,12 +37,12 @@ static int	history_lines_added;
 
 
 /*
- *	Preserve newlines in saved queries by mapping '\n' to NL_IN_HISTORY
+ *	通过将 '\n' 映射到 NL_IN_HISTORY 来保留已保存查询中的换行符
  *
- *	It is assumed NL_IN_HISTORY will never be entered by the user
- *	nor appear inside a multi-byte string.  0x00 is not properly
- *	handled by the readline routines so it can not be used
- *	for this purpose.
+ *	假设 NL_IN_HISTORY 永远不会被用户输入，
+ *	也不会出现在多字节字符串中。0x00 不能由 readline
+ *	例程正确处理，因此不能用于此目的。
+ *	
  */
 #define NL_IN_HISTORY	0x01
 #endif
@@ -53,15 +53,15 @@ static void finishInput(void);
 /*
  * gets_interactive()
  *
- * Gets a line of interactive input, using readline if desired.
+ * 获取一行交互式输入，如果需要则使用 readline。
  *
- * prompt: the prompt string to be used
- * query_buf: buffer containing lines already read in the current command
- * (query_buf is not modified here, but may be consulted for tab completion)
+ * prompt: 要使用的提示字符串
+ * query_buf: 包含当前命令中已读取行的缓冲区
+ * （query_buf 不会在这里修改，但可能会被 tab 补全查询）
  *
- * The result is a malloc'd string.
+ * 结果是 malloc'd 的字符串。
  *
- * Caller *must* have set up sigint_interrupt_jmp before calling.
+ * 调用者在调用前*必须*已设置 sigint_interrupt_jmp。
  */
 char *
 gets_interactive(const char *prompt, PQExpBuffer query_buf)
@@ -72,29 +72,29 @@ gets_interactive(const char *prompt, PQExpBuffer query_buf)
 		char	   *result;
 
 		/*
-		 * Some versions of readline don't notice SIGWINCH signals that arrive
-		 * when not actively reading input.  The simplest fix is to always
-		 * re-read the terminal size.  This leaves a window for SIGWINCH to be
-		 * missed between here and where readline() enables libreadline's
-		 * signal handler, but that's probably short enough to be ignored.
+		 * 某些版本的 readline 不会注意到在未主动读取输入时到达的
+		 * SIGWINCH 信号。最简单的修复方法是始终重新读取终端大小。
+		 * 这会在 readline() 启用 libreadline 信号处理程序之前
+		 * 留下一个 SIGWINCH 可能被错过的窗口，但该窗口可能足够短
+		 * 可以忽略。
 		 */
 #ifdef HAVE_RL_RESET_SCREEN_SIZE
 		rl_reset_screen_size();
 #endif
 
-		/* Make current query_buf available to tab completion callback */
+		/* 使当前 query_buf 可用于 tab 补全回调 */
 		tab_completion_query_buf = query_buf;
 
-		/* Enable SIGINT to longjmp to sigint_interrupt_jmp */
+		/* 启用 SIGINT 以 longjmp 到 sigint_interrupt_jmp */
 		sigint_interrupt_enabled = true;
 
-		/* On some platforms, readline is declared as readline(char *) */
+		/* 在某些平台上，readline 声明为 readline(char *) */
 		result = readline((char *) prompt);
 
-		/* Disable SIGINT again */
+		/* 再次禁用 SIGINT */
 		sigint_interrupt_enabled = false;
 
-		/* Pure neatnik-ism */
+		/* 纯粹的整洁主义 */
 		tab_completion_query_buf = NULL;
 
 		return result;
@@ -108,7 +108,7 @@ gets_interactive(const char *prompt, PQExpBuffer query_buf)
 
 
 /*
- * Append the line to the history buffer, making sure there is a trailing '\n'
+ * 将行追加到历史缓冲区，确保末尾有 '\n'
  */
 void
 pg_append_history(const char *s, PQExpBuffer history_buf)
@@ -125,12 +125,12 @@ pg_append_history(const char *s, PQExpBuffer history_buf)
 
 
 /*
- * Emit accumulated history entry to readline's history mechanism,
- * then reset the buffer to empty.
+ * 将累积的历史条目发送到 readline 的历史机制，
+ * 然后将缓冲区重置为空。
  *
- * Note: we write nothing if history_buf is empty, so extra calls to this
- * function don't hurt.  There must have been at least one line added by
- * pg_append_history before we'll do anything.
+ * 注意：如果 history_buf 为空，我们不会写入任何内容，因此对此函数
+ * 的额外调用不会有影响。在执行任何操作之前，必须至少有
+ * pg_append_history 添加的一行。
  */
 void
 pg_send_history(PQExpBuffer history_buf)
@@ -141,7 +141,7 @@ pg_send_history(PQExpBuffer history_buf)
 	char	   *s = history_buf->data;
 	int			i;
 
-	/* Trim any trailing \n's (OK to scribble on history_buf) */
+	/* 修剪尾随的 \n（可以在 history_buf 上涂写） */
 	for (i = strlen(s) - 1; i >= 0 && s[i] == '\n'; i--)
 		;
 	s[i + 1] = '\0';
@@ -153,16 +153,16 @@ pg_send_history(PQExpBuffer history_buf)
 			((pset.histcontrol & hctl_ignoredups) &&
 			 prev_hist && strcmp(s, prev_hist) == 0))
 		{
-			/* Ignore this line as far as history is concerned */
+			/* 就历史记录而言，忽略此行 */
 		}
 		else
 		{
-			/* Save each previous line for ignoredups processing */
+			/* 保存上一行以进行 ignoredups 处理 */
 			free(prev_hist);
 			prev_hist = pg_strdup(s);
-			/* And send it to readline */
+			/* 并将其发送到 readline */
 			add_history(s);
-			/* Count lines added to history for use later */
+			/* 计算添加到历史记录的行数以备后用 */
 			history_lines_added++;
 		}
 	}
@@ -175,13 +175,13 @@ pg_send_history(PQExpBuffer history_buf)
 /*
  * gets_fromFile
  *
- * Gets a line of noninteractive input from a file (which could be stdin).
- * The result is a malloc'd string, or NULL on EOF or input error.
+ * 从文件（可以是 stdin）获取一行非交互式输入。
+ * 结果是 malloc'd 的字符串，或在 EOF 或输入错误时为 NULL。
  *
- * Caller *must* have set up sigint_interrupt_jmp before calling.
+ * 调用者在调用前*必须*已设置 sigint_interrupt_jmp。
  *
- * Note: we re-use a static PQExpBuffer for each call.  This is to avoid
- * leaking memory if interrupted by SIGINT.
+ * 注意：我们为每次调用重用静态 PQExpBuffer。这是为了避免
+ * 被 SIGINT 中断时泄漏内存。
  */
 char *
 gets_fromFile(FILE *source)
@@ -190,7 +190,7 @@ gets_fromFile(FILE *source)
 
 	char		line[1024];
 
-	if (buffer == NULL)			/* first time through? */
+	if (buffer == NULL)			/* 第一次进入？ */
 		buffer = createPQExpBuffer();
 	else
 		resetPQExpBuffer(buffer);
@@ -199,16 +199,16 @@ gets_fromFile(FILE *source)
 	{
 		char	   *result;
 
-		/* Enable SIGINT to longjmp to sigint_interrupt_jmp */
+		/* 启用 SIGINT 以 longjmp 到 sigint_interrupt_jmp */
 		sigint_interrupt_enabled = true;
 
-		/* Get some data */
+		/* 获取一些数据 */
 		result = fgets(line, sizeof(line), source);
 
-		/* Disable SIGINT again */
+		/* 再次禁用 SIGINT */
 		sigint_interrupt_enabled = false;
 
-		/* EOF or error? */
+		/* EOF 或错误？ */
 		if (result == NULL)
 		{
 			if (ferror(source))
@@ -227,7 +227,7 @@ gets_fromFile(FILE *source)
 			return NULL;
 		}
 
-		/* EOL? */
+		/* 行尾？ */
 		if (buffer->len > 0 && buffer->data[buffer->len - 1] == '\n')
 		{
 			buffer->data[buffer->len - 1] = '\0';
@@ -235,10 +235,10 @@ gets_fromFile(FILE *source)
 		}
 	}
 
-	if (buffer->len > 0)		/* EOF after reading some bufferload(s) */
+	if (buffer->len > 0)		/* 读取一些缓冲区内容后的 EOF */
 		return pg_strdup(buffer->data);
 
-	/* EOF, so return null */
+	/* EOF，因此返回 null */
 	return NULL;
 }
 
@@ -246,34 +246,34 @@ gets_fromFile(FILE *source)
 #ifdef USE_READLINE
 
 /*
- * Macros to iterate over each element of the history list in order
+ * 按顺序遍历历史列表每个元素的宏
  *
- * You would think this would be simple enough, but in its inimitable fashion
- * libedit has managed to break it: in libreadline we must use next_history()
- * to go from oldest to newest, but in libedit we must use previous_history().
- * To detect what to do, we make a trial call of previous_history(): if it
- * fails, then either next_history() is what to use, or there's zero or one
- * history entry so that it doesn't matter which direction we go.
+ * 你可能认为这足够简单，但 libedit 以其独特的方式成功地破坏了它：
+ * 在 libreadline 中我们必须使用 next_history() 从最旧到最新遍历，
+ * 但在 libedit 中我们必须使用 previous_history()。
+ * 为了检测该做什么，我们进行 previous_history() 的试探调用：
+ * 如果失败，则要么使用 next_history()，要么有零个或一个历史条目
+ * 以至于朝哪个方向前进无关紧要。
  *
- * In case that wasn't disgusting enough: the code below is not as obvious as
- * it might appear.  In some libedit releases history_set_pos(0) fails until
- * at least one add_history() call has been done.  This is not an issue for
- * printHistory() or encode_history(), which cannot be invoked before that has
- * happened.  In decode_history(), that's not so, and what actually happens is
- * that we are sitting on the newest entry to start with, previous_history()
- * fails, and we iterate over all the entries using next_history().  So the
- * decode_history() loop iterates over the entries in the wrong order when
- * using such a libedit release, and if there were another attempt to use
- * BEGIN_ITERATE_HISTORY() before some add_history() call had happened, it
- * wouldn't work.  Fortunately we don't care about either of those things.
+ * 如果那还不够令人作呕：下面的代码不像看起来那么显而易见。
+ * 在某些 libedit 版本中，history_set_pos(0) 会失败，直到至少
+ * 调用过一次 add_history()。对于 printHistory() 或 encode_history()
+ * 这不是问题，它们在发生之前无法被调用。在 decode_history() 中
+ * 情况并非如此，实际发生的是我们一开始位于最新条目上，
+ * previous_history() 失败，我们使用 next_history() 遍历所有条目。
+ * 因此当使用这样的 libedit 版本时，decode_history() 循环
+ * 以错误的顺序遍历条目，如果在某些 add_history() 调用发生之前
+ * 还有另一次使用 BEGIN_ITERATE_HISTORY() 的尝试，它将无法工作。
+ * 幸运的是我们不在乎这两种情况。
  *
- * Usage pattern is:
+ * 使用模式如下：
  *
  *		BEGIN_ITERATE_HISTORY(varname);
  *		{
- *			loop body referencing varname->line;
+ *			引用 varname->line 的循环体；
  *		}
  *		END_ITERATE_HISTORY();
+ *
  */
 #define BEGIN_ITERATE_HISTORY(VARNAME) \
 	do { \
@@ -294,7 +294,7 @@ gets_fromFile(FILE *source)
 
 
 /*
- * Convert newlines to NL_IN_HISTORY for safe saving in readline history file
+ * 将换行符转换为 NL_IN_HISTORY，以便安全保存到 readline 历史文件中
  */
 static void
 encode_history(void)
@@ -303,7 +303,7 @@ encode_history(void)
 	{
 		char	   *cur_ptr;
 
-		/* some platforms declare HIST_ENTRY.line as const char * */
+		/* 某些平台将 HIST_ENTRY.line 声明为 const char * */
 		for (cur_ptr = (char *) cur_hist->line; *cur_ptr; cur_ptr++)
 		{
 			if (*cur_ptr == '\n')
@@ -314,7 +314,7 @@ encode_history(void)
 }
 
 /*
- * Reverse the above encoding
+ * 反转上述编码
  */
 static void
 decode_history(void)
@@ -323,7 +323,7 @@ decode_history(void)
 	{
 		char	   *cur_ptr;
 
-		/* some platforms declare HIST_ENTRY.line as const char * */
+		/* 某些平台将 HIST_ENTRY.line 声明为 const char * */
 		for (cur_ptr = (char *) cur_hist->line; *cur_ptr; cur_ptr++)
 		{
 			if (*cur_ptr == NL_IN_HISTORY)
@@ -336,10 +336,10 @@ decode_history(void)
 
 
 /*
- * Put any startup stuff related to input in here. It's good to maintain
- * abstraction this way.
+ * 将输入相关的启动内容放在此处。保持这种抽象是好的。
  *
- * The only "flag" right now is 1 for use readline & history.
+ * 目前唯一的"标志"是 1 表示使用 readline 和历史记录。
+ *
  */
 void
 initializeInput(int flags)
@@ -352,15 +352,15 @@ initializeInput(int flags)
 
 		useReadline = true;
 
-		/* set appropriate values for Readline's global variables */
+		/* 为 Readline 的全局变量设置适当的值 */
 		initialize_readline();
 
 #ifdef HAVE_RL_VARIABLE_BIND
-		/* set comment-begin to a useful value for SQL */
+		/* 将 comment-begin 设置为对 SQL 有用的值 */
 		(void) rl_variable_bind("comment-begin", "-- ");
 #endif
 
-		/* this reads ~/.inputrc, so do it after rl_variable_bind */
+		/* 这会读取 ~/.inputrc，所以在 rl_variable_bind 之后执行 */
 		rl_initialize();
 
 		useHistory = true;
@@ -402,12 +402,12 @@ initializeInput(int flags)
 
 
 /*
- * This function saves the readline history when psql exits.
+ * 此函数在 psql 退出时保存 readline 历史记录。
  *
- * fname: pathname of history file.  (Should really be "const char *",
- * but some ancient versions of readline omit the const-decoration.)
+ * fname: 历史文件的路径名。（实际上应该是 "const char *"，
+ * 但某些古老版本的 readline 省略了 const 修饰。）
  *
- * max_lines: if >= 0, limit history file to that many entries.
+ * max_lines: 如果 >= 0，将历史文件限制为该数量的条目。
  */
 #ifdef USE_READLINE
 static bool
@@ -416,44 +416,44 @@ saveHistory(char *fname, int max_lines)
 	int			errnum;
 
 	/*
-	 * Suppressing the write attempt when HISTFILE is set to /dev/null may
-	 * look like a negligible optimization, but it's necessary on e.g. macOS,
-	 * where write_history will fail because it tries to chmod the target
-	 * file.
+	 * 当 HISTFILE 设置为 /dev/null 时抑制写尝试可能看起来像是
+	 * 微不足道的优化，但在 macOS 等系统上是必要的，因为
+	 * write_history 会尝试 chmod 目标文件而失败。
+	 *
 	 */
 	if (strcmp(fname, DEVNULL) != 0)
 	{
 		/*
-		 * Encode \n, since otherwise readline will reload multiline history
-		 * entries as separate lines.  (libedit doesn't really need this, but
-		 * we do it anyway since it's too hard to tell which implementation we
-		 * are using.)
+		 * 编码 \n，因为否则 readline 会将多行历史条目重新加载为
+		 * 单独的行。（libedit 实际上不需要这个，但无论如何我们
+		 * 都这样做，因为很难判断我们正在使用哪个实现。）
+		 *
 		 */
 		encode_history();
 
 		/*
-		 * On newer versions of libreadline, truncate the history file as
-		 * needed and then append what we've added.  This avoids overwriting
-		 * history from other concurrent sessions (although there are still
-		 * race conditions when two sessions exit at about the same time). If
-		 * we don't have those functions, fall back to write_history().
+		 * 在较新版本的 libreadline 上，根据需要截断历史文件，
+		 * 然后追加我们添加的内容。这避免了覆盖其他并发会话的
+		 * 历史记录（尽管当两个会话大约同时退出时仍存在竞争条件）。
+		 * 如果我们没有这些函数，退回到 write_history()。
+		 *
 		 */
 #if defined(HAVE_HISTORY_TRUNCATE_FILE) && defined(HAVE_APPEND_HISTORY)
 		{
 			int			nlines;
 			int			fd;
 
-			/* truncate previous entries if needed */
+			/* 如果需要，截断以前的条目 */
 			if (max_lines >= 0)
 			{
 				nlines = Max(max_lines - history_lines_added, 0);
 				(void) history_truncate_file(fname, nlines);
 			}
-			/* append_history fails if file doesn't already exist :-( */
+			/* append_history 在文件尚不存在时失败 :-( */
 			fd = open(fname, O_CREAT | O_WRONLY | PG_BINARY, 0600);
 			if (fd >= 0)
 				close(fd);
-			/* append the appropriate number of lines */
+			/* 追加适当数量的行 */
 			if (max_lines >= 0)
 				nlines = Min(max_lines, history_lines_added);
 			else
@@ -462,12 +462,12 @@ saveHistory(char *fname, int max_lines)
 			if (errnum == 0)
 				return true;
 		}
-#else							/* don't have append support */
+#else							/* 没有 append 支持 */
 		{
-			/* truncate what we have ... */
+			/* 截断已有的记录…… */
 			if (max_lines >= 0)
 				stifle_history(max_lines);
-			/* ... and overwrite file.  Tough luck for concurrent sessions. */
+			/* ……并覆盖文件。并发会话不幸了。 */
 			errnum = write_history(fname);
 			if (errnum == 0)
 				return true;
@@ -483,13 +483,13 @@ saveHistory(char *fname, int max_lines)
 
 
 /*
- * Print history to the specified file, or to the console if fname is NULL
- * (psql \s command)
+ * 将历史记录打印到指定文件，如果 fname 为 NULL 则打印到控制台
+ * （psql \s 命令）
  *
- * We used to use saveHistory() for this purpose, but that doesn't permit
- * use of a pager; moreover libedit's implementation behaves incompatibly
- * (preferring to encode its output) and may fail outright when the target
- * file is specified as /dev/tty.
+ * 我们曾经使用 saveHistory() 来实现此目的，但它不允许使用
+ * 分页器；此外 libedit 的实现行为不兼容（偏好编码其输出），
+ * 并且当目标文件指定为 /dev/tty 时可能完全失败。
+ *
  */
 bool
 printHistory(const char *fname, unsigned short int pager)
@@ -503,7 +503,7 @@ printHistory(const char *fname, unsigned short int pager)
 
 	if (fname == NULL)
 	{
-		/* use pager, if enabled, when printing to console */
+		/* 打印到控制台时，如果启用了分页器则使用 */
 		output = PageOutput(INT_MAX, pager ? &(pset.popt.topt) : NULL);
 		is_pager = true;
 	}

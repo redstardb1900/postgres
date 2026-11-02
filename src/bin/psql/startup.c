@@ -27,7 +27,7 @@
 #include "settings.h"
 
 /*
- * Global psql options
+ * 全局 psql 选项
  */
 PsqlSettings pset;
 
@@ -40,8 +40,8 @@ PsqlSettings pset;
 #endif
 
 /*
- * Structures to pass information between the option parsing routine
- * and the main function
+ * 在选项解析例程和主函数之间传递信息的
+ * 结构体
  */
 enum _actions
 {
@@ -162,7 +162,7 @@ main(int argc, char *argv[])
 	pset.cur_cmd_source = stdin;
 	pset.cur_cmd_interactive = false;
 
-	/* We rely on unmentioned fields of pset.popt to start out 0/false/NULL */
+	/* 我们依赖 pset.popt 中未提到的字段初始为 0/false/NULL */
 	pset.popt.topt.format = PRINT_ALIGNED;
 	pset.popt.topt.border = 1;
 	pset.popt.topt.pager = 1;
@@ -180,7 +180,7 @@ main(int argc, char *argv[])
 
 	refresh_utf8format(&(pset.popt.topt));
 
-	/* We must get COLUMNS here before readline() sets it */
+	/* 我们必须在 readline() 设置 COLUMNS 之前在此获取它 */
 	pset.popt.topt.env_columns = getenv("COLUMNS") ? atoi(getenv("COLUMNS")) : 0;
 
 	pset.notty = (!isatty(fileno(stdin)) || !isatty(fileno(stdout)));
@@ -189,16 +189,16 @@ main(int argc, char *argv[])
 
 	EstablishVariableSpace();
 
-	/* Create variables showing psql version number */
+	/* 创建显示 psql 版本号的变量 */
 	SetVariable(pset.vars, "VERSION", PG_VERSION_STR);
 	SetVariable(pset.vars, "VERSION_NAME", PG_VERSION);
 	SetVariable(pset.vars, "VERSION_NUM", CppAsString2(PG_VERSION_NUM));
 
-	/* Initialize variables for last error */
+	/* 初始化上一次错误的变量 */
 	SetVariable(pset.vars, "LAST_ERROR_MESSAGE", "");
 	SetVariable(pset.vars, "LAST_ERROR_SQLSTATE", "00000");
 
-	/* Default values for variables (that don't match the result of \unset) */
+	/* 变量的默认值（与 \unset 的结果不匹配） */
 	SetVariableBool(pset.vars, "AUTOCOMMIT");
 	SetVariable(pset.vars, "PROMPT1", DEFAULT_PROMPT1);
 	SetVariable(pset.vars, "PROMPT2", DEFAULT_PROMPT2);
@@ -208,14 +208,14 @@ main(int argc, char *argv[])
 	parse_psql_options(argc, argv, &options);
 
 	/*
-	 * If no action was specified and we're in non-interactive mode, treat it
-	 * as if the user had specified "-f -".  This lets single-transaction mode
-	 * work in this case.
+	 * 如果没有指定操作且我们处于非交互模式，则视为用户指定了
+	 * "-f -"。这允许单事务模式在此情况下工作。
+	 *
 	 */
 	if (options.actions.head == NULL && pset.notty)
 		simple_action_list_append(&options.actions, ACT_FILE, NULL);
 
-	/* Bail out if -1 was specified but will be ignored. */
+	/* 如果指定了 -1 但将被忽略，则退出 */
 	if (options.single_txn && options.actions.head == NULL)
 		pg_fatal("-1 can only be used in non-interactive mode");
 
@@ -235,15 +235,15 @@ main(int argc, char *argv[])
 	if (pset.getPassword == TRI_YES)
 	{
 		/*
-		 * We can't be sure yet of the username that will be used, so don't
-		 * offer a potentially wrong one.  Typical uses of this option are
-		 * noninteractive anyway.  (Note: since we've not yet set up our
-		 * cancel handler, there's no need to use simple_prompt_extended.)
+		 * 我们还不能确定将使用的用户名，所以不提供
+		 * 可能错误的用户名。此选项的典型使用场景
+		 * 是非交互式的。（注意：由于我们尚未设置取消
+		 * 处理器，无需使用 simple_prompt_extended。）
 		 */
 		password = simple_prompt("Password: ", false);
 	}
 
-	/* loop until we have a password if requested by backend */
+	/* 如果后台要求密码，循环直到获取到密码 */
 	do
 	{
 #define PARAMS_ARRAY_SIZE	8
@@ -258,7 +258,7 @@ main(int argc, char *argv[])
 		values[2] = options.username;
 		keywords[3] = "password";
 		values[3] = password;
-		keywords[4] = "dbname"; /* see do_connect() */
+		keywords[4] = "dbname"; /* 参见 do_connect() */
 		values[4] = (options.list_dbs && options.dbname == NULL) ?
 			"postgres" : options.dbname;
 		keywords[5] = "fallback_application_name";
@@ -279,9 +279,9 @@ main(int argc, char *argv[])
 			pset.getPassword != TRI_NO)
 		{
 			/*
-			 * Before closing the old PGconn, extract the user name that was
-			 * actually connected with --- it might've come out of a URI or
-			 * connstring "database name" rather than options.username.
+			 * 在关闭旧的 PGconn 之前，提取实际连接的
+			 * 用户名 --- 它可能来自 URI 或连接字符串
+			 * "数据库名称"，而非 options.username。
 			 */
 			const char *realusername = PQuser(pset.db);
 			char	   *password_prompt;
@@ -311,10 +311,10 @@ main(int argc, char *argv[])
 #ifndef WIN32
 
 	/*
-	 * do_watch() needs signal handlers installed (otherwise sigwait() will
-	 * filter them out on some platforms), but doesn't need them to do
-	 * anything, and they shouldn't ever run (unless perhaps a stray SIGALRM
-	 * arrives due to a race when do_watch() cancels an itimer).
+	 * do_watch() 需要安装信号处理器（否则 sigwait()
+	 * 会在某些平台上过滤它们），但不需要它们执行
+	 * 任何操作，而且它们不应该运行（除非 do_watch()
+	 * 取消 itimer 时因竞争条件而出现杂散的 SIGALRM）。
 	 */
 	pqsignal(SIGCHLD, empty_signal_handler);
 	pqsignal(SIGALRM, empty_signal_handler);
@@ -348,15 +348,15 @@ main(int argc, char *argv[])
 		process_psqlrc(argv[0]);
 
 	/*
-	 * If any actions were given by user, process them in the order in which
-	 * they were specified.  Note single_txn is only effective in this mode.
+	 * 如果用户给出了任何操作，按它们被指定的顺序处理。
+	 * 注意 single_txn 仅在此模式下有效。
 	 */
 	if (options.actions.head != NULL)
 	{
 		PGresult   *res;
 		SimpleActionListCell *cell;
 
-		successResult = EXIT_SUCCESS;	/* silence compiler */
+		successResult = EXIT_SUCCESS;	/* 消除编译器警告 */
 
 		if (options.single_txn)
 		{
@@ -416,7 +416,7 @@ main(int argc, char *argv[])
 			}
 			else
 			{
-				/* should never come here */
+				/* 永远不应到达此处 */
 				Assert(false);
 			}
 
@@ -427,9 +427,9 @@ main(int argc, char *argv[])
 		if (options.single_txn)
 		{
 			/*
-			 * Rollback the contents of the single transaction if the caller
-			 * has set ON_ERROR_STOP and one of the steps has failed.  This
-			 * check needs to match the one done a couple of lines above.
+				 * 如果调用者设置了 ON_ERROR_STOP 且其中一个步骤失败，
+				 * 则回滚单事务的内容。此检查需要与上面几行的
+				 * 检查匹配。
 			 */
 			res = PSQLexec((successResult != EXIT_SUCCESS && pset.on_error_stop) ?
 						   "ROLLBACK" : "COMMIT");
@@ -450,7 +450,7 @@ error:
 	}
 
 	/*
-	 * or otherwise enter interactive main loop
+	 * 否则进入交互式主循环
 	 */
 	else
 	{
@@ -462,7 +462,7 @@ error:
 		successResult = MainLoop(stdin);
 	}
 
-	/* clean up */
+	/* 清理 */
 	if (pset.logfile)
 		fclose(pset.logfile);
 	if (pset.db)
@@ -476,7 +476,7 @@ error:
 
 
 /*
- * Parse command line options
+ * 解析命令行选项
  */
 
 static void
@@ -646,13 +646,13 @@ parse_psql_options(int argc, char *argv[], struct adhoc_opts *options)
 					if (!equal_loc)
 					{
 						if (!DeleteVariable(pset.vars, value))
-							exit(EXIT_FAILURE); /* error already printed */
+							exit(EXIT_FAILURE); /* 错误已打印 */
 					}
 					else
 					{
 						*equal_loc = '\0';
 						if (!SetVariable(pset.vars, value, equal_loc + 1))
-							exit(EXIT_FAILURE); /* error already printed */
+							exit(EXIT_FAILURE); /* 错误已打印 */
 					}
 
 					free(value);
@@ -686,13 +686,13 @@ parse_psql_options(int argc, char *argv[], struct adhoc_opts *options)
 				if (optind <= argc &&
 					strcmp(argv[optind - 1], "-?") == 0)
 				{
-					/* actual help option given */
+					/* 实际提供了帮助选项 */
 					usage(NOPAGER);
 					exit(EXIT_SUCCESS);
 				}
 				else
 				{
-					/* getopt error (unknown option or missing argument) */
+					/* getopt 错误（未知选项或缺少参数） */
 					goto unknown_option;
 				}
 				break;
@@ -715,7 +715,7 @@ parse_psql_options(int argc, char *argv[], struct adhoc_opts *options)
 				break;
 			default:
 		unknown_option:
-				/* getopt_long already emitted a complaint */
+				/* getopt_long 已发出错误消息 */
 				pg_log_error_hint("Try \"%s --help\" for more information.",
 								  pset.progname);
 				exit(EXIT_FAILURE);
@@ -723,7 +723,7 @@ parse_psql_options(int argc, char *argv[], struct adhoc_opts *options)
 	}
 
 	/*
-	 * if we still have arguments, use it as the database name and username
+	 * 如果仍有参数，将其用作数据库名称和用户名
 	 */
 	while (argc - optind >= 1)
 	{
@@ -741,8 +741,8 @@ parse_psql_options(int argc, char *argv[], struct adhoc_opts *options)
 
 
 /*
- * Append a new item to the end of the SimpleActionList.
- * Note that "val" is copied if it's not NULL.
+ * 将新项追加到 SimpleActionList 的末尾。
+ * 注意如果 "val" 不为 NULL，它将被复制。
  */
 static void
 simple_action_list_append(SimpleActionList *list,
@@ -768,7 +768,7 @@ simple_action_list_append(SimpleActionList *list,
 
 
 /*
- * Load .psqlrc file, if found.
+ * 加载 .psqlrc 文件（如果找到）。
  */
 static void
 process_psqlrc(char *argv0)
@@ -789,7 +789,7 @@ process_psqlrc(char *argv0)
 
 	if (envrc != NULL && strlen(envrc) > 0)
 	{
-		/* might need to free() this */
+		/* 可能需要 free() 这个 */
 		char	   *envrc_alloc = pstrdup(envrc);
 
 		expand_tilde(&envrc_alloc);
@@ -817,7 +817,7 @@ process_psqlrc_file(char *filename)
 	psqlrc_minor = psprintf("%s-%s", filename, PG_VERSION);
 	psqlrc_major = psprintf("%s-%s", filename, PG_MAJORVERSION);
 
-	/* check for minor version first, then major, then no version */
+	/* 首先检查次版本，然后主版本，然后不区分版本 */
 	if (access(psqlrc_minor, R_OK) == 0)
 		(void) process_file(psqlrc_minor, false);
 	else if (access(psqlrc_major, R_OK) == 0)
@@ -833,7 +833,7 @@ process_psqlrc_file(char *filename)
 
 /* showVersion
  *
- * This output format is intended to match GNU standards.
+ * 此输出格式旨在匹配 GNU 标准。
  */
 static void
 showVersion(void)
@@ -844,14 +844,14 @@ showVersion(void)
 
 
 /*
- * Substitute hooks and assign hooks for psql variables.
+ * psql 变量的替换钩子和赋值钩子。
  *
- * This isn't an amazingly good place for them, but neither is anywhere else.
+ * 这并非放置它们的绝佳位置，但也没有更好的地方。
  *
- * By policy, every special variable that controls any psql behavior should
- * have one or both hooks, even if they're just no-ops.  This ensures that
- * the variable will remain present in variables.c's list even when unset,
- * which ensures that it's known to tab completion.
+ * 根据策略，每个控制 psql 行为的特殊变量都应具有
+ * 一个或两个钩子，即使它们只是空操作。这确保了即使
+ * 变量被取消设置，它仍会保留在 variables.c 的列表中，
+ * 从而确保 Tab 补全能够识别它。
  */
 
 static char *
@@ -859,12 +859,12 @@ bool_substitute_hook(char *newval)
 {
 	if (newval == NULL)
 	{
-		/* "\unset FOO" becomes "\set FOO off" */
+		/* "\unset FOO" 变为 "\set FOO off" */
 		newval = pg_strdup("off");
 	}
 	else if (newval[0] == '\0')
 	{
-		/* "\set FOO" becomes "\set FOO on" */
+		/* "\set FOO" 变为 "\set FOO on" */
 		pg_free(newval);
 		newval = pg_strdup("on");
 	}
@@ -919,8 +919,8 @@ static bool
 histfile_hook(const char *newval)
 {
 	/*
-	 * Someday we might try to validate the filename, but for now, this is
-	 * just a placeholder to ensure HISTFILE is known to tab completion.
+	 * 将来可能会尝试验证文件名，但目前这只是一个
+	 * 占位符以确保 HISTFILE 在 Tab 补全中可见。
 	 */
 	return true;
 }
@@ -945,13 +945,13 @@ ignoreeof_substitute_hook(char *newval)
 	int			dummy;
 
 	/*
-	 * This tries to mimic the behavior of bash, to wit "If set, the value is
-	 * the number of consecutive EOF characters which must be typed as the
-	 * first characters on an input line before bash exits.  If the variable
-	 * exists but does not have a numeric value, or has no value, the default
-	 * value is 10.  If it does not exist, EOF signifies the end of input to
-	 * the shell."  Unlike bash, however, we insist on the stored value
-	 * actually being a valid integer.
+	 * 这尝试模仿 bash 的行为，即"如果设置，则该值为
+	 * 在 bash 退出前必须在输入行首作为第一个字符
+	 * 输入的连续 EOF 字符数。如果变量存在但没有
+	 * 数字值，或没有值，默认值为 10。如果不存在，
+	 * EOF 表示 shell 的输入结束。" 然而，与 bash
+	 * 不同，我们坚持存储的值实际上必须是有效的整数。
+	 *
 	 */
 	if (newval == NULL)
 		newval = pg_strdup("0");
@@ -977,7 +977,7 @@ echo_substitute_hook(char *newval)
 static bool
 echo_hook(const char *newval)
 {
-	Assert(newval != NULL);		/* else substitute hook messed up */
+	Assert(newval != NULL);		/* 否则 substitute hook 出错了 */
 	if (pg_strcasecmp(newval, "queries") == 0)
 		pset.echo = PSQL_ECHO_QUERIES;
 	else if (pg_strcasecmp(newval, "errors") == 0)
@@ -997,7 +997,7 @@ echo_hook(const char *newval)
 static bool
 echo_hidden_hook(const char *newval)
 {
-	Assert(newval != NULL);		/* else substitute hook messed up */
+	Assert(newval != NULL);		/* 否则 substitute hook 出错了 */
 	if (pg_strcasecmp(newval, "noexec") == 0)
 		pset.echo_hidden = PSQL_ECHO_HIDDEN_NOEXEC;
 	else
@@ -1018,7 +1018,7 @@ echo_hidden_hook(const char *newval)
 static bool
 on_error_rollback_hook(const char *newval)
 {
-	Assert(newval != NULL);		/* else substitute hook messed up */
+	Assert(newval != NULL);		/* 否则 substitute hook 出错了 */
 	if (pg_strcasecmp(newval, "interactive") == 0)
 		pset.on_error_rollback = PSQL_ERROR_ROLLBACK_INTERACTIVE;
 	else
@@ -1047,7 +1047,7 @@ comp_keyword_case_substitute_hook(char *newval)
 static bool
 comp_keyword_case_hook(const char *newval)
 {
-	Assert(newval != NULL);		/* else substitute hook messed up */
+	Assert(newval != NULL);		/* 否则 substitute hook 出错了 */
 	if (pg_strcasecmp(newval, "preserve-upper") == 0)
 		pset.comp_case = PSQL_COMP_CASE_PRESERVE_UPPER;
 	else if (pg_strcasecmp(newval, "preserve-lower") == 0)
@@ -1076,7 +1076,7 @@ histcontrol_substitute_hook(char *newval)
 static bool
 histcontrol_hook(const char *newval)
 {
-	Assert(newval != NULL);		/* else substitute hook messed up */
+	Assert(newval != NULL);		/* 否则 substitute hook 出错了 */
 	if (pg_strcasecmp(newval, "ignorespace") == 0)
 		pset.histcontrol = hctl_ignorespace;
 	else if (pg_strcasecmp(newval, "ignoredups") == 0)
@@ -1126,7 +1126,7 @@ verbosity_substitute_hook(char *newval)
 static bool
 verbosity_hook(const char *newval)
 {
-	Assert(newval != NULL);		/* else substitute hook messed up */
+	Assert(newval != NULL);		/* 否则 substitute hook 出错了 */
 	if (pg_strcasecmp(newval, "default") == 0)
 		pset.verbosity = PQERRORS_DEFAULT;
 	else if (pg_strcasecmp(newval, "verbose") == 0)
@@ -1163,7 +1163,7 @@ show_context_substitute_hook(char *newval)
 static bool
 show_context_hook(const char *newval)
 {
-	Assert(newval != NULL);		/* else substitute hook messed up */
+	Assert(newval != NULL);		/* 否则 substitute hook 出错了 */
 	if (pg_strcasecmp(newval, "never") == 0)
 		pset.show_context = PQSHOW_CONTEXT_NEVER;
 	else if (pg_strcasecmp(newval, "errors") == 0)

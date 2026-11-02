@@ -46,11 +46,11 @@ print_lo_result(const char *fmt,...)
 
 
 /*
- * Prepare to do a large-object operation.  We *must* be inside a transaction
- * block for all these operations, so start one if needed.
+ * 准备执行大对象操作。所有这些操作都必须在事务块内执行，
+ * 因此如果需要，先启动一个事务。
  *
- * Returns true if okay, false if failed.  *own_transaction is set to indicate
- * if we started our own transaction or not.
+ * 成功返回 true，失败返回 false。*own_transaction 被设置为指示
+ * 是否启动了我们自己的事务。
  */
 static bool
 start_lo_xact(const char *operation, bool *own_transaction)
@@ -71,14 +71,14 @@ start_lo_xact(const char *operation, bool *own_transaction)
 	switch (tstatus)
 	{
 		case PQTRANS_IDLE:
-			/* need to start our own xact */
+			/* 需要启动自己的事务 */
 			if (!(res = PSQLexec("BEGIN")))
 				return false;
 			PQclear(res);
 			*own_transaction = true;
 			break;
 		case PQTRANS_INTRANS:
-			/* use the existing xact */
+			/* 使用已有的事务 */
 			break;
 		case PQTRANS_INERROR:
 			pg_log_error("%s: current transaction is aborted", operation);
@@ -92,7 +92,7 @@ start_lo_xact(const char *operation, bool *own_transaction)
 }
 
 /*
- * Clean up after a successful LO operation
+ * 成功的大对象操作后清理
  */
 static bool
 finish_lo_xact(const char *operation, bool own_transaction)
@@ -101,7 +101,7 @@ finish_lo_xact(const char *operation, bool own_transaction)
 
 	if (own_transaction && pset.autocommit)
 	{
-		/* close out our own xact */
+		/* 结束自己的事务 */
 		if (!(res = PSQLexec("COMMIT")))
 		{
 			res = PSQLexec("ROLLBACK");
@@ -115,7 +115,7 @@ finish_lo_xact(const char *operation, bool own_transaction)
 }
 
 /*
- * Clean up after a failed LO operation
+ * 失败的大对象操作后清理
  */
 static bool
 fail_lo_xact(const char *operation, bool own_transaction)
@@ -124,19 +124,19 @@ fail_lo_xact(const char *operation, bool own_transaction)
 
 	if (own_transaction && pset.autocommit)
 	{
-		/* close out our own xact */
+		/* 结束自己的事务 */
 		res = PSQLexec("ROLLBACK");
 		PQclear(res);
 	}
 
-	return false;				/* always */
+	return false;				/* 始终返回 */
 }
 
 
 /*
  * do_lo_export()
  *
- * Write a large object to a file
+ * 将大对象写入文件
  */
 bool
 do_lo_export(const char *loid_arg, const char *filename_arg)
@@ -151,7 +151,7 @@ do_lo_export(const char *loid_arg, const char *filename_arg)
 	status = lo_export(pset.db, atooid(loid_arg), filename_arg);
 	ResetCancelConn();
 
-	/* of course this status is documented nowhere :( */
+	/* 该状态在任何地方都没有文档记录 :( */
 	if (status != 1)
 	{
 		pg_log_info("%s", PQerrorMessage(pset.db));
@@ -170,7 +170,7 @@ do_lo_export(const char *loid_arg, const char *filename_arg)
 /*
  * do_lo_import()
  *
- * Copy large object from file to database
+ * 将大对象从文件复制到数据库
  */
 bool
 do_lo_import(const char *filename_arg, const char *comment_arg)
@@ -193,7 +193,7 @@ do_lo_import(const char *filename_arg, const char *comment_arg)
 		return fail_lo_xact("\\lo_import", own_transaction);
 	}
 
-	/* insert description if given */
+	/* 如果提供，插入描述 */
 	if (comment_arg)
 	{
 		char	   *cmdbuf;
@@ -233,7 +233,7 @@ do_lo_import(const char *filename_arg, const char *comment_arg)
 /*
  * do_lo_unlink()
  *
- * removes a large object out of the database
+ * 从数据库中删除大对象
  */
 bool
 do_lo_unlink(const char *loid_arg)

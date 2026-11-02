@@ -43,15 +43,15 @@ static bool is_select_command(const char *query);
 
 
 /*
- * openQueryOutputFile --- attempt to open a query output file
+ * openQueryOutputFile --- 尝试打开查询输出文件     
  *
- * fname == NULL selects stdout, else an initial '|' selects a pipe,
- * else plain file.
+ * fname == NULL 选 stdout，开头 '|' 选管道，               
+ * 否则普通文 
  *
- * Returns output file pointer into *fout, and is-a-pipe flag into *is_pipe.
- * Caller is responsible for adjusting SIGPIPE state if it's a pipe.
+ * 输出文件指针存 *fout，管道标志存 *is_pipe。                
+ * 管道时调用者负责调整 SIGPIPE 状态。                 
  *
- * On error, reports suitable error message and returns false.
+ * 出错时报告适当错消息并返回 false。           
  */
 bool
 openQueryOutputFile(const char *fname, FILE **fout, bool *is_pipe)
@@ -84,10 +84,10 @@ openQueryOutputFile(const char *fname, FILE **fout, bool *is_pipe)
 
 /*
  * setQFout
- * -- handler for -o command line option and \o command
+ * -- -o 命令行选项和 \o 命令的处理函数   
  *
- * On success, updates pset with the new output file and returns true.
- * On failure, returns false without changing pset state.
+ *                                                                    
+ * 成功用新输出文件更新 pset 返回 true。    
  */
 bool
 setQFout(const char *fname)
@@ -95,11 +95,11 @@ setQFout(const char *fname)
 	FILE	   *fout;
 	bool		is_pipe;
 
-	/* First make sure we can open the new output file/pipe */
+	/* 先确保能打开新输出文件/管道             */
 	if (!openQueryOutputFile(fname, &fout, &is_pipe))
 		return false;
 
-	/* Close old file/pipe */
+	/* 关闭旧文件/管 */
 	if (pset.queryFout && pset.queryFout != stdout && pset.queryFout != stderr)
 	{
 		if (pset.queryFoutPipe)
@@ -111,7 +111,7 @@ setQFout(const char *fname)
 	pset.queryFout = fout;
 	pset.queryFoutPipe = is_pipe;
 
-	/* Adjust SIGPIPE handling appropriately: ignore signal if is_pipe */
+	/* 适当调整 SIGPIPE 处理：管道忽略信号                */
 	set_sigpipe_trap_state(is_pipe);
 	restore_sigpipe_trap();
 
@@ -120,18 +120,18 @@ setQFout(const char *fname)
 
 
 /*
- * Variable-fetching callback for flex lexer
+ * flex 词法分析器变量获取回调   
  *
- * If the specified variable exists, return its value as a string (malloc'd
- * and expected to be freed by the caller); else return NULL.
+ *                                                                         
+ * 若变量存在，以字符串（malloc，调用者释放 
  *
- * If "quote" isn't PQUOTE_PLAIN, then return the value suitably quoted and
- * escaped for the specified quoting requirement.  (Failure in escaping
- * should lead to printing an error and returning NULL.)
+ * 否则返回 NULL。                                                    
+ *                                                                     
+ * 若 "quote" 非 PQUOTE_PLAIN，按指定引用要求 
  *
- * "passthrough" is the pointer previously given to psql_scan_set_passthrough.
- * In psql, passthrough points to a ConditionalStack, which we check to
- * determine whether variable expansion is allowed.
+ * 对值引用和转义（失败应打印错并返回 NULL）。             
+ *                                                                     
+ * "passthrough" 是给 psql_scan_set_passthrough  
  */
 char *
 psql_get_variable(const char *varname, PsqlScanQuoteType quote,
@@ -140,7 +140,7 @@ psql_get_variable(const char *varname, PsqlScanQuoteType quote,
 	char	   *result = NULL;
 	const char *value;
 
-	/* In an inactive \if branch, suppress all variable substitutions */
+	/* 非活跃 \if 分支抑制所有变量替换                   */
 	if (passthrough && !conditional_active((ConditionalStack) passthrough))
 		return NULL;
 
@@ -157,8 +157,8 @@ psql_get_variable(const char *varname, PsqlScanQuoteType quote,
 		case PQUOTE_SQL_IDENT:
 			{
 				/*
-				 * For these cases, we use libpq's quoting functions, which
-				 * assume the string is in the connection's client encoding.
+				 * 此类情况用 libpq 引用函数，                   
+				 * 其假定字符串为连接客户端编码。            
 				 */
 				char	   *escaped_value;
 
@@ -184,9 +184,9 @@ psql_get_variable(const char *varname, PsqlScanQuoteType quote,
 				}
 
 				/*
-				 * Rather than complicate the lexer's API with a notion of
-				 * which free() routine to use, just pay the price of an extra
-				 * strdup().
+				 * 与其使词法分析器 API 复杂化需指定        
+				 * free() 函数，不如多付一次                         
+				 * strdup() 
 				 */
 				result = pg_strdup(escaped_value);
 				PQfreemem(escaped_value);
@@ -195,10 +195,10 @@ psql_get_variable(const char *varname, PsqlScanQuoteType quote,
 		case PQUOTE_SHELL_ARG:
 			{
 				/*
-				 * For this we use appendShellStringNoError, which is
-				 * encoding-agnostic, which is fine since the shell probably
-				 * is too.  In any case, the only special character is "'",
-				 * which is not known to appear in valid multibyte characters.
+				 * 此用 appendShellStringNoError，编码无关， 
+				 * 壳亦未知编码无所谓。无论何，               
+				 * 唯一特殊字符 '"'，未见于                      
+				 * 有效多字节字符中。                                
 				 */
 				PQExpBufferData buf;
 
@@ -214,7 +214,7 @@ psql_get_variable(const char *varname, PsqlScanQuoteType quote,
 				break;
 			}
 
-			/* No default: we want a compiler warning for missing cases */
+			/* 无 default：编译器应对缺漏分支告警          */
 	}
 
 	return result;
@@ -222,7 +222,7 @@ psql_get_variable(const char *varname, PsqlScanQuoteType quote,
 
 
 /*
- * for backend Notice messages (INFO, WARNING, etc)
+ * 处理后端通知消息（INFO，WARNING 等）
  */
 void
 NoticeProcessor(void *arg, const char *message)
@@ -234,21 +234,21 @@ NoticeProcessor(void *arg, const char *message)
 
 
 /*
- * Code to support query cancellation
+ * 支持查询取消的代码       
  *
- * Before we start a query, we enable the SIGINT signal catcher to send a
- * cancel request to the backend.
+ *                                                                       
+ * 启动查询前启用 SIGINT  
  *
- * SIGINT is supposed to abort all long-running psql operations, not only
- * database queries.  In most places, this is accomplished by checking
- * cancel_pressed during long-running loops.  However, that won't work when
- * blocked on user input (in readline() or fgets()).  In those places, we
- * set sigint_interrupt_enabled true while blocked, instructing the signal
- * catcher to longjmp through sigint_interrupt_jmp.  We assume readline and
- * fgets are coded to handle possible interruption.
+ * 向后端发取消请求。                                           
+ *                                                                    
+ * SIGINT 应中止所有长时间 psql 操作，                          
+ * 不止数据库查询。多数位置通过长循环中                
+ * 检查 cancel_pressed 实现。但在阻塞于用户                   
+ * 输入时（readline() 或 fgets()）无效。此类位置中，        
+ * 阻塞期设 sigint_interrupt_enabled 为真， 
  *
- * On Windows, currently this does not work, so control-C is less useful
- * there.
+ * 指令信号捕获器通过 sigint_interrupt_jmp longjmp。          
+ * 假定
  */
 volatile sig_atomic_t sigint_interrupt_enabled = false;
 
@@ -258,7 +258,7 @@ static void
 psql_cancel_callback(void)
 {
 #ifndef WIN32
-	/* if we are waiting for input, longjmp out of it */
+	/* 若等待输入，longjmp 跳出               */
 	if (sigint_interrupt_enabled)
 	{
 		sigint_interrupt_enabled = false;
@@ -266,7 +266,7 @@ psql_cancel_callback(void)
 	}
 #endif
 
-	/* else, set cancel flag to stop any long-running loops */
+	/* 否则设取消标志终止长循环                 */
 	cancel_pressed = true;
 }
 
@@ -279,7 +279,7 @@ psql_setup_cancel_handler(void)
 
 /* ConnectionUp
  *
- * Returns whether our backend connection is still there.
+ *                                                       
  */
 static bool
 ConnectionUp(void)
@@ -291,13 +291,13 @@ ConnectionUp(void)
 
 /* CheckConnection
  *
- * Verify that we still have a good connection to the backend, and if not,
- * see if it can be restored.
+ *                                                                        
+ * 验证后端连接是否  
  *
- * Returns true if either the connection was still there, or it could be
- * restored successfully; false otherwise.  If, however, there was no
- * connection and the session is non-interactive, this will exit the program
- * with a code of EXIT_BADCONN.
+ *                                                                      
+ * 连接仍存或成功恢复 true；否则 false。                
+ * 连接丢失且会话非交互，EXIT_BADCONN 退出。                  
+ *                             
  */
 static bool
 CheckConnection(void)
@@ -321,10 +321,10 @@ CheckConnection(void)
 			fprintf(stderr, _("Failed.\n"));
 
 			/*
-			 * Transition to having no connection; but stash away the failed
-			 * connection so that we can still refer to its parameters in a
-			 * later \connect attempt.  Keep the state cleanup here in sync
-			 * with do_connect().
+			 * 转为无连接；存失败连接以便 \connect             
+			 * 仍引用参数。清理与 do_connect() 同步。          
+			 *                                                             
+			 *                   
 			 */
 			if (pset.dead_conn)
 				PQfinish(pset.dead_conn);
@@ -338,11 +338,11 @@ CheckConnection(void)
 			fprintf(stderr, _("Succeeded.\n"));
 
 			/*
-			 * Re-sync, just in case anything changed.  Keep this in sync with
-			 * do_connect().
+			 * 重新同步以防变化。与 do_connect() 同步。          
+			 *              
 			 */
 			SyncVariables();
-			connection_warnings(false); /* Must be after SyncVariables */
+			connection_warnings(false); /* 须在 SyncVariables 之后 */
 		}
 	}
 
@@ -355,10 +355,10 @@ CheckConnection(void)
 /*
  * AcceptResult
  *
- * Checks whether a result is valid, giving an error message if necessary;
- * and ensures that the connection to the backend is still up.
+ *                                                                        
+ * 检查结果有效性，必要时给错误消息；        
  *
- * Returns true for valid result, false for error state.
+ * 确保后端连接仍存。                          
  */
 static bool
 AcceptResult(const PGresult *result, bool show_error)
@@ -375,7 +375,7 @@ AcceptResult(const PGresult *result, bool show_error)
 			case PGRES_EMPTY_QUERY:
 			case PGRES_COPY_IN:
 			case PGRES_COPY_OUT:
-				/* Fine, do nothing */
+				/* 正常，无需  */
 				OK = true;
 				break;
 
@@ -407,15 +407,15 @@ AcceptResult(const PGresult *result, bool show_error)
 
 
 /*
- * Set special variables from a query result
- * - ERROR: true/false, whether an error occurred on this query
- * - SQLSTATE: code of error, or "00000" if no error, or "" if unknown
- * - ROW_COUNT: how many rows were returned or affected, or "0"
- * - LAST_ERROR_SQLSTATE: same for last error
- * - LAST_ERROR_MESSAGE: message of last error
+ * 从查询结果设特殊变量           
+ * - ERROR: true/false，本次查询是否有错              
+ * - SQLSTATE: 错码，无错 "00000"，未知 ""                    
+ * - ROW_COUNT: 返回或影响行数，或 "0"                
+ * - LAST_ERROR_SQLSTATE: 上次错误信息 
+ * - LAST_ERROR_MESSAGE: 上次错误消息   
  *
- * Note: current policy is to apply this only to the results of queries
- * entered by the user, not queries generated by slash commands.
+ *                                                                     
+ * 注意：仅对用户输入查询结果应用此函数，    
  */
 static void
 SetResultVariables(PGresult *result, bool success)
@@ -436,8 +436,8 @@ SetResultVariables(PGresult *result, bool success)
 		SetVariable(pset.vars, "ERROR", "true");
 
 		/*
-		 * If there is no SQLSTATE code, use an empty string.  This can happen
-		 * for libpq-detected errors (e.g., lost connection, ENOMEM).
+		 * 无 SQLSTATE 码用空串。libpq                                  
+		 * 检测错误（连接丢失、ENOMEM）可发生。       
 		 */
 		if (code == NULL)
 			code = "";
@@ -450,12 +450,12 @@ SetResultVariables(PGresult *result, bool success)
 
 
 /*
- * Set special variables from a shell command result
- * - SHELL_ERROR: true/false, whether command returned exit code 0
- * - SHELL_EXIT_CODE: exit code according to shell conventions
+ * 从 shell 命令结果设特殊变量            
+ * - SHELL_ERROR: true/false，退出码是否 0                  
+ * - SHELL_EXIT_CODE: shell 惯例退出码                   
  *
- * The argument is a wait status as returned by wait(2) or waitpid(2),
- * which also applies to pclose(3) and system(3).
+ *                                                                    
+ * 参数 wait(2)/waitpid(2) 返回等待状态  
  */
 void
 SetShellResultVariables(int wait_result)
@@ -472,12 +472,12 @@ SetShellResultVariables(int wait_result)
 /*
  * ClearOrSaveResult
  *
- * If the result represents an error, remember it for possible display by
- * \errverbose.  Otherwise, just PQclear() it.
+ *                                                                       
+ * 结果表错，记住供 \errverbose 显示
  *
- * Note: current policy is to apply this to the results of all queries,
- * including "back door" queries, for debugging's sake.  It's OK to use
- * PQclear() directly on results known to not be error results, however.
+ * 否则仅 PQclear()。                                              
+ *                                                                     
+ * 注：对全查询结果应用，含"后门"查询便调试。       
  */
 static void
 ClearOrSaveResult(PGresult *result)
@@ -501,7 +501,7 @@ ClearOrSaveResult(PGresult *result)
 
 
 /*
- * Consume all results
+ * 消费全部结果 
  */
 static void
 ClearOrSaveAllResults(void)
@@ -514,8 +514,8 @@ ClearOrSaveAllResults(void)
 
 
 /*
- * Print microtiming output.  Always print raw milliseconds; if the interval
- * is >= 1 second, also break it down into days/hours/minutes/seconds.
+ * 打印微计时。始终打印原始毫秒；间隔 >=1 秒              
+ * 分解为天/时/分/秒。                                        
  */
 static void
 PrintTiming(double elapsed_msec)
@@ -527,16 +527,16 @@ PrintTiming(double elapsed_msec)
 
 	if (elapsed_msec < 1000.0)
 	{
-		/* This is the traditional (pre-v10) output format */
+		/* 传统 (pre-v10) 输出格式                   */
 		printf(_("Time: %.3f ms\n"), elapsed_msec);
 		return;
 	}
 
 	/*
-	 * Note: we could print just seconds, in a format like %06.3f, when the
-	 * total is less than 1min.  But that's hard to interpret unless we tack
-	 * on "s" or otherwise annotate it.  Forcing the display to include
-	 * minutes seems like a better solution.
+	 * 注：总计 <1 分可仅打秒 (%06.3f)，                         
+	 * 但难理解除非加 "s"。强制显分似更佳。                 
+	 *                                                                 
+	 *                                      
 	 */
 	seconds = elapsed_msec / 1000.0;
 	minutes = floor(seconds / 60.0);
@@ -567,14 +567,14 @@ PrintTiming(double elapsed_msec)
 /*
  * PSQLexec
  *
- * This is the way to send "backdoor" queries (those not directly entered
- * by the user). It is subject to -E but not -e.
+ *                                                                       
+ * 发"后门"查询（非用户直接输入） 
  *
- * Caller is responsible for handling the ensuing processing if a COPY
- * command is sent.
+ * 受 -E 影响，不受 -e。                                       
+ *                 
  *
- * Note: we don't bother to check PQclientEncoding; it is assumed that no
- * caller uses this path to issue "SET CLIENT_ENCODING".
+ * 发 COPY 调用者负责后续处理。                               
+ *                                                      
  */
 PGresult *
 PSQLexec(const char *query)
@@ -625,11 +625,11 @@ PSQLexec(const char *query)
 /*
  * PSQLexecWatch
  *
- * This function is used for \watch command to send the query to
- * the server and print out the result.
+ *                                                              
+ * 供 \watch 命令用，发查询到 
  *
- * Returns 1 if the query executed successfully, 0 if it cannot be repeated,
- * e.g., because of the interrupt, -1 on error.
+ *                                                                          
+ * 成功 1，不可重复（被中断）0，  
  */
 int
 PSQLexecWatch(const char *query, const printQueryOpt *opt, FILE *printQueryFout)
@@ -650,7 +650,7 @@ PSQLexecWatch(const char *query, const printQueryOpt *opt, FILE *printQueryFout)
 
 	ResetCancelConn();
 
-	/* Possible microtiming output */
+	/* 可能微计时输出       */
 	if (timing)
 		PrintTiming(elapsed_msec);
 
@@ -659,7 +659,7 @@ PSQLexecWatch(const char *query, const printQueryOpt *opt, FILE *printQueryFout)
 
 
 /*
- * PrintNotifications: check for asynchronous notifications, and print them out
+ * PrintNotifications: 检查异步通知并打印                             
  */
 static void
 PrintNotifications(void)
@@ -669,7 +669,7 @@ PrintNotifications(void)
 	PQconsumeInput(pset.db);
 	while ((notify = PQnotifies(pset.db)) != NULL)
 	{
-		/* for backward compatibility, only show payload if nonempty */
+		/* 向后兼容，仅非空负载显示                      */
 		if (notify->extra[0])
 			fprintf(pset.queryFout, _("Asynchronous notification \"%s\" with payload \"%s\" received from server process with PID %d.\n"),
 					notify->relname, notify->extra, notify->be_pid);
@@ -684,15 +684,15 @@ PrintNotifications(void)
 
 
 /*
- * PrintQueryTuples: assuming query result is OK, print its tuples
+ * PrintQueryTuples: 查询正常打印元组                     
  *
- * We use the options given by opt unless that's NULL, in which case
- * we use pset.popt.
+ *                                                                  
+ * 用 opt 选项，
  *
- * Output is to printQueryFout unless that's NULL, in which case
- * we use pset.queryFout.
+ *                                                              
+ * 输出到 printQueryFo
  *
- * Returns true if successful, false otherwise.
+ *                                             
  */
 static bool
 PrintQueryTuples(const PGresult *result, const printQueryOpt *opt,
@@ -714,9 +714,9 @@ PrintQueryTuples(const PGresult *result, const printQueryOpt *opt,
 
 
 /*
- * StoreQueryTuple: assuming query result is OK, save data into variables
+ * StoreQueryTuple: 查询正常数据存变量                          
  *
- * Returns true if successful, false otherwise.
+ *                                             
  */
 static bool
 StoreQueryTuple(const PGresult *result)
@@ -743,7 +743,7 @@ StoreQueryTuple(const PGresult *result)
 			char	   *varname;
 			char	   *value;
 
-			/* concatenate prefix and column name */
+			/* 拼接前缀和列名              */
 			varname = psprintf("%s%s", pset.gset_prefix, colname);
 
 			if (VariableHasHook(pset.vars, varname))
@@ -757,7 +757,7 @@ StoreQueryTuple(const PGresult *result)
 				value = PQgetvalue(result, 0, i);
 			else
 			{
-				/* for NULL value, unset rather than set the variable */
+				/* NULL 值取消设置非设置变量                */
 				value = NULL;
 			}
 
@@ -777,10 +777,10 @@ StoreQueryTuple(const PGresult *result)
 
 
 /*
- * ExecQueryTuples: assuming query result is OK, execute each query
- * result field as a SQL statement
+ * ExecQueryTuples: 查询正常每字段作 SQL 执行            
+ *                                
  *
- * Returns true if successful, false otherwise.
+ * 成功 true，否则 false。               
  */
 static bool
 ExecQueryTuples(const PGresult *result)
@@ -792,10 +792,10 @@ ExecQueryTuples(const PGresult *result)
 				c;
 
 	/*
-	 * We must turn off gexec_flag to avoid infinite recursion.  Note that
-	 * this allows ExecQueryUsingCursor to be applied to the individual query
-	 * results.  SendQuery prevents it from being applied when fetching the
-	 * queries-to-execute, because it can't handle recursion either.
+	 * 须关 gexec_flag 免无限递归。这允许                      
+	 * ExecQueryUsingCursor 用于各查询结果。SendQuery 阻止         
+	 * 其在取待执行查询时应用，因同不能处理递归。     
+	 *                                                              
 	 */
 	pset.gexec_flag = false;
 
@@ -807,13 +807,13 @@ ExecQueryTuples(const PGresult *result)
 			{
 				const char *query = PQgetvalue(result, r, c);
 
-				/* Abandon execution if cancel_pressed */
+				/* 若 cancel_pressed 则放弃执行  */
 				if (cancel_pressed)
 					goto loop_exit;
 
 				/*
-				 * ECHO_ALL mode should echo these queries, but SendQuery
-				 * assumes that MainLoop did that, so we have to do it here.
+				 * ECHO_ALL 应回显这些查询，但 SendQuery        
+				 * 假定 MainLoop 已做，故我们在此做。           
 				 */
 				if (pset.echo == PSQL_ECHO_ALL && !pset.singlestep)
 				{
@@ -823,7 +823,7 @@ ExecQueryTuples(const PGresult *result)
 
 				if (!SendQuery(query))
 				{
-					/* Error - abandon execution if ON_ERROR_STOP */
+					/* 出错 - ON_ERROR_STOP 放弃执行        */
 					success = false;
 					if (pset.on_error_stop)
 						goto loop_exit;
@@ -835,31 +835,31 @@ ExecQueryTuples(const PGresult *result)
 loop_exit:
 
 	/*
-	 * Restore state.  We know gexec_flag was on, else we'd not be here. (We
-	 * also know it'll get turned off at end of command, but that's not ours
-	 * to do here.)
+	 * 恢复状态。gexec_flag 原开，否则不来此。                
+	 * （命令结束时自关，不归我们管。）                     
+	 *             
 	 */
 	pset.gexec_flag = true;
 
-	/* Return true if all queries were successful */
+	/* 全部查询成功则 true                 */
 	return success;
 }
 
 
 /*
- * Marshal the COPY data.  Either path will get the
- * connection out of its COPY state, then call PQresultStatus()
- * once and report any error.  Return whether all was ok.
+ * 编组 COPY 数据。任一路径使连接脱 CO
+ * 后调一次 PQresultStatus() 报错。返是否 OK。      
+ *                                                       
  *
- * For COPY OUT, direct the output to copystream, or discard if that's NULL.
- * For COPY IN, use pset.copyStream as data source if it's set,
- * otherwise cur_cmd_source.
+ * COPY OUT: 输到 copystream，NULL 丢弃。                             
+ * COPY IN: pset.copyStream 设则用，否则 cur_cmd_source  
+ *                          
  *
- * Update *resultp if further processing is necessary; set to NULL otherwise.
- * Return a result when queryFout can safely output a result status: on COPY
- * IN, or on COPY OUT if written to something other than pset.queryFout.
- * Returning NULL prevents the command status from being printed, which we
- * want if the status line doesn't get taken as part of the COPY data.
+ * 需续处理更新 *resultp；否则 NULL。                              
+ * queryFout 安全输出状态时返结果：COPY IN，                    
+ * 或 COPY OUT 写入非 pset.queryFout 时。                         
+ * 返回 NULL 防命令状态被打印——                             
+ * 状态行不应视为 COPY 数据部分时需此。                
  */
 static bool
 HandleCopyResult(PGresult **resultp, FILE *copystream)
@@ -881,9 +881,9 @@ HandleCopyResult(PGresult **resultp, FILE *copystream)
 			&& (copystream != NULL);
 
 		/*
-		 * Suppress status printing if the report would go to the same place
-		 * as the COPY data just went.  Note this doesn't prevent error
-		 * reporting, since handleCopyOut did that.
+		 * 若状态与 COPY 数据同位置，抑制状态打印。        
+		 * 这不阻止错报，handleCopyOut 已做。                
+		 *                                         
 		 */
 		if (copystream == pset.queryFout)
 		{
@@ -894,7 +894,7 @@ HandleCopyResult(PGresult **resultp, FILE *copystream)
 	else
 	{
 		/* COPY IN */
-		/* Ignore the copystream argument passed to the function */
+		/* 忽略传函数的 copystream 参数                  */
 		copystream = pset.copyStream ? pset.copyStream : pset.cur_cmd_source;
 		success = handleCopyIn(pset.db,
 							   copystream,
@@ -904,8 +904,8 @@ HandleCopyResult(PGresult **resultp, FILE *copystream)
 	ResetCancelConn();
 
 	/*
-	 * Replace the PGRES_COPY_OUT/IN result with COPY command's exit status,
-	 * or with NULL if we want to suppress printing anything.
+	 * 用 COPY 退出状态替 PGRES_COPY_OUT/IN，                        
+	 * 或 NULL 抑制所有打印。                        
 	 */
 	PQclear(*resultp);
 	*resultp = copy_result;
@@ -914,9 +914,9 @@ HandleCopyResult(PGresult **resultp, FILE *copystream)
 }
 
 /*
- * PrintQueryStatus: report command status as required
+ * PrintQueryStatus: 按要求报命令状态         
  *
- * Note: Utility function for use by PrintQueryResult() only.
+ *                                                           
  */
 static void
 PrintQueryStatus(PGresult *result, FILE *printQueryFout)
@@ -946,15 +946,15 @@ PrintQueryStatus(PGresult *result, FILE *printQueryFout)
 
 
 /*
- * PrintQueryResult: print out (or store or execute) query result as required
+ * PrintQueryResult: 按要求打印/存/执行查询结果                  
  *
- * Note: Utility function for use by SendQuery() only.
+ *                                                    
  *
- * last is true if this is the last result of a command string.
- * opt and printQueryFout are defined as for PrintQueryTuples.
- * printStatusFout is where to send command status; NULL means pset.queryFout.
+ * 注：仅 SendQuery() 用工具函数。                    
+ *                                                            
+ * last true 表命令串最后结果。                                      
  *
- * Returns true if the query executed successfully, false otherwise.
+ * opt 和 printQueryFout 同 PrintQueryTuples。                   
  */
 static bool
 PrintQueryResult(PGresult *result, bool last,
@@ -970,7 +970,7 @@ PrintQueryResult(PGresult *result, bool last,
 	switch (PQresultStatus(result))
 	{
 		case PGRES_TUPLES_OK:
-			/* store or execute or print the data ... */
+			/* 存储或执行或打印数据 ...     */
 			if (last && pset.gset_prefix)
 				success = StoreQueryTuple(result);
 			else if (last && pset.gexec_flag)
@@ -982,7 +982,7 @@ PrintQueryResult(PGresult *result, bool last,
 			else
 				success = true;
 
-			/* if it's INSERT/UPDATE/DELETE RETURNING, also print status */
+			/* INSERT/UPDATE/DELETE RETURNING 也打状态               */
 			if (last || pset.show_all_results)
 			{
 				cmdstatus = PQcmdStatus(result);
@@ -1006,7 +1006,7 @@ PrintQueryResult(PGresult *result, bool last,
 
 		case PGRES_COPY_OUT:
 		case PGRES_COPY_IN:
-			/* nothing to do here: already processed */
+			/* 此处无需操作：已处理        */
 			success = true;
 			break;
 
@@ -1027,16 +1027,16 @@ PrintQueryResult(PGresult *result, bool last,
 }
 
 /*
- * SendQuery: send the query string to the backend
- * (and print out result)
+ * SendQuery: 发查询串到后端               
+ * （并打印结果） 
  *
- * Note: This is the "front door" way to send a query. That is, use it to
- * send queries actually entered by the user. These queries will be subject to
- * single step mode.
- * To send "back door" queries (generated by slash commands, etc.) in a
- * controlled way, use PSQLexec().
+ *                                                                       
+ * 注："前门"方式，用户实际输入查询。                         
+ * 受单步模式  
+ * "后门"查询用 PSQLexec()。                                     
+ *                                
  *
- * Returns true if the query executed successfully, false otherwise.
+ * 成功 true，否则 false。                                    
  */
 bool
 SendQuery(const char *query)
@@ -1127,25 +1127,25 @@ SendQuery(const char *query)
 
 	if (pset.gdesc_flag)
 	{
-		/* Describe query's result columns, without executing it */
+		/* 描述查询结果列，不执行                     */
 		OK = DescribeQuery(query, &elapsed_msec);
 	}
 	else if (pset.fetch_count <= 0 || pset.gexec_flag ||
 			 pset.crosstab_flag || !is_select_command(query))
 	{
-		/* Default fetch-it-all-and-print mode */
+		/* 默认一次全取打印模式      */
 		OK = (ExecQueryAndProcessResults(query, &elapsed_msec, &svpt_gone, false, NULL, NULL) > 0);
 	}
 	else
 	{
-		/* Fetch-in-segments mode */
+		/* 分段获取模式     */
 		OK = ExecQueryUsingCursor(query, &elapsed_msec);
 	}
 
 	if (!OK && pset.echo == PSQL_ECHO_ERRORS)
 		pg_log_info("STATEMENT:  %s", query);
 
-	/* If we made a temporary savepoint, possibly release/rollback */
+	/* 创临时保存点，试释放/回滚                       */
 	if (on_error_rollback_savepoint)
 	{
 		const char *svptcmd = NULL;
@@ -1155,19 +1155,19 @@ SendQuery(const char *query)
 		switch (transaction_status)
 		{
 			case PQTRANS_INERROR:
-				/* We always rollback on an error */
+				/* 出错总是回滚             */
 				svptcmd = "ROLLBACK TO pg_psql_temporary_savepoint";
 				break;
 
 			case PQTRANS_IDLE:
-				/* If they are no longer in a transaction, then do nothing */
+				/* 不再事务中则无操作                             */
 				break;
 
 			case PQTRANS_INTRANS:
 
 				/*
-				 * Release our savepoint, but do nothing if they are messing
-				 * with savepoints themselves
+				 * 释放保存点，若他们自操保存点不做事      
+				 *                           
 				 */
 				if (!svpt_gone)
 					svptcmd = "RELEASE pg_psql_temporary_savepoint";
@@ -1177,7 +1177,7 @@ SendQuery(const char *query)
 			case PQTRANS_UNKNOWN:
 			default:
 				OK = false;
-				/* PQTRANS_UNKNOWN is expected given a broken connection. */
+				/* 连接断时期望 PQTRANS_UNKNOWN                     */
 				if (transaction_status != PQTRANS_UNKNOWN || ConnectionUp())
 					pg_log_error("unexpected transaction status (%d)",
 								 transaction_status);
@@ -1201,16 +1201,16 @@ SendQuery(const char *query)
 		}
 	}
 
-	/* Possible microtiming output */
+	/* 可能微计时输出       */
 	if (timing)
 		PrintTiming(elapsed_msec);
 
-	/* check for events that may occur during query execution */
+	/* 检查查询执行期可能事件                      */
 
 	if (pset.encoding != PQclientEncoding(pset.db) &&
 		PQclientEncoding(pset.db) >= 0)
 	{
-		/* track effects of SET CLIENT_ENCODING */
+		/* 跟踪 SET CLIENT_ENCODING 影响    */
 		pset.encoding = PQclientEncoding(pset.db);
 		pset.popt.topt.encoding = pset.encoding;
 		SetVariable(pset.vars, "ENCODING",
@@ -1219,44 +1219,44 @@ SendQuery(const char *query)
 
 	PrintNotifications();
 
-	/* perform cleanup that should occur after any attempted query */
+	/* 任何查询尝试后执行清理                           */
 
 sendquery_cleanup:
 
-	/* global cancellation reset */
+	/* 全局取消重置        */
 	ResetCancelConn();
 
-	/* reset \g's output-to-filename trigger */
+	/* 重置 \g 输出到文件触发器    */
 	if (pset.gfname)
 	{
 		free(pset.gfname);
 		pset.gfname = NULL;
 	}
 
-	/* restore print settings if \g changed them */
+	/* \g 更改打印设置则恢复            */
 	if (pset.gsavepopt)
 	{
 		restorePsetInfo(&pset.popt, pset.gsavepopt);
 		pset.gsavepopt = NULL;
 	}
 
-	/* clean up after \bind */
+	/* 清理 \bind 后状  */
 	clean_bind_state();
 
-	/* reset \gset trigger */
+	/* 重置 \gset 触发 */
 	if (pset.gset_prefix)
 	{
 		free(pset.gset_prefix);
 		pset.gset_prefix = NULL;
 	}
 
-	/* reset \gdesc trigger */
+	/* 重置 \gdesc 触发 */
 	pset.gdesc_flag = false;
 
-	/* reset \gexec trigger */
+	/* 重置 \gexec 触发 */
 	pset.gexec_flag = false;
 
-	/* reset \crosstabview trigger */
+	/* 重置 \crosstabview 触发 */
 	pset.crosstab_flag = false;
 	for (i = 0; i < lengthof(pset.ctv_args); i++)
 	{
@@ -1269,12 +1269,12 @@ sendquery_cleanup:
 
 
 /*
- * DescribeQuery: describe the result columns of a query, without executing it
+ * DescribeQuery: 描述查询结果列，不执行                           
  *
- * Returns true if the operation executed successfully, false otherwise.
+ *                                                                      
  *
- * If pset.timing is on, total query time (exclusive of result-printing) is
- * stored into *elapsed_msec.
+ * 操作成功 true，否则 false。                                     
+ *                           
  */
 static bool
 DescribeQuery(const char *query, double *elapsed_msec)
@@ -1293,12 +1293,12 @@ DescribeQuery(const char *query, double *elapsed_msec)
 		INSTR_TIME_SET_ZERO(before);
 
 	/*
-	 * To parse the query but not execute it, we prepare it, using the unnamed
-	 * prepared statement.  This is invisible to psql users, since there's no
-	 * way to access the unnamed prepared statement from psql user space. The
-	 * next Parse or Query protocol message would overwrite the statement
-	 * anyway.  (So there's no great need to clear it when done, which is a
-	 * good thing because libpq provides no easy way to do that.)
+	 * 解析不执行，用匿名预编语句预编译。                    
+	 * psql 用户不可见，因无法访问匿名预编语句。           
+	 * 下一 Parse/Query 协议消息覆盖之。                           
+	 * （无需清除，libpq 无简便方法。）                     
+	 *                                                                     
+	 *                                                           
 	 */
 	result = PQprepare(pset.db, "", query, 0, NULL);
 	if (PQresultStatus(result) != PGRES_COMMAND_OK)
@@ -1386,24 +1386,24 @@ DescribeQuery(const char *query, double *elapsed_msec)
 
 
 /*
- * ExecQueryAndProcessResults: utility function for use by SendQuery()
- * and PSQLexecWatch().
+ * ExecQueryAndProcessResults: SendQuery()                            
+ * 和 PSQLexecWatch() 
  *
- * Sends query and cycles through PGresult objects.
+ *                                                 
  *
- * If our command string contained a COPY FROM STDIN or COPY TO STDOUT, the
- * PGresult associated with these commands must be processed by providing an
- * input or output stream.  In that event, we'll marshal data for the COPY.
+ * 发查询并循环 PGresult 对象。                                   
+ *                                                                          
+ * 含 COPY FROM STDIN / COPY TO STDOUT，                                 
  *
- * For other commands, the results are processed normally, depending on their
- * status.
+ * 须提供输入输出流处理关联 PGresult。                          
+ * 为 COP
  *
- * Returns 1 on complete success, 0 on interrupt and -1 or errors.  Possible
- * failure modes include purely client-side problems; check the transaction
- * status for the server-side opinion.
+ *                                                                          
+ * 其他命令正常处理，视状态而定。                           
+ *                                    
  *
- * Note that on a combined query, failure does not mean that nothing was
- * committed.
+ * 完全成功 1，中断 0，错误 -1。                             
+ * 失败含 
  */
 static int
 ExecQueryAndProcessResults(const char *query,
@@ -1442,9 +1442,9 @@ ExecQueryAndProcessResults(const char *query,
 	}
 
 	/*
-	 * If SIGINT is sent while the query is processing, the interrupt will be
-	 * consumed.  The user's intention, though, is to cancel the entire watch
-	 * process, so detect a sent cancellation request and exit in this case.
+	 * 查询期发 SIGINT，中断被消费。                              
+	 * 用户欲取消整个 watch，检测取消退出。                   
+	 *                                                                      
 	 */
 	if (is_watch && cancel_pressed)
 	{
@@ -1452,7 +1452,7 @@ ExecQueryAndProcessResults(const char *query,
 		return 0;
 	}
 
-	/* first result */
+	/* 首个结果 */
 	result = PQgetResult(pset.db);
 
 	while (result != NULL)
@@ -1464,8 +1464,8 @@ ExecQueryAndProcessResults(const char *query,
 		if (!AcceptResult(result, false))
 		{
 			/*
-			 * Some error occurred, either a server-side failure or a failure
-			 * to submit the command string.  Record that.
+			 * 发生错误，服务器端故障                             
+			 * 或提交命令串失败。记录。       
 			 */
 			const char *error = PQresultErrorMessage(result);
 
@@ -1476,30 +1476,30 @@ ExecQueryAndProcessResults(const char *query,
 			if (!is_watch)
 				SetResultVariables(result, false);
 
-			/* keep the result status before clearing it */
+			/* 清除前保留结果状态               */
 			result_status = PQresultStatus(result);
 			ClearOrSaveResult(result);
 			success = false;
 
 			/*
-			 * switch to next result
+			 * 切换到下一结果
 			 */
 			if (result_status == PGRES_COPY_BOTH ||
 				result_status == PGRES_COPY_OUT ||
 				result_status == PGRES_COPY_IN)
 
 				/*
-				 * For some obscure reason PQgetResult does *not* return a
-				 * NULL in copy cases despite the result having been cleared,
-				 * but keeps returning an "empty" result that we have to
-				 * ignore manually.
+				 * 晦涩原因 COPY 下 PQgetResult 不返 NULL，       
+				 * 持续返须手动忽略"空"结果。                    
+				 *                                                      
+				 *                 
 				 */
 				result = NULL;
 			else
 				result = PQgetResult(pset.db);
 
 			/*
-			 * Get current timing measure in case an error occurs
+			 * 获取当前计时，防错误发生              
 			 */
 			if (timing)
 			{
@@ -1513,10 +1513,10 @@ ExecQueryAndProcessResults(const char *query,
 		else if (svpt_gone_p && !*svpt_gone_p)
 		{
 			/*
-			 * Check if the user ran any command that would destroy our
-			 * internal savepoint: If the user did COMMIT AND CHAIN, RELEASE
-			 * or ROLLBACK, our savepoint is gone. If they issued a SAVEPOINT,
-			 * releasing ours would remove theirs.
+			 * 查用户是否执行破坏内部保存点命令：     
+			 * 执行 COMMIT AND CHAIN、RELEASE 或 ROLLBACK，            
+			 * 保存点消失。发 SAVEPOINT，                             
+			 * 释放我们的会移除他们的  
 			 */
 			const char *cmd = PQcmdStatus(result);
 
@@ -1528,7 +1528,7 @@ ExecQueryAndProcessResults(const char *query,
 
 		result_status = PQresultStatus(result);
 
-		/* must handle COPY before changing the current result */
+		/* 须改当前结果前处理 COPY                    */
 		Assert(result_status != PGRES_COPY_BOTH);
 		if (result_status == PGRES_COPY_IN ||
 			result_status == PGRES_COPY_OUT)
@@ -1536,26 +1536,26 @@ ExecQueryAndProcessResults(const char *query,
 			FILE	   *copy_stream = NULL;
 
 			/*
-			 * For COPY OUT, direct the output to the default place (probably
-			 * a pager pipe) for \watch, or to pset.copyStream for \copy,
-			 * otherwise to pset.gfname if that's set, otherwise to
-			 * pset.queryFout.
+			 * COPY OUT: 输到默认位（\watch 可评分页管道），   
+			 * \copy 用 pset.copyStream，                              
+			 * 否则 pset.gfname 设定向之，                  
+			 * 最后 pset.que
 			 */
 			if (result_status == PGRES_COPY_OUT)
 			{
 				if (is_watch)
 				{
-					/* invoked by \watch */
+					/* 由 \watch 调用 */
 					copy_stream = printQueryFout ? printQueryFout : pset.queryFout;
 				}
 				else if (pset.copyStream)
 				{
-					/* invoked by \copy */
+					/* 由 \copy 调用 */
 					copy_stream = pset.copyStream;
 				}
 				else if (pset.gfname)
 				{
-					/* send to \g file, which we may have opened already */
+					/* 发到 \g 文件，可能已开                   */
 					if (gfile_fout == NULL)
 					{
 						if (openQueryOutputFile(pset.gfname,
@@ -1573,38 +1573,38 @@ ExecQueryAndProcessResults(const char *query,
 				}
 				else
 				{
-					/* fall back to the generic query output stream */
+					/* 回退到通用查询输出流               */
 					copy_stream = pset.queryFout;
 				}
 			}
 
 			/*
-			 * Even if the output stream could not be opened, we call
-			 * HandleCopyResult() with a NULL output stream to collect and
-			 * discard the COPY data.
+			 * 即使输出流未开，用 NULL 流调               
+			 * HandleCopyResult() 收集丢弃 COPY 数据。             
+			 *                       
 			 */
 			success &= HandleCopyResult(&result, copy_stream);
 		}
 
 		/*
-		 * Check PQgetResult() again.  In the typical case of a single-command
-		 * string, it will return NULL.  Otherwise, we'll have other results
-		 * to process.  We need to do that to check whether this is the last.
+		 * 再查 PQgetResult()。典型单命令串                          
+		 * 返 NULL。否则有其他结果需处理。                     
+		 * 需处理判断是否最后。                                    
 		 */
 		next_result = PQgetResult(pset.db);
 		last = (next_result == NULL);
 
 		/*
-		 * Update current timing measure.
+		 * 更新当前计时。         
 		 *
-		 * It will include the display of previous results, if any. This
-		 * cannot be helped because the server goes on processing further
-		 * queries anyway while the previous ones are being displayed. The
-		 * parallel execution of the client display hides the server time when
-		 * it is shorter.
+		 *                                                              
+		 * 含先前结果显示时间，无法避免，                 
+		 * 因显前结果时服务器在处后续查询。               
+		 * 服务器时间短并行显示隐藏之。                         
+		 *               
 		 *
-		 * With combined queries, timing must be understood as an upper bound
-		 * of the time spent processing them.
+		 * 组合查询计时为处理耗时上限。                        
+		 *                                   
 		 */
 		if (timing)
 		{
@@ -1613,14 +1613,14 @@ ExecQueryAndProcessResults(const char *query,
 			*elapsed_msec = INSTR_TIME_GET_MILLISEC(after);
 		}
 
-		/* this may or may not print something depending on settings */
+		/* 据设置可能打印或不打印                         */
 		if (result != NULL)
 		{
 			/*
-			 * If results need to be printed into the file specified by \g,
-			 * open it, unless we already did.  Note that when pset.gfname is
-			 * set, the passed-in value of printQueryFout is not used for
-			 * tuple output, but it's still used for status output.
+			 * 若结果需打印到 \g 指定文件，打开              
+			 * （除非已开）。pset.gfname 设时，                    
+			 * 传入 printQueryFout 不用元组输出，               
+			 * 但仍用状态输出。                            
 			 */
 			FILE	   *tuples_fout = printQueryFout;
 			bool		do_print = true;
@@ -1646,7 +1646,7 @@ ExecQueryAndProcessResults(const char *query,
 											tuples_fout, printQueryFout);
 		}
 
-		/* set variables on last result if all went well */
+		/* 若顺利最后结果设变量                */
 		if (!is_watch && last && success)
 			SetResultVariables(result, true);
 
@@ -1655,14 +1655,14 @@ ExecQueryAndProcessResults(const char *query,
 
 		if (cancel_pressed)
 		{
-			/* drop this next result, as well as any others not yet read */
+			/* 丢弃下一结果及未读取的                         */
 			ClearOrSaveResult(result);
 			ClearOrSaveAllResults();
 			break;
 		}
 	}
 
-	/* close \g file if we opened it */
+	/* 关闭 \g 文件（若已开  */
 	if (gfile_fout)
 	{
 		if (gfile_is_pipe)
@@ -1674,7 +1674,7 @@ ExecQueryAndProcessResults(const char *query,
 			fclose(gfile_fout);
 	}
 
-	/* may need this to recover from conn loss during COPY */
+	/* 需此从 COPY 期连接丢失恢复                */
 	if (!CheckConnection())
 		return -1;
 
@@ -1683,14 +1683,14 @@ ExecQueryAndProcessResults(const char *query,
 
 
 /*
- * ExecQueryUsingCursor: run a SELECT-like query using a cursor
+ * ExecQueryUsingCursor: 游标运行 SELECT 类查询         
  *
- * This feature allows result sets larger than RAM to be dealt with.
+ *                                                                  
  *
- * Returns true if the query executed successfully, false otherwise.
+ * 允许处理超 RAM 结果集。                                 
  *
- * If pset.timing is on, total query time (exclusive of result-printing) is
- * stored into *elapsed_msec.
+ *                                                                         
+ * 查询成功 true，否则
  */
 static bool
 ExecQueryUsingCursor(const char *query, double *elapsed_msec)
@@ -1714,7 +1714,7 @@ ExecQueryUsingCursor(const char *query, double *elapsed_msec)
 
 	*elapsed_msec = 0;
 
-	/* initialize print options for partial table output */
+	/* 初始化部分表输出打印选项              */
 	my_popt.topt.start_table = true;
 	my_popt.topt.stop_table = false;
 	my_popt.topt.prior_records = 0;
@@ -1724,7 +1724,7 @@ ExecQueryUsingCursor(const char *query, double *elapsed_msec)
 	else
 		INSTR_TIME_SET_ZERO(before);
 
-	/* if we're not in a transaction, start one */
+	/* 不在事务中则启动一个           */
 	if (PQtransactionStatus(pset.db) == PQTRANS_IDLE)
 	{
 		result = PQexec(pset.db, "BEGIN");
@@ -1736,7 +1736,7 @@ ExecQueryUsingCursor(const char *query, double *elapsed_msec)
 		started_txn = true;
 	}
 
-	/* Send DECLARE CURSOR */
+	/* 发送 DECLARE CURSO*/
 	initPQExpBuffer(&buf);
 	appendPQExpBuffer(&buf, "DECLARE _psql_cursor NO SCROLL CURSOR FOR\n%s",
 					  query);
@@ -1759,8 +1759,8 @@ ExecQueryUsingCursor(const char *query, double *elapsed_msec)
 	}
 
 	/*
-	 * In \gset mode, we force the fetch count to be 2, so that we will throw
-	 * the appropriate error if the query returns more than one row.
+	 * \gset 模式取计数强制 2，                                      
+	 * 查询返多行时抛适当错。                            
 	 */
 	if (pset.gset_prefix)
 		fetch_count = 2;
@@ -1771,7 +1771,7 @@ ExecQueryUsingCursor(const char *query, double *elapsed_msec)
 			 "FETCH FORWARD %d FROM _psql_cursor",
 			 fetch_count);
 
-	/* prepare to write output to \g argument, if any */
+	/* 准备写入 \g 参数指定输出             */
 	if (pset.gfname)
 	{
 		if (!openQueryOutputFile(pset.gfname, &fout, &is_pipe))
@@ -1785,10 +1785,10 @@ ExecQueryUsingCursor(const char *query, double *elapsed_msec)
 	else
 	{
 		fout = pset.queryFout;
-		is_pipe = false;		/* doesn't matter */
+		is_pipe = false;		/* 无关紧要   */
 	}
 
-	/* clear any pre-existing error indication on the output stream */
+	/* 清除输出流先前存在错指示                         */
 	clearerr(fout);
 
 	for (;;)
@@ -1796,7 +1796,7 @@ ExecQueryUsingCursor(const char *query, double *elapsed_msec)
 		if (timing)
 			INSTR_TIME_SET_CURRENT(before);
 
-		/* get fetch_count tuples at a time */
+		/* 每次取 fetch_count 元组     */
 		result = PQexec(pset.db, fetch_cmd);
 
 		if (timing)
@@ -1808,7 +1808,7 @@ ExecQueryUsingCursor(const char *query, double *elapsed_msec)
 
 		if (PQresultStatus(result) != PGRES_TUPLES_OK)
 		{
-			/* shut down pager before printing error message */
+			/* 打印错消息前关闭分页器             */
 			if (is_pager)
 			{
 				ClosePager(fout);
@@ -1824,14 +1824,14 @@ ExecQueryUsingCursor(const char *query, double *elapsed_msec)
 
 		if (pset.gset_prefix)
 		{
-			/* StoreQueryTuple will complain if not exactly one row */
+			/* StoreQueryTuple 非一行时报错                   */
 			OK = StoreQueryTuple(result);
 			ClearOrSaveResult(result);
 			break;
 		}
 
 		/*
-		 * Note we do not deal with \gdesc, \gexec or \crosstabview modes here
+		 * 注：此处不处理 \gdesc/\gexec/\crosstabview                  
 		 */
 
 		ntuples = PQntuples(result);
@@ -1839,14 +1839,14 @@ ExecQueryUsingCursor(const char *query, double *elapsed_msec)
 
 		if (ntuples < fetch_count)
 		{
-			/* this is the last result set, so allow footer decoration */
+			/* 最后结果集，允许页脚装饰                    */
 			my_popt.topt.stop_table = true;
 		}
 		else if (fout == stdout && !is_pager)
 		{
 			/*
-			 * If query requires multiple result sets, hack to ensure that
-			 * only one pager instance is used for the whole mess
+			 * 若查询需多结果集，hack 确保                     
+			 * 全程仅一个分页器实例                    
 			 */
 			fout = PageOutput(INT_MAX, &(my_popt.topt));
 			is_pager = true;
@@ -1856,24 +1856,24 @@ ExecQueryUsingCursor(const char *query, double *elapsed_msec)
 
 		ClearOrSaveResult(result);
 
-		/* after the first result set, disallow header decoration */
+		/* 首个结果集后禁止表头装饰                   */
 		my_popt.topt.start_table = false;
 		my_popt.topt.prior_records += ntuples;
 
 		/*
-		 * Make sure to flush the output stream, so intermediate results are
-		 * visible to the client immediately.  We check the results because if
-		 * the pager dies/exits/etc, there's no sense throwing more data at
-		 * it.
+		 * 刷新输出流使中间结果立即可见。                    
+		 * 查结果因分页器若终止/退出，                           
+		 * 再投数据无意义。                                        
+		 *    
 		 */
 		flush_error = fflush(fout);
 
 		/*
-		 * Check if we are at the end, if a cancel was pressed, or if there
-		 * were any errors either trying to flush out the results, or more
-		 * generally on the output stream at all.  If we hit any errors
-		 * writing things to the stream, we presume $PAGER has disappeared and
-		 * stop bothering to pull down more data.
+		 * 查是否到末尾、按取消、或刷新出错，             
+		 * 或输出流任何错误。                                    
+		 * 写入出错推测 $PAGER 消失，                         
+		 * 停止继续取数据。                                           
+		 *                                       
 		 */
 		if (ntuples < fetch_count || cancel_pressed || flush_error ||
 			ferror(fout))
@@ -1882,7 +1882,7 @@ ExecQueryUsingCursor(const char *query, double *elapsed_msec)
 
 	if (pset.gfname)
 	{
-		/* close \g argument file/pipe */
+		/* 关闭 \g 参数文件/管  */
 		if (is_pipe)
 		{
 			SetShellResultVariables(pclose(fout));
@@ -1893,16 +1893,16 @@ ExecQueryUsingCursor(const char *query, double *elapsed_msec)
 	}
 	else if (is_pager)
 	{
-		/* close transient pager */
+		/* 关闭临时分页器 */
 		ClosePager(fout);
 	}
 
 	if (OK)
 	{
 		/*
-		 * We don't have a PGresult here, and even if we did it wouldn't have
-		 * the right row count, so fake SetResultVariables().  In error cases,
-		 * we already set the result variables above.
+		 * 此处无 PGresult，有也不会有正确行数，               
+		 * 模拟 SetResultVariables()。错况下                            
+		 * 已在上方设了结果变量。         
 		 */
 		char		buf[32];
 
@@ -1917,9 +1917,9 @@ cleanup:
 		INSTR_TIME_SET_CURRENT(before);
 
 	/*
-	 * We try to close the cursor on either success or failure, but on failure
-	 * ignore the result (it's probably just a bleat about being in an aborted
-	 * transaction)
+	 * 无论成败均尝试关游标，失败时                             
+	 * 忽略结果（可仅中止事务中抱怨）                          
+	 *             
 	 */
 	result = PQexec(pset.db, "CLOSE _psql_cursor");
 	if (OK)
@@ -1951,24 +1951,24 @@ cleanup:
 
 
 /*
- * Advance the given char pointer over white space and SQL comments.
+ * 将字指针推进过空白和 SQL 注释。                     
  */
 static const char *
 skip_white_space(const char *query)
 {
-	int			cnestlevel = 0; /* slash-star comment nest level */
+	int			cnestlevel = 0; /* 斜杠-星号注释嵌套层  */
 
 	while (*query)
 	{
 		int			mblen = PQmblenBounded(query, pset.encoding);
 
 		/*
-		 * Note: we assume the encoding is a superset of ASCII, so that for
-		 * example "query[0] == '/'" is meaningful.  However, we do NOT assume
-		 * that the second and subsequent bytes of a multibyte character
-		 * couldn't look like ASCII characters; so it is critical to advance
-		 * by mblen, not 1, whenever we haven't exactly identified the
-		 * character we are skipping over.
+		 * 注：假设编码是 ASCII 超集，故                        
+		 * "query[0] == '/'" 有意义。但不假设                         
+		 * 多字节后续字节不像 ASCII 字符；                  
+		 * 关键：未精确认跳过字符时，                          
+		 * 须按 mblen 非 1 推进。                               
+		 *                                
 		 */
 		if (isspace((unsigned char) *query))
 			query += mblen;
@@ -1987,8 +1987,8 @@ skip_white_space(const char *query)
 			query += 2;
 
 			/*
-			 * We have to skip to end of line since any slash-star inside the
-			 * -- comment does NOT start a slash-star comment.
+			 * 须跳到行尾，-- 注释内斜杠-星号                   
+			 * 不启动斜杠-星号注释。                
 			 */
 			while (*query)
 			{
@@ -2003,7 +2003,7 @@ skip_white_space(const char *query)
 		else if (cnestlevel > 0)
 			query += mblen;
 		else
-			break;				/* found first token */
+			break;				/* 找到第一个记*/
 	}
 
 	return query;
@@ -2011,11 +2011,11 @@ skip_white_space(const char *query)
 
 
 /*
- * Check whether a command is one of those for which we should NOT start
- * a new transaction block (ie, send a preceding BEGIN).
+ * 检查是否不应启动新事务块                                 
+ * （即发前置 BEGIN）命令。                    
  *
- * These include the transaction control statements themselves, plus
- * certain statements that the backend disallows inside transaction blocks.
+ *                                                                  
+ * 含事务控制语句及后端                                          
  */
 static bool
 command_no_begin(const char *query)
@@ -2023,24 +2023,24 @@ command_no_begin(const char *query)
 	int			wordlen;
 
 	/*
-	 * First we must advance over any whitespace and comments.
+	 * 先推进过任何空白和注释。                   
 	 */
 	query = skip_white_space(query);
 
 	/*
-	 * Check word length (since "beginx" is not "begin").
+	 * 查单词长度（"beginx" 非 "begin"）。      
 	 */
 	wordlen = 0;
 	while (isalpha((unsigned char) query[wordlen]))
 		wordlen += PQmblenBounded(&query[wordlen], pset.encoding);
 
 	/*
-	 * Transaction control commands.  These should include every keyword that
-	 * gives rise to a TransactionStmt in the backend grammar, except for the
-	 * savepoint-related commands.
+	 * 事务控制命令。含后端语法产生                            
+	 * TransactionStmt 关键字（保存点除外）。                     
+	 *                            
 	 *
-	 * (We assume that START must be START TRANSACTION, since there is
-	 * presently no other "START foo" command.)
+	 * （假设 START 必 START TRANSACTION，                       
+	 * 因无其他 "START foo" 命令。）   
 	 */
 	if (wordlen == 5 && pg_strncasecmp(query, "abort", 5) == 0)
 		return true;
@@ -2056,7 +2056,7 @@ command_no_begin(const char *query)
 		return true;
 	if (wordlen == 7 && pg_strncasecmp(query, "prepare", 7) == 0)
 	{
-		/* PREPARE TRANSACTION is a TC command, PREPARE foo is not */
+		/* PREPARE TRANSACTION TC 命令，PREPARE foo 非         */
 		query += wordlen;
 
 		query = skip_white_space(query);
@@ -2071,22 +2071,22 @@ command_no_begin(const char *query)
 	}
 
 	/*
-	 * Commands not allowed within transactions.  The statements checked for
-	 * here should be exactly those that call PreventInTransactionBlock() in
-	 * the backend.
+	 * 事务中不准命令。与后端                                    
+	 * PreventInTransactionBlock() 调用一致。                          
+	 *             
 	 */
 	if (wordlen == 6 && pg_strncasecmp(query, "vacuum", 6) == 0)
 		return true;
 	if (wordlen == 7 && pg_strncasecmp(query, "cluster", 7) == 0)
 	{
-		/* CLUSTER with any arguments is allowed in transactions */
+		/* CLUSTER 带参数事务中允许                      */
 		query += wordlen;
 
 		query = skip_white_space(query);
 
 		if (isalpha((unsigned char) query[0]))
-			return false;		/* has additional words */
-		return true;			/* it's CLUSTER without arguments */
+			return false;		/* 有其他单词      */
+		return true;			/* 是不带参数 CLUSTER        */
 	}
 
 	if (wordlen == 6 && pg_strncasecmp(query, "create", 6) == 0)
@@ -2104,7 +2104,7 @@ command_no_begin(const char *query)
 		if (wordlen == 10 && pg_strncasecmp(query, "tablespace", 10) == 0)
 			return true;
 
-		/* CREATE [UNIQUE] INDEX CONCURRENTLY isn't allowed in xacts */
+		/* CREATE [UNIQUE] INDEX CONCURRENTLY 事务中不许        */
 		if (wordlen == 6 && pg_strncasecmp(query, "unique", 6) == 0)
 		{
 			query += wordlen;
@@ -2143,7 +2143,7 @@ command_no_begin(const char *query)
 		while (isalpha((unsigned char) query[wordlen]))
 			wordlen += PQmblenBounded(&query[wordlen], pset.encoding);
 
-		/* ALTER SYSTEM isn't allowed in xacts */
+		/* ALTER SYSTEM 事务中不许        */
 		if (wordlen == 6 && pg_strncasecmp(query, "system", 6) == 0)
 			return true;
 
@@ -2151,9 +2151,9 @@ command_no_begin(const char *query)
 	}
 
 	/*
-	 * Note: these tests will match DROP SYSTEM and REINDEX TABLESPACE, which
-	 * aren't really valid commands so we don't care much. The other four
-	 * possible matches are correct.
+	 * 注：测试匹配 DROP SYSTEM 和 REINDEX TABLESPACE，              
+	 * 非真有效命令无需在意。                                 
+	 * 其他四种匹配正确。  
 	 */
 	if ((wordlen == 4 && pg_strncasecmp(query, "drop", 4) == 0) ||
 		(wordlen == 7 && pg_strncasecmp(query, "reindex", 7) == 0))
@@ -2182,14 +2182,14 @@ command_no_begin(const char *query)
 				wordlen += PQmblenBounded(&query[wordlen], pset.encoding);
 
 			/*
-			 * REINDEX [ TABLE | INDEX ] CONCURRENTLY are not allowed in
-			 * xacts.
+			 * REINDEX [ TABLE | INDEX ] CONCURRENTLY                   
+			 * 事务
 			 */
 			if (wordlen == 12 && pg_strncasecmp(query, "concurrently", 12) == 0)
 				return true;
 		}
 
-		/* DROP INDEX CONCURRENTLY isn't allowed in xacts */
+		/* DROP INDEX CONCURRENTLY 事务中不许        */
 		if (wordlen == 5 && pg_strncasecmp(query, "index", 5) == 0)
 		{
 			query += wordlen;
@@ -2209,7 +2209,7 @@ command_no_begin(const char *query)
 		return false;
 	}
 
-	/* DISCARD ALL isn't allowed in xacts, but other variants are allowed. */
+	/* DISCARD ALL 事务中不许，其他变体允许。                 */
 	if (wordlen == 7 && pg_strncasecmp(query, "discard", 7) == 0)
 	{
 		query += wordlen;
@@ -2230,7 +2230,7 @@ command_no_begin(const char *query)
 
 
 /*
- * Check whether the specified command is a SELECT (or VALUES).
+ * 检查是否为 SELECT（或 VALUES）。                   
  */
 static bool
 is_select_command(const char *query)
@@ -2238,7 +2238,7 @@ is_select_command(const char *query)
 	int			wordlen;
 
 	/*
-	 * First advance over any whitespace, comments and left parentheses.
+	 * 先推进空白、注释和左括号。                          
 	 */
 	for (;;)
 	{
@@ -2250,7 +2250,7 @@ is_select_command(const char *query)
 	}
 
 	/*
-	 * Check word length (since "selectx" is not "select").
+	 * 查单词长（"selectx" 非 "select"）。         
 	 */
 	wordlen = 0;
 	while (isalpha((unsigned char) query[wordlen]))
@@ -2267,7 +2267,7 @@ is_select_command(const char *query)
 
 
 /*
- * Test if the current user is a database superuser.
+ * 测试当前用户是否数据库超级用户。 
  */
 bool
 is_superuser(void)
@@ -2287,7 +2287,7 @@ is_superuser(void)
 
 
 /*
- * Test if the current session uses standard string literals.
+ * 测试当前会话用标准字符串字面量。          
  */
 bool
 standard_strings(void)
@@ -2307,7 +2307,7 @@ standard_strings(void)
 
 
 /*
- * Return the session user of the current connection.
+ * 返回当前连接会话用户。                 
  */
 const char *
 session_username(void)
@@ -2327,7 +2327,7 @@ session_username(void)
 
 /* expand_tilde
  *
- * substitute '~' with HOME or '~username' with username's home dir
+ *                                                                 
  *
  */
 void
@@ -2337,13 +2337,13 @@ expand_tilde(char **filename)
 		return;
 
 	/*
-	 * WIN32 doesn't use tilde expansion for file names. Also, it uses tilde
-	 * for short versions of long file names, though the tilde is usually
-	 * toward the end, not at the beginning.
+	 * WIN32 不用波浪号扩文件名。用波浪号                     
+	 * 作长文件名短版，但波浪号通常在尾部               
+	 * 非开头。                         
 	 */
 #ifndef WIN32
 
-	/* try tilde expansion */
+	/* 尝试波浪号扩  */
 	if (**filename == '~')
 	{
 		char	   *fn;
@@ -2363,7 +2363,7 @@ expand_tilde(char **filename)
 		*p = '\0';
 
 		if (*(fn + 1) == '\0')
-			get_home_path(home);	/* ~ or ~/ only */
+			get_home_path(home);	/* ~ 或 ~/     */
 		else if ((pw = getpwnam(fn + 1)) != NULL)
 			strlcpy(home, pw->pw_dir, sizeof(home));	/* ~user */
 
@@ -2381,17 +2381,17 @@ expand_tilde(char **filename)
 }
 
 /*
- * Checks if connection string starts with either of the valid URI prefix
- * designators.
+ * 检查连接串是否有效 URI 前缀开头。                       
+ *             
  *
- * Returns the URI prefix length, 0 if the string doesn't contain a URI prefix.
+ * 返回 URI 前缀长度，不含 0。                                       
  *
- * XXX This is a duplicate of the eponymous libpq function.
+ *                                                         
  */
 static int
 uri_prefix_length(const char *connstr)
 {
-	/* The connection URI must start with either of the following designators: */
+	/* 连接 URI 须以下指示符开头：                                  */
 	static const char uri_designator[] = "postgresql://";
 	static const char short_uri_designator[] = "postgres://";
 
@@ -2407,10 +2407,10 @@ uri_prefix_length(const char *connstr)
 }
 
 /*
- * Reset state related to \bind
+ * 重置 \bind 相关状态   
  *
- * Clean up any state related to bind parameters and bind_flag.  This needs
- * to be called after processing a query or when running \bind.
+ *                                                                         
+ * 清理绑定参数和 bind_flag 状态。                   
  */
 void
 clean_bind_state(void)
@@ -2427,13 +2427,13 @@ clean_bind_state(void)
 }
 
 /*
- * Recognized connection string either starts with a valid URI prefix or
- * contains a "=" in it.
+ * 可识别连接串有效 URI 前缀开头                            
+ * 或含 "="。        
  *
- * Must be consistent with parse_connection_string: anything for which this
- * returns true should at least look like it's parseable by that routine.
+ *                                                                         
+ * 须与 parse_connection_string 一致：                              
  *
- * XXX This is a duplicate of the eponymous libpq function.
+ * 此返回 true 至少可被解析。                    
  */
 bool
 recognized_connection_string(const char *connstr)

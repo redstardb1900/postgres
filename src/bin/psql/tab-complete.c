@@ -37,7 +37,7 @@
 #include "input.h"
 #include "tab-complete.h"
 
-/* If we don't have this, we might as well forget about the whole thing: */
+/* 如果没有这个，整个功能就无从谈起： */
 #ifdef USE_READLINE
 
 #include <ctype.h>
@@ -54,9 +54,9 @@
 #include "stringutils.h"
 
 /*
- * Ancient versions of libedit provide filename_completion_function()
- * instead of rl_filename_completion_function().  Likewise for
- * [rl_]completion_matches().
+ * 旧版 libedit 提供 filename_completion_function()
+ * 而非 rl_filename_completion_function()。[rl_]completion_matches()
+ * 同理。
  */
 #ifndef HAVE_RL_FILENAME_COMPLETION_FUNCTION
 #define rl_filename_completion_function filename_completion_function
@@ -67,35 +67,35 @@
 #endif
 
 /*
- * Currently we assume that rl_filename_dequoting_function exists if
- * rl_filename_quoting_function does.  If that proves not to be the case,
- * we'd need to test for the former, or possibly both, in configure.
+ * 目前假设若 rl_filename_quoting_function 存在则
+ * rl_filename_dequoting_function 也存在。若事实并非如此，
+ * 需在 configure 中测试前者，也可能两者都需测试。
  */
 #ifdef HAVE_RL_FILENAME_QUOTING_FUNCTION
 #define USE_FILENAME_QUOTING_FUNCTIONS 1
 #endif
 
-/* word break characters */
+/* 单词分隔字符 */
 #define WORD_BREAKS		"\t\n@$><=;|&{() "
 
 /*
- * Since readline doesn't let us pass any state through to the tab completion
- * callback, we have to use this global variable to let get_previous_words()
- * get at the previous lines of the current command.  Ick.
+ * 由于 readline 不允许向 Tab 补全回调传递任何状态，
+ * 只能使用此全局变量让 get_previous_words() 获取
+ * 当前命令的前几行。真糟糕。
  */
 PQExpBuffer tab_completion_query_buf = NULL;
 
 /*
- * In some situations, the query to find out what names are available to
- * complete with must vary depending on server version.  We handle this by
- * storing a list of queries, each tagged with the minimum server version
- * it will work for.  Each list must be stored in descending server version
- * order, so that the first satisfactory query is the one to use.
+ * 某些情况下，查找可用补全名称的查询必须根据
+ * 服务器版本而变化。我们通过存储查询列表来处理，
+ * 每个查询标记其适用的最低服务器版本。
+ * 每个列表必须按服务器版本降序排列，
+ * 这样第一个满足条件的查询即被使用。
  *
- * When the query string is otherwise constant, an array of VersionedQuery
- * suffices.  Terminate the array with an entry having min_server_version = 0.
- * That entry's query string can be a query that works in all supported older
- * server versions, or NULL to give up and do no completion.
+ * 当查询字符串在其他情况下不变时，VersionedQuery 数组
+ * 即可满足需求。用 min_server_version = 0 的条目终止数组。
+ * 该条目的查询字符串可以是适用于所有受支持的旧版
+ * 服务器版本的查询，或 NULL 表示放弃并不执行补全。
  */
 typedef struct VersionedQuery
 {
@@ -104,147 +104,147 @@ typedef struct VersionedQuery
 } VersionedQuery;
 
 /*
- * This struct is used to define "schema queries", which are custom-built
- * to obtain possibly-schema-qualified names of database objects.  There is
- * enough similarity in the structure that we don't want to repeat it each
- * time.  So we put the components of each query into this struct and
- * assemble them with the common boilerplate in _complete_from_query().
+ * 此结构体用于定义"模式查询"，它们是为获取可能
+ * 具有模式限定的数据库对象名称而定制的。结构上
+ * 有足够的相似性，我们不希望每次都重复它。
+ * 因此将每个查询的组成部分放入此结构体，
+ * 并在 _complete_from_query() 中使用公共样板代码组装。
  *
- * We also use this struct to define queries that use completion_ref_object,
- * which is some object related to the one(s) we want to get the names of
- * (for example, the table we want the indexes of).  In that usage the
- * objects we're completing might not have a schema of their own, but the
- * reference object almost always does (passed in completion_ref_schema).
+ * 我们也用此结构体定义使用 completion_ref_object 的查询，
+ * completion_ref_object 是与我们要获取其名称的对象相关的某个对象
+ * （例如，我们想要获取其索引的表）。在此用法中
+ * 正在补全的对象可能没有自己的模式，但
+ * 引用对象几乎总是有的（通过 completion_ref_schema 传入）。
  *
- * As with VersionedQuery, we can use an array of these if the query details
- * must vary across versions.
+ * 与 VersionedQuery 一样，若查询细节必须
+ * 随版本变化，可以使用这些结构体的数组。
  */
 typedef struct SchemaQuery
 {
 	/*
-	 * If not zero, minimum server version this struct applies to.  If not
-	 * zero, there should be a following struct with a smaller minimum server
-	 * version; use catname == NULL in the last entry if we should do nothing.
+	 * 若非零，此结构体适用的最低服务器版本。若非零，
+	 * 应有后续结构体具有更小的最低服务器版本；
+	 * 若不应执行任何操作，在最后条目中用 catname == NULL。
 	 */
 	int			min_server_version;
 
 	/*
-	 * Name of catalog or catalogs to be queried, with alias(es), eg.
-	 * "pg_catalog.pg_class c".  Note that "pg_namespace n" and/or
-	 * "pg_namespace nr" will be added automatically when needed.
+	 * 要查询的目录名称，带别名，例如
+	 * "pg_catalog.pg_class c"。注意 "pg_namespace n" 和/或
+	 * "pg_namespace nr" 将在需要时自动添加。
 	 */
 	const char *catname;
 
 	/*
-	 * Selection condition --- only rows meeting this condition are candidates
-	 * to display.  If catname mentions multiple tables, include the necessary
-	 * join condition here.  For example, this might look like "c.relkind = "
-	 * CppAsString2(RELKIND_RELATION).  Write NULL (not an empty string) if
-	 * not needed.
+	 * 选择条件 --- 仅满足此条件的行成为候选
+	 * 显示。若 catname 涉及多个表，请在此包含必要的
+	 * 连接条件。例如可能形如 "c.relkind = "
+	 * CppAsString2(RELKIND_RELATION)。若不需要则写 NULL（非空字符串）。
+	 *
 	 */
 	const char *selcondition;
 
 	/*
-	 * Visibility condition --- which rows are visible without schema
-	 * qualification?  For example, "pg_catalog.pg_table_is_visible(c.oid)".
-	 * NULL if not needed.
+	 * 可见性条件 --- 哪些行在无模式限定时可见？
+	 * 例如 "pg_catalog.pg_table_is_visible(c.oid)"。
+	 * 若不需要则为 NULL。
 	 */
 	const char *viscondition;
 
 	/*
-	 * Namespace --- name of field to join to pg_namespace.oid when there is
-	 * schema qualification.  For example, "c.relnamespace".  NULL if we don't
-	 * want to join to pg_namespace (then any schema part in the input word
-	 * will be ignored).
+	 * 命名空间 --- 存在模式限定时连接到
+	 * pg_namespace.oid 的字段名称。例如 "c.relnamespace"。
+	 * 如果不想连接到 pg_namespace（则输入单词中的任何模式部分
+	 * 将被忽略），则为 NULL。
 	 */
 	const char *namespace;
 
 	/*
-	 * Result --- the base object name to return.  For example, "c.relname".
+	 * 结果 --- 要返回的基础对象名称。例如 "c.relname"。
 	 */
 	const char *result;
 
 	/*
-	 * In some cases, it's difficult to keep the query from returning the same
-	 * object multiple times.  Specify use_distinct to filter out duplicates.
+	 * 某些情况下很难避免查询多次返回同一对象。
+	 * 指定 use_distinct 来过滤重复项。
 	 */
 	bool		use_distinct;
 
 	/*
-	 * Additional literal strings (usually keywords) to be offered along with
-	 * the query results.  Provide a NULL-terminated array of constant
-	 * strings, or NULL if none.
+	 * 与查询结果一同提供的附加字面量字符串（通常是关键字）。
+	 * 提供以 NULL 结尾的常量字符串数组，
+	 * 没有则为 NULL。
 	 */
 	const char *const *keywords;
 
 	/*
-	 * If this query uses completion_ref_object/completion_ref_schema,
-	 * populate the remaining fields, else leave them NULL.  When using this
-	 * capability, catname must include the catalog that defines the
-	 * completion_ref_object, and selcondition must include the join condition
-	 * that connects it to the result's catalog.
+	 * 若此查询使用 completion_ref_object/completion_ref_schema，
+	 * 则填充其余字段，否则保留为 NULL。使用此
+	 * 功能时，catname 必须包含定义 completion_ref_object 的目录，
+	 * selcondition 必须包含将其连接到结果目录的
+	 * 连接条件。
 	 *
-	 * refname is the field that should be equated to completion_ref_object,
-	 * for example "cr.relname".
+	 * refname 是应与 completion_ref_object 相等的字段，
+	 * 例如 "cr.relname"。
 	 */
 	const char *refname;
 
 	/*
-	 * Visibility condition to use when completion_ref_schema is not set.  For
-	 * example, "pg_catalog.pg_table_is_visible(cr.oid)".  NULL if not needed.
+	 * completion_ref_schema 未设置时使用的可见性条件。
+	 * 例如 "pg_catalog.pg_table_is_visible(cr.oid)"。若不需要则为 NULL。
 	 */
 	const char *refviscondition;
 
 	/*
-	 * Name of field to join to pg_namespace.oid when completion_ref_schema is
-	 * set.  For example, "cr.relnamespace".  NULL if we don't want to
-	 * consider completion_ref_schema.
+	 * completion_ref_schema 设置时连接到 pg_namespace.oid
+	 * 的字段名称。例如 "cr.relnamespace"。
+	 * 若不想考虑 completion_ref_schema，则为 NULL。
 	 */
 	const char *refnamespace;
 } SchemaQuery;
 
 
-/* Store maximum number of records we want from database queries
- * (implemented via SELECT ... LIMIT xx).
+/* 存储我们希望从数据库查询中获取的最大记录数
+ * （通过 SELECT ... LIMIT xx 实现）。
  */
 static int	completion_max_records;
 
 /*
- * Communication variables set by psql_completion (mostly in COMPLETE_WITH_FOO
- * macros) and then used by the completion callback functions.  Ugly but there
- * is no better way.
+ * 由 psql_completion 设置的通信变量（主要在 COMPLETE_WITH_FOO
+ * 宏中），随后由补全回调函数使用。丑陋但
+ * 别无他法。
  */
-static char completion_last_char;	/* last char of input word */
-static const char *completion_charp;	/* to pass a string */
-static const char *const *completion_charpp;	/* to pass a list of strings */
-static const VersionedQuery *completion_vquery; /* to pass a VersionedQuery */
-static const SchemaQuery *completion_squery;	/* to pass a SchemaQuery */
-static char *completion_ref_object; /* name of reference object */
-static char *completion_ref_schema; /* schema name of reference object */
-static bool completion_case_sensitive;	/* completion is case sensitive */
-static bool completion_verbatim;	/* completion is verbatim */
-static bool completion_force_quote; /* true to force-quote filenames */
+static char completion_last_char;	/* 输入单词的最后一个字符 */
+static const char *completion_charp;	/* 用于传递字符串 */
+static const char *const *completion_charpp;	/* 用于传递字符串列表 */
+static const VersionedQuery *completion_vquery; /* 用于传递 VersionedQuery */
+static const SchemaQuery *completion_squery;	/* 用于传递 SchemaQuery */
+static char *completion_ref_object; /* 引用对象的名称 */
+static char *completion_ref_schema; /* 引用对象的模式名称 */
+static bool completion_case_sensitive;	/* 补全是大小写敏感的 */
+static bool completion_verbatim;	/* 补全是逐字的 */
+static bool completion_force_quote; /* 为 true 时强制引用文件名 */
 
 /*
- * A few macros to ease typing. You can use these to complete the given
- * string with
- * 1) The result from a query you pass it. (Perhaps one of those below?)
- *	  We support both simple and versioned queries.
- * 2) The result from a schema query you pass it.
- *	  We support both simple and versioned schema queries.
- * 3) The items from a null-pointer-terminated list (with or without
- *	  case-sensitive comparison); if the list is constant you can build it
- *	  with COMPLETE_WITH() or COMPLETE_WITH_CS().  The QUERY_LIST and
- *	  QUERY_PLUS forms combine such literal lists with a query result.
- * 4) The list of attributes of the given table (possibly schema-qualified).
- * 5) The list of arguments to the given function (possibly schema-qualified).
+ * 几个宏以简化键入。可用这些宏通过以下方式补全给定
+ * 字符串：
+ * 1) 传递给它的查询结果（或许是下面的某个查询？）
+ *	  支持简单查询和版本化查询。
+ * 2) 传递给它的模式查询结果。
+ *	  支持简单和版本化模式查询。
+ * 3) 以空指针结尾的列表中的项目（带或不带
+ *	  大小写敏感比较）；若列表是常量，可用
+ *	  COMPLETE_WITH() 或 COMPLETE_WITH_CS() 构建。QUERY_LIST 和
+ *	  QUERY_PLUS 形式将此类字面量列表与查询结果组合。
+ * 4) 给定表的属性列表（可能带模式限定）。
+ * 5) 给定函数的参数列表（可能带模式限定）。
  *
- * The query is generally expected to return raw SQL identifiers; matching
- * to what the user typed is done in a quoting-aware fashion.  If what is
- * returned is not SQL identifiers, use one of the VERBATIM forms, in which
- * case the query results are matched to the user's text without double-quote
- * processing (so if quoting is needed, you must provide it in the query
- * results).
+ * 查询通常预期返回原始 SQL 标识符；与用户输入内容的
+ * 匹配以引用感知的方式进行。若返回的不是 SQL 标识符，
+ * 请使用 VERBATIM 形式之一，此时查询结果在不进行
+ * 双引号处理的情况下与用户文本匹配
+ * （因此若需引用，必须在查询结果中
+ * 提供）。
  */
 #define COMPLETE_WITH_QUERY(query) \
 	COMPLETE_WITH_QUERY_LIST(query, NULL)
@@ -340,8 +340,8 @@ do { \
 } while (0)
 
 /*
- * Caution: COMPLETE_WITH_CONST is not for general-purpose use; you probably
- * want COMPLETE_WITH() with one element, instead.
+ * 注意：COMPLETE_WITH_CONST 不适用于通用目的；您可能
+ * 想要使用带一个元素的 COMPLETE_WITH()。
  */
 #define COMPLETE_WITH_CONST(cs, con) \
 do { \
@@ -391,10 +391,10 @@ do { \
 } while (0)
 
 /*
- * libedit will typically include the literal's leading single quote in
- * "text", while readline will not.  Adapt our offered strings to fit.
- * But include a quote if there's not one just before "text", to get the
- * user off to the right start.
+ * libedit 通常会在 "text" 中包含字面量的前导单引号，
+ * 而 readline 不会。调整提供的字符串以适应。
+ * 但若 "text" 之前没有引号，则包含一个引号，
+ * 以让用户正确开始。
  */
 #define COMPLETE_WITH_ENUM_VALUE(type) \
 do { \
@@ -410,8 +410,8 @@ do { \
 } while (0)
 
 /*
- * Timezone completion is mostly like enum label completion, but we work
- * a little harder since this is a more common use-case.
+ * 时区补全大多类似于枚举标签补全，但由于这是
+ * 更常见的用例，我们多做了些处理。
  */
 #define COMPLETE_WITH_TIMEZONE_NAME() \
 do { \
@@ -437,10 +437,10 @@ do { \
 } while (0)
 
 /*
- * Assembly instructions for schema queries
+ * 模式查询的组装说明
  *
- * Note that toast tables are not included in those queries to avoid
- * unnecessary bloat in the completions generated.
+ * 注意这些查询不包含 TOAST 表，以避免
+ * 生成补全的不必要膨胀。
  */
 
 static const SchemaQuery Query_for_constraint_of_table = {
@@ -542,12 +542,12 @@ static const char *const Keywords_for_list_of_datatypes[] = {
 	"smallint",
 
 	/*
-	 * Note: currently there's no value in offering the following multiword
-	 * type names, because tab completion cannot succeed for them: we can't
-	 * disambiguate until somewhere in the second word, at which point we
-	 * won't have the first word as context.  ("double precision" does work,
-	 * as long as no other type name begins with "double".)  Leave them out to
-	 * encourage users to use the PG-specific aliases, which we can complete.
+	 * 注意：目前提供以下多词类型名没有意义，
+	 * 因为 Tab 补全无法成功：直到第二个词的某处
+	 * 才能消除歧义，而此时已没有第一个词作为上下文。
+	 * （"double precision" 有效，只要没有其他类型名
+	 * 以 "double" 开头。）省略它们以鼓励用户使用
+	 * 我们可以补全的 PG 特定别名。
 	 */
 #ifdef NOT_USED
 	"bit varying",
@@ -562,7 +562,7 @@ static const char *const Keywords_for_list_of_datatypes[] = {
 
 static const SchemaQuery Query_for_list_of_datatypes = {
 	.catname = "pg_catalog.pg_type t",
-	/* selcondition --- ignore table rowtypes and array types */
+	/* selcondition --- 忽略表行类型和数组类型 */
 	.selcondition = "(t.typrelid = 0 "
 	" OR (SELECT c.relkind = " CppAsString2(RELKIND_COMPOSITE_TYPE)
 	"     FROM pg_catalog.pg_class c WHERE c.oid = t.typrelid)) "
@@ -575,7 +575,7 @@ static const SchemaQuery Query_for_list_of_datatypes = {
 
 static const SchemaQuery Query_for_list_of_composite_datatypes = {
 	.catname = "pg_catalog.pg_type t",
-	/* selcondition --- only get composite types */
+	/* selcondition --- 仅获取复合类型 */
 	.selcondition = "(SELECT c.relkind = " CppAsString2(RELKIND_COMPOSITE_TYPE)
 	" FROM pg_catalog.pg_class c WHERE c.oid = t.typrelid) "
 	"AND t.typname !~ '^_'",
@@ -610,7 +610,7 @@ static const SchemaQuery Query_for_list_of_enum_values_unquoted = {
 	.refnamespace = "t.typnamespace",
 };
 
-/* Note: this intentionally accepts aggregates as well as plain functions */
+/* 注意：有意同时接受聚合和普通函数 */
 static const SchemaQuery Query_for_list_of_functions[] = {
 	{
 		.min_server_version = 110000,
@@ -638,7 +638,7 @@ static const SchemaQuery Query_for_list_of_procedures[] = {
 		.result = "p.proname",
 	},
 	{
-		/* not supported in older versions */
+		/* 在旧版本中不支持 */
 		.catname = NULL,
 	}
 };
@@ -789,7 +789,7 @@ static const SchemaQuery Query_for_list_of_partitioned_indexes = {
 };
 
 
-/* All relations */
+/* 所有关系 */
 static const SchemaQuery Query_for_list_of_relations = {
 	.catname = "pg_catalog.pg_class c",
 	.viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
@@ -797,7 +797,7 @@ static const SchemaQuery Query_for_list_of_relations = {
 	.result = "c.relname",
 };
 
-/* partitioned relations */
+/* 分区关系 */
 static const SchemaQuery Query_for_list_of_partitioned_relations = {
 	.catname = "pg_catalog.pg_class c",
 	.selcondition = "c.relkind IN (" CppAsString2(RELKIND_PARTITIONED_TABLE)
@@ -814,7 +814,7 @@ static const SchemaQuery Query_for_list_of_operator_families = {
 	.result = "c.opfname",
 };
 
-/* Relations supporting INSERT, UPDATE or DELETE */
+/* 支持 INSERT、UPDATE 或 DELETE 的关系 */
 static const SchemaQuery Query_for_list_of_updatables = {
 	.catname = "pg_catalog.pg_class c",
 	.selcondition =
@@ -827,7 +827,7 @@ static const SchemaQuery Query_for_list_of_updatables = {
 	.result = "c.relname",
 };
 
-/* Relations supporting MERGE */
+/* 支持 MERGE 的关系 */
 static const SchemaQuery Query_for_list_of_mergetargets = {
 	.catname = "pg_catalog.pg_class c",
 	.selcondition =
@@ -838,7 +838,7 @@ static const SchemaQuery Query_for_list_of_mergetargets = {
 	.result = "c.relname",
 };
 
-/* Relations supporting SELECT */
+/* 支持 SELECT 的关系 */
 static const SchemaQuery Query_for_list_of_selectables = {
 	.catname = "pg_catalog.pg_class c",
 	.selcondition =
@@ -853,7 +853,7 @@ static const SchemaQuery Query_for_list_of_selectables = {
 	.result = "c.relname",
 };
 
-/* Relations supporting TRUNCATE */
+/* 支持 TRUNCATE 的关系 */
 static const SchemaQuery Query_for_list_of_truncatables = {
 	.catname = "pg_catalog.pg_class c",
 	.selcondition =
@@ -865,10 +865,10 @@ static const SchemaQuery Query_for_list_of_truncatables = {
 	.result = "c.relname",
 };
 
-/* Relations supporting GRANT are currently same as those supporting SELECT */
+/* 支持 GRANT 的关系目前与支持 SELECT 的关系相同 */
 #define Query_for_list_of_grantables Query_for_list_of_selectables
 
-/* Relations supporting ANALYZE */
+/* 支持 ANALYZE 的关系 */
 static const SchemaQuery Query_for_list_of_analyzables = {
 	.catname = "pg_catalog.pg_class c",
 	.selcondition =
@@ -881,7 +881,7 @@ static const SchemaQuery Query_for_list_of_analyzables = {
 	.result = "c.relname",
 };
 
-/* Relations supporting index creation */
+/* 支持创建索引的关系 */
 static const SchemaQuery Query_for_list_of_indexables = {
 	.catname = "pg_catalog.pg_class c",
 	.selcondition =
@@ -894,12 +894,12 @@ static const SchemaQuery Query_for_list_of_indexables = {
 };
 
 /*
- * Relations supporting VACUUM are currently same as those supporting
- * indexing.
+ * 支持 VACUUM 的关系目前与支持
+ * 创建索引的关系相同。
  */
 #define Query_for_list_of_vacuumables Query_for_list_of_indexables
 
-/* Relations supporting CLUSTER */
+/* 支持 CLUSTER 的关系 */
 static const SchemaQuery Query_for_list_of_clusterables = {
 	.catname = "pg_catalog.pg_class c",
 	.selcondition =
@@ -964,22 +964,22 @@ static const SchemaQuery Query_for_trigger_of_table = {
 
 
 /*
- * Queries to get lists of names of various kinds of things, possibly
- * restricted to names matching a partially entered name.  Don't use
- * this method where the user might wish to enter a schema-qualified
- * name; make a SchemaQuery instead.
+ * 获取各类名称列表的查询，可能限制为匹配
+ * 部分输入的名称。若用户可能希望输入模式限定
+ * 名称，请勿使用此方法；改用 SchemaQuery。
  *
- * In these queries, there must be a restriction clause of the form
+ * 这些查询中必须有一个形如
  *		output LIKE '%s'
- * where "output" is the same string that the query returns.  The %s
- * will be replaced by a LIKE pattern to match the already-typed text.
+ * 的限制子句，其中 "output" 是查询返回的同一个字符串。%s
+ * 将被替换为 LIKE 模式以匹配已键入的文本。
  *
- * There can be a second '%s', which will be replaced by a suitably-escaped
- * version of the string provided in completion_ref_object.  If there is a
- * third '%s', it will be replaced by a suitably-escaped version of the string
- * provided in completion_ref_schema.  NOTE: using completion_ref_object
- * that way is usually the wrong thing, and using completion_ref_schema
- * that way is always the wrong thing.  Make a SchemaQuery instead.
+ * 可以有第二个 '%s'，将被替换为 completion_ref_object 中
+ * 提供的经过适当转义的字符串。若有
+ * 第三个 '%s'，将被替换为 completion_ref_schema 中
+ * 提供的经过适当转义的字符串。注意：以那种方式使用
+ * completion_ref_object 通常是错误的，而以那种方式使用
+ * completion_ref_schema 总是错误的。请改用 SchemaQuery。
+ *
  */
 
 #define Query_for_list_of_template_databases \
@@ -1011,7 +1011,7 @@ static const SchemaQuery Query_for_trigger_of_table = {
 "SELECT nspname FROM pg_catalog.pg_namespace "\
 " WHERE nspname LIKE '%s'"
 
-/* Use COMPLETE_WITH_QUERY_VERBATIM with these queries for GUC names: */
+/* 使用 COMPLETE_WITH_QUERY_VERBATIM 配合这些查询获取 GUC 名称： */
 #define Query_for_list_of_alter_system_set_vars \
 "SELECT pg_catalog.lower(name) FROM pg_catalog.pg_settings "\
 " WHERE context != 'internal' "\
@@ -1031,7 +1031,7 @@ static const SchemaQuery Query_for_trigger_of_table = {
 "   FROM pg_catalog.pg_roles "\
 "  WHERE rolname LIKE '%s'"
 
-/* add these to Query_for_list_of_roles in GRANT contexts */
+/* 在 GRANT 上下文中将这些添加到 Query_for_list_of_roles */
 #define Keywords_for_list_of_grant_roles \
 "PUBLIC", "CURRENT_ROLE", "CURRENT_USER", "SESSION_USER"
 
@@ -1143,43 +1143,43 @@ static const SchemaQuery Query_for_trigger_of_table = {
 "  FROM pg_catalog.pg_timezone_names() "\
 " WHERE pg_catalog.quote_literal(pg_catalog.lower(name)) LIKE pg_catalog.lower('%s')"
 
-/* Privilege options shared between GRANT and REVOKE */
+/* GRANT 和 REVOKE 共用的权限选项 */
 #define Privilege_options_of_grant_and_revoke \
 "SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER", \
 "CREATE", "CONNECT", "TEMPORARY", "EXECUTE", "USAGE", "SET", "ALTER SYSTEM", \
 "ALL"
 
-/* ALTER PROCEDURE options */
+/* ALTER PROCEDURE 选项 */
 #define Alter_procedure_options \
 "DEPENDS ON EXTENSION", "EXTERNAL SECURITY", "NO DEPENDS ON EXTENSION", \
 "OWNER TO", "RENAME TO", "RESET", "SECURITY", "SET"
 
-/* ALTER ROUTINE options */
+/* ALTER ROUTINE 选项 */
 #define Alter_routine_options \
 Alter_procedure_options, "COST", "IMMUTABLE", "LEAKPROOF", "NOT LEAKPROOF", \
 "PARALLEL", "ROWS", "STABLE", "VOLATILE"
 
-/* ALTER FUNCTION options */
+/* ALTER FUNCTION 选项 */
 #define Alter_function_options \
 Alter_routine_options, "CALLED ON NULL INPUT", "RETURNS NULL ON NULL INPUT", \
 "STRICT", "SUPPORT"
 
-/* COPY options shared between FROM and TO */
+/* COPY FROM 和 TO 共用的选项 */
 #define Copy_common_options \
 "DELIMITER", "ENCODING", "ESCAPE", "FORMAT", "HEADER", "NULL", "QUOTE"
 
-/* COPY FROM options */
+/* COPY FROM 选项 */
 #define Copy_from_options \
 Copy_common_options, "DEFAULT", "FORCE_NOT_NULL", "FORCE_NULL", "FREEZE"
 
-/* COPY TO options */
+/* COPY TO 选项 */
 #define Copy_to_options \
 Copy_common_options, "FORCE_QUOTE"
 
 /*
- * These object types were introduced later than our support cutoff of
- * server version 9.2.  We use the VersionedQuery infrastructure so that
- * we don't send certain-to-fail queries to older servers.
+ * 这些对象类型的引入时间晚于我们对服务器版本 9.2
+ * 的支持下限。我们使用 VersionedQuery 基础设施，
+ * 以避免向旧服务器发送注定失败的查询。
  */
 
 static const VersionedQuery Query_for_list_of_publications[] = {
@@ -1203,27 +1203,27 @@ static const VersionedQuery Query_for_list_of_subscriptions[] = {
 };
 
 /*
- * This is a list of all "things" in Pgsql, which can show up after CREATE or
- * DROP; and there is also a query to get a list of them.
+ * 这是 Pgsql 中所有"事物"的列表，可出现在 CREATE 或
+ * DROP 之后；同时也有一个查询来获取它们的列表。
  */
 
 typedef struct
 {
 	const char *name;
-	/* Provide at most one of these three types of query: */
-	const char *query;			/* simple query, or NULL */
-	const VersionedQuery *vquery;	/* versioned query, or NULL */
-	const SchemaQuery *squery;	/* schema query, or NULL */
-	const char *const *keywords;	/* keywords to be offered as well */
-	const bits32 flags;			/* visibility flags, see below */
+	/* 最多提供以下三种查询类型之一： */
+	const char *query;			/* 简单查询，或 NULL */
+	const VersionedQuery *vquery;	/* 版本化查询，或 NULL */
+	const SchemaQuery *squery;	/* 模式查询，或 NULL */
+	const char *const *keywords;	/* 同时提供的关键字 */
+	const bits32 flags;			/* 可见性标志，见下文 */
 } pgsql_thing_t;
 
-#define THING_NO_CREATE		(1 << 0)	/* should not show up after CREATE */
-#define THING_NO_DROP		(1 << 1)	/* should not show up after DROP */
-#define THING_NO_ALTER		(1 << 2)	/* should not show up after ALTER */
+#define THING_NO_CREATE		(1 << 0)	/* 不应在 CREATE 之后出现 */
+#define THING_NO_DROP		(1 << 1)	/* 不应在 DROP 之后出现 */
+#define THING_NO_ALTER		(1 << 2)	/* 不应在 ALTER 之后出现 */
 #define THING_NO_SHOW		(THING_NO_CREATE | THING_NO_DROP | THING_NO_ALTER)
 
-/* When we have DROP USER etc, also offer MAPPING FOR */
+/* 当有 DROP USER 等时，同时提供 MAPPING FOR */
 static const char *const Keywords_for_user_thing[] = {
 	"MAPPING FOR",
 	NULL
@@ -1232,13 +1232,13 @@ static const char *const Keywords_for_user_thing[] = {
 static const pgsql_thing_t words_after_create[] = {
 	{"ACCESS METHOD", NULL, NULL, NULL, NULL, THING_NO_ALTER},
 	{"AGGREGATE", NULL, NULL, Query_for_list_of_aggregates},
-	{"CAST", NULL, NULL, NULL}, /* Casts have complex structures for names, so
-								 * skip it */
+	{"CAST", NULL, NULL, NULL}, /* 转换的名称结构复杂，因此
+								 * 跳过它 */
 	{"COLLATION", NULL, NULL, &Query_for_list_of_collations},
 
 	/*
-	 * CREATE CONSTRAINT TRIGGER is not supported here because it is designed
-	 * to be used only by pg_dump.
+	 * 此处不支持 CREATE CONSTRAINT TRIGGER，因为它设计为
+	 * 仅供 pg_dump 使用。
 	 */
 	{"CONFIGURATION", NULL, NULL, &Query_for_list_of_ts_configurations, NULL, THING_NO_SHOW},
 	{"CONVERSION", "SELECT conname FROM pg_catalog.pg_conversion WHERE conname LIKE '%s'"},
@@ -1256,10 +1256,10 @@ static const pgsql_thing_t words_after_create[] = {
 	{"LANGUAGE", Query_for_list_of_languages},
 	{"LARGE OBJECT", NULL, NULL, NULL, NULL, THING_NO_CREATE | THING_NO_DROP},
 	{"MATERIALIZED VIEW", NULL, NULL, &Query_for_list_of_matviews},
-	{"OPERATOR", NULL, NULL, NULL}, /* Querying for this is probably not such
-									 * a good idea. */
+	{"OPERATOR", NULL, NULL, NULL}, /* 查询这个可能不是一个
+									 * 好主意。 */
 	{"OR REPLACE", NULL, NULL, NULL, NULL, THING_NO_DROP | THING_NO_ALTER},
-	{"OWNED", NULL, NULL, NULL, NULL, THING_NO_CREATE | THING_NO_ALTER},	/* for DROP OWNED BY ... */
+	{"OWNED", NULL, NULL, NULL, NULL, THING_NO_CREATE | THING_NO_ALTER},	/* 用于 DROP OWNED BY ... */
 	{"PARSER", NULL, NULL, &Query_for_list_of_ts_parsers, NULL, THING_NO_SHOW},
 	{"POLICY", NULL, NULL, NULL},
 	{"PROCEDURE", NULL, NULL, Query_for_list_of_procedures},
@@ -1291,10 +1291,10 @@ static const pgsql_thing_t words_after_create[] = {
 	{"USER", Query_for_list_of_roles, NULL, NULL, Keywords_for_user_thing},
 	{"USER MAPPING FOR", NULL, NULL, NULL},
 	{"VIEW", NULL, NULL, &Query_for_list_of_views},
-	{NULL}						/* end of list */
+	{NULL}						/* 列表结束 */
 };
 
-/* Storage parameters for CREATE TABLE and ALTER TABLE */
+/* CREATE TABLE 和 ALTER TABLE 的存储参数 */
 static const char *const table_storage_parameters[] = {
 	"autovacuum_analyze_scale_factor",
 	"autovacuum_analyze_threshold",
@@ -1338,7 +1338,7 @@ static const char *const table_storage_parameters[] = {
 };
 
 
-/* Forward declaration of functions */
+/* 函数的前向声明 */
 static char **psql_completion(const char *text, int start, int end);
 static char *create_command_generator(const char *text, int state);
 static char *drop_command_generator(const char *text, int state);
@@ -1385,7 +1385,7 @@ static char *dequote_file_name(char *fname, int quote_char);
 
 
 /*
- * Initialize the readline library for our purposes.
+ * 初始化 readline 库以满足我们的需求。
  */
 void
 initialize_readline(void)
@@ -1429,8 +1429,8 @@ initialize_readline(void)
 	completion_max_records = 1000;
 
 	/*
-	 * There is a variable rl_completion_query_items for this but apparently
-	 * it's not defined everywhere.
+	 * 有一个变量 rl_completion_query_items 用于此目的，但显然
+	 * 它并非在所有地方都有定义。
 	 */
 }
 
@@ -1461,22 +1461,22 @@ word_matches(const char *pattern,
 #define cimatch(s1, s2, n) \
 	(case_sensitive ? strncmp(s1, s2, n) == 0 : pg_strncasecmp(s1, s2, n) == 0)
 
-	/* NULL pattern matches anything. */
+	/* NULL 模式匹配任何内容。 */
 	if (pattern == NULL)
 		return true;
 
-	/* Handle negated patterns from the MatchAnyExcept macro. */
+	/* 处理来自 MatchAnyExcept 宏的否定模式。 */
 	if (*pattern == '!')
 		return !word_matches(pattern + 1, word, case_sensitive);
 
-	/* Else consider each alternative in the pattern. */
+	/* 否则考虑模式中的每个候选项。 */
 	wordlen = strlen(word);
 	for (;;)
 	{
 		const char *star = NULL;
 		const char *c;
 
-		/* Find end of current alternative, and locate any wild card. */
+		/* 查找当前候选项的结束位置，并定位任何通配符。 */
 		c = pattern;
 		while (*c != '\0' && *c != '|')
 		{
@@ -1484,10 +1484,10 @@ word_matches(const char *pattern,
 				star = c;
 			c++;
 		}
-		/* Was there a wild card? */
+		/* 是否有通配符？ */
 		if (star)
 		{
-			/* Yes, wildcard match? */
+			/* 是，通配符匹配？ */
 			size_t		beforelen = star - pattern,
 						afterlen = c - star - 1;
 
@@ -1498,15 +1498,15 @@ word_matches(const char *pattern,
 		}
 		else
 		{
-			/* No, plain match? */
+			/* 否，普通匹配？ */
 			if (wordlen == (c - pattern) &&
 				cimatch(word, pattern, wordlen))
 				return true;
 		}
-		/* Out of alternatives? */
+		/* 候选项用完？ */
 		if (*c == '\0')
 			break;
-		/* Nope, try next alternative. */
+		/* 不，尝试下一个候选项。 */
 		pattern = c + 1;
 	}
 
@@ -1550,8 +1550,8 @@ TailMatchesImpl(bool case_sensitive,
 }
 
 /*
- * Implementation of Matches and MatchesCS macros: do all of the words
- * in previous_words match the variadic arguments?
+ * Matches 和 MatchesCS 宏的实现：previous_words 中
+ * 所有单词是否匹配可变参数？
  */
 static bool
 MatchesImpl(bool case_sensitive,
@@ -1583,8 +1583,8 @@ MatchesImpl(bool case_sensitive,
 }
 
 /*
- * Implementation of HeadMatches and HeadMatchesCS macros: do the first N
- * words in previous_words match the variadic arguments?
+ * HeadMatches 和 HeadMatchesCS 宏的实现：previous_words 中
+ * 前 N 个单词是否匹配可变参数？
  */
 static bool
 HeadMatchesImpl(bool case_sensitive,
@@ -1616,7 +1616,7 @@ HeadMatchesImpl(bool case_sensitive,
 }
 
 /*
- * Check if the final character of 's' is 'c'.
+ * 检查 's' 的最后一个字符是否为 'c'。
  */
 static bool
 ends_with(const char *s, char c)
@@ -1637,16 +1637,16 @@ ends_with(const char *s, char c)
 static char **
 psql_completion(const char *text, int start, int end)
 {
-	/* This is the variable we'll return. */
+	/* 这是我们将返回的变量。 */
 	char	  **matches = NULL;
 
-	/* Workspace for parsed words. */
+	/* 已解析单词的工作区。 */
 	char	   *words_buffer;
 
-	/* This array will contain pointers to parsed words. */
+	/* 此数组将包含指向已解析单词的指针。 */
 	char	  **previous_words;
 
-	/* The number of words found on the input line. */
+	/* 在输入行中找到的单词数量。 */
 	int			previous_words_count;
 
 	/*
@@ -1666,37 +1666,37 @@ psql_completion(const char *text, int start, int end)
 #define prev8_wd  (previous_words[7])
 #define prev9_wd  (previous_words[8])
 
-	/* Match the last N words before point, case-insensitively. */
+	/* 匹配光标前最后 N 个单词，不区分大小写。 */
 #define TailMatches(...) \
 	TailMatchesImpl(false, previous_words_count, previous_words, \
 					VA_ARGS_NARGS(__VA_ARGS__), __VA_ARGS__)
 
-	/* Match the last N words before point, case-sensitively. */
+	/* 匹配光标前最后 N 个单词，区分大小写。 */
 #define TailMatchesCS(...) \
 	TailMatchesImpl(true, previous_words_count, previous_words, \
 					VA_ARGS_NARGS(__VA_ARGS__), __VA_ARGS__)
 
-	/* Match N words representing all of the line, case-insensitively. */
+	/* 匹配整行的 N 个单词，不区分大小写。 */
 #define Matches(...) \
 	MatchesImpl(false, previous_words_count, previous_words, \
 				VA_ARGS_NARGS(__VA_ARGS__), __VA_ARGS__)
 
-	/* Match N words representing all of the line, case-sensitively. */
+	/* 匹配整行的 N 个单词，区分大小写。 */
 #define MatchesCS(...) \
 	MatchesImpl(true, previous_words_count, previous_words, \
 				VA_ARGS_NARGS(__VA_ARGS__), __VA_ARGS__)
 
-	/* Match the first N words on the line, case-insensitively. */
+	/* 匹配行首 N 个单词，不区分大小写。 */
 #define HeadMatches(...) \
 	HeadMatchesImpl(false, previous_words_count, previous_words, \
 					VA_ARGS_NARGS(__VA_ARGS__), __VA_ARGS__)
 
-	/* Match the first N words on the line, case-sensitively. */
+	/* 匹配行首 N 个单词，区分大小写。 */
 #define HeadMatchesCS(...) \
 	HeadMatchesImpl(true, previous_words_count, previous_words, \
 					VA_ARGS_NARGS(__VA_ARGS__), __VA_ARGS__)
 
-	/* Known command-starting keywords. */
+	/* 已知的命令起始关键字。 */
 	static const char *const sql_commands[] = {
 		"ABORT", "ALTER", "ANALYZE", "BEGIN", "CALL", "CHECKPOINT", "CLOSE", "CLUSTER",
 		"COMMENT", "COMMIT", "COPY", "CREATE", "DEALLOCATE", "DECLARE",
@@ -1710,7 +1710,7 @@ psql_completion(const char *text, int start, int end)
 		NULL
 	};
 
-	/* psql's backslash commands. */
+	/* psql 的反斜杠命令。 */
 	static const char *const backslash_commands[] = {
 		"\\a",
 		"\\bind",
@@ -1752,13 +1752,13 @@ psql_completion(const char *text, int start, int end)
 	char	   *text_copy = pnstrdup(rl_line_buffer + start, end - start);
 	text = text_copy;
 
-	/* Remember last char of the given input word. */
+	/* 记住给定输入单词的最后一个字符。 */
 	completion_last_char = (end > start) ? text[end - start - 1] : '\0';
 
-	/* We usually want the append character to be a space. */
+	/* 通常我们希望追加字符为空格。 */
 	rl_completion_append_character = ' ';
 
-	/* Clear a few things. */
+	/* 清除一些内容。 */
 	completion_charp = NULL;
 	completion_charpp = NULL;
 	completion_vquery = NULL;
@@ -1767,19 +1767,19 @@ psql_completion(const char *text, int start, int end)
 	completion_ref_schema = NULL;
 
 	/*
-	 * Scan the input line to extract the words before our current position.
-	 * According to those we'll make some smart decisions on what the user is
-	 * probably intending to type.
+	 * 扫描输入行以提取当前位置之前的单词。
+	 * 根据这些单词我们将对用户可能意图
+	 * 输入的内容做出智能决策。
 	 */
 	previous_words = get_previous_words(start,
 										&words_buffer,
 										&previous_words_count);
 
-	/* If current word is a backslash command, offer completions for that */
+	/* 如果当前单词是反斜杠命令，为其提供补全 */
 	if (text[0] == '\\')
 		COMPLETE_WITH_LIST_CS(backslash_commands);
 
-	/* If current word is a variable interpolation, handle that case */
+	/* 如果当前单词是变量插值，处理这种情况 */
 	else if (text[0] == ':' && text[1] != ':')
 	{
 		if (text[1] == '\'')
@@ -1790,22 +1790,22 @@ psql_completion(const char *text, int start, int end)
 			matches = complete_from_variables(text, ":", "", true);
 	}
 
-	/* If no previous word, suggest one of the basic sql commands */
+	/* 如果没有前一个单词，建议一个基本 SQL 命令 */
 	else if (previous_words_count == 0)
 		COMPLETE_WITH_LIST(sql_commands);
 
 /* CREATE */
-	/* complete with something you can create */
+	/* 补全可以创建的内容 */
 	else if (TailMatches("CREATE"))
 		matches = rl_completion_matches(text, create_command_generator);
 
-	/* complete with something you can create or replace */
+	/* 补全可以创建或替换的内容 */
 	else if (TailMatches("CREATE", "OR", "REPLACE"))
 		COMPLETE_WITH("FUNCTION", "PROCEDURE", "LANGUAGE", "RULE", "VIEW",
 					  "AGGREGATE", "TRANSFORM", "TRIGGER");
 
-/* DROP, but not DROP embedded in other commands */
-	/* complete with something you can drop */
+/* DROP，但不包括嵌入在其他命令中的 DROP */
+	/* 补全可以删除的内容 */
 	else if (Matches("DROP"))
 		matches = rl_completion_matches(text, drop_command_generator);
 
@@ -1816,7 +1816,7 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH_SCHEMA_QUERY_PLUS(Query_for_list_of_tables,
 										"ALL IN TABLESPACE");
 
-	/* ALTER something */
+	/* ALTER 某些内容 */
 	else if (Matches("ALTER"))
 		matches = rl_completion_matches(text, alter_command_generator);
 	/* ALTER TABLE,INDEX,MATERIALIZED VIEW ALL IN TABLESPACE xxx */
@@ -1891,11 +1891,11 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_tables);
 
 	/*
-	 * "ALTER PUBLICATION <name> SET TABLE <name> WHERE (" - complete with
-	 * table attributes
+	 * "ALTER PUBLICATION <name> SET TABLE <name> WHERE (" - 用表属性
+	 * 补全
 	 *
-	 * "ALTER PUBLICATION <name> ADD TABLE <name> WHERE (" - complete with
-	 * table attributes
+	 * "ALTER PUBLICATION <name> ADD TABLE <name> WHERE (" - 用表属性
+	 * 补全
 	 */
 	else if (HeadMatches("ALTER", "PUBLICATION", MatchAny) && TailMatches("WHERE"))
 		COMPLETE_WITH("(");
@@ -2322,7 +2322,7 @@ psql_completion(const char *text, int start, int end)
 					  "NO DEPENDS ON EXTENSION");
 
 	/*
-	 * If we detect ALTER TABLE <name>, suggest sub commands
+	 * 如果检测到 ALTER TABLE <name>，建议子命令
 	 */
 	else if (Matches("ALTER", "TABLE", MatchAny))
 		COMPLETE_WITH("ADD", "ALTER", "CLUSTER ON", "DISABLE", "DROP",
@@ -2445,10 +2445,10 @@ psql_completion(const char *text, int start, int end)
 	else if (Matches("ALTER", "TABLE", MatchAny, "RENAME", "COLUMN|CONSTRAINT", MatchAnyExcept("TO")))
 		COMPLETE_WITH("TO");
 
-	/* If we have ALTER TABLE <sth> DROP, provide COLUMN or CONSTRAINT */
+	/* 如果检测到 ALTER TABLE <sth> DROP，提供 COLUMN or CONSTRAINT */
 	else if (Matches("ALTER", "TABLE", MatchAny, "DROP"))
 		COMPLETE_WITH("COLUMN", "CONSTRAINT");
-	/* If we have ALTER TABLE <sth> DROP COLUMN, provide list of columns */
+	/* 如果检测到 ALTER TABLE <sth> DROP COLUMN，提供 list of columns */
 	else if (Matches("ALTER", "TABLE", MatchAny, "DROP", "COLUMN"))
 		COMPLETE_WITH_ATTR(prev3_wd);
 	/* ALTER TABLE <sth> ALTER|DROP|RENAME CONSTRAINT <constraint> */
@@ -2524,21 +2524,21 @@ psql_completion(const char *text, int start, int end)
 		set_completion_reference(prev3_wd);
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_index_of_table);
 	}
-	/* If we have ALTER TABLE <sth> SET, provide list of attributes and '(' */
+	/* 如果检测到 ALTER TABLE <sth> SET，提供 list of attributes and '(' */
 	else if (Matches("ALTER", "TABLE", MatchAny, "SET"))
 		COMPLETE_WITH("(", "ACCESS METHOD", "LOGGED", "SCHEMA",
 					  "TABLESPACE", "UNLOGGED", "WITH", "WITHOUT");
 
 	/*
-	 * If we have ALTER TABLE <sth> SET ACCESS METHOD provide a list of table
-	 * AMs.
+	 * 如果检测到 ALTER TABLE <某物> SET ACCESS METHOD，提供表
+	 * 访问方法列表。
 	 */
 	else if (Matches("ALTER", "TABLE", MatchAny, "SET", "ACCESS", "METHOD"))
 		COMPLETE_WITH_QUERY(Query_for_list_of_table_access_methods);
 
 	/*
-	 * If we have ALTER TABLE <sth> SET TABLESPACE provide a list of
-	 * tablespaces
+	 * 如果检测到 ALTER TABLE <某物> SET TABLESPACE，提供
+	 * 表空间列表
 	 */
 	else if (Matches("ALTER", "TABLE", MatchAny, "SET", "TABLESPACE"))
 		COMPLETE_WITH_QUERY(Query_for_list_of_tablespaces);
@@ -2564,8 +2564,8 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("IDENTITY");
 
 	/*
-	 * If we have ALTER TABLE <foo> ATTACH PARTITION, provide a list of
-	 * tables.
+	 * 如果检测到 ALTER TABLE <foo> ATTACH PARTITION，提供
+	 * 表列表。
 	 */
 	else if (Matches("ALTER", "TABLE", MatchAny, "ATTACH", "PARTITION"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_tables);
@@ -2576,8 +2576,8 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("FROM (", "IN (", "WITH (");
 
 	/*
-	 * If we have ALTER TABLE <foo> DETACH PARTITION, provide a list of
-	 * partitions of <foo>.
+	 * 如果检测到 ALTER TABLE <foo> DETACH PARTITION，提供
+	 * <foo> 的分区列表。
 	 */
 	else if (Matches("ALTER", "TABLE", MatchAny, "DETACH", "PARTITION"))
 	{
@@ -2833,18 +2833,18 @@ psql_completion(const char *text, int start, int end)
 /* COPY */
 
 	/*
-	 * If we have COPY, offer list of tables or "(" (Also cover the analogous
-	 * backslash command).
+	 * 如果检测到 COPY，提供表列表或 "("（同时覆盖类似的
+	 * 反斜杠命令）。
 	 */
 	else if (Matches("COPY|\\copy"))
 		COMPLETE_WITH_SCHEMA_QUERY_PLUS(Query_for_list_of_tables, "(");
-	/* Complete COPY ( with legal query commands */
+	/* 补全 COPY (为 legal query commands */
 	else if (Matches("COPY|\\copy", "("))
 		COMPLETE_WITH("SELECT", "TABLE", "VALUES", "INSERT INTO", "UPDATE", "DELETE FROM", "WITH");
 	/* Complete COPY <sth> */
 	else if (Matches("COPY|\\copy", MatchAny))
 		COMPLETE_WITH("FROM", "TO");
-	/* Complete COPY <sth> FROM|TO with filename */
+	/* 补全 COPY <sth> FROM|TO为 filename */
 	else if (Matches("COPY", MatchAny, "FROM|TO"))
 	{
 		completion_charp = "";
@@ -2965,24 +2965,24 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("INDEX");
 
 	/*
-	 * If we have CREATE|UNIQUE INDEX, then add "ON", "CONCURRENTLY", and
-	 * existing indexes
+	 * 如果检测到 CREATE|UNIQUE INDEX，则添加 "ON"、"CONCURRENTLY" 和
+	 * 现有索引
 	 */
 	else if (TailMatches("CREATE|UNIQUE", "INDEX"))
 		COMPLETE_WITH_SCHEMA_QUERY_PLUS(Query_for_list_of_indexes,
 										"ON", "CONCURRENTLY");
 
 	/*
-	 * Complete ... INDEX|CONCURRENTLY [<name>] ON with a list of relations
-	 * that indexes can be created on
+	 * 补全 ... INDEX|CONCURRENTLY [<name>] ON 为可在其上
+	 * 创建索引的关系列表
 	 */
 	else if (TailMatches("INDEX|CONCURRENTLY", MatchAny, "ON") ||
 			 TailMatches("INDEX|CONCURRENTLY", "ON"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_indexables);
 
 	/*
-	 * Complete CREATE|UNIQUE INDEX CONCURRENTLY with "ON" and existing
-	 * indexes
+	 * 补全 CREATE|UNIQUE INDEX CONCURRENTLY 为 "ON" 和现有
+	 * 索引
 	 */
 	else if (TailMatches("CREATE|UNIQUE", "INDEX", "CONCURRENTLY"))
 		COMPLETE_WITH_SCHEMA_QUERY_PLUS(Query_for_list_of_indexes,
@@ -2993,8 +2993,8 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("ON");
 
 	/*
-	 * Complete INDEX <name> ON <table> with a list of table columns (which
-	 * should really be in parens)
+	 * 补全 INDEX <name> ON <table> 为表列列表（实际上
+	 * 应该放在括号中）
 	 */
 	else if (TailMatches("INDEX", MatchAny, "ON", MatchAny) ||
 			 TailMatches("INDEX|CONCURRENTLY", "ON", MatchAny))
@@ -3005,7 +3005,7 @@ psql_completion(const char *text, int start, int end)
 	/* same if you put in USING */
 	else if (TailMatches("ON", MatchAny, "USING", MatchAny, "("))
 		COMPLETE_WITH_ATTR(prev4_wd);
-	/* Complete USING with an index method */
+	/* 补全 USING 为 an index method */
 	else if (TailMatches("INDEX", MatchAny, MatchAny, "ON", MatchAny, "USING") ||
 			 TailMatches("INDEX", MatchAny, "ON", MatchAny, "USING") ||
 			 TailMatches("INDEX", "ON", MatchAny, "USING"))
@@ -3116,13 +3116,13 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("IN SCHEMA");
 	else if (Matches("CREATE", "PUBLICATION", MatchAny, "FOR", "TABLE", MatchAny) && !ends_with(prev_wd, ','))
 		COMPLETE_WITH("WHERE (", "WITH (");
-	/* Complete "CREATE PUBLICATION <name> FOR TABLE" with "<table>, ..." */
+	/* 补全 "CREATE PUBLICATION <name> FOR TABLE" 为 "<table>, ..." */
 	else if (Matches("CREATE", "PUBLICATION", MatchAny, "FOR", "TABLE"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_tables);
 
 	/*
-	 * "CREATE PUBLICATION <name> FOR TABLE <name> WHERE (" - complete with
-	 * table attributes
+	 * "CREATE PUBLICATION <name> FOR TABLE <name> WHERE (" - 用表属性
+	 * 补全
 	 */
 	else if (HeadMatches("CREATE", "PUBLICATION", MatchAny) && TailMatches("WHERE"))
 		COMPLETE_WITH("(");
@@ -3155,7 +3155,7 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("ON");
 
 	/*
-	 * Complete "CREATE [ OR REPLACE ] RULE <sth> AS ON" with
+	 * 补全 "CREATE [ OR REPLACE ] RULE <sth> AS ON" 为
 	 * SELECT|UPDATE|INSERT|DELETE
 	 */
 	else if (Matches("CREATE", "RULE", MatchAny, "AS", "ON") ||
@@ -3164,7 +3164,7 @@ psql_completion(const char *text, int start, int end)
 	/* Complete "AS ON SELECT|UPDATE|INSERT|DELETE" with a "TO" */
 	else if (TailMatches("AS", "ON", "SELECT|UPDATE|INSERT|DELETE"))
 		COMPLETE_WITH("TO");
-	/* Complete "AS ON <sth> TO" with a table name */
+	/* 补全 "AS ON <sth> TO" 为 a table name */
 	else if (TailMatches("AS", "ON", "SELECT|UPDATE|INSERT|DELETE", "TO"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_tables);
 
@@ -3196,52 +3196,52 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_tables);
 
 /* CREATE TABLE --- is allowed inside CREATE SCHEMA, so use TailMatches */
-	/* Complete "CREATE TEMP/TEMPORARY" with the possible temp objects */
+	/* 补全 "CREATE TEMP/TEMPORARY" 为 the possible temp objects */
 	else if (TailMatches("CREATE", "TEMP|TEMPORARY"))
 		COMPLETE_WITH("SEQUENCE", "TABLE", "VIEW");
-	/* Complete "CREATE UNLOGGED" with TABLE or MATVIEW */
+	/* 补全 "CREATE UNLOGGED" 为 TABLE or MATVIEW */
 	else if (TailMatches("CREATE", "UNLOGGED"))
 		COMPLETE_WITH("TABLE", "MATERIALIZED VIEW");
-	/* Complete PARTITION BY with RANGE ( or LIST ( or ... */
+	/* 补全 PARTITION BY 为 RANGE ( or LIST ( or ... */
 	else if (TailMatches("PARTITION", "BY"))
 		COMPLETE_WITH("RANGE (", "LIST (", "HASH (");
-	/* If we have xxx PARTITION OF, provide a list of partitioned tables */
+	/* 如果检测到 xxx PARTITION OF，提供 a list of partitioned tables */
 	else if (TailMatches("PARTITION", "OF"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_partitioned_tables);
 	/* Limited completion support for partition bound specification */
 	else if (TailMatches("PARTITION", "OF", MatchAny))
 		COMPLETE_WITH("FOR VALUES", "DEFAULT");
-	/* Complete CREATE TABLE <name> with '(', OF or PARTITION OF */
+	/* 补全 CREATE TABLE <name>为 '(', OF or PARTITION OF */
 	else if (TailMatches("CREATE", "TABLE", MatchAny) ||
 			 TailMatches("CREATE", "TEMP|TEMPORARY|UNLOGGED", "TABLE", MatchAny))
 		COMPLETE_WITH("(", "OF", "PARTITION OF");
-	/* Complete CREATE TABLE <name> OF with list of composite types */
+	/* 补全 CREATE TABLE <name> OF为 list of composite types */
 	else if (TailMatches("CREATE", "TABLE", MatchAny, "OF") ||
 			 TailMatches("CREATE", "TEMP|TEMPORARY|UNLOGGED", "TABLE", MatchAny, "OF"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_composite_datatypes);
-	/* Complete CREATE TABLE name (...) with supported options */
+	/* 补全 CREATE TABLE name (...)为 supported options */
 	else if (TailMatches("CREATE", "TABLE", MatchAny, "(*)") ||
 			 TailMatches("CREATE", "UNLOGGED", "TABLE", MatchAny, "(*)"))
 		COMPLETE_WITH("INHERITS (", "PARTITION BY", "USING", "TABLESPACE", "WITH (");
 	else if (TailMatches("CREATE", "TEMP|TEMPORARY", "TABLE", MatchAny, "(*)"))
 		COMPLETE_WITH("INHERITS (", "ON COMMIT", "PARTITION BY",
 					  "TABLESPACE", "WITH (");
-	/* Complete CREATE TABLE (...) USING with table access methods */
+	/* 补全 CREATE TABLE (...) USING为 table access methods */
 	else if (TailMatches("CREATE", "TABLE", MatchAny, "(*)", "USING") ||
 			 TailMatches("CREATE", "TEMP|TEMPORARY|UNLOGGED", "TABLE", MatchAny, "(*)", "USING"))
 		COMPLETE_WITH_QUERY(Query_for_list_of_table_access_methods);
-	/* Complete CREATE TABLE (...) WITH with storage parameters */
+	/* 补全 CREATE TABLE (...) WITH为 storage parameters */
 	else if (TailMatches("CREATE", "TABLE", MatchAny, "(*)", "WITH", "(") ||
 			 TailMatches("CREATE", "TEMP|TEMPORARY|UNLOGGED", "TABLE", MatchAny, "(*)", "WITH", "("))
 		COMPLETE_WITH_LIST(table_storage_parameters);
-	/* Complete CREATE TABLE ON COMMIT with actions */
+	/* 补全 CREATE TABLE ON COMMIT 为 actions */
 	else if (TailMatches("CREATE", "TEMP|TEMPORARY", "TABLE", MatchAny, "(*)", "ON", "COMMIT"))
 		COMPLETE_WITH("DELETE ROWS", "DROP", "PRESERVE ROWS");
 
 /* CREATE TABLESPACE */
 	else if (Matches("CREATE", "TABLESPACE", MatchAny))
 		COMPLETE_WITH("OWNER", "LOCATION");
-	/* Complete CREATE TABLESPACE name OWNER name with "LOCATION" */
+	/* 补全 CREATE TABLESPACE name OWNER name 为 "LOCATION" */
 	else if (Matches("CREATE", "TABLESPACE", MatchAny, "OWNER", MatchAny))
 		COMPLETE_WITH("LOCATION");
 
@@ -3290,21 +3290,21 @@ psql_completion(const char *text, int start, int end)
 /* CREATE TRIGGER --- is allowed inside CREATE SCHEMA, so use TailMatches */
 
 	/*
-	 * Complete CREATE [ OR REPLACE ] TRIGGER <name> with BEFORE|AFTER|INSTEAD
-	 * OF.
+	 * 补全 CREATE [ OR REPLACE ] TRIGGER <name> 为 BEFORE|AFTER|INSTEAD
+	 * OF。
 	 */
 	else if (TailMatches("CREATE", "TRIGGER", MatchAny) ||
 			 TailMatches("CREATE", "OR", "REPLACE", "TRIGGER", MatchAny))
 		COMPLETE_WITH("BEFORE", "AFTER", "INSTEAD OF");
 
 	/*
-	 * Complete CREATE [ OR REPLACE ] TRIGGER <name> BEFORE,AFTER with an
-	 * event.
+	 * 补全 CREATE [ OR REPLACE ] TRIGGER <name> BEFORE,AFTER 为
+	 * 一个事件。
 	 */
 	else if (TailMatches("CREATE", "TRIGGER", MatchAny, "BEFORE|AFTER") ||
 			 TailMatches("CREATE", "OR", "REPLACE", "TRIGGER", MatchAny, "BEFORE|AFTER"))
 		COMPLETE_WITH("INSERT", "DELETE", "UPDATE", "TRUNCATE");
-	/* Complete CREATE [ OR REPLACE ] TRIGGER <name> INSTEAD OF with an event */
+	/* 补全 CREATE [ OR REPLACE ] TRIGGER <name> INSTEAD OF为 an event */
 	else if (TailMatches("CREATE", "TRIGGER", MatchAny, "INSTEAD", "OF") ||
 			 TailMatches("CREATE", "OR", "REPLACE", "TRIGGER", MatchAny, "INSTEAD", "OF"))
 		COMPLETE_WITH("INSERT", "DELETE", "UPDATE");
@@ -3508,7 +3508,7 @@ psql_completion(const char *text, int start, int end)
 	}
 
 /* CREATE VIEW --- is allowed inside CREATE SCHEMA, so use TailMatches */
-	/* Complete CREATE [ OR REPLACE ] VIEW <name> with AS */
+	/* 补全 CREATE [ OR REPLACE ] VIEW <name>为 AS */
 	else if (TailMatches("CREATE", "VIEW", MatchAny) ||
 			 TailMatches("CREATE", "OR", "REPLACE", "VIEW", MatchAny))
 		COMPLETE_WITH("AS");
@@ -3520,7 +3520,7 @@ psql_completion(const char *text, int start, int end)
 /* CREATE MATERIALIZED VIEW */
 	else if (Matches("CREATE", "MATERIALIZED"))
 		COMPLETE_WITH("VIEW");
-	/* Complete CREATE MATERIALIZED VIEW <name> with AS */
+	/* 补全 CREATE MATERIALIZED VIEW <name>为 AS */
 	else if (Matches("CREATE", "MATERIALIZED", "VIEW", MatchAny))
 		COMPLETE_WITH("AS");
 	/* Complete "CREATE MATERIALIZED VIEW <sth> AS with "SELECT" */
@@ -3530,10 +3530,10 @@ psql_completion(const char *text, int start, int end)
 /* CREATE EVENT TRIGGER */
 	else if (Matches("CREATE", "EVENT"))
 		COMPLETE_WITH("TRIGGER");
-	/* Complete CREATE EVENT TRIGGER <name> with ON */
+	/* 补全 CREATE EVENT TRIGGER <name>为 ON */
 	else if (Matches("CREATE", "EVENT", "TRIGGER", MatchAny))
 		COMPLETE_WITH("ON");
-	/* Complete CREATE EVENT TRIGGER <name> ON with event_type */
+	/* 补全 CREATE EVENT TRIGGER <name> ON为 event_type */
 	else if (Matches("CREATE", "EVENT", "TRIGGER", MatchAny, "ON"))
 		COMPLETE_WITH("ddl_command_start", "ddl_command_end", "sql_drop",
 					  "table_rewrite");
@@ -3570,8 +3570,8 @@ psql_completion(const char *text, int start, int end)
 /* DECLARE */
 
 	/*
-	 * Complete DECLARE <name> with one of BINARY, ASENSITIVE, INSENSITIVE,
-	 * SCROLL, NO SCROLL, and CURSOR.
+	 * 补全 DECLARE <name> 为 BINARY、ASENSITIVE、INSENSITIVE、
+	 * SCROLL、NO SCROLL 或 CURSOR 之一。
 	 */
 	else if (Matches("DECLARE", MatchAny))
 		COMPLETE_WITH("BINARY", "ASENSITIVE", "INSENSITIVE", "SCROLL", "NO SCROLL",
@@ -3590,28 +3590,28 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("SCROLL", "NO SCROLL", "CURSOR");
 	else if (HeadMatches("DECLARE") && TailMatches("SCROLL"))
 		COMPLETE_WITH("CURSOR");
-	/* Complete DECLARE ... [options] NO with SCROLL */
+	/* 补全 DECLARE ... [options] NO为 SCROLL */
 	else if (HeadMatches("DECLARE") && TailMatches("NO"))
 		COMPLETE_WITH("SCROLL");
 
 	/*
-	 * Complete DECLARE ... CURSOR with one of WITH HOLD, WITHOUT HOLD, and
-	 * FOR
+	 * 补全 DECLARE ... CURSOR 为 WITH HOLD、WITHOUT HOLD 或
+	 * FOR 之一
 	 */
 	else if (HeadMatches("DECLARE") && TailMatches("CURSOR"))
 		COMPLETE_WITH("WITH HOLD", "WITHOUT HOLD", "FOR");
-	/* Complete DECLARE ... CURSOR WITH|WITHOUT with HOLD */
+	/* 补全 DECLARE ... CURSOR WITH|WITHOUT为 HOLD */
 	else if (HeadMatches("DECLARE") && TailMatches("CURSOR", "WITH|WITHOUT"))
 		COMPLETE_WITH("HOLD");
-	/* Complete DECLARE ... CURSOR WITH|WITHOUT HOLD with FOR */
+	/* 补全 DECLARE ... CURSOR WITH|WITHOUT HOLD为 FOR */
 	else if (HeadMatches("DECLARE") && TailMatches("CURSOR", "WITH|WITHOUT", "HOLD"))
 		COMPLETE_WITH("FOR");
 
-/* DELETE --- can be inside EXPLAIN, RULE, etc */
-	/* Complete DELETE with "FROM" */
+/* DELETE --- 可以出现在 EXPLAIN, RULE, etc 中 */
+	/* 补全 DELETE 为 "FROM" */
 	else if (Matches("DELETE"))
 		COMPLETE_WITH("FROM");
-	/* Complete DELETE FROM with a list of tables */
+	/* 补全 DELETE FROM 为 a list of tables */
 	else if (TailMatches("DELETE", "FROM"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_updatables);
 	/* Complete DELETE FROM <table> */
@@ -3628,7 +3628,7 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("LANGUAGE");
 
 /* DROP */
-	/* Complete DROP object with CASCADE / RESTRICT */
+	/* 补全 DROP object 为 CASCADE / RESTRICT */
 	else if (Matches("DROP",
 					 "COLLATION|CONVERSION|DOMAIN|EXTENSION|LANGUAGE|PUBLICATION|SCHEMA|SEQUENCE|SERVER|SUBSCRIPTION|STATISTICS|TABLE|TYPE|VIEW",
 					 MatchAny) ||
@@ -3787,8 +3787,8 @@ psql_completion(const char *text, int start, int end)
 /* FETCH && MOVE */
 
 	/*
-	 * Complete FETCH with one of ABSOLUTE, BACKWARD, FORWARD, RELATIVE, ALL,
-	 * NEXT, PRIOR, FIRST, LAST, FROM, IN, and a list of cursors
+	 * 补全 FETCH 为 ABSOLUTE、BACKWARD、FORWARD、RELATIVE、ALL、
+	 * NEXT、PRIOR、FIRST、LAST、FROM、IN 或游标列表之一
 	 */
 	else if (Matches("FETCH|MOVE"))
 		COMPLETE_WITH_QUERY_PLUS(Query_for_list_of_cursors,
@@ -3805,8 +3805,8 @@ psql_completion(const char *text, int start, int end)
 								 "IN");
 
 	/*
-	 * Complete FETCH BACKWARD or FORWARD with one of ALL, FROM, IN, and a
-	 * list of cursors
+	 * 补全 FETCH BACKWARD 或 FORWARD 为 ALL、FROM、IN 或
+	 * 游标列表之一
 	 */
 	else if (Matches("FETCH|MOVE", "BACKWARD|FORWARD"))
 		COMPLETE_WITH_QUERY_PLUS(Query_for_list_of_cursors,
@@ -3825,7 +3825,7 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH_QUERY_PLUS(Query_for_list_of_cursors,
 								 "FROM",
 								 "IN");
-	/* Complete FETCH <direction> "FROM" or "IN" with a list of cursors */
+	/* 补全 FETCH <direction> "FROM" or "IN"为 a list of cursors */
 	else if (HeadMatches("FETCH|MOVE") &&
 			 TailMatches("FROM|IN"))
 		COMPLETE_WITH_QUERY(Query_for_list_of_cursors);
@@ -3850,16 +3850,16 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH_QUERY(Query_for_list_of_servers);
 
 /*
- * GRANT and REVOKE are allowed inside CREATE SCHEMA and
- * ALTER DEFAULT PRIVILEGES, so use TailMatches
+ * GRANT 和 REVOKE 允许出现在 CREATE SCHEMA 和
+ * ALTER DEFAULT PRIVILEGES 内部，因此使用 TailMatches
  */
-	/* Complete GRANT/REVOKE with a list of roles and privileges */
+	/* 补全 GRANT/REVOKE为 a list of roles and privileges */
 	else if (TailMatches("GRANT|REVOKE") ||
 			 TailMatches("REVOKE", "ADMIN|GRANT|INHERIT|SET", "OPTION", "FOR"))
 	{
 		/*
-		 * With ALTER DEFAULT PRIVILEGES, restrict completion to grantable
-		 * privileges (can't grant roles)
+		 * 在 ALTER DEFAULT PRIVILEGES 中，限制补全为可授予的
+		 * 权限（不能授予角色）
 		 */
 		if (HeadMatches("ALTER", "DEFAULT", "PRIVILEGES"))
 			COMPLETE_WITH("SELECT", "INSERT", "UPDATE",
@@ -3935,8 +3935,8 @@ psql_completion(const char *text, int start, int end)
 			 TailMatches("REVOKE", "GRANT", "OPTION", "FOR", MatchAny, "ON"))
 	{
 		/*
-		 * With ALTER DEFAULT PRIVILEGES, restrict completion to the kinds of
-		 * objects supported.
+		 * 在 ALTER DEFAULT PRIVILEGES 中，限制补全为受支持
+		 * 的对象类型。
 		 */
 		if (HeadMatches("ALTER", "DEFAULT", "PRIVILEGES"))
 			COMPLETE_WITH("TABLES", "SEQUENCES", "FUNCTIONS", "PROCEDURES", "ROUTINES", "TYPES", "SCHEMAS");
@@ -3975,10 +3975,10 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("DATA WRAPPER", "SERVER");
 
 	/*
-	 * Complete "GRANT/REVOKE * ON DATABASE/DOMAIN/..." with a list of
-	 * appropriate objects.
+	 * 补全 "GRANT/REVOKE * ON DATABASE/DOMAIN/..." 为
+	 * 适当对象列表。
 	 *
-	 * Complete "GRANT/REVOKE * ON *" with "TO/FROM".
+	 * 补全 "GRANT/REVOKE * ON *" 为 "TO/FROM"。
 	 */
 	else if (TailMatches("GRANT|REVOKE", MatchAny, "ON", MatchAny) ||
 			 TailMatches("REVOKE", "GRANT", "OPTION", "FOR", MatchAny, "ON", MatchAny))
@@ -4012,8 +4012,8 @@ psql_completion(const char *text, int start, int end)
 	}
 
 	/*
-	 * Complete "GRANT/REVOKE ... TO/FROM" with username, PUBLIC,
-	 * CURRENT_ROLE, CURRENT_USER, or SESSION_USER.
+	 * 补全 "GRANT/REVOKE ... TO/FROM" 为用户名、PUBLIC、
+	 * CURRENT_ROLE、CURRENT_USER 或 SESSION_USER。
 	 */
 	else if ((HeadMatches("GRANT") && TailMatches("TO")) ||
 			 (HeadMatches("REVOKE") && TailMatches("FROM")))
@@ -4021,7 +4021,7 @@ psql_completion(const char *text, int start, int end)
 								 Keywords_for_list_of_grant_roles);
 
 	/*
-	 * Offer grant options after that.
+	 * 之后提供授权选项。
 	 */
 	else if (HeadMatches("GRANT") && TailMatches("TO", MatchAny))
 		COMPLETE_WITH("WITH ADMIN",
@@ -4046,7 +4046,7 @@ psql_completion(const char *text, int start, int end)
 	else if (HeadMatches("ALTER", "DEFAULT", "PRIVILEGES") && TailMatches("TO|FROM"))
 		COMPLETE_WITH_QUERY_PLUS(Query_for_list_of_roles,
 								 Keywords_for_list_of_grant_roles);
-	/* Complete "GRANT/REVOKE ... ON * *" with TO/FROM */
+	/* 补全 "GRANT/REVOKE ... ON * *" 为 TO/FROM */
 	else if (HeadMatches("GRANT") && TailMatches("ON", MatchAny, MatchAny))
 		COMPLETE_WITH("TO");
 	else if (HeadMatches("REVOKE") && TailMatches("ON", MatchAny, MatchAny))
@@ -4103,30 +4103,30 @@ psql_completion(const char *text, int start, int end)
 	else if (TailMatches("FROM", "SERVER", MatchAny, "INTO", MatchAny))
 		COMPLETE_WITH("OPTIONS (");
 
-/* INSERT --- can be inside EXPLAIN, RULE, etc */
+/* INSERT --- 可以出现在 EXPLAIN, RULE, etc 中 */
 	/* Complete NOT MATCHED THEN INSERT */
 	else if (TailMatches("NOT", "MATCHED", "THEN", "INSERT"))
 		COMPLETE_WITH("VALUES", "(");
-	/* Complete INSERT with "INTO" */
+	/* 补全 INSERT 为 "INTO" */
 	else if (TailMatches("INSERT"))
 		COMPLETE_WITH("INTO");
-	/* Complete INSERT INTO with table names */
+	/* 补全 INSERT INTO 为 table names */
 	else if (TailMatches("INSERT", "INTO"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_updatables);
-	/* Complete "INSERT INTO <table> (" with attribute names */
+	/* 补全 "INSERT INTO <table> (" 为 attribute names */
 	else if (TailMatches("INSERT", "INTO", MatchAny, "("))
 		COMPLETE_WITH_ATTR(prev2_wd);
 
 	/*
-	 * Complete INSERT INTO <table> with "(" or "VALUES" or "SELECT" or
-	 * "TABLE" or "DEFAULT VALUES" or "OVERRIDING"
+	 * 补全 INSERT INTO <table> 为 "("、"VALUES"、"SELECT"、
+	 * "TABLE"、"DEFAULT VALUES" 或 "OVERRIDING"
 	 */
 	else if (TailMatches("INSERT", "INTO", MatchAny))
 		COMPLETE_WITH("(", "DEFAULT VALUES", "SELECT", "TABLE", "VALUES", "OVERRIDING");
 
 	/*
-	 * Complete INSERT INTO <table> (attribs) with "VALUES" or "SELECT" or
-	 * "TABLE" or "OVERRIDING"
+	 * 补全 INSERT INTO <table> (attribs) 为 "VALUES"、"SELECT"、
+	 * "TABLE" 或 "OVERRIDING"
 	 */
 	else if (TailMatches("INSERT", "INTO", MatchAny, MatchAny) &&
 			 ends_with(prev_wd, ')'))
@@ -4145,7 +4145,7 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("(");
 
 /* LOCK */
-	/* Complete LOCK [TABLE] [ONLY] with a list of tables */
+	/* 补全 LOCK [TABLE] [ONLY]为 a list of tables */
 	else if (Matches("LOCK"))
 		COMPLETE_WITH_SCHEMA_QUERY_PLUS(Query_for_list_of_tables,
 										"TABLE", "ONLY");
@@ -4156,14 +4156,14 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_tables);
 	/* For the following, handle the case of a single table only for now */
 
-	/* Complete LOCK [TABLE] [ONLY] <table> with IN or NOWAIT */
+	/* 补全 LOCK [TABLE] [ONLY] <table>为 IN or NOWAIT */
 	else if (Matches("LOCK", MatchAnyExcept("TABLE|ONLY")) ||
 			 Matches("LOCK", "TABLE", MatchAnyExcept("ONLY")) ||
 			 Matches("LOCK", "ONLY", MatchAny) ||
 			 Matches("LOCK", "TABLE", "ONLY", MatchAny))
 		COMPLETE_WITH("IN", "NOWAIT");
 
-	/* Complete LOCK [TABLE] [ONLY] <table> IN with a lock mode */
+	/* 补全 LOCK [TABLE] [ONLY] <table> IN为 a lock mode */
 	else if (HeadMatches("LOCK") && TailMatches("IN"))
 		COMPLETE_WITH("ACCESS SHARE MODE",
 					  "ROW SHARE MODE", "ROW EXCLUSIVE MODE",
@@ -4172,13 +4172,13 @@ psql_completion(const char *text, int start, int end)
 					  "EXCLUSIVE MODE", "ACCESS EXCLUSIVE MODE");
 
 	/*
-	 * Complete LOCK [TABLE][ONLY] <table> IN ACCESS|ROW with rest of lock
-	 * mode
+	 * 补全 LOCK [TABLE][ONLY] <table> IN ACCESS|ROW 为剩余的锁定
+	 * 模式
 	 */
 	else if (HeadMatches("LOCK") && TailMatches("IN", "ACCESS|ROW"))
 		COMPLETE_WITH("EXCLUSIVE MODE", "SHARE MODE");
 
-	/* Complete LOCK [TABLE] [ONLY] <table> IN SHARE with rest of lock mode */
+	/* 补全 LOCK [TABLE] [ONLY] <table> IN SHARE为 rest of lock mode */
 	else if (HeadMatches("LOCK") && TailMatches("IN", "SHARE"))
 		COMPLETE_WITH("MODE", "ROW EXCLUSIVE MODE",
 					  "UPDATE EXCLUSIVE MODE");
@@ -4187,13 +4187,13 @@ psql_completion(const char *text, int start, int end)
 	else if (HeadMatches("LOCK") && TailMatches("MODE"))
 		COMPLETE_WITH("NOWAIT");
 
-/* MERGE --- can be inside EXPLAIN */
+/* MERGE --- 可以出现在 EXPLAIN 中 */
 	else if (TailMatches("MERGE"))
 		COMPLETE_WITH("INTO");
 	else if (TailMatches("MERGE", "INTO"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_mergetargets);
 
-	/* Complete MERGE INTO <table> [[AS] <alias>] with USING */
+	/* 补全 MERGE INTO <table> [[AS] <alias>]为 USING */
 	else if (TailMatches("MERGE", "INTO", MatchAny))
 		COMPLETE_WITH("USING", "AS");
 	else if (TailMatches("MERGE", "INTO", MatchAny, "AS", MatchAny) ||
@@ -4201,8 +4201,8 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("USING");
 
 	/*
-	 * Complete MERGE INTO ... USING with a list of relations supporting
-	 * SELECT
+	 * 补全 MERGE INTO ... USING 为支持
+	 * SELECT 的关系列表
 	 */
 	else if (TailMatches("MERGE", "INTO", MatchAny, "USING") ||
 			 TailMatches("MERGE", "INTO", MatchAny, "AS", MatchAny, "USING") ||
@@ -4210,8 +4210,8 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_selectables);
 
 	/*
-	 * Complete MERGE INTO <table> [[AS] <alias>] USING <relations> [[AS]
-	 * alias] with ON
+	 * 补全 MERGE INTO <table> [[AS] <alias>] USING <relations> [[AS]
+	 * alias] 为 ON
 	 */
 	else if (TailMatches("MERGE", "INTO", MatchAny, "USING", MatchAny) ||
 			 TailMatches("MERGE", "INTO", MatchAny, "AS", MatchAny, "USING", MatchAny) ||
@@ -4225,7 +4225,7 @@ psql_completion(const char *text, int start, int end)
 			 TailMatches("MERGE", "INTO", MatchAny, MatchAny, "USING", MatchAny, MatchAnyExcept("ON|AS")))
 		COMPLETE_WITH("ON");
 
-	/* Complete MERGE INTO ... ON with target table attributes */
+	/* 补全 MERGE INTO ... ON为 target table attributes */
 	else if (TailMatches("INTO", MatchAny, "USING", MatchAny, "ON"))
 		COMPLETE_WITH_ATTR(prev4_wd);
 	else if (TailMatches("INTO", MatchAny, "AS", MatchAny, "USING", MatchAny, "AS", MatchAny, "ON"))
@@ -4234,8 +4234,8 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH_ATTR(prev6_wd);
 
 	/*
-	 * Complete ... USING <relation> [[AS] alias] ON join condition
-	 * (consisting of one or three words typically used) with WHEN [NOT]
+	 * 补全 ... USING <relation> [[AS] alias] ON 连接条件
+	 * （通常由一或三个单词组成）为 WHEN [NOT]
 	 * MATCHED
 	 */
 	else if (TailMatches("USING", MatchAny, "ON", MatchAny) ||
@@ -4266,7 +4266,7 @@ psql_completion(const char *text, int start, int end)
 	else if (TailMatches("WHEN", "NOT", "MATCHED", "THEN"))
 		COMPLETE_WITH("INSERT", "DO NOTHING");
 
-/* NOTIFY --- can be inside EXPLAIN, RULE, etc */
+/* NOTIFY --- 可以出现在 EXPLAIN, RULE, etc 中 */
 	else if (TailMatches("NOTIFY"))
 		COMPLETE_WITH_QUERY(Query_for_list_of_channels);
 
@@ -4292,8 +4292,8 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("SELECT", "UPDATE", "INSERT INTO", "DELETE FROM");
 
 /*
- * PREPARE TRANSACTION is missing on purpose. It's intended for transaction
- * managers, not for manual use in interactive sessions.
+ * PREPARE TRANSACTION 是故意缺失的。它用于事务管理器，
+ * 而非交互会话中的手动使用。
  */
 
 /* REASSIGN OWNED BY xxx TO yyy */
@@ -4395,7 +4395,7 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("IS");
 
 /* SELECT */
-	/* naah . . . */
+	/* 算了 . . . */
 
 /* SET, RESET, SHOW */
 	/* Complete with a variable name */
@@ -4449,20 +4449,20 @@ psql_completion(const char *text, int start, int end)
 	else if (Matches("SET", "CONSTRAINTS"))
 		COMPLETE_WITH_SCHEMA_QUERY_PLUS(Query_for_list_of_constraints_with_schema,
 										"ALL");
-	/* Complete SET CONSTRAINTS <foo> with DEFERRED|IMMEDIATE */
+	/* 补全 SET CONSTRAINTS <foo>为 DEFERRED|IMMEDIATE */
 	else if (Matches("SET", "CONSTRAINTS", MatchAny))
 		COMPLETE_WITH("DEFERRED", "IMMEDIATE");
 	/* Complete SET ROLE */
 	else if (Matches("SET", "ROLE"))
 		COMPLETE_WITH_QUERY(Query_for_list_of_roles);
-	/* Complete SET SESSION with AUTHORIZATION or CHARACTERISTICS... */
+	/* 补全 SET SESSION 为 AUTHORIZATION or CHARACTERISTICS... */
 	else if (Matches("SET", "SESSION"))
 		COMPLETE_WITH("AUTHORIZATION", "CHARACTERISTICS AS TRANSACTION");
-	/* Complete SET SESSION AUTHORIZATION with username */
+	/* 补全 SET SESSION AUTHORIZATION 为 username */
 	else if (Matches("SET", "SESSION", "AUTHORIZATION"))
 		COMPLETE_WITH_QUERY_PLUS(Query_for_list_of_roles,
 								 "DEFAULT");
-	/* Complete RESET SESSION with AUTHORIZATION */
+	/* 补全 RESET SESSION 为 AUTHORIZATION */
 	else if (Matches("RESET", "SESSION"))
 		COMPLETE_WITH("AUTHORIZATION");
 	/* Complete SET <var> with "TO" */
@@ -4564,14 +4564,14 @@ psql_completion(const char *text, int start, int end)
 	else if (Matches("UNLISTEN"))
 		COMPLETE_WITH_QUERY_PLUS(Query_for_list_of_channels, "*");
 
-/* UPDATE --- can be inside EXPLAIN, RULE, etc */
-	/* If prev. word is UPDATE suggest a list of tables */
+/* UPDATE --- 可以出现在 EXPLAIN, RULE, etc 中 */
+	/* 如果前一个单词是 UPDATE，则建议 a list of tables */
 	else if (TailMatches("UPDATE"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_updatables);
-	/* Complete UPDATE <table> with "SET" */
+	/* 补全 UPDATE <table> 为 "SET" */
 	else if (TailMatches("UPDATE", MatchAny))
 		COMPLETE_WITH("SET");
-	/* Complete UPDATE <table> SET with list of attributes */
+	/* 补全 UPDATE <table> SET为 list of attributes */
 	else if (TailMatches("UPDATE", MatchAny, "SET"))
 		COMPLETE_WITH_ATTR(prev2_wd);
 	/* UPDATE <table> SET <attr> = */
@@ -4647,8 +4647,8 @@ psql_completion(const char *text, int start, int end)
 /* WITH [RECURSIVE] */
 
 	/*
-	 * Only match when WITH is the first word, as WITH may appear in many
-	 * other contexts.
+	 * 仅在 WITH 是第一个单词时匹配，因为 WITH 可能出现在
+	 * 许多其他上下文中。
 	 */
 	else if (Matches("WITH"))
 		COMPLETE_WITH("RECURSIVE");
@@ -4714,7 +4714,7 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_ts_parsers);
 	else if (TailMatchesCS("\\dFt*"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_ts_templates);
-	/* must be at end of \dF alternatives: */
+	/* 必须在 \dF 备选项的末尾： */
 	else if (TailMatchesCS("\\dF*"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_ts_configurations);
 
@@ -4724,7 +4724,7 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH_QUERY(Query_for_list_of_languages);
 	else if (TailMatchesCS("\\dn*"))
 		COMPLETE_WITH_QUERY(Query_for_list_of_schemas);
-	/* no support for completing operators, but we can complete types: */
+	/* 不支持补全 completing operators，但我们可以补全 types： */
 	else if (HeadMatchesCS("\\do*", MatchAny))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_datatypes);
 	else if (TailMatchesCS("\\dp") || TailMatchesCS("\\z"))
@@ -4762,7 +4762,7 @@ psql_completion(const char *text, int start, int end)
 	else if (TailMatchesCS("\\dy*"))
 		COMPLETE_WITH_QUERY(Query_for_list_of_event_triggers);
 
-	/* must be at end of \d alternatives: */
+	/* 必须在 \d 备选项的末尾： */
 	else if (TailMatchesCS("\\d*"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_relations);
 
@@ -4783,8 +4783,8 @@ psql_completion(const char *text, int start, int end)
 			matches = rl_completion_matches(text, alter_command_generator);
 
 		/*
-		 * CREATE is recognized by tail match elsewhere, so doesn't need to be
-		 * repeated here
+		 * CREATE 在其他地方已通过尾部匹配识别，因此不需要
+		 * 在此重复
 		 */
 	}
 	else if (TailMatchesCS("\\h|\\help", MatchAny, MatchAny))
@@ -4887,9 +4887,9 @@ psql_completion(const char *text, int start, int end)
 	}
 
 	/*
-	 * Finally, we look through the list of "things", such as TABLE, INDEX and
-	 * check if that was the previous word. If so, execute the query to get a
-	 * list of them.
+	 * 最后，我们遍历"事物"列表，如 TABLE、INDEX，
+	 * 检查前一个单词是否匹配。若是，则执行查询获取
+	 * 它们的列表。
 	 */
 	else
 	{
@@ -4914,21 +4914,21 @@ psql_completion(const char *text, int start, int end)
 	}
 
 	/*
-	 * If we still don't have anything to match we have to fabricate some sort
-	 * of default list. If we were to just return NULL, readline automatically
-	 * attempts filename completion, and that's usually no good.
+	 * 如果仍然没有可匹配的内容，我们必须构造某种
+	 * 默认列表。如果仅返回 NULL，readline 会自动
+	 * 尝试文件名补全，而这通常不合适。
 	 */
 	if (matches == NULL)
 	{
 		COMPLETE_WITH_CONST(true, "");
-		/* Also, prevent Readline from appending stuff to the non-match */
+		/* 同时防止 Readline 追加内容到不匹配项 */
 		rl_completion_append_character = '\0';
 #ifdef HAVE_RL_COMPLETION_SUPPRESS_QUOTE
 		rl_completion_suppress_quote = 1;
 #endif
 	}
 
-	/* free storage */
+	/* 释放存储空间 */
 	free(previous_words);
 	free(words_buffer);
 	free(text_copy);
@@ -4937,7 +4937,7 @@ psql_completion(const char *text, int start, int end)
 	free(completion_ref_schema);
 	completion_ref_schema = NULL;
 
-	/* Return our Grand List O' Matches */
+	/* 返回我们的匹配项大列表 */
 	return matches;
 }
 
@@ -4957,8 +4957,8 @@ psql_completion(const char *text, int start, int end)
  */
 
 /*
- * Common routine for create_command_generator and drop_command_generator.
- * Entries that have 'excluded' flags are not returned.
+ * create_command_generator 和 drop_command_generator 的公共例程。
+ * 具有 'excluded' 标志的条目不返回。
  */
 static char *
 create_or_drop_command_generator(const char *text, int state, bits32 excluded)
@@ -4967,27 +4967,27 @@ create_or_drop_command_generator(const char *text, int state, bits32 excluded)
 				string_length;
 	const char *name;
 
-	/* If this is the first time for this completion, init some values */
+	/* 如果这是此补全的第一次，初始化一些值 */
 	if (state == 0)
 	{
 		list_index = 0;
 		string_length = strlen(text);
 	}
 
-	/* find something that matches */
+	/* 查找匹配的内容 */
 	while ((name = words_after_create[list_index++].name))
 	{
 		if ((pg_strncasecmp(name, text, string_length) == 0) &&
 			!(words_after_create[list_index - 1].flags & excluded))
 			return pg_strdup_keyword_case(name, text);
 	}
-	/* if nothing matches, return NULL */
+	/* 如果没有匹配项，返回 NULL */
 	return NULL;
 }
 
 /*
- * This one gives you one from a list of things you can put after CREATE
- * as defined above.
+ * 返回一个可放在 CREATE 之后的事物列表中的项目
+ * （如上定义）。
  */
 static char *
 create_command_generator(const char *text, int state)
@@ -4996,7 +4996,7 @@ create_command_generator(const char *text, int state)
 }
 
 /*
- * This function gives you a list of things you can put after a DROP command.
+ * 返回一个可放在 DROP 命令之后的事物列表。
  */
 static char *
 drop_command_generator(const char *text, int state)
@@ -5005,7 +5005,7 @@ drop_command_generator(const char *text, int state)
 }
 
 /*
- * This function gives you a list of things you can put after an ALTER command.
+ * 返回一个可放在 ALTER 命令之后的事物列表。
  */
 static char *
 alter_command_generator(const char *text, int state)
@@ -5014,14 +5014,14 @@ alter_command_generator(const char *text, int state)
 }
 
 /*
- * These functions generate lists using server queries.
- * They are all wrappers for _complete_from_query.
+ * 这些函数使用服务器查询生成列表。
+ * 它们都是 _complete_from_query 的包装器。
  */
 
 static char *
 complete_from_query(const char *text, int state)
 {
-	/* query is assumed to work for any server version */
+	/* 假定查询适用于任何服务器版本 */
 	return _complete_from_query(completion_charp, NULL, completion_charpp,
 								completion_verbatim, text, state);
 }
@@ -5031,10 +5031,10 @@ complete_from_versioned_query(const char *text, int state)
 {
 	const VersionedQuery *vquery = completion_vquery;
 
-	/* Find appropriate array element */
+	/* 找到合适的数组元素 */
 	while (pset.sversion < vquery->min_server_version)
 		vquery++;
-	/* Fail completion if server is too old */
+	/* 如果服务器版本过旧则补全失败 */
 	if (vquery->query == NULL)
 		return NULL;
 
@@ -5045,7 +5045,7 @@ complete_from_versioned_query(const char *text, int state)
 static char *
 complete_from_schema_query(const char *text, int state)
 {
-	/* query is assumed to work for any server version */
+	/* 假定查询适用于任何服务器版本 */
 	return _complete_from_query(NULL, completion_squery, completion_charpp,
 								completion_verbatim, text, state);
 }
@@ -5055,10 +5055,10 @@ complete_from_versioned_schema_query(const char *text, int state)
 {
 	const SchemaQuery *squery = completion_squery;
 
-	/* Find appropriate array element */
+	/* 找到合适的数组元素 */
 	while (pset.sversion < squery->min_server_version)
 		squery++;
-	/* Fail completion if server is too old */
+	/* 如果服务器版本过旧则补全失败 */
 	if (squery->catname == NULL)
 		return NULL;
 
@@ -5125,8 +5125,8 @@ _complete_from_query(const char *simple_query,
 	static bool objectquoted;
 
 	/*
-	 * If this is the first time for this completion, we fetch a list of our
-	 * "things" from the backend.
+	 * 若这是此补全的第一次，我们从后端获取
+	 * "事物"列表。
 	 */
 	if (state == 0)
 	{
@@ -5138,7 +5138,7 @@ _complete_from_query(const char *simple_query,
 		char	   *e_ref_object;
 		char	   *e_ref_schema;
 
-		/* Reset static state, ensuring no memory leaks */
+		/* 重置静态状态，确保没有内存泄漏 */
 		list_index = 0;
 		num_schema_only = 0;
 		num_query_other = 0;
@@ -5146,7 +5146,7 @@ _complete_from_query(const char *simple_query,
 		PQclear(result);
 		result = NULL;
 
-		/* Parse text, splitting into schema and object name if needed */
+		/* 解析文本，根据需要分割为模式和对象名 */
 		if (verbatim)
 		{
 			objectname = pg_strdup(text);
@@ -5159,12 +5159,12 @@ _complete_from_query(const char *simple_query,
 							 &schemaquoted, &objectquoted);
 		}
 
-		/* Remember whether the user has typed anything in the object part */
+		/* 记住用户是否在对象部分键入了任何内容 */
 		non_empty_object = (*objectname != '\0');
 
 		/*
-		 * Convert objectname to a LIKE prefix pattern (e.g. 'foo%'), and set
-		 * up suitably-escaped copies of all the strings we need.
+		 * 将 objectname 转换为 LIKE 前缀模式（例如 'foo%'），并设置
+		 * 所有所需字符串的适当转义副本。
 		 */
 		e_object_like = make_like_pattern(objectname);
 
@@ -5196,7 +5196,7 @@ _complete_from_query(const char *simple_query,
 			 */
 			if (schemaname == NULL || schema_query->namespace == NULL)
 			{
-				/* Get unqualified names matching the input-so-far */
+				/* 获取匹配当前输入的非限定名称 */
 				appendPQExpBufferStr(&query_buffer, "SELECT ");
 				if (schema_query->use_distinct)
 					appendPQExpBufferStr(&query_buffer, "DISTINCT ");
@@ -5279,7 +5279,7 @@ _complete_from_query(const char *simple_query,
 			}
 			else
 			{
-				/* Input is qualified, so produce only qualified names */
+				/* 输入是限定的，因此只生成限定名称 */
 				appendPQExpBufferStr(&query_buffer, "SELECT ");
 				if (schema_query->use_distinct)
 					appendPQExpBufferStr(&query_buffer, "DISTINCT ");
@@ -5320,20 +5320,20 @@ _complete_from_query(const char *simple_query,
 		else
 		{
 			Assert(simple_query);
-			/* simple_query is an sprintf-style format string */
+			/* simple_query 是一个 sprintf 风格的格式字符串 */
 			appendPQExpBuffer(&query_buffer, simple_query,
 							  e_object_like,
 							  e_ref_object, e_ref_schema);
 		}
 
-		/* Limit the number of records in the result */
+		/* 限制结果中的记录数量 */
 		appendPQExpBuffer(&query_buffer, "\nLIMIT %d",
 						  completion_max_records);
 
-		/* Finally, we can issue the query */
+		/* 最终，我们可以发出查询 */
 		result = exec_query(query_buffer.data);
 
-		/* Clean up */
+		/* 清理 */
 		termPQExpBuffer(&query_buffer);
 		free(schemaname);
 		free(objectname);
@@ -5343,7 +5343,7 @@ _complete_from_query(const char *simple_query,
 		free(e_ref_schema);
 	}
 
-	/* Return the next result, if any, but not if the query failed */
+	/* 返回下一个结果（如果有），但查询失败时不返回 */
 	if (result && PQresultStatus(result) == PGRES_TUPLES_OK)
 	{
 		int			nskip;
@@ -5360,7 +5360,7 @@ _complete_from_query(const char *simple_query,
 				nsp = PQgetvalue(result, list_index, 1);
 			list_index++;
 
-			/* In verbatim mode, we return all the items as-is */
+			/* 在逐字模式下，我们原样返回所有项目 */
 			if (verbatim)
 			{
 				num_query_other++;
@@ -5382,7 +5382,7 @@ _complete_from_query(const char *simple_query,
 					continue;
 			}
 
-			/* Count schema-only results for hack below */
+			/* 计算仅模式结果的数量，用于下面的特殊处理 */
 			if (item == NULL && nsp != NULL)
 				num_schema_only++;
 			else
@@ -5443,7 +5443,7 @@ _complete_from_query(const char *simple_query,
 	if (num_schema_only > 0 && num_query_other == 0 && num_keywords == 0)
 		rl_completion_append_character = '\0';
 
-	/* No more matches, so free the result structure and return null */
+	/* 没有更多匹配项，释放结果结构并返回 null */
 	PQclear(result);
 	result = NULL;
 	return NULL;
@@ -5467,8 +5467,8 @@ set_completion_reference(const char *word)
 }
 
 /*
- * Set up completion_ref_object when it should just be
- * the given word verbatim.
+ * 设置 completion_ref_object 为给定单词的
+ * 逐字拷贝。
  */
 static void
 set_completion_reference_verbatim(const char *word)
@@ -5492,10 +5492,10 @@ complete_from_list(const char *text, int state)
 	static bool casesensitive;
 	const char *item;
 
-	/* need to have a list */
+	/* 需要有一个列表 */
 	Assert(completion_charpp != NULL);
 
-	/* Initialization */
+	/* 初始化 */
 	if (state == 0)
 	{
 		list_index = 0;
@@ -5506,14 +5506,14 @@ complete_from_list(const char *text, int state)
 
 	while ((item = completion_charpp[list_index++]))
 	{
-		/* First pass is case sensitive */
+		/* 第一遍区分大小写 */
 		if (casesensitive && strncmp(text, item, string_length) == 0)
 		{
 			matches++;
 			return pg_strdup(item);
 		}
 
-		/* Second pass is case insensitive, don't bother counting matches */
+		/* 第二遍不区分大小写，不必计数匹配项 */
 		if (!casesensitive && pg_strncasecmp(text, item, string_length) == 0)
 		{
 			if (completion_case_sensitive)
@@ -5529,8 +5529,8 @@ complete_from_list(const char *text, int state)
 	}
 
 	/*
-	 * No matches found. If we're not case insensitive already, lets switch to
-	 * being case insensitive and try again
+	 * 未找到匹配项。若尚未不区分大小写，则切换为
+	 * 不区分大小写并重试
 	 */
 	if (casesensitive && matches == 0)
 	{
@@ -5540,7 +5540,7 @@ complete_from_list(const char *text, int state)
 		return complete_from_list(text, state);
 	}
 
-	/* If no more matches, return null. */
+	/* 如果没有更多匹配项，返回 null。 */
 	return NULL;
 }
 
@@ -5585,8 +5585,8 @@ complete_from_const(const char *text, int state)
 
 
 /*
- * This function appends the variable name with prefix and suffix to
- * the variable names array.
+ * 此函数将变量名连同前缀和后缀追加到
+ * 变量名数组。
  */
 static void
 append_variable_names(char ***varnames, int *nvars,
@@ -5680,7 +5680,7 @@ complete_from_files(const char *text, int state)
 	rl_completion_suppress_quote = 1;
 #endif
 
-	/* If user typed a quote, force quoting (never remove user's quote) */
+	/* 如果用户键入了引号，强制引用（绝不删除用户的引号） */
 	if (*text == '\'')
 		completion_force_quote = true;
 
@@ -5688,22 +5688,22 @@ complete_from_files(const char *text, int state)
 #else
 
 	/*
-	 * Otherwise, we have to do the best we can.
+	 * 否则，我们只能尽力而为。
 	 */
 	static const char *unquoted_text;
 	char	   *unquoted_match;
 	char	   *ret = NULL;
 
-	/* If user typed a quote, force quoting (never remove user's quote) */
+	/* 如果用户键入了引号，强制引用（绝不删除用户的引号） */
 	if (*text == '\'')
 		completion_force_quote = true;
 
 	if (state == 0)
 	{
-		/* Initialization: stash the unquoted input. */
+		/* 初始化：储存未引用的输入。 */
 		unquoted_text = strtokx(text, "", NULL, "'", *completion_charp,
 								false, true, pset.encoding);
-		/* expect a NULL return for the empty string only */
+		/* 仅对空字符串期望 NULL 返回 */
 		if (!unquoted_text)
 		{
 			Assert(*text == '\0');
@@ -5718,7 +5718,7 @@ complete_from_files(const char *text, int state)
 		bool		is_dir = (stat(unquoted_match, &statbuf) == 0 &&
 							  S_ISDIR(statbuf.st_mode) != 0);
 
-		/* Re-quote the result, if needed. */
+		/* 如果需要，重新引用结果。 */
 		ret = quote_if_needed(unquoted_match, " \t\r\n\"`",
 							  '\'', *completion_charp,
 							  completion_force_quote,
@@ -5739,7 +5739,7 @@ complete_from_files(const char *text, int state)
 
 			Assert(*retend == '\'');
 			*retend = '/';
-			/* Prevent libedit from adding a space, too */
+			/* 同时防止 libedit 添加空格 */
 			rl_completion_append_character = '\0';
 		}
 	}
@@ -5753,8 +5753,8 @@ complete_from_files(const char *text, int state)
 
 
 /*
- * Make a pg_strdup copy of s and convert the case according to
- * COMP_KEYWORD_CASE setting, using ref as the text that was already entered.
+ * 创建 s 的 pg_strdup 拷贝并根据 COMP_KEYWORD_CASE 设置
+ * 转换大小写，使用 ref 作为已输入的文本。
  */
 static char *
 pg_strdup_keyword_case(const char *s, const char *ref)
@@ -5784,9 +5784,9 @@ pg_strdup_keyword_case(const char *s, const char *ref)
 
 
 /*
- * escape_string - Escape argument for use as string literal.
+ * escape_string - 转义参数以用作字符串字面量。
  *
- * The returned value has to be freed.
+ * 返回的值需要使用后释放。
  */
 static char *
 escape_string(const char *text)
@@ -5869,11 +5869,11 @@ parse_identifier(const char *ident,
 	char	   *optr;
 	bool		inquotes;
 
-	/* Initialize, making a certainly-large-enough output buffer */
+	/* 初始化，创建一个足够大的输出缓冲区 */
 	sname = NULL;
 	oname = pg_malloc(buflen);
 	*schemaquoted = *objectquoted = false;
-	/* Scan */
+	/* 扫描 */
 	optr = oname;
 	inquotes = false;
 	while (*ident)
@@ -5884,7 +5884,7 @@ parse_identifier(const char *ident,
 		{
 			if (inquotes && *ident == '"')
 			{
-				/* two quote marks within a quoted identifier = emit quote */
+				/* 引用标识符中的两个引号 = 输出一个引号 */
 				*optr++ = '"';
 				ident++;
 			}
@@ -5896,9 +5896,9 @@ parse_identifier(const char *ident,
 		}
 		else if (ch == '.' && !inquotes)
 		{
-			/* Found a schema name, transfer it to sname / *schemaquoted */
+			/* 找到模式名，将其转移到 sname / *schemaquoted */
 			*optr = '\0';
-			free(sname);		/* drop any catalog name */
+			free(sname);		/* 丢弃任何目录名 */
 			sname = oname;
 			oname = pg_malloc(buflen);
 			optr = oname;
@@ -5961,21 +5961,21 @@ requote_identifier(const char *schemaname, const char *objectname,
 				   bool quote_schema, bool quote_object)
 {
 	char	   *result;
-	size_t		buflen = 1;		/* count the trailing \0 */
+	size_t		buflen = 1;		/* 计算结尾的 \0 */
 	char	   *ptr;
 
 	/*
-	 * We could use PQescapeIdentifier for some of this, but not all, and it
-	 * adds more notational cruft than it seems worth.
+	 * 部分操作可使用 PQescapeIdentifier，但不是全部，且它
+	 * 增加的符号杂乱程度超过了其价值。
 	 */
 	if (schemaname)
 	{
-		buflen += strlen(schemaname) + 1;	/* +1 for the dot */
+		buflen += strlen(schemaname) + 1;	/* +1 用于点号 */
 		if (!quote_schema)
 			quote_schema = identifier_needs_quotes(schemaname);
 		if (quote_schema)
 		{
-			buflen += 2;		/* account for quote marks */
+			buflen += 2;		/* 计入引号 */
 			for (const char *p = schemaname; *p; p++)
 			{
 				if (*p == '"')
@@ -5990,7 +5990,7 @@ requote_identifier(const char *schemaname, const char *objectname,
 			quote_object = identifier_needs_quotes(objectname);
 		if (quote_object)
 		{
-			buflen += 2;		/* account for quote marks */
+			buflen += 2;		/* 计入引号 */
 			for (const char *p = objectname; *p; p++)
 			{
 				if (*p == '"')
@@ -6043,7 +6043,7 @@ identifier_needs_quotes(const char *ident)
 {
 	int			kwnum;
 
-	/* Check syntax. */
+	/* 检查语法。 */
 	if (!((ident[0] >= 'a' && ident[0] <= 'z') || ident[0] == '_'))
 		return true;
 	if (strspn(ident, "abcdefghijklmnopqrstuvwxyz0123456789_") != strlen(ident))
@@ -6068,8 +6068,8 @@ identifier_needs_quotes(const char *ident)
 
 
 /*
- * Execute a query, returning NULL if there was any error.
- * This should be the preferred way of talking to the database in this file.
+ * 执行查询，若有任何错误则返回 NULL。
+ * 这应是本文件中与数据库通信的首选方式。
  */
 static PGresult *
 exec_query(const char *query)
@@ -6134,7 +6134,7 @@ get_previous_words(int point, char **buffer, int *nwords)
 		memcpy(buf + i, rl_line_buffer, point);
 		i += point;
 		buf[i] = '\0';
-		/* Readjust point to reference appropriate offset in buf */
+		/* 重新调整 point 以引用 buf 中的适当偏移量 */
 		point = i;
 	}
 	else
@@ -6163,9 +6163,9 @@ get_previous_words(int point, char **buffer, int *nwords)
 	point = i;
 
 	/*
-	 * Now parse words, working backwards, until we hit start of line.  The
-	 * backwards scan has some interesting but intentional properties
-	 * concerning parenthesis handling.
+	 * 现在向后解析单词，直到到达行首。
+	 * 向后扫描在括号处理方面具有一些有趣但
+	 * 是有意设计的特性。
 	 */
 	while (point >= 0)
 	{
@@ -6174,7 +6174,7 @@ get_previous_words(int point, char **buffer, int *nwords)
 		bool		inquotes = false;
 		int			parentheses = 0;
 
-		/* now find the first non-space which then constitutes the end */
+		/* 现在找到第一个非空格字符，它构成结束位置 */
 		end = -1;
 		for (i = point; i >= 0; i--)
 		{
@@ -6184,7 +6184,7 @@ get_previous_words(int point, char **buffer, int *nwords)
 				break;
 			}
 		}
-		/* if no end found, we're done */
+		/* 如果没有找到结束位置，则完成 */
 		if (end < 0)
 			break;
 
@@ -6213,18 +6213,18 @@ get_previous_words(int point, char **buffer, int *nwords)
 			}
 		}
 
-		/* Return the word located at start to end inclusive */
+		/* 返回位于 start 到 end（含）之间的单词 */
 		previous_words[words_found++] = outptr;
 		i = end - start + 1;
 		memcpy(outptr, &buf[start], i);
 		outptr += i;
 		*outptr++ = '\0';
 
-		/* Continue searching */
+		/* 继续搜索 */
 		point = start - 1;
 	}
 
-	/* Release parsing input workspace, if we made one above */
+	/* 释放解析输入工作区（如果上面创建了的话） */
 	if (buf != rl_line_buffer)
 		free(buf);
 
@@ -6280,7 +6280,7 @@ quote_file_name(char *fname, int match_type, char *quote_pointer)
 	char	   *s;
 	struct stat statbuf;
 
-	/* Quote if needed. */
+	/* 如果需要则引用。 */
 	s = quote_if_needed(fname, " \t\r\n\"`",
 						'\'', *completion_charp,
 						completion_force_quote,
@@ -6320,9 +6320,9 @@ quote_file_name(char *fname, int match_type, char *quote_pointer)
 #endif
 
 	/*
-	 * If user typed a leading quote character other than single quote (i.e.,
-	 * double quote), zap it, so that we replace it with the correct single
-	 * quote.
+	 * 若用户键入了除单引号之外的前导引号字符（即
+	 * 双引号），清除它，以便用正确的单引号
+	 * 替换。
 	 */
 	if (quote_pointer && *quote_pointer != '\'')
 		*quote_pointer = '\0';
@@ -6331,9 +6331,9 @@ quote_file_name(char *fname, int match_type, char *quote_pointer)
 }
 
 /*
- * Dequote a filename, if it's quoted.
- * completion_charp must point to escape character or '\0', as per
- * comments for complete_from_files().
+ * 去掉文件名的引号（如果被引用）。
+ * completion_charp 必须指向转义字符或 '\0'，详见
+ * complete_from_files() 的注释。
  */
 static char *
 dequote_file_name(char *fname, int quote_char)
@@ -6359,14 +6359,14 @@ dequote_file_name(char *fname, int quote_char)
 		unquoted_fname = strtokx(fname, "", NULL, "'", *completion_charp,
 								 false, true, pset.encoding);
 
-	/* expect a NULL return for the empty string only */
+	/* 仅对空字符串期望 NULL 返回 */
 	if (!unquoted_fname)
 	{
 		Assert(*fname == '\0');
 		unquoted_fname = fname;
 	}
 
-	/* readline expects a malloc'd result that it is to free */
+	/* readline 期望一个由 malloc 分配的结果，它将释放 */
 	return pg_strdup(unquoted_fname);
 }
 

@@ -12,16 +12,16 @@
 #include <pwd.h>
 #include <utime.h>
 #ifndef WIN32
-#include <sys/stat.h>			/* for stat() */
-#include <sys/time.h>			/* for setitimer() */
-#include <fcntl.h>				/* open() flags */
-#include <unistd.h>				/* for geteuid(), getpid(), stat() */
+#include <sys/stat.h>			/* 用于 stat() */
+#include <sys/time.h>			/* 用于 setitimer() */
+#include <fcntl.h>				/* open() 标志 */
+#include <unistd.h>				/* 用于 geteuid()、getpid()、stat() */
 #else
 #include <win32.h>
 #include <io.h>
 #include <fcntl.h>
 #include <direct.h>
-#include <sys/stat.h>			/* for stat() */
+#include <sys/stat.h>			/* 用于 stat() */
 #endif
 
 #include "catalog/pg_class_d.h"
@@ -48,7 +48,7 @@
 #include "variables.h"
 
 /*
- * Editable database object types.
+ * 可编辑的数据库对象类型。
  */
 typedef enum EditableObjectType
 {
@@ -56,7 +56,7 @@ typedef enum EditableObjectType
 	EditableView
 } EditableObjectType;
 
-/* local function declarations */
+/* 局部函数声明 */
 static backslashResult exec_command(const char *cmd,
 									PsqlScanState scan_state,
 									ConditionalStack cstack,
@@ -190,30 +190,30 @@ static char *restrict_key;
 
 
 /*----------
- * HandleSlashCmds:
+ * HandleSlashCmds：
  *
- * Handles all the different commands that start with '\'.
- * Ordinarily called by MainLoop().
+ * 处理所有以 '\\' 开头的不同命令。
+ * 通常由 MainLoop() 调用。
  *
- * scan_state is a lexer working state that is set to continue scanning
- * just after the '\'.  The lexer is advanced past the command and all
- * arguments on return.
+ * scan_state 是一个词法分析器工作状态，设置为在 '\\' 之后继续扫描。
+ * 返回时词法分析器已越过命令及其所有参数。
  *
- * cstack is the current \if stack state.  This will be examined, and
- * possibly modified by conditional commands.
+ * cstack 是当前的 \\if 栈状态。它会被检查，并可能被条件命令修改。
  *
- * query_buf contains the query-so-far, which may be modified by
- * execution of the backslash command (for example, \r clears it).
+ * query_buf 包含当前查询，它可能被反斜杠命令的执行修改
+ *（例如，\\r 会清空它）。
  *
- * previous_buf contains the query most recently sent to the server
- * (empty if none yet).  This should not be modified here, but some
- * commands copy its content into query_buf.
+ * previous_buf 包含最近发送到服务器的查询
+ *（如果尚无则为空）。此处不应修改它，但某些
+ * 命令会将其内容复制到 query_buf。
  *
- * query_buf and previous_buf will be NULL when executing a "-c"
- * command-line option.
+ * 执行 "-c" 命令行选项时，query_buf 和 previous_buf 将为 NULL。
  *
- * Returns a status code indicating what action is desired, see command.h.
+ * 返回表示所需操作的状态码，参见 command.h。
  *----------
+  *
+  *
+  *
  */
 
 backslashResult
@@ -229,15 +229,15 @@ HandleSlashCmds(PsqlScanState scan_state,
 	Assert(scan_state != NULL);
 	Assert(cstack != NULL);
 
-	/* Parse off the command name */
+	/* 解析出命令名称 */
 	cmd = psql_scan_slash_command(scan_state);
 
 	/*
-	 * And try to execute it.
-	 *
-	 * If we are in "restricted" mode, the only allowable backslash command is
-	 * \unrestrict (to exit restricted mode).
-	 */
+\t * 然后尝试执行它。
+\t *
+\t * 如果我们处于"受限"模式，唯一允许的反斜杠命令是
+\t * \\unrestrict（用于退出受限模式）。
+\t */
 	if (restricted && strcmp(cmd, "unrestrict") != 0)
 	{
 		pg_log_error("backslash commands are restricted; only \\unrestrict is allowed");
@@ -257,10 +257,10 @@ HandleSlashCmds(PsqlScanState scan_state,
 	if (status != PSQL_CMD_ERROR)
 	{
 		/*
-		 * Eat any remaining arguments after a valid command.  We want to
-		 * suppress evaluation of backticks in this situation, so transiently
-		 * push an inactive conditional-stack entry.
-		 */
+\t\t\t * 消费有效命令后的所有剩余参数。我们想要
+\t\t\t * 在这种情况下抑制反引号的求值，因此临时
+\t\t\t * 压入一个非活动的条件栈条目。
+\t\t\t */
 		bool		active_branch = conditional_active(cstack);
 
 		conditional_stack_push(cstack, IFSTATE_IGNORED);
@@ -275,18 +275,18 @@ HandleSlashCmds(PsqlScanState scan_state,
 	}
 	else
 	{
-		/* silently throw away rest of line after an erroneous command */
+		/* 在错误命令后静默丢弃该行的剩余部分 */
 		while ((arg = psql_scan_slash_option(scan_state,
 											 OT_WHOLE_LINE, NULL, false)))
 			free(arg);
 	}
 
-	/* if there is a trailing \\, swallow it */
+	/* 如果有尾随的 \\\\，吞掉它 */
 	psql_scan_slash_command_end(scan_state);
 
 	free(cmd);
 
-	/* some commands write to queryFout, so make sure output is sent */
+	/* 某些命令会写入 queryFout，因此确保输出已发送 */
 	fflush(pset.queryFout);
 
 	return status;
@@ -294,11 +294,11 @@ HandleSlashCmds(PsqlScanState scan_state,
 
 
 /*
- * Subroutine to actually try to execute a backslash command.
+ * 实际尝试执行反斜杠命令的子例程。
  *
- * The typical "success" result code is PSQL_CMD_SKIP_LINE, although some
- * commands return something else.  Failure result code is PSQL_CMD_ERROR,
- * unless PSQL_CMD_UNKNOWN is more appropriate.
+ * 典型的"成功"结果码是 PSQL_CMD_SKIP_LINE，尽管某些
+ * 命令返回其他结果。失败结果码是 PSQL_CMD_ERROR，
+ * 除非 PSQL_CMD_UNKNOWN 更合适。
  */
 static backslashResult
 exec_command(const char *cmd,
@@ -311,12 +311,12 @@ exec_command(const char *cmd,
 	bool		active_branch = conditional_active(cstack);
 
 	/*
-	 * In interactive mode, warn when we're ignoring a command within a false
-	 * \if-branch.  But we continue on, so as to parse and discard the right
-	 * amount of parameter text.  Each individual backslash command subroutine
-	 * is responsible for doing nothing after discarding appropriate
-	 * arguments, if !active_branch.
-	 */
+\t * 在交互模式下，当我们在假的 \\if 分支中忽略命令时发出警告。
+\t * 但我们继续执行，以便解析并丢弃正确数量的参数文本。
+\t * 各个反斜杠命令子例程负责在 !active_branch 时，
+\t * 在丢弃适当的参数后不做任何事。
+	  *
+\t */
 	if (pset.cur_cmd_interactive && !active_branch &&
 		!is_branching_command(cmd))
 	{
@@ -445,10 +445,10 @@ exec_command(const char *cmd,
 		status = PSQL_CMD_UNKNOWN;
 
 	/*
-	 * All the commands that return PSQL_CMD_SEND want to execute previous_buf
-	 * if query_buf is empty.  For convenience we implement that here, not in
-	 * the individual command subroutines.
-	 */
+\t * 所有返回 PSQL_CMD_SEND 的命令都希望在 query_buf 为空时
+\t * 执行 previous_buf。为方便起见，我们在此处实现它，
+\t * 而不是在各个命令子例程中实现。
+\t */
 	if (status == PSQL_CMD_SEND)
 		(void) copy_previous_query(query_buf, previous_buf);
 
@@ -457,9 +457,9 @@ exec_command(const char *cmd,
 
 
 /*
- * \a -- toggle field alignment
+ * \\a —— 切换字段对齐
  *
- * This makes little sense but we keep it around.
+ * 这没什么意义，但我们保留它。
  */
 static backslashResult
 exec_command_a(PsqlScanState scan_state, bool active_branch)
@@ -478,7 +478,7 @@ exec_command_a(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \bind -- set query parameters
+ * \\bind —— 设置查询参数
  */
 static backslashResult
 exec_command_bind(PsqlScanState scan_state, bool active_branch)
@@ -512,7 +512,7 @@ exec_command_bind(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \C -- override table title (formerly change HTML caption)
+ * \\C —— 覆盖表标题（以前是修改 HTML 标题）
  */
 static backslashResult
 exec_command_C(PsqlScanState scan_state, bool active_branch)
@@ -534,18 +534,18 @@ exec_command_C(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \c or \connect -- connect to database using the specified parameters.
+ * \\c 或 \\connect —— 使用指定参数连接到数据库。
  *
- * \c [-reuse-previous=BOOL] dbname user host port
+ * \\c [-reuse-previous=BOOL] dbname user host port
  *
- * Specifying a parameter as '-' is equivalent to omitting it.  Examples:
+ * 将参数指定为 '-' 等同于省略它。示例：
  *
- * \c - - hst		Connect to current database on current port of
- *					host "hst" as current user.
- * \c - usr - prt	Connect to current database on port "prt" of current host
- *					as user "usr".
- * \c dbs			Connect to database "dbs" on current port of current host
- *					as current user.
+ * \\c - - hst\t\t以当前用户身份连接到当前端口上
+ *\t\t\t\t\t主机 "hst" 的当前数据库。
+ * \\c - usr - prt\t以用户 "usr" 身份连接到当前主机上
+ *\t\t\t\t\t端口 "prt" 的当前数据库。
+ * \\c dbs\t\t\t以当前用户身份连接到当前主机上
+ *\t\t\t\t\t当前端口的数据库 "dbs"。
  */
 static backslashResult
 exec_command_connect(PsqlScanState scan_state, bool active_branch)
@@ -577,7 +577,7 @@ exec_command_connect(PsqlScanState scan_state, bool active_branch)
 			}
 		}
 
-		if (success)			/* give up if reuse_previous was invalid */
+		if (success)			/* 如果 reuse_previous 无效则放弃 */
 		{
 			opt2 = read_connect_arg(scan_state);
 			opt3 = read_connect_arg(scan_state);
@@ -598,7 +598,7 @@ exec_command_connect(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \cd -- change directory
+ * \\cd —— 更改目录
  */
 static backslashResult
 exec_command_cd(PsqlScanState scan_state, bool active_branch, const char *cmd)
@@ -616,14 +616,14 @@ exec_command_cd(PsqlScanState scan_state, bool active_branch, const char *cmd)
 		else
 		{
 #ifndef WIN32
-			/* This should match get_home_path() */
+			/* 这应与 get_home_path() 匹配 */
 			dir = getenv("HOME");
 			if (dir == NULL || dir[0] == '\0')
 			{
 				uid_t		user_id = geteuid();
 				struct passwd *pw;
 
-				errno = 0;		/* clear errno before call */
+				errno = 0;		/* 调用前清除 errno */
 				pw = getpwuid(user_id);
 				if (pw)
 					dir = pw->pw_dir;
@@ -638,9 +638,9 @@ exec_command_cd(PsqlScanState scan_state, bool active_branch, const char *cmd)
 #else							/* WIN32 */
 
 			/*
-			 * On Windows, 'cd' without arguments prints the current
-			 * directory, so if someone wants to code this here instead...
-			 */
+\t\t\t * 在 Windows 上，不带参数执行 'cd' 会打印当前
+\t\t\t * 目录，如果有人想在这里也实现这个功能的话…
+\t\t\t */
 			dir = "/";
 #endif							/* WIN32 */
 		}
@@ -662,7 +662,7 @@ exec_command_cd(PsqlScanState scan_state, bool active_branch, const char *cmd)
 }
 
 /*
- * \conninfo -- display information about the current connection
+ * \\conninfo —— 显示当前连接的信息
  */
 static backslashResult
 exec_command_conninfo(PsqlScanState scan_state, bool active_branch)
@@ -680,7 +680,7 @@ exec_command_conninfo(PsqlScanState scan_state, bool active_branch)
 
 			if (is_unixsock_path(host))
 			{
-				/* hostaddr overrides host */
+				/* hostaddr 会覆盖 host */
 				if (hostaddr && *hostaddr)
 					printf(_("You are connected to database \"%s\" as user \"%s\" on address \"%s\" at port \"%s\".\n"),
 						   db, PQuser(pset.db), hostaddr, PQport(pset.db));
@@ -706,7 +706,7 @@ exec_command_conninfo(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \copy -- run a COPY command
+ * \\copy —— 运行 COPY 命令
  */
 static backslashResult
 exec_command_copy(PsqlScanState scan_state, bool active_branch)
@@ -740,7 +740,7 @@ exec_command_copyright(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \crosstabview -- execute a query and display result in crosstab
+ * \\crosstabview —— 执行查询并以交叉表形式显示结果
  */
 static backslashResult
 exec_command_crosstabview(PsqlScanState scan_state, bool active_branch)
@@ -764,7 +764,7 @@ exec_command_crosstabview(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \d* commands
+ * \\d* 命令
  */
 static backslashResult
 exec_command_d(PsqlScanState scan_state, bool active_branch, const char *cmd)
@@ -778,7 +778,7 @@ exec_command_d(PsqlScanState scan_state, bool active_branch, const char *cmd)
 		bool		show_verbose,
 					show_system;
 
-		/* We don't do SQLID reduction on the pattern yet */
+		/* 我们尚未对模式执行 SQLID 缩减 */
 		pattern = psql_scan_slash_option(scan_state,
 										 OT_NORMAL, NULL, true);
 
@@ -793,7 +793,7 @@ exec_command_d(PsqlScanState scan_state, bool active_branch, const char *cmd)
 				if (pattern)
 					success = describeTableDetails(pattern, show_verbose, show_system);
 				else
-					/* standard listing of interesting things */
+					/* 有趣对象的标准列表 */
 					success = listTables("tvmsE", NULL, show_verbose, show_system);
 				break;
 			case 'A':
@@ -857,7 +857,7 @@ exec_command_d(PsqlScanState scan_state, bool active_branch, const char *cmd)
 			case 'D':
 				success = listDomains(pattern, show_verbose, show_system);
 				break;
-			case 'f':			/* function subsystem */
+			case 'f':			/* 函数子系统 */
 				switch (cmd[2])
 				{
 					case '\0':
@@ -877,7 +877,7 @@ exec_command_d(PsqlScanState scan_state, bool active_branch, const char *cmd)
 				}
 				break;
 			case 'g':
-				/* no longer distinct from \du */
+				/* 不再与 \\du 区分 */
 				success = describeRoles(pattern, show_verbose, show_system);
 				break;
 			case 'l':
@@ -963,7 +963,7 @@ exec_command_d(PsqlScanState scan_state, bool active_branch, const char *cmd)
 			case 'u':
 				success = describeRoles(pattern, show_verbose, show_system);
 				break;
-			case 'F':			/* text search subsystem */
+			case 'F':			/* 文本搜索子系统 */
 				switch (cmd[2])
 				{
 					case '\0':
@@ -984,7 +984,7 @@ exec_command_d(PsqlScanState scan_state, bool active_branch, const char *cmd)
 						break;
 				}
 				break;
-			case 'e':			/* SQL/MED subsystem */
+			case 'e':			/* SQL/MED 子系统 */
 				switch (cmd[2])
 				{
 					case 's':
@@ -1004,16 +1004,16 @@ exec_command_d(PsqlScanState scan_state, bool active_branch, const char *cmd)
 						break;
 				}
 				break;
-			case 'x':			/* Extensions */
+			case 'x':			/* 扩展 */
 				if (show_verbose)
 					success = listExtensionContents(pattern);
 				else
 					success = listExtensions(pattern);
 				break;
-			case 'X':			/* Extended Statistics */
+			case 'X':			/* 扩展统计信息 */
 				success = listExtendedStats(pattern);
 				break;
-			case 'y':			/* Event Triggers */
+			case 'y':			/* 事件触发器 */
 				success = listEventTriggers(pattern, show_verbose);
 				break;
 			default:
@@ -1031,7 +1031,7 @@ exec_command_d(PsqlScanState scan_state, bool active_branch, const char *cmd)
 	return status;
 }
 
-/* \df and \do; messy enough to split out of exec_command_d */
+/* \\df 和 \\do；足够复杂，从 exec_command_d 中分离出来 */
 static bool
 exec_command_dfo(PsqlScanState scan_state, const char *cmd,
 				 const char *pattern,
@@ -1041,8 +1041,8 @@ exec_command_dfo(PsqlScanState scan_state, const char *cmd,
 	char	   *arg_patterns[FUNC_MAX_ARGS];
 	int			num_arg_patterns = 0;
 
-	/* Collect argument-type patterns too */
-	if (pattern)				/* otherwise it was just \df or \do */
+	/* 同时收集参数类型模式 */
+	if (pattern)				/* 否则它只是 \\df 或 \\do */
 	{
 		char	   *ap;
 
@@ -1051,7 +1051,7 @@ exec_command_dfo(PsqlScanState scan_state, const char *cmd,
 		{
 			arg_patterns[num_arg_patterns++] = ap;
 			if (num_arg_patterns >= FUNC_MAX_ARGS)
-				break;			/* protect limited-size array */
+				break;			/* 保护大小有限的数组 */
 		}
 	}
 
@@ -1071,8 +1071,8 @@ exec_command_dfo(PsqlScanState scan_state, const char *cmd,
 }
 
 /*
- * \e or \edit -- edit the current query buffer, or edit a file and
- * make it the query buffer
+ * \\e 或 \\edit —— 编辑当前查询缓冲区，或编辑文件并
+ * 将其设为查询缓冲区
  */
 static backslashResult
 exec_command_edit(PsqlScanState scan_state, bool active_branch,
@@ -1097,16 +1097,16 @@ exec_command_edit(PsqlScanState scan_state, bool active_branch,
 										   OT_NORMAL, NULL, true);
 			if (fname)
 			{
-				/* try to get separate lineno arg */
+				/* 尝试获取单独的行号参数 */
 				ln = psql_scan_slash_option(scan_state,
 											OT_NORMAL, NULL, true);
 				if (ln == NULL)
 				{
-					/* only one arg; maybe it is lineno not fname */
+					/* 只有一个参数；也许它是行号而不是文件名 */
 					if (fname[0] &&
 						strspn(fname, "0123456789") == strlen(fname))
 					{
-						/* all digits, so assume it is lineno */
+						/* 全部为数字，因此假定它是行号 */
 						ln = fname;
 						fname = NULL;
 					}
@@ -1129,16 +1129,16 @@ exec_command_edit(PsqlScanState scan_state, bool active_branch,
 				if (fname)
 				{
 					canonicalize_path_enc(fname, pset.encoding);
-					/* Always clear buffer if the file isn't modified */
+					/* 如果文件未被修改，始终清空缓冲区 */
 					discard_on_quit = true;
 				}
 				else
 				{
 					/*
-					 * If query_buf is empty, recall previous query for
-					 * editing.  But in that case, the query buffer should be
-					 * emptied if editing doesn't modify the file.
-					 */
+ * 如果 query_buf 为空，调用之前的查询进行
+ * 编辑。但在这种情况下，如果编辑未修改文件，
+ * 则应清空查询缓冲区。
+ */
 					discard_on_quit = copy_previous_query(query_buf,
 														  previous_buf);
 				}
@@ -1159,8 +1159,8 @@ exec_command_edit(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \ef/\ev -- edit the named function/view, or
- * present a blank CREATE FUNCTION/VIEW template if no argument is given
+ * \\ef/\\ev —— 编辑命名的函数或视图，或
+ * 在未提供参数时显示空白的 CREATE FUNCTION/VIEW 模板
  */
 static backslashResult
 exec_command_ef_ev(PsqlScanState scan_state, bool active_branch,
@@ -1188,12 +1188,12 @@ exec_command_ef_ev(PsqlScanState scan_state, bool active_branch,
 			lineno = strip_lineno_from_objdesc(obj_desc);
 			if (lineno == 0)
 			{
-				/* error already reported */
+				/* 错误已报告 */
 				status = PSQL_CMD_ERROR;
 			}
 			else if (!obj_desc)
 			{
-				/* set up an empty command to fill in */
+				/* 设置一个空命令来填充 */
 				resetPQExpBuffer(query_buf);
 				if (is_func)
 					appendPQExpBufferStr(query_buf,
@@ -1211,25 +1211,25 @@ exec_command_ef_ev(PsqlScanState scan_state, bool active_branch,
 			}
 			else if (!lookup_object_oid(eot, obj_desc, &obj_oid))
 			{
-				/* error already reported */
+				/* 错误已报告 */
 				status = PSQL_CMD_ERROR;
 			}
 			else if (!get_create_object_cmd(eot, obj_oid, query_buf))
 			{
-				/* error already reported */
+				/* 错误已报告 */
 				status = PSQL_CMD_ERROR;
 			}
 			else if (is_func && lineno > 0)
 			{
 				/*
-				 * lineno "1" should correspond to the first line of the
-				 * function body.  We expect that pg_get_functiondef() will
-				 * emit that on a line beginning with "AS ", "BEGIN ", or
-				 * "RETURN ", and that there can be no such line before the
-				 * real start of the function body.  Increment lineno by the
-				 * number of lines before that line, so that it becomes
-				 * relative to the first line of the function definition.
-				 */
+\t\t\t\t * 行号 "1" 应对应于函数体的第一行。
+\t\t\t\t * 我们期望 pg_get_functiondef() 将其输出在以
+\t\t\t\t * "AS "、"BEGIN " 或 "RETURN " 开头的行上，
+\t\t\t\t * 且在函数体的真正开始之前不会有这样的行。
+\t\t\t\t * 将 lineno 递增该行之前的行数，使其相对于
+\t\t\t\t * 函数定义的第一行。
+				  *
+\t\t\t\t */
 				const char *lines = query_buf->data;
 
 				while (*lines != '\0')
@@ -1239,7 +1239,7 @@ exec_command_ef_ev(PsqlScanState scan_state, bool active_branch,
 						strncmp(lines, "RETURN ", 7) == 0)
 						break;
 					lineno++;
-					/* find start of next line */
+					/* 查找下一行的开头 */
 					lines = strchr(lines, '\n');
 					if (!lines)
 						break;
@@ -1269,7 +1269,7 @@ exec_command_ef_ev(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \echo, \qecho, and \warn -- echo arguments to stdout, query output, or stderr
+ * \\echo、\\qecho 和 \\warn —— 将参数回显到 stdout、查询输出或 stderr
  */
 static backslashResult
 exec_command_echo(PsqlScanState scan_state, bool active_branch, const char *cmd)
@@ -1314,7 +1314,7 @@ exec_command_echo(PsqlScanState scan_state, bool active_branch, const char *cmd)
 }
 
 /*
- * \encoding -- set/show client side encoding
+ * \\encoding —— 设置或显示客户端编码
  */
 static backslashResult
 exec_command_encoding(PsqlScanState scan_state, bool active_branch)
@@ -1326,17 +1326,17 @@ exec_command_encoding(PsqlScanState scan_state, bool active_branch)
 
 		if (!encoding)
 		{
-			/* show encoding */
+			/* 显示编码 */
 			puts(pg_encoding_to_char(pset.encoding));
 		}
 		else
 		{
-			/* set encoding */
+			/* 设置编码 */
 			if (PQsetClientEncoding(pset.db, encoding) == -1)
 				pg_log_error("%s: invalid encoding name or conversion procedure not found", encoding);
 			else
 			{
-				/* save encoding info into psql internal data */
+				/* 将编码信息保存到 psql 内部数据中 */
 				pset.encoding = PQclientEncoding(pset.db);
 				pset.popt.topt.encoding = pset.encoding;
 				setFmtEncoding(pset.encoding);
@@ -1353,7 +1353,7 @@ exec_command_encoding(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \errverbose -- display verbose message from last failed query
+ * \\errverbose —— 显示上次失败查询的详细消息
  */
 static backslashResult
 exec_command_errverbose(PsqlScanState scan_state, bool active_branch)
@@ -1383,7 +1383,7 @@ exec_command_errverbose(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \f -- change field separator
+ * \\f —— 更改字段分隔符
  */
 static backslashResult
 exec_command_f(PsqlScanState scan_state, bool active_branch)
@@ -1405,13 +1405,13 @@ exec_command_f(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \g  [(pset-option[=pset-value] ...)] [filename/shell-command]
- * \gx [(pset-option[=pset-value] ...)] [filename/shell-command]
+ * \\g  [(pset-option[=pset-value] ...)] [filename/shell-command]
+ * \\gx [(pset-option[=pset-value] ...)] [filename/shell-command]
  *
- * Send the current query.  If pset options are specified, they are made
- * active just for this query.  If a filename or pipe command is given,
- * the query output goes there.  \gx implicitly sets "expanded=on" along
- * with any other pset options that are specified.
+ * 发送当前查询。如果指定了 pset 选项，它们仅在此查询中生效。
+ * 如果给出了文件名或管道命令，查询输出将重定向到那里。
+ * \\gx 隐式设置 "expanded=on" 以及任何其他指定的 pset 选项。
+  *
  */
 static backslashResult
 exec_command_g(PsqlScanState scan_state, bool active_branch, const char *cmd)
@@ -1420,19 +1420,19 @@ exec_command_g(PsqlScanState scan_state, bool active_branch, const char *cmd)
 	char	   *fname;
 
 	/*
-	 * Because the option processing for this is fairly complicated, we do it
-	 * and then decide whether the branch is active.
-	 */
+ * 由于此处的选项处理相当复杂，我们先处理它，
+ * 然后再决定分支是否处于活动状态。
+ */
 	fname = psql_scan_slash_option(scan_state,
 								   OT_FILEPIPE, NULL, false);
 
 	if (fname && fname[0] == '(')
 	{
-		/* Consume pset options through trailing ')' ... */
+		/* 消费 pset 选项直到尾随的 ')' … */
 		status = process_command_g_options(fname + 1, scan_state,
 										   active_branch, cmd);
 		free(fname);
-		/* ... and again attempt to scan the filename. */
+		/* …然后再次尝试扫描文件名。 */
 		fname = psql_scan_slash_option(scan_state,
 									   OT_FILEPIPE, NULL, false);
 	}
@@ -1448,7 +1448,7 @@ exec_command_g(PsqlScanState scan_state, bool active_branch, const char *cmd)
 		}
 		if (strcmp(cmd, "gx") == 0)
 		{
-			/* save settings if not done already, then force expanded=on */
+			/* 如果尚未保存设置，则保存之，然后强制 expanded=on */
 			if (pset.gsavepopt == NULL)
 				pset.gsavepopt = savePsetInfo(&pset.popt);
 			pset.popt.topt.expanded = 1;
@@ -1462,9 +1462,9 @@ exec_command_g(PsqlScanState scan_state, bool active_branch, const char *cmd)
 }
 
 /*
- * Process parenthesized pset options for \g
+ * 处理 \\g 的括号内 pset 选项
  *
- * Note: okay to modify first_option, but not to free it; caller does that
+ * 注意：可以修改 first_option，但不能释放它；由调用者执行。
  */
 static backslashResult
 process_command_g_options(char *first_option, PsqlScanState scan_state,
@@ -1478,7 +1478,7 @@ process_command_g_options(char *first_option, PsqlScanState scan_state,
 		char	   *option;
 		size_t		optlen;
 
-		/* If not first time through, collect a new option */
+		/* 如果不是第一次遍历，收集一个新选项 */
 		if (first_option)
 			option = first_option;
 		else
@@ -1496,7 +1496,7 @@ process_command_g_options(char *first_option, PsqlScanState scan_state,
 			}
 		}
 
-		/* Check for terminating right paren, and remove it from string */
+		/* 检查终止右括号，并将其从字符串中删除 */
 		optlen = strlen(option);
 		if (optlen > 0 && option[optlen - 1] == ')')
 		{
@@ -1504,31 +1504,31 @@ process_command_g_options(char *first_option, PsqlScanState scan_state,
 			found_r_paren = true;
 		}
 
-		/* If there was anything besides parentheses, parse/execute it */
+		/* 如果括号之外还有内容，解析并执行它 */
 		if (optlen > 0)
 		{
-			/* We can have either "name" or "name=value" */
+			/* 我们可以有 "name" 或 "name=value" */
 			char	   *valptr = strchr(option, '=');
 
 			if (valptr)
 				*valptr++ = '\0';
 			if (active_branch)
 			{
-				/* save settings if not done already, then apply option */
+				/* 如果尚未保存设置，则保存之，然后应用选项 */
 				if (pset.gsavepopt == NULL)
 					pset.gsavepopt = savePsetInfo(&pset.popt);
 				success &= do_pset(option, valptr, &pset.popt, true);
 			}
 		}
 
-		/* Clean up after this option.  We should not free first_option. */
+		/* 清理此选项。我们不应释放 first_option。 */
 		if (first_option)
 			first_option = NULL;
 		else
 			free(option);
 	} while (!found_r_paren);
 
-	/* If we failed after already changing some options, undo side-effects */
+	/* 如果在更改某些选项后失败，撤销副作用 */
 	if (!success && active_branch && pset.gsavepopt)
 	{
 		restorePsetInfo(&pset.popt, pset.gsavepopt);
@@ -1539,7 +1539,7 @@ process_command_g_options(char *first_option, PsqlScanState scan_state,
 }
 
 /*
- * \gdesc -- describe query result
+ * \\gdesc —— 描述查询结果
  */
 static backslashResult
 exec_command_gdesc(PsqlScanState scan_state, bool active_branch)
@@ -1556,7 +1556,7 @@ exec_command_gdesc(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \getenv -- set variable from environment variable
+ * \\getenv —— 从环境变量设置变量
  */
 static backslashResult
 exec_command_getenv(PsqlScanState scan_state, bool active_branch,
@@ -1593,7 +1593,7 @@ exec_command_getenv(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \gexec -- send query and execute each field of result
+ * \\gexec —— 发送查询并执行结果的每个字段
  */
 static backslashResult
 exec_command_gexec(PsqlScanState scan_state, bool active_branch)
@@ -1610,7 +1610,7 @@ exec_command_gexec(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \gset [prefix] -- send query and store result into variables
+ * \\gset [prefix] —— 发送查询并将结果存储到变量中
  */
 static backslashResult
 exec_command_gset(PsqlScanState scan_state, bool active_branch)
@@ -1626,10 +1626,10 @@ exec_command_gset(PsqlScanState scan_state, bool active_branch)
 			pset.gset_prefix = prefix;
 		else
 		{
-			/* we must set a non-NULL prefix to trigger storing */
+			/* 我们必须设置非 NULL 前缀才能触发存储 */
 			pset.gset_prefix = pg_strdup("");
 		}
-		/* gset_prefix is freed later */
+		/* gset_prefix 稍后释放 */
 		status = PSQL_CMD_SEND;
 	}
 	else
@@ -1639,7 +1639,7 @@ exec_command_gset(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \help [topic] -- print help about SQL commands
+ * \\help [topic] —— 打印 SQL 命令的帮助信息
  */
 static backslashResult
 exec_command_help(PsqlScanState scan_state, bool active_branch)
@@ -1650,7 +1650,7 @@ exec_command_help(PsqlScanState scan_state, bool active_branch)
 												 OT_WHOLE_LINE, NULL, false);
 		size_t		len;
 
-		/* strip any trailing spaces and semicolons */
+		/* 去除尾随的空格和分号 */
 		if (opt)
 		{
 			len = strlen(opt);
@@ -1670,7 +1670,7 @@ exec_command_help(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \H and \html -- toggle HTML formatting
+ * \\H 和 \\html —— 切换 HTML 格式化
  */
 static backslashResult
 exec_command_html(PsqlScanState scan_state, bool active_branch)
@@ -1689,7 +1689,7 @@ exec_command_html(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \i and \ir -- include a file
+ * \\i 和 \\ir —— 包含一个文件
  */
 static backslashResult
 exec_command_include(PsqlScanState scan_state, bool active_branch, const char *cmd)
@@ -1724,13 +1724,13 @@ exec_command_include(PsqlScanState scan_state, bool active_branch, const char *c
 }
 
 /*
- * \if <expr> -- beginning of an \if..\endif block
+ * \\if <expr> —— 一个 \\if..\\endif 块的开始
  *
- * <expr> is parsed as a boolean expression.  Invalid expressions will emit a
- * warning and be treated as false.  Statements that follow a false expression
- * will be parsed but ignored.  Note that in the case where an \if statement
- * is itself within an inactive section of a block, then the entire inner
- * \if..\endif block will be parsed but ignored.
+ * <expr> 被解析为布尔表达式。无效的表达式将发出
+ * 警告并被视为 false。跟在 false 表达式后面的语句
+ * 将被解析但被忽略。请注意，如果 \\if 语句本身位于
+ * 块的非活动部分中，则整个内部 \\if..\\endif 块
+ * 将被解析但被忽略。
  */
 static backslashResult
 exec_command_if(PsqlScanState scan_state, ConditionalStack cstack,
@@ -1739,32 +1739,32 @@ exec_command_if(PsqlScanState scan_state, ConditionalStack cstack,
 	if (conditional_active(cstack))
 	{
 		/*
-		 * First, push a new active stack entry; this ensures that the lexer
-		 * will perform variable substitution and backtick evaluation while
-		 * scanning the expression.  (That should happen anyway, since we know
-		 * we're in an active outer branch, but let's be sure.)
-		 */
+ * 首先，压入一个新的活动栈条目；这确保词法分析器
+ * 在扫描表达式时执行变量替换和反引号求值。
+ *（无论如何都应该发生，因为我们知道我们在活动的
+ * 外部分支中，但为了确保万无一失。）
+ */
 		conditional_stack_push(cstack, IFSTATE_TRUE);
 
-		/* Remember current query state in case we need to restore later */
+		/* 记住当前查询状态，以备后续恢复之需 */
 		save_query_text_state(scan_state, cstack, query_buf);
 
 		/*
-		 * Evaluate the expression; if it's false, change to inactive state.
-		 */
+ * 求值表达式；如果为 false，则切换到非活动状态。
+ */
 		if (!is_true_boolean_expression(scan_state, "\\if expression"))
 			conditional_stack_poke(cstack, IFSTATE_FALSE);
 	}
 	else
 	{
 		/*
-		 * We're within an inactive outer branch, so this entire \if block
-		 * will be ignored.  We don't want to evaluate the expression, so push
-		 * the "ignored" stack state before scanning it.
-		 */
+ * 我们在一个非活动的外部分支中，因此整个 \\if 块
+ * 将被忽略。我们不想求值表达式，因此在扫描之前
+ * 压入 "ignored" 栈状态。
+ */
 		conditional_stack_push(cstack, IFSTATE_IGNORED);
 
-		/* Remember current query state in case we need to restore later */
+		/* 记住当前查询状态，以备后续恢复之需 */
 		save_query_text_state(scan_state, cstack, query_buf);
 
 		ignore_boolean_expression(scan_state);
@@ -1774,9 +1774,9 @@ exec_command_if(PsqlScanState scan_state, ConditionalStack cstack,
 }
 
 /*
- * \elif <expr> -- alternative branch in an \if..\endif block
+ * \\elif <expr> —— \\if..\\endif 块中的备选分支
  *
- * <expr> is evaluated the same as in \if <expr>.
+ * <expr> 的求值方式与 \\if <expr> 相同。
  */
 static backslashResult
 exec_command_elif(PsqlScanState scan_state, ConditionalStack cstack,
@@ -1789,32 +1789,32 @@ exec_command_elif(PsqlScanState scan_state, ConditionalStack cstack,
 		case IFSTATE_TRUE:
 
 			/*
-			 * Just finished active branch of this \if block.  Update saved
-			 * state so we will keep whatever data was put in query_buf by the
-			 * active branch.
-			 */
+ * 刚刚完成此 \\if 块的活动分支。更新保存的
+ * 状态，以便保留活动分支放入 query_buf 的
+ * 任何数据。
+ */
 			save_query_text_state(scan_state, cstack, query_buf);
 
 			/*
-			 * Discard \elif expression and ignore the rest until \endif.
-			 * Switch state before reading expression to ensure proper lexer
-			 * behavior.
-			 */
+ * 丢弃 \\elif 表达式并忽略直到 \\endif 的内容。
+ * 在读取表达式之前切换状态以确保正确的词法分析器行为。
+			  *
+ */
 			conditional_stack_poke(cstack, IFSTATE_IGNORED);
 			ignore_boolean_expression(scan_state);
 			break;
 		case IFSTATE_FALSE:
 
 			/*
-			 * Discard any query text added by the just-skipped branch.
-			 */
+ * 丢弃刚刚跳过的分支添加的查询文本。
+ */
 			discard_query_text(scan_state, cstack, query_buf);
 
 			/*
-			 * Have not yet found a true expression in this \if block, so this
-			 * might be the first.  We have to change state before examining
-			 * the expression, or the lexer won't do the right thing.
-			 */
+ * 尚未在此 \\if 块中找到 true 表达式，因此这
+ * 可能是第一个。我们必须在检查表达式之前更改状态，
+ * 否则词法分析器不会做正确的事。
+ */
 			conditional_stack_poke(cstack, IFSTATE_TRUE);
 			if (!is_true_boolean_expression(scan_state, "\\elif expression"))
 				conditional_stack_poke(cstack, IFSTATE_FALSE);
@@ -1822,14 +1822,14 @@ exec_command_elif(PsqlScanState scan_state, ConditionalStack cstack,
 		case IFSTATE_IGNORED:
 
 			/*
-			 * Discard any query text added by the just-skipped branch.
-			 */
+ * 丢弃刚刚跳过的分支添加的查询文本。
+ */
 			discard_query_text(scan_state, cstack, query_buf);
 
 			/*
-			 * Skip expression and move on.  Either the \if block already had
-			 * an active section, or whole block is being skipped.
-			 */
+ * 跳过表达式继续。\\if 块要么已经有一个活动部分，
+ * 要么整个块正在被跳过。
+ */
 			ignore_boolean_expression(scan_state);
 			break;
 		case IFSTATE_ELSE_TRUE:
@@ -1838,7 +1838,7 @@ exec_command_elif(PsqlScanState scan_state, ConditionalStack cstack,
 			success = false;
 			break;
 		case IFSTATE_NONE:
-			/* no \if to elif from */
+			/* 没有 \\if 来从中 elif */
 			pg_log_error("\\elif: no matching \\if");
 			success = false;
 			break;
@@ -1848,11 +1848,11 @@ exec_command_elif(PsqlScanState scan_state, ConditionalStack cstack,
 }
 
 /*
- * \else -- final alternative in an \if..\endif block
+ * \\else —— \\if..\\endif 块中的最终备选分支
  *
- * Statements within an \else branch will only be executed if
- * all previous \if and \elif expressions evaluated to false
- * and the block was not itself being ignored.
+ * \\else 分支中的语句仅在所有先前的
+ * \\if 和 \\elif 表达式都求值为 false
+ * 且该块本身未被忽略时才执行。
  */
 static backslashResult
 exec_command_else(PsqlScanState scan_state, ConditionalStack cstack,
@@ -1865,40 +1865,40 @@ exec_command_else(PsqlScanState scan_state, ConditionalStack cstack,
 		case IFSTATE_TRUE:
 
 			/*
-			 * Just finished active branch of this \if block.  Update saved
-			 * state so we will keep whatever data was put in query_buf by the
-			 * active branch.
-			 */
+ * 刚刚完成此 \\if 块的活动分支。更新保存的
+ * 状态，以便保留活动分支放入 query_buf 的
+ * 任何数据。
+ */
 			save_query_text_state(scan_state, cstack, query_buf);
 
-			/* Now skip the \else branch */
+			/* 现在跳过 \\else 分支 */
 			conditional_stack_poke(cstack, IFSTATE_ELSE_FALSE);
 			break;
 		case IFSTATE_FALSE:
 
 			/*
-			 * Discard any query text added by the just-skipped branch.
-			 */
+ * 丢弃刚刚跳过的分支添加的查询文本。
+ */
 			discard_query_text(scan_state, cstack, query_buf);
 
 			/*
-			 * We've not found any true \if or \elif expression, so execute
-			 * the \else branch.
-			 */
+ * 我们尚未找到任何 true 的 \\if 或 \\elif 表达式，
+ * 因此执行 \\else 分支。
+ */
 			conditional_stack_poke(cstack, IFSTATE_ELSE_TRUE);
 			break;
 		case IFSTATE_IGNORED:
 
 			/*
-			 * Discard any query text added by the just-skipped branch.
-			 */
+ * 丢弃刚刚跳过的分支添加的查询文本。
+ */
 			discard_query_text(scan_state, cstack, query_buf);
 
 			/*
-			 * Either we previously processed the active branch of this \if,
-			 * or the whole \if block is being skipped.  Either way, skip the
-			 * \else branch.
-			 */
+ * 我们要么之前处理过此 \\if 块的活动分支，
+ * 要么整个 \\if 块正在被跳过。无论哪种情况，
+ * 都跳过 \\else 分支。
+ */
 			conditional_stack_poke(cstack, IFSTATE_ELSE_FALSE);
 			break;
 		case IFSTATE_ELSE_TRUE:
@@ -1907,7 +1907,7 @@ exec_command_else(PsqlScanState scan_state, ConditionalStack cstack,
 			success = false;
 			break;
 		case IFSTATE_NONE:
-			/* no \if to else from */
+			/* 没有 \\if 来从中 else */
 			pg_log_error("\\else: no matching \\if");
 			success = false;
 			break;
@@ -1917,7 +1917,7 @@ exec_command_else(PsqlScanState scan_state, ConditionalStack cstack,
 }
 
 /*
- * \endif -- ends an \if...\endif block
+ * \\endif —— 结束 \\if...\\endif 块
  */
 static backslashResult
 exec_command_endif(PsqlScanState scan_state, ConditionalStack cstack,
@@ -1929,7 +1929,7 @@ exec_command_endif(PsqlScanState scan_state, ConditionalStack cstack,
 	{
 		case IFSTATE_TRUE:
 		case IFSTATE_ELSE_TRUE:
-			/* Close the \if block, keeping the query text */
+			/* 关闭 \\if 块，保留查询文本 */
 			success = conditional_stack_pop(cstack);
 			Assert(success);
 			break;
@@ -1938,16 +1938,16 @@ exec_command_endif(PsqlScanState scan_state, ConditionalStack cstack,
 		case IFSTATE_ELSE_FALSE:
 
 			/*
-			 * Discard any query text added by the just-skipped branch.
-			 */
+ * 丢弃刚刚跳过的分支添加的查询文本。
+ */
 			discard_query_text(scan_state, cstack, query_buf);
 
-			/* Close the \if block */
+			/* 关闭 \\if 块 */
 			success = conditional_stack_pop(cstack);
 			Assert(success);
 			break;
 		case IFSTATE_NONE:
-			/* no \if to end */
+			/* 没有 \\if 来结束 */
 			pg_log_error("\\endif: no matching \\if");
 			success = false;
 			break;
@@ -1957,7 +1957,7 @@ exec_command_endif(PsqlScanState scan_state, ConditionalStack cstack,
 }
 
 /*
- * \l -- list databases
+ * \\l —— 列出数据库
  */
 static backslashResult
 exec_command_list(PsqlScanState scan_state, bool active_branch, const char *cmd)
@@ -1985,7 +1985,7 @@ exec_command_list(PsqlScanState scan_state, bool active_branch, const char *cmd)
 }
 
 /*
- * \lo_* -- large object operations
+ * \\lo_* —— 大对象操作
  */
 static backslashResult
 exec_command_lo(PsqlScanState scan_state, bool active_branch, const char *cmd)
@@ -2063,7 +2063,7 @@ exec_command_lo(PsqlScanState scan_state, bool active_branch, const char *cmd)
 }
 
 /*
- * \o -- set query output
+ * \\o —— 设置查询输出
  */
 static backslashResult
 exec_command_out(PsqlScanState scan_state, bool active_branch)
@@ -2086,7 +2086,7 @@ exec_command_out(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \p -- print the current query buffer
+ * \\p —— 打印当前查询缓冲区
  */
 static backslashResult
 exec_command_print(PsqlScanState scan_state, bool active_branch,
@@ -2095,10 +2095,10 @@ exec_command_print(PsqlScanState scan_state, bool active_branch,
 	if (active_branch)
 	{
 		/*
-		 * We want to print the same thing \g would execute, but not to change
-		 * the query buffer state; so we can't use copy_previous_query().
-		 * Also, beware of possibility that buffer pointers are NULL.
-		 */
+ * 我们想要打印 \\g 将会执行的相同内容，但不改变
+ * 查询缓冲区的状态；因此我们不能使用
+ * copy_previous_query()。另外，注意缓冲区指针可能为 NULL。
+ */
 		if (query_buf && query_buf->len > 0)
 			puts(query_buf->data);
 		else if (previous_buf && previous_buf->len > 0)
@@ -2112,7 +2112,7 @@ exec_command_print(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \password -- set user password
+ * \\password —— 设置用户密码
  */
 static backslashResult
 exec_command_password(PsqlScanState scan_state, bool active_branch)
@@ -2130,7 +2130,7 @@ exec_command_password(PsqlScanState scan_state, bool active_branch)
 
 		if (user == NULL)
 		{
-			/* By default, the command applies to CURRENT_USER */
+			/* 默认情况下，该命令应用于 CURRENT_USER */
 			PGresult   *res;
 
 			res = PSQLexec("SELECT CURRENT_USER");
@@ -2141,7 +2141,7 @@ exec_command_password(PsqlScanState scan_state, bool active_branch)
 			PQclear(res);
 		}
 
-		/* Set up to let SIGINT cancel simple_prompt_extended() */
+		/* 设置以允许 SIGINT 取消 simple_prompt_extended() */
 		prompt_ctx.jmpbuf = sigint_interrupt_jmp;
 		prompt_ctx.enabled = &sigint_interrupt_enabled;
 		prompt_ctx.canceled = false;
@@ -2155,7 +2155,7 @@ exec_command_password(PsqlScanState scan_state, bool active_branch)
 
 		if (prompt_ctx.canceled)
 		{
-			/* fail silently */
+			/* 静默失败 */
 			success = false;
 		}
 		else if (strcmp(pw1, pw2) != 0)
@@ -2202,7 +2202,7 @@ exec_command_password(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \prompt -- prompt and set variable
+ * \\prompt —— 提示并设置变量
  */
 static backslashResult
 exec_command_prompt(PsqlScanState scan_state, bool active_branch,
@@ -2230,7 +2230,7 @@ exec_command_prompt(PsqlScanState scan_state, bool active_branch,
 			char	   *result;
 			PromptInterruptContext prompt_ctx;
 
-			/* Set up to let SIGINT cancel simple_prompt_extended() */
+			/* 设置以允许 SIGINT 取消 simple_prompt_extended() */
 			prompt_ctx.jmpbuf = sigint_interrupt_jmp;
 			prompt_ctx.enabled = &sigint_interrupt_enabled;
 			prompt_ctx.canceled = false;
@@ -2279,7 +2279,7 @@ exec_command_prompt(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \pset -- set printing parameters
+ * \\pset —— 设置打印参数
  */
 static backslashResult
 exec_command_pset(PsqlScanState scan_state, bool active_branch)
@@ -2295,7 +2295,7 @@ exec_command_pset(PsqlScanState scan_state, bool active_branch)
 
 		if (!opt0)
 		{
-			/* list all variables */
+			/* 列出所有变量 */
 
 			int			i;
 			static const char *const my_list[] = {
@@ -2334,7 +2334,7 @@ exec_command_pset(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \q or \quit -- exit psql
+ * \\q 或 \\quit —— 退出 psql
  */
 static backslashResult
 exec_command_quit(PsqlScanState scan_state, bool active_branch)
@@ -2348,7 +2348,7 @@ exec_command_quit(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \r -- reset (clear) the query buffer
+ * \\r —— 重置（清空）查询缓冲区
  */
 static backslashResult
 exec_command_reset(PsqlScanState scan_state, bool active_branch,
@@ -2366,7 +2366,7 @@ exec_command_reset(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \restrict -- enter "restricted mode" with the provided key
+ * \\restrict —— 使用提供的密钥进入"受限模式"
  */
 static backslashResult
 exec_command_restrict(PsqlScanState scan_state, bool active_branch,
@@ -2395,7 +2395,7 @@ exec_command_restrict(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \s -- save history in a file or show it on the screen
+ * \\s —— 将历史保存到文件或在屏幕上显示
  */
 static backslashResult
 exec_command_s(PsqlScanState scan_state, bool active_branch)
@@ -2422,7 +2422,7 @@ exec_command_s(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \set -- set variable
+ * \\set —— 设置变量
  */
 static backslashResult
 exec_command_set(PsqlScanState scan_state, bool active_branch)
@@ -2436,15 +2436,15 @@ exec_command_set(PsqlScanState scan_state, bool active_branch)
 
 		if (!opt0)
 		{
-			/* list all variables */
+			/* 列出所有变量 */
 			PrintVariables(pset.vars);
 			success = true;
 		}
 		else
 		{
 			/*
-			 * Set variable to the concatenation of the arguments.
-			 */
+ * 将变量设置为参数的串联。
+ */
 			char	   *newval;
 			char	   *opt;
 
@@ -2475,7 +2475,7 @@ exec_command_set(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \setenv -- set environment variable
+ * \\setenv —— 设置环境变量
  */
 static backslashResult
 exec_command_setenv(PsqlScanState scan_state, bool active_branch,
@@ -2503,13 +2503,13 @@ exec_command_setenv(PsqlScanState scan_state, bool active_branch,
 		}
 		else if (!envval)
 		{
-			/* No argument - unset the environment variable */
+			/* 无参数 —— 取消设置环境变量 */
 			unsetenv(envvar);
 			success = true;
 		}
 		else
 		{
-			/* Set variable to the value of the next argument */
+			/* 将变量设置为下一个参数的值 */
 			setenv(envvar, envval, 1);
 			success = true;
 		}
@@ -2523,7 +2523,7 @@ exec_command_setenv(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \sf/\sv -- show a function/view's source code
+ * \\sf/\\sv —— 显示函数或视图的源代码
  */
 static backslashResult
 exec_command_sf_sv(PsqlScanState scan_state, bool active_branch,
@@ -2552,12 +2552,12 @@ exec_command_sf_sv(PsqlScanState scan_state, bool active_branch,
 		}
 		else if (!lookup_object_oid(eot, obj_desc, &obj_oid))
 		{
-			/* error already reported */
+			/* 错误已报告 */
 			status = PSQL_CMD_ERROR;
 		}
 		else if (!get_create_object_cmd(eot, obj_oid, buf))
 		{
-			/* error already reported */
+			/* 错误已报告 */
 			status = PSQL_CMD_ERROR;
 		}
 		else
@@ -2565,10 +2565,10 @@ exec_command_sf_sv(PsqlScanState scan_state, bool active_branch,
 			FILE	   *output;
 			bool		is_pager;
 
-			/* Select output stream: stdout, pager, or file */
+			/* 选择输出流：stdout、分页器或文件 */
 			if (pset.queryFout == stdout)
 			{
-				/* count lines in function to see if pager is needed */
+				/* 计算函数中的行数以查看是否需要分页器 */
 				int			lineno = count_lines_in_buf(buf);
 
 				output = PageOutput(lineno, &(pset.popt.topt));
@@ -2576,19 +2576,19 @@ exec_command_sf_sv(PsqlScanState scan_state, bool active_branch,
 			}
 			else
 			{
-				/* use previously set output file, without pager */
+				/* 使用先前设置的输出文件，不使用分页器 */
 				output = pset.queryFout;
 				is_pager = false;
 			}
 
 			if (show_linenumbers)
 			{
-				/* add line numbers */
+				/* 添加行号 */
 				print_with_linenumbers(output, buf->data, is_func);
 			}
 			else
 			{
-				/* just send the definition to output */
+				/* 只需将定义发送到输出 */
 				fputs(buf->data, output);
 			}
 
@@ -2606,7 +2606,7 @@ exec_command_sf_sv(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \t -- turn off table headers and row count
+ * \\t —— 关闭表头和行计数
  */
 static backslashResult
 exec_command_t(PsqlScanState scan_state, bool active_branch)
@@ -2628,7 +2628,7 @@ exec_command_t(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \T -- define html <table ...> attributes
+ * \\T —— 定义 html <table ...> 属性
  */
 static backslashResult
 exec_command_T(PsqlScanState scan_state, bool active_branch)
@@ -2650,7 +2650,7 @@ exec_command_T(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \timing -- enable/disable timing of queries
+ * \\timing —— 启用或禁用查询计时
  */
 static backslashResult
 exec_command_timing(PsqlScanState scan_state, bool active_branch)
@@ -2682,7 +2682,7 @@ exec_command_timing(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \unrestrict -- exit "restricted mode" if provided key matches
+ * \\unrestrict —— 如果提供的密钥匹配，则退出"受限模式"
  */
 static backslashResult
 exec_command_unrestrict(PsqlScanState scan_state, bool active_branch,
@@ -2722,7 +2722,7 @@ exec_command_unrestrict(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \unset -- unset variable
+ * \\unset —— 取消设置变量
  */
 static backslashResult
 exec_command_unset(PsqlScanState scan_state, bool active_branch,
@@ -2752,7 +2752,7 @@ exec_command_unset(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \w -- write query buffer to file
+ * \\w —— 将查询缓冲区写入文件
  */
 static backslashResult
 exec_command_write(PsqlScanState scan_state, bool active_branch,
@@ -2808,11 +2808,11 @@ exec_command_write(PsqlScanState scan_state, bool active_branch,
 			int			result;
 
 			/*
-			 * We want to print the same thing \g would execute, but not to
-			 * change the query buffer state; so we can't use
-			 * copy_previous_query().  Also, beware of possibility that buffer
-			 * pointers are NULL.
-			 */
+ * 我们想要打印 \\g 将会执行的相同内容，但不改变
+ * 查询缓冲区的状态；因此我们不能使用
+ * copy_previous_query()。另外，注意缓冲区指针
+ * 可能为 NULL。
+ */
 			if (query_buf && query_buf->len > 0)
 				fprintf(fd, "%s\n", query_buf->data);
 			else if (previous_buf && previous_buf->len > 0)
@@ -2853,8 +2853,8 @@ exec_command_write(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \watch -- execute a query every N seconds.
- * Optionally, stop after M iterations.
+ * \\watch —— 每 N 秒执行一次查询。
+ * 可选地，在 M 次迭代后停止。
  */
 static backslashResult
 exec_command_watch(PsqlScanState scan_state, bool active_branch,
@@ -2870,10 +2870,10 @@ exec_command_watch(PsqlScanState scan_state, bool active_branch,
 		int			iter = 0;
 
 		/*
-		 * Parse arguments.  We allow either an unlabeled interval or
-		 * "name=value", where name is from the set ('i', 'interval', 'c',
-		 * 'count').
-		 */
+ * 解析参数。我们允许无标签的间隔值或
+ * "name=value" 格式，其中 name 来自集合
+ *（'i'、'interval'、'c'、'count'）。
+ */
 		while (success)
 		{
 			char	   *opt = psql_scan_slash_option(scan_state,
@@ -2882,12 +2882,12 @@ exec_command_watch(PsqlScanState scan_state, bool active_branch,
 			char	   *opt_end;
 
 			if (!opt)
-				break;			/* no more arguments */
+				break;			/* 没有更多参数 */
 
 			valptr = strchr(opt, '=');
 			if (valptr)
 			{
-				/* Labeled argument */
+				/* 带标签的参数 */
 				valptr++;
 				if (strncmp("i=", opt, strlen("i=")) == 0 ||
 					strncmp("interval=", opt, strlen("interval=")) == 0)
@@ -2937,7 +2937,7 @@ exec_command_watch(PsqlScanState scan_state, bool active_branch,
 			}
 			else
 			{
-				/* Unlabeled argument: take it as interval */
+				/* 无标签参数：将其视为间隔 */
 				if (have_sleep)
 				{
 					pg_log_error("\\watch: interval value is specified more than once");
@@ -2959,16 +2959,16 @@ exec_command_watch(PsqlScanState scan_state, bool active_branch,
 			free(opt);
 		}
 
-		/* If we parsed arguments successfully, do the command */
+		/* 如果参数解析成功，则执行命令 */
 		if (success)
 		{
-			/* If query_buf is empty, recall and execute previous query */
+			/* 如果 query_buf 为空，则调用并执行之前的查询 */
 			(void) copy_previous_query(query_buf, previous_buf);
 
 			success = do_watch(query_buf, sleep, iter);
 		}
 
-		/* Reset the query buffer as though for \r */
+		/* 像 \\r 一样重置查询缓冲区 */
 		resetPQExpBuffer(query_buf);
 		psql_scan_reset(scan_state);
 	}
@@ -2979,7 +2979,7 @@ exec_command_watch(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \x -- set or toggle expanded table representation
+ * \\x —— 设置或切换展开表表示
  */
 static backslashResult
 exec_command_x(PsqlScanState scan_state, bool active_branch)
@@ -3001,7 +3001,7 @@ exec_command_x(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \z -- list table privileges (equivalent to \dp)
+ * \\z —— 列出表权限（等同于 \\dp）
  */
 static backslashResult
 exec_command_z(PsqlScanState scan_state, bool active_branch, const char *cmd)
@@ -3029,7 +3029,7 @@ exec_command_z(PsqlScanState scan_state, bool active_branch, const char *cmd)
 }
 
 /*
- * \! -- execute shell command
+ * \\! —— 执行 shell 命令
  */
 static backslashResult
 exec_command_shell_escape(PsqlScanState scan_state, bool active_branch)
@@ -3051,7 +3051,7 @@ exec_command_shell_escape(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \? -- print help about backslash commands
+ * \\? —— 打印反斜杠命令的帮助信息
  */
 static backslashResult
 exec_command_slash_command_help(PsqlScanState scan_state, bool active_branch)
@@ -3080,9 +3080,9 @@ exec_command_slash_command_help(PsqlScanState scan_state, bool active_branch)
 
 
 /*
- * Read and interpret an argument to the \connect slash command.
+ * 读取并解释 \\connect 反斜杠命令的参数。
  *
- * Returns a malloc'd string, or NULL if no/empty argument.
+ * 返回一个 malloc 分配的字符串，如果没有参数或参数为空则返回 NULL。
  */
 static char *
 read_connect_arg(PsqlScanState scan_state)
@@ -3091,14 +3091,14 @@ read_connect_arg(PsqlScanState scan_state)
 	char		quote;
 
 	/*
-	 * Ideally we should treat the arguments as SQL identifiers.  But for
-	 * backwards compatibility with 7.2 and older pg_dump files, we have to
-	 * take unquoted arguments verbatim (don't downcase them). For now,
-	 * double-quoted arguments may be stripped of double quotes (as if SQL
-	 * identifiers).  By 7.4 or so, pg_dump files can be expected to
-	 * double-quote all mixed-case \connect arguments, and then we can get rid
-	 * of OT_SQLIDHACK.
-	 */
+ * 理想情况下，我们应该将参数视为 SQL 标识符。但为了与
+ * 7.2 及更早版本的 pg_dump 文件向后兼容，我们必须
+ * 原样接受未引用的参数（不进行小写转换）。目前，
+ * 双引号参数可能会被去除双引号（好像 SQL
+ * 标识符一样）。到 7.4 左右，可以期望 pg_dump 文件
+ * 对所有混合大小写的 \\connect 参数使用双引号，
+ * 届时我们可以去掉 OT_SQLIDHACK。
+ */
 	result = psql_scan_slash_option(scan_state, OT_SQLIDHACK, &quote, true);
 
 	if (!result)
@@ -3117,12 +3117,12 @@ read_connect_arg(PsqlScanState scan_state)
 }
 
 /*
- * Read a boolean expression, return it as a PQExpBuffer string.
+ * 读取一个布尔表达式，将其作为 PQExpBuffer 字符串返回。
  *
- * Note: anything more or less than one token will certainly fail to be
- * parsed by ParseVariableBool, so we don't worry about complaining here.
- * This routine's return data structure will need to be rethought anyway
- * to support likely future extensions such as "\if defined VARNAME".
+ * 注意：多于或少于一个标记的任何内容肯定无法被
+ * ParseVariableBool 解析，因此我们不必担心在此处抱怨。
+ * 此例程的返回数据结构无论如何都需要重新考虑，
+ * 以支持未来的扩展，例如 "\\if defined VARNAME"。
  */
 static PQExpBuffer
 gather_boolean_expression(PsqlScanState scan_state)
@@ -3131,11 +3131,11 @@ gather_boolean_expression(PsqlScanState scan_state)
 	int			num_options = 0;
 	char	   *value;
 
-	/* collect all arguments for the conditional command into exp_buf */
+	/* 收集条件命令的所有参数到 exp_buf 中 */
 	while ((value = psql_scan_slash_option(scan_state,
 										   OT_NORMAL, NULL, false)) != NULL)
 	{
-		/* add spaces between tokens */
+		/* 在标记之间添加空格 */
 		if (num_options > 0)
 			appendPQExpBufferChar(exp_buf, ' ');
 		appendPQExpBufferStr(exp_buf, value);
@@ -3147,12 +3147,12 @@ gather_boolean_expression(PsqlScanState scan_state)
 }
 
 /*
- * Read a boolean expression, return true if the expression
- * was a valid boolean expression that evaluated to true.
- * Otherwise return false.
+ * 读取一个布尔表达式，如果表达式是求值为 true 的
+ * 有效布尔表达式则返回 true。
+ * 否则返回 false。
  *
- * Note: conditional stack's top state must be active, else lexer will
- * fail to expand variables and backticks.
+ * 注意：条件栈的顶部状态必须为活动状态，否则词法分析器
+ * 将无法展开变量和反引号。
  */
 static bool
 is_true_boolean_expression(PsqlScanState scan_state, const char *name)
@@ -3166,10 +3166,10 @@ is_true_boolean_expression(PsqlScanState scan_state, const char *name)
 }
 
 /*
- * Read a boolean expression, but do nothing with it.
+ * 读取一个布尔表达式，但不做任何操作。
  *
- * Note: conditional stack's top state must be INACTIVE, else lexer will
- * expand variables and backticks, which we do not want here.
+ * 注意：条件栈的顶部状态必须为 INACTIVE，否则词法分析器
+ * 将展开变量和反引号，这是我们在这里不希望的。
  */
 static void
 ignore_boolean_expression(PsqlScanState scan_state)
@@ -3180,12 +3180,12 @@ ignore_boolean_expression(PsqlScanState scan_state)
 }
 
 /*
- * Read and discard "normal" slash command options.
+ * 读取并丢弃"普通"反斜杠命令选项。
  *
- * This should be used for inactive-branch processing of any slash command
- * that eats one or more OT_NORMAL, OT_SQLID, or OT_SQLIDHACK parameters.
- * We don't need to worry about exactly how many it would eat, since the
- * cleanup logic in HandleSlashCmds would silently discard any extras anyway.
+ * 这应用于任何消费一个或多个 OT_NORMAL、OT_SQLID 或
+ * OT_SQLIDHACK 参数的反斜杠命令的非活动分支处理。
+ * 我们不需要担心它到底消费多少个，因为 HandleSlashCmds
+ * 中的清理逻辑无论如何都会静默丢弃任何多余的内容。
  */
 static void
 ignore_slash_options(PsqlScanState scan_state)
@@ -3198,11 +3198,11 @@ ignore_slash_options(PsqlScanState scan_state)
 }
 
 /*
- * Read and discard FILEPIPE slash command argument.
+ * 读取并丢弃 FILEPIPE 反斜杠命令参数。
  *
- * This *MUST* be used for inactive-branch processing of any slash command
- * that takes an OT_FILEPIPE option.  Otherwise we might consume a different
- * amount of option text in active and inactive cases.
+ * 对于任何接受 OT_FILEPIPE 选项的反斜杠命令，
+ * 这*必须*用于非活动分支处理。否则我们可能在
+ * 活动和非活动情况下消费不同数量的选项文本。
  */
 static void
 ignore_slash_filepipe(PsqlScanState scan_state)
@@ -3214,11 +3214,11 @@ ignore_slash_filepipe(PsqlScanState scan_state)
 }
 
 /*
- * Read and discard whole-line slash command argument.
+ * 读取并丢弃整行反斜杠命令参数。
  *
- * This *MUST* be used for inactive-branch processing of any slash command
- * that takes an OT_WHOLE_LINE option.  Otherwise we might consume a different
- * amount of option text in active and inactive cases.
+ * 对于任何接受 OT_WHOLE_LINE 选项的反斜杠命令，
+ * 这*必须*用于非活动分支处理。否则我们可能在
+ * 活动和非活动情况下消费不同数量的选项文本。
  */
 static void
 ignore_slash_whole_line(PsqlScanState scan_state)
@@ -3230,7 +3230,7 @@ ignore_slash_whole_line(PsqlScanState scan_state)
 }
 
 /*
- * Return true if the command given is a branching command.
+ * 如果给定命令是分支命令，则返回 true。
  */
 static bool
 is_branching_command(const char *cmd)
@@ -3242,11 +3242,11 @@ is_branching_command(const char *cmd)
 }
 
 /*
- * Prepare to possibly restore query buffer to its current state
- * (cf. discard_query_text).
+ * 准备以在可能的情况下将查询缓冲区恢复到当前状态
+ *（参见 discard_query_text）。
  *
- * We need to remember the length of the query buffer, and the lexer's
- * notion of the parenthesis nesting depth.
+ * 我们需要记住查询缓冲区的长度，以及词法分析器
+ * 对括号嵌套深度的记录。
  */
 static void
 save_query_text_state(PsqlScanState scan_state, ConditionalStack cstack,
@@ -3259,14 +3259,14 @@ save_query_text_state(PsqlScanState scan_state, ConditionalStack cstack,
 }
 
 /*
- * Discard any query text absorbed during an inactive conditional branch.
+ * 丢弃在非活动条件分支期间吸收的任何查询文本。
  *
- * We must discard data that was appended to query_buf during an inactive
- * \if branch.  We don't have to do anything there if there's no query_buf.
+ * 我们必须丢弃在非活动 \\if 分支期间追加到 query_buf 的数据。
+ * 如果没有 query_buf，则无需在此做任何事。
  *
- * Also, reset the lexer state to the same paren depth there was before.
- * (The rest of its state doesn't need attention, since we could not be
- * inside a comment or literal or partial token.)
+ * 另外，将词法分析器状态重置为此前的相同括号深度。
+ *（其余状态不需要关注，因为我们不可能在
+ * 注释、字面量或部分标记内部。）
  */
 static void
 discard_query_text(PsqlScanState scan_state, ConditionalStack cstack,
@@ -3285,14 +3285,14 @@ discard_query_text(PsqlScanState scan_state, ConditionalStack cstack,
 }
 
 /*
- * If query_buf is empty, copy previous_buf into it.
+ * 如果 query_buf 为空，则将 previous_buf 复制到其中。
  *
- * This is used by various slash commands for which re-execution of a
- * previous query is a common usage.  For convenience, we allow the
- * case of query_buf == NULL (and do nothing).
+ * 各种反斜杠命令使用此功能，这些命令通常用于
+ * 重新执行之前的查询。为方便起见，我们允许
+ * query_buf == NULL 的情况（不做任何事）。
  *
- * Returns "true" if the previous query was copied into the query
- * buffer, else "false".
+ * 如果之前的查询已复制到查询缓冲区，
+ * 则返回 "true"，否则返回 "false"。
  */
 static bool
 copy_previous_query(PQExpBuffer query_buf, PQExpBuffer previous_buf)
@@ -3306,11 +3306,11 @@ copy_previous_query(PQExpBuffer query_buf, PQExpBuffer previous_buf)
 }
 
 /*
- * Ask the user for a password; 'username' is the username the
- * password is for, if one has been explicitly specified.
- * Returns a malloc'd string.
- * If 'canceled' is provided, *canceled will be set to true if the prompt
- * is canceled via SIGINT, and to false otherwise.
+ * 向用户询问密码；'username' 是密码所属的
+ * 用户名（如果已显式指定）。
+ * 返回一个 malloc 分配的字符串。
+ * 如果提供了 'canceled'，若提示通过 SIGINT 取消，
+ * 则 *canceled 将设置为 true，否则为 false。
  */
 static char *
 prompt_for_password(const char *username, bool *canceled)
@@ -3318,7 +3318,7 @@ prompt_for_password(const char *username, bool *canceled)
 	char	   *result;
 	PromptInterruptContext prompt_ctx;
 
-	/* Set up to let SIGINT cancel simple_prompt_extended() */
+	/* 设置以允许 SIGINT 取消 simple_prompt_extended() */
 	prompt_ctx.jmpbuf = sigint_interrupt_jmp;
 	prompt_ctx.enabled = &sigint_interrupt_enabled;
 	prompt_ctx.canceled = false;
@@ -3353,15 +3353,15 @@ param_is_newly_set(const char *old_val, const char *new_val)
 }
 
 /*
- * do_connect -- handler for \connect
+ * do_connect —— \\connect 的处理程序
  *
- * Connects to a database with given parameters.  If we are told to re-use
- * parameters, parameters from the previous connection are used where the
- * command's own options do not supply a value.  Otherwise, libpq defaults
- * are used.
+ * 使用给定参数连接到数据库。如果要求我们重用参数，
+ * 则使用来自先前连接的参数，其中命令自身的选项
+ * 未提供的值由先前连接的参数填充。否则，使用
+ * libpq 的默认值。
  *
- * In interactive mode, if connection fails with the given parameters,
- * the old connection will be kept.
+ * 在交互模式下，如果使用给定参数连接失败，
+ * 将保留旧连接。
  */
 static bool
 do_connect(enum trivalue reuse_previous_specification,
@@ -3382,7 +3382,7 @@ do_connect(enum trivalue reuse_previous_specification,
 	has_connection_string = dbname ?
 		recognized_connection_string(dbname) : false;
 
-	/* Complain if we have additional arguments after a connection string. */
+	/* 如果在连接字符串之后还有额外参数，则报错。 */
 	if (has_connection_string && (user || host || port))
 	{
 		pg_log_error("Do not give user, host, or port separately when using a connection string");
@@ -3403,14 +3403,14 @@ do_connect(enum trivalue reuse_previous_specification,
 	}
 
 	/*
-	 * If we intend to re-use connection parameters, collect them out of the
-	 * old connection, then replace individual values as necessary.  (We may
-	 * need to resort to looking at pset.dead_conn, if the connection died
-	 * previously.)  Otherwise, obtain a PQconninfoOption array containing
-	 * libpq's defaults, and modify that.  Note this function assumes that
-	 * PQconninfo, PQconndefaults, and PQconninfoParse will all produce arrays
-	 * containing the same options in the same order.
-	 */
+ * 如果我们打算重用连接参数，则从旧连接中收集它们，
+ * 然后根据需要替换各个值。（如果连接之前已断开，
+ * 我们可能需要借助 pset.dead_conn。）否则，
+ * 获取一个包含 libpq 默认值的 PQconninfoOption 数组，
+ * 并修改该数组。注意，此函数假定 PQconninfo、
+ * PQconndefaults 和 PQconninfoParse 都会生成
+ * 包含相同顺序相同选项的数组。
+ */
 	if (reuse_previous)
 	{
 		if (o_conn)
@@ -3419,7 +3419,7 @@ do_connect(enum trivalue reuse_previous_specification,
 			cinfo = PQconninfo(pset.dead_conn);
 		else
 		{
-			/* This is reachable after a non-interactive \connect failure */
+			/* 这在非交互式 \\connect 失败后可到达 */
 			pg_log_error("No database connection exists to re-use parameters from");
 			return false;
 		}
@@ -3431,7 +3431,7 @@ do_connect(enum trivalue reuse_previous_specification,
 	{
 		if (has_connection_string)
 		{
-			/* Parse the connstring and insert values into cinfo */
+			/* 解析连接字符串并将值插入 cinfo */
 			PQconninfoOption *replcinfo;
 			char	   *errmsg;
 
@@ -3447,26 +3447,26 @@ do_connect(enum trivalue reuse_previous_specification,
 					 ci++, replci++)
 				{
 					Assert(strcmp(ci->keyword, replci->keyword) == 0);
-					/* Insert value from connstring if one was provided */
+					/* 如果提供了连接字符串的值，则插入之 */
 					if (replci->val)
 					{
 						/*
-						 * We know that both val strings were allocated by
-						 * libpq, so the least messy way to avoid memory leaks
-						 * is to swap them.
-						 */
+ * 我们知道这两个 val 字符串都是由 libpq 分配的，
+ * 因此避免内存泄漏的最简洁方法是
+ * 交换它们。
+ */
 						char	   *swap = replci->val;
 
 						replci->val = ci->val;
 						ci->val = swap;
 
 						/*
-						 * Check whether connstring provides options affecting
-						 * password re-use.  While any change in user, host,
-						 * hostaddr, or port causes us to ignore the old
-						 * connection's password, we don't force that for
-						 * dbname, since passwords aren't database-specific.
-						 */
+ * 检查连接字符串是否提供影响密码重用的选项。
+ * 虽然用户、主机、hostaddr 或端口的任何更改
+ * 会导致我们忽略旧连接的密码，但我们不对
+ * dbname 强制执行此操作，
+ * 因为密码不是特定于数据库的。
+ */
 						if (replci->val == NULL ||
 							strcmp(ci->val, replci->val) != 0)
 						{
@@ -3476,51 +3476,51 @@ do_connect(enum trivalue reuse_previous_specification,
 								strcmp(replci->keyword, "port") == 0)
 								keep_password = false;
 						}
-						/* Also note whether connstring contains a password. */
+						/* 同时记录连接字符串是否包含密码。 */
 						if (strcmp(replci->keyword, "password") == 0)
 							have_password = true;
 					}
 					else if (!reuse_previous)
 					{
 						/*
-						 * When we have a connstring and are not re-using
-						 * parameters, swap *all* entries, even those not set
-						 * by the connstring.  This avoids absorbing
-						 * environment-dependent defaults from the result of
-						 * PQconndefaults().  We don't want to do that because
-						 * they'd override service-file entries if the
-						 * connstring specifies a service parameter, whereas
-						 * the priority should be the other way around.  libpq
-						 * can certainly recompute any defaults we don't pass
-						 * here.  (In this situation, it's a bit wasteful to
-						 * have called PQconndefaults() at all, but not doing
-						 * so would require yet another major code path here.)
-						 */
+ * 当我们有连接字符串且不重用时，
+ * 交换*所有*条目，甚至包括连接字符串未设置的那些。
+ * 这避免了从 PQconndefaults() 的结果中吸收
+ * 依赖于环境的默认值。我们不希望这样做，
+ * 因为如果 connstring 指定了 service 参数，
+ * 它们会覆盖 service-file 条目，而优先级应该
+ * 是相反的。libpq 当然可以重新计算我们未在此处
+ * 传递的任何默认值。（在这种情况下，调用
+ * PQconndefaults() 有点浪费，但不这样做
+ * 将需要又一个主要代码路径。）
+						  *
+						  *
+ */
 						replci->val = ci->val;
 						ci->val = NULL;
 					}
 				}
 				Assert(ci->keyword == NULL && replci->keyword == NULL);
 
-				/* While here, determine how many option slots there are */
+				/* 在此过程中，确定有多少个选项槽 */
 				nconnopts = ci - cinfo;
 
 				PQconninfoFree(replcinfo);
 
 				/*
-				 * If the connstring contains a password, tell the loop below
-				 * that we may use it, regardless of other settings (i.e.,
-				 * cinfo's password is no longer an "old" password).
-				 */
+ * 如果连接字符串包含密码，告诉下面的循环
+ * 我们可以使用它，无论其他设置如何（即，
+ * cinfo 的密码不再是"旧"密码）。
+ */
 				if (have_password)
 					keep_password = true;
 
-				/* Don't let code below try to inject dbname into params. */
+				/* 不要让下面的代码尝试将 dbname 注入参数。 */
 				dbname = NULL;
 			}
 			else
 			{
-				/* PQconninfoParse failed */
+				/* PQconninfoParse 失败 */
 				if (errmsg)
 				{
 					pg_log_error("%s", errmsg);
@@ -3534,18 +3534,18 @@ do_connect(enum trivalue reuse_previous_specification,
 		else
 		{
 			/*
-			 * If dbname isn't a connection string, then we'll inject it and
-			 * the other parameters into the keyword array below.  (We can't
-			 * easily insert them into the cinfo array because of memory
-			 * management issues: PQconninfoFree would misbehave on Windows.)
-			 * However, to avoid dependencies on the order in which parameters
-			 * appear in the array, make a preliminary scan to set
-			 * keep_password and same_host correctly.
-			 *
-			 * While any change in user, host, or port causes us to ignore the
-			 * old connection's password, we don't force that for dbname,
-			 * since passwords aren't database-specific.
-			 */
+ * 如果 dbname 不是连接字符串，那么我们将其和其他参数
+ * 注入到下面的关键字数组中。（我们不能轻松地将它们
+ * 插入 cinfo 数组，因为存在内存管理问题：
+ * PQconninfoFree 在 Windows 上会表现异常。）
+ * 然而，为了避免依赖参数在数组中出现的顺序，
+ * 先进行一次初步扫描以正确设置
+ * keep_password 和 same_host。
+ *
+ * 虽然用户、主机或端口的任何更改会导致我们忽略
+ * 旧连接的密码，但我们不对 dbname 强制执行此操作，
+ * 因为密码不是特定于数据库的。
+ */
 			PQconninfoOption *ci;
 
 			for (ci = cinfo; ci->keyword; ci++)
@@ -3569,54 +3569,54 @@ do_connect(enum trivalue reuse_previous_specification,
 				}
 			}
 
-			/* While here, determine how many option slots there are */
+			/* 在此过程中，确定有多少个选项槽 */
 			nconnopts = ci - cinfo;
 		}
 	}
 	else
 	{
-		/* We failed to create the cinfo structure */
+		/* 创建 cinfo 结构失败 */
 		pg_log_error("out of memory");
 		success = false;
 	}
 
 	/*
-	 * If the user asked to be prompted for a password, ask for one now. If
-	 * not, use the password from the old connection, provided the username
-	 * etc have not changed. Otherwise, try to connect without a password
-	 * first, and then ask for a password if needed.
-	 *
-	 * XXX: this behavior leads to spurious connection attempts recorded in
-	 * the postmaster's log.  But libpq offers no API that would let us obtain
-	 * a password and then continue with the first connection attempt.
-	 */
+ * 如果用户要求提示输入密码，则现在询问。如果没有，
+ * 则使用旧连接的密码，前提是用户名等未更改。
+ * 否则，先尝试无密码连接，
+ * 然后在需要时再询问密码。
+ *
+ * XXX：此行为会导致在 postmaster 的日志中记录
+ * 虚假的连接尝试。但 libpq 没有提供 API 让我们可以
+ * 获取密码然后继续第一次连接尝试。
+ */
 	if (pset.getPassword == TRI_YES && success)
 	{
 		bool		canceled = false;
 
 		/*
-		 * If a connstring or URI is provided, we don't know which username
-		 * will be used, since we haven't dug that out of the connstring.
-		 * Don't risk issuing a misleading prompt.  As in startup.c, it does
-		 * not seem worth working harder, since this getPassword setting is
-		 * normally only used in noninteractive cases.
-		 */
+ * 如果提供了连接字符串或 URI，我们不知道将使用
+ * 哪个用户名，因为我们尚未从连接字符串中提取
+ * 该信息。不要冒险发出误导性的提示。
+ * 与 startup.c 中一样，进一步的工作似乎不值得，
+ * 因为此 getPassword 设置通常仅用于非交互式情况。
+ */
 		password = prompt_for_password(has_connection_string ? NULL : user,
 									   &canceled);
 		success = !canceled;
 	}
 
 	/*
-	 * Consider whether to force client_encoding to "auto" (overriding
-	 * anything in the connection string).  We do so if we have a terminal
-	 * connection and there is no PGCLIENTENCODING environment setting.
-	 */
+ * 考虑是否将 client_encoding 强制设为 "auto"
+ *（覆盖连接字符串中的任何设置）。如果我们有终端
+ * 连接且没有 PGCLIENTENCODING 环境设置，则这样做。
+ */
 	if (pset.notty || getenv("PGCLIENTENCODING"))
 		client_encoding = NULL;
 	else
 		client_encoding = "auto";
 
-	/* Loop till we have a connection or fail, which we might've already */
+	/* 循环直到我们连接成功或失败，可能已经发生了 */
 	while (success)
 	{
 		const char **keywords = pg_malloc((nconnopts + 1) * sizeof(*keywords));
@@ -3625,14 +3625,14 @@ do_connect(enum trivalue reuse_previous_specification,
 		PQconninfoOption *ci;
 
 		/*
-		 * Copy non-default settings into the PQconnectdbParams parameter
-		 * arrays; but inject any values specified old-style, as well as any
-		 * interactively-obtained password, and a couple of fields we want to
-		 * set forcibly.
-		 *
-		 * If you change this code, see also the initial-connection code in
-		 * main().
-		 */
+ * 将非默认设置复制到 PQconnectdbParams 参数数组中；
+ * 但注入任何以旧式方式指定的值，以及任何
+ * 交互式获取的密码，还有几个我们希望
+ * 强制设置的字段。
+ *
+ * 如果修改此代码，另请参见 main() 中的
+ * 初始连接代码。
+ */
 		for (ci = cinfo; ci->keyword; ci++)
 		{
 			keywords[paramnum] = ci->keyword;
@@ -3645,12 +3645,12 @@ do_connect(enum trivalue reuse_previous_specification,
 				values[paramnum++] = host;
 			else if (host && !same_host && strcmp(ci->keyword, "hostaddr") == 0)
 			{
-				/* If we're changing the host value, drop any old hostaddr */
+				/* 如果我们正在更改 host 值，则丢弃任何旧的 hostaddr */
 				values[paramnum++] = NULL;
 			}
 			else if (port && strcmp(ci->keyword, "port") == 0)
 				values[paramnum++] = port;
-			/* If !keep_password, we unconditionally drop old password */
+			/* 如果 !keep_password，则无条件丢弃旧密码 */
 			else if ((password || !keep_password) &&
 					 strcmp(ci->keyword, "password") == 0)
 				values[paramnum++] = password;
@@ -3661,13 +3661,13 @@ do_connect(enum trivalue reuse_previous_specification,
 				values[paramnum++] = client_encoding;
 			else if (ci->val)
 				values[paramnum++] = ci->val;
-			/* else, don't bother making libpq parse this keyword */
+			/* 否则，不必让 libpq 解析此关键字 */
 		}
-		/* add array terminator */
+		/* 添加数组终止符 */
 		keywords[paramnum] = NULL;
 		values[paramnum] = NULL;
 
-		/* Note we do not want libpq to re-expand the dbname parameter */
+		/* 注意我们不希望 libpq 重新展开 dbname 参数 */
 		n_conn = PQconnectdbParams(keywords, values, false);
 
 		pg_free(keywords);
@@ -3677,17 +3677,17 @@ do_connect(enum trivalue reuse_previous_specification,
 			break;
 
 		/*
-		 * Connection attempt failed; either retry the connection attempt with
-		 * a new password, or give up.
-		 */
+ * 连接尝试失败；要么使用新密码重试连接尝试，
+ * 要么放弃。
+ */
 		if (!password && PQconnectionNeedsPassword(n_conn) && pset.getPassword != TRI_NO)
 		{
 			bool		canceled = false;
 
 			/*
-			 * Prompt for password using the username we actually connected
-			 * with --- it might've come out of "dbname" rather than "user".
-			 */
+ * 使用实际连接的用户名提示输入密码——
+ * 它可能来自 "dbname" 而非 "user"。
+ */
 			password = prompt_for_password(PQuser(n_conn), &canceled);
 			PQfinish(n_conn);
 			n_conn = NULL;
@@ -3696,26 +3696,26 @@ do_connect(enum trivalue reuse_previous_specification,
 		}
 
 		/*
-		 * We'll report the error below ... unless n_conn is NULL, indicating
-		 * that libpq didn't have enough memory to make a PGconn.
-		 */
+ * 我们将在下面报告错误…除非 n_conn 为 NULL，
+ * 表示 libpq 没有足够的内存来创建 PGconn。
+ */
 		if (n_conn == NULL)
 			pg_log_error("out of memory");
 
 		success = false;
-	}							/* end retry loop */
+	}							/* 重试循环结束 */
 
-	/* Release locally allocated data, whether we succeeded or not */
+	/* 释放局部分配的数据，无论成功与否 */
 	pg_free(password);
 	PQconninfoFree(cinfo);
 
 	if (!success)
 	{
 		/*
-		 * Failed to connect to the database. In interactive mode, keep the
-		 * previous connection to the DB; in scripting mode, close our
-		 * previous connection as well.
-		 */
+ * 连接到数据库失败。在交互模式下，保留与数据库的
+ * 先前连接；在脚本模式下，也关闭我们的
+ * 先前连接。
+ */
 		if (pset.cur_cmd_interactive)
 		{
 			if (n_conn)
@@ -3724,7 +3724,7 @@ do_connect(enum trivalue reuse_previous_specification,
 				PQfinish(n_conn);
 			}
 
-			/* pset.db is left unmodified */
+			/* pset.db 保持未修改 */
 			if (o_conn)
 				pg_log_info("Previous connection kept");
 		}
@@ -3739,21 +3739,21 @@ do_connect(enum trivalue reuse_previous_specification,
 			if (o_conn)
 			{
 				/*
-				 * Transition to having no connection.
-				 *
-				 * Unlike CheckConnection(), we close the old connection
-				 * immediately to prevent its parameters from being re-used.
-				 * This is so that a script cannot accidentally reuse
-				 * parameters it did not expect to.  Otherwise, the state
-				 * cleanup should be the same as in CheckConnection().
-				 */
+ * 过渡到无连接状态。
+ *
+ * 与 CheckConnection() 不同，我们立即关闭旧连接
+ * 以防止其参数被重用。这样做是为了让脚本
+ * 不会意外重用其不期望的参数。
+ * 否则，状态清理应与 CheckConnection() 中相同。
+				  *
+ */
 				PQfinish(o_conn);
 				pset.db = NULL;
 				ResetCancelConn();
 				UnsyncVariables();
 			}
 
-			/* On the same reasoning, release any dead_conn to prevent reuse */
+			/* 基于同样的理由，释放任何 dead_conn 以防止重用 */
 			if (pset.dead_conn)
 			{
 				PQfinish(pset.dead_conn);
@@ -3765,16 +3765,16 @@ do_connect(enum trivalue reuse_previous_specification,
 	}
 
 	/*
-	 * Replace the old connection with the new one, and update
-	 * connection-dependent variables.  Keep the resynchronization logic in
-	 * sync with CheckConnection().
-	 */
+ * 用新连接替换旧连接，并更新
+ * 依赖于连接的变量。保持重新同步逻辑
+ * 与 CheckConnection() 同步。
+ */
 	PQsetNoticeProcessor(n_conn, NoticeProcessor, NULL);
 	pset.db = n_conn;
 	SyncVariables();
-	connection_warnings(false); /* Must be after SyncVariables */
+	connection_warnings(false); /* 必须在 SyncVariables 之后 */
 
-	/* Tell the user about the new connection */
+	/* 告知用户有关新连接的信息 */
 	if (!pset.quiet)
 	{
 		if (!o_conn ||
@@ -3786,7 +3786,7 @@ do_connect(enum trivalue reuse_previous_specification,
 
 			if (is_unixsock_path(connhost))
 			{
-				/* hostaddr overrides connhost */
+				/* hostaddr 会覆盖 connhost */
 				if (hostaddr && *hostaddr)
 					printf(_("You are now connected to database \"%s\" as user \"%s\" on address \"%s\" at port \"%s\".\n"),
 						   PQdb(pset.db), PQuser(pset.db), hostaddr, PQport(pset.db));
@@ -3809,7 +3809,7 @@ do_connect(enum trivalue reuse_previous_specification,
 				   PQdb(pset.db), PQuser(pset.db));
 	}
 
-	/* Drop no-longer-needed connection(s) */
+	/* 丢弃不再需要的连接 */
 	if (o_conn)
 		PQfinish(o_conn);
 	if (pset.dead_conn)
@@ -3835,9 +3835,9 @@ connection_warnings(bool in_startup)
 		{
 			const char *server_version;
 
-			/* Try to get full text form, might include "devel" etc */
+			/* 尝试获取完整文本形式，可能包含 "devel" 等 */
 			server_version = PQparameterStatus(pset.db, "server_version");
-			/* Otherwise fall back on pset.sversion */
+			/* 否则回退到 pset.sversion */
 			if (!server_version)
 			{
 				formatPGVersionNumber(pset.sversion, true,
@@ -3848,14 +3848,14 @@ connection_warnings(bool in_startup)
 			printf(_("%s (%s, server %s)\n"),
 				   pset.progname, PG_VERSION, server_version);
 		}
-		/* For version match, only print psql banner on startup. */
+		/* 对于版本匹配，仅在启动时打印 psql 横幅。 */
 		else if (in_startup)
 			printf("%s (%s)\n", pset.progname, PG_VERSION);
 
 		/*
-		 * Warn if server's major version is newer than ours, or if server
-		 * predates our support cutoff (currently 9.2).
-		 */
+ * 如果服务器的主版本比我们的新，或者服务器
+ * 早于我们的支持截止版本（当前为 9.2），则发出警告。
+ */
 		if (pset.sversion / 100 > client_ver / 100 ||
 			pset.sversion < 90200)
 			printf(_("WARNING: %s major version %s, server major version %s.\n"
@@ -3879,7 +3879,7 @@ connection_warnings(bool in_startup)
 /*
  * printSSLInfo
  *
- * Prints information about the current SSL connection, if SSL is in use
+ * 打印有关当前 SSL 连接的信息（如果 SSL 正在使用中）
  */
 static void
 printSSLInfo(void)
@@ -3889,7 +3889,7 @@ printSSLInfo(void)
 	const char *compression;
 
 	if (!PQsslInUse(pset.db))
-		return;					/* no SSL */
+		return;					/* 无 SSL */
 
 	protocol = PQsslAttribute(pset.db, "protocol");
 	cipher = PQsslAttribute(pset.db, "cipher");
@@ -3904,13 +3904,13 @@ printSSLInfo(void)
 /*
  * printGSSInfo
  *
- * Prints information about the current GSSAPI connection, if GSSAPI encryption is in use
+ * 打印有关当前 GSSAPI 连接的信息（如果 GSSAPI 加密正在使用中）
  */
 static void
 printGSSInfo(void)
 {
 	if (!PQgssEncInUse(pset.db))
-		return;					/* no GSSAPI encryption in use */
+		return;					/* 未使用 GSSAPI 加密 */
 
 	printf(_("GSSAPI-encrypted connection\n"));
 }
@@ -3919,7 +3919,7 @@ printGSSInfo(void)
 /*
  * checkWin32Codepage
  *
- * Prints a warning when win32 console codepage differs from Windows codepage
+ * 当 win32 控制台代码页与 Windows 代码页不同时打印警告
  */
 #ifdef WIN32
 static void
@@ -3944,8 +3944,8 @@ checkWin32Codepage(void)
 /*
  * SyncVariables
  *
- * Make psql's internal variables agree with connection state upon
- * establishing a new connection.
+ * 在建立新连接后使 psql 的内部变量
+ * 与连接状态一致。
  */
 void
 SyncVariables(void)
@@ -3953,7 +3953,7 @@ SyncVariables(void)
 	char		vbuf[32];
 	const char *server_version;
 
-	/* get stuff from connection */
+	/* 从连接获取信息 */
 	pset.encoding = PQclientEncoding(pset.db);
 	pset.popt.topt.encoding = pset.encoding;
 	pset.sversion = PQserverVersion(pset.db);
@@ -3966,10 +3966,10 @@ SyncVariables(void)
 	SetVariable(pset.vars, "PORT", PQport(pset.db));
 	SetVariable(pset.vars, "ENCODING", pg_encoding_to_char(pset.encoding));
 
-	/* this bit should match connection_warnings(): */
-	/* Try to get full text form of version, might include "devel" etc */
+	/* 此部分应与 connection_warnings() 匹配： */
+	/* 尝试获取版本的完整文本形式，可能包含 "devel" 等 */
 	server_version = PQparameterStatus(pset.db, "server_version");
-	/* Otherwise fall back on pset.sversion */
+	/* 否则回退到 pset.sversion */
 	if (!server_version)
 	{
 		formatPGVersionNumber(pset.sversion, true, vbuf, sizeof(vbuf));
@@ -3980,7 +3980,7 @@ SyncVariables(void)
 	snprintf(vbuf, sizeof(vbuf), "%d", pset.sversion);
 	SetVariable(pset.vars, "SERVER_VERSION_NUM", vbuf);
 
-	/* send stuff to it, too */
+	/* 也向它发送信息 */
 	PQsetErrorVerbosity(pset.db, pset.verbosity);
 	PQsetErrorContextVisibility(pset.db, pset.show_context);
 }
@@ -3988,7 +3988,7 @@ SyncVariables(void)
 /*
  * UnsyncVariables
  *
- * Clear variables that should be not be set when there is no connection.
+ * 清除在无连接时不应设置的变量。
  */
 void
 UnsyncVariables(void)
@@ -4004,11 +4004,11 @@ UnsyncVariables(void)
 
 
 /*
- * helper for do_edit(): actually invoke the editor
+ * do_edit() 的辅助函数：实际调用编辑器
  *
- * Returns true on success, false if we failed to invoke the editor or
- * it returned nonzero status.  (An error message is printed for failed-
- * to-invoke cases, but not if the editor returns nonzero status.)
+ * 成功时返回 true，如果未能调用编辑器或
+ * 它返回非零状态则返回 false。（对于无法调用的情况
+ * 会打印错误消息，但编辑器返回非零状态时不会。）
  */
 static bool
 editFile(const char *fname, int lineno)
@@ -4020,7 +4020,7 @@ editFile(const char *fname, int lineno)
 
 	Assert(fname != NULL);
 
-	/* Find an editor to use */
+	/* 查找要使用的编辑器 */
 	editorName = getenv("PSQL_EDITOR");
 	if (!editorName)
 		editorName = getenv("EDITOR");
@@ -4029,7 +4029,7 @@ editFile(const char *fname, int lineno)
 	if (!editorName)
 		editorName = DEFAULT_EDITOR;
 
-	/* Get line number argument, if we need it. */
+	/* 如果需要，获取行号参数。 */
 	if (lineno > 0)
 	{
 		editor_lineno_arg = getenv("PSQL_EDITOR_LINENUMBER_ARG");
@@ -4045,12 +4045,12 @@ editFile(const char *fname, int lineno)
 	}
 
 	/*
-	 * On Unix the EDITOR value should *not* be quoted, since it might include
-	 * switches, eg, EDITOR="pico -t"; it's up to the user to put quotes in it
-	 * if necessary.  But this policy is not very workable on Windows, due to
-	 * severe brain damage in their command shell plus the fact that standard
-	 * program paths include spaces.
-	 */
+ * 在 Unix 上，EDITOR 值*不应*加引号，因为它可能包含
+ * 开关，例如 EDITOR="pico -t"；如有必要，由用户自行
+ * 加引号。但此策略在 Windows 上不太可行，因为其
+ * 命令 shell 存在严重缺陷，加上标准
+ * 程序路径包含空格。
+ */
 #ifndef WIN32
 	if (lineno > 0)
 		sys = psprintf("exec %s %s%d '%s'",
@@ -4079,18 +4079,18 @@ editFile(const char *fname, int lineno)
 
 
 /*
- * do_edit -- handler for \e
+ * do_edit —— \\e 的处理程序
  *
- * If you do not specify a filename, the current query buffer will be copied
- * into a temporary file.
+ * 如果不指定文件名，当前查询缓冲区将被复制
+ * 到一个临时文件中。
  *
- * After this function is done, the resulting file will be copied back into the
- * query buffer.  As an exception to this, the query buffer will be emptied
- * if the file was not modified (or the editor failed) and the caller passes
- * "discard_on_quit" = true.
+ * 此函数完成后，结果文件将被复制回
+ * 查询缓冲区。例外：如果文件未被修改
+ *（或编辑器失败）且调用者传递
+ * "discard_on_quit" = true，则查询缓冲区将被清空。
  *
- * If "edited" isn't NULL, *edited will be set to true if the query buffer
- * is successfully replaced.
+ * 如果 "edited" 不为 NULL，当查询缓冲区
+ * 成功替换时，*edited 将设置为 true。
  */
 static bool
 do_edit(const char *filename_arg, PQExpBuffer query_buf,
@@ -4108,7 +4108,7 @@ do_edit(const char *filename_arg, PQExpBuffer query_buf,
 		fname = filename_arg;
 	else
 	{
-		/* make a temp file to edit */
+		/* 创建临时文件进行编辑 */
 #ifndef WIN32
 		const char *tmpdir = getenv("TMPDIR");
 
@@ -4128,16 +4128,16 @@ do_edit(const char *filename_arg, PQExpBuffer query_buf,
 #endif
 
 		/*
-		 * No canonicalize_path() here. EDIT.EXE run from CMD.EXE prepends the
-		 * current directory to the supplied path unless we use only
-		 * backslashes, so we do that.
-		 */
+ * 此处不使用 canonicalize_path()。从 CMD.EXE 运行的
+ * EDIT.EXE 会将当前目录添加到提供的路径前面，
+ * 除非我们只使用反斜杠，因此我们就这样做。
+ */
 #ifndef WIN32
 		snprintf(fnametmp, sizeof(fnametmp), "%s%spsql.edit.%d.sql", tmpdir,
 				 "/", (int) getpid());
 #else
 		snprintf(fnametmp, sizeof(fnametmp), "%s%spsql.edit.%d.sql", tmpdir,
-				 "" /* trailing separator already present */ , (int) getpid());
+				 "" /* 尾随分隔符已存在 */ , (int) getpid());
 #endif
 
 		fname = (const char *) fnametmp;
@@ -4155,7 +4155,7 @@ do_edit(const char *filename_arg, PQExpBuffer query_buf,
 		{
 			unsigned int ql = query_buf->len;
 
-			/* force newline-termination of what we send to editor */
+			/* 强制将发送给编辑器的内容以换行终止 */
 			if (ql > 0 && query_buf->data[ql - 1] != '\n')
 			{
 				appendPQExpBufferChar(query_buf, '\n');
@@ -4186,16 +4186,16 @@ do_edit(const char *filename_arg, PQExpBuffer query_buf,
 				struct utimbuf ut;
 
 				/*
-				 * Try to set the file modification time of the temporary file
-				 * a few seconds in the past.  Otherwise, the low granularity
-				 * (one second, or even worse on some filesystems) that we can
-				 * portably measure with stat(2) could lead us to not
-				 * recognize a modification, if the user typed very quickly.
-				 *
-				 * This is a rather unlikely race condition, so don't error
-				 * out if the utime(2) call fails --- that would make the cure
-				 * worse than the disease.
-				 */
+ * 尝试将临时文件的文件修改时间设置为
+ * 几秒前。否则，我们使用 stat(2) 可以可移植
+ * 测量的低粒度（一秒，在某些文件系统上甚至更差）
+ * 可能导致我们无法识别修改，如果用户输入
+ * 非常快的话。
+ *
+ * 这是一种相当不太可能的竞态条件，因此如果
+ * utime(2) 调用失败也不要报错——那样会使
+ * 治疗比疾病更糟。
+ */
 				ut.modtime = ut.actime = time(NULL) - 2;
 				(void) utime(fname, &ut);
 			}
@@ -4208,7 +4208,7 @@ do_edit(const char *filename_arg, PQExpBuffer query_buf,
 		error = true;
 	}
 
-	/* call editor */
+	/* 调用编辑器 */
 	if (!error)
 		error = !editFile(fname, lineno);
 
@@ -4218,7 +4218,7 @@ do_edit(const char *filename_arg, PQExpBuffer query_buf,
 		error = true;
 	}
 
-	/* file was edited if the size or modification time has changed */
+	/* 如果大小或修改时间已更改，则文件已被编辑 */
 	if (!error &&
 		(before.st_size != after.st_size ||
 		 before.st_mtime != after.st_mtime))
@@ -4231,7 +4231,7 @@ do_edit(const char *filename_arg, PQExpBuffer query_buf,
 		}
 		else
 		{
-			/* read file back into query_buf */
+			/* 将文件读回 query_buf */
 			char		line[1024];
 
 			resetPQExpBuffer(query_buf);
@@ -4255,14 +4255,14 @@ do_edit(const char *filename_arg, PQExpBuffer query_buf,
 	else
 	{
 		/*
-		 * If the file was not modified, and the caller requested it, discard
-		 * the query buffer.
-		 */
+ * 如果文件未被修改，且调用者请求了，
+ * 则丢弃查询缓冲区。
+ */
 		if (discard_on_quit)
 			resetPQExpBuffer(query_buf);
 	}
 
-	/* remove temp file */
+	/* 删除临时文件 */
 	if (!filename_arg)
 	{
 		if (remove(fname) == -1)
@@ -4280,12 +4280,12 @@ do_edit(const char *filename_arg, PQExpBuffer query_buf,
 /*
  * process_file
  *
- * Reads commands from filename and passes them to the main processing loop.
- * Handler for \i and \ir, but can be used for other things as well.  Returns
- * MainLoop() error code.
+ * 从 filename 读取命令并将其传递给主处理循环。
+ * \\i 和 \\ir 的处理程序，但也可用于其他目的。
+ * 返回 MainLoop() 错误码。
  *
- * If use_relative_path is true and filename is not an absolute path, then open
- * the file from where the currently processed file (if any) is located.
+ * 如果 use_relative_path 为 true 且 filename 不是
+ * 绝对路径，则从当前处理的文件（如果有）所在的位置打开文件。
  */
 int
 process_file(char *filename, bool use_relative_path)
@@ -4305,11 +4305,11 @@ process_file(char *filename, bool use_relative_path)
 		canonicalize_path_enc(filename, pset.encoding);
 
 		/*
-		 * If we were asked to resolve the pathname relative to the location
-		 * of the currently executing script, and there is one, and this is a
-		 * relative pathname, then prepend all but the last pathname component
-		 * of the current script to this pathname.
-		 */
+ * 如果要求我们相对于当前正在执行的脚本的
+ * 位置解析路径名，且存在该脚本，且这是一个
+ * 相对路径名，则在当前脚本的路径名前面
+ * 加上除最后一个组件外的所有路径名组件。
+ */
 		if (use_relative_path && pset.inputfile &&
 			!is_absolute_path(filename) && !has_drive_prefix(filename))
 		{
@@ -4332,7 +4332,7 @@ process_file(char *filename, bool use_relative_path)
 	else
 	{
 		fd = stdin;
-		filename = "<stdin>";	/* for future error messages */
+		filename = "<stdin>";	/* 用于将来的错误消息 */
 	}
 
 	oldfilename = pset.inputfile;
@@ -4394,8 +4394,8 @@ _align2string(enum printFormat in)
 }
 
 /*
- * Parse entered Unicode linestyle.  If ok, update *linestyle and return
- * true, else return false.
+ * 解析输入的 Unicode 线条样式。如果有效，则更新 *linestyle
+ * 并返回 true，否则返回 false。
  */
 static bool
 set_unicode_line_style(const char *value, size_t vallen,
@@ -4428,17 +4428,17 @@ _unicode_linestyle2string(int linestyle)
 /*
  * do_pset
  *
- * Performs the assignment "param = value", where value could be NULL;
- * for some params that has an effect such as inversion, for others
- * it does nothing.
+ * 执行赋值 "param = value"，其中 value 可以为 NULL；
+ * 对于某些参数，这会产生翻转等效果，对于其他参数
+ * 则不执行任何操作。
  *
- * Adjusts the state of the formatting options at *popt.  (In practice that
- * is always pset.popt, but maybe someday it could be different.)
+ * 调整 *popt 处的格式化选项状态。（在实践中，
+ * 它始终是 pset.popt，但或许某一天可能会不同。）
  *
- * If successful and quiet is false, then invokes printPsetInfo() to report
- * the change.
+ * 如果成功且 quiet 为 false，则调用 printPsetInfo()
+ * 报告更改。
  *
- * Returns true if successful, else false (eg for invalid param or value).
+ * 成功时返回 true，失败时返回 false（例如无效的参数或值）。
  */
 bool
 do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
@@ -4450,7 +4450,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 	if (value)
 		vallen = strlen(value);
 
-	/* set format */
+	/* 设置格式 */
 	if (strcmp(param, "format") == 0)
 	{
 		static const struct fmt
@@ -4459,7 +4459,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 			enum printFormat number;
 		}			formats[] =
 		{
-			/* remember to update error message below when adding more */
+			/* 添加更多内容时记得更新下面的错误消息 */
 			{"aligned", PRINT_ALIGNED},
 			{"asciidoc", PRINT_ASCIIDOC},
 			{"csv", PRINT_CSV},
@@ -4496,10 +4496,10 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 			else if (pg_strncasecmp("latex-longtable", value, vallen) == 0)
 			{
 				/*
-				 * We must treat latex-longtable specially because latex is a
-				 * prefix of it; if both were in the table above, we'd think
-				 * "latex" is ambiguous.
-				 */
+ * 我们必须特殊处理 latex-longtable，因为 latex 是
+ * 它的前缀；如果两者都在上表中，我们会认为
+ * "latex" 是歧义的。
+ */
 				popt->topt.format = PRINT_LATEX_LONGTABLE;
 			}
 			else
@@ -4510,7 +4510,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 		}
 	}
 
-	/* set table line style */
+	/* 设置表线样式 */
 	else if (strcmp(param, "linestyle") == 0)
 	{
 		if (!value)
@@ -4528,7 +4528,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 		}
 	}
 
-	/* set unicode border line style */
+	/* 设置 unicode 边框线样式 */
 	else if (strcmp(param, "unicode_border_linestyle") == 0)
 	{
 		if (!value)
@@ -4543,7 +4543,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 		}
 	}
 
-	/* set unicode column line style */
+	/* 设置 unicode 列线样式 */
 	else if (strcmp(param, "unicode_column_linestyle") == 0)
 	{
 		if (!value)
@@ -4558,7 +4558,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 		}
 	}
 
-	/* set unicode header line style */
+	/* 设置 unicode 标题线样式 */
 	else if (strcmp(param, "unicode_header_linestyle") == 0)
 	{
 		if (!value)
@@ -4573,14 +4573,14 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 		}
 	}
 
-	/* set border style/width */
+	/* 设置边框样式/宽度 */
 	else if (strcmp(param, "border") == 0)
 	{
 		if (value)
 			popt->topt.border = atoi(value);
 	}
 
-	/* set expanded/vertical mode */
+	/* 设置展开/垂直模式 */
 	else if (strcmp(param, "x") == 0 ||
 			 strcmp(param, "expanded") == 0 ||
 			 strcmp(param, "vertical") == 0)
@@ -4603,7 +4603,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 			popt->topt.expanded = !popt->topt.expanded;
 	}
 
-	/* header line width in expanded mode */
+	/* 展开模式下的标题行宽度 */
 	else if (strcmp(param, "xheader_width") == 0)
 	{
 		if (!value)
@@ -4629,12 +4629,12 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 		}
 	}
 
-	/* field separator for CSV format */
+	/* CSV 格式的字段分隔符 */
 	else if (strcmp(param, "csv_fieldsep") == 0)
 	{
 		if (value)
 		{
-			/* CSV separator has to be a one-byte character */
+			/* CSV 分隔符必须是单字节字符 */
 			if (strlen(value) != 1)
 			{
 				pg_log_error("\\pset: csv_fieldsep must be a single one-byte character");
@@ -4649,7 +4649,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 		}
 	}
 
-	/* locale-aware numeric output */
+	/* 区域敏感的数值输出 */
 	else if (strcmp(param, "numericlocale") == 0)
 	{
 		if (value)
@@ -4658,7 +4658,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 			popt->topt.numericLocale = !popt->topt.numericLocale;
 	}
 
-	/* null display */
+	/* null 显示 */
 	else if (strcmp(param, "null") == 0)
 	{
 		if (value)
@@ -4668,7 +4668,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 		}
 	}
 
-	/* field separator for unaligned text */
+	/* 不对齐文本的字段分隔符 */
 	else if (strcmp(param, "fieldsep") == 0)
 	{
 		if (value)
@@ -4686,7 +4686,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 		popt->topt.fieldSep.separator_zero = true;
 	}
 
-	/* record separator for unaligned text */
+	/* 不对齐文本的记录分隔符 */
 	else if (strcmp(param, "recordsep") == 0)
 	{
 		if (value)
@@ -4704,7 +4704,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 		popt->topt.recordSep.separator_zero = true;
 	}
 
-	/* toggle between full and tuples-only format */
+	/* 在完整格式和仅元组格式之间切换 */
 	else if (strcmp(param, "t") == 0 || strcmp(param, "tuples_only") == 0)
 	{
 		if (value)
@@ -4713,7 +4713,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 			popt->topt.tuples_only = !popt->topt.tuples_only;
 	}
 
-	/* set title override */
+	/* 设置标题覆盖 */
 	else if (strcmp(param, "C") == 0 || strcmp(param, "title") == 0)
 	{
 		free(popt->title);
@@ -4723,7 +4723,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 			popt->title = pg_strdup(value);
 	}
 
-	/* set HTML table tag options */
+	/* 设置 HTML 表标签选项 */
 	else if (strcmp(param, "T") == 0 || strcmp(param, "tableattr") == 0)
 	{
 		free(popt->topt.tableAttr);
@@ -4733,7 +4733,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 			popt->topt.tableAttr = pg_strdup(value);
 	}
 
-	/* toggle use of pager */
+	/* 切换分页器的使用 */
 	else if (strcmp(param, "pager") == 0)
 	{
 		if (value && pg_strcasecmp(value, "always") == 0)
@@ -4755,7 +4755,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 			popt->topt.pager = 1;
 	}
 
-	/* set minimum lines for pager use */
+	/* 设置使用分页器的最小行数 */
 	else if (strcmp(param, "pager_min_lines") == 0)
 	{
 		if (value &&
@@ -4763,7 +4763,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 			return false;
 	}
 
-	/* disable "(x rows)" footer */
+	/* 禁用 "(x rows)" 页脚 */
 	else if (strcmp(param, "footer") == 0)
 	{
 		if (value)
@@ -4772,7 +4772,7 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 			popt->topt.default_footer = !popt->topt.default_footer;
 	}
 
-	/* set border style/width */
+	/* 设置边框样式/宽度 */
 	else if (strcmp(param, "columns") == 0)
 	{
 		if (value)
@@ -4791,18 +4791,18 @@ do_pset(const char *param, const char *value, printQueryOpt *popt, bool quiet)
 }
 
 /*
- * printPsetInfo: print the state of the "param" formatting parameter in popt.
+ * printPsetInfo：打印 popt 中 "param" 格式化参数的状态。
  */
 static bool
 printPsetInfo(const char *param, printQueryOpt *popt)
 {
 	Assert(param != NULL);
 
-	/* show border style/width */
+	/* 显示边框样式/宽度 */
 	if (strcmp(param, "border") == 0)
 		printf(_("Border style is %d.\n"), popt->topt.border);
 
-	/* show the target width for the wrapped format */
+	/* 显示 wrapped 格式的目标宽度 */
 	else if (strcmp(param, "columns") == 0)
 	{
 		if (!popt->topt.columns)
@@ -4811,7 +4811,7 @@ printPsetInfo(const char *param, printQueryOpt *popt)
 			printf(_("Target width is %d.\n"), popt->topt.columns);
 	}
 
-	/* show expanded/vertical mode */
+	/* 显示展开/垂直模式 */
 	else if (strcmp(param, "x") == 0 || strcmp(param, "expanded") == 0 || strcmp(param, "vertical") == 0)
 	{
 		if (popt->topt.expanded == 1)
@@ -4822,7 +4822,7 @@ printPsetInfo(const char *param, printQueryOpt *popt)
 			printf(_("Expanded display is off.\n"));
 	}
 
-	/* show xheader width value */
+	/* 显示 xheader 宽度值 */
 	else if (strcmp(param, "xheader_width") == 0)
 	{
 		if (popt->topt.expanded_header_width_type == PRINT_XHEADER_FULL)
@@ -4835,14 +4835,14 @@ printPsetInfo(const char *param, printQueryOpt *popt)
 			printf(_("Expanded header width is %d.\n"), popt->topt.expanded_header_exact_width);
 	}
 
-	/* show field separator for CSV format */
+	/* 显示 CSV 格式的字段分隔符 */
 	else if (strcmp(param, "csv_fieldsep") == 0)
 	{
 		printf(_("Field separator for CSV is \"%s\".\n"),
 			   popt->topt.csvFieldSep);
 	}
 
-	/* show field separator for unaligned text */
+	/* 显示不对齐文本的字段分隔符 */
 	else if (strcmp(param, "fieldsep") == 0)
 	{
 		if (popt->topt.fieldSep.separator_zero)
@@ -4857,7 +4857,7 @@ printPsetInfo(const char *param, printQueryOpt *popt)
 		printf(_("Field separator is zero byte.\n"));
 	}
 
-	/* show disable "(x rows)" footer */
+	/* 显示 "(x rows)" 页脚的禁用状态 */
 	else if (strcmp(param, "footer") == 0)
 	{
 		if (popt->topt.default_footer)
@@ -4866,27 +4866,27 @@ printPsetInfo(const char *param, printQueryOpt *popt)
 			printf(_("Default footer is off.\n"));
 	}
 
-	/* show format */
+	/* 显示格式 */
 	else if (strcmp(param, "format") == 0)
 	{
 		printf(_("Output format is %s.\n"), _align2string(popt->topt.format));
 	}
 
-	/* show table line style */
+	/* 显示表线样式 */
 	else if (strcmp(param, "linestyle") == 0)
 	{
 		printf(_("Line style is %s.\n"),
 			   get_line_style(&popt->topt)->name);
 	}
 
-	/* show null display */
+	/* 显示 null 显示方式 */
 	else if (strcmp(param, "null") == 0)
 	{
 		printf(_("Null display is \"%s\".\n"),
 			   popt->nullPrint ? popt->nullPrint : "");
 	}
 
-	/* show locale-aware numeric output */
+	/* 显示区域敏感的数值输出 */
 	else if (strcmp(param, "numericlocale") == 0)
 	{
 		if (popt->topt.numericLocale)
@@ -4895,7 +4895,7 @@ printPsetInfo(const char *param, printQueryOpt *popt)
 			printf(_("Locale-adjusted numeric output is off.\n"));
 	}
 
-	/* show toggle use of pager */
+	/* 显示分页器使用的切换状态 */
 	else if (strcmp(param, "pager") == 0)
 	{
 		if (popt->topt.pager == 1)
@@ -4906,7 +4906,7 @@ printPsetInfo(const char *param, printQueryOpt *popt)
 			printf(_("Pager usage is off.\n"));
 	}
 
-	/* show minimum lines for pager use */
+	/* 显示使用分页器的最小行数 */
 	else if (strcmp(param, "pager_min_lines") == 0)
 	{
 		printf(ngettext("Pager won't be used for less than %d line.\n",
@@ -4915,7 +4915,7 @@ printPsetInfo(const char *param, printQueryOpt *popt)
 			   popt->topt.pager_min_lines);
 	}
 
-	/* show record separator for unaligned text */
+	/* 显示不对齐文本的记录分隔符 */
 	else if (strcmp(param, "recordsep") == 0)
 	{
 		if (popt->topt.recordSep.separator_zero)
@@ -4932,7 +4932,7 @@ printPsetInfo(const char *param, printQueryOpt *popt)
 		printf(_("Record separator is zero byte.\n"));
 	}
 
-	/* show HTML table tag options */
+	/* 显示 HTML 表标签选项 */
 	else if (strcmp(param, "T") == 0 || strcmp(param, "tableattr") == 0)
 	{
 		if (popt->topt.tableAttr)
@@ -4942,7 +4942,7 @@ printPsetInfo(const char *param, printQueryOpt *popt)
 			printf(_("Table attributes unset.\n"));
 	}
 
-	/* show title override */
+	/* 显示标题覆盖 */
 	else if (strcmp(param, "C") == 0 || strcmp(param, "title") == 0)
 	{
 		if (popt->title)
@@ -4951,7 +4951,7 @@ printPsetInfo(const char *param, printQueryOpt *popt)
 			printf(_("Title is unset.\n"));
 	}
 
-	/* show toggle between full and tuples-only format */
+	/* 显示完整格式和仅元组格式之间的切换状态 */
 	else if (strcmp(param, "t") == 0 || strcmp(param, "tuples_only") == 0)
 	{
 		if (popt->topt.tuples_only)
@@ -4960,7 +4960,7 @@ printPsetInfo(const char *param, printQueryOpt *popt)
 			printf(_("Tuples only is off.\n"));
 	}
 
-	/* Unicode style formatting */
+	/* Unicode 样式格式化 */
 	else if (strcmp(param, "unicode_border_linestyle") == 0)
 	{
 		printf(_("Unicode border line style is \"%s\".\n"),
@@ -4989,9 +4989,9 @@ printPsetInfo(const char *param, printQueryOpt *popt)
 }
 
 /*
- * savePsetInfo: make a malloc'd copy of the data in *popt.
+ * savePsetInfo：创建 *popt 中数据的 malloc 副本。
  *
- * Possibly this should be somewhere else, but it's a bit specific to psql.
+ * 也许这应该放在别处，但它有点特定于 psql。
  */
 printQueryOpt *
 savePsetInfo(const printQueryOpt *popt)
@@ -5000,10 +5000,10 @@ savePsetInfo(const printQueryOpt *popt)
 
 	save = (printQueryOpt *) pg_malloc(sizeof(printQueryOpt));
 
-	/* Flat-copy all the scalar fields, then duplicate sub-structures. */
+	/* 平面复制所有标量字段，然后复制子结构。 */
 	memcpy(save, popt, sizeof(printQueryOpt));
 
-	/* topt.line_style points to const data that need not be duplicated */
+	/* topt.line_style 指向不需要复制的 const 数据 */
 	if (popt->topt.fieldSep.separator)
 		save->topt.fieldSep.separator = pg_strdup(popt->topt.fieldSep.separator);
 	if (popt->topt.recordSep.separator)
@@ -5016,9 +5016,9 @@ savePsetInfo(const printQueryOpt *popt)
 		save->title = pg_strdup(popt->title);
 
 	/*
-	 * footers and translate_columns are never set in psql's print settings,
-	 * so we needn't write code to duplicate them.
-	 */
+ * footers 和 translate_columns 在 psql 的打印设置中
+ * 从未设置，因此我们无需编写复制它们的代码。
+ */
 	Assert(popt->footers == NULL);
 	Assert(popt->translate_columns == NULL);
 
@@ -5026,15 +5026,15 @@ savePsetInfo(const printQueryOpt *popt)
 }
 
 /*
- * restorePsetInfo: restore *popt from the previously-saved copy *save,
- * then free *save.
+ * restorePsetInfo：从先前保存的副本 *save 恢复 *popt，
+ * 然后释放 *save。
  */
 void
 restorePsetInfo(printQueryOpt *popt, printQueryOpt *save)
 {
-	/* Free all the old data we're about to overwrite the pointers to. */
+	/* 释放我们即将覆盖其指针的所有旧数据。 */
 
-	/* topt.line_style points to const data that need not be duplicated */
+	/* topt.line_style 指向不需要复制的 const 数据 */
 	free(popt->topt.fieldSep.separator);
 	free(popt->topt.recordSep.separator);
 	free(popt->topt.tableAttr);
@@ -5042,16 +5042,16 @@ restorePsetInfo(printQueryOpt *popt, printQueryOpt *save)
 	free(popt->title);
 
 	/*
-	 * footers and translate_columns are never set in psql's print settings,
-	 * so we needn't write code to duplicate them.
-	 */
+ * footers 和 translate_columns 在 psql 的打印设置中
+ * 从未设置，因此我们无需编写复制它们的代码。
+ */
 	Assert(popt->footers == NULL);
 	Assert(popt->translate_columns == NULL);
 
-	/* Now we may flat-copy all the fields, including pointers. */
+	/* 现在我们可以平面复制所有字段，包括指针。 */
 	memcpy(popt, save, sizeof(printQueryOpt));
 
-	/* Lastly, free "save" ... but its sub-structures now belong to popt. */
+	/* 最后，释放 "save"…但其子结构现在属于 popt。 */
 	free(save);
 }
 
@@ -5094,11 +5094,11 @@ pset_quoted_string(const char *str)
 
 
 /*
- * Return a malloc'ed string for the \pset value.
+ * 为 \\pset 值返回一个 malloc 分配的字符串。
  *
- * Note that for some string parameters, print.c distinguishes between unset
- * and empty string, but for others it doesn't.  This function should produce
- * output that produces the correct setting when fed back into \pset.
+ * 注意，对于某些字符串参数，print.c 区分未设置
+ * 和空字符串，但对于其他参数则不区分。此函数应产生
+ * 在反馈给 \\pset 时产生正确设置的输出。
  */
 static char *
 pset_value_string(const char *param, printQueryOpt *popt)
@@ -5165,7 +5165,7 @@ pset_value_string(const char *param, printQueryOpt *popt)
 			return pstrdup("page");
 		else
 		{
-			/* must be PRINT_XHEADER_EXACT_WIDTH */
+			/* 必须是 PRINT_XHEADER_EXACT_WIDTH */
 			char		wbuff[32];
 
 			snprintf(wbuff, sizeof(wbuff), "%d",
@@ -5183,8 +5183,8 @@ pset_value_string(const char *param, printQueryOpt *popt)
 #define DEFAULT_SHELL "/bin/sh"
 #else
 /*
- *	CMD.EXE is in different places in different Win32 releases so we
- *	have to rely on the path to find it.
+ * CMD.EXE 在不同 Win32 版本中位于不同位置，
+ * 因此我们必须依赖路径来找到它。
  */
 #define DEFAULT_SHELL "cmd.exe"
 #endif
@@ -5208,7 +5208,7 @@ do_shell(const char *command)
 		if (shellName == NULL)
 			shellName = DEFAULT_SHELL;
 
-		/* See EDITOR handling comment for an explanation */
+		/* 参见 EDITOR 处理注释的解释 */
 #ifndef WIN32
 		sys = psprintf("exec %s", shellName);
 #else
@@ -5231,14 +5231,14 @@ do_shell(const char *command)
 }
 
 /*
- * do_watch -- handler for \watch
+ * do_watch —— \\watch 的处理程序
  *
- * We break this out of exec_command to avoid having to plaster "volatile"
- * onto a bunch of exec_command's variables to silence stupider compilers.
+ * 我们将其从 exec_command 中分离出来，以避免在
+ * exec_command 的许多变量上贴上 "volatile" 以安抚更愚蠢的编译器。
  *
- * "sleep" is the amount of time to sleep during each loop, measured in
- * seconds.  The internals of this function should use "sleep_ms" for
- * precise sleep time calculations.
+ * "sleep" 是每次循环中睡眠的时间量，以秒为单位。
+ * 此函数的内部应使用 "sleep_ms" 进行
+ * 精确的睡眠时间计算。
  */
 static bool
 do_watch(PQExpBuffer query_buf, double sleep, int iter)
@@ -5280,15 +5280,15 @@ do_watch(PQExpBuffer query_buf, double sleep, int iter)
 	sigaddset(&sigint, SIGINT);
 
 	/*
-	 * Block SIGALRM and SIGCHLD before we start the timer and the pager (if
-	 * configured), to avoid races.  sigwait() will receive them.
-	 */
+\t * 在启动定时器和分页器（如果已配置）之前阻塞
+\t * SIGALRM 和 SIGCHLD，以避免竞态条件。sigwait() 将接收它们。
+\t */
 	sigprocmask(SIG_BLOCK, &sigalrm_sigchld, NULL);
 
 	/*
-	 * Set a timer to interrupt sigwait() so we can run the query at the
-	 * requested intervals.
-	 */
+ * 设置一个定时器来中断 sigwait()，以便我们可以
+ * 按照请求的间隔运行查询。
+ */
 	interval.it_value.tv_sec = sleep_ms / 1000;
 	interval.it_value.tv_usec = (sleep_ms % 1000) * 1000;
 	interval.it_interval = interval.it_value;
@@ -5300,16 +5300,16 @@ do_watch(PQExpBuffer query_buf, double sleep, int iter)
 #endif
 
 	/*
-	 * For \watch, we ignore the size of the result and always use the pager
-	 * as long as we're talking to a terminal and "\pset pager" is enabled.
-	 * However, we'll only use the pager identified by PSQL_WATCH_PAGER.  We
-	 * ignore the regular PSQL_PAGER or PAGER environment variables, because
-	 * traditional pagers probably won't be very useful for showing a stream
-	 * of results.
-	 */
+ * 对于 \\watch，我们忽略结果的大小，只要我们在与终端
+ * 通信且 "\\pset pager" 已启用，就始终使用分页器。
+ * 但是，我们只使用 PSQL_WATCH_PAGER 标识的分页器。
+ * 我们忽略常规的 PSQL_PAGER 或 PAGER 环境变量，
+ * 因为传统的分页器对于显示结果流
+ * 可能不太有用。
+ */
 #ifndef WIN32
 	pagerprog = getenv("PSQL_WATCH_PAGER");
-	/* if variable is empty or all-white-space, don't use pager */
+	/* 如果变量为空或全为空白，则不使用分页器 */
 	if (pagerprog && strspn(pagerprog, " \t\r\n") == strlen(pagerprog))
 		pagerprog = NULL;
 #endif
@@ -5321,30 +5321,30 @@ do_watch(PQExpBuffer query_buf, double sleep, int iter)
 		pagerpipe = popen(pagerprog, "w");
 
 		if (!pagerpipe)
-			/* silently proceed without pager */
+			/* 静默地继续而不使用分页器 */
 			restore_sigpipe_trap();
 	}
 
 	/*
-	 * Choose format for timestamps.  We might eventually make this a \pset
-	 * option.  In the meantime, using a variable for the format suppresses
-	 * overly-anal-retentive gcc warnings about %c being Y2K sensitive.
-	 */
+\t * 选择时间戳的格式。我们可能最终会将其作为 \\pset
+\t * 选项。在此期间，使用变量来存储格式可以抑制
+\t * 过于挑剔的 gcc 关于 %c 对 Y2K 敏感的警告。
+\t */
 	strftime_fmt = "%c";
 
 	/*
-	 * Set up rendering options, in particular, disable the pager unless
-	 * PSQL_WATCH_PAGER was successfully launched.
-	 */
+ * 设置渲染选项，特别是禁用分页器，除非
+ * PSQL_WATCH_PAGER 已成功启动。
+ */
 	if (!pagerpipe)
 		myopt.topt.pager = 0;
 
 
 	/*
-	 * If there's a title in the user configuration, make sure we have room
-	 * for it in the title buffer.  Allow 128 bytes for the timestamp plus 128
-	 * bytes for the rest.
-	 */
+ * 如果用户配置中有标题，请确保标题缓冲区
+ * 中有足够的空间。为时间戳预留 128 字节，
+ * 为其余内容预留 128 字节。
+ */
 	user_title = myopt.title;
 	title_len = (user_title ? strlen(user_title) : 0) + 256;
 	title = pg_malloc(title_len);
@@ -5355,10 +5355,10 @@ do_watch(PQExpBuffer query_buf, double sleep, int iter)
 		char		timebuf[128];
 
 		/*
-		 * Prepare title for output.  Note that we intentionally include a
-		 * newline at the end of the title; this is somewhat historical but it
-		 * makes for reasonably nicely formatted output in simple cases.
-		 */
+ * 准备输出的标题。请注意，我们有意在标题末尾
+ * 包含一个换行符；这有些历史原因，但在简单情况下
+ * 会产生格式相当好的输出。
+ */
 		timer = time(NULL);
 		strftime(timebuf, sizeof(timebuf), strftime_fmt, localtime(&timer));
 
@@ -5370,41 +5370,41 @@ do_watch(PQExpBuffer query_buf, double sleep, int iter)
 					 timebuf, sleep_ms / 1000.0);
 		myopt.title = title;
 
-		/* Run the query and print out the result */
+		/* 运行查询并打印结果 */
 		res = PSQLexecWatch(query_buf->data, &myopt, pagerpipe);
 
 		/*
-		 * PSQLexecWatch handles the case where we can no longer repeat the
-		 * query, and returns 0 or -1.
-		 */
+ * PSQLexecWatch 处理我们无法再重复查询的情况，
+ * 并返回 0 或 -1。
+ */
 		if (res <= 0)
 			break;
 
-		/* If we have iteration count, check that it's not exceeded yet */
+		/* 如果我们有迭代计数，检查是否尚未超出 */
 		if (iter && (--iter <= 0))
 			break;
 
 		if (pagerpipe && ferror(pagerpipe))
 			break;
 
-		/* Tight loop, no wait needed */
+		/* 紧密循环，无需等待 */
 		if (sleep_ms == 0)
 			continue;
 
 #ifdef WIN32
 
 		/*
-		 * Set up cancellation of 'watch' via SIGINT.  We redo this each time
-		 * through the loop since it's conceivable something inside
-		 * PSQLexecWatch could change sigint_interrupt_jmp.
-		 */
+ * 通过 SIGINT 设置 \\watch 的取消。每次循环都重做
+ * 此操作，因为可以想象 PSQLexecWatch 内部
+ * 可能会更改 sigint_interrupt_jmp。
+ */
 		if (sigsetjmp(sigint_interrupt_jmp, 1) != 0)
 			break;
 
 		/*
-		 * Enable 'watch' cancellations and wait a while before running the
-		 * query again.  Break the sleep into short intervals (at most 1s).
-		 */
+ * 启用 \\watch 取消并等待一段时间，然后再次运行
+ * 查询。将睡眠分成短间隔（最多 1 秒）。
+ */
 		sigint_interrupt_enabled = true;
 		for (long i = sleep_ms; i > 0;)
 		{
@@ -5417,12 +5417,12 @@ do_watch(PQExpBuffer query_buf, double sleep, int iter)
 		}
 		sigint_interrupt_enabled = false;
 #else
-		/* sigwait() will handle SIGINT. */
+		/* sigwait() 将处理 SIGINT。 */
 		sigprocmask(SIG_BLOCK, &sigint, NULL);
 		if (cancel_pressed)
 			done = true;
 
-		/* Wait for SIGINT, SIGCHLD or SIGALRM. */
+		/* 等待 SIGINT、SIGCHLD 或 SIGALRM。 */
 		while (!done)
 		{
 			int			signal_received;
@@ -5430,7 +5430,7 @@ do_watch(PQExpBuffer query_buf, double sleep, int iter)
 			errno = sigwait(&sigalrm_sigchld_sigint, &signal_received);
 			if (errno != 0)
 			{
-				/* Some other signal arrived? */
+				/* 有其它信号到达？ */
 				if (errno == EINTR)
 					continue;
 				else
@@ -5440,14 +5440,14 @@ do_watch(PQExpBuffer query_buf, double sleep, int iter)
 					break;
 				}
 			}
-			/* On ^C or pager exit, it's time to stop running the query. */
+			/* 在 ^C 或分页器退出时，是时候停止运行查询了。 */
 			if (signal_received == SIGINT || signal_received == SIGCHLD)
 				done = true;
-			/* Otherwise, we must have SIGALRM.  Time to run the query again. */
+			/* 否则，一定是 SIGALRM。是时候再次运行查询了。 */
 			break;
 		}
 
-		/* Unblock SIGINT so that slow queries can be interrupted. */
+		/* 取消阻塞 SIGINT，以便可以中断慢速查询。 */
 		sigprocmask(SIG_UNBLOCK, &sigint, NULL);
 		if (done)
 			break;
@@ -5462,21 +5462,21 @@ do_watch(PQExpBuffer query_buf, double sleep, int iter)
 	else
 	{
 		/*
-		 * If the terminal driver echoed "^C", libedit/libreadline might be
-		 * confused about the cursor position.  Therefore, inject a newline
-		 * before the next prompt is displayed.  We only do this when not
-		 * using a pager, because pagers are expected to restore the screen to
-		 * a sane state on exit.
-		 */
+ * 如果终端驱动程序回显了 "^C"，libedit/libreadline
+ * 可能对光标位置感到困惑。因此，在显示下一个提示符
+ * 之前注入一个换行符。我们仅在不使用分页器时才这样做，
+ * 因为分页器预期在退出时将屏幕恢复到
+ * 正常状态。
+ */
 		fprintf(stdout, "\n");
 		fflush(stdout);
 	}
 
 #ifndef WIN32
-	/* Disable the interval timer. */
+	/* 禁用间隔定时器。 */
 	memset(&interval, 0, sizeof(interval));
 	setitimer(ITIMER_REAL, &interval, NULL);
-	/* Unblock SIGINT, SIGCHLD and SIGALRM. */
+	/* 取消阻塞 SIGINT、SIGCHLD 和 SIGALRM。 */
 	sigprocmask(SIG_UNBLOCK, &sigalrm_sigchld_sigint, NULL);
 #endif
 
@@ -5485,8 +5485,8 @@ do_watch(PQExpBuffer query_buf, double sleep, int iter)
 }
 
 /*
- * a little code borrowed from PSQLexec() to manage ECHO_HIDDEN output.
- * returns true unless we have ECHO_HIDDEN_NOEXEC.
+ * 从 PSQLexec() 借用的一小段代码来管理 ECHO_HIDDEN 输出。
+ * 除非我们有 ECHO_HIDDEN_NOEXEC，否则返回 true。
  */
 static bool
 echo_hidden_command(const char *query)
@@ -5513,12 +5513,12 @@ echo_hidden_command(const char *query)
 }
 
 /*
- * Look up the object identified by obj_type and desc.  If successful,
- * store its OID in *obj_oid and return true, else return false.
+ * 查找由 obj_type 和 desc 标识的对象。如果成功，
+ * 将其 OID 存储在 *obj_oid 中并返回 true，否则返回 false。
  *
- * Note that we'll fail if the object doesn't exist OR if there are multiple
- * matching candidates OR if there's something syntactically wrong with the
- * object description; unfortunately it can be hard to tell the difference.
+ * 注意，如果对象不存在，或者存在多个匹配的候选对象，
+ * 或者对象描述存在语法错误，我们都会失败；
+ * 遗憾的是，很难区分这些情况。
  */
 static bool
 lookup_object_oid(EditableObjectType obj_type, const char *desc,
@@ -5533,10 +5533,10 @@ lookup_object_oid(EditableObjectType obj_type, const char *desc,
 		case EditableFunction:
 
 			/*
-			 * We have a function description, e.g. "x" or "x(int)".  Issue a
-			 * query to retrieve the function's OID using a cast to regproc or
-			 * regprocedure (as appropriate).
-			 */
+ * 我们有一个函数描述，例如 "x" 或 "x(int)"。
+ * 发出查询以使用到 regproc 或 regprocedure 的
+ * 转换（视情况而定）检索函数的 OID。
+ */
 			appendPQExpBufferStr(query, "SELECT ");
 			appendStringLiteralConn(query, desc, pset.db);
 			appendPQExpBuffer(query, "::pg_catalog.%s::pg_catalog.oid",
@@ -5546,10 +5546,10 @@ lookup_object_oid(EditableObjectType obj_type, const char *desc,
 		case EditableView:
 
 			/*
-			 * Convert view name (possibly schema-qualified) to OID.  Note:
-			 * this code doesn't check if the relation is actually a view.
-			 * We'll detect that in get_create_object_cmd().
-			 */
+ * 将视图名称（可能带模式限定）转换为 OID。注意：
+ * 此代码不检查关系是否实际上是视图。
+ * 我们将在 get_create_object_cmd() 中检测到这一点。
+ */
 			appendPQExpBufferStr(query, "SELECT ");
 			appendStringLiteralConn(query, desc, pset.db);
 			appendPQExpBufferStr(query, "::pg_catalog.regclass::pg_catalog.oid");
@@ -5577,8 +5577,8 @@ lookup_object_oid(EditableObjectType obj_type, const char *desc,
 }
 
 /*
- * Construct a "CREATE OR REPLACE ..." command that describes the specified
- * database object.  If successful, the result is stored in buf.
+ * 构造描述指定数据库对象的 "CREATE OR REPLACE ..." 命令。
+ * 如果成功，结果存储在 buf 中。
  */
 static bool
 get_create_object_cmd(EditableObjectType obj_type, Oid oid,
@@ -5599,17 +5599,17 @@ get_create_object_cmd(EditableObjectType obj_type, Oid oid,
 		case EditableView:
 
 			/*
-			 * pg_get_viewdef() just prints the query, so we must prepend
-			 * CREATE for ourselves.  We must fully qualify the view name to
-			 * ensure the right view gets replaced.  Also, check relation kind
-			 * to be sure it's a view.
-			 *
-			 * Starting with PG 9.4, views may have WITH [LOCAL|CASCADED]
-			 * CHECK OPTION.  These are not part of the view definition
-			 * returned by pg_get_viewdef() and so need to be retrieved
-			 * separately.  Materialized views (introduced in 9.3) may have
-			 * arbitrary storage parameter reloptions.
-			 */
+ * pg_get_viewdef() 只打印查询，因此我们必须自己
+ * 在前面加上 CREATE。我们必须完全限定视图名称，
+ * 以确保替换正确的视图。另外，检查关系类型
+ * 以确保它是视图。
+ *
+ * 从 PG 9.4 开始，视图可以有 WITH [LOCAL|CASCADED]
+ * CHECK OPTION。这些不是 pg_get_viewdef() 返回的
+ * 视图定义的一部分，因此需要单独检索。
+ * 物化视图（在 9.3 中引入）可以有
+ * 任意的存储参数 reloptions。
+ */
 			if (pset.sversion >= 90400)
 			{
 				printfPQExpBuffer(query,
@@ -5663,11 +5663,11 @@ get_create_object_cmd(EditableObjectType obj_type, Oid oid,
 					char	   *checkoption = PQgetvalue(res, 0, 5);
 
 					/*
-					 * If the backend ever supports CREATE OR REPLACE
-					 * MATERIALIZED VIEW, allow that here; but as of today it
-					 * does not, so editing a matview definition in this way
-					 * is impossible.
-					 */
+ * 如果后端将来支持 CREATE OR REPLACE
+ * MATERIALIZED VIEW，则在此处允许；但截至目前，
+ * 它还不支持，因此以这种方式编辑物化视图定义
+ * 是不可能的。
+ */
 					switch (relkind[0])
 					{
 #ifdef NOT_USED
@@ -5687,7 +5687,7 @@ get_create_object_cmd(EditableObjectType obj_type, Oid oid,
 					appendPQExpBuffer(buf, "%s.", fmtId(nspname));
 					appendPQExpBufferStr(buf, fmtId(relname));
 
-					/* reloptions, if not an empty array "{}" */
+					/* reloptions，如果不是空数组 "{}" */
 					if (reloptions != NULL && strlen(reloptions) > 2)
 					{
 						appendPQExpBufferStr(buf, "\n WITH (");
@@ -5701,10 +5701,10 @@ get_create_object_cmd(EditableObjectType obj_type, Oid oid,
 						appendPQExpBufferChar(buf, ')');
 					}
 
-					/* View definition from pg_get_viewdef (a SELECT query) */
+					/* 来自 pg_get_viewdef 的视图定义（一个 SELECT 查询） */
 					appendPQExpBuffer(buf, " AS\n%s", viewdef);
 
-					/* Get rid of the semicolon that pg_get_viewdef appends */
+					/* 去掉 pg_get_viewdef 追加的分号 */
 					if (buf->len > 0 && buf->data[buf->len - 1] == ';')
 						buf->data[--(buf->len)] = '\0';
 
@@ -5715,7 +5715,7 @@ get_create_object_cmd(EditableObjectType obj_type, Oid oid,
 				}
 				break;
 		}
-		/* Make sure result ends with a newline */
+		/* 确保结果以换行符结束 */
 		if (buf->len > 0 && buf->data[buf->len - 1] != '\n')
 			appendPQExpBufferChar(buf, '\n');
 	}
@@ -5732,13 +5732,13 @@ get_create_object_cmd(EditableObjectType obj_type, Oid oid,
 }
 
 /*
- * If the given argument of \ef or \ev ends with a line number, delete the line
- * number from the argument string and return it as an integer.  (We need
- * this kluge because we're too lazy to parse \ef's function or \ev's view
- * argument carefully --- we just slop it up in OT_WHOLE_LINE mode.)
+ * 如果 \\ef 或 \\ev 的给定参数以行号结尾，则从参数
+ * 字符串中删除行号并将其作为整数返回。（我们需要
+ * 这种 hack，因为我们太懒于仔细解析 \\ef 的函数或 \\ev 的视图
+ * 参数——我们只是用 OT_WHOLE_LINE 模式吞掉它。）
  *
- * Returns -1 if no line number is present, 0 on error, or a positive value
- * on success.
+ * 如果没有行号则返回 -1，出错时返回 0，或成功时
+ * 返回正值。
  */
 static int
 strip_lineno_from_objdesc(char *obj)
@@ -5752,34 +5752,34 @@ strip_lineno_from_objdesc(char *obj)
 	c = obj + strlen(obj) - 1;
 
 	/*
-	 * This business of parsing backwards is dangerous as can be in a
-	 * multibyte environment: there is no reason to believe that we are
-	 * looking at the first byte of a character, nor are we necessarily
-	 * working in a "safe" encoding.  Fortunately the bitpatterns we are
-	 * looking for are unlikely to occur as non-first bytes, but beware of
-	 * trying to expand the set of cases that can be recognized.  We must
-	 * guard the <ctype.h> macros by using isascii() first, too.
-	 */
+\t * 在多字节环境中向后解析是非常危险的：
+\t * 我们没有理由相信我们正在查看字符的第一个字节，
+\t * 也不一定在"安全"编码中工作。幸运的是，我们正在
+\t * 查找的位模式不太可能作为非首字节出现，但要小心
+\t * 尝试扩展可识别的情况集。我们也必须
+\t * 先使用 isascii() 来保护 <ctype.h> 宏。
+\t *
+\t */
 
-	/* skip trailing whitespace */
+	/* 跳过尾随空白 */
 	while (c > obj && isascii((unsigned char) *c) && isspace((unsigned char) *c))
 		c--;
 
-	/* must have a digit as last non-space char */
+	/* 最后一个非空格字符必须是数字 */
 	if (c == obj || !isascii((unsigned char) *c) || !isdigit((unsigned char) *c))
 		return -1;
 
-	/* find start of digit string */
+	/* 查找数字字符串的开头 */
 	while (c > obj && isascii((unsigned char) *c) && isdigit((unsigned char) *c))
 		c--;
 
-	/* digits must be separated from object name by space or closing paren */
-	/* notice also that we are not allowing an empty object name ... */
+	/* 数字必须通过空格或闭括号与对象名称分开 */
+	/* 还请注意，我们不允许空的对象名称… */
 	if (c == obj || !isascii((unsigned char) *c) ||
 		!(isspace((unsigned char) *c) || *c == ')'))
 		return -1;
 
-	/* parse digit string */
+	/* 解析数字字符串 */
 	c++;
 	lineno = atoi(c);
 	if (lineno < 1)
@@ -5788,15 +5788,15 @@ strip_lineno_from_objdesc(char *obj)
 		return 0;
 	}
 
-	/* strip digit string from object name */
+	/* 从对象名称中去除数字字符串 */
 	*c = '\0';
 
 	return lineno;
 }
 
 /*
- * Count number of lines in the buffer.
- * This is used to test if pager is needed or not.
+ * 计算缓冲区中的行数。
+ * 用于测试是否需要分页器。
  */
 static int
 count_lines_in_buf(PQExpBuffer buf)
@@ -5807,7 +5807,7 @@ count_lines_in_buf(PQExpBuffer buf)
 	while (*lines != '\0')
 	{
 		lineno++;
-		/* find start of next line */
+		/* 查找下一行的开头 */
 		lines = strchr(lines, '\n');
 		if (!lines)
 			break;
@@ -5818,15 +5818,15 @@ count_lines_in_buf(PQExpBuffer buf)
 }
 
 /*
- * Write text at *lines to output with line numbers.
+ * 将 *lines 中的文本以带行号的方式写入输出。
  *
- * For functions, lineno "1" should correspond to the first line of the
- * function body; lines before that are unnumbered.  We expect that
- * pg_get_functiondef() will emit that on a line beginning with "AS ",
- * "BEGIN ", or "RETURN ", and that there can be no such line before
- * the real start of the function body.
+ * 对于函数，行号 "1" 应对应于函数体的第一行；
+ * 之前的行不编号。我们期望 pg_get_functiondef()
+ * 将其输出在以 "AS "、"BEGIN " 或 "RETURN " 开头
+ * 的行上，且在函数体的真正开始之前不会有
+ * 这样的行。
  *
- * Caution: this scribbles on *lines.
+ * 注意：这会涂写 *lines。
  */
 static void
 print_with_linenumbers(FILE *output, char *lines, bool is_func)
@@ -5844,22 +5844,22 @@ print_with_linenumbers(FILE *output, char *lines, bool is_func)
 			 strncmp(lines, "RETURN ", 7) == 0))
 			in_header = false;
 
-		/* increment lineno only for body's lines */
+		/* 仅为函数体的行递增 lineno */
 		if (!in_header)
 			lineno++;
 
-		/* find and mark end of current line */
+		/* 查找并标记当前行的末尾 */
 		eol = strchr(lines, '\n');
 		if (eol != NULL)
 			*eol = '\0';
 
-		/* show current line as appropriate */
+		/* 适当地显示当前行 */
 		if (in_header)
 			fprintf(output, "        %s\n", lines);
 		else
 			fprintf(output, "%-7d %s\n", lineno, lines);
 
-		/* advance to next line, if any */
+		/* 前进到下一行（如果有） */
 		if (eol == NULL)
 			break;
 		lines = ++eol;
@@ -5867,8 +5867,8 @@ print_with_linenumbers(FILE *output, char *lines, bool is_func)
 }
 
 /*
- * Report just the primary error; this is to avoid cluttering the output
- * with, for instance, a redisplay of the internally generated query
+ * 仅报告主要错误；这是为了避免输出杂乱，
+ * 例如重新显示内部生成的查询
  */
 static void
 minimal_error_message(PGresult *res)

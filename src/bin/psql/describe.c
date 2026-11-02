@@ -65,7 +65,7 @@ static bool validateSQLNamePattern(PQExpBuffer buf, const char *pattern,
 
 /*
  * \da
- * Takes an optional regexp to select particular aggregates
+ * 接受一个可选的正则表达式来选择特定的聚合
  */
 bool
 describeAggregates(const char *pattern, bool verbose, bool showSystem)
@@ -136,7 +136,7 @@ describeAggregates(const char *pattern, bool verbose, bool showSystem)
 
 /*
  * \dA
- * Takes an optional regexp to select particular access methods
+ * 接受一个可选的正则表达式来选择特定的访问方法
  */
 bool
 describeAccessMethods(const char *pattern, bool verbose)
@@ -211,7 +211,7 @@ describeAccessMethods(const char *pattern, bool verbose)
 
 /*
  * \db
- * Takes an optional regexp to select particular tablespaces
+ * 接受一个可选的正则表达式来选择特定的表空间
  */
 bool
 describeTablespaces(const char *pattern, bool verbose)
@@ -275,17 +275,17 @@ describeTablespaces(const char *pattern, bool verbose)
 
 /*
  * \df
- * Takes an optional regexp to select particular functions.
+ * 接受一个可选的正则表达式来选择特定的函数。
  *
- * As with \d, you can specify the kinds of functions you want:
+ * 与 \d 类似，你可以指定所需的函数类型：
  *
- * a for aggregates
- * n for normal
- * p for procedure
- * t for trigger
- * w for window
+ * a 表示聚合
+ * n 表示普通
+ * p 表示过程
+ * t 表示触发器
+ * w 表示窗口
  *
- * and you can mix and match these in any order.
+ * 并且你可以按任意顺序混合搭配这些选项。
  */
 bool
 describeFunctions(const char *functypes, const char *func_pattern,
@@ -303,7 +303,7 @@ describeFunctions(const char *functypes, const char *func_pattern,
 	printQueryOpt myopt = pset.popt;
 	static const bool translate_columns[] = {false, false, false, false, true, true, true, false, true, false, false, false, false};
 
-	/* No "Parallel" column before 9.6 */
+	/* 在 9.6 之前没有"并行"列 */
 	static const bool translate_columns_pre_96[] = {false, false, false, false, true, true, false, true, false, false, false, false};
 
 	if (strlen(functypes) != strspn(functypes, "anptwS+"))
@@ -436,9 +436,9 @@ describeFunctions(const char *functypes, const char *func_pattern,
 
 	have_where = false;
 
-	/* filter by function type, if requested */
+	/* 根据请求按函数类型过滤 */
 	if (showNormal && showAggregate && showProcedure && showTrigger && showWindow)
-		 /* Do nothing */ ;
+		 /* 不做任何事 */ ;
 	else if (showNormal)
 	{
 		if (!showAggregate)
@@ -498,7 +498,7 @@ describeFunctions(const char *functypes, const char *func_pattern,
 
 		appendPQExpBufferStr(&buf, "WHERE (\n       ");
 		have_where = true;
-		/* Note: at least one of these must be true ... */
+		/* 注意：其中至少有一个必须为真 ... */
 		if (showAggregate)
 		{
 			if (pset.sversion >= 110000)
@@ -545,9 +545,9 @@ describeFunctions(const char *functypes, const char *func_pattern,
 		if (strcmp(arg_patterns[i], "-") != 0)
 		{
 			/*
-			 * Match type-name patterns against either internal or external
-			 * name, like \dT.  Unlike \dT, there seems no reason to
-			 * discriminate against arrays or composite types.
+			 * 将类型名称模式匹配到内部名称或外部名称，
+			 * 类似于 \dT。与 \dT 不同，似乎没有理由
+			 * 排除数组类型或复合类型。
 			 */
 			char		nspname[64];
 			char		typname[64];
@@ -569,7 +569,7 @@ describeFunctions(const char *functypes, const char *func_pattern,
 		}
 		else
 		{
-			/* "-" pattern specifies no such parameter */
+			/* "-" 模式表示没有这样的参数 */
 			appendPQExpBuffer(&buf, "  AND t%d.typname IS NULL\n", i);
 		}
 	}
@@ -613,7 +613,7 @@ error_return:
 
 /*
  * \dT
- * describe types
+ * 描述类型
  */
 bool
 describeTypes(const char *pattern, bool verbose, bool showSystem)
@@ -665,8 +665,8 @@ describeTypes(const char *pattern, bool verbose, bool showSystem)
 						 "     LEFT JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace\n");
 
 	/*
-	 * do not include complex types (typrelid!=0) unless they are standalone
-	 * composite types
+	 * 不要包含复杂类型（typrelid!=0），除非它们是独立的
+	 * 复合类型
 	 */
 	appendPQExpBufferStr(&buf, "WHERE (t.typrelid = 0 ");
 	appendPQExpBufferStr(&buf, "OR (SELECT c.relkind = " CppAsString2(RELKIND_COMPOSITE_TYPE)
@@ -674,7 +674,7 @@ describeTypes(const char *pattern, bool verbose, bool showSystem)
 						 "WHERE c.oid = t.typrelid))\n");
 
 	/*
-	 * do not include array types unless the pattern contains []
+	 * 不要包含数组类型，除非模式包含 []
 	 */
 	if (pattern == NULL || strstr(pattern, "[]") == NULL)
 		appendPQExpBufferStr(&buf, "  AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_type el WHERE el.oid = t.typelem AND el.typarray = t.oid)\n");
@@ -683,7 +683,7 @@ describeTypes(const char *pattern, bool verbose, bool showSystem)
 		appendPQExpBufferStr(&buf, "      AND n.nspname <> 'pg_catalog'\n"
 							 "      AND n.nspname <> 'information_schema'\n");
 
-	/* Match name pattern against either internal or external name */
+	/* 将名称模式匹配到内部名称或外部名称 */
 	if (!validateSQLNamePattern(&buf, map_typename_pattern(pattern),
 								true, false,
 								"n.nspname", "t.typname",
@@ -713,30 +713,30 @@ describeTypes(const char *pattern, bool verbose, bool showSystem)
 }
 
 /*
- * Map some variant type names accepted by the backend grammar into
- * canonical type names.
+ * 将后端语法接受的一些变体类型名称映射为
+ * 规范类型名称。
  *
- * Helper for \dT and other functions that take typename patterns.
- * This doesn't completely mask the fact that these names are special;
- * for example, a pattern of "dec*" won't magically match "numeric".
- * But it goes a long way to reduce the surprise factor.
+ * \dT 和其他接受类型名称模式的函数的辅助函数。
+ * 这并不能完全掩盖这些名称是特殊的这一事实；
+ * 例如，模式 "dec*" 不会神奇地匹配 "numeric"。
+ * 但它大大减少了意外性。
  */
 static const char *
 map_typename_pattern(const char *pattern)
 {
 	static const char *const typename_map[] = {
 		/*
-		 * These names are accepted by gram.y, although they are neither the
-		 * "real" name seen in pg_type nor the canonical name printed by
-		 * format_type().
+		 * 这些名称被 gram.y 接受，尽管它们既不是
+		 * pg_type 中看到的"真实"名称，也不是 format_type()
+		 * 打印的规范名称。
 		 */
 		"decimal", "numeric",
 		"float", "double precision",
 		"int", "integer",
 
 		/*
-		 * We also have to map the array names for cases where the canonical
-		 * name is different from what pg_type says.
+		 * 当规范名称与 pg_type 所说的不同时，
+		 * 我们还必须映射数组名称。
 		 */
 		"bool[]", "boolean[]",
 		"decimal[]", "numeric[]",
@@ -769,7 +769,7 @@ map_typename_pattern(const char *pattern)
 
 /*
  * \do
- * Describe operators
+ * 描述操作符
  */
 bool
 describeOperators(const char *oper_pattern,
@@ -783,19 +783,19 @@ describeOperators(const char *oper_pattern,
 	initPQExpBuffer(&buf);
 
 	/*
-	 * Note: before Postgres 9.1, we did not assign comments to any built-in
-	 * operators, preferring to let the comment on the underlying function
-	 * suffice.  The coalesce() on the obj_description() calls below supports
-	 * this convention by providing a fallback lookup of a comment on the
-	 * operator's function.  Since 9.1 there is a policy that every built-in
-	 * operator should have a comment; so the coalesce() is no longer
-	 * necessary so far as built-in operators are concerned.  We keep it
-	 * anyway, for now, because third-party modules may still be following the
-	 * old convention.
+	 * 注意：在 Postgres 9.1 之前，我们没有为任何内置
+	 * 操作符分配注释，更倾向于让底层函数上的注释
+	 * 来满足需求。下面 obj_description() 调用上的 coalesce()
+	 * 通过提供对操作符函数注释的回退查找来支持这一约定。
+	 * 从 9.1 开始，有政策要求每个内置操作符都应有注释；
+	 * 因此就内置操作符而言，coalesce() 已不再必要。
+	 * 我们暂时保留它，因为第三方模块可能仍遵循旧约定。
 	 *
-	 * The support for postfix operators in this query is dead code as of
-	 * Postgres 14, but we need to keep it for as long as we support talking
-	 * to pre-v14 servers.
+	 * 此查询中对后缀操作符的支持从 Postgres 14 起
+	 * 已变为死代码，但只要我们还支持与 pre-v14 服务器
+	 * 通信，就需要保留它。
+	 *
+	 *
 	 */
 
 	printfPQExpBuffer(&buf,
@@ -824,7 +824,7 @@ describeOperators(const char *oper_pattern,
 
 	if (num_arg_patterns >= 2)
 	{
-		num_arg_patterns = 2;	/* ignore any additional arguments */
+		num_arg_patterns = 2;	/* 忽略任何额外参数 */
 		appendPQExpBufferStr(&buf,
 							 "     LEFT JOIN pg_catalog.pg_type t0 ON t0.oid = o.oprleft\n"
 							 "     LEFT JOIN pg_catalog.pg_namespace nt0 ON nt0.oid = t0.typnamespace\n"
@@ -857,9 +857,9 @@ describeOperators(const char *oper_pattern,
 		if (strcmp(arg_patterns[i], "-") != 0)
 		{
 			/*
-			 * Match type-name patterns against either internal or external
-			 * name, like \dT.  Unlike \dT, there seems no reason to
-			 * discriminate against arrays or composite types.
+			 * 将类型名称模式匹配到内部名称或外部名称，
+			 * 类似于 \dT。与 \dT 不同，似乎没有理由
+			 * 排除数组类型或复合类型。
 			 */
 			char		nspname[64];
 			char		typname[64];
@@ -881,7 +881,7 @@ describeOperators(const char *oper_pattern,
 		}
 		else
 		{
-			/* "-" pattern specifies no such parameter */
+			/* "-" 模式表示没有这样的参数 */
 			appendPQExpBuffer(&buf, "  AND t%d.typname IS NULL\n", i);
 		}
 	}
@@ -911,7 +911,7 @@ error_return:
 /*
  * listAllDbs
  *
- * for \l, \list, and -l switch
+ * 用于 \l、\list 和 -l 开关
  */
 bool
 listAllDbs(const char *pattern, bool verbose)
@@ -1007,8 +1007,8 @@ listAllDbs(const char *pattern, bool verbose)
 
 
 /*
- * List Tables' Grant/Revoke Permissions
- * \z (now also \dp -- perhaps more mnemonic)
+ * 列出表的授权/回收权限
+ * \z（现在也是 \dp -- 也许更容易记忆）
  */
 bool
 permissionsList(const char *pattern, bool showSystem)
@@ -1021,7 +1021,7 @@ permissionsList(const char *pattern, bool showSystem)
 	initPQExpBuffer(&buf);
 
 	/*
-	 * we ignore indexes and toast tables since they have no meaningful rights
+	 * 我们忽略索引和 toast 表，因为它们没有有意义的权限
 	 */
 	printfPQExpBuffer(&buf,
 					  "SELECT n.nspname as \"%s\",\n"
@@ -1168,7 +1168,7 @@ error_return:
 /*
  * \ddp
  *
- * List Default ACLs.  The pattern can match either schema or role name.
+ * 列出默认 ACL。模式可以匹配模式名称或角色名称。
  */
 bool
 listDefaultACLs(const char *pattern)
@@ -1238,14 +1238,14 @@ error_return:
 
 
 /*
- * Get object comments
+ * 获取对象注释
  *
  * \dd [foo]
  *
- * Note: This command only lists comments for object types which do not have
- * their comments displayed by their own backslash commands. The following
- * types of objects will be displayed: constraint, operator class,
- * operator family, rule, and trigger.
+ * 注意：此命令仅列出那些没有通过其自身反斜杠命令
+ * 显示注释的对象类型的注释。以下类型的对象将被显示：
+ * 约束、操作符类、操作符族、规则和触发器。
+ *
  *
  */
 bool
@@ -1266,7 +1266,7 @@ objectDescription(const char *pattern, bool showSystem)
 					  gettext_noop("Object"),
 					  gettext_noop("Description"));
 
-	/* Table constraint descriptions */
+	/* 表约束描述 */
 	appendPQExpBuffer(&buf,
 					  "  SELECT pgc.oid as oid, pgc.tableoid AS tableoid,\n"
 					  "  n.nspname as nspname,\n"
@@ -1289,7 +1289,7 @@ objectDescription(const char *pattern, bool showSystem)
 								NULL, 3))
 		goto error_return;
 
-	/* Domain constraint descriptions */
+	/* 域约束描述 */
 	appendPQExpBuffer(&buf,
 					  "UNION ALL\n"
 					  "  SELECT pgc.oid as oid, pgc.tableoid AS tableoid,\n"
@@ -1313,7 +1313,7 @@ objectDescription(const char *pattern, bool showSystem)
 								NULL, 3))
 		goto error_return;
 
-	/* Operator class descriptions */
+	/* 操作符类描述 */
 	appendPQExpBuffer(&buf,
 					  "UNION ALL\n"
 					  "  SELECT o.oid as oid, o.tableoid as tableoid,\n"
@@ -1337,7 +1337,7 @@ objectDescription(const char *pattern, bool showSystem)
 								NULL, 3))
 		goto error_return;
 
-	/* Operator family descriptions */
+	/* 操作符族描述 */
 	appendPQExpBuffer(&buf,
 					  "UNION ALL\n"
 					  "  SELECT opf.oid as oid, opf.tableoid as tableoid,\n"
@@ -1361,7 +1361,7 @@ objectDescription(const char *pattern, bool showSystem)
 								NULL, 3))
 		goto error_return;
 
-	/* Rule descriptions (ignore rules for views) */
+	/* 规则描述（忽略视图的规则） */
 	appendPQExpBuffer(&buf,
 					  "UNION ALL\n"
 					  "  SELECT r.oid as oid, r.tableoid as tableoid,\n"
@@ -1384,7 +1384,7 @@ objectDescription(const char *pattern, bool showSystem)
 								NULL, 3))
 		goto error_return;
 
-	/* Trigger descriptions */
+	/* 触发器描述 */
 	appendPQExpBuffer(&buf,
 					  "UNION ALL\n"
 					  "  SELECT t.oid as oid, t.tableoid as tableoid,\n"
@@ -1435,12 +1435,12 @@ error_return:
 
 
 /*
- * describeTableDetails (for \d)
+ * describeTableDetails（用于 \d）
  *
- * This routine finds the tables to be displayed, and calls
- * describeOneTableDetails for each one.
+ * 此例程查找要显示的表，并为每个表
+ * 调用 describeOneTableDetails。
  *
- * verbose: if true, this is \d+
+ * verbose：如果为 true，表示 \d+
  */
 bool
 describeTableDetails(const char *pattern, bool verbose, bool showSystem)
@@ -1519,11 +1519,11 @@ describeTableDetails(const char *pattern, bool verbose, bool showSystem)
 }
 
 /*
- * describeOneTableDetails (for \d)
+ * describeOneTableDetails（用于 \d）
  *
- * Unfortunately, the information presented here is so complicated that it
- * cannot be done in a single query. So we have to assemble the printed table
- * by hand and pass it to the underlying printTable() function.
+ * 不幸的是，这里呈现的信息非常复杂，无法在单个查询
+ * 中完成。因此我们必须手工组装打印表，并将其
+ * 传递给底层的 printTable() 函数。
  */
 static bool
 describeOneTableDetails(const char *schemaname,
@@ -1543,7 +1543,7 @@ describeOneTableDetails(const char *schemaname,
 	PQExpBufferData title;
 	PQExpBufferData tmpbuf;
 	int			cols;
-	int			attname_col = -1,	/* column indexes in "res" */
+	int			attname_col = -1,	/* "res" 中的列索引 */
 				atttype_col = -1,
 				attrdef_col = -1,
 				attnotnull_col = -1,
@@ -1579,14 +1579,14 @@ describeOneTableDetails(const char *schemaname,
 	bool		show_column_details = false;
 
 	myopt.default_footer = false;
-	/* This output looks confusing in expanded mode. */
+	/* 此输出在扩展模式下看起来会混乱。 */
 	myopt.expanded = false;
 
 	initPQExpBuffer(&buf);
 	initPQExpBuffer(&title);
 	initPQExpBuffer(&tmpbuf);
 
-	/* Get general table info */
+	/* 获取通用表信息 */
 	if (pset.sversion >= 120000)
 	{
 		printfPQExpBuffer(&buf,
@@ -1678,7 +1678,7 @@ describeOneTableDetails(const char *schemaname,
 	if (!res)
 		goto error_return;
 
-	/* Did we get anything? */
+	/* 我们获取到了什么吗？ */
 	if (PQntuples(res) == 0)
 	{
 		if (!pset.quiet)
@@ -1711,7 +1711,7 @@ describeOneTableDetails(const char *schemaname,
 	res = NULL;
 
 	/*
-	 * If it's a sequence, deal with it here separately.
+	 * 如果是序列，在这里单独处理。
 	 */
 	if (tableinfo.relkind == RELKIND_SEQUENCE)
 	{
@@ -1763,7 +1763,7 @@ describeOneTableDetails(const char *schemaname,
 							  gettext_noop("Cycles?"),
 							  gettext_noop("Cache"));
 			appendPQExpBuffer(&buf, "FROM %s", fmtId(schemaname));
-			/* must be separate because fmtId isn't reentrant */
+			/* 必须分开，因为 fmtId 不可重入 */
 			appendPQExpBuffer(&buf, ".%s;", fmtId(relationname));
 		}
 
@@ -1771,7 +1771,7 @@ describeOneTableDetails(const char *schemaname,
 		if (!res)
 			goto error_return;
 
-		/* Get the column that owns this sequence */
+		/* 获取拥有此序列的列 */
 		printfPQExpBuffer(&buf, "SELECT pg_catalog.quote_ident(nspname) || '.' ||"
 						  "\n   pg_catalog.quote_ident(relname) || '.' ||"
 						  "\n   pg_catalog.quote_ident(attname),"
@@ -1791,9 +1791,9 @@ describeOneTableDetails(const char *schemaname,
 		result = PSQLexec(buf.data);
 
 		/*
-		 * If we get no rows back, don't show anything (obviously). We should
-		 * never get more than one row back, but if we do, just ignore it and
-		 * don't print anything.
+		 * 如果没有返回行，显然不显示任何内容。我们
+		 * 永远不应该返回多于一行，但如果真的发生了，
+		 * 就忽略它，不打印任何内容。
 		 */
 		if (!result)
 			goto error_return;
@@ -1830,10 +1830,10 @@ describeOneTableDetails(const char *schemaname,
 		free(footers[0]);
 
 		retval = true;
-		goto error_return;		/* not an error, just return early */
+		goto error_return;		/* 不是错误，只是提前返回 */
 	}
 
-	/* Identify whether we should print collation, nullable, default vals */
+	/* 确定是否应打印排序规则、可为空性、默认值 */
 	if (tableinfo.relkind == RELKIND_RELATION ||
 		tableinfo.relkind == RELKIND_VIEW ||
 		tableinfo.relkind == RELKIND_MATVIEW ||
@@ -1843,12 +1843,12 @@ describeOneTableDetails(const char *schemaname,
 		show_column_details = true;
 
 	/*
-	 * Get per-column info
+	 * 获取逐列信息
 	 *
-	 * Since the set of query columns we need varies depending on relkind and
-	 * server version, we compute all the column numbers on-the-fly.  Column
-	 * number variables for columns not fetched are left as -1; this avoids
-	 * duplicative test logic below.
+	 * 由于我们需要的查询列集合因 relkind 和服务器版本
+	 * 而异，我们动态计算所有列号。未获取的列的
+	 * 列号变量保持为 -1；这避免了下面重复的测试逻辑。
+	 *
 	 */
 	cols = 0;
 	printfPQExpBuffer(&buf, "SELECT a.attname");
@@ -1858,7 +1858,7 @@ describeOneTableDetails(const char *schemaname,
 
 	if (show_column_details)
 	{
-		/* use "pretty" mode for expression to avoid excessive parentheses */
+		/* 对表达式使用"精美"模式以避免过多的括号 */
 		appendPQExpBufferStr(&buf,
 							 ",\n  (SELECT pg_catalog.pg_get_expr(d.adbin, d.adrelid, true)"
 							 "\n   FROM pg_catalog.pg_attrdef d"
@@ -1894,7 +1894,7 @@ describeOneTableDetails(const char *schemaname,
 		appendPQExpBufferStr(&buf, ",\n  pg_catalog.pg_get_indexdef(a.attrelid, a.attnum, TRUE) AS indexdef");
 		indexdef_col = cols++;
 	}
-	/* FDW options for foreign table column */
+	/* 外部表列的 FDW 选项 */
 	if (tableinfo.relkind == RELKIND_FOREIGN_TABLE)
 	{
 		appendPQExpBufferStr(&buf, ",\n  CASE WHEN attfdwoptions IS NULL THEN '' ELSE "
@@ -1907,7 +1907,7 @@ describeOneTableDetails(const char *schemaname,
 		appendPQExpBufferStr(&buf, ",\n  a.attstorage");
 		attstorage_col = cols++;
 
-		/* compression info, if relevant to relkind */
+		/* 压缩信息（如果与 relkind 相关） */
 		if (pset.sversion >= 140000 &&
 			!pset.hide_compression &&
 			(tableinfo.relkind == RELKIND_RELATION ||
@@ -1918,7 +1918,7 @@ describeOneTableDetails(const char *schemaname,
 			attcompression_col = cols++;
 		}
 
-		/* stats target, if relevant to relkind */
+		/* 统计目标（如果与 relkind 相关） */
 		if (tableinfo.relkind == RELKIND_RELATION ||
 			tableinfo.relkind == RELKIND_INDEX ||
 			tableinfo.relkind == RELKIND_PARTITIONED_INDEX ||
@@ -1931,8 +1931,8 @@ describeOneTableDetails(const char *schemaname,
 		}
 
 		/*
-		 * In 9.0+, we have column comments for: relations, views, composite
-		 * types, and foreign tables (cf. CommentObject() in comment.c).
+		 * 在 9.0+ 中，我们为以下对象提供列注释：关系、视图、
+		 * 复合类型和外部表（参见 comment.c 中的 CommentObject()）。
 		 */
 		if (tableinfo.relkind == RELKIND_RELATION ||
 			tableinfo.relkind == RELKIND_VIEW ||
@@ -1955,7 +1955,7 @@ describeOneTableDetails(const char *schemaname,
 		goto error_return;
 	numrows = PQntuples(res);
 
-	/* Make title */
+	/* 制作标题 */
 	switch (tableinfo.relkind)
 	{
 		case RELKIND_RELATION:
@@ -2015,13 +2015,13 @@ describeOneTableDetails(const char *schemaname,
 								  schemaname, relationname);
 			break;
 		default:
-			/* untranslated unknown relkind */
+			/* 未翻译的未知 relkind */
 			printfPQExpBuffer(&title, "?%c? \"%s.%s\"",
 							  tableinfo.relkind, schemaname, relationname);
 			break;
 	}
 
-	/* Fill headers[] with the names of the columns we will output */
+	/* 用我们将输出的列名填充 headers[] */
 	cols = 0;
 	headers[cols++] = gettext_noop("Column");
 	headers[cols++] = gettext_noop("Type");
@@ -2054,16 +2054,16 @@ describeOneTableDetails(const char *schemaname,
 	for (i = 0; i < cols; i++)
 		printTableAddHeader(&cont, headers[i], true, 'l');
 
-	/* Generate table cells to be printed */
+	/* 生成要打印的表格单元格 */
 	for (i = 0; i < numrows; i++)
 	{
-		/* Column */
+		/* 列 */
 		printTableAddCell(&cont, PQgetvalue(res, i, attname_col), false, false);
 
-		/* Type */
+		/* 类型 */
 		printTableAddCell(&cont, PQgetvalue(res, i, atttype_col), false, false);
 
-		/* Collation, Nullable, Default */
+		/* 排序规则、可为空、默认值 */
 		if (show_column_details)
 		{
 			char	   *identity;
@@ -2096,22 +2096,22 @@ describeOneTableDetails(const char *schemaname,
 			printTableAddCell(&cont, default_str, false, mustfree);
 		}
 
-		/* Info for index columns */
+		/* 索引列的信息 */
 		if (isindexkey_col >= 0)
 			printTableAddCell(&cont, PQgetvalue(res, i, isindexkey_col), true, false);
 		if (indexdef_col >= 0)
 			printTableAddCell(&cont, PQgetvalue(res, i, indexdef_col), false, false);
 
-		/* FDW options for foreign table columns */
+		/* 外部表列的 FDW 选项 */
 		if (fdwopts_col >= 0)
 			printTableAddCell(&cont, PQgetvalue(res, i, fdwopts_col), false, false);
 
-		/* Storage mode, if relevant */
+		/* 存储模式（如果相关） */
 		if (attstorage_col >= 0)
 		{
 			char	   *storage = PQgetvalue(res, i, attstorage_col);
 
-			/* these strings are literal in our syntax, so not translated. */
+			/* 这些字符串在我们的语法中是字面量，因此不翻译。 */
 			printTableAddCell(&cont, (storage[0] == 'p' ? "plain" :
 									  (storage[0] == 'm' ? "main" :
 									   (storage[0] == 'x' ? "extended" :
@@ -2120,12 +2120,12 @@ describeOneTableDetails(const char *schemaname,
 							  false, false);
 		}
 
-		/* Column compression, if relevant */
+		/* 列压缩（如果相关） */
 		if (attcompression_col >= 0)
 		{
 			char	   *compression = PQgetvalue(res, i, attcompression_col);
 
-			/* these strings are literal in our syntax, so not translated. */
+			/* 这些字符串在我们的语法中是字面量，因此不翻译。 */
 			printTableAddCell(&cont, (compression[0] == 'p' ? "pglz" :
 									  (compression[0] == 'l' ? "lz4" :
 									   (compression[0] == '\0' ? "" :
@@ -2133,22 +2133,22 @@ describeOneTableDetails(const char *schemaname,
 							  false, false);
 		}
 
-		/* Statistics target, if the relkind supports this feature */
+		/* 统计目标（如果 relkind 支持此功能） */
 		if (attstattarget_col >= 0)
 			printTableAddCell(&cont, PQgetvalue(res, i, attstattarget_col),
 							  false, false);
 
-		/* Column comments, if the relkind supports this feature */
+		/* 列注释（如果 relkind 支持此功能） */
 		if (attdescr_col >= 0)
 			printTableAddCell(&cont, PQgetvalue(res, i, attdescr_col),
 							  false, false);
 	}
 
-	/* Make footers */
+	/* 制作页脚 */
 
 	if (tableinfo.ispartition)
 	{
-		/* Footer information for a partition child table */
+		/* 分区子表的页脚信息 */
 		PGresult   *result;
 
 		printfPQExpBuffer(&buf,
@@ -2159,7 +2159,7 @@ describeOneTableDetails(const char *schemaname,
 							 pset.sversion >= 140000 ? "inhdetachpending" :
 							 "false as inhdetachpending");
 
-		/* If verbose, also request the partition constraint definition */
+		/* 如果 verbose，还要请求分区约束定义 */
 		if (verbose)
 			appendPQExpBufferStr(&buf,
 								 ",\n  pg_catalog.pg_get_partition_constraintdef(c.oid)");
@@ -2189,7 +2189,7 @@ describeOneTableDetails(const char *schemaname,
 
 				if (!PQgetisnull(result, 0, 3))
 					partconstraintdef = PQgetvalue(result, 0, 3);
-				/* If there isn't any constraint, show that explicitly */
+				/* 如果没有任何约束，明确显示出来 */
 				if (partconstraintdef == NULL || partconstraintdef[0] == '\0')
 					printfPQExpBuffer(&tmpbuf, _("No partition constraint"));
 				else
@@ -2203,7 +2203,7 @@ describeOneTableDetails(const char *schemaname,
 
 	if (tableinfo.relkind == RELKIND_PARTITIONED_TABLE)
 	{
-		/* Footer information for a partitioned table (partitioning parent) */
+		/* 分区表（分区父表）的页脚信息 */
 		PGresult   *result;
 
 		printfPQExpBuffer(&buf,
@@ -2225,7 +2225,7 @@ describeOneTableDetails(const char *schemaname,
 
 	if (tableinfo.relkind == RELKIND_TOASTVALUE)
 	{
-		/* For a TOAST table, print name of owning table */
+		/* 对于 TOAST 表，打印所属表的名称 */
 		PGresult   *result;
 
 		printfPQExpBuffer(&buf,
@@ -2253,7 +2253,7 @@ describeOneTableDetails(const char *schemaname,
 	if (tableinfo.relkind == RELKIND_INDEX ||
 		tableinfo.relkind == RELKIND_PARTITIONED_INDEX)
 	{
-		/* Footer information about an index */
+		/* 索引的页脚信息 */
 		PGresult   *result;
 
 		printfPQExpBuffer(&buf,
@@ -2324,7 +2324,7 @@ describeOneTableDetails(const char *schemaname,
 				resetPQExpBuffer(&tmpbuf);
 			appendPQExpBuffer(&tmpbuf, "%s, ", indamname);
 
-			/* we assume here that index and table are in same schema */
+			/* 这里我们假设索引和表在同一模式中 */
 			appendPQExpBuffer(&tmpbuf, _("for table \"%s.%s\""),
 							  schemaname, indtable);
 
@@ -2349,7 +2349,7 @@ describeOneTableDetails(const char *schemaname,
 			printTableAddFooter(&cont, tmpbuf.data);
 
 			/*
-			 * If it's a partitioned index, we'll print the tablespace below
+			 * 如果是分区索引，我们将在下面打印表空间
 			 */
 			if (tableinfo.relkind == RELKIND_INDEX)
 				add_tablespace_footer(&cont, tableinfo.relkind,
@@ -2358,7 +2358,7 @@ describeOneTableDetails(const char *schemaname,
 
 		PQclear(result);
 	}
-	/* If you add relkinds here, see also "Finish printing..." stanza below */
+	/* 如果在这里添加 relkind，另请参阅下面的"完成打印..."节 */
 	else if (tableinfo.relkind == RELKIND_RELATION ||
 			 tableinfo.relkind == RELKIND_MATVIEW ||
 			 tableinfo.relkind == RELKIND_FOREIGN_TABLE ||
@@ -2366,11 +2366,11 @@ describeOneTableDetails(const char *schemaname,
 			 tableinfo.relkind == RELKIND_PARTITIONED_INDEX ||
 			 tableinfo.relkind == RELKIND_TOASTVALUE)
 	{
-		/* Footer information about a table */
+		/* 表的页脚信息 */
 		PGresult   *result = NULL;
 		int			tuples = 0;
 
-		/* print indexes */
+		/* 打印索引 */
 		if (tableinfo.hasindex)
 		{
 			printfPQExpBuffer(&buf,
@@ -2401,11 +2401,11 @@ describeOneTableDetails(const char *schemaname,
 				printTableAddFooter(&cont, _("Indexes:"));
 				for (i = 0; i < tuples; i++)
 				{
-					/* untranslated index name */
+					/* 未翻译的索引名称 */
 					printfPQExpBuffer(&buf, "    \"%s\"",
 									  PQgetvalue(result, i, 0));
 
-					/* If exclusion constraint, print the constraintdef */
+					/* 如果是排他约束，打印 constraintdef */
 					if (strcmp(PQgetvalue(result, i, 7), "x") == 0)
 					{
 						appendPQExpBuffer(&buf, " %s",
@@ -2416,7 +2416,7 @@ describeOneTableDetails(const char *schemaname,
 						const char *indexdef;
 						const char *usingpos;
 
-						/* Label as primary key or unique (but not both) */
+						/* 标记为主键或唯一（但不能两者都标） */
 						if (strcmp(PQgetvalue(result, i, 1), "t") == 0)
 							appendPQExpBufferStr(&buf, " PRIMARY KEY,");
 						else if (strcmp(PQgetvalue(result, i, 2), "t") == 0)
@@ -2427,14 +2427,14 @@ describeOneTableDetails(const char *schemaname,
 								appendPQExpBufferStr(&buf, " UNIQUE,");
 						}
 
-						/* Everything after "USING" is echoed verbatim */
+						/* "USING" 之后的所有内容原样回显 */
 						indexdef = PQgetvalue(result, i, 5);
 						usingpos = strstr(indexdef, " USING ");
 						if (usingpos)
 							indexdef = usingpos + 7;
 						appendPQExpBuffer(&buf, " %s", indexdef);
 
-						/* Need these for deferrable PK/UNIQUE indexes */
+						/* 可延迟的 PK/UNIQUE 索引需要这些 */
 						if (strcmp(PQgetvalue(result, i, 8), "t") == 0)
 							appendPQExpBufferStr(&buf, " DEFERRABLE");
 
@@ -2442,7 +2442,7 @@ describeOneTableDetails(const char *schemaname,
 							appendPQExpBufferStr(&buf, " INITIALLY DEFERRED");
 					}
 
-					/* Add these for all cases */
+					/* 为所有情况添加这些 */
 					if (strcmp(PQgetvalue(result, i, 3), "t") == 0)
 						appendPQExpBufferStr(&buf, " CLUSTER");
 
@@ -2454,7 +2454,7 @@ describeOneTableDetails(const char *schemaname,
 
 					printTableAddFooter(&cont, buf.data);
 
-					/* Print tablespace of the index on the same line */
+					/* 在同一行上打印索引的表空间 */
 					add_tablespace_footer(&cont, RELKIND_INDEX,
 										  atooid(PQgetvalue(result, i, 11)),
 										  false);
@@ -2463,7 +2463,7 @@ describeOneTableDetails(const char *schemaname,
 			PQclear(result);
 		}
 
-		/* print table (and column) check constraints */
+		/* 打印表（和列）检查约束 */
 		if (tableinfo.checks)
 		{
 			printfPQExpBuffer(&buf,
@@ -2484,7 +2484,7 @@ describeOneTableDetails(const char *schemaname,
 				printTableAddFooter(&cont, _("Check constraints:"));
 				for (i = 0; i < tuples; i++)
 				{
-					/* untranslated constraint name and def */
+					/* 未翻译的约束名称和定义 */
 					printfPQExpBuffer(&buf, "    \"%s\" %s",
 									  PQgetvalue(result, i, 0),
 									  PQgetvalue(result, i, 1));
@@ -2496,9 +2496,9 @@ describeOneTableDetails(const char *schemaname,
 		}
 
 		/*
-		 * Print foreign-key constraints (there are none if no triggers,
-		 * except if the table is partitioned, in which case the triggers
-		 * appear in the partitions)
+		 * 打印外键约束（如果没有触发器则没有外键约束，
+		 * 但如果表是分区表则例外，此时触发器
+		 * 出现在分区中）
 		 */
 		if (tableinfo.hastriggers ||
 			tableinfo.relkind == RELKIND_PARTITIONED_TABLE)
@@ -2507,8 +2507,8 @@ describeOneTableDetails(const char *schemaname,
 				(tableinfo.ispartition || tableinfo.relkind == RELKIND_PARTITIONED_TABLE))
 			{
 				/*
-				 * Put the constraints defined in this table first, followed
-				 * by the constraints defined in ancestor partitioned tables.
+				 * 将在此表中定义的约束放在前面，
+				 * 其后是在祖先分区表中定义的约束。
 				 */
 				printfPQExpBuffer(&buf,
 								  "SELECT conrelid = '%s'::pg_catalog.regclass AS sametable,\n"
@@ -2553,9 +2553,9 @@ describeOneTableDetails(const char *schemaname,
 				for (i = 0; i < tuples; i++)
 				{
 					/*
-					 * Print untranslated constraint name and definition. Use
-					 * a "TABLE tab" prefix when the constraint is defined in
-					 * a parent partitioned table.
+					 * 打印未翻译的约束名称和定义。当约束定义为
+					 * 父分区表中的约束时使用 "TABLE tab" 前缀。
+					 *
 					 */
 					if (strcmp(PQgetvalue(result, i, i_sametable), "f") == 0)
 						printfPQExpBuffer(&buf, "    TABLE \"%s\" CONSTRAINT \"%s\" %s",
@@ -2573,7 +2573,7 @@ describeOneTableDetails(const char *schemaname,
 			PQclear(result);
 		}
 
-		/* print incoming foreign-key references */
+		/* 打印传入的外键引用 */
 		if (tableinfo.hastriggers ||
 			tableinfo.relkind == RELKIND_PARTITIONED_TABLE)
 		{
@@ -2626,7 +2626,7 @@ describeOneTableDetails(const char *schemaname,
 			PQclear(result);
 		}
 
-		/* print any row-level policies */
+		/* 打印任何行级策略 */
 		if (pset.sversion >= 90500)
 		{
 			printfPQExpBuffer(&buf, "SELECT pol.polname,");
@@ -2657,9 +2657,9 @@ describeOneTableDetails(const char *schemaname,
 				tuples = PQntuples(result);
 
 			/*
-			 * Handle cases where RLS is enabled and there are policies, or
-			 * there aren't policies, or RLS isn't enabled but there are
-			 * policies
+			 * 处理 RLS 已启用且有策略的情况，或
+			 * 没有策略的情况，或 RLS 未启用但
+			 * 有策略的情况
 			 */
 			if (tableinfo.rowsecurity && !tableinfo.forcerowsecurity && tuples > 0)
 				printTableAddFooter(&cont, _("Policies:"));
@@ -2676,7 +2676,7 @@ describeOneTableDetails(const char *schemaname,
 			if (!tableinfo.rowsecurity && tuples > 0)
 				printTableAddFooter(&cont, _("Policies (row security disabled):"));
 
-			/* Might be an empty set - that's ok */
+			/* 可能是空集合 - 没问题 */
 			for (i = 0; i < tuples; i++)
 			{
 				printfPQExpBuffer(&buf, "    POLICY \"%s\"",
@@ -2708,7 +2708,7 @@ describeOneTableDetails(const char *schemaname,
 			PQclear(result);
 		}
 
-		/* print any extended statistics */
+		/* 打印任何扩展统计信息 */
 		if (pset.sversion >= 140000)
 		{
 			printfPQExpBuffer(&buf,
@@ -2751,18 +2751,18 @@ describeOneTableDetails(const char *schemaname,
 
 					printfPQExpBuffer(&buf, "    ");
 
-					/* statistics object name (qualified with namespace) */
+					/* 统计对象名称（使用命名空间限定） */
 					appendPQExpBuffer(&buf, "\"%s.%s\"",
 									  PQgetvalue(result, i, 2),
 									  PQgetvalue(result, i, 3));
 
 					/*
-					 * When printing kinds we ignore expression statistics,
-					 * which are used only internally and can't be specified
-					 * by user. We don't print the kinds when none are
-					 * specified (in which case it has to be statistics on a
-					 * single expr) or when all are specified (in which case
-					 * we assume it's expanded by CREATE STATISTICS).
+					 * 打印种类时，我们忽略表达式统计信息，
+					 * 因为它们仅供内部使用，用户无法指定。
+					 * 当未指定种类时（此时它必须是单个
+					 * 表达式的统计信息）或指定了所有种类时
+					 * （此时我们假设它是通过 CREATE STATISTICS 展开的），
+					 * 我们不打印种类。
 					 */
 					has_all = (has_ndistinct && has_dependencies && has_mcv);
 					has_some = (has_ndistinct || has_dependencies || has_mcv);
@@ -2771,7 +2771,7 @@ describeOneTableDetails(const char *schemaname,
 					{
 						appendPQExpBufferStr(&buf, " (");
 
-						/* options */
+						/* 选项 */
 						if (has_ndistinct)
 						{
 							appendPQExpBufferStr(&buf, "ndistinct");
@@ -2796,7 +2796,7 @@ describeOneTableDetails(const char *schemaname,
 									  PQgetvalue(result, i, 4),
 									  PQgetvalue(result, i, 1));
 
-					/* Show the stats target if it's not default */
+					/* 如果统计目标不是默认值则显示 */
 					if (strcmp(PQgetvalue(result, i, 8), "-1") != 0)
 						appendPQExpBuffer(&buf, "; STATISTICS %s",
 										  PQgetvalue(result, i, 8));
@@ -2846,12 +2846,12 @@ describeOneTableDetails(const char *schemaname,
 
 					printfPQExpBuffer(&buf, "    ");
 
-					/* statistics object name (qualified with namespace) */
+					/* 统计对象名称（使用命名空间限定） */
 					appendPQExpBuffer(&buf, "\"%s.%s\" (",
 									  PQgetvalue(result, i, 2),
 									  PQgetvalue(result, i, 3));
 
-					/* options */
+					/* 选项 */
 					if (strcmp(PQgetvalue(result, i, 5), "t") == 0)
 					{
 						appendPQExpBufferStr(&buf, "ndistinct");
@@ -2873,7 +2873,7 @@ describeOneTableDetails(const char *schemaname,
 									  PQgetvalue(result, i, 4),
 									  PQgetvalue(result, i, 1));
 
-					/* Show the stats target if it's not default */
+					/* 如果统计目标不是默认值则显示 */
 					if (strcmp(PQgetvalue(result, i, 8), "-1") != 0)
 						appendPQExpBuffer(&buf, "; STATISTICS %s",
 										  PQgetvalue(result, i, 8));
@@ -2884,7 +2884,7 @@ describeOneTableDetails(const char *schemaname,
 			PQclear(result);
 		}
 
-		/* print rules */
+		/* 打印规则 */
 		if (tableinfo.hasrules && tableinfo.relkind != RELKIND_MATVIEW)
 		{
 			printfPQExpBuffer(&buf,
@@ -2956,7 +2956,7 @@ describeOneTableDetails(const char *schemaname,
 							have_heading = true;
 						}
 
-						/* Everything after "CREATE RULE" is echoed verbatim */
+						/* "CREATE RULE" 之后的所有内容原样回显 */
 						ruledef = PQgetvalue(result, i, 1);
 						ruledef += 12;
 						printfPQExpBuffer(&buf, "    %s", ruledef);
@@ -2967,7 +2967,7 @@ describeOneTableDetails(const char *schemaname,
 			PQclear(result);
 		}
 
-		/* print any publications */
+		/* 打印任何发布 */
 		if (pset.sversion >= 100000)
 		{
 			if (pset.sversion >= 150000)
@@ -3030,18 +3030,18 @@ describeOneTableDetails(const char *schemaname,
 			if (tuples > 0)
 				printTableAddFooter(&cont, _("Publications:"));
 
-			/* Might be an empty set - that's ok */
+			/* 可能是空集合 - 没问题 */
 			for (i = 0; i < tuples; i++)
 			{
 				printfPQExpBuffer(&buf, "    \"%s\"",
 								  PQgetvalue(result, i, 0));
 
-				/* column list (if any) */
+				/* 列列表（如果有） */
 				if (!PQgetisnull(result, i, 2))
 					appendPQExpBuffer(&buf, " (%s)",
 									  PQgetvalue(result, i, 2));
 
-				/* row filter (if any) */
+				/* 行过滤器（如果有） */
 				if (!PQgetisnull(result, i, 1))
 					appendPQExpBuffer(&buf, " WHERE %s",
 									  PQgetvalue(result, i, 1));
@@ -3052,7 +3052,7 @@ describeOneTableDetails(const char *schemaname,
 		}
 	}
 
-	/* Get view_def if table is a view or materialized view */
+	/* 如果表是视图或物化视图则获取 view_def */
 	if ((tableinfo.relkind == RELKIND_VIEW ||
 		 tableinfo.relkind == RELKIND_MATVIEW) && verbose)
 	{
@@ -3075,11 +3075,11 @@ describeOneTableDetails(const char *schemaname,
 	{
 		PGresult   *result = NULL;
 
-		/* Footer information about a view */
+		/* 视图的页脚信息 */
 		printTableAddFooter(&cont, _("View definition:"));
 		printTableAddFooter(&cont, view_def);
 
-		/* print rules */
+		/* 打印规则 */
 		if (tableinfo.hasrules)
 		{
 			printfPQExpBuffer(&buf,
@@ -3098,7 +3098,7 @@ describeOneTableDetails(const char *schemaname,
 				{
 					const char *ruledef;
 
-					/* Everything after "CREATE RULE" is echoed verbatim */
+					/* "CREATE RULE" 之后的所有内容原样回显 */
 					ruledef = PQgetvalue(result, i, 1);
 					ruledef += 12;
 
@@ -3111,8 +3111,8 @@ describeOneTableDetails(const char *schemaname,
 	}
 
 	/*
-	 * Print triggers next, if any (but only user-defined triggers).  This
-	 * could apply to either a table or a view.
+	 * 接下来打印触发器（如果有，但仅限于用户定义的触发器）。
+	 * 这可以适用于表或视图。
 	 */
 	if (tableinfo.hastriggers)
 	{
@@ -3125,18 +3125,18 @@ describeOneTableDetails(const char *schemaname,
 						  "t.tgenabled, t.tgisinternal,\n");
 
 		/*
-		 * Detect whether each trigger is inherited, and if so, get the name
-		 * of the topmost table it's inherited from.  We have no easy way to
-		 * do that pre-v13, for lack of the tgparentid column.  Even with
-		 * tgparentid, a straightforward search for the topmost parent would
-		 * require a recursive CTE, which seems unduly expensive.  We cheat a
-		 * bit by assuming parent triggers will match by tgname; then, joining
-		 * with pg_partition_ancestors() allows the planner to make use of
-		 * pg_trigger_tgrelid_tgname_index if it wishes.  We ensure we find
-		 * the correct topmost parent by stopping at the first-in-partition-
-		 * ancestry-order trigger that has tgparentid = 0.  (There might be
-		 * unrelated, non-inherited triggers with the same name further up the
-		 * stack, so this is important.)
+		 * 检测每个触发器是否被继承，如果是，获取其继承
+		 * 来源的最顶层表名。在 v13 之前，由于缺少 tgparentid 列，
+		 * 我们无法轻松做到这一点。即使有了 tgparentid，直接
+		 * 搜索最顶层父表也需要递归 CTE，这似乎过于昂贵。
+		 * 我们稍微取巧地假设父触发器按 tgname 匹配；然后，
+		 * 与 pg_partition_ancestors() 进行连接，使得规划器可以
+		 * 根据需要利用 pg_trigger_tgrelid_tgname_index。我们通过
+		 * 在分区祖先顺序中停在第一个满足 tgparentid = 0 的
+		 * 触发器来确保找到正确的最顶层父表。（栈上更上层
+		 * 可能存在名称相同但不相关的非继承触发器，
+		 * 所以这一点很重要。）
+		 *
 		 */
 		if (pset.sversion >= 130000)
 			appendPQExpBufferStr(&buf,
@@ -3157,18 +3157,18 @@ describeOneTableDetails(const char *schemaname,
 						  oid);
 
 		/*
-		 * tgisinternal is set true for inherited triggers of partitions in
-		 * servers between v11 and v14, though these must still be shown to
-		 * the user.  So we use another property that is true for such
-		 * inherited triggers to avoid them being hidden, which is their
-		 * dependence on another trigger.
+		 * 在 v11 到 v14 的服务器中，分区的继承触发器
+		 * 将 tgisinternal 设置为 true，尽管这些仍必须向用户显示。
+		 * 因此我们使用另一个对于此类继承触发器为真的
+		 * 属性来避免它们被隐藏，即它们对另一个触发器
+		 * 的依赖关系。
 		 */
 		if (pset.sversion >= 110000 && pset.sversion < 150000)
 			appendPQExpBufferStr(&buf, "(NOT t.tgisinternal OR (t.tgisinternal AND t.tgenabled = 'D') \n"
 								 "    OR EXISTS (SELECT 1 FROM pg_catalog.pg_depend WHERE objid = t.oid \n"
 								 "        AND refclassid = 'pg_catalog.pg_trigger'::pg_catalog.regclass))");
 		else
-			/* display/warn about disabled internal triggers */
+			/* 显示/警告禁用的内部触发器 */
 			appendPQExpBufferStr(&buf, "(NOT t.tgisinternal OR (t.tgisinternal AND t.tgenabled = 'D'))");
 		appendPQExpBufferStr(&buf, "\nORDER BY 1;");
 
@@ -3184,9 +3184,9 @@ describeOneTableDetails(const char *schemaname,
 			int			category;
 
 			/*
-			 * split the output into 4 different categories. Enabled triggers,
-			 * disabled triggers and the two special ALWAYS and REPLICA
-			 * configurations.
+			 * 将输出分为 4 个不同的类别。已启用的触发器、
+			 * 禁用的触发器以及两个特殊的 ALWAYS 和 REPLICA
+			 * 配置。
 			 */
 			for (category = 0; category <= 4; category++)
 			{
@@ -3200,7 +3200,7 @@ describeOneTableDetails(const char *schemaname,
 					const char *tgisinternal;
 
 					/*
-					 * Check if this trigger falls into the current category
+					 * 检查此触发器是否属于当前类别
 					 */
 					tgenabled = PQgetvalue(result, i, 2);
 					tgisinternal = PQgetvalue(result, i, 3);
@@ -3233,7 +3233,7 @@ describeOneTableDetails(const char *schemaname,
 					if (list_trigger == false)
 						continue;
 
-					/* Print the category heading once */
+					/* 打印类别标题一次 */
 					if (have_heading == false)
 					{
 						switch (category)
@@ -3258,7 +3258,7 @@ describeOneTableDetails(const char *schemaname,
 						have_heading = true;
 					}
 
-					/* Everything after "TRIGGER" is echoed verbatim */
+					/* "TRIGGER" 之后的所有内容原样回显 */
 					tgdef = PQgetvalue(result, i, 1);
 					usingpos = strstr(tgdef, " TRIGGER ");
 					if (usingpos)
@@ -3266,7 +3266,7 @@ describeOneTableDetails(const char *schemaname,
 
 					printfPQExpBuffer(&buf, "    %s", tgdef);
 
-					/* Visually distinguish inherited triggers */
+					/* 在视觉上区分继承的触发器 */
 					if (!PQgetisnull(result, i, 4))
 						appendPQExpBuffer(&buf, ", ON TABLE %s",
 										  PQgetvalue(result, i, 4));
@@ -3279,7 +3279,7 @@ describeOneTableDetails(const char *schemaname,
 	}
 
 	/*
-	 * Finish printing the footer information about a table.
+	 * 完成打印表的页脚信息。
 	 */
 	if (tableinfo.relkind == RELKIND_RELATION ||
 		tableinfo.relkind == RELKIND_MATVIEW ||
@@ -3292,16 +3292,16 @@ describeOneTableDetails(const char *schemaname,
 		PGresult   *result;
 		int			tuples;
 
-		/* simplify some repeated tests below */
+		/* 简化下面的一些重复测试 */
 		is_partitioned = (tableinfo.relkind == RELKIND_PARTITIONED_TABLE ||
 						  tableinfo.relkind == RELKIND_PARTITIONED_INDEX);
 
-		/* print foreign server name */
+		/* 打印外部服务器名称 */
 		if (tableinfo.relkind == RELKIND_FOREIGN_TABLE)
 		{
 			char	   *ftoptions;
 
-			/* Footer information about foreign table */
+			/* 外部表的页脚信息 */
 			printfPQExpBuffer(&buf,
 							  "SELECT s.srvname,\n"
 							  "  pg_catalog.array_to_string(ARRAY(\n"
@@ -3321,12 +3321,12 @@ describeOneTableDetails(const char *schemaname,
 				goto error_return;
 			}
 
-			/* Print server name */
+			/* 打印服务器名称 */
 			printfPQExpBuffer(&buf, _("Server: %s"),
 							  PQgetvalue(result, 0, 0));
 			printTableAddFooter(&cont, buf.data);
 
-			/* Print per-table FDW options, if any */
+			/* 打印每个表的 FDW 选项（如果有） */
 			ftoptions = PQgetvalue(result, 0, 1);
 			if (ftoptions && ftoptions[0] != '\0')
 			{
@@ -3336,7 +3336,7 @@ describeOneTableDetails(const char *schemaname,
 			PQclear(result);
 		}
 
-		/* print tables inherited from (exclude partitioned parents) */
+		/* 打印继承来源的表（排除分区父表） */
 		printfPQExpBuffer(&buf,
 						  "SELECT c.oid::pg_catalog.regclass\n"
 						  "FROM pg_catalog.pg_class c, pg_catalog.pg_inherits i\n"
@@ -3373,7 +3373,7 @@ describeOneTableDetails(const char *schemaname,
 			PQclear(result);
 		}
 
-		/* print child tables (with additional info if partitions) */
+		/* 打印子表（如果是分区则附带额外信息） */
 		if (pset.sversion >= 140000)
 			printfPQExpBuffer(&buf,
 							  "SELECT c.oid::pg_catalog.regclass, c.relkind,"
@@ -3409,10 +3409,10 @@ describeOneTableDetails(const char *schemaname,
 		tuples = PQntuples(result);
 
 		/*
-		 * For a partitioned table with no partitions, always print the number
-		 * of partitions as zero, even when verbose output is expected.
-		 * Otherwise, we will not print "Partitions" section for a partitioned
-		 * table without any partitions.
+		 * 对于没有分区的分区表，始终将分区数打印为零，
+		 * 即使预期 verbose 输出时也是如此。否则对于
+		 * 没有任何分区的分区表，我们将不会打印
+		 * "Partitions" 部分。
 		 */
 		if (is_partitioned && tuples == 0)
 		{
@@ -3421,7 +3421,7 @@ describeOneTableDetails(const char *schemaname,
 		}
 		else if (!verbose)
 		{
-			/* print the number of child tables, if any */
+			/* 打印子表数量（如果有） */
 			if (tuples > 0)
 			{
 				if (is_partitioned)
@@ -3433,7 +3433,7 @@ describeOneTableDetails(const char *schemaname,
 		}
 		else
 		{
-			/* display the list of child tables */
+			/* 显示子表列表 */
 			const char *ct = is_partitioned ? _("Partitions") : _("Child tables");
 			int			ctw = pg_wcswidth(ct, strlen(ct), pset.encoding);
 
@@ -3464,7 +3464,7 @@ describeOneTableDetails(const char *schemaname,
 		}
 		PQclear(result);
 
-		/* Table type */
+		/* 表类型 */
 		if (tableinfo.reloftype)
 		{
 			printfPQExpBuffer(&buf, _("Typed table of type: %s"), tableinfo.reloftype);
@@ -3476,8 +3476,8 @@ describeOneTableDetails(const char *schemaname,
 			 tableinfo.relkind == RELKIND_MATVIEW) &&
 
 		/*
-		 * No need to display default values; we already display a REPLICA
-		 * IDENTITY marker on indexes.
+		 * 无需显示默认值；我们已经在索引上显示
+		 * REPLICA IDENTITY 标记。
 		 */
 			tableinfo.relreplident != 'i' &&
 			((strcmp(schemaname, "pg_catalog") != 0 && tableinfo.relreplident != 'd') ||
@@ -3494,15 +3494,15 @@ describeOneTableDetails(const char *schemaname,
 			printTableAddFooter(&cont, buf.data);
 		}
 
-		/* OIDs, if verbose and not a materialized view */
+		/* OID（如果 verbose 且不是物化视图） */
 		if (verbose && tableinfo.relkind != RELKIND_MATVIEW && tableinfo.hasoids)
 			printTableAddFooter(&cont, _("Has OIDs: yes"));
 
-		/* Tablespace info */
+		/* 表空间信息 */
 		add_tablespace_footer(&cont, tableinfo.relkind, tableinfo.tablespace,
 							  true);
 
-		/* Access method info */
+		/* 访问方法信息 */
 		if (verbose && tableinfo.relam != NULL && !pset.hide_tableam)
 		{
 			printfPQExpBuffer(&buf, _("Access method: %s"), tableinfo.relam);
@@ -3510,7 +3510,7 @@ describeOneTableDetails(const char *schemaname,
 		}
 	}
 
-	/* reloptions, if verbose */
+	/* reloptions（如果 verbose） */
 	if (verbose &&
 		tableinfo.reloptions && tableinfo.reloptions[0] != '\0')
 	{
@@ -3526,7 +3526,7 @@ describeOneTableDetails(const char *schemaname,
 
 error_return:
 
-	/* clean up */
+	/* 清理 */
 	if (printTableInitialized)
 		printTableCleanup(&cont);
 	termPQExpBuffer(&buf);
@@ -3541,15 +3541,15 @@ error_return:
 }
 
 /*
- * Add a tablespace description to a footer.  If 'newline' is true, it is added
- * in a new line; otherwise it's appended to the current value of the last
- * footer.
+ * 向页脚添加表空间描述。如果 'newline' 为 true，则将其添加
+ * 到新行中；否则将其附加到最后一个页脚的当前值。
+ *
  */
 static void
 add_tablespace_footer(printTableContent *const cont, char relkind,
 					  Oid tablespace, const bool newline)
 {
-	/* relkinds for which we support tablespaces */
+	/* 我们支持表空间的 relkind */
 	if (relkind == RELKIND_RELATION ||
 		relkind == RELKIND_MATVIEW ||
 		relkind == RELKIND_INDEX ||
@@ -3558,8 +3558,8 @@ add_tablespace_footer(printTableContent *const cont, char relkind,
 		relkind == RELKIND_TOASTVALUE)
 	{
 		/*
-		 * We ignore the database default tablespace so that users not using
-		 * tablespaces don't need to know about them.
+		 * 我们忽略数据库默认表空间，以便不使用表空间
+		 * 的用户无需了解它们。
 		 */
 		if (tablespace != 0)
 		{
@@ -3576,19 +3576,19 @@ add_tablespace_footer(printTableContent *const cont, char relkind,
 				termPQExpBuffer(&buf);
 				return;
 			}
-			/* Should always be the case, but.... */
+			/* 应该始终是这种情况，但... */
 			if (PQntuples(result) > 0)
 			{
 				if (newline)
 				{
-					/* Add the tablespace as a new footer */
+					/* 将表空间作为新页脚添加 */
 					printfPQExpBuffer(&buf, _("Tablespace: \"%s\""),
 									  PQgetvalue(result, 0, 0));
 					printTableAddFooter(cont, buf.data);
 				}
 				else
 				{
-					/* Append the tablespace to the latest footer */
+					/* 将表空间附加到最新的页脚 */
 					printfPQExpBuffer(&buf, "%s", cont->footer->data);
 
 					/*-------
@@ -3606,9 +3606,9 @@ add_tablespace_footer(printTableContent *const cont, char relkind,
 }
 
 /*
- * \du or \dg
+ * \du 或 \dg
  *
- * Describes roles.  Any schema portion of the pattern is ignored.
+ * 描述角色。模式中的任何模式部分都将被忽略。
  */
 bool
 describeRoles(const char *pattern, bool verbose, bool showSystem)
@@ -3790,10 +3790,10 @@ listDbRoleSettings(const char *pattern, const char *pattern2)
 		return false;
 
 	/*
-	 * Most functions in this file are content to print an empty table when
-	 * there are no matching objects.  We intentionally deviate from that
-	 * here, but only in !quiet mode, because of the possibility that the user
-	 * is confused about what the two pattern arguments mean.
+	 * 本文件中的大多数函数在没有匹配对象时满足于
+	 * 打印空表。我们有意在这里偏离这一做法，
+	 * 但仅在非静默模式下，因为用户可能对两个模式
+	 * 参数的含义感到困惑。
 	 */
 	if (PQntuples(res) == 0 && !pset.quiet)
 	{
@@ -3825,7 +3825,7 @@ error_return:
 
 /*
  * \drg
- * Describes role grants.
+ * 描述角色授权。
  */
 bool
 describeRoleGrants(const char *pattern, bool showSystem)
@@ -3896,16 +3896,16 @@ describeRoleGrants(const char *pattern, bool showSystem)
 /*
  * listTables()
  *
- * handler for \dt, \di, etc.
+ * \dt、\di 等的处理程序。
  *
- * tabtypes is an array of characters, specifying what info is desired:
- * t - tables
- * i - indexes
- * v - views
- * m - materialized views
- * s - sequences
- * E - foreign table (Note: different from 'f', the relkind value)
- * (any order of the above is fine)
+ * tabtypes 是一个字符数组，指定所需的信息：
+ * t - 表
+ * i - 索引
+ * v - 视图
+ * m - 物化视图
+ * s - 序列
+ * E - 外部表（注意：与 'f' 不同，后者是 relkind 值）
+ *（以上任意顺序均可）
  */
 bool
 listTables(const char *tabtypes, const char *pattern, bool verbose, bool showSystem)
@@ -3923,7 +3923,7 @@ listTables(const char *tabtypes, const char *pattern, bool verbose, bool showSys
 	int			cols_so_far;
 	bool		translate_columns[] = {false, false, true, false, false, false, false, false, false};
 
-	/* If tabtypes is empty, we default to \dtvmsE (but see also command.c) */
+	/* 如果 tabtypes 为空，默认为 \dtvmsE（另请参阅 command.c） */
 	if (!(showTables || showIndexes || showViews || showMatViews || showSeq || showForeign))
 		showTables = showViews = showMatViews = showSeq = showForeign = true;
 
@@ -3970,7 +3970,7 @@ listTables(const char *tabtypes, const char *pattern, bool verbose, bool showSys
 	if (verbose)
 	{
 		/*
-		 * Show whether a relation is permanent, temporary, or unlogged.
+		 * 显示关系是永久的、临时的还是未日志的。
 		 */
 		appendPQExpBuffer(&buf,
 						  ",\n  CASE c.relpersistence WHEN 'p' THEN '%s' WHEN 't' THEN '%s' WHEN 'u' THEN '%s' END as \"%s\"",
@@ -3981,13 +3981,13 @@ listTables(const char *tabtypes, const char *pattern, bool verbose, bool showSys
 		translate_columns[cols_so_far] = true;
 
 		/*
-		 * We don't bother to count cols_so_far below here, as there's no need
-		 * to; this might change with future additions to the output columns.
+		 * 我们在这里下面不费心计数 cols_so_far，因为没有
+		 * 这个必要；随着未来输出列的添加，这一点可能会改变。
 		 */
 
 		/*
-		 * Access methods exist for tables, materialized views and indexes.
-		 * This has been introduced in PostgreSQL 12 for tables.
+		 * 表、物化视图和索引可以使用访问方法。
+		 * 这在 PostgreSQL 12 中为表引入。
 		 */
 		if (pset.sversion >= 120000 && !pset.hide_tableam &&
 			(showTables || showMatViews || showIndexes))
@@ -4021,7 +4021,7 @@ listTables(const char *tabtypes, const char *pattern, bool verbose, bool showSys
 	{
 		appendPQExpBufferStr(&buf, CppAsString2(RELKIND_RELATION) ","
 							 CppAsString2(RELKIND_PARTITIONED_TABLE) ",");
-		/* with 'S' or a pattern, allow 't' to match TOAST tables too */
+		/* 使用 'S' 或模式时，允许 't' 也匹配 TOAST 表 */
 		if (showSystem || pattern)
 			appendPQExpBufferStr(&buf, CppAsString2(RELKIND_TOASTVALUE) ",");
 	}
@@ -4035,11 +4035,11 @@ listTables(const char *tabtypes, const char *pattern, bool verbose, bool showSys
 	if (showSeq)
 		appendPQExpBufferStr(&buf, CppAsString2(RELKIND_SEQUENCE) ",");
 	if (showSystem || pattern)
-		appendPQExpBufferStr(&buf, "'s',"); /* was RELKIND_SPECIAL */
+		appendPQExpBufferStr(&buf, "'s',"); /* 曾是 RELKIND_SPECIAL */
 	if (showForeign)
 		appendPQExpBufferStr(&buf, CppAsString2(RELKIND_FOREIGN_TABLE) ",");
 
-	appendPQExpBufferStr(&buf, "''");	/* dummy */
+	appendPQExpBufferStr(&buf, "''");	/* 占位 */
 	appendPQExpBufferStr(&buf, ")\n");
 
 	if (!showSystem && !pattern)
@@ -4064,9 +4064,9 @@ listTables(const char *tabtypes, const char *pattern, bool verbose, bool showSys
 		return false;
 
 	/*
-	 * Most functions in this file are content to print an empty table when
-	 * there are no matching objects.  We intentionally deviate from that
-	 * here, but only in !quiet mode, for historical reasons.
+	 * 本文件中的大多数函数在没有匹配对象时满足于
+	 * 打印空表。出于历史原因，我们有意在这里
+	 * 偏离这一做法，但仅在非静默模式下。
 	 */
 	if (PQntuples(res) == 0 && !pset.quiet)
 	{
@@ -4093,18 +4093,18 @@ listTables(const char *tabtypes, const char *pattern, bool verbose, bool showSys
 
 /*
  * \dP
- * Takes an optional regexp to select particular relations
+ * 接受一个可选的正则表达式来选择特定的关系
  *
- * As with \d, you can specify the kinds of relations you want:
+ * 与 \d 类似，你可以指定所需的关系类型：
  *
- * t for tables
- * i for indexes
+ * t 表示表
+ * i 表示索引
  *
- * And there's additional flags:
+ * 还有额外的标志：
  *
- * n to list non-leaf partitioned tables
+ * n 表示列出非叶子分区表
  *
- * and you can mix and match these in any order.
+ * 并且你可以按任意顺序混合搭配这些选项。
  */
 bool
 listPartitionedTables(const char *reltypes, const char *pattern, bool verbose)
@@ -4121,7 +4121,7 @@ listPartitionedTables(const char *reltypes, const char *pattern, bool verbose)
 	bool		mixed_output = false;
 
 	/*
-	 * Note: Declarative table partitioning is only supported as of Pg 10.0.
+	 * 注意：声明式表分区仅在 Pg 10.0 及以上版本支持。
 	 */
 	if (pset.sversion < 100000)
 	{
@@ -4133,7 +4133,7 @@ listPartitionedTables(const char *reltypes, const char *pattern, bool verbose)
 		return true;
 	}
 
-	/* If no relation kind was selected, show them all */
+	/* 如果未选择关系类型，则全部显示 */
 	if (!showTables && !showIndexes)
 		showTables = showIndexes = true;
 
@@ -4143,7 +4143,7 @@ listPartitionedTables(const char *reltypes, const char *pattern, bool verbose)
 		tabletitle = _("List of partitioned tables");	/* \dPt */
 	else
 	{
-		/* show all kinds */
+		/* 显示所有种类 */
 		tabletitle = _("List of partitioned relations");
 		mixed_output = true;
 	}
@@ -4194,7 +4194,7 @@ listPartitionedTables(const char *reltypes, const char *pattern, bool verbose)
 							  gettext_noop("Total size"));
 		}
 		else
-			/* Sizes of all partitions are considered in this case. */
+			/* 在这种情况下考虑所有分区的大小。 */
 			appendPQExpBuffer(&buf,
 							  ",\n  s.tps as \"%s\"",
 							  gettext_noop("Total size"));
@@ -4239,7 +4239,7 @@ listPartitionedTables(const char *reltypes, const char *pattern, bool verbose)
 		}
 		else
 		{
-			/* PostgreSQL 12 has pg_partition_tree function */
+			/* PostgreSQL 12 有 pg_partition_tree 函数 */
 			appendPQExpBufferStr(&buf,
 								 ",\n     LATERAL (SELECT pg_catalog.pg_size_pretty(sum("
 								 "\n                 CASE WHEN ppt.isleaf AND ppt.level = 1"
@@ -4256,7 +4256,7 @@ listPartitionedTables(const char *reltypes, const char *pattern, bool verbose)
 		appendPQExpBufferStr(&buf, CppAsString2(RELKIND_PARTITIONED_TABLE) ",");
 	if (showIndexes)
 		appendPQExpBufferStr(&buf, CppAsString2(RELKIND_PARTITIONED_INDEX) ",");
-	appendPQExpBufferStr(&buf, "''");	/* dummy */
+	appendPQExpBufferStr(&buf, "''");	/* 占位 */
 	appendPQExpBufferStr(&buf, ")\n");
 
 	appendPQExpBufferStr(&buf, !showNested && !pattern ?
@@ -4305,7 +4305,7 @@ listPartitionedTables(const char *reltypes, const char *pattern, bool verbose)
 /*
  * \dL
  *
- * Describes languages.
+ * 描述语言。
  */
 bool
 listLanguages(const char *pattern, bool verbose, bool showSystem)
@@ -4382,7 +4382,7 @@ listLanguages(const char *pattern, bool verbose, bool showSystem)
 /*
  * \dD
  *
- * Describes domains.
+ * 描述域。
  */
 bool
 listDomains(const char *pattern, bool verbose, bool showSystem)
@@ -4466,7 +4466,7 @@ listDomains(const char *pattern, bool verbose, bool showSystem)
 /*
  * \dc
  *
- * Describes conversions.
+ * 描述转换。
  */
 bool
 listConversions(const char *pattern, bool verbose, bool showSystem)
@@ -4547,7 +4547,7 @@ listConversions(const char *pattern, bool verbose, bool showSystem)
 /*
  * \dconfig
  *
- * Describes configuration parameters.
+ * 描述配置参数。
  */
 bool
 describeConfigurationParameters(const char *pattern, bool verbose,
@@ -4616,7 +4616,7 @@ describeConfigurationParameters(const char *pattern, bool verbose,
 /*
  * \dy
  *
- * Describes Event Triggers.
+ * 描述事件触发器。
  */
 bool
 listEventTriggers(const char *pattern, bool verbose)
@@ -4697,7 +4697,7 @@ listEventTriggers(const char *pattern, bool verbose)
 /*
  * \dX
  *
- * Describes extended statistics.
+ * 描述扩展统计信息。
  */
 bool
 listExtendedStats(const char *pattern)
@@ -4751,7 +4751,7 @@ listExtendedStats(const char *pattern)
 					  gettext_noop("Dependencies"));
 
 	/*
-	 * Include the MCV statistics kind.
+	 * 包含 MCV 统计信息种类。
 	 */
 	if (pset.sversion >= 120000)
 	{
@@ -4794,7 +4794,7 @@ listExtendedStats(const char *pattern)
 /*
  * \dC
  *
- * Describes casts.
+ * 描述类型转换。
  */
 bool
 listCasts(const char *pattern, bool verbose)
@@ -4813,9 +4813,9 @@ listCasts(const char *pattern, bool verbose)
 					  gettext_noop("Target type"));
 
 	/*
-	 * We don't attempt to localize '(binary coercible)' or '(with inout)',
-	 * because there's too much risk of gettext translating a function name
-	 * that happens to match some string in the PO database.
+	 * 我们不尝试本地化 '(binary coercible)' 或 '(with inout)'，
+	 * 因为 gettext 可能恰好将碰巧匹配 PO 数据库中某些字符串的
+	 * 函数名翻译出来，风险太大。
 	 */
 	appendPQExpBuffer(&buf,
 					  "       CASE WHEN c.castmethod = '%c' THEN '(binary coercible)'\n"
@@ -4844,8 +4844,8 @@ listCasts(const char *pattern, bool verbose)
 						  gettext_noop("Description"));
 
 	/*
-	 * We need a left join to pg_proc for binary casts; the others are just
-	 * paranoia.
+	 * 对于二进制类型转换，我们需要左连接 pg_proc；
+	 * 其他的只是为了多疑一点。
 	 */
 	appendPQExpBufferStr(&buf,
 						 "\nFROM pg_catalog.pg_cast c LEFT JOIN pg_catalog.pg_proc p\n"
@@ -4868,8 +4868,8 @@ listCasts(const char *pattern, bool verbose)
 	appendPQExpBufferStr(&buf, "WHERE ( (true");
 
 	/*
-	 * Match name pattern against either internal or external name of either
-	 * castsource or casttarget
+	 * 将名称模式匹配到 castsource 或 casttarget
+	 * 的内部或外部名称
 	 */
 	if (!validateSQLNamePattern(&buf, pattern, true, false,
 								"ns.nspname", "ts.typname",
@@ -4913,7 +4913,7 @@ error_return:
 /*
  * \dO
  *
- * Describes collations.
+ * 描述排序规则。
  */
 bool
 listCollations(const char *pattern, bool verbose, bool showSystem)
@@ -4990,10 +4990,10 @@ listCollations(const char *pattern, bool verbose, bool showSystem)
 							 "      AND n.nspname <> 'information_schema'\n");
 
 	/*
-	 * Hide collations that aren't usable in the current database's encoding.
-	 * If you think to change this, note that pg_collation_is_visible rejects
-	 * unusable collations, so you will need to hack name pattern processing
-	 * somehow to avoid inconsistent behavior.
+	 * 隐藏当前数据库编码中不可用的排序规则。
+	 * 如果你想更改此行为，请注意 pg_collation_is_visible 会拒绝
+	 * 不可用的排序规则，因此你需要某种方式修改名称模式处理
+	 * 以避免不一致的行为。
 	 */
 	appendPQExpBufferStr(&buf, "      AND c.collencoding IN (-1, pg_catalog.pg_char_to_encoding(pg_catalog.getdatabaseencoding()))\n");
 
@@ -5028,7 +5028,7 @@ listCollations(const char *pattern, bool verbose, bool showSystem)
 /*
  * \dn
  *
- * Describes schemas (namespaces)
+ * 描述模式（命名空间）
  */
 bool
 listSchemas(const char *pattern, bool verbose, bool showSystem)
@@ -5101,14 +5101,14 @@ listSchemas(const char *pattern, bool verbose, bool showSystem)
 		if (pub_schema_tuples > 0)
 		{
 			/*
-			 * Allocate memory for footers. Size of footers will be 1 (for
-			 * storing "Publications:" string) + publication schema mapping
-			 * count +  1 (for storing NULL).
+			 * 为页脚分配内存。页脚大小为 1（用于存储
+			 * "Publications:" 字符串）+ 发布与模式的映射
+			 * 数量 + 1（用于存储 NULL）。
 			 */
 			footers = (char **) pg_malloc((1 + pub_schema_tuples + 1) * sizeof(char *));
 			footers[0] = pg_strdup(_("Publications:"));
 
-			/* Might be an empty set - that's ok */
+			/* 可能是空集合 - 没问题 */
 			for (i = 0; i < pub_schema_tuples; i++)
 			{
 				printfPQExpBuffer(&buf, "    \"%s\"",
@@ -5129,7 +5129,7 @@ listSchemas(const char *pattern, bool verbose, bool showSystem)
 	termPQExpBuffer(&buf);
 	PQclear(res);
 
-	/* Free the memory allocated for the footer */
+	/* 释放为页脚分配的内存 */
 	if (footers)
 	{
 		char	  **footer = NULL;
@@ -5150,7 +5150,7 @@ error_return:
 
 /*
  * \dFp
- * list text search parsers
+ * 列出文本搜索解析器
  */
 bool
 listTSParsers(const char *pattern, bool verbose)
@@ -5203,7 +5203,7 @@ listTSParsers(const char *pattern, bool verbose)
 }
 
 /*
- * full description of parsers
+ * 解析器的完整描述
  */
 static bool
 listTSParsersVerbose(const char *pattern)
@@ -5400,7 +5400,7 @@ describeOneTSParser(const char *oid, const char *nspname, const char *prsname)
 
 /*
  * \dFd
- * list text search dictionaries
+ * 列出文本搜索字典
  */
 bool
 listTSDictionaries(const char *pattern, bool verbose)
@@ -5466,7 +5466,7 @@ listTSDictionaries(const char *pattern, bool verbose)
 
 /*
  * \dFt
- * list text search templates
+ * 列出文本搜索模板
  */
 bool
 listTSTemplates(const char *pattern, bool verbose)
@@ -5532,7 +5532,7 @@ listTSTemplates(const char *pattern, bool verbose)
 
 /*
  * \dF
- * list text search configurations
+ * 列出文本搜索配置
  */
 bool
 listTSConfigs(const char *pattern, bool verbose)
@@ -5738,7 +5738,7 @@ describeOneTSConfig(const char *oid, const char *nspname, const char *cfgname,
 /*
  * \dew
  *
- * Describes foreign-data wrappers
+ * 描述外部数据包装器
  */
 bool
 listForeignDataWrappers(const char *pattern, bool verbose)
@@ -5810,7 +5810,7 @@ listForeignDataWrappers(const char *pattern, bool verbose)
 /*
  * \des
  *
- * Describes foreign servers.
+ * 描述外部服务器。
  */
 bool
 listForeignServers(const char *pattern, bool verbose)
@@ -5887,7 +5887,7 @@ listForeignServers(const char *pattern, bool verbose)
 /*
  * \deu
  *
- * Describes user mappings.
+ * 描述用户映射。
  */
 bool
 listUserMappings(const char *pattern, bool verbose)
@@ -5943,7 +5943,7 @@ listUserMappings(const char *pattern, bool verbose)
 /*
  * \det
  *
- * Describes foreign tables.
+ * 描述外部表。
  */
 bool
 listForeignTables(const char *pattern, bool verbose)
@@ -6016,7 +6016,7 @@ listForeignTables(const char *pattern, bool verbose)
 /*
  * \dx
  *
- * Briefly describes installed extensions.
+ * 简要描述已安装的扩展。
  */
 bool
 listExtensions(const char *pattern)
@@ -6068,7 +6068,7 @@ listExtensions(const char *pattern)
 /*
  * \dx+
  *
- * List contents of installed extensions.
+ * 列出已安装扩展的内容。
  */
 bool
 listExtensionContents(const char *pattern)
@@ -6175,12 +6175,12 @@ listOneExtensionContents(const char *extname, const char *oid)
 /*
  * validateSQLNamePattern
  *
- * Wrapper around string_utils's processSQLNamePattern which also checks the
- * pattern's validity.  In addition to that function's parameters, takes a
- * 'maxparts' parameter specifying the maximum number of dotted names the
- * pattern is allowed to have, and a 'added_clause' parameter that returns by
- * reference whether a clause was added to 'buf'.  Returns whether the pattern
- * passed validation, after logging any errors.
+ * string_utils 的 processSQLNamePattern 的包装器，还检查
+ * 模式的有效性。除了该函数的参数外，还接受一个
+ * 'maxparts' 参数，指定模式允许的最大点分名称数量，
+ * 以及一个 'added_clause' 参数，通过引用返回是否
+ * 向 'buf' 添加了子句。返回模式是否通过验证，在记录
+ * 任何错误之后。
  */
 static bool
 validateSQLNamePattern(PQExpBuffer buf, const char *pattern, bool have_where,
@@ -6231,9 +6231,9 @@ error_return:
 
 /*
  * \dRp
- * Lists publications.
+ * 列出发布。
  *
- * Takes an optional regexp to select particular publications
+ * 接受一个可选的正则表达式来选择特定的发布
  */
 bool
 listPublications(const char *pattern)
@@ -6310,7 +6310,7 @@ listPublications(const char *pattern)
 }
 
 /*
- * Add footer to publication description.
+ * 向发布描述添加页脚。
  */
 static bool
 addFooterToPublicationDesc(PQExpBuffer buf, const char *footermsg,
@@ -6354,9 +6354,9 @@ addFooterToPublicationDesc(PQExpBuffer buf, const char *footermsg,
 
 /*
  * \dRp+
- * Describes publications including the contents.
+ * 描述发布，包括内容。
  *
- * Takes an optional regexp to select particular publications
+ * 接受一个可选的正则表达式来选择特定的发布
  */
 bool
 describePublications(const char *pattern)
@@ -6473,7 +6473,7 @@ describePublications(const char *pattern)
 
 		if (!puballtables)
 		{
-			/* Get the tables for the specified publication */
+			/* 获取指定发布的表 */
 			printfPQExpBuffer(&buf,
 							  "SELECT n.nspname, c.relname");
 			if (pset.sversion >= 150000)
@@ -6506,7 +6506,7 @@ describePublications(const char *pattern)
 
 			if (pset.sversion >= 150000)
 			{
-				/* Get the schemas for the specified publication */
+				/* 获取指定发布的模式 */
 				printfPQExpBuffer(&buf,
 								  "SELECT n.nspname\n"
 								  "FROM pg_catalog.pg_namespace n\n"
@@ -6540,9 +6540,9 @@ error_return:
 
 /*
  * \dRs
- * Describes subscriptions.
+ * 描述订阅。
  *
- * Takes an optional regexp to select particular subscriptions
+ * 接受一个可选的正则表达式来选择特定的订阅
  */
 bool
 describeSubscriptions(const char *pattern, bool verbose)
@@ -6577,7 +6577,7 @@ describeSubscriptions(const char *pattern, bool verbose)
 
 	if (verbose)
 	{
-		/* Binary mode and streaming are only supported in v14 and higher */
+		/* 二进制模式和流式复制仅在 v14 及以上版本支持 */
 		if (pset.sversion >= 140000)
 		{
 			appendPQExpBuffer(&buf,
@@ -6598,7 +6598,7 @@ describeSubscriptions(const char *pattern, bool verbose)
 								  gettext_noop("Streaming"));
 		}
 
-		/* Two_phase and disable_on_error are only supported in v15 and higher */
+		/* Two_phase 和 disable_on_error 仅在 v15 及以上版本支持 */
 		if (pset.sversion >= 150000)
 			appendPQExpBuffer(&buf,
 							  ", subtwophasestate AS \"%s\"\n"
@@ -6621,14 +6621,14 @@ describeSubscriptions(const char *pattern, bool verbose)
 						  gettext_noop("Synchronous commit"),
 						  gettext_noop("Conninfo"));
 
-		/* Skip LSN is only supported in v15 and higher */
+		/* Skip LSN 仅在 v15 及以上版本支持 */
 		if (pset.sversion >= 150000)
 			appendPQExpBuffer(&buf,
 							  ", subskiplsn AS \"%s\"\n",
 							  gettext_noop("Skip LSN"));
 	}
 
-	/* Only display subscriptions in current database. */
+	/* 仅显示当前数据库中的订阅。 */
 	appendPQExpBufferStr(&buf,
 						 "FROM pg_catalog.pg_subscription\n"
 						 "WHERE subdbid = (SELECT oid\n"
@@ -6666,9 +6666,9 @@ describeSubscriptions(const char *pattern, bool verbose)
 /*
  * printACLColumn
  *
- * Helper function for consistently formatting ACL (privilege) columns.
- * The proper targetlist entry is appended to buf.  Note lack of any
- * whitespace or comma decoration.
+ * 用于一致格式化 ACL（权限）列的辅助函数。
+ * 将适当的目标列表项追加到 buf。注意没有
+ * 任何空白或逗号修饰。
  */
 static void
 printACLColumn(PQExpBuffer buf, const char *colname)
@@ -6680,9 +6680,9 @@ printACLColumn(PQExpBuffer buf, const char *colname)
 
 /*
  * \dAc
- * Lists operator classes
+ * 列出操作符类
  *
- * Takes optional regexps to filter by index access method and input data type.
+ * 接受可选的正则表达式来按索引访问方法和输入数据类型过滤。
  */
 bool
 listOperatorClasses(const char *access_method_pattern,
@@ -6749,7 +6749,7 @@ listOperatorClasses(const char *access_method_pattern,
 			goto error_return;
 	if (type_pattern)
 	{
-		/* Match type name pattern against either internal or external name */
+		/* 将类型名称模式匹配到内部名称或外部名称 */
 		if (!validateSQLNamePattern(&buf, type_pattern, have_where, false,
 									"tn.nspname", "t.typname",
 									"pg_catalog.format_type(t.oid, NULL)",
@@ -6782,9 +6782,9 @@ error_return:
 
 /*
  * \dAf
- * Lists operator families
+ * 列出操作符族
  *
- * Takes optional regexps to filter by index access method and input data type.
+ * 接受可选的正则表达式来按索引访问方法和输入数据类型过滤。
  */
 bool
 listOperatorFamilies(const char *access_method_pattern,
@@ -6837,7 +6837,7 @@ listOperatorFamilies(const char *access_method_pattern,
 						  "    LEFT JOIN pg_catalog.pg_namespace tn ON tn.oid = t.typnamespace\n"
 						  "    WHERE oc.opcfamily = f.oid\n",
 						  have_where ? "AND" : "WHERE");
-		/* Match type name pattern against either internal or external name */
+		/* 将类型名称模式匹配到内部名称或外部名称 */
 		if (!validateSQLNamePattern(&buf, type_pattern, true, false,
 									"tn.nspname", "t.typname",
 									"pg_catalog.format_type(t.oid, NULL)",
@@ -6871,10 +6871,10 @@ error_return:
 
 /*
  * \dAo
- * Lists operators of operator families
+ * 列出操作符族的操作符
  *
- * Takes optional regexps to filter by index access method and operator
- * family.
+ * 接受可选的正则表达式来按索引访问方法和
+ * 操作符族过滤。
  */
 bool
 listOpFamilyOperators(const char *access_method_pattern,
@@ -6970,10 +6970,10 @@ error_return:
 
 /*
  * \dAp
- * Lists support functions of operator families
+ * 列出操作符族的支持函数
  *
- * Takes optional regexps to filter by index access method and operator
- * family.
+ * 接受可选的正则表达式来按索引访问方法和
+ * 操作符族过滤。
  */
 bool
 listOpFamilyFunctions(const char *access_method_pattern,
@@ -7062,8 +7062,8 @@ error_return:
 }
 
 /*
- * \dl or \lo_list
- * Lists large objects
+ * \dl 或 \lo_list
+ * 列出大对象
  */
 bool
 listLargeObjects(bool verbose)

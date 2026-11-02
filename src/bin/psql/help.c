@@ -30,13 +30,13 @@
 #include "sql_help.h"
 
 /*
- * PLEASE:
- * If you change something in this file, also make the same changes
- * in the DocBook documentation, file ref/psql-ref.sgml. If you don't
- * know how to do it, please find someone who can help you.
+ * 请注意：
+ * 如果您修改了此文件中的内容，请同时在 DocBook 文档
+ * ref/psql-ref.sgml 中进行相同的修改。如果您不知道如何操作，
+ * 请找人帮助您。
  */
 
-/* Some helper macros to make the code less verbose */
+/* 一些辅助宏，使代码更简洁 */
 #define HELP0(str) appendPQExpBufferStr(&buf, _(str))
 #define HELPN(str,...) appendPQExpBuffer(&buf, _(str), __VA_ARGS__)
 #define ON(var) ((var) ? _("on") : _("off"))
@@ -45,7 +45,7 @@
 /*
  * usage
  *
- * print out command line arguments
+ * 打印命令行参数
  */
 void
 usage(unsigned short int pager)
@@ -57,7 +57,7 @@ usage(unsigned short int pager)
 	int			nlcount;
 	FILE	   *output;
 
-	/* Find default user, in case we need it. */
+	/* 查找默认用户，以备需要。 */
 	user = getenv("PGUSER");
 	if (!user)
 	{
@@ -67,8 +67,8 @@ usage(unsigned short int pager)
 	}
 
 	/*
-	 * To avoid counting the output lines manually, build the output in "buf"
-	 * and then count them.
+	 * 为避免手动计算输出行数，在 "buf" 中构建输出然后计数。
+	 *
 	 */
 	initPQExpBuffer(&buf);
 
@@ -77,7 +77,7 @@ usage(unsigned short int pager)
 	HELP0("  psql [OPTION]... [DBNAME [USERNAME]]\n\n");
 
 	HELP0("General options:\n");
-	/* Display default database */
+	/* 显示默认数据库 */
 	env = getenv("PGDATABASE");
 	if (!env)
 		env = user;
@@ -128,15 +128,15 @@ usage(unsigned short int pager)
 		  "                           set record separator for unaligned output to zero byte\n");
 
 	HELP0("\nConnection options:\n");
-	/* Display default host */
+	/* 显示默认主机 */
 	env = getenv("PGHOST");
 	HELPN("  -h, --host=HOSTNAME      database server host or socket directory (default: \"%s\")\n",
 		  env ? env : _("local socket"));
-	/* Display default port */
+	/* 显示默认端口 */
 	env = getenv("PGPORT");
 	HELPN("  -p, --port=PORT          database server port (default: \"%s\")\n",
 		  env ? env : DEF_PGPORT_STR);
-	/* Display default user */
+	/* 显示默认用户 */
 	HELPN("  -U, --username=USERNAME  database user name (default: \"%s\")\n",
 		  user);
 	HELP0("  -w, --no-password        never prompt for password\n");
@@ -148,7 +148,7 @@ usage(unsigned short int pager)
 	HELPN("Report bugs to <%s>.\n", PACKAGE_BUGREPORT);
 	HELPN("%s home page: <%s>\n", PACKAGE_NAME, PACKAGE_URL);
 
-	/* Now we can count the lines. */
+	/* 现在我们可以计算行数。 */
 	nlcount = 0;
 	for (const char *ptr = buf.data; *ptr; ptr++)
 	{
@@ -156,7 +156,7 @@ usage(unsigned short int pager)
 			nlcount++;
 	}
 
-	/* And dump the output, with appropriate pagination. */
+	/* 然后输出，适当分页。 */
 	output = PageOutput(nlcount, pager ? &(pset.popt.topt) : NULL);
 
 	fputs(buf.data, output);
@@ -170,7 +170,7 @@ usage(unsigned short int pager)
 /*
  * slashUsage
  *
- * print out help for the backslash commands
+ * 打印反斜杠命令的帮助
  */
 void
 slashUsage(unsigned short int pager)
@@ -183,8 +183,8 @@ slashUsage(unsigned short int pager)
 	currdb = PQdb(pset.db);
 
 	/*
-	 * To avoid counting the output lines manually, build the output in "buf"
-	 * and then count them.
+	 * 为避免手动计算输出行数，在 "buf" 中构建输出然后计数。
+	 *
 	 */
 	initPQExpBuffer(&buf);
 
@@ -356,7 +356,7 @@ slashUsage(unsigned short int pager)
 	HELP0("  \\set [NAME [VALUE]]    set internal variable, or list all if no parameters\n");
 	HELP0("  \\unset NAME            unset (delete) internal variable\n");
 
-	/* Now we can count the lines. */
+	/* 现在我们可以计算行数。 */
 	nlcount = 0;
 	for (const char *ptr = buf.data; *ptr; ptr++)
 	{
@@ -364,7 +364,7 @@ slashUsage(unsigned short int pager)
 			nlcount++;
 	}
 
-	/* And dump the output, with appropriate pagination. */
+	/* 然后输出，适当分页。 */
 	output = PageOutput(nlcount, pager ? &(pset.popt.topt) : NULL);
 
 	fputs(buf.data, output);
@@ -378,7 +378,7 @@ slashUsage(unsigned short int pager)
 /*
  * helpVariables
  *
- * show list of available variables (options) from command line
+ * 显示命令行可用变量（选项）的列表
  */
 void
 helpVariables(unsigned short int pager)
@@ -388,8 +388,8 @@ helpVariables(unsigned short int pager)
 	FILE	   *output;
 
 	/*
-	 * To avoid counting the output lines manually, build the output in "buf"
-	 * and then count them.
+	 * 为避免手动计算输出行数，在 "buf" 中构建输出然后计数。
+	 *
 	 */
 	initPQExpBuffer(&buf);
 
@@ -572,7 +572,7 @@ helpVariables(unsigned short int pager)
 	HELP0("  TMPDIR\n"
 		  "    directory for temporary files\n");
 
-	/* Now we can count the lines. */
+	/* 现在我们可以计算行数。 */
 	nlcount = 0;
 	for (const char *ptr = buf.data; *ptr; ptr++)
 	{
@@ -580,7 +580,7 @@ helpVariables(unsigned short int pager)
 			nlcount++;
 	}
 
-	/* And dump the output, with appropriate pagination. */
+	/* 然后输出，适当分页。 */
 	output = PageOutput(nlcount, pager ? &(pset.popt.topt) : NULL);
 
 	fputs(buf.data, output);
@@ -592,9 +592,9 @@ helpVariables(unsigned short int pager)
 
 
 /*
- * helpSQL -- help with SQL commands
+ * helpSQL -- SQL 命令帮助
  *
- * Note: we assume caller removed any trailing spaces in "topic".
+ * 注意：我们假设调用者已删除 "topic" 中的所有尾随空格。
  */
 void
 helpSQL(const char *topic, unsigned short int pager)
@@ -603,7 +603,7 @@ helpSQL(const char *topic, unsigned short int pager)
 
 	if (!topic || strlen(topic) == 0)
 	{
-		/* Print all the available command names */
+		/* 打印所有可用的命令名称 */
 		int			screen_width;
 		int			ncolumns;
 		int			nrows;
@@ -611,16 +611,16 @@ helpSQL(const char *topic, unsigned short int pager)
 		int			i;
 		int			j;
 
-		/* Find screen width to determine how many columns will fit */
+		/* 查找屏幕宽度以确定可以容纳多少列 */
 #ifdef TIOCGWINSZ
 		struct winsize screen_size;
 
 		if (ioctl(fileno(stdout), TIOCGWINSZ, &screen_size) == -1)
-			screen_width = 80;	/* ioctl failed, assume 80 */
+			screen_width = 80;	/* ioctl 失败，假定为 80 */
 		else
 			screen_width = screen_size.ws_col;
 #else
-		screen_width = 80;		/* default assumption */
+		screen_width = 80;		/* 默认假设 */
 #endif
 
 		ncolumns = (screen_width - 3) / (QL_MAX_CMD_LEN + 1);
@@ -657,16 +657,16 @@ helpSQL(const char *topic, unsigned short int pager)
 		int			nl_count;
 
 		/*
-		 * len is the amount of the input to compare to the help topic names.
-		 * We first try exact match, then first + second words, then first
-		 * word only.
+		 * len 是要与帮助主题名称比较的输入量。
+		 * 我们先尝试精确匹配，然后尝试第一个+第二个单词，
+		 * 然后仅尝试第一个单词。
 		 */
 		len = strlen(topic);
 
 		for (pass = 1; pass <= 3; pass++)
 		{
 			if (pass > 1)		/* Nothing on first pass - try the opening
-								 * word(s) */
+								 * 单词 */
 			{
 				wordlen = j = 1;
 				while (j < len && topic[j++] != ' ')
@@ -679,15 +679,15 @@ helpSQL(const char *topic, unsigned short int pager)
 				}
 				if (wordlen >= len)
 				{
-					/* Failed to shorten input, so try next pass if any */
+					/* 未能缩短输入，如有下一轮则尝试 */
 					continue;
 				}
 				len = wordlen;
 			}
 
 			/*
-			 * Count newlines for pager.  This logic must agree with what the
-			 * following loop will do!
+			 * 为分页器计算换行数。此逻辑必须与下面循环
+			 * 将要执行的操作一致！
 			 */
 			nl_count = 0;
 			for (i = 0; QL_HELP[i].cmd; i++)
@@ -695,15 +695,15 @@ helpSQL(const char *topic, unsigned short int pager)
 				if (pg_strncasecmp(topic, QL_HELP[i].cmd, len) == 0 ||
 					strcmp(topic, "*") == 0)
 				{
-					/* magic constant here must match format below! */
+					/* 此处的魔法常量必须匹配下面的格式！ */
 					nl_count += 7 + QL_HELP[i].nl_count;
 
-					/* If we have an exact match, exit.  Fixes \h SELECT */
+					/* 如果精确匹配，退出。修复了 \h SELECT */
 					if (pg_strcasecmp(topic, QL_HELP[i].cmd) == 0)
 						break;
 				}
 			}
-			/* If no matches, don't open the output yet */
+			/* 如果没有匹配，暂不打开输出 */
 			if (nl_count == 0)
 				continue;
 
@@ -723,7 +723,7 @@ helpSQL(const char *topic, unsigned short int pager)
 					url = psprintf("https://www.postgresql.org/docs/%s/%s.html",
 								   strstr(PG_VERSION, "devel") ? "devel" : PG_MAJORVERSION,
 								   QL_HELP[i].docbook_id);
-					/* # of newlines in format must match constant above! */
+					/* 格式中的换行数必须匹配上面的常量！ */
 					fprintf(output, _("Command:     %s\n"
 									  "Description: %s\n"
 									  "Syntax:\n%s\n\n"
@@ -735,7 +735,7 @@ helpSQL(const char *topic, unsigned short int pager)
 					free(url);
 					termPQExpBuffer(&buffer);
 
-					/* If we have an exact match, exit.  Fixes \h SELECT */
+					/* 如果精确匹配，退出。修复了 \h SELECT */
 					if (pg_strcasecmp(topic, QL_HELP[i].cmd) == 0)
 						break;
 				}
@@ -743,7 +743,7 @@ helpSQL(const char *topic, unsigned short int pager)
 			break;
 		}
 
-		/* If we never found anything, report that */
+		/* 如果从未找到任何内容，报告 */
 		if (!output)
 		{
 			output = PageOutput(2, pager ? &(pset.popt.topt) : NULL);

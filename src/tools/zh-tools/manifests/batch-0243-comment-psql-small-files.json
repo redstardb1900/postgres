@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "batch_id": "0243-comment-psql-small-files",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "9e35d3ca8d93319cefa8b762ee014241e9a2f9a9",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    "src/bin/psql/large_obj.c",
+    "src/bin/psql/prompt.c",
+    "src/bin/psql/variables.c",
+    "src/bin/psql/stringutils.c",
+    "src/bin/psql/help.c",
+    "src/bin/psql/input.c",
+    "src/tools/zh-tools/manifests/batch-0243-comment-psql-small-files.json",
+    "src/tools/zh-tools/manifests/cumulative.json"
+  ],
+  "files": [
+    {
+      "path": "src/bin/psql/large_obj.c",
+      "segments_total": 14,
+      "segments_translated": 13,
+      "segments_preserved": 1,
+      "preserved_reasons": {
+        "0": "copyright_header"
+      }
+    },
+    {
+      "path": "src/bin/psql/prompt.c",
+      "segments_total": 18,
+      "segments_translated": 16,
+      "segments_preserved": 2,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "15": "endif_marker"
+      }
+    },
+    {
+      "path": "src/bin/psql/variables.c",
+      "segments_total": 31,
+      "segments_translated": 27,
+      "segments_preserved": 4,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "20": "unchanged_small_inline",
+        "24": "unchanged_small_inline",
+        "27": "unchanged_small_inline"
+      }
+    },
+    {
+      "path": "src/bin/psql/stringutils.c",
+      "segments_total": 32,
+      "segments_translated": 30,
+      "segments_preserved": 2,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "3": "split_inline_comment"
+      }
+    },
+    {
+      "path": "src/bin/psql/help.c",
+      "segments_total": 37,
+      "segments_translated": 34,
+      "segments_preserved": 3,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "1": "unchanged_small_inline",
+        "2": "unchanged_small_inline"
+      }
+    },
+    {
+      "path": "src/bin/psql/input.c",
+      "segments_total": 49,
+      "segments_translated": 47,
+      "segments_preserved": 2,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "32": "endif_marker"
+      }
+    }
+  ]
+}

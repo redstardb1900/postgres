@@ -16,31 +16,31 @@
 #include "prompt.h"
 #include "settings.h"
 
-/* callback functions for our flex lexer */
+/* 用于 flex 词法分析器的回调函数 */
 const PsqlScanCallbacks psqlscan_callbacks = {
 	psql_get_variable,
 };
 
 
 /*
- * Main processing loop for reading lines of input
- *	and sending them to the backend.
+ * 主处理循环，用于读取输入行
+ * 并将其发送到后台。
  *
- * This loop is re-entrant. May be called by \i command
- *	which reads input from a file.
+ * 此循环是可重入的。可由读取文件输入的
+ * \i 命令调用。
  */
 int
 MainLoop(FILE *source)
 {
-	PsqlScanState scan_state;	/* lexer working state */
-	ConditionalStack cond_stack;	/* \if status stack */
-	volatile PQExpBuffer query_buf; /* buffer for query being accumulated */
-	volatile PQExpBuffer previous_buf;	/* if there isn't anything in the new
-										 * buffer yet, use this one for \e,
-										 * etc. */
-	PQExpBuffer history_buf;	/* earlier lines of a multi-line command, not
-								 * yet saved to readline history */
-	char	   *line;			/* current line of input */
+	PsqlScanState scan_state;	/* 词法分析器工作状态 */
+	ConditionalStack cond_stack;	/* \if 状态栈 */
+	volatile PQExpBuffer query_buf; /* 正在累积的查询缓冲区 */
+	volatile PQExpBuffer previous_buf;	/* 如果新缓冲区中没有任何内容，
+										 * 则将此用于 \e 等
+										 * */
+	PQExpBuffer history_buf;	/* 多行命令的先前行，尚未保存到
+								 * readline 历史记录中 */
+	char	   *line;			/* 当前输入行 */
 	int			added_nl_pos;
 	bool		success;
 	bool		line_saved_in_history;
@@ -54,19 +54,19 @@ MainLoop(FILE *source)
 	bool		prev_cmd_interactive;
 	uint64		prev_lineno;
 
-	/* Save the prior command source */
+	/* 保存先前的命令源 */
 	prev_cmd_source = pset.cur_cmd_source;
 	prev_cmd_interactive = pset.cur_cmd_interactive;
 	prev_lineno = pset.lineno;
-	/* pset.stmt_lineno does not need to be saved and restored */
+	/* pset.stmt_lineno 不需要保存和恢复 */
 
-	/* Establish new source */
+	/* 建立新源 */
 	pset.cur_cmd_source = source;
 	pset.cur_cmd_interactive = ((source == stdin) && !pset.notty);
 	pset.lineno = 0;
 	pset.stmt_lineno = 1;
 
-	/* Create working state */
+	/* 创建工作状态 */
 	scan_state = psql_scan_create(&psqlscan_callbacks);
 	cond_stack = conditional_stack_create();
 	psql_scan_set_passthrough(scan_state, (void *) cond_stack);
@@ -79,18 +79,18 @@ MainLoop(FILE *source)
 		PQExpBufferBroken(history_buf))
 		pg_fatal("out of memory");
 
-	/* main loop to get queries and execute them */
+	/* 获取查询并执行的主循环 */
 	while (successResult == EXIT_SUCCESS)
 	{
 		/*
-		 * Clean up after a previous Control-C
+		 * 清理前一次 Control-C 之后的状态
 		 */
 		if (cancel_pressed)
 		{
 			if (!pset.cur_cmd_interactive)
 			{
 				/*
-				 * You get here if you stopped a script with Ctrl-C.
+				 * 如果用 Ctrl-C 停止了脚本，会到达此处。
 				 */
 				successResult = EXIT_USER;
 				break;
@@ -100,15 +100,15 @@ MainLoop(FILE *source)
 		}
 
 		/*
-		 * Establish longjmp destination for exiting from wait-for-input. We
-		 * must re-do this each time through the loop for safety, since the
-		 * jmpbuf might get changed during command execution.
+		 * 建立用于退出等待输入状态的 longjmp 目标。为安全起见，
+		 * 我们必须在每次循环中重新设置，因为 jmpbuf 可能在
+		 * 命令执行期间发生变化。
 		 */
 		if (sigsetjmp(sigint_interrupt_jmp, 1) != 0)
 		{
-			/* got here with longjmp */
+			/* 通过 longjmp 到达此处 */
 
-			/* reset parsing state */
+			/* 重置解析状态 */
 			psql_scan_finish(scan_state);
 			psql_scan_reset(scan_state);
 			resetPQExpBuffer(query_buf);
@@ -125,8 +125,8 @@ MainLoop(FILE *source)
 				putc('\n', stdout);
 
 				/*
-				 * if interactive user is in an \if block, then Ctrl-C will
-				 * exit from the innermost \if.
+					 * 如果交互用户正在 \if 块中，Ctrl-C 将退出
+					 * 最内层的 \if。
 				 */
 				if (!conditional_stack_empty(cond_stack))
 				{
@@ -144,14 +144,14 @@ MainLoop(FILE *source)
 		fflush(stdout);
 
 		/*
-		 * get another line
+			 * 获取另一行
 		 */
 		if (pset.cur_cmd_interactive)
 		{
-			/* May need to reset prompt, eg after \r command */
+			/* 可能需要重置提示符，例如在 \r 命令之后 */
 			if (query_buf->len == 0)
 				prompt_status = PROMPT_READY;
-			/* If query buffer came from \e, redisplay it with a prompt */
+			/* 如果查询缓冲区来自 \e，则用提示符重新显示 */
 			if (need_redisplay)
 			{
 				if (query_buf->len > 0)
@@ -162,7 +162,7 @@ MainLoop(FILE *source)
 				}
 				need_redisplay = false;
 			}
-			/* Now we can fetch a line */
+			/* 现在可以获取一行 */
 			line = gets_interactive(get_prompt(prompt_status, cond_stack),
 									query_buf);
 		}
@@ -174,16 +174,16 @@ MainLoop(FILE *source)
 		}
 
 		/*
-		 * query_buf holds query already accumulated.  line is the malloc'd
-		 * new line of input (note it must be freed before looping around!)
+			 * query_buf 保存已累积的查询。line 是 malloc 分配的
+			 * 新输入行（注意在循环之前必须释放！）
 		 */
 
-		/* No more input.  Time to quit, or \i done */
+		/* 没有更多输入。退出，或 \i 完成 */
 		if (line == NULL)
 		{
 			if (pset.cur_cmd_interactive)
 			{
-				/* This tries to mimic bash's IGNOREEOF feature. */
+				/* 这尝试模仿 bash 的 IGNOREEOF 功能 */
 				count_eof++;
 
 				if (count_eof < pset.ignoreeof)
@@ -202,11 +202,11 @@ MainLoop(FILE *source)
 
 		pset.lineno++;
 
-		/* ignore UTF-8 Unicode byte-order mark */
+		/* 忽略 UTF-8 Unicode 字节序标记 */
 		if (pset.lineno == 1 && pset.encoding == PG_UTF8 && strncmp(line, "\xef\xbb\xbf", 3) == 0)
 			memmove(line, line + 3, strlen(line + 3) + 1);
 
-		/* Detect attempts to run custom-format dumps as SQL scripts */
+		/* 检测将自定义格式转储作为 SQL 脚本运行的尝试 */
 		if (pset.lineno == 1 && !pset.cur_cmd_interactive &&
 			strncmp(line, "PGDMP", 5) == 0)
 		{
@@ -218,14 +218,14 @@ MainLoop(FILE *source)
 			break;
 		}
 
-		/* no further processing of empty lines, unless within a literal */
+		/* 不再进一步处理空行，除非在字面量中 */
 		if (line[0] == '\0' && !psql_scan_in_quote(scan_state))
 		{
 			free(line);
 			continue;
 		}
 
-		/* Recognize "help", "quit", "exit" only in interactive mode */
+		/* 仅在交互模式下识别 help、quit、exit */
 		if (pset.cur_cmd_interactive)
 		{
 			char	   *first_word = line;
@@ -235,10 +235,10 @@ MainLoop(FILE *source)
 			bool		found_q = false;
 
 			/*
-			 * The assistance words, help/exit/quit, must have no whitespace
-			 * before them, and only whitespace after, with an optional
-			 * semicolon.  This prevents indented use of these words, perhaps
-			 * as identifiers, from invoking the assistance behavior.
+				 * 辅助词 help/exit/quit 必须在前面没有空白字符，
+				 * 且后面只有空白字符，可选带一个分号。
+				 * 这可以防止以缩进方式使用这些词（例如作为标识符）
+				 * 时触发辅助行为。
 			 */
 			if (pg_strncasecmp(first_word, "help", 4) == 0)
 			{
@@ -258,16 +258,16 @@ MainLoop(FILE *source)
 			}
 
 			/*
-			 * If we found a command word, check whether the rest of the line
-			 * contains only whitespace plus maybe one semicolon.  If not,
-			 * ignore the command word after all.  These commands are only for
-			 * compatibility with other SQL clients and are not documented.
+				 * 如果找到了命令词，检查行的其余部分是否仅包含
+				 * 空白字符外加一个可能的分号。如果不是，则完全
+				 * 忽略该命令词。这些命令仅用于与其他 SQL 客户端
+				 * 兼容，并没有文档记录。
 			 */
 			if (rest_of_line != NULL)
 			{
 				/*
-				 * Ignore unless rest of line is whitespace, plus maybe one
-				 * semicolon
+					 * 忽略，除非行的其余部分是空白字符，外加一个可能
+					 * 的分号
 				 */
 				while (isspace((unsigned char) *rest_of_line))
 					++rest_of_line;
@@ -283,10 +283,10 @@ MainLoop(FILE *source)
 			}
 
 			/*
-			 * "help" is only a command when the query buffer is empty, but we
-			 * emit a one-line message even when it isn't to help confused
-			 * users.  The text is still added to the query buffer in that
-			 * case.
+				 * "help" 仅在查询缓冲区为空时才被视为命令，但即使
+				 * 不为空我们也发出一条单行消息以帮助困惑的用户。
+				 * 在这种情况下的文本仍然会被添加到查询缓冲区中。
+				 *
 			 */
 			if (found_help)
 			{
@@ -311,10 +311,10 @@ MainLoop(FILE *source)
 			}
 
 			/*
-			 * "quit" and "exit" are only commands when the query buffer is
-			 * empty, but we emit a one-line message even when it isn't to
-			 * help confused users.  The text is still added to the query
-			 * buffer in that case.
+				 * "quit" 和 "exit" 仅在查询缓冲区为空时才被视为
+				 * 命令，但即使不为空我们也发出一条单行消息以帮助
+				 * 困惑的用户。在这种情况下的文本仍然会被添加到
+				 * 查询缓冲区中。
 			 */
 			if (found_exit_or_quit)
 			{
@@ -333,7 +333,7 @@ MainLoop(FILE *source)
 				}
 				else
 				{
-					/* exit app */
+					/* 退出应用 */
 					free(line);
 					fflush(stdout);
 					successResult = EXIT_SUCCESS;
@@ -342,8 +342,8 @@ MainLoop(FILE *source)
 			}
 
 			/*
-			 * If they typed "\q" in a place where "\q" is not active, supply
-			 * a hint.  The text is still added to the query buffer.
+				 * 如果在 "\q" 不活跃的地方输入了 "\q"，
+				 * 则提供提示。该文本仍然会被添加到查询缓冲区中。
 			 */
 			if (found_q && query_buf->len != 0 &&
 				prompt_status != PROMPT_READY &&
@@ -356,27 +356,27 @@ MainLoop(FILE *source)
 #endif
 		}
 
-		/* echo back if flag is set, unless interactive */
+		/* 如果设置了标志则回显，除非在交互模式下 */
 		if (pset.echo == PSQL_ECHO_ALL && !pset.cur_cmd_interactive)
 		{
 			puts(line);
 			fflush(stdout);
 		}
 
-		/* insert newlines into query buffer between source lines */
+		/* 在源行之间将换行符插入查询缓冲区 */
 		if (query_buf->len > 0)
 		{
 			appendPQExpBufferChar(query_buf, '\n');
 			added_nl_pos = query_buf->len;
 		}
 		else
-			added_nl_pos = -1;	/* flag we didn't add one */
+			added_nl_pos = -1;	/* 标记我们没有添加 */
 
-		/* Setting this will not have effect until next line. */
+		/* 设置此项要到下一行才会生效 */
 		die_on_error = pset.on_error_stop;
 
 		/*
-		 * Parse line, looking for command separators.
+			 * 解析行，查找命令分隔符。
 		 */
 		psql_scan_setup(scan_state, line, strlen(line),
 						pset.encoding, standard_strings());
@@ -398,10 +398,10 @@ MainLoop(FILE *source)
 				pg_fatal("out of memory");
 
 			/*
-			 * Increase statement line number counter for each linebreak added
-			 * to the query buffer by the last psql_scan() call. There only
-			 * will be ones to add when navigating to a statement in
-			 * readline's history containing newlines.
+				 * 对最后一次 psql_scan() 调用添加到查询缓冲区的
+				 * 每个换行符增加语句行号计数器。只有在导航到
+				 * readline 历史中包含换行符的语句时，才会添加
+				 * 这些换行符。
 			 */
 			tmp_line = query_buf->data + pos_in_query;
 			while (*tmp_line != '\0')
@@ -414,17 +414,17 @@ MainLoop(FILE *source)
 				pset.stmt_lineno++;
 
 			/*
-			 * Send command if semicolon found, or if end of line and we're in
-			 * single-line mode.
+				 * 如果找到分号则发送命令，或者如果到达行尾且我们处于
+				 * 单行模式，也发送命令。
 			 */
 			if (scan_result == PSCAN_SEMICOLON ||
 				(scan_result == PSCAN_EOL && pset.singleline))
 			{
 				/*
-				 * Save line in history.  We use history_buf to accumulate
-				 * multi-line queries into a single history entry.  Note that
-				 * history accumulation works on input lines, so it doesn't
-				 * matter whether the query will be ignored due to \if.
+					 * 将行保存到历史记录中。我们使用 history_buf 将
+					 * 多行查询累积为单个历史条目。请注意，历史记录
+					 * 累积基于输入行，因此查询是否因 \if 而被忽略
+					 * 并不重要。
 				 */
 				if (pset.cur_cmd_interactive && !line_saved_in_history)
 				{
@@ -433,14 +433,14 @@ MainLoop(FILE *source)
 					line_saved_in_history = true;
 				}
 
-				/* execute query unless we're in an inactive \if branch */
+				/* 执行查询，除非我们在不活跃的 \if 分支中 */
 				if (conditional_active(cond_stack))
 				{
 					success = SendQuery(query_buf->data);
 					slashCmdStatus = success ? PSQL_CMD_SEND : PSQL_CMD_ERROR;
 					pset.stmt_lineno = 1;
 
-					/* transfer query to previous_buf by pointer-swapping */
+					/* 通过指针交换将查询转移到 previous_buf */
 					{
 						PQExpBuffer swap_buf = previous_buf;
 
@@ -450,32 +450,32 @@ MainLoop(FILE *source)
 					resetPQExpBuffer(query_buf);
 
 					added_nl_pos = -1;
-					/* we need not do psql_scan_reset() here */
+					/* 此处不需要执行 psql_scan_reset() */
 				}
 				else
 				{
-					/* if interactive, warn about non-executed query */
+					/* 如果是交互模式，警告查询未执行 */
 					if (pset.cur_cmd_interactive)
 						pg_log_error("query ignored; use \\endif or Ctrl-C to exit current \\if block");
-					/* fake an OK result for purposes of loop checks */
+					/* 为循环检查目的伪造一个 OK 结果 */
 					success = true;
 					slashCmdStatus = PSQL_CMD_SEND;
 					pset.stmt_lineno = 1;
-					/* note that query_buf doesn't change state */
+					/* 注意 query_buf 不会改变状态 */
 				}
 			}
 			else if (scan_result == PSCAN_BACKSLASH)
 			{
-				/* handle backslash command */
+				/* 处理反斜杠命令 */
 
 				/*
-				 * If we added a newline to query_buf, and nothing else has
-				 * been inserted in query_buf by the lexer, then strip off the
-				 * newline again.  This avoids any change to query_buf when a
-				 * line contains only a backslash command.  Also, in this
-				 * situation we force out any previous lines as a separate
-				 * history entry; we don't want SQL and backslash commands
-				 * intermixed in history if at all possible.
+					 * 如果我们向 query_buf 添加了一个换行符，且词法
+					 * 分析器没有向 query_buf 中插入任何其他内容，
+					 * 则再次去除该换行符。这样可以避免在行仅包含
+					 * 反斜杠命令时对 query_buf 的任何更改。此外，
+					 * 在这种情况下，我们将之前的行作为单独的
+					 * 历史条目强制输出；我们希望尽可能避免 SQL
+					 * 和反斜杠命令混在历史记录中。
 				 */
 				if (query_buf->len == added_nl_pos)
 				{
@@ -484,7 +484,7 @@ MainLoop(FILE *source)
 				}
 				added_nl_pos = -1;
 
-				/* save backslash command in history */
+				/* 将反斜杠命令保存到历史记录中 */
 				if (pset.cur_cmd_interactive && !line_saved_in_history)
 				{
 					pg_append_history(line, history_buf);
@@ -492,7 +492,7 @@ MainLoop(FILE *source)
 					line_saved_in_history = true;
 				}
 
-				/* execute backslash command */
+				/* 执行反斜杠命令 */
 				slashCmdStatus = HandleSlashCmds(scan_state,
 												 cond_stack,
 												 query_buf,
@@ -501,20 +501,20 @@ MainLoop(FILE *source)
 				success = slashCmdStatus != PSQL_CMD_ERROR;
 
 				/*
-				 * Resetting stmt_lineno after a backslash command isn't
-				 * always appropriate, but it's what we've done historically
-				 * and there have been few complaints.
+					 * 反斜杠命令后重置 stmt_lineno 并不总是合适，
+					 * 但这是我们历史沿用的做法，投诉也很少。
+					 *
 				 */
 				pset.stmt_lineno = 1;
 
 				if (slashCmdStatus == PSQL_CMD_SEND)
 				{
-					/* should not see this in inactive branch */
+					/* 在不活跃分支中不应出现 */
 					Assert(conditional_active(cond_stack));
 
 					success = SendQuery(query_buf->data);
 
-					/* transfer query to previous_buf by pointer-swapping */
+					/* 通过指针交换将查询转移到 previous_buf */
 					{
 						PQExpBuffer swap_buf = previous_buf;
 
@@ -523,47 +523,47 @@ MainLoop(FILE *source)
 					}
 					resetPQExpBuffer(query_buf);
 
-					/* flush any paren nesting info after forced send */
+					/* 强制发送后刷新任何括号嵌套信息 */
 					psql_scan_reset(scan_state);
 				}
 				else if (slashCmdStatus == PSQL_CMD_NEWEDIT)
 				{
-					/* should not see this in inactive branch */
+					/* 在不活跃分支中不应出现 */
 					Assert(conditional_active(cond_stack));
-					/* ensure what came back from editing ends in a newline */
+					/* 确保编辑返回的内容以换行符结尾 */
 					if (query_buf->len > 0 &&
 						query_buf->data[query_buf->len - 1] != '\n')
 						appendPQExpBufferChar(query_buf, '\n');
-					/* rescan query_buf as new input */
+					/* 将 query_buf 作为新输入重新扫描 */
 					psql_scan_finish(scan_state);
 					free(line);
 					line = pg_strdup(query_buf->data);
 					resetPQExpBuffer(query_buf);
-					/* reset parsing state since we are rescanning whole line */
+					/* 重置解析状态，因为我们要重新扫描整行 */
 					psql_scan_reset(scan_state);
 					psql_scan_setup(scan_state, line, strlen(line),
 									pset.encoding, standard_strings());
 					line_saved_in_history = false;
 					prompt_status = PROMPT_READY;
-					/* we'll want to redisplay after parsing what we have */
+					/* 解析完现有内容后我们将需要重新显示 */
 					need_redisplay = true;
 				}
 				else if (slashCmdStatus == PSQL_CMD_TERMINATE)
 					break;
 			}
 
-			/* fall out of loop if lexer reached EOL */
+			/* 如果词法分析器到达 EOL 则退出循环 */
 			if (scan_result == PSCAN_INCOMPLETE ||
 				scan_result == PSCAN_EOL)
 				break;
 		}
 
 		/*
-		 * Add line to pending history if we didn't do so already.  Then, if
-		 * the query buffer is still empty, flush out any unsent history
-		 * entry.  This means that empty lines (containing only whitespace and
-		 * perhaps a dash-dash comment) that precede a query will be recorded
-		 * as separate history entries, not as part of that query.
+			 * 如果尚未完成，将行添加到待处理的历史记录中。然后，
+			 * 如果查询缓冲区仍为空，刷新任何未发送的历史条目。
+			 * 这意味着查询之前的空行（仅包含空白字符和可能的
+			 * 双短划线注释）将被记录为单独的历史条目，
+			 * 而不是该查询的一部分。
 		 */
 		if (pset.cur_cmd_interactive)
 		{
@@ -586,28 +586,28 @@ MainLoop(FILE *source)
 		{
 			if (!success && die_on_error)
 				successResult = EXIT_USER;
-			/* Have we lost the db connection? */
+			/* 我们是否丢失了数据库连接？ */
 			else if (!pset.db)
 				successResult = EXIT_BADCONN;
 		}
 	}							/* while !endoffile/session */
 
 	/*
-	 * If we have a non-semicolon-terminated query at the end of file, we
-	 * process it unless the input source is interactive --- in that case it
-	 * seems better to go ahead and quit.  Also skip if this is an error exit.
+	 * 如果在文件末尾有一个不以分号结尾的查询，我们处理它，
+	 * 除非输入源是交互式的 --- 在这种情况下，似乎最好继续
+	 * 退出。如果是错误退出，也跳过。
 	 */
 	if (query_buf->len > 0 && !pset.cur_cmd_interactive &&
 		successResult == EXIT_SUCCESS)
 	{
-		/* save query in history */
-		/* currently unneeded since we don't use this block if interactive */
+		/* 将查询保存到历史记录中 */
+		/* 目前不需要，因为我们不在交互模式下使用此块 */
 #ifdef NOT_USED
 		if (pset.cur_cmd_interactive)
 			pg_send_history(history_buf);
 #endif
 
-		/* execute query unless we're in an inactive \if branch */
+		/* 执行查询，除非我们在不活跃的 \if 分支中 */
 		if (conditional_active(cond_stack))
 		{
 			success = SendQuery(query_buf->data);
@@ -626,8 +626,8 @@ MainLoop(FILE *source)
 	}
 
 	/*
-	 * Check for unbalanced \if-\endifs unless user explicitly quit, or the
-	 * script is erroring out
+	 * 检查不平衡的 \if-\endif，除非用户明确退出或脚本
+	 * 正因错误而退出
 	 */
 	if (slashCmdStatus != PSQL_CMD_TERMINATE &&
 		successResult != EXIT_USER &&
@@ -639,11 +639,11 @@ MainLoop(FILE *source)
 	}
 
 	/*
-	 * Let's just make real sure the SIGINT handler won't try to use
-	 * sigint_interrupt_jmp after we exit this routine.  If there is an outer
-	 * MainLoop instance, it will reset sigint_interrupt_jmp to point to
-	 * itself at the top of its loop, before any further interactive input
-	 * happens.
+	 * 让我们确保 SIGINT 处理器在我们退出此例程后
+	 * 不会尝试使用 sigint_interrupt_jmp。如果存在外层
+	 * MainLoop 实例，它将在其循环顶部将
+	 * sigint_interrupt_jmp 重置为指向自身，
+	 * 在任何进一步的交互式输入发生之前。
 	 */
 	sigint_interrupt_enabled = false;
 

@@ -14397,6 +14397,28 @@
       "note": "manifest"
     },
     {
+      "path": "src/interfaces/libpq/fe-protocol3.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 282, "translated": 231, "preserved": 51,
+      "preserved_reasons": ["Copyright header", "fallthrough", "translator comment"],
+      "note": "batch 0251 libpq fe-protocol3"
+    },
+    {
+      "path": "src/interfaces/libpq/fe-secure-openssl.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 141, "translated": 86, "preserved": 55,
+      "preserved_reasons": ["Copyright header", "byte budget"],
+      "note": "batch 0251 libpq fe-secure-openssl"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0251-comment-libpq-protocol-openssl.json",
+      "kind": "manifest", "action": "add",
+      "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+      "note": "manifest"
+    },
+    {
       "path": "src/interfaces/libpq/fe-misc.c",
       "kind": "c_comment",
       "action": "modify",

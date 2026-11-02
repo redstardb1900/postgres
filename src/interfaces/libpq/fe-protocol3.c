@@ -54,10 +54,10 @@ static size_t build_startup_packet(const PGconn *conn, char *packet,
 
 
 /*
- * parseInput: if appropriate, parse input data from backend
- * until input is exhausted or a stopping state is reached.
- * Note that this function will NOT attempt to read more data from the backend.
- */
+ * parseInput：如果适当，解析来自后端的输入数据，
+ * 直到输入耗尽或达到停止状态。
+ * 注意，此函数不会尝试从后端读取更多数据。
+                        */
 void
 pqParseInput3(PGconn *conn)
 {
@@ -66,8 +66,8 @@ pqParseInput3(PGconn *conn)
 	int			avail;
 
 	/*
-	 * Loop to parse successive complete messages available in the buffer.
-	 */
+	 * 循环解析缓冲区中可用的连续完整消息。
+	              */
 	for (;;)
 	{
 		/*
@@ -158,17 +158,17 @@ pqParseInput3(PGconn *conn)
 				return;
 
 			/*
-			 * Unexpected message in IDLE state; need to recover somehow.
-			 * ERROR messages are handled using the notice processor;
-			 * ParameterStatus is handled normally; anything else is just
-			 * dropped on the floor after displaying a suitable warning
-			 * notice.  (An ERROR is very possibly the backend telling us why
-			 * it is about to close the connection, so we don't want to just
-			 * discard it...)
-			 */
+			 * IDLE 状态下的意外消息；需要以某种方式恢复。
+			 * ERROR 消息使用通知处理器处理；
+			 * ParameterStatus 正常处理；其他任何消息在显示
+			 * 适当的警告通知后直接丢弃。
+			 * （ERROR 很可能是后端在告诉我们为什么
+			 * 即将关闭连接，所以我们不想直接
+			 * 丢弃它...）
+			                                                    */
 			if (id == 'E')
 			{
-				if (pqGetErrorNotice3(conn, false /* treat as notice */ ))
+				if (pqGetErrorNotice3(conn, false /* 视为通知    */ ))
 					return;
 			}
 			else if (id == 'S')
@@ -178,22 +178,22 @@ pqParseInput3(PGconn *conn)
 			}
 			else
 			{
-				/* Any other case is unexpected and we summarily skip it */
+				/* 其他情况均属意外，简要跳过               */
 				pqInternalNotice(&conn->noticeHooks,
 								 "message type 0x%02x arrived from server while idle",
 								 id);
-				/* Discard the unexpected message */
+				/* 丢弃意外消息             */
 				conn->inCursor += msgLength;
 			}
 		}
 		else
 		{
 			/*
-			 * In BUSY state, we can process everything.
-			 */
+			 * BUSY 状态下可处理所有内容。
+			    */
 			switch (id)
 			{
-				case 'C':		/* command complete */
+				case 'C':		/* 命令完成     */
 					if (pqGets(&conn->workBuffer, conn))
 						return;
 					if (!pgHavePendingResult(conn))
@@ -211,7 +211,7 @@ pqParseInput3(PGconn *conn)
 								CMDSTATUS_LEN);
 					conn->asyncStatus = PGASYNC_READY;
 					break;
-				case 'E':		/* error return */
+				case 'E':		/* 错误返回 */
 					if (pqGetErrorNotice3(conn, true))
 						return;
 					conn->asyncStatus = PGASYNC_READY;
@@ -237,12 +237,12 @@ pqParseInput3(PGconn *conn)
 					}
 					else
 					{
-						/* Advance the command queue and set us idle */
+						/* 推进命令队列，设为空闲         */
 						pqCommandQueueAdvance(conn, true, false);
 						conn->asyncStatus = PGASYNC_IDLE;
 					}
 					break;
-				case 'I':		/* empty query */
+				case 'I':		/* 空查询   */
 					if (!pgHavePendingResult(conn))
 					{
 						conn->result = PQmakeEmptyPGresult(conn,
@@ -255,7 +255,7 @@ pqParseInput3(PGconn *conn)
 					}
 					conn->asyncStatus = PGASYNC_READY;
 					break;
-				case '1':		/* Parse Complete */
+				case '1':		/* 解析完成   */
 					/* If we're doing PQprepare, we're done; else ignore */
 					if (conn->cmd_queue_head &&
 						conn->cmd_queue_head->queryclass == PGQUERY_PREPARE)
@@ -273,54 +273,54 @@ pqParseInput3(PGconn *conn)
 						conn->asyncStatus = PGASYNC_READY;
 					}
 					break;
-				case '2':		/* Bind Complete */
-				case '3':		/* Close Complete */
-					/* Nothing to do for these message types */
+				case '2':		/* 绑定完成  */
+				case '3':		/* 关闭完成   */
+					/* 这些消息类型无需处理        */
 					break;
-				case 'S':		/* parameter status */
+				case 'S':		/* 参数状态     */
 					if (getParameterStatus(conn))
 						return;
 					break;
-				case 'K':		/* secret key data from the backend */
+				case 'K':		/* 来自后端的密钥数据      */
 
 					/*
-					 * This is expected only during backend startup, but it's
-					 * just as easy to handle it as part of the main loop.
-					 * Save the data and continue processing.
-					 */
+				 * 这仅在启动期间预期发生，但作为
+				 * 主循环的一部分处理也同样简单。
+				 * 保存数据并继续处理。
+				                            */
 					if (pqGetInt(&(conn->be_pid), 4, conn))
 						return;
 					if (pqGetInt(&(conn->be_key), 4, conn))
 						return;
 					break;
-				case 'T':		/* Row Description */
+				case 'T':		/* 行描述       */
 					if (conn->error_result ||
 						(conn->result != NULL &&
 						 conn->result->resultStatus == PGRES_FATAL_ERROR))
 					{
 						/*
-						 * We've already choked for some reason.  Just discard
-						 * the data till we get to the end of the query.
-						 */
+				 * 由于某种原因我们已经失败了。只需丢弃
+				 * 数据，直到到达查询末尾。
+				             */
 						conn->inCursor += msgLength;
 					}
 					else if (conn->result == NULL ||
 							 (conn->cmd_queue_head &&
 							  conn->cmd_queue_head->queryclass == PGQUERY_DESCRIBE))
 					{
-						/* First 'T' in a query sequence */
+						/* 查询序列中的首个 'T'  */
 						if (getRowDescriptions(conn, msgLength))
 							return;
 					}
 					else
 					{
 						/*
-						 * A new 'T' message is treated as the start of
-						 * another PGresult.  (It is not clear that this is
-						 * really possible with the current backend.) We stop
-						 * parsing until the application accepts the current
-						 * result.
-						 */
+				 * 新的 'T' 消息被视为另一个 PGresult 的
+				 * 开始。（不清楚当前的
+				 * 后端是否真的可能发生这种情况。）我们停止
+				 * 解析，直到应用程序接受当前
+				 * 结果。
+				                         */
 						conn->asyncStatus = PGASYNC_READY;
 						return;
 					}
@@ -328,15 +328,15 @@ pqParseInput3(PGconn *conn)
 				case 'n':		/* No Data */
 
 					/*
-					 * NoData indicates that we will not be seeing a
-					 * RowDescription message because the statement or portal
-					 * inquired about doesn't return rows.
-					 *
-					 * If we're doing a Describe, we have to pass something
-					 * back to the client, so set up a COMMAND_OK result,
-					 * instead of PGRES_TUPLES_OK.  Otherwise we can just
-					 * ignore this message.
-					 */
+				 * NoData 表示我们不会看到
+				 * RowDescription 消息，因为所查询
+				 * 的语句或门户不返回行。
+				 *
+				 * 如果我们正在进行 Describe，我们必须向
+				 * 客户端返回一些内容，因此设置 COMMAND_OK 结果，
+				 * 而不是 PGRES_TUPLES_OK。否则我们可以
+				 * 直接忽略此消息。
+				                             */
 					if (conn->cmd_queue_head &&
 						conn->cmd_queue_head->queryclass == PGQUERY_DESCRIBE)
 					{
@@ -353,7 +353,7 @@ pqParseInput3(PGconn *conn)
 						conn->asyncStatus = PGASYNC_READY;
 					}
 					break;
-				case 't':		/* Parameter Description */
+				case 't':		/* 参数描述          */
 					if (getParamDescriptions(conn, msgLength))
 						return;
 					break;
@@ -361,7 +361,7 @@ pqParseInput3(PGconn *conn)
 					if (conn->result != NULL &&
 						conn->result->resultStatus == PGRES_TUPLES_OK)
 					{
-						/* Read another tuple of a normal query response */
+						/* 读取正常查询响应的另一个元组    */
 						if (getAnotherTuple(conn, msgLength))
 							return;
 					}
@@ -370,17 +370,17 @@ pqParseInput3(PGconn *conn)
 							  conn->result->resultStatus == PGRES_FATAL_ERROR))
 					{
 						/*
-						 * We've already choked for some reason.  Just discard
-						 * tuples till we get to the end of the query.
-						 */
+				 * 由于某种原因我们已经失败了。只需丢弃
+				 * 元组，直到到达查询末尾。
+				           */
 						conn->inCursor += msgLength;
 					}
 					else
 					{
-						/* Set up to report error at end of query */
+						/* 设置在查询结束时报告错误   */
 						libpq_append_conn_error(conn, "server sent data (\"D\" message) without prior row description (\"T\" message)");
 						pqSaveErrorResult(conn);
-						/* Discard the unexpected message */
+						/* 丢弃意外消息             */
 						conn->inCursor += msgLength;
 					}
 					break;
@@ -404,80 +404,80 @@ pqParseInput3(PGconn *conn)
 				case 'd':		/* Copy Data */
 
 					/*
-					 * If we see Copy Data, just silently drop it.  This would
-					 * only occur if application exits COPY OUT mode too
-					 * early.
-					 */
+				 * 如果看到 Copy Data，只是静默丢弃。
+				 * 这仅在应用程序过早退出 COPY OUT 模式时
+				 * 才会发生。
+				  */
 					conn->inCursor += msgLength;
 					break;
 				case 'c':		/* Copy Done */
 
 					/*
-					 * If we see Copy Done, just silently drop it.  This is
-					 * the normal case during PQendcopy.  We will keep
-					 * swallowing data, expecting to see command-complete for
-					 * the COPY command.
-					 */
+				 * 如果看到 Copy Done，只是静默丢弃。
+				 * 这是 PQendcopy 期间的正常情况。我们将继续
+				 * 消费数据，期望看到 COPY 命令的
+				 * command-complete。
+				             */
 					break;
 				default:
 					libpq_append_conn_error(conn, "unexpected response from server; first received character was \"%c\"", id);
-					/* build an error result holding the error message */
+					/* 构建一个包含错误消息的错误结果   */
 					pqSaveErrorResult(conn);
-					/* not sure if we will see more, so go to ready state */
+					/* 不确定是否还有更多，转到就绪状态   */
 					conn->asyncStatus = PGASYNC_READY;
-					/* Discard the unexpected message */
+					/* 丢弃意外消息             */
 					conn->inCursor += msgLength;
 					break;
-			}					/* switch on protocol character */
+			}					/* 按协议字符切换        */
 		}
-		/* Successfully consumed this message */
+		/* 成功消费此消息              */
 		if (conn->inCursor == conn->inStart + 5 + msgLength)
 		{
 			/* trace server-to-client message */
 			if (conn->Pfdebug)
 				pqTraceOutputMessage(conn, conn->inBuffer + conn->inStart, false);
 
-			/* Normal case: parsing agrees with specified length */
+			/* 正常情况：解析与指定长度一致        */
 			conn->inStart = conn->inCursor;
 		}
 		else
 		{
-			/* Trouble --- report it */
+			/* 出问题——报告 */
 			libpq_append_conn_error(conn, "message contents do not agree with length in message type \"%c\"", id);
-			/* build an error result holding the error message */
+			/* 构建一个包含错误消息的错误结果   */
 			pqSaveErrorResult(conn);
 			conn->asyncStatus = PGASYNC_READY;
-			/* trust the specified message length as what to skip */
+			/* 信任指定的消息长度作为跳过量         */
 			conn->inStart += 5 + msgLength;
 		}
 	}
 }
 
 /*
- * handleSyncLoss: clean up after loss of message-boundary sync
+ * handleSyncLoss：清理消息边界同步丢失后的状态
  *
- * There isn't really a lot we can do here except abandon the connection.
- */
+ * 除了放弃连接，这里我们能做的事情不多。
+               */
 static void
 handleSyncLoss(PGconn *conn, char id, int msgLength)
 {
 	libpq_append_conn_error(conn, "lost synchronization with server: got message type \"%c\", length %d",
 							id, msgLength);
-	/* build an error result holding the error message */
+	/* 构建一个包含错误消息的错误结果   */
 	pqSaveErrorResult(conn);
-	conn->asyncStatus = PGASYNC_READY;	/* drop out of PQgetResult wait loop */
-	/* flush input data since we're giving up on processing it */
+	conn->asyncStatus = PGASYNC_READY;	/* 退出 PQgetResult 等待循环   */
+	/* 由于我们要放弃处理，刷新输入数据        */
 	pqDropConnection(conn, true);
-	conn->status = CONNECTION_BAD;	/* No more connection to backend */
+	conn->status = CONNECTION_BAD;	/* 不再有到后端的连接   */
 }
 
 /*
- * parseInput subroutine to read a 'T' (row descriptions) message.
- * We'll build a new PGresult structure (unless called for a Describe
- * command for a prepared statement) containing the attribute data.
- * Returns: 0 if processed message successfully, EOF to suspend parsing
- * (the latter case is not actually used currently).
- */
+ * parseInput 子例程，用于读取 'T'（行描述）消息。
+ * 我们将构建一个新的 PGresult 结构（除非是为预备语句的
+ * Describe 命令调用），包含属性数据。
+ * 返回值：0 表示成功处理消息，EOF 表示暂停解析
+ * （后一种情况目前未实际使用）。
+                   */
 static int
 getRowDescriptions(PGconn *conn, int msgLength)
 {
@@ -487,10 +487,10 @@ getRowDescriptions(PGconn *conn, int msgLength)
 	int			i;
 
 	/*
-	 * When doing Describe for a prepared statement, there'll already be a
-	 * PGresult created by getParamDescriptions, and we should fill data into
-	 * that.  Otherwise, create a new, empty PGresult.
-	 */
+	 * 为预备语句执行 Describe 时，
+	 * getParamDescriptions 已创建 PGresult，
+	 * 我们将数据填入其中。否则创建新的空 PGresult。
+	                                           */
 	if (!conn->cmd_queue_head ||
 		(conn->cmd_queue_head &&
 		 conn->cmd_queue_head->queryclass == PGQUERY_DESCRIBE))
@@ -504,28 +504,28 @@ getRowDescriptions(PGconn *conn, int msgLength)
 		result = PQmakeEmptyPGresult(conn, PGRES_TUPLES_OK);
 	if (!result)
 	{
-		errmsg = NULL;			/* means "out of memory", see below */
+		errmsg = NULL;			/* 表示"内存不足"，见下文 */
 		goto advance_and_error;
 	}
 
-	/* parseInput already read the 'T' label and message length. */
-	/* the next two bytes are the number of fields */
+	/* parseInput 已读取 'T' 标签和消息长度。         */
+	/* 接下来的两个字节是字段数        */
 	if (pqGetInt(&(result->numAttributes), 2, conn))
 	{
-		/* We should not run out of data here, so complain */
+		/* 此处不应耗尽数据，因此报错         */
 		errmsg = libpq_gettext("insufficient data in \"T\" message");
 		goto advance_and_error;
 	}
 	nfields = result->numAttributes;
 
-	/* allocate space for the attribute descriptors */
+	/* 为属性描述符分配空间               */
 	if (nfields > 0)
 	{
 		result->attDescs = (PGresAttDesc *)
 			pqResultAlloc(result, nfields * sizeof(PGresAttDesc), true);
 		if (!result->attDescs)
 		{
-			errmsg = NULL;		/* means "out of memory", see below */
+			errmsg = NULL;		/* 表示"内存不足"，见下文 */
 			goto advance_and_error;
 		}
 		MemSet(result->attDescs, 0, nfields * sizeof(PGresAttDesc));
@@ -552,15 +552,15 @@ getRowDescriptions(PGconn *conn, int msgLength)
 			pqGetInt(&atttypmod, 4, conn) ||
 			pqGetInt(&format, 2, conn))
 		{
-			/* We should not run out of data here, so complain */
+			/* 此处不应耗尽数据，因此报错         */
 			errmsg = libpq_gettext("insufficient data in \"T\" message");
 			goto advance_and_error;
 		}
 
 		/*
-		 * Since pqGetInt treats 2-byte integers as unsigned, we need to
-		 * coerce these results to signed form.
-		 */
+		 * pqGetInt 将两字节整数视为无符号，需将
+		 * 结果强制转为有符号形式。
+		           */
 		columnid = (int) ((int16) columnid);
 		typlen = (int) ((int16) typlen);
 		format = (int) ((int16) format);
@@ -569,7 +569,7 @@ getRowDescriptions(PGconn *conn, int msgLength)
 												  conn->workBuffer.data);
 		if (!result->attDescs[i].name)
 		{
-			errmsg = NULL;		/* means "out of memory", see below */
+			errmsg = NULL;		/* 表示"内存不足"，见下文 */
 			goto advance_and_error;
 		}
 		result->attDescs[i].tableid = tableid;
@@ -583,13 +583,13 @@ getRowDescriptions(PGconn *conn, int msgLength)
 			result->binary = 0;
 	}
 
-	/* Success! */
+	/* 成功   */
 	conn->result = result;
 
 	/*
-	 * If we're doing a Describe, we're done, and ready to pass the result
-	 * back to the client.
-	 */
+	 * 若正执行 Describe，我们已完成，
+	 * 准备将结果传回客户端。
+	            */
 	if ((!conn->cmd_queue_head) ||
 		(conn->cmd_queue_head &&
 		 conn->cmd_queue_head->queryclass == PGQUERY_DESCRIBE))
@@ -599,11 +599,11 @@ getRowDescriptions(PGconn *conn, int msgLength)
 	}
 
 	/*
-	 * We could perform additional setup for the new result set here, but for
-	 * now there's nothing else to do.
-	 */
+	 * 我们可以在此处为新结果集执行额外的设置，
+	 * 但目前无需做任何其他事。
+	      */
 
-	/* And we're done. */
+	/* 完成。       */
 	return 0;
 
 advance_and_error:
@@ -612,9 +612,9 @@ advance_and_error:
 		PQclear(result);
 
 	/*
-	 * Replace partially constructed result with an error result. First
-	 * discard the old result to try to win back some memory.
-	 */
+	 * 将部分构建的结果替换为错误结果。首先
+	 * 丢弃旧结果以尝试回收一些内存。
+	                    */
 	pqClearAsyncResult(conn);
 
 	/*
@@ -630,30 +630,30 @@ advance_and_error:
 	pqSaveErrorResult(conn);
 
 	/*
-	 * Show the message as fully consumed, else pqParseInput3 will overwrite
-	 * our error with a complaint about that.
-	 */
+	 * 将消息显示为完全消费，否则 pqParseInput3 会
+	 * 用相关投诉覆盖我们的错误。
+	            */
 	conn->inCursor = conn->inStart + 5 + msgLength;
 
 	/*
-	 * Return zero to allow input parsing to continue.  Subsequent "D"
-	 * messages will be ignored until we get to end of data, since an error
-	 * result is already set up.
-	 */
+	 * 返回零以允许输入解析继续进行。后续的 "D"
+	 * 消息将被忽略，直到我们到达数据末尾，因为错误
+	 * 结果已设置。
+	               */
 	return 0;
 }
 
 /*
- * parseInput subroutine to read a 't' (ParameterDescription) message.
- * We'll build a new PGresult structure containing the parameter data.
- * Returns: 0 if processed message successfully, EOF to suspend parsing
- * (the latter case is not actually used currently).
- */
+ * parseInput 子例程，用于读取 't'（ParameterDescription）消息。
+ * 我们将构建一个包含参数数据的新 PGresult 结构。
+ * 返回值：0 表示成功处理消息，EOF 表示暂停解析
+ * （后一种情况目前未实际使用）。
+      */
 static int
 getParamDescriptions(PGconn *conn, int msgLength)
 {
 	PGresult   *result;
-	const char *errmsg = NULL;	/* means "out of memory", see below */
+	const char *errmsg = NULL;	/* 表示"内存不足"，见下文 */
 	int			nparams;
 	int			i;
 
@@ -661,13 +661,13 @@ getParamDescriptions(PGconn *conn, int msgLength)
 	if (!result)
 		goto advance_and_error;
 
-	/* parseInput already read the 't' label and message length. */
-	/* the next two bytes are the number of parameters */
+	/* parseInput 已读取 't' 标签和消息长度。         */
+	/* 接下来的两个字节是参数数量         */
 	if (pqGetInt(&(result->numParameters), 2, conn))
 		goto not_enough_data;
 	nparams = result->numParameters;
 
-	/* allocate space for the parameter descriptors */
+	/* 为参数描述符分配空间               */
 	if (nparams > 0)
 	{
 		result->paramDescs = (PGresParamDesc *)
@@ -677,7 +677,7 @@ getParamDescriptions(PGconn *conn, int msgLength)
 		MemSet(result->paramDescs, 0, nparams * sizeof(PGresParamDesc));
 	}
 
-	/* get parameter info */
+	/* 获取参数信息 */
 	for (i = 0; i < nparams; i++)
 	{
 		int			typid;
@@ -687,7 +687,7 @@ getParamDescriptions(PGconn *conn, int msgLength)
 		result->paramDescs[i].typid = typid;
 	}
 
-	/* Success! */
+	/* 成功   */
 	conn->result = result;
 
 	return 0;
@@ -701,9 +701,9 @@ advance_and_error:
 		PQclear(result);
 
 	/*
-	 * Replace partially constructed result with an error result. First
-	 * discard the old result to try to win back some memory.
-	 */
+	 * 将部分构建的结果替换为错误结果。首先
+	 * 丢弃旧结果以尝试回收一些内存。
+	                    */
 	pqClearAsyncResult(conn);
 
 	/*
@@ -718,25 +718,25 @@ advance_and_error:
 	pqSaveErrorResult(conn);
 
 	/*
-	 * Show the message as fully consumed, else pqParseInput3 will overwrite
-	 * our error with a complaint about that.
-	 */
+	 * 将消息显示为完全消费，否则 pqParseInput3 会
+	 * 用相关投诉覆盖我们的错误。
+	            */
 	conn->inCursor = conn->inStart + 5 + msgLength;
 
 	/*
-	 * Return zero to allow input parsing to continue.  Essentially, we've
-	 * replaced the COMMAND_OK result with an error result, but since this
-	 * doesn't affect the protocol state, it's fine.
-	 */
+	 * 返回零以允许输入解析继续进行。本质上，我们已将
+	 * COMMAND_OK 结果替换为错误结果，但由于这不影响
+	 * 协议状态，所以没问题。
+	                */
 	return 0;
 }
 
 /*
- * parseInput subroutine to read a 'D' (row data) message.
- * We fill rowbuf with column pointers and then call the row processor.
- * Returns: 0 if processed message successfully, EOF to suspend parsing
- * (the latter case is not actually used currently).
- */
+ * parseInput 子例程，用于读取 'D'（行数据）消息。
+ * 我们用列指针填充 rowbuf，然后调用行处理器。
+ * 返回值：0 表示成功处理消息，EOF 表示暂停解析
+ * （后一种情况目前未实际使用）。
+         */
 static int
 getAnotherTuple(PGconn *conn, int msgLength)
 {
@@ -744,14 +744,14 @@ getAnotherTuple(PGconn *conn, int msgLength)
 	int			nfields = result->numAttributes;
 	const char *errmsg;
 	PGdataValue *rowbuf;
-	int			tupnfields;		/* # fields from tuple */
-	int			vlen;			/* length of the current field value */
+	int			tupnfields;		/* 元组字段数     */
+	int			vlen;			/* 当前字段值的长度          */
 	int			i;
 
-	/* Get the field count and make sure it's what we expect */
+	/* 获取字段计数并确保与预期一致            */
 	if (pqGetInt(&tupnfields, 2, conn))
 	{
-		/* We should not run out of data here, so complain */
+		/* 此处不应耗尽数据，因此报错         */
 		errmsg = libpq_gettext("insufficient data in \"D\" message");
 		goto advance_and_error;
 	}
@@ -762,7 +762,7 @@ getAnotherTuple(PGconn *conn, int msgLength)
 		goto advance_and_error;
 	}
 
-	/* Resize row buffer if needed */
+	/* 必要时调整行缓冲区 */
 	rowbuf = conn->rowBuf;
 	if (nfields > conn->rowBufLen)
 	{
@@ -770,57 +770,57 @@ getAnotherTuple(PGconn *conn, int msgLength)
 										 nfields * sizeof(PGdataValue));
 		if (!rowbuf)
 		{
-			errmsg = NULL;		/* means "out of memory", see below */
+			errmsg = NULL;		/* 表示"内存不足"，见下文 */
 			goto advance_and_error;
 		}
 		conn->rowBuf = rowbuf;
 		conn->rowBufLen = nfields;
 	}
 
-	/* Scan the fields */
+	/* 扫描各字段 */
 	for (i = 0; i < nfields; i++)
 	{
-		/* get the value length */
+		/* 获取值的长度   */
 		if (pqGetInt(&vlen, 4, conn))
 		{
-			/* We should not run out of data here, so complain */
+			/* 此处不应耗尽数据，因此报错         */
 			errmsg = libpq_gettext("insufficient data in \"D\" message");
 			goto advance_and_error;
 		}
 		rowbuf[i].len = vlen;
 
 		/*
-		 * rowbuf[i].value always points to the next address in the data
-		 * buffer even if the value is NULL.  This allows row processors to
-		 * estimate data sizes more easily.
-		 */
+		 * 即使值为 NULL，rowbuf[i].value 也始终指向数据缓冲区中
+		 * 的下一个地址。这允许行处理器更轻松地
+		 * 估算数据大小。
+		              */
 		rowbuf[i].value = conn->inBuffer + conn->inCursor;
 
-		/* Skip over the data value */
+		/* 跳过数据值          */
 		if (vlen > 0)
 		{
 			if (pqSkipnchar(vlen, conn))
 			{
-				/* We should not run out of data here, so complain */
+				/* 此处不应耗尽数据，因此报错         */
 				errmsg = libpq_gettext("insufficient data in \"D\" message");
 				goto advance_and_error;
 			}
 		}
 	}
 
-	/* Process the collected row */
+	/* 处理收集的行        */
 	errmsg = NULL;
 	if (pqRowProcessor(conn, &errmsg))
-		return 0;				/* normal, successful exit */
+		return 0;				/* 正常，成功退出   */
 
 	/* pqRowProcessor failed, fall through to report it */
 
 advance_and_error:
 
 	/*
-	 * Replace partially constructed result with an error result. First
-	 * discard the old result to try to win back some memory.
-	 */
+	 * 将部分构建的结果替换为错误结果。首先
+	 * 丢弃旧结果以尝试回收一些内存。
+	                    */
 	pqClearAsyncResult(conn);
 
 	/*
@@ -836,27 +836,27 @@ advance_and_error:
 	pqSaveErrorResult(conn);
 
 	/*
-	 * Show the message as fully consumed, else pqParseInput3 will overwrite
-	 * our error with a complaint about that.
-	 */
+	 * 将消息显示为完全消费，否则 pqParseInput3 会
+	 * 用相关投诉覆盖我们的错误。
+	            */
 	conn->inCursor = conn->inStart + 5 + msgLength;
 
 	/*
-	 * Return zero to allow input parsing to continue.  Subsequent "D"
-	 * messages will be ignored until we get to end of data, since an error
-	 * result is already set up.
-	 */
+	 * 返回零以允许输入解析继续进行。后续的 "D"
+	 * 消息将被忽略，直到我们到达数据末尾，因为错误
+	 * 结果已设置。
+	               */
 	return 0;
 }
 
 
 /*
- * Attempt to read an Error or Notice response message.
- * This is possible in several places, so we break it out as a subroutine.
- * Entry: 'E' or 'N' message type and length have already been consumed.
- * Exit: returns 0 if successfully consumed message.
- *		 returns EOF if not enough data.
- */
+ * 尝试读取 Error 或 Notice 响应消息。
+ * 这在多个地方都可能发生，因此我们将其提取为子例程。
+ * 入口：'E' 或 'N' 消息类型和长度已消费。
+ * 出口：成功消费消息返回 0。
+ *		 数据不足返回 EOF。
+                                    */
 int
 pqGetErrorNotice3(PGconn *conn, bool isError)
 {
@@ -870,46 +870,46 @@ pqGetErrorNotice3(PGconn *conn, bool isError)
 		conn->pipelineStatus = PQ_PIPELINE_ABORTED;
 
 	/*
-	 * If this is an error message, pre-emptively clear any incomplete query
-	 * result we may have.  We'd just throw it away below anyway, and
-	 * releasing it before collecting the error might avoid out-of-memory.
-	 */
+	 * 如果这是错误消息，抢先清除任何不完整的查询
+	 * 结果。我们反正下面也会丢弃它，在收集错误
+	 * 之前释放它可能会避免内存不足。
+	                               */
 	if (isError)
 		pqClearAsyncResult(conn);
 
 	/*
-	 * Since the fields might be pretty long, we create a temporary
-	 * PQExpBuffer rather than using conn->workBuffer.  workBuffer is intended
-	 * for stuff that is expected to be short.  We shouldn't use
-	 * conn->errorMessage either, since this might be only a notice.
-	 */
+	 * 由于字段可能相当长，我们创建一个临时的
+	 * PQExpBuffer 而不是使用 conn->workBuffer。workBuffer
+	 * 用于预期较短的内容。我们也不应使用
+	 * conn->errorMessage，因为这可能只是一个通知。
+	                            */
 	initPQExpBuffer(&workBuf);
 
 	/*
-	 * Make a PGresult to hold the accumulated fields.  We temporarily lie
-	 * about the result status, so that PQmakeEmptyPGresult doesn't uselessly
-	 * copy conn->errorMessage.
+	 * 创建一个 PGresult 来保存累积的字段。我们临时对结果状态
+	 * 撒谎，以便 PQmakeEmptyPGresult 不会无用地复制
+	 * conn->errorMessage。
 	 *
-	 * NB: This allocation can fail, if you run out of memory. The rest of the
-	 * function handles that gracefully, and we still try to set the error
-	 * message as the connection's error message.
-	 */
+	 * 注意：此分配可能失败，如果内存不足。函数的其余部分
+	 * 优雅地处理该情况，我们仍尝试将错误消息设置为
+	 * 连接的错误消息。
+	                       */
 	res = PQmakeEmptyPGresult(conn, PGRES_EMPTY_QUERY);
 	if (res)
 		res->resultStatus = isError ? PGRES_FATAL_ERROR : PGRES_NONFATAL_ERROR;
 
 	/*
-	 * Read the fields and save into res.
+	 * 读取字段并保存到 res。
 	 *
-	 * While at it, save the SQLSTATE in conn->last_sqlstate, and note whether
-	 * we saw a PG_DIAG_STATEMENT_POSITION field.
-	 */
+	 * 同时将 SQLSTATE 保存到 conn->last_sqlstate，
+	 * 并记录是否看到 PG_DIAG_STATEMENT_POSITION 字段。
+	        */
 	for (;;)
 	{
 		if (pqGetc(&id, conn))
 			goto fail;
 		if (id == '\0')
-			break;				/* terminator found */
+			break;				/* 找到终止符  */
 		if (pqGets(&workBuf, conn))
 			goto fail;
 		pqSaveMessageField(res, id, workBuf.data);
@@ -921,25 +921,25 @@ pqGetErrorNotice3(PGconn *conn, bool isError)
 	}
 
 	/*
-	 * Save the active query text, if any, into res as well; but only if we
-	 * might need it for an error cursor display, which is only true if there
-	 * is a PG_DIAG_STATEMENT_POSITION field.
-	 */
+	 * 也将活动查询文本（若有）保存到 res；但仅
+	 * 在可能需要错误游标显示时才这样做，即仅有
+	 * PG_DIAG_STATEMENT_POSITION 字段时。
+	                    */
 	if (have_position && res && conn->cmd_queue_head && conn->cmd_queue_head->query)
 		res->errQuery = pqResultStrdup(res, conn->cmd_queue_head->query);
 
 	/*
-	 * Now build the "overall" error message for PQresultErrorMessage.
-	 */
+	 * 现在为 PQresultErrorMessage 构建"总体"错误消息。
+	    */
 	resetPQExpBuffer(&workBuf);
 	pqBuildErrorMessage3(&workBuf, res, conn->verbosity, conn->show_context);
 
 	/*
-	 * Either save error as current async result, or just emit the notice.
-	 */
+	 * 将错误保存为当前异步结果，或仅发出通知。
+	        */
 	if (isError)
 	{
-		pqClearAsyncResult(conn);	/* redundant, but be safe */
+		pqClearAsyncResult(conn);	/* 冗余但安全        */
 		if (res)
 		{
 			pqSetResultError(res, &workBuf, 0);
@@ -947,7 +947,7 @@ pqGetErrorNotice3(PGconn *conn, bool isError)
 		}
 		else
 		{
-			/* Fall back to using the internal-error processing paths */
+			/* 回退到使用内部错误处理路径                */
 			conn->error_result = true;
 		}
 
@@ -958,14 +958,14 @@ pqGetErrorNotice3(PGconn *conn, bool isError)
 	}
 	else
 	{
-		/* if we couldn't allocate the result set, just discard the NOTICE */
+		/* 如果我们无法分配结果集，只需丢弃 NOTICE         */
 		if (res)
 		{
 			/*
-			 * We can cheat a little here and not copy the message.  But if we
-			 * were unlucky enough to run out of memory while filling workBuf,
-			 * insert "out of memory", as in pqSetResultError.
-			 */
+			 * 我们可以在这里稍微取巧，不复制消息。但如果
+			 * 我们不幸在填充 workBuf 时内存耗尽，
+			 * 像 pqSetResultError 那样插入"内存不足"。
+			             */
 			if (PQExpBufferDataBroken(workBuf))
 				res->errMsg = libpq_gettext("out of memory\n");
 			else
@@ -986,9 +986,9 @@ fail:
 }
 
 /*
- * Construct an error message from the fields in the given PGresult,
- * appending it to the contents of "msg".
- */
+ * 根据给定 PGresult 中的字段构建错误消息，
+ * 将其追加到 "msg" 的内容中。
+            */
 void
 pqBuildErrorMessage3(PQExpBuffer msg, const PGresult *res,
 					 PGVerbosity verbosity, PGContextVisibility show_context)
@@ -997,7 +997,7 @@ pqBuildErrorMessage3(PQExpBuffer msg, const PGresult *res,
 	const char *querytext = NULL;
 	int			querypos = 0;
 
-	/* If we couldn't allocate a PGresult, just say "out of memory" */
+	/* 如果我们无法分配 PGresult，只说"内存不足"     */
 	if (res == NULL)
 	{
 		appendPQExpBufferStr(msg, libpq_gettext("out of memory\n"));
@@ -1005,8 +1005,8 @@ pqBuildErrorMessage3(PQExpBuffer msg, const PGresult *res,
 	}
 
 	/*
-	 * If we don't have any broken-down fields, just return the base message.
-	 * This mainly applies if we're given a libpq-generated error result.
+	 * 如果我们没有任何分解的字段，只返回基本消息。
+	 * 这主要适用于我们被给予一个 libpq 生成的错误结果。
 	 */
 	if (res->errFields == NULL)
 	{
@@ -1017,7 +1017,7 @@ pqBuildErrorMessage3(PQExpBuffer msg, const PGresult *res,
 		return;
 	}
 
-	/* Else build error message from relevant fields */
+	/* 否则从相关字段构建错误消息       */
 	val = PQresultErrorField(res, PG_DIAG_SEVERITY);
 	if (val)
 		appendPQExpBuffer(msg, "%s:  ", val);
@@ -1025,11 +1025,11 @@ pqBuildErrorMessage3(PQExpBuffer msg, const PGresult *res,
 	if (verbosity == PQERRORS_SQLSTATE)
 	{
 		/*
-		 * If we have a SQLSTATE, print that and nothing else.  If not (which
-		 * shouldn't happen for server-generated errors, but might possibly
-		 * happen for libpq-generated ones), fall back to TERSE format, as
-		 * that seems better than printing nothing at all.
-		 */
+		 * 若有 SQLSTATE 则仅打印它。若没有（服务器
+		 * 生成的错误不应发生，但 libpq 生成的错误
+		 * 可能发生），回退到 TERSE 格式，比完全不
+		 * 打印更好。
+		                                                             */
 		val = PQresultErrorField(res, PG_DIAG_SQLSTATE);
 		if (val)
 		{
@@ -1053,13 +1053,13 @@ pqBuildErrorMessage3(PQExpBuffer msg, const PGresult *res,
 	{
 		if (verbosity != PQERRORS_TERSE && res->errQuery != NULL)
 		{
-			/* emit position as a syntax cursor display */
+			/* 将位置作为语法游标显示发出  */
 			querytext = res->errQuery;
 			querypos = atoi(val);
 		}
 		else
 		{
-			/* emit position as text addition to primary message */
+			/* 将位置作为文本附加到主消息发出     */
 			/* translator: %s represents a digit string */
 			appendPQExpBuffer(msg, libpq_gettext(" at character %s"),
 							  val);
@@ -1073,12 +1073,12 @@ pqBuildErrorMessage3(PQExpBuffer msg, const PGresult *res,
 			querytext = PQresultErrorField(res, PG_DIAG_INTERNAL_QUERY);
 			if (verbosity != PQERRORS_TERSE && querytext != NULL)
 			{
-				/* emit position as a syntax cursor display */
+				/* 将位置作为语法游标显示发出  */
 				querypos = atoi(val);
 			}
 			else
 			{
-				/* emit position as text addition to primary message */
+				/* 将位置作为文本附加到主消息发出     */
 				/* translator: %s represents a digit string */
 				appendPQExpBuffer(msg, libpq_gettext(" at character %s"),
 								  val);
@@ -1146,7 +1146,7 @@ pqBuildErrorMessage3(PQExpBuffer msg, const PGresult *res,
 			appendPQExpBufferStr(msg, libpq_gettext("LOCATION:  "));
 			if (val)
 				appendPQExpBuffer(msg, libpq_gettext("%s, "), val);
-			if (valf && vall)	/* unlikely we'd have just one */
+			if (valf && vall)	/* 不太可能只有一个    */
 				appendPQExpBuffer(msg, libpq_gettext("%s:%s"),
 								  valf, vall);
 			appendPQExpBufferChar(msg, '\n');
@@ -1155,16 +1155,16 @@ pqBuildErrorMessage3(PQExpBuffer msg, const PGresult *res,
 }
 
 /*
- * Add an error-location display to the error message under construction.
+ * 向正在构建的错误消息添加错误位置显示。
  *
- * The cursor location is measured in logical characters; the query string
- * is presumed to be in the specified encoding.
- */
+ * 游标位置以逻辑字符度量；假定查询字符串
+ * 使用指定的编码。
+                                                */
 static void
 reportErrorPosition(PQExpBuffer msg, const char *query, int loc, int encoding)
 {
-#define DISPLAY_SIZE	60		/* screen width limit, in screen cols */
-#define MIN_RIGHT_CUT	10		/* try to keep this far away from EOL */
+#define DISPLAY_SIZE	60		/* 屏幕宽度限制（屏幕列）  */
+#define MIN_RIGHT_CUT	10		/* 尽量保持远离行尾           */
 
 	char	   *wquery;
 	int			slen,
@@ -1181,15 +1181,15 @@ reportErrorPosition(PQExpBuffer msg, const char *query, int loc, int encoding)
 				beg_trunc,
 				end_trunc;
 
-	/* Convert loc from 1-based to 0-based; no-op if out of range */
+	/* 将 loc 从 1 基转 0 基；超范围则为空操作      */
 	loc--;
 	if (loc < 0)
 		return;
 
-	/* Need a writable copy of the query */
+	/* 需要查询的可写副本       */
 	wquery = strdup(query);
 	if (wquery == NULL)
-		return;					/* fail silently if out of memory */
+		return;					/* 内存不足时静默失败    */
 
 	/*
 	 * Each character might occupy multiple physical bytes in the string, and
@@ -1200,14 +1200,14 @@ reportErrorPosition(PQExpBuffer msg, const char *query, int loc, int encoding)
 	 */
 
 	/*
-	 * We need a safe allocation size.
+	 * 我们需要一个安全的分配大小。
 	 *
-	 * The only caller of reportErrorPosition() is pqBuildErrorMessage3(); it
-	 * gets its query from either a PQresultErrorField() or a PGcmdQueueEntry,
-	 * both of which must have fit into conn->inBuffer/outBuffer. So slen fits
-	 * inside an int, but we can't assume that (slen * sizeof(int)) fits
-	 * inside a size_t.
-	 */
+	 * reportErrorPosition() 的唯一调用者是
+	 * pqBuildErrorMessage3()；它从 PQresultErrorField() 或
+	 * PGcmdQueueEntry 获取查询，这两者都必须适合
+	 * conn->inBuffer/outBuffer。因此 slen 适配 int，但我们不能
+	 * 假定 (slen * sizeof(int)) 适配 size_t。
+	                  */
 	slen = strlen(wquery) + 1;
 	if (slen > SIZE_MAX / sizeof(int))
 	{
@@ -1229,23 +1229,23 @@ reportErrorPosition(PQExpBuffer msg, const char *query, int loc, int encoding)
 		return;
 	}
 
-	/* We can optimize a bit if it's a single-byte encoding */
+	/* 如果是单字节编码，我们可以稍微优化  */
 	mb_encoding = (pg_encoding_max_length(encoding) != 1);
 
 	/*
-	 * Within the scanning loop, cno is the current character's logical
-	 * number, qoffset is its offset in wquery, and scroffset is its starting
-	 * logical screen column (all indexed from 0).  "loc" is the logical
-	 * character number of the error location.  We scan to determine loc_line
-	 * (the 1-based line number containing loc) and ibeg/iend (first character
-	 * number and last+1 character number of the line containing loc). Note
-	 * that qidx[] and scridx[] are filled only as far as iend.
-	 */
+	 * 在扫描循环内，cno 是当前字符的逻辑
+	 * 编号，qoffset 是其在 wquery 中的偏移量，scroffset 是其起始
+	 * 逻辑屏幕列（均从 0 索引）。"loc" 是错误位置
+	 * 的逻辑字符编号。我们扫描以确定 loc_line
+	 * （包含 loc 的 1 基线号）和 ibeg/iend（包含 loc 的行的
+	 * 第一个字符编号和最后+1 字符编号）。注意
+	 * qidx[] 和 scridx[] 仅填充到 iend。
+	                                                               */
 	qoffset = 0;
 	scroffset = 0;
 	loc_line = 1;
 	ibeg = 0;
-	iend = -1;					/* -1 means not set yet */
+	iend = -1;					/* -1 表示未设置   */
 
 	for (cno = 0; wquery[qoffset] != '\0'; cno++)
 	{
@@ -1255,17 +1255,17 @@ reportErrorPosition(PQExpBuffer msg, const char *query, int loc, int encoding)
 		scridx[cno] = scroffset;
 
 		/*
-		 * Replace tabs with spaces in the writable copy.  (Later we might
-		 * want to think about coping with their variable screen width, but
-		 * not today.)
-		 */
+		 * 在可写副本中将制表符替换为空格。（稍后我们可能
+		 * 想要考虑处理其可变屏幕宽度，但
+		 * 不是今天。）
+		       */
 		if (ch == '\t')
 			wquery[qoffset] = ' ';
 
 		/*
-		 * If end-of-line, count lines and mark positions. Each \r or \n
-		 * counts as a line except when \r \n appear together.
-		 */
+		 * 如果是行尾，计数行并标记位置。每个 \r 或 \n
+		 * 计为一行，除非 \r \n 一起出现。
+		         */
 		else if (ch == '\r' || ch == '\n')
 		{
 			if (cno < loc)
@@ -1274,25 +1274,25 @@ reportErrorPosition(PQExpBuffer msg, const char *query, int loc, int encoding)
 					cno == 0 ||
 					wquery[qidx[cno - 1]] != '\r')
 					loc_line++;
-				/* extract beginning = last line start before loc. */
+				/* 提取起点 = loc 前最后行首              */
 				ibeg = cno + 1;
 			}
 			else
 			{
 				/* set extract end. */
 				iend = cno;
-				/* done scanning. */
+				/* 扫描完毕   */
 				break;
 			}
 		}
 
-		/* Advance */
+		/* 前进  */
 		if (mb_encoding)
 		{
 			int			w;
 
 			w = pg_encoding_dsplen(encoding, &wquery[qoffset]);
-			/* treat any non-tab control chars as width 1 */
+			/* 非制表控制字符视为宽度 1        */
 			if (w <= 0)
 				w = 1;
 			scroffset += w;
@@ -1300,32 +1300,32 @@ reportErrorPosition(PQExpBuffer msg, const char *query, int loc, int encoding)
 		}
 		else
 		{
-			/* We assume wide chars only exist in multibyte encodings */
+			/* 我们假设宽字符仅存在于多字节编码中    */
 			scroffset++;
 			qoffset++;
 		}
 	}
-	/* Fix up if we didn't find an end-of-line after loc */
+	/* 如果在 loc 之后未找到行尾则修正      */
 	if (iend < 0)
 	{
-		iend = cno;				/* query length in chars, +1 */
+		iend = cno;				/* 字符计查询长度 +1  */
 		qidx[iend] = qoffset;
 		scridx[iend] = scroffset;
 	}
 
-	/* Print only if loc is within computed query length */
+	/* 仅在 loc 在计算范围内时打印            */
 	if (loc <= cno)
 	{
-		/* If the line extracted is too long, we truncate it. */
+		/* 如果提取的行太长，我们截断它。      */
 		beg_trunc = false;
 		end_trunc = false;
 		if (scridx[iend] - scridx[ibeg] > DISPLAY_SIZE)
 		{
 			/*
-			 * We first truncate right if it is enough.  This code might be
-			 * off a space or so on enforcing MIN_RIGHT_CUT if there's a wide
-			 * character right there, but that should be okay.
-			 */
+			 * 如果足够，我们先截断右侧。此代码可能在
+			 * 强制执行 MIN_RIGHT_CUT 时偏差一个空格左右，
+			 * 如果那里有一个宽字符，但应该没问题。
+			  */
 			if (scridx[ibeg] + DISPLAY_SIZE >= scridx[loc] + MIN_RIGHT_CUT)
 			{
 				while (scridx[iend] - scridx[ibeg] > DISPLAY_SIZE)
@@ -1334,14 +1334,14 @@ reportErrorPosition(PQExpBuffer msg, const char *query, int loc, int encoding)
 			}
 			else
 			{
-				/* Truncate right if not too close to loc. */
+				/* 若离 loc 不太近则截断右侧     */
 				while (scridx[loc] + MIN_RIGHT_CUT < scridx[iend])
 				{
 					iend--;
 					end_trunc = true;
 				}
 
-				/* Truncate left if still too long. */
+				/* 若仍太长则截断左侧      */
 				while (scridx[iend] - scridx[ibeg] > DISPLAY_SIZE)
 				{
 					ibeg++;
@@ -1350,10 +1350,10 @@ reportErrorPosition(PQExpBuffer msg, const char *query, int loc, int encoding)
 			}
 		}
 
-		/* truncate working copy at desired endpoint */
+		/* 在所需端点处截断工作副本      */
 		wquery[qidx[iend]] = '\0';
 
-		/* Begin building the finished message. */
+		/* 开始构建完成的消息。       */
 		i = msg->len;
 		appendPQExpBuffer(msg, libpq_gettext("LINE %d: "), loc_line);
 		if (beg_trunc)
@@ -1373,13 +1373,13 @@ reportErrorPosition(PQExpBuffer msg, const char *query, int loc, int encoding)
 			scroffset += w;
 		}
 
-		/* Finish up the LINE message line. */
+		/* 完成 LINE 消息行。         */
 		appendPQExpBufferStr(msg, &wquery[qidx[ibeg]]);
 		if (end_trunc)
 			appendPQExpBufferStr(msg, "...");
 		appendPQExpBufferChar(msg, '\n');
 
-		/* Now emit the cursor marker line. */
+		/* 现在发出游标标记行。   */
 		scroffset += scridx[loc] - scridx[ibeg];
 		for (i = 0; i < scroffset; i++)
 			appendPQExpBufferChar(msg, ' ');
@@ -1387,7 +1387,7 @@ reportErrorPosition(PQExpBuffer msg, const char *query, int loc, int encoding)
 		appendPQExpBufferChar(msg, '\n');
 	}
 
-	/* Clean up. */
+	/* 清理。 */
 	free(scridx);
 	free(qidx);
 	free(wquery);
@@ -1395,11 +1395,11 @@ reportErrorPosition(PQExpBuffer msg, const char *query, int loc, int encoding)
 
 
 /*
- * Attempt to read a NegotiateProtocolVersion message.
- * Entry: 'v' message type and length have already been consumed.
- * Exit: returns 0 if successfully consumed message.
- *		 returns EOF if not enough data.
- */
+ * 尝试读取 NegotiateProtocolVersion 消息。
+ * 入口：'v' 消息类型和长度已消费。
+ * 出口：成功消费消息返回 0。
+ *		 数据不足返回 EOF。
+                                      */
 int
 pqGetNegotiateProtocolVersion3(PGconn *conn)
 {
@@ -1441,7 +1441,7 @@ pqGetNegotiateProtocolVersion3(PGconn *conn)
 		appendPQExpBufferChar(&conn->errorMessage, '\n');
 	}
 
-	/* neither -- server shouldn't have sent it */
+	/* 两者皆非——服务器不应发送  */
 	if (!(their_version < conn->pversion) && !(num > 0))
 		libpq_append_conn_error(conn, "invalid %s message", "NegotiateProtocolVersion");
 
@@ -1451,28 +1451,28 @@ pqGetNegotiateProtocolVersion3(PGconn *conn)
 
 
 /*
- * Attempt to read a ParameterStatus message.
- * This is possible in several places, so we break it out as a subroutine.
- * Entry: 'S' message type and length have already been consumed.
- * Exit: returns 0 if successfully consumed message.
- *		 returns EOF if not enough data.
- */
+ * 尝试读取 ParameterStatus 消息。
+ * 这在多个地方都可能发生，因此我们将其提取为子例程。
+ * 入口：'S' 消息类型和长度已消费。
+ * 出口：成功消费消息返回 0。
+ *		 数据不足返回 EOF。
+                                  */
 static int
 getParameterStatus(PGconn *conn)
 {
 	PQExpBufferData valueBuf;
 
-	/* Get the parameter name */
+	/* 获取参数名称     */
 	if (pqGets(&conn->workBuffer, conn))
 		return EOF;
-	/* Get the parameter value (could be large) */
+	/* 获取参数值（可能很大）        */
 	initPQExpBuffer(&valueBuf);
 	if (pqGets(&valueBuf, conn))
 	{
 		termPQExpBuffer(&valueBuf);
 		return EOF;
 	}
-	/* And save it */
+	/* 保存      */
 	pqSaveParameterStatus(conn, conn->workBuffer.data, valueBuf.data);
 	termPQExpBuffer(&valueBuf);
 	return 0;
@@ -1480,12 +1480,12 @@ getParameterStatus(PGconn *conn)
 
 
 /*
- * Attempt to read a Notify response message.
- * This is possible in several places, so we break it out as a subroutine.
- * Entry: 'A' message type and length have already been consumed.
- * Exit: returns 0 if successfully consumed Notify message.
- *		 returns EOF if not enough data.
- */
+ * 尝试读取 Notify 响应消息。
+ * 这在多个地方都可能发生，因此我们将其提取为子例程。
+ * 入口：'A' 消息类型和长度已消费。
+ * 出口：成功消费 Notify 消息返回 0。
+ *		 数据不足返回 EOF。
+                                    */
 static int
 getNotify(PGconn *conn)
 {
@@ -1499,7 +1499,7 @@ getNotify(PGconn *conn)
 		return EOF;
 	if (pqGets(&conn->workBuffer, conn))
 		return EOF;
-	/* must save name while getting extra string */
+	/* 获取额外字符串时须保存名称   */
 	svname = strdup(conn->workBuffer.data);
 	if (!svname)
 		return EOF;
@@ -1510,10 +1510,10 @@ getNotify(PGconn *conn)
 	}
 
 	/*
-	 * Store the strings right after the PGnotify structure so it can all be
-	 * freed at once.  We don't use NAMEDATALEN because we don't want to tie
-	 * this interface to a specific server name length.
-	 */
+	 * 将字符串存于 PGnotify 结构之后以便
+	 * 一次性释放。不用 NAMEDATALEN 以免
+	 * 将此接口绑定到特定服务器名称长度限制。
+	                                         */
 	nmlen = strlen(svname);
 	extralen = strlen(conn->workBuffer.data);
 	newNotify = (PGnotify *) malloc(sizeof(PGnotify) + nmlen + extralen + 2);
@@ -1537,11 +1537,11 @@ getNotify(PGconn *conn)
 }
 
 /*
- * getCopyStart - process CopyInResponse, CopyOutResponse or
- * CopyBothResponse message
+ * getCopyStart - 处理 CopyInResponse、CopyOutResponse 或
+ * CopyBothResponse 消息
  *
- * parseInput already read the message type and length.
- */
+ * parseInput 已读取消息类型和长度。
+         */
 static int
 getCopyStart(PGconn *conn, ExecStatusType copytype)
 {
@@ -1556,12 +1556,12 @@ getCopyStart(PGconn *conn, ExecStatusType copytype)
 	if (pqGetc(&conn->copy_is_binary, conn))
 		goto failure;
 	result->binary = conn->copy_is_binary;
-	/* the next two bytes are the number of fields	*/
+	/* 接下来的两个字节是字段数        */
 	if (pqGetInt(&(result->numAttributes), 2, conn))
 		goto failure;
 	nfields = result->numAttributes;
 
-	/* allocate space for the attribute descriptors */
+	/* 为属性描述符分配空间               */
 	if (nfields > 0)
 	{
 		result->attDescs = (PGresAttDesc *)
@@ -1579,14 +1579,14 @@ getCopyStart(PGconn *conn, ExecStatusType copytype)
 			goto failure;
 
 		/*
-		 * Since pqGetInt treats 2-byte integers as unsigned, we need to
-		 * coerce these results to signed form.
-		 */
+		 * pqGetInt 将两字节整数视为无符号，需将
+		 * 结果强制转为有符号形式。
+		           */
 		format = (int) ((int16) format);
 		result->attDescs[i].format = format;
 	}
 
-	/* Success! */
+	/* 成功   */
 	conn->result = result;
 	return 0;
 
@@ -1596,8 +1596,8 @@ failure:
 }
 
 /*
- * getReadyForQuery - process ReadyForQuery message
- */
+ * getReadyForQuery - 处理 ReadyForQuery 消息
+   */
 static int
 getReadyForQuery(PGconn *conn)
 {
@@ -1625,11 +1625,11 @@ getReadyForQuery(PGconn *conn)
 }
 
 /*
- * getCopyDataMessage - fetch next CopyData message, process async messages
+ * getCopyDataMessage - 获取下条 CopyData 消息，处理异步消息
  *
- * Returns length word of CopyData message (> 0), or 0 if no complete
- * message available, -1 if end of copy, -2 if error.
- */
+ * 返回 CopyData 消息长度字（> 0），无完整消息则 0，
+ * 复制结束则 -1，错误则 -2。
+                 */
 static int
 getCopyDataMessage(PGconn *conn)
 {
@@ -1640,9 +1640,9 @@ getCopyDataMessage(PGconn *conn)
 	for (;;)
 	{
 		/*
-		 * Do we have the next input message?  To make life simpler for async
-		 * callers, we keep returning 0 until the next message is fully
-		 * available, even if it is not Copy Data.
+		 * 我们有下一条输入消息吗？为了让异步调用者
+		 * 生活更简单，我们持续返回 0，直到下一条消息完全
+		 * 可用，即使它不是 Copy Data。
 		 */
 		conn->inCursor = conn->inStart;
 		if (pqGetc(&id, conn))
@@ -1658,9 +1658,9 @@ getCopyDataMessage(PGconn *conn)
 		if (avail < msgLength - 4)
 		{
 			/*
-			 * Before returning, enlarge the input buffer if needed to hold
-			 * the whole message.  See notes in parseInput.
-			 */
+			 * 返回前若需扩大输入缓冲区以容纳
+			 * 整个消息。见 parseInput 注释。
+			                     */
 			if (pqCheckInBufferSpace(conn->inCursor + (size_t) msgLength - 4,
 									 conn))
 			{
@@ -1677,11 +1677,11 @@ getCopyDataMessage(PGconn *conn)
 		}
 
 		/*
-		 * If it's a legitimate async message type, process it.  (NOTIFY
-		 * messages are not currently possible here, but we handle them for
-		 * completeness.)  Otherwise, if it's anything except Copy Data,
-		 * report end-of-copy.
-		 */
+		 * 如果它是合法的异步消息类型，处理它。（NOTIFY
+		 * 消息当前在此处不可能，但为了完整性我们
+		 * 也处理它们。）否则，如果它不是 Copy Data，
+		 * 假定是复制结束。
+		    */
 		switch (id)
 		{
 			case 'A':			/* NOTIFY */
@@ -1696,26 +1696,26 @@ getCopyDataMessage(PGconn *conn)
 				if (getParameterStatus(conn))
 					return 0;
 				break;
-			case 'd':			/* Copy Data, pass it back to caller */
+			case 'd':			/* Copy Data，传回调用者       */
 				return msgLength;
 			case 'c':
 
 				/*
-				 * If this is a CopyDone message, exit COPY_OUT mode and let
-				 * caller read status with PQgetResult().  If we're in
-				 * COPY_BOTH mode, return to COPY_IN mode.
-				 */
+				 * 若为 CopyDone 消息，退出 COPY_OUT 模式
+				 * 让调用者用 PQgetResult() 读状态。
+				 * 若为 COPY_BOTH 模式，返回 COPY_IN 模式。
+				         */
 				if (conn->asyncStatus == PGASYNC_COPY_BOTH)
 					conn->asyncStatus = PGASYNC_COPY_IN;
 				else
 					conn->asyncStatus = PGASYNC_BUSY;
 				return -1;
-			default:			/* treat as end of copy */
+			default:			/* 视为复制结束   */
 
 				/*
-				 * Any other message terminates either COPY_IN or COPY_BOTH
-				 * mode.
-				 */
+				 * 任何其他消息终止 COPY_IN 或 COPY_BOTH
+				 * 模式。
+				       */
 				conn->asyncStatus = PGASYNC_BUSY;
 				return -1;
 		}
@@ -1724,7 +1724,7 @@ getCopyDataMessage(PGconn *conn)
 		if (conn->Pfdebug)
 			pqTraceOutputMessage(conn, conn->inBuffer + conn->inStart, false);
 
-		/* Drop the processed message and loop around for another */
+		/* 丢弃已处理的消息并循环以获取下一条    */
 		conn->inStart = conn->inCursor;
 	}
 }
@@ -1747,19 +1747,19 @@ pqGetCopyData3(PGconn *conn, char **buffer, int async)
 	for (;;)
 	{
 		/*
-		 * Collect the next input message.  To make life simpler for async
-		 * callers, we keep returning 0 until the next message is fully
-		 * available, even if it is not Copy Data.
-		 */
+		 * 收集下一条输入消息。为了让异步调用者
+		 * 生活更简单，我们持续返回 0，直到下一条消息完全
+		 * 可用，即使它不是 Copy Data。
+		    */
 		msgLength = getCopyDataMessage(conn);
 		if (msgLength < 0)
 			return msgLength;	/* end-of-copy or error */
 		if (msgLength == 0)
 		{
-			/* Don't block if async read requested */
+			/* 异步读取时不阻塞            */
 			if (async)
 				return 0;
-			/* Need to load more data */
+			/* 需加载更多        */
 			if (pqWait(true, false, conn) ||
 				pqReadData(conn) < 0)
 				return -2;
@@ -1767,9 +1767,9 @@ pqGetCopyData3(PGconn *conn, char **buffer, int async)
 		}
 
 		/*
-		 * Drop zero-length messages (shouldn't happen anyway).  Otherwise
-		 * pass the data back to the caller.
-		 */
+		 * 丢弃零长度消息（无论如何不应发生）。否则
+		 * 将数据传回给调用者。
+		       */
 		msgLength -= 4;
 		if (msgLength > 0)
 		{
@@ -1780,24 +1780,24 @@ pqGetCopyData3(PGconn *conn, char **buffer, int async)
 				return -2;
 			}
 			memcpy(*buffer, &conn->inBuffer[conn->inCursor], msgLength);
-			(*buffer)[msgLength] = '\0';	/* Add terminating null */
+			(*buffer)[msgLength] = '\0';	/* 添加终止 null    */
 
-			/* Mark message consumed */
+			/* 标记消息已消费 */
 			conn->inStart = conn->inCursor + msgLength;
 
 			return msgLength;
 		}
 
-		/* Empty, so drop it and loop around for another */
+		/* 空消息，丢弃并循环                   */
 		conn->inStart = conn->inCursor;
 	}
 }
 
 /*
- * PQgetline - gets a newline-terminated string from the backend.
+ * PQgetline - 从后端获取换行终止的字符串。
  *
- * See fe-exec.c for documentation.
- */
+ * 见 fe-exec.c 文档。
+                  */
 int
 pqGetline3(PGconn *conn, char *s, int maxlen)
 {
@@ -1815,7 +1815,7 @@ pqGetline3(PGconn *conn, char *s, int maxlen)
 
 	while ((status = PQgetlineAsync(conn, s, maxlen - 1)) == 0)
 	{
-		/* need to load more data */
+		/* 需加载更多        */
 		if (pqWait(true, false, conn) ||
 			pqReadData(conn) < 0)
 		{
@@ -1826,12 +1826,12 @@ pqGetline3(PGconn *conn, char *s, int maxlen)
 
 	if (status < 0)
 	{
-		/* End of copy detected; gin up old-style terminator */
+		/* 检测到复制结束；伪造旧式终止符     */
 		strcpy(s, "\\.");
 		return 0;
 	}
 
-	/* Add null terminator, and strip trailing \n if present */
+	/* 加 null 终止，去除尾部 \n（若有）         */
 	if (s[status - 1] == '\n')
 	{
 		s[status - 1] = '\0';
@@ -1845,10 +1845,10 @@ pqGetline3(PGconn *conn, char *s, int maxlen)
 }
 
 /*
- * PQgetlineAsync - gets a COPY data row without blocking.
+ * PQgetlineAsync - 不阻塞获取 COPY 数据行。
  *
- * See fe-exec.c for documentation.
- */
+ * 见 fe-exec.c 文档。
+               */
 int
 pqGetlineAsync3(PGconn *conn, char *buffer, int bufsize)
 {
@@ -1857,14 +1857,14 @@ pqGetlineAsync3(PGconn *conn, char *buffer, int bufsize)
 
 	if (conn->asyncStatus != PGASYNC_COPY_OUT
 		&& conn->asyncStatus != PGASYNC_COPY_BOTH)
-		return -1;				/* we are not doing a copy... */
+		return -1;				/* 未进行复制...         */
 
 	/*
-	 * Recognize the next input message.  To make life simpler for async
-	 * callers, we keep returning 0 until the next message is fully available
-	 * even if it is not Copy Data.  This should keep PQendcopy from blocking.
-	 * (Note: unlike pqGetCopyData3, we do not change asyncStatus here.)
-	 */
+	 * 识别下一条输入消息。为简化异步调用，
+	 * 持续返回 0 直到下条消息完全可用，即使
+	 * 不是 Copy Data，避免阻塞 PQendcopy。
+	 * （注意：与 pqGetCopyData3 不同，不更改 asyncStatus。）
+	                                                     */
 	msgLength = getCopyDataMessage(conn);
 	if (msgLength < 0)
 		return -1;				/* end-of-copy or error */
@@ -1881,19 +1881,19 @@ pqGetlineAsync3(PGconn *conn, char *buffer, int bufsize)
 	avail = msgLength - 4 - conn->copy_already_done;
 	if (avail <= bufsize)
 	{
-		/* Able to consume the whole message */
+		/* 能够消费整个消息          */
 		memcpy(buffer, &conn->inBuffer[conn->inCursor], avail);
-		/* Mark message consumed */
+		/* 标记消息已消费 */
 		conn->inStart = conn->inCursor + avail;
-		/* Reset state for next time */
+		/* 为下次重置状态     */
 		conn->copy_already_done = 0;
 		return avail;
 	}
 	else
 	{
-		/* We must return a partial message */
+		/* 我们必须返回部分消息   */
 		memcpy(buffer, &conn->inBuffer[conn->inCursor], bufsize);
-		/* The message is NOT consumed from libpq's buffer */
+		/* 该消息不从 libpq 的缓冲区中消费     */
 		conn->copy_already_done += bufsize;
 		return bufsize;
 	}
@@ -1902,8 +1902,8 @@ pqGetlineAsync3(PGconn *conn, char *buffer, int bufsize)
 /*
  * PQendcopy
  *
- * See fe-exec.c for documentation.
- */
+ * 见 fe-exec.c 文档。
+          */
 int
 pqEndcopy3(PGconn *conn)
 {
@@ -1917,7 +1917,7 @@ pqEndcopy3(PGconn *conn)
 		return 1;
 	}
 
-	/* Send the CopyDone message if needed */
+	/* 需要时发送 CopyDone            */
 	if (conn->asyncStatus == PGASYNC_COPY_IN ||
 		conn->asyncStatus == PGASYNC_COPY_BOTH)
 	{
@@ -1926,9 +1926,9 @@ pqEndcopy3(PGconn *conn)
 			return 1;
 
 		/*
-		 * If we sent the COPY command in extended-query mode, we must issue a
-		 * Sync as well.
-		 */
+		 * 若在扩展查询模式发送了 COPY 命令，
+		 * 还需发出 Sync。
+		             */
 		if (conn->cmd_queue_head &&
 			conn->cmd_queue_head->queryclass != PGQUERY_SIMPLE)
 		{
@@ -1939,29 +1939,29 @@ pqEndcopy3(PGconn *conn)
 	}
 
 	/*
-	 * make sure no data is waiting to be sent, abort if we are non-blocking
-	 * and the flush fails
-	 */
+	 * 确保没有数据等待发送，如果我们是非阻塞的且刷新
+	 * 失败则终止
+	     */
 	if (pqFlush(conn) && pqIsnonblocking(conn))
 		return 1;
 
-	/* Return to active duty */
+	/* 返回活动状态    */
 	conn->asyncStatus = PGASYNC_BUSY;
 
 	/*
-	 * Non blocking connections may have to abort at this point.  If everyone
-	 * played the game there should be no problem, but in error scenarios the
-	 * expected messages may not have arrived yet.  (We are assuming that the
-	 * backend's packetizing will ensure that CommandComplete arrives along
-	 * with the CopyDone; are there corner cases where that doesn't happen?)
-	 */
+	 * 非阻塞连接或需在此终止。
+	 * 若均合规应无问题，但错误场景
+	 * 中预期消息或未到达。（假设
+	 * 后端分组确保 CommandComplete
+	 * 随 CopyDone 到达？）
+	                                                                                                                                                                            */
 	if (pqIsnonblocking(conn) && PQisBusy(conn))
 		return 1;
 
-	/* Wait for the completion response */
+	/* 等待完成响应               */
 	result = PQgetResult(conn);
 
-	/* Expecting a successful result */
+	/* 期望一个成功的结果   */
 	if (result && result->resultStatus == PGRES_COMMAND_OK)
 	{
 		PQclear(result);
@@ -1969,15 +1969,15 @@ pqEndcopy3(PGconn *conn)
 	}
 
 	/*
-	 * Trouble. For backwards-compatibility reasons, we issue the error
-	 * message as if it were a notice (would be nice to get rid of this
-	 * silliness, but too many apps probably don't handle errors from
-	 * PQendcopy reasonably).  Note that the app can still obtain the error
-	 * status from the PGconn object.
-	 */
+	 * 出问题了。为向后兼容，像通知一样
+	 * 发出错误消息（能消除此愚蠢行为最好，
+	 * 但太多应用可能不处理 PQendcopy 的错误
+	 * 结果）。应用仍可从 PGconn 对象获取
+	 * 错误状态。
+	                                                                           */
 	if (conn->errorMessage.len > 0)
 	{
-		/* We have to strip the trailing newline ... pain in neck... */
+		/* 我们必须去除尾随的换行符... 真是麻烦...   */
 		char		svLast = conn->errorMessage.data[conn->errorMessage.len - 1];
 
 		if (svLast == '\n')
@@ -1993,10 +1993,10 @@ pqEndcopy3(PGconn *conn)
 
 
 /*
- * PQfn - Send a function call to the POSTGRES backend.
+ * PQfn - 向 POSTGRES 后端发送函数调用。
  *
- * See fe-exec.c for documentation.
- */
+ * 请参见 fe-exec.c 中的文档。
+   */
 PGresult *
 pqFunctionCall3(PGconn *conn, Oid fnid,
 				int *result_buf, int *actual_result_len,
@@ -2010,27 +2010,27 @@ pqFunctionCall3(PGconn *conn, Oid fnid,
 	int			avail;
 	int			i;
 
-	/* already validated by PQfn */
+	/* 已由 PQfn 验证        */
 	Assert(conn->pipelineStatus == PQ_PIPELINE_OFF);
 
-	/* PQfn already validated connection state */
+	/* PQfn 已验证连接状态              */
 
 	if (pqPutMsgStart('F', conn) < 0 || /* function call msg */
-		pqPutInt(fnid, 4, conn) < 0 ||	/* function id */
-		pqPutInt(1, 2, conn) < 0 || /* # of format codes */
-		pqPutInt(1, 2, conn) < 0 || /* format code: BINARY */
-		pqPutInt(nargs, 2, conn) < 0)	/* # of args */
+		pqPutInt(fnid, 4, conn) < 0 ||	/* 函数 ID   */
+		pqPutInt(1, 2, conn) < 0 || /* 格式码数量   */
+		pqPutInt(1, 2, conn) < 0 || /* 格式码：BINARY  */
+		pqPutInt(nargs, 2, conn) < 0)	/* 参数数 */
 	{
-		/* error message should be set up already */
+		/* 错误消息应已设置               */
 		return NULL;
 	}
 
 	for (i = 0; i < nargs; ++i)
-	{							/* len.int4 + contents	   */
+	{							/* len.int4 + 内容      */
 		if (pqPutInt(args[i].len, 4, conn))
 			return NULL;
 		if (args[i].len == -1)
-			continue;			/* it's NULL */
+			continue;			/* 为 NULL  */
 
 		if (args[i].isint)
 		{
@@ -2044,7 +2044,7 @@ pqFunctionCall3(PGconn *conn, Oid fnid,
 		}
 	}
 
-	if (pqPutInt(1, 2, conn) < 0)	/* result format code: BINARY */
+	if (pqPutInt(1, 2, conn) < 0)	/* 结果格式码：BINARY   */
 		return NULL;
 
 	if (pqPutMsgEnd(conn) < 0 ||
@@ -2055,15 +2055,15 @@ pqFunctionCall3(PGconn *conn, Oid fnid,
 	{
 		if (needInput)
 		{
-			/* Wait for some data to arrive (or for the channel to close) */
+			/* 等待一些数据到达（或通道关闭）              */
 			if (pqWait(true, false, conn) ||
 				pqReadData(conn) < 0)
 				break;
 		}
 
 		/*
-		 * Scan the message. If we run out of data, loop around to try again.
-		 */
+		 * 扫描消息。如果数据用完，循环以重试。
+		             */
 		needInput = true;
 
 		conn->inCursor = conn->inStart;
@@ -2089,16 +2089,16 @@ pqFunctionCall3(PGconn *conn, Oid fnid,
 		}
 
 		/*
-		 * Can't process if message body isn't all here yet.
-		 */
+		 * 消息体未全到达则无法处理。
+		           */
 		msgLength -= 4;
 		avail = conn->inEnd - conn->inCursor;
 		if (avail < msgLength)
 		{
 			/*
-			 * Before looping, enlarge the input buffer if needed to hold the
-			 * whole message.  See notes in parseInput.
-			 */
+			 * 循环前若需扩大输入缓冲区以
+			 * 容纳整个消息。见 parseInput 注释。
+			                   */
 			if (pqCheckInBufferSpace(conn->inCursor + (size_t) msgLength,
 									 conn))
 			{
@@ -2115,13 +2115,13 @@ pqFunctionCall3(PGconn *conn, Oid fnid,
 		}
 
 		/*
-		 * We should see V or E response to the command, but might get N
-		 * and/or A notices first. We also need to swallow the final Z before
-		 * returning.
-		 */
+		 * 应看到命令的 V 或 E 响应，但可先收
+		 * N 和/或 A 通知。返回前还需吞下
+		 * 最终 Z。
+		                                     */
 		switch (id)
 		{
-			case 'V':			/* function result */
+			case 'V':			/* 函数结果    */
 				if (pqGetInt(actual_result_len, 4, conn))
 					continue;
 				if (*actual_result_len != -1)
@@ -2139,28 +2139,28 @@ pqFunctionCall3(PGconn *conn, Oid fnid,
 							continue;
 					}
 				}
-				/* correctly finished function result message */
+				/* 正确完成了函数结果消息          */
 				status = PGRES_COMMAND_OK;
 				break;
-			case 'E':			/* error return */
+			case 'E':			/* 错误返回 */
 				if (pqGetErrorNotice3(conn, true))
 					continue;
 				status = PGRES_FATAL_ERROR;
 				break;
-			case 'A':			/* notify message */
-				/* handle notify and go back to processing return values */
+			case 'A':			/* 通知消息   */
+				/* 处理通知并返回继续处理返回值            */
 				if (getNotify(conn))
 					continue;
 				break;
-			case 'N':			/* notice */
-				/* handle notice and go back to processing return values */
+			case 'N':			/* 通知 */
+				/* 处理通知并返回继续处理返回值            */
 				if (pqGetErrorNotice3(conn, false))
 					continue;
 				break;
-			case 'Z':			/* backend is ready for new query */
+			case 'Z':			/* 后端就绪接受新查询    */
 				if (getReadyForQuery(conn))
 					continue;
-				/* consume the message and exit */
+				/* 消费消息并退出        */
 				conn->inStart += 5 + msgLength;
 
 				/*
@@ -2187,15 +2187,15 @@ pqFunctionCall3(PGconn *conn, Oid fnid,
 					}
 				}
 				return pqPrepareAsyncResult(conn);
-			case 'S':			/* parameter status */
+			case 'S':			/* 参数状态     */
 				if (getParameterStatus(conn))
 					continue;
 				break;
 			default:
-				/* The backend violates the protocol. */
+				/* 后端违反了协议。           */
 				libpq_append_conn_error(conn, "protocol error: id=0x%x", id);
 				pqSaveErrorResult(conn);
-				/* trust the specified message length as what to skip */
+				/* 信任指定消息长度作为跳过量            */
 				conn->inStart += 5 + msgLength;
 				return pqPrepareAsyncResult(conn);
 		}
@@ -2204,27 +2204,27 @@ pqFunctionCall3(PGconn *conn, Oid fnid,
 		if (conn->Pfdebug)
 			pqTraceOutputMessage(conn, conn->inBuffer + conn->inStart, false);
 
-		/* Completed this message, keep going */
-		/* trust the specified message length as what to skip */
+		/* 已完成此消息，继续        */
+		/* 信任指定消息长度作为跳过量            */
 		conn->inStart += 5 + msgLength;
 		needInput = false;
 	}
 
 	/*
-	 * We fall out of the loop only upon failing to read data.
-	 * conn->errorMessage has been set by pqWait or pqReadData. We want to
-	 * append it to any already-received error message.
-	 */
+	 * 仅在读数据失败时退出循环。
+	 * conn->errorMessage 已由 pqWait/pqReadData 设置。
+	 * 将其追加到已接收的错误消息后。
+	                                  */
 	pqSaveErrorResult(conn);
 	return pqPrepareAsyncResult(conn);
 }
 
 
 /*
- * Construct startup packet
+ * 构建启动包
  *
- * Returns a malloc'd packet buffer, or NULL if out of memory
- */
+ * 返回 malloc 的包缓冲区，如果内存不足则返回 NULL
+    */
 char *
 pqBuildStartupPacket3(PGconn *conn, int *packetlen,
 					  const PQEnvironmentOption *options)
@@ -2284,7 +2284,7 @@ build_startup_packet(const PGconn *conn, char *packet,
 	const PQEnvironmentOption *next_eo;
 	const char *val;
 
-	/* Protocol version comes first. */
+	/* 首先放置协议版本。   */
 	if (packet)
 	{
 		ProtocolVersion pv = pg_hton32(conn->pversion);
@@ -2317,7 +2317,7 @@ build_startup_packet(const PGconn *conn, char *packet,
 		ADD_STARTUP_OPTION("options", conn->pgoptions);
 	if (conn->send_appname)
 	{
-		/* Use appname if present, otherwise use fallback */
+		/* 有 appname 则用它，否则用回退值     */
 		val = conn->appname ? conn->appname : conn->fbappname;
 		if (val && val[0])
 			ADD_STARTUP_OPTION("application_name", val);
@@ -2326,7 +2326,7 @@ build_startup_packet(const PGconn *conn, char *packet,
 	if (conn->client_encoding_initial && conn->client_encoding_initial[0])
 		ADD_STARTUP_OPTION("client_encoding", conn->client_encoding_initial);
 
-	/* Add any environment-driven GUC settings needed */
+	/* 添加任何需要的环境驱动 GUC 设置   */
 	for (next_eo = options; next_eo->envName; next_eo++)
 	{
 		if ((val = getenv(next_eo->envName)) != NULL)
@@ -2336,7 +2336,7 @@ build_startup_packet(const PGconn *conn, char *packet,
 		}
 	}
 
-	/* Add trailing terminator */
+	/* 添加尾部终止符   */
 	if (packet)
 		packet[packet_len] = '\0';
 	if (add_size_overflow(packet_len, 1, &packet_len))

@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "batch_id": "0251-comment-libpq-protocol-openssl",
+  "title": "translate fe-protocol3, fe-secure-openssl comments — batch 0251",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "cacb834e72513e2ce087fb0e1286fa4a83f85081",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {"pattern": "src/interfaces/libpq/fe-protocol3.c", "kind": "c_comment", "note": "batch 0251 fe-protocol3 — protocol v3"},
+    {"pattern": "src/interfaces/libpq/fe-secure-openssl.c", "kind": "c_comment", "note": "batch 0251 fe-secure-openssl — SSL/TLS"},
+    {"pattern": "src/tools/zh-tools/manifests/batch-0251-comment-libpq-protocol-openssl.json", "kind": "manifest", "note": "batch 0251 manifest"}
+  ],
+  "files": [
+    {
+      "path": "src/interfaces/libpq/fe-protocol3.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 282,
+      "translated": 231,
+      "preserved": 51,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "112": "fallthrough",
+        "250": "translator_comment"
+      }
+    },
+    {
+      "path": "src/interfaces/libpq/fe-secure-openssl.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 141,
+      "translated": 86,
+      "preserved": 55,
+      "preserved_reasons": {
+        "0": "copyright_header"
+      }
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0251-comment-libpq-protocol-openssl.json",
+      "kind": "manifest",
+      "action": "add",
+      "translated": 0,
+      "preserved": 0,
+      "segments_total": 0
+    }
+  ]
+}

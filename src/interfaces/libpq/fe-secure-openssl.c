@@ -53,10 +53,10 @@
 #endif
 
 /*
- * These SSL-related #includes must come after all system-provided headers.
- * This ensures that OpenSSL can take care of conflicts with Windows'
- * <wincrypt.h> by #undef'ing the conflicting macros.  (We don't directly
- * include <wincrypt.h>, but some other Windows headers do.)
+ * 这些 SSL 相关的 #include 必须位于所有系统提供的头文件之后。
+ * 这确保 OpenSSL 可通过 #undef'ing 冲突宏来处理与 Windows
+ * <wincrypt.h> 的冲突。（我们不直接包含 <wincrypt.h>，
+ * 但某些其他 Windows 头文件会包含它。）
  */
 #include "common/openssl.h"
 #include <openssl/conf.h>
@@ -110,9 +110,9 @@ pgtls_init_library(bool do_ssl, int do_crypto)
 #ifdef ENABLE_THREAD_SAFETY
 
 	/*
-	 * Disallow changing the flags while we have open connections, else we'd
-	 * get completely confused.
-	 */
+	 * 禁止在仍有打开连接时更改标志，否则我们会
+	 * 完全混乱。
+	                   */
 	if (crypto_open_connections != 0)
 		return;
 #endif
@@ -124,13 +124,13 @@ pgtls_init_library(bool do_ssl, int do_crypto)
 PostgresPollingStatusType
 pgtls_open_client(PGconn *conn)
 {
-	/* First time through? */
+	/* 第一次进入？  */
 	if (conn->ssl == NULL)
 	{
 		/*
-		 * Create a connection-specific SSL object, and load client
-		 * certificate, private key, and trusted CA certs.
-		 */
+		 * 创建连接特定的 SSL 对象，并加载客户端
+		 * 证书、私钥和受信任的 CA 证书。
+		        */
 		if (initialize_SSL(conn) != 0)
 		{
 			/* initialize_SSL already put a message in conn->errorMessage */
@@ -139,7 +139,7 @@ pgtls_open_client(PGconn *conn)
 		}
 	}
 
-	/* Begin or continue the actual handshake */
+	/* 开始或继续实际的握手过程   */
 	return open_client_SSL(conn);
 }
 
@@ -155,14 +155,14 @@ pgtls_read(PGconn *conn, void *ptr, size_t len)
 rloop:
 
 	/*
-	 * Prepare to call SSL_get_error() by clearing thread's OpenSSL error
-	 * queue.  In general, the current thread's error queue must be empty
-	 * before the TLS/SSL I/O operation is attempted, or SSL_get_error() will
-	 * not work reliably.  Since the possibility exists that other OpenSSL
-	 * clients running in the same thread but not under our control will fail
-	 * to call ERR_get_error() themselves (after their own I/O operations),
-	 * pro-actively clear the per-thread error queue now.
-	 */
+	 * 在调用 SSL_get_error() 之前，清除线程的 OpenSSL 错误
+	 * 队列。通常，在尝试 TLS/SSL I/O 操作之前，当前线程的
+	 * 错误队列必须为空，否则 SSL_get_error() 将无法可靠工作。
+	 * 由于可能存在运行在同一线程中但不受我们控制的其他
+	 * OpenSSL 客户端，它们可能不会自己调用 ERR_get_error()
+	 * （在其自身的 I/O 操作之后），因此现在主动清除每线程
+	 * 错误队列。
+	                      */
 	SOCK_ERRNO_SET(0);
 	ERR_clear_error();
 	n = SSL_read(conn->ssl, ptr, len);
@@ -182,10 +182,10 @@ rloop:
 		case SSL_ERROR_NONE:
 			if (n < 0)
 			{
-				/* Not supposed to happen, so we don't translate the msg */
+				/* 不应该发生，因此我们不翻译该消息      */
 				appendPQExpBufferStr(&conn->errorMessage,
 									 "SSL_read failed but did not provide error information\n");
-				/* assume the connection is broken */
+				/* 假设连接已断开           */
 				result_errno = ECONNRESET;
 			}
 			break;
@@ -195,11 +195,11 @@ rloop:
 		case SSL_ERROR_WANT_WRITE:
 
 			/*
-			 * Returning 0 here would cause caller to wait for read-ready,
-			 * which is not correct since what SSL wants is wait for
-			 * write-ready.  The former could get us stuck in an infinite
-			 * wait, so don't risk it; busy-loop instead.
-			 */
+			 * 此处返回 0 会导致调用者等待读就绪，
+			 * 但 SSL 想要的是等待写就绪，因此不正确。
+			 * 前者可能让我们陷入无限等待，所以不冒这个险；
+			 * 改为忙循环。
+			                      */
 			goto rloop;
 		case SSL_ERROR_SYSCALL:
 			if (n < 0 && SOCK_ERRNO != 0)
@@ -218,7 +218,7 @@ rloop:
 			else
 			{
 				libpq_append_conn_error(conn, "SSL SYSCALL error: EOF detected");
-				/* assume the connection is broken */
+				/* 假设连接已断开           */
 				result_errno = ECONNRESET;
 				n = -1;
 			}
@@ -229,7 +229,7 @@ rloop:
 
 				libpq_append_conn_error(conn, "SSL error: %s", errm);
 				SSLerrfree(errm);
-				/* assume the connection is broken */
+				/* 假设连接已断开           */
 				result_errno = ECONNRESET;
 				n = -1;
 				break;
@@ -237,23 +237,23 @@ rloop:
 		case SSL_ERROR_ZERO_RETURN:
 
 			/*
-			 * Per OpenSSL documentation, this error code is only returned for
-			 * a clean connection closure, so we should not report it as a
-			 * server crash.
-			 */
+			 * 根据 OpenSSL 文档，此错误码仅在干净关闭
+			 * 连接时返回，因此我们不应将其报告为
+			 * 服务器崩溃。
+			             */
 			libpq_append_conn_error(conn, "SSL connection has been closed unexpectedly");
 			result_errno = ECONNRESET;
 			n = -1;
 			break;
 		default:
 			libpq_append_conn_error(conn, "unrecognized SSL error code: %d", err);
-			/* assume the connection is broken */
+			/* 假设连接已断开           */
 			result_errno = ECONNRESET;
 			n = -1;
 			break;
 	}
 
-	/* ensure we return the intended errno to caller */
+	/* 确保向调用者返回预期的 errno       */
 	SOCK_ERRNO_SET(result_errno);
 
 	return n;
@@ -284,19 +284,19 @@ pgtls_write(PGconn *conn, const void *ptr, size_t len)
 		case SSL_ERROR_NONE:
 			if (n < 0)
 			{
-				/* Not supposed to happen, so we don't translate the msg */
+				/* 不应该发生，因此我们不翻译该消息      */
 				appendPQExpBufferStr(&conn->errorMessage,
 									 "SSL_write failed but did not provide error information\n");
-				/* assume the connection is broken */
+				/* 假设连接已断开           */
 				result_errno = ECONNRESET;
 			}
 			break;
 		case SSL_ERROR_WANT_READ:
 
 			/*
-			 * Returning 0 here causes caller to wait for write-ready, which
-			 * is not really the right thing, but it's the best we can do.
-			 */
+			 * 此处返回 0 会导致调用者等待写就绪，
+			 * 这并非完全正确，但这是我们能做的最佳选择。
+			       */
 			n = 0;
 			break;
 		case SSL_ERROR_WANT_WRITE:
@@ -324,7 +324,7 @@ pgtls_write(PGconn *conn, const void *ptr, size_t len)
 			else
 			{
 				libpq_append_conn_error(conn, "SSL SYSCALL error: EOF detected");
-				/* assume the connection is broken */
+				/* 假设连接已断开           */
 				result_errno = ECONNRESET;
 				n = -1;
 			}
@@ -335,7 +335,7 @@ pgtls_write(PGconn *conn, const void *ptr, size_t len)
 
 				libpq_append_conn_error(conn, "SSL error: %s", errm);
 				SSLerrfree(errm);
-				/* assume the connection is broken */
+				/* 假设连接已断开           */
 				result_errno = ECONNRESET;
 				n = -1;
 				break;
@@ -343,23 +343,23 @@ pgtls_write(PGconn *conn, const void *ptr, size_t len)
 		case SSL_ERROR_ZERO_RETURN:
 
 			/*
-			 * Per OpenSSL documentation, this error code is only returned for
-			 * a clean connection closure, so we should not report it as a
-			 * server crash.
-			 */
+			 * 根据 OpenSSL 文档，此错误码仅在干净关闭
+			 * 连接时返回，因此我们不应将其报告为
+			 * 服务器崩溃。
+			             */
 			libpq_append_conn_error(conn, "SSL connection has been closed unexpectedly");
 			result_errno = ECONNRESET;
 			n = -1;
 			break;
 		default:
 			libpq_append_conn_error(conn, "unrecognized SSL error code: %d", err);
-			/* assume the connection is broken */
+			/* 假设连接已断开           */
 			result_errno = ECONNRESET;
 			n = -1;
 			break;
 	}
 
-	/* ensure we return the intended errno to caller */
+	/* 确保向调用者返回预期的 errno       */
 	SOCK_ERRNO_SET(result_errno);
 
 	return n;
@@ -384,10 +384,10 @@ pgtls_get_peer_certificate_hash(PGconn *conn, size_t *len)
 	peer_cert = conn->peer;
 
 	/*
-	 * Get the signature algorithm of the certificate to determine the hash
-	 * algorithm to use for the result.  Prefer X509_get_signature_info(),
-	 * introduced in OpenSSL 1.1.1, which can handle RSA-PSS signatures.
-	 */
+	 * 获取证书的签名算法以确定用于结果的
+	 * 哈希算法。优先使用 X509_get_signature_info()，
+	 * 该函数在 OpenSSL 1.1.1 中引入，可以处理 RSA-PSS 签名。
+	                         */
 #if HAVE_X509_GET_SIGNATURE_INFO
 	if (!X509_get_signature_info(peer_cert, &algo_nid, NULL, NULL, NULL))
 #else
@@ -400,11 +400,11 @@ pgtls_get_peer_certificate_hash(PGconn *conn, size_t *len)
 	}
 
 	/*
-	 * The TLS server's certificate bytes need to be hashed with SHA-256 if
-	 * its signature algorithm is MD5 or SHA-1 as per RFC 5929
-	 * (https://tools.ietf.org/html/rfc5929#section-4.1).  If something else
-	 * is used, the same hash as the signature algorithm is used.
-	 */
+	 * TLS 服务器的证书字节需要使用 SHA-256 进行哈希，如果其
+	 * 签名算法是 MD5 或 SHA-1，根据 RFC 5929
+	 * (https://tools.ietf.org/html/rfc5929#section-4.1)。
+	 * 如果使用其他算法，则使用与签名算法相同的哈希。
+	          */
 	switch (algo_nid)
 	{
 		case NID_md5:
@@ -428,7 +428,7 @@ pgtls_get_peer_certificate_hash(PGconn *conn, size_t *len)
 		return NULL;
 	}
 
-	/* save result */
+	/* 保存      */
 	cert_hash = malloc(hash_size);
 	if (cert_hash == NULL)
 	{
@@ -447,16 +447,16 @@ pgtls_get_peer_certificate_hash(PGconn *conn, size_t *len)
 /* ------------------------------------------------------------ */
 
 /*
- *	Certificate verification callback
+ *	证书验证回调
  *
- *	This callback allows us to log intermediate problems during
- *	verification, but there doesn't seem to be a clean way to get
- *	our PGconn * structure.  So we can't log anything!
+ *	此回调允许我们记录验证过程中的中间问题，
+ *	但似乎没有干净的方法来获取我们的 PGconn * 结构。
+ *	因此我们无法记录任何内容！
  *
- *	This callback also allows us to override the default acceptance
- *	criteria (e.g., accepting self-signed or expired certs), but
- *	for now we accept the default checks.
- */
+ *	此回调还允许我们覆盖默认的接受
+ *	标准（例如，接受自签名或过期的证书），但
+ *	目前我们接受默认检查。
+                                          */
 static int
 verify_cb(int ok, X509_STORE_CTX *ctx)
 {
@@ -465,14 +465,14 @@ verify_cb(int ok, X509_STORE_CTX *ctx)
 
 #ifdef HAVE_SSL_CTX_SET_CERT_CB
 /*
- * Certificate selection callback
+ * 证书选择回调
  *
- * This callback lets us choose the client certificate we send to the server
- * after seeing its CertificateRequest.  We only support sending a single
- * hard-coded certificate via sslcert, so we don't actually set any certificates
- * here; we just use it to record whether or not the server has actually asked
- * for one and whether we have one to send.
- */
+ * 此回调允许我们在看到服务器的 CertificateRequest 后选择
+ * 要发送给服务器的客户端证书。我们仅支持通过 sslcert 发送
+ * 单个硬编码证书，因此实际上不在此处设置任何证书；
+ * 我们只是用它来记录服务器是否实际请求了证书以及
+ * 我们是否有证书可发送。
+                         */
 static int
 cert_cb(SSL *ssl, void *arg)
 {
@@ -480,23 +480,23 @@ cert_cb(SSL *ssl, void *arg)
 
 	conn->ssl_cert_requested = true;
 
-	/* Do we have a certificate loaded to send back? */
+	/* 我们有已加载的证书可以发回吗？ */
 	if (SSL_get_certificate(ssl))
 		conn->ssl_cert_sent = true;
 
 	/*
-	 * Tell OpenSSL that the callback succeeded; we're not required to
-	 * actually make any changes to the SSL handle.
-	 */
+	 * 告诉 OpenSSL 回调成功；我们不需要
+	 * 实际对 SSL 句柄进行任何更改。
+	                      */
 	return 1;
 }
 #endif
 
 /*
- * OpenSSL-specific wrapper around
- * pq_verify_peer_name_matches_certificate_name(), converting the ASN1_STRING
- * into a plain C string.
- */
+ * pq_verify_peer_name_matches_certificate_name() 的
+ * OpenSSL 特定包装器，将 ASN1_STRING 转换为普通的
+ * C 字符串。
+    */
 static int
 openssl_verify_peer_name_matches_certificate_name(PGconn *conn, ASN1_STRING *name_entry,
 												  char **store_name)
@@ -504,7 +504,7 @@ openssl_verify_peer_name_matches_certificate_name(PGconn *conn, ASN1_STRING *nam
 	int			len;
 	const unsigned char *namedata;
 
-	/* Should not happen... */
+	/* 不应该发生...   */
 	if (name_entry == NULL)
 	{
 		libpq_append_conn_error(conn, "SSL certificate's name entry is missing");
@@ -512,8 +512,8 @@ openssl_verify_peer_name_matches_certificate_name(PGconn *conn, ASN1_STRING *nam
 	}
 
 	/*
-	 * GEN_DNS can be only IA5String, equivalent to US ASCII.
-	 */
+	 * GEN_DNS 只能是 IA5String，相当于 US ASCII。
+	    */
 #ifdef HAVE_ASN1_STRING_GET0_DATA
 	namedata = ASN1_STRING_get0_data(name_entry);
 #else
@@ -526,10 +526,10 @@ openssl_verify_peer_name_matches_certificate_name(PGconn *conn, ASN1_STRING *nam
 }
 
 /*
- * OpenSSL-specific wrapper around
- * pq_verify_peer_name_matches_certificate_ip(), converting the
- * ASN1_OCTET_STRING into a plain C string.
- */
+ * pq_verify_peer_name_matches_certificate_ip() 的
+ * OpenSSL 特定包装器，将 ASN1_OCTET_STRING 转换为
+ * 普通的 C 字符串。
+   */
 static int
 openssl_verify_peer_name_matches_certificate_ip(PGconn *conn,
 												ASN1_OCTET_STRING *addr_entry,
@@ -538,7 +538,7 @@ openssl_verify_peer_name_matches_certificate_ip(PGconn *conn,
 	int			len;
 	const unsigned char *addrdata;
 
-	/* Should not happen... */
+	/* 不应该发生...   */
 	if (addr_entry == NULL)
 	{
 		libpq_append_conn_error(conn, "SSL certificate's address entry is missing");
@@ -575,10 +575,10 @@ is_ip_address(const char *host)
 }
 
 /*
- *	Verify that the server certificate matches the hostname we connected to.
+ *	验证服务器证书是否与我们连接的主机名匹配。
  *
- * The certificate's Common Name and Subject Alternative Names are considered.
- */
+ * 会考虑证书的 Common Name 和 Subject Alternative Names。
+                      */
 int
 pgtls_verify_peer_name_matches_certificate_guts(PGconn *conn,
 												int *names_examined,
@@ -591,7 +591,7 @@ pgtls_verify_peer_name_matches_certificate_guts(PGconn *conn,
 	int			host_type;
 	bool		check_cn = true;
 
-	Assert(host && host[0]);	/* should be guaranteed by caller */
+	Assert(host && host[0]);	/* 应由调用者保证          */
 
 	/*
 	 * We try to match the NSS behavior here, which is a slight departure from
@@ -619,9 +619,9 @@ pgtls_verify_peer_name_matches_certificate_guts(PGconn *conn,
 		host_type = GEN_DNS;
 
 	/*
-	 * First, get the Subject Alternative Names (SANs) from the certificate,
-	 * and compare them against the originally given hostname.
-	 */
+	 * 首先，从证书中获取 Subject Alternative Names (SANs)，
+	 * 并将其与原始给定的主机名进行比较。
+	           */
 	peer_san = (STACK_OF(GENERAL_NAME) *)
 		X509_get_ext_d2i(conn->peer, NID_subject_alt_name, NULL, NULL);
 
@@ -637,9 +637,9 @@ pgtls_verify_peer_name_matches_certificate_guts(PGconn *conn,
 			if (name->type == host_type)
 			{
 				/*
-				 * This SAN is of the same type (IP or DNS) as our host name,
-				 * so don't allow a fallback check of the CN.
-				 */
+				 * 此 SAN 与我们的主机名类型相同（IP 或 DNS），
+				 * 因此不允许回退检查 CN。
+				        */
 				check_cn = false;
 			}
 
@@ -723,12 +723,12 @@ pgtls_verify_peer_name_matches_certificate_guts(PGconn *conn,
 
 #if defined(ENABLE_THREAD_SAFETY) && defined(HAVE_CRYPTO_LOCK)
 /*
- *	Callback functions for OpenSSL internal locking.  (OpenSSL 1.1.0
- *	does its own locking, and doesn't need these anymore.  The
- *	CRYPTO_lock() function was removed in 1.1.0, when the callbacks
- *	were made obsolete, so we assume that if CRYPTO_lock() exists,
- *	the callbacks are still required.)
- */
+ *	用于 OpenSSL 内部锁定的回调函数。（OpenSSL 1.1.0
+ *	自行进行锁定，不再需要这些回调函数。
+ *	CRYPTO_lock() 函数在 1.1.0 中被移除，此时回调
+ *	已过时，因此我们假设如果 CRYPTO_lock() 存在，
+ *	则仍然需要回调。）
+                       */
 
 static unsigned long
 pq_threadidcallback(void)
@@ -747,10 +747,10 @@ static void
 pq_lockingcallback(int mode, int n, const char *file, int line)
 {
 	/*
-	 * There's no way to report a mutex-primitive failure, so we just Assert
-	 * in development builds, and ignore any errors otherwise.  Fortunately
-	 * this is all obsolete in modern OpenSSL.
-	 */
+	 * 没有办法报告互斥量原语失败，因此我们只在
+	 * 开发构建中 Assert，否则忽略任何错误。幸运的是，
+	 * 这在现代 OpenSSL 中都已过时。
+	           */
 	if (mode & CRYPTO_LOCK)
 	{
 		if (pthread_mutex_lock(&pq_lockarray[n]))
@@ -765,15 +765,15 @@ pq_lockingcallback(int mode, int n, const char *file, int line)
 #endif							/* ENABLE_THREAD_SAFETY && HAVE_CRYPTO_LOCK */
 
 /*
- * Initialize SSL library.
+ * 初始化 SSL 库。
  *
- * In threadsafe mode, this includes setting up libcrypto callback functions
- * to do thread locking.
+ * 在线程安全模式下，这包括设置 libcrypto 回调函数
+ * 来进行线程锁定。
  *
- * If the caller has told us (through PQinitOpenSSL) that he's taking care
- * of libcrypto, we expect that callbacks are already set, and won't try to
- * override it.
- */
+ * 如果调用者已通过 PQinitOpenSSL 告诉我们他正在管理
+ * libcrypto，我们期望回调已设置，不会尝试
+ * 覆盖它。
+                                */
 int
 pgtls_init(PGconn *conn, bool do_ssl, bool do_crypto)
 {
@@ -917,17 +917,17 @@ initialize_SSL(PGconn *conn)
 	bool		have_rootcert;
 
 	/*
-	 * We'll need the home directory if any of the relevant parameters are
-	 * defaulted.  If pqGetHomeDirectory fails, act as though none of the
-	 * files could be found.
-	 */
+	 * 如果任何相关参数使用默认值，我们将需要主目录。
+	 * 如果 pqGetHomeDirectory 失败，则表现得好像找不到
+	 * 任何文件一样。
+	   */
 	if (!(conn->sslcert && strlen(conn->sslcert) > 0) ||
 		!(conn->sslkey && strlen(conn->sslkey) > 0) ||
 		!(conn->sslrootcert && strlen(conn->sslrootcert) > 0) ||
 		!((conn->sslcrl && strlen(conn->sslcrl) > 0) ||
 		  (conn->sslcrldir && strlen(conn->sslcrldir) > 0)))
 		have_homedir = pqGetHomeDirectory(homedir, sizeof(homedir));
-	else						/* won't need it */
+	else						/* 不需要它  */
 		have_homedir = false;
 
 	/*
@@ -967,14 +967,14 @@ initialize_SSL(PGconn *conn)
 	}
 
 #ifdef HAVE_SSL_CTX_SET_CERT_CB
-	/* Set up a certificate selection callback. */
+	/* 设置证书选择回调。              */
 	SSL_CTX_set_cert_cb(SSL_context, cert_cb, conn);
 #endif
 
-	/* Disable old protocol versions */
+	/* 禁用旧的协议版本      */
 	SSL_CTX_set_options(SSL_context, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3);
 
-	/* Set the minimum and maximum protocol versions if necessary */
+	/* 如有必要，设置最小和最大协议版本           */
 	if (conn->ssl_min_protocol_version &&
 		strlen(conn->ssl_min_protocol_version) != 0)
 	{
@@ -1034,10 +1034,10 @@ initialize_SSL(PGconn *conn)
 	SSL_CTX_set_mode(SSL_context, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
 	/*
-	 * If the root cert file exists, load it so we can perform certificate
-	 * verification. If sslmode is "verify-full" we will also do further
-	 * verification after the connection has been completed.
-	 */
+	 * 如果根证书文件存在，加载它以执行证书
+	 * 验证。如果 sslmode 是 "verify-full"，我们还将在
+	 * 连接完成后进行进一步验证。
+	                                  */
 	if (conn->sslrootcert && strlen(conn->sslrootcert) > 0)
 		strlcpy(fnbuf, conn->sslrootcert, sizeof(fnbuf));
 	else if (have_homedir)
@@ -1092,14 +1092,14 @@ initialize_SSL(PGconn *conn)
 			if (conn->sslcrldir && strlen(conn->sslcrldir) > 0)
 				dname = conn->sslcrldir;
 
-			/* defaults to use the default CRL file */
+			/* 默认使用默认的 CRL 文件     */
 			if (!fname && !dname && have_homedir)
 			{
 				snprintf(fnbuf, sizeof(fnbuf), "%s/%s", homedir, ROOT_CRL_FILE);
 				fname = fnbuf;
 			}
 
-			/* Set the flags to check against the complete CRL chain */
+			/* 设置标志以检查完整的 CRL 链                */
 			if ((fname || dname) &&
 				X509_STORE_load_locations(cvstore, fname, dname) == 1)
 			{
@@ -1107,7 +1107,7 @@ initialize_SSL(PGconn *conn)
 									 X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
 			}
 
-			/* if not found, silently ignore;  we do not require CRL */
+			/* 如果未找到，静默忽略；我们不要求 CRL  */
 			ERR_clear_error();
 		}
 		have_rootcert = true;
@@ -1115,17 +1115,17 @@ initialize_SSL(PGconn *conn)
 	else
 	{
 		/*
-		 * stat() failed; assume root file doesn't exist.  If sslmode is
-		 * verify-ca or verify-full, this is an error.  Otherwise, continue
-		 * without performing any server cert verification.
-		 */
+		 * stat() 失败；假定根文件不存在。如果 sslmode
+		 * 是 verify-ca 或 verify-full，这是错误。否则，
+		 * 继续而不执行任何服务器证书验证。
+		             */
 		if (conn->sslmode[0] == 'v')	/* "verify-ca" or "verify-full" */
 		{
 			/*
-			 * The only way to reach here with an empty filename is if
-			 * pqGetHomeDirectory failed.  That's a sufficiently unusual case
-			 * that it seems worth having a specialized error message for it.
-			 */
+			 * 到达此处且文件名为空的唯一方式是
+			 * pqGetHomeDirectory 失败。这是一个足够罕见的
+			 * 情况，值得为其提供专门定制的错误消息。
+			                    */
 			if (fnbuf[0] == '\0')
 				libpq_append_conn_error(conn, "could not get home directory to locate root certificate file\n"
 										"Either provide the file, use the system's trusted roots with sslrootcert=system, or change sslmode to disable server certificate verification.");
@@ -1138,7 +1138,7 @@ initialize_SSL(PGconn *conn)
 		have_rootcert = false;
 	}
 
-	/* Read the client certificate file */
+	/* 读取客户端证书文件      */
 	if (conn->sslcert && strlen(conn->sslcert) > 0)
 		strlcpy(fnbuf, conn->sslcert, sizeof(fnbuf));
 	else if (have_homedir)
@@ -1146,9 +1146,9 @@ initialize_SSL(PGconn *conn)
 	else
 		fnbuf[0] = '\0';
 
-	if (conn->sslcertmode[0] == 'd')	/* disable */
+	if (conn->sslcertmode[0] == 'd')	/* 禁用  */
 	{
-		/* don't send a client cert even if we have one */
+		/* 即使有客户端证书也不发送         */
 		have_cert = false;
 	}
 	else if (fnbuf[0] == '\0')
@@ -1190,17 +1190,17 @@ initialize_SSL(PGconn *conn)
 			return -1;
 		}
 
-		/* need to load the associated private key, too */
+		/* 还需要加载关联的私钥               */
 		have_cert = true;
 	}
 
 	/*
-	 * The SSL context is now loaded with the correct root and client
-	 * certificates. Create a connection-specific SSL object. The private key
-	 * is loaded directly into the SSL object. (We could load the private key
-	 * into the context, too, but we have done it this way historically, and
-	 * it doesn't really matter.)
-	 */
+	 * SSL 上下文现已加载了正确的根证书和客户端
+	 * 证书。创建连接特定的 SSL 对象。私钥直接
+	 * 加载到 SSL 对象中。（我们也可以将私钥加载到
+	 * 上下文中，但历史上我们一直这样做，实际上
+	 * 没有区别。）
+	                                            */
 	if (!(conn->ssl = SSL_new(SSL_context)) ||
 		!SSL_set_app_data(conn->ssl, conn) ||
 		!my_SSL_set_fd(conn, conn->sock))
@@ -1215,10 +1215,10 @@ initialize_SSL(PGconn *conn)
 	conn->ssl_in_use = true;
 
 	/*
-	 * SSL contexts are reference counted by OpenSSL. We can free it as soon
-	 * as we have created the SSL object, and it will stick around for as long
-	 * as it's actually needed.
-	 */
+	 * SSL 上下文由 OpenSSL 进行引用计数。我们可以在
+	 * 创建 SSL 对象后立即释放它，它会在实际需要时
+	 * 继续存在。
+	                           */
 	SSL_CTX_free(SSL_context);
 	SSL_context = NULL;
 
@@ -1247,11 +1247,11 @@ initialize_SSL(PGconn *conn)
 	}
 
 	/*
-	 * Read the SSL key. If a key is specified, treat it as an engine:key
-	 * combination if there is colon present - we don't support files with
-	 * colon in the name. The exception is if the second character is a colon,
-	 * in which case it can be a Windows filename with drive specification.
-	 */
+	 * 读取 SSL 密钥。如果指定了密钥，且存在冒号，
+	 * 则将其视为 engine:key 组合 — 我们不支持文件名中
+	 * 包含冒号。例外情况是第二个字符是冒号，
+	 * 此时它可以是带驱动器规范的 Windows 文件名。
+	                             */
 	if (have_cert && conn->sslkey && strlen(conn->sslkey) > 0)
 	{
 #ifdef USE_SSL_ENGINE
@@ -1272,7 +1272,7 @@ initialize_SSL(PGconn *conn)
 				return -1;
 			}
 
-			/* cannot return NULL because we already checked before strdup */
+			/* 不能返回 NULL，因为我们在 strdup 之前已检查  */
 			engine_colon = strchr(engine_str, ':');
 
 			*engine_colon = '\0';	/* engine_str now has engine name */
@@ -1340,13 +1340,13 @@ initialize_SSL(PGconn *conn)
 		else
 #endif							/* USE_SSL_ENGINE */
 		{
-			/* PGSSLKEY is not an engine, treat it as a filename */
+			/* PGSSLKEY 不是引擎，将其视为文件名     */
 			strlcpy(fnbuf, conn->sslkey, sizeof(fnbuf));
 		}
 	}
 	else if (have_homedir)
 	{
-		/* No PGSSLKEY specified, load default file */
+		/* 未指定 PGSSLKEY，加载默认文件  */
 		snprintf(fnbuf, sizeof(fnbuf), "%s/%s", homedir, USER_KEY_FILE);
 	}
 	else
@@ -1376,27 +1376,27 @@ initialize_SSL(PGconn *conn)
 		}
 
 		/*
-		 * Refuse to load world-readable key files.  We accept root-owned
-		 * files with mode 0640 or less, so that we can access system-wide
-		 * certificates if we have a supplementary group membership that
-		 * allows us to read 'em.  For files with non-root ownership, require
-		 * mode 0600 or less.  We need not check the file's ownership exactly;
-		 * if we're able to read it despite it having such restrictive
-		 * permissions, it must have the right ownership.
+		 * 拒绝加载全局可读的密钥文件。我们接受 root 拥有、
+		 * 模式为 0640 或更低的文件，以便在具有补充组成员资格
+		 * 允许我们读取它们时可以访问系统范围的证书。
+		 * 对于非 root 拥有的文件，要求模式为 0600 或更低。
+		 * 我们不需要精确检查文件的所有权；如果尽管
+		 * 权限如此严格我们仍然能够读取它，那么它必然
+		 * 具有正确的所有权。
 		 *
-		 * Note: be very careful about tightening these rules.  Some people
-		 * expect, for example, that a client process running as root should
-		 * be able to use a non-root-owned key file.
+		 * 注意：收紧这些规则时要非常小心。有些人
+		 * 期望，例如，以 root 运行的客户端进程应该能够
+		 * 使用非 root 拥有的密钥文件。
 		 *
-		 * Note that roughly similar checks are performed in
-		 * src/backend/libpq/be-secure-common.c so any changes here may need
-		 * to be made there as well.  However, this code caters for the case
-		 * of current user == root, while that code does not.
+		 * 注意，在 src/backend/libpq/be-secure-common.c 中
+		 * 执行了大致类似的检查，因此此处的任何更改可能
+		 * 也需要在那里进行。然而，此代码处理当前用户
+		 * == root 的情况，而那个代码不处理。
 		 *
-		 * Ideally we would do similar permissions checks on Windows, but it
-		 * is not clear how that would work since Unix-style permissions may
-		 * not be available.
-		 */
+		 * 理想情况下，我们也会在 Windows 上执行类似的权限
+		 * 检查，但不清楚这如何实现，因为 Unix 风格的权限
+		 * 可能不可用。
+		             */
 #if !defined(WIN32) && !defined(__CYGWIN__)
 		if (buf.st_uid == 0 ?
 			buf.st_mode & (S_IWGRP | S_IXGRP | S_IRWXO) :
@@ -1437,7 +1437,7 @@ initialize_SSL(PGconn *conn)
 		}
 	}
 
-	/* verify that the cert and key go together */
+	/* 验证证书和密钥是否匹配        */
 	if (have_cert &&
 		SSL_check_private_key(conn->ssl) != 1)
 	{
@@ -1450,14 +1450,14 @@ initialize_SSL(PGconn *conn)
 	}
 
 	/*
-	 * If a root cert was loaded, also set our certificate verification
-	 * callback.
-	 */
+	 * 如果加载了根证书，也设置我们的证书验证
+	 * 回调。
+	        */
 	if (have_rootcert)
 		SSL_set_verify(conn->ssl, SSL_VERIFY_PEER, verify_cb);
 
 	/*
-	 * Set compression option if necessary.
+	 * 如有必要，设置压缩选项。
 	 */
 	if (conn->sslcompression && conn->sslcompression[0] == '0')
 		SSL_set_options(conn->ssl, SSL_OP_NO_COMPRESSION);
@@ -1468,8 +1468,8 @@ initialize_SSL(PGconn *conn)
 }
 
 /*
- *	Attempt to negotiate SSL connection.
- */
+ *	尝试协商 SSL 连接。
+           */
 static PostgresPollingStatusType
 open_client_SSL(PGconn *conn)
 {
@@ -1501,14 +1501,14 @@ open_client_SSL(PGconn *conn)
 					vcode = SSL_get_verify_result(conn->ssl);
 
 					/*
-					 * If we get an X509 error here for failing to load the
-					 * local issuer cert, without an error in the socket layer
-					 * it means that verification failed due to a missing
-					 * system CA pool without it being a protocol error. We
-					 * inspect the sslrootcert setting to ensure that the user
-					 * was using the system CA pool. For other errors, log
-					 * them using the normal SYSCALL logging.
-					 */
+					 * 如果此处收到 X509 错误，表明加载
+					 * 本地颁发者证书失败，而套接字层
+					 * 没有错误，则意味着验证失败是由于
+					 * 缺少系统 CA 池，而非协议错误。我们
+					 * 检查 sslrootcert 设置以确保用户
+					 * 使用的是系统 CA 池。对于其他错误，
+					 * 使用正常的 SYSCALL 日志记录。
+					                                       */
 					if (save_errno == 0 &&
 						vcode == X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY &&
 						strcmp(conn->sslrootcert, "system") == 0)
@@ -1584,7 +1584,7 @@ open_client_SSL(PGconn *conn)
 	 * SSL_CTX_set_verify(), if root.crt exists.
 	 */
 
-	/* get server certificate */
+	/* 获取服务器证书  */
 	conn->peer = SSL_get_peer_certificate(conn->ssl);
 	if (conn->peer == NULL)
 	{
@@ -1602,7 +1602,7 @@ open_client_SSL(PGconn *conn)
 		return PGRES_POLLING_FAILED;
 	}
 
-	/* SSL handshake is complete */
+	/* SSL 握手已完成       */
 	return PGRES_POLLING_OK;
 }
 
@@ -1647,21 +1647,21 @@ pgtls_close(PGconn *conn)
 	else
 	{
 		/*
-		 * In the non-SSL case, just remove the crypto callbacks if the
-		 * connection has then loaded.  This code path has no dependency on
-		 * any pending SSL calls.
-		 */
+		 * 在非 SSL 情况下，如果连接已加载，
+		 * 则只需移除加密回调。此代码路径
+		 * 不依赖任何挂起的 SSL 调用。
+		                 */
 		if (conn->crypto_loaded)
 			destroy_needed = true;
 	}
 
 	/*
-	 * This will remove our crypto locking hooks if this is the last
-	 * connection using libcrypto which means we must wait to call it until
-	 * after all the potential SSL calls have been made, otherwise we can end
-	 * up with a race condition and possible deadlocks.
+	 * 如果这是使用 libcrypto 的最后一个连接，
+	 * 这将移除我们的加密锁定挂钩，这意味着我们必须等到
+	 * 所有潜在的 SSL 调用都已完成后才能调用它，
+	 * 否则可能会导致竞争条件和可能的死锁。
 	 *
-	 * See comments above destroy_ssl_system().
+	 * 请参见 destroy_ssl_system() 上方的注释。
 	 */
 	if (destroy_needed)
 	{
@@ -1672,15 +1672,15 @@ pgtls_close(PGconn *conn)
 
 
 /*
- * Obtain reason string for passed SSL errcode
+ * 为传递的 SSL 错误码获取原因字符串
  *
- * ERR_get_error() is used by caller to get errcode to pass here.
- * The result must be freed after use, using SSLerrfree.
+ * 调用者使用 ERR_get_error() 获取要传递到此处
+ * 的错误码。结果在使用后必须使用 SSLerrfree 释放。
  *
- * Some caution is needed here since ERR_reason_error_string will return NULL
- * if it doesn't recognize the error code, or (in OpenSSL >= 3) if the code
- * represents a system errno value.  We don't want to return NULL ever.
- */
+ * 此处需要一些谨慎，因为 ERR_reason_error_string 会
+ * 在不识别错误码时返回 NULL，或者（在 OpenSSL >= 3 中）
+ * 如果代码表示系统 errno 值。我们永远不想返回 NULL。
+    */
 static char ssl_nomem[] = "out of memory allocating error description";
 
 #define SSL_ERR_LEN 128
@@ -1707,12 +1707,12 @@ SSLerrmessage(unsigned long ecode)
 	}
 
 	/*
-	 * In OpenSSL 3.0.0 and later, ERR_reason_error_string does not map system
-	 * errno values anymore.  (See OpenSSL source code for the explanation.)
-	 * We can cover that shortcoming with this bit of code.  Older OpenSSL
-	 * versions don't have the ERR_SYSTEM_ERROR macro, but that's okay because
-	 * they don't have the shortcoming either.
-	 */
+	 * 在 OpenSSL 3.0.0 及更高版本中，ERR_reason_error_string
+	 * 不再映射系统 errno 值。（参见 OpenSSL 源代码中的解释。）
+	 * 我们可以通过此段代码弥补这个缺陷。较旧的 OpenSSL
+	 * 版本没有 ERR_SYSTEM_ERROR 宏，但没关系，因为它们
+	 * 也没有这个缺陷。
+	                         */
 #ifdef ERR_SYSTEM_ERROR
 	if (ERR_SYSTEM_ERROR(ecode))
 	{
@@ -1773,11 +1773,11 @@ PQsslAttributeNames(PGconn *conn)
 
 	if (!conn)
 	{
-		/* Return attributes of default SSL library */
+		/* 返回默认 SSL 库的属性            */
 		return openssl_attrs;
 	}
 
-	/* No attrs for unencrypted connection */
+	/* 未加密连接没有属性         */
 	if (conn->ssl == NULL)
 		return empty_attrs;
 
@@ -1789,13 +1789,13 @@ PQsslAttribute(PGconn *conn, const char *attribute_name)
 {
 	if (!conn)
 	{
-		/* PQsslAttribute(NULL, "library") reports the default SSL library */
+		/* PQsslAttribute(NULL, "library") 报告默认 SSL 库            */
 		if (strcmp(attribute_name, "library") == 0)
 			return "OpenSSL";
 		return NULL;
 	}
 
-	/* All attributes read as NULL for a non-encrypted connection */
+	/* 对于非加密连接，所有属性读取为 NULL         */
 	if (conn->ssl == NULL)
 		return NULL;
 
@@ -1821,7 +1821,7 @@ PQsslAttribute(PGconn *conn, const char *attribute_name)
 	if (strcmp(attribute_name, "protocol") == 0)
 		return SSL_get_version(conn->ssl);
 
-	return NULL;				/* unknown attribute */
+	return NULL;				/* 未知属性      */
 }
 
 /*
@@ -1835,7 +1835,7 @@ PQsslAttribute(PGconn *conn, const char *attribute_name)
  * to retry; do we need to adopt their logic for that?
  */
 
-/* protected by ssl_config_mutex */
+/* 受 ssl_config_mutex 保护   */
 static BIO_METHOD *my_bio_methods;
 
 static int
@@ -1847,7 +1847,7 @@ my_sock_read(BIO *h, char *buf, int size)
 	BIO_clear_retry_flags(h);
 	if (res < 0)
 	{
-		/* If we were interrupted, tell caller to retry */
+		/* 如果被中断，告诉调用者重试      */
 		switch (SOCK_ERRNO)
 		{
 #ifdef EAGAIN
@@ -1877,7 +1877,7 @@ my_sock_write(BIO *h, const char *buf, int size)
 	BIO_clear_retry_flags(h);
 	if (res < 0)
 	{
-		/* If we were interrupted, tell caller to retry */
+		/* 如果被中断，告诉调用者重试      */
 		switch (SOCK_ERRNO)
 		{
 #ifdef EAGAIN
@@ -1972,7 +1972,7 @@ err:
 	return NULL;
 }
 
-/* This should exactly match OpenSSL's SSL_set_fd except for using my BIO */
+/* 这应与 OpenSSL 的 SSL_set_fd 完全匹配，只是使用我的 BIO */
 static int
 my_SSL_set_fd(PGconn *conn, int fd)
 {
@@ -2002,10 +2002,10 @@ err:
 }
 
 /*
- * This is the default handler to return a client cert password from
- * conn->sslpassword. Apps may install it explicitly if they want to
- * prevent openssl from ever prompting on stdin.
- */
+ * 这是从 conn->sslpassword 返回客户端证书密码的
+ * 默认处理程序。应用程序可以显式安装它，如果它们
+ * 想阻止 OpenSSL 在 stdin 上提示。
+         */
 int
 PQdefaultSSLKeyPassHook_OpenSSL(char *buf, int size, PGconn *conn)
 {
@@ -2037,10 +2037,10 @@ PQsetSSLKeyPassHook_OpenSSL(PQsslKeyPassHook_OpenSSL_type hook)
 }
 
 /*
- * Supply a password to decrypt a client certificate.
+ * 提供密码以解密客户端证书。
  *
- * This must match OpenSSL type pem_password_cb.
- */
+ * 这必须匹配 OpenSSL 类型 pem_password_cb。
+        */
 static int
 PQssl_passwd_cb(char *buf, int size, int rwflag, void *userdata)
 {
@@ -2053,15 +2053,15 @@ PQssl_passwd_cb(char *buf, int size, int rwflag, void *userdata)
 }
 
 /*
- * Convert TLS protocol version string to OpenSSL values
+ * 将 TLS 协议版本字符串转换为 OpenSSL 值
  *
- * If a version is passed that is not supported by the current OpenSSL version,
- * then we return -1. If a non-negative value is returned, subsequent code can
- * assume it is working with a supported version.
+ * 如果传递的版本不受当前 OpenSSL 版本支持，
+ * 则返回 -1。如果返回非负值，后续代码可以假定
+ * 它正在使用受支持的版本。
  *
- * Note: this is rather similar to the backend routine in be-secure-openssl.c,
- * so make sure to update both routines if changing this one.
- */
+ * 注意：这与 be-secure-openssl.c 中的后端例程相当相似，
+ * 因此如果更改此例程，请确保同时更新两者。
+                                                 */
 static int
 ssl_protocol_version_to_openssl(const char *protocol)
 {

@@ -117,15 +117,15 @@ struct exclude_list_item
 static const char *excludeDirContents[] =
 {
 	/*
-	 * Skip temporary statistics files. PG_STAT_TMP_DIR must be skipped
-	 * because extensions like pg_stat_statements store data there.
+	 * 跳过临时统计文件。PG_STAT_TMP_DIR 须跳过，因      
+	 * 扩展如 pg_stat_statements 在其中存储数据。       
 	 */
 	"pg_stat_tmp",				/* defined as PG_STAT_TMP_DIR */
 
 	/*
-	 * It is generally not useful to backup the contents of this directory
-	 * even if the intention is to restore to another primary. See backup.sgml
-	 * for a more detailed description.
+	 * 通常备份此目录的内容没有意义，即使意图是恢复 
+	 * 到另一个主库。详情参见 backup.sgml。                       
+	 * 了解更多。                 
 	 */
 	"pg_replslot",
 
@@ -136,8 +136,8 @@ static const char *excludeDirContents[] =
 	"pg_notify",
 
 	/*
-	 * Old contents are loaded for possible debugging but are not required for
-	 * normal operation, see SerialInit().
+	 * 启动时加载旧内容以作调试，但正常运行不需要，     
+	 * 参见 SerialInit()。             
 	 */
 	"pg_serial",
 
@@ -161,25 +161,25 @@ static const struct exclude_list_item excludeFiles[] =
 	{"postgresql.auto.conf.tmp", false},	/* defined as PG_AUTOCONF_FILENAME */
 
 	/* 跳过当前日志文件临时文件                         */
-	{"current_logfiles.tmp", false},	/* defined as
+	{"current_logfiles.tmp", false},	/* 定义为 
 										 * LOG_METAINFO_DATAFILE_TMP */
 
 	/* 跳过关系缓存，因为在启动时会重建                                     */
 	{"pg_internal.init", true}, /* defined as RELCACHE_INIT_FILENAME */
 
 	/*
-	 * If there is a backup_label or tablespace_map file, it indicates that a
-	 * recovery failed and this cluster probably can't be rewound, but exclude
-	 * them anyway if they are found.
+	 * 若 backup_label 或 tablespace_map 文件存在，表明             
+	 * 曾恢复失败，该数据库集簇可能无法回绕，但仍排除  
+	 * 找到的这类文件。      
 	 */
 	{"backup_label", false},	/* defined as BACKUP_LABEL_FILE */
 	{"tablespace_map", false},	/* defined as TABLESPACE_MAP */
 
 	/*
-	 * If there's a backup_manifest, it belongs to a backup that was used to
-	 * start this server. It is *not* correct for this backup. Our
-	 * backup_manifest is injected into the backup separately if users want
-	 * it.
+	 * 若 backup_manifest 存在，它属于用来启动此服务器       
+	 * 的备份。它对此备份是*不*正确的。            
+	 * backup_manifest 会在用户需要时单独注入备份             
+	 * 。
 	 */
 	{"backup_manifest", false},
 
@@ -283,16 +283,16 @@ process_source_file(const char *path, file_type_t type, size_t size,
 	file_entry_t *entry;
 
 	/*
-	 * Pretend that pg_wal is a directory, even if it's really a symlink. We
-	 * don't want to mess with the symlink itself, nor complain if it's a
-	 * symlink in source but not in target or vice versa.
+	 * 假设 pg_wal 是目录，即使它实际是符号链接。          
+	 * 不想干扰链接本身，也不抱怨源和目标不一致。   
+	 * （反之亦然）。                             
 	 */
 	if (strcmp(path, "pg_wal") == 0 && type == FILE_TYPE_SYMLINK)
 		type = FILE_TYPE_DIRECTORY;
 
 	/*
-	 * sanity check: a filename that looks like a data file better be a
-	 * regular file
+	 * 健全检查：像数据文件的文件名须为普通          
+	 * 文件      
 	 */
 	if (type != FILE_TYPE_REGULAR && isRelDataFile(path))
 		pg_fatal("data file \"%s\" in source is not a regular file", path);
@@ -319,13 +319,13 @@ process_target_file(const char *path, file_type_t type, size_t size,
 	file_entry_t *entry;
 
 	/*
-	 * Do not apply any exclusion filters here.  This has advantage to remove
-	 * from the target data folder all paths which have been filtered out from
-	 * the source data folder when processing the source files.
+	 * 此处不应用任何排除过滤。好处是处理源文件          
+	 * 时从源数据文件夹过滤掉的所有路径，也会从目标     
+	 * 数据文件夹中移除。                             
 	 */
 
 	/*
-	 * Like in process_source_file, pretend that pg_wal is always a directory.
+	 * 与 process_source_file 类似，假设 pg_wal 始终为目录。      
 	 */
 	if (strcmp(path, "pg_wal") == 0 && type == FILE_TYPE_SYMLINK)
 		type = FILE_TYPE_DIRECTORY;
@@ -365,20 +365,20 @@ process_target_wal_block_change(ForkNumber forknum, RelFileLocator rlocator,
 	pfree(path);
 
 	/*
-	 * If the block still exists in both systems, remember it. Otherwise we
-	 * can safely ignore it.
+	 * 若块在两个系统中均存在，记住它。否则可以安全  
+	 * 忽略。            
 	 *
-	 * If the block is beyond the EOF in the source system, or the file
-	 * doesn't exist in the source at all, we're going to truncate/remove it
-	 * away from the target anyway. Likewise, if it doesn't exist in the
-	 * target anymore, we will copy it over with the "tail" from the source
-	 * system, anyway.
+	 * 若块超出源系统的 EOF，或文件在源中根本不      
+	 * 存在，我们总会从目标中截断/移除。同理，           
+	 * 若它在目标中已不存在，我们                          
+	 * 将用源系统的"尾部"来复制。                              
+	 *                
 	 *
-	 * It is possible to find WAL for a file that doesn't exist on either
-	 * system anymore. It means that the relation was dropped later in the
-	 * target system, and independently on the source system too, or that it
-	 * was created and dropped in the target system and it never existed in
-	 * the source. Either way, we can safely ignore it.
+	 * 可能为任一系统中都不再存在的文件找到 WAL。这  
+	 * 意味着该关系稍后在目标中被删除，之后独立地在 
+	 * 源中也被删除；或者它在目标中被创建并删除且从未
+	 * 在源中存在。无论哪种情况，都可安全忽略。        
+	 *                                                 
 	 */
 	if (entry)
 	{
@@ -413,7 +413,7 @@ check_file_excluded(const char *path, bool is_source)
 	const char *filename;
 
 	/*
-	 * Skip all temporary files, .../pgsql_tmp/... and .../pgsql_tmp.*
+	 * 跳过所有临时文件，.../pgsql_tmp/...和.../pgsql_tmp.* 
 	 */
 	if (strstr(path, "/" PG_TEMP_FILE_PREFIX) != NULL ||
 		strstr(path, "/" PG_TEMP_FILES_DIR "/") != NULL)
@@ -447,8 +447,8 @@ check_file_excluded(const char *path, bool is_source)
 	}
 
 	/*
-	 * ... And check some directories.  Note that this includes any contents
-	 * within the directories themselves.
+	 * ... 并检查一些目录。注意这也包含目录本身           
+	 * 内部的任何内容。          
 	 */
 	for (excludeIdx = 0; excludeDirContents[excludeIdx] != NULL; excludeIdx++)
 	{
@@ -624,10 +624,10 @@ isRelDataFile(const char *path)
 	}
 
 	/*
-	 * The sscanf tests above can match files that have extra characters at
-	 * the end. To eliminate such cases, cross-check that GetRelationPath
-	 * creates the exact same filename, when passed the RelFileLocator
-	 * information we extracted from the filename.
+	 * 上述 sscanf 测试可能匹配末尾多余字符的文件。      
+	 * 为排除此类情况，交叉检查：用从文件名提取的   
+	 * RelFileLocator 信息调用 GetRelationPath，确              
+	 * 认生成相同的文件名。             
 	 */
 	if (matched)
 	{
@@ -700,8 +700,8 @@ decide_file_action(file_entry_t *entry)
 	const char *path = entry->path;
 
 	/*
-	 * Don't touch the control file. It is handled specially, after copying
-	 * all the other files.
+	 * 不要触碰控制文件。它在复制所有其他文件之        
+	 * 后特殊处理。  
 	 */
 	if (strcmp(path, "global/pg_control") == 0)
 		return FILE_ACTION_NONE;
@@ -711,7 +711,7 @@ decide_file_action(file_entry_t *entry)
 		return FILE_ACTION_NONE;
 
 	/*
-	 * Remove all files matching the exclusion filters in the target.
+	 * 移除目标中所有匹配排除过滤的文件。           
 	 */
 	if (check_file_excluded(path, true))
 	{
@@ -722,14 +722,14 @@ decide_file_action(file_entry_t *entry)
 	}
 
 	/*
-	 * Handle cases where the file is missing from one of the systems.
+	 * 处理文件在某一系统中缺失的情况。               
 	 */
 	if (!entry->target_exists && entry->source_exists)
 	{
 		/*
-		 * File exists in source, but not in target. Copy it in toto. (If it's
-		 * a relation data file, WAL replay after rewinding should re-create
-		 * it anyway. But there's no harm in copying it now.)
+		 * 源有目标无的文件，完整复制。（若为关系          
+		 * 数据文件，回绕后的 WAL 重放会重新创建它         
+		 * 但现在复制它也无害。）                 
 		 */
 		switch (entry->source_type)
 		{
@@ -746,8 +746,8 @@ decide_file_action(file_entry_t *entry)
 	else if (entry->target_exists && !entry->source_exists)
 	{
 		/*
-		 * For files that exist in target but not in source, we check the
-		 * keepwal hash table; any files listed therein must not be removed.
+		 * 对于目标存在而源不存在的文件，查keepwal哈希 
+		 * 表；其中列出的任何文件都不得移除。              
 		 */
 		if (keepwal_entry_exists(path))
 		{
@@ -759,15 +759,15 @@ decide_file_action(file_entry_t *entry)
 	else if (!entry->target_exists && !entry->source_exists)
 	{
 		/*
-		 * Doesn't exist in either server. Why does it have an entry in the
-		 * first place??
+		 * 在两个服务器中都不存在。为什么会有条目？！ 
+		 *              
 		 */
 		Assert(false);
 		return FILE_ACTION_NONE;
 	}
 
 	/*
-	 * Otherwise, the file exists on both systems
+	 * 否则，文件在两个系统中都存在
 	 */
 	Assert(entry->target_exists && entry->source_exists);
 
@@ -778,8 +778,8 @@ decide_file_action(file_entry_t *entry)
 	}
 
 	/*
-	 * PG_VERSION files should be identical on both systems, but avoid
-	 * overwriting them for paranoia.
+	 * PG_VERSION 文件在两个系统应相同，但为防万一， 
+	 * 避免覆盖它们。         
 	 */
 	if (pg_str_endswith(entry->path, "PG_VERSION"))
 		return FILE_ACTION_NONE;
@@ -792,7 +792,7 @@ decide_file_action(file_entry_t *entry)
 		case FILE_TYPE_SYMLINK:
 
 			/*
-			 * XXX: Should we check if it points to the same target?
+			 * XXX：是否应检查它指向相同的目标？     
 			 */
 			return FILE_ACTION_NONE;
 
@@ -800,36 +800,36 @@ decide_file_action(file_entry_t *entry)
 			if (!entry->isrelfile)
 			{
 				/*
-				 * It's a non-data file that we have no special processing
-				 * for. Copy it in toto.
+				 * 没有特殊处理的非数据文件。完整复制。 
+				 *                      
 				 */
 				return FILE_ACTION_COPY;
 			}
 			else
 			{
 				/*
-				 * It's a data file that exists in both systems.
+				 * 数据文件在两个系统中都存在。   
 				 *
-				 * If it's larger in target, we can truncate it. There will
-				 * also be a WAL record of the truncation in the source
-				 * system, so WAL replay would eventually truncate the target
-				 * too, but we might as well do it now.
+				 * 目标文件更大，可截断。源有截断的        
+				 * WAL记录，因此WAL重放最终也将截断       
+				 * 目标，但不如此时执行。                         
+				 *                                     
 				 *
-				 * If it's smaller in the target, it means that it has been
-				 * truncated in the target, or enlarged in the source, or
-				 * both. If it was truncated in the target, we need to copy
-				 * the missing tail from the source system. If it was enlarged
-				 * in the source system, there will be WAL records in the
-				 * source system for the new blocks, so we wouldn't need to
-				 * copy them here. But we don't know which scenario we're
-				 * dealing with, and there's no harm in copying the missing
-				 * blocks now, so do it now.
+				 * 目标文件更小意味被截断，或源中变大     
+				 * 或两者。若目标被截断，需从源复制缺失
+				 * 尾部。若源中变大，源系统有新块的WAL记  
+				 * 录，无需在此复制。不知哪个场景，缺块     
+				 * 复制也无害，现在就做。                     
+				 *                                                         
+				 *                                                       
+				 *                                                         
+				 *                          
 				 *
-				 * If it's the same size, do nothing here. Any blocks modified
-				 * in the target will be copied based on parsing the target
-				 * system's WAL, and any blocks modified in the source will be
-				 * updated after rewinding, when the source system's WAL is
-				 * replayed.
+				 * 大小相同则不操作。目标修改的块              
+				 * 将基于解析目标WAL复制，源修改的块        
+				 * 将在回绕后随源WAL                                   
+				 * 重放而                                               
+				 * 更新。
 				 */
 				if (entry->target_size < entry->source_size)
 					return FILE_ACTION_COPY_TAIL;
@@ -869,8 +869,8 @@ decide_file_actions(void)
 	}
 
 	/*
-	 * Turn the hash table into an array, and sort in the order that the
-	 * actions should be performed.
+	 * 将哈希表转为数组，并按操作应执行的              
+	 * 顺序排序。             
 	 */
 	filemap = pg_malloc(offsetof(filemap_t, entries) +
 						filehash->members * sizeof(file_entry_t *));

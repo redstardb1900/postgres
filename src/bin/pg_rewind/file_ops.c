@@ -169,7 +169,7 @@ create_target(file_entry_t *entry)
 			break;
 
 		case FILE_TYPE_REGULAR:
-			/* can't happen. Regular files are created with open_target_file. */
+			/* 不可能发生。普通文件由 open_target_file 创建。   */
 			pg_fatal("invalid action (CREATE) for regular file");
 			break;
 
@@ -404,12 +404,12 @@ recurse_dir(const char *datadir, const char *parentpath,
 			if (errno == ENOENT)
 			{
 				/*
-				 * File doesn't exist anymore. This is ok, if the new primary
-				 * is running and the file was just removed. If it was a data
-				 * file, there should be a WAL record of the removal. If it
-				 * was something else, it couldn't have been anyway.
+				 * 文件消失。若新主在跑且刚移除，没问题。 
+				 * 则正常。若是数据文件，移除应有WAL记录。 
+				 * 若是其他类型，本就无关紧要。              
+				 * 若非数据文件，本不可能有影响。    
 				 *
-				 * TODO: But complain if we're processing the target dir!
+				 * TODO: 但处理目标目录时应报错！            
 				 */
 			}
 			else
@@ -447,9 +447,9 @@ recurse_dir(const char *datadir, const char *parentpath,
 			callback(path, FILE_TYPE_SYMLINK, 0, link_target);
 
 			/*
-			 * If it's a symlink within pg_tblspc, we need to recurse into it,
-			 * to process all the tablespaces.  We also follow a symlink if
-			 * it's for pg_wal.  Symlinks elsewhere are ignored.
+			 * 若是 pg_tblspc 内符号链接，                            
+			 * 需递归处理所有表空间。                           
+			 * pg_wal 符号链接跟随，余忽略。         
 			 */
 			if ((parentpath && strcmp(parentpath, "pg_tblspc") == 0) ||
 				strcmp(path, "pg_wal") == 0)

@@ -102,8 +102,8 @@ extractPageMap(const char *datadir, XLogRecPtr startpoint, int tliIndex,
 	} while (xlogreader->EndRecPtr < endpoint);
 
 	/*
-	 * If 'endpoint' didn't point exactly at a record boundary, the caller
-	 * messed up.
+	 * 如果 'endpoint' 未精确指向记录边界，说明调用者
+	 * 搞错了。  
 	 */
 	if (xlogreader->EndRecPtr != endpoint)
 		pg_fatal("end pointer %X/%X is not a valid end point; expected %X/%X",
@@ -180,10 +180,10 @@ findLastCheckpoint(const char *datadir, XLogRecPtr forkptr, int tliIndex,
 	TimeLineID	current_tli = 0;
 
 	/*
-	 * The given fork pointer points to the end of the last common record,
-	 * which is not necessarily the beginning of the next record, if the
-	 * previous record happens to end at a page boundary. Skip over the page
-	 * header in that case to find the next record.
+	 * 给定的分叉指针指向最后一条公共记录的末尾，
+	 * 如果上一条记录恰好在页面边界结束，它不一定是
+	 * 下一条记录的开头。这种情况下跳过页面头，
+	 * 以找到下一条记录。                             
 	 */
 	if (forkptr % XLOG_BLCKSZ == 0)
 	{
@@ -240,9 +240,9 @@ findLastCheckpoint(const char *datadir, XLogRecPtr forkptr, int tliIndex,
 		}
 
 		/*
-		 * Check if it is a checkpoint record. This checkpoint record needs to
-		 * be the latest checkpoint before WAL forked and not the checkpoint
-		 * where the primary has been stopped to be rewound.
+		 * 检查是否是检查点记录。该检查点记录必须是
+		 * WAL 分叉前最新的检查点，而不是主库为倒回
+		 * 而停止时的检查点。                                    
 		 */
 		info = XLogRecGetInfo(xlogreader) & ~XLR_INFO_MASK;
 		if (searchptr < forkptr &&
@@ -287,8 +287,8 @@ SimpleXLogPageRead(XLogReaderState *xlogreader, XLogRecPtr targetPagePtr,
 	targetPageOff = XLogSegmentOffset(targetPagePtr, WalSegSz);
 
 	/*
-	 * See if we need to switch to a new segment because the requested record
-	 * is not in the currently open one.
+	 * 检查是否需要切换到新段，因为请求的记录不在
+	 * 当前打开的段中。                
 	 */
 	if (xlogreadfd >= 0 &&
 		!XLByteInSeg(targetPagePtr, xlogreadsegno, WalSegSz))
@@ -304,10 +304,10 @@ SimpleXLogPageRead(XLogReaderState *xlogreader, XLogRecPtr targetPagePtr,
 		char		xlogfname[MAXFNAMELEN];
 
 		/*
-		 * Since incomplete segments are copied into next timelines, switch to
-		 * the timeline holding the required segment. Assuming this scan can
-		 * be done both forward and backward, consider also switching timeline
-		 * accordingly.
+		 * 由于不完整段被复制到后续时间线中，切换到
+		 * 包含所需段的时间线。考虑到此扫描既可正向
+		 * 也可反向进行，同时也考虑相应地
+		 * 切换时间线。                            
 		 */
 		while (private->tliIndex < targetNentries - 1 &&
 			   targetHistory[private->tliIndex].end < targetSegEnd)
@@ -327,7 +327,7 @@ SimpleXLogPageRead(XLogReaderState *xlogreader, XLogRecPtr targetPagePtr,
 		if (xlogreadfd < 0)
 		{
 			/*
-			 * If we have no restore_command to execute, then exit.
+			 * 若没有 restore_command 可执行，则退出。  
 			 */
 			if (private->restoreCommand == NULL)
 			{
@@ -336,8 +336,8 @@ SimpleXLogPageRead(XLogReaderState *xlogreader, XLogRecPtr targetPagePtr,
 			}
 
 			/*
-			 * Since we have restore_command, then try to retrieve missing WAL
-			 * file from the archive.
+			 * 由于有 restore_command，尝试从归档中
+			 * 获取缺失的 WAL 文件。          
 			 */
 			xlogreadfd = RestoreArchivedFile(xlogreader->segcxt.ws_dir,
 											 xlogfname,
@@ -353,7 +353,7 @@ SimpleXLogPageRead(XLogReaderState *xlogreader, XLogRecPtr targetPagePtr,
 	}
 
 	/*
-	 * At this point, we have the right segment open.
+	 * 此时，正确的段已打开。             
 	 */
 	Assert(xlogreadfd != -1);
 
@@ -399,45 +399,45 @@ extractPageInfo(XLogReaderState *record)
 	if (rmid == RM_DBASE_ID && rminfo == XLOG_DBASE_CREATE_FILE_COPY)
 	{
 		/*
-		 * New databases can be safely ignored. It won't be present in the
-		 * source system, so it will be deleted. There's one corner-case,
-		 * though: if a new, different, database is also created in the source
-		 * system, we'll see that the files already exist and not copy them.
-		 * That's OK, though; WAL replay of creating the new database, from
-		 * the source systems's WAL, will re-copy the new database,
-		 * overwriting the database created in the target system.
+		 * 新建数据库可以安全忽略。它不会出现在源系统中，
+		 * 因此会被删除。但有一个边界情况：如果源系统中
+		 * 也创建了一个新的、不同的数据库，我们将看到
+		 * 文件已存在而不会复制它们。不过没关系；
+		 * 从源系统的 WAL 重放创建新数据库的过程，
+		 * 将重新复制新数据库，覆盖目标系统中
+		 * 创建的数据库。                                                
 		 */
 	}
 	else if (rmid == RM_DBASE_ID && rminfo == XLOG_DBASE_CREATE_WAL_LOG)
 	{
 		/*
-		 * New databases can be safely ignored. It won't be present in the
-		 * source system, so it will be deleted.
+		 * 新建数据库可以安全忽略。它不会出现在源系统中，
+		 * 因此会被删除。          
 		 */
 	}
 	else if (rmid == RM_DBASE_ID && rminfo == XLOG_DBASE_DROP)
 	{
 		/*
-		 * An existing database was dropped. We'll see that the files don't
-		 * exist in the target data dir, and copy them in toto from the source
-		 * system. No need to do anything special here.
+		 * 现有数据库被删除。我们将看到文件在目标数据
+		 * 目录中不存在，并从源系统完整复制它们。
+		 * 此处无需特殊处理。                            
 		 */
 	}
 	else if (rmid == RM_SMGR_ID && rminfo == XLOG_SMGR_CREATE)
 	{
 		/*
-		 * We can safely ignore these. The file will be removed from the
-		 * target, if it doesn't exist in source system. If a file with same
-		 * name is created in source system, too, there will be WAL records
-		 * for all the blocks in it.
+		 * 可以安全忽略。如果源系统中不存在该文件，
+		 * 它将从目标中删除。如果源系统中也创建了
+		 * 同名文件，则会有 WAL 记录覆盖其中的
+		 * 所有块。                                    
 		 */
 	}
 	else if (rmid == RM_SMGR_ID && rminfo == XLOG_SMGR_TRUNCATE)
 	{
 		/*
-		 * We can safely ignore these. When we compare the sizes later on,
-		 * we'll notice that they differ, and copy the missing tail from
-		 * source system.
+		 * 可以安全忽略。稍后比较大小时会发现
+		 * 它们不同，并从源系统复制
+		 * 缺失的尾部。                                 
 		 */
 	}
 	else if (rmid == RM_XACT_ID &&
@@ -447,17 +447,17 @@ extractPageInfo(XLogReaderState *record)
 			  (rminfo & XLOG_XACT_OPMASK) == XLOG_XACT_ABORT_PREPARED))
 	{
 		/*
-		 * These records can include "dropped rels". We can safely ignore
-		 * them, we will see that they are missing and copy them from the
-		 * source.
+		 * 这些记录可能包含"已删除的关系"。
+		 * 可以安全忽略它们，我们会发现
+		 * 它们缺失并从源中复制。         
 		 */
 	}
 	else if (info & XLR_SPECIAL_REL_UPDATE)
 	{
 		/*
-		 * This record type modifies a relation file in some special way, but
-		 * we don't recognize the type. That's bad - we don't know how to
-		 * track that change.
+		 * 此记录类型以某种特殊方式修改关系文件，但
+		 * 我们不认识该类型。这很糟糕——我们不知道
+		 * 如何跟踪该更改。  
 		 */
 		pg_fatal("WAL record modifies a relation, but record type is not recognized: "
 				 "lsn: %X/%X, rmid: %d, rmgr: %s, info: %02X",

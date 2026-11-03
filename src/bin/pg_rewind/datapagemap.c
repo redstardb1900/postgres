@@ -44,10 +44,10 @@ datapagemap_add(datapagemap_t *map, BlockNumber blkno)
 		int			newsize;
 
 		/*
-		 * The minimum to hold the new bit is offset + 1. But add some
-		 * headroom, so that we don't need to repeatedly enlarge the bitmap in
-		 * the common case that blocks are modified in order, from beginning
-		 * of a relation to the end.
+		 * 容纳新位最少需 offset + 1。多留余量，         
+		 * 避免块按序修改时反复扩展位图。                      
+		 *                                                                  
+		 *                          
 		 */
 		newsize = offset + 1;
 		newsize += 10;

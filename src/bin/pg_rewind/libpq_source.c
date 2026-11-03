@@ -29,7 +29,7 @@
 /* 表示从源获取文件片段的请求                                                   */
 typedef struct
 {
-	const char *path;			/* path relative to data directory root */
+	const char *path;			/* 相对数据目录根的路径       */
 	off_t		offset;
 	size_t		length;
 } fetch_range_request;
@@ -41,9 +41,9 @@ typedef struct
 	PGconn	   *conn;
 
 	/*
-	 * Queue of chunks that have been requested with the queue_fetch_range()
-	 * function, but have not been fetched from the remote server yet.
-	 */
+	 * 通过 queue_fetch_range() 请求、尚未从远程获取的块队列。
+	 *                                 
+	                             */
 	int			num_requests;
 	fetch_range_request request_queue[MAX_CHUNKS_PER_QUERY];
 
@@ -119,9 +119,9 @@ init_libpq_conn(PGconn *conn)
 	run_simple_command(conn, "SET idle_in_transaction_session_timeout = 0");
 
 	/*
-	 * we don't intend to do any updates, put the connection in read-only mode
-	 * to keep us honest
-	 */
+	 * 无更新意图，将连接置于只读模式以确保该约束。
+	 *        
+	                */
 	run_simple_command(conn, "SET default_transaction_read_only = on");
 
 	/* 安全 search_path     */
@@ -132,10 +132,10 @@ init_libpq_conn(PGconn *conn)
 	PQclear(res);
 
 	/*
-	 * Also check that full_page_writes is enabled.  We can get torn pages if
-	 * a page is modified while we read it with pg_read_binary_file(), and we
-	 * rely on full page images to fix them.
-	 */
+	 * 同样检查 full_page_writes 是否启用。通过 pg_read_binary_file()
+	 * 读页时若被修改会产生 torn page，依赖全页镜像修复。
+	 *                     
+	               */
 	str = run_simple_query(conn, "SHOW full_page_writes");
 	if (strcmp(str, "on") != 0)
 		pg_fatal("full_page_writes must be enabled in the source server");
@@ -238,15 +238,15 @@ libpq_traverse_files(rewind_source *source, process_file_callback_t callback)
 	int			i;
 
 	/*
-	 * Create a recursive directory listing of the whole data directory.
-	 *
-	 * The WITH RECURSIVE part does most of the work. The second part gets the
-	 * targets of the symlinks in pg_tblspc directory.
-	 *
-	 * XXX: There is no backend function to get a symbolic link's target in
-	 * general, so if the admin has put any custom symbolic links in the data
-	 * directory, they won't be copied correctly.
-	 */
+	 * 创建整个数据目录的递归文件列表。
+	 * 
+	 * WITH RECURSIVE 部分完成主要工作。第二部分获取 pg_tblspc 目录中的
+	 * 符号链接目标。
+	 * 
+	 * XXX: 尚无后端函数可通用获取符号链接目标地址，若管理员在数据目录
+	 * 中放置自定义符号链接，将无法正确复制。
+	 *                    
+	                                          */
 	sql =
 		"WITH RECURSIVE files (path, filename, size, isdir) AS (\n"
 		"  SELECT '' AS path, filename, size, isdir FROM\n"
@@ -287,9 +287,9 @@ libpq_traverse_files(rewind_source *source, process_file_callback_t callback)
 		if (PQgetisnull(res, i, 1))
 		{
 			/*
-			 * The file was removed from the server while the query was
-			 * running. Ignore it.
-			 */
+			 * 查询运行期间文件从服务器删除，忽略。
+			 *         
+			              */
 			continue;
 		}
 
@@ -317,25 +317,25 @@ static void
 libpq_queue_fetch_file(rewind_source *source, const char *path, size_t len)
 {
 	/*
-	 * Truncate the target file immediately, and queue a request to fetch it
-	 * from the source. If the file is small, smaller than MAX_CHUNK_SIZE,
-	 * request fetching a full-sized chunk anyway, so that if the file has
-	 * become larger in the source system, after we scanned the source
-	 * directory, we still fetch the whole file. This only works for files up
-	 * to MAX_CHUNK_SIZE, but that's good enough for small configuration files
-	 * and such that are changed every now and then, but not WAL-logged. For
-	 * larger files, we fetch up to the original size.
-	 *
-	 * Even with that mechanism, there is an inherent race condition if the
-	 * file is modified at the same instant that we're copying it, so that we
-	 * might copy a torn version of the file with one half from the old
-	 * version and another half from the new. But pg_basebackup has the same
-	 * problem, and it hasn't been a problem in practice.
-	 *
-	 * It might seem more natural to truncate the file later, when we receive
-	 * it from the source server, but then we'd need to track which
-	 * fetch-requests are for a whole file.
-	 */
+	 * 立即截断目标文件，排队从源获取。若文件小于 MAX_CHUNK_SIZE，
+	 * 仍请求完整块，以便扫描源目录后若文件变大，仍能获取完整
+	 * 文件。此机制仅对不超过 MAX_CHUNK_SIZE 的文件有效，但对于
+	 * 偶尔更改的小配置文件等（非 WAL 日志记录的）已足够。对于
+	 * 较大文件，最多获取到原始大小。
+	 * 
+	 * 即便如此仍存在固有竞态：若复制的同时文件被修改，可能得到
+	 * 撕裂版本（部分旧、部分新）。但 pg_basebackup 同样有此问题，
+	 * 实践中并未成为麻烦。
+	 * 
+	 * 收到文件后再截断看似更自然，但那样就需要跟踪哪些获取请求
+	 * 针对的是完整文件。
+	 * 
+	 * 
+	 * 
+	 * 
+	 * 
+	 * 
+	                                                                                                                                                                                                                                                                                                                                                    */
 	open_target_file(path, true);
 	libpq_queue_fetch_range(source, path, 0, Max(len, MAX_CHUNK_SIZE));
 }
@@ -350,14 +350,14 @@ libpq_queue_fetch_range(rewind_source *source, const char *path, off_t off,
 	libpq_source *src = (libpq_source *) source;
 
 	/*
-	 * Does this request happen to be a continuation of the previous chunk? If
-	 * so, merge it with the previous one.
-	 *
-	 * XXX: We use pointer equality to compare the path. That's good enough
-	 * for our purposes; the caller always passes the same pointer for the
-	 * same filename. If it didn't, we would fail to merge requests, but it
-	 * wouldn't affect correctness.
-	 */
+	 * 此请求是否恰为前一个块的延续？若是则合并。
+	 *       
+	 * 
+	 * XXX: 通过指针相等比较路径，对我们的场景已足够；
+	 * 调用者总对同一文件传相同指针，否则合并失败而不影响正确性。
+	 * 
+	 * 
+	                                                                                                                 */
 	if (src->num_requests > 0)
 	{
 		fetch_range_request *prev = &src->request_queue[src->num_requests - 1];
@@ -367,9 +367,9 @@ libpq_queue_fetch_range(rewind_source *source, const char *path, off_t off,
 			prev->path == path)
 		{
 			/*
-			 * Extend the previous request to cover as much of this new
-			 * request as possible, without exceeding MAX_CHUNK_SIZE.
-			 */
+			 * 扩展前一请求以尽量覆盖此新请求，不超出 MAX_CHUNK_SIZE。
+			 *                        
+			             */
 			size_t		thislen;
 
 			thislen = Min(len, MAX_CHUNK_SIZE - prev->length);
@@ -427,10 +427,10 @@ process_queued_fetch_requests(libpq_source *src)
 	pg_log_debug("getting %d file chunks", src->num_requests);
 
 	/*
-	 * The prepared statement, 'fetch_chunks_stmt', takes three arrays with
-	 * the same length as parameters: paths, offsets and lengths. Construct
-	 * the string representations of them.
-	 */
+	 * 预编译语句 fetch_chunks_stmt 以三个等长数组为参数：
+	 * paths、offsets 与 lengths。构造其字符串表示。
+	 *      
+	                                           */
 	resetStringInfo(&src->paths);
 	resetStringInfo(&src->offsets);
 	resetStringInfo(&src->lengths);
@@ -546,11 +546,11 @@ process_queued_fetch_requests(libpq_source *src)
 		chunk = PQgetvalue(res, 0, 2);
 
 		/*
-		 * If a file has been deleted on the source, remove it on the target
-		 * as well.  Note that multiple unlink() calls may happen on the same
-		 * file if multiple data chunks are associated with it, hence ignore
-		 * unconditionally anything missing.
-		 */
+		 * 若文件在源端已删除，同样在目标端删除。同一文件可能有多个
+		 * 数据块关联，可能多次 unlink()，因此无条件忽略任何缺失。
+		 * 
+		 * 
+		                                                                    */
 		if (PQgetisnull(res, 0, 2))
 		{
 			pg_log_debug("received null value for chunk for file \"%s\", file has been deleted",
@@ -572,13 +572,13 @@ process_queued_fetch_requests(libpq_source *src)
 						 (long long int) chunkoff, rq->path, (long long int) rq->offset);
 
 			/*
-			 * We should not receive more data than we requested, or
-			 * pg_read_binary_file() messed up.  We could receive less,
-			 * though, if the file was truncated in the source after we
-			 * checked its size. That's OK, there should be a WAL record of
-			 * the truncation, which will get replayed when you start the
-			 * target system for the first time after pg_rewind has completed.
-			 */
+			 * 不应接收超请求量的数据，否则 pg_read_binary_file() 出错。
+			 * 但可能收到更少，若源端在检查大小后被截断。这无妨，应有
+			 * WAL 记录记载该截断，pg_rewind 完成后首次启动目标时回放。
+			 * 
+			 * 
+			 * 
+			                                                                                                                   */
 			if (chunksize > rq->length)
 				pg_fatal("received more than requested for file \"%s\"", rq->path);
 

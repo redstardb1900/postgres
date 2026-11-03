@@ -219,7 +219,7 @@ main(int argc, char **argv)
 				break;
 
 			default:
-				/* getopt_long already emitted a complaint */
+				/* getopt_long 已发出投诉             */
 				pg_log_error_hint("Try \"%s --help\" for more information.", progname);
 				exit(1);
 		}
@@ -262,10 +262,10 @@ main(int argc, char **argv)
 	}
 
 	/*
-	 * Don't allow pg_rewind to be run as root, to avoid overwriting the
-	 * ownership of files in the data directory. We need only check for root
-	 * -- any other user won't have sufficient permissions to modify files in
-	 * the data directory.
+	 * 禁止 pg_rewind 以 root 身份运行                           
+	 * ，避免覆盖数据目录文件的所有权。只需检查         
+	 * root —— 任何其他用户都无足够权限修改                
+	 * 目录文件。    
 	 */
 #ifndef WIN32
 	if (geteuid() == 0)
@@ -291,8 +291,8 @@ main(int argc, char **argv)
 	atexit(disconnect_atexit);
 
 	/*
-	 * Ok, we have all the options and we're ready to start. First, connect to
-	 * remote server.
+	 * 好，选项就绪，准备开始。先连接远程服务器。        
+	 * 远程服。  
 	 */
 	if (connstr_source)
 	{
@@ -310,14 +310,14 @@ main(int argc, char **argv)
 		source = init_local_source(datadir_source);
 
 	/*
-	 * Check the status of the target instance.
+	 * 检查目标实例的状态。          
 	 *
-	 * If the target instance was not cleanly shut down, start and stop the
-	 * target cluster once in single-user mode to enforce recovery to finish,
-	 * ensuring that the cluster can be used by pg_rewind.  Note that if
-	 * no_ensure_shutdown is specified, pg_rewind ignores this step, and users
-	 * need to make sure by themselves that the target cluster is in a clean
-	 * state.
+	 * 若目标未干净关闭，以单用户启停集簇强制恢复，  
+	 * 确保集簇可被 pg_rewind 使用。若指定了                    
+	 * no_ensure_shutdown 则跳过此步，需自行确保             
+	 * 目标集簇处于干净状态。                                      
+	 * 状态。                                                            
+	 * 态。
 	 */
 	buffer = slurpFile(datadir_target, "global/pg_control", &size);
 	digestControlFile(&ControlFile_target, buffer, size);
@@ -341,12 +341,12 @@ main(int argc, char **argv)
 	sanityChecks();
 
 	/*
-	 * Usually, the TLI can be found in the latest checkpoint record. But if
-	 * the source server is just being promoted (or it's a standby that's
-	 * following a primary that's just being promoted), and the checkpoint
-	 * requested by the promotion hasn't completed yet, the latest timeline is
-	 * in minRecoveryPoint. So we check which is later, the TLI of the
-	 * minRecoveryPoint or the latest checkpoint.
+	 * TLI 通常取自最新检查点。若源刚提升（或备机跟随  
+	 * 的主库），且提升检查点未完成，时间线在         
+	 * minRecoveryPoint。故取 minRecoveryPoint 的 TLI                 
+	 * 与最新检查点 TLI 较晚者。                                    
+	 * 与最新检查点 TLI 较晚者。                            
+	 * 较晚者。                              
 	 */
 	source_tli = Max(ControlFile_source.minRecoveryPointTLI,
 					 ControlFile_source.checkPointCopy.ThisTimeLineID);
@@ -356,10 +356,10 @@ main(int argc, char **argv)
 					 ControlFile_target.checkPointCopy.ThisTimeLineID);
 
 	/*
-	 * Find the common ancestor timeline between the clusters.
+	 * 查找两集簇间的公共祖先时间线。          
 	 *
-	 * If both clusters are already on the same timeline, there's nothing to
-	 * do.
+	 * 若两集簇已在同一时间线，则无需做任何事。         
+	 * 。
 	 */
 	if (target_tli == source_tli)
 	{
@@ -374,8 +374,8 @@ main(int argc, char **argv)
 		int			sourceNentries;
 
 		/*
-		 * Retrieve timelines for both source and target, and find the point
-		 * where they diverged.
+		 * 获取源和目标的 timeline 历史，定位分岔点。       
+		 * 分岔点。        
 		 */
 		sourceHistory = getTimelineHistory(source_tli, true, &sourceNentries);
 		targetHistory = getTimelineHistory(target_tli, false, &targetNentries);
@@ -389,19 +389,19 @@ main(int argc, char **argv)
 					targetHistory[lastcommontliIndex].tli);
 
 		/*
-		 * Don't need the source history anymore. The target history is still
-		 * needed by the routines in parsexlog.c, when we read the target WAL.
+		 * 不再需要源 timeline 历史。目标历史仍由 parsexlog.c  
+		 * 读取目标 WAL 时所用。                                      
 		 */
 		pfree(sourceHistory);
 
 
 		/*
-		 * Determine the end-of-WAL on the target.
+		 * 确定目标侧的 WAL 结束位置。 
 		 *
-		 * The WAL ends at the last shutdown checkpoint, or at
-		 * minRecoveryPoint if it was a standby. (If we supported rewinding a
-		 * server that was not shut down cleanly, we would need to replay
-		 * until we reach the first invalid record, like crash recovery does.)
+		 * WAL 止于最后关机检查点，或备机的     
+		 * minRecoveryPoint。非干净关闭回绕需                       
+		 * 重放至第一个无效记录，同崩溃恢复。）        
+		 * 重放至首个无效记录，如崩溃恢复。）                
 		 */
 
 		/* 读取目标检查点记录以查看其结束位置。                                             */
@@ -420,9 +420,9 @@ main(int argc, char **argv)
 		}
 
 		/*
-		 * Check for the possibility that the target is in fact a direct
-		 * ancestor of the source. In that case, there is no divergent history
-		 * in the target that needs rewinding.
+		 * 检查目标是源的祖先，若是则目标中无          
+		 * 需回绕的分岔历史。                                        
+		 * 分岔历史。                    
 		 */
 		if (target_wal_endrec > divergerec)
 		{
@@ -458,7 +458,7 @@ main(int argc, char **argv)
 	filehash_init();
 
 	/*
-	 * Collect information about all files in the both data directories.
+	 * 收集两个数据目录中所有文件的信息。              
 	 */
 	if (showprogress)
 		pg_log_info("reading source file list");
@@ -469,9 +469,9 @@ main(int argc, char **argv)
 	traverse_datadir(datadir_target, &process_target_file);
 
 	/*
-	 * Read the target WAL from last checkpoint before the point of fork, to
-	 * extract all the pages that were modified on the target cluster after
-	 * the fork.
+	 * 读目标 WAL，从分岔前最后检查点起，提取目标集簇  
+	 * 分岔后被修改的所有页面。                                
+	 * 分岔。
 	 */
 	if (showprogress)
 		pg_log_info("reading WAL in target");
@@ -479,8 +479,8 @@ main(int argc, char **argv)
 				   target_wal_endrec, restore_command);
 
 	/*
-	 * We have collected all information we need from both systems. Decide
-	 * what to do with each file.
+	 * 已从两系统收集所有所需信息。决定每个文件       
+	 * 做何操作。           
 	 */
 	filemap = decide_file_actions();
 	if (showprogress)
@@ -491,7 +491,7 @@ main(int argc, char **argv)
 		print_filemap(filemap);
 
 	/*
-	 * Ok, we're ready to start copying things over.
+	 * 好，准备开始复制数据。            
 	 */
 	if (showprogress)
 	{
@@ -504,11 +504,11 @@ main(int argc, char **argv)
 	}
 
 	/*
-	 * We have now collected all the information we need from both systems,
-	 * and we are ready to start modifying the target directory.
+	 * 已从双方系统收集所有信息，即将修改目标目录。  
+	 * 标目录。                                             
 	 *
-	 * This is the point of no return. Once we start copying things, there is
-	 * no turning back!
+	 * 这是不归点。一旦开始复制，便无回头路！             
+	 * 不归路！    
 	 */
 	perform_rewind(filemap, source, chkptrec, chkpttli, chkptredo);
 
@@ -552,17 +552,17 @@ perform_rewind(filemap_t *filemap, rewind_source *source,
 	char	   *buffer;
 
 	/*
-	 * Execute the actions in the file map, fetching data from the source
-	 * system as needed.
+	 * 执行文件映射中的操作，按需从源获取数据。      
+	 * 获数据。     
 	 */
 	for (int i = 0; i < filemap->nentries; i++)
 	{
 		file_entry_t *entry = filemap->entries[i];
 
 		/*
-		 * If this is a relation file, copy the modified blocks.
+		 * 若为关系文件，复制其修改的数据块。  
 		 *
-		 * This is in addition to any other changes.
+		 * 此操作独立于任何其他变更。  
 		 */
 		if (entry->target_pages_to_overwrite.bitmapsize > 0)
 		{
@@ -621,20 +621,20 @@ perform_rewind(filemap_t *filemap, rewind_source *source,
 	progress_report(true);
 
 	/*
-	 * Fetch the control file from the source last. This ensures that the
-	 * minRecoveryPoint is up-to-date.
+	 * 最后从源获取控制文件，确保 minRecoveryPoint 最新。
+	 * 最新。                      
 	 */
 	buffer = source->fetch_file(source, "global/pg_control", &size);
 	digestControlFile(&ControlFile_source_after, buffer, size);
 	pg_free(buffer);
 
 	/*
-	 * Sanity check: If the source is a local system, the control file should
-	 * not have changed since we started.
+	 * 健全检查：本地源的控制文件不应在启动后改变。    
+	 * 化。                            
 	 *
-	 * XXX: We assume it hasn't been modified, but actually, what could go
-	 * wrong? The logic handles a libpq source that's modified concurrently,
-	 * why not a local datadir?
+	 * XXX：假定未变，但实际呢？libpq 源能并发修改，    
+	 * 为何不能处理本地数据目录的并发修改？               
+	 * 录？                  
 	 */
 	if (datadir_source &&
 		memcmp(&ControlFile_source, &ControlFile_source_after,
@@ -647,17 +647,17 @@ perform_rewind(filemap_t *filemap, rewind_source *source,
 		pg_log_info("creating backup label and updating control file");
 
 	/*
-	 * Create a backup label file, to tell the target where to begin the WAL
-	 * replay. Normally, from the last common checkpoint between the source
-	 * and the target. But if the source is a standby server, it's possible
-	 * that the last common checkpoint is *after* the standby's restartpoint.
-	 * That implies that the source server has applied the checkpoint record,
-	 * but hasn't performed a corresponding restartpoint yet. Make sure we
-	 * start at the restartpoint's redo point in that case.
+	 * 创建备份标签，告知WAL重放起点。通常为源            
+	 * 与目标的最后公共检查点。若源为备机，可能最后  
+	 * 检查点在备机重启点之后。即源已应用检查点但未  
+	 * 重启点。务必从重启点的 redo 点开始。                   
+	 * 重启点。务必从重启点的 redo 点开始。                   
+	 * 重启点。务必从重启点的 redo 点开始。                
+	 * redo 点开始。                                   
 	 *
-	 * Use the old version of the source's control file for this. The server
-	 * might have finished the restartpoint after we started copying files,
-	 * but we must begin from the redo point at the time that started copying.
+	 * 用旧源控制文件。服务器可能已在复制期间完成      
+	 * 重启点，但须从复制开始时的 redo 点出发。           
+	 * 重启点，但须从复制开始时的 redo 点出发。              
 	 */
 	if (ControlFile_source.checkPointCopy.redo < chkptredo)
 	{
@@ -668,21 +668,21 @@ perform_rewind(filemap_t *filemap, rewind_source *source,
 	createBackupLabel(chkptredo, chkpttli, chkptrec);
 
 	/*
-	 * Update control file of target, to tell the target how far it must
-	 * replay the WAL (minRecoveryPoint).
+	 * 更新目标控制文件，告知目标需重放多少 WAL       
+	 * (minRecoveryPoint)。             
 	 */
 	if (connstr_source)
 	{
 		/*
-		 * The source is a live server. Like in an online backup, it's
-		 * important that we recover all the WAL that was generated while we
-		 * were copying files.
+		 * 源为活跃服务器，如在线备份须恢复复制期  
+		 * 的 WAL。                                                       
+		 * 文件。          
 		 */
 		if (ControlFile_source_after.state == DB_IN_ARCHIVE_RECOVERY)
 		{
 			/*
-			 * Source is a standby server. We must replay to its
-			 * minRecoveryPoint.
+			 * 源是备机服务器。须重放到其          
+			 * minRecoveryPt。 
 			 */
 			endrec = ControlFile_source_after.minRecoveryPoint;
 			endtli = ControlFile_source_after.minRecoveryPointTLI;
@@ -690,8 +690,8 @@ perform_rewind(filemap_t *filemap, rewind_source *source,
 		else
 		{
 			/*
-			 * Source is a production, non-standby, server. We must replay to
-			 * the last WAL insert location.
+			 * 源是生产（非备机）服务器。须重放到最后     
+			 * WAL 插入位置。          
 			 */
 			if (ControlFile_source_after.state != DB_IN_PRODUCTION)
 				pg_fatal("source system was in unexpected state at end of rewind");
@@ -704,8 +704,8 @@ perform_rewind(filemap_t *filemap, rewind_source *source,
 	else
 	{
 		/*
-		 * Source is a local data directory. It should've shut down cleanly,
-		 * and we must replay to the latest shutdown checkpoint.
+		 * 源是本地数据目录。已干净关闭，须重放到最后  
+		 * 关机检查点。                                   
 		 */
 		endrec = ControlFile_source_after.checkPoint;
 		endtli = ControlFile_source_after.checkPointCopy.ThisTimeLineID;
@@ -738,8 +738,8 @@ sanityChecks(void)
 	}
 
 	/*
-	 * Target cluster need to use checksums or hint bit wal-logging, this to
-	 * prevent from data corruption that could occur because of hint bits.
+	 * 目标集簇需启用 checksum 或 hint bit WAL 记录，以         
+	 * 防 hint bit 导致数据损坏。                                 
 	 */
 	if (ControlFile_target.data_checksum_version != PG_DATA_CHECKSUM_VERSION &&
 		!ControlFile_target.wal_log_hints)
@@ -748,19 +748,19 @@ sanityChecks(void)
 	}
 
 	/*
-	 * Target cluster better not be running. This doesn't guard against
-	 * someone starting the cluster concurrently. Also, this is probably more
-	 * strict than necessary; it's OK if the target node was not shut down
-	 * cleanly, as long as it isn't running at the moment.
+	 * 目标集簇最好别运行。难防并发。可能偏严格； 
+	 * 只要当前未运行，未干净关闭亦可。                      
+	 * 只要当前未运行，未干净关闭亦可。                   
+	 * 。                                                
 	 */
 	if (ControlFile_target.state != DB_SHUTDOWNED &&
 		ControlFile_target.state != DB_SHUTDOWNED_IN_RECOVERY)
 		pg_fatal("target server must be shut down cleanly");
 
 	/*
-	 * When the source is a data directory, also require that the source
-	 * server is shut down. There isn't any very strong reason for this
-	 * limitation, but better safe than sorry.
+	 * 源为数据目录时亦要求源已关。虽理由不充分，  
+	 * 但小心驶得万年船。                                     
+	 * 。                                    
 	 */
 	if (datadir_source &&
 		ControlFile_source.state != DB_SHUTDOWNED &&
@@ -797,10 +797,10 @@ progress_report(bool finished)
 	percent = fetch_size ? (int) ((fetch_done) * 100 / fetch_size) : 0;
 
 	/*
-	 * Avoid overflowing past 100% or the full size. This may make the total
-	 * size number change as we approach the end of the backup (the estimate
-	 * will always be wrong if WAL is included), but that's better than having
-	 * the done column be bigger than the total.
+	 * 防溢出 100% 或总量。接近末尾时总量值可能变化      
+	 * （含 WAL 时估计不准），但好过已完成列大于总量。 
+	 * 已完成列大于总量。                                            
+	 * 列大于总量。                       
 	 */
 	if (percent > 100)
 		percent = 100;
@@ -817,8 +817,8 @@ progress_report(bool finished)
 			percent);
 
 	/*
-	 * Stay on the same line if reporting to a terminal and we're not done
-	 * yet.
+	 * 若输出到终端且未完成，保持在同行。                
+	 * 。 
 	 */
 	fputc((!finished && isatty(fileno(stderr))) ? '\r' : '\n', stderr);
 }
@@ -848,8 +848,8 @@ getTimelineHistory(TimeLineID tli, bool is_source, int *nentries)
 	TimeLineHistoryEntry *history;
 
 	/*
-	 * Timeline 1 does not have a history file, so there is no need to check
-	 * and fake an entry with infinite start and end positions.
+	 * Timeline 1 无历史文件，无需检查，伪造一起止条目。 
+	 * 条目。                                               
 	 */
 	if (tli == 1)
 	{
@@ -914,12 +914,12 @@ findCommonAncestorTimeline(TimeLineHistoryEntry *a_history, int a_nentries,
 				n;
 
 	/*
-	 * Trace the history forward, until we hit the timeline diverge. It may
-	 * still be possible that the source and target nodes used the same
-	 * timeline number in their history but with different start position
-	 * depending on the history files that each node has fetched in previous
-	 * recovery processes. Hence check the start position of the new timeline
-	 * as well and move down by one extra timeline entry if they do not match.
+	 * 向前追溯至 timeline 分岔。源和目标可用相同          
+	 * timeline 号，但因各自恢复获取的历史文件不同， 
+	 * 起始位置可不同。需检查新 timeline 起始位置，     
+	 * 若不匹配则下移一条额外 timeline 条目。                 
+	 * 若不匹配则下移一条额外 timeline 条目。                  
+	 * 不匹配则多移一 timeline 条目。                               
 	 */
 	n = Min(a_nentries, b_nentries);
 	for (i = 0; i < n; i++)
@@ -1069,8 +1069,8 @@ getRestoreCommand(const char *argv0)
 	}
 
 	/*
-	 * Build a command able to retrieve the value of GUC parameter
-	 * restore_command, if set.
+	 * 构造命令以获取 GUC restore_command 值（若设）  
+	 * 。                     
 	 */
 	postgres_cmd = createPQExpBuffer();
 
@@ -1142,16 +1142,16 @@ ensureCleanShutdown(const char *argv0)
 				exec_path);
 
 	/*
-	 * Skip processing if requested, but only after ensuring presence of
-	 * postgres.
+	 * 如需跳过则跳过，但仅在确认 postgres 存在后。    
+	 * 。      
 	 */
 	if (dry_run)
 		return;
 
 	/*
-	 * Finally run postgres in single-user mode.  There is no need to use
-	 * fsync here.  This makes the recovery faster, and the target data folder
-	 * is synced at the end anyway.
+	 * 最后单用户模式运行 postgres。无需 fsync，恢复更快
+	 * ，目标数据目录最终会同步。                                
+	 * 。                         
 	 */
 	postgres_cmd = createPQExpBuffer();
 

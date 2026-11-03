@@ -22,7 +22,7 @@ typedef struct
 {
 	rewind_source common;		/* common interface functions */
 
-	const char *datadir;		/* path to the source data directory */
+	const char *datadir;		/* 指向源数据目录的路径    */
 } local_source;
 
 static void local_traverse_files(rewind_source *source,
@@ -110,8 +110,8 @@ local_queue_fetch_file(rewind_source *source, const char *path, size_t len)
 	}
 
 	/*
-	 * A local source is not expected to change while we're rewinding, so
-	 * check that the size of the file matches our earlier expectation.
+	 * 本地源在回绕期间不应变化，                           
+	 * 因此检查文件大小是否与预期一致。                
 	 */
 	if (written_len != len)
 		pg_fatal("size of source file \"%s\" changed concurrently: %d bytes expected, %d copied",

@@ -27,13 +27,13 @@
 #include "storage/checksum_impl.h"
 
 
-/*
- * cloneFile()
+/*将关系文件从 src 克隆/重链接到 dst。schemaName/relName 仅用于错误消息。
+ * 
  *
- * Clones/reflinks a relation file from src to dst.
+ * 
  *
- * schemaName/relName are relation's SQL name (used for error messages only).
- */
+ * 
+                                          */
 void
 cloneFile(const char *src, const char *dst,
 		  const char *schemaName, const char *relName)
@@ -71,12 +71,12 @@ cloneFile(const char *src, const char *dst,
 }
 
 
-/*
- * copyFile()
+/*将关系文件从 src 复制到 dst。schemaName/relName 仅用于错误消息。
+ * 
  *
- * Copies a relation file from src to dst.
- * schemaName/relName are relation's SQL name (used for error messages only).
- */
+ * 
+ * 
+                                          */
 void
 copyFile(const char *src, const char *dst,
 		 const char *schemaName, const char *relName)
@@ -95,12 +95,12 @@ copyFile(const char *src, const char *dst,
 		pg_fatal("error while copying relation \"%s.%s\": could not create file \"%s\": %s",
 				 schemaName, relName, dst, strerror(errno));
 
-	/* copy in fairly large chunks for best efficiency */
+	/* 大块复制求最佳效率                     */
 #define COPY_BUF_SIZE (50 * BLCKSZ)
 
 	buffer = (char *) pg_malloc(COPY_BUF_SIZE);
 
-	/* perform data copying i.e read src source, write to destination */
+	/* 执行数据复制：读 src，写 dst                         */
 	while (true)
 	{
 		ssize_t		nbytes = read(src_fd, buffer, COPY_BUF_SIZE);
@@ -115,7 +115,7 @@ copyFile(const char *src, const char *dst,
 		errno = 0;
 		if (write(dest_fd, buffer, nbytes) != nbytes)
 		{
-			/* if write didn't set errno, assume problem is no disk space */
+			/* write 未设 errno 则假设盘空不足                   */
 			if (errno == 0)
 				errno = ENOSPC;
 			pg_fatal("error while copying relation \"%s.%s\": could not write file \"%s\": %s",
@@ -140,12 +140,12 @@ copyFile(const char *src, const char *dst,
 }
 
 
-/*
- * linkFile()
+/*计算旧格式每新页的字节数
+ * 
  *
- * Hard-links a relation file from src to dst.
- * schemaName/relName are relation's SQL name (used for error messages only).
- */
+ * 
+ * 
+                                                                                            */
 void
 linkFile(const char *src, const char *dst,
 		 const char *schemaName, const char *relName)
@@ -156,22 +156,22 @@ linkFile(const char *src, const char *dst,
 }
 
 
-/*
- * rewriteVisibilityMap()
+/*保存旧文件大小
+ * 
  *
- * Transform a visibility map file, copying from src to dst.
- * schemaName/relName are relation's SQL name (used for error messages only).
+ * 
+ * 
  *
- * In versions of PostgreSQL prior to catversion 201603011, PostgreSQL's
- * visibility map included one bit per heap page; it now includes two.
- * When upgrading a cluster from before that time to a current PostgreSQL
- * version, we could refuse to copy visibility maps from the old cluster
- * to the new cluster; the next VACUUM would recreate them, but at the
- * price of scanning the entire table.  So, instead, we rewrite the old
- * visibility maps in the new format.  That way, the all-visible bits
- * remain set for the pages for which they were set previously.  The
- * all-frozen bits are never set by this conversion; we leave that to VACUUM.
- */
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            */
 void
 rewriteVisibilityMap(const char *fromfile, const char *tofile,
 					 const char *schemaName, const char *relName)
@@ -202,15 +202,15 @@ rewriteVisibilityMap(const char *fromfile, const char *tofile,
 		pg_fatal("error while copying relation \"%s.%s\": could not create file \"%s\": %s",
 				 schemaName, relName, tofile, strerror(errno));
 
-	/* Save old file size */
+	/* 保存页头       */
 	src_filesize = statbuf.st_size;
 
-	/*
-	 * Turn each visibility map page into 2 pages one by one. Each new page
-	 * has the same page header as the old one.  If the last section of the
-	 * last page is empty, we skip it, mostly to avoid turning one-page
-	 * visibility maps for small relations into two pages needlessly.
-	 */
+	/*old_cur/blkend/break 指向旧 VM 页位置。blkend 块尾，break 是传输到当前新页的结束位。
+	 * 
+	 * 
+	 * 
+	 * 
+	                                                                                                                                                            */
 	while (totalBytesRead < src_filesize)
 	{
 		ssize_t		bytesRead;
@@ -233,15 +233,15 @@ rewriteVisibilityMap(const char *fromfile, const char *tofile,
 		totalBytesRead += BLCKSZ;
 		old_lastblk = (totalBytesRead == src_filesize);
 
-		/* Save the page header data */
+		/* 先拷旧页头到新页  */
 		memcpy(&pageheader, buffer.data, SizeOfPageHeaderData);
 
-		/*
-		 * These old_* variables point to old visibility map page. old_cur
-		 * points to current position on old page. old_blkend points to end of
-		 * old block.  old_break is the end+1 position on the old page for the
-		 * data that will be transferred to the current new page.
-		 */
+		/*是重写旧页最后一页最后部分？
+		 * 
+		 * 
+		 * 
+		 * 
+		                                                                                                                                                                                                                  */
 		old_cur = buffer.data + SizeOfPageHeaderData;
 		old_blkend = buffer.data + bytesRead;
 		old_break = old_cur + rewriteVmBytesPerPage;
@@ -252,22 +252,22 @@ rewriteVisibilityMap(const char *fromfile, const char *tofile,
 			bool		empty = true;
 			bool		old_lastpart;
 
-			/* First, copy old page header to new page */
+			/* 逐字节处旧页转新页             */
 			memcpy(new_vmbuf.data, &pageheader, SizeOfPageHeaderData);
 
-			/* Rewriting the last part of the last old page? */
+			/* 生新格式位保留旧信息                */
 			old_lastpart = old_lastblk && (old_break == old_blkend);
 
 			new_cur = new_vmbuf.data + SizeOfPageHeaderData;
 
-			/* Process old page bytes one by one, and turn it into new page. */
+			/* 拷新 VM 字节到新格式页                               */
 			while (old_cur < old_break)
 			{
 				uint8		byte = *(uint8 *) old_cur;
 				uint16		new_vmbits = 0;
 				int			i;
 
-				/* Generate new format bits while keeping old information */
+				/* 末页末空则跳写                                  */
 				for (i = 0; i < BITS_PER_BYTE; i++)
 				{
 					if (byte & (1 << i))
@@ -278,7 +278,7 @@ rewriteVisibilityMap(const char *fromfile, const char *tofile,
 					}
 				}
 
-				/* Copy new visibility map bytes to new-format page */
+				/* 启用时为 VM 页设新校验                  */
 				new_cur[0] = (char) (new_vmbits & 0xFF);
 				new_cur[1] = (char) (new_vmbits >> 8);
 
@@ -286,11 +286,11 @@ rewriteVisibilityMap(const char *fromfile, const char *tofile,
 				new_cur += BITS_PER_HEAPBLOCK;
 			}
 
-			/* If the last part of the last page is empty, skip writing it */
+			/* write 未设 errno 则假设盘空不足                    */
 			if (old_lastpart && empty)
 				break;
 
-			/* Set new checksum for visibility map page, if enabled */
+			/* 前进下页                                         */
 			if (new_cluster.controldata.data_checksum_version != 0)
 				((PageHeader) new_vmbuf.data)->pd_checksum =
 					pg_checksum_page(new_vmbuf.data, new_blkno);
@@ -298,14 +298,14 @@ rewriteVisibilityMap(const char *fromfile, const char *tofile,
 			errno = 0;
 			if (write(dst_fd, new_vmbuf.data, BLCKSZ) != BLCKSZ)
 			{
-				/* if write didn't set errno, assume problem is no disk space */
+				/* 清理                                                     */
 				if (errno == 0)
 					errno = ENOSPC;
 				pg_fatal("error while copying relation \"%s.%s\": could not write file \"%s\": %s",
 						 schemaName, relName, tofile, strerror(errno));
 			}
 
-			/* Advance for next new page */
+			/* 可能失                 */
 			old_break += rewriteVmBytesPerPage;
 			new_blkno++;
 		}

@@ -1,0 +1,345 @@
+{
+  "schema_version": 1,
+  "batch_id": "0258-comment-pg_upgrade",
+  "title": "translate pg_upgrade comments — batch 0258",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "7803c044108ce42fadc77b4d6accb344f2a707f3",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/bin/pg_upgrade/check.c",
+      "kind": "c_comment",
+      "note": "batch 0258 check.c"
+    },
+    {
+      "pattern": "src/bin/pg_upgrade/controldata.c",
+      "kind": "c_comment",
+      "note": "batch 0258 controldata.c"
+    },
+    {
+      "pattern": "src/bin/pg_upgrade/dump.c",
+      "kind": "c_comment",
+      "note": "batch 0258 dump.c"
+    },
+    {
+      "pattern": "src/bin/pg_upgrade/exec.c",
+      "kind": "c_comment",
+      "note": "batch 0258 exec.c"
+    },
+    {
+      "pattern": "src/bin/pg_upgrade/file.c",
+      "kind": "c_comment",
+      "note": "batch 0258 file.c"
+    },
+    {
+      "pattern": "src/bin/pg_upgrade/function.c",
+      "kind": "c_comment",
+      "note": "batch 0258 function.c"
+    },
+    {
+      "pattern": "src/bin/pg_upgrade/info.c",
+      "kind": "c_comment",
+      "note": "batch 0258 info.c"
+    },
+    {
+      "pattern": "src/bin/pg_upgrade/option.c",
+      "kind": "c_comment",
+      "note": "batch 0258 option.c"
+    },
+    {
+      "pattern": "src/bin/pg_upgrade/parallel.c",
+      "kind": "c_comment",
+      "note": "batch 0258 parallel.c"
+    },
+    {
+      "pattern": "src/bin/pg_upgrade/pg_upgrade.c",
+      "kind": "c_comment",
+      "note": "batch 0258 pg_upgrade.c"
+    },
+    {
+      "pattern": "src/bin/pg_upgrade/relfilenumber.c",
+      "kind": "c_comment",
+      "note": "batch 0258 relfilenumber.c"
+    },
+    {
+      "pattern": "src/bin/pg_upgrade/server.c",
+      "kind": "c_comment",
+      "note": "batch 0258 server.c"
+    },
+    {
+      "pattern": "src/bin/pg_upgrade/tablespace.c",
+      "kind": "c_comment",
+      "note": "batch 0258 tablespace.c"
+    },
+    {
+      "pattern": "src/bin/pg_upgrade/util.c",
+      "kind": "c_comment",
+      "note": "batch 0258 util.c"
+    },
+    {
+      "pattern": "src/bin/pg_upgrade/version.c",
+      "kind": "c_comment",
+      "note": "batch 0258 version.c"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0258-comment-pg_upgrade.json",
+      "kind": "manifest",
+      "note": "batch 0258 manifest"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/bin/pg_upgrade/check.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 78,
+      "translated": 58,
+      "preserved": 20,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "17": "overflow",
+        "22": "overflow",
+        "26": "overflow",
+        "30": "overflow",
+        "36": "overflow",
+        "38": "overflow",
+        "41": "overflow",
+        "43": "overflow",
+        "45": "overflow",
+        "47": "overflow",
+        "48": "overflow",
+        "50": "overflow",
+        "53": "overflow",
+        "60": "overflow",
+        "61": "overflow",
+        "62": "overflow",
+        "75": "overflow",
+        "76": "overflow",
+        "77": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_upgrade/controldata.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 51,
+      "translated": 50,
+      "preserved": 1,
+      "preserved_reasons": {
+        "0": "copyright_header"
+      }
+    },
+    {
+      "path": "src/bin/pg_upgrade/dump.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 4,
+      "translated": 2,
+      "preserved": 2,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "2": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_upgrade/exec.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 31,
+      "translated": 19,
+      "preserved": 12,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "8": "overflow",
+        "10": "overflow",
+        "12": "overflow",
+        "13": "overflow",
+        "16": "overflow",
+        "21": "overflow",
+        "23": "overflow",
+        "25": "overflow",
+        "27": "overflow",
+        "29": "overflow",
+        "30": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_upgrade/file.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 27,
+      "translated": 20,
+      "preserved": 7,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "6": "overflow",
+        "7": "overflow",
+        "10": "overflow",
+        "24": "overflow",
+        "25": "overflow",
+        "26": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_upgrade/function.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 2,
+      "preserved": 6,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "1": "overflow",
+        "2": "overflow",
+        "4": "overflow",
+        "5": "overflow",
+        "6": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_upgrade/info.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 38,
+      "translated": 31,
+      "preserved": 7,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "24": "overflow",
+        "26": "overflow",
+        "29": "overflow",
+        "33": "overflow",
+        "34": "overflow",
+        "37": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_upgrade/option.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 28,
+      "translated": 17,
+      "preserved": 11,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "2": "overflow",
+        "3": "overflow",
+        "8": "overflow",
+        "9": "overflow",
+        "10": "overflow",
+        "11": "overflow",
+        "17": "overflow",
+        "24": "overflow",
+        "25": "overflow",
+        "27": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_upgrade/parallel.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 38,
+      "translated": 29,
+      "preserved": 9,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "12": "overflow",
+        "15": "overflow",
+        "17": "overflow",
+        "25": "overflow",
+        "33": "overflow",
+        "34": "overflow",
+        "36": "overflow",
+        "37": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_upgrade/pg_upgrade.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 64,
+      "translated": 59,
+      "preserved": 5,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "14": "overflow",
+        "16": "overflow",
+        "17": "overflow",
+        "63": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_upgrade/relfilenumber.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 21,
+      "translated": 18,
+      "preserved": 3,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "4": "overflow",
+        "16": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_upgrade/server.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 23,
+      "translated": 22,
+      "preserved": 1,
+      "preserved_reasons": {
+        "0": "copyright_header"
+      }
+    },
+    {
+      "path": "src/bin/pg_upgrade/tablespace.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 5,
+      "translated": 2,
+      "preserved": 3,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "1": "overflow",
+        "2": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_upgrade/util.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 34,
+      "translated": 28,
+      "preserved": 6,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "16": "overflow",
+        "29": "overflow",
+        "31": "overflow",
+        "32": "overflow",
+        "33": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_upgrade/version.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 21,
+      "translated": 20,
+      "preserved": 1,
+      "preserved_reasons": {
+        "0": "copyright_header"
+      }
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0258-comment-pg_upgrade.json",
+      "kind": "manifest",
+      "action": "add",
+      "translated": 0,
+      "preserved": 0,
+      "segments_total": 0
+    }
+  ]
+}

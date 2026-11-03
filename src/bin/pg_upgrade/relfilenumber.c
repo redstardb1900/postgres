@@ -19,12 +19,12 @@ static void transfer_single_new_db(FileNameMap *maps, int size, char *old_tables
 static void transfer_relfile(FileNameMap *map, const char *type_suffix, bool vm_must_add_frozenbit);
 
 
-/*
- * transfer_all_new_tablespaces()
+/*升级所有数据库：生成映射并物理链接。
+ * 
  *
- * Responsible for upgrading all database. invokes routines to generate mappings and then
- * physically link the databases.
- */
+ * 
+ * 
+                                                                                             */
 void
 transfer_all_new_tablespaces(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 							 char *old_pgdata, char *new_pgdata)
@@ -42,13 +42,13 @@ transfer_all_new_tablespaces(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 			break;
 	}
 
-	/*
-	 * Transferring files by tablespace is tricky because a single database
-	 * can use multiple tablespaces.  For non-parallel mode, we just pass a
-	 * NULL tablespace path, which matches all tablespaces.  In parallel mode,
-	 * we pass the default tablespace and all user-created tablespaces and let
-	 * those operations happen in parallel.
-	 */
+	/*按表空间传输较复杂因单数据库可用多表空间。非并行模式传 NULL 匹配所有。并行模式传默认和用户表空间并行操作。
+	 * 
+	 * 
+	 * 
+	 * 
+	 * 
+	                                                                                                                                                               */
 	if (user_opts.jobs <= 1)
 		parallel_transfer_all_new_dbs(old_db_arr, new_db_arr, old_pgdata,
 									  new_pgdata, NULL);
@@ -56,7 +56,7 @@ transfer_all_new_tablespaces(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 	{
 		int			tblnum;
 
-		/* transfer default tablespace */
+		/* 传输默认表空间       */
 		parallel_transfer_all_new_dbs(old_db_arr, new_db_arr, old_pgdata,
 									  new_pgdata, old_pgdata);
 
@@ -76,12 +76,12 @@ transfer_all_new_tablespaces(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 }
 
 
-/*
- * transfer_all_new_dbs()
+/*升级所有数据库：生成映射并物理链接。
+ * 
  *
- * Responsible for upgrading all database. invokes routines to generate mappings and then
- * physically link the databases.
- */
+ * 
+ * 
+                                                                                     */
 void
 transfer_all_new_dbs(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 					 char *old_pgdata, char *new_pgdata, char *old_tablespace)
@@ -89,7 +89,7 @@ transfer_all_new_dbs(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 	int			old_dbnum,
 				new_dbnum;
 
-	/* Scan the old cluster databases and transfer their files */
+	/* 扫描旧集簇 DB 传输文件                         */
 	for (old_dbnum = new_dbnum = 0;
 		 old_dbnum < old_db_arr->ndbs;
 		 old_dbnum++, new_dbnum++)
@@ -99,11 +99,11 @@ transfer_all_new_dbs(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 		FileNameMap *mappings;
 		int			n_maps;
 
-		/*
-		 * Advance past any databases that exist in the new cluster but not in
-		 * the old, e.g. "postgres".  (The user might have removed the
-		 * 'postgres' database from the old cluster.)
-		 */
+		/*跳过仅新集簇有的数据库（如 postgres），因用户可能已删除。
+		 * 
+		 * 
+		 * 
+		                                                                                        */
 		for (; new_dbnum < new_db_arr->ndbs; new_dbnum++)
 		{
 			new_db = &new_db_arr->dbs[new_dbnum];
@@ -121,25 +121,25 @@ transfer_all_new_dbs(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 		{
 			transfer_single_new_db(mappings, n_maps, old_tablespace);
 		}
-		/* We allocate something even for n_maps == 0 */
+		/* 即使 n_maps==0 也分配内存           */
 		pg_free(mappings);
 	}
 }
 
-/*
- * transfer_single_new_db()
+/*为映射数组创建链接。
+ * 
  *
- * create links for mappings stored in "maps" array.
- */
+ * 
+                                            */
 static void
 transfer_single_new_db(FileNameMap *maps, int size, char *old_tablespace)
 {
 	int			mapnum;
 	bool		vm_must_add_frozenbit = false;
 
-	/*
-	 * Do we need to rewrite visibilitymap?
-	 */
+	/*需重写可见性映射？
+	 * 
+	          */
 	if (old_cluster.controldata.cat_ver < VISIBILITY_MAP_FROZEN_BIT_CAT_VER &&
 		new_cluster.controldata.cat_ver >= VISIBILITY_MAP_FROZEN_BIT_CAT_VER)
 		vm_must_add_frozenbit = true;
@@ -149,12 +149,12 @@ transfer_single_new_db(FileNameMap *maps, int size, char *old_tablespace)
 		if (old_tablespace == NULL ||
 			strcmp(maps[mapnum].old_tablespace, old_tablespace) == 0)
 		{
-			/* transfer primary file */
+			/* 传输主文件       */
 			transfer_relfile(&maps[mapnum], "", vm_must_add_frozenbit);
 
-			/*
-			 * Copy/link any fsm and vm files, if they exist
-			 */
+			/*复制/链接任何 fsm 和 vm 文件
+			 * 
+			         */
 			transfer_relfile(&maps[mapnum], "_fsm", vm_must_add_frozenbit);
 			transfer_relfile(&maps[mapnum], "_vm", vm_must_add_frozenbit);
 		}
@@ -162,13 +162,13 @@ transfer_single_new_db(FileNameMap *maps, int size, char *old_tablespace)
 }
 
 
-/*
- * transfer_relfile()
+/*从旧集簇复制或链接文件到新集簇。vm_must_add_frozenbit 为 true 时，vm 叉即使链接模式也重写。
+ * 
  *
- * Copy or link file from old cluster to new one.  If vm_must_add_frozenbit
- * is true, visibility map forks are converted and rewritten, even in link
- * mode.
- */
+ * 
+ * 
+ * 
+                                              */
 static void
 transfer_relfile(FileNameMap *map, const char *type_suffix, bool vm_must_add_frozenbit)
 {
@@ -178,11 +178,11 @@ transfer_relfile(FileNameMap *map, const char *type_suffix, bool vm_must_add_fro
 	char		extent_suffix[65];
 	struct stat statbuf;
 
-	/*
-	 * Now copy/link any related segments as well. Remember, PG breaks large
-	 * files into 1GB segments, the first segment has no extension, subsequent
-	 * segments are named relfilenumber.1, relfilenumber.2, relfilenumber.3.
-	 */
+	/*复制/链接段文件。PG 将大文件分成 1GB 段，首段无后缀，后续为 .1, .2, .3。
+	 * 
+	 * 
+	 * 
+	                                                                                                                */
 	for (segno = 0;; segno++)
 	{
 		if (segno == 0)
@@ -205,13 +205,13 @@ transfer_relfile(FileNameMap *map, const char *type_suffix, bool vm_must_add_fro
 				 type_suffix,
 				 extent_suffix);
 
-		/* Is it an extent, fsm, or vm file? */
+		/* 是段/fsm/vm？                  */
 		if (type_suffix[0] != '\0' || segno != 0)
 		{
 			/* Did file open fail? */
 			if (stat(old_file, &statbuf) != 0)
 			{
-				/* File does not exist?  That's OK, just return */
+				/* 文件不存在？返回                     */
 				if (errno == ENOENT)
 					return;
 				else
@@ -220,19 +220,19 @@ transfer_relfile(FileNameMap *map, const char *type_suffix, bool vm_must_add_fro
 							 strerror(errno));
 			}
 
-			/* If file is empty, just return */
+			/* 文件空则返回            */
 			if (statbuf.st_size == 0)
 				return;
 		}
 
 		unlink(new_file);
 
-		/* Copying files might take some time, so give feedback. */
+		/* 复制耗时，给进度反馈                        */
 		pg_log(PG_STATUS, "%s", old_file);
 
 		if (vm_must_add_frozenbit && strcmp(type_suffix, "_vm") == 0)
 		{
-			/* Need to rewrite visibility map format */
+			/* 需重写 VM 格式                   */
 			pg_log(PG_VERBOSE, "rewriting \"%s\" to \"%s\"",
 				   old_file, new_file);
 			rewriteVisibilityMap(old_file, new_file, map->nspname, map->relname);

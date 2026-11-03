@@ -7,32 +7,32 @@
  *	src/bin/pg_upgrade/pg_upgrade.c
  */
 
-/*
- *	To simplify the upgrade process, we force certain system values to be
- *	identical between old and new clusters:
+/*简化升级：强制新旧集簇间系统值一致。控 pg_class.oid 和 relfilenode 赋值使 toast oid 一致（因 toast 指针存于用户表）。虽 oid 和 relfilenode 初始同但 CLUSTER/REINDEX/VACUUM FULL 可使其不同，控 relfilenode 分配使文件名匹配。控 pg_tablespace.oid 使 oid 匹配。控 pg_type.oid 因存于用户复合类型。控 pg_enum.oid 因存于用户枚举值。控 pg_authid.oid（历史原因，oid 曾存 pg_largeobject_metadata，今用 SQL 复制），未来可改。
+ *	
+ *	
  *
- *	We control all assignments of pg_class.oid (and relfilenode) so toast
- *	oids are the same between old and new clusters.  This is important
- *	because toast oids are stored as toast pointers in user tables.
+ *	
+ *	
+ *	
  *
- *	While pg_class.oid and pg_class.relfilenode are initially the same in a
- *	cluster, they can diverge due to CLUSTER, REINDEX, or VACUUM FULL. We
- *	control assignments of pg_class.relfilenode because we want the filenames
- *	to match between the old and new cluster.
+ *	
+ *	
+ *	
+ *	
  *
- *	We control assignment of pg_tablespace.oid because we want the oid to match
- *	between the old and new cluster.
+ *	
+ *	
  *
- *	We control all assignments of pg_type.oid because these oids are stored
- *	in user composite type values.
+ *	
+ *	
  *
- *	We control all assignments of pg_enum.oid because these oids are stored
- *	in user tables as enum values.
+ *	
+ *	
  *
- *	We control all assignments of pg_authid.oid for historical reasons (the
- *	oids used to be stored in pg_largeobject_metadata, which is now copied via
- *	SQL commands), that might change at some point in the future.
- */
+ *	
+ *	
+ *	
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               */
 
 
 
@@ -67,7 +67,7 @@ OSInfo		os_info;
 char	   *output_files[] = {
 	SERVER_LOG_FILE,
 #ifdef WIN32
-	/* unique file for pg_ctl start */
+	/* pg_ctl start 唯文          */
 	SERVER_START_LOG_FILE,
 #endif
 	UTILITY_LOG_FILE,
@@ -82,14 +82,14 @@ main(int argc, char **argv)
 	char	   *deletion_script_file_name = NULL;
 	bool		live_check = false;
 
-	/*
-	 * pg_upgrade doesn't currently use common/logging.c, but initialize it
-	 * anyway because we might call common code that does.
-	 */
+	/*pg_upgrade 当前未用 common/logging.c，但初始化因可能调用使用它的通用代码。
+	 * 
+	 * 
+	                       */
 	pg_logging_init(argv[0]);
 	set_pglocale_pgservice(argv[0], PG_TEXTDOMAIN("pg_upgrade"));
 
-	/* Set default restrictive mask until new cluster permissions are read */
+	/* 设默限掩码至读新集簇权                                   */
 	umask(PG_MODE_MASK_OWNER);
 
 	parseCommandLine(argc, argv);
@@ -99,20 +99,20 @@ main(int argc, char **argv)
 	adjust_data_dir(&old_cluster);
 	adjust_data_dir(&new_cluster);
 
-	/*
-	 * Set mask based on PGDATA permissions, needed for the creation of the
-	 * output directories with correct permissions.
-	 */
+	/*据 PGDATA 权限设掩码，需正确创建输出目录。
+	 * 
+	 * 
+	                                                      */
 	if (!GetDataDirectoryCreatePerm(new_cluster.pgdata))
 		pg_fatal("could not read permissions of directory \"%s\": %s",
 				 new_cluster.pgdata, strerror(errno));
 
 	umask(pg_mode_mask);
 
-	/*
-	 * This needs to happen after adjusting the data directory of the new
-	 * cluster in adjust_data_dir().
-	 */
+	/*在 adjust_data_dir() 调整新集簇数据目录后执行。
+	 * 
+	 * 
+	                                   */
 	make_outputdirs(new_cluster.pgdata);
 
 	setup(argv[0], &live_check);
@@ -129,7 +129,7 @@ main(int argc, char **argv)
 	check_and_dump_old_cluster(live_check);
 
 
-	/* -- NEW -- */
+	/* -- 新 -- */
 	start_postmaster(&new_cluster, true);
 
 	check_new_cluster();
@@ -146,15 +146,15 @@ main(int argc, char **argv)
 
 	stop_postmaster(false);
 
-	/*
-	 * Destructive Changes to New Cluster
-	 */
+	/*对新集簇的破坏性更改
+	 * 
+	     */
 
 	copy_xact_xlog_xid();
 
-	/* New now using xids of the old system */
+	/* 新用旧 xid                        */
 
-	/* -- NEW -- */
+	/* -- 新 -- */
 	start_postmaster(&new_cluster, true);
 
 	prepare_new_globals();
@@ -163,24 +163,24 @@ main(int argc, char **argv)
 
 	stop_postmaster(false);
 
-	/*
-	 * Most failures happen in create_new_objects(), which has completed at
-	 * this point.  We do this here because it is just before linking, which
-	 * will link the old and new cluster data files, preventing the old
-	 * cluster from being safely started once the new cluster is started.
-	 */
+	/*多数故障在 create_new_objects() 已完成。在此执行因恰在链接前，链接将新旧数据文件关联，新集簇启动后旧集簇不可安全启动。
+	 * 
+	 * 
+	 * 
+	 * 
+	                                                                                                      */
 	if (user_opts.transfer_mode == TRANSFER_MODE_LINK)
 		disable_old_cluster();
 
 	transfer_all_new_tablespaces(&old_cluster.dbarr, &new_cluster.dbarr,
 								 old_cluster.pgdata, new_cluster.pgdata);
 
-	/*
-	 * Assuming OIDs are only used in system tables, there is no need to
-	 * restore the OID counter because we have not transferred any OIDs from
-	 * the old system, but we do it anyway just in case.  We do it late here
-	 * because there is no need to have the schema load use new oids.
-	 */
+	/*假设 OID 仅系统表用，无需恢复 OID 计数器因未传输任何 OID，但为安全仍做。较晚执行因不需模式加载用新 oid。
+	 * 
+	 * 
+	 * 
+	 * 
+	                                                                                                                       */
 	prep_status("Setting next OID for new cluster");
 	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
 			  "\"%s/pg_resetwal\" -o %u \"%s\"",
@@ -215,11 +215,11 @@ main(int argc, char **argv)
 	return 0;
 }
 
-/*
- * Create and assign proper permissions to the set of output directories
- * used to store any data generated internally, filling in log_opts in
- * the process.
- */
+/*创建输出目录集并分配适当权限，填充 log_opts。
+ * 
+ * 
+ * 
+                                                                                      */
 static void
 make_outputdirs(char *pgdata)
 {
@@ -241,7 +241,7 @@ make_outputdirs(char *pgdata)
 	gettimeofday(&time, NULL);
 	tt = (time_t) time.tv_sec;
 	strftime(timebuf, sizeof(timebuf), "%Y%m%dT%H%M%S", localtime(&tt));
-	/* append milliseconds */
+	/* 追毫秒           */
 	snprintf(timebuf + strlen(timebuf), sizeof(timebuf) - strlen(timebuf),
 			 ".%03d", (int) (time.tv_usec / 1000));
 	log_opts.basedir = (char *) pg_malloc0(MAXPGPATH);
@@ -264,10 +264,10 @@ make_outputdirs(char *pgdata)
 	if (len >= MAXPGPATH)
 		pg_fatal("directory path for new cluster is too long");
 
-	/*
-	 * Ignore the error case where the root path exists, as it is kept the
-	 * same across runs.
-	 */
+	/*忽略根路径已存在错误，因跨运行保持。
+	 * 
+	 * 
+	                               */
 	if (mkdir(log_opts.rootdir, pg_dir_create_mode) < 0 && errno != EEXIST)
 		pg_fatal("could not create directory \"%s\": %m", log_opts.rootdir);
 	if (mkdir(log_opts.basedir, pg_dir_create_mode) < 0)
@@ -285,7 +285,7 @@ make_outputdirs(char *pgdata)
 	if ((log_opts.internal = fopen_priv(filename_path, "a")) == NULL)
 		pg_fatal("could not open log file \"%s\": %m", filename_path);
 
-	/* label start of upgrade in logfiles */
+	/* 日志中标升级始              */
 	for (filename = output_files; *filename != NULL; filename++)
 	{
 		len = snprintf(filename_path, sizeof(filename_path), "%s/%s",
@@ -308,24 +308,24 @@ make_outputdirs(char *pgdata)
 static void
 setup(char *argv0, bool *live_check)
 {
-	/*
-	 * make sure the user has a clean environment, otherwise, we may confuse
-	 * libpq when we connect to one (or both) of the servers.
-	 */
+	/*确保用户环境干净，否则连接服务器时混淆 libpq。
+	 * 
+	 * 
+	                                                          */
 	check_pghost_envvar();
 
-	/*
-	 * In case the user hasn't specified the directory for the new binaries
-	 * with -B, default to using the path of the currently executed pg_upgrade
-	 * binary.
-	 */
+	/*用户未指定 -B 新二进制目录则用当前 pg_upgrade 路径。
+	 * 
+	 * 
+	 * 
+	                                                                             */
 	if (!new_cluster.bindir)
 	{
 		char		exec_path[MAXPGPATH];
 
 		if (find_my_exec(argv0, exec_path) < 0)
 			pg_fatal("%s: could not find own program executable", argv0);
-		/* Trim off program name and keep just path */
+		/* 裁程序名留路径                    */
 		*last_dir_separator(exec_path) = '\0';
 		canonicalize_path(exec_path);
 		new_cluster.bindir = pg_strdup(exec_path);
@@ -333,18 +333,18 @@ setup(char *argv0, bool *live_check)
 
 	verify_directories();
 
-	/* no postmasters should be running, except for a live check */
+	/* 除实检外不应运行 postmaster                       */
 	if (pid_lock_file_exists(old_cluster.pgdata))
 	{
-		/*
-		 * If we have a postmaster.pid file, try to start the server.  If it
-		 * starts, the pid file was stale, so stop the server.  If it doesn't
-		 * start, assume the server is running.  If the pid file is left over
-		 * from a server crash, this also allows any committed transactions
-		 * stored in the WAL to be replayed so they are not lost, because WAL
-		 * files are not transferred from old to new servers.  We later check
-		 * for a clean shutdown.
-		 */
+		/*有 postmaster.pid 则尝试启动。启动则 pid 过时故停止。未启动则假设在运行。pid 文件来自崩溃则此可重放 WAL 中的已提交事务（WAL 文件不传至新集簇），避免丢失。后检查干净关闭。
+		 * 
+		 * 
+		 * 
+		 * 
+		 * 
+		 * 
+		 * 
+		                                                                                                                                                                                 */
 		if (start_postmaster(&old_cluster, false))
 			stop_postmaster(false);
 		else
@@ -357,7 +357,7 @@ setup(char *argv0, bool *live_check)
 		}
 	}
 
-	/* same goes for the new postmaster */
+	/* 新 postmaster 同理            */
 	if (pid_lock_file_exists(new_cluster.pgdata))
 	{
 		if (start_postmaster(&new_cluster, false))
@@ -369,13 +369,13 @@ setup(char *argv0, bool *live_check)
 }
 
 
-/*
- * Copy locale and encoding information into the new cluster's template0.
+/*将语言环境和编码复制到新集簇 template0。需复制 encoding、datlocprovider、datcollate、datctype、daticulocale。无需 datcollversion（从未为 template0 设）。
+ * 
  *
- * We need to copy the encoding, datlocprovider, datcollate, datctype, and
- * daticulocale. We don't need datcollversion because that's never set for
- * template0.
- */
+ * 
+ * 
+ * 
+                                      */
 static void
 set_locale_and_encoding(void)
 {
@@ -387,7 +387,7 @@ set_locale_and_encoding(void)
 
 	prep_status("Setting locale and encoding for new cluster");
 
-	/* escape literals with respect to new cluster */
+	/* 按新集簇转义字面                    */
 	conn_new_template1 = connectToServer(&new_cluster, "template1");
 
 	datcollate_literal = PQescapeLiteral(conn_new_template1,
@@ -404,7 +404,7 @@ set_locale_and_encoding(void)
 	else
 		daticulocale_literal = "NULL";
 
-	/* update template0 in new cluster */
+	/* 更新新集簇 template0       */
 	if (GET_MAJOR_VERSION(new_cluster.major_version) >= 1500)
 		PQclear(executeQueryOrDie(conn_new_template1,
 								  "UPDATE pg_catalog.pg_database "
@@ -444,11 +444,11 @@ set_locale_and_encoding(void)
 static void
 prepare_new_cluster(void)
 {
-	/*
-	 * It would make more sense to freeze after loading the schema, but that
-	 * would cause us to lose the frozenxids restored by the load. We use
-	 * --analyze so autovacuum doesn't update statistics later
-	 */
+	/*加载模式后冻结更合理但会丢失加载恢复的 frozenxids。用 --analyze 免 autovacuum 后改统计。
+	 * 
+	 * 
+	 * 
+	                                                                            */
 	prep_status("Analyzing all rows in the new cluster");
 	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
 			  "\"%s/vacuumdb\" %s --all --analyze %s",
@@ -456,12 +456,12 @@ prepare_new_cluster(void)
 			  log_opts.verbose ? "--verbose" : "");
 	check_ok();
 
-	/*
-	 * We do freeze after analyze so pg_statistic is also frozen. template0 is
-	 * not frozen here, but data rows were frozen by initdb, and we set its
-	 * datfrozenxid, relfrozenxids, and relminmxid later to match the new xid
-	 * counter later.
-	 */
+	/*分析后冻结使 pg_statistic 也被冻。template0 不在此冻但行已由 initdb 冻，后设 datfrozenxid/relfrozenxids/relminmxid 匹配新 xid 计数器。
+	 * 
+	 * 
+	 * 
+	 * 
+	                                                             */
 	prep_status("Freezing all rows in the new cluster");
 	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
 			  "\"%s/vacuumdb\" %s --all --freeze %s",
@@ -474,14 +474,14 @@ prepare_new_cluster(void)
 static void
 prepare_new_globals(void)
 {
-	/*
-	 * Before we restore anything, set frozenxids of initdb-created tables.
-	 */
+	/*恢复前先设 initdb 建表的 frozenxids。
+	 * 
+	                       */
 	set_frozenxids(false);
 
-	/*
-	 * Now restore global objects (roles and tablespaces).
-	 */
+	/*恢复全局对象（角色和表空间）。
+	 * 
+	       */
 	prep_status("Restoring global objects in the new cluster");
 
 	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
@@ -500,11 +500,11 @@ create_new_objects(void)
 
 	prep_status_progress("Restoring database schemas in the new cluster");
 
-	/*
-	 * We cannot process the template1 database concurrently with others,
-	 * because when it's transiently dropped, connection attempts would fail.
-	 * So handle it in a separate non-parallelized pass.
-	 */
+	/*不能与其他数据库同时处理 template1 因被临时删除时连接失败。故在单独非并行过程中处理。
+	 * 
+	 * 
+	 * 
+	                                                                */
 	for (dbnum = 0; dbnum < old_cluster.dbarr.ndbs; dbnum++)
 	{
 		char		sql_file_name[MAXPGPATH],
@@ -512,7 +512,7 @@ create_new_objects(void)
 		DbInfo	   *old_db = &old_cluster.dbarr.dbs[dbnum];
 		const char *create_opts;
 
-		/* Process only template1 in this pass */
+		/* 仅处 template1                    */
 		if (strcmp(old_db->db_name, "template1") != 0)
 			continue;
 
@@ -520,11 +520,11 @@ create_new_objects(void)
 		snprintf(sql_file_name, sizeof(sql_file_name), DB_DUMP_FILE_MASK, old_db->db_oid);
 		snprintf(log_file_name, sizeof(log_file_name), DB_DUMP_LOG_FILE_MASK, old_db->db_oid);
 
-		/*
-		 * template1 database will already exist in the target installation,
-		 * so tell pg_restore to drop and recreate it; otherwise we would fail
-		 * to propagate its database-level properties.
-		 */
+		/*template1 已存在于目标安装，告诉 pg_restore 删并重建否则无法传播数据库级属性。
+		 * 
+		 * 
+		 * 
+		                                                                      */
 		create_opts = "--clean --create";
 
 		exec_prog(log_file_name,
@@ -539,7 +539,7 @@ create_new_objects(void)
 				  log_opts.dumpdir,
 				  sql_file_name);
 
-		break;					/* done once we've processed template1 */
+		break;					/* 处完 template1 即完             */
 	}
 
 	for (dbnum = 0; dbnum < old_cluster.dbarr.ndbs; dbnum++)
@@ -549,7 +549,7 @@ create_new_objects(void)
 		DbInfo	   *old_db = &old_cluster.dbarr.dbs[dbnum];
 		const char *create_opts;
 
-		/* Skip template1 in this pass */
+		/* 跳 template1               */
 		if (strcmp(old_db->db_name, "template1") == 0)
 			continue;
 
@@ -557,11 +557,11 @@ create_new_objects(void)
 		snprintf(sql_file_name, sizeof(sql_file_name), DB_DUMP_FILE_MASK, old_db->db_oid);
 		snprintf(log_file_name, sizeof(log_file_name), DB_DUMP_LOG_FILE_MASK, old_db->db_oid);
 
-		/*
-		 * postgres database will already exist in the target installation, so
-		 * tell pg_restore to drop and recreate it; otherwise we would fail to
-		 * propagate its database-level properties.
-		 */
+		/*postgres 已存在于目标安装，告诉 pg_restore 删并重建否则无法传播数据库级属性。
+		 * 
+		 * 
+		 * 
+		                                                                      */
 		if (strcmp(old_db->db_name, "postgres") == 0)
 			create_opts = "--clean --create";
 		else
@@ -578,27 +578,27 @@ create_new_objects(void)
 						   sql_file_name);
 	}
 
-	/* reap all children */
+	/* 收子进程      */
 	while (reap_child(true) == true)
 		;
 
 	end_progress_output();
 	check_ok();
 
-	/*
-	 * We don't have minmxids for databases or relations in pre-9.3 clusters,
-	 * so set those after we have restored the schema.
-	 */
+	/*9.3 前集簇无数据库或关系级 minmxids，恢复模式后设之。
+	 * 
+	 * 
+	                                             */
 	if (GET_MAJOR_VERSION(old_cluster.major_version) <= 902)
 		set_frozenxids(true);
 
-	/* update new_cluster info now that we have objects in the databases */
+	/* DB 中现有对象，更新 new_cluster 信息                    */
 	get_db_and_rel_infos(&new_cluster);
 }
 
-/*
- * Delete the given subdirectory contents from the new cluster
- */
+/*从新集簇中删除给定子目录内容
+ * 
+                  */
 static void
 remove_new_subdir(const char *subdir, bool rmtopdir)
 {
@@ -613,9 +613,9 @@ remove_new_subdir(const char *subdir, bool rmtopdir)
 	check_ok();
 }
 
-/*
- * Copy the files from the old cluster into it
- */
+/*从旧集簇复制文件到新集簇
+ * 
+        */
 static void
 copy_subdir_files(const char *old_subdir, const char *new_subdir)
 {
@@ -633,7 +633,7 @@ copy_subdir_files(const char *old_subdir, const char *new_subdir)
 #ifndef WIN32
 			  "cp -Rf \"%s\" \"%s\"",
 #else
-	/* flags: everything, no confirm, quiet, overwrite read-only */
+	/* 标志：全部，无确认，静默，覆只读          */
 			  "xcopy /e /y /q /r \"%s\" \"%s\\\"",
 #endif
 			  old_path, new_path);
@@ -644,10 +644,10 @@ copy_subdir_files(const char *old_subdir, const char *new_subdir)
 static void
 copy_xact_xlog_xid(void)
 {
-	/*
-	 * Copy old commit logs to new data dir. pg_clog has been renamed to
-	 * pg_xact in post-10 clusters.
-	 */
+	/*复制旧提交日志到新数据目录。pg_clog 在 post-10 集簇更名 pg_xact。
+	 * 
+	 * 
+	         */
 	copy_subdir_files(GET_MAJOR_VERSION(old_cluster.major_version) <= 906 ?
 					  "pg_clog" : "pg_xact",
 					  GET_MAJOR_VERSION(new_cluster.major_version) <= 906 ?
@@ -660,7 +660,7 @@ copy_xact_xlog_xid(void)
 			  new_cluster.pgdata);
 	check_ok();
 
-	/* set the next transaction id and epoch of the new cluster */
+	/* 设新下个事务 id 和 epoch                          */
 	prep_status("Setting next transaction ID and epoch for new cluster");
 	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
 			  "\"%s/pg_resetwal\" -f -x %u \"%s\"",
@@ -670,7 +670,7 @@ copy_xact_xlog_xid(void)
 			  "\"%s/pg_resetwal\" -f -e %u \"%s\"",
 			  new_cluster.bindir, old_cluster.controldata.chkpnt_nxtepoch,
 			  new_cluster.pgdata);
-	/* must reset commit timestamp limits also */
+	/* 也须重提交时戳限                */
 	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
 			  "\"%s/pg_resetwal\" -f -c %u,%u \"%s\"",
 			  new_cluster.bindir,
@@ -679,12 +679,12 @@ copy_xact_xlog_xid(void)
 			  new_cluster.pgdata);
 	check_ok();
 
-	/*
-	 * If the old server is before the MULTIXACT_FORMATCHANGE_CAT_VER change
-	 * (see pg_upgrade.h) and the new server is after, then we don't copy
-	 * pg_multixact files, but we need to reset pg_control so that the new
-	 * server doesn't attempt to read multis older than the cutoff value.
-	 */
+	/*若旧服务 MULTIXACT_FORMATCHANGE_CAT_VER 前新后，不复制 pg_multixact 文件但重置 pg_control 防新服务读截止前多事务。
+	 * 
+	 * 
+	 * 
+	 * 
+	                                                                                                                               */
 	if (old_cluster.controldata.cat_ver >= MULTIXACT_FORMATCHANGE_CAT_VER &&
 		new_cluster.controldata.cat_ver >= MULTIXACT_FORMATCHANGE_CAT_VER)
 	{
@@ -693,10 +693,10 @@ copy_xact_xlog_xid(void)
 
 		prep_status("Setting next multixact ID and offset for new cluster");
 
-		/*
-		 * we preserve all files and contents, so we must preserve both "next"
-		 * counters here and the oldest multi present on system.
-		 */
+		/*保留所有文件和内容故保 "next" 计数器和系统最旧 multi。
+		 * 
+		 * 
+		                                               */
 		exec_prog(UTILITY_LOG_FILE, NULL, true, true,
 				  "\"%s/pg_resetwal\" -O %u -m %u,%u \"%s\"",
 				  new_cluster.bindir,
@@ -708,23 +708,23 @@ copy_xact_xlog_xid(void)
 	}
 	else if (new_cluster.controldata.cat_ver >= MULTIXACT_FORMATCHANGE_CAT_VER)
 	{
-		/*
-		 * Remove offsets/0000 file created by initdb that no longer matches
-		 * the new multi-xid value.  "members" starts at zero so no need to
-		 * remove it.
-		 */
+		/*删 initdb 创建的 offsets/0000 因不匹配新 multi-xid。members 从零始无需删。
+		 * 
+		 * 
+		 * 
+		                                                 */
 		remove_new_subdir("pg_multixact/offsets", false);
 
 		prep_status("Setting oldest multixact ID in new cluster");
 
-		/*
-		 * We don't preserve files in this case, but it's important that the
-		 * oldest multi is set to the latest value used by the old system, so
-		 * that multixact.c returns the empty set for multis that might be
-		 * present on disk.  We set next multi to the value following that; it
-		 * might end up wrapped around (i.e. 0) if the old cluster had
-		 * next=MaxMultiXactId, but multixact.c can cope with that just fine.
-		 */
+		/*此时不保留文件，但重要是最旧 multi 设为旧系统最新值使 multixact.c 对可能存在的事务返空集。设 next multi 为后续值；旧集簇 next=MaxMultiXactId 时可回绕（0）但 multixact.c 可处理。
+		 * 
+		 * 
+		 * 
+		 * 
+		 * 
+		 * 
+		                                                                                                                                                           */
 		exec_prog(UTILITY_LOG_FILE, NULL, true, true,
 				  "\"%s/pg_resetwal\" -m %u,%u \"%s\"",
 				  new_cluster.bindir,
@@ -734,10 +734,10 @@ copy_xact_xlog_xid(void)
 		check_ok();
 	}
 
-	/* now reset the wal archives in the new cluster */
+	/* 重置新 WAL 归档                          */
 	prep_status("Resetting WAL archives");
 	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
-	/* use timeline 1 to match controldata and no WAL history file */
+	/* 用 timeline 1 匹 controldata 无 WAL 历                  */
 			  "\"%s/pg_resetwal\" -l 00000001%s \"%s\"", new_cluster.bindir,
 			  old_cluster.controldata.nextxlogfile + 8,
 			  new_cluster.pgdata);
@@ -745,27 +745,27 @@ copy_xact_xlog_xid(void)
 }
 
 
-/*
- *	set_frozenxids()
+/*恢复前在新集簇调用 (minmxid_only=false)。确保 initdb 建的可 vacuum 表的 relfrozenxid/relminmxid 匹配旧集簇计数器，并初始化内建数据库的 datfrozenxid/datminmxid。用户表创建时字段由 binary-upgrade 恢复脚本正确恢复，用户数据库 datfrozenxid/datminmxid 同理。9.3 前源不存每个表/DB minmxid，恢复填充值为零。故 9.3 前源恢复后第二次调用 (minmxid_only=true)，初始化所有表和数据库的 minmxid。frozenxid 不变。
+ *	
  *
- * This is called on the new cluster before we restore anything, with
- * minmxid_only = false.  Its purpose is to ensure that all initdb-created
- * vacuumable tables have relfrozenxid/relminmxid matching the old cluster's
- * xid/mxid counters.  We also initialize the datfrozenxid/datminmxid of the
- * built-in databases to match.
+ * 
+ * 
+ * 
+ * 
+ * 
  *
- * As we create user tables later, their relfrozenxid/relminmxid fields will
- * be restored properly by the binary-upgrade restore script.  Likewise for
- * user-database datfrozenxid/datminmxid.  However, if we're upgrading from a
- * pre-9.3 database, which does not store per-table or per-DB minmxid, then
- * the relminmxid/datminmxid values filled in by the restore script will just
- * be zeroes.
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
  *
- * Hence, with a pre-9.3 source database, a second call occurs after
- * everything is restored, with minmxid_only = true.  This pass will
- * initialize all tables and databases, both those made by initdb and user
- * objects, with the desired minmxid value.  frozenxid values are left alone.
- */
+ * 
+ * 
+ * 
+ * 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           */
 static void
 set_frozenxids(bool minmxid_only)
 {
@@ -785,19 +785,19 @@ set_frozenxids(bool minmxid_only)
 	conn_template1 = connectToServer(&new_cluster, "template1");
 
 	if (!minmxid_only)
-		/* set pg_database.datfrozenxid */
+		/* 设 pg_database.datfrozenxid */
 		PQclear(executeQueryOrDie(conn_template1,
 								  "UPDATE pg_catalog.pg_database "
 								  "SET	datfrozenxid = '%u'",
 								  old_cluster.controldata.chkpnt_nxtxid));
 
-	/* set pg_database.datminmxid */
+	/* 设 pg_database.datminmxid */
 	PQclear(executeQueryOrDie(conn_template1,
 							  "UPDATE pg_catalog.pg_database "
 							  "SET	datminmxid = '%u'",
 							  old_cluster.controldata.chkpnt_nxtmulti));
 
-	/* get database names */
+	/* 取数据名       */
 	dbres = executeQueryOrDie(conn_template1,
 							  "SELECT	datname, datallowconn "
 							  "FROM	pg_catalog.pg_database");
@@ -811,13 +811,13 @@ set_frozenxids(bool minmxid_only)
 		char	   *datname = PQgetvalue(dbres, dbnum, i_datname);
 		char	   *datallowconn = PQgetvalue(dbres, dbnum, i_datallowconn);
 
-		/*
-		 * We must update databases where datallowconn = false, e.g.
-		 * template0, because autovacuum increments their datfrozenxids,
-		 * relfrozenxids, and relminmxid even if autovacuum is turned off, and
-		 * even though all the data rows are already frozen.  To enable this,
-		 * we temporarily change datallowconn.
-		 */
+		/*须更新 datallowconn=false 数据库（如 template0）因 autovacuum 即使关闭也递增其冻结 xid。临时改 datallowconn 以启用。
+		 * 
+		 * 
+		 * 
+		 * 
+		 * 
+		                                                                                                                                               */
 		if (strcmp(datallowconn, "f") == 0)
 			PQclear(executeQueryOrDie(conn_template1,
 									  "ALTER DATABASE %s ALLOW_CONNECTIONS = true",
@@ -826,22 +826,22 @@ set_frozenxids(bool minmxid_only)
 		conn = connectToServer(&new_cluster, datname);
 
 		if (!minmxid_only)
-			/* set pg_class.relfrozenxid */
+			/* 设 pg_class.relfrozenxid */
 			PQclear(executeQueryOrDie(conn,
 									  "UPDATE	pg_catalog.pg_class "
 									  "SET	relfrozenxid = '%u' "
-			/* only heap, materialized view, and TOAST are vacuumed */
+			/* 仅堆/物化视图/TOAST 被 vacuum                 */
 									  "WHERE	relkind IN ("
 									  CppAsString2(RELKIND_RELATION) ", "
 									  CppAsString2(RELKIND_MATVIEW) ", "
 									  CppAsString2(RELKIND_TOASTVALUE) ")",
 									  old_cluster.controldata.chkpnt_nxtxid));
 
-		/* set pg_class.relminmxid */
+		/* 设 pg_class.relminmxid */
 		PQclear(executeQueryOrDie(conn,
 								  "UPDATE	pg_catalog.pg_class "
 								  "SET	relminmxid = '%u' "
-		/* only heap, materialized view, and TOAST are vacuumed */
+		/* 仅堆/物化视图/TOAST 被 vacuum                 */
 								  "WHERE	relkind IN ("
 								  CppAsString2(RELKIND_RELATION) ", "
 								  CppAsString2(RELKIND_MATVIEW) ", "

@@ -19,7 +19,7 @@ generate_old_dump(void)
 
 	prep_status("Creating dump of global objects");
 
-	/* run new pg_dumpall binary for globals */
+	/* 运新 pg_dumpall 导出全局对象  */
 	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
 			  "\"%s/pg_dumpall\" %s --globals-only --quote-all-identifiers "
 			  "--binary-upgrade %s -f \"%s/%s\"",
@@ -62,7 +62,7 @@ generate_old_dump(void)
 		termPQExpBuffer(&escaped_connstr);
 	}
 
-	/* reap all children */
+	/* 回收子进程   */
 	while (reap_child(true) == true)
 		;
 

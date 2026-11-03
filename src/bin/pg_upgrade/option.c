@@ -29,11 +29,11 @@ static void check_required_directory(char **dirpath,
 UserOpts	user_opts;
 
 
-/*
- * parseCommandLine()
+/*解析命令行（argc, argv[]）加载结构
+ * 
  *
- *	Parses the command line (argc, argv[]) and loads structures
- */
+ *	
+                                 */
 void
 parseCommandLine(int argc, char *argv[])
 {
@@ -69,16 +69,16 @@ parseCommandLine(int argc, char *argv[])
 
 	os_info.progname = get_progname(argv[0]);
 
-	/* Process libpq env. variables; load values here for usage() output */
+	/* 须保值，getenv() 指针不稳                                 */
 	old_cluster.port = getenv("PGPORTOLD") ? atoi(getenv("PGPORTOLD")) : DEF_PGUPORT;
 	new_cluster.port = getenv("PGPORTNEW") ? atoi(getenv("PGPORTNEW")) : DEF_PGUPORT;
 
 	os_user_effective_id = get_user_info(&os_info.user);
-	/* we override just the database user name;  we got the OS id above */
+	/* 允许 root 跑 help 和 version，在此测试                  */
 	if (getenv("PGUSER"))
 	{
 		pg_free(os_info.user);
-		/* must save value, getenv()'s pointer is not stable */
+		/* 追加选项？                                   */
 		os_info.user = pg_strdup(getenv("PGUSER"));
 	}
 
@@ -96,7 +96,7 @@ parseCommandLine(int argc, char *argv[])
 		}
 	}
 
-	/* Allow help and version to be run as root, so do the test here. */
+	/* 追加选项？                                                */
 	if (os_user_effective_id == 0)
 		pg_fatal("%s: cannot be run as root", os_info.progname);
 
@@ -240,11 +240,11 @@ parseCommandLine(int argc, char *argv[])
 
 #ifdef WIN32
 
-	/*
-	 * On Windows, initdb --sync-only will fail with a "Permission denied"
-	 * error on file pg_upgrade_utility.log if pg_upgrade is run inside the
-	 * new cluster directory, so we do a check here.
-	 */
+	/*用法：
+	 * 
+	 * 
+	 * 
+	                                                                                                                                                                            */
 	{
 		char		cwd[MAXPGPATH],
 					new_cluster_pgdata[MAXPGPATH];
@@ -323,20 +323,20 @@ usage(void)
 }
 
 
-/*
- * check_required_directory()
+/*选项：
+ * 
  *
- * Checks a directory option.
- *	dirpath		  - the directory name supplied on the command line, or NULL
- *	envVarName	  - the name of an environment variable to get if dirpath is NULL
- *	useCwd		  - true if OK to default to CWD
- *	cmdLineOption - the command line option for this directory
- *	description   - a description of this directory option
- *	missingOk	  - true if OK that both dirpath and envVarName are not existing
+ * 
+ *	
+ *	
+ *	
+ *	
+ *	
+ *	
  *
- * We use the last two arguments to construct a meaningful error message if the
- * user hasn't provided the required directory name.
- */
+ * 
+ * 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            */
 static void
 check_required_directory(char **dirpath, const char *envVarName, bool useCwd,
 						 const char *cmdLineOption, const char *description,
@@ -364,24 +364,24 @@ check_required_directory(char **dirpath, const char *envVarName, bool useCwd,
 					 description, cmdLineOption, envVarName);
 	}
 
-	/*
-	 * Clean up the path, in particular trimming any trailing path separators,
-	 * because we construct paths by appending to this path.
-	 */
+	/*例如：
+	 * 
+	 * 
+	                                                                                                                    */
 	canonicalize_path(*dirpath);
 }
 
-/*
- * adjust_data_dir
+/*检查目录选项。dirpath=命令行值或 NULL；envVarName=环境变量名；useCwd=可用 CWD；cmdLineOption=选项名；description=描述；missingOk=可缺失。后两参数用于构造有意义的错误消息。
+ * 
  *
- * If a configuration-only directory was specified, find the real data dir
- * by querying the running server.  This has limited checking because we
- * can't check for a running server because we can't find postmaster.pid.
+ * 
+ * 
+ * 
  *
- * On entry, cluster->pgdata has been set from command line or env variable,
- * but cluster->pgconfig isn't set.  We fill both variables with corrected
- * values.
- */
+ * 
+ * 
+ * 
+                                                                                                                                                            */
 void
 adjust_data_dir(ClusterInfo *cluster)
 {
@@ -392,7 +392,7 @@ adjust_data_dir(ClusterInfo *cluster)
 			   *output;
 	int			rc;
 
-	/* Initially assume config dir and data dir are the same */
+	/* 清理路径，剪尾分隔符因后续追加构建   */
 	cluster->pgconfig = pg_strdup(cluster->pgdata);
 
 	/* If there is no postgresql.conf, it can't be a config-only dir */
@@ -401,7 +401,7 @@ adjust_data_dir(ClusterInfo *cluster)
 		return;
 	fclose(fp);
 
-	/* If PG_VERSION exists, it can't be a config-only dir */
+	/* 初始假设配置=数据目录                     */
 	snprintf(filename, sizeof(filename), "%s/PG_VERSION", cluster->pgconfig);
 	if ((fp = fopen(filename, "r")) != NULL)
 	{
@@ -409,18 +409,18 @@ adjust_data_dir(ClusterInfo *cluster)
 		return;
 	}
 
-	/* Must be a configuration directory, so find the real data directory. */
+	/* 无 postgresql.conf 则非仅配置目录                           */
 
 	if (cluster == &old_cluster)
 		prep_status("Finding the real data directory for the source cluster");
 	else
 		prep_status("Finding the real data directory for the target cluster");
 
-	/*
-	 * We don't have a data directory yet, so we can't check the PG version,
-	 * so this might fail --- only works for PG 9.2+.   If this fails,
-	 * pg_upgrade will fail anyway because the data files will not be found.
-	 */
+	/*PG_VERSION 存在则不是仅配置目录
+	 * 
+	 * 
+	 * 
+	                                                                                                                                                                 */
 	snprintf(cmd, sizeof(cmd), "\"%s/postgres\" -D \"%s\" -C data_directory",
 			 cluster->bindir, cluster->pgconfig);
 	fflush(NULL);
@@ -435,7 +435,7 @@ adjust_data_dir(ClusterInfo *cluster)
 		pg_fatal("could not get data directory using %s: %s",
 				 cmd, wait_result_to_str(rc));
 
-	/* strip trailing newline and carriage return */
+	/* 定为配置目录，找真实数据目录 */
 	(void) pg_strip_crlf(cmd_output);
 
 	cluster->pgdata = pg_strdup(cmd_output);
@@ -444,14 +444,14 @@ adjust_data_dir(ClusterInfo *cluster)
 }
 
 
-/*
- * get_sock_dir
+/*无数据目录不能查 PG 版本故可能失败 — 仅 PG 9.2+ 可用。失败因数据文件找不到。
+ * 
  *
- * Identify the socket directory to use for this cluster.  If we're doing
- * a live check (old cluster only), we need to find out where the postmaster
- * is listening.  Otherwise, we're going to put the socket into the current
- * directory.
- */
+ * 
+ * 
+ * 
+ * 
+                                                                                                                                  */
 void
 get_sock_dir(ClusterInfo *cluster, bool live_check)
 {
@@ -460,10 +460,10 @@ get_sock_dir(ClusterInfo *cluster, bool live_check)
 		cluster->sockdir = user_opts.socketdir;
 	else
 	{
-		/*
-		 * If we are doing a live check, we will use the old cluster's Unix
-		 * domain socket directory so we can connect to the live server.
-		 */
+		/*去除尾部换行和回车
+		 * 
+		 * 
+		                                                                                                   */
 		unsigned short orig_port = cluster->port;
 		char		filename[MAXPGPATH],
 					line[MAXPGPATH];
@@ -496,7 +496,7 @@ get_sock_dir(ClusterInfo *cluster, bool live_check)
 		}
 		fclose(fp);
 
-		/* warn of port number correction */
+		/* 可能覆用户值             */
 		if (orig_port != DEF_PGUPORT && old_cluster.port != orig_port)
 			pg_log(PG_WARNING, "user-supplied old port number %hu corrected to %hu",
 				   orig_port, cluster->port);

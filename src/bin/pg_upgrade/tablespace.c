@@ -102,9 +102,9 @@ get_tablespace_paths(void)
 static void
 set_tablespace_directory_suffix(ClusterInfo *cluster)
 {
-	/* This cluster has a version-specific subdirectory */
+	/* 该集簇有版本特定的子目录             */
 
-	/* The leading slash is needed to start a new directory. */
+	/* 前置斜杠为开始新目录                        */
 	cluster->tablespace_suffix = psprintf("/PG_%s_%d",
 										  cluster->major_version_str,
 										  cluster->controldata.cat_ver);

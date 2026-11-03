@@ -14,19 +14,19 @@
 #include "pg_upgrade.h"
 
 
-/*
- * check_for_data_types_usage()
- *	Detect whether there are any stored columns depending on given type(s)
+/*检测是否有存储列依赖给定类型。如有则写报告并返回 true。base_query 产生单列 "oid"，包含跨版本磁盘表示不一致类型的 OID。检查表、物化视图和索引（视图无存储）。
+ * 
+ *	
  *
- * If so, write a report to the given file name, and return true.
+ * 
  *
- * base_query should be a SELECT yielding a single column named "oid",
- * containing the pg_type OIDs of one or more types that are known to have
- * inconsistent on-disk representations across server versions.
+ * 
+ * 
+ * 
  *
- * We check for the type(s) in tables, matviews, and indexes, but not views;
- * there's no storage involved in a view.
- */
+ * 
+ * 
+                                                                                                                                                                                                                                                         */
 bool
 check_for_data_types_usage(ClusterInfo *cluster,
 						   const char *base_query,
@@ -49,28 +49,28 @@ check_for_data_types_usage(ClusterInfo *cluster,
 					i_relname,
 					i_attname;
 
-		/*
-		 * The type(s) of interest might be wrapped in a domain, array,
-		 * composite, or range, and these container types can be nested (to
-		 * varying extents depending on server version, but that's not of
-		 * concern here).  To handle all these cases we need a recursive CTE.
-		 */
+		/*类型可能包装在域、数组、复合或范围中并嵌套。用递归 CTE 处理。
+		 * 
+		 * 
+		 * 
+		 * 
+		                                                                                                                                                                    */
 		initPQExpBuffer(&querybuf);
 		appendPQExpBuffer(&querybuf,
 						  "WITH RECURSIVE oids AS ( "
-		/* start with the type(s) returned by base_query */
+		/* 从 base_query 类型开始                   */
 						  "	%s "
 						  "	UNION ALL "
 						  "	SELECT * FROM ( "
-		/* inner WITH because we can only reference the CTE once */
+		/* 内 WITH 因 CTE 仅引用一次                      */
 						  "		WITH x AS (SELECT oid FROM oids) "
-		/* domains on any type selected so far */
+		/* 所选类型的域                  */
 						  "			SELECT t.oid FROM pg_catalog.pg_type t, x WHERE typbasetype = x.oid AND typtype = 'd' "
 						  "			UNION ALL "
-		/* arrays over any type selected so far */
+		/* 所选类型的数组                */
 						  "			SELECT t.oid FROM pg_catalog.pg_type t, x WHERE typelem = x.oid AND typtype = 'b' "
 						  "			UNION ALL "
-		/* composite types containing any type selected so far */
+		/* 含所选类型的复合                            */
 						  "			SELECT t.oid FROM pg_catalog.pg_type t, pg_catalog.pg_class c, pg_catalog.pg_attribute a, x "
 						  "			WHERE t.typtype = 'c' AND "
 						  "				  t.oid = c.reltype AND "
@@ -78,12 +78,12 @@ check_for_data_types_usage(ClusterInfo *cluster,
 						  "				  NOT a.attisdropped AND "
 						  "				  a.atttypid = x.oid "
 						  "			UNION ALL "
-		/* ranges containing any type selected so far */
+		/* 含所选类型的范围                   */
 						  "			SELECT t.oid FROM pg_catalog.pg_type t, pg_catalog.pg_range r, x "
 						  "			WHERE t.typtype = 'r' AND r.rngtypid = t.oid AND r.rngsubtype = x.oid"
 						  "	) foo "
 						  ") "
-		/* now look for stored columns of any such type */
+		/* 查找这些类型的存储列               */
 						  "SELECT n.nspname, c.relname, a.attname "
 						  "FROM	pg_catalog.pg_class c, "
 						  "		pg_catalog.pg_namespace n, "
@@ -96,10 +96,10 @@ check_for_data_types_usage(ClusterInfo *cluster,
 						  CppAsString2(RELKIND_MATVIEW) ", "
 						  CppAsString2(RELKIND_INDEX) ") AND "
 						  "		c.relnamespace = n.oid AND "
-		/* exclude possible orphaned temp tables */
+		/* 排除孤立临时表                 */
 						  "		n.nspname !~ '^pg_temp_' AND "
 						  "		n.nspname !~ '^pg_toast_temp_' AND "
-		/* exclude system catalogs, too */
+		/* 排除系统目录           */
 						  "		n.nspname NOT IN ('pg_catalog', 'information_schema')",
 						  base_query);
 
@@ -139,16 +139,16 @@ check_for_data_types_usage(ClusterInfo *cluster,
 	return found;
 }
 
-/*
- * check_for_data_type_usage()
- *	Detect whether there are any stored columns depending on the given type
+/*包装函数：将 type_name（完全限定）转为 base_query 查 check_for_data_types_usage。
+ * 
+ *	
  *
- * If so, write a report to the given file name, and return true.
+ * 
  *
- * type_name should be a fully qualified type name.  This is just a
- * trivial wrapper around check_for_data_types_usage() to convert a
- * type name into a base query.
- */
+ * 
+ * 
+ * 
+                                                                                                                                                                                                                            */
 bool
 check_for_data_type_usage(ClusterInfo *cluster,
 						  const char *type_name,
@@ -168,14 +168,14 @@ check_for_data_type_usage(ClusterInfo *cluster,
 }
 
 
-/*
- * old_9_3_check_for_line_data_type_usage()
- *	9.3 -> 9.4
- *	Fully implement the 'line' data type in 9.4, which previously returned
- *	"not enabled" by default and was only functionally enabled with a
- *	compile-time switch; as of 9.4 "line" has a different on-disk
- *	representation format.
- */
+/*9.3->9.4: 完全实现 line 类型，此前仅编译期启用，磁盘格式不同。
+ * 
+ *	
+ *	
+ *	
+ *	
+ *	
+                                                                                                                                                                                        */
 void
 old_9_3_check_for_line_data_type_usage(ClusterInfo *cluster)
 {
@@ -203,19 +203,19 @@ old_9_3_check_for_line_data_type_usage(ClusterInfo *cluster)
 }
 
 
-/*
- * old_9_6_check_for_unknown_data_type_usage()
- *	9.6 -> 10
- *	It's no longer allowed to create tables or views with "unknown"-type
- *	columns.  We do not complain about views with such columns, because
- *	they should get silently converted to "text" columns during the DDL
- *	dump and reload; it seems unlikely to be worth making users do that
- *	by hand.  However, if there's a table with such a column, the DDL
- *	reload will fail, so we should pre-detect that rather than failing
- *	mid-upgrade.  Worse, if there's a matview with such a column, the
- *	DDL reload will silently change it to "text" which won't match the
- *	on-disk storage (which is like "cstring").  So we *must* reject that.
- */
+/*9.6->10: 不再允许含 unknown 列的表/视图。视图静默转 text 无需处理；含 unknown 列的表 DDL 重载失败需预检；物化视图更严重，改 text 与磁盘不匹配，必须拒绝。
+ * 
+ *	
+ *	
+ *	
+ *	
+ *	
+ *	
+ *	
+ *	
+ *	
+ *	
+                                                                                                                                                                                                                                                                                                                                                                                                                                                              */
 void
 old_9_6_check_for_unknown_data_type_usage(ClusterInfo *cluster)
 {
@@ -241,11 +241,11 @@ old_9_6_check_for_unknown_data_type_usage(ClusterInfo *cluster)
 		check_ok();
 }
 
-/*
- * old_9_6_invalidate_hash_indexes()
- *	9.6 -> 10
- *	Hash index binary format has changed from 9.6->10.0
- */
+/*9.6->10: 哈希索引二进制格式变更
+ * 
+ *	
+ *	
+                                                    */
 void
 old_9_6_invalidate_hash_indexes(ClusterInfo *cluster, bool check_mode)
 {
@@ -267,7 +267,7 @@ old_9_6_invalidate_hash_indexes(ClusterInfo *cluster, bool check_mode)
 		DbInfo	   *active_db = &cluster->dbarr.dbs[dbnum];
 		PGconn	   *conn = connectToServer(cluster, active_db->db_name);
 
-		/* find hash indexes */
+		/* 查找哈希索引*/
 		res = executeQueryOrDie(conn,
 								"SELECT n.nspname, c.relname "
 								"FROM	pg_catalog.pg_class c, "
@@ -311,7 +311,7 @@ old_9_6_invalidate_hash_indexes(ClusterInfo *cluster, bool check_mode)
 
 		if (!check_mode && db_used)
 		{
-			/* mark hash indexes as invalid */
+			/* 标记哈希索引无效     */
 			PQclear(executeQueryOrDie(conn,
 									  "UPDATE pg_catalog.pg_index i "
 									  "SET	indisvalid = false "
@@ -353,14 +353,14 @@ old_9_6_invalidate_hash_indexes(ClusterInfo *cluster, bool check_mode)
 		check_ok();
 }
 
-/*
- * old_11_check_for_sql_identifier_data_type_usage()
- *	11 -> 12
- *	In 12, the sql_identifier data type was switched from name to varchar,
- *	which does affect the storage (name is by-ref, but not varlena). This
- *	means user tables using sql_identifier for columns are broken because
- *	the on-disk format is different.
- */
+/*11->12: sql_identifier 从 name 改 varchar，影响存储（name 引用传递非 varlena），磁盘格式不同致用户表损坏。
+ * 
+ *	
+ *	
+ *	
+ *	
+ *	
+                                                                                                                                                                    */
 void
 old_11_check_for_sql_identifier_data_type_usage(ClusterInfo *cluster)
 {
@@ -388,10 +388,10 @@ old_11_check_for_sql_identifier_data_type_usage(ClusterInfo *cluster)
 }
 
 
-/*
- * report_extension_updates()
- *	Report extensions that should be updated.
- */
+/*报告需更新的扩展
+ * 
+ *	
+                                            */
 void
 report_extension_updates(ClusterInfo *cluster)
 {
@@ -411,7 +411,7 @@ report_extension_updates(ClusterInfo *cluster)
 		DbInfo	   *active_db = &cluster->dbarr.dbs[dbnum];
 		PGconn	   *conn = connectToServer(cluster, active_db->db_name);
 
-		/* find extensions needing updates */
+		/* 查找需更新扩展           */
 		res = executeQueryOrDie(conn,
 								"SELECT name "
 								"FROM pg_available_extensions "

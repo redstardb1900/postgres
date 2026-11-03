@@ -28,14 +28,14 @@ static void print_db_infos(DbInfoArr *db_arr);
 static void print_rel_infos(RelInfoArr *rel_arr);
 
 
-/*
- * gen_db_file_maps()
+/*生成 old_db 到 new_db 的数据库映射。返回 malloc 数组，长度通过 *nmaps 返回。
+ * 
  *
- * generates a database mapping from "old_db" to "new_db".
+ * 
  *
- * Returns a malloc'ed array of mappings.  The length of the array
- * is returned into *nmaps.
- */
+ * 
+ * 
+                                                               */
 FileNameMap *
 gen_db_file_maps(DbInfo *old_db, DbInfo *new_db,
 				 int *nmaps,
@@ -47,15 +47,15 @@ gen_db_file_maps(DbInfo *old_db, DbInfo *new_db,
 	int			num_maps = 0;
 	bool		all_matched = true;
 
-	/* There will certainly not be more mappings than there are old rels */
+	/* 映射不超旧关系数                                          */
 	maps = (FileNameMap *) pg_malloc(sizeof(FileNameMap) *
 									 old_db->rel_arr.nrels);
 
-	/*
-	 * Each of the RelInfo arrays should be sorted by OID.  Scan through them
-	 * and match them up.  If we fail to match everything, we'll abort, but
-	 * first print as much info as we can about mismatches.
-	 */
+	/*RelInfo 数组按 OID 排序。扫描匹配。全部不匹配则中止并打印不匹配信息。
+	 * 
+	 * 
+	 * 
+	                                                                                              */
 	old_relnum = new_relnum = 0;
 	while (old_relnum < old_db->rel_arr.nrels ||
 		   new_relnum < new_db->rel_arr.nrels)
@@ -65,13 +65,13 @@ gen_db_file_maps(DbInfo *old_db, DbInfo *new_db,
 		RelInfo    *new_rel = (new_relnum < new_db->rel_arr.nrels) ?
 			&new_db->rel_arr.rels[new_relnum] : NULL;
 
-		/* handle running off one array before the other */
+		/* 处理数组耗尽                            */
 		if (!new_rel)
 		{
-			/*
-			 * old_rel is unmatched.  This should never happen, because we
-			 * force new rels to have TOAST tables if the old one did.
-			 */
+			/*old_rel 不应不匹配（强制新关系保留 TOAST）。
+			 * 
+			 * 
+			                                                        */
 			report_unmatched_relation(old_rel, old_db, false);
 			all_matched = false;
 			old_relnum++;
@@ -79,12 +79,12 @@ gen_db_file_maps(DbInfo *old_db, DbInfo *new_db,
 		}
 		if (!old_rel)
 		{
-			/*
-			 * new_rel is unmatched.  This shouldn't really happen either, but
-			 * if it's a TOAST table, we can ignore it and continue
-			 * processing, assuming that the new server made a TOAST table
-			 * that wasn't needed.
-			 */
+			/*new_rel 也不应不匹配。TOAST 表可忽略因新服务器可能创建了不需的 TOAST。
+			 * 
+			 * 
+			 * 
+			 * 
+			                                                                                                   */
 			if (strcmp(new_rel->nspname, "pg_toast") != 0)
 			{
 				report_unmatched_relation(new_rel, new_db, true);
@@ -94,10 +94,10 @@ gen_db_file_maps(DbInfo *old_db, DbInfo *new_db,
 			continue;
 		}
 
-		/* check for mismatched OID */
+		/* 检查 OID 不匹配     */
 		if (old_rel->reloid < new_rel->reloid)
 		{
-			/* old_rel is unmatched, see comment above */
+			/* old_rel 不匹（见上）              */
 			report_unmatched_relation(old_rel, old_db, false);
 			all_matched = false;
 			old_relnum++;
@@ -105,7 +105,7 @@ gen_db_file_maps(DbInfo *old_db, DbInfo *new_db,
 		}
 		else if (old_rel->reloid > new_rel->reloid)
 		{
-			/* new_rel is unmatched, see comment above */
+			/* new_rel 不匹（见上）              */
 			if (strcmp(new_rel->nspname, "pg_toast") != 0)
 			{
 				report_unmatched_relation(new_rel, new_db, true);
@@ -115,11 +115,11 @@ gen_db_file_maps(DbInfo *old_db, DbInfo *new_db,
 			continue;
 		}
 
-		/*
-		 * Verify that rels of same OID have same name.  The namespace name
-		 * should always match, but the relname might not match for TOAST
-		 * tables (and, therefore, their indexes).
-		 */
+		/*验证同 OID 关系同名。名称空间应同，TOAST 表（及索引）relname 可不同。
+		 * 
+		 * 
+		 * 
+		                                                                        */
 		if (strcmp(old_rel->nspname, new_rel->nspname) != 0 ||
 			strcmp(old_rel->relname, new_rel->relname) != 0)
 		{
@@ -134,7 +134,7 @@ gen_db_file_maps(DbInfo *old_db, DbInfo *new_db,
 			continue;
 		}
 
-		/* OK, create a mapping entry */
+		/* 创映射条               */
 		create_rel_filename_map(old_pgdata, new_pgdata, old_db, new_db,
 								old_rel, new_rel, maps + num_maps);
 		num_maps++;
@@ -151,35 +151,35 @@ gen_db_file_maps(DbInfo *old_db, DbInfo *new_db,
 }
 
 
-/*
- * create_rel_filename_map()
+/*填充文件节点映射结构返回到 map。
+ * 
  *
- * fills a file node map structure and returns it in "map".
- */
+ * 
+                                    */
 static void
 create_rel_filename_map(const char *old_data, const char *new_data,
 						const DbInfo *old_db, const DbInfo *new_db,
 						const RelInfo *old_rel, const RelInfo *new_rel,
 						FileNameMap *map)
 {
-	/* In case old/new tablespaces don't match, do them separately. */
+	/* 新旧表空间不匹则分处                               */
 	if (strlen(old_rel->tablespace) == 0)
 	{
-		/*
-		 * relation belongs to the default tablespace, hence relfiles should
-		 * exist in the data directories.
-		 */
+		/*关系属默认表空间，relfiles 应在数据目录。
+		 * 
+		 * 
+		                                       */
 		map->old_tablespace = old_data;
 		map->old_tablespace_suffix = "/base";
 	}
 	else
 	{
-		/* relation belongs to a tablespace, so use the tablespace location */
+		/* 关属某表空间，用表空间位                             */
 		map->old_tablespace = old_rel->tablespace;
 		map->old_tablespace_suffix = old_cluster.tablespace_suffix;
 	}
 
-	/* Do the same for new tablespaces */
+	/* 新表空间同处              */
 	if (strlen(new_rel->tablespace) == 0)
 	{
 		map->new_tablespace = new_data;
@@ -191,24 +191,24 @@ create_rel_filename_map(const char *old_data, const char *new_data,
 		map->new_tablespace_suffix = new_cluster.tablespace_suffix;
 	}
 
-	/* DB oid and relfilenumbers are preserved between old and new cluster */
+	/* db oid 和 relfilenumber 在新旧集簇间不变                   */
 	map->db_oid = old_db->db_oid;
 	map->relfilenumber = old_rel->relfilenumber;
 
-	/* used only for logging and error reporting, old/new are identical */
+	/* 仅日志和错报用，新旧同                                */
 	map->nspname = old_rel->nspname;
 	map->relname = old_rel->relname;
 }
 
 
-/*
- * Complain about a relation we couldn't match to the other database,
- * identifying it as best we can.
- */
+/*报告不能匹配的关系，尽所能标识。
+ * 
+ * 
+                                                 */
 static void
 report_unmatched_relation(const RelInfo *rel, const DbInfo *db, bool is_new_db)
 {
-	Oid			reloid = rel->reloid;	/* we might change rel below */
+	Oid			reloid = rel->reloid;	/* 下面可改 rel          */
 	char		reldesc[1000];
 	int			i;
 
@@ -226,7 +226,7 @@ report_unmatched_relation(const RelInfo *rel, const DbInfo *db, bool is_new_db)
 						 sizeof(reldesc) - strlen(reldesc),
 						 _(" which is an index on \"%s.%s\""),
 						 hrel->nspname, hrel->relname);
-				/* Shift attention to index's table for toast check */
+				/* 是索引，于 OID...                           */
 				rel = hrel;
 				break;
 			}
@@ -265,12 +265,12 @@ report_unmatched_relation(const RelInfo *rel, const DbInfo *db, bool is_new_db)
 			   reloid, db->db_name, reldesc);
 }
 
-/*
- * get_db_and_rel_infos()
+/*转注意索引的表做 toast 检查
+ * 
  *
- * higher level routine to generate dbinfos for the database running
- * on the given "port". Assumes that server is already running.
- */
+ * 
+ * 
+                                                                                                               */
 void
 get_db_and_rel_infos(ClusterInfo *cluster)
 {
@@ -295,10 +295,10 @@ get_db_and_rel_infos(ClusterInfo *cluster)
 }
 
 
-/*
- * Get information about template0, which will be copied from the old cluster
- * to the new cluster.
- */
+/*是 TOAST 表，在 OID...
+ * 
+ * 
+                                                                    */
 static void
 get_template0_info(ClusterInfo *cluster)
 {
@@ -415,11 +415,10 @@ get_db_infos(ClusterInfo *cluster)
 /*
  * get_rel_infos()
  *
- * gets the relinfos for all the user tables and indexes of the database
- * referred to by "dbinfo".
+ * 获取 'dbinfo' 所引用数据库的所有用户表和索引的 relinfo。
  *
- * Note: the resulting RelInfo array is assumed to be sorted by OID.
- * This allows later processing to match up old and new databases efficiently.
+ * 注意：假定 RelInfo 数组按 OID 排序，以便后续处理有效
+ * 匹配新旧数据库。
  */
 static void
 get_rel_infos(ClusterInfo *cluster, DbInfo *dbinfo)
@@ -448,16 +447,16 @@ get_rel_infos(ClusterInfo *cluster, DbInfo *dbinfo)
 
 	query[0] = '\0';			/* initialize query string to empty */
 
-	/*
-	 * Create a CTE that collects OIDs of regular user tables and matviews,
-	 * but excluding toast tables and indexes.  We assume that relations with
-	 * OIDs >= FirstNormalObjectId belong to the user.  (That's probably
-	 * redundant with the namespace-name exclusions, but let's be safe.)
+	/*获取 dbinfo 引用数据库的所有用户表和索引的 relinfos。结果按 OID 排序便于后续新旧匹配。
+	 * 
+	 * 
+	 * 
+	 * 
 	 *
-	 * pg_largeobject contains user data that does not appear in pg_dump
-	 * output, so we have to copy that system table.  It's easiest to do that
-	 * by treating it as a user table.
-	 */
+	 * 
+	 * 
+	 * 
+	                                                                                                                                                                                                                                                                                                                             */
 	snprintf(query + strlen(query), sizeof(query) - strlen(query),
 			 "WITH regular_heap (reloid, indtable, toastheap) AS ( "
 			 "  SELECT c.oid, 0::oid, 0::oid "
@@ -465,7 +464,7 @@ get_rel_infos(ClusterInfo *cluster, DbInfo *dbinfo)
 			 "         ON c.relnamespace = n.oid "
 			 "  WHERE relkind IN (" CppAsString2(RELKIND_RELATION) ", "
 			 CppAsString2(RELKIND_MATVIEW) ") AND "
-	/* exclude possible orphaned temp tables */
+	/* 初始查询为空                    */
 			 "    ((n.nspname !~ '^pg_temp_' AND "
 			 "      n.nspname !~ '^pg_toast_temp_' AND "
 			 "      n.nspname NOT IN ('pg_catalog', 'information_schema', "
@@ -487,12 +486,12 @@ get_rel_infos(ClusterInfo *cluster, DbInfo *dbinfo)
 			 "      ON regular_heap.reloid = c.oid "
 			 "  WHERE c.reltoastrelid != 0), ");
 
-	/*
-	 * Add a CTE that collects OIDs of all valid indexes on the previously
-	 * selected tables.  We can ignore invalid indexes since pg_dump does.
-	 * Testing indisready is necessary in 9.2, and harmless in earlier/later
-	 * versions.
-	 */
+	/*排除孤立临时表
+	 * 
+	 * 
+	 * 
+	 * 
+	                                                                                                                                                                                                */
 	snprintf(query + strlen(query), sizeof(query) - strlen(query),
 			 "  all_index (reloid, indtable, toastheap) AS ( "
 			 "  SELECT indexrelid, indrelid, 0::oid "
@@ -503,10 +502,10 @@ get_rel_infos(ClusterInfo *cluster, DbInfo *dbinfo)
 			 "         UNION ALL "
 			 "         SELECT reloid FROM toast_heap)) ");
 
-	/*
-	 * And now we can write the query that retrieves the data we want for each
-	 * heap and index relation.  Make sure result is sorted by OID.
-	 */
+	/*CTE 收集属于 regular_heap 表 toast 表的 OID。（命名空间规则不适用 toast 表故单做。）
+	 * 
+	 * 
+	                        */
 	snprintf(query + strlen(query), sizeof(query) - strlen(query),
 			 "SELECT all_rels.*, n.nspname, c.relname, "
 			 "  c.relfilenode, c.reltablespace, "
@@ -550,11 +549,11 @@ get_rel_infos(ClusterInfo *cluster, DbInfo *dbinfo)
 		nspname = PQgetvalue(res, relnum, i_nspname);
 		curr->nsp_alloc = false;
 
-		/*
-		 * Many of the namespace and tablespace strings are identical, so we
-		 * try to reuse the allocated string pointers where possible to reduce
-		 * memory consumption.
-		 */
+		/*CTE 收集表上所有有效索引 OID。忽略无效索引（pg_dump 也如此）。9.2 需测试 indisready，更早/更晚无害。
+		 * 
+		 * 
+		 * 
+		                  */
 		/* Can we reuse the previous string allocation? */
 		if (last_namespace && strcmp(nspname, last_namespace) == 0)
 			curr->nspname = last_namespace;
@@ -573,13 +572,13 @@ get_rel_infos(ClusterInfo *cluster, DbInfo *dbinfo)
 		/* Is the tablespace oid non-default? */
 		if (atooid(PQgetvalue(res, relnum, i_reltablespace)) != 0)
 		{
-			/*
-			 * The tablespace location might be "", meaning the cluster
-			 * default location, i.e. pg_default or pg_global.
-			 */
+			/*可复用前字符串分配？
+			 * 
+			 * 
+			                                                                          */
 			tablespace = PQgetvalue(res, relnum, i_spclocation);
 
-			/* Can we reuse the previous string allocation? */
+			/* 表空间 oid 非默认？                   */
 			if (last_tablespace && strcmp(tablespace, last_tablespace) == 0)
 				curr->tablespace = last_tablespace;
 			else

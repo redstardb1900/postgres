@@ -18,20 +18,17 @@
 /*
  * get_control_data()
  *
- * gets pg_control information in "ctrl". Assumes that bindir and
- * datadir are valid absolute paths to postgresql bin and pgdata
- * directories respectively *and* pg_resetwal is version compatible
- * with datadir. The main purpose of this function is to get pg_control
- * data in a version independent manner.
+ * 获取 "ctrl" 中的 pg_control 信息。假定 bindir 与
+ * datadir 为 postgresql bin 和 pgdata 的有效绝对路径，
+ * 且 pg_resetwal 与 datadir 版本兼容。主要目的为
+ * 以版本无关方式获取 pg_control 数据。
  *
- * The approach taken here is to invoke pg_resetwal with -n option
- * and then pipe its output. With little string parsing we get the
- * pg_control data.  pg_resetwal cannot be run while the server is running
- * so we use pg_controldata;  pg_controldata doesn't provide all the fields
- * we need to actually perform the upgrade, but it provides enough for
- * check mode.  We do not implement pg_resetwal -n because it is hard to
- * return valid xid data for a running server.
- */
+ * 此处采用调用 pg_resetwal -n 并解析管道输出的方法。
+ * 通过简单字符串解析获取数据。服务器运行时无法
+ * 运行 pg_resetwal，故用 pg_controldata；后者不提供
+ * 升级所需的全部字段，但检查模式足够。不实现
+ * pg_resetwal -n 因难对运行中服务器返回有效 xid。
+                                                                                                                                                                                                                  */
 void
 get_control_data(ClusterInfo *cluster, bool live_check)
 {
@@ -78,9 +75,9 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 	int			rc;
 
 	/*
-	 * Because we test the pg_resetwal output as strings, it has to be in
-	 * English.  Copied from pg_regress.c.
-	 */
+	 * 将 pg_resetwal 输出作字符串测试，须为英文。
+	 * 复制自 pg_regress.c。
+	                   */
 	if (getenv("LC_COLLATE"))
 		lc_collate = pg_strdup(getenv("LC_COLLATE"));
 	if (getenv("LC_CTYPE"))
@@ -108,7 +105,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 #ifndef WIN32
 	unsetenv("LANG");
 #else
-	/* On Windows the default locale may not be English, so force it */
+	/* Windows 默认区域可非英文，故强制 en               */
 	setenv("LANG", "en", 1);
 #endif
 	unsetenv("LANGUAGE");
@@ -116,11 +113,11 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 	setenv("LC_MESSAGES", "C", 1);
 
 	/*
-	 * Check for clean shutdown
-	 */
+	 * 检查干净关闭
+	       */
 	if (!live_check || cluster == &new_cluster)
 	{
-		/* only pg_controldata outputs the cluster state */
+		/* 仅 pg_controldata 输出集簇状态         */
 		snprintf(cmd, sizeof(cmd), "\"%s/pg_controldata\" \"%s\"",
 				 cluster->bindir, cluster->pgdata);
 		fflush(NULL);
@@ -129,7 +126,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			pg_fatal("could not get control data using %s: %s",
 					 cmd, strerror(errno));
 
-		/* we have the result of cmd in "output". so parse it line by line now */
+		/* cmd 结果在 output 中，逐行解析                             */
 		while (fgets(bufin, sizeof(bufin), output))
 		{
 			if ((p = strstr(bufin, "Database cluster state:")) != NULL)
@@ -139,17 +136,15 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 				if (p == NULL || strlen(p) <= 1)
 					pg_fatal("%d: database cluster state problem", __LINE__);
 
-				p++;			/* remove ':' char */
+				p++;			/* 去':'符       */
 
 				/*
-				 * We checked earlier for a postmaster lock file, and if we
-				 * found one, we tried to start/stop the server to replay the
-				 * WAL.  However, pg_ctl -m immediate doesn't leave a lock
-				 * file, but does require WAL replay, so we check here that
-				 * the server was shut down cleanly, from the controldata
-				 * perspective.
-				 */
-				/* remove leading spaces */
+				 * 此前已查 postmaster 锁文件，若发现则
+				 * 启动/停止服务器以重放 WAL。但 pg_ctl
+				 * -m immediate 不留锁文件却需 WAL 重放，
+				 * 故从 controldata 视角检查干净关闭。
+				                                                                                                                      */
+				/* 去除前导空格    */
 				while (*p == ' ')
 					p++;
 				if (strcmp(p, "shut down in recovery\n") == 0)
@@ -184,7 +179,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 		}
 	}
 
-	/* pg_resetxlog has been renamed to pg_resetwal in version 10 */
+	/* pg_resetxlog 在 v10 重命名为 pg_resetwal              */
 	if (GET_MAJOR_VERSION(cluster->bin_version) <= 906)
 		resetwal_bin = "pg_resetxlog\" -n";
 	else
@@ -199,17 +194,17 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 		pg_fatal("could not get control data using %s: %s",
 				 cmd, strerror(errno));
 
-	/* Only in <= 9.2 */
+	/* 仅 <= 9.2     */
 	if (GET_MAJOR_VERSION(cluster->major_version) <= 902)
 	{
 		cluster->controldata.data_checksum_version = 0;
 		got_data_checksum_version = true;
 	}
 
-	/* we have the result of cmd in "output". so parse it line by line now */
+	/* cmd 结果在 output 中，逐行解析                             */
 	while (fgets(bufin, sizeof(bufin), output))
 	{
-		/* In verbose mode, log each line */
+		/* verbose 模式记录每行     */
 		pg_strip_crlf(bufin);
 		pg_log(PG_VERBOSE, "%s", bufin);
 
@@ -220,7 +215,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: pg_resetwal problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			cluster->controldata.ctrl_ver = str2uint(p);
 		}
 		else if ((p = strstr(bufin, "Catalog version number:")) != NULL)
@@ -230,7 +225,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			cluster->controldata.cat_ver = str2uint(p);
 		}
 		else if ((p = strstr(bufin, "Latest checkpoint's TimeLineID:")) != NULL)
@@ -240,7 +235,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			tli = str2uint(p);
 			got_tli = true;
 		}
@@ -251,7 +246,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			logid = str2uint(p);
 			got_log_id = true;
 		}
@@ -262,7 +257,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			segno = str2uint(p);
 			got_log_seg = true;
 		}
@@ -273,15 +268,14 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			cluster->controldata.chkpnt_nxtepoch = str2uint(p);
 
 			/*
-			 * Delimiter changed from '/' to ':' in 9.6.  We don't test for
-			 * the catalog version of the change because the catalog version
-			 * is pulled from pg_controldata too, and it isn't worth adding an
-			 * order dependency for this --- we just check the string.
-			 */
+			 * 9.6 分隔符 '/' 变 ':'。不检目录版本
+			 * 因版本也来自 pg_controldata，
+			 * 不值加顺序依赖 --- 仅查字符串。
+			                                                                                                                         */
 			if (strchr(p, '/') != NULL)
 				p = strchr(p, '/');
 			else if (GET_MAJOR_VERSION(cluster->major_version) >= 906)
@@ -292,7 +286,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove '/' or ':' char */
+			p++;				/* 去'/'或':'符        */
 			cluster->controldata.chkpnt_nxtxid = str2uint(p);
 			got_xid = true;
 		}
@@ -303,7 +297,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			cluster->controldata.chkpnt_nxtoid = str2uint(p);
 			got_oid = true;
 		}
@@ -314,7 +308,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			cluster->controldata.chkpnt_nxtmulti = str2uint(p);
 			got_multi = true;
 		}
@@ -325,7 +319,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			cluster->controldata.chkpnt_oldstxid = str2uint(p);
 			got_oldestxid = true;
 		}
@@ -336,7 +330,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			cluster->controldata.chkpnt_oldstMulti = str2uint(p);
 			got_oldestmulti = true;
 		}
@@ -347,13 +341,13 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			cluster->controldata.chkpnt_nxtmxoff = str2uint(p);
 			got_mxoff = true;
 		}
 		else if ((p = strstr(bufin, "First log segment after reset:")) != NULL)
 		{
-			/* Skip the colon and any whitespace after it */
+			/* 跳过冒号及后空白                   */
 			p = strchr(p, ':');
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
@@ -361,7 +355,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			/* Make sure it looks like a valid WAL file name */
+			/* 确保像有效 WAL 文件名                 */
 			if (strspn(p, "0123456789ABCDEF") != 24)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
@@ -375,8 +369,8 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
-			/* used later for contrib check */
+			p++;				/* 去':'符       */
+			/* 后用于 contrib 检查     */
 			cluster->controldata.float8_pass_by_value = strstr(p, "by value") != NULL;
 			got_float8_pass_by_value = true;
 		}
@@ -387,7 +381,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			cluster->controldata.align = str2uint(p);
 			got_align = true;
 		}
@@ -398,7 +392,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			cluster->controldata.blocksz = str2uint(p);
 			got_blocksz = true;
 		}
@@ -409,7 +403,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			cluster->controldata.largesz = str2uint(p);
 			got_largesz = true;
 		}
@@ -420,7 +414,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			cluster->controldata.walsz = str2uint(p);
 			got_walsz = true;
 		}
@@ -431,7 +425,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			cluster->controldata.walseg = str2uint(p);
 			got_walseg = true;
 		}
@@ -442,7 +436,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			cluster->controldata.ident = str2uint(p);
 			got_ident = true;
 		}
@@ -453,7 +447,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			cluster->controldata.index = str2uint(p);
 			got_index = true;
 		}
@@ -464,7 +458,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			cluster->controldata.toast = str2uint(p);
 			got_toast = true;
 		}
@@ -475,7 +469,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			cluster->controldata.large_object = str2uint(p);
 			got_large_object = true;
 		}
@@ -486,7 +480,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			cluster->controldata.date_is_int = strstr(p, "64-bit integers") != NULL;
 			got_date_is_int = true;
 		}
@@ -497,7 +491,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			if (p == NULL || strlen(p) <= 1)
 				pg_fatal("%d: controldata retrieval problem", __LINE__);
 
-			p++;				/* remove ':' char */
+			p++;				/* 去':'符       */
 			cluster->controldata.data_checksum_version = str2uint(p);
 			got_data_checksum_version = true;
 		}
@@ -509,9 +503,9 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 				 cmd, wait_result_to_str(rc));
 
 	/*
-	 * Restore environment variables.  Note all but LANG and LC_MESSAGES were
-	 * unset above.
-	 */
+	 * 恢复环境变量。除 LANG 与 LC_MESSAGES
+	 * 外均已在上文取消。
+	           */
 	if (lc_collate)
 		setenv("LC_COLLATE", lc_collate, 1);
 	if (lc_ctype)
@@ -546,11 +540,11 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 	pg_free(lc_messages);
 
 	/*
-	 * Before 9.3, pg_resetwal reported the xlogid and segno of the first log
-	 * file after reset as separate lines. Starting with 9.3, it reports the
-	 * WAL file name. If the old cluster is older than 9.3, we construct the
-	 * WAL file name from the xlogid and segno.
-	 */
+	 * 9.3 前 pg_resetwal 将重置后首日志的 xlogid
+	 * 和 segno 分列。9.3 起报告 WAL 文件名。
+	 * 若旧集簇早于 9.3，从 xlogid 和 segno 构造
+	 * WAL 文件名。
+	                                                                                 */
 	if (GET_MAJOR_VERSION(cluster->major_version) <= 902)
 	{
 		if (got_tli && got_log_id && got_log_seg)
@@ -561,7 +555,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 		}
 	}
 
-	/* verify that we got all the mandatory pg_control data */
+	/* 验证已获取全部必需 pg_control 数据        */
 	if (!got_xid || !got_oid ||
 		!got_multi || !got_oldestxid ||
 		(!got_oldestmulti &&
@@ -637,7 +631,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 		if (!got_date_is_int)
 			pg_log(PG_REPORT, "  dates/times are integers?");
 
-		/* value added in Postgres 9.3 */
+		/* Postgres 9.3 新增值      */
 		if (!got_data_checksum_version)
 			pg_log(PG_REPORT, "  data checksum version");
 
@@ -649,8 +643,8 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 /*
  * check_control_data()
  *
- * check to make sure the control data settings are compatible
- */
+ * 检查 control 数据设置兼容
+                           */
 void
 check_control_data(ControlData *oldctrl,
 				   ControlData *newctrl)
@@ -680,7 +674,7 @@ check_control_data(ControlData *oldctrl,
 	if (oldctrl->toast == 0 || oldctrl->toast != newctrl->toast)
 		pg_fatal("old and new pg_controldata maximum TOAST chunk sizes are invalid or do not match");
 
-	/* large_object added in 9.5, so it might not exist in the old cluster */
+	/* large_object 在 9.5 加入，旧集簇可无                       */
 	if (oldctrl->large_object != 0 &&
 		oldctrl->large_object != newctrl->large_object)
 		pg_fatal("old and new pg_controldata large-object chunk sizes are invalid or do not match");
@@ -689,14 +683,13 @@ check_control_data(ControlData *oldctrl,
 		pg_fatal("old and new pg_controldata date/time storage types do not match");
 
 	/*
-	 * float8_pass_by_value does not need to match, but is used in
-	 * check_for_isn_and_int8_passing_mismatch().
-	 */
+	 * float8_pass_by_value 不需匹配，
+	 * 用于 check_for_isn_and_int8_passing_mismatch()。
+	               */
 
 	/*
-	 * We might eventually allow upgrades from checksum to no-checksum
-	 * clusters.
-	 */
+	 * 终可允校验和到无校验集簇升级。
+	                                 */
 	if (oldctrl->data_checksum_version == 0 &&
 		newctrl->data_checksum_version != 0)
 		pg_fatal("old cluster does not use data checksums but the new one does");
@@ -714,7 +707,7 @@ disable_old_cluster(void)
 	char		old_path[MAXPGPATH],
 				new_path[MAXPGPATH];
 
-	/* rename pg_control so old server cannot be accidentally started */
+	/* 重命名 pg_control 防旧服意外启动                     */
 	prep_status("Adding \".old\" suffix to old global/pg_control");
 
 	snprintf(old_path, sizeof(old_path), "%s/global/pg_control", old_cluster.pgdata);

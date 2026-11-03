@@ -17,13 +17,13 @@
 static PGconn *get_db_conn(ClusterInfo *cluster, const char *db_name);
 
 
-/*
- * connectToServer()
+/*连接到指定服务器上的目标数据库。失败则记录错误并调用 exit()。
+ * 
  *
- *	Connects to the desired database on the designated server.
- *	If the connection attempt fails, this function logs an error
- *	message and calls exit() to kill the program.
- */
+ *	
+ *	
+ *	
+                                                                                             */
 PGconn *
 connectToServer(ClusterInfo *cluster, const char *db_name)
 {
@@ -46,20 +46,20 @@ connectToServer(ClusterInfo *cluster, const char *db_name)
 }
 
 
-/*
- * get_db_conn()
+/*获取数据库连接（使用数据库名+标准参数）。调用者须检查失败！
+ * 
  *
- * get database connection, using named database + standard params for cluster
+ * 
  *
- * Caller must check for connection failure!
- */
+ * 
+                                          */
 static PGconn *
 get_db_conn(ClusterInfo *cluster, const char *db_name)
 {
 	PQExpBufferData conn_opts;
 	PGconn	   *conn;
 
-	/* Build connection string with proper quoting */
+	/* 构建带引用的连接串                 */
 	initPQExpBuffer(&conn_opts);
 	appendPQExpBufferStr(&conn_opts, "dbname=");
 	appendConnStrVal(&conn_opts, db_name);
@@ -78,16 +78,16 @@ get_db_conn(ClusterInfo *cluster, const char *db_name)
 }
 
 
-/*
- * cluster_conn_opts()
+/*返回连接此集簇的标准命令行选项（psql、pg_dump 等）。理想应与 get_db_conn() 一致，但工具对数据库名选项处理不一致故省略。结果下次调用前有效。
+ * 
  *
- * Return standard command-line options for connecting to this cluster when
- * using psql, pg_dump, etc.  Ideally this would match what get_db_conn()
- * sets, but the utilities we need aren't very consistent about the treatment
- * of database name options, so we leave that out.
+ * 
+ * 
+ * 
+ * 
  *
- * Result is valid until the next call to this function.
- */
+ * 
+                                                                                                                                             */
 char *
 cluster_conn_opts(ClusterInfo *cluster)
 {
@@ -111,13 +111,13 @@ cluster_conn_opts(ClusterInfo *cluster)
 }
 
 
-/*
- * executeQueryOrDie()
+/*从格式化参数执行查询。失败则记录错误并调用 exit()。
+ * 
  *
- *	Formats a query string from the given arguments and executes the
- *	resulting query.  If the query fails, this function logs an error
- *	message and calls exit() to kill the program.
- */
+ *	
+ *	
+ *	
+                                                                                                                         */
 PGresult *
 executeQueryOrDie(PGconn *conn, const char *fmt,...)
 {
@@ -148,13 +148,13 @@ executeQueryOrDie(PGconn *conn, const char *fmt,...)
 }
 
 
-/*
- * get_major_server_version()
+/*通过读取 PG_VERSION 获取 datadir 版本（uint 形式）。假设是绝对路径。
+ * 
  *
- * gets the version (in unsigned int form) for the given datadir. Assumes
- * that datadir is an absolute path to a valid pgdata directory. The version
- * is retrieved by reading the PG_VERSION file.
- */
+ * 
+ * 
+ * 
+                                                                                                                             */
 uint32
 get_major_server_version(ClusterInfo *cluster)
 {
@@ -176,12 +176,12 @@ get_major_server_version(ClusterInfo *cluster)
 
 	if (v1 < 10)
 	{
-		/* old style, e.g. 9.6.1 */
+		/* 旧格式如 9.6.1    */
 		return v1 * 10000 + v2 * 100;
 	}
 	else
 	{
-		/* new style, e.g. 10.1 */
+		/* 新格式如 10.1    */
 		return v1 * 10000;
 	}
 }
@@ -213,11 +213,11 @@ start_postmaster(ClusterInfo *cluster, bool report_and_exit_on_error)
 	socket_string[0] = '\0';
 
 #if !defined(WIN32)
-	/* prevent TCP/IP connections, restrict socket access */
+	/* 禁 TCP/IP，限套接字访问                    */
 	strcat(socket_string,
 		   " -c listen_addresses='' -c unix_socket_permissions=0700");
 
-	/* Have a sockdir?	Tell the postmaster. */
+	/* 有 sockdir？告知 postmaster      */
 	if (cluster->sockdir)
 		snprintf(socket_string + strlen(socket_string),
 				 sizeof(socket_string) - strlen(socket_string),
@@ -227,14 +227,14 @@ start_postmaster(ClusterInfo *cluster, bool report_and_exit_on_error)
 				 cluster->sockdir);
 #endif
 
-	/*
-	 * Use -b to disable autovacuum.
+	/*用 -b 禁用 autovacuum。关持久性提高对象创建速度（仅新集簇）。崩溃则新集簇需重建。fsync=off 在 ext4 上性能大幅提升。
+	 * 
 	 *
-	 * Turn off durability requirements to improve object creation speed, and
-	 * we only modify the new cluster, so only use it there.  If there is a
-	 * crash, the new cluster has to be recreated anyway.  fsync=off is a big
-	 * win on ext4.
-	 */
+	 * 
+	 * 
+	 * 
+	 * 
+	                                                                                             */
 	snprintf(cmd, sizeof(cmd),
 			 "\"%s/pg_ctl\" -w -l \"%s/%s\" -D \"%s\" -o \"-p %d -b%s %s%s\" start",
 			 cluster->bindir,
@@ -244,44 +244,44 @@ start_postmaster(ClusterInfo *cluster, bool report_and_exit_on_error)
 			 " -c synchronous_commit=off -c fsync=off -c full_page_writes=off" : "",
 			 cluster->pgopts ? cluster->pgopts : "", socket_string);
 
-	/*
-	 * Don't throw an error right away, let connecting throw the error because
-	 * it might supply a reason for the failure.
-	 */
+	/*不立即报错，等连接失败以提供原因。
+	 * 
+	 * 
+	                                                              */
 	pg_ctl_return = exec_prog(SERVER_START_LOG_FILE,
-	/* pass both file names if they differ */
+	/* 如文件名异则双传            */
 							  (strcmp(SERVER_LOG_FILE,
 									  SERVER_START_LOG_FILE) != 0) ?
 							  SERVER_LOG_FILE : NULL,
 							  report_and_exit_on_error, false,
 							  "%s", cmd);
 
-	/* Did it fail and we are just testing if the server could be started? */
+	/* 在测服务器能否启？                                         */
 	if (!pg_ctl_return && !report_and_exit_on_error)
 		return false;
 
-	/*
-	 * We set this here to make sure atexit() shuts down the server, but only
-	 * if we started the server successfully.  We do it before checking for
-	 * connectivity in case the server started but there is a connectivity
-	 * failure.  If pg_ctl did not return success, we will exit below.
+	/*在此设置确保 atexit() 关闭服务器（仅成功启动后）。检测连接前设以防启动但连接失败。pg_ctl 未成功则退出。9.1 前无 PQping()，认证错误可能保留运行服务器。谨慎起见不关闭可能意外启动的服务器。
+	 * 
+	 * 
+	 * 
+	 * 
 	 *
-	 * Pre-9.1 servers do not have PQping(), so we could be leaving the server
-	 * running if authentication was misconfigured, so someday we might went
-	 * to be more aggressive about doing server shutdowns even if pg_ctl
-	 * fails, but now (2013-08-14) it seems prudent to be cautious.  We don't
-	 * want to shutdown a server that might have been accidentally started
-	 * during the upgrade.
-	 */
+	 * 
+	 * 
+	 * 
+	 * 
+	 * 
+	 * 
+	                                                                                                                                                                                                                                                                                                                                                                              */
 	if (pg_ctl_return)
 		os_info.running_cluster = cluster;
 
-	/*
-	 * pg_ctl -w might have failed because the server couldn't be started, or
-	 * there might have been a connection problem in _checking_ if the server
-	 * has started.  Therefore, even if pg_ctl failed, we continue and test
-	 * for connectivity in case we get a connection reason for the failure.
-	 */
+	/*pg_ctl -w 可能因无法启动或连接失败。即使失败也测试连接获取原因。
+	 * 
+	 * 
+	 * 
+	 * 
+	                                                                                                                                                                                          */
 	if ((conn = get_db_conn(cluster, "template1")) == NULL ||
 		PQstatus(conn) != CONNECTION_OK)
 	{
@@ -299,11 +299,11 @@ start_postmaster(ClusterInfo *cluster, bool report_and_exit_on_error)
 	}
 	PQfinish(conn);
 
-	/*
-	 * If pg_ctl failed, and the connection didn't fail, and
-	 * report_and_exit_on_error is enabled, fail now.  This could happen if
-	 * the server was already running.
-	 */
+	/*pg_ctl 失败但连接正常且 report_and_exit_on_error 启用则报错（可能服务器已在运行）。
+	 * 
+	 * 
+	 * 
+	                                             */
 	if (!pg_ctl_return)
 	{
 		if (cluster == &old_cluster)
@@ -326,7 +326,7 @@ stop_postmaster(bool in_atexit)
 	else if (os_info.running_cluster == &new_cluster)
 		cluster = &new_cluster;
 	else
-		return;					/* no cluster running */
+		return;					/* 无运行集簇    */
 
 	exec_prog(SERVER_STOP_LOG_FILE, NULL, !in_atexit, !in_atexit,
 			  "\"%s/pg_ctl\" -w -D \"%s\" -o \"%s\" %s stop",
@@ -338,18 +338,18 @@ stop_postmaster(bool in_atexit)
 }
 
 
-/*
- * check_pghost_envvar()
+/*检查 PGHOST 未指向非本地服务器
+ * 
  *
- * Tests that PGHOST does not point to a non-local server
- */
+ * 
+                                   */
 void
 check_pghost_envvar(void)
 {
 	PQconninfoOption *option;
 	PQconninfoOption *start;
 
-	/* Get valid libpq env vars from the PQconndefaults function */
+	/* 从 PQconndefaults 获 libpq 环境变                    */
 
 	start = PQconndefaults();
 
@@ -364,7 +364,7 @@ check_pghost_envvar(void)
 			const char *value = getenv(option->envvar);
 
 			if (value && strlen(value) > 0 &&
-			/* check for 'local' host values */
+			/* 检查 'local' 主机值      */
 				(strcmp(value, "localhost") != 0 && strcmp(value, "127.0.0.1") != 0 &&
 				 strcmp(value, "::1") != 0 && !is_unixsock_path(value)))
 				pg_fatal("libpq environment variable %s has a non-local server value: %s",
@@ -372,6 +372,6 @@ check_pghost_envvar(void)
 		}
 	}
 
-	/* Free the memory that libpq allocated on our behalf */
+	/* 释放 libpq 分配内存                          */
 	PQconninfoFree(start);
 }

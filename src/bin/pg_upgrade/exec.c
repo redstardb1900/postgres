@@ -24,11 +24,11 @@ static int	win32_check_directory_write_permissions(void);
 #endif
 
 
-/*
- * get_bin_version
+/*获取集簇二进制的主版本。
+ * 
  *
- *	Fetch major version of binaries for cluster.
- */
+ *	
+                        */
 static void
 get_bin_version(ClusterInfo *cluster)
 {
@@ -57,31 +57,31 @@ get_bin_version(ClusterInfo *cluster)
 
 	if (v1 < 10)
 	{
-		/* old style, e.g. 9.6.1 */
+		/* 旧格式如 9.6.1    */
 		cluster->bin_version = v1 * 10000 + v2 * 100;
 	}
 	else
 	{
-		/* new style, e.g. 10.1 */
+		/* 新格式如 10.1    */
 		cluster->bin_version = v1 * 10000;
 	}
 }
 
 
-/*
- * exec_prog()
- *		Execute an external program with stdout/stderr redirected, and report
- *		errors
+/*执行外部程序（stdout/stderr 重定向），格式化命令并记录到日志。成功返回 true。失败可写错误消息，可选退出。须先在 Win 主线程调用。
+ * 
+ *	
+ *	
  *
- * Formats a command from the given argument list, logs it to the log file,
- * and attempts to execute that command.  If the command executes
- * successfully, exec_prog() returns true.
+ * 
+ * 
+ * 
  *
- * If the command fails, an error message is optionally written to the specified
- * log_file, and the program optionally exits.
+ * 
+ * 
  *
- * The code requires it be called first from the primary thread on Windows.
- */
+ * 
+                                                                                                                                                                                                                                                                                  */
 bool
 exec_prog(const char *log_filename, const char *opt_log_file,
 		  bool report_error, bool exit_on_error, const char *fmt,...)
@@ -98,7 +98,7 @@ exec_prog(const char *log_filename, const char *opt_log_file,
 #ifdef WIN32
 	static DWORD mainThreadId = 0;
 
-	/* We assume we are called from the primary thread first */
+	/* 假设主线先调                                    */
 	if (mainThreadId == 0)
 		mainThreadId = GetCurrentThreadId();
 #endif
@@ -120,15 +120,15 @@ exec_prog(const char *log_filename, const char *opt_log_file,
 
 #ifdef WIN32
 
-	/*
-	 * For some reason, Windows issues a file-in-use error if we write data to
-	 * the log file from a non-primary thread just before we create a
-	 * subprocess that also writes to the same log file.  One fix is to sleep
-	 * for 100ms.  A cleaner fix is to write to the log file _after_ the
-	 * subprocess has completed, so we do this only when writing from a
-	 * non-primary thread.  fflush(), running system() twice, and pre-creating
-	 * the file do not see to help.
-	 */
+	/*Win: 非主线程创建子进程写同日志文件，系统报使用中错。解决：睡眠 100ms，或子进程后写日志。fflush/systen 两次/预创建均无效。
+	 * 
+	 * 
+	 * 
+	 * 
+	 * 
+	 * 
+	 * 
+	                                                                                                                                                                                                                                                                      */
 	if (mainThreadId != GetCurrentThreadId())
 	{
 		fflush(NULL);
@@ -140,13 +140,13 @@ exec_prog(const char *log_filename, const char *opt_log_file,
 
 #ifdef WIN32
 	{
-		/*
-		 * "pg_ctl -w stop" might have reported that the server has stopped
-		 * because the postmaster.pid file has been removed, but "pg_ctl -w
-		 * start" might still be in the process of closing and might still be
-		 * holding its stdout and -l log file descriptors open.  Therefore,
-		 * try to open the log file a few more times.
-		 */
+		/*pg_ctl -w stop 可能因 pid 文件移除而报停，但 start 可能仍在关、stdout/-l 仍开。尝试多次打开日志。
+		 * 
+		 * 
+		 * 
+		 * 
+		 * 
+		                                                                                                                                                                              */
 		int			iter;
 
 		for (iter = 0; iter < 4 && log == NULL; iter++)
@@ -161,7 +161,7 @@ exec_prog(const char *log_filename, const char *opt_log_file,
 		pg_fatal("could not open log file \"%s\": %m", log_file);
 
 #ifdef WIN32
-	/* Are we printing "command:" before its output? */
+	/* 在命令输出后打 "command:" ？          */
 	if (mainThreadId == GetCurrentThreadId())
 		fprintf(log, "\n\n");
 #endif
@@ -172,10 +172,10 @@ exec_prog(const char *log_filename, const char *opt_log_file,
 		fprintf(log, "\n\n");
 #endif
 
-	/*
-	 * In Windows, we must close the log file at this point so the file is not
-	 * open while the command is running, or we get a share violation.
-	 */
+	/*见上注释
+	 * 
+	 * 
+	                                                                                                                           */
 	fclose(log);
 
 #ifdef WIN32
@@ -208,13 +208,13 @@ exec_prog(const char *log_filename, const char *opt_log_file,
 
 #ifndef WIN32
 
-	/*
-	 * We can't do this on Windows because it will keep the "pg_ctl start"
-	 * output filename open until the server stops, so we do the \n\n above on
-	 * that platform.  We use a unique filename for "pg_ctl start" that is
-	 * never reused while the server is running, so it works fine.  We could
-	 * log these commands to a third file, but that just adds complexity.
-	 */
+	/*检查 postmaster.pid 文件存在。
+	 * 
+	 * 
+	 * 
+	 * 
+	 * 
+	                                                                                                                                                                                                                                                                                                                */
 	if ((log = fopen(log_file, "a")) == NULL)
 		pg_fatal("could not write to log file \"%s\": %m", log_file);
 	fprintf(log, "\n\n");
@@ -225,11 +225,11 @@ exec_prog(const char *log_filename, const char *opt_log_file,
 }
 
 
-/*
- * pid_lock_file_exists()
+/*ENOTDIR 则稍后抛更有用错误
+ * 
  *
- * Checks whether the postmaster.pid file exists.
- */
+ * 
+                                  */
 bool
 pid_lock_file_exists(const char *datadir)
 {
@@ -253,14 +253,14 @@ pid_lock_file_exists(const char *datadir)
 }
 
 
-/*
- * verify_directories()
+/*access() 在 WIN32 不能查目录权限，须创建删文件检查。
+ * 
  *
- * does all the hectic work of verifying directories and executables
- * of old and new server.
+ * 
+ * 
  *
- * NOTE: May update the values of all parameters
- */
+ * 
+                                                                                   */
 void
 verify_directories(void)
 {
@@ -279,22 +279,22 @@ verify_directories(void)
 
 
 #ifdef WIN32
-/*
- * win32_check_directory_write_permissions()
+/*打开通常创建的文件。即使 check 模式也做，不理想但最可行。
+ * 
  *
- *	access() on WIN32 can't check directory permissions, so we have to
- *	optionally create, then delete a file to check.
- *		http://msdn.microsoft.com/en-us/library/1w06ktdy%28v=vs.80%29.aspx
- */
+ *	
+ *	
+ *	
+                                                                                                                                            */
 static int
 win32_check_directory_write_permissions(void)
 {
 	int			fd;
 
-	/*
-	 * We open a file we would normally create anyway.  We do this even in
-	 * 'check' mode, which isn't ideal, but this is the best we can do.
-	 */
+	/*检查 PGDATA 单个目录存在性，缺失或不可访则失败。
+	 * 
+	 * 
+	                                                                */
 	if ((fd = open(GLOBALS_DUMP_FILE, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR)) < 0)
 		return -1;
 	close(fd);
@@ -304,12 +304,12 @@ win32_check_directory_write_permissions(void)
 #endif
 
 
-/*
- * check_single_dir()
+/*Win32 不能 stat() 尾斜杠目录。
+ * 
  *
- *	Check for the presence of a single directory in PGDATA, and fail if
- * is it missing or not accessible.
- */
+ *	
+ * 
+                                                                                */
 static void
 check_single_dir(const char *pg_data, const char *subdir)
 {
@@ -330,15 +330,15 @@ check_single_dir(const char *pg_data, const char *subdir)
 }
 
 
-/*
- * check_data_dir()
+/*获取集簇版本
+ * 
  *
- *	This function validates the given cluster directory - we search for a
- *	small set of subdirectories that we expect to find in a valid $PGDATA
- *	directory.  If any of the subdirectories are missing (or secured against
- *	us) we display an error message and exit()
+ *	
+ *	
+ *	
+ *	
  *
- */
+                                                                                                                                                                                                                                                           */
 static void
 check_data_dir(ClusterInfo *cluster)
 {
@@ -355,7 +355,7 @@ check_data_dir(ClusterInfo *cluster)
 	check_single_dir(pg_data, "pg_tblspc");
 	check_single_dir(pg_data, "pg_twophase");
 
-	/* pg_xlog has been renamed to pg_wal in v10 */
+	/* pg_clog 在 v10 更名 pg_xact            */
 	if (GET_MAJOR_VERSION(cluster->major_version) <= 906)
 		check_single_dir(pg_data, "pg_xlog");
 	else
@@ -369,18 +369,18 @@ check_data_dir(ClusterInfo *cluster)
 }
 
 
-/*
- * check_bin_dir()
+/*检查 bindir
+ * 
  *
- *	This function searches for the executables that we expect to find
- *	in the binaries directory.  If we find that a required executable
- *	is missing (or secured against us), we display an error message and
- *	exit().
+ *	
+ *	
+ *	
+ *	
  *
- *	If check_versions is true, then the versions of the binaries are checked
- *	against the version of this pg_upgrade.  This is for checking the target
- *	bindir.
- */
+ *	
+ *	
+ *	
+                                                                                                                                                                                                                                                                                                                                                                      */
 static void
 check_bin_dir(ClusterInfo *cluster, bool check_versions)
 {
@@ -398,11 +398,11 @@ check_bin_dir(ClusterInfo *cluster, bool check_versions)
 	check_exec(cluster->bindir, "pg_controldata", check_versions);
 	check_exec(cluster->bindir, "pg_ctl", check_versions);
 
-	/*
-	 * Fetch the binary version after checking for the existence of pg_ctl.
-	 * This way we report a useful error if the pg_ctl binary used for version
-	 * fetching is missing/broken.
-	 */
+	/*pg_resetxlog 在 v10 更名为 pg_resetwal
+	 * 
+	 * 
+	 * 
+	                                                                                                                             */
 	get_bin_version(cluster);
 
 	/* pg_resetxlog has been renamed to pg_resetwal in version 10 */

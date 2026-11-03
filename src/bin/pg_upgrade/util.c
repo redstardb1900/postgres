@@ -19,15 +19,15 @@ LogOpts		log_opts;
 static void pg_log_v(eLogType type, const char *fmt, va_list ap) pg_attribute_printf(2, 0);
 
 
-/*
- * report_status()
+/*显示操作结果（ok、failed 等）。功能与 pg_log() 相同，保留以区分操作结果与其他消息。
+ * 
  *
- *	Displays the result of an operation (ok, failed, error message,...)
+ *	
  *
- *	This is no longer functionally different from pg_log(), but we keep
- *	it around to maintain a notational distinction between operation
- *	results and other messages.
- */
+ *	
+ *	
+ *	
+                                                                                                                              */
 void
 report_status(eLogType type, const char *fmt,...)
 {
@@ -42,11 +42,11 @@ report_status(eLogType type, const char *fmt,...)
 void
 end_progress_output(void)
 {
-	/*
-	 * For output to a tty, erase prior contents of progress line. When either
-	 * tty or verbose, indent so that report_status() output will align
-	 * nicely.
-	 */
+	/*tty 输出擦进度行前内容，tty/verbose 缩进使 report_status() 对齐。
+	 * 
+	 * 
+	 * 
+	                                                              */
 	if (log_opts.isatty)
 	{
 		printf("\r");
@@ -56,75 +56,75 @@ end_progress_output(void)
 		pg_log(PG_REPORT_NONL, "%-*s", MESSAGE_WIDTH, "");
 }
 
-/*
- * Remove any logs generated internally.  To be used once when exiting.
- */
+/*退出时移除内部日志。
+ * 
+                                       */
 void
 cleanup_output_dirs(void)
 {
 	fclose(log_opts.internal);
 
-	/* Remove dump and log files? */
+	/* 移除转储和日志？   */
 	if (log_opts.retain)
 		return;
 
-	/*
-	 * Try twice.  The second time might wait for files to finish being
-	 * unlinked, on Windows.
-	 */
+	/*尝试两次。第二次等文件在 Windows 上完成 unlink。
+	 * 
+	 * 
+	                      */
 	if (!rmtree(log_opts.basedir, true))
 		rmtree(log_opts.basedir, true);
 
-	/* Remove pg_upgrade_output.d only if empty */
+	/* 仅 pg_upgrade_output.d 空时移除     */
 	switch (pg_check_dir(log_opts.rootdir))
 	{
-		case 0:					/* non-existent */
-		case 3:					/* exists and contains a mount point */
+		case 0:					/* 不存在    */
+		case 3:					/* 存在且含挂载点             */
 			Assert(false);
 			break;
 
-		case 1:					/* exists and empty */
-		case 2:					/* exists and contains only dot files */
+		case 1:					/* 存在且空     */
+		case 2:					/* 存在且仅点文件              */
 
-			/*
-			 * Try twice.  The second time might wait for files to finish
-			 * being unlinked, on Windows.
-			 */
+			/*尝试两次。第二次等文件在 Windows 上完成 unlink。
+			 * 
+			 * 
+			                      */
 			if (!rmtree(log_opts.rootdir, true))
 				rmtree(log_opts.rootdir, true);
 			break;
 
-		case 4:					/* exists */
+		case 4:					/* 存在 */
 
-			/*
-			 * Keep the root directory as this includes some past log
-			 * activity.
-			 */
+			/*保留根目录含过去日志活动。
+			 * 
+			 * 
+			                         */
 			break;
 
 		default:
-			/* different failure, just report it */
+			/* 其他失败，仅报告          */
 			pg_log(PG_WARNING, "could not access directory \"%s\": %m",
 				   log_opts.rootdir);
 			break;
 	}
 }
 
-/*
- * prep_status
+/*显示即将开始操作的描述。填充消息到 MESSAGE_WIDTH 使 ok/failed 对齐。（过长截断勿冗长。）
+ * 
  *
- *	Displays a message that describes an operation we are about to begin.
- *	We pad the message out to MESSAGE_WIDTH characters so that all of the
- *	"ok" and "failed" indicators line up nicely.  (Overlength messages
- *	will be truncated, so don't get too verbose.)
+ *	
+ *	
+ *	
+ *	
  *
- *	A typical sequence would look like this:
- *		prep_status("about to flarb the next %d files", fileCount);
- *		if ((message = flarbFiles(fileCount)) == NULL)
- *		  report_status(PG_REPORT, "ok");
- *		else
- *		  pg_log(PG_FATAL, "failed: %s", message);
- */
+ *	
+ *	
+ *	
+ *	
+ *	
+ *	
+                                                                                                                                                                                                                                                                                                                                                                                   */
 void
 prep_status(const char *fmt,...)
 {
@@ -139,19 +139,19 @@ prep_status(const char *fmt,...)
 	pg_log(PG_REPORT_NONL, "%-*s", MESSAGE_WIDTH, message);
 }
 
-/*
- * prep_status_progress
+/*类似 prep_status() 但用于较长操作。当前处理项通过 pg_log(PG_STATUS) 展示。
+ * 
  *
- *   Like prep_status(), but for potentially longer running operations.
- *   Details about what item is currently being processed can be displayed
- *   with pg_log(PG_STATUS, ...). A typical sequence would look like this:
+ * 
+ * 
+ * 
  *
- *   prep_status_progress("copying files");
- *   for (...)
- *     pg_log(PG_STATUS, "%s", filename);
- *   end_progress_output();
- *   report_status(PG_REPORT, "ok");
- */
+ * 
+ * 
+ * 
+ * 
+ * 
+                                                                                                                                                                                                                                                                                           */
 void
 prep_status_progress(const char *fmt,...)
 {
@@ -162,10 +162,10 @@ prep_status_progress(const char *fmt,...)
 	vsnprintf(message, sizeof(message), fmt, args);
 	va_end(args);
 
-	/*
-	 * If outputting to a tty or in verbose, append newline. pg_log_v() will
-	 * put the individual progress items onto the next line.
-	 */
+	/*tty/verbose 追加换行。pg_log_v() 将进度项放下一行。
+	 * 
+	 * 
+	                                                          */
 	if (log_opts.isatty || log_opts.verbose)
 		pg_log(PG_REPORT, "%-*s", MESSAGE_WIDTH, message);
 	else
@@ -177,19 +177,19 @@ pg_log_v(eLogType type, const char *fmt, va_list ap)
 {
 	char		message[QUERY_ALLOC];
 
-	/* No incoming message should end in newline; we add that here. */
+	/* 入消息不应以换行结尾；在此加。                */
 	Assert(fmt);
 	Assert(fmt[0] == '\0' || fmt[strlen(fmt) - 1] != '\n');
 
 	vsnprintf(message, sizeof(message), _(fmt), ap);
 
-	/* PG_VERBOSE and PG_STATUS are only output in verbose mode */
-	/* fopen() on log_opts.internal might have failed, so check it */
+	/* PG_VERBOSE 和 PG_STATUS 仅 verbose 输出              */
+	/* log_opts.internal fopen() 可败故检                      */
 	if (((type != PG_VERBOSE && type != PG_STATUS) || log_opts.verbose) &&
 		log_opts.internal != NULL)
 	{
 		if (type == PG_STATUS)
-			/* status messages get two leading spaces, see below */
+			/* 状态消息有两前导空格                    */
 			fprintf(log_opts.internal, "  %s\n", message);
 		else if (type == PG_REPORT_NONL)
 			fprintf(log_opts.internal, "%s", message);
@@ -207,21 +207,21 @@ pg_log_v(eLogType type, const char *fmt, va_list ap)
 
 		case PG_STATUS:
 
-			/*
-			 * For output to a terminal, we add two leading spaces and no
-			 * newline; instead append \r so that the next message is output
-			 * on the same line.  Truncate on the left to fit into
-			 * MESSAGE_WIDTH (counting the spaces as part of that).
+			/*终端输出加两空格不要换行（\r 使下条同行）。左截断适配 MESSAGE_WIDTH。非交互仅 verbose 展示，否则输出过大。
+			 * 
+			 * 
+			 * 
+			 * 
 			 *
-			 * If going to non-interactive output, only display progress if
-			 * verbose is enabled. Otherwise the output gets unreasonably
-			 * large by default.
-			 */
+			 * 
+			 * 
+			 * 
+			                                                                                                                                                                                                                    */
 			if (log_opts.isatty)
 			{
 				bool		itfits = (strlen(message) <= MESSAGE_WIDTH - 2);
 
-				/* prefix with "..." if we do leading truncation */
+				/* 前导截前缀 "..."                         */
 				printf("  %s%-*.*s\r",
 					   itfits ? "" : "...",
 					   MESSAGE_WIDTH - 2, MESSAGE_WIDTH - 2,
@@ -233,7 +233,7 @@ pg_log_v(eLogType type, const char *fmt, va_list ap)
 			break;
 
 		case PG_REPORT_NONL:
-			/* This option is for use by prep_status and friends */
+			/* prep_status 及关联用                          */
 			printf("%s", message);
 			break;
 
@@ -243,13 +243,13 @@ pg_log_v(eLogType type, const char *fmt, va_list ap)
 			break;
 
 		case PG_FATAL:
-			/* Extra newline in case we're interrupting status output */
+			/* 中断状态输出额外换行                         */
 			printf("\n%s\n", message);
 			printf(_("Failure, exiting\n"));
 			exit(1);
 			break;
 
-			/* No default:, we want a warning for omitted cases */
+			/* 无 default：望收略况警告                 */
 	}
 	fflush(stdout);
 }
@@ -274,7 +274,7 @@ pg_fatal(const char *fmt,...)
 	va_start(args, fmt);
 	pg_log_v(PG_FATAL, fmt, args);
 	va_end(args);
-	/* NOTREACHED */
+	/* 一切好  */
 	printf(_("Failure, exiting\n"));
 	exit(1);
 }
@@ -288,13 +288,13 @@ check_ok(void)
 }
 
 
-/*
- * quote_identifier()
- *		Properly double-quote a SQL identifier.
+/*制作副本
+ * 
+ *	
  *
- * The result should be pg_free'd, but most callers don't bother because
- * memory leakage is not a big deal in this program.
- */
+ * 
+ * 
+                                                                                                                                                                     */
 char *
 quote_identifier(const char *s)
 {

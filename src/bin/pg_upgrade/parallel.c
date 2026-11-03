@@ -19,11 +19,11 @@
 static int	parallel_jobs;
 
 #ifdef WIN32
-/*
- *	Array holding all active threads.  There can't be any gaps/zeros so
- *	it can be passed to WaitForMultipleObjects().  We use two arrays
- *	so the thread_handles array can be passed to WaitForMultipleObjects().
- */
+/*存所有活跃线程句柄。无间隙/零以便传 WaitForMultipleObjects。双数组使 thread_handles 可传。
+ *	
+ *	
+ *	
+                                                                                       */
 HANDLE	   *thread_handles;
 
 typedef struct
@@ -45,19 +45,19 @@ typedef struct
 exec_thread_arg **exec_thread_args;
 transfer_thread_arg **transfer_thread_args;
 
-/* track current thread_args struct so reap_child() can be used for all cases */
+/* 跟踪当前 thread_args 使 reap_child 适所有况                       */
 void	  **cur_thread_args;
 
 DWORD		win32_exec_prog(exec_thread_arg *args);
 DWORD		win32_transfer_all_new_dbs(transfer_thread_arg *args);
 #endif
 
-/*
- *	parallel_exec_prog
+/*与 exec_prog API同，但并行执行故必须报错且不返错误状态。
+ *	
  *
- *	This has the same API as exec_prog, except it does parallel execution,
- *	and therefore must throw errors and doesn't return an error status.
- */
+ *	
+ *	
+                                                                               */
 void
 parallel_exec_prog(const char *log_file, const char *opt_log_file,
 				   const char *fmt,...)
@@ -77,11 +77,11 @@ parallel_exec_prog(const char *log_file, const char *opt_log_file,
 	va_end(args);
 
 	if (user_opts.jobs <= 1)
-		/* exit_on_error must be true to allow jobs */
+		/* exit_on_error 须 true 允作业         */
 		exec_prog(log_file, opt_log_file, true, true, "%s", cmd);
 	else
 	{
-		/* parallel */
+		/* 并行   */
 #ifdef WIN32
 		if (thread_handles == NULL)
 			thread_handles = pg_malloc(user_opts.jobs * sizeof(HANDLE));
@@ -92,44 +92,44 @@ parallel_exec_prog(const char *log_file, const char *opt_log_file,
 
 			exec_thread_args = pg_malloc(user_opts.jobs * sizeof(exec_thread_arg *));
 
-			/*
-			 * For safety and performance, we keep the args allocated during
-			 * the entire life of the process, and we don't free the args in a
-			 * thread different from the one that allocated it.
-			 */
+			/*安全和性能：整个进程生命周期保持参数分配，不在不同线程释放。
+			 * 
+			 * 
+			 * 
+			                                                                                   */
 			for (i = 0; i < user_opts.jobs; i++)
 				exec_thread_args[i] = pg_malloc0(sizeof(exec_thread_arg));
 		}
 
 		cur_thread_args = (void **) exec_thread_args;
 #endif
-		/* harvest any dead children */
+		/* 回收亡子进程        */
 		while (reap_child(false) == true)
 			;
 
-		/* must we wait for a dead child? */
+		/* 需等亡子进程？          */
 		if (parallel_jobs >= user_opts.jobs)
 			reap_child(true);
 
-		/* set this before we start the job */
+		/* fork 前寂 stdio                */
 		parallel_jobs++;
 
-		/* Ensure stdio state is quiesced before forking */
+		/* 用 _exit 跳 atexit()                        */
 		fflush(NULL);
 
 #ifndef WIN32
 		child = fork();
 		if (child == 0)
-			/* use _exit to skip atexit() functions */
+			/* fork 败                             */
 			_exit(!exec_prog(log_file, opt_log_file, true, true, "%s", cmd));
 		else if (child < 0)
 			/* fork failed */
 			pg_fatal("could not create worker process: %s", strerror(errno));
 #else
-		/* empty array element are always at the end */
+		/* 仅传一指故用 struct                 */
 		new_arg = exec_thread_args[parallel_jobs - 1];
 
-		/* Can only pass one pointer into the function, so use a struct */
+		/* 终止线程                                                 */
 		pg_free(new_arg->log_file);
 		new_arg->log_file = pg_strdup(log_file);
 		pg_free(new_arg->opt_log_file);
@@ -162,12 +162,12 @@ win32_exec_prog(exec_thread_arg *args)
 #endif
 
 
-/*
- *	parallel_transfer_all_new_dbs
+/*并行
+ *	
  *
- *	This has the same API as transfer_all_new_dbs, except it does parallel execution
- *	by transferring multiple tablespaces in parallel
- */
+ *	
+ *	
+                                                                                                                                                        */
 void
 parallel_transfer_all_new_dbs(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 							  char *old_pgdata, char *new_pgdata,
@@ -195,29 +195,29 @@ parallel_transfer_all_new_dbs(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 
 			transfer_thread_args = pg_malloc(user_opts.jobs * sizeof(transfer_thread_arg *));
 
-			/*
-			 * For safety and performance, we keep the args allocated during
-			 * the entire life of the process, and we don't free the args in a
-			 * thread different from the one that allocated it.
-			 */
+			/*回收死亡子进程
+			 * 
+			 * 
+			 * 
+			                                                                                                                                                        */
 			for (i = 0; i < user_opts.jobs; i++)
 				transfer_thread_args[i] = pg_malloc0(sizeof(transfer_thread_arg));
 		}
 
 		cur_thread_args = (void **) transfer_thread_args;
 #endif
-		/* harvest any dead children */
+		/* 需等亡子进程？     */
 		while (reap_child(false) == true)
 			;
 
-		/* must we wait for a dead child? */
+		/* fork 前寂 stdio              */
 		if (parallel_jobs >= user_opts.jobs)
 			reap_child(true);
 
-		/* set this before we start the job */
+		/* 其他退出路非零            */
 		parallel_jobs++;
 
-		/* Ensure stdio state is quiesced before forking */
+		/* 用 _exit 跳 atexit()                        */
 		fflush(NULL);
 
 #ifndef WIN32
@@ -226,18 +226,18 @@ parallel_transfer_all_new_dbs(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 		{
 			transfer_all_new_dbs(old_db_arr, new_db_arr, old_pgdata, new_pgdata,
 								 old_tablespace);
-			/* if we take another exit path, it will be non-zero */
-			/* use _exit to skip atexit() functions */
+			/* fork 败                                          */
+			/* 空数组元总在尾                */
 			_exit(0);
 		}
 		else if (child < 0)
 			/* fork failed */
 			pg_fatal("could not create worker process: %s", strerror(errno));
 #else
-		/* empty array element are always at the end */
+		/* 终止线程                              */
 		new_arg = transfer_thread_args[parallel_jobs - 1];
 
-		/* Can only pass one pointer into the function, so use a struct */
+		/* 收集已完成子进程状态                               */
 		new_arg->old_db_arr = old_db_arr;
 		new_arg->new_db_arr = new_db_arr;
 		pg_free(new_arg->old_pgdata);
@@ -265,15 +265,15 @@ win32_transfer_all_new_dbs(transfer_thread_arg *args)
 	transfer_all_new_dbs(args->old_db_arr, args->new_db_arr, args->old_pgdata,
 						 args->new_pgdata, args->old_tablespace);
 
-	/* terminates thread */
+	/* 无子或亡子   */
 	return 0;
 }
 #endif
 
 
-/*
- *	collect status from a completed worker child
- */
+/*等待完成一个
+ *	
+                           */
 bool
 reap_child(bool wait_for_child)
 {
@@ -293,18 +293,18 @@ reap_child(bool wait_for_child)
 	if (child == (pid_t) -1)
 		pg_fatal("%s() failed: %s", "waitpid", strerror(errno));
 	if (child == 0)
-		return false;			/* no children, or no dead children */
+		return false;			/* 在 active_threads 计线程索  */
 	if (work_status != 0)
 		pg_fatal("child process exited abnormally: status %d", work_status);
 #else
-	/* wait for one to finish */
+	/* 取结果              */
 	thread_num = WaitForMultipleObjects(parallel_jobs, thread_handles,
 										false, wait_for_child ? INFINITE : 0);
 
 	if (thread_num == WAIT_TIMEOUT || thread_num == WAIT_FAILED)
 		return false;
 
-	/* compute thread index in active_threads */
+	/* 处置句柄防泄                     */
 	thread_num -= WAIT_OBJECT_0;
 
 	/* get the result */
@@ -315,7 +315,7 @@ reap_child(bool wait_for_child)
 	/* dispose of handle to stop leaks */
 	CloseHandle(thread_handles[thread_num]);
 
-	/* Move last slot into dead child's position */
+	/* 作业移除后执行                     */
 	if (thread_num != parallel_jobs - 1)
 	{
 		void	   *tmp_args;

@@ -59,7 +59,7 @@ get_loadable_libraries(void)
 	ress = (PGresult **) pg_malloc(old_cluster.dbarr.ndbs * sizeof(PGresult *));
 	totaltups = 0;
 
-	/* Fetch all library names, removing duplicates within each DB */
+	/* 每库去重取库名                                       */
 	for (dbnum = 0; dbnum < old_cluster.dbarr.ndbs; dbnum++)
 	{
 		DbInfo	   *active_db = &old_cluster.dbarr.dbs[dbnum];
@@ -146,7 +146,7 @@ check_loadable_libraries(void)
 		char		cmd[7 + 2 * MAXPGPATH + 1];
 		PGresult   *res;
 
-		/* Did the library name change?  Probe it. */
+		/* 库名变了？探测                   */
 		if (libnum == 0 || strcmp(lib, os_info.libraries[libnum - 1].name) != 0)
 		{
 			strcpy(cmd, "LOAD '");

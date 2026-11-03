@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "batch_id": "0257-comment-initdb",
+  "title": "translate initdb, findtimezone comments — batch 0257",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "bf33c003bd4cf1e6c4001bb5fc722193f74cdfd5",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {"pattern": "src/bin/initdb/initdb.c", "kind": "c_comment", "note": "batch 0257 initdb — cluster initialization"},
+    {"pattern": "src/bin/initdb/findtimezone.c", "kind": "c_comment", "note": "batch 0257 findtimezone — timezone detection"},
+    {"pattern": "src/tools/zh-tools/manifests/batch-0257-comment-initdb.json", "kind": "manifest", "note": "batch 0257 manifest"}
+  ],
+  "files": [
+    {
+      "path": "src/bin/initdb/initdb.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 221,
+      "translated": 133,
+      "preserved": 88,
+      "preserved_reasons": {"0":"copyright_header","3":"overflow","4":"overflow","8":"overflow","13":"overflow","17":"overflow","20":"overflow","21":"overflow","22":"overflow","23":"overflow","24":"overflow","28":"overflow","29":"overflow","31":"overflow","32":"overflow","36":"overflow","38":"overflow","40":"overflow","42":"overflow","43":"overflow","46":"overflow","47":"overflow","48":"overflow","49":"overflow","53":"overflow","54":"overflow","56":"overflow","58":"overflow","59":"overflow","60":"overflow","63":"overflow","64":"overflow","65":"overflow","67":"overflow","68":"overflow","69":"overflow","71":"overflow","75":"overflow","79":"overflow","80":"overflow","81":"overflow","82":"overflow","87":"overflow","88":"overflow","90":"overflow","91":"overflow","93":"overflow","100":"overflow","102":"overflow","105":"overflow","115":"overflow","116":"overflow","117":"overflow","118":"overflow","120":"overflow","122":"overflow","123":"overflow","124":"overflow","126":"overflow","127":"overflow","130":"overflow","131":"overflow","133":"overflow","135":"overflow","137":"overflow","138":"overflow","139":"overflow","141":"overflow","143":"overflow","145":"overflow","151":"overflow","156":"overflow","157":"overflow","162":"overflow","163":"overflow","165":"overflow","168":"overflow","173":"overflow","174":"overflow","175":"overflow","178":"overflow","180":"overflow","182":"overflow","191":"overflow","196":"overflow","210":"overflow","217":"overflow","220":"overflow"}
+    },
+    {
+      "path": "src/bin/initdb/findtimezone.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 249,
+      "translated": 80,
+      "preserved": 169,
+      "preserved_reasons": {"0":"copyright_header","1":"overflow","3":"overflow","9":"overflow","14":"overflow","15":"overflow","19":"overflow","25":"overflow","30":"overflow","35":"overflow","38":"overflow","39":"overflow","40":"overflow","41":"overflow","42":"overflow","43":"overflow","44":"overflow","45":"overflow","47":"overflow","50":"overflow","54":"overflow","55":"overflow","57":"overflow","59":"overflow","62":"overflow","64":"overflow","67":"overflow","70":"overflow","72":"overflow","73":"overflow","75":"overflow","76":"overflow","77":"overflow","78":"overflow","79":"overflow","80":"overflow","81":"overflow","82":"overflow","83":"overflow","84":"overflow","85":"overflow","86":"overflow","87":"overflow","88":"overflow","89":"overflow","90":"overflow","92":"overflow","93":"overflow","94":"overflow","95":"overflow","96":"overflow","98":"overflow","99":"overflow","100":"overflow","101":"overflow","102":"overflow","103":"overflow","104":"overflow","106":"overflow","108":"overflow","110":"overflow","111":"overflow","112":"overflow","113":"overflow","115":"overflow","116":"overflow","117":"overflow","118":"overflow","119":"overflow","120":"overflow","121":"overflow","122":"overflow","125":"overflow","126":"overflow","127":"overflow","128":"overflow","129":"overflow","130":"overflow","131":"overflow","132":"overflow","133":"overflow","134":"overflow","135":"overflow","136":"overflow","137":"overflow","138":"overflow","140":"overflow","141":"overflow","143":"overflow","145":"overflow","146":"overflow","148":"overflow","149":"overflow","150":"overflow","151":"overflow","152":"overflow","154":"overflow","155":"overflow","156":"overflow","157":"overflow","160":"overflow","161":"overflow","163":"overflow","164":"overflow","165":"overflow","166":"overflow","167":"overflow","168":"overflow","169":"overflow","170":"overflow","171":"overflow","172":"overflow","173":"overflow","174":"overflow","175":"overflow","176":"overflow","177":"overflow","178":"overflow","179":"overflow","180":"overflow","181":"overflow","182":"overflow","183":"overflow","184":"overflow","185":"overflow","186":"overflow","187":"overflow","188":"overflow","189":"overflow","191":"overflow","192":"overflow","193":"overflow","194":"overflow","195":"overflow","197":"overflow","198":"overflow","199":"overflow","200":"overflow","201":"overflow","203":"overflow","204":"overflow","205":"overflow","206":"overflow","207":"overflow","208":"overflow","209":"overflow","210":"overflow","211":"overflow","212":"overflow","213":"overflow","221":"overflow","222":"overflow","223":"overflow","224":"overflow","226":"overflow","227":"overflow","228":"overflow","229":"overflow","230":"overflow","231":"overflow","232":"overflow","233":"overflow","234":"overflow","236":"overflow","238":"overflow","240":"overflow","242":"overflow","243":"overflow","244":"overflow"}
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0257-comment-initdb.json",
+      "kind": "manifest",
+      "action": "add",
+      "translated": 0,
+      "preserved": 0,
+      "segments_total": 0
+    }
+  ]
+}

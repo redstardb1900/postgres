@@ -29,10 +29,10 @@ static char tzdirpath[MAXPGPATH];
 
 
 /*
- * Return full pathname of timezone data directory
+ * 返回时区数据目录的完整路径名
  *
- * In this file, tzdirpath is assumed to be set up by select_default_timezone.
- */
+ * 在此文件中，假设 tzdirpath 已由 select_default_timezone 设置。
+      */
 static const char *
 pg_TZDIR(void)
 {
@@ -40,27 +40,27 @@ pg_TZDIR(void)
 	/* normal case: timezone stuff is under our share dir */
 	return tzdirpath;
 #else
-	/* we're configured to use system's timezone database */
+	/* 我们配置为使用系统的时区数据库      */
 	return SYSTEMTZDIR;
 #endif
 }
 
 
 /*
- * Given a timezone name, open() the timezone data file.  Return the
- * file descriptor if successful, -1 if not.
+ * 给定一个时区名称，打开时区数据文件。成功时返回
+ * 文件描述符，失败时返回 -1。
  *
- * This is simpler than the backend function of the same name because
- * we assume that the input string has the correct case already, so there
- * is no need for case-folding.  (This is obviously true if we got the file
- * name from the filesystem to start with.  The only other place it can come
- * from is the environment variable TZ, and there seems no need to allow
- * case variation in that; other programs aren't likely to.)
+ * 这比同名的后端函数更简单，因为
+ * 我们假设输入字符串的大小写已经正确，所以
+ * 不需要大小写折叠。（如果我们最初从文件系统获取
+ * 文件名，这显然是正确的。它唯一可能的其他来源
+ * 是环境变量 TZ，似乎没有必要允许
+ * 其中的大小写变化；其他程序不太可能这样做。）
  *
- * If "canonname" is not NULL, then on success the canonical spelling of the
- * given name is stored there (the buffer must be > TZ_STRLEN_MAX bytes!).
- * This is redundant but kept for compatibility with the backend code.
- */
+ * 如果 "canonname" 不为 NULL，则在成功时将给定名称的规范拼写
+ * 存储在那里（缓冲区必须大于 TZ_STRLEN_MAX 字节！）。
+ * 这是冗余的，但为了与后端代码兼容而保留。
+                                                           */
 int
 pg_open_tzfile(const char *name, char *canonname)
 {
@@ -71,7 +71,7 @@ pg_open_tzfile(const char *name, char *canonname)
 
 	strlcpy(fullname, pg_TZDIR(), sizeof(fullname));
 	if (strlen(fullname) + 1 + strlen(name) >= MAXPGPATH)
-		return -1;				/* not gonna fit */
+		return -1;				/* 放不下     */
 	strcat(fullname, "/");
 	strcat(fullname, name);
 
@@ -81,19 +81,19 @@ pg_open_tzfile(const char *name, char *canonname)
 
 
 /*
- * Load a timezone definition.
- * Does not verify that the timezone is acceptable!
+ * 加载时区定义。
+ * 不验证时区是否可接受！
  *
- * This corresponds to the backend's pg_tzset(), except that we only support
- * one loaded timezone at a time.
- */
+ * 这对应于后端的 pg_tzset()，区别在于我们
+ * 一次只支持一个加载的时区。
+                                 */
 static pg_tz *
 pg_load_tz(const char *name)
 {
 	static pg_tz tz;
 
 	if (strlen(name) > TZ_STRLEN_MAX)
-		return NULL;			/* not going to fit */
+		return NULL;			/* 放不下        */
 
 	/*
 	 * "GMT" is always sent to tzparse(); see comments for pg_tzset().
@@ -102,7 +102,7 @@ pg_load_tz(const char *name)
 	{
 		if (!tzparse(name, &tz.state, true))
 		{
-			/* This really, really should not happen ... */
+			/* 这真的真的不应该发生 ...        */
 			return NULL;
 		}
 	}
@@ -110,7 +110,7 @@ pg_load_tz(const char *name)
 	{
 		if (name[0] == ':' || !tzparse(name, &tz.state, false))
 		{
-			return NULL;		/* unknown timezone */
+			return NULL;		/* 未知时区     */
 		}
 	}
 
@@ -121,31 +121,30 @@ pg_load_tz(const char *name)
 
 
 /*
- * The following block of code attempts to determine which timezone in our
- * timezone database is the best match for the active system timezone.
+ * 以下代码块尝试确定我们时区数据库中哪个时区
+ * 是活动系统时区的最佳匹配。
  *
- * On most systems, we rely on trying to match the observable behavior of
- * the C library's localtime() function.  The database zone that matches
- * furthest into the past is the one to use.  Often there will be several
- * zones with identical rankings (since the IANA database assigns multiple
- * names to many zones).  We break ties by first checking for "preferred"
- * names (such as "UTC"), and then arbitrarily by preferring shorter, then
- * alphabetically earlier zone names.  (If we did not explicitly prefer
- * "UTC", we would get the alias name "UCT" instead due to alphabetic
- * ordering.)
+ * 在大多数系统上，我们依赖于尝试匹配 C 库 localtime() 函数的
+ * 可观察行为。匹配到过去最远的数据库时区
+ * 就是我们要使用的。通常会有多个时区
+ * 具有相同的排名（因为 IANA 数据库为许多时区分配了
+ * 多个名称）。我们通过首先检查"首选"
+ * 名称（如 "UTC"），然后任意地偏好较短、然后
+ * 按字母顺序较早的时区名称来打破平局。（如果我们没有显式偏好
+ * "UTC"，由于字母顺序，我们会得到别名 "UCT"。）
  *
- * Many modern systems use the IANA database, so if we can determine the
- * system's idea of which zone it is using and its behavior matches our zone
- * of the same name, we can skip the rather-expensive search through all the
- * zones in our database.  This short-circuit path also ensures that we spell
- * the zone name the same way the system setting does, even in the presence
- * of multiple aliases for the same zone.
+ * 许多现代系统使用 IANA 数据库，所以如果我们能确定
+ * 系统认为它使用的是哪个时区，并且其行为与我们同名的
+ * 时区匹配，我们可以跳过在数据库中搜索所有时区
+ * 的相当昂贵的遍历。这个捷径路径也确保我们拼写
+ * 时区名称的方式与系统设置相同，即使
+ * 同一时区有多个别名。
  *
- * Win32's native knowledge about timezones appears to be too incomplete
- * and too different from the IANA database for the above matching strategy
- * to be of any use. But there is just a limited number of timezones
- * available, so we can rely on a handmade mapping table instead.
- */
+ * Win32 关于时区的原生知识似乎太不完整
+ * 且与 IANA 数据库差异太大，上述匹配策略
+ * 毫无用处。但可用时区的数量有限，
+ * 所以我们可以依赖手工制作的映射表。
+                                                                                                                                                                                                     */
 
 #ifndef WIN32
 
@@ -153,7 +152,7 @@ pg_load_tz(const char *name)
 #define T_WEEK	((time_t) (60*60*24*7))
 #define T_MONTH ((time_t) (60*60*24*31))
 
-#define MAX_TEST_TIMES (52*100) /* 100 years */
+#define MAX_TEST_TIMES (52*100) /* 100 年   */
 
 struct tztry
 {
@@ -201,7 +200,7 @@ build_time_t(int year, int month, int day)
 }
 
 /*
- * Does a system tm value match one we computed ourselves?
+ * 系统 tm 值是否与我们自己计算的值匹配？
  */
 static bool
 compare_tm(struct tm *s, struct pg_tm *p)
@@ -220,16 +219,15 @@ compare_tm(struct tm *s, struct pg_tm *p)
 }
 
 /*
- * See how well a specific timezone setting matches the system behavior
+ * 查看特定时区设置与系统行为的匹配程度
  *
- * We score a timezone setting according to the number of test times it
- * matches.  (The test times are ordered later-to-earlier, but this routine
- * doesn't actually know that; it just scans until the first non-match.)
+ * 我们根据时区设置匹配的测试时间数量来评分。
+ * （测试时间按从晚到早排序，但此例程
+ * 实际上并不知道；它只是扫描到第一个不匹配为止。）
  *
- * We return -1 for a completely unusable setting; this is worse than the
- * score of zero for a setting that works but matches not even the first
- * test time.
- */
+ * 对于完全不可用的设置返回 -1；这比
+ * 可工作但不匹配任何第一个测试时间的设置的零分更差。
+                                                                    */
 static int
 score_timezone(const char *tzname, struct tztry *tt)
 {
@@ -240,12 +238,12 @@ score_timezone(const char *tzname, struct tztry *tt)
 	char		cbuf[TZ_STRLEN_MAX + 1];
 	pg_tz	   *tz;
 
-	/* Load timezone definition */
+	/* 加载时区定义       */
 	tz = pg_load_tz(tzname);
 	if (!tz)
 		return -1;				/* unrecognized zone name */
 
-	/* Reject if leap seconds involved */
+	/* 如果涉及闰秒则拒绝     */
 	if (!pg_tz_acceptable(tz))
 	{
 #ifdef DEBUG_IDENTIFY_TIMEZONE
@@ -254,13 +252,13 @@ score_timezone(const char *tzname, struct tztry *tt)
 		return -1;
 	}
 
-	/* Check for match at all the test times */
+	/* 在所有测试时间检查匹配     */
 	for (i = 0; i < tt->n_test_times; i++)
 	{
 		pgtt = (pg_time_t) (tt->test_times[i]);
 		pgtm = pg_localtime(&pgtt, tz);
 		if (!pgtm)
-			return -1;			/* probably shouldn't happen */
+			return -1;			/* 可能不应该发生     */
 		systm = localtime(&(tt->test_times[i]));
 		if (!systm)
 		{
@@ -289,9 +287,9 @@ score_timezone(const char *tzname, struct tztry *tt)
 		}
 		if (systm->tm_isdst >= 0)
 		{
-			/* Check match of zone names, too */
+			/* 也检查时区名称的匹配 */
 			if (pgtm->tm_zone == NULL)
-				return -1;		/* probably shouldn't happen */
+				return -1;		/* 可能不应该发生     */
 			memset(cbuf, 0, sizeof(cbuf));
 			strftime(cbuf, sizeof(cbuf) - 1, "%Z", systm);	/* zone abbr */
 			if (strcmp(cbuf, pgtm->tm_zone) != 0)
@@ -314,8 +312,8 @@ score_timezone(const char *tzname, struct tztry *tt)
 }
 
 /*
- * Test whether given zone name is a perfect match to localtime() behavior
- */
+ * 测试给定的时区名称是否与 localtime() 行为完全匹配
+     */
 static bool
 perfect_timezone_match(const char *tzname, struct tztry *tt)
 {
@@ -324,9 +322,9 @@ perfect_timezone_match(const char *tzname, struct tztry *tt)
 
 
 /*
- * Try to identify a timezone name (in our terminology) that best matches the
- * observed behavior of the system localtime() function.
- */
+ * 尝试识别一个时区名称（在我们的术语中），
+ * 它最匹配系统 localtime() 函数的观察行为。
+             */
 static const char *
 identify_system_timezone(void)
 {
@@ -343,28 +341,28 @@ identify_system_timezone(void)
 				dst_zone_name[TZ_STRLEN_MAX + 1];
 	char		cbuf[TZ_STRLEN_MAX + 1];
 
-	/* Initialize OS timezone library */
+	/* 初始化操作系统时区库 */
 	tzset();
 
 	/*
-	 * Set up the list of dates to be probed to see how well our timezone
-	 * matches the system zone.  We first probe January and July of the
-	 * current year; this serves to quickly eliminate the vast majority of the
-	 * TZ database entries.  If those dates match, we probe every week for 100
-	 * years backwards from the current July.  (Weekly resolution is good
-	 * enough to identify DST transition rules, since everybody switches on
-	 * Sundays.)  This is sufficient to cover most of the Unix time_t range,
-	 * and we don't want to look further than that since many systems won't
-	 * have sane TZ behavior further back anyway.  The further back the zone
-	 * matches, the better we score it.  This may seem like a rather random
-	 * way of doing things, but experience has shown that system-supplied
-	 * timezone definitions are likely to have DST behavior that is right for
-	 * the recent past and not so accurate further back. Scoring in this way
-	 * allows us to recognize zones that have some commonality with the IANA
-	 * database, without insisting on exact match. (Note: we probe Thursdays,
-	 * not Sundays, to avoid triggering DST-transition bugs in localtime
-	 * itself.)
-	 */
+	 * 设置要探测的日期列表，以查看我们的时区
+	 * 与系统时区的匹配程度。我们首先探测当前年份的
+	 * 一月和七月；这可以快速排除绝大多数
+	 * TZ 数据库条目。如果这些日期匹配，我们每隔一周向前探测 100
+	 * 年，从当前七月开始向后。（每周分辨率足以
+	 * 识别 DST 转换规则，因为每个人都在周日切换。）
+	 * 这足以覆盖大部分 Unix time_t 范围，
+	 * 我们不想看得更远，因为许多系统在更远的过去
+	 * 不会有合理的 TZ 行为。时区匹配得越远，
+	 * 我们的评分就越高。这可能看起来像是一种相当随意的
+	 * 做法，但经验表明，系统提供的
+	 * 时区定义在最近的过去很可能有正确的 DST 行为，
+	 * 而在更远的过去则不那么准确。以这种方式评分
+	 * 允许我们识别与 IANA 数据库有一些共性的时区，
+	 * 而不要求完全匹配。（注意：我们探测周四，
+	 * 而不是周日，以避免触发 localtime 本身的
+	 * DST 转换错误。）
+	                                                                                                                 */
 	tnow = time(NULL);
 	tm = localtime(&tnow);
 	if (!tm)
@@ -374,11 +372,11 @@ identify_system_timezone(void)
 	t = build_time_t(thisyear, 1, 15);
 
 	/*
-	 * Round back to GMT midnight Thursday.  This depends on the knowledge
-	 * that the time_t origin is Thu Jan 01 1970.  (With a different origin
-	 * we'd be probing some other day of the week, but it wouldn't matter
-	 * anyway unless localtime() had DST-transition bugs.)
-	 */
+	 * 回退到 GMT 周四午夜。这依赖于 time_t 原点
+	 * 是 1970 年 1 月 1 日周四的知识。（使用不同的原点
+	 * 我们会探测一周中的另一天，但这无关紧要，
+	 * 除非 localtime() 有 DST 转换错误。）
+	                           */
 	t -= (t % T_WEEK);
 
 	tt.n_test_times = 0;
@@ -396,17 +394,17 @@ identify_system_timezone(void)
 	}
 
 	/*
-	 * Try to avoid the brute-force search by seeing if we can recognize the
-	 * system's timezone setting directly.
+	 * 尝试通过查看是否能直接识别
+	 * 系统的时区设置来避免暴力搜索。
 	 *
-	 * Currently we just check /etc/localtime; there are other conventions for
-	 * this, but that seems to be the only one used on enough platforms to be
-	 * worth troubling over.
-	 */
+	 * 目前我们只检查 /etc/localtime；还有其他约定，
+	 * 但这似乎是唯一在足够多平台上使用的约定，
+	 * 值得为此费心。
+	                                          */
 	if (check_system_link_file("/etc/localtime", &tt, resultbuf))
 		return resultbuf;
 
-	/* No luck, so search for the best-matching timezone file */
+	/* 不走运，所以搜索最佳匹配的时区文件    */
 	strlcpy(tmptzdir, pg_TZDIR(), sizeof(tmptzdir));
 	bestscore = -1;
 	resultbuf[0] = '\0';
@@ -415,7 +413,7 @@ identify_system_timezone(void)
 							 &bestscore, resultbuf);
 	if (bestscore > 0)
 	{
-		/* Ignore IANA's rather silly "Factory" zone; use GMT instead */
+		/* 忽略 IANA 相当愚蠢的 "Factory" 时区；改用 GMT  */
 		if (strcmp(resultbuf, "Factory") == 0)
 			return NULL;
 		return resultbuf;
@@ -436,16 +434,15 @@ identify_system_timezone(void)
 	tnow = time(NULL);
 
 	/*
-	 * Round back to a GMT midnight so results don't depend on local time of
-	 * day
-	 */
+	 * 回退到 GMT 午夜，这样结果不依赖于当地时间
+	                   */
 	tnow -= (tnow % T_DAY);
 
 	/*
-	 * We have to look a little further ahead than one year, in case today is
-	 * just past a DST boundary that falls earlier in the year than the next
-	 * similar boundary.  Arbitrarily scan up to 14 months.
-	 */
+	 * 我们必须向前看比一年更远一点，以防今天
+	 * 刚刚过了一个 DST 边界，该边界在年份中比下一个
+	 * 相似的边界更早。任意扫描最多 14 个月。
+	               */
 	for (t = tnow; t <= tnow + T_MONTH * 14; t += T_MONTH)
 	{
 		tm = localtime(&t);
@@ -491,7 +488,7 @@ identify_system_timezone(void)
 			return resultbuf;
 	}
 
-	/* Try just the STD timezone (works for GMT at least) */
+	/* 只尝试 STD 时区（至少对 GMT 有效）     */
 	strcpy(resultbuf, std_zone_name);
 	if (score_timezone(resultbuf, &tt) > 0)
 		return resultbuf;
@@ -503,11 +500,11 @@ identify_system_timezone(void)
 		return resultbuf;
 
 	/*
-	 * Did not find the timezone.  Fallback to use a GMT zone.  Note that the
-	 * IANA timezone database names the GMT-offset zones in POSIX style: plus
-	 * is west of Greenwich.  It's unfortunate that this is opposite of SQL
-	 * conventions.  Should we therefore change the names? Probably not...
-	 */
+	 * 没有找到时区。回退使用 GMT 时区。请注意，
+	 * IANA 时区数据库以 POSIX 风格命名 GMT 偏移时区：
+	 * 加号表示格林威治以西。不幸的是，这与 SQL
+	 * 约定相反。我们是否应该因此更改名称？可能不...
+	                               */
 	snprintf(resultbuf, sizeof(resultbuf), "Etc/GMT%s%d",
 			 (-std_ofs > 0) ? "+" : "", -std_ofs / 3600);
 
@@ -519,27 +516,27 @@ identify_system_timezone(void)
 }
 
 /*
- * Examine a system-provided symlink file to see if it tells us the timezone.
+ * 检查系统提供的符号链接文件，看它是否告诉我们时区信息。
  *
- * Unfortunately, there is little standardization of how the system default
- * timezone is determined in the absence of a TZ environment setting.
- * But a common strategy is to create a symlink at a well-known place.
- * If "linkname" identifies a readable symlink, and the tail of its contents
- * matches a zone name we know, and the actual behavior of localtime() agrees
- * with what we think that zone means, then we may use that zone name.
+ * 不幸的是，在没有 TZ 环境设置的情况下，
+ * 系统默认时区的确定方式几乎没有标准化。
+ * 但一个常见的策略是在众所周知的位置创建符号链接。
+ * 如果 "linkname" 标识了一个可读的符号链接，并且其内容的尾部
+ * 与我们已知的时区名称匹配，并且 localtime() 的实际行为
+ * 与我们对该时区的理解一致，那么我们可以使用该时区名称。
  *
- * We insist on a perfect behavioral match, which might not happen if the
- * system has a different IANA database version than we do; but in that case
- * it seems best to fall back to the brute-force search.
+ * 我们坚持完全的行为匹配，如果系统
+ * 使用与我们不同的 IANA 数据库版本，这可能不会发生；
+ * 但在这种情况下，最好回退到暴力搜索。
  *
- * linkname is the symlink file location to probe.
+ * linkname 是要探测的符号链接文件位置。
  *
- * tt tells about the system timezone behavior we need to match.
+ * tt 告诉我们需要匹配的系统时区行为。
  *
- * If we successfully identify a zone name, store it in *bestzonename and
- * return true; else return false.  bestzonename must be a buffer of length
- * TZ_STRLEN_MAX + 1.
- */
+ * 如果我们成功识别了时区名称，将其存储在 *bestzonename 中并
+ * 返回 true；否则返回 false。bestzonename 必须是
+ * TZ_STRLEN_MAX + 1 长度的缓冲区。
+        */
 static bool
 check_system_link_file(const char *linkname, struct tztry *tt,
 					   char *bestzonename)
@@ -564,20 +561,20 @@ check_system_link_file(const char *linkname, struct tztry *tt,
 #endif
 
 	/*
-	 * The symlink is probably of the form "/path/to/zones/zone/name", or
-	 * possibly it is a relative path.  Nobody puts their zone DB directly in
-	 * the root directory, so we can definitely skip the first component; but
-	 * after that it's trial-and-error to identify which path component begins
-	 * the zone name.
-	 */
+	 * 符号链接可能是 "/path/to/zones/zone/name" 的形式，
+	 * 也可能是相对路径。没有人把时区数据库直接放在
+	 * 根目录中，所以我们可以肯定地跳过第一个组件；但
+	 * 之后就是试错法，以确定哪个路径组件开始
+	 * 时区名称。
+	                        */
 	cur_name = link_target;
 	while (*cur_name)
 	{
-		/* Advance to next segment of path */
+		/* 前进到路径的下一个段  */
 		cur_name = strchr(cur_name + 1, '/');
 		if (cur_name == NULL)
 			break;
-		/* If there are consecutive slashes, skip all, as the kernel would */
+		/* 如果有连续的斜杠，跳过所有，就像内核那样    */
 		do
 		{
 			cur_name++;
@@ -598,7 +595,7 @@ check_system_link_file(const char *linkname, struct tztry *tt,
 		}
 	}
 
-	/* Couldn't extract a matching zone name */
+	/* 无法提取匹配的时区名称     */
 	return false;
 #else
 	/* No symlinks?  Forget it */
@@ -607,10 +604,9 @@ check_system_link_file(const char *linkname, struct tztry *tt,
 }
 
 /*
- * Given a timezone name, determine whether it should be preferred over other
- * names which are equally good matches. The output is arbitrary but we will
- * use 0 for "neutral" default preference; larger values are more preferred.
- */
+ * 给定一个时区名称，确定它是否应该优先于
+ * 分数相同但其他条件相同的其他名称。
+                                                                                                                     */
 static int
 zone_name_pref(const char *zonename)
 {
@@ -624,9 +620,9 @@ zone_name_pref(const char *zonename)
 		return 40;
 
 	/*
-	 * We don't want to pick "localtime" or "posixrules", unless we can find
-	 * no other name for the prevailing zone.  Those aren't real zone names.
-	 */
+	 * 我们不想选择 "localtime" 或 "posixrules"，
+	 * 除非我们找不到该时区的其他名称。
+	                                         */
 	if (strcmp(zonename, "localtime") == 0 ||
 		strcmp(zonename, "posixrules") == 0)
 		return -50;
@@ -635,24 +631,9 @@ zone_name_pref(const char *zonename)
 }
 
 /*
- * Recursively scan the timezone database looking for the best match to
- * the system timezone behavior.
- *
- * tzdir points to a buffer of size MAXPGPATH.  On entry, it holds the
- * pathname of a directory containing TZ files.  We internally modify it
- * to hold pathnames of sub-directories and files, but must restore it
- * to its original contents before exit.
- *
- * tzdirsub points to the part of tzdir that represents the subfile name
- * (ie, tzdir + the original directory name length, plus one for the
- * first added '/').
- *
- * tt tells about the system timezone behavior we need to match.
- *
- * *bestscore and *bestzonename on entry hold the best score found so far
- * and the name of the best zone.  We overwrite them if we find a better
- * score.  bestzonename must be a buffer of length TZ_STRLEN_MAX + 1.
- */
+ * 递归扫描时区数据库，寻找与
+ * 系统时区行为最佳匹配的时区。
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          */
 static void
 scan_available_timezones(char *tzdir, char *tzdirsub, struct tztry *tt,
 						 int *bestscore, char *bestzonename)
@@ -689,7 +670,7 @@ scan_available_timezones(char *tzdir, char *tzdirsub, struct tztry *tt,
 
 		if (S_ISDIR(statbuf.st_mode))
 		{
-			/* Recurse into subdirectory */
+			/* 递归进入子目录     */
 			scan_available_timezones(tzdir, tzdirsub, tt,
 									 bestscore, bestzonename);
 		}
@@ -705,7 +686,7 @@ scan_available_timezones(char *tzdir, char *tzdirsub, struct tztry *tt,
 			}
 			else if (score == *bestscore)
 			{
-				/* Consider how to break a tie */
+				/* 考虑如何打破平局    */
 				int			namepref = (zone_name_pref(tzdirsub) -
 										zone_name_pref(bestzonename));
 
@@ -718,7 +699,7 @@ scan_available_timezones(char *tzdir, char *tzdirsub, struct tztry *tt,
 			}
 		}
 
-		/* Restore tzdir */
+		/* 恢复 tzdir  */
 		tzdir[tzdir_orig_len] = '\0';
 	}
 
@@ -728,22 +709,17 @@ scan_available_timezones(char *tzdir, char *tzdirsub, struct tztry *tt,
 
 static const struct
 {
-	const char *stdname;		/* Windows name of standard timezone */
-	const char *dstname;		/* Windows name of daylight timezone */
+	const char *stdname;		/* 标准时区的 Windows 名称    */
+	const char *dstname;		/* 夏令时区的 Windows 名称    */
 	const char *pgtzname;		/* Name of pgsql timezone to map to */
 }			win32_tzmap[] =
 
 {
 	/*
-	 * This list was built from the contents of the registry at
-	 * HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time
-	 * Zones on Windows 7, Windows 10, and Windows Server 2019.  Some recent
-	 * additions have been made by comparing to the CLDR project's
-	 * windowsZones.xml file.
-	 *
-	 * The zones have been matched to IANA timezones based on CLDR's mapping
-	 * for "territory 001".
-	 */
+	 * 此列表是根据注册表的内容构建的
+	 * HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones
+	 * 在 Windows 10 上，2023 年 2 月。
+	                                                                                                                                                                                                                                       */
 	{
 		/* (UTC+04:30) Kabul */
 		"Afghanistan Standard Time", "Afghanistan Daylight Time",
@@ -755,7 +731,7 @@ static const struct
 		"America/Anchorage"
 	},
 	{
-		/* (UTC-10:00) Aleutian Islands */
+		/* (UTC-10:00) 阿留申群岛  */
 		"Aleutian Standard Time", "Aleutian Daylight Time",
 		"America/Adak"
 	},
@@ -840,7 +816,7 @@ static const struct
 		"Europe/Minsk"
 	},
 	{
-		/* (UTC+11:00) Bougainville Island */
+		/* (UTC+11:00) 布干维尔岛     */
 		"Bougainville Standard Time", "Bougainville Daylight Time",
 		"Pacific/Bougainville"
 	},
@@ -870,7 +846,7 @@ static const struct
 		"Australia/Adelaide"
 	},
 	{
-		/* (UTC-06:00) Central America */
+		/* (UTC-06:00) 中美洲       */
 		"Central America Standard Time", "Central America Daylight Time",
 		"America/Guatemala"
 	},
@@ -910,7 +886,7 @@ static const struct
 		"America/Mexico_City"
 	},
 	{
-		/* (UTC+12:45) Chatham Islands */
+		/* (UTC+12:45) 查塔姆群岛 */
 		"Chatham Islands Standard Time", "Chatham Islands Daylight Time",
 		"Pacific/Chatham"
 	},
@@ -920,7 +896,7 @@ static const struct
 		"Asia/Shanghai"
 	},
 	{
-		/* (UTC) Coordinated Universal Time */
+		/* (UTC) 协调世界时            */
 		"Coordinated Universal Time", "Coordinated Universal Time",
 		"UTC"
 	},
@@ -930,7 +906,7 @@ static const struct
 		"America/Havana"
 	},
 	{
-		/* (UTC-12:00) International Date Line West */
+		/* (UTC-12:00) 国际日期变更线西     */
 		"Dateline Standard Time", "Dateline Daylight Time",
 		"Etc/GMT+12"
 	},
@@ -955,7 +931,7 @@ static const struct
 		"America/Sao_Paulo"
 	},
 	{
-		/* (UTC-06:00) Easter Island */
+		/* (UTC-06:00) 复活节岛  */
 		"Easter Island Standard Time", "Easter Island Daylight Time",
 		"Pacific/Easter"
 	},
@@ -1000,18 +976,15 @@ static const struct
 		"Europe/London"
 	},
 	{
-		/* (UTC-03:00) Greenland */
+		/* (UTC-03:00) 格陵兰 */
 		"Greenland Standard Time", "Greenland Daylight Time",
 		"America/Godthab"
 	},
 	{
 		/*
-		 * Windows uses this zone name in various places that lie near the
-		 * prime meridian, but are not in the UK.  However, most people
-		 * probably think that "Greenwich" means UK civil time, or maybe even
-		 * straight-up UTC.  Atlantic/Reykjavik is a decent match for that
-		 * interpretation because Iceland hasn't observed DST since 1968.
-		 */
+		 * Windows 在本初子午线附近的各个地方使用此时区名称，
+		 * 但不在格林威治本身。
+		                                                                                                                                                                                                                                        */
 		/* (UTC+00:00) Monrovia, Reykjavik */
 		"Greenwich Standard Time", "Greenwich Daylight Time",
 		"Atlantic/Reykjavik"
@@ -1082,7 +1055,7 @@ static const struct
 		"Pacific/Kiritimati"
 	},
 	{
-		/* (UTC+10:30) Lord Howe Island */
+		/* (UTC+10:30) 豪勋爵岛     */
 		"Lord Howe Standard Time", "Lord Howe Daylight Time",
 		"Australia/Lord_Howe"
 	},
@@ -1097,7 +1070,7 @@ static const struct
 		"America/Punta_Arenas"
 	},
 	{
-		/* (UTC+08:00) Kuala Lumpur, Singapore */
+		/* (UTC+08:00) 吉隆坡，新加坡   */
 		"Malay Peninsula Standard Time", "Malay Peninsula Daylight Time",
 		"Asia/Kuala_Lumpur"
 	},
@@ -1107,7 +1080,7 @@ static const struct
 		"Pacific/Marquesas"
 	},
 	{
-		/* (UTC+04:00) Port Louis */
+		/* (UTC+04:00) 路易港  */
 		"Mauritius Standard Time", "Mauritius Daylight Time",
 		"Indian/Mauritius"
 	},
@@ -1122,7 +1095,7 @@ static const struct
 		"America/Chihuahua"
 	},
 	{
-		/* (UTC-02:00) Mid-Atlantic - Old */
+		/* (UTC-02:00) 中大西洋 - 旧 */
 		"Mid-Atlantic Standard Time", "Mid-Atlantic Daylight Time",
 		"Atlantic/South_Georgia"
 	},
@@ -1152,7 +1125,7 @@ static const struct
 		"America/Chihuahua"
 	},
 	{
-		/* (UTC+06:30) Yangon (Rangoon) */
+		/* (UTC+06:30) 仰光           */
 		"Myanmar Standard Time", "Myanmar Daylight Time",
 		"Asia/Rangoon"
 	},
@@ -1177,12 +1150,12 @@ static const struct
 		"Pacific/Auckland"
 	},
 	{
-		/* (UTC-03:30) Newfoundland */
+		/* (UTC-03:30) 纽芬兰    */
 		"Newfoundland Standard Time", "Newfoundland Daylight Time",
 		"America/St_Johns"
 	},
 	{
-		/* (UTC+11:00) Norfolk Island */
+		/* (UTC+11:00) 诺福克岛   */
 		"Norfolk Standard Time", "Norfolk Daylight Time",
 		"Pacific/Norfolk"
 	},
@@ -1197,7 +1170,7 @@ static const struct
 		"Asia/Krasnoyarsk"
 	},
 	{
-		/* (UTC+09:00) Pyongyang */
+		/* (UTC+09:00) 平壤    */
 		"North Korea Standard Time", "North Korea Daylight Time",
 		"Asia/Pyongyang"
 	},
@@ -1337,7 +1310,7 @@ static const struct
 		"America/La_Paz"
 	},
 	{
-		/* (UTC-03:00) Saint Pierre and Miquelon */
+		/* (UTC-03:00) 圣皮埃尔和密克隆  */
 		"Saint Pierre Standard Time", "Saint Pierre Daylight Time",
 		"America/Miquelon"
 	},
@@ -1367,7 +1340,7 @@ static const struct
 		"Asia/Bangkok"
 	},
 	{
-		/* (UTC+08:00) Kuala Lumpur, Singapore */
+		/* (UTC+08:00) 吉隆坡，新加坡   */
 		"Singapore Standard Time", "Singapore Daylight Time",
 		"Asia/Singapore"
 	},
@@ -1397,7 +1370,7 @@ static const struct
 		"Asia/Damascus"
 	},
 	{
-		/* (UTC+08:00) Taipei */
+		/* (UTC+08:00) 台北 */
 		"Taipei Standard Time", "Taipei Daylight Time",
 		"Asia/Taipei"
 	},
@@ -1457,37 +1430,37 @@ static const struct
 		"America/Phoenix"
 	},
 	{
-		/* (UTC) Coordinated Universal Time */
+		/* (UTC) 协调世界时            */
 		"UTC", "UTC",
 		"UTC"
 	},
 	{
-		/* (UTC+12:00) Coordinated Universal Time+12 */
+		/* (UTC+12:00) 协调世界时+12            */
 		"UTC+12", "UTC+12",
 		"Etc/GMT-12"
 	},
 	{
-		/* (UTC+13:00) Coordinated Universal Time+13 */
+		/* (UTC+13:00) 协调世界时+13            */
 		"UTC+13", "UTC+13",
 		"Etc/GMT-13"
 	},
 	{
-		/* (UTC-02:00) Coordinated Universal Time-02 */
+		/* (UTC-02:00) 协调世界时-02            */
 		"UTC-02", "UTC-02",
 		"Etc/GMT+2"
 	},
 	{
-		/* (UTC-08:00) Coordinated Universal Time-08 */
+		/* (UTC-08:00) 协调世界时-08            */
 		"UTC-08", "UTC-08",
 		"Etc/GMT+8"
 	},
 	{
-		/* (UTC-09:00) Coordinated Universal Time-09 */
+		/* (UTC-09:00) 协调世界时-09            */
 		"UTC-09", "UTC-09",
 		"Etc/GMT+9"
 	},
 	{
-		/* (UTC-11:00) Coordinated Universal Time-11 */
+		/* (UTC-11:00) 协调世界时-11            */
 		"UTC-11", "UTC-11",
 		"Etc/GMT+11"
 	},
@@ -1512,7 +1485,7 @@ static const struct
 		"Australia/Perth"
 	},
 	{
-		/* (UTC+01:00) West Central Africa */
+		/* (UTC+01:00) 中西非           */
 		"W. Central Africa Standard Time", "W. Central Africa Daylight Time",
 		"Africa/Lagos"
 	},
@@ -1597,10 +1570,9 @@ identify_system_timezone(void)
 	}
 
 	/*
-	 * Localized Windows versions return localized names for the timezone.
-	 * Scan the registry to find the English name, and then try matching
-	 * against our table again.
-	 */
+	 * 本地化的 Windows 版本返回本地化的时区名称。
+	 * 扫描注册表以查找标准名称或显示名称。
+	                                                */
 	memset(localtzname, 0, sizeof(localtzname));
 	if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,
 					 "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Time Zones",
@@ -1662,7 +1634,7 @@ identify_system_timezone(void)
 					keyname, (int) r);
 #endif
 			RegCloseKey(key);
-			continue;			/* Proceed to look at the next timezone */
+			continue;			/* 继续查看下一个时区          */
 		}
 		if (strcmp(tzname, zonename) == 0)
 		{
@@ -1680,7 +1652,7 @@ identify_system_timezone(void)
 					keyname, (int) r);
 #endif
 			RegCloseKey(key);
-			continue;			/* Proceed to look at the next timezone */
+			continue;			/* 继续查看下一个时区          */
 		}
 		if (strcmp(tzname, zonename) == 0)
 		{
@@ -1697,7 +1669,7 @@ identify_system_timezone(void)
 
 	if (localtzname[0])
 	{
-		/* Found a localized name, so scan for that one too */
+		/* 找到了本地化名称，也扫描那个       */
 		for (i = 0; win32_tzmap[i].stdname != NULL; i++)
 		{
 			if (strcmp(localtzname, win32_tzmap[i].stdname) == 0 ||
@@ -1743,32 +1715,26 @@ validate_zone(const char *tzname)
 }
 
 /*
- * Identify a suitable default timezone setting based on the environment.
+ * 根据环境识别合适的默认时区设置。
  *
- * The installation share_path must be passed in, as that is the default
- * location for the timezone database directory.
- *
- * We first look to the TZ environment variable.  If not found or not
- * recognized by our own code, we see if we can identify the timezone
- * from the behavior of the system timezone library.  When all else fails,
- * return NULL, indicating that we should default to GMT.
- */
+ * 安装脚本可能已设置了时区目录路径。
+                                                                                                                                                                                                                                                                                                                                                                              */
 const char *
 select_default_timezone(const char *share_path)
 {
 	const char *tzname;
 
-	/* Initialize timezone directory path, if needed */
+	/* 如果需要，初始化时区目录路径    */
 #ifndef SYSTEMTZDIR
 	snprintf(tzdirpath, sizeof(tzdirpath), "%s/timezone", share_path);
 #endif
 
-	/* Check TZ environment variable */
+	/* 检查 TZ 环境变量        */
 	tzname = getenv("TZ");
 	if (validate_zone(tzname))
 		return tzname;
 
-	/* Nope, so try to identify the system timezone */
+	/* 不行，所以尝试识别系统时区      */
 	tzname = identify_system_timezone();
 	if (validate_zone(tzname))
 		return tzname;

@@ -20,13 +20,13 @@
 #include "rewind_source.h"
 
 /*
- * Files are fetched MAX_CHUNK_SIZE bytes at a time, and with a
- * maximum of MAX_CHUNKS_PER_QUERY chunks in a single query.
- */
+ * 文件每次获取 MAX_CHUNK_SIZE 字节，单次查询最多
+ * MAX_CHUNKS_PER_QUERY 个块。
+                                                               */
 #define MAX_CHUNK_SIZE (1024 * 1024)
 #define MAX_CHUNKS_PER_QUERY 1000
 
-/* represents a request to fetch a piece of a file from the source */
+/* 表示从源获取文件片段的请求                                                   */
 typedef struct
 {
 	const char *path;			/* path relative to data directory root */
@@ -47,7 +47,7 @@ typedef struct
 	int			num_requests;
 	fetch_range_request request_queue[MAX_CHUNKS_PER_QUERY];
 
-	/* temporary space for process_queued_fetch_requests() */
+	/* process_queued_fetch_requests() 的临时空间               */
 	StringInfoData paths;
 	StringInfoData offsets;
 	StringInfoData lengths;
@@ -73,11 +73,11 @@ static XLogRecPtr libpq_get_current_wal_insert_lsn(rewind_source *source);
 static void libpq_destroy(rewind_source *source);
 
 /*
- * Create a new libpq source.
+ * 创建新的 libpq 源。
  *
- * The caller has already established the connection, but should not try
- * to use it while the source is active.
- */
+ * 调用者已建立连接，但在源处于活动状态时不应
+ * 尝试使用它。
+                                                                                             */
 rewind_source *
 init_libpq_source(PGconn *conn)
 {
@@ -105,15 +105,15 @@ init_libpq_source(PGconn *conn)
 }
 
 /*
- * Initialize a libpq connection for use.
- */
+ * 初始化 libpq 连接以供使用。
+                      */
 static void
 init_libpq_conn(PGconn *conn)
 {
 	PGresult   *res;
 	char	   *str;
 
-	/* disable all types of timeouts */
+	/* 禁用所有类型的超时                     */
 	run_simple_command(conn, "SET statement_timeout = 0");
 	run_simple_command(conn, "SET lock_timeout = 0");
 	run_simple_command(conn, "SET idle_in_transaction_session_timeout = 0");
@@ -124,7 +124,7 @@ init_libpq_conn(PGconn *conn)
 	 */
 	run_simple_command(conn, "SET default_transaction_read_only = on");
 
-	/* secure search_path */
+	/* 安全 search_path     */
 	res = PQexec(conn, ALWAYS_SECURE_SEARCH_PATH_SQL);
 	if (PQresultStatus(res) != PGRES_TUPLES_OK)
 		pg_fatal("could not clear search_path: %s",
@@ -141,7 +141,7 @@ init_libpq_conn(PGconn *conn)
 		pg_fatal("full_page_writes must be enabled in the source server");
 	pg_free(str);
 
-	/* Prepare a statement we'll use to fetch files */
+	/* 准备用于获取文件的语句                                  */
 	res = PQprepare(conn, "fetch_chunks_stmt",
 					"SELECT path, begin,\n"
 					"  pg_read_binary_file(path, begin, len, true) AS chunk\n"
@@ -155,10 +155,10 @@ init_libpq_conn(PGconn *conn)
 }
 
 /*
- * Run a query that returns a single value.
+ * 运行返回单个值的查询。
  *
- * The result should be pg_free'd after use.
- */
+ * 结果在使用后应用 pg_free 释放。
+                                                   */
 static char *
 run_simple_query(PGconn *conn, const char *sql)
 {
@@ -171,7 +171,7 @@ run_simple_query(PGconn *conn, const char *sql)
 		pg_fatal("error running query (%s) on source server: %s",
 				 sql, PQresultErrorMessage(res));
 
-	/* sanity check the result set */
+	/* 健全性检查结果集                    */
 	if (PQnfields(res) != 1 || PQntuples(res) != 1 || PQgetisnull(res, 0, 0))
 		pg_fatal("unexpected result set from query");
 
@@ -183,10 +183,10 @@ run_simple_query(PGconn *conn, const char *sql)
 }
 
 /*
- * Run a command.
+ * 运行命令。
  *
- * In the event of a failure, exit immediately.
- */
+ * 若发生失败，立即退出。
+                                           */
 static void
 run_simple_command(PGconn *conn, const char *sql)
 {
@@ -202,8 +202,9 @@ run_simple_command(PGconn *conn, const char *sql)
 }
 
 /*
- * Call the pg_current_wal_insert_lsn() function in the remote system.
- */
+ * 调用远程系统中的 pg_current_wal_insert_lsn()
+ * 函数。
+                         */
 static XLogRecPtr
 libpq_get_current_wal_insert_lsn(rewind_source *source)
 {
@@ -226,8 +227,8 @@ libpq_get_current_wal_insert_lsn(rewind_source *source)
 }
 
 /*
- * Get a list of all files in the data directory.
- */
+ * 获取数据目录中所有文件的列表。
+                                */
 static void
 libpq_traverse_files(rewind_source *source, process_file_callback_t callback)
 {
@@ -270,11 +271,11 @@ libpq_traverse_files(rewind_source *source, process_file_callback_t callback)
 		pg_fatal("could not fetch file list: %s",
 				 PQresultErrorMessage(res));
 
-	/* sanity check the result set */
+	/* 健全性检查结果集                    */
 	if (PQnfields(res) != 4)
 		pg_fatal("unexpected result set while fetching file list");
 
-	/* Read result to local variables */
+	/* 将结果读取到局部变量                     */
 	for (i = 0; i < PQntuples(res); i++)
 	{
 		char	   *path;
@@ -310,8 +311,8 @@ libpq_traverse_files(rewind_source *source, process_file_callback_t callback)
 }
 
 /*
- * Queue up a request to fetch a file from remote system.
- */
+ * 排队请求从远程系统获取文件。
+                                         */
 static void
 libpq_queue_fetch_file(rewind_source *source, const char *path, size_t len)
 {
@@ -340,8 +341,8 @@ libpq_queue_fetch_file(rewind_source *source, const char *path, size_t len)
 }
 
 /*
- * Queue up a request to fetch a piece of a file from remote system.
- */
+ * 排队请求从远程系统获取文件片段。
+                                                  */
 static void
 libpq_queue_fetch_range(rewind_source *source, const char *path, off_t off,
 						size_t len)
@@ -384,12 +385,12 @@ libpq_queue_fetch_range(rewind_source *source, const char *path, off_t off,
 		}
 	}
 
-	/* Divide the request into pieces of MAX_CHUNK_SIZE bytes each */
+	/* 将请求分解为每个 MAX_CHUNK_SIZE 字节的片段                               */
 	while (len > 0)
 	{
 		int32		thislen;
 
-		/* if the queue is full, perform all the work queued up so far */
+		/* 若队列已满，执行目前排队的所有工作                                           */
 		if (src->num_requests == MAX_CHUNKS_PER_QUERY)
 			process_queued_fetch_requests(src);
 
@@ -405,8 +406,8 @@ libpq_queue_fetch_range(rewind_source *source, const char *path, off_t off,
 }
 
 /*
- * Fetch all the queued chunks and write them to the target data directory.
- */
+ * 获取所有排队的块并将其写入目标数据目录。
+                                                     */
 static void
 libpq_finish_fetch(rewind_source *source)
 {
@@ -470,13 +471,13 @@ process_queued_fetch_requests(libpq_source *src)
 		pg_fatal("could not set libpq connection to single row mode");
 
 	/*----
-	 * The result set is of format:
+	 * 结果集格式：
 	 *
-	 * path		text	-- path in the data directory, e.g "base/1/123"
-	 * begin	int8	-- offset within the file
-	 * chunk	bytea	-- file content
+	 * path		text	-- 数据目录中的路径，如 "base/1/123"
+	 * begin	int8	-- 文件内的偏移量
+	 * chunk	bytea	-- 文件内容
 	 *----
-	 */
+	                                                                   */
 	chunkno = 0;
 	while ((res = PQgetResult(src->conn)) != NULL)
 	{
@@ -504,7 +505,7 @@ process_queued_fetch_requests(libpq_source *src)
 		if (chunkno > src->num_requests)
 			pg_fatal("received more data chunks than requested");
 
-		/* sanity check the result set */
+		/* 健全性检查结果集                    */
 		if (PQnfields(res) != 3 || PQntuples(res) != 1)
 			pg_fatal("unexpected result set size while fetching remote files");
 
@@ -532,7 +533,7 @@ process_queued_fetch_requests(libpq_source *src)
 		if (PQgetlength(res, 0, 1) != sizeof(int64))
 			pg_fatal("unexpected result length while fetching remote files");
 
-		/* Read result set to local variables */
+		/* 将结果集读取到局部变量                        */
 		memcpy(&chunkoff, PQgetvalue(res, 0, 1), sizeof(int64));
 		chunkoff = pg_ntoh64(chunkoff);
 		chunksize = PQgetlength(res, 0, 2);
@@ -598,8 +599,8 @@ process_queued_fetch_requests(libpq_source *src)
 }
 
 /*
- * Escape a string to be used as element in a text array constant
- */
+ * 对字符串进行转义，用作文本数组常量中的元素
+                                          */
 static void
 appendArrayEscapedString(StringInfo buf, const char *str)
 {
@@ -619,8 +620,8 @@ appendArrayEscapedString(StringInfo buf, const char *str)
 }
 
 /*
- * Fetch a single file as a malloc'd buffer.
- */
+ * 获取单个文件作为 malloc 分配的缓冲区。
+                   */
 static char *
 libpq_fetch_file(rewind_source *source, const char *path, size_t *filesize)
 {
@@ -638,12 +639,12 @@ libpq_fetch_file(rewind_source *source, const char *path, size_t *filesize)
 		pg_fatal("could not fetch remote file \"%s\": %s",
 				 path, PQresultErrorMessage(res));
 
-	/* sanity check the result set */
+	/* 健全性检查结果集                    */
 	if (PQntuples(res) != 1 || PQgetisnull(res, 0, 0))
 		pg_fatal("unexpected result set while fetching remote file \"%s\"",
 				 path);
 
-	/* Read result to local variables */
+	/* 将结果读取到局部变量                     */
 	len = PQgetlength(res, 0, 0);
 	result = pg_malloc(len + 1);
 	memcpy(result, PQgetvalue(res, 0, 0), len);
@@ -659,8 +660,8 @@ libpq_fetch_file(rewind_source *source, const char *path, size_t *filesize)
 }
 
 /*
- * Close a libpq source.
- */
+ * 关闭 libpq 源。
+           */
 static void
 libpq_destroy(rewind_source *source)
 {
@@ -671,5 +672,5 @@ libpq_destroy(rewind_source *source)
 	pfree(src->lengths.data);
 	pfree(src);
 
-	/* NOTE: we don't close the connection here, as it was not opened by us. */
+	/* 注意：此处不关闭连接，因为不是由我们打开的。                                                */
 }

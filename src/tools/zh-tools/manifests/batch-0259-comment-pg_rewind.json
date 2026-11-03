@@ -1,0 +1,271 @@
+{
+  "schema_version": 1,
+  "batch_id": "0259-comment-pg_rewind",
+  "title": "translate pg_rewind comments — batch 0259",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "e65cb5a73e487b38d809e8e1189659e34ebac5fc",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/bin/pg_rewind/datapagemap.c",
+      "kind": "c_comment",
+      "note": "batch 0259 datapagemap.c"
+    },
+    {
+      "pattern": "src/bin/pg_rewind/file_ops.c",
+      "kind": "c_comment",
+      "note": "batch 0259 file_ops.c"
+    },
+    {
+      "pattern": "src/bin/pg_rewind/filemap.c",
+      "kind": "c_comment",
+      "note": "batch 0259 filemap.c"
+    },
+    {
+      "pattern": "src/bin/pg_rewind/libpq_source.c",
+      "kind": "c_comment",
+      "note": "batch 0259 libpq_source.c"
+    },
+    {
+      "pattern": "src/bin/pg_rewind/local_source.c",
+      "kind": "c_comment",
+      "note": "batch 0259 local_source.c"
+    },
+    {
+      "pattern": "src/bin/pg_rewind/parsexlog.c",
+      "kind": "c_comment",
+      "note": "batch 0259 parsexlog.c"
+    },
+    {
+      "pattern": "src/bin/pg_rewind/pg_rewind.c",
+      "kind": "c_comment",
+      "note": "batch 0259 pg_rewind.c"
+    },
+    {
+      "pattern": "src/bin/pg_rewind/timeline.c",
+      "kind": "c_comment",
+      "note": "batch 0259 timeline.c"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0259-comment-pg_rewind.json",
+      "kind": "manifest",
+      "note": "batch 0259 manifest"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/bin/pg_rewind/datapagemap.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 10,
+      "translated": 8,
+      "preserved": 2,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "4": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_rewind/file_ops.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 18,
+      "translated": 13,
+      "preserved": 5,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "3": "overflow",
+        "8": "overflow",
+        "15": "overflow",
+        "17": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_rewind/filemap.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 72,
+      "translated": 37,
+      "preserved": 35,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "5": "overflow",
+        "6": "overflow",
+        "7": "overflow",
+        "9": "overflow",
+        "11": "overflow",
+        "14": "overflow",
+        "17": "overflow",
+        "19": "overflow",
+        "21": "overflow",
+        "22": "overflow",
+        "23": "overflow",
+        "24": "overflow",
+        "25": "overflow",
+        "26": "overflow",
+        "35": "overflow",
+        "36": "overflow",
+        "39": "overflow",
+        "40": "overflow",
+        "43": "overflow",
+        "45": "overflow",
+        "47": "overflow",
+        "51": "overflow",
+        "55": "overflow",
+        "57": "overflow",
+        "58": "overflow",
+        "59": "overflow",
+        "60": "overflow",
+        "61": "overflow",
+        "62": "overflow",
+        "64": "overflow",
+        "65": "overflow",
+        "66": "overflow",
+        "67": "overflow",
+        "70": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_rewind/libpq_source.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 47,
+      "translated": 29,
+      "preserved": 18,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "3": "overflow",
+        "4": "overflow",
+        "5": "overflow",
+        "7": "overflow",
+        "11": "overflow",
+        "13": "overflow",
+        "20": "overflow",
+        "23": "overflow",
+        "25": "overflow",
+        "27": "overflow",
+        "28": "overflow",
+        "29": "overflow",
+        "33": "overflow",
+        "34": "overflow",
+        "36": "overflow",
+        "39": "overflow",
+        "40": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_rewind/local_source.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 10,
+      "translated": 5,
+      "preserved": 5,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "1": "overflow",
+        "2": "overflow",
+        "6": "overflow",
+        "7": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_rewind/parsexlog.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 30,
+      "translated": 14,
+      "preserved": 16,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "3": "overflow",
+        "7": "overflow",
+        "11": "overflow",
+        "14": "overflow",
+        "15": "overflow",
+        "16": "overflow",
+        "17": "overflow",
+        "18": "overflow",
+        "22": "overflow",
+        "23": "overflow",
+        "24": "overflow",
+        "25": "overflow",
+        "26": "overflow",
+        "27": "overflow",
+        "28": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_rewind/pg_rewind.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 89,
+      "translated": 46,
+      "preserved": 43,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "5": "overflow",
+        "6": "overflow",
+        "7": "overflow",
+        "8": "overflow",
+        "9": "overflow",
+        "11": "overflow",
+        "12": "overflow",
+        "13": "overflow",
+        "15": "overflow",
+        "16": "overflow",
+        "17": "overflow",
+        "18": "overflow",
+        "20": "overflow",
+        "24": "overflow",
+        "25": "overflow",
+        "26": "overflow",
+        "28": "overflow",
+        "29": "overflow",
+        "33": "overflow",
+        "34": "overflow",
+        "37": "overflow",
+        "38": "overflow",
+        "39": "overflow",
+        "40": "overflow",
+        "41": "overflow",
+        "42": "overflow",
+        "43": "overflow",
+        "44": "overflow",
+        "48": "overflow",
+        "49": "overflow",
+        "50": "overflow",
+        "52": "overflow",
+        "53": "overflow",
+        "54": "overflow",
+        "57": "overflow",
+        "61": "overflow",
+        "63": "overflow",
+        "65": "overflow",
+        "67": "overflow",
+        "76": "overflow",
+        "83": "overflow",
+        "84": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_rewind/timeline.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 7,
+      "preserved": 1,
+      "preserved_reasons": {
+        "0": "copyright_header"
+      }
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0259-comment-pg_rewind.json",
+      "kind": "manifest",
+      "action": "add",
+      "translated": 0,
+      "preserved": 0,
+      "segments_total": 0
+    }
+  ]
+}

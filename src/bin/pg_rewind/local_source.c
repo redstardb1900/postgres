@@ -69,10 +69,10 @@ local_fetch_file(rewind_source *source, const char *path, size_t *filesize)
 }
 
 /*
- * Copy a file from source to target.
+ * 将文件从源复制到目标。
  *
- * 'len' is the expected length of the file.
- */
+ * 'len' 是文件的预期长度。
+                                                  */
 static void
 local_queue_fetch_file(rewind_source *source, const char *path, size_t len)
 {
@@ -84,13 +84,13 @@ local_queue_fetch_file(rewind_source *source, const char *path, size_t len)
 
 	snprintf(srcpath, sizeof(srcpath), "%s/%s", datadir, path);
 
-	/* Open source file for reading */
+	/* 打开源文件进行读取                    */
 	srcfd = open(srcpath, O_RDONLY | PG_BINARY, 0);
 	if (srcfd < 0)
 		pg_fatal("could not open source file \"%s\": %m",
 				 srcpath);
 
-	/* Truncate and open the target file for writing */
+	/* 截断并打开目标文件进行写入                                 */
 	open_target_file(path, true);
 
 	written_len = 0;
@@ -122,8 +122,9 @@ local_queue_fetch_file(rewind_source *source, const char *path, size_t len)
 }
 
 /*
- * Copy a file from source to target, starting at 'off', for 'len' bytes.
- */
+ * 将文件从源复制到目标，从 'off' 开始，共
+ * 'len' 字节。
+                                   */
 static void
 local_queue_fetch_range(rewind_source *source, const char *path, off_t off,
 						size_t len)
@@ -176,8 +177,9 @@ static void
 local_finish_fetch(rewind_source *source)
 {
 	/*
-	 * Nothing to do, local_queue_fetch_range() copies the ranges immediately.
-	 */
+	 * 无需操作，local_queue_fetch_range() 立即复制
+	 * 范围。
+	                             */
 }
 
 static void

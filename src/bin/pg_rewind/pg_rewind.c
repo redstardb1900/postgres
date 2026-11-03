@@ -62,7 +62,7 @@ static ControlFileData ControlFile_source_after;
 const char *progname;
 int			WalSegSz;
 
-/* Configuration options */
+/* 配置选项                  */
 char	   *datadir_target = NULL;
 char	   *datadir_source = NULL;
 char	   *connstr_source = NULL;
@@ -75,11 +75,11 @@ bool		dry_run = false;
 bool		do_sync = true;
 bool		restore_wal = false;
 
-/* Target history */
+/* 目标历史           */
 TimeLineHistoryEntry *targetHistory;
 int			targetNentries;
 
-/* Progress counters */
+/* 进度计数器             */
 uint64		fetch_size;
 uint64		fetch_done;
 
@@ -154,7 +154,7 @@ main(int argc, char **argv)
 	set_pglocale_pgservice(argv[0], PG_TEXTDOMAIN("pg_rewind"));
 	progname = get_progname(argv[0]);
 
-	/* Process command-line arguments */
+	/* 处理命令行参数                        */
 	if (argc > 1)
 	{
 		if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-?") == 0)
@@ -279,7 +279,7 @@ main(int argc, char **argv)
 
 	get_restricted_token();
 
-	/* Set mask based on PGDATA permissions */
+	/* 根据 PGDATA 权限设置掩码                     */
 	if (!GetDataDirectoryCreatePerm(datadir_target))
 		pg_fatal("could not read permissions of directory \"%s\": %m",
 				 datadir_target);
@@ -351,7 +351,7 @@ main(int argc, char **argv)
 	source_tli = Max(ControlFile_source.minRecoveryPointTLI,
 					 ControlFile_source.checkPointCopy.ThisTimeLineID);
 
-	/* Similarly for the target. */
+	/* 目标同理。                     */
 	target_tli = Max(ControlFile_target.minRecoveryPointTLI,
 					 ControlFile_target.checkPointCopy.ThisTimeLineID);
 
@@ -404,7 +404,7 @@ main(int argc, char **argv)
 		 * until we reach the first invalid record, like crash recovery does.)
 		 */
 
-		/* read the checkpoint record on the target to see where it ends. */
+		/* 读取目标检查点记录以查看其结束位置。                                             */
 		chkptendrec = readOneRecord(datadir_target,
 									ControlFile_target.checkPoint,
 									targetNentries - 1,
@@ -430,7 +430,7 @@ main(int argc, char **argv)
 		}
 		else
 		{
-			/* the last common checkpoint record must be part of target WAL */
+			/* 最后一个公共检查点记录必须是目标 WAL 的一部分                                    */
 			Assert(target_wal_endrec == divergerec);
 
 			rewind_needed = false;
@@ -446,7 +446,7 @@ main(int argc, char **argv)
 		exit(0);
 	}
 
-	/* Initialize hashtable that tracks WAL files protected from removal */
+	/* 初始化跟踪受保护不被删除的 WAL 文件的哈希表                                          */
 	keepwal_init();
 
 	findLastCheckpoint(datadir_target, divergerec, lastcommontliIndex,
@@ -454,7 +454,7 @@ main(int argc, char **argv)
 	pg_log_info("rewinding from last common checkpoint at %X/%X on timeline %u",
 				LSN_FORMAT_ARGS(chkptrec), chkpttli);
 
-	/* Initialize the hash table to track the status of each file */
+	/* 初始化跟踪每个文件状态的哈希表                                            */
 	filehash_init();
 
 	/*
@@ -486,7 +486,7 @@ main(int argc, char **argv)
 	if (showprogress)
 		calculate_totals(filemap);
 
-	/* this is too verbose even for verbose mode */
+	/* 即使在详细模式下这也过于啰嗦                            */
 	if (debug)
 		print_filemap(filemap);
 
@@ -516,12 +516,12 @@ main(int argc, char **argv)
 		pg_log_info("syncing target data directory");
 	sync_target_dir();
 
-	/* Also update the standby configuration, if requested. */
+	/* 同时更新备机配置（如果请求的话）。                                    */
 	if (writerecoveryconf && !dry_run)
 		WriteRecoveryConfig(conn, datadir_target,
 							GenerateRecoveryConfig(conn, NULL));
 
-	/* don't need the source connection anymore */
+	/* 不再需要源连接                                  */
 	source->destroy(source);
 	if (conn)
 	{
@@ -535,11 +535,10 @@ main(int argc, char **argv)
 }
 
 /*
- * Perform the rewind.
+ * 执行回绕。
  *
- * We have already collected all the information we need from the
- * target and the source.
- */
+ * 我们已经从目标和源收集了所有需要的信息。
+                                                                                   */
 static void
 perform_rewind(filemap_t *filemap, rewind_source *source,
 			   XLogRecPtr chkptrec,
@@ -583,7 +582,7 @@ perform_rewind(filemap_t *filemap, rewind_source *source,
 		switch (entry->action)
 		{
 			case FILE_ACTION_NONE:
-				/* nothing else to do */
+				/* 无需其他操作             */
 				break;
 
 			case FILE_ACTION_COPY:
@@ -614,7 +613,7 @@ perform_rewind(filemap_t *filemap, rewind_source *source,
 		}
 	}
 
-	/* Complete any remaining range-fetches that we queued up above. */
+	/* 完成上面排队的所有剩余范围获取。                                              */
 	source->finish_fetch(source);
 
 	close_target_file();
@@ -723,13 +722,13 @@ perform_rewind(filemap_t *filemap, rewind_source *source,
 static void
 sanityChecks(void)
 {
-	/* TODO Check that there's no backup_label in either cluster */
+	/* TODO 检查两个集簇中都没有 backup_label                              */
 
-	/* Check system_identifier match */
+	/* 检查 system_identifier 是否匹配     */
 	if (ControlFile_target.system_identifier != ControlFile_source.system_identifier)
 		pg_fatal("source and target clusters are from different systems");
 
-	/* check version */
+	/* 检查版本          */
 	if (ControlFile_target.pg_control_version != PG_CONTROL_VERSION ||
 		ControlFile_source.pg_control_version != PG_CONTROL_VERSION ||
 		ControlFile_target.catalog_version_no != CATALOG_VERSION_NO ||
@@ -770,14 +769,14 @@ sanityChecks(void)
 }
 
 /*
- * Print a progress report based on the fetch_size and fetch_done variables.
+ * 根据 fetch_size 和 fetch_done 变量打印进度报告。
  *
- * Progress report is written at maximum once per second, except that the
- * last progress report is always printed.
+ * 进度报告最多每秒写入一次，但最后一条进度报告
+ * 总是会被打印。
  *
- * If finished is set to true, this is the last progress report. The cursor
- * is moved to the next line.
- */
+ * 如果 finished 设为 true，这是最后一条进度报告。
+ * 光标移至下一行。
+                                                                                                                                                                                 */
 void
 progress_report(bool finished)
 {
@@ -825,10 +824,10 @@ progress_report(bool finished)
 }
 
 /*
- * Find minimum from two WAL locations assuming InvalidXLogRecPtr means
- * infinity as src/include/access/timeline.h states. This routine should
- * be used only when comparing WAL locations related to history files.
- */
+ * 从两个 WAL 位置取最小值，假设 InvalidXLogRecPtr
+ * 表示无穷大（如 src/include/access/timeline.h 所述）。
+ * 此例程仅用于比较与历史文件相关的 WAL 位置。
+                                                                                                        */
 static XLogRecPtr
 MinXLogRecPtr(XLogRecPtr a, XLogRecPtr b)
 {
@@ -841,8 +840,8 @@ MinXLogRecPtr(XLogRecPtr a, XLogRecPtr b)
 }
 
 /*
- * Retrieve timeline history for the source or target system.
- */
+ * 获取源或目标系统的时间线历史。
+                                            */
 static TimeLineHistoryEntry *
 getTimelineHistory(TimeLineID tli, bool is_source, int *nentries)
 {
@@ -866,7 +865,7 @@ getTimelineHistory(TimeLineID tli, bool is_source, int *nentries)
 
 		TLHistoryFilePath(path, tli);
 
-		/* Get history file from appropriate source */
+		/* 从适当的源获取历史文件                              */
 		if (is_source)
 			histfile = source->fetch_file(source, path, NULL);
 		else
@@ -876,7 +875,7 @@ getTimelineHistory(TimeLineID tli, bool is_source, int *nentries)
 		pg_free(histfile);
 	}
 
-	/* In debugging mode, print what we read */
+	/* 在调试模式下，打印读取的内容                        */
 	if (debug)
 	{
 		int			i;
@@ -901,11 +900,11 @@ getTimelineHistory(TimeLineID tli, bool is_source, int *nentries)
 }
 
 /*
- * Determine the TLI of the last common timeline in the timeline history of
- * two clusters. *tliIndex is set to the index of last common timeline in
- * the arrays, and *recptr is set to the position where the timeline history
- * diverged (ie. the first WAL record that's not the same in both clusters).
- */
+ * 确定两个集簇时间线历史中最后一条公共时间线的 TLI。
+ * *tliIndex 设为数组中最后公共时间线的索引，*recptr
+ * 设为时间线历史分叉的位置（即两个集簇中不相同的
+ * 第一个 WAL 记录）。
+                                                                                                                                                                                                  */
 static void
 findCommonAncestorTimeline(TimeLineHistoryEntry *a_history, int a_nentries,
 						   TimeLineHistoryEntry *b_history, int b_nentries,
@@ -945,9 +944,9 @@ findCommonAncestorTimeline(TimeLineHistoryEntry *a_history, int a_nentries,
 
 
 /*
- * Create a backup_label file that forces recovery to begin at the last common
- * checkpoint.
- */
+ * 创建 backup_label 文件，强制从最后一个公共
+ * 检查点开始恢复。
+                                                   */
 static void
 createBackupLabel(XLogRecPtr startpoint, TimeLineID starttli, XLogRecPtr checkpointloc)
 {
@@ -975,41 +974,41 @@ createBackupLabel(XLogRecPtr startpoint, TimeLineID starttli, XLogRecPtr checkpo
 				   "BACKUP METHOD: pg_rewind\n"
 				   "BACKUP FROM: standby\n"
 				   "START TIME: %s\n",
-	/* omit LABEL: line */
+	/* 省略 LABEL: 行      */
 				   LSN_FORMAT_ARGS(startpoint), xlogfilename,
 				   LSN_FORMAT_ARGS(checkpointloc),
 				   strfbuf);
 	if (len >= sizeof(buf))
 		pg_fatal("backup label buffer too small");	/* shouldn't happen */
 
-	/* TODO: move old file out of the way, if any. */
+	/* TODO：如果存在旧文件，将其移开。                          */
 	open_target_file("backup_label", true); /* BACKUP_LABEL_FILE */
 	write_target_range(buf, 0, len);
 	close_target_file();
 }
 
 /*
- * Check CRC of control file
- */
+ * 检查控制文件的 CRC
+               */
 static void
 checkControlFile(ControlFileData *ControlFile)
 {
 	pg_crc32c	crc;
 
-	/* Calculate CRC */
+	/* 计算 CRC        */
 	INIT_CRC32C(crc);
 	COMP_CRC32C(crc, (char *) ControlFile, offsetof(ControlFileData, crc));
 	FIN_CRC32C(crc);
 
-	/* And simply compare it */
+	/* 然后简单比较                */
 	if (!EQ_CRC32C(crc, ControlFile->crc))
 		pg_fatal("unexpected control file CRC");
 }
 
 /*
- * Verify control file contents in the buffer 'content', and copy it to
- * *ControlFile.
- */
+ * 验证缓冲区 'content' 中的控制文件内容，并将其
+ * 复制到 *ControlFile。
+                                     */
 static void
 digestControlFile(ControlFileData *ControlFile, const char *content,
 				  size_t size)
@@ -1020,7 +1019,7 @@ digestControlFile(ControlFileData *ControlFile, const char *content,
 
 	memcpy(ControlFile, content, sizeof(ControlFileData));
 
-	/* set and validate WalSegSz */
+	/* 设置并验证 WalSegSz            */
 	WalSegSz = ControlFile->xlog_seg_size;
 
 	if (!IsValidWalSegSize(WalSegSz))
@@ -1029,16 +1028,15 @@ digestControlFile(ControlFileData *ControlFile, const char *content,
 						  WalSegSz),
 				 WalSegSz);
 
-	/* Additional checks on control file */
+	/* 对控制文件的额外检查                        */
 	checkControlFile(ControlFile);
 }
 
 /*
- * Get value of GUC parameter restore_command from the target cluster.
+ * 从目标集簇获取 GUC 参数 restore_command 的值。
  *
- * This uses a logic based on "postgres -C" to get the value from the
- * cluster.
- */
+ * 这使用基于 "postgres -C" 的逻辑从集簇获取值。
+                                                                                  */
 static void
 getRestoreCommand(const char *argv0)
 {
@@ -1050,7 +1048,7 @@ getRestoreCommand(const char *argv0)
 	if (!restore_wal)
 		return;
 
-	/* find postgres executable */
+	/* 查找 postgres 可执行文件        */
 	rc = find_other_exec(argv0, "postgres",
 						 PG_BACKEND_VERSIONSTR,
 						 postgres_exec_path);
@@ -1076,21 +1074,21 @@ getRestoreCommand(const char *argv0)
 	 */
 	postgres_cmd = createPQExpBuffer();
 
-	/* path to postgres, properly quoted */
+	/* postgres 的路径，适当引用                 */
 	appendShellString(postgres_cmd, postgres_exec_path);
 
-	/* add -D switch, with properly quoted data directory */
+	/* 添加 -D 开关，带适当引用的数据目录                                */
 	appendPQExpBufferStr(postgres_cmd, " -D ");
 	appendShellString(postgres_cmd, datadir_target);
 
-	/* add custom configuration file only if requested */
+	/* 仅在请求时添加自定义配置文件                                  */
 	if (config_file != NULL)
 	{
 		appendPQExpBufferStr(postgres_cmd, " -c config_file=");
 		appendShellString(postgres_cmd, config_file);
 	}
 
-	/* add -C switch, for restore_command */
+	/* 添加 -C 开关，用于 restore_command        */
 	appendPQExpBufferStr(postgres_cmd, " -C restore_command");
 
 	if (!pipe_read_line(postgres_cmd->data, cmd_output, sizeof(cmd_output)))
@@ -1111,9 +1109,9 @@ getRestoreCommand(const char *argv0)
 
 
 /*
- * Ensure clean shutdown of target instance by launching single-user mode
- * postgres to do crash recovery.
- */
+ * 通过启动单用户模式的 postgres 进行崩溃恢复，
+ * 确保目标实例干净关闭。
+                                                               */
 static void
 ensureCleanShutdown(const char *argv0)
 {
@@ -1122,7 +1120,7 @@ ensureCleanShutdown(const char *argv0)
 	char		exec_path[MAXPGPATH];
 	PQExpBuffer postgres_cmd;
 
-	/* locate postgres binary */
+	/* 定位 postgres 二进制文件      */
 	if ((ret = find_other_exec(argv0, "postgres",
 							   PG_BACKEND_VERSIONSTR,
 							   exec_path)) < 0)
@@ -1157,21 +1155,21 @@ ensureCleanShutdown(const char *argv0)
 	 */
 	postgres_cmd = createPQExpBuffer();
 
-	/* path to postgres, properly quoted */
+	/* postgres 的路径，适当引用                 */
 	appendShellString(postgres_cmd, exec_path);
 
-	/* add set of options with properly quoted data directory */
+	/* 添加选项集，带适当引用的数据目录                                       */
 	appendPQExpBufferStr(postgres_cmd, " --single -F -D ");
 	appendShellString(postgres_cmd, datadir_target);
 
-	/* add custom configuration file only if requested */
+	/* 仅在请求时添加自定义配置文件                                  */
 	if (config_file != NULL)
 	{
 		appendPQExpBufferStr(postgres_cmd, " -c config_file=");
 		appendShellString(postgres_cmd, config_file);
 	}
 
-	/* finish with the database name, and a properly quoted redirection */
+	/* 以数据库名结束，带适当引用的重定向                                                */
 	appendPQExpBufferStr(postgres_cmd, " template1 < ");
 	appendShellString(postgres_cmd, DEVNULL);
 

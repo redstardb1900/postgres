@@ -26,8 +26,8 @@
 #include "pg_rewind.h"
 
 /*
- * Currently open target file.
- */
+ * 当前打开的目标文件。
+                  */
 static int	dstfd = -1;
 static char dstpath[MAXPGPATH] = "";
 
@@ -40,9 +40,9 @@ static void recurse_dir(const char *datadir, const char *parentpath,
 						process_file_callback_t callback);
 
 /*
- * Open a target file for writing. If 'trunc' is true and the file already
- * exists, it will be truncated.
- */
+ * 打开目标文件用于写入。如果 'trunc' 为 true 且
+ * 文件已存在，则将其截断。
+                                                           */
 void
 open_target_file(const char *path, bool trunc)
 {
@@ -69,8 +69,8 @@ open_target_file(const char *path, bool trunc)
 }
 
 /*
- * Close target file, if it's open.
- */
+ * 关闭目标文件（如果已打开）。
+                   */
 void
 close_target_file(void)
 {
@@ -90,7 +90,7 @@ write_target_range(char *buf, off_t begin, size_t size)
 	size_t		writeleft;
 	char	   *p;
 
-	/* update progress report */
+	/* 更新进度报告                 */
 	fetch_done += size;
 	progress_report(false);
 
@@ -111,7 +111,7 @@ write_target_range(char *buf, off_t begin, size_t size)
 		writelen = write(dstfd, p, writeleft);
 		if (writelen < 0)
 		{
-			/* if write didn't set errno, assume problem is no disk space */
+			/* 如果 write 未设置 errno，假设问题是无磁盘空间                              */
 			if (errno == 0)
 				errno = ENOSPC;
 			pg_fatal("could not write file \"%s\": %m",
@@ -122,7 +122,7 @@ write_target_range(char *buf, off_t begin, size_t size)
 		writeleft -= writelen;
 	}
 
-	/* keep the file open, in case we need to copy more blocks in it */
+	/* 保持文件打开，以防需要向其中复制更多块                                           */
 }
 
 
@@ -180,9 +180,9 @@ create_target(file_entry_t *entry)
 }
 
 /*
- * Remove a file from target data directory.  If missing_ok is true, it
- * is fine for the target file to not exist.
- */
+ * 从目标数据目录移除文件。若 missing_ok 为 true，
+ * 目标文件不存在是允许的。
+                                                                  */
 void
 remove_target_file(const char *path, bool missing_ok)
 {
@@ -282,14 +282,14 @@ remove_target_symlink(const char *path)
 }
 
 /*
- * Sync target data directory to ensure that modifications are safely on disk.
+ * 同步目标数据目录，确保修改安全写入磁盘。
  *
- * We do this once, for the whole data directory, for performance reasons.  At
- * the end of pg_rewind's run, the kernel is likely to already have flushed
- * most dirty buffers to disk.  Additionally fsync_pgdata uses a two-pass
- * approach (only initiating writeback in the first pass), which often reduces
- * the overall amount of IO noticeably.
- */
+ * 出于性能考虑，对整个数据目录执行一次此操作。
+ * 在 pg_rewind 运行结束时，内核很可能已将大多数
+ * 脏缓冲区刷新到磁盘。此外，fsync_pgdata 使用
+ * 两遍方法（第一遍仅启动写回），通常能显著
+ * 减少总体 IO 量。
+                                                                                                                                                                                                                                                                                    */
 void
 sync_target_dir(void)
 {
@@ -301,15 +301,14 @@ sync_target_dir(void)
 
 
 /*
- * Read a file into memory. The file to be read is <datadir>/<path>.
- * The file contents are returned in a malloc'd buffer, and *filesize
- * is set to the length of the file.
+ * 将文件读入内存。要读取的文件是 <datadir>/<path>。
+ * 文件内容以 malloc 分配的缓冲区返回，*filesize
+ * 设为文件长度。
  *
- * The returned buffer is always zero-terminated; the size of the returned
- * buffer is actually *filesize + 1. That's handy when reading a text file.
- * This function can be used to read binary files as well, you can just
- * ignore the zero-terminator in that case.
- */
+ * 返回的缓冲区始终以零结尾；实际大小为
+ * *filesize + 1。读取文本文件时很方便。也可用于
+ * 读取二进制文件，此时可忽略零终止符。
+                                                                                                                                                                                                                                                                                            */
 char *
 slurpFile(const char *datadir, const char *path, size_t *filesize)
 {
@@ -346,7 +345,7 @@ slurpFile(const char *datadir, const char *path, size_t *filesize)
 	}
 	close(fd);
 
-	/* Zero-terminate the buffer. */
+	/* 对缓冲区进行零终止。                 */
 	buffer[len] = '\0';
 
 	if (filesize)
@@ -355,9 +354,9 @@ slurpFile(const char *datadir, const char *path, size_t *filesize)
 }
 
 /*
- * Traverse through all files in a data directory, calling 'callback'
- * for each file.
- */
+ * 遍历数据目录中的所有文件，对每个文件调用
+ * 'callback'。
+                                                  */
 void
 traverse_datadir(const char *datadir, process_file_callback_t callback)
 {
@@ -365,11 +364,11 @@ traverse_datadir(const char *datadir, process_file_callback_t callback)
 }
 
 /*
- * recursive part of traverse_datadir
+ * traverse_datadir 的递归部分
  *
- * parentpath is the current subdirectory's path relative to datadir,
- * or NULL at the top level.
- */
+ * parentpath 是当前子目录相对于 datadir 的路径，
+ * 顶层时为 NULL。
+                                                             */
 static void
 recurse_dir(const char *datadir, const char *parentpath,
 			process_file_callback_t callback)
@@ -428,7 +427,7 @@ recurse_dir(const char *datadir, const char *parentpath,
 		else if (S_ISDIR(fst.st_mode))
 		{
 			callback(path, FILE_TYPE_DIRECTORY, 0, NULL);
-			/* recurse to handle subdirectories */
+			/* 递归处理子目录                          */
 			recurse_dir(datadir, path, callback);
 		}
 		else if (S_ISLNK(fst.st_mode))

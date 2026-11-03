@@ -14,17 +14,17 @@
 #include "pg_rewind.h"
 
 /*
- * This is copy-pasted from the backend readTimeLineHistory, modified to
- * return a malloc'd array and to work without backend functions.
- */
+ * 这是从后端 readTimeLineHistory 复制粘贴而来，
+ * 修改为返回 malloc 分配的数组并在无后端函数的
+ * 情况下工作。
+                                                               */
 /*
- * Try to read a timeline's history file.
+ * 尝试读取时间线的历史文件。
  *
- * If successful, return the list of component TLIs (the given TLI followed by
- * its ancestor TLIs).  If we can't find the history file, assume that the
- * timeline has no parents, and return a list of just the specified timeline
- * ID.
- */
+ * 若成功，返回组成 TLI 的列表（给定 TLI 及其
+ * 祖先 TLI）。若找不到历史文件，假设该时间线
+ * 没有父级，返回仅含指定时间线 ID 的列表。
+                                                                                                                                                                                     */
 TimeLineHistoryEntry *
 rewind_parseTimeLineHistory(char *buffer, TimeLineID targetTLI, int *nentries)
 {
@@ -38,8 +38,8 @@ rewind_parseTimeLineHistory(char *buffer, TimeLineID targetTLI, int *nentries)
 	bool		lastline = false;
 
 	/*
-	 * Parse the file...
-	 */
+	 * 解析文件...
+	           */
 	prevend = InvalidXLogRecPtr;
 	bufptr = buffer;
 	while (!lastline)
@@ -58,7 +58,7 @@ rewind_parseTimeLineHistory(char *buffer, TimeLineID targetTLI, int *nentries)
 		else
 			*bufptr++ = '\0';
 
-		/* skip leading whitespace and check for # comment */
+		/* 跳过前导空白并检查 # 注释                                  */
 		for (ptr = fline; *ptr; ptr++)
 		{
 			if (!isspace((unsigned char) *ptr))
@@ -71,7 +71,7 @@ rewind_parseTimeLineHistory(char *buffer, TimeLineID targetTLI, int *nentries)
 
 		if (nfields < 1)
 		{
-			/* expect a numeric timeline ID as first field of line */
+			/* 期望行的第一个字段是数字时间线 ID                                  */
 			pg_log_error("syntax error in history file: %s", fline);
 			pg_log_error_detail("Expected a numeric timeline ID.");
 			exit(1);
@@ -100,7 +100,7 @@ rewind_parseTimeLineHistory(char *buffer, TimeLineID targetTLI, int *nentries)
 		entry->end = ((uint64) (switchpoint_hi)) << 32 | (uint64) switchpoint_lo;
 		prevend = entry->end;
 
-		/* we ignore the remainder of each line */
+		/* 忽略每行的剩余部分                            */
 	}
 
 	if (entries && targetTLI <= lasttli)
@@ -111,9 +111,9 @@ rewind_parseTimeLineHistory(char *buffer, TimeLineID targetTLI, int *nentries)
 	}
 
 	/*
-	 * Create one more entry for the "tip" of the timeline, which has no entry
-	 * in the history file.
-	 */
+	 * 为时间线的"顶端"再创建一个条目，该顶端在
+	 * 历史文件中没有条目。
+	                                                             */
 	nlines++;
 	if (entries)
 		entries = pg_realloc(entries, nlines * sizeof(TimeLineHistoryEntry));

@@ -25,9 +25,9 @@
 #include "pg_rewind.h"
 
 /*
- * RmgrNames is an array of the built-in resource manager names, to make error
- * messages a bit nicer.
- */
+ * RmgrNames 是内置资源管理器名称的数组，使错误
+ * 消息更友好一些。
+                                                              */
 #define PG_RMGR(symname,name,redo,desc,identify,startup,cleanup,mask,decode) \
   name,
 
@@ -55,13 +55,14 @@ static int	SimpleXLogPageRead(XLogReaderState *xlogreader,
 							   int reqLen, XLogRecPtr targetRecPtr, char *readBuf);
 
 /*
- * Read WAL from the datadir/pg_wal, starting from 'startpoint' on timeline
- * index 'tliIndex' in target timeline history, until 'endpoint'. Make note of
- * the data blocks touched by the WAL records, and return them in a page map.
+ * 从 datadir/pg_wal 读取 WAL，从目标时间线历史中
+ * 时间线索引 'tliIndex' 的 'startpoint' 开始，直到
+ * 'endpoint'。记录 WAL 记录触及的数据块，并在页面
+ * 映射中返回。
  *
- * 'endpoint' is the end of the last record to read. The record starting at
- * 'endpoint' is the first one that is not read.
- */
+ * 'endpoint' 是要读取的最后一条记录的末尾。从
+ * 'endpoint' 开始的记录是第一条不读取的记录。
+                                                                                                                                                                              */
 void
 extractPageMap(const char *datadir, XLogRecPtr startpoint, int tliIndex,
 			   XLogRecPtr endpoint, const char *restoreCommand)
@@ -117,9 +118,9 @@ extractPageMap(const char *datadir, XLogRecPtr startpoint, int tliIndex,
 }
 
 /*
- * Reads one WAL record. Returns the end position of the record, without
- * doing anything with the record itself.
- */
+ * 读取一条 WAL 记录。返回记录的结束位置，不对
+ * 记录本身做任何处理。
+                                                                          */
 XLogRecPtr
 readOneRecord(const char *datadir, XLogRecPtr ptr, int tliIndex,
 			  const char *restoreCommand)
@@ -162,14 +163,14 @@ readOneRecord(const char *datadir, XLogRecPtr ptr, int tliIndex,
 }
 
 /*
- * Find the previous checkpoint preceding given WAL location.
- */
+ * 查找给定 WAL 位置之前的上一个检查点。
+                                      */
 void
 findLastCheckpoint(const char *datadir, XLogRecPtr forkptr, int tliIndex,
 				   XLogRecPtr *lastchkptrec, TimeLineID *lastchkpttli,
 				   XLogRecPtr *lastchkptredo, const char *restoreCommand)
 {
-	/* Walk backwards, starting from the given record */
+	/* 向后遍历，从给定记录开始                                   */
 	XLogRecord *record;
 	XLogRecPtr	searchptr;
 	XLogReaderState *xlogreader;
@@ -219,7 +220,7 @@ findLastCheckpoint(const char *datadir, XLogRecPtr forkptr, int tliIndex,
 						 LSN_FORMAT_ARGS(searchptr));
 		}
 
-		/* Detect if a new WAL file has been opened */
+		/* 检测是否打开了新的 WAL 文件                         */
 		if (xlogreader->seg.ws_tli != current_tli ||
 			xlogreader->seg.ws_segno != current_segno)
 		{
@@ -227,14 +228,14 @@ findLastCheckpoint(const char *datadir, XLogRecPtr forkptr, int tliIndex,
 
 			snprintf(xlogfname, MAXFNAMELEN, XLOGDIR "/");
 
-			/* update curent values */
+			/* 更新当前值                */
 			current_tli = xlogreader->seg.ws_tli;
 			current_segno = xlogreader->seg.ws_segno;
 
 			XLogFileName(xlogfname + sizeof(XLOGDIR),
 						 current_tli, current_segno, WalSegSz);
 
-			/* Track this filename as one to not remove */
+			/* 将此文件标记为不删除的文件                            */
 			keepwal_add_entry(xlogfname);
 		}
 
@@ -258,7 +259,7 @@ findLastCheckpoint(const char *datadir, XLogRecPtr forkptr, int tliIndex,
 			break;
 		}
 
-		/* Walk backwards to previous record. */
+		/* 向后遍历到上一条记录。                        */
 		searchptr = record->xl_prev;
 	}
 
@@ -270,7 +271,7 @@ findLastCheckpoint(const char *datadir, XLogRecPtr forkptr, int tliIndex,
 	}
 }
 
-/* XLogReader callback function, to read a WAL page */
+/* XLogReader 回调函数，用于读取 WAL 页                       */
 static int
 SimpleXLogPageRead(XLogReaderState *xlogreader, XLogRecPtr targetPagePtr,
 				   int reqLen, XLogRecPtr targetRecPtr, char *readBuf)
@@ -356,7 +357,7 @@ SimpleXLogPageRead(XLogReaderState *xlogreader, XLogRecPtr targetPagePtr,
 	 */
 	Assert(xlogreadfd != -1);
 
-	/* Read the requested page */
+	/* 读取请求的页面                 */
 	if (lseek(xlogreadfd, (off_t) targetPageOff, SEEK_SET) < 0)
 	{
 		pg_log_error("could not seek in file \"%s\": %m", xlogfpath);
@@ -383,8 +384,8 @@ SimpleXLogPageRead(XLogReaderState *xlogreader, XLogRecPtr targetPagePtr,
 }
 
 /*
- * Extract information on which blocks the current record modifies.
- */
+ * 提取当前记录修改了哪些块的信息。
+                                                 */
 static void
 extractPageInfo(XLogReaderState *record)
 {
@@ -393,7 +394,7 @@ extractPageInfo(XLogReaderState *record)
 	uint8		info = XLogRecGetInfo(record);
 	uint8		rminfo = info & ~XLR_INFO_MASK;
 
-	/* Is this a special record type that I recognize? */
+	/* 这是我认识的特殊记录类型吗？                                  */
 
 	if (rmid == RM_DBASE_ID && rminfo == XLOG_DBASE_CREATE_FILE_COPY)
 	{
@@ -474,7 +475,7 @@ extractPageInfo(XLogReaderState *record)
 										&rlocator, &forknum, &blkno, NULL))
 			continue;
 
-		/* We only care about the main fork; others are copied in toto */
+		/* 我们只关心主分支；其他分支完整复制                                           */
 		if (forknum != MAIN_FORKNUM)
 			continue;
 

@@ -1,13 +1,13 @@
 /*-------------------------------------------------------------------------
  *
- * walmethods.c - implementations of different ways to write received wal
+ * walmethods.c - 写入接收的 WAL 的不同方法的实现
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * 部分版权 (c) 1996-2023, PostgreSQL 全球开发组
  *
  * IDENTIFICATION
  *		  src/bin/pg_basebackup/walmethods.c
  *-------------------------------------------------------------------------
- */
+                           */
 
 #include "postgres_fe.h"
 
@@ -32,13 +32,13 @@
 /* Size of zlib buffer for .tar.gz */
 #define ZLIB_OUT_SIZE 4096
 
-/* Size of LZ4 input chunk for .lz4 */
+/* .lz4 的 LZ4 输入块大小     */
 #define LZ4_IN_SIZE  4096
 
 /*-------------------------------------------------------------------------
- * WalDirectoryMethod - write wal to a directory looking like pg_wal
+ * WalDirectoryMethod - 将 WAL 写入看起来像 pg_wal 的目录
  *-------------------------------------------------------------------------
- */
+  */
 
 static Walfile *dir_open_for_write(WalWriteMethod *wwmethod,
 								   const char *pathname,
@@ -68,8 +68,8 @@ const WalWriteMethodOps WalDirectoryMethodOps = {
 };
 
 /*
- * Global static data for this method
- */
+ * 此方法的全局静态数据
+     */
 typedef struct DirectoryMethodData
 {
 	WalWriteMethod base;
@@ -139,11 +139,10 @@ dir_open_for_write(WalWriteMethod *wwmethod, const char *pathname,
 	pg_free(filename);
 
 	/*
-	 * Open a file for non-compressed as well as compressed files. Tracking
-	 * the file descriptor is important for dir_sync() method as gzflush()
-	 * does not do any system calls to fsync() to make changes permanent on
-	 * disk.
-	 */
+	 * 为非压缩和压缩文件打开文件。跟踪文件描述符
+	 * 对于 dir_sync() 方法很重要，因为 gzflush() 不会执行任何
+	 * fsync() 系统调用来使磁盘上的更改持久化。
+	                        */
 	fd = open(tmppath, O_WRONLY | O_CREAT | PG_BINARY, pg_file_create_mode);
 	if (fd < 0)
 	{
@@ -189,11 +188,11 @@ dir_open_for_write(WalWriteMethod *wwmethod, const char *pathname,
 		lz4bufsize = LZ4F_compressBound(LZ4_IN_SIZE, NULL);
 		lz4buf = pg_malloc0(lz4bufsize);
 
-		/* assign the compression level, default is 0 */
+		/* 分配压缩级别，默认为 0           */
 		memset(&prefs, 0, sizeof(prefs));
 		prefs.compressionLevel = wwmethod->compression_level;
 
-		/* add the header */
+		/* 添加头部   */
 		header_size = LZ4F_compressBegin(ctx, lz4buf, lz4bufsize, &prefs);
 		if (LZ4F_isError(header_size))
 		{
@@ -217,7 +216,7 @@ dir_open_for_write(WalWriteMethod *wwmethod, const char *pathname,
 	}
 #endif
 
-	/* Do pre-padding on non-compressed files */
+	/* 对非压缩文件进行预填充      */
 	if (pad_to_size && wwmethod->compression_algorithm == PG_COMPRESSION_NONE)
 	{
 		ssize_t		rc;
@@ -244,11 +243,10 @@ dir_open_for_write(WalWriteMethod *wwmethod, const char *pathname,
 	}
 
 	/*
-	 * fsync WAL file and containing directory, to ensure the file is
-	 * persistently created and zeroed (if padded). That's particularly
-	 * important when using synchronous mode, where the file is modified and
-	 * fsynced in-place, without a directory fsync.
-	 */
+	 * fsync WAL 文件及其所在目录，以确保文件被持久创建并零填充
+	 * （如果填充了的话）。当使用同步模式时这特别重要，因为文件
+	 * 在原位修改和 fsync，没有目录 fsync。
+	                                  */
 	if (wwmethod->sync)
 	{
 		if (fsync_fname(tmppath, false) != 0 ||
@@ -362,7 +360,7 @@ dir_write(Walfile *f, const void *buf, size_t count)
 			inbuf = ((char *) inbuf) + chunk;
 		}
 
-		/* Our caller keeps track of the uncompressed size. */
+		/* 我们的调用者跟踪未压缩的大小       */
 		r = (ssize_t) count;
 	}
 	else
@@ -396,7 +394,7 @@ dir_close(Walfile *f, WalCloseMethod method)
 #ifdef HAVE_LIBZ
 	if (f->wwmethod->compression_algorithm == PG_COMPRESSION_GZIP)
 	{
-		errno = 0;				/* in case gzclose() doesn't set it */
+		errno = 0;				/* 以防 gzclose() 不设置 errno */
 		r = gzclose(df->gzfp);
 	}
 	else
@@ -432,23 +430,22 @@ dir_close(Walfile *f, WalCloseMethod method)
 
 	if (r == 0)
 	{
-		/* Build path to the current version of the file */
+		/* 构建到文件当前版本的路径          */
 		if (method == CLOSE_NORMAL && df->temp_suffix)
 		{
 			char	   *filename;
 			char	   *filename2;
 
 			/*
-			 * If we have a temp prefix, normal operation is to rename the
-			 * file.
-			 */
+			 * 如果有临时前缀，正常操作是重命名文件。
+			               */
 			filename = dir_get_file_name(f->wwmethod, df->base.pathname,
 										 df->temp_suffix);
 			snprintf(tmppath, sizeof(tmppath), "%s/%s",
 					 dir_data->basedir, filename);
 			pg_free(filename);
 
-			/* permanent name, so no need for the prefix */
+			/* 永久名称，因此不需要前缀      */
 			filename2 = dir_get_file_name(f->wwmethod, df->base.pathname, NULL);
 			snprintf(tmppath2, sizeof(tmppath2), "%s/%s",
 					 dir_data->basedir, filename2);
@@ -469,7 +466,7 @@ dir_close(Walfile *f, WalCloseMethod method)
 		{
 			char	   *filename;
 
-			/* Unlink the file once it's closed */
+			/* 文件关闭后删除它         */
 			filename = dir_get_file_name(f->wwmethod, df->base.pathname,
 										 df->temp_suffix);
 			snprintf(tmppath, sizeof(tmppath), "%s/%s",
@@ -609,9 +606,8 @@ dir_finish(WalWriteMethod *wwmethod)
 		DirectoryMethodData *dir_data = (DirectoryMethodData *) wwmethod;
 
 		/*
-		 * Files are fsynced when they are closed, but we need to fsync the
-		 * directory entry here as well.
-		 */
+		 * 文件在关闭时 fsync，但我们也需要在这里 fsync 目录条目。
+		                        */
 		if (fsync_fname(dir_data->basedir, true) != 0)
 		{
 			wwmethod->lasterrno = errno;
@@ -652,9 +648,9 @@ CreateWalDirectoryMethod(const char *basedir,
 
 
 /*-------------------------------------------------------------------------
- * WalTarMethod - write wal to a tar file containing pg_wal contents
+ * WalTarMethod - 将 WAL 写入包含 pg_wal 内容的 tar 文件
  *-------------------------------------------------------------------------
- */
+   */
 
 static Walfile *tar_open_for_write(WalWriteMethod *wwmethod,
 								   const char *pathname,
@@ -686,7 +682,7 @@ const WalWriteMethodOps WalTarMethodOps = {
 typedef struct TarMethodFile
 {
 	Walfile		base;
-	pgoff_t		ofs_start;		/* Where does the *header* for this file start */
+	pgoff_t		ofs_start;		/* 此文件的头部从哪里开始           */
 	char		header[TAR_BLOCK_SIZE];
 	size_t		pad_to_size;
 } TarMethodFile;
@@ -744,7 +740,7 @@ tar_write_compressed_data(TarMethodData *tar_data, void *buf, size_t count,
 
 	if (flush)
 	{
-		/* Reset the stream for writing */
+		/* 重置流以便写入        */
 		if (deflateReset(tar_data->zp) != Z_OK)
 		{
 			tar_data->base.lasterrstring = _("could not reset compression stream");
@@ -765,7 +761,7 @@ tar_write(Walfile *f, const void *buf, size_t count)
 	Assert(f != NULL);
 	clear_error(f->wwmethod);
 
-	/* Tarfile will always be positioned at the end */
+	/* tar 文件始终位于末尾                 */
 	if (f->wwmethod->compression_algorithm == PG_COMPRESSION_NONE)
 	{
 		errno = 0;
@@ -791,7 +787,7 @@ tar_write(Walfile *f, const void *buf, size_t count)
 #endif
 	else
 	{
-		/* Can't happen - compression enabled with no method set */
+		/* 不可能发生 - 压缩已启用但未设置方法   */
 		f->wwmethod->lasterrno = ENOSYS;
 		return -1;
 	}
@@ -841,7 +837,7 @@ tar_open_for_write(WalWriteMethod *wwmethod, const char *pathname,
 	if (tar_data->fd < 0)
 	{
 		/*
-		 * We open the tar file only when we first try to write to it.
+		 * 我们只在第一次尝试写入时才打开 tar 文件。
 		 */
 		tar_data->fd = open(tar_data->tarfilename,
 							O_WRONLY | O_CREAT | PG_BINARY,
@@ -863,10 +859,9 @@ tar_open_for_write(WalWriteMethod *wwmethod, const char *pathname,
 			tar_data->zp->avail_out = ZLIB_OUT_SIZE;
 
 			/*
-			 * Initialize deflation library. Adding the magic value 16 to the
-			 * default 15 for the windowBits parameter makes the output be
-			 * gzip instead of zlib.
-			 */
+			 * 初始化 deflation 库。在 windowBits 参数的默认值 15 上添加
+			 * 魔法数字 16，使输出成为 gzip 而不是 zlib。
+			                      */
 			if (deflateInit2(tar_data->zp, wwmethod->compression_level,
 							 Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK)
 			{
@@ -879,7 +874,7 @@ tar_open_for_write(WalWriteMethod *wwmethod, const char *pathname,
 		}
 #endif
 
-		/* There's no tar header itself, the file starts with regular files */
+		/* 没有 tar 头部本身，文件从常规文件开始            */
 	}
 
 	if (tar_data->currentfile != NULL)
@@ -894,7 +889,7 @@ tar_open_for_write(WalWriteMethod *wwmethod, const char *pathname,
 
 	tmppath = tar_get_file_name(wwmethod, pathname, temp_suffix);
 
-	/* Create a header with size set to 0 - we will fill out the size on close */
+	/* 创建大小设为 0 的头部 - 我们将在关闭时填充大小      */
 	if (tarCreateHeader(tar_data->currentfile->header, tmppath, NULL, 0, S_IRUSR | S_IWUSR, 0, 0, time(NULL)) != TAR_OK)
 	{
 		pg_free(tar_data->currentfile);
@@ -909,11 +904,11 @@ tar_open_for_write(WalWriteMethod *wwmethod, const char *pathname,
 #ifdef HAVE_LIBZ
 	if (wwmethod->compression_algorithm == PG_COMPRESSION_GZIP)
 	{
-		/* Flush existing data */
+		/* 刷新现有数据  */
 		if (!tar_write_compressed_data(tar_data, NULL, 0, true))
 			return NULL;
 
-		/* Turn off compression for header */
+		/* 为头部关闭压缩           */
 		if (deflateParams(tar_data->zp, 0, Z_DEFAULT_STRATEGY) != Z_OK)
 		{
 			wwmethod->lasterrstring =
@@ -949,12 +944,12 @@ tar_open_for_write(WalWriteMethod *wwmethod, const char *pathname,
 #ifdef HAVE_LIBZ
 	else if (wwmethod->compression_algorithm == PG_COMPRESSION_GZIP)
 	{
-		/* Write header through the zlib APIs but with no compression */
+		/* 通过 zlib API 写入头部，但不压缩                */
 		if (!tar_write_compressed_data(tar_data, tar_data->currentfile->header,
 									   TAR_BLOCK_SIZE, true))
 			return NULL;
 
-		/* Re-enable compression for the rest of the file */
+		/* 为文件剩余部分重新启用压缩        */
 		if (deflateParams(tar_data->zp, wwmethod->compression_level,
 						  Z_DEFAULT_STRATEGY) != Z_OK)
 		{
@@ -965,16 +960,15 @@ tar_open_for_write(WalWriteMethod *wwmethod, const char *pathname,
 #endif
 	else
 	{
-		/* not reachable */
+		/* 不可达     */
 		Assert(false);
 	}
 
 	tar_data->currentfile->base.pathname = pg_strdup(pathname);
 
 	/*
-	 * Uncompressed files are padded on creation, but for compression we can't
-	 * do that
-	 */
+	 * 未压缩文件在创建时填充，但对于压缩我们无法这样做
+	            */
 	if (pad_to_size)
 	{
 		tar_data->currentfile->pad_to_size = pad_to_size;
@@ -983,7 +977,7 @@ tar_open_for_write(WalWriteMethod *wwmethod, const char *pathname,
 			/* Uncompressed, so pad now */
 			if (!tar_write_padding_data(tar_data->currentfile, pad_to_size))
 				return NULL;
-			/* Seek back to start */
+			/* 回到开头       */
 			if (lseek(tar_data->fd,
 					  tar_data->currentfile->ofs_start + TAR_BLOCK_SIZE,
 					  SEEK_SET) != tar_data->currentfile->ofs_start + TAR_BLOCK_SIZE)
@@ -1004,7 +998,7 @@ tar_get_file_size(WalWriteMethod *wwmethod, const char *pathname)
 {
 	clear_error(wwmethod);
 
-	/* Currently not used, so not supported */
+	/* 目前未使用，因此不支持    */
 	wwmethod->lasterrno = ENOSYS;
 	return -1;
 }
@@ -1072,18 +1066,17 @@ tar_close(Walfile *f, WalCloseMethod method)
 	}
 
 	/*
-	 * Pad the file itself with zeroes if necessary. Note that this is
-	 * different from the tar format padding -- this is the padding we asked
-	 * for when the file was opened.
-	 */
+	 * 如果需要，用零填充文件本身。注意这与 tar 格式填充
+	 * 不同——这是我们在打开文件时请求的填充。
+	                                    */
 	if (tf->pad_to_size)
 	{
 		if (f->wwmethod->compression_algorithm == PG_COMPRESSION_GZIP)
 		{
 			/*
-			 * A compressed tarfile is padded on close since we cannot know
-			 * the size of the compressed output until the end.
-			 */
+			 * 压缩的 tar 文件在关闭时填充，因为我们直到最后才知道
+			 * 压缩输出的大小。
+			           */
 			size_t		sizeleft = tf->pad_to_size - tf->base.currpos;
 
 			if (sizeleft)
@@ -1103,9 +1096,8 @@ tar_close(Walfile *f, WalCloseMethod method)
 	}
 
 	/*
-	 * Get the size of the file, and pad out to a multiple of the tar block
-	 * size.
-	 */
+	 * 获取文件大小，并填充到 tar 块大小的倍数。
+	                    */
 	filesize = f->currpos;
 	padding = tarPaddingBytesRequired(filesize);
 	if (padding)
@@ -1120,17 +1112,16 @@ tar_close(Walfile *f, WalCloseMethod method)
 #ifdef HAVE_LIBZ
 	if (f->wwmethod->compression_algorithm == PG_COMPRESSION_GZIP)
 	{
-		/* Flush the current buffer */
+		/* 刷新当前缓冲区    */
 		if (!tar_write_compressed_data(tar_data, NULL, 0, true))
 			return -1;
 	}
 #endif
 
 	/*
-	 * Now go back and update the header with the correct filesize and
-	 * possibly also renaming the file. We overwrite the entire current header
-	 * when done, including the checksum.
-	 */
+	 * 现在回到头部并用正确的文件大小更新头部，可能还要
+	 * 重命名文件。完成后我们覆盖整个当前头部，包括校验和。
+	                        */
 	print_tar_number(&(tf->header[124]), 12, filesize);
 
 	if (method == CLOSE_NORMAL)
@@ -1160,19 +1151,19 @@ tar_close(Walfile *f, WalCloseMethod method)
 #ifdef HAVE_LIBZ
 	else if (f->wwmethod->compression_algorithm == PG_COMPRESSION_GZIP)
 	{
-		/* Turn off compression */
+		/* 关闭压缩         */
 		if (deflateParams(tar_data->zp, 0, Z_DEFAULT_STRATEGY) != Z_OK)
 		{
 			f->wwmethod->lasterrstring = _("could not change compression parameters");
 			return -1;
 		}
 
-		/* Overwrite the header, assuming the size will be the same */
+		/* 覆盖头部，假设大小相同                        */
 		if (!tar_write_compressed_data(tar_data, tar_data->currentfile->header,
 									   TAR_BLOCK_SIZE, true))
 			return -1;
 
-		/* Turn compression back on */
+		/* 重新开启压缩       */
 		if (deflateParams(tar_data->zp, f->wwmethod->compression_level,
 						  Z_DEFAULT_STRATEGY) != Z_OK)
 		{
@@ -1183,7 +1174,7 @@ tar_close(Walfile *f, WalCloseMethod method)
 #endif
 	else
 	{
-		/* not reachable */
+		/* 不可达     */
 		Assert(false);
 	}
 
@@ -1202,7 +1193,7 @@ tar_close(Walfile *f, WalCloseMethod method)
 				 tf->base.pathname, GetLastWalMethodError(f->wwmethod));
 	}
 
-	/* Clean up and done */
+	/* 清理并完成   */
 	pg_free(tf->base.pathname);
 	pg_free(tf);
 	tar_data->currentfile = NULL;
@@ -1214,7 +1205,7 @@ static bool
 tar_existsfile(WalWriteMethod *wwmethod, const char *pathname)
 {
 	clear_error(wwmethod);
-	/* We only deal with new tarfiles, so nothing externally created exists */
+	/* 我们只处理新 tar 文件，因此不存在外部创建的内容 */
 	return false;
 }
 
@@ -1232,7 +1223,7 @@ tar_finish(WalWriteMethod *wwmethod)
 			return false;
 	}
 
-	/* A tarfile always ends with two empty blocks */
+	/* tar 文件始终以两个空块结束       */
 	if (wwmethod->compression_algorithm == PG_COMPRESSION_NONE)
 	{
 		errno = 0;
@@ -1250,7 +1241,7 @@ tar_finish(WalWriteMethod *wwmethod)
 									   false))
 			return false;
 
-		/* Also flush all data to make sure the gzip stream is finished */
+		/* 同时刷新所有数据以确保 gzip 流已结束          */
 		tar_data->zp->next_in = NULL;
 		tar_data->zp->avail_in = 0;
 		while (true)
@@ -1272,9 +1263,8 @@ tar_finish(WalWriteMethod *wwmethod)
 				if (write(tar_data->fd, tar_data->zlibOut, len) != len)
 				{
 					/*
-					 * If write didn't set errno, assume problem is no disk
-					 * space.
-					 */
+				 * 如果 write 未设置 errno，假设问题是磁盘空间不足。
+				   */
 					wwmethod->lasterrno = errno ? errno : ENOSPC;
 					return false;
 				}
@@ -1292,11 +1282,11 @@ tar_finish(WalWriteMethod *wwmethod)
 #endif
 	else
 	{
-		/* not reachable */
+		/* 不可达     */
 		Assert(false);
 	}
 
-	/* sync the empty blocks as well, since they're after the last file */
+	/* 同样 sync 空块，因为它们在最后一个文件之后     */
 	if (wwmethod->sync)
 	{
 		if (fsync(tar_data->fd) != 0)
@@ -1341,11 +1331,10 @@ tar_free(WalWriteMethod *wwmethod)
 }
 
 /*
- * The argument compression_algorithm is currently ignored. It is in place for
- * symmetry with CreateWalDirectoryMethod which uses it for distinguishing
- * between the different compression methods. CreateWalTarMethod and its family
- * of functions handle only zlib compression.
- */
+ * 参数 compression_algorithm 目前被忽略。它存在是为了与
+ * CreateWalDirectoryMethod 对称，后者使用它来区分不同的压缩方法。
+ * CreateWalTarMethod 及其家族函数仅处理 zlib 压缩。
+                                                          */
 WalWriteMethod *
 CreateWalTarMethod(const char *tarbase,
 				   pg_compress_algorithm compression_algorithm,

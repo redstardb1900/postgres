@@ -2,12 +2,12 @@
  *
  * bbstreamer_inject.c
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * 部分版权 (c) 1996-2023, PostgreSQL 全球开发组
  *
  * IDENTIFICATION
  *		  src/bin/pg_basebackup/bbstreamer_inject.c
  *-------------------------------------------------------------------------
- */
+                */
 
 #include "postgres_fe.h"
 
@@ -40,27 +40,22 @@ const bbstreamer_ops bbstreamer_recovery_injector_ops = {
 };
 
 /*
- * Create a bbstreamer that can edit recoverydata into an archive stream.
+ * 创建一个可以将恢复数据编辑到归档流中的 bbstreamer。
  *
- * The input should be a series of typed chunks (not BBSTREAMER_UNKNOWN) as
- * per the conventions described in bbstreamer.h; the chunks forwarded to
- * the next bbstreamer will be similarly typed, but the
- * BBSTREAMER_MEMBER_HEADER chunks may be zero-length in cases where we've
- * edited the archive stream.
+ * 输入应该是一系列类型化块（不是 BBSTREAMER_UNKNOWN），遵循 bbstreamer.h 中
+ * 描述的约定；转发给下一个 bbstreamer 的块将是类似类型化的，但在我们编辑
+ * 了归档流的情况下，BBSTREAMER_MEMBER_HEADER 块可能为零长度。
  *
- * Our goal is to do one of the following three things with the content passed
- * via recoveryconfcontents: (1) if is_recovery_guc_supported is false, then
- * put the content into recovery.conf, replacing any existing archive member
- * by that name; (2) if is_recovery_guc_supported is true and
- * postgresql.auto.conf exists in the archive, then append the content
- * provided to the existing file; and (3) if is_recovery_guc_supported is
- * true but postgresql.auto.conf does not exist in the archive, then create
- * it with the specified content.
+ * 我们的目标是对通过 recoveryconfcontents 传入的内容执行以下三种操作之一：
+ * (1) 如果 is_recovery_guc_supported 为 false，则将内容放入 recovery.conf，
+ * 替换任何同名的现有归档成员；(2) 如果 is_recovery_guc_supported 为 true
+ * 且 postgresql.auto.conf 存在于归档中，则将提供的内容附加到现有文件；
+ * (3) 如果 is_recovery_guc_supported 为 true 但 postgresql.auto.conf 不存在
+ * 于归档中，则使用指定的内容创建它。
  *
- * In addition, if is_recovery_guc_supported is true, then we create a
- * zero-length standby.signal file, dropping any file with that name from
- * the archive.
- */
+ * 此外，如果 is_recovery_guc_supported 为 true，则创建一个零长度的
+ * standby.signal 文件，并从归档中删除任何同名文件。
+                                                                          */
 extern bbstreamer *
 bbstreamer_recovery_injector_new(bbstreamer *next,
 								 bool is_recovery_guc_supported,
@@ -79,8 +74,8 @@ bbstreamer_recovery_injector_new(bbstreamer *next,
 }
 
 /*
- * Handle each chunk of tar content while injecting recovery configuration.
- */
+ * 在注入恢复配置时处理每个 tar 内容块。
+                    */
 static void
 bbstreamer_recovery_injector_content(bbstreamer *streamer,
 									 bbstreamer_member *member,
@@ -113,15 +108,14 @@ bbstreamer_recovery_injector_content(bbstreamer *streamer,
 					/* Remember we saw it so we don't add it again. */
 					mystreamer->found_postgresql_auto_conf = true;
 
-					/* Increment length by data to be injected. */
+					/* 将要注入的数据长度递增。     */
 					mystreamer->member.size +=
 						mystreamer->recoveryconfcontents->len;
 
 					/*
-					 * Zap data and len because the archive header is no
-					 * longer valid; some subsequent bbstreamer must
-					 * regenerate it if it's necessary.
-					 */
+					 * 清除 data 和 len，因为归档头不再有效；如果需要，
+					 * 后续的 bbstreamer 必须重新生成它。
+					                        */
 					data = NULL;
 					len = 0;
 				}
@@ -158,10 +152,9 @@ bbstreamer_recovery_injector_content(bbstreamer *streamer,
 			if (mystreamer->is_recovery_guc_supported)
 			{
 				/*
-				 * If we didn't already find (and thus modify)
-				 * postgresql.auto.conf, inject it as an additional archive
-				 * member now.
-				 */
+				 * 如果尚未找到（并因此修改）postgresql.auto.conf，
+				 * 现在将其作为额外的归档成员注入。
+				         */
 				if (!mystreamer->found_postgresql_auto_conf)
 					bbstreamer_inject_file(mystreamer->base.bbs_next,
 										   "postgresql.auto.conf",
@@ -194,8 +187,8 @@ bbstreamer_recovery_injector_content(bbstreamer *streamer,
 }
 
 /*
- * End-of-stream processing for this bbstreamer.
- */
+ * 此 bbstreamer 的流结束处理。
+          */
 static void
 bbstreamer_recovery_injector_finalize(bbstreamer *streamer)
 {
@@ -203,8 +196,8 @@ bbstreamer_recovery_injector_finalize(bbstreamer *streamer)
 }
 
 /*
- * Free memory associated with this bbstreamer.
- */
+ * 释放与此 bbstreamer 关联的内存。
+   */
 static void
 bbstreamer_recovery_injector_free(bbstreamer *streamer)
 {
@@ -213,8 +206,8 @@ bbstreamer_recovery_injector_free(bbstreamer *streamer)
 }
 
 /*
- * Inject a member into the archive with specified contents.
- */
+ * 将具有指定内容的成员注入归档中。
+          */
 void
 bbstreamer_inject_file(bbstreamer *streamer, char *pathname, char *data,
 					   int len)
@@ -229,17 +222,16 @@ bbstreamer_inject_file(bbstreamer *streamer, char *pathname, char *data,
 	member.linktarget[0] = '\0';
 
 	/*
-	 * There seems to be no principled argument for these values, but they are
-	 * what PostgreSQL has historically used.
-	 */
+	 * 这些值似乎没有原则性的依据，但它们是 PostgreSQL 历史上使用的值。
+	                         */
 	member.uid = 04000;
 	member.gid = 02000;
 
 	/*
-	 * We don't know here how to generate valid member headers and trailers
-	 * for the archiving format in use, so if those are needed, some successor
-	 * bbstreamer will have to generate them using the data from 'member'.
-	 */
+	 * 这里不知道如何为正在使用的归档格式生成有效的成员头和尾部，
+	 * 因此如果需要它们，某个后继 bbstreamer 必须使用 'member' 中的
+	 * 数据来生成它们。
+	                 */
 	bbstreamer_content(streamer, &member, NULL, 0,
 					   BBSTREAMER_MEMBER_HEADER);
 	bbstreamer_content(streamer, &member, data, len,

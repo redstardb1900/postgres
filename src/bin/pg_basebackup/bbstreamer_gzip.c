@@ -2,12 +2,12 @@
  *
  * bbstreamer_gzip.c
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * 部分版权 (c) 1996-2023, PostgreSQL 全球开发组
  *
  * IDENTIFICATION
  *		  src/bin/pg_basebackup/bbstreamer_gzip.c
  *-------------------------------------------------------------------------
- */
+                */
 
 #include "postgres_fe.h"
 
@@ -68,13 +68,11 @@ const bbstreamer_ops bbstreamer_gzip_decompressor_ops = {
 #endif
 
 /*
- * Create a bbstreamer that just compresses data using gzip, and then writes
- * it to a file.
+ * 创建一个使用 gzip 压缩数据并将其写入文件的 bbstreamer。
  *
- * As in the case of bbstreamer_plain_writer_new, pathname is always used
- * for error reporting purposes; if file is NULL, it is also the opened and
- * closed so that the data may be written there.
- */
+ * 与 bbstreamer_plain_writer_new 的情况一样，pathname 始终用于错误报告目的；
+ * 如果 file 为 NULL，它也会打开并关闭以便数据可以写入那里。
+                                    */
 bbstreamer *
 bbstreamer_gzip_writer_new(char *pathname, FILE *file,
 						   pg_compress_specification *compress)
@@ -146,15 +144,13 @@ bbstreamer_gzip_writer_content(bbstreamer *streamer,
 }
 
 /*
- * End-of-archive processing when writing to a gzip file consists of just
- * calling gzclose.
+ * 当写入 gzip 文件时，归档结束处理仅包含调用 gzclose。
  *
- * It makes no difference whether we opened the file or the caller did it,
- * because libz provides no way of avoiding a close on the underlying file
- * handle. Notice, however, that bbstreamer_gzip_writer_new() uses dup() to
- * work around this issue, so that the behavior from the caller's viewpoint
- * is the same as for bbstreamer_plain_writer.
- */
+ * 是我们打开了文件还是调用者打开了文件没有区别，因为 libz 无法避免
+ * 关闭底层文件句柄。但请注意，bbstreamer_gzip_writer_new() 使用 dup()
+ * 来解决这个问题，以便从调用者角度看行为与
+ * bbstreamer_plain_writer 相同。
+                                                                                    */
 static void
 bbstreamer_gzip_writer_finalize(bbstreamer *streamer)
 {
@@ -162,7 +158,7 @@ bbstreamer_gzip_writer_finalize(bbstreamer *streamer)
 
 	mystreamer = (bbstreamer_gzip_writer *) streamer;
 
-	errno = 0;					/* in case gzclose() doesn't set it */
+	errno = 0;					/* 以防 gzclose() 不设置 errno */
 	if (gzclose(mystreamer->gzfile) != 0)
 		pg_fatal("could not close compressed file \"%s\": %m",
 				 mystreamer->pathname);
@@ -171,8 +167,8 @@ bbstreamer_gzip_writer_finalize(bbstreamer *streamer)
 }
 
 /*
- * Free memory associated with this bbstreamer.
- */
+ * 释放与此 bbstreamer 关联的内存。
+   */
 static void
 bbstreamer_gzip_writer_free(bbstreamer *streamer)
 {
@@ -188,8 +184,8 @@ bbstreamer_gzip_writer_free(bbstreamer *streamer)
 }
 
 /*
- * Helper function for libz error reporting.
- */
+ * libz 错误报告的辅助函数。
+       */
 static const char *
 get_gz_error(gzFile gzf)
 {
@@ -205,9 +201,8 @@ get_gz_error(gzFile gzf)
 #endif
 
 /*
- * Create a new base backup streamer that performs decompression of gzip
- * compressed blocks.
- */
+ * 创建一个新的基础备份流，执行 gzip 压缩块的解压。
+                       */
 bbstreamer *
 bbstreamer_gzip_decompressor_new(bbstreamer *next)
 {
@@ -224,7 +219,7 @@ bbstreamer_gzip_decompressor_new(bbstreamer *next)
 	streamer->base.bbs_next = next;
 	initStringInfo(&streamer->base.bbs_buffer);
 
-	/* Initialize internal stream state for decompression */
+	/* 初始化用于解压的内部流状态            */
 	zs = &streamer->zstream;
 	zs->zalloc = gzip_palloc;
 	zs->zfree = gzip_pfree;
@@ -232,15 +227,13 @@ bbstreamer_gzip_decompressor_new(bbstreamer *next)
 	zs->avail_out = streamer->base.bbs_buffer.maxlen;
 
 	/*
-	 * Data compression was initialized using deflateInit2 to request a gzip
-	 * header. Similarly, we are using inflateInit2 to initialize data
-	 * decompression.
+	 * 数据压缩使用 deflateInit2 初始化以请求 gzip 头。类似地，
+	 * 我们使用 inflateInit2 来初始化数据解压。
 	 *
-	 * Per the documentation for inflateInit2, the second argument is
-	 * "windowBits" and its value must be greater than or equal to the value
-	 * provided while compressing the data, so we are using the maximum
-	 * possible value for safety.
-	 */
+	 * 根据 inflateInit2 的文档，第二个参数是 "windowBits"，
+	 * 其值必须大于或等于压缩数据时提供的值，因此我们
+	 * 为安全起见使用最大可能值。
+	                                                                             */
 	if (inflateInit2(zs, 15 + 16) != Z_OK)
 		pg_fatal("could not initialize compression library");
 
@@ -253,10 +246,9 @@ bbstreamer_gzip_decompressor_new(bbstreamer *next)
 
 #ifdef HAVE_LIBZ
 /*
- * Decompress the input data to output buffer until we run out of input
- * data. Each time the output buffer is full, pass on the decompressed data
- * to the next streamer.
- */
+ * 将输入数据解压到输出缓冲区，直到输入数据耗尽。
+ * 每当输出缓冲区满时，将解压后的数据传递给下一个流处理器。
+             */
 static void
 bbstreamer_gzip_decompressor_content(bbstreamer *streamer,
 									 bbstreamer_member *member,
@@ -272,7 +264,7 @@ bbstreamer_gzip_decompressor_content(bbstreamer *streamer,
 	zs->next_in = (uint8 *) data;
 	zs->avail_in = len;
 
-	/* Process the current chunk */
+	/* 处理当前块           */
 	while (zs->avail_in > 0)
 	{
 		int			res;
@@ -285,11 +277,10 @@ bbstreamer_gzip_decompressor_content(bbstreamer *streamer,
 			mystreamer->base.bbs_buffer.maxlen - mystreamer->bytes_written;
 
 		/*
-		 * This call decompresses data starting at zs->next_in and updates
-		 * zs->next_in * and zs->avail_in. It generates output data starting
-		 * at zs->next_out and updates zs->next_out and zs->avail_out
-		 * accordingly.
-		 */
+		 * 此调用从 zs->next_in 开始解压数据，并更新 zs->next_in
+		 * 和 zs->avail_in。它从 zs->next_out 开始生成输出数据，并相应地
+		 * 更新 zs->next_out 和 zs->avail_out。
+		                    */
 		res = inflate(zs, Z_NO_FLUSH);
 
 		if (res == Z_STREAM_ERROR)
@@ -310,8 +301,8 @@ bbstreamer_gzip_decompressor_content(bbstreamer *streamer,
 }
 
 /*
- * End-of-stream processing.
- */
+ * 流结束处理。
+        */
 static void
 bbstreamer_gzip_decompressor_finalize(bbstreamer *streamer)
 {
@@ -343,9 +334,8 @@ bbstreamer_gzip_decompressor_free(bbstreamer *streamer)
 }
 
 /*
- * Wrapper function to adjust the signature of palloc to match what libz
- * expects.
- */
+ * 包装函数，用于调整 palloc 的签名以匹配 libz 的期望。
+           */
 static void *
 gzip_palloc(void *opaque, unsigned items, unsigned size)
 {
@@ -353,9 +343,8 @@ gzip_palloc(void *opaque, unsigned items, unsigned size)
 }
 
 /*
- * Wrapper function to adjust the signature of pfree to match what libz
- * expects.
- */
+ * 包装函数，用于调整 pfree 的签名以匹配 libz 的期望。
+           */
 static void
 gzip_pfree(void *opaque, void *address)
 {

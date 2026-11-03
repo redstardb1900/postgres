@@ -2,12 +2,12 @@
  *
  * bbstreamer_lz4.c
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * 部分版权 (c) 1996-2023, PostgreSQL 全球开发组
  *
  * IDENTIFICATION
  *		  src/bin/pg_basebackup/bbstreamer_lz4.c
  *-------------------------------------------------------------------------
- */
+                */
 
 #include "postgres_fe.h"
 
@@ -63,9 +63,8 @@ const bbstreamer_ops bbstreamer_lz4_decompressor_ops = {
 #endif
 
 /*
- * Create a new base backup streamer that performs lz4 compression of tar
- * blocks.
- */
+ * 创建一个新的基础备份流，执行 tar 块的 lz4 压缩。
+               */
 bbstreamer *
 bbstreamer_lz4_compressor_new(bbstreamer *next, pg_compress_specification *compress)
 {
@@ -84,7 +83,7 @@ bbstreamer_lz4_compressor_new(bbstreamer *next, pg_compress_specification *compr
 	initStringInfo(&streamer->base.bbs_buffer);
 	streamer->header_written = false;
 
-	/* Initialize stream compression preferences */
+	/* 初始化流压缩偏好设置            */
 	prefs = &streamer->prefs;
 	memset(prefs, 0, sizeof(LZ4F_preferences_t));
 	prefs->frameInfo.blockSizeID = LZ4F_max256KB;
@@ -104,14 +103,13 @@ bbstreamer_lz4_compressor_new(bbstreamer *next, pg_compress_specification *compr
 
 #ifdef USE_LZ4
 /*
- * Compress the input data to output buffer.
+ * 将输入数据压缩到输出缓冲区。
  *
- * Find out the compression bound based on input data length for each
- * invocation to make sure that output buffer has enough capacity to
- * accommodate the compressed data. In case if the output buffer
- * capacity falls short of compression bound then forward the content
- * of output buffer to next streamer and empty the buffer.
- */
+ * 每次调用时根据输入数据长度计算压缩界限，以确保输出缓冲区
+ * 有足够的容量来容纳压缩后的数据。如果输出缓冲区容量
+ * 不足以容纳压缩界限，则将输出缓冲区内容转发给下一个
+ * 流处理器并清空缓冲区。
+                                                  */
 static void
 bbstreamer_lz4_compressor_content(bbstreamer *streamer,
 								  bbstreamer_member *member,
@@ -128,7 +126,7 @@ bbstreamer_lz4_compressor_content(bbstreamer *streamer,
 	mystreamer = (bbstreamer_lz4_frame *) streamer;
 	next_in = (uint8 *) data;
 
-	/* Write header before processing the first input chunk. */
+	/* 在处理第一个输入块之前写入头。         */
 	if (!mystreamer->header_written)
 	{
 		compressed_size = LZ4F_compressBegin(mystreamer->cctx,
@@ -145,17 +143,16 @@ bbstreamer_lz4_compressor_content(bbstreamer *streamer,
 	}
 
 	/*
-	 * Update the offset and capacity of output buffer based on number of
-	 * bytes written to output buffer.
-	 */
+	 * 根据已写入输出缓冲区的字节数更新输出缓冲区的偏移量和容量。
+	                */
 	next_out = (uint8 *) mystreamer->base.bbs_buffer.data + mystreamer->bytes_written;
 	avail_out = mystreamer->base.bbs_buffer.maxlen - mystreamer->bytes_written;
 
 	/*
-	 * Find out the compression bound and make sure that output buffer has the
-	 * required capacity for the success of LZ4F_compressUpdate. If needed
-	 * forward the content to next streamer and empty the buffer.
-	 */
+	 * 计算压缩界限，确保输出缓冲区有足够的容量
+	 * 以便 LZ4F_compressUpdate 成功。如果需要，将内容转发给下一个
+	 * 流处理器并清空缓冲区。
+	                          */
 	out_bound = LZ4F_compressBound(len, &mystreamer->prefs);
 	if (avail_out < out_bound)
 	{
@@ -174,13 +171,12 @@ bbstreamer_lz4_compressor_content(bbstreamer *streamer,
 	}
 
 	/*
-	 * This call compresses the data starting at next_in and generates the
-	 * output starting at next_out. It expects the caller to provide the size
-	 * of input buffer and capacity of output buffer by providing parameters
-	 * len and avail_out.
+	 * 此调用从 next_in 开始压缩数据，并从 next_out 开始生成
+	 * 输出。它期望调用者通过提供参数 len 和 avail_out 来提供
+	 * 输入缓冲区大小和输出缓冲区容量。
 	 *
-	 * It returns the number of bytes compressed to output buffer.
-	 */
+	 * 它返回压缩到输出缓冲区的字节数。
+	                                                  */
 	compressed_size = LZ4F_compressUpdate(mystreamer->cctx,
 										  next_out, avail_out,
 										  next_in, len, NULL);
@@ -193,8 +189,8 @@ bbstreamer_lz4_compressor_content(bbstreamer *streamer,
 }
 
 /*
- * End-of-stream processing.
- */
+ * 流结束处理。
+        */
 static void
 bbstreamer_lz4_compressor_finalize(bbstreamer *streamer)
 {
@@ -206,7 +202,7 @@ bbstreamer_lz4_compressor_finalize(bbstreamer *streamer)
 
 	mystreamer = (bbstreamer_lz4_frame *) streamer;
 
-	/* Find out the footer bound and update the output buffer. */
+	/* 计算尾部界限并更新输出缓冲区。           */
 	footer_bound = LZ4F_compressBound(0, &mystreamer->prefs);
 	if ((mystreamer->base.bbs_buffer.maxlen - mystreamer->bytes_written) <
 		footer_bound)
@@ -231,9 +227,8 @@ bbstreamer_lz4_compressor_finalize(bbstreamer *streamer)
 	}
 
 	/*
-	 * Finalize the frame and flush whatever data remaining in compression
-	 * context.
-	 */
+	 * 完成帧的处理，并刷新压缩上下文中剩余的所有数据。
+	         */
 	compressed_size = LZ4F_compressEnd(mystreamer->cctx,
 									   next_out, avail_out, NULL);
 
@@ -268,9 +263,8 @@ bbstreamer_lz4_compressor_free(bbstreamer *streamer)
 #endif
 
 /*
- * Create a new base backup streamer that performs decompression of lz4
- * compressed blocks.
- */
+ * 创建一个新的基础备份流，执行 lz4 压缩块的解压。
+                       */
 bbstreamer *
 bbstreamer_lz4_decompressor_new(bbstreamer *next)
 {
@@ -287,7 +281,7 @@ bbstreamer_lz4_decompressor_new(bbstreamer *next)
 	streamer->base.bbs_next = next;
 	initStringInfo(&streamer->base.bbs_buffer);
 
-	/* Initialize internal stream state for decompression */
+	/* 初始化用于解压的内部流状态            */
 	ctxError = LZ4F_createDecompressionContext(&streamer->dctx, LZ4F_VERSION);
 	if (LZ4F_isError(ctxError))
 		pg_fatal("could not initialize compression library: %s",
@@ -302,10 +296,9 @@ bbstreamer_lz4_decompressor_new(bbstreamer *next)
 
 #ifdef USE_LZ4
 /*
- * Decompress the input data to output buffer until we run out of input
- * data. Each time the output buffer is full, pass on the decompressed data
- * to the next streamer.
- */
+ * 将输入数据解压到输出缓冲区，直到输入数据耗尽。
+ * 每当输出缓冲区满时，将解压后的数据传递给下一个流处理器。
+             */
 static void
 bbstreamer_lz4_decompressor_content(bbstreamer *streamer,
 									bbstreamer_member *member,
@@ -334,18 +327,14 @@ bbstreamer_lz4_decompressor_content(bbstreamer *streamer,
 		out_size = avail_out;
 
 		/*
-		 * This call decompresses the data starting at next_in and generates
-		 * the output data starting at next_out. It expects the caller to
-		 * provide size of the input buffer and total capacity of the output
-		 * buffer by providing the read_size and out_size parameters
-		 * respectively.
+		 * 此调用从 next_in 开始解压数据，并从 next_out 开始生成
+		 * 输出数据。它期望调用者分别通过 read_size 和 out_size
+		 * 参数提供输入缓冲区大小和输出缓冲区总容量。
 		 *
-		 * Per the documentation of LZ4, parameters read_size and out_size
-		 * behaves as dual parameters. On return, the number of bytes consumed
-		 * from the input buffer will be written back to read_size and the
-		 * number of bytes decompressed to output buffer will be written back
-		 * to out_size respectively.
-		 */
+		 * 根据 LZ4 的文档，参数 read_size 和 out_size 表现为双重参数。
+		 * 返回时，从输入缓冲区消耗的字节数将写回 read_size，
+		 * 解压到输出缓冲区的字节数将写回 out_size。
+		                                                                                                                                                                      */
 		ret = LZ4F_decompress(mystreamer->dctx,
 							  next_out, &out_size,
 							  next_in, &read_size, NULL);
@@ -354,7 +343,7 @@ bbstreamer_lz4_decompressor_content(bbstreamer *streamer,
 			pg_log_error("could not decompress data: %s",
 						 LZ4F_getErrorName(ret));
 
-		/* Update input buffer based on number of bytes consumed */
+		/* 根据已消耗的字节数更新输入缓冲区      */
 		avail_in -= read_size;
 		next_in += read_size;
 
@@ -384,8 +373,8 @@ bbstreamer_lz4_decompressor_content(bbstreamer *streamer,
 }
 
 /*
- * End-of-stream processing.
- */
+ * 流结束处理。
+        */
 static void
 bbstreamer_lz4_decompressor_finalize(bbstreamer *streamer)
 {

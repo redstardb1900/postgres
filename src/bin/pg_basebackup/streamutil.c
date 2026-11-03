@@ -1,16 +1,15 @@
 /*-------------------------------------------------------------------------
  *
- * streamutil.c - utility functions for pg_basebackup, pg_receivewal and
- *					pg_recvlogical
+ * streamutil.c - pg_basebackup、pg_receivewal 和 pg_recvlogical 的工具函数
  *
- * Author: Magnus Hagander <magnus@hagander.net>
+ * 作者：Magnus Hagander <magnus@hagander.net>
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * 部分版权 (c) 1996-2023, PostgreSQL 全球开发组
  *
  * IDENTIFICATION
  *		  src/bin/pg_basebackup/streamutil.c
  *-------------------------------------------------------------------------
- */
+                           */
 
 #include "postgres_fe.h"
 
@@ -35,12 +34,12 @@ int			WalSegSz;
 
 static bool RetrieveDataDirCreatePerm(PGconn *conn);
 
-/* SHOW command for replication connection was introduced in version 10 */
+/* SHOW 命令用于复制连接从版本 10 开始引入               */
 #define MINIMUM_VERSION_FOR_SHOW_CMD 100000
 
 /*
- * Group access is supported from version 11.
- */
+ * 组访问从版本 11 开始支持。
+      */
 #define MINIMUM_VERSION_FOR_GROUP_ACCESS 110000
 
 const char *progname;
@@ -62,8 +61,7 @@ PGconn *
 GetConnection(void)
 {
 	PGconn	   *tmpconn;
-	int			argcount = 7;	/* dbname, replication, fallback_app_name,
-								 * host, user, port, password */
+	int			argcount = 7;	/* dbname, replication, fallback_app_name, host, user, port, password            */
 	int			i;
 	const char **keywords;
 	const char **values;
@@ -77,12 +75,11 @@ GetConnection(void)
 	Assert(dbname == NULL || connection_string == NULL);
 
 	/*
-	 * Merge the connection info inputs given in form of connection string,
-	 * options and default values (dbname=replication, replication=true, etc.)
-	 * Explicitly discard any dbname value in the connection string;
-	 * otherwise, PQconnectdbParams() would interpret that value as being
-	 * itself a connection string.
-	 */
+	 * 合并以连接字符串、选项和默认值（dbname=replication、
+	 * replication=true 等）形式提供的连接信息输入。
+	 * 显式丢弃连接字符串中的任何 dbname 值；否则，
+	 * PQconnectdbParams() 会将该值解释为连接字符串本身。
+	                                            */
 	i = 0;
 	if (connection_string)
 	{
@@ -146,12 +143,12 @@ GetConnection(void)
 		i++;
 	}
 
-	/* If -W was given, force prompt for password, but only the first time */
+	/* 如果给定了 -W，强制提示密码，但仅第一次           */
 	need_password = (dbgetpassword == 1 && !password);
 
 	do
 	{
-		/* Get a new password if appropriate */
+		/* 如果适当，获取新密码    */
 		if (need_password)
 		{
 			free(password);
@@ -159,7 +156,7 @@ GetConnection(void)
 			need_password = false;
 		}
 
-		/* Use (or reuse, on a subsequent connection) password if we have it */
+		/* 如果有密码，使用（或在后续连接中复用）密码   */
 		if (password)
 		{
 			keywords[i] = "password";
@@ -174,9 +171,9 @@ GetConnection(void)
 		tmpconn = PQconnectdbParams(keywords, values, true);
 
 		/*
-		 * If there is too little memory even to allocate the PGconn object
-		 * and PQconnectdbParams returns NULL, we call exit(1) directly.
-		 */
+		 * 如果内存不足，甚至无法分配 PGconn 对象，PQconnectdbParams
+		 * 返回 NULL，我们直接调用 exit(1)。
+		          */
 		if (!tmpconn)
 			pg_fatal("could not connect to server");
 
@@ -229,9 +226,9 @@ GetConnection(void)
 	}
 
 	/*
-	 * Ensure we have the same value of integer_datetimes (now always "on") as
-	 * the server we are connecting to.
-	 */
+	 * 确保我们与所连接的服务器具有相同的 integer_datetimes
+	 * （现在始终为 "on"）值。
+	   */
 	tmpparam = PQparameterStatus(tmpconn, "integer_datetimes");
 	if (!tmpparam)
 	{
@@ -248,9 +245,8 @@ GetConnection(void)
 	}
 
 	/*
-	 * Retrieve the source data directory mode and use it to construct a umask
-	 * for creating directories and files.
-	 */
+	 * 获取源数据目录模式，并使用它来构建 umask 以创建目录和文件。
+	                           */
 	if (!RetrieveDataDirCreatePerm(tmpconn))
 	{
 		PQfinish(tmpconn);
@@ -272,7 +268,7 @@ RetrieveWalSegSize(PGconn *conn)
 	int			xlog_val,
 				multiplier = 1;
 
-	/* check connection existence */
+	/* 检查连接是否存在   */
 	Assert(conn != NULL);
 
 	/* for previous versions set the default xlog seg size */
@@ -300,7 +296,7 @@ RetrieveWalSegSize(PGconn *conn)
 		return false;
 	}
 
-	/* fetch xlog value and unit from the result */
+	/* 从结果中获取 xlog 值和单位      */
 	if (sscanf(PQgetvalue(res, 0, 0), "%d%2s", &xlog_val, xlog_unit) != 2)
 	{
 		pg_log_error("WAL segment size could not be parsed");
@@ -310,13 +306,13 @@ RetrieveWalSegSize(PGconn *conn)
 
 	PQclear(res);
 
-	/* set the multiplier based on unit to convert xlog_val to bytes */
+	/* 根据单位设置乘数以将 xlog_val 转换为字节       */
 	if (strcmp(xlog_unit, "MB") == 0)
 		multiplier = 1024 * 1024;
 	else if (strcmp(xlog_unit, "GB") == 0)
 		multiplier = 1024 * 1024 * 1024;
 
-	/* convert and set WalSegSz */
+	/* 转换并设置 WalSegSz */
 	WalSegSz = xlog_val * multiplier;
 
 	if (!IsValidWalSegSize(WalSegSz))
@@ -334,24 +330,22 @@ RetrieveWalSegSize(PGconn *conn)
 /*
  * RetrieveDataDirCreatePerm
  *
- * This function is used to determine the privileges on the server's PG data
- * directory and, based on that, set what the permissions will be for
- * directories and files we create.
+ * 此函数用于确定服务器 PG 数据目录的权限，并基于此设置
+ * 我们创建的目录和文件的权限。
  *
- * PG11 added support for (optionally) group read/execute rights to be set on
- * the data directory.  Prior to PG11, only the owner was allowed to have rights
- * on the data directory.
- */
+ * PG11 添加了对数据目录设置（可选的）组读取/执行权限的支持。
+ * 在 PG11 之前，只有所有者才能拥有数据目录的权限。
+                                                                                  */
 static bool
 RetrieveDataDirCreatePerm(PGconn *conn)
 {
 	PGresult   *res;
 	int			data_directory_mode;
 
-	/* check connection existence */
+	/* 检查连接是否存在   */
 	Assert(conn != NULL);
 
-	/* for previous versions leave the default group access */
+	/* 对于以前的版本，保持默认的组访问     */
 	if (PQserverVersion(conn) < MINIMUM_VERSION_FOR_GROUP_ACCESS)
 		return true;
 
@@ -389,13 +383,12 @@ RetrieveDataDirCreatePerm(PGconn *conn)
 }
 
 /*
- * Run IDENTIFY_SYSTEM through a given connection and give back to caller
- * some result information if requested:
- * - System identifier
- * - Current timeline ID
- * - Start LSN position
- * - Database name (NULL in servers prior to 9.4)
- */
+ * 通过给定的连接运行 IDENTIFY_SYSTEM，并根据请求返回一些结果信息：
+ * - 系统标识符
+ * - 当前时间线 ID
+ * - 起始 LSN 位置
+ * - 数据库名称（9.4 之前的服务器中为 NULL）
+                  */
 bool
 RunIdentifySystem(PGconn *conn, char **sysid, TimeLineID *starttli,
 				  XLogRecPtr *startpos, char **db_name)
@@ -404,7 +397,7 @@ RunIdentifySystem(PGconn *conn, char **sysid, TimeLineID *starttli,
 	uint32		hi,
 				lo;
 
-	/* Check connection existence */
+	/* 检查连接是否存在   */
 	Assert(conn != NULL);
 
 	res = PQexec(conn, "IDENTIFY_SYSTEM");
@@ -425,11 +418,11 @@ RunIdentifySystem(PGconn *conn, char **sysid, TimeLineID *starttli,
 		return false;
 	}
 
-	/* Get system identifier */
+	/* 获取系统标识符 */
 	if (sysid != NULL)
 		*sysid = pg_strdup(PQgetvalue(res, 0, 0));
 
-	/* Get timeline ID to start streaming from */
+	/* 获取开始流传输的时间线 ID    */
 	if (starttli != NULL)
 		*starttli = atoi(PQgetvalue(res, 0, 1));
 
@@ -447,7 +440,7 @@ RunIdentifySystem(PGconn *conn, char **sysid, TimeLineID *starttli,
 		*startpos = ((uint64) hi) << 32 | lo;
 	}
 
-	/* Get database name, only available in 9.4 and newer versions */
+	/* 获取数据库名称，仅在 9.4 及更新版本中可用 */
 	if (db_name != NULL)
 	{
 		*db_name = NULL;
@@ -471,12 +464,12 @@ RunIdentifySystem(PGconn *conn, char **sysid, TimeLineID *starttli,
 }
 
 /*
- * Run READ_REPLICATION_SLOT through a given connection and give back to
- * caller some result information if requested for this slot:
- * - Start LSN position, InvalidXLogRecPtr if unknown.
- * - Current timeline ID, 0 if unknown.
- * Returns false on failure, and true otherwise.
- */
+ * 通过给定的连接运行 READ_REPLICATION_SLOT，并根据请求为此槽返回
+ * 一些结果信息：
+ * - 起始 LSN 位置，如果未知则为 InvalidXLogRecPtr。
+ * - 当前时间线 ID，如果未知则为 0。
+ * 失败时返回 false，成功时返回 true。
+   */
 bool
 GetSlotInformation(PGconn *conn, const char *slot_name,
 				   XLogRecPtr *restart_lsn, TimeLineID *restart_tli)
@@ -504,7 +497,7 @@ GetSlotInformation(PGconn *conn, const char *slot_name,
 		return false;
 	}
 
-	/* The command should always return precisely one tuple and three fields */
+	/* 该命令始终应精确地返回一个元组和三个字段          */
 	if (PQntuples(res) != 1 || PQnfields(res) != 3)
 	{
 		pg_log_error("could not read replication slot \"%s\": got %d rows and %d fields, expected %d rows and %d fields",
@@ -514,9 +507,9 @@ GetSlotInformation(PGconn *conn, const char *slot_name,
 	}
 
 	/*
-	 * When the slot doesn't exist, the command returns a tuple with NULL
-	 * values.  This checks only the slot type field.
-	 */
+	 * 当槽不存在时，该命令返回一个带有 NULL 值的元组。
+	 * 这只检查槽类型字段。
+	              */
 	if (PQgetisnull(res, 0, 0))
 	{
 		pg_log_error("replication slot \"%s\" does not exist", slot_name);
@@ -552,13 +545,13 @@ GetSlotInformation(PGconn *conn, const char *slot_name,
 		lsn_loc = ((uint64) hi) << 32 | lo;
 	}
 
-	/* current TLI */
+	/* 当前 TLI  */
 	if (!PQgetisnull(res, 0, 2))
 		tli_loc = (TimeLineID) atol(PQgetvalue(res, 0, 2));
 
 	PQclear(res);
 
-	/* Assign results if requested */
+	/* 如果请求，分配结果 */
 	if (restart_lsn)
 		*restart_lsn = lsn_loc;
 	if (restart_tli)
@@ -568,9 +561,8 @@ GetSlotInformation(PGconn *conn, const char *slot_name,
 }
 
 /*
- * Create a replication slot for the given connection. This function
- * returns true in case of success.
- */
+ * 为给定的连接创建一个复制槽。此函数在成功时返回 true。
+                         */
 bool
 CreateReplicationSlot(PGconn *conn, const char *slot_name, const char *plugin,
 					  bool is_temporary, bool is_physical, bool reserve_wal,
@@ -587,7 +579,7 @@ CreateReplicationSlot(PGconn *conn, const char *slot_name, const char *plugin,
 	Assert(!(two_phase && is_physical));
 	Assert(slot_name != NULL);
 
-	/* Build base portion of query */
+	/* 构建查询的基础部分 */
 	appendPQExpBuffer(query, "CREATE_REPLICATION_SLOT \"%s\"", slot_name);
 	if (is_temporary)
 		appendPQExpBufferStr(query, " TEMPORARY");
@@ -613,7 +605,7 @@ CreateReplicationSlot(PGconn *conn, const char *slot_name, const char *plugin,
 
 		if (PQserverVersion(conn) >= 100000)
 		{
-			/* pg_recvlogical doesn't use an exported snapshot, so suppress */
+			/* pg_recvlogical 不使用导出的快照，因此禁用       */
 			if (use_new_option_syntax)
 				AppendStringCommandOption(query, use_new_option_syntax,
 										  "SNAPSHOT", "nothing");
@@ -624,7 +616,7 @@ CreateReplicationSlot(PGconn *conn, const char *slot_name, const char *plugin,
 	}
 	if (use_new_option_syntax)
 	{
-		/* Suppress option list if it would be empty, otherwise terminate */
+		/* 如果选项列表为空，则禁用它，否则终止         */
 		if (query->data[query->len - 1] == '(')
 		{
 			query->len -= 2;
@@ -676,9 +668,8 @@ CreateReplicationSlot(PGconn *conn, const char *slot_name, const char *plugin,
 }
 
 /*
- * Drop a replication slot for the given connection. This function
- * returns true in case of success.
- */
+ * 删除给定连接的复制槽。此函数在成功时返回 true。
+                                */
 bool
 DropReplicationSlot(PGconn *conn, const char *slot_name)
 {
@@ -744,11 +735,10 @@ AppendPlainCommandOption(PQExpBuffer buf, bool use_new_option_syntax,
 }
 
 /*
- * Append an option with an associated string value to a server command that
- * is being constructed.
+ * 将一个带有关联字符串值的选项附加到正在构建的服务器命令中。
  *
- * See comments for AppendPlainCommandOption, above.
- */
+ * 请参阅上方 AppendPlainCommandOption 的注释。
+        */
 void
 AppendStringCommandOption(PQExpBuffer buf, bool use_new_option_syntax,
 						  char *option_name, char *option_value)
@@ -767,11 +757,10 @@ AppendStringCommandOption(PQExpBuffer buf, bool use_new_option_syntax,
 }
 
 /*
- * Append an option with an associated integer value to a server command
- * is being constructed.
+ * 将一个带有关联整数值的选项附加到正在构建的服务器命令中。
  *
- * See comments for AppendPlainCommandOption, above.
- */
+ * 请参阅上方 AppendPlainCommandOption 的注释。
+       */
 void
 AppendIntegerCommandOption(PQExpBuffer buf, bool use_new_option_syntax,
 						   char *option_name, int32 option_value)
@@ -782,9 +771,8 @@ AppendIntegerCommandOption(PQExpBuffer buf, bool use_new_option_syntax,
 }
 
 /*
- * Frontend version of GetCurrentTimestamp(), since we are not linked with
- * backend code.
- */
+ * GetCurrentTimestamp() 的前端版本，因为我们没有链接后端代码。
+          */
 TimestampTz
 feGetCurrentTimestamp(void)
 {
@@ -801,9 +789,8 @@ feGetCurrentTimestamp(void)
 }
 
 /*
- * Frontend version of TimestampDifference(), since we are not linked with
- * backend code.
- */
+ * TimestampDifference() 的前端版本，因为我们没有链接后端代码。
+          */
 void
 feTimestampDifference(TimestampTz start_time, TimestampTz stop_time,
 					  long *secs, int *microsecs)
@@ -823,9 +810,8 @@ feTimestampDifference(TimestampTz start_time, TimestampTz stop_time,
 }
 
 /*
- * Frontend version of TimestampDifferenceExceeds(), since we are not
- * linked with backend code.
- */
+ * TimestampDifferenceExceeds() 的前端版本，因为我们没有链接后端代码。
+          */
 bool
 feTimestampDifferenceExceeds(TimestampTz start_time,
 							 TimestampTz stop_time,
@@ -837,8 +823,8 @@ feTimestampDifferenceExceeds(TimestampTz start_time,
 }
 
 /*
- * Converts an int64 to network byte order.
- */
+ * 将 int64 转换为网络字节序。
+    */
 void
 fe_sendint64(int64 i, char *buf)
 {
@@ -848,8 +834,8 @@ fe_sendint64(int64 i, char *buf)
 }
 
 /*
- * Converts an int64 from network byte order to native format.
- */
+ * 将 int64 从网络字节序转换为本机格式。
+        */
 int64
 fe_recvint64(char *buf)
 {

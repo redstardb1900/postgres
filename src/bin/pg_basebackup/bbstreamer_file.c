@@ -2,12 +2,12 @@
  *
  * bbstreamer_file.c
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * 部分版权 (c) 1996-2023, PostgreSQL 全球开发组
  *
  * IDENTIFICATION
  *		  src/bin/pg_basebackup/bbstreamer_file.c
  *-------------------------------------------------------------------------
- */
+                */
 
 #include "postgres_fe.h"
 
@@ -66,14 +66,12 @@ const bbstreamer_ops bbstreamer_extractor_ops = {
 };
 
 /*
- * Create a bbstreamer that just writes data to a file.
+ * 创建一个仅将数据写入文件的 bbstreamer。
  *
- * The caller must specify a pathname and may specify a file. The pathname is
- * used for error-reporting purposes either way. If file is NULL, the pathname
- * also identifies the file to which the data should be written: it is opened
- * for writing and closed when done. If file is not NULL, the data is written
- * there.
- */
+ * 调用者必须指定路径名，也可以指定文件。路径名在两种情况下都用于错误报告。
+ * 如果 file 为 NULL，则路径名同时也标识数据应写入的文件：该文件将被打开、
+ * 写入并在完成时关闭。如果 file 不为 NULL，数据将写入那里。
+                      */
 bbstreamer *
 bbstreamer_plain_writer_new(char *pathname, FILE *file)
 {
@@ -98,7 +96,7 @@ bbstreamer_plain_writer_new(char *pathname, FILE *file)
 }
 
 /*
- * Write archive content to file.
+ * 将归档内容写入文件。
  */
 static void
 bbstreamer_plain_writer_content(bbstreamer *streamer,
@@ -143,8 +141,8 @@ bbstreamer_plain_writer_finalize(bbstreamer *streamer)
 }
 
 /*
- * Free memory associated with this bbstreamer.
- */
+ * 释放与此 bbstreamer 关联的内存。
+   */
 static void
 bbstreamer_plain_writer_free(bbstreamer *streamer)
 {
@@ -160,25 +158,20 @@ bbstreamer_plain_writer_free(bbstreamer *streamer)
 }
 
 /*
- * Create a bbstreamer that extracts an archive.
+ * 创建一个解压归档文件的 bbstreamer。
  *
- * All pathnames in the archive are interpreted relative to basepath.
+ * 归档中的所有路径名都是相对于 basepath 解析的。
  *
- * Unlike e.g. bbstreamer_plain_writer_new() we can't do anything useful here
- * with untyped chunks; we need typed chunks which follow the rules described
- * in bbstreamer.h. Assuming we have that, we don't need to worry about the
- * original archive format; it's enough to just look at the member information
- * provided and write to the corresponding file.
+ * 与 bbstreamer_plain_writer_new() 不同，这里无法对无类型块做任何有用的
+ * 事；我们需要遵循 bbstreamer.h 中描述的规则的类型化块。假设有了这些，
+ * 我们就不需要担心原始归档格式；只需查看提供的成员信息并写入相应文件即可。
  *
- * 'link_map' is a function that will be applied to the target of any
- * symbolic link, and which should return a replacement pathname to be used
- * in its place.  If NULL, the symbolic link target is used without
- * modification.
+ * 'link_map' 是一个函数，它将应用于任何符号链接的目标，并应返回一个
+ * 替换路径名以供使用。如果为 NULL，符号链接目标将不经过修改直接使用。
  *
- * 'report_output_file' is a function that will be called each time we open a
- * new output file. The pathname to that file is passed as an argument. If
- * NULL, the call is skipped.
- */
+ * 'report_output_file' 是一个函数，每次打开新的输出文件时都会调用它。
+ * 该文件的路径名作为参数传入。如果为 NULL，则跳过该调用。
+                                                                                                */
 bbstreamer *
 bbstreamer_extractor_new(const char *basepath,
 						 const char *(*link_map) (const char *),
@@ -197,8 +190,8 @@ bbstreamer_extractor_new(const char *basepath,
 }
 
 /*
- * Extract archive contents to the filesystem.
- */
+ * 将归档内容解压到文件系统。
+     */
 static void
 bbstreamer_extractor_content(bbstreamer *streamer, bbstreamer_member *member,
 							 const char *data, int len,
@@ -219,7 +212,7 @@ bbstreamer_extractor_content(bbstreamer *streamer, bbstreamer_member *member,
 			snprintf(mystreamer->filename, sizeof(mystreamer->filename),
 					 "%s/%s", mystreamer->basepath, member->pathname);
 
-			/* Remove any trailing slash. */
+			/* 移除尾部的斜杠。   */
 			fnamelen = strlen(mystreamer->filename);
 			if (mystreamer->filename[fnamelen - 1] == '/')
 				mystreamer->filename[fnamelen - 1] = '\0';
@@ -277,17 +270,15 @@ bbstreamer_extractor_content(bbstreamer *streamer, bbstreamer_member *member,
 }
 
 /*
- * Should we tolerate an already-existing directory?
+ * 我们应该容忍已存在的目录吗？
  *
- * When streaming WAL, pg_wal (or pg_xlog for pre-9.6 clusters) will have been
- * created by the wal receiver process. Also, when the WAL directory location
- * was specified, pg_wal (or pg_xlog) has already been created as a symbolic
- * link before starting the actual backup.  So just ignore creation failures
- * on related directories.
+ * 在流式传输 WAL 时，pg_wal（或 pre-9.6 集群的 pg_xlog）将由 WAL 接收器
+ * 进程创建。此外，当指定了 WAL 目录位置时，pg_wal（或 pg_xlog）在开始实际
+ * 备份之前已经作为符号链接创建。因此只需忽略相关目录的创建失败。
  *
- * If in-place tablespaces are used, pg_tblspc and subdirectories may already
- * exist when we get here. So tolerate that case, too.
- */
+ * 如果使用了原位表空间，pg_tblspc 和子目录在到达这里时可能已存在。
+ * 所以也容忍这种情况。
+                                                             */
 static bool
 should_allow_existing_directory(const char *pathname)
 {
@@ -310,8 +301,8 @@ should_allow_existing_directory(const char *pathname)
 }
 
 /*
- * Create a directory.
- */
+ * 创建目录。
+     */
 static void
 extract_directory(const char *filename, mode_t mode)
 {
@@ -328,15 +319,13 @@ extract_directory(const char *filename, mode_t mode)
 }
 
 /*
- * Create a symbolic link.
+ * 创建符号链接。
  *
- * It's most likely a link in pg_tblspc directory, to the location of a
- * tablespace. Apply any tablespace mapping given on the command line
- * (--tablespace-mapping). (We blindly apply the mapping without checking that
- * the link really is inside pg_tblspc. We don't expect there to be other
- * symlinks in a data directory, but if there are, you can call it an
- * undocumented feature that you can map them too.)
- */
+ * 很可能是 pg_tblspc 目录中的一个链接，指向表空间的位置。应用命令行给出的
+ * 任何表空间映射（--tablespace-mapping）。（我们盲目地应用映射，不检查链接
+ * 是否确实在 pg_tblspc 中。我们不期望数据目录中有其他符号链接，但如果有，
+ * 你可以称其为无文档功能，表示你也可以映射它们。）
+                                */
 static void
 extract_link(const char *filename, const char *linktarget)
 {
@@ -346,10 +335,10 @@ extract_link(const char *filename, const char *linktarget)
 }
 
 /*
- * Create a regular file.
+ * 创建常规文件。
  *
- * Return the resulting handle so we can write the content to the file.
- */
+ * 返回结果句柄，以便将内容写入文件。
+                   */
 static FILE *
 create_file_for_extract(const char *filename, mode_t mode)
 {

@@ -1,0 +1,269 @@
+{
+  "schema_version": 1,
+  "batch_id": "0256-comment-pg_basebackup-remain",
+  "title": "translate pg_basebackup remaining files comments — batch 0256",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "e3c3a4ee018b1089d82f004a447fee38f1412178",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/bin/pg_basebackup/pg_receivewal.c",
+      "kind": "c_comment",
+      "note": "batch 0256 pg_receivewal — WAL receiver"
+    },
+    {
+      "pattern": "src/bin/pg_basebackup/walmethods.c",
+      "kind": "c_comment",
+      "note": "batch 0256 walmethods — WAL I/O methods"
+    },
+    {
+      "pattern": "src/bin/pg_basebackup/streamutil.c",
+      "kind": "c_comment",
+      "note": "batch 0256 streamutil — streaming utilities"
+    },
+    {
+      "pattern": "src/bin/pg_basebackup/bbstreamer_tar.c",
+      "kind": "c_comment",
+      "note": "batch 0256 bbstreamer_tar — tar streaming"
+    },
+    {
+      "pattern": "src/bin/pg_basebackup/bbstreamer_lz4.c",
+      "kind": "c_comment",
+      "note": "batch 0256 bbstreamer_lz4 — LZ4 compression"
+    },
+    {
+      "pattern": "src/bin/pg_basebackup/bbstreamer_zstd.c",
+      "kind": "c_comment",
+      "note": "batch 0256 bbstreamer_zstd — zstd compression"
+    },
+    {
+      "pattern": "src/bin/pg_basebackup/bbstreamer_inject.c",
+      "kind": "c_comment",
+      "note": "batch 0256 bbstreamer_inject — manifest injection"
+    },
+    {
+      "pattern": "src/bin/pg_basebackup/bbstreamer_gzip.c",
+      "kind": "c_comment",
+      "note": "batch 0256 bbstreamer_gzip — gzip compression"
+    },
+    {
+      "pattern": "src/bin/pg_basebackup/bbstreamer_file.c",
+      "kind": "c_comment",
+      "note": "batch 0256 bbstreamer_file — file output"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0256-comment-pg_basebackup-remain.json",
+      "kind": "manifest",
+      "note": "batch 0256 manifest"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/bin/pg_basebackup/pg_receivewal.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 58,
+      "translated": 47,
+      "preserved": 11,
+      "preserved_reasons": {
+        "3": "overflow",
+        "4": "overflow",
+        "6": "overflow",
+        "7": "overflow",
+        "8": "overflow",
+        "18": "overflow",
+        "20": "overflow",
+        "24": "overflow",
+        "32": "overflow",
+        "41": "overflow",
+        "57": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_basebackup/walmethods.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 75,
+      "translated": 50,
+      "preserved": 25,
+      "preserved_reasons": {
+        "1": "overflow",
+        "5": "overflow",
+        "9": "overflow",
+        "11": "overflow",
+        "13": "overflow",
+        "14": "overflow",
+        "16": "overflow",
+        "18": "overflow",
+        "23": "overflow",
+        "24": "overflow",
+        "25": "overflow",
+        "26": "overflow",
+        "30": "overflow",
+        "33": "overflow",
+        "41": "overflow",
+        "46": "overflow",
+        "49": "overflow",
+        "50": "overflow",
+        "53": "overflow",
+        "57": "overflow",
+        "58": "overflow",
+        "63": "overflow",
+        "64": "overflow",
+        "65": "overflow",
+        "69": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_basebackup/streamutil.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 55,
+      "translated": 40,
+      "preserved": 15,
+      "preserved_reasons": {
+        "3": "overflow",
+        "4": "overflow",
+        "6": "overflow",
+        "12": "overflow",
+        "13": "overflow",
+        "14": "overflow",
+        "17": "overflow",
+        "19": "overflow",
+        "30": "overflow",
+        "35": "overflow",
+        "36": "overflow",
+        "41": "overflow",
+        "44": "overflow",
+        "46": "overflow",
+        "47": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_basebackup/bbstreamer_tar.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 44,
+      "translated": 33,
+      "preserved": 11,
+      "preserved_reasons": {
+        "2": "overflow",
+        "3": "overflow",
+        "7": "overflow",
+        "12": "overflow",
+        "15": "overflow",
+        "16": "overflow",
+        "17": "overflow",
+        "18": "overflow",
+        "27": "overflow",
+        "34": "overflow",
+        "40": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_basebackup/bbstreamer_lz4.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 25,
+      "translated": 17,
+      "preserved": 8,
+      "preserved_reasons": {
+        "3": "overflow",
+        "8": "overflow",
+        "12": "overflow",
+        "14": "overflow",
+        "17": "overflow",
+        "21": "overflow",
+        "23": "overflow",
+        "24": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_basebackup/bbstreamer_zstd.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 24,
+      "translated": 13,
+      "preserved": 11,
+      "preserved_reasons": {
+        "3": "overflow",
+        "6": "overflow",
+        "9": "overflow",
+        "12": "overflow",
+        "13": "overflow",
+        "14": "overflow",
+        "17": "overflow",
+        "19": "overflow",
+        "20": "overflow",
+        "22": "overflow",
+        "23": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_basebackup/bbstreamer_inject.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 22,
+      "translated": 11,
+      "preserved": 11,
+      "preserved_reasons": {
+        "3": "overflow",
+        "4": "overflow",
+        "5": "overflow",
+        "8": "overflow",
+        "9": "overflow",
+        "10": "overflow",
+        "11": "overflow",
+        "13": "overflow",
+        "14": "overflow",
+        "15": "overflow",
+        "16": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_basebackup/bbstreamer_gzip.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 22,
+      "translated": 15,
+      "preserved": 7,
+      "preserved_reasons": {
+        "2": "overflow",
+        "3": "overflow",
+        "4": "overflow",
+        "12": "overflow",
+        "16": "overflow",
+        "18": "overflow",
+        "19": "overflow"
+      }
+    },
+    {
+      "path": "src/bin/pg_basebackup/bbstreamer_file.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 20,
+      "translated": 11,
+      "preserved": 9,
+      "preserved_reasons": {
+        "3": "overflow",
+        "4": "overflow",
+        "8": "overflow",
+        "10": "overflow",
+        "11": "overflow",
+        "12": "overflow",
+        "13": "overflow",
+        "18": "overflow",
+        "19": "overflow"
+      }
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0256-comment-pg_basebackup-remain.json",
+      "kind": "manifest",
+      "action": "add",
+      "translated": 0,
+      "preserved": 0,
+      "segments_total": 0
+    }
+  ]
+}

@@ -1,16 +1,15 @@
 /*-------------------------------------------------------------------------
  *
- * pg_receivewal.c - receive streaming WAL data and write it
- *					  to a local file.
+ * pg_receivewal.c - 接收流式 WAL 数据并将其写入本地文件
  *
- * Author: Magnus Hagander <magnus@hagander.net>
+ * 作者：Magnus Hagander <magnus@hagander.net>
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * 部分版权 (c) 1996-2023, PostgreSQL 全球开发组
  *
  * IDENTIFICATION
  *		  src/bin/pg_basebackup/pg_receivewal.c
  *-------------------------------------------------------------------------
- */
+                              */
 
 #include "postgres_fe.h"
 
@@ -36,10 +35,10 @@
 #include "receivelog.h"
 #include "streamutil.h"
 
-/* Time to sleep between reconnection attempts */
+/* 重新连接尝试之间的休眠时间     */
 #define RECONNECT_SLEEP_TIME 5
 
-/* Global options */
+/* 全局选项   */
 static char *basedir = NULL;
 static int	verbose = 0;
 static int	compresslevel = 0;
@@ -119,7 +118,7 @@ is_xlogfilename(const char *filename, bool *ispartial,
 	size_t		fname_len = strlen(filename);
 	size_t		xlog_pattern_len = strspn(filename, "0123456789ABCDEF");
 
-	/* File does not look like a WAL file */
+	/* 文件不像 WAL 文件            */
 	if (xlog_pattern_len != XLOG_FNAME_LEN)
 		return false;
 
@@ -149,7 +148,7 @@ is_xlogfilename(const char *filename, bool *ispartial,
 		return true;
 	}
 
-	/* File looks like a partial uncompressed WAL file */
+	/* 文件看起来像是部分未压缩 WAL 文件 */
 	if (fname_len == XLOG_FNAME_LEN + strlen(".partial") &&
 		strcmp(filename + XLOG_FNAME_LEN, ".partial") == 0)
 	{
@@ -158,7 +157,7 @@ is_xlogfilename(const char *filename, bool *ispartial,
 		return true;
 	}
 
-	/* File looks like a partial gzip-compressed WAL file */
+	/* 文件看起来像是部分 gzip 压缩 WAL 文件 */
 	if (fname_len == XLOG_FNAME_LEN + strlen(".gz.partial") &&
 		strcmp(filename + XLOG_FNAME_LEN, ".gz.partial") == 0)
 	{
@@ -167,7 +166,7 @@ is_xlogfilename(const char *filename, bool *ispartial,
 		return true;
 	}
 
-	/* File looks like a partial LZ4-compressed WAL file */
+	/* 文件看起来像是部分 LZ4 压缩 WAL 文件 */
 	if (fname_len == XLOG_FNAME_LEN + strlen(".lz4.partial") &&
 		strcmp(filename + XLOG_FNAME_LEN, ".lz4.partial") == 0)
 	{
@@ -176,7 +175,7 @@ is_xlogfilename(const char *filename, bool *ispartial,
 		return true;
 	}
 
-	/* File does not look like something we know */
+	/* 文件不像我们已知的任何类型   */
 	return false;
 }
 
@@ -186,7 +185,7 @@ stop_streaming(XLogRecPtr xlogpos, uint32 timeline, bool segment_finished)
 	static uint32 prevtimeline = 0;
 	static XLogRecPtr prevpos = InvalidXLogRecPtr;
 
-	/* we assume that we get called once at the end of each segment */
+	/* 假定我们在每个段的末尾被调用一次             */
 	if (verbose && segment_finished)
 		pg_log_info("finished segment at %X/%X (timeline %u)",
 					LSN_FORMAT_ARGS(xlogpos),
@@ -203,13 +202,11 @@ stop_streaming(XLogRecPtr xlogpos, uint32 timeline, bool segment_finished)
 	}
 
 	/*
-	 * Note that we report the previous, not current, position here. After a
-	 * timeline switch, xlogpos points to the beginning of the segment because
-	 * that's where we always begin streaming. Reporting the end of previous
-	 * timeline isn't totally accurate, because the next timeline can begin
-	 * slightly before the end of the WAL that we received on the previous
-	 * timeline, but it's close enough for reporting purposes.
-	 */
+	 * 注意，这里报告的是前一个位置，而不是当前位置。发生时间线切换后，
+	 * xlogpos 指向段的开头，因为流总是从那里开始的。报告前一时间线
+	 * 的结束位置并不完全准确，因为下一个时间线可能在前一个时间线
+	 * 接收到的 WAL 结束之前略微开始，但对于报告来说已经足够接近了。
+	                                                    */
 	if (verbose && prevtimeline != 0 && prevtimeline != timeline)
 		pg_log_info("switched to timeline %u at %X/%X",
 					timeline,
@@ -229,8 +226,8 @@ stop_streaming(XLogRecPtr xlogpos, uint32 timeline, bool segment_finished)
 
 
 /*
- * Get destination directory.
- */
+ * 获取目标目录。
+      */
 static DIR *
 get_destination_dir(char *dest_folder)
 {
@@ -246,8 +243,8 @@ get_destination_dir(char *dest_folder)
 
 
 /*
- * Close existing directory.
- */
+ * 关闭现有目录。
+     */
 static void
 close_destination_dir(DIR *dest_dir, char *dest_folder)
 {
@@ -258,12 +255,12 @@ close_destination_dir(DIR *dest_dir, char *dest_folder)
 
 
 /*
- * Determine starting location for streaming, based on any existing xlog
- * segments in the directory. We start at the end of the last one that is
- * complete (size matches wal segment size), on the timeline with highest ID.
+ * 根据目录中现有的 xlog 段，确定流的起始位置。我们从最后完成的
+ * 那个段（大小与 WAL 段大小匹配）的末尾开始，使用最高 ID
+ * 的时间线。
  *
- * If there are no WAL files in the directory, returns InvalidXLogRecPtr.
- */
+ * 如果目录中没有 WAL 文件，则返回 InvalidXLogRecPtr。
+                                        */
 static XLogRecPtr
 FindStreamingStart(uint32 *tli)
 {
@@ -292,23 +289,18 @@ FindStreamingStart(uint32 *tli)
 		XLogFromFileName(dirent->d_name, &tli, &segno, WalSegSz);
 
 		/*
-		 * Check that the segment has the right size, if it's supposed to be
-		 * completed.  For non-compressed segments just check the on-disk size
-		 * and see if it matches a completed segment.  For gzip-compressed
-		 * segments, look at the last 4 bytes of the compressed file, which is
-		 * where the uncompressed size is located for files with a size lower
-		 * than 4GB, and then compare it to the size of a completed segment.
-		 * The 4 last bytes correspond to the ISIZE member according to
-		 * http://www.zlib.org/rfc-gzip.html.
+		 * 检查段的大小是否正确（如果是已完成段的话）。对于非压缩段，只需
+		 * 检查磁盘大小是否与已完成的段匹配。对于 gzip 压缩段，查看压缩文件
+		 * 的最后 4 个字节，对于大小小于 4GB 的文件，这是未压缩大小的位置，
+		 * 然后将其与已完成段的大小进行比较。根据
+		 * http://www.zlib.org/rfc-gzip.html，最后 4 个字节对应于 ISIZE 成员。
 		 *
-		 * For LZ4-compressed segments, uncompress the file in a throw-away
-		 * buffer keeping track of the uncompressed size, then compare it to
-		 * the size of a completed segment.  Per its protocol, LZ4 does not
-		 * store the uncompressed size of an object by default.  contentSize
-		 * is one possible way to do that, but we need to rely on a method
-		 * where WAL segments could have been compressed by a different source
-		 * than pg_receivewal, like an archive_command with lz4.
-		 */
+		 * 对于 LZ4 压缩段，在临时缓冲区中解压文件并跟踪未压缩大小，然后将其
+		 * 与已完成段的大小进行比较。根据其协议，LZ4 默认不存储对象的未压缩
+		 * 大小。contentSize 是一种可能的方法，但我们需要依赖一种方法，该方法允许
+		 * WAL 段由 pg_receivewal 以外的其他来源压缩，例如带有 lz4 的
+		 * archive_command。
+		                                                                                                                                                                    */
 		if (!ispartial && wal_compression_algorithm == PG_COMPRESSION_NONE)
 		{
 			struct stat statbuf;
@@ -401,11 +393,11 @@ FindStreamingStart(uint32 *tli)
 				if (r < 0)
 					pg_fatal("could not read file \"%s\": %m", fullpath);
 
-				/* Done reading the file */
+				/* 文件读取完成    */
 				if (r == 0)
 					break;
 
-				/* Process one chunk */
+				/* 处理一个块   */
 				readp = readbuf;
 				readend = readbuf + r;
 				while (readp < readend)
@@ -426,12 +418,10 @@ FindStreamingStart(uint32 *tli)
 				}
 
 				/*
-				 * No need to continue reading the file when the
-				 * uncompressed_size exceeds WalSegSz, even if there are still
-				 * data left to read. However, if uncompressed_size is equal
-				 * to WalSegSz, it should verify that there is no more data to
-				 * read.
-				 */
+			 * 当 uncompressed_size 超过 WalSegSz 时，即使还有数据可读，
+			 * 也不需要继续读取文件。但是，如果 uncompressed_size
+			 * 等于 WalSegSz，应该验证没有更多数据可读。
+			                                                    */
 			} while (uncompressed_size <= WalSegSz && r > 0);
 
 			close(fd);
@@ -477,10 +467,9 @@ FindStreamingStart(uint32 *tli)
 		XLogRecPtr	high_ptr;
 
 		/*
-		 * Move the starting pointer to the start of the next segment, if the
-		 * highest one we saw was completed. Otherwise start streaming from
-		 * the beginning of the .partial segment.
-		 */
+		 * 如果看到的最高段已完成，则将起始指针移到下一个段的开头。
+		 * 否则从 .partial 段的开头开始流传输。
+		                                          */
 		if (!high_ispartial)
 			high_segno++;
 
@@ -494,8 +483,8 @@ FindStreamingStart(uint32 *tli)
 }
 
 /*
- * Start the log streaming
- */
+ * 开始日志流传输
+   */
 static void
 StreamLog(void)
 {
@@ -505,35 +494,33 @@ StreamLog(void)
 	char	   *sysidentifier;
 
 	/*
-	 * Connect in replication mode to the server
-	 */
+	 * 以复制模式连接到服务器
+	         */
 	if (conn == NULL)
 		conn = GetConnection();
 	if (!conn)
-		/* Error message already written in GetConnection() */
+		/* 错误消息已在 GetConnection() 中写入     */
 		return;
 
 	if (!CheckServerVersionForStreaming(conn))
 	{
 		/*
-		 * Error message already written in CheckServerVersionForStreaming().
-		 * There's no hope of recovering from a version mismatch, so don't
-		 * retry.
-		 */
+		 * 错误消息已在 CheckServerVersionForStreaming() 中写入。
+		 * 版本不匹配不可能恢复，因此不重试。
+		                           */
 		exit(1);
 	}
 
 	/*
-	 * Identify server, obtaining start LSN position and current timeline ID
-	 * at the same time, necessary if not valid data can be found in the
-	 * existing output directory.
-	 */
+	 * 识别服务器，同时获取起始 LSN 位置和当前时间线 ID，
+	 * 如果在现有输出目录中找不到有效数据，这是必需的。
+	                       */
 	if (!RunIdentifySystem(conn, &sysidentifier, &servertli, &serverpos, NULL))
 		exit(1);
 
 	/*
-	 * Figure out where to start streaming.  First scan the local directory.
-	 */
+	 * 确定从何处开始流传输。首先扫描本地目录。
+	          */
 	stream.startpos = FindStreamingStart(&stream.timeline);
 	if (stream.startpos == InvalidXLogRecPtr)
 	{
@@ -547,15 +534,14 @@ StreamLog(void)
 			if (!GetSlotInformation(conn, replication_slot, &stream.startpos,
 									&stream.timeline))
 			{
-				/* Error is logged by GetSlotInformation() */
+				/* 错误由 GetSlotInformation() 记录   */
 				return;
 			}
 		}
 
 		/*
-		 * If it the starting point is still not known, use the current WAL
-		 * flush value as last resort.
-		 */
+		 * 如果起始点仍未知，则使用当前 WAL 刷新值作为最后手段。
+		                     */
 		if (stream.startpos == InvalidXLogRecPtr)
 		{
 			stream.startpos = serverpos;
@@ -567,13 +553,13 @@ StreamLog(void)
 		   stream.timeline != 0);
 
 	/*
-	 * Always start streaming at the beginning of a segment
-	 */
+	 * 始终从段的开头开始流传输
+	                 */
 	stream.startpos -= XLogSegmentOffset(stream.startpos, WalSegSz);
 
 	/*
-	 * Start the replication
-	 */
+	 * 开始复制
+	          */
 	if (verbose)
 		pg_log_info("starting log streaming at %X/%X (timeline %u)",
 					LSN_FORMAT_ARGS(stream.startpos),
@@ -608,9 +594,8 @@ StreamLog(void)
 }
 
 /*
- * When SIGINT/SIGTERM are caught, just tell the system to exit at the next
- * possible moment.
- */
+ * 当捕获到 SIGINT/SIGTERM 时，只需告诉系统在下一个可能的时刻退出。
+     */
 #ifndef WIN32
 
 static void
@@ -639,7 +624,7 @@ main(int argc, char **argv)
 		{"slot", required_argument, NULL, 'S'},
 		{"verbose", no_argument, NULL, 'v'},
 		{"compress", required_argument, NULL, 'Z'},
-/* action */
+/* 操作 */
 		{"create-slot", no_argument, NULL, 1},
 		{"drop-slot", no_argument, NULL, 2},
 		{"if-not-exists", no_argument, NULL, 3},
@@ -744,15 +729,15 @@ main(int argc, char **argv)
 				do_sync = false;
 				break;
 			default:
-				/* getopt_long already emitted a complaint */
+				/* getopt_long 已发出错误消息       */
 				pg_log_error_hint("Try \"%s --help\" for more information.", progname);
 				exit(1);
 		}
 	}
 
 	/*
-	 * Any non-option arguments?
-	 */
+	 * 有非选项参数吗？
+	  */
 	if (optind < argc)
 	{
 		pg_log_error("too many command-line arguments (first is \"%s\")",
@@ -785,8 +770,8 @@ main(int argc, char **argv)
 	}
 
 	/*
-	 * Required arguments
-	 */
+	 * 必需参数
+	       */
 	if (basedir == NULL && !do_drop_slot && !do_create_slot)
 	{
 		pg_log_error("no target directory specified");
@@ -795,8 +780,8 @@ main(int argc, char **argv)
 	}
 
 	/*
-	 * Compression options
-	 */
+	 * 压缩选项
+	        */
 	if (!parse_compress_algorithm(compression_algorithm_str,
 								  &compression_algorithm))
 		pg_fatal("unrecognized compression algorithm: \"%s\"",
@@ -809,15 +794,15 @@ main(int argc, char **argv)
 		pg_fatal("invalid compression specification: %s",
 				 error_detail);
 
-	/* Extract the compression level */
+	/* 提取压缩级别            */
 	compresslevel = compression_spec.level;
 
 	if (compression_algorithm == PG_COMPRESSION_ZSTD)
 		pg_fatal("compression with %s is not yet supported", "ZSTD");
 
 	/*
-	 * Check existence of destination folder.
-	 */
+	 * 检查目标文件夹是否存在。
+	   */
 	if (!do_drop_slot && !do_create_slot)
 	{
 		DIR		   *dir = get_destination_dir(basedir);
@@ -826,52 +811,50 @@ main(int argc, char **argv)
 	}
 
 	/*
-	 * Obtain a connection before doing anything.
+	 * 在执行任何操作之前获取连接。
 	 */
 	conn = GetConnection();
 	if (!conn)
-		/* error message already written in GetConnection() */
+		/* 错误消息已在 GetConnection() 中写入     */
 		exit(1);
 	atexit(disconnect_atexit);
 
 	/*
-	 * Trap signals.  (Don't do this until after the initial password prompt,
-	 * if one is needed, in GetConnection.)
-	 */
+	 * 捕获信号。（如果需要密码提示，在 GetConnection 中的初始密码
+	 * 提示之后再做。）
+	  */
 #ifndef WIN32
 	pqsignal(SIGINT, sigexit_handler);
 	pqsignal(SIGTERM, sigexit_handler);
 #endif
 
 	/*
-	 * Run IDENTIFY_SYSTEM to make sure we've successfully have established a
-	 * replication connection and haven't connected using a database specific
-	 * connection.
-	 */
+	 * 运行 IDENTIFY_SYSTEM 以确保我们已成功建立复制连接，并且
+	 * 没有使用数据库特定连接进行连接。
+	                                   */
 	if (!RunIdentifySystem(conn, NULL, NULL, NULL, &db_name))
 		exit(1);
 
 	/*
-	 * Check that there is a database associated with connection, none should
-	 * be defined in this context.
-	 */
+	 * 检查是否有与连接关联的数据库，在此上下文中不应定义任何数据库。
+	          */
 	if (db_name)
 		pg_fatal("replication connection using slot \"%s\" is unexpectedly database specific",
 				 replication_slot);
 
 	/*
-	 * Set umask so that directories/files are created with the same
-	 * permissions as directories/files in the source data directory.
+	 * 设置 umask，以便目录/文件使用与源数据目录中目录/文件
+	 * 相同的权限创建。
 	 *
-	 * pg_mode_mask is set to owner-only by default and then updated in
-	 * GetConnection() where we get the mode from the server-side with
-	 * RetrieveDataDirCreatePerm() and then call SetDataDirectoryCreatePerm().
-	 */
+	 * pg_mode_mask 默认设置为仅所有者，然后在 GetConnection() 中更新，
+	 * 其中我们通过 RetrieveDataDirCreatePerm() 从服务器端获取模式，
+	 * 然后调用 SetDataDirectoryCreatePerm()。
+	                      */
 	umask(pg_mode_mask);
 
 	/*
-	 * Drop a replication slot.
-	 */
+	 * 删除复制槽。
+	       */
 	if (do_drop_slot)
 	{
 		if (verbose)
@@ -882,7 +865,7 @@ main(int argc, char **argv)
 		exit(0);
 	}
 
-	/* Create a replication slot */
+	/* 创建复制槽           */
 	if (do_create_slot)
 	{
 		if (verbose)
@@ -894,14 +877,13 @@ main(int argc, char **argv)
 		exit(0);
 	}
 
-	/* determine remote server's xlog segment size */
+	/* 确定远程服务器的 xlog 段大小     */
 	if (!RetrieveWalSegSize(conn))
 		exit(1);
 
 	/*
-	 * Don't close the connection here so that subsequent StreamLog() can
-	 * reuse it.
-	 */
+	 * 不要在这里关闭连接，以便后续的 StreamLog() 可以复用它。
+	     */
 
 	while (true)
 	{
@@ -909,9 +891,8 @@ main(int argc, char **argv)
 		if (time_to_stop)
 		{
 			/*
-			 * We've been Ctrl-C'ed or end of streaming position has been
-			 * willingly reached, so exit without an error code.
-			 */
+		 * 已被 Ctrl-C 中断或流位置已主动到达末尾，因此以零错误码退出。
+		                               */
 			exit(0);
 		}
 		else if (noloop)

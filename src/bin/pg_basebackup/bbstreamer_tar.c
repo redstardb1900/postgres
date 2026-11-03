@@ -2,22 +2,19 @@
  *
  * bbstreamer_tar.c
  *
- * This module implements three types of tar processing. A tar parser
- * expects unlabelled chunks of data (e.g. BBSTREAMER_UNKNOWN) and splits
- * it into labelled chunks (any other value of bbstreamer_archive_context).
- * A tar archiver does the reverse: it takes a bunch of labelled chunks
- * and produces a tarfile, optionally replacing member headers and trailers
- * so that upstream bbstreamer objects can perform surgery on the tarfile
- * contents without knowing the details of the tar format. A tar terminator
- * just adds two blocks of NUL bytes to the end of the file, since older
- * server versions produce files with this terminator omitted.
+ * 此模块实现了三种类型的 tar 处理。tar 解析器期望无标签的数据块（例如
+ * BBSTREAMER_UNKNOWN）并将其拆分为有标签的块（bbstreamer_archive_context 的
+ * 其他任何值）。tar 归档器做相反的事情：它接受一组有标签的块并生成 tar 文件，
+ * 可选择地替换成员头和尾部，以便上游 bbstreamer 对象可以在不了解 tar
+ * 格式细节的情况下对 tar 文件内容进行修改。tar 结束器仅仅在文件末尾添加
+ * 两个 NUL 字节块，因为较旧的服务器版本产生的文件省略了此结束符。
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * 部分版权 (c) 1996-2023, PostgreSQL 全球开发组
  *
  * IDENTIFICATION
  *		  src/bin/pg_basebackup/bbstreamer_tar.c
  *-------------------------------------------------------------------------
- */
+                                                                         */
 
 #include "postgres_fe.h"
 
@@ -83,12 +80,11 @@ const bbstreamer_ops bbstreamer_tar_terminator_ops = {
 };
 
 /*
- * Create a bbstreamer that can parse a stream of content as tar data.
+ * 创建一个可以将内容流解析为 tar 数据的 bbstreamer。
  *
- * The input should be a series of BBSTREAMER_UNKNOWN chunks; the bbstreamer
- * specified by 'next' will receive a series of typed chunks, as per the
- * conventions described in bbstreamer.h.
- */
+ * 输入应该是一系列 BBSTREAMER_UNKNOWN 块；由 'next' 指定的 bbstreamer
+ * 将接收一系列类型化块，按照 bbstreamer.h 中描述的约定。
+                              */
 extern bbstreamer *
 bbstreamer_tar_parser_new(bbstreamer *next)
 {
@@ -126,24 +122,22 @@ bbstreamer_tar_parser_content(bbstreamer *streamer, bbstreamer_member *member,
 			case BBSTREAMER_MEMBER_HEADER:
 
 				/*
-				 * If we're expecting an archive member header, accumulate a
-				 * full block of data before doing anything further.
-				 */
+			 * 如果期望归档成员头，在进一步处理之前先积累完整的数据块。
+			                                 */
 				if (!bbstreamer_buffer_until(streamer, &data, &len,
 											 TAR_BLOCK_SIZE))
 					return;
 
 				/*
-				 * Now we can process the header and get ready to process the
-				 * file contents; however, we might find out that what we
-				 * thought was the next file header is actually the start of
-				 * the archive trailer. Switch modes accordingly.
-				 */
+			 * 现在我们可以处理头部并准备处理文件内容；但我们可能会发现
+			 * 我们以为是下一个文件头的内容实际上是归档尾部的开始。
+			 * 相应地切换模式。
+			                                          */
 				if (bbstreamer_tar_header(mystreamer))
 				{
 					if (mystreamer->member.size == 0)
 					{
-						/* No content; trailer is zero-length. */
+						/* 无内容；尾部长度为零。   */
 						bbstreamer_content(mystreamer->base.bbs_next,
 										   &mystreamer->member,
 										   NULL, 0,
@@ -154,7 +148,7 @@ bbstreamer_tar_parser_content(bbstreamer *streamer, bbstreamer_member *member,
 					}
 					else
 					{
-						/* Expect contents. */
+						/* 期望内容。  */
 						mystreamer->next_context = BBSTREAMER_MEMBER_CONTENTS;
 					}
 					mystreamer->base.bbs_buffer.len = 0;
@@ -167,9 +161,8 @@ bbstreamer_tar_parser_content(bbstreamer *streamer, bbstreamer_member *member,
 			case BBSTREAMER_MEMBER_CONTENTS:
 
 				/*
-				 * Send as much content as we have, but not more than the
-				 * remaining file length.
-				 */
+			 * 发送我们拥有的所有内容，但不超过剩余文件长度。
+			                  */
 				Assert(mystreamer->file_bytes_sent < mystreamer->member.size);
 				nbytes = mystreamer->member.size - mystreamer->file_bytes_sent;
 				nbytes = Min(nbytes, len);
@@ -183,16 +176,15 @@ bbstreamer_tar_parser_content(bbstreamer *streamer, bbstreamer_member *member,
 				len -= nbytes;
 
 				/*
-				 * If we've not yet sent the whole file, then there's more
-				 * content to come; otherwise, it's time to expect the file
-				 * trailer.
-				 */
+			 * 如果还没有发送完整个文件，则还有更多内容要来；
+			 * 否则，是时候期望文件尾部了。
+			                    */
 				Assert(mystreamer->file_bytes_sent <= mystreamer->member.size);
 				if (mystreamer->file_bytes_sent == mystreamer->member.size)
 				{
 					if (mystreamer->pad_bytes_expected == 0)
 					{
-						/* Trailer is zero-length. */
+						/* 尾部长度为零。   */
 						bbstreamer_content(mystreamer->base.bbs_next,
 										   &mystreamer->member,
 										   NULL, 0,
@@ -203,7 +195,7 @@ bbstreamer_tar_parser_content(bbstreamer *streamer, bbstreamer_member *member,
 					}
 					else
 					{
-						/* Trailer is not zero-length. */
+						/* 尾部长度不为零。    */
 						mystreamer->next_context = BBSTREAMER_MEMBER_TRAILER;
 					}
 					mystreamer->base.bbs_buffer.len = 0;
@@ -213,10 +205,9 @@ bbstreamer_tar_parser_content(bbstreamer *streamer, bbstreamer_member *member,
 			case BBSTREAMER_MEMBER_TRAILER:
 
 				/*
-				 * If we're expecting an archive member trailer, accumulate
-				 * the expected number of padding bytes before sending
-				 * anything onward.
-				 */
+			 * 如果期望归档成员尾部，在发送任何内容之前先积累预期数量
+			 * 的填充字节。
+			                                    */
 				if (!bbstreamer_buffer_until(streamer, &data, &len,
 											 mystreamer->pad_bytes_expected))
 					return;
@@ -252,11 +243,11 @@ bbstreamer_tar_parser_content(bbstreamer *streamer, bbstreamer_member *member,
 }
 
 /*
- * Parse a file header within a tar stream.
+ * 解析 tar 流中的文件头部。
  *
- * The return value is true if we found a file header and passed it on to the
- * next bbstreamer; it is false if we have reached the archive trailer.
- */
+ * 如果找到了文件头部并将其传递给了下一个 bbstreamer，返回值为 true；
+ * 如果已到达归档尾部，则为 false。
+            */
 static bool
 bbstreamer_tar_header(bbstreamer_tar_parser *mystreamer)
 {
@@ -267,7 +258,7 @@ bbstreamer_tar_header(bbstreamer_tar_parser *mystreamer)
 
 	Assert(mystreamer->base.bbs_buffer.len == TAR_BLOCK_SIZE);
 
-	/* Check whether we've got a block of all zero bytes. */
+	/* 检查是否得到了一个全零字节的块。   */
 	for (i = 0; i < TAR_BLOCK_SIZE; ++i)
 	{
 		if (buffer[i] != '\0')
@@ -278,19 +269,17 @@ bbstreamer_tar_header(bbstreamer_tar_parser *mystreamer)
 	}
 
 	/*
-	 * If the entire block was zeros, this is the end of the archive, not the
-	 * start of the next file.
-	 */
+	 * 如果整个块都是零，这是归档的结束，而不是下一个文件的开始。
+	            */
 	if (!has_nonzero_byte)
 		return false;
 
 	/*
-	 * Parse key fields out of the header.
+	 * 从头部中解析关键字段。
 	 *
-	 * FIXME: It's terrible that we use hard-coded values here instead of some
-	 * more principled approach. It's been like this for a long time, but we
-	 * ought to do better.
-	 */
+	 * FIXME：我们在这里使用硬编码值而不是某种更原则性的方法，这很糟糕。
+	 * 这种情况已经存在很久了，但我们应该做得更好。
+	      */
 	strlcpy(member->pathname, &buffer[0], MAXPGPATH);
 	if (member->pathname[0] == '\0')
 		pg_fatal("tar member has empty name");
@@ -303,10 +292,10 @@ bbstreamer_tar_header(bbstreamer_tar_parser *mystreamer)
 	if (member->is_link)
 		strlcpy(member->linktarget, &buffer[157], 100);
 
-	/* Compute number of padding bytes. */
+	/* 计算填充字节数。         */
 	mystreamer->pad_bytes_expected = tarPaddingBytesRequired(member->size);
 
-	/* Forward the entire header to the next bbstreamer. */
+	/* 将整个头部转发给下一个 bbstreamer。   */
 	bbstreamer_content(mystreamer->base.bbs_next, member,
 					   buffer, TAR_BLOCK_SIZE,
 					   BBSTREAMER_MEMBER_HEADER);
@@ -315,8 +304,8 @@ bbstreamer_tar_header(bbstreamer_tar_parser *mystreamer)
 }
 
 /*
- * End-of-stream processing for a tar parser.
- */
+ * tar 解析器的流结束处理。
+         */
 static void
 bbstreamer_tar_parser_finalize(bbstreamer *streamer)
 {
@@ -327,7 +316,7 @@ bbstreamer_tar_parser_finalize(bbstreamer *streamer)
 		 mystreamer->base.bbs_buffer.len > 0))
 		pg_fatal("COPY stream ended before last file was finished");
 
-	/* Send the archive trailer, even if empty. */
+	/* 发送归档尾部，即使为空。     */
 	bbstreamer_content(streamer->bbs_next, NULL,
 					   streamer->bbs_buffer.data, streamer->bbs_buffer.len,
 					   BBSTREAMER_ARCHIVE_TRAILER);
@@ -337,7 +326,7 @@ bbstreamer_tar_parser_finalize(bbstreamer *streamer)
 }
 
 /*
- * Free memory associated with a tar parser.
+ * 释放与 tar 解析器关联的内存。
  */
 static void
 bbstreamer_tar_parser_free(bbstreamer *streamer)
@@ -347,13 +336,12 @@ bbstreamer_tar_parser_free(bbstreamer *streamer)
 }
 
 /*
- * Create an bbstreamer that can generate a tar archive.
+ * 创建一个可以生成 tar 归档的 bbstreamer。
  *
- * This is intended to be usable either for generating a brand-new tar archive
- * or for modifying one on the fly. The input should be a series of typed
- * chunks (i.e. not BBSTREAMER_UNKNOWN). See also the comments for
- * bbstreamer_tar_parser_content.
- */
+ * 这既可用于生成全新的 tar 归档，也可用于在运行中修改现有的归档。
+ * 输入应该是一系列类型化块（即不是 BBSTREAMER_UNKNOWN）。
+ * 另请参阅 bbstreamer_tar_parser_content 的注释。
+                        */
 extern bbstreamer *
 bbstreamer_tar_archiver_new(bbstreamer *next)
 {
@@ -368,26 +356,21 @@ bbstreamer_tar_archiver_new(bbstreamer *next)
 }
 
 /*
- * Fix up the stream of input chunks to create a valid tar file.
+ * 修复输入块流以创建有效的 tar 文件。
  *
- * If a BBSTREAMER_MEMBER_HEADER chunk is of size 0, it is replaced with a
- * newly-constructed tar header. If it is of size TAR_BLOCK_SIZE, it is
- * passed through without change. Any other size is a fatal error (and
- * indicates a bug).
+ * 如果 BBSTREAMER_MEMBER_HEADER 块的大小为 0，则用新构建的 tar 头替换它。
+ * 如果大小为 TAR_BLOCK_SIZE，则原样传递。任何其他大小都是致命错误（表示存在 bug）。
  *
- * Whenever a new BBSTREAMER_MEMBER_HEADER chunk is constructed, the
- * corresponding BBSTREAMER_MEMBER_TRAILER chunk is also constructed from
- * scratch. Specifically, we construct a block of zero bytes sufficient to
- * pad out to a block boundary, as required by the tar format. Other
- * BBSTREAMER_MEMBER_TRAILER chunks are passed through without change.
+ * 每当构建新的 BBSTREAMER_MEMBER_HEADER 块时，相应的 BBSTREAMER_MEMBER_TRAILER
+ * 块也从头构建。具体来说，我们构建一个全零字节块，足以填充到块边界，
+ * 如 tar 格式所要求的。其他 BBSTREAMER_MEMBER_TRAILER 块原样传递。
  *
- * Any BBSTREAMER_MEMBER_CONTENTS chunks are passed through without change.
+ * 任何 BBSTREAMER_MEMBER_CONTENTS 块原样传递。
  *
- * The BBSTREAMER_ARCHIVE_TRAILER chunk is replaced with two
- * blocks of zero bytes. Not all tar programs require this, but apparently
- * some do. The server does not supply this trailer. If no archive trailer is
- * present, one will be added by bbstreamer_tar_parser_finalize.
- */
+ * BBSTREAMER_ARCHIVE_TRAILER 块被替换为两个全零字节块。并非所有 tar 程序
+ * 都需要这个，但显然有些程序需要。服务器不提供此尾部。如果没有归档尾部，
+ * bbstreamer_tar_parser_finalize 会添加一个。
+                                                                                                                                                                    */
 static void
 bbstreamer_tar_archiver_content(bbstreamer *streamer,
 								bbstreamer_member *member,
@@ -403,14 +386,14 @@ bbstreamer_tar_archiver_content(bbstreamer *streamer,
 	{
 		Assert(len == 0);
 
-		/* Replace zero-length tar header with a newly constructed one. */
+		/* 用新构建的头部替换零长度 tar 头。              */
 		tarCreateHeader(buffer, member->pathname, NULL,
 						member->size, member->mode, member->uid, member->gid,
 						time(NULL));
 		data = buffer;
 		len = TAR_BLOCK_SIZE;
 
-		/* Also make a note to replace padding, in case size changed. */
+		/* 同时标记需要替换填充，以防大小改变。     */
 		mystreamer->rearchive_member = true;
 	}
 	else if (context == BBSTREAMER_MEMBER_TRAILER &&
@@ -418,7 +401,7 @@ bbstreamer_tar_archiver_content(bbstreamer *streamer,
 	{
 		int			pad_bytes = tarPaddingBytesRequired(member->size);
 
-		/* Also replace padding, if we regenerated the header. */
+		/* 如果重新生成了头部，同时替换填充。 */
 		memset(buffer, 0, pad_bytes);
 		data = buffer;
 		len = pad_bytes;
@@ -428,7 +411,7 @@ bbstreamer_tar_archiver_content(bbstreamer *streamer,
 	}
 	else if (context == BBSTREAMER_ARCHIVE_TRAILER)
 	{
-		/* Trailer should always be two blocks of zero bytes. */
+		/* 尾部始终应为两个全零字节块。         */
 		memset(buffer, 0, 2 * TAR_BLOCK_SIZE);
 		data = buffer;
 		len = 2 * TAR_BLOCK_SIZE;
@@ -438,8 +421,8 @@ bbstreamer_tar_archiver_content(bbstreamer *streamer,
 }
 
 /*
- * End-of-stream processing for a tar archiver.
- */
+ * tar 归档器的流结束处理。
+           */
 static void
 bbstreamer_tar_archiver_finalize(bbstreamer *streamer)
 {
@@ -447,8 +430,8 @@ bbstreamer_tar_archiver_finalize(bbstreamer *streamer)
 }
 
 /*
- * Free memory associated with a tar archiver.
- */
+ * 释放与 tar 归档器关联的内存。
+   */
 static void
 bbstreamer_tar_archiver_free(bbstreamer *streamer)
 {
@@ -457,9 +440,9 @@ bbstreamer_tar_archiver_free(bbstreamer *streamer)
 }
 
 /*
- * Create a bbstreamer that blindly adds two blocks of NUL bytes to the
- * end of an incomplete tarfile that the server might send us.
- */
+ * 创建一个 bbstreamer，盲目地在服务器可能发送给我们的不完整 tar 文件
+ * 末尾添加两个 NUL 字节块。
+  */
 bbstreamer *
 bbstreamer_tar_terminator_new(bbstreamer *next)
 {
@@ -474,8 +457,8 @@ bbstreamer_tar_terminator_new(bbstreamer *next)
 }
 
 /*
- * Pass all the content through without change.
- */
+ * 原样传递所有内容。
+                  */
 static void
 bbstreamer_tar_terminator_content(bbstreamer *streamer,
 								  bbstreamer_member *member,
@@ -486,14 +469,13 @@ bbstreamer_tar_terminator_content(bbstreamer *streamer,
 	Assert(member == NULL);
 	Assert(context == BBSTREAMER_UNKNOWN);
 
-	/* Just forward it. */
+	/* 直接转发。  */
 	bbstreamer_content(streamer->bbs_next, member, data, len, context);
 }
 
 /*
- * At the end, blindly add the two blocks of NUL bytes which the server fails
- * to supply.
- */
+ * 在结束时，盲目地添加服务器未能提供的两个 NUL 字节块。
+            */
 static void
 bbstreamer_tar_terminator_finalize(bbstreamer *streamer)
 {
@@ -506,8 +488,8 @@ bbstreamer_tar_terminator_finalize(bbstreamer *streamer)
 }
 
 /*
- * Free memory associated with a tar terminator.
- */
+ * 释放与 tar 结束器关联的内存。
+     */
 static void
 bbstreamer_tar_terminator_free(bbstreamer *streamer)
 {

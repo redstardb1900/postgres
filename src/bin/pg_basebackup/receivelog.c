@@ -25,12 +25,12 @@
 #include "receivelog.h"
 #include "streamutil.h"
 
-/* currently open WAL file */
+/* 当前打开 WAL 文件 */
 static Walfile *walfile = NULL;
 static bool reportFlushPosition = false;
 static XLogRecPtr lastFlushPosition = InvalidXLogRecPtr;
 
-static bool still_sending = true;	/* feedback still needs to be sent? */
+static bool still_sending = true;	/* 反馈仍需发送？            */
 
 static PGresult *HandleCopyStream(PGconn *conn, StreamCtl *stream,
 								  XLogRecPtr *stoppos);
@@ -78,14 +78,12 @@ mark_file_as_archived(StreamCtl *stream, const char *fname)
 	return true;
 }
 
-/*
- * Open a new WAL file in the specified directory.
+/* * 在指定目录开新 WAL 文件。
  *
- * Returns true if OK; on failure, returns false after printing an error msg.
- * On success, 'walfile' is set to the opened WAL file.
+ * 成功 true；失败打印错返 false。
+ * 成功 walfile 设为打开文件。
  *
- * The file will be padded to 16Mb with zeroes.
- */
+ * 文件以 16MB 零填充。                                                                                 */
 static bool
 open_walfile(StreamCtl *stream, XLogRecPtr startpoint)
 {
@@ -98,21 +96,16 @@ open_walfile(StreamCtl *stream, XLogRecPtr startpoint)
 	XLByteToSeg(startpoint, segno, WalSegSz);
 	XLogFileName(walfile_name, stream->timeline, segno, WalSegSz);
 
-	/* Note that this considers the compression used if necessary */
+	/* 注意必要时考虑压缩                                */
 	fn = stream->walmethod->ops->get_file_name(stream->walmethod,
 											   walfile_name,
 											   stream->partial_suffix);
 
-	/*
-	 * When streaming to files, if an existing file exists we verify that it's
-	 * either empty (just created), or a complete WalSegSz segment (in which
-	 * case it has been created and padded). Anything else indicates a corrupt
-	 * file. Compressed files have no need for padding, so just ignore this
-	 * case.
-	 *
-	 * When streaming to tar, no file with this name will exist before, so we
-	 * never have to verify a size.
-	 */
+	/* * 流到文件验证已有为空(刚创)或
+ * WalSegSz 完整段(已填充)。余=坏。
+ * 压缩不需填充，略。
+ *
+ * 流到 tar 文件不先存，不验证。                                                                                                                                                                                                                                                               */
 	if (stream->walmethod->compression_algorithm == PG_COMPRESSION_NONE &&
 		stream->walmethod->ops->existsfile(stream->walmethod, fn))
 	{
@@ -126,7 +119,7 @@ open_walfile(StreamCtl *stream, XLogRecPtr startpoint)
 		}
 		if (size == WalSegSz)
 		{
-			/* Already padded file. Open it for use */
+			/* 已填充文件，打开用          */
 			f = stream->walmethod->ops->open_for_write(stream->walmethod, walfile_name, stream->partial_suffix, 0);
 			if (f == NULL)
 			{
@@ -136,7 +129,7 @@ open_walfile(StreamCtl *stream, XLogRecPtr startpoint)
 				return false;
 			}
 
-			/* fsync file in case of a previous crash */
+			/* fsync 防前次崩溃                  */
 			if (stream->walmethod->ops->sync(f) != 0)
 			{
 				pg_log_error("could not fsync existing write-ahead log file \"%s\": %s",
@@ -151,7 +144,7 @@ open_walfile(StreamCtl *stream, XLogRecPtr startpoint)
 		}
 		if (size != 0)
 		{
-			/* if write didn't set errno, assume problem is no disk space */
+			/* write 未设 errno 假设磁盘不足                      */
 			if (errno == 0)
 				errno = ENOSPC;
 			pg_log_error(ngettext("write-ahead log file \"%s\" has %zd byte, should be 0 or %d",
@@ -164,7 +157,7 @@ open_walfile(StreamCtl *stream, XLogRecPtr startpoint)
 		/* File existed and was empty, so fall through and open */
 	}
 
-	/* No file existed, so create one */
+	/* 无文件，新建             */
 
 	f = stream->walmethod->ops->open_for_write(stream->walmethod,
 											   walfile_name,
@@ -183,11 +176,8 @@ open_walfile(StreamCtl *stream, XLogRecPtr startpoint)
 	return true;
 }
 
-/*
- * Close the current WAL file (if open), and rename it to the correct
- * filename if it's complete. On failure, prints an error message to stderr
- * and returns false, otherwise returns true.
- */
+/* * 关当前 WAL 文件(若开)，完整则重
+ * 命名。失败打印错返 false。                                                                                                            */
 static bool
 close_walfile(StreamCtl *stream, XLogRecPtr pos)
 {
@@ -202,7 +192,7 @@ close_walfile(StreamCtl *stream, XLogRecPtr pos)
 	strlcpy(walfile_name, walfile->pathname, MAXPGPATH);
 	currpos = walfile->currpos;
 
-	/* Note that this considers the compression used if necessary */
+	/* 注意必要时考虑压缩                                */
 	fn = stream->walmethod->ops->get_file_name(stream->walmethod,
 											   walfile_name,
 											   stream->partial_suffix);
@@ -233,15 +223,13 @@ close_walfile(StreamCtl *stream, XLogRecPtr pos)
 
 	pg_free(fn);
 
-	/*
-	 * Mark file as archived if requested by the caller - pg_basebackup needs
-	 * to do so as files can otherwise get archived again after promotion of a
-	 * new node. This is in line with walreceiver.c always doing a
-	 * XLogArchiveForceDone() after a complete segment.
-	 */
+	/* * 按调用者要求标记归档——
+ * pg_basebackup 需此防提升后再归档。
+ * 与 walreceiver 的 XLogArchiveForceDone
+ * 一致。                                                                                                                               */
 	if (currpos == WalSegSz && stream->mark_done)
 	{
-		/* writes error message if failed */
+		/* 失败写错误消息          */
 		if (!mark_file_as_archived(stream, walfile_name))
 			return false;
 	}
@@ -259,10 +247,8 @@ existsTimeLineHistoryFile(StreamCtl *stream)
 {
 	char		histfname[MAXFNAMELEN];
 
-	/*
-	 * Timeline 1 never has a history file. We treat that as if it existed,
-	 * since we never need to stream it.
-	 */
+	/* * 时间线 1 无历史文件，视为存在。
+ *                                                               */
 	if (stream->timeline == 1)
 		return true;
 
@@ -278,10 +264,8 @@ writeTimeLineHistoryFile(StreamCtl *stream, char *filename, char *content)
 	char		histfname[MAXFNAMELEN];
 	Walfile    *f;
 
-	/*
-	 * Check that the server's idea of how timeline history files should be
-	 * named matches ours.
-	 */
+	/* * 检查服务器时间线历史命名是否
+ * 匹配。                                          */
 	TLHistoryFileName(histfname, stream->timeline);
 	if (strcmp(histfname, filename) != 0)
 	{
@@ -304,9 +288,8 @@ writeTimeLineHistoryFile(StreamCtl *stream, char *filename, char *content)
 		pg_log_error("could not write timeline history file \"%s\": %s",
 					 histfname, GetLastWalMethodError(stream->walmethod));
 
-		/*
-		 * If we fail to make the file, delete it to release disk space
-		 */
+		/* * 创建失败则删释放空间
+ *                                  */
 		stream->walmethod->ops->close(f, CLOSE_UNLINK);
 
 		return false;
@@ -319,10 +302,10 @@ writeTimeLineHistoryFile(StreamCtl *stream, char *filename, char *content)
 		return false;
 	}
 
-	/* Maintain archive_status, check close_walfile() for details. */
+	/* 维护 archive_status，详见 close_walfile                */
 	if (stream->mark_done)
 	{
-		/* writes error message if failed */
+		/* 失败写错误消息          */
 		if (!mark_file_as_archived(stream, histfname))
 			return false;
 	}
@@ -341,18 +324,18 @@ sendFeedback(PGconn *conn, XLogRecPtr blockpos, TimestampTz now, bool replyReque
 
 	replybuf[len] = 'r';
 	len += 1;
-	fe_sendint64(blockpos, &replybuf[len]); /* write */
+	fe_sendint64(blockpos, &replybuf[len]); /* 写   */
 	len += 8;
 	if (reportFlushPosition)
-		fe_sendint64(lastFlushPosition, &replybuf[len]);	/* flush */
+		fe_sendint64(lastFlushPosition, &replybuf[len]);	/* 刷   */
 	else
-		fe_sendint64(InvalidXLogRecPtr, &replybuf[len]);	/* flush */
+		fe_sendint64(InvalidXLogRecPtr, &replybuf[len]);	/* 刷   */
 	len += 8;
-	fe_sendint64(InvalidXLogRecPtr, &replybuf[len]);	/* apply */
+	fe_sendint64(InvalidXLogRecPtr, &replybuf[len]);	/* 应   */
 	len += 8;
-	fe_sendint64(now, &replybuf[len]);	/* sendTime */
+	fe_sendint64(now, &replybuf[len]);	/* 发时   */
 	len += 8;
-	replybuf[len] = replyRequested ? 1 : 0; /* replyRequested */
+	replybuf[len] = replyRequested ? 1 : 0; /* 复请         */
 	len += 1;
 
 	if (PQputCopyData(conn, replybuf, len) <= 0 || PQflush(conn))
@@ -365,12 +348,9 @@ sendFeedback(PGconn *conn, XLogRecPtr blockpos, TimestampTz now, bool replyReque
 	return true;
 }
 
-/*
- * Check that the server version we're connected to is supported by
- * ReceiveXlogStream().
- *
- * If it's not, an error message is printed to stderr, and false is returned.
- */
+/* * 检查服务器版本是否被
+ * ReceiveXlogStream 支持。不支持
+ * 打印错返 false。                                                                             */
 bool
 CheckServerVersionForStreaming(PGconn *conn)
 {
@@ -378,12 +358,9 @@ CheckServerVersionForStreaming(PGconn *conn)
 				maxServerMajor;
 	int			serverMajor;
 
-	/*
-	 * The message format used in streaming replication changed in 9.3, so we
-	 * cannot stream from older servers. And we don't support servers newer
-	 * than the client; it might work, but we don't know, so err on the safe
-	 * side.
-	 */
+	/* * 流复制消息格式 9.3 变，不能从
+ * 旧服务器流。也不支持比客户端新
+ * 的服务器。                                                                                                                           */
 	minServerMajor = 903;
 	maxServerMajor = PG_VERSION_NUM / 100;
 	serverMajor = PQserverVersion(conn) / 100;
@@ -408,47 +385,34 @@ CheckServerVersionForStreaming(PGconn *conn)
 	return true;
 }
 
-/*
- * Receive a log stream starting at the specified position.
+/* * 从指定位置收日志流。
  *
- * Individual parameters are passed through the StreamCtl structure.
+ * 参数通过 StreamCtl 传。
  *
- * If sysidentifier is specified, validate that both the system
- * identifier and the timeline matches the specified ones
- * (by sending an extra IDENTIFY_SYSTEM command)
+ * sysidentifier 指定时验证系统标
+ * 识和时间线。
  *
- * All received segments will be written to the directory
- * specified by basedir. This will also fetch any missing timeline history
- * files.
+ * 段写 basedir 目录，获取缺时间线
+ * 历史。
  *
- * The stream_stop callback will be called every time data
- * is received, and whenever a segment is completed. If it returns
- * true, the streaming will stop and the function
- * return. As long as it returns false, streaming will continue
- * indefinitely.
+ * stream_stop 回调收数据及段完成
+ * 时调用。true 停 false 续。
  *
- * If stream_stop() checks for external input, stop_socket should be set to
- * the FD it checks.  This will allow such input to be detected promptly
- * rather than after standby_message_timeout (which might be indefinite).
- * Note that signals will interrupt waits for input as well, but that is
- * race-y since a signal received while busy won't interrupt the wait.
+ * stream_stop 查外部输入设
+ * stop_socket。信号可中断但有竞
+ * 态。
  *
- * standby_message_timeout controls how often we send a message
- * back to the primary letting it know our progress, in milliseconds.
- * Zero means no messages are sent.
- * This message will only contain the write location, and never
- * flush or replay.
+ * standby_message_timeout 控向主
+ * 发进度频率(ms)。0=不发。仅写位
+ * 置，无刷新/重放。
  *
- * If 'partial_suffix' is not NULL, files are initially created with the
- * given suffix, and the suffix is removed once the file is finished. That
- * allows you to tell the difference between partial and completed files,
- * so that you can continue later where you left.
+ * partial_suffix 非 NULL 文件先
+ * 带后缀，完后移除以分部分/完成。
  *
- * If 'synchronous' is true, the received WAL is flushed as soon as written,
- * otherwise only when the WAL file is closed.
+ * synchronous=true 写后即刷新，
+ * 否则关时刷。
  *
- * Note: The WAL location *must* be at a log segment start!
- */
+ * 注意：WAL 位须段起始！                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         */
 bool
 ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
 {
@@ -457,24 +421,18 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
 	PGresult   *res;
 	XLogRecPtr	stoppos;
 
-	/*
-	 * The caller should've checked the server version already, but doesn't do
-	 * any harm to check it here too.
-	 */
+	/* * 调用者应已查版本，再查无妨。
+ *                                                                  */
 	if (!CheckServerVersionForStreaming(conn))
 		return false;
 
-	/*
-	 * Decide whether we want to report the flush position. If we report the
-	 * flush position, the primary will know what WAL we'll possibly
-	 * re-request, and it can then remove older WAL safely. We must always do
-	 * that when we are using slots.
-	 *
-	 * Reporting the flush position makes one eligible as a synchronous
-	 * replica. People shouldn't include generic names in
-	 * synchronous_standby_names, but we've protected them against it so far,
-	 * so let's continue to do so unless specifically requested.
-	 */
+	/* * 决定是否报告刷新位。报告主知可
+ * 能重请求的 WAL，安全删旧 WAL。
+ * 用槽必须报告。
+ *
+ * 报告刷新使成同步副本候选。不应
+ * 在 synchronous_standby_names 放
+ * 通用名，但一直保护，继续。                                                                                                                                                                                                                                                                           */
 	if (stream->replication_slot != NULL)
 	{
 		reportFlushPosition = true;
@@ -494,9 +452,8 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
 		char	   *sysidentifier = NULL;
 		TimeLineID	servertli;
 
-		/*
-		 * Get the server system identifier and timeline, and validate them.
-		 */
+		/* * 取服务器系统标识和时间线验证。
+ *                        */
 		if (!RunIdentifySystem(conn, &sysidentifier, &servertli, NULL, NULL))
 		{
 			pg_free(sysidentifier);
@@ -519,44 +476,36 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
 		}
 	}
 
-	/*
-	 * initialize flush position to starting point, it's the caller's
-	 * responsibility that that's sane.
-	 */
+	/* * 刷新位初始为起点，调用者负责
+ * 合理。                                                 */
 	lastFlushPosition = stream->startpos;
 
 	while (1)
 	{
-		/*
-		 * Fetch the timeline history file for this timeline, if we don't have
-		 * it already. When streaming log to tar, this will always return
-		 * false, as we are never streaming into an existing file and
-		 * therefore there can be no pre-existing timeline history file.
-		 */
+		/* * 取时间线历史(如无)。流到 tar 总
+ * 返 false(无已有文件)。                                                                                                                                                                                                     */
 		if (!existsTimeLineHistoryFile(stream))
 		{
 			snprintf(query, sizeof(query), "TIMELINE_HISTORY %u", stream->timeline);
 			res = PQexec(conn, query);
 			if (PQresultStatus(res) != PGRES_TUPLES_OK)
 			{
-				/* FIXME: we might send it ok, but get an error */
+				/* FIXME：可能发 OK 但收错               */
 				pg_log_error("could not send replication command \"%s\": %s",
 							 "TIMELINE_HISTORY", PQresultErrorMessage(res));
 				PQclear(res);
 				return false;
 			}
 
-			/*
-			 * The response to TIMELINE_HISTORY is a single row result set
-			 * with two fields: filename and content
-			 */
+			/* * TIMELINE_HISTORY 响应：单行两
+ * 字段，filename 和 content                                            */
 			if (PQnfields(res) != 2 || PQntuples(res) != 1)
 			{
 				pg_log_warning("unexpected response to TIMELINE_HISTORY command: got %d rows and %d fields, expected %d rows and %d fields",
 							   PQntuples(res), PQnfields(res), 1, 2);
 			}
 
-			/* Write the history file to disk */
+			/* 写历史文件到磁盘       */
 			writeTimeLineHistoryFile(stream,
 									 PQgetvalue(res, 0, 0),
 									 PQgetvalue(res, 0, 1));
@@ -564,14 +513,12 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
 			PQclear(res);
 		}
 
-		/*
-		 * Before we start streaming from the requested location, check if the
-		 * callback tells us to stop here.
-		 */
+		/* * 流传输前检回调是否需停。
+ *                                                                        */
 		if (stream->stream_stop(stream->startpos, stream->timeline, false))
 			return true;
 
-		/* Initiate the replication stream at specified location */
+		/* 在指定位置启动复制流                        */
 		snprintf(query, sizeof(query), "START_REPLICATION %s%X/%X TIMELINE %u",
 				 slotcmd,
 				 LSN_FORMAT_ARGS(stream->startpos),
@@ -586,32 +533,22 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
 		}
 		PQclear(res);
 
-		/* Stream the WAL */
+		/* 流传输 WAL  */
 		res = HandleCopyStream(conn, stream, &stoppos);
 		if (res == NULL)
 			goto error;
 
-		/*
-		 * Streaming finished.
-		 *
-		 * There are two possible reasons for that: a controlled shutdown, or
-		 * we reached the end of the current timeline. In case of
-		 * end-of-timeline, the server sends a result set after Copy has
-		 * finished, containing information about the next timeline. Read
-		 * that, and restart streaming from the next timeline. In case of
-		 * controlled shutdown, stop here.
-		 */
+		/* * 流结束。
+ *
+ * 两因：受控关闭，或时间线结束。
+ * 时间线结束服发下一时间线信息，
+ * 读取后重新开始。受控关闭停。                                                                                                                                                                                                                                                    */
 		if (PQresultStatus(res) == PGRES_TUPLES_OK)
 		{
-			/*
-			 * End-of-timeline. Read the next timeline's ID and starting
-			 * position. Usually, the starting position will match the end of
-			 * the previous timeline, but there are corner cases like if the
-			 * server had sent us half of a WAL record, when it was promoted.
-			 * The new timeline will begin at the end of the last complete
-			 * record in that case, overlapping the partial WAL record on the
-			 * old timeline.
-			 */
+			/* * 时间线结束。读下一时间线 ID 和
+ * 起始。通常起始匹配前结束，边界
+ * 如提升时发半个 WAL 记录，新时
+ * 间线从旧最后完整记录末开始。                                                                                                                                                                                                                                                    */
 			uint32		newtimeline;
 			bool		parsed;
 
@@ -620,7 +557,7 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
 			if (!parsed)
 				goto error;
 
-			/* Sanity check the values the server gave us */
+			/* 健全检查服务器返回值             */
 			if (newtimeline <= stream->timeline)
 			{
 				pg_log_error("server reported unexpected next timeline %u, following timeline %u",
@@ -635,7 +572,7 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
 				goto error;
 			}
 
-			/* Read the final result, which should be CommandComplete. */
+			/* 读最终结果，应为 CommandComplete                */
 			res = PQgetResult(conn);
 			if (PQresultStatus(res) != PGRES_COMMAND_OK)
 			{
@@ -646,10 +583,8 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
 			}
 			PQclear(res);
 
-			/*
-			 * Loop back to start streaming from the new timeline. Always
-			 * start streaming at the beginning of a segment.
-			 */
+			/* * 循环从新时间线流。始终段起始。
+ *                                                                        */
 			stream->timeline = newtimeline;
 			stream->startpos = stream->startpos -
 				XLogSegmentOffset(stream->startpos, WalSegSz);
@@ -659,12 +594,9 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
 		{
 			PQclear(res);
 
-			/*
-			 * End of replication (ie. controlled shut down of the server).
-			 *
-			 * Check if the callback thinks it's OK to stop here. If not,
-			 * complain.
-			 */
+			/* * 复制结束（服受控关闭）。
+ *
+ * 检查回调是否允停，否则投诉。                                                                       */
 			if (stream->stream_stop(stoppos, stream->timeline, false))
 				return true;
 			else
@@ -675,7 +607,7 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
 		}
 		else
 		{
-			/* Server returned an error. */
+			/* 服务器返回错误     */
 			pg_log_error("unexpected termination of replication stream: %s",
 						 PQresultErrorMessage(res));
 			PQclear(res);
@@ -691,10 +623,8 @@ error:
 	return false;
 }
 
-/*
- * Helper function to parse the result set returned by server after streaming
- * has finished. On failure, prints an error to stderr and returns false.
- */
+/* * 解析流结束后服务器返结果集辅助
+ * 函数。失败打印错返 false。                                                                  */
 static bool
 ReadEndOfStreamingResult(PGresult *res, XLogRecPtr *startpos, uint32 *timeline)
 {
@@ -733,14 +663,11 @@ ReadEndOfStreamingResult(PGresult *res, XLogRecPtr *startpos, uint32 *timeline)
 	return true;
 }
 
-/*
- * The main loop of ReceiveXlogStream. Handles the COPY stream after
- * initiating streaming with the START_REPLICATION command.
+/* * ReceiveXlogStream 主循环。
+ * START_REPLICATION 后处理 COPY。
  *
- * If the COPY ends (not necessarily successfully) due a message from the
- * server, returns a PGresult and sets *stoppos to the last byte written.
- * On any other sort of error, returns NULL.
- */
+ * COPY 因服消息结束返 PGresult
+ * 并设 *stoppos。他错返 NULL。                                                                                                                                                                              */
 static PGresult *
 HandleCopyStream(PGconn *conn, StreamCtl *stream,
 				 XLogRecPtr *stoppos)
@@ -757,18 +684,15 @@ HandleCopyStream(PGconn *conn, StreamCtl *stream,
 		TimestampTz now;
 		long		sleeptime;
 
-		/*
-		 * Check if we should continue streaming, or abort at this point.
-		 */
+		/* * 检查继续流还是中止。
+ *                                    */
 		if (!CheckCopyStreamStop(conn, stream, blockpos))
 			goto error;
 
 		now = feGetCurrentTimestamp();
 
-		/*
-		 * If synchronous option is true, issue sync command as soon as there
-		 * are WAL data which has not been flushed yet.
-		 */
+		/* * synchronous=true 有未刷新
+ * WAL 即 sync。                                                                           */
 		if (stream->synchronous && lastFlushPosition < blockpos && walfile != NULL)
 		{
 			if (stream->walmethod->ops->sync(walfile) != 0)
@@ -776,31 +700,27 @@ HandleCopyStream(PGconn *conn, StreamCtl *stream,
 						 walfile->pathname, GetLastWalMethodError(stream->walmethod));
 			lastFlushPosition = blockpos;
 
-			/*
-			 * Send feedback so that the server sees the latest WAL locations
-			 * immediately.
-			 */
+			/* * 发反馈让服立见最新 WAL。
+ *                                                     */
 			if (!sendFeedback(conn, blockpos, now, false))
 				goto error;
 			last_status = now;
 		}
 
-		/*
-		 * Potentially send a status message to the primary
-		 */
+		/* * 可能向主发状态
+ *                               */
 		if (still_sending && stream->standby_message_timeout > 0 &&
 			feTimestampDifferenceExceeds(last_status, now,
 										 stream->standby_message_timeout))
 		{
-			/* Time to send feedback! */
+			/* 该发反馈！        */
 			if (!sendFeedback(conn, blockpos, now, false))
 				goto error;
 			last_status = now;
 		}
 
-		/*
-		 * Calculate how long send/receive loops should sleep
-		 */
+		/* * 计算收发循环休眠时长
+ *                        */
 		sleeptime = CalculateCopyStreamSleeptime(now, stream->standby_message_timeout,
 												 last_status);
 
@@ -819,7 +739,7 @@ HandleCopyStream(PGconn *conn, StreamCtl *stream,
 					return res;
 			}
 
-			/* Check the message type. */
+			/* 检查消息类型      */
 			if (copybuf[0] == 'k')
 			{
 				if (!ProcessKeepaliveMsg(conn, stream, copybuf, r, blockpos,
@@ -831,10 +751,8 @@ HandleCopyStream(PGconn *conn, StreamCtl *stream,
 				if (!ProcessXLogDataMsg(conn, stream, copybuf, r, &blockpos))
 					goto error;
 
-				/*
-				 * Check if we should continue streaming, or abort at this
-				 * point.
-				 */
+				/* * 检查继续流还是中止。
+ *                                               */
 				if (!CheckCopyStreamStop(conn, stream, blockpos))
 					goto error;
 			}
@@ -845,10 +763,8 @@ HandleCopyStream(PGconn *conn, StreamCtl *stream,
 				goto error;
 			}
 
-			/*
-			 * Process the received data, and any subsequent data we can read
-			 * without blocking.
-			 */
+			/* * 处理收到数据及后续非阻塞数据。
+ *                                               */
 			r = CopyStreamReceive(conn, 0, stream->stop_socket, &copybuf);
 		}
 	}
@@ -858,14 +774,10 @@ error:
 	return NULL;
 }
 
-/*
- * Wait until we can read a CopyData message,
- * or timeout, or occurrence of a signal or input on the stop_socket.
- * (timeout_ms < 0 means wait indefinitely; 0 means don't wait.)
+/* * 等 CopyData 可读、超时或信号/
+ * stop_socket 输入。(<0 等;0 不)
  *
- * Returns 1 if data has become available for reading, 0 if timed out
- * or interrupted by signal or stop_socket input, and -1 on an error.
- */
+ * 返 1=可读 0=超时/中断 -1=错。                                                                                                                                                                                                         */
 static int
 CopyStreamPoll(PGconn *conn, long timeout_ms, pgsocket stop_socket)
 {
@@ -906,28 +818,24 @@ CopyStreamPoll(PGconn *conn, long timeout_ms, pgsocket stop_socket)
 	if (ret < 0)
 	{
 		if (errno == EINTR)
-			return 0;			/* Got a signal, so not an error */
+			return 0;			/* 信号，非错               */
 		pg_log_error("%s() failed: %m", "select");
 		return -1;
 	}
 	if (ret > 0 && FD_ISSET(connsocket, &input_mask))
-		return 1;				/* Got input on connection socket */
+		return 1;				/* 连接套接字有输入       */
 
-	return 0;					/* Got timeout or input on stop_socket */
+	return 0;					/* 超时或 stop_socket 输入        */
 }
 
-/*
- * Receive CopyData message available from XLOG stream, blocking for
- * maximum of 'timeout' ms.
+/* * 从 XLOG 流收 CopyData，最多阻
+ * 塞 timeout ms。
  *
- * If data was received, returns the length of the data. *buffer is set to
- * point to a buffer holding the received message. The buffer is only valid
- * until the next CopyStreamReceive call.
+ * 收到返长度，*buffer 指消息缓冲
+ * (仅下次 CopyStreamReceive 前有效)。
  *
- * Returns 0 if no data was available within timeout, or if wait was
- * interrupted by signal or stop_socket input.
- * -1 on error. -2 if the server ended the COPY.
- */
+ * 超时/中断返 0。错 -1。服结束
+ * COPY 返 -2。                                                                                                                                                                                                                                                     */
 static int
 CopyStreamReceive(PGconn *conn, long timeout, pgsocket stop_socket,
 				  char **buffer)
@@ -938,22 +846,20 @@ CopyStreamReceive(PGconn *conn, long timeout, pgsocket stop_socket,
 	PQfreemem(*buffer);
 	*buffer = NULL;
 
-	/* Try to receive a CopyData message */
+	/* 尝试收 CopyData                */
 	rawlen = PQgetCopyData(conn, &copybuf, 1);
 	if (rawlen == 0)
 	{
 		int			ret;
 
-		/*
-		 * No data available.  Wait for some to appear, but not longer than
-		 * the specified timeout, so that we can ping the server.  Also stop
-		 * waiting if input appears on stop_socket.
-		 */
+		/* * 无数据。等 timeout 内出以便
+ * ping 服务器，stop_socket 有输
+ * 入也停。                                                                                                 */
 		ret = CopyStreamPoll(conn, timeout, stop_socket);
 		if (ret <= 0)
 			return ret;
 
-		/* Now there is actually data on the socket */
+		/* 套接字确有数据                    */
 		if (PQconsumeInput(conn) == 0)
 		{
 			pg_log_error("could not receive data from WAL stream: %s",
@@ -961,12 +867,12 @@ CopyStreamReceive(PGconn *conn, long timeout, pgsocket stop_socket,
 			return -1;
 		}
 
-		/* Now that we've consumed some input, try again */
+		/* 已消费输入，再试                      */
 		rawlen = PQgetCopyData(conn, &copybuf, 1);
 		if (rawlen == 0)
 			return 0;
 	}
-	if (rawlen == -1)			/* end-of-streaming or error */
+	if (rawlen == -1)			/* 流结束或错误        */
 		return -2;
 	if (rawlen == -2)
 	{
@@ -974,7 +880,7 @@ CopyStreamReceive(PGconn *conn, long timeout, pgsocket stop_socket,
 		return -1;
 	}
 
-	/* Return received messages to caller */
+	/* 返收到消息给调用者        */
 	*buffer = copybuf;
 	return rawlen;
 }
@@ -990,13 +896,11 @@ ProcessKeepaliveMsg(PGconn *conn, StreamCtl *stream, char *copybuf, int len,
 	bool		replyRequested;
 	TimestampTz now;
 
-	/*
-	 * Parse the keepalive message, enclosed in the CopyData message. We just
-	 * check if the server requested a reply, and ignore the rest.
-	 */
-	pos = 1;					/* skip msgtype 'k' */
-	pos += 8;					/* skip walEnd */
-	pos += 8;					/* skip sendTime */
+	/* * 解析 CopyData 内 keepalive。
+ * 仅查是否求回复，略其余。                                                                   */
+	pos = 1;					/* 跳 msgtype k    */
+	pos += 8;					/* 跳 walEnd  */
+	pos += 8;					/* 跳 sendTime  */
 
 	if (len < pos + 1)
 	{
@@ -1005,19 +909,14 @@ ProcessKeepaliveMsg(PGconn *conn, StreamCtl *stream, char *copybuf, int len,
 	}
 	replyRequested = copybuf[pos];
 
-	/* If the server requested an immediate reply, send one. */
+	/* 服求即复则发                                    */
 	if (replyRequested && still_sending)
 	{
 		if (reportFlushPosition && lastFlushPosition < blockpos &&
 			walfile != NULL)
 		{
-			/*
-			 * If a valid flush location needs to be reported, flush the
-			 * current WAL file so that the latest flush location is sent back
-			 * to the server. This is necessary to see whether the last WAL
-			 * data has been successfully replicated or not, at the normal
-			 * shutdown of the server.
-			 */
+			/* * 需报有效刷新位，刷新当前 WAL
+ * 回传最新位，供服正常关时确认。                                                                                                                                                                                                                  */
 			if (stream->walmethod->ops->sync(walfile) != 0)
 				pg_fatal("could not fsync file \"%s\": %s",
 						 walfile->pathname, GetLastWalMethodError(stream->walmethod));
@@ -1045,22 +944,17 @@ ProcessXLogDataMsg(PGconn *conn, StreamCtl *stream, char *copybuf, int len,
 	int			bytes_written;
 	int			hdr_len;
 
-	/*
-	 * Once we've decided we don't want to receive any more, just ignore any
-	 * subsequent XLogData messages.
-	 */
+	/* * 决定不再收后略后续 XLogData。
+ *                                                                  */
 	if (!(still_sending))
 		return true;
 
-	/*
-	 * Read the header of the XLogData message, enclosed in the CopyData
-	 * message. We only need the WAL location field (dataStart), the rest of
-	 * the header is ignored.
-	 */
-	hdr_len = 1;				/* msgtype 'w' */
-	hdr_len += 8;				/* dataStart */
+	/* * 读 XLogData 头(CopyData 内)。
+ * 仅需 WAL 位(dataStart)，余略。                                                                                                 */
+	hdr_len = 1;				/* msgtype w   */
+	hdr_len += 8;				/* 数据起 */
 	hdr_len += 8;				/* walEnd */
-	hdr_len += 8;				/* sendTime */
+	hdr_len += 8;				/* 发时   */
 	if (len < hdr_len)
 	{
 		pg_log_error("streaming header too small: %d", len);
@@ -1068,16 +962,14 @@ ProcessXLogDataMsg(PGconn *conn, StreamCtl *stream, char *copybuf, int len,
 	}
 	*blockpos = fe_recvint64(&copybuf[1]);
 
-	/* Extract WAL location for this block */
+	/* 提取此块 WAL 位                */
 	xlogoff = XLogSegmentOffset(*blockpos, WalSegSz);
 
-	/*
-	 * Verify that the initial location in the stream matches where we think
-	 * we are.
-	 */
+	/* * 验证流初始位匹配预期。
+ *                                                  */
 	if (walfile == NULL)
 	{
-		/* No file open yet */
+		/* 文件未开     */
 		if (xlogoff != 0)
 		{
 			pg_log_error("received write-ahead log record for offset %u with no file open",
@@ -1087,7 +979,7 @@ ProcessXLogDataMsg(PGconn *conn, StreamCtl *stream, char *copybuf, int len,
 	}
 	else
 	{
-		/* More data in existing segment */
+		/* 现有段更多数据         */
 		if (walfile->currpos != xlogoff)
 		{
 			pg_log_error("got WAL data offset %08x, expected %08x",
@@ -1103,10 +995,8 @@ ProcessXLogDataMsg(PGconn *conn, StreamCtl *stream, char *copybuf, int len,
 	{
 		int			bytes_to_write;
 
-		/*
-		 * If crossing a WAL boundary, only write up until we reach wal
-		 * segment size.
-		 */
+		/* * 跨 WAL 边界只写到段大小。
+ *                                                */
 		if (xlogoff + bytes_left > WalSegSz)
 			bytes_to_write = WalSegSz - xlogoff;
 		else
@@ -1116,7 +1006,7 @@ ProcessXLogDataMsg(PGconn *conn, StreamCtl *stream, char *copybuf, int len,
 		{
 			if (!open_walfile(stream, *blockpos))
 			{
-				/* Error logged by open_walfile */
+				/* open_walfile 已记错       */
 				return false;
 			}
 		}
@@ -1131,17 +1021,17 @@ ProcessXLogDataMsg(PGconn *conn, StreamCtl *stream, char *copybuf, int len,
 			return false;
 		}
 
-		/* Write was successful, advance our position */
+		/* 写成功，推进位                      */
 		bytes_written += bytes_to_write;
 		bytes_left -= bytes_to_write;
 		*blockpos += bytes_to_write;
 		xlogoff += bytes_to_write;
 
-		/* Did we reach the end of a WAL segment? */
+		/* 到 WAL 段末？                      */
 		if (XLogSegmentOffset(*blockpos, WalSegSz) == 0)
 		{
 			if (!close_walfile(stream, *blockpos))
-				/* Error message written in close_walfile() */
+				/* close_walfile 已写错                  */
 				return false;
 
 			xlogoff = 0;
@@ -1155,11 +1045,11 @@ ProcessXLogDataMsg(PGconn *conn, StreamCtl *stream, char *copybuf, int len,
 					return false;
 				}
 				still_sending = false;
-				return true;	/* ignore the rest of this XLogData packet */
+				return true;	/* 略此 XLogData 包余                  */
 			}
 		}
 	}
-	/* No more data left to write, receive next copy packet */
+	/* 无更多数据，收下一 copy 包                 */
 
 	return true;
 }
@@ -1173,16 +1063,13 @@ HandleEndOfCopyStream(PGconn *conn, StreamCtl *stream, char *copybuf,
 {
 	PGresult   *res = PQgetResult(conn);
 
-	/*
-	 * The server closed its end of the copy stream.  If we haven't closed
-	 * ours already, we need to do so now, unless the server threw an error,
-	 * in which case we don't.
-	 */
+	/* * 服关 copy 端。未关则关(除
+ * 非服抛错)。                                                                                                                        */
 	if (still_sending)
 	{
 		if (!close_walfile(stream, blockpos))
 		{
-			/* Error message written in close_walfile() */
+			/* close_walfile 已写错                  */
 			PQclear(res);
 			return NULL;
 		}
@@ -1204,9 +1091,8 @@ HandleEndOfCopyStream(PGconn *conn, StreamCtl *stream, char *copybuf,
 	return res;
 }
 
-/*
- * Check if we should continue streaming, or abort at this point.
- */
+/* * 检查继续流还是中止。
+ *                                */
 static bool
 CheckCopyStreamStop(PGconn *conn, StreamCtl *stream, XLogRecPtr blockpos)
 {
@@ -1214,7 +1100,7 @@ CheckCopyStreamStop(PGconn *conn, StreamCtl *stream, XLogRecPtr blockpos)
 	{
 		if (!close_walfile(stream, blockpos))
 		{
-			/* Potential error message is written by close_walfile */
+			/* close_walfile 写潜在错                          */
 			return false;
 		}
 		if (PQputCopyEnd(conn, NULL) <= 0 || PQflush(conn))
@@ -1229,9 +1115,8 @@ CheckCopyStreamStop(PGconn *conn, StreamCtl *stream, XLogRecPtr blockpos)
 	return true;
 }
 
-/*
- * Calculate how long send/receive loops should sleep
- */
+/* * 计算收发循环休眠时长
+ *                    */
 static long
 CalculateCopyStreamSleeptime(TimestampTz now, int standby_message_timeout,
 							 TimestampTz last_status)
@@ -1252,7 +1137,7 @@ CalculateCopyStreamSleeptime(TimestampTz now, int standby_message_timeout,
 							  status_targettime,
 							  &secs,
 							  &usecs);
-		/* Always sleep at least 1 sec */
+		/* 始终至少休眠 1 秒    */
 		if (secs <= 0)
 		{
 			secs = 1;

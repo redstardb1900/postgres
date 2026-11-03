@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "batch_id": "0255-comment-pg_basebackup-main",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "575c779b2e71e0e679288f745f494db4be80564a",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/bin/pg_basebackup/pg_basebackup.c",
+      "kind": "c_comment",
+      "note": "batch 0255 pg_basebackup"
+    },
+    {
+      "pattern": "src/bin/pg_basebackup/receivelog.c",
+      "kind": "c_comment",
+      "note": "batch 0255 receivelog"
+    },
+    {
+      "pattern": "src/bin/pg_basebackup/pg_recvlogical.c",
+      "kind": "c_comment",
+      "note": "batch 0255 pg_recvlogical"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0255-comment-pg_basebackup-main.json",
+      "kind": "manifest",
+      "note": "batch 0255 manifest"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/bin/pg_basebackup/pg_basebackup.c",
+      "segments_total": 199,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "4": "code_annotation"
+      },
+      "kind": "c_comment",
+      "action": "modify",
+      "translated": 197,
+      "preserved": 2
+    },
+    {
+      "path": "src/bin/pg_basebackup/receivelog.c",
+      "segments_total": 104,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "15": "function_header",
+        "21": "function_header",
+        "50": "code_annotation",
+        "72": "function_header",
+        "79": "function_header",
+        "97": "function_header"
+      },
+      "kind": "c_comment",
+      "action": "modify",
+      "translated": 97,
+      "preserved": 7
+    },
+    {
+      "path": "src/bin/pg_basebackup/pg_recvlogical.c",
+      "segments_total": 85,
+      "preserved_reasons": {
+        "0": "copyright_header",
+        "7": "function_header",
+        "47": "code_annotation",
+        "55": "code_annotation"
+      },
+      "kind": "c_comment",
+      "action": "modify",
+      "translated": 81,
+      "preserved": 4
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0255-comment-pg_basebackup-main.json",
+      "kind": "manifest",
+      "action": "add",
+      "translated": 0,
+      "preserved": 0,
+      "segments_total": 0
+    }
+  ],
+  "title": "translate pg_basebackup, receivelog, pg_recvlogical comments — batch 0255"
+}

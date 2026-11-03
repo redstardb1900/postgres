@@ -79,20 +79,14 @@ typedef struct WriteManifestState
 typedef void (*WriteDataCallback) (size_t nbytes, char *buf,
 								   void *callback_data);
 
-/*
- * pg_xlog has been renamed to pg_wal in version 10.  This version number
- * should be compared with PQserverVersion().
- */
+/* * pg_xlog 在 v10 重命名为 pg_wal。应与
+ * PQserverVersion() 比较。                                            */
 #define MINIMUM_VERSION_FOR_PG_WAL	100000
 
-/*
- * Temporary replication slots are supported from version 10.
- */
+/* * 临时复制槽 v10 起受支持。                          */
 #define MINIMUM_VERSION_FOR_TEMP_SLOTS 100000
 
-/*
- * Backup manifests are supported from version 13.
- */
+/* * 备份清单 v13 起受支持。                  */
 #define MINIMUM_VERSION_FOR_MANIFESTS	130000
 
 /*
@@ -101,9 +95,7 @@ typedef void (*WriteDataCallback) (size_t nbytes, char *buf,
  */
 #define MINIMUM_VERSION_FOR_TERMINATED_TARFILE 150000
 
-/*
- * Different ways to include WAL
- */
+/* * 包含 WAL 的不同方式      */
 typedef enum
 {
 	NO_WAL,
@@ -111,9 +103,7 @@ typedef enum
 	STREAM_WAL
 } IncludeWal;
 
-/*
- * Different places to perform compression
- */
+/* * 执行压缩的不同位置               */
 typedef enum
 {
 	COMPRESS_LOCATION_UNSPECIFIED,
@@ -121,11 +111,11 @@ typedef enum
 	COMPRESS_LOCATION_SERVER
 } CompressionLocation;
 
-/* Global options */
+/* 全局选项   */
 static char *basedir = NULL;
 static TablespaceList tablespace_dirs = {NULL, NULL};
 static char *xlog_dir = NULL;
-static char format = '\0';		/* p(lain)/t(ar) */
+static char format = '\0';		/* p/t           */
 static char *label = "pg_basebackup base backup";
 static bool noclean = false;
 static bool checksum_failure = false;
@@ -136,9 +126,9 @@ static IncludeWal includewal = STREAM_WAL;
 static bool fastcheckpoint = false;
 static bool writerecoveryconf = false;
 static bool do_sync = true;
-static int	standby_message_timeout = 10 * 1000;	/* 10 sec = default */
+static int	standby_message_timeout = 10 * 1000;	/* 10s 默认       */
 static pg_time_t last_progress_report = 0;
-static int32 maxrate = 0;		/* no limit by default */
+static int32 maxrate = 0;		/* 默认无限制     */
 static char *replication_slot = NULL;
 static bool temp_replication_slot = true;
 static char *backup_target = NULL;
@@ -157,25 +147,25 @@ static bool found_existing_xlogdir = false;
 static bool made_tablespace_dirs = false;
 static bool found_tablespace_dirs = false;
 
-/* Progress indicators */
+/* 进度指示        */
 static uint64 totalsize_kb;
 static uint64 totaldone;
 static int	tablespacecount;
 static char *progress_filename = NULL;
 
-/* Pipe to communicate with background wal receiver process */
+/* 与后台 WAL 接收进程通信的管道                */
 #ifndef WIN32
 static int	bgpipe[2] = {-1, -1};
 #endif
 
-/* Handle to child process */
+/* 子进程句柄         */
 static pid_t bgchild = -1;
 static bool in_log_streamer = false;
 
-/* Flag to indicate if child process exited unexpectedly */
+/* 标志子进程是否意外退出                     */
 static volatile sig_atomic_t bgchild_exited = false;
 
-/* End position for xlog streaming, empty string if unknown yet */
+/* xlog 流结束位，未知为空                             */
 static XLogRecPtr xlogendptr;
 
 #ifndef WIN32
@@ -184,10 +174,10 @@ static int	has_xlogendptr = 0;
 static volatile LONG has_xlogendptr = 0;
 #endif
 
-/* Contents of configuration file to be generated */
+/* 待生成配置文件内容                    */
 static PQExpBuffer recoveryconfcontents = NULL;
 
-/* Function headers */
+/* 函数头        */
 static void usage(void);
 static void verify_dir_is_empty_or_create(char *dirname, bool *created, bool *found);
 static void progress_update_filename(const char *filename);
@@ -280,23 +270,16 @@ disconnect_atexit(void)
 }
 
 #ifndef WIN32
-/*
- * If the bgchild exits prematurely and raises a SIGCHLD signal, we can abort
- * processing rather than wait until the backup has finished and error out at
- * that time. On Windows, we use a background thread which can communicate
- * without the need for a signal handler.
- */
+/* * bgchild 过早退出且 SIGCHLD 可中止，
+ * 无需等备份完成。Windows 用后台线程。                                                                                                                                                                              */
 static void
 sigchld_handler(SIGNAL_ARGS)
 {
 	bgchild_exited = true;
 }
 
-/*
- * On windows, our background thread dies along with the process. But on
- * Unix, if we have started a subprocess, we want to kill it off so it
- * doesn't remain running trying to stream data.
- */
+/* * Windows 后台线程随进程终止。Unix 终止
+ * 子进程以免继续流传输。                                                                                                          */
 static void
 kill_bgchild_atexit(void)
 {
@@ -305,10 +288,8 @@ kill_bgchild_atexit(void)
 }
 #endif
 
-/*
- * Split argument into old_dir and new_dir and append to tablespace mapping
- * list.
- */
+/* * 拆分参数为 old_dir/new_dir，追加到
+ * 表空间映射。                   */
 static void
 tablespace_list_append(const char *arg)
 {
@@ -324,7 +305,7 @@ tablespace_list_append(const char *arg)
 			pg_fatal("directory name too long");
 
 		if (*arg_ptr == '\\' && *(arg_ptr + 1) == '=')
-			;					/* skip backslash escaping = */
+			;					/* 跳过反斜杠转义 =   */
 		else if (*arg_ptr == '=' && (arg_ptr == arg || *(arg_ptr - 1) != '\\'))
 		{
 			if (*cell->new_dir)
@@ -339,21 +320,12 @@ tablespace_list_append(const char *arg)
 	if (!*cell->old_dir || !*cell->new_dir)
 		pg_fatal("invalid tablespace mapping format \"%s\", must be \"OLDDIR=NEWDIR\"", arg);
 
-	/*
-	 * All tablespaces are created with absolute directories, so specifying a
-	 * non-absolute path here would just never match, possibly confusing
-	 * users. Since we don't know whether the remote side is Windows or not,
-	 * and it might be different than the local side, permit any path that
-	 * could be absolute under either set of rules.
-	 *
-	 * (There is little practical risk of confusion here, because someone
-	 * running entirely on Linux isn't likely to have a relative path that
-	 * begins with a backslash or something that looks like a drive
-	 * specification. If they do, and they also incorrectly believe that a
-	 * relative path is acceptable here, we'll silently fail to warn them of
-	 * their mistake, and the -T option will just not get applied, same as if
-	 * they'd specified -T for a nonexistent tablespace.)
-	 */
+	/* * 表空间均绝对目录，非绝对不匹配。不知
+ * 远端 OS，允许任一规则下绝对路径。
+ *
+ * 几乎无混淆风险。Linux 用户不用反斜
+ * 杠或驱动器路径。用了 -T 不生效无警告，
+ * 等同指定不存在表空间。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           */
 	if (!is_nonwindows_absolute_path(cell->old_dir) &&
 		!is_windows_absolute_path(cell->old_dir))
 		pg_fatal("old directory is not an absolute path in tablespace mapping: %s",
@@ -363,11 +335,8 @@ tablespace_list_append(const char *arg)
 		pg_fatal("new directory is not an absolute path in tablespace mapping: %s",
 				 cell->new_dir);
 
-	/*
-	 * Comparisons done with these values should involve similarly
-	 * canonicalized path values.  This is particularly sensitive on Windows
-	 * where path values may not necessarily use Unix slashes.
-	 */
+	/* * 比较须用规范化路径。Windows 上尤需
+ * 注意，路径可能非 Unix 斜杠。                                                                                                            */
 	canonicalize_path(cell->old_dir);
 	canonicalize_path(cell->new_dir);
 
@@ -439,14 +408,9 @@ usage(void)
 }
 
 
-/*
- * Called in the background process every time data is received.
- * On Unix, we check to see if there is any data on our pipe
- * (which would mean we have a stop position), and if it is, check if
- * it is time to stop.
- * On Windows, we are in a single process, so we can just check if it's
- * time to stop.
- */
+/* * 每次收数据时后台调用。
+ * Unix 检查管道有无停止位置。
+ * Windows 直接检查是否该停。                                                                                                                                                                                                 */
 static bool
 reached_end_position(XLogRecPtr segendpos, uint32 timeline,
 					 bool segment_finished)
@@ -458,10 +422,8 @@ reached_end_position(XLogRecPtr segendpos, uint32 timeline,
 		struct timeval tv = {0};
 		int			r;
 
-		/*
-		 * Don't have the end pointer yet - check our pipe to see if it has
-		 * been sent yet.
-		 */
+		/* * 尚无结束指针，查管道是否已发送。
+ *                                        */
 		FD_ZERO(&fds);
 		FD_SET(bgpipe[0], &fds);
 
@@ -489,33 +451,25 @@ reached_end_position(XLogRecPtr segendpos, uint32 timeline,
 		}
 		else
 		{
-			/*
-			 * No data received on the pipe means we don't know the end
-			 * position yet - so just say it's not time to stop yet.
-			 */
+			/* * 管道无数据=未知结束位，告知不停止。
+ *                                                                      */
 			return false;
 		}
 #else
 
-		/*
-		 * On win32, has_xlogendptr is set by the main thread, so if it's not
-		 * set here, we just go back and wait until it shows up.
-		 */
+		/* * win32 上 has_xlogendptr 主线程设，
+ * 未设则返回等待。                                                                */
 		return false;
 #endif
 	}
 
-	/*
-	 * At this point we have an end pointer, so compare it to the current
-	 * position to figure out if it's time to stop.
-	 */
+	/* * 有结束指针，比当前位置决定是否停止。
+ *                                                               */
 	if (segendpos >= xlogendptr)
 		return true;
 
-	/*
-	 * Have end pointer, but haven't reached it yet - so tell the caller to
-	 * keep streaming.
-	 */
+	/* * 有结束指针未到达，告知调用者继续流。
+ *                                    */
 	return false;
 }
 
@@ -523,7 +477,7 @@ typedef struct
 {
 	PGconn	   *bgconn;
 	XLogRecPtr	startptr;
-	char		xlog[MAXPGPATH];	/* directory or tarfile depending on mode */
+	char		xlog[MAXPGPATH];	/* 目录或 tar，取决于模式        */
 	char	   *sysidentifier;
 	int			timeline;
 	pg_compress_algorithm wal_compress_algorithm;
@@ -548,7 +502,7 @@ LogStreamerMain(logstreamer_param *param)
 #endif
 	stream.standby_message_timeout = standby_message_timeout;
 	stream.synchronous = false;
-	/* fsync happens at the end of pg_basebackup for all data */
+	/* fsync 在 pg_basebackup 末尾统一执行             */
 	stream.do_sync = false;
 	stream.mark_done = true;
 	stream.partial_suffix = NULL;
@@ -565,16 +519,11 @@ LogStreamerMain(logstreamer_param *param)
 
 	if (!ReceiveXlogStream(param->bgconn, &stream))
 	{
-		/*
-		 * Any errors will already have been reported in the function process,
-		 * but we need to tell the parent that we didn't shutdown in a nice
-		 * way.
-		 */
+		/* * 错误已在函数内报告，告知父进程未正常
+ * 关闭。                                                                                       */
 #ifdef WIN32
-		/*
-		 * In order to signal the main thread of an ungraceful exit we set the
-		 * same flag that we use on Unix to signal SIGCHLD.
-		 */
+		/* * 设 Unix SIGCHLD 同标志，通知主线
+ * 程非正常退出。                                                              */
 		bgchild_exited = true;
 #endif
 		return 1;
@@ -596,11 +545,8 @@ LogStreamerMain(logstreamer_param *param)
 	return 0;
 }
 
-/*
- * Initiate background process for receiving xlog during the backup.
- * The background stream will use its own database connection so we can
- * stream the logfile in parallel with the backups.
- */
+/* * 启后台进程收 xlog。后台流独立连接，
+ * 并行传输日志。                                                                                                                     */
 static void
 StartLogStreamer(char *startpos, uint32 timeline, char *sysidentifier,
 				 pg_compress_algorithm wal_compress_algorithm,
@@ -617,39 +563,38 @@ StartLogStreamer(char *startpos, uint32 timeline, char *sysidentifier,
 	param->wal_compress_algorithm = wal_compress_algorithm;
 	param->wal_compress_level = wal_compress_level;
 
-	/* Convert the starting position */
+	/* 转换起始位置            */
 	if (sscanf(startpos, "%X/%X", &hi, &lo) != 2)
 		pg_fatal("could not parse write-ahead log location \"%s\"",
 				 startpos);
 	param->startptr = ((uint64) hi) << 32 | lo;
-	/* Round off to even segment position */
+	/* 舍入到偶数段                 */
 	param->startptr -= XLogSegmentOffset(param->startptr, WalSegSz);
 
 #ifndef WIN32
-	/* Create our background pipe */
+	/* 创建后台管道         */
 	if (pipe(bgpipe) < 0)
 		pg_fatal("could not create pipe for background process: %m");
 #endif
 
-	/* Get a second connection */
+	/* 获取第二连接      */
 	param->bgconn = GetConnection();
 	if (!param->bgconn)
-		/* Error message already written in GetConnection() */
+		/* 错误已在 GetConnection 写入                */
 		exit(1);
 
-	/* In post-10 cluster, pg_xlog has been renamed to pg_wal */
+	/* post-10 集簇 pg_xlog 重命名 pg_wal                */
 	snprintf(param->xlog, sizeof(param->xlog), "%s/%s",
 			 basedir,
 			 PQserverVersion(conn) < MINIMUM_VERSION_FOR_PG_WAL ?
 			 "pg_xlog" : "pg_wal");
 
-	/* Temporary replication slots are only supported in 10 and newer */
+	/* 临时复制槽仅 10+ 支持                                  */
 	if (PQserverVersion(conn) < MINIMUM_VERSION_FOR_TEMP_SLOTS)
 		temp_replication_slot = false;
 
-	/*
-	 * Create replication slot if requested
-	 */
+	/* * 按需创建复制槽
+ *                 */
 	if (temp_replication_slot && !replication_slot)
 		replication_slot = psprintf("pg_basebackup_%u",
 									(unsigned int) PQbackendPID(param->bgconn));
@@ -672,12 +617,8 @@ StartLogStreamer(char *startpos, uint32 timeline, char *sysidentifier,
 
 	if (format == 'p')
 	{
-		/*
-		 * Create pg_wal/archive_status or pg_xlog/archive_status (and thus
-		 * pg_wal or pg_xlog) depending on the target server so we can write
-		 * to basedir/pg_wal or basedir/pg_xlog as the directory entry in the
-		 * tar file may arrive later.
-		 */
+		/* * 按目标服务器创建 pg_wal/archive_status
+ * 或 pg_xlog/archive_status 及目录。                                                                                                                                                             */
 		snprintf(statusdir, sizeof(statusdir), "%s/%s/archive_status",
 				 basedir,
 				 PQserverVersion(conn) < MINIMUM_VERSION_FOR_PG_WAL ?
@@ -687,23 +628,20 @@ StartLogStreamer(char *startpos, uint32 timeline, char *sysidentifier,
 			pg_fatal("could not create directory \"%s\": %m", statusdir);
 	}
 
-	/*
-	 * Start a child process and tell it to start streaming. On Unix, this is
-	 * a fork(). On Windows, we create a thread.
-	 */
+	/* * 启动子进程流传输。Unix fork，
+ * Windows 创线程。                                                          */
 #ifndef WIN32
 	bgchild = fork();
 	if (bgchild == 0)
 	{
-		/* in child process */
+		/* 子进程        */
 		exit(LogStreamerMain(param));
 	}
 	else if (bgchild < 0)
 		pg_fatal("could not create background process: %m");
 
-	/*
-	 * Else we are in the parent process and all is well.
-	 */
+	/* * 否则父进程中，一切正常。
+ *                */
 	atexit(kill_bgchild_atexit);
 #else							/* WIN32 */
 	bgchild = _beginthreadex(NULL, 0, (void *) LogStreamerMain, param, 0, NULL);
@@ -712,11 +650,8 @@ StartLogStreamer(char *startpos, uint32 timeline, char *sysidentifier,
 #endif
 }
 
-/*
- * Verify that the given directory exists and is empty. If it does not
- * exist, it is created. If it exists but is not empty, an error will
- * be given and the process ended.
- */
+/* * 验证目录存在且空。无则创，非空报错。
+ *                                                                                                                      */
 static void
 verify_dir_is_empty_or_create(char *dirname, bool *created, bool *found)
 {
@@ -724,9 +659,8 @@ verify_dir_is_empty_or_create(char *dirname, bool *created, bool *found)
 	{
 		case 0:
 
-			/*
-			 * Does not exist, so create
-			 */
+			/* * 不存在，创
+ *                */
 			if (pg_mkdir_p(dirname, pg_dir_create_mode) == -1)
 				pg_fatal("could not create directory \"%s\": %m", dirname);
 			if (created)
@@ -734,9 +668,8 @@ verify_dir_is_empty_or_create(char *dirname, bool *created, bool *found)
 			return;
 		case 1:
 
-			/*
-			 * Exists, empty
-			 */
+			/* * 存在，空
+ *       */
 			if (found)
 				*found = true;
 			return;
@@ -744,28 +677,24 @@ verify_dir_is_empty_or_create(char *dirname, bool *created, bool *found)
 		case 3:
 		case 4:
 
-			/*
-			 * Exists, not empty
-			 */
+			/* * 存在，非空
+ *        */
 			pg_fatal("directory \"%s\" exists but is not empty", dirname);
 		case -1:
 
-			/*
-			 * Access problem
-			 */
+			/* * 访问问题
+ *        */
 			pg_fatal("could not access directory \"%s\": %m", dirname);
 	}
 }
 
-/*
- * Callback to update our notion of the current filename.
+/* * 更新当前文件名的回调。
  *
- * No other code should modify progress_filename!
- */
+ * 其他代码勿改 progress_filename！                               */
 static void
 progress_update_filename(const char *filename)
 {
-	/* We needn't maintain this variable if not doing verbose reports. */
+	/* 不详细报告则无需维护此变量                         */
 	if (showprogress && verbose)
 	{
 		free(progress_filename);
@@ -776,16 +705,12 @@ progress_update_filename(const char *filename)
 	}
 }
 
-/*
- * Print a progress report based on the global variables. If verbose output
- * is enabled, also print the current file name.
+/* * 基于全局变量打印进度。详细模式打印
+ * 当前文件名。
  *
- * Progress report is written at maximum once per second, unless the force
- * parameter is set to true.
+ * 最多每秒一次，force=true 除外。
  *
- * If finished is set to true, this is the last progress report. The cursor
- * is moved to the next line.
- */
+ * finished=true 最后一次，光标下行。                                                                                                                                                                        */
 static void
 progress_report(int tablespacenum, bool force, bool finished)
 {
@@ -799,17 +724,14 @@ progress_report(int tablespacenum, bool force, bool finished)
 
 	now = time(NULL);
 	if (now == last_progress_report && !force && !finished)
-		return;					/* Max once per second */
+		return;					/* 最多每秒一次  */
 
 	last_progress_report = now;
 	percent = totalsize_kb ? (int) ((totaldone / 1024) * 100 / totalsize_kb) : 0;
 
-	/*
-	 * Avoid overflowing past 100% or the full size. This may make the total
-	 * size number change as we approach the end of the backup (the estimate
-	 * will always be wrong if WAL is included), but that's better than having
-	 * the done column be bigger than the total.
-	 */
+	/* * 避免超 100% 或总大小。接近结束时可能
+ * 变化（含 WAL 时不准），但好过完成列
+ * 超总计。                                                                                                                                                     */
 	if (percent > 100)
 		percent = 100;
 	if (totaldone / 1024 > totalsize_kb)
@@ -824,10 +746,8 @@ progress_report(int tablespacenum, bool force, bool finished)
 	{
 		if (!progress_filename)
 
-			/*
-			 * No filename given, so clear the status line (used for last
-			 * call)
-			 */
+			/* * 无文件名，清状态行（最后调用）。
+ *                            */
 			fprintf(stderr,
 					ngettext("%*s/%s kB (100%%), %d/%d tablespace %*s",
 							 "%*s/%s kB (100%%), %d/%d tablespaces %*s",
@@ -847,11 +767,11 @@ progress_report(int tablespacenum, bool force, bool finished)
 					(int) strlen(totalsize_str),
 					totaldone_str, totalsize_str, percent,
 					tablespacenum, tablespacecount,
-			/* Prefix with "..." if we do leading truncation */
+			/* 前导截断加 "..." 前缀                  */
 					truncate ? "..." : "",
 					truncate ? VERBOSE_FILENAME_LENGTH - 3 : VERBOSE_FILENAME_LENGTH,
 					truncate ? VERBOSE_FILENAME_LENGTH - 3 : VERBOSE_FILENAME_LENGTH,
-			/* Truncate filename at beginning if it's too long */
+			/* 文件名太长则从开头截断               */
 					truncate ? progress_filename + strlen(progress_filename) - VERBOSE_FILENAME_LENGTH + 3 : progress_filename);
 		}
 	}
@@ -864,10 +784,8 @@ progress_report(int tablespacenum, bool force, bool finished)
 				totaldone_str, totalsize_str, percent,
 				tablespacenum, tablespacecount);
 
-	/*
-	 * Stay on the same line if reporting to a terminal and we're not done
-	 * yet.
-	 */
+	/* * 终端输出且未完成保持同行。
+ *                                       */
 	fputc((!finished && isatty(fileno(stderr))) ? '\r' : '\n', stderr);
 }
 
@@ -887,16 +805,13 @@ parse_max_rate(char *src)
 
 	if (result <= 0)
 	{
-		/*
-		 * Reject obviously wrong values here.
-		 */
+		/* * 在此拒绝明显错误。
+ *            */
 		pg_fatal("transfer rate must be greater than zero");
 	}
 
-	/*
-	 * Evaluate suffix, after skipping over possible whitespace. Lack of
-	 * suffix means kilobytes.
-	 */
+	/* * 跳过空白评后缀。无后缀=KB。
+ *                                                        */
 	while (*after_num != '\0' && isspace((unsigned char) *after_num))
 		after_num++;
 
@@ -905,7 +820,7 @@ parse_max_rate(char *src)
 		suffix = after_num;
 		if (*after_num == 'k')
 		{
-			/* kilobyte is the expected unit. */
+			/* KB 是期望单位             */
 			after_num++;
 		}
 		else if (*after_num == 'M')
@@ -915,54 +830,43 @@ parse_max_rate(char *src)
 		}
 	}
 
-	/* The rest can only consist of white space. */
+	/* 其余仅可为空白                     */
 	while (*after_num != '\0' && isspace((unsigned char) *after_num))
 		after_num++;
 
 	if (*after_num != '\0')
 		pg_fatal("invalid --max-rate unit: \"%s\"", suffix);
 
-	/* Valid integer? */
+	/* 有效整数   */
 	if ((uint64) result != (uint64) ((uint32) result))
 		pg_fatal("transfer rate \"%s\" exceeds integer range", src);
 
-	/*
-	 * The range is checked on the server side too, but avoid the server
-	 * connection if a nonsensical value was passed.
-	 */
+	/* * 服务器也会查范围，但避免无意义值发
+ * 起连接。                                                     */
 	if (result < MAX_RATE_LOWER || result > MAX_RATE_UPPER)
 		pg_fatal("transfer rate \"%s\" is out of range", src);
 
 	return (int32) result;
 }
 
-/*
- * Basic parsing of a value specified for -Z/--compress.
+/* * -Z/--compress 基础解析。
  *
- * We're not concerned here with understanding exactly what behavior the
- * user wants, but we do need to know whether the user is requesting client
- * or server side compression or leaving it unspecified, and we need to
- * separate the name of the compression algorithm from the detail string.
+ * 不需全懂用户意图，但需知客户端/服
+ * 务端压缩或未指定，算法名与详情分开。
  *
- * For instance, if the user writes --compress client-lz4:6, we want to
- * separate that into (a) client-side compression, (b) algorithm "lz4",
- * and (c) detail "6". Note, however, that all the client/server prefix is
- * optional, and so is the detail. The algorithm name is required, unless
- * the whole string is an integer, in which case we assume "gzip" as the
- * algorithm and use the integer as the detail.
+ * 如 --compress client-lz4:6 => (a)
+ * 客户端 (b) lz4 (c) 6。前/后缀均可
+ * 选。算法名必需，纯数字默认 gzip。
  *
- * We're not concerned with validation at this stage, so if the user writes
- * --compress client-turkey:sandwich, the requested algorithm is "turkey"
- * and the detail string is "sandwich". We'll sort out whether that's legal
- * at a later stage.
- */
+ * 此阶段不验证。client-turkey:sandwich
+ * => 算法 turkey，详情 sandwich。稍后
+ * 确认合法性。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             */
 static void
 backup_parse_compress_options(char *option, char **algorithm, char **detail,
 							  CompressionLocation *locationres)
 {
-	/*
-	 * Strip off any "client-" or "server-" prefix, calculating the location.
-	 */
+	/* * 剥 client-/server- 前缀定位置。
+ *                                  */
 	if (strncmp(option, "server-", 7) == 0)
 	{
 		*locationres = COMPRESS_LOCATION_SERVER;
@@ -976,28 +880,26 @@ backup_parse_compress_options(char *option, char **algorithm, char **detail,
 	else
 		*locationres = COMPRESS_LOCATION_UNSPECIFIED;
 
-	/* fallback to the common parsing for the algorithm and detail */
+	/* 回退通用解析算法和详情                           */
 	parse_compress_options(option, algorithm, detail);
 }
 
-/*
- * Read a stream of COPY data and invoke the provided callback for each
- * chunk.
- */
+/* * 读 COPY 数据流，每块调回调。
+ *                                       */
 static void
 ReceiveCopyData(PGconn *conn, WriteDataCallback callback,
 				void *callback_data)
 {
 	PGresult   *res;
 
-	/* Get the COPY data stream. */
+	/* 获取 COPY 数据流     */
 	res = PQgetResult(conn);
 	if (PQresultStatus(res) != PGRES_COPY_OUT)
 		pg_fatal("could not get COPY data stream: %s",
 				 PQerrorMessage(conn));
 	PQclear(res);
 
-	/* Loop over chunks until done. */
+	/* 循环处理直到完成     */
 	while (1)
 	{
 		int			r;
@@ -1006,7 +908,7 @@ ReceiveCopyData(PGconn *conn, WriteDataCallback callback,
 		r = PQgetCopyData(conn, &copybuf, 0);
 		if (r == -1)
 		{
-			/* End of chunk. */
+			/* 块结束     */
 			break;
 		}
 		else if (r == -2)
@@ -1022,15 +924,9 @@ ReceiveCopyData(PGconn *conn, WriteDataCallback callback,
 	}
 }
 
-/*
- * Figure out what to do with an archive received from the server based on
- * the options selected by the user.  We may just write the results directly
- * to a file, or we might compress first, or we might extract the tar file
- * and write each member separately. This function doesn't do any of that
- * directly, but it works out what kind of bbstreamer we need to create so
- * that the right stuff happens when, down the road, we actually receive
- * the data.
- */
+/* * 依选项定如何处理归档：直接写、压缩
+ * 或提取 tar 成员。此函数定
+ * bbstreamer 类型，收数据时执行。                                                                                                                                                                                                                                                                                                                                      */
 static bbstreamer *
 CreateBackupStreamer(char *archive_name, char *spclocation,
 					 bbstreamer **manifest_inject_streamer_p,
@@ -1049,40 +945,31 @@ CreateBackupStreamer(char *archive_name, char *spclocation,
 	bool		must_parse_archive;
 	int			archive_name_len = strlen(archive_name);
 
-	/*
-	 * Normally, we emit the backup manifest as a separate file, but when
-	 * we're writing a tarfile to stdout, we don't have that option, so
-	 * include it in the one tarfile we've got.
-	 */
+	/* * 通常清单单独输出，写 stdout 则注入
+ * 唯一 tar 文件。                                                                                                                  */
 	inject_manifest = (format == 't' && strcmp(basedir, "-") == 0 && manifest);
 
-	/* Is this a tar archive? */
+	/* tar 归档？          */
 	is_tar = (archive_name_len > 4 &&
 			  strcmp(archive_name + archive_name_len - 4, ".tar") == 0);
 
-	/* Is this a .tar.gz archive? */
+	/* .tar.gz 归档？          */
 	is_tar_gz = (archive_name_len > 7 &&
 				 strcmp(archive_name + archive_name_len - 7, ".tar.gz") == 0);
 
-	/* Is this a .tar.lz4 archive? */
+	/* .tar.lz4 归档？          */
 	is_tar_lz4 = (archive_name_len > 8 &&
 				  strcmp(archive_name + archive_name_len - 8, ".tar.lz4") == 0);
 
-	/* Is this a .tar.zst archive? */
+	/* .tar.zst 归档？          */
 	is_tar_zstd = (archive_name_len > 8 &&
 				   strcmp(archive_name + archive_name_len - 8, ".tar.zst") == 0);
 
-	/* Is this any kind of compressed tar? */
+	/* 压缩 tar？                       */
 	is_compressed_tar = is_tar_gz || is_tar_lz4 || is_tar_zstd;
 
-	/*
-	 * Injecting the manifest into a compressed tar file would be possible if
-	 * we decompressed it, parsed the tarfile, generated a new tarfile, and
-	 * recompressed it, but compressing and decompressing multiple times just
-	 * to inject the manifest seems inefficient enough that it's probably not
-	 * what the user wants. So, instead, reject the request and tell the user
-	 * to specify something more reasonable.
-	 */
+	/* * 注入清单到压缩 tar 需解压-解析-重建
+ * -重压，效率低。拒绝让用户改配置。                                                                                                                                                                                                                                                                                                                         */
 	if (inject_manifest && is_compressed_tar)
 	{
 		pg_log_error("cannot inject manifest into a compressed tar file");
@@ -1091,15 +978,12 @@ CreateBackupStreamer(char *archive_name, char *spclocation,
 		exit(1);
 	}
 
-	/*
-	 * We have to parse the archive if (1) we're suppose to extract it, or if
-	 * (2) we need to inject backup_manifest or recovery configuration into
-	 * it. However, we only know how to parse tar archives.
-	 */
+	/* * 需解析归档若：(1) 提取 (2) 注入清
+ * 单或恢复配置。仅支持 tar 解析。                                                                                                                */
 	must_parse_archive = (format == 'p' || inject_manifest ||
 						  (spclocation == NULL && writerecoveryconf));
 
-	/* At present, we only know how to parse tar archives. */
+	/* 目前仅支持 tar 归档解析                    */
 	if (must_parse_archive && !is_tar && !is_compressed_tar)
 	{
 		pg_log_error("cannot parse archive \"%s\"", archive_name);
@@ -1117,17 +1001,11 @@ CreateBackupStreamer(char *archive_name, char *spclocation,
 	{
 		const char *directory;
 
-		/*
-		 * In plain format, we must extract the archive. The data for the main
-		 * tablespace will be written to the base directory, and the data for
-		 * other tablespaces will be written to the directory where they're
-		 * located on the server, after applying any user-specified tablespace
-		 * mappings.
-		 *
-		 * In the case of an in-place tablespace, spclocation will be a
-		 * relative path. We just convert it to an absolute path by prepending
-		 * basedir.
-		 */
+		/* * 纯格式须提取。主表空间写基目录，
+ * 其他写服务器位置（应用映射后）。
+ *
+ * 就地表空间 spclocation 相对路径，
+ * 前加 basedir 转绝对。                                                                                                                                                                                                                                                                                         */
 		if (spclocation == NULL)
 			directory = basedir;
 		else if (!is_absolute_path(spclocation))
@@ -1143,12 +1021,8 @@ CreateBackupStreamer(char *archive_name, char *spclocation,
 		FILE	   *archive_file;
 		char		archive_filename[MAXPGPATH];
 
-		/*
-		 * In tar format, we just write the archive without extracting it.
-		 * Normally, we write it to the archive name provided by the caller,
-		 * but when the base directory is "-" that means we need to write to
-		 * standard output.
-		 */
+		/* * tar 格式只写不提取。通常写指定名，
+ * basedir="-" 写 stdout。                                                                                                                                                            */
 		if (strcmp(basedir, "-") == 0)
 		{
 			snprintf(archive_filename, sizeof(archive_filename), "-");
@@ -1186,32 +1060,23 @@ CreateBackupStreamer(char *archive_name, char *spclocation,
 		}
 		else
 		{
-			Assert(false);		/* not reachable */
+			Assert(false);		/* 不可达     */
 		}
 
-		/*
-		 * If we need to parse the archive for whatever reason, then we'll
-		 * also need to re-archive, because, if the output format is tar, the
-		 * only point of parsing the archive is to be able to inject stuff
-		 * into it.
-		 */
+		/* * 需解析归档则也需重归档，tar 输出
+ * 下解析只为注入。                                                                                                                                                       */
 		if (must_parse_archive)
 			streamer = bbstreamer_tar_archiver_new(streamer);
 		progress_update_filename(archive_filename);
 	}
 
-	/*
-	 * If we're supposed to inject the backup manifest into the results, it
-	 * should be done here, so that the file content can be injected directly,
-	 * without worrying about the details of the tar format.
-	 */
+	/* * 需注入清单在此完成，免 tar 细节。
+ *                                                                                                                                                             */
 	if (inject_manifest)
 		manifest_inject_streamer = streamer;
 
-	/*
-	 * If this is the main tablespace and we're supposed to write recovery
-	 * information, arrange to do that.
-	 */
+	/* * 主表空间且需写恢复信息执行。
+ *                                                                */
 	if (spclocation == NULL && writerecoveryconf)
 	{
 		Assert(must_parse_archive);
@@ -1220,21 +1085,15 @@ CreateBackupStreamer(char *archive_name, char *spclocation,
 													recoveryconfcontents);
 	}
 
-	/*
-	 * If we're doing anything that involves understanding the contents of the
-	 * archive, we'll need to parse it. If not, we can skip parsing it, but
-	 * old versions of the server send improperly terminated tarfiles, so if
-	 * we're talking to such a server we'll need to add the terminator here.
-	 */
+	/* * 涉及理解归档内容需解析。否则跳过，
+ * 旧服务器未终止 tar 时加终止符。                                                                                                                                                                                                      */
 	if (must_parse_archive)
 		streamer = bbstreamer_tar_parser_new(streamer);
 	else if (expect_unterminated_tarfile)
 		streamer = bbstreamer_tar_terminator_new(streamer);
 
-	/*
-	 * If the user has requested a server compressed archive along with
-	 * archive extraction at client then we need to decompress it.
-	 */
+	/* * 用户请求服务器压缩且客户端提取时
+ * 需解压。                                                                     */
 	if (format == 'p')
 	{
 		if (is_tar_gz)
@@ -1245,39 +1104,35 @@ CreateBackupStreamer(char *archive_name, char *spclocation,
 			streamer = bbstreamer_zstd_decompressor_new(streamer);
 	}
 
-	/* Return the results. */
+	/* 返回结果        */
 	*manifest_inject_streamer_p = manifest_inject_streamer;
 	return streamer;
 }
 
-/*
- * Receive all of the archives the server wants to send - and the backup
- * manifest if present - as a single COPY stream.
- */
+/* * 收服务器所有归档及清单（如存在），
+ * 作为单 COPY 流。                                              */
 static void
 ReceiveArchiveStream(PGconn *conn, pg_compress_specification *compress)
 {
 	ArchiveStreamState state;
 
-	/* Set up initial state. */
+	/* 设初始状态       */
 	memset(&state, 0, sizeof(state));
 	state.tablespacenum = -1;
 	state.compress = compress;
 
-	/* All the real work happens in ReceiveArchiveStreamChunk. */
+	/* 实际工作在 ReceiveArchiveStreamChunk 完成        */
 	ReceiveCopyData(conn, ReceiveArchiveStreamChunk, &state);
 
-	/* If we wrote the backup manifest to a file, close the file. */
+	/* 清单已写文件则关闭                                */
 	if (state.manifest_file !=NULL)
 	{
 		fclose(state.manifest_file);
 		state.manifest_file = NULL;
 	}
 
-	/*
-	 * If we buffered the backup manifest in order to inject it into the
-	 * output tarfile, do that now.
-	 */
+	/* * 缓冲的清单注入输出 tar 文件。
+ *                                                           */
 	if (state.manifest_inject_streamer != NULL &&
 		state.manifest_buffer != NULL)
 	{
@@ -1289,7 +1144,7 @@ ReceiveArchiveStream(PGconn *conn, pg_compress_specification *compress)
 		state.manifest_buffer = NULL;
 	}
 
-	/* If there's still an archive in progress, end processing. */
+	/* 仍有归档处理中则结束                           */
 	if (state.streamer != NULL)
 	{
 		bbstreamer_finalize(state.streamer);
@@ -1298,63 +1153,52 @@ ReceiveArchiveStream(PGconn *conn, pg_compress_specification *compress)
 	}
 }
 
-/*
- * Receive one chunk of data sent by the server as part of a single COPY
- * stream that includes all archives and the manifest.
- */
+/* * 收 COPY 流一个数据块，含所有归档
+ * 和清单。                                                                  */
 static void
 ReceiveArchiveStreamChunk(size_t r, char *copybuf, void *callback_data)
 {
 	ArchiveStreamState *state = callback_data;
 	size_t		cursor = 0;
 
-	/* Each CopyData message begins with a type byte. */
+	/* CopyData 消息以类型字节开始           */
 	switch (GetCopyDataByte(r, copybuf, &cursor))
 	{
 		case 'n':
 			{
-				/* New archive. */
+				/* 新归档    */
 				char	   *archive_name;
 				char	   *spclocation;
 
-				/*
-				 * We force a progress report at the end of each tablespace. A
-				 * new tablespace starts when the previous one ends, except in
-				 * the case of the very first one.
-				 */
+				/* * 每表空间结束强制进度。新表空间始于
+ * 前一个结束，首个除外。                                                                                        */
 				if (++state->tablespacenum > 0)
 					progress_report(state->tablespacenum, true, false);
 
-				/* Sanity check. */
+				/* 健全检查  */
 				if (state->manifest_buffer != NULL ||
 					state->manifest_file !=NULL)
 					pg_fatal("archives must precede manifest");
 
-				/* Parse the rest of the CopyData message. */
+				/* 解析 CopyData 消息其余            */
 				archive_name = GetCopyDataString(r, copybuf, &cursor);
 				spclocation = GetCopyDataString(r, copybuf, &cursor);
 				GetCopyDataEnd(r, copybuf, cursor);
 
-				/*
-				 * Basic sanity checks on the archive name: it shouldn't be
-				 * empty, it shouldn't start with a dot, and it shouldn't
-				 * contain a path separator.
-				 */
+				/* * 归档名健全：非空、非.始、无路径
+ * 分隔。                                                                                                       */
 				if (archive_name[0] == '\0' || archive_name[0] == '.' ||
 					strchr(archive_name, '/') != NULL ||
 					strchr(archive_name, '\\') != NULL)
 					pg_fatal("invalid archive name: \"%s\"",
 							 archive_name);
 
-				/*
-				 * An empty spclocation is treated as NULL. We expect this
-				 * case to occur for the data directory itself, but not for
-				 * any archives that correspond to tablespaces.
-				 */
+				/* * 空 spclocation 视为 NULL。数据目
+ * 录自身有此情况，表空间归档无。                                                                                              */
 				if (spclocation[0] == '\0')
 					spclocation = NULL;
 
-				/* End processing of any prior archive. */
+				/* 结束处理先前归档             */
 				if (state->streamer != NULL)
 				{
 					bbstreamer_finalize(state->streamer);
@@ -1362,17 +1206,12 @@ ReceiveArchiveStreamChunk(size_t r, char *copybuf, void *callback_data)
 					state->streamer = NULL;
 				}
 
-				/*
-				 * Create an appropriate backup streamer, unless a backup
-				 * target was specified. In that case, it's up to the server
-				 * to put the backup wherever it needs to go.
-				 */
+				/* * 创建备份流处理器，除非有备份目标
+ * 则由服务器定。                                                                                                           */
 				if (backup_target == NULL)
 				{
-					/*
-					 * We know that recovery GUCs are supported, because this
-					 * protocol can only be used on v15+.
-					 */
+					/* * 恢复 GUC 已知支持，此协议仅 v15+。
+ *                                                             */
 					state->streamer =
 						CreateBackupStreamer(archive_name,
 											 spclocation,
@@ -1385,23 +1224,21 @@ ReceiveArchiveStreamChunk(size_t r, char *copybuf, void *callback_data)
 
 		case 'd':
 			{
-				/* Archive or manifest data. */
+				/* 归档或清单数据     */
 				if (state->manifest_buffer != NULL)
 				{
-					/* Manifest data, buffer in memory. */
+					/* 清单数据，缓冲内存      */
 					appendPQExpBuffer(state->manifest_buffer, copybuf + 1,
 									  r - 1);
 				}
 				else if (state->manifest_file !=NULL)
 				{
-					/* Manifest data, write to disk. */
+					/* 清单数据，写磁盘      */
 					if (fwrite(copybuf + 1, r - 1, 1,
 							   state->manifest_file) != 1)
 					{
-						/*
-						 * If fwrite() didn't set errno, assume that the
-						 * problem is that we're out of disk space.
-						 */
+						/* * fwrite 未设 errno 假设磁盘不足。
+ *                                                                  */
 						if (errno == 0)
 							errno = ENOSPC;
 						pg_fatal("could not write to file \"%s\": %m",
@@ -1410,7 +1247,7 @@ ReceiveArchiveStreamChunk(size_t r, char *copybuf, void *callback_data)
 				}
 				else if (state->streamer != NULL)
 				{
-					/* Archive data. */
+					/* 归档数据  */
 					bbstreamer_content(state->streamer, NULL, copybuf + 1,
 									   r - 1, BBSTREAMER_UNKNOWN);
 				}
@@ -1421,43 +1258,31 @@ ReceiveArchiveStreamChunk(size_t r, char *copybuf, void *callback_data)
 
 		case 'p':
 			{
-				/*
-				 * Progress report.
-				 *
-				 * The remainder of the message is expected to be an 8-byte
-				 * count of bytes completed.
-				 */
+				/* * 进度报告。
+ *
+ * 剩余应为 8 字节完成量。
+ *                                                                         */
 				totaldone = GetCopyDataUInt64(r, copybuf, &cursor);
 				GetCopyDataEnd(r, copybuf, cursor);
 
-				/*
-				 * The server shouldn't send progress report messages too
-				 * often, so we force an update each time we receive one.
-				 */
+				/* * 服务器不应频发进度，故每次强制
+ * 更新。                                                                     */
 				progress_report(state->tablespacenum, true, false);
 				break;
 			}
 
 		case 'm':
 			{
-				/*
-				 * Manifest data will be sent next. This message is not
-				 * expected to have any further payload data.
-				 */
+				/* * 清单数据将发送。此消息无额外负载。
+ *                                                           */
 				GetCopyDataEnd(r, copybuf, cursor);
 
-				/*
-				 * If a backup target was specified, figuring out where to put
-				 * the manifest is the server's problem. Otherwise, we need to
-				 * deal with it.
-				 */
+				/* * 有备份目标清单由服务器处理，否则
+ * 自行处理。                                                                                           */
 				if (backup_target == NULL)
 				{
-					/*
-					 * If we're supposed inject the manifest into the archive,
-					 * we prepare to buffer it in memory; otherwise, we
-					 * prepare to write it to a temporary file.
-					 */
+					/* * 需注入清单缓冲内存，否则写临时
+ * 文件。                                                                                                                    */
 					if (state->manifest_inject_streamer != NULL)
 						state->manifest_buffer = createPQExpBuffer();
 					else
@@ -1481,11 +1306,10 @@ ReceiveArchiveStreamChunk(size_t r, char *copybuf, void *callback_data)
 	}
 }
 
-/*
- * Get a single byte from a CopyData message.
+/* * 从 CopyData 取单字节。
  *
- * Bail out if none remain.
- */
+ * 无剩余则退出。
+ *                 */
 static char
 GetCopyDataByte(size_t r, char *copybuf, size_t *cursor)
 {
@@ -1495,11 +1319,10 @@ GetCopyDataByte(size_t r, char *copybuf, size_t *cursor)
 	return copybuf[(*cursor)++];
 }
 
-/*
- * Get a NUL-terminated string from a CopyData message.
+/* * 从 CopyData 取 NUL 尾字符串。
  *
- * Bail out if the terminating NUL cannot be found.
- */
+ * 找不到 NUL 尾退出。
+ *                                      */
 static char *
 GetCopyDataString(size_t r, char *copybuf, size_t *cursor)
 {
@@ -1519,11 +1342,10 @@ GetCopyDataString(size_t r, char *copybuf, size_t *cursor)
 	return &copybuf[startpos];
 }
 
-/*
- * Get an unsigned 64-bit integer from a CopyData message.
+/* * 从 CopyData 取 uint64。
  *
- * Bail out if there are not at least 8 bytes remaining.
- */
+ * 不足 8 字节退出。
+ *                                                          */
 static uint64
 GetCopyDataUInt64(size_t r, char *copybuf, size_t *cursor)
 {
@@ -1536,9 +1358,8 @@ GetCopyDataUInt64(size_t r, char *copybuf, size_t *cursor)
 	return pg_ntoh64(result);
 }
 
-/*
- * Bail out if we didn't parse the whole message.
- */
+/* * 未完整解析消息退出。
+ *                */
 static void
 GetCopyDataEnd(size_t r, char *copybuf, size_t cursor)
 {
@@ -1546,14 +1367,10 @@ GetCopyDataEnd(size_t r, char *copybuf, size_t cursor)
 		ReportCopyDataParseError(r, copybuf);
 }
 
-/*
- * Report failure to parse a CopyData message from the server. Then exit.
+/* * 报告 CopyData 解析失败后退出。
  *
- * As a debugging aid, we try to give some hint about what kind of message
- * provoked the failure. Perhaps this is not detailed enough, but it's not
- * clear that it's worth expending any more code on what should be a
- * can't-happen case.
- */
+ * 调试助：提示失败消息类型。不详但
+ * 不必为不可能情形多写代码。                                                                                                                                                                                   */
 static void
 ReportCopyDataParseError(size_t r, char *copybuf)
 {
@@ -1564,11 +1381,8 @@ ReportCopyDataParseError(size_t r, char *copybuf)
 				 copybuf[0], r);
 }
 
-/*
- * Receive raw tar data from the server, and stream it to the appropriate
- * location. If we're writing a single tarfile to standard output, also
- * receive the backup manifest and inject it into that tarfile.
- */
+/* * 收原始 tar 数据流式到目标。写
+ * stdout 单 tar 同时也收注清单。                                                                                                                             */
 static void
 ReceiveTarFile(PGconn *conn, char *archive_name, char *spclocation,
 			   bool tablespacenum, pg_compress_specification *compress)
@@ -1578,7 +1392,7 @@ ReceiveTarFile(PGconn *conn, char *archive_name, char *spclocation,
 	bool		is_recovery_guc_supported;
 	bool		expect_unterminated_tarfile;
 
-	/* Pass all COPY data through to the backup streamer. */
+	/* COPY 数据全透传备份流处理器             */
 	memset(&state, 0, sizeof(state));
 	is_recovery_guc_supported =
 		PQserverVersion(conn) >= MINIMUM_VERSION_FOR_RECOVERY_GUC;
@@ -1593,45 +1407,39 @@ ReceiveTarFile(PGconn *conn, char *archive_name, char *spclocation,
 	ReceiveCopyData(conn, ReceiveTarCopyChunk, &state);
 	progress_update_filename(NULL);
 
-	/*
-	 * The decision as to whether we need to inject the backup manifest into
-	 * the output at this stage is made by CreateBackupStreamer; if that is
-	 * needed, manifest_inject_streamer will be non-NULL; otherwise, it will
-	 * be NULL.
-	 */
+	/* * 是否需注清单由 CreateBackupStreamer
+ * 定；需时 manifest_inject_streamer
+ * 非 NULL。                                                                                                                                        */
 	if (manifest_inject_streamer != NULL)
 	{
 		PQExpBufferData buf;
 
-		/* Slurp the entire backup manifest into a buffer. */
+		/* 整份备份清单读入缓冲                  */
 		initPQExpBuffer(&buf);
 		ReceiveBackupManifestInMemory(conn, &buf);
 		if (PQExpBufferDataBroken(buf))
 			pg_fatal("out of memory");
 
-		/* Inject it into the output tarfile. */
+		/* 注入输出 tar 文件            */
 		bbstreamer_inject_file(manifest_inject_streamer, "backup_manifest",
 							   buf.data, buf.len);
 
-		/* Free memory. */
+		/* 释放内存 */
 		termPQExpBuffer(&buf);
 	}
 
-	/* Cleanup. */
+	/* 清理   */
 	bbstreamer_finalize(state.streamer);
 	bbstreamer_free(state.streamer);
 
 	progress_report(tablespacenum, true, false);
 
-	/*
-	 * Do not sync the resulting tar file yet, all files are synced once at
-	 * the end.
-	 */
+	/* * 暂不同步 tar 文件，结束时统一。
+ *                                       */
 }
 
-/*
- * Receive one chunk of tar-format data from the server.
- */
+/* * 收一个 tar 格式数据块。
+ *                     */
 static void
 ReceiveTarCopyChunk(size_t r, char *copybuf, void *callback_data)
 {
@@ -1644,17 +1452,15 @@ ReceiveTarCopyChunk(size_t r, char *copybuf, void *callback_data)
 }
 
 
-/*
- * Retrieve tablespace path, either relocated or original depending on whether
- * -T was passed or not.
- */
+/* * 检索表空间路径，依 -T 返重定位
+ * 或原始。                                            */
 static const char *
 get_tablespace_mapping(const char *dir)
 {
 	TablespaceListCell *cell;
 	char		canon_dir[MAXPGPATH];
 
-	/* Canonicalize path for comparison consistency */
+	/* 规范化路径保持比较一致            */
 	strlcpy(canon_dir, dir, sizeof(canon_dir));
 	canonicalize_path(canon_dir);
 
@@ -1665,9 +1471,8 @@ get_tablespace_mapping(const char *dir)
 	return dir;
 }
 
-/*
- * Receive the backup manifest file and write it out to a file.
- */
+/* * 收备份清单写文件。
+ *                                 */
 static void
 ReceiveBackupManifest(PGconn *conn)
 {
@@ -1684,9 +1489,8 @@ ReceiveBackupManifest(PGconn *conn)
 	fclose(state.file);
 }
 
-/*
- * Receive one chunk of the backup manifest file and write it out to a file.
- */
+/* * 收清单一块写文件。
+ *                                              */
 static void
 ReceiveBackupManifestChunk(size_t r, char *copybuf, void *callback_data)
 {
@@ -1695,25 +1499,23 @@ ReceiveBackupManifestChunk(size_t r, char *copybuf, void *callback_data)
 	errno = 0;
 	if (fwrite(copybuf, r, 1, state->file) != 1)
 	{
-		/* if write didn't set errno, assume problem is no disk space */
+		/* write 未设 errno 假设磁盘不足                      */
 		if (errno == 0)
 			errno = ENOSPC;
 		pg_fatal("could not write to file \"%s\": %m", state->filename);
 	}
 }
 
-/*
- * Receive the backup manifest file and write it out to a file.
- */
+/* * 收备份清单写文件。
+ *                                 */
 static void
 ReceiveBackupManifestInMemory(PGconn *conn, PQExpBuffer buf)
 {
 	ReceiveCopyData(conn, ReceiveBackupManifestInMemoryChunk, buf);
 }
 
-/*
- * Receive one chunk of the backup manifest file and write it out to a file.
- */
+/* * 收清单一块写文件。
+ *                                              */
 static void
 ReceiveBackupManifestInMemoryChunk(size_t r, char *copybuf,
 								   void *callback_data)
@@ -1746,10 +1548,8 @@ BaseBackup(char *compression_algorithm, char *compression_detail,
 	Assert(conn != NULL);
 	initPQExpBuffer(&buf);
 
-	/*
-	 * Check server version. BASE_BACKUP command was introduced in 9.1, so we
-	 * can't work with servers older than 9.1.
-	 */
+	/* * 查服务器版本。BASE_BACKUP 9.1
+ * 引入，不能用于更旧服务器。                                        */
 	minServerMajor = 901;
 	maxServerMajor = PG_VERSION_NUM / 100;
 	serverVersion = PQserverVersion(conn);
@@ -1764,35 +1564,30 @@ BaseBackup(char *compression_algorithm, char *compression_detail,
 	if (serverMajor >= 1500)
 		use_new_option_syntax = true;
 
-	/*
-	 * If WAL streaming was requested, also check that the server is new
-	 * enough for that.
-	 */
+	/* * 请求 WAL 流时查服务器是否够新。
+ *                                            */
 	if (includewal == STREAM_WAL && !CheckServerVersionForStreaming(conn))
 	{
-		/*
-		 * Error message already written in CheckServerVersionForStreaming(),
-		 * but add a hint about using -X none.
-		 */
+		/* * 错误已在 CheckServerVersionForStreaming
+ * 写入，附加 -X none 提示。                                  */
 		pg_log_error_hint("Use -X none or -X fetch to disable log streaming.");
 		exit(1);
 	}
 
-	/*
-	 * Build contents of configuration file if requested
-	 */
+	/* * 按需构建配置文件
+ *                           */
 	if (writerecoveryconf)
 		recoveryconfcontents = GenerateRecoveryConfig(conn, replication_slot);
 
 	/*
-	 * Run IDENTIFY_SYSTEM so we can get the timeline
-	 */
+	 * 运行 IDENTIFY_SYSTEM 取时间线
+	            */
 	if (!RunIdentifySystem(conn, &sysidentifier, &latesttli, NULL, NULL))
 		exit(1);
 
 	/*
-	 * Start the actual backup
-	 */
+	 * 开始实际备份
+	      */
 	AppendStringCommandOption(&buf, use_new_option_syntax, "LABEL", label);
 	if (estimatesize)
 		AppendPlainCommandOption(&buf, use_new_option_syntax, "PROGRESS");
@@ -1903,8 +1698,8 @@ BaseBackup(char *compression_algorithm, char *compression_detail,
 				 "BASE_BACKUP", PQerrorMessage(conn));
 
 	/*
-	 * Get the starting WAL location
-	 */
+	 * 获取起始 WAL 位置
+	       */
 	res = PQgetResult(conn);
 	if (PQresultStatus(res) != PGRES_TUPLES_OK)
 		pg_fatal("could not initiate base backup: %s",
@@ -1918,11 +1713,8 @@ BaseBackup(char *compression_algorithm, char *compression_detail,
 	if (verbose)
 		pg_log_info("checkpoint completed");
 
-	/*
-	 * 9.3 and later sends the TLI of the starting point. With older servers,
-	 * assume it's the same as the latest timeline reported by
-	 * IDENTIFY_SYSTEM.
-	 */
+	/* * 9.3+ 发起始 TLI。旧服务器假设与
+ * IDENTIFY_SYSTEM 最新同。                                                                                  */
 	if (PQnfields(res) >= 2)
 		starttli = atoi(PQgetvalue(res, 0, 1));
 	else
@@ -1934,8 +1726,8 @@ BaseBackup(char *compression_algorithm, char *compression_detail,
 					xlogstart, starttli);
 
 	/*
-	 * Get the header
-	 */
+	 * 获取头部
+	   */
 	res = PQgetResult(conn);
 	if (PQresultStatus(res) != PGRES_TUPLES_OK)
 		pg_fatal("could not get backup header: %s",
@@ -1944,24 +1736,19 @@ BaseBackup(char *compression_algorithm, char *compression_detail,
 		pg_fatal("no data returned from server");
 
 	/*
-	 * Sum up the total size, for progress reporting
-	 */
+	 * 汇总总大小供进度
+	                      */
 	totalsize_kb = totaldone = 0;
 	tablespacecount = PQntuples(res);
 	for (i = 0; i < PQntuples(res); i++)
 	{
 		totalsize_kb += atol(PQgetvalue(res, i, 2));
 
-		/*
-		 * Verify tablespace directories are empty. Don't bother with the
-		 * first once since it can be relocated, and it will be checked before
-		 * we do anything anyway.
-		 *
-		 * Note that this is skipped for tar format backups and backups that
-		 * the server is storing to a target location, since in that case we
-		 * won't be storing anything into these directories and thus should
-		 * not create them.
-		 */
+		/* * 验证表空间目录空。跳首个（可重定
+ * 位）。
+ *
+ * tar 和服务器存储目标跳过，因不
+ * 写不创。                                                                                                                                                                                                                                                                                          */
 		if (backup_target == NULL && format == 'p' && !PQgetisnull(res, i, 1))
 		{
 			char	   *path = PQgetvalue(res, i, 1);
@@ -1970,7 +1757,7 @@ BaseBackup(char *compression_algorithm, char *compression_detail,
 				path = unconstify(char *, get_tablespace_mapping(path));
 			else
 			{
-				/* This is an in-place tablespace, so prepend basedir. */
+				/* 就地表空间，前加 basedir                    */
 				path = psprintf("%s/%s", basedir, path);
 			}
 
@@ -1978,19 +1765,16 @@ BaseBackup(char *compression_algorithm, char *compression_detail,
 		}
 	}
 
-	/*
-	 * When writing to stdout, require a single tablespace
-	 */
+	/* * 写 stdout 要求单表空间
+ *                        */
 	writing_to_stdout = format == 't' && basedir != NULL &&
 		strcmp(basedir, "-") == 0;
 	if (writing_to_stdout && PQntuples(res) > 1)
 		pg_fatal("can only write single tablespace to stdout, database has %d",
 				 PQntuples(res));
 
-	/*
-	 * If we're streaming WAL, start the streaming session before we start
-	 * receiving the actual data chunks.
-	 */
+	/* * 流 WAL 时先启流会话再收数据。
+ *                                                                  */
 	if (includewal == STREAM_WAL)
 	{
 		pg_compress_algorithm wal_compress_algorithm;
@@ -2017,25 +1801,20 @@ BaseBackup(char *compression_algorithm, char *compression_detail,
 
 	if (serverMajor >= 1500)
 	{
-		/* Receive a single tar stream with everything. */
+		/* 收含所有内容的单 tar 流             */
 		ReceiveArchiveStream(conn, client_compress);
 	}
 	else
 	{
-		/* Receive a tar file for each tablespace in turn */
+		/* 依次收每表空间 tar 文件               */
 		for (i = 0; i < PQntuples(res); i++)
 		{
 			char		archive_name[MAXPGPATH];
 			char	   *spclocation;
 
-			/*
-			 * If we write the data out to a tar file, it will be named
-			 * base.tar if it's the main data directory or <tablespaceoid>.tar
-			 * if it's for another tablespace. CreateBackupStreamer() will
-			 * arrange to add an extension to the archive name if
-			 * pg_basebackup is performing compression, depending on the
-			 * compression type.
-			 */
+			/* * 写 tar 时主数据目录 base.tar，
+ * 其他 <oid>.tar。压缩时
+ * CreateBackupStreamer 加扩展名。                                                                                                                                                                                                                                            */
 			if (PQgetisnull(res, i, 0))
 			{
 				strlcpy(archive_name, "base.tar", sizeof(archive_name));
@@ -2052,17 +1831,12 @@ BaseBackup(char *compression_algorithm, char *compression_detail,
 						   client_compress);
 		}
 
-		/*
-		 * Now receive backup manifest, if appropriate.
-		 *
-		 * If we're writing a tarfile to stdout, ReceiveTarFile will have
-		 * already processed the backup manifest and included it in the output
-		 * tarfile.  Such a configuration doesn't allow for writing multiple
-		 * files.
-		 *
-		 * If we're talking to an older server, it won't send a backup
-		 * manifest, so don't try to receive one.
-		 */
+		/* * 收备份清单（如适用）。
+ *
+ * 写 stdout 时 ReceiveTarFile 已处
+ * 理。此配置不支持多文件。
+ *
+ * 旧服务器不发清单，不尝试。                                                                                                                                                                                                                                        */
 		if (!writing_to_stdout && manifest)
 			ReceiveBackupManifest(conn);
 	}
@@ -2076,8 +1850,8 @@ BaseBackup(char *compression_algorithm, char *compression_detail,
 	PQclear(res);
 
 	/*
-	 * Get the stop position
-	 */
+	 * 获取停止位置
+	    */
 	res = PQgetResult(conn);
 	if (PQresultStatus(res) != PGRES_TUPLES_OK)
 		pg_fatal("backup failed: %s",
@@ -2116,10 +1890,8 @@ BaseBackup(char *compression_algorithm, char *compression_detail,
 #else
 		DWORD		status;
 
-		/*
-		 * get a pointer sized version of bgchild to avoid warnings about
-		 * casting to a different size on WIN64.
-		 */
+		/* * 取 bgchild 指针版，避 WIN64
+ * 转换警告。                                                            */
 		intptr_t	bgchild_handle = bgchild;
 		uint32		hi,
 					lo;
@@ -2132,7 +1904,7 @@ BaseBackup(char *compression_algorithm, char *compression_detail,
 		if (write(bgpipe[1], xlogend, strlen(xlogend)) != strlen(xlogend))
 			pg_fatal("could not send command to background pipe: %m");
 
-		/* Just wait for the background process to exit */
+		/* 仅等后台进程退出                     */
 		r = waitpid(bgchild, &status, 0);
 		if (r == (pid_t) -1)
 			pg_fatal("could not wait for child process: %m");
@@ -2140,21 +1912,18 @@ BaseBackup(char *compression_algorithm, char *compression_detail,
 			pg_fatal("child %d died, expected %d", (int) r, (int) bgchild);
 		if (status != 0)
 			pg_fatal("%s", wait_result_to_str(status));
-		/* Exited normally, we're happy! */
+		/* 正常退出！               */
 #else							/* WIN32 */
 
-		/*
-		 * On Windows, since we are in the same process, we can just store the
-		 * value directly in the variable, and then set the flag that says
-		 * it's there.
-		 */
+		/* * Windows 同进程直接存变量设标志。
+ *                                                                                                                 */
 		if (sscanf(xlogend, "%X/%X", &hi, &lo) != 2)
 			pg_fatal("could not parse write-ahead log location \"%s\"",
 					 xlogend);
 		xlogendptr = ((uint64) hi) << 32 | lo;
 		InterlockedIncrement(&has_xlogendptr);
 
-		/* First wait for the thread to exit */
+		/* 先等线程退出                */
 		if (WaitForSingleObjectEx((HANDLE) bgchild_handle, INFINITE, FALSE) !=
 			WAIT_OBJECT_0)
 		{
@@ -2169,30 +1938,24 @@ BaseBackup(char *compression_algorithm, char *compression_detail,
 		if (status != 0)
 			pg_fatal("child thread exited with error %u",
 					 (unsigned int) status);
-		/* Exited normally, we're happy */
+		/* 正常退出                 */
 #endif
 	}
 
-	/* Free the configuration file contents */
+	/* 释放配置文件内容             */
 	destroyPQExpBuffer(recoveryconfcontents);
 
-	/*
-	 * End of copy data. Final result is already checked inside the loop.
-	 */
+	/* * COPY 数据结束，结果循环内已查。
+ *                        */
 	PQclear(res);
 	PQfinish(conn);
 	conn = NULL;
 
-	/*
-	 * Make data persistent on disk once backup is completed. For tar format
-	 * sync the parent directory and all its contents as each tar file was not
-	 * synced after being completed.  In plain format, all the data of the
-	 * base directory is synced, taking into account all the tablespaces.
-	 * Errors are not considered fatal.
-	 *
-	 * If, however, there's a backup target, we're not writing anything
-	 * locally, so in that case we skip this step.
-	 */
+	/* * 备份完成持久化磁盘。tar 同步父目
+ * 录（tar 未单独同步）。纯格式同步
+ * 基目录含表空间。错非致命。
+ *
+ * 有备份目标跳过（不写本地）。                                                                                                                                                                                                                                                                       */
 	if (do_sync && backup_target == NULL)
 	{
 		if (verbose)
@@ -2208,13 +1971,9 @@ BaseBackup(char *compression_algorithm, char *compression_detail,
 		}
 	}
 
-	/*
-	 * After synchronizing data to disk, perform a durable rename of
-	 * backup_manifest.tmp to backup_manifest, if we wrote such a file. This
-	 * way, a failure or system crash before we reach this point will leave us
-	 * without a backup_manifest file, decreasing the chances that a directory
-	 * we leave behind will be mistaken for a valid backup.
-	 */
+	/* * 同步后持久重命名 backup_manifest
+ * .tmp。此前崩溃无清单，降误认
+ * 风险。                                                                                                                                                                                                                                                            */
 	if (!writing_to_stdout && manifest && backup_target == NULL)
 	{
 		char		tmp_filename[MAXPGPATH];
@@ -2228,7 +1987,7 @@ BaseBackup(char *compression_algorithm, char *compression_detail,
 
 		if (do_sync)
 		{
-			/* durable_rename emits its own log message in case of failure */
+			/* durable_rename 失败自写日志                           */
 			if (durable_rename(tmp_filename, filename) != 0)
 				exit(1);
 		}
@@ -2378,10 +2137,8 @@ main(int argc, char **argv)
 				break;
 			case 'S':
 
-				/*
-				 * When specifying replication slot name, use a permanent
-				 * slot.
-				 */
+				/* * 指定复制槽名用永久槽。
+ *                                          */
 				replication_slot = pg_strdup(optarg);
 				temp_replication_slot = false;
 				break;
@@ -2454,15 +2211,14 @@ main(int argc, char **argv)
 				manifest_checksums = pg_strdup(optarg);
 				break;
 			default:
-				/* getopt_long already emitted a complaint */
+				/* getopt_long 已投诉                   */
 				pg_log_error_hint("Try \"%s --help\" for more information.", progname);
 				exit(1);
 		}
 	}
 
-	/*
-	 * Any non-option arguments?
-	 */
+	/* * 非选项参数？
+ *         */
 	if (optind < argc)
 	{
 		pg_log_error("too many command-line arguments (first is \"%s\")",
@@ -2471,21 +2227,16 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
-	/*
-	 * Setting the backup target to 'client' is equivalent to leaving out the
-	 * option. This logic allows us to assume elsewhere that the backup is
-	 * being stored locally if and only if backup_target == NULL.
-	 */
+	/* * 设备份目标 client=省略。此逻辑使
+ * backup_target==NULL 即本地存储。                                                                                                                            */
 	if (backup_target != NULL && strcmp(backup_target, "client") == 0)
 	{
 		pg_free(backup_target);
 		backup_target = NULL;
 	}
 
-	/*
-	 * Can't use --format with --target. Without --target, default format is
-	 * tar.
-	 */
+	/* * --format 与 --target 互斥。无
+ * --target 默认 tar。                       */
 	if (backup_target != NULL && format != '\0')
 	{
 		pg_log_error("cannot specify both format and backup target");
@@ -2495,9 +2246,8 @@ main(int argc, char **argv)
 	if (format == '\0')
 		format = 'p';
 
-	/*
-	 * Either directory or backup target should be specified, but not both
-	 */
+	/* * 目录或备份目标须指定其一。
+ *                              */
 	if (basedir == NULL && backup_target == NULL)
 	{
 		pg_log_error("must specify output directory or backup target");
@@ -2511,11 +2261,8 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
-	/*
-	 * If the user has not specified where to perform backup compression,
-	 * default to the client, unless the user specified --target, in which
-	 * case the server is the only choice.
-	 */
+	/* * 未指定压缩位默认客户端，除
+ * --target 只服务器。                                                                                                                    */
 	if (compressloc == COMPRESS_LOCATION_UNSPECIFIED)
 	{
 		if (backup_target == NULL)
@@ -2524,12 +2271,8 @@ main(int argc, char **argv)
 			compressloc = COMPRESS_LOCATION_SERVER;
 	}
 
-	/*
-	 * If any compression that we're doing is happening on the client side, we
-	 * must try to parse the compression algorithm and detail, but if it's all
-	 * on the server side, then we're just going to pass through whatever was
-	 * requested and let the server decide what to do.
-	 */
+	/* * 客户端压缩需解析算法详情，服务
+ * 端透传服务器决定。                                                                                                                                                                                                           */
 	if (compressloc == COMPRESS_LOCATION_CLIENT)
 	{
 		pg_compress_algorithm alg;
@@ -2552,10 +2295,8 @@ main(int argc, char **argv)
 		client_compress.options = 0;
 	}
 
-	/*
-	 * Can't perform client-side compression if the backup is not being sent
-	 * to the client.
-	 */
+	/* * 备份不发客户端不能客户端压缩。
+ *                                             */
 	if (backup_target != NULL && compressloc == COMPRESS_LOCATION_CLIENT)
 	{
 		pg_log_error("client-side compression is not possible when a backup target is specified");
@@ -2563,9 +2304,8 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
-	/*
-	 * Client-side compression doesn't make sense unless tar format is in use.
-	 */
+	/* * 客户端压缩仅 tar 有意义。
+ *                                      */
 	if (format == 'p' && compressloc == COMPRESS_LOCATION_CLIENT &&
 		client_compress.algorithm != PG_COMPRESSION_NONE)
 	{
@@ -2575,8 +2315,8 @@ main(int argc, char **argv)
 	}
 
 	/*
-	 * Sanity checks for WAL method.
-	 */
+	 * WAL 方法健全检查。
+	     */
 	if (backup_target != NULL && includewal == STREAM_WAL)
 	{
 		pg_log_error("WAL cannot be streamed when a backup target is specified");
@@ -2598,8 +2338,8 @@ main(int argc, char **argv)
 	}
 
 	/*
-	 * Sanity checks for replication slot options.
-	 */
+	 * 复制槽选项健全检查。
+	              */
 	if (no_slot)
 	{
 		if (replication_slot)
@@ -2631,8 +2371,8 @@ main(int argc, char **argv)
 	}
 
 	/*
-	 * Sanity checks on WAL directory.
-	 */
+	 * WAL 目录健全检查。
+	       */
 	if (xlog_dir)
 	{
 		if (backup_target != NULL)
@@ -2648,7 +2388,7 @@ main(int argc, char **argv)
 			exit(1);
 		}
 
-		/* clean up xlog directory name, check it's absolute */
+		/* 清 xlog 目录名，检查绝对路径           */
 		canonicalize_path(xlog_dir);
 		if (!is_absolute_path(xlog_dir))
 		{
@@ -2659,8 +2399,8 @@ main(int argc, char **argv)
 	}
 
 	/*
-	 * Sanity checks for progress reporting options.
-	 */
+	 * 进度报告选项健全检查。
+	             */
 	if (showprogress && !estimatesize)
 	{
 		pg_log_error("%s and %s are incompatible options",
@@ -2670,8 +2410,8 @@ main(int argc, char **argv)
 	}
 
 	/*
-	 * Sanity checks for backup manifest options.
-	 */
+	 * 备份清单选项健全检查。
+	          */
 	if (!manifest && manifest_checksums != NULL)
 	{
 		pg_log_error("%s and %s are incompatible options",
@@ -2688,65 +2428,54 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
-	/* connection in replication mode to server */
+	/* 复制模式连服务器                 */
 	conn = GetConnection();
 	if (!conn)
 	{
-		/* Error message already written in GetConnection() */
+		/* 错误已在 GetConnection 写入                */
 		exit(1);
 	}
 	atexit(disconnect_atexit);
 
 #ifndef WIN32
 
-	/*
-	 * Trap SIGCHLD to be able to handle the WAL stream process exiting. There
-	 * is no SIGCHLD on Windows, there we rely on the background thread
-	 * setting the signal variable on unexpected but graceful exit. If the WAL
-	 * stream thread crashes on Windows it will bring down the entire process
-	 * as it's a thread, so there is nothing to catch should that happen. A
-	 * crash on UNIX will be caught by the signal handler.
-	 */
+	/* * 捕获 SIGCHLD 处理 WAL 流退出。
+ * Windows 无 SIGCHLD，靠后台线程
+ * 设变量。Win 流线程崩溃带下进程，
+ * 无法捕获。UNIX 崩溃由信号处理
+ * 器捕获。                                                                                                                                                                                                                                           */
 	pqsignal(SIGCHLD, sigchld_handler);
 #endif
 
-	/*
-	 * Set umask so that directories/files are created with the same
-	 * permissions as directories/files in the source data directory.
-	 *
-	 * pg_mode_mask is set to owner-only by default and then updated in
-	 * GetConnection() where we get the mode from the server-side with
-	 * RetrieveDataDirCreatePerm() and then call SetDataDirectoryCreatePerm().
-	 */
+	/* * 设 umask 使目录文件权限匹配源
+ * 数据目录。
+ *
+ * pg_mode_mask 默认仅所有者，
+ * GetConnection 中从服务端更新。                                                                                                                                                                                                                */
 	umask(pg_mode_mask);
 
-	/* Backup manifests are supported in 13 and newer versions */
+	/* 备份清单 v13 起支持                              */
 	if (PQserverVersion(conn) < MINIMUM_VERSION_FOR_MANIFESTS)
 		manifest = false;
 
-	/*
-	 * If an output directory was specified, verify that it exists, or create
-	 * it. Note that for a tar backup, an output directory of "-" means we are
-	 * writing to stdout, so do nothing in that case.
-	 */
+	/* * 有输出目录验证或创建。tar "-"
+ * 表 stdout，不做操作。                                                                                                                                  */
 	if (basedir != NULL && (format == 'p' || strcmp(basedir, "-") != 0))
 		verify_dir_is_empty_or_create(basedir, &made_new_pgdata, &found_existing_pgdata);
 
-	/* determine remote server's xlog segment size */
+	/* 确定远端 xlog 段大小                 */
 	if (!RetrieveWalSegSize(conn))
 		exit(1);
 
-	/* Create pg_wal symlink, if required */
+	/* 需要时创 pg_wal 符号链接   */
 	if (xlog_dir)
 	{
 		char	   *linkloc;
 
 		verify_dir_is_empty_or_create(xlog_dir, &made_new_xlogdir, &found_existing_xlogdir);
 
-		/*
-		 * Form name of the place where the symlink must go. pg_xlog has been
-		 * renamed to pg_wal in post-10 clusters.
-		 */
+		/* * 构造符号链接目标。pg_xlog post-10
+ * 集簇已重命名 pg_wal。                                           */
 		linkloc = psprintf("%s/%s", basedir,
 						   PQserverVersion(conn) < MINIMUM_VERSION_FOR_PG_WAL ?
 						   "pg_xlog" : "pg_wal");

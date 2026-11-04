@@ -20,7 +20,7 @@
  *
  */
 
-/* 排除未使用的内容以加快编译速度 */
+/* 排除未使用的内容以加快编译速度         */
 
 #define VC_EXTRALEAN
 #ifndef __MINGW32__
@@ -32,7 +32,7 @@
 
 #include "win32.h"
 
-/* 在此声明以避免引入所有头文件，从而导致命名冲突 */
+/* 在此声明以避免引入所有头文件，从而导致命名冲突        */
 #ifdef ENABLE_NLS
 extern char *libpq_gettext(const char *msgid) pg_attribute_format_arg(1);
 #else
@@ -205,13 +205,13 @@ static struct WSErrorEntry
 	},
 	{
 		0, 0
-	}							/* 表结束 */
+	}							/* 表结束    */
 };
 
 
 /*
- * 返回 0 表示未找到，线性搜索，但谁在乎呢，此时此刻
- * 我们已经在痛苦中挣扎了 :)
+ * 未找到则返回 0；线性查找，但无所谓，       
+ * 此刻我们正痛苦 :)
  */
 
 static int
@@ -262,15 +262,15 @@ struct MessageDLL
 	},
 	{
 		0, 0, 1
-	}							/* 最后一项，无 dll，始终已加载 */
+	}							/* 最后一项，无 dll，常驻 */
 };
 
 #define DLLS_SIZE (sizeof(dlls)/sizeof(struct MessageDLL))
 
 /*
- * 返回套接字错误的描述，首先尝试在查找表中找到它，
- * 如果失败，则尝试加载任何 winsock dll
- * 以找到该消息。
+ * 返回套接字错误的描述，首先尝试在查找   
+ * 表中找到它，如果失败，则尝试加载任何  
+ * winsock dll 以找到该消息。                    
  */
 
 const char *
@@ -286,14 +286,14 @@ winsock_strerror(int err, char *strerrbuf, size_t buflen)
 
 		if (!dlls[i].loaded)
 		{
-			dlls[i].loaded = 1; /* 仅加载一次 */
+			dlls[i].loaded = 1; /* 单次加载   */
 			dlls[i].handle = (void *) LoadLibraryEx(dlls[i].dll_name,
 													0,
 													LOAD_LIBRARY_AS_DATAFILE);
 		}
 
 		if (dlls[i].dll_name && !dlls[i].handle)
-			continue;			/* 未加载 */
+			continue;			/* 未加载   */
 
 		flags = FORMAT_MESSAGE_FROM_SYSTEM
 			| FORMAT_MESSAGE_IGNORE_INSERTS

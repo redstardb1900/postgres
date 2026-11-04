@@ -19,8 +19,8 @@
 #include "pqexpbuffer.h"
 
 /*
- * 获取指定类型的所有错误并追加到 "str"。
- * 每条错误字符串前加一个空格。
+ * 获取指定类型的所有错误并追加到 "str"。  
+ * 每条错误字符串前有空格。     
  */
 static void
 pg_GSS_error_int(PQExpBuffer str, OM_uint32 stat, int type)
@@ -41,7 +41,7 @@ pg_GSS_error_int(PQExpBuffer str, OM_uint32 stat, int type)
 }
 
 /*
- * GSSAPI 错误包含两部分；将两者都放入 conn->errorMessage。
+ * GSSAPI 错误包含两部分；全部写入 conn->errorMessage。 
  */
 void
 pg_GSS_error(const char *mprefix, PGconn *conn,
@@ -76,7 +76,7 @@ pg_GSS_have_cred_cache(gss_cred_id_t *cred_out)
 }
 
 /*
- * 尝试为连接加载服务名称
+ * 尝试为连接加载服务名称        
  */
 int
 pg_GSS_load_servicename(PGconn *conn)
@@ -88,7 +88,7 @@ pg_GSS_load_servicename(PGconn *conn)
 	char	   *host;
 
 	if (conn->gtarg_nam != NULL)
-		/* 已处理完毕 — 继续 */
+		/* 已处理完毕，继续即可     */
 		return STATUS_OK;
 
 	host = PQhost(conn);
@@ -99,8 +99,8 @@ pg_GSS_load_servicename(PGconn *conn)
 	}
 
 	/*
-	 * 导入服务主体名称，以便 GSSAPI 系统获取适当的票据。
-	 *
+	 * 导入服务主体名称，以便 GSSAPI 系统获取                
+	 * 适当的票据。
 	 */
 	maxlen = strlen(conn->krbsrvname) + strlen(host) + 2;
 	temp_gbuf.value = (char *) malloc(maxlen);

@@ -531,11 +531,11 @@ fail:
 }
 
 /*
-pqResultAlloc - 导出的例程，在 PGresult 中分配本地存储。
+ * pqResultAlloc - 在 PGresult 中分配本地存储的导出例程。     
  *
- *
- *
- * 强制所有分配对齐到最大边界，因为值可能是二进制的。                               */
+ * 我们强制这类分配全部最大对齐，因为不知道值    
+ * 是否可能是二进制的。    
+ */
 void *
 PQresultAlloc(PGresult *res, size_t nBytes)
 {
@@ -811,13 +811,13 @@ pqSaveErrorResult(PGconn *conn)
 }
 
 /*
-pqSaveWriteError -
- *   报告写入失败
+ * pqSaveWriteError -
+ *	  报告写入失败。 
  *
- * 同上，在我们将 conn->write_err_msg 追加到已有的其他错误之后。
- *
- *
- * 这用于已检测到写入失败且已耗尽报告其他内容的机会时。                                          */
+ * 同上，但在把 conn->write_err_msg 追加到我们已有的         
+ * 其他错误之后调用。这用于我们已检测到写入失败且     
+ * 已耗尽报告其他内容的机会的情形。
+ */
 static void
 pqSaveWriteError(PGconn *conn)
 {
@@ -899,12 +899,12 @@ pqPrepareAsyncResult(PGconn *conn)
 		else
 		{
 			/*
-		糟糕，没有足够内存创建 PGresult。幸运的是，
-			 * 我们还有一张王牌：可以使用静态的 OOM_result。
-			 * 在这里去掉 const 有点丑陋，但将 OOM_result 声明为 const
- *
- *
-			 * 似乎是最好的，希望它会被分配在只读存储中。          */
+			 * 糟糕，PGresult 内存不足。所幸我们手中还有      
+			 * 一张王牌：可以使用静态的 OOM_result。在这里   
+			 * 去掉 const 有点丑，但把 OOM_result 声明为       
+			 * const，希望它会被分配到只读存储中。             
+			 *         
+			 */
 			res = unconstify(PGresult *, &OOM_result);
 
 			/*
@@ -1123,12 +1123,12 @@ pqSaveParameterStatus(PGconn *conn, const char *name, const char *value)
 	}
 
 	/*
-	将对 libpq 感兴趣的设置值保存到 PGconn 对象的字段中。
-	 * 我们也将 client_encoding 和 standard_conforming_strings
-	 * 保存在静态变量中，这样 PQescapeString 和 PQescapeBytea
-	 *
-	 *
-	 * 可以表现得相对合理（至少在单连接使用的程序中）。                */
+	 * 把 libpq 感兴趣的设置值保存到 PGconn 对象的字段中。 
+	 * 我们还将 client_encoding 和 standard_conforming_strings           
+	 * 也保存在静态变量中，使 PQescapeString 与 PQescapeBytea   
+	 * 表现得比较合理（至少在单连接程序中）。      
+	 *           
+	 */
 	if (strcmp(name, "client_encoding") == 0)
 	{
 		conn->client_encoding = pg_char_to_encoding(value);
@@ -1341,13 +1341,13 @@ pqAllocCmdQueueEntry(PGconn *conn)
 }
 
 /*
-pqAppendCmdQueueEntry
- *   将调用者分配的条目追加到命令队列，并更新
- *   conn->asyncStatus 以反映它。
+ * pqAppendCmdQueueEntry
+ *		把调用者分配的条目追加到命令队列，并更新    
+ *		conn->asyncStatus 以反映之。   
  *
- *
- *
- * 查询本身必须已由调用者放入输出缓冲区。                             */
+ * 查询本身必须已由调用者放入输出缓冲区。              
+ *        
+ */
 static void
 pqAppendCmdQueueEntry(PGconn *conn, PGcmdQueueEntry *entry)
 {
@@ -1366,11 +1366,11 @@ pqAppendCmdQueueEntry(PGconn *conn, PGcmdQueueEntry *entry)
 		case PQ_PIPELINE_ON:
 
 			/*
-		当不在管线中止状态时，如果有结果准备好被消费，
-			 * 则让它保持（即不要改变 READY 或 READY_MORE 状态）；
- *
- *
-			 * 否则设置我们为忙碌，等待服务器发来数据。                           */
+			 * 非管线中止态时，若有就绪待消费结果，就    
+			 * 让它保持原状（即不离开 READY 或 READY_MORE）； 
+			 * 否则将我们置为忙碌，等待服务器          
+			 * 的数据到来。                  
+			 */
 			if (conn->asyncStatus == PGASYNC_IDLE)
 				conn->asyncStatus = PGASYNC_BUSY;
 			break;
@@ -1378,12 +1378,12 @@ pqAppendCmdQueueEntry(PGconn *conn, PGcmdQueueEntry *entry)
 		case PQ_PIPELINE_ABORTED:
 
 			/*
-		管线中止时不期望服务器内容
-			 * （因不发送排队查询）。
-			 * IDLE 时如 PQgetResult 消费队列命令；
- *
- *
-			 * 其他状态无需操作。                                                                                                                                           */
+			 * 管线中止状态下，我们不指望从服务器得      
+			 * 到任何内容（因为不发送排队查询）。      
+			 * 因此若处于 IDLE，就像 PQgetResult 那样让        
+			 * 自己消费队列中的命令；若处于其他状态，    
+			 * 我们无需做任何事。         
+			 */
 			if (conn->asyncStatus == PGASYNC_IDLE ||
 				conn->asyncStatus == PGASYNC_PIPELINE_IDLE)
 				pqPipelineProcessQueue(conn);
@@ -1783,10 +1783,10 @@ PQsendQueryGuts(PGconn *conn,
 		return 0;				/* 错误消息已设置 */
 
 	/*
-	发送 Parse（如需要）、Bind、Describe Portal、Execute、
-	 *
-	 *
-	 * Sync（非管线），使用指定语句名和未命名门户。                      */
+	 * 我们将发送 Parse（如需）、Bind、Describe Portal、       
+	 * Execute、Sync（非管线），用指定语句名与未命      
+	 * 名门户。   
+	 */
 
 	if (command)
 	{
@@ -1978,11 +1978,11 @@ PQconsumeInput(PGconn *conn)
 	}
 
 	/*
-	加载更多数据（如果可用）。无论如何我们都这样做，
-	 * 因为我们可能被调用是因为应用程序想要摆脱读取选择条件。
-	 *
-	 *
-	 * 注意：我们不会阻塞等待更多输入。                             */
+	 * 如果还有数据则加载更多数据。无论处于何种状态  
+	 * 我们都这样做，因为调用我们很可能是因为应用程    
+	 * 序想要摆脱读选择条件。注意我们绝不会阻塞      
+	 * 等待更多输入。  
+	 */
 	if (pqReadData(conn) < 0)
 		return 0;
 
@@ -2017,13 +2017,13 @@ PQisBusy(PGconn *conn)
 	parseInput(conn);
 
 	/*
-	除 BUSY 外 PQgetResult 立即返回。
-	 * 若已检测读 EOF 并丢弃连接，PQgetResult 应即失败。
-	 * 不检 conn->write_failed -- 一旦设置知有麻烦，
-	 *
-	 *
-	 *
-	 * 但需继续读到完整消息或检测 EOF。                                                                                                                                                                           */
+	 * 除 BUSY 外的所有状态下 PQgetResult 都会立即返回。     
+	 * 此外，如果我们已检测到读 EOF 并丢弃了连接，      
+	 * 可以预期 PQgetResult 会立即失败。注意我们在这       
+	 * 里*不*检查 conn->write_failed —— 一旦它被设置，     
+	 * 我们就知道遇上了麻烦，但仍需继续尝试读取，     
+	 * 直到取得完整消息或 EOF。
+	 */
 	return conn->asyncStatus == PGASYNC_BUSY && conn->status != CONNECTION_BAD;
 }
 
@@ -2109,11 +2109,11 @@ PQgetResult(PGconn *conn)
 			Assert(conn->pipelineStatus != PQ_PIPELINE_OFF);
 
 			/*
-		我们即将返回终止当前查询结果轮的 NULL；
-			 * 准备在下一次被调用时发送下一个查询的结果（如果有的话）。
- *
- *
-			 * 如果命令队列中没有下一个元素，这将使我们进入 IDLE 状态。                                  */
+			 * 我们即将返回终止当前查询结果轮次的 NULL；
+			 * 准备下次被调用时发送下一查询的结果(如有)   
+			 * 若命令队列中没有下一元素，这会让我们进入  
+			 * IDLE 状态。                                                
+			 */
 			pqPipelineProcessQueue(conn);
 			res = NULL;			/* 查询已完成   */
 			break;
@@ -2134,16 +2134,16 @@ PQgetResult(PGconn *conn)
 				conn->asyncStatus = PGASYNC_PIPELINE_IDLE;
 
 				/*
-		... 当发送管线同步结果时，立即向前推进队列处理，
-				 * 以便下次调用时我们准备好返回从服务器接收的
-				 * 下一个结果。在所有其他情况下，将队列状态更改
-				 * 留到下次，以便发送终止的 NULL 结果。
+				 * ……发送管线同步结果时，立即推进队列 
+				 * 处理，让下次调用时备好返回服务器传     
+				 * 来的下一个结果。其余情形把队列状态变更  
+				 * 到下次处理，这样就会发送出终止性的     
+				 * NULL 结果。                                         
+				 *                     
 				 *
- *
- *
- *
- *
-				 * （换句话说：在管线同步后我们不返回 NULL。）                                                                          */
+				 * （换言之：管线同步之后我们不返回 NULL   
+				 * 。）
+				 */
 				if (res->resultStatus == PGRES_PIPELINE_SYNC)
 					pqPipelineProcessQueue(conn);
 			}
@@ -2535,18 +2535,18 @@ sendFailed:
 }
 
 /*
-PQnotifies
- *   返回尚未处理的最新异步通知的 PGnotify* 结构
+ * PQnotifies
+ *	  返回最新一条异步通知的 PGnotify* 结构，         
+ * 其尚未被处理。        
  *
- * 如果当前没有来自后端的未处理异步通知，返回 NULL
+ * 若当前没有未处理的        
+ * 来自后端的异步通知，则返回 NULL。 
  *
- * 调用者负责 FREE 返回的结构
+ * 调用者负责对返回的结构执行 FREE 释放。       
  *
- * 注意：此函数不从套接字读取任何新数据；
- *
- *
- *
- * 因此通常调用者应首先调用 PQconsumeInput()。                                                                                    */
+ * 注意：此函数不会从套接字读取任何新数据；       
+ * 因此通常调用者应先调用 PQconsumeInput()。 
+ */
 PGnotify *
 PQnotifies(PGconn *conn)
 {
@@ -2688,15 +2688,15 @@ PQputCopyEnd(PGconn *conn, const char *errormsg)
 }
 
 /*
-PQgetCopyData - COPY OUT/BOTH 时从后端读一行
+ * PQgetCopyData - 在 COPY OUT 或 COPY BOTH 期间读取后端      
+ * 一行数据
  *
- * 成功设 *buffer 为 malloc 的行数据，返回长度（>0）。
- * 无行返回 0（仅 async=true），
- * COPY 结束返回 -1（查 PQgetResult），
- *
- *
- *
- * 错返 -2（查 PQerrorMessage）。                                                                                                        */
+ * 成功时将 *buffer 设为指向一行 malloc 的数据，并     
+ * 返回该行长度（总是 > 0）。     
+ * 若尚无可用行则返回 0（仅在 async 为真时可能）， 
+ * -1 = COPY 结束 (查 PQgetResult), -2 = 错误 (查            
+ * PQerrorMessage).
+ */
 int
 PQgetCopyData(PGconn *conn, char **buffer, int async)
 {
@@ -2792,13 +2792,13 @@ PQgetlineAsync(PGconn *conn, char *buffer, int bufsize)
 }
 
 /*
-PQputline -- 在 COPY IN 期间向后端发送字符串。
- * 如果成功返回 0，否则返回 EOF。
+ * PQputline -- 在 COPY IN 期间向后端发送字符串。
+ * OK 则返 0，否则 EOF。 
  *
- * 这已弃用，主要是因为返回约定不允许调用者
- *
- *
- * 区分硬错误和非阻塞模式发送失败。                                    */
+ * 此函数已弃用，主要原因是其返回约定无法让调用      
+ * 者区分硬错误与非阻塞模式下的发送失败。             
+ *              
+ */
 int
 PQputline(PGconn *conn, const char *string)
 {
@@ -2905,24 +2905,24 @@ PQfn(PGconn *conn,
 /* ====== 管线模式支持 ========    */
 
 /*
-PQenterPipelineMode
- *   将空闲连接置于管线模式。
+ * PQenterPipelineMode
+ *		把空闲连接置入管线模式。    
  *
- * 成功返回 1。失败时设置 errorMessage 并返回 0。
+ * 成功返回 1。失败时设置 errorMessage 并返回 0。            
  *
- * 在此之后提交的命令可以在连接上管线化；
- * 不需要等待一个命令完成后才能派发下一个。
+ * 此后提交的命令即可在该连接上管线化执行；     
+ * 不必等待某个命令完成后才派发下一个。             
+ *            
  *
- * 在 COPY 期间不允许排队新查询或同步。
+ * 在 COPY 期间不允许排队新查询或进行同步。    
  *
- * 一组命令由 PQpipelineSync 终止。在管线模式中
- * 可以建立多个同步点。处理完所有结果后，
- * 可以通过调用 PQexitPipelineMode() 退出管线模式。
+ * 一组命令由一个 PQpipelineSync 终止。在管线模式      
+ * 中可以建立多个同步点。处理完所有结果后，        
+ * 通过调用 PQexitPipelineMode() 退出管线模式。                  
  *
- * 这实际上不通过线路发送任何内容，只是将 libpq
- *
- *
- * 置于可以管线化工作的状态。                                                                                           */
+ * 它实际上并不在线路上发送任何内容，只是让 libpq 
+ * 进入可以管线化工作的状态。 
+ */
 int
 PQenterPipelineMode(PGconn *conn)
 {
@@ -2945,15 +2945,15 @@ PQenterPipelineMode(PGconn *conn)
 }
 
 /*
-PQexitPipelineMode
- *   结束管线模式并返回正常命令模式。
+ * PQexitPipelineMode
+ *		结束管线模式并返回正常命令模式。    
  *
- * 成功返回 1（管线模式成功结束或不在管线模式）。
+ * 成功返回 1（管线模式成功结束，或不在管线模式）。   
+ *       
  *
- *
- *
- *
- * 如果处于管线模式但尚不能结束，返回 0。将设置错误消息。                    */
+ * 若在管线模式且尚不能结束则返回 0，将设置错误消息。
+ *        
+ */
 int
 PQexitPipelineMode(PGconn *conn)
 {
@@ -3442,16 +3442,16 @@ PQfname(const PGresult *res, int field_num)
 }
 
 /*
-PQfnumber：给定列名查找列编号
+ * PQfnumber：根据列名查找列号           
  *
- * 列名像在 SQL 语句中一样被解析，包括大小写折叠
- * 和双引号处理。但要注意一个可能的陷阱：前端
- * 的小写转换可能遵循与后端不同的区域设置规则...
+ * 列名的解析方式如同它在 SQL 语句中一样，包括       
+ * 大小写折叠与双引号处理。但注意可能存在的陷阱： 
+ * 前端的小写转换可能与后端遵循不同                   
+ * 的区域设置规则…… 
  *
- * 如果不匹配返回 -1。在当前后端中，也可能存在多个
- *
- *
- * 匹配，此时返回第一个找到的。                                                                      */
+ * 若无匹配则返回 -1。在当前后端中还可能存在       
+ * 多个匹配的情况，此时返回找到的第一个。      
+ */
 int
 PQfnumber(const PGresult *res, const char *field_name)
 {
@@ -3624,10 +3624,10 @@ PQcmdStatus(PGresult *res)
 }
 
 /*
-PQoidStatus -
- *
- *
- *   上条命令为 INSERT 返 oid 串，否则返 ""                         */
+ * PQoidStatus -
+ *	若上一条命令是 INSERT，则返回 oid 字符串  
+ *	否则返 ""。  
+ */
 char *
 PQoidStatus(const PGresult *res)
 {
@@ -3652,10 +3652,10 @@ PQoidStatus(const PGresult *res)
 }
 
 /*
-PQoidValue -
- *
- *
- *   上述函数的更优选形式，只返回 Oid 类型                */
+ * PQoidValue -
+ *	上述函数的更佳形式，其仅返回               
+ *	Oid 类型 
+ */
 Oid
 PQoidValue(const PGresult *res)
 {
@@ -3801,12 +3801,12 @@ PQparamtype(const PGresult *res, int param_num)
 }
 
 
-/* PQsetnonblocking：
- *   arg 为 true 设 PGconn 为非阻塞，false 为阻塞。
- *   不保护你免于 PQexec()，只用非阻塞 API 安全。
- *
- *
- *   仅已连接数据库连接上调用。                                                                                                   */
+/* PQsetnonblocking:
+ *	若参数为 true，将 PGconn 的数据库连接设为非阻塞，  
+ *	参数为 false 则设为阻塞；这不会保护你免受     
+ *	PQexec() 的影响；只有使用非阻塞 API 时才是安全的。   
+ *	只需在已连接的数据库连接上调用。           
+ */
 int
 PQsetnonblocking(PGconn *conn, int arg)
 {
@@ -3979,31 +3979,31 @@ PQescapeStringInternal(PGconn *conn,
 			pg_encoding_verifymbchar(encoding, source, charlen) == -1)
 		{
 			/*
-		多字节字符无效。验证这一点很重要，
-			 * 因为无效的多字节字符可以被用来"跳过"引号字符，
-			 * 例如在逐字符解析时。
+			 * 多字节字符无效。验证这一点很重要，           
+			 * 因为无效的多字节字符可能被用来"跳过"       
+			 * 引号字符，例如在解析          
+			 * 逐个字符时。     
 			 *
-			 * 如果可能，报告错误，并将字符的第一个字节替换为
-			 * 无效序列。无效序列确保转义后的字符串将在
-			 * 服务器端触发错误，即使我们无法直接在此处
-			 * 报告错误。
+			 * 如有可能就报告错误，并将该字符的第一个     
+			 * 字节替换为无效序列。该无效序列能确保     
+			 * 被转义的串将在服务器端触发错误，    
+			 * 即使我们无法在此处直接报告错误。            
 			 *
-			 * 当我们可以向调用者报告错误时，这不是*那么*关键；
-			 * 但如果我们不能或调用者忽略它，调用者将按原样
-			 * 使用此字符串，它必须对解析是安全的。
+			 * 若能向调用者报告错误，这就不是*那么*       
+			 * 关键；但若不能报告或调用者忽略了它，调用
+			 * 者将不加修改地使用该串，它必须对解析     
+			 * 安全  
 			 *
-			 * 我们知道有足够的空间容纳无效序列，因为"to"缓冲区
-			 * 至少需要 2 * length + 1 长，最坏情况下我们用两个
-			 * 无效字节替换单个输入字节。
+			 * 我们知道肯定有足够的空间容纳无效序列，    
+			 * 因为 "to" 缓冲区的长度至少为 2 * length + 1，    
+			 * 而最坏情况下我们用两个无效字节替换一个    
+			 * 字节
 			 *
-			 * 在第一次遇到设置高位的字节时验证整个字符串
-			 * 会更快一些，但这样我们可以只替换无效数据，
-			 * 这可能使用户更容易找到较大字符串中
- *
- *
- *
- *
-			 * 无效编码的部分。                                                                                                                                       */
+			 * 在首次遇到设置了高位的字节时就验证整个    
+			 * 字符串会稍快一些，但这样我们可以只替换   
+			 * 无效的数据，这可能让用户更容易在较大的      
+			 * 字符串中找到无效编码的部分。               
+			 */
 			if (error)
 				*error = 1;
 			if (conn && !already_complained)
@@ -4020,10 +4020,10 @@ PQescapeStringInternal(PGconn *conn,
 			target += 2;
 
 			/*
-		将后续字节当作此字节不存在一样处理。这样更安全，
- *
- *
-			 * 以防后续字节包含引号或反斜杠。                                                     */
+			 * 将后续字节当作此字节不存在来处理。这样      
+			 * 更安全，以防后续字节中包含对调用者重要      
+			 * 的字符（如 html 中'>'）。 
+			 */
 			source++;
 			remaining--;
 		}
@@ -4076,12 +4076,12 @@ PQescapeString(char *to, const char *from, size_t length)
 
 
 /*
-后端 add_size() 的前端版本，旨在与后端 SQL 函数
- * 中使用的 pg_add_*_overflow() 辅助宏保持 API 兼容。
+ * 后端 add_size() 函数的前端版本，旨在与                        
+ * pg_add_*_overflow() 辅助函数保持 API 兼容。成功时                
+ * 结果存入 *dst；加法溢出则返 true。 
  *
- *
- *
- * 在溢出时，我们也将错误信息报告到 PGconn 中。                                          */
+ * TODO: 移到 common/int.h 
+ */
 static bool
 add_size_overflow(size_t s1, size_t s2, size_t *dst)
 {
@@ -4149,15 +4149,15 @@ PQescapeInternal(PGconn *conn, const char *str, size_t len, bool as_ident)
 			}
 
 			/*
-		如果尚未检查，验证多字节字符是否有效。
-			 * 验证这一点很重要，因为无效的多字节字符可以
-			 * 被用来"跳过"引号字符，例如在逐字符解析时。
+			 * 如果尚未检查过，则检查多字节字符是否有 
+			 * 效。验证这一点很重要，因为无效的多字节 
+			 * 字符可能被用来"跳过"引号字符，比如在         
+			 * 逐个字符地进行解析的时候。  
 			 *
-			 * 如果可能，报告错误，并继续将字符长度重新解释
-			 * 为单个字节。该单个字节将被重新检查，看看是否
- *
- *
-			 * 需要转义，然后复制到输出中。                                                 */
+			 * 当首次遇到任何多字节字符时，会对整个        
+			 * 字符串其余部分做一次有效性检查。某些
+			 * 编码针对较长的字符串有优化过的实现。      
+			 */
 			if (!validated_mb)
 			{
 				if (pg_encoding_verifymbstr(conn->client_encoding, s, remaining)
@@ -4198,12 +4198,12 @@ PQescapeInternal(PGconn *conn, const char *str, size_t len, bool as_ident)
 	}
 
 	/*
-	如果我们正在转义包含反斜杠的字面量，使用转义字符串
-	 * 语法，以便结果在标准符合字符串开启时的后端中
-	 *
-	 *
-	 *
-	 * 也是正确的。                                                                                                                                                                 */
+	 * 如果我们转义的常量中含有反斜杠，就使用         
+	 * 转义字符串语法，使结果在任一                           
+	 * standard_conforming_strings 取值下都正确。此种              
+	 * 情况下我们还会输出一个前导空格，以防结果   
+	 * 被紧接在标识符之后插入。             
+	 */
 	if (!as_ident && num_backslashes > 0)
 	{
 		*rp++ = ' ';
@@ -4214,16 +4214,16 @@ PQescapeInternal(PGconn *conn, const char *str, size_t len, bool as_ident)
 	*rp++ = quote_char;
 
 	/*
-	如果可能，使用快速路径。
+	 * 可能则走快速路径  
 	 *
-	 * 我们已经验证输入字符串在当前编码中是格式良好的。
-	 * 如果在扫描过程中没有发现需要转义的字符，我们只需要
+	 * 我们已验证过输入字符串在当前编码下是格式      
+	 * 良好的。如果它不含引号，且在常量转义的情   
+	 * 况下也不含反斜杠，那么我们就可以把它直接          
+	 * 拷入输出缓冲区，加上必要引号。  
 	 *
-	 *
-	 *
-	 *
-	 *
-	 * 用引号包围它。                                                                                                                                                 */
+	 * 否则我们必须重新扫描输入，并逐个字符地  
+	 * 处理。    
+	 */
 	if (num_quotes == 0 && (num_backslashes == 0 || as_ident))
 	{
 		memcpy(rp, str, input_len);
@@ -4309,20 +4309,20 @@ get_hex(char c)
 
 
 /*
-PQescapeBytea - 将二进制字符串转换为包含字符串
- *   在 SQL INSERT 语句中所需的最小编码。
- *   返回一个 malloc 分配的编码版本，调用者应
+ *		PQescapeBytea - 将二进制字符串转换为    
+ *		在以 bytea 类型列为目标的 SQL INSERT 语句中   
+ *		包含该字符串所需的最小编码。              
  *
+ *		可用十六进制或 escape（传统）两种编码。
+ *		在 escape 模式下，应用以下转换：              
+ *		'\0' == ASCII  0 == \000
+ *		'\'' == ASCII 39 == ''
+ *		'\\' == ASCII 92 == \\
+ *		anything < 0x20, or > 0x7e ---> \ooo
+ *										（ooo 为八进制表示）      
  *
- *
- *
- *
- *
- *
- *
- *
- *
- *   在完成后使用 PQfreemem() 释放。                                                                                                                                                                                                                                                                                                           */
+ *		若非 std_strings，则输出中所有反斜杠都加倍。       
+ */
 static unsigned char *
 PQescapeByteaInternal(PGconn *conn,
 					  const unsigned char *from, size_t from_length,
@@ -4336,13 +4336,13 @@ PQescapeByteaInternal(PGconn *conn,
 	const size_t bslash_len = (std_strings ? 1 : 2);
 
 	/*
-	计算转义后的长度，注意溢出，与 PQescapeInternal()
-	 * 中一样。以下代码依赖于输出缓冲区分配时用 \0
-	 * 填充而不是用垃圾数据填充，因此计数循环
+	 * 计算转义后的长度，像 PQescapeInternal() 中那样      
+	 * 注意溢出问题。后面的代码依赖 bslash_len            
+	 * 是个小常数，这样小的加法和乘法就不需要              
+	 * 溢出检查。     
 	 *
-	 *
-	 *
-	 * 以 \0 终止。                                                                             */
+	 * 从空串开始，它有 1 个字符（'\0'）。    
+	 */
 	len = 1;
 
 	if (use_hex)
@@ -4477,17 +4477,17 @@ PQescapeBytea(const unsigned char *from, size_t from_length, size_t *to_length)
 #define OCTVAL(CH) ((CH) - '0')
 
 /*
-PQunescapeBytea - 将 bytea 的以 null 终止的字符串表示
- *   strtext 转换为二进制，填充 buffer 为结果。
- *   返回的 buffer 是 malloc 分配的，调用者应使用
+ *		PQunescapeBytea - 将以 null 结尾的字符串表示的           
+ *		bytea（strtext）转换为二进制并填入缓冲区。它    
+ *		返回指向缓冲区的指针（出错则为 NULL），     
+ *		并在 retbuflen 中给出缓冲区的大小。该指针随后 
+ *		可作 PQfreemem 的参数。      
  *
- *
- *
- *
- *
- *
- *
- *   PQfreemem() 释放。                                                                                                                                                                                                                                                                                                 */
+ *		会进行以下转换：               
+ *		\\	 == ASCII 92 == \
+ *		\ooo == 值为 ooo 的字节（ooo 为八进制数）    
+ *		\x == x（x 是其余转换未匹配到的任何字符）             
+ */
 unsigned char *
 PQunescapeBytea(const unsigned char *strtext, size_t *retbuflen)
 {
@@ -4569,12 +4569,12 @@ PQunescapeBytea(const unsigned char *strtext, size_t *retbuflen)
 					}
 
 					/*
-		注意：如果我们看到 '\' 后跟的不是
-					 * 已识别的转义序列，我们会循环处理，将其
- *
- *
- *
-					 * 视为常规字符。                                                                                                                                                                   */
+					 * 注意：若 '\' 后跟的不是可识别的转义    
+					 * 序列，就会在只推进 i 而未做任何事      
+					 * 的情况下循环。因此那个内容会在下一轮 
+					 * 循环时作为普通数据输出。极端情况：  
+					 * 字符串末尾的 '\' 会被直接丢弃。      
+					 */
 					break;
 
 				default:

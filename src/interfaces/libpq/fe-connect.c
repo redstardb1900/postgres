@@ -81,11 +81,11 @@ static int	ldapServiceLookup(const char *purl, PQconninfoOption *options,
 #endif
 
 /*
- * 9.0 前服务器返回此 SQLSTATE。硬编码
- * 而非查 errcodes.h，因反映历史行为。
-                                                                        
-                                                                      
-*/
+ * 9.0 前的服务器在被要求在启动包中设置     
+ * application_name 时会返回此 SQLSTATE。该值是硬编码的，
+ * 而非查 errcodes.h，因为它反映的是历史行为，       
+ * 而非当前代码的行为。       
+ */
 #define ERRCODE_APPNAME_UNKNOWN "42704"
 
 /* 这属于协议的一部分，直接定义     */
@@ -897,13 +897,13 @@ PQconnectStart(const char *conninfo)
 }
 
 /*
- * 将选项值移入 conn struct
+ * 将选项值移入 conn 结构。     
  *
- * 智能处理应放 connectOptions2。
+ * 这里别放任何取巧的东西——智能应放在    
+ * connectOptions2 中
  *
- * 成功返 true，失败返 false 设错。
-                                                                                    
-*/
+ * 成功时返回 true。失败时返回 false 并设置错误消息。     
+ */
 static bool
 fillPGconn(PGconn *conn, PQconninfoOption *connOptions)
 {
@@ -997,14 +997,14 @@ count_comma_separated_elems(const char *input)
 }
 
 /*
- * 解析逗号分隔列表。
+ * 解析简单的逗号分隔列表。
  *
- * 每次返下一元素 malloc 副本，
- * 设 *more 指示后续，更新 *startptr。
+ * 每次调用返回下一元素的一份 malloc 副本，并设置 *more  
+ * 以指示此元素之后列表中是否还有更多，并更新        
+ * *startptr 使之指向下一元素（若有）。          
  *
- * OOM 返 NULL。
-                                                                                                                                                      
-*/
+ * 内存不足时返回 NULL。  
+ */
 static char *
 parse_comma_separated_list(char **startptr, bool *more)
 {
@@ -1572,12 +1572,12 @@ connectOptions2(PGconn *conn)
 	}
 
 	/*
-		 * 检查 SSL 协议范围。早期步骤
-		 * 独立于实现，免浪费周期。
-		                                                                           
-                                                                         
-                                                                         
-*/
+	 * 检查所定义的 SSL 协议范围是否正确。在早期步骤做 
+	 * 此检查，是因为它独立于所用的 SSL           
+	 * 实现，也可避免在建立连接时对已建好的         
+	 * SSL 上下文做无谓的周期耗费，因为反正                  
+	 * 连接注定会失败。  
+	 */
 	if (!sslVerifyProtocolRange(conn->ssl_min_protocol_version,
 								conn->ssl_max_protocol_version))
 	{
@@ -1717,13 +1717,13 @@ connectOptions2(PGconn *conn)
 		libpq_prng_init(conn);
 
 		/*
-			 * Fisher-Yates"由内而外"变体。
-			 * 新值追加后再与随机元素交换
-			 *（可含自身）。交换合并插入。
-			                                                                              
-                                                                            
-                                                                            
-*/
+		 * 这是 Fisher-Yates 洗牌算法的"由内而外"变体。  
+		 * 概念上，我们把每个新值追加进数组，然后       
+		 * 与随机选中的数组元素交换（可含自身，     
+		 * 否则将无法生成末位整数居末的排列）。          
+		 * 将交换这一步与插入合并即可                            
+		 * 优化。          
+		 */
 		for (i = 1; i < conn->nconnhost; i++)
 		{
 			int			j = pg_prng_uint64_range(&conn->prng_state, 0, i);
@@ -2231,11 +2231,11 @@ setKeepalivesCount(PGconn *conn)
 #else							/* WIN32 */
 #ifdef SIO_KEEPALIVE_VALS
 /*
- * Win32 启用保活并设保活值。
+ * 在 Win32 上启用保活并设置保活参数，       
+ * 那里总是一次性批量设置。   
  *
- * 注意：需信号安全，因 PQcancel 用。
-                                                                                    
-*/
+ * 注意：这必须信号安全，因为 PQcancel 会用到。      
+ */
 static int
 setKeepalivesWin32(pgsocket sock, int idle, int interval)
 {
@@ -2822,13 +2822,13 @@ keep_going:						/* 回此处直到无事可做
 		case CONNECTION_NEEDED:
 			{
 				/*
-				 * 试发起连接到返回地址之一。
-				 * whichaddr 是下一尝试。
+				 * 尝试向 pg_getaddrinfo_all() 返回的地址之一
+				 * 发起连接。conn->whichaddr 是下一次              
+				 * 要尝试的。 
 				 *
-				 * 额外大括号历史遗留。
-				                                                                             
-                                                                            
-*/
+				 * 这里多出的一层大括号是历史遗留，       
+				 * 不值得为此重新缩进整个 switch 分支。     
+				 */
 				{
 					char		host_addr[NI_MAXHOST];
 					int			sock_type;
@@ -2866,11 +2866,11 @@ keep_going:						/* 回此处直到无事可做
 #ifdef SOCK_CLOEXEC
 
 					/*
-					 * 尽可能原子设 close-on-exec，
-					 * 免子程序继承套接字。
-					                                                                  
-                                                                 
-*/
+					 * 平台允许时原子标记 close-on-exec，      
+					 * 这样就不存在窗口期，使别的线程 
+					 * 执行的子程序继承套接字。参见下面  
+					 * 的回退代码。               
+					 */
 					sock_type |= SOCK_CLOEXEC;
 #endif
 #ifdef SOCK_NONBLOCK
@@ -3358,11 +3358,11 @@ keep_going:						/* 回此处直到无事可做
 						conn->inStart = conn->inCursor;
 
 						/*
-						 * 需时设全局 SSL 状态。
-						 * libpq 已处理则无需。
-						                                                           
-                                                         
-*/
+						 * 如有需要则设置全局 SSL 状态。若由 
+						 * libpq 负责，加密状态就已设好，故无
+						 * 需再设置一遍。                              
+						 *       
+						 */
 						if (pqsecure_initialize(conn, true, false) != 0)
 							goto error_return;
 					}
@@ -3479,12 +3479,12 @@ keep_going:						/* 回此处直到无事可做
 					if (gss_ok == 'E')
 					{
 						/*
-						 * 服务器故障，假定协议
-						 * 版本不支持。不取错误
-						 * 因服务器未认证。
-						                                                                                
-                                                                               
-*/
+						 * 某种服务器故障。假设是协议    
+						 * 版本不支持问题，看看能否恢复（若  
+						 * 不是，重试时会得到更好的错误       
+						 * 消息）。不过若不挂断套接字，服务 
+						 * 器会不高兴的。            
+						 */
 						conn->try_gss = false;
 						need_new_connection = true;
 						goto keep_going;
@@ -3520,11 +3520,11 @@ keep_going:						/* 回此处直到无事可做
 				if (pollres == PGRES_POLLING_OK)
 				{
 					/*
-						 * 不应有已缓冲数据。若有
-						 * 是握手前收到未加密。
-						                                                                           
-                                                                         
-*/
+					 * 此时我们不应已有任何已缓冲的数据。   
+					 * 若有，那它是在我们执行 GSS 握手之前   
+					 * 收到的，因而未经过加密，甚至可能是  
+					 * 中间人注入的。                
+					 */
 					if (conn->inCursor != conn->inEnd)
 					{
 						libpq_append_conn_error(conn, "received unencrypted data after GSSAPI encryption response");
@@ -3668,13 +3668,13 @@ keep_going:						/* 回此处直到无事可做
 #undef MAX_ERRLEN
 
 				/*
-				 * 消息体不全暂不处理。
+				 * 若消息体尚未全部到达则无法处理。 
 				 *
-				 * 此检查后消息与流分离，
-				 * 无需再查过多过少。
-				                                                                                           
-                                                                                         
-*/
+				 * 此检查通过之后，解析期间再出现任何    
+				 * EOF 都意味着服务器发送了损坏/截断      
+				 * 的消息。那种情况下多读字节无益，因此     
+				 * 此后勿返 PGRES_POLLING_READING。  
+				 */
 				msgLength -= 4;
 				avail = conn->inEnd - conn->inCursor;
 				if (avail < msgLength)
@@ -3703,12 +3703,12 @@ keep_going:						/* 回此处直到无事可做
 					conn->inStart = conn->inCursor;
 
 					/*
-					 * "cannot connect now" 则
-					 * 试下一主机。
-					                                                                                    
-                                                                                   
-                                                                                  
-*/
+					 * 若错误为"cannot connect now"，则尝试下一个 
+					 * 主机（但不必考虑该主机的其他地址，    
+					 * 更改 SSL 或 GSS 模式也没什么意义）。     
+					 * 这在处理可能未处于热备状态的      
+					 * 备用服务器时很有用。                         
+					 */
 					if (strcmp(conn->last_sqlstate,
 							   ERRCODE_CANNOT_CONNECT_NOW) == 0)
 					{
@@ -3794,12 +3794,12 @@ keep_going:						/* 回此处直到无事可做
 				msgLength -= 4;
 
 				/*
-				 * 处理认证请求剩余部分并
-				 * 响应（如需）。
-				                                                      
-                                                     
-                                                     
-*/
+				 * 处理认证请求消息的其余部分，并在必要     
+				 * 时对其作出响应。   
+				 *
+				 * 注意：若要避免 Kerberos 代码执行主机名      
+				 * 查找，conn->pghost 必须非 NULL。          
+				 */
 				res = pg_fe_sendauth(areq, msgLength, conn);
 
 				/* OK 已处理；标记消费                           */
@@ -3836,16 +3836,16 @@ keep_going:						/* 回此处直到无事可做
 		case CONNECTION_AUTH_OK:
 			{
 				/*
-				 * 期从后端听到消息。
-				 * ReadyForQuery 示启动成功，
-				 * 也可收到失败错误消息。
-				 *（PGRES_POLLING_FAILED 仅
-				 * libpq 侧失败用。）
-				                                                                                          
-                                                                                         
-                                                                                         
-                                                                                         
-*/
+				 * 现在我们等待后端的消息。ReadyForQuery      
+				 * 消息表示启动成功，但也可能收到表示失败 
+				 * 的 Error 消息。（协议也允许表示非致命 
+				 * 警告的 Notice 消息，ParameterStatus 与            
+				 * BackendKeyData 消息亦然。）最简单的处理    
+				 * 办法是让 PQgetResult() 去读取消息。  
+				 * 我们只需让它对连接的实际状态              
+				 * 产生错觉：设置 asyncStatus =              
+				 * PGASYNC_BUSY（如上完成）。       
+				 */
 
 				if (PQisBusy(conn))
 					return PGRES_POLLING_READING;
@@ -3864,15 +3864,15 @@ keep_going:						/* 回此处直到无事可做
 							 (conn->appname || conn->fbappname))
 					{
 						/*
-						 * 若试发 application_name，
-						 * 检查错是否关于不识
-						 * 应用名（旧服务器）忽略。
-						                                                                   
-                                                                  
-                                                                 
-                                                                 
-                                                                 
-*/
+						 * 若我们尝试发送了 application_name，检查
+						 * 错误是否由它引起——pre-9.0 服务器会 
+						 * 在此阶段拒绝它。若如此，关闭连  
+						 * 接并不发送 application_name 重试。    
+						 * 这里可能出现 SQLSTATE 误匹配而        
+						 * 无益地重试，但这似乎没什么大害；  
+						 * 若错误与此无关，我们只会再次得  
+						 * 到同样的错误。              
+						 */
 						const char *sqlstate;
 
 						sqlstate = PQresultErrorField(res, PG_DIAG_SQLSTATE);
@@ -3887,11 +3887,11 @@ keep_going:						/* 回此处直到无事可做
 					}
 
 					/*
-					 * resultStatus FATAL 则
-					 * errorMessage 已有内容。
-					                                                                                    
-                                                                                   
-*/
+					 * 若 resultStatus 为 FATAL，则 conn->errorMessage  
+					 * 中已有一份错误副本，无需再复制回来。
+					 * 但若尚无换行符则要补上一个，因为  
+					 * postmaster 的错误消息可能没有。  
+					 */
 					if (conn->errorMessage.len <= 0 ||
 						conn->errorMessage.data[conn->errorMessage.len - 1] != '\n')
 						appendPQExpBufferChar(&conn->errorMessage, '\n');
@@ -4335,16 +4335,16 @@ makeEmptyPGconn(void)
 	conn->Pfdebug = NULL;
 
 	/*
-	 * 每次至少发 8K（Unix/Windows
-	 * 典型管道缓冲大小）。即 8K
-	 * 块内核可一次取走，助性能。
-	                                                                
-                                                               
-                                                               
-                                                               
-                                                              
-                                                              
-*/
+	 * 我们尝试每次至少发送 8K，这是 Unix 系统上管道      
+	 * 缓冲区的常见大小。这样在发送大量数据时，可避免 
+	 * 部分缓冲装载带来的额外内核上下文切换。         
+	 * 输出缓冲区初始大小为 16K，我们会在累积 8K 后       
+	 * 尝试将其转储。                
+	 *
+	 * 出于同样的最小化上下文切换目标，输入缓冲区会在
+	 * 其空闲空间不足 8K 时随时扩大，故最初分配            
+	 * 两倍。  
+	 */
 	conn->inBufSize = 16 * 1024;
 	conn->inBuffer = (char *) malloc(conn->inBufSize);
 	conn->outBufSize = 16 * 1024;
@@ -4842,15 +4842,15 @@ PQcancel(PGcancel *cancel, char *errbuf, int errbufsize)
 	}
 
 	/*
-	 * 此连接仅发单包，故不需
-	 * 保活等选项。也不设环境
-	 * 选项：发取消时尽量少
-	 * 干扰 postmaster。
-	                                                                                   
-                                                                                  
-                                                                                 
-                                                                                 
-*/
+	 * 由于此连接仅用于发送单个数据包，所以我们      
+	 * 不需要 NODELAY。我们也不把套接字设为           
+	 * 非阻塞模式，因为 PQcancel 的 API 定义要求以            
+	 * 阻塞方式发送取消请求。   
+	 *
+	 * 但我们确实会设置与保活及其他 TCP 超时相关           
+	 * 的套接字选项。这可确保在提供了合理的保活    
+	 * 和超时设置时，此函数不会无限期地阻塞。    
+	 */
 	if (cancel->raddr.addr.ss_family != AF_UNIX &&
 		cancel->keepalives != 0)
 	{
@@ -4941,12 +4941,12 @@ retry4:
 	}
 
 	/*
-	 * 等 postmaster 关连表示已
-	 * 处理取消。不期待回复。
-	                                                                                                    
-                                                                                                  
-                                                                                                  
-*/
+	 * 等待 postmaster 关闭连接，这表明它已处理了            
+	 * 该请求。若没有这一延迟，我们可能发出另一条        
+	 * 命令，结果却发现取消掉的是那条命令，而不是      
+	 * 我们以为正在取消的那条。注意我们其实并不         
+	 * 指望这次读取获得数据，只是在等待 EOF 信号。      
+	 */
 retry5:
 	if (recv(tmpsock, (char *) &crp, 1, 0) < 0)
 	{
@@ -4971,10 +4971,10 @@ cancel_errReturn:
 	if (maxlen >= 0)
 	{
 		/*
-		 * 不能调 strerror 非信号安全。
-		 * 暂用通用消息。
-		                                                                                             
-*/
+		 * 我们不能在这里调用 strerror，因为它不是信号安   
+		 * 全的。只好打印 errno 的十进制值。这也得           
+		 * 用笨法。 
+		 */
 		int			val = SOCK_ERRNO;
 		char		buf[32];
 		char	   *bufp;
@@ -4999,17 +4999,17 @@ cancel_errReturn:
 
 
 /*
- * PQrequestCancel：老的、非线程
- * 安全的请求查询取消函数。
-                                                  
-                                                
-                                                
-                                                
-                                                
-                                                
-                                                
-                                                
-*/
+ * PQrequestCancel：旧的、非线程安全的请求查询取消函数。  
+ *
+ * 若能发出取消请求则返 true，否则返回 false。   
+ *
+ * 失败时错误消息存入 conn->errorMessage；                       
+ * 这意味着当连接对象上可能还有其他活动操作          
+ * 时不能使用它。 
+ *
+ * 注意：错误消息将在错误消息缓冲区当前大小   
+ * 处被截断，因为我们不敢尝试扩展 conn->errorMessage！      
+ */
 int
 PQrequestCancel(PGconn *conn)
 {
@@ -5056,17 +5056,17 @@ PQrequestCancel(PGconn *conn)
 
 
 /*
- * pqPacketSend() 便捷例程。
+ * pqPacketSend() —— 向服务器发送消息的便捷例程。  
  *
- * 打包数据发到服务器。
-                                                     
-                                                    
-                                                    
-                                                    
-                                                    
-                                                   
-                                                   
-*/
+ * pack_type：单字节消息类型代码。（启动包没有         
+ * 消息类型代码，传零。）         
+ *
+ * buf, buf_len：消息内容。给定长度仅包含 buf 中            
+ * 的内容；消息类型与消息长度字段在此处添加。      
+ *
+ * 返回：写失败为 STATUS_ERROR，否则 STATUS_OK。      
+ * 副作用：可阻塞。
+ */
 int
 pqPacketSend(PGconn *conn, char pack_type,
 			 const void *buf, size_t buf_len)
@@ -5103,22 +5103,22 @@ pqPacketSend(PGconn *conn, char pack_type,
 /*
  *		ldapServiceLookup
  *
- * 搜索 LDAP URL，结果作连接选项
- * 解析到选项中仅填未设项。
+ * 搜索作为第一参数传入的 LDAP URL，将结果当作一    
+ * 个连接选项字符串进行解析，并添加到作为第二参    
+ * 数传入的选项数组中。    
  *
- * 出错将错误存 errorMessage 返 1，
- * 否则返 0。（返码为兼容。）
-                                             
-                                            
-                                            
-                                            
-                                            
-                                            
-                                            
-                                           
-                                           
-                                           
-*/
+ * LDAP URL 必须符合不带转义序列的 RFC 1959。      
+ *	ldap://host:port/dn?attributes?scope?filter?extensions
+ *
+ * 返回 
+ *	0 表示查找成功，        
+ *	1 表示能建立到 LDAP 服务器的连接但                
+ *	  搜索未成功，          
+ *	2 表示无法建立连接，而               
+ *	3 表示致命错误。     
+ *
+ * 返码 1 和 3 时会在 *errorMessage 后附加错误消息。        
+ */
 static int
 ldapServiceLookup(const char *purl, PQconninfoOption *options,
 				  PQExpBuffer errorMessage)
@@ -5160,10 +5160,10 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 	}
 
 	/*
-	 * 解析 URL 组件检查正确性。
-	                                                           
-                                                          
-*/
+	 * 解析 URL 组件并检查正确性。基本上，url 在组件      
+	 * 边界处放置了 '\0'，并让各变量指向每个           
+	 * 组件。 
+	 */
 
 	if (pg_strncasecmp(url, LDAP_URL, strlen(LDAP_URL)) != 0)
 	{
@@ -5284,17 +5284,17 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 	}
 
 	/*
-	 * 执行显式匿名绑定。
+	 * 执行显式的匿名绑定。     
 	 *
-	 * LDAP 不要求匿名绑定可搜索，
-	 * 但某些服务器（如 NetApp）
-	 * 无绑定会报错！
-	                                                                   
-                                                                  
-                                                                  
-                                                                  
-                                                                  
-*/
+	 * LDAP 并不要求必须显式地执行匿名绑定，但我们       
+	 * 想区分以下两种情况：其一是 LDAP 绑定在              
+	 * PGLDAP_TIMEOUT 秒内未成功（返回2，继续解析                
+	 * 服务控制文件）；其二是查询 LDAP 服务器失败           
+	 * （返回1则终止）。 
+	 *
+	 * 遗憾的是，没有一种设置超时的方法能对 Windows 和    
+	 * OpenLDAP 皆适用。
+	 */
 #ifdef WIN32
 	/* 复制结果                                                     */
 	if (ldap_connect(ld, &time) != LDAP_SUCCESS)
@@ -5578,15 +5578,15 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 #endif							/* USE_LDAP */
 
 /*
- * parseServiceInfo：若给服务名则
- * 查找并吸收选项到现有数组中。
+ * parseServiceInfo：若给出了服务名，则查找它并把其中      
+ * 的连接选项吸收进 *options。     
  *
- * 返 0 成功非零失败。
-                                                                                    
-                                                                                   
-                                                                                  
-                                                                                  
-*/
+ * 成功返回 0，失败返回非零。失败时若 errorMessage       
+ * 非空，则同时把错误消息存入其中。（注意：之所以 
+ * 本函数及相关函数在 errorMessage == NULL 时不会            
+ * 核心转储，唯一原因是未记载的事实：传给空 PQExpBuffer
+ * 指针时啥都不做。） 
+ */
 static int
 parseServiceInfo(PQconninfoOption *options, PQExpBuffer errorMessage)
 {
@@ -5821,18 +5821,18 @@ exit:
 /*
  *		PQconninfoParse
  *
- * 如 PQconnectdb() 解析串，返
- * 连接选项数组。失败返 NULL。
- * 仅含显式指定项不含默认值。
+ * 像 PQconnectdb() 那样解析字符串并返回所得   
+ * 的连接选项数组。失败时返回 NULL。结果只包含   
+ * 字符串中直接指定的选项，而不包含任何可能的   
+ * 默认值。                    
  *
- * errmsg 非 NULL 时 *errmsg
- * 设 NULL 成功或 malloc 错。
- * 需 PQfreemem() 释放。
-                                                                                     
-                                                                                    
-                                                                                    
-                                                                                   
-*/
+ * 若 errmsg 非 NULL：成功时 *errmsg 被设为 NULL，             
+ * 失败时设为 malloc 的字符串（用 PQfreemem 释放）。          
+ * 内存不足时二者均可能为 NULL。 
+ *
+ * 注意：返回数组为动态分配，不再需要时应   
+ * 通过 PQconninfoFree() 释放。                   
+ */
 PQconninfoOption *
 PQconninfoParse(const char *conninfo, char **errmsg)
 {
@@ -5886,14 +5886,14 @@ conninfo_init(PQExpBuffer errorMessage)
 }
 
 /*
- * 连接串解析器
+ * 连接字符串解析器
  *
- * 返 malloc 的选项数组或 NULL。
-                                                          
-                                                        
-                                                        
-                                                        
-*/
+ * 解析成功时返回 malloc 的 PQconninfoOption 数组。         
+ * 否则返回 NULL，并向 errorMessage 中添加一条错误消息。    
+ *
+ * 若 use_defaults 为真，则填入默认值（来自服务文件、       
+ * 环境变量等）。       
+ */
 static PQconninfoOption *
 parse_connection_string(const char *connstr, PQExpBuffer errorMessage,
 						bool use_defaults)
@@ -5907,13 +5907,13 @@ parse_connection_string(const char *connstr, PQExpBuffer errorMessage,
 }
 
 /*
- * 检查是否以有效 URI 前缀开头。
-                                   
-                                  
-                                  
-                                  
-                                  
-*/
+ * 检查连接字符串是否以有效 URI 前缀指示符之一        
+ * 开头。   
+ *
+ * 返回 URI 前缀的长度；若字符串不含 URI 前缀则返回 0。    
+ *
+ * XXX 在 psql/common.c 有重复。      
+ */
 static int
 uri_prefix_length(const char *connstr)
 {
@@ -5929,14 +5929,14 @@ uri_prefix_length(const char *connstr)
 }
 
 /*
- * 识别的连接串以 URI 前缀
- * 开头或含 "="。
-                                                
-                                               
-                                               
-                                              
-                                              
-*/
+ * 可识别的连接字符串要么以有效 URI 前缀开头，要么 
+ * 其中含有 "="。  
+ *
+ * 必须与 parse_connection_string 保持一致：凡本函数           
+ * 返回 true 的串至少应看起来可被该例程解析。          
+ *
+ * XXX 在 psql/common.c 有重复        
+ */
 static bool
 recognized_connection_string(const char *connstr)
 {
@@ -6106,24 +6106,24 @@ conninfo_parse(const char *conninfo, PQExpBuffer errorMessage,
 }
 
 /*
- * Conninfo 数组解析器
+ * Conninfo 数组解析例程  
  *
- * 成功返 malloc 选项数组。
- * 不成功返 NULL。
+ * 成功时返回 malloc 的 PQconninfoOption 数组。        
+ * 不成功时返回 NULL，并向 errorMessage 追加一条 
+ * 错误消息。          
+ * 会为未指定的选项提供默认值（来自服务文件、环境  
+ * 变量等），但仅当 use_defaults 为真时。        
  *
- * use_defaults 为 TRUE 用默认值
- * 填选项；否则仅设显式值。
- *
- * expand_dbname 非零扩展 dbname。
-                                                                                                    
-                                                                                                   
-                                                                                                   
-                                                                                                   
-                                                                                                   
-                                                                                                  
-                                                                                                  
-                                                                                                  
-*/
+ * 如果 expand_dbname 非零，且传给首次出现的 "dbname"            
+ * 关键字的值是一个连接字符串（由 recognized_  
+ * connection_string 判断），则解析并处理它，覆盖先前     
+ * 已处理的冲突关键字。不过后续关键字将具有更高      
+ * 的优先级。树内程序通常指定 expand_dbname=true，              
+ * 这样命名数据库的命令行参数就能使用连接字符串。   
+ * 有些代码从已知字面量来源获得任意数据库，比如         
+ * PQdb()、PQconninfoParse() 和 pg_database.datname。                      
+ * 连接这类库时，树内代码先把名字包进连接字符串。
+ */
 static PQconninfoOption *
 conninfo_array_parse(const char *const *keywords, const char *const *values,
 					 PQExpBuffer errorMessage, bool use_defaults,
@@ -6389,10 +6389,10 @@ conninfo_add_defaults(PQconninfoOption *options, PQExpBuffer errorMessage)
 	}
 
 	/*
-	 * sslrootcert=system 且 sslmode
-	 * 未显式定义的特殊处理。
-	                                                                                      
-*/
+	 * 对未显式定义 sslmode 的 sslrootcert=system 进行          
+	 * 特殊处理。此时我们要把默认 sslmode 强化成         
+	 * verify-full 
+	 */
 	if (sslmode_default && sslrootcert)
 	{
 		if (sslrootcert->val && strcmp(sslrootcert->val, "system") == 0)
@@ -6451,25 +6451,25 @@ conninfo_uri_parse(const char *uri, PQExpBuffer errorMessage,
 
 /*
  * conninfo_uri_parse_options
- *		实际 URI 解析器。
+ *		URI 解析器。  
  *
- * 成功返 true 选项用 URI 值填。
- * URI 有问题返 false 设错误。
-                                             
-                                            
-                                            
-                                           
-                                           
-                                           
-                                           
-                                           
-                                           
-                                           
-                                           
-                                           
-                                           
-                                           
-*/
+ * 成功时返回 true，同时选项数组填入从 URI 解析出的      
+ * 选项。            
+ * 不成功时返回 false，并相应地填充 errorMessage。       
+ *
+ * 按照 URI 语法（RFC 3986）解析 'uri' 中的连接 URI 字符串    
+ * ：   
+ *
+ * postgresql://[user[:password]@][netloc][:port][/dbname][?param1=value1&...]
+ *
+ * 其中 "netloc" 为主机名、IPv4 地址，或用字面方括号括起    
+ * 来的 IPv6 地址。作为扩展，我们还允许多个           
+ * netloc[:port] 规格，以逗号分隔：         
+ *
+ * postgresql://[user[:password]@][netloc][:port][,...][/dbname][?param1=value1&...]
+ *
+ * URI 的任何部分都可用百分号编码 (%xy)。  
+ */
 static bool
 conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 						   PQExpBuffer errorMessage)
@@ -6565,13 +6565,13 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 	}
 
 	/*
-	 * 可有多个 netloc[:port] 对，
-	 * 逗号分隔。
-	                                                                                       
-                                                                                      
-                                                                                     
-                                                                                     
-*/
+	 * 可能有多个 netloc[:port] 对，每一对与下一对之间        
+	 * 都用逗号分隔。最初进入此循环时，"p" 已经  
+	 * 越过可选的 URI 凭证信息，此时指向 URI 的               
+	 * "netloc" 部分。在后续的循环迭代中，"p" 已        
+	 * 越过逗号分隔符，现在指向下一个 "netloc" 的           
+	 * 开头。                                
+	 */
 	for (;;)
 	{
 		/* 一次拆一个对      
@@ -6675,10 +6675,10 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 		*p = '\0';
 
 		/*
-		 * 免 dbname 空串强制默认
-		 * 为用户名。
-		                                                                                                        
-*/
+		 * 避免把 dbname 设为空字符串：那会强制使用默认值
+		 * （用户名），并忽略 $PGDATABASE；这与完全不设置    
+		 * 不同。 
+		 */
 		if (*dbname &&
 			!conninfo_storeval(options, "dbname", dbname,
 							   errorMessage, false, true))
@@ -6833,17 +6833,17 @@ conninfo_uri_parse_params(char *params,
 }
 
 /*
- * URI 解码器
+ * 连接 URI 解码器例程    
  *
- * 成功返含解码结果的 malloc 串。
- * 解码问题返 NULL 设错。
-                                                                   
-                                                                 
-                                                                 
-                                                                 
-                                                                 
-                                                                 
-*/
+ * 成功时返回 malloc 的已解码字符串。    
+ * 不成功时返回 NULL，并相应地填充 errorMessage。       
+ *
+ * 解码时把每个百分号编码的标记替换为相应的字   
+ * 符，同时保留所有未编码的字符。百分号编码标记       
+ * 是一个三元字符组：一个百分号，后跟一对十六进制      
+ * 数字（0-9A-F），其中大写与小写字母被                         
+ * 同等对待。     
+ */
 static char *
 conninfo_uri_decode(const char *str, PQExpBuffer errorMessage)
 {
@@ -6928,11 +6928,11 @@ get_hexdigit(char digit, int *value)
 }
 
 /*
- * 在 connOptions 中找关键词
- * 对应的选项值。
-                                                                  
-                                                                
-*/
+ * 在 connOptions 数组中查找与该关键字对应的选项值。        
+ *
+ * 成功时返回指向相应选项值的指针。                     
+ * 不成功时返回 NULL。      
+ */
 static const char *
 conninfo_getval(PQconninfoOption *connOptions,
 				const char *keyword)
@@ -6945,20 +6945,20 @@ conninfo_getval(PQconninfoOption *connOptions,
 }
 
 /*
- * 在 connOptions 中存关键词对应
- * 的（新）选项值。
+ * 为 connOptions 数组中与关键字对应的选项存储一个 
+ * （新）值。   
  *
- * uri_decode 为 true 值经 URI 解码。
- * ignoreMissing TRUE 时未找到关键
- * 词选项非致命。关键词大小写
- * 不敏感。
-                                                                        
-                                                                      
-                                                                      
-                                                                      
-                                                                      
-                                                                      
-*/
+ * 如果 uri_decode 为真，则该值会经过 URI 解码。关键字   
+ * 一律视为未 URI 编码。 
+ *
+ * 成功时返回指向相应 PQconninfoOption 的指针，其值        
+ * 会被替换为传入值字符串的一份 strdup 副本。             
+ * 如该选项已有旧值，会在替换前先行释放。            
+ *
+ * 不成功时返回 NULL，并相应地填充 errorMessage。       
+ * 但如果失败的原因是传入了无效关键字，且               
+ * ignoreMissing 为真，errorMessage 将保持不变。     
+ */
 static PQconninfoOption *
 conninfo_storeval(PQconninfoOption *connOptions,
 				  const char *keyword, const char *value,
@@ -7016,13 +7016,13 @@ conninfo_storeval(PQconninfoOption *connOptions,
 }
 
 /*
- * 在 connOptions 中找关键词
- * 对应 PQconninfoOption。
-                                       
-                                      
-                                     
-                                     
-*/
+ * 在 connOptions 数组中查找关键字对应的 PQconninfoOption
+ * 选项。         
+ *
+ * 成功时返回指向相应 PQconninfoOption 结构的指针          
+ *           
+ * 不成功时返回 NULL。      
+ */
 static PQconninfoOption *
 conninfo_find(PQconninfoOption *connOptions, const char *keyword)
 {
@@ -7272,14 +7272,14 @@ PQerrorMessage(const PGconn *conn)
 }
 
 /*
- * Windows 上套接字为无符号，
- * INVALID_SOCKET 非 <0。此宏
- * 封装该测试。
-                                                                                                             
-                                                                                                            
-                                                                                                            
-                                                                                                            
-*/
+ * 在 Windows 上，套接字值是无符号的，无效套接字值 
+ * (INVALID_SOCKET) 为 ~0，在比较中等于 -1（不会有             
+ * 编译器警告）。理想情况下 Windows 上的 PQsocket()       
+ * 应返回无符号值，但那会使该函数的返回值与 Unix       
+ * 不同，故无效套接字一律返回 -1。  
+ * http://msdn.microsoft.com/en-us/library/windows/desktop/cc507522%28v=vs.85%29.aspx
+ * http://stackoverflow.com/questions/10817252/why-is-invalid-socket-defined-as-0-in-winsock2-h-c
+ */
 int
 PQsocket(const PGconn *conn)
 {
@@ -7451,11 +7451,11 @@ PQsetNoticeProcessor(PGconn *conn, PQnoticeProcessor proc, void *arg)
 }
 
 /*
- * 默认通知接收器仅取标准通知
- * 文本并传给处理器。
-                                                                                     
-                                                                                   
-*/
+ * 默认的通知消息接收器只是取得标准通知文本，然后 
+ * 将其交给通知处理器。这种两级设置主要是为了   
+ * 向后兼容；也许我们应当弃用                               
+ * PQsetNoticeProcessor?
+ */
 static void
 defaultNoticeReceiver(void *arg, const PGresult *res)
 {
@@ -7466,11 +7466,11 @@ defaultNoticeReceiver(void *arg, const PGresult *res)
 }
 
 /*
- * 默认通知处理器仅打印
- * 消息到 stderr。
-                                                                                             
-                                                                                            
-*/
+ * 默认的通知消息处理器只把消息打印到 
+ * stderr。应用程序想让消息去别处（例如一个 
+ * 个窗口），可覆盖此行为。注意：单纯丢弃 
+ * 通知可能是个坏主意。                             
+ */
 static void
 defaultNoticeProcessor(void *arg, const char *message)
 {
@@ -7705,10 +7705,10 @@ sslVerifyProtocolVersion(const char *version)
 
 
 /*
- * 确保 SSL 协议范围正确。
- * 与实现无关。
-                                                                                                                                                                        
-*/
+ * 确保输入中给定的 SSL 协议范围是正确的。该检查       
+ * 在输入字符串上进行，从而保持与 TLS 后端无关。       
+ * 传入本函数的输入应经 sslVerifyProtocolVersion() 验证。   
+ */
 static bool
 sslVerifyProtocolRange(const char *min, const char *max)
 {
@@ -7745,23 +7745,23 @@ sslVerifyProtocolRange(const char *min, const char *max)
 
 
 /*
- * 获取用户主目录返存入缓冲。
+ * 获取用户主目录，返回到给定缓冲区中 
  *
- * Unix 上返用户主目录。
- * Windows 上获 "My Documents"
- * 下子目录 "postgresql"。
+ * 在 Unix 上，这实际上返回的是用户的主目录。在      
+ * Windows 上返回 PostgreSQL 专用应用数据目录。   
  *
- * 注意需对抗返回值超限。
- * 缓冲太小则略截断（仍可
- * 接受），始终以 \0 终。
-                                                                           
-                                                                          
-                                                                          
-                                                                          
-                                                                         
-                                                                         
-                                                                         
-*/
+ * 这本质上与 get_home_path() 相同，但我们不使用它，     
+ * 因为我们不想把 path.c 拉进 libpq（以免污染应用命名    
+ * 空间。  
+ *
+ * 成功返回 true；获取目录名失败则返回 false。            
+ *
+ * 注意：虽然在大多数情况下失败是出乎意料的，但确实   
+ * 有用户喜欢在没有主目录的环境下运行程序。失败时 
+ * 你几乎肯定不想报告错误。只要表现得就好像你           
+ * 希望在主目录中找到的那个文件并不存在一样（事实   
+ * 也确实如此）。  
+ */
 bool
 pqGetHomeDirectory(char *buf, int bufsize)
 {
@@ -7785,14 +7785,14 @@ pqGetHomeDirectory(char *buf, int bufsize)
 }
 
 /*
- * 保持 API 一致，即使未启用
- * 线程安全也提供锁定桩。
-                                                     
-                                                    
-                                                    
-                                                   
-                                                   
-*/
+ * 为保持 API 的一致性，即使并不需要，锁定桩函数也   
+ * 总是会被提供。    
+ *
+ * 由于我们在 pgthreadlock_t API 中疏忽未提供任何     
+ * 错误返回约定，所以任何互斥量原语失败时我们只能 
+ * 进行断言（Assert）。所幸这类失败实际中似乎很         
+ * 罕见。 
+ */
 
 static void
 default_threadlock(int acquire)

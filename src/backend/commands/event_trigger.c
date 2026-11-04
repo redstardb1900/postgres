@@ -609,11 +609,11 @@ EventTriggerCommonSetup(Node *parsetree,
 	tag = CreateCommandTag(parsetree);
 
 	/*
-	  * 按命令标签过滤并复制到内存上下文中。
-	  * 一旦开始运行命令触发器或操作目录，
-	  * 失效可能使 cachelist 指向垃圾，须在此之前完成。
-	  *
-	  *
+	 * 按命令标签过滤事件触发器列表，并复制到我们     
+	 * 的内存上下文中。一旦开始运行命令触发器，乃至    
+	 * 一旦做任何触及目录的操作，失效处理就可能使      
+	 *  cachelist 指向垃圾数据，因此必须在能做其他事情      
+	 * 之前完成。  
 	 */
 	foreach(lc, cachelist)
 	{
@@ -648,20 +648,20 @@ EventTriggerDDLCommandStart(Node *parsetree)
 	EventTriggerData trigdata;
 
 	/*
-	  * 事件触发器在独立模式下完全禁用。至少有两点原因：
-	  *
-	  * 1. 严重问题的事件触发器不仅可能使数据库不可用，
-	  * 还可能阻止禁用自身来修复。以独立模式重启可作逃生舱口。
-	  *
-	  * 2. BuildEventTriggerCache 依赖于 systable_beginscan_ordered，
-	  * 若 pg_event_trigger 索引损坏将发生故障。
-	  * 为从损坏索引恢复，需有禁用事件触发器的操作模式。
-	  * （或可实现 heapscan-and-sort 逻辑，但依靠未经测试的代码
-	  * 来处理灾难恢复并不令人满意。）
-	  *
-	  *
-	  *
-	  *
+	 * 事件触发器在独立模式下被完全禁用。这至少有      
+	 * 两个原因：                 
+	 *
+	 * 1. 一个严重损坏的事件触发器不仅可能使数据库 
+	 * 不可用，还会阻止将其自身禁用以修复情况。         
+	 * 在这种场景下，以独立模式重启提供了一个逃生   
+	 * 口。
+	 *
+	 * 2. BuildEventTriggerCache 依赖于 systable_beginscan_ordered，  
+	 * 因此若 pg_event_trigger 的索引损坏，它将发生故障。   
+	 * 为了能从损坏的索引中恢复，我们需要某种事件    
+	 * 触发器被禁用的操作模式。（或者我们         
+	 * 实现 heapscan-and-sort 逻辑，但让灾难恢复场景依赖   
+	 * 于其他情况下未经测试的代码并不令人满意。）      
 	 */
 	if (!IsUnderPostmaster)
 		return;
@@ -751,11 +751,11 @@ EventTriggerSQLDrop(Node *parsetree)
 		return;
 
 	/*
-	  * 使用当前状态判断是否触发此事件。若无 sql_drop
-	  * 事件的触发器，则此处无事可做。注意在此情况下
-	  * 已删除对象收集被禁用，即使尝试运行列表也为空。
-	  *
-	  *
+	 * 用当前状态来判断此事件是否真的会触发。如果    
+	 * 没有 sql_drop 事件的触发器，那么我们在这里就   
+	 * 无事可做。注意，此情况下已删除对象的收集是      
+	 * 被禁用的，因此即使我们尝试运行，列表也会是      
+	 * 空的。
 	 */
 	if (!currentEventTriggerState ||
 		slist_is_empty(&currentEventTriggerState->SQLDropList))
@@ -1114,15 +1114,15 @@ EventTriggerBeginCompleteQuery(void)
 }
 
 /*
-  * 查询完成（或出错）——清理本地状态，恢复到上一个。
-  *
-  * 注意：若 EventTriggerBeginCompleteQuery 先前返回 false，
-  * 再调用此例程是错误的。
-  *
-  * 注意：此例程可能在失败事务的 PG_CATCH 块中调用，
-  * 因此小心不要运行非必要操作。（特别是
-  * 尝试分配内存可能不明智。）
-  *
+ * 查询完成（或出错）——清理本地状态，恢复上一个状态 
+ * 。 
+ *
+ * 注意：若 EventTriggerBeginCompleteQuery 先前返回 false，         
+ * 此时不可调用。     
+ *
+ * 注意：本例程可能在失败事务的 PG_CATCH 块中被调用，    
+ * 因此要当心，不要运行任何不必要的操作。（尤其是     
+ * 分配内存恐不明智。）    
  */
 void
 EventTriggerEndCompleteQuery(void)
@@ -1555,23 +1555,23 @@ pg_event_trigger_table_rewrite_reason(PG_FUNCTION_ARGS)
 }
 
 /*-------------------------------------------------------------------------
-  * 支持 DDL 命令逆解析
-  *
-  * 以下例程使事件触发器函数能获取正在执行的
-  * DDL 命令列表。此功能有三个主要部分：
-  *
-  * 1) 在 ProcessUtilitySlow 或其子例程中，每个 DDL 命令使用下面
-  * 的例程将其 CollectedCommand 表示添加到命令列表。
-  *
-  * 2) 之后，ddl_command_end 触发，命令列表通过
-  * pg_event_trigger_ddl_commands() 提供给事件触发器函数；
-  * 完整命令详情以 pg_ddl_command 类型列暴露。
-  *
-  * 3) 扩展可安装函数，接受 pg_ddl_command 类型的值
-  * 并将其转换为某种外部、用户可见和/或可修改的表示。
-  *
-  *
-  *
+ * 支持 DDL 命令逆解析       
+ *
+ * 以下例程使事件触发器函数能够获得正在执行的        
+ *  DDL 命令的列表。此功能主要有三个部分                  
+ * ：     
+ *
+ * 1) 在 ProcessUtilitySlow 或其某个子例程中，每个 DDL 命令     
+ * 都会用下面的例程将自身的 struct CollectedCommand 表            
+ * 示加入命令列表。 
+ *
+ * 2) 在那之后某个时刻，ddl_command_end 触发，命令列表        
+ * 通过 pg_event_trigger_ddl_commands() 提供给事件触发                
+ * 器函数；完整的命令细节以 pg_ddl_command 类型的列            
+ *
+ * 3) 扩展可以安装一个能够接受 pg_ddl_command 类型值        
+ * 并将其转换成某种外部、用户可见和/或用户可修改    
+ * 的表示形式。         
  *-------------------------------------------------------------------------
  */
 
@@ -1643,12 +1643,12 @@ EventTriggerCollectSimpleCommand(ObjectAddress address,
 }
 
 /*
-  * EventTriggerAlterTableStart
- *		Prepare to receive data on an ALTER TABLE command about to be executed
-  * 注意不立即收集命令；先保存在 currentCommand 中，
-  * 处理完所有子命令后才添加到命令列表。
-  *
-  *
+ * EventTriggerAlterTableStart
+ *		准备接收即将执行的 ALTER TABLE 命令的数据               
+ *
+ * 注意我们不立即收集该命令；而是先将其保存在     
+ *  currentCommand 中，只有当子命令处理完毕后，才会           
+ * 添加到命令列表中。
  */
 void
 EventTriggerAlterTableStart(Node *parsetree)
@@ -1730,12 +1730,12 @@ EventTriggerCollectAlterTableSubcmd(Node *subcmd, ObjectAddress address)
 }
 
 /*
-  * EventTriggerAlterTableEnd
- *		Finish up saving an ALTER TABLE command, and add it to command list.
-  * FIXME 此 API 未考虑事务/子事务半途被中止的可能。
-  * 最好添加 AtEOSubXact_EventTriggers() 来修复。
-  *
-  *
+ * EventTriggerAlterTableEnd
+ *		完成 ALTER TABLE 命令的保存，并加入命令列表。       
+ *
+ * FIXME 此 API 未考虑到事务/子事务在半途中止的可         
+ * 能性。最好添加一个                           
+ *  AtEOSubXact_EventTriggers() 修复。  
  */
 void
 EventTriggerAlterTableEnd(void)
@@ -2015,11 +2015,11 @@ pg_event_trigger_ddl_commands(PG_FUNCTION_ARGS)
 						addr = cmd->d.atscfg.address;
 
 					/*
-					  * 若同一命令中删除了对象，可能处于已生成消息
-					  * 却无法再查找对象信息的状态，因此跳过而非失败。
-					  * 例如，某些 ALTER TABLE 子命令组合可能导致此情况。
-					  *
-					  *
+					 * 若对象在同一命令中被删除，我们可能会 
+					 * 陷入生成了消息却无法再查找对象信息   
+					 * 的境地，因此跳过它而不是失败。        
+					 * 例如，某些 ALTER TABLE 子命令组合           
+					 * 就会出现这种情况。                 
 					 */
 					identity = getObjectIdentity(&addr, true);
 					if (identity == NULL)

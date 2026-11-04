@@ -1038,9 +1038,9 @@ get_all_vacuum_rels(MemoryContext vac_context, int options)
 		Oid			relid = classForm->oid;
 
 		/*
-		 * 我们在此包含分区表；取决于要执行的操作，调用方将决定是处理还是
-		 * 忽略它们。
-		 * them.
+		 * 我们在此也包含分区表；调用方会根据要执行的是 
+		 * 哪种操作，决定处理还是忽略它们。                
+		 * 。  
 		 */
 		if (classForm->relkind != RELKIND_RELATION &&
 			classForm->relkind != RELKIND_MATVIEW &&

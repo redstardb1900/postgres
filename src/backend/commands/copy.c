@@ -151,10 +151,10 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 			assign_expr_collations(pstate, whereClause);
 
 			/*
-				 * 检查 WHERE 子句表达式中的所有列。当存在整行引用时，
-				 * 检查表的所有列。
-				 *
-				 */
+			 * 检查 WHERE 子句表达式中的所有列。当            
+			 * 存在整行引用时，检查该表中的所有列。        
+			 * 。       
+			 */
 			pull_varattnos(whereClause, 1, &expr_attrs);
 			if (bms_is_member(0 - FirstLowInvalidHeapAttributeNumber, expr_attrs))
 			{
@@ -172,10 +172,10 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 				Assert(attno != 0);
 
 				/*
-					 * 禁止在 WHERE 子句中使用生成列。在进行过滤时，
-					 * 存储的生成列尚未计算。
-					 *
-					 */
+				 * 禁止在 WHERE 子句中使用生成列。存储型   
+				 * 生成列在进行过滤时尚未计算。               
+				 * 。     
+				 */
 				if (TupleDescAttr(RelationGetDescr(rel), attno - 1)->attgenerated)
 					ereport(ERROR,
 							errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
@@ -233,17 +233,17 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 						 errhint("Use INSERT statements instead.")));
 
 			/*
-				 * 构建目标列表
-				 *
-				 * 如果 COPY 命令的属性列表中未指定列，则目标列表为"所有"列。
-				 * 因此，应在生成的 SELECT 语句中使用 '*' 作为目标列表。
-				 *
-				 * 如果属性列表中指定了列，则为每列创建 ColumnRef 和 ResTarget，
-				 * 并将它们添加到生成的 SELECT 语句的目标列表中。
-				 *
-				 *
-				 *
-				 */
+			 * 目标列表     
+			 *
+			 * 如果 COPY 命令的属性列表中未指定列，则目标 
+			 * 列表就是"所有"列。因此生成 SELECT 语句时应用 
+			 *  '*' 作为目标列表                                   
+			 * 。       
+			 *
+			 * 如果在属性列表中指定了列，                      
+			 * 则为每列创建 ColumnRef 与 ResTarget，并把它       
+			 * 们加到所生成 SELECT 语句的目标列表中。 
+			 */
 			if (!stmt->attlist)
 			{
 				cr = makeNode(ColumnRef);

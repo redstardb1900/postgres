@@ -130,42 +130,42 @@ typedef struct ReindexErrorInfo
 	char		relkind;
 } ReindexErrorInfo;
 
-/* *
+/*
  * CheckIndexCompatible
- *		判断现有索引定义是否与预期索引定义兼容，
- *		使得现有索引存储可以成为新索引的存储，避免重建。
+ *		判断现有索引定义与预期索引定义是否兼容，使    
+ *		现有索引的存储可以成为新索引的存储，从而避免
+ *		重建。                                                     
  *
- * 'oldId': 现有索引的 OID
- * 'accessMethodName': 所需访问方法的名称
- * 'attributeList': 所需索引列定义的列表
- * 'exclusionOpNames': 所需排除运算符名称的列表，
- *		或如果未指定则为 NIL
+ * 'oldId': 现有索引的 OID          
+ * 'accessMethodName': 所用 AM 的名称   
+ * 'attributeList': IndexElem 列表，指定要建立索引的列与     
+ *		表达式。
+ * 'exclusionOpNames': 排除约束运算符名称的列表，         
+ *		若不是排除约束则为 NIL。    
  *
- * 注意：如果索引定义兼容，调用者仍然需要将 pg_index 中的字段
- * 更新为那些可能不同的字段。此功能尚未实现。
+ * 这是为 ALTER TABLE ALTER TYPE 的需要而定制的，它            
+ * 会从 pg_get_indexdef 或 pg_get_constraintdef 定义重建             
+ * 任何依赖于变更列的索引。我们省略了 DefineIndex           
+ * 的某些健全性检查。我们假定旧索引和新索引具有       
+ * 相同的列数，并且如果一个有表达式列或谓词，则        
+ * 两者都有。属性列表的错误仍然适用。
  *
+ * 大多数可以跳过表重写的列类型变更并不会使索引      
+ * 失效。当所有运算符类、排序规则和排除运算符都     
+ * 匹配时，我们认可这一点。虽然我们可以进一步允许    
+ * btree 和 hash 索引的 opfamily 内变更，但这会带来          
+ * 微妙的复杂性，对核心类型并无实际好处。注意，
+ * 本函数不检查 INCLUDE 列；对它们来说，只需跳过表  
+ * 重写  
  *
+ * 当比较或排除运算符具有多态输入类型时，实际的       
+ * 输入类型也必须匹配。这可以防范运算符响应             
+ *  get_fn_expr_argtype() 而改变行为的可能性。目前，          
+ * 这一风险只是理论上的：check_exclusion_constraint()           
+ * 以及所有核心索引访问方法都不会为此类调用设置  
  *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
+ * 我们尚未实现验证表达式列或谓词兼容性的测试，  
+ * 因此假定任何此类索引都不兼容。                   
  */
 bool
 CheckIndexCompatible(Oid oldId,
@@ -386,41 +386,41 @@ CompareOpclassOptions(Datum *opts1, Datum *opts2, int natts)
 	return true;
 }
 
-/* *
+/*
  * WaitForOlderSnapshots
  *
- * 等待可能具有比给定 xmin 限制更旧快照的事务，
- * 因为它可能不包含刚好在其被获取之前删除的元组。
- * 获取此类事务的 VXID 列表，并逐个等待它们。
- * 这在构建索引时使用，当我们具有保持旧快照的
- * 竞争事务并且我们已经使用不可见但尚未回收的
- * 元组等完成了索引构建的第一阶段时。
+ * 等待那些可能拥有比给定 xmin 限制更旧的快照的事务，   
+ * 因为它获取的快照可能不包含恰在获取之前删除的   
+ * 元组。获取这类事务的 VXID 列表，并逐个等待它们。     
+ * 这在并发构建索引时使用。                           
  *
- * 我们调用 GetCurrentVirtualXIDs，传入 xmin 限制，以获取
- * 每个可能具有比 xmin 限制更旧的快照的后端的 VXID。
- * 我们排除当前后端，因为我们在 xmin 限制之后开始，
- * 因此我们自己的快照不可能更旧。我们还排除处于
- * 空闲状态的后端，因为它们没有任何活动快照。
- * 我们还排除处于逻辑解码的后端，它们没有活动快照。
- * 我们希望仅当找到任何符合我们条件的后端时才警告
- * 长时间等待。
+ * 我们可以排除任何 xmin 大于给定 xmin 的运行中事务；   
+ * 其最旧快照必然比我们的 xmin 限制新。     
+ * 我们还可以排除任何 xmin 为零的事务，因为它们显然 
+ * 完全没有活动快照（而且它们可能正在获取的任何  
+ * 快照显然都比我们的新）。其他数据库中的事务也     
+ * 可以忽略，因为它们根本无法看到正在被处理的    
+ * 那个索引。       
  *
+ * 我们还可以排除 autovacuum 进程以及运行手工            
+ * 惰性 VACUUM 的进程，因为缺失索引条目也不会       
+ * 困扰它们。（但手工 ANALYZE 不能排除在外，因为   
+ * 它们可能处于稍后要执行任意操作的事务中。）       
+ * 运行 CREATE INDEX CONCURRENTLY 或 REINDEX                                
+ *  CONCURRENTLY 的进程，若索引既非表达式也非部分       
+ * 索引，同样可安全忽略，因为我们知道它们不会  
+ * 检查所索引表之外的数据  
  *
+ * 此外，GetCurrentVirtualXIDs 从不报告我们自己的 vxid，    
+ * 无需检查。
  *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
+ * 如果某个进程带着为零的 xmin 进入空闲事务状态，     
+ * 按上述论证我们无需再等它。目前我们还没有    
+ * 相应的基础设施来在这种情况发生时停止等待，但     
+ * 我们至少可以避免在它已然空闲时开始等待的愚蠢   
+ * 做法。我们为此反复重新检查 GetCurrentVirtualXIDs    
+ *  的输出。如果在任何一轮迭代中某个特定的 vxid    
+ * 未出现在输出中，我们就知道可以忘了它。     
  */
 void
 WaitForOlderSnapshots(TransactionId limitXmin, bool progress)
@@ -651,20 +651,20 @@ DefineIndex(Oid relationId,
 				 errmsg("cannot use more than %d columns in an index",
 						INDEX_MAX_KEYS)));
 
-	/* *
-	 * 在进行标准索引构建时，只允许 SELECT ... FOR UPDATE/SHARE；
-	 * 但对于并发构建，我们允许 INSERT/UPDATE/DELETE
-	 *（但不允许 VACUUM）。
+	/*
+	 * 在进行标准索引构建时，只允许 SELECT ... FOR          
+	 *  UPDATE/SHARE；但并发构建允许 INSERT/UPDATE/DELETE          
+	 * （除 VACUUM） 
 	 *
-	 * 注意：调用者负责确保 relationId 引用应该在其上
-	 * 构建索引的关系；除了检查我们不希望构建索引的
-	 * 关系类型外。
+	 * 注意：调用者负责确保 relationId 引用的是应当在其     
+	 * 上构建索引的关系；除了引导模式外，这通常要求    
+	 * 调用者已锁定该关系。为避免锁升级风险，这里  
+	 * 持有的锁至少应当与我们此处获取的锁                   
+	 * 一样强。                      
 	 *
-	 *
-	 *
-	 *
-	 *
-	 *
+	 * 注意：若此处的锁强度改变，由某些特定 ambuild 
+	 *  函数控制下运行的并行 worker 所执行的代码也需 
+	 * 要更新。                           
 	 */
 	lockmode = concurrent ? ShareUpdateExclusiveLock : ShareLock;
 	rel = table_open(relationId, lockmode);
@@ -1240,18 +1240,18 @@ DefineIndex(Oid relationId,
 			 */
 			if (!OidIsValid(parentIndexId))
 			{
-				/* *
-				 * 当由 ProcessUtilitySlow 调用时，分区数作为优化
-				 * 传入；但其他调用者传递 -1，因为它们没有该值。
-				 * 这应该以相同的方式计算分区，即比
-				 * find_all_inheritors 返回的关系数少一。
+				/*
+				 * 当由 ProcessUtilitySlow 调用时，分区数作为      
+				 * 一种优化传入；但其他调用者传递 -1，因为 
+				 * 它们手头没有该值。它计数的分区方式应当
+				 * 与 find_all_inheritors 报告的关系数一致，即 
+				 * 少一。                             
 				 *
-				 *
-				 *
-				 *
-				 *
-				 *
-				 *
+				 * 我们假定无需要求 find_all_inheritors 获取锁，  
+				 * 因为对所有调用者而言这应当已经发生过。 
+				 * 即使没有，只要不在此处触碰分区，这也是  
+				 * 安全的；最坏后果只是一个错误的进度报告  
+				 * 总计值。                   
 				 */
 				if (total_parts < 0)
 				{
@@ -1579,26 +1579,26 @@ DefineIndex(Oid relationId,
 	SET_LOCKTAG_RELATION(heaplocktag, heaprelid.dbId, heaprelid.relId);
 	table_close(rel, NoLock);
 
-	/* *
-	 * 对于并发构建，重要的是在我们开始构建索引之前，
-	 * 使目录条目对其他事务可见。这将防止它们进行
-	 * 不兼容的 HOT 更新。新索引将被标记为不
-	 * indisready 和不 indisvalid，以便没有其他人尝试插入
-	 * 到其中或将其用于查询。
+	/*
+	 * 对于并发构建，在开始构建索引之前让目录条目   
+	 * 对其他事务可见非常重要。这将防止它们进行          
+	 * 不兼容的 HOT 更新。新索引将被标记为既不是           
+	 * indisready 也不是 indisvalid，这样其他任何人都           
+	 * 不会尝试向它插入或将其用于查询。     
 	 *
-	 * 我们必须在此提交我们当前的事务，以便索引可以
-	 * 变得可见；然后再次开始。注意，这意味着在我们
-	 * 提交以完成并发构建之前，需要在此函数中执行任何
-	 * 进一步的错误处理。
+	 * 我们必须提交当前事务，使索引变得可见；然后 
+	 * 再启动一个新事务。注意，我们刚刚构建的所有        
+	 * 数据结构都会在提交时丢失。此处之后保留的只有    
+	 * 关系 OID。
 	 *
+	 * 在提交之前，先获取表上的会话级锁，以确保表    
+	 * 和索引都不会在我们完成之前被删除。即使有       
+	 * 其他人正在等待访问，这也不会阻塞，因为我们     
+	 * 在事务内已持有相同的锁。              
 	 *
-	 *
-	 *
-	 *
-	 *
-	 *
-	 *
-	 *
+	 * 注意：我们目前不为索引获取会话锁，因为在     
+	 * 我们持有父表锁期间，不存在会改变其状态的        
+	 * 操作。这一点将来可能需要改变。                   
 	 */
 	LockRelationIdForSession(&heaprelid, ShareUpdateExclusiveLock);
 
@@ -1627,40 +1627,40 @@ DefineIndex(Oid relationId,
 		pgstat_progress_update_multi_param(2, progress_cols, progress_vals);
 	}
 
-	/* *
-	 * 并发索引构建的阶段 2（参见 validate_index() 的注释
-	 * 以了解其工作原理的概述）
+	/*
+	 * 并发索引构建的阶段 2（工作原理概览参见            
+	 * validate_index() 的注释）     
 	 *
-	 * 现在我们必须等待，直到没有正在运行的事务可以使用
-	 * 旧的索引列表打开表。使用 ShareLock 考虑持有锁的
-	 * 正在运行的事务，这些锁可以阻止我们验证索引中的
-	 * 元组可见性。
+	 * 现在我们必须等待，直到没有运行中的事务仍以        
+	 * 旧的索引列表打开该表。使用 ShareLock 来涵盖     
+	 * 持有允许写入该表的锁的运行中事务。注意，           
+	 * 我们无需担心在此点之后才以写方式打开表的          
+	 * 事务；它们打开表时就会看到新索引。       
 	 *
-	 *
-	 *
-	 *
-	 *
-	 *
-	 *
+	 * 注意：我们在此使用真正的锁获取，而不是仅仅       
+	 * 检查 ProcArray 然后休眠，是因为如果相关事务中      
+	 * 有某个事务正阻塞在试图获取我们表的排他锁上， 
+	 * 就可能发生死锁。锁代码会检测死锁并正确地        
+	 * 报错退出。    
 	 */
 	WaitForLockers(heaplocktag, ShareLock, true);
 
-	/* *
-	 * 此时我们确定没有事务以写入方式打开表而
-	 * 其索引列表中没有这个新索引。我们已经等待了所有
-	 * 现有事务，任何新事务的列表中都会有新索引，
-	 * 但索引仍然标记为"对查询无效"。
+	/*
+	 * 此时我们可以确定，没有哪个以写方式打开表的   
+	 * 事务的索引列表中缺少这个新索引。我们已经        
+	 * 等待完了所有现存事务，而任何新事务的列表中       
+	 * 都会有新索引，但该索引仍被标记为"不可插入"         
+	 * 状态。不过在判断 HOT 安全性时会查阅该索引。  
+	 * 这种安排确保不会创建新的 HOT 链，使得链中的       
+	 * 新元组和旧元组具有不同的索引键。                  
+	 *                                 
 	 *
-	 *
-	 *
-	 *
-	 *
-	 *
-	 *
-	 *
-	 *
-	 *
-	 *
+	 * 我们现在获取一个新快照，并使用该快照中可见      
+	 * 的所有元组来构建索引。可以确信，对这些元组      
+	 * 的任何 HOT 更新都会与该索引兼容，因为不知道        
+	 * 该索引的事务所做的更新现在都已提交或回滚。      
+	 * 因此，每个可见元组要么是其 HOT 链的末端，    
+	 * 要么其链的延伸对该索引是 HOT 安全的。              
 	 */
 
 	/* 设置 ActiveSnapshot，因为索引中的函数可能需要它 */
@@ -1692,20 +1692,20 @@ DefineIndex(Oid relationId,
 								 PROGRESS_CREATEIDX_PHASE_WAIT_2);
 	WaitForLockers(heaplocktag, ShareLock, true);
 
-	/* *
-	 * 现在获取将由 validate_index() 用于过滤候选元组的
-	 * "引用快照"。小心！可能仍有正在使用的快照将某些
-	 * 事务视为进行中，而我们的引用快照将其视为已提交。
-	 * 如果此类最近提交的事务删除了元组，我们将不会
-	 * 看到它的删除，从而导致 validate_index() 添加不必要
-	 * 的索引条目。
+	/*
+	 * 现在获取将由 validate_index() 用来过滤候选元组的        
+	 * "引用快照"。当心！可能仍然存在一些使用中的         
+	 * 快照，它们会将我们的引用快照视为已提交的某  
+	 * 个事务视为仍在进行中。如果这样一个刚提交的        
+	 * 事务删除了表中的元组，我们不会把它们纳入           
+	 * 索引；然而，视该删除事务为仍在进行的那些           
+	 * 事务仍期望这些元组在索引标记为有效时存在。
 	 *
+	 * 我们的解决方法是在把索引标记为有效之前，           
+	 * 先等危险事务退出。
 	 *
-	 *
-	 *
-	 *
-	 *
-	 *
+	 * 我们还把 ActiveSnapshot 设置为该快照，因为索引中       
+	 * 要用快照。 
 	 */
 	snapshot = RegisterSnapshot(GetTransactionSnapshot());
 	PushActiveSnapshot(snapshot);
@@ -2293,17 +2293,17 @@ GetDefaultOpClass(Oid type_id, Oid am_id)
 
 	tcategory = TypeCategory(type_id);
 
-	/* *
-	 * 我们扫描访问方法可用的所有 opclasses，查找一个
-	 * 标记为默认并且与目标类型匹配（精确匹配或二进制
-	 * 兼容，但优先精确匹配）的。
+	/*
+	 * 我们遍历该访问方法所有可用的 opclass，寻找一    
+	 * 个被标记为默认且与目标类型匹配的 opclass          
+	 * （精确或二进制兼容均可，但优先精确匹配）。  
 	 *
-	 * 我们可能找到多个二进制兼容匹配。如果只有一个
-	 * 用于首选类型，则使用它。如果有多个，则报错。
-	 *
-	 *
-	 *
-	 *
+	 * 我们可能找到多个二进制兼容的匹配。如果其中     
+	 * 只有一个属于首选类型，就使用它；否则我们报错     
+	 * 失败，迫使用户指明想要的那个。（首选类型的      
+	 * 特例是为 varchar 而设的权宜之计：它与 text 和         
+	 *  bpchar 都二进制兼容，需要裁决。）如果发现多个 
+	 * 精确匹配，即 pg_opclass 有错。 
 	 */
 	rel = table_open(OperatorClassRelationId, AccessShareLock);
 
@@ -2362,27 +2362,27 @@ GetDefaultOpClass(Oid type_id, Oid am_id)
 	return InvalidOid;
 }
 
-/* *
+/*
  *	makeObjectName()
  *
- *	为隐式创建的索引、序列、约束、
- *	扩展统计等创建名称。
+ *	为隐式创建的索引、序列、约束、扩展统计等创建  
+ *	一个名称。          
  *
- *	参数通常是：原始表名、原始字段名和 "type"
- *	字符串（如 "seq" 或 "pkey"）。字段名和/或类型可以为
- *	NULL，如果与标签无关。
+ *	参数通常为：原表名、原字段名和一个"类型"字符        
+ *	串（例如 "seq" 或 "pkey"）。若不相关，字段名和/       
+ *	或类型可以为 NULL。              
  *
+ *	结果为 palloc 的字符串。
  *
+ *	我们想要的基本结果是 "name1_name2_label"，当参数       
+ *	为 NULL 时省略 "_name2" 或 "_label"。但是，我们生成   
+ *	的名称必须少于 NAMEDATALEN 个字符！因此，如有        
+ *	必要我们会截断一个或两个名称，以得到足够短的    
+ *	字符串。标签绝不截断（故最好足够短）。 
  *
- *
- *
- *
- *
- *
- *
- *
- *
- *
+ *	调用者负责检查生成名称的唯一性并按需重试；   
+ *	重试将通过修改 "label" 字符串来完成（这正是我们
+ *	从不截断那部分的原因）。                      
  */
 char *
 makeObjectName(const char *name1, const char *name2, const char *label)
@@ -2446,31 +2446,31 @@ makeObjectName(const char *name1, const char *name2, const char *label)
 	return name;
 }
 
-/* *
- * 为新关系选择不冲突的名称。这通常用于选择
- * 索引名称（这就是它在这里的原因），但也可以用于
- * 序列或任何自动生成的关系类型。
+/*
+ * 为一个新关系选择一个不冲突的名称。这通常用于  
+ * 选择索引名称（这正是它放在此处的原因），但也 
+ * 可以用于序列或任何自动生成的关系种类。 
  *
- * name1、name2 和 label 的使用方式与 makeObjectName()
- * 相同，只是标签不能为 NULL；将改为使用数字。
+ * name1、name2 和 label 的用法与 makeObjectName()                 
+ * 相同，只是 label 不能为 NULL；必要时会在 label 后         
+ * 追加数字，以创建在指定命名空间内唯一的名称。       
  *
+ * 如果 isconstraint 为 true，我们还要避免选择与同一   
+ * 命名空间中任何现有约束匹配的名称。（这比           
+ * Postgres 自身要求的更严格，但 SQL 标准说约束名称        
+ * 在模式内应当唯一，因此对于自动生成的约束名称  
+ * 我们遵循它）
  *
+ * 注意：如果有人并发地选择了相同的名称，理论上      
+ * 仍然可能发生冲突。我们通过使用 SnapshotDirty 检查     
+ * 冲突关系来缩短竞态条件的窗口，但这并不能完全   
+ * 消除该窗口。这在实践中相当不太可能成为问题，    
+ * 尤其是当持有 name1 所标识关系上的排他锁时。           
+ * 但是，如果要在单条命令中选择多个名称，最好在    
+ * 选择下一个名称之前创建新对象并执行               
+ *  CommandCounterIncrement！                          
  *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
+ * 返回一个 palloc 串。
  */
 char *
 ChooseRelationName(const char *name1, const char *name2,
@@ -3400,28 +3400,28 @@ ReindexMultipleInternal(List *relids, ReindexParams *params)
 }
 
 
-/* *
- * ReindexRelationConcurrently - 处理给定关系 OID 的
- * REINDEX CONCURRENTLY
+/*
+ * ReindexRelationConcurrently - 处理给定关系 OID 的 REINDEX    
+ * CONCURRENTLY
  *
- * 'relationOid' 可以属于索引、表或物化视图。
- * 对于表和物化视图，将重建其所有索引，排除
- * 无效索引和任何在排除约束中使用的索引。
+ * 'relationOid' 可以属于索引、表或物化视图。对于表     
+ * 和物化视图，其所有索引都会被重建，但排除无效        
+ * 索引以及任何用于排除约束的索引，不过包含其         
+ * 关联的 toast 表索引。对于索引，该索引本身会被         
+ * 重建。              
  *
+ * 在父表和相关索引上获取的锁会一直保持到事务         
+ * 提交为止，届时会在每个关系上获取会话锁。这         
+ * 两者都能防止并发模式变更。                            
  *
+ * 如果重建了任何索引（包括相关的 toast 表索引）      
+ * 则返回 true，否则返回 false。           
  *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
+ * 注意：这不能用于临时关系。并发构建会与并发            
+ * 构建的事务触发的 ON COMMIT 操作产生冲突。临时          
+ * 关系不受并发问题影响，因此反正不需要更复杂     
+ * 的并发构建，而且                                               
+ * 非并发 reindex 效率更高。                      
  */
 static bool
 ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
@@ -4422,23 +4422,23 @@ update_relispartition(Oid relationId, bool newval)
 	table_close(classRel, RowExclusiveLock);
 }
 
-/* *
- * 在 MyProc->statusFlags 中设置 PROC_IN_SAFE_IC 标志。
+/*
+ * 在 MyProc->statusFlags 中设置 PROC_IN_SAFE_IC。
  *
- * 在进行并发索引构建时，我们可以设置此标志来告诉
- * 其他并发运行 CREATE INDEX CONCURRENTLY 或 REINDEX
- * CONCURRENTLY 的进程在进行并发快照等待时忽略我们。
- * 一方面，这是有用的，因为它避免了等待未参与的进程；
- * 另一方面，我们必须小心，因为我们没有在仍持有
- * 旧快照时错误地设置标志。
+ * 并发构建索引时，可设置此标志告知其他  
+ * 运行 CREATE INDEX CONCURRENTLY 或 REINDEX       
+ *  CONCURRENTLY 的进程，让它们在等待并发快照时 
+ * 忽略我们。一方面避免了无谓等待不相干     
+ * 的进程；但更重要的是它在某些情况下避免了   
+ * 死锁。                                                      
  *
+ * 但这只能对不执行任何可能访问其他表的表达式
+ * 的索引安全地完成，因此索引不能是表达式索引 
+ * 也不能是部分索引。调用者负责确保只在上述     
+ * 假设成立时才调用此例程。         
  *
- *
- *
- *
- *
- *
- *
+ * （该标志会在事务结束时自动重置，因此每个      
+ * 事务都得重设它）  
  */
 static inline void
 set_indexsafe_procflags(void)

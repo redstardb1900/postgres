@@ -814,11 +814,11 @@ Async_UnlistenAll(void)
 }
 
 /*
- * SQL 函数：返回此后端正主动监听的通道名称集合。
+ * SQL 函数：返回此后端正在主动监听的通道名称集合。  
+ * 。          
  *
- * 注意：此编码依赖 listenChannels 列表在事务内不能
- * 更改的事实。
-*
+ * 注意：此处的编码依赖于 listenChannels 列表在一个事务  
+ * 内不能改变的事实。 
  */
 Datum
 pg_listening_channels(PG_FUNCTION_ARGS)
@@ -879,17 +879,17 @@ AtPrepare_Notify(void)
 /*
  * PreCommit_Notify
  *
- *		在事务提交时调用，在实际提交到 clog 之前。
+ *		在事务提交时调用，在实际提交到 clog 之前。       
+ *		     
  *
- *		如有待处理的 LISTEN 操作，确保在共享内存监听者
- *		数组中列出。必须在提交前发生，以确保不会错过
- *		刚好在我们之后提交的事务的通知。
+ *		如果有待处理的 LISTEN 动作，确保我们被列入共享  
+ *		内存监听者数组中。这必须发生在提交之前，以 
+ *		确保不错过任何来自恰好在我们之后提交的事   
+ *		务的通知。 
  *
- *		如 pendingNotifies 列表中有传出通知请求，将
- *		它们添加到全局队列。在提交前执行，以便队列空间
- *		不足时仍可抛出错误。
-*
-*
+ *		如果 pendingNotifies 列表中有向外发送的通知请求， 
+ *		就将其加入全局队列。在提交之前这样做，以便
+ *		在队列空间不足时仍能抛出错误。         
  */
 void
 PreCommit_Notify(void)
@@ -938,21 +938,21 @@ PreCommit_Notify(void)
 		(void) GetCurrentTransactionId();
 
 		/*
-			 * 通过获取提交后仍持有的特殊锁来序列化写入者。
-			 * 这确保队列条目按提交顺序出现，特别是已提交条目
-			 * 之前永远不会存在未提交队列条目，因此未提交事务
-			 * 不能阻止可传递通知的投递。
-			 *
-			 * 使用重量级锁，以便在提交或中止后自动释放。
-			 * 这也允许检测死锁，尽管此处不应死锁。
-			 *
-			 * 锁在 "database 0" 上，这很难看但似乎不值得专门
-			 * 发明特殊锁标签类别。（历史说明：PG 9.0 之前
-			 * flatfiles 机制使用类似锁。）
-			*
-			*
-			*
-			 */
+		 * 通过获取持有到提交之后的特殊锁来串行化写入
+		 * 者。这确保队列条目按提交顺序出现，特别      
+		 * 是绝不会存在未提交的队列条目排在已提交条目
+		 * 之前，因此未提交事务无法阻塞可投递通知的  
+		 * 投递。                                         
+		 *
+		 * 我们使用重量级锁，使其在提交或中止后被自动  
+		 * 释放。这也使得死锁能够被检测出来，尽管实际
+		 * 上这里不应该发生死锁。                             
+		 *
+		 * 锁加在 "database 0" 上，这很难看，但似乎不值得  
+		 * 专门为此发明一个特殊的锁标签类别。           
+		 * （历史说明：PG 9.0 之前，"database 0" 上类似的锁被  
+		 * flatfiles 机制所使用。）  
+		 */
 		LockSharedObject(DatabaseRelationId, InvalidOid, 0,
 						 AccessExclusiveLock);
 
@@ -1176,13 +1176,13 @@ Exec_ListenCommit(const char *channel)
 		return;
 
 	/*
-		 * 将新通道名称添加到 listenChannels。
-		 *
-		 * XXX 理论上此处可能内存不足，这很糟糕因为
-		 * 已提交。目前似乎不值得防护，也许以后改进。
-		*
-		*
-		 */
+	 * 将新通道名加入 listenChannels。    
+	 *
+	 * XXX 理论上讲，此处可能出现内存不足而失败的情况，
+	 * 这会很糟糕，因为我们已经提交。目前看来似乎不 
+	 * 值得设法防范，但也许以后可以对此加以改进           
+	 * 。   
+	 */
 	oldcontext = MemoryContextSwitchTo(TopMemoryContext);
 	listenChannels = lappend(listenChannels, pstrdup(channel));
 	MemoryContextSwitchTo(oldcontext);
@@ -2193,12 +2193,12 @@ asyncQueueAdvanceTail(void)
 	LWLockRelease(NotifyQueueLock);
 
 	/*
-		 * 如全局尾部跨过 SLRU 段边界推进，可截断。
-		 *
-		 * XXX 可能每几个段截断一次更好，减少目录
-		 * 扫描次数。
-		*
-		 */
+	 * 当全局尾部跨过 SLRU 段边界推进时，我们可以        
+	 * 进行截断。  
+	 *
+	 * XXX 每隔几个段才截断一次可能更好，以减少目录扫描 
+	 * 的次数。                         
+	 */
 	newtailpage = QUEUE_POS_PAGE(min);
 	boundary = newtailpage - (newtailpage % SLRU_PAGES_PER_SEGMENT);
 	if (asyncQueuePagePrecedes(oldtailpage, boundary))
@@ -2225,13 +2225,13 @@ asyncQueueAdvanceTail(void)
 /*
  * ProcessIncomingNotify
  *
- *		扫描队列中到达的通知，报告给前端。通知
- *		可能来自其他会话或自己；无需区分。
+ *		扫描队列中到达的通知，并把它们报告给前端。这些 
+ *		通知可能来自其他会话，也可能来自我们自己；  
+ *		此处无需区分它们。         
  *
- *		如 "flush" 为 true，立即强制发送所有前端消息。
+ *		若 "flush" 为 true，立即强制发出所有前端消息。  
  *
- *		注意：因在任何事务外，须创建自己的事务。
-*
+ *		注意：我们不在任何事务中，须自行创建一个。    
  */
 static void
 ProcessIncomingNotify(bool flush)

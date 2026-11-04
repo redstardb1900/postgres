@@ -100,12 +100,12 @@ RangeVarCallbackForPolicy(const RangeVar *rv, Oid relid, Oid oldrelid,
 
 /*
  * parse_policy_command -
- *	 将完整命令字符串转换为其字符表示。
+ *	 辅助函数，将完整的命令字符串转换为其字符 
+ *	 表示形式。
  *
- * cmd_name - 命令字符串。有效值为 'all'、'select'、
- *			  'insert'、'update' 和 'delete'。
+ * cmd_name - 完整命令名字符串。有效值有 'all'、'select'、
+ *			  'insert'、'update'与'delete'  
  *
-*
  */
 static char
 parse_policy_command(const char *cmd_name)
@@ -326,10 +326,10 @@ RelationBuildRowSecurity(Relation relation)
 
 /*
  * RemovePolicyById -
- *	 通过 OID 删除策略。提供的 OID 对应策略不存在则报错。
+ *	 通过 OID 删除一个策略。如果提供的 OID 没有对应的      
+ *	 策略，则会报错。     
  *
- * policy_id - 策略的 OID。
-*
+ * policy_id - 策略的 OID。      
  */
 void
 RemovePolicyById(Oid policy_id)
@@ -361,10 +361,10 @@ RemovePolicyById(Oid policy_id)
 		elog(ERROR, "could not find tuple for policy %u", policy_id);
 
 	/*
-	 * 打开并以排他锁锁定策略所属关系。（排他锁阻止依赖
-	 * 该关系策略集的查询；且必须持有锁直至提交。）
-	*
-	*
+	 * 打开策略所属的关系并对其加排他锁。（我们需要   
+	 * 排他锁来阻止那些可能依赖该关系现有策略集合的   
+	 * 查询；此外我们必须持有该锁直至提交。）          
+	 *              
 	 */
 	relid = ((Form_pg_policy) GETSTRUCT(tuple))->polrelid;
 
@@ -387,12 +387,12 @@ RemovePolicyById(Oid policy_id)
 	systable_endscan(sscan);
 
 	/*
-	 * 注意：relrowsecurity 不仅指示策略是否存在。
-	 * 用户设置后所有关系访问必须通过策略。如关系未定义策略，
-	 * 创建默认拒绝策略并过滤所有记录（所有者查询除外）。
-	*
-	*
-	*
+	 * 注意，与 pg_class 中的某些其他标志不同，relrowsecurity
+	 * 并不只是指示是否存在策略。当用户设置它后，        
+	 * 对关系的所有访问都必须通过策略。                
+	 * 如果没有为该关系定义任何策略，则会创建一个默认
+	 * 拒绝策略，并过滤所有记录（来自所有者的查询除外  
+	 * ）。     
 	 */
 	CacheInvalidateRelcache(rel);
 
@@ -932,9 +932,9 @@ AlterPolicy(AlterPolicyStmt *stmt)
 		ArrayType  *policy_roles;
 
 		/*
-		 * 从系统目录提取策略适用的角色集以便正确重建依赖。
-		*
-		*
+		 * 我们需要从目录中的内容提取此策略适用的角色    
+		 * 集合，以便能为该策略正确地重建依赖关系。      
+		 * 。            
 		 */
 
 		roles_datum = heap_getattr(policy_tuple, Anum_pg_policy_polroles,
@@ -1008,9 +1008,9 @@ AlterPolicy(AlterPolicyStmt *stmt)
 		bool		attr_isnull;
 
 		/*
-		 * 从系统目录提取 WITH CHECK 表达式并构建范围表
-		 * 以正确重建策略依赖。
-		*
+		 * 我们需要从目录中的内容提取 WITH CHECK 表达式，并 
+		 * 为该策略构建范围表，以便能正确地重建其依赖   
+		 * 关系。                                 
 		 */
 
 		/* 检查策略是否有 WITH CHECK 表达式 */

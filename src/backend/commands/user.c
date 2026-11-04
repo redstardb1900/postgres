@@ -42,21 +42,21 @@
 #include "utils/varlena.h"
 
 /*
- * 移除角色授权（或其 ADMIN OPTION）时，可能需要递归处理依赖的授权。
- * 我们使用下列值来判断在此类情况下需要执行的操作。
+ * 移除角色授权（或其上的 admin option）时可能递归到 
+ * 依赖的授权。我们用这些值来推断在此类情况下需要   
+ * 执行什么操作。 
  *
- * RRG_NOOP 表示当前操作无需修改的授权。
+ * RRG_NOOP 表示不会被该操作修改的授权。                
+ * 。       
  *
- * RRG_REMOVE_ADMIN_OPTION 表示需要将 admin_option 设置为 false 的授权。
+ * RRG_REMOVE_ADMIN_OPTION 表示需要被该操作把 admin_option 
+ *  设置为 false 的授权。              
  *
- * RRG_REMOVE_INHERIT_OPTION 和 RRG_REMOVE_SET_OPTION 同理，表示需要将
- * 相应选项设置为 false 的授权。
+ * 类似地，RRG_REMOVE_INHERIT_OPTION 和 RRG_REMOVE_SET_OPTION        
+ * 表示需要把相应选项设置为 false 的授权。               
  *
- * RRG_DELETE_GRANT 表示需要完全删除的授权。
- *
- *
- *
- *
+ * RRG_DELETE_GRANT 表示需要被该操作完全删除的授权。        
+ * 。              
  */
 typedef enum
 {
@@ -2172,33 +2172,33 @@ check_role_membership_authorization(Oid currentUserId, Oid roleid,
 }
 
 /*
- * 对目标角色的 GRANT 或 REVOKE 语句的授权者进行合理性检查或推断。
+ * 对 GRANT 或 REVOKE 语句（目标为角色）检查或推断    
+ * 其授权者。  
  *
- * 授权者必须始终是对被授予成员关系的角色具有 ADMIN OPTION 的
- * 角色，或者是引导超级用户。这类似于 select_best_grantor 强制
- * 执行的限制，只是角色没有所有者，因此我们将引导超级用户视为
- * 隐式所有者。
+ * 授权者必须始终是对被授予成员资格的角色拥有          
+ *  ADMIN OPTION 的角色，或者是引导超级用户。这           
+ * 与 select_best_grantor 强制执行的限制类似，不同之处在  
+ * 于角色没有所有者，因此我们把引导超级用户视为  
+ * 隐式所有者
  *
- * 如果用户未显式指定授权者，grantorId 应传入 InvalidOid，
- * 此函数将推断要记录为授权者的用户。在许多情况下，这将是
- * 当前用户，但当当前用户不直接拥有该角色的 ADMIN OPTION 而是
- * 依赖具有 SUPERUSER 权限或通过继承具有 ADMIN OPTION 的角色
- * 的权限时，情况会更复杂。详见下文。
+ * 如果用户没有显式指定授权者，则 grantorId 应当传入     
+ *  InvalidOid，本函数会推断出要记录为授权者的用户。
+ * 在许多情况下，这将是当前用户，但当当前用户并不     
+ * 拥有该角色的 ADMIN OPTION 而是依靠 SUPERUSER 特权，       
+ * 或者是依靠继承了确实拥有该角色 ADMIN OPTION 的角      
+ * 色的特权时，情况就会变得更复杂。详见下文            
+ * 。               
  *
- * 如果用户指定了授权者，则该授权者必须是能够合法地被记录为
- * 授权者的用户，符合上述规则。这是完整性约束，而非权限检查，
- * 因此即使是超级用户也受此限制。然而，还有一个权限检查：
- * 要将一个角色指定为授权者，当前用户必须拥有该角色的权限。
- * 超级用户将始终通过此检查，但对于非超级用户，可能导致错误。
+ * 如果授权者是由用户指定的，那么它必须是能够合法
+ * 地被记录为授权者的用户，符合上述规则。            
+ * 这是一条完整性约束，而不是权限检查，因此就连超  
+ * 级用户也受此限制。不过，还有一道权限检查：     
+ * 要把一个角色指定为授权者，当前用户就必须拥有该
+ * 角色的权限。超级用户将总是能通过此检查，但对   
+ * 非超级用户则可能导致错误。                    
  *
- * 返回值是被视为执行操作的授权者的 OID。
- *
- *
- *
- *
- *
- *
- *
+ * 返回值是执行该操作时将被视为授权者的 OID              
+ * 。           
  */
 static Oid
 check_role_grantor(Oid currentUserId, Oid roleid, Oid grantorId, bool is_grant)

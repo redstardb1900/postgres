@@ -51,16 +51,16 @@ static void import_error_callback(void *arg);
 
 
 /*
- * 将 DefElem 列表转换为 pg_foreign_data_wrapper、pg_foreign_server、
- * pg_user_mapping 和 pg_foreign_table 中使用的文本数组格式。
+ * 将 DefElem 列表转换为 pg_foreign_data_wrapper、         
+ *  pg_foreign_server、pg_user_mapping 以及                     
+ * pg_foreign_table 
  *
- * 以 Datum 形式返回数组，列表为空则返回 PointerGetDatum(NULL)。
+ * 以 Datum 形式返回该数组；若列表为空，则返回     
+ * PointerGetDatum(NULL)
  *
- * 注意：数组通常不经进一步处理直接存入数据库，
- * 因此任何验证都应在此转换之前完成。
-*
-*
-*
+ * 注意：数组通常不经进一步处理存入数据库， 
+ * 因此任何验证都应在此转换之前完成           
+ * 。        
  */
 static Datum
 optionListToArray(List *options)
@@ -105,17 +105,17 @@ optionListToArray(List *options)
 
 
 /*
- * 将 DefElem 列表转换为文本数组格式。与 optionListToArray() 类似，
- * 但识别 SET/ADD/DROP 操作以修改现有选项列表（以 Datum 形式
- * 作为 oldOptions 传入）。此外，如果 fdwvalidator 不是 InvalidOid，
- * 则指定对结果调用的验证器函数。
+ * 将 DefElem 列表转换为文本数组格式。这实质上与           
+ *  optionListToArray() 是同一件事，只是我们识别用于修改  
+ * 现有选项列表的 SET/ADD/DROP 动作，该列表以 Datum 形   
+ * 式作为 oldOptions 传入。此外，如果 fdwvalidator 不是
+ *  InvalidOid，则指定结果调用的验证器函数。
  *
- * 以 Datum 形式返回数组，列表为空则返回 PointerGetDatum(NULL)。
+ * 以 Datum 形式返回该数组；若列表为空，则返回     
+ * PointerGetDatum(NULL)
  *
- * 用于 FOREIGN DATA WRAPPER/SERVER/USER MAPPING/
- * FOREIGN TABLE 的 CREATE/ALTER。
-*
-*
+ * 它用于 CREATE/ALTER FOREIGN DATA WRAPPER/SERVER/USER                  
+ *  FOREIGN TABLE
  */
 Datum
 transformGenericOptions(Oid catalogId,
@@ -145,10 +145,10 @@ transformGenericOptions(Oid catalogId,
 		}
 
 		/*
-		 * 同一选项可执行多次 SET/DROP。标准允许此操作，
-		 * 只要添加的选项唯一。未指定操作视为 ADD。
-		*
-		*
+		 * 可以对同一个选项执行多次 SET/DROP 操作。        
+		 * 只要待添加的选项唯一，标准就允许这样。       
+		 * 注意，未指定的操作被视为                             
+		 * ADD 
 		 */
 		switch (od->defaction)
 		{

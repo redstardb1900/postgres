@@ -916,11 +916,11 @@ AlterSubscription_refresh(Subscription *sub, bool copy_data,
 		sub_remove_rels = palloc(subrel_count * sizeof(SubRemoveRels));
 
 		/*
-		  * 遍历远程表并尝试匹配本地已知表。
-		  * 若本地未知则为其创建新状态。
-		  *
-		  * 同时构建远程表本地 OID 数组供下一步使用。
-		  *
+		 * 遍历这些远程表，尝试将其与本地已知表匹配。   
+		 * 如果该表在本地未知，则为它创建一个新的状态 
+		 * 。
+		 *
+		 * 同时构建远程表的本地 OID 数组，供下一步使用。  
 		 */
 		off = 0;
 		pubrel_local_oids = palloc(list_length(pubrel_names) * sizeof(Oid));
@@ -1672,15 +1672,15 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 	}
 
 	/*
-	  * 尝试获取删除槽所需的连接。
-	  *
-	  * 注意：若 slotname 为 NONE/NULL 则允许命令完成，
-	  * 用户需稍后手动清理 apply 和 tablesync worker 槽。
-	  *
-	  * 必须在最后执行，否则若数据库操作出错，
-	  * 我们将无法回滚已删除的槽。
-	  *
-	  *
+	 * 尝试获取删除槽所需的连接。                    
+	 *
+	 * 注意：如果 slotname 为 NONE/NULL，那么我们允许命令完  
+	 * 成，用户之后需要手动清理 apply 和 tablesync worker 槽    
+	 * 。   
+	 *
+	 * 这一步必须在最后进行，否则如果在执行数据库操作 
+	 * 期间发生错误，我们将无法回滚已删除的槽         
+	 * 。  
 	 */
 	load_file("libpqwalreceiver", false);
 
@@ -1753,11 +1753,11 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 }
 
 /*
-  * 使用复制连接删除发布者节点上的复制槽。
-  *
-  * missing_ok - 若为 true 则槽不存在时仅发 LOG 消息。
-  *
-  *
+ * 使用复制连接删除发布者节点上的复制槽               
+ * 。        
+ *
+ * missing_ok - 若为 true，则槽不存在时仅记录 LOG 消息     
+ * 。   
  */
 void
 ReplicationSlotDropAtPubNode(WalReceiverConn *wrconn, char *slotname, bool missing_ok)
@@ -2047,13 +2047,13 @@ check_publications_origin(WalReceiverConn *wrconn, List *publications,
 }
 
 /*
-  * 获取属于发布者连接上指定发布的表列表。
-  *
-  * 注意不支持同一表在不同发布中有不同列列表的情况，
-  * 以避免为某些行发送不需要的列信息。
-  * 当不同发布同时指定列列表和行过滤器时可能发生。
-  *
-  *
+ * 获取属于发布者连接上指定发布的那些表的列表。  
+ * 。                  
+ *
+ * 注意，我们不支持同一个表在不同发布中具有不同列     
+ * 列表的情况，以避免为某些行发送不需要的列信息。    
+ * 当为不同的发布同时指定了列列表和行过滤器时，就 
+ * 可能出现这种情况。                                  
  */
 static List *
 fetch_table_list(WalReceiverConn *wrconn, List *publications)

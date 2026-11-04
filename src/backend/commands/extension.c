@@ -463,13 +463,13 @@ get_extension_script_filename(ExtensionControlFile *control,
 
 
 /*
- * 解析主或辅助控制文件内容，填入 *control。version == NULL
- * 时解析主文件，否则解析该版本的辅助文件。
+ * 解析主控制文件或辅助控制文件的内容，并填入 
+ *  *control 的字段。version == NULL 时解析主文件，   
+ * 否则解析该版本的辅助文件。           
  *
- * 控制文件通常非常短（几行），因此无需担心内存分配风险。
- * 也不关心编码；所有值预期为 ASCII。
-*
-*
+ * 控制文件应当非常短，只有几行，因此我们无需 
+ * 担心此处的内存分配风险。同时我们也不必担心     
+ * 它的编码；所有值都预期为 ASCII。                          
  */
 static void
 parse_extension_control_file(ExtensionControlFile *control,
@@ -716,9 +716,9 @@ read_extension_script_file(const ExtensionControlFile *control,
 	(void) pg_verify_mbstr(src_encoding, src_str, len, false);
 
 	/*
-	 * 将编码转换为数据库编码。read_whole_file 以 null 结尾，
-	 * 无转换时字符串可直接使用。
-	*
+	 * 将编码转换为数据库编码。read_whole_file 已将    
+	 * 字符串以 null 结尾，因此若无转换发生，则原样      
+	 * 可用。   
 	 */
 	dest_str = pg_any_to_server(src_str, len, src_encoding);
 
@@ -838,10 +838,10 @@ execute_sql_string(const char *sql)
 }
 
 /*
- * 策略函数：给定扩展是否允许非超级用户安装？
+ * 策略函数：给定的扩展是否受信任，可由非超级用户
+ * 安装？     
  *
- * （如果更改此逻辑请同步更新下方 errhint。）
-*
+ * （若改动此处，请同步更新 errhint。）  
  */
 static bool
 extension_is_trusted(ExtensionControlFile *control)
@@ -1048,11 +1048,11 @@ execute_extension_script(Oid extensionOid, ExtensionControlFile *control,
 		}
 
 		/*
-		 * 若非可重定位，将 @extschema@ 替换为目标模式名。
+		 * 若扩展不可重定位，则将 @extschema@ 的出现替换 
+		 * 为目标模式名。      
 		 *
-		 * 可重定位扩展无需此操作，否则其不可重定位。
-		*
-		*
+		 * 对于可重定位的扩展，无需这样做。不可能存在  
+		 *  @extschema@ 需求，否则就不是可重定位的。   
 		 */
 		if (!control->relocatable)
 		{
@@ -1136,12 +1136,12 @@ execute_extension_script(Oid extensionOid, ExtensionControlFile *control,
 }
 
 /*
- * 查找或创建指定版本名的 ExtensionVersionInfo
+ * 为指定的版本名查找或创建 ExtensionVersionInfo。         
  *
- * 当前使用 ExtensionVersionInfo 链表。搜索 N 个版本
- * 耗时约 O(N^2)。若成为瓶颈可改为哈希表。
-*
-*
+ * 目前我们只是使用 ExtensionVersionInfo 的链表。因此       
+ * 当扩展有 N 个版本时，搜索耗时约 O(N^2)。如果         
+ * 这成为瓶颈，我们可以把数据结构改为哈希表。      
+ *                                
  */
 static ExtensionVersionInfo *
 get_ext_ver_info(const char *versionname, List **evi_list)
@@ -1261,11 +1261,11 @@ get_ext_ver_list(ExtensionControlFile *control)
 }
 
 /*
- * 给定初始和最终版本名，识别执行更新所需的更新脚本序列。
+ * 给定初始版本名和最终版本名，找出为执行该更新      
+ * 而必须应用的一系列更新脚本。             
  *
- * 返回需经过的版本名链表（初始版本*不*包含在内）。
-*
-*
+ * 结果是需经过的各版本名组成的链表（初始版本         
+ * *不*包含在内）。    
  */
 static List *
 identify_update_path(ExtensionControlFile *control,
@@ -1296,19 +1296,19 @@ identify_update_path(ExtensionControlFile *control,
 }
 
 /*
- * 应用 Dijkstra 算法查找 evi_start 到 evi_target 的最短路径。
+ * 应用 Dijkstra 算法求 evi_start 到 evi_target 的最短路径。 
+ *            
  *
- * reject_indirect 为 true 时忽略通过可安装版本的路径，
- * 节省调用者从所有可安装版本出发时的工作量。
+ * 若 reject_indirect 为 true，则忽略经过可安装版本       
+ * 的路径。调用者无论如何都要从所有可安装版本       
+ * 出发，可省去工作量。  
  *
- * reinitialize 为 false 时假定 ExtensionVersionInfo 链表
- * 未被使用过，get_ext_ver_info 的初始化仍然有效。
- * 否则重新初始化此处使用的所有临时字段。
+ * 若 reinitialize 为 false，则假定 ExtensionVersionInfo           
+ *  链表此前未曾这样使用过，且 get_ext_ver_info 完成          
+ * 的初始化仍然有效。否则，重新初始化这里用到的     
  *
- * 返回需经过的版本名链表（初始版本*不*包含在内）。
- * 无路径则返回 NIL。
-*
-*
+ * 结果是需经过的各版本名组成的链表（初始版本         
+ * *不*包含在内）。无此路径则返回 NIL。      
  */
 static List *
 find_update_path(List *evi_list,
@@ -1481,9 +1481,9 @@ CreateExtensionInternal(char *extensionName,
 	ListCell   *lc;
 
 	/*
-	 * 读取主控制文件。假定不含非 ASCII 数据，
-	 * 此处无需关心编码。
-	*
+	 * 读取主控制文件。注意，我们假定其中不含任何        
+	 * 非 ASCII 数据，因此此时无需担心编码问题。             
+	 *       
 	 */
 	pcontrol = read_extension_control_file(extensionName);
 
@@ -1502,10 +1502,10 @@ CreateExtensionInternal(char *extensionName,
 	check_valid_version_name(versionName);
 
 	/*
-	 * 确定安装目标扩展版本所需执行的脚本。若无直接脚本，
-	 * 尝试寻找能到达目标的更新脚本序列。
-	*
-	*
+	 * 弄清安装所需扩展版本需要执行哪些脚本。       
+	 * 如果我们没有能直接完成所需工作的脚本，          
+	 * 就尝试找到一串能达成目标的更新脚本。               
+	 *                   
 	 */
 	filename = get_extension_script_filename(pcontrol, NULL, versionName);
 	if (stat(filename, &fst) == 0)
@@ -1558,11 +1558,11 @@ CreateExtensionInternal(char *extensionName,
 	if (control->schema != NULL)
 	{
 		/*
-		 * 扩展不可重定位且作者指定了模式。
+		 * 扩展不可重定位，且作者为它指定了一个模式。 
+		 *        
 		 *
-		 * 若 control->schema 已指定，除非提供了 CASCADE，
-		 * 否则指定不同模式为错误。
-		*
+		 * 除非指定了 CASCADE 参数，否则若 control->schema        
+		 *  已指定，却又给出不同的模式，就是错误。     
 		 */
 		if (schemaName && strcmp(control->schema, schemaName) != 0 &&
 			!cascade)
@@ -2000,13 +2000,13 @@ RemoveExtensionById(Oid extId)
 }
 
 /*
- * 列出可用扩展（控制目录中每个主控制文件一行）。
- * 解析每个控制文件并报告相关字段。
+ * 此函数列出可用的扩展（控制目录中每个主控制文件    
+ * 一行）。我们解析每个控制文件并报告有价值的字段。  
+ *                    
  *
- * 系统视图 pg_available_extensions 为此 SRF 提供用户接口，
- * 添加扩展是否已在当前数据库安装的信息。
-*
-*
+ * 系统视图 pg_available_extensions 为此 SRF 提供                   
+ * 用户接口，增加扩展是否已安装在当前数据库的          
+ * 信息。  
  */
 Datum
 pg_available_extensions(PG_FUNCTION_ARGS)
@@ -2080,13 +2080,13 @@ pg_available_extensions(PG_FUNCTION_ARGS)
 }
 
 /*
- * 列出可用扩展版本（每个安装脚本一行）。
- * 对每个版本解析相关控制文件并报告相关字段。
+ * 此函数列出可用的扩展版本（每个扩展安装脚本  
+ * 一行）。对于每个版本，我们解析相关的控制文件     
+ * 并报告有价值的字段。                    
  *
- * 系统视图 pg_available_extension_versions 为此 SRF
- * 提供用户接口，添加哪些版本已在当前数据库安装的信息。
-*
-*
+ * 系统视图 pg_available_extension_versions 为此                      
+ *  SRF 提供用户接口，增加哪些版本安装在当前数据库的  
+ * 信息。  
  */
 Datum
 pg_available_extension_versions(PG_FUNCTION_ARGS)
@@ -3054,9 +3054,9 @@ ExecAlterExtensionStmt(ParseState *pstate, AlterExtensionStmt *stmt)
 					   stmt->extname);
 
 	/*
-	 * 读取主控制文件。假定不含非 ASCII 数据，
-	 * 此处无需关心编码。
-	*
+	 * 读取主控制文件。注意，我们假定其中不含任何        
+	 * 非 ASCII 数据，因此此时无需担心编码问题。             
+	 *       
 	 */
 	control = read_extension_control_file(stmt->extname);
 
@@ -3125,12 +3125,12 @@ ExecAlterExtensionStmt(ParseState *pstate, AlterExtensionStmt *stmt)
 }
 
 /*
- * 应用一系列更新脚本，如同依次执行 ALTER EXTENSION UPDATE，
- * 包括每次更改 pg_extension 行和依赖。
+ * 应用一系列更新脚本，就像单独给出了一个个         
+ *  ALTER EXTENSION UPDATE 命令那样，包括每次修改 pg_extension 
+ *  行与依赖项。        
  *
- * 可能过多但确保旧更新脚本不会因新版本控制参数
- * 不同而崩溃。
-*
+ * 这样做的工作量可能超出所需，但它能确保旧的       
+ * 更新脚本在新版本拥有不同控制参数时也不会失效。   
  */
 static void
 ApplyExtensionUpdates(Oid extensionOid,
@@ -3388,12 +3388,12 @@ ExecAlterExtensionContentsStmt(AlterExtensionContentsStmt *stmt,
 		recordDependencyOn(&object, &extension, DEPENDENCY_EXTENSION);
 
 		/*
-		 * 同时记录对象上的初始 ACL（如有）。
+		 * 同时记录对象上的初始 ACL（如有）。 
 		 *
-		 * 注意：这包括对象的 ACL 和对象子 ID 上的 ACL。
-		 * （即当对象为表时，记录表 ACL 及列 ACL（如有））。
-		*
-		*
+		 * 注意，这会同时处理对象自身的 ACL 以及对象      
+		 * 子 ID 上的 ACL。（换言之，当对象是一张表时， 
+		 * 这会记录表的 ACL 以及表中各列的 ACL（如          
+		 * 有的话）。    
 		 */
 		recordExtObjInitPriv(object.objectId, object.classId);
 	}
@@ -3425,12 +3425,12 @@ ExecAlterExtensionContentsStmt(AlterExtensionContentsStmt *stmt,
 			extension_config_remove(extension.objectId, object.objectId);
 
 		/*
-		 * 移除所有初始 ACL（如有）。
+		 * 移除所有初始 ACL，如有。  
 		 *
-		 * 注意：这包括移除对象的 ACL 和对象子 ID 上的 ACL。
-		 * （即当对象为表时，移除表 ACL 及列 ACL（如有））。
-		*
-		*
+		 * 注意，这会同时移除对象自身的 ACL 以及对象      
+		 * 子 ID 上的 ACL。（换言之，当对象是一张表时， 
+		 * 这会移除表的 ACL 以及表中各列的 ACL（如          
+		 * 有的话）。    
 		 */
 		removeExtObjInitPriv(object.objectId, object.classId);
 	}

@@ -349,12 +349,12 @@ pub_collist_contains_invalid_column(Oid pubid, Relation relation, List *ancestor
 	bool		isnull;
 
 	/*
-	  * 对于分区，若 pubviaroot 为 true，找到通过此发布
-	  * 发布的最顶层祖先，因需用其列列表处理更改。
-	  *
-	  * 注意即使用祖先的列列表，
-	  * REPLICA IDENTITY 使用的是实际子表的。
-	  *
+	 * 对于分区，若 pubviaroot 为 true，则找到通过此发布发  
+	 * 布的最顶层祖先，因为我们需要使用它的列列表来处  
+	 * 理更改。
+	 *
+	 * 注意，即使所使用的列列表是祖先的，所使用的   
+	 *  REPLICA IDENTITY 却是实际子表的。               
 	 */
 	if (pubviaroot && relation->rd_rel->relispartition)
 	{
@@ -694,14 +694,14 @@ CheckPubRelationColumnList(char *pubname, List *tables,
 			continue;
 
 		/*
-		  * 若发布中有任何模式，禁止指定列列表。
-		  *
-		  * XXX 可改为仅禁止发布包含有列列表的表及
-		  * 对应模式的情况。但若如此需在
-		  * ALTER TABLE ... SET SCHEMA 时加限制，似非好主意。
-		  *
-		  *
-		  *
+		 * 发布中若有任何模式，禁止指定列列表。 
+		 * 。         
+		 *
+		 * XXX 也可改为仅禁止发布同时发布带列列表的表 
+		 * 及其模式的情况。但如果我们那样做，就需要在    
+		 *  ALTER TABLE ... SET SCHEMA 期间进行限制以防这种情  
+		 * 况，这似乎并不                                          
+		 * 是好主意。        
 		 */
 		if (publish_schema)
 			ereport(ERROR,
@@ -1200,11 +1200,11 @@ AlterPublicationTables(AlterPublicationStmt *stmt, HeapTuple tup,
 				}
 
 				/*
-				  * 检查新关系集是否有匹配发布中现有关系的。
-				  * 此外若有关联 WHERE 子句，检查 WHERE 表达式
-				  * 也匹配。列列表同理。删除其余。
-				  *
-				  *
+				 * 检查新关系集合中是否有与发布中现有      
+				 * 关系匹配的。此外，如果该关系带有           
+				 * 关联的 WHERE 子句，也要检查 WHERE 表达式匹
+				 * 配。列列表也一样。其余的都删除             
+				 * 。  
 				 */
 				if (RelationGetRelid(newpubrel->relation) == oldrelid)
 				{

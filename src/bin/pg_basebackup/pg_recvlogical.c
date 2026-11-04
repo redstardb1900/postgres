@@ -110,7 +110,7 @@ usage(void)
 }
 
 /*
- * Send a Standby Status Update message to server.
+ * 向服务器发送 Standby Status Update 消息
  */
 static bool
 sendFeedback(PGconn *conn, TimestampTz now, bool force, bool replyRequested)
@@ -121,8 +121,11 @@ sendFeedback(PGconn *conn, TimestampTz now, bool force, bool replyRequested)
 	char		replybuf[1 + 8 + 8 + 8 + 8 + 1];
 	int			len = 0;
 
-	/* * 通常不送多余反馈，超时必须送，
- * 否则 wal_sender_timeout 杀。                                                                        */
+	/*
+	 * 通常我们并不想发送多余的反馈，但如果是超时 
+	 * 就必须发送，否则 wal_sender_timeout 会终止我们。         
+	 *    
+	 */
 	if (!force &&
 		last_written_lsn == output_written_lsn &&
 		last_fsync_lsn == output_fsync_lsn)
@@ -144,7 +147,7 @@ sendFeedback(PGconn *conn, TimestampTz now, bool force, bool replyRequested)
 	len += 8;
 	fe_sendint64(now, &replybuf[len]);	/* 发时   */
 	len += 8;
-	replybuf[len] = replyRequested ? 1 : 0; /* 复请         */
+	replybuf[len] = replyRequested ? 1 : 0; /* replyRequested */
 	len += 1;
 
 	startpos = output_written_lsn;
@@ -193,8 +196,9 @@ OutputFsync(TimestampTz now)
 	return true;
 }
 
-/* * 开始日志流
- *        */
+/*
+ * 开始日志流接收  
+ */
 static void
 StreamLogicalLog(void)
 {
@@ -207,16 +211,18 @@ StreamLogicalLog(void)
 	output_written_lsn = InvalidXLogRecPtr;
 	output_fsync_lsn = InvalidXLogRecPtr;
 
-	/* * 复制模式连服
- *                         */
+	/*
+	 * 以复制模式连接到服务器。     
+	 */
 	if (!conn)
 		conn = GetConnection();
 	if (!conn)
 		/* 错误已在 GetConnection 写入                */
 		return;
 
-	/* * 开始复制
- *           */
+	/*
+	 * 开始复制。      
+	 */
 	if (verbose)
 		pg_log_info("starting log streaming at %X/%X (slot %s)",
 					LSN_FORMAT_ARGS(startpos),
@@ -277,8 +283,9 @@ StreamLogicalLog(void)
 			copybuf = NULL;
 		}
 
-		/* * 可能向主发状态。
- *                             */
+		/*
+		 * 可能向主服务器发送一条状态消息。 
+		 */
 		now = feGetCurrentTimestamp();
 
 		if (outfd != -1 &&
@@ -339,8 +346,11 @@ StreamLogicalLog(void)
 		r = PQgetCopyData(conn, &copybuf, 1);
 		if (r == 0)
 		{
-			/* * 异步无数据。阻塞读不超 timeout，
- * 以便回传响应。                                                                                                     */
+			/*
+			 * 处于异步模式且没有可用数据。我们会阻塞在 
+			 * 读取上但不超过指定的超时，以便向客户    
+			 * 端发回响应。          
+			 */
 			fd_set		input_mask;
 			TimestampTz message_target = 0;
 			TimestampTz fsync_target = 0;
@@ -393,8 +403,11 @@ StreamLogicalLog(void)
 			r = select(PQsocket(conn) + 1, &input_mask, NULL, NULL, timeoutptr);
 			if (r == 0 || (r < 0 && errno == EINTR))
 			{
-				/* * 超时或信号。续循环发状态或回
- * 阻塞。                                                                                            */
+				/*
+				 * 超时或收到信号。继续循环，要么发送  
+				 * 状态包给服务器，要么直接回到阻塞状态。 
+				 *          
+				 */
 				continue;
 			}
 			else if (r < 0)
@@ -433,8 +446,11 @@ StreamLogicalLog(void)
 			XLogRecPtr	walEnd;
 			bool		endposReached = false;
 
-			/* * 解析 CopyData 内 keepalive。
- * 仅查是否求回复，略其余。                                                                               */
+			/*
+			 * 解析 CopyData 消息内包含的 keepalive 消息。我们  
+			 * 只检查服务器是否请求了回复，其余内容忽略 
+			 *      
+			 */
 			pos = 1;			/* 跳 msgtype k    */
 			walEnd = fe_recvint64(&copybuf[pos]);
 			output_written_lsn = Max(walEnd, output_written_lsn);
@@ -452,9 +468,12 @@ StreamLogicalLog(void)
 
 			if (endpos != InvalidXLogRecPtr && walEnd >= endpos)
 			{
-				/* * keepalive 前套接字无内容服无
- * 数据；walEnd 超 endpos 则无提
- * 交。可退出。                                                                                                                                                        */
+				/*
+				 * 若在 keepalive 之前套接字上无可读内容，     
+				 * 我们就知道服务器已没有要发送的数据；
+				 * 而如果 walEnd 已经超过 endpos，我们就知道 
+				 * 在 endpos 前无其他提交，即可退出。  
+				 */
 				endposReached = true;
 			}
 
@@ -482,10 +501,13 @@ StreamLogicalLog(void)
 			goto error;
 		}
 
-		/* * 读 XLogData 头(CopyData 内)。
- * 仅需 WAL 位(dataStart)，余略。                                                                                                     */
-		hdr_len = 1;			/* msgtype w   */
-		hdr_len += 8;			/* 数据起 */
+		/*
+		 * 读取 CopyData 消息内包含的 XLogData 消息的头部。   
+		 * 我们只需要 WAL 位置字段 (dataStart)，头部其余部分 
+		 * 都被忽略。          
+		 */
+		hdr_len = 1;			/* 类型 'w'  */
+		hdr_len += 8;			/* dataStart */
 		hdr_len += 8;			/* walEnd */
 		hdr_len += 8;			/* 发时   */
 		if (r < hdr_len + 1)
@@ -494,13 +516,15 @@ StreamLogicalLog(void)
 			goto error;
 		}
 
-		/* 提取此块 WAL 位                */
+		/* 提取此块的 WAL 位置          */
 		cur_record_lsn = fe_recvint64(&copybuf[1]);
 
 		if (endpos != InvalidXLogRecPtr && cur_record_lsn > endpos)
 		{
-			/* * 读过终点，准备退，慎输出。
- *                                                                              */
+			/*
+			 * 我们已经读过了终点，接下来准备退出，并
+			 * 谨慎处理输出数据的去向。           
+			 */
 			if (!flushAndSendFeedback(conn, &now))
 				goto error;
 			prepareToTerminate(conn, endpos, false, cur_record_lsn);
@@ -531,7 +555,7 @@ StreamLogicalLog(void)
 				goto error;
 			}
 
-			/* 写成功，推进位                      */
+			/* 写入成功，推进我们的位置       */
 			bytes_written += ret;
 			bytes_left -= ret;
 		}
@@ -559,11 +583,14 @@ StreamLogicalLog(void)
 	{
 		PQclear(res);
 
-		/* * 客户端发起净退，已发 CopyDone。
- * 排空消息免漏 ErrorResponse。
- * walsender 见 CopyDone 停发记。
- * CopyDone 后 sendFeedback 晚，
- * 用同步 PQgetCopyData。                                                                                                                                                                                                                                      */
+		/*
+		 * 我们在执行客户端发起的干净退出，且已把 CopyDone 
+		 * 发送给了服务器。要排空全部消息，以免漏掉  
+		 *  ErrorResponse。walsender 一旦看到 CopyDone，就             
+		 * 停止生成 XLogData 记录，预计很快就会结束。         
+		 * 在 CopyDone 之后就无法再调用 sendFeedback() 了，即使 
+		 * 耗时再长，也要用同步的 PQgetCopyData() 
+		 */
 		while (1)
 		{
 			int			r;
@@ -580,7 +607,7 @@ StreamLogicalLog(void)
 			{
 				pg_log_error("could not read COPY data: %s",
 							 PQerrorMessage(conn));
-				time_to_abort = false;	/* unclean exit */
+				time_to_abort = false;	/* 异常退出 */
 				goto error;
 			}
 		}
@@ -599,7 +626,7 @@ StreamLogicalLog(void)
 	{
 		TimestampTz t = feGetCurrentTimestamp();
 
-		/* 此不跳错，将结束                                         */
+		/* 此处失败无需跳到错误处理，反正即将结束        */
 		OutputFsync(t);
 
 		if (close(outfd) != 0)
@@ -617,20 +644,24 @@ error:
 	conn = NULL;
 }
 
-/* * Windows 无法合理信号……
- *                                */
+/*
+ * 遗憾的是，在 Windows 上无法合理地处理信号…… 
+ */
 #ifndef WIN32
 
-/* * SIGINT/SIGTERM 下时刻退出。
- *                                                           */
+/*
+ * 当捕获到 SIGINT/SIGTERM 时，只是让系统在下一个可能的  
+ * 时刻退出。 
+ */
 static void
 sigexit_handler(SIGNAL_ARGS)
 {
 	time_to_abort = true;
 }
 
-/* * 触发重开输出文件。
- *            */
+/*
+ * 触发输出文件重新打开。      
+ */
 static void
 sighup_handler(SIGNAL_ARGS)
 {
@@ -806,8 +837,9 @@ main(int argc, char **argv)
 		}
 	}
 
-	/* * 非选项参数？
- *         */
+	/*
+	 * 有非选项参数吗？ 
+	 */
 	if (optind < argc)
 	{
 		pg_log_error("too many command-line arguments (first is \"%s\")",
@@ -816,8 +848,9 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
-	/* * 必需参数
- *        */
+	/*
+	 * 必需的参数   
+	 */
 	if (replication_slot == NULL)
 	{
 		pg_log_error("no slot specified");
@@ -874,35 +907,44 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
-	/* * 获服连接。需密码时立即从用户
- * 收集。                                                                  */
+	/*
+	 * 获得服务器的连接。尤其如果需要密码，我们想立即  
+	 * 从用户那里收集密码。          
+	 */
 	conn = GetConnection();
 	if (!conn)
 		/* 错误已在 GetConnection 写入                */
 		exit(1);
 	atexit(disconnect_atexit);
 
-	/* * 捕获信号。(GetConnection 密码
- * 提示后执行。)                                                         */
+	/*
+	 * 捕获信号。（如果 GetConnection 中需要密码提示，       
+	 * 则不要在此之前执行。）   
+	 */
 #ifndef WIN32
 	pqsignal(SIGINT, sigexit_handler);
 	pqsignal(SIGTERM, sigexit_handler);
 	pqsignal(SIGHUP, sighup_handler);
 #endif
 
-	/* * IDENTIFY_SYSTEM 确认数据库特
- * 定复制连接。                                                */
+	/*
+	 * 运行 IDENTIFY_SYSTEM 以确认我们用的是数据库特定的复   
+	 * 制连接。           
+	 */
 	if (!RunIdentifySystem(conn, NULL, NULL, NULL, &db_name))
 		exit(1);
 
 	if (db_name == NULL)
 		pg_fatal("could not establish database-specific replication connection");
 
-	/* * 设 umask 使目录文件权限匹配
- * 源数据目录。
- *
- * pg_mode_mask 默认仅所有者，
- * GetConnection 从服端更新。                                                                                                                                                                                                                      */
+	/*
+	 * 设置 umask，使新建的目录/文件与源数据目录中
+	 * 的目录/文件具有相同的权限。                      
+	 *
+	 * pg_mode_mask 默认设为仅属主，随后在                  
+	 * GetConnection() 中更新，通过 RetrieveDataDirCreatePerm() 
+	 * 从服务器端获取该模式并调用 SetDataDirectoryCreatePerm()。
+	 */
 	umask(pg_mode_mask);
 
 	/* 删除复制槽          */
@@ -936,8 +978,10 @@ main(int argc, char **argv)
 		StreamLogicalLog();
 		if (time_to_abort)
 		{
-			/* * 已 Ctrl-C 或达退出限。非错，
- * 以零码退出。                                                              */
+			/*
+			 * 我们已被 Ctrl-C 中断或达到了退出限制条件。这 
+			 * 并不是错误，不带错误码退出。 
+			 */
 			exit(0);
 		}
 		else if (noloop)
@@ -952,10 +996,13 @@ main(int argc, char **argv)
 	}
 }
 
-/* * Fsync 输出并发反馈。成功 true，
- * 失败 false。
+/*
+ * fsync 输出数据，并向服务器发送反馈消息。成功时返回  
+ * true，否则返回 false。        
  *
- * 成功 *now 更新为发前时间戳。                                                                                                          */
+ * 成功时，*now 会在发送反馈之前被更新为当前的时间戳。 
+ *          
+ */
 static bool
 flushAndSendFeedback(PGconn *conn, TimestampTz *now)
 {
@@ -969,8 +1016,10 @@ flushAndSendFeedback(PGconn *conn, TimestampTz *now)
 	return true;
 }
 
-/* * 告服将终止，不等不重试。
- *                                                             */
+/*
+ * 尝试告知服务器我们即将终止，但不要等待，也不要在    
+ * 失败时重试  
+ */
 static void
 prepareToTerminate(PGconn *conn, XLogRecPtr endpos, bool keepalive, XLogRecPtr lsn)
 {

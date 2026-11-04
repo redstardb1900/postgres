@@ -72,11 +72,11 @@ PQprint(FILE *fout, const PGresult *res, const PQprintOpt *po)
 	nFields = PQnfields(res);
 
 	if (nFields > 0)
-	{							/* only print rows with at least 1 field.  */
+	{							/* 仅打印至少含 1 个字段的行。 */
 		int			i,
 					j;
 		int			nTups;
-		int		   *fieldMax = NULL;	/* in case we don't use them */
+		int		   *fieldMax = NULL;	/* 以防用不到它们     */
 		unsigned char *fieldNotNum = NULL;
 		char	   *border = NULL;
 		char	  **fields = NULL;
@@ -176,7 +176,7 @@ PQprint(FILE *fout, const PGresult *res, const PQprintOpt *po)
 	
 	                                                                                                              */
 			pagerenv = getenv("PAGER");
-			/* if PAGER is unset, empty or all-white-space, don't use pager */
+			/* PAGER 未设置、为空或全空白时不使用分页程序 */
 			if (pagerenv != NULL &&
 				strspn(pagerenv, " \t\r\n") != strlen(pagerenv) &&
 				!po->html3 &&
@@ -187,7 +187,7 @@ PQprint(FILE *fout, const PGresult *res, const PQprintOpt *po)
 				  (1 + (po->standard != 0)) >= screen_size.ws_row -
 				  (po->header != 0) *
 				  (total_line_length / screen_size.ws_col + 1) * 2
-				  - (po->header != 0) * 2	/* row count and newline */
+				  - (po->header != 0) * 2	/* 行数与换行符    */
 				  )))
 			{
 				fflush(NULL);
@@ -319,7 +319,7 @@ exit:
 		free(border);
 		if (fields)
 		{
-			/* if calloc succeeded, this shouldn't overflow size_t */
+			/* 若 calloc 成功，这里不应溢出 size_t       */
 			size_t		numfields = ((size_t) nTups + 1) * (size_t) nFields;
 
 			while (numfields-- > 0)
@@ -335,7 +335,7 @@ exit:
 			pclose(fout);
 
 #ifdef ENABLE_THREAD_SAFETY
-			/* we can't easily verify if EPIPE occurred, so say it did */
+			/* 难以确认是否发生 EPIPE，故假定已发生     */
 			if (sigpipe_masked)
 				pq_reset_sigpipe(&osigset, sigpipe_pending, true);
 #else
@@ -502,7 +502,7 @@ do_header(FILE *fout, const PQprintOpt *po, const int nFields, int *fieldMax,
 		/* 计算边框大小，检查溢出。              */
 		for (; n < nFields; n++)
 		{
-			/* Field plus separator, plus 2 extra '-' in standard format. */
+			/* 字段加分隔符，标准格式下再加 2 个 '-'       */
 			if (add_size_overflow(tot, fieldMax[n], &tot) ||
 				add_size_overflow(tot, fs_len, &tot) ||
 				(po->standard && add_size_overflow(tot, 2, &tot)))
@@ -652,15 +652,15 @@ PQdisplayTuples(const PGresult *res,
 	if (fieldSep == NULL)
 		fieldSep = DEFAULT_FIELD_SEP;
 
-	/* Get some useful info about the results */
+	/* 获取结果的一些有用信息      */
 	nFields = PQnfields(res);
 	nTuples = PQntuples(res);
 
 	if (fp == NULL)
 		fp = stdout;
 
-	/* Figure the field lengths to align to */
-	/* will be somewhat time consuming for very large results */
+	/* 计算要对齐的字段长度       */
+	/* 对于非常大的结果会相当耗时                */
 	if (fillAlign)
 	{
 		fLength = (int *) malloc(nFields * sizeof(int));
@@ -733,8 +733,8 @@ void
 PQprintTuples(const PGresult *res,
 			  FILE *fout,		/* 输出流     */
 			  int PrintAttNames,	/* 是否打印属性名称     */
-			  int TerseOutput,	/* delimiter bars or not? */
-			  int colWidth		/* width of column, if 0, use variable width */
+			  int TerseOutput,	/* 是否带分隔条？  */
+			  int colWidth		/* 列宽，若为 0 则使用可变宽度   */
 )
 {
 	int			nFields;
@@ -753,7 +753,7 @@ PQprintTuples(const PGresult *res,
 		sprintf(formatString, "%%s %%s");
 
 	if (nFields > 0)
-	{							/* only print rows with at least 1 field.  */
+	{							/* 仅打印至少含 1 个字段的行。 */
 
 		if (!TerseOutput)
 		{

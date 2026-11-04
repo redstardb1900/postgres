@@ -177,7 +177,7 @@ pqsecure_open_client(PGconn *conn)
 #ifdef USE_SSL
 	return pgtls_open_client(conn);
 #else
-	/* shouldn't get here */
+	/* 不应到达此处 */
 	return PGRES_POLLING_FAILED;
 #endif
 }
@@ -241,7 +241,7 @@ pqsecure_raw_read(PGconn *conn, void *ptr, size_t len)
 	{
 		result_errno = SOCK_ERRNO;
 
-		/* Set error message if appropriate */
+		/* 在合适时设置错误消息   */
 		switch (result_errno)
 		{
 #ifdef EAGAIN
@@ -399,7 +399,7 @@ retry_masked:
 		}
 #endif							/* MSG_NOSIGNAL */
 
-		/* Set error message if appropriate */
+		/* 在合适时设置错误消息   */
 		switch (result_errno)
 		{
 #ifdef EAGAIN
@@ -413,20 +413,20 @@ retry_masked:
 				break;
 
 			case EPIPE:
-				/* Set flag for EPIPE */
+				/* 设置EPIPE标志  */
 				REMEMBER_EPIPE(spinfo, true);
 
 				/* FALL THRU */
 
 			case ECONNRESET:
 				conn->write_failed = true;
-				/* Store error message in conn->write_err_msg, if possible */
-				/* (strdup failure is OK, we'll cope later) */
+				/* 可能时将错误消息存入 conn->write_err_msg      */
+				/* strdup 失败也没关系，稍后处理 */
 				snprintf(msgbuf, sizeof(msgbuf),
 						 libpq_gettext("server closed the connection unexpectedly\n"
 									   "\tThis probably means the server terminated abnormally\n"
 									   "\tbefore or while processing the request."));
-				/* keep newline out of translated string */
+				/* 换行符不放进翻译字符串     */
 				strlcat(msgbuf, "\n", sizeof(msgbuf));
 				conn->write_err_msg = strdup(msgbuf);
 				/* 现在声称写入成功      */
@@ -435,13 +435,13 @@ retry_masked:
 
 			default:
 				conn->write_failed = true;
-				/* Store error message in conn->write_err_msg, if possible */
-				/* (strdup failure is OK, we'll cope later) */
+				/* 可能时将错误消息存入 conn->write_err_msg      */
+				/* strdup 失败也没关系，稍后处理 */
 				snprintf(msgbuf, sizeof(msgbuf),
 						 libpq_gettext("could not send data to server: %s"),
 						 SOCK_STRERROR(result_errno,
 									   sebuf, sizeof(sebuf)));
-				/* keep newline out of translated string */
+				/* 换行符不放进翻译字符串     */
 				strlcat(msgbuf, "\n", sizeof(msgbuf));
 				conn->write_err_msg = strdup(msgbuf);
 				/* 现在声称写入成功      */
@@ -546,7 +546,7 @@ pq_block_sigpipe(sigset_t *osigset, bool *sigpipe_pending)
 	sigemptyset(&sigpipe_sigset);
 	sigaddset(&sigpipe_sigset, SIGPIPE);
 
-	/* Block SIGPIPE and save previous mask for later reset */
+	/* 阻塞 SIGPIPE 并保存原掩码供稍后恢复     */
 	SOCK_ERRNO_SET(pthread_sigmask(SIG_BLOCK, &sigpipe_sigset, osigset));
 	if (SOCK_ERRNO)
 		return -1;
@@ -554,7 +554,7 @@ pq_block_sigpipe(sigset_t *osigset, bool *sigpipe_pending)
 	/* 只有之前被阻塞时，才可能有待处理的 SIGPIPE */
 	if (sigismember(osigset, SIGPIPE))
 	{
-		/* Is there a pending SIGPIPE? */
+		/* 有待处理的 SIGPIPE？  */
 		if (sigpending(&sigset) != 0)
 			return -1;
 
@@ -594,7 +594,7 @@ pq_reset_sigpipe(sigset_t *osigset, bool sigpipe_pending, bool got_epipe)
 	int			signo;
 	sigset_t	sigset;
 
-	/* Clear SIGPIPE only if none was pending */
+	/* 无待处理 SIGPIPE 时才清除      */
 	if (got_epipe && !sigpipe_pending)
 	{
 		if (sigpending(&sigset) == 0 &&
@@ -609,7 +609,7 @@ pq_reset_sigpipe(sigset_t *osigset, bool sigpipe_pending, bool got_epipe)
 		}
 	}
 
-	/* Restore saved block mask */
+	/* 恢复先前阻塞掩码 */
 	pthread_sigmask(SIG_SETMASK, osigset, NULL);
 
 	SOCK_ERRNO_SET(save_errno);

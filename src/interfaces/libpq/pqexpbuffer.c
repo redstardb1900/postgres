@@ -34,7 +34,7 @@
 #endif
 
 
-/* All "broken" PQExpBuffers point to this string. */
+/* 损坏的 PQExpBuffers 都指向此字符串    */
 static const char oom_buffer[1] = "";
 
 /* 需要一个 char * 以兼容 unconstify()   */
@@ -44,7 +44,7 @@ static const char *oom_buffer_ptr = oom_buffer;
 /*
  * markPQExpBufferBroken
  *
- * Put a PQExpBuffer in "broken" state if it isn't already.
+ * 将未损坏的 PQExpBuffer 置为 "损坏" 状态。   
  */
 static void
 markPQExpBufferBroken(PQExpBuffer str)
@@ -66,7 +66,7 @@ markPQExpBufferBroken(PQExpBuffer str)
 /*
  * createPQExpBuffer
  *
- * Create an empty 'PQExpBufferData' & return a pointer to it.
+ * 创建一个空 'PQExpBufferData' 并返回其指针。    
  */
 PQExpBuffer
 createPQExpBuffer(void)
@@ -92,7 +92,7 @@ initPQExpBuffer(PQExpBuffer str)
 	str->data = (char *) malloc(INITIAL_EXPBUFFER_SIZE);
 	if (str->data == NULL)
 	{
-		str->data = unconstify(char *, oom_buffer_ptr); /* see comment above */
+		str->data = unconstify(char *, oom_buffer_ptr); /* 见上文注释   */
 		str->maxlen = 0;
 		str->len = 0;
 	}
@@ -131,16 +131,16 @@ termPQExpBuffer(PQExpBuffer str)
 	if (str->data != oom_buffer)
 		free(str->data);
 	/* 为保险起见，使缓冲区合法为空。 */
-	str->data = unconstify(char *, oom_buffer_ptr); /* see comment above */
+	str->data = unconstify(char *, oom_buffer_ptr); /* 见上文注释   */
 	str->maxlen = 0;
 	str->len = 0;
 }
 
 /*
  * resetPQExpBuffer
- *		Reset a PQExpBuffer to empty
+ *		将 PQExpBuffer 重置为空
  *
- * Note: if possible, a "broken" PQExpBuffer is returned to normal.
+ * 注意：如有可能，损坏的 PQExpBuffer 会恢复正常。
  */
 void
 resetPQExpBuffer(PQExpBuffer str)
@@ -154,7 +154,7 @@ resetPQExpBuffer(PQExpBuffer str)
 		}
 		else
 		{
-			/* try to reinitialize to valid state */
+			/* 尝试重新初始化为有效态  */
 			initPQExpBuffer(str);
 		}
 	}
@@ -353,7 +353,7 @@ appendPQExpBufferVA(PQExpBuffer str, const char *fmt, va_list args)
 
 	/* 增加缓冲区大小并重试。       */
 	if (!enlargePQExpBuffer(str, needed))
-		return true;			/* oops, out of memory */
+		return true;			/* 内存不足        */
 
 	return false;
 }
@@ -371,13 +371,13 @@ appendPQExpBufferStr(PQExpBuffer str, const char *data)
 
 /*
  * appendPQExpBufferChar
- * Append a single byte to str.
- * Like appendPQExpBuffer(str, "%c", ch) but much faster.
+ * 向 str 追加单字节。  
+ * 类似 appendPQExpBuffer(str, "%c", ch) 但更快。  
  */
 void
 appendPQExpBufferChar(PQExpBuffer str, char ch)
 {
-	/* Make more room if needed */
+	/* 需要时再扩展空间 */
 	if (!enlargePQExpBuffer(str, 1))
 		return;
 
@@ -396,17 +396,17 @@ appendPQExpBufferChar(PQExpBuffer str, char ch)
 void
 appendBinaryPQExpBuffer(PQExpBuffer str, const char *data, size_t datalen)
 {
-	/* Make more room if needed */
+	/* 需要时再扩展空间 */
 	if (!enlargePQExpBuffer(str, datalen))
 		return;
 
-	/* OK, append the data */
+	/* 好，追加数据  */
 	memcpy(str->data + str->len, data, datalen);
 	str->len += datalen;
 
 	/*
-	 * Keep a trailing null in place, even though it's probably useless for
-	 * binary data...
+	 * 保留结尾的空字符，尽管它对二进制数据来说多半  
+	 * 用不上...  
 	 */
 	str->data[str->len] = '\0';
 }

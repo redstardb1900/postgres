@@ -170,7 +170,7 @@ pg_GSS_write(PGconn *conn, const void *ptr, size_t len)
 		}
 
 		/*
-		 * Check if there are any bytes left to encrypt.  If not, we're done.
+		 * 检查是否还有待加密的字节。若没有，就完成了。
 		 */
 		if (!bytes_to_encrypt)
 			break;
@@ -191,22 +191,22 @@ pg_GSS_write(PGconn *conn, const void *ptr, size_t len)
 		output.length = 0;
 
 		/*
-		 * Create the next encrypted packet.  Any failure here is considered a
-		 * hard failure, so we return -1 even if some data has been sent.
+		 * 创建下一个加密数据包。这里的任何失败都视为    
+		 * 硬失败，因此即使已发出部分数据也返回 -1。  
 		 */
 		major = gss_wrap(&minor, gctx, 1, GSS_C_QOP_DEFAULT,
 						 &input, &conf_state, &output);
 		if (major != GSS_S_COMPLETE)
 		{
 			pg_GSS_error(libpq_gettext("GSSAPI wrap error"), conn, major, minor);
-			SOCK_ERRNO_SET(EIO);	/* for lack of a better idea */
+			SOCK_ERRNO_SET(EIO);	/* 没有更好的选择     */
 			goto cleanup;
 		}
 
 		if (conf_state == 0)
 		{
 			libpq_append_conn_error(conn, "outgoing GSSAPI message would not use confidentiality");
-			SOCK_ERRNO_SET(EIO);	/* for lack of a better idea */
+			SOCK_ERRNO_SET(EIO);	/* 没有更好的选择     */
 			goto cleanup;
 		}
 
@@ -215,7 +215,7 @@ pg_GSS_write(PGconn *conn, const void *ptr, size_t len)
 			libpq_append_conn_error(conn, "client tried to send oversize GSSAPI packet (%zu > %zu)",
 									(size_t) output.length,
 									PQ_GSS_MAX_PACKET_SIZE - sizeof(uint32));
-			SOCK_ERRNO_SET(EIO);	/* for lack of a better idea */
+			SOCK_ERRNO_SET(EIO);	/* 没有更好的选择     */
 			goto cleanup;
 		}
 
@@ -223,7 +223,7 @@ pg_GSS_write(PGconn *conn, const void *ptr, size_t len)
 		bytes_to_encrypt -= input.length;
 		PqGSSSendConsumed += input.length;
 
-		/* 4 network-order bytes of length, then payload */
+		/* 4 个网络序长度字节，然后是负载  */
 		netlen = pg_hton32(output.length);
 		memcpy(PqGSSSendBuffer + PqGSSSendLength, &netlen, sizeof(uint32));
 		PqGSSSendLength += sizeof(uint32);
@@ -235,17 +235,17 @@ pg_GSS_write(PGconn *conn, const void *ptr, size_t len)
 		gss_release_buffer(&minor, &output);
 	}
 
-	/* If we get here, our counters should all match up. */
+	/* 若走到这里，各计数器应全对得上。  */
 	Assert(len == PqGSSSendConsumed);
 	Assert(len == bytes_encrypted);
 
-	/* We're reporting all the data as sent, so reset PqGSSSendConsumed. */
+	/* 数据全部报告为已发送，故重置 PqGSSSendConsumed。   */
 	PqGSSSendConsumed = 0;
 
 	ret = bytes_encrypted;
 
 cleanup:
-	/* Release GSSAPI buffer storage, if we didn't already */
+	/* 释放 GSSAPI 缓冲区存储（若尚未释放）  */
 	if (output.value != NULL)
 		gss_release_buffer(&minor, &output);
 	return ret;
@@ -309,7 +309,7 @@ pg_GSS_read(PGconn *conn, void *ptr, size_t len)
 			break;
 		}
 
-		/* Result buffer is empty, so reset buffer pointers */
+		/* 结果缓冲区为空，故重置缓冲区指针 */
 		PqGSSResultLength = PqGSSResultNext = 0;
 
 		/*因为我们选择在发出一些数据后立即返回，所以此时
@@ -332,7 +332,7 @@ pg_GSS_read(PGconn *conn, void *ptr, size_t len)
 			ret = pqsecure_raw_read(conn, PqGSSRecvBuffer + PqGSSRecvLength,
 									sizeof(uint32) - PqGSSRecvLength);
 
-			/* If ret <= 0, pqsecure_raw_read already set the correct errno */
+			/* 若 ret <= 0，pqsecure_raw_read 已设置了正确的 errno */
 			if (ret <= 0)
 				return ret;
 
@@ -354,7 +354,7 @@ pg_GSS_read(PGconn *conn, void *ptr, size_t len)
 			libpq_append_conn_error(conn, "oversize GSSAPI packet sent by the server (%zu > %zu)",
 									(size_t) input.length,
 									PQ_GSS_MAX_PACKET_SIZE - sizeof(uint32));
-			SOCK_ERRNO_SET(EIO);	/* for lack of a better idea */
+			SOCK_ERRNO_SET(EIO);	/* 没有更好的选择     */
 			return -1;
 		}
 
@@ -364,7 +364,7 @@ pg_GSS_read(PGconn *conn, void *ptr, size_t len)
 	                                        */
 		ret = pqsecure_raw_read(conn, PqGSSRecvBuffer + PqGSSRecvLength,
 								input.length - (PqGSSRecvLength - sizeof(uint32)));
-		/* If ret <= 0, pqsecure_raw_read already set the correct errno */
+		/* 若 ret <= 0，pqsecure_raw_read 已设置了正确的 errno */
 		if (ret <= 0)
 			return ret;
 
@@ -393,7 +393,7 @@ pg_GSS_read(PGconn *conn, void *ptr, size_t len)
 			pg_GSS_error(libpq_gettext("GSSAPI unwrap error"), conn,
 						 major, minor);
 			ret = -1;
-			SOCK_ERRNO_SET(EIO);	/* for lack of a better idea */
+			SOCK_ERRNO_SET(EIO);	/* 没有更好的选择     */
 			goto cleanup;
 		}
 
@@ -401,7 +401,7 @@ pg_GSS_read(PGconn *conn, void *ptr, size_t len)
 		{
 			libpq_append_conn_error(conn, "incoming GSSAPI message did not use confidentiality");
 			ret = -1;
-			SOCK_ERRNO_SET(EIO);	/* for lack of a better idea */
+			SOCK_ERRNO_SET(EIO);	/* 没有更好的选择     */
 			goto cleanup;
 		}
 
@@ -418,7 +418,7 @@ pg_GSS_read(PGconn *conn, void *ptr, size_t len)
 	ret = bytes_returned;
 
 cleanup:
-	/* Release GSSAPI buffer storage, if we didn't already */
+	/* 释放 GSSAPI 缓冲区存储（若尚未释放）  */
 	if (output.value != NULL)
 		gss_release_buffer(&minor, &output);
 	return ret;
@@ -513,7 +513,7 @@ pqsecure_open_gss(PGconn *conn)
 	}
 
 	/*
-	 * Check if we have anything to send from a prior call and if so, send it.
+	 * 检查上次调用是否有待发送的数据，若有，则发送。  
 	 */
 	if (PqGSSSendLength)
 	{
@@ -545,9 +545,9 @@ pqsecure_open_gss(PGconn *conn)
 	                       */
 	if (conn->gctx)
 	{
-		/* Process any incoming data we might have */
+		/* 处理可能已有的传入数据       */
 
-		/* See if we are still trying to get the length */
+		/* 查看是否仍在尝试获取长度         */
 		if (PqGSSRecvLength < sizeof(uint32))
 		{
 			/* 首先尝试获取长度        */
@@ -626,7 +626,7 @@ pqsecure_open_gss(PGconn *conn)
 		input.value = PqGSSRecvBuffer + sizeof(uint32);
 	}
 
-	/* Load the service name (no-op if already done */
+	/* 加载服务名（已完成则无操作）   */
 	ret = pg_GSS_load_servicename(conn);
 	if (ret != STATUS_OK)
 		return PGRES_POLLING_FAILED;
@@ -649,15 +649,15 @@ pqsecure_open_gss(PGconn *conn)
 	}
 
 	/*
-	 * Call GSS init context, either with an empty input, or with a complete
-	 * packet from the server.
+	 * 调用 GSS init context，输入为空，或用来自服务器的    
+	 * 完整数据包。     
 	 */
 	major = gss_init_sec_context(&minor, conn->gcred, &conn->gctx,
 								 conn->gtarg_nam, GSS_C_NO_OID,
 								 gss_flags, 0, 0, &input, NULL,
 								 &output, NULL, NULL);
 
-	/* GSS Init Sec Context uses the whole packet, so clear it */
+	/* GSS Init Sec Context 用整个数据包，故清空它  */
 	PqGSSRecvLength = 0;
 
 	if (GSS_ERROR(major))
@@ -765,7 +765,7 @@ PQgetgssctx(PGconn *conn)
 }
 
 /*
- * Return true if GSSAPI encryption is in use.
+ * 正在使用 GSSAPI 加密则返回 true。
  */
 int
 PQgssEncInUse(PGconn *conn)

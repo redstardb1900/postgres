@@ -15,9 +15,9 @@
 
 #ifdef WIN32
 /*
- *	As unlink/rename are #define'd in port.h (via postgres_fe.h), io.h
- *	must be included first on MS C.  Might as well do it for all WIN32's
- *	here.
+ *	因 unlink/rename 在 port.h（经 postgres_fe.h）中被 #define 
+ *	定义，MS C 上须最先包含 io.h；这里所有 WIN32 照办。
+ *	     
  */
 #include <io.h>
 #endif
@@ -36,7 +36,7 @@
 
 #include "libpq-fe.h"
 #include "libpq-int.h"
-#include "libpq/libpq-fs.h"		/* must come after sys/stat.h */
+#include "libpq/libpq-fs.h"		/* 须置于 sys/stat.h 后   */
 #include "port/pg_bswap.h"
 
 #define LO_BUFSIZE		  8192
@@ -582,7 +582,7 @@ lo_tell64(PGconn *conn, int fd)
 
 /*
  * lo_unlink
- *	  delete a file
+ *	  删除文件 
  */
 
 int
@@ -715,7 +715,7 @@ lo_import_internal(PGconn *conn, const char *filename, Oid oid)
 
 	if (nbytes < 0)
 	{
-		/* We must do lo_close before setting the errorMessage */
+		/* 必须在设置 errorMessage 之前调用 lo_close  */
 		int			save_errno = errno;
 
 		(void) lo_close(conn, lobj);
@@ -741,8 +741,8 @@ lo_import_internal(PGconn *conn, const char *filename, Oid oid)
 
 /*
  * lo_export -
- *	  exports an (inversion) large object.
- * returns -1 upon failure, 1 if OK
+ *	  导出（反转）大对象。      
+ * 失败返回 -1，成功返回 1
  */
 int
 lo_export(PGconn *conn, Oid lobjId, const char *filename)
@@ -771,7 +771,7 @@ lo_export(PGconn *conn, Oid lobjId, const char *filename)
 	fd = open(filename, O_CREAT | O_WRONLY | O_TRUNC | PG_BINARY, 0666);
 	if (fd < 0)
 	{
-		/* We must do lo_close before setting the errorMessage */
+		/* 必须在设置 errorMessage 之前调用 lo_close  */
 		int			save_errno = errno;
 
 		(void) lo_close(conn, lobj);
@@ -784,14 +784,14 @@ lo_export(PGconn *conn, Oid lobjId, const char *filename)
 	}
 
 	/*
-	 * read in from the large object and write to the file
+	 * 从大对象中读取数据并写入文件         
 	 */
 	while ((nbytes = lo_read(conn, lobj, buf, LO_BUFSIZE)) > 0)
 	{
 		tmp = write(fd, buf, nbytes);
 		if (tmp != nbytes)
 		{
-			/* We must do lo_close before setting the errorMessage */
+			/* 必须在设置 errorMessage 之前调用 lo_close  */
 			int			save_errno = errno;
 
 			(void) lo_close(conn, lobj);
@@ -806,15 +806,15 @@ lo_export(PGconn *conn, Oid lobjId, const char *filename)
 	}
 
 	/*
-	 * If lo_read() failed, we are now in an aborted transaction so there's no
-	 * need for lo_close(); furthermore, if we tried it we'd overwrite the
-	 * useful error result with a useless one. So skip lo_close() if we got a
-	 * failure result.
+	 * 如果 lo_read() 失败，我们现在处于已中止的事务中，   
+	 * 因此不再需要 lo_close()；而且若尝试调用，就会用  
+	 * 无用的错误覆盖有用的错误结果。所以失败时，       
+	 * 就跳过它。
 	 */
 	if (nbytes < 0 ||
 		lo_close(conn, lobj) != 0)
 	{
-		/* assume lo_read() or lo_close() left a suitable error message */
+		/* lo_read() 或 lo_close() 应已留下合适的错误消息   */
 		result = -1;
 	}
 
@@ -849,14 +849,14 @@ lo_initialize(PGconn *conn)
 	const char *fname;
 	Oid			foid;
 
-	/* Nothing we can do with no connection */
+	/* 没有连接时我们无事可做    */
 	if (conn == NULL)
 		return -1;
 
 	/* 由于这是查询周期的开始，重置错误状态              */
 	pqClearConnErrorState(conn);
 
-	/* Nothing else to do if we already collected info */
+	/* 若已收集信息，就无需再做其他事   */
 	if (conn->lobjfuncs != NULL)
 		return 0;
 
@@ -873,8 +873,8 @@ lo_initialize(PGconn *conn)
 	MemSet((char *) lobjfuncs, 0, sizeof(PGlobjfuncs));
 
 	/*
-	 * Execute the query to get all the functions at once.  (Not all of them
-	 * may exist in older server versions.)
+	 * 一次执行查询以获取全部函数。（并非所有函数都   
+	 * 存在于旧版服务器中。）   
 	 */
 	query = "select proname, oid from pg_catalog.pg_proc "
 		"where proname in ("
@@ -1029,11 +1029,11 @@ lo_hton64(pg_int64 host64)
 	}			swap;
 	uint32		t;
 
-	/* High order half first, since we're doing MSB-first */
+	/* 先处理高半部分，因为这里是 MSB 在前 */
 	t = (uint32) (host64 >> 32);
 	swap.i32[0] = pg_hton32(t);
 
-	/* Now the low order half */
+	/* 现在是低半部分  */
 	t = (uint32) host64;
 	swap.i32[1] = pg_hton32(t);
 

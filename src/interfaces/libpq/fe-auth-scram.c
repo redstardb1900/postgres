@@ -75,7 +75,7 @@ typedef struct
 	int			iterations;
 	char	   *nonce;
 
-	/* These come from the server-final message */
+	/* 这些来自服务器的最终消息     */
 	char	   *server_final_message;
 	char		ServerSignature[SCRAM_MAX_KEY_LEN];
 } fe_scram_state;
@@ -168,7 +168,7 @@ scram_channel_bound(void *opaq)
 	if (strcmp(state->sasl_mechanism, SCRAM_SHA_256_PLUS_NAME) != 0)
 		return false;
 
-	/* all clear! */
+	/* 就绪!    */
 	return true;
 }
 
@@ -188,12 +188,12 @@ scram_free(void *opaq)
 	free(state->client_first_message_bare);
 	free(state->client_final_message_without_proof);
 
-	/* first message from server */
+	/* 服务器的首条消息  */
 	free(state->server_first_message);
 	free(state->salt);
 	free(state->nonce);
 
-	/* final message from server */
+	/* 服务器的最后消息  */
 	free(state->server_final_message);
 
 	free(state);
@@ -248,7 +248,7 @@ scram_exchange(void *opaq, char *input, int inputlen,
 			break;
 
 		case FE_SCRAM_NONCE_SENT:
-			/* Receive salt and server nonce, send response. */
+			/* 接收盐和服务器 nonce，发送响应。 */
 			if (!read_server_first_message(state, input))
 				goto error;
 
@@ -402,7 +402,7 @@ build_client_first_message(fe_scram_state *state)
 		appendPQExpBufferStr(&buf, "p=tls-server-end-point");
 	}
 #ifdef HAVE_PGTLS_GET_PEER_CERTIFICATE_HASH
-	else if (conn->channel_binding[0] != 'd' && /* disable */
+	else if (conn->channel_binding[0] != 'd' && /* 禁用  */
 			 conn->ssl_in_use)
 	{
 		/*客户端支持通道绑定，但认为服务器不支持。
@@ -543,12 +543,12 @@ build_client_final_message(fe_scram_state *state)
 #endif							/* HAVE_PGTLS_GET_PEER_CERTIFICATE_HASH */
 	}
 #ifdef HAVE_PGTLS_GET_PEER_CERTIFICATE_HASH
-	else if (conn->channel_binding[0] != 'd' && /* disable */
+	else if (conn->channel_binding[0] != 'd' && /* 禁用  */
 			 conn->ssl_in_use)
-		appendPQExpBufferStr(&buf, "c=eSws");	/* base64 of "y,," */
+		appendPQExpBufferStr(&buf, "c=eSws");	/* "y,," 的base64 */
 #endif
 	else
-		appendPQExpBufferStr(&buf, "c=biws");	/* base64 of "n,," */
+		appendPQExpBufferStr(&buf, "c=biws");	/* "n,," 的base64 */
 
 	if (PQExpBufferDataBroken(buf))
 		goto oom_error;
@@ -561,7 +561,7 @@ build_client_final_message(fe_scram_state *state)
 	if (state->client_final_message_without_proof == NULL)
 		goto oom_error;
 
-	/* Append proof to it, to form client-final-message. */
+	/* 追加证明，构成 client-final-message。     */
 	if (!calculate_client_proof(state,
 								state->client_final_message_without_proof,
 								client_proof, &errstr))
@@ -782,8 +782,8 @@ calculate_client_proof(fe_scram_state *state,
 	}
 
 	/*
-	 * Calculate SaltedPassword, and store it in 'state' so that we can reuse
-	 * it later in verify_server_signature.
+	 * 计算 SaltedPassword，并将其存入 'state'，以便稍后供     
+	 * verify_server_signature 使用。   
 	 */
 	if (scram_SaltedPassword(state->password, state->hash_type,
 							 state->key_length, state->salt, state->saltlen,

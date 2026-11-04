@@ -82,10 +82,10 @@
 #include "miscadmin.h"
 
 
-/* Ideally this would be in a .h file, but it hardly seems worth the trouble */
+/* 理想情况下它本应放在.h文件中，但这几乎不值得麻烦   */
 extern const char *select_default_timezone(const char *share_path);
 
-/* simple list of strings */
+/* 简单字符串列表  */
 typedef struct _stringlist
 {
 	char	   *str;
@@ -191,7 +191,7 @@ static bool output_failed = false;
 static int	output_errno = 0;
 static char *pgdata_native;
 
-/* defaults */
+/* 默认   */
 static int	n_connections = 10;
 static int	n_buffers = 50;
 static const char *dynamic_shared_memory_type = NULL;
@@ -307,7 +307,7 @@ void		warn_on_mount_point(int error);
 void		initialize_data_directory(void);
 
 /*
- * macros for running pipes to postgres
+ * 用于建立到postgres管道的宏 
  */
 #define PG_CMD_DECL		char cmd[MAXPGPATH]; FILE *cmdfd
 
@@ -376,7 +376,7 @@ save_global_locale(int category)
 }
 
 /*
- * Restore the global locale returned by save_global_locale().
+ * 恢复save_global_locale()返回的全局区域设置      
  */
 static void
 restore_global_locale(int category, save_locale_t save)
@@ -432,7 +432,7 @@ escape_quotes_bki(const char *src)
 }
 
 /*
- * Add an item at the end of a stringlist.
+ * 在字符串列表末尾添加条目   
  */
 static void
 add_stringlist_item(_stringlist **listhead, const char *str)
@@ -447,20 +447,20 @@ add_stringlist_item(_stringlist **listhead, const char *str)
 	else
 	{
 		for (oldentry = *listhead; oldentry->next; oldentry = oldentry->next)
-			 /* skip */ ;
+			 /* 略  */ ;
 		oldentry->next = newentry;
 	}
 }
 
 /*
- * Modify the array of lines, replacing "token" by "replacement"
- * the first time it occurs on each line.
+ * 修改行数组，将"token"替换为"replacement"           
+ * 每行仅在首次出现处替换。  
  *
- * The array must be a malloc'd array of individually malloc'd strings.
- * We free any discarded strings.
+ * 该数组必须是malloc'd数组，元素各自单独malloc'd。    
+ * 释放被丢弃的字符串。
  *
- * This does most of what sed was used for in the shell script, but
- * doesn't need any regexp stuff.
+ * 它完成了shell脚本中sed所做的大部分工作，但     
+ * 无需任何regexp处理。   
  */
 static char **
 replace_token(char **lines, const char *token, const char *replacement)
@@ -479,11 +479,11 @@ replace_token(char **lines, const char *token, const char *replacement)
 		char	   *newline;
 		int			pre;
 
-		/* nothing to do if no change needed */
+		/* 若无需修改则无事可做    */
 		if ((where = strstr(lines[i], token)) == NULL)
 			continue;
 
-		/* if we get here a change is needed - set up new line */
+		/* 若到达此处则需修改——构造新行       */
 
 		newline = (char *) pg_malloc(strlen(lines[i]) + diff + 1);
 
@@ -540,10 +540,11 @@ replace_guc_value(char **lines, const char *guc_name, const char *guc_value,
 		const char *namestart;
 
 		/*
-		 * 查找分配给 guc_name 的行。通常它前面会有 '#'，
-		 * 但如果 -c 开关覆盖了先前的赋值，可能没有。
-		 * 我们也允许前导空白，尽管通常不会有。
-		                                                          */
+		 * 查找为guc_name赋值的行。通常其前会有'#'，但 
+		 * 如果-c开关覆盖了先前的赋值，则可能没有。   
+		 * 我们也允许存在前导空白，                              
+		 * 尽管通常不会有。                
+		 */
 		where = lines[i];
 		while (*where == '#' || isspace((unsigned char) *where))
 			where++;
@@ -556,10 +557,10 @@ replace_guc_value(char **lines, const char *guc_name, const char *guc_value,
 		if (*where != '=')
 			continue;
 
-		/* found it -- let's use the canonical casing shown in the file */
+		/* 找到了——采用文件中显示的规范大小写       */
 		memcpy(&newline->data[mark_as_comment ? 1 : 0], namestart, namelen);
 
-		/* now append the original comment if any */
+		/* 接着追加原有注释（若有）   */
 		where = strrchr(where, '#');
 		if (where)
 		{
@@ -578,9 +579,9 @@ replace_guc_value(char **lines, const char *guc_name, const char *guc_value,
 				else
 					oldindent++;
 			}
-			/* ignore the possibility of tabs in guc_value */
+			/* 不考虑guc_value中含制表符的情况  */
 			newindent = newline->len;
-			/* append appropriate tabs and spaces, forcing at least one */
+			/* 追加适当的制表符和空格，至少强制一个   */
 			oldindent = Max(oldindent, newindent + 1);
 			while (newindent < oldindent)
 			{
@@ -613,8 +614,8 @@ replace_guc_value(char **lines, const char *guc_name, const char *guc_value,
 	if (lines[i] == NULL)
 	{
 		/*
-		 * No match, so append a new entry.  (We rely on the bootstrap server
-		 * to complain if it's not a valid GUC name.)
+		 * 未找到匹配，故追加新条目。（依靠引导服务器   
+		 * 在其非有效GUC名称时报错。）   
 		 */
 		appendPQExpBufferChar(newline, '\n');
 		lines = pg_realloc_array(lines, char *, i + 2);
@@ -622,19 +623,20 @@ replace_guc_value(char **lines, const char *guc_name, const char *guc_value,
 		lines[i] = NULL;		/* 保持数组以 null 结尾    */
 	}
 
-	free(newline);				/* but don't free newline->data */
+	free(newline);				/* 但不释放newline->data    */
 
 	return lines;
 }
 
 /*
- * 判断是否应该为替换 GUC 值加引号。我们不太严格
- * 但希望避免在简单数字和标识符上加引号。
-                                                        */
+ * 判断是否应为替换的GUC值加引号。这里我们并不        
+ * 严格，但希望避免为简单标识符和带单位的数字    
+ * 加引号，皆为常见情形。  
+ */
 static bool
 guc_value_requires_quotes(const char *guc_value)
 {
-	/* Don't use <ctype.h> macros here, they might accept too much */
+	/* 此处勿用<ctype.h>宏，它们可能接受过多         */
 #define LETTERS	"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 #define DIGITS	"0123456789"
 
@@ -643,8 +645,8 @@ guc_value_requires_quotes(const char *guc_value)
 	if (strchr(LETTERS, *guc_value))
 	{
 		if (strspn(guc_value, LETTERS DIGITS) == strlen(guc_value))
-			return false;		/* it's an identifier */
-		return true;			/* nope */
+			return false;		/* 是一个标识符 */
+		return true;			/* 不  */
 	}
 	if (strchr(DIGITS, *guc_value))
 	{
@@ -652,16 +654,16 @@ guc_value_requires_quotes(const char *guc_value)
 		guc_value += strspn(guc_value, DIGITS);
 		/* 数字后面可以有零个或多个单位字母        */
 		if (strspn(guc_value, LETTERS) == strlen(guc_value))
-			return false;		/* it's a number, possibly with units */
-		return true;			/* nope */
+			return false;		/* 是数字，可能带单位        */
+		return true;			/* 不  */
 	}
-	return true;				/* all else must be quoted */
+	return true;				/* 其余一律加引号   */
 }
 
 /*
- * get the lines from a text file
+ * 从文本文件中读取各行
  *
- * The result is a malloc'd array of individually malloc'd strings.
+ * 结果为malloc'd数组，元素各自单独malloc'd。         
  */
 static char **
 readfile(const char *path)
@@ -702,11 +704,14 @@ readfile(const char *path)
 }
 
 /*
- * 将行数组写入文件
+ * 将行数组写入文件         
  *
- * "lines" 必须是 malloc 分配的数组，包含各自 malloc 分配的字符串。
- * 我们释放所有被丢弃的字符串。
-                                                                                                                                   */
+ * "lines"必须是malloc'd数组，元素各自单独malloc'd。    
+ * 数据均在此释放。    
+ *
+ * 此处仅用于写文本文件。使用fopen "w"而非PG_BINARY_W， 
+ * 这样生成的配置文件在Windows上可以方便地编辑。         
+ */
 static void
 writefile(char *path, char **lines)
 {
@@ -743,8 +748,8 @@ popen_check(const char *command, const char *mode)
 }
 
 /*
- * clean up any files we created on failure
- * if we created the data directory remove it too
+ * 失败时清理所创建的全部文件 
+ * 若创建了数据目录则将其一并删除 
  */
 static void
 cleanup_directories_atexit(void)
@@ -780,7 +785,7 @@ cleanup_directories_atexit(void)
 			if (!rmtree(xlog_dir, false))
 				pg_log_error("failed to remove contents of WAL directory");
 		}
-		/* otherwise died during startup, do nothing! */
+		/* 若启动期间夭折则不做任何事！ */
 	}
 	else
 	{
@@ -805,7 +810,7 @@ get_id(void)
 	const char *username;
 
 #ifndef WIN32
-	if (geteuid() == 0)			/* 0 is root's uid */
+	if (geteuid() == 0)			/* 0即root的uid  */
 	{
 		pg_log_error("cannot be run as root");
 		pg_log_error_hint("Please log in (using, e.g., \"su\") as the (unprivileged) user that will own the server process.");
@@ -845,8 +850,8 @@ get_encoding_id(const char *encoding_name)
 }
 
 /*
- * Support for determining the best default text search configuration.
- * We key this off the first part of LC_CTYPE (ie, the language name).
+ * 用于支持确定最佳的默认文本搜索配置。             
+ * 以LC_CTYPE的第一部分（即语言名称）为依据。        
  */
 struct tsearch_config_match
 {
@@ -913,12 +918,12 @@ static const struct tsearch_config_match tsearch_config_languages[] =
 	{"turkish", "Turkish"},
 	{"yiddish", "yi"},
 	{"yiddish", "Yiddish"},
-	{NULL, NULL}				/* end marker */
+	{NULL, NULL}				/* 结束符  */
 };
 
 /*
- * Look for a text search configuration matching lc_ctype, and return its
- * name; return NULL if no match.
+ * 查找与lc_ctype匹配的文本搜索配置，并返回其           
+ * 名称，无则返回NULL     
  */
 static const char *
 find_matching_ts_config(const char *lc_type)
@@ -928,9 +933,16 @@ find_matching_ts_config(const char *lc_type)
 			   *ptr;
 
 	/*
-	 * 通过去掉下划线后的所有内容（常见情况）将 lc_ctype 转换为语言名称。
-	 * 正则表达式只需匹配第一个部分即可。
-	                                                                                                                                                                                                                                                                                            */
+	 * 把lc_ctype转换为语言名称：去掉下划线（常见情况）
+	 * 或连字符（Windows"区域设置名"；参见IsoLocaleName()
+	 * 注释）之后的内容。  
+	 *
+	 * XXX 空格' '是否应为终止字符？这会为Windows区域设置 
+	 * "Norwegian (Nynorsk)_Norway.1252"选中"norwegian"。如果我们     
+	 * 这样还应接受"nn"与"nb" Unix 区域设置。
+	 *
+	 * 保险起见，也在'.'或'@'处停止。    
+	 */
 	if (lc_type == NULL)
 		langname = pg_strdup("");
 	else
@@ -966,7 +978,7 @@ set_input(char **dest, const char *filename)
 }
 
 /*
- * check that given input file exists
+ * 检查输入文件是否存在    
  */
 static void
 check_input(char *path)
@@ -996,8 +1008,8 @@ check_input(char *path)
 }
 
 /*
- * write out the PG_VERSION file in the data dir, or its subdirectory
- * if extrapath is not NULL
+ * 将PG_VERSION文件写入数据目录，或其子目录           
+ * 若extrapath非NULL。  
  */
 static void
 write_version_file(const char *extrapath)
@@ -1019,8 +1031,8 @@ write_version_file(const char *extrapath)
 }
 
 /*
- * set up an empty config file so we can check config settings by launching
- * a test backend
+ * 设置空配置文件，以便通过启动测试后端来检查配置   
+ * 设置。     
  */
 static void
 set_null_conf(void)
@@ -1038,9 +1050,19 @@ set_null_conf(void)
 }
 
 /*
- * 确定此平台上应使用哪种动态共享内存实现。
- * 如果可用，POSIX 共享内存比 System V 更好。
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       */
+ * 确定在此平台上应使用哪种动态共享内存实现。       
+ * POSIX共享内存更可取，因为在大多数同时支持两者    
+ * 的系统上，其默认分配上限远高于System V的上限；     
+ * 但平台提供shm_open并不意味着该调用在尝试时         
+ * 一定成功。因此，我们尝试重现postmaster在              
+ * dsm_impl.c中分配POSIX段时的做法；如果行不通，            
+ * 就假定postmaster同样无法使用，转而将集簇               
+ * 配置为使用System V共享内存。                              
+ *                
+ *
+ * 我们避免默认选择Solaris的shm_open()实现。                   
+ * 它在争用下可能休眠并偶发失败。  
+ */
 static const char *
 choose_dsm_implementation(void)
 {
@@ -1048,7 +1070,7 @@ choose_dsm_implementation(void)
 	int			ntries = 10;
 	pg_prng_state prng_state;
 
-	/* Initialize prng; this function is its only user in this program. */
+	/* 初始化prng；本程序中只有此函数使用它。          */
 	pg_prng_seed(&prng_state, (uint64) (getpid() ^ time(NULL)));
 
 	while (ntries > 0)
@@ -1079,16 +1101,16 @@ choose_dsm_implementation(void)
 }
 
 /*
- * Determine platform-specific config settings
+ * 确定平台相关的配置设置          
  *
- * Use reasonable values if kernel will let us, else scale back.
+ * 若内核允许则使用合理的值，否则调低。       
  */
 static void
 test_config_settings(void)
 {
 	/*
-	 * This macro defines the minimum shared_buffers we want for a given
-	 * max_connections value. The arrays show the settings to try.
+	 * 该宏定义了给定max_connections值下我们所需的        
+	 * 最小shared_buffers。数组给出了可尝试的设置。
 	 */
 #define MIN_BUFS_FOR_CONNS(nconns)	((nconns) * 10)
 
@@ -1118,8 +1140,8 @@ test_config_settings(void)
 	printf("%s\n", dynamic_shared_memory_type);
 
 	/*
-	 * Probe for max_connections before shared_buffers, since it is subject to
-	 * more constraints than shared_buffers.
+	 * 先探测max_connections再探测shared_buffers，因为它受到的   
+	 * 限制比shared_buffers更多。     
 	 */
 	printf(_("selecting default max_connections ... "));
 	fflush(stdout);
@@ -1191,7 +1213,7 @@ test_specific_config_settings(int test_conns, int test_buffs)
 					  test_conns, test_buffs,
 					  dynamic_shared_memory_type);
 
-	/* Add any user-given setting overrides */
+	/* 加上用户给定的设置覆盖项 */
 	for (gnames = extra_guc_names, gvalues = extra_guc_values;
 		 gnames != NULL;		/* 假设列表具有相同的长度 */
 		 gnames = gnames->next, gvalues = gvalues->next)
@@ -1305,7 +1327,7 @@ setup_config(void)
 	conflines = replace_guc_value(conflines, "dynamic_shared_memory_type",
 								  dynamic_shared_memory_type, false);
 
-	/* Caution: these depend on wal_segment_size_mb, they're not constants */
+	/* 注意：这些值依赖于wal_segment_size_mb，并非常量       */
 	conflines = replace_guc_value(conflines, "min_wal_size",
 								  pretty_wal_size(DEFAULT_MIN_WAL_SEGS), false);
 
@@ -1313,8 +1335,8 @@ setup_config(void)
 								  pretty_wal_size(DEFAULT_MAX_WAL_SEGS), false);
 
 	/*
-	 * Fix up various entries to match the true compile-time defaults.  Since
-	 * these are indeed defaults, keep the postgresql.conf lines commented.
+	 * 修正各种条目以匹配真实的编译期默认值。既然       
+	 * 它们确为默认值，故将postgresql.conf行保持注释。     
 	 */
 	conflines = replace_guc_value(conflines, "unix_socket_directories",
 								  DEFAULT_PGSOCKET_DIR, true);
@@ -1354,8 +1376,8 @@ setup_config(void)
 #endif
 
 	/*
-	 * Change password_encryption setting to md5 if md5 was chosen as an
-	 * authentication method, unless scram-sha-256 was also chosen.
+	 * 若选md5作为授权方法，则将password_encryption改为    
+	 * 为md5，除非同时选择了scram-sha-256。              
 	 */
 	if ((strcmp(authmethodlocal, "md5") == 0 &&
 		 strcmp(authmethodhost, "scram-sha-256") != 0) ||
@@ -1367,9 +1389,11 @@ setup_config(void)
 	}
 
 	/*
-	 * 如果为集簇启用了组访问，那么确保日志文件
-	 * 创建时也允许组访问是有意义的。
-	                                                                                                                      */
+	 * 如果已为集簇启用组访问权限，那么确保日志文件也  
+	 * 允许组访问才有意义。否则，如果日志文件未被       
+	 * 迁移，组内用户进行的备份将会失败。          
+	 *           
+	 */
 	if (pg_dir_create_mode == PG_DIR_MODE_GROUP)
 	{
 		conflines = replace_guc_value(conflines, "log_file_mode",
@@ -1417,22 +1441,25 @@ setup_config(void)
 
 
 	/*
-	 * 探测是否真的有 IPv6 的平台支持，并
-	 * 注释掉相关的 HBA 行，如果没有的话。
-	                                                                                                                                                                                                                             */
+	 * 探测平台是否真正支持IPv6，若不支持则注释掉     
+	 * 相关的pg_hba行。这样可以避免当getaddrinfo            
+	 * 实际上无法处理IPv6时出现运行时警告。这在            
+	 * Windows上尤其有用：带IPv6的机器上构建的可执行文件 
+	 * 可能在无IPv6机器上运行  
+	 */
 	{
 		struct addrinfo *gai_result;
 		struct addrinfo hints;
 		int			err = 0;
 
 #ifdef WIN32
-		/* need to call WSAStartup before calling getaddrinfo */
+		/* 调用getaddrinfo之前需先调用WSAStartup      */
 		WSADATA		wsaData;
 
 		err = WSAStartup(MAKEWORD(2, 2), &wsaData);
 #endif
 
-		/* for best results, this code should match parse_hba_line() */
+		/* 为最佳效果，此代码应与parse_hba_line()一致   */
 		hints.ai_flags = AI_NUMERICHOST;
 		hints.ai_family = AF_UNSPEC;
 		hints.ai_socktype = 0;
@@ -1597,7 +1624,7 @@ setup_auth(FILE *cmdfd)
 }
 
 /*
- * get the superuser password if required
+ * 若需要则获取超级用户密码  
  */
 static void
 get_su_pwd(void)
@@ -1625,12 +1652,12 @@ get_su_pwd(void)
 	else
 	{
 		/*
-		 * Read password from file
+		 * 从文件读取密码  
 		 *
-		 * Ideally this should insist that the file not be world-readable.
-		 * However, this option is mainly intended for use on Windows where
-		 * file permissions may not exist at all, so we'll skip the paranoia
-		 * for now.
+		 * 理想情况下应坚持该文件不得全局可读。         
+		 * 然而，此选项主要用于Windows，那里可能            
+		 * 完全没有文件权限，所以我们暂时不去              
+		 * 多虑  
 		 */
 		FILE	   *pwf = fopen(pwfilename, "r");
 
@@ -1717,9 +1744,10 @@ static void
 setup_collation(FILE *cmdfd)
 {
 	/*
-	 * 设置在 pg_collation.dat 中定义的排序规则的排序规则版本，
-	 * 但不包括从操作系统导入的排序规则。
-	                         */
+	 * 为pg_collation.dat中定义的排序规则设置排序规则        
+	 * 版本，但排序行为已知永不改变的除外。               
+	 *        
+	 */
 	PG_CMD_PUTS("UPDATE pg_collation SET collversion = pg_collation_actual_version(oid) WHERE collname = 'unicode';\n\n");
 
 	/* 导入操作系统中我们能找到的所有排序规则 */
@@ -1727,12 +1755,24 @@ setup_collation(FILE *cmdfd)
 }
 
 /*
- * 设置权限
+ * 设置权限     
  *
- * 我们将大多数系统目录标记为世界可读。我们目前没有
- * 有修改这些权限的命令，实际上，在单一数据库中
- * 限制访问的意义值得怀疑。
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          */
+ * 我们将大多数系统目录标记为全局可读。目前我们      
+ * 无需触碰函数、语言或数据库，因为它们的默认   
+ * 权限没问题。 
+ *
+ * 有些对象默认可能需要不同的权限，因此我们要 
+ * 确保不会覆盖已设置好的权限集（NOT NULL）。       
+ *                
+ *
+ * 同时填充pg_init_privs以保存初始化时的权限状态。   
+ * pg_dump会使用它，让用户能够修改目录对象上的     
+ * 权限，并让这些权限修改在dump/reload和              
+ * pg_upgrade之后得以保留。   
+ *
+ * 注意pg_init_privs仅用于每数据库对象，因此我们         
+ * 不包括数据库和表空间。         
+ */
 static void
 setup_privileges(FILE *cmdfd)
 {
@@ -1928,50 +1968,51 @@ load_plpgsql(FILE *cmdfd)
 }
 
 /*
- * clean everything up in template1
+ * 清理template1中的一切     
  */
 static void
 vacuum_db(FILE *cmdfd)
 {
-	/* Run analyze before VACUUM so the statistics are frozen. */
+	/* 先运行analyze再VACUUM，以冻结统计信息。    */
 	PG_CMD_PUTS("ANALYZE;\n\nVACUUM FREEZE;\n\n");
 }
 
 /*
- * copy template1 to template0
+ * template1复制到template0
  */
 static void
 make_template0(FILE *cmdfd)
 {
 	/*
-	 * pg_upgrade tries to preserve database OIDs across upgrades. It's smart
-	 * enough to drop and recreate a conflicting database with the same name,
-	 * but if the same OID were used for one system-created database in the
-	 * old cluster and a different system-created database in the new cluster,
-	 * it would fail. To avoid that, assign a fixed OID to template0 rather
-	 * than letting the server choose one.
+	 * pg_upgrade尝试在升级期间保留数据库OID。它足够         
+	 * 聪明，能把同名冲突数据库删除并重建，但             
+	 * 若同一OID被旧集簇某系统创建数据库占用，           
+	 * 而新集簇另一系统创建数据库也用此OID，则会失败。  
+	 * 为避免此问题，给template0指定固定OID，而不是        
+	 * 让服务器自行选择。        
 	 *
-	 * (Note that, while the user could have dropped and recreated these
-	 * objects in the old cluster, the problem scenario only exists if the OID
-	 * that is in use in the old cluster is also used in the new cluster - and
-	 * the new cluster should be the result of a fresh initdb.)
+	 * （注意，即使用户可能在旧集簇中删除并重建过  
+	 * 这些对象，但问题场景只在以下情况存在：旧集簇     
+	 * 正在使用的OID同时也被新集簇使用——且新集簇        
+	 * 应是全新initdb的结果。）                       
 	 *
-	 * We use "STRATEGY = file_copy" here because checkpoints during initdb
-	 * are cheap. "STRATEGY = wal_log" would generate more WAL, which would be
-	 * a little bit slower and make the new cluster a little bit bigger.
+	 * 我们在这里使用"STRATEGY = file_copy"，因为initdb          
+	 * 期间检查点很廉价。"STRATEGY = wal_log"会产生更多WAL，   
+	 * 会稍慢一些，并使新集簇稍大一些。                 
 	 */
 	PG_CMD_PUTS("CREATE DATABASE template0 IS_TEMPLATE = true ALLOW_CONNECTIONS = false"
 				" OID = " CppAsString2(Template0DbOid)
 				" STRATEGY = file_copy;\n\n");
 
 	/*
-	 * template0 不应该有任何依赖于排序规则的对象，
-	 * 所以取消设置排序规则版本。这将启用升级时的提示。
-	                                    */
+	 * template0不应有任何依赖排序规则的对象，因此应取消 
+	 * 其排序规则版本。从它创建新数据库时会禁用          
+	 * 排序规则检查     
+	 */
 	PG_CMD_PUTS("UPDATE pg_database SET datcollversion = NULL WHERE datname = 'template0';\n\n");
 
 	/*
-	 * While we are here, do set the collation version on template1.
+	 * 顺便在这里为template1设置排序规则版本。       
 	 */
 	PG_CMD_PUTS("UPDATE pg_database SET datcollversion = pg_database_collation_actual_version(oid) WHERE datname = 'template1';\n\n");
 
@@ -1985,20 +2026,20 @@ make_template0(FILE *cmdfd)
 	PG_CMD_PUTS("COMMENT ON DATABASE template0 IS 'unmodifiable empty database';\n\n");
 
 	/*
-	 * Finally vacuum to clean up dead rows in pg_database
+	 * 最后对pg_database执行vacuum以清理死元组 
 	 */
 	PG_CMD_PUTS("VACUUM pg_database;\n\n");
 }
 
 /*
- * copy template1 to postgres
+ * 复制template1到postgres
  */
 static void
 make_postgres(FILE *cmdfd)
 {
 	/*
-	 * Just as we did for template0, and for the same reasons, assign a fixed
-	 * OID to postgres and select the file_copy strategy.
+	 * 与template0一样，出于同样原因，为postgres指定固定     
+	 * 的OID并选择file_copy策略。                 
 	 */
 	PG_CMD_PUTS("CREATE DATABASE postgres OID = " CppAsString2(PostgresDbOid)
 				" STRATEGY = file_copy;\n\n");
@@ -2006,24 +2047,36 @@ make_postgres(FILE *cmdfd)
 }
 
 /*
- * 中断时的信号处理器。
+ * 被中断时的信号处理函数。      
  *
- * Windows 运行时文档位于
+ * Windows运行时文档在  
  * https://docs.microsoft.com/en-us/cpp/c-runtime-library/reference/signal
- * 指出 SIGINT 的处理方式取决于操作系统和
- * "SIG_IGN" 不是合法的信号处理器。因此我们需要
- * 一个函数来作为信号处理器。
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       */
+ * 指出，许多操作被明确禁止在信号处理函数内进行，   
+ * 包括IO、内存分配和系统调用，且仅在处理SIGFPE时      
+ * 才允许使用jmpbuf。   
+ *
+ * 我通过设置标志而不是直接调用exit()来避免这些          
+ * 禁止操作。 
+ *
+ * 另请注意Windows对SIGINT的行为，其中说道：         
+ * "SIGINT不受任何Win32应用程序支持。当发生CTRL+C               
+ * 中断时，Win32操作系统会生成一个新线程来专门        
+ * 处理该中断。这会使单线程应用程序（例如UNIX中           
+ * 的程序）变成多线程，从而导致意外行为。           
+ *
+ * 我不知道该如何处理。（奇怪，他们竟称UNIX为应用        
+ * 程序！）故需在Windows上测试     
+ */
 static void
 trapsig(SIGNAL_ARGS)
 {
-	/* handle systems that reset the handler, like Windows (grr) */
+	/* 处理会重置处理函数的系统（Windows，唉）   */
 	pqsignal(postgres_signal_arg, trapsig);
 	caught_signal = true;
 }
 
 /*
- * call exit() if we got a signal, or else output "ok".
+ * 收到信号则调用exit()，否则输出"ok"。   
  */
 static void
 check_ok(void)
@@ -2057,7 +2110,7 @@ my_strftime(char *s, size_t max, const char *fmt, const struct tm *tm)
 }
 
 /*
- * Determine likely date order from locale
+ * 据区域设置判断可能日期顺序
  */
 static int
 locale_date_order(const char *locale)
@@ -2071,7 +2124,7 @@ locale_date_order(const char *locale)
 	size_t		res;
 	int			result;
 
-	result = DATEORDER_MDY;		/* default */
+	result = DATEORDER_MDY;		/* 默认  */
 
 	save = save_global_locale(LC_TIME);
 
@@ -2107,18 +2160,24 @@ locale_date_order(const char *locale)
 }
 
 /*
- * 验证区域设置名称对于区域设置类别是否有效。
+ * 验证区域设置名对该区域设置类别是否有效
  *
- * 如果成功，且 canonname 不为 NULL，则将规范名称
- * 的 pg_strdup 副本存储在那里。
-                                                                                                                                                                                                                                                                                                                                                                                       */
+ * 如果成功且canonname非NULL，则在其中存储一个              
+ * malloc'd的区域设置规范名称副本。这对于弄清                
+ * 空字符串""作为区域设置名称是什么含义（即       
+ * 环境变量的值）。（实际上，在大多数实现中它           
+ * 似乎仅此一用；我们本希望setlocale能返回规范拼写     
+ * 的名称，但通常并非如此。）    
+ *
+ * 此处应与后端的check_locale()函数保持一致  
+ */
 static void
 check_locale_name(int category, const char *locale, char **canonname)
 {
 	save_locale_t save;
 	char	   *res;
 
-	/* Don't let Windows' non-ASCII locale names in. */
+	/* 不接受Windows的非ASCII区域设置名。 */
 	if (locale && !pg_is_ascii(locale))
 		pg_fatal("locale name \"%s\" contains non-ASCII characters", locale);
 
@@ -2127,21 +2186,21 @@ check_locale_name(int category, const char *locale, char **canonname)
 
 	save = save_global_locale(category);
 
-	/* for setlocale() call */
+	/* 供setlocale()调用 */
 	if (!locale)
 		locale = "";
 
-	/* set the locale with setlocale, to see if it accepts it. */
+	/* 以setlocale设置区域设置，看其是否接受。  */
 	res = setlocale(category, locale);
 
-	/* save canonical name if requested. */
+	/* 若请求则保存规范名称。 */
 	if (res && canonname)
 		*canonname = pg_strdup(res);
 
 	/* 恢复旧值。    */
 	restore_global_locale(category, save);
 
-	/* complain if locale wasn't valid */
+	/* 若区域设置无效则报错  */
 	if (res == NULL)
 	{
 		if (*locale)
@@ -2153,14 +2212,18 @@ check_locale_name(int category, const char *locale, char **canonname)
 		else
 		{
 			/*
-			 * 如果命令行上没有给出相关开关，locale 是一个
-			 * 空字符串，表示"使用环境"。
-			                                                                                                                                                                                                                                                                                                      */
+			 * 若命令行未给出相关开关，locale便是一个空    
+			 * 字符串，报告起来没有太大用处。大概是       
+			 * setlocale()在环境中发现了它不喜欢的东西。       
+			 * 理想情况下，应报告有问题的环境变量，     
+			 * 但setlocale的行为随实现而异，很难确定它不    
+			 * 喜欢的是什么。请输出稳妥的通用消息。     
+			 */
 			pg_fatal("invalid locale settings; check LANG and LC_* environment variables");
 		}
 	}
 
-	/* Don't let Windows' non-ASCII locale names out. */
+	/* 不输出Windows的非ASCII区域设置名。  */
 	if (canonname && !pg_is_ascii(*canonname))
 		pg_fatal("locale name \"%s\" contains non-ASCII characters",
 				 *canonname);
@@ -2169,7 +2232,7 @@ check_locale_name(int category, const char *locale, char **canonname)
 /*
  * 检查所选编码是否与区域设置所需的编码匹配
  *
- * 这应该与后端 check_locale_encoding() 中类似的检查匹配。
+ * 这应与后端 createdb() 中的类似检查保持一致。          
              */
 static bool
 check_locale_encoding(const char *locale, int user_enc)
@@ -2178,7 +2241,7 @@ check_locale_encoding(const char *locale, int user_enc)
 
 	locale_enc = pg_get_encoding_from_locale(locale, true);
 
-	/* See notes in createdb() to understand these tests */
+	/* 参见createdb()中的说明以理解这些测试 */
 	if (!(locale_enc == user_enc ||
 		  locale_enc == PG_SQL_ASCII ||
 		  locale_enc == -1 ||
@@ -2202,9 +2265,9 @@ check_locale_encoding(const char *locale, int user_enc)
 }
 
 /*
- * 检查所选编码是否被 ICU 支持
+ * 检查所选编码是否受 ICU 支持
  *
- * 这应该与后端 check_encoding_locale_matches() 中类似的检查匹配。
+ * 这应与后端 createdb() 中的类似检查保持一致。                  
            */
 static bool
 check_icu_locale_encoding(int user_enc)
@@ -2236,10 +2299,11 @@ icu_language_tag(const char *loc_str)
 	const bool	strict = true;
 
 	/*
-	 * BCP47 语言标签没有明确定义的上限（参见
-	 * RFC5646 第 4.4 节）。实际上，它应该是一个合理的小数字，
-	 * 但如果太小，我们会扩展缓冲区。
-	                                                           */
+	 * BCP47语言标签没有明确界定的上限（参见RFC5646        
+	 * 第4.4节）。此外，在较旧的ICU版本中，       
+	 * uloc_toLanguageTag()未必在第一次调用时就返回             
+	 * 最终长度，故需循环。   
+	 */
 	langtag = pg_malloc(buflen);
 	while (true)
 	{
@@ -2269,14 +2333,15 @@ icu_language_tag(const char *loc_str)
 	return langtag;
 #else
 	pg_fatal("ICU is not supported in this build");
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 使编译器安静  */
 #endif
 }
 
 /*
- * 执行尽力检查以验证区域设置是否有效。应与
- * pg_locale.c 中的 check_icu_locale() 一致。
-                                                                                                  */
+ * 尽力检查区域设置是否有效。应与pg_locale.c保持     
+ * 一致，只是无需打开排序器（那将在引导后初始化  
+ * 期间进行）。                                               
+ */
 static void
 icu_validate_locale(const char *loc_str)
 {
@@ -2324,16 +2389,16 @@ icu_validate_locale(const char *loc_str)
 }
 
 /*
- * set up the locale variables
+ * 设置各区域设置变量
  *
- * assumes we have called setlocale(LC_ALL, "") -- see set_pglocale_pgservice
+ * 假定已调用setlocale(LC_ALL, "")——参见set_pglocale_pgservice    
  */
 static void
 setlocales(void)
 {
 	char	   *canonname;
 
-	/* set empty lc_* and iculocale values to locale config if set */
+	/* 若已设置，将空lc_*与iculocale值设为locale配置  */
 
 	if (locale)
 	{
@@ -2394,8 +2459,8 @@ setlocales(void)
 		icu_validate_locale(icu_locale);
 
 		/*
-		 * In supported builds, the ICU locale ID will be opened during
-		 * post-bootstrap initialization, which will perform extra checks.
+		 * 在受支持的构建中，ICU区域设置ID将在引导后 
+		 * 初始化期间打开，届时会执行额外的检查。      
 		 */
 #ifndef USE_ICU
 		pg_fatal("ICU is not supported in this build");
@@ -2404,7 +2469,7 @@ setlocales(void)
 }
 
 /*
- * print help text
+ * 打印帮助   
  */
 static void
 usage(const char *progname)
@@ -2509,7 +2574,7 @@ setup_pgdata(void)
 		pgdata_get_env = getenv("PGDATA");
 		if (pgdata_get_env && strlen(pgdata_get_env))
 		{
-			/* PGDATA found */
+			/* 找到PGDATA */
 			pg_data = pg_strdup(pgdata_get_env);
 		}
 		else
@@ -2526,9 +2591,11 @@ setup_pgdata(void)
 	canonicalize_path(pg_data);
 
 	/*
-	 * 我们必须为 postgres 设置 PGDATA，而不是在命令行上传递它，
-	 * 以避免愚蠢的引用问题。
-	                                                                                                                                     */
+	 * 我们必须为postgres设置PGDATA，而不是在命令行上       
+	 * 传递它，以避免Windows上愚蠢的引号问题；而且在       
+	 * Windows上本来也特别需要引号，因为其路径最有          
+	 * 可能含内嵌空格
+	 */
 	if (setenv("PGDATA", pg_data, 1) != 0)
 		pg_fatal("could not set environment");
 }
@@ -2611,8 +2678,8 @@ setup_locale_encoding(void)
 		ctype_enc = pg_get_encoding_from_locale(lc_ctype, true);
 
 		/*
-		 * If ctype_enc=SQL_ASCII, it's compatible with any encoding. ICU does
-		 * not support SQL_ASCII, so select UTF-8 instead.
+		 * 若ctype_enc=SQL_ASCII，则它与任何编码都兼容。ICU      
+		 * 不支持SQL_ASCII，故改用UTF-8。         
 		 */
 		if (locale_provider == COLLPROVIDER_ICU && ctype_enc == PG_SQL_ASCII)
 			ctype_enc = PG_UTF8;
@@ -2629,9 +2696,10 @@ setup_locale_encoding(void)
 		else if (!pg_valid_server_encoding_id(ctype_enc))
 		{
 			/*
-			 * 我们识别了它，但它不是合法的服务器编码。
-			 * 在 Windows 上，UTF-8 可以与任何区域设置一起使用。
-			      */
+			 * 我们识别了它，但并非合法的服务器编码。 
+			 * Windows上，UTF-8兼容任何区域设置，故可回退到
+			 * UTF-8 
+			 */
 #ifdef WIN32
 			encodingid = PG_UTF8;
 			printf(_("Encoding \"%s\" implied by locale is not allowed as a server-side encoding.\n"
@@ -2763,12 +2831,12 @@ setup_signals(void)
 	pqsignal(SIGTERM, trapsig);
 #endif
 
-	/* Ignore SIGPIPE when writing to backend, so we can clean up */
+	/* 写入后端时忽略SIGPIPE，以便我们能进行清理 */
 #ifdef SIGPIPE
 	pqsignal(SIGPIPE, SIG_IGN);
 #endif
 
-	/* Prevent SIGSYS so we can probe for kernel calls that might not work */
+	/* 屏蔽SIGSYS，以便探测可能无法工作的内核调用        */
 #ifdef SIGSYS
 	pqsignal(SIGSYS, SIG_IGN);
 #endif
@@ -2783,7 +2851,7 @@ create_data_directory(void)
 	switch ((ret = pg_check_dir(pg_data)))
 	{
 		case 0:
-			/* PGDATA not there, must create it */
+			/* PGDATA不存在，必须创建   */
 			printf(_("creating directory %s ... "),
 				   pg_data);
 			fflush(stdout);
@@ -2823,7 +2891,7 @@ create_data_directory(void)
 								  "the directory \"%s\" or run %s "
 								  "with an argument other than \"%s\".",
 								  pg_data, progname, pg_data);
-			exit(1);			/* no further message needed */
+			exit(1);			/* 无需进一步的消息  */
 
 		default:
 			/* 访问目录时遇到问题 */
@@ -2832,7 +2900,7 @@ create_data_directory(void)
 }
 
 
-/* Create WAL directory, and symlink if required */
+/* 创建WAL目录，需要时建立符号链接 */
 void
 create_xlog_or_symlink(void)
 {
@@ -2845,7 +2913,7 @@ create_xlog_or_symlink(void)
 	{
 		int			ret;
 
-		/* clean up xlog directory name, check it's absolute */
+		/* 清理xlog目录名，检查是否为绝对路径 */
 		canonicalize_path(xlog_dir);
 		if (!is_absolute_path(xlog_dir))
 			pg_fatal("WAL directory location must be an absolute path");
@@ -2938,9 +3006,11 @@ initialize_data_directory(void)
 	setup_signals();
 
 	/*
-	 * 根据请求的 PGDATA 权限设置掩码。pg_mode_mask 和
-	 * 类似的函数（如 pg_dir_create_mode）可帮助我们完成此操作。
-	                                                                                                                      */
+	 * 根据所要求的PGDATA权限设置掩码。pg_mode_mask         
+	 * 及其同类（如pg_dir_create_mode）默认被设为仅            
+	 * 属主可访问；当解析选项（见上文）传入-g时，会调用
+	 * SetDataDirectoryCreatePerm()更新。
+	 */
 	umask(pg_mode_mask);
 
 	create_data_directory();
@@ -2958,8 +3028,8 @@ initialize_data_directory(void)
 		path = psprintf("%s/%s", pg_data, subdirs[i]);
 
 		/*
-		 * The parent directory already exists, so we only need mkdir() not
-		 * pg_mkdir_p() here, which avoids some failure modes; cf bug #13853.
+		 * 父目录已存在，因此这里只需mkdir()而无需         
+		 * pg_mkdir_p()，从而避免某些失败模式；见bug #13853。  
 		 */
 		if (mkdir(path, pg_dir_create_mode) < 0)
 			pg_fatal("could not create directory \"%s\": %m", path);
@@ -2983,7 +3053,7 @@ initialize_data_directory(void)
 	bootstrap_template1();
 
 	/*
-	 * Make the per-database PG_VERSION for template1 only after init'ing it
+	 * 仅在初始化template1后才创建其每数据库的PG_VERSION     
 	 */
 	write_version_file("base/1");
 
@@ -3094,11 +3164,11 @@ main(int argc, char *argv[])
 	char		pg_ctl_path[MAXPGPATH];
 
 	/*
-	 * 确保 stdout 的缓冲行为与交互式使用中的行为
-	 * 相匹配（至少在 Windows 上），以防 stdout 被
-	 * 重定向。否则，不时出现的输出刷新会导致
-	 * 性能损失。
-	                                                                       */
+	 * 确保 stdout 的缓冲行为与交互式使用时            
+	 * 一致（至少在大多数平台上）。这可避免        
+	 * 输出重定向到文件时出现意外的输出顺序，           
+	 * POSIX 要求在对这些文件的其他使用前完成此操作  
+	 */
 	setvbuf(stdout, NULL, PG_IOLBF, 0);
 
 	pg_logging_init(argv[0]);
@@ -3130,9 +3200,10 @@ main(int argc, char *argv[])
 				authmethodlocal = authmethodhost = pg_strdup(optarg);
 
 				/*
-				 * 当指定 ident 时，对本地连接使用 peer。
-				 * 镜像地，当指定 peer 时，对本地连接使用 ident。
-				                 */
+				 * 指定ident时，本地连接用peer；而指定peer    
+				 * 时，则对TCP/IP连接使用ident。                
+				 *             
+				 */
 				if (strcmp(authmethodhost, "ident") == 0)
 					authmethodlocal = "peer";
 				else if (strcmp(authmethodlocal, "peer") == 0)
@@ -3321,7 +3392,7 @@ main(int argc, char *argv[])
 
 	check_need_password(authmethodlocal, authmethodhost);
 
-	/* set wal segment size */
+	/* 设置wal段大小   */
 	if (str_wal_segment_size_mb == NULL)
 		wal_segment_size_mb = (DEFAULT_XLOG_SEG_SIZE) / (1024 * 1024);
 	else
@@ -3413,7 +3484,7 @@ main(int argc, char *argv[])
 		/* 将路径转换为使用本地分隔符   */
 		make_native_path(pg_ctl_path);
 
-		/* path to pg_ctl, properly quoted */
+		/* 已正确引用的pg_ctl路径  */
 		appendShellString(start_db_cmd, pg_ctl_path);
 
 		/* 添加 -D 开关，数据目录适当加引号     */

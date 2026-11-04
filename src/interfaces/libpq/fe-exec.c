@@ -138,7 +138,7 @@ static int	pqPipelineFlush(PGconn *conn);
  * PGRESULT_SEP_ALLOC_THRESHOLD，因此将其设得太大不划算。                                                                                                                                                                                                                                                                                                                 */
 
 #define PGRESULT_DATA_BLOCKSIZE		2048
-#define PGRESULT_ALIGN_BOUNDARY		MAXIMUM_ALIGNOF /* from configure */
+#define PGRESULT_ALIGN_BOUNDARY		MAXIMUM_ALIGNOF /*来自configure */
 #define PGRESULT_BLOCK_OVERHEAD		Max(sizeof(PGresult_data), PGRESULT_ALIGN_BOUNDARY)
 #define PGRESULT_SEP_ALLOC_THRESHOLD	(PGRESULT_DATA_BLOCKSIZE / 2)
 
@@ -207,7 +207,7 @@ PQmakeEmptyPGresult(PGconn *conn, ExecStatusType status)
 				break;
 		}
 
-		/* copy events last; result must be valid if we need to PQclear */
+		/* 最后复制事件；若需 PQclear，结果必须有效     */
 		if (conn->nEvents > 0)
 		{
 			result->events = dupEvents(conn->events, conn->nEvents,
@@ -247,7 +247,7 @@ PQsetResultAttrs(PGresult *res, int numAttributes, PGresAttDesc *attDescs)
 {
 	int			i;
 
-	/* Fail if argument is NULL or OOM_result */
+	/* 参数 NULL 或 OOM_result 时失败   */
 	if (!res || (const PGresult *) res == &OOM_result)
 		return false;
 
@@ -255,7 +255,7 @@ PQsetResultAttrs(PGresult *res, int numAttributes, PGresAttDesc *attDescs)
 	if (res->numAttributes > 0)
 		return false;
 
-	/* ignore no-op request */
+	/*忽略无操作请求 */
 	if (numAttributes <= 0 || !attDescs)
 		return true;
 
@@ -451,11 +451,11 @@ PQsetvalue(PGresult *res, int tup_num, int field_num, char *value, int len)
 	PGresAttValue *attval;
 	const char *errmsg = NULL;
 
-	/* Fail if argument is NULL or OOM_result */
+	/* 参数 NULL 或 OOM_result 时失败   */
 	if (!res || (const PGresult *) res == &OOM_result)
 		return false;
 
-	/* Invalid field_num? */
+	/*无效 field_num？ */
 	if (!check_field_number(res, field_num))
 		return false;
 
@@ -539,7 +539,7 @@ pqResultAlloc - 导出的例程，在 PGresult 中分配本地存储。
 void *
 PQresultAlloc(PGresult *res, size_t nBytes)
 {
-	/* Fail if argument is NULL or OOM_result */
+	/* 参数 NULL 或 OOM_result 时失败   */
 	if (!res || (const PGresult *) res == &OOM_result)
 		return NULL;
 
@@ -773,9 +773,9 @@ PQclear(PGresult *res)
 }
 
 /*
- * Handy subroutine to deallocate any partially constructed async result.
+ * 用于释放任何部分构建的异步结果的便捷子程序。    
  *
- * Any "next" result gets cleared too.
+ * "next" 结果也会被清除。    
  */
 void
 pqClearAsyncResult(PGconn *conn)
@@ -868,9 +868,9 @@ pqPrepareAsyncResult(PGconn *conn)
 	else
 	{
 		/*
-		 * We get here after internal-to-libpq errors.  We should probably
-		 * always have error_result = true, but if we don't, gin up some error
-		 * text.
+		 * libpq 内部错误后会到达这里。通常应总是设置   
+		 *  error_result = true，若非如此则编造错误文本。        
+		 *      
 		 */
 		if (!conn->error_result)
 			libpq_append_conn_error(conn, "no error text available");
@@ -881,9 +881,9 @@ pqPrepareAsyncResult(PGconn *conn)
 			conn->errorReported = 0;
 
 		/*
-		 * Make a PGresult struct for the error.  We temporarily lie about the
-		 * result status, so that PQmakeEmptyPGresult doesn't uselessly copy
-		 * all of conn->errorMessage.
+		 * 为该错误创建 PGresult 结构。我们暂时谎报结果      
+		 * 状态，使 PQmakeEmptyPGresult 不会无谓地复制整        
+		 * 个 conn->errorMessage。 
 		 */
 		res = PQmakeEmptyPGresult(conn, PGRES_EMPTY_QUERY);
 		if (res)
@@ -1069,7 +1069,7 @@ pqSaveMessageField(PGresult *res, char code, const char *value)
 					  strlen(value) + 1,
 					  true);
 	if (!pfield)
-		return;					/* out of memory? */
+		return;					/*内存不足？ */
 	pfield->code = code;
 	strcpy(pfield->contents, value);
 	pfield->next = res->errFields;
@@ -1671,7 +1671,7 @@ PQsendQueryPrepared(PGconn *conn,
 						   NULL,	/* 无命令需解析  */
 						   stmtName,
 						   nParams,
-						   NULL,	/* no param types */
+						   NULL,	/*无参数类型 */
 						   paramValues,
 						   paramLengths,
 						   paramFormats,
@@ -2055,8 +2055,8 @@ PQgetResult(PGconn *conn)
 		int			flushResult;
 
 		/*
-		 * If data remains unsent, send it.  Else we might be waiting for the
-		 * result of a command the backend hasn't even got yet.
+		 * 如果数据仍未发送，就发送它。否则我们可能在等
+		 * 待后端甚至尚未收到的命令的结果。    
 		 */
 		while ((flushResult = pqFlush(conn)) > 0)
 		{
@@ -2600,10 +2600,10 @@ PQputCopyData(PGconn *conn, const char *buffer, int nbytes)
 	if (nbytes > 0)
 	{
 		/*
-		 * Try to flush any previously sent data in preference to growing the
-		 * output buffer.  If we can't enlarge the buffer enough to hold the
-		 * data, return 0 in the nonblock case, else hard error. (For
-		 * simplicity, always assume 5 bytes of overhead.)
+		 * 尝试先刷新已发送的数据，而非扩大输出缓冲区。
+		 * 若无法把缓冲区扩大到足以容纳数据，非阻塞时  
+		 * 返回 0，否则为硬错误。（为简单起见，     
+		 * 总是假设有 5 字节的开销。）        
 		 */
 		if ((conn->outBufSize - conn->outCount - 5) < nbytes)
 		{
@@ -2663,8 +2663,8 @@ PQputCopyEnd(PGconn *conn, const char *errormsg)
 	}
 
 	/*
-	 * If we sent the COPY command in extended-query mode, we must issue a
-	 * Sync as well.
+	 * 如果以扩展查询模式发送了 COPY 命令，必须同时发 
+	 * 出 Sync。  
 	 */
 	if (conn->cmd_queue_head &&
 		conn->cmd_queue_head->queryclass != PGQUERY_SIMPLE)
@@ -3102,8 +3102,8 @@ pqPipelineProcessQueue(PGconn *conn)
 	conn->singleRowMode = false;
 
 	/*
-	 * If there are no further commands to process in the queue, get us in
-	 * "real idle" mode now.
+	 * 如果队列中没有更多待处理命令，现在就进入       
+	 * "real idle" 模式。
 	 */
 	if (conn->cmd_queue_head == NULL)
 	{
@@ -3701,7 +3701,7 @@ PQcmdTuples(PGresult *res)
 		while (*p && *p != ' ')
 			p++;
 		if (*p == 0)
-			goto interpret_error;	/* no space? */
+			goto interpret_error;	/* 无空格 */
 		p++;
 	}
 	else if (strncmp(res->cmdStatus, "SELECT ", 7) == 0 ||
@@ -4186,7 +4186,7 @@ PQescapeInternal(PGconn *conn, const char *str, size_t len, bool as_ident)
 	if (!as_ident && num_backslashes > 0)
 	{
 		if (add_size_overflow(result_size, num_backslashes, &result_size) ||
-			add_size_overflow(result_size, 2, &result_size))	/* for " E" prefix */
+			add_size_overflow(result_size, 2, &result_size))	/* 为 " E" 前缀 */
 			goto overflow;
 	}
 
@@ -4360,7 +4360,7 @@ PQescapeByteaInternal(PGconn *conn,
 		{
 			if (*vp < 0x20 || *vp > 0x7e)
 			{
-				if (add_size_overflow(len, bslash_len + 3, &len))	/* octal "\ooo" */
+				if (add_size_overflow(len, bslash_len + 3, &len))	/*八进制\ooo */
 					goto overflow;
 			}
 			else if (*vp == '\'')
@@ -4538,8 +4538,8 @@ PQunescapeBytea(const unsigned char *strtext, size_t *retbuflen)
 	else
 	{
 		/*
-		 * Length of input is max length of output, but add one to avoid
-		 * unportable malloc(0) if input is zero-length.
+		 * 输入长度是输出的最大长度，加一以避免输入 
+		 * 为零时出现不可移植的 malloc(0)。  
 		 */
 		buffer = (unsigned char *) malloc(strtextlen + 1);
 		if (buffer == NULL)

@@ -302,13 +302,14 @@ sync_target_dir(void)
 
 /*
  * 将文件读入内存。要读取的文件是 <datadir>/<path>。
- * 文件内容以 malloc 分配的缓冲区返回，*filesize
- * 设为文件长度。
+ * 文件内容以 malloc 分配的缓冲区返回，*filesize       
+ * 设为文件长度。            
  *
- * 返回的缓冲区始终以零结尾；实际大小为
- * *filesize + 1。读取文本文件时很方便。也可用于
- * 读取二进制文件，此时可忽略零终止符。
-                                                                                                                                                                                                                                                                                            */
+ * 返回的缓冲区始终以零结尾；实际大小为                 
+ * *filesize + 1。读取文本文件时很方便。                       
+ * 此函数也可用于读取二进制文件，这种情况下        
+ * 只需忽略其中的零终止符。    
+ */
 char *
 slurpFile(const char *datadir, const char *path, size_t *filesize)
 {

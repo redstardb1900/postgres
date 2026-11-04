@@ -535,10 +535,11 @@ main(int argc, char **argv)
 }
 
 /*
- * 执行回绕。
+ * 执行回绕。    
  *
- * 我们已经从目标和源收集了所有需要的信息。
-                                                                                   */
+ * 我们已经从目标和源收集了所有需要的           
+ * 信息。             
+ */
 static void
 perform_rewind(filemap_t *filemap, rewind_source *source,
 			   XLogRecPtr chkptrec,
@@ -1033,10 +1034,11 @@ digestControlFile(ControlFileData *ControlFile, const char *content,
 }
 
 /*
- * 从目标集簇获取 GUC 参数 restore_command 的值。
+ * 从目标集簇获取 GUC 参数 restore_command 的值。         
  *
- * 这使用基于 "postgres -C" 的逻辑从集簇获取值。
-                                                                                  */
+ * 这使用基于 "postgres -C" 的逻辑从集簇获取该值。   
+ *         
+ */
 static void
 getRestoreCommand(const char *argv0)
 {

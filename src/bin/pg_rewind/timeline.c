@@ -14,17 +14,17 @@
 #include "pg_rewind.h"
 
 /*
- * 这是从后端 readTimeLineHistory 复制粘贴而来，
- * 修改为返回 malloc 分配的数组并在无后端函数的
- * 情况下工作。
-                                                               */
+ * 这是从后端 readTimeLineHistory 复制粘贴而来，            
+ * 改为返回 malloc 数组，无需后端函数即可工作   
+ */
 /*
- * 尝试读取时间线的历史文件。
+ * 尝试读取时间线历史文件。  
  *
- * 若成功，返回组成 TLI 的列表（给定 TLI 及其
- * 祖先 TLI）。若找不到历史文件，假设该时间线
- * 没有父级，返回仅含指定时间线 ID 的列表。
-                                                                                                                                                                                     */
+ * 若成功，返回组成 TLIs 的列表（给定 TLI 及其                
+ * 祖先 TLIs）。若找不到历史文件，假设该时间线         
+ * 没有父级，返回仅含指定时间线 ID 的列表。               
+ *    
+ */
 TimeLineHistoryEntry *
 rewind_parseTimeLineHistory(char *buffer, TimeLineID targetTLI, int *nentries)
 {

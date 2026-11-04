@@ -341,13 +341,14 @@ process_target_file(const char *path, file_type_t type, size_t size,
 }
 
 /*
- * 在读取目标 WAL 时为目标系统中已更改的每个块调用
- * 此回调。它决定目标 relfile 中给定的 'blkno' 是否
- * 需要从源覆盖，如果需要则记录到
- * 'target_pages_to_overwrite' 位图中。
+ * 在读取目标 WAL 时，为目标系统中已更改的                
+ * 每个块调用此回调。它决定目标 relfile 中给定的      
+ * 'blkno' 是否需要从源覆盖，如果需要则记录到               
+ * 'target_pages_to_overwrite' 位图中。                
  *
- * 注意：两个系统上的所有文件必须已添加到哈希表中！
-                                                                                                                                                                                                                                    */
+ * 注意：两个系统上的所有文件必须已添加到哈希表     
+ * 中！     
+ */
 void
 process_target_wal_block_change(ForkNumber forknum, RelFileLocator rlocator,
 								BlockNumber blkno)
@@ -561,10 +562,11 @@ print_filemap(filemap_t *filemap)
 /*
  * 它看起来像关系数据文件吗？
  *
- * 出于我们的目的，仅主分支的文件被视为关系文件。
- * 其他分支始终完整复制，因为 WAL 仅包含主分支的
- * 块引用，我们无法可靠跟踪它们的更改。
-                                                                                                                                                                                                       */
+ * 出于我们的目的，仅主分支文件被视为关系文件。    
+ * 其他分支始终完整复制，因为我们无法可靠跟踪         
+ * 它们的更改，因为 WAL 仅包含主分支的块                     
+ * 引用。         
+ */
 static bool
 isRelDataFile(const char *path)
 {
@@ -574,23 +576,24 @@ isRelDataFile(const char *path)
 	bool		matched;
 
 	/*----
-	 * 关系数据文件可位于以下目录之一：
+	 * 关系数据文件可位于以下目录之一：               
 	 *
 	 * global/
-	 *		共享关系
+	 *		共享关系    
 	 *
 	 * base/<db oid>/
-	 *		常规关系，默认表空间
+	 *		常规关系，默认表空间       
 	 *
 	 * pg_tblspc/<tblspc oid>/<tblspc version>/
-	 *		非默认表空间内（目录名称取决于版本）
+	 *		非默认表空间内（目录名称                      
+	 *		取决于版本） 
 	 *
-	 * 关系数据文件本身的文件名：
+	 * 关系数据文件本身的文件名形如：               
 	 *
-	 * <oid>.<段号>
+	 * <oid>.<段号>        
 	 *
 	 *----
-	                                                                                                                                                                                                                   */
+	 */
 	rlocator.spcOid = InvalidOid;
 	rlocator.dbOid = InvalidOid;
 	rlocator.relNumber = InvalidRelFileNumber;
@@ -850,10 +853,11 @@ decide_file_action(file_entry_t *entry)
 }
 
 /*
- * 决定每个文件的处理方式。
+ * 决定对每个文件的处理。
  *
- * 返回 '文件映射'，条目按操作执行顺序排列。
-                                                                                           */
+ * 返回 'filemap'，条目按其操作应执行的                   
+ * 顺序排列。    
+ */
 filemap_t *
 decide_file_actions(void)
 {

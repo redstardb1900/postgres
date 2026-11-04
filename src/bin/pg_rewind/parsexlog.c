@@ -55,14 +55,13 @@ static int	SimpleXLogPageRead(XLogReaderState *xlogreader,
 							   int reqLen, XLogRecPtr targetRecPtr, char *readBuf);
 
 /*
- * 从 datadir/pg_wal 读取 WAL，从目标时间线历史中
- * 时间线索引 'tliIndex' 的 'startpoint' 开始，直到
- * 'endpoint'。记录 WAL 记录触及的数据块，并在页面
- * 映射中返回。
+ * 从 datadir/pg_wal 读取 WAL，从目标时间线历史中             
+ * 时间线索引 'tliIndex' 的 'startpoint' 开始，直到'endpoint'。   
+ * 记录 WAL 记录触及的数据块，并在页面映射中返回。      
  *
- * 'endpoint' 是要读取的最后一条记录的末尾。从
- * 'endpoint' 开始的记录是第一条不读取的记录。
-                                                                                                                                                                              */
+ * 'endpoint' 是要读取的最后一条记录的末尾。起始于       
+ * 'endpoint' 的记录为首条不读取。    
+ */
 void
 extractPageMap(const char *datadir, XLogRecPtr startpoint, int tliIndex,
 			   XLogRecPtr endpoint, const char *restoreCommand)

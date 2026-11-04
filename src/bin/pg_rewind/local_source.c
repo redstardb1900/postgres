@@ -122,9 +122,8 @@ local_queue_fetch_file(rewind_source *source, const char *path, size_t len)
 }
 
 /*
- * 将文件从源复制到目标，从 'off' 开始，共
- * 'len' 字节。
-                                   */
+ * 将文件从源复制到目标，自 'off' 起共 'len' 字节。     
+ */
 static void
 local_queue_fetch_range(rewind_source *source, const char *path, off_t off,
 						size_t len)
@@ -177,9 +176,8 @@ static void
 local_finish_fetch(rewind_source *source)
 {
 	/*
-	 * 无需操作，local_queue_fetch_range() 立即复制
-	 * 范围。
-	                             */
+	 * 无需操作，local_queue_fetch_range() 会立即复制范围。      
+	 */
 }
 
 static void

@@ -202,9 +202,8 @@ run_simple_command(PGconn *conn, const char *sql)
 }
 
 /*
- * 调用远程系统中的 pg_current_wal_insert_lsn()
- * 函数。
-                         */
+ * 调用远程系统中的 pg_current_wal_insert_lsn() 函数。     
+ */
 static XLogRecPtr
 libpq_get_current_wal_insert_lsn(rewind_source *source)
 {

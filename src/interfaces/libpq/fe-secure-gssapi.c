@@ -19,52 +19,52 @@
 #include "port/pg_bswap.h"
 
 
-/*要求加密支持，以及相互认证和防篡改措施。
- * 
- * 
-                             */
+/*
+ * 要求加密支持，以及相互认证和                      
+ * 防篡改措施。      
+ */
 #define GSS_REQUIRED_FLAGS GSS_C_MUTUAL_FLAG | GSS_C_REPLAY_FLAG | \
 	GSS_C_SEQUENCE_FLAG | GSS_C_CONF_FLAG | GSS_C_INTEG_FLAG
 
-/*使用 GSSAPI 处理数据的加密和解密。
- * 
- *在线上的加密数据流中，我们将数据分割成数据包，每个数据包以
- * 一个 uint32 大小的长度字（网络字节序）开始，然后紧跟该长度
- * 的加密数据。解密后产生与不使用加密时相同的数据流。
- * 
- * 加密数据通常比相同的未加密数据更大，因此我们使用固定大小的
- * 缓冲区来处理加密/解密，这些缓冲区比 PQComm 的缓冲区通常要
- *大，以最小化我们必须为单个读/写调用创建多个数据包（从而进行
- * 多次 recv/send 调用）的情况。
- * 
- * 注意：客户端和服务器必须就最大数据包大小达成一致，因为我们
- * 必须一次将整个数据包传递给 GSSAPI，并且我们不希望对方发送
- * 任意巨大的数据包，否则我们将不得不为其分配内存然后传递给
- * GSSAPI。
+/*
+ * 使用 GSSAPI 处理数据的加密和解密。       
  *
- * 因此，此 #define 实际上是协议规范的一部分，永远不可更改。
- * 
- * 
- * 
+ * 在线上的加密数据流中，我们将数据分割        
+ * 成数据包，每个数据包以一个 uint32                 
+ * 大小的长度字（网络字节序）开始，然后          
+ * 紧跟该长度的加密数据。解密后产生与           
+ * 不使用加密时相同的数据流。     
  *
- * 
- * 
-                                                                                                            */
+ * 加密数据通常比相同的未加密数据更大，因此    
+ * 我们使用固定大小的缓冲区来处理加密/      
+ * 解密，这些缓冲区比 PQComm 的缓冲区通常要        
+ * 大，以最小化我们必须为单个读/写调用             
+ * 创建多个数据包（从而进行多次 recv/send        
+ * 调用）的情况。  
+ *
+ * 注意：客户端和服务器必须就最大数据包大小     
+ * 达成一致，因为我们必须一次整包传给 GSSAPI，      
+ * 而且我们不希望对方发送任意巨大的数据包，    
+ * 否则我们将不得不为其分配内存再传给 GSSAPI。      
+ *
+ * 因此，此 #define 实为协议规范的一部分，     
+ * 不可更改。                
+ */
 #define PQ_GSS_MAX_PACKET_SIZE 16384	/* 包含 uint32 头部字     */
 
-/*但是，在认证交换期间，我们必须处理 GSSAPI 库想要发送的任何
- * 消息大小（因为我们的协议不支持分割这些消息）。取决于配置，
- * 这些消息可能高达 64kB。
- * 
- * 
-                                              */
+/*
+ * 但是，在认证交换期间，我们必须处理 GSSAPI            
+ * 库想要发送的任何消息大小（因为我们的             
+ * 协议不支持分割这些消息）。取决于配置，             
+ * 这些消息可能高达 64kB。        
+ */
 #define PQ_GSS_AUTH_BUFFER_SIZE 65536	/* 包含 uint32 头部字     */
 
-/*我们需要每个连接的状态变量。为了让此文件中的函数看起来
- * 与 be-secure-gssapi.c 中的相似，设置了这些宏。
- * 
- * 
-           */
+/*
+ * 我们需要每个连接的状态变量。为了让此文件         
+ * 的函数看起来与 be-secure-gssapi.c 中的相似，设置了   
+ * 这些宏。 
+ */
 #define PqGSSSendBuffer (conn->gss_SendBuffer)
 #define PqGSSSendLength (conn->gss_SendLength)
 #define PqGSSSendNext (conn->gss_SendNext)
@@ -77,18 +77,18 @@
 #define PqGSSMaxPktSize (conn->gss_MaxPktSize)
 
 
-/*尝试将 len 字节的数据从 ptr 写入 GSSAPI 加密连接。
- * 
- *连接必须已经设置为 GSSAPI 加密（即 GSSAPI 传输协商已完成）。
- * 
- * 成功时，返回消耗的数据字节数（可能小于 len）。失败时，返回
- *-1 并适当设置 errno。如果 errno 指示不可重试的错误，则向
- * conn->errorMessage 添加一条消息。对于可重试的错误，调用者应在
- * 套接字就绪后再次调用（传递相同或更多的数据）。
- * 
- * 
- * 
-                                                 */
+/*
+ * 尝试将 len 字节的数据从 ptr 写入 GSSAPI 加密连接。           
+ *
+ * 连接必须已经设置为 GSSAPI 加密（即 GSSAPI 传输协商      
+ * 已完成）。                    
+ *
+ * 成功时，返回消耗的数据字节数（可能小于 len）。      
+ * 失败时，返回 -1 并适当设置 errno。如果 errno 指示        
+ * 不可重试的错误，则向 conn->errorMessage 添加一条消息。   
+ * 可重试错误时，调用者应在套接字就绪后再次调用（传
+ * 递相同或更多数据）。 
+ */
 ssize_t
 pg_GSS_write(PGconn *conn, const void *ptr, size_t len)
 {
@@ -129,23 +129,23 @@ pg_GSS_write(PGconn *conn, const void *ptr, size_t len)
 	bytes_to_encrypt = len - PqGSSSendConsumed;
 	bytes_encrypted = PqGSSSendConsumed;
 
-	/*循环加密数据并发送，直到全部完成或 pqsecure_raw_write()
-	 * 报错（这可能意味着套接字是非阻塞的且请求的 send() 会阻塞，
-	 * 或者发生了某种实际错误）。
-	 * 
-	 * 
-	                                         */
+	/*
+	 * 循环加密数据并发送，直到全部完成或                   
+	 * pqsecure_raw_write() 报错（这可能意味着套接字是非阻塞  
+	 * 的且请求的 send() 会阻塞，或者发生了某种               
+	 * 实际错误）。    
+	 */
 	while (bytes_to_encrypt || PqGSSSendLength)
 	{
 		int			conf_state = 0;
 		uint32		netlen;
 
-		/*检查加密输出缓冲区中是否有需要发送的数据（可能来自上一次调用
-	的剩余数据），如果有，尝试发送。如果不能发送，则将该事实返回
-	给调用者。
-	
-	
-	                           */
+		/*
+		 * 检查加密输出缓冲区中是否有需要发送的            
+		 * 数据（可能是上次调用遗留的），如果有，        
+		 * 尝试发送。若无法发送，则将此事返回给调用者。
+		 *        
+		 */
 		if (PqGSSSendLength)
 		{
 			ssize_t		retval;
@@ -155,10 +155,10 @@ pg_GSS_write(PGconn *conn, const void *ptr, size_t len)
 			if (retval <= 0)
 				return retval;
 
-			/*检查这是否是部分写入，如果是，则在缓冲区中前进那么多并重试。
-	
-	
-	                  */
+			/*
+			 * 检查这是否是部分写入，如果是，则在缓冲区   
+			 * 中前进那么多并重试。  
+			 */
 			if (retval < amount)
 			{
 				PqGSSSendNext += retval;
@@ -175,11 +175,11 @@ pg_GSS_write(PGconn *conn, const void *ptr, size_t len)
 		if (!bytes_to_encrypt)
 			break;
 
-		/*检查我们要发送多少数据，如果太多，则必须循环，并且可能需要
-	多次调用才能处理完所有数据。
-	
-	
-	                                    */
+		/*
+		 * 检查我们要发送多少数据，如果太多，则必        
+		 * 须循环，并且可能需要多次调用才能处理完        
+		 * 所有数据。      
+		 */
 		if (bytes_to_encrypt > PqGSSMaxPktSize)
 			input.length = PqGSSMaxPktSize;
 		else
@@ -251,17 +251,17 @@ cleanup:
 	return ret;
 }
 
-/*从 GSSAPI 加密连接中读取最多 len 字节的数据到 ptr。
- * 
- *连接必须已经设置为 GSSAPI 加密（即 GSSAPI 传输协商已完成）。
- * 
- * 返回读取的数据字节数，失败时返回 -1 并适当设置 errno。如果
- *errno 指示不可重试的错误，则向 conn->errorMessage 添加一条
- * 消息。对于可重试的错误，调用者应在套接字就绪后再次调用。
- * 
- * 
- * 
-                                              */
+/*
+ * 从 GSSAPI 加密连接中读取最多 len 字节的数据到 ptr。     
+ *
+ * 连接必须已经设置为 GSSAPI 加密（即 GSSAPI 传输协商      
+ * 已完成）。                    
+ *
+ * 返回读取的数据字节数，失败时返回 -1 并         
+ * 适当设置 errno。若 errno 指示不可重试的错误，        
+ * 则向 conn->errorMessage 添加消息。对于可重试的错误，   
+ * 调用者应在套接字就绪后再次调用。  
+ */
 ssize_t
 pg_GSS_read(PGconn *conn, void *ptr, size_t len)
 {
@@ -273,12 +273,12 @@ pg_GSS_read(PGconn *conn, void *ptr, size_t len)
 	size_t		bytes_returned = 0;
 	gss_ctx_id_t gctx = conn->gctx;
 
-	/*这里的计划是将一个传入的加密数据包读入 PqGSSRecvBuffer，
-	 * 解密到 PqGSSResultBuffer 中，然后从中分发数据给调用者。
-	 * 当当前输入数据包用尽时，读取下一个。
-	 * 
-	 * 
-	            */
+	/*
+	 * 这里的计划是将一个传入的加密数据包读入  
+	 *  PqGSSRecvBuffer，解密到 PqGSSResultBuffer 中，然后          
+	 * 从中分发数据给调用者。当前数据包用尽           
+	 * 时读取下一个。
+	 */
 	while (bytes_returned < len)
 	{
 		int			conf_state = 0;
@@ -297,34 +297,34 @@ pg_GSS_read(PGconn *conn, void *ptr, size_t len)
 			PqGSSResultNext += bytes_to_copy;
 			bytes_returned += bytes_to_copy;
 
-			/*此时，我们要么已填满调用者的缓冲区，要么已清空结果缓冲区。
-	无论哪种情况，都返回给调用者。在第二种情况下，我们可以尝试
-	读取另一个加密数据包，但很可能没有可用的。（如果不是这样，
-	则说明我们选择了太小的最大数据包大小。）无论如何，让调用者
-	处理我们已经返回的数据没有害处。
-	
-	
-	
-	                        */
+			/*
+			 * 此时，要么已填满调用者的缓冲区，要么   
+			 * 已清空结果缓冲区。无论哪种情况，都返回    
+			 * 给调用者。在第二种情况下，我们可以尝试      
+			 * 读取另一个加密数据包，但很可能没有可用      
+			 * 的。（如果不是这样，说明我们选的最大包 
+			 * 大小太小。）无论如何，让调用者处理已返回的
+			 * 数据无害。  
+			 */
 			break;
 		}
 
 		/* 结果缓冲区为空，故重置缓冲区指针 */
 		PqGSSResultLength = PqGSSResultNext = 0;
 
-		/*因为我们选择在发出一些数据后立即返回，所以此时
-	bytes_returned 必须为零。因此下面的失败退出可以直接返回
-	-1，而无需担心是否已经发出了一些数据。
-	
-	
-	                                               */
+		/*
+		 * 因为我们选择在发出一些数据后立即返回，      
+		 * 所以此时 bytes_returned 必须为零。因此下面         
+		 * 的失败退出可以直接返回 -1，而无需担心是否     
+		 * 已经发出了一些数据。       
+		 */
 		Assert(bytes_returned == 0);
 
-		/*此时，结果缓冲区为空，且请求读取更多字节。我们现在准备
-	加载下一个数据包并将其（完整地）解密到结果缓冲区中。
-	
-	
-	                              */
+		/*
+		 * 此时，结果缓冲区为空，且请求读取更多字节。
+		 * 我们现在准备加载下一个数据包并将其（完          
+		 * 整地）解密到结果缓冲区中。      
+		 */
 
 		/* 如果尚未获取，则收集长度     */
 		if (PqGSSRecvLength < sizeof(uint32))
@@ -377,12 +377,12 @@ pg_GSS_read(PGconn *conn, void *ptr, size_t len)
 			return -1;
 		}
 
-		/*现在有了完整的数据包，可以执行解密并重新填充结果缓冲区，
-	然后循环回去将数据传回给调用者。请注意下面的错误退出必须
-	处理释放 gss 输出缓冲区。
-	
-	
-	                                       */
+		/*
+		 * 现在有了完整的数据包，可以执行解密并重        
+		 * 新填充结果缓冲区，然后循环回去将数据传       
+		 * 回给调用者。请注意下面的错误退出必须处      
+		 * 理释放 gss 输出缓冲区。
+		 */
 		output.value = NULL;
 		output.length = 0;
 		input.value = PqGSSRecvBuffer + sizeof(uint32);
@@ -424,13 +424,13 @@ cleanup:
 	return ret;
 }
 
-/*从 pqsecure_raw_read 读取的简单包装器。
- * 
- *参数与 pqsecure_raw_read 相同，外加一个输出参数来返回读取
- * 的字节数。此函数处理阻塞和检测到连接 EOF 的情况。
- * 
- * 
-                                           */
+/*
+ * 读取 pqsecure_raw_read 的简单包装器。    
+ *
+ * 此函数的参数与 pqsecure_raw_read 相同，外加一个输出参      
+ * 数来返回读取的字节数。此函数处理可能发生的阻塞以及  
+ * 检测到连接 EOF 的情况。   
+ */
 static PostgresPollingStatusType
 gss_read(PGconn *conn, void *recv_buffer, size_t length, ssize_t *ret)
 {
@@ -489,15 +489,15 @@ pqsecure_open_gss(PGconn *conn)
 	gss_buffer_desc input = GSS_C_EMPTY_BUFFER,
 				output = GSS_C_EMPTY_BUFFER;
 
-	/*如果是此连接的第一次调用，分配缓冲区并初始化状态变量。
-	 * 通过分别 malloc 缓冲区，我们确保它们对此文件中某些地方
-	 * 的长度字访问具有足够的对齐。
-	 * 
-	 * 在传输协商完成之前，我们将使用 PQ_GSS_AUTH_BUFFER_SIZE 大小
-	 *的缓冲区，然后切换到 PQ_GSS_MAX_PACKET_SIZE。
-	 * 
-	 * 
-	                                    */
+	/*
+	 * 如果是此连接的第一次调用，分配缓冲区并      
+	 * 初始化状态变量。通过分别 malloc 缓冲区，             
+	 * 我们确保它们对此文件中某些地方的长度字             
+	 * 访问具有足够的对齐。         
+	 *
+	 * 在传输协商完成前，会使用 PQ_GSS_AUTH_BUFFER_SIZE   
+	 * 的缓冲区，之后切换到 PQ_GSS_MAX_PACKET_SIZE。       
+	 */
 	if (PqGSSSendBuffer == NULL)
 	{
 		PqGSSSendBuffer = malloc(PQ_GSS_AUTH_BUFFER_SIZE);
@@ -538,11 +538,11 @@ pqsecure_open_gss(PGconn *conn)
 		PqGSSSendLength = PqGSSSendNext = 0;
 	}
 
-	/*客户端首先发送，发送会创建上下文，因此第一次执行时此处为
-	 * false，然后再次被调用时我们将检查传入数据。
-	 * 
-	 * 
-	                       */
+	/*
+	 * 客户端首先发送，发送会创建上下文，因此             
+	 * 第一次执行时此处为 false，再次被调用时我们         
+	 * 将检查传入数据。     
+	 */
 	if (conn->gctx)
 	{
 		/* 处理可能已有的传入数据       */
@@ -561,22 +561,22 @@ pqsecure_open_gss(PGconn *conn)
 				return PGRES_POLLING_READING;
 		}
 
-		/*检查是否收到错误数据包
-	
-	这样做是安全的，因为我们不应该收到超过 8192 的数据包，因此
-	实际长度字节（网络字节序）对于任何真实数据包都会以两个零
-	字节开头。
-	
-	
-	                                      */
+		/*
+		 * 检查是否收到错误包    
+		 *
+		 * 这样做是安全的，因为数据包不应超过 8192，因此  
+		 * 任何真实数据包的长度字节（网络字节序）    
+		 * 都会以两个零字节开头。                               
+		 *       
+		 */
 		if (PqGSSRecvBuffer[0] == 'E')
 		{
-			/*对于启动期间的错误数据包，我们没有获得长度，因此简单地
-	尽可能多地读入缓冲区（作为字符串，因此在末尾也为 NULL 字节
-	留出位置）并报告给调用者。
-	
-	
-	                         */
+			/*
+			 * 对于启动期间的错误数据包，我们不会得到    
+			 * 长度，因此只需尽可能多地读入缓冲区（作为   
+			 * 字符串，末尾也为 NULL 字节留出位置）并报      
+			 * 告给调用者。 
+			 */
 			result = gss_read(conn, PqGSSRecvBuffer + PqGSSRecvLength, PQ_GSS_AUTH_BUFFER_SIZE - PqGSSRecvLength - 1, &ret);
 			if (result != PGRES_POLLING_OK)
 				return result;
@@ -590,10 +590,10 @@ pqsecure_open_gss(PGconn *conn)
 			return PGRES_POLLING_FAILED;
 		}
 
-		/*此时应该已经获得完整长度，因此提取它，然后读取数据包的剩余部分。
-	
-	
-	                        */
+		/*
+		 * 此时应该已经获得完整长度，因此提取它，        
+		 * 然后读取数据包的剩余部分         
+		 */
 
 		/* 获取长度并检查是否超长               */
 		input.length = pg_ntoh32(*(uint32 *) PqGSSRecvBuffer);
@@ -616,10 +616,10 @@ pqsecure_open_gss(PGconn *conn)
 
 		PqGSSRecvLength += ret;
 
-		/*如果获取的数据少于数据包的剩余部分，则需要返回并等待再次调用。
-	
-	
-	  */
+		/*
+		 * 如果获取的数据少于数据包剩余部分，则需返     
+		 * 回再次调用。  
+		 */
 		if (PqGSSRecvLength - sizeof(uint32) < input.length)
 			return PGRES_POLLING_READING;
 
@@ -637,13 +637,13 @@ pqsecure_open_gss(PGconn *conn)
 		if (conn->gcred == GSS_C_NO_CREDENTIAL)
 			(void) pg_GSS_have_cred_cache(&conn->gcred);
 
-		/*我们有凭证且 gssdelegation 已启用，因此请求凭证委派。
-	这可能会也可能不会实际导致凭证被委派——取决于凭证中是否
-	设置了可转发标志以及服务器是否配置为接受委派凭证。
-	
-	
-	
-	                                                                         */
+		/*
+		 * 我们有凭证且 gssdelegation 已启用，因此请求   
+		 * 凭证委派。这可能会也可能不会实际导致凭     
+		 * 证被委派——取决于凭证中是否设置了可转发      
+		 * 标志以及服务器是否配置为接受委派凭证。        
+		 *                              
+		 */
 		if (conn->gcred != GSS_C_NO_CREDENTIAL)
 			gss_flags |= GSS_C_DELEG_FLAG;
 	}
@@ -669,10 +669,10 @@ pqsecure_open_gss(PGconn *conn)
 
 	if (output.length == 0)
 	{
-		/*完成了——太好了！设置标志通知低级 I/O 例程执行 GSS 包装/解包。
-	
-	
-	                */
+		/*
+		 * 完成了——太好了！设置标志通知低级 I/O 例程   
+		 * 执行 GSS 包装/解包。   
+		 */
 		conn->gssenc = true;
 		conn->gssapi_used = true;
 
@@ -681,13 +681,13 @@ pqsecure_open_gss(PGconn *conn)
 		conn->gcred = GSS_C_NO_CREDENTIAL;
 		gss_release_buffer(&minor, &output);
 
-		/*释放大型认证缓冲区，并分配我们用于正常操作的缓冲区。
-	（此操作安全的前提是 pqDropConnection 会释放缓冲区；否则，
-	在重新连接期间，我们可能会在协商中使用过小的缓冲区。）
-	
-	
-	
-	                                                */
+		/*
+		 * 释放大型认证缓冲区，并分配我们用于正常        
+		 * 操作的缓冲区。（此操作安全的前提是            
+		 * pqDropConnection 会释放缓冲区；否则重连期间   
+		 * 我们可能会在协商中使用过小的缓冲区。）      
+		 *              
+		 */
 		free(PqGSSSendBuffer);
 		free(PqGSSRecvBuffer);
 		free(PqGSSResultBuffer);

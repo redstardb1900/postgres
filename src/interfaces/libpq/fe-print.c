@@ -51,19 +51,19 @@ static void output_row(FILE *fout, const PQprintOpt *po, const int nFields, char
 					   const int row_index);
 static void fill(int length, int max, char filler, FILE *fp);
 
-/*PQprint()
- * 
- *格式化查询结果以供打印。
- * 
- *PQprintOpt 是一个 typedef（结构体），包含各种标志
- * 和选项。详情请参阅 libpq-fe.h。
- * 
- * 此函数可能应该在某时移除，因为 psql 不再使用它。
- *然而，外部客户端在多大程度上使用它尚不清楚。
- * 
- * 
- * 
-                       */
+/*
+ * PQprint()
+ *
+ * 格式化查询结果以供打印。   
+ *
+ * PQprintOpt 是一个 typedef（结构体），   
+ * 含各种标志和选项。详见 libpq-fe.h。  
+ *        
+ *
+ * 此函数可能该在某时移除，因为 psql 已不再   
+ * 使用它。但外部客户端在多大程度上使用它尚     
+ * 不清楚。                 
+ */
 void
 PQprint(FILE *fout, const PGresult *res, const PQprintOpt *po)
 {
@@ -107,10 +107,10 @@ PQprint(FILE *fout, const PGresult *res, const PQprintOpt *po)
 		}			screen_size;
 #endif
 
-		/*快速检查 po->fieldSep 的合理性，因为我们大量使用整数运算。
-	
-	
-	            */
+		/*
+		 * 快速检查 po->fieldSep 的合理性，因为我们大量使用 
+		 * 整数运算。 
+		 */
 		if (fs_len < strlen(po->fieldSep))
 		{
 			fprintf(stderr, libpq_gettext("overlong field separator\n"));
@@ -152,10 +152,10 @@ PQprint(FILE *fout, const PGresult *res, const PQprintOpt *po)
 		if (po->pager && fout == stdout && isatty(fileno(stdin)) &&
 			isatty(fileno(stdout)))
 		{
-			/*如果认为输出会超过一屏，尝试管道到分页程序。
-	
-	
-	                                   */
+			/*
+			 * 若认为输出会超一屏，尝试管道到分页程序。  
+			 *                           
+			 */
 #ifdef TIOCGWINSZ
 			if (ioctl(fileno(stdout), TIOCGWINSZ, &screen_size) == -1 ||
 				screen_size.ws_col == 0 ||
@@ -169,12 +169,12 @@ PQprint(FILE *fout, const PGresult *res, const PQprintOpt *po)
 			screen_size.ws_col = 80;
 #endif
 
-			/*由于此函数不再被 psql 使用，我们不检查 PSQL_PAGER。
-	假设的外部用户可能希望这样做，但为了向后兼容，我们仅
-	检查 PAGER。
-	
-	
-	                                                                                                              */
+			/*
+			 * 由于此函数不再被 psql 使用，我们不检查         
+			 * PSQL_PAGER。假想的外部用户可能希望这样，但为  
+			 * 向后兼容起见，我们仅检查 PAGER。                
+			 *                                                              
+			 */
 			pagerenv = getenv("PAGER");
 			/* PAGER 未设置、为空或全空白时不使用分页程序 */
 			if (pagerenv != NULL &&
@@ -398,11 +398,11 @@ do_field(const PQprintOpt *po, const PGresult *res,
 				}
 			}
 
-			/*上述循环会认为第一列的 E 是数值；此外，我们坚持要求
-	数值的最后一列是数字。此测试仍非万无一失，但能处理大多数
-	情况。
-	
-	                        */
+			/*
+			 * 上述循环会认为首列的 E 是数值；此外我们坚  
+			 * 持要求最后一列有数字才算数值。此测试仍非 
+			 * 万无一失，但能处理大多数情况。      
+			 */
 			if (*pval == 'E' || *pval == 'e' ||
 				!(ch >= '0' && ch <= '9'))
 				fieldNotNum[j] = 1;
@@ -462,13 +462,13 @@ do_field(const PQprintOpt *po, const PGresult *res,
 }
 
 
-/*后端 add_size() 的前端版本，旨在与 pg_add_*_overflow()
- * 辅助函数保持 API 兼容。成功时将结果存储到 *dst 中。
- * 如果加法溢出则返回 true。
- * 
- *TODO: 移到 common/int.h
- * 
-                              */
+/*
+ * 后端 add_size() 的前端版本，旨在与 pg_add_*_overflow()          
+ * 辅助函数保持 API 兼容。成功时将结果存到 *dst 中。若加   
+ * 法溢出则返回 true。                     
+ *
+ * TODO: 移到 common/int.h 
+ */
 static bool
 add_size_overflow(size_t s1, size_t s2, size_t *dst)
 {

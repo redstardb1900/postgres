@@ -129,10 +129,10 @@ PQsslInUse(PGconn *conn)
 	return conn->ssl_in_use;
 }
 
-/*导出的函数，允许应用程序告诉我们它已经初始化了 OpenSSL。
- *	
- *	
-   */
+/*
+ *	导出的函数，允许应用程序告诉我们它已经     
+ *	初始化了 OpenSSL
+ */
 void
 PQinitSSL(int do_init)
 {
@@ -141,10 +141,10 @@ PQinitSSL(int do_init)
 #endif
 }
 
-/*导出的函数，允许应用程序告诉我们它已经初始化了 OpenSSL 和/或 libcrypto。
- *	
- *	
-  */
+/*
+ *	导出函数，允许应用程序告诉我们已初始化了  
+ *	OpenSSL 和/或 libcrypto。         
+ */
 void
 PQinitOpenSSL(int do_ssl, int do_crypto)
 {
@@ -193,13 +193,13 @@ pqsecure_close(PGconn *conn)
 #endif
 }
 
-/*从安全连接读取数据。
- *	
- *失败时，此函数负责向 conn->errorMessage 追加适当的消息。
- * 调用者仍必须检查 errno，但仅用于确定出错后是继续还是重试。
- * 
- * 
-                                         */
+/*
+ *	从安全连接读取数据。     
+ *
+ * 失败时，此函数负责向 conn->errorMessage 追加适当           
+ * 消息。调用者仍须检查 errno，但仅用于确定出错后   
+ * 是继续还是重试。                           
+ */
 ssize_t
 pqsecure_read(PGconn *conn, void *ptr, size_t len)
 {
@@ -280,26 +280,26 @@ pqsecure_raw_read(PGconn *conn, void *ptr, size_t len)
 	return n;
 }
 
-/*向安全连接写入数据。
- *	
- *返回写入的字节数，失败时返回负值（并设置 errno）。
- * 写入计数可能少于请求的数量。
- * 
- *注意套接字级别的硬故障对调用者隐藏，而是设置
- * conn->write_failed 并将错误消息存储在 conn->write_err_msg
- * 中；参见 pqsecure_raw_write。这允许我们推迟报告写入失败，
- * 直到我们确定服务器没有可用的错误消息。
- * 
- * 然而，在 SSL 或 GSS 管理层级检测到的错误通过负结果报告，
- *消息追加到 conn->errorMessage。通常不清楚这些错误应被视
- * 为读错误还是写错误，因此我们不尝试推迟报告它们。
- * 
- * 调用者仍必须在失败时检查 errno，但仅用于确定是继续还是
- * 重试；无论如何消息已保存在某处。
+/*
+ *	向安全连接写入数据。    
  *
- * 
- * 
-                                                                                                                      */
+ * 返回写入的字节数；失败时返回负值并设置 errno。  
+ * 写入的字节数可能少于请求的数量。                 
+ *
+ * 注意，套接字层的硬故障对调用者隐藏，而是    
+ * 设置 conn->write_failed，并将错误消息存入           
+ * conn->write_err_msg 中；参见 pqsecure_raw_write。这         
+ * 使我们能推迟报告写入失败，直到确定服务器  
+ * 没有可用的错误消息。       
+ *
+ * 然而，在 SSL 或 GSS 管理层级检测到的错误会通过负值  
+ * 报告，并将消息追加到 conn->errorMessage。这类错误   
+ * 究竟该算读错误还是写错误往往不清楚，因               
+ * 此不尝试推迟报告它们。                            
+ *
+ * 调用者仍须在失败时检查 errno，但仅用于确定是继续  
+ * 还是重试；无论如何消息已保存在某处。                    
+ */
 ssize_t
 pqsecure_write(PGconn *conn, const void *ptr, size_t len)
 {
@@ -360,13 +360,13 @@ pqsecure_raw_write(PGconn *conn, const void *ptr, size_t len)
 
 	DECLARE_SIGPIPE_INFO(spinfo);
 
-	/*如果已经发生写入失败，我们永远不会再次尝试在该连接上发送
-	 * 数据。即使内核允许，我们也可能已经与服务器失去了消息边界
-	 * 同步。因此 conn->write_failed 持续到连接重置，我们只是
-	 * 丢弃所有要写入的数据。
-	 * 
-	 * 
-	                                 */
+	/*
+	 * 如果已经发生写入失败，我们永远不会再尝试在该     
+	 * 连接上发送数据。即使内核允许，我们也可能已经  
+	 * 丢失了与服务器消息边界同步。conn->write_failed   
+	 * 因此将保持到连接重置为止，我们只是丢弃所有待   
+	 * 写入的数据。               
+	 */
 	if (conn->write_failed)
 		return len;
 
@@ -385,11 +385,11 @@ retry_masked:
 	{
 		result_errno = SOCK_ERRNO;
 
-		/*如果看到 EINVAL，可能是因为此机器上 MSG_NOSIGNAL 不可用。
-	因此清除 sigpipe_flag 以便不再尝试该标志，然后重试
-	send()。
-	
-	                      */
+		/*
+		 * 若看到 EINVAL，可能是本机不支持 MSG_NOSIGNAL。        
+		 * 因此清除 sigpipe_flag，不再尝试该标志，然后重试 
+		 * send()。                   
+		 */
 #ifdef MSG_NOSIGNAL
 		if (flags != 0 && result_errno == EINVAL)
 		{
@@ -488,10 +488,10 @@ PQsslAttributeNames(PGconn *conn)
 }
 #endif							/* USE_SSL */
 
-/*无 OpenSSL 构建时的 OpenSSL 密钥密码钩子函数桩版本。
- * 
- * 
-             */
+/*
+ * 无 OpenSSL 构建时的 OpenSSL 密钥密码钩子函数桩版本。    
+ *         
+ */
 #ifndef USE_OPENSSL
 
 PQsslKeyPassHook_OpenSSL_type
@@ -533,10 +533,10 @@ PQgssEncInUse(PGconn *conn)
 
 #if defined(ENABLE_THREAD_SAFETY) && !defined(WIN32)
 
-/*为此线程阻塞 SIGPIPE。这可以防止 send()/write() 退出应用程序。
- *	
- *	
-         */
+/*
+ *	为此线程阻塞 SIGPIPE。这可防止 send()/write() 使应用       
+ *	程序退出。 
+ */
 int
 pq_block_sigpipe(sigset_t *osigset, bool *sigpipe_pending)
 {
@@ -569,24 +569,24 @@ pq_block_sigpipe(sigset_t *osigset, bool *sigpipe_pending)
 	return 0;
 }
 
-/*丢弃任何待处理的 SIGPIPE 并重置信号掩码。
- *	
- *注意：我们实际上假设 C 库不会排队多个 SIGPIPE 事件。如果
- * 它会，那么当事件已待处理而我们又收到另一个时，我们会意外
- * 地将我们的事件留在队列中。只要它不排队多个事件就没问题，
- * 因为调用者无法区分。
- * 
- * 如果调用者确定没有收到 EPIPE 错误，应设 got_epipe = false；
- *在这种情况下，我们将跳过清除操作，一切都肯定没问题，无论
- * 是否排队。如果收到或可能收到，则传递 got_epipe = true。
- * 
- * 我们不希望这改变 errno，因为如果改变了，可能丢失之前
- * send() 的错误码。我们基本上假设如果能够执行
- *pq_block_sigpipe()，这就不会失败。
- * 
- * 
- * 
-                                                    */
+/*
+ *	丢弃待处理 SIGPIPE 并重置信号掩码。      
+ *
+ * 注意：我们实际上假设 C 库不会对多个 SIGPIPE 事件排  
+ * 队。若会，当已有事件待处理而又收到另一个时，  
+ * 我们会意外地将事件留在队列中。只要它不排队多     
+ * 个事件就没有问题，因为调用者无法区分。               
+ *                           
+ *
+ * 若调用者确定未收到 EPIPE 错误，应设 got_epipe =   
+ * false；此时将跳过清除操作，一切肯定没问题，无论  
+ * 是否排队都没问题。若已收到或可能收到，则传递       
+ * got_epipe = true。               
+ *
+ * 我们不希望这改变 errno，否则会丢失之前 send() 的   
+ * 错误码。我们基本假设，若能执行 pq_block_sigpipe()，   
+ * 这就不会失败。                                  
+ */
 void
 pq_reset_sigpipe(sigset_t *osigset, bool sigpipe_pending, bool got_epipe)
 {

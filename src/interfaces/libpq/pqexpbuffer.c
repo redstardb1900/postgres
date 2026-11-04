@@ -80,12 +80,12 @@ createPQExpBuffer(void)
 	return res;
 }
 
-/*initPQExpBuffer
- * 
- *初始化一个 PQExpBufferData 结构体（先前内容未定义）
- * 以描述一个空字符串。
- * 
-   */
+/*
+ * initPQExpBuffer
+ *
+ * 初始化一个 PQExpBufferData 结构体（先前内容未定义）， 
+ * 来描述空字符串。    
+ */
 void
 initPQExpBuffer(PQExpBuffer str)
 {
@@ -104,12 +104,12 @@ initPQExpBuffer(PQExpBuffer str)
 	}
 }
 
-/*destroyPQExpBuffer(str);
- * 
- *		释放数据缓冲区和 PQExpBufferData。
- *		这是 createPQExpBuffer() 的逆操作。
- *	
-           */
+/*
+ * destroyPQExpBuffer(str);
+ *
+ *		释放数据缓冲区和 PQExpBufferData。          
+ *		这是 createPQExpBuffer() 的逆操作。 
+ */
 void
 destroyPQExpBuffer(PQExpBuffer str)
 {
@@ -160,14 +160,14 @@ resetPQExpBuffer(PQExpBuffer str)
 	}
 }
 
-/*enlargePQExpBuffer
- * 确保缓冲区中有足够空间容纳 'needed' 个以上的字节
- * （'needed' 不包括终止 null）。
- * 
- *成功则返回 1，扩大缓冲区失败则返回 0。（后一种情况
- * 缓冲区将处于"损坏"状态。）
- * 
-         */
+/*
+ * enlargePQExpBuffer
+ * 确保缓冲区中有足够空间容纳 'needed' 个以上的字节  
+ * （'needed' 不包括终止 null）。           
+ *
+ * 成功返回 1，扩大缓冲区失败返回 0。（此时缓冲区 
+ * 将处于"损坏"状态。）         
+ */
 int
 enlargePQExpBuffer(PQExpBuffer str, size_t needed)
 {
@@ -177,11 +177,11 @@ enlargePQExpBuffer(PQExpBuffer str, size_t needed)
 	if (PQExpBufferBroken(str))
 		return 0;				/* 已经失败   */
 
-	/*防止荒谬的 "needed" 值，这可能在输入虚假数据时发生。
-	 * 没有此防护，后续可能出现溢出或无限循环。
-	 * 
-	 * 
-	                     */
+	/*
+	 * 防止荒谬的 "needed" 值，输入虚假数据时可能出现，   
+	 * 若无此防护，后续可能出现溢出或无限循环。         
+	 *               
+	 */
 	if (needed >= ((size_t) INT_MAX - str->len))
 	{
 		markPQExpBufferBroken(str);
@@ -195,11 +195,11 @@ enlargePQExpBuffer(PQExpBuffer str, size_t needed)
 	if (needed <= str->maxlen)
 		return 1;				/* 已有足够空间       */
 
-	/*我们不想每次追加时只分配一点点额外空间；为效率起见，
-	 * 每次溢出时将缓冲区大小加倍。实际上，如果 'needed' 很大，
-	 * 可能需要加倍以上……
-	 * 
-	            */
+	/*
+	 * 我们不想每次追加只分配一点额外空间；为效率，  
+	 * 每次溢出时将缓冲区加倍。实际上若 'needed'     
+	 * 很大，可能需要加倍以上……                             
+	 */
 	newlen = (str->maxlen > 0) ? (2 * str->maxlen) : 64;
 	while (needed > newlen)
 		newlen = 2 * newlen;
@@ -253,14 +253,14 @@ printfPQExpBuffer(PQExpBuffer str, const char *fmt,...)
 	} while (!done);
 }
 
-/*appendPQExpBuffer
- * 
- *在 fmt（类似 sprintf 的格式字符串）控制下格式化文本数据
- * 并将其追加到 str 中已有的内容。必要时为 str 分配更多空间。
- * 这有点像是 sprintf 和 strcat 的组合。
- * 
- * 
-                */
+/*
+ * appendPQExpBuffer
+ *
+ * 在 fmt（sprintf 式格式串）的控制下格式化文本数据，    
+ * 将其追加到 str 已有内容上。必要时为 str 分配更多  
+ * 空间。这有点像是 sprintf 与 strcat 的组合。               
+ *        
+ */
 void
 appendPQExpBuffer(PQExpBuffer str, const char *fmt,...)
 {
@@ -324,14 +324,14 @@ appendPQExpBufferVA(PQExpBuffer str, const char *fmt, va_list args)
 			return true;
 		}
 
-		/*我们假定 vsnprintf 符合 C99 标准，因此相信其对所需空间的
-	估计，并为结尾 null 加一。（如果错了，逻辑仍然可以工作，
-	但可能会循环多次。）
-	
-	如果所需空间超过 INT_MAX 则阻塞，因为 str->maxlen 不能
-	表示超过此值。
-	
-	                                      */
+		/*
+		 * 我们假定 vsnprintf 符合 C99 标准，并相信其对所需   
+		 * 空间的估计，并为结尾 null 加一。（若有误，逻辑 
+		 * 仍会正常工作，但可能循环多次。              
+		 *
+		 * 若所需空间超过 INT_MAX 则中止，因为 str->maxlen 不   
+		 * 能表示更大的数值。    
+		 */
 		if (unlikely(nprinted > INT_MAX - 1))
 		{
 			markPQExpBufferBroken(str);
@@ -341,13 +341,13 @@ appendPQExpBufferVA(PQExpBuffer str, const char *fmt, va_list args)
 	}
 	else
 	{
-		/*由于跳过了格式化工作，我们必须猜测扩大多少。幸运的是，
-	由于 enlargePQExpBuffer 偏好 2 的幂次大小，此数字不太敏感；
-	最终效果是在尝试运行 vsnprintf 之前将缓冲区大小加倍，
-	这似乎是合理的。
-	
-	
-	                                                               */
+		/*
+		 * 由于跳过了格式化工作，必须猜测要扩大多少。  
+		 * 幸运的是，enlargePQExpBuffer 偏好 2 的幂次大小， 
+		 * 此数字不太敏感；净效果是在运行 vsnprintf 之前将 
+		 * 缓冲区大小加倍，这似乎是合理的。                 
+		 *                                        
+		 */
 		needed = 32;
 	}
 
@@ -358,11 +358,11 @@ appendPQExpBufferVA(PQExpBuffer str, const char *fmt, va_list args)
 	return false;
 }
 
-/*appendPQExpBufferStr
- * 将给定字符串追加到 PQExpBuffer，必要时分配更多空间。
- * 
- * 
-     */
+/*
+ * appendPQExpBufferStr
+ * 将给定字符串追加到 PQExpBuffer，必要时扩容。   
+ *              
+ */
 void
 appendPQExpBufferStr(PQExpBuffer str, const char *data)
 {
@@ -387,12 +387,12 @@ appendPQExpBufferChar(PQExpBuffer str, char ch)
 	str->data[str->len] = '\0';
 }
 
-/*appendBinaryPQExpBuffer
- * 
- *将任意二进制数据追加到 PQExpBuffer，必要时分配更多空间。
- * 
- * 
-    */
+/*
+ * appendBinaryPQExpBuffer
+ *
+ * 将任意二进制数据追加到 PQExpBuffer，必要时扩容。  
+ *              
+ */
 void
 appendBinaryPQExpBuffer(PQExpBuffer str, const char *data, size_t datalen)
 {

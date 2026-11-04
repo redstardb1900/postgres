@@ -37,10 +37,10 @@ const pg_fe_sasl_mech pg_scram_mech = {
 	scram_free
 };
 
-/*通过 SASL 协议进行 SCRAM 认证的交换消息状态。
- * 
- * 
-                   */
+/*
+ * 通过 SASL 协议进行 SCRAM 认证所用的交换消息       
+ * 状态。     
+ */
 typedef enum
 {
 	FE_SCRAM_INIT,
@@ -143,14 +143,14 @@ scram_init(PGconn *conn,
 	return state;
 }
 
-/*如果使用了通道绑定且 SCRAM 交换完成，则返回 true。
- * 这应在交换成功后用于确定服务器是否已向客户端认证自己。
- * 
- * 注意调用者还必须确保交换确实成功了。
+/*
+ * 若使用了通道绑定且 SCRAM 交换已完成，返回 true。
+ * 这应在交换成功后用于确定服务器是否已向客户端     
+ * 认证了自己。                                    
  *
- * 
- * 
-                                                                   */
+ * 注意，调用者还必须确保交换确实成功了。           
+ *            
+ */
 static bool
 scram_channel_bound(void *opaq)
 {
@@ -216,10 +216,10 @@ scram_exchange(void *opaq, char *input, int inputlen,
 	*output = NULL;
 	*outputlen = 0;
 
-	/*检查输入长度是否与输入的字符串长度一致。此后我们可以忽略 inputlen。
-	 * 
-	 * 
-	          */
+	/*
+	 * 检查输入长度是否与输入的字符串长度一致。           
+	 * 此后可忽略 inputlen。       
+	 */
 	if (state->state != FE_SCRAM_INIT)
 	{
 		if (inputlen == 0)
@@ -266,10 +266,10 @@ scram_exchange(void *opaq, char *input, int inputlen,
 			if (!read_server_final_message(state, input))
 				goto error;
 
-			/*验证服务器签名，确保我们在与真正的服务器通信。
-	
-	
-	                 */
+			/*
+			 * 验证服务器签名，确保对方是真正的          
+			 * 服务器。   
+			 */
 			if (!verify_server_signature(state, success, &errstr))
 			{
 				libpq_append_conn_error(conn, "could not verify server signature: %s", errstr);
@@ -297,14 +297,14 @@ error:
 	*success = false;
 }
 
-/*读取 SCRAM 消息中属性部分的值。
- * 
- ***input 处的缓冲区会被破坏性修改，*input 会前进越过
- * "attr=value" 字符串及任何后续逗号。
- * 
- *失败时，向 *errorMessage 追加错误消息并返回 NULL。
- * 
-                       */
+/*
+ * 读取 SCRAM 消息中属性部分的值。         
+ *
+ * **input 处的缓冲区会被破坏性修改，*input 会前  
+ * 进越过 "attr=value" 字符串及任何后续逗号。      
+ *
+ * 失败时，向 *errorMessage 追加错误消息并返回 NULL。    
+ */
 static char *
 read_attr_value(char **input, char attr, PQExpBuffer errorMessage)
 {
@@ -357,9 +357,9 @@ build_client_first_message(fe_scram_state *state)
 	int			encoded_len;
 	PQExpBufferData buf;
 
-	/*生成一个"原始"nonce。通过 base64 编码将其转换为 ASCII 可打印形式。
-	 * 
-	 * 
+	/*
+	 * 生成一个"raw" nonce。它会被 base64 编码为可打印        
+	 * ASCII 形式。    
 	 */
 	if (!pg_strong_random(raw_nonce, SCRAM_RAW_NONCE_LEN))
 	{
@@ -384,12 +384,12 @@ build_client_first_message(fe_scram_state *state)
 	}
 	state->client_nonce[encoded_len] = '\0';
 
-	/*生成消息。用户名为空，因为后端使用启动数据包提供的值。
-	 * 此外，由于此用户名未使用 SASLprep 准备，如果包含 '=' 或
-	 * ',' 字符，消息解析将失败。
-	 * 
-	 * 
-	                                    */
+	/*
+	 * 生成消息。用户名留空，因后端使用启动包提供的   
+	 * 值。此外，由于此用户名未做 SASLprep 准备，若包含 
+	 * '=' 或 ',' 字符，消息解析将失败。                        
+	 *                       
+	 */
 
 	initPQExpBuffer(&buf);
 
@@ -428,10 +428,10 @@ build_client_first_message(fe_scram_state *state)
 	if (PQExpBufferDataBroken(buf))
 		goto oom_error;
 
-	/*第一条消息内容需要在不包含通道绑定信息的情况下保存。
-	 * 
-	 * 
-	  */
+	/*
+	 * 第一条消息内容保存时不能包含通道绑定信息。    
+	 *             
+	 */
 	state->client_first_message_bare = strdup(buf.data + channel_info_len + 2);
 	if (!state->client_first_message_bare)
 		goto oom_error;
@@ -464,14 +464,14 @@ build_client_final_message(fe_scram_state *state)
 
 	initPQExpBuffer(&buf);
 
-	/*构造 client-final-message-without-proof。我们需要记住它，
-	 * 以便在认证的最后一步验证服务器证明。
-	 * 
-	 *通道绑定标志处理（p/y/n）必须与
-	 * build_client_first_message() 一致，因为服务器会检查两次
-	 * 的标志是否相同。
-	 * 
-	                                      */
+	/*
+	 * 构造 client-final-message-without-proof。我们需要记住       
+	 * 它，以便在认证的最后一步验证服务器证明。       
+	 *
+	 * 通道绑定标志处理（p/y/n）必须与                     
+	 * build_client_first_message() 一致，因为服务器会检查       
+	 * 两次的标志相同。 
+	 */
 	if (strcmp(state->sasl_mechanism, SCRAM_SHA_256_PLUS_NAME) == 0)
 	{
 #ifdef HAVE_PGTLS_GET_PEER_CERTIFICATE_HASH
@@ -532,10 +532,10 @@ build_client_final_message(fe_scram_state *state)
 		free(cbind_data);
 		free(cbind_input);
 #else
-		/*选择了通道绑定，但 SSL 库不支持。不应该发生。
-	
-	
-	                        */
+		/*
+		 * 选择了通道绑定，但 SSL 库不支持它。            
+		 * 不应发生。  
+		 */
 		termPQExpBuffer(&buf);
 		appendPQExpBufferStr(&conn->errorMessage,
 							 "channel binding not supported by this build\n");
@@ -758,11 +758,11 @@ read_server_final_message(fe_scram_state *state, char *input)
 	return true;
 }
 
-/*计算客户端证明，这是客户端发送的最后一条交换消息的一部分。
- * 成功时返回 true，失败时返回 false，*errstr 指向有关错误
- * 详情的消息。
- * 
-      */
+/*
+ * 计算客户端证明，它是客户端发送的最后一条交    
+ * 换消息的一部分。成功返回 true，失败返回 false，     
+ * *errstr 指向错误详情的消息。        
+ */
 static bool
 calculate_client_proof(fe_scram_state *state,
 					   const char *client_final_message_without_proof,
@@ -825,13 +825,13 @@ calculate_client_proof(fe_scram_state *state,
 	return true;
 }
 
-/*验证服务器签名，作为从服务器接收的最后一条交换消息的一部分。
- * *match 跟踪服务器签名是否匹配。如果服务器签名得到验证则返回
- * true，处理错误时返回 false，*errstr 指向有关错误详情的消息。
- * 
- * 
- * 
-                                           */
+/*
+ * 验证服务器签名，作为从服务器接收的最后一条交   
+ * 换消息的一部分。*match 跟踪服务器签名是否匹配。如  
+ * 果服务器签名得到验证则返回 true，处理错误时返回  
+ * false，*errstr 指向有关错误详情的消息。                     
+ *               
+ */
 static bool
 verify_server_signature(fe_scram_state *state, bool *match,
 						const char **errstr)
@@ -888,12 +888,12 @@ verify_server_signature(fe_scram_state *state, bool *match,
 	return true;
 }
 
-/*构建新的 SCRAM 密钥。
- * 
- *出错时返回 NULL，并设置 *errstr 指向有关错误详情的消息。
- * 
- * 
-      */
+/*
+ * 构建新 SCRAM 密钥。
+ *
+ * 出错时返回 NULL，*errstr 会指向有关错误详情的消息。 
+ *               
+ */
 char *
 pg_fe_scram_build_secret(const char *password, int iterations, const char **errstr)
 {
@@ -902,12 +902,12 @@ pg_fe_scram_build_secret(const char *password, int iterations, const char **errs
 	char		saltbuf[SCRAM_DEFAULT_SALT_LEN];
 	char	   *result;
 
-	/*使用 SASLprep 规范化密码。如果不行（因为密码不是有效的
-	 * UTF-8 或包含禁止字符），则直接使用原始密码继续。
-	 * （参见 auth-scram.c 顶部的注释。）
-	 * 
-	 * 
-	                            */
+	/*
+	 * 使用 SASLprep 规范化密码。若不行（因为密码不是有 
+	 * 效的 UTF-8 或含禁止字符），则直接用原密码继续。   
+	 * （参见 auth-scram.c 顶部的注释。）                    
+	 *               
+	 */
 	rc = pg_saslprep(password, &prep_password);
 	if (rc == SASLPREP_OOM)
 	{

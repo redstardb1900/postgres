@@ -2,12 +2,12 @@
  *
  * bbstreamer_lz4.c
  *
- * 部分版权 (c) 1996-2023, PostgreSQL 全球开发组
+ * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *		  src/bin/pg_basebackup/bbstreamer_lz4.c
  *-------------------------------------------------------------------------
-                */
+ */
 
 #include "postgres_fe.h"
 
@@ -63,8 +63,9 @@ const bbstreamer_ops bbstreamer_lz4_decompressor_ops = {
 #endif
 
 /*
- * 创建一个新的基础备份流，执行 tar 块的 lz4 压缩。
-               */
+ * 创建一个新的基础备份流，执行 lz4 压缩 tar             
+ * 块。 
+ */
 bbstreamer *
 bbstreamer_lz4_compressor_new(bbstreamer *next, pg_compress_specification *compress)
 {
@@ -97,19 +98,20 @@ bbstreamer_lz4_compressor_new(bbstreamer *next, pg_compress_specification *compr
 	return &streamer->base;
 #else
 	pg_fatal("this build does not support compression with %s", "LZ4");
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 让编译器安静  */
 #endif
 }
 
 #ifdef USE_LZ4
 /*
- * 将输入数据压缩到输出缓冲区。
+ * 压缩输入数据至输出缓冲区。  
  *
- * 每次调用时根据输入数据长度计算压缩界限，以确保输出缓冲区
- * 有足够的容量来容纳压缩后的数据。如果输出缓冲区容量
- * 不足以容纳压缩界限，则将输出缓冲区内容转发给下一个
- * 流处理器并清空缓冲区。
-                                                  */
+ * 每次调用时根据输入数据长度计算压缩界限，      
+ * 确保输出缓冲区有足够容量容纳压缩后的数据。  
+ * 如果输出缓冲区容量不足以容纳压缩界限，    
+ * 则将输出缓冲区内容转发给下一个流处理器，      
+ * 并清空缓冲区。                                  
+ */
 static void
 bbstreamer_lz4_compressor_content(bbstreamer *streamer,
 								  bbstreamer_member *member,
@@ -143,8 +145,9 @@ bbstreamer_lz4_compressor_content(bbstreamer *streamer,
 	}
 
 	/*
-	 * 根据已写入输出缓冲区的字节数更新输出缓冲区的偏移量和容量。
-	                */
+	 * 根据写入输出缓冲区的字节数，                        
+	 * 更新其偏移量和容量。 
+	 */
 	next_out = (uint8 *) mystreamer->base.bbs_buffer.data + mystreamer->bytes_written;
 	avail_out = mystreamer->base.bbs_buffer.maxlen - mystreamer->bytes_written;
 
@@ -161,7 +164,7 @@ bbstreamer_lz4_compressor_content(bbstreamer *streamer,
 						   mystreamer->bytes_written,
 						   context);
 
-		/* Enlarge buffer if it falls short of out bound. */
+		/* 若不足输出界限则扩大缓冲区。     */
 		if (mystreamer->base.bbs_buffer.maxlen < out_bound)
 			enlargeStringInfo(&mystreamer->base.bbs_buffer, out_bound);
 
@@ -171,12 +174,13 @@ bbstreamer_lz4_compressor_content(bbstreamer *streamer,
 	}
 
 	/*
-	 * 此调用从 next_in 开始压缩数据，并从 next_out 开始生成
-	 * 输出。它期望调用者通过提供参数 len 和 avail_out 来提供
-	 * 输入缓冲区大小和输出缓冲区容量。
+	 * 此调用压缩从 next_in 开始的数据，并生成从          
+	 * next_out 开始的输出。它期望调用者通过                   
+	 * 参数 len 和 avail_out 提供输入缓冲区大小和输出        
+	 * 缓冲区容量。
 	 *
-	 * 它返回压缩到输出缓冲区的字节数。
-	                                                  */
+	 * 它返回已压缩到输出缓冲区的字节数。        
+	 */
 	compressed_size = LZ4F_compressUpdate(mystreamer->cctx,
 										  next_out, avail_out,
 										  next_in, len, NULL);
@@ -212,7 +216,7 @@ bbstreamer_lz4_compressor_finalize(bbstreamer *streamer)
 						   mystreamer->bytes_written,
 						   BBSTREAMER_UNKNOWN);
 
-		/* Enlarge buffer if it falls short of footer bound. */
+		/* 若不足帧尾界限则扩大缓冲区。        */
 		if (mystreamer->base.bbs_buffer.maxlen < footer_bound)
 			enlargeStringInfo(&mystreamer->base.bbs_buffer, footer_bound);
 
@@ -227,8 +231,9 @@ bbstreamer_lz4_compressor_finalize(bbstreamer *streamer)
 	}
 
 	/*
-	 * 完成帧的处理，并刷新压缩上下文中剩余的所有数据。
-	         */
+	 * 完成帧的处理，并刷新压缩上下文中剩余的全部    
+	 * 数据  
+	 */
 	compressed_size = LZ4F_compressEnd(mystreamer->cctx,
 									   next_out, avail_out, NULL);
 
@@ -247,7 +252,7 @@ bbstreamer_lz4_compressor_finalize(bbstreamer *streamer)
 }
 
 /*
- * Free memory.
+ * 释放内存
  */
 static void
 bbstreamer_lz4_compressor_free(bbstreamer *streamer)
@@ -264,7 +269,8 @@ bbstreamer_lz4_compressor_free(bbstreamer *streamer)
 
 /*
  * 创建一个新的基础备份流，执行 lz4 压缩块的解压。
-                       */
+ *                   
+ */
 bbstreamer *
 bbstreamer_lz4_decompressor_new(bbstreamer *next)
 {
@@ -290,15 +296,16 @@ bbstreamer_lz4_decompressor_new(bbstreamer *next)
 	return &streamer->base;
 #else
 	pg_fatal("this build does not support compression with %s", "LZ4");
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 让编译器安静  */
 #endif
 }
 
 #ifdef USE_LZ4
 /*
- * 将输入数据解压到输出缓冲区，直到输入数据耗尽。
- * 每当输出缓冲区满时，将解压后的数据传递给下一个流处理器。
-             */
+ * 将输入数据解压到输出缓冲区，直到输入耗尽。     
+ * 每当输出缓冲区已满时，将解压后的数据传递给         
+ * 下一个流处理器
+ */
 static void
 bbstreamer_lz4_decompressor_content(bbstreamer *streamer,
 									bbstreamer_member *member,
@@ -327,14 +334,18 @@ bbstreamer_lz4_decompressor_content(bbstreamer *streamer,
 		out_size = avail_out;
 
 		/*
-		 * 此调用从 next_in 开始解压数据，并从 next_out 开始生成
-		 * 输出数据。它期望调用者分别通过 read_size 和 out_size
-		 * 参数提供输入缓冲区大小和输出缓冲区总容量。
+		 * 此调用从 next_in 开始解压数据，并从 next_out        
+		 * 开始生成输出数据。它期望调用者通过           
+		 * 参数 len 和 avail_out 提供输入缓冲区大小             
+		 * 和输出缓冲区的总容量。                        
+		 *              
 		 *
-		 * 根据 LZ4 的文档，参数 read_size 和 out_size 表现为双重参数。
-		 * 返回时，从输入缓冲区消耗的字节数将写回 read_size，
-		 * 解压到输出缓冲区的字节数将写回 out_size。
-		                                                                                                                                                                      */
+		 * 根据 LZ4 的文档，参数 read_size 和 out_size           
+		 * 表现为双重参数。返回时，从输入缓冲区消耗的    
+		 * 字节数将写回 read_size，解压到输出缓冲区的     
+		 * 字节数将写回 out_size。                                    
+		 *                          
+		 */
 		ret = LZ4F_decompress(mystreamer->dctx,
 							  next_out, &out_size,
 							  next_in, &read_size, NULL);
@@ -350,8 +361,8 @@ bbstreamer_lz4_decompressor_content(bbstreamer *streamer,
 		mystreamer->bytes_written += out_size;
 
 		/*
-		 * If output buffer is full then forward the content to next streamer
-		 * and update the output buffer.
+		 * 若输出缓冲区已满，则转发给下一个流处理器，   
+		 * 并更新该缓冲区。     
 		 */
 		if (mystreamer->bytes_written >= mystreamer->base.bbs_buffer.maxlen)
 		{
@@ -383,8 +394,8 @@ bbstreamer_lz4_decompressor_finalize(bbstreamer *streamer)
 	mystreamer = (bbstreamer_lz4_frame *) streamer;
 
 	/*
-	 * End of the stream, if there is some pending data in output buffers then
-	 * we must forward it to next streamer.
+	 * 流结束时，若输出缓冲区中仍有待发数据，则须将其  
+	 * 转发给下一个流处理器。   
 	 */
 	bbstreamer_content(mystreamer->base.bbs_next, NULL,
 					   mystreamer->base.bbs_buffer.data,
@@ -395,7 +406,7 @@ bbstreamer_lz4_decompressor_finalize(bbstreamer *streamer)
 }
 
 /*
- * Free memory.
+ * 释放内存
  */
 static void
 bbstreamer_lz4_decompressor_free(bbstreamer *streamer)

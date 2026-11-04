@@ -1,15 +1,16 @@
 /*-------------------------------------------------------------------------
  *
- * streamutil.c - pg_basebackup、pg_receivewal 和 pg_recvlogical 的工具函数
+ * streamutil.c - utility functions for pg_basebackup, pg_receivewal and
+ *					pg_recvlogical
  *
- * 作者：Magnus Hagander <magnus@hagander.net>
+ * Author: Magnus Hagander <magnus@hagander.net>
  *
- * 部分版权 (c) 1996-2023, PostgreSQL 全球开发组
+ * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *		  src/bin/pg_basebackup/streamutil.c
  *-------------------------------------------------------------------------
-                           */
+ */
 
 #include "postgres_fe.h"
 
@@ -53,15 +54,16 @@ static char *password = NULL;
 PGconn	   *conn = NULL;
 
 /*
- * Connect to the server. Returns a valid PGconn pointer if connected,
- * or NULL on non-permanent error. On permanent error, the function will
- * call exit(1) directly.
+ * 连接服务器。连接成功则返回有效的 PGconn 指针，  
+ * 非永久性错误时返回 NULL。永久性错误时函数将直接 
+ * 调用 exit(1)。     
  */
 PGconn *
 GetConnection(void)
 {
 	PGconn	   *tmpconn;
-	int			argcount = 7;	/* dbname, replication, fallback_app_name, host, user, port, password            */
+	int			argcount = 7;	/* dbname, replication, fallback_app_name,
+								 * host, user, port, password */
 	int			i;
 	const char **keywords;
 	const char **values;
@@ -71,15 +73,16 @@ GetConnection(void)
 	PQconninfoOption *conn_opt;
 	char	   *err_msg = NULL;
 
-	/* pg_recvlogical uses dbname only; others use connection_string only. */
+	/* pg_recvlogical 仅使用 dbname；其他使用 connection_string。 */
 	Assert(dbname == NULL || connection_string == NULL);
 
 	/*
-	 * 合并以连接字符串、选项和默认值（dbname=replication、
-	 * replication=true 等）形式提供的连接信息输入。
-	 * 显式丢弃连接字符串中的任何 dbname 值；否则，
-	 * PQconnectdbParams() 会将该值解释为连接字符串本身。
-	                                            */
+	 * 合并以连接字符串、选项和默认值形式提供的输入  
+	 * （dbname=replication、replication=true 等）。                     
+	 * 显式丢弃连接字符串中的任何 dbname 值；        
+	 * 否则，PQconnectdbParams() 会将该值解释为                
+	 * 连接字符串本身。   
+	 */
 	i = 0;
 	if (connection_string)
 	{
@@ -177,7 +180,7 @@ GetConnection(void)
 		if (!tmpconn)
 			pg_fatal("could not connect to server");
 
-		/* If we need a password and -w wasn't given, loop back and get one */
+		/* 需要密码且未指定 -w 时，循环回去获取密码       */
 		if (PQstatus(tmpconn) == CONNECTION_BAD &&
 			PQconnectionNeedsPassword(tmpconn) &&
 			dbgetpassword != -1)
@@ -198,16 +201,16 @@ GetConnection(void)
 		return NULL;
 	}
 
-	/* Connection ok! */
+	/* 已连接！   */
 	free(values);
 	free(keywords);
 	PQconninfoFree(conn_opts);
 
 	/*
-	 * Set always-secure search path, so malicious users can't get control.
-	 * The capacity to run normal SQL queries was added in PostgreSQL 10, so
-	 * the search path cannot be changed (by us or attackers) on earlier
-	 * versions.
+	 * 设置始终安全的搜索路径，使恶意用户无从控制。  
+	 * 运行普通 SQL 查询的能力是在 PostgreSQL 10 中加入的， 
+	 * 因此早期版本中（我们或攻击者）无法修改它。  
+	 *          
 	 */
 	if (dbname != NULL && PQserverVersion(tmpconn) >= 100000)
 	{
@@ -245,8 +248,9 @@ GetConnection(void)
 	}
 
 	/*
-	 * 获取源数据目录模式，并使用它来构建 umask 以创建目录和文件。
-	                           */
+	 * 获取源数据目录的权限模式，并用它来构建创建目录  
+	 * 和文件时的 umask。           
+	 */
 	if (!RetrieveDataDirCreatePerm(tmpconn))
 	{
 		PQfinish(tmpconn);
@@ -257,8 +261,8 @@ GetConnection(void)
 }
 
 /*
- * From version 10, explicitly set wal segment size using SHOW wal_segment_size
- * since ControlFile is not accessible here.
+ * 从版本 10 开始，用 SHOW wal_segment_size 显式设置 WAL 段大小  
+ * 因为这里无法访问 ControlFile。  
  */
 bool
 RetrieveWalSegSize(PGconn *conn)
@@ -271,7 +275,7 @@ RetrieveWalSegSize(PGconn *conn)
 	/* 检查连接是否存在   */
 	Assert(conn != NULL);
 
-	/* for previous versions set the default xlog seg size */
+	/* 为之前的版本设置默认 xlog 段大小       */
 	if (PQserverVersion(conn) < MINIMUM_VERSION_FOR_SHOW_CMD)
 	{
 		WalSegSz = DEFAULT_XLOG_SEG_SIZE;
@@ -330,12 +334,14 @@ RetrieveWalSegSize(PGconn *conn)
 /*
  * RetrieveDataDirCreatePerm
  *
- * 此函数用于确定服务器 PG 数据目录的权限，并基于此设置
- * 我们创建的目录和文件的权限。
+ * 此函数用于确定服务器 PG 数据目录上的权限，并基于此
+ * 设置我们创建的目录和文件所将具有的权限。      
+ *                                 
  *
- * PG11 添加了对数据目录设置（可选的）组读取/执行权限的支持。
- * 在 PG11 之前，只有所有者才能拥有数据目录的权限。
-                                                                                  */
+ * PG11 增加了支持，可为数据目录（可选地）设置组         
+ * 读取/执行权限。在 PG11 之前，只有所有者能拥有             
+ * 数据目录权限。 
+ */
 static bool
 RetrieveDataDirCreatePerm(PGconn *conn)
 {
@@ -383,12 +389,13 @@ RetrieveDataDirCreatePerm(PGconn *conn)
 }
 
 /*
- * 通过给定的连接运行 IDENTIFY_SYSTEM，并根据请求返回一些结果信息：
- * - 系统标识符
- * - 当前时间线 ID
- * - 起始 LSN 位置
- * - 数据库名称（9.4 之前的服务器中为 NULL）
-                  */
+ * 通过给定连接运行 IDENTIFY_SYSTEM，并按请求向调用者   
+ * 返回一些结果信息：          
+ * - 系统标识符  
+ * - 当前时间线 ID 
+ * - 起始 LSN 位置 
+ * - 数据库名称（9.4 之前为 NULL）     
+ */
 bool
 RunIdentifySystem(PGconn *conn, char **sysid, TimeLineID *starttli,
 				  XLogRecPtr *startpos, char **db_name)
@@ -426,7 +433,7 @@ RunIdentifySystem(PGconn *conn, char **sysid, TimeLineID *starttli,
 	if (starttli != NULL)
 		*starttli = atoi(PQgetvalue(res, 0, 1));
 
-	/* Get LSN start position if necessary */
+	/* 需要时获取 LSN 起始位置    */
 	if (startpos != NULL)
 	{
 		if (sscanf(PQgetvalue(res, 0, 2), "%X/%X", &hi, &lo) != 2)
@@ -518,8 +525,8 @@ GetSlotInformation(PGconn *conn, const char *slot_name,
 	}
 
 	/*
-	 * Note that this cannot happen as READ_REPLICATION_SLOT supports only
-	 * physical slots, but play it safe.
+	 * 注意，READ_REPLICATION_SLOT 仅支持物理槽，               
+	 * 但为稳妥起见仍需处理。
 	 */
 	if (strcmp(PQgetvalue(res, 0, 0), "physical") != 0)
 	{
@@ -529,7 +536,7 @@ GetSlotInformation(PGconn *conn, const char *slot_name,
 		return false;
 	}
 
-	/* restart LSN */
+	/* 重启 LSN  */
 	if (!PQgetisnull(res, 0, 1))
 	{
 		uint32		hi,
@@ -561,8 +568,9 @@ GetSlotInformation(PGconn *conn, const char *slot_name,
 }
 
 /*
- * 为给定的连接创建一个复制槽。此函数在成功时返回 true。
-                         */
+ * 为给定的连接创建复制槽。此函数                    
+ * 在成功时返回 true。      
+ */
 bool
 CreateReplicationSlot(PGconn *conn, const char *slot_name, const char *plugin,
 					  bool is_temporary, bool is_physical, bool reserve_wal,
@@ -588,7 +596,7 @@ CreateReplicationSlot(PGconn *conn, const char *slot_name, const char *plugin,
 	else
 		appendPQExpBuffer(query, " LOGICAL \"%s\"", plugin);
 
-	/* Add any requested options */
+	/* 添加所请求的选项  */
 	if (use_new_option_syntax)
 		appendPQExpBufferStr(query, " (");
 	if (is_physical)
@@ -626,7 +634,7 @@ CreateReplicationSlot(PGconn *conn, const char *slot_name, const char *plugin,
 			appendPQExpBufferChar(query, ')');
 	}
 
-	/* Now run the query */
+	/* 执行查询      */
 	res = PQexec(conn, query->data);
 	if (PQresultStatus(res) != PGRES_TUPLES_OK)
 	{
@@ -668,8 +676,9 @@ CreateReplicationSlot(PGconn *conn, const char *slot_name, const char *plugin,
 }
 
 /*
- * 删除给定连接的复制槽。此函数在成功时返回 true。
-                                */
+ * 删除给定连接的复制槽。此函数                     
+ * 在成功时返回 true。      
+ */
 bool
 DropReplicationSlot(PGconn *conn, const char *slot_name)
 {
@@ -711,13 +720,13 @@ DropReplicationSlot(PGconn *conn, const char *slot_name)
 }
 
 /*
- * Append a "plain" option - one with no value - to a server command that
- * is being constructed.
+ * 向正在构建的命令附加一个不带值的"普通"选项        
+ *                      
  *
- * In the old syntax, all options were parser keywords, so you could just
- * write things like SOME_COMMAND OPTION1 OPTION2 'opt2value' OPTION3 42. The
- * new syntax uses a comma-separated list surrounded by parentheses, so the
- * equivalent is SOME_COMMAND (OPTION1, OPTION2 'optvalue', OPTION3 42).
+ * 在旧语法中，所有选项都是解析器关键字，所以可以 
+ * 直接写成 SOME_COMMAND OPTION1 OPTION2 'opt2value' OPTION3 42。       
+ * 新语法使用圆括号括起的逗号分隔列表，等价写法是   
+ * SOME_COMMAND (OPTION1, OPTION2 'optvalue', OPTION3 42)。            
  */
 void
 AppendPlainCommandOption(PQExpBuffer buf, bool use_new_option_syntax,
@@ -735,10 +744,11 @@ AppendPlainCommandOption(PQExpBuffer buf, bool use_new_option_syntax,
 }
 
 /*
- * 将一个带有关联字符串值的选项附加到正在构建的服务器命令中。
+ * 将带有关联字符串值的选项附加到正在构建的命令中    
+ *                      
  *
- * 请参阅上方 AppendPlainCommandOption 的注释。
-        */
+ * 见上方 AppendPlainCommandOption 注释。     
+ */
 void
 AppendStringCommandOption(PQExpBuffer buf, bool use_new_option_syntax,
 						  char *option_name, char *option_value)
@@ -757,10 +767,11 @@ AppendStringCommandOption(PQExpBuffer buf, bool use_new_option_syntax,
 }
 
 /*
- * 将一个带有关联整数值的选项附加到正在构建的服务器命令中。
+ * 将带有关联整数值的选项附加到正在构建的命令中   
+ *                      
  *
- * 请参阅上方 AppendPlainCommandOption 的注释。
-       */
+ * 见上方 AppendPlainCommandOption 注释。     
+ */
 void
 AppendIntegerCommandOption(PQExpBuffer buf, bool use_new_option_syntax,
 						   char *option_name, int32 option_value)
@@ -771,8 +782,9 @@ AppendIntegerCommandOption(PQExpBuffer buf, bool use_new_option_syntax,
 }
 
 /*
- * GetCurrentTimestamp() 的前端版本，因为我们没有链接后端代码。
-          */
+ * GetCurrentTimestamp() 的前端版本，由于未与后端代码链接 
+ *              
+ */
 TimestampTz
 feGetCurrentTimestamp(void)
 {
@@ -789,8 +801,9 @@ feGetCurrentTimestamp(void)
 }
 
 /*
- * TimestampDifference() 的前端版本，因为我们没有链接后端代码。
-          */
+ * TimestampDifference() 的前端版本，由于未与后端代码链接 
+ *              
+ */
 void
 feTimestampDifference(TimestampTz start_time, TimestampTz stop_time,
 					  long *secs, int *microsecs)
@@ -810,8 +823,9 @@ feTimestampDifference(TimestampTz start_time, TimestampTz stop_time,
 }
 
 /*
- * TimestampDifferenceExceeds() 的前端版本，因为我们没有链接后端代码。
-          */
+ * TimestampDifferenceExceeds() 的前端版本，由于未与后端 
+ * 代码链接。          
+ */
 bool
 feTimestampDifferenceExceeds(TimestampTz start_time,
 							 TimestampTz stop_time,

@@ -1,15 +1,16 @@
 /*-------------------------------------------------------------------------
  *
- * pg_receivewal.c - 接收流式 WAL 数据并将其写入本地文件
+ * pg_receivewal.c - receive streaming WAL data and write it
+ *					  to a local file.
  *
- * 作者：Magnus Hagander <magnus@hagander.net>
+ * Author: Magnus Hagander <magnus@hagander.net>
  *
- * 部分版权 (c) 1996-2023, PostgreSQL 全球开发组
+ * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *		  src/bin/pg_basebackup/pg_receivewal.c
  *-------------------------------------------------------------------------
-                              */
+ */
 
 #include "postgres_fe.h"
 
@@ -43,7 +44,7 @@ static char *basedir = NULL;
 static int	verbose = 0;
 static int	compresslevel = 0;
 static bool noloop = false;
-static int	standby_message_timeout = 10 * 1000;	/* 10 sec = default */
+static int	standby_message_timeout = 10 * 1000;	/* 默认 10 秒    */
 static volatile sig_atomic_t time_to_stop = false;
 static bool do_create_slot = false;
 static bool slot_exists_ok = false;
@@ -108,8 +109,8 @@ usage(void)
 
 
 /*
- * Check if the filename looks like a WAL file, letting caller know if this
- * WAL segment is partial and/or compressed.
+ * 检查文件名是否像一个 WAL 文件，并让调用者知道该    
+ * WAL 段是部分和/或压缩的。      
  */
 static bool
 is_xlogfilename(const char *filename, bool *ispartial,
@@ -122,7 +123,7 @@ is_xlogfilename(const char *filename, bool *ispartial,
 	if (xlog_pattern_len != XLOG_FNAME_LEN)
 		return false;
 
-	/* File looks like a completed uncompressed WAL file */
+	/* 文件像是已完成的未压缩 WAL 文件      */
 	if (fname_len == XLOG_FNAME_LEN)
 	{
 		*ispartial = false;
@@ -130,7 +131,7 @@ is_xlogfilename(const char *filename, bool *ispartial,
 		return true;
 	}
 
-	/* File looks like a completed gzip-compressed WAL file */
+	/* 文件像是已完成的 gzip 压缩 WAL 文件      */
 	if (fname_len == XLOG_FNAME_LEN + strlen(".gz") &&
 		strcmp(filename + XLOG_FNAME_LEN, ".gz") == 0)
 	{
@@ -139,7 +140,7 @@ is_xlogfilename(const char *filename, bool *ispartial,
 		return true;
 	}
 
-	/* File looks like a completed LZ4-compressed WAL file */
+	/* 文件像是已完成的 LZ4 压缩 WAL 文件      */
 	if (fname_len == XLOG_FNAME_LEN + strlen(".lz4") &&
 		strcmp(filename + XLOG_FNAME_LEN, ".lz4") == 0)
 	{
@@ -202,11 +203,13 @@ stop_streaming(XLogRecPtr xlogpos, uint32 timeline, bool segment_finished)
 	}
 
 	/*
-	 * 注意，这里报告的是前一个位置，而不是当前位置。发生时间线切换后，
-	 * xlogpos 指向段的开头，因为流总是从那里开始的。报告前一时间线
-	 * 的结束位置并不完全准确，因为下一个时间线可能在前一个时间线
-	 * 接收到的 WAL 结束之前略微开始，但对于报告来说已经足够接近了。
-	                                                    */
+	 * 注意，这里报告的是前一个位置，而非当前位置。   
+	 * 发生时间线切换后，xlogpos 指向段的开头，               
+	 * 因为流总是从那里开始。报告前一时间线的结束位置
+	 * 并不完全准确，因为下一时间线可能在前一时间线  
+	 * 接收到的 WAL 结束之前略微开始，但对报告而言     
+	 * 已经足够接近。                                  
+	 */
 	if (verbose && prevtimeline != 0 && prevtimeline != timeline)
 		pg_log_info("switched to timeline %u at %X/%X",
 					timeline,
@@ -284,23 +287,28 @@ FindStreamingStart(uint32 *tli)
 			continue;
 
 		/*
-		 * Looks like an xlog file. Parse its position.
+		 * 它像是 xlog 文件。解析其位置。  
 		 */
 		XLogFromFileName(dirent->d_name, &tli, &segno, WalSegSz);
 
 		/*
-		 * 检查段的大小是否正确（如果是已完成段的话）。对于非压缩段，只需
-		 * 检查磁盘大小是否与已完成的段匹配。对于 gzip 压缩段，查看压缩文件
-		 * 的最后 4 个字节，对于大小小于 4GB 的文件，这是未压缩大小的位置，
-		 * 然后将其与已完成段的大小进行比较。根据
-		 * http://www.zlib.org/rfc-gzip.html，最后 4 个字节对应于 ISIZE 成员。
+		 * 如果段应当已完成，则检查其大小是否正确。     
+		 * 对于非压缩段，只需检查磁盘上的大小是否与       
+		 * 已完成的段匹配。对于 gzip 压缩的段，可查看   
+		 * 压缩文件的最后 4 个字节；对于小于 4GB 的文件，  
+		 * 其未压缩大小就存放在该处，然后将其与已完成   
+		 * 段的大小进行比较。                                      
+		 * 根据 http://www.zlib.org/rfc-gzip.html，最后的        
+		 * 4 字节对应于 ISIZE 成员。 
 		 *
-		 * 对于 LZ4 压缩段，在临时缓冲区中解压文件并跟踪未压缩大小，然后将其
-		 * 与已完成段的大小进行比较。根据其协议，LZ4 默认不存储对象的未压缩
-		 * 大小。contentSize 是一种可能的方法，但我们需要依赖一种方法，该方法允许
-		 * WAL 段由 pg_receivewal 以外的其他来源压缩，例如带有 lz4 的
-		 * archive_command。
-		                                                                                                                                                                    */
+		 * 对于 LZ4 压缩段，在临时缓冲区中解压该文件并  
+		 * 跟踪其未压缩大小，然后将其与已完成段的大小  
+		 * 进行比较。按照其协议，LZ4 默认不存储对象的   
+		 * 未压缩大小。contentSize 是一种可行的方法，        
+		 * 但我们需要依赖这样一种方法：WAL 段可能是     
+		 * 由 pg_receivewal 以外的来源压缩的，例如带有          
+		 * lz4 的 archive_command。                           
+		 */
 		if (!ispartial && wal_compression_algorithm == PG_COMPRESSION_NONE)
 		{
 			struct stat statbuf;
@@ -359,7 +367,7 @@ FindStreamingStart(uint32 *tli)
 		else if (!ispartial && wal_compression_algorithm == PG_COMPRESSION_LZ4)
 		{
 #ifdef USE_LZ4
-#define LZ4_CHUNK_SZ	64 * 1024	/* 64kB as maximum chunk size read */
+#define LZ4_CHUNK_SZ	64 * 1024	/* 64kB 为最大读取块大小   */
 			int			fd;
 			ssize_t		r;
 			size_t		uncompressed_size = 0;
@@ -418,10 +426,12 @@ FindStreamingStart(uint32 *tli)
 				}
 
 				/*
-			 * 当 uncompressed_size 超过 WalSegSz 时，即使还有数据可读，
-			 * 也不需要继续读取文件。但是，如果 uncompressed_size
-			 * 等于 WalSegSz，应该验证没有更多数据可读。
-			                                                    */
+				 * 当 uncompressed_size 超过 WalSegSz 时， 
+				 * 即使还有剩余数据，也应停止读取文件。     
+				 * 但是，如果 uncompressed_size 等于 WalSegSz，     
+				 * 则应确认没有更多数据可读。                    
+				 *      
+				 */
 			} while (uncompressed_size <= WalSegSz && r > 0);
 
 			close(fd);
@@ -446,7 +456,7 @@ FindStreamingStart(uint32 *tli)
 #endif
 		}
 
-		/* Looks like a valid segment. Remember that we saw it. */
+		/* 看起来是有效的段。记住我们见过它。  */
 		if ((segno > high_segno) ||
 			(segno == high_segno && tli > high_tli) ||
 			(segno == high_segno && tli == high_tli && high_ispartial && !ispartial))
@@ -467,9 +477,10 @@ FindStreamingStart(uint32 *tli)
 		XLogRecPtr	high_ptr;
 
 		/*
-		 * 如果看到的最高段已完成，则将起始指针移到下一个段的开头。
-		 * 否则从 .partial 段的开头开始流传输。
-		                                          */
+		 * 如果看到的最高一个段已完成，则将起始指针移到
+		 * 下一个段的开头；否则从 .partial 段的开头开始   
+		 * 流传输。                          
+		 */
 		if (!high_ispartial)
 			high_segno++;
 
@@ -505,16 +516,18 @@ StreamLog(void)
 	if (!CheckServerVersionForStreaming(conn))
 	{
 		/*
-		 * 错误消息已在 CheckServerVersionForStreaming() 中写入。
-		 * 版本不匹配不可能恢复，因此不重试。
-		                           */
+		 * 错误消息已在 CheckServerVersionForStreaming() 中写入，  
+		 * 版本不匹配已无恢复希望，因此不再重试。      
+		 *       
+		 */
 		exit(1);
 	}
 
 	/*
-	 * 识别服务器，同时获取起始 LSN 位置和当前时间线 ID，
-	 * 如果在现有输出目录中找不到有效数据，这是必需的。
-	                       */
+	 * 识别服务器，同时获取起始 LSN 位置和当前时间线 ID 
+	 * 若在现有输出目录中找不到有效数据，              
+	 * 则需要这一步。     
+	 */
 	if (!RunIdentifySystem(conn, &sysidentifier, &servertli, &serverpos, NULL))
 		exit(1);
 
@@ -525,8 +538,8 @@ StreamLog(void)
 	if (stream.startpos == InvalidXLogRecPtr)
 	{
 		/*
-		 * Try to get the starting point from the slot if any.  This is
-		 * supported in PostgreSQL 15 and newer.
+		 * 尝试从复制槽（如果有）获取起始点。         
+		 * PostgreSQL 15 及以上支持。     
 		 */
 		if (replication_slot != NULL &&
 			PQserverVersion(conn) >= 150000)
@@ -540,8 +553,9 @@ StreamLog(void)
 		}
 
 		/*
-		 * 如果起始点仍未知，则使用当前 WAL 刷新值作为最后手段。
-		                     */
+		 * 如果起始点仍然未知，则使用当前 WAL 刷新值     
+		 * 作为最后的手段。   
+		 */
 		if (stream.startpos == InvalidXLogRecPtr)
 		{
 			stream.startpos = serverpos;
@@ -594,8 +608,9 @@ StreamLog(void)
 }
 
 /*
- * 当捕获到 SIGINT/SIGTERM 时，只需告诉系统在下一个可能的时刻退出。
-     */
+ * 当捕获到 SIGINT/SIGTERM 时，只需告诉系统在下一个        
+ * 时刻退出。 
+ */
 #ifndef WIN32
 
 static void
@@ -829,15 +844,17 @@ main(int argc, char **argv)
 #endif
 
 	/*
-	 * 运行 IDENTIFY_SYSTEM 以确保我们已成功建立复制连接，并且
-	 * 没有使用数据库特定连接进行连接。
-	                                   */
+	 * 运行 IDENTIFY_SYSTEM 以确保我们已成功建立复制连接，  
+	 * 并且没有使用数据库特定的连接进行连接。             
+	 *            
+	 */
 	if (!RunIdentifySystem(conn, NULL, NULL, NULL, &db_name))
 		exit(1);
 
 	/*
-	 * 检查是否有与连接关联的数据库，在此上下文中不应定义任何数据库。
-	          */
+	 * 检查连接是否关联了数据库；在此上下文中不应定义 
+	 * 任何数据库。         
+	 */
 	if (db_name)
 		pg_fatal("replication connection using slot \"%s\" is unexpectedly database specific",
 				 replication_slot);
@@ -882,8 +899,9 @@ main(int argc, char **argv)
 		exit(1);
 
 	/*
-	 * 不要在这里关闭连接，以便后续的 StreamLog() 可以复用它。
-	     */
+	 * 不要在此关闭连接，以便后续的 StreamLog() 复用。  
+	 *          
+	 */
 
 	while (true)
 	{
@@ -891,8 +909,9 @@ main(int argc, char **argv)
 		if (time_to_stop)
 		{
 			/*
-		 * 已被 Ctrl-C 中断或流位置已主动到达末尾，因此以零错误码退出。
-		                               */
+			 * 已被 Ctrl-C 中断或已主动到达流位置末尾，  
+			 * 因此不带错误码退出。                   
+			 */
 			exit(0);
 		}
 		else if (noloop)

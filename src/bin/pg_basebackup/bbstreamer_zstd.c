@@ -2,12 +2,12 @@
  *
  * bbstreamer_zstd.c
  *
- * 部分版权 (c) 1996-2023, PostgreSQL 全球开发组
+ * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *		  src/bin/pg_basebackup/bbstreamer_zstd.c
  *-------------------------------------------------------------------------
-                */
+ */
 
 #include "postgres_fe.h"
 
@@ -59,8 +59,9 @@ const bbstreamer_ops bbstreamer_zstd_decompressor_ops = {
 #endif
 
 /*
- * 创建一个新的基础备份流，执行 tar 块的 zstd 压缩。
-               */
+ * 创建一个新的基础备份流，执行 zstd 压缩 tar             
+ * 块。 
+ */
 bbstreamer *
 bbstreamer_zstd_compressor_new(bbstreamer *next, pg_compress_specification *compress)
 {
@@ -90,13 +91,14 @@ bbstreamer_zstd_compressor_new(bbstreamer *next, pg_compress_specification *comp
 		pg_fatal("could not set zstd compression level to %d: %s",
 				 compress->level, ZSTD_getErrorName(ret));
 
-	/* Set # of workers, if specified */
+	/* 指定时设置工作者数量 */
 	if ((compress->options & PG_COMPRESSION_OPTION_WORKERS) != 0)
 	{
 		/*
-		 * 在较旧版本的 libzstd 中，此选项不存在，尝试设置它会失败。
-		 * 对于新版本，如果编译时没有线程支持，同样会失败。
-		                  */
+		 * 在较旧版本的 libzstd 中，此选项不存在，       
+		 * 尝试设置它会失败。对于新版本，如果编译时    
+		 * 没有线程支持，同样会失败。
+		 */
 		ret = ZSTD_CCtx_setParameter(streamer->cctx, ZSTD_c_nbWorkers,
 									 compress->workers);
 		if (ZSTD_isError(ret))
@@ -125,19 +127,20 @@ bbstreamer_zstd_compressor_new(bbstreamer *next, pg_compress_specification *comp
 	return &streamer->base;
 #else
 	pg_fatal("this build does not support compression with %s", "ZSTD");
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 让编译器安静  */
 #endif
 }
 
 #ifdef USE_ZSTD
 /*
- * 将输入数据压缩到输出缓冲区。
+ * 压缩输入数据至输出缓冲区。  
  *
- * 每次调用时根据输入数据长度计算压缩界限，以确保输出缓冲区
- * 有足够的容量来容纳压缩后的数据。如果输出缓冲区容量
- * 不足以容纳压缩界限，则将输出缓冲区内容转发给下一个
- * 流处理器并清空缓冲区。
-                                                  */
+ * 每次调用时根据输入数据长度计算压缩界限，      
+ * 确保输出缓冲区有足够容量容纳压缩后的数据。  
+ * 如果输出缓冲区容量不足以容纳压缩界限，    
+ * 则将输出缓冲区内容转发给下一个流处理器，      
+ * 并清空缓冲区。                                  
+ */
 static void
 bbstreamer_zstd_compressor_content(bbstreamer *streamer,
 								   bbstreamer_member *member,
@@ -164,7 +167,7 @@ bbstreamer_zstd_compressor_content(bbstreamer *streamer,
 							   mystreamer->zstd_outBuf.pos,
 							   context);
 
-			/* Reset the ZSTD output buffer. */
+			/* 重置 ZSTD 输出缓冲区   */
 			mystreamer->zstd_outBuf.dst = mystreamer->base.bbs_buffer.data;
 			mystreamer->zstd_outBuf.size = mystreamer->base.bbs_buffer.maxlen;
 			mystreamer->zstd_outBuf.pos = 0;
@@ -206,7 +209,7 @@ bbstreamer_zstd_compressor_finalize(bbstreamer *streamer)
 							   mystreamer->zstd_outBuf.pos,
 							   BBSTREAMER_UNKNOWN);
 
-			/* Reset the ZSTD output buffer. */
+			/* 重置 ZSTD 输出缓冲区   */
 			mystreamer->zstd_outBuf.dst = mystreamer->base.bbs_buffer.data;
 			mystreamer->zstd_outBuf.size = mystreamer->base.bbs_buffer.maxlen;
 			mystreamer->zstd_outBuf.pos = 0;
@@ -222,7 +225,7 @@ bbstreamer_zstd_compressor_finalize(bbstreamer *streamer)
 
 	} while (yet_to_flush > 0);
 
-	/* Make sure to pass any remaining bytes to the next streamer. */
+	/* 确保把所有剩余字节传给下一个流处理器。   */
 	if (mystreamer->zstd_outBuf.pos > 0)
 		bbstreamer_content(mystreamer->base.bbs_next, NULL,
 						   mystreamer->zstd_outBuf.dst,
@@ -233,7 +236,7 @@ bbstreamer_zstd_compressor_finalize(bbstreamer *streamer)
 }
 
 /*
- * Free memory.
+ * 释放内存
  */
 static void
 bbstreamer_zstd_compressor_free(bbstreamer *streamer)
@@ -249,7 +252,8 @@ bbstreamer_zstd_compressor_free(bbstreamer *streamer)
 
 /*
  * 创建一个新的基础备份流，执行 zstd 压缩块的解压。
-                       */
+ *                   
+ */
 bbstreamer *
 bbstreamer_zstd_decompressor_new(bbstreamer *next)
 {
@@ -278,15 +282,16 @@ bbstreamer_zstd_decompressor_new(bbstreamer *next)
 	return &streamer->base;
 #else
 	pg_fatal("this build does not support compression with %s", "ZSTD");
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 让编译器安静  */
 #endif
 }
 
 #ifdef USE_ZSTD
 /*
- * 将输入数据解压到输出缓冲区，直到输入数据耗尽。
- * 每当输出缓冲区满时，将解压后的数据传递给下一个流处理器。
-             */
+ * 将输入数据解压到输出缓冲区，直到输入耗尽。     
+ * 每当输出缓冲区已满时，将解压后的数据传递给         
+ * 下一个流处理器
+ */
 static void
 bbstreamer_zstd_decompressor_content(bbstreamer *streamer,
 									 bbstreamer_member *member,
@@ -301,8 +306,8 @@ bbstreamer_zstd_decompressor_content(bbstreamer *streamer,
 		size_t		ret;
 
 		/*
-		 * If output buffer is full then forward the content to next streamer
-		 * and update the output buffer.
+		 * 若输出缓冲区已满，则转发给下一个流处理器，   
+		 * 并更新该缓冲区。     
 		 */
 		if (mystreamer->zstd_outBuf.pos >= mystreamer->zstd_outBuf.size)
 		{
@@ -311,7 +316,7 @@ bbstreamer_zstd_decompressor_content(bbstreamer *streamer,
 							   mystreamer->zstd_outBuf.pos,
 							   context);
 
-			/* Reset the ZSTD output buffer. */
+			/* 重置 ZSTD 输出缓冲区   */
 			mystreamer->zstd_outBuf.dst = mystreamer->base.bbs_buffer.data;
 			mystreamer->zstd_outBuf.size = mystreamer->base.bbs_buffer.maxlen;
 			mystreamer->zstd_outBuf.pos = 0;
@@ -335,8 +340,8 @@ bbstreamer_zstd_decompressor_finalize(bbstreamer *streamer)
 	bbstreamer_zstd_frame *mystreamer = (bbstreamer_zstd_frame *) streamer;
 
 	/*
-	 * End of the stream, if there is some pending data in output buffers then
-	 * we must forward it to next streamer.
+	 * 流结束时，若输出缓冲区中仍有待发数据，则须将其  
+	 * 转发给下一个流处理器。   
 	 */
 	if (mystreamer->zstd_outBuf.pos > 0)
 		bbstreamer_content(mystreamer->base.bbs_next, NULL,
@@ -348,7 +353,7 @@ bbstreamer_zstd_decompressor_finalize(bbstreamer *streamer)
 }
 
 /*
- * Free memory.
+ * 释放内存
  */
 static void
 bbstreamer_zstd_decompressor_free(bbstreamer *streamer)

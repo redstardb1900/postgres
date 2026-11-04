@@ -1,13 +1,13 @@
 /*-------------------------------------------------------------------------
  *
- * walmethods.c - 写入接收的 WAL 的不同方法的实现
+ * walmethods.c - implementations of different ways to write received wal
  *
- * 部分版权 (c) 1996-2023, PostgreSQL 全球开发组
+ * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *		  src/bin/pg_basebackup/walmethods.c
  *-------------------------------------------------------------------------
-                           */
+ */
 
 #include "postgres_fe.h"
 
@@ -29,7 +29,7 @@
 #include "receivelog.h"
 #include "streamutil.h"
 
-/* Size of zlib buffer for .tar.gz */
+/* .tar.gz zlib 缓冲区大小    */
 #define ZLIB_OUT_SIZE 4096
 
 /* .lz4 的 LZ4 输入块大小     */
@@ -77,7 +77,7 @@ typedef struct DirectoryMethodData
 } DirectoryMethodData;
 
 /*
- * Local file handle
+ * 文件句柄     
  */
 typedef struct DirectoryMethodFile
 {
@@ -139,10 +139,11 @@ dir_open_for_write(WalWriteMethod *wwmethod, const char *pathname,
 	pg_free(filename);
 
 	/*
-	 * 为非压缩和压缩文件打开文件。跟踪文件描述符
-	 * 对于 dir_sync() 方法很重要，因为 gzflush() 不会执行任何
-	 * fsync() 系统调用来使磁盘上的更改持久化。
-	                        */
+	 * 为非压缩和压缩文件打开文件。跟踪文件描述符     
+	 * 对于 dir_sync() 方法很重要，因为 gzflush() 不会        
+	 * 执行任何 fsync() 系统调用使更改在磁盘上持久化。  
+	 *      
+	 */
 	fd = open(tmppath, O_WRONLY | O_CREAT | PG_BINARY, pg_file_create_mode);
 	if (fd < 0)
 	{
@@ -206,7 +207,7 @@ dir_open_for_write(WalWriteMethod *wwmethod, const char *pathname,
 		errno = 0;
 		if (write(fd, lz4buf, header_size) != header_size)
 		{
-			/* If write didn't set errno, assume problem is no disk space */
+			/* 若 write 未设置 errno，则假定为磁盘空间不足 */
 			wwmethod->lasterrno = errno ? errno : ENOSPC;
 			(void) LZ4F_freeCompressionContext(ctx);
 			pg_free(lz4buf);
@@ -231,8 +232,8 @@ dir_open_for_write(WalWriteMethod *wwmethod, const char *pathname,
 		}
 
 		/*
-		 * pg_pwrite() (called via pg_pwrite_zeros()) may have moved the file
-		 * position, so reset it (see win32pwrite.c).
+		 * pg_pwrite()（经 pg_pwrite_zeros() 调用）可能移动了文件
+		 * 位置需重置（见 win32pwrite.c）。 
 		 */
 		if (lseek(fd, 0, SEEK_SET) != 0)
 		{
@@ -243,10 +244,11 @@ dir_open_for_write(WalWriteMethod *wwmethod, const char *pathname,
 	}
 
 	/*
-	 * fsync WAL 文件及其所在目录，以确保文件被持久创建并零填充
-	 * （如果填充了的话）。当使用同步模式时这特别重要，因为文件
-	 * 在原位修改和 fsync，没有目录 fsync。
-	                                  */
+	 * fsync WAL 文件及所在目录，以确保文件             
+	 * 被持久创建并清零（如果填充过）。这一点在    
+	 * 使用同步模式时尤为重要，因为文件在原位被         
+	 * 修改并就地 fsync，无目录 fsync。  
+	 */
 	if (wwmethod->sync)
 	{
 		if (fsync_fname(tmppath, false) != 0 ||
@@ -314,7 +316,7 @@ dir_write(Walfile *f, const void *buf, size_t count)
 		r = (ssize_t) gzwrite(df->gzfp, buf, count);
 		if (r != count)
 		{
-			/* If write didn't set errno, assume problem is no disk space */
+			/* 若 write 未设置 errno，则假定为磁盘空间不足 */
 			f->wwmethod->lasterrno = errno ? errno : ENOSPC;
 		}
 	}
@@ -352,7 +354,7 @@ dir_write(Walfile *f, const void *buf, size_t count)
 			errno = 0;
 			if (write(df->fd, df->lz4buf, compressed) != compressed)
 			{
-				/* If write didn't set errno, assume problem is no disk space */
+				/* 若 write 未设置 errno，则假定为磁盘空间不足 */
 				f->wwmethod->lasterrno = errno ? errno : ENOSPC;
 				return -1;
 			}
@@ -370,7 +372,7 @@ dir_write(Walfile *f, const void *buf, size_t count)
 		r = write(df->fd, buf, count);
 		if (r != count)
 		{
-			/* If write didn't set errno, assume problem is no disk space */
+			/* 若 write 未设置 errno，则假定为磁盘空间不足 */
 			f->wwmethod->lasterrno = errno ? errno : ENOSPC;
 		}
 	}
@@ -417,7 +419,7 @@ dir_close(Walfile *f, WalCloseMethod method)
 		errno = 0;
 		if (write(df->fd, df->lz4buf, compressed) != compressed)
 		{
-			/* If write didn't set errno, assume problem is no disk space */
+			/* 若 write 未设置 errno，则假定为磁盘空间不足 */
 			f->wwmethod->lasterrno = errno ? errno : ENOSPC;
 			return -1;
 		}
@@ -437,8 +439,9 @@ dir_close(Walfile *f, WalCloseMethod method)
 			char	   *filename2;
 
 			/*
-			 * 如果有临时前缀，正常操作是重命名文件。
-			               */
+			 * 若有临时前缀，正常操作是重命名该文件。  
+			 *      
+			 */
 			filename = dir_get_file_name(f->wwmethod, df->base.pathname,
 										 df->temp_suffix);
 			snprintf(tmppath, sizeof(tmppath), "%s/%s",
@@ -477,9 +480,9 @@ dir_close(Walfile *f, WalCloseMethod method)
 		else
 		{
 			/*
-			 * Else either CLOSE_NORMAL and no temp suffix, or
-			 * CLOSE_NO_RENAME. In this case, fsync the file and containing
-			 * directory if sync mode is requested.
+			 * 否则为 CLOSE_NORMAL 且无临时后缀，或
+			 * 要么是 CLOSE_NO_RENAME。此时若请求同步模式，  
+			 * 则 fsync 文件及所在目录。  
 			 */
 			if (f->wwmethod->sync)
 			{
@@ -495,7 +498,7 @@ dir_close(Walfile *f, WalCloseMethod method)
 
 #ifdef USE_LZ4
 	pg_free(df->lz4buf);
-	/* supports free on NULL */
+	/* 支持对 NULL 释放 */
 	LZ4F_freeCompressionContext(df->ctx);
 #endif
 
@@ -534,7 +537,7 @@ dir_sync(Walfile *f)
 		DirectoryMethodFile *df = (DirectoryMethodFile *) f;
 		size_t		compressed;
 
-		/* Flush any internal buffers */
+		/* 刷新内部缓冲区      */
 		compressed = LZ4F_flush(df->ctx, df->lz4buf, df->lz4bufsize, NULL);
 		if (LZ4F_isError(compressed))
 		{
@@ -545,7 +548,7 @@ dir_sync(Walfile *f)
 		errno = 0;
 		if (write(df->fd, df->lz4buf, compressed) != compressed)
 		{
-			/* If write didn't set errno, assume problem is no disk space */
+			/* 若 write 未设置 errno，则假定为磁盘空间不足 */
 			f->wwmethod->lasterrno = errno ? errno : ENOSPC;
 			return -1;
 		}
@@ -606,8 +609,9 @@ dir_finish(WalWriteMethod *wwmethod)
 		DirectoryMethodData *dir_data = (DirectoryMethodData *) wwmethod;
 
 		/*
-		 * 文件在关闭时 fsync，但我们也需要在这里 fsync 目录条目。
-		                        */
+		 * 文件在关闭时会被 fsync，但我们也需要在此       
+		 * 处对目录项 fsync。     
+		 */
 		if (fsync_fname(dir_data->basedir, true) != 0)
 		{
 			wwmethod->lasterrno = errno;
@@ -725,7 +729,7 @@ tar_write_compressed_data(TarMethodData *tar_data, void *buf, size_t count,
 			errno = 0;
 			if (write(tar_data->fd, tar_data->zlibOut, len) != len)
 			{
-				/* If write didn't set errno, assume problem is no disk space */
+				/* 若 write 未设置 errno，则假定为磁盘空间不足 */
 				tar_data->base.lasterrno = errno ? errno : ENOSPC;
 				return false;
 			}
@@ -768,7 +772,7 @@ tar_write(Walfile *f, const void *buf, size_t count)
 		r = write(tar_data->fd, buf, count);
 		if (r != count)
 		{
-			/* If write didn't set errno, assume problem is no disk space */
+			/* 若 write 未设置 errno，则假定为磁盘空间不足 */
 			f->wwmethod->lasterrno = errno ? errno : ENOSPC;
 			return -1;
 		}
@@ -859,9 +863,10 @@ tar_open_for_write(WalWriteMethod *wwmethod, const char *pathname,
 			tar_data->zp->avail_out = ZLIB_OUT_SIZE;
 
 			/*
-			 * 初始化 deflation 库。在 windowBits 参数的默认值 15 上添加
-			 * 魔法数字 16，使输出成为 gzip 而不是 zlib。
-			                      */
+			 * 初始化 deflation 库。对 windowBits 参数的            
+			 * 默认值 15 加上魔法值 16，会使输出成为       
+			 * gzip 而非 zlib。  
+			 */
 			if (deflateInit2(tar_data->zp, wwmethod->compression_level,
 							 Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK)
 			{
@@ -934,7 +939,7 @@ tar_open_for_write(WalWriteMethod *wwmethod, const char *pathname,
 		if (write(tar_data->fd, tar_data->currentfile->header,
 				  TAR_BLOCK_SIZE) != TAR_BLOCK_SIZE)
 		{
-			/* If write didn't set errno, assume problem is no disk space */
+			/* 若 write 未设置 errno，则假定为磁盘空间不足 */
 			wwmethod->lasterrno = errno ? errno : ENOSPC;
 			pg_free(tar_data->currentfile);
 			tar_data->currentfile = NULL;
@@ -967,14 +972,15 @@ tar_open_for_write(WalWriteMethod *wwmethod, const char *pathname,
 	tar_data->currentfile->base.pathname = pg_strdup(pathname);
 
 	/*
-	 * 未压缩文件在创建时填充，但对于压缩我们无法这样做
-	            */
+	 * 未压缩文件在创建时填充，但压缩时无法这样做。     
+	 *        
+	 */
 	if (pad_to_size)
 	{
 		tar_data->currentfile->pad_to_size = pad_to_size;
 		if (wwmethod->compression_algorithm == PG_COMPRESSION_NONE)
 		{
-			/* Uncompressed, so pad now */
+			/* 未压缩，立即填充 */
 			if (!tar_write_padding_data(tar_data->currentfile, pad_to_size))
 				return NULL;
 			/* 回到开头       */
@@ -1016,8 +1022,8 @@ tar_sync(Walfile *f)
 		return 0;
 
 	/*
-	 * Always sync the whole tarfile, because that's all we can do. This makes
-	 * no sense on compressed files, so just ignore those.
+	 * 总是同步整个 tar 文件，因为我们能做的仅此而已。   
+	 * 对压缩文件没有意义，因此直接忽略。
 	 */
 	if (f->wwmethod->compression_algorithm != PG_COMPRESSION_NONE)
 		return 0;
@@ -1048,9 +1054,9 @@ tar_close(Walfile *f, WalCloseMethod method)
 		}
 
 		/*
-		 * Unlink the file that we just wrote to the tar. We do this by
-		 * truncating it to the start of the header. This is safe as we only
-		 * allow writing of the very last file.
+		 * 删除我们刚写入 tar 的文件。我们的做法是    
+		 * 将其截断到头部起始位置。这样做很安全，因为  
+		 * 我们只写入最后一个文件。
 		 */
 		if (ftruncate(tar_data->fd, tf->ofs_start) != 0)
 		{
@@ -1066,9 +1072,10 @@ tar_close(Walfile *f, WalCloseMethod method)
 	}
 
 	/*
-	 * 如果需要，用零填充文件本身。注意这与 tar 格式填充
-	 * 不同——这是我们在打开文件时请求的填充。
-	                                    */
+	 * 必要时用零填充文件本身。注意这与 tar 格式    
+	 * 填充不同——这是我们在打开文件时                     
+	 * 所要求的填充。        
+	 */
 	if (tf->pad_to_size)
 	{
 		if (f->wwmethod->compression_algorithm == PG_COMPRESSION_GZIP)
@@ -1088,16 +1095,17 @@ tar_close(Walfile *f, WalCloseMethod method)
 		else
 		{
 			/*
-			 * An uncompressed tarfile was padded on creation, so just adjust
-			 * the current position as if we seeked to the end.
+			 * 未压缩 tar 文件在创建时已填充，因此只需调整
+			 * 当前位置，如同已 seek 到末尾一样。
 			 */
 			tf->base.currpos = tf->pad_to_size;
 		}
 	}
 
 	/*
-	 * 获取文件大小，并填充到 tar 块大小的倍数。
-	                    */
+	 * 获取文件大小，并将其填充到 tar 块大小的倍数。   
+	 *      
+	 */
 	filesize = f->currpos;
 	padding = tarPaddingBytesRequired(filesize);
 	if (padding)
@@ -1119,16 +1127,17 @@ tar_close(Walfile *f, WalCloseMethod method)
 #endif
 
 	/*
-	 * 现在回到头部并用正确的文件大小更新头部，可能还要
-	 * 重命名文件。完成后我们覆盖整个当前头部，包括校验和。
-	                        */
+	 * 现在回头用正确的文件大小更新头部，并可能还
+	 * 要重命名该文件。完成后我们会覆盖整个当前头部，  
+	 * 包括校验和。                
+	 */
 	print_tar_number(&(tf->header[124]), 12, filesize);
 
 	if (method == CLOSE_NORMAL)
 
 		/*
-		 * We overwrite it with what it was before if we have no tempname,
-		 * since we're going to write the buffer anyway.
+		 * 如果没有临时文件名，就用原内容覆盖它，      
+		 * 因为反正我们都要写入该缓冲区。
 		 */
 		strlcpy(&(tf->header[0]), tf->base.pathname, 100);
 
@@ -1143,7 +1152,7 @@ tar_close(Walfile *f, WalCloseMethod method)
 		errno = 0;
 		if (write(tar_data->fd, tf->header, TAR_BLOCK_SIZE) != TAR_BLOCK_SIZE)
 		{
-			/* If write didn't set errno, assume problem is no disk space */
+			/* 若 write 未设置 errno，则假定为磁盘空间不足 */
 			f->wwmethod->lasterrno = errno ? errno : ENOSPC;
 			return -1;
 		}
@@ -1178,17 +1187,17 @@ tar_close(Walfile *f, WalCloseMethod method)
 		Assert(false);
 	}
 
-	/* Move file pointer back down to end, so we can write the next file */
+	/* 将文件指针移回末尾，以便写入下一个文件         */
 	if (lseek(tar_data->fd, 0, SEEK_END) < 0)
 	{
 		f->wwmethod->lasterrno = errno;
 		return -1;
 	}
 
-	/* Always fsync on close, so the padding gets fsynced */
+	/* 关闭时总是 fsync，使填充也被 fsync      */
 	if (tar_sync(f) < 0)
 	{
-		/* XXX this seems pretty bogus; why is only this case fatal? */
+		/* XXX 这似乎很不合理；为何仅此情况致命？   */
 		pg_fatal("could not fsync file \"%s\": %s",
 				 tf->base.pathname, GetLastWalMethodError(f->wwmethod));
 	}
@@ -1229,7 +1238,7 @@ tar_finish(WalWriteMethod *wwmethod)
 		errno = 0;
 		if (write(tar_data->fd, zerobuf, sizeof(zerobuf)) != sizeof(zerobuf))
 		{
-			/* If write didn't set errno, assume problem is no disk space */
+			/* 若 write 未设置 errno，则假定为磁盘空间不足 */
 			wwmethod->lasterrno = errno ? errno : ENOSPC;
 			return false;
 		}
@@ -1263,8 +1272,9 @@ tar_finish(WalWriteMethod *wwmethod)
 				if (write(tar_data->fd, tar_data->zlibOut, len) != len)
 				{
 					/*
-				 * 如果 write 未设置 errno，假设问题是磁盘空间不足。
-				   */
+					 * 若 write 未设置 errno，视为磁盘空间不足
+					 *       
+					 */
 					wwmethod->lasterrno = errno ? errno : ENOSPC;
 					return false;
 				}
@@ -1331,10 +1341,11 @@ tar_free(WalWriteMethod *wwmethod)
 }
 
 /*
- * 参数 compression_algorithm 目前被忽略。它存在是为了与
- * CreateWalDirectoryMethod 对称，后者使用它来区分不同的压缩方法。
- * CreateWalTarMethod 及其家族函数仅处理 zlib 压缩。
-                                                          */
+ * 参数 compression_algorithm 目前被忽略。它的存在是为了与    
+ * CreateWalDirectoryMethod 对称，后者使用它来区分             
+ * 不同的压缩方法。CreateWalTarMethod 及其系列函数               
+ * 只处理 zlib 压缩。                  
+ */
 WalWriteMethod *
 CreateWalTarMethod(const char *tarbase,
 				   pg_compress_algorithm compression_algorithm,

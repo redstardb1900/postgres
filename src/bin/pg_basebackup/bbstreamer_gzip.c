@@ -2,12 +2,12 @@
  *
  * bbstreamer_gzip.c
  *
- * 部分版权 (c) 1996-2023, PostgreSQL 全球开发组
+ * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *		  src/bin/pg_basebackup/bbstreamer_gzip.c
  *-------------------------------------------------------------------------
-                */
+ */
 
 #include "postgres_fe.h"
 
@@ -68,11 +68,13 @@ const bbstreamer_ops bbstreamer_gzip_decompressor_ops = {
 #endif
 
 /*
- * 创建一个使用 gzip 压缩数据并将其写入文件的 bbstreamer。
+ * 创建一个用 gzip 压缩数据并写入文件的 bbstreamer。        
+ *              
  *
- * 与 bbstreamer_plain_writer_new 的情况一样，pathname 始终用于错误报告目的；
- * 如果 file 为 NULL，它也会打开并关闭以便数据可以写入那里。
-                                    */
+ * 与 bbstreamer_plain_writer_new 一样，pathname 总是用于        
+ * 错误报告；若 file 为 NULL，它也会被打开并关闭，从而 
+ * 使数据可以写入该处。               
+ */
 bbstreamer *
 bbstreamer_gzip_writer_new(char *pathname, FILE *file,
 						   pg_compress_specification *compress)
@@ -112,13 +114,13 @@ bbstreamer_gzip_writer_new(char *pathname, FILE *file,
 	return &streamer->base;
 #else
 	pg_fatal("this build does not support compression with %s", "gzip");
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 让编译器安静  */
 #endif
 }
 
 #ifdef HAVE_LIBZ
 /*
- * Write archive content to gzip file.
+ * 将归档内容写入 gzip 文件  
  */
 static void
 bbstreamer_gzip_writer_content(bbstreamer *streamer,
@@ -135,7 +137,7 @@ bbstreamer_gzip_writer_content(bbstreamer *streamer,
 	errno = 0;
 	if (gzwrite(mystreamer->gzfile, data, len) != len)
 	{
-		/* if write didn't set errno, assume problem is no disk space */
+		/* 若写入未设置 errno，则假定为磁盘空间不足  */
 		if (errno == 0)
 			errno = ENOSPC;
 		pg_fatal("could not write to compressed file \"%s\": %s",
@@ -144,13 +146,15 @@ bbstreamer_gzip_writer_content(bbstreamer *streamer,
 }
 
 /*
- * 当写入 gzip 文件时，归档结束处理仅包含调用 gzclose。
+ * 写入 gzip 文件时的归档结束处理仅包含调用             
+ * gzclose。      
  *
- * 是我们打开了文件还是调用者打开了文件没有区别，因为 libz 无法避免
- * 关闭底层文件句柄。但请注意，bbstreamer_gzip_writer_new() 使用 dup()
- * 来解决这个问题，以便从调用者角度看行为与
- * bbstreamer_plain_writer 相同。
-                                                                                    */
+ * 是我们打开文件还是由调用者打开，并没有区别，     
+ * 因为 libz 无法避免关闭底层文件句柄。但请注意，     
+ * bbstreamer_gzip_writer_new() 使用了 dup() 来解决此问题，      
+ * 因此从调用者的角度来看，其行为与                        
+ * bbstreamer_plain_writer 相同。          
+ */
 static void
 bbstreamer_gzip_writer_finalize(bbstreamer *streamer)
 {
@@ -201,8 +205,9 @@ get_gz_error(gzFile gzf)
 #endif
 
 /*
- * 创建一个新的基础备份流，执行 gzip 压缩块的解压。
-                       */
+ * 创建新的基础备份流处理器，用于对 gzip 压缩块执   
+ * 行解压。      
+ */
 bbstreamer *
 bbstreamer_gzip_decompressor_new(bbstreamer *next)
 {
@@ -227,28 +232,31 @@ bbstreamer_gzip_decompressor_new(bbstreamer *next)
 	zs->avail_out = streamer->base.bbs_buffer.maxlen;
 
 	/*
-	 * 数据压缩使用 deflateInit2 初始化以请求 gzip 头。类似地，
-	 * 我们使用 inflateInit2 来初始化数据解压。
+	 * 数据压缩使用 deflateInit2 初始化，以请求 gzip           
+	 * 头部。类似地，我们用 inflateInit2 来初始化数据 
+	 * 解压。     
 	 *
-	 * 根据 inflateInit2 的文档，第二个参数是 "windowBits"，
-	 * 其值必须大于或等于压缩数据时提供的值，因此我们
-	 * 为安全起见使用最大可能值。
-	                                                                             */
+	 * 根据 inflateInit2 的文档，第二个参数是            
+	 * "windowBits"，其值必须大于等于压缩数据时所提供的   
+	 * 值，因此为安全起见我们使用了最大可能值。    
+	 *                           
+	 */
 	if (inflateInit2(zs, 15 + 16) != Z_OK)
 		pg_fatal("could not initialize compression library");
 
 	return &streamer->base;
 #else
 	pg_fatal("this build does not support compression with %s", "gzip");
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 让编译器安静  */
 #endif
 }
 
 #ifdef HAVE_LIBZ
 /*
- * 将输入数据解压到输出缓冲区，直到输入数据耗尽。
- * 每当输出缓冲区满时，将解压后的数据传递给下一个流处理器。
-             */
+ * 将输入数据解压到输出缓冲区，直到输入耗尽。     
+ * 每当输出缓冲区满时，将解压后的数据传递给下一个   
+ * 流处理器。      
+ */
 static void
 bbstreamer_gzip_decompressor_content(bbstreamer *streamer,
 									 bbstreamer_member *member,
@@ -277,10 +285,11 @@ bbstreamer_gzip_decompressor_content(bbstreamer *streamer,
 			mystreamer->base.bbs_buffer.maxlen - mystreamer->bytes_written;
 
 		/*
-		 * 此调用从 zs->next_in 开始解压数据，并更新 zs->next_in
-		 * 和 zs->avail_in。它从 zs->next_out 开始生成输出数据，并相应地
-		 * 更新 zs->next_out 和 zs->avail_out。
-		                    */
+		 * 此调用解压从 zs->next_in 开始的数据，并更新     
+		 * zs->next_in 和 zs->avail_in。输出数据从 zs->next_out      
+		 * 开始，并相应更新 zs->next_out 和 zs->avail_out。
+		 *             
+		 */
 		res = inflate(zs, Z_NO_FLUSH);
 
 		if (res == Z_STREAM_ERROR)
@@ -289,7 +298,7 @@ bbstreamer_gzip_decompressor_content(bbstreamer *streamer,
 		mystreamer->bytes_written =
 			mystreamer->base.bbs_buffer.maxlen - zs->avail_out;
 
-		/* If output buffer is full then pass data to next streamer */
+		/* 输出缓冲区满则将数据传给下一流处理器   */
 		if (mystreamer->bytes_written >= mystreamer->base.bbs_buffer.maxlen)
 		{
 			bbstreamer_content(mystreamer->base.bbs_next, member,
@@ -311,8 +320,8 @@ bbstreamer_gzip_decompressor_finalize(bbstreamer *streamer)
 	mystreamer = (bbstreamer_gzip_decompressor *) streamer;
 
 	/*
-	 * End of the stream, if there is some pending data in output buffers then
-	 * we must forward it to next streamer.
+	 * 到达流的末尾时，如果输出缓冲区中还有未决数据，  
+	 * 必须转发给下一个流处理器
 	 */
 	bbstreamer_content(mystreamer->base.bbs_next, NULL,
 					   mystreamer->base.bbs_buffer.data,
@@ -323,7 +332,7 @@ bbstreamer_gzip_decompressor_finalize(bbstreamer *streamer)
 }
 
 /*
- * Free memory.
+ * 释放内存
  */
 static void
 bbstreamer_gzip_decompressor_free(bbstreamer *streamer)
@@ -334,8 +343,9 @@ bbstreamer_gzip_decompressor_free(bbstreamer *streamer)
 }
 
 /*
- * 包装函数，用于调整 palloc 的签名以匹配 libz 的期望。
-           */
+ * 包装函数，用于调整 palloc 签名以匹配 libz 的要求。 
+ *         
+ */
 static void *
 gzip_palloc(void *opaque, unsigned items, unsigned size)
 {
@@ -343,8 +353,9 @@ gzip_palloc(void *opaque, unsigned items, unsigned size)
 }
 
 /*
- * 包装函数，用于调整 pfree 的签名以匹配 libz 的期望。
-           */
+ * 包装函数，用于调整 pfree 签名以匹配 libz 的要求。 
+ *         
+ */
 static void
 gzip_pfree(void *opaque, void *address)
 {

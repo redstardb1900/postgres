@@ -2,12 +2,12 @@
  *
  * bbstreamer_file.c
  *
- * 部分版权 (c) 1996-2023, PostgreSQL 全球开发组
+ * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *		  src/bin/pg_basebackup/bbstreamer_file.c
  *-------------------------------------------------------------------------
-                */
+ */
 
 #include "postgres_fe.h"
 
@@ -66,12 +66,14 @@ const bbstreamer_ops bbstreamer_extractor_ops = {
 };
 
 /*
- * 创建一个仅将数据写入文件的 bbstreamer。
+ * 创建仅将数据写入文件的 bbstreamer。     
  *
- * 调用者必须指定路径名，也可以指定文件。路径名在两种情况下都用于错误报告。
- * 如果 file 为 NULL，则路径名同时也标识数据应写入的文件：该文件将被打开、
- * 写入并在完成时关闭。如果 file 不为 NULL，数据将写入那里。
-                      */
+ * 调用者必须指定路径名，也可指定文件。                    
+ * 无论哪种方式，路径名都用于错误报告。                     
+ * 若 file 为 NULL，路径名还标识数据要写入的文件：         
+ * 该文件打开写入，完成时关闭；否则，数据写入该处。  
+ *       
+ */
 bbstreamer *
 bbstreamer_plain_writer_new(char *pathname, FILE *file)
 {
@@ -113,7 +115,7 @@ bbstreamer_plain_writer_content(bbstreamer *streamer,
 	errno = 0;
 	if (fwrite(data, len, 1, mystreamer->file) != 1)
 	{
-		/* if write didn't set errno, assume problem is no disk space */
+		/* 若写入未设置 errno，则假定为磁盘空间不足  */
 		if (errno == 0)
 			errno = ENOSPC;
 		pg_fatal("could not write to file \"%s\": %m",
@@ -122,8 +124,8 @@ bbstreamer_plain_writer_content(bbstreamer *streamer,
 }
 
 /*
- * End-of-archive processing when writing to a plain file consists of closing
- * the file if we opened it, but not if the caller provided it.
+ * 写入普通文件时，归档结束处理是在我们自己打开文件  
+ * 时关闭它，而由调用者提供时则不关闭。      
  */
 static void
 bbstreamer_plain_writer_finalize(bbstreamer *streamer)
@@ -158,20 +160,25 @@ bbstreamer_plain_writer_free(bbstreamer *streamer)
 }
 
 /*
- * 创建一个解压归档文件的 bbstreamer。
+ * 创建一个提取归档的 bbstreamer。    
  *
- * 归档中的所有路径名都是相对于 basepath 解析的。
+ * 归档中的所有路径名都是相对于 basepath 解析的。  
  *
- * 与 bbstreamer_plain_writer_new() 不同，这里无法对无类型块做任何有用的
- * 事；我们需要遵循 bbstreamer.h 中描述的规则的类型化块。假设有了这些，
- * 我们就不需要担心原始归档格式；只需查看提供的成员信息并写入相应文件即可。
+ * 与 bbstreamer_plain_writer_new() 不同，这里无法对无类型块    
+ * 做任何有用的事；我们需要遵循 bbstreamer.h 中描述的      
+ * 规则的类型化块。若已有这些，就无需担心原始归档   
+ * 格式；只需查看所提供的成员信息并写入相应文件即可。
+ *                                              
  *
- * 'link_map' 是一个函数，它将应用于任何符号链接的目标，并应返回一个
- * 替换路径名以供使用。如果为 NULL，符号链接目标将不经过修改直接使用。
+ * 'link_map' 是一个函数，应用于任何符号链接目标， 
+ * 并应返回一个替换路径名以供其使用。如果为 NULL，    
+ * 符号链接目标将不经过修改直接使用。             
+ *              
  *
- * 'report_output_file' 是一个函数，每次打开新的输出文件时都会调用它。
- * 该文件的路径名作为参数传入。如果为 NULL，则跳过该调用。
-                                                                                                */
+ * 'report_output_file' 是一个函数，每次我们打开新输出        
+ * 文件时都会调用它。路径名作为参数传入。若为 NULL，
+ * 则跳过该调用。     
+ */
 bbstreamer *
 bbstreamer_extractor_new(const char *basepath,
 						 const char *(*link_map) (const char *),
@@ -208,7 +215,7 @@ bbstreamer_extractor_content(bbstreamer *streamer, bbstreamer_member *member,
 		case BBSTREAMER_MEMBER_HEADER:
 			Assert(mystreamer->file == NULL);
 
-			/* Prepend basepath. */
+			/* 拼接 basepath   */
 			snprintf(mystreamer->filename, sizeof(mystreamer->filename),
 					 "%s/%s", mystreamer->basepath, member->pathname);
 
@@ -217,7 +224,7 @@ bbstreamer_extractor_content(bbstreamer *streamer, bbstreamer_member *member,
 			if (mystreamer->filename[fnamelen - 1] == '/')
 				mystreamer->filename[fnamelen - 1] = '\0';
 
-			/* Dispatch based on file type. */
+			/* 按文件类型分发。     */
 			if (member->is_directory)
 				extract_directory(mystreamer->filename, member->mode);
 			else if (member->is_link)
@@ -233,7 +240,7 @@ bbstreamer_extractor_content(bbstreamer *streamer, bbstreamer_member *member,
 					create_file_for_extract(mystreamer->filename,
 											member->mode);
 
-			/* Report output file change. */
+			/* 报告输出文件变动   */
 			if (mystreamer->report_output_file)
 				mystreamer->report_output_file(mystreamer->filename);
 			break;
@@ -245,7 +252,7 @@ bbstreamer_extractor_content(bbstreamer *streamer, bbstreamer_member *member,
 			errno = 0;
 			if (len > 0 && fwrite(data, len, 1, mystreamer->file) != 1)
 			{
-				/* if write didn't set errno, assume problem is no disk space */
+				/* 若写入未设置 errno，则假定为磁盘空间不足  */
 				if (errno == 0)
 					errno = ENOSPC;
 				pg_fatal("could not write to file \"%s\": %m",
@@ -264,21 +271,23 @@ bbstreamer_extractor_content(bbstreamer *streamer, bbstreamer_member *member,
 			break;
 
 		default:
-			/* Shouldn't happen. */
+			/* 不应发生。   */
 			pg_fatal("unexpected state while extracting archive");
 	}
 }
 
 /*
- * 我们应该容忍已存在的目录吗？
+ * 我们应该容忍已存在的目录吗？       
  *
- * 在流式传输 WAL 时，pg_wal（或 pre-9.6 集群的 pg_xlog）将由 WAL 接收器
- * 进程创建。此外，当指定了 WAL 目录位置时，pg_wal（或 pg_xlog）在开始实际
- * 备份之前已经作为符号链接创建。因此只需忽略相关目录的创建失败。
+ * 流式传输 WAL 时，pg_wal（pre-9.6 集簇中为 pg_xlog）已         
+ * 由 WAL 接收器进程创建。另外，指定 WAL 目录位置时，    
+ * pg_wal（或 pg_xlog）已在实际备份开始之前作为符号链接  
+ * 形式创建。因此只需忽略相关目录的创建失败。          
+ *                        
  *
- * 如果使用了原位表空间，pg_tblspc 和子目录在到达这里时可能已存在。
- * 所以也容忍这种情况。
-                                                             */
+ * 若使用原位表空间，则 pg_tblspc 和子目录在我们到达这里
+ * 时可能已存在。这种情况也要容忍。   
+ */
 static bool
 should_allow_existing_directory(const char *pathname)
 {
@@ -319,13 +328,15 @@ extract_directory(const char *filename, mode_t mode)
 }
 
 /*
- * 创建符号链接。
+ * 创建符号链接。  
  *
- * 很可能是 pg_tblspc 目录中的一个链接，指向表空间的位置。应用命令行给出的
- * 任何表空间映射（--tablespace-mapping）。（我们盲目地应用映射，不检查链接
- * 是否确实在 pg_tblspc 中。我们不期望数据目录中有其他符号链接，但如果有，
- * 你可以称其为无文档功能，表示你也可以映射它们。）
-                                */
+ * 很可能是 pg_tblspc 目录中指向表空间位置的链接。   
+ * 应用命令行给出的任何表空间映射                     
+ * （--tablespace-mapping）。（我们盲目地应用映射，不检查    
+ * 该链接是否确在 pg_tblspc 中。我们不期望数据目录中  
+ * 还有其他符号链接，但若有，可称为无文档的特性
+ * 即你也可以映射它们。）               
+ */
 static void
 extract_link(const char *filename, const char *linktarget)
 {
@@ -358,9 +369,9 @@ create_file_for_extract(const char *filename, mode_t mode)
 }
 
 /*
- * End-of-stream processing for extracting an archive.
+ * 提取归档的流结束处理。                  
  *
- * There's nothing to do here but sanity checking.
+ * 这里除了健全性检查外无事可做。  
  */
 static void
 bbstreamer_extractor_finalize(bbstreamer *streamer)
@@ -372,7 +383,7 @@ bbstreamer_extractor_finalize(bbstreamer *streamer)
 }
 
 /*
- * Free memory.
+ * 释放内存
  */
 static void
 bbstreamer_extractor_free(bbstreamer *streamer)

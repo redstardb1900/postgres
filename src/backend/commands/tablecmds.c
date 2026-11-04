@@ -164,11 +164,11 @@ typedef struct AlteredTableInfo
 	TupleDesc	oldDesc;		/* 修改前的元组描述符 */
 
 	/*
-	 * Transiently set 期间 Phase 2, normally set to NULL. ATRewriteCatalogs sets
-	 * this when it starts, and 关闭 when ATExecCmd 返回 control. This can be
-	 * exploited by ATExecCmd subroutines to close/reopen across 事务 boundaries.
+	 * Phase 2 期间临时设置，通常设置为 NULL。 
 	 *
-	 *
+	 * ATRewriteCatalogs 在开始时设置它，在 ATExecCmd 返回时    
+	 * 关闭。ATExecCmd 的子例程可利用它跨事务边界         
+	 * 进行关闭/重新打开。               
 	 */
 	Relation	rel;
 
@@ -323,12 +323,12 @@ struct DropRelationCallbackState
 #define		ATT_SEQUENCE			0x0080
 
 /*
- * ForeignTruncateInfo Information related to truncation of foreign tables.
- * This 被使用 for the elements in a 哈希 table. It uses the server OID as lookup
- * key, and includes a per-server list of all foreign tables involved in the
- * truncation.
+ * ForeignTruncateInfo
  *
- *
+ * 与外部表截断相关的信息。用于哈希表的元素。它以 
+ * 服务器 OID 作为查找键，并有每服务器列表，        
+ * 列出该截断所涉及的所有外                                
+ * 部表。  
  */
 typedef struct ForeignTruncateInfo
 {
@@ -1177,11 +1177,11 @@ DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
 	}
 
 	/*
-	 * If we're creating a partition, create now all the 索引, 触发器, FKs defined in
-	 * the parent. 我们可以't do it 更早的, 因为 DefineIndex wants to know the 分区键 which
-	 * we just stored.
+	 * 创建分区时，即创建父分区中定义的所有索引、     
+	 * 触发器和外键。     
 	 *
-	 *
+	 * 不能更早这样做，因为 DefineIndex 需要知道我们刚刚    
+	 * 存储的分区键。    
 	 */
 	if (stmt->partbound)
 	{
@@ -1789,17 +1789,17 @@ ExecuteTruncate(TruncateStmt *stmt)
 }
 
 /*
- * ExecuteTruncateGuts TRUNCATE 的内部实现。 This 被调用 by the actual TRUNCATE command
- * (see 以上) 同时 as replication subscribers that 执行 a replicated TRUNCATE
- * action. explicit_rels is the list of Relations to truncate that the command
- * specified. relids is the list of Oids corresponding to explicit_rels.
- * relids_logged is the list of Oids (a subset of relids) that require
- * WAL-logging. This is all a bit redundant, but the existing callers have
- * this information handy in this form.
+ * ExecuteTruncateGuts
  *
+ * TRUNCATE 的内部实现。由实际的 TRUNCATE 命令（见上文）     
+ * 以及执行被复制 TRUNCATE 动作的复制订阅者所           
+ * 调用。                  
  *
- *
- *
+ * explicit_rels 是命令指定的待截断 Relation 列表。       
+ * relids 是与 explicit_rels 对应的 Oid 列表。                   
+ * relids_logged：需要记录 WAL 的 Oid（relids 的子集）。  
+ * 这有点冗余，但现有的调用者已经可以方便地取得      
+ * 这些信息。                     
  */
 void
 ExecuteTruncateGuts(List *explicit_rels,
@@ -2042,11 +2042,11 @@ ExecuteTruncateGuts(List *explicit_rels,
 			CheckTableForSerializableConflictIn(rel);
 
 			/*
-			 * Need the full 事务-safe pushups. Create a new empty 存储文件 for the relation,
-			 * and assign it as the relfilenumber value. The old 存储文件 is scheduled for
-			 * deletion at 提交.
+			 * 需要完整的事务安全操作。   
 			 *
-			 *
+			 * 为该关系创建新的空存储文件，并将其指定为   
+			 * relfilenumber 值。旧存储文件被安排                 
+			 * 在提交时删除。  
 			 */
 			RelationSetNewRelfilenumber(rel, rel->rd_rel->relpersistence);
 
@@ -2116,11 +2116,11 @@ ExecuteTruncateGuts(List *explicit_rels,
 	}
 
 	/*
-	 * Write a WAL 记录 to allow th被设置 of actions to be logically decoded. Assemble
-	 * an array of relids so 我们可以 write a single WAL 记录 for the whole action.
+	 * 写一条 WAL 记录，使这组操作可被逻辑解码。    
+	 *         
 	 *
-	 *
-	 *
+	 * 组装 relids 数组，这样我们可以为整个操作写入单个   
+	 * WAL 记录。
 	 */
 	if (relids_logged != NIL)
 	{
@@ -3086,11 +3086,11 @@ MergeAttributes(List *schema, List *supers, char relpersistence,
 					coldef->is_not_null |= restdef->is_not_null;
 
 					/*
-					 * Check for conflicts related to 生成列. Same rules as 以上: generated-ness
-					 * has to match the parent, but the contents of the 生成表达式 can be
-					 * different.
+					 * 检查与生成列相关的冲突。             
 					 *
-					 *
+					 * 规则同上：生成性必须与父分区匹配， 
+					 * 但生成表达式的内容                          
+					 * 可以不同。  
 					 */
 					if (coldef->generated)
 					{
@@ -3177,16 +3177,16 @@ MergeAttributes(List *schema, List *supers, char relpersistence,
 
 
 /*
- * MergeCheckConstraint Try to merge an 继承的 CHECK 约束 with previous ones If we
- * 继承 identically-named 约束 from multiple parents, 我们必须 merge them, or throw an
- * error if they don't have identical definitions. 约束 is a list of
- * CookedConstraint structs for previous 约束. Returns true if merged (约束 is a
- * duplicate), or false if it's got a so-far-unique name, or throws error if
- * conflict.
+ * MergeCheckConstraint
+ *		尝试将继承的 CHECK 约束与之前的约束合并      
  *
+ * 如果从多个父分区继承同名约束，则必须合并它们，     
+ * 或者如果它们的定义不相同，则抛出错误。              
  *
+ * constraints 是先前约束的 CookedConstraint 结构体列表。         
  *
- *
+ * 若已合并（约束为重复）则返回 true；若名称至今   
+ * 唯一则返回 false；若冲突则抛出错误。   
  */
 static bool
 MergeCheckConstraint(List *constraints, char *name, Node *expr)
@@ -3314,10 +3314,10 @@ StoreCatalogInheritance1(Oid relationId, Oid parentOid,
 }
 
 /*
- * Look for an existing 模式 entry with the given name. Returns the 索引 (starting
- * with 1) if 属性 已经 exists in 模式, 0 if it doesn't.
+ * 查找具有给定名称的现有模式项。         
  *
- *
+ * 若属性已存在于模式中，则返回其索引（从 1 开始），  
+ * 否则为 0。  
  */
 static int
 findAttrByName(const char *attributeName, List *schema)
@@ -3395,14 +3395,14 @@ SetRelationHasSubclass(Oid relationId, bool relhassubclass)
 }
 
 /*
- * CheckRelationTableSpaceMove Check if relation can be moved to new 表空间.
- * NOTE: The caller must hold AccessExclusiveLock on the relation. Returns
- * true if the relation can be moved to the new 表空间; raises an error if it is
- * not possible to do the move; 返回 false if the move would have no effect.
+ * CheckRelationTableSpaceMove
+ *		检查关系是否可以移动到新表空间。 
  *
+ * 注意：调用者必须持有关系的 AccessExclusiveLock。 
  *
- *
- *
+ * 如果该关系可以移动到新表空间则返回 true；如果无法
+ * 执行移动则抛出错误；如果移动不会产生效果则         
+ * 返回 false。      
  */
 bool
 CheckRelationTableSpaceMove(Relation rel, Oid newTableSpaceId)
@@ -3447,19 +3447,19 @@ CheckRelationTableSpaceMove(Relation rel, Oid newTableSpaceId)
 }
 
 /*
- * SetRelationTableSpace Set new reltablespace and relfilenumber in pg_class
- * entry. newTableSpaceId is the new 表空间 for the relation, and
- * newRelFilenumber its new filenumber. If newRelFilenumber is
- * InvalidRelFileNumber, this field is not updated. NOTE: The caller must hold
- * AccessExclusiveLock on the relation. The caller of this routine had better
- * check if a relation can be moved to this new 表空间 by calling
- * CheckRelationTableSpaceMove() first, and is responsible for making the
- * change visible with CommandCounterIncrement().
+ * SetRelationTableSpace
+ *		设置 pg_class 条目的 reltablespace/relfilenumber     
  *
+ * newTableSpaceId 是该关系的新表空间，而          
+ * newRelFilenumber 是其新文件号。若 newRelFilenumber  
+ * 为 InvalidRelFileNumber，此字段不更新。
  *
+ * 注意：调用者必须持有关系的 AccessExclusiveLock。 
  *
- *
- *
+ * 本例程的调用者最好先检查该关系能否移动到    
+ * 此新表空间：先调用 CheckRelationTableSpaceMove()，         
+ * 并且由调用者负责通过 CommandCounterIncrement() 使
+ * 更改可见。           
  */
 void
 SetRelationTableSpace(Relation rel,
@@ -3578,12 +3578,12 @@ renameatt_internal(Oid myrelid,
 	renameatt_check(myrelid, RelationGetForm(targetrelation), recursing);
 
 	/*
-	 * if the '递归' flag 被设置 then we are supposed to rename this 属性 in all classes
-	 * that 继承 from 'relname' (同时 as in 'relname'). any 权限 or problems with
-	 * duplicate 属性 will cause the whole 事务 to 中止, which is what we want -- all
-	 * 与否hing.
+	 * 如果设置了 'recurse' 标志，我们就需要在继承自  
+	 * 'relname' 的所有类中重命名此属性 (同样在             
+	 * 'relname') 
 	 *
-	 *
+	 * 任何权限问题或重复属性的问题都将导致整个事务  
+	 * 中止，这正是我们想要的 -- 要么全做，要么不做。 
 	 */
 	if (recurse)
 	{
@@ -3922,13 +3922,13 @@ RenameRelation(RenameStmt *stmt)
 	ObjectAddress address;
 
 	/*
-	 * Grab an 排他锁 on the target table, 索引, 序列, view, 物化视图, or 外表, which we will
-	 * NOT release until end of 事务. Lock level used here should match
-	 * RenameRelationInternal, to avoid 锁 escalation. However, 因为 ALTER INDEX can
-	 * be used with any relation type, 我们必须n't believe 没有 verification.
+	 * 获取目标表、索引、序列、视图、物化视图或外表
+	 * 上的排他锁，直到事务结束之前我们都                 
+	 * 不会释放它。 
 	 *
-	 *
-	 *
+	 * 此处使用的锁级别应与 RenameRelationInternal 匹配，避免  
+	 * 锁升级。但由于 ALTER INDEX 可用于任何关系类型，       
+	 * 我们不能不加验证地相信它。       
 	 */
 	for (;;)
 	{
@@ -4179,9 +4179,9 @@ CheckAlterTableIsSafe(Relation rel)
 }
 
 /*
- * AlterTableLookupRelation Look up, and 锁, the OID for the relation named by
- * an alter table statement.
- *
+ * AlterTableLookupRelation
+ *		查找并锁定由 alter table 语句指定的关系               
+ *		OID。    
  */
 Oid
 AlterTableLookupRelation(AlterTableStmt *stmt, LOCKMODE lockmode)
@@ -4193,54 +4193,54 @@ AlterTableLookupRelation(AlterTableStmt *stmt, LOCKMODE lockmode)
 }
 
 /*
- * AlterTable Execute ALTER TABLE, which can be a list of 子命令 ALTER TABLE is
- * performed in three phases: 1. Examine 子命令 and perform pre-转换 checking. 2.
- * Validate and 转换 子命令, and update system 目录. 3. Scan table(s) to check new
- * 约束, and optionally recopy the data into new table(s). Phase 3 is not
- * performed unless one or more of the 子命令 需要 it. The intention of this design
- * is to allow multiple independent 更新 of the table 模式 to be performed with 仅
- * one pass over the data. ATPrepCmd 执行 phase 1. A "work queue" entry 被创建 for
- * each table to be affected (there 可能 multiple affected tables if the
- * commands traverse a table 继承 hierarchy). Also we do preliminary 验证 of the
- * 子命令. Because 更早的 子命令 may change the 目录 state seen by 稍后的 commands, there
- * are limits to what can be done in this phase. Generally, this phase
- * acquires table 锁, 检查 权限 and relkind, and recurses to find child tables.
- * ATRewriteCatalogs 执行 phase 2 for each affected table. Certain 子命令 need to
- * be performed 之前 others to avoid unnecessary conflicts; 例如, DROP COLUMN
- * should come 之前 ADD COLUMN. Therefore phase 1 divides the 子命令 into multiple
- * lists, one for each logical "pass" of phase 2. ATRewriteTables 执行 phase 3
- * for those tables that need it. For most 子命令 types, phases 2 and 3 do no
- * explicit 递归, since phase 1 已经 does it. However, for certain 子命令 types it is
- * 仅 possible to determine how to 递归 at phase 2 time; for those cases, phase 1
- * sets the cmd->递归 flag. Thanks to the magic of MVCC, an error anywhere along
- * the way rolls back the whole operation; 我们不 have to do anything special to
- * clean up. The caller must 锁 the relation, with an appropriate 锁 level for
- * the 子命令 requested, using AlterTableGetLockLevel(stmt->cmds) or higher. We
- * pass the 锁 level down 从而 我们可以 apply it 递归地 to 继承的 tables. 请注意 the 锁 level
- * we want as we 递归 might well be higher than required for that specific 子命令.
- * So we pass down the overall 锁 requirement, rather than reassess it at lower
- * levels. The caller 也 提供 a "context" which is to be passed back to utility.c
- * when 我们需要 执行 a 子命令 例如 CREATE INDEX. Some of the fields therein, 例如 the
- * relid, 被使用 here 同时.
+ * AlterTable
+ *		执行 ALTER TABLE，它可以是子命令列表       
  *
+ * ALTER TABLE 分三个阶段执行：     
+ *		1. 检查子命令并执行预转换检查。                  
+ *		2. 验证并转换子命令，并更新系统目录。            
+ *		3. 扫描表以检查新约束，并可选地将数据重新    
+ *		   复制到新表中。      
+ * 除非一个或多个子命令需要，否则不执行阶段 3。      
+ * 此设计的意图是允许对表模式进行多次独立的更   
+ * 新，而只需对数据执行一遍扫描。                          
+ *      
  *
+ * ATPrepCmd 执行阶段 1。会为每个受影响的表创建    
+ * 一个"工作队列"项（若命令遍历表继承层次结构，  
+ * 则可能影响多个表）。我们还会对子命令做初步验证。 
+ * 由于较早的子命令可能会改变稍后命令所看到的目录 
+ * 状态，所以此阶段能做的事情存在限制。                
+ * 通常，此阶段会获取表锁、检查权限与 relkind，并  
+ * 递归找出子表。                                             
  *
+ * ATRewriteCatalogs 为每个受影响的表执行阶段 2。
+ * 某些子命令需要先于其他子命令执行，以避免   
+ * 不必要的冲突；例如 DROP COLUMN 应在 ADD COLUMN 之前  
+ * 执行。因此阶段 1 将子命令划分为多个列表，        
+ * 对应阶段 2 的各次逻辑"遍"。    
  *
+ * ATRewriteTables 为需要它的表执行阶段 3。            
  *
+ * 对大多数子命令类型，阶段 2 和 3 不做显式递归， 
+ * 因为阶段 1 已完成递归。但对于某些子命令类型，   
+ * 要到阶段 2 才能确定递归方式；此时阶段 1 会设置  
+ * cmd->recurse 标志。                          
  *
+ * 多亏 MVCC 的魔力，途中任何地方发生错误都会回滚     
+ * 整个操作；我们不需要做任何特殊的清理工作。       
  *
+ * 调用者必须锁定关系，并使用适合所请求子命令  
+ * 的锁级别，即使用 AlterTableGetLockLevel(stmt->cmds) 或        
+ * 更高的级别。我们将锁级别  
+ * 向下传递，以便递归地应用到继承表。请注意，我们 
+ * 在递归时想要的锁级别很可能高于该特定子命令所     
+ * 需要的级别。因此我们向下传递整体锁需求，而不是  
+ * 在较低层级重新评估它。       
  *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
+ * 调用者还会提供一个"上下文"，在我们需要执行
+ * 诸如 CREATE INDEX 之类的子命令时传回给 utility.c。     
+ * 其中的某些字段（例如 relid）也会在这里使用。                  
  */
 void
 AlterTable(AlterTableStmt *stmt, LOCKMODE lockmode,
@@ -4257,19 +4257,19 @@ AlterTable(AlterTableStmt *stmt, LOCKMODE lockmode,
 }
 
 /*
- * AlterTableInternal ALTER TABLE with target specified by OID 我们不 reject if
- * the relation is 已经 open, 因为 it's quite likely that one or more layers of
- * caller have it open. That means it is unsafe to use this entry point for
- * alterations that could break existing 查询 plans. On the assumption it's not
- * used for such, 我们不 have to reject pending AFTER 触发器, either. Also, since
- * 我们不 have an AlterTableUtilityContext, this 不能 used for any 子命令 types that
- * require 解析转换 or could generate 子命令 that 必须是 passed to ProcessUtility.
+ * AlterTableInternal
  *
+ * 以 OID 指定目标的 ALTER TABLE     
  *
+ * 如果该关系已打开，我们并不拒绝，因为很可能     
+ * 有一层或多层调用者已将其打开。这意味着            
+ * 对于可能破坏现有查询计划的修改，使用此入口点
+ * 并不安全。鉴于它不用于此类用途，我们也不必拒 
+ * 绝待处理的 AFTER 触发器。                  
  *
- *
- *
- *
+ * 另外，由于我们没有 AlterTableUtilityContext，这不能用  
+ * 于任何需要解析转换的子命令类型，或可能生成必
+ * 须传递给 ProcessUtility 的子命令的类型。                
  */
 void
 AlterTableInternal(Oid relid, List *cmds, bool recurse)
@@ -4443,12 +4443,12 @@ AlterTableGetLockLevel(List *cmds)
 						case CONSTR_UNIQUE:
 
 							/*
-							 * Cases essentially the same as CREATE INDEX. We could reduce the 锁
-							 * strength to ShareLock if 我们可以 work out how to allow 并发 目录 更新. XXX
-							 * Might be set down to ShareRowExclusiveLock but 需要 further analysis.
-							 *
-							 *
-							 *
+							 * 情况与 CREATE INDEX 基本相同。        
+							 * 若能解决如何允许并发目录更新， 
+							 * 可把锁强度降到 ShareLock。XXX 也许   
+							 * 降为 ShareRowExclusiveLock，  
+							 * 但还需要进一步的                  
+							 * 分析。
 							 */
 							cmd_lockmode = AccessExclusiveLock;
 							break;
@@ -4581,10 +4581,10 @@ AlterTableGetLockLevel(List *cmds)
 }
 
 /*
- * ATController 提供 top level control over the phases. parsetree is passed in
- * to allow it to be passed to event 触发器 when requested.
+ * ATController 对这些阶段提供顶层控制。       
  *
- *
+ * 传入 parsetree 是为了允许在请求时把它传递给事件
+ * 触发器。   
  */
 static void
 ATController(AlterTableStmt *parsetree,
@@ -4613,13 +4613,13 @@ ATController(AlterTableStmt *parsetree,
 }
 
 /*
- * ATPrepCmd Traffic cop for ALTER TABLE Phase 1 operations, including simple
- * 递归 and 权限 检查. Caller must have acquired appropriate 锁 type on relation 已经.
- * This 锁 应是 held until 提交.
+ * ATPrepCmd
  *
+ * ALTER TABLE 阶段 1 操作的交通警察，包括简单递归 
+ * 和权限检查。              
  *
- *
- *
+ * 调用者必须已经获得该关系上适当类型的锁。        
+ * 此锁应持有到提交为止。     
  */
 static void
 ATPrepCmd(List **wqueue, Relation rel, AlterTableCmd *cmd,
@@ -4989,11 +4989,11 @@ ATPrepCmd(List **wqueue, Relation rel, AlterTableCmd *cmd,
 }
 
 /*
- * ATRewriteCatalogs Traffic cop for ALTER TABLE Phase 2 operations.
- * Subcommands are dispatched in a "safe" 执行 order (designed to avoid
- * unnecessary conflicts).
+ * ATRewriteCatalogs
  *
- *
+ * ALTER TABLE 阶段 2 操作的交通警察。子命令按照    
+ * "安全"的执行顺序分发（该顺序旨在避免不必要的
+ * 冲突）      
  */
 static void
 ATRewriteCatalogs(List **wqueue, LOCKMODE lockmode,
@@ -5645,14 +5645,14 @@ ATRewriteTables(AlterTableStmt *parsetree, List **wqueue, LOCKMODE lockmode,
 			table_close(OldHeap, NoLock);
 
 			/*
-			 * Fire off an Event Trigger now, 之前 actually rewriting the table. 我们不
-			 * support Event Trigger for nested commands anywhere, here included, and
-			 * parsetree is given NULL when coming from AlterTableInternal. And fire it
-			 * 仅 once.
+			 * 在实际重写该表之前，就先触发事件触发      
+			 * 器。
 			 *
+			 * 我们不支持任何嵌套命令使用事件触发器，   
+			 * 此处也不例外，且当来自 AlterTableInternal 时   
+			 * parsetree 为 NULL 
 			 *
-			 *
-			 *
+			 * 且只触发一次。 
 			 */
 			if (parsetree)
 				EventTriggerTableRewrite((Node *) parsetree,
@@ -6043,10 +6043,10 @@ ATRewriteTable(AlteredTableInfo *tab, Oid OIDNewHeap, LOCKMODE lockmode)
 				newslot->tts_tableOid = RelationGetRelid(oldrel);
 
 				/*
-				 * Process supplied expressions to replace selected columns. First,
-				 * evaluate expressions whose inputs come from the old 元组.
+				 * 处理所提供的表达式，以替换选定的列。   
 				 *
-				 *
+				 * 首先，求值其输入来自旧元组的表达          
+				 * 式。
 				 */
 				econtext->ecxt_scantuple = oldslot;
 
@@ -6362,11 +6362,11 @@ alter_table_type_to_string(AlterTableType cmdtype)
 }
 
 /*
- * ATSimplePermissions - Ensure that it is a relation (or possibly a view) -
- * Ensure this 用户 is the 属主 - Ensure that it is not a system table
+ * ATSimplePermissions
  *
- *
- *
+ * - 确保它是关系（或者可能是视图）    
+ * - 确保该用户是属主     
+ * - 确保它不是系统表            
  */
 static void
 ATSimplePermissions(AlterTableType cmdtype, Relation rel, int allowed_targets)
@@ -6436,12 +6436,12 @@ ATSimplePermissions(AlterTableType cmdtype, Relation rel, int allowed_targets)
 }
 
 /*
- * ATSimpleRecursion Simple table 递归 sufficient for most ALTER TABLE
- * operations. All direct and indirect children are processed in an
- * unspecified order. 请注意 if a child inherits from the original table via
- * multiple 继承 paths, it 将被 visited just once.
+ * ATSimpleRecursion
  *
- *
+ * 适用于大多数 ALTER TABLE 操作的简单表递归。        
+ * 所有直接和间接子表都会以未指定的顺序处理。        
+ * 注意，若子表通过多个继承路径继承自原表，它将
+ * 只会被访问一次。                        
  */
 static void
 ATSimpleRecursion(List **wqueue, Relation rel,
@@ -6512,11 +6512,11 @@ ATCheckPartitionsNotInUse(Relation rel, LOCKMODE lockmode)
 }
 
 /*
- * ATTypedTableRecursion Propagate ALTER TYPE operations to the typed tables
- * of that type. Also check the RESTRICT/CASCADE behavior. Given CASCADE, 也
- * permit 递归 to 继承 children of the typed tables.
+ * ATTypedTableRecursion
  *
- *
+ * 将 ALTER TYPE 操作传播到该类型的类型化表。        
+ * 并检查 RESTRICT/CASCADE 行为。给定 CASCADE 时，也允许   
+ * 向类型化表的继承子表递归。               
  */
 static void
 ATTypedTableRecursion(List **wqueue, Relation rel, AlterTableCmd *cmd,
@@ -6715,11 +6715,11 @@ find_composite_type_dependencies(Oid typeOid, Relation origRelation,
 
 
 /*
- * find_typed_table_dependencies Check to see if a 复合类型 is being used as the
- * type of a 类型化表. Abort 如有 are found and behavior is RESTRICT. Else return
- * the list of tables.
+ * find_typed_table_dependencies
  *
- *
+ * 检查某个复合类型是否正被用作某个类型化      
+ * 表的类型。若发现且行为是 RESTRICT，则中止。  
+ * 否则返回该表列表。    
  */
 static List *
 find_typed_table_dependencies(Oid typeOid, const char *typeName, DropBehavior behavior)
@@ -6800,18 +6800,18 @@ check_of_type(HeapTuple typetuple)
 
 
 /*
- * ALTER TABLE ADD COLUMN Adds an additional 属性 to a relation making the
- * assumption that CHECK, NOT NULL, and FOREIGN KEY 约束 将被 removed from the
- * AT_AddColumn AlterTableCmd by parse_utilcmd.c and added as independent
- * AlterTableCmd's. ADD COLUMN cannot use the normal ALTER TABLE 递归 mechanism,
- * 因为 we have to decide at runtime whether to 递归 与否 depending on whether we
- * actually add a column or merely merge with an existing column. (我们可以't
- * check this in a static pre-pass 因为 it won't handle multiple 继承 situations
- * correctly.)
+ * ALTER TABLE ADD COLUMN
  *
+ * 向一个关系添加附加属性，前提是 CHECK、NOT NULL 与   
+ * FOREIGN KEY 约束会从 parse_utilcmd.c 中的 AT_AddColumn         
+ * AlterTableCmd 中删除，并被添加为独立的                    
+ * AlterTableCmd。
  *
- *
- *
+ * ADD COLUMN 不能使用普通的 ALTER TABLE 递归机制，因为我们    
+ * 必须在运行时决定是否递归，这取决于我们实际是添加   
+ * 一个列还是仅仅与现有列合并。（我们无法在静态的预 
+ * 检查中完成这一点，因为它不能正确处理多重继承的       
+ * 情况。）          
  */
 static void
 ATPrepAddColumn(List **wqueue, Relation rel, bool recurse, bool recursing,
@@ -6831,11 +6831,11 @@ ATPrepAddColumn(List **wqueue, Relation rel, bool recurse, bool recursing,
 }
 
 /*
- * Add a column to a table. The return value is the address of the new column
- * in the 父关系. cmd is pass-by-ref 从而 我们可以 replace it with the 解析-转换后的 copy
- * (but that happens 仅 之后 we check for IF NOT EXISTS).
+ * 向表添加一个列。返回值是新列在父关             
+ * 系中的地址。                
  *
- *
+ * cmd 以传引用方式传入，这样我们能用解析转换后的副 
+ * 本替换它（但只在检查 IF NOT EXISTS 后发生）。  
  */
 static ObjectAddress
 ATExecAddColumn(List **wqueue, AlteredTableInfo *tab, Relation rel,
@@ -7488,9 +7488,9 @@ ATExecDropNotNull(Relation rel, const char *colName, LOCKMODE lockmode)
 		if (indexStruct->indisprimary || indexStruct->indisreplident)
 		{
 			/*
-			 * Loop over each 属性 in the 主键 or the 索引 used as 副本标识 and see if it matches
-			 * the to-be-altered 属性.
-			 *
+			 * 遍历主键或用作副本标识的索引中的每个属    
+			 * 性，看看它是否与被修改的属性相              
+			 * 匹配。 
 			 */
 			for (i = 0; i < indexStruct->indnkeyatts; i++)
 			{
@@ -8562,13 +8562,13 @@ ATExecSetStorage(Relation rel, const char *colName, Node *newValue, LOCKMODE loc
 
 
 /*
- * ALTER TABLE DROP COLUMN DROP COLUMN cannot use the normal ALTER TABLE 递归
- * mechanism, 因为 we have to decide at runtime whether to 递归 与否 depending on
- * whether attinhcount goes to zero 与否. (我们可以't check this in a static
- * pre-pass 因为 it won't handle multiple 继承 situations correctly.)
+ * ALTER TABLE DROP COLUMN
  *
- *
- *
+ * DROP COLUMN 不能使用普通的 ALTER TABLE 递归机制，     
+ * 因为我们必须在运行时决定是否递归，这取决于         
+ * attinhcount 是否减到零。（我们无法在静态预检查中    
+ * 完成这一点，因为它不能正确处理多重继承的情        
+ * 况。）  
  */
 static void
 ATPrepDropColumn(List **wqueue, Relation rel, bool recurse, bool recursing,
@@ -8729,9 +8729,9 @@ ATExecDropColumn(List **wqueue, Relation rel, const char *colName,
 			if (recurse)
 			{
 				/*
-				 * If the child column has other definition sources, just decrement its 继承
-				 * count; 如果不是, 递归 to delete it.
-				 *
+				 * 若子列还有其他定义来源，只需递减其   
+				 * 继承计数；如果没有，则递归将它删除。    
+				 *    
 				 */
 				if (childatt->attinhcount == 1 && !childatt->attislocal)
 				{
@@ -8791,13 +8791,13 @@ ATExecDropColumn(List **wqueue, Relation rel, const char *colName,
 }
 
 /*
- * ALTER TABLE ADD INDEX There is no such command in the grammar, but
- * parse_utilcmd.c 转换 UNIQUE and PRIMARY KEY 约束 into AT_AddIndex 子命令. This
- * lets us schedule creation of the 索引 at the appropriate time 期间 ALTER.
- * Return value is the address of the new 索引.
+ * ALTER TABLE ADD INDEX
  *
+ * 语法中没有这样的命令，但 parse_utilcmd.c 会将          
+ * UNIQUE 和 PRIMARY KEY 约束转换为 AT_AddIndex 子命令。这样      
+ * 我们就能在 ALTER 期间的适当时机调度索引的创建。    
  *
- *
+ * 返回值是新索引的地址。            
  */
 static ObjectAddress
 ATExecAddIndex(AlteredTableInfo *tab, Relation rel,
@@ -8856,11 +8856,11 @@ ATExecAddIndex(AlteredTableInfo *tab, Relation rel,
 }
 
 /*
- * ALTER TABLE ADD STATISTICS This is no such command in the grammar, but we
- * use this internally to add AT_ReAddStatistics 子命令 to 重建 extended 统计信息 之后 a
- * table 列类型 change.
+ * ALTER TABLE ADD STATISTICS
  *
- *
+ * 语法中没有这样的命令                                           
+ * AT_ReAddStatistics 子命令，以便在列类型改变之后重建扩展  
+ * 统计信息。    
  */
 static ObjectAddress
 ATExecAddStatistics(AlteredTableInfo *tab, Relation rel,
@@ -8970,10 +8970,10 @@ ATExecAddIndexConstraint(AlteredTableInfo *tab, Relation rel,
 }
 
 /*
- * ALTER TABLE ADD CONSTRAINT Return value is the address of the new 约束; if no
- * 约束 was added, InvalidObjectAddress is returned.
+ * ALTER TABLE ADD CONSTRAINT
  *
- *
+ * 返回值是新约束的地址；若无约束被添加，则返回     
+ * InvalidObjectAddress。                 
  */
 static ObjectAddress
 ATExecAddConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
@@ -9076,19 +9076,19 @@ ChooseForeignKeyConstraintNameAddition(List *colnames)
 }
 
 /*
- * Add a CHECK 约束 to a single table and its children. Returns the address of
- * the 约束 added to the 父关系, if one gets added, or InvalidObjectAddress 否则.
- * Subroutine for ATExecAddConstraint. 我们必须 递归 to child tables 期间 执行, rather
- * than using ALTER TABLE's normal prep-time 递归. The reason is that all the 约束
- * *must* be given the same name, else they won't be seen as related 稍后的. If
- * the 用户 didn't explicitly specify a name, then AddRelationNewConstraints
- * would normally assign different names to the child 约束. To fix that, 我们必须
- * capture the name assigned at the 父表 and pass that down.
+ * 向单个表及其子表添加一个 CHECK 约束。如果有约束被 
+ * 添加，则返回添加到父关系上的约束的地址；否则返回  
+ * InvalidObjectAddress。           
  *
+ * ATExecAddConstraint 的子例程。
  *
- *
- *
- *
+ * 我们必须在执行期间递归到子表，而不是使用       
+ * ALTER TABLE 正常的准备期递归。原因在于所有这         
+ * 些约束*必须*被赋予相同的名称，否则它们后面不    
+ * 会被视为相关。如果用户没有显式指定名称，则   
+ * AddRelationNewConstraints 通常会给子约束分配不同的名     
+ * 称。为解决此问题，我们必须捕获在父表处分配的   
+ * 名称并将其向下传递。      
  */
 static ObjectAddress
 ATAddCheckConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
@@ -9213,19 +9213,19 @@ ATAddCheckConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
 }
 
 /*
- * Add a foreign-key 约束 to a single table; return the new 约束's address.
- * Subroutine for ATExecAddConstraint. Must 已经 hold 排他锁 on the rel, and have
- * done appropriate validity 检查 for it. We do 权限 检查 here, 然而. When the
- * referenced or referencing tables (or both) are partitioned, multiple
- * pg_constraint rows are required -- one for each 分区表 and each partition on
- * each side (fortunately, not one for every combination thereof). We 也 need
- * action 触发器 on each leaf partition on the referenced side, and check 触发器 on
- * each leaf partition on the referencing side.
+ * 向单个表添加一个外键约束；返回新约束的地址。         
+ *         
  *
+ * ATExecAddConstraint 的子例程。必须已持有该 rel 的   
+ * 排他锁，并且已经对它做了适当的合法性检查。   
+ * 但我们在此进行权限检查。   
  *
- *
- *
- *
+ * 当被引用或引用表（或两者）为分区表时，需要多  
+ * 个 pg_constraint 行 -- 每侧的每个分区表和每个分区各一行 
+ * （所幸不是每个组合都需要一行）。我们还需要在被      
+ * 引用侧的每个叶子分区上建立动作触发器，并在引   
+ * 用侧的每个叶子分区上建立检查                       
+ * 触发器。     
  */
 static ObjectAddress
 ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
@@ -9402,12 +9402,12 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
 	}
 
 	/*
-	 * Look up the equality operators to use in the 约束. 请注意 we 必须是 careful about
-	 * the difference 之间 the actual PK 列类型 and the opclass' declared input type,
-	 * which 可能 仅 binary-compatible with it. The declared opcintype is the right
-	 * thing to probe pg_amop with.
+	 * 查找要在该约束中使用的相等操作符。     
 	 *
-	 *
+	 * 注意，我们必须当心实际 PK 列类型与 opclass 声明的    
+	 * 输入类型之间的差别，后者可能仅是二进制兼容。 
+	 * 声明的 opcintype 才是以 pg_amop 进行探测的正确         
+	 * 对象。                   
 	 */
 	if (numfks != numpks)
 		ereport(ERROR,
@@ -9661,12 +9661,12 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
 }
 
 /*
- * validateFkOnDeleteSetColumns Verifies that columns used in ON DELETE SET
- * NULL/DEFAULT (...) column lists are valid. If there are duplicates in the
- * fksetcolsattnums[] array, this silently re移动 the dups. The new count of
- * numfksetcols is returned.
+ * validateFkOnDeleteSetColumns
+ *		验证 ON DELETE SET NULL/DEFAULT (...) 所用列的列表    
+ *		是否有效。        
  *
- *
+ * 如果 fksetcolsattnums[] 数组中有重复项，这里会静默地  
+ * 移除重复项。并返回 numfksetcols 的新计数。     
  */
 static int
 validateFkOnDeleteSetColumns(int numfks, const int16 *fkattnums,
@@ -9886,35 +9886,35 @@ addFkConstraint(addFkConstraintSides fkside,
 }
 
 /*
- * addFkRecurseReferenced Recursive helper for the referenced side of 外键
- * creation, which 创建 the action 触发器 and recurses If the referenced relation
- * is a plain relation, create the necessary action 触发器 that implement the 约束.
- * If the referenced relation is a 分区表, then we create a pg_constraint row
- * referencing the parent of the referencing side for it and 递归 on this
- * routine for each partition. fkconstraint: the 约束 being added rel: the root
- * referencing relation pkrel: the referenced relation; 可能 a partition, if 递归中
- * indexOid: the OID of the 索引 (on pkrel) implementing this 约束 parentConstr:
- * the OID of a parent 约束; InvalidOid if this is a top-level 约束 numfks: the
- * number of columns in the 外键 pkattnum: the attnum array of referenced 属性
- * fkattnum: the attnum array of referencing 属性 numfkdelsetcols: the number of
- * columns in the ON DELETE SET NULL/DEFAULT (...) clause fkdelsetcols: the
- * attnum array of the columns in the ON DELETE SET NULL/DEFAULT clause
- * pf/pp/ffeqoperators: OID array of operators 之间 columns old_check_ok: true
- * if this 约束 replaces an existing one that was 已经 已验证 (thus this one doesn't
- * need 验证) parentDelTrigger and parentUpdTrigger: when 递归地 called on a
- * partition, the OID of the parent action 触发器 for DELETE and UPDATE
- * respectively.
+ * addFkRecurseReferenced
+ *		外键创建中被引用方的递归辅助函数，会创建     
+ *		动作触发器并递归。                   
  *
+ * 如果被引用关系是普通关系，则创建实现该约束所需的   
+ * 动作触发器。如果被引用关系是分区表，那么我们为   
+ * 它创建一个引用引用侧父关系的 pg_constraint 行，并          
+ * 针对每个分区对该例程进行                               
+ * 递归。 
  *
- *
- *
- *
- *
- *
- *
- *
- *
- *
+ * fkconstraint：要添加的约束       
+ * rel：根引用关系             
+ * pkrel：被引用关系；如果正在递归，可能是分区    
+ * indexOid：实现此约束的（pkrel 上的）索引的 OID          
+ * parentConstr：父约束的 OID；如果这是一个顶层约束则  
+ *      为 InvalidOid      
+ * numfks：外键中的列数                     
+ * pkattnum：被引用属性的 attnum 数组        
+ * fkattnum：引用属性的 attnum 数组            
+ * numfkdelsetcols：ON DELETE SET NULL/DEFAULT               
+ *      (...) 子句中的列数 
+ * fkdelsetcols：ON DELETE SET NULL/DEFAULT (...) 子句            
+ *      的 attnum 数组  
+ * pf/pp/ffeqoperators：列之间操作符的 OID 数组     
+ * old_check_ok：若此约束替换了一个已验证过的现有约 
+ *      束（因此此约束不需要验证），则为 true        
+ * parentDelTrigger 和 parentUpdTrigger：当在一个分区上被   
+ *      递归调用时，DELETE 与 UPDATE 的父动作触发器       
+ *      各自的 OID。    
  */
 static void
 addFkRecurseReferenced(Constraint *fkconstraint, Relation rel,
@@ -10012,41 +10012,41 @@ addFkRecurseReferenced(Constraint *fkconstraint, Relation rel,
 }
 
 /*
- * addFkRecurseReferencing Recursive helper for the referencing side of 外键
- * creation, which 创建 the check 触发器 and recurses If the referencing relation
- * is a plain relation, create the necessary check 触发器 that implement the 约束,
- * and set up for Phase 3 约束 verification. If the referencing relation is a
- * 分区表, then we create a pg_constraint row for it and 递归 on this routine for
- * each partition. We assume that the referenced relation is locked against 并发
- * deletions. If it's a 分区关系, every partition 必须是 so locked. wqueue: the ALTER
- * TABLE work queue; NULL when not running as part of an ALTER TABLE 序列.
- * fkconstraint: the 约束 being added rel: the referencing relation; 可能 a
- * partition, if 递归中 pkrel: the root referenced relation indexOid: the OID of
- * the 索引 (on pkrel) implementing this 约束 parentConstr: the OID of the parent
- * 约束 (there is 始终 one) numfks: the number of columns in the 外键 pkattnum: the
- * attnum array of referenced 属性 fkattnum: the attnum array of referencing 属性
- * pf/pp/ffeqoperators: OID array of operators 之间 columns numfkdelsetcols: the
- * number of columns in the ON DELETE SET NULL/DEFAULT (...) clause
- * fkdelsetcols: the attnum array of the columns in the ON DELETE SET
- * NULL/DEFAULT clause old_check_ok: true if this 约束 replaces an existing one
- * that was 已经 已验证 (thus this one doesn't need 验证) lockmode: the lockmode to
- * acquire on partitions when 递归中 parentInsTrigger and parentUpdTrigger: when
- * being 递归地 called on a partition, the OID of the parent check 触发器 for INSERT
- * and UPDATE respectively.
+ * addFkRecurseReferencing
+ *		外键创建中引用方一侧的递归辅助函数，会创建   
+ *		检查触发器并递归。                  
  *
+ * 如果引用关系是普通关系，则创建实现该约束所需的检   
+ * 查触发器，并为阶段 3 的约束验证做好准备。如果引用 
+ * 关系是分区表，那么我们为它创建一个 pg_constraint 行  
+ * 并针对每个分区对该例程进行                                  
+ * 递归。 
  *
+ * 我们假定被引用关系已加锁防止并发删除。若是    
+ * 分区关系，那么每个分区都必须同样加                   
+ * 锁。 
  *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
+ * wqueue：ALTER TABLE 工作队列；若不是在 ALTER TABLE     
+ *      序列中运行时为 NULL 
+ * fkconstraint：要添加的约束       
+ * rel：引用关系；如果正在递归，可能是分区        
+ * pkrel：根被引用关系         
+ * indexOid：实现此约束的（pkrel 上的）索引的 OID          
+ * parentConstr：父约束的 OID（总是存在一个）             
+ * numfks：外键中的列数                     
+ * pkattnum：被引用属性的 attnum 数组        
+ * fkattnum：引用属性的 attnum 数组            
+ * pf/pp/ffeqoperators：列之间操作符的 OID 数组     
+ * numfkdelsetcols：ON DELETE SET NULL/DEFAULT (...) 中                  
+ *      的列数   
+ * fkdelsetcols：ON DELETE SET NULL/DEFAULT (...) 子句            
+ *      的 attnum 数组  
+ * old_check_ok：若此约束替换了一个已验证过的现有约 
+ *      束（因此此约束不需要验证），则为 true        
+ * lockmode：递归时在分区上获取的锁模式            
+ * parentInsTrigger 和 parentUpdTrigger：当在一个分区上被递    
+ *      归调用时，INSERT 与 UPDATE 的父检查触发器           
+ *      各自的 OID。    
  */
 static void
 addFkRecurseReferencing(List **wqueue, Constraint *fkconstraint, Relation rel,
@@ -10212,17 +10212,17 @@ addFkRecurseReferencing(List **wqueue, Constraint *fkconstraint, Relation rel,
 }
 
 /*
- * CloneForeignKeyConstraints Clone foreign keys from a 分区表 to a newly
- * acquired partition. partitionRel is a partition of parentRel, so 我们可以 be
- * certain that it has the same columns with the same datatypes. The columns
- * 可能 in different order, though. wqueue 必须是 passed to set up phase 3 约束
- * checking, unless the referencing-side partition is known to be empty (例如 in
- * CREATE TABLE / PARTITION OF).
+ * CloneForeignKeyConstraints
+ *		把外键从一个分区表克隆到新获得的               
+ *		分区。 
  *
+ * partitionRel 是 parentRel 的一个分区，因此我们可以确定它  
+ * 拥有相同数据类型的相同列。不过这些列的顺序可能不  
+ * 同。        
  *
- *
- *
- *
+ * 必须传入 wqueue 以建立阶段 3 约束检查，除非已知      
+ * 引用侧的分区为空（例如在 CREATE TABLE / PARTITION             
+ *  OF）。     
  */
 static void
 CloneForeignKeyConstraints(List **wqueue, Relation parentRel,
@@ -10243,15 +10243,15 @@ CloneForeignKeyConstraints(List **wqueue, Relation parentRel,
 }
 
 /*
- * CloneFkReferenced Subroutine for CloneForeignKeyConstraints Find all the
- * FKs that have the 父关系 on the referenced side; clone those 约束 to the given
- * partition. This is to be called when the partition is being created or
- * attached. This recurses to partitions, if the relation being attached is
- * partitioned. Recursion is done by calling addFkRecurseReferenced.
+ * CloneFkReferenced
+ *		CloneForeignKeyConstraints 的子例程  
  *
+ * 找出所有在被引用侧拥有父关系的 FK；把这些约束克 
+ * 隆到给定的分区。应在创建或附加该分区时            
+ * 调用它。                                    
  *
- *
- *
+ * 如果被附加的关系是分区表，这会递归到各个分区。      
+ * 递归通过调用 addFkRecurseReferenced 完成。 
  */
 static void
 CloneFkReferenced(Relation parentRel, Relation partitionRel)
@@ -10438,17 +10438,17 @@ CloneFkReferenced(Relation parentRel, Relation partitionRel)
 }
 
 /*
- * CloneFkReferencing Subroutine for CloneForeignKeyConstraints For each FK 约束
- * of the 父关系 in the given list, find an equivalent 约束 in its partition
- * relation that can be reparented; if one 不能 found, create a new 约束 in the
- * partition as its child. If wqueue is given, it 被使用 to set up phase-3
- * verification for each cloned 约束; omit it if such verification is not needed
- * (example: the partition is being created anew).
+ * CloneFkReferencing
+ *		CloneForeignKeyConstraints 的子例程  
  *
+ * 对于给定列表中父关系的每个 FK 约束，在其分区关系  
+ * 找出一个能重新挂接的等价约束；若找不到，则在分  
+ * 区中创建一个新约束来作为它的子                          
+ * 级。
  *
- *
- *
- *
+ * 如果给定了 wqueue，则用它为每个克隆约束设置阶段 3 
+ * 验证；如果不需要这种验证，则省略它          
+ * （例如：该分区是全新创建的）。  
  */
 static void
 CloneFkReferencing(List **wqueue, Relation parentRel, Relation partRel)
@@ -11027,14 +11027,14 @@ GetForeignKeyCheckTriggers(Relation trigrel,
 }
 
 /*
- * ALTER TABLE ALTER CONSTRAINT Update the 属性 of a 约束. Currently 仅 works for
- * Foreign Key 约束. If the 约束 is modified, 返回 its address; 否则, return
- * InvalidObjectAddress.
+ * ALTER TABLE ALTER CONSTRAINT
  *
+ * 更新约束的属性。              
  *
+ * 当前仅适用于外键约束。                
  *
- *
- *
+ * 如果该约束被修改，则返回其地址；否则返回         
+ * InvalidObjectAddress 
  */
 static ObjectAddress
 ATExecAlterConstraint(Relation rel, AlterTableCmd *cmd, bool recurse,
@@ -11163,15 +11163,15 @@ ATExecAlterConstraint(Relation rel, AlterTableCmd *cmd, bool recurse,
 }
 
 /*
- * Recursive subroutine of ATExecAlterConstraint. Returns true if the 约束 is
- * altered. otherrelids is appended OID of relations containing affected 触发器.
- * 请注意 我们必须 递归 even when the values are correct, in case indirect descendants
- * have had their 约束 altered locally. (This 可能 avoided if we forbade altering
- * 约束 in partitions but existing releases don't do that.)
+ * ATExecAlterConstraint 的递归子例程。若约束被修改，   
+ * 则返回 true。     
  *
+ * *otherrelids                                                            
  *
- *
- *
+ * 注意，即使值正确也必须递归，以防间接后代       
+ * 已在本地修改过它们的约束。                         
+ * （若禁止修改分区约束，本可避免，但现有版本并不  
+ * 这样做。）                      
  */
 static bool
 ATExecAlterConstrRecurse(Constraint *cmdcon, Relation conrel, Relation tgrel,
@@ -11191,10 +11191,10 @@ ATExecAlterConstrRecurse(Constraint *cmdcon, Relation conrel, Relation tgrel,
 	refrelid = currcon->confrelid;
 
 	/*
-	 * Update pg_constraint with the flags from cmdcon. If called to modify a 约束
-	 * that's 已经 in the desired state, silently do nothing.
+	 * 用 cmdcon 中的标志更新 pg_constraint。  
 	 *
-	 *
+	 * 若被调用来修改已处于期望状态的约束，则静默地   
+	 * 什么也不做。  
 	 */
 	if (currcon->condeferrable != cmdcon->deferrable ||
 		currcon->condeferred != cmdcon->initdeferred)
@@ -11274,12 +11274,12 @@ ATExecAlterConstrRecurse(Constraint *cmdcon, Relation conrel, Relation tgrel,
 	}
 
 	/*
-	 * If the table at either end of the 约束 is partitioned, 我们需要 递归 and handle
-	 * every 约束 that is a child of this one. (This assumes that the 递归 flag is
-	 * forcibly set for partitioned tables, and not set for legacy 继承, though 我们不
-	 * check for that here.)
+	 * 如果约束任一端的表为分区表，我们需要递归并处理  
+	 * 作为此约束子约束的每一个约束。                   
 	 *
-	 *
+	 * （假定分区表强制设置递归标志，传统继承则无， 
+	 * 尽管我们不在这里检查这一                                 
+	 * 点。）  
 	 */
 	if (rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE ||
 		get_rel_relkind(refrelid) == RELKIND_PARTITIONED_TABLE)
@@ -11314,15 +11314,15 @@ ATExecAlterConstrRecurse(Constraint *cmdcon, Relation conrel, Relation tgrel,
 }
 
 /*
- * ALTER TABLE VALIDATE CONSTRAINT XXX The reason we handle 递归 here rather
- * than at Phase 1 is 因为 there's no good way to skip 递归中 when handling foreign
- * keys: there is no need to 锁 children in that case, yet we wouldn't be able
- * to avoid doing so at that level. Return value is the address of the 已验证 约束.
- * If the 约束 was 已经 已验证, InvalidObjectAddress is returned.
+ * ALTER TABLE VALIDATE CONSTRAINT
  *
+ * XXX 我们在此而非在阶段 1 处理递归，原因是：在处理   
+ * 外键时没有好的方法可以跳过递归：那种情况下不需要  
+ * 锁定子表，但在那个层级我们将无法避免这样           
+ * 做。                 
  *
- *
- *
+ * 返回值是已验证约束的地址。若该约束已被验证过，      
+ * 则返回 InvalidObjectAddress。                       
  */
 static ObjectAddress
 ATExecValidateConstraint(List **wqueue, Relation rel, char *constrName,
@@ -11421,12 +11421,12 @@ ATExecValidateConstraint(List **wqueue, Relation rel, char *constrName,
 											   lockmode, NULL);
 
 			/*
-			 * For CHECK 约束, 我们必须 ensure that we 仅 mark the 约束 as 已验证 on the parent if
-			 * it's 已经 已验证 on the children. We 递归 之前 validating on the parent, to
-			 * reduce risk of deadlocks.
+			 * 对 CHECK 约束，必须确保只有当子表上          
+			 * 已验证时，才在父表上把它标记                     
+			 * 为已验证。 
 			 *
-			 *
-			 *
+			 * 我们在父表上验证之前递归，以减少死锁       
+			 * 风险。 
 			 */
 			foreach(child, children)
 			{
@@ -11504,14 +11504,14 @@ ATExecValidateConstraint(List **wqueue, Relation rel, char *constrName,
 
 
 /*
- * transformColumnNameList - 转换 list of 列名 Lookup each name and return its
- * attnum and, optionally, type OID Note: the name of this function suggests
- * that it's general-purpose, but actually it's 仅 used to look up names
- * appearing in foreign-key clauses. The error messages would need work to use
- * it in other cases, and perhaps the validity 检查 同时.
+ * transformColumnNameList - 转换列名列表            
  *
+ * 查找每个名称并返回其 attnum 和可选的类型 OID    
  *
- *
+ * 注意：函数名看似通用，但只用于查找外键子句中 
+ * 出现的名称。错误消息需要改进才能在其他情况下   
+ * 使用它，或许它的有效性                                     
+ * 检查也是如此。                   
  */
 static int
 transformColumnNameList(Oid relId, List *colList,
@@ -11554,16 +11554,16 @@ transformColumnNameList(Oid relId, List *colList,
 }
 
 /*
- * transformFkeyGetPrimaryKey - Look up the names, attnums, and types of the
- * 主键 属性 for the pkrel. Also return the 索引 OID and 索引 opclasses of the 索引
- * supporting the 主键. All parameters except pkrel are output parameters. Also,
- * the function return value is the number of 属性 in the 主键. Used when the
- * column list in the REFERENCES specification is omitted.
+ * transformFkeyGetPrimaryKey -
  *
+ *	查找 pkrel 的主键属性的名称、attnum 和类型           
+ *	还要返回支持主键的索引的 OID 和索引                  
+ *	操作符类。                  
  *
+ *	除 pkrel 外，所有参数都是输出参数。另外，函数的返
+ *	回值是主键中属性的数量。                        
  *
- *
- *
+ *	在 REFERENCES 规范中的列列表被省略时使用。            
  */
 static int
 transformFkeyGetPrimaryKey(Relation pkrel, Oid *indexOid,
@@ -11653,16 +11653,16 @@ transformFkeyGetPrimaryKey(Relation pkrel, Oid *indexOid,
 }
 
 /*
- * transformFkeyCheckAttrs - Validate that the 'attnums' columns in the
- * 'pkrel' relation are valid to reference as part of a 外键约束. Returns the OID
- * of the unique 索引 supporting the 约束 and populates the caller-provided
- * 'opclasses' array with the opclasses associated with the 索引 columns. Raises
- * an ERROR on 验证 failure.
+ * transformFkeyCheckAttrs -
  *
+ *	验证 'pkrel' 关系中的 'attnums' 列作为外键约束的一部分 
+ *	来引用是有效的。                      
  *
+ *	返回支持该约束的唯一索引的 OID，并                
+ *	用与索引列相关联的操作符类填充调用者提供的   
+ *	'opclasses' 数组。             
  *
- *
- *
+ *	验证失败时抛出 ERROR。        
  */
 static Oid
 transformFkeyCheckAttrs(Relation pkrel,
@@ -11952,11 +11952,11 @@ validateForeignKeyConstraint(char *conname,
 }
 
 /*
- * CreateFKCheckTrigger Creates the insert (on_insert=true) or update "check"
- * 触发器 that implements a given 外键 Returns the OID of the so created 触发器.
+ * CreateFKCheckTrigger
+ *		创建实现给定外键的 insert (on_insert=true) 或 update    
+ *		"check" 触发器。          
  *
- *
- *
+ * 返回这样创建的触发器的 OID。  
  */
 static Oid
 CreateFKCheckTrigger(Oid myRelOid, Oid refRelOid, Constraint *fkconstraint,
@@ -12014,12 +12014,12 @@ CreateFKCheckTrigger(Oid myRelOid, Oid refRelOid, Constraint *fkconstraint,
 }
 
 /*
- * createForeignKeyActionTriggers Create the referenced-side "action" 触发器 that
- * implement a 外键. Returns the OID of the so created 触发器 in *deleteTrigOid and
- * updateTrigOid.
+ * createForeignKeyActionTriggers
+ *		创建实现一个外键的被引用侧 "action" 触发器。        
+ *		    
  *
- *
- *
+ * 把这样创建的触发器的 OID 返回在 *deleteTrigOid 和  
+ * *updateTrigOid 
  */
 static void
 createForeignKeyActionTriggers(Relation rel, Oid refRelOid, Constraint *fkconstraint,
@@ -12149,12 +12149,12 @@ createForeignKeyActionTriggers(Relation rel, Oid refRelOid, Constraint *fkconstr
 }
 
 /*
- * createForeignKeyCheckTriggers Create the referencing-side "check" 触发器 that
- * implement a 外键. Returns the OID of the so created 触发器 in *insertTrigOid and
- * updateTrigOid.
+ * createForeignKeyCheckTriggers
+ *		创建实现一个外键的引用侧 "check" 触发器。            
+ *		    
  *
- *
- *
+ * 把这样创建的触发器的 OID 返回在 *insertTrigOid 和  
+ * *updateTrigOid 
  */
 static void
 createForeignKeyCheckTriggers(Oid myRelOid, Oid refRelOid,
@@ -12416,21 +12416,21 @@ ATExecDropConstraint(Relation rel, const char *constrName,
 }
 
 /*
- * ALTER COLUMN TYPE Unlike other 子命令 types, we do 解析转换 for ALTER COLUMN TYPE
- * 期间 phase 1 --- the AlterTableCmd passed in here is 已经 转换后的 (and 必须是, 因为 we
- * rely on some 转换后的 fields). The point of this is that the 执行 of all ALTER
- * COLUMN TYPEs for a table 将被 done "in parallel" 期间 phase 3, so all the USING
- * expressions 应是 parsed assuming the original column types. Also, this 允许 a
- * USING expression to refer to a field that 将被 dropped. To make this work
- * safely, AT_PASS_DROP then AT_PASS_ALTER_TYPE 必须是 the first two 执行 steps in
- * phase 2; they must not see the effects of any other 子命令 types, since the
- * USING expressions are parsed against the unmodified table's state.
+ * ALTER COLUMN TYPE
  *
+ * 与其他子命令类型不同，我们在阶段 1 期间为 ALTER COLUMN 
+ * TYPE 做解析转换 --- 传入这里的 AlterTableCmd 已转换   
+ * 过（必须如此，因为我们依赖某些已转换的字段）。 
  *
+ * 关键点在于：一个表的所有 ALTER COLUMN TYPE 的执行将在 
+ * 在阶段 3 "并行"完成，因此所有 USING 表达式都应  
+ * 假定原始列类型来解析。此外，它允许 USING 表达式引 
+ * 用一个将被删除的字段。                                       
  *
- *
- *
- *
+ * 为了安全地做到这一点，AT_PASS_DROP 和 AT_PASS_ALTER_TYPE  
+ * 必须作为阶段 2 的头两个执行步骤；它们绝不能看到  
+ * 其他子命令类型的效果，因为 USING 表达式针对未修  
+ * 改的表状态解析的。          
  */
 static void
 ATPrepAlterColumnType(List **wqueue,
@@ -12607,12 +12607,12 @@ ATPrepAlterColumnType(List **wqueue,
 	ReleaseSysCache(tuple);
 
 	/*
-	 * Recurse manually by queueing a new command for each child, if necessary.
-	 * 我们可以not apply ATSimpleRecursion here 因为 我们需要 remap 属性 numbers in the USING
-	 * expression, 如有. If we are told not to 递归, there had better not be any
-	 * child tables; else the alter would put them out of step.
+	 * 必要时，通过为每个子表排队一个新命令来手 
+	 * 动递归。这里不能用 ATSimpleRecursion，因为需重        
+	 * 映射 USING 表达式（如果有）中的属性号。 
 	 *
-	 *
+	 * 若被告知不要递归，则最好没有任何子表；否则 
+	 * 修改会使它们失去同步。                 
 	 */
 	if (recurse)
 	{
@@ -13587,14 +13587,14 @@ ATPostAlterTypeCleanup(List **wqueue, AlteredTableInfo *tab, LOCKMODE lockmode)
 		relid = StatisticsGetRelation(oldId, false);
 
 		/*
-		 * As 以上, 确保 we have 锁 on the 统计信息 object's table if it's not the same
-		 * table. However, we take ShareUpdateExclusiveLock here, aligning with the
-		 * 锁 level used in CreateStatistics and RemoveStatisticsById. CAUTION: this
-		 * 应是 done 之后 all cases that grab AccessExclusiveLock, else we risk causing
-		 * 死锁 due to needing to promote our table 锁.
+		 * 同上，确保在统计信息对象的表上持有锁，        
+		 * 若它不是同一张表。但我们在此   
+		 * 采用 ShareUpdateExclusiveLock，与 CreateStatistics、          
+		 * RemoveStatisticsById 的锁级别一致。
 		 *
-		 *
-		 *
+		 * 注意：这应在所有获取                        
+		 * AccessExclusiveLock 的情况后完成，否则可能因需要升
+		 * 级表锁而死锁。     
 		 */
 		if (relid != tab->relid)
 			LockRelationOid(relid, ShareUpdateExclusiveLock);
@@ -13655,12 +13655,12 @@ ATPostAlterTypeCleanup(List **wqueue, AlteredTableInfo *tab, LOCKMODE lockmode)
 }
 
 /*
- * Parse the 先前-saved definition string for a 约束, 索引 or 统计信息 object against
- * the newly-established column 数据类型(s), and queue up the resulting command
- * parsetrees for 执行. This might fail if, 例如, you have a WHERE clause that
- * uses an operator that's not available for the new 列类型.
+ * 针对新建立的列类型，解析先前保存的约束、索引或  
+ * 统计信息对象，并把生成的命令解析树排队等待         
+ * 执行。                                               
  *
- *
+ * 这可能会失败，例如你的 WHERE 子句使用了新列类型  
+ * 不可用的操作符。                              
  */
 static void
 ATPostAlterTypeParse(Oid oldId, Oid oldRelId, Oid refRelId, char *cmd,
@@ -13716,12 +13716,12 @@ ATPostAlterTypeParse(Oid oldId, Oid oldRelId, Oid refRelId, char *cmd,
 	rel = relation_open(oldRelId, NoLock);
 
 	/*
-	 * Attach each generated command to the proper place in the work queue. Note
-	 * this could result in creation of entirely new work-queue entries. Also 请注意
-	 * we have to tweak the command subtypes, 因为 it turns out that re-creation of
-	 * 索引 and 约束 has to act a bit differently from initial creation.
+	 * 把每个生成的命令附加到工作队列中合适的位置。  
+	 * 注意，这可能导致创建全新的工作队列项。             
 	 *
-	 *
+	 * 注意，我们还必须微调命令子类型，因为事实证明， 
+	 * 索引和约束重建的行为必须与初始创建略有不    
+	 * 同。                            
 	 */
 	foreach(list_item, querytree_list)
 	{
@@ -13808,11 +13808,11 @@ ATPostAlterTypeParse(Oid oldId, Oid oldRelId, Oid refRelId, char *cmd,
 				else if (cmd->subtype == AT_SetNotNull)
 				{
 					/*
-					 * The 解析器 will create AT_SetNotNull 子命令 for columns of PRIMARY KEY
-					 * 索引/约束, but we need not do anything with them here, 因为 the columns' NOT
-					 * NULL marks will 已经 have been propagated into the new table definition.
-					 *
-					 *
+					 * 解析器会为 PRIMARY KEY 索引/约束的列     
+					 * 创建 AT_SetNotNull 子命令，但在这里无需    
+					 * 对它们做任何处理，因为这些列的       
+					 * NOT NULL 标记已经被传播到新的              
+					 * 表定义中。          
 					 */
 				}
 				else
@@ -13869,14 +13869,14 @@ ATPostAlterTypeParse(Oid oldId, Oid oldRelId, Oid refRelId, char *cmd,
 }
 
 /*
- * Subroutine for ATPostAlterTypeParse() to recreate any existing comment for
- * a table or domain 约束 that is being 重建. objid is the OID of the 约束. Pass
- * "rel" for a 表约束, or "domname" (domain's qualified name as a string list)
- * for a domain 约束. (We could dig that info, 同时 as the conname, out of the
- * pg_constraint entry; but callers 已经 have them so might 同时 pass them.)
+ * ATPostAlterTypeParse() 的子例程，用于为正在重建的表     
+ * 或域约束重建任何现有注释。                
  *
- *
- *
+ * objid 是约束的 OID。          
+ * 对于表约束传递 "rel"，或对于域约束传递 "domname"（域  
+ * 的限定名，字符串列表形式）。
+ * （我们本可以从 pg_constraint 条目中挖出这些信息以及    
+ * conname；但调用者已有它们，所以不妨传它们。） 
  */
 static void
 RebuildConstraintComment(AlteredTableInfo *tab, int pass, Oid objid,
@@ -13944,11 +13944,11 @@ TryReuseIndex(Oid oldId, IndexStmt *stmt)
 }
 
 /*
- * Subroutine for ATPostAlterTypeParse(). Stash the old P-F equality operator
- * into the Constraint node, for possible use by ATAddForeignKeyConstraint()
- * in determining whether revalidation of this 约束 can be skipped.
+ * ATPostAlterTypeParse() 的子例程   
  *
- *
+ * 把旧的 P-F 相等操作符存入 Constraint 节点，供               
+ * ATAddForeignKeyConstraint() 用于判断是否可以跳过此约         
+ * 束的重新验证。          
  */
 static void
 TryReuseForeignKey(Oid oldId, Constraint *con)
@@ -14096,16 +14096,16 @@ ATExecAlterColumnGenericOptions(Relation rel,
 }
 
 /*
- * ALTER TABLE OWNER 递归中 is true if we are 递归中 from a table to its 索引, 序列, or
- * TOAST 表. 我们不 allow the ownership of those things to be changed separately
- * from the 父表. Also, 我们可以 skip 权限 检查 (this is necessary not just an
- * optimization, else we'd fail to handle toast tables properly). 递归中 is 也
- * true if ALTER TYPE OWNER is calling us to fix up a free-standing 复合类型.
+ * ALTER TABLE OWNER
  *
+ * recursing 为 true 表示从表递归到其索引、序列或     
+ * TOAST 表。不允许这些东西的所有权与父表分开改变。      
+ * 此外，我们可以跳过权限检查（这不仅是优化，而且是  
+ * 必需的），否则我们将无法正确处理                     
+ * TOAST 表。                  
  *
- *
- *
- *
+ * recursing 在 ALTER TYPE OWNER 调我们去修复一个独立       
+ * 复合类型时也为 true。
  */
 void
 ATExecChangeOwner(Oid relationOid, Oid newOwnerId, bool recursing, LOCKMODE lockmode)
@@ -14407,11 +14407,11 @@ change_owner_fix_column_acls(Oid relationOid, Oid oldOwnerId, Oid newOwnerId)
 }
 
 /*
- * change_owner_recurse_to_sequences Helper function for ATExecChangeOwner.
- * Examines pg_depend searching for 序列 that are dependent on serial columns,
- * and changes their ownership.
+ * change_owner_recurse_to_sequences
  *
- *
+ * ATExecChangeOwner 的辅助函数。它会检查 pg_depend 来      
+ * 查找依赖于 serial 列的序列，并改变它们的             
+ *           
  */
 static void
 change_owner_recurse_to_sequences(Oid relationOid, Oid newOwnerId, LOCKMODE lockmode)
@@ -14476,11 +14476,11 @@ change_owner_recurse_to_sequences(Oid relationOid, Oid newOwnerId, LOCKMODE lock
 }
 
 /*
- * ALTER TABLE CLUSTER ON The 仅 thing we have to do is to change the
- * indisclustered bits. Return the address of the new clustering 索引.
+ * ALTER TABLE CLUSTER ON
  *
+ * 我们唯一要做的就是改变 indisclustered 位。           
  *
- *
+ * 返回新的集簇索引的地址。           
  */
 static ObjectAddress
 ATExecClusterOn(Relation rel, const char *indexName, LOCKMODE lockmode)
@@ -14509,10 +14509,10 @@ ATExecClusterOn(Relation rel, const char *indexName, LOCKMODE lockmode)
 }
 
 /*
- * ALTER TABLE SET WITHOUT CLUSTER We have to find any 索引 on the table that
- * have indisclustered bit set and turn it off.
+ * ALTER TABLE SET WITHOUT CLUSTER
  *
- *
+ * 我们必须找出表上设置了 indisclustered 位的索引，并  
+ * 将其关闭。     
  */
 static void
 ATExecDropCluster(Relation rel, LOCKMODE lockmode)
@@ -14837,12 +14837,12 @@ ATExecSetTableSpace(Oid tableOid, Oid newTableSpace, LOCKMODE lockmode)
 	}
 
 	/*
-	 * Update the pg_class row. NB: This wouldn't work if ATExecSetTableSpace()
-	 * were allowed to be executed on pg_class or its 索引 (the 以上 copy wouldn't
-	 * contain the updated pg_class entry), but that's forbidden with
-	 * CheckRelationTableSpaceMove().
+	 * 更新 pg_class 行。  
 	 *
-	 *
+	 * 注意：若允许 ATExecSetTableSpace() 在 pg_class 或其索   
+	 * 引上执行（上面的副本将不含更新 pg_class 条目）， 
+	 * 但被以下函数所禁止：                        
+	 * CheckRelationTableSpaceMove() 
 	 */
 	SetRelationTableSpace(rel, newTableSpace, newrelfilenumber);
 
@@ -14866,11 +14866,11 @@ ATExecSetTableSpace(Oid tableOid, Oid newTableSpace, LOCKMODE lockmode)
 }
 
 /*
- * Special handling of ALTER TABLE SET TABLESPACE for relations with no 存储
- * that have an interest in preserving 表空间. Since these have no 存储 the 表空间 can
- * be updated with a simple metadata 仅 operation to update the 表空间.
+ * 对没有存储但希望保留表空间的关系，为 ALTER TABLE  
+ * SET TABLESPACE 做特殊处理。                      
  *
- *
+ * 由于这些关系没有存储，表空间可以通过一个简单的  
+ * 仅元数据操作来更新。                   
  */
 static void
 ATExecSetTableSpaceNoStorage(Relation rel, Oid newTableSpace)
@@ -14990,12 +14990,12 @@ AlterTableMoveAll(AlterTableMoveAllStmt *stmt)
 		Oid			relOid = relForm->oid;
 
 		/*
-		 * Do not move objects in pg_catalog as part of this, if an admin really
-		 * wishes to do so, they can issue the individual ALTER commands directly.
-		 * Also, explicitly avoid any shared tables, temp tables, or TOAST (TOAST 将被
-		 * moved with the main table).
+		 * 不要此时移动 pg_catalog 对象；若管理员想这     
+		 * 样做，他们可以直接发出单独的 ALTER           
+		 * 命令。         
 		 *
-		 *
+		 * 另外，明确避开共享表、临时表或 TOAST（TOAST    
+		 *  会随主表一起移动）。           
 		 */
 		if (IsCatalogNamespace(relForm->relnamespace) ||
 			relForm->relisshared ||
@@ -15089,11 +15089,11 @@ index_copy_data(Relation rel, RelFileLocator newrlocator)
 	FlushRelationBuffers(rel);
 
 	/*
-	 * Create and copy all forks of the relation, and schedule unlinking of old
-	 * physical files. NOTE: any conflict in relfilenumber value 将被 caught in
-	 * RelationCreateStorage().
+	 * 创建并复制关系的所有分叉，并安排解除旧物理     
+	 * 文件的链接。 
 	 *
-	 *
+	 * 注意：relfilenumber 值的任何冲突都会在         
+	 * RelationCreateStorage() 
 	 */
 	RelationCreateStorage(newrlocator, rel->rd_rel->relpersistence, true);
 
@@ -15155,11 +15155,11 @@ ATExecEnableDisableRule(Relation rel, const char *rulename,
 }
 
 /*
- * ALTER TABLE INHERIT Add a parent to the child's parents. This 验证 that all
- * the columns and check 约束 of the parent appear in the child and that they
- * have the same data types and expressions.
+ * ALTER TABLE INHERIT
  *
- *
+ * 把一个父表加到子表的父表列表中。这验证父表的所有   
+ * 列和检查约束都出现在子表中，并且它们具有相同的数  
+ * 据类型和表达式。        
  */
 static void
 ATPrepAddInherit(Relation child_rel)
@@ -15289,11 +15289,11 @@ ATExecAddInherit(Relation child_rel, RangeVar *parent, LOCKMODE lockmode)
 }
 
 /*
- * CreateInheritance Catalog manipulation portion of creating 继承 之间 a 子表 and a
- * 父表. Common to ATExecAddInherit() and ATExecAttachPartition().
+ * CreateInheritance
+ *		在子表与父表之间创建继承的目录操作                 
+ *		部分。                
  *
- *
- *
+ * ATExecAddInherit() 和 ATExecAttachPartition() 共用。 
  */
 static void
 CreateInheritance(Relation child_rel, Relation parent_rel)
@@ -15405,18 +15405,18 @@ constraints_equivalent(HeapTuple a, HeapTuple b, TupleDesc tupleDesc)
 }
 
 /*
- * Check columns in 子表 match up with columns in parent, and increment their
- * attinhcount. Called by CreateInheritance Currently all parent columns 必须是
- * found in child. Missing columns are an error. One day we might consider
- * creating new columns like CREATE TABLE does. However, that is widely
- * unpopular --- in the common use case of partitioned tables it's a foot-gun.
- * The 数据类型 must match exactly. If the parent column is NOT NULL then the
- * child 必须是 同时. Defaults are not compared, 然而.
+ * 检查子表中的各列与父表中的各列是否匹配，并递增      
+ * attinhcount。    
  *
+ * CreateInheritance 调用。
  *
+ * 当前，父表的所有列都必须能在子表中找到。缺少列      
+ * 是一种错误。也许有一天我们可以考虑像 CREATE TABLE     
+ * 那样创建新列。不过这很不得人心 --- 在分区表这种  
+ * 常见场景中是个 foot-gun。  
  *
- *
- *
+ * 数据类型必须完全一致。若父列是 NOT NULL，则           
+ * 子列也必须如此。但默认值不作比较。           
  */
 static void
 MergeAttributesIntoExisting(Relation child_rel, Relation parent_rel)
@@ -15531,21 +15531,21 @@ MergeAttributesIntoExisting(Relation child_rel, Relation parent_rel)
 }
 
 /*
- * Check 约束 in 子表 match up with 约束 in parent, and increment their coninhcount.
- * Constraints that are marked ONLY in the parent are ignored. Called by
- * CreateInheritance Currently all 约束 in parent 必须是 present in the child. One
- * day we may consider adding new 约束 like CREATE TABLE does. XXX This is
- * O(N^2) which 可能 an issue with tables with hundreds of 约束. As long as tables
- * have more like 10 约束 it shouldn't be a problem though. Even 100 约束 ought
- * not be the end of the world. XXX See MergeWithExistingConstraint too if you
- * change this code.
+ * 检查子表中的约束与父表中的约束是否匹配，并递增
+ * 它们的 coninhcount。        
  *
+ * 仅在父表中标记为 ONLY 的约束会被忽略。     
  *
+ * CreateInheritance 调用。
  *
+ * 当前，父表的所有约束都必须存在于子表中。也许有一    
+ * 天我们会考虑像 CREATE TABLE 那样添加新约束。
  *
+ * XXX 此算法是 O(N^2)，对拥有数百个约束的表而言       
+ * 可能是个问题。但只要表的约束数量在 10 个左右，         
+ * 即使 100 个约束也不至于世界末日。                          
  *
- *
- *
+ * XXX 若修改此代码，请参见 MergeWithExistingConstraint  
  */
 static void
 MergeConstraintsIntoExisting(Relation child_rel, Relation parent_rel)
@@ -15717,11 +15717,11 @@ ATExecDropInherit(Relation rel, RangeVar *parent, LOCKMODE lockmode)
 }
 
 /*
- * MarkInheritDetached Set inhdetachpending for a partition, for
- * ATExecDetachPartition in 并发 mode. While at it, verify that no other
- * partition is 已经 pending detach.
+ * MarkInheritDetached
  *
- *
+ * 为一个分区设置 inhdetachpending，用于                
+ * ATExecDetachPartition 的并发模式。同时验证没有其他   
+ * 分区等待分离。  
  */
 static void
 MarkInheritDetached(Relation child_rel, Relation parent_rel)
@@ -16166,10 +16166,10 @@ ATExecAddOf(Relation rel, const TypeName *ofTypename, LOCKMODE lockmode)
 }
 
 /*
- * ALTER TABLE NOT OF Detach a 类型化表 from its originating type. Just clear
- * reloftype and remove the 依赖.
+ * ALTER TABLE NOT OF
  *
- *
+ * 把类型化表与其源类型解除关联。只需清除 reloftype      
+ * 并移除依赖项。 
  */
 static void
 ATExecDropOf(Relation rel, LOCKMODE lockmode)
@@ -16207,13 +16207,13 @@ ATExecDropOf(Relation rel, LOCKMODE lockmode)
 }
 
 /*
- * relation_mark_replica_identity: Update a table's 副本标识 Iff ri_type =
- * REPLICA_IDENTITY_INDEX, indexOid 必须是 the Oid of a suitable 索引. Otherwise,
- * it 必须是 InvalidOid. Caller had better hold an 排他锁 on the relation, as the
- * results of running two of these con当前 wouldn't be pretty.
+ * relation_mark_replica_identity：更新表的副本标识        
  *
+ * 仅当 ri_type = REPLICA_IDENTITY_INDEX 时，indexOid 必须是            
+ * 适用索引 OID，否则 InvalidOid。 
  *
- *
+ * 调用者最好已在该关系上持有排他锁，因为并发运行两
+ * 个此类操作的话，后果可不会太妙。        
  */
 static void
 relation_mark_replica_identity(Relation rel, char ri_type, Oid indexOid,
@@ -16615,14 +16615,14 @@ ATExecSetCompression(Relation rel,
 
 
 /*
- * Preparation phase for SET LOGGED/UNLOGGED This 验证 that we're not trying to
- * change a 临时表. Also, existing 外键 约束 are checked to avoid ending up with
- * permanent tables referencing unlogged tables. Return value is false if the
- * operation is a no-op (in which case the 检查 are skipped), 否则 true.
+ * SET LOGGED/UNLOGGED 的准备阶段      
  *
+ * 此阶段会验证我们并非试图更改临时表。另外，   
+ * 还会检查现有外键约束，以避免最终出现永久表     
+ * 引用不记录 WAL 的表的情况。       
  *
- *
- *
+ * 若操作为无操作则返回 false（此时跳过检查），     
+ * 否则返回 true。                
  */
 static bool
 ATPrepChangePersistence(Relation rel, bool toLogged)
@@ -16944,12 +16944,12 @@ AlterIndexNamespaces(Relation classRel, Relation rel,
 		thisobj.objectSubId = 0;
 
 		/*
-		 * Note: 当前, the 索引 will not have its own 依赖 on the 命名空间, so 我们不 need to do
-		 * changeDependencyFor(). There's no 行类型 in pg_type, either. XXX this
-		 * objsMoved test 可能 pointless -- surely we have a single 依赖 link from a
-		 * relation to each 索引?
+		 * 注意：当前索引不会在命名空间上有自己的依赖，
+		 * 因此无需执行 changeDependencyFor()。pg_type 中也没有    
+		 * 对应的行类型。       
 		 *
-		 *
+		 * XXX 这个 objsMoved 测试可能是多余的 -- 从关系到每个
+		 * 索引应该只有一条依赖链接吧？    
 		 */
 		if (!object_address_present(&thisobj, objsMoved))
 		{
@@ -16964,11 +16964,11 @@ AlterIndexNamespaces(Relation classRel, Relation rel,
 }
 
 /*
- * Move all identity and SERIAL-column 序列 of the specified relation to another
- * 命名空间. Note: we assume adequate 权限 checking was done by the caller, and that
- * the caller has a suitable 锁 on the owning relation.
+ * 把指定关系的所有标识列和 SERIAL 列的序列移动到另一个命名  
+ * 空间。 
  *
- *
+ * 注意：我们假定调用者已完成充分的权限检查，     
+ * 并且调用者已在该拥有关系上持有适当的锁。   
  */
 static void
 AlterSeqNamespaces(Relation classRel, Relation rel,
@@ -17045,11 +17045,11 @@ AlterSeqNamespaces(Relation classRel, Relation rel,
 
 
 /*
- * This code supports CREATE TEMP TABLE ... ON COMMIT { DROP | PRESERVE ROWS |
- * DELETE ROWS } Because we 仅 support this for TEMP tables, it's sufficient to
- * remember the state in a 后端-local data structure.
+ * 此代码支持   
+ *	CREATE TEMP TABLE ... ON COMMIT { DROP | PRESERVE ROWS | DELETE ROWS }
  *
- *
+ * 因为我们只对 TEMP 表支持此功能，把状态记录在一个后 
+ * 端本地的数据结构中就足够了。  
  */
 
 /*
@@ -17109,10 +17109,10 @@ remove_on_commit_action(Oid relid)
 }
 
 /*
- * Perform ON COMMIT actions. This is invoked just 之前 actually committing,
- * since it's possible to encounter errors.
+ * 执行 ON COMMIT 动作。
  *
- *
+ * 此例程在实际提交之前被调用，因为这一过程有可  
+ * 能遇到错误。  
  */
 void
 PreCommit_on_commit_actions(void)
@@ -17214,12 +17214,12 @@ PreCommit_on_commit_actions(void)
 }
 
 /*
- * Post-提交 or post-中止 cleanup for ON COMMIT management. All we do here is
- * remove no-longer-needed OnCommitItem entries. During 提交, remove entries
- * that were deleted 期间 this 事务; 期间 中止, remove those created 期间 this 事务.
+ * ON COMMIT 管理的提交后或中止后清理工作。    
  *
+ * 这里仅移除不再需要的 OnCommitItem 条目。          
  *
- *
+ * 提交时，移除在本事务中被删除的条目；                  
+ * 中止时，移除在本事务中创建的条目。        
  */
 void
 AtEOXact_on_commit_actions(bool isCommit)
@@ -17836,12 +17836,12 @@ ComputePartitionAttrs(ParseState *pstate, Relation rel, List *partParams, AttrNu
 }
 
 /*
- * PartConstraintImpliedByRelConstraint Do scanrel's existing 约束 imply the
- * partition 约束? "Existing 约束" include its check 约束 and column-level NOT NULL
- * 约束. partConstraint describes the partition 约束, in implicit-AND form.
+ * PartConstraintImpliedByRelConstraint
+ *		scanrel 现有的约束是否蕴含该分区约束？            
  *
- *
- *
+ * "现有约束"包括它的 CHECK 约束和列级 NOT NULL        
+ * 约束。partConstraint 描述分区约束，其形式为                
+ * 隐式 AND。            
  */
 bool
 PartConstraintImpliedByRelConstraint(Relation scanrel,
@@ -17887,14 +17887,14 @@ PartConstraintImpliedByRelConstraint(Relation scanrel,
 }
 
 /*
- * ConstraintImpliedByRelConstraint Do scanrel's existing 约束 imply the given
- * 约束? testConstraint is the 约束 to 验证. provenConstraint is a caller-provided
- * list of conditions which this function may assume to be true. Both
- * provenConstraint and testConstraint 必须是 in implicit-AND form, must 仅
- * contain immutable clauses, and must contain 仅 Vars with varno = 1.
+ * ConstraintImpliedByRelConstraint
+ *		scanrel 现有的约束是否蕴含给定的约束？        
  *
- *
- *
+ * testConstraint 是待验证的约束。provenConstraint 是        
+ * 调用者提供的条件列表，本函数可以假定其为     
+ * 真。provenConstraint 与 testConstraint 都必须处于隐式
+ * AND 形式，必须只含不可变子句，并且必须只含   
+ * varno = 1 的 Var。             
  */
 bool
 ConstraintImpliedByRelConstraint(Relation scanrel, List *testConstraint, List *provenConstraint)
@@ -17944,14 +17944,14 @@ ConstraintImpliedByRelConstraint(Relation scanrel, List *testConstraint, List *p
 }
 
 /*
- * QueuePartitionConstraintValidation Add an entry to wqueue to have the given
- * partition 约束 已验证 by Phase 3, for the given relation, and all its children.
- * We first verify whether the given 约束 is implied by pre-existing relation
- * 约束; if it is, there's no need to 扫描 the table to 验证, so don't queue in that
- * case.
+ * QueuePartitionConstraintValidation
  *
+ * 向 wqueue 添加一个条目，让阶段 3 对给定关系及其所有   
+ * 子表验证给定的分区约束。                  
  *
- *
+ * 我们首先验证给定的约束是否已被既有关系约束所蕴  
+ * 含；如果是，则无需扫描表来验证，                    
+ * 所以这种情况下不排队。     
  */
 static void
 QueuePartitionConstraintValidation(List **wqueue, Relation scanrel,
@@ -18325,12 +18325,12 @@ ATExecAttachPartition(List **wqueue, Relation rel, PartitionCmd *cmd,
 }
 
 /*
- * AttachPartitionEnsureIndexes subroutine for ATExecAttachPartition to
- * create/match 索引 Enforce the indexing rule for partitioned tables 期间 ALTER
- * TABLE / ATTACH PARTITION: every partition must have an 索引 attached to each
- * 索引 on the 分区表.
+ * AttachPartitionEnsureIndexes
+ *		ATExecAttachPartition 子例程，用于创建/匹配索引 
  *
- *
+ * 在 ALTER TABLE / ATTACH PARTITION 期间，对分区表强                 
+ * 制执行索引规则：每个分区都必须有一个索引，对应分   
+ * 区表各索引。
  */
 static void
 AttachPartitionEnsureIndexes(Relation rel, Relation attachrel)
@@ -18651,22 +18651,22 @@ CloneRowTriggersToPartition(Relation parent, Relation partition)
 }
 
 /*
- * ALTER TABLE DETACH PARTITION Return the address of the relation that is no
- * longer a partition of rel. If 并发 mode is requested, we run in two 事务. A
- * side- effect is that this command cannot run in a multi-part ALTER TABLE.
- * Currently, that's enforced by the grammar. The strategy for concurrency is
- * to first modify the partition's pg_inherit 目录 row to make it visible to
- * everyone that the partition is detached, 锁 the partition against 写入, and 提交
- * the 事务; anyone who requests the 分区描述符 from that point onwards has to ignore
- * such a partition. In a second 事务, we wait until all 事务 that could have seen
- * the partition as attached are gone, then we remove the rest of partition
- * metadata (pg_inherits and pg_class.relpartbounds).
+ * ALTER TABLE DETACH PARTITION
  *
+ * 返回不再作为 rel 分区的那个关系的地址。                
  *
+ * 若请求并发模式，我们将在两个事务中运行。副作用
+ * 是该命令不能在多部分的 ALTER TABLE 中运行。         
+ * 当前，这一点由语法强制保证   
  *
- *
- *
- *
+ * 并发策略是：首先修改分区的                        
+ * pg_inherit 目录行，让所有人都能看到该分区已   
+ * 被分离，锁定分区禁止写入，然后提交事务；        
+ * 从那时起，任何请求分区描述符的人必须忽略这   
+ * 样的分区。在第二个事务中，                        
+ * 我们会等待所有可能已将该分区视为已附加的事务  
+ * 全部结束，然后移除其余的分区元数据                 
+ * （pg_inherits 与 pg_class.relpartbounds）。   
  */
 static ObjectAddress
 ATExecDetachPartition(List **wqueue, AlteredTableInfo *tab, Relation rel,
@@ -18846,10 +18846,10 @@ ATExecDetachPartition(List **wqueue, AlteredTableInfo *tab, Relation rel,
 }
 
 /*
- * Second part of ALTER TABLE .. DETACH. This is separate 从而 it can be run
- * independently when the second 事务 of the 并发 algorithm fails (crash or 中止).
+ * ALTER TABLE .. DETACH 第二部分。
  *
- *
+ * 单独列出它，是为了在并发算法的第二个事务失败  
+ * （崩溃或中止）时可以独立运行。                  
  */
 static void
 DetachPartitionFinalize(Relation rel, Relation partRel, bool concurrent,
@@ -19124,12 +19124,12 @@ DetachPartitionFinalize(Relation rel, Relation partRel, bool concurrent,
 	if (OidIsValid(defaultPartOid))
 	{
 		/*
-		 * If the relation being detached is the 默认分区 itself, remove it from the
-		 * parent's pg_partitioned_table entry. If not, 我们必须 失效 默认分区's relcache 条目,
-		 * as in StorePartitionBound: its partition 约束 depends on every other
-		 * partition's partition 约束.
+		 * 若被分离的关系正是默认分区本身，则把它从父
+		 * 表的 pg_partitioned_table 条目中移除。         
 		 *
-		 *
+		 * 否则，我们必须使默认分区的 relcache 条目失效， 
+		 * 这与 StorePartitionBound 中一样：它的分区约束依赖  
+		 * 于其他每个分区的分区约束。
 		 */
 		if (RelationGetRelid(partRel) == defaultPartOid)
 			update_default_partition_oid(RelationGetRelid(rel), InvalidOid);
@@ -19198,11 +19198,11 @@ ATExecDetachPartitionFinalize(Relation rel, RangeVar *name)
 }
 
 /*
- * DetachAddConstraintIfNeeded Subroutine for ATExecDetachPartition. Create a
- * 约束 that takes the place of the partition 约束, but avoid creating a dupe if
- * an 约束 已经 exists which implies the needed 约束.
- *
- *
+ * DetachAddConstraintIfNeeded
+ *		ATExecDetachPartition 的子例程。创建一个              
+ *		约束来代替分区约束；但如果已有蕴含所需      
+ *		约束的约束存在，则避免重复                        
+ *		创建。  
  */
 static void
 DetachAddConstraintIfNeeded(List **wqueue, Relation partRel)

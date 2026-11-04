@@ -140,12 +140,12 @@ copyFile(const char *src, const char *dst,
 }
 
 
-/*计算旧格式每新页的字节数
- * 
+/*
+ * linkFile()
  *
- * 
- * 
-                                                                                            */
+ * 将关系文件从 src 硬链接到 dst。 
+ * schemaName/relName 仅用于错误消息。                               
+ */
 void
 linkFile(const char *src, const char *dst,
 		 const char *schemaName, const char *relName)
@@ -156,22 +156,22 @@ linkFile(const char *src, const char *dst,
 }
 
 
-/*保存旧文件大小
- * 
+/*
+ * rewriteVisibilityMap()
  *
- * 
- * 
+ * 转换可见性映射文件，从 src 复制到 dst。   
+ * schemaName/relName 仅用于错误消息。                               
  *
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            */
+ * 在 catversion 201603011 之前的 PostgreSQL 版本中，可见性  
+ * 映射每个堆页包含一位；现在包含两位。             
+ * 将那时的集簇升级到当前 PostgreSQL 版本时，本可以拒 
+ * 绝把可见性映射从旧集簇复制到新集簇；下一次      
+ * VACUUM 会重建它们，但代价是扫描整张表。            
+ * 所以我们改为以新格式重写旧的可见性映射。这     
+ * 样，之前置位的页面的 all-visible 位仍保持置位。  
+ * all-frozen 位绝不会由此转换置位；这一点留给      
+ * VACUUM 处理。                                                          
+ */
 void
 rewriteVisibilityMap(const char *fromfile, const char *tofile,
 					 const char *schemaName, const char *relName)
@@ -186,7 +186,7 @@ rewriteVisibilityMap(const char *fromfile, const char *tofile,
 	BlockNumber new_blkno = 0;
 	struct stat statbuf;
 
-	/* Compute number of old-format bytes per new page */
+	/* 计算每新页的旧格式字节数            */
 	rewriteVmBytesPerPage = (BLCKSZ - SizeOfPageHeaderData) / 2;
 
 	if ((src_fd = open(fromfile, O_RDONLY | PG_BINARY, 0)) < 0)
@@ -202,15 +202,15 @@ rewriteVisibilityMap(const char *fromfile, const char *tofile,
 		pg_fatal("error while copying relation \"%s.%s\": could not create file \"%s\": %s",
 				 schemaName, relName, tofile, strerror(errno));
 
-	/* 保存页头       */
+	/* 存旧文件大小 */
 	src_filesize = statbuf.st_size;
 
-	/*old_cur/blkend/break 指向旧 VM 页位置。blkend 块尾，break 是传输到当前新页的结束位。
-	 * 
-	 * 
-	 * 
-	 * 
-	                                                                                                                                                            */
+	/*
+	 * 将每个可见性映射页逐个转换为 2 页。每个新页的  
+	 * 页头与旧页相同。若最后一页的最后部分为空，则  
+	 * 跳过它，主要是为了避免把小关系的单页可见性 
+	 * 映射不必要地变成两页。                             
+	 */
 	while (totalBytesRead < src_filesize)
 	{
 		ssize_t		bytesRead;
@@ -233,15 +233,15 @@ rewriteVisibilityMap(const char *fromfile, const char *tofile,
 		totalBytesRead += BLCKSZ;
 		old_lastblk = (totalBytesRead == src_filesize);
 
-		/* 先拷旧页头到新页  */
+		/* 保存页头数据        */
 		memcpy(&pageheader, buffer.data, SizeOfPageHeaderData);
 
-		/*是重写旧页最后一页最后部分？
-		 * 
-		 * 
-		 * 
-		 * 
-		                                                                                                                                                                                                                  */
+		/*
+		 * 这些 old_* 变量指向旧可见性映射页。old_cur 指向
+		 * 旧页上的当前位置。old_blkend 指向旧块的结尾。     
+		 * old_break 是旧页上将被传输到当前新页的数据的 end+1
+		 * 位置。                                             
+		 */
 		old_cur = buffer.data + SizeOfPageHeaderData;
 		old_blkend = buffer.data + bytesRead;
 		old_break = old_cur + rewriteVmBytesPerPage;
@@ -252,22 +252,22 @@ rewriteVisibilityMap(const char *fromfile, const char *tofile,
 			bool		empty = true;
 			bool		old_lastpart;
 
-			/* 逐字节处旧页转新页             */
+			/* 首先，将旧页头复制到新页    */
 			memcpy(new_vmbuf.data, &pageheader, SizeOfPageHeaderData);
 
-			/* 生新格式位保留旧信息                */
+			/* 重写旧页最后一页的最后部分？    */
 			old_lastpart = old_lastblk && (old_break == old_blkend);
 
 			new_cur = new_vmbuf.data + SizeOfPageHeaderData;
 
-			/* 拷新 VM 字节到新格式页                               */
+			/* 逐个处理旧页字节，将其转换为新页。           */
 			while (old_cur < old_break)
 			{
 				uint8		byte = *(uint8 *) old_cur;
 				uint16		new_vmbits = 0;
 				int			i;
 
-				/* 末页末空则跳写                                  */
+				/* 生成新格式位，同时保留旧信息。          */
 				for (i = 0; i < BITS_PER_BYTE; i++)
 				{
 					if (byte & (1 << i))
@@ -278,7 +278,7 @@ rewriteVisibilityMap(const char *fromfile, const char *tofile,
 					}
 				}
 
-				/* 启用时为 VM 页设新校验                  */
+				/* 将新可见性映射字节复制到新格式页 */
 				new_cur[0] = (char) (new_vmbits & 0xFF);
 				new_cur[1] = (char) (new_vmbits >> 8);
 
@@ -286,11 +286,11 @@ rewriteVisibilityMap(const char *fromfile, const char *tofile,
 				new_cur += BITS_PER_HEAPBLOCK;
 			}
 
-			/* write 未设 errno 则假设盘空不足                    */
+			/* 若最后一页的最后部分为空，则跳过写入      */
 			if (old_lastpart && empty)
 				break;
 
-			/* 前进下页                                         */
+			/* 启用时为可见性映射页设置新校验和     */
 			if (new_cluster.controldata.data_checksum_version != 0)
 				((PageHeader) new_vmbuf.data)->pd_checksum =
 					pg_checksum_page(new_vmbuf.data, new_blkno);
@@ -298,20 +298,20 @@ rewriteVisibilityMap(const char *fromfile, const char *tofile,
 			errno = 0;
 			if (write(dst_fd, new_vmbuf.data, BLCKSZ) != BLCKSZ)
 			{
-				/* 清理                                                     */
+				/* write 未设 errno 则假设盘空不足                   */
 				if (errno == 0)
 					errno = ENOSPC;
 				pg_fatal("error while copying relation \"%s.%s\": could not write file \"%s\": %s",
 						 schemaName, relName, tofile, strerror(errno));
 			}
 
-			/* 可能失                 */
+			/* 前进到下一个新页  */
 			old_break += rewriteVmBytesPerPage;
 			new_blkno++;
 		}
 	}
 
-	/* Clean up */
+	/* 清理   */
 	close(dst_fd);
 	close(src_fd);
 }
@@ -324,7 +324,7 @@ check_file_clone(void)
 
 	snprintf(existing_file, sizeof(existing_file), "%s/PG_VERSION", old_cluster.pgdata);
 	snprintf(new_link_file, sizeof(new_link_file), "%s/PG_VERSION.clonetest", new_cluster.pgdata);
-	unlink(new_link_file);		/* might fail */
+	unlink(new_link_file);		/*可能失败*/
 
 #if defined(HAVE_COPYFILE) && defined(COPYFILE_CLONE_FORCE)
 	if (copyfile(existing_file, new_link_file, NULL, COPYFILE_CLONE_FORCE) < 0)
@@ -366,7 +366,7 @@ check_hard_link(void)
 
 	snprintf(existing_file, sizeof(existing_file), "%s/PG_VERSION", old_cluster.pgdata);
 	snprintf(new_link_file, sizeof(new_link_file), "%s/PG_VERSION.linktest", new_cluster.pgdata);
-	unlink(new_link_file);		/* might fail */
+	unlink(new_link_file);		/*可能失败*/
 
 	if (link(existing_file, new_link_file) < 0)
 		pg_fatal("could not create hard link between old and new data directories: %s\n"

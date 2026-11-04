@@ -60,8 +60,8 @@ parseCommandLine(int argc, char *argv[])
 
 		{NULL, 0, NULL, 0}
 	};
-	int			option;			/* Command line option */
-	int			optindex = 0;	/* used by getopt_long */
+	int			option;			/* 命令行选项     */
+	int			optindex = 0;	/* getopt_long 所用  */
 	int			os_user_effective_id;
 
 	user_opts.do_sync = true;
@@ -69,16 +69,16 @@ parseCommandLine(int argc, char *argv[])
 
 	os_info.progname = get_progname(argv[0]);
 
-	/* 须保值，getenv() 指针不稳                                 */
+	/* 处理 libpq 环境变量；在此加载值供 usage() 输出     */
 	old_cluster.port = getenv("PGPORTOLD") ? atoi(getenv("PGPORTOLD")) : DEF_PGUPORT;
 	new_cluster.port = getenv("PGPORTNEW") ? atoi(getenv("PGPORTNEW")) : DEF_PGUPORT;
 
 	os_user_effective_id = get_user_info(&os_info.user);
-	/* 允许 root 跑 help 和 version，在此测试                  */
+	/* 我们只覆盖数据库用户名；OS id 已在上面取得     */
 	if (getenv("PGUSER"))
 	{
 		pg_free(os_info.user);
-		/* 追加选项？                                   */
+		/* 须保存该值，getenv() 指针不稳定        */
 		os_info.user = pg_strdup(getenv("PGUSER"));
 	}
 
@@ -96,7 +96,7 @@ parseCommandLine(int argc, char *argv[])
 		}
 	}
 
-	/* 追加选项？                                                */
+	/* 允许以 root 运行 help 和 version，故在此测试。    */
 	if (os_user_effective_id == 0)
 		pg_fatal("%s: cannot be run as root", os_info.progname);
 
@@ -138,7 +138,7 @@ parseCommandLine(int argc, char *argv[])
 				break;
 
 			case 'o':
-				/* append option? */
+				/* 追加选项   */
 				if (!old_cluster.pgopts)
 					old_cluster.pgopts = pg_strdup(optarg);
 				else
@@ -151,7 +151,7 @@ parseCommandLine(int argc, char *argv[])
 				break;
 
 			case 'O':
-				/* append option? */
+				/* 追加选项   */
 				if (!new_cluster.pgopts)
 					new_cluster.pgopts = pg_strdup(optarg);
 				else
@@ -214,7 +214,7 @@ parseCommandLine(int argc, char *argv[])
 
 	log_opts.isatty = isatty(fileno(stdout));
 
-	/* Turn off read-only mode;  add prefix to PGOPTIONS? */
+	/* 关闭只读模式；给 PGOPTIONS 加前缀？    */
 	if (getenv("PGOPTIONS"))
 	{
 		char	   *pgoptions = psprintf("%s %s", FIX_DEFAULT_READ_ONLY,
@@ -226,7 +226,7 @@ parseCommandLine(int argc, char *argv[])
 	else
 		setenv("PGOPTIONS", FIX_DEFAULT_READ_ONLY, 1);
 
-	/* Get values from env if not already set */
+	/* 若未设置则从环境变量取值   */
 	check_required_directory(&old_cluster.bindir, "PGBINOLD", false,
 							 "-b", _("old cluster binaries reside"), false);
 	check_required_directory(&new_cluster.bindir, "PGBINNEW", false,
@@ -240,11 +240,11 @@ parseCommandLine(int argc, char *argv[])
 
 #ifdef WIN32
 
-	/*用法：
-	 * 
-	 * 
-	 * 
-	                                                                                                                                                                            */
+	/*
+	 * 在 Windows 上，若 pg_upgrade 在新集簇目录内运行，    
+	 * initdb --sync-only 会因 pg_upgrade_utility.log 报 "Permission    
+	 * denied" 错误而失败，故在此检查。 
+	 */
 	{
 		char		cwd[MAXPGPATH],
 					new_cluster_pgdata[MAXPGPATH];
@@ -323,20 +323,20 @@ usage(void)
 }
 
 
-/*选项：
- * 
+/*
+ * check_required_directory()
  *
- * 
- *	
- *	
- *	
- *	
- *	
- *	
+ * 检查目录选项。     
+ *	dirpath		  - 命令行提供的目录名，或 NULL                  
+ *	envVarName	  - 若 dirpath 为 NULL，则取该环境变量的名称        
+ *	useCwd		  - true 表示可默认用 CWD 
+ *	cmdLineOption - 该目录对应的命令行选项         
+ *	description   - 该目录选项的描述              
+ *	missingOk	  - true 表示 dirpath 与 envVarName 都不存在也没关系 
  *
- * 
- * 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            */
+ * 如果用户未提供所需的目录名，我们用最后两个参数来构 
+ * 造一条有意义的错误消息。             
+ */
 static void
 check_required_directory(char **dirpath, const char *envVarName, bool useCwd,
 						 const char *cmdLineOption, const char *description,
@@ -364,24 +364,24 @@ check_required_directory(char **dirpath, const char *envVarName, bool useCwd,
 					 description, cmdLineOption, envVarName);
 	}
 
-	/*例如：
-	 * 
-	 * 
-	                                                                                                                    */
+	/*
+	 * 清理该路径，尤其是去掉尾部路径分隔符，因为我们  
+	 * 会向该路径追加内容来构造路径。        
+	 */
 	canonicalize_path(*dirpath);
 }
 
-/*检查目录选项。dirpath=命令行值或 NULL；envVarName=环境变量名；useCwd=可用 CWD；cmdLineOption=选项名；description=描述；missingOk=可缺失。后两参数用于构造有意义的错误消息。
- * 
+/*
+ * adjust_data_dir
  *
- * 
- * 
- * 
+ * 若指定了仅配置目录，则通过查询运行中的服务器来  
+ * 找到真实数据目录。检查有限，因为我们找不到      
+ * postmaster.pid，无法检查服务器是否在运行。              
  *
- * 
- * 
- * 
-                                                                                                                                                            */
+ * 进入时，cluster->pgdata 已由命令行或环境变量设置，      
+ * cluster->pgconfig 则未设置。我们会用修正值填充两者。  
+ *        
+ */
 void
 adjust_data_dir(ClusterInfo *cluster)
 {
@@ -392,16 +392,16 @@ adjust_data_dir(ClusterInfo *cluster)
 			   *output;
 	int			rc;
 
-	/* 清理路径，剪尾分隔符因后续追加构建   */
+	/* 初始假设配置目录与数据目录相同         */
 	cluster->pgconfig = pg_strdup(cluster->pgdata);
 
-	/* If there is no postgresql.conf, it can't be a config-only dir */
+	/* 若没有 postgresql.conf，则不可能是仅配置目录    */
 	snprintf(filename, sizeof(filename), "%s/postgresql.conf", cluster->pgconfig);
 	if ((fp = fopen(filename, "r")) == NULL)
 		return;
 	fclose(fp);
 
-	/* 初始假设配置=数据目录                     */
+	/* 若 PG_VERSION 存在，则不是仅配置目录    */
 	snprintf(filename, sizeof(filename), "%s/PG_VERSION", cluster->pgconfig);
 	if ((fp = fopen(filename, "r")) != NULL)
 	{
@@ -409,18 +409,18 @@ adjust_data_dir(ClusterInfo *cluster)
 		return;
 	}
 
-	/* 无 postgresql.conf 则非仅配置目录                           */
+	/* 必是配置目录，因此要找出真实数据目录。           */
 
 	if (cluster == &old_cluster)
 		prep_status("Finding the real data directory for the source cluster");
 	else
 		prep_status("Finding the real data directory for the target cluster");
 
-	/*PG_VERSION 存在则不是仅配置目录
-	 * 
-	 * 
-	 * 
-	                                                                                                                                                                 */
+	/*
+	 * 我们还没有数据目录，因此无法检查 PG 版本，所以  
+	 * 这可能失败 --- 仅适用于 PG 9.2+。若此处失败，  
+	 * pg_upgrade 反正也会失败，因为将找不到数据文件。    
+	 */
 	snprintf(cmd, sizeof(cmd), "\"%s/postgres\" -D \"%s\" -C data_directory",
 			 cluster->bindir, cluster->pgconfig);
 	fflush(NULL);
@@ -435,7 +435,7 @@ adjust_data_dir(ClusterInfo *cluster)
 		pg_fatal("could not get data directory using %s: %s",
 				 cmd, wait_result_to_str(rc));
 
-	/* 定为配置目录，找真实数据目录 */
+	/* 去除结尾的换行符和回车符       */
 	(void) pg_strip_crlf(cmd_output);
 
 	cluster->pgdata = pg_strdup(cmd_output);
@@ -444,14 +444,14 @@ adjust_data_dir(ClusterInfo *cluster)
 }
 
 
-/*无数据目录不能查 PG 版本故可能失败 — 仅 PG 9.2+ 可用。失败因数据文件找不到。
- * 
+/*
+ * get_sock_dir
  *
- * 
- * 
- * 
- * 
-                                                                                                                                  */
+ * 确定该集簇要使用的套接字目录。如果正在进行实时 
+ * 检查（仅限旧集簇），我们需要找出 postmaster 正在何处 
+ * 监听；否则，我们会把套接字放到当前目录。            
+ *           
+ */
 void
 get_sock_dir(ClusterInfo *cluster, bool live_check)
 {
@@ -460,10 +460,10 @@ get_sock_dir(ClusterInfo *cluster, bool live_check)
 		cluster->sockdir = user_opts.socketdir;
 	else
 	{
-		/*去除尾部换行和回车
-		 * 
-		 * 
-		                                                                                                   */
+		/*
+		 * 若正在进行实时检查，我们将使用旧集簇的 Unix  
+		 * 域套接字目录，以连接运行中的服务器。       
+		 */
 		unsigned short orig_port = cluster->port;
 		char		filename[MAXPGPATH],
 					line[MAXPGPATH];
@@ -484,19 +484,19 @@ get_sock_dir(ClusterInfo *cluster, bool live_check)
 				pg_fatal("could not read line %d from file \"%s\": %s",
 						 lineno, filename, strerror(errno));
 
-			/* potentially overwrite user-supplied value */
+			/* 可能覆盖用户提供的值            */
 			if (lineno == LOCK_FILE_LINE_PORT)
 				sscanf(line, "%hu", &old_cluster.port);
 			if (lineno == LOCK_FILE_LINE_SOCKET_DIR)
 			{
-				/* strip trailing newline and carriage return */
+				/* 去除结尾的换行符和回车符       */
 				cluster->sockdir = pg_strdup(line);
 				(void) pg_strip_crlf(cluster->sockdir);
 			}
 		}
 		fclose(fp);
 
-		/* 可能覆用户值             */
+		/* 提示端口号已做校正    */
 		if (orig_port != DEF_PGUPORT && old_cluster.port != orig_port)
 			pg_log(PG_WARNING, "user-supplied old port number %hu corrected to %hu",
 				   orig_port, cluster->port);

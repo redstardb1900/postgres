@@ -18,17 +18,20 @@
 /*
  * get_control_data()
  *
- * 获取 "ctrl" 中的 pg_control 信息。假定 bindir 与
- * datadir 为 postgresql bin 和 pgdata 的有效绝对路径，
- * 且 pg_resetwal 与 datadir 版本兼容。主要目的为
- * 以版本无关方式获取 pg_control 数据。
+ * 获取 "ctrl" 中的 pg_control 信息。假定 bindir        
+ * 和 datadir 分别为 postgresql bin 与 pgdata 目录       
+ * 的有效绝对路径，*且* pg_resetwal 与 datadir 版本    
+ * 兼容。本函数的主要目的是以版本无关的方式        
+ * 获取 pg_control 数据。          
  *
- * 此处采用调用 pg_resetwal -n 并解析管道输出的方法。
- * 通过简单字符串解析获取数据。服务器运行时无法
- * 运行 pg_resetwal，故用 pg_controldata；后者不提供
- * 升级所需的全部字段，但检查模式足够。不实现
- * pg_resetwal -n 因难对运行中服务器返回有效 xid。
-                                                                                                                                                                                                                  */
+ * 此处采用的方法是调用带 -n 选项的 pg_resetwal，  
+ * 然后读取其管道输出。经少量字符串解析         
+ * 即可获得 pg_control 数据。服务器运行时无法运行        
+ * pg_resetwal，因此我们使用 pg_controldata；                      
+ * 后者不提供实际执行升级所需的全部字段，          
+ * 但对检查模式已足够。我们不实现 pg_resetwal -n，      
+ * 因难以对运行中服务器返回 xid。
+ */
 void
 get_control_data(ClusterInfo *cluster, bool live_check)
 {
@@ -139,11 +142,13 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 				p++;			/* 去':'符       */
 
 				/*
-				 * 此前已查 postmaster 锁文件，若发现则
-				 * 启动/停止服务器以重放 WAL。但 pg_ctl
-				 * -m immediate 不留锁文件却需 WAL 重放，
-				 * 故从 controldata 视角检查干净关闭。
-				                                                                                                                      */
+				 * 此前已查过 postmaster 锁文件，若找到        
+				 * 则已尝试启动/停止服务器以重放 WAL。        
+				 * 但 pg_ctl -m immediate 不留锁文件                
+				 * 却需要 WAL 重放，故此处从 controldata         
+				 * 视角检查服务器是否已干净关闭。         
+				 *             
+				 */
 				/* 去除前导空格    */
 				while (*p == ' ')
 					p++;
@@ -272,10 +277,11 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			cluster->controldata.chkpnt_nxtepoch = str2uint(p);
 
 			/*
-			 * 9.6 分隔符 '/' 变 ':'。不检目录版本
-			 * 因版本也来自 pg_controldata，
-			 * 不值加顺序依赖 --- 仅查字符串。
-			                                                                                                                         */
+			 * 9.6 中分隔符从 '/' 改为 ':'。我们不检测        
+			 * 目录版本的变更，因为目录版本同样             
+			 * 取自 pg_controldata，为此添加顺序                     
+			 * 依赖并不值得 --- 我们仅检查字符串。     
+			 */
 			if (strchr(p, '/') != NULL)
 				p = strchr(p, '/');
 			else if (GET_MAJOR_VERSION(cluster->major_version) >= 906)
@@ -688,8 +694,9 @@ check_control_data(ControlData *oldctrl,
 	               */
 
 	/*
-	 * 终可允校验和到无校验集簇升级。
-	                                 */
+	 * 将来或许会允许从有校验和升级到无校验和      
+	 * 的集簇
+	 */
 	if (oldctrl->data_checksum_version == 0 &&
 		newctrl->data_checksum_version != 0)
 		pg_fatal("old cluster does not use data checksums but the new one does");

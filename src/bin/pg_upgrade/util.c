@@ -135,7 +135,7 @@ prep_status(const char *fmt,...)
 	vsnprintf(message, sizeof(message), fmt, args);
 	va_end(args);
 
-	/* trim strings */
+	/*修剪串     */
 	pg_log(PG_REPORT_NONL, "%-*s", MESSAGE_WIDTH, message);
 }
 
@@ -249,7 +249,7 @@ pg_log_v(eLogType type, const char *fmt, va_list ap)
 			exit(1);
 			break;
 
-			/* 无 default：望收略况警告                 */
+			/* 无 default：希望对省略情形给出警告  */
 	}
 	fflush(stdout);
 }
@@ -274,7 +274,7 @@ pg_fatal(const char *fmt,...)
 	va_start(args, fmt);
 	pg_log_v(PG_FATAL, fmt, args);
 	va_end(args);
-	/* 一切好  */
+	/* NOTREACHED */
 	printf(_("Failure, exiting\n"));
 	exit(1);
 }
@@ -283,18 +283,18 @@ pg_fatal(const char *fmt,...)
 void
 check_ok(void)
 {
-	/* all seems well */
+	/* 一切正常   */
 	report_status(PG_REPORT, "ok");
 }
 
 
-/*制作副本
- * 
- *	
+/*
+ * quote_identifier()
+ *		恰当地为 SQL 标识符加双引号 
  *
- * 
- * 
-                                                                                                                                                                     */
+ * 结果应使用 pg_free 释放，但多数调用者不这么做，   
+ * 因为内存泄漏对本程序无关紧要。    
+ */
 char *
 quote_identifier(const char *s)
 {
@@ -316,9 +316,9 @@ quote_identifier(const char *s)
 }
 
 
-/*
- * get_user_info()
- */
+/*获用户信息
+ *
+  */
 int
 get_user_info(char **user_name_p)
 {
@@ -336,18 +336,18 @@ get_user_info(char **user_name_p)
 	if (!user_name)
 		pg_fatal("%s", errstr);
 
-	/* make a copy */
+	/*复制一份 */
 	*user_name_p = pg_strdup(user_name);
 
 	return user_id;
 }
 
 
-/*
- *	str2uint()
+/*将字符串转为 oid
  *
- *	convert string to oid
- */
+ *
+ *
+            */
 unsigned int
 str2uint(const char *str)
 {

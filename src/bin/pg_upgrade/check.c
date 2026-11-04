@@ -240,7 +240,7 @@ report_clusters_compatible(void)
 	if (user_opts.check)
 	{
 		pg_log(PG_REPORT, "\n*Clusters are compatible*");
-		/* stops new cluster */
+		/* 停止新集簇   */
 		stop_postmaster(false);
 
 		cleanup_output_dirs();
@@ -257,13 +257,14 @@ void
 issue_warnings_and_set_wal_level(void)
 {
 	/*
-	 * 无条件启动/停止新服务器，因为 pg_resetwal -o 将 wal_level 设为
-	 * 'minimum'。如果用户使用 rsync 指令升级备用服务器，需要 pg_upgrade
-	 * 写入其最终的 WAL 记录，显示 wal_level 为 'replica'。
+	 * 我们无条件地启动/停止新服务器，因为 pg_resetwal -o    
+	 * 会将 wal_level 设为 'minimum'。若用户正按 rsync 说明       
+	 * 升级备库，则需要 pg_upgrade 写入其最终 WAL 记录，   
+	 * 以显示 wal_level 为 'replica'。      
 	 */
 	start_postmaster(&new_cluster, true);
 
-	/* 重新索引旧 < 10.0 的哈希索引 */
+	/* 为旧 < 10.0 重建哈希索引    */
 	if (GET_MAJOR_VERSION(old_cluster.major_version) <= 906)
 		old_9_6_invalidate_hash_indexes(&new_cluster, false);
 
@@ -312,33 +313,33 @@ check_cluster_versions(void)
 {
 	prep_status("Checking cluster versions");
 
-	/* 允同主版升用于 alpha/beta                   */
+	/* 集簇版本此时应已获取                     */
 	Assert(old_cluster.major_version != 0);
 	Assert(new_cluster.major_version != 0);
 
-	/*仅当前 PG 版本支持作目标
-	 * 
-	 * 
-	                                      */
+	/*
+	 * 对于 alpha/beta 升级，我们允许相同主版本间的   
+	 * 升级  
+	 */
 
 	if (GET_MAJOR_VERSION(old_cluster.major_version) < 902)
 		pg_fatal("This utility can only upgrade from PostgreSQL version %s and later.",
 				 "9.2");
 
-	/* Only current PG version is supported as a target */
+	/* 仅支持当前 PG 版本作为目标            */
 	if (GET_MAJOR_VERSION(new_cluster.major_version) != GET_MAJOR_VERSION(PG_VERSION_NUM))
 		pg_fatal("This utility can only upgrade to PostgreSQL version %s.",
 				 PG_MAJORVERSION);
 
-	/*确保二进制匹配指定数据目录
-	 * 
-	 * 
-	 * 
-	                                                                                                             */
+	/*
+	 * 我们不能允许降级，因为使用的是目标 pg_dump，而
+	 * pg_dump 无法操作更新的数据库版本，仅当前           
+	 * 及旧版本。
+	 */
 	if (old_cluster.major_version > new_cluster.major_version)
 		pg_fatal("This utility cannot be used to downgrade to older major PostgreSQL versions.");
 
-	/* 取/检服 pg_control                                 */
+	/* 确保二进制文件与指定数据目录相匹配   */
 	if (GET_MAJOR_VERSION(old_cluster.major_version) !=
 		GET_MAJOR_VERSION(old_cluster.bin_version))
 		pg_fatal("Old cluster data and binary directories are from different major versions.");
@@ -353,7 +354,7 @@ check_cluster_versions(void)
 void
 check_cluster_compatibility(bool live_check)
 {
-	/* 跳 pg_largeobject 及其索         */
+	/* 取/查服务器 pg_control 数据   */
 	get_control_data(&old_cluster, live_check);
 	get_control_data(&new_cluster, false);
 	check_control_data(&old_cluster.controldata, &new_cluster.controldata);
@@ -377,7 +378,7 @@ check_new_cluster_is_empty(void)
 		for (relnum = 0; relnum < rel_arr->nrels;
 			 relnum++)
 		{
-			/* pg_largeobject and its index should be skipped */
+			/* 应跳过 pg_largeobject 及其索引          */
 			if (strcmp(rel_arr->rels[relnum].nspname, "pg_catalog") != 0)
 				pg_fatal("New cluster database \"%s\" is not empty: found relation \"%s.%s\"",
 						 new_cluster.dbarr.dbs[dbnum].db_name,
@@ -387,15 +388,15 @@ check_new_cluster_is_empty(void)
 	}
 }
 
-/*create_script_for_old_cluster_deletion() —— 表空间删除尤有用。
- * 
- * 
- * 
- * 
- * 
- * 
- * 
-                                                                                                                                                                                                                                                                                                                                       */
+/*
+ * 上次运行 pg_upgrade 可能失败，且新集簇目录被      
+ * 重建，但可能忘记删除新集簇的表空间目录。
+ * 因此，检查确认新集簇的表空间目录尚不存在。 
+ * 若已存在，则在恢复全局对象时会出错。      
+ * 这样可在检查阶段而非                                  
+ * 模式恢复阶段发现该失败。                             
+ *                       
+ */
 static void
 check_for_new_tablespace_dir(ClusterInfo *new_cluster)
 {
@@ -420,11 +421,11 @@ check_for_new_tablespace_dir(ClusterInfo *new_cluster)
 	check_ok();
 }
 
-/*有些人将新数据目录放旧目录内。
- * 
+/*
+ * create_script_for_old_cluster_deletion()
  *
- *	
-                                                */
+ *	这对于删除表空间尤其有用。             
+ */
 void
 create_script_for_old_cluster_deletion(char **deletion_script_file_name)
 {
@@ -442,24 +443,24 @@ create_script_for_old_cluster_deletion(char **deletion_script_file_name)
 	strlcpy(new_cluster_pgdata, new_cluster.pgdata, MAXPGPATH);
 	canonicalize_path(new_cluster_pgdata);
 
-	/* unlink 防上次遗                                        */
+	/* 有些人会把新数据目录放在旧目录之内。     */
 	if (path_is_prefix_of_path(old_cluster_pgdata, new_cluster_pgdata))
 	{
 		pg_log(PG_WARNING,
 			   "\nWARNING:  new data directory should not be inside the old data directory, i.e. %s", old_cluster_pgdata);
 
-		/* Unlink file in case it is left over from a previous run. */
+		/* 删除上次运行可能遗留的文件                  */
 		unlink(*deletion_script_file_name);
 		pg_free(*deletion_script_file_name);
 		*deletion_script_file_name = NULL;
 		return;
 	}
 
-	/*复现 CREATE TABLESPACE 在日志中的警告
-	 * 
-	 * 
-	 * 
-	                                                                                           */
+	/*
+	 * 有些用户（奇怪地）会在集簇数据目录内创    
+	 * 建表空间。此时无法生成正常的旧集簇删除脚本。    
+	 *      
+	 */
 	for (tblnum = 0; tblnum < os_info.num_old_tablespaces; tblnum++)
 	{
 		char		old_tablespace_dir[MAXPGPATH];
@@ -468,11 +469,11 @@ create_script_for_old_cluster_deletion(char **deletion_script_file_name)
 		canonicalize_path(old_tablespace_dir);
 		if (path_is_prefix_of_path(old_cluster_pgdata, old_tablespace_dir))
 		{
-			/* unlink 防上次遗                                         */
+			/* 复现日志里 CREATE TABLESPACE 产生的警告           */
 			pg_log(PG_WARNING,
 				   "\nWARNING:  user-defined tablespace locations should not be inside the data directory, i.e. %s", old_tablespace_dir);
 
-			/* 加 shebang 头                                          */
+			/* 删除上次运行可能遗留的文件                  */
 			unlink(*deletion_script_file_name);
 			pg_free(*deletion_script_file_name);
 			*deletion_script_file_name = NULL;
@@ -487,24 +488,24 @@ create_script_for_old_cluster_deletion(char **deletion_script_file_name)
 				 *deletion_script_file_name, strerror(errno));
 
 #ifndef WIN32
-	/* 删旧默表空间 */
+	/* 加 shebang 头    */
 	fprintf(script, "#!/bin/sh\n\n");
 #endif
 
-	/* 删旧备表空间                      */
+	/* 删除旧集簇的默认表空间       */
 	fprintf(script, RMDIR_CMD " %c%s%c\n", PATH_QUOTE,
 			fix_path_separator(old_cluster.pgdata), PATH_QUOTE);
 
-	/* delete old cluster's alternate tablespaces */
+	/* 删除旧集簇的备用表空间          */
 	for (tblnum = 0; tblnum < os_info.num_old_tablespaces; tblnum++)
 	{
-		/*删除每数据库目录
-		 * 
-		 * 
-		                                                                               */
+		/*
+		 * 旧集簇的每数据库目录是否与新版本专属         
+		 * 表空间共用同一目录？         
+		 */
 		if (strlen(old_cluster.tablespace_suffix) == 0)
 		{
-			/* delete per-database directories */
+			/* 删除每数据库的目录     */
 			int			dbnum;
 
 			fprintf(script, "\n");
@@ -519,10 +520,10 @@ create_script_for_old_cluster_deletion(char **deletion_script_file_name)
 		{
 			char	   *suffix_path = pg_strdup(old_cluster.tablespace_suffix);
 
-			/*check_is_install_user() —— 检为安装用户且新集簇无其他用户。
-			 * 
-			 * 
-			                  */
+			/*
+			 * 直接删除表空间目录，它可能是 ".old"            
+			 * 或版本专属子目录。        
+			 */
 			fprintf(script, RMDIR_CMD " %c%s%s%c\n", PATH_QUOTE,
 					fix_path_separator(os_info.old_tablespaces[tblnum]),
 					fix_path_separator(suffix_path), PATH_QUOTE);
@@ -542,12 +543,12 @@ create_script_for_old_cluster_deletion(char **deletion_script_file_name)
 }
 
 
-/*不能用 pg_authid 因仅超级用户可视。
- *	
+/*
+ *	check_is_install_user()
  *
- *	
- *	
-                                                   */
+ *	检查我们是否为安装用户，以及新集簇    
+ *	无其他用户。 
+ */
 static void
 check_is_install_user(ClusterInfo *cluster)
 {
@@ -556,18 +557,18 @@ check_is_install_user(ClusterInfo *cluster)
 
 	prep_status("Checking database user is the install user");
 
-	/* Can't use pg_authid because only superusers can view it. */
+	/* 不能用 pg_authid，因为仅超级用户可查看它  */
 	res = executeQueryOrDie(conn,
 							"SELECT rolsuper, oid "
 							"FROM pg_catalog.pg_roles "
 							"WHERE rolname = current_user "
 							"AND rolname !~ '^pg_'");
 
-	/*仅允新集簇安装用户因其他用户可能匹配旧集簇用户并在 pg_dump 恢复时报错。
-	 * 
-	 * 
-	 * 
-	                                                      */
+	/*
+	 * 新集簇中仅允许安装用户（见下方注释），且保留   
+	 *  pg_authid.oid，因此旧集簇中的该用户也必须是           
+	 * 安装用户。 
+	 */
 	if (PQntuples(res) != 1 ||
 		atooid(PQgetvalue(res, 0, 1)) != BOOTSTRAP_SUPERUSERID)
 		pg_fatal("database user \"%s\" is not the install user",
@@ -584,9 +585,9 @@ check_is_install_user(ClusterInfo *cluster)
 		pg_fatal("could not determine the number of users");
 
 	/*
-	 * We only allow the install user in the new cluster because other defined
-	 * users might match users defined in the old cluster and generate an
-	 * error during pg_dump restore.
+	 * 只允许新集簇使用安装用户，因为其他已定义的        
+	 * 用户可能与旧集簇中定义的用户匹配，并在         
+	 * pg_dump 恢复期间出错。
 	 */
 	if (cluster == &new_cluster && strcmp(PQgetvalue(res, 0, 0), "1") != 0)
 		pg_fatal("Only the install user can be defined in the new cluster.");
@@ -599,13 +600,13 @@ check_is_install_user(ClusterInfo *cluster)
 }
 
 
-/*获取数据库名
- *	
+/*
+ *	check_proper_datallowconn
  *
- *	
- *	
- *	
-                                                                                                                                                                                                                      */
+ *	确保所有非 template0 数据库都允许连接，               
+ *	否则它们不会被恢复；并确保 template0 明确                
+ *	不允许连接，否则 pg_dumpall --globals 恢复将失败。  
+ */
 static void
 check_proper_datallowconn(ClusterInfo *cluster)
 {
@@ -626,7 +627,7 @@ check_proper_datallowconn(ClusterInfo *cluster)
 
 	conn_template1 = connectToServer(cluster, "template1");
 
-	/* get database names */
+	/* 获取数据库名 */
 	dbres = executeQueryOrDie(conn_template1,
 							  "SELECT	datname, datallowconn "
 							  "FROM	pg_catalog.pg_database");
@@ -642,7 +643,7 @@ check_proper_datallowconn(ClusterInfo *cluster)
 
 		if (strcmp(datname, "template0") == 0)
 		{
-			/* 防 datallowconn false DB 恢跳                                */
+			/* 避免 pg_dumpall 尝试创建 template0 时恢复失败        */
 			if (strcmp(datallowconn, "t") == 0)
 				pg_fatal("template0 must not allow connections, "
 						 "i.e. its pg_database.datallowconn must be false");
@@ -650,8 +651,8 @@ check_proper_datallowconn(ClusterInfo *cluster)
 		else
 		{
 			/*
-			 * avoid datallowconn == false databases from being skipped on
-			 * restore
+			 * 避免 datallowconn == false 的库在恢复时被         
+			 * 跳过 
 			 */
 			if (strcmp(datallowconn, "f") == 0)
 			{
@@ -688,8 +689,8 @@ check_proper_datallowconn(ClusterInfo *cluster)
 /*
  *	check_for_prepared_transactions()
  *
- *	Make sure there are no prepared transactions because the storage format
- *	might have changed.
+ *	确保没有预备事务，因为存储格式                          
+ *	可能已改变。 
  */
 static void
 check_for_prepared_transactions(ClusterInfo *cluster)
@@ -719,13 +720,13 @@ check_for_prepared_transactions(ClusterInfo *cluster)
 }
 
 
-/*无不匹配
- *	
+/*
+ *	check_for_isn_and_int8_passing_mismatch()
  *
- *	
- *	
- *	
-                                                                                                                                                                                                                   */
+ *	contrib/isn 依赖 int8 数据类型，而在 8.4 中                  
+ *	int8 现在可以按值传递。模式会转储 CREATE TYPE         
+ *	PASSEDBYVALUE，故新旧必须匹配     
+ */
 static void
 check_for_isn_and_int8_passing_mismatch(ClusterInfo *cluster)
 {
@@ -738,7 +739,7 @@ check_for_isn_and_int8_passing_mismatch(ClusterInfo *cluster)
 	if (old_cluster.controldata.float8_pass_by_value ==
 		new_cluster.controldata.float8_pass_by_value)
 	{
-		/* no mismatch */
+		/* 无差异   */
 		check_ok();
 		return;
 	}
@@ -758,7 +759,7 @@ check_for_isn_and_int8_passing_mismatch(ClusterInfo *cluster)
 		DbInfo	   *active_db = &cluster->dbarr.dbs[dbnum];
 		PGconn	   *conn = connectToServer(cluster, active_db->db_name);
 
-		/* 验无用户定后运算符。             */
+		/* 查找来自 contrib/isn 的函数         */
 		res = executeQueryOrDie(conn,
 								"SELECT n.nspname, p.proname "
 								"FROM	pg_catalog.pg_proc p, "
@@ -805,9 +806,9 @@ check_for_isn_and_int8_passing_mismatch(ClusterInfo *cluster)
 		check_ok();
 }
 
-/*查找任何用户定义后缀运算符
- * 
-              */
+/*
+ * 验证不存在用户定义的后缀运算符。    
+ */
 static void
 check_for_user_defined_postfix_ops(ClusterInfo *cluster)
 {
@@ -821,7 +822,7 @@ check_for_user_defined_postfix_ops(ClusterInfo *cluster)
 			 log_opts.basedir,
 			 "postfix_ops.txt");
 
-	/* Find any user defined postfix operators */
+	/* 查找用户定义的后缀运算符    */
 	for (dbnum = 0; dbnum < cluster->dbarr.ndbs; dbnum++)
 	{
 		PGresult   *res;
@@ -836,12 +837,12 @@ check_for_user_defined_postfix_ops(ClusterInfo *cluster)
 		DbInfo	   *active_db = &cluster->dbarr.dbs[dbnum];
 		PGconn	   *conn = connectToServer(cluster, active_db->db_name);
 
-		/*check_for_incompatible_polymorphics() —— 确保无旧式 anyarray/anyelement 多态函数。
-		 * 
-		 * 
-		 * 
-		 * 
-		                                                                                                                                                              */
+		/*
+		 * 下面的查询将 FirstNormalObjectId 硬编码为               
+		 *  16384，而非把该 C #define 插入查询，因为       
+		 * 若该 #define 被更改，我们要用的截止值是版      
+		 * 本 14 之前服务器的值，而非未来版本的值。      
+		 */
 		res = executeQueryOrDie(conn,
 								"SELECT o.oid AS oproid, "
 								"       n.nspname AS oprnsp, "
@@ -901,12 +902,12 @@ check_for_user_defined_postfix_ops(ClusterInfo *cluster)
 		check_ok();
 }
 
-/*问题函数集在不同版本稍异
- *	
+/*
+ *	check_for_incompatible_polymorphics()
  *
- *	
- *	
-                                                                                                                          */
+ *	确保没有任何对象在使用带 anyarray/anyelement 
+ *	的旧多态函数，而非新的 anycompatible 变体。      
+ */
 static void
 check_for_incompatible_polymorphics(ClusterInfo *cluster)
 {
@@ -921,7 +922,7 @@ check_for_incompatible_polymorphics(ClusterInfo *cluster)
 			 log_opts.basedir,
 			 "incompatible_polymorphics.txt");
 
-	/* 聚合转函                                                        */
+	/* 有问题的函数集合在不同版本间略有差异              */
 	initPQExpBuffer(&old_polymorphics);
 
 	appendPQExpBufferStr(&old_polymorphics,
@@ -950,14 +951,14 @@ check_for_incompatible_polymorphics(ClusterInfo *cluster)
 		int			i_objkind,
 					i_objname;
 
-		/*聚合最终函数
-		 * 
-		 * 
-		 * 
-		 * 
-		                                                                                                                                                                                                                                            */
+		/*
+		 * 下面的查询将 FirstNormalObjectId 硬编码为               
+		 *  16384，而非把该 C #define 插入查询，因为       
+		 * 若该 #define 被更改，我们要用的截止值是版      
+		 * 本 14 之前服务器的值，而非未来版本的值。      
+		 */
 		res = executeQueryOrDie(conn,
-		/* 运算符                      */
+		/* 聚合转换函数             */
 								"SELECT 'aggregate' AS objkind, p.oid::regprocedure::text AS objname "
 								"FROM pg_proc AS p "
 								"JOIN pg_aggregate AS a ON a.aggfnoid=p.oid "
@@ -966,7 +967,7 @@ check_for_incompatible_polymorphics(ClusterInfo *cluster)
 								"AND a.aggtransfn = ANY(ARRAY[%s]::regprocedure[]) "
 								"AND a.aggtranstype = ANY(ARRAY['anyarray', 'anyelement']::regtype[]) "
 
-		/* 验无 WITH OIDS。       */
+		/* 聚合最终函数        */
 								"UNION ALL "
 								"SELECT 'aggregate' AS objkind, p.oid::regprocedure::text AS objname "
 								"FROM pg_proc AS p "
@@ -976,7 +977,7 @@ check_for_incompatible_polymorphics(ClusterInfo *cluster)
 								"AND a.aggfinalfn = ANY(ARRAY[%s]::regprocedure[]) "
 								"AND a.aggtranstype = ANY(ARRAY['anyarray', 'anyelement']::regtype[]) "
 
-		/* Operators */
+		/* 运算符 */
 								"UNION ALL "
 								"SELECT 'operator' AS objkind, op.oid::regoperator::text AS objname "
 								"FROM pg_operator AS op "
@@ -1032,7 +1033,7 @@ check_for_incompatible_polymorphics(ClusterInfo *cluster)
 }
 
 /*
- * Verify that no tables are declared WITH OIDS.
+ * 验证没有表声明为 WITH OIDS。        
  */
 static void
 check_for_tables_with_oids(ClusterInfo *cluster)
@@ -1047,7 +1048,7 @@ check_for_tables_with_oids(ClusterInfo *cluster)
 			 log_opts.basedir,
 			 "tables_with_oids.txt");
 
-	/* Find any tables declared WITH OIDS */
+	/* 查找声明为 WITH OIDS 的表   */
 	for (dbnum = 0; dbnum < cluster->dbarr.ndbs; dbnum++)
 	{
 		PGresult   *res;
@@ -1107,8 +1108,10 @@ check_for_tables_with_oids(ClusterInfo *cluster)
 /*
  * check_for_not_null_inheritance()
  *
- * 创建缺少父表 NOT NULL 约束的子表会报错。18 起不再发生，
- * 但之前有多种方式可能导致。检查待升级集簇无此类问题。
+ * 尝试创建缺少父表全部 NOT NULL 约束的子表会报错。    
+ * 自 18 起这种情况不再可能发生，但此前存在              
+ * 多种导致它的途径。检查待升级的集簇                   
+ * 是否存在任何此类问题。                             
  */
 static void
 check_for_not_null_inheritance(ClusterInfo *cluster)
@@ -1184,10 +1187,12 @@ check_for_not_null_inheritance(ClusterInfo *cluster)
 
 /*
  * check_for_composite_data_type_usage()
- *	检查用户表中使用的系统定义复合类型。
+ *	检查用户表中使用的系统定义复合类型。       
  *
- *	系统目录和 information_schema 视图的行类型 OID 在跨主版本间
- *	可能变化；与用户定义类型不同，我们无法使其匹配。检测之以便提醒用户。
+ *	系统目录与 information_schema 视图的行类型 OID           
+ *	跨主版本可能变化；与用户定义类型不同，           
+ *	我们没有机制强制它们在新集簇中保持一致。    
+ *	因此若有用户表用到，对 pg_upgrade 即成问题。         
  */
 static void
 check_for_composite_data_type_usage(ClusterInfo *cluster)
@@ -1204,12 +1209,15 @@ check_for_composite_data_type_usage(ClusterInfo *cluster)
 			 "tables_using_composite.txt");
 
 	/*
-	 * 查找 initdb 期间创建 *或* 属于 information_schema 的复合类型，
-	 * 这在此类被删除重载的情况下很重要。
+	 * 查找 initdb 期间创建 *或* 属于 information_schema          
+	 * 的复合类型；若曾被删除后重新加载，                
+	 * 这很重要。      
 	 *
-	 * 截止 OID 应与源集簇的 FirstNormalObjectId 匹配。我们硬编码
-	 * 而非使用 C #define，因若该 #define 变更，我们版本的值并非所需。
-	 * 最终可能需根据源集簇版本选择正确的值。
+	 * 此处的截止 OID 应匹配源集簇的                     
+	 * FirstNormalObjectId 值。我们将其硬编码，而非使用那个 
+	 * C #define，因为若该 #define 被更改，                       
+	 * 我们自身版本的值并非应选用之值。                       
+	 * 最终或需按源版本测试。   
 	 */
 	firstUserOid = 16384;
 
@@ -1238,12 +1246,14 @@ check_for_composite_data_type_usage(ClusterInfo *cluster)
 
 /*
  * check_for_reg_data_type_usage()
- *	pg_upgrade 仅保留以下系统值：
+ *	pg_upgrade 仅保留以下系统值：        
  *		pg_class.oid
  *		pg_type.oid
  *		pg_enum.oid
- *	许多 reg* 类型引用未保留的目录信息，因此这些
- *	数据类型不可在用户表中使用。
+ *
+ *	许多 reg* 数据类型引用了不会被保留的              
+ *	系统目录信息，因此这些数据类型不能             
+ *	用于升级的用户表。   
  */
 static void
 check_for_reg_data_type_usage(ClusterInfo *cluster)
@@ -1258,8 +1268,8 @@ check_for_reg_data_type_usage(ClusterInfo *cluster)
 			 "tables_using_reg.txt");
 
 	/*
-	 * 注意：旧服务器不会拥有所有这些 reg* 类型，因此必须这样写
-	 * 查询而不能依赖到 regtype 的强制转换。
+	 * 注意：旧服务器不会有所有这些 reg* 类型，因此必须
+	 * 这样书写查询，而不能依赖到 regtype 的强制转换。     
 	 */
 	found = check_for_data_types_usage(cluster,
 									   "SELECT oid FROM pg_catalog.pg_type t "
@@ -1267,7 +1277,7 @@ check_for_reg_data_type_usage(ClusterInfo *cluster)
 									   "        (SELECT oid FROM pg_catalog.pg_namespace "
 									   "         WHERE nspname = 'pg_catalog') "
 									   "  AND t.typname IN ( "
-	/* pg_class.oid 被保留，因此 'regclass' 可用 */
+	/* pg_class.oid 保留，因此 'regclass' 可用 */
 									   "           'regcollation', "
 									   "           'regconfig', "
 									   "           'regdictionary', "
@@ -1276,8 +1286,8 @@ check_for_reg_data_type_usage(ClusterInfo *cluster)
 									   "           'regoperator', "
 									   "           'regproc', "
 									   "           'regprocedure' "
-	/* pg_authid.oid 被保留，因此 'regrole' 可用 */
-	/* pg_type.oid（基本）被保留，因此 'regtype' 可用 */
+	/* pg_authid.oid 保留，因此 'regrole' 可用 */
+	/* pg_type.oid 基本保留，因此 'regtype' 可用    */
 									   "         )",
 									   output_path);
 
@@ -1295,11 +1305,11 @@ check_for_reg_data_type_usage(ClusterInfo *cluster)
 		check_ok();
 }
 
-/*check_for_jsonb_9_4_usage()——JSONB 在 9.4 beta 改存储格式故检查。
- * 
+/*
+ * check_for_aclitem_data_type_usage
  *
- *	
-             */
+ *	aclitem 在 16 中更改了存储格式，因此检查。 
+ */
 static void
 check_for_aclitem_data_type_usage(ClusterInfo *cluster)
 {
@@ -1324,12 +1334,12 @@ check_for_aclitem_data_type_usage(ClusterInfo *cluster)
 		check_ok();
 }
 
-/*check_for_pg_role_prefix()——9.6 前不应有 pg_* 角色
- * 
+/*
+ * check_for_removed_data_type_usage
  *
- *	
- *	
-                                                       */
+ *	检查已被移除的内核内置数据类型。调用者知道   
+ *	确切列表。
+ */
 static void
 check_for_removed_data_type_usage(ClusterInfo *cluster, const char *version,
 								  const char *datatype)
@@ -1359,11 +1369,11 @@ check_for_removed_data_type_usage(ClusterInfo *cluster, const char *version,
 }
 
 
-/*验证无用户定义编码转换。
- * 
+/*
+ * check_for_jsonb_9_4_usage()
  *
- *	
-                                                          */
+ *	JSONB 在 9.4 beta 期间改变了存储格式，因此检查。  
+ */
 static void
 check_for_jsonb_9_4_usage(ClusterInfo *cluster)
 {
@@ -1389,11 +1399,11 @@ check_for_jsonb_9_4_usage(ClusterInfo *cluster)
 		check_ok();
 }
 
-/*查找任何用户定义编码转换
- * 
+/*
+ * check_for_pg_role_prefix()
  *
- *	
-                                             */
+ *	早于 9.6 的版本不应有任何 pg_* 角色       
+ */
 static void
 check_for_pg_role_prefix(ClusterInfo *cluster)
 {
@@ -1448,7 +1458,7 @@ check_for_pg_role_prefix(ClusterInfo *cluster)
 }
 
 /*
- * Verify that no user-defined encoding conversions exist.
+ * 验证不存在用户定义的编码转换。          
  */
 static void
 check_for_user_defined_encoding_conversions(ClusterInfo *cluster)
@@ -1463,7 +1473,7 @@ check_for_user_defined_encoding_conversions(ClusterInfo *cluster)
 			 log_opts.basedir,
 			 "encoding_conversions.txt");
 
-	/* Find any user defined encoding conversions */
+	/* 查找用户定义的编码转换          */
 	for (dbnum = 0; dbnum < cluster->dbarr.ndbs; dbnum++)
 	{
 		PGresult   *res;
@@ -1477,10 +1487,10 @@ check_for_user_defined_encoding_conversions(ClusterInfo *cluster)
 		PGconn	   *conn = connectToServer(cluster, active_db->db_name);
 
 		/*
-		 * The query below hardcodes FirstNormalObjectId as 16384 rather than
-		 * interpolating that C #define into the query because, if that
-		 * #define is ever changed, the cutoff we want to use is the value
-		 * used by pre-version 14 servers, not that of some future version.
+		 * 下面的查询把 FirstNormalObjectId 硬编码为 16384，      
+		 * 而不是把该 C #define 插值到查询中，因为若该 
+		 * #define 日后改变，我们要用的界限是 14 之前      
+		 * 服务器所用的值，而非未来版本的值。             
 		 */
 		res = executeQueryOrDie(conn,
 								"SELECT c.oid as conoid, c.conname, n.nspname "

@@ -151,7 +151,7 @@ exec_prog(const char *log_filename, const char *opt_log_file,
 
 		for (iter = 0; iter < 4 && log == NULL; iter++)
 		{
-			pg_usleep(1000000); /* 1 sec */
+			pg_usleep(1000000); /* 1 秒 */
 			log = fopen(log_file, "a");
 		}
 	}
@@ -161,25 +161,25 @@ exec_prog(const char *log_filename, const char *opt_log_file,
 		pg_fatal("could not open log file \"%s\": %m", log_file);
 
 #ifdef WIN32
-	/* 在命令输出后打 "command:" ？          */
+	/* 是否在输出之前打印 "command:"？     */
 	if (mainThreadId == GetCurrentThreadId())
 		fprintf(log, "\n\n");
 #endif
 	fprintf(log, "command: %s\n", cmd);
 #ifdef WIN32
-	/* Are we printing "command:" after its output? */
+	/* 是否在输出之后打印 "command:"？    */
 	if (mainThreadId != GetCurrentThreadId())
 		fprintf(log, "\n\n");
 #endif
 
-	/*见上注释
-	 * 
-	 * 
-	                                                                                                                           */
+	/*
+	 * 在 Windows 中，此时必须关闭日志文件，                    
+	 * 以免命令运行时文件仍打开而造成共享冲突。   
+	 */
 	fclose(log);
 
 #ifdef WIN32
-	/* see comment above */
+	/* 见上文注释   */
 	if (mainThreadId == GetCurrentThreadId())
 #endif
 	{
@@ -189,7 +189,7 @@ exec_prog(const char *log_filename, const char *opt_log_file,
 
 	if (result != 0 && report_error)
 	{
-		/* we might be in on a progress status line, so go to the next line */
+		/* 可能正处在进度状态行上，因此转到下一行        */
 		report_status(PG_REPORT, "\n*failure*");
 		fflush(stdout);
 
@@ -208,13 +208,13 @@ exec_prog(const char *log_filename, const char *opt_log_file,
 
 #ifndef WIN32
 
-	/*检查 postmaster.pid 文件存在。
-	 * 
-	 * 
-	 * 
-	 * 
-	 * 
-	                                                                                                                                                                                                                                                                                                                */
+	/*
+	 * 在 Windows 上不能这样做，因为那会使 "pg_ctl           
+	 *  start" 的输出文件名保持打开，直到服务器停止，      
+	 * 所以我们在上面做了 \n\n。我们为 "pg_ctl start"        
+	 *  使用唯一文件名，服务器运行期间绝不复用，        
+	 * 故无碍。也可记入第三文件，但徒增复杂性。      
+	 */
 	if ((log = fopen(log_file, "a")) == NULL)
 		pg_fatal("could not write to log file \"%s\": %m", log_file);
 	fprintf(log, "\n\n");
@@ -225,11 +225,11 @@ exec_prog(const char *log_filename, const char *opt_log_file,
 }
 
 
-/*ENOTDIR 则稍后抛更有用错误
- * 
+/*
+ * pid_lock_file_exists()
  *
- * 
-                                  */
+ * 检查 postmaster.pid 文件是否存在。   
+ */
 bool
 pid_lock_file_exists(const char *datadir)
 {
@@ -240,7 +240,7 @@ pid_lock_file_exists(const char *datadir)
 
 	if ((fd = open(path, O_RDONLY, 0)) < 0)
 	{
-		/* ENOTDIR means we will throw a more useful error later */
+		/* ENOTDIR 意味着稍后抛出更有用的错误       */
 		if (errno != ENOENT && errno != ENOTDIR)
 			pg_fatal("could not open file \"%s\" for reading: %s",
 					 path, strerror(errno));
@@ -253,14 +253,14 @@ pid_lock_file_exists(const char *datadir)
 }
 
 
-/*access() 在 WIN32 不能查目录权限，须创建删文件检查。
- * 
+/*
+ * verify_directories()
  *
- * 
- * 
+ * 完成校验新旧服务器目录与可执行文件的           
+ * 全部繁重工作。 
  *
- * 
-                                                                                   */
+ * 注：可能更新所有参数的值         
+ */
 void
 verify_directories(void)
 {
@@ -279,22 +279,22 @@ verify_directories(void)
 
 
 #ifdef WIN32
-/*打开通常创建的文件。即使 check 模式也做，不理想但最可行。
- * 
+/*
+ * win32_check_directory_write_permissions()
  *
- *	
- *	
- *	
-                                                                                                                                            */
+ *	access() 在 WIN32 上无法检查目录权限，所以           
+ *	须按需创建再删除文件来检查。     
+ *		http://msdn.microsoft.com/en-us/library/1w06ktdy%28v=vs.80%29.aspx
+ */
 static int
 win32_check_directory_write_permissions(void)
 {
 	int			fd;
 
-	/*检查 PGDATA 单个目录存在性，缺失或不可访则失败。
-	 * 
-	 * 
-	                                                                */
+	/*
+	 * 我们打开一个反正通常都会创建的文件。即使在    
+	 * 'check' 模式下也这样做，虽欠佳但已尽力。        
+	 */
 	if ((fd = open(GLOBALS_DUMP_FILE, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR)) < 0)
 		return -1;
 	close(fd);
@@ -304,12 +304,12 @@ win32_check_directory_write_permissions(void)
 #endif
 
 
-/*Win32 不能 stat() 尾斜杠目录。
- * 
+/*
+ * check_single_dir()
  *
- *	
- * 
-                                                                                */
+ *	检查 PGDATA 中单个目录是否存在，若缺失或           
+ * 不可访问则失败。        
+ */
 static void
 check_single_dir(const char *pg_data, const char *subdir)
 {
@@ -317,7 +317,7 @@ check_single_dir(const char *pg_data, const char *subdir)
 	char		subDirName[MAXPGPATH];
 
 	snprintf(subDirName, sizeof(subDirName), "%s%s%s", pg_data,
-	/* Win32 can't stat() a directory with a trailing slash. */
+	/* Win32 无法 stat() 带尾随斜杠的目录。       */
 			 *subdir ? "/" : "",
 			 subdir);
 
@@ -330,21 +330,21 @@ check_single_dir(const char *pg_data, const char *subdir)
 }
 
 
-/*获取集簇版本
- * 
+/*
+ * check_data_dir()
  *
- *	
- *	
- *	
- *	
+ *	此函数校验给定的集簇目录 - 我们搜索少量            
+ *	子目录，这些子目录应存在于有效的 $PGDATA             
+ *	目录中。若任一子目录缺失（或无法访问），            
+ *	则显示错误消息并 exit()           
  *
-                                                                                                                                                                                                                                                           */
+ */
 static void
 check_data_dir(ClusterInfo *cluster)
 {
 	const char *pg_data = cluster->pgdata;
 
-	/* get the cluster version */
+	/* 获取集簇版本      */
 	cluster->major_version = get_major_server_version(cluster);
 
 	check_single_dir(pg_data, "");
@@ -355,13 +355,13 @@ check_data_dir(ClusterInfo *cluster)
 	check_single_dir(pg_data, "pg_tblspc");
 	check_single_dir(pg_data, "pg_twophase");
 
-	/* pg_clog 在 v10 更名 pg_xact            */
+	/* pg_xlog 在 v10 中已更名为 pg_wal    */
 	if (GET_MAJOR_VERSION(cluster->major_version) <= 906)
 		check_single_dir(pg_data, "pg_xlog");
 	else
 		check_single_dir(pg_data, "pg_wal");
 
-	/* pg_clog has been renamed to pg_xact in v10 */
+	/* pg_clog 在 v10 中已更名为 pg_xact    */
 	if (GET_MAJOR_VERSION(cluster->major_version) <= 906)
 		check_single_dir(pg_data, "pg_clog");
 	else
@@ -369,24 +369,24 @@ check_data_dir(ClusterInfo *cluster)
 }
 
 
-/*检查 bindir
- * 
+/*
+ * check_bin_dir()
  *
- *	
- *	
- *	
- *	
+ *	此函数搜索预期在二进制目录中能找到的           
+ *	可执行文件。若发现必需的可执行文件缺失        
+ *	（或我们无法访问），则显示错误消息并             
+ *	exit().
  *
- *	
- *	
- *	
-                                                                                                                                                                                                                                                                                                                                                                      */
+ *	若 check_versions 为真，则将二进制文件的版本              
+ *	与本 pg_upgrade 的版本比对。这用于检查目标               
+ *	bindir.
+ */
 static void
 check_bin_dir(ClusterInfo *cluster, bool check_versions)
 {
 	struct stat statBuf;
 
-	/* check bindir */
+	/* 查bin目录 */
 	if (stat(cluster->bindir, &statBuf) != 0)
 		report_status(PG_FATAL, "check for \"%s\" failed: %s",
 					  cluster->bindir, strerror(errno));
@@ -405,7 +405,7 @@ check_bin_dir(ClusterInfo *cluster, bool check_versions)
 	                                                                                                                             */
 	get_bin_version(cluster);
 
-	/* pg_resetxlog has been renamed to pg_resetwal in version 10 */
+	/* pg_resetxlog 在版本 10 中已更名为 pg_resetwal      */
 	if (GET_MAJOR_VERSION(cluster->bin_version) <= 906)
 		check_exec(cluster->bindir, "pg_resetxlog", check_versions);
 	else
@@ -414,9 +414,9 @@ check_bin_dir(ClusterInfo *cluster, bool check_versions)
 	if (cluster == &new_cluster)
 	{
 		/*
-		 * These binaries are only needed for the target version. pg_dump and
-		 * pg_dumpall are used to dump the old cluster, but must be of the
-		 * target version.
+		 * 仅目标版本需要这些二进制文件。pg_dump 与          
+		 * pg_dumpall 用于转储旧集簇，但必须是目标          
+		 * 版本。      
 		 */
 		check_exec(cluster->bindir, "initdb", check_versions);
 		check_exec(cluster->bindir, "pg_dump", check_versions);

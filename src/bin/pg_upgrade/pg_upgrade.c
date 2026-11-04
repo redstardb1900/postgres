@@ -89,7 +89,7 @@ main(int argc, char **argv)
 	pg_logging_init(argv[0]);
 	set_pglocale_pgservice(argv[0], PG_TEXTDOMAIN("pg_upgrade"));
 
-	/* 设默限掩码至读新集簇权                                   */
+	/* 设置默认限制权限掩码，直至读取新集簇权限为止  */
 	umask(PG_MODE_MASK_OWNER);
 
 	parseCommandLine(argc, argv);
@@ -237,7 +237,7 @@ make_outputdirs(char *pgdata)
 	if (len >= MAXPGPATH)
 		pg_fatal("directory path for new cluster is too long");
 
-	/* BASE_OUTPUTDIR/$timestamp/ */
+	/*输出目录/$timestamp/    */
 	gettimeofday(&time, NULL);
 	tt = (time_t) time.tv_sec;
 	strftime(timebuf, sizeof(timebuf), "%Y%m%dT%H%M%S", localtime(&tt));
@@ -250,14 +250,14 @@ make_outputdirs(char *pgdata)
 	if (len >= MAXPGPATH)
 		pg_fatal("directory path for new cluster is too long");
 
-	/* BASE_OUTPUTDIR/$timestamp/dump/ */
+	/*输出目录/$timestamp/导出/  */
 	log_opts.dumpdir = (char *) pg_malloc0(MAXPGPATH);
 	len = snprintf(log_opts.dumpdir, MAXPGPATH, "%s/%s/%s", log_opts.rootdir,
 				   timebuf, DUMP_OUTPUTDIR);
 	if (len >= MAXPGPATH)
 		pg_fatal("directory path for new cluster is too long");
 
-	/* BASE_OUTPUTDIR/$timestamp/log/ */
+	/*输出目录/$timestamp/日志/ */
 	log_opts.logdir = (char *) pg_malloc0(MAXPGPATH);
 	len = snprintf(log_opts.logdir, MAXPGPATH, "%s/%s/%s", log_opts.rootdir,
 				   timebuf, LOG_OUTPUTDIR);
@@ -849,7 +849,7 @@ set_frozenxids(bool minmxid_only)
 								  old_cluster.controldata.chkpnt_nxtmulti));
 		PQfinish(conn);
 
-		/* Reset datallowconn flag */
+		/*重置datallowconn 标志*/
 		if (strcmp(datallowconn, "f") == 0)
 			PQclear(executeQueryOrDie(conn_template1,
 									  "ALTER DATABASE %s ALLOW_CONNECTIONS = false",

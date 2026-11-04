@@ -226,7 +226,7 @@ report_unmatched_relation(const RelInfo *rel, const DbInfo *db, bool is_new_db)
 						 sizeof(reldesc) - strlen(reldesc),
 						 _(" which is an index on \"%s.%s\""),
 						 hrel->nspname, hrel->relname);
-				/* 是索引，于 OID...                           */
+				/* 转而关注索引的表以做 toast 检查      */
 				rel = hrel;
 				break;
 			}
@@ -265,12 +265,12 @@ report_unmatched_relation(const RelInfo *rel, const DbInfo *db, bool is_new_db)
 			   reloid, db->db_name, reldesc);
 }
 
-/*转注意索引的表做 toast 检查
- * 
+/*
+ * get_db_and_rel_infos()
  *
- * 
- * 
-                                                                                                               */
+ * 较上层的例程，为运行于给定 "port" 的               
+ * 数据库生成 dbinfo。假定服务器已运行。        
+ */
 void
 get_db_and_rel_infos(ClusterInfo *cluster)
 {
@@ -295,10 +295,10 @@ get_db_and_rel_infos(ClusterInfo *cluster)
 }
 
 
-/*是 TOAST 表，在 OID...
- * 
- * 
-                                                                    */
+/*
+ * 获取 template0 的信息，它将从旧集簇复制                     
+ * 到新集簇。    
+ */
 static void
 get_template0_info(ClusterInfo *cluster)
 {
@@ -352,12 +352,12 @@ get_template0_info(ClusterInfo *cluster)
 }
 
 
-/*
- * get_db_infos()
- *
- * Scans pg_database system catalog and populates all user
- * databases.
- */
+/*扫描 pg_database 系统目录，填充所有用户数据库。
+ * 
+ * 
+ * 
+ * 
+               */
 static void
 get_db_infos(ClusterInfo *cluster)
 {
@@ -415,10 +415,11 @@ get_db_infos(ClusterInfo *cluster)
 /*
  * get_rel_infos()
  *
- * 获取 'dbinfo' 所引用数据库的所有用户表和索引的 relinfo。
+ * 获取 "dbinfo" 所引用数据库中全部用户表                 
+ * 和索引的 relinfo。 
  *
- * 注意：假定 RelInfo 数组按 OID 排序，以便后续处理有效
- * 匹配新旧数据库。
+ * 注意：假定得到的 RelInfo 数组按 OID 排序。         
+ * 这使后续处理能够高效地匹配新旧数据库。                  
  */
 static void
 get_rel_infos(ClusterInfo *cluster, DbInfo *dbinfo)
@@ -445,18 +446,18 @@ get_rel_infos(ClusterInfo *cluster, DbInfo *dbinfo)
 	char	   *last_namespace = NULL,
 			   *last_tablespace = NULL;
 
-	query[0] = '\0';			/* initialize query string to empty */
+	query[0] = '\0';			/* 初始化查询串为空         */
 
-	/*获取 dbinfo 引用数据库的所有用户表和索引的 relinfos。结果按 OID 排序便于后续新旧匹配。
-	 * 
-	 * 
-	 * 
-	 * 
+	/*
+	 * 创建 CTE 收集普通用户表和 matview 的 OIDs，             
+	 * 但不包括 toast 表和索引。我们假定 OID                    
+	 * >= FirstNormalObjectId 的关系属于用户。（这            
+	 * 多半与命名空间名称排除冗余，但稳妥起见。）  
 	 *
-	 * 
-	 * 
-	 * 
-	                                                                                                                                                                                                                                                                                                                             */
+	 * pg_largeobject 包含未出现在 pg_dump 输出中              
+	 * 的用户数据，因此必须复制该系统表。最简单的       
+	 * 即把它当作用户表。    
+	 */
 	snprintf(query + strlen(query), sizeof(query) - strlen(query),
 			 "WITH regular_heap (reloid, indtable, toastheap) AS ( "
 			 "  SELECT c.oid, 0::oid, 0::oid "
@@ -464,7 +465,7 @@ get_rel_infos(ClusterInfo *cluster, DbInfo *dbinfo)
 			 "         ON c.relnamespace = n.oid "
 			 "  WHERE relkind IN (" CppAsString2(RELKIND_RELATION) ", "
 			 CppAsString2(RELKIND_MATVIEW) ") AND "
-	/* 初始查询为空                    */
+	/* 排除可能存在的孤立临时表  */
 			 "    ((n.nspname !~ '^pg_temp_' AND "
 			 "      n.nspname !~ '^pg_toast_temp_' AND "
 			 "      n.nspname NOT IN ('pg_catalog', 'information_schema', "
@@ -474,11 +475,11 @@ get_rel_infos(ClusterInfo *cluster, DbInfo *dbinfo)
 			 "      relname IN ('pg_largeobject') ))), ",
 			 FirstNormalObjectId);
 
-	/*
-	 * Add a CTE that collects OIDs of toast tables belonging to the tables
-	 * selected by the regular_heap CTE.  (We have to do this separately
-	 * because the namespace-name rules above don't work for toast tables.)
-	 */
+	/*添加一 CTE 收集属于 regular_heap CTE 所选表的 toast 表 OID。（因上述命名空间名称规则不适用 toast 表，必须单独进行。）
+	 * 
+	 * 
+	 * 
+	                                               */
 	snprintf(query + strlen(query), sizeof(query) - strlen(query),
 			 "  toast_heap (reloid, indtable, toastheap) AS ( "
 			 "  SELECT c.reltoastrelid, 0::oid, c.oid "
@@ -486,12 +487,12 @@ get_rel_infos(ClusterInfo *cluster, DbInfo *dbinfo)
 			 "      ON regular_heap.reloid = c.oid "
 			 "  WHERE c.reltoastrelid != 0), ");
 
-	/*排除孤立临时表
-	 * 
-	 * 
-	 * 
-	 * 
-	                                                                                                                                                                                                */
+	/*
+	 * 添加一个 CTE，收集前面所选全部表的有效            
+	 * 索引 OIDs。无效索引可忽略，pg_dump 也如此。         
+	 * 在 9.2 中必须测试 indisready，对更早/更晚                
+	 * 无害。
+	 */
 	snprintf(query + strlen(query), sizeof(query) - strlen(query),
 			 "  all_index (reloid, indtable, toastheap) AS ( "
 			 "  SELECT indexrelid, indrelid, 0::oid "
@@ -502,10 +503,10 @@ get_rel_infos(ClusterInfo *cluster, DbInfo *dbinfo)
 			 "         UNION ALL "
 			 "         SELECT reloid FROM toast_heap)) ");
 
-	/*CTE 收集属于 regular_heap 表 toast 表的 OID。（命名空间规则不适用 toast 表故单做。）
-	 * 
-	 * 
-	                        */
+	/*
+	 * 现在可以写出为每个堆和索引关系取回我们              
+	 * 所需数据的查询。确保结果按 OID 排序。       
+	 */
 	snprintf(query + strlen(query), sizeof(query) - strlen(query),
 			 "SELECT all_rels.*, n.nspname, c.relname, "
 			 "  c.relfilenode, c.reltablespace, "
@@ -549,12 +550,12 @@ get_rel_infos(ClusterInfo *cluster, DbInfo *dbinfo)
 		nspname = PQgetvalue(res, relnum, i_nspname);
 		curr->nsp_alloc = false;
 
-		/*CTE 收集表上所有有效索引 OID。忽略无效索引（pg_dump 也如此）。9.2 需测试 indisready，更早/更晚无害。
-		 * 
-		 * 
-		 * 
-		                  */
-		/* Can we reuse the previous string allocation? */
+		/*
+		 * 许多命名空间与表空间字符串相同，因此我们     
+		 * 尽量复用已分配的字符串指针，以减少                
+		 * 内存消耗。    
+		 */
+		/* 能否复用先前的字符串分配？      */
 		if (last_namespace && strcmp(nspname, last_namespace) == 0)
 			curr->nspname = last_namespace;
 		else
@@ -569,16 +570,16 @@ get_rel_infos(ClusterInfo *cluster, DbInfo *dbinfo)
 		curr->relfilenumber = atooid(PQgetvalue(res, relnum, i_relfilenumber));
 		curr->tblsp_alloc = false;
 
-		/* Is the tablespace oid non-default? */
+		/* 表空间 oid 非默认？         */
 		if (atooid(PQgetvalue(res, relnum, i_reltablespace)) != 0)
 		{
-			/*可复用前字符串分配？
-			 * 
-			 * 
-			                                                                          */
+			/*
+			 * 表空间位置可能为 ""，意即集簇的默认     
+			 * 位置，即 pg_default 或 pg_global。       
+			 */
 			tablespace = PQgetvalue(res, relnum, i_spclocation);
 
-			/* 表空间 oid 非默认？                   */
+			/* 能否复用先前的字符串分配？      */
 			if (last_tablespace && strcmp(tablespace, last_tablespace) == 0)
 				curr->tablespace = last_tablespace;
 			else
@@ -588,7 +589,7 @@ get_rel_infos(ClusterInfo *cluster, DbInfo *dbinfo)
 			}
 		}
 		else
-			/* A zero reltablespace oid indicates the database tablespace. */
+			/* reltablespace oid 为零表示数据库表空间。         */
 			curr->tablespace = dbinfo->db_tablespace;
 	}
 	PQclear(res);

@@ -13,17 +13,17 @@
 #include "catalog/pg_language_d.h"
 #include "pg_upgrade.h"
 
-/*
- * qsort comparator for pointers to library names
- *
- * We sort first by name length, then alphabetically for names of the
- * same length, then database array index.  This is to ensure that, eg,
- * "hstore_plpython" sorts after both "hstore" and "plpython"; otherwise
- * transform modules will probably fail their LOAD tests.  (The backend
- * ought to cope with that consideration, but it doesn't yet, and even
- * when it does it'll still be a good idea to have a predictable order of
- * probing here.)
- */
+/*库名指针的 qsort 比较函数。先按名称长度排序，同长者按字母序，再按数据库数组下标。这确保如 hstore_plpython 排在 hstore 和 plpython 之后；否则转换模块可能无法通过 LOAD 测试。（后端本应处理此情况，但目前尚不能；即便将来能，保持可预期的探测顺序仍是好主意。）
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+                                                                                                               */
 static int
 library_name_compare(const void *p1, const void *p2)
 {
@@ -43,12 +43,12 @@ library_name_compare(const void *p1, const void *p2)
 }
 
 
-/*
- * get_loadable_libraries()
- *
- *	Fetch the names of all old libraries containing C-language functions.
- *	We will later check that they all exist in the new installation.
- */
+/*获取所有含 C 语言函数的旧库名。稍后检查它们是否都存在于新安装中。
+ * 
+ * 
+ * 
+ * 
+                                                             */
 void
 get_loadable_libraries(void)
 {
@@ -65,9 +65,9 @@ get_loadable_libraries(void)
 		DbInfo	   *active_db = &old_cluster.dbarr.dbs[dbnum];
 		PGconn	   *conn = connectToServer(&old_cluster, active_db->db_name);
 
-		/*
-		 * Fetch all libraries containing non-built-in C functions in this DB.
-		 */
+		/*获取此库中所有含非内建 C 函数的库
+		 * 
+		                    */
 		ress[dbnum] = executeQueryOrDie(conn,
 										"SELECT DISTINCT probin "
 										"FROM pg_catalog.pg_proc "
@@ -109,13 +109,13 @@ get_loadable_libraries(void)
 }
 
 
-/*
- * check_loadable_libraries()
- *
- *	Check that the new cluster contains all required libraries.
- *	We do this by actually trying to LOAD each one, thereby testing
- *	compatibility as well as presence.
- */
+/*检查新集簇是否包含所有必需库。实际逐个尝试 LOAD，从而同时测试兼容性与存在性。
+ * 
+ * 
+ * 
+ * 
+ * 
+                                                                     */
 void
 check_loadable_libraries(void)
 {
@@ -130,12 +130,12 @@ check_loadable_libraries(void)
 	snprintf(output_path, sizeof(output_path), "%s/%s",
 			 log_opts.basedir, "loadable_libraries.txt");
 
-	/*
-	 * Now we want to sort the library names into order.  This avoids multiple
-	 * probes of the same library, and ensures that libraries are probed in a
-	 * consistent order, which is important for reproducible behavior if one
-	 * library depends on another.
-	 */
+	/*现在将库名排序。避免重复探测同一库，并确保以一致顺序探测各库；这在库间存在依赖时对可复现行为很重要。
+	 * 
+	 * 
+	 * 
+	 * 
+	                                                                                        */
 	qsort(os_info.libraries, os_info.num_libraries,
 		  sizeof(LibraryInfo), library_name_compare);
 

@@ -31,7 +31,7 @@ generate_old_dump(void)
 
 	prep_status_progress("Creating dump of database schemas");
 
-	/* create per-db dump files */
+	/* 创建每库导出文件 */
 	for (dbnum = 0; dbnum < old_cluster.dbarr.ndbs; dbnum++)
 	{
 		char		sql_file_name[MAXPGPATH],

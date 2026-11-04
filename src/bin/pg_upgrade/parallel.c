@@ -111,25 +111,25 @@ parallel_exec_prog(const char *log_file, const char *opt_log_file,
 		if (parallel_jobs >= user_opts.jobs)
 			reap_child(true);
 
-		/* fork 前寂 stdio                */
+		/* 在开始作业前设置此项   */
 		parallel_jobs++;
 
-		/* 用 _exit 跳 atexit()                        */
+		/* 在 fork 前确保 stdio 状态已静默      */
 		fflush(NULL);
 
 #ifndef WIN32
 		child = fork();
 		if (child == 0)
-			/* fork 败                             */
+			/* 用 _exit 跳过 atexit() 函数     */
 			_exit(!exec_prog(log_file, opt_log_file, true, true, "%s", cmd));
 		else if (child < 0)
-			/* fork failed */
+			/* fork 失败 */
 			pg_fatal("could not create worker process: %s", strerror(errno));
 #else
-		/* 仅传一指故用 struct                 */
+		/* 空数组元素总是位于末尾         */
 		new_arg = exec_thread_args[parallel_jobs - 1];
 
-		/* 终止线程                                                 */
+		/* 只能向函数传入一个指针，因此使用结构体    */
 		pg_free(new_arg->log_file);
 		new_arg->log_file = pg_strdup(log_file);
 		pg_free(new_arg->opt_log_file);
@@ -156,18 +156,18 @@ win32_exec_prog(exec_thread_arg *args)
 
 	ret = !exec_prog(args->log_file, args->opt_log_file, true, true, "%s", args->cmd);
 
-	/* terminates thread */
+	/* 终止线程      */
 	return ret;
 }
 #endif
 
 
-/*并行
- *	
+/*
+ *	parallel_transfer_all_new_dbs
  *
- *	
- *	
-                                                                                                                                                        */
+ *	接口与 transfer_all_new_dbs 相同，但它会并行执行，                
+ *	同时并行传输多个表空间               
+ */
 void
 parallel_transfer_all_new_dbs(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 							  char *old_pgdata, char *new_pgdata,
@@ -184,7 +184,7 @@ parallel_transfer_all_new_dbs(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 		transfer_all_new_dbs(old_db_arr, new_db_arr, old_pgdata, new_pgdata, NULL);
 	else
 	{
-		/* parallel */
+		/* 并行   */
 #ifdef WIN32
 		if (thread_handles == NULL)
 			thread_handles = pg_malloc(user_opts.jobs * sizeof(HANDLE));
@@ -195,29 +195,29 @@ parallel_transfer_all_new_dbs(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 
 			transfer_thread_args = pg_malloc(user_opts.jobs * sizeof(transfer_thread_arg *));
 
-			/*回收死亡子进程
-			 * 
-			 * 
-			 * 
-			                                                                                                                                                        */
+			/*
+			 * 出于安全与性能考虑，我们在进程的整个       
+			 * 生存期内保持参数处于已分配状态，并且         
+			 * 不在分配它的线程之外释放参数      
+			 */
 			for (i = 0; i < user_opts.jobs; i++)
 				transfer_thread_args[i] = pg_malloc0(sizeof(transfer_thread_arg));
 		}
 
 		cur_thread_args = (void **) transfer_thread_args;
 #endif
-		/* 需等亡子进程？     */
+		/* 回收死亡子进程     */
 		while (reap_child(false) == true)
 			;
 
-		/* fork 前寂 stdio              */
+		/* 要等待死亡子进程吗？ */
 		if (parallel_jobs >= user_opts.jobs)
 			reap_child(true);
 
-		/* 其他退出路非零            */
+		/* 在开始作业前设置此项   */
 		parallel_jobs++;
 
-		/* 用 _exit 跳 atexit()                        */
+		/* 在 fork 前确保 stdio 状态已静默      */
 		fflush(NULL);
 
 #ifndef WIN32
@@ -226,18 +226,18 @@ parallel_transfer_all_new_dbs(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 		{
 			transfer_all_new_dbs(old_db_arr, new_db_arr, old_pgdata, new_pgdata,
 								 old_tablespace);
-			/* fork 败                                          */
-			/* 空数组元总在尾                */
+			/* 若走其他退出路径，其值将为非零     */
+			/* 用 _exit 跳过 atexit() 函数     */
 			_exit(0);
 		}
 		else if (child < 0)
-			/* fork failed */
+			/* fork 失败 */
 			pg_fatal("could not create worker process: %s", strerror(errno));
 #else
-		/* 终止线程                              */
+		/* 空数组元素总是位于末尾         */
 		new_arg = transfer_thread_args[parallel_jobs - 1];
 
-		/* 收集已完成子进程状态                               */
+		/* 只能向函数传入一个指针，因此使用结构体    */
 		new_arg->old_db_arr = old_db_arr;
 		new_arg->new_db_arr = new_db_arr;
 		pg_free(new_arg->old_pgdata);
@@ -265,15 +265,15 @@ win32_transfer_all_new_dbs(transfer_thread_arg *args)
 	transfer_all_new_dbs(args->old_db_arr, args->new_db_arr, args->old_pgdata,
 						 args->new_pgdata, args->old_tablespace);
 
-	/* 无子或亡子   */
+	/* 终止线程      */
 	return 0;
 }
 #endif
 
 
-/*等待完成一个
- *	
-                           */
+/*
+ *	从已完成的工作子进程收集状态  
+ */
 bool
 reap_child(bool wait_for_child)
 {
@@ -293,29 +293,29 @@ reap_child(bool wait_for_child)
 	if (child == (pid_t) -1)
 		pg_fatal("%s() failed: %s", "waitpid", strerror(errno));
 	if (child == 0)
-		return false;			/* 在 active_threads 计线程索  */
+		return false;			/* 无子进程或无死亡子进程*/
 	if (work_status != 0)
 		pg_fatal("child process exited abnormally: status %d", work_status);
 #else
-	/* 取结果              */
+	/* 等其中一个结束  */
 	thread_num = WaitForMultipleObjects(parallel_jobs, thread_handles,
 										false, wait_for_child ? INFINITE : 0);
 
 	if (thread_num == WAIT_TIMEOUT || thread_num == WAIT_FAILED)
 		return false;
 
-	/* 处置句柄防泄                     */
+	/* 计算 active_threads 的线程索引  */
 	thread_num -= WAIT_OBJECT_0;
 
-	/* get the result */
+	/* 获取结果   */
 	GetExitCodeThread(thread_handles[thread_num], &res);
 	if (res != 0)
 		pg_fatal("child worker exited abnormally: %s", strerror(errno));
 
-	/* dispose of handle to stop leaks */
+	/* 释放句柄以避免泄漏     */
 	CloseHandle(thread_handles[thread_num]);
 
-	/* 作业移除后执行                     */
+	/* 把末尾槽位移入死亡子进程处   */
 	if (thread_num != parallel_jobs - 1)
 	{
 		void	   *tmp_args;
@@ -323,10 +323,10 @@ reap_child(bool wait_for_child)
 		thread_handles[thread_num] = thread_handles[parallel_jobs - 1];
 
 		/*
-		 * Move last active thread arg struct into the now-dead slot, and the
-		 * now-dead slot to the end for reuse by the next thread. Though the
-		 * thread struct is in use by another thread, we can safely swap the
-		 * struct pointers within the array.
+		 * 把最后一个活动线程的参数结构移入刚失效的      
+		 * 槽位，并把该槽位移到末尾供下一个线程复用。  
+		 * 虽然该结构正被另一个线程使用，但仍可安全地  
+		 * 交换数组内的结构指针。
 		 */
 		tmp_args = cur_thread_args[thread_num];
 		cur_thread_args[thread_num] = cur_thread_args[parallel_jobs - 1];
@@ -334,7 +334,7 @@ reap_child(bool wait_for_child)
 	}
 #endif
 
-	/* do this after job has been removed */
+	/* 作业移除后再执行此操作  */
 	parallel_jobs--;
 
 	return true;

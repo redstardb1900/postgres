@@ -19,12 +19,12 @@ static void transfer_single_new_db(FileNameMap *maps, int size, char *old_tables
 static void transfer_relfile(FileNameMap *map, const char *type_suffix, bool vm_must_add_frozenbit);
 
 
-/*升级所有数据库：生成映射并物理链接。
- * 
+/*
+ * transfer_all_new_tablespaces()
  *
- * 
- * 
-                                                                                             */
+ * 负责升级所有数据库。它会调用例程来生成映射，                    
+ * 物理链接这些数据库。
+ */
 void
 transfer_all_new_tablespaces(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 							 char *old_pgdata, char *new_pgdata)
@@ -66,7 +66,7 @@ transfer_all_new_tablespaces(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 										  old_pgdata,
 										  new_pgdata,
 										  os_info.old_tablespaces[tblnum]);
-		/* reap all children */
+		/*收全部子进程 */
 		while (reap_child(true) == true)
 			;
 	}
@@ -208,7 +208,7 @@ transfer_relfile(FileNameMap *map, const char *type_suffix, bool vm_must_add_fro
 		/* 是段/fsm/vm？                  */
 		if (type_suffix[0] != '\0' || segno != 0)
 		{
-			/* Did file open fail? */
+			/*文件打开失败？*/
 			if (stat(old_file, &statbuf) != 0)
 			{
 				/* 文件不存在？返回                     */

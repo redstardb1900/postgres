@@ -30,12 +30,12 @@ init_tablespaces(void)
 }
 
 
-/*
- * get_tablespace_paths()
- *
- * Scans pg_tablespace and returns a malloc'ed array of all tablespace
- * paths. It's the caller's responsibility to free the array.
- */
+/*扫描 pg_tablespace，返回所有表空间路径的 malloc 数组。由调用者负责释放数组。
+ * 
+ * 
+ * 
+ * 
+                                            */
 static void
 get_tablespace_paths(void)
 {
@@ -67,15 +67,15 @@ get_tablespace_paths(void)
 
 		os_info.old_tablespaces[tblnum] = pg_strdup(PQgetvalue(res, tblnum, i_spclocation));
 
-		/*
-		 * Check that the tablespace path exists and is a directory.
-		 * Effectively, this is checking only for tables/indexes in
-		 * non-existent tablespace directories.  Databases located in
-		 * non-existent tablespaces already throw a backend error.
-		 * Non-existent tablespace directories can occur when a data directory
-		 * that contains user tablespaces is moved as part of pg_upgrade
-		 * preparation and the symbolic links are not updated.
-		 */
+		/*检查表空间路径存在且为目录。实际仅检查不存在表空间目录中的表/索引；位于不存在表空间的数据库已在后端报错。当含用户表空间的数据目录在 pg_upgrade 准备中被移动且符号链接未更新时，会出现不存在的表空间目录。
+		 * 
+		 * 
+		 * 
+		 * 
+		 * 
+		 * 
+		 * 
+		                                                                                                               */
 		if (stat(os_info.old_tablespaces[tblnum], &statBuf) != 0)
 		{
 			if (errno == ENOENT)

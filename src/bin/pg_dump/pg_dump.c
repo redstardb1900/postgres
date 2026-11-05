@@ -1702,24 +1702,24 @@ checkExtensionMembership(DumpableObject *dobj, Archive *fout)
 	addObjectDependency(dobj, ext->dobj.dumpId);
 
 	/*
-	 * 在 9.6 及以上版本中，标记成员对象以导出所有非初始 ACL。
-	 * （所有初始 ACL 将稍后使用 pg_init_privs 的数据被删除，
-	 * 以便我们只导出与扩展初始设置的差异部分。）
-	 * 
-	 * 在 9.6 之前，我们不包含任何扩展成员组件。
-	 * 
-	 * 在二进制升级中，我们仍然分别导出成员的所有组件，
-	 * 因为其理念是精确复制数据库内容，
-	 * 而不是用不同的内容替换扩展内容。
-	 * 
-	 * 注意：将来实现扩展成员 RLS 策略和/或安全标签的
-	 * 存储和增量导出可能会很有趣。但 RLS 策略存在一个陷阱：
-	 * 尝试导出它们需要锁定其表，而调用用户可能没有相应的权限。
-	 * 我们检查表的 ACL 不需要锁定，
-	 * 因此当前功能不存在此类问题。
+	 * 在 9.6 及以上，将拥有任何非初始 ACL 的成员对象     
+	 * 标记为待导出。（所有初始 ACL 稍后将使用来自   
+	 * pg_init_privs 的数据移除，以便我们只导出与扩展初始 
+	 * 的差异。）
 	 *
+	 * 在 9.6 之前，我们不包含任何扩展成员组件。     
 	 *
+	 * 在二进制升级中，我们仍然会分别导出成员的   
+	 * 所有组件，因为其理念是精确地复现数据库        
+	 * 内容，而不是用不同的东西替换扩展的内容。      
+	 *           
 	 *
+	 * 注意：将来为扩展成员的 RLS 策略和/或安全标签     
+	 * 实现存储与增量导出可能会很有趣。                  
+	 * 但 RLS 策略存在一个陷阱：尝试导出它们           
+	 * 需要获得其表上的锁，而调用用户可能                    
+	 * 没有相应权限。检查表的 ACL 无需任何锁，             
+	 * 因此当前的功能不存在此类问题。              
 	 */
 	if (fout->dopt->binary_upgrade)
 		dobj->dump = ext->dobj.dump;
@@ -1901,12 +1901,12 @@ selectDumpableType(TypeInfo *tyinfo, Archive *fout)
 }
 
 /*
- * selectDumpableDefaultACL：策略设置子程序
- *   标记一个默认 ACL 是否应被导出
- * 
- * 对于按模式划分的默认 ACL，我们在对象意向的上下文中使用它们。
+ * selectDumpableDefaultACL：策略设置子程序   
+ *		标记一个默认 ACL 是否应被导出
  *
- *
+ * 按模式的默认 ACL，若其模式待导出则导出。      
+ * 否则，若正在导出全部内容则导出。注意 dataOnly   
+ * 和 aclsSkip 是分开检查的。  
  */
 static void
 selectDumpableDefaultACL(DefaultACLInfo *dinfo, DumpOptions *dopt)
@@ -2049,12 +2049,12 @@ selectDumpableExtension(ExtensionInfo *extinfo, DumpOptions *dopt)
 }
 
 /*
- * selectDumpablePublicationObject：策略设置子程序
- *   标记一个发布对象是否应被导出
- * 
- * 发布不属于任何命名空间。
+ * selectDumpablePublicationObject：策略设置子程序   
+ *		标记一个发布对象是否应被导出      
  *
- *
+ * 发布可以拥有模式以及带有模式的表，但在决策时         
+ * 它们会被忽略，因为发布只有在导出全部内容时             
+ * 才会被导出。 
  */
 static void
 selectDumpablePublicationObject(DumpableObject *dobj, Archive *fout)
@@ -2067,12 +2067,12 @@ selectDumpablePublicationObject(DumpableObject *dobj, Archive *fout)
 }
 
 /*
- * selectDumpableStatisticsObject：策略设置子程序
- *   标记一个扩展统计对象是否应被导出
- * 
- * 扩展统计对象位于包含它们的模式中。
+ * selectDumpableStatisticsObject：策略设置子程序   
+ *		标记一个扩展统计对象是否应被导出         
  *
- *
+ * 如果扩展统计对象所在的模式和所属的表正被导出，    
+ * 我们导出该扩展统计对象。（若统计对象将来支持  
+ * 跨表统计，则需再议。）       
  */
 static void
 selectDumpableStatisticsObject(StatsExtInfo *sobj, Archive *fout)
@@ -2302,11 +2302,11 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 		set_restrict_relation_kind(fout, "view");
 
 	/*
-	 * 如果我们要发出带列名的 INSERT，处理生成列最有效的
-	 * 方式是将其放在列列表中的默认位置。但如果我们没有列名，
-	 * 在列列表中使用 DEFAULT 是无效的，因此我们必须检索生成列的值。
-	 *
-	 *
+	 * 如果要发出带列名的 INSERT，处理生成列最有效的    
+	 * 方式是将它们完全排除。对于不带列名的 INSERT，    
+	 * 我们必须发出 DEFAULT 而不是                                 
+	 * 实际的列值 --- 但我们可以通过取回空值来节省一些  
+	 * 周期，而非我们不感兴趣的值。
 	 */
 	attgenerated = (char *) pg_malloc(tbinfo->numatts * sizeof(char));
 	appendPQExpBufferStr(q, "DECLARE _pg_dump_cursor CURSOR FOR SELECT ");
@@ -3126,11 +3126,11 @@ dumpDatabase(Archive *fout)
 	qdatname = pg_strdup(fmtId(datname));
 
 	/*
-	 * 准备 CREATE DATABASE 命令。如果需要保留 OID，必须指定它，
-	 * 并且还需要设置其他一些选项。
-	 * 注意：我们无法使用 fmtQualifiedId，因为它会生成多余的引号。
-	 * 
-	 *
+	 * 准备 CREATE DATABASE 命令。如果我们想保留 OID，         
+	 * 就必须指定它，以及编码、区域设置和表空间，   
+	 * 因为这些在以后无法更改。其他数据库属性留给     
+	 * DATABASE PROPERTIES 条目，以便它们能在重新连接     
+	 * 到目标数据库后应用。
 	 */
 	if (dopt->binary_upgrade)
 	{
@@ -3559,11 +3559,11 @@ dumpSearchPath(Archive *AH)
 	int			i;
 
 	/*
-	 * 我们使用 current_schemas() 的结果，而不是 search_path GUC，
-	 * 因为后者可能包含我们不关心的模式名，
-	 * 例如在自引用视图中。
-	 *
-	 *
+	 * 我们用 current_schemas() 的结果而非 search_path GUC，  
+	 * 因为它可能含 "$user" 这类通配符，恢复时未必     
+	 * 具有相同的值。而且这种方式可以避免列出             
+	 * 那些可能出现在 search_path 中但实际并不存在的模式，
+	 * 这种排除看起来是审慎的。 
 	 */
 	res = ExecuteSqlQueryForSingleRow(AH,
 									  "SELECT pg_catalog.current_schemas(false)");
@@ -4009,9 +4009,9 @@ dumpPolicy(Archive *fout, const PolicyInfo *polinfo)
 		return;
 
 	/*
-	 * 如果 polname 为 NULL，则此记录仅指示 ROW LEVEL SECURITY 已启用（见上文）。
-	 *
-	 *
+	 * 如果 polname 为 NULL，则此记录仅表明该表的 ROW LEVEL    
+	 * SECURITY 已启用。导出为 ALTER TABLE <table> ENABLE            
+	 * ROW LEVEL SECURITY.
 	 */
 	if (polinfo->polname == NULL)
 	{
@@ -4600,20 +4600,20 @@ dumpPublicationTable(Archive *fout, const PublicationRelInfo *pubrinfo)
 	if (pubrinfo->pubrelqual)
 	{
 		/*
-		 * 需要在表达式周围添加括号，因为 pg_get_expr 不会为顶层表达式提供括号。
-		 *
-		 *
+		 * 有必要在表达式周围添加括号，因为               
+		 * pg_get_expr 不会自行提供括号，比如 WHERE           
+		 * TRUE.
 		 */
 		appendPQExpBuffer(query, " WHERE (%s)", pubrinfo->pubrelqual);
 	}
 	appendPQExpBufferStr(query, ";\n");
 
 	/*
-	 * 创建删除查询毫无意义，因为删除是通过表删除完成的。
-	 * （如果你想实现它，请确保在发布或其订阅者被删除时处理级联情况。）
-	 *
-	 *
-	 *
+	 * 创建删除查询毫无意义，删除是通过删表完成的。     
+	 * （如果你想改变这一点，另见 _printTocEntry()。）  
+	 * 虽然此对象本身并没有真正的所有权，但仍要设置 
+	 * owner 字段，以确保该命令由正确的角色                
+	 * 在恢复时执行。
 	 */
 	if (pubrinfo->dobj.dump & DUMP_COMPONENT_DEFINITION)
 		ArchiveEntry(fout, pubrinfo->dobj.catId, pubrinfo->dobj.dumpId,
@@ -5246,10 +5246,10 @@ binary_upgrade_extension_member(PQExpBuffer upgrade_buffer,
 		return;
 
 	/*
-	 * 查找父扩展。如果我们想向 DumpableObject 添加链接字段，
-	 * 可以避免此搜索，但这样做不值得。
-	 *
-	 *
+	 * 查找父扩展。如果想向 DumpableObject 添加链接字段，   
+	 * 本可避免这次搜索，但其空间开销将很大。            
+	 * 我们假定成员对象只可能对其自身的扩展有        
+	 * 直接依赖，而不依赖任何其他扩展。         
 	 */
 	for (i = 0; i < dobj->nDeps; i++)
 	{
@@ -5274,10 +5274,10 @@ binary_upgrade_extension_member(PQExpBuffer upgrade_buffer,
 
 /*
  * getNamespaces:
- *   读取系统目录中的所有命名空间，并将它们返回到 NamespaceInfo* 结构中
+ *	  读取系统目录中的所有命名空间，并将其返回到  
+ * NamespaceInfo* 结构。
  *
- *
- *
+ *	numNamespaces 被设置为读入的命名空间数量   
  */
 NamespaceInfo *
 getNamespaces(Archive *fout, int *numNamespaces)
@@ -5410,10 +5410,10 @@ findNamespace(Oid nsoid)
 
 /*
  * getExtensions:
- *   读取系统目录中的所有扩展，并将它们返回到 ExtensionInfo* 结构中
+ *	  读取系统目录中的所有扩展，并将其返回到        
+ * ExtensionInfo* 结构。
  *
- *
- *
+ *	numExtensions 被设置为读入的扩展数量         
  */
 ExtensionInfo *
 getExtensions(Archive *fout, int *numExtensions)
@@ -5482,13 +5482,13 @@ getExtensions(Archive *fout, int *numExtensions)
 
 /*
  * getTypes:
- *   读取系统目录中的所有类型，并将它们返回到 TypeInfo* 结构中
- * 
- * 注意：对于可以隐式创建的数组类型，如果基本类型被导出，则隐式创建的数组类型也会被导出。
- * 它们不会被显式创建，但我们需要它们以便数组引用的类型能够正确识别别名。
+ *	  读取系统目录中的所有类型，并将其返回到   
+ * TypeInfo* 结构。
  *
+ *	numTypes 被设置为读入的类型数量    
  *
- *
+ * 注意：它须在 getFuncs() 之后运行，因为会调用  
+ * findFuncByOid().
  */
 TypeInfo *
 getTypes(Archive *fout, int *numTypes)
@@ -5514,19 +5514,19 @@ getTypes(Archive *fout, int *numTypes)
 	int			i_isarray;
 
 	/*
-	 * 我们甚至包括内置类型，因为用户定义类型可能将它们用作数组元素。
-	 * 我们过滤掉系统定义的类型（在 dump-out 时），但我们仍然需要它们的
-	 * 信息以正确排序。
-	 * 
-	 * 但是，对于关系复合类型（pg_class.reltype），我们只包括那些
-	 * 我们没有相关表的类型。
-	 * 我们通过检查 typrelid 是否与 pg_class 中的任何 OID 匹配来实现这一点。
-	 * 这避免了我们获取两次相同信息的可能性。
-	 * 尽管 pg_class 和 pg_type 之间存在一对一的关系，
-	 * 但这无法通过简单的连接完成。（为什么？想不出来……）
+	 * 我们甚至包括内置类型，因为用户定义类型可能      
+	 * 把它们用作数组元素。
 	 *
+	 * 但在导出类型时，我们会过滤掉内置类型。  
 	 *
+	 * 未定义（shell）类型与数组类型同样处理。 
 	 *
+	 * 注意：8.3 起，我们能可靠检测某类型是否为 
+	 * 自动生成的数组类型，检查元素类型的 typarray。   
+	 * （在此之前该检测可能产生误报。）但我们          
+	 * 仍检查名字是否以 '_' 开头，以免对所有标准类型  
+	 * 执行子选择探测的开销。如果后端将来允许重命名     
+	 * 数组类型，就必须重新审视这一做法。             
 	 */
 	appendPQExpBufferStr(query, "SELECT tableoid, oid, typname, "
 						 "typnamespace, typacl, "
@@ -5655,10 +5655,10 @@ getTypes(Archive *fout, int *numTypes)
 
 /*
  * getOperators:
- *   读取系统目录中的所有操作符，并将它们返回到 OprInfo* 结构中
+ *	  读取系统目录中的所有操作符，并将其返回到    
+ * OprInfo* 结构。
  *
- *
- *
+ *	numOprs 被设置为读入的操作符数量     
  */
 OprInfo *
 getOperators(Archive *fout, int *numOprs)
@@ -5737,10 +5737,10 @@ getOperators(Archive *fout, int *numOprs)
 
 /*
  * getCollations:
- *   读取系统目录中的所有排序规则，并将它们返回到 CollInfo* 结构中
+ *	  读取系统目录中的所有排序规则，并将其返回到  
+ * CollInfo* 结构。
  *
- *
- *
+ *	numCollations 被设置为读入的排序规则数量   
  */
 CollInfo *
 getCollations(Archive *fout, int *numCollations)
@@ -5809,10 +5809,10 @@ getCollations(Archive *fout, int *numCollations)
 
 /*
  * getConversions:
- *   读取系统目录中的所有转换，并将它们返回到 ConvInfo* 结构中
+ *	  读取系统目录中的所有转换，并将其返回到         
+ * ConvInfo* 结构。
  *
- *
- *
+ *	numConversions 被设置为读入的转换数量          
  */
 ConvInfo *
 getConversions(Archive *fout, int *numConversions)
@@ -5877,10 +5877,10 @@ getConversions(Archive *fout, int *numConversions)
 
 /*
  * getAccessMethods:
- *   读取系统目录中所有用户定义的访问方法，并将它们返回到 AccessMethodInfo* 结构中
+ *	  读取系统目录中所有用户定义的访问方法并返回       
+ *	  到 AccessMethodInfo* 结构中。     
  *
- *
- *
+ *	numAccessMethods 被设置为读入的访问方法数量       
  */
 AccessMethodInfo *
 getAccessMethods(Archive *fout, int *numAccessMethods)
@@ -5957,10 +5957,10 @@ getAccessMethods(Archive *fout, int *numAccessMethods)
 
 /*
  * getOpclasses:
- *   读取系统目录中的所有操作符类，并将它们返回到 OpclassInfo* 结构中
+ *	  读取系统目录中的所有操作符类，并将其返回到 
+ * OpclassInfo* 结构。
  *
- *
- *
+ *	numOpclasses 被设置为读入的操作符类数量  
  */
 OpclassInfo *
 getOpclasses(Archive *fout, int *numOpclasses)
@@ -6026,10 +6026,10 @@ getOpclasses(Archive *fout, int *numOpclasses)
 
 /*
  * getOpfamilies:
- *   读取系统目录中的所有操作符族，并将它们返回到 OpfamilyInfo* 结构中
+ *	  读取系统目录中的所有操作符族，并将其返回到  
+ * OpfamilyInfo* 结构。
  *
- *
- *
+ *	numOpfamilies 被设置为读入的操作符族数量   
  */
 OpfamilyInfo *
 getOpfamilies(Archive *fout, int *numOpfamilies)
@@ -6097,10 +6097,10 @@ getOpfamilies(Archive *fout, int *numOpfamilies)
 
 /*
  * getAggregates:
- *   读取系统目录中所有用户定义的聚合，并将它们返回到 AggInfo* 结构中
+ *	  读取系统目录中用户定义的全部聚合并返回      
+ * 到 AggInfo* 结构中。            
  *
- *
- *
+ * numAggs 被设置为读入的聚合数量         
  */
 AggInfo *
 getAggregates(Archive *fout, int *numAggs)
@@ -6244,10 +6244,10 @@ getAggregates(Archive *fout, int *numAggs)
 
 /*
  * getFuncs:
- *   读取系统目录中所有用户定义的函数，并将它们返回到 FuncInfo* 结构中
+ *	  读取系统目录中用户定义的所有函数并返回     
+ * 到 FuncInfo* 结构中。            
  *
- *
- *
+ * numFuncs 被设置为读入的函数数量        
  */
 FuncInfo *
 getFuncs(Archive *fout, int *numFuncs)
@@ -6271,25 +6271,25 @@ getFuncs(Archive *fout, int *numFuncs)
 	int			i_acldefault;
 
 	/*
-	 * 查找所有有趣的函数。这有点复杂：
-	 * 
-	 * 1. 始终排除聚合；这些由 getAggregates 处理。
-	 * 2. 始终排除转换函数；这些由 getConversions 处理。
-	 * 3. 始终排除扩展的成员；getExtensions 仅转储扩展本身。
-	 * 4. 排除属于扩展操作符类/操作符族的支持函数；
-	 *    这些是扩展的一部分，应单独处理。
-	 * 5. 通过检查函数的所有者是否在 pg_authid 中来确认函数未被孤立。
-	 * 6. 排除不属于扩展的 SQL 语言函数，
-	 *    我们可以通过重新执行其查询将其内联。
-	 * 7. 始终包含不属于任何命名空间的函数（因为对象没有命名空间）。
+	 * 找出所有值得关注的函数。这有点复杂：     
 	 *
+	 * 1. 始终排除聚合；它们在别处处理。          
 	 *
+	 * 2. 始终排除内部依赖于其他对象                            
+	 * 的函数，因为它们大概会随其所依赖对象创建        
+	 * 而被创建。这目前仅用于抑制范围类型的               
+	 * 构造函数。注意这之所以可行，只是因为      
+	 * 这些构造函数不拥有范围类型所没有的依赖；         
+	 * 否则我们可能无法正确安排创建顺序。  
 	 *
-	 *
-	 *
-	 *
-	 *
-	 *
+	 * 3. 其他情况下，通常排除 pg_catalog 中的函数。但如果  
+	 * 它们是扩展的成员且我们处于二进制升级模式，则  
+	 * 就包含它们，因为在该模式下我们要逐个导出扩展   
+	 * 成员。此外，若它们被转换或变换所使用，就需要    
+	 * 收集有关它们的信息，尽管如果它们是内置的，     
+	 * 就不会被导出。另外，从 9.6 起，pg_catalog 中   
+	 * 的函数，若其 ACL 与 pg_init_privs 显示的不同，  
+	 * 也要包含（因此必须连接 pg_init_privs；烦人）。
 	 */
 	if (fout->remoteVersion >= 90600)
 	{
@@ -6602,10 +6602,10 @@ getTables(Archive *fout, int *numTables)
 							 "false AS ispartition ");
 
 	/*
-	 * 左连接 pg_depend 以获取将序列链接到其所属列的依赖信息（如果有）。
-	 *
-	 *
-	 *
+	 * 左连接 pg_depend 以获取将序列链接到其所属列           
+	 * （如有）的依赖信息（注意此依赖为 AUTO，标识序列
+	 * 除外，其为 INTERNAL）。还要连接 pg_tablespace 以           
+	 * 获取 spcname。   
 	 */
 	appendPQExpBufferStr(query,
 						 "\nFROM pg_class c\n"
@@ -6661,13 +6661,13 @@ getTables(Archive *fout, int *numTables)
 	*numTables = ntups;
 
 	/*
-	 * 从结果中提取数据并锁定可导出表。
-	 * 我们在其他任何事情之前进行锁定，以最小化死锁的机会
-	 * 并避免在尝试锁定一系列表时出现模式更改。
+	 * 从结果中提取数据并锁定可导出的表。我们            
+	 * 在其他任何事情之前加锁，以尽量缩小表可能      
+	 * 消失的窗口。 
 	 *
-	 *
-	 *
-	 *
+	 * 注意：我们必须在这里保存所有表的信息，即使只     
+	 * 导出一个表，因为我们尚不知道哪些表可能是目标   
+	 * 表的继承祖先。         
 	 */
 	tblinfo = (TableInfo *) pg_malloc0(ntups * sizeof(TableInfo));
 
@@ -6825,19 +6825,19 @@ getTables(Archive *fout, int *numTables)
 		tblinfo[i].hascolumnACLs = false;	/* 稍后可能会设置 */
 
 		/*
-		 * 对目标表加读锁，以确保在我们进行 DDL 提取之前
-		 * 它们不会被 DROP 或修改模式。
-		 * 请注意，我们不锁定父表（通过 pg_inherits 找到），
-		 * 因此我们必须假定在转储期间不会更改子表的任何父表。
-		 * 
-		 * 注意：我们使用 MySQL 样式的 ORDER BY 限制来确保
-		 * 我们不会一次锁定太多表，因为这会消耗大量
-		 * 共享内存并获得不可预测的锁定顺序。
-		 * 
-		 * 同样，在远程服务器上，批处理很有用，因为它减少了
-		 * 网络往返次数。
+		 * 对目标表加读锁，以确保在轮到导出它们之前，    
+		 * 它们不会在模式上被 DROP 或更改。  
 		 *
+		 * 注意我们并不显式锁定目标表的父表；我们假定    
+		 * 对子表的锁足以防止父表的模式              
+		 * 被更改。                 
 		 *
+		 * 注意：若能连其他关系也一并锁定就更好了，  
+		 * 而不只是普通表和分区表，但后端目前还不     
+		 * 允许。  
+		 *
+		 * 我们只需为某些组件锁定表；参见             
+		 * pg_dump.h
 		 */
 		if ((tblinfo[i].dobj.dump & DUMP_COMPONENTS_REQUIRING_LOCK) &&
 			(tblinfo[i].relkind == RELKIND_RELATION ||
@@ -6917,26 +6917,26 @@ getOwnedSeqs(Archive *fout, TableInfo tblinfo[], int numTables)
 					 seqinfo->owning_tab, seqinfo->dobj.catId.oid);
 
 		/*
-		 * 对于标识序列，导出与拥有表的序列完全相同的组件。
-		 * 此外，如果拥有表将被导出，则始终导出序列。
-		 * 如果没有，则可能仍需要序列的 ACL，
-		 * 因此我们根据通常的规则进行决定。
-		 * 
-		 * 在二进制升级模式下，我们确实需要序列定义
-		 * （以设置 pg_sequence 的值）和数据（以调用 pg_catalog.setval）。
-		 * 
-		 * 不要将序列数据设置为无条件导出；
-		 * 如果我们正在导出表数据，则只需要序列数据。
+		 * 对于标识序列，为其序列导出与所属表完全相同的
+		 * 组件。这很重要，因为我们把标识序列视为      
+		 * 表的不可分割的一部分。例如，                        
+		 * 没有任何 DDL 命令允许独立                               
+		 * 于表创建这样的序列。        
 		 *
+		 * 对于 serial 等其他属主序列，我们需要导出           
+		 * 正为该表导出的组件，以及                      
+		 * 该序列被显式标记的那些组件。             
 		 *
+		 * 我们不能简单地使用正为该表导出的组件集合， 
+		 * 因为该表可能位于某个扩展中（此时只导出        
+		 * 非扩展组件，例如：更改过的 ACL、安全标签和      
+		 * 策略），而序列不在扩展中（因而             
+		 * 其定义和其他组件也应一并导出）。            
+		 *         
 		 *
-		 *
-		 *
-		 *
-		 *
-		 *
-		 *
-		 *
+		 * 如果序列是扩展的一部分，那么它应该已被          
+		 * checkExtensionMembership() 正确标记，这将是空操作， 
+		 * 因为该表会被同等地标记。  
 		 */
 		if (seqinfo->is_identity_sequence)
 			seqinfo->dobj.dump = owning_tab->dobj.dump;
@@ -7000,20 +7000,20 @@ getInherits(Archive *fout, int *numInherits)
 
 /*
  * getPartitioningInfo
- *   获取有关分区的信息
- * 
- * 在大多数情况下，我们仅为我们要转储的表收集分区信息，
- * 以减少要处理的数据量。但是，对于通过分区根加载，
- * 我们需要目标表的所有分区的完整列表。
- * 
- * 因为我们允许用户指定分区层次结构中任何级别的表，
- * 我们需要从 pg_inherits 中读取以获取子分区。
- * 我们不获取完整的层次结构，仅获取最近的子分区。
+ *	  获取有关分区的信息       
  *
+ * 在大多数情况下，我们只收集打算导出的表的        
+ * 分区信息。但是，此函数必须考虑数据库中的           
+ * 所有分区表，因为我们需要知道将要导出的分区            
+ * 的父表，即使父表本身不会被导出。                    
  *
- *
- *
- *
+ * 具体来说，我们需要知道的是每个分区表是否        
+ * 具有"不安全"分区方案，要求为其子分区强制  
+ * 启用 load-via-partition-root 模式。目前唯一需要这样       
+ * 做的情况是枚举列上的哈希分区，因为哈希码           
+ * 依赖于枚举值的 OID，而这些 OID 在导出并重新载入   
+ * 时不会被复制。还有其他一些情况下可能也需要         
+ * load-via-partition-root，但预期用户自行处理。  
  */
 void
 getPartitioningInfo(Archive *fout)
@@ -7032,12 +7032,12 @@ getPartitioningInfo(Archive *fout)
 	query = createPQExpBuffer();
 
 	/*
-	 * 不安全的划分方案正是那些在分区边界中
-	 * 出现 hash enum_ops 的方案。这些方案中，
-	 * 哈希分区函数的语义可能因平台而异。
-	 * 我们无法安全地转储不安全的划分方案。
+	 * 不安全的分区方案正是那些在分区操作符类中         
+	 * 出现 hash enum_ops 的方案。我们无需检查 partstrat。   
 	 *
-	 *
+	 * 注意：此查询很可能检索到我们不打算导出、      
+	 * 因而未加锁的表的信息。这没关系，因为我们无        
+	 * 需调用不安全的服务端函数。 
 	 */
 	appendPQExpBufferStr(query,
 						 "SELECT partrelid FROM pg_partitioned_table WHERE\n"
@@ -7581,10 +7581,10 @@ getConstraints(Archive *fout, TableInfo tblinfo[], int numTables)
 		constrinfo[j].separate = true;
 
 		/*
-		 * 恢复指向分区表的 FK 要求所有分区索引已事先附加。
-		 * 通过使约束依赖于每个索引分区附加对象来确保这一点。
-		 *
-		 *
+		 * 恢复指向分区表的 FK 要求所有分区索引都事先   
+		 * 附加完毕。为此，让约束依赖于每个索引分区    
+		 * 附加对象即可确保这一点。                           
+		 *               
 		 */
 		reftable = findTableByOid(constrinfo[j].confrelid);
 		if (reftable && reftable->relkind == RELKIND_PARTITIONED_TABLE)
@@ -7802,11 +7802,11 @@ getRules(Archive *fout, int *numRules)
 		if (ruleinfo[i].ruletable)
 		{
 			/*
-			 * 如果表是视图或物化视图，强制其 ON SELECT 规则
-			 * 在视图本身之前排序 —— 这确保规则的任何依赖项
-			 * 影响表的定位。其他规则强制出现在其表之后。
-			 *
-			 *
+			 * 如果表是视图或物化视图，强制其 ON SELECT  
+			 * 规则排在视图本身之前 --- 这确保规则      
+			 * 的任何依赖项都会影响表的定位。其他规则    
+			 * 则被强制排在其表之后。                        
+			 *       
 			 */
 			if ((ruleinfo[i].ruletable->relkind == RELKIND_VIEW ||
 				 ruleinfo[i].ruletable->relkind == RELKIND_MATVIEW) &&
@@ -10493,14 +10493,14 @@ dumpExtension(Archive *fout, const ExtensionInfo *extinfo)
 	if (!dopt->binary_upgrade)
 	{
 		/*
-		 * 在常规导出中，我们简单地创建扩展，有意不指定版本，
-		 * 以便使用目标安装的默认版本。
-		 * 
-		 * 在此使用 IF NOT EXISTS 与我们对其他对象类型的行为不同；
-		 * 但存在多种场景，在恢复之前手动创建所需的扩展很方便，
-		 * 因此我们更愿意允许它已经存在。
+		 * 在常规导出中，我们只是创建扩展，有意不指定 
+		 * 版本，以便使用目标安装所                            
+		 * 自带的默认版本。
 		 *
-		 *
+		 * 此处使用 IF NOT EXISTS 与我们对其他对象类型的     
+		 * 做法不同；但在很多场景中，在恢复之前手动      
+		 * 创建所需的扩展会很方便，因此我们宁愿允许 
+		 * 它已经存在。                  
 		 */
 		appendPQExpBuffer(q, "CREATE EXTENSION IF NOT EXISTS %s WITH SCHEMA %s;\n",
 						  qextname, fmtId(extinfo->namespace));
@@ -11618,12 +11618,12 @@ dumpCompositeType(Archive *fout, const TypeInfo *tyinfo)
 
 /*
  * dumpCompositeTypeColComments
- *   输出到 fout 以重建用户定义独立复合类型列的注释。
- * 
- * 调用者已执行查询来收集类型列的名称和 attnum，
- * 因此我们仅将该结果传递到这里，而不是重新读取。
+ *	  向 fout 输出用于重建用户定义独立复合类型各列      
+ *	  注释的查询。                        
  *
- *
+ * 调用者已经构造了收集该类型各列名称和 attnum       
+ * 的查询，因此我们直接把该结果传入这里，而       
+ * 不是重新读取。   
  */
 static void
 dumpCompositeTypeColComments(Archive *fout, const TypeInfo *tyinfo,
@@ -11836,13 +11836,13 @@ dumpProcLang(Archive *fout, const ProcLangInfo *plang)
 	else
 	{
 		/*
-		 * 如果不导出参数，则使用 CREATE OR REPLACE，
-		 * 以便在目标数据库中预安装了该语言时命令不会失败。
-		 * 
-		 * 现代服务器会将其解释为 CREATE EXTENSION IF NOT EXISTS；
-		 * 也许我们应该改为发出那个？但这可能只会增加混乱。
+		 * 如果不导出参数，则使用 CREATE OR REPLACE，这样     
+		 * 即使该语言已预装在目标数据库中，命令也不会    
+		 * 失败。
 		 *
-		 *
+		 * 现代服务器会将其解释为 CREATE EXTENSION IF NOT    
+		 * EXISTS；也许我们该改为发出那个？但这可能只会    
+		 * 添乱。 
 		 */
 		appendPQExpBuffer(defqry, "CREATE OR REPLACE PROCEDURAL LANGUAGE %s",
 						  qlanname);

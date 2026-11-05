@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * nodeValuesscan.c
- *	  Support routines for scanning Values lists
- *	  ("VALUES (...), (...), ..." in rangetable).
+ *	  扫描 Values 列表的支撑例程       
+ *	  （ rangetable 中的 "VALUES (...)"）。 
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -14,12 +14,12 @@
  *-------------------------------------------------------------------------
  */
 /*
- * INTERFACE ROUTINES
- *		ExecValuesScan			scans a values list.
- *		ExecValuesNext			retrieve next tuple in sequential order.
- *		ExecInitValuesScan		creates and initializes a valuesscan node.
- *		ExecEndValuesScan		releases any storage allocated.
- *		ExecReScanValuesScan	rescans the values list
+ * 接口例程      
+ *		ExecValuesScan 扫描 values 列表  
+ *		ExecValuesNext 按顺序取下一个元组。            
+ *		ExecInitValuesScan 创建并初始化 valuesscan 节点。    
+ *		ExecEndValuesScan 释放所有已分配存储。  
+ *		ExecReScanValuesScan 重新扫描列表     
  */
 #include "postgres.h"
 
@@ -34,14 +34,14 @@ static TupleTableSlot *ValuesNext(ValuesScanState *node);
 
 
 /* ----------------------------------------------------------------
- *						Scan Support
+ *						扫描支持
  * ----------------------------------------------------------------
  */
 
 /* ----------------------------------------------------------------
  *		ValuesNext
  *
- *		This is a workhorse for ExecValuesScan
+ *		这是 ExecValuesScan 的主力函数 
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -54,7 +54,7 @@ ValuesNext(ValuesScanState *node)
 	int			curr_idx;
 
 	/*
-	 * get information from the estate and scan state
+	 * 从 estate 和扫描状态获取信息        
 	 */
 	estate = node->ss.ps.state;
 	direction = estate->es_direction;
@@ -62,7 +62,7 @@ ValuesNext(ValuesScanState *node)
 	econtext = node->rowcontext;
 
 	/*
-	 * Get the next tuple. Return NULL if no more tuples.
+	 * 取下一个元组。无更多元组时返回 NULL
 	 */
 	if (ScanDirectionIsForward(direction))
 	{
@@ -76,10 +76,10 @@ ValuesNext(ValuesScanState *node)
 	}
 
 	/*
-	 * Always clear the result slot; this is appropriate if we are at the end
-	 * of the data, and if we're not, we still need it as the first step of
-	 * the store-virtual-tuple protocol.  It seems wise to clear the slot
-	 * before we reset the context it might have pointers into.
+	 * 始终清空结果槽位；如果我们已到数据末尾，这样做 
+	 * 是合适的；即使未到末尾，也是存储虚拟元组协议  
+	 * 的第一步。先清空槽位似乎更稳妥，                  
+	 * 然后再重置它可能存有指针的上下文。     
 	 */
 	ExecClearTuple(slot);
 
@@ -95,46 +95,46 @@ ValuesNext(ValuesScanState *node)
 		int			resind;
 
 		/*
-		 * Get rid of any prior cycle's leftovers.  We use ReScanExprContext
-		 * not just ResetExprContext because we want any registered shutdown
-		 * callbacks to be called.
+		 * 清除上一循环的遗留。我们使用 ReScanExprContext     
+		 * 而非只是 ResetExprContext，因为我们想让已注册的   
+		 * 关闭回调被调用  
 		 */
 		ReScanExprContext(econtext);
 
 		/*
-		 * Do per-VALUES-row work in the per-tuple context.
+		 * 在每元组上下文中做 VALUES 行级工作 
 		 */
 		oldContext = MemoryContextSwitchTo(econtext->ecxt_per_tuple_memory);
 
 		/*
-		 * Unless we already made the expression eval state for this row,
-		 * build it in the econtext's per-tuple memory.  This is a tad
-		 * unusual, but we want to delete the eval state again when we move to
-		 * the next row, to avoid growth of memory requirements over a long
-		 * values list.  For rows in which that won't work, we already built
-		 * the eval state at plan startup.
+		 * 除非已为该行建好表达式求值状态，否则我们  
+		 * 会在 econtext 的每元组内存中构建它。这有点 
+		 * 不寻常，但我们希望在移到下一行时再次删除求值 
+		 * 状态，以免 values 列表很长时内存需求增长。     
+		 * 对不适用的行，我们已在计划启动时构建了        
+		 * 求值状态。                
 		 */
 		if (exprstatelist == NIL)
 		{
 			/*
-			 * Pass parent as NULL, not my plan node, because we don't want
-			 * anything in this transient state linking into permanent state.
-			 * The only expression type that might wish to do so is a SubPlan,
-			 * and we already checked that there aren't any.
+			 * 传 parent 为 NULL 而非本计划节点，因为我们    
+			 * 不希望该临时状态的任何内容链入永久状态。  
+			 * 唯一可能想这么做的表达式类型是 SubPlan，       
+			 * 而我们已检查过没有此类节点。   
 			 *
-			 * Note that passing parent = NULL also disables JIT compilation
-			 * of the expressions, which is a win, because they're only going
-			 * to be used once under normal circumstances.
+			 * 注意，传入 parent = NULL 也会禁用表达式的 JIT   
+			 * 编译，这反而有利，因为它们在正常情况下只  
+			 * 被使用一次。                         
 			 */
 			exprstatelist = ExecInitExprList(exprlist, NULL);
 		}
 
-		/* parser should have checked all sublists are the same length */
+		/* 解析器应已检查所有子列表长度相同            */
 		Assert(list_length(exprstatelist) == slot->tts_tupleDescriptor->natts);
 
 		/*
-		 * Compute the expressions and build a virtual result tuple. We
-		 * already did ExecClearTuple(slot).
+		 * 计算各表达式并构建虚拟结果元组。我们已经
+		 * 执行过 ExecClearTuple(slot)。
 		 */
 		values = slot->tts_values;
 		isnull = slot->tts_isnull;
@@ -151,10 +151,10 @@ ValuesNext(ValuesScanState *node)
 										  &isnull[resind]);
 
 			/*
-			 * We must force any R/W expanded datums to read-only state, in
-			 * case they are multiply referenced in the plan node's output
-			 * expressions, or in case we skip the output projection and the
-			 * output column is multiply referenced in higher plan nodes.
+			 * 必须强制任何 R/W 展开的 Datum 进入只读状态，
+			 * 以防它们在计划节点输出表达式被多次引用  
+			 * 或者我们跳过输出投影时，输出列                
+			 * 在上层计划节点中被多次引用。                
 			 */
 			values[resind] = MakeExpandedObjectReadOnly(values[resind],
 														isnull[resind],
@@ -166,7 +166,7 @@ ValuesNext(ValuesScanState *node)
 		MemoryContextSwitchTo(oldContext);
 
 		/*
-		 * And return the virtual tuple.
+		 * 然后返回虚拟元组。  
 		 */
 		ExecStoreVirtualTuple(slot);
 	}
@@ -175,22 +175,22 @@ ValuesNext(ValuesScanState *node)
 }
 
 /*
- * ValuesRecheck -- access method routine to recheck a tuple in EvalPlanQual
+ * ValuesRecheck -- EvalPlanQual 中重新检查元组的访问方法例程 
  */
 static bool
 ValuesRecheck(ValuesScanState *node, TupleTableSlot *slot)
 {
-	/* nothing to check */
+	/* 无需检查     */
 	return true;
 }
 
 /* ----------------------------------------------------------------
  *		ExecValuesScan(node)
  *
- *		Scans the values lists sequentially and returns the next qualifying
- *		tuple.
- *		We call the ExecScan() routine and pass it the appropriate
- *		access method functions.
+ *		按顺序扫描 values 列表，并返回下一个满足条件的  
+ *		元组
+ *		我们调用 ExecScan() 例程，并向它传入适当的 
+ *		访问方法函数。   
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -217,13 +217,13 @@ ExecInitValuesScan(ValuesScan *node, EState *estate, int eflags)
 	PlanState  *planstate;
 
 	/*
-	 * ValuesScan should not have any children.
+	 * ValuesScan 不应有任何子节点。  
 	 */
 	Assert(outerPlan(node) == NULL);
 	Assert(innerPlan(node) == NULL);
 
 	/*
-	 * create new ScanState for node
+	 * 为节点创建 ScanState    
 	 */
 	scanstate = makeNode(ValuesScanState);
 	scanstate->ss.ps.plan = (Plan *) node;
@@ -231,52 +231,52 @@ ExecInitValuesScan(ValuesScan *node, EState *estate, int eflags)
 	scanstate->ss.ps.ExecProcNode = ExecValuesScan;
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 */
 	planstate = &scanstate->ss.ps;
 
 	/*
-	 * Create expression contexts.  We need two, one for per-sublist
-	 * processing and one for execScan.c to use for quals and projections. We
-	 * cheat a little by using ExecAssignExprContext() to build both.
+	 * 创建表达式上下文。需要两个，一个供子列表 
+	 * 处理使用，另一个供 execScan.c 用于条件和投影。我们 
+	 * 稍微取巧：用 ExecAssignExprContext() 来创建两者。 
 	 */
 	ExecAssignExprContext(estate, planstate);
 	scanstate->rowcontext = planstate->ps_ExprContext;
 	ExecAssignExprContext(estate, planstate);
 
 	/*
-	 * Get info about values list, initialize scan slot with it.
+	 * 获取 values 列表信息，以其初始化扫描槽。 
 	 */
 	tupdesc = ExecTypeFromExprList((List *) linitial(node->values_lists));
 	ExecInitScanTupleSlot(estate, &scanstate->ss, tupdesc, &TTSOpsVirtual);
 
 	/*
-	 * Initialize result type and projection.
+	 * 初始化结果类型与投影。     
 	 */
 	ExecInitResultTypeTL(&scanstate->ss.ps);
 	ExecAssignScanProjectionInfo(&scanstate->ss);
 
 	/*
-	 * initialize child expressions
+	 * 初始化子表达式       
 	 */
 	scanstate->ss.ps.qual =
 		ExecInitQual(node->scan.plan.qual, (PlanState *) scanstate);
 
 	/*
-	 * Other node-specific setup
+	 * 其他节点专属设置 
 	 */
 	scanstate->curr_idx = -1;
 	scanstate->array_len = list_length(node->values_lists);
 
 	/*
-	 * Convert the list of expression sublists into an array for easier
-	 * addressing at runtime.  Also, detect whether any sublists contain
-	 * SubPlans; for just those sublists, go ahead and do expression
-	 * initialization.  (This avoids problems with SubPlans wanting to connect
-	 * themselves up to the outer plan tree.  Notably, EXPLAIN won't see the
-	 * subplans otherwise; also we will have troubles with dangling pointers
-	 * and/or leaked resources if we try to handle SubPlans the same as
-	 * simpler expressions.)
+	 * 把表达式子列表的列表转换为数组，方便运行期 
+	 * 容易地寻址。此外，检测是否有子列表包含        
+	 * SubPlan；只针对这些子列表，继续执行表达式   
+	 * 初始化。（这避免了 SubPlan 想自行连接到外层           
+	 * 计划树的问题。特别是不这样做时，EXPLAIN              
+	 * 将看不到这些子计划；而且若按与简单表达式         
+	 * 相同的方式处理 SubPlan，还会有悬空指针和/或    
+	 * 资源泄漏。）   
 	 */
 	scanstate->exprlists = (List **)
 		palloc(scanstate->array_len * sizeof(List *));
@@ -290,8 +290,8 @@ ExecInitValuesScan(ValuesScan *node, EState *estate, int eflags)
 		scanstate->exprlists[i] = exprs;
 
 		/*
-		 * We can avoid the cost of a contain_subplans() scan in the simple
-		 * case where there are no SubPlans anywhere.
+		 * 在没有任何 SubPlan 的简单情况下，我们可以       
+		 * 避免 contain_subplans() 扫描开销。 
 		 */
 		if (estate->es_subplanstates &&
 			contain_subplans((Node *) exprs))
@@ -299,11 +299,11 @@ ExecInitValuesScan(ValuesScan *node, EState *estate, int eflags)
 			int			saved_jit_flags;
 
 			/*
-			 * As these expressions are only used once, disable JIT for them.
-			 * This is worthwhile because it's common to insert significant
-			 * amounts of data via VALUES().  Note that this doesn't prevent
-			 * use of JIT *within* a subplan, since that's initialized
-			 * separately; this just affects the upper-level subexpressions.
+			 * 由于这些表达式只用一次，为它们禁用 JIT。    
+			 * 这样做是值得的，因为通过 VALUES() 插入大量  
+			 * 数据的情况很常见。注意这并不妨碍在子计划 
+			 * *内*使用 JIT，那里的 JIT 单独初始化，     
+			 * 这只影响上层的子表达式。                         
 			 */
 			saved_jit_flags = estate->es_jit_flags;
 			estate->es_jit_flags = PGJIT_NONE;
@@ -322,21 +322,21 @@ ExecInitValuesScan(ValuesScan *node, EState *estate, int eflags)
 /* ----------------------------------------------------------------
  *		ExecEndValuesScan
  *
- *		frees any storage allocated through C routines.
+ *		释放通过 C 例程分配的所有存储。  
  * ----------------------------------------------------------------
  */
 void
 ExecEndValuesScan(ValuesScanState *node)
 {
 	/*
-	 * Free both exprcontexts
+	 * 释放两个上下文 
 	 */
 	ExecFreeExprContext(&node->ss.ps);
 	node->ss.ps.ps_ExprContext = node->rowcontext;
 	ExecFreeExprContext(&node->ss.ps);
 
 	/*
-	 * clean out the tuple table
+	 * 清空元组表          
 	 */
 	if (node->ss.ps.ps_ResultTupleSlot)
 		ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
@@ -346,7 +346,7 @@ ExecEndValuesScan(ValuesScanState *node)
 /* ----------------------------------------------------------------
  *		ExecReScanValuesScan
  *
- *		Rescans the relation.
+ *		重新扫描关系。
  * ----------------------------------------------------------------
  */
 void

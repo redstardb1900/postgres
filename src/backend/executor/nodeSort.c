@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeSort.c
- *	  Routines to handle sorting of relations.
+ *	  处理关系排序的例程。          
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -25,25 +25,25 @@
 /* ----------------------------------------------------------------
  *		ExecSort
  *
- *		Sorts tuples from the outer subtree of the node using tuplesort,
- *		which saves the results in a temporary file or memory. After the
- *		initial call, returns a tuple from the file with each call.
+ *		使用 tuplesort 对节点外层子树的元组进行排序，  
+ *		结果保存到临时文件或内存中。初始调用之后， 
+ *		每次调用都从文件返回一个元组。              
  *
- *		There are two distinct ways that this sort can be performed:
+ *		执行这种排序有两种截然不同的方式：         
  *
- *		1) When the result is a single column we perform a Datum sort.
+ *		1) 当结果为单列时，我们执行 Datum 排序。       
  *
- *		2) When the result contains multiple columns we perform a tuple sort.
+ *		2) 当结果包含多列时，我们执行元组排序。            
  *
- *		We could do this by always performing a tuple sort, however sorting
- *		Datums only can be significantly faster than sorting tuples,
- *		especially when the Datums are of a pass-by-value type.
+ *		我们本可以总是用元组排序来实现，不过仅对       
+ *		Datum 进行排序会明显快于元组排序，尤其当   
+ *		Datum 为按值传递类型时。                      
  *
- *		Conditions:
- *		  -- none.
+ *		条件：  
+ *		  --无。
  *
- *		Initial States:
- *		  -- the outer child is prepared to return the first tuple.
+ *		初始状态：
+ *		  -- 外层子节点已准备好返回第一个元组。   
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -58,7 +58,7 @@ ExecSort(PlanState *pstate)
 	CHECK_FOR_INTERRUPTS();
 
 	/*
-	 * get state info from node
+	 * 获取节点状态信息
 	 */
 	SO1_printf("ExecSort: %s\n",
 			   "entering routine");
@@ -68,8 +68,8 @@ ExecSort(PlanState *pstate)
 	tuplesortstate = (Tuplesortstate *) node->tuplesortstate;
 
 	/*
-	 * If first time through, read all tuples from outer plan and pass them to
-	 * tuplesort.c. Subsequent calls just fetch tuples from tuplesort.
+	 * 如果是首次执行，从外层计划读取所有元组并传给     
+	 * tuplesort.c。后续调用只需从 tuplesort 获取元组。  
 	 */
 
 	if (!node->sort_Done)
@@ -83,13 +83,13 @@ ExecSort(PlanState *pstate)
 				   "sorting subplan");
 
 		/*
-		 * Want to scan subplan in the forward direction while creating the
-		 * sorted data.
+		 * 希望在创建排序数据时按前向方向扫描             
+		 * 子计划。
 		 */
 		estate->es_direction = ForwardScanDirection;
 
 		/*
-		 * Initialize tuplesort module.
+		 * 初始化tuplesort模块。 
 		 */
 		SO1_printf("ExecSort: %s\n",
 				   "calling tuplesort_begin");
@@ -125,8 +125,8 @@ ExecSort(PlanState *pstate)
 		node->tuplesortstate = (void *) tuplesortstate;
 
 		/*
-		 * Scan the subplan and feed all the tuples to tuplesort using the
-		 * appropriate method based on the type of sort we're doing.
+		 * 扫描子计划，并按所做排序的类型以适当方法将
+		 * 所有元组提供给 tuplesort。                       
 		 */
 		if (node->datumSort)
 		{
@@ -155,17 +155,17 @@ ExecSort(PlanState *pstate)
 		}
 
 		/*
-		 * Complete the sort.
+		 * 完成排序。   
 		 */
 		tuplesort_performsort(tuplesortstate);
 
 		/*
-		 * restore to user specified direction
+		 * 恢复为用户指定的方向     
 		 */
 		estate->es_direction = dir;
 
 		/*
-		 * finally set the sorted flag to true
+		 * 最后将 sorted 标志设为 true 
 		 */
 		node->sort_Done = true;
 		node->bounded_Done = node->bounded;
@@ -188,11 +188,11 @@ ExecSort(PlanState *pstate)
 	slot = node->ss.ps.ps_ResultTupleSlot;
 
 	/*
-	 * Fetch the next sorted item from the appropriate tuplesort function. For
-	 * datum sorts we must manage the slot ourselves and leave it clear when
-	 * tuplesort_getdatum returns false to indicate there are no more datums.
-	 * For tuple sorts, tuplesort_gettupleslot manages the slot for us and
-	 * empties the slot when it runs out of tuples.
+	 * 从适当的 tuplesort 函数取下一个已排序条目。对于      
+	 * Datum 排序，我们必须自己管理槽位，并在               
+	 * tuplesort_getdatum 返回 false 时保持槽位为空，以表明     
+	 * 已没有更多 Datum。对于元组排序，tuplesort_gettupleslot
+	 * 会管理槽位，元组耗尽时清空。  
 	 */
 	if (node->datumSort)
 	{
@@ -213,8 +213,8 @@ ExecSort(PlanState *pstate)
 /* ----------------------------------------------------------------
  *		ExecInitSort
  *
- *		Creates the run-time state information for the sort node
- *		produced by the planner and initializes its outer subtree.
+ *		为规划器生成的排序节点创建运行时状态  
+ *		并初始化其外层子树。                            
  * ----------------------------------------------------------------
  */
 SortState *
@@ -227,7 +227,7 @@ ExecInitSort(Sort *node, EState *estate, int eflags)
 			   "initializing sort node");
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	sortstate = makeNode(SortState);
 	sortstate->ss.ps.plan = (Plan *) node;
@@ -235,9 +235,9 @@ ExecInitSort(Sort *node, EState *estate, int eflags)
 	sortstate->ss.ps.ExecProcNode = ExecSort;
 
 	/*
-	 * We must have random access to the sort output to do backward scan or
-	 * mark/restore.  We also prefer to materialize the sort output if we
-	 * might be called on to rewind and replay it many times.
+	 * 需要随机访问排序输出才能做反向扫描或              
+	 * mark/restore。我们还希望物化排序输出，以备         
+	 * 多次被要求倒回并重放它。                  
 	 */
 	sortstate->randomAccess = (eflags & (EXEC_FLAG_REWIND |
 										 EXEC_FLAG_BACKWARD |
@@ -248,16 +248,16 @@ ExecInitSort(Sort *node, EState *estate, int eflags)
 	sortstate->tuplesortstate = NULL;
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * Sort nodes don't initialize their ExprContexts because they never call
-	 * ExecQual or ExecProject.
+	 * 排序节点不初始化 ExprContext，因为从不调用 ExecQual    
+	 * 或 ExecProject。      
 	 */
 
 	/*
-	 * initialize child nodes
+	 * 初始化子节点    
 	 *
-	 * We shield the child node from the need to support REWIND, BACKWARD, or
+	 * 我们让子节点无需支持 REWIND、BACKWARD 或                  
 	 * MARK/RESTORE.
 	 */
 	eflags &= ~(EXEC_FLAG_REWIND | EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK);
@@ -265,13 +265,13 @@ ExecInitSort(Sort *node, EState *estate, int eflags)
 	outerPlanState(sortstate) = ExecInitNode(outerPlan(node), estate, eflags);
 
 	/*
-	 * Initialize scan slot and type.
+	 * 初始化扫描槽和类型   
 	 */
 	ExecCreateScanSlotFromOuterPlan(estate, &sortstate->ss, &TTSOpsVirtual);
 
 	/*
-	 * Initialize return slot and type. No need to initialize projection info
-	 * because this node doesn't do projections.
+	 * 初始化返回槽位与类型。无需初始化投影信息，       
+	 * 因为该节点不做投影。           
 	 */
 	ExecInitResultTupleSlotTL(&sortstate->ss.ps, &TTSOpsMinimalTuple);
 	sortstate->ss.ps.ps_ProjInfo = NULL;
@@ -279,8 +279,8 @@ ExecInitSort(Sort *node, EState *estate, int eflags)
 	outerTupDesc = ExecGetResultType(outerPlanState(sortstate));
 
 	/*
-	 * We perform a Datum sort when we're sorting just a single column,
-	 * otherwise we perform a tuple sort.
+	 * 当只对单列排序时，我们执行 Datum 排序，         
+	 * 否则执行元组排序。       
 	 */
 	if (outerTupDesc->natts == 1)
 		sortstate->datumSort = true;
@@ -304,21 +304,21 @@ ExecEndSort(SortState *node)
 			   "shutting down sort node");
 
 	/*
-	 * clean out the tuple table
+	 * 清空元组表          
 	 */
 	ExecClearTuple(node->ss.ss_ScanTupleSlot);
-	/* must drop pointer to sort result tuple */
+	/* 必须丢弃排序结果元组的指针*/
 	ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
 
 	/*
-	 * Release tuplesort resources
+	 * 释放 tuplesort 资源    
 	 */
 	if (node->tuplesortstate != NULL)
 		tuplesort_end((Tuplesortstate *) node->tuplesortstate);
 	node->tuplesortstate = NULL;
 
 	/*
-	 * shut down the subplan
+	 * 关闭子计划      
 	 */
 	ExecEndNode(outerPlanState(node));
 
@@ -329,14 +329,14 @@ ExecEndSort(SortState *node)
 /* ----------------------------------------------------------------
  *		ExecSortMarkPos
  *
- *		Calls tuplesort to save the current position in the sorted file.
+ *		调用 tuplesort 保存已排序文件中的当前位置。     
  * ----------------------------------------------------------------
  */
 void
 ExecSortMarkPos(SortState *node)
 {
 	/*
-	 * if we haven't sorted yet, just return
+	 * 如果尚未排序，则直接返回 
 	 */
 	if (!node->sort_Done)
 		return;
@@ -347,20 +347,20 @@ ExecSortMarkPos(SortState *node)
 /* ----------------------------------------------------------------
  *		ExecSortRestrPos
  *
- *		Calls tuplesort to restore the last saved sort file position.
+ *		调用 tuplesort 恢复上次保存的排序文件位置。  
  * ----------------------------------------------------------------
  */
 void
 ExecSortRestrPos(SortState *node)
 {
 	/*
-	 * if we haven't sorted yet, just return.
+	 * 如果尚未排序，则直接返回  
 	 */
 	if (!node->sort_Done)
 		return;
 
 	/*
-	 * restore the scan to the previously marked position
+	 * 将扫描恢复到先前标记的位置           
 	 */
 	tuplesort_restorepos((Tuplesortstate *) node->tuplesortstate);
 }
@@ -371,22 +371,22 @@ ExecReScanSort(SortState *node)
 	PlanState  *outerPlan = outerPlanState(node);
 
 	/*
-	 * If we haven't sorted yet, just return. If outerplan's chgParam is not
-	 * NULL then it will be re-scanned by ExecProcNode, else no reason to
-	 * re-scan it at all.
+	 * 若尚未排序则直接返回。外层计划的 chgParam 不为     
+	 * NULL，则 ExecProcNode 会重新扫描它，否则完全没必要
+	 * 重新扫描它。
 	 */
 	if (!node->sort_Done)
 		return;
 
-	/* must drop pointer to sort result tuple */
+	/* 必须丢弃排序结果元组的指针*/
 	ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
 
 	/*
-	 * If subnode is to be rescanned then we forget previous sort results; we
-	 * have to re-read the subplan and re-sort.  Also must re-sort if the
-	 * bounded-sort parameters changed or we didn't select randomAccess.
+	 * 若子节点将重新扫描，我们便忘记先前的排序结果； 
+	 * 必须重新读取子计划并重新排序。若 bounded-sort     
+	 * 参数改变或未选择 randomAccess，也必须重新排序。 
 	 *
-	 * Otherwise we can just rewind and rescan the sorted output.
+	 * 否则可直接倒回并重新扫描已排序输出。    
 	 */
 	if (outerPlan->chgParam != NULL ||
 		node->bounded != node->bounded_Done ||
@@ -398,8 +398,8 @@ ExecReScanSort(SortState *node)
 		node->tuplesortstate = NULL;
 
 		/*
-		 * if chgParam of subnode is not null then plan will be re-scanned by
-		 * first ExecProcNode.
+		 * 如果子节点的 chgParam 非空，则第一个 ExecProcNode    
+		 * 重新扫描计划 
 		 */
 		if (outerPlan->chgParam == NULL)
 			ExecReScan(outerPlan);
@@ -409,14 +409,14 @@ ExecReScanSort(SortState *node)
 }
 
 /* ----------------------------------------------------------------
- *						Parallel Query Support
+ *						并行查询支持    
  * ----------------------------------------------------------------
  */
 
 /* ----------------------------------------------------------------
  *		ExecSortEstimate
  *
- *		Estimate space required to propagate sort statistics.
+ *		估算传播排序统计信息所需的空间。     
  * ----------------------------------------------------------------
  */
 void
@@ -424,7 +424,7 @@ ExecSortEstimate(SortState *node, ParallelContext *pcxt)
 {
 	Size		size;
 
-	/* don't need this if not instrumenting or no workers */
+	/* 不插桩或无 worker 时不需要此操作       */
 	if (!node->ss.ps.instrument || pcxt->nworkers == 0)
 		return;
 
@@ -437,7 +437,7 @@ ExecSortEstimate(SortState *node, ParallelContext *pcxt)
 /* ----------------------------------------------------------------
  *		ExecSortInitializeDSM
  *
- *		Initialize DSM space for sort statistics.
+ *		为排序统计初始化 DSM 空间。   
  * ----------------------------------------------------------------
  */
 void
@@ -445,14 +445,14 @@ ExecSortInitializeDSM(SortState *node, ParallelContext *pcxt)
 {
 	Size		size;
 
-	/* don't need this if not instrumenting or no workers */
+	/* 不插桩或无 worker 时不需要此操作       */
 	if (!node->ss.ps.instrument || pcxt->nworkers == 0)
 		return;
 
 	size = offsetof(SharedSortInfo, sinstrument)
 		+ pcxt->nworkers * sizeof(TuplesortInstrumentation);
 	node->shared_info = shm_toc_allocate(pcxt->toc, size);
-	/* ensure any unfilled slots will contain zeroes */
+	/* 确保所有未填充的槽位都包含零    */
 	memset(node->shared_info, 0, size);
 	node->shared_info->num_workers = pcxt->nworkers;
 	shm_toc_insert(pcxt->toc, node->ss.ps.plan->plan_node_id,
@@ -462,7 +462,7 @@ ExecSortInitializeDSM(SortState *node, ParallelContext *pcxt)
 /* ----------------------------------------------------------------
  *		ExecSortInitializeWorker
  *
- *		Attach worker to DSM space for sort statistics.
+ *		把 worker 附着到排序统计 DSM 空间。 
  * ----------------------------------------------------------------
  */
 void
@@ -476,7 +476,7 @@ ExecSortInitializeWorker(SortState *node, ParallelWorkerContext *pwcxt)
 /* ----------------------------------------------------------------
  *		ExecSortRetrieveInstrumentation
  *
- *		Transfer sort statistics from DSM to private memory.
+ *		把排序统计从 DSM 传送到私有内存。     
  * ----------------------------------------------------------------
  */
 void

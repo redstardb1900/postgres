@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeWorktablescan.c
- *	  routines to handle WorkTableScan nodes.
+ *	  处理 WorkTableScan 节点的例程   
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -23,7 +23,7 @@ static TupleTableSlot *WorkTableScanNext(WorkTableScanState *node);
 /* ----------------------------------------------------------------
  *		WorkTableScanNext
  *
- *		This is a workhorse for ExecWorkTableScan
+ *		这是 ExecWorkTableScan 的主力函数 
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -33,26 +33,26 @@ WorkTableScanNext(WorkTableScanState *node)
 	Tuplestorestate *tuplestorestate;
 
 	/*
-	 * get information from the estate and scan state
+	 * 从 estate 与扫描状态中获取信息     
 	 *
-	 * Note: we intentionally do not support backward scan.  Although it would
-	 * take only a couple more lines here, it would force nodeRecursiveunion.c
-	 * to create the tuplestore with backward scan enabled, which has a
-	 * performance cost.  In practice backward scan is never useful for a
-	 * worktable plan node, since it cannot appear high enough in the plan
-	 * tree of a scrollable cursor to be exposed to a backward-scan
-	 * requirement.  So it's not worth expending effort to support it.
+	 * 注意：我们有意不支持反向扫描。虽然在这里只需     
+	 * 多加几行代码，但会迫使 nodeRecursiveunion.c 在创建       
+	 * tuplestore 时启用反向扫描，有性能代价。实际上  
+	 * 反向扫描对工作表计划节点从来没用，因为它在   
+	 * 可滚动游标的计划树中位置不够高，不会暴露给    
+	 * 反向扫描需求。                                       
+	 * 所以不值得花力气去支持它。                        
 	 *
-	 * Note: we are also assuming that this node is the only reader of the
-	 * worktable.  Therefore, we don't need a private read pointer for the
-	 * tuplestore, nor do we need to tell tuplestore_gettupleslot to copy.
+	 * 注意：我们还假定此节点是工作表唯一读取者。    
+	 * 因此不需要为 tuplestore 提供私有读指针，             
+	 * 也不需要让 tuplestore_gettupleslot 进行复制。            
 	 */
 	Assert(ScanDirectionIsForward(node->ss.ps.state->es_direction));
 
 	tuplestorestate = node->rustate->working_table;
 
 	/*
-	 * Get the next tuple from tuplestore. Return NULL if no more tuples.
+	 * 从 tuplestore 取下一个元组，没有更多则返回 NULL。 
 	 */
 	slot = node->ss.ss_ScanTupleSlot;
 	(void) tuplestore_gettupleslot(tuplestorestate, true, false, slot);
@@ -60,21 +60,21 @@ WorkTableScanNext(WorkTableScanState *node)
 }
 
 /*
- * WorkTableScanRecheck -- access method routine to recheck a tuple in EvalPlanQual
+ * WorkTableScanRecheck -- 在 EvalPlanQual 中重新检查元组访问方法例程
  */
 static bool
 WorkTableScanRecheck(WorkTableScanState *node, TupleTableSlot *slot)
 {
-	/* nothing to check */
+	/* 无需检查     */
 	return true;
 }
 
 /* ----------------------------------------------------------------
  *		ExecWorkTableScan(node)
  *
- *		Scans the worktable sequentially and returns the next qualifying tuple.
- *		We call the ExecScan() routine and pass it the appropriate
- *		access method functions.
+ *		顺序扫描工作表并返回下一个满足条件的元组。        
+ *		我们调用 ExecScan() 例程，并传给它合适的    
+ *		访问方法函数。   
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -83,10 +83,10 @@ ExecWorkTableScan(PlanState *pstate)
 	WorkTableScanState *node = castNode(WorkTableScanState, pstate);
 
 	/*
-	 * On the first call, find the ancestor RecursiveUnion's state via the
-	 * Param slot reserved for it.  (We can't do this during node init because
-	 * there are corner cases where we'll get the init call before the
-	 * RecursiveUnion does.)
+	 * 首次调用时，通过为其保留的 Param 槽找到祖先      
+	 * RecursiveUnion 的状态。（在节点初始化期间不能这        
+	 * 样做，因为某些边角情况会在 RecursiveUnion 之前  
+	 * 先初始化。）   
 	 */
 	if (node->rustate == NULL)
 	{
@@ -101,17 +101,17 @@ ExecWorkTableScan(PlanState *pstate)
 		Assert(node->rustate);
 
 		/*
-		 * The scan tuple type (ie, the rowtype we expect to find in the work
-		 * table) is the same as the result rowtype of the ancestor
-		 * RecursiveUnion node.  Note this depends on the assumption that
-		 * RecursiveUnion doesn't allow projection.
+		 * 扫描元组类型（即我们预期在工作表中找到的      
+		 * 行类型）与祖先 RecursiveUnion 节点的结果行 
+		 * 类型相同。注意这依赖于如下假定：              
+		 * RecursiveUnion 不允许投影。       
 		 */
 		ExecAssignScanType(&node->ss,
 						   ExecGetResultType(&node->rustate->ps));
 
 		/*
-		 * Now we can initialize the projection info.  This must be completed
-		 * before we can call ExecScan().
+		 * 现在可以初始化投影信息了。这必须在调用         
+		 * ExecScan() 之前完成。    
 		 */
 		ExecAssignScanProjectionInfo(&node->ss);
 	}
@@ -131,51 +131,51 @@ ExecInitWorkTableScan(WorkTableScan *node, EState *estate, int eflags)
 {
 	WorkTableScanState *scanstate;
 
-	/* check for unsupported flags */
+	/* 检查不支持的标志    */
 	Assert(!(eflags & (EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK)));
 
 	/*
-	 * WorkTableScan should not have any children.
+	 * WorkTableScan 不应拥有任何子节点  
 	 */
 	Assert(outerPlan(node) == NULL);
 	Assert(innerPlan(node) == NULL);
 
 	/*
-	 * create new WorkTableScanState for node
+	 * 为节点创建 WorkTableScanState    
 	 */
 	scanstate = makeNode(WorkTableScanState);
 	scanstate->ss.ps.plan = (Plan *) node;
 	scanstate->ss.ps.state = estate;
 	scanstate->ss.ps.ExecProcNode = ExecWorkTableScan;
-	scanstate->rustate = NULL;	/* we'll set this later */
+	scanstate->rustate = NULL;	/* 稍后设置此项   */
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * create expression context for node
+	 * 为节点创建表达式上下文 
 	 */
 	ExecAssignExprContext(estate, &scanstate->ss.ps);
 
 	/*
-	 * tuple table initialization
+	 * 初始化元组表        
 	 */
 	ExecInitResultTypeTL(&scanstate->ss.ps);
 
-	/* signal that return type is not yet known */
+	/* 表明返回类型尚未确定           */
 	scanstate->ss.ps.resultopsset = true;
 	scanstate->ss.ps.resultopsfixed = false;
 
 	ExecInitScanTupleSlot(estate, &scanstate->ss, NULL, &TTSOpsMinimalTuple);
 
 	/*
-	 * initialize child expressions
+	 * 初始化子表达式       
 	 */
 	scanstate->ss.ps.qual =
 		ExecInitQual(node->scan.plan.qual, (PlanState *) scanstate);
 
 	/*
-	 * Do not yet initialize projection info, see ExecWorkTableScan() for
-	 * details.
+	 * 暂不初始化投影信息，详见 ExecWorkTableScan() 的      
+	 * 说明  
 	 */
 
 	return scanstate;
@@ -184,19 +184,19 @@ ExecInitWorkTableScan(WorkTableScan *node, EState *estate, int eflags)
 /* ----------------------------------------------------------------
  *		ExecEndWorkTableScan
  *
- *		frees any storage allocated through C routines.
+ *		释放通过 C 例程分配的所有存储。  
  * ----------------------------------------------------------------
  */
 void
 ExecEndWorkTableScan(WorkTableScanState *node)
 {
 	/*
-	 * Free exprcontext
+	 * 释放上下文 
 	 */
 	ExecFreeExprContext(&node->ss.ps);
 
 	/*
-	 * clean out the tuple table
+	 * 清空元组表          
 	 */
 	if (node->ss.ps.ps_ResultTupleSlot)
 		ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
@@ -206,7 +206,7 @@ ExecEndWorkTableScan(WorkTableScanState *node)
 /* ----------------------------------------------------------------
  *		ExecReScanWorkTableScan
  *
- *		Rescans the relation.
+ *		重新扫描关系   
  * ----------------------------------------------------------------
  */
 void
@@ -217,7 +217,7 @@ ExecReScanWorkTableScan(WorkTableScanState *node)
 
 	ExecScanReScan(&node->ss);
 
-	/* No need (or way) to rescan if ExecWorkTableScan not called yet */
+	/* 尚未调用 ExecWorkTableScan 时无需（或无法）重扫  */
 	if (node->rustate)
 		tuplestore_rescan(node->rustate->working_table);
 }

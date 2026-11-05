@@ -1,0 +1,144 @@
+{
+ "schema_version": 1,
+ "batch_id": "0260-comment-executor-small-scan",
+ "title": "Translate executor comments: executor-small-scan",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "b13c4dd17d3ff98222bf092d6c279df1159177ac",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0260-comment-executor-small-scan.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/executor/**",
+   "kind": "c_comment",
+   "note": "P2 executor translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0260-comment-executor-small-scan.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/executor/nodeGroup.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 32,
+   "translated": 31,
+   "preserved": 1,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C1"
+  },
+  {
+   "path": "src/backend/executor/nodeMaterial.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 39,
+   "translated": 37,
+   "preserved": 2,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), and separator-only blocks rebuilt byte-identical"
+   ],
+   "note": "P2 executor campaign wave C1"
+  },
+  {
+   "path": "src/backend/executor/nodeResult.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 24,
+   "translated": 22,
+   "preserved": 2,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), and separator-only blocks rebuilt byte-identical"
+   ],
+   "note": "P2 executor campaign wave C1"
+  },
+  {
+   "path": "src/backend/executor/nodeSamplescan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 38,
+   "translated": 37,
+   "preserved": 1,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C1"
+  },
+  {
+   "path": "src/backend/executor/nodeSeqscan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 32,
+   "translated": 30,
+   "preserved": 2,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), and separator-only blocks rebuilt byte-identical"
+   ],
+   "note": "P2 executor campaign wave C1"
+  },
+  {
+   "path": "src/backend/executor/nodeSort.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 41,
+   "translated": 40,
+   "preserved": 1,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C1"
+  },
+  {
+   "path": "src/backend/executor/nodeUnique.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 22,
+   "translated": 21,
+   "preserved": 1,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C1"
+  },
+  {
+   "path": "src/backend/executor/nodeValuesscan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 34,
+   "translated": 33,
+   "preserved": 1,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C1"
+  },
+  {
+   "path": "src/backend/executor/nodeWorktablescan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 25,
+   "translated": 24,
+   "preserved": 1,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C1"
+  }
+ ],
+ "notes": "Translation agents (C1a/C1b/C1c) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

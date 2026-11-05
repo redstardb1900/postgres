@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeSamplescan.c
- *	  Support routines for sample scans of relations (table sampling).
+ *	  关系采样扫描的支撑例程（表采样）。             
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -32,40 +32,40 @@ static void tablesample_init(SampleScanState *scanstate);
 static TupleTableSlot *tablesample_getnext(SampleScanState *scanstate);
 
 /* ----------------------------------------------------------------
- *						Scan Support
+ *						扫描支持
  * ----------------------------------------------------------------
  */
 
 /* ----------------------------------------------------------------
  *		SampleNext
  *
- *		This is a workhorse for ExecSampleScan
+ *		这是 ExecSampleScan 的主力函数 
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
 SampleNext(SampleScanState *node)
 {
 	/*
-	 * if this is first call within a scan, initialize
+	 * 若是扫描内首次调用，则初始化     
 	 */
 	if (!node->begun)
 		tablesample_init(node);
 
 	/*
-	 * get the next tuple, and store it in our result slot
+	 * 取下一个元组，存入我们的结果槽      
 	 */
 	return tablesample_getnext(node);
 }
 
 /*
- * SampleRecheck -- access method routine to recheck a tuple in EvalPlanQual
+ * SampleRecheck -- EvalPlanQual 中重新检查元组的访问方法例程 
  */
 static bool
 SampleRecheck(SampleScanState *node, TupleTableSlot *slot)
 {
 	/*
-	 * No need to recheck for SampleScan, since like SeqScan we don't pass any
-	 * checkable keys to heap_beginscan.
+	 * 与 SeqScan 一样不向 heap_beginscan 传入任何可检查的键， 
+	 * 故 SampleScan 无需再检查。
 	 */
 	return true;
 }
@@ -73,10 +73,10 @@ SampleRecheck(SampleScanState *node, TupleTableSlot *slot)
 /* ----------------------------------------------------------------
  *		ExecSampleScan(node)
  *
- *		Scans the relation using the sampling method and returns
- *		the next qualifying tuple.
- *		We call the ExecScan() routine and pass it the appropriate
- *		access method functions.
+ *		使用采样方法扫描关系，并返回下一个     
+ *		满足条件的元组。  
+ *		我们调用 ExecScan() 例程，并向它传入适当的 
+ *		访问方法函数。   
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -104,7 +104,7 @@ ExecInitSampleScan(SampleScan *node, EState *estate, int eflags)
 	Assert(innerPlan(node) == NULL);
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	scanstate = makeNode(SampleScanState);
 	scanstate->ss.ps.plan = (Plan *) node;
@@ -112,36 +112,36 @@ ExecInitSampleScan(SampleScan *node, EState *estate, int eflags)
 	scanstate->ss.ps.ExecProcNode = ExecSampleScan;
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * create expression context for node
+	 * 为节点创建表达式上下文 
 	 */
 	ExecAssignExprContext(estate, &scanstate->ss.ps);
 
 	/*
-	 * open the scan relation
+	 * 打开扫描关系    
 	 */
 	scanstate->ss.ss_currentRelation =
 		ExecOpenScanRelation(estate,
 							 node->scan.scanrelid,
 							 eflags);
 
-	/* we won't set up the HeapScanDesc till later */
+	/* 我们稍后才会设置 HeapScanDesc       */
 	scanstate->ss.ss_currentScanDesc = NULL;
 
-	/* and create slot with appropriate rowtype */
+	/* 并创建具有相应行类型的槽     */
 	ExecInitScanTupleSlot(estate, &scanstate->ss,
 						  RelationGetDescr(scanstate->ss.ss_currentRelation),
 						  table_slot_callbacks(scanstate->ss.ss_currentRelation));
 
 	/*
-	 * Initialize result type and projection.
+	 * 初始化结果类型与投影。     
 	 */
 	ExecInitResultTypeTL(&scanstate->ss.ps);
 	ExecAssignScanProjectionInfo(&scanstate->ss);
 
 	/*
-	 * initialize child expressions
+	 * 初始化子表达式       
 	 */
 	scanstate->ss.ps.qual =
 		ExecInitQual(node->scan.plan.qual, (PlanState *) scanstate);
@@ -151,14 +151,14 @@ ExecInitSampleScan(SampleScan *node, EState *estate, int eflags)
 		ExecInitExpr(tsc->repeatable, (PlanState *) scanstate);
 
 	/*
-	 * If we don't have a REPEATABLE clause, select a random seed.  We want to
-	 * do this just once, since the seed shouldn't change over rescans.
+	 * 如果没有 REPEATABLE 子句，则选择一个随机种子。我们  
+	 * 只此一次，因为种子不应随重新扫描而改变。    
 	 */
 	if (tsc->repeatable == NULL)
 		scanstate->seed = pg_prng_uint32(&pg_global_prng_state);
 
 	/*
-	 * Finally, initialize the TABLESAMPLE method handler.
+	 * 最后初始化 TABLESAMPLE 方法处理器。     
 	 */
 	tsm = GetTsmRoutine(tsc->tsmhandler);
 	scanstate->tsmroutine = tsm;
@@ -167,7 +167,7 @@ ExecInitSampleScan(SampleScan *node, EState *estate, int eflags)
 	if (tsm->InitSampleScan)
 		tsm->InitSampleScan(scanstate, eflags);
 
-	/* We'll do BeginSampleScan later; we can't evaluate params yet */
+	/* 稍后再执行 BeginSampleScan；参数暂无法求值      */
 	scanstate->begun = false;
 
 	return scanstate;
@@ -176,32 +176,32 @@ ExecInitSampleScan(SampleScan *node, EState *estate, int eflags)
 /* ----------------------------------------------------------------
  *		ExecEndSampleScan
  *
- *		frees any storage allocated through C routines.
+ *		释放通过 C 例程分配的所有存储。  
  * ----------------------------------------------------------------
  */
 void
 ExecEndSampleScan(SampleScanState *node)
 {
 	/*
-	 * Tell sampling function that we finished the scan.
+	 * 告知采样函数我们已完成扫描。       
 	 */
 	if (node->tsmroutine->EndSampleScan)
 		node->tsmroutine->EndSampleScan(node);
 
 	/*
-	 * Free the exprcontext
+	 * 释放 exprcontext  
 	 */
 	ExecFreeExprContext(&node->ss.ps);
 
 	/*
-	 * clean out the tuple table
+	 * 清空元组表          
 	 */
 	if (node->ss.ps.ps_ResultTupleSlot)
 		ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
 	ExecClearTuple(node->ss.ss_ScanTupleSlot);
 
 	/*
-	 * close heap scan
+	 * 关闭堆扫描
 	 */
 	if (node->ss.ss_currentScanDesc)
 		table_endscan(node->ss.ss_currentScanDesc);
@@ -210,14 +210,14 @@ ExecEndSampleScan(SampleScanState *node)
 /* ----------------------------------------------------------------
  *		ExecReScanSampleScan
  *
- *		Rescans the relation.
+ *		重新扫描关系。
  *
  * ----------------------------------------------------------------
  */
 void
 ExecReScanSampleScan(SampleScanState *node)
 {
-	/* Remember we need to do BeginSampleScan again (if we did it at all) */
+	/* 记住若之前做过，就需要再次执行 BeginSampleScan      */
 	node->begun = false;
 	node->done = false;
 	node->haveblock = false;
@@ -228,7 +228,7 @@ ExecReScanSampleScan(SampleScanState *node)
 
 
 /*
- * Initialize the TABLESAMPLE method: evaluate params and call BeginSampleScan.
+ * 初始化 TABLESAMPLE 方法：求值参数并调用 BeginSampleScan。     
  */
 static void
 tablesample_init(SampleScanState *scanstate)
@@ -272,39 +272,39 @@ tablesample_init(SampleScanState *scanstate)
 					 errmsg("TABLESAMPLE REPEATABLE parameter cannot be null")));
 
 		/*
-		 * The REPEATABLE parameter has been coerced to float8 by the parser.
-		 * The reason for using float8 at the SQL level is that it will
-		 * produce unsurprising results both for users used to databases that
-		 * accept only integers in the REPEATABLE clause and for those who
-		 * might expect that REPEATABLE works like setseed() (a float in the
-		 * range from -1 to 1).
+		 * REPEATABLE 参数已被解析器强制转换为 float8。         
+		 * 在 SQL 层使用 float8 是因为它对两类用户都会  
+		 * 产生不意外的结果：无论是习惯于 REPEATABLE 子句   
+		 * 只接受整数的数据库的用户，还是预期 REPEATABLE 
+		 * 像 setseed()（-1 到 1 范围内的浮点数）那样工作    
+		 * 的用户。        
 		 *
-		 * We use hashfloat8() to convert the supplied value into a suitable
-		 * seed.  For regression-testing purposes, that has the convenient
-		 * property that REPEATABLE(0) gives a machine-independent result.
+		 * 我们使用 hashfloat8() 把所提供的值转换成合适的   
+		 * 种子。就回归测试而言，这有一个便利性质，   
+		 * 即 REPEATABLE(0) 给出与机器无关的结果。            
 		 */
 		seed = DatumGetUInt32(DirectFunctionCall1(hashfloat8, datum));
 	}
 	else
 	{
-		/* Use the seed selected by ExecInitSampleScan */
+		/* 使用 ExecInitSampleScan 选定的种子   */
 		seed = scanstate->seed;
 	}
 
-	/* Set default values for params that BeginSampleScan can adjust */
+	/* 为 BeginSampleScan 可调整的参数设置默认值         */
 	scanstate->use_bulkread = true;
 	scanstate->use_pagemode = true;
 
-	/* Let tablesample method do its thing */
+	/* 让 tablesample 方法自行处理  */
 	tsm->BeginSampleScan(scanstate,
 						 params,
 						 list_length(scanstate->args),
 						 seed);
 
-	/* We'll use syncscan if there's no NextSampleBlock function */
+	/* 如果没有 NextSampleBlock 函数，则使用 syncscan  */
 	allow_sync = (tsm->NextSampleBlock == NULL);
 
-	/* Now we can create or reset the HeapScanDesc */
+	/* 现在可以创建或重置 HeapScanDesc    */
 	if (scanstate->ss.ss_currentScanDesc == NULL)
 	{
 		scanstate->ss.ss_currentScanDesc =
@@ -325,12 +325,12 @@ tablesample_init(SampleScanState *scanstate)
 
 	pfree(params);
 
-	/* And we're initialized. */
+	/* 初始化完成。     */
 	scanstate->begun = true;
 }
 
 /*
- * Get next tuple from TABLESAMPLE method.
+ * 从 TABLESAMPLE 方法取下个元组  
  */
 static TupleTableSlot *
 tablesample_getnext(SampleScanState *scanstate)
@@ -352,7 +352,7 @@ tablesample_getnext(SampleScanState *scanstate)
 				scanstate->haveblock = false;
 				scanstate->done = true;
 
-				/* exhausted relation */
+				/* 关系已耗尽    */
 				return NULL;
 			}
 
@@ -362,14 +362,14 @@ tablesample_getnext(SampleScanState *scanstate)
 		if (!table_scan_sample_next_tuple(scan, scanstate, slot))
 		{
 			/*
-			 * If we get here, it means we've exhausted the items on this page
-			 * and it's time to move to the next.
+			 * 如果走到这里，说明本页上的条目已全部取完，
+			 * 应该移向下一页了。       
 			 */
 			scanstate->haveblock = false;
 			continue;
 		}
 
-		/* Found visible tuple, return it. */
+		/* 找到可见元组并返回。  */
 		break;
 	}
 

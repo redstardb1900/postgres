@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeMaterial.c
- *	  Routines to handle materialization nodes.
+ *	  处理物化节点的例程。           
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,10 +13,10 @@
  *-------------------------------------------------------------------------
  */
 /*
- * INTERFACE ROUTINES
- *		ExecMaterial			- materialize the result of a subplan
- *		ExecInitMaterial		- initialize node and subnodes
- *		ExecEndMaterial			- shutdown node and subnodes
+ * 接口例程      
+ *		ExecMaterial - 物化子计划的结果             
+ *		ExecInitMaterial - 初始化节点与子节点  
+ *		ExecEndMaterial - 关闭节点与子节点    
  *
  */
 #include "postgres.h"
@@ -28,14 +28,14 @@
 /* ----------------------------------------------------------------
  *		ExecMaterial
  *
- *		As long as we are at the end of the data collected in the tuplestore,
- *		we collect one new row from the subplan on each call, and stash it
- *		aside in the tuplestore before returning it.  The tuplestore is
- *		only read if we are asked to scan backwards, rescan, or mark/restore.
+ *		只要我们处于 tuplestore 中已收集数据的末尾，         
+ *		每次调用都会从子计划收集一个新行，并在返回   
+ *		之前把它存入 tuplestore。只有在我们被要求反向 
+ *		扫描、重新扫描或标记/恢复时才会读取它。           
  *
  * ----------------------------------------------------------------
  */
-static TupleTableSlot *			/* result tuple from subplan */
+static TupleTableSlot *			/* 子计划的结果元组  */
 ExecMaterial(PlanState *pstate)
 {
 	MaterialState *node = castNode(MaterialState, pstate);
@@ -49,7 +49,7 @@ ExecMaterial(PlanState *pstate)
 	CHECK_FOR_INTERRUPTS();
 
 	/*
-	 * get state info from node
+	 * 取节点状态信息   
 	 */
 	estate = node->ss.ps.state;
 	dir = estate->es_direction;
@@ -57,7 +57,7 @@ ExecMaterial(PlanState *pstate)
 	tuplestorestate = node->tuplestorestate;
 
 	/*
-	 * If first time through, and we need a tuplestore, initialize it.
+	 * 首遍执行且需要 tuplestore 时，初始化它。         
 	 */
 	if (tuplestorestate == NULL && node->eflags != 0)
 	{
@@ -66,8 +66,8 @@ ExecMaterial(PlanState *pstate)
 		if (node->eflags & EXEC_FLAG_MARK)
 		{
 			/*
-			 * Allocate a second read pointer to serve as the mark. We know it
-			 * must have index 1, so needn't store that.
+			 * 分配第二个读指针来充当标记。我们知道它      
+			 * 索引必为 1，无需存储该值。   
 			 */
 			int			ptrno PG_USED_FOR_ASSERTS_ONLY;
 
@@ -79,8 +79,8 @@ ExecMaterial(PlanState *pstate)
 	}
 
 	/*
-	 * If we are not at the end of the tuplestore, or are going backwards, try
-	 * to fetch a tuple from tuplestore.
+	 * 如果我们不在 tuplestore 末尾，或者正在反向行进，     
+	 * 则从 tuplestore 取元组。   
 	 */
 	eof_tuplestore = (tuplestorestate == NULL) ||
 		tuplestore_ateof(tuplestorestate);
@@ -90,19 +90,19 @@ ExecMaterial(PlanState *pstate)
 		if (!node->eof_underlying)
 		{
 			/*
-			 * When reversing direction at tuplestore EOF, the first
-			 * gettupleslot call will fetch the last-added tuple; but we want
-			 * to return the one before that, if possible. So do an extra
-			 * fetch.
+			 * 在 tuplestore EOF 处反向时，第一次          
+			 * gettupleslot 调用会取到最后加入的元组；但我们 
+			 * 想返回它前面那个，如可能，则额外再取    
+			 * 一次
 			 */
 			if (!tuplestore_advance(tuplestorestate, forward))
-				return NULL;	/* the tuplestore must be empty */
+				return NULL;	/* 此时 tuplestore 必为空  */
 		}
 		eof_tuplestore = false;
 	}
 
 	/*
-	 * If we can fetch another tuple from the tuplestore, return it.
+	 * 若能从 tuplestore 再取到一个元组，就返回它。 
 	 */
 	slot = node->ss.ps.ps_ResultTupleSlot;
 	if (!eof_tuplestore)
@@ -114,12 +114,12 @@ ExecMaterial(PlanState *pstate)
 	}
 
 	/*
-	 * If necessary, try to fetch another row from the subplan.
+	 * 如有必要，尝试从子计划再取一行。        
 	 *
-	 * Note: the eof_underlying state variable exists to short-circuit further
-	 * subplan calls.  It's not optional, unfortunately, because some plan
-	 * node types are not robust about being called again when they've already
-	 * returned NULL.
+	 * 注意：eof_underlying 状态变量的存在是为了短路           
+	 * 后续的子计划调用。遗憾的是它并非可有可无，    
+	 * 因为某些计划节点类型在返回 NULL 后再次被调用        
+	 * 时易出错  
 	 */
 	if (eof_tuplestore && !node->eof_underlying)
 	{
@@ -127,8 +127,8 @@ ExecMaterial(PlanState *pstate)
 		TupleTableSlot *outerslot;
 
 		/*
-		 * We can only get here with forward==true, so no need to worry about
-		 * which direction the subplan will go.
+		 * 只会在 forward==true 时到达这里，因此无需担心      
+		 * 子计划将往哪个方向走。   
 		 */
 		outerNode = outerPlanState(node);
 		outerslot = ExecProcNode(outerNode);
@@ -139,9 +139,9 @@ ExecMaterial(PlanState *pstate)
 		}
 
 		/*
-		 * Append a copy of the returned tuple to tuplestore.  NOTE: because
-		 * the tuplestore is certainly in EOF state, its read position will
-		 * move forward over the added tuple.  This is what we want.
+		 * 把返回元组的一份副本追加到 tuplestore。注意：   
+		 * 由于 tuplestore 必然处于 EOF 状态，其读位置将     
+		 * 向前移过新增元组。这正是我们想要的。   
 		 */
 		if (tuplestorestate)
 			tuplestore_puttupleslot(tuplestorestate, outerslot);
@@ -151,7 +151,7 @@ ExecMaterial(PlanState *pstate)
 	}
 
 	/*
-	 * Nothing left ...
+	 * 没有剩余… 
 	 */
 	return ExecClearTuple(slot);
 }
@@ -167,7 +167,7 @@ ExecInitMaterial(Material *node, EState *estate, int eflags)
 	Plan	   *outerPlan;
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	matstate = makeNode(MaterialState);
 	matstate->ss.ps.plan = (Plan *) node;
@@ -175,21 +175,21 @@ ExecInitMaterial(Material *node, EState *estate, int eflags)
 	matstate->ss.ps.ExecProcNode = ExecMaterial;
 
 	/*
-	 * We must have a tuplestore buffering the subplan output to do backward
-	 * scan or mark/restore.  We also prefer to materialize the subplan output
-	 * if we might be called on to rewind and replay it many times. However,
-	 * if none of these cases apply, we can skip storing the data.
+	 * 要进行反向扫描或标记/恢复，必须有缓冲子计划     
+	 * 输出的 tuplestore。如果可能被要求多次回绕重放，      
+	 * 我们也倾向于物化子计划输出。但若都不适用，      
+	 * 我们可以跳过数据存储。                          
 	 */
 	matstate->eflags = (eflags & (EXEC_FLAG_REWIND |
 								  EXEC_FLAG_BACKWARD |
 								  EXEC_FLAG_MARK));
 
 	/*
-	 * Tuplestore's interpretation of the flag bits is subtly different from
-	 * the general executor meaning: it doesn't think BACKWARD necessarily
-	 * means "backwards all the way to start".  If told to support BACKWARD we
-	 * must include REWIND in the tuplestore eflags, else tuplestore_trim
-	 * might throw away too much.
+	 * tuplestore 对标志位的解读与执行器的通用含义          
+	 * 有微妙差别：它不认为 BACKWARD 一定意味着            
+	 * "从头开始一直反向"。若被要求支持 BACKWARD，            
+	 * 必须在 tuplestore eflags 中含 REWIND，否则 tuplestore_trim
+	 * 可能丢得过多。     
 	 */
 	if (eflags & EXEC_FLAG_BACKWARD)
 		matstate->eflags |= EXEC_FLAG_REWIND;
@@ -198,17 +198,17 @@ ExecInitMaterial(Material *node, EState *estate, int eflags)
 	matstate->tuplestorestate = NULL;
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * Materialization nodes don't need ExprContexts because they never call
-	 * ExecQual or ExecProject.
+	 * 物化节点不需要 ExprContext，因为它们从不调用         
+	 * ExecQual 或 ExecProject
 	 */
 
 	/*
-	 * initialize child nodes
+	 * 初始化子节点    
 	 *
-	 * We shield the child node from the need to support REWIND, BACKWARD, or
-	 * MARK/RESTORE.
+	 * 我们让子节点无需支持 REWIND、BACKWARD 或                  
+	 * MARK/RESTORE 
 	 */
 	eflags &= ~(EXEC_FLAG_REWIND | EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK);
 
@@ -216,16 +216,16 @@ ExecInitMaterial(Material *node, EState *estate, int eflags)
 	outerPlanState(matstate) = ExecInitNode(outerPlan, estate, eflags);
 
 	/*
-	 * Initialize result type and slot. No need to initialize projection info
-	 * because this node doesn't do projections.
+	 * 初始化结果类型与槽。无需初始化投影信息，因为    
+	 * 该节点不做投影。                 
 	 *
-	 * material nodes only return tuples from their materialized relation.
+	 * 物化节点只返回来自其物化关系的元组。             
 	 */
 	ExecInitResultTupleSlotTL(&matstate->ss.ps, &TTSOpsMinimalTuple);
 	matstate->ss.ps.ps_ProjInfo = NULL;
 
 	/*
-	 * initialize tuple type.
+	 * 初始化元组类型 
 	 */
 	ExecCreateScanSlotFromOuterPlan(estate, &matstate->ss, &TTSOpsMinimalTuple);
 
@@ -240,19 +240,19 @@ void
 ExecEndMaterial(MaterialState *node)
 {
 	/*
-	 * clean out the tuple table
+	 * 清空元组表          
 	 */
 	ExecClearTuple(node->ss.ss_ScanTupleSlot);
 
 	/*
-	 * Release tuplestore resources
+	 * 释放 tuplestore 资源    
 	 */
 	if (node->tuplestorestate != NULL)
 		tuplestore_end(node->tuplestorestate);
 	node->tuplestorestate = NULL;
 
 	/*
-	 * shut down the subplan
+	 * 关闭子计划      
 	 */
 	ExecEndNode(outerPlanState(node));
 }
@@ -260,7 +260,7 @@ ExecEndMaterial(MaterialState *node)
 /* ----------------------------------------------------------------
  *		ExecMaterialMarkPos
  *
- *		Calls tuplestore to save the current position in the stored file.
+ *		调用 tuplestore 保存存储文件中的当前位置。        
  * ----------------------------------------------------------------
  */
 void
@@ -269,18 +269,18 @@ ExecMaterialMarkPos(MaterialState *node)
 	Assert(node->eflags & EXEC_FLAG_MARK);
 
 	/*
-	 * if we haven't materialized yet, just return.
+	 * 如果尚未物化，则直接返回。     
 	 */
 	if (!node->tuplestorestate)
 		return;
 
 	/*
-	 * copy the active read pointer to the mark.
+	 * 把活动读指针复制到标记。     
 	 */
 	tuplestore_copy_read_pointer(node->tuplestorestate, 0, 1);
 
 	/*
-	 * since we may have advanced the mark, try to truncate the tuplestore.
+	 * 由于我们可能已前移标记，尝试截断 tuplestore。      
 	 */
 	tuplestore_trim(node->tuplestorestate);
 }
@@ -288,7 +288,7 @@ ExecMaterialMarkPos(MaterialState *node)
 /* ----------------------------------------------------------------
  *		ExecMaterialRestrPos
  *
- *		Calls tuplestore to restore the last saved file position.
+ *		调用 tuplestore 恢复上次保存的文件位置。   
  * ----------------------------------------------------------------
  */
 void
@@ -297,13 +297,13 @@ ExecMaterialRestrPos(MaterialState *node)
 	Assert(node->eflags & EXEC_FLAG_MARK);
 
 	/*
-	 * if we haven't materialized yet, just return.
+	 * 如果尚未物化，则直接返回。     
 	 */
 	if (!node->tuplestorestate)
 		return;
 
 	/*
-	 * copy the mark to the active read pointer.
+	 * 把标记复制到活动读指针。     
 	 */
 	tuplestore_copy_read_pointer(node->tuplestorestate, 1, 0);
 }
@@ -311,7 +311,7 @@ ExecMaterialRestrPos(MaterialState *node)
 /* ----------------------------------------------------------------
  *		ExecReScanMaterial
  *
- *		Rescans the materialized relation.
+ *		重新扫描物化关系。       
  * ----------------------------------------------------------------
  */
 void
@@ -324,22 +324,22 @@ ExecReScanMaterial(MaterialState *node)
 	if (node->eflags != 0)
 	{
 		/*
-		 * If we haven't materialized yet, just return. If outerplan's
-		 * chgParam is not NULL then it will be re-scanned by ExecProcNode,
-		 * else no reason to re-scan it at all.
+		 * 如果尚未物化，则直接返回。如果外计划的  
+		 * chgParam 非 NULL，那么 ExecProcNode 会重新扫描它，   
+		 * 否则毫无必要重新扫描。   
 		 */
 		if (!node->tuplestorestate)
 			return;
 
 		/*
-		 * If subnode is to be rescanned then we forget previous stored
-		 * results; we have to re-read the subplan and re-store.  Also, if we
-		 * told tuplestore it needn't support rescan, we lose and must
-		 * re-read.  (This last should not happen in common cases; else our
-		 * caller lied by not passing EXEC_FLAG_REWIND to us.)
+		 * 如果子节点将被重新扫描，那么我们丢弃之前
+		 * 存储的结果；必须重读子计划并重新存储。另外，
+		 * 若我们曾告诉 tuplestore 无需支持重扫，就会  
+		 * 吃亏必须重读。（最后这种情形在常见场合不应 
+		 * 发生；否则调用者没传 EXEC_FLAG_REWIND） 
 		 *
-		 * Otherwise we can just rewind and rescan the stored output. The
-		 * state of the subnode does not change.
+		 * 否则可以直接回绕并重新扫描已存储的输出。  
+		 * 子节点的状态不发生改变。 
 		 */
 		if (outerPlan->chgParam != NULL ||
 			(node->eflags & EXEC_FLAG_REWIND) == 0)
@@ -355,11 +355,11 @@ ExecReScanMaterial(MaterialState *node)
 	}
 	else
 	{
-		/* In this case we are just passing on the subquery's output */
+		/* 这种情况下我们只是原样传递子查询的输出 */
 
 		/*
-		 * if chgParam of subnode is not null then plan will be re-scanned by
-		 * first ExecProcNode.
+		 * 如果子节点的 chgParam 非空，则该计划会被           
+		 * ExecProcNode 重扫
 		 */
 		if (outerPlan->chgParam == NULL)
 			ExecReScan(outerPlan);

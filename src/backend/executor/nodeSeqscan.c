@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeSeqscan.c
- *	  Support routines for sequential scans of relations.
+ *	  关系顺序扫描的支撑例程。               
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,17 +13,17 @@
  *-------------------------------------------------------------------------
  */
 /*
- * INTERFACE ROUTINES
- *		ExecSeqScan				sequentially scans a relation.
- *		ExecSeqNext				retrieve next tuple in sequential order.
- *		ExecInitSeqScan			creates and initializes a seqscan node.
- *		ExecEndSeqScan			releases any storage allocated.
- *		ExecReScanSeqScan		rescans the relation
+ * 接口例程      
+ *		ExecSeqScan 顺序扫描一个关系。      
+ *		ExecSeqNext 按顺序取下一个元组。             
+ *		ExecInitSeqScan 创建并初始化 seqscan 节点。     
+ *		ExecEndSeqScan 释放所有已分配存储。   
+ *		ExecReScanSeqScan 重新扫描关系   
  *
- *		ExecSeqScanEstimate		estimates DSM space needed for parallel scan
- *		ExecSeqScanInitializeDSM initialize DSM for parallel scan
- *		ExecSeqScanReInitializeDSM reinitialize DSM for fresh parallel scan
- *		ExecSeqScanInitializeWorker attach to DSM info in parallel worker
+ *		ExecSeqScanEstimate 估算并行扫描所需的 DSM 空间       
+ *		ExecSeqScanInitializeDSM 为并行扫描初始化 DSM    
+ *		ExecSeqScanReInitializeDSM 为并行扫描重新初始化 DSM      
+ *		ExecSeqScanInitializeWorker 在并行 worker 中附着 DSM 信息
  */
 #include "postgres.h"
 
@@ -36,14 +36,14 @@
 static TupleTableSlot *SeqNext(SeqScanState *node);
 
 /* ----------------------------------------------------------------
- *						Scan Support
+ *						扫描支持
  * ----------------------------------------------------------------
  */
 
 /* ----------------------------------------------------------------
  *		SeqNext
  *
- *		This is a workhorse for ExecSeqScan
+ *		这是 ExecSeqScan 的主力函数 
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -55,7 +55,7 @@ SeqNext(SeqScanState *node)
 	TupleTableSlot *slot;
 
 	/*
-	 * get information from the estate and scan state
+	 * 从 estate 和扫描状态获取信息        
 	 */
 	scandesc = node->ss.ss_currentScanDesc;
 	estate = node->ss.ps.state;
@@ -65,8 +65,8 @@ SeqNext(SeqScanState *node)
 	if (scandesc == NULL)
 	{
 		/*
-		 * We reach here if the scan is not parallel, or if we're serially
-		 * executing a scan that was planned to be parallel.
+		 * 如果扫描不是并行的，或者我们在串行执行      
+		 * 一个原本按并行计划设计的扫描。    
 		 */
 		scandesc = table_beginscan(node->ss.ss_currentRelation,
 								   estate->es_snapshot,
@@ -75,7 +75,7 @@ SeqNext(SeqScanState *node)
 	}
 
 	/*
-	 * get the next tuple from the table
+	 * 从表中获取下一个元组   
 	 */
 	if (table_scan_getnextslot(scandesc, direction, slot))
 		return slot;
@@ -83,14 +83,14 @@ SeqNext(SeqScanState *node)
 }
 
 /*
- * SeqRecheck -- access method routine to recheck a tuple in EvalPlanQual
+ * SeqRecheck -- EvalPlanQual 中重新检查元组的访问方法例程 
  */
 static bool
 SeqRecheck(SeqScanState *node, TupleTableSlot *slot)
 {
 	/*
-	 * Note that unlike IndexScan, SeqScan never use keys in heap_beginscan
-	 * (and this is very bad) - so, here we do not check are keys ok or not.
+	 * SeqScan 与 IndexScan 不同，在 heap_beginscan 中从不使用键
+	 * (这非常糟糕)，因此这里我们不检查键是否合适。    
 	 */
 	return true;
 }
@@ -98,10 +98,10 @@ SeqRecheck(SeqScanState *node, TupleTableSlot *slot)
 /* ----------------------------------------------------------------
  *		ExecSeqScan(node)
  *
- *		Scans the relation sequentially and returns the next qualifying
- *		tuple.
- *		We call the ExecScan() routine and pass it the appropriate
- *		access method functions.
+ *		按顺序扫描关系并返回下一个满足条件的         
+ *		元组
+ *		我们调用 ExecScan() 例程，并向它传入适当的 
+ *		访问方法函数。   
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -125,14 +125,14 @@ ExecInitSeqScan(SeqScan *node, EState *estate, int eflags)
 	SeqScanState *scanstate;
 
 	/*
-	 * Once upon a time it was possible to have an outerPlan of a SeqScan, but
-	 * not any more.
+	 * 曾经一度 SeqScan 还可以有 outerPlan，                         
+	 * 如今不再 
 	 */
 	Assert(outerPlan(node) == NULL);
 	Assert(innerPlan(node) == NULL);
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	scanstate = makeNode(SeqScanState);
 	scanstate->ss.ps.plan = (Plan *) node;
@@ -140,33 +140,33 @@ ExecInitSeqScan(SeqScan *node, EState *estate, int eflags)
 	scanstate->ss.ps.ExecProcNode = ExecSeqScan;
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * create expression context for node
+	 * 为节点创建表达式上下文 
 	 */
 	ExecAssignExprContext(estate, &scanstate->ss.ps);
 
 	/*
-	 * open the scan relation
+	 * 打开扫描关系    
 	 */
 	scanstate->ss.ss_currentRelation =
 		ExecOpenScanRelation(estate,
 							 node->scan.scanrelid,
 							 eflags);
 
-	/* and create slot with the appropriate rowtype */
+	/* 并创建具有相应行类型的槽         */
 	ExecInitScanTupleSlot(estate, &scanstate->ss,
 						  RelationGetDescr(scanstate->ss.ss_currentRelation),
 						  table_slot_callbacks(scanstate->ss.ss_currentRelation));
 
 	/*
-	 * Initialize result type and projection.
+	 * 初始化结果类型与投影。     
 	 */
 	ExecInitResultTypeTL(&scanstate->ss.ps);
 	ExecAssignScanProjectionInfo(&scanstate->ss);
 
 	/*
-	 * initialize child expressions
+	 * 初始化子表达式       
 	 */
 	scanstate->ss.ps.qual =
 		ExecInitQual(node->scan.plan.qual, (PlanState *) scanstate);
@@ -177,7 +177,7 @@ ExecInitSeqScan(SeqScan *node, EState *estate, int eflags)
 /* ----------------------------------------------------------------
  *		ExecEndSeqScan
  *
- *		frees any storage allocated through C routines.
+ *		释放通过 C 例程分配的所有存储。  
  * ----------------------------------------------------------------
  */
 void
@@ -186,38 +186,38 @@ ExecEndSeqScan(SeqScanState *node)
 	TableScanDesc scanDesc;
 
 	/*
-	 * get information from node
+	 * 从节点获取信息    
 	 */
 	scanDesc = node->ss.ss_currentScanDesc;
 
 	/*
-	 * Free the exprcontext
+	 * 释放 exprcontext  
 	 */
 	ExecFreeExprContext(&node->ss.ps);
 
 	/*
-	 * clean out the tuple table
+	 * 清空元组表          
 	 */
 	if (node->ss.ps.ps_ResultTupleSlot)
 		ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
 	ExecClearTuple(node->ss.ss_ScanTupleSlot);
 
 	/*
-	 * close heap scan
+	 * 关闭堆扫描
 	 */
 	if (scanDesc != NULL)
 		table_endscan(scanDesc);
 }
 
 /* ----------------------------------------------------------------
- *						Join Support
+ *						连接支持
  * ----------------------------------------------------------------
  */
 
 /* ----------------------------------------------------------------
  *		ExecReScanSeqScan
  *
- *		Rescans the relation.
+ *		重新扫描关系。
  * ----------------------------------------------------------------
  */
 void
@@ -229,21 +229,21 @@ ExecReScanSeqScan(SeqScanState *node)
 
 	if (scan != NULL)
 		table_rescan(scan,		/* scan desc */
-					 NULL);		/* new scan keys */
+					 NULL);		/* 新扫描键  */
 
 	ExecScanReScan((ScanState *) node);
 }
 
 /* ----------------------------------------------------------------
- *						Parallel Scan Support
+ *						并行扫描支持   
  * ----------------------------------------------------------------
  */
 
 /* ----------------------------------------------------------------
  *		ExecSeqScanEstimate
  *
- *		Compute the amount of space we'll need in the parallel
- *		query DSM, and inform pcxt->estimator about our needs.
+ *		计算我们在并行查询 DSM 中所需空间，    
+ *		并把我们的需求告知 pcxt->estimator。        
  * ----------------------------------------------------------------
  */
 void
@@ -261,7 +261,7 @@ ExecSeqScanEstimate(SeqScanState *node,
 /* ----------------------------------------------------------------
  *		ExecSeqScanInitializeDSM
  *
- *		Set up a parallel heap scan descriptor.
+ *		建立一个并行堆扫描描述符。
  * ----------------------------------------------------------------
  */
 void
@@ -283,7 +283,7 @@ ExecSeqScanInitializeDSM(SeqScanState *node,
 /* ----------------------------------------------------------------
  *		ExecSeqScanReInitializeDSM
  *
- *		Reset shared state before beginning a fresh scan.
+ *		在开始全新扫描之前重置共享状态。 
  * ----------------------------------------------------------------
  */
 void
@@ -299,7 +299,7 @@ ExecSeqScanReInitializeDSM(SeqScanState *node,
 /* ----------------------------------------------------------------
  *		ExecSeqScanInitializeWorker
  *
- *		Copy relevant information from TOC into planstate.
+ *		把相关信息从 TOC 复制到 planstate。     
  * ----------------------------------------------------------------
  */
 void

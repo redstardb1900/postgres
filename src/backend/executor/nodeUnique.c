@@ -1,15 +1,15 @@
 /*-------------------------------------------------------------------------
  *
  * nodeUnique.c
- *	  Routines to handle unique'ing of queries where appropriate
+ *	  对查询进行唯一化处理的例程                   
  *
- * Unique is a very simple node type that just filters out duplicate
- * tuples from a stream of sorted tuples from its subplan.  It's essentially
- * a dumbed-down form of Group: the duplicate-removal functionality is
- * identical.  However, Unique doesn't do projection nor qual checking,
- * so it's marginally more efficient for cases where neither is needed.
- * (It's debatable whether the savings justifies carrying two plan node
- * types, though.)
+ * Unique 是很简单的节点类型，只从子计划送来的    
+ * 有序元组流中滤除重复元组。它本质上是                   
+ * Group 的简化版本：去重功能与之完全相同。          
+ * 但 Unique 既不做投影也不做条件检查，                  
+ * 因此在两者都不需要的情况下效率略高。              
+ * （多携带一种计划节点类型所换取的节省              
+ * 是否划算）
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -21,14 +21,14 @@
  *-------------------------------------------------------------------------
  */
 /*
- * INTERFACE ROUTINES
- *		ExecUnique		- generate a unique'd temporary relation
- *		ExecInitUnique	- initialize node and subnodes
- *		ExecEndUnique	- shutdown node and subnodes
+ * 接口例程      
+ *		ExecUnique - 生成去重后的临时关系         
+ *		ExecInitUnique - 初始化节点与子节点 
+ *		ExecEndUnique - 关闭节点与子节点  
  *
  * NOTES
- *		Assumes tuples returned from subplan arrive in
- *		sorted order.
+ *		假定从子计划返回的元组是          
+ *		有序的。 
  */
 
 #include "postgres.h"
@@ -43,7 +43,7 @@
  *		ExecUnique
  * ----------------------------------------------------------------
  */
-static TupleTableSlot *			/* return: a tuple or NULL */
+static TupleTableSlot *			/* 返回：元组或 NULL */
 ExecUnique(PlanState *pstate)
 {
 	UniqueState *node = castNode(UniqueState, pstate);
@@ -55,39 +55,39 @@ ExecUnique(PlanState *pstate)
 	CHECK_FOR_INTERRUPTS();
 
 	/*
-	 * get information from the node
+	 * 从节点获取信息        
 	 */
 	outerPlan = outerPlanState(node);
 	resultTupleSlot = node->ps.ps_ResultTupleSlot;
 
 	/*
-	 * now loop, returning only non-duplicate tuples. We assume that the
-	 * tuples arrive in sorted order so we can detect duplicates easily. The
-	 * first tuple of each group is returned.
+	 * 现在开始循环，只返回非重复元组。我们假定     
+	 * 元组按有序顺序到达，因此很容易检测重复。         
+	 * 每组首个元组将被返回。     
 	 */
 	for (;;)
 	{
 		/*
-		 * fetch a tuple from the outer subplan
+		 * 从外层子计划取一个元组   
 		 */
 		slot = ExecProcNode(outerPlan);
 		if (TupIsNull(slot))
 		{
-			/* end of subplan, so we're done */
+			/* 子计划结束，完成      */
 			ExecClearTuple(resultTupleSlot);
 			return NULL;
 		}
 
 		/*
-		 * Always return the first tuple from the subplan.
+		 * 总是返回子计划的第一个元组。     
 		 */
 		if (TupIsNull(resultTupleSlot))
 			break;
 
 		/*
-		 * Else test if the new tuple and the previously returned tuple match.
-		 * If so then we loop back and fetch another new tuple from the
-		 * subplan.
+		 * 否则测试新元组与之前返回的元组是否匹配。       
+		 * 若匹配，则回头循环，从子计划再取新元组   
+		 * 即可  
 		 */
 		econtext->ecxt_innertuple = slot;
 		econtext->ecxt_outertuple = resultTupleSlot;
@@ -96,10 +96,10 @@ ExecUnique(PlanState *pstate)
 	}
 
 	/*
-	 * We have a new tuple different from the previous saved tuple (if any).
-	 * Save it and return it.  We must copy it because the source subplan
-	 * won't guarantee that this source tuple is still accessible after
-	 * fetching the next source tuple.
+	 * 新元组与之前保存的元组（如有）不同。               
+	 * 保存并返回它。必须复制一份，因为源子计划      
+	 * 并不保证取下一个源元组之后该元组                
+	 * 仍可访问。                
 	 */
 	return ExecCopySlot(resultTupleSlot, slot);
 }
@@ -107,8 +107,8 @@ ExecUnique(PlanState *pstate)
 /* ----------------------------------------------------------------
  *		ExecInitUnique
  *
- *		This initializes the unique node state structures and
- *		the node's subplan.
+ *		初始化 Unique 节点的状态结构               
+ *		与子计划。    
  * ----------------------------------------------------------------
  */
 UniqueState *
@@ -116,11 +116,11 @@ ExecInitUnique(Unique *node, EState *estate, int eflags)
 {
 	UniqueState *uniquestate;
 
-	/* check for unsupported flags */
+	/* 检查不支持的标志    */
 	Assert(!(eflags & (EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK)));
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	uniquestate = makeNode(UniqueState);
 	uniquestate->ps.plan = (Plan *) node;
@@ -128,24 +128,24 @@ ExecInitUnique(Unique *node, EState *estate, int eflags)
 	uniquestate->ps.ExecProcNode = ExecUnique;
 
 	/*
-	 * create expression context
+	 * 创建表达式上下文 
 	 */
 	ExecAssignExprContext(estate, &uniquestate->ps);
 
 	/*
-	 * then initialize outer plan
+	 * 再初始化外层计划  
 	 */
 	outerPlanState(uniquestate) = ExecInitNode(outerPlan(node), estate, eflags);
 
 	/*
-	 * Initialize result slot and type. Unique nodes do no projections, so
-	 * initialize projection info for this node appropriately.
+	 * 初始化结果槽与类型。Unique 节点不做投影，因此   
+	 * 只需对该节点恰当地初始化投影信息。    
 	 */
 	ExecInitResultTupleSlotTL(&uniquestate->ps, &TTSOpsMinimalTuple);
 	uniquestate->ps.ps_ProjInfo = NULL;
 
 	/*
-	 * Precompute fmgr lookup data for inner loop
+	 * 为内层循环预计算 fmgr 查找数据
 	 */
 	uniquestate->eqfunction =
 		execTuplesMatchPrepare(ExecGetResultType(outerPlanState(uniquestate)),
@@ -161,14 +161,14 @@ ExecInitUnique(Unique *node, EState *estate, int eflags)
 /* ----------------------------------------------------------------
  *		ExecEndUnique
  *
- *		This shuts down the subplan and frees resources allocated
- *		to this node.
+ *		此例程关闭子计划，并释放其                  
+ *		所耗资源 
  * ----------------------------------------------------------------
  */
 void
 ExecEndUnique(UniqueState *node)
 {
-	/* clean up tuple table */
+	/* 清理元组表      */
 	ExecClearTuple(node->ps.ps_ResultTupleSlot);
 
 	ExecFreeExprContext(&node->ps);
@@ -182,12 +182,12 @@ ExecReScanUnique(UniqueState *node)
 {
 	PlanState  *outerPlan = outerPlanState(node);
 
-	/* must clear result tuple so first input tuple is returned */
+	/* 需清空结果元组，才能返回首个输入元组   */
 	ExecClearTuple(node->ps.ps_ResultTupleSlot);
 
 	/*
-	 * if chgParam of subnode is not null then plan will be re-scanned by
-	 * first ExecProcNode.
+	 * 如果子节点的 chgParam 非空，则该计划会被           
+	 * ExecProcNode 重扫
 	 */
 	if (outerPlan->chgParam == NULL)
 		ExecReScan(outerPlan);

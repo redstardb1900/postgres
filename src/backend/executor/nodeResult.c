@@ -1,37 +1,37 @@
 /*-------------------------------------------------------------------------
  *
  * nodeResult.c
- *	  support for constant nodes needing special code.
+ *	  为需要特殊代码的常量节点提供支持
  *
- * DESCRIPTION
+ * 描述     
  *
- *		Result nodes are used in queries where no relations are scanned.
- *		Examples of such queries are:
+ *		Result 节点用于不扫描任何关系的查询。            
+ *		这类查询的例子有：  
  *
  *				select 1 * 2
  *
  *				insert into emp values ('mike', 15000)
  *
- *		(Remember that in an INSERT or UPDATE, we need a plan tree that
- *		generates the new rows.)
+ *		（记住在 INSERT 或 UPDATE 中，我们需要一棵        
+ *		生成新行的树。）
  *
- *		Result nodes are also used to optimise queries with constant
- *		qualifications (ie, quals that do not depend on the scanned data),
- *		such as:
+ *		Result 节点还用于优化带常量                       
+ *		限定条件的查询（即不依赖被扫描数据的条件），
+ *		如：  
  *
  *				select * from emp where 2 > 1
  *
- *		In this case, the plan generated is
+ *		此时生成的计划是：        
  *
  *						Result	(with 2 > 1 qual)
  *						/
  *				   SeqScan (emp.*)
  *
- *		At runtime, the Result node evaluates the constant qual once,
- *		which is shown by EXPLAIN as a One-Time Filter.  If it's
- *		false, we can return an empty result set without running the
- *		controlled plan at all.  If it's true, we run the controlled
- *		plan normally and pass back the results.
+ *		运行时，Result 节点只对常量条件求值一次，   
+ *		EXPLAIN 会将其显示为 One-Time Filter。如果     
+ *		为假，我们可以不运行受控计划而直接返回   
+ *		空结果集。如果为真，则正常运行受控         
+ *		计划并传回结果。                
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -54,14 +54,14 @@
 /* ----------------------------------------------------------------
  *		ExecResult(node)
  *
- *		returns the tuples from the outer plan which satisfy the
- *		qualification clause.  Since result nodes with right
- *		subtrees are never planned, we ignore the right subtree
- *		entirely (for now).. -cim 10/7/89
+ *		返回外层计划中满足                             
+ *		条件子句的元组。带右子树的 Result      
+ *		节点从不进入规划，因此完全忽略右子树 
+ *		（暂时如此）-cim 10/7/89   
  *
- *		The qualification containing only constant clauses are
- *		checked first before any processing is done. It always returns
- *		'nil' if the constant qualification is not satisfied.
+ *		只包含常量子句的条件会先被检查，      
+ *		然后才做其他处理。如果不满足常量条件，     
+ *		它总是返回 'nil'。                             
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -77,7 +77,7 @@ ExecResult(PlanState *pstate)
 	econtext = node->ps.ps_ExprContext;
 
 	/*
-	 * check constant qualifications like (2 > 1), if not already done
+	 * 如果尚未检查，则检查 (2 > 1) 这类常量条件      
 	 */
 	if (node->rs_checkqual)
 	{
@@ -92,16 +92,16 @@ ExecResult(PlanState *pstate)
 	}
 
 	/*
-	 * Reset per-tuple memory context to free any expression evaluation
-	 * storage allocated in the previous tuple cycle.
+	 * 重置每元组内存上下文，以释放上一元组周期    
+	 * 中分配的表达式求值存储。          
 	 */
 	ResetExprContext(econtext);
 
 	/*
-	 * if rs_done is true then it means that we were asked to return a
-	 * constant tuple and we already did the last time ExecResult() was
-	 * called, OR that we failed the constant qual check. Either way, now we
-	 * are through.
+	 * 如果 rs_done 为真，则意味着我们曾被要求         
+	 * 返回常量元组，且上次调用 ExecResult() 时已经     
+	 * 做过，或者我们未通过常量条件检查。总之现在      
+	 * 完成了。
 	 */
 	if (!node->rs_done)
 	{
@@ -110,7 +110,7 @@ ExecResult(PlanState *pstate)
 		if (outerPlan != NULL)
 		{
 			/*
-			 * retrieve tuples from the outer plan until there are no more.
+			 * 从外层计划取元组，直到没有更多为止。      
 			 */
 			outerTupleSlot = ExecProcNode(outerPlan);
 
@@ -118,21 +118,21 @@ ExecResult(PlanState *pstate)
 				return NULL;
 
 			/*
-			 * prepare to compute projection expressions, which will expect to
-			 * access the input tuples as varno OUTER.
+			 * 准备计算投影表达式，这些表达式将期望以      
+			 * varno OUTER 访问输入元组         
 			 */
 			econtext->ecxt_outertuple = outerTupleSlot;
 		}
 		else
 		{
 			/*
-			 * if we don't have an outer plan, then we are just generating the
-			 * results from a constant target list.  Do it only once.
+			 * 如果我们没有外层计划，那么我们只是在         
+			 * 从常量目标列表生成结果。只做一次。   
 			 */
 			node->rs_done = true;
 		}
 
-		/* form the result tuple using ExecProject(), and return it */
+		/* 用 ExecProject() 形成结果元组并返回            */
 		return ExecProject(node->ps.ps_ProjInfo);
 	}
 
@@ -172,9 +172,9 @@ ExecResultRestrPos(ResultState *node)
 /* ----------------------------------------------------------------
  *		ExecInitResult
  *
- *		Creates the run-time state information for the result node
- *		produced by the planner and initializes outer relations
- *		(child nodes).
+ *		为规划器所生成的 Result 节点创建              
+ *		运行时状态信息，并初始化外层关系       
+ *		(子节点)。
  * ----------------------------------------------------------------
  */
 ResultState *
@@ -182,12 +182,12 @@ ExecInitResult(Result *node, EState *estate, int eflags)
 {
 	ResultState *resstate;
 
-	/* check for unsupported flags */
+	/* 检查不支持的标志    */
 	Assert(!(eflags & (EXEC_FLAG_MARK | EXEC_FLAG_BACKWARD)) ||
 		   outerPlan(node) != NULL);
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	resstate = makeNode(ResultState);
 	resstate->ps.plan = (Plan *) node;
@@ -198,30 +198,30 @@ ExecInitResult(Result *node, EState *estate, int eflags)
 	resstate->rs_checkqual = (node->resconstantqual != NULL);
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * create expression context for node
+	 * 为节点创建表达式上下文 
 	 */
 	ExecAssignExprContext(estate, &resstate->ps);
 
 	/*
-	 * initialize child nodes
+	 * 初始化子节点    
 	 */
 	outerPlanState(resstate) = ExecInitNode(outerPlan(node), estate, eflags);
 
 	/*
-	 * we don't use inner plan
+	 * 不用内层计划     
 	 */
 	Assert(innerPlan(node) == NULL);
 
 	/*
-	 * Initialize result slot, type and projection.
+	 * 初始化结果槽、类型和投影。     
 	 */
 	ExecInitResultTupleSlotTL(&resstate->ps, &TTSOpsVirtual);
 	ExecAssignProjectionInfo(&resstate->ps, NULL);
 
 	/*
-	 * initialize child expressions
+	 * 初始化子表达式       
 	 */
 	resstate->ps.qual =
 		ExecInitQual(node->plan.qual, (PlanState *) resstate);
@@ -234,24 +234,24 @@ ExecInitResult(Result *node, EState *estate, int eflags)
 /* ----------------------------------------------------------------
  *		ExecEndResult
  *
- *		frees up storage allocated through C routines
+ *		释放通过 C 例程分配的存储。      
  * ----------------------------------------------------------------
  */
 void
 ExecEndResult(ResultState *node)
 {
 	/*
-	 * Free the exprcontext
+	 * 释放 exprcontext  
 	 */
 	ExecFreeExprContext(&node->ps);
 
 	/*
-	 * clean out the tuple table
+	 * 清空元组表          
 	 */
 	ExecClearTuple(node->ps.ps_ResultTupleSlot);
 
 	/*
-	 * shut down subplans
+	 * 关闭子计划   
 	 */
 	ExecEndNode(outerPlanState(node));
 }
@@ -265,8 +265,8 @@ ExecReScanResult(ResultState *node)
 	node->rs_checkqual = (node->resconstantqual != NULL);
 
 	/*
-	 * If chgParam of subnode is not null then plan will be re-scanned by
-	 * first ExecProcNode.
+	 * 如果子节点的 chgParam 非空，则该计划会被           
+	 * ExecProcNode 重扫
 	 */
 	if (outerPlan && outerPlan->chgParam == NULL)
 		ExecReScan(outerPlan);

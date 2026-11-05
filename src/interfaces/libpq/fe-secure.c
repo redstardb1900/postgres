@@ -47,10 +47,10 @@
 #include "libpq-fe.h"
 #include "libpq-int.h"
 
-/*用于禁用然后恢复 SIGPIPE 处理状态的宏。
- * 在 Windows 上，这些都是空操作，因为不存在 SIGPIPE。
- * 
-              */
+/*
+ * 用于禁用然后恢复 SIGPIPE 处理状态的宏。                      
+ * 在 Windows 上均为空操作，因为没有 SIGPIPE。   
+ */
 
 #ifndef WIN32
 
@@ -326,29 +326,29 @@ pqsecure_write(PGconn *conn, const void *ptr, size_t len)
 	return n;
 }
 
-/*pqsecure_write 的低级实现。
- * 
- *对于未加密连接直接使用。对于加密连接，它代表 pgtls_write
- * 或 pg_GSS_write 执行物理 I/O。
- * 
- * 此函数仅对可重试错误（如 EINTR）报告失败（即返回负值）。
- *此类情况的循环应在某个外部层级处理，可能一直到应用程序。
- * 对于硬故障，我们设置 conn->write_failed 并在
- * conn->write_err_msg 中存储错误消息，但随后声称已完成写入。
- * 这是因为只要有可能从服务器读取并获得解释连接为何断开的
- * 错误消息，我们就不想报告写入失败。许多 TCP 栈存在竞争
- * 条件，使得写入失败可能在所有传入数据被读取之前或之后
- * 才被报告。
- * 
- * 注意使用 SSL 时，此错误行为发生在 SSL 管理层级之下。这是
- * 因为至少某些版本的 OpenSSL 在仍有可能从服务器获取更有用
- * 的错误时过于迅速地报告写入失败。
+/*
+ * pqsecure_write 的低级实现。          
  *
- * 
- * 
- * 
- * 
-                                                                                                                                                                                                                  */
+ * 未加密连接直接使用此函数。对加密连接，它代替 
+ * pgtls_write 或 pg_GSS_write 执行物理                          
+ * I/O。       
+ *
+ * 此函数仅对可重试错误（如 EINTR）报告失败，        
+ * 即返回负值。此类循环要在外层处理，可能直至     
+ * 应用程序层。对于硬故障，我们设置 conn->write_failed  
+ * 并在 conn->write_err_msg 中存储错误消息，但随后仍宣称  
+ * 已写入数据。这是因为只要还有可能从服务器读取并  
+ * 并获得能解释连接断开原因的消息，就不想报告写入  
+ * 失败。许多 TCP 栈都有竞争条件，因此写入失败可能    
+ * 在所有传入数据被读取之前被报告，也可能要一直  
+ * 等到所有传入数据都被读取完毕之后才会被报告出  
+ * 来。                                 
+ *
+ * 注意：当我们使用 SSL 时，这一错误行为发生在 SSL 管理
+ * 层级下方。这是因为至少某些版本 OpenSSL 还可能从服  
+ * 务器得到更有用的错误信息时，就过于快速地报告     
+ * 写入失败。                         
+ */
 ssize_t
 pqsecure_raw_write(PGconn *conn, const void *ptr, size_t len)
 {

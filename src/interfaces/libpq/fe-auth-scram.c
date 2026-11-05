@@ -393,9 +393,9 @@ build_client_first_message(fe_scram_state *state)
 
 	initPQExpBuffer(&buf);
 
-	/*首先构建包含通道绑定信息的 gs2-header。
-	 * 
-	        */
+	/*
+	 * 首先构建包含通道绑定信息的 gs2-header。       
+	 */
 	if (strcmp(state->sasl_mechanism, SCRAM_SHA_256_PLUS_NAME) == 0)
 	{
 		Assert(conn->ssl_in_use);
@@ -405,17 +405,17 @@ build_client_first_message(fe_scram_state *state)
 	else if (conn->channel_binding[0] != 'd' && /* 禁用  */
 			 conn->ssl_in_use)
 	{
-		/*客户端支持通道绑定，但认为服务器不支持。
-	
-	          */
+		/*
+		 * 客户端支持通道绑定，但认为服务器不支持。    
+		 */
 		appendPQExpBufferChar(&buf, 'y');
 	}
 #endif
 	else
 	{
-		/*客户端不支持通道绑定，或已禁用它。
-	
-	               */
+		/*
+		 * 客户端不支持通道绑定，或者已将其禁用。   
+		 */
 		appendPQExpBufferChar(&buf, 'n');
 	}
 

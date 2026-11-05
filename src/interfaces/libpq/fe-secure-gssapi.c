@@ -101,22 +101,22 @@ pg_GSS_write(PGconn *conn, const void *ptr, size_t len)
 	size_t		bytes_encrypted;
 	gss_ctx_id_t gctx = conn->gctx;
 
-	/*当我们遇到可重试的失败时，我们不能告诉调用者我们已成功传输
-	 * 了所有内容，否则它不会重试。为简单起见，我们声称在成功传输
-	 * 所有 "len" 字节之前没有传输任何内容。在两次调用之间，当前
-	 * 输入数据中已被加密并放入 PqGSSSendBuffer（可能已传输）的数
-	 * 量记录在 PqGSSSendConsumed 中。重试时，调用者*必须*再次发
-	 * 送该数据，因此如果它提供的 len 小于该值，则出错了。
-	 * 
-	 * 注意：一旦我们成功发送了任何加密数据包，报告部分写入完成
-	 * 可能看起来很有吸引力。然而，这样做会扩展此处理的状态空间，
-	 *并且过去曾导致错误（参见提交 d053a879b）。通常，通过让调用
-	 * 者提前丢弃数据不会节省太多，所以不要冒这个风险。
-	 * 
-	 * 
-	 * 
-	 * 
-	                                                     */
+	/*
+	 * 遇到可重试的失败时，不能告诉调用者我们已成功  
+	 * 发送了全部内容，否则它不会重试。为简单起  
+	 * 见，在成功发送 "len" 字节前，我们声称未发送     
+	 * 任何内容。两次调用之间，输入数据中已加密并放入  
+	 * PqGSSSendBuffer（可能也已传输）的数量记录在           
+	 * PqGSSSendConsumed。重试时，调用者*必须*再次发
+	 * 送该数据，因此如果它提供的 len 小于该值，就说明  
+	 * 出了问题。                                                 
+	 *
+	 * 注意：在成功发送加密包后即报告部分写入完成，  
+	 * 看似很吸引人。但这扩大了处理状态空间，过去曾 
+	 * 导致错误（cf. 提交 d053a879b）。通常，让调用者提前   
+	 * 丢弃数据省不了多少，所以别冒这个             
+	 * 风险。                                                          
+	 */
 	if (len < PqGSSSendConsumed)
 	{
 		appendPQExpBufferStr(&conn->errorMessage,
@@ -289,10 +289,10 @@ pg_GSS_read(PGconn *conn, void *ptr, size_t len)
 			size_t		bytes_in_buffer = PqGSSResultLength - PqGSSResultNext;
 			size_t		bytes_to_copy = Min(bytes_in_buffer, len - bytes_returned);
 
-			/*将数据从我们的结果缓冲区复制到调用者的缓冲区中，
-	位置是上次填充其缓冲区时离开的位置。
-	
-	      */
+			/*
+			 * 将结果缓冲区的数据复制到调用方缓冲区中，  
+			 * 位置是上次填充其缓冲区时离开的地方。   
+			 */
 			memcpy((char *) ptr + bytes_returned, PqGSSResultBuffer + PqGSSResultNext, bytes_to_copy);
 			PqGSSResultNext += bytes_to_copy;
 			bytes_returned += bytes_to_copy;
@@ -358,10 +358,10 @@ pg_GSS_read(PGconn *conn, void *ptr, size_t len)
 			return -1;
 		}
 
-		/*在本次调用中尽可能多地读取数据包，从上次调用的
-	中断处继续。
-	
-	                                        */
+		/*
+		 * 在本次调用中尽量多读取数据包，从上次调用  
+		 * 的中断处继续。                                  
+		 */
 		ret = pqsecure_raw_read(conn, PqGSSRecvBuffer + PqGSSRecvLength,
 								input.length - (PqGSSRecvLength - sizeof(uint32)));
 		/* 若 ret <= 0，pqsecure_raw_read 已设置了正确的 errno */
@@ -471,12 +471,12 @@ gss_read(PGconn *conn, void *recv_buffer, size_t length, ssize_t *ret)
 	return PGRES_POLLING_OK;
 }
 
-/*为连接协商 GSSAPI 传输。完成时返回 PGRES_POLLING_OK。
- * 阻塞时适当返回 PGRES_POLLING_READING 或
- * PGRES_POLLING_WRITING，无法协商传输时返回
- * PGRES_POLLING_FAILED。
- * 
-                                                           */
+/*
+ * 为连接协商 GSSAPI 传输。完成时返回 PGRES_POLLING_OK。 
+ * 阻塞时将酌情返回 PGRES_POLLING_READING 或     
+ * PGRES_POLLING_WRITING，若无法协商传输则返回           
+ * PGRES_POLLING_FAILED。                                   
+ */
 PostgresPollingStatusType
 pqsecure_open_gss(PGconn *conn)
 {
@@ -605,10 +605,10 @@ pqsecure_open_gss(PGconn *conn)
 			return PGRES_POLLING_FAILED;
 		}
 
-		/*在本次调用中尽可能多地读取数据包，从上次调用的
-	中断处继续。
-	
-	                                        */
+		/*
+		 * 在本次调用中尽量多读取数据包，从上次调用  
+		 * 的中断处继续。                                  
+		 */
 		result = gss_read(conn, PqGSSRecvBuffer + PqGSSRecvLength,
 						  input.length - (PqGSSRecvLength - sizeof(uint32)), &ret);
 		if (result != PGRES_POLLING_OK)
@@ -702,10 +702,10 @@ pqsecure_open_gss(PGconn *conn)
 		PqGSSSendLength = PqGSSSendNext = PqGSSSendConsumed = 0;
 		PqGSSRecvLength = PqGSSResultLength = PqGSSResultNext = 0;
 
-		/*确定在考虑长度后适合缓冲区的最大数据包大小。
-	pg_GSS_write 将需要此值。
-	
-	                                  */
+		/*
+		 * 确定计入长度后能放入缓冲区的最大包大小。     
+		 * pg_GSS_write 将需要此值。                         
+		 */
 		major = gss_wrap_size_limit(&minor, conn->gctx, 1, GSS_C_QOP_DEFAULT,
 									PQ_GSS_MAX_PACKET_SIZE - sizeof(uint32),
 									&PqGSSMaxPktSize);

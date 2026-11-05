@@ -52,12 +52,12 @@ markPQExpBufferBroken(PQExpBuffer str)
 	if (str->data != oom_buffer)
 		free(str->data);
 
-	/*此处去除 const 有点丑陋，但似乎比不将 oom_buffer 标记为
-	 * const 更好。我们想这样做以鼓励编译器将 oom_buffer 放在
-	 * 只读存储中，这样任何试图在损坏的 PQExpBuffer 上乱写的人
-	 * 都会得到失败。
-	 * 
-	                  */
+	/*
+	 * 此处去掉 const 有点丑，但似乎胜过不将 oom_buffer 标  
+	 * 记为 const。我们想这样做是为了促使编译器把 oom_buffer
+	 * 放入只读存储，这样任何试图乱写损坏的 PQExpBuffer 
+	 * 的人都会得到失败。                         
+	 */
 	str->data = unconstify(char *, oom_buffer_ptr);
 	str->len = 0;
 	str->maxlen = 0;
@@ -120,10 +120,10 @@ destroyPQExpBuffer(PQExpBuffer str)
 	}
 }
 
-/*termPQExpBuffer(str)
- * 		释放数据缓冲区但不释放 PQExpBufferData 本身。
- *		这是 initPQExpBuffer() 的逆操作。
- *	
+/*
+ * termPQExpBuffer(str)
+ *		释放数据缓冲区但不释放 PQExpBufferData 本身。
+ *		这是 initPQExpBuffer() 的逆操作。 
  */
 void
 termPQExpBuffer(PQExpBuffer str)
@@ -204,11 +204,11 @@ enlargePQExpBuffer(PQExpBuffer str, size_t needed)
 	while (needed > newlen)
 		newlen = 2 * newlen;
 
-	/*如果超过 INT_MAX 则限制到 INT_MAX。注意这里假设
-	 * INT_MAX <= UINT_MAX/2，否则上述循环可能溢出。我们仍然会
-	 * 有 newlen >= needed。
-	 * 
-	            */
+	/*
+	 * 若已越过 INT_MAX 则限制到 INT_MAX。注意这里我们假定
+	 * INT_MAX <= UINT_MAX/2，否则上述循环可能溢出。我们仍 
+	 * 会有 newlen >= needed。       
+	 */
 	if (newlen > (size_t) INT_MAX)
 		newlen = (size_t) INT_MAX;
 
@@ -224,13 +224,13 @@ enlargePQExpBuffer(PQExpBuffer str, size_t needed)
 	return 0;
 }
 
-/*printfPQExpBuffer
- * 在 fmt（类似 sprintf 的格式字符串）控制下格式化文本数据
- * 并将其插入 str。必要时为 str 分配更多空间。
- * 这是一个便捷例程，等效于 resetPQExpBuffer() 后再调用
- * appendPQExpBuffer()。
- * 
-                         */
+/*
+ * printfPQExpBuffer
+ * 在 fmt（sprintf 式的格式字符串）控制下格式化文本数据 
+ * 据，将其插入 str。必要时为 str 分配更多空间。这是
+ * 一个便捷例程，等效于先 resetPQExpBuffer()     
+ * 再 appendPQExpBuffer()。                         
+ */
 void
 printfPQExpBuffer(PQExpBuffer str, const char *fmt,...)
 {
@@ -281,15 +281,15 @@ appendPQExpBuffer(PQExpBuffer str, const char *fmt,...)
 	} while (!done);
 }
 
-/*appendPQExpBufferVA
- * printfPQExpBuffer/appendPQExpBuffer 的共享核心。
- * 尝试格式化数据并将其追加到 str。完成时返回 true（成功或
- * 硬失败），需要重试时返回 false。
- * 
- *注意：调用者必须确保在循环时保留其进入时的 errno，以防
- * fmt 包含 "%m"。
- * 
-             */
+/*
+ * appendPQExpBufferVA
+ * printfPQExpBuffer/appendPQExpBuffer 共享核心。
+ * 尝试格式化数据并追加到 str。完成时返回 true      
+ * （成功或硬失败均可），需重试时返回 false。
+ *
+ * 注意：调用者循环时须保留进入时的 errno，以防 
+ * fmt 中含有 "%m"。                       
+ */
 bool
 appendPQExpBufferVA(PQExpBuffer str, const char *fmt, va_list args)
 {
@@ -297,20 +297,20 @@ appendPQExpBufferVA(PQExpBuffer str, const char *fmt, va_list args)
 	size_t		needed;
 	int			nprinted;
 
-	/*尝试将给定字符串格式化到可用空间中；但如果空间很少，
-	 * 则不必尝试，先扩大缓冲区。
-	 * 
-	                        */
+	/*
+	 * 尝试将给定字符串格式化进可用空间；但若几乎没有  
+	 * 多少空间，就不必尝试，直接先扩大缓冲区。         
+	 */
 	if (str->maxlen > str->len + 16)
 	{
 		avail = str->maxlen - str->len;
 
 		nprinted = vsnprintf(str->data + str->len, avail, fmt, args);
 
-		/*如果 vsnprintf 报告错误，则失败（我们假定这意味着格式
-	字符串有问题）。
-	
-	                 */
+		/*
+		 * 若 vsnprintf 报告错误则失败（我们假定这是格式串
+		 * 有问题）。                         
+		 */
 		if (unlikely(nprinted < 0))
 		{
 			markPQExpBufferBroken(str);

@@ -84,58 +84,58 @@ static void pqPipelineProcessQueue(PGconn *conn);
 static int	pqPipelineFlush(PGconn *conn);
 
 
-/* PGresult 的空间管理。
+/* ----------------
+ * PGresult 的空间管理。   
  *
- * 以前，libpq 对查询返回的每个元组的每个字段单独调用 malloc()。
- * 这非常昂贵 --- malloc/free 消耗了应用程序运行时间的相当大一部分。
- * 而且没有真正的必要单独跟踪各个字段，因为当 PGresult 释放时
- * 它们会一起释放。所以现在，我们从 malloc 获取大块存储空间，
- * 并在这些块内使用一个简单的分配器来为查询数据分配空间。
- * 这大大减少了 malloc/free 的调用次数，同时也避免了
- * malloc 存储区域的碎片化。
- * PGresult 结构本身仍然单独通过 malloc 分配。我们可以将其
- * 与第一个分配块合并，但这会浪费空间，因为在常见情况下
- * 实际上不需要额外的存储空间（即 SQL 命令未返回元组）。
+ * 以前，libpq 为查询返回的每个元组字段单独调用     
+ * malloc()。这种做法极其昂贵 --- malloc/free 消耗了应用
+ * 程序运行时间的相当大一部分。而且没有必要单独 
+ * 跟踪各个字段，因为当 PGresult 被释放时                
+ * 它们会一起释放。所以现在，我们从 malloc 获取       
+ * 大块存储空间，并在其中用简单的分配器为查询数据
+ * 分配空间。这大大减少了 malloc/free 调用的次数，      
+ * 同时也避免了 malloc 存储区域出现                    
+ * 碎片化。                              
+ * PGresult 结构本身仍单独 malloc 分配。本可以把它与    
+ * 第一个分配块合并，但对于常见的不需要额外存储的 
+ * 情况来说这样做会浪费空间（即 SQL 命令未返回        
+ * 元组）。                           
  *
- * 我们还单独通过 malloc 分配顶层的元组指针数组，因为我们需要
- * 能够通过 realloc 扩大它，而我们的简单空间分配器无法有效处理
- * 这种情况。（遗憾的是 FE/BE 协议不会提前告知将返回多少元组。）
- * 所有其他 PGresult 的辅助存储都保存在大小为
- * PGRESULT_DATA_BLOCKSIZE 的 PGresult_data 块中。每个块开头的
- * 开销只是指向下一个块的链接（如果有的话）。空闲空间管理信息
- * 保存在所属的 PGresult 中。
- * 因此，返回少量数据的查询只需要三次 malloc 调用：一次用于
- * PGresult，一次用于元组指针数组，一次用于 PGresult_data 块。
+ * 我们还单独分配顶层的元组指针数组，因为需要通过   
+ * realloc 扩大它，简单空间分配器无法有效处理这种  
+ * 情况。（遗憾的是 FE/BE 协议不会预先告诉我们将返回 
+ * 多少元组。）                                         
+ * PGresult 的所有其他辅助存储都保存在大小为                  
+ * PGRESULT_DATA_BLOCKSIZE 的 PGresult_data 块中。每个块             
+ * 开头的开销为指向下一块的链接。空闲空间管理信息 
+ * 保存在所属 PGresult。 
+ * 因此，返回少量数据的查询需要三次 malloc 调用：一次
+ * 用于 PGresult，一次用于元组指针数组，一次用于       
+ * PGresult_data 块。
  *
- * 只有最近分配的 PGresult_data 块才会被考虑添加更多内容 ---
- * 旧块中剩余的任何额外空间都会被浪费。我们可以更智能地搜索
- * 整个链，但这里的重点是简单和快速。典型的应用程序本来也
- * 不会长时间保留 PGresult，所以其中的一些浪费空间不是问题。
+ * 只有最近分配的 PGresult_data 块才是可继续添加内容的 
+ * 候选 --- 旧块中剩余的额外空间都会浪费掉。我们可以  
+ * 做得更聪明并搜索整条链，但重点是简单快速。典型的 
+ * 应用程序本来也不会长时间保留 PGresult，因此其中一个内
+ * 部浪费一些空间并不是问题。                                   
  *
- * 空间分配器的调优常量如下：
- * PGRESULT_DATA_BLOCKSIZE：标准分配块的大小（以字节为单位）
- * PGRESULT_ALIGN_BOUNDARY：二进制数据的假定对齐要求
- * PGRESULT_SEP_ALLOC_THRESHOLD：大于此值的对象将分配独立块，
- *   而不是挤入常规分配块中。
- * 正确功能的要求：
- * PGRESULT_ALIGN_BOUNDARY 必须是所有机器数据类型对齐要求的
- *   倍数。（目前此值由 configure 测试设置，因此应该会自动正确。）
+ * 空间分配器的调优常量如下：      
+ * PGRESULT_DATA_BLOCKSIZE：标准分配块的大小（字节）        
+ * PGRESULT_ALIGN_BOUNDARY：二进制数据的假定对齐要求        
+ * PGRESULT_SEP_ALLOC_THRESHOLD：大于此值的对象将分配            
+ *	 独立块，而不是挤入常规分配块中。                 
+ * 正确工作的要求如下：        
+ * PGRESULT_ALIGN_BOUNDARY 必须是所有机器数据类型对齐要      
+ *		求的倍数。（当前由 configure 测试设置，应当自动
+ *		正确。）                             
  * PGRESULT_SEP_ALLOC_THRESHOLD + PGRESULT_BLOCK_OVERHEAD <=
- *   PGRESULT_DATA_BLOCKSIZE
- *   pqResultAlloc 假设小于阈值的对象可以放入新块中。
- * 块末尾浪费的空间最多可能达到
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- * PGRESULT_SEP_ALLOC_THRESHOLD，因此将其设得太大不划算。                                                                                                                                                                                                                                                                                                                 */
+ *			PGRESULT_DATA_BLOCKSIZE
+ *		pqResultAlloc 假设小于阈值的对象可以放进              
+ *		新块中。   
+ * 一个块末尾浪费的空间量可能多达                       
+ * PGRESULT_SEP_ALLOC_THRESHOLD，所以把它设得太大并不划算。 
+ * ----------------
+ */
 
 #define PGRESULT_DATA_BLOCKSIZE		2048
 #define PGRESULT_ALIGN_BOUNDARY		MAXIMUM_ALIGNOF /*来自configure */
@@ -615,9 +615,9 @@ pqResultAlloc(PGresult *res, size_t nBytes, bool isBinary)
 		if (res->curBlock)
 		{
 			/*
-		将特殊块放在活动块下方，这样我们就不会
- *
-			 * 浪费活动块中的空闲空间。                     */
+			 * 将特殊块放在活动块下方，这样我们就不会  
+			 * 浪费活动块中的空闲空间。             
+			 */
 			block->next = res->curBlock->next;
 			res->curBlock->next = block;
 		}
@@ -967,9 +967,9 @@ pqInternalNotice(const PGNoticeHooks *hooks, const char *fmt,...)
 	/* XXX 也应提供 SQLSTATE？       */
 
 	/*
-	结果文本始终只是主消息 + 换行符。如果无法分配，
-	 *
-	 * 则替换为"out of memory"，与 pqSetResultError 中一样。    */
+	 * 结果文本始终只是主消息 + 换行符。如果无法分配， 
+	 * 则用 "out of memory" 代替，同 pqSetResultError 一样。  
+	 */
 	res->errMsg = (char *) pqResultAlloc(res, strlen(msgBuf) + 2, false);
 	if (res->errMsg)
 		sprintf(res->errMsg, "%s\n", msgBuf);
@@ -1011,9 +1011,9 @@ pqAddTuple(PGresult *res, PGresAttValue *tup, const char **errmsgp)
 		PGresAttValue **newTuples;
 
 		/*
-		由于我们使用整数表示行号，我们不能支持超过
-		 *
-		 * INT_MAX 行。但确保允许这么多行。            */
+		 * 由于我们使用整数表示行号，因此无法支持超过  
+		 * INT_MAX 行。但要确保允许这么多行。     
+		 */
 		if (res->tupArrSize <= INT_MAX / 2)
 			newSize = (res->tupArrSize > 0) ? res->tupArrSize * 2 : 128;
 		else if (res->tupArrSize < INT_MAX)
@@ -1480,9 +1480,9 @@ PQsendQueryInternal(PGconn *conn, const char *query, bool newQuery)
 	entry->query = strdup(query);
 
 	/*
-	给数据一个推送。在非阻塞模式下，如果无法全部发送，
-	 *
-	 * 不要抱怨；PQgetResult() 会进行所需的额外刷新。     */
+	 * 推一把数据。非阻塞模式下，如果无法全部发送不要  
+	 * 抱怨；PQgetResult() 会完成所需的额外刷新。             
+	 */
 	if (pqFlush(conn) < 0)
 		goto sendFailed;
 
@@ -1498,9 +1498,9 @@ sendFailed:
 }
 
 /*
-PQsendQueryParams
- *
- *   类似 PQsendQuery，但使用扩展查询协议以便传递参数          */
+ * PQsendQueryParams
+ *		类似 PQsendQuery，但使用扩展查询协议以便传递参数         
+ */
 int
 PQsendQueryParams(PGconn *conn,
 				  const char *command,
@@ -1744,9 +1744,9 @@ PQsendQueryStart(PGconn *conn, bool newQuery)
 	else
 	{
 		/*
-		此命令的结果将立即到达。初始化异步
-		 *
-		 * 结果累积状态                       */
+		 * 此命令的结果将立即到达。初始化异步              
+		 * 结果累积状态       
+		 */
 		pqClearAsyncResult(conn);
 
 		/* 重置单行处理模式         */
@@ -2003,9 +2003,9 @@ parseInput(PGconn *conn)
 }
 
 /*
-PQisBusy
- *
- *   若 PQgetResult 会阻塞等待输入则返回 true。    */
+ * PQisBusy
+ *	 若 PQgetResult 会阻塞等待输入则返回 true。   
+ */
 
 int
 PQisBusy(PGconn *conn)
@@ -2183,9 +2183,9 @@ PQgetResult(PGconn *conn)
 }
 
 /*
-getCopyResult
- *
- *   PQgetResult 辅助：为进行中 COPY 生成结果                 */
+ * getCopyResult
+ *	  PQgetResult 的辅助函数：为进行中的 COPY 生成结果   
+ */
 static PGresult *
 getCopyResult(PGconn *conn, ExecStatusType copytype)
 {
@@ -2235,9 +2235,9 @@ PQexec(PGconn *conn, const char *query)
 }
 
 /*
-PQexecParams
- *
- *   类似 PQexec，但使用扩展查询协议以便传递参数          */
+ * PQexecParams
+ *		类似 PQexec，但使用扩展查询协议以便传递参数         
+ */
 PGresult *
 PQexecParams(PGconn *conn,
 			 const char *command,
@@ -2329,9 +2329,9 @@ PQexecStart(PGconn *conn)
 	}
 
 	/*
-	静默丢弃应用程序未消费的任何先前查询结果。
-	 *
-	 * 这可能是糟糕的设计，但为了向后兼容而保留。               */
+	 * 静默丢弃应用程序未消费的任何先前查询结果。     
+	 * 这可能是糟糕的设计，但它的存在是为了向后兼容。  
+	 */
 	while ((result = PQgetResult(conn)) != NULL)
 	{
 		ExecStatusType resultStatus = result->resultStatus;
@@ -2840,26 +2840,26 @@ PQendcopy(PGconn *conn)
 }
 
 
-/* PQfn - 向 POSTGRES 后端发函数调用。
+/* ----------------
+ *		PQfn - 向 POSTGRES 后端发送函数调用。     
  *
- *   conn           : 后端连接
- *   fnid           : 函数 OID
- *   result_buf     : 结果缓冲指针
- *   result_len     : 实际结果长度返回此处
- *   result_is_int  : 结果为整数须为 1，否则 0
- *   args           : 函数参数数组指针
- *                    （各有长度，整数有值/指针）
- *   nargs          : args 参数个数。
+ *		conn			: 后端连接      
+ *		fnid			: 要调用的函数的 OID   
+ *		result_buf		: 结果缓冲区的指针
+ *		result_len		: 结果的实际长度在此返回       
+ *		result_is_int	: 若结果为整数必须为 1，            
+ *						  否则应为 0            
+ *		args			: 函数参数数组的指针              
+ *						  （各有长度（整数时）和值/指针）  
+ *		nargs			: 参数数组中的个数。  
  *
- * 返回
- *   成功返回 PGRES_COMMAND_OK 的 PGresult。
- *     *result_len > 0 有返回值，0 无。
- *   后端错返 PGRES_FATAL_ERROR 的 PGresult。
- *
- *
- *
- *
- *   通信失败返 NULL。conn->errorMessage 已设。                                                                                                                                                                 */
+ * 返回 
+ *		成功返回状态为 PGRES_COMMAND_OK 的 PGresult。
+ *			*result_len 有返回值时 > 0，没有则为 0。     
+ *		后端出错时返回状态为 PGRES_FATAL_ERROR 的 PGresult。     
+ *		通信失败时返回 NULL。conn->errorMessage 会被设置。 
+ * ----------------
+ */
 
 PGresult *
 PQfn(PGconn *conn,
@@ -3032,9 +3032,9 @@ pqCommandQueueAdvance(PGconn *conn, bool isReadyForQuery, bool gotSync)
 		return;
 
 	/*
-	如果正在处理简单查询协议的查询，我们只
-	 *
-	 * 在收到对应的 ReadyForQuery 消息时才推进队列。       */
+	 * 如果正在处理简单查询协议的查询，则只有在收到 
+	 * ReadyForQuery 消息时才推进队列。              
+	 */
 	if (conn->cmd_queue_head->queryclass == PGQUERY_SIMPLE && !isReadyForQuery)
 		return;
 
@@ -3112,9 +3112,9 @@ pqPipelineProcessQueue(PGconn *conn)
 	}
 
 	/*
-	重置错误状态。此步骤和接下来的几个步骤
-	 *
-	 * 对应 PQsendQueryStart 没有为此查询执行的操作。   */
+	 * 重置错误状态。这一步和接下来的几步对应于           
+	 * PQsendQueryStart 未曾为此查询做的事。
+	 */
 	pqClearConnErrorState(conn);
 
 	/* 初始化异步结果累积状态          */
@@ -3212,9 +3212,9 @@ PQpipelineSync(PGconn *conn)
 		goto sendFailed;
 
 	/*
-	给数据一个推送。在非阻塞模式下，如果无法全部发送，
-	 *
-	 * 不要抱怨；PQgetResult() 会进行所需的额外刷新。     */
+	 * 推一把数据。非阻塞模式下，如果无法全部发送不要  
+	 * 抱怨；PQgetResult() 会完成所需的额外刷新。             
+	 */
 	if (PQflush(conn) < 0)
 		goto sendFailed;
 
@@ -3369,9 +3369,9 @@ PQbinaryTuples(const PGresult *res)
 }
 
 /*
-辅助例程：范围检查字段号和元组号。
- *
- * 合法返 true，否则 false                */
+ * 对字段号和元组号进行范围检查的辅助例程。   
+ * 合法 true，否则 false     
+ */
 
 static int
 check_field_number(const PGresult *res, int field_num)
@@ -3466,9 +3466,9 @@ PQfnumber(const PGresult *res, const char *field_name)
 		return -1;
 
 	/*
-	注意：拒绝零长度输入字符串是正确的；匹配零长度
-	 *
-	 * 字段名的正确输入是 ""。                    */
+	 * 注意：拒绝零长度输入串是正确的；匹配零长度     
+	 * 字段名的正确输入是 ""。                   
+	 */
 	if (field_name == NULL ||
 		field_name[0] == '\0' ||
 		res->attDescs == NULL)
@@ -3632,9 +3632,9 @@ char *
 PQoidStatus(const PGresult *res)
 {
 	/*
-	这必须足够容纳结果。别笑，这比
-	 *
-	 * 此函数过去的行为要好。                          */
+	 * 这必须足以容纳结果。别笑，这已经比                
+	 * 此函数过去的行为要好。  
+	 */
 	static char buf[24];
 
 	size_t		len;
@@ -3736,9 +3736,9 @@ interpret_error:
 }
 
 /*
-PQgetvalue：
- *
- *   返回第 'tup_num' 行第 'field_num' 字段的值 */
+ * PQgetvalue:
+ *	返回第 'tup_num' 行第 'field_num' 字段的值   
+ */
 char *
 PQgetvalue(const PGresult *res, int tup_num, int field_num)
 {
@@ -3775,9 +3775,9 @@ PQgetisnull(const PGresult *res, int tup_num, int field_num)
 		return 0;
 }
 
-/* PQnparams：
- *
- *   返回预准备语句的输入参数数量。             */
+/* PQnparams:
+ *	返回预备语句的输入参数个数。                     
+ */
 int
 PQnparams(const PGresult *res)
 {
@@ -3843,9 +3843,9 @@ PQsetnonblocking(PGconn *conn, int arg)
 }
 
 /*
-返回数据库连接的阻塞状态
- *
- *   true == 非阻塞，false == 阻塞                     */
+ * 返回数据库连接的阻塞状态                 
+ *		true == 非阻塞，false == 阻塞   
+ */
 int
 PQisnonblocking(const PGconn *conn)
 {
@@ -4097,11 +4097,11 @@ add_size_overflow(size_t s1, size_t s2, size_t *dst)
 
 
 /*
-转义任意字符串。如果 as_ident 为 true，将结果 作为标识符转义；如果为 false，作为字面量转义。
- * length 是源字符串的长度。
- *
- * 与 PQescapeString 一样，为安全起见，"to" 处的缓冲区
- * 必须至少为 2*length + 1 字节长。               */
+ * 转义任意字符串。若 as_ident 为 true，结果被           
+ * 转义为标识符；若为 false，则按字面量转义。结果  
+ * 在新分配的缓冲区中返回。如果因编码违规或内存不    
+ * 足而失败，我们返回 NULL，并将错误消息存入 conn。     
+ */
 static char *
 PQescapeInternal(PGconn *conn, const char *str, size_t len, bool as_ident)
 {
@@ -4176,9 +4176,9 @@ PQescapeInternal(PGconn *conn, const char *str, size_t len, bool as_ident)
 	}
 
 	/*
-	分配输出缓冲。防溢出，避免调用者分配
-	 *
-	 * 大量地址空间时计算回绕。                                   */
+	 * 分配输出缓冲区。防止溢出，以防调用者分配了     
+	 * 可用的 size_t 空间的大部分。                 
+	 */
 	if (add_size_overflow(input_len, num_quotes, &result_size) ||
 		add_size_overflow(result_size, 3, &result_size))	/* 两引加 NUL         */
 		goto overflow;
@@ -4522,9 +4522,9 @@ PQunescapeBytea(const unsigned char *strtext, size_t *retbuflen)
 						v2;
 
 			/*
-		错输入静默忽略。包括十六进制对间空白，
- *
-			 * bytea 字面量中允许但本函数不支持。              */
+			 * 错误的输入被静默忽略。注意这包括       
+			 * 十六进制对间空白，byteain 允许这种空白。  
+			 */
 			v1 = get_hex(*s++);
 			if (!*s || v1 == (char) -1)
 				continue;

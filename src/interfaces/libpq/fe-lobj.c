@@ -336,10 +336,10 @@ lo_write(PGconn *conn, int fd, const char *buf, size_t len)
 	}
 }
 
-/*lo_lseek
- * 	  更改大对象上的当前读写位置
- *	
-                    */
+/*
+ * lo_lseek
+ *	  更改大对象上的当前读或写位置                 
+ */
 int
 lo_lseek(PGconn *conn, int fd, int offset, int whence)
 {
@@ -377,10 +377,10 @@ lo_lseek(PGconn *conn, int fd, int offset, int whence)
 	}
 }
 
-/*lo_lseek64
- * 	  更改大对象上的当前读写位置
- *	
-                    */
+/*
+ * lo_lseek64
+ *	  更改大对象上的当前读或写位置                 
+ */
 pg_int64
 lo_lseek64(PGconn *conn, int fd, pg_int64 offset, int whence)
 {
@@ -507,10 +507,10 @@ lo_create(PGconn *conn, Oid lobjId)
 }
 
 
-/*lo_tell
- * 	  返回大对象的当前查找位置
- *	
-                 */
+/*
+ * lo_tell
+ *	  返回大对象的当前查找位置                 
+ */
 int
 lo_tell(PGconn *conn, int fd)
 {
@@ -540,10 +540,10 @@ lo_tell(PGconn *conn, int fd)
 	}
 }
 
-/*lo_tell64
- * 	  返回大对象的当前查找位置
- *	
-                 */
+/*
+ * lo_tell64
+ *	  返回大对象的当前查找位置                 
+ */
 pg_int64
 lo_tell64(PGconn *conn, int fd)
 {
@@ -860,10 +860,10 @@ lo_initialize(PGconn *conn)
 	if (conn->lobjfuncs != NULL)
 		return 0;
 
-	/*分配结构来保存函数 OID。在成功填充之前，我们不将其存储到
-	 * PGconn 中。
-	 * 
-	                     */
+	/*
+	 * 分配用于保存函数 OID 的结构。在成功填充它之前，
+	 * 我们不会把它存储到 PGconn 中。      
+	 */
 	lobjfuncs = (PGlobjfuncs *) malloc(sizeof(PGlobjfuncs));
 	if (lobjfuncs == NULL)
 	{
@@ -1015,10 +1015,10 @@ lo_initialize(PGconn *conn)
 	return 0;
 }
 
-/*lo_hton64
- * 	  将 64 位整数从主机字节序转换为网络字节序
- *	
-          */
+/*
+ * lo_hton64
+ *	  将 64 位整数从主机字节序转换为网络字节序          
+ */
 static pg_int64
 lo_hton64(pg_int64 host64)
 {
@@ -1040,10 +1040,10 @@ lo_hton64(pg_int64 host64)
 	return swap.i64;
 }
 
-/*lo_ntoh64
- * 	  将 64 位整数从网络字节序转换为主机字节序
- *	
-          */
+/*
+ * lo_ntoh64
+ *	  将 64 位整数从网络字节序转换为主机字节序          
+ */
 static pg_int64
 lo_ntoh64(pg_int64 net64)
 {

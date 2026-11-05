@@ -458,10 +458,10 @@ dlist_pop_head_node(dlist_head *head)
 }
 
 /*
- * 把元素从链表中的当前位置移到同一链表的表头位置。
+ * 把元素从链表中当前的位置移动到同一链表的表头        
+ * 位置。     
  *
- * 若 'node' 尚不是该链表的一部分，则行为未定义。
- *
+ * 若 'node' 原本不在该链表中，则行为未定义。   
  */
 static inline void
 dlist_move_head(dlist_head *head, dlist_node *node)
@@ -477,10 +477,10 @@ dlist_move_head(dlist_head *head, dlist_node *node)
 }
 
 /*
- * 把元素从链表中的当前位置移到同一链表的表尾位置。
+ * 把元素从链表中当前的位置移动到同一链表的表尾        
+ * 位置。     
  *
- * 若 'node' 尚不是该链表的一部分，则行为未定义。
- *
+ * 若 'node' 原本不在该链表中，则行为未定义。   
  */
 static inline void
 dlist_move_tail(dlist_head *head, dlist_node *node)

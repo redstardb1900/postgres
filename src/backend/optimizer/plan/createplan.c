@@ -6643,9 +6643,9 @@ make_group(List *tlist,
 }
 
 /*
- * distinctList 是一份 SortGroupClauses 列表，标识 Unique 过滤器应当考虑的目标列表项。
- * 输入路径必须
- * 已经按此排好序。
+ * distinctList 是一个 SortGroupClauses 列表，标识出                  
+ * Unique 过滤器应考虑的目标列表项。输入路径必须    
+ * 已经按此排序。         
  */
 static Unique *
 make_unique_from_sortclauses(Plan *lefttree, List *distinctList)

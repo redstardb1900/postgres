@@ -272,9 +272,9 @@ can_minmax_aggs(PlannerInfo *root, List **context)
 		/* 注意：并不在意是否提到了 DISTINCT…… */
 
 		/*
-		 * 有 FILTER 子句时，也许可以把过滤器加到生成的子查询的限定条件里
-		 * 来实现这项优化。
-		 * 目前直接放弃。
+		 * 当存在 FILTER 子句时，我们也许可以通过把该过滤  
+		 * 器加到生成子查询的限定条件中来实现该优化。  
+		 * 目前搁置。
 		 */
 		if (aggref->aggfilter != NULL)
 			return false;

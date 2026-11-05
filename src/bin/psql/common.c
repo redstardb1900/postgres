@@ -291,13 +291,13 @@ ConnectionUp(void)
 
 /* CheckConnection
  *
- *                                                                        
- * 验证后端连接是否  
+ * 验证我们与后端之间是否仍有可用连接，                 
+ * 若无则尝试恢复。  
  *
- *                                                                      
- * 连接仍存或成功恢复 true；否则 false。                
- * 连接丢失且会话非交互，EXIT_BADCONN 退出。                  
- *                             
+ * 若连接原本仍在，或能成功恢复连接，则返回 true； 
+ * 否则返回 false。但如果连接不存在，且会话为      
+ * 非交互模式，程序将以退出码 EXIT_BADCONN                     
+ * 直接退出。             
  */
 static bool
 CheckConnection(void)
@@ -321,10 +321,10 @@ CheckConnection(void)
 			fprintf(stderr, _("Failed.\n"));
 
 			/*
-			 * 转为无连接；存失败连接以便 \connect             
-			 * 仍引用参数。清理与 do_connect() 同步。          
-			 *                                                             
-			 *                   
+			 * 转为无连接状态；但先保存失败的连接，       
+			 * 以便稍后的 \connect 尝试仍能引用其参数。     
+			 * 此处状态清理代码要与 do_connect() 中的保持    
+			 * 同步。         
 			 */
 			if (pset.dead_conn)
 				PQfinish(pset.dead_conn);
@@ -533,9 +533,9 @@ PrintTiming(double elapsed_msec)
 	}
 
 	/*
-	 * 注：总计 <1 分可仅打秒 (%06.3f)，                         
-	 * 但难理解除非加 "s"。强制显分似更佳。                 
-	 *                                                                 
+	 * 注：当总计不足 1 分钟时可只打印秒，格式类似     
+	 * %06.3f。但这难以理解，除非附加 "s" 或其他标注。    
+	 * 强制显示中包含分钟似乎是更好的解决方案。    
 	 *                                      
 	 */
 	seconds = elapsed_msec / 1000.0;
@@ -567,14 +567,14 @@ PrintTiming(double elapsed_msec)
 /*
  * PSQLexec
  *
- *                                                                       
- * 发"后门"查询（非用户直接输入） 
+ * 此函数用于发送 "后门" 查询（非用户直接输入）      
+ * 它受 -E 影响，但不受 -e 影响。    
  *
- * 受 -E 影响，不受 -e。                                       
- *                 
+ * 如果发送了 COPY 命令，调用者需负责处理随后的    
+ * 处理工作。 
  *
- * 发 COPY 调用者负责后续处理。                               
- *                                                      
+ * 注：我们无需检查 PQclientEncoding；假定没有调用者     
+ * 经由这条路径发出 "SET CLIENT_ENCODING"。    
  */
 PGresult *
 PSQLexec(const char *query)
@@ -625,11 +625,11 @@ PSQLexec(const char *query)
 /*
  * PSQLexecWatch
  *
- *                                                              
- * 供 \watch 命令用，发查询到 
+ * 此函数供 \watch 命令用，把查询发送到服务器  
+ * 并打印结果。                  
  *
- *                                                                          
- * 成功 1，不可重复（被中断）0，  
+ * 查询执行成功时返回 1；若查询无法再次重复（例如因  
+ * 被中断），返回 0；出错返回 -1。
  */
 int
 PSQLexecWatch(const char *query, const printQueryOpt *opt, FILE *printQueryFout)
@@ -684,15 +684,15 @@ PrintNotifications(void)
 
 
 /*
- * PrintQueryTuples: 查询正常打印元组                     
+ * PrintQueryTuples: 假定查询结果正常，打印其元组   
  *
- *                                                                  
- * 用 opt 选项，
+ * 我们使用 opt 给出的选项；若 opt 为 NULL，则使用  
+ * pset.popt。     
  *
- *                                                              
- * 输出到 printQueryFo
+ * 输出到 printQueryFout；若其为 NULL，则使用        
+ * pset.queryFout。     
  *
- *                                             
+ * 成功时返回 true，否则返回 false。
  */
 static bool
 PrintQueryTuples(const PGresult *result, const printQueryOpt *opt,
@@ -1269,12 +1269,12 @@ sendquery_cleanup:
 
 
 /*
- * DescribeQuery: 描述查询结果列，不执行                           
+ * DescribeQuery: 描述查询结果的各个列，而不执行查询         
  *
- *                                                                      
+ * 若操作执行成功则返回 true，否则返回 false。          
  *
- * 操作成功 true，否则 false。                                     
- *                           
+ * 若 pset.timing 开启，查询总耗时（不含结果打印时间）  
+ * 将存入 *elapsed_msec。
  */
 static bool
 DescribeQuery(const char *query, double *elapsed_msec)
@@ -1489,9 +1489,9 @@ ExecQueryAndProcessResults(const char *query,
 				result_status == PGRES_COPY_IN)
 
 				/*
-				 * 晦涩原因 COPY 下 PQgetResult 不返 NULL，       
-				 * 持续返须手动忽略"空"结果。                    
-				 *                                                      
+				 * 出于某种晦涩原因，COPY 时 PQgetResult 并    
+				 * *不会*返回 NULL，尽管结果已被清除，         
+				 * 而是持续返回须手动忽略的 "空" 结果。 
 				 *                 
 				 */
 				result = NULL;
@@ -1683,14 +1683,14 @@ ExecQueryAndProcessResults(const char *query,
 
 
 /*
- * ExecQueryUsingCursor: 游标运行 SELECT 类查询         
+ * ExecQueryUsingCursor: 使用游标运行类似 SELECT 的   
  *
- *                                                                  
+ * 查询。该特性可用于处理比 RAM 更大的结果集。   
  *
- * 允许处理超 RAM 结果集。                                 
+ * 查询执行成功时返回 true，否则返回 false。         
  *
- *                                                                         
- * 查询成功 true，否则
+ * 若 pset.timing 开启，查询总耗时（不含结果打印时间）  
+ * 将存入 *elapsed_msec。
  */
 static bool
 ExecQueryUsingCursor(const char *query, double *elapsed_msec)
@@ -2381,12 +2381,12 @@ expand_tilde(char **filename)
 }
 
 /*
- * 检查连接串是否有效 URI 前缀开头。                       
- *             
+ * 检查连接串是否以任一有效的 URI 前缀指示符           
+ * 开头。   
  *
- * 返回 URI 前缀长度，不含 0。                                       
+ * 返回 URI 前缀的长度；若串不含 URI 前缀，则返回 0。       
  *
- *                                                         
+ * XXX 这与 libpq 中的同名函数重复。            
  */
 static int
 uri_prefix_length(const char *connstr)

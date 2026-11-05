@@ -199,12 +199,12 @@ static void
 mq_putmessage_noblock(char msgtype, const char *s, size_t len)
 {
 	/*
- * shm_mq 机制确实支持以非阻塞模式发送消息，但目前没有办法
- * 尝试开始发送消息、而又不让我们承诺完成这次传输。将来
- * 可以改进，但现在我们不需要。
- *
- *
- */
+	 * shm_mq 机制确实支持以非阻塞模式发送消息，  
+	 * 但目前还没有办法做到：只是尝试开始发送一条        
+	 * 消息而又不让我们承诺去完成整个传输过程。  
+	 * 这一点将来可以改进，不过目前我们并不需要它。 
+	 *               
+	 */
 	elog(ERROR, "not currently supported");
 }
 

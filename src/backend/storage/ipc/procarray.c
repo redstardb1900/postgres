@@ -2784,9 +2784,9 @@ GetRunningTransactionData(void)
 			continue;
 
 		/*
-		 * 在计算 oldestRunningXid 和 suboverflowed 的值之前，小心不要排除任何 xid，
-		 * 因为这些值用来清理
-		 * 备库上持有的事务信息。
+		 * 在计算出 oldestRunningXid 和 suboverflowed 的值             
+		 * 之前，注意不要排除任何 xid，因为这些值会被用 
+		 * 来清理备库上持有的事务信息。  
 		 */
 		if (TransactionIdPrecedes(xid, oldestRunningXid))
 			oldestRunningXid = xid;

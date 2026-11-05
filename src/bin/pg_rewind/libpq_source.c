@@ -316,25 +316,25 @@ static void
 libpq_queue_fetch_file(rewind_source *source, const char *path, size_t len)
 {
 	/*
-	 * 立即截断目标文件，排队从源获取。若文件小于 MAX_CHUNK_SIZE，
-	 * 仍请求完整块，以便扫描源目录后若文件变大，仍能获取完整
-	 * 文件。此机制仅对不超过 MAX_CHUNK_SIZE 的文件有效，但对于
-	 * 偶尔更改的小配置文件等（非 WAL 日志记录的）已足够。对于
-	 * 较大文件，最多获取到原始大小。
-	 * 
-	 * 即便如此仍存在固有竞态：若复制的同时文件被修改，可能得到
-	 * 撕裂版本（部分旧、部分新）。但 pg_basebackup 同样有此问题，
-	 * 实践中并未成为麻烦。
-	 * 
-	 * 收到文件后再截断看似更自然，但那样就需要跟踪哪些获取请求
-	 * 针对的是完整文件。
-	 * 
-	 * 
-	 * 
-	 * 
-	 * 
-	 * 
-	                                                                                                                                                                                                                                                                                                                                                    */
+	 * 立即截断目标文件，并排队从源获取文件的请求。   
+	 * 若文件较小，小于 MAX_CHUNK_SIZE，也请求获取一       
+	 * 个完整大小的块，这样即使在我们扫描源目录之后 
+	 * 源端文件已变大，我们仍能获取整个文件。      
+	 * 这只对不超过 MAX_CHUNK_SIZE 的文件有效，但对于         
+	 * 偶尔变更但不记入 WAL 日志的小配置文件等已足够。   
+	 * 对于更大的文件，我们最多获取到原始大小。         
+	 *                                                
+	 *
+	 * 即便有此机制，若文件恰在我们复制它的同一时刻  
+	 * 被修改，就可能复制到撕裂的文件版本：一半          
+	 * 来自旧版本，另一半来自新版本。但 pg_basebackup  
+	 * 也有同样的问题，                                             
+	 * 实践中这并未成为麻烦。                 
+	 *
+	 * 等从源服务器收到文件后再截断，看似更为自然，    
+	 * 但那样就需要跟踪哪些获取请求是针对整个   
+	 * 文件的。                        
+	 */
 	open_target_file(path, true);
 	libpq_queue_fetch_range(source, path, 0, Max(len, MAX_CHUNK_SIZE));
 }
@@ -349,14 +349,14 @@ libpq_queue_fetch_range(rewind_source *source, const char *path, off_t off,
 	libpq_source *src = (libpq_source *) source;
 
 	/*
-	 * 此请求是否恰为前一个块的延续？若是则合并。
-	 *       
-	 * 
-	 * XXX: 通过指针相等比较路径，对我们的场景已足够；
-	 * 调用者总对同一文件传相同指针，否则合并失败而不影响正确性。
-	 * 
-	 * 
-	                                                                                                                 */
+	 * 此请求是否恰好是上一个块的延续？如果是，就把它  
+	 * 与上一个块合并。           
+	 *
+	 * XXX: 我们用指针相等比较路径，对我们的目的         
+	 * 已足够；对于同一个文件名，调用者总是传入相同 
+	 * 的指针。若不这样，我们将无法合并请求，但这并  
+	 * 不影响正确性。       
+	 */
 	if (src->num_requests > 0)
 	{
 		fetch_range_request *prev = &src->request_queue[src->num_requests - 1];
@@ -545,11 +545,11 @@ process_queued_fetch_requests(libpq_source *src)
 		chunk = PQgetvalue(res, 0, 2);
 
 		/*
-		 * 若文件在源端已删除，同样在目标端删除。同一文件可能有多个
-		 * 数据块关联，可能多次 unlink()，因此无条件忽略任何缺失。
-		 * 
-		 * 
-		                                                                    */
+		 * 若一个文件已在源端被删除，也把它从目标端     
+		 * 删除。注意，同一文件关联多个数据块时，可能   
+		 * 发生多次 unlink() 调用，因此我们无条件忽略       
+		 * 任何缺失的东西。         
+		 */
 		if (PQgetisnull(res, 0, 2))
 		{
 			pg_log_debug("received null value for chunk for file \"%s\", file has been deleted",
@@ -571,13 +571,13 @@ process_queued_fetch_requests(libpq_source *src)
 						 (long long int) chunkoff, rq->path, (long long int) rq->offset);
 
 			/*
-			 * 不应接收超请求量的数据，否则 pg_read_binary_file() 出错。
-			 * 但可能收到更少，若源端在检查大小后被截断。这无妨，应有
-			 * WAL 记录记载该截断，pg_rewind 完成后首次启动目标时回放。
-			 * 
-			 * 
-			 * 
-			                                                                                                                   */
+			 * 不应收到超过请求量的数据，否则说明  
+			 * pg_read_binary_file() 出错了。不过若源端       
+			 * 在检查大小之后截断了文件，我们收到的  
+			 * 数据可能变少。这没问题：应该会有一条 WAL  
+			 * 记录记载该截断，在 pg_rewind 完成后首次     
+			 * 启动目标系统时被回放。                              
+			 */
 			if (chunksize > rq->length)
 				pg_fatal("received more than requested for file \"%s\"", rq->path);
 

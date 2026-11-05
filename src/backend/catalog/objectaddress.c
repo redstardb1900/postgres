@@ -971,9 +971,9 @@ get_object_address(ObjectType objtype, Node *object,
 	for (;;)
 	{
 		/*
-		 * 记住此值，以便在查找对象名称并锁定之后，可以检查是否已处理过可能需要重试的共享失效消息。
-		 *
-		 *
+		 * 记住这个值，以便在查找对象名称并加锁之后，   
+		 * 我们可以检查是否已处理了任何可能需要重做   
+		 * 的失效消息。                          
 		 */
 		inval_count = SharedInvalidMessageCounter;
 

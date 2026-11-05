@@ -106,11 +106,11 @@ get_password_type(const char *shadow_pass)
 }
 
 /*
- * 给定用户提供的口令，把它转换成 'target_type' 那种秘密。
+ * 给定用户提供的口令，把它转换成 'target_type'
+ * 那种秘密。    
  *
- * 若口令已经是加密形式，我们无法反推哈希，因此无论请求
- * 的类型是什么，都按原样存储。
- *
+ * 如果口令已经是加密后的形式，我们无法反向推算 
+ * 该哈希，所以无论请求什么类型都按原样存储。 
  */
 char *
 encrypt_password(PasswordType target_type, const char *role,

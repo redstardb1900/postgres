@@ -6237,9 +6237,9 @@ make_sort_input_target(PlannerInfo *root,
 			else
 			{
 				/*
-				 * 否则检查代价。XXX 烦人的是 set_pathtarget_cost_width() 刚刚做过，
-				 * 这里还得再做。重构以
-				 * 允许共享这项工作？
+				 * 否则检查代价。XXX set_pathtarget_cost_width()      
+				 * 刚做过，这里还得重做，很烦。要重构以    
+				 * 共享工作吗？     
 				 */
 				QualCost	cost;
 

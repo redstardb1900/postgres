@@ -28,13 +28,13 @@
 #include "storage/fd.h"
 
 /*
- * 运行 ssl_passphrase_command
+ * Run ssl_passphrase_command
  *
- * prompt 会替换 %p。is_server_start 决定错误消息的日志级别。
+ * %p 会被替换为 prompt。is_server_start 决定错误消息             
+ * 的日志级别。
  *
- * 结果放进大小为 size 的缓冲区 buf。返回值是实际结果的长度。
- *
- *
+ * 结果将放入大小为 size 的缓冲区 buf 中。返回值是       
+ * 实际结果的长度。                 
  */
 int
 run_ssl_passphrase_command(const char *prompt, bool is_server_start, char *buf, int size)
@@ -132,21 +132,21 @@ check_ssl_key_file_permissions(const char *ssl_key_file, bool isServerStart)
 	}
 
 	/*
- * 拒绝加载不属于我们或 root 的密钥文件，且密钥文件不得
- * 有公共访问权限。若文件属于我们，需要模式为 0600 或
- * 更严。若属于 root，需要 0640 或更严，以便通过我们的 gid
- * 或允许我们读取全系统证书的附加 gid 来读取。
- *
- * 注意，src/interfaces/libpq/fe-secure-openssl.c 里有大致
- * 类似的检查，因此这里的改动也许也要同步到那里。不过环境
- * 不同；这段代码可以假定我们不是以 root 身份运行。
- *
- * 理想情况下 Windows 上也做类似的权限检查，但不清楚那该
- * 怎么做，因为 Unix 风格的权限也许不可用。
- *
- *
- *
- */
+	 * 拒绝加载非我们或 root 所有的密钥文件，要求      
+	 * 密钥文件不允许公共访问。若文件属于我们，要求    
+	 * 权限不高于 0600。若属于 root，则要求不高于 0640，   
+	 * 以便通过我们的 gid 或可读取全系统证书的附加      
+	 * gid 来读取。                           
+	 *
+	 * 注意，大致类似的检查也在             
+	 * src/interfaces/libpq/fe-secure-openssl.c 中进行，                
+	 * 因此此处的改动可能也需要在那里做。不过环境     
+	 * 不同；此代码可假定我们不是 root。
+	 *
+	 * 理想情况下 Windows 上也会做类似的权限检查，但     
+	 * 尚不清楚如何实现，因为 Unix 风格的权限也许无法   
+	 * 使用。 
+	 */
 #if !defined(WIN32) && !defined(__CYGWIN__)
 	if (buf.st_uid != geteuid() && buf.st_uid != 0)
 	{

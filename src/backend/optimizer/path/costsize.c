@@ -4533,9 +4533,9 @@ cost_qual_eval_walker(Node *node, cost_qual_eval_context *context)
 			context->total.startup += estarraylen * hcosts.per_tuple;
 
 			/*
-			 * XXX 建表时要不要为 sacosts.per_tuple 收一点费，
-			 * 还是可以假定哈希
-			 * 冲突为零？
+			 * XXX 在构建哈希表时，我们是否应该为 sacosts.  
+			 * per_tuple 收一点代价，还是可以假定哈希冲突  
+			 * 为零？      
 			 */
 
 			/*

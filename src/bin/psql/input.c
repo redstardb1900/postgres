@@ -336,10 +336,10 @@ decode_history(void)
 
 
 /*
- * 将输入相关的启动内容放在此处。保持这种抽象是好的。
+ * 与输入相关的启动处理放在这里。这种抽象方式      
+ * 是有益的。      
  *
- * 目前唯一的"标志"是 1 表示使用 readline 和历史记录。
- *
+ * 目前唯一 "标志" 为 1：使用 readline 与历史。
  */
 void
 initializeInput(int flags)

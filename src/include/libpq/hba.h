@@ -17,10 +17,10 @@
 
 
 /*
- * 下面的枚举表示 PostgreSQL 支持的认证方法。
+ * 下面的枚举表示 PostgreSQL 所支持的认证方法。 
+ *                             
  *
- * 注意：与 hba.c 中的 UserAuthName 数组保持同步。
- *
+ * 注意：与 hba.c 中的 UserAuthName 数组保持同步。 
  */
 typedef enum UserAuth
 {

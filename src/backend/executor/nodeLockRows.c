@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeLockRows.c
- *	  Routines to handle FOR UPDATE/FOR SHARE row locking
+ *	  处理 FOR UPDATE/FOR SHARE 行锁定的例程     
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,10 +13,10 @@
  *-------------------------------------------------------------------------
  */
 /*
- * INTERFACE ROUTINES
- *		ExecLockRows		- fetch locked rows
- *		ExecInitLockRows	- initialize node and subnodes..
- *		ExecEndLockRows		- shutdown node and subnodes
+ * 接口例程      
+ *		ExecLockRows - 获取锁定的行
+ *		ExecInitLockRows - 初始化节点及子节点.. 
+ *		ExecEndLockRows - 关闭节点及子节点   
  */
 
 #include "postgres.h"
@@ -34,7 +34,7 @@
  *		ExecLockRows
  * ----------------------------------------------------------------
  */
-static TupleTableSlot *			/* return: a tuple or NULL */
+static TupleTableSlot *			/* 返回: 元组或 NULL  */
 ExecLockRows(PlanState *pstate)
 {
 	LockRowsState *node = castNode(LockRowsState, pstate);
@@ -47,30 +47,30 @@ ExecLockRows(PlanState *pstate)
 	CHECK_FOR_INTERRUPTS();
 
 	/*
-	 * get information from the node
+	 * 从节点获取信息        
 	 */
 	estate = node->ps.state;
 	outerPlan = outerPlanState(node);
 
 	/*
-	 * Get next tuple from subplan, if any.
+	 * 从子计划取下一元组(若有) 
 	 */
 lnext:
 	slot = ExecProcNode(outerPlan);
 
 	if (TupIsNull(slot))
 	{
-		/* Release any resources held by EPQ mechanism before exiting */
+		/* 退出前释放 EPQ 机制持有的所有资源            */
 		EvalPlanQualEnd(&node->lr_epqstate);
 		return NULL;
 	}
 
-	/* We don't need EvalPlanQual unless we get updated tuple version(s) */
+	/* 除非取到更新后的元组版本，否则无需 EvalPlanQual  */
 	epq_needed = false;
 
 	/*
-	 * Attempt to lock the source tuple(s).  (Note we only have locking
-	 * rowmarks in lr_arowMarks.)
+	 * 尝试锁定源元组。（注意，lr_arowMarks 中            
+	 * 只有锁定型 rowmark）
 	 */
 	foreach(lc, node->lr_arowMarks)
 	{
@@ -85,11 +85,11 @@ lnext:
 		TM_Result	test;
 		TupleTableSlot *markSlot;
 
-		/* clear any leftover test tuple for this rel */
+		/* 清除该 rel 遗留的测试元组        */
 		markSlot = EvalPlanQualSlot(&node->lr_epqstate, erm->relation, erm->rti);
 		ExecClearTuple(markSlot);
 
-		/* if child rel, must check whether it produced this row */
+		/* 若是子 rel，必须检查其是否产生此行     */
 		if (erm->rti != erm->prti)
 		{
 			Oid			tableoid;
@@ -97,7 +97,7 @@ lnext:
 			datum = ExecGetJunkAttribute(slot,
 										 aerm->toidAttNo,
 										 &isNull);
-			/* shouldn't ever get a null result... */
+			/* 绝不该得到 NULL 结果..       */
 			if (isNull)
 				elog(ERROR, "tableoid is NULL");
 			tableoid = DatumGetObjectId(datum);
@@ -105,7 +105,7 @@ lnext:
 			Assert(OidIsValid(erm->relid));
 			if (tableoid != erm->relid)
 			{
-				/* this child is inactive right now */
+				/* 该子节点当前不活跃      */
 				erm->ermActive = false;
 				ItemPointerSetInvalid(&(erm->curCtid));
 				continue;
@@ -113,22 +113,22 @@ lnext:
 		}
 		erm->ermActive = true;
 
-		/* fetch the tuple's ctid */
+		/* 获取元组的 ctid   */
 		datum = ExecGetJunkAttribute(slot,
 									 aerm->ctidAttNo,
 									 &isNull);
-		/* shouldn't ever get a null result... */
+		/* 绝不该得到 NULL 结果..       */
 		if (isNull)
 			elog(ERROR, "ctid is NULL");
 
-		/* requests for foreign tables must be passed to their FDW */
+		/* 针对外表的请求必须传递给其 FDW             */
 		if (erm->relation->rd_rel->relkind == RELKIND_FOREIGN_TABLE)
 		{
 			FdwRoutine *fdwroutine;
 			bool		updated = false;
 
 			fdwroutine = GetFdwRoutineForRelation(erm->relation, false);
-			/* this should have been checked already, but let's be safe */
+			/* 这本应已检查过，但为稳妥起见再查一次   */
 			if (fdwroutine->RefetchForeignRow == NULL)
 				ereport(ERROR,
 						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -142,13 +142,13 @@ lnext:
 										  &updated);
 			if (TupIsNull(markSlot))
 			{
-				/* couldn't get the lock, so skip this row */
+				/* 无法获得锁，因此跳过该行    */
 				goto lnext;
 			}
 
 			/*
-			 * if FDW says tuple was updated before getting locked, we need to
-			 * perform EPQ testing to see if quals are still satisfied
+			 * 若 FDW 表示元组在获得锁之前被更新过，我们就 
+			 * 需要执行 EPQ 测试，看看 quals 是否仍满足 
 			 */
 			if (updated)
 				epq_needed = true;
@@ -156,7 +156,7 @@ lnext:
 			continue;
 		}
 
-		/* okay, try to lock (and fetch) the tuple */
+		/* 好，尝试锁定(并获取)该元组  */
 		tid = *((ItemPointer) DatumGetPointer(datum));
 		switch (erm->markType)
 		{
@@ -174,7 +174,7 @@ lnext:
 				break;
 			default:
 				elog(ERROR, "unsupported rowmark type");
-				lockmode = LockTupleNoKeyExclusive; /* keep compiler quiet */
+				lockmode = LockTupleNoKeyExclusive; /* 让编译器安静  */
 				break;
 		}
 
@@ -191,31 +191,31 @@ lnext:
 		switch (test)
 		{
 			case TM_WouldBlock:
-				/* couldn't lock tuple in SKIP LOCKED mode */
+				/* SKIP LOCKED 模式下无法锁定元组 */
 				goto lnext;
 
 			case TM_SelfModified:
 
 				/*
-				 * The target tuple was already updated or deleted by the
-				 * current command, or by a later command in the current
-				 * transaction.  We *must* ignore the tuple in the former
-				 * case, so as to avoid the "Halloween problem" of repeated
-				 * update attempts.  In the latter case it might be sensible
-				 * to fetch the updated tuple instead, but doing so would
-				 * require changing heap_update and heap_delete to not
-				 * complain about updating "invisible" tuples, which seems
-				 * pretty scary (table_tuple_lock will not complain, but few
-				 * callers expect TM_Invisible, and we're not one of them). So
-				 * for now, treat the tuple as deleted and do not process.
+				 * 目标元组已经被本命令更新或删除，      
+				 * 或被当前事务中更晚的命令。              
+				 * 前一种情况我们必须忽略该元组，         
+				 * 以避免反复尝试更新造成"万圣节问题"，   
+				 * 对后一种情况，改为取回更新后的元组或许
+				 * 更合理，但这样做就需要修改 heap_update   
+				 * 与 heap_delete，使其不抱怨更新"不可见" 
+				 * 元组，这一点看起来相当吓人                
+				 * (table_tuple_lock 不会抱怨，但很少有调用者   
+				 * 预期 TM_Invisible，我们并非其中之一)。所以   
+				 * 目前，将该元组视为已删除，不作处理。 
 				 */
 				goto lnext;
 
 			case TM_Ok:
 
 				/*
-				 * Got the lock successfully, the locked tuple saved in
-				 * markSlot for, if needed, EvalPlanQual testing below.
+				 * 成功获得锁，锁定的元组保存在 markSlot 
+				 * 中，以备下方进行 EvalPlanQual 测试。     
 				 */
 				if (tmfd.traversed)
 					epq_needed = true;
@@ -235,7 +235,7 @@ lnext:
 					ereport(ERROR,
 							(errcode(ERRCODE_T_R_SERIALIZATION_FAILURE),
 							 errmsg("could not serialize access due to concurrent update")));
-				/* tuple was deleted so don't return it */
+				/* 元组已删除，因此不返回它 */
 				goto lnext;
 
 			case TM_Invisible:
@@ -247,44 +247,44 @@ lnext:
 					 test);
 		}
 
-		/* Remember locked tuple's TID for EPQ testing and WHERE CURRENT OF */
+		/* 记住锁定元组的 TID，用于 EPQ 测试和 WHERE CURRENT OF*/
 		erm->curCtid = tid;
 	}
 
 	/*
-	 * If we need to do EvalPlanQual testing, do so.
+	 * 如需 EvalPlanQual 测试，则执行。    
 	 */
 	if (epq_needed)
 	{
-		/* Initialize EPQ machinery */
+		/* 初始化 EPQ 机制     */
 		EvalPlanQualBegin(&node->lr_epqstate);
 
 		/*
-		 * To fetch non-locked source rows the EPQ logic needs to access junk
-		 * columns from the tuple being tested.
+		 * 要取回未锁定的源行，EPQ 逻辑需要访问              
+		 * 被测元组中的 junk 列。      
 		 */
 		EvalPlanQualSetSlot(&node->lr_epqstate, slot);
 
 		/*
-		 * And finally we can re-evaluate the tuple.
+		 * 最后即可重新评估该元组。     
 		 */
 		slot = EvalPlanQualNext(&node->lr_epqstate);
 		if (TupIsNull(slot))
 		{
-			/* Updated tuple fails qual, so ignore it and go on */
+			/* 更新后元组未通过 qual，忽略并继续  */
 			goto lnext;
 		}
 	}
 
-	/* Got all locks, so return the current tuple */
+	/* 获得所有锁后，返回当前元组    */
 	return slot;
 }
 
 /* ----------------------------------------------------------------
  *		ExecInitLockRows
  *
- *		This initializes the LockRows node state structures and
- *		the node's subplan.
+ *		它初始化 LockRows 节点状态结构与其         
+ *		子计划。       
  * ----------------------------------------------------------------
  */
 LockRowsState *
@@ -295,11 +295,11 @@ ExecInitLockRows(LockRows *node, EState *estate, int eflags)
 	List	   *epq_arowmarks;
 	ListCell   *lc;
 
-	/* check for unsupported flags */
+	/* 检查不支持的标志    */
 	Assert(!(eflags & EXEC_FLAG_MARK));
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	lrstate = makeNode(LockRowsState);
 	lrstate->ps.plan = (Plan *) node;
@@ -307,37 +307,37 @@ ExecInitLockRows(LockRows *node, EState *estate, int eflags)
 	lrstate->ps.ExecProcNode = ExecLockRows;
 
 	/*
-	 * Miscellaneous initialization
+	 * 其他初始化             
 	 *
-	 * LockRows nodes never call ExecQual or ExecProject, therefore no
-	 * ExprContext is needed.
+	 * LockRows 节点从不调用 ExecQual 或 ExecProject，因此  
+	 * 无需 ExprContext。 
 	 */
 
 	/*
-	 * Initialize result type.
+	 * 初始化结果类型  
 	 */
 	ExecInitResultTypeTL(&lrstate->ps);
 
 	/*
-	 * then initialize outer plan
+	 * 再初始化外层计划  
 	 */
 	outerPlanState(lrstate) = ExecInitNode(outerPlan, estate, eflags);
 
-	/* node returns unmodified slots from the outer plan */
+	/* 节点返回来自外层计划的未修改槽     */
 	lrstate->ps.resultopsset = true;
 	lrstate->ps.resultops = ExecGetResultSlotOps(outerPlanState(lrstate),
 												 &lrstate->ps.resultopsfixed);
 
 	/*
-	 * LockRows nodes do no projections, so initialize projection info for
-	 * this node appropriately
+	 * LockRows 节点不做投影，因此要为此节点初始化       
+	 * 相应投影信息。  
 	 */
 	lrstate->ps.ps_ProjInfo = NULL;
 
 	/*
-	 * Locate the ExecRowMark(s) that this node is responsible for, and
-	 * construct ExecAuxRowMarks for them.  (InitPlan should already have
-	 * built the global list of ExecRowMarks.)
+	 * 找出由本节点负责的 ExecRowMark，并为它们          
+	 * 构建 ExecAuxRowMarks。(InitPlan 应该已经构建过          
+	 * 全局的 ExecRowMarks 列表。)      
 	 */
 	lrstate->lr_arowMarks = NIL;
 	epq_arowmarks = NIL;
@@ -347,19 +347,19 @@ ExecInitLockRows(LockRows *node, EState *estate, int eflags)
 		ExecRowMark *erm;
 		ExecAuxRowMark *aerm;
 
-		/* ignore "parent" rowmarks; they are irrelevant at runtime */
+		/* 忽略"parent" rowmark，它们在运行时不相关     */
 		if (rc->isParent)
 			continue;
 
-		/* find ExecRowMark and build ExecAuxRowMark */
+		/* 找到 ExecRowMark 并建 ExecAuxRowMark  */
 		erm = ExecFindRowMark(estate, rc->rti, false);
 		aerm = ExecBuildAuxRowMark(erm, outerPlan->targetlist);
 
 		/*
-		 * Only locking rowmarks go into our own list.  Non-locking marks are
-		 * passed off to the EvalPlanQual machinery.  This is because we don't
-		 * want to bother fetching non-locked rows unless we actually have to
-		 * do an EPQ recheck.
+		 * 只有锁定型 rowmark 进入我们自己的列表。非锁定型
+		 * mark 则交给 EvalPlanQual 机制处理。这是因为            
+		 * 我们不想费事去取非锁定的行，除非真的要         
+		 * 做 EPQ 重查。 
 		 */
 		if (RowMarkRequiresRowShareLock(erm->markType))
 			lrstate->lr_arowMarks = lappend(lrstate->lr_arowMarks, aerm);
@@ -367,7 +367,7 @@ ExecInitLockRows(LockRows *node, EState *estate, int eflags)
 			epq_arowmarks = lappend(epq_arowmarks, aerm);
 	}
 
-	/* Now we have the info needed to set up EPQ state */
+	/* 至此我们已有设置 EPQ 状态所需信息 */
 	EvalPlanQualInit(&lrstate->lr_epqstate, estate,
 					 outerPlan, epq_arowmarks, node->epqParam, NIL);
 
@@ -377,14 +377,14 @@ ExecInitLockRows(LockRows *node, EState *estate, int eflags)
 /* ----------------------------------------------------------------
  *		ExecEndLockRows
  *
- *		This shuts down the subplan and frees resources allocated
- *		to this node.
+ *		它关闭子计划，并释放分配给本节点         
+ *		的资源。 
  * ----------------------------------------------------------------
  */
 void
 ExecEndLockRows(LockRowsState *node)
 {
-	/* We may have shut down EPQ already, but no harm in another call */
+	/* 我们可能已关闭过 EPQ，但再调用一次也无妨     */
 	EvalPlanQualEnd(&node->lr_epqstate);
 	ExecEndNode(outerPlanState(node));
 }
@@ -396,8 +396,8 @@ ExecReScanLockRows(LockRowsState *node)
 	PlanState  *outerPlan = outerPlanState(node);
 
 	/*
-	 * if chgParam of subnode is not null then plan will be re-scanned by
-	 * first ExecProcNode.
+	 * 若子节点的 chgParam 非空，则计划会被第一次        
+	 * ExecProcNode 重扫
 	 */
 	if (outerPlan->chgParam == NULL)
 		ExecReScan(outerPlan);

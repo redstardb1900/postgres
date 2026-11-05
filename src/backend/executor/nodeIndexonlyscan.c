@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeIndexonlyscan.c
- *	  Routines to support index-only scans
+ *	  支持仅索引扫描的例程      
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,20 +13,20 @@
  *-------------------------------------------------------------------------
  */
 /*
- * INTERFACE ROUTINES
- *		ExecIndexOnlyScan			scans an index
- *		IndexOnlyNext				retrieve next tuple
- *		ExecInitIndexOnlyScan		creates and initializes state info.
- *		ExecReScanIndexOnlyScan		rescans the indexed relation.
- *		ExecEndIndexOnlyScan		releases all storage.
- *		ExecIndexOnlyMarkPos		marks scan position.
- *		ExecIndexOnlyRestrPos		restores scan position.
- *		ExecIndexOnlyScanEstimate	estimates DSM space needed for
- *						parallel index-only scan
- *		ExecIndexOnlyScanInitializeDSM	initialize DSM for parallel
- *						index-only scan
- *		ExecIndexOnlyScanReInitializeDSM	reinitialize DSM for fresh scan
- *		ExecIndexOnlyScanInitializeWorker attach to DSM info in parallel worker
+ * 接口例程      
+ *		ExecIndexOnlyScan - 扫描索引  
+ *		IndexOnlyNext - 取下一个元组  
+ *		ExecInitIndexOnlyScan - 创建并初始化状态信息。 
+ *		ExecReScanIndexOnlyScan - 重新扫描索引关系。 
+ *		ExecEndIndexOnlyScan - 释放所有存储  
+ *		ExecIndexOnlyMarkPos - 标记扫描位置 
+ *		ExecIndexOnlyRestrPos - 恢复扫描位置    
+ *		ExecIndexOnlyScanEstimate - 估算并行仅索引扫描 
+ *						所需的 DSM 空间    
+ *		ExecIndexOnlyScanInitializeDSM - 为并行仅索引扫描 
+ *						初始化 DSM  
+ *		ExecIndexOnlyScanReInitializeDSM - 为新扫描重新初始化  
+ *		ExecIndexOnlyScanInitializeWorker - 在并行 worker 中附着 DSM     
  */
 #include "postgres.h"
 
@@ -55,7 +55,7 @@ static void StoreIndexTuple(IndexOnlyScanState *node, TupleTableSlot *slot,
 /* ----------------------------------------------------------------
  *		IndexOnlyNext
  *
- *		Retrieve a tuple from the IndexOnlyScan node's index.
+ *		从 IndexOnlyScan 节点索引中取回元组。     
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -69,13 +69,13 @@ IndexOnlyNext(IndexOnlyScanState *node)
 	ItemPointer tid;
 
 	/*
-	 * extract necessary information from index scan node
+	 * 从索引扫描节点提取必要信息           
 	 */
 	estate = node->ss.ps.state;
 
 	/*
-	 * Determine which direction to scan the index in based on the plan's scan
-	 * direction and the current direction of execution.
+	 * 根据计划的扫描方向和当前执行方向，确定以何种     
+	 * 方向扫描索引。                            
 	 */
 	direction = ScanDirectionCombine(estate->es_direction,
 									 ((IndexOnlyScan *) node->ss.ps.plan)->indexorderdir);
@@ -86,9 +86,9 @@ IndexOnlyNext(IndexOnlyScanState *node)
 	if (scandesc == NULL)
 	{
 		/*
-		 * We reach here if the index only scan is not parallel, or if we're
-		 * serially executing an index only scan that was planned to be
-		 * parallel.
+		 * 如果仅索引扫描并非并行执行，或者我们在串行  
+		 * 执行一个计划为并行的仅索引扫描，就会到   
+		 * 达这里
 		 */
 		scandesc = index_beginscan(node->ss.ss_currentRelation,
 								   node->ioss_RelationDesc,
@@ -99,13 +99,13 @@ IndexOnlyNext(IndexOnlyScanState *node)
 		node->ioss_ScanDesc = scandesc;
 
 
-		/* Set it up for index-only scan */
+		/* 将其设置为仅索引扫描*/
 		node->ioss_ScanDesc->xs_want_itup = true;
 		node->ioss_VMBuffer = InvalidBuffer;
 
 		/*
-		 * If no run-time keys to calculate or they are ready, go ahead and
-		 * pass the scankeys to the index AM.
+		 * 如果没有要计算的运行时键，或它们已就绪，就 
+		 * 把扫描键传给索引 AM。    
 		 */
 		if (node->ioss_NumRuntimeKeys == 0 || node->ioss_RuntimeKeysReady)
 			index_rescan(scandesc,
@@ -116,7 +116,7 @@ IndexOnlyNext(IndexOnlyScanState *node)
 	}
 
 	/*
-	 * OK, now that we have what we need, fetch the next tuple.
+	 * 好，所需的东西都有了，取下一个元组。  
 	 */
 	while ((tid = index_getnext_tid(scandesc, direction)) != NULL)
 	{
@@ -125,83 +125,83 @@ IndexOnlyNext(IndexOnlyScanState *node)
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * We can skip the heap fetch if the TID references a heap page on
-		 * which all tuples are known visible to everybody.  In any case,
-		 * we'll use the index tuple not the heap tuple as the data source.
+		 * 若 TID 引用的堆页上所有元组均对所有人可见， 
+		 * 就能跳过堆获取。总之我们都会用索引元组而  
+		 * 非堆元组作为数据源。                                  
 		 *
-		 * Note on Memory Ordering Effects: visibilitymap_get_status does not
-		 * lock the visibility map buffer, and therefore the result we read
-		 * here could be slightly stale.  However, it can't be stale enough to
-		 * matter.
+		 * 关于内存序效应的说明：visibilitymap_get_status 不     
+		 * 会锁定可见性映射缓冲区，所以这里读到的结果 
+		 * 可能略有滞后。但它不可能滞后到会造成影响的    
+		 * 地步 
 		 *
-		 * We need to detect clearing a VM bit due to an insert right away,
-		 * because the tuple is present in the index page but not visible. The
-		 * reading of the TID by this scan (using a shared lock on the index
-		 * buffer) is serialized with the insert of the TID into the index
-		 * (using an exclusive lock on the index buffer). Because the VM bit
-		 * is cleared before updating the index, and locking/unlocking of the
-		 * index page acts as a full memory barrier, we are sure to see the
-		 * cleared bit if we see a recently-inserted TID.
+		 * 我们需要立即检测到因插入而清除 VM 位的情况，
+		 * 因为元组存在于索引页中但不可见。本次扫描对    
+		 * TID 的读取（索引缓冲区加共享锁）与 TID 的插入  
+		 * （索引缓冲区加排他锁）串行化。因为 VM 位     
+		 * 在更新索引之前就被清除，而索引页的加锁/解锁 
+		 * 操作充当完整的内存屏障，所以我们若看到一个   
+		 * 最近插入的 TID，就必定能看到被清除               
+		 * 的位。                                     
 		 *
-		 * Deletes do not update the index page (only VACUUM will clear out
-		 * the TID), so the clearing of the VM bit by a delete is not
-		 * serialized with this test below, and we may see a value that is
-		 * significantly stale. However, we don't care about the delete right
-		 * away, because the tuple is still visible until the deleting
-		 * transaction commits or the statement ends (if it's our
-		 * transaction). In either case, the lock on the VM buffer will have
-		 * been released (acting as a write barrier) after clearing the bit.
-		 * And for us to have a snapshot that includes the deleting
-		 * transaction (making the tuple invisible), we must have acquired
-		 * ProcArrayLock after that time, acting as a read barrier.
+		 * 删除操作不更新索引页（只有 VACUUM 会清除        
+		 * TID），因此删除所引发的 VM 位清除与下方   
+		 * 测试并未串行化，我们可能看到显著滞后的值。
+		 * 不过我们不必立即关心这次删除，因为元组在删除
+		 * 事务提交或语句结束前均可见（若是我们自  
+		 * 己的事务）。无论哪种，清除该位之后 VM
+		 * 缓冲区上的锁都已被释放（充当写屏障）。而要  
+		 * 让我们的快照包含删除事务（使元组不可见），  
+		 * 我们必定是在那之后才获取过                 
+		 * ProcArrayLock，                                               
+		 * 这充当了读屏障。                                
 		 *
-		 * It's worth going through this complexity to avoid needing to lock
-		 * the VM buffer, which could cause significant contention.
+		 * 值得经历这些复杂操作，以避免锁定 VM 缓冲区， 
+		 * 因为那可能造成严重的争用。                 
 		 */
 		if (!VM_ALL_VISIBLE(scandesc->heapRelation,
 							ItemPointerGetBlockNumber(tid),
 							&node->ioss_VMBuffer))
 		{
 			/*
-			 * Rats, we have to visit the heap to check visibility.
+			 * 糟糕，我们必须访问堆来检查可见性。 
 			 */
 			InstrCountTuples2(node, 1);
 			if (!index_fetch_heap(scandesc, node->ioss_TableSlot))
-				continue;		/* no visible tuple, try next index entry */
+				continue;		/* 无可见元组，试下一索引条目*/
 
 			ExecClearTuple(node->ioss_TableSlot);
 
 			/*
-			 * Only MVCC snapshots are supported here, so there should be no
-			 * need to keep following the HOT chain once a visible entry has
-			 * been found.  If we did want to allow that, we'd need to keep
-			 * more state to remember not to call index_getnext_tid next time.
+			 * 这里只支持 MVCC 快照，一旦找到可见条目，就 
+			 * 无需继续沿 HOT 链追踪。若想允许那样做，则  
+			 * 需要保留更多状态，记住下次不调用            
+			 * index_getnext_tid。                                           
 			 */
 			if (scandesc->xs_heap_continue)
 				elog(ERROR, "non-MVCC snapshots are not supported in index-only scans");
 
 			/*
-			 * Note: at this point we are holding a pin on the heap page, as
-			 * recorded in scandesc->xs_cbuf.  We could release that pin now,
-			 * but it's not clear whether it's a win to do so.  The next index
-			 * entry might require a visit to the same heap page.
+			 * 注意：此时我们按 scandesc->xs_cbuf 的记录持有堆
+			 * 页上的 pin。现在可以释放它，但不清楚这       
+			 * 做是否划算。下一个索引条目可能需要访问      
+			 * 同一个堆页。                                
 			 */
 
 			tuple_from_heap = true;
 		}
 
 		/*
-		 * Fill the scan tuple slot with data from the index.  This might be
-		 * provided in either HeapTuple or IndexTuple format.  Conceivably an
-		 * index AM might fill both fields, in which case we prefer the heap
-		 * format, since it's probably a bit cheaper to fill a slot from.
+		 * 用索引中的数据填充扫描元组槽。数据可能以     
+		 * HeapTuple 或 IndexTuple 两种格式之一提供。可以        
+		 * 设想索引 AM 会同时填充两个字段，此时我们优    
+		 * 先堆格式，因为用它填槽可能稍微便宜些。     
 		 */
 		if (scandesc->xs_hitup)
 		{
 			/*
-			 * We don't take the trouble to verify that the provided tuple has
-			 * exactly the slot's format, but it seems worth doing a quick
-			 * check on the number of fields.
+			 * 我们不想费神去验证所提供的元组是否恰好具有
+			 * 槽的格式，但似乎值得对字段数量做一个     
+			 * 快速检查。               
 			 */
 			Assert(slot->tts_tupleDescriptor->natts ==
 				   scandesc->xs_hitupdesc->natts);
@@ -213,26 +213,26 @@ IndexOnlyNext(IndexOnlyScanState *node)
 			elog(ERROR, "no data returned for index-only scan");
 
 		/*
-		 * If the index was lossy, we have to recheck the index quals.
+		 * 若索引有损，就必须重新检查索引条件。     
 		 */
 		if (scandesc->xs_recheck)
 		{
 			econtext->ecxt_scantuple = slot;
 			if (!ExecQualAndReset(node->recheckqual, econtext))
 			{
-				/* Fails recheck, so drop it and loop back for another */
+				/* 重新检查未通过，丢弃并循环取下一个 */
 				InstrCountFiltered2(node, 1);
 				continue;
 			}
 		}
 
 		/*
-		 * We don't currently support rechecking ORDER BY distances.  (In
-		 * principle, if the index can support retrieval of the originally
-		 * indexed value, it should be able to produce an exact distance
-		 * calculation too.  So it's not clear that adding code here for
-		 * recheck/re-sort would be worth the trouble.  But we should at least
-		 * throw an error if someone tries it.)
+		 * 我们目前不支持重新检查 ORDER BY 距离。（原理 
+		 * 上，如果索引能够支持取回原始被索引值，它也
+		 * 应能给出精确的距离计算。因此在此添加用于 
+		 * 重新检查/重新排序的代码是否值得并不明确。
+		 * 但至少应在有人尝试时，                                  
+		 * 抛出一个错误。）            
 		 */
 		if (scandesc->numberOfOrderBys > 0 && scandesc->xs_recheckorderby)
 			ereport(ERROR,
@@ -240,8 +240,8 @@ IndexOnlyNext(IndexOnlyScanState *node)
 					 errmsg("lossy distance functions are not supported in index-only scans")));
 
 		/*
-		 * If we didn't access the heap, then we'll need to take a predicate
-		 * lock explicitly, as if we had.  For now we do that at page level.
+		 * 若我们未访问堆，就需要显式地获取谓词锁，     
+		 * 就像访问过一样。目前我们在页面级进行。        
 		 */
 		if (!tuple_from_heap)
 			PredicateLockPage(scandesc->heapRelation,
@@ -252,29 +252,29 @@ IndexOnlyNext(IndexOnlyScanState *node)
 	}
 
 	/*
-	 * if we get here it means the index scan failed so we are at the end of
-	 * the scan..
+	 * 如果执行到这里，说明索引扫描已失败，扫描         
+	 * 结束..  
 	 */
 	return ExecClearTuple(slot);
 }
 
 /*
  * StoreIndexTuple
- *		Fill the slot with data from the index tuple.
+ *		用索引元组中的数据填充槽。      
  *
- * At some point this might be generally-useful functionality, but
- * right now we don't need it elsewhere.
+ * 某个时候这可能成为普遍有用的功能，但目前   
+ * 我们在别处并不需要它。    
  */
 static void
 StoreIndexTuple(IndexOnlyScanState *node, TupleTableSlot *slot,
 				IndexTuple itup, TupleDesc itupdesc)
 {
 	/*
-	 * Note: we must use the tupdesc supplied by the AM in index_deform_tuple,
-	 * not the slot's tupdesc, in case the latter has different datatypes
-	 * (this happens for btree name_ops in particular).  They'd better have
-	 * the same number of columns though, as well as being datatype-compatible
-	 * which is something we can't so easily check.
+	 * 注意：在 index_deform_tuple 中我们必须使用 AM 提供的     
+	 * tupdesc，而不是槽的 tupdesc，以防后者具有不同的   
+	 * 数据类型（btree 的 name_ops 尤其会这样）。它们       
+	 * 最好具有相同的列数，且数据类型兼容，                 
+	 * 这一点我们无法轻易检查。        
 	 */
 	Assert(slot->tts_tupleDescriptor->natts == itupdesc->natts);
 
@@ -282,11 +282,11 @@ StoreIndexTuple(IndexOnlyScanState *node, TupleTableSlot *slot,
 	index_deform_tuple(itup, itupdesc, slot->tts_values, slot->tts_isnull);
 
 	/*
-	 * Copy all name columns stored as cstrings back into a NAMEDATALEN byte
-	 * sized allocation.  We mark this branch as unlikely as generally "name"
-	 * is used only for the system catalogs and this would have to be a user
-	 * query running on those or some other user table with an index on a name
-	 * column.
+	 * 把所有以 cstring 形式存储的 name 列拷回一个            
+	 * NAMEDATALEN 字节大小的分配中。我们将此分支标记       
+	 * 为不太可能发生，因为 "name" 通常只用于系统目录， 
+	 * 这只会是运行在这些目录或其他带 name 列索引的        
+	 * 查询 
 	 */
 	if (unlikely(node->ioss_NameCStringAttNums != NULL))
 	{
@@ -297,15 +297,15 @@ StoreIndexTuple(IndexOnlyScanState *node, TupleTableSlot *slot,
 			int			attnum = node->ioss_NameCStringAttNums[idx];
 			Name		name;
 
-			/* skip null Datums */
+			/* 跳过空 Datum  */
 			if (slot->tts_isnull[attnum])
 				continue;
 
-			/* allocate the NAMEDATALEN and copy the datum into that memory */
+			/* 分配 NAMEDATALEN 并把 Datum 拷入该内存              */
 			name = (Name) MemoryContextAlloc(node->ss.ps.ps_ExprContext->ecxt_per_tuple_memory,
 											 NAMEDATALEN);
 
-			/* use namestrcpy to zero-pad all trailing bytes */
+			/* 用 namestrcpy 把所有尾部字节补零    */
 			namestrcpy(name, DatumGetCString(slot->tts_values[attnum]));
 			slot->tts_values[attnum] = NameGetDatum(name);
 		}
@@ -315,18 +315,18 @@ StoreIndexTuple(IndexOnlyScanState *node, TupleTableSlot *slot,
 }
 
 /*
- * IndexOnlyRecheck -- access method routine to recheck a tuple in EvalPlanQual
+ * IndexOnlyRecheck -- 在 EvalPlanQual 中重查元组的访问方法例程   
  *
- * This can't really happen, since an index can't supply CTID which would
- * be necessary data for any potential EvalPlanQual target relation.  If it
- * did happen, the EPQ code would pass us the wrong data, namely a heap
- * tuple not an index tuple.  So throw an error.
+ * 这实际上不可能发生，因为索引无法提供任何潜在    
+ * EvalPlanQual 目标关系所必需的 CTID。若真的发生，EPQ      
+ * 代码会传给我们错误的数据，即堆元组而非索引     
+ * 元组，故报错。                        
  */
 static bool
 IndexOnlyRecheck(IndexOnlyScanState *node, TupleTableSlot *slot)
 {
 	elog(ERROR, "EvalPlanQual recheck is not supported in index-only scans");
-	return false;				/* keep compiler quiet */
+	return false;				/* 让编译器安静  */
 }
 
 /* ----------------------------------------------------------------
@@ -339,7 +339,7 @@ ExecIndexOnlyScan(PlanState *pstate)
 	IndexOnlyScanState *node = castNode(IndexOnlyScanState, pstate);
 
 	/*
-	 * If we have runtime keys and they've not already been set up, do it now.
+	 * 如果我们有运行时键且尚未设置，现在就设置它们。  
 	 */
 	if (node->ioss_NumRuntimeKeys != 0 && !node->ioss_RuntimeKeysReady)
 		ExecReScan((PlanState *) node);
@@ -352,23 +352,23 @@ ExecIndexOnlyScan(PlanState *pstate)
 /* ----------------------------------------------------------------
  *		ExecReScanIndexOnlyScan(node)
  *
- *		Recalculates the values of any scan keys whose value depends on
- *		information known at runtime, then rescans the indexed relation.
+ *		重新计算任何取值依赖于运行时信息的扫描键，
+ *		然后重新扫描被索引的关系。                         
  *
- *		Updating the scan key was formerly done separately in
- *		ExecUpdateIndexScanKeys. Integrating it into ReScan makes
- *		rescans of indices and relations/general streams more uniform.
+ *		以前更新扫描键在 ExecUpdateIndexScanKeys 内 
+ *		将其并入 ReScan 使索引与关系/通用流的重新
+ *		扫描更加统一。                                         
  * ----------------------------------------------------------------
  */
 void
 ExecReScanIndexOnlyScan(IndexOnlyScanState *node)
 {
 	/*
-	 * If we are doing runtime key calculations (ie, any of the index key
-	 * values weren't simple Consts), compute the new key values.  But first,
-	 * reset the context so we don't leak memory as each outer tuple is
-	 * scanned.  Note this assumes that we will recalculate *all* runtime keys
-	 * on each call.
+	 * 如果我们在做运行时键计算（即任何索引键值都不
+	 * 是简单 Const），就计算新的键值。但首先，重置上下 
+	 * 文以免扫描每个外层元组时泄漏内存。             
+	 * 注意这假定在每次调用时都会重算 *所有* 运行时       
+	 * 键。       
 	 */
 	if (node->ioss_NumRuntimeKeys != 0)
 	{
@@ -381,7 +381,7 @@ ExecReScanIndexOnlyScan(IndexOnlyScanState *node)
 	}
 	node->ioss_RuntimeKeysReady = true;
 
-	/* reset index scan */
+	/* 重置 index scan*/
 	if (node->ioss_ScanDesc)
 		index_rescan(node->ioss_ScanDesc,
 					 node->ioss_ScanKeys, node->ioss_NumScanKeys,
@@ -402,12 +402,12 @@ ExecEndIndexOnlyScan(IndexOnlyScanState *node)
 	IndexScanDesc indexScanDesc;
 
 	/*
-	 * extract information from the node
+	 * 从节点提取信息            
 	 */
 	indexRelationDesc = node->ioss_RelationDesc;
 	indexScanDesc = node->ioss_ScanDesc;
 
-	/* Release VM buffer pin, if any. */
+	/* 如 VM pin 存在则释放     */
 	if (node->ioss_VMBuffer != InvalidBuffer)
 	{
 		ReleaseBuffer(node->ioss_VMBuffer);
@@ -415,7 +415,7 @@ ExecEndIndexOnlyScan(IndexOnlyScanState *node)
 	}
 
 	/*
-	 * Free the exprcontext(s) ... now dead code, see ExecFreeExprContext
+	 * 释放表达式上下文…为死代码，见 ExecFreeExprContext 
 	 */
 #ifdef NOT_USED
 	ExecFreeExprContext(&node->ss.ps);
@@ -424,14 +424,14 @@ ExecEndIndexOnlyScan(IndexOnlyScanState *node)
 #endif
 
 	/*
-	 * clear out tuple table slots
+	 * 清空元组表槽位      
 	 */
 	if (node->ss.ps.ps_ResultTupleSlot)
 		ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
 	ExecClearTuple(node->ss.ss_ScanTupleSlot);
 
 	/*
-	 * close the index relation (no-op if we didn't open it)
+	 * 关闭索引关系（若未打开则为无操作）  
 	 */
 	if (indexScanDesc)
 		index_endscan(indexScanDesc);
@@ -442,8 +442,8 @@ ExecEndIndexOnlyScan(IndexOnlyScanState *node)
 /* ----------------------------------------------------------------
  *		ExecIndexOnlyMarkPos
  *
- * Note: we assume that no caller attempts to set a mark before having read
- * at least one tuple.  Otherwise, ioss_ScanDesc might still be NULL.
+ * 注意：我们假定没有调用者会在读到至少一个元组      
+ * 之前设置标记。否则 ioss_ScanDesc 可能仍为 NULL。    
  * ----------------------------------------------------------------
  */
 void
@@ -455,13 +455,13 @@ ExecIndexOnlyMarkPos(IndexOnlyScanState *node)
 	if (epqstate != NULL)
 	{
 		/*
-		 * We are inside an EvalPlanQual recheck.  If a test tuple exists for
-		 * this relation, then we shouldn't access the index at all.  We would
-		 * instead need to save, and later restore, the state of the
-		 * relsubs_done flag, so that re-fetching the test tuple is possible.
-		 * However, given the assumption that no caller sets a mark at the
-		 * start of the scan, we can only get here with relsubs_done[i]
-		 * already set, and so no state need be saved.
+		 * 我们正处于 EvalPlanQual 重新检查之中。如果该关系 
+		 * 存在测试元组，那么我们根本不应访问索引。我们 
+		 * 而需保存并在之后恢复 relsubs_done 标志的    
+		 * 状态，这样才可能重新取回测试元组。然而，鉴于
+		 * 没有调用者会在扫描开始设置标记这一假设，只
+		 * 会在 relsubs_done[i] 已设置的情况下到这里，    
+		 * 因此无需保存任何状态。          
 		 */
 		Index		scanrelid = ((Scan *) node->ss.ps.plan)->scanrelid;
 
@@ -469,7 +469,7 @@ ExecIndexOnlyMarkPos(IndexOnlyScanState *node)
 		if (epqstate->relsubs_slot[scanrelid - 1] != NULL ||
 			epqstate->relsubs_rowmark[scanrelid - 1] != NULL)
 		{
-			/* Verify the claim above */
+			/* 验证上述论断     */
 			if (!epqstate->relsubs_done[scanrelid - 1])
 				elog(ERROR, "unexpected ExecIndexOnlyMarkPos call in EPQ recheck");
 			return;
@@ -491,14 +491,14 @@ ExecIndexOnlyRestrPos(IndexOnlyScanState *node)
 
 	if (estate->es_epq_active != NULL)
 	{
-		/* See comments in ExecIndexMarkPos */
+		/* 参见 ExecIndexMarkPos 注释   */
 		Index		scanrelid = ((Scan *) node->ss.ps.plan)->scanrelid;
 
 		Assert(scanrelid > 0);
 		if (epqstate->relsubs_slot[scanrelid - 1] != NULL ||
 			epqstate->relsubs_rowmark[scanrelid - 1] != NULL)
 		{
-			/* Verify the claim above */
+			/* 验证上述论断     */
 			if (!epqstate->relsubs_done[scanrelid - 1])
 				elog(ERROR, "unexpected ExecIndexOnlyRestrPos call in EPQ recheck");
 			return;
@@ -511,12 +511,12 @@ ExecIndexOnlyRestrPos(IndexOnlyScanState *node)
 /* ----------------------------------------------------------------
  *		ExecInitIndexOnlyScan
  *
- *		Initializes the index scan's state information, creates
- *		scan keys, and opens the base and index relations.
+ *		初始化索引扫描的状态信息，创建          
+ *		扫描键，打开基础关系与索引关系。  
  *
- *		Note: index scans have 2 sets of state information because
- *			  we have to keep track of the base relation and the
- *			  index relation.
+ *		注意：索引扫描有两套状态信息，因为       
+ *			  我们必须同时跟踪基础关系              
+ *			  与索引关系
  * ----------------------------------------------------------------
  */
 IndexOnlyScanState *
@@ -531,7 +531,7 @@ ExecInitIndexOnlyScan(IndexOnlyScan *node, EState *estate, int eflags)
 	int			namecount;
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	indexstate = makeNode(IndexOnlyScanState);
 	indexstate->ss.ps.plan = (Plan *) node;
@@ -539,34 +539,34 @@ ExecInitIndexOnlyScan(IndexOnlyScan *node, EState *estate, int eflags)
 	indexstate->ss.ps.ExecProcNode = ExecIndexOnlyScan;
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * create expression context for node
+	 * 为节点创建表达式上下文 
 	 */
 	ExecAssignExprContext(estate, &indexstate->ss.ps);
 
 	/*
-	 * open the scan relation
+	 * 打开扫描关系    
 	 */
 	currentRelation = ExecOpenScanRelation(estate, node->scan.scanrelid, eflags);
 
 	indexstate->ss.ss_currentRelation = currentRelation;
-	indexstate->ss.ss_currentScanDesc = NULL;	/* no heap scan here */
+	indexstate->ss.ss_currentScanDesc = NULL;	/* 此处无堆扫描*/
 
 	/*
-	 * Build the scan tuple type using the indextlist generated by the
-	 * planner.  We use this, rather than the index's physical tuple
-	 * descriptor, because the latter contains storage column types not the
-	 * types of the original datums.  (It's the AM's responsibility to return
-	 * suitable data anyway.)
+	 * 使用规划器生成的 indextlist 构建扫描元组类型。
+	 * 我们用它而非索引物理元组描述符，因为它包 
+	 * 含的是存储列的类型而非原始数据的类型。（不管  
+	 * 怎样，返回合适的数据终究是 AM                            
+	 * 的责任。）       
 	 */
 	tupDesc = ExecTypeFromTL(node->indextlist);
 	ExecInitScanTupleSlot(estate, &indexstate->ss, tupDesc,
 						  &TTSOpsVirtual);
 
 	/*
-	 * We need another slot, in a format that's suitable for the table AM, for
-	 * when we need to fetch a tuple from the table for rechecking visibility.
+	 * 我们还需要另一个槽，采用适合表 AM 的格式，          
+	 * 用于需要从表中取元组来重新检查可见性时。           
 	 */
 	indexstate->ioss_TableSlot =
 		ExecAllocTableSlot(&estate->es_tupleTable,
@@ -574,17 +574,17 @@ ExecInitIndexOnlyScan(IndexOnlyScan *node, EState *estate, int eflags)
 						   table_slot_callbacks(currentRelation));
 
 	/*
-	 * Initialize result type and projection info.  The node's targetlist will
-	 * contain Vars with varno = INDEX_VAR, referencing the scan tuple.
+	 * 初始化结果类型和投影信息。节点的目标列表将        
+	 * 包含 varno = INDEX_VAR 的 Var，引用扫描元组。        
 	 */
 	ExecInitResultTypeTL(&indexstate->ss.ps);
 	ExecAssignScanProjectionInfoWithVarno(&indexstate->ss, INDEX_VAR);
 
 	/*
-	 * initialize child expressions
+	 * 初始化子表达式       
 	 *
-	 * Note: we don't initialize all of the indexorderby expression, only the
-	 * sub-parts corresponding to runtime keys (see below).
+	 * 注意：我们不初始化全部 indexorderby 表达式，           
+	 * 只初始化运行时键对应部分（见下）。 
 	 */
 	indexstate->ss.ps.qual =
 		ExecInitQual(node->scan.plan.qual, (PlanState *) indexstate);
@@ -592,27 +592,27 @@ ExecInitIndexOnlyScan(IndexOnlyScan *node, EState *estate, int eflags)
 		ExecInitQual(node->recheckqual, (PlanState *) indexstate);
 
 	/*
-	 * If we are just doing EXPLAIN (ie, aren't going to run the plan), stop
-	 * here.  This allows an index-advisor plugin to EXPLAIN a plan containing
-	 * references to nonexistent indexes.
+	 * 如果我们只是执行 EXPLAIN（即不打算运行计划），就 
+	 * 在这里停止。这使得索引顾问插件可以 EXPLAIN 一个     
+	 * 引用不存在索引的计划。 
 	 */
 	if (eflags & EXEC_FLAG_EXPLAIN_ONLY)
 		return indexstate;
 
-	/* Open the index relation. */
+	/* 打开索引关系。    */
 	lockmode = exec_rt_fetch(node->scan.scanrelid, estate)->rellockmode;
 	indexRelation = index_open(node->indexid, lockmode);
 	indexstate->ioss_RelationDesc = indexRelation;
 
 	/*
-	 * Initialize index-specific scan state
+	 * 初始化索引特定的扫描状态
 	 */
 	indexstate->ioss_RuntimeKeysReady = false;
 	indexstate->ioss_RuntimeKeys = NULL;
 	indexstate->ioss_NumRuntimeKeys = 0;
 
 	/*
-	 * build the index scan keys from the index qualification
+	 * 根据索引限定条件构建索引扫描键         
 	 */
 	ExecIndexBuildScanKeys((PlanState *) indexstate,
 						   indexRelation,
@@ -622,11 +622,11 @@ ExecInitIndexOnlyScan(IndexOnlyScan *node, EState *estate, int eflags)
 						   &indexstate->ioss_NumScanKeys,
 						   &indexstate->ioss_RuntimeKeys,
 						   &indexstate->ioss_NumRuntimeKeys,
-						   NULL,	/* no ArrayKeys */
+						   NULL,	/* 无 ArrayKeys*/
 						   NULL);
 
 	/*
-	 * any ORDER BY exprs have to be turned into scankeys in the same way
+	 * 任何 ORDER BY 表达式都必须以同样方式转为扫描键  
 	 */
 	ExecIndexBuildScanKeys((PlanState *) indexstate,
 						   indexRelation,
@@ -636,13 +636,13 @@ ExecInitIndexOnlyScan(IndexOnlyScan *node, EState *estate, int eflags)
 						   &indexstate->ioss_NumOrderByKeys,
 						   &indexstate->ioss_RuntimeKeys,
 						   &indexstate->ioss_NumRuntimeKeys,
-						   NULL,	/* no ArrayKeys */
+						   NULL,	/* 无 ArrayKeys*/
 						   NULL);
 
 	/*
-	 * If we have runtime keys, we need an ExprContext to evaluate them. The
-	 * node's standard context won't do because we want to reset that context
-	 * for every tuple.  So, build another context just like the other one...
+	 * 如果有运行时键，就需要一个 ExprContext 来对它们     
+	 * 求值。节点的标准上下文不行，因为我们想为每个元 
+	 * 组重置该上下文。所以，再构建一个同类的上下文... 
 	 * -tgl 7/11/00
 	 */
 	if (indexstate->ioss_NumRuntimeKeys != 0)
@@ -663,16 +663,16 @@ ExecInitIndexOnlyScan(IndexOnlyScan *node, EState *estate, int eflags)
 	namecount = 0;
 
 	/*
-	 * The "name" type for btree uses text_ops which results in storing
-	 * cstrings in the indexed keys rather than names.  Here we detect that in
-	 * a generic way in case other index AMs want to do the same optimization.
-	 * Check for opclasses with an opcintype of NAMEOID and an index tuple
-	 * descriptor with CSTRINGOID.  If any of these are found, create an array
-	 * marking the index attribute number of each of them.  StoreIndexTuple()
-	 * handles copying the name Datums into a NAMEDATALEN-byte allocation.
+	 * btree 的 "name" 类型使用 text_ops，这使得索引键中  
+	 * 存储 cstring 而非 name。这里我们以通用的方式检测      
+	 * 这种情况，以防其他索引 AM 想做同样的优化。检查    
+	 * opcintype 为 NAMEOID 且索引元组描述符为 CSTRINGOID       
+	 * 的操作类。若发现任何此类情况，就创建一个数组，  
+	 * 标记其中每个操作类的索引属性号。StoreIndexTuple()     
+	 * 负责把 name Datum 拷入 NAMEDATALEN 字节的分配中。      
 	 */
 
-	/* First, count the number of such index keys */
+	/* 先统计这类索引键的数目          */
 	for (int attnum = 0; attnum < indnkeyatts; attnum++)
 	{
 		if (indexRelation->rd_att->attrs[attnum].atttypid == CSTRINGOID &&
@@ -685,8 +685,8 @@ ExecInitIndexOnlyScan(IndexOnlyScan *node, EState *estate, int eflags)
 		int			idx = 0;
 
 		/*
-		 * Now create an array to mark the attribute numbers of the keys that
-		 * need to be converted from cstring to name.
+		 * 现在创建一个数组，用于标记需要从 cstring 转换为
+		 * name 的键的属性号。                
 		 */
 		indexstate->ioss_NameCStringAttNums = (AttrNumber *)
 									palloc(sizeof(AttrNumber) * namecount);
@@ -702,21 +702,21 @@ ExecInitIndexOnlyScan(IndexOnlyScan *node, EState *estate, int eflags)
 	indexstate->ioss_NameCStringCount = namecount;
 
 	/*
-	 * all done.
+	 * 完成。
 	 */
 	return indexstate;
 }
 
 /* ----------------------------------------------------------------
- *		Parallel Index-only Scan Support
+ *		并行仅索引扫描支持     
  * ----------------------------------------------------------------
  */
 
 /* ----------------------------------------------------------------
  *		ExecIndexOnlyScanEstimate
  *
- *		Compute the amount of space we'll need in the parallel
- *		query DSM, and inform pcxt->estimator about our needs.
+ *		计算并行查询 DSM 中我们所需的空间量， 
+ *		并把我们的需求告知 pcxt->estimator。        
  * ----------------------------------------------------------------
  */
 void
@@ -734,7 +734,7 @@ ExecIndexOnlyScanEstimate(IndexOnlyScanState *node,
 /* ----------------------------------------------------------------
  *		ExecIndexOnlyScanInitializeDSM
  *
- *		Set up a parallel index-only scan descriptor.
+ *		设置一个并行仅索引扫描描述符。
  * ----------------------------------------------------------------
  */
 void
@@ -760,8 +760,8 @@ ExecIndexOnlyScanInitializeDSM(IndexOnlyScanState *node,
 	node->ioss_VMBuffer = InvalidBuffer;
 
 	/*
-	 * If no run-time keys to calculate or they are ready, go ahead and pass
-	 * the scankeys to the index AM.
+	 * 如果没有要计算的运行时键，或它们已就绪，就把   
+	 * 扫描键传给索引 AM。  
 	 */
 	if (node->ioss_NumRuntimeKeys == 0 || node->ioss_RuntimeKeysReady)
 		index_rescan(node->ioss_ScanDesc,
@@ -772,7 +772,7 @@ ExecIndexOnlyScanInitializeDSM(IndexOnlyScanState *node,
 /* ----------------------------------------------------------------
  *		ExecIndexOnlyScanReInitializeDSM
  *
- *		Reset shared state before beginning a fresh scan.
+ *		在开始全新扫描前重置共享状态。    
  * ----------------------------------------------------------------
  */
 void
@@ -785,7 +785,7 @@ ExecIndexOnlyScanReInitializeDSM(IndexOnlyScanState *node,
 /* ----------------------------------------------------------------
  *		ExecIndexOnlyScanInitializeWorker
  *
- *		Copy relevant information from TOC into planstate.
+ *		把相关信息从 TOC 拷贝到 planstate 中。 
  * ----------------------------------------------------------------
  */
 void
@@ -804,8 +804,8 @@ ExecIndexOnlyScanInitializeWorker(IndexOnlyScanState *node,
 	node->ioss_ScanDesc->xs_want_itup = true;
 
 	/*
-	 * If no run-time keys to calculate or they are ready, go ahead and pass
-	 * the scankeys to the index AM.
+	 * 如果没有要计算的运行时键，或它们已就绪，就把   
+	 * 扫描键传给索引 AM。  
 	 */
 	if (node->ioss_NumRuntimeKeys == 0 || node->ioss_RuntimeKeysReady)
 		index_rescan(node->ioss_ScanDesc,

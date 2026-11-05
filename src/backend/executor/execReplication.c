@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * execReplication.c
- *	  miscellaneous executor routines for logical replication
+ *	  用于逻辑复制的各类执行器例程             
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -42,17 +42,17 @@ static bool tuples_equal(TupleTableSlot *slot1, TupleTableSlot *slot2,
 						 TypeCacheEntry **eq);
 
 /*
- * Setup a ScanKey for a search in the relation 'rel' for a tuple 'key' that
- * is setup to match 'rel' (*NOT* idxrel!).
+ * 为在关系 'rel' 中搜索元组 'key' 设置一个 ScanKey，         
+ * 元组需匹配 'rel' 而非 idxrel！  
  *
- * Returns how many columns to use for the index scan.
+ * 返回索引扫描要使用的列数。            
  *
- * This is not generic routine, idxrel must be PK, RI, or an index that can be
- * used for REPLICA IDENTITY FULL table. See FindUsableIndexForReplicaIdentityFull()
- * for details.
+ * 这不是通用例程，idxrel 必须是 PK、RI 或可用于              
+ * REPLICA IDENTITY FULL 表。详情参见 FindUsableIndexForReplicaIdentityFull() 
+ * 了解详情
  *
- * By definition, replication identity of a rel meets all limitations associated
- * with that. Note that any other index could also meet these limitations.
+ * 根据定义，关系的复制标识满足与之相关的所有限           
+ * 制。注意，任何其他索引也可能满足这些限制。        
  */
 static int
 build_replindex_scan_key(ScanKey skey, Relation rel, Relation idxrel,
@@ -68,7 +68,7 @@ build_replindex_scan_key(ScanKey skey, Relation rel, Relation idxrel,
 										   Anum_pg_index_indclass);
 	opclass = (oidvector *) DatumGetPointer(indclassDatum);
 
-	/* Build scankey for every non-expression attribute in the index. */
+	/* 为索引中每个非表达式属性构建 scankey。          */
 	for (index_attoff = 0; index_attoff < IndexRelationGetNumberOfKeyAttributes(idxrel);
 		 index_attoff++)
 	{
@@ -81,15 +81,15 @@ build_replindex_scan_key(ScanKey skey, Relation rel, Relation idxrel,
 		if (!AttributeNumberIsValid(table_attno))
 		{
 			/*
-			 * XXX: Currently, we don't support expressions in the scan key,
-			 * see code below.
+			 * XXX：目前我们不支持扫描键中的表达式，       
+			 * 参见下文   
 			 */
 			continue;
 		}
 
 		/*
-		 * Load the operator info.  We need this to get the equality operator
-		 * function for the scan key.
+		 * 加载操作符信息。我们需要它来获取扫描键的      
+		 * 相等操作符函数。  
 		 */
 		optype = get_opclass_input_type(opclass->values[index_attoff]);
 		opfamily = get_opclass_family(opclass->values[index_attoff]);
@@ -103,7 +103,7 @@ build_replindex_scan_key(ScanKey skey, Relation rel, Relation idxrel,
 
 		regop = get_opcode(operator);
 
-		/* Initialize the scankey. */
+		/* 初始化 scankey。    */
 		ScanKeyInit(&skey[skey_attoff],
 					index_attoff + 1,
 					BTEqualStrategyNumber,
@@ -112,24 +112,24 @@ build_replindex_scan_key(ScanKey skey, Relation rel, Relation idxrel,
 
 		skey[skey_attoff].sk_collation = idxrel->rd_indcollation[index_attoff];
 
-		/* Check for null value. */
+		/* 检查 NULL 值。    */
 		if (searchslot->tts_isnull[table_attno - 1])
 			skey[skey_attoff].sk_flags |= (SK_ISNULL | SK_SEARCHNULL);
 
 		skey_attoff++;
 	}
 
-	/* There must always be at least one attribute for the index scan. */
+	/* 索引扫描必须始终至少有一个属性。                */
 	Assert(skey_attoff > 0);
 
 	return skey_attoff;
 }
 
 /*
- * Search the relation 'rel' for tuple using the index.
+ * 使用索引在关系 'rel' 中搜索元组。      
  *
- * If a matching tuple is found, lock it with lockmode, fill the slot with its
- * contents, and return true.  Return false otherwise.
+ * 如果找到匹配的元组，则用 lockmode 锁定它，将其           
+ * 内容填入槽，返回 true；否则为 false。 
  */
 bool
 RelationFindReplTupleByIndex(Relation rel, Oid idxoid,
@@ -147,17 +147,17 @@ RelationFindReplTupleByIndex(Relation rel, Oid idxoid,
 	TypeCacheEntry **eq = NULL;
 	bool		isIdxSafeToSkipDuplicates;
 
-	/* Open the index. */
+	/* 打开索引。 */
 	idxrel = index_open(idxoid, RowExclusiveLock);
 
 	isIdxSafeToSkipDuplicates = (GetRelationIdentityOrPK(rel) == idxoid);
 
 	InitDirtySnapshot(snap);
 
-	/* Build scan key. */
+	/* 构建扫描键 */
 	skey_attoff = build_replindex_scan_key(skey, rel, idxrel, searchslot);
 
-	/* Start an index scan. */
+	/* 启动索引扫描。*/
 	scan = index_beginscan(rel, idxrel, &snap, skey_attoff, 0);
 
 retry:
@@ -165,12 +165,12 @@ retry:
 
 	index_rescan(scan, skey, skey_attoff, NULL, 0);
 
-	/* Try to find the tuple */
+	/* 尝试查找该元组 */
 	while (index_getnext_slot(scan, ForwardScanDirection, outslot))
 	{
 		/*
-		 * Avoid expensive equality check if the index is primary key or
-		 * replica identity index.
+		 * 如果索引是主键或 replica identity 索引，则避免 
+		 * 昂贵的相等检查  
 		 */
 		if (!isIdxSafeToSkipDuplicates)
 		{
@@ -187,8 +187,8 @@ retry:
 			snap.xmin : snap.xmax;
 
 		/*
-		 * If the tuple is locked, wait for locking transaction to finish and
-		 * retry.
+		 * 如果元组已被锁定，则等待锁定事务结束后再      
+		 * 重试
 		 */
 		if (TransactionIdIsValid(xwait))
 		{
@@ -196,12 +196,12 @@ retry:
 			goto retry;
 		}
 
-		/* Found our tuple and it's not locked */
+		/* 已找到元组且未被锁定      */
 		found = true;
 		break;
 	}
 
-	/* Found tuple, try to lock it in the lockmode. */
+	/* 找到元组，尝试以 lockmode 锁定。  */
 	if (found)
 	{
 		TM_FailureData tmfd;
@@ -214,7 +214,7 @@ retry:
 							   GetCurrentCommandId(false),
 							   lockmode,
 							   LockWaitBlock,
-							   0 /* don't follow updates */ ,
+							   0 /* 不跟随更新      */ ,
 							   &tmfd);
 
 		PopActiveSnapshot();
@@ -224,7 +224,7 @@ retry:
 			case TM_Ok:
 				break;
 			case TM_Updated:
-				/* XXX: Improve handling here */
+				/* XXX：改进这里的处理*/
 				if (ItemPointerIndicatesMovedPartitions(&tmfd.ctid))
 					ereport(LOG,
 							(errcode(ERRCODE_T_R_SERIALIZATION_FAILURE),
@@ -235,7 +235,7 @@ retry:
 							 errmsg("concurrent update, retrying")));
 				goto retry;
 			case TM_Deleted:
-				/* XXX: Improve handling here */
+				/* XXX：改进这里的处理*/
 				ereport(LOG,
 						(errcode(ERRCODE_T_R_SERIALIZATION_FAILURE),
 						 errmsg("concurrent delete, retrying")));
@@ -251,14 +251,14 @@ retry:
 
 	index_endscan(scan);
 
-	/* Don't release lock until commit. */
+	/* 在提交之前不要释放锁。*/
 	index_close(idxrel, NoLock);
 
 	return found;
 }
 
 /*
- * Compare the tuples in the slots by checking if they have equal values.
+ * 通过检查槽中的元组是否具有相等的值来比较它们。 
  */
 static bool
 tuples_equal(TupleTableSlot *slot1, TupleTableSlot *slot2,
@@ -272,7 +272,7 @@ tuples_equal(TupleTableSlot *slot1, TupleTableSlot *slot2,
 	slot_getallattrs(slot1);
 	slot_getallattrs(slot2);
 
-	/* Check equality of the attributes. */
+	/* 检查各属性是否相等。    */
 	for (attrnum = 0; attrnum < slot1->tts_tupleDescriptor->natts; attrnum++)
 	{
 		Form_pg_attribute att;
@@ -281,21 +281,21 @@ tuples_equal(TupleTableSlot *slot1, TupleTableSlot *slot2,
 		att = TupleDescAttr(slot1->tts_tupleDescriptor, attrnum);
 
 		/*
-		 * Ignore dropped and generated columns as the publisher doesn't send
-		 * those
+		 * 忽略删除列与生成列，因为发布者不会发送这些   
+		 * 列  
 		 */
 		if (att->attisdropped || att->attgenerated)
 			continue;
 
 		/*
-		 * If one value is NULL and other is not, then they are certainly not
-		 * equal
+		 * 若一个值为 NULL 而另一个不是，则两者肯定不      
+		 * 等  
 		 */
 		if (slot1->tts_isnull[attrnum] != slot2->tts_isnull[attrnum])
 			return false;
 
 		/*
-		 * If both are NULL, they can be considered equal.
+		 * 两者均为 NULL 时可视为相等。        
 		 */
 		if (slot1->tts_isnull[attrnum] || slot2->tts_isnull[attrnum])
 			continue;
@@ -324,14 +324,14 @@ tuples_equal(TupleTableSlot *slot1, TupleTableSlot *slot2,
 }
 
 /*
- * Search the relation 'rel' for tuple using the sequential scan.
+ * 使用顺序扫描在关系 'rel' 中搜索元组。          
  *
- * If a matching tuple is found, lock it with lockmode, fill the slot with its
- * contents, and return true.  Return false otherwise.
+ * 如果找到匹配的元组，则用 lockmode 锁定它，将其           
+ * 内容填入槽，返回 true；否则为 false。 
  *
- * Note that this stops on the first matching tuple.
+ * 注意它会在首个匹配元组处停止。    
  *
- * This can obviously be quite slow on tables that have more than few rows.
+ * 显然，对于行数超过少数几行的表，这可能相当慢。   
  */
 bool
 RelationFindReplTupleSeq(Relation rel, LockTupleMode lockmode,
@@ -349,7 +349,7 @@ RelationFindReplTupleSeq(Relation rel, LockTupleMode lockmode,
 
 	eq = palloc0(sizeof(*eq) * outslot->tts_tupleDescriptor->natts);
 
-	/* Start a heap scan. */
+	/* 启动堆扫描。 */
 	InitDirtySnapshot(snap);
 	scan = table_beginscan(rel, &snap, 0, NULL);
 	scanslot = table_slot_create(rel, NULL);
@@ -359,7 +359,7 @@ retry:
 
 	table_rescan(scan, NULL);
 
-	/* Try to find the tuple */
+	/* 尝试查找该元组 */
 	while (table_scan_getnextslot(scan, ForwardScanDirection, scanslot))
 	{
 		if (!tuples_equal(scanslot, searchslot, eq))
@@ -372,8 +372,8 @@ retry:
 			snap.xmin : snap.xmax;
 
 		/*
-		 * If the tuple is locked, wait for locking transaction to finish and
-		 * retry.
+		 * 如果元组已被锁定，则等待锁定事务结束后再      
+		 * 重试
 		 */
 		if (TransactionIdIsValid(xwait))
 		{
@@ -381,11 +381,11 @@ retry:
 			goto retry;
 		}
 
-		/* Found our tuple and it's not locked */
+		/* 已找到元组且未被锁定      */
 		break;
 	}
 
-	/* Found tuple, try to lock it in the lockmode. */
+	/* 找到元组，尝试以 lockmode 锁定。  */
 	if (found)
 	{
 		TM_FailureData tmfd;
@@ -398,7 +398,7 @@ retry:
 							   GetCurrentCommandId(false),
 							   lockmode,
 							   LockWaitBlock,
-							   0 /* don't follow updates */ ,
+							   0 /* 不跟随更新      */ ,
 							   &tmfd);
 
 		PopActiveSnapshot();
@@ -408,7 +408,7 @@ retry:
 			case TM_Ok:
 				break;
 			case TM_Updated:
-				/* XXX: Improve handling here */
+				/* XXX：改进这里的处理*/
 				if (ItemPointerIndicatesMovedPartitions(&tmfd.ctid))
 					ereport(LOG,
 							(errcode(ERRCODE_T_R_SERIALIZATION_FAILURE),
@@ -419,7 +419,7 @@ retry:
 							 errmsg("concurrent update, retrying")));
 				goto retry;
 			case TM_Deleted:
-				/* XXX: Improve handling here */
+				/* XXX：改进这里的处理*/
 				ereport(LOG,
 						(errcode(ERRCODE_T_R_SERIALIZATION_FAILURE),
 						 errmsg("concurrent delete, retrying")));
@@ -440,10 +440,10 @@ retry:
 }
 
 /*
- * Insert tuple represented in the slot to the relation, update the indexes,
- * and execute any constraints and per-row triggers.
+ * 把槽中表示的元组插入到关系中，更新索引，             
+ * 并执行任何约束和每行触发器。       
  *
- * Caller is responsible for opening the indexes.
+ * 调用者负责打开索引。                
  */
 void
 ExecSimpleRelationInsert(ResultRelInfo *resultRelInfo,
@@ -452,12 +452,12 @@ ExecSimpleRelationInsert(ResultRelInfo *resultRelInfo,
 	bool		skip_tuple = false;
 	Relation	rel = resultRelInfo->ri_RelationDesc;
 
-	/* For now we support only tables. */
+	/* 目前我们仅支持表。     */
 	Assert(rel->rd_rel->relkind == RELKIND_RELATION);
 
 	CheckCmdReplicaIdentity(rel, CMD_INSERT);
 
-	/* BEFORE ROW INSERT Triggers */
+	/* BEFORE ROW INSERT 触发器*/
 	if (resultRelInfo->ri_TrigDesc &&
 		resultRelInfo->ri_TrigDesc->trig_insert_before_row)
 	{
@@ -469,19 +469,19 @@ ExecSimpleRelationInsert(ResultRelInfo *resultRelInfo,
 	{
 		List	   *recheckIndexes = NIL;
 
-		/* Compute stored generated columns */
+		/* 计算存储的生成列         */
 		if (rel->rd_att->constr &&
 			rel->rd_att->constr->has_generated_stored)
 			ExecComputeStoredGenerated(resultRelInfo, estate, slot,
 									   CMD_INSERT);
 
-		/* Check the constraints of the tuple */
+		/* 检查该元组的约束           */
 		if (rel->rd_att->constr)
 			ExecConstraints(resultRelInfo, slot, estate);
 		if (rel->rd_rel->relispartition)
 			ExecPartitionCheck(resultRelInfo, slot, estate, true);
 
-		/* OK, store the tuple and create index entries for it */
+		/* 好，存储该元组并为它创建索引条目    */
 		simple_table_tuple_insert(resultRelInfo->ri_RelationDesc, slot);
 
 		if (resultRelInfo->ri_NumIndices > 0)
@@ -489,14 +489,14 @@ ExecSimpleRelationInsert(ResultRelInfo *resultRelInfo,
 												   slot, estate, false, false,
 												   NULL, NIL, false);
 
-		/* AFTER ROW INSERT Triggers */
+		/* AFTER ROW INSERT 触发器*/
 		ExecARInsertTriggers(estate, resultRelInfo, slot,
 							 recheckIndexes, NULL);
 
 		/*
-		 * XXX we should in theory pass a TransitionCaptureState object to the
-		 * above to capture transition tuples, but after statement triggers
-		 * don't actually get fired by replication yet anyway
+		 * XXX 理论上我们应向上面的调用传入一个               
+		 * TransitionCaptureState 对象来捕获转换元组，但        
+		 * 语句后触发器反正尚不会被复制触发  
 		 */
 
 		list_free(recheckIndexes);
@@ -504,10 +504,10 @@ ExecSimpleRelationInsert(ResultRelInfo *resultRelInfo,
 }
 
 /*
- * Find the searchslot tuple and update it with data in the slot,
- * update the indexes, and execute any constraints and per-row triggers.
+ * 找到 searchslot 元组并用槽中的数据更新它，     
+ * 更新索引，并执行任何约束和每行触发器。            
  *
- * Caller is responsible for opening the indexes.
+ * 调用者负责打开索引。                
  */
 void
 ExecSimpleRelationUpdate(ResultRelInfo *resultRelInfo,
@@ -519,15 +519,15 @@ ExecSimpleRelationUpdate(ResultRelInfo *resultRelInfo,
 	ItemPointer tid = &(searchslot->tts_tid);
 
 	/*
-	 * We support only non-system tables, with
-	 * check_publication_add_relation() accountable.
+	 * 我们仅支持非系统表，由      
+	 * check_publication_add_relation() 负责。   
 	 */
 	Assert(rel->rd_rel->relkind == RELKIND_RELATION);
 	Assert(!IsCatalogRelation(rel));
 
 	CheckCmdReplicaIdentity(rel, CMD_UPDATE);
 
-	/* BEFORE ROW UPDATE Triggers */
+	/* BEFORE ROW UPDATE 触发器*/
 	if (resultRelInfo->ri_TrigDesc &&
 		resultRelInfo->ri_TrigDesc->trig_update_before_row)
 	{
@@ -541,13 +541,13 @@ ExecSimpleRelationUpdate(ResultRelInfo *resultRelInfo,
 		List	   *recheckIndexes = NIL;
 		TU_UpdateIndexes update_indexes;
 
-		/* Compute stored generated columns */
+		/* 计算存储的生成列         */
 		if (rel->rd_att->constr &&
 			rel->rd_att->constr->has_generated_stored)
 			ExecComputeStoredGenerated(resultRelInfo, estate, slot,
 									   CMD_UPDATE);
 
-		/* Check the constraints of the tuple */
+		/* 检查该元组的约束           */
 		if (rel->rd_att->constr)
 			ExecConstraints(resultRelInfo, slot, estate);
 		if (rel->rd_rel->relispartition)
@@ -562,7 +562,7 @@ ExecSimpleRelationUpdate(ResultRelInfo *resultRelInfo,
 												   NULL, NIL,
 												   (update_indexes == TU_Summarizing));
 
-		/* AFTER ROW UPDATE Triggers */
+		/* AFTER ROW UPDATE 触发器*/
 		ExecARUpdateTriggers(estate, resultRelInfo,
 							 NULL, NULL,
 							 tid, NULL, slot,
@@ -573,10 +573,10 @@ ExecSimpleRelationUpdate(ResultRelInfo *resultRelInfo,
 }
 
 /*
- * Find the searchslot tuple and delete it, and execute any constraints
- * and per-row triggers.
+ * 找到 searchslot 元组并将其删除，并执行任何约束     
+ * 和每行触发器。
  *
- * Caller is responsible for opening the indexes.
+ * 调用者负责打开索引。                
  */
 void
 ExecSimpleRelationDelete(ResultRelInfo *resultRelInfo,
@@ -589,7 +589,7 @@ ExecSimpleRelationDelete(ResultRelInfo *resultRelInfo,
 
 	CheckCmdReplicaIdentity(rel, CMD_DELETE);
 
-	/* BEFORE ROW DELETE Triggers */
+	/* BEFORE ROW DELETE 触发器*/
 	if (resultRelInfo->ri_TrigDesc &&
 		resultRelInfo->ri_TrigDesc->trig_delete_before_row)
 	{
@@ -599,17 +599,17 @@ ExecSimpleRelationDelete(ResultRelInfo *resultRelInfo,
 
 	if (!skip_tuple)
 	{
-		/* OK, delete the tuple */
+		/* 好，删除该元组*/
 		simple_table_tuple_delete(rel, tid, estate->es_snapshot);
 
-		/* AFTER ROW DELETE Triggers */
+		/* AFTER ROW DELETE 触发器*/
 		ExecARDeleteTriggers(estate, resultRelInfo,
 							 tid, NULL, NULL, false);
 	}
 }
 
 /*
- * Check if command can be executed with current replica identity.
+ * 检查命令是否可以用当前复制标识执行。         
  */
 void
 CheckCmdReplicaIdentity(Relation rel, CmdType cmd)
@@ -617,27 +617,27 @@ CheckCmdReplicaIdentity(Relation rel, CmdType cmd)
 	PublicationDesc pubdesc;
 
 	/*
-	 * Skip checking the replica identity for partitioned tables, because the
-	 * operations are actually performed on the leaf partitions.
+	 * 对于分区表跳过复制标识检查，因为操作实际上是    
+	 * 在叶子分区上执行的。                           
 	 */
 	if (rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
 		return;
 
-	/* We only need to do checks for UPDATE and DELETE. */
+	/* 只需对 UPDATE 和 DELETE 进行检查。      */
 	if (cmd != CMD_UPDATE && cmd != CMD_DELETE)
 		return;
 
 	/*
-	 * It is only safe to execute UPDATE/DELETE when all columns, referenced
-	 * in the row filters from publications which the relation is in, are
-	 * valid - i.e. when all referenced columns are part of REPLICA IDENTITY
-	 * or the table does not publish UPDATEs or DELETEs.
+	 * 只有当关系所在发布中的行过滤器引用的所有列都   
+	 * 有效时，才能安全地执行 UPDATE/DELETE - 即当所       
+	 * 有被引用的列都属于 REPLICA IDENTITY，                      
+	 * 或者该表不发布 UPDATE 或 DELETE。       
 	 *
-	 * XXX We could optimize it by first checking whether any of the
-	 * publications have a row filter for this relation. If not and relation
-	 * has replica identity then we can avoid building the descriptor but as
-	 * this happens only one time it doesn't seem worth the additional
-	 * complexity.
+	 * XXX 我们可以先检查是否有任何发布包含针对该
+	 * 关系的行过滤器。如果没有且该关系具有复制标识，
+	 * 则可以避免构建描述符，但由于这只发生一次，      
+	 * 这似乎不值得为此增加额外的                        
+	 * 复杂性  
 	 */
 	RelationBuildPublicationDesc(rel, &pubdesc);
 	if (cmd == CMD_UPDATE && !pubdesc.rf_valid_for_update)
@@ -665,18 +665,18 @@ CheckCmdReplicaIdentity(Relation rel, CmdType cmd)
 						RelationGetRelationName(rel)),
 				 errdetail("Column list used by the publication does not cover the replica identity.")));
 
-	/* If relation has replica identity we are always good. */
+	/* 若关系有复制标识，则总是没有问题。  */
 	if (OidIsValid(RelationGetReplicaIndex(rel)))
 		return;
 
-	/* REPLICA IDENTITY FULL is also good for UPDATE/DELETE. */
+	/* REPLICA IDENTITY FULL 对 UPDATE/DELETE 也适用。  */
 	if (rel->rd_rel->relreplident == REPLICA_IDENTITY_FULL)
 		return;
 
 	/*
-	 * This is UPDATE/DELETE and there is no replica identity.
+	 * 这是 UPDATE/DELETE 且没有复制标识。          
 	 *
-	 * Check if the table publishes UPDATES or DELETES.
+	 * 检查该表是否发布 UPDATE 或 DELETE。   
 	 */
 	if (cmd == CMD_UPDATE && pubdesc.pubactions.pubupdate)
 		ereport(ERROR,
@@ -694,9 +694,9 @@ CheckCmdReplicaIdentity(Relation rel, CmdType cmd)
 
 
 /*
- * Check if we support writing into specific relkind.
+ * 检查我们是否支持写入特定的 relkind。
  *
- * The nspname and relname are only needed for error reporting.
+ * nspname 和 relname 仅在报告错误时需要。          
  */
 void
 CheckSubscriptionRelkind(char relkind, const char *nspname,

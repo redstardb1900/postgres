@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeTableFuncscan.c
- *	  Support routines for scanning RangeTableFunc (XMLTABLE like functions).
+ *	  扫描 RangeTableFunc（类 XMLTABLE 函数）的支撑例程。       
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,12 +13,12 @@
  *-------------------------------------------------------------------------
  */
 /*
- * INTERFACE ROUTINES
- *		ExecTableFuncScan		scans a function.
- *		ExecFunctionNext		retrieve next tuple in sequential order.
- *		ExecInitTableFuncScan	creates and initializes a TableFuncscan node.
- *		ExecEndTableFuncScan		releases any storage allocated.
- *		ExecReScanTableFuncScan rescans the function
+ * 接口例程      
+ *		ExecTableFuncScan - 扫描函数    
+ *		ExecFunctionNext - 按顺序取下一个元组            
+ *		ExecInitTableFuncScan - 创建并初始化 TableFuncscan 节点    
+ *		ExecEndTableFuncScan - 释放所有已分配存储   
+ *		ExecReScanTableFuncScan 重新扫描函数  
  */
 #include "postgres.h"
 
@@ -40,13 +40,13 @@ static void tfuncInitialize(TableFuncScanState *tstate, ExprContext *econtext, D
 static void tfuncLoadRows(TableFuncScanState *tstate, ExprContext *econtext);
 
 /* ----------------------------------------------------------------
- *						Scan Support
+ *						扫描支持
  * ----------------------------------------------------------------
  */
 /* ----------------------------------------------------------------
  *		TableFuncNext
  *
- *		This is a workhorse for ExecTableFuncScan
+ *		这是 ExecTableFuncScan 的主力函数 
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -57,14 +57,14 @@ TableFuncNext(TableFuncScanState *node)
 	scanslot = node->ss.ss_ScanTupleSlot;
 
 	/*
-	 * If first time through, read all tuples from function and put them in a
-	 * tuplestore. Subsequent calls just fetch tuples from tuplestore.
+	 * 第一次经过时，从函数读取所有元组并把它们放入    
+	 * tuplestore。后续调用只需从 tuplestore 取元组。     
 	 */
 	if (node->tupstore == NULL)
 		tfuncFetchRows(node, node->ss.ps.ps_ExprContext);
 
 	/*
-	 * Get the next tuple from tuplestore.
+	 * 从 tuplestore 取下一元组。  
 	 */
 	(void) tuplestore_gettupleslot(node->tupstore,
 								   true,
@@ -74,22 +74,22 @@ TableFuncNext(TableFuncScanState *node)
 }
 
 /*
- * TableFuncRecheck -- access method routine to recheck a tuple in EvalPlanQual
+ * TableFuncRecheck -- 在 EvalPlanQual 中重查元组的访问方法例程   
  */
 static bool
 TableFuncRecheck(TableFuncScanState *node, TupleTableSlot *slot)
 {
-	/* nothing to check */
+	/* 无需检查     */
 	return true;
 }
 
 /* ----------------------------------------------------------------
  *		ExecTableFuncScan(node)
  *
- *		Scans the function sequentially and returns the next qualifying
- *		tuple.
- *		We call the ExecScan() routine and pass it the appropriate
- *		access method functions.
+ *		顺序扫描该函数，返回下一个合格的               
+ *		元组
+ *		我们调用 ExecScan() 例程，并向其传入适当的 
+ *		访问方法函数。   
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -114,17 +114,17 @@ ExecInitTableFuncScan(TableFuncScan *node, EState *estate, int eflags)
 	TupleDesc	tupdesc;
 	int			i;
 
-	/* check for unsupported flags */
+	/* 检查不支持的标志    */
 	Assert(!(eflags & EXEC_FLAG_MARK));
 
 	/*
-	 * TableFuncscan should not have any children.
+	 * TableFuncscan 不应有任何子节点。  
 	 */
 	Assert(outerPlan(node) == NULL);
 	Assert(innerPlan(node) == NULL);
 
 	/*
-	 * create new ScanState for node
+	 * 为节点新建 ScanState    
 	 */
 	scanstate = makeNode(TableFuncScanState);
 	scanstate->ss.ps.plan = (Plan *) node;
@@ -132,43 +132,43 @@ ExecInitTableFuncScan(TableFuncScan *node, EState *estate, int eflags)
 	scanstate->ss.ps.ExecProcNode = ExecTableFuncScan;
 
 	/*
-	 * Miscellaneous initialization
+	 * 其他初始化             
 	 *
-	 * create expression context for node
+	 * 为节点创建表达式上下文 
 	 */
 	ExecAssignExprContext(estate, &scanstate->ss.ps);
 
 	/*
-	 * initialize source tuple type
+	 * 初始化源元组类型    
 	 */
 	tupdesc = BuildDescFromLists(tf->colnames,
 								 tf->coltypes,
 								 tf->coltypmods,
 								 tf->colcollations);
-	/* and the corresponding scan slot */
+	/* 以及相应的扫描槽        */
 	ExecInitScanTupleSlot(estate, &scanstate->ss, tupdesc,
 						  &TTSOpsMinimalTuple);
 
 	/*
-	 * Initialize result type and projection.
+	 * 初始化结果类型与投影。     
 	 */
 	ExecInitResultTypeTL(&scanstate->ss.ps);
 	ExecAssignScanProjectionInfo(&scanstate->ss);
 
 	/*
-	 * initialize child expressions
+	 * 初始化子表达式       
 	 */
 	scanstate->ss.ps.qual =
 		ExecInitQual(node->scan.plan.qual, &scanstate->ss.ps);
 
-	/* Only XMLTABLE is supported currently */
+	/* 目前仅支持 XMLTABLE             */
 	scanstate->routine = &XmlTableRoutine;
 
 	scanstate->perTableCxt =
 		AllocSetContextCreate(CurrentMemoryContext,
 							  "TableFunc per value context",
 							  ALLOCSET_DEFAULT_SIZES);
-	scanstate->opaque = NULL;	/* initialized at runtime */
+	scanstate->opaque = NULL;	/* 在运行时初始化  */
 
 	scanstate->ns_names = tf->ns_names;
 
@@ -185,12 +185,12 @@ ExecInitTableFuncScan(TableFuncScan *node, EState *estate, int eflags)
 
 	scanstate->notnulls = tf->notnulls;
 
-	/* these are allocated now and initialized later */
+	/* 这些现在分配，稍后初始化          */
 	scanstate->in_functions = palloc(sizeof(FmgrInfo) * tupdesc->natts);
 	scanstate->typioparams = palloc(sizeof(Oid) * tupdesc->natts);
 
 	/*
-	 * Fill in the necessary fmgr infos.
+	 * 填写必要的 fmgr 信息。   
 	 */
 	for (i = 0; i < tupdesc->natts; i++)
 	{
@@ -207,26 +207,26 @@ ExecInitTableFuncScan(TableFuncScan *node, EState *estate, int eflags)
 /* ----------------------------------------------------------------
  *		ExecEndTableFuncScan
  *
- *		frees any storage allocated through C routines.
+ *		释放在 C 例程中分配的所有存储。  
  * ----------------------------------------------------------------
  */
 void
 ExecEndTableFuncScan(TableFuncScanState *node)
 {
 	/*
-	 * Free the exprcontext
+	 * 释放 exprcontext  
 	 */
 	ExecFreeExprContext(&node->ss.ps);
 
 	/*
-	 * clean out the tuple table
+	 * 清空元组表          
 	 */
 	if (node->ss.ps.ps_ResultTupleSlot)
 		ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
 	ExecClearTuple(node->ss.ss_ScanTupleSlot);
 
 	/*
-	 * Release tuplestore resources
+	 * 释放 tuplestore 资源    
 	 */
 	if (node->tupstore != NULL)
 		tuplestore_end(node->tupstore);
@@ -236,7 +236,7 @@ ExecEndTableFuncScan(TableFuncScanState *node)
 /* ----------------------------------------------------------------
  *		ExecReScanTableFuncScan
  *
- *		Rescans the relation.
+ *		重新扫描该关系
  * ----------------------------------------------------------------
  */
 void
@@ -249,7 +249,7 @@ ExecReScanTableFuncScan(TableFuncScanState *node)
 	ExecScanReScan(&node->ss);
 
 	/*
-	 * Recompute when parameters are changed.
+	 * 参数变化时重新计算。        
 	 */
 	if (chgparam)
 	{
@@ -267,7 +267,7 @@ ExecReScanTableFuncScan(TableFuncScanState *node)
 /* ----------------------------------------------------------------
  *		tfuncFetchRows
  *
- *		Read rows from a TableFunc producer
+ *		从 TableFunc 生产者读取行   
  * ----------------------------------------------------------------
  */
 static void
@@ -280,17 +280,17 @@ tfuncFetchRows(TableFuncScanState *tstate, ExprContext *econtext)
 
 	Assert(tstate->opaque == NULL);
 
-	/* build tuplestore for the result */
+	/* 为结果构建 tuplestore      */
 	oldcxt = MemoryContextSwitchTo(econtext->ecxt_per_query_memory);
 	tstate->tupstore = tuplestore_begin_heap(false, false, work_mem);
 
 	/*
-	 * Each call to fetch a new set of rows - of which there may be very many
-	 * if XMLTABLE is being used in a lateral join - will allocate a possibly
-	 * substantial amount of memory, so we cannot use the per-query context
-	 * here. perTableCxt now serves the same function as "argcontext" does in
-	 * FunctionScan - a place to store per-one-call (i.e. one result table)
-	 * lifetime data (as opposed to per-query or per-result-tuple).
+	 * 每次取一组新行的调用——若在 lateral join 中使用     
+	 * XMLTABLE 则可能有很多组——都可能分配相当多的       
+	 * 内存，因此我们无法在这里使用每查询上下文。     
+	 * perTableCxt 现在起着与 FunctionScan 中"argcontext"              
+	 * 相同的作用——存放每次调用(即一个结果表)生存期
+	 * 数据(而非每查询或每结果元组)。                
 	 */
 	MemoryContextSwitchTo(tstate->perTableCxt);
 
@@ -300,20 +300,20 @@ tfuncFetchRows(TableFuncScanState *tstate, ExprContext *econtext)
 							tstate->ss.ss_ScanTupleSlot->tts_tupleDescriptor->natts);
 
 		/*
-		 * If evaluating the document expression returns NULL, the table
-		 * expression is empty and we return immediately.
+		 * 若文档表达式的求值返回 NULL，则表表达式为  
+		 * 空，我们立即返回。                   
 		 */
 		value = ExecEvalExpr(tstate->docexpr, econtext, &isnull);
 
 		if (!isnull)
 		{
-			/* otherwise, pass the document value to the table builder */
+			/* 否则，把文档值传给表构建器                 */
 			tfuncInitialize(tstate, econtext, value);
 
-			/* initialize ordinality counter */
+			/* 初始化 ordinality 计数器*/
 			tstate->ordinal = 1;
 
-			/* Load all rows into the tuplestore, and we're done */
+			/* 把所有行载入 tuplestore，之后就完成了*/
 			tfuncLoadRows(tstate, econtext);
 		}
 	}
@@ -325,7 +325,7 @@ tfuncFetchRows(TableFuncScanState *tstate, ExprContext *econtext)
 	}
 	PG_END_TRY();
 
-	/* clean up and return to original memory context */
+	/* 清理并返回原来的内存上下文        */
 
 	if (tstate->opaque != NULL)
 	{
@@ -338,8 +338,8 @@ tfuncFetchRows(TableFuncScanState *tstate, ExprContext *econtext)
 }
 
 /*
- * Fill in namespace declarations, the row filter, and column filters in a
- * table expression builder context.
+ * 在表表达式构建器上下文中填入命名空间声明、        
+ * 行过滤器以及列过滤器。
  */
 static void
 tfuncInitialize(TableFuncScanState *tstate, ExprContext *econtext, Datum doc)
@@ -355,12 +355,12 @@ tfuncInitialize(TableFuncScanState *tstate, ExprContext *econtext, Datum doc)
 		((TableFuncScan *) (tstate->ss.ps.plan))->tablefunc->ordinalitycol;
 
 	/*
-	 * Install the document as a possibly-toasted Datum into the tablefunc
-	 * context.
+	 * 把文档作为可能被 TOAST 的 Datum 安装到 tablefunc 上下
+	 * 文中  
 	 */
 	routine->SetDocument(tstate, doc);
 
-	/* Evaluate namespace specifications */
+	/* 求值命名空间规格说明    */
 	forboth(lc1, tstate->ns_uris, lc2, tstate->ns_names)
 	{
 		ExprState  *expr = (ExprState *) lfirst(lc1);
@@ -375,13 +375,13 @@ tfuncInitialize(TableFuncScanState *tstate, ExprContext *econtext, Datum doc)
 					 errmsg("namespace URI must not be null")));
 		ns_uri = TextDatumGetCString(value);
 
-		/* DEFAULT is passed down to SetNamespace as NULL */
+		/* DEFAULT 作为 NULL 向下传给 SetNamespace  */
 		ns_name = ns_node ? strVal(ns_node) : NULL;
 
 		routine->SetNamespace(tstate, ns_name, ns_uri);
 	}
 
-	/* Install the row filter expression into the table builder context */
+	/* 把行过滤器表达式安装到表构建器上下文中        */
 	value = ExecEvalExpr(tstate->rowexpr, econtext, &isnull);
 	if (isnull)
 		ereport(ERROR,
@@ -391,9 +391,9 @@ tfuncInitialize(TableFuncScanState *tstate, ExprContext *econtext, Datum doc)
 	routine->SetRowFilter(tstate, TextDatumGetCString(value));
 
 	/*
-	 * Install the column filter expressions into the table builder context.
-	 * If an expression is given, use that; otherwise the column name itself
-	 * is the column filter.
+	 * 把列过滤器表达式安装到表构建器上下文中。         
+	 * 如果给定了表达式，就使用它；否则列名本身         
+	 * 就是列过滤器。
 	 */
 	colno = 0;
 	tupdesc = tstate->ss.ss_ScanTupleSlot->tts_tupleDescriptor;
@@ -428,7 +428,7 @@ tfuncInitialize(TableFuncScanState *tstate, ExprContext *econtext, Datum doc)
 }
 
 /*
- * Load all the rows from the TableFunc table builder into a tuplestore.
+ * 把来自 TableFunc 表构建器的所有行载入 tuplestore。     
  */
 static void
 tfuncLoadRows(TableFuncScanState *tstate, ExprContext *econtext)
@@ -446,15 +446,15 @@ tfuncLoadRows(TableFuncScanState *tstate, ExprContext *econtext)
 		((TableFuncScan *) (tstate->ss.ps.plan))->tablefunc->ordinalitycol;
 
 	/*
-	 * We need a short-lived memory context that we can clean up each time
-	 * around the loop, to avoid wasting space. Our default per-tuple context
-	 * is fine for the job, since we won't have used it for anything yet in
-	 * this tuple cycle.
+	 * 我们需要一个短命的内存上下文，可在每轮循环时 
+	 * 清理它，以免浪费空间。我们默认的每元组上下文    
+	 * 完全能胜任此任务，因为在本次元组周期中我们     
+	 * 未用过它。  
 	 */
 	oldcxt = MemoryContextSwitchTo(econtext->ecxt_per_tuple_memory);
 
 	/*
-	 * Keep requesting rows from the table builder until there aren't any.
+	 * 不断向表构建器请求行，直到再也没有行为止。    
 	 */
 	while (routine->FetchRow(tstate))
 	{
@@ -466,8 +466,8 @@ tfuncLoadRows(TableFuncScanState *tstate, ExprContext *econtext)
 		ExecClearTuple(tstate->ss.ss_ScanTupleSlot);
 
 		/*
-		 * Obtain the value of each column for this row, installing them into
-		 * the slot; then add the tuple to the tuplestore.
+		 * 取得此行各列的值，并把它们安装到槽中；         
+		 * 然后把该元组加入 tuplestore。         
 		 */
 		for (colno = 0; colno < natts; colno++)
 		{
@@ -475,7 +475,7 @@ tfuncLoadRows(TableFuncScanState *tstate, ExprContext *econtext)
 
 			if (colno == ordinalitycol)
 			{
-				/* Fast path for ordinality column */
+				/* ordinality 列的快速路径   */
 				values[colno] = Int32GetDatum(tstate->ordinal++);
 				nulls[colno] = false;
 			}
@@ -489,7 +489,7 @@ tfuncLoadRows(TableFuncScanState *tstate, ExprContext *econtext)
 												  att->atttypmod,
 												  &isnull);
 
-				/* No value?  Evaluate and apply the default, if any */
+				/* 没有值？对默认值(如有)求值并应用   */
 				if (isnull && cell != NULL)
 				{
 					ExprState  *coldefexpr = (ExprState *) lfirst(cell);
@@ -499,7 +499,7 @@ tfuncLoadRows(TableFuncScanState *tstate, ExprContext *econtext)
 													 &isnull);
 				}
 
-				/* Verify a possible NOT NULL constraint */
+				/* 校验可能的 NOT NULL 约束       */
 				if (isnull && bms_is_member(colno, tstate->notnulls))
 					ereport(ERROR,
 							(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
@@ -509,7 +509,7 @@ tfuncLoadRows(TableFuncScanState *tstate, ExprContext *econtext)
 				nulls[colno] = isnull;
 			}
 
-			/* advance list of default expressions */
+			/* 推进默认表达式列表         */
 			if (cell != NULL)
 				cell = lnext(tstate->coldefexprs, cell);
 		}

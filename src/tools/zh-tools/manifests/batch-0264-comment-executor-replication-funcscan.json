@@ -1,0 +1,107 @@
+{
+ "schema_version": 1,
+ "batch_id": "0264-comment-executor-replication-funcscan",
+ "title": "Translate executor comments: executor-replication-funcscan",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "0342c10fe12f22282d8ebd3bbc3ad9b6acd56472",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0264-comment-executor-replication-funcscan.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/executor/**",
+   "kind": "c_comment",
+   "note": "P2 executor translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0264-comment-executor-replication-funcscan.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/executor/execReplication.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 63,
+   "translated": 61,
+   "preserved": 2,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), and separator-only blocks rebuilt byte-identical"
+   ],
+   "note": "P2 executor campaign wave C5"
+  },
+  {
+   "path": "src/backend/executor/nodeFunctionscan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 61,
+   "translated": 60,
+   "preserved": 1,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C5"
+  },
+  {
+   "path": "src/backend/executor/nodeIndexonlyscan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 74,
+   "translated": 71,
+   "preserved": 3,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), and separator-only blocks rebuilt byte-identical"
+   ],
+   "note": "P2 executor campaign wave C5"
+  },
+  {
+   "path": "src/backend/executor/nodeLockRows.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 48,
+   "translated": 47,
+   "preserved": 1,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C5"
+  },
+  {
+   "path": "src/backend/executor/nodeSetOp.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 69,
+   "translated": 68,
+   "preserved": 1,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C5"
+  },
+  {
+   "path": "src/backend/executor/nodeTableFuncscan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 50,
+   "translated": 49,
+   "preserved": 1,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C5"
+  }
+ ],
+ "notes": "Translation agents (C5a/C5b/C5c) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

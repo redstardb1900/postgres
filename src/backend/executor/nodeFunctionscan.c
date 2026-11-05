@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeFunctionscan.c
- *	  Support routines for scanning RangeFunctions (functions in rangetable).
+ *	  RangeFunction（rangetable 中的函数）扫描的支撑例程。     
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,12 +13,12 @@
  *-------------------------------------------------------------------------
  */
 /*
- * INTERFACE ROUTINES
- *		ExecFunctionScan		scans a function.
- *		ExecFunctionNext		retrieve next tuple in sequential order.
- *		ExecInitFunctionScan	creates and initializes a functionscan node.
- *		ExecEndFunctionScan		releases any storage allocated.
- *		ExecReScanFunctionScan	rescans the function
+ * 接口例程      
+ *		ExecFunctionScan 扫描函数。   
+ *		ExecFunctionNext 按顺序取回下一个元组。        
+ *		ExecInitFunctionScan 创建并初始化 functionscan 节点。   
+ *		ExecEndFunctionScan 释放所有已分配存储。  
+ *		ExecReScanFunctionScan 重新扫描函数  
  */
 #include "postgres.h"
 
@@ -31,29 +31,29 @@
 
 
 /*
- * Runtime data for each function being scanned.
+ * 每个被扫描函数的运行时数据。   
  */
 typedef struct FunctionScanPerFuncState
 {
-	SetExprState *setexpr;		/* state of the expression being evaluated */
-	TupleDesc	tupdesc;		/* desc of the function result type */
-	int			colcount;		/* expected number of result columns */
-	Tuplestorestate *tstore;	/* holds the function result set */
-	int64		rowcount;		/* # of rows in result set, -1 if not known */
-	TupleTableSlot *func_slot;	/* function result slot (or NULL) */
+	SetExprState *setexpr;		/* 正在求值的表达式状态          */
+	TupleDesc	tupdesc;		/* 函数结果类型的描述      */
+	int			colcount;		/* 预期的结果列数量          */
+	Tuplestorestate *tstore;	/* 保存函数结果集         */
+	int64		rowcount;		/* 结果集中的行数，未知则为 -1  */
+	TupleTableSlot *func_slot;	/* 函数结果槽（或 NULL）  */
 } FunctionScanPerFuncState;
 
 static TupleTableSlot *FunctionNext(FunctionScanState *node);
 
 
 /* ----------------------------------------------------------------
- *						Scan Support
+ *						扫描支持
  * ----------------------------------------------------------------
  */
 /* ----------------------------------------------------------------
  *		FunctionNext
  *
- *		This is a workhorse for ExecFunctionScan
+ *		这是 ExecFunctionScan 的主力函数 
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -68,7 +68,7 @@ FunctionNext(FunctionScanState *node)
 	int			att;
 
 	/*
-	 * get information from the estate and scan state
+	 * 从 estate 和扫描状态中获取信息     
 	 */
 	estate = node->ss.ps.state;
 	direction = estate->es_direction;
@@ -77,17 +77,17 @@ FunctionNext(FunctionScanState *node)
 	if (node->simple)
 	{
 		/*
-		 * Fast path for the trivial case: the function return type and scan
-		 * result type are the same, so we fetch the function result straight
-		 * into the scan result slot. No need to update ordinality or
-		 * rowcounts either.
+		 * 简单情形的快速路径：函数返回类型与扫描结果  
+		 * 类型相同，所以我们将函数结果直接取到扫描      
+		 * 结果槽中，因此也无需更新 ordinality 或       
+		 * rowcount。      
 		 */
 		Tuplestorestate *tstore = node->funcstates[0].tstore;
 
 		/*
-		 * If first time through, read all tuples from function and put them
-		 * in a tuplestore. Subsequent calls just fetch tuples from
-		 * tuplestore.
+		 * 首次执行时，从函数读取所有元组并放入           
+		 * tuplestore。后续调用只需从该 tuplestore        
+		 * 取元组  
 		 */
 		if (tstore == NULL)
 		{
@@ -99,15 +99,15 @@ FunctionNext(FunctionScanState *node)
 											node->eflags & EXEC_FLAG_BACKWARD);
 
 			/*
-			 * paranoia - cope if the function, which may have constructed the
-			 * tuplestore itself, didn't leave it pointing at the start. This
-			 * call is fast, so the overhead shouldn't be an issue.
+			 * 防范措施 - 若函数可能自行构建了                  
+			 * tuplestore，却没有让它指向起始处，则需          
+			 * 应对。调用很快，开销应该不成问题。 
 			 */
 			tuplestore_rescan(tstore);
 		}
 
 		/*
-		 * Get the next tuple from tuplestore.
+		 * 自 tuplestore 取下个元组。  
 		 */
 		(void) tuplestore_gettupleslot(tstore,
 									   ScanDirectionIsForward(direction),
@@ -117,10 +117,10 @@ FunctionNext(FunctionScanState *node)
 	}
 
 	/*
-	 * Increment or decrement ordinal counter before checking for end-of-data,
-	 * so that we can move off either end of the result by 1 (and no more than
-	 * 1) without losing correct count.  See PortalRunSelect for why we can
-	 * assume that we won't be called repeatedly in the end-of-data state.
+	 * 在检查数据结束前递增或递减序数计数器，              
+	 * 这样我们可以离开结果的任一端 1（且最多               
+	 * 1）而不丢失正确计数。参见 PortalRunSelect               
+	 * 了解为何可假定不会在数据结束状态被反复调用。 
 	 */
 	oldpos = node->ordinal;
 	if (ScanDirectionIsForward(direction))
@@ -129,11 +129,11 @@ FunctionNext(FunctionScanState *node)
 		node->ordinal--;
 
 	/*
-	 * Main loop over functions.
+	 * 对函数的主循环。 
 	 *
-	 * We fetch the function results into func_slots (which match the function
-	 * return types), and then copy the values to scanslot (which matches the
-	 * scan result type), setting the ordinal column (if any) as well.
+	 * 我们把函数结果取入 func_slots（它与函数返回类型      
+	 * 匹配），然后将值复制到 scanslot（它与扫描结果类型 
+	 * 匹配），并同时设置序数列（如果有）。         
 	 */
 	ExecClearTuple(scanslot);
 	att = 0;
@@ -144,9 +144,9 @@ FunctionNext(FunctionScanState *node)
 		int			i;
 
 		/*
-		 * If first time through, read all tuples from function and put them
-		 * in a tuplestore. Subsequent calls just fetch tuples from
-		 * tuplestore.
+		 * 首次执行时，从函数读取所有元组并放入           
+		 * tuplestore。后续调用只需从该 tuplestore        
+		 * 取元组  
 		 */
 		if (fs->tstore == NULL)
 		{
@@ -158,19 +158,19 @@ FunctionNext(FunctionScanState *node)
 											node->eflags & EXEC_FLAG_BACKWARD);
 
 			/*
-			 * paranoia - cope if the function, which may have constructed the
-			 * tuplestore itself, didn't leave it pointing at the start. This
-			 * call is fast, so the overhead shouldn't be an issue.
+			 * 防范措施 - 若函数可能自行构建了                  
+			 * tuplestore，却没有让它指向起始处，则需          
+			 * 应对。调用很快，开销应该不成问题。 
 			 */
 			tuplestore_rescan(fs->tstore);
 		}
 
 		/*
-		 * Get the next tuple from tuplestore.
+		 * 自 tuplestore 取下个元组。  
 		 *
-		 * If we have a rowcount for the function, and we know the previous
-		 * read position was out of bounds, don't try the read. This allows
-		 * backward scan to work when there are mixed row counts present.
+		 * 如果我们有该函数的行计数，且已知上一次读取 
+		 * 位置越界，则不要尝试读取。这样当存在混合行 
+		 * 计数时，向后扫描也能工作。                       
 		 */
 		if (fs->rowcount != -1 && fs->rowcount < oldpos)
 			ExecClearTuple(fs->func_slot);
@@ -183,17 +183,17 @@ FunctionNext(FunctionScanState *node)
 		if (TupIsNull(fs->func_slot))
 		{
 			/*
-			 * If we ran out of data for this function in the forward
-			 * direction then we now know how many rows it returned. We need
-			 * to know this in order to handle backwards scans. The row count
-			 * we store is actually 1+ the actual number, because we have to
-			 * position the tuplestore 1 off its end sometimes.
+			 * 如果向前方向已耗尽该函数的数据，那么
+			 * 我们现在知道它返回了多少行。我们需要知道 
+			 * 这一点以便处理向后扫描。我们存储的行计数  
+			 * 实际是真实数字加 1，因为有时我们必须把     
+			 * tuplestore 定位到其末尾之外 1 处。    
 			 */
 			if (ScanDirectionIsForward(direction) && fs->rowcount == -1)
 				fs->rowcount = node->ordinal;
 
 			/*
-			 * populate the result cols with nulls
+			 * 用 NULL 填充结果列           
 			 */
 			for (i = 0; i < fs->colcount; i++)
 			{
@@ -205,7 +205,7 @@ FunctionNext(FunctionScanState *node)
 		else
 		{
 			/*
-			 * we have a result, so just copy it to the result cols.
+			 * 已有结果时，只需将它复制到结果列。  
 			 */
 			slot_getallattrs(fs->func_slot);
 
@@ -217,15 +217,15 @@ FunctionNext(FunctionScanState *node)
 			}
 
 			/*
-			 * We're not done until every function result is exhausted; we pad
-			 * the shorter results with nulls until then.
+			 * 直到每个函数结果都耗尽才算完成；在那之前   
+			 * 我们用 NULL 填充较短的结果。   
 			 */
 			alldone = false;
 		}
 	}
 
 	/*
-	 * ordinal col is always last, per spec.
+	 * 按规范，序数列总在最后。 
 	 */
 	if (node->ordinality)
 	{
@@ -234,8 +234,8 @@ FunctionNext(FunctionScanState *node)
 	}
 
 	/*
-	 * If alldone, we just return the previously-cleared scanslot.  Otherwise,
-	 * finish creating the virtual tuple.
+	 * 若 alldone，我们只需返回之前已清空的 scanslot。         
+	 * 否则完成虚拟元组构建。 
 	 */
 	if (!alldone)
 		ExecStoreVirtualTuple(scanslot);
@@ -244,22 +244,22 @@ FunctionNext(FunctionScanState *node)
 }
 
 /*
- * FunctionRecheck -- access method routine to recheck a tuple in EvalPlanQual
+ * FunctionRecheck -- EvalPlanQual 中重新检查元组的访问方法例程 
  */
 static bool
 FunctionRecheck(FunctionScanState *node, TupleTableSlot *slot)
 {
-	/* nothing to check */
+	/* 无需检查     */
 	return true;
 }
 
 /* ----------------------------------------------------------------
  *		ExecFunctionScan(node)
  *
- *		Scans the function sequentially and returns the next qualifying
- *		tuple.
- *		We call the ExecScan() routine and pass it the appropriate
- *		access method functions.
+ *		按顺序扫描函数并返回下一个满足条件的         
+ *		元组
+ *		我们调用 ExecScan() 例程，并向它传入适当的 
+ *		访问方法函数。   
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -286,17 +286,17 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags)
 				natts;
 	ListCell   *lc;
 
-	/* check for unsupported flags */
+	/* 检查不支持的标志    */
 	Assert(!(eflags & EXEC_FLAG_MARK));
 
 	/*
-	 * FunctionScan should not have any children.
+	 * FunctionScan 不应有任何子节点。  
 	 */
 	Assert(outerPlan(node) == NULL);
 	Assert(innerPlan(node) == NULL);
 
 	/*
-	 * create new ScanState for node
+	 * 为节点创建 ScanState    
 	 */
 	scanstate = makeNode(FunctionScanState);
 	scanstate->ss.ps.plan = (Plan *) node;
@@ -305,7 +305,7 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags)
 	scanstate->eflags = eflags;
 
 	/*
-	 * are we adding an ordinality column?
+	 * 是否要添加 ordinality 列？  
 	 */
 	scanstate->ordinality = node->funcordinality;
 
@@ -316,21 +316,21 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags)
 		scanstate->simple = false;
 
 	/*
-	 * Ordinal 0 represents the "before the first row" position.
+	 * 序数 0 表示"第一行之前"的位置。             
 	 *
-	 * We need to track ordinal position even when not adding an ordinality
-	 * column to the result, in order to handle backwards scanning properly
-	 * with multiple functions with different result sizes. (We can't position
-	 * any individual function's tuplestore any more than 1 place beyond its
-	 * end, so when scanning backwards, we need to know when to start
-	 * including the function in the scan again.)
+	 * 即使不向结果添加 ordinality 列，我们也需要跟踪     
+	 * 序数位置，以便正确处理结果大小不同的多个        
+	 * 函数的向后扫描。（我们不能把任何单个函数的        
+	 * tuplestore 定位到超出其末尾 1 处以上，                   
+	 * 所以在向后扫描时，我们需要知道何时重新     
+	 * 把该函数纳入扫描。）            
 	 */
 	scanstate->ordinal = 0;
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * create expression context for node
+	 * 为节点创建表达式上下文 
 	 */
 	ExecAssignExprContext(estate, &scanstate->ss.ps);
 
@@ -352,24 +352,24 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags)
 										&scanstate->ss.ps);
 
 		/*
-		 * Don't allocate the tuplestores; the actual calls to the functions
-		 * do that.  NULL means that we have not called the function yet (or
-		 * need to call it again after a rescan).
+		 * 不要分配 tuplestore；函数的实际调用会分配。      
+		 * NULL 表示我们尚未调用该函数（或在重新扫描      
+		 * 之后需要再次调用它）。     
 		 */
 		fs->tstore = NULL;
 		fs->rowcount = -1;
 
 		/*
-		 * Now build a tupdesc showing the result type we expect from the
-		 * function.  If we have a coldeflist then that takes priority (note
-		 * the parser enforces that there is one if the function's nominal
-		 * output type is RECORD).  Otherwise use get_expr_result_type.
+		 * 现在构建一个 tupdesc，表示我们期望函数返回   
+		 * 的结果类型。如果有 coldeflist 则优先用它（注意  
+		 * 若函数的名义输出类型是 RECORD，解析器会强制  
+		 * 要求存在一个）。否则用 get_expr_result_type。   
 		 *
-		 * Note that if the function returns a named composite type, that may
-		 * now contain more or different columns than it did when the plan was
-		 * made.  For both that and the RECORD case, we need to check tuple
-		 * compatibility.  ExecMakeTableFunctionResult handles some of this,
-		 * and CheckVarSlotCompatibility provides a backstop.
+		 * 注意，如果函数返回命名的复合类型，那么它现在
+		 * 包含的列可能比制定计划时更多或有所不同。对于 
+		 * 这种情况和 RECORD 情况，我们都需要检查元组     
+		 * 兼容性。其中一部分由 ExecMakeTableFunctionResult       
+		 * 处理，CheckVarSlotCompatibility 提供兜底。
 		 */
 		if (rtfunc->funccolnames != NIL)
 		{
@@ -379,9 +379,9 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags)
 										 rtfunc->funccolcollations);
 
 			/*
-			 * For RECORD results, make sure a typmod has been assigned.  (The
-			 * function should do this for itself, but let's cover things in
-			 * case it doesn't.)
+			 * 对于 RECORD 结果，确保已为它分配 typmod。（      
+			 * 函数本应自己完成，但我们不妨加以防备，    
+			 * 以防万一）  
 			 */
 			BlessTupleDesc(tupdesc);
 		}
@@ -397,18 +397,18 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags)
 			if (functypclass == TYPEFUNC_COMPOSITE ||
 				functypclass == TYPEFUNC_COMPOSITE_DOMAIN)
 			{
-				/* Composite data type, e.g. a table's row type */
+				/* 复合数据类型，例如表的行类型   */
 				Assert(tupdesc);
-				/* Must copy it out of typcache for safety */
+				/* 为安全起见必须从 typcache 复制*/
 				tupdesc = CreateTupleDescCopy(tupdesc);
 			}
 			else if (functypclass == TYPEFUNC_SCALAR)
 			{
-				/* Base data type, i.e. scalar */
+				/* 基础类型，即标量    */
 				tupdesc = CreateTemplateTupleDesc(1);
 				TupleDescInitEntry(tupdesc,
 								   (AttrNumber) 1,
-								   NULL,	/* don't care about the name here */
+								   NULL,	/* 此处不关心名称          */
 								   funcrettype,
 								   -1,
 								   0);
@@ -418,7 +418,7 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags)
 			}
 			else
 			{
-				/* crummy error message, but parser should have caught this */
+				/* 拙劣的错误消息，但解析器本应已捕获它   */
 				elog(ERROR, "function in FROM has unsupported return type");
 			}
 		}
@@ -427,9 +427,9 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags)
 		fs->colcount = colcount;
 
 		/*
-		 * We only need separate slots for the function results if we are
-		 * doing ordinality or multiple functions; otherwise, we'll fetch
-		 * function results directly into the scan slot.
+		 * 仅当使用 ordinality 或多个函数时，我们才需要  
+		 * 为函数结果准备单独的槽；否则我们会把函数  
+		 * 结果直接取到扫描槽中。            
 		 */
 		if (!scanstate->simple)
 		{
@@ -444,11 +444,11 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * Create the combined TupleDesc
+	 * 创建组合的 TupleDesc    
 	 *
-	 * If there is just one function without ordinality, the scan result
-	 * tupdesc is the same as the function result tupdesc --- except that we
-	 * may stuff new names into it below, so drop any rowtype label.
+	 * 如果只有一个函数且没有 ordinality，扫描结果的   
+	 * tupdesc 与函数结果 tupdesc 相同 --- 只是我们稍后        
+	 * 可能向其中填入新名称，故丢弃行类型标签。 
 	 */
 	if (scanstate->simple)
 	{
@@ -475,12 +475,12 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags)
 				TupleDescCopyEntry(scan_tupdesc, ++attno, tupdesc, j);
 		}
 
-		/* If doing ordinality, add a column of type "bigint" at the end */
+		/* 如果使用 ordinality，则在末尾添加 "bigint" 列     */
 		if (node->funcordinality)
 		{
 			TupleDescInitEntry(scan_tupdesc,
 							   ++attno,
-							   NULL,	/* don't care about the name here */
+							   NULL,	/* 此处不关心名称          */
 							   INT8OID,
 							   -1,
 							   0);
@@ -490,29 +490,29 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * Initialize scan slot and type.
+	 * 初始化扫描槽和类型。
 	 */
 	ExecInitScanTupleSlot(estate, &scanstate->ss, scan_tupdesc,
 						  &TTSOpsMinimalTuple);
 
 	/*
-	 * Initialize result slot, type and projection.
+	 * 初始化结果槽、类型和投影。     
 	 */
 	ExecInitResultTypeTL(&scanstate->ss.ps);
 	ExecAssignScanProjectionInfo(&scanstate->ss);
 
 	/*
-	 * initialize child expressions
+	 * 初始化子表达式       
 	 */
 	scanstate->ss.ps.qual =
 		ExecInitQual(node->scan.plan.qual, (PlanState *) scanstate);
 
 	/*
-	 * Create a memory context that ExecMakeTableFunctionResult can use to
-	 * evaluate function arguments in.  We can't use the per-tuple context for
-	 * this because it gets reset too often; but we don't want to leak
-	 * evaluation results into the query-lifespan context either.  We just
-	 * need one context, because we evaluate each function separately.
+	 * 创建一个 ExecMakeTableFunctionResult 可用来在其中        
+	 * 求值函数参数的内存上下文。我们无法为此使用        
+	 * 每个元组上下文，因为它重置得太频繁；但我们
+	 * 也不想把求值结果泄漏到查询生命期上下文中。    
+	 * 我们只需一个上下文，因为每个函数单独求值。
 	 */
 	scanstate->argcontext = AllocSetContextCreate(CurrentMemoryContext,
 												  "Table function arguments",
@@ -524,7 +524,7 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags)
 /* ----------------------------------------------------------------
  *		ExecEndFunctionScan
  *
- *		frees any storage allocated through C routines.
+ *		释放通过 C 例程分配的所有存储。  
  * ----------------------------------------------------------------
  */
 void
@@ -533,19 +533,19 @@ ExecEndFunctionScan(FunctionScanState *node)
 	int			i;
 
 	/*
-	 * Free the exprcontext
+	 * 释放 exprcontext  
 	 */
 	ExecFreeExprContext(&node->ss.ps);
 
 	/*
-	 * clean out the tuple table
+	 * 清空元组表          
 	 */
 	if (node->ss.ps.ps_ResultTupleSlot)
 		ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
 	ExecClearTuple(node->ss.ss_ScanTupleSlot);
 
 	/*
-	 * Release slots and tuplestore resources
+	 * 释放槽和 tuplestore 资源        
 	 */
 	for (i = 0; i < node->nfuncs; i++)
 	{
@@ -565,7 +565,7 @@ ExecEndFunctionScan(FunctionScanState *node)
 /* ----------------------------------------------------------------
  *		ExecReScanFunctionScan
  *
- *		Rescans the relation.
+ *		重新扫描关系。
  * ----------------------------------------------------------------
  */
 void
@@ -588,12 +588,12 @@ ExecReScanFunctionScan(FunctionScanState *node)
 	ExecScanReScan(&node->ss);
 
 	/*
-	 * Here we have a choice whether to drop the tuplestores (and recompute
-	 * the function outputs) or just rescan them.  We must recompute if an
-	 * expression contains changed parameters, else we rescan.
+	 * 这里我们可以选择是丢弃 tuplestore（并重新计算      
+	 * 函数输出）还是只重新扫描它们。如果表达式包含 
+	 * 已更改参数则必须重算，否则重新扫描。 
 	 *
-	 * XXX maybe we should recompute if the function is volatile?  But in
-	 * general the executor doesn't conditionalize its actions on that.
+	 * XXX 若函数是 volatile，也许我们应重新计算？        
+	 * 但一般来说，执行器不会将其行为以此为条件。 
 	 */
 	if (chgparam)
 	{
@@ -617,10 +617,10 @@ ExecReScanFunctionScan(FunctionScanState *node)
 		}
 	}
 
-	/* Reset ordinality counter */
+	/* 重置序数计数器    */
 	node->ordinal = 0;
 
-	/* Make sure we rewind any remaining tuplestores */
+	/* 确保我们回退所有剩余的 tuplestore  */
 	for (i = 0; i < node->nfuncs; i++)
 	{
 		if (node->funcstates[i].tstore != NULL)

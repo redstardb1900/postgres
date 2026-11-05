@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * functions.c
- *	  Execution of SQL-language functions
+ *	  SQL 语言函数的执行。       
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -38,24 +38,24 @@
 
 
 /*
- * Specialized DestReceiver for collecting query output in a SQL function
+ * 专用的 DestReceiver，用于收集 SQL 函数的查询输出。    
  */
 typedef struct
 {
-	DestReceiver pub;			/* publicly-known function pointers */
-	Tuplestorestate *tstore;	/* where to put result tuples */
-	MemoryContext cxt;			/* context containing tstore */
-	JunkFilter *filter;			/* filter to convert tuple type */
+	DestReceiver pub;			/* 对外可见的函数指针      */
+	Tuplestorestate *tstore;	/* 结果元组的存放位置*/
+	MemoryContext cxt;			/* 包含 tstore 的上下文*/
+	JunkFilter *filter;			/* 元组类型转换过滤器  */
 } DR_sqlfunction;
 
 /*
- * We have an execution_state record for each query in a function.  Each
- * record contains a plantree for its query.  If the query is currently in
- * F_EXEC_RUN state then there's a QueryDesc too.
+ * 函数里的每个查询都有一个 execution_state 记录。       
+ * 每条记录都包含其查询的 plantree。若查询当前处于     
+ * F_EXEC_RUN 状态，则还有 QueryDesc。    
  *
- * The "next" fields chain together all the execution_state records generated
- * from a single original parsetree.  (There will only be more than one in
- * case of rule expansion of the original parsetree.)
+ * 这些 "next" 字段把由同一个原始 parsetree 生成的             
+ * 所有 execution_state 记录链接在一起。（只有在规则      
+ * 展开原始 parsetree 时才会有多条。）   
  */
 typedef enum
 {
@@ -66,71 +66,71 @@ typedef struct execution_state
 {
 	struct execution_state *next;
 	ExecStatus	status;
-	bool		setsResult;		/* true if this query produces func's result */
-	bool		lazyEval;		/* true if should fetch one row at a time */
-	PlannedStmt *stmt;			/* plan for this query */
-	QueryDesc  *qd;				/* null unless status == RUN */
+	bool		setsResult;		/* true 表示此查询产生函数结果    */
+	bool		lazyEval;		/* true 表示应一次只取一行       */
+	PlannedStmt *stmt;			/* 此查询的计划  */
+	QueryDesc  *qd;				/* status 非 RUN 时为 null*/
 } execution_state;
 
 
 /*
- * An SQLFunctionCache record is built during the first call,
- * and linked to from the fn_extra field of the FmgrInfo struct.
+ * SQLFunctionCache 记录在首次调用时构建，        
+ * 并从 FmgrInfo 结构的 fn_extra 字段链接过来。     
  *
- * Note that currently this has only the lifespan of the calling query.
- * Someday we should rewrite this code to use plancache.c to save parse/plan
- * results for longer than that.
+ * 注意：目前它的生存期只有调用查询那么长。        
+ * 将来应该重写这段代码，改用 plancache.c 以便把解析/     
+ * 规划结果存得更久。  
  *
- * Physically, though, the data has the lifespan of the FmgrInfo that's used
- * to call the function, and there are cases (particularly with indexes)
- * where the FmgrInfo might survive across transactions.  We cannot assume
- * that the parse/plan trees are good for longer than the (sub)transaction in
- * which parsing was done, so we must mark the record with the LXID/subxid of
- * its creation time, and regenerate everything if that's obsolete.  To avoid
- * memory leakage when we do have to regenerate things, all the data is kept
- * in a sub-context of the FmgrInfo's fn_mcxt.
+ * 不过从物理上说，这些数据的生存期与调用函数所用的 
+ * FmgrInfo 相同，而且有些场合（尤其是索引方面）      
+ * FmgrInfo 可能跨越事务存活。我们不能假定                 
+ * 解析/规划树的有效期长于执行解析的那个（子）          
+ * 事务，所以必须用创建时的 LXID/subxid 标记该记录，       
+ * 一旦其过时就重新生成全部数据。为避免重新生成        
+ * 时的内存泄漏，所有数据都保存在 FmgrInfo 的               
+ * fn_mcxt 的一个子上下文中。        
  */
 typedef struct
 {
-	char	   *fname;			/* function name (for error msgs) */
-	char	   *src;			/* function body text (for error msgs) */
+	char	   *fname;			/* 函数名（用于报错）    */
+	char	   *src;			/* 函数体文本（用于报错）   */
 
-	SQLFunctionParseInfoPtr pinfo;	/* data for parser callback hooks */
+	SQLFunctionParseInfoPtr pinfo;	/* 解析器回调钩子的数据 */
 
-	Oid			rettype;		/* actual return type */
-	int16		typlen;			/* length of the return type */
-	bool		typbyval;		/* true if return type is pass by value */
-	bool		returnsSet;		/* true if returning multiple rows */
-	bool		returnsTuple;	/* true if returning whole tuple result */
-	bool		shutdown_reg;	/* true if registered shutdown callback */
-	bool		readonly_func;	/* true to run in "read only" mode */
-	bool		lazyEval;		/* true if using lazyEval for result query */
+	Oid			rettype;		/* 实际返回类型 */
+	int16		typlen;			/* 返回类型的长度     */
+	bool		typbyval;		/* true 表示返回类型按值传递  */
+	bool		returnsSet;		/* true 表示返回多行         */
+	bool		returnsTuple;	/* true 表示返回整个元组结果  */
+	bool		shutdown_reg;	/* true 表示已注册关闭回调     */
+	bool		readonly_func;	/* true 则以"只读"模式运行 */
+	bool		lazyEval;		/* true 表示结果查询使用 lazyEval  */
 
-	ParamListInfo paramLI;		/* Param list representing current args */
+	ParamListInfo paramLI;		/* 代表当前参数的 Param 列表   */
 
-	Tuplestorestate *tstore;	/* where we accumulate result tuples */
+	Tuplestorestate *tstore;	/* 累积结果元组的位置       */
 
-	JunkFilter *junkFilter;		/* will be NULL if function returns VOID */
+	JunkFilter *junkFilter;		/* 若函数返回 VOID 则为 NULL      */
 
 	/*
-	 * func_state is a List of execution_state records, each of which is the
-	 * first for its original parsetree, with any additional records chained
-	 * to it via the "next" fields.  This sublist structure is needed to keep
-	 * track of where the original query boundaries are.
+	 * func_state 是一个 execution_state 记录的 List，其中每条   
+	 * 都是其原始 parsetree 的第一条，其余记录通过 "next"   
+	 * 字段链接到它。之所以需要这种子列表结构，是       
+	 * 为了追踪原始查询边界的位置。       
 	 */
 	List	   *func_state;
 
 	MemoryContext fcontext;		/* memory context holding this struct and all
 								 * subsidiary data */
 
-	LocalTransactionId lxid;	/* lxid in which cache was made */
-	SubTransactionId subxid;	/* subxid in which cache was made */
+	LocalTransactionId lxid;	/* 创建缓存时的 lxid      */
+	SubTransactionId subxid;	/* 创建缓存时的 subxid      */
 } SQLFunctionCache;
 
 typedef SQLFunctionCache *SQLFunctionCachePtr;
 
 
-/* non-export function prototypes */
+/* 非导出函数的原型       */
 static Node *sql_fn_param_ref(ParseState *pstate, ParamRef *pref);
 static Node *sql_fn_post_column_ref(ParseState *pstate,
 									ColumnRef *cref, Node *var);
@@ -165,12 +165,12 @@ static void sqlfunction_destroy(DestReceiver *self);
 
 
 /*
- * Prepare the SQLFunctionParseInfo struct for parsing a SQL function body
+ * 构建 SQLFunctionParseInfo 结构，用于解析 SQL 函数体。     
  *
- * This includes resolving actual types of polymorphic arguments.
+ * 这包括解析多态参数的实际类型。                 
  *
- * call_expr can be passed as NULL, but then we will fail if there are any
- * polymorphic arguments.
+ * call_expr 可以传 NULL，但只要存在多态参数，              
+ * 就会失败。       
  */
 SQLFunctionParseInfoPtr
 prepare_sql_fn_parse_info(HeapTuple procedureTuple,
@@ -183,15 +183,15 @@ prepare_sql_fn_parse_info(HeapTuple procedureTuple,
 
 	pinfo = (SQLFunctionParseInfoPtr) palloc0(sizeof(SQLFunctionParseInfo));
 
-	/* Function's name (only) can be used to qualify argument names */
+	/* 只有函数名可用于限定参数名                      */
 	pinfo->fname = pstrdup(NameStr(procedureStruct->proname));
 
-	/* Save the function's input collation */
+	/* 保存函数的输入排序规则   */
 	pinfo->collation = inputCollation;
 
 	/*
-	 * Copy input argument types from the pg_proc entry, then resolve any
-	 * polymorphic types.
+	 * 从 pg_proc 条目复制输入参数类型，然后解决一切   
+	 * 多态类型。   
 	 */
 	pinfo->nargs = nargs = procedureStruct->pronargs;
 	if (nargs > 0)
@@ -224,7 +224,7 @@ prepare_sql_fn_parse_info(HeapTuple procedureTuple,
 	}
 
 	/*
-	 * Collect names of arguments, too, if any
+	 * 若存在参数名，也一并收集   
 	 */
 	if (nargs > 0)
 	{
@@ -237,18 +237,18 @@ prepare_sql_fn_parse_info(HeapTuple procedureTuple,
 									  Anum_pg_proc_proargnames,
 									  &isNull);
 		if (isNull)
-			proargnames = PointerGetDatum(NULL);	/* just to be sure */
+			proargnames = PointerGetDatum(NULL);	/* 以确保无误 */
 
 		proargmodes = SysCacheGetAttr(PROCNAMEARGSNSP, procedureTuple,
 									  Anum_pg_proc_proargmodes,
 									  &isNull);
 		if (isNull)
-			proargmodes = PointerGetDatum(NULL);	/* just to be sure */
+			proargmodes = PointerGetDatum(NULL);	/* 以确保无误 */
 
 		n_arg_names = get_func_input_arg_names(proargnames, proargmodes,
 											   &pinfo->argnames);
 
-		/* Paranoia: ignore the result if too few array entries */
+		/* 偏执检查：数组条目太少时忽略结果     */
 		if (n_arg_names < nargs)
 			pinfo->argnames = NULL;
 	}
@@ -259,7 +259,7 @@ prepare_sql_fn_parse_info(HeapTuple procedureTuple,
 }
 
 /*
- * Parser setup hook for parsing a SQL function body.
+ * 解析 SQL 函数体的解析器设置钩子。   
  */
 void
 sql_fn_parser_setup(struct ParseState *pstate, SQLFunctionParseInfoPtr pinfo)
@@ -267,12 +267,12 @@ sql_fn_parser_setup(struct ParseState *pstate, SQLFunctionParseInfoPtr pinfo)
 	pstate->p_pre_columnref_hook = NULL;
 	pstate->p_post_columnref_hook = sql_fn_post_column_ref;
 	pstate->p_paramref_hook = sql_fn_param_ref;
-	/* no need to use p_coerce_param_hook */
+	/* 无需使用 p_coerce_param_hook   */
 	pstate->p_ref_hook_state = (void *) pinfo;
 }
 
 /*
- * sql_fn_post_column_ref		parser callback for ColumnRefs
+ * sql_fn_post_column_ref		ColumnRef 的解析器回调  
  */
 static Node *
 sql_fn_post_column_ref(ParseState *pstate, ColumnRef *cref, Node *var)
@@ -286,27 +286,27 @@ sql_fn_post_column_ref(ParseState *pstate, ColumnRef *cref, Node *var)
 	Node	   *param;
 
 	/*
-	 * Never override a table-column reference.  This corresponds to
-	 * considering the parameter names to appear in a scope outside the
-	 * individual SQL commands, which is what we want.
+	 * 绝不覆盖对表列的引用。这样做相当于          
+	 * 把参数名视为在各条 SQL 命令外层的作用域中，  
+	 * 而这正是我们想要的效果。           
 	 */
 	if (var != NULL)
 		return NULL;
 
 	/*----------
-	 * The allowed syntaxes are:
+	 * 允许的语法形式： 
 	 *
-	 * A		A = parameter name
-	 * A.B		A = function name, B = parameter name
-	 *			OR: A = record-typed parameter name, B = field name
-	 *			(the first possibility takes precedence)
-	 * A.B.C	A = function name, B = record-typed parameter name,
-	 *			C = field name
-	 * A.*		Whole-row reference to composite parameter A.
-	 * A.B.*	Same, with A = function name, B = parameter name
+	 * A		A = 参数名     
+	 * A.B		A = 函数名，B = 参数名        
+	 *			或：A = 记录类型参数名，B = 字段名    
+	 *			（第一种可能优先）             
+	 * A.B.C	A = 函数名，B = 记录类型参数名，       
+	 *			C = 字段名 
+	 * A.*		对复合参数 A 的整行引用。         
+	 * A.B.*	同上，但 A = 函数名，B = 参数名      
 	 *
-	 * Here, it's sufficient to ignore the "*" in the last two cases --- the
-	 * main parser will take care of expanding the whole-row reference.
+	 * 对于最后两种情况，忽略 "*" 即可，因为主解析器会 
+	 * 负责展开整行引用。                                     
 	 *----------
 	 */
 	nnames = list_length(cref->fields);
@@ -328,9 +328,9 @@ sql_fn_post_column_ref(ParseState *pstate, ColumnRef *cref, Node *var)
 	if (nnames == 3)
 	{
 		/*
-		 * Three-part name: if the first part doesn't match the function name,
-		 * we can fail immediately. Otherwise, look up the second part, and
-		 * take the third part to be a field reference.
+		 * 三段式名称：若第一段与函数名不匹配，             
+		 * 就可以立即失败。否则查找第二段，                
+		 * 并把第三段当作字段引用。        
 		 */
 		if (strcmp(name1, pinfo->fname) != 0)
 			return NULL;
@@ -343,37 +343,37 @@ sql_fn_post_column_ref(ParseState *pstate, ColumnRef *cref, Node *var)
 	else if (nnames == 2 && strcmp(name1, pinfo->fname) == 0)
 	{
 		/*
-		 * Two-part name with first part matching function name: first see if
-		 * second part matches any parameter name.
+		 * 两段式名称且第一段与函数名匹配：先看第二段   
+		 * 是否匹配某个参数名。         
 		 */
 		param = sql_fn_resolve_param_name(pinfo, name2, cref->location);
 
 		if (param)
 		{
-			/* Yes, so this is a parameter reference, no subfield */
+			/* 是，所以这是参数引用，无子字段      */
 			subfield = NULL;
 		}
 		else
 		{
-			/* No, so try to match as parameter name and subfield */
+			/* 否，尝试按参数名+子字段匹配           */
 			param = sql_fn_resolve_param_name(pinfo, name1, cref->location);
 		}
 	}
 	else
 	{
-		/* Single name, or parameter name followed by subfield */
+		/* 单一名称，或参数名后跟子字段          */
 		param = sql_fn_resolve_param_name(pinfo, name1, cref->location);
 	}
 
 	if (!param)
-		return NULL;			/* No match */
+		return NULL;			/* 无匹配*/
 
 	if (subfield)
 	{
 		/*
-		 * Must be a reference to a field of a composite parameter; otherwise
-		 * ParseFuncOrColumn will return NULL, and we'll fail back at the
-		 * caller.
+		 * 必然是对某个复合参数某字段的引用；否则         
+		 * ParseFuncOrColumn 会返回 NULL，报错发生在调用      
+		 * 方。 
 		 */
 		param = ParseFuncOrColumn(pstate,
 								  list_make1(subfield),
@@ -388,7 +388,7 @@ sql_fn_post_column_ref(ParseState *pstate, ColumnRef *cref, Node *var)
 }
 
 /*
- * sql_fn_param_ref		parser callback for ParamRefs ($n symbols)
+ * sql_fn_param_ref		ParamRefs（$n 符号）解析器回调   
  */
 static Node *
 sql_fn_param_ref(ParseState *pstate, ParamRef *pref)
@@ -396,15 +396,15 @@ sql_fn_param_ref(ParseState *pstate, ParamRef *pref)
 	SQLFunctionParseInfoPtr pinfo = (SQLFunctionParseInfoPtr) pstate->p_ref_hook_state;
 	int			paramno = pref->number;
 
-	/* Check parameter number is valid */
+	/* 检查参数编号是否有效  */
 	if (paramno <= 0 || paramno > pinfo->nargs)
-		return NULL;			/* unknown parameter number */
+		return NULL;			/* 参数编号未知       */
 
 	return sql_fn_make_param(pinfo, paramno, pref->location);
 }
 
 /*
- * sql_fn_make_param		construct a Param node for the given paramno
+ * sql_fn_make_param		为给定 paramno 构造 Param 节点       
  */
 static Node *
 sql_fn_make_param(SQLFunctionParseInfoPtr pinfo,
@@ -421,9 +421,9 @@ sql_fn_make_param(SQLFunctionParseInfoPtr pinfo,
 	param->location = location;
 
 	/*
-	 * If we have a function input collation, allow it to override the
-	 * type-derived collation for parameter symbols.  (XXX perhaps this should
-	 * not happen if the type collation is not default?)
+	 * 若有函数输入排序规则，就允许它覆盖            
+	 * 参数符号从类型派生的排序规则。（XXX 或许若类型    
+	 * 排序规则并非默认，就不该如此？） 
 	 */
 	if (OidIsValid(pinfo->collation) && OidIsValid(param->paramcollid))
 		param->paramcollid = pinfo->collation;
@@ -432,9 +432,9 @@ sql_fn_make_param(SQLFunctionParseInfoPtr pinfo,
 }
 
 /*
- * Search for a function parameter of the given name; if there is one,
- * construct and return a Param node for it.  If not, return NULL.
- * Helper function for sql_fn_post_column_ref.
+ * 按给定名字查找函数参数；若存在，                   
+ * 就为它构造并返回 Param 节点。否则返回 NULL。   
+ * sql_fn_post_column_ref 的辅助函数。  
  */
 static Node *
 sql_fn_resolve_param_name(SQLFunctionParseInfoPtr pinfo,
@@ -455,10 +455,10 @@ sql_fn_resolve_param_name(SQLFunctionParseInfoPtr pinfo,
 }
 
 /*
- * Set up the per-query execution_state records for a SQL function.
+ * 为一个 SQL 函数设置各查询的 execution_state 记录。
  *
- * The input is a List of Lists of parsed and rewritten, but not planned,
- * querytrees.  The sublist structure denotes the original query boundaries.
+ * 输入是 List 的 List，各元素是已解析并重写、           
+ * 但尚未规划的查询树。子列表结构标示原始查询边界。 
  */
 static List *
 init_execution_state(List *queryTree_list,
@@ -482,10 +482,10 @@ init_execution_state(List *queryTree_list,
 			PlannedStmt *stmt;
 			execution_state *newes;
 
-			/* Plan the query if needed */
+			/* 必要时规划查询    */
 			if (queryTree->commandType == CMD_UTILITY)
 			{
-				/* Utility commands require no planning. */
+				/* 实用命令无需规划。           */
 				stmt = makeNode(PlannedStmt);
 				stmt->commandType = CMD_UTILITY;
 				stmt->canSetTag = queryTree->canSetTag;
@@ -501,8 +501,8 @@ init_execution_state(List *queryTree_list,
 									 NULL);
 
 			/*
-			 * Precheck all commands for validity in a function.  This should
-			 * generally match the restrictions spi.c applies.
+			 * 预检查函数中各命令是否有效。一般应当与     
+			 * spi.c 施加的限制保持一致。           
 			 */
 			if (stmt->commandType == CMD_UTILITY)
 			{
@@ -527,7 +527,7 @@ init_execution_state(List *queryTree_list,
 						 errmsg("%s is not allowed in a non-volatile function",
 								CreateCommandName((Node *) stmt))));
 
-			/* OK, build the execution_state for this query */
+			/* 好，为此查询构建 execution_state     */
 			newes = (execution_state *) palloc(sizeof(execution_state));
 			if (preves)
 				preves->next = newes;
@@ -536,8 +536,8 @@ init_execution_state(List *queryTree_list,
 
 			newes->next = NULL;
 			newes->status = F_EXEC_START;
-			newes->setsResult = false;	/* might change below */
-			newes->lazyEval = false;	/* might change below */
+			newes->setsResult = false;	/* 下文可能修改 */
+			newes->lazyEval = false;	/* 下文可能修改 */
 			newes->stmt = stmt;
 			newes->qd = NULL;
 
@@ -551,18 +551,18 @@ init_execution_state(List *queryTree_list,
 	}
 
 	/*
-	 * Mark the last canSetTag query as delivering the function result; then,
-	 * if it is a plain SELECT, mark it for lazy evaluation. If it's not a
-	 * SELECT we must always run it to completion.
+	 * 把最后一个 canSetTag 查询标记为交付函数结果；        
+	 * 若它是简单 SELECT，则标记为惰性求值。若不是      
+	 * SELECT，就必须始终运行到结束。 
 	 *
-	 * Note: at some point we might add additional criteria for whether to use
-	 * lazy eval.  However, we should prefer to use it whenever the function
-	 * doesn't return set, since fetching more than one row is useless in that
-	 * case.
+	 * 注意：将来可能会增加更多判据，来决定是否           
+	 * 采用惰性求值。不过，只要函数不返回集合，         
+	 * 就应优先采用它，因为此时取出多行毫无用处。        
+	 *      
 	 *
-	 * Note: don't set setsResult if the function returns VOID, as evidenced
-	 * by not having made a junkfilter.  This ensures we'll throw away any
-	 * output from the last statement in such a function.
+	 * 注意：若函数返回 VOID，则不要设置 setsResult，        
+	 * 依据是未创建 junkfilter。这保证我们会丢弃这类     
+	 * 函数中最后一条语句的所有输出。     
 	 */
 	if (lasttages && fcache->junkFilter)
 	{
@@ -577,7 +577,7 @@ init_execution_state(List *queryTree_list,
 }
 
 /*
- * Initialize the SQLFunctionCache for a SQL function
+ * 为一个 SQL 函数初始化 SQLFunctionCache    
  */
 static void
 init_sql_fcache(FunctionCallInfo fcinfo, Oid collation, bool lazyEvalOK)
@@ -598,8 +598,8 @@ init_sql_fcache(FunctionCallInfo fcinfo, Oid collation, bool lazyEvalOK)
 	bool		isNull;
 
 	/*
-	 * Create memory context that holds all the SQLFunctionCache data.  It
-	 * must be a child of whatever context holds the FmgrInfo.
+	 * 创建容纳全部 SQLFunctionCache 数据的内存上下文。它 
+	 * 必须位于持有 FmgrInfo 的上下文之下。      
 	 */
 	fcontext = AllocSetContextCreate(finfo->fn_mcxt,
 									 "SQL function",
@@ -608,16 +608,16 @@ init_sql_fcache(FunctionCallInfo fcinfo, Oid collation, bool lazyEvalOK)
 	oldcontext = MemoryContextSwitchTo(fcontext);
 
 	/*
-	 * Create the struct proper, link it to fcontext and fn_extra.  Once this
-	 * is done, we'll be able to recover the memory after failure, even if the
-	 * FmgrInfo is long-lived.
+	 * 创建结构本身，把它链接到 fcontext 与 fn_extra。一旦   
+	 * 完成这一步，即使 FmgrInfo 长期存活，失败后也          
+	 * 能回收其内存。  
 	 */
 	fcache = (SQLFunctionCachePtr) palloc0(sizeof(SQLFunctionCache));
 	fcache->fcontext = fcontext;
 	finfo->fn_extra = (void *) fcache;
 
 	/*
-	 * get the procedure tuple corresponding to the given function Oid
+	 * 取得与给定函数 Oid 对应的过程元组                
 	 */
 	procedureTuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(foid));
 	if (!HeapTupleIsValid(procedureTuple))
@@ -625,59 +625,59 @@ init_sql_fcache(FunctionCallInfo fcinfo, Oid collation, bool lazyEvalOK)
 	procedureStruct = (Form_pg_proc) GETSTRUCT(procedureTuple);
 
 	/*
-	 * copy function name immediately for use by error reporting callback, and
-	 * for use as memory context identifier
+	 * 立刻复制函数名，供错误报告回调使用，同时也        
+	 * 作为内存上下文标识符。   
 	 */
 	fcache->fname = pstrdup(NameStr(procedureStruct->proname));
 	MemoryContextSetIdentifier(fcontext, fcache->fname);
 
 	/*
-	 * Resolve any polymorphism, obtaining the actual result type, and the
-	 * corresponding tupdesc if it's a rowtype.
+	 * 解决一切多态性，得到实际返回类型，以及对应    
+	 * 的 tupdesc（若为行类型）。     
 	 */
 	(void) get_call_result_type(fcinfo, &rettype, &rettupdesc);
 
 	fcache->rettype = rettype;
 
-	/* Fetch the typlen and byval info for the result type */
+	/* 获取结果类型的 typlen 与 byval 信息       */
 	get_typlenbyval(rettype, &fcache->typlen, &fcache->typbyval);
 
-	/* Remember whether we're returning setof something */
+	/* 记住我们是否正在返回 setof 结果      */
 	fcache->returnsSet = procedureStruct->proretset;
 
-	/* Remember if function is STABLE/IMMUTABLE */
+	/* 记住函数是否 STABLE/IMMUTABLE      */
 	fcache->readonly_func =
 		(procedureStruct->provolatile != PROVOLATILE_VOLATILE);
 
 	/*
-	 * We need the actual argument types to pass to the parser.  Also make
-	 * sure that parameter symbols are considered to have the function's
-	 * resolved input collation.
+	 * 我们需要把实际参数类型传给解析器。另外还要    
+	 * 确保参数符号被视为具有该函数已确定的输入     
+	 * 排序规则。          
 	 */
 	fcache->pinfo = prepare_sql_fn_parse_info(procedureTuple,
 											  finfo->fn_expr,
 											  collation);
 
 	/*
-	 * And of course we need the function body text.
+	 * 当然我们还需要函数体文本。      
 	 */
 	tmp = SysCacheGetAttrNotNull(PROCOID, procedureTuple, Anum_pg_proc_prosrc);
 	fcache->src = TextDatumGetCString(tmp);
 
-	/* If we have prosqlbody, pay attention to that not prosrc. */
+	/* 若有 prosqlbody，则关注它而非 prosrc。         */
 	tmp = SysCacheGetAttr(PROCOID,
 						  procedureTuple,
 						  Anum_pg_proc_prosqlbody,
 						  &isNull);
 
 	/*
-	 * Parse and rewrite the queries in the function text.  Use sublists to
-	 * keep track of the original query boundaries.
+	 * 解析并重写函数文本中的查询。使用子列表来        
+	 * 记录原始查询的边界。              
 	 *
-	 * Note: since parsing and planning is done in fcontext, we will generate
-	 * a lot of cruft that lives as long as the fcache does.  This is annoying
-	 * but we'll not worry about it until the module is rewritten to use
-	 * plancache.c.
+	 * 注意：解析和规划都在 fcontext 中进行，故会产生      
+	 * 大量与 fcache 存活期一样长的垃圾。这很烦人，         
+	 * 但在该模块被重写为使用 plancache.c 之前，我们    
+	 * 不管它。
 	 */
 	queryTree_list = NIL;
 	if (!isNull)
@@ -722,27 +722,27 @@ init_sql_fcache(FunctionCallInfo fcinfo, Oid collation, bool lazyEvalOK)
 	}
 
 	/*
-	 * Check that there are no statements we don't want to allow.
+	 * 检查是否存在不允许出现的语句。             
 	 */
 	check_sql_fn_statements(queryTree_list);
 
 	/*
-	 * Check that the function returns the type it claims to.  Although in
-	 * simple cases this was already done when the function was defined, we
-	 * have to recheck because database objects used in the function's queries
-	 * might have changed type.  We'd have to recheck anyway if the function
-	 * had any polymorphic arguments.  Moreover, check_sql_fn_retval takes
-	 * care of injecting any required column type coercions.  (But we don't
-	 * ask it to insert nulls for dropped columns; the junkfilter handles
-	 * that.)
+	 * 检查函数返回的类型确实就是其声称的类型。虽然 
+	 * 简单情形下这已在函数定义时做过，但我们必须重  
+	 * 新检查，因为函数查询中用到的数据库对象可能        
+	 * 已改变类型。若带多态参数反正也得重新检查。      
+	 * 此外，check_sql_fn_retval 会负责注入所需的列           
+	 * 转换。但我们并不要求它为被删除的列插入           
+	 * 空值；那由 junkfilter 处理                                 
+	 * 了。
 	 *
-	 * Note: we set fcache->returnsTuple according to whether we are returning
-	 * the whole tuple result or just a single column.  In the latter case we
-	 * clear returnsTuple because we need not act different from the scalar
-	 * result case, even if it's a rowtype column.  (However, we have to force
-	 * lazy eval mode in that case; otherwise we'd need extra code to expand
-	 * the rowtype column into multiple columns, since we have no way to
-	 * notify the caller that it should do that.)
+	 * 注意：我们根据返回的是整个元组结果还是单列，     
+	 * 来设置 fcache->returnsTuple。对后一种情形我们会清除    
+	 * returnsTuple，因为无需在标量结果情形之外表现不同  
+	 * 行为，即使它是行类型列。（不过该情形下必须强     
+	 * 制 lazy eval 模式；否则需额外代码把行类型列展开    
+	 * 成多列，因为我们没有办法通知调用者自行        
+	 * 展开。）                              
 	 */
 	fcache->returnsTuple = check_sql_fn_retval_ext(queryTree_list,
 												   rettype,
@@ -752,11 +752,11 @@ init_sql_fcache(FunctionCallInfo fcinfo, Oid collation, bool lazyEvalOK)
 												   &resulttlist);
 
 	/*
-	 * Construct a JunkFilter we can use to coerce the returned rowtype to the
-	 * desired form, unless the result type is VOID, in which case there's
-	 * nothing to coerce to.  (XXX Frequently, the JunkFilter isn't doing
-	 * anything very interesting, but much of this module expects it to be
-	 * there anyway.)
+	 * 构造一个 JunkFilter，用来把返回的行类型强转为         
+	 * 所需形式；若结果类型是 VOID，则没有可强转        
+	 * 的目标。（XXX 很多时候 JunkFilter 并没做              
+	 * 什么要紧事，但本模块的许多部分仍然期待它在    
+	 * 那里。）  
 	 */
 	if (rettype != VOIDOID)
 	{
@@ -764,12 +764,12 @@ init_sql_fcache(FunctionCallInfo fcinfo, Oid collation, bool lazyEvalOK)
 														&TTSOpsMinimalTuple);
 
 		/*
-		 * If the result is composite, *and* we are returning the whole tuple
-		 * result, we need to insert nulls for any dropped columns.  In the
-		 * single-column-result case, there might be dropped columns within
-		 * the composite column value, but it's not our problem here.  There
-		 * should be no resjunk entries in resulttlist, so in the second case
-		 * the JunkFilter is certainly a no-op.
+		 * 若结果为复合类型且我们返回整个元组结果，      
+		 * 就需要为已删除的列插入空值。在单列结果       
+		 * 情形中，复合列值内部可能也有已删除的列，但 
+		 * 不是我们此处要关心的问题。另外 resulttlist        
+		 * 中不应有 resjunk 项，所以在第二种情形下            
+		 * JunkFilter 必然是空操作。    
 		 */
 		if (rettupdesc && fcache->returnsTuple)
 			fcache->junkFilter = ExecInitJunkFilterConversion(resulttlist,
@@ -781,26 +781,26 @@ init_sql_fcache(FunctionCallInfo fcinfo, Oid collation, bool lazyEvalOK)
 
 	if (fcache->returnsTuple)
 	{
-		/* Make sure output rowtype is properly blessed */
+		/* 确保输出行类型被正确祝福         */
 		BlessTupleDesc(fcache->junkFilter->jf_resultSlot->tts_tupleDescriptor);
 	}
 	else if (fcache->returnsSet && type_is_rowtype(fcache->rettype))
 	{
 		/*
-		 * Returning rowtype as if it were scalar --- materialize won't work.
-		 * Right now it's sufficient to override any caller preference for
-		 * materialize mode, but to add more smarts in init_execution_state
-		 * about this, we'd probably need a three-way flag instead of bool.
+		 * 把行类型当作标量返回 --- 物化模式行不通。       
+		 * 目前覆盖调用者对物化模式的偏好即可，但要在
+		 * init_execution_state 中为此加入更多智能，就多半    
+		 * 需要用三态标志替代 bool。                             
 		 */
 		lazyEvalOK = true;
 	}
 
-	/* Finally, plan the queries */
+	/* 最后规划这些查询  */
 	fcache->func_state = init_execution_state(queryTree_list,
 											  fcache,
 											  lazyEvalOK);
 
-	/* Mark fcache with time of creation to show it's valid */
+	/* 在 fcache 上标记创建时间以表明其有效   */
 	fcache->lxid = MyProc->lxid;
 	fcache->subxid = GetCurrentSubTransactionId();
 
@@ -809,7 +809,7 @@ init_sql_fcache(FunctionCallInfo fcinfo, Oid collation, bool lazyEvalOK)
 	MemoryContextSwitchTo(oldcontext);
 }
 
-/* Start up execution of one execution_state node */
+/* 启动一个 execution_state 节点的执行   */
 static void
 postquel_start(execution_state *es, SQLFunctionCachePtr fcache)
 {
@@ -817,19 +817,19 @@ postquel_start(execution_state *es, SQLFunctionCachePtr fcache)
 
 	Assert(es->qd == NULL);
 
-	/* Caller should have ensured a suitable snapshot is active */
+	/* 调用者应已确保有合适的快照处于活动状态*/
 	Assert(ActiveSnapshotSet());
 
 	/*
-	 * If this query produces the function result, send its output to the
-	 * tuplestore; else discard any output.
+	 * 若此查询产生函数结果，就把其输出发送到         
+	 * tuplestore，否则丢弃输出。  
 	 */
 	if (es->setsResult)
 	{
 		DR_sqlfunction *myState;
 
 		dest = CreateDestReceiver(DestSQLFunction);
-		/* pass down the needed info to the dest receiver routines */
+		/* 把所需信息向下传递给目标接收器例程     */
 		myState = (DR_sqlfunction *) dest;
 		Assert(myState->pub.mydest == DestSQLFunction);
 		myState->tstore = fcache->tstore;
@@ -848,30 +848,30 @@ postquel_start(execution_state *es, SQLFunctionCachePtr fcache)
 							 es->qd ? es->qd->queryEnv : NULL,
 							 0);
 
-	/* Utility commands don't need Executor. */
+	/* 实用命令不需要 Executor。     */
 	if (es->qd->operation != CMD_UTILITY)
 	{
 		/*
-		 * In lazyEval mode, do not let the executor set up an AfterTrigger
-		 * context.  This is necessary not just an optimization, because we
-		 * mustn't exit from the function execution with a stacked
-		 * AfterTrigger level still active.  We are careful not to select
-		 * lazyEval mode for any statement that could possibly queue triggers.
+		 * 在 lazyEval 模式下，不让执行器建立 AfterTrigger     
+		 * 上下文。这不仅是优化，而且是必要的，因为    
+		 * 绝不能在 AfterTrigger 层活跃时退出执行。  
+		 * 对任何可能排队触发器的语句都小心地避开     
+		 * lazyEval 模式。                                                 
 		 */
 		int			eflags;
 
 		if (es->lazyEval)
 			eflags = EXEC_FLAG_SKIP_TRIGGERS;
 		else
-			eflags = 0;			/* default run-to-completion flags */
+			eflags = 0;			/* 默认的运行到完成标志  */
 		ExecutorStart(es->qd, eflags);
 	}
 
 	es->status = F_EXEC_RUN;
 }
 
-/* Run one execution_state; either to completion or to first result row */
-/* Returns true if we ran to completion */
+/* 运行一个 execution_state：跑完或到首个结果行为止     */
+/* 若已运行到完成则返回真    */
 static bool
 postquel_getnext(execution_state *es, SQLFunctionCachePtr fcache)
 {
@@ -881,24 +881,24 @@ postquel_getnext(execution_state *es, SQLFunctionCachePtr fcache)
 	{
 		ProcessUtility(es->qd->plannedstmt,
 					   fcache->src,
-					   true,	/* protect function cache's parsetree */
+					   true,	/* 保护函数缓存的解析树     */
 					   PROCESS_UTILITY_QUERY,
 					   es->qd->params,
 					   es->qd->queryEnv,
 					   es->qd->dest,
 					   NULL);
-		result = true;			/* never stops early */
+		result = true;			/* 从不过早停止*/
 	}
 	else
 	{
-		/* Run regular commands to completion unless lazyEval */
+		/* 除非 lazyEval，否则常规命令运行到完成*/
 		uint64		count = (es->lazyEval) ? 1 : 0;
 
 		ExecutorRun(es->qd, ForwardScanDirection, count, !fcache->returnsSet || !es->lazyEval);
 
 		/*
-		 * If we requested run to completion OR there was no tuple returned,
-		 * command must be complete.
+		 * 若我们请求了运行到完成，或没有返回元组，     
+		 * 命令必定已完成。 
 		 */
 		result = (count == 0 || es->qd->estate->es_processed == 0);
 	}
@@ -906,14 +906,14 @@ postquel_getnext(execution_state *es, SQLFunctionCachePtr fcache)
 	return result;
 }
 
-/* Shut down execution of one execution_state node */
+/* 关闭一个 execution_state 节点的执行    */
 static void
 postquel_end(execution_state *es)
 {
-	/* mark status done to ensure we don't do ExecutorEnd twice */
+	/* 标记状态为完成，以免 ExecutorEnd 执行两次  */
 	es->status = F_EXEC_DONE;
 
-	/* Utility commands don't need Executor. */
+	/* 实用命令不需要 Executor。     */
 	if (es->qd->operation != CMD_UTILITY)
 	{
 		ExecutorFinish(es->qd);
@@ -926,7 +926,7 @@ postquel_end(execution_state *es)
 	es->qd = NULL;
 }
 
-/* Build ParamListInfo array representing current arguments */
+/* 构建表示当前参数的 ParamListInfo 数组         */
 static void
 postquel_sub_params(SQLFunctionCachePtr fcache,
 					FunctionCallInfo fcinfo)
@@ -954,16 +954,16 @@ postquel_sub_params(SQLFunctionCachePtr fcache,
 			ParamExternData *prm = &paramLI->params[i];
 
 			/*
-			 * If an incoming parameter value is a R/W expanded datum, we
-			 * force it to R/O.  We'd be perfectly entitled to scribble on it,
-			 * but the problem is that if the parameter is referenced more
-			 * than once in the function, earlier references might mutate the
-			 * value seen by later references, which won't do at all.  We
-			 * could do better if we could be sure of the number of Param
-			 * nodes in the function's plans; but we might not have planned
-			 * all the statements yet, nor do we have plan tree walker
-			 * infrastructure.  (Examining the parse trees is not good enough,
-			 * because of possible function inlining during planning.)
+			 * 如果传入参数值是 R/W 展开型 datum，我们会  
+			 * 强制它变为 R/O。我们完全有权涂写它，但        
+			 * 问题在于函数中参数被多次引用时，前面的  
+			 * 引用可能改变后面引用所见值，这完全不行。  
+			 * 我们能确定函数计划中 Param 节点的数目，   
+			 * 本可以做得更好；但我们可能尚未规划所有 
+			 * 语句，也没有遍历计划树的设施。（只看      
+			 * 解析树不足以判断，因为规划时可能发生 
+			 * 函数内联                                                   
+			 * 所致。）                                           
 			 */
 			prm->isnull = fcinfo->args[i].isnull;
 			prm->value = MakeExpandedObjectReadOnly(fcinfo->args[i].value,
@@ -978,9 +978,9 @@ postquel_sub_params(SQLFunctionCachePtr fcache,
 }
 
 /*
- * Extract the SQL function's value from a single result row.  This is used
- * both for scalar (non-set) functions and for each row of a lazy-eval set
- * result.
+ * 从单个结果行提取 SQL 函数的值。这既用于标量（非集 
+ * 合）函数，也用于惰性求值集合的每一行结              
+ * 果。 
  */
 static Datum
 postquel_get_single_result(TupleTableSlot *slot,
@@ -992,24 +992,24 @@ postquel_get_single_result(TupleTableSlot *slot,
 	MemoryContext oldcontext;
 
 	/*
-	 * Set up to return the function value.  For pass-by-reference datatypes,
-	 * be sure to allocate the result in resultcontext, not the current memory
-	 * context (which has query lifespan).  We can't leave the data in the
-	 * TupleTableSlot because we intend to clear the slot before returning.
+	 * 准备返回函数值。对于引用传递的数据类型，务必把 
+	 * 结果分配到 resultcontext 中，而不是当前内存上下文     
+	 * （其生命周期为查询期）。我们不能把数据留在    
+	 * TupleTableSlot 中，因为我们打算在返回前清空该槽。  
 	 */
 	oldcontext = MemoryContextSwitchTo(resultcontext);
 
 	if (fcache->returnsTuple)
 	{
-		/* We must return the whole tuple as a Datum. */
+		/* 必须以 Datum 返回整个元组。      */
 		fcinfo->isnull = false;
 		value = ExecFetchSlotHeapTupleDatum(slot);
 	}
 	else
 	{
 		/*
-		 * Returning a scalar, which we have to extract from the first column
-		 * of the SELECT result, and then copy into result context if needed.
+		 * 返回标量：需要从 SELECT 结果的第一列中提取它， 
+		 * 然后视需要复制到结果上下文中。                     
 		 */
 		value = slot_getattr(slot, 1, &(fcinfo->isnull));
 
@@ -1023,7 +1023,7 @@ postquel_get_single_result(TupleTableSlot *slot,
 }
 
 /*
- * fmgr_sql: function call manager for SQL functions
+ * fmgr_sql：SQL 函数的函数调用管理器    
  */
 Datum
 fmgr_sql(PG_FUNCTION_ARGS)
@@ -1042,23 +1042,23 @@ fmgr_sql(PG_FUNCTION_ARGS)
 	ListCell   *eslc;
 
 	/*
-	 * Setup error traceback support for ereport()
+	 * 为 ereport() 设置错误回溯支持     
 	 */
 	sqlerrcontext.callback = sql_exec_error_callback;
 	sqlerrcontext.arg = fcinfo->flinfo;
 	sqlerrcontext.previous = error_context_stack;
 	error_context_stack = &sqlerrcontext;
 
-	/* Check call context */
+	/* 查调用上下文 */
 	if (fcinfo->flinfo->fn_retset)
 	{
 		ReturnSetInfo *rsi = (ReturnSetInfo *) fcinfo->resultinfo;
 
 		/*
-		 * For simplicity, we require callers to support both set eval modes.
-		 * There are cases where we must use one or must use the other, and
-		 * it's not really worthwhile to postpone the check till we know. But
-		 * note we do not require caller to provide an expectedDesc.
+		 * 为简单起见，要求调用者支持两种集合求值模式。
+		 * 有的情形必须用这种，有的必须用那种，而要等 
+		 * 确认之后再检查并不值得。但请注意我们并不要求
+		 * 调用者提供 expectedDesc。                          
 		 */
 		if (!rsi || !IsA(rsi, ReturnSetInfo) ||
 			(rsi->allowedModes & SFRM_ValuePerCall) == 0 ||
@@ -1076,8 +1076,8 @@ fmgr_sql(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Initialize fcache (build plans) if first time through; or re-initialize
-	 * if the cache is stale.
+	 * 若是首次执行则初始化 fcache（构建计划）；若缓存    
+	 * 已过期则重建。 
 	 */
 	fcache = (SQLFunctionCachePtr) fcinfo->flinfo->fn_extra;
 
@@ -1086,7 +1086,7 @@ fmgr_sql(PG_FUNCTION_ARGS)
 		if (fcache->lxid != MyProc->lxid ||
 			!SubTransactionIsActive(fcache->subxid))
 		{
-			/* It's stale; unlink and delete */
+			/* 过期；解除链接并删除*/
 			fcinfo->flinfo->fn_extra = NULL;
 			MemoryContextDelete(fcache->fcontext);
 			fcache = NULL;
@@ -1100,17 +1100,17 @@ fmgr_sql(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Switch to context in which the fcache lives.  This ensures that our
-	 * tuplestore etc will have sufficient lifetime.  The sub-executor is
-	 * responsible for deleting per-tuple information.  (XXX in the case of a
-	 * long-lived FmgrInfo, this policy represents more memory leakage, but
-	 * it's not entirely clear where to keep stuff instead.)
+	 * 切换到 fcache 所在的上下文。这确保我们的           
+	 * tuplestore 等拥有足够的生存期。子执行器负责删除 
+	 * 每元组信息。（XXX 对于长生命周期的 FmgrInfo，这一   
+	 * 策略意味着更多的内存泄漏，但并不完全清楚应把  
+	 * 这些东西改存何处。                          
 	 */
 	oldcontext = MemoryContextSwitchTo(fcache->fcontext);
 
 	/*
-	 * Find first unfinished query in function, and note whether it's the
-	 * first query.
+	 * 找出函数中第一个未完成的查询，并注明它是否   
+	 * 为首个。
 	 */
 	eslist = fcache->func_state;
 	es = NULL;
@@ -1130,36 +1130,36 @@ fmgr_sql(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Convert params to appropriate format if starting a fresh execution. (If
-	 * continuing execution, we can re-use prior params.)
+	 * 如果开始全新执行，则把参数转换为适当格式。（若  
+	 * 继续执行，则可复用先前的参数。）  
 	 */
 	if (is_first && es && es->status == F_EXEC_START)
 		postquel_sub_params(fcache, fcinfo);
 
 	/*
-	 * Build tuplestore to hold results, if we don't have one already. Note
-	 * it's in the query-lifespan context.
+	 * 如果尚无 tuplestore，则构建一个来存放结果。注意   
+	 * 位于查询生存期上下文。  
 	 */
 	if (!fcache->tstore)
 		fcache->tstore = tuplestore_begin_heap(randomAccess, false, work_mem);
 
 	/*
-	 * Execute each command in the function one after another until we either
-	 * run out of commands or get a result row from a lazily-evaluated SELECT.
+	 * 依次执行函数中的每条命令，直到命令用尽，或者从 
+	 * 惰性求值的 SELECT 中得到一个结果行为止。               
 	 *
-	 * Notes about snapshot management:
+	 * 关于快照管理的说明：  
 	 *
-	 * In a read-only function, we just use the surrounding query's snapshot.
+	 * 在只读函数中，我们直接使用外围查询的快照。       
 	 *
-	 * In a non-read-only function, we rely on the fact that we'll never
-	 * suspend execution between queries of the function: the only reason to
-	 * suspend execution before completion is if we are returning a row from a
-	 * lazily-evaluated SELECT.  So, when first entering this loop, we'll
-	 * either start a new query (and push a fresh snapshot) or re-establish
-	 * the active snapshot from the existing query descriptor.  If we need to
-	 * start a new query in a subsequent execution of the loop, either we need
-	 * a fresh snapshot (and pushed_snapshot is false) or the existing
-	 * snapshot is on the active stack and we can just bump its command ID.
+	 * 在非只读函数中，我们依赖这一事实：绝不会     
+	 * 在函数的查询之间暂停执行：在完成之前暂停执行   
+	 * 的唯一原因是从一个惰性求值的 SELECT 返回一行。      
+	 * 因此首次进入该循环时，我们要么启动新查询（并
+	 * 压入新快照），要么从现有查询描述符重新建立活  
+	 * 动快照。如果在后续循环执行中需要启动新查询，    
+	 * 那么要么需要新快照（且 pushed_snapshot 为假），         
+	 * 要么现有快照位于活动栈上，我们只需提升它的
+	 * 命令 ID。                                                        
 	 */
 	pushed_snapshot = false;
 	while (es)
@@ -1169,10 +1169,10 @@ fmgr_sql(PG_FUNCTION_ARGS)
 		if (es->status == F_EXEC_START)
 		{
 			/*
-			 * If not read-only, be sure to advance the command counter for
-			 * each command, so that all work to date in this transaction is
-			 * visible.  Take a new snapshot if we don't have one yet,
-			 * otherwise just bump the command ID in the existing snapshot.
+			 * 若非只读，务必为每条命令递增命令计数器，
+			 * 使本事务中到目前为止的所有工作都可见。    
+			 * 如果还没有快照，则取一个新快照；       
+			 * 否则只需提升现有快照中的命令 ID。            
 			 */
 			if (!fcache->readonly_func)
 			{
@@ -1190,7 +1190,7 @@ fmgr_sql(PG_FUNCTION_ARGS)
 		}
 		else if (!fcache->readonly_func && !pushed_snapshot)
 		{
-			/* Re-establish active snapshot when re-entering function */
+			/* 重新进入函数时重建活动快照                */
 			PushActiveSnapshot(es->qd->snapshot);
 			pushed_snapshot = true;
 		}
@@ -1198,45 +1198,45 @@ fmgr_sql(PG_FUNCTION_ARGS)
 		completed = postquel_getnext(es, fcache);
 
 		/*
-		 * If we ran the command to completion, we can shut it down now. Any
-		 * row(s) we need to return are safely stashed in the tuplestore, and
-		 * we want to be sure that, for example, AFTER triggers get fired
-		 * before we return anything.  Also, if the function doesn't return
-		 * set, we can shut it down anyway because it must be a SELECT and we
-		 * don't care about fetching any more result rows.
+		 * 如果命令已运行到完成，现在就可以关闭它。     
+		 * 需要返回的各行都已安全存入 tuplestore，而我们    
+		 * 希望确保例如 AFTER 触发器在我们返回任何结果 
+		 * 之前已被触发。另外若函数不返回集合，我们    
+		 * 也照样可以将其关闭，因为它必定是 SELECT，而且  
+		 * 我们不关心获取更多结果行。        
 		 */
 		if (completed || !fcache->returnsSet)
 			postquel_end(es);
 
 		/*
-		 * Break from loop if we didn't shut down (implying we got a
-		 * lazily-evaluated row).  Otherwise we'll press on till the whole
-		 * function is done, relying on the tuplestore to keep hold of the
-		 * data to eventually be returned.  This is necessary since an
-		 * INSERT/UPDATE/DELETE RETURNING that sets the result might be
-		 * followed by additional rule-inserted commands, and we want to
-		 * finish doing all those commands before we return anything.
+		 * 若没有关闭则跳出循环（这意味着得到了   
+		 * 一个惰性求值的行）。否则我们会继续推进直到
+		 * 整个函数跑完，依赖 tuplestore 保管最终要         
+		 * 返回的数据。这是必要的，因为设置结果的  
+		 * INSERT/UPDATE/DELETE RETURNING 之后可能还              
+		 * 有规则插入的额外命令，我们希望在返回任何 
+		 * 结果之前把所有这些命令都执行完毕。       
 		 */
 		if (es->status != F_EXEC_DONE)
 			break;
 
 		/*
-		 * Advance to next execution_state, which might be in the next list.
+		 * 前进到下一 execution_state（可能在下个列表）       
 		 */
 		es = es->next;
 		while (!es)
 		{
 			eslc = lnext(eslist, eslc);
 			if (!eslc)
-				break;			/* end of function */
+				break;			/* 函数结束    */
 
 			es = (execution_state *) lfirst(eslc);
 
 			/*
-			 * Flush the current snapshot so that we will take a new one for
-			 * the new query list.  This ensures that new snaps are taken at
-			 * original-query boundaries, matching the behavior of interactive
-			 * execution.
+			 * 冲刷当前快照，以便为新查询列表取新快照。 
+			 * 这确保在原始查询边界处取新快照，与交互式 
+			 * 执行的行为保持                                          
+			 * 一致。 
 			 */
 			if (pushed_snapshot)
 			{
@@ -1247,7 +1247,7 @@ fmgr_sql(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * The tuplestore now contains whatever row(s) we are supposed to return.
+	 * tuplestore 现在包含着我们应返回的所有行。              
 	 */
 	if (fcache->returnsSet)
 	{
@@ -1256,30 +1256,30 @@ fmgr_sql(PG_FUNCTION_ARGS)
 		if (es)
 		{
 			/*
-			 * If we stopped short of being done, we must have a lazy-eval
-			 * row.
+			 * 若未等完成就停下，手里必有一个惰性求值  
+			 * 行 
 			 */
 			Assert(es->lazyEval);
-			/* Re-use the junkfilter's output slot to fetch back the tuple */
+			/* 复用 junkfilter 的输出槽来取回元组               */
 			Assert(fcache->junkFilter);
 			slot = fcache->junkFilter->jf_resultSlot;
 			if (!tuplestore_gettupleslot(fcache->tstore, true, false, slot))
 				elog(ERROR, "failed to fetch lazy-eval tuple");
-			/* Extract the result as a datum, and copy out from the slot */
+			/* 提取结果为 datum，并从槽复制出来             */
 			result = postquel_get_single_result(slot, fcinfo,
 												fcache, oldcontext);
-			/* Clear the tuplestore, but keep it for next time */
-			/* NB: this might delete the slot's content, but we don't care */
+			/* 清空 tuplestore，但保留它供下次使用 */
+			/* 注意：这可能删除槽的内容，但我们不在乎   */
 			tuplestore_clear(fcache->tstore);
 
 			/*
-			 * Let caller know we're not finished.
+			 * 让调用者知道还未完成。  
 			 */
 			rsi->isDone = ExprMultipleResult;
 
 			/*
-			 * Ensure we will get shut down cleanly if the exprcontext is not
-			 * run to completion.
+			 * 确保即使 exprcontext 未跑完也能被干净地          
+			 * 关闭。         
 			 */
 			if (!fcache->shutdown_reg)
 			{
@@ -1292,19 +1292,19 @@ fmgr_sql(PG_FUNCTION_ARGS)
 		else if (fcache->lazyEval)
 		{
 			/*
-			 * We are done with a lazy evaluation.  Clean up.
+			 * 我们已完成惰性求值。请清理。    
 			 */
 			tuplestore_clear(fcache->tstore);
 
 			/*
-			 * Let caller know we're finished.
+			 * 让调用者知道已完成。 
 			 */
 			rsi->isDone = ExprEndResult;
 
 			fcinfo->isnull = true;
 			result = (Datum) 0;
 
-			/* Deregister shutdown callback, if we made one */
+			/* 若注册过关闭回调，则将其注销   */
 			if (fcache->shutdown_reg)
 			{
 				UnregisterExprContextCallback(rsi->econtext,
@@ -1316,21 +1316,21 @@ fmgr_sql(PG_FUNCTION_ARGS)
 		else
 		{
 			/*
-			 * We are done with a non-lazy evaluation.  Return whatever is in
-			 * the tuplestore.  (It is now caller's responsibility to free the
-			 * tuplestore when done.)
+			 * 我们完成了一次非惰性求值。返回 tuplestore 中  
+			 * 的全部内容。（现在释放 tuplestore 是调用者      
+			 * 的责任。）       
 			 */
 			rsi->returnMode = SFRM_Materialize;
 			rsi->setResult = fcache->tstore;
 			fcache->tstore = NULL;
-			/* must copy desc because execSRF.c will free it */
+			/* 必须复制 desc（execSRF.c 会释放它） */
 			if (fcache->junkFilter)
 				rsi->setDesc = CreateTupleDescCopy(fcache->junkFilter->jf_cleanTupType);
 
 			fcinfo->isnull = true;
 			result = (Datum) 0;
 
-			/* Deregister shutdown callback, if we made one */
+			/* 若注册过关闭回调，则将其注销   */
 			if (fcache->shutdown_reg)
 			{
 				UnregisterExprContextCallback(rsi->econtext,
@@ -1343,11 +1343,11 @@ fmgr_sql(PG_FUNCTION_ARGS)
 	else
 	{
 		/*
-		 * Non-set function.  If we got a row, return it; else return NULL.
+		 * 非集合函数。若有行则返回它；否则返回 NULL。  
 		 */
 		if (fcache->junkFilter)
 		{
-			/* Re-use the junkfilter's output slot to fetch back the tuple */
+			/* 复用 junkfilter 的输出槽来取回元组               */
 			slot = fcache->junkFilter->jf_resultSlot;
 			if (tuplestore_gettupleslot(fcache->tstore, true, false, slot))
 				result = postquel_get_single_result(slot, fcinfo,
@@ -1360,23 +1360,23 @@ fmgr_sql(PG_FUNCTION_ARGS)
 		}
 		else
 		{
-			/* Should only get here for VOID functions and procedures */
+			/* 只有 VOID 函数和过程才会走到这里          */
 			Assert(fcache->rettype == VOIDOID);
 			fcinfo->isnull = true;
 			result = (Datum) 0;
 		}
 
-		/* Clear the tuplestore, but keep it for next time */
+		/* 清空 tuplestore，但保留它供下次使用 */
 		tuplestore_clear(fcache->tstore);
 	}
 
-	/* Pop snapshot if we have pushed one */
+	/* 若已压入快照则弹出        */
 	if (pushed_snapshot)
 		PopActiveSnapshot();
 
 	/*
-	 * If we've gone through every command in the function, we are done. Reset
-	 * the execution states to start over again on next call.
+	 * 若已执行完函数中的每条命令，那么就完成了。重置  
+	 * 各执行状态，以便下次调用时从头再来。
 	 */
 	if (es == NULL)
 	{
@@ -1400,7 +1400,7 @@ fmgr_sql(PG_FUNCTION_ARGS)
 
 
 /*
- * error context callback to let us supply a call-stack traceback
+ * 错误上下文回调，让我们能够提供调用栈回溯  
  */
 static void
 sql_exec_error_callback(void *arg)
@@ -1410,14 +1410,14 @@ sql_exec_error_callback(void *arg)
 	int			syntaxerrposition;
 
 	/*
-	 * We can do nothing useful if init_sql_fcache() didn't get as far as
-	 * saving the function name
+	 * 如果 init_sql_fcache() 尚未进展到保存函数名，        
+	 * 我们便无能为力。
 	 */
 	if (fcache == NULL || fcache->fname == NULL)
 		return;
 
 	/*
-	 * If there is a syntax error position, convert to internal syntax error
+	 * 若存在语法错误位置信息，则转换为内部语法错误。
 	 */
 	syntaxerrposition = geterrposition();
 	if (syntaxerrposition > 0 && fcache->src != NULL)
@@ -1428,10 +1428,10 @@ sql_exec_error_callback(void *arg)
 	}
 
 	/*
-	 * Try to determine where in the function we failed.  If there is a query
-	 * with non-null QueryDesc, finger it.  (We check this rather than looking
-	 * for F_EXEC_RUN state, so that errors during ExecutorStart or
-	 * ExecutorEnd are blamed on the appropriate query; see postquel_start and
+	 * 尝试确定我们在函数中何处失败。若存在 QueryDesc      
+	 * 非空的查询，就指向它。（我们检查这一点而非寻找  
+	 * F_EXEC_RUN 状态，这样 ExecutorStart 或 ExecutorEnd    
+	 * 期间的错误能归咎于相应的查询；参见 postquel_start 和 
 	 * postquel_end.)
 	 */
 	if (fcache->func_state)
@@ -1462,8 +1462,8 @@ sql_exec_error_callback(void *arg)
 		if (es == NULL)
 		{
 			/*
-			 * couldn't identify a running query; might be function entry,
-			 * function exit, or between queries.
+			 * 无法识别运行中的查询；可能是函数入口、  
+			 * 函数退出，或查询之间。 
 			 */
 			errcontext("SQL function \"%s\"", fcache->fname);
 		}
@@ -1471,9 +1471,9 @@ sql_exec_error_callback(void *arg)
 	else
 	{
 		/*
-		 * Assume we failed during init_sql_fcache().  (It's possible that the
-		 * function actually has an empty body, but in that case we may as
-		 * well report all errors as being "during startup".)
+		 * 假定我们在 init_sql_fcache() 期间失败。（也有可能   
+		 * 该函数其实函数体为空，但那样的话我们不妨   
+		 * 把所有错误都报告为"during startup"。)   
 		 */
 		errcontext("SQL function \"%s\" during startup", fcache->fname);
 	}
@@ -1481,8 +1481,8 @@ sql_exec_error_callback(void *arg)
 
 
 /*
- * callback function in case a function-returning-set needs to be shut down
- * before it has been run to completion
+ * 回调函数，在一个集合返回函数需要在其运行完毕之前
+ * 被关闭时调用                  
  */
 static void
 ShutdownSQLFunction(Datum arg)
@@ -1496,10 +1496,10 @@ ShutdownSQLFunction(Datum arg)
 		es = (execution_state *) lfirst(lc);
 		while (es)
 		{
-			/* Shut down anything still running */
+			/* 关闭仍在运行的一切      */
 			if (es->status == F_EXEC_RUN)
 			{
-				/* Re-establish active snapshot for any called functions */
+				/* 为所有被调用的函数重建活动快照         */
 				if (!fcache->readonly_func)
 					PushActiveSnapshot(es->qd->snapshot);
 
@@ -1509,33 +1509,33 @@ ShutdownSQLFunction(Datum arg)
 					PopActiveSnapshot();
 			}
 
-			/* Reset states to START in case we're called again */
+			/* 重置状态为 START，以防再次被调用    */
 			es->status = F_EXEC_START;
 			es = es->next;
 		}
 	}
 
-	/* Release tuplestore if we have one */
+	/* 若持有 tuplestore 则释放之 */
 	if (fcache->tstore)
 		tuplestore_end(fcache->tstore);
 	fcache->tstore = NULL;
 
-	/* execUtils will deregister the callback... */
+	/* execUtils 会自行注销该回调…     */
 	fcache->shutdown_reg = false;
 }
 
 /*
  * check_sql_fn_statements
  *
- * Check statements in an SQL function.  Error out if there is anything that
- * is not acceptable.
+ * 检查 SQL 函数中的语句。若存在任何不可接受的           
+ * 东西即报错   
  */
 void
 check_sql_fn_statements(List *queryTreeLists)
 {
 	ListCell   *lc;
 
-	/* We are given a list of sublists of Queries */
+	/* 输入为查询子列表的列表          */
 	foreach(lc, queryTreeLists)
 	{
 		List	   *sublist = lfirst_node(List, lc);
@@ -1546,11 +1546,11 @@ check_sql_fn_statements(List *queryTreeLists)
 			Query	   *query = lfirst_node(Query, lc2);
 
 			/*
-			 * Disallow calling procedures with output arguments.  The current
-			 * implementation would just throw the output values away, unless
-			 * the statement is the last one.  Per SQL standard, we should
-			 * assign the output values by name.  By disallowing this here, we
-			 * preserve an opportunity for future improvement.
+			 * 禁止调用带输出参数的过程。当前的实现只会把
+			 * 输出值丢掉，除非它是最后一条语句。按照     
+			 * SQL 标准，本应按名称赋输出值。在此处禁止 
+			 * 这种做法为我们保留了未来改进的                  
+			 * 机会。                                      
 			 */
 			if (query->commandType == CMD_UTILITY &&
 				IsA(query->utilityStmt, CallStmt))
@@ -1568,42 +1568,42 @@ check_sql_fn_statements(List *queryTreeLists)
 
 /*
  * check_sql_fn_retval()
- *		Check return value of a list of lists of sql parse trees.
+ *		检查一个 sql 解析树列表的列表的返回值。 
  *
- * The return value of a sql function is the value returned by the last
- * canSetTag query in the function.  We do some ad-hoc type checking and
- * coercion here to ensure that the function returns what it's supposed to.
- * Note that we may actually modify the last query to make it match!
+ * SQL 函数的返回值是函数中最后一条 canSetTag            
+ * 查询所返回的值。我们在此做一些临时性的类型      
+ * 检查与强制转换，以确保函数返回预期的结果。         
+ * 我们确实可能会修改最后一个查询来使其匹配！  
  *
- * This function returns true if the sql function returns the entire tuple
- * result of its final statement, or false if it returns just the first column
- * result of that statement.  It throws an error if the final statement doesn't
- * return the right type at all.
+ * 若 SQL 函数返回其最后一条语句的整个元组结果，      
+ * 此函数返回 true；若只返回该语句第一列的结果，          
+ * 则返回 false。若最后一条语句返回的类型完全不对，       
+ * 则抛出错误。           
  *
- * Note that because we allow "SELECT rowtype_expression", the result can be
- * false even when the declared function return type is a rowtype.
+ * 注意：因为我们允许"SELECT rowtype_expression"，即便声明    
+ * 的返回类型是行类型，结果也可能为 false。      
  *
- * For a polymorphic function the passed rettype must be the actual resolved
- * output type of the function.  (This means we can't check the type during
- * function definition of a polymorphic function.)  If we do see a polymorphic
- * rettype we'll throw an error, saying it is not a supported rettype.
+ * 对于多态函数，传入的 rettype 必须是已解析出的实际    
+ * 输出类型。（这意味着多态函数在定义期间无法         
+ * 检查其类型。）若确实看到多态的 rettype，                   
+ * 我们将抛出错误，说明它不是受支持的 rettype。     
  *
- * If the function returns composite, the passed rettupdesc should describe
- * the expected output.  If rettupdesc is NULL, we can't verify that the
- * output matches; that should only happen in fmgr_sql_validator(), or when
- * the function returns RECORD and the caller doesn't actually care which
- * composite type it is.
+ * 若函数返回复合类型，传入的 rettupdesc 应描述预期      
+ * 的输出。若 rettupdesc 为 NULL，我们就无法验证输出    
+ * 是否匹配；这只应发生在 fmgr_sql_validator() 中，或        
+ * 当函数返回 RECORD 且调用方实际上并不关心它是        
+ * 哪种复合类型。
  *
- * (Typically, rettype and rettupdesc are computed by get_call_result_type
- * or a sibling function.)
+ * （通常，rettype 和 rettupdesc 由 get_call_result_type            
+ * 或同级函数。）  
  *
- * In addition to coercing individual output columns, we can modify the
- * output to include dummy NULL columns for any dropped columns appearing
- * in rettupdesc.  This is done only if the caller asks for it.
+ * 除了对各个输出列做强制转换，我们还能修改输出  
+ * 以便为 rettupdesc 里出现的已删除列加入哑 NULL 列。    
+ * 只有调用方要求时才会这么做。                  
  *
- * If resultTargetList isn't NULL, then *resultTargetList is set to the
- * targetlist that defines the final statement's result.  Exception: if the
- * function is defined to return VOID then *resultTargetList is set to NIL.
+ * 若 resultTargetList 非 NULL，则 *resultTargetList 会被        
+ * 设为定义最后一条语句结果的目标列表。例外：若      
+ * 函数被定义为返回 VOID，则 *resultTargetList 为 NIL。        
  */
 bool
 check_sql_fn_retval(List *queryTreeLists,
@@ -1611,7 +1611,7 @@ check_sql_fn_retval(List *queryTreeLists,
 					bool insertDroppedCols,
 					List **resultTargetList)
 {
-	/* Wrapper function to preserve ABI compatibility in released branches */
+	/* 包装函数，用于在已发布分支中保持 ABI 兼容性      */
 	return check_sql_fn_retval_ext(queryTreeLists,
 								   rettype, rettupdesc,
 								   PROKIND_FUNCTION,
@@ -1638,23 +1638,23 @@ check_sql_fn_retval_ext(List *queryTreeLists,
 	ListCell   *lc;
 
 	if (resultTargetList)
-		*resultTargetList = NIL;	/* initialize in case of VOID result */
+		*resultTargetList = NIL;	/* 初始化，以防结果是 VOID  */
 
 	/*
-	 * If it's declared to return VOID, we don't care what's in the function.
-	 * (This takes care of procedures with no output parameters, as well.)
+	 * 若函数被声明为返回 VOID，我们并不关心函数里        
+	 * 有什么。（这同时也照顾到无输出参数的过程。） 
 	 */
 	if (rettype == VOIDOID)
 		return false;
 
 	/*
-	 * Find the last canSetTag query in the function body (which is presented
-	 * to us as a list of sublists of Query nodes).  This isn't necessarily
-	 * the last parsetree, because rule rewriting can insert queries after
-	 * what the user wrote.  Note that it might not even be in the last
-	 * sublist, for example if the last query rewrites to DO INSTEAD NOTHING.
-	 * (It might not be unreasonable to throw an error in such a case, but
-	 * this is the historical behavior and it doesn't seem worth changing.)
+	 * 在函数体中找出最后一条 canSetTag 查询（函数体以     
+	 * Query 节点子列表列表的形式交给我们）。这未必是  
+	 * 最后一个解析树，因为规则重写会在用户所写内容 
+	 * 之后插入查询。注意它甚至可能不在最后的子列 
+	 * 表中，比如最后一条查询被重写为 DO INSTEAD NOTHING。   
+	 * （在这种情况下抛出错误也并非不合理，但这是    
+	 * 历史行为，而且似乎不值得改变。）                    
 	 */
 	parse = NULL;
 	parse_cell = NULL;
@@ -1676,21 +1676,21 @@ check_sql_fn_retval_ext(List *queryTreeLists,
 	}
 
 	/*
-	 * If it's a plain SELECT, it returns whatever the targetlist says.
-	 * Otherwise, if it's INSERT/UPDATE/DELETE with RETURNING, it returns
-	 * that. Otherwise, the function return type must be VOID.
+	 * 若是普通 SELECT，它返回目标列表所给出的东西。
+	 * 否则，若是带 RETURNING 的 INSERT/UPDATE/DELETE，它返回 
+	 * 相应结果。否则返回类型必须是 VOID。     
 	 *
-	 * Note: eventually replace this test with QueryReturnsTuples?	We'd need
-	 * a more general method of determining the output type, though.  Also, it
-	 * seems too dangerous to consider FETCH or EXECUTE as returning a
-	 * determinable rowtype, since they depend on relatively short-lived
-	 * entities.
+	 * 注意：最终可用 QueryReturnsTuples 取代此测试？          
+	 * 不过需要更通用的方法来确定输出类型。此外，把     
+	 * FETCH 或 EXECUTE 视为返回可确定行类型，似乎过于
+	 * 危险，因为它们依赖于寿命相对较短的              
+	 * 实体。
 	 */
 	if (parse &&
 		parse->commandType == CMD_SELECT)
 	{
 		tlist = parse->targetList;
-		/* tlist is modifiable unless it's a dummy in a setop query */
+		/* 除 setop 查询中的哑条目外，tlist 均可修改  */
 		tlist_is_modifiable = (parse->setOperations == NULL);
 	}
 	else if (parse &&
@@ -1700,32 +1700,32 @@ check_sql_fn_retval_ext(List *queryTreeLists,
 			 parse->returningList)
 	{
 		tlist = parse->returningList;
-		/* returningList can always be modified */
+		/* returningList 总是可以被修改  */
 		tlist_is_modifiable = true;
 	}
 	else
 	{
-		/* Empty function body, or last statement is a utility command */
+		/* 函数体为空，或者最后一条语句是实用命令   */
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
 				 errmsg("return type mismatch in function declared to return %s",
 						format_type_be(rettype)),
 				 errdetail("Function's final statement must be SELECT or INSERT/UPDATE/DELETE RETURNING.")));
-		return false;			/* keep compiler quiet */
+		return false;			/* 让编译器安静  */
 	}
 
 	/*
-	 * OK, check that the targetlist returns something matching the declared
-	 * type, and modify it if necessary.  If possible, we insert any coercion
-	 * steps right into the final statement's targetlist.  However, that might
-	 * risk changes in the statement's semantics --- we can't safely change
-	 * the output type of a grouping column, for instance.  In such cases we
-	 * handle coercions by inserting an extra level of Query that effectively
-	 * just does a projection.
+	 * 好，现在检查目标列表返回的东西是否与声明的类型
+	 * 匹配，必要时修改它。如果可能，我们将任何强制转 
+	 * 换步骤直接插入最后一条语句的目标列表。然而，这  
+	 * 可能冒险改变语句语义——例如，我们无法安全地  
+	 * 改变一个分组列的输出类型。这类情况下，我们通过
+	 * 插入一个额外层次的 Query 来处理强制转换，该层次   
+	 * 实际只做投影。  
 	 */
 
 	/*
-	 * Count the non-junk entries in the result targetlist.
+	 * 统计结果目标列表中非垃圾项的数量。 
 	 */
 	tlistlen = ExecCleanTargetListLength(tlist);
 
@@ -1738,8 +1738,8 @@ check_sql_fn_retval_ext(List *queryTreeLists,
 		fn_typtype == TYPTYPE_MULTIRANGE)
 	{
 		/*
-		 * For scalar-type returns, the target list must have exactly one
-		 * non-junk entry, and its type must be coercible to rettype.
+		 * 标量类型返回时，目标列表必须恰好有一个     
+		 * 非垃圾项，且类型能强制转换为 rettype。     
 		 */
 		TargetEntry *tle;
 
@@ -1750,7 +1750,7 @@ check_sql_fn_retval_ext(List *queryTreeLists,
 							format_type_be(rettype)),
 					 errdetail("Final statement must return exactly one column.")));
 
-		/* We assume here that non-junk TLEs must come first in tlists */
+		/* 我们在此假定非垃圾 TLE 必须排在 tlist 的前面*/
 		tle = (TargetEntry *) linitial(tlist);
 		Assert(!tle->resjunk);
 
@@ -1768,40 +1768,40 @@ check_sql_fn_retval_ext(List *queryTreeLists,
 	else if (fn_typtype == TYPTYPE_COMPOSITE || rettype == RECORDOID)
 	{
 		/*
-		 * Returns a rowtype.
+		 * 返回行类型。
 		 *
-		 * Note that we will not consider a domain over composite to be a
-		 * "rowtype" return type; it goes through the scalar case above.  This
-		 * is because we only provide column-by-column implicit casting, and
-		 * will not cast the complete record result.  So the only way to
-		 * produce a domain-over-composite result is to compute it as an
-		 * explicit single-column result.  The single-composite-column code
-		 * path just below could handle such cases, but it won't be reached.
+		 * 注意：复合类型上的域不算"行类型"返回类型；
+		 * 它会走上面的标量分支。这是因为我们只提供逐列 
+		 * 的隐式转换，不会转换完整的记录结果。因此，  
+		 * 得到复合域结果的唯一办法是把它算成一个    
+		 * 显式单列结果。紧随其下的单复合列代码       
+		 * 路径本可以处理这类情形，                            
+		 * 但它并不会被走到。                                      
 		 */
-		int			tupnatts;	/* physical number of columns in tuple */
-		int			tuplogcols; /* # of nondeleted columns in tuple */
-		int			colindex;	/* physical column index */
+		int			tupnatts;	/* 元组中的物理列数            */
+		int			tuplogcols; /* 元组中未删除列的数量   */
+		int			colindex;	/* 物理列索引       */
 
 		/*
-		 * If the target list has one non-junk entry, and that expression has
-		 * or can be coerced to the declared return type, take it as the
-		 * result.  This allows, for example, 'SELECT func2()', where func2
-		 * has the same composite return type as the function that's calling
-		 * it.  This provision creates some ambiguity --- maybe the expression
-		 * was meant to be the lone field of the composite result --- but it
-		 * works well enough as long as we don't get too enthusiastic about
-		 * inventing coercions from scalar to composite types.
+		 * 若目标列表只有一个非垃圾项，且该表达式具有   
+		 * 声明返回类型或可强制转换为它，就把它当作 
+		 * 结果。例如这允许 'SELECT func2()'，其中 func2 与    
+		 * 调用它的函数具有相同的复合返回类型。           
+		 * 这条规定带来了一些含混——也许该表达式本意是 
+		 * 复合结果里唯一的字段——但只要我们不过分     
+		 * 热衷于发明从标量到复合类型的强制转换，它就 
+		 * 足够好用。                                    
 		 *
-		 * XXX Note that if rettype is RECORD and the expression is of a named
-		 * composite type, or vice versa, this coercion will succeed, whether
-		 * or not the record type really matches.  For the moment we rely on
-		 * runtime type checking to catch any discrepancy, but it'd be nice to
-		 * do better at parse time.
+		 * XXX 注意：若 rettype 为 RECORD 而表达式属于某个命    
+		 * 名的复合类型，或反之，此强制转换都会成功，无
+		 * 论记录类型是否真正匹配。目前我们依靠运行时  
+		 * 类型检查来捕获差异，但最好能在解析阶段做得    
+		 * 更好。               
 		 *
-		 * We must *not* do this for a procedure, however.  Procedures with
-		 * output parameter(s) have rettype RECORD, and the CALL code expects
-		 * to get results corresponding to the list of output parameters, even
-		 * when there's just one parameter that's composite.
+		 * 但对过程我们绝不能这么做。带输出参数的过程 
+		 * 其 rettype 为 RECORD，而 CALL 代码预期得到的结果     
+		 * 对应于输出参数列表，即使只有一个参数且它是    
+		 * 复合类型的。                               
 		 */
 		if (tlistlen == 1 && prokind != PROKIND_PROCEDURE)
 		{
@@ -1813,31 +1813,31 @@ check_sql_fn_retval_ext(List *queryTreeLists,
 										&upper_tlist,
 										&upper_tlist_nontrivial))
 			{
-				/* Note that we're NOT setting is_tuple_result */
+				/* 注意我们并未设置 is_tuple_result    */
 				goto tlist_coercion_finished;
 			}
 		}
 
 		/*
-		 * If the caller didn't provide an expected tupdesc, we can't do any
-		 * further checking.  Assume we're returning the whole tuple.
+		 * 若调用方未提供预期 tupdesc，我们就无法再继续   
+		 * 检查。假定我们返回的是整个元组。          
 		 */
 		if (rettupdesc == NULL)
 		{
-			/* Return tlist if requested */
+			/* 若需要则返回 tlist  */
 			if (resultTargetList)
 				*resultTargetList = tlist;
 			return true;
 		}
 
 		/*
-		 * Verify that the targetlist matches the return tuple type.  We scan
-		 * the non-resjunk columns, and coerce them if necessary to match the
-		 * datatypes of the non-deleted attributes.  For deleted attributes,
-		 * insert NULL result columns if the caller asked for that.
+		 * 验证目标列表与返回元组类型匹配。我们扫描所有
+		 * 非 resjunk 列，必要时强制转换它们，使其匹配未删
+		 * 除属性的数据类型。对已删除的属性，若调用方  
+		 * 要求，则插入 NULL 结果列。                    
 		 */
 		tupnatts = rettupdesc->natts;
-		tuplogcols = 0;			/* we'll count nondeleted cols as we go */
+		tuplogcols = 0;			/* 边处理边统计未删除列数    */
 		colindex = 0;
 
 		foreach(lc, tlist)
@@ -1845,7 +1845,7 @@ check_sql_fn_retval_ext(List *queryTreeLists,
 			TargetEntry *tle = (TargetEntry *) lfirst(lc);
 			Form_pg_attribute attr;
 
-			/* resjunk columns can simply be ignored */
+			/* resjunk 列可直接忽略            */
 			if (tle->resjunk)
 				continue;
 
@@ -1863,7 +1863,7 @@ check_sql_fn_retval_ext(List *queryTreeLists,
 				{
 					Expr	   *null_expr;
 
-					/* The type of the null we insert isn't important */
+					/* 我们插入的 NULL 值其类型并不重要  */
 					null_expr = (Expr *) makeConst(INT4OID,
 												   -1,
 												   InvalidOid,
@@ -1896,7 +1896,7 @@ check_sql_fn_retval_ext(List *queryTreeLists,
 								   tuplogcols)));
 		}
 
-		/* remaining columns in rettupdesc had better all be dropped */
+		/* rettupdesc 中剩余的列最好都是已删除的        */
 		for (colindex++; colindex <= tupnatts; colindex++)
 		{
 			if (!TupleDescAttr(rettupdesc, colindex - 1)->attisdropped)
@@ -1909,7 +1909,7 @@ check_sql_fn_retval_ext(List *queryTreeLists,
 			{
 				Expr	   *null_expr;
 
-				/* The type of the null we insert isn't important */
+				/* 我们插入的 NULL 值其类型并不重要  */
 				null_expr = (Expr *) makeConst(INT4OID,
 											   -1,
 											   InvalidOid,
@@ -1926,7 +1926,7 @@ check_sql_fn_retval_ext(List *queryTreeLists,
 			}
 		}
 
-		/* Report that we are returning entire tuple result */
+		/* 报告我们正在返回整个元组结果       */
 		is_tuple_result = true;
 	}
 	else
@@ -1938,10 +1938,10 @@ check_sql_fn_retval_ext(List *queryTreeLists,
 tlist_coercion_finished:
 
 	/*
-	 * If necessary, modify the final Query by injecting an extra Query level
-	 * that just performs a projection.  (It'd be dubious to do this to a
-	 * non-SELECT query, but we never have to; RETURNING lists can always be
-	 * modified in-place.)
+	 * 必要时，通过注入一个额外 Query 层次来修改最后的   
+	 * Query，它只做一次投影。（对非 SELECT 查询这样做  
+	 * 是可疑的，但我们决不必这么做；RETURNING 列表总是  
+	 * 可原地修改） 
 	 */
 	if (upper_tlist_nontrivial)
 	{
@@ -1952,14 +1952,14 @@ tlist_coercion_finished:
 
 		Assert(parse->commandType == CMD_SELECT);
 
-		/* Most of the upper Query struct can be left as zeroes/nulls */
+		/* 上层 Query 结构大多数字段可保持为零或空值 */
 		newquery = makeNode(Query);
 		newquery->commandType = CMD_SELECT;
 		newquery->querySource = parse->querySource;
 		newquery->canSetTag = true;
 		newquery->targetList = upper_tlist;
 
-		/* We need a moderately realistic colnames list for the subquery RTE */
+		/* 需要为子查询 RTE 提供一个适度真实的列名列表    */
 		colnames = NIL;
 		foreach(lc, parse->targetList)
 		{
@@ -1971,7 +1971,7 @@ tlist_coercion_finished:
 							   makeString(tle->resname ? tle->resname : ""));
 		}
 
-		/* Build a suitable RTE for the subquery */
+		/* 为子查询构建一个合适的 RTE */
 		rte = makeNode(RangeTblEntry);
 		rte->rtekind = RTE_SUBQUERY;
 		rte->subquery = parse;
@@ -1986,16 +1986,16 @@ tlist_coercion_finished:
 		newquery->jointree = makeFromExpr(list_make1(rtr), NULL);
 
 		/*
-		 * Make sure the new query is marked as having row security if the
-		 * original one does.
+		 * 若原查询有行安全，确保新查询也标记为具有   
+		 * 行安全。      
 		 */
 		newquery->hasRowSecurity = parse->hasRowSecurity;
 
-		/* Replace original query in the correct element of the query list */
+		/* 在查询列表中正确的元素处替换原查询             */
 		lfirst(parse_cell) = newquery;
 	}
 
-	/* Return tlist (possibly modified) if requested */
+	/* 若需要则返回 tlist（可能已修改） */
 	if (resultTargetList)
 		*resultTargetList = upper_tlist;
 
@@ -2003,14 +2003,14 @@ tlist_coercion_finished:
 }
 
 /*
- * Process one function result column for check_sql_fn_retval
+ * 为 check_sql_fn_retval 处理一个函数结果列       
  *
- * Coerce the output value to the required type/typmod, and add a column
- * to *upper_tlist for it.  Set *upper_tlist_nontrivial to true if we
- * add an upper tlist item that's not just a Var.
+ * 把输出值强转为所需的类型/typmod，并将一列加入     
+ * *upper_tlist 中。若加入的上层列表项不只是个 Var， 
+ * 则把 *upper_tlist_nontrivial 设为 true。 
  *
- * Returns true if OK, false if could not coerce to required type
- * (in which case, no changes have been made)
+ * 成功返回 true；无法强制转换成所需类型则返回
+ * false（此时未做任何修改）       
  */
 static bool
 coerce_fn_result_column(TargetEntry *src_tle,
@@ -2025,14 +2025,14 @@ coerce_fn_result_column(TargetEntry *src_tle,
 	Node	   *cast_result;
 
 	/*
-	 * If the TLE has a sortgroupref marking, don't change it, as it probably
-	 * is referenced by ORDER BY, DISTINCT, etc, and changing its type would
-	 * break query semantics.  Otherwise, it's safe to modify in-place unless
-	 * the query as a whole has issues with that.
+	 * 若 TLE 带 sortgroupref 标记，不要改动它，因为它很      
+	 * 可能被 ORDER BY、DISTINCT 等引用，而改变其类型会      
+	 * 破坏查询语义。否则，原地修改是安全的，除非       
+	 * 整个查询对此有问题。            
 	 */
 	if (tlist_is_modifiable && src_tle->ressortgroupref == 0)
 	{
-		/* OK to modify src_tle in place, if necessary */
+		/* 必要时可原地修改 src_tle            */
 		cast_result = coerce_to_target_type(NULL,
 											(Node *) src_tle->expr,
 											exprType((Node *) src_tle->expr),
@@ -2044,12 +2044,12 @@ coerce_fn_result_column(TargetEntry *src_tle,
 			return false;
 		assign_expr_collations(NULL, cast_result);
 		src_tle->expr = (Expr *) cast_result;
-		/* Make a Var referencing the possibly-modified TLE */
+		/* 构造一个引用可能已修改 TLE 的 Var    */
 		new_tle_expr = (Expr *) makeVarFromTargetEntry(1, src_tle);
 	}
 	else
 	{
-		/* Any casting must happen in the upper tlist */
+		/* 所有转换必须发生在上层 tlist    */
 		Var		   *var = makeVarFromTargetEntry(1, src_tle);
 
 		cast_result = coerce_to_target_type(NULL,
@@ -2062,7 +2062,7 @@ coerce_fn_result_column(TargetEntry *src_tle,
 		if (cast_result == NULL)
 			return false;
 		assign_expr_collations(NULL, cast_result);
-		/* Did the coercion actually do anything? */
+		/* 强制转换实际起作用了吗？   */
 		if (cast_result != (Node *) var)
 			*upper_tlist_nontrivial = true;
 		new_tle_expr = (Expr *) cast_result;
@@ -2076,7 +2076,7 @@ coerce_fn_result_column(TargetEntry *src_tle,
 
 
 /*
- * CreateSQLFunctionDestReceiver -- create a suitable DestReceiver object
+ * CreateSQLFunctionDestReceiver — 创建合适的 DestReceiver 对象 
  */
 DestReceiver *
 CreateSQLFunctionDestReceiver(void)
@@ -2089,13 +2089,13 @@ CreateSQLFunctionDestReceiver(void)
 	self->pub.rDestroy = sqlfunction_destroy;
 	self->pub.mydest = DestSQLFunction;
 
-	/* private fields will be set by postquel_start */
+	/* 私有字段将由 postquel_start 设置     */
 
 	return (DestReceiver *) self;
 }
 
 /*
- * sqlfunction_startup --- executor startup
+ * sqlfunction_startup — 执行器启动 
  */
 static void
 sqlfunction_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
@@ -2104,24 +2104,24 @@ sqlfunction_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
 }
 
 /*
- * sqlfunction_receive --- receive one tuple
+ * sqlfunction_receive —接收一个元组
  */
 static bool
 sqlfunction_receive(TupleTableSlot *slot, DestReceiver *self)
 {
 	DR_sqlfunction *myState = (DR_sqlfunction *) self;
 
-	/* Filter tuple as needed */
+	/* 按需过滤元组     */
 	slot = ExecFilterJunk(myState->filter, slot);
 
-	/* Store the filtered tuple into the tuplestore */
+	/* 把过滤后的元组存入 tuplestore       */
 	tuplestore_puttupleslot(myState->tstore, slot);
 
 	return true;
 }
 
 /*
- * sqlfunction_shutdown --- executor end
+ * sqlfunction_shutdown — 结束      
  */
 static void
 sqlfunction_shutdown(DestReceiver *self)
@@ -2130,7 +2130,7 @@ sqlfunction_shutdown(DestReceiver *self)
 }
 
 /*
- * sqlfunction_destroy --- release DestReceiver object
+ * sqlfunction_destroy—释放 DestReceiver 对象   
  */
 static void
 sqlfunction_destroy(DestReceiver *self)

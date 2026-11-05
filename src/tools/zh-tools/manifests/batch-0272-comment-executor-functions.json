@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "batch_id": "0272-comment-executor-functions",
+  "title": "Translate executor comments: executor-functions",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "f6793670242cae2ea720b06c9f2be9559ceb2584",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0272-comment-executor-functions.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/executor/**",
+      "kind": "c_comment",
+      "note": "P2 executor translation campaign"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0272-comment-executor-functions.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": []
+    },
+    {
+      "path": "src/backend/executor/functions.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 219,
+      "translated": 210,
+      "preserved": 9,
+      "preserved_reasons": {
+        "EN:123": "blk27: two-line block whose only content sits on the merged-open edge line - structurally untranslatable (same declared class as batches 0265/0267)",
+        "EN:518": "blk61: gettext translator hint kept in English",
+        "EN:526": "blk62: gettext translator hint kept in English",
+        "EN:1872": "blk189: pure identifier label (isnull) - rebuild byte-identical to EN, pruned no-op",
+        "EN:1873": "blk190: pure identifier label (byval) - rebuild byte-identical to EN, pruned no-op",
+        "EN:1918": "blk193: pure identifier label (isnull) - rebuild byte-identical to EN, pruned no-op",
+        "EN:1919": "blk194: pure identifier label (byval) - rebuild byte-identical to EN, pruned no-op",
+        "EN:2103": "blk212: pure identifier label (no-op) - rebuild byte-identical to EN, pruned no-op",
+        "EN:2129": "blk217: pure identifier label (no-op) - rebuild byte-identical to EN, pruned no-op"
+      },
+      "note": "P2 executor campaign wave C13"
+    }
+  ],
+  "notes": "Translation agents (C13a/C13b/C13c) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

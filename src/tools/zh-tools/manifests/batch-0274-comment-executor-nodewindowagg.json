@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "batch_id": "0274-comment-executor-nodewindowagg",
+  "title": "Translate executor comments: executor-nodewindowagg",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "65e6e2f127c2db021fbc91e3b0c3290fa5b5b220",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0274-comment-executor-nodewindowagg.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/executor/**",
+      "kind": "c_comment",
+      "note": "P2 executor translation campaign"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0274-comment-executor-nodewindowagg.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": []
+    },
+    {
+      "path": "src/backend/executor/nodeWindowAgg.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 346,
+      "translated": 344,
+      "preserved": 2,
+      "preserved_reasons": {
+        "EN:2676": "blk286: function-name banner block (identifier label + dashed separators); rebuild byte-identical to EN, pruned as no-op",
+        "EN:2720": "blk288: function-name banner block (identifier label + dashed separators); rebuild byte-identical to EN, pruned as no-op"
+      },
+      "note": "P2 executor campaign wave C15"
+    }
+  ],
+  "notes": "Translation agents (C15a/C15b/C15c/C15d) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

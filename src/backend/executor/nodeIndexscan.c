@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeIndexscan.c
- *	  Routines to support indexed scans of relations
+ *	  支撑关系索引扫描的例程。          
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,19 +13,19 @@
  *-------------------------------------------------------------------------
  */
 /*
- * INTERFACE ROUTINES
- *		ExecIndexScan			scans a relation using an index
- *		IndexNext				retrieve next tuple using index
- *		IndexNextWithReorder	same, but recheck ORDER BY expressions
- *		ExecInitIndexScan		creates and initializes state info.
- *		ExecReScanIndexScan		rescans the indexed relation.
- *		ExecEndIndexScan		releases all storage.
- *		ExecIndexMarkPos		marks scan position.
- *		ExecIndexRestrPos		restores scan position.
- *		ExecIndexScanEstimate	estimates DSM space needed for parallel index scan
- *		ExecIndexScanInitializeDSM initialize DSM for parallel indexscan
- *		ExecIndexScanReInitializeDSM reinitialize DSM for fresh scan
- *		ExecIndexScanInitializeWorker attach to DSM info in parallel worker
+ * 接口例程      
+ *		ExecIndexScan 用索引扫描关系            
+ *		IndexNext 用索引取回下一个元组    
+ *		IndexNextWithReorder 同上，但重查 ORDER BY 表达式 
+ *		ExecInitIndexScan 创建并初始化状态信息      
+ *		ExecReScanIndexScan 重扫被索引的关系      
+ *		ExecEndIndexScan 释放所有存储。 
+ *		ExecIndexMarkPos 标记扫描位置。
+ *		ExecIndexRestrPos 恢复扫描位置。   
+ *		ExecIndexScanEstimate 估算并行索引扫描所需的 DSM 空间      
+ *		ExecIndexScanInitializeDSM 为并行索引扫描初始化 DSM   
+ *		ExecIndexScanReInitializeDSM 重置 DSM 以备全新扫描  
+ *		ExecIndexScanInitializeWorker 在并行 worker 中附着 DSM 信息
  */
 #include "postgres.h"
 
@@ -45,8 +45,8 @@
 #include "utils/rel.h"
 
 /*
- * When an ordering operator is used, tuples fetched from the index that
- * need to be reordered are queued in a pairing heap, as ReorderTuples.
+ * 使用排序算子时，从索引中取出且需要重排序的元组
+ * 会作为 ReorderTuples 排入配对堆中。                       
  */
 typedef struct
 {
@@ -73,8 +73,8 @@ static HeapTuple reorderqueue_pop(IndexScanState *node);
 /* ----------------------------------------------------------------
  *		IndexNext
  *
- *		Retrieve a tuple from the IndexScan node's currentRelation
- *		using the index specified in the IndexScanState information.
+ *		从 IndexScan 节点的 currentRelation 中取回元组   
+ *		所用的索引由 IndexScanState 信息指定。           
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -87,13 +87,13 @@ IndexNext(IndexScanState *node)
 	TupleTableSlot *slot;
 
 	/*
-	 * extract necessary information from index scan node
+	 * 从索引扫描节点中提取必要的信息     
 	 */
 	estate = node->ss.ps.state;
 
 	/*
-	 * Determine which direction to scan the index in based on the plan's scan
-	 * direction and the current direction of execution.
+	 * 根据计划的扫描方向和当前执行方向，                    
+	 * 确定应沿哪个方向扫描索引。          
 	 */
 	direction = ScanDirectionCombine(estate->es_direction,
 									 ((IndexScan *) node->ss.ps.plan)->indexorderdir);
@@ -104,8 +104,8 @@ IndexNext(IndexScanState *node)
 	if (scandesc == NULL)
 	{
 		/*
-		 * We reach here if the index scan is not parallel, or if we're
-		 * serially executing an index scan that was planned to be parallel.
+		 * 若索引扫描并非并行，或者我们正在串行执行
+		 * 一个被规划为并行的索引扫描，就会走到这里。  
 		 */
 		scandesc = index_beginscan(node->ss.ss_currentRelation,
 								   node->iss_RelationDesc,
@@ -116,8 +116,8 @@ IndexNext(IndexScanState *node)
 		node->iss_ScanDesc = scandesc;
 
 		/*
-		 * If no run-time keys to calculate or they are ready, go ahead and
-		 * pass the scankeys to the index AM.
+		 * 若没有需要计算的运行时键，或它们已就绪，    
+		 * 就把扫描键传给索引 AM。 
 		 */
 		if (node->iss_NumRuntimeKeys == 0 || node->iss_RuntimeKeysReady)
 			index_rescan(scandesc,
@@ -126,22 +126,22 @@ IndexNext(IndexScanState *node)
 	}
 
 	/*
-	 * ok, now that we have what we need, fetch the next tuple.
+	 * 好，既然所需已齐，就取下一个元组。     
 	 */
 	while (index_getnext_slot(scandesc, direction, slot))
 	{
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * If the index was lossy, we have to recheck the index quals using
-		 * the fetched tuple.
+		 * 若索引是有损的，就必须用取到的元组重查       
+		 * 索引条件。   
 		 */
 		if (scandesc->xs_recheck)
 		{
 			econtext->ecxt_scantuple = slot;
 			if (!ExecQualAndReset(node->indexqualorig, econtext))
 			{
-				/* Fails recheck, so drop it and loop back for another */
+				/* 重查未过，丢弃该元组再取下一个       */
 				InstrCountFiltered2(node, 1);
 				continue;
 			}
@@ -151,8 +151,8 @@ IndexNext(IndexScanState *node)
 	}
 
 	/*
-	 * if we get here it means the index scan failed so we are at the end of
-	 * the scan..
+	 * 走到这里说明索引扫描失败，本次扫描已到            
+	 * 尽头。 
 	 */
 	node->iss_ReachedEnd = true;
 	return ExecClearTuple(slot);
@@ -161,8 +161,8 @@ IndexNext(IndexScanState *node)
 /* ----------------------------------------------------------------
  *		IndexNextWithReorder
  *
- *		Like IndexNext, but this version can also re-check ORDER BY
- *		expressions, and reorder the tuples as necessary.
+ *		与 IndexNext 类似，但此版本还能重查            
+ *		ORDER BY 表达式，并按需重排元组。    
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -181,13 +181,13 @@ IndexNextWithReorder(IndexScanState *node)
 	estate = node->ss.ps.state;
 
 	/*
-	 * Only forward scan is supported with reordering.  Note: we can get away
-	 * with just Asserting here because the system will not try to run the
-	 * plan backwards if ExecSupportsBackwardScan() says it won't work.
-	 * Currently, that is guaranteed because no index AMs support both
-	 * amcanorderbyop and amcanbackward; if any ever do,
-	 * ExecSupportsBackwardScan() will need to consider indexorderbys
-	 * explicitly.
+	 * 重排序只支持正向扫描。注意：这里仅用 Assert         
+	 * 来断言就够了，因为只要 ExecSupportsBackwardScan()       
+	 * 说行不通，系统就不会尝试反向运行该计划。    
+	 * 目前这一点有保证，因为无索引 AM 同时支持     
+	 * amcanorderbyop/amcanbackward；一旦两者兼具
+	 * 时，ExecSupportsBackwardScan() 需显式考虑 indexorderbys
+	 * 。        
 	 */
 	Assert(!ScanDirectionIsBackward(((IndexScan *) node->ss.ps.plan)->indexorderdir));
 	Assert(ScanDirectionIsForward(estate->es_direction));
@@ -199,8 +199,8 @@ IndexNextWithReorder(IndexScanState *node)
 	if (scandesc == NULL)
 	{
 		/*
-		 * We reach here if the index scan is not parallel, or if we're
-		 * serially executing an index scan that was planned to be parallel.
+		 * 若索引扫描并非并行，或者我们正在串行执行
+		 * 一个被规划为并行的索引扫描，就会走到这里。  
 		 */
 		scandesc = index_beginscan(node->ss.ss_currentRelation,
 								   node->iss_RelationDesc,
@@ -211,8 +211,8 @@ IndexNextWithReorder(IndexScanState *node)
 		node->iss_ScanDesc = scandesc;
 
 		/*
-		 * If no run-time keys to calculate or they are ready, go ahead and
-		 * pass the scankeys to the index AM.
+		 * 若没有需要计算的运行时键，或它们已就绪，    
+		 * 就把扫描键传给索引 AM。 
 		 */
 		if (node->iss_NumRuntimeKeys == 0 || node->iss_RuntimeKeysReady)
 			index_rescan(scandesc,
@@ -225,9 +225,9 @@ IndexNextWithReorder(IndexScanState *node)
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * Check the reorder queue first.  If the topmost tuple in the queue
-		 * has an ORDER BY value smaller than (or equal to) the value last
-		 * returned by the index, we can return it now.
+		 * 先检查重排序队列。若队首元组的 ORDER BY 值       
+		 * 小于（或等于）索引上次返回的值，               
+		 * 现在就可以将其返回。              
 		 */
 		if (!pairingheap_is_empty(node->iss_ReorderQueue))
 		{
@@ -244,43 +244,43 @@ IndexNextWithReorder(IndexScanState *node)
 
 				tuple = reorderqueue_pop(node);
 
-				/* Pass 'true', as the tuple in the queue is a palloc'd copy */
+				/* 传入 true，因为队列里元组是 palloc 出的副本*/
 				ExecForceStoreHeapTuple(tuple, slot, true);
 				return slot;
 			}
 		}
 		else if (node->iss_ReachedEnd)
 		{
-			/* Queue is empty, and no more tuples from index.  We're done. */
+			/* 队列已空，索引亦无更多元组。至此完成。   */
 			return ExecClearTuple(slot);
 		}
 
 		/*
-		 * Fetch next tuple from the index.
+		 * 从索引取回下一个元组  
 		 */
 next_indextuple:
 		if (!index_getnext_slot(scandesc, ForwardScanDirection, slot))
 		{
 			/*
-			 * No more tuples from the index.  But we still need to drain any
-			 * remaining tuples from the queue before we're done.
+			 * 索引已无更多元组。但在结束之前，还需把     
+			 * 队列中剩余的元组取完。                 
 			 */
 			node->iss_ReachedEnd = true;
 			continue;
 		}
 
 		/*
-		 * If the index was lossy, we have to recheck the index quals and
-		 * ORDER BY expressions using the fetched tuple.
+		 * 若索引是有损的，就必须用取到的元组重查     
+		 * 索引条件和 ORDER BY 表达式。        
 		 */
 		if (scandesc->xs_recheck)
 		{
 			econtext->ecxt_scantuple = slot;
 			if (!ExecQualAndReset(node->indexqualorig, econtext))
 			{
-				/* Fails recheck, so drop it and loop back for another */
+				/* 重查未过，丢弃该元组再取下一个       */
 				InstrCountFiltered2(node, 1);
-				/* allow this loop to be cancellable */
+				/* 让此循环可被取消          */
 				CHECK_FOR_INTERRUPTS();
 				goto next_indextuple;
 			}
@@ -293,13 +293,13 @@ next_indextuple:
 			EvalOrderByExpressions(node, econtext);
 
 			/*
-			 * Was the ORDER BY value returned by the index accurate?  The
-			 * recheck flag means that the index can return inaccurate values,
-			 * but then again, the value returned for any particular tuple
-			 * could also be exactly correct.  Compare the value returned by
-			 * the index with the recalculated value.  (If the value returned
-			 * by the index happened to be exact right, we can often avoid
-			 * pushing the tuple to the queue, just to pop it back out again.)
+			 * 索引返回的 ORDER BY 值准确吗？recheck 标志     
+			 * 意味着索引可能返回不准确的值，但话说回来，
+			 * 对任何特定元组返回的值也可能完全正确。  
+			 * 将索引返回的值与重新计算的值作比较。（若 
+			 * 索引返回的值恰好完全正确，通常就能免去     
+			 * 把元组压入队列、只为随后再把它弹出来     
+			 * 白忙一场。）                                             
 			 */
 			cmp = cmp_orderbyvals(node->iss_OrderByValues,
 								  node->iss_OrderByNulls,
@@ -323,12 +323,12 @@ next_indextuple:
 		}
 
 		/*
-		 * Can we return this tuple immediately, or does it need to be pushed
-		 * to the reorder queue?  If the ORDER BY expression values returned
-		 * by the index were inaccurate, we can't return it yet, because the
-		 * next tuple from the index might need to come before this one. Also,
-		 * we can't return it yet if there are any smaller tuples in the queue
-		 * already.
+		 * 能否立即返回该元组，还是需要把它压入            
+		 * 重排序队列？若索引返回的 ORDER BY 表达式值       
+		 * 并不准确，那就还不能返回它，因为索引的        
+		 * 下一个元组可能需要排在这个元组之前。             
+		 * 此外，若队列中已有任何更小的元组，也不能       
+		 * 返回  
 		 */
 		if (!was_exact || (topmost && cmp_orderbyvals(lastfetched_vals,
 													  lastfetched_nulls,
@@ -336,26 +336,26 @@ next_indextuple:
 													  topmost->orderbynulls,
 													  node) > 0))
 		{
-			/* Put this tuple to the queue */
+			/* 把该元组放入队列    */
 			reorderqueue_push(node, slot, lastfetched_vals, lastfetched_nulls);
 			continue;
 		}
 		else
 		{
-			/* Can return this tuple immediately. */
+			/* 可以立即返回该元组。     */
 			return slot;
 		}
 	}
 
 	/*
-	 * if we get here it means the index scan failed so we are at the end of
-	 * the scan..
+	 * 走到这里说明索引扫描失败，本次扫描已到            
+	 * 尽头。 
 	 */
 	return ExecClearTuple(slot);
 }
 
 /*
- * Calculate the expressions in the ORDER BY clause, based on the heap tuple.
+ * 基于堆元组计算 ORDER BY 子句中的表达式。                   
  */
 static void
 EvalOrderByExpressions(IndexScanState *node, ExprContext *econtext)
@@ -381,7 +381,7 @@ EvalOrderByExpressions(IndexScanState *node, ExprContext *econtext)
 }
 
 /*
- * IndexRecheck -- access method routine to recheck a tuple in EvalPlanQual
+ * IndexRecheck -- 在 EvalPlanQual 中重查元组的访问方法例程   
  */
 static bool
 IndexRecheck(IndexScanState *node, TupleTableSlot *slot)
@@ -389,18 +389,18 @@ IndexRecheck(IndexScanState *node, TupleTableSlot *slot)
 	ExprContext *econtext;
 
 	/*
-	 * extract necessary information from index scan node
+	 * 从索引扫描节点中提取必要的信息     
 	 */
 	econtext = node->ss.ps.ps_ExprContext;
 
-	/* Does the tuple meet the indexqual condition? */
+	/* 该元组满足 indexqual 条件吗？       */
 	econtext->ecxt_scantuple = slot;
 	return ExecQualAndReset(node->indexqualorig, econtext);
 }
 
 
 /*
- * Compare ORDER BY expression values.
+ * 比较 ORDER BY 表达式的值。 
  */
 static int
 cmp_orderbyvals(const Datum *adist, const bool *anulls,
@@ -415,9 +415,9 @@ cmp_orderbyvals(const Datum *adist, const bool *anulls,
 		SortSupport ssup = &node->iss_SortSupport[i];
 
 		/*
-		 * Handle nulls.  We only need to support NULLS LAST ordering, because
-		 * match_pathkeys_to_index() doesn't consider indexorderby
-		 * implementation otherwise.
+		 * 处理空值。我们只需支持 NULLS LAST 排序，             
+		 * 因为否则 match_pathkeys_to_index() 不会考虑    
+		 * indexorderby 实现      
 		 */
 		if (anulls[i] && !bnulls[i])
 			return 1;
@@ -435,8 +435,8 @@ cmp_orderbyvals(const Datum *adist, const bool *anulls,
 }
 
 /*
- * Pairing heap provides getting topmost (greatest) element while KNN provides
- * ascending sort.  That's why we invert the sort order.
+ * 配对堆提供取顶部（最大）元素的能力，而 KNN              
+ * 提供升序排序，故我们反转排序方向。  
  */
 static int
 reorderqueue_cmp(const pairingheap_node *a, const pairingheap_node *b,
@@ -446,14 +446,14 @@ reorderqueue_cmp(const pairingheap_node *a, const pairingheap_node *b,
 	ReorderTuple *rtb = (ReorderTuple *) b;
 	IndexScanState *node = (IndexScanState *) arg;
 
-	/* exchange argument order to invert the sort order */
+	/* 交换参数顺序以反转排序方向          */
 	return cmp_orderbyvals(rtb->orderbyvals, rtb->orderbynulls,
 						   rta->orderbyvals, rta->orderbynulls,
 						   node);
 }
 
 /*
- * Helper function to push a tuple to the reorder queue.
+ * 把元组压入重排序队列的辅助函数。     
  */
 static void
 reorderqueue_push(IndexScanState *node, TupleTableSlot *slot,
@@ -487,7 +487,7 @@ reorderqueue_push(IndexScanState *node, TupleTableSlot *slot,
 }
 
 /*
- * Helper function to pop the next tuple from the reorder queue.
+ * 从重排序队列弹出下一个元组的辅助函数。    
  */
 static HeapTuple
 reorderqueue_pop(IndexScanState *node)
@@ -522,7 +522,7 @@ ExecIndexScan(PlanState *pstate)
 	IndexScanState *node = castNode(IndexScanState, pstate);
 
 	/*
-	 * If we have runtime keys and they've not already been set up, do it now.
+	 * 若有运行时键且尚未设置，现在就设置它们。           
 	 */
 	if (node->iss_NumRuntimeKeys != 0 && !node->iss_RuntimeKeysReady)
 		ExecReScan((PlanState *) node);
@@ -540,23 +540,23 @@ ExecIndexScan(PlanState *pstate)
 /* ----------------------------------------------------------------
  *		ExecReScanIndexScan(node)
  *
- *		Recalculates the values of any scan keys whose value depends on
- *		information known at runtime, then rescans the indexed relation.
+ *		重新计算任何取值依赖于运行时信息的扫描键，
+ *		然后重新扫描被索引的关系。                         
  *
- *		Updating the scan key was formerly done separately in
- *		ExecUpdateIndexScanKeys. Integrating it into ReScan makes
- *		rescans of indices and relations/general streams more uniform.
+ *		更新扫描键以前是在 ExecUpdateIndexScanKeys  
+ *		中完成。并入 ReScan 让索引与关系/一般流   
+ *		的重扫更加统一。                                      
  * ----------------------------------------------------------------
  */
 void
 ExecReScanIndexScan(IndexScanState *node)
 {
 	/*
-	 * If we are doing runtime key calculations (ie, any of the index key
-	 * values weren't simple Consts), compute the new key values.  But first,
-	 * reset the context so we don't leak memory as each outer tuple is
-	 * scanned.  Note this assumes that we will recalculate *all* runtime keys
-	 * on each call.
+	 * 若正在进行运行时键计算（即索引键值并非都      
+	 * 是简单 Const），则计算新的键值。但首先需重置       
+	 * 上下文，以免每扫描一个外层元组就泄漏内存。 
+	 * 注意：这里假定每次调用都会重新计算 *all*              
+	 * 运行时键 
 	 */
 	if (node->iss_NumRuntimeKeys != 0)
 	{
@@ -569,7 +569,7 @@ ExecReScanIndexScan(IndexScanState *node)
 	}
 	node->iss_RuntimeKeysReady = true;
 
-	/* flush the reorder queue */
+	/* 清空重排序队列   */
 	if (node->iss_ReorderQueue)
 	{
 		HeapTuple	tuple;
@@ -581,7 +581,7 @@ ExecReScanIndexScan(IndexScanState *node)
 		}
 	}
 
-	/* reset index scan */
+	/* 重置扫描     */
 	if (node->iss_ScanDesc)
 		index_rescan(node->iss_ScanDesc,
 					 node->iss_ScanKeys, node->iss_NumScanKeys,
@@ -594,7 +594,7 @@ ExecReScanIndexScan(IndexScanState *node)
 
 /*
  * ExecIndexEvalRuntimeKeys
- *		Evaluate any runtime key values, and update the scankeys.
+ *		求值所有运行时键值，并更新扫描键。      
  */
 void
 ExecIndexEvalRuntimeKeys(ExprContext *econtext,
@@ -603,7 +603,7 @@ ExecIndexEvalRuntimeKeys(ExprContext *econtext,
 	int			j;
 	MemoryContext oldContext;
 
-	/* We want to keep the key values in per-tuple memory */
+	/* 我们希望把键值保存在每元组内存中   */
 	oldContext = MemoryContextSwitchTo(econtext->ecxt_per_tuple_memory);
 
 	for (j = 0; j < numRuntimeKeys; j++)
@@ -614,21 +614,21 @@ ExecIndexEvalRuntimeKeys(ExprContext *econtext,
 		bool		isNull;
 
 		/*
-		 * For each run-time key, extract the run-time expression and evaluate
-		 * it with respect to the current context.  We then stick the result
-		 * into the proper scan key.
+		 * 对每个运行时键，提取其运行时表达式，并          
+		 * 结合当前上下文对其求值。随后我们把结果        
+		 * 填入对应扫描键。 
 		 *
-		 * Note: the result of the eval could be a pass-by-ref value that's
-		 * stored in some outer scan's tuple, not in
-		 * econtext->ecxt_per_tuple_memory.  We assume that the outer tuple
-		 * will stay put throughout our scan.  If this is wrong, we could copy
-		 * the result into our context explicitly, but I think that's not
-		 * necessary.
+		 * 注意：求值结果可能是一个按引用传递的值，    
+		 * 它存于外层扫描元组中，而非  
+		 * econtext->ecxt_per_tuple_memory。我们假定外层            
+		 * 元组在整个扫描期间保持不动。若这一点不成立， 
+		 * 可以把结果显式复制进本上下文，不过我认为  
+		 * 没必要 
 		 *
-		 * It's also entirely possible that the result of the eval is a
-		 * toasted value.  In this case we should forcibly detoast it, to
-		 * avoid repeat detoastings each time the value is examined by an
-		 * index support function.
+		 * 求值结果也可能是一个 toasted 值。此时我们   
+		 * 应当强制对它进行 detoast，以免每次由索引      
+		 * 支持函数检查该值时都要重复进行                 
+		 * detoast。             
 		 */
 		scanvalue = ExecEvalExpr(key_expr,
 								 econtext,
@@ -652,11 +652,11 @@ ExecIndexEvalRuntimeKeys(ExprContext *econtext,
 
 /*
  * ExecIndexEvalArrayKeys
- *		Evaluate any array key values, and set up to iterate through arrays.
+ *		求值所有数组键值，并准备遍历各个数组。           
  *
- * Returns true if there are array elements to consider; false means there
- * is at least one null or empty array, so no match is possible.  On true
- * result, the scankeys are initialized with the first elements of the arrays.
+ * 若有数组元素需要考虑则返回 true；false 表示至         
+ * 少有一个 null 或空数组，因而不可能匹配。返回       
+ * true 时，扫描键会用各数组的第一个元素来初始化。       
  */
 bool
 ExecIndexEvalArrayKeys(ExprContext *econtext,
@@ -666,7 +666,7 @@ ExecIndexEvalArrayKeys(ExprContext *econtext,
 	int			j;
 	MemoryContext oldContext;
 
-	/* We want to keep the arrays in per-tuple memory */
+	/* 希望把数组保存在每元组内存中     */
 	oldContext = MemoryContextSwitchTo(econtext->ecxt_per_tuple_memory);
 
 	for (j = 0; j < numArrayKeys; j++)
@@ -684,8 +684,8 @@ ExecIndexEvalArrayKeys(ExprContext *econtext,
 		bool	   *elem_nulls;
 
 		/*
-		 * Compute and deconstruct the array expression. (Notes in
-		 * ExecIndexEvalRuntimeKeys() apply here too.)
+		 * 计算并解构数组表达式。（注释与          
+		 * ExecIndexEvalRuntimeKeys() 相同。）    
 		 */
 		arraydatum = ExecEvalExpr(array_expr,
 								  econtext,
@@ -693,10 +693,10 @@ ExecIndexEvalArrayKeys(ExprContext *econtext,
 		if (isNull)
 		{
 			result = false;
-			break;				/* no point in evaluating more */
+			break;				/* 再求值已无意义       */
 		}
 		arrayval = DatumGetArrayTypeP(arraydatum);
-		/* We could cache this data, but not clear it's worth it */
+		/* 可以缓存这些数据，但不清楚是否值得   */
 		get_typlenbyvalalign(ARR_ELEMTYPE(arrayval),
 							 &elmlen, &elmbyval, &elmalign);
 		deconstruct_array(arrayval,
@@ -706,13 +706,13 @@ ExecIndexEvalArrayKeys(ExprContext *econtext,
 		if (num_elems <= 0)
 		{
 			result = false;
-			break;				/* no point in evaluating more */
+			break;				/* 再求值已无意义       */
 		}
 
 		/*
-		 * Note: we expect the previous array data, if any, to be
-		 * automatically freed by resetting the per-tuple context; hence no
-		 * pfree's here.
+		 * 注意：先前的数组数据（若有）预期会随
+		 * 重置每元组上下文而自动释放；因此这里          
+		 * 不必释放 
 		 */
 		arrayKeys[j].elem_values = elem_values;
 		arrayKeys[j].elem_nulls = elem_nulls;
@@ -732,10 +732,10 @@ ExecIndexEvalArrayKeys(ExprContext *econtext,
 
 /*
  * ExecIndexAdvanceArrayKeys
- *		Advance to the next set of array key values, if any.
+ *		前进到下一组数组键值（如果还有）。 
  *
- * Returns true if there is another set of values to consider, false if not.
- * On true result, the scankeys are initialized with the next set of values.
+ * 若还有下一组值待考虑则返回 true，否则返回              
+ * false。返回 true 时，扫描键会用下一组值来初始化。     
  */
 bool
 ExecIndexAdvanceArrayKeys(IndexArrayKeyInfo *arrayKeys, int numArrayKeys)
@@ -744,10 +744,10 @@ ExecIndexAdvanceArrayKeys(IndexArrayKeyInfo *arrayKeys, int numArrayKeys)
 	int			j;
 
 	/*
-	 * Note we advance the rightmost array key most quickly, since it will
-	 * correspond to the lowest-order index column among the available
-	 * qualifications.  This is hypothesized to result in better locality of
-	 * access in the index.
+	 * 注意我们让最右边的数组键前进得最快，因为       
+	 * 它对应于可用条件中最低阶的索引列。据推测，
+	 * 这能带来索引中更好的访问                                 
+	 * 局部性。        
 	 */
 	for (j = numArrayKeys - 1; j >= 0; j--)
 	{
@@ -760,7 +760,7 @@ ExecIndexAdvanceArrayKeys(IndexArrayKeyInfo *arrayKeys, int numArrayKeys)
 		if (next_elem >= num_elems)
 		{
 			next_elem = 0;
-			found = false;		/* need to advance next array key */
+			found = false;		/* 需要推进下一个数组键 */
 		}
 		else
 			found = true;
@@ -789,13 +789,13 @@ ExecEndIndexScan(IndexScanState *node)
 	IndexScanDesc indexScanDesc;
 
 	/*
-	 * extract information from the node
+	 * 从节点中提取信息         
 	 */
 	indexRelationDesc = node->iss_RelationDesc;
 	indexScanDesc = node->iss_ScanDesc;
 
 	/*
-	 * Free the exprcontext(s) ... now dead code, see ExecFreeExprContext
+	 * 释放表达式上下文……死代码，见 ExecFreeExprContext 
 	 */
 #ifdef NOT_USED
 	ExecFreeExprContext(&node->ss.ps);
@@ -804,14 +804,14 @@ ExecEndIndexScan(IndexScanState *node)
 #endif
 
 	/*
-	 * clear out tuple table slots
+	 * 清空元组表槽位      
 	 */
 	if (node->ss.ps.ps_ResultTupleSlot)
 		ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
 	ExecClearTuple(node->ss.ss_ScanTupleSlot);
 
 	/*
-	 * close the index relation (no-op if we didn't open it)
+	 * 关闭索引关系（未打开过则为空操作）  
 	 */
 	if (indexScanDesc)
 		index_endscan(indexScanDesc);
@@ -822,8 +822,8 @@ ExecEndIndexScan(IndexScanState *node)
 /* ----------------------------------------------------------------
  *		ExecIndexMarkPos
  *
- * Note: we assume that no caller attempts to set a mark before having read
- * at least one tuple.  Otherwise, iss_ScanDesc might still be NULL.
+ * 注意：我们假定不会有调用者在读到至少一个            
+ * 元组前设置标记。否则 iss_ScanDesc 可能仍为 NULL。 
  * ----------------------------------------------------------------
  */
 void
@@ -835,13 +835,13 @@ ExecIndexMarkPos(IndexScanState *node)
 	if (epqstate != NULL)
 	{
 		/*
-		 * We are inside an EvalPlanQual recheck.  If a test tuple exists for
-		 * this relation, then we shouldn't access the index at all.  We would
-		 * instead need to save, and later restore, the state of the
-		 * relsubs_done flag, so that re-fetching the test tuple is possible.
-		 * However, given the assumption that no caller sets a mark at the
-		 * start of the scan, we can only get here with relsubs_done[i]
-		 * already set, and so no state need be saved.
+		 * 我们正处于 EvalPlanQual 重查之中。若该关系存在    
+		 * 测试元组，那就完全不应访问索引。此时我们       
+		 * 反而需保存并在之后恢复 relsubs_done 标志的 
+		 * 状态，这样才能重新取回测试元组。不过，既然   
+		 * 假定没有调用者会在扫描开始时设置标记，      
+		 * 那么只有 relsubs_done[i] 已被置位时才可能到    
+		 * 这里，因此无需保存任何状态。 
 		 */
 		Index		scanrelid = ((Scan *) node->ss.ps.plan)->scanrelid;
 
@@ -849,7 +849,7 @@ ExecIndexMarkPos(IndexScanState *node)
 		if (epqstate->relsubs_slot[scanrelid - 1] != NULL ||
 			epqstate->relsubs_rowmark[scanrelid - 1] != NULL)
 		{
-			/* Verify the claim above */
+			/* 验证上面的论断  */
 			if (!epqstate->relsubs_done[scanrelid - 1])
 				elog(ERROR, "unexpected ExecIndexMarkPos call in EPQ recheck");
 			return;
@@ -871,14 +871,14 @@ ExecIndexRestrPos(IndexScanState *node)
 
 	if (estate->es_epq_active != NULL)
 	{
-		/* See comments in ExecIndexMarkPos */
+		/* 见 ExecIndexMarkPos 中的注释*/
 		Index		scanrelid = ((Scan *) node->ss.ps.plan)->scanrelid;
 
 		Assert(scanrelid > 0);
 		if (epqstate->relsubs_slot[scanrelid - 1] != NULL ||
 			epqstate->relsubs_rowmark[scanrelid - 1] != NULL)
 		{
-			/* Verify the claim above */
+			/* 验证上面的论断  */
 			if (!epqstate->relsubs_done[scanrelid - 1])
 				elog(ERROR, "unexpected ExecIndexRestrPos call in EPQ recheck");
 			return;
@@ -891,12 +891,12 @@ ExecIndexRestrPos(IndexScanState *node)
 /* ----------------------------------------------------------------
  *		ExecInitIndexScan
  *
- *		Initializes the index scan's state information, creates
- *		scan keys, and opens the base and index relations.
+ *		初始化索引扫描的状态信息，创建扫描键 
+ *		并打开基础关系与索引关系。           
  *
- *		Note: index scans have 2 sets of state information because
- *			  we have to keep track of the base relation and the
- *			  index relation.
+ *		注意：索引扫描有两套状态信息，因为       
+ *			  我们必须同时跟踪基础关系和           
+ *			  索引关系。
  * ----------------------------------------------------------------
  */
 IndexScanState *
@@ -907,7 +907,7 @@ ExecInitIndexScan(IndexScan *node, EState *estate, int eflags)
 	LOCKMODE	lockmode;
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	indexstate = makeNode(IndexScanState);
 	indexstate->ss.ps.plan = (Plan *) node;
@@ -915,42 +915,42 @@ ExecInitIndexScan(IndexScan *node, EState *estate, int eflags)
 	indexstate->ss.ps.ExecProcNode = ExecIndexScan;
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * create expression context for node
+	 * 为节点创建表达式上下文 
 	 */
 	ExecAssignExprContext(estate, &indexstate->ss.ps);
 
 	/*
-	 * open the scan relation
+	 * 打开扫描关系    
 	 */
 	currentRelation = ExecOpenScanRelation(estate, node->scan.scanrelid, eflags);
 
 	indexstate->ss.ss_currentRelation = currentRelation;
-	indexstate->ss.ss_currentScanDesc = NULL;	/* no heap scan here */
+	indexstate->ss.ss_currentScanDesc = NULL;	/* 这里无堆扫描*/
 
 	/*
-	 * get the scan type from the relation descriptor.
+	 * 从关系描述符中获取扫描类型。     
 	 */
 	ExecInitScanTupleSlot(estate, &indexstate->ss,
 						  RelationGetDescr(currentRelation),
 						  table_slot_callbacks(currentRelation));
 
 	/*
-	 * Initialize result type and projection.
+	 * 初始化结果类型与投影。     
 	 */
 	ExecInitResultTypeTL(&indexstate->ss.ps);
 	ExecAssignScanProjectionInfo(&indexstate->ss);
 
 	/*
-	 * initialize child expressions
+	 * 初始化子表达式       
 	 *
-	 * Note: we don't initialize all of the indexqual expression, only the
-	 * sub-parts corresponding to runtime keys (see below).  Likewise for
-	 * indexorderby, if any.  But the indexqualorig expression is always
-	 * initialized even though it will only be used in some uncommon cases ---
-	 * would be nice to improve that.  (Problem is that any SubPlans present
-	 * in the expression must be found now...)
+	 * 注意：我们不会初始化整个 indexqual 表达式，        
+	 * 只初始化与运行时键对应的子部分（见下文）。   
+	 * indexorderby（若存在）同样处理。但 indexqualorig      
+	 * 表达式则总是被初始化，尽管它只会在一些不           
+	 * 常见的情况下才会用到——这点值得改进。（表达式
+	 * 内的 SubPlan 必须现在找到…）
 	 */
 	indexstate->ss.ps.qual =
 		ExecInitQual(node->scan.plan.qual, (PlanState *) indexstate);
@@ -960,26 +960,26 @@ ExecInitIndexScan(IndexScan *node, EState *estate, int eflags)
 		ExecInitExprList(node->indexorderbyorig, (PlanState *) indexstate);
 
 	/*
-	 * If we are just doing EXPLAIN (ie, aren't going to run the plan), stop
-	 * here.  This allows an index-advisor plugin to EXPLAIN a plan containing
-	 * references to nonexistent indexes.
+	 * 如果只是执行 EXPLAIN（即不打算运行计划），          
+	 * 就到此为止。这样索引顾问插件就能 EXPLAIN               
+	 * 引用不存在索引的计划。 
 	 */
 	if (eflags & EXEC_FLAG_EXPLAIN_ONLY)
 		return indexstate;
 
-	/* Open the index relation. */
+	/* 打开索引关系。    */
 	lockmode = exec_rt_fetch(node->scan.scanrelid, estate)->rellockmode;
 	indexstate->iss_RelationDesc = index_open(node->indexid, lockmode);
 
 	/*
-	 * Initialize index-specific scan state
+	 * 初始化索引特有的扫描状态
 	 */
 	indexstate->iss_RuntimeKeysReady = false;
 	indexstate->iss_RuntimeKeys = NULL;
 	indexstate->iss_NumRuntimeKeys = 0;
 
 	/*
-	 * build the index scan keys from the index qualification
+	 * 根据索引条件构建索引扫描键               
 	 */
 	ExecIndexBuildScanKeys((PlanState *) indexstate,
 						   indexstate->iss_RelationDesc,
@@ -989,11 +989,11 @@ ExecInitIndexScan(IndexScan *node, EState *estate, int eflags)
 						   &indexstate->iss_NumScanKeys,
 						   &indexstate->iss_RuntimeKeys,
 						   &indexstate->iss_NumRuntimeKeys,
-						   NULL,	/* no ArrayKeys */
+						   NULL,	/* 无 ArrayKeys*/
 						   NULL);
 
 	/*
-	 * any ORDER BY exprs have to be turned into scankeys in the same way
+	 * 任何 ORDER BY 表达式都必须同样转为扫描键           
 	 */
 	ExecIndexBuildScanKeys((PlanState *) indexstate,
 						   indexstate->iss_RelationDesc,
@@ -1003,10 +1003,10 @@ ExecInitIndexScan(IndexScan *node, EState *estate, int eflags)
 						   &indexstate->iss_NumOrderByKeys,
 						   &indexstate->iss_RuntimeKeys,
 						   &indexstate->iss_NumRuntimeKeys,
-						   NULL,	/* no ArrayKeys */
+						   NULL,	/* 无 ArrayKeys*/
 						   NULL);
 
-	/* Initialize sort support, if we need to re-check ORDER BY exprs */
+	/* 若需要重查 ORDER BY 表达式，则初始化排序支持  */
 	if (indexstate->iss_NumOrderByKeys > 0)
 	{
 		int			numOrderByKeys = indexstate->iss_NumOrderByKeys;
@@ -1015,8 +1015,8 @@ ExecInitIndexScan(IndexScan *node, EState *estate, int eflags)
 		ListCell   *lcx;
 
 		/*
-		 * Prepare sort support, and look up the data type for each ORDER BY
-		 * expression.
+		 * 准备排序支持，并为每个 ORDER BY 表达式查找       
+		 * 类型     
 		 */
 		Assert(numOrderByKeys == list_length(node->indexorderbyops));
 		Assert(numOrderByKeys == list_length(node->indexorderbyorig));
@@ -1035,14 +1035,14 @@ ExecInitIndexScan(IndexScan *node, EState *estate, int eflags)
 			Oid			orderbyColl = exprCollation(orderbyexpr);
 			SortSupport orderbysort = &indexstate->iss_SortSupport[i];
 
-			/* Initialize sort support */
+			/* 初始化排序支持   */
 			orderbysort->ssup_cxt = CurrentMemoryContext;
 			orderbysort->ssup_collation = orderbyColl;
-			/* See cmp_orderbyvals() comments on NULLS LAST */
+			/* NULLS LAST 见 cmp_orderbyvals() 中注释   */
 			orderbysort->ssup_nulls_first = false;
-			/* ssup_attno is unused here and elsewhere */
+			/* ssup_attno 此处与别处均不使用  */
 			orderbysort->ssup_attno = 0;
-			/* No abbreviation */
+			/* 不使用缩写 */
 			orderbysort->abbreviate = false;
 			PrepareSortSupportFromOrderingOp(orderbyop, orderbysort);
 
@@ -1052,21 +1052,21 @@ ExecInitIndexScan(IndexScan *node, EState *estate, int eflags)
 			i++;
 		}
 
-		/* allocate arrays to hold the re-calculated distances */
+		/* 分配数组来存放重新计算出的距离       */
 		indexstate->iss_OrderByValues = (Datum *)
 			palloc(numOrderByKeys * sizeof(Datum));
 		indexstate->iss_OrderByNulls = (bool *)
 			palloc(numOrderByKeys * sizeof(bool));
 
-		/* and initialize the reorder queue */
+		/* 并初始化重排序队列      */
 		indexstate->iss_ReorderQueue = pairingheap_allocate(reorderqueue_cmp,
 															indexstate);
 	}
 
 	/*
-	 * If we have runtime keys, we need an ExprContext to evaluate them. The
-	 * node's standard context won't do because we want to reset that context
-	 * for every tuple.  So, build another context just like the other one...
+	 * 若有运行时键，就需要一个 ExprContext 来对它们        
+	 * 求值。节点的标准上下文不行，因为我们想要          
+	 * 为每个元组重置它。所以照样再建一个同样的上下文 
 	 * -tgl 7/11/00
 	 */
 	if (indexstate->iss_NumRuntimeKeys != 0)
@@ -1083,7 +1083,7 @@ ExecInitIndexScan(IndexScan *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * all done.
+	 * 完成了
 	 */
 	return indexstate;
 }
@@ -1091,62 +1091,62 @@ ExecInitIndexScan(IndexScan *node, EState *estate, int eflags)
 
 /*
  * ExecIndexBuildScanKeys
- *		Build the index scan keys from the index qualification expressions
+ *		根据索引条件表达式构建索引扫描键                  
  *
- * The index quals are passed to the index AM in the form of a ScanKey array.
- * This routine sets up the ScanKeys, fills in all constant fields of the
- * ScanKeys, and prepares information about the keys that have non-constant
- * comparison values.  We divide index qual expressions into five types:
+ * 索引条件以 ScanKey 数组的形式传给索引 AM。                 
+ * 本例程设置好各 ScanKey，填入其所有常量字段，        
+ * 并为具有非常量比较值的键准备相关信息。我们         
+ * 把索引条件表达式分为五类：                              
  *
- * 1. Simple operator with constant comparison value ("indexkey op constant").
- * For these, we just fill in a ScanKey containing the constant value.
+ * 1. 带常量比较值的简单操作符（"indexkey op constant"）。     
+ * 对这类，我们只需填入一个含该常量值的 ScanKey。  
  *
- * 2. Simple operator with non-constant value ("indexkey op expression").
- * For these, we create a ScanKey with everything filled in except the
- * expression value, and set up an IndexRuntimeKeyInfo struct to drive
- * evaluation of the expression at the right times.
+ * 2. 带非常量值的简单操作符（"indexkey op expression"）。 
+ * 对这类，我们创建的 ScanKey 除表达式值外其余       
+ * 字段均已填好，并建立 IndexRuntimeKeyInfo 结构来       
+ * 在恰当时机驱动表达式的求值。      
  *
  * 3. RowCompareExpr ("(indexkey, indexkey, ...) op (expr, expr, ...)").
- * For these, we create a header ScanKey plus a subsidiary ScanKey array,
- * as specified in access/skey.h.  The elements of the row comparison
- * can have either constant or non-constant comparison values.
+ * 对这类，我们会创建一个头 ScanKey 外加一个附属       
+ * ScanKey 数组，如 access/skey.h 所规定。行比较的       
+ * 各元素的比较值可为常量，也可为非常量。  
  *
- * 4. ScalarArrayOpExpr ("indexkey op ANY (array-expression)").  If the index
- * supports amsearcharray, we handle these the same as simple operators,
- * setting the SK_SEARCHARRAY flag to tell the AM to handle them.  Otherwise,
- * we create a ScanKey with everything filled in except the comparison value,
- * and set up an IndexArrayKeyInfo struct to drive processing of the qual.
- * (Note that if we use an IndexArrayKeyInfo struct, the array expression is
- * always treated as requiring runtime evaluation, even if it's a constant.)
+ * 4. ScalarArrayOpExpr（"indexkey op ANY (array-expression)"）。若      
+ * 索引支持 amsearcharray，我们对它们的处理方式          
+ * 与简单操作符相同，即设置 SK_SEARCHARRAY 标志                
+ * 让索引 AM 自行处理。否则，我们创建的 ScanKey 除          
+ * 比较值外均已填好，并建立 IndexArrayKeyInfo 结构          
+ * 来驱动该条件的处理。（注意：若使用该结构，则       
+ * 即使它是常量，该表达式总被当作需要运行时求值。） 
  *
- * 5. NullTest ("indexkey IS NULL/IS NOT NULL").  We just fill in the
- * ScanKey properly.
+ * 5. NullTest（"indexkey IS NULL/IS NOT NULL"）。我们只需    
+ * 填好 ScanKey   
  *
- * This code is also used to prepare ORDER BY expressions for amcanorderbyop
- * indexes.  The behavior is exactly the same, except that we have to look up
- * the operator differently.  Note that only cases 1 and 2 are currently
- * possible for ORDER BY.
+ * 此代码也用于为 amcanorderbyop 索引准备 ORDER BY               
+ * 表达式。行为完全相同，只是必须以不同的方式           
+ * 查找操作符。注意目前仅情况 1 与 2 可                  
+ * 用于 ORDER BY。    
  *
- * Input params are:
+ * 输入参数：  
  *
- * planstate: executor state node we are working for
- * index: the index we are building scan keys for
- * quals: indexquals (or indexorderbys) expressions
- * isorderby: true if processing ORDER BY exprs, false if processing quals
- * *runtimeKeys: ptr to pre-existing IndexRuntimeKeyInfos, or NULL if none
- * *numRuntimeKeys: number of pre-existing runtime keys
+ * planstate: 我们服务的执行器状态节点  
+ * index: 要为其构建扫描键的索引      
+ * quals: indexquals/indexorderbys 表达式       
+ * isorderby: 处理 ORDER BY 表达式时为 true，条件时为 false   
+ * *runtimeKeys: 既有 IndexRuntimeKeyInfos 的指针，无则为 NULL   
+ * *numRuntimeKeys: 既有运行时键的数量        
  *
- * Output params are:
+ * 输出参数：   
  *
- * *scanKeys: receives ptr to array of ScanKeys
- * *numScanKeys: receives number of scankeys
- * *runtimeKeys: receives ptr to array of IndexRuntimeKeyInfos, or NULL if none
- * *numRuntimeKeys: receives number of runtime keys
- * *arrayKeys: receives ptr to array of IndexArrayKeyInfos, or NULL if none
- * *numArrayKeys: receives number of array keys
+ * *scanKeys: 接收 ScanKey 数组的指针   
+ * *numScanKeys: 接收扫描键的数量   
+ * *runtimeKeys: 接收 IndexRuntimeKeyInfos 数组的指针，无则为 NULL  
+ * *numRuntimeKeys: 接收运行时键的数量    
+ * *arrayKeys: 接收 IndexArrayKeyInfos 数组的指针，无则为 NULL  
+ * *numArrayKeys: 接收数组键的数量     
  *
- * Caller may pass NULL for arrayKeys and numArrayKeys to indicate that
- * IndexArrayKeyInfos are not supported.
+ * 调用者可为 arrayKeys 与 numArrayKeys 传入 NULL，           
+ * 表示不支持 IndexArrayKeyInfo。 
  */
 void
 ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
@@ -1165,27 +1165,27 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 	int			n_array_keys;
 	int			j;
 
-	/* Allocate array for ScanKey structs: one per qual */
+	/* 分配 ScanKey 结构数组：每条件一个    */
 	n_scan_keys = list_length(quals);
 	scan_keys = (ScanKey) palloc(n_scan_keys * sizeof(ScanKeyData));
 
 	/*
-	 * runtime_keys array is dynamically resized as needed.  We handle it this
-	 * way so that the same runtime keys array can be shared between
-	 * indexquals and indexorderbys, which will be processed in separate calls
-	 * of this function.  Caller must be sure to pass in NULL/0 for first
-	 * call.
+	 * runtime_keys 数组会按需动态调整大小。我们这样          
+	 * 处理是为了让同一个运行时键数组能在          
+	 * indexquals 与 indexorderbys 之间共享，二者会在本            
+	 * 函数的单独调用中得到处理。首次调用必须传入   
+	 * NULL 
 	 */
 	runtime_keys = *runtimeKeys;
 	n_runtime_keys = max_runtime_keys = *numRuntimeKeys;
 
-	/* Allocate array_keys as large as it could possibly need to be */
+	/* 把 array_keys 分配为可能需要的最大长度          */
 	array_keys = (IndexArrayKeyInfo *)
 		palloc0(n_scan_keys * sizeof(IndexArrayKeyInfo));
 	n_array_keys = 0;
 
 	/*
-	 * for each opclause in the given qual, convert the opclause into a single
+	 * 把给定条件中的每个操作符子句转换为一个              
 	 * scan key
 	 */
 	j = 0;
@@ -1193,21 +1193,21 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 	{
 		Expr	   *clause = (Expr *) lfirst(qual_cell);
 		ScanKey		this_scan_key = &scan_keys[j++];
-		Oid			opno;		/* operator's OID */
-		RegProcedure opfuncid;	/* operator proc id used in scan */
-		Oid			opfamily;	/* opfamily of index column */
-		int			op_strategy;	/* operator's strategy number */
-		Oid			op_lefttype;	/* operator's declared input types */
+		Oid			opno;		/* 操作符 OID  */
+		RegProcedure opfuncid;	/* 扫描用的操作符过程号*/
+		Oid			opfamily;	/* 索引列的操作符族 */
+		int			op_strategy;	/* 操作符的策略号      */
+		Oid			op_lefttype;	/* 操作符声明的输入类型  */
 		Oid			op_righttype;
-		Expr	   *leftop;		/* expr on lhs of operator */
-		Expr	   *rightop;	/* expr on rhs ... */
-		AttrNumber	varattno;	/* att number used in scan */
+		Expr	   *leftop;		/* 操作符左部表达式*/
+		Expr	   *rightop;	/* 右部表达式 */
+		AttrNumber	varattno;	/* 扫描所用属性号   */
 		int			indnkeyatts;
 
 		indnkeyatts = IndexRelationGetNumberOfKeyAttributes(index);
 		if (IsA(clause, OpExpr))
 		{
-			/* indexkey op const or indexkey op expression */
+			/* indexkey op 常量或 indexkey op 表达式 */
 			int			flags = 0;
 			Datum		scanvalue;
 
@@ -1215,7 +1215,7 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 			opfuncid = ((OpExpr *) clause)->opfuncid;
 
 			/*
-			 * leftop should be the index key Var, possibly relabeled
+			 * leftop 应为索引键 Var，可能已被重新标注 
 			 */
 			leftop = (Expr *) get_leftop(clause);
 
@@ -1233,8 +1233,8 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 				elog(ERROR, "bogus index qualification");
 
 			/*
-			 * We have to look up the operator's strategy number.  This
-			 * provides a cross-check that the operator does match the index.
+			 * 我们须查找操作符的策略号。这样可以     
+			 * 交叉验证该操作符确实与索引匹配。              
 			 */
 			opfamily = index->rd_opfamily[varattno - 1];
 
@@ -1247,7 +1247,7 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 				flags |= SK_ORDER_BY;
 
 			/*
-			 * rightop is the constant or variable comparison value
+			 * rightop 是常量或变量形式的比较值        
 			 */
 			rightop = (Expr *) get_rightop(clause);
 
@@ -1258,14 +1258,14 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 
 			if (IsA(rightop, Const))
 			{
-				/* OK, simple constant comparison value */
+				/* 好，简单的常量比较值       */
 				scanvalue = ((Const *) rightop)->constvalue;
 				if (((Const *) rightop)->constisnull)
 					flags |= SK_ISNULL;
 			}
 			else
 			{
-				/* Need to treat this one as a runtime key */
+				/* 需要把这个当作运行时键处理 */
 				if (n_runtime_keys >= max_runtime_keys)
 				{
 					if (max_runtime_keys == 0)
@@ -1291,16 +1291,16 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 			}
 
 			/*
-			 * initialize the scan key's fields appropriately
+			 * 适当地初始化扫描键的各个字段    
 			 */
 			ScanKeyEntryInitialize(this_scan_key,
 								   flags,
-								   varattno,	/* attribute number to scan */
-								   op_strategy, /* op's strategy */
-								   op_righttype,	/* strategy subtype */
+								   varattno,	/* 要扫描的属性号    */
+								   op_strategy, /* op 的策略  */
+								   op_righttype,	/* 策略子类型  */
 								   ((OpExpr *) clause)->inputcollid,	/* collation */
-								   opfuncid,	/* reg proc to use */
-								   scanvalue);	/* constant */
+								   opfuncid,	/* 所用 reg proc */
+								   scanvalue);	/* 常量   */
 		}
 		else if (IsA(clause, RowCompareExpr))
 		{
@@ -1319,7 +1319,7 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 				palloc(list_length(rc->opnos) * sizeof(ScanKeyData));
 			n_sub_key = 0;
 
-			/* Scan RowCompare columns and generate subsidiary ScanKey items */
+			/* 扫描 RowCompare 各列并生成附属 ScanKey 项           */
 			forfour(largs_cell, rc->largs, rargs_cell, rc->rargs,
 					opnos_cell, rc->opnos, collids_cell, rc->inputcollids)
 			{
@@ -1334,7 +1334,7 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 				inputcollation = lfirst_oid(collids_cell);
 
 				/*
-				 * leftop should be the index key Var, possibly relabeled
+				 * leftop 应为索引键 Var，可能已被重新标注 
 				 */
 				if (leftop && IsA(leftop, RelabelType))
 					leftop = ((RelabelType *) leftop)->arg;
@@ -1348,8 +1348,8 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 				varattno = ((Var *) leftop)->varattno;
 
 				/*
-				 * We have to look up the operator's associated btree support
-				 * function
+				 * 我们必须查找操作符关联的 btree 支持         
+				 * 函数  
 				 */
 				if (index->rd_rel->relam != BTREE_AM_OID ||
 					varattno < 1 || varattno > indnkeyatts)
@@ -1373,7 +1373,7 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 						 BTORDER_PROC, op_lefttype, op_righttype, opfamily);
 
 				/*
-				 * rightop is the constant or variable comparison value
+				 * rightop 是常量或变量形式的比较值        
 				 */
 				if (rightop && IsA(rightop, RelabelType))
 					rightop = ((RelabelType *) rightop)->arg;
@@ -1382,14 +1382,14 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 
 				if (IsA(rightop, Const))
 				{
-					/* OK, simple constant comparison value */
+					/* 好，简单的常量比较值       */
 					scanvalue = ((Const *) rightop)->constvalue;
 					if (((Const *) rightop)->constisnull)
 						flags |= SK_ISNULL;
 				}
 				else
 				{
-					/* Need to treat this one as a runtime key */
+					/* 需要把这个当作运行时键处理 */
 					if (n_runtime_keys >= max_runtime_keys)
 					{
 						if (max_runtime_keys == 0)
@@ -1415,31 +1415,31 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 				}
 
 				/*
-				 * initialize the subsidiary scan key's fields appropriately
+				 * 适当地初始化附属扫描键的各个字段         
 				 */
 				ScanKeyEntryInitialize(this_sub_key,
 									   flags,
-									   varattno,	/* attribute number */
-									   op_strategy, /* op's strategy */
-									   op_righttype,	/* strategy subtype */
+									   varattno,	/* 属性号        */
+									   op_strategy, /* op 的策略  */
+									   op_righttype,	/* 策略子类型  */
 									   inputcollation,	/* collation */
-									   opfuncid,	/* reg proc to use */
-									   scanvalue);	/* constant */
+									   opfuncid,	/* 所用 reg proc */
+									   scanvalue);	/* 常量   */
 				n_sub_key++;
 			}
 
-			/* Mark the last subsidiary scankey correctly */
+			/* 正确标记最后一个附属扫描键    */
 			first_sub_key[n_sub_key - 1].sk_flags |= SK_ROW_END;
 
 			/*
-			 * We don't use ScanKeyEntryInitialize for the header because it
-			 * isn't going to contain a valid sk_func pointer.
+			 * 头扫描键不使用 ScanKeyEntryInitialize 来初始化， 
+			 * 因其不会包含有效的 sk_func 指针。  
 			 */
 			MemSet(this_scan_key, 0, sizeof(ScanKeyData));
 			this_scan_key->sk_flags = SK_ROW_HEADER;
 			this_scan_key->sk_attno = first_sub_key->sk_attno;
 			this_scan_key->sk_strategy = rc->rctype;
-			/* sk_subtype, sk_collation, sk_func not used in a header */
+			/* 头部不使用 sk_subtype、sk_collation、sk_func    */
 			this_scan_key->sk_argument = PointerGetDatum(first_sub_key);
 		}
 		else if (IsA(clause, ScalarArrayOpExpr))
@@ -1456,7 +1456,7 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 			opfuncid = saop->opfuncid;
 
 			/*
-			 * leftop should be the index key Var, possibly relabeled
+			 * leftop 应为索引键 Var，可能已被重新标注 
 			 */
 			leftop = (Expr *) linitial(saop->args);
 
@@ -1474,8 +1474,8 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 				elog(ERROR, "bogus index qualification");
 
 			/*
-			 * We have to look up the operator's strategy number.  This
-			 * provides a cross-check that the operator does match the index.
+			 * 我们须查找操作符的策略号。这样可以     
+			 * 交叉验证该操作符确实与索引匹配。              
 			 */
 			opfamily = index->rd_opfamily[varattno - 1];
 
@@ -1485,7 +1485,7 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 									   &op_righttype);
 
 			/*
-			 * rightop is the constant or variable array value
+			 * rightop 是常量或变量形式的数组值   
 			 */
 			rightop = (Expr *) lsecond(saop->args);
 
@@ -1496,18 +1496,18 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 
 			if (index->rd_indam->amsearcharray)
 			{
-				/* Index AM will handle this like a simple operator */
+				/* 索引 AM 会像简单操作符一样处理它   */
 				flags |= SK_SEARCHARRAY;
 				if (IsA(rightop, Const))
 				{
-					/* OK, simple constant comparison value */
+					/* 好，简单的常量比较值       */
 					scanvalue = ((Const *) rightop)->constvalue;
 					if (((Const *) rightop)->constisnull)
 						flags |= SK_ISNULL;
 				}
 				else
 				{
-					/* Need to treat this one as a runtime key */
+					/* 需要把这个当作运行时键处理 */
 					if (n_runtime_keys >= max_runtime_keys)
 					{
 						if (max_runtime_keys == 0)
@@ -1528,10 +1528,10 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 						ExecInitExpr(rightop, planstate);
 
 					/*
-					 * Careful here: the runtime expression is not of
-					 * op_righttype, but rather is an array of same; so
-					 * TypeIsToastable() isn't helpful.  However, we can
-					 * assume that all array types are toastable.
+					 * 注意：运行时表达式的类型不是    
+					 * op_righttype 而是同类数组；因此        
+					 * TypeIsToastable() 无济于事。不过可       
+					 * 以假定所有数组类型均可 TOAST。
 					 */
 					runtime_keys[n_runtime_keys].key_toastable = true;
 					n_runtime_keys++;
@@ -1540,26 +1540,26 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 			}
 			else
 			{
-				/* Executor has to expand the array value */
+				/* 执行器必须展开该数组值      */
 				array_keys[n_array_keys].scan_key = this_scan_key;
 				array_keys[n_array_keys].array_expr =
 					ExecInitExpr(rightop, planstate);
-				/* the remaining fields were zeroed by palloc0 */
+				/* 其余字段已由 palloc0 清零           */
 				n_array_keys++;
 				scanvalue = (Datum) 0;
 			}
 
 			/*
-			 * initialize the scan key's fields appropriately
+			 * 适当地初始化扫描键的各个字段    
 			 */
 			ScanKeyEntryInitialize(this_scan_key,
 								   flags,
-								   varattno,	/* attribute number to scan */
-								   op_strategy, /* op's strategy */
-								   op_righttype,	/* strategy subtype */
+								   varattno,	/* 要扫描的属性号    */
+								   op_strategy, /* op 的策略  */
+								   op_righttype,	/* 策略子类型  */
 								   saop->inputcollid,	/* collation */
-								   opfuncid,	/* reg proc to use */
-								   scanvalue);	/* constant */
+								   opfuncid,	/* 所用 reg proc */
+								   scanvalue);	/* 常量   */
 		}
 		else if (IsA(clause, NullTest))
 		{
@@ -1570,7 +1570,7 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 			Assert(!isorderby);
 
 			/*
-			 * argument should be the index key Var, possibly relabeled
+			 * argument 应为索引键 Var，可能已被重新标注 
 			 */
 			leftop = ntest->arg;
 
@@ -1586,7 +1586,7 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 			varattno = ((Var *) leftop)->varattno;
 
 			/*
-			 * initialize the scan key's fields appropriately
+			 * 适当地初始化扫描键的各个字段    
 			 */
 			switch (ntest->nulltesttype)
 			{
@@ -1599,18 +1599,18 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 				default:
 					elog(ERROR, "unrecognized nulltesttype: %d",
 						 (int) ntest->nulltesttype);
-					flags = 0;	/* keep compiler quiet */
+					flags = 0;	/* 让编译器安静  */
 					break;
 			}
 
 			ScanKeyEntryInitialize(this_scan_key,
 								   flags,
-								   varattno,	/* attribute number to scan */
-								   InvalidStrategy, /* no strategy */
-								   InvalidOid,	/* no strategy subtype */
-								   InvalidOid,	/* no collation */
-								   InvalidOid,	/* no reg proc for this */
-								   (Datum) 0);	/* constant */
+								   varattno,	/* 要扫描的属性号    */
+								   InvalidStrategy, /* 无策略   */
+								   InvalidOid,	/* 无策略子类型  */
+								   InvalidOid,	/* 无 collation*/
+								   InvalidOid,	/* 此项无 reg proc   */
+								   (Datum) 0);	/* 常量   */
 		}
 		else
 			elog(ERROR, "unsupported indexqual type: %d",
@@ -1619,7 +1619,7 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 
 	Assert(n_runtime_keys <= max_runtime_keys);
 
-	/* Get rid of any unused arrays */
+	/* 去掉未使用的数组     */
 	if (n_array_keys == 0)
 	{
 		pfree(array_keys);
@@ -1627,7 +1627,7 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 	}
 
 	/*
-	 * Return info to our caller.
+	 * 将信息返回调用者  
 	 */
 	*scanKeys = scan_keys;
 	*numScanKeys = n_scan_keys;
@@ -1643,15 +1643,15 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 }
 
 /* ----------------------------------------------------------------
- *						Parallel Scan Support
+ *						并行扫描支持   
  * ----------------------------------------------------------------
  */
 
 /* ----------------------------------------------------------------
  *		ExecIndexScanEstimate
  *
- *		Compute the amount of space we'll need in the parallel
- *		query DSM, and inform pcxt->estimator about our needs.
+ *		计算并行查询 DSM 中我们所需的空间量， 
+ *		并把我们的需求告知 pcxt->estimator。        
  * ----------------------------------------------------------------
  */
 void
@@ -1669,7 +1669,7 @@ ExecIndexScanEstimate(IndexScanState *node,
 /* ----------------------------------------------------------------
  *		ExecIndexScanInitializeDSM
  *
- *		Set up a parallel index scan descriptor.
+ *		建立并行索引扫描描述符。    
  * ----------------------------------------------------------------
  */
 void
@@ -1693,8 +1693,8 @@ ExecIndexScanInitializeDSM(IndexScanState *node,
 								 piscan);
 
 	/*
-	 * If no run-time keys to calculate or they are ready, go ahead and pass
-	 * the scankeys to the index AM.
+	 * 若无运行时键要计算，或它们已就绪，就把扫描键   
+	 * 传给索引 AM。           
 	 */
 	if (node->iss_NumRuntimeKeys == 0 || node->iss_RuntimeKeysReady)
 		index_rescan(node->iss_ScanDesc,
@@ -1705,7 +1705,7 @@ ExecIndexScanInitializeDSM(IndexScanState *node,
 /* ----------------------------------------------------------------
  *		ExecIndexScanReInitializeDSM
  *
- *		Reset shared state before beginning a fresh scan.
+ *		在开始全新扫描前重置共享状态。    
  * ----------------------------------------------------------------
  */
 void
@@ -1718,7 +1718,7 @@ ExecIndexScanReInitializeDSM(IndexScanState *node,
 /* ----------------------------------------------------------------
  *		ExecIndexScanInitializeWorker
  *
- *		Copy relevant information from TOC into planstate.
+ *		把相关信息从 TOC 复制到 planstate 中。 
  * ----------------------------------------------------------------
  */
 void
@@ -1736,8 +1736,8 @@ ExecIndexScanInitializeWorker(IndexScanState *node,
 								 piscan);
 
 	/*
-	 * If no run-time keys to calculate or they are ready, go ahead and pass
-	 * the scankeys to the index AM.
+	 * 若无运行时键要计算，或它们已就绪，就把扫描键   
+	 * 传给索引 AM。           
 	 */
 	if (node->iss_NumRuntimeKeys == 0 || node->iss_RuntimeKeysReady)
 		index_rescan(node->iss_ScanDesc,

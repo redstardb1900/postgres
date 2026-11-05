@@ -1,0 +1,71 @@
+{
+ "schema_version": 1,
+ "batch_id": "0268-comment-executor-tuples-mergejoin-indexscan",
+ "title": "Translate executor comments: executor-tuples-mergejoin-indexscan",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "d59463a1c34cdc0276aa9889b5461d376590cfd5",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0268-comment-executor-tuples-mergejoin-indexscan.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/executor/**",
+   "kind": "c_comment",
+   "note": "P2 executor translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0268-comment-executor-tuples-mergejoin-indexscan.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/executor/execTuples.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 158,
+   "translated": 157,
+   "preserved": 1,
+   "preserved_reasons": [
+    "Keep-EN function-name banner blocks (identifier-only: ExecInitScanTupleSlot)"
+   ],
+   "note": "P2 executor campaign wave C9"
+  },
+  {
+   "path": "src/backend/executor/nodeIndexscan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 173,
+   "translated": 164,
+   "preserved": 9,
+   "preserved_reasons": [
+    "Keep-EN function-name banner blocks (identifier-only: ExecIndexScan(node), ExecEndIndexScan, ExecIndexRestrPos)",
+    "Keep-EN identifier/expression one-line labels (/* collation */ x3, index-qual shape comments)"
+   ],
+   "note": "P2 executor campaign wave C9"
+  },
+  {
+   "path": "src/backend/executor/nodeMergejoin.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 164,
+   "translated": 160,
+   "preserved": 4,
+   "preserved_reasons": [
+    "Keep-EN function-name banner blocks (identifier-only: ExecMergeJoin, ExecInitMergeJoin)",
+    "Keep-EN one-line predicate labels (/* NULL \"=\" NULL */, /* compareResult > 0 */)"
+   ],
+   "note": "P2 executor campaign wave C9"
+  }
+ ],
+ "notes": "Translation agents (C9a/C9b/C9c) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

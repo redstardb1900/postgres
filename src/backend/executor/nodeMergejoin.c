@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeMergejoin.c
- *	  routines supporting merge joins
+ *	  支持合并连接的例程    
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,52 +13,52 @@
  *-------------------------------------------------------------------------
  */
 /*
- * INTERFACE ROUTINES
- *		ExecMergeJoin			mergejoin outer and inner relations.
- *		ExecInitMergeJoin		creates and initializes run time states
- *		ExecEndMergeJoin		cleans up the node.
+ * 接口例程      
+ *		ExecMergeJoin			合并连接 outer/inner 关系。  
+ *		ExecInitMergeJoin		创建并初始化运行时状态      
+ *		ExecEndMergeJoin		清理该节点。 
  *
  * NOTES
  *
- *		Merge-join is done by joining the inner and outer tuples satisfying
- *		join clauses of the form ((= outerKey innerKey) ...).
- *		The join clause list is provided by the query planner and may contain
- *		more than one (= outerKey innerKey) clause (for composite sort key).
+ *		合并连接通过把满足 ((= outerKey innerKey) ...) 形式的  
+ *		连接子句的内、外侧元组连接而成。     
+ *		连接子句列表由查询规划器提供，且可能包含多个   
+ *		(= outerKey innerKey) 子句（用于复合排序键）。          
  *
- *		However, the query executor needs to know whether an outer
- *		tuple is "greater/smaller" than an inner tuple so that it can
- *		"synchronize" the two relations. For example, consider the following
- *		relations:
+ *		不过，查询执行器需要知道某个外侧元组    
+ *		相对内侧元组是"更大"还是"更小"，从而可以   
+ *		"同步"这两个关系。例如，考虑以下                     
+ *		关系： 
  *
  *				outer: (0 ^1 1 2 5 5 5 6 6 7)	current tuple: 1
  *				inner: (1 ^3 5 5 5 5 6)			current tuple: 3
  *
- *		To continue the merge-join, the executor needs to scan both inner
- *		and outer relations till the matching tuples 5. It needs to know
- *		that currently inner tuple 3 is "greater" than outer tuple 1 and
- *		therefore it should scan the outer relation first to find a
- *		matching tuple and so on.
+ *		为继续合并连接，执行器需要扫描内外侧关系，  
+ *		直到匹配元组 5 为止。须知当前内侧元组 3        
+ *		比外侧元组 1 大，因此应先扫描外侧关系以寻找 
+ *		第一个匹配元组，如此反复                       
+ *		进行下去。          
  *
- *		Therefore, rather than directly executing the merge join clauses,
- *		we evaluate the left and right key expressions separately and then
- *		compare the columns one at a time (see MJCompare).  The planner
- *		passes us enough information about the sort ordering of the inputs
- *		to allow us to determine how to make the comparison.  We may use the
- *		appropriate btree comparison function, since Postgres' only notion
- *		of ordering is specified by btree opfamilies.
- *
- *
- *		Consider the above relations and suppose that the executor has
- *		just joined the first outer "5" with the last inner "5". The
- *		next step is of course to join the second outer "5" with all
- *		the inner "5's". This requires repositioning the inner "cursor"
- *		to point at the first inner "5". This is done by "marking" the
- *		first inner 5 so we can restore the "cursor" to it before joining
- *		with the second outer 5. The access method interface provides
- *		routines to mark and restore to a tuple.
+ *		因此我们不是直接执行合并连接子句，而是分别  
+ *		计算左右键表达式，然后每次比较其中一列         
+ *		（见 MJCompare）。规划器会向我们传入足够的     
+ *		信息，来说明输入的排序顺序，使我们能够确定   
+ *		如何比较。我们可以用合适的 btree 比较函数，       
+ *		因为 Postgres 排序的唯一概念由 btree 操作符族所    
+ *		定义。                                    
  *
  *
- *		Essential operation of the merge join algorithm is as follows:
+ *		考虑上述关系，假设执行器刚把第一个外侧 "5" 
+ *		与最后一个内侧 "5" 连接。接下来是第二个    
+ *		外侧 "5" 与所有内侧 "5" 连接。这需要把内侧  
+ *		"游标"重新定位到第一个内侧 "5"。这通过"标记" 
+ *		第一个内侧 5，从而在与第二个外侧 5 连接前   
+ *		可以把"游标"恢复到它那里。访问方法接口提供了
+ *		针对元组执行标记与恢复操作的                   
+ *		例程。                               
+ *
+ *
+ *		合并连接算法的基本操作流程如下：              
  *
  *		Join {
  *			get initial outer and inner tuples				INITIALIZE
@@ -84,10 +84,10 @@
  *			}
  *		}
  *
- *		The merge join operation is coded in the fashion
- *		of a state machine.  At each state, we do something and then
- *		proceed to another state.  This state is stored in the node's
- *		execution state information and is preserved across calls to
+ *		合并连接操作以状态机的方式编码。
+ *		在每个状态中，我们先做某件事，然后转入   
+ *		另一个状态。该状态保存在节点的执行状态    
+ *		信息里，并在多次调用之间保持不变。         
  *		ExecMergeJoin. -cim 10/31/89
  */
 #include "postgres.h"
@@ -101,7 +101,7 @@
 
 
 /*
- * States of the ExecMergeJoin state machine
+ * ExecMergeJoin 状态机的各个状态   
  */
 #define EXEC_MJ_INITIALIZE_OUTER		1
 #define EXEC_MJ_INITIALIZE_INNER		2
@@ -116,36 +116,36 @@
 #define EXEC_MJ_ENDINNER				11
 
 /*
- * Runtime data for each mergejoin clause
+ * 各合并子句的运行时数据     
  */
 typedef struct MergeJoinClauseData
 {
-	/* Executable expression trees */
-	ExprState  *lexpr;			/* left-hand (outer) input expression */
-	ExprState  *rexpr;			/* right-hand (inner) input expression */
+	/* 可执行表达式树       */
+	ExprState  *lexpr;			/* 左侧（外侧）输入表达式  */
+	ExprState  *rexpr;			/* 右侧（内侧）输入表达式   */
 
 	/*
-	 * If we have a current left or right input tuple, the values of the
-	 * expressions are loaded into these fields:
+	 * 如果我们有当前的外侧或内侧输入元组，           
+	 * 表达式的值会装入这些字段：  
 	 */
-	Datum		ldatum;			/* current left-hand value */
-	Datum		rdatum;			/* current right-hand value */
-	bool		lisnull;		/* and their isnull flags */
+	Datum		ldatum;			/* 当前左侧值         */
+	Datum		rdatum;			/* 当前右侧值          */
+	bool		lisnull;		/* 及其 isnull 标志   */
 	bool		risnull;
 
 	/*
-	 * Everything we need to know to compare the left and right values is
-	 * stored here.
+	 * 比较左右两侧值所需的一切信息都保存               
+	 * 在此。   
 	 */
 	SortSupportData ssup;
 }			MergeJoinClauseData;
 
-/* Result type for MJEvalOuterValues and MJEvalInnerValues */
+/* MJEvalOuterValues 和 MJEvalInnerValues 的结果类型 */
 typedef enum
 {
-	MJEVAL_MATCHABLE,			/* normal, potentially matchable tuple */
-	MJEVAL_NONMATCHABLE,		/* tuple cannot join because it has a null */
-	MJEVAL_ENDOFJOIN			/* end of input (physical or effective) */
+	MJEVAL_MATCHABLE,			/* 普通元组，可能参与匹配   */
+	MJEVAL_NONMATCHABLE,		/* 含 NULL，无法连接的元组        */
+	MJEVAL_ENDOFJOIN			/* 输入结束（物理或实际）    */
 } MJEvalResult;
 
 
@@ -156,21 +156,21 @@ typedef enum
 /*
  * MJExamineQuals
  *
- * This deconstructs the list of mergejoinable expressions, which is given
- * to us by the planner in the form of a list of "leftexpr = rightexpr"
- * expression trees in the order matching the sort columns of the inputs.
- * We build an array of MergeJoinClause structs containing the information
- * we will need at runtime.  Each struct essentially tells us how to compare
- * the two expressions from the original clause.
+ * 本函数解构可合并连接表达式列表，该列表由规划器  
+ * 以 "leftexpr = rightexpr" 表达式树的形式交给我们，     
+ * 其顺序与输入的排序列相匹配。我们会构建一个       
+ * MergeJoinClause 结构体数组，其中包含运行时所需的       
+ * 信息。每个结构体实质上告诉我们该如何比较             
+ * 原始子句中的两个表达式。         
  *
- * In addition to the expressions themselves, the planner passes the btree
- * opfamily OID, collation OID, btree strategy number (BTLessStrategyNumber or
- * BTGreaterStrategyNumber), and nulls-first flag that identify the intended
- * sort ordering for each merge key.  The mergejoinable operator is an
- * equality operator in the opfamily, and the two inputs are guaranteed to be
- * ordered in either increasing or decreasing (respectively) order according
- * to the opfamily and collation, with nulls at the indicated end of the range.
- * This allows us to obtain the needed comparison function from the opfamily.
+ * 除了表达式本身，规划器还会传入用于标识每个        
+ * 合并键的 btree 操作符族 OID、排序规则 OID、btree 策略号   
+ * （BTLessStrategyNumber 或 BTGreaterStrategyNumber）以及             
+ * 空值置前标志。可合并连接的操作符是操作符族    
+ * 中的一个等值操作符，这两个输入被保证按升序           
+ * 或降序（各对应）排列，依据是操作符族与排序规则， 
+ * 空值位于范围中指示的一端。这让我们能够从操作符族    
+ * 中获得所需的比较函数。                                         
  */
 static MergeJoinClause
 MJExamineQuals(List *mergeclauses,
@@ -205,40 +205,40 @@ MJExamineQuals(List *mergeclauses,
 			elog(ERROR, "mergejoin clause is not an OpExpr");
 
 		/*
-		 * Prepare the input expressions for execution.
+		 * 为执行准备输入表达式。           
 		 */
 		clause->lexpr = ExecInitExpr((Expr *) linitial(qual->args), parent);
 		clause->rexpr = ExecInitExpr((Expr *) lsecond(qual->args), parent);
 
-		/* Set up sort support data */
+		/* 设置排序支持数据 */
 		clause->ssup.ssup_cxt = CurrentMemoryContext;
 		clause->ssup.ssup_collation = collation;
 		if (opstrategy == BTLessStrategyNumber)
 			clause->ssup.ssup_reverse = false;
 		else if (opstrategy == BTGreaterStrategyNumber)
 			clause->ssup.ssup_reverse = true;
-		else					/* planner screwed up */
+		else					/* 规划器出错了 */
 			elog(ERROR, "unsupported mergejoin strategy %d", opstrategy);
 		clause->ssup.ssup_nulls_first = nulls_first;
 
-		/* Extract the operator's declared left/right datatypes */
+		/* 提取该操作符声明的左右数据类型        */
 		get_op_opfamily_properties(qual->opno, opfamily, false,
 								   &op_strategy,
 								   &op_lefttype,
 								   &op_righttype);
-		if (op_strategy != BTEqualStrategyNumber)	/* should not happen */
+		if (op_strategy != BTEqualStrategyNumber)	/* 不应发生      */
 			elog(ERROR, "cannot merge using non-equality operator %u",
 				 qual->opno);
 
 		/*
-		 * sortsupport routine must know if abbreviation optimization is
-		 * applicable in principle.  It is never applicable for merge joins
-		 * because there is no convenient opportunity to convert to
-		 * alternative representation.
+		 * sortsupport 例程必须知道缩写优化在原则上       
+		 * 是否适用。对合并连接而言它绝不适用，因为    
+		 * 没有合适的机会把值转换为                    
+		 * 替代表示。            
 		 */
 		clause->ssup.abbreviate = false;
 
-		/* And get the matching support or comparison function */
+		/* 然后获取匹配支持函数或比较函数       */
 		Assert(clause->ssup.comparator == NULL);
 		sortfunc = get_opfamily_proc(opfamily,
 									 op_lefttype,
@@ -246,20 +246,20 @@ MJExamineQuals(List *mergeclauses,
 									 BTSORTSUPPORT_PROC);
 		if (OidIsValid(sortfunc))
 		{
-			/* The sort support function can provide a comparator */
+			/* 排序支持函数可以提供一个比较器      */
 			OidFunctionCall1(sortfunc, PointerGetDatum(&clause->ssup));
 		}
 		if (clause->ssup.comparator == NULL)
 		{
-			/* support not available, get comparison func */
+			/* 无支持函数，取得比较函数       */
 			sortfunc = get_opfamily_proc(opfamily,
 										 op_lefttype,
 										 op_righttype,
 										 BTORDER_PROC);
-			if (!OidIsValid(sortfunc))	/* should not happen */
+			if (!OidIsValid(sortfunc))	/* 不应发生      */
 				elog(ERROR, "missing support function %d(%u,%u) in opfamily %u",
 					 BTORDER_PROC, op_lefttype, op_righttype, opfamily);
-			/* We'll use a shim to call the old-style btree comparator */
+			/* 我们将用垫片来调用旧式 btree 比较器       */
 			PrepareSortSupportComparisonShim(sortfunc, &clause->ssup);
 		}
 
@@ -272,24 +272,24 @@ MJExamineQuals(List *mergeclauses,
 /*
  * MJEvalOuterValues
  *
- * Compute the values of the mergejoined expressions for the current
- * outer tuple.  We also detect whether it's impossible for the current
- * outer tuple to match anything --- this is true if it yields a NULL
- * input, since we assume mergejoin operators are strict.  If the NULL
- * is in the first join column, and that column sorts nulls last, then
- * we can further conclude that no following tuple can match anything
- * either, since they must all have nulls in the first column.  However,
- * that case is only interesting if we're not in FillOuter mode, else
- * we have to visit all the tuples anyway.
+ * 为当前外侧元组求合并连接表达式的值。我们还  
+ * 会检测当前外侧元组是否不可能与任何元组匹配     
+ * --- 若它产出 NULL 输入即如此，我们假设合并连接  
+ * 操作符是严格的。如果该 NULL 在第一个连接列，    
+ * 且该列将空值排在末尾，那么我们可以进一步断定 
+ * 后续任何元组也不可能匹配，因为它们的第一列   
+ * 必然都是空值。不过，只有当不在 FillOuter 模式时    
+ * 这一情形才值得关心，否则无论如何我们都得访问
+ * 全部这些元组。                  
  *
- * For the convenience of callers, we also make this routine responsible
- * for testing for end-of-input (null outer tuple), and returning
- * MJEVAL_ENDOFJOIN when that's seen.  This allows the same code to be used
- * for both real end-of-input and the effective end-of-input represented by
- * a first-column NULL.
+ * 为方便调用者，我们还让本例程负责检测输入结束   
+ * （外侧元组为 NULL），并在看到该情况时返回   
+ * MJEVAL_ENDOFJOIN。这样同一段代码便可同时用于              
+ * 真正的输入结束，以及由首列 NULL 所代表的               
+ * 有效结束。     
  *
- * We evaluate the values in OuterEContext, which can be reset each
- * time we move to a new tuple.
+ * 我们在 OuterEContext 中求值，每次移到新元组时    
+ * 都可以重置。          
  */
 static MJEvalResult
 MJEvalOuterValues(MergeJoinState *mergestate)
@@ -299,7 +299,7 @@ MJEvalOuterValues(MergeJoinState *mergestate)
 	int			i;
 	MemoryContext oldContext;
 
-	/* Check for end of outer subplan */
+	/* 外侧子计划是否已结束 */
 	if (TupIsNull(mergestate->mj_OuterTupleSlot))
 		return MJEVAL_ENDOFJOIN;
 
@@ -317,7 +317,7 @@ MJEvalOuterValues(MergeJoinState *mergestate)
 									  &clause->lisnull);
 		if (clause->lisnull)
 		{
-			/* match is impossible; can we end the join early? */
+			/* 匹配不可能；能否提前结束连接？   */
 			if (i == 0 && !clause->ssup.ssup_nulls_first &&
 				!mergestate->mj_FillOuter)
 				result = MJEVAL_ENDOFJOIN;
@@ -334,9 +334,9 @@ MJEvalOuterValues(MergeJoinState *mergestate)
 /*
  * MJEvalInnerValues
  *
- * Same as above, but for the inner tuple.  Here, we have to be prepared
- * to load data from either the true current inner, or the marked inner,
- * so caller must tell us which slot to load from.
+ * 与上文相同，但针对内侧元组。这里我们必须准备好
+ * 从真正的当前内侧元组或标记元组装载数据，         
+ * 调用者须告知从哪个 slot 装载。     
  */
 static MJEvalResult
 MJEvalInnerValues(MergeJoinState *mergestate, TupleTableSlot *innerslot)
@@ -346,7 +346,7 @@ MJEvalInnerValues(MergeJoinState *mergestate, TupleTableSlot *innerslot)
 	int			i;
 	MemoryContext oldContext;
 
-	/* Check for end of inner subplan */
+	/* 内侧子计划是否已结束 */
 	if (TupIsNull(innerslot))
 		return MJEVAL_ENDOFJOIN;
 
@@ -364,7 +364,7 @@ MJEvalInnerValues(MergeJoinState *mergestate, TupleTableSlot *innerslot)
 									  &clause->risnull);
 		if (clause->risnull)
 		{
-			/* match is impossible; can we end the join early? */
+			/* 匹配不可能；能否提前结束连接？   */
 			if (i == 0 && !clause->ssup.ssup_nulls_first &&
 				!mergestate->mj_FillInner)
 				result = MJEVAL_ENDOFJOIN;
@@ -381,12 +381,12 @@ MJEvalInnerValues(MergeJoinState *mergestate, TupleTableSlot *innerslot)
 /*
  * MJCompare
  *
- * Compare the mergejoinable values of the current two input tuples
- * and return 0 if they are equal (ie, the mergejoin equalities all
- * succeed), >0 if outer > inner, <0 if outer < inner.
+ * 对当前两个输入元组比较可合并连接的值，相等 
+ * 则返回 0（各合并连接等式都成功），外侧大于  
+ * 内侧时返回 >0，外侧小时返回 <0。      
  *
- * MJEvalOuterValues and MJEvalInnerValues must already have been called
- * for the current outer and inner tuples, respectively.
+ * 必须已对当前外侧元组和内侧元组分别调用过         
+ * MJEvalOuterValues 和 MJEvalInnerValues。           
  */
 static int
 MJCompare(MergeJoinState *mergestate)
@@ -398,8 +398,8 @@ MJCompare(MergeJoinState *mergestate)
 	MemoryContext oldContext;
 
 	/*
-	 * Call the comparison functions in short-lived context, in case they leak
-	 * memory.
+	 * 在短寿命的上下文中调用比较函数，以防它们泄漏     
+	 * 内存 
 	 */
 	ResetExprContext(econtext);
 
@@ -410,7 +410,7 @@ MJCompare(MergeJoinState *mergestate)
 		MergeJoinClause clause = &mergestate->mj_Clauses[i];
 
 		/*
-		 * Special case for NULL-vs-NULL, else use standard comparison.
+		 * NULL 对 NULL 时做特殊处理，否则用标准比较。 
 		 */
 		if (clause->lisnull && clause->risnull)
 		{
@@ -427,13 +427,13 @@ MJCompare(MergeJoinState *mergestate)
 	}
 
 	/*
-	 * If we had any NULL-vs-NULL inputs, we do not want to report that the
-	 * tuples are equal.  Instead, if result is still 0, change it to +1. This
-	 * will result in advancing the inner side of the join.
+	 * 如果出现过 NULL 对 NULL 输入，我们就不希望报告     
+	 * 元组相等。相反，若结果仍为 0，就把它改为 +1。这   
+	 * 将导致连接的内侧被推进。                
 	 *
-	 * Likewise, if there was a constant-false joinqual, do not report
-	 * equality.  We have to check this as part of the mergequals, else the
-	 * rescan logic will do the wrong thing.
+	 * 同样，如果存在常为假的 joinqual，也不要报告   
+	 * 相等。必须把它作为 mergequals 的一部分来检查，     
+	 * 否则重扫逻辑会出错。       
 	 */
 	if (result == 0 &&
 		(nulleqnull || mergestate->mj_ConstFalseJoin))
@@ -446,8 +446,8 @@ MJCompare(MergeJoinState *mergestate)
 
 
 /*
- * Generate a fake join tuple with nulls for the inner tuple,
- * and return it if it passes the non-join quals.
+ * 生成用空值代替内侧元组的伪连接元组，    
+ * 如果它通过非连接条件则返回它。 
  */
 static TupleTableSlot *
 MJFillOuter(MergeJoinState *node)
@@ -463,8 +463,8 @@ MJFillOuter(MergeJoinState *node)
 	if (ExecQual(otherqual, econtext))
 	{
 		/*
-		 * qualification succeeded.  now form the desired projection tuple and
-		 * return the slot containing it.
+		 * 限定通过。现在构造所需的投影元组，并返回       
+		 * 包含它的那个 slot。    
 		 */
 		MJ_printf("ExecMergeJoin: returning outer fill tuple\n");
 
@@ -477,8 +477,8 @@ MJFillOuter(MergeJoinState *node)
 }
 
 /*
- * Generate a fake join tuple with nulls for the outer tuple,
- * and return it if it passes the non-join quals.
+ * 生成用空值代替外侧元组的伪连接元组，    
+ * 如果它通过非连接条件则返回它。 
  */
 static TupleTableSlot *
 MJFillInner(MergeJoinState *node)
@@ -494,8 +494,8 @@ MJFillInner(MergeJoinState *node)
 	if (ExecQual(otherqual, econtext))
 	{
 		/*
-		 * qualification succeeded.  now form the desired projection tuple and
-		 * return the slot containing it.
+		 * 限定通过。现在构造所需的投影元组，并返回       
+		 * 包含它的那个 slot。    
 		 */
 		MJ_printf("ExecMergeJoin: returning inner fill tuple\n");
 
@@ -509,12 +509,12 @@ MJFillInner(MergeJoinState *node)
 
 
 /*
- * Check that a qual condition is constant true or constant false.
- * If it is constant false (or null), set *is_const_false to true.
+ * 检查一个限定条件是常真还是常假。               
+ * 若为常假（或空值），把 *is_const_false 置为真。 
  *
- * Constant true would normally be represented by a NIL list, but we allow an
- * actual bool Const as well.  We do expect that the planner will have thrown
- * away any non-constant terms that have been ANDed with a constant false.
+ * 常真通常以 NIL 列表来表示，但我们也允许一个实际      
+ * 的 bool Const。我们确实预期规划器已经丢弃了所有         
+ * 与常假做过 AND 的非常量项。                                 
  */
 static bool
 check_constant_qual(List *qual, bool *is_const_false)
@@ -537,8 +537,8 @@ check_constant_qual(List *qual, bool *is_const_false)
 /* ----------------------------------------------------------------
  *		ExecMergeTupleDump
  *
- *		This function is called through the MJ_dump() macro
- *		when EXEC_MERGEJOINDEBUG is defined
+ *		本函数通过 MJ_dump() 宏来调用，          
+ *		定义 EXEC_MERGEJOINDEBUG 时     
  * ----------------------------------------------------------------
  */
 #ifdef EXEC_MERGEJOINDEBUG
@@ -615,7 +615,7 @@ ExecMergeJoin(PlanState *pstate)
 	CHECK_FOR_INTERRUPTS();
 
 	/*
-	 * get information from node
+	 * 从节点取得信息    
 	 */
 	innerPlan = innerPlanState(node);
 	outerPlan = outerPlanState(node);
@@ -626,29 +626,29 @@ ExecMergeJoin(PlanState *pstate)
 	doFillInner = node->mj_FillInner;
 
 	/*
-	 * Reset per-tuple memory context to free any expression evaluation
-	 * storage allocated in the previous tuple cycle.
+	 * 重置每元组内存上下文，释放上一个元组周期里 
+	 * 分配的表达式求值存储。             
 	 */
 	ResetExprContext(econtext);
 
 	/*
-	 * ok, everything is setup.. let's go to work
+	 * 好了，一切就绪……开始干活吧
 	 */
 	for (;;)
 	{
 		MJ_dump(node);
 
 		/*
-		 * get the current state of the join and do things accordingly.
+		 * 取得连接的当前状态，据此采取相应行动。   
 		 */
 		switch (node->mj_JoinState)
 		{
 				/*
-				 * EXEC_MJ_INITIALIZE_OUTER means that this is the first time
-				 * ExecMergeJoin() has been called and so we have to fetch the
-				 * first matchable tuple for both outer and inner subplans. We
-				 * do the outer side in INITIALIZE_OUTER state, then advance
-				 * to INITIALIZE_INNER state for the inner subplan.
+				 * EXEC_MJ_INITIALIZE_OUTER 表示这是头一次调用      
+				 * ExecMergeJoin()，故必须为外侧和内侧子计划各  
+				 * 取首个可匹配元组。先用 INITIALIZE_OUTER 状态  
+				 * 处理外侧，再前进到 INITIALIZE_INNER 状态      
+				 * 来处理内侧子计划。                     
 				 */
 			case EXEC_MJ_INITIALIZE_OUTER:
 				MJ_printf("ExecMergeJoin: EXEC_MJ_INITIALIZE_OUTER\n");
@@ -656,21 +656,21 @@ ExecMergeJoin(PlanState *pstate)
 				outerTupleSlot = ExecProcNode(outerPlan);
 				node->mj_OuterTupleSlot = outerTupleSlot;
 
-				/* Compute join values and check for unmatchability */
+				/* 计算连接值并检查不可匹配性          */
 				switch (MJEvalOuterValues(node))
 				{
 					case MJEVAL_MATCHABLE:
-						/* OK to go get the first inner tuple */
+						/* 可以去取首个内侧元组了  */
 						node->mj_JoinState = EXEC_MJ_INITIALIZE_INNER;
 						break;
 					case MJEVAL_NONMATCHABLE:
-						/* Stay in same state to fetch next outer tuple */
+						/* 保持同一状态以取下一个外侧元组*/
 						if (doFillOuter)
 						{
 							/*
-							 * Generate a fake join tuple with nulls for the
-							 * inner tuple, and return it if it passes the
-							 * non-join quals.
+							 * 生成用空值代替内侧元组的伪连接
+							 * 元组，如果它通过非连接条件    
+							 * 则返回它。
 							 */
 							TupleTableSlot *result;
 
@@ -680,20 +680,20 @@ ExecMergeJoin(PlanState *pstate)
 						}
 						break;
 					case MJEVAL_ENDOFJOIN:
-						/* No more outer tuples */
+						/* 外侧元组已用尽*/
 						MJ_printf("ExecMergeJoin: nothing in outer subplan\n");
 						if (doFillInner)
 						{
 							/*
-							 * Need to emit right-join tuples for remaining
-							 * inner tuples. We set MatchedInner = true to
-							 * force the ENDOUTER state to advance inner.
+							 * 须为剩余内侧元组发右连接元组  
+							 * 并设 MatchedInner = true，使 ENDOUTER  
+							 * 状态前进内侧。                     
 							 */
 							node->mj_JoinState = EXEC_MJ_ENDOUTER;
 							node->mj_MatchedInner = true;
 							break;
 						}
-						/* Otherwise we're done. */
+						/* 否则就完成了。 */
 						return NULL;
 				}
 				break;
@@ -704,28 +704,28 @@ ExecMergeJoin(PlanState *pstate)
 				innerTupleSlot = ExecProcNode(innerPlan);
 				node->mj_InnerTupleSlot = innerTupleSlot;
 
-				/* Compute join values and check for unmatchability */
+				/* 计算连接值并检查不可匹配性          */
 				switch (MJEvalInnerValues(node, innerTupleSlot))
 				{
 					case MJEVAL_MATCHABLE:
 
 						/*
-						 * OK, we have the initial tuples.  Begin by skipping
-						 * non-matching tuples.
+						 * 好，初始元组已拿到，先跳过           
+						 * 不匹配元组。  
 						 */
 						node->mj_JoinState = EXEC_MJ_SKIP_TEST;
 						break;
 					case MJEVAL_NONMATCHABLE:
-						/* Mark before advancing, if wanted */
+						/* 如果需要，先标记再前进*/
 						if (node->mj_ExtraMarks)
 							ExecMarkPos(innerPlan);
-						/* Stay in same state to fetch next inner tuple */
+						/* 保持同一状态以取下一个内侧元组*/
 						if (doFillInner)
 						{
 							/*
-							 * Generate a fake join tuple with nulls for the
-							 * outer tuple, and return it if it passes the
-							 * non-join quals.
+							 * 生成用空值代替外侧元组的伪连接
+							 * 元组，如果它通过非连接条件    
+							 * 则返回它。
 							 */
 							TupleTableSlot *result;
 
@@ -735,54 +735,54 @@ ExecMergeJoin(PlanState *pstate)
 						}
 						break;
 					case MJEVAL_ENDOFJOIN:
-						/* No more inner tuples */
+						/* 内侧元组已用尽*/
 						MJ_printf("ExecMergeJoin: nothing in inner subplan\n");
 						if (doFillOuter)
 						{
 							/*
-							 * Need to emit left-join tuples for all outer
-							 * tuples, including the one we just fetched.  We
-							 * set MatchedOuter = false to force the ENDINNER
-							 * state to emit first tuple before advancing
-							 * outer.
+							 * 需要为所有外侧元组发出左连    
+							 * 接元组，包括取到的那个。我们设 
+							 * MatchedOuter = false，迫使 ENDINNER 状态 
+							 * 先发出第一个元组，然后推进   
+							 * 外侧
 							 */
 							node->mj_JoinState = EXEC_MJ_ENDINNER;
 							node->mj_MatchedOuter = false;
 							break;
 						}
-						/* Otherwise we're done. */
+						/* 否则就完成了。 */
 						return NULL;
 				}
 				break;
 
 				/*
-				 * EXEC_MJ_JOINTUPLES means we have two tuples which satisfied
-				 * the merge clause so we join them and then proceed to get
-				 * the next inner tuple (EXEC_MJ_NEXTINNER).
+				 * EXEC_MJ_JOINTUPLES 表示我们有两个满足合并       
+				 * 子句的元组，故我们连接它们，再继续取  
+				 * 下个内侧元组（EXEC_MJ_NEXTINNER）
 				 */
 			case EXEC_MJ_JOINTUPLES:
 				MJ_printf("ExecMergeJoin: EXEC_MJ_JOINTUPLES\n");
 
 				/*
-				 * Set the next state machine state.  The right things will
-				 * happen whether we return this join tuple or just fall
-				 * through to continue the state machine execution.
+				 * 设置状态机的下一状态。不论我们是返回  
+				 * 该连接元组，还是落到下文继续执行     
+				 * 状态机，结果都会是正确的。         
 				 */
 				node->mj_JoinState = EXEC_MJ_NEXTINNER;
 
 				/*
-				 * Check the extra qual conditions to see if we actually want
-				 * to return this join tuple.  If not, can proceed with merge.
-				 * We must distinguish the additional joinquals (which must
-				 * pass to consider the tuples "matched" for outer-join logic)
-				 * from the otherquals (which must pass before we actually
-				 * return the tuple).
+				 * 检查附加限定条件，看我们是否真想返回    
+				 * 这个连接元组。若不想，可以继续合并。     
+				 * 必须区分附加连接条件（须通过，才能把  
+				 * 元组视为外连接逻辑中的"已匹配"）            
+				 * 与其它限定条件（其必须在真正返回之前 
+				 * 通过）。      
 				 *
-				 * We don't bother with a ResetExprContext here, on the
-				 * assumption that we just did one while checking the merge
-				 * qual.  One per tuple should be sufficient.  We do have to
-				 * set up the econtext links to the tuples for ExecQual to
-				 * use.
+				 * 这里无需 ResetExprContext，我们假定        
+				 * 在检查合并限定条件时刚做过一次。每个  
+				 * 元组一次应该就够了。但我们确实必须设置
+				 * 指向元组的 econtext 链接，供 ExecQual 使     
+				 * 用 
 				 */
 				outerTupleSlot = node->mj_OuterTupleSlot;
 				econtext->ecxt_outertuple = outerTupleSlot;
@@ -798,7 +798,7 @@ ExecMergeJoin(PlanState *pstate)
 					node->mj_MatchedOuter = true;
 					node->mj_MatchedInner = true;
 
-					/* In an antijoin, we never return a matched tuple */
+					/* 在反连接中从不返回已匹配元组      */
 					if (node->js.jointype == JOIN_ANTI)
 					{
 						node->mj_JoinState = EXEC_MJ_NEXTOUTER;
@@ -806,18 +806,18 @@ ExecMergeJoin(PlanState *pstate)
 					}
 
 					/*
-					 * If we only need to consider the first matching inner
-					 * tuple, then advance to next outer tuple after we've
-					 * processed this one.
+					 * 若只需考虑第一个匹配的内侧元组，    
+					 * 那么处理完这个之后，就前进到下一个
+					 * 外侧元组。    
 					 */
 					if (node->js.single_match)
 						node->mj_JoinState = EXEC_MJ_NEXTOUTER;
 
 					/*
-					 * In a right-antijoin, we never return a matched tuple.
-					 * If it's not an inner_unique join, we need to stay on
-					 * the current outer tuple to continue scanning the inner
-					 * side for matches.
+					 * 右反连接中从不返回已匹配的元组。     
+					 * 若非 inner_unique 连接，则需停留在当前  
+					 * 外侧元组上，继续扫描内侧以寻            
+					 * 找匹配。     
 					 */
 					if (node->js.jointype == JOIN_RIGHT_ANTI)
 						break;
@@ -829,8 +829,8 @@ ExecMergeJoin(PlanState *pstate)
 					if (qualResult)
 					{
 						/*
-						 * qualification succeeded.  now form the desired
-						 * projection tuple and return the slot containing it.
+						 * 限定通过。现在构造所需的投影    
+						 * 元组并返回包含它的那个 slot。          
 						 */
 						MJ_printf("ExecMergeJoin: returning tuple\n");
 
@@ -844,12 +844,12 @@ ExecMergeJoin(PlanState *pstate)
 				break;
 
 				/*
-				 * EXEC_MJ_NEXTINNER means advance the inner scan to the next
-				 * tuple. If the tuple is not nil, we then proceed to test it
-				 * against the join qualification.
+				 * EXEC_MJ_NEXTINNER 表示把内侧扫描推进到下一    
+				 * 个元组。若该元组不是 nil，我们接着把它与
+				 * 连接限定条件比较。    
 				 *
-				 * Before advancing, we check to see if we must emit an
-				 * outer-join fill tuple for this inner tuple.
+				 * 前进前，检查是否必须为该内侧元组    
+				 * 发出外连接填充元组。             
 				 */
 			case EXEC_MJ_NEXTINNER:
 				MJ_printf("ExecMergeJoin: EXEC_MJ_NEXTINNER\n");
@@ -857,12 +857,12 @@ ExecMergeJoin(PlanState *pstate)
 				if (doFillInner && !node->mj_MatchedInner)
 				{
 					/*
-					 * Generate a fake join tuple with nulls for the outer
-					 * tuple, and return it if it passes the non-join quals.
+					 * 生成用空值代替外侧元组的伪连接元   
+					 * 组，如果它通过非连接条件则返回它。  
 					 */
 					TupleTableSlot *result;
 
-					node->mj_MatchedInner = true;	/* do it only once */
+					node->mj_MatchedInner = true;	/* 只做一次    */
 
 					result = MJFillInner(node);
 					if (result)
@@ -870,32 +870,32 @@ ExecMergeJoin(PlanState *pstate)
 				}
 
 				/*
-				 * now we get the next inner tuple, if any.  If there's none,
-				 * advance to next outer tuple (which may be able to join to
-				 * previously marked tuples).
+				 * 现在我们取得下一个内侧元组，如果没有， 
+				 * 就前进到下一外侧元组（它可能能与之前   
+				 * 标记元组连接）。  
 				 *
-				 * NB: must NOT do "extraMarks" here, since we may need to
-				 * return to previously marked tuples.
+				 * 注意：此处绝不能做 "extraMarks"，因为之后
+				 * 还需回到已标记的元组。  
 				 */
 				innerTupleSlot = ExecProcNode(innerPlan);
 				node->mj_InnerTupleSlot = innerTupleSlot;
 				MJ_DEBUG_PROC_NODE(innerTupleSlot);
 				node->mj_MatchedInner = false;
 
-				/* Compute join values and check for unmatchability */
+				/* 计算连接值并检查不可匹配性          */
 				switch (MJEvalInnerValues(node, innerTupleSlot))
 				{
 					case MJEVAL_MATCHABLE:
 
 						/*
-						 * Test the new inner tuple to see if it matches
-						 * outer.
+						 * 测试新的内侧元组看它是否匹配   
+						 * 外侧
 						 *
-						 * If they do match, then we join them and move on to
-						 * the next inner tuple (EXEC_MJ_JOINTUPLES).
+						 * 如果两者匹配，则连接它们并继续到  
+						 * 下个内侧元组（EXEC_MJ_JOINTUPLES）
 						 *
-						 * If they do not match then advance to next outer
-						 * tuple.
+						 * 若两者不匹配，则前进到下一外侧  
+						 * 元组
 						 */
 						compareResult = MJCompare(node);
 						MJ_DEBUG_COMPARE(compareResult);
@@ -904,27 +904,27 @@ ExecMergeJoin(PlanState *pstate)
 							node->mj_JoinState = EXEC_MJ_JOINTUPLES;
 						else if (compareResult < 0)
 							node->mj_JoinState = EXEC_MJ_NEXTOUTER;
-						else	/* compareResult > 0 should not happen */
+						else	/* compareResult > 0 不应发生      */
 							elog(ERROR, "mergejoin input data is out of order");
 						break;
 					case MJEVAL_NONMATCHABLE:
 
 						/*
-						 * It contains a NULL and hence can't match any outer
-						 * tuple, so we can skip the comparison and assume the
-						 * new tuple is greater than current outer.
+						 * 它含有一个 NULL，因此无法匹配任何   
+						 * 外侧元组，故可跳过比较，并假定新的
+						 * 元组大于当前外侧元组。       
 						 */
 						node->mj_JoinState = EXEC_MJ_NEXTOUTER;
 						break;
 					case MJEVAL_ENDOFJOIN:
 
 						/*
-						 * No more inner tuples.  However, this might be only
-						 * effective and not physical end of inner plan, so
-						 * force mj_InnerTupleSlot to null to make sure we
-						 * don't fetch more inner tuples.  (We need this hack
-						 * because we are not transiting to a state where the
-						 * inner plan is assumed to be exhausted.)
+						 * 内侧元组已用尽。这可能只是有效的  
+						 * 结束而非内计划的物理末尾，所以要
+						 * 把 mj_InnerTupleSlot 置为 null，以确保  
+						 * 不取更多内侧元组。（我们需要这一  
+						 * 取巧手法，因为我们没有进入假定内  
+						 * 侧计划已耗尽的状态。）      
 						 */
 						node->mj_InnerTupleSlot = NULL;
 						node->mj_JoinState = EXEC_MJ_NEXTOUTER;
@@ -933,7 +933,7 @@ ExecMergeJoin(PlanState *pstate)
 				break;
 
 				/*-------------------------------------------
-				 * EXEC_MJ_NEXTOUTER means
+				 * EXEC_MJ_NEXTOUTER 指  
 				 *
 				 *				outer inner
 				 * outer tuple -  5		5  - marked tuple
@@ -941,15 +941,15 @@ ExecMergeJoin(PlanState *pstate)
 				 *				  6		6  - inner tuple
 				 *				  7		7
 				 *
-				 * we know we just bumped into the
-				 * first inner tuple > current outer tuple (or possibly
-				 * the end of the inner stream)
-				 * so get a new outer tuple and then
-				 * proceed to test it against the marked tuple
+				 * 我们知道我们刚碰上    
+				 * 首个大于当前外侧元组的内侧元组（或 
+				 * 是内侧流的结束）    
+				 * 于是取新外侧元组，然后
+				 * 接着把它与标记元组进行比较    
 				 * (EXEC_MJ_TESTOUTER)
 				 *
-				 * Before advancing, we check to see if we must emit an
-				 * outer-join fill tuple for this outer tuple.
+				 * 前进前，检查是否必须为该外侧元组    
+				 * 发出外连接填充元组。             
 				 *------------------------------------------------
 				 */
 			case EXEC_MJ_NEXTOUTER:
@@ -958,12 +958,12 @@ ExecMergeJoin(PlanState *pstate)
 				if (doFillOuter && !node->mj_MatchedOuter)
 				{
 					/*
-					 * Generate a fake join tuple with nulls for the inner
-					 * tuple, and return it if it passes the non-join quals.
+					 * 生成用空值代替内侧元组的伪连接元   
+					 * 组，如果它通过非连接条件则返回它。  
 					 */
 					TupleTableSlot *result;
 
-					node->mj_MatchedOuter = true;	/* do it only once */
+					node->mj_MatchedOuter = true;	/* 只做一次    */
 
 					result = MJFillOuter(node);
 					if (result)
@@ -971,50 +971,50 @@ ExecMergeJoin(PlanState *pstate)
 				}
 
 				/*
-				 * now we get the next outer tuple, if any
+				 * 现在取下一个外侧元组，若有
 				 */
 				outerTupleSlot = ExecProcNode(outerPlan);
 				node->mj_OuterTupleSlot = outerTupleSlot;
 				MJ_DEBUG_PROC_NODE(outerTupleSlot);
 				node->mj_MatchedOuter = false;
 
-				/* Compute join values and check for unmatchability */
+				/* 计算连接值并检查不可匹配性          */
 				switch (MJEvalOuterValues(node))
 				{
 					case MJEVAL_MATCHABLE:
-						/* Go test the new tuple against the marked tuple */
+						/* 去把新元组与标记元组做比较        */
 						node->mj_JoinState = EXEC_MJ_TESTOUTER;
 						break;
 					case MJEVAL_NONMATCHABLE:
-						/* Can't match, so fetch next outer tuple */
+						/* 无法匹配，取下一外侧元组   */
 						node->mj_JoinState = EXEC_MJ_NEXTOUTER;
 						break;
 					case MJEVAL_ENDOFJOIN:
-						/* No more outer tuples */
+						/* 外侧元组已用尽*/
 						MJ_printf("ExecMergeJoin: end of outer subplan\n");
 						innerTupleSlot = node->mj_InnerTupleSlot;
 						if (doFillInner && !TupIsNull(innerTupleSlot))
 						{
 							/*
-							 * Need to emit right-join tuples for remaining
-							 * inner tuples.
+							 * 需要为剩余内侧元组发出右连接  
+							 * 元组。    
 							 */
 							node->mj_JoinState = EXEC_MJ_ENDOUTER;
 							break;
 						}
-						/* Otherwise we're done. */
+						/* 否则就完成了。 */
 						return NULL;
 				}
 				break;
 
 				/*--------------------------------------------------------
-				 * EXEC_MJ_TESTOUTER If the new outer tuple and the marked
-				 * tuple satisfy the merge clause then we know we have
-				 * duplicates in the outer scan so we have to restore the
-				 * inner scan to the marked tuple and proceed to join the
-				 * new outer tuple with the inner tuples.
+				 * EXEC_MJ_TESTOUTER 若新的外侧元组与标记元组 
+				 * 满足合并子句，则外侧扫描存在重复，
+				 * 需把内侧扫描恢复到标记元组处，然后   
+				 * 让新的外侧元组与这些内侧元组            
+				 * 逐个连接。                       
 				 *
-				 * This is the case when
+				 * 此时情形如下：
 				 *						  outer inner
 				 *							4	  5  - marked tuple
 				 *			 outer tuple -	5	  5
@@ -1022,15 +1022,15 @@ ExecMergeJoin(PlanState *pstate)
 				 *							6	  8  - inner tuple
 				 *							7	 12
 				 *
-				 *				new outer tuple == marked tuple
+				 *				新外侧元组 == 标记元组
 				 *
-				 * If the outer tuple fails the test, then we are done
-				 * with the marked tuples, and we have to look for a
-				 * match to the current inner tuple.  So we will
-				 * proceed to skip outer tuples until outer >= inner
+				 * 若外侧元组未通过测试，标记元组便已
+				 * 处理完毕，之后必须寻找与当前内侧 
+				 * 元组的匹配。此后跳过外侧直至   
+				 * 外侧 >= 内侧                                 
 				 * (EXEC_MJ_SKIP_TEST).
 				 *
-				 *		This is the case when
+				 *		此时情形如下：
 				 *
 				 *						  outer inner
 				 *							5	  5  - marked tuple
@@ -1038,7 +1038,7 @@ ExecMergeJoin(PlanState *pstate)
 				 *		 new outer tuple -	6	  8  - inner tuple
 				 *							7	 12
 				 *
-				 *				new outer tuple > marked tuple
+				 *				新外侧元组>标记元组  
 				 *
 				 *---------------------------------------------------------
 				 */
@@ -1046,9 +1046,9 @@ ExecMergeJoin(PlanState *pstate)
 				MJ_printf("ExecMergeJoin: EXEC_MJ_TESTOUTER\n");
 
 				/*
-				 * Here we must compare the outer tuple with the marked inner
-				 * tuple.  (We can ignore the result of MJEvalInnerValues,
-				 * since the marked inner tuple is certainly matchable.)
+				 * 这里必须把外侧元组与被标记的内侧元组    
+				 * 比较。（可以忽略 MJEvalInnerValues 的结果，
+				 * 因为标记的内侧元组肯定可以匹配。）  
 				 */
 				innerTupleSlot = node->mj_MarkedTupleSlot;
 				(void) MJEvalInnerValues(node, innerTupleSlot);
@@ -1059,38 +1059,38 @@ ExecMergeJoin(PlanState *pstate)
 				if (compareResult == 0)
 				{
 					/*
-					 * the merge clause matched so now we restore the inner
-					 * scan position to the first mark, and go join that tuple
-					 * (and any following ones) to the new outer.
+					 * 合并子句已匹配，现在将内侧扫描位置 
+					 * 恢复到第一个标记处，并让该元组（以及 
+					 * 后续元组）与新外侧元组连接。
 					 *
-					 * If we were able to determine mark and restore are not
-					 * needed, then we don't have to back up; the current
-					 * inner is already the first possible match.
+					 * 若能确定无需标记和恢复，不必回退；  
+					 * 当前内侧元组就已经是首个              
+					 * 可能匹配。                           
 					 *
-					 * NOTE: we do not need to worry about the MatchedInner
-					 * state for the rescanned inner tuples.  We know all of
-					 * them will match this new outer tuple and therefore
-					 * won't be emitted as fill tuples.  This works *only*
-					 * because we require the extra joinquals to be constant
-					 * when doing a right, right-anti or full join ---
-					 * otherwise some of the rescanned tuples might fail the
-					 * extra joinquals.  This obviously won't happen for a
-					 * constant-true extra joinqual, while the constant-false
-					 * case is handled by forcing the merge clause to never
-					 * match, so we never get here.
+					 * 注意：重扫内侧元组时我们无需操心    
+					 * MatchedInner 状态。我们知道它们全部都会 
+					 * 与新外侧元组匹配，故不会作为填充  
+					 * 元组发出。这*仅仅*是因为我们要求    
+					 * 附加连接条件须为常量：右连接、右反  
+					 * 连接或全连接时 --- 否则部分重扫   
+					 * 元组或许过不了附加连接条件。常真     
+					 * 附加条件显然不会如此，而常假的      
+					 * 情形则用强迫合并子句永不匹配处理，   
+					 * 所以我们根本就                               
+					 * 不会走到这里。       
 					 */
 					if (!node->mj_SkipMarkRestore)
 					{
 						ExecRestrPos(innerPlan);
 
 						/*
-						 * ExecRestrPos probably should give us back a new
-						 * Slot, but since it doesn't, use the marked slot.
-						 * (The previously returned mj_InnerTupleSlot cannot
-						 * be assumed to hold the required tuple.)
+						 * ExecRestrPos 理应返回一个新的 slot，  
+						 * 但它没有，所以使用被标记的 slot。 
+						 * （先前返回的 mj_InnerTupleSlot 不能      
+						 * 被假定仍持有所需元组。）   
 						 */
 						node->mj_InnerTupleSlot = innerTupleSlot;
-						/* we need not do MJEvalInnerValues again */
+						/* 无需再调用 MJEvalInnerValues      */
 					}
 
 					node->mj_JoinState = EXEC_MJ_JOINTUPLES;
@@ -1098,8 +1098,8 @@ ExecMergeJoin(PlanState *pstate)
 				else if (compareResult > 0)
 				{
 					/* ----------------
-					 *	if the new outer tuple didn't match the marked inner
-					 *	tuple then we have a case like:
+					 *	若新外侧元组未匹配标记的内侧元组， 
+					 *	那么情形就如下所示： 
 					 *
 					 *			 outer inner
 					 *			   4	 4	- marked tuple
@@ -1107,55 +1107,55 @@ ExecMergeJoin(PlanState *pstate)
 					 *			   6	 5	- inner tuple
 					 *			   7
 					 *
-					 *	which means that all subsequent outer tuples will be
-					 *	larger than our marked inner tuples.  So we need not
-					 *	revisit any of the marked tuples but can proceed to
-					 *	look for a match to the current inner.  If there's
-					 *	no more inners, no more matches are possible.
+					 *	这意味着之后所有外侧元组都会大于    
+					 *	标记的内侧元组。所以无需重访任何    
+					 *	被标记的元组，而可以直接去找与当前
+					 *	内侧元组匹配的对象。如果没有更多  
+					 *	内侧元组，也就不可能再有匹配。
 					 * ----------------
 					 */
 					innerTupleSlot = node->mj_InnerTupleSlot;
 
-					/* reload comparison data for current inner */
+					/* 为当前内侧重载比较数据        */
 					switch (MJEvalInnerValues(node, innerTupleSlot))
 					{
 						case MJEVAL_MATCHABLE:
-							/* proceed to compare it to the current outer */
+							/* 接着把它与当前外侧元组比较    */
 							node->mj_JoinState = EXEC_MJ_SKIP_TEST;
 							break;
 						case MJEVAL_NONMATCHABLE:
 
 							/*
-							 * current inner can't possibly match any outer;
-							 * better to advance the inner scan than the
-							 * outer.
+							 * 当前内侧元组无法匹配任何外侧；
+							 * 与其推进外侧，不如推进内侧  
+							 * 扫描
 							 */
 							node->mj_JoinState = EXEC_MJ_SKIPINNER_ADVANCE;
 							break;
 						case MJEVAL_ENDOFJOIN:
-							/* No more inner tuples */
+							/* 内侧元组已用尽*/
 							if (doFillOuter)
 							{
 								/*
-								 * Need to emit left-join tuples for remaining
-								 * outer tuples.
+								 * 需要为剩余外侧元组发出左连接 
+								 * 元组。    
 								 */
 								node->mj_JoinState = EXEC_MJ_ENDINNER;
 								break;
 							}
-							/* Otherwise we're done. */
+							/* 否则就完成了。 */
 							return NULL;
 					}
 				}
-				else			/* compareResult < 0 should not happen */
+				else			/* compareResult < 0 不应发生      */
 					elog(ERROR, "mergejoin input data is out of order");
 				break;
 
 				/*----------------------------------------------------------
-				 * EXEC_MJ_SKIP_TEST means compare tuples and if they do not
-				 * match, skip whichever is lesser.
+				 * EXEC_MJ_SKIP_TEST 表示比较两个元组，如果不   
+				 * 匹配，就跳过较小者。  
 				 *
-				 * For example:
+				 * 例如：   
 				 *
 				 *				outer inner
 				 *				  5		5
@@ -1164,10 +1164,10 @@ ExecMergeJoin(PlanState *pstate)
 				 *				  7    12
 				 *				  8    14
 				 *
-				 * we have to advance the outer scan
-				 * until we find the outer 8.
+				 * 我们必须前进外侧扫描，
+				 * 直到找到外侧 8。   
 				 *
-				 * On the other hand:
+				 * 另一方面：   
 				 *
 				 *				outer inner
 				 *				  5		5
@@ -1176,17 +1176,17 @@ ExecMergeJoin(PlanState *pstate)
 				 *				 14    10
 				 *				 17    12
 				 *
-				 * we have to advance the inner scan
-				 * until we find the inner 12.
+				 * 我们必须前进内侧扫描，
+				 * 直到找到内侧 12。   
 				 *----------------------------------------------------------
 				 */
 			case EXEC_MJ_SKIP_TEST:
 				MJ_printf("ExecMergeJoin: EXEC_MJ_SKIP_TEST\n");
 
 				/*
-				 * before we advance, make sure the current tuples do not
-				 * satisfy the mergeclauses.  If they do, then we update the
-				 * marked tuple position and go join them.
+				 * 前进前，先确认当前元组不满足合并      
+				 * 子句。如果满足，那么我们就更新标记元组
+				 * 的位置并去连接它们。         
 				 */
 				compareResult = MJCompare(node);
 				MJ_DEBUG_COMPARE(compareResult);
@@ -1208,11 +1208,11 @@ ExecMergeJoin(PlanState *pstate)
 				break;
 
 				/*
-				 * EXEC_MJ_SKIPOUTER_ADVANCE: advance over an outer tuple that
-				 * is known not to join to any inner tuple.
+				 * EXEC_MJ_SKIPOUTER_ADVANCE：跳过已知不会与          
+				 * 内侧元组连接的外侧元组。    
 				 *
-				 * Before advancing, we check to see if we must emit an
-				 * outer-join fill tuple for this outer tuple.
+				 * 前进前，检查是否必须为该外侧元组    
+				 * 发出外连接填充元组。             
 				 */
 			case EXEC_MJ_SKIPOUTER_ADVANCE:
 				MJ_printf("ExecMergeJoin: EXEC_MJ_SKIPOUTER_ADVANCE\n");
@@ -1220,12 +1220,12 @@ ExecMergeJoin(PlanState *pstate)
 				if (doFillOuter && !node->mj_MatchedOuter)
 				{
 					/*
-					 * Generate a fake join tuple with nulls for the inner
-					 * tuple, and return it if it passes the non-join quals.
+					 * 生成用空值代替内侧元组的伪连接元   
+					 * 组，如果它通过非连接条件则返回它。  
 					 */
 					TupleTableSlot *result;
 
-					node->mj_MatchedOuter = true;	/* do it only once */
+					node->mj_MatchedOuter = true;	/* 只做一次    */
 
 					result = MJFillOuter(node);
 					if (result)
@@ -1233,48 +1233,48 @@ ExecMergeJoin(PlanState *pstate)
 				}
 
 				/*
-				 * now we get the next outer tuple, if any
+				 * 现在取下一个外侧元组，若有
 				 */
 				outerTupleSlot = ExecProcNode(outerPlan);
 				node->mj_OuterTupleSlot = outerTupleSlot;
 				MJ_DEBUG_PROC_NODE(outerTupleSlot);
 				node->mj_MatchedOuter = false;
 
-				/* Compute join values and check for unmatchability */
+				/* 计算连接值并检查不可匹配性          */
 				switch (MJEvalOuterValues(node))
 				{
 					case MJEVAL_MATCHABLE:
-						/* Go test the new tuple against the current inner */
+						/* 去把新元组与当前内侧元组比较      */
 						node->mj_JoinState = EXEC_MJ_SKIP_TEST;
 						break;
 					case MJEVAL_NONMATCHABLE:
-						/* Can't match, so fetch next outer tuple */
+						/* 无法匹配，取下一外侧元组   */
 						node->mj_JoinState = EXEC_MJ_SKIPOUTER_ADVANCE;
 						break;
 					case MJEVAL_ENDOFJOIN:
-						/* No more outer tuples */
+						/* 外侧元组已用尽*/
 						MJ_printf("ExecMergeJoin: end of outer subplan\n");
 						innerTupleSlot = node->mj_InnerTupleSlot;
 						if (doFillInner && !TupIsNull(innerTupleSlot))
 						{
 							/*
-							 * Need to emit right-join tuples for remaining
-							 * inner tuples.
+							 * 需要为剩余内侧元组发出右连接  
+							 * 元组。    
 							 */
 							node->mj_JoinState = EXEC_MJ_ENDOUTER;
 							break;
 						}
-						/* Otherwise we're done. */
+						/* 否则就完成了。 */
 						return NULL;
 				}
 				break;
 
 				/*
-				 * EXEC_MJ_SKIPINNER_ADVANCE: advance over an inner tuple that
-				 * is known not to join to any outer tuple.
+				 * EXEC_MJ_SKIPINNER_ADVANCE：跳过已知不会与          
+				 * 外侧元组连接的内侧元组。    
 				 *
-				 * Before advancing, we check to see if we must emit an
-				 * outer-join fill tuple for this inner tuple.
+				 * 前进前，检查是否必须为该内侧元组    
+				 * 发出外连接填充元组。             
 				 */
 			case EXEC_MJ_SKIPINNER_ADVANCE:
 				MJ_printf("ExecMergeJoin: EXEC_MJ_SKIPINNER_ADVANCE\n");
@@ -1282,67 +1282,67 @@ ExecMergeJoin(PlanState *pstate)
 				if (doFillInner && !node->mj_MatchedInner)
 				{
 					/*
-					 * Generate a fake join tuple with nulls for the outer
-					 * tuple, and return it if it passes the non-join quals.
+					 * 生成用空值代替外侧元组的伪连接元   
+					 * 组，如果它通过非连接条件则返回它。  
 					 */
 					TupleTableSlot *result;
 
-					node->mj_MatchedInner = true;	/* do it only once */
+					node->mj_MatchedInner = true;	/* 只做一次    */
 
 					result = MJFillInner(node);
 					if (result)
 						return result;
 				}
 
-				/* Mark before advancing, if wanted */
+				/* 如果需要，先标记再前进*/
 				if (node->mj_ExtraMarks)
 					ExecMarkPos(innerPlan);
 
 				/*
-				 * now we get the next inner tuple, if any
+				 * 现在取下一个内侧元组，若有
 				 */
 				innerTupleSlot = ExecProcNode(innerPlan);
 				node->mj_InnerTupleSlot = innerTupleSlot;
 				MJ_DEBUG_PROC_NODE(innerTupleSlot);
 				node->mj_MatchedInner = false;
 
-				/* Compute join values and check for unmatchability */
+				/* 计算连接值并检查不可匹配性          */
 				switch (MJEvalInnerValues(node, innerTupleSlot))
 				{
 					case MJEVAL_MATCHABLE:
-						/* proceed to compare it to the current outer */
+						/* 接着把它与当前外侧元组比较    */
 						node->mj_JoinState = EXEC_MJ_SKIP_TEST;
 						break;
 					case MJEVAL_NONMATCHABLE:
 
 						/*
-						 * current inner can't possibly match any outer;
-						 * better to advance the inner scan than the outer.
+						 * 当前内侧元组无法匹配任何外侧；
+						 * 与其推进外侧，不如推进内侧扫描。
 						 */
 						node->mj_JoinState = EXEC_MJ_SKIPINNER_ADVANCE;
 						break;
 					case MJEVAL_ENDOFJOIN:
-						/* No more inner tuples */
+						/* 内侧元组已用尽*/
 						MJ_printf("ExecMergeJoin: end of inner subplan\n");
 						outerTupleSlot = node->mj_OuterTupleSlot;
 						if (doFillOuter && !TupIsNull(outerTupleSlot))
 						{
 							/*
-							 * Need to emit left-join tuples for remaining
-							 * outer tuples.
+							 * 需要为剩余外侧元组发出左连接 
+							 * 元组。    
 							 */
 							node->mj_JoinState = EXEC_MJ_ENDINNER;
 							break;
 						}
-						/* Otherwise we're done. */
+						/* 否则就完成了。 */
 						return NULL;
 				}
 				break;
 
 				/*
-				 * EXEC_MJ_ENDOUTER means we have run out of outer tuples, but
-				 * are doing a right/right-anti/full join and therefore must
-				 * null-fill any remaining unmatched inner tuples.
+				 * EXEC_MJ_ENDOUTER 表示外侧元组已经用尽，但我们
+				 * 正在做右/右反/全连接，所以必须把剩余    
+				 * 的未匹配内侧元组填上空值。        
 				 */
 			case EXEC_MJ_ENDOUTER:
 				MJ_printf("ExecMergeJoin: EXEC_MJ_ENDOUTER\n");
@@ -1352,24 +1352,24 @@ ExecMergeJoin(PlanState *pstate)
 				if (!node->mj_MatchedInner)
 				{
 					/*
-					 * Generate a fake join tuple with nulls for the outer
-					 * tuple, and return it if it passes the non-join quals.
+					 * 生成用空值代替外侧元组的伪连接元   
+					 * 组，如果它通过非连接条件则返回它。  
 					 */
 					TupleTableSlot *result;
 
-					node->mj_MatchedInner = true;	/* do it only once */
+					node->mj_MatchedInner = true;	/* 只做一次    */
 
 					result = MJFillInner(node);
 					if (result)
 						return result;
 				}
 
-				/* Mark before advancing, if wanted */
+				/* 如果需要，先标记再前进*/
 				if (node->mj_ExtraMarks)
 					ExecMarkPos(innerPlan);
 
 				/*
-				 * now we get the next inner tuple, if any
+				 * 现在取下一个内侧元组，若有
 				 */
 				innerTupleSlot = ExecProcNode(innerPlan);
 				node->mj_InnerTupleSlot = innerTupleSlot;
@@ -1382,13 +1382,13 @@ ExecMergeJoin(PlanState *pstate)
 					return NULL;
 				}
 
-				/* Else remain in ENDOUTER state and process next tuple. */
+				/* 否则留在 ENDOUTER 状态并处理下一元组。  */
 				break;
 
 				/*
-				 * EXEC_MJ_ENDINNER means we have run out of inner tuples, but
-				 * are doing a left/full join and therefore must null- fill
-				 * any remaining unmatched outer tuples.
+				 * EXEC_MJ_ENDINNER 表示内侧元组已经用尽，但我们
+				 * 正在做左/全连接，因此必须把剩余的       
+				 * 未匹配外侧元组填上空值。 
 				 */
 			case EXEC_MJ_ENDINNER:
 				MJ_printf("ExecMergeJoin: EXEC_MJ_ENDINNER\n");
@@ -1398,12 +1398,12 @@ ExecMergeJoin(PlanState *pstate)
 				if (!node->mj_MatchedOuter)
 				{
 					/*
-					 * Generate a fake join tuple with nulls for the inner
-					 * tuple, and return it if it passes the non-join quals.
+					 * 生成用空值代替内侧元组的伪连接元   
+					 * 组，如果它通过非连接条件则返回它。  
 					 */
 					TupleTableSlot *result;
 
-					node->mj_MatchedOuter = true;	/* do it only once */
+					node->mj_MatchedOuter = true;	/* 只做一次    */
 
 					result = MJFillOuter(node);
 					if (result)
@@ -1411,7 +1411,7 @@ ExecMergeJoin(PlanState *pstate)
 				}
 
 				/*
-				 * now we get the next outer tuple, if any
+				 * 现在取下一个外侧元组，若有
 				 */
 				outerTupleSlot = ExecProcNode(outerPlan);
 				node->mj_OuterTupleSlot = outerTupleSlot;
@@ -1424,11 +1424,11 @@ ExecMergeJoin(PlanState *pstate)
 					return NULL;
 				}
 
-				/* Else remain in ENDINNER state and process next tuple. */
+				/* 否则留在 ENDINNER 状态并处理下一元组。  */
 				break;
 
 				/*
-				 * broken state value?
+				 * 状态值出错？ 
 				 */
 			default:
 				elog(ERROR, "unrecognized mergejoin state: %d",
@@ -1449,14 +1449,14 @@ ExecInitMergeJoin(MergeJoin *node, EState *estate, int eflags)
 				innerDesc;
 	const TupleTableSlotOps *innerOps;
 
-	/* check for unsupported flags */
+	/* 检查不支持的标志    */
 	Assert(!(eflags & (EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK)));
 
 	MJ1_printf("ExecInitMergeJoin: %s\n",
 			   "initializing node");
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	mergestate = makeNode(MergeJoinState);
 	mergestate->js.ps.plan = (Plan *) node;
@@ -1466,26 +1466,26 @@ ExecInitMergeJoin(MergeJoin *node, EState *estate, int eflags)
 	mergestate->mj_ConstFalseJoin = false;
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * create expression context for node
+	 * 为节点创建表达式上下文 
 	 */
 	ExecAssignExprContext(estate, &mergestate->js.ps);
 
 	/*
-	 * we need two additional econtexts in which we can compute the join
-	 * expressions from the left and right input tuples.  The node's regular
-	 * econtext won't do because it gets reset too often.
+	 * 我们还需要两个额外 econtext，用来从左右输入     
+	 * 元组中计算连接表达式。节点常规的 econtext            
+	 * 不行，因为它被重置得太频繁。        
 	 */
 	mergestate->mj_OuterEContext = CreateExprContext(estate);
 	mergestate->mj_InnerEContext = CreateExprContext(estate);
 
 	/*
-	 * initialize child nodes
+	 * 初始化子节点    
 	 *
-	 * inner child must support MARK/RESTORE, unless we have detected that we
-	 * don't need that.  Note that skip_mark_restore must never be set if
-	 * there are non-mergeclause joinquals, since the logic wouldn't work.
+	 * 内侧子节点必须支持 MARK/RESTORE，除非已检测            
+	 * 出我们并不需要它。注意：若存在非合并子句      
+	 * 连接条件，不得设置 skip_mark_restore，否则行不通。 
 	 */
 	Assert(node->join.joinqual == NIL || !node->skip_mark_restore);
 	mergestate->mj_SkipMarkRestore = node->skip_mark_restore;
@@ -1499,18 +1499,18 @@ ExecInitMergeJoin(MergeJoin *node, EState *estate, int eflags)
 	innerDesc = ExecGetResultType(innerPlanState(mergestate));
 
 	/*
-	 * For certain types of inner child nodes, it is advantageous to issue
-	 * MARK every time we advance past an inner tuple we will never return to.
-	 * For other types, MARK on a tuple we cannot return to is a waste of
-	 * cycles.  Detect which case applies and set mj_ExtraMarks if we want to
-	 * issue "unnecessary" MARK calls.
+	 * 对于某些类型的内侧子节点，每次越过我们          
+	 * 绝不会返回的内侧元组时就发 MARK 是有利的；           
+	 * 而对于另一些类型，对我们无法返回的元组         
+	 * 发 MARK 是浪费。判断哪种情形；若想发出 "unnecessary"  
+	 * MARK 就设置 mj_ExtraMarks。
 	 *
-	 * Currently, only Material wants the extra MARKs, and it will be helpful
-	 * only if eflags doesn't specify REWIND.
+	 * 目前只有 Material 需要这些额外 MARK，而且只有          
+	 * eflags 未含 REWIND 时才有用。  
 	 *
-	 * Note that for IndexScan and IndexOnlyScan, it is *necessary* that we
-	 * not set mj_ExtraMarks; otherwise we might attempt to set a mark before
-	 * the first inner tuple, which they do not support.
+	 * 注意：对 IndexScan 与 IndexOnlyScan，我们                   
+	 * 就*绝不*能设置 mj_ExtraMarks；否则可能试图在            
+	 * 首个内侧元组前设标记，其不支持。 
 	 */
 	if (IsA(innerPlan(node), Material) &&
 		(eflags & EXEC_FLAG_REWIND) == 0 &&
@@ -1520,34 +1520,34 @@ ExecInitMergeJoin(MergeJoin *node, EState *estate, int eflags)
 		mergestate->mj_ExtraMarks = false;
 
 	/*
-	 * Initialize result slot, type and projection.
+	 * 初始化结果 slot、类型与投影。   
 	 */
 	ExecInitResultTupleSlotTL(&mergestate->js.ps, &TTSOpsVirtual);
 	ExecAssignProjectionInfo(&mergestate->js.ps, NULL);
 
 	/*
-	 * tuple table initialization
+	 * 元组表初始化        
 	 */
 	innerOps = ExecGetResultSlotOps(innerPlanState(mergestate), NULL);
 	mergestate->mj_MarkedTupleSlot = ExecInitExtraTupleSlot(estate, innerDesc,
 															innerOps);
 
 	/*
-	 * initialize child expressions
+	 * 初始化子表达式       
 	 */
 	mergestate->js.ps.qual =
 		ExecInitQual(node->join.plan.qual, (PlanState *) mergestate);
 	mergestate->js.joinqual =
 		ExecInitQual(node->join.joinqual, (PlanState *) mergestate);
-	/* mergeclauses are handled below */
+	/* mergeclauses 将在后面处理*/
 
 	/*
-	 * detect whether we need only consider the first matching inner tuple
+	 * 检测是否只需考虑第一个匹配的内侧元组             
 	 */
 	mergestate->js.single_match = (node->join.inner_unique ||
 								   node->join.jointype == JOIN_SEMI);
 
-	/* set up null tuples for outer joins, if needed */
+	/* 如果需要，为外连接设置空元组    */
 	switch (node->join.jointype)
 	{
 		case JOIN_INNER:
@@ -1570,8 +1570,8 @@ ExecInitMergeJoin(MergeJoin *node, EState *estate, int eflags)
 				ExecInitNullTupleSlot(estate, outerDesc, &TTSOpsVirtual);
 
 			/*
-			 * Can't handle right, right-anti or full join with non-constant
-			 * extra joinclauses.  This should have been caught by planner.
+			 * 无法用非常量的附加连接子句处理右连接、    
+			 * 右反连接或全连接。本应由规划器查出。      
 			 */
 			if (!check_constant_qual(node->join.joinqual,
 									 &mergestate->mj_ConstFalseJoin))
@@ -1588,8 +1588,8 @@ ExecInitMergeJoin(MergeJoin *node, EState *estate, int eflags)
 				ExecInitNullTupleSlot(estate, innerDesc, &TTSOpsVirtual);
 
 			/*
-			 * Can't handle right, right-anti or full join with non-constant
-			 * extra joinclauses.  This should have been caught by planner.
+			 * 无法用非常量的附加连接子句处理右连接、    
+			 * 右反连接或全连接。本应由规划器查出。      
 			 */
 			if (!check_constant_qual(node->join.joinqual,
 									 &mergestate->mj_ConstFalseJoin))
@@ -1603,7 +1603,7 @@ ExecInitMergeJoin(MergeJoin *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * preprocess the merge clauses
+	 * 预处理合并子句       
 	 */
 	mergestate->mj_NumClauses = list_length(node->mergeclauses);
 	mergestate->mj_Clauses = MJExamineQuals(node->mergeclauses,
@@ -1614,7 +1614,7 @@ ExecInitMergeJoin(MergeJoin *node, EState *estate, int eflags)
 											(PlanState *) mergestate);
 
 	/*
-	 * initialize join state
+	 * 初始化连接状态
 	 */
 	mergestate->mj_JoinState = EXEC_MJ_INITIALIZE_OUTER;
 	mergestate->mj_MatchedOuter = false;
@@ -1623,7 +1623,7 @@ ExecInitMergeJoin(MergeJoin *node, EState *estate, int eflags)
 	mergestate->mj_InnerTupleSlot = NULL;
 
 	/*
-	 * initialization successful
+	 * 初始化成功          
 	 */
 	MJ1_printf("ExecInitMergeJoin: %s\n",
 			   "node initialized");
@@ -1634,8 +1634,8 @@ ExecInitMergeJoin(MergeJoin *node, EState *estate, int eflags)
 /* ----------------------------------------------------------------
  *		ExecEndMergeJoin
  *
- * old comments
- *		frees storage allocated through C routines.
+ * 旧注释   
+ *		负责释放经 C 例程分配的存储。 
  * ----------------------------------------------------------------
  */
 void
@@ -1645,18 +1645,18 @@ ExecEndMergeJoin(MergeJoinState *node)
 			   "ending node processing");
 
 	/*
-	 * Free the exprcontext
+	 * 释放 exprcontext  
 	 */
 	ExecFreeExprContext(&node->js.ps);
 
 	/*
-	 * clean out the tuple table
+	 * 清空元组表          
 	 */
 	ExecClearTuple(node->js.ps.ps_ResultTupleSlot);
 	ExecClearTuple(node->mj_MarkedTupleSlot);
 
 	/*
-	 * shut down the subplans
+	 * 关闭子计划       
 	 */
 	ExecEndNode(innerPlanState(node));
 	ExecEndNode(outerPlanState(node));
@@ -1680,8 +1680,8 @@ ExecReScanMergeJoin(MergeJoinState *node)
 	node->mj_InnerTupleSlot = NULL;
 
 	/*
-	 * if chgParam of subnodes is not null then plans will be re-scanned by
-	 * first ExecProcNode.
+	 * 如果子节点的 chgParam 非空，那么计划将由首个       
+	 * ExecProcNode 重扫
 	 */
 	if (outerPlan->chgParam == NULL)
 		ExecReScan(outerPlan);

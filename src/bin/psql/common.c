@@ -86,8 +86,8 @@ openQueryOutputFile(const char *fname, FILE **fout, bool *is_pipe)
  * setQFout
  * -- -o 命令行选项和 \o 命令的处理函数   
  *
- *                                                                    
- * 成功用新输出文件更新 pset 返回 true。    
+ * 成功时用新输出文件更新 pset 并返回 true。           
+ * 失败时返回 false 且不改变 pset 状态。     
  */
 bool
 setQFout(const char *fname)
@@ -120,18 +120,18 @@ setQFout(const char *fname)
 
 
 /*
- * flex 词法分析器变量获取回调   
+ * flex 词法分析器的变量获取回调
  *
- *                                                                         
- * 若变量存在，以字符串（malloc，调用者释放 
+ * 若指定变量存在，则以字符串形式返回其值（用 malloc  
+ * 分配并由调用者释放）；否则返回 NULL。     
  *
- * 否则返回 NULL。                                                    
- *                                                                     
- * 若 "quote" 非 PQUOTE_PLAIN，按指定引用要求 
+ * 若 "quote" 不是 PQUOTE_PLAIN，则针对指定的引用需求返回  
+ * 经过适当引用和转义的值。（转义失败时              
+ * 应打印错误并返回 NULL。）                  
  *
- * 对值引用和转义（失败应打印错并返回 NULL）。             
- *                                                                     
- * "passthrough" 是给 psql_scan_set_passthrough  
+ * "passthrough" 是先前传递给 psql_scan_set_passthrough 的指针。    
+ * 在 psql 中，passthrough 指向 ConditionalStack，我们         
+ * 检查它来判断是否允许变量展开。   
  */
 char *
 psql_get_variable(const char *varname, PsqlScanQuoteType quote,
@@ -236,19 +236,19 @@ NoticeProcessor(void *arg, const char *message)
 /*
  * 支持查询取消的代码       
  *
- *                                                                       
- * 启动查询前启用 SIGINT  
+ * 在启动查询之前，我们启用 SIGINT 信号捕获器来向     
+ * 后端发送取消请求。   
  *
- * 向后端发取消请求。                                           
- *                                                                    
- * SIGINT 应中止所有长时间 psql 操作，                          
- * 不止数据库查询。多数位置通过长循环中                
- * 检查 cancel_pressed 实现。但在阻塞于用户                   
- * 输入时（readline() 或 fgets()）无效。此类位置中，        
- * 阻塞期设 sigint_interrupt_enabled 为真， 
+ * SIGINT 应中止所有长时间运行的 psql 操作，               
+ * 而不只是数据库查询。在大多数地方，这通过在    
+ * 长时间运行的循环中检查 cancel_pressed 来实现。           
+ * 但阻塞于用户输入（readline() 或 fgets()）时无效。      
+ * 在这些地方，阻塞期间将 sigint_interrupt_enabled             
+ * 置为真，令信号捕获器通过 sigint_interrupt_jmp longjmp。    
+ * 假定 readline 和 fgets 能处理中断。    
  *
- * 指令信号捕获器通过 sigint_interrupt_jmp longjmp。          
- * 假定
+ * Windows 上目前这不起作用，control-C 在彼处用处更      
+ * 小。
  */
 volatile sig_atomic_t sigint_interrupt_enabled = false;
 
@@ -355,10 +355,10 @@ CheckConnection(void)
 /*
  * AcceptResult
  *
- *                                                                        
- * 检查结果有效性，必要时给错误消息；        
+ * 检查结果是否有效，必要时给出错误消息；              
+ * 并确保与后端的连接仍然存在。                 
  *
- * 确保后端连接仍存。                          
+ * 结果有效返回 true，出错返回 false。      
  */
 static bool
 AcceptResult(const PGresult *result, bool show_error)
@@ -407,15 +407,15 @@ AcceptResult(const PGresult *result, bool show_error)
 
 
 /*
- * 从查询结果设特殊变量           
- * - ERROR: true/false，本次查询是否有错              
- * - SQLSTATE: 错码，无错 "00000"，未知 ""                    
- * - ROW_COUNT: 返回或影响行数，或 "0"                
- * - LAST_ERROR_SQLSTATE: 上次错误信息 
- * - LAST_ERROR_MESSAGE: 上次错误消息   
+ * 从查询结果设置特殊变量        
+ * - ERROR: true/false，本次查询是否发生错误        
+ * - SQLSTATE: 错误代码，无错为 "00000"，未知为 ""        
+ * - ROW_COUNT: 返回或影响的行数，或 "0"             
+ * - LAST_ERROR_SQLSTATE: 上次错误同理 
+ * - LAST_ERROR_MESSAGE: 上次错误的消息
  *
- *                                                                     
- * 注意：仅对用户输入查询结果应用此函数，    
+ * 注意：当前策略是仅将其应用于用户输入的查询     
+ * 结果，而不应用于由斜杠命令生成的查询。    
  */
 static void
 SetResultVariables(PGresult *result, bool success)
@@ -436,8 +436,8 @@ SetResultVariables(PGresult *result, bool success)
 		SetVariable(pset.vars, "ERROR", "true");
 
 		/*
-		 * 无 SQLSTATE 码用空串。libpq                                  
-		 * 检测错误（连接丢失、ENOMEM）可发生。       
+		 * 若无 SQLSTATE 代码，则使用空串。libpq 检测到的      
+		 * 错误（如连接丢失、ENOMEM）就可能发生。    
 		 */
 		if (code == NULL)
 			code = "";
@@ -450,12 +450,12 @@ SetResultVariables(PGresult *result, bool success)
 
 
 /*
- * 从 shell 命令结果设特殊变量            
- * - SHELL_ERROR: true/false，退出码是否 0                  
- * - SHELL_EXIT_CODE: shell 惯例退出码                   
+ * 从 shell 命令结果设置特殊变量         
+ * - SHELL_ERROR: true/false，命令是否返回退出码 0      
+ * - SHELL_EXIT_CODE: 按 shell 惯例的退出码            
  *
- *                                                                    
- * 参数 wait(2)/waitpid(2) 返回等待状态  
+ * 参数是 wait(2) 或 waitpid(2) 返回的等待状态，          
+ * 这同样适用于 pclose(3) 和 system(3)。 
  */
 void
 SetShellResultVariables(int wait_result)
@@ -472,12 +472,12 @@ SetShellResultVariables(int wait_result)
 /*
  * ClearOrSaveResult
  *
- *                                                                       
- * 结果表错，记住供 \errverbose 显示
+ * 若结果表示错误，则记住它以供 \errverbose                
+ * 可能显示；否则仅 PQclear()。      
  *
- * 否则仅 PQclear()。                                              
- *                                                                     
- * 注：对全查询结果应用，含"后门"查询便调试。       
+ * 注意：当前策略是将此应用于所有查询的结果，     
+ * 包括"后门"查询，以便调试。不过，对已知并非      
+ * 错误结果的结果直接使用 PQclear() 是可以的。          
  */
 static void
 ClearOrSaveResult(PGresult *result)
@@ -946,15 +946,15 @@ PrintQueryStatus(PGresult *result, FILE *printQueryFout)
 
 
 /*
- * PrintQueryResult: 按要求打印/存/执行查询结果                  
+ * PrintQueryResult: 按要求打印（或存储或执行）查询结果     
  *
- *                                                    
+ * 注意：SendQuery() 专用的工具函数。      
  *
- * 注：仅 SendQuery() 用工具函数。                    
- *                                                            
- * last true 表命令串最后结果。                                      
+ * 若这是命令串的最后一个结果，last 为 true。  
+ * opt 和 printQueryFout 的含义同 PrintQueryTuples。    
+ * printStatusFout 为命令状态发送处；NULL 即 pset.queryFout。      
  *
- * opt 和 printQueryFout 同 PrintQueryTuples。                   
+ * 查询执行成功则返回 true，否则为 false。            
  */
 static bool
 PrintQueryResult(PGresult *result, bool last,
@@ -1027,16 +1027,16 @@ PrintQueryResult(PGresult *result, bool last,
 }
 
 /*
- * SendQuery: 发查询串到后端               
+ * SendQuery: 将查询字符串发送到后端   
  * （并打印结果） 
  *
- *                                                                       
- * 注："前门"方式，用户实际输入查询。                         
- * 受单步模式  
- * "后门"查询用 PSQLexec()。                                     
- *                                
+ * 注意：这是发送查询的"前门"方式。                       
+ * 即用它发送用户实际输入的查询，这些查询受单步模式   
+ * 约束。        
+ * 以受控方式发送"后门"查询（由斜杠命令等生成），
+ * 请使用 PSQLexec()。        
  *
- * 成功 true，否则 false。                                    
+ * 查询执行成功则返回 true，否则为 false。            
  */
 bool
 SendQuery(const char *query)
@@ -1386,24 +1386,24 @@ DescribeQuery(const char *query, double *elapsed_msec)
 
 
 /*
- * ExecQueryAndProcessResults: SendQuery()                            
- * 和 PSQLexecWatch() 
+ * ExecQueryAndProcessResults: 工具函数，供 SendQuery() 与     
+ * PSQLexecWatch()。  
  *
- *                                                 
+ * 发送查询并循环处理 PGresult 对象。  
  *
- * 发查询并循环 PGresult 对象。                                   
- *                                                                          
- * 含 COPY FROM STDIN / COPY TO STDOUT，                                 
+ * 若命令串中包含 COPY FROM STDIN 或 COPY TO STDOUT，             
+ * 则必须通过提供输入或输出流来处理与这些命令          
+ * 相关联的 PGresult。此时我们会为 COPY 传输数据。         
  *
- * 须提供输入输出流处理关联 PGresult。                          
- * 为 COP
+ * 对于其他命令，结果按其状态正常处                          
+ * 理。 
  *
- *                                                                          
- * 其他命令正常处理，视状态而定。                           
- *                                    
+ * 完全成功返回 1，中断返回 0，出错返回 -1。               
+ * 可能的失败模式包括纯客户端问题；服务端方面         
+ * 可查看事务状态。           
  *
- * 完全成功 1，中断 0，错误 -1。                             
- * 失败含 
+ * 注意，对组合查询而言，失败并不意味着什么都没有
+ * 提交。 
  */
 static int
 ExecQueryAndProcessResults(const char *query,
@@ -1442,9 +1442,9 @@ ExecQueryAndProcessResults(const char *query,
 	}
 
 	/*
-	 * 查询期发 SIGINT，中断被消费。                              
-	 * 用户欲取消整个 watch，检测取消退出。                   
-	 *                                                                      
+	 * 若在查询处理期间发送 SIGINT，该中断会被消耗掉。   
+	 * 但用户的意图是取消整个监视过程，因此在这种       
+	 * 情况下要检测已发出的取消请求并退出。               
 	 */
 	if (is_watch && cancel_pressed)
 	{
@@ -1595,16 +1595,16 @@ ExecQueryAndProcessResults(const char *query,
 		last = (next_result == NULL);
 
 		/*
-		 * 更新当前计时。         
+		 * 更新当前计时值。      
 		 *
-		 *                                                              
-		 * 含先前结果显示时间，无法避免，                 
-		 * 因显前结果时服务器在处后续查询。               
-		 * 服务器时间短并行显示隐藏之。                         
-		 *               
+		 * 它会包含先前结果（若有）显示的耗时。这点 
+		 * 无法避免，因为在显示先前结果时，服务器     
+		 * 反正都会继续处理后续查询。客户端显示的      
+		 * 并行执行会在服务器时间较短时将其隐                
+		 * 藏。        
 		 *
-		 * 组合查询计时为处理耗时上限。                        
-		 *                                   
+		 * 对于组合查询，计时必须理解为                        
+		 * 处理它们的耗时上限。    
 		 */
 		if (timing)
 		{
@@ -1759,8 +1759,8 @@ ExecQueryUsingCursor(const char *query, double *elapsed_msec)
 	}
 
 	/*
-	 * \gset 模式取计数强制 2，                                      
-	 * 查询返多行时抛适当错。                            
+	 * 在 \gset 模式下，我们把获取计数强制为 2，以便查询 
+	 * 返回多于一行时抛出适当的错误。                
 	 */
 	if (pset.gset_prefix)
 		fetch_count = 2;
@@ -1861,19 +1861,19 @@ ExecQueryUsingCursor(const char *query, double *elapsed_msec)
 		my_popt.topt.prior_records += ntuples;
 
 		/*
-		 * 刷新输出流使中间结果立即可见。                    
-		 * 查结果因分页器若终止/退出，                           
-		 * 再投数据无意义。                                        
+		 * 确保刷新输出流，使客户端立即可见中间结果。  
+		 * 我们检查结果，因为如果分页器死亡/退出等，      
+		 * 再向它投递更多数据就没有意义。                   
 		 *    
 		 */
 		flush_error = fflush(fout);
 
 		/*
-		 * 查是否到末尾、按取消、或刷新出错，             
-		 * 或输出流任何错误。                                    
-		 * 写入出错推测 $PAGER 消失，                         
-		 * 停止继续取数据。                                           
-		 *                                       
+		 * 检查我们是否已到末尾、是否按下了取消，       
+		 * 或者在尝试刷出结果时，或者更一般地在         
+		 * 输出流上是否发生了任何错误。如果我们      
+		 * 向流写入内容时遇到任何错误，就假定 $PAGER         
+		 * 已消失，不再拉取新数据。  
 		 */
 		if (ntuples < fetch_count || cancel_pressed || flush_error ||
 			ferror(fout))
@@ -1917,9 +1917,9 @@ cleanup:
 		INSTR_TIME_SET_CURRENT(before);
 
 	/*
-	 * 无论成败均尝试关游标，失败时                             
-	 * 忽略结果（可仅中止事务中抱怨）                          
-	 *             
+	 * 无论成功还是失败，我们都尝试关闭游标，              
+	 * 但失败时忽略其结果（这很可能只是抱怨处于中止     
+	 * 事务中）
 	 */
 	result = PQexec(pset.db, "CLOSE _psql_cursor");
 	if (OK)
@@ -2011,11 +2011,11 @@ skip_white_space(const char *query)
 
 
 /*
- * 检查是否不应启动新事务块                                 
- * （即发前置 BEGIN）命令。                    
+ * 检查某命令是否属于我们不应为其启动新事务块      
+ * （即发送前置 BEGIN）的那些命令。        
  *
- *                                                                  
- * 含事务控制语句及后端                                          
+ * 其中包括事务控制语句本身，再加上后端           
+ * 不允许在事务块内执行的某些语句。                        
  */
 static bool
 command_no_begin(const char *query)
@@ -2071,9 +2071,9 @@ command_no_begin(const char *query)
 	}
 
 	/*
-	 * 事务中不准命令。与后端                                    
-	 * PreventInTransactionBlock() 调用一致。                          
-	 *             
+	 * 事务内不允许的命令。此处所检查的语句应当恰好   
+	 * 就是后端中调用 PreventInTransactionBlock() 的那些          
+	 * 语句。   
 	 */
 	if (wordlen == 6 && pg_strncasecmp(query, "vacuum", 6) == 0)
 		return true;
@@ -2151,8 +2151,8 @@ command_no_begin(const char *query)
 	}
 
 	/*
-	 * 注：测试匹配 DROP SYSTEM 和 REINDEX TABLESPACE，              
-	 * 非真有效命令无需在意。                                 
+	 * 注意：这些测试将匹配 DROP SYSTEM 和 REINDEX TABLESPACE，  
+	 * 它们并非真正有效的命令，所以我们不太在意。   
 	 * 其他四种匹配正确。  
 	 */
 	if ((wordlen == 4 && pg_strncasecmp(query, "drop", 4) == 0) ||
@@ -2327,7 +2327,7 @@ session_username(void)
 
 /* expand_tilde
  *
- *                                                                 
+ * 将 '~' 替换为 HOME，将 '~username' 替换为其主目录  
  *
  */
 void
@@ -2407,10 +2407,10 @@ uri_prefix_length(const char *connstr)
 }
 
 /*
- * 重置 \bind 相关状态   
+ * 重置 \bind 相关的状态
  *
- *                                                                         
- * 清理绑定参数和 bind_flag 状态。                   
+ * 清理与绑定参数和 bind_flag 相关的所有状态。这需要    
+ * 在处理完查询之后或运行 \bind 时调用。        
  */
 void
 clean_bind_state(void)
@@ -2427,13 +2427,13 @@ clean_bind_state(void)
 }
 
 /*
- * 可识别连接串有效 URI 前缀开头                            
- * 或含 "="。        
+ * 可识别的连接字符串要么以有效的 URI 前缀开头，    
+ * 要么含 "="。     
  *
- *                                                                         
- * 须与 parse_connection_string 一致：                              
+ * 必须与 parse_connection_string 保持一致：凡本函数           
+ * 返回 true 的内容，至少应看上去能被该例程解析。    
  *
- * 此返回 true 至少可被解析。                    
+ * XXX 这是 libpq 中同名函数的重复副本。      
  */
 bool
 recognized_connection_string(const char *connstr)

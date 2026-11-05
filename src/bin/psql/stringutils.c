@@ -14,39 +14,39 @@
 
 
 /*
- * strtok() 的替代品（又名穷人的 flex）
+ * strtok() 的替代品（又名穷人版 flex）  
  *
- * 将字符串拆分为 token，每次调用返回一个 token，
- * 当给定字符串中没有更多 token 时返回 NULL。
+ * 将字符串拆分为 token，每次调用返回一个 token，     
+ * 给定字符串再无 token 即返回 NULL。 
  *
- * 调用约定类似于 strtok，但有更多特性。
+ * 调用约定与 strtok 类似，但多了些                      
+ * 花样。  
  *
- * s -			要解析的字符串，如果为 NULL 则继续解析上一个字符串
- * whitespace - 分隔 token 的空白字符集合
- * delim -		非空白分隔符字符集合（或 NULL）
- * quote -		可以引用 token 的字符集合（如果无则为 NULL）
- * escape -		可以转义引号的字符（如果无则为 0）
- * e_strings -	如果为 true，则将 E'...' 语法视为有效 token
- * del_quotes - 如果为 true，从返回的 token 中去除引号，否则
- *				按字符串中的原样返回
- * encoding -	活动的字符集编码
+ * s -			要解析字符串，NULL则继续解析上一字符串  
+ * whitespace - 分隔 token 的空白字符集合               
+ * delim -		非空白分隔字符集合（或 NULL）           
+ * quote -		可引用 token 的字符集合（无则为 NULL）    
+ * escape -		可引用引号的字符（无则为 0）  
+ * e_strings -	若为 true，则 E'...' 是有效 token     
+ * del_quotes - 若为 true，则从返回的 token 中去除引号，    
+ *				否则按字符串中原样返回
+ * encoding -	活动的字符集编码         
  *
- * 'delim' 中的字符（如果有）将作为单字符 token 返回，
- * 除非是引用 token 的一部分。
+ * 'delim' 中的字符（若有）将作为单字符                 
+ * token，除非属于引号 token。  
  *
- * 引号字符的双次出现始终被视为表示数据中的单个引号字符。
- * 如果 escape 不为 0，则 escape 后跟任何字符（\0 除外）也是数据字符。
+ * 引号字符的连续两次出现总是被视为表示                   
+ * 数据中的一个引号字符。若 escape 不为 0，则           
+ * escape 后随任何字符（\0除外）亦为数据。   
  *
- * e_strings 和 del_quotes 都为 true 的组合目前尚未处理。
- * 这可以修复，但目前不需要。
+ * e_strings 与 del_quotes 同时为 true 的组合目前               
+ * 尚未处理。这可以修复，但目前任何地方都不需要。    
  *
- * 注意：在此实现中，字符串 s _不会_被覆盖。
+ * 注意：在此实现中，字符串 s _不会_被覆盖。        
  *
- * 注意：可以在单个源字符串的连续调用中变化 delim、quote 和 escape，
- * 但更改 whitespace 是个坏主意，因为你可能会丢失数据。
- *
- *
- *
+ * 注意：对同一源字符串的连续调用可以改变          
+ * delim、quote 和 escape，但更改 whitespace 是个坏主意，   
+ * 因可能丢失数据。  
  */
 char *
 strtokx(const char *s,

@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * execProcnode.c
- *	 contains dispatch functions which call the appropriate "initialize",
- *	 "get a tuple", and "cleanup" routines for the given node type.
- *	 If the node has children, then it will presumably call ExecInitNode,
- *	 ExecProcNode, or ExecEndNode on its subnodes and do the appropriate
- *	 processing.
+ *	 包含分派函数，会针对给定节点类型调用相应的     
+ *	 "初始化"、"取元组"和"清理"例程。                 
+ *	 若节点有子节点，它大概会对自己的子节点调用     
+ *	 ExecInitNode、ExecProcNode 或 ExecEndNode，并做适当的      
+ *	 处理。  
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -18,20 +18,20 @@
  */
 /*
  *	 NOTES
- *		This used to be three files.  It is now all combined into
- *		one file so that it is easier to keep the dispatch routines
- *		in sync when new nodes are added.
+ *		本文件过去是三个，现已合并为一个，从而
+ *		在新增节点时更容易让各分派例程              
+ *		保持同步。                  
  *
- *	 EXAMPLE
- *		Suppose we want the age of the manager of the shoe department and
- *		the number of employees in that department.  So we have the query:
+ *	 示例 
+ *		假设我们想要鞋类部门经理的年龄，以及该部门  
+ *		雇员人数。于是我们有了这样的查询：               
  *
  *				select DEPT.no_emps, EMP.age
  *				from DEPT, EMP
  *				where EMP.name = DEPT.mgr and
  *					  DEPT.name = "shoe"
  *
- *		Suppose the planner gives us the following plan:
+ *		假设规划器给出下面这个计划：      
  *
  *						Nest Loop (DEPT.mgr = EMP.name)
  *						/		\
@@ -40,35 +40,35 @@
  *					DEPT		  EMP
  *				(name = "shoe")
  *
- *		ExecutorStart() is called first.
- *		It calls InitPlan() which calls ExecInitNode() on
- *		the root of the plan -- the nest loop node.
+ *		先调用 ExecutorStart()。    
+ *		它调用 InitPlan()，后者对计划根节点  
+ *		调用 ExecInitNode()（嵌套循环）。 
  *
- *	  * ExecInitNode() notices that it is looking at a nest loop and
- *		as the code below demonstrates, it calls ExecInitNestLoop().
- *		Eventually this calls ExecInitNode() on the right and left subplans
- *		and so forth until the entire plan is initialized.  The result
- *		of ExecInitNode() is a plan state tree built with the same structure
- *		as the underlying plan tree.
+ *	  * ExecInitNode() 注意到自己在处理嵌套循环，于是
+ *		如下方代码所示，它会调用 ExecInitNestLoop()。  
+ *		最终这会对左右子计划调用 ExecInitNode()，如此层层 
+ *		递归下去，直至整个计划初始化完毕。结果是  
+ *		ExecInitNode() 构建出一棵与底层计划树结构相同        
+ *		的计划状态树。       
  *
- *	  * Then when ExecutorRun() is called, it calls ExecutePlan() which calls
- *		ExecProcNode() repeatedly on the top node of the plan state tree.
- *		Each time this happens, ExecProcNode() will end up calling
- *		ExecNestLoop(), which calls ExecProcNode() on its subplans.
- *		Each of these subplans is a sequential scan so ExecSeqScan() is
- *		called.  The slots returned by ExecSeqScan() may contain
- *		tuples which contain the attributes ExecNestLoop() uses to
- *		form the tuples it returns.
+ *	  * 随后当 ExecutorRun() 被调用时，它会调用 ExecutePlan()    
+ *		后者会在计划状态树的顶层节点上反复调用        
+ *		ExecProcNode()。每次如此，它最终都会调用     
+ *		ExecNestLoop()，其又对子计划调用 ExecProcNode()   
+ *		这些子计划均为顺序扫描，所以 ExecSeqScan() 会   
+ *		被调用。ExecSeqScan() 返回的槽中可能包含   
+ *		元组，其中含有 ExecNestLoop() 用来构成         
+ *		其返回元组的属性。
  *
- *	  * Eventually ExecSeqScan() stops returning tuples and the nest
- *		loop join ends.  Lastly, ExecutorEnd() calls ExecEndNode() which
- *		calls ExecEndNestLoop() which in turn calls ExecEndNode() on
- *		its subplans which result in ExecEndSeqScan().
+ *	  * 最终 ExecSeqScan() 停止返回元组，嵌套循环连接
+ *		结束。最后，ExecutorEnd() 调用 ExecEndNode()，后者   
+ *		接着调用 ExecEndNestLoop()，后者再对子计划调用
+ *		ExecEndNode()，最终到 ExecEndSeqScan()。 
  *
- *		This should show how the executor works by having
- *		ExecInitNode(), ExecProcNode() and ExecEndNode() dispatch
- *		their work to the appropriate node support routines which may
- *		in turn call these routines themselves on their subplans.
+ *		这应该说明了执行器如何工作：让    
+ *		ExecInitNode()、ExecProcNode() 和 ExecEndNode() 将    
+ *		工作分派给合适的节点支撑例程，后者还可能 
+ *		反过来在自己的子计划上调用这些例程。   
  */
 #include "postgres.h"
 
@@ -127,15 +127,15 @@ static bool ExecShutdownNode_walker(PlanState *node, void *context);
 /* ------------------------------------------------------------------------
  *		ExecInitNode
  *
- *		Recursively initializes all the nodes in the plan tree rooted
- *		at 'node'.
+ *		以递归方式初始化计划树中根为 'node' 的        
+ *		节点。 
  *
- *		Inputs:
- *		  'node' is the current node of the plan produced by the query planner
- *		  'estate' is the shared execution state for the plan tree
- *		  'eflags' is a bitwise OR of flag bits described in executor.h
+ *		输入 
+ *		  'node' 是查询规划器产出的计划中的当前节点          
+ *		  'estate' 是计划树共享的执行状态              
+ *		  'eflags' 是 executor.h 中所述各标志位的按位 OR    
  *
- *		Returns a PlanState node corresponding to the given Plan node.
+ *		返回与给定 Plan 节点相对应的 PlanState 节点。   
  * ------------------------------------------------------------------------
  */
 PlanState *
@@ -146,22 +146,22 @@ ExecInitNode(Plan *node, EState *estate, int eflags)
 	ListCell   *l;
 
 	/*
-	 * do nothing when we get to the end of a leaf on tree.
+	 * 到达树中叶节点末尾时什么也不做。    
 	 */
 	if (node == NULL)
 		return NULL;
 
 	/*
-	 * Make sure there's enough stack available. Need to check here, in
-	 * addition to ExecProcNode() (via ExecProcNodeFirst()), to ensure the
-	 * stack isn't overrun while initializing the node tree.
+	 * 确保有足够的栈可用。除了在 ExecProcNode()（通过 
+	 * ExecProcNodeFirst()）之外，还需要在这里检查，以确保
+	 * 初始化节点树时栈不会被耗尽。           
 	 */
 	check_stack_depth();
 
 	switch (nodeTag(node))
 	{
 			/*
-			 * control nodes
+			 * 控制节点 
 			 */
 		case T_Result:
 			result = (PlanState *) ExecInitResult((Result *) node,
@@ -310,7 +310,7 @@ ExecInitNode(Plan *node, EState *estate, int eflags)
 			break;
 
 			/*
-			 * materialization nodes
+			 * 物化节点         
 			 */
 		case T_Material:
 			result = (PlanState *) ExecInitMaterial((Material *) node,
@@ -384,15 +384,15 @@ ExecInitNode(Plan *node, EState *estate, int eflags)
 
 		default:
 			elog(ERROR, "unrecognized node type: %d", (int) nodeTag(node));
-			result = NULL;		/* keep compiler quiet */
+			result = NULL;		/* 让编译器安静  */
 			break;
 	}
 
 	ExecSetExecProcNode(result, result->ExecProcNode);
 
 	/*
-	 * Initialize any initPlans present in this node.  The planner put them in
-	 * a separate list for us.
+	 * 初始化本节点里存在的任何 initPlan。规划器把它们     
+	 * 放入单独列表。  
 	 */
 	subps = NIL;
 	foreach(l, node->initPlan)
@@ -406,7 +406,7 @@ ExecInitNode(Plan *node, EState *estate, int eflags)
 	}
 	result->initPlan = subps;
 
-	/* Set up instrumentation for this node if requested */
+	/* 若被请求，为本节点设置 instrumentation */
 	if (estate->es_instrument)
 		result->instrument = InstrAlloc(1, estate->es_instrument,
 										result->async_capable);
@@ -416,19 +416,19 @@ ExecInitNode(Plan *node, EState *estate, int eflags)
 
 
 /*
- * If a node wants to change its ExecProcNode function after ExecInitNode()
- * has finished, it should do so with this function.  That way any wrapper
- * functions can be reinstalled, without the node having to know how that
- * works.
+ * 如果节点想在 ExecInitNode() 结束之后更改自己的           
+ * ExecProcNode 函数，就应该使用此函数来做。这样任何    
+ * 包装函数都能被重新安装，而节点无需知道其工作    
+ * 原理
  */
 void
 ExecSetExecProcNode(PlanState *node, ExecProcNodeMtd function)
 {
 	/*
-	 * Add a wrapper around the ExecProcNode callback that checks stack depth
-	 * during the first execution and maybe adds an instrumentation wrapper.
-	 * When the callback is changed after execution has already begun that
-	 * means we'll superfluously execute ExecProcNodeFirst, but that seems ok.
+	 * 在 ExecProcNode 回调外再包一层包装，用以检查栈深度  
+	 * 这发生在首次执行期间，并可能添加 instrumentation     
+	 * 包装。若执行已开始后才改回调，那意味着我们会 
+	 * 多余地执行一次 ExecProcNodeFirst，但这似乎无妨。        
 	 */
 	node->ExecProcNodeReal = function;
 	node->ExecProcNode = ExecProcNodeFirst;
@@ -436,25 +436,25 @@ ExecSetExecProcNode(PlanState *node, ExecProcNodeMtd function)
 
 
 /*
- * ExecProcNode wrapper that performs some one-time checks, before calling
- * the relevant node method (possibly via an instrumentation wrapper).
+ * ExecProcNode 包装器，会在调用相关节点方法之前执行    
+ * 一些一次性检查（可能经由 instrumentation 包装器）  
  */
 static TupleTableSlot *
 ExecProcNodeFirst(PlanState *node)
 {
 	/*
-	 * Perform stack depth check during the first execution of the node.  We
-	 * only do so the first time round because it turns out to not be cheap on
-	 * some common architectures (eg. x86).  This relies on the assumption
-	 * that ExecProcNode calls for a given plan node will always be made at
-	 * roughly the same stack depth.
+	 * 在该节点首次执行期间执行栈深度检查。我们         
+	 * 只在第一轮这么做，因为事实证明这在某些常见体系  
+	 * 结构（例如 x86）上并不便宜。这有赖于如下假设：
+	 * 即给定计划节点的各次 ExecProcNode 调用总是发生在   
+	 * 大致相同的栈深度。  
 	 */
 	check_stack_depth();
 
 	/*
-	 * If instrumentation is required, change the wrapper to one that just
-	 * does instrumentation.  Otherwise we can dispense with all wrappers and
-	 * have ExecProcNode() directly call the relevant function from now on.
+	 * 若需要 instrumentation，就把包装换成只做统计的那一
+	 * 种。否则我们可以省掉所有包装，让 ExecProcNode() 从   
+	 * 此以后直接调用相关函数。                                
 	 */
 	if (node->instrument)
 		node->ExecProcNode = ExecProcNodeInstr;
@@ -466,9 +466,9 @@ ExecProcNodeFirst(PlanState *node)
 
 
 /*
- * ExecProcNode wrapper that performs instrumentation calls.  By keeping
- * this a separate function, we avoid overhead in the normal case where
- * no instrumentation is wanted.
+ * 负责执行 instrumentation 调用的 ExecProcNode 包装器。     
+ * 把它保留为单独函数，可避免在不需要统计信息的  
+ * 常规情形下的开销。  
  */
 static TupleTableSlot *
 ExecProcNodeInstr(PlanState *node)
@@ -488,14 +488,14 @@ ExecProcNodeInstr(PlanState *node)
 /* ----------------------------------------------------------------
  *		MultiExecProcNode
  *
- *		Execute a node that doesn't return individual tuples
- *		(it might return a hashtable, bitmap, etc).  Caller should
- *		check it got back the expected kind of Node.
+ *		执行一个不返回单个元组的节点          
+ *		（它可能返回哈希表、位图等）。调用方应 
+ *		检查所得类型是否符合预期。     
  *
- * This has essentially the same responsibilities as ExecProcNode,
- * but it does not do InstrStartNode/InstrStopNode (mainly because
- * it can't tell how many returned tuples to count).  Each per-node
- * function must provide its own instrumentation support.
+ * 它的职责本质上与 ExecProcNode 相同，但它不做    
+ * InstrStartNode/InstrStopNode（主要是因为它无法        
+ * 判断该把多少返回元组计入统计）。每个节点级 
+ * 函数都必须自行提供统计支持。            
  * ----------------------------------------------------------------
  */
 Node *
@@ -507,13 +507,13 @@ MultiExecProcNode(PlanState *node)
 
 	CHECK_FOR_INTERRUPTS();
 
-	if (node->chgParam != NULL) /* something changed */
-		ExecReScan(node);		/* let ReScan handle this */
+	if (node->chgParam != NULL) /* 发生了变化   */
+		ExecReScan(node);		/* 交给 ReScan 处理   */
 
 	switch (nodeTag(node))
 	{
 			/*
-			 * Only node types that actually support multiexec will be listed
+			 * 只有实际支持 multiexec 的节点类型才会被列出   
 			 */
 
 		case T_HashState:
@@ -545,27 +545,27 @@ MultiExecProcNode(PlanState *node)
 /* ----------------------------------------------------------------
  *		ExecEndNode
  *
- *		Recursively cleans up all the nodes in the plan rooted
- *		at 'node'.
+ *		以递归方式清理计划树中根为 'node' 的    
+ *		节点。 
  *
- *		After this operation, the query plan will not be able to be
- *		processed any further.  This should be called only after
- *		the query plan has been fully executed.
+ *		此操作之后，查询计划将无法再被进一步     
+ *		处理。应当只在查询计划已被完整           
+ *		执行之后才可调用。            
  * ----------------------------------------------------------------
  */
 void
 ExecEndNode(PlanState *node)
 {
 	/*
-	 * do nothing when we get to the end of a leaf on tree.
+	 * 到达树中叶节点末尾时什么也不做。    
 	 */
 	if (node == NULL)
 		return;
 
 	/*
-	 * Make sure there's enough stack available. Need to check here, in
-	 * addition to ExecProcNode() (via ExecProcNodeFirst()), because it's not
-	 * guaranteed that ExecProcNode() is reached for all nodes.
+	 * 确保有足够的栈可用。除了在 ExecProcNode()（经由 
+	 * ExecProcNodeFirst()）所做的检查外，这里也要检查，因为
+	 * 并非所有节点都保证会到达 ExecProcNode()。  
 	 */
 	check_stack_depth();
 
@@ -578,7 +578,7 @@ ExecEndNode(PlanState *node)
 	switch (nodeTag(node))
 	{
 			/*
-			 * control nodes
+			 * 控制节点 
 			 */
 		case T_ResultState:
 			ExecEndResult((ResultState *) node);
@@ -707,7 +707,7 @@ ExecEndNode(PlanState *node)
 			break;
 
 			/*
-			 * materialization nodes
+			 * 物化节点         
 			 */
 		case T_MaterialState:
 			ExecEndMaterial((MaterialState *) node);
@@ -766,8 +766,8 @@ ExecEndNode(PlanState *node)
 /*
  * ExecShutdownNode
  *
- * Give execution nodes a chance to stop asynchronous resource consumption
- * and release any resources still held.
+ * 给执行节点一个机会，使其停止异步资源消耗，        
+ * 并释放仍持有的任何资源。 
  */
 void
 ExecShutdownNode(PlanState *node)
@@ -784,14 +784,14 @@ ExecShutdownNode_walker(PlanState *node, void *context)
 	check_stack_depth();
 
 	/*
-	 * Treat the node as running while we shut it down, but only if it's run
-	 * at least once already.  We don't expect much CPU consumption during
-	 * node shutdown, but in the case of Gather or Gather Merge, we may shut
-	 * down workers at this stage.  If so, their buffer usage will get
-	 * propagated into pgBufferUsage at this point, and we want to make sure
-	 * that it gets associated with the Gather node.  We skip this if the node
-	 * has never been executed, so as to avoid incorrectly making it appear
-	 * that it has.
+	 * 在关闭节点期间把它当作正在运行，但前提是它已经
+	 * 至少运行过一次。我们不指望节点关闭期间消耗    
+	 * 多少 CPU，但在 Gather 或 Gather Merge 的情形下，我们    
+	 * 可能在此阶段关闭 worker。这样它们的缓冲用量  
+	 * 将在此时传播进 pgBufferUsage，我们要确保它被关联到 
+	 * Gather 节点上。若节点从未执行，我们就跳过这步，    
+	 * 以免错误地让它显得好像已经执行过，而实际        
+	 * 并非如此
 	 */
 	if (node->instrument && node->instrument->running)
 		InstrStartNode(node->instrument);
@@ -822,7 +822,7 @@ ExecShutdownNode_walker(PlanState *node, void *context)
 			break;
 	}
 
-	/* Stop the node if we started it above, reporting 0 tuples. */
+	/* 若上面启动过该节点，停止它并报告 0 元组 */
 	if (node->instrument && node->instrument->running)
 		InstrStopNode(node->instrument, 0);
 
@@ -832,43 +832,43 @@ ExecShutdownNode_walker(PlanState *node, void *context)
 /*
  * ExecSetTupleBound
  *
- * Set a tuple bound for a planstate node.  This lets child plan nodes
- * optimize based on the knowledge that the maximum number of tuples that
- * their parent will demand is limited.  The tuple bound for a node may
- * only be changed between scans (i.e., after node initialization or just
- * before an ExecReScan call).
+ * 为一个 planstate 节点设置元组上限。这样各子计划  
+ * 节点能够基于如下认识进行优化：其父节点将索取的 
+ * 元组数量存在上限。节点的元组上限只能在扫描     
+ * 之间修改（即节点初始化之后，或恰在 ExecReScan 调    
+ * 用之前进行）。      
  *
- * Any negative tuples_needed value means "no limit", which should be the
- * default assumption when this is not called at all for a particular node.
+ * 任何负的 tuples_needed 值都表示"无限制"，当某个节点  
+ * 完全未被调用时，这就是应当采用的默认假设。         
  *
- * Note: if this is called repeatedly on a plan tree, the exact same set
- * of nodes must be updated with the new limit each time; be careful that
- * only unchanging conditions are tested here.
+ * 注意：若在一个计划树上反复调用本函数，每次必须
+ * 用新的上限更新完全相同的节点集合；要小心这里    
+ * 只检测不会变化的条件。          
  */
 void
 ExecSetTupleBound(int64 tuples_needed, PlanState *child_node)
 {
 	/*
-	 * Since this function recurses, in principle we should check stack depth
-	 * here.  In practice, it's probably pointless since the earlier node
-	 * initialization tree traversal would surely have consumed more stack.
+	 * 由于本函数会递归，原则上应当在此检查栈深度。    
+	 * 但这多半没有意义，因为更早的节点初始化树      
+	 * 遍历肯定已经消耗了更多的栈空间。                    
 	 */
 
 	if (IsA(child_node, SortState))
 	{
 		/*
-		 * If it is a Sort node, notify it that it can use bounded sort.
+		 * 如果这是 Sort 节点，通知它可以有界排序。    
 		 *
-		 * Note: it is the responsibility of nodeSort.c to react properly to
-		 * changes of these parameters.  If we ever redesign this, it'd be a
-		 * good idea to integrate this signaling with the parameter-change
-		 * mechanism.
+		 * 注意：对 nodeSort.c 而言，正确响应这些参数的     
+		 * 变化是它的责任。如果将来重新设计此处，        
+		 * 那么最好将这一信号机制与参数变更机制集成   
+		 * 起来。 
 		 */
 		SortState  *sortState = (SortState *) child_node;
 
 		if (tuples_needed < 0)
 		{
-			/* make sure flag gets reset if needed upon rescan */
+			/* 确保重扫描时按需重置该标志         */
 			sortState->bounded = false;
 		}
 		else
@@ -880,19 +880,19 @@ ExecSetTupleBound(int64 tuples_needed, PlanState *child_node)
 	else if (IsA(child_node, IncrementalSortState))
 	{
 		/*
-		 * If it is an IncrementalSort node, notify it that it can use bounded
-		 * sort.
+		 * 如果这是 IncrementalSort 节点，通知它可以有界排序  
+		 *      
 		 *
-		 * Note: it is the responsibility of nodeIncrementalSort.c to react
-		 * properly to changes of these parameters.  If we ever redesign this,
-		 * it'd be a good idea to integrate this signaling with the
-		 * parameter-change mechanism.
+		 * 注意：nodeIncrementalSort.c 负责正确响应这些         
+		 * 参数的变化。如果将来重新设计此处，最好把这一 
+		 * 信号机制与参数变更                             
+		 * 机制集成起来。      
 		 */
 		IncrementalSortState *sortState = (IncrementalSortState *) child_node;
 
 		if (tuples_needed < 0)
 		{
-			/* make sure flag gets reset if needed upon rescan */
+			/* 确保重扫描时按需重置该标志         */
 			sortState->bounded = false;
 		}
 		else
@@ -904,9 +904,9 @@ ExecSetTupleBound(int64 tuples_needed, PlanState *child_node)
 	else if (IsA(child_node, AppendState))
 	{
 		/*
-		 * If it is an Append, we can apply the bound to any nodes that are
-		 * children of the Append, since the Append surely need read no more
-		 * than that many tuples from any one input.
+		 * 如果这是 Append，可把上限施加到作为其子节点的
+		 * 那些节点上，因为 Append 必然不需要从任何单个   
+		 * 输入读取多于该数量的元组。  
 		 */
 		AppendState *aState = (AppendState *) child_node;
 		int			i;
@@ -917,9 +917,9 @@ ExecSetTupleBound(int64 tuples_needed, PlanState *child_node)
 	else if (IsA(child_node, MergeAppendState))
 	{
 		/*
-		 * If it is a MergeAppend, we can apply the bound to any nodes that
-		 * are children of the MergeAppend, since the MergeAppend surely need
-		 * read no more than that many tuples from any one input.
+		 * 如果这是 MergeAppend，可把上限施加到作为其子节 
+		 * 点的那些节点上，因为 MergeAppend 必然不需要从任  
+		 * 何单个输入读取多于该数量的元组。      
 		 */
 		MergeAppendState *maState = (MergeAppendState *) child_node;
 		int			i;
@@ -930,13 +930,13 @@ ExecSetTupleBound(int64 tuples_needed, PlanState *child_node)
 	else if (IsA(child_node, ResultState))
 	{
 		/*
-		 * Similarly, for a projecting Result, we can apply the bound to its
-		 * child node.
+		 * 类似地，对于投影 Result，可以把上限施加到其子 
+		 * 节点。  
 		 *
-		 * If Result supported qual checking, we'd have to punt on seeing a
-		 * qual.  Note that having a resconstantqual is not a showstopper: if
-		 * that condition succeeds it affects nothing, while if it fails, no
-		 * rows will be demanded from the Result child anyway.
+		 * 如果 Result 支持 qual 检查，遇到 qual 时只能回避  
+		 * 注意：拥有 resconstantqual 并非致命问题：如果该    
+		 * 条件成立则无影响；若不成立，反正也不会        
+		 * 从 Result 子节点索取任何行。             
 		 */
 		if (outerPlanState(child_node))
 			ExecSetTupleBound(tuples_needed, outerPlanState(child_node));
@@ -944,8 +944,8 @@ ExecSetTupleBound(int64 tuples_needed, PlanState *child_node)
 	else if (IsA(child_node, SubqueryScanState))
 	{
 		/*
-		 * We can also descend through SubqueryScan, but only if it has no
-		 * qual (otherwise it might discard rows).
+		 * 我们也可以穿过 SubqueryScan 继续向下，但仅当它 
+		 * 没有 qual（否则可能丢行）。 
 		 */
 		SubqueryScanState *subqueryState = (SubqueryScanState *) child_node;
 
@@ -955,23 +955,23 @@ ExecSetTupleBound(int64 tuples_needed, PlanState *child_node)
 	else if (IsA(child_node, GatherState))
 	{
 		/*
-		 * A Gather node can propagate the bound to its workers.  As with
-		 * MergeAppend, no one worker could possibly need to return more
-		 * tuples than the Gather itself needs to.
+		 * Gather 节点可以把上限传播给它的 worker。与      
+		 * MergeAppend 一样，单个 worker 所需返回的元组     
+		 * 都不会多于 Gather 自身所需。 
 		 *
-		 * Note: As with Sort, the Gather node is responsible for reacting
-		 * properly to changes to this parameter.
+		 * 注意：与 Sort 一样，Gather 节点负责正确响应     
+		 * 此参数的变化。                 
 		 */
 		GatherState *gstate = (GatherState *) child_node;
 
 		gstate->tuples_needed = tuples_needed;
 
-		/* Also pass down the bound to our own copy of the child plan */
+		/* 也把上限下传给我们自己那份子计划副本     */
 		ExecSetTupleBound(tuples_needed, outerPlanState(child_node));
 	}
 	else if (IsA(child_node, GatherMergeState))
 	{
-		/* Same comments as for Gather */
+		/* 注释与 Gather 相同     */
 		GatherMergeState *gstate = (GatherMergeState *) child_node;
 
 		gstate->tuples_needed = tuples_needed;
@@ -980,9 +980,9 @@ ExecSetTupleBound(int64 tuples_needed, PlanState *child_node)
 	}
 
 	/*
-	 * In principle we could descend through any plan node type that is
-	 * certain not to discard or combine input rows; but on seeing a node that
-	 * can do that, we can't propagate the bound any further.  For the moment
-	 * it's unclear that any other cases are worth checking here.
+	 * 原则上，我们可以穿过任何确定不丢弃、不合并 
+	 * 输入行的计划节点类型；但一旦遇到会这样做的节     
+	 * 点，我们就无法再继续传播上限。目前尚不清楚       
+	 * 是否还有其他情形值得在此检查。             
 	 */
 }

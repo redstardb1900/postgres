@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeTidscan.c
- *	  Routines to support direct tid scans of relations
+ *	  支撑关系直接 tid 扫描的例程           
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,12 +13,12 @@
  *-------------------------------------------------------------------------
  */
 /*
- * INTERFACE ROUTINES
+ * 接口例程      
  *
- *		ExecTidScan			scans a relation using tids
- *		ExecInitTidScan		creates and initializes state info.
- *		ExecReScanTidScan	rescans the tid relation.
- *		ExecEndTidScan		releases all storage.
+ *		ExecTidScan			使用 tid 扫描关系    
+ *		ExecInitTidScan		创建并初始化状态信息。  
+ *		ExecReScanTidScan	重新扫描 tid 关系  
+ *		ExecEndTidScan		释放所有存储。
  */
 #include "postgres.h"
 
@@ -36,22 +36,22 @@
 
 
 /*
- * It's sufficient to check varattno to identify the CTID variable, as any
- * Var in the relation scan qual must be for our table.  (Even if it's a
- * parameterized scan referencing some other table's CTID, the other table's
- * Var would have become a Param by the time it gets here.)
+ * 要识别 CTID 变量，只需检查 varattno 即可，因为本关系 
+ * 扫描 qual 中的任何 Var 都必然属于我们的表。（即便 
+ * 它是引用其他表 CTID 的参数化扫描，那张表的 Var 到     
+ * 这里时早已变成了 Param。）                    
  */
 #define IsCTIDVar(node)  \
 	((node) != NULL && \
 	 IsA((node), Var) && \
 	 ((Var *) (node))->varattno == SelfItemPointerAttributeNumber)
 
-/* one element in tss_tidexprs */
+/* tss_tidexprs 的一个元素*/
 typedef struct TidExpr
 {
-	ExprState  *exprstate;		/* ExprState for a TID-yielding subexpr */
-	bool		isarray;		/* if true, it yields tid[] not just tid */
-	CurrentOfExpr *cexpr;		/* alternatively, we can have CURRENT OF */
+	ExprState  *exprstate;		/* TID 子表达式对应的 ExprState  */
+	bool		isarray;		/* 若为真，则产出 tid[] 而非 tid*/
+	CurrentOfExpr *cexpr;		/* 或者也可以使用 CURRENT OF      */
 } TidExpr;
 
 static void TidExprListCreate(TidScanState *tidstate);
@@ -61,11 +61,11 @@ static TupleTableSlot *TidNext(TidScanState *node);
 
 
 /*
- * Extract the qual subexpressions that yield TIDs to search for,
- * and compile them into ExprStates if they're ordinary expressions.
+ * 抽取 qual 中产生待查找 TID 的子表达式，         
+ * 若它们是普通表达式，则把它们编译为 ExprState。 
  *
- * CURRENT OF is a special case that we can't compile usefully;
- * just drop it into the TidExpr list as-is.
+ * CURRENT OF 是特例，无法将其有效地编译；       
+ * 只需把它原样放入 TidExpr 列表  
  */
 static void
 TidExprListCreate(TidScanState *tidstate)
@@ -120,16 +120,16 @@ TidExprListCreate(TidScanState *tidstate)
 		tidstate->tss_tidexprs = lappend(tidstate->tss_tidexprs, tidexpr);
 	}
 
-	/* CurrentOfExpr could never appear OR'd with something else */
+	/* CurrentOfExpr 绝不会与其他东西 OR 起来出现    */
 	Assert(list_length(tidstate->tss_tidexprs) == 1 ||
 		   !tidstate->tss_isCurrentOf);
 }
 
 /*
- * Compute the list of TIDs to be visited, by evaluating the expressions
- * for them.
+ * 对这些表达式求值，以计算出需要访问的 TID           
+ * 列表。
  *
- * (The result is actually an array, not a list.)
+ * （结果其实是数组，而非列表）    
  */
 static void
 TidListEval(TidScanState *tidstate)
@@ -142,9 +142,9 @@ TidListEval(TidScanState *tidstate)
 	ListCell   *l;
 
 	/*
-	 * Start scan on-demand - initializing a scan isn't free (e.g. heap stats
-	 * the size of the table), so it makes sense to delay that until needed -
-	 * the node might never get executed.
+	 * 按需启动扫描 - 初始化扫描并非免费（例如堆要统计 
+	 * 表的大小），所以推迟到需要时再初始化才有意义 -  
+	 * 该节点可能从不执行。    
 	 */
 	if (tidstate->ss.ss_currentScanDesc == NULL)
 		tidstate->ss.ss_currentScanDesc =
@@ -153,9 +153,9 @@ TidListEval(TidScanState *tidstate)
 	scan = tidstate->ss.ss_currentScanDesc;
 
 	/*
-	 * We initialize the array with enough slots for the case that all quals
-	 * are simple OpExprs or CurrentOfExprs.  If there are any
-	 * ScalarArrayOpExprs, we may have to enlarge the array.
+	 * 初始化数组时预留了足够槽位，应对所有 qual 均为   
+	 * 简单 OpExpr 或 CurrentOfExpr。若存在任何      
+	 * ScalarArrayOpExpr，则可能必须扩大该数组。
 	 */
 	numAllocTids = list_length(tidstate->tss_tidexprs);
 	tidList = (ItemPointerData *)
@@ -178,11 +178,11 @@ TidListEval(TidScanState *tidstate)
 				continue;
 
 			/*
-			 * We silently discard any TIDs that the AM considers invalid
-			 * (E.g. for heap, they could be out of range at the time of scan
-			 * start.  Since we hold at least AccessShareLock on the table, it
-			 * won't be possible for someone to truncate away the blocks we
-			 * intend to visit.).
+			 * 我们会静默丢弃任何被 AM 视为无效的 TID     
+			 * （例如堆表，扫描开始时它们可能已经越界。  
+			 * 由于我们对表至少持有 AccessShareLock，因此        
+			 * 不可能有人截断掉我们打算访问的               
+			 * 那些块。）   
 			 */
 			if (!table_tuple_tid_valid(scan, itemptr))
 				continue;
@@ -256,14 +256,14 @@ TidListEval(TidScanState *tidstate)
 	}
 
 	/*
-	 * Sort the array of TIDs into order, and eliminate duplicates.
-	 * Eliminating duplicates is necessary since we want OR semantics across
-	 * the list.  Sorting makes it easier to detect duplicates, and as a bonus
-	 * ensures that we will visit the heap in the most efficient way.
+	 * 将 TID 数组排成有序，并消除其中的重复项。 
+	 * 消除重复是必要的，因为需要在整个列表上获得 OR   
+	 * 语义。排序使重复更易检测，也顺带确保以最有效     
+	 * 的方式访问堆。                                         
 	 */
 	if (numTids > 1)
 	{
-		/* CurrentOfExpr could never appear OR'd with something else */
+		/* CurrentOfExpr 绝不会与其他东西 OR 起来出现    */
 		Assert(!tidstate->tss_isCurrentOf);
 
 		qsort(tidList, numTids, sizeof(ItemPointerData),
@@ -278,7 +278,7 @@ TidListEval(TidScanState *tidstate)
 }
 
 /*
- * qsort comparator for ItemPointerData items
+ * ItemPointerData 项的 qsort 比较器    
  */
 static int
 itemptr_comparator(const void *a, const void *b)
@@ -304,8 +304,8 @@ itemptr_comparator(const void *a, const void *b)
 /* ----------------------------------------------------------------
  *		TidNext
  *
- *		Retrieve a tuple from the TidScan node's currentRelation
- *		using the tids in the TidScanState information.
+ *		从 TidScan 节点的 currentRelation 中取回元组，
+ *		即使用 TidScanState 信息里的那些 tid  
  *
  * ----------------------------------------------------------------
  */
@@ -323,7 +323,7 @@ TidNext(TidScanState *node)
 	bool		bBackward;
 
 	/*
-	 * extract necessary information from tid scan node
+	 * 从 tid 扫描节点中抽取必要信息       
 	 */
 	estate = node->ss.ps.state;
 	direction = estate->es_direction;
@@ -332,7 +332,7 @@ TidNext(TidScanState *node)
 	slot = node->ss.ss_ScanTupleSlot;
 
 	/*
-	 * First time through, compute the list of TIDs to be visited
+	 * 首次经过时，计算出要访问的 TID 列表        
 	 */
 	if (node->tss_TidList == NULL)
 		TidListEval(node);
@@ -342,14 +342,14 @@ TidNext(TidScanState *node)
 	numTids = node->tss_NumTids;
 
 	/*
-	 * Initialize or advance scan position, depending on direction.
+	 * 根据方向来初始化或推进扫描位置。            
 	 */
 	bBackward = ScanDirectionIsBackward(direction);
 	if (bBackward)
 	{
 		if (node->tss_TidPtr < 0)
 		{
-			/* initialize for backward scan */
+			/* 为反向扫描做初始化  */
 			node->tss_TidPtr = numTids - 1;
 		}
 		else
@@ -359,7 +359,7 @@ TidNext(TidScanState *node)
 	{
 		if (node->tss_TidPtr < 0)
 		{
-			/* initialize for forward scan */
+			/* 为前向扫描做初始化 */
 			node->tss_TidPtr = 0;
 		}
 		else
@@ -371,9 +371,9 @@ TidNext(TidScanState *node)
 		ItemPointerData tid = tidList[node->tss_TidPtr];
 
 		/*
-		 * For WHERE CURRENT OF, the tuple retrieved from the cursor might
-		 * since have been updated; if so, we should fetch the version that is
-		 * current according to our snapshot.
+		 * 对于 WHERE CURRENT OF，从游标取回的元组此后可能 
+		 * 已被更新；若是，我们就应该取回在当前快照下    
+		 * 仍然有效的那个版本。    
 		 */
 		if (node->tss_isCurrentOf)
 			table_tuple_get_latest_tid(scan, &tid);
@@ -381,7 +381,7 @@ TidNext(TidScanState *node)
 		if (table_tuple_fetch_row_version(heapRelation, &tid, snapshot, slot))
 			return slot;
 
-		/* Bad TID or failed snapshot qual; try next */
+		/* 坏TID或快照qual失败；试下一个  */
 		if (bBackward)
 			node->tss_TidPtr--;
 		else
@@ -391,21 +391,21 @@ TidNext(TidScanState *node)
 	}
 
 	/*
-	 * if we get here it means the tid scan failed so we are at the end of the
-	 * scan..
+	 * 走到这里就意味着 tid 扫描失败，即已到达扫描         
+	 * 末端
 	 */
 	return ExecClearTuple(slot);
 }
 
 /*
- * TidRecheck -- access method routine to recheck a tuple in EvalPlanQual
+ * TidRecheck -- 于 EvalPlanQual 中复查元组的访问方法例程   
  */
 static bool
 TidRecheck(TidScanState *node, TupleTableSlot *slot)
 {
 	ItemPointer match;
 
-	/* WHERE CURRENT OF always intends to resolve to the latest tuple */
+	/* WHERE CURRENT OF 总是想要定位到最新的那个元组    */
 	if (node->tss_isCurrentOf)
 		return true;
 
@@ -413,8 +413,8 @@ TidRecheck(TidScanState *node, TupleTableSlot *slot)
 		TidListEval(node);
 
 	/*
-	 * Binary search the TidList to see if this ctid is mentioned and return
-	 * true if it is.
+	 * 二分查找 TidList，检查是否提到该 ctid，若是           
+	 * 则返回真  
 	 */
 	match = (ItemPointer) bsearch(&slot->tts_tid, node->tss_TidList,
 								  node->tss_NumTids, sizeof(ItemPointerData),
@@ -426,19 +426,19 @@ TidRecheck(TidScanState *node, TupleTableSlot *slot)
 /* ----------------------------------------------------------------
  *		ExecTidScan(node)
  *
- *		Scans the relation using tids and returns
- *		   the next qualifying tuple in the direction specified.
- *		We call the ExecScan() routine and pass it the appropriate
- *		access method functions.
+ *		使用 tid 扫描关系，并返回      
+ *		   指定方向上的下一个满足条件的元组。  
+ *		我们调用 ExecScan() 例程，并传入相应的       
+ *		访问方法函数。   
  *
- *		Conditions:
- *		  -- the "cursor" maintained by the AMI is positioned at the tuple
- *			 returned previously.
+ *		条件：  
+ *		  -- 由 AMI 维护的"cursor"定位在该元组                  
+ *			 即前次返回的  
  *
- *		Initial States:
- *		  -- the relation indicated is opened for scanning so that the
- *			 "cursor" is positioned before the first qualifying tuple.
- *		  -- tss_TidPtr is -1.
+ *		初始状态：
+ *		  -- 所指明的关系已为扫描而打开，从而         
+ *			 "cursor"定位于第一个满足条件的元组之前。 
+ *		  -- tss_TidPtr 为 -1
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -464,7 +464,7 @@ ExecReScanTidScan(TidScanState *node)
 	node->tss_NumTids = 0;
 	node->tss_TidPtr = -1;
 
-	/* not really necessary, but seems good form */
+	/* 并非真正必要，但似乎是好习惯*/
 	if (node->ss.ss_currentScanDesc)
 		table_rescan(node->ss.ss_currentScanDesc, NULL);
 
@@ -474,8 +474,8 @@ ExecReScanTidScan(TidScanState *node)
 /* ----------------------------------------------------------------
  *		ExecEndTidScan
  *
- *		Releases any storage allocated through C routines.
- *		Returns nothing.
+ *		释放通过 C 例程分配的所有存储。     
+ *		无返回值。 
  * ----------------------------------------------------------------
  */
 void
@@ -485,12 +485,12 @@ ExecEndTidScan(TidScanState *node)
 		table_endscan(node->ss.ss_currentScanDesc);
 
 	/*
-	 * Free the exprcontext
+	 * 释放 exprcontext  
 	 */
 	ExecFreeExprContext(&node->ss.ps);
 
 	/*
-	 * clear out tuple table slots
+	 * 清空元组表槽位      
 	 */
 	if (node->ss.ps.ps_ResultTupleSlot)
 		ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
@@ -500,12 +500,12 @@ ExecEndTidScan(TidScanState *node)
 /* ----------------------------------------------------------------
  *		ExecInitTidScan
  *
- *		Initializes the tid scan's state information, creates
- *		scan keys, and opens the base and tid relations.
+ *		初始化 tid 扫描的状态信息，创建         
+ *		扫描键，并打开基础关系与 tid 关系 
  *
- *		Parameters:
- *		  node: TidScan node produced by the planner.
- *		  estate: the execution state initialized in InitPlan.
+ *		参数：  
+ *		  node：规划器产生的 TidScan 节点。
+ *		  estate：在 InitPlan 中初始化的执行状态   
  * ----------------------------------------------------------------
  */
 TidScanState *
@@ -515,7 +515,7 @@ ExecInitTidScan(TidScan *node, EState *estate, int eflags)
 	Relation	currentRelation;
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	tidstate = makeNode(TidScanState);
 	tidstate->ss.ps.plan = (Plan *) node;
@@ -523,42 +523,42 @@ ExecInitTidScan(TidScan *node, EState *estate, int eflags)
 	tidstate->ss.ps.ExecProcNode = ExecTidScan;
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * create expression context for node
+	 * 为节点创建表达式上下文 
 	 */
 	ExecAssignExprContext(estate, &tidstate->ss.ps);
 
 	/*
-	 * mark tid list as not computed yet
+	 * 标记 tid 列表为尚未计算 
 	 */
 	tidstate->tss_TidList = NULL;
 	tidstate->tss_NumTids = 0;
 	tidstate->tss_TidPtr = -1;
 
 	/*
-	 * open the scan relation
+	 * 打开扫描关系    
 	 */
 	currentRelation = ExecOpenScanRelation(estate, node->scan.scanrelid, eflags);
 
 	tidstate->ss.ss_currentRelation = currentRelation;
-	tidstate->ss.ss_currentScanDesc = NULL; /* no heap scan here */
+	tidstate->ss.ss_currentScanDesc = NULL; /* 此处无堆扫描*/
 
 	/*
-	 * get the scan type from the relation descriptor.
+	 * 从关系描述符中获取扫描类型。     
 	 */
 	ExecInitScanTupleSlot(estate, &tidstate->ss,
 						  RelationGetDescr(currentRelation),
 						  table_slot_callbacks(currentRelation));
 
 	/*
-	 * Initialize result type and projection.
+	 * 初始化结果类型与投影。     
 	 */
 	ExecInitResultTypeTL(&tidstate->ss.ps);
 	ExecAssignScanProjectionInfo(&tidstate->ss);
 
 	/*
-	 * initialize child expressions
+	 * 初始化子表达式       
 	 */
 	tidstate->ss.ps.qual =
 		ExecInitQual(node->scan.plan.qual, (PlanState *) tidstate);
@@ -566,7 +566,7 @@ ExecInitTidScan(TidScan *node, EState *estate, int eflags)
 	TidExprListCreate(tidstate);
 
 	/*
-	 * all done.
+	 * 完成。
 	 */
 	return tidstate;
 }

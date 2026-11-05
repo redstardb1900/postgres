@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * instrument.c
- *	 functions for instrumentation of plan execution
+ *	 用于对计划执行进行插桩的函数     
  *
  *
  * Copyright (c) 2001-2023, PostgreSQL Global Development Group
@@ -26,13 +26,13 @@ static void BufferUsageAdd(BufferUsage *dst, const BufferUsage *add);
 static void WalUsageAdd(WalUsage *dst, WalUsage *add);
 
 
-/* Allocate new instrumentation structure(s) */
+/* 分配新的 instrumentation 结构       */
 Instrumentation *
 InstrAlloc(int n, int instrument_options, bool async_mode)
 {
 	Instrumentation *instr;
 
-	/* initialize all fields to zeroes, then modify as needed */
+	/* 将所有字段初始化为零，然后按需修改    */
 	instr = palloc0(n * sizeof(Instrumentation));
 	if (instrument_options & (INSTRUMENT_BUFFERS | INSTRUMENT_TIMER | INSTRUMENT_WAL))
 	{
@@ -53,7 +53,7 @@ InstrAlloc(int n, int instrument_options, bool async_mode)
 	return instr;
 }
 
-/* Initialize a pre-allocated instrumentation structure. */
+/* 初始化一个预分配的 instrumentation 结构。 */
 void
 InstrInit(Instrumentation *instr, int instrument_options)
 {
@@ -63,7 +63,7 @@ InstrInit(Instrumentation *instr, int instrument_options)
 	instr->need_timer = (instrument_options & INSTRUMENT_TIMER) != 0;
 }
 
-/* Entry to a plan node */
+/* 进入计划节点   */
 void
 InstrStartNode(Instrumentation *instr)
 {
@@ -71,7 +71,7 @@ InstrStartNode(Instrumentation *instr)
 		!INSTR_TIME_SET_CURRENT_LAZY(instr->starttime))
 		elog(ERROR, "InstrStartNode called twice in a row");
 
-	/* save buffer usage totals at node entry, if needed */
+	/* 在节点入口按需保存缓冲区使用总计  */
 	if (instr->need_bufusage)
 		instr->bufusage_start = pgBufferUsage;
 
@@ -79,17 +79,17 @@ InstrStartNode(Instrumentation *instr)
 		instr->walusage_start = pgWalUsage;
 }
 
-/* Exit from a plan node */
+/* 从计划节点退出 */
 void
 InstrStopNode(Instrumentation *instr, double nTuples)
 {
 	double		save_tuplecount = instr->tuplecount;
 	instr_time	endtime;
 
-	/* count the returned tuples */
+	/* 统计返回的元组     */
 	instr->tuplecount += nTuples;
 
-	/* let's update the time only if the timer was requested */
+	/* 仅在请求了计时器时才更新时间            */
 	if (instr->need_timer)
 	{
 		if (INSTR_TIME_IS_ZERO(instr->starttime))
@@ -101,7 +101,7 @@ InstrStopNode(Instrumentation *instr, double nTuples)
 		INSTR_TIME_SET_ZERO(instr->starttime);
 	}
 
-	/* Add delta of buffer usage since entry to node's totals */
+	/* 入口以来的缓冲区使用增量加到节点总计 */
 	if (instr->need_bufusage)
 		BufferUsageAccumDiff(&instr->bufusage,
 							 &pgBufferUsage, &instr->bufusage_start);
@@ -110,7 +110,7 @@ InstrStopNode(Instrumentation *instr, double nTuples)
 		WalUsageAccumDiff(&instr->walusage,
 						  &pgWalUsage, &instr->walusage_start);
 
-	/* Is this the first tuple of this cycle? */
+	/* 这是本周期首个元组吗？      */
 	if (!instr->running)
 	{
 		instr->running = true;
@@ -119,36 +119,36 @@ InstrStopNode(Instrumentation *instr, double nTuples)
 	else
 	{
 		/*
-		 * In async mode, if the plan node hadn't emitted any tuples before,
-		 * this might be the first tuple
+		 * 异步模式下，若计划节点此前尚未发出过元组，  
+		 * 则这可能是首个元组  
 		 */
 		if (instr->async_mode && save_tuplecount < 1.0)
 			instr->firsttuple = INSTR_TIME_GET_DOUBLE(instr->counter);
 	}
 }
 
-/* Update tuple count */
+/* 更新元组计数 */
 void
 InstrUpdateTupleCount(Instrumentation *instr, double nTuples)
 {
-	/* count the returned tuples */
+	/* 统计返回的元组     */
 	instr->tuplecount += nTuples;
 }
 
-/* Finish a run cycle for a plan node */
+/* 结束计划节点的运行周期  */
 void
 InstrEndLoop(Instrumentation *instr)
 {
 	double		totaltime;
 
-	/* Skip if nothing has happened, or already shut down */
+	/* 若无任何事发生或已关闭，则跳过      */
 	if (!instr->running)
 		return;
 
 	if (!INSTR_TIME_IS_ZERO(instr->starttime))
 		elog(ERROR, "InstrEndLoop called on running node");
 
-	/* Accumulate per-cycle statistics into totals */
+	/* 把每周期统计累积到总计中        */
 	totaltime = INSTR_TIME_GET_DOUBLE(instr->counter);
 
 	instr->startup += instr->firsttuple;
@@ -156,7 +156,7 @@ InstrEndLoop(Instrumentation *instr)
 	instr->ntuples += instr->tuplecount;
 	instr->nloops += 1;
 
-	/* Reset for next cycle (if any) */
+	/* 为下周期重置（如有）*/
 	instr->running = false;
 	INSTR_TIME_SET_ZERO(instr->starttime);
 	INSTR_TIME_SET_ZERO(instr->counter);
@@ -164,7 +164,7 @@ InstrEndLoop(Instrumentation *instr)
 	instr->tuplecount = 0;
 }
 
-/* aggregate instrumentation information */
+/* 汇总 instrumentation 信息         */
 void
 InstrAggNode(Instrumentation *dst, Instrumentation *add)
 {
@@ -187,7 +187,7 @@ InstrAggNode(Instrumentation *dst, Instrumentation *add)
 	dst->nfiltered1 += add->nfiltered1;
 	dst->nfiltered2 += add->nfiltered2;
 
-	/* Add delta of buffer usage since entry to node's totals */
+	/* 入口以来的缓冲区使用增量加到节点总计 */
 	if (dst->need_bufusage)
 		BufferUsageAdd(&dst->bufusage, &add->bufusage);
 
@@ -195,7 +195,7 @@ InstrAggNode(Instrumentation *dst, Instrumentation *add)
 		WalUsageAdd(&dst->walusage, &add->walusage);
 }
 
-/* note current values during parallel executor startup */
+/* 在并行执行器启动期间记录当前值        */
 void
 InstrStartParallelQuery(void)
 {
@@ -203,7 +203,7 @@ InstrStartParallelQuery(void)
 	save_pgWalUsage = pgWalUsage;
 }
 
-/* report usage after parallel executor shutdown */
+/* 在并行执行器关闭后报告使用情况 */
 void
 InstrEndParallelQuery(BufferUsage *bufusage, WalUsage *walusage)
 {
@@ -213,7 +213,7 @@ InstrEndParallelQuery(BufferUsage *bufusage, WalUsage *walusage)
 	WalUsageAccumDiff(walusage, &pgWalUsage, &save_pgWalUsage);
 }
 
-/* accumulate work done by workers in leader's stats */
+/* 将 worker 完成的工作累积进领导者统计*/
 void
 InstrAccumParallelQuery(BufferUsage *bufusage, WalUsage *walusage)
 {
@@ -267,7 +267,7 @@ BufferUsageAccumDiff(BufferUsage *dst,
 						  add->temp_blk_write_time, sub->temp_blk_write_time);
 }
 
-/* helper functions for WAL usage accumulation */
+/* WAL 使用量累计的辅助函数          */
 static void
 WalUsageAdd(WalUsage *dst, WalUsage *add)
 {

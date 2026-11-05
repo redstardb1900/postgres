@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * execGrouping.c
- *	  executor utility routines for grouping, hashing, and aggregation
+ *	  分组、哈希与聚合的执行器支撑例程。             
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -29,9 +29,9 @@ static inline TupleHashEntry LookupTupleHashEntry_internal(TupleHashTable hashta
 														   bool *isnew, uint32 hash);
 
 /*
- * Define parameters for tuple hash table code generation. The interface is
- * *also* declared in execnodes.h (to generate the types, which are externally
- * visible).
+ * 为元组哈希表的代码生成定义参数。接口                  
+ * *亦*在 execnodes.h 中声明（用于生成对外可见的类型         
+ * ）。   
  */
 #define SH_PREFIX tuplehash
 #define SH_ELEMENT_TYPE TupleHashEntryData
@@ -47,13 +47,13 @@ static inline TupleHashEntry LookupTupleHashEntry_internal(TupleHashTable hashta
 
 
 /*****************************************************************************
- *		Utility routines for grouping tuples together
+ *		用于将元组归为一组的支撑例程   
  *****************************************************************************/
 
 /*
  * execTuplesMatchPrepare
- *		Build expression that can be evaluated using ExecQual(), returning
- *		whether an ExprContext's inner/outer tuples are NOT DISTINCT
+ *		构建可用 ExecQual() 求值的表达式，返回               
+ *		ExprContext 的 inner/outer 元组是否为 NOT DISTINCT    
  */
 ExprState *
 execTuplesMatchPrepare(TupleDesc desc,
@@ -70,11 +70,11 @@ execTuplesMatchPrepare(TupleDesc desc,
 	if (numCols == 0)
 		return NULL;
 
-	/* lookup equality functions */
+	/* 查找相等性函数     */
 	for (i = 0; i < numCols; i++)
 		eqFunctions[i] = get_opcode(eqOperators[i]);
 
-	/* build actual expression */
+	/* 构建实际表达式   */
 	expr = ExecBuildGroupingEqual(desc, desc, NULL, NULL,
 								  numCols, keyColIdx, eqFunctions, collations,
 								  parent);
@@ -84,13 +84,13 @@ execTuplesMatchPrepare(TupleDesc desc,
 
 /*
  * execTuplesHashPrepare
- *		Look up the equality and hashing functions needed for a TupleHashTable.
+ *		查找 TupleHashTable 所需的相等与哈希函数。                
  *
- * This is similar to execTuplesMatchPrepare, but we also need to find the
- * hash functions associated with the equality operators.  *eqFunctions and
- * *hashFunctions receive the palloc'd result arrays.
+ * 本函数与 execTuplesMatchPrepare 类似，但我们还需           
+ * 要找出与相等操作符关联的哈希函数。*eqFunctions 与     
+ * *hashFunctions 接收 palloc 出的结果数组。
  *
- * Note: we expect that the given operators are not cross-type comparisons.
+ * 注意：我们假定给定的操作符不是跨类型比较。         
  */
 void
 execTuplesHashPrepare(int numCols,
@@ -115,7 +115,7 @@ execTuplesHashPrepare(int numCols,
 								   &left_hash_function, &right_hash_function))
 			elog(ERROR, "could not find hash function for hash operator %u",
 				 eq_opr);
-		/* We're not supporting cross-type cases here */
+		/* 此处不支持跨类型的情形          */
 		Assert(left_hash_function == right_hash_function);
 		(*eqFuncOids)[i] = eq_function;
 		fmgr_info(right_hash_function, &(*hashFunctions)[i]);
@@ -124,37 +124,37 @@ execTuplesHashPrepare(int numCols,
 
 
 /*****************************************************************************
- *		Utility routines for all-in-memory hash tables
+ *		用于全内存哈希表的支撑例程       
  *
- * These routines build hash tables for grouping tuples together (eg, for
- * hash aggregation).  There is one entry for each not-distinct set of tuples
- * presented.
+ * 这些例程为元组归组构建哈希表（例如用于哈希       
+ * 聚合）。对提交来的每个 not-distinct 元组集合各建一个   
+ * 表项。 
  *****************************************************************************/
 
 /*
- * Construct an empty TupleHashTable
+ * 构建一个空的 TupleHashTable
  *
- *	numCols, keyColIdx: identify the tuple fields to use as lookup key
- *	eqfunctions: equality comparison functions to use
- *	hashfunctions: datatype-specific hashing functions to use
- *	nbuckets: initial estimate of hashtable size
- *	additionalsize: size of data stored in ->additional
- *	metacxt: memory context for long-lived allocation, but not per-entry data
- *	tablecxt: memory context in which to store table entries
- *	tempcxt: short-lived context for evaluation hash and comparison functions
+ *	numCols, keyColIdx：指定用作查找键的元组字段         
+ *	eqfunctions：要使用的相等比较函数     
+ *	hashfunctions：数据类型专用的哈希函数        
+ *	nbuckets：对哈希表大小的初始估计
+ *	additionalsize：->additional 中数据的大小   
+ *	metacxt：长期分配用内存上下文，但非每表项数据         
+ *	tablecxt：用于存储表项的内存上下文         
+ *	tempcxt：用于执行哈希与比较函数的短命上下文            
  *
- * The function arrays may be made with execTuplesHashPrepare().  Note they
- * are not cross-type functions, but expect to see the table datatype(s)
- * on both sides.
+ * 函数数组可用 execTuplesHashPrepare() 构建。注意它们        
+ * 不是跨类型函数，而是预期在两侧都看到表的数据   
+ * 类型。     
  *
- * Note that keyColIdx, eqfunctions, and hashfunctions must be allocated in
- * storage that will live as long as the hashtable does.
+ * 注意 keyColIdx、eqfunctions 与 hashfunctions 必须分配在        
+ * 能与哈希表存活一样久的存储中。        
  *
- * LookupTupleHashEntry, FindTupleHashEntry, and related functions may leak
- * memory in the tempcxt.  It is caller's responsibility to reset that context
- * reasonably often, typically once per tuple.  (We do it that way, rather
- * than managing an extra context within the hashtable, because in many cases
- * the caller can specify a tempcxt that it needs to reset per-tuple anyway.)
+ * LookupTupleHashEntry、FindTupleHashEntry 及相关函数可能         
+ * 会在 tempcxt 中泄漏内存。调用者有责任相当频繁地重置   
+ * 上下文，通常每个元组一次。（我们这样做，而不是  
+ * 在哈希表内部管理额外上下文，因为很多情况下调用     
+ * 者反正可以指定一个它本来就要按元组重置的 tempcxt。）
  */
 TupleHashTable
 BuildTupleHashTableExt(PlanState *parent,
@@ -177,7 +177,7 @@ BuildTupleHashTableExt(PlanState *parent,
 
 	Assert(nbuckets > 0);
 
-	/* Limit initial table size request to not more than hash_mem */
+	/* 将初始表大小请求限制为不超过 hash_mem        */
 	hash_mem_limit = get_hash_memory_limit() / entrysize;
 	if (nbuckets > hash_mem_limit)
 		nbuckets = hash_mem_limit;
@@ -193,18 +193,18 @@ BuildTupleHashTableExt(PlanState *parent,
 	hashtable->tablecxt = tablecxt;
 	hashtable->tempcxt = tempcxt;
 	hashtable->entrysize = entrysize;
-	hashtable->tableslot = NULL;	/* will be made on first lookup */
+	hashtable->tableslot = NULL;	/* 将在首次查找时进行  */
 	hashtable->inputslot = NULL;
 	hashtable->in_hash_funcs = NULL;
 	hashtable->cur_eq_func = NULL;
 
 	/*
-	 * If parallelism is in use, even if the leader backend is performing the
-	 * scan itself, we don't want to create the hashtable exactly the same way
-	 * in all workers. As hashtables are iterated over in keyspace-order,
-	 * doing so in all processes in the same way is likely to lead to
-	 * "unbalanced" hashtables when the table size initially is
-	 * underestimated.
+	 * 如果使用并行，即使 leader 后端自己执行扫描，也不  
+	 * 希望所有 worker 都以完全相同的方式创建哈希表。由于
+	 * 哈希表按键序遍历，若所有进程都以相同方式      
+	 * 操作，那么当表大小最初被                          
+	 * 低估时，就容易产生"失衡"的                  
+	 * 哈希表。   
 	 */
 	if (use_variable_hash_iv)
 		hashtable->hash_iv = murmurhash32(ParallelWorkerNumber);
@@ -214,23 +214,23 @@ BuildTupleHashTableExt(PlanState *parent,
 	hashtable->hashtab = tuplehash_create(metacxt, nbuckets, hashtable);
 
 	/*
-	 * We copy the input tuple descriptor just for safety --- we assume all
-	 * input tuples will have equivalent descriptors.
+	 * 复制输入元组描述符只是出于安全考虑 --- 我们假定
+	 * 所有输入元组均具有等价描述符。 
 	 */
 	hashtable->tableslot = MakeSingleTupleTableSlot(CreateTupleDescCopy(inputDesc),
 													&TTSOpsMinimalTuple);
 
 	/*
-	 * If the old reset interface is used (i.e. BuildTupleHashTable, rather
-	 * than BuildTupleHashTableExt), allowing JIT would lead to the generated
-	 * functions to a) live longer than the query b) be re-generated each time
-	 * the table is being reset. Therefore prevent JIT from being used in that
-	 * case, by not providing a parent node (which prevents accessing the
-	 * JitContext in the EState).
+	 * 如果使用旧的重置接口（即 BuildTupleHashTable 而非     
+	 * BuildTupleHashTableExt），允许 JIT 会导致生成的函数       
+	 * a) 存活得比查询更久，b) 在每次重置表时重新生成。  
+	 * 因此在这种情况下要阻止 JIT 被使用，办法是不提供   
+	 * 父节点（这会阻止访问 EState 中的                      
+	 * JitContext）。          
 	 */
 	allow_jit = metacxt != tablecxt;
 
-	/* build comparator for all columns */
+	/* 为所有列构建比较器      */
 	hashtable->tab_eq_func = ExecBuildGroupingEqual(inputDesc, inputDesc,
 													NULL, &TTSOpsMinimalTuple,
 													numCols,
@@ -238,10 +238,10 @@ BuildTupleHashTableExt(PlanState *parent,
 													allow_jit ? parent : NULL);
 
 	/*
-	 * While not pretty, it's ok to not shut down this context, but instead
-	 * rely on the containing memory context being reset, as
-	 * ExecBuildGroupingEqual() only builds a very simple expression calling
-	 * functions (i.e. nothing that'd employ RegisterExprContextCallback()).
+	 * 虽然不美观，但不关闭此上下文而依赖包含它的     
+	 * 内存上下文被重置，这是可以的，因为  
+	 * ExecBuildGroupingEqual() 只构建非常简单的、调用函数     
+	 * 的表达式（即不会使用 RegisterExprContextCallback()）。   
 	 */
 	hashtable->exprcontext = CreateStandaloneExprContext();
 
@@ -251,10 +251,10 @@ BuildTupleHashTableExt(PlanState *parent,
 }
 
 /*
- * BuildTupleHashTable is a backwards-compatibility wrapper for
- * BuildTupleHashTableExt(), that allocates the hashtable's metadata in
- * tablecxt. Note that hashtables created this way cannot be reset leak-free
- * with ResetTupleHashTable().
+ * BuildTupleHashTable 是 BuildTupleHashTableExt() 的        
+ * 向后兼容包装，它在 tablecxt 中分配哈希表元数据。 
+ * 注意：这样创建的哈希表无法配合 ResetTupleHashTable()      
+ * 无泄漏地重置。      
  */
 TupleHashTable
 BuildTupleHashTable(PlanState *parent,
@@ -282,9 +282,9 @@ BuildTupleHashTable(PlanState *parent,
 }
 
 /*
- * Reset contents of the hashtable to be empty, preserving all the non-content
- * state. Note that the tablecxt passed to BuildTupleHashTableExt() should
- * also be reset, otherwise there will be leaks.
+ * 将哈希表内容重置为空，同时保留所有非内容状态。注意
+ * 传给 BuildTupleHashTableExt() 的 tablecxt 也应当被重置，     
+ * 否则会产生泄漏。                     
  */
 void
 ResetTupleHashTable(TupleHashTable hashtable)
@@ -293,19 +293,19 @@ ResetTupleHashTable(TupleHashTable hashtable)
 }
 
 /*
- * Find or create a hashtable entry for the tuple group containing the
- * given tuple.  The tuple must be the same type as the hashtable entries.
+ * 为包含给定元组的元组组查找或创建哈希表表项。 
+ * 它必须与哈希表项具有相同的类型。                       
  *
- * If isnew is NULL, we do not create new entries; we return NULL if no
- * match is found.
+ * 如果 isnew 为 NULL，我们不会创建新表项；若找不到  
+ * 则返回 NULL 
  *
- * If hash is not NULL, we set it to the calculated hash value. This allows
- * callers access to the hash value even if no entry is returned.
+ * 如果 hash 不是 NULL，我们把它设为计算出的哈希值。这 
+ * 样即使没有返回表项，调用者能拿到哈希值。  
  *
- * If isnew isn't NULL, then a new entry is created if no existing entry
- * matches.  On return, *isnew is true if the entry is newly created,
- * false if it existed already.  ->additional_data in the new entry has
- * been zeroed.
+ * 如果 isnew 不是 NULL，那么在没有已有表项匹配时会创
+ * 建新表项。返回时，若表项是新建的，则 *isnew 为 
+ * true；若已存在则为 false。新表项的 ->additional_data    
+ * 已清零。
  */
 TupleHashEntry
 LookupTupleHashEntry(TupleHashTable hashtable, TupleTableSlot *slot,
@@ -315,10 +315,10 @@ LookupTupleHashEntry(TupleHashTable hashtable, TupleTableSlot *slot,
 	MemoryContext oldContext;
 	uint32		local_hash;
 
-	/* Need to run the hash functions in short-lived context */
+	/* 需要在短命上下文中运行哈希函数         */
 	oldContext = MemoryContextSwitchTo(hashtable->tempcxt);
 
-	/* set up data needed by hash and match functions */
+	/* 设置哈希与匹配函数所需的数据     */
 	hashtable->inputslot = slot;
 	hashtable->in_hash_funcs = hashtable->tab_hash_funcs;
 	hashtable->cur_eq_func = hashtable->tab_eq_func;
@@ -337,7 +337,7 @@ LookupTupleHashEntry(TupleHashTable hashtable, TupleTableSlot *slot,
 }
 
 /*
- * Compute the hash value for a tuple
+ * 计算一个元组的哈希值    
  */
 uint32
 TupleHashTableHash(TupleHashTable hashtable, TupleTableSlot *slot)
@@ -348,7 +348,7 @@ TupleHashTableHash(TupleHashTable hashtable, TupleTableSlot *slot)
 	hashtable->inputslot = slot;
 	hashtable->in_hash_funcs = hashtable->tab_hash_funcs;
 
-	/* Need to run the hash functions in short-lived context */
+	/* 需要在短命上下文中运行哈希函数         */
 	oldContext = MemoryContextSwitchTo(hashtable->tempcxt);
 
 	hash = TupleHashTableHash_internal(hashtable->hashtab, NULL);
@@ -359,8 +359,8 @@ TupleHashTableHash(TupleHashTable hashtable, TupleTableSlot *slot)
 }
 
 /*
- * A variant of LookupTupleHashEntry for callers that have already computed
- * the hash value.
+ * LookupTupleHashEntry 的变体，供已计算出哈希值的            
+ * 调用者使用
  */
 TupleHashEntry
 LookupTupleHashEntryHash(TupleHashTable hashtable, TupleTableSlot *slot,
@@ -369,10 +369,10 @@ LookupTupleHashEntryHash(TupleHashTable hashtable, TupleTableSlot *slot,
 	TupleHashEntry entry;
 	MemoryContext oldContext;
 
-	/* Need to run the hash functions in short-lived context */
+	/* 需要在短命上下文中运行哈希函数         */
 	oldContext = MemoryContextSwitchTo(hashtable->tempcxt);
 
-	/* set up data needed by hash and match functions */
+	/* 设置哈希与匹配函数所需的数据     */
 	hashtable->inputslot = slot;
 	hashtable->in_hash_funcs = hashtable->tab_hash_funcs;
 	hashtable->cur_eq_func = hashtable->tab_eq_func;
@@ -386,13 +386,13 @@ LookupTupleHashEntryHash(TupleHashTable hashtable, TupleTableSlot *slot,
 }
 
 /*
- * Search for a hashtable entry matching the given tuple.  No entry is
- * created if there's not a match.  This is similar to the non-creating
- * case of LookupTupleHashEntry, except that it supports cross-type
- * comparisons, in which the given tuple is not of the same type as the
- * table entries.  The caller must provide the hash functions to use for
- * the input tuple, as well as the equality functions, since these may be
- * different from the table's internal functions.
+ * 搜索与给定元组匹配的哈希表表项。若没有匹配， 
+ * 则不会创建表项。本函数类似于 LookupTupleHashEntry     
+ * 的不创建表项情形，但支持跨类型比较，此时    
+ * 给定元组与表项的类型并不相同。调用者必须        
+ * 提供用于输入元组的哈希函数，以及相等函数，      
+ * 因为这些函数可能与表项自身的内部函数                
+ * 并不相同。                               
  */
 TupleHashEntry
 FindTupleHashEntry(TupleHashTable hashtable, TupleTableSlot *slot,
@@ -403,16 +403,16 @@ FindTupleHashEntry(TupleHashTable hashtable, TupleTableSlot *slot,
 	MemoryContext oldContext;
 	MinimalTuple key;
 
-	/* Need to run the hash functions in short-lived context */
+	/* 需要在短命上下文中运行哈希函数         */
 	oldContext = MemoryContextSwitchTo(hashtable->tempcxt);
 
-	/* Set up data needed by hash and match functions */
+	/* 设置哈希与匹配函数所需的数据     */
 	hashtable->inputslot = slot;
 	hashtable->in_hash_funcs = hashfunctions;
 	hashtable->cur_eq_func = eqcomp;
 
-	/* Search the hash table */
-	key = NULL;					/* flag to reference inputslot */
+	/* 搜索哈希表       */
+	key = NULL;					/* 引用 inputslot 的标志  */
 	entry = tuplehash_lookup(hashtable->hashtab, key);
 	MemoryContextSwitchTo(oldContext);
 
@@ -420,12 +420,12 @@ FindTupleHashEntry(TupleHashTable hashtable, TupleTableSlot *slot,
 }
 
 /*
- * If tuple is NULL, use the input slot instead. This convention avoids the
- * need to materialize virtual input tuples unless they actually need to get
- * copied into the table.
+ * 如果元组为 NULL，则改用输入槽。此约定避免了把虚拟 
+ * 输入元组实体化，除非它们确实需要被                      
+ * 复制进表中。    
  *
- * Also, the caller must select an appropriate memory context for running
- * the hash functions. (dynahash.c doesn't change CurrentMemoryContext.)
+ * 另外，调用者必须为哈希函数的运行选择合适的       
+ * 内存上下文。（dynahash.c 不会改变 CurrentMemoryContext） 
  */
 static uint32
 TupleHashTableHash_internal(struct tuplehash_hash *tb,
@@ -441,17 +441,17 @@ TupleHashTableHash_internal(struct tuplehash_hash *tb,
 
 	if (tuple == NULL)
 	{
-		/* Process the current input tuple for the table */
+		/* 为表处理当前输入元组                */
 		slot = hashtable->inputslot;
 		hashfunctions = hashtable->in_hash_funcs;
 	}
 	else
 	{
 		/*
-		 * Process a tuple already stored in the table.
+		 * 处理已存储在表中的元组。        
 		 *
-		 * (this case never actually occurs due to the way simplehash.h is
-		 * used, as the hash-value is stored in the entries)
+		 * （由于 simplehash.h 的使用方式，加上哈希值       
+		 * 存于表项中，实际不会发生）          
 		 */
 		slot = hashtable->tableslot;
 		ExecStoreMinimalTuple(tuple, slot, false);
@@ -464,12 +464,12 @@ TupleHashTableHash_internal(struct tuplehash_hash *tb,
 		Datum		attr;
 		bool		isNull;
 
-		/* combine successive hashkeys by rotating */
+		/* 通过旋转合并相继的哈希键    */
 		hashkey = pg_rotate_left32(hashkey, 1);
 
 		attr = slot_getattr(slot, att, &isNull);
 
-		if (!isNull)			/* treat nulls as having hash key 0 */
+		if (!isNull)			/* 将空值视为哈希键 0       */
 		{
 			uint32		hkey;
 
@@ -481,21 +481,21 @@ TupleHashTableHash_internal(struct tuplehash_hash *tb,
 	}
 
 	/*
-	 * The way hashes are combined above, among each other and with the IV,
-	 * doesn't lead to good bit perturbation. As the IV's goal is to lead to
-	 * achieve that, perform a round of hashing of the combined hash -
-	 * resulting in near perfect perturbation.
+	 * 上面这种哈希组合方式，无论哈希之间还是与 IV，  
+	 * 都达不到良好的位扰动。IV 的目标正是实现该效果，
+	 * 因此要对合并后的哈希值再执行一轮哈希，      
+	 * 从而获得近乎完美的扰动。   
 	 */
 	return murmurhash32(hashkey);
 }
 
 /*
- * Does the work of LookupTupleHashEntry and LookupTupleHashEntryHash. Useful
- * so that we can avoid switching the memory context multiple times for
- * LookupTupleHashEntry.
+ * 完成 LookupTupleHashEntry 与 LookupTupleHashEntryHash 的              
+ * 工作。这样可避免为 LookupTupleHashEntry 多次切换内存 
+ * 上下文。         
  *
- * NB: This function may or may not change the memory context. Caller is
- * expected to change it back.
+ * 注意：本函数可能切换内存上下文，也可能不切换。
+ * 调用者应自行切回。
  */
 static inline TupleHashEntry
 LookupTupleHashEntry_internal(TupleHashTable hashtable, TupleTableSlot *slot,
@@ -505,7 +505,7 @@ LookupTupleHashEntry_internal(TupleHashTable hashtable, TupleTableSlot *slot,
 	bool		found;
 	MinimalTuple key;
 
-	key = NULL;					/* flag to reference inputslot */
+	key = NULL;					/* 引用 inputslot 的标志  */
 
 	if (isnew)
 	{
@@ -513,17 +513,17 @@ LookupTupleHashEntry_internal(TupleHashTable hashtable, TupleTableSlot *slot,
 
 		if (found)
 		{
-			/* found pre-existing entry */
+			/* 找到已有表项       */
 			*isnew = false;
 		}
 		else
 		{
-			/* created new entry */
+			/* 创建了新表项*/
 			*isnew = true;
-			/* zero caller data */
+			/* 清零数据     */
 			entry->additional = NULL;
 			MemoryContextSwitchTo(hashtable->tablecxt);
-			/* Copy the first tuple into the table context */
+			/* 把第一个元组复制到表上下文中  */
 			entry->firstTuple = ExecCopySlotMinimalTuple(slot);
 		}
 	}
@@ -536,7 +536,7 @@ LookupTupleHashEntry_internal(TupleHashTable hashtable, TupleTableSlot *slot,
 }
 
 /*
- * See whether two tuples (presumably of the same hash value) match
+ * 查看两个（假定哈希值相同的）元组是否匹配    
  */
 static int
 TupleHashTableMatch(struct tuplehash_hash *tb, const MinimalTuple tuple1, const MinimalTuple tuple2)
@@ -547,10 +547,10 @@ TupleHashTableMatch(struct tuplehash_hash *tb, const MinimalTuple tuple1, const 
 	ExprContext *econtext = hashtable->exprcontext;
 
 	/*
-	 * We assume that simplehash.h will only ever call us with the first
-	 * argument being an actual table entry, and the second argument being
-	 * LookupTupleHashEntry's dummy TupleHashEntryData.  The other direction
-	 * could be supported too, but is not currently required.
+	 * 我们假定 simplehash.h 调用本函数时，首参总是      
+	 * 真正的表项，而第二个实参是 LookupTupleHashEntry 的   
+	 * 哑 TupleHashEntryData。反方向本来也可以支持，但目前  
+	 * 并无此需求。                                    
 	 */
 	Assert(tuple1 != NULL);
 	slot1 = hashtable->tableslot;
@@ -558,7 +558,7 @@ TupleHashTableMatch(struct tuplehash_hash *tb, const MinimalTuple tuple1, const 
 	Assert(tuple2 == NULL);
 	slot2 = hashtable->inputslot;
 
-	/* For crosstype comparisons, the inputslot must be first */
+	/* 对于跨类型比较，inputslot 必须在前         */
 	econtext->ecxt_innertuple = slot2;
 	econtext->ecxt_outertuple = slot1;
 	return !ExecQualAndReset(hashtable->cur_eq_func, econtext);

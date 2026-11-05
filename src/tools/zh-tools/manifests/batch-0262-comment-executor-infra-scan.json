@@ -1,0 +1,120 @@
+{
+ "schema_version": 1,
+ "batch_id": "0262-comment-executor-infra-scan",
+ "title": "Translate executor comments: executor-infra-scan",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "75c5b81d4d0753ee68303adb2a0069b9fabc7d6a",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0262-comment-executor-infra-scan.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/executor/**",
+   "kind": "c_comment",
+   "note": "P2 executor translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0262-comment-executor-infra-scan.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/executor/execGrouping.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 47,
+   "translated": 47,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C4"
+  },
+  {
+   "path": "src/backend/executor/execProcnode.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 46,
+   "translated": 42,
+   "preserved": 4,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), and separator-only blocks rebuilt byte-identical"
+   ],
+   "note": "P2 executor campaign wave C4"
+  },
+  {
+   "path": "src/backend/executor/execScan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 38,
+   "translated": 36,
+   "preserved": 2,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), and separator-only blocks rebuilt byte-identical"
+   ],
+   "note": "P2 executor campaign wave C4"
+  },
+  {
+   "path": "src/backend/executor/instrument.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 26,
+   "translated": 24,
+   "preserved": 2,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), and separator-only blocks rebuilt byte-identical"
+   ],
+   "note": "P2 executor campaign wave C4"
+  },
+  {
+   "path": "src/backend/executor/nodeCtescan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 37,
+   "translated": 36,
+   "preserved": 1,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C4"
+  },
+  {
+   "path": "src/backend/executor/nodeForeignscan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 47,
+   "translated": 46,
+   "preserved": 1,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C4"
+  },
+  {
+   "path": "src/backend/executor/nodeTidscan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 44,
+   "translated": 43,
+   "preserved": 1,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C4"
+  }
+ ],
+ "notes": "Translation agents (C4a/C4b/C4c) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

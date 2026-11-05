@@ -247,18 +247,18 @@ DOTypeNameCompare(const void *p1, const void *p2)
 		return cmpval;
 
 	/*
-	* 为获得稳定排序，对某些对象类型要打破平局。大多数目录都有自然键，
-	* 例如 pg_proc_proname_args_nsp_index。当上述"模式"和"名称"比较
-	* 未涵盖所有自然键列时，在这里比较剩余的列。
-	*
-	* 自然键通常通过代理键引用其他目录。因此，这里将每个引用转换为
-	* 被引用目录的自然键。这可能通过多层目录引用下溯。
-	* 例如，要按 pg_proc.proargtypes 排序，需下溯到每个 pg_type，
-	* 再进一步到其 pg_namespace，以实现按 (nspname, typname) 的整体排序。
+	 * 为获得稳定排序，某些对象类型需要打破平局。     
+	 * 大多数目录有自然键，例如 pg_proc_proname_args_nsp_index。 
+	 * 当上述"模式"和"名称"比较未涵盖自然键的所有列    
+	 * 时，在此比较其余的列。  
 	 *
-	 *
-	 *
-	*/
+	 * 自然键通常通过代理键引用其他目录。                
+	 * 因此，这里将每个这样的引用转换为被引用            
+	 * 目录的自然键。这可能沿目录引用下溯多层。        
+	 * 例如，要按 pg_proc.proargtypes 排序，需下溯到每个  
+	 * pg_type，再进一步下溯到其 pg_namespace，以便整体      
+	 * 按 (nspname, typname) 排序。   
+	 */
 	if (obj1->objType == DO_FUNC || obj1->objType == DO_AGG)
 	{
 		FuncInfo   *fobj1 = *(FuncInfo *const *) p1;
@@ -533,12 +533,12 @@ accessMethodNameCompare(Oid am1, Oid am2)
 
 
 /*
-* 使用依赖信息（在可获取的范围内）将给定对象排序为安全的导出顺序。
-*
-* PRE_DATA_BOUNDARY 和 POST_DATA_BOUNDARY 对象的 DumpId 被单独传入，
-* 以供依赖循环修复时使用。
+ * 使用依赖信息将给定对象排序为安全导出顺序  
+ * （在可获得的范围内）。                
  *
-*/
+ * PRE_DATA_BOUNDARY、POST_DATA_BOUNDARY 对象的 DumpId 单独传入，
+ * 以备在依赖循环修复期间需要用到它们。                   
+ */
 void
 sortDumpableObjects(DumpableObject **objs, int numObjs,
 					DumpId preBoundaryId, DumpId postBoundaryId)
@@ -566,31 +566,31 @@ sortDumpableObjects(DumpableObject **objs, int numObjs,
 }
 
 /*
-* TopoSort -- 导出列表的拓扑排序
-*
-* 生成满足导出列表中所有依赖约束的重排序。
-* （每个此类约束都是偏序关系的一个事实。）
-* 在满足偏序关系的前提下，最小化不必要的列表重排。
-*
-* 输入为 objs[] 中的 numObjs 个对象列表。此列表不会被修改。
-*
-* 如果能够构建满足所有约束的排序，则返回 true；
-* 如果不能（存在矛盾约束），则返回 false。
-*
-* 成功时（true 结果），ordering[] 填充为排序后的 DumpableObject
-* 指针数组，长度等于输入列表长度。
-*
-* 失败时（false 结果），ordering[] 填充为未排序的 DumpableObject
-* 指针数组，长度为 *nOrdering，列出阻止排序完成的对象。
-* 一般来说，这些对象要么直接参与依赖循环，要么被循环中的对象所依赖。
-* （后者实际上不是问题所在，但需要进一步分析才能区分哪些是哪些。）
-*
-* 调用者负责在 *ordering 处分配足够的空间。
+ * TopoSort -- 导出列表的拓扑排序    
  *
+ * 生成导出列表的一种重排序，使之满足导出列表中       
+ * 所示的全部依赖约束。（每个这样的约束都是             
+ * 偏序关系的一个事实。）尽量减少为达成偏序所     
+ * 不需要的列表重排。  
  *
+ * 输入是 objs[] 中 numObjs 个对象的列表，此列表不会被 
+ * 修改。
  *
+ * 如果能构建出满足所有依赖约束的排序，则返回 
+ * true；否则返回 false（存在相互矛盾的约束）。   
  *
-*/
+ * 成功时（返回 true），ordering[] 填充为排序后的        
+ * DumpableObject 指针数组，长度与输入列表相同。      
+ *
+ * 失败时（返回 false），ordering[] 填充为未排序的           
+ * DumpableObject 指针数组，长度为 *nOrdering，其中列出     
+ * 了阻止排序完成的对象。一般而言，这些对象要么        
+ * 直接参与某个依赖循环，要么被处于循环中的对象       
+ * 所依赖。（后一类对象实际上并无问题，但需要        
+ * 进一步分析才能分辨出是哪一类。）           
+ *
+ * 调用者负责为 *ordering 分配足够的空间。                  
+ */
 static bool
 TopoSort(DumpableObject **objs,
 		 int numObjs,
@@ -608,17 +608,17 @@ TopoSort(DumpableObject **objs,
 				k;
 
 	/*
-	* 这基本上是 Knuth 第一卷中所示的拓扑排序算法。然而，我们希望
-	* 最小化输入顺序的不必要重排；也就是说，当有多个选项选择下一个
-	* 输出项时，我们总是选择原始列表中排位最高的那个。因此，我们不使用
-	* Knuth 那样的无序就绪链表，而是维护一个就绪项编号的堆，
-	* 用作优先队列。这将算法从 O(N) 变为 O(N log N)，因为每次插入或
-	* 移除堆项需要 O(log N) 时间。但对于此应用程序来说仍然足够快。
-	 *
-	 *
-	 *
-	 *
-	*/
+	 * 这基本上与 Knuth 第一卷中所示的拓扑排序算法        
+	 * 相同。不过，我们希望尽量减少对输入顺序        
+	 * 的不必要重排；也就是说，当我们有机会选择          
+	 * 下一个输出项时，我们总是希望选取原列表中        
+	 * 位置最高的那个。因此，我们不像 Knuth 那样        
+	 * 维护由待输出项组成的无序链表，而是维护一个       
+	 * 由各项编号构成的堆，可将其用作优先队列。      
+	 * 这使得算法从 O(N) 变为 O(N log N)，因为每次插入或    
+	 * 移除堆项都需要 O(log N) 时间。不过对于此应用     
+	 * 而言这仍然足够快。             
+	 */
 
 	*nOrdering = numObjs;		/* 用于成功返回 */
 
@@ -757,14 +757,14 @@ addHeapElement(int val, int *heap, int heapLength)
 }
 
 /*
-* 移除堆（优先队列）中的最大项
-*
-* heapLength 是当前堆大小；调用者负责在调用后减少其值。
-*
-* 我们移除并返回 heap[0]（始终是堆的最大元素），
-* 然后"上滤"以维护堆不变量。
+ * 移除堆（优先队列）中存在的最大项。       
  *
-*/
+ * heapLength 是当前堆的大小；调用者负责在调用之后        
+ * 减小它的值。       
+ *
+ * 我们移除并返回 heap[0]（它始终是堆的最大元素），
+ * 然后"上滤"以维持堆的不变量。                   
+ */
 static int
 removeHeapElement(int *heap, int heapLength)
 {
@@ -1016,12 +1016,12 @@ repairTypeFuncLoop(DumpableObject *typeobj, DumpableObject *funcobj)
 }
 
 /*
-* 因为我们强制视图依赖于其 ON SELECT 规则，而另一个方向存在隐含依赖，
-* 所以我们需要打破循环。如果循环中没有其他对象，我们可以移除隐含依赖
-* 并保持 ON SELECT 规则为非分离的。这也适用于物化视图。
- *
- *
-*/
+ * 因为我们强制视图依赖于其 ON SELECT 规则，而另一个
+ * 方向上存在隐含依赖，所以我们需要打破这个循环。  
+ * 如果循环中没有其他对象，我们就可以移除隐含        
+ * 依赖，并让 ON SELECT 规则保持非分离状态。          
+ * 这也适用于物化视图。    
+ */
 static void
 repairViewRuleLoop(DumpableObject *viewobj,
 				   DumpableObject *ruleobj)

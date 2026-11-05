@@ -851,13 +851,13 @@ _scriptOut(ArchiveHandle *AH, const void *buf, size_t len)
  */
 
 /*
- * 归档器开始保存所有 BLOB 数据（非模式）时调用。
- * 此例程应保存将 LOs 读回内存所需的所有格式特定信息。
+ * 归档器开始保存所有 BLOB 数据（非模式）时调用。      
+ * 此例程应保存将 LOs 读回内存所需的格式特定信息。   
+ *                                  
  *
- * 在导出器的 DataDumper 例程之前调用。
+ * 它恰好在导出器的 DataDumper 例程之前调用。  
  *
- * 可选，但强烈建议实现。
- *
+ * 可选，但强烈建议实现。  
  *
  */
 static void

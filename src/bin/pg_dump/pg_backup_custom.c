@@ -214,13 +214,13 @@ _ArchiveEntry(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*
- * 由归档器调用以保存任意额外的格式相关 TOC 条目数据。
+ * 由归档器调用以保存任意额外格式相关 TOC 数据。
+ *      
  *
  * 可选。
  *
- * 使用归档器例程来写入数据——它们是与字节序无关的，
- * 并能维护其他重要的文件信息。
- *
+ * 使用归档器例程写入数据——它们与字节序无关，
+ * 并维护其他重要文件信息。      
  */
 static void
 _WriteExtraToc(ArchiveHandle *AH, TocEntry *te)
@@ -276,13 +276,13 @@ _PrintExtraToc(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*
- * 归档器保存表数据（非模式）时调用。此例程应保存
- * 读取归档所需的所有格式特定信息。
+ * 归档器在保存表数据（非模式）时被调用。此例程应   
+ * 保存读回归档所需的任何格式特定信息。            
+ *                  
  *
- * 在导出器的 'DataDumper' 例程被调用之前调用。
+ * 它恰好在导出器的 'DataDumper' 例程被调用之前被调用。   
  *
- * 可选，但强烈建议实现。
- *
+ * 可选，但强烈建议实现。  
  *
  */
 static void
@@ -324,10 +324,10 @@ _WriteData(ArchiveHandle *AH, const void *data, size_t dLen)
 }
 
 /*
- * 当导出器的 'DataDumper' 例程完成时由归档器调用。
+ * 导出器的 'DataDumper' 例程完成时由归档器调用。 
+ *          
  *
- * 必需。
- *
+ * 必需。 
  */
 static void
 _EndData(ArchiveHandle *AH, TocEntry *te)
@@ -342,13 +342,13 @@ _EndData(ArchiveHandle *AH, TocEntry *te)
 }
 
 /*
- * 归档器开始保存所有 BLOB 数据（非模式）时调用。
- * 此例程应保存将 LOs 读回内存所需的所有格式特定信息。
+ * 归档器开始保存所有 BLOB 数据（非模式）时调用。      
+ * 此例程应保存将 LOs 读回内存所需的格式特定信息。   
+ *                                  
  *
- * 在导出器的 DataDumper 例程之前调用。
+ * 它恰好在导出器的 DataDumper 例程之前调用。  
  *
- * 可选，但强烈建议实现。
- *
+ * 可选，但强烈建议实现。  
  */
 static void
 _StartLOs(ArchiveHandle *AH, TocEntry *te)
@@ -430,14 +430,14 @@ _PrintTocData(ArchiveHandle *AH, TocEntry *te)
 	if (!ctx->hasSeek || tctx->dataState == K_OFFSET_POS_NOT_SET)
 	{
 		/*
-		 * 我们无法直接寻道到所需的数据块。作为替代，
-		 * 跳过块头直到找到我们想要的那个。记住被跳过块的位置，
-		 * 这样如果我们后来决定需要读取某个块时，可以寻道到它。
+		 * 我们无法直接寻道到所需的数据块。作为替代，  
+		 * 跳过块头，直到找到想要的那个。记住被    
+		 * 跳过的块的位置，以便日后决定需要读取某个   
+		 * 块时，能够寻道到它。                
 		 *
-		 * 当输入文件可寻道时，我们可以从上一个数据块
-		 * 在之前迭代中扫描到的位置开始搜索。
-		 *
-		 *
+		 * 当输入文件可寻道时，我们可以从此函数之前       
+		 * 迭代中扫描到的最后一个数据块之后的位置 
+		 * 开始进行搜索。       
 		 */
 		if (ctx->hasSeek)
 		{

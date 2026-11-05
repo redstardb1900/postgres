@@ -1379,21 +1379,21 @@ WaitForCommands(ArchiveHandle *AH, int pipefd[2])
 }
 
 /*
-* 检查来自工作进程的状态消息。
-*
-* 如果 do_wait 为 true，等待获取状态消息；否则，如果不可用
-* 则立即返回。
-*
-* 当收到状态消息时，将状态码传递给 DispatchJobForTocEntry 中
-* 指定的回调函数，然后将工作进程状态重置为 IDLE。
-*
-* 如果收集到状态消息则返回 true，否则返回 false。
-*
-* XXX 是否值得每次调用检查多条状态消息？
-* 多个工作进程恰好同时完成的可能性似乎相当小。
+ * 检查工作进程的状态消息。   
  *
+ * 如果 do_wait 为 true，则等待获取状态消息；否则，若无 
+ * 可用消息则立即返回。         
  *
-*/
+ * 收到状态消息时，我们会把状态码传递给回调函数   
+ * （由 DispatchJobForTocEntry 指定），然后将工作进程状态
+ * 重置为 IDLE。     
+ *
+ * 收集到状态消息则返回 true，否则为 false。  
+ *
+ * XXX 是否值得每次调用检查多条状态消息？            
+ * 多个工作进程恰好在同一时刻完成似乎不太可能。      
+ *               
+ */
 static bool
 ListenToWorkers(ArchiveHandle *AH, ParallelState *pstate, bool do_wait)
 {
@@ -1506,12 +1506,12 @@ WaitForWorkers(ArchiveHandle *AH, ParallelState *pstate, WFW_WaitOption mode)
 }
 
 /*
-* 从领导者读取一条命令消息，必要时阻塞直到可用，
-* 并将其作为 malloc'd 字符串返回。遇到 EOF 时返回 NULL。
-*
-* 此函数在工作进程中执行。
+ * 从领导者读取一条命令消息，必要时阻塞直到   
+ * 有可用消息为止，以 malloc'd 字符串返回。    
+ * EOF 返回 NULL。  
  *
-*/
+ * 此函数在工作进程中执行。          
+ */
 static char *
 getMessageFromLeader(int pipefd[2])
 {
@@ -1652,12 +1652,12 @@ sendMessageToWorker(ParallelState *pstate, int worker, const char *str)
 }
 
 /*
-* 从指定管道（fd）读取一条消息，必要时阻塞直到可用，
-* 并将其作为 malloc'd 字符串返回。遇到 EOF 时返回 NULL。
-*
-* 通道上的"消息"只是一个以 null 结尾的字符串。
+ * 从指定管道（fd）读取一条消息，必要时阻塞直到   
+ * 有可用消息为止，以 malloc'd 字符串返回。    
+ * EOF 返回 NULL。  
  *
-*/
+ * 通道上的"消息"只是以 null 结尾的字符串。    
+ */
 static char *
 readMessageFromPipe(int fd)
 {

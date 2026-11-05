@@ -1,0 +1,46 @@
+{
+ "schema_version": 1,
+ "batch_id": "0269-comment-executor-partition",
+ "title": "Translate executor comments: executor-partition",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "f5bbdcaba37c3789a64e05098ace8343257c9c21",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0269-comment-executor-partition.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/executor/**",
+   "kind": "c_comment",
+   "note": "P2 executor translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0269-comment-executor-partition.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/executor/execPartition.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 179,
+   "translated": 177,
+   "preserved": 2,
+   "preserved_reasons": [
+    "EN:1467 /* fall-through and do a manual lookup */ - fall-through control-flow label",
+    "EN:1539 /* fall-through and do a manual lookup */ - fall-through control-flow label"
+   ],
+   "note": "P2 executor campaign wave C10"
+  }
+ ],
+ "notes": "Translation agents (C10a/C10b/C10c) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

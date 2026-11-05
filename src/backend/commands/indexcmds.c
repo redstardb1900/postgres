@@ -224,13 +224,13 @@ CheckIndexCompatible(Oid oldId,
 	amcanorder = amRoutine->amcanorder;
 	amsummarizing = amRoutine->amsummarizing;
 
-	/* *
-	 * 计算新索引的操作符类、排序规则和排除运算符，
-	 * 以便我们可以测试它是否与现有索引兼容。
-	 * 注意 ComputeIndexAttrs 可能在此处失败，但这是可以的：
-	 * DefineIndex 会在稍后失败。我们的 attributeList 仅包含
-	 * 键属性，这是正确的。
-	 *
+	/*
+	 * 计算新索引的操作符类、排序规则和排除运算符，   
+	 * 以便我们能够测试它与现有索引是否兼容。注意        
+	 * ComputeIndexAttrs 可能在此处失败，但没关系：        
+	 * DefineIndex 稍后也会失败。我们的 attributeList 仅包含   
+	 * 键属性，因此我们为 ii_NumIndexAttrs 和       
+	 * ii_NumIndexKeyAttrs 填相同值。 
 	 */
 	indexInfo = makeIndexInfo(numberOfAttributes, numberOfAttributes,
 							  accessMethodId, NIL, NIL, false, false,
@@ -253,9 +253,9 @@ CheckIndexCompatible(Oid oldId,
 		elog(ERROR, "cache lookup failed for index %u", oldId);
 	indexForm = (Form_pg_index) GETSTRUCT(tuple);
 
-	/* *
-	 * 我们不评估表达式或谓词；假设不兼容。
-	 * 此外，如果索引因任何原因无效，则将其视为不兼容。
+	/*
+	 * 我们不评估表达式或谓词；假设不兼容。此外，   
+	 * 如果索引因任何原因无效，也将其视为不兼容。        
 	 */
 	if (!(heap_attisnull(tuple, Anum_pg_index_indpred, NULL) &&
 		  heap_attisnull(tuple, Anum_pg_index_indexprs, NULL) &&
@@ -392,7 +392,7 @@ CompareOpclassOptions(Datum *opts1, Datum *opts2, int natts)
  * 等待那些可能拥有比给定 xmin 限制更旧的快照的事务，   
  * 因为它获取的快照可能不包含恰在获取之前删除的   
  * 元组。获取这类事务的 VXID 列表，并逐个等待它们。     
- * 这在并发构建索引时使用。                           
+ * 本函数在并发构建索引时使用。                     
  *
  * 我们可以排除任何 xmin 大于给定 xmin 的运行中事务；   
  * 其最旧快照必然比我们的 xmin 限制新。     
@@ -406,21 +406,21 @@ CompareOpclassOptions(Datum *opts1, Datum *opts2, int natts)
  * 惰性 VACUUM 的进程，因为缺失索引条目也不会       
  * 困扰它们。（但手工 ANALYZE 不能排除在外，因为   
  * 它们可能处于稍后要执行任意操作的事务中。）       
- * 运行 CREATE INDEX CONCURRENTLY 或 REINDEX                                
- *  CONCURRENTLY 的进程，若索引既非表达式也非部分       
- * 索引，同样可安全忽略，因为我们知道它们不会  
- * 检查所索引表之外的数据  
+ * 运行 CREATE INDEX CONCURRENTLY 或 REINDEX CONCURRENTLY 的进程，若   
+ * 索引既非表达式索引也非部分索引，同样可以安全   
+ * 忽略，因为我们知道这些进程不会检查所           
+ * 索引表之外的数据。        
  *
  * 此外，GetCurrentVirtualXIDs 从不报告我们自己的 vxid，    
  * 无需检查。
  *
  * 如果某个进程带着为零的 xmin 进入空闲事务状态，     
- * 按上述论证我们无需再等它。目前我们还没有    
- * 相应的基础设施来在这种情况发生时停止等待，但     
- * 我们至少可以避免在它已然空闲时开始等待的愚蠢   
- * 做法。我们为此反复重新检查 GetCurrentVirtualXIDs    
- *  的输出。如果在任何一轮迭代中某个特定的 vxid    
- * 未出现在输出中，我们就知道可以忘了它。     
+ * 按上述论证我们无需再等待它。                      
+ * 若发生这种情况，我们还没有停止等待的基础设施，  
+ * 但我们至少可以避免在它当时已经空闲时开始等待的
+ * 愚蠢做法。我们为此反复重新检查                    
+ * GetCurrentVirtualXIDs 的输出。如果在任何一轮迭代中   
+ * 某个 vxid 未出现在输出中，就可以忘掉它。     
  */
 void
 WaitForOlderSnapshots(TransactionId limitXmin, bool progress)
@@ -490,44 +490,44 @@ WaitForOlderSnapshots(TransactionId limitXmin, bool progress)
 }
 
 
-/* *
+/*
  * DefineIndex
- *		创建新索引。
+ *		创建新索引。  
  *
- * 此函数根据 pg_dump 的需求管理当前 userid。
- * 在新数据库中重新创建旧数据库的目录条目是可以的，无论
- * 哪些用户现在有权重新创建这些条目。这只是
- * 保留旧行为。
+ * 此函数根据 pg_dump 的需求管理当前 userid。                    
+ * 在新数据库中重新创建旧数据库的目录条目是可以的，   
+ * 无论现在哪些用户有权重新创建这些条目。这只是         
+ * 状态保留。以对象所有者以外的任何身份运行不透明  
+ * 表达式——比如调用目录条目中命名的函数，或求值目   
+ * 录条目中的 pg_node_tree——都是不允许的。为了遵守     
+ * 这些原则并保持故障安全，大多数 ACL 检查使用表       
+ * 所有者的 userid。不经过不透明表达式就能到达的 ACL    
+ * 检查则使用原始 userid。（pg_dump 可以从目录中预知       
+ * 这类 ACL 检查。）总之这很混乱。未来的 DDL 开发应
+ * 考虑提供一个用于目录设置的 DDL 命令，以及单独一  
+ * 个执行不透明表达式的 DDL 命令。  
  *
- * 'tableId', 'indexColName', 'accessMethodName', 'numberOfKeyAttributes',
- * 'amparams': 这些字段与 stmt 中同名字段相同，
- * 除了它们可以传入一个数字以作为 OID，而不是解析
- * 表和/或访问方法的名称。除了它们之外，stmt 本身是
- * 函数其余部分的权威输入。
- * 'typeObjectId': 如果定义了，此索引将负责跟踪
- *		此类型对象。
- * 'skip_build': 如果为真，则跳过构建索引（但是，如果是
- * 分区索引，则仍然会在每个分区上递归构建）。
- * 'quiet': 如果为真，则不打印进度消息。
- * 'is_alter_table': 如果为真，则正在由 ALTER TABLE 调用。
- * 'check_rights': 如果为真，则检查 CREATE 权限和命名空间
- *		可用性。（通常为真，但对于某些调用者可能为假。）
- * 'check_not_in_use': 如果为真，则验证表未被
- *		创建索引的会话使用。（通常为真，但对于某些调用者可能为假。）
- * 'skip_constraint_check': 如果为真，则跳过 UNIQUE/PRIMARY KEY
- *		检查。
- * 'quiet': 如果为真，则不在此函数内报告进度。
+ * 'relationId': 要在其上创建该索引的堆关系的              
+ *		OID。 
+ * 'stmt': 描述新索引属性的 IndexStmt。                
+ * 'indexRelationId': 通常为 InvalidOid，但在引导期间可以 
+ *		为非零值，以指定索引的预选 OID。     
+ * 'parentIndexId': 父索引的 OID；如果不是分区索引的子       
+ *		则为 InvalidOid。   
+ * 'parentConstraintId': 父约束的 OID；如果不是约束的子项     
+ *		则为 InvalidOid（仅在递归时使用）        
+ * 'total_parts': 关系的直接和间接分区的总数；如果未知或  
+ *		关系未分区，则传入 -1。              
+ * 'is_alter_table': 这是由 ALTER 而非 CREATE 操作引起的。       
+ * 'check_rights': 检查命名空间和表空间中的 CREATE 权限。      
+ *		（除 ALTER 正在删除/重建索引外，此值应为真）    
+ * 'check_not_in_use': 检查表是否尚未在当前会话中使用。      
+ *		除非调用者持有该表打开，那样调用者最好            
+ *		已提前检查过。                              
+ * 'skip_build': 创建目录条目但不创建索引文件               
+ * 'quiet': 抑制通常为约束提供的 NOTICE 消息。                 
  *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
+ * 返回所创建索引的对象地址。         
  */
 ObjectAddress
 DefineIndex(Oid relationId,
@@ -582,31 +582,31 @@ DefineIndex(Oid relationId,
 
 	root_save_nestlevel = NewGUCNestLevel();
 
-	/* *
-	 * 某些调用者需要我们使用空的 default_tablespace 运行；
-	 * 这是一个必要的 hack，为了能够在重写表的 ALTER TABLE 之后
-	 * 准确重现目录状态。
+	/*
+	 * 某些调用者需要我们以空的 default_tablespace 运行；这是
+	 * 一个必要的 hack，以便在重写表的 ALTER TABLE 之后     
+	 * 重新创建索引时准确重现目录状态。     
 	 */
 	if (stmt->reset_default_tblspc)
 		(void) set_config_option("default_tablespace", "",
 								 PGC_USERSET, PGC_S_SESSION,
 								 GUC_ACTION_SAVE, true, 0, false);
 
-	/* *
-	 * 在临时关系上强制执行非并发构建，即使请求了 CONCURRENTLY。
-	 * 其他后端无法访问临时关系，因此获取更强的锁没有
-	 * 危害，并且非并发 DROP 更高效。
-	 * 在进一步使用并发选项之前执行此操作。
-	 *
+	/*
+	 * 在临时关系上强制非并发构建，即使请求了 CONCURRENTLY 
+	 * 其他后端无法访问临时关系，因此拿更强的锁没有  
+	 * 危害，而且非并发 DROP 更高效。在对并发选项做任何 
+	 * 使用之前先执行此操作                                        
+	 *      
 	 */
 	if (stmt->concurrent && get_rel_persistence(relationId) != RELPERSISTENCE_TEMP)
 		concurrent = true;
 	else
 		concurrent = false;
 
-	/* *
-	 * 开始进度报告。如果我们正在构建分区，此操作已经
-	 * 完成。
+	/*
+	 * 开始进度报告。如果我们正在构建分区，这已经完成  
+	 *      
 	 */
 	if (!OidIsValid(parentIndexId))
 	{
@@ -624,18 +624,18 @@ DefineIndex(Oid relationId,
 	pgstat_progress_update_param(PROGRESS_CREATEIDX_INDEX_OID,
 								 InvalidOid);
 
-	/* *
-	 * 计算索引中的键属性数
+	/*
+	 * 计算索引的键属性数  
 	 */
 	numberOfKeyAttributes = list_length(stmt->indexParams);
 
-	/* *
-	 * 计算包含键列和 INCLUDE 列的索引列新列表。
-	 * 稍后我们可以通过检查列表位置来确定哪些是键列，
-	 * 哪些只是 INCLUDE 列表的一部分。位置小于
-	 * ii_NumIndexKeyAttrs 的列表项是键；其余的是 INCLUDE 列。
-	 *
-	 *
+	/*
+	 * 计算包含键列和 INCLUDE 列在内的索引列新列表。       
+	 * 稍后我们可以通过检查列表位置来确定其中哪些
+	 * 是键列，哪些只是 INCLUDE 列表的组成部分。           
+	 * 位置小于 ii_NumIndexKeyAttrs 的列表项属于键列，           
+	 * 等于及以上的项则属于                                       
+	 * INCLUDE 列。      
 	 */
 	allIndexParams = list_concat_copy(stmt->indexParams,
 									  stmt->indexIncludingParams);
@@ -669,10 +669,10 @@ DefineIndex(Oid relationId,
 	lockmode = concurrent ? ShareUpdateExclusiveLock : ShareLock;
 	rel = table_open(relationId, lockmode);
 
-	/* *
-	 * 切换到表所有者的 userid，以便任何索引函数都以该用户
-	 * 身份运行。还要锁定安全限制操作。我们已经安排好
-	 * 使 GUC 变量更改仅限于此命令。
+	/*
+	 * 切换到表所有者的 userid，以便任何索引函数都以该    
+	 * 用户身份运行。还要锁定安全受限的操作，并     
+	 * 安排好使 GUC 变量更改仅限于此命令。                  
 	 */
 	GetUserIdAndSecContext(&root_save_userid, &root_save_sec_context);
 	SetUserIdAndSecContext(rel->rd_rel->relowner,
@@ -697,22 +697,22 @@ DefineIndex(Oid relationId,
 			break;
 	}
 
-	/* *
-	 * 为分区表建立行为，并验证参数的
-	 * 合理性。
+	/*
+	 * 为分区表建立行为，并验证参数                     
+	 * 合理。  
 	 *
-	 * 在这种情况下我们不构建实际索引；我们只创建一些
-	 * 目录条目。实际索引通过为每个分区递归构建。
-	 *
+	 * 在这种情况下我们不构建实际索引；只创建一些   
+	 * 目录条目。实际索引通过为每个分区递归而构        
+	 * 建。    
 	 */
 	partitioned = rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE;
 	if (partitioned)
 	{
-		/* *
-		 * 注意：我们检查 'stmt->concurrent' 而不是 'concurrent'，
-		 * 以便对临时表也抛出错误。即使我们可以在临时表上
-		 * 这样做（因为我们实际上不是并发进行），保持一致性似乎
-		 * 更好。
+		/*
+		 * 注意：我们检查 'stmt->concurrent' 而非 'concurrent'，    
+		 * 临时表也会抛出该错误。即使我们本可以在临时表
+		 * 这样做（因为我们实际上并非并发），保持一致  
+		 * 似乎更好。                          
 		 */
 		if (stmt->concurrent)
 			ereport(ERROR,
@@ -734,20 +734,20 @@ DefineIndex(Oid relationId,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("cannot create indexes on temporary tables of other sessions")));
 
-	/* *
-	 * 除非我们的调用者保证已经检查过这一点，否则坚持要求
-	 * 表未被我们自己的会话使用。否则我们可能无法在新索引中
-	 * 创建条目（例如，如果 INSERT 或 UPDATE 正在进行并且
-	 * 已经创建了其目标索引列表）。
+	/*
+	 * 除非调用者保证已经检查过这一点，否则坚持要求该 
+	 * 表也未被我们自己的会话使用。否则我们可能无法在  
+	 * 新索引中创建条目（例如，如果 INSERT 或 UPDATE 正在 
+	 * 进行中并且已经创建了它的目标索引列表）。           
 	 */
 	if (check_not_in_use)
 		CheckTableNotInUse(rel, "CREATE INDEX");
 
-	/* *
-	 * 验证我们（仍然）在关系的命名空间中具有 CREATE 权限。
-	 * （推测我们在创建关系时具有，但也许现在没有了。）
-	 * 如果调用者不想检查，则跳过。如果正在引导，
-	 * 也跳过检查，因为权限机制可能尚未工作。
+	/*
+	 * 验证我们（仍）有关系命名空间的 CREATE 权限 
+	 * （推测创建该关系时我们有，但现在也许没有。）  
+	 * 调用者不需要则跳过。如果正在引导，      
+	 * 也跳过检查，因为权限机制可能尚未工作。         
 	 */
 	if (check_rights && !IsBootstrapProcessingMode())
 	{
@@ -760,9 +760,9 @@ DefineIndex(Oid relationId,
 						   get_namespace_name(namespaceId));
 	}
 
-	/* *
-	 * 选择要使用的表空间。如果未指定，使用默认表空间
-	 *（其本身可能默认为数据库的默认值）。
+	/*
+	 * 选择要使用的表空间。如果未指定，则使用默认    
+	 * 表空间（可能默认为数据库默认）。  
 	 */
 	if (stmt->tableSpace)
 	{
@@ -809,8 +809,8 @@ DefineIndex(Oid relationId,
 	 */
 	indexColNames = ChooseIndexColumnNames(allIndexParams);
 
-	/* *
-	 * 如果调用者未指定，则为索引选择名称
+	/*
+	 * 调用者未指定时为索引选择名称    
 	 */
 	indexRelationName = stmt->idxname;
 	if (indexRelationName == NULL)
@@ -828,9 +828,9 @@ DefineIndex(Oid relationId,
 	tuple = SearchSysCache1(AMNAME, PointerGetDatum(accessMethodName));
 	if (!HeapTupleIsValid(tuple))
 	{
-		/* *
-		 * Hack 以提供或多或少透明的旧 RTREE 索引到 GiST 的
-		 * 更新：如果请求了 RTREE 但未找到，则使用 GIST。
+		/*
+		 * 提供将旧 RTREE 索引或多或少透明更新为 GiST 的 
+		 * Hack：若请求 RTREE 但未找到，则用 GIST。           
 		 */
 		if (strcmp(accessMethodName, "rtree") == 0)
 		{
@@ -881,14 +881,14 @@ DefineIndex(Oid relationId,
 	pfree(amRoutine);
 	ReleaseSysCache(tuple);
 
-	/* *
-	 * 验证谓词（如果给出）
+	/*
+	 * 验证谓词（若给出） 
 	 */
 	if (stmt->whereClause)
 		CheckPredicate((Expr *) stmt->whereClause);
 
-	/* *
-	 * 解析 AM 特定的选项，转换为 text 数组形式，验证。
+	/*
+	 * 解析 AM 特定选项，转换为 text 数组形式并验证。
 	 */
 	reloptions = transformRelOptions((Datum) 0, stmt->options,
 									 NULL, NULL, false, false);
@@ -987,11 +987,11 @@ DefineIndex(Oid relationId,
 					 eq_strategy, key->partopcintype[i], key->partopcintype[i],
 					 key->partopfamily[i]);
 
-			/* *
-			 * 我们还需要能够识别与索引列关联的
-			 * 相等运算符。我们知道如何处理 btree opclasses；
-			 * 如果将来有任何其他索引类型支持唯一索引，
-			 * 此逻辑将需要扩展。
+			/*
+			 * 我们还需要能够识别与索引列关联的        
+			 * 相等运算符。btree opclasses 我们知道如何处理  
+			 * ；若将来出现其他支持唯一索引的类型，       
+			 * 此逻辑就需要扩展。                            
 			 */
 			if (accessMethodId == BTREE_AM_OID)
 				eq_strategy = BTEqualStrategyNumber;
@@ -1001,9 +1001,9 @@ DefineIndex(Oid relationId,
 						 errmsg("cannot match partition key to an index using access method \"%s\"",
 								accessMethodName)));
 
-			/* *
-			 * 当分区键是表达式时，可能可以支持 UNIQUE 约束，
-			 * 但这值得吗？现在放弃。
+			/*
+			 * 分区键为表达式时或许也能支持 UNIQUE 约束，    
+			 * 但这值得吗？现在先放弃。                       
 			 */
 			if (key->partattrs[i] == 0)
 				ereport(ERROR,
@@ -1099,9 +1099,9 @@ DefineIndex(Oid relationId,
 	safe_index = indexInfo->ii_Expressions == NIL &&
 		indexInfo->ii_Predicate == NIL;
 
-	/* *
-	 * 如果适当则报告索引创建（将其延迟到大多数
-	 * 错误检查之后）
+	/*
+	 * 如果合适则报告索引创建（将此延迟到大部分错误     
+	 * 检查后） 
 	 */
 	if (stmt->isconstraint && !quiet)
 	{
@@ -1126,9 +1126,9 @@ DefineIndex(Oid relationId,
 								 indexRelationName, RelationGetRelationName(rel))));
 	}
 
-	/* *
-	 * 有效的 stmt->oldNumber 意味着我们已经有了索引的已构建形式。
-	 * 调用者也应该拒绝任何索引构建。
+	/*
+	 * 有效的 stmt->oldNumber 意味着我们已拥有该索引的      
+	 * 已构建形式，调用者也应拒绝任何索引构建  
 	 */
 	Assert(!RelFileNumberIsValid(stmt->oldNumber) || (skip_build && !concurrent));
 
@@ -1184,9 +1184,9 @@ DefineIndex(Oid relationId,
 
 	if (!OidIsValid(indexRelationId))
 	{
-		/* *
-		 * 回滚由索引函数执行的任何 GUC 更改。如果我们在上面
-		 * 更改了它，也恢复到原始的 default_tablespace。
+		/*
+		 * 回滚索引函数执行的任何 GUC 更改。若我们在上面  
+		 * 更改过，也恢复为原始 default_tablespace。  
 		 */
 		AtEOXact_GUC(false, root_save_nestlevel);
 
@@ -1202,10 +1202,10 @@ DefineIndex(Oid relationId,
 		return address;
 	}
 
-	/* *
-	 * 回滚由索引函数执行的任何 GUC 更改，并保持
-	 * 后续更改仅限于此命令。如果某些索引函数更改了
-	 * 影响行为的 GUC（例如 search_path），这是至关重要的。
+	/*
+	 * 回滚索引函数执行的任何 GUC 更改，并让后续    
+	 * 更改仅限于此命令。如果某个索引函数更改了影响  
+	 * 行为的 GUC（例如 search_path），这至关重要。        
 	 */
 	AtEOXact_GUC(false, root_save_nestlevel);
 	root_save_nestlevel = NewGUCNestLevel();
@@ -1219,11 +1219,11 @@ DefineIndex(Oid relationId,
 	{
 		PartitionDesc partdesc;
 
-		/* *
-		 * 除非调用者指定跳过此步骤（通过 ONLY），否则处理每个
-		 * 分区以确保它们都包含相应的索引。
+		/*
+		 * 除非调用者要求跳过此步骤（通过 ONLY），处理每 
+		 * 个分区，以确保它们都包含相应的索引。        
 		 *
-		 * 如果我们被内部调用（没有 stmt->relation），则始终递归。
+		 * 如果是内部调用（无 stmt->relation），则总是递归
 		 */
 		partdesc = RelationGetPartitionDesc(rel, true);
 		if ((!stmt->relation || stmt->relation->inh) && partdesc->nparts > 0)
@@ -1234,9 +1234,9 @@ DefineIndex(Oid relationId,
 			Relation	parentIndex;
 			TupleDesc	parentDesc;
 
-			/* *
-			 * 在命令开始时报告分区的总数；当被递归调用时
-			 * 不要更新它。
+			/*
+			 * 在命令开始时报告分区总数；被递归调用时
+			 * 则不要更新它。                                  
 			 */
 			if (!OidIsValid(parentIndexId))
 			{
@@ -1269,26 +1269,26 @@ DefineIndex(Oid relationId,
 			/* 为安全起见，制作 partdesc->oids[] 的本地副本 */
 			memcpy(part_oids, partdesc->oids, sizeof(Oid) * nparts);
 
-			/* *
-			 * 我们需要一个描述父索引的 IndexInfo。上面构建的
-			 * 几乎足够好，但不完全，因为（例如）其谓词表达式
-			 *（如果有）尚未经过表达式预处理。获取 IndexInfo
-			 * 的最可靠方法是再次构建它。
-			 *
-			 *
+			/*
+			 * 我们需要一个描述父索引的 IndexInfo。上面      
+			 * 那个几乎足够好，但不完全，因为（例如）其  
+			 * 谓词表达式（若有）尚未经过表达式预处理。
+			 * 要获得能与子索引匹配的 IndexInfo，最可靠的
+			 * 办法就是按同样的方式构建它，即使用          
+			 * BuildIndexInfo()。                     
 			 */
 			parentIndex = index_open(indexRelationId, lockmode);
 			indexInfo = BuildIndexInfo(parentIndex);
 
 			parentDesc = RelationGetDescr(rel);
 
-			/* *
-			 * 对于每个分区，扫描所有现有索引；如果有一个与
-			 * 我们的索引定义匹配并且尚未附加到其他父索引，
-			 * 则将其附加到我们刚刚创建的索引。
+			/*
+			 * 对每个分区扫描所有现有索引；如果有一个与 
+			 * 我们的索引定义匹配且未附加到其他父索引，  
+			 * 则将它附加到我们刚创建的那个索引。
 			 *
-			 * 如果没有匹配，通过以相同的选项递归调用我们自己
-			 * 来构建新索引。
+			 * 如无匹配，则以相同选项递归调用自身    
+			 * 来构建新索引（索引名称除外）。                 
 			 */
 			for (int i = 0; i < nparts; i++)
 			{
@@ -1310,10 +1310,10 @@ DefineIndex(Oid relationId,
 									   child_save_sec_context | SECURITY_RESTRICTED_OPERATION);
 				child_save_nestlevel = NewGUCNestLevel();
 
-				/* *
-				 * 但是，不要尝试在外部表上创建索引。如果是常规
-				 * 索引则跳过，如果是尝试创建约束索引则失败。
-				 *
+				/*
+				 * 但不要尝试在外部表上创建索引。若为常规  
+				 * 索引则跳过；若尝试创建约束索引则报错 
+				 * 报错。        
 				 */
 				if (childrel->rd_rel->relkind == RELKIND_FOREIGN_TABLE)
 				{
@@ -1359,14 +1359,14 @@ DefineIndex(Oid relationId,
 					{
 						Oid			cldConstrOid = InvalidOid;
 
-						/* *
-						 * 找到匹配。
+						/*
+						 * 找到匹配  
 						 *
-						 * 如果此索引是在父表中由于约束而创建的，
-						 * 那么子表也需要有一个约束，因此查找一个。
-						 * 如果没有这样的约束，此索引不好，继续查找。
-						 *
-						 *
+						 * 如果此索引是因为约束而在父索  
+						 * 引中创建的，那么子索引也需要      
+						 * 有一个约束，因此查找一个。如果     
+						 * 没有该约束，此索引就不合格，继续
+						 * 查找。    
 						 */
 						if (createdConstraintId != InvalidOid)
 						{
@@ -1392,14 +1392,14 @@ DefineIndex(Oid relationId,
 
 						found = true;
 
-						/* *
-						 * 将此分区报告为已处理。注意如果分区本身
-						 * 有子分区，我们理想情况下会计算子分区并更新
-						 * 所有子分区的进度报告；但这似乎过于昂贵。
-						 * 取而代之的是，进度报告将表现得像所有此类
-						 * 子分区都被一步处理。
-						 *
-						 *
+						/*
+						 * 将此分区报告为已处理。注意如果    
+						 * 该分区尚有子分区时，理想情况下  
+						 * 我们会统计子分区并更新所有子分区 
+						 * 的进度报告；但这似乎代价过高。    
+						 * 取而代之的是，进度报告将表现得好像
+						 * 所有这类间接子分区都在命令结束时
+						 * 零耗时处理完。  
 						 */
 						pgstat_progress_incr_param(PROGRESS_CREATEIDX_PARTITIONS_DONE, 1);
 
@@ -1417,8 +1417,8 @@ DefineIndex(Oid relationId,
 									   child_save_sec_context);
 				table_close(childrel, NoLock);
 
-				/* *
-				 * 如果未找到匹配的索引，创建我们自己的。
+				/*
+				 * 若未找到匹配的索引，则自行创建  
 				 */
 				if (!found)
 				{
@@ -1427,12 +1427,12 @@ DefineIndex(Oid relationId,
 					ListCell   *lc;
 					ObjectAddress childAddr;
 
-					/* *
-					 * 我们不能为子索引使用相同的索引名称，因此清除
-					 * idxname 以让递归调用选择新名称。同样，现有的
-					 * 目标关系字段是错误的，并且如果设置了 indexOid 或
-					 * oldNumber，它们也不能应用于子索引。
-					 *
+					/*
+					 * 不能为子索引使用相同名称，因此清除  
+					 * idxname 让递归调用选择新名称。同样，     
+					 * 目标关系字段也是错的；如果设置了   
+					 * indexOid 或 oldNumber，它们也不能应用于子 
+					 * 索引。                                   
 					 */
 					childStmt->idxname = NULL;
 					childStmt->relation = NULL;
@@ -1441,18 +1441,18 @@ DefineIndex(Oid relationId,
 					childStmt->oldCreateSubid = InvalidSubTransactionId;
 					childStmt->oldFirstRelfilelocatorSubid = InvalidSubTransactionId;
 
-					/* *
-					 * 调整任何 Vars（在表达式和索引的 WHERE 子句中），
-					 * 以匹配分区的列编号，以防与父级不同。
-					 *
+					/*
+					 * 调整任何 Vars（表达式和索引 WHERE 子句中 
+					 * 的）以匹配分区的列编号，以防其与父表 
+					 * 的不同。                             
 					 */
 					foreach(lc, childStmt->indexParams)
 					{
 						IndexElem  *ielem = lfirst(lc);
 
-						/* *
-						 * 如果索引参数是表达式，我们必须将其转换
-						 * 为包含子 Vars。
+						/*
+						 * 如果索引参数是表达式，则必须使其
+						 * 包含子 Vars。                  
 						 */
 						if (ielem->expr)
 						{
@@ -1472,9 +1472,9 @@ DefineIndex(Oid relationId,
 					if (found_whole_row)
 						elog(ERROR, "cannot convert whole-row table reference");
 
-					/* *
-					 * 以起始用户 ID 递归。被调用者将使用它进行
-					 * 权限检查，然后再次切换。
+					/*
+					 * 以起始用户 ID 递归。被调用者会用它来  
+					 * 进行权限检查，然后再切换。  
 					 */
 					Assert(GetUserId() == child_save_userid);
 					SetUserIdAndSecContext(root_save_userid,
@@ -1491,10 +1491,10 @@ DefineIndex(Oid relationId,
 					SetUserIdAndSecContext(child_save_userid,
 										   child_save_sec_context);
 
-					/* *
-					 * 检查刚创建的索引是否有效，因为当跨多个
-					 * 分区级别递归时，它可能已被切换为无效。
-					 *
+					/*
+					 * 检查刚创建的索引是否有效，因为在跨   
+					 * 分区级别递归时，它可能已被切换为无效
+					 * 无效。                                       
 					 */
 					if (!get_index_isvalid(childAddr.objectId))
 						invalidate_parent = true;
@@ -1505,10 +1505,10 @@ DefineIndex(Oid relationId,
 
 			index_close(parentIndex, lockmode);
 
-			/* *
-			 * 我们为此索引插入的 pg_index 行被标记为
-			 * indisvalid=true。但是如果我们附加了一个无效的现有索引，
-			 * 这是不正确的，因此也将我们的行更新为无效。
+			/*
+			 * 我们为此索引插入的 pg_index 行被标记为  
+			 * indisvalid=true。但如果附加的现有索引无效，     
+			 * 那么就不对了，因此也将我们的行改为无效。 
 			 */
 			if (invalidate_parent)
 			{
@@ -1715,12 +1715,12 @@ DefineIndex(Oid relationId,
 	 */
 	validate_index(relationId, indexRelationId, snapshot);
 
-	/* *
-	 * 丢弃引用快照。我们必须在等待其他快照持有者
-	 * 之前执行此操作，否则我们将与也执行 CREATE INDEX
-	 * CONCURRENTLY 的其他进程死锁，这些进程会将我们的快照
-	 * 视为它们必须等待的快照。
-	 *
+	/*
+	 * 丢弃引用快照。我们必须在等待其他快照持有者之前 
+	 * 完成此事，否则我们将与其他同样在执行 CREATE INDEX 
+	 * CONCURRENTLY 的进程死锁，它们会把我们的快照当作    
+	 * 其必须等待的对象。但首先保存快照的 xmin 用作   
+	 * GetCurrentVirtualXIDs() 的 limitXmin 
 	 */
 	limitXmin = snapshot->xmin;
 
@@ -1755,8 +1755,8 @@ DefineIndex(Oid relationId,
 								 PROGRESS_CREATEIDX_PHASE_WAIT_3);
 	WaitForOlderSnapshots(limitXmin, true);
 
-	/* *
-	 * 索引现在可以标记为有效——更新其 pg_index 条目
+	/*
+	 * 索引现可标记为有效 -- 更新其 pg_index 条目  
 	 */
 	index_set_state_flags(indexRelationId, INDEX_CREATE_SET_VALID);
 
@@ -1781,16 +1781,16 @@ DefineIndex(Oid relationId,
 }
 
 
-/* *
+/*
  * CheckPredicate
- *		检查给定的部分索引谓词是否有效。
+ *		检查给定的部分索引谓词是否有效。       
  *
- * 这曾经也限制了谓词的形式，使其成为 indxpath.c
- * 可以处理的形式。然而，这似乎过于限制。部分索引的
- * 一个有用应用是应用 UNIQUE 约束，其中谓词排除
- * NULL 值。
- *
- *
+ * 这曾经还将谓词的形式限制为 indxpath.c 能处理的    
+ * 形式。然而，这似乎过于受限。部分索引的一个
+ * 有用应用是对表的子集应用 UNIQUE 约束，在这种     
+ * 场景下任何可求值的谓词都能行得通。所以这里     
+ * 接受任何谓词（需要计划才能执行的除外），让 
+ * indxpath.c 自行应对。                                         
  */
 static void
 CheckPredicate(Expr *predicate)
@@ -1810,14 +1810,14 @@ CheckPredicate(Expr *predicate)
 				 errmsg("functions in index predicate must be marked IMMUTABLE")));
 }
 
-/* *
- * 计算每个索引列的信息，包括索引列号
- * 或索引表达式、opclasses 及其选项。注意，所有输出向量
- * 应为所有列分配空间，包括 "including" 列。
+/*
+ * 计算每个索引列的信息，包括被索引的列号或索引    
+ * 表达式、opclass 及其选项。注意，所有输出向量都应       
+ * 为所有列分配空间，包括 "including" 列。            
  *
- * 如果调用者切换到表所有者，ddl_userid 是 ACL 检查的角色。
- *
- *
+ * 如果调用者已切换为表所有者，ddl_userid 就是              
+ * 不经过不透明表达式即可到达的 ACL 检查所用角色。  
+ * 否则为 InvalidOid，其余 ddl_* 参数未定义 
  */
 static void
 ComputeIndexAttrs(IndexInfo *indexInfo,
@@ -1913,9 +1913,9 @@ ComputeIndexAttrs(IndexInfo *indexInfo,
 			atttype = exprType(expr);
 			attcollation = exprCollation(expr);
 
-			/* *
-			 * 剥离任何顶层 COLLATE 子句。这确保我们以相同方式
-			 * 处理 "x COLLATE y" 和 "(x COLLATE y)"。
+			/*
+			 * 剥离任何顶层 COLLATE 子句，确保我们同样对待   
+			 * "x COLLATE y" 和 "(x COLLATE y)"。    
 			 */
 			while (IsA(expr, CollateExpr))
 				expr = (Node *) ((CollateExpr *) expr)->arg;
@@ -1923,9 +1923,9 @@ ComputeIndexAttrs(IndexInfo *indexInfo,
 			if (IsA(expr, Var) &&
 				((Var *) expr)->varattno != InvalidAttrNumber)
 			{
-				/* *
-				 * 用户写了 "(column)" 或 "(column COLLATE something)"。
-				 * 无论如何将其视为简单属性。
+				/*
+				 * 用户写 "(column)" 或 "(column COLLATE something)" 
+				 * 仍将其视为简单属性。        
 				 */
 				indexInfo->ii_IndexAttrNumbers[attn] = ((Var *) expr)->varattno;
 			}
@@ -1941,11 +1941,11 @@ ComputeIndexAttrs(IndexInfo *indexInfo,
 				 * 窗口函数。         
 				 */
 
-				/* *
-				 * 使用可变函数的表达式可能是错误的，因为如果
-				 * 每次相同数据不得到相同结果，那么索引条目
-				 * 到底意味着什么就不清楚了。
-				 *
+				/*
+				 * 使用易变函数的表达式多半是错的，若     
+				 * 相同数据每次得不到相同结果，索引条目  
+				 * 究竟意味着什么就完全不清楚了                 
+				 *             
 				 */
 				if (contain_mutable_functions_after_planning((Expr *) expr))
 					ereport(ERROR,
@@ -1956,9 +1956,9 @@ ComputeIndexAttrs(IndexInfo *indexInfo,
 
 		typeOidP[attn] = atttype;
 
-		/* *
-		 * 包含列没有排序规则、没有 opclass 也没有排序
-		 * 选项。
+		/*
+		 * 包含列无排序规则、无 opclass，也无排序选项   
+		 *         
 		 */
 		if (attn >= nkeycols)
 		{
@@ -1987,10 +1987,10 @@ ComputeIndexAttrs(IndexInfo *indexInfo,
 			continue;
 		}
 
-		/* *
-		 * 应用排序规则覆盖（如果有）。使用 ddl_userid 是必要的，
-		 * 因为其中有 ACL 检查，并且它是安全的，因为排序规则不
-		 * 包含不透明表达式（或非不透明表达式）。
+		/*
+		 * 若有，应用排序规则覆盖。使用 ddl_userid 是必    
+		 * 要的，因为其中含 ACL 检查；由于排序规则不含   
+		 * 不透明表达式（或非不透明的）就安全。 
 		 */
 		if (attribute->collation)
 		{
@@ -2007,11 +2007,11 @@ ComputeIndexAttrs(IndexInfo *indexInfo,
 			}
 		}
 
-		/* *
-		 * 检查我们有排序规则当且仅当它是可排序类型。这里
-		 * 唯一预期的故障是 (1) 将 COLLATE 应用于不可排序类型，
-		 * 或 (2) 索引表达式有未解析的排序规则。但我们也
-		 * 可以编码为完整的致性检查。
+		/*
+		 * 检查当且仅当类型可排序时我们才有排序规则。
+		 * 这里唯一预期的失败是 (1) 将 COLLATE 应用于不可   
+		 * 排序的类型，或 (2) 索引表达式具有未解析的排序 
+		 * 规则。但也不妨将其编成完整的一致性检查  
 		 */
 		if (type_is_collatable(atttype))
 		{
@@ -2032,11 +2032,11 @@ ComputeIndexAttrs(IndexInfo *indexInfo,
 
 		collationOidP[attn] = attcollation;
 
-		/* *
-		 * 识别要使用的 opclass。使用 ddl_userid 是必要的，因为
-		 * 其中有 ACL 检查。尽管 opclasses 包含不透明表达式
-		 *（具体来说，函数），但这是安全的，因为只有超级用户
-		 * 可以定义 opclasses。
+		/*
+		 * 确定要使用的 opclass。由于其中有 ACL 检查，因此   
+		 * 使用 ddl_userid 是必要的。尽管 opclass 含不透明  
+		 * 表达式（具体指函数），但只有超级用户可 
+		 * 定义 opclass，故安全。   
 		 */
 		if (OidIsValid(ddl_userid))
 		{
@@ -2063,13 +2063,13 @@ ComputeIndexAttrs(IndexInfo *indexInfo,
 			Oid			opfamily;
 			int			strat;
 
-			/* *
-			 * 查找运算符——它必须接受列数据类型，无需
-			 * 运行时强制（但二进制兼容是可以的）。运算符包含
-			 * 不透明表达式（具体来说，函数）。
-			 * compatible_oper_opid() 归结为 oper() 和
-			 * IsBinaryCoercible()。
-			 *
+			/*
+			 * 查找运算符——它必须无需运行时强制     
+			 * 即可接受列数据类型（但二进制兼容是可以 
+			 * 的）。运算符包含不透明表达式（具体来说是   
+			 * 函数）。compatible_oper_opid() 即 oper()  
+			 * 和 IsBinaryCoercible()。如果 oper() 开始调用不      
+			 * 透明表达式，PostgreSQL 就会有安全问题。  
 			 */
 			if (OidIsValid(ddl_userid))
 			{
@@ -2105,10 +2105,10 @@ ComputeIndexAttrs(IndexInfo *indexInfo,
 				HeapTuple	opftuple;
 				Form_pg_opfamily opfform;
 
-				/* *
-				 * attribute->opclass 可能没有明确命名 opfamily，因此获取
-				 * 所选 opfamily 的名称以用于错误消息。
-				 *
+				/*
+				 * attribute->opclass 可能没有显式命名 opfamily，   
+				 * 因此获取所选 opfamily 名称，用于错误消息  
+				 * 消息。     
 				 */
 				opftuple = SearchSysCache1(OPFAMILYOID,
 										   ObjectIdGetDatum(opfamily));
@@ -2131,10 +2131,10 @@ ComputeIndexAttrs(IndexInfo *indexInfo,
 			nextExclOp = lnext(exclusionOpNames, nextExclOp);
 		}
 
-		/* *
-		 * 设置每列选项（indoption 字段）。目前，对于任何
-		 * 无序索引，这是零，而有序索引具有 DESC 和
-		 * NULLS FIRST/LAST 选项。
+		/*
+		 * 设置每列的选项（indoption 字段）。目前，对任何  
+		 * 无序索引该值为零，有序索引则带 DESC 和 NULLS      
+		 * FIRST/LAST 选项。     
 		 */
 		colOptionP[attn] = 0;
 		if (amcanorder)
@@ -2214,8 +2214,8 @@ ResolveOpClass(List *opclass, Oid attrType,
 		return opClassId;
 	}
 
-	/* *
-	 * 给出了特定的 opclass 名称，因此查找 opclass。
+	/*
+	 * 给出特定 opclass 名时，就查找该 opclass  
 	 */
 
 	/* 解构名称列表 */
@@ -2269,11 +2269,11 @@ ResolveOpClass(List *opclass, Oid attrType,
 	return opClassId;
 }
 
-/* *
+/*
  * GetDefaultOpClass
  *
- * 给定数据类型和访问方法的 OID，查找默认
- * 操作符类（如果有）。如果没有，返回 InvalidOid。
+ * 给定数据类型和访问方法的 OID，查找默认操作符类
+ * （若有）。如果没有，则返回 InvalidOid。        
  */
 Oid
 GetDefaultOpClass(Oid type_id, Oid am_id)
@@ -2408,10 +2408,10 @@ makeObjectName(const char *name1, const char *name2, const char *label)
 	availchars = NAMEDATALEN - 1 - overhead;
 	Assert(availchars > 0);		/* else caller chose a bad label */
 
-	/* *
-	 * 如果必须截断，优先截断较长的名称。此逻辑
-	 * 可以在没有循环的情况下表达，但作为循环它简单且
-	 * 显然。
+	/*
+	 * 如果必须截断，则优先截断较长的名称。这一逻辑
+	 * 本可不带循环地表达，但作为循环既简单明了           
+	 *        
 	 */
 	while (name1chars + name2chars > availchars)
 	{
@@ -2584,16 +2584,16 @@ ChooseIndexName(const char *tabname, Oid namespaceId,
 	return indexname;
 }
 
-/* *
- * 为给定列名列表的新索引生成 "name2"
- *（由 ChooseIndexColumnNames 产生）。这将与父表名
- * 和合适的标签一起传递给 ChooseRelationName。
+/*
+ * 为新索引根据其列名列表生成 "name2"                       
+ * （由 ChooseIndexColumnNames 产生）。它将与父表名    
+ * 一起传递给 ChooseRelationName，并附带一个合适的标签。   
  *
- * 我们知道实际会使用少于 NAMEDATALEN 个字符，
- * 因此我们可以放心地在 name2 中分配那么多字符。
+ * 我们知道实际使用的字符数会少于 NAMEDATALEN，        
+ * 因此一旦生成了这么多字符就可以截断结果。 
  *
- *
- *
+ * XXX 另见 ChooseForeignKeyConstraintNameAddition 和  
+ * ChooseExtendedStatisticNameAddition.
  */
 static char *
 ChooseIndexNameAddition(List *colnames)
@@ -2622,12 +2622,12 @@ ChooseIndexNameAddition(List *colnames)
 	return pstrdup(buf);
 }
 
-/* *
- * 为索引的列选择实际使用的名称，给定列的
- * IndexElems 列表。这主要是关于确保名称唯一，
- * 以免我们收到冲突属性名称错误。
+/*
+ * 为索引的列选择实际要使用的名称，给定这些列的       
+ * IndexElems 列表。这主要是为了确保名称唯一，           
+ * 以免得到属性名称冲突的错误。                           
  *
- * 返回纯字符串列表（char *，不是 String 节点）。
+ * 返回纯字符串 List（char *，非 String 节点）。 
  */
 static List *
 ChooseIndexColumnNames(List *indexElems)
@@ -2726,9 +2726,9 @@ ExecReindex(ParseState *pstate, ReindexStmt *stmt, bool isTopLevel)
 		(verbose ? REINDEXOPT_VERBOSE : 0) |
 		(concurrently ? REINDEXOPT_CONCURRENTLY : 0);
 
-	/* *
-	 * 分配要移动索引到的表空间 OID，InvalidOid 表示
-	 * 什么都不做。
+	/*
+	 * 分配索引目标表空间的 OID；若为 InvalidOid 则         
+	 * 跳过  
 	 */
 	if (tablespacename != NULL)
 	{
@@ -2762,11 +2762,11 @@ ExecReindex(ParseState *pstate, ReindexStmt *stmt, bool isTopLevel)
 		case REINDEX_OBJECT_SYSTEM:
 		case REINDEX_OBJECT_DATABASE:
 
-			/* *
-			 * 这不能在用户事务块内运行；如果我们在事务内，
-			 * 那么其提交和启动事务命令调用将不会具有
-			 * 预期的效果！
-			 *
+			/*
+			 * 它不能在用户事务块内运行；如果我们处于  
+			 * 事务中，那么其提交与启动事务
+			 * 命令的调用将不会产生预期的效                 
+			 * 果！ 
 			 */
 			PreventInTransactionBlock(isTopLevel,
 									  (stmt->kind == REINDEX_OBJECT_SCHEMA) ? "REINDEX SCHEMA" :
@@ -2793,15 +2793,15 @@ ReindexIndex(RangeVar *indexRelation, ReindexParams *params, bool isTopLevel)
 	char		persistence;
 	char		relkind;
 
-	/* *
-	 * 查找并锁定索引，并检查表的权限；使用回调
-	 * 首先获取表的锁，以避免死锁危险。这里使用的
-	 * 锁级别必须与 reindex_index() 中获取的索引锁匹配。
+	/*
+	 * 查找并锁定索引，并检查表的权限；先通过回调     
+	 * 获取表上的锁，以避免死锁风险。这里使用的锁      
+	 * 级别必须与 reindex_index() 中获取的索引锁一致。  
 	 *
-	 * 如果是临时索引，我们将执行非并发重建，即使
-	 * 请求了 CONCURRENTLY。
-	 *
-	 *
+	 * 如果是临时索引，即使请求了 CONCURRENTLY，我们也    
+	 * 将执行非并发重建。在这种情况下，reindex_index()        
+	 * 会升级锁，但没关系，因为其他会话无法持有      
+	 * 我们临时表上的锁。  
 	 */
 	state.params = *params;
 	state.locked_table_oid = InvalidOid;
@@ -2846,18 +2846,18 @@ RangeVarCallbackForReindexIndex(const RangeVar *relation,
 	struct ReindexIndexCallbackState *state = arg;
 	LOCKMODE	table_lockmode;
 
-	/* *
-	 * 这里的锁级别应匹配 reindex_index() 中用于非并发情况
-	 * 的表锁，以及 index_concurrently_*() 用于并发情况的
-	 * 表锁。
+	/*
+	 * 这里的锁级别在非并发情况下应与 reindex_index() 
+	 * 中的表锁一致；并发时应与 index_concurrently_*() 所用    
+	 * 表锁一致。 
 	 */
 	table_lockmode = (state->params.options & REINDEXOPT_CONCURRENTLY) != 0 ?
 		ShareUpdateExclusiveLock : ShareLock;
 
-	/* *
-	 * 如果我们之前锁定了其他索引的堆，并且我们正在
-	 * 查找的名称不再引用该关系，则释放现在无用的
-	 * 锁。
+	/*
+	 * 如果我们之前锁定了某个其他索引的堆，而当前    
+	 * 查找的名称已不再指向该关系，则释放现已无用的   
+	 * 锁  
 	 */
 	if (relId != oldRelId && OidIsValid(oldRelId))
 	{
@@ -2892,9 +2892,9 @@ RangeVarCallbackForReindexIndex(const RangeVar *relation,
 	{
 		Oid			table_oid = IndexGetRelation(relId, true);
 
-		/* *
-		 * 如果 OID 无效，意味着索引被并发删除，这对我们
-		 * 来说不是问题；只需正常返回。
+		/*
+		 * 如果 OID 无效，说明索引已被并发删除，这对
+		 * 我们来说并不是问题；只需正常返回。          
 		 */
 		if (OidIsValid(table_oid))
 		{
@@ -2958,13 +2958,13 @@ ReindexTable(RangeVar *relation, ReindexParams *params, bool isTopLevel)
 	return heapOid;
 }
 
-/* *
+/*
  * ReindexMultipleTables
- *		重建由 objectName/objectKind 选择的表的索引。
+ *		重建由 objectName/objectKind 选中的表的索引。     
  *
- * 为了降低死锁概率，每个表在单独的事务中重建，
- * 因此我们可以立即释放其上的锁。这意味着这不能在
- * 用户事务块内调用！
+ * 为了降低死锁的概率，每个表都在单独的事务中     
+ * 重建，这样我们就能立即释放其上的锁。这意味   
+ * 着它绝不能在用户事务块内被调用！                   
  */
 static void
 ReindexMultipleTables(const char *objectName, ReindexObjectType objectKind,
@@ -2998,11 +2998,11 @@ ReindexMultipleTables(const char *objectName, ReindexObjectType objectKind,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("cannot reindex system catalogs concurrently")));
 
-	/* *
-	 * 获取要重建索引的对象的 OID：对于数据库，是会话当前
-	 * 使用的数据库；对于系统目录，是系统目录；对于模式，
-	 * 是调用者定义的模式。同时根据对象类型进行不同
-	 * 处理的权限检查。
+	/*
+	 * 获取待重建索引对象的 OID：数据库情形是会话当前  
+	 * 使用的数据库；系统目录亦然；模式则是调用者定义  
+	 * 的模式。同时执行权限检查，其处理方式因           
+	 * 对象类型而异。                   
 	 */
 	if (objectKind == REINDEX_OBJECT_SCHEMA)
 	{
@@ -3025,11 +3025,11 @@ ReindexMultipleTables(const char *objectName, ReindexObjectType objectKind,
 						   get_database_name(objectOid));
 	}
 
-	/* *
-	 * 创建一个内存上下文，它将在我们在下面强制提交事务
-	 * 后仍然存在。由于它是 PortalContext 的子上下文，
-	 * 即使我们遇到错误，它最终也会消失；不需要特殊的
-	 * 中止清理逻辑。
+	/*
+	 * 创建一个内存上下文，使其能在我们下面强制提交     
+	 * 事务后依然存活。由于它是 PortalContext 的子上下 
+	 * 文，即使遭遇错误它最终也会消失；无需特殊的   
+	 * 中止清理逻辑  
 	 */
 	private_context = AllocSetContextCreate(PortalContext,
 											"ReindexMultipleTables",
@@ -3064,12 +3064,12 @@ ReindexMultipleTables(const char *objectName, ReindexObjectType objectKind,
 		Form_pg_class classtuple = (Form_pg_class) GETSTRUCT(tuple);
 		Oid			relid = classtuple->oid;
 
-		/* *
-		 * 只有常规表和物化视图可以有索引，因此忽略任何
-		 * 其他类型的关系。
+		/*
+		 * 只有常规表和物化视图可以有索引，所以忽略任 
+		 * 何其他关系。     
 		 *
-		 * 分区表/索引被跳过，但匹配的叶分区
-		 * 会被处理。
+		 * 分区表/索引会被跳过，但匹配的叶子分区会被处   
+		 * 理。        
 		 */
 		if (classtuple->relkind != RELKIND_RELATION &&
 			classtuple->relkind != RELKIND_MATVIEW)
@@ -3091,21 +3091,21 @@ ReindexMultipleTables(const char *objectName, ReindexObjectType objectKind,
 				 IsCatalogRelationOid(relid))
 			continue;
 
-		/* *
-		 * 如果用户是超级用户、表所有者或数据库/模式所有者
-		 *（但在后一种情况下，仅当它不是共享关系时），则可以
-		 * 重建表。object_ownercheck 包括超级用户情况，并且
-		 * 根据 objectKind，我们已经知道用户具有权限。
-		 *
-		 *
+		/*
+		 * 若用户为超级用户、表所有者或数据库/模式所 
+		 * 有者，则该表可以被重建（但后一种情况仅限于  
+		 * 它不是共享关系）。object_ownercheck 包含超级      
+		 * 用户情形，而根据 objectKind 我们已经知道，用户 
+		 * 具有在此数据库或模式上运行 REINDEX 的权限（     
+		 * 依据本例程开头的权限检查）。                 
 		 */
 		if (classtuple->relisshared &&
 			!object_ownercheck(RelationRelationId, relid, GetUserId()))
 			continue;
 
-		/* *
-		 * 跳过系统表，因为 index_create() 会拒绝并发地索引它们
-		 *（并且如果我们尝试，很可能会失败）。
+		/*
+		 * 跳过系统表，因为 index_create() 会拒绝以并发方式   
+		 * 对它们建索引（尝试时很可能失败）。 
 		 */
 		if ((params->options & REINDEXOPT_CONCURRENTLY) != 0 &&
 			IsCatalogRelationOid(relid))
@@ -3118,9 +3118,9 @@ ReindexMultipleTables(const char *objectName, ReindexObjectType objectKind,
 			continue;
 		}
 
-		/* *
-		 * 如果设置了新的表空间，检查此关系是否必须
-		 * 跳过。
+		/*
+		 * 如果设置了新的表空间，检查此关系是否需要
+		 * 跳过  
 		 */
 		if (OidIsValid(params->tablespaceOid))
 		{
@@ -3155,12 +3155,12 @@ ReindexMultipleTables(const char *objectName, ReindexObjectType objectKind,
 		/* 将关系 OID 列表保存在私有上下文中 */
 		old = MemoryContextSwitchTo(private_context);
 
-		/* *
-		 * 我们始终希望首先重建 pg_class 的索引（如果它被选中的话）。
-		 * 这确保如果 pg_class 的索引有任何损坏，它们将在我们处理
-		 * 任何其他表之前被修复。这是关键的，因为重建索引本身
-		 * 会尝试更新 pg_class。
-		 *
+		/*
+		 * 若 pg_class 被选中重建，我们总希望最先重建它  
+		 * 的索引。这样可以确保如果 pg_class 的索引有 
+		 * 任何损坏，也会在我们处理其他任何表之前先行  
+		 * 修复。这很关键，因为重建索引本身就会尝试   
+		 * 更新 pg_class.
 		 */
 		if (relid == RelationRelationId)
 			relids = lcons_oid(relid, relids);
@@ -3199,11 +3199,11 @@ reindex_error_callback(void *arg)
 				   errinfo->relnamespace, errinfo->relname);
 }
 
-/* *
+/*
  * ReindexPartitions
  *
- * 根据调用者提供的分区索引或表，
- * 重建一组分区的索引。
+ * 根据调用者给定的分区索引或表，重建一组分区      
+ * 的索引。  
  */
 static void
 ReindexPartitions(Oid relid, ReindexParams *params, bool isTopLevel)
@@ -3239,12 +3239,12 @@ ReindexPartitions(Oid relid, ReindexParams *params, bool isTopLevel)
 	/* 弹出错误上下文堆栈 */
 	error_context_stack = errcallback.previous;
 
-	/* *
-	 * 为跨事务存储创建特殊内存上下文。
+	/*
+	 * 为跨事务存储创建一个特殊的内存上下文。   
 	 *
-	 * 由于它是 PortalContext 的子上下文，即使我们遇到错误，
-	 * 它最终也会消失，因此不需要特殊的中止清理
-	 * 逻辑。
+	 * 由于它是 PortalContext 的子上下文，即使我们遭遇错   
+	 * 误最终它也会消失，因此无需特殊的中止清理       
+	 * 逻辑
 	 */
 	reindex_context = AllocSetContextCreate(PortalContext, "Reindex",
 											ALLOCSET_DEFAULT_SIZES);
@@ -3284,20 +3284,20 @@ ReindexPartitions(Oid relid, ReindexParams *params, bool isTopLevel)
 	 */
 	ReindexMultipleInternal(partitions, params);
 
-	/* *
-	 * 清理工作存储——注意我们必须在
-	 * StartTransactionCommand 之后执行此操作，否则我们可能
-	 * 尝试删除活动上下文！
+	/*
+	 * 清理工作存储——注意必须在                
+	 * StartTransactionCommand 之后操作，否则可能误删活动上下
+	 * 文！  
 	 */
 	MemoryContextDelete(reindex_context);
 }
 
-/* *
+/*
  * ReindexMultipleInternal
  *
- * 重建关系列表的索引，每个关系在其自己的事务中
- * 处理。这会立即提交现有事务，并在完成时
- * 启动新事务。
+ * 重建一组关系的索引，每个关系都在各自的       
+ * 事务中处理。此函数会立即提交现有事务，并在 
+ * 完成时启动新的事务。             
  */
 static void
 ReindexMultipleInternal(List *relids, ReindexParams *params)
@@ -3326,11 +3326,11 @@ ReindexMultipleInternal(List *relids, ReindexParams *params)
 			continue;
 		}
 
-		/* *
-		 * 如果选择了新的表空间，检查权限，除非移动到数据库的
-		 * 默认值。注意此检查也在 ExecReindex() 中发生，但我们
-		 * 在此处进行额外检查，因为这会跨多个事务运行。
-		 *
+		/*
+		 * 检查权限，除非选择了新表空间时移动到数据库的 
+		 * 默认表空间。注意 ExecReindex() 中也做检查，  
+		 * 但我们在此多做一次检查，因为此操作会跨越    
+		 * 多个事务。       
 		 */
 		if (OidIsValid(params->tablespaceOid) &&
 			params->tablespaceOid != MyDatabaseTableSpace)
@@ -3405,23 +3405,23 @@ ReindexMultipleInternal(List *relids, ReindexParams *params)
  * CONCURRENTLY
  *
  * 'relationOid' 可以属于索引、表或物化视图。对于表     
- * 和物化视图，其所有索引都会被重建，但排除无效        
- * 索引以及任何用于排除约束的索引，不过包含其         
- * 关联的 toast 表索引。对于索引，该索引本身会被         
+ * 和物化视图，其所有索引都将被重建，但不包括无        
+ * 效索引以及任何用于排除约束的索引，但包括其关      
+ * 联的 toast 表索引。对于索引而言，该索引本身会被      
  * 重建。              
  *
- * 在父表和相关索引上获取的锁会一直保持到事务         
- * 提交为止，届时会在每个关系上获取会话锁。这         
- * 两者都能防止并发模式变更。                            
+ * 在父表和相关索引上获取的锁会一直保持到事务提      
+ * 交为止，届时将在每个关系上获取一个会话锁。这      
+ * 两者都能防止并发的模式变更。                         
  *
- * 如果重建了任何索引（包括相关的 toast 表索引）      
- * 则返回 true，否则返回 false。           
+ * 如果重建了任何索引（相关的 toast 表索引用到时      
+ * 已包括），返回 true，否则为 false。  
  *
- * 注意：这不能用于临时关系。并发构建会与并发            
- * 构建的事务触发的 ON COMMIT 操作产生冲突。临时          
- * 关系不受并发问题影响，因此反正不需要更复杂     
- * 的并发构建，而且                                               
- * 非并发 reindex 效率更高。                      
+ * 注意：这不能用于临时关系。并发构建会与该并发         
+ * 构建自身的事务所触发的 ON COMMIT 操作产生问题。       
+ * 临时关系本来就不受并发问题影响，因此无需更复  
+ * 杂的并发构建，无论如何，                                   
+ * 非并发的 reindex 效率更高。                   
  */
 static bool
 ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
@@ -3454,11 +3454,11 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 	};
 	int64		progress_vals[4];
 
-	/* *
-	 * 创建一个内存上下文，它将在我们在下面强制提交事务
-	 * 后仍然存在。由于它是 PortalContext 的子上下文，
-	 * 即使我们遇到错误，它最终也会消失；不需要特殊的
-	 * 中止清理逻辑。
+	/*
+	 * 创建一个内存上下文，使其能在我们下面强制提交     
+	 * 事务后依然存活。由于它是 PortalContext 的子上下 
+	 * 文，即使遭遇错误它最终也会消失；无需特殊的   
+	 * 中止清理逻辑  
 	 */
 	private_context = AllocSetContextCreate(PortalContext,
 											"ReindexConcurrent",
@@ -3489,9 +3489,9 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 		case RELKIND_MATVIEW:
 		case RELKIND_TOASTVALUE:
 			{
-				/* *
-				 * 对于关系，查找其所有索引，包括
-				 * toast 索引。
+				/*
+				 * 对于关系，查找其所有索引，包括 toast      
+				 * 索引。     
 				 */
 				Relation	heapRelation;
 
@@ -3597,9 +3597,9 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 						{
 							ReindexIndexInfo *idx;
 
-							/* *
-							 * 将关系 OID 列表保存在私有
-							 * 上下文中
+							/*
+							 * 在私有上下文中保存关系 OID    
+							 * 列表 
 							 */
 							oldcontext = MemoryContextSwitchTo(private_context);
 
@@ -3636,10 +3636,10 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 							(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 							 errmsg("cannot reindex system catalogs concurrently")));
 
-				/* *
-				 * 不允许对 TOAST 表上的无效索引进行 reindex，
-				 * 因为如果重建，将无法删除它。匹配
-				 * reindex_index() 中的错误消息。
+				/*
+				 * 不允许对 TOAST 表上的无效索引执行 reindex，  
+				 * 因为若重建则无法删除。错误消息需与   
+				 * reindex_index() 保持一致。  
 				 */
 				if (IsToastNamespace(get_rel_namespace(relationOid)) &&
 					!get_index_isvalid(relationOid))
@@ -3647,11 +3647,11 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 							(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 							 errmsg("cannot reindex invalid index on TOAST table")));
 
-				/* *
-				 * 检查父关系是否可以锁定以及是否存在，这需要
-				 * 在此阶段完成，因为要重建的索引列表尚未完成，
-				 * 并且在获取所有会话锁后不应使用
-				 * REINDEXOPT_MISSING_OK。
+				/*
+				 * 检查父关系能否被锁定以及是否存在，     
+				 * 此项工作必须在此阶段完成，因为待重建的 
+				 * 索引列表尚未完成，且获取全部会话锁之   
+				 * 后就不应再使用 REINDEXOPT_MISSING_OK。          
 				 */
 				if ((params->options & REINDEXOPT_MISSING_OK) != 0)
 				{
@@ -3703,12 +3703,12 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 			break;
 	}
 
-	/* *
-	 * 肯定没有索引，因此离开。任何基于
-	 * REINDEXOPT_MISSING_OK 的检查应仅在构建要处理的索引列表时
-	 * 完成，因为在此事务提交之前获取的会话锁将确保
-	 * 在操作完成之前，它们不能被并发会话删除。
-	 *
+	/*
+	 * 肯定没有索引，所以离开。任何基于     
+	 * REINDEXOPT_MISSING_OK 的检查应只在构建待处理索引         
+	 * 列表期间进行，因为在本事务提交前获取的会话锁 
+	 * 将确保在操作完成之前，它们不会被并发会话      
+	 * 所删除。                           
 	 */
 	if (indexIds == NIL)
 	{
@@ -3741,13 +3741,13 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 	 *
 	 */
 
-	/* *
-	 * REINDEX CONCURRENTLY 的阶段 1
+	/*
+	 * REINDEX CONCURRENTLY 阶段 1  
 	 *
-	 * 创建具有与旧索引相同属性的新索引，但仅在目录中
-	 * 注册，稍后构建。然后获取所有涉及表的会话锁。
-	 * 有关更详细的注释，请参见 DefineIndex() 中的类似代码。
-	 *
+	 * 创建一个与旧索引属性相同的新索引，但它只在      
+	 * 目录中注册，稍后才构建。然后获取所有相关表       
+	 * 上的会话锁。更详细的说明请参见 DefineIndex() 中       
+	 * 的类似代码。     
 	 */
 
 	foreach(lc, indexIds)
@@ -3769,10 +3769,10 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 		heapRel = table_open(indexRel->rd_index->indrelid,
 							 ShareUpdateExclusiveLock);
 
-		/* *
-		 * 切换到表所有者的 userid，以便任何索引函数都以该用户
-		 * 身份运行。还要锁定安全限制操作，并安排使
-		 * GUC 变量更改仅限于此命令。
+		/*
+		 * 切换到表所有者的 userid，让任何索引函数都以      
+		 * 该用户身份运行。还要锁定安全受限的操作，并 
+		 * 使 GUC 变量的更改仅限于此命令。                   
 		 */
 		GetUserIdAndSecContext(&save_userid, &save_sec_context);
 		SetUserIdAndSecContext(heapRel->rd_rel->relowner,
@@ -3837,11 +3837,11 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 
 		newIndexIds = lappend(newIndexIds, newidx);
 
-		/* *
-		 * 保存 lockrelid 以保护每个关系不被删除，然后关闭
-		 * 关系。父关系上的 lockrelid 不在此处获取，以避免
-		 * 在同一关系上获取多个锁，而是依赖于之前构建的
-		 * parentRelationIds。
+		/*
+		 * 保存 lockrelid 以防每个关系被删除，然后关闭 
+		 * 这些关系。父关系上的 lockrelid 并不在此获取，  
+		 * 以避免在同一关系上获取多个锁，而是依赖于之前 
+		 * 构建的 parentRelationIds。  
 		 */
 		lockrelid = palloc_object(LockRelId);
 		*lockrelid = indexRel->rd_lockInfo.lockRelId;
@@ -3911,14 +3911,14 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 	 * 设置 PROC_IN_SAFE_IC 标志。     
 	 */
 
-	/* *
-	 * REINDEX CONCURRENTLY 的阶段 2
+	/*
+	 * REINDEX CONCURRENTLY 阶段 2  
 	 *
-	 * 在单独的事务中为每个索引构建新索引，以避免
-	 * 事务打开不必要的长时间。但在这样做之前，等待直到
-	 * 没有正在运行的事务可以使用旧的索引列表打开索引的表。
-	 *
-	 *
+	 * 在单独的事务中构建每个新索引，以免事务不必要地  
+	 * 间保持打开。但在此之前，需等待到没有正在运   
+	 * 行的事务可能以旧的索引列表打开该索引的表。更    
+	 * 多详情请参见 DefineIndex() 中的                       
+	 * "phase 2"。                   
 	 */
 
 	pgstat_progress_update_param(PROGRESS_CREATEIDX_PHASE,
@@ -3933,10 +3933,10 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 		/* 为此索引的并发构建启动新事务 */
 		StartTransactionCommand();
 
-		/* *
-		 * 检查用户请求的中止。这在事务内进行，以便
-		 * xact.c 不会发出无用的 WARNING，并确保会话级锁
-		 * 在中止时被清理。
+		/*
+		 * 检查是否用户请求中止。此检查处于事务内，这样 
+		 * xact.c 不会发出无用 WARNING，并确保会话级   
+		 * 的锁会在中止时被清理。           
 		 */
 		CHECK_FOR_INTERRUPTS();
 
@@ -3972,12 +3972,12 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 	 * 在此处设置 PROC_IN_SAFE_IC 标志。 
 	 */
 
-	/* *
-	 * REINDEX CONCURRENTLY 的阶段 3
+	/*
+	 * REINDEX CONCURRENTLY 阶段 3  
 	 *
-	 * 在此阶段，旧索引赶上在前一阶段创建的任何新元组。
-	 * 有关更多详细信息，请参见 DefineIndex() 中的 "阶段 3"。
-	 *
+	 * 在此阶段中，旧索引要追上前一阶段期间创建的任 
+	 * 何新元组。更多详情请参见 DefineIndex() 中的              
+	 * "phase 3"。     
 	 */
 
 	pgstat_progress_update_param(PROGRESS_CREATEIDX_PHASE,
@@ -3993,10 +3993,10 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 
 		StartTransactionCommand();
 
-		/* *
-		 * 检查用户请求的中止。这在事务内进行，以便
-		 * xact.c 不会发出无用的 WARNING，并确保会话级锁
-		 * 在中止时被清理。
+		/*
+		 * 检查是否用户请求中止。此检查处于事务内，这样 
+		 * xact.c 不会发出无用 WARNING，并确保会话级   
+		 * 的锁会在中止时被清理。           
 		 */
 		CHECK_FOR_INTERRUPTS();
 
@@ -4034,22 +4034,22 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 		PopActiveSnapshot();
 		UnregisterSnapshot(snapshot);
 
-		/* *
-		 * 为确保没有死锁，我们必须提交并启动另一个
-		 * 事务，并在其中获取任何快照之前进行我们的等待。
-		 *
+		/*
+		 * 为确保不死锁，我们必须提交并再启动一个   
+		 * 事务，并在此事务获取任何快照之前执行等         
+		 * 待
 		 */
 		CommitTransactionCommand();
 		StartTransactionCommand();
 
-		/* *
-		 * 索引现在在这个意义上是有效的：它包含所有当前感兴趣的
-		 * 元组。但由于它可能不包含刚好在引用快照获取之前
-		 * 删除的元组，我们必须等待任何可能有更旧快照的事务。
+		/*
+		 * 该索引现在可以认为是有效的：它包含所有当前   
+		 * 感兴趣的元组。但由于它可能不含恰在参考快照   
+		 * 获取之前删除的元组，必须等待任何可能持有更  
+		 * 旧快照的事务结束。                  
 		 *
-		 * 因为我们在此事务中不获取快照或 Xid，所以不需要
-		 * 在此处设置 PROC_IN_SAFE_IC 标志。
-		 *
+		 * 因为此事务中不获取快照或 Xid，无需在此处  
+		 * 设置 PROC_IN_SAFE_IC 标志。                     
 		 */
 		pgstat_progress_update_param(PROGRESS_CREATEIDX_PHASE,
 									 PROGRESS_CREATEIDX_PHASE_WAIT_3);
@@ -4058,15 +4058,15 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 		CommitTransactionCommand();
 	}
 
-	/* *
-	 * REINDEX CONCURRENTLY 的阶段 4
+	/*
+	 * REINDEX CONCURRENTLY 阶段 4  
 	 *
-	 * 现在新索引已被验证，将每个新索引与其对应的旧索引
-	 * 交换。
+	 * 现在新索引已经得到验证，将每个新索引与其对应    
+	 * 的旧索引交换。       
 	 *
-	 * 我们同时将新索引标记为有效，将旧索引标记为无效，
-	 * 以确保我们只从新索引获得约束冲突。
-	 *
+	 * 我们将同时把新索引标记为有效、把旧索引标记为  
+	 * 无效，以确保我们只会从名称正确的索引收到约束   
+	 * 冲突。                      
 	 */
 
 	StartTransactionCommand();
@@ -4084,10 +4084,10 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 		ReindexIndexInfo *newidx = lfirst(lc2);
 		char	   *oldName;
 
-		/* *
-		 * 检查用户请求的中止。这在事务内进行，以便
-		 * xact.c 不会发出无用的 WARNING，并确保会话级锁
-		 * 在中止时被清理。
+		/*
+		 * 检查是否用户请求中止。此检查处于事务内，这样 
+		 * xact.c 不会发出无用 WARNING，并确保会话级   
+		 * 的锁会在中止时被清理。           
 		 */
 		CHECK_FOR_INTERRUPTS();
 
@@ -4098,15 +4098,15 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 									 get_rel_namespace(oldidx->tableId),
 									 false);
 
-		/* *
-		 * 交换索引可能涉及 TOAST 表访问，因此确保我们
-		 * 具有有效的快照。
+		/*
+		 * 交换索引可能涉及对 TOAST 表的访问，因此请确保   
+		 * 拥有有效快照。 
 		 */
 		PushActiveSnapshot(GetTransactionSnapshot());
 
-		/* *
-		 * 将旧索引与新索引交换。这也将新索引标记为
-		 * 有效，将旧索引标记为无效。
+		/*
+		 * 将旧索引与新索引交换，同时把新索引标记为有 
+		 * 效，旧索引标记为无效。  
 		 */
 		index_concurrently_swap(newidx->indexId, oldidx->indexId, oldName);
 
@@ -4119,12 +4119,12 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 		 */
 		CacheInvalidateRelcacheByRelid(oldidx->tableId);
 
-		/* *
-		 * 此处 CCI 以便后续迭代在目录中看到 oldName，并可以
-		 * 为其 oldName 选择不冲突的名称。否则，如果表有两个
-		 * 索引，其名称在前 NAMEDATALEN 减去几个字符范围内相等，
-		 * 这可能会导致冲突。
-		 *
+		/*
+		 * 此处 CCI，让后续迭代能在目录中看到 oldName， 
+		 * 并能为其自己的 oldName 选择不冲突的名称。      
+		 * 否则，如果某个表有两个索引，其名称在前         
+		 * NAMEDATALEN 减去几字符内相等，就可能引起     
+		 * 冲突。  
 		 */
 		CommandCounterIncrement();
 	}
@@ -4133,18 +4133,18 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 	CommitTransactionCommand();
 	StartTransactionCommand();
 
-	/* *
-	 * 虽然如果所有索引符合条件，我们可以设置 PROC_IN_SAFE_IC，
-	 * 但实际上不需要，因为我们只在等待完成后获取 Xid，
-	 * 并且这持续的时间非常短。
+	/*
+	 * 虽然如果所有索引都合格，我们本可以设置              
+	 * 但其实并无真正的必要，因为我们只在等待结束     
+	 * 后才获取 Xid，且持续时间极短。  
 	 */
 
-	/* *
-	 * REINDEX CONCURRENTLY 的阶段 5
+	/*
+	 * REINDEX CONCURRENTLY 阶段 5  
 	 *
-	 * 将旧索引标记为已死。首先我们必须等待，直到没有正在
-	 * 运行的事务可以使用该索引进行查询。有关更多详细信息，
-	 * 另请参见 index_drop()。
+	 * 把旧索引标记为已死。首先必须等待，直到没有   
+	 * 任何运行中事务可能正在使用该索引查询。  
+	 * 另请参见 index_drop()。  
 	 */
 
 	pgstat_progress_update_param(PROGRESS_CREATEIDX_PHASE,
@@ -4155,10 +4155,10 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 	{
 		ReindexIndexInfo *oldidx = lfirst(lc);
 
-		/* *
-		 * 检查用户请求的中止。这在事务内进行，以便
-		 * xact.c 不会发出无用的 WARNING，并确保会话级锁
-		 * 在中止时被清理。
+		/*
+		 * 检查是否用户请求中止。此检查处于事务内，这样 
+		 * xact.c 不会发出无用 WARNING，并确保会话级   
+		 * 的锁会在中止时被清理。           
 		 */
 		CHECK_FOR_INTERRUPTS();
 
@@ -4169,16 +4169,16 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 	CommitTransactionCommand();
 	StartTransactionCommand();
 
-	/* *
-	 * 虽然如果所有索引符合条件，我们可以设置 PROC_IN_SAFE_IC，
-	 * 但实际上不需要，因为我们只在等待完成后获取 Xid，
-	 * 并且这持续的时间非常短。
+	/*
+	 * 虽然如果所有索引都合格，我们本可以设置              
+	 * 但其实并无真正的必要，因为我们只在等待结束     
+	 * 后才获取 Xid，且持续时间极短。  
 	 */
 
-	/* *
-	 * REINDEX CONCURRENTLY 的阶段 6
+	/*
+	 * REINDEX CONCURRENTLY 阶段 6  
 	 *
-	 * 删除旧索引。
+	 * 删除旧的索引。
 	 */
 
 	pgstat_progress_update_param(PROGRESS_CREATEIDX_PHASE,
@@ -4202,9 +4202,9 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 			add_exact_object_address(&object, objects);
 		}
 
-		/* *
-		 * 使用 PERFORM_DELETION_CONCURRENT_LOCK 以便 index_drop() 使用
-		 * 正确的锁级别。
+		/*
+		 * 使用 PERFORM_DELETION_CONCURRENT_LOCK 以便 index_drop() 用对
+		 * 锁级别。     
 		 */
 		performMultipleDeletions(objects, DROP_RESTRICT,
 								 PERFORM_DELETION_CONCURRENT_LOCK | PERFORM_DELETION_INTERNAL);
@@ -4264,11 +4264,11 @@ ReindexRelationConcurrently(Oid relationOid, ReindexParams *params)
 	return true;
 }
 
-/* *
- * 插入或删除适当的 pg_inherits 元组，使给定索引成为所指示
- * 父索引的分区。
+/*
+ * 插入或删除适当的 pg_inherits 元组，使给定的索引成      
+ * 为所指父索引的一个分区。         
  *
- * 这也纠正了受影响索引的 pg_depend 信息。
+ * 这同时也会修正受影响索引的 pg_depend 信息。         
  */
 void
 IndexSetParentIndex(Relation partitionIdx, Oid parentOid)
@@ -4284,8 +4284,8 @@ IndexSetParentIndex(Relation partitionIdx, Oid parentOid)
 	Assert(partitionIdx->rd_rel->relkind == RELKIND_INDEX ||
 		   partitionIdx->rd_rel->relkind == RELKIND_PARTITIONED_INDEX);
 
-	/* *
-	 * 扫描 pg_inherits 以查找将我们的索引链接到某个父索引的行。
+	/*
+	 * 扫描 pg_inherits，查找链接本索引到父的行。  
 	 */
 	pg_inherits = relation_open(InheritsRelationId, RowExclusiveLock);
 	ScanKeyInit(&key[0],
@@ -4304,9 +4304,9 @@ IndexSetParentIndex(Relation partitionIdx, Oid parentOid)
 	{
 		if (parentOid == InvalidOid)
 		{
-			/* *
-			 * 没有 pg_inherits 行，也不需要父索引：在这种情况下
-			 * 无需操作。
+			/*
+			 * 没有 pg_inherits 行，也不需要父索引：此时无     
+			 *      
 			 */
 			fix_dependencies = false;
 		}
@@ -4330,10 +4330,10 @@ IndexSetParentIndex(Relation partitionIdx, Oid parentOid)
 		}
 		else
 		{
-			/* *
-			 * 存在一个 pg_inherits 行。如果它与我们想要的相同，
-			 * 则没问题；如果不同，则相当于损坏的目录，
-			 * 不应该发生。
+			/*
+			 * 存在 pg_inherits 行。若它正是想要的那个，就没  
+			 * 问题；若不同，则等同于目录损坏，不应    
+			 * 发生。         
 			 */
 			if (inhForm->inhparent != parentOid)
 			{
@@ -4363,10 +4363,10 @@ IndexSetParentIndex(Relation partitionIdx, Oid parentOid)
 
 	if (fix_dependencies)
 	{
-		/* *
-		 * 插入/删除 pg_depend 行。如果设置父索引，添加对
-		 * 父索引和表的 PARTITION 依赖关系；如果移除父索引，
-		 * 删除 PARTITION 依赖关系。
+		/*
+		 * 插入/删除 pg_depend 行。若设置父索引，在父索引  
+		 * 和表上添加 PARTITION 依赖；若移除父索引则删  
+		 * 除 PARTITION 依赖。               
 		 */
 		if (OidIsValid(parentOid))
 		{
@@ -4398,9 +4398,9 @@ IndexSetParentIndex(Relation partitionIdx, Oid parentOid)
 	}
 }
 
-/* *
- * IndexSetParentIndex 的子例程，用于将给定索引的
- * relispartition 标志更新为给定值。
+/*
+ * IndexSetParentIndex 的子例程，把给定索引的 relispartition      
+ * 标志更新为给定值。    
  */
 static void
 update_relispartition(Oid relationId, bool newval)

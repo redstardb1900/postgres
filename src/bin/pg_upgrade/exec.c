@@ -24,11 +24,11 @@ static int	win32_check_directory_write_permissions(void);
 #endif
 
 
-/*获取集簇二进制的主版本。
- * 
+/*
+ * get_bin_version
  *
- *	
-                        */
+ *	获取集簇二进制程序的主版本。  
+ */
 static void
 get_bin_version(ClusterInfo *cluster)
 {
@@ -68,20 +68,20 @@ get_bin_version(ClusterInfo *cluster)
 }
 
 
-/*执行外部程序（stdout/stderr 重定向），格式化命令并记录到日志。成功返回 true。失败可写错误消息，可选退出。须先在 Win 主线程调用。
- * 
- *	
- *	
+/*
+ * exec_prog()
+ *		执行一个外部程序，重定向其 stdout/stderr，并报告    
+ *		错误
  *
- * 
- * 
- * 
+ * 根据给定参数列表构造命令，并记录到日志文件中，   
+ * 然后尝试执行该命令。若命令执行成功，        
+ * 则 exec_prog() 返回 true。         
  *
- * 
- * 
+ * 如果命令执行失败，则可选地将一条错误消息写入指定的  
+ * log_file，并且程序可选地退出。  
  *
- * 
-                                                                                                                                                                                                                                                                                  */
+ * 此代码要求在 Windows 上必须首先由主线程调用。         
+ */
 bool
 exec_prog(const char *log_filename, const char *opt_log_file,
 		  bool report_error, bool exit_on_error, const char *fmt,...)
@@ -120,15 +120,15 @@ exec_prog(const char *log_filename, const char *opt_log_file,
 
 #ifdef WIN32
 
-	/*Win: 非主线程创建子进程写同日志文件，系统报使用中错。解决：睡眠 100ms，或子进程后写日志。fflush/systen 两次/预创建均无效。
-	 * 
-	 * 
-	 * 
-	 * 
-	 * 
-	 * 
-	 * 
-	                                                                                                                                                                                                                                                                      */
+	/*
+	 * 由于某种原因，若我们在创建一个同样写入该日志     
+	 * 文件的子进程之前从非主线程写日志，Windows 会
+	 * 发出文件正在使用的错误。一种解决办法是睡眠       
+	 * 100ms。更佳的解决办法是在子进程完成之后再写   
+	 * 日志文件，故仅从非主线程写入时才这样做。    
+	 * fflush()、运行两次 system() 以及预先创建文件都           
+	 * 似乎无济于事。       
+	 */
 	if (mainThreadId != GetCurrentThreadId())
 	{
 		fflush(NULL);
@@ -140,13 +140,13 @@ exec_prog(const char *log_filename, const char *opt_log_file,
 
 #ifdef WIN32
 	{
-		/*pg_ctl -w stop 可能因 pid 文件移除而报停，但 start 可能仍在关、stdout/-l 仍开。尝试多次打开日志。
-		 * 
-		 * 
-		 * 
-		 * 
-		 * 
-		                                                                                                                                                                              */
+		/*
+		 * "pg_ctl -w stop" 可能已经报告服务器已停止，因为  
+		 * postmaster.pid 文件已被移除，但 "pg_ctl -w              
+		 * start" 可能仍在关闭过程中，其                          
+		 * stdout 与 -l 日志文件描述符仍保持打开。因此，  
+		 * 再多尝试打开日志文件几次。   
+		 */
 		int			iter;
 
 		for (iter = 0; iter < 4 && log == NULL; iter++)
@@ -398,11 +398,11 @@ check_bin_dir(ClusterInfo *cluster, bool check_versions)
 	check_exec(cluster->bindir, "pg_controldata", check_versions);
 	check_exec(cluster->bindir, "pg_ctl", check_versions);
 
-	/*pg_resetxlog 在 v10 更名为 pg_resetwal
-	 * 
-	 * 
-	 * 
-	                                                                                                                             */
+	/*
+	 * 在检查 pg_ctl 是否存在后再获取二进制版本。         
+	 * 这样，若用于获取版本的 pg_ctl 二进制缺失或损坏，   
+	 * 可报出有用的错误。
+	 */
 	get_bin_version(cluster);
 
 	/* pg_resetxlog 在版本 10 中已更名为 pg_resetwal      */

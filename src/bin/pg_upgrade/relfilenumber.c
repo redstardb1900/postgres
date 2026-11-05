@@ -42,13 +42,13 @@ transfer_all_new_tablespaces(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 			break;
 	}
 
-	/*按表空间传输较复杂因单数据库可用多表空间。非并行模式传 NULL 匹配所有。并行模式传默认和用户表空间并行操作。
-	 * 
-	 * 
-	 * 
-	 * 
-	 * 
-	                                                                                                                                                               */
+	/*
+	 * 按表空间传输文件颇为棘手，因为单个数据库        
+	 * 可用多个表空间。非并行模式下，我们只需传入     
+	 * NULL 表空间路径，它匹配所有表空间。并行模式下，   
+	 * 我们传入默认表空间和所有用户创建的表空间，并让  
+	 * 这些操作并行进行。         
+	 */
 	if (user_opts.jobs <= 1)
 		parallel_transfer_all_new_dbs(old_db_arr, new_db_arr, old_pgdata,
 									  new_pgdata, NULL);
@@ -76,12 +76,12 @@ transfer_all_new_tablespaces(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 }
 
 
-/*升级所有数据库：生成映射并物理链接。
- * 
+/*
+ * transfer_all_new_dbs()
  *
- * 
- * 
-                                                                                     */
+ * 负责升级所有数据库。它调用相应例程来生成映射，然后           
+ * 物理链接各数据库。   
+ */
 void
 transfer_all_new_dbs(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 					 char *old_pgdata, char *new_pgdata, char *old_tablespace)
@@ -99,11 +99,11 @@ transfer_all_new_dbs(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 		FileNameMap *mappings;
 		int			n_maps;
 
-		/*跳过仅新集簇有的数据库（如 postgres），因用户可能已删除。
-		 * 
-		 * 
-		 * 
-		                                                                                        */
+		/*
+		 * 越过任何只存在于新集簇、而不存在于旧集簇       
+		 * 的数据库，例如 "postgres"。（用户可能已从旧
+		 * 集簇删除 'postgres' 数据库。）   
+		 */
 		for (; new_dbnum < new_db_arr->ndbs; new_dbnum++)
 		{
 			new_db = &new_db_arr->dbs[new_dbnum];
@@ -126,11 +126,11 @@ transfer_all_new_dbs(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 	}
 }
 
-/*为映射数组创建链接。
- * 
+/*
+ * transfer_single_new_db()
  *
- * 
-                                            */
+ * 为 "maps" 数组中的映射创建链接。     
+ */
 static void
 transfer_single_new_db(FileNameMap *maps, int size, char *old_tablespace)
 {
@@ -162,13 +162,13 @@ transfer_single_new_db(FileNameMap *maps, int size, char *old_tablespace)
 }
 
 
-/*从旧集簇复制或链接文件到新集簇。vm_must_add_frozenbit 为 true 时，vm 叉即使链接模式也重写。
- * 
+/*
+ * transfer_relfile()
  *
- * 
- * 
- * 
-                                              */
+ * 从旧集簇复制/链接文件到新集簇。若 vm_must_add_frozenbit 
+ * 为 true，可见性映射分叉被转换重写，链接模式亦然   
+ * 。  
+ */
 static void
 transfer_relfile(FileNameMap *map, const char *type_suffix, bool vm_must_add_frozenbit)
 {
@@ -178,11 +178,11 @@ transfer_relfile(FileNameMap *map, const char *type_suffix, bool vm_must_add_fro
 	char		extent_suffix[65];
 	struct stat statbuf;
 
-	/*复制/链接段文件。PG 将大文件分成 1GB 段，首段无后缀，后续为 .1, .2, .3。
-	 * 
-	 * 
-	 * 
-	                                                                                                                */
+	/*
+	 * 接下来还要复制/链接相关段文件。记住，PG 会将大  
+	 * 文件切分为 1GB 的段：首段无扩展名，后续段命名      
+	 * 为 relfilenumber.1、relfilenumber.2、relfilenumber.3。           
+	 */
 	for (segno = 0;; segno++)
 	{
 		if (segno == 0)

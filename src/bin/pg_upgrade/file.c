@@ -27,13 +27,13 @@
 #include "storage/checksum_impl.h"
 
 
-/*将关系文件从 src 克隆/重链接到 dst。schemaName/relName 仅用于错误消息。
- * 
+/*
+ * cloneFile()
  *
- * 
+ * 从 src 向 dst 克隆/reflink 关系文件。  
  *
- * 
-                                          */
+ * schemaName/relName 是关系的 SQL 名称（仅用于错误消息）。  
+ */
 void
 cloneFile(const char *src, const char *dst,
 		  const char *schemaName, const char *relName)
@@ -71,12 +71,12 @@ cloneFile(const char *src, const char *dst,
 }
 
 
-/*将关系文件从 src 复制到 dst。schemaName/relName 仅用于错误消息。
- * 
+/*
+ * copyFile()
  *
- * 
- * 
-                                          */
+ * 从 src 复制关系文件到 dst。   
+ * schemaName/relName 是关系的 SQL 名称（仅用于错误消息）。  
+ */
 void
 copyFile(const char *src, const char *dst,
 		 const char *schemaName, const char *relName)

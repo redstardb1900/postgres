@@ -13,17 +13,17 @@
 #include "catalog/pg_language_d.h"
 #include "pg_upgrade.h"
 
-/*库名指针的 qsort 比较函数。先按名称长度排序，同长者按字母序，再按数据库数组下标。这确保如 hstore_plpython 排在 hstore 和 plpython 之后；否则转换模块可能无法通过 LOAD 测试。（后端本应处理此情况，但目前尚不能；即便将来能，保持可预期的探测顺序仍是好主意。）
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
-                                                                                                               */
+/*
+ * 用于库名指针的 qsort 比较函数      
+ *
+ * 先按名称长度排序，同长度者再按字母顺序，      
+ * 最后按数据库数组下标排序。这是为了确保例如     
+ * "hstore_plpython" 会排在 "hstore" 和 "plpython"                  
+ * 之后；否则转换模块很可能无法通过 LOAD 测试。（  
+ * 后端本应考虑到这一点，但目前尚不能；而且即便 
+ * 将来可以做到了，在这里保持可预期的探测顺序仍    
+ * 是好事。  
+ */
 static int
 library_name_compare(const void *p1, const void *p2)
 {
@@ -43,12 +43,12 @@ library_name_compare(const void *p1, const void *p2)
 }
 
 
-/*获取所有含 C 语言函数的旧库名。稍后检查它们是否都存在于新安装中。
- * 
- * 
- * 
- * 
-                                                             */
+/*
+ * get_loadable_libraries()
+ *
+ *	获取所有包含 C 语言函数的旧库的名称。               
+ *	稍后我们将检查它们是否都存在于新安装中。    
+ */
 void
 get_loadable_libraries(void)
 {
@@ -109,13 +109,13 @@ get_loadable_libraries(void)
 }
 
 
-/*检查新集簇是否包含所有必需库。实际逐个尝试 LOAD，从而同时测试兼容性与存在性。
- * 
- * 
- * 
- * 
- * 
-                                                                     */
+/*
+ * check_loadable_libraries()
+ *
+ *	检查新集簇是否包含所有必需的库。           
+ *	我们的做法是实际尝试 LOAD 每一个库，从而同时
+ *	测试兼容性与存在性。    
+ */
 void
 check_loadable_libraries(void)
 {
@@ -130,12 +130,12 @@ check_loadable_libraries(void)
 	snprintf(output_path, sizeof(output_path), "%s/%s",
 			 log_opts.basedir, "loadable_libraries.txt");
 
-	/*现在将库名排序。避免重复探测同一库，并确保以一致顺序探测各库；这在库间存在依赖时对可复现行为很重要。
-	 * 
-	 * 
-	 * 
-	 * 
-	                                                                                        */
+	/*
+	 * 现在我们要把库名排成一定的顺序。这可以避免对     
+	 * 同一个库的多次探测，并确保各库以一致的顺序被    
+	 * 探测，当一个库依赖于另一个库时，这对行为的可   
+	 * 复现性很重要。      
+	 */
 	qsort(os_info.libraries, os_info.num_libraries,
 		  sizeof(LibraryInfo), library_name_compare);
 

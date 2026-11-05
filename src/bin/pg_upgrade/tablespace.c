@@ -30,12 +30,12 @@ init_tablespaces(void)
 }
 
 
-/*扫描 pg_tablespace，返回所有表空间路径的 malloc 数组。由调用者负责释放数组。
- * 
- * 
- * 
- * 
-                                            */
+/*
+ * get_tablespace_paths()
+ *
+ * 扫描 pg_tablespace，返回一个包含所有表空间路径     
+ * 的 malloc 数组。由调用者负责释放该数组。  
+ */
 static void
 get_tablespace_paths(void)
 {
@@ -67,15 +67,15 @@ get_tablespace_paths(void)
 
 		os_info.old_tablespaces[tblnum] = pg_strdup(PQgetvalue(res, tblnum, i_spclocation));
 
-		/*检查表空间路径存在且为目录。实际仅检查不存在表空间目录中的表/索引；位于不存在表空间的数据库已在后端报错。当含用户表空间的数据目录在 pg_upgrade 准备中被移动且符号链接未更新时，会出现不存在的表空间目录。
-		 * 
-		 * 
-		 * 
-		 * 
-		 * 
-		 * 
-		 * 
-		                                                                                                               */
+		/*
+		 * 检查表空间路径是否存在并且是一个目录。
+		 * 实际上，这仅检查不存在表空间目录中的  
+		 * 表/索引；位于不存在表空间中的数据库已在
+		 * 后端报错。不存在的表空间目录会出现在 
+		 * 这种情况：当包含用户表空间的数据目录在          
+		 * pg_upgrade 准备期间被移动、且符号链接未随之  
+		 * 更新时，就会产生。                        
+		 */
 		if (stat(os_info.old_tablespaces[tblnum], &statBuf) != 0)
 		{
 			if (errno == ENOENT)

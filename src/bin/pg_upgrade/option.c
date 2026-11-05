@@ -29,11 +29,11 @@ static void check_required_directory(char **dirpath,
 UserOpts	user_opts;
 
 
-/*解析命令行（argc, argv[]）加载结构
- * 
+/*
+ * parseCommandLine()
  *
- *	
-                                 */
+ *	解析命令行（argc, argv[]）并加载各结构体。  
+ */
 void
 parseCommandLine(int argc, char *argv[])
 {

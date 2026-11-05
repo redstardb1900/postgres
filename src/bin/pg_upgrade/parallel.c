@@ -19,11 +19,11 @@
 static int	parallel_jobs;
 
 #ifdef WIN32
-/*存所有活跃线程句柄。无间隙/零以便传 WaitForMultipleObjects。双数组使 thread_handles 可传。
- *	
- *	
- *	
-                                                                                       */
+/*
+ *	保存所有活动线程的数组，不能有任何空隙/零，   
+ *	这样才能传给 WaitForMultipleObjects()。我们用两个   
+ *	数组，让 thread_handles 数组传给 WaitForMultipleObjects()。  
+ */
 HANDLE	   *thread_handles;
 
 typedef struct
@@ -52,12 +52,12 @@ DWORD		win32_exec_prog(exec_thread_arg *args);
 DWORD		win32_transfer_all_new_dbs(transfer_thread_arg *args);
 #endif
 
-/*与 exec_prog API同，但并行执行故必须报错且不返错误状态。
- *	
+/*
+ *	parallel_exec_prog
  *
- *	
- *	
-                                                                               */
+ *	此函数与 exec_prog 具有相同的 API，但它并行执行，    
+ *	因此必须抛出错误，并且不返回错误状态。          
+ */
 void
 parallel_exec_prog(const char *log_file, const char *opt_log_file,
 				   const char *fmt,...)
@@ -92,11 +92,11 @@ parallel_exec_prog(const char *log_file, const char *opt_log_file,
 
 			exec_thread_args = pg_malloc(user_opts.jobs * sizeof(exec_thread_arg *));
 
-			/*安全和性能：整个进程生命周期保持参数分配，不在不同线程释放。
-			 * 
-			 * 
-			 * 
-			                                                                                   */
+			/*
+			 * 出于安全与性能考虑，我们在进程整个生命期 
+			 * 内保持这些参数的分配，并且不会在与分配线程
+			 * 不同的线程中释放它们。               
+			 */
 			for (i = 0; i < user_opts.jobs; i++)
 				exec_thread_args[i] = pg_malloc0(sizeof(exec_thread_arg));
 		}

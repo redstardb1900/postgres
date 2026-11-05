@@ -853,16 +853,16 @@ pgtls_init(PGconn *conn, bool do_ssl, bool do_crypto)
 }
 
 /*
- *	需要此函数是因为：libpq 库从应用程序卸载后， 
- *	当系统其他部分使用 libcrypto 时，回调函数将不复     
- *	存在。为此，我们在最后一个 libpq 连接关闭时    
- *	注销回调函数。                                   
- *	（如果拥有 OpenSSL 回调，                                 
- *	亦然。）   
+ *	需要此函数是因为：如果 libpq 库从应用程序      
+ *	卸载，那么当系统其他部分使用 libcrypto 时，           
+ *	回调函数将不复存在。为此，我们在最后一个     
+ *	libpq 连接关闭时注销回调。（如果           
+ *	我们拥有 OpenSSL 回调的话，                              
+ *	也一样。）
  *
- *	回调仅在线程安全模式编译时才会被设置，        
- *	所以只需在这种情况下移除它们。在 OpenSSL          
- *	1.1.0 中不再需要。   
+ *	回调函数只有在线程安全模式下编译时才会被     
+ *	设置，所以只需在这种情况下移除。在 OpenSSL       
+ *	1.1.0 中也不需要了。
  */
 static void
 destroy_ssl_system(void)
@@ -1048,11 +1048,11 @@ initialize_SSL(PGconn *conn)
 	if (strcmp(fnbuf, "system") == 0)
 	{
 		/*
-		 * "system" 哨兵值表示我们应当加载任何为 OpenSSL       
-		 * 安装的根证书；位置因平台而异。注意，默认系统 
-		 * 位置还可能被 SSL_CERT_DIR 与 SSL_CERT_FILE                
-		 * 环境变量                                            
-		 * 进一步覆盖。    
+		 * "system" 哨兵值表示我们应当加载任何已安装供      
+		 * OpenSSL 使用的根证书；这些位置因平台而异。        
+		 * 注意，默认系统位置还可能被 SSL_CERT_DIR 与         
+		 * SSL_CERT_FILE 环境变量进一步                     
+		 * 覆盖。             
 		 */
 		if (SSL_CTX_set_default_verify_paths(SSL_context) != 1)
 		{

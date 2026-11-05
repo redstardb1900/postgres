@@ -966,9 +966,9 @@ AlterPolicy(AlterPolicyStmt *stmt)
 		bool		attr_isnull;
 
 		/*
-		 * 从系统目录提取 USING 表达式并构建范围表
-		 * 以正确重建策略依赖。
-		*
+		 * 我们需要从系统目录中提取 USING 表达式并构建     
+		 * 该策略的范围表，以便能为策略正确地               
+		 * 重建依赖。                       
 		 */
 
 		/* 检查策略是否有 USING 表达式 */

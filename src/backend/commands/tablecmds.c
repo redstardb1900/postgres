@@ -325,10 +325,10 @@ struct DropRelationCallbackState
 /*
  * ForeignTruncateInfo
  *
- * 与外部表截断相关的信息。用于哈希表的元素。它以 
- * 服务器 OID 作为查找键，并有每服务器列表，        
- * 列出该截断所涉及的所有外                                
- * 部表。  
+ * 与外部表截断相关的信息。用作哈希表的元素。       
+ * 它以服务器 OID 作为查找键，并包含                    
+ * 一个按服务器列出的、涉及本次截断的所有外部     
+ * 表。     
  */
 typedef struct ForeignTruncateInfo
 {
@@ -8858,8 +8858,8 @@ ATExecAddIndex(AlteredTableInfo *tab, Relation rel,
 /*
  * ALTER TABLE ADD STATISTICS
  *
- * 语法中没有这样的命令                                           
- * AT_ReAddStatistics 子命令，以便在列类型改变之后重建扩展  
+ * 语法中并不存在这样的命令，但我们在内部用它来添加 
+ * AT_ReAddStatistics 子命令以便在表列类型改变之后重建扩展  
  * 统计信息。    
  */
 static ObjectAddress
@@ -10013,39 +10013,39 @@ addFkRecurseReferenced(Constraint *fkconstraint, Relation rel,
 
 /*
  * addFkRecurseReferencing
- *		外键创建中引用方一侧的递归辅助函数，会创建   
- *		检查触发器并递归。                  
+ *		外键创建中引用方一侧的递归辅助函数，            
+ *		它创建检查触发器并递归。         
  *
- * 如果引用关系是普通关系，则创建实现该约束所需的检   
- * 查触发器，并为阶段 3 的约束验证做好准备。如果引用 
- * 关系是分区表，那么我们为它创建一个 pg_constraint 行  
- * 并针对每个分区对该例程进行                                  
+ * 如果引用关系是普通关系，则创建实现该约束所需的      
+ * 检查触发器，并为阶段 3 约束验证做好准备。如果       
+ * 引用关系是分区表，那么我们为它创建一个              
+ * pg_constraint 行，并对该例程在每个分区上                    
  * 递归。 
  *
- * 我们假定被引用关系已加锁防止并发删除。若是    
- * 分区关系，那么每个分区都必须同样加                   
+ * 我们假定被引用关系已加锁防止并发删除。          
+ * 如果它是分区关系，那么每个分区都必须同样加       
  * 锁。 
  *
- * wqueue：ALTER TABLE 工作队列；若不是在 ALTER TABLE     
- *      序列中运行时为 NULL 
+ * wqueue：ALTER TABLE 工作队列；非 ALTER TABLE              
+ *      的一部分时为 NULL    
  * fkconstraint：要添加的约束       
- * rel：引用关系；如果正在递归，可能是分区        
+ * rel：引用关系；如果正在递归则可能是分区        
  * pkrel：根被引用关系         
  * indexOid：实现此约束的（pkrel 上的）索引的 OID          
  * parentConstr：父约束的 OID（总是存在一个）             
  * numfks：外键中的列数                     
  * pkattnum：被引用属性的 attnum 数组        
  * fkattnum：引用属性的 attnum 数组            
- * pf/pp/ffeqoperators：列之间操作符的 OID 数组     
- * numfkdelsetcols：ON DELETE SET NULL/DEFAULT (...) 中                  
- *      的列数   
- * fkdelsetcols：ON DELETE SET NULL/DEFAULT (...) 子句            
+ * pf/pp/ffeqoperators：列间操作符的 OID 数组        
+ * numfkdelsetcols：ON DELETE SET NULL/DEFAULT (...) 子句               
+ *      中的列数
+ * fkdelsetcols：ON DELETE SET NULL/DEFAULT 子句中各列         
  *      的 attnum 数组  
- * old_check_ok：若此约束替换了一个已验证过的现有约 
- *      束（因此此约束不需要验证），则为 true        
- * lockmode：递归时在分区上获取的锁模式            
- * parentInsTrigger 和 parentUpdTrigger：当在一个分区上被递    
- *      归调用时，INSERT 与 UPDATE 的父检查触发器           
+ * old_check_ok：若此约束替换的现有约束已通过          
+ *      验证（因此此约束无需验证），则为 true        
+ * lockmode：递归时对分区获取的锁模式               
+ * parentInsTrigger 与 parentUpdTrigger：在分区上被                
+ *      递归调用时，INSERT 与 UPDATE 的父检查触发器        
  *      各自的 OID。    
  */
 static void
@@ -11274,11 +11274,11 @@ ATExecAlterConstrRecurse(Constraint *cmdcon, Relation conrel, Relation tgrel,
 	}
 
 	/*
-	 * 如果约束任一端的表为分区表，我们需要递归并处理  
-	 * 作为此约束子约束的每一个约束。                   
+	 * 如果约束任一端的表是分区表，我们就需要递归并     
+	 * 处理作为此约束子约束的每一个约束。             
 	 *
-	 * （假定分区表强制设置递归标志，传统继承则无， 
-	 * 尽管我们不在这里检查这一                                 
+	 * （这里假定对分区表强制设置了递归标志，而对    
+	 * 传统继承则未设置，尽管我们不在此处检查这一      
 	 * 点。）  
 	 */
 	if (rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE ||
@@ -11506,12 +11506,12 @@ ATExecValidateConstraint(List **wqueue, Relation rel, char *constrName,
 /*
  * transformColumnNameList - 转换列名列表            
  *
- * 查找每个名称并返回其 attnum 和可选的类型 OID    
+ * 查找每个名称，返回其 attnum 与可选的类型 OID    
  *
- * 注意：函数名看似通用，但只用于查找外键子句中 
- * 出现的名称。错误消息需要改进才能在其他情况下   
- * 使用它，或许它的有效性                                     
- * 检查也是如此。                   
+ * 注意：此函数的名字看似表明它是通用的，但实际 
+ * 上它仅用于查找出现在外键子句中的名称。            
+ * 错误消息需要改进才能在其他情况下使用它，          
+ * 或许有效性检查也是如此。    
  */
 static int
 transformColumnNameList(Oid relId, List *colList,

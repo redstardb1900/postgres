@@ -299,7 +299,7 @@ gimme_gene(PlannerInfo *root, Edge edge, Edge *edge_table)
 		friend = (Gene) edge.edge_list[i];
 
 		/*
-		 * 优先返回为负的共享边
+		 * 优先考虑为负的共享边；因此返回它们           
 		 */
 
 		/*

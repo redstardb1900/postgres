@@ -474,9 +474,9 @@ prepare_new_cluster(void)
 static void
 prepare_new_globals(void)
 {
-	/*恢复前先设 initdb 建表的 frozenxids。
-	 * 
-	                       */
+	/*
+	 * 恢复任何内容之前，先设置 initdb 建表的 frozenxids。 
+	 */
 	set_frozenxids(false);
 
 	/*

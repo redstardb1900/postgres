@@ -7465,9 +7465,9 @@ GetWALAvailability(XLogRecPtr targetLSN)
 	KeepLogSeg(currpos, slotsMinReqLSN, &oldestSlotSeg);
 
 	/*
-	 * 找到现存最旧段文件。
-	 * 在检查点移除第一个 WAL
-	 * 段之前我们得到 1。
+	 * 找到现存最旧的段文件。在检查点移除启动以来       
+	 * 的第一个 WAL 段文件之前，我们一直得到 1。这会       
+	 * 在某些异常情况下导致状态不正确，但实际上无害。  
 	 */
 	oldestSeg = XLogGetLastRemovedSegno() + 1;
 
@@ -7858,10 +7858,10 @@ xlog_redo(XLogReaderState *record)
 					(errmsg("online backup was canceled, recovery cannot continue")));
 
 		/*
-		 * 若看到关
-		 * 闭检查点，
-		 * 则知道此时主库上
-		 * 没有事务在运行。
+		 * 若看到关闭检查点，就知道此时主库上              
+		 * 没有事务在运行。于是就地构造一条空的         
+		 * running-xacts 记录并立即使用。为预备事务恢复       
+		 * 附加的备机状态。  
 		 */
 		if (standbyState >= STANDBY_INITIALIZED)
 		{
@@ -8165,10 +8165,10 @@ get_sync_bit(int method)
 	switch (method)
 	{
 			/*
-			 * 即使当前平
-			 * 台不支持，
-			 * 所有同步选项的
-			 * 枚举值也已定义。
+			 * 所有同步选项的枚举值都已定义，即使当前    
+			 * 平台不支持它们。但若不支持，它们就不会被
+			 * 纳入枚举选项数组，因此永远不会在这里         
+			 * 出现。    
 			 */
 		case SYNC_METHOD_FSYNC:
 		case SYNC_METHOD_FSYNC_WRITETHROUGH:
@@ -8198,10 +8198,10 @@ assign_xlog_sync_method(int new_sync_method, void *extra)
 	if (sync_method != new_sync_method)
 	{
 		/*
-		 * 为确保没有块未
-		 * 经同步就逃逸，
-		 * 对当前打开的日志段强制
-		 * fsync。
+		 * 为确保没有任何块未经同步就遗漏，强制对      
+		 * 当前打开的日志段（若有）执行 fsync。另外，   
+		 * 若打开标志变化，则关闭日志文件，下次重开时   
+		 * 带新标志。  
 		 */
 		if (openLogFile >= 0)
 		{
@@ -8502,15 +8502,15 @@ do_pg_backup_start(const char *backupidstr, bool fast, List **tablespaces,
 			}
 
 			/*
-			 * 若两个基础备
-			 * 份同时
-			 * 启动（在
-			 * WAL
-			 * sender
-			 * 进程中），
-			 * 我们需
-			 * 要确保使
-			 * 用较旧的起点。
+			 * 若两个基础备份同时启动（在 WAL 发送进程       
+			 * 中），我们必须确保它们以不同的检查点  
+			 * 作为起始位置，因为我们把起始 WAL 位置用作   
+			 * 基础备份的唯一标识符，这既用于备份结束     
+			 * 的 WAL 记录，也用于写入备份历史文件。        
+			 * 或许更好的做法是为每个备份生成单独的        
+			 * 唯一 ID，而不是强迫再做一次检查点，但    
+			 * 紧接连着做检查点也并不那么昂贵，因为       
+			 * 毕竟此时尚只有少数缓冲区被弄脏。      
 			 */
 			WALInsertLockAcquireExclusive();
 			if (XLogCtl->Insert.lastBackupStart < state->startpoint)
@@ -8674,8 +8674,8 @@ do_pg_backup_stop(BackupState *state, bool waitforarchive)
 	backup_stopped_in_recovery = RecoveryInProgress();
 
 	/*
-	 * 在恢复期间，
-	 * 我们不必检查 WAL 级别。
+	 * 在恢复期间，我们不必检查 WAL 级别。                
+	 * 因为若 WAL 级别不够，恢复时根本不可能到这里。    
 	 */
 	if (!backup_stopped_in_recovery && !XLogIsNeeded())
 		ereport(ERROR,

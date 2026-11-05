@@ -805,10 +805,10 @@ progress_report(int tablespacenum, bool force, bool finished)
 	percent = totalsize_kb ? (int) ((totaldone / 1024) * 100 / totalsize_kb) : 0;
 
 	/*
-	 * 避免溢出超过 100% 或总大小。临近备份结束，总计   
-	 * 大小数字可能变化（若含 WAL，估计值永远不准），  
-	 * 但这总比 done 列大于                                            
-	 * 总计的情况要好。                 
+	 * 避免溢出超过 100% 或总大小。这可能使总大小数字   
+	 * 在临近备份结束时发生变化（如果包含 WAL，估计     
+	 * 值永远是不对的），但这总比让 done 列大于总计        
+	 * 的情况要好。                       
 	 */
 	if (percent > 100)
 		percent = 100;
@@ -939,22 +939,22 @@ parse_max_rate(char *src)
 /*
  * 对 -Z/--compress 所指定值的基本解析。     
  *
- * 我们不关心确切了解用户想要何种行为，但确实需要
- * 知道用户请求的是客户端压缩、服务端压缩还是未指定
- * 并且需要把压缩算法的名称与细节字符串分开。     
- * 例如，如果用户写入 --compress client-lz4:6，我们希望    
+ * 我们在此不关心确切弄清用户想要的行为，但确实   
+ * 需要知道用户请求的是客户端压缩、服务端压缩，      
+ * 还是未指定，并且需要把压缩算法名称与细节        
+ * 字符串分开。                                                    
  *
- * 将其拆分为 (a) 客户端压缩、(b) 算法 "lz4"、(c) 细节 
- * "6"。不过要注意，client/server 前缀是可选的，细节   
- * 也是如此。算法名称是必需的，除非整个字符串是     
- * 一个整数，此时我们假定算法为 "gzip"，并把该         
- * 整数用作                                                         
- * 细节。                                   
+ * 例如，如果用户写入 --compress client-lz4:6，我们        
+ * 希望将其拆分为 (a) 客户端压缩、(b) 算法 "lz4"、     
+ * 以及 (c) 细节 "6"。但要注意，client/server 前缀是         
+ * 可选的，细节也同样如此。算法名称是必需的，除非 
+ * 整个字符串是一个整数，此时假定算法为 "gzip"，     
+ * 并把该整数用作细节。              
  *
  * 在此阶段我们不关心验证问题，因此如果用户写入      
- * --compress client-turkey:sandwich，则所请求的算法是          
- * "turkey"，细节字符串是 "sandwich"。是否合法将于以后     
- * 阶段厘清。  
+ * --compress client-turkey:sandwich，则所请求的算法             
+ * 是 "turkey"，细节字符串是 "sandwich"。它是否合法          
+ * 稍后厘清。  
  */
 static void
 backup_parse_compress_options(char *option, char **algorithm, char **detail,
@@ -1023,13 +1023,13 @@ ReceiveCopyData(PGconn *conn, WriteDataCallback callback,
 }
 
 /*
- * 根据用户所选选项，决定如何处理服务器发来的归档  
- * 。结果可能被直接写入文件，也可能先压缩，也可能    
- * 解压 tar 文件并逐个写入其成员。这个函数并不直接   
- * 做这些事，但它会算出我们需要创建何种 bbstreamer，  
- * 以便等到之后，也就是真正收到数据的时候，           
- * 能让正确的事情得以发生                                    
- * 。      
+ * 根据用户所选的选项，决定如何处理从服务器           
+ * 接收到的归档。我们可能直接把结果写入文件，          
+ * 也可能先压缩，也可能解出 tar 文件并单独写            
+ * 出每个成员。本函数并不直接做其中任何一事，       
+ * 但它会算出我们需要创建何种 bbstreamer，以便            
+ * 之后真正接收数据时能让正确的事情                     
+ * 发生。
  */
 static bbstreamer *
 CreateBackupStreamer(char *archive_name, char *spclocation,
@@ -1144,9 +1144,9 @@ CreateBackupStreamer(char *archive_name, char *spclocation,
 		char		archive_filename[MAXPGPATH];
 
 		/*
-		 * tar 格式下直接写出归档而不解压。通常把它写  
-		 * 到调用者提供的归档名，但当基础目录为 "-" 时，
-		 * 这意味着我们需要写入                                   
+		 * tar 格式下，我们直接写出归档而不解压。        
+		 * 通常我们把它写到调用者提供的归档名，           
+		 * 但当基础目录为 "-" 时，这意味着我们需要写入   
 		 * 标准输出。 
 		 */
 		if (strcmp(basedir, "-") == 0)
@@ -2055,13 +2055,13 @@ BaseBackup(char *compression_algorithm, char *compression_detail,
 		/*
 		 * 现在接收备份清单（如合适）。  
 		 *
-		 * 若把 tar 文件写入 stdout，ReceiveTarFile 已           
-		 * 经处理过备份清单并把它含入输出 tar 文件。这种  
-		 * 配置不允许写入多个文件                                
-		 * 。   
+		 * 如果我们把 tar 文件写到 stdout，ReceiveTarFile      
+		 * 将已经处理过备份清单并把它包含进输出的          
+		 * tar 文件中。这种配置不允许写入多个文             
+		 * 件。
 		 *
-		 * 若服务器较旧，就不会发送备份清单，所以  
-		 * 不要尝试接收清单。           
+		 * 如果我们对话的服务器较旧，它不会发送     
+		 * 备份清单，故勿尝试接收。  
 		 */
 		if (!writing_to_stdout && manifest)
 			ReceiveBackupManifest(conn);

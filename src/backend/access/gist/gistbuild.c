@@ -734,51 +734,51 @@ gistInitBuffering(GISTBuildState *buildstate)
 	maxIndexTuplesPerPage = pageFreeSpace / itupMinSize;
 
 	/*
-	 * 我们需要为缓冲算法计算两个参数：
-	 * levelStep 与 pagesPerBuffer。
+	 * 我们需要为缓冲算法计算两个参数：                
+	 * levelStep 与 pagesPerBuffer 
 	 *
-	 * levelStep 决定清空缓冲区时所操作的子树
-	 * 大小。值越高越好，因为构建索引所需的
-	 * 缓冲区清空步骤更少。但若设得太高，子树就
-	 * 不再装得进缓存，并很快失去
-	 * 缓冲区的
-	 * 好处。
+	 * levelStep 决定清空缓冲区时所操作子树的大小。     
+	 * 值越高越好，因为构建索引所需的缓冲区               
+	 * 清空步骤更少。但若设得太高，子树就不再              
+	 * 装得进缓存，并很快失去缓冲区的                         
+	 * 好处。      
 	 *
-	 * 在 Arge 等人的论文中，levelStep 取为 logB(M/4B)，其中 B 是
-	 * 页上的元组数（即扇出），M 是可用
-	 * 内部内存量。奇怪的是，他们并未解释*为何*
-	 * 该设置最优。我们通过取仍使子树装得进缓存的
-	 * 最高 levelStep 来计算。对较小的 B，我们计算
-	 * levelStep 的方式非常接近 Arge 等人的公式。对
+	 * 在 Arge 等人论文中，levelStep 取 logB(M/4B)，其中 B 是  
+	 * 页上元组数（即扇出），M 是可用内部内存量。   
+	 * 奇怪的是，他们并未解释*为何*该设置最优。          
+	 * 我们通过取仍能使子树装进缓存的最高 levelStep         
+	 * 来计算。对较小的 B，我们计算 levelStep 的      
+	 * 方式非常接近 Arge 等人的公式。对                     
 	 * 较大的 B，我们的公式给出的值高 2 倍。
 	 *
-	 * 深度为 n 的子树的平均大小（以页计）可按
-	 * 几何级数计算：
+	 * 深度为 n 的子树的平均大小（以页计）可按            
+	 * 几何级数计算： 
 	 *
 	 * B^0 + B^1 + B^2 + ... + B^n = (1 - B^(n + 1)) / (1 - B)
 	 *
-	 * 其中 B 是页上索引元组的平均数。子树缓存在
-	 * 共享缓冲缓存与操作系统缓存中，因此我们选择
-	 * levelStep，使子树大小舒适地小于
-	 * effective_cache_size，并带有安全系数 4。
+	 * 其中 B 是页上索引元组的平均数。子树缓存在         
+	 * 共享缓冲缓存与操作系统缓存中，因此我们选择 
+	 * levelStep，使子树大小舒适地小于                    
+	 * effective_cache_size，安全系数为 4。     
 	 *
-	 * 页上索引元组平均数的估计基于切换到缓冲
-	 * 构建前所观测到的平均元组大小，因此
-	 * 真实子树大小可能略大。此外，独占整个
-	 * 缓存做索引构建也不厚道。安全系数 4
-	 * 应能覆盖这些影响。
+	 * 页上索引元组平均数的估计基于切换到缓冲构建       
+	 * 前观测到的平均元组大小，因此真实子树大小           
+	 * 可能略大。此外，独占整个缓存做索引构建          
+	 * 也不厚道。安全系数 4 应能                              
+	 * 覆盖这些影响。            
 	 *
-	 * 设置 levelStep 的另一限制因素是：处理
-	 * 子树时，我们需要为下一更低缓冲层的每个缓冲区
-	 * 持有一页。为此所需的最大缓冲区数为
-	 * maxIndexTuplesPerPage^levelStep。这非常保守，但
-	 * 希望 maintenance_work_mem 设得足够高，使你
-	 * 受 effective_cache_size 而非 maintenance_work_mem 约束。
+	 * 设置 levelStep 的另一限制因素是：处理子树     
+	 * 时，我们需要为下一更低缓冲层的每个缓冲区         
+	 * 持有一页。为此所需的最大缓冲区数为                  
+	 * maxIndexTuplesPerPage^levelStep。这非常保守，              
+	 * 但希望 maintenance_work_mem 设得足够高，使你      
+	 * 受 effective_cache_size 而非 maintenance_work_mem 约束。       
 	 *
-	 * XXX: 缓冲区哈希表每个缓冲区也消耗相当多内存，
-	 * 但当前未计入。它随所用缓冲区总数伸缩，
-	 * 即随索引大小与 levelStep。注意更高的 levelStep
-	 * *减少* 哈希表所需的内存量。
+	 * XXX: 缓冲区哈希表每个缓冲区也消耗相当多内存，  
+	 * 但当前未计入。它随所用缓冲区总数伸缩，           
+	 * 即随索引大小与 levelStep。注意                              
+	 * 更高的 levelStep *减少* 哈希表所需的                       
+	 * 内存量。   
 	 */
 	levelStep = 1;
 	for (;;)
@@ -1173,8 +1173,8 @@ gistbufferinginserttuples(GISTBuildState *buildstate, Buffer buffer, int level,
 				UnlockReleaseBuffer(childbuf);
 
 				/*
-				 * 同时记住新子页的父是
-				 * 根块。
+				 * 同时记住：新子页的父块是                      
+				 * 根块。  
 				 */
 				gistMemorizeParent(buildstate, childblkno, GIST_ROOT_BLKNO);
 			}

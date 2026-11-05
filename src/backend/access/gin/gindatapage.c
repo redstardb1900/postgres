@@ -120,16 +120,16 @@ static void dataPlaceToPageLeafSplit(disassembledLeaf *leaf,
 									 Page lpage, Page rpage);
 
 /*
- * 从叶子数据页读取 TIDs 到单个未压缩数组。TIDs 按
- * 升序返回。
+ * 从叶子数据页读取 TIDs 到单个未压缩数组。TIDs 按       
+ * 升序返回。             
  *
- * advancePast 是一个提示，表示调用者只关心
- * TID > advancePast。若要返回全部项，使用
- * ItemPointerSetMin。
+ * advancePast 是一个提示，表示调用者只关心                 
+ * TID > advancePast。返回全部项则用 ItemPointerSetMin。 
  *
- * 注意：本函数仍可能返回小于 advancePast、但与感兴趣项
- * 处于同一倒排列表中的项，因此调用者仍须检查所有返回项。
- * 但传入该提示可让本函数跳过整段倒排列表。
+ * 注意：本函数仍可能返回小于 advancePast、且与            
+ * 感兴趣的项处于同一倒排列表中，因此仍须检查所有    
+ * 返回项。但传入该提示可让本函数跳过整段                 
+ * 倒排列表。          
  */
 ItemPointer
 GinDataLeafPageGetItems(Page page, int *nitems, ItemPointerData advancePast)

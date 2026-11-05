@@ -2336,8 +2336,8 @@ convert_requires_to_datum(List *requires)
 }
 
 /*
- * 报告指定扩展存在的版本更新路径。
-*
+ * 本函数报告指定扩展现存的各版本                    
+ * 更新路径。     
  */
 Datum
 pg_extension_update_paths(PG_FUNCTION_ARGS)

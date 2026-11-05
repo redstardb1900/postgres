@@ -56,9 +56,9 @@ end_progress_output(void)
 		pg_log(PG_REPORT_NONL, "%-*s", MESSAGE_WIDTH, "");
 }
 
-/*退出时移除内部日志。
- * 
-                                       */
+/*
+ * 删除内部生成的所有日志。仅在退出时使用一次。  
+ */
 void
 cleanup_output_dirs(void)
 {

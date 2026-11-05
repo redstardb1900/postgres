@@ -65,9 +65,9 @@ get_loadable_libraries(void)
 		DbInfo	   *active_db = &old_cluster.dbarr.dbs[dbnum];
 		PGconn	   *conn = connectToServer(&old_cluster, active_db->db_name);
 
-		/*获取此库中所有含非内建 C 函数的库
-		 * 
-		                    */
+		/*
+		 * 获取此数据库中所有包含非内建 C 函数的库。       
+		 */
 		ress[dbnum] = executeQueryOrDie(conn,
 										"SELECT DISTINCT probin "
 										"FROM pg_catalog.pg_proc "

@@ -520,37 +520,37 @@ TypeCreate(Oid newTypeOid,
 }
 
 /*
- * GenerateTypeDependencies: 构建类型所需的依赖
+ * GenerateTypeDependencies：构建一个类型所需的依赖      
  *
- * 本函数需要了解的关于该类型的大部分信息通过
- * 新的 pg_type 行 typeTuple 传入。我们还让调用方传入
- * pg_type Relation，以便我们能方便地取得该行的元组描述符。
+ * 本函数关于该类型所需了解的大部分信息都通过新的   
+ * pg_type 行 typeTuple 传入。我们还让调用方传入 pg_type    
+ * Relation，以便我们能方便地取得该行的元组描述符。   
  *
- * 虽然本函数能从元组中提取 defaultExpr 与 typacl，
- * 但这样做相对昂贵，且调用方可能手头已有这些值。
- * 若方便则传入，否则传 NULL。（typacl 实际上是
- * "Acl *"，但我们把它声明为 "void *"，以免在
- * pg_type.h 中包含 acl.h。）
+ * 虽然本函数能从元组中提取 defaultExpr 和 typacl，但这样 
+ * 做相对昂贵，而且调用方可能手头已有这些值。       
+ * 方便的话就传入这些值，否则传 NULL。（typacl 实际上      
+ * 是 "Acl *"，但声明为 "void *"，以免 pg_type.h 含 acl.h。）     
  *
- * relationKind 与 isImplicitArray 从元组推导也相对昂贵，
- * 因此我们让调用方传入它们（它们不是可选的）。
+ * 从元组推导 relationKind 与 isImplicitArray 同样相对昂贵，    
+ * 因此我们让调用方传入它们（它们不是可选的）。   
  *
- * 若这是隐式数组或关系行类型，则 isDependentType 为真；
- * 这意味着它不需要自己对所有者等的依赖。
+ * 若这是隐式数组或关系行类型，则 isDependentType 为真；  
+ * 这意味着它不需要自己对所有者等的依赖。    
  *
- * 若我们在扩展脚本中且 makeExtensionDep 为真（且
- * isDependentType 不为真），则建立扩展成员依赖。
- * 创建新类型或替换外壳类型时应使 makeExtensionDep 为真，
- * 但对已有类型的 ALTER TYPE 则否。传入 false
- * 会使该类型的扩展成员关系保持不动。
+ * 如果我们在扩展脚本中且 makeExtensionDep 为真（且    
+ * isDependentType 不为真），则建立扩展成员依赖。        
+ * 创建新类型或替换外壳类型时 makeExtensionDep 应为真，  
+ * 但对已有类型的 ALTER TYPE 则否。传 false 会使该类型   
+ * 的扩展成员关系保持不变。                    
  *
- * 若这是预先存在的类型，rebuild 应为真。我们将移除
- * 已有依赖并从零重建。这对 ALTER TYPE 以及替换外壳类型
- * 是需要的。不过我们不移除任何已有扩展依赖；因此，若
- * makeExtensionDep 也为真且我们在扩展脚本中，除非该类型
- * 已属于当前扩展，否则会发生错误。这正是我们在替换
- * 外壳类型时所要的行为，而那也是两个标志都为真的
- * 唯一情形。
+ * 若这是预先存在的类型，则 rebuild 应为真。我们将    
+ * 移除已有依赖并从零重建它们。这对 ALTER TYPE 以及      
+ * 替换外壳类型时也需要。但我们不移除任何已有       
+ * 扩展依赖；因此，若 makeExtensionDep 也为真且我们在       
+ * 扩展脚本中，除非类型已属当前扩展，否则出错。   
+ * 这正是我们在替换外壳类型时想要的行为，那也是    
+ * 两个标志都为真的唯一                                           
+ * 情形。
  */
 void
 GenerateTypeDependencies(HeapTuple typeTuple,

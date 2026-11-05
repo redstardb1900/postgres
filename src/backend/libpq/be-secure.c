@@ -185,22 +185,22 @@ retry:
 						 WAIT_EVENT_CLIENT_READ);
 
 		/*
- * 若 postmaster 已死亡，继续运行就不安全，因为若其他后端
- * 不干净地退出，该由 postmaster 来杀掉我们。而且在这种
- * 状态下我们也跑不好；walwriter 和 bgwriter 这类辅助进程
- * 会退出，性能可能很差。最后，若我们不退出，不人工干预
- * pg_ctl 就无法重启 postmaster，从而无法接受新连接。退出
- * 是为 postmaster 重启清场。
- *
- * （注意，只在本来就要在锁存器上睡眠时才做这项检查。若
- * postmaster 在查询中途被杀掉，或者我们一直不用等待读取，
- * 甚至跨多条查询，我们仍可能继续跑一会儿。我们不想为这种
- * 极罕见的情况烧掉过多周期，而这样在多数情况下应能让我们
- * 很快退出。）
- *
- *
- *
- */
+		 * 若 postmaster 已死，继续跑不安全；其他后端     
+		 * 不干净退出时该由 postmaster 杀掉我们。而且在此    
+		 * 状态下我们也跑不好；walwriter 和 bgwriter 等         
+		 * 辅助进程会退出，性能可能很差。最后，若不  
+		 * 退出，pg_ctl 将无法不经人工干预就重启 postmaster， 
+		 * 因此无法接受新连接。退出为                            
+		 * postmaster 重启                                              
+		 * 扫清道路。    
+		 *
+		 * （注意，只在本来要在 latch 上睡眠时才检查。      
+		 * 若 postmaster 在查询中途被杀，或我们从来不必  
+		 * 等待读取，甚至跨多条查询，我们可能仍会继续跑 
+		 * 一段时间。我们不想为这种极罕见情况耗费太多   
+		 * 周期去检查，而这应能让我们在多数情况下快速    
+		 * 退出。）                      
+		 */
 		if (event.events & WL_POSTMASTER_DEATH)
 			ereport(FATAL,
 					(errcode(ERRCODE_ADMIN_SHUTDOWN),

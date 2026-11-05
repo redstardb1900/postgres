@@ -2013,15 +2013,15 @@ selectDumpableAccessMethod(AccessMethodInfo *method, Archive *fout)
 }
 
 /*
- * selectDumpableExtension：策略设置子程序
- *   标记一个扩展是否应被导出
- * 
- * 内置扩展始终存在，在 pg_dump 运行期间无法被删除。
- * 我们仍然希望导出它们的内容（成员对象），
- * 即使不能按名称包含/排除它们。
- * 
- * 注意：getExtension 已应用了用户指定的模式匹配。
+ * selectDumpableExtension：策略设置子例程   
+ *		标记一个扩展是否应被导出    
  *
+ * 内置扩展应跳过，但检查 ACL 除外，因为我们假定它们 
+ * 已安装在目标数据库中。我们通过其 OID 位于 initdb         
+ * 保留范围来识别这类扩展。                                  
+ * 默认导出用户添加的所有扩展。若                          
+ * include_everything 为 false（即给出 --schema 或 --table），   
+ * 则不导出扩展，除非 --extension 指定导出扩展列表。  
  */
 static void
 selectDumpableExtension(ExtensionInfo *extinfo, DumpOptions *dopt)
@@ -2302,11 +2302,11 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 		set_restrict_relation_kind(fout, "view");
 
 	/*
-	 * 如果要发出带列名的 INSERT，处理生成列最有效的    
-	 * 方式是将它们完全排除。对于不带列名的 INSERT，    
-	 * 我们必须发出 DEFAULT 而不是                                 
-	 * 实际的列值 --- 但我们可以通过取回空值来节省一些  
-	 * 周期，而非我们不感兴趣的值。
+	 * 若要发出带列名的 INSERT，最有效的做法是将生成列 
+	 * 完全排除。对于不带列名的 INSERT，我们必须发出    
+	 * DEFAULT 而不是实际的列值 --- 但可以通过取回空值     
+	 * 来节省一些周期，而不是                                     
+	 * 取回我们不感兴趣的值。         
 	 */
 	attgenerated = (char *) pg_malloc(tbinfo->numatts * sizeof(char));
 	appendPQExpBufferStr(q, "DECLARE _pg_dump_cursor CURSOR FOR SELECT ");
@@ -2410,13 +2410,13 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 				archputs(insertStmt->data, fout);
 
 			/*
-			 * 如果是零列表，那么我们已经写出了完整的语句，
-			 * 这意味着我们已经输出了足够的数据作为一行。
-			 * 如果我们不在多行 INSERT 块的中间，则跳过这一行。
-			 * 
-			 * 如果我们完全处于多行 INSERT 块的中间，
-			 * 我们就把它展开成一组单行 INSERT 语句。
-			 *
+			 * 如果是零列的表，则已写出完整语句，      
+			 * 这意味着我们已违反了 --rows-per-insert   
+			 * （当其大于 1 时）。我们支持这样一种方式：  
+			 * SELECT UNION ALL SELECT                                   
+			 * UNION ALL ... 但这是非标准的，所以应避免它，
+			 * 毕竟 INSERT 主要只用于跨数据库              
+			 * 导出。              
 			 */
 			if (nfields == 0)
 				continue;
@@ -2456,15 +2456,15 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 					case NUMERICOID:
 						{
 							/*
-							 * 这些类型不带引号打印，除非它们包含不被类型输入函数
-							 * 接受的值（数据类型的输入函数将正确处理），
-							 * 或者如果它们是数值类型并带有 Infinity、-Infinity 或 NaN。
-							 * 
-							 * 这里我们以引号形式输出这些特定的引用值。
-							 * 
-							 * 然而，为了可移植性，其他平台特定的无限大和 NaN 表示
-							 * 仍然以不带引号的形式输出。这包括 inf 和 -inf 用于 float4/float8。
+							 * 这些类型不带引号打印，除非      
+							 * 它们包含扫描器不接受                 
+							 * 的不带引号值（如 'NaN'）。注意
+							 * strtod() 等函数可能接受 NaN，因此 
+							 * 不能用其测试。  
 							 *
+							 * 实际上我们只需防御无穷大和  
+							 * NaN，所以这里的模式匹配不必做得 
+							 * 过于复杂。             
 							 */
 							const char *s = PQgetvalue(res, tuple, field);
 
@@ -2841,11 +2841,11 @@ makeTableDataInfo(DumpOptions *dopt, TableInfo *tbinfo)
 }
 
 /*
- * 物化视图的刷新必须依赖于该视图依赖的任何
- * 物化视图的刷新，以便在依赖视图的数据之后
- * 自动刷新视图。
- * 
- * 原始 SQL 视图的转储中没有物化视图，因此仅当
+ * 物化视图的刷新必须依赖于该视图所依赖的任何         
+ * 物化视图的刷新。                            
+ *
+ * 本函数必须在所有对象创建之后、但在它们排序之        
+ * 前。 
  */
 static void
 buildMatViewRefreshDependencies(Archive *fout)
@@ -2952,15 +2952,15 @@ buildMatViewRefreshDependencies(Archive *fout)
 
 /*
  * getTableDataFKConstraints -
- *   添加反映外键约束的导出顺序依赖
- * 
- * 这些依赖确保外键所引用的表的表数据在外键
- * 所属表的表数据之前被导出。
- * 
- * 对于 --data-only，我们通过确保约束在数据之后而不是
- * 之前创建来避免外键检查，因此不需要额外的依赖。
+ *	  添加反映外键约束的导出顺序依赖关系           
  *
- *
+ * 此代码仅在纯数据导出中执行 --- 模式+数据导出中，  
+ * 我们通过在数据加载完后才创建 FK 约束来处理外键  
+ * 问题。而在纯数据导出中，我们希望表数据对象的 
+ * 排序时让被引用表先恢复。（有循环引用或自引用  
+ * 时这可能做不到；我们会在                                  
+ * 依赖排序步骤中检测并抱怨                                   
+ * 这一情况。）                       
  */
 static void
 getTableDataFKConstraints(void)
@@ -3202,12 +3202,12 @@ dumpDatabase(Archive *fout)
 	}
 
 	/*
-	 * 注意：此处查看 dopt->outputNoTablespaces 是完全错误的；
-	 * 决定在 pg_restore 中做出。但是它提供了恢复选项的
-	 * 非常有用的使用方式。这可能应该改变。
-	 * 
-	 * 为清楚起见，在二进制升级模式下始终设置表空间。
-	 *
+	 * 注意：此处查看 dopt->outputNoTablespaces 是完全错误的；  
+	 * 是否指定表空间的决定应留给 pg_restore，这样            
+	 * pg_restore --no-tablespaces 才会生效。理想情况下，         
+	 * 我们会给 DATABASE 条目标上表空间，让常规的     
+	 * 表空间选择逻辑发挥作用 ... 但 CREATE DATABASE 并      
+	 * 不理会 default_tablespace，因此行不通。   
 	 */
 	if (strlen(tablespace) > 0 && strcmp(tablespace, "pg_default") != 0 &&
 		!dopt->outputNoTablespaces)
@@ -3302,12 +3302,12 @@ dumpDatabase(Archive *fout)
 			dba, &dbdacl);
 
 	/*
-	 * 现在构造一个 DATABASE PROPERTIES 归档条目，
-	 * 以恢复可能已更改的非默认数据库级 GUC 变量。
-	 * 此外，在二进制升级模式下，我们向此条目添加查询，
-	 * 以重置某些关键系统目录的 relfrozenxid 和相关字段。
-	 * 
-	 * 这必须在加载其他内容之前发生。
+	 * 现在构造一个 DATABASE PROPERTIES 归档条目，          
+	 * 以恢复非默认数据库级属性。（其必须单独，    
+	 * 原因是不能把其他命令放进带有 CREATE DATABASE 的     
+	 * TOC 条目。pg_restore 在隐式事务块中执行该组命令，    
+	 * 而后端不允许在该上下文中执行 CREATE                   
+	 * DATABASE。）            
 	 */
 	resetPQExpBuffer(creaQry);
 	resetPQExpBuffer(delQry);
@@ -3905,10 +3905,10 @@ getPolicies(Archive *fout, TableInfo tblinfo[], int numTables)
 	appendPQExpBufferChar(tbloids, '}');
 
 	/*
-	 * 现在，读取属于感兴趣表的所有 RLS 策略，
-	 * 并为每个策略创建 PolicyInfo 对象。
-	 * 
-	 * 这包括一切 —— 甚至是默认策略。
+	 * 现在，读取属于相关表的所有 RLS 策略，并为它们  
+	 * 创建 PolicyInfo 对象。（注意，过滤必须在            
+	 * 服务器端而非本地进行，因为我们不敢对未加锁的表 
+	 * 应用 pg_get_expr。）         
 	 */
 	pg_log_info("reading row-level security policies");
 
@@ -5131,15 +5131,15 @@ binary_upgrade_set_pg_class_oids(Archive *fout,
 	RelFileNumber toast_index_relfilenumber;
 
 	/*
-	 * 保留表的 OID 和 relfilenumber、表的索引、
-	 * 表的 TOAST 表和 TOAST 表的索引。
-	 * 还需要为其 TOAST 表保留 OID，
-	 * 并且如果它是 ACL 条目的目标，我们可能还需要
-	 * 为表的 TOAST 表插入一个 ACL 条目。
-	 * 
-	 * 但请注意：仅在二进制升级模式下执行此操作。
+	 * 保留表、表的索引、表的 TOAST 表（如果有）及其       
+	 * 索引的 OID 和 relfilenumber。         
 	 *
-	 *
+	 * 一个复杂之处是当前表定义可能不需要创建 TOAST      
+	 * 表，但旧数据库可能有先前在某宽列被删除之前       
+	 * 创建的 TOAST 表。通过设置 TOAST oid，我们强制           
+	 * 新后端创建 TOAST 堆和索引，这样在二进制升级         
+	 * 期间复制文件时就无需                                    
+	 * 担心这种情况。            
 	 */
 	appendPQExpBuffer(upgrade_query,
 					  "SELECT c.relkind, c.relfilenode, c.reltoastrelid, ct.relfilenode AS toast_relfilenode, i.indexrelid, cti.relfilenode AS toast_index_relfilenode "
@@ -5344,20 +5344,20 @@ getNamespaces(Archive *fout, int *numNamespaces)
 			nsinfo[i].dobj.components |= DUMP_COMPONENT_ACL;
 
 		/*
-		 * 我们忽略 public 模式的任何 pg_init_privs.initprivs 条目，
-		 * 并假设使用预先确定的默认值。
-		 * 这些在 v15 中已更改，因此逻辑取决于服务器版本。
-		 * 
-		 * 此外，对于每个现有模式，我们检查 initdb 是否设置了任何
-		 * initprivs，并将它们与我们期望的值进行比较。
-		 * 如果一致，则对象报告其默认 ACL，我们什么都不做。
-		 * 如果不一致，则对象报告其非默认 ACL 包含在转储中。
-		 * 
-		 * 对于 pg_catalog，我们始终包含其 ACL，否则在转储 pg_catalog 的
-		 * ACL 时，我们将无法区分已撤销和未撤销的 ACL。
-		 *
-		 *
-		 *
+		 * 我们忽略 public 模式的任何 pg_init_privs.initprivs      
+		 * 条目并假定预定默认值，原因有数点。其一，    
+		 * 删除并重建该模式会移除其 pg_init_privs 条目，但    
+		 * 空的目标数据库仍会以该 ACL 开始。第二，           
+		 * 我们支持 public 模式所有者变更的导出/重载。      
+		 * ALTER SCHEMA OWNER 会经 aclnewowner() 过滤 nspacl，    
+		 * 但 initprivs 仍反映初始所有者。因此，合成 
+		 * 出 nspacl 在恢复的 ALTER SCHEMA OWNER 之后应有       
+		 * 的值。第三，这使目标数据库与源的 ACL 匹配， 
+		 * 即使后者是 initdb 默认的 ACL，                         
+		 * 而它在 v15 中有变更。升级会带入 DBA 未定制的  
+		 * 大多数系统对象 ACL 变更。我们已让 public 模式      
+		 * 偏离该行为，因为改动它的 ACL 很容易破坏应用    
+		 * 程序。           
 		 */
 		if (strcmp(nsinfo[i].dobj.name, "public") == 0)
 		{
@@ -6799,15 +6799,15 @@ getTables(Archive *fout, int *numTables)
 			selectDumpableTable(&tblinfo[i], fout);
 
 		/*
-		 * 现在，如果我们需要导出其定义或数据，
-		 * 就将表视为"有趣的"。稍后，当我们扫描索引时，
-		 * 我们将标记需要导出的索引。
-		 * 
-		 * 但要注意：这可能会被扩展成员身份覆盖。
-		 * 
-		 * 我们还确定表是否包含任何列级 ACL，
-		 * 或者是否包含任何生成列。
+		 * 现在，若需导出其定义或数据，则视该表为   
+		 * "有趣的"。稍后，我们会跳过许多               
+		 * 针对无趣表的数据收集。   
 		 *
+		 * 注意："有趣的"标志还会由 flagInhTables 设置，用于 
+		 * 有趣表的父表，即使父表不被导出也能收集  
+		 * 必要的继承信息。                                       
+		 * 这正是我们需要单独"有趣的"标志的主要原因：    
+		 * 它有别于待导出组件位掩码。             
 		 */
 		tblinfo[i].interesting = (tblinfo[i].dobj.dump &
 								  (DUMP_COMPONENT_DEFINITION |
@@ -12268,19 +12268,19 @@ dumpFunc(Archive *fout, const FuncInfo *finfo)
 		appendPQExpBuffer(q, "\n    SET %s TO ", fmtId(configitem));
 
 		/*
-		 * 标记为 GUC_LIST_QUOTE 的变量在被放入 proconfig 数组之前
-		 * 已由 flatten_set_variable_args() 完全引用。但是，由于
-		 * 那里使用的引用规则与 SQL 不完全相同，我们必须将列表值
-		 * 拆分开，然后将元素作为字符串字面量引用。（元素可以
-		 * 原样双引号引用，但我们不能直接将其输入 SQL 解析器；
-		 * 对于长度为零或超过 NAMEDATALEN 的元素，它会做错误的事情。）
-		 * 
-		 * 未标记的变量应该作为简单的字符串字面量发出。如果变量
-		 * 不被 variable_is_guc_list_quote() 所知，我们会这样做；
-		 * 这使得对扩展变量使用 GUC_LIST_QUOTE 变得不安全。
+		 * 标记为 GUC_LIST_QUOTE 的变量在被放入 proconfig 数组   
+		 * 之前已由 flatten_set_variable_args() 全部加引号。 
+		 * 但那里的引号规则与 SQL 不完全相同，因此必须 
+		 * 拆分列表值，再将元素按字符串字面量加引号。 
+		 * （元素可能原样带双引号，但不能直接交给 SQL     
+		 * 解析器；对于长度为零或超过                       
+		 * NAMEDATALEN 的元素，它会                            
+		 * 做出错误处理。）                
 		 *
-		 *
-		 *
+		 * 未这样标记的变量则应作为简单字符串字面量     
+		 * 发出。如果该变量不被                   
+		 * variable_is_guc_list_quote() 认识，就这样做；这使得   
+		 * 对扩展变量用 GUC_LIST_QUOTE 不安全。
 		 */
 		if (variable_is_guc_list_quote(configitem))
 		{
@@ -14858,25 +14858,25 @@ dumpDefaultACL(Archive *fout, const DefaultACLInfo *daclinfo)
 	destroyPQExpBuffer(q);
 }
 
-/*
- * ----------
- *  输出授予/撤销信息
- * 
- *  'objDumpId' 是底层对象的导出 ID。
- *  'altDumpId' 可以是 ACL 条目还必须依赖的第二个 dumpId，
- *      或者如果没有第二个依赖的需要则为 InvalidDumpId。
- *  'type' 必须是以下之一
- *      TABLE、SEQUENCE、FUNCTION、LANGUAGE、SCHEMA、DATABASE、
- *      TABLESPACE、FOREIGN DATA WRAPPER、SERVER 或 LARGE OBJECT。
- *  'name' 是对象的格式化名称。必须已加引号等。
- *  'subname' 是子对象的格式化名称（如果有）。必须加引号。
- *      （当前我们假设 subname 仅为表列提供。）
- *  'nspname' 是对象所在的命名空间（如果没有则为 NULL）。
- *  'owner' 是所有者，如果没有所有者则为 NULL（对于语言）。
- *  'dacl' 是对象的 DumpableAcl 结构。
- * 
- *  返回分配给 ACL TocEntry 的导出 ID，如果未创建 ACL 条目
- *  则返回 InvalidDumpId。
+/*----------
+ * 写出授权/撤销信息         
+ *
+ * 'objDumpId' 是底层对象的导出 ID。          
+ * 'altDumpId' 可以是 ACL 条目还必须依赖的第二个 dumpId，     
+ *		如果不需要第二个依赖则为 InvalidDumpId。        
+ * 'type' 必须是:    
+ *		TABLE, SEQUENCE, FUNCTION, LANGUAGE, SCHEMA, DATABASE, TABLESPACE,
+ *		FOREIGN DATA WRAPPER, SERVER/LARGE OBJECT。  
+ * 'name' 是对象的格式化名称。必须已加引号等。            
+ * 'subname' 是子对象的格式化名称（如有），须已加引号。  
+ *		（当前我们假定 subname 仅为表列提供。）                
+ * 'nspname' 是对象所在命名空间（无则 NULL）。  
+ * 'owner' 是所有者，没有所有者则为 NULL（语言）。
+ * 'dacl' 是该对象的 DumpableAcl 结构体。 
+ *
+ * 返回分配给 ACL TocEntry 的导出 ID，若未创建 ACL 条目  
+ * 则为 InvalidDumpId。  
+ *----------
  */
 static DumpId
 dumpACL(Archive *fout, DumpId objDumpId, DumpId altDumpId,
@@ -18469,27 +18469,27 @@ addBoundaryDependencies(DumpableObject **dobjs, int numObjs,
 
 
 /*
- * BuildArchiveDependencies - 为归档 TOC 条目创建依赖数据
- * 
- * getDependencies() 获取的原始依赖数据在归档导出中不太有用，
- * 因为在许多情况下，依赖链通过不在导出中显式出现的对象。
- * 例如，视图将依赖于其 _RETURN 规则，而 _RETURN 规则
- * 将依赖于其他对象 —— 但规则不会在导出中作为单独的对象
- * 出现。我们需要调整视图的依赖以包含规则依赖的任何
- * 包含在导出中的内容。
- * 
- * 更复杂的是，还存在"特殊"依赖，例如 TABLE DATA 项
- * 对其 TABLE 的依赖，我们不能重新排列这些依赖，因为
- * pg_restore 知道 TABLE DATA 只依赖于其表。在这些情况下，
- * 我们必须严格保持依赖原样，即使它们引用不导出的对象。
- * 
- * 为处理这一点，约定是"特殊"依赖在 ArchiveEntry 调用
- * 期间创建，并且具有任何此类条目的归档 TOC 项在此处不会
- * 被修改。否则，我们递归搜索 DumpableObject 数据结构
- * 以为每个归档 TOC 项构建正确的依赖。
+ * BuildArchiveDependencies - 为归档 TOC 条目创建依赖数据        
  *
+ * getDependencies() 所获得的原始依赖数据在归档导出中   
+ * 并不太有用，因为很多情况下依赖链会经过那些未   
+ * 在导出中显式出现的对象。                                    
+ * 例如，一个视图会依赖于其 _RETURN 规则，而 _RETURN         
+ * 规则又会依赖其他对象 --- 但该规则不会作为单独对象    
+ * 出现在导出中。我们需要调整视图的依赖，使其包含    
+ * 该规则依赖的且含在导出中的一切对象。    
  *
+ * 更复杂的是，还存在"特殊"依赖，例如 TABLE DATA 项          
+ * 对其 TABLE 的依赖，我们不能重新安排这些依赖，因为 
+ * pg_restore 知道 TABLE DATA 只依赖于其表。在这些情况     
+ * 下我们必须让依赖严格保持原样，即使它们引用了不   
+ * 会被导出的对象。                       
  *
+ * 为处理这一点，约定是"特殊"依赖在 ArchiveEntry 调用      
+ * 期间创建，且含有此类条目的归档 TOC 项在这里      
+ * 不会被改动。否则，我们递归搜索                          
+ * DumpableObject 数据结构来为每个归档 TOC 项构建正           
+ * 确的依赖。  
  */
 static void
 BuildArchiveDependencies(Archive *fout)

@@ -312,12 +312,12 @@ main(int argc, char **argv)
 	/*
 	 * 检查目标实例的状态。          
 	 *
-	 * 若目标未干净关闭，以单用户启停集簇强制恢复，  
-	 * 确保集簇可被 pg_rewind 使用。若指定了                    
-	 * no_ensure_shutdown 则跳过此步，需自行确保             
-	 * 目标集簇处于干净状态。                                      
-	 * 状态。                                                            
-	 * 态。
+	 * 若目标实例未干净关闭，则以单用户模式启停目标  
+	 * 集簇一次，强制恢复完成，确保集簇可被 pg_rewind 使  
+	 * 用。注意，如果指定了 no_ensure_shutdown，pg_rewind    
+	 * 会忽略这一步，用户需自行确保目标集簇处于           
+	 * 干净                                                               
+	 * 状态
 	 */
 	buffer = slurpFile(datadir_target, "global/pg_control", &size);
 	digestControlFile(&ControlFile_target, buffer, size);
@@ -341,12 +341,12 @@ main(int argc, char **argv)
 	sanityChecks();
 
 	/*
-	 * TLI 通常取自最新检查点。若源刚提升（或备机跟随  
-	 * 的主库），且提升检查点未完成，时间线在         
-	 * minRecoveryPoint。故取 minRecoveryPoint 的 TLI                 
-	 * 与最新检查点 TLI 较晚者。                                    
-	 * 与最新检查点 TLI 较晚者。                            
-	 * 较晚者。                              
+	 * 通常，TLI 可以在最新的检查点记录中找到。但如果  
+	 * 源刚被提升（或其备机跟随的主刚被提升），      
+	 * 且提升所请求的检查点尚未完成，则最新时间线在 
+	 * minRecoveryPoint 中。所以我们检查哪个更晚：是            
+	 * minRecoveryPoint 的 TLI 还是最新检查点的 TLI，       
+	 * 取较晚的那个。                     
 	 */
 	source_tli = Max(ControlFile_source.minRecoveryPointTLI,
 					 ControlFile_source.checkPointCopy.ThisTimeLineID);
@@ -420,8 +420,8 @@ main(int argc, char **argv)
 		}
 
 		/*
-		 * 检查目标是源的祖先，若是则目标中无          
-		 * 需回绕的分岔历史。                                        
+		 * 检查目标实际上是否是源的直系祖先。          
+		 * 若是这样，目标中就没有需要回绕的                   
 		 * 分岔历史。                    
 		 */
 		if (target_wal_endrec > divergerec)
@@ -469,9 +469,9 @@ main(int argc, char **argv)
 	traverse_datadir(datadir_target, &process_target_file);
 
 	/*
-	 * 读目标 WAL，从分岔前最后检查点起，提取目标集簇  
-	 * 分岔后被修改的所有页面。                                
-	 * 分岔。
+	 * 从分岔点之前最后一个检查点开始读取目标 WAL，     
+	 * 以提取分岔之后目标集簇上被修改的所有              
+	 * 页面。
 	 */
 	if (showprogress)
 		pg_log_info("reading WAL in target");
@@ -675,9 +675,9 @@ perform_rewind(filemap_t *filemap, rewind_source *source,
 	if (connstr_source)
 	{
 		/*
-		 * 源为活跃服务器，如在线备份须恢复复制期  
-		 * 的 WAL。                                                       
-		 * 文件。          
+		 * 源为活动服务器。如同在线备份，重要的是  
+		 * 恢复全部 WAL，即我们复制文件                         
+		 * 期间的 WAL。   
 		 */
 		if (ControlFile_source_after.state == DB_IN_ARCHIVE_RECOVERY)
 		{
@@ -759,9 +759,9 @@ sanityChecks(void)
 		pg_fatal("target server must be shut down cleanly");
 
 	/*
-	 * 源为数据目录时亦要求源已关。虽理由不充分，  
-	 * 但小心驶得万年船。                                     
-	 * 。                                    
+	 * 当源为数据目录时，还要求源服务器已关闭。这  
+	 * 一限制并没有什么很强的理由，                      
+	 * 但安全总比遗憾好。            
 	 */
 	if (datadir_source &&
 		ControlFile_source.state != DB_SHUTDOWNED &&
@@ -798,10 +798,10 @@ progress_report(bool finished)
 	percent = fetch_size ? (int) ((fetch_done) * 100 / fetch_size) : 0;
 
 	/*
-	 * 防溢出 100% 或总量。接近末尾时总量值可能变化      
-	 * （含 WAL 时估计不准），但好过已完成列大于总量。 
-	 * 已完成列大于总量。                                            
-	 * 列大于总量。                       
+	 * 避免溢出超过 100% 或完整大小。这可能导致总量数   
+	 * 值随着我们接近备份末尾而变化（若包含 WAL，估计  
+	 * 总是不准确的），但这总比让                                
+	 * 已完成列大于总量要好。        
 	 */
 	if (percent > 100)
 		percent = 100;
@@ -1151,9 +1151,9 @@ ensureCleanShutdown(const char *argv0)
 		return;
 
 	/*
-	 * 最后单用户模式运行 postgres。无需 fsync，恢复更快
-	 * ，目标数据目录最终会同步。                                
-	 * 。                         
+	 * 最后以单用户模式运行 postgres。这里不需要使用   
+	 * fsync。这使恢复更快，且目标数据目录最后无论如何   
+	 * 都会被同步。          
 	 */
 	postgres_cmd = createPQExpBuffer();
 

@@ -125,17 +125,17 @@ CheckSASLAuth(const pg_be_sasl_mech *mech, Port *port, char *shadow_pass,
 			selected_mech = pq_getmsgrawstring(&buf);
 
 			/*
- * 初始化消息交换的状态跟踪。
- *
- * 即使用户不存在，或没有有效口令，或口令已过期，我们仍走
- * 一遍 SASL 认证的步骤，但告诉认证方法这次认证 "注定失败"。
- * 也就是说，无论怎样它都会失败。
- *
- * 这是因为我们不想向攻击者透露哪些用户名有效，也不想透露
- * 哪些用户有有效口令。
- *
- *
- */
+			 * 为消息交换初始化状态跟踪器。          
+			 *
+			 * 若用户不存在、无有效口令或口令过期，我们   
+			 * 仍会走 SASL 认证流程，但告知认证方法  
+			 * 认证"注定失败"。也就是说，不管               
+			 * 怎样它都会失败，毫无                             
+			 * 例外。   
+			 *
+			 * 这是因为我们不想向攻击者透露哪些用户     
+			 * 名有效，也不透露哪些用户有有效口令。     
+			 */
 			opaq = mech->init(port, selected_mech, shadow_pass);
 
 			inputlen = pq_getmsgint(&buf, 4);

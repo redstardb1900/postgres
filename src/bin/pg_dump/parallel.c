@@ -14,41 +14,41 @@
  */
 
 /*
-* 并行操作的工作方式如下：
-*
-* 原始的领导者进程调用 ParallelBackupStart()，它 fork 出所需数量的
-* 工作进程，每个工作进程进入 WaitForCommands()。
-*
-* 领导者进程在 DispatchJobForTocEntry() 中将单个工作项分派给某个
-* 工作进程。我们发送诸如 "DUMP 1234" 或 "RESTORE 1234" 的命令字符串，
-* 其中 1234 是 TocEntry ID。工作进程接收并解码命令，将其传递给
-* AH->WorkerJobDumpPtr 或 AH->WorkerJobRestorePtr 指向的例程，
-* 这些是当前归档格式的例程。该例程执行所需操作（导出或恢复），
-* 并返回一个整数状态码。这被传回给领导者，在那里我们将其传递给
-* 之前传给 DispatchJobForTocEntry() 的 ParallelCompletionPtr 回调函数。
-* 回调函数为 pg_backup_archiver.c 中的领导者控制逻辑进行状态更新。
-*
-* 原则上，命令或工作进程状态响应中可能需要额外的归档格式特定信息，
-* 但迄今为止这尚未证明是必要的，因为工作进程拥有
-* ArchiveHandle/TocEntry 数据结构的完整副本。记住我们是在读入目录之后
-* 才 fork 出工作进程的。这就是为什么工作进程也可以访问目录信息。
-* （在 Windows 情况下，工作进程是同一进程中的线程。为避免问题，
-* 它们使用 Archive 数据结构的克隆副本；参见 RunWorker()。）
-*
-* 在领导者进程中，每个工作进程的 workerStatus 字段具有以下值之一：
-*		WRKR_NOT_STARTED: 我们尚未 fork 此工作进程
-*		WRKR_IDLE: 它正在等待命令
-*		WRKR_WORKING: 它正在处理命令
-*		WRKR_TERMINATED: 进程已结束
-* 每个工作进程的 pstate->te[] 条目在其处于 WRKR_WORKING 状态时有效，
-* 在其他状态下必须为 NULL。
+ * 并行操作的工作方式：     
  *
+ * 最初的领导者进程调用 ParallelBackupStart()，由它 fork 出   
+ * 所需数量的工作进程，各自进入 WaitForCommands()。            
  *
+ * 领导者进程在 DispatchJobForTocEntry() 中把单个工作项         
+ * 分派给某个工作进程。我们发送诸如 "DUMP 1234" 或        
+ * "RESTORE 1234"，其中 1234 是 TocEntry ID。              
+ * 工作进程接收并解码命令，把它传给 AH->WorkerJobDumpPtr   
+ * 或 AH->WorkerJobRestorePtr 所指向的例程，这些例程属于   
+ * 当前归档格式。该例程执行所需操作（导出或恢复）并
+ * 返回一个整数状态码。它被传回领导者，在那里我们把 
+ * 它交给传给 DispatchJobForTocEntry() 的             
+ * ParallelCompletionPtr 回调函数。该回调函数为   
+ * pg_backup_archiver.c 中的                                         
+ * 领导者控制逻辑更新状态。                 
  *
+ * 原则上，命令或工作进程状态响应中可能还需要额外的   
+ * 归档格式特定信息，但迄今尚未证明有此必要，      
+ * 因为工作进程拥有 ArchiveHandle/TocEntry 数据结构           
+ * 的完整副本。请记住，我们是在读入目录之后才 fork 出 
+ * 工作进程的。因此工作进程也能访问目录信息。       
+ * （Windows 情况下，工作进程是同一进程内的线程。     
+ * 为避免问题，它们使用 Archive 数据结构的克隆副本； 
+ * 参见 RunWorker()。）                               
  *
- *
- *
-*/
+ * 在领导者进程中，每个工作进程的 workerStatus 字段是    
+ * 下列值之一：   
+ *		WRKR_NOT_STARTED: 尚未 fork 此工作进程     
+ *		WRKR_IDLE: 正在等待命令        
+ *		WRKR_WORKING: 正在处理命令       
+ *		WRKR_TERMINATED: 进程结束 
+ * 每个工作进程的 pstate->te[] 条目当其处于 WRKR_WORKING       
+ * 状态时有效，否则须为 NULL。  
+ */
 
 #include "postgres_fe.h"
 
@@ -1562,19 +1562,19 @@ select_loop(int maxFd, fd_set *workerset)
 
 
 /*
-* 检查来自工作进程的消息。
-*
-* 如果有可用消息，将其作为 malloc'd 字符串返回，
-* 并将发送工作进程的索引放入 *worker。
-*
-* 如果没有可用消息，如果 "do_wait" 为 true 则等待，
-* 否则返回 NULL。
-*
-* 如果检测到任何套接字上的 EOF，将返回 NULL。这与无数据可用的情况
-* 难以区分，目前来说不太好，但我们的那个调用者对此可以接受。
-*
-* 此函数在领导者进程中执行。
-*/
+ * 检查来自工作进程的消息。     
+ *
+ * 若有可用消息，将其作为 malloc'd 字符串返回，并把   
+ * 发送进程的索引放入 *worker。 
+ *
+ * 若无消息，在 "do_wait" 为 true 时等待，否则返回 NULL. 
+ *
+ * 如果在任何套接字上检测到 EOF，我们将返回 NULL。它  
+ * 这与无数据可用的情况难以区分，不太理想，但目前  
+ * 唯一调用者可接受。      
+ *
+ * 此函数在领导者进程中执行。         
+ */
 static char *
 getMessageFromWorker(ParallelState *pstate, bool do_wait, int *worker)
 {

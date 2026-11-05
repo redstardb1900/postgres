@@ -272,16 +272,16 @@ getSchemaData(Archive *fout, int *numTablesPtr)
 }
 
 /* flagInhTables -
- *	 为需要这些信息的表填充父表链接字段，
- *	 将目标表的父表标记为感兴趣的，并为分区表创建
- *	 具有适当依赖链接的 TableAttachInfo 对象。
+ *	 为需要该信息的表填充父链接字段，把目标表的父表   
+ *	 标记为感兴趣，并为分区表创建              
+ *	 带适当依赖链接的 TableAttachInfo                       
+ *	 对象。        
  *
- * 注意，只有目标的直接祖先被标记为感兴趣的。
- * 这足够了；我们不太关心它们是否继承了属性。
+ * 注意只有目标的直接祖先会被标记为感兴趣的。   
+ * 这就足够了；我们不太在意它们是否继承了          
+ * 属性。         
  *
- * 修改 tblinfo
- *
- *
+ * 修改 tblinfo  
  */
 static void
 flagInhTables(Archive *fout, TableInfo *tblinfo, int numTables,

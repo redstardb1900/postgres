@@ -2066,12 +2066,12 @@ index_constraint_create(Relation heapRelation,
 	}
 
 	/*
-	 * 如果需要，在 pg_index 中把该索引标记为主键
-	 * 和/或延迟约束。
+	 * 如需，在 pg_index 中将索引标为主键和/或可延迟。
 	 *
-	 * 注意：把已有索引变成约束时，调用方必须持有可防止
-	 * 并发表更新的表锁；否则，表的并发读者有可能
-	 * 完全看不到该索引。
+	 * 注意：把已有索引变成约束时，调用方必须持有防     
+	 * 并发表更新的表锁；否则，表的并发读者可能完全   
+	 * 看不到此                                                        
+	 * 索引。    
 	 */
 	if ((constr_flags & INDEX_CONSTR_CREATE_UPDATE_INDEX) &&
 		(mark_as_primary || deferrable))
@@ -3058,33 +3058,33 @@ index_build(Relation heapRelation,
 	}
 
 	/*
-	 * 如果我们发现任何可能损坏的 HOT 链，就把索引标记为在当前事务
-	 * 降到事件视野之下之前不可使用。有关讨论见
-	 * src/backend/access/heap/README.HOT。如果堆关系启用了早期
-	 * 修剪/清理，也要设置此项。尽管根据实际的清理活动
-	 * 和其他活跃事务，索引可能更早就可以安全使用，
-	 * 但对此的判断会复杂得多，
-	 * 并且需要某种形式的阻塞，所以为了简单快速，
-	 * 我们只使用当前事务。
+	 * 若发现任何可能断开的 HOT 链，就把索引标记为在   
+	 * 当前事务低于事件视野之前不可用。讨论见             
+	 * src/backend/access/heap/README.HOT。如果为堆关系启用        
+	 * 了早期修剪/清理也要设置。尽管根据实际清理活动   
+	 * 和其他活跃事务，索引也许能更早安全使用，但   
+	 * 对此的检验会复杂得多，且需要某种形式的阻塞，     
+	 * 所以为了简单和快速，就只使用当前                       
+	 * 事务。                                      
 	 *
-	 * 然而，在重建已有索引的索引时，我们在此什么也不该做。
-	 * 任何相对于该索引而言损坏的 HOT 链都必定早于该索引最初的
-	 * 创建，因此无需更改索引的可用性视野。
-	 * 此外，在重建 pg_index 自身时我们*不得*尝试更改
-	 * 索引的 pg_index 条目，而这一优化
-	 * 恰好很好地防止了这一点。
-	 * 重建索引所需的更复杂规则
-	 * 在本函数返回之后单独处理。
+	 * 然而重建已有索引时，我们在此什么都不该做。       
+	 * 任何相对于该索引断开的 HOT 链必定早于该索引最初 
+	 * 创建，所以无需更改其可用性视野。此外，       
+	 * 我们*不得*在重建 pg_index 自身时试图更改该索引的   
+	 * pg_index 条目，而此优化恰好避免了这一点。        
+	 * 重建所需的更复杂规则会在本函数返回之后              
+	 * 单独处理。                                            
 	 *
-	 * 在并发索引构建期间我们也不需要设置 indcheckxmin，
-	 * 因为在所有关心损坏的 HOT 链或早期修剪/清理的事务消失之前，
-	 * 我们不会把 indisvalid 设为真。
+	 * 并发索引构建期间我们无需设置 indcheckxmin，        
+	 * 因为在所有关心断开 HOT 链或早期修剪/清理的事务   
+	 * 消失之前，我们不会把 indisvalid 设为真。          
 	 *
-	 * 因此，这条代码路径只能在非并发的 CREATE INDEX 期间走到。
-	 * 所以 heap_update 会设置 pg_index 元组的 xmin 这一点
-	 * 并不重要，因为该元组本来就是在当前事务中创建的。
-	 * 这也意味着我们无需担心该元组的任何并发读者；
-	 * 还没有其他事务能看到它。
+	 * 因此该代码路径只能在非并发 CREATE INDEX 期间走   
+	 * 到。所以 heap_update 会设置 pg_index 元组 xmin 这        
+	 * 一点并不要紧，因为该元组就是在当前事务中      
+	 * 创建的。这也意味着不必担心该元组的并发读者； 
+	 * 还没有任何其他事务能看到                                   
+	 * 它。 
 	 */
 	if ((indexInfo->ii_BrokenHotChain || EarlyPruningEnabled(heapRelation)) &&
 		!isreindex &&
@@ -3862,39 +3862,39 @@ reindex_index(Oid indexId, bool skip_constraint_checks, char persistence,
 }
 
 /*
- * reindex_relation - 本例程用于重新创建一个关系的
- * 所有索引（如果有 toast 关系，也可以选择连它一起重建）。
+ * reindex_relation - 本例程用于重新创建一个关系     
+ * 的所有索引（如有 toast 关系也可一并重建）。 
  *
- * "flags" 是一个位掩码，可以包含以下各位的任意组合：
+ * "flags" 是位掩码，可含下列位的任意组合：            
  *
- * REINDEX_REL_PROCESS_TOAST：若为 true，也处理 toast 表（如果有）。
+ * REINDEX_REL_PROCESS_TOAST：若为 true，则同样处理 toast 表。   
  *
- * REINDEX_REL_SUPPRESS_INDEX_USE：若为 true，则该关系刚刚被
- * VACUUM FULL 或 CLUSTER 之类的操作完全重建，
- * 因此其索引与它不一致。
- * 如果该关系是我们重建索引期间可能查阅的系统目录，这就麻烦了。
- * 为处理这种情况，我们把所有索引标记为待重建，
- * 这样在重建之前
- * 它们不会被信任。调用方必须*在*没有通过 CommandCounterIncrement
- * 让重建后的表可见的情况下调用我们；我们会在收集索引列表之后
- * 做 CCI。（这样我们在收集列表期间仍能使用目录索引。）
+ * REINDEX_REL_SUPPRESS_INDEX_USE：若为 true，则该关系              
+ * 刚被 VACUUM FULL 或 CLUSTER 之类的操作完全重建，因此      
+ * 其索引与它不一致。如果该关系是我们在重建索引期      
+ * 间可能查阅的系统目录，事情就会变得棘手。为应对    
+ * 这种情况，我们把所有索引都标记为待重建，这样它们  
+ * 在重建之前不会被信任。调用方必须在*没有*通过           
+ * 执行 CommandCounterIncrement 使重建后的表可见的             
+ * 情况下调用我们；我们会在收集完索引列表之后再执      
+ * 行 CCI，此时仍能用目录索引。       
  *
- * REINDEX_REL_CHECK_CONSTRAINTS：若为 true，重新检查唯一和排他
- * 约束条件，否则不检查。
- * 为避免死锁，对系统目录的 VACUUM FULL 或
- * CLUSTER 必须省略此标志。如果怀疑约束不一致，应当使用 REINDEX
- * 来重建索引。为了最佳性能，
- * 其他调用方只应在以可能改变约束有效性
- * 的方式转换了数据之后，才包含该标志。
+ * REINDEX_REL_CHECK_CONSTRAINTS：若为 true，重新检查          
+ * 唯一与排他约束条件，否则不检查。为避免死锁，对 
+ * 系统目录的 VACUUM FULL 或 CLUSTER 必须省略此标志。           
+ * 若怀疑约束不一致，应当使用 REINDEX 来重建索引。     
+ * 为获得最佳性能，其他调用方只应在以可能改变约束     
+ * 有效性这样的方式转换数据之后才包含此标志。 
  *
- * REINDEX_REL_FORCE_INDEXES_UNLOGGED：若为 true，把重建索引的
- * 持久性设为非日志。
+ * REINDEX_REL_FORCE_INDEXES_UNLOGGED：若为 true，将重              
+ * 建索引设为 unlogged。 
  *
- * REINDEX_REL_FORCE_INDEXES_PERMANENT：若为 true，把重建索引的
- * 持久性设为永久。
+ * REINDEX_REL_FORCE_INDEXES_PERMANENT：若为 true，将重              
+ * 建索引设为 permanent。 
  *
- * 若有任何索引被重建则返回 true（相关时包括 toast 表的索引）。
- * 注意每次索引重建之后都会发生一次 CommandCounterIncrement。
+ * 若有任何索引被重建则返回 true（相关时包括 toast      
+ * 表的索引）。注意每次索引重建后都会有一次              
+ * CCI。        
  */
 bool
 reindex_relation(Oid relid, int flags, ReindexParams *params)

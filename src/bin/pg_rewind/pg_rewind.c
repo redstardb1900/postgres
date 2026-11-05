@@ -749,10 +749,10 @@ sanityChecks(void)
 	}
 
 	/*
-	 * 目标集簇最好别运行。难防并发。可能偏严格； 
-	 * 只要当前未运行，未干净关闭亦可。                      
-	 * 只要当前未运行，未干净关闭亦可。                   
-	 * 。                                                
+	 * 目标集簇最好别运行。这并不能防止有人          
+	 * 并发启动集簇。此外这可能比必要的更严格；          
+	 * 只要目标节点当前未在运行，未干净关闭也          
+	 * 可以。                                          
 	 */
 	if (ControlFile_target.state != DB_SHUTDOWNED &&
 		ControlFile_target.state != DB_SHUTDOWNED_IN_RECOVERY)

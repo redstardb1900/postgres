@@ -1,0 +1,70 @@
+{
+ "schema_version": 1,
+ "batch_id": "0266-comment-executor-executils-append-subplan",
+ "title": "Translate executor comments: executor-executils-append-subplan",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "f24d7e9180e10ac346a52b6e270212769b45a430",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0266-comment-executor-executils-append-subplan.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/executor/**",
+   "kind": "c_comment",
+   "note": "P2 executor translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0266-comment-executor-executils-append-subplan.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/executor/execUtils.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 121,
+   "translated": 117,
+   "preserved": 4,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), and separator-only blocks rebuilt byte-identical"
+   ],
+   "note": "P2 executor campaign wave C7"
+  },
+  {
+   "path": "src/backend/executor/nodeAppend.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 134,
+   "translated": 134,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C7"
+  },
+  {
+   "path": "src/backend/executor/nodeSubplan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 115,
+   "translated": 115,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C7"
+  }
+ ],
+ "notes": "Translation agents (C7a/C7b/C7c) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

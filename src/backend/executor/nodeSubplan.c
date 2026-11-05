@@ -1,14 +1,14 @@
 /*-------------------------------------------------------------------------
  *
  * nodeSubplan.c
- *	  routines to support sub-selects appearing in expressions
+ *	  用于支持表达式中出现的子选择的例程     
  *
- * This module is concerned with executing SubPlan expression nodes, which
- * should not be confused with sub-SELECTs appearing in FROM.  SubPlans are
- * divided into "initplans", which are those that need only one evaluation per
- * query (among other restrictions, this requires that they don't use any
- * direct correlation variables from the parent plan level), and "regular"
- * subplans, which are re-evaluated every time their result is required.
+ * 本模块负责执行 SubPlan 表达式节点，它不应与           
+ * FROM 中出现的子选择相混淆。SubPlan 可分为两类：        
+ * 其中"initplans"（初始化计划）每条查询只需                   
+ * 求值一次（此外还有其他限制，例如它们不会          
+ * 使用来自父计划层的直接相关变量），而                 
+ * "regular"（常规）子计划每当需要其结果时重新求值。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -20,9 +20,9 @@
  *-------------------------------------------------------------------------
  */
 /*
- *	 INTERFACE ROUTINES
- *		ExecSubPlan  - process a subselect
- *		ExecInitSubPlan - initialize a subselect
+ *	 接口例程      
+ *		ExecSubPlan  - 处理子选择    
+ *		ExecInitSubPlan - 初始化子选择    
  */
 #include "postgres.h"
 
@@ -55,7 +55,7 @@ static bool slotNoNulls(TupleTableSlot *slot);
 /* ----------------------------------------------------------------
  *		ExecSubPlan
  *
- * This is the main entry point for execution of a regular SubPlan.
+ * 这是执行常规 SubPlan 的主入口。                      
  * ----------------------------------------------------------------
  */
 Datum
@@ -70,32 +70,32 @@ ExecSubPlan(SubPlanState *node,
 
 	CHECK_FOR_INTERRUPTS();
 
-	/* Set non-null as default */
+	/* 默认设为非空      */
 	*isNull = false;
 
-	/* Sanity checks */
+	/* 预防检查  */
 	if (subplan->subLinkType == CTE_SUBLINK)
 		elog(ERROR, "CTE subplans should not be executed via ExecSubPlan");
 	if (subplan->setParam != NIL && subplan->subLinkType != MULTIEXPR_SUBLINK)
 		elog(ERROR, "cannot set parent params from subquery");
 
-	/* Force forward-scan mode for evaluation */
+	/* 求值时强制采用前向扫描模式*/
 	estate->es_direction = ForwardScanDirection;
 
-	/* Select appropriate evaluation strategy */
+	/* 选择合适的求值策略            */
 	if (subplan->useHashTable)
 		retval = ExecHashSubPlan(node, econtext, isNull);
 	else
 		retval = ExecScanSubPlan(node, econtext, isNull);
 
-	/* restore scan direction */
+	/* 恢复扫描方向     */
 	estate->es_direction = dir;
 
 	return retval;
 }
 
 /*
- * ExecHashSubPlan: store subselect result in an in-memory hash table
+ * ExecHashSubPlan: 将子选择结果存入内存哈希表          
  */
 static Datum
 ExecHashSubPlan(SubPlanState *node,
@@ -107,45 +107,45 @@ ExecHashSubPlan(SubPlanState *node,
 	PlanState  *planstate = node->planstate;
 	TupleTableSlot *slot;
 
-	/* Shouldn't have any direct correlation Vars */
+	/* 不应有任何直接相关变量          */
 	if (subplan->parParam != NIL || node->args != NIL)
 		elog(ERROR, "hashed subplan with direct correlation not supported");
 
 	/*
-	 * If first time through or we need to rescan the subplan, build the hash
-	 * table.
+	 * 如果是第一次，或需要重新扫描子计划，就构建哈希 
+	 * 表。
 	 */
 	if (node->hashtable == NULL || planstate->chgParam != NULL)
 		buildSubPlanHash(node, econtext);
 
 	/*
-	 * The result for an empty subplan is always FALSE; no need to evaluate
-	 * lefthand side.
+	 * 空子计划的结果总是 FALSE；无需再求值左              
+	 * 表达式。  
 	 */
 	*isNull = false;
 	if (!node->havehashrows && !node->havenullrows)
 		return BoolGetDatum(false);
 
 	/*
-	 * Evaluate lefthand expressions and form a projection tuple. First we
-	 * have to set the econtext to use (hack alert!).
+	 * 求值左侧表达式并构成投影元组。我们必须          
+	 * 先设置好 econtext（别扭做法！）。 
 	 */
 	node->projLeft->pi_exprContext = econtext;
 	slot = ExecProject(node->projLeft);
 
 	/*
-	 * If the LHS is all non-null, probe for an exact match in the main hash
-	 * table.  If we find one, the result is TRUE. Otherwise, scan the
-	 * partly-null table to see if there are any rows that aren't provably
-	 * unequal to the LHS; if so, the result is UNKNOWN.  (We skip that part
-	 * if we don't care about UNKNOWN.) Otherwise, the result is FALSE.
+	 * 若 LHS 全为非空，就在主哈希表中探测精确匹配；    
+	 * 若找到，结果即为 TRUE。否则，扫描部分 NULL     
+	 * 的表，看看是否有行无法被证明与 LHS 不相等；     
+	 * 若有，结果为 UNKNOWN。（如果我们并不关心             
+	 * UNKNOWN，则可跳过这一步。）否则，结果为 FALSE。
 	 *
-	 * Note: the reason we can avoid a full scan of the main hash table is
-	 * that the combining operators are assumed never to yield NULL when both
-	 * inputs are non-null.  If they were to do so, we might need to produce
-	 * UNKNOWN instead of FALSE because of an UNKNOWN result in comparing the
-	 * LHS to some main-table entry --- which is a comparison we will not even
-	 * make, unless there's a chance match of hash keys.
+	 * 注：我们之所以能避免对主哈希表做全表扫描，    
+	 * 是因为假定组合算子在两个输入均为非空时             
+	 * 绝不会返回 NULL。如果它们会这样，我们可能          
+	 * 就需要产生 UNKNOWN 而非 FALSE，因为在将 LHS               
+	 * 与主表某项比较时出现了 UNKNOWN 结果 --- 除非哈         
+	 * 键偶然相撞，否则甚至不会做比较。 
 	 */
 	if (slotNoNulls(slot))
 	{
@@ -161,20 +161,20 @@ ExecHashSubPlan(SubPlanState *node,
 	}
 
 	/*
-	 * When the LHS is partly or wholly NULL, we can never return TRUE. If we
-	 * don't care about UNKNOWN, just return FALSE.  Otherwise, if the LHS is
-	 * wholly NULL, immediately return UNKNOWN.  (Since the combining
-	 * operators are strict, the result could only be FALSE if the sub-select
-	 * were empty, but we already handled that case.) Otherwise, we must scan
-	 * both the main and partly-null tables to see if there are any rows that
-	 * aren't provably unequal to the LHS; if so, the result is UNKNOWN.
-	 * Otherwise, the result is FALSE.
+	 * 当 LHS 部分或全部为 NULL 时，绝不可能返回 TRUE。      
+	 * 如果不关心 UNKNOWN，就直接返回 FALSE。否则，           
+	 * 若 LHS 全为 NULL，则立即返回 UNKNOWN。（由于     
+	 * 组合算子是严格的，结果只有在子选择为空时          
+	 * 才可能是 FALSE，但我们已经处理过该情况。）否则    
+	 * 我们必须扫描主表和部分为 NULL 的表，看看是否有行 
+	 * 无法被证明与 LHS 不相等；若有，结果为 UNKNOWN。 
+	 * 否则，结果为 FALSE。    
 	 */
 	else if (node->hashnulls == NULL)
-		 /* just return FALSE */ ;
+		 /* 直接返回 FALSE*/ ;
 	else if (slotAllNulls(slot))
 		*isNull = true;
-	/* Scan partly-null table first, since more likely to get a match */
+	/* 先扫描部分为 NULL 的表，因为更有可能找到匹配*/
 	else if (node->havenullrows &&
 			 findPartialMatch(node->hashnulls, slot, node->cur_eq_funcs))
 		*isNull = true;
@@ -183,22 +183,22 @@ ExecHashSubPlan(SubPlanState *node,
 		*isNull = true;
 
 	/*
-	 * Note: because we are typically called in a per-tuple context, we have
-	 * to explicitly clear the projected tuple before returning. Otherwise,
-	 * we'll have a double-free situation: the per-tuple context will probably
-	 * be reset before we're called again, and then the tuple slot will think
-	 * it still needs to free the tuple.
+	 * 注：由于我们通常在每元组上下文中被调用，         
+	 * 因此必须在返回前显式清除投影出的元组。           
+	 * 否则会出现二次释放：每元组上下文很可能              
+	 * 在我们再次被调用前就被重置，然后元组槽             
+	 * 会认为仍需释放该元组。
 	 */
 	ExecClearTuple(slot);
 
-	/* Also must reset the hashtempcxt after each hashtable lookup. */
+	/* 每次哈希表查找后还必须重置 hashtempcxt。       */
 	MemoryContextReset(node->hashtempcxt);
 
 	return BoolGetDatum(result);
 }
 
 /*
- * ExecScanSubPlan: default case where we have to rescan subplan each time
+ * ExecScanSubPlan: 每次都必须重新扫描子计划的默认情形   
  */
 static Datum
 ExecScanSubPlan(SubPlanState *node,
@@ -211,27 +211,27 @@ ExecScanSubPlan(SubPlanState *node,
 	MemoryContext oldcontext;
 	TupleTableSlot *slot;
 	Datum		result;
-	bool		found = false;	/* true if got at least one subplan tuple */
+	bool		found = false;	/* 得到至少一个子计划元组为真*/
 	ListCell   *pvar;
 	ListCell   *l;
 	ArrayBuildStateAny *astate = NULL;
 
-	/* Initialize ArrayBuildStateAny in caller's context, if needed */
+	/* 在调用者上下文中按需初始化 ArrayBuildStateAny   */
 	if (subLinkType == ARRAY_SUBLINK)
 		astate = initArrayResultAny(subplan->firstColType,
 									CurrentMemoryContext, true);
 
 	/*
-	 * We are probably in a short-lived expression-evaluation context. Switch
-	 * to the per-query context for manipulating the child plan's chgParam,
-	 * calling ExecProcNode on it, etc.
+	 * 我们很可能正处于短暂的表达式求值上下文中。       
+	 * 为操纵子计划的 chgParam，应切换到每查询上下文，  
+	 * 对其调用 ExecProcNode 等。
 	 */
 	oldcontext = MemoryContextSwitchTo(econtext->ecxt_per_query_memory);
 
 	/*
-	 * Set Params of this plan from parent plan correlation values. (Any
-	 * calculation we have to do is done in the parent econtext, since the
-	 * Param values don't need to have per-query lifetime.)
+	 * 用父计划的相关性值设置本计划的参数。（任何  
+	 * 所需的计算都在父 econtext 中完成，因为 Param         
+	 * 值并不需要具有每查询的生命周期。） 
 	 */
 	Assert(list_length(subplan->parParam) == list_length(node->args));
 
@@ -247,35 +247,35 @@ ExecScanSubPlan(SubPlanState *node,
 	}
 
 	/*
-	 * Now that we've set up its parameters, we can reset the subplan.
+	 * 参数已设置好，现在可以重置子计划了。         
 	 */
 	ExecReScan(planstate);
 
 	/*
-	 * For all sublink types except EXPR_SUBLINK and ARRAY_SUBLINK, the result
-	 * is boolean as are the results of the combining operators. We combine
-	 * results across tuples (if the subplan produces more than one) using OR
-	 * semantics for ANY_SUBLINK or AND semantics for ALL_SUBLINK.
-	 * (ROWCOMPARE_SUBLINK doesn't allow multiple tuples from the subplan.)
-	 * NULL results from the combining operators are handled according to the
-	 * usual SQL semantics for OR and AND.  The result for no input tuples is
-	 * FALSE for ANY_SUBLINK, TRUE for ALL_SUBLINK, NULL for
-	 * ROWCOMPARE_SUBLINK.
+	 * 对于除 EXPR_SUBLINK 和 ARRAY_SUBLINK 之外的所有               
+	 * sublink 类型，结果为布尔值，组合算子的结果亦然。
+	 * 我们在多个元组间组合结果（如果子计划产出多于    
+	 * 一个）时，对 ANY_SUBLINK 使用 OR 语义，对      
+	 * ALL_SUBLINK 则使用 AND 语义。（ROWCOMPARE_SUBLINK            
+	 * 不允许子计划返回多个元组。）来自组合算子的       
+	 * NULL 结果按 OR 和 AND 的常规 SQL 语义处理。无输入元组
+	 * ANY_SUBLINK 为 FALSE, ALL_SUBLINK 为 TRUE, NULL： 
+	 * ROWCOMPARE_SUBLINK 
 	 *
-	 * For EXPR_SUBLINK we require the subplan to produce no more than one
-	 * tuple, else an error is raised.  If zero tuples are produced, we return
-	 * NULL.  Assuming we get a tuple, we just use its first column (there can
-	 * be only one non-junk column in this case).
+	 * 对于 EXPR_SUBLINK，要求子计划最多产出一个元组，   
+	 * 否则就会报错。如果产出零个元组，我们返回 NULL。   
+	 * 若得到了元组，我们只用其第一列（该情形下只有一  
+	 * 个非垃圾列）。                     
 	 *
-	 * For MULTIEXPR_SUBLINK, we push the per-column subplan outputs out to
-	 * the setParams and then return a dummy false value.  There must not be
-	 * multiple tuples returned from the subplan; if zero tuples are produced,
-	 * set the setParams to NULL.
+	 * 对于 MULTIEXPR_SUBLINK，我们把按列的子计划输出        
+	 * 推送到 setParams，然后返回一个哑假值。子计划不得  
+	 * 返回多个元组；如果产出零个元组，则把 setParams       
+	 * 设为 NULL。            
 	 *
-	 * For ARRAY_SUBLINK we allow the subplan to produce any number of tuples,
-	 * and form an array of the first column's values.  Note in particular
-	 * that we produce a zero-element array if no tuples are produced (this is
-	 * a change from pre-8.3 behavior of returning NULL).
+	 * 对于 ARRAY_SUBLINK，我们允许子计划产出任意数量         
+	 * 的元组，将第一列的值构成一个数组。特别要注意 
+	 * 的是，若无元组产出，我们会产出一个零元素数组     
+	 * （这与 8.3 之前返回 NULL 的行为不同）
 	 */
 	result = BoolGetDatum(subLinkType == ALL_SUBLINK);
 	*isNull = false;
@@ -299,7 +299,7 @@ ExecScanSubPlan(SubPlanState *node,
 
 		if (subLinkType == EXPR_SUBLINK)
 		{
-			/* cannot allow multiple input tuples for EXPR sublink */
+			/* EXPR sublink 不允许多个输入元组            */
 			if (found)
 				ereport(ERROR,
 						(errcode(ERRCODE_CARDINALITY_VIOLATION),
@@ -307,25 +307,25 @@ ExecScanSubPlan(SubPlanState *node,
 			found = true;
 
 			/*
-			 * We need to copy the subplan's tuple in case the result is of
-			 * pass-by-ref type --- our return value will point into this
-			 * copied tuple!  Can't use the subplan's instance of the tuple
-			 * since it won't still be valid after next ExecProcNode() call.
-			 * node->curTuple keeps track of the copied tuple for eventual
-			 * freeing.
+			 * 须复制子计划的元组，以防结果是引用传递类
+			 * 型 --- 我们的返回值将指向拷贝元组！无法  
+			 * 使用子计划的那份元组实例，因为它在下一次
+			 * ExecProcNode() 调用之后就不再有效。                
+			 * node->curTuple 会跟踪这份拷贝元组以便最终     
+			 * 释放  
 			 */
 			if (node->curTuple)
 				heap_freetuple(node->curTuple);
 			node->curTuple = ExecCopySlotHeapTuple(slot);
 
 			result = heap_getattr(node->curTuple, 1, tdesc, isNull);
-			/* keep scanning subplan to make sure there's only one tuple */
+			/* 继续扫描子计划以确保只有一个元组          */
 			continue;
 		}
 
 		if (subLinkType == MULTIEXPR_SUBLINK)
 		{
-			/* cannot allow multiple input tuples for MULTIEXPR sublink */
+			/* MULTIEXPR sublink 不允许多个输入元组            */
 			if (found)
 				ereport(ERROR,
 						(errcode(ERRCODE_CARDINALITY_VIOLATION),
@@ -333,19 +333,19 @@ ExecScanSubPlan(SubPlanState *node,
 			found = true;
 
 			/*
-			 * We need to copy the subplan's tuple in case any result is of
-			 * pass-by-ref type --- our output values will point into this
-			 * copied tuple!  Can't use the subplan's instance of the tuple
-			 * since it won't still be valid after next ExecProcNode() call.
-			 * node->curTuple keeps track of the copied tuple for eventual
-			 * freeing.
+			 * 需复制子计划的元组，以防结果为引用传递类
+			 * 型 --- 我们的输出值将指向这份拷贝元组！无
+			 * 法使用子计划的那份元组，因为它在下一次   
+			 * ExecProcNode() 调用后就不再有效。node->curTuple     
+			 * 会跟踪这份拷贝元组以便最终                    
+			 * 释放  
 			 */
 			if (node->curTuple)
 				heap_freetuple(node->curTuple);
 			node->curTuple = ExecCopySlotHeapTuple(slot);
 
 			/*
-			 * Now set all the setParam params from the columns of the tuple
+			 * 现在从元组的各列设置所有 setParam 参数         
 			 */
 			col = 1;
 			foreach(plst, subplan->setParam)
@@ -360,7 +360,7 @@ ExecScanSubPlan(SubPlanState *node,
 				col++;
 			}
 
-			/* keep scanning subplan to make sure there's only one tuple */
+			/* 继续扫描子计划以确保只有一个元组          */
 			continue;
 		}
 
@@ -370,16 +370,16 @@ ExecScanSubPlan(SubPlanState *node,
 			bool		disnull;
 
 			found = true;
-			/* stash away current value */
+			/* 把当前值暂存起来 */
 			Assert(subplan->firstColType == TupleDescAttr(tdesc, 0)->atttypid);
 			dvalue = slot_getattr(slot, 1, &disnull);
 			astate = accumArrayResultAny(astate, dvalue, disnull,
 										 subplan->firstColType, oldcontext);
-			/* keep scanning subplan to collect all values */
+			/* 继续扫描子计划以收集所有值     */
 			continue;
 		}
 
-		/* cannot allow multiple input tuples for ROWCOMPARE sublink either */
+		/* ROWCOMPARE sublink 同样不允许多个输入元组             */
 		if (subLinkType == ROWCOMPARE_SUBLINK && found)
 			ereport(ERROR,
 					(errcode(ERRCODE_CARDINALITY_VIOLATION),
@@ -388,9 +388,9 @@ ExecScanSubPlan(SubPlanState *node,
 		found = true;
 
 		/*
-		 * For ALL, ANY, and ROWCOMPARE sublinks, load up the Params
-		 * representing the columns of the sub-select, and then evaluate the
-		 * combining expression.
+		 * 对于 ALL、ANY 和 ROWCOMPARE sublink，装载代表   
+		 * 子选择各列的 Params，然后求值                         
+		 * 组合表达式。   
 		 */
 		col = 1;
 		foreach(plst, subplan->paramIds)
@@ -409,31 +409,31 @@ ExecScanSubPlan(SubPlanState *node,
 
 		if (subLinkType == ANY_SUBLINK)
 		{
-			/* combine across rows per OR semantics */
+			/* 按 OR 语义跨行组合            */
 			if (rownull)
 				*isNull = true;
 			else if (DatumGetBool(rowresult))
 			{
 				result = BoolGetDatum(true);
 				*isNull = false;
-				break;			/* needn't look at any more rows */
+				break;			/* 无需再查看更多行      */
 			}
 		}
 		else if (subLinkType == ALL_SUBLINK)
 		{
-			/* combine across rows per AND semantics */
+			/* 按 AND 语义跨行组合            */
 			if (rownull)
 				*isNull = true;
 			else if (!DatumGetBool(rowresult))
 			{
 				result = BoolGetDatum(false);
 				*isNull = false;
-				break;			/* needn't look at any more rows */
+				break;			/* 无需再查看更多行      */
 			}
 		}
 		else
 		{
-			/* must be ROWCOMPARE_SUBLINK */
+			/* 必为 ROWCOMPARE_SUBLINK  */
 			result = rowresult;
 			*isNull = rownull;
 		}
@@ -443,15 +443,15 @@ ExecScanSubPlan(SubPlanState *node,
 
 	if (subLinkType == ARRAY_SUBLINK)
 	{
-		/* We return the result in the caller's context */
+		/* 结果将在调用者的上下文中返回   */
 		result = makeArrayResultAny(astate, oldcontext, true);
 	}
 	else if (!found)
 	{
 		/*
-		 * deal with empty subplan result.  result/isNull were previously
-		 * initialized correctly for all sublink types except EXPR and
-		 * ROWCOMPARE; for those, return NULL.
+		 * 处理空子计划结果。result/isNull 此前已为除 EXPR 
+		 * 和 ROWCOMPARE 之外的所有 sublink 类型正确做了  
+		 * 初始化；这两类返回 NULL。
 		 */
 		if (subLinkType == EXPR_SUBLINK ||
 			subLinkType == ROWCOMPARE_SUBLINK)
@@ -461,7 +461,7 @@ ExecScanSubPlan(SubPlanState *node,
 		}
 		else if (subLinkType == MULTIEXPR_SUBLINK)
 		{
-			/* We don't care about function result, but set the setParams */
+			/* 我们不关心函数结果，但要设置 setParams       */
 			foreach(l, subplan->setParam)
 			{
 				int			paramid = lfirst_int(l);
@@ -479,7 +479,7 @@ ExecScanSubPlan(SubPlanState *node,
 }
 
 /*
- * buildSubPlanHash: load hash table by scanning subplan output.
+ * buildSubPlanHash: 扫描子计划输出以装载哈希表。 
  */
 static void
 buildSubPlanHash(SubPlanState *node, ExprContext *econtext)
@@ -495,19 +495,19 @@ buildSubPlanHash(SubPlanState *node, ExprContext *econtext)
 	Assert(subplan->subLinkType == ANY_SUBLINK);
 
 	/*
-	 * If we already had any hash tables, reset 'em; otherwise create empty
-	 * hash table(s).
+	 * 如果我们已经有哈希表，就重置它们；否则创建空  
+	 * 哈希表。  
 	 *
-	 * If we need to distinguish accurately between FALSE and UNKNOWN (i.e.,
-	 * NULL) results of the IN operation, then we have to store subplan output
-	 * rows that are partly or wholly NULL.  We store such rows in a separate
-	 * hash table that we expect will be much smaller than the main table. (We
-	 * can use hashing to eliminate partly-null rows that are not distinct. We
-	 * keep them separate to minimize the cost of the inevitable full-table
-	 * searches; see findPartialMatch.)
+	 * 如果我们需要在 FALSE 和 UNKNOWN（即 NULL）两种          
+	 * 结果之间精确区分 IN 运算的结果，就必须存储子计    
+	 * 划输出中部分或全部为 NULL 的行。我们把这样的行    
+	 * 存放在一个单独的哈希表中，预期它比主表小得多。  
+	 * （我们可以用哈希去除重复的部分为 NULL 行。           
+	 * 单独存放，是为了减少不可避免的全表搜索开销，  
+	 * 见 findPartialMatch。）      
 	 *
-	 * If it's not necessary to distinguish FALSE and UNKNOWN, then we don't
-	 * need to store subplan output rows that contain NULL.
+	 * 如果不需要区分 FALSE 和 UNKNOWN，那么就不需要         
+	 * 存储包含 NULL 的子计划输出行。          
 	 */
 	MemoryContextReset(node->hashtablecxt);
 	node->havehashrows = false;
@@ -537,7 +537,7 @@ buildSubPlanHash(SubPlanState *node, ExprContext *econtext)
 	if (!subplan->unknownEqFalse)
 	{
 		if (ncols == 1)
-			nbuckets = 1;		/* there can only be one entry */
+			nbuckets = 1;		/* 只可能有一个条目    */
 		else
 		{
 			nbuckets /= 16;
@@ -566,19 +566,19 @@ buildSubPlanHash(SubPlanState *node, ExprContext *econtext)
 		node->hashnulls = NULL;
 
 	/*
-	 * We are probably in a short-lived expression-evaluation context. Switch
-	 * to the per-query context for manipulating the child plan.
+	 * 我们很可能正处于短暂的表达式求值上下文中。       
+	 * 应切换到每查询上下文来操纵子计划。      
 	 */
 	oldcontext = MemoryContextSwitchTo(econtext->ecxt_per_query_memory);
 
 	/*
-	 * Reset subplan to start.
+	 * 从头重置子计划  
 	 */
 	ExecReScan(planstate);
 
 	/*
-	 * Scan the subplan and load the hash table(s).  Note that when there are
-	 * duplicate rows coming out of the sub-select, only one copy is stored.
+	 * 扫描子计划并装载哈希表。注意当子选择输出重复    
+	 * 行时，只会存储其中一份拷贝。                           
 	 */
 	for (slot = ExecProcNode(planstate);
 		 !TupIsNull(slot);
@@ -589,8 +589,8 @@ buildSubPlanHash(SubPlanState *node, ExprContext *econtext)
 		bool		isnew;
 
 		/*
-		 * Load up the Params representing the raw sub-select outputs, then
-		 * form the projection tuple to store in the hashtable.
+		 * 装载代表子选择原始输出的 Params，再构成存入   
+		 * 哈希表的投影元组。                         
 		 */
 		foreach(plst, subplan->paramIds)
 		{
@@ -606,7 +606,7 @@ buildSubPlanHash(SubPlanState *node, ExprContext *econtext)
 		slot = ExecProject(node->projRight);
 
 		/*
-		 * If result contains any nulls, store separately or not at all.
+		 * 若结果中含 NULL，则单独存储，或者不存储。  
 		 */
 		if (slotNoNulls(slot))
 		{
@@ -620,21 +620,21 @@ buildSubPlanHash(SubPlanState *node, ExprContext *econtext)
 		}
 
 		/*
-		 * Reset innerecontext after each inner tuple to free any memory used
-		 * during ExecProject.
+		 * 在每条内部元组后重置 innerecontext 以释放 ExecProject
+		 * 期间所用内存 
 		 */
 		ResetExprContext(innerecontext);
 
-		/* Also must reset the hashtempcxt after each hashtable lookup. */
+		/* 每次哈希表查找后还必须重置 hashtempcxt。       */
 		MemoryContextReset(node->hashtempcxt);
 	}
 
 	/*
-	 * Since the projected tuples are in the sub-query's context and not the
-	 * main context, we'd better clear the tuple slot before there's any
-	 * chance of a reset of the sub-query's context.  Else we will have the
-	 * potential for a double free attempt.  (XXX possibly no longer needed,
-	 * but can't hurt.)
+	 * 由于投影出的元组位于子查询的上下文而非主上下   
+	 * 文中，最好于子查询上下文可能被重置之前，     
+	 * 就先清除元组槽。否则就有可能发生二次释放        
+	 * （XXX 可能已不再需要，不过也                             
+	 * 没坏处。） 
 	 */
 	ExecClearTuple(node->projRight->pi_state.resultslot);
 
@@ -643,17 +643,17 @@ buildSubPlanHash(SubPlanState *node, ExprContext *econtext)
 
 /*
  * execTuplesUnequal
- *		Return true if two tuples are definitely unequal in the indicated
- *		fields.
+ *		如果两个元组在指定字段上必定不相等，则返回  
+ *		真。 
  *
- * Nulls are neither equal nor unequal to anything else.  A true result
- * is obtained only if there are non-null fields that compare not-equal.
+ * 空值与任何其他值相比，谈不上相等或不等。        
+ * 仅当存在比较不等的非空字段时才能得到真结果。   
  *
- * slot1, slot2: the tuples to compare (must have same columns!)
- * numCols: the number of attributes to be examined
- * matchColIdx: array of attribute column numbers
- * eqFunctions: array of fmgr lookup info for the equality functions to use
- * evalContext: short-term memory context for executing the functions
+ * slot1, slot2: 待比较的元组（列必须相同！）     
+ * numCols: 要检查的属性数量               
+ * matchColIdx: 属性列号数组               
+ * eqFunctions: 要使用的相等函数的 fmgr 查找信息数组        
+ * evalContext: 用于执行这些函数的短期内存上下文     
  */
 static bool
 execTuplesUnequal(TupleTableSlot *slot1,
@@ -668,15 +668,15 @@ execTuplesUnequal(TupleTableSlot *slot1,
 	bool		result;
 	int			i;
 
-	/* Reset and switch into the temp context. */
+	/* 重置并切换到临时上下文。    */
 	MemoryContextReset(evalContext);
 	oldContext = MemoryContextSwitchTo(evalContext);
 
 	/*
-	 * We cannot report a match without checking all the fields, but we can
-	 * report a non-match as soon as we find unequal fields.  So, start
-	 * comparing at the last field (least significant sort key). That's the
-	 * most likely to be different if we are dealing with sorted input.
+	 * 我们无法在不检查全部字段的情况下报告匹配，但  
+	 * 只要发现不相等的字段就可以立即报告不匹配。 
+	 * 因此，从最后一个字段（最不重要的排序键）开始  
+	 * 比较；如果输入是已排序的，它最有可能不同。 
 	 */
 	result = false;
 
@@ -691,19 +691,19 @@ execTuplesUnequal(TupleTableSlot *slot1,
 		attr1 = slot_getattr(slot1, att, &isNull1);
 
 		if (isNull1)
-			continue;			/* can't prove anything here */
+			continue;			/* 无法证明任何事情  */
 
 		attr2 = slot_getattr(slot2, att, &isNull2);
 
 		if (isNull2)
-			continue;			/* can't prove anything here */
+			continue;			/* 无法证明任何事情  */
 
-		/* Apply the type-specific equality function */
+		/* 应用该类型专用的相等函数      */
 		if (!DatumGetBool(FunctionCall2Coll(&eqfunctions[i],
 											collations[i],
 											attr1, attr2)))
 		{
-			result = true;		/* they are unequal */
+			result = true;		/* 两者不相等  */
 			break;
 		}
 	}
@@ -714,15 +714,15 @@ execTuplesUnequal(TupleTableSlot *slot1,
 }
 
 /*
- * findPartialMatch: does the hashtable contain an entry that is not
- * provably distinct from the tuple?
+ * findPartialMatch: 哈希表中是否包含与元组并非        
+ * 可证明为不同的条目？   
  *
- * We have to scan the whole hashtable; we can't usefully use hashkeys
- * to guide probing, since we might get partial matches on tuples with
- * hashkeys quite unrelated to what we'd get from the given tuple.
+ * 我们必须扫描整个哈希表；用哈希键来引导探测    
+ * 并无用处，因为对于一个元组，我们可能得到与    
+ * 给定元组的哈希键大不相同的部分匹配。         
  *
- * Caller must provide the equality functions to use, since in cross-type
- * cases these are different from the hashtable's internal functions.
+ * 调用者必须提供要使用的相等函数，因为在跨类型    
+ * 的情况下，它们与哈希表内部的函数并不相同。   
  */
 static bool
 findPartialMatch(TupleHashTable hashtable, TupleTableSlot *slot,
@@ -749,15 +749,15 @@ findPartialMatch(TupleHashTable hashtable, TupleTableSlot *slot,
 			return true;
 		}
 	}
-	/* No TermTupleHashIterator call needed here */
+	/* 此处无需调用 TermTupleHashIterator  */
 	return false;
 }
 
 /*
- * slotAllNulls: is the slot completely NULL?
+ * slotAllNulls: slot 是否全为 NULL？   
  *
- * This does not test for dropped columns, which is OK because we only
- * use it on projected tuples.
+ * 该函数不检查已删除的列，这没有问题，因为我们 
+ * 只用于投影元组。   
  */
 static bool
 slotAllNulls(TupleTableSlot *slot)
@@ -774,10 +774,10 @@ slotAllNulls(TupleTableSlot *slot)
 }
 
 /*
- * slotNoNulls: is the slot entirely not NULL?
+ * slotNoNulls: slot 是否全不为 NULL？  
  *
- * This does not test for dropped columns, which is OK because we only
- * use it on projected tuples.
+ * 该函数不检查已删除的列，这没有问题，因为我们 
+ * 只用于投影元组。   
  */
 static bool
 slotNoNulls(TupleTableSlot *slot)
@@ -796,11 +796,11 @@ slotNoNulls(TupleTableSlot *slot)
 /* ----------------------------------------------------------------
  *		ExecInitSubPlan
  *
- * Create a SubPlanState for a SubPlan; this is the SubPlan-specific part
- * of ExecInitExpr().  We split it out so that it can be used for InitPlans
- * as well as regular SubPlans.  Note that we don't link the SubPlan into
- * the parent's subPlan list, because that shouldn't happen for InitPlans.
- * Instead, ExecInitExpr() does that one part.
+ * 为一个 SubPlan 创建 SubPlanState；这是 ExecInitExpr()         
+ * 中属于 SubPlan 的部分。我们把它分离出来，这样它      
+ * 既用于常规 SubPlan 也用于 InitPlan。注意我们不会       
+ * 把 SubPlan 链入父节点的 subPlan 列表（对 InitPlan           
+ * 不应发生）；ExecInitExpr() 负责。 
  * ----------------------------------------------------------------
  */
 SubPlanState *
@@ -811,27 +811,27 @@ ExecInitSubPlan(SubPlan *subplan, PlanState *parent)
 
 	sstate->subplan = subplan;
 
-	/* Link the SubPlanState to already-initialized subplan */
+	/* 把 SubPlanState 链接到已初始化的子计划   */
 	sstate->planstate = (PlanState *) list_nth(estate->es_subplanstates,
 											   subplan->plan_id - 1);
 
 	/*
-	 * This check can fail if the planner mistakenly puts a parallel-unsafe
-	 * subplan into a parallelized subquery; see ExecSerializePlan.
+	 * 如果规划器误将并行不安全的子计划放入并行化的  
+	 * 子查询，该检查就会失败；见 ExecSerializePlan   
 	 */
 	if (sstate->planstate == NULL)
 		elog(ERROR, "subplan \"%s\" was not initialized",
 			 subplan->plan_name);
 
-	/* Link to parent's state, too */
+	/* 也链接到父节点状态 */
 	sstate->parent = parent;
 
-	/* Initialize subexpressions */
+	/* 初始化子表达式     */
 	sstate->testexpr = ExecInitExpr((Expr *) subplan->testexpr, parent);
 	sstate->args = ExecInitExprList(subplan->args, parent);
 
 	/*
-	 * initialize my state
+	 * 初始化本状态 
 	 */
 	sstate->curTuple = NULL;
 	sstate->curArray = PointerGetDatum(NULL);
@@ -851,15 +851,15 @@ ExecInitSubPlan(SubPlan *subplan, PlanState *parent)
 	sstate->cur_eq_funcs = NULL;
 
 	/*
-	 * If this is an initplan, it has output parameters that the parent plan
-	 * will use, so mark those parameters as needing evaluation.  We don't
-	 * actually run the subplan until we first need one of its outputs.
+	 * 如果这是一个 initplan，它有一些父计划会使用的输   
+	 * 出参数，所以把这些参数标记为需要求值。我们    
+	 * 直到首次需要其某个输出，才真正运行子计划。 
 	 *
-	 * A CTE subplan's output parameter is never to be evaluated in the normal
-	 * way, so skip this in that case.
+	 * CTE 子计划的输出参数绝不以常规方式求值，             
+	 * 此情况下跳过该步骤。 
 	 *
-	 * Note that we don't set parent->chgParam here: the parent plan hasn't
-	 * been run yet, so no need to force it to re-run.
+	 * 注意我们在这里不设置 parent->chgParam：父计划         
+	 * 尚未运行，无需强制它重新运行。  
 	 */
 	if (subplan->setParam != NIL && subplan->parParam == NIL &&
 		subplan->subLinkType != CTE_SUBLINK)
@@ -876,8 +876,8 @@ ExecInitSubPlan(SubPlan *subplan, PlanState *parent)
 	}
 
 	/*
-	 * If we are going to hash the subquery output, initialize relevant stuff.
-	 * (We don't create the hashtable until needed, though.)
+	 * 如果打算对子查询输出做哈希，就初始化相关内容。  
+	 * （不过哈希表要到需要时才创建。）     
 	 */
 	if (subplan->useHashTable)
 	{
@@ -892,48 +892,48 @@ ExecInitSubPlan(SubPlan *subplan, PlanState *parent)
 				   *righttlist;
 		ListCell   *l;
 
-		/* We need a memory context to hold the hash table(s) */
+		/* 我们需要内存上下文来存放哈希表      */
 		sstate->hashtablecxt =
 			AllocSetContextCreate(CurrentMemoryContext,
 								  "Subplan HashTable Context",
 								  ALLOCSET_DEFAULT_SIZES);
-		/* and a small one for the hash tables to use as temp storage */
+		/* 以及一个小上下文供哈希表用作临时存储     */
 		sstate->hashtempcxt =
 			AllocSetContextCreate(CurrentMemoryContext,
 								  "Subplan HashTable Temp Context",
 								  ALLOCSET_SMALL_SIZES);
-		/* and a short-lived exprcontext for function evaluation */
+		/* 以及一个函数求值用短暂表达式上下文   */
 		sstate->innerecontext = CreateExprContext(estate);
 
 		/*
-		 * We use ExecProject to evaluate the lefthand and righthand
-		 * expression lists and form tuples.  (You might think that we could
-		 * use the sub-select's output tuples directly, but that is not the
-		 * case if we had to insert any run-time coercions of the sub-select's
-		 * output datatypes; anyway this avoids storing any resjunk columns
-		 * that might be in the sub-select's output.)  Run through the
-		 * combining expressions to build tlists for the lefthand and
-		 * righthand sides.
+		 * 我们用 ExecProject 求值左右两侧表达式列表  
+		 * 并构成元组。（也许认为可以直接用子选择的输  
+		 * 出元组，但如果必须插入对子选择输出数据类型 
+		 * 的运行时强制转换，情况就并非如此；而且这样    
+		 * 做还能避免存储子选择输出中可能存在的 resjunk  
+		 * 列。）遍历各组合表达式，为左侧和           
+		 * 右侧构建对应的                                     
+		 * tlist。        
 		 *
-		 * We also extract the combining operators themselves to initialize
-		 * the equality and hashing functions for the hash tables.
+		 * 我们还提取组合算子本身，用来初始化哈希表的 
+		 * 相等函数和哈希函数。                         
 		 */
 		if (IsA(subplan->testexpr, OpExpr))
 		{
-			/* single combining operator */
+			/* 单一组合算子        */
 			oplist = list_make1(subplan->testexpr);
 		}
 		else if (is_andclause(subplan->testexpr))
 		{
-			/* multiple combining operators */
+			/* 多个组合算子           */
 			oplist = castNode(BoolExpr, subplan->testexpr)->args;
 		}
 		else
 		{
-			/* shouldn't see anything else in a hashable subplan */
+			/* 可哈希子计划中不应出现其他情况     */
 			elog(ERROR, "unrecognized testexpr type: %d",
 				 (int) nodeTag(subplan->testexpr));
-			oplist = NIL;		/* keep compiler quiet */
+			oplist = NIL;		/* 让编译器安静  */
 		}
 		ncols = list_length(oplist);
 
@@ -946,7 +946,7 @@ ExecInitSubPlan(SubPlan *subplan, PlanState *parent)
 		sstate->tab_eq_funcs = (FmgrInfo *) palloc(ncols * sizeof(FmgrInfo));
 		sstate->lhs_hash_funcs = (FmgrInfo *) palloc(ncols * sizeof(FmgrInfo));
 		sstate->cur_eq_funcs = (FmgrInfo *) palloc(ncols * sizeof(FmgrInfo));
-		/* we'll need the cross-type equality fns below, but not in sstate */
+		/* 稍后需要跨类型相等函数，但 sstate 中不需要     */
 		cross_eq_funcoids = (Oid *) palloc(ncols * sizeof(Oid));
 
 		i = 1;
@@ -961,7 +961,7 @@ ExecInitSubPlan(SubPlan *subplan, PlanState *parent)
 
 			Assert(list_length(opexpr->args) == 2);
 
-			/* Process lefthand argument */
+			/* 处理左侧参数        */
 			expr = (Expr *) linitial(opexpr->args);
 			tle = makeTargetEntry(expr,
 								  i,
@@ -969,7 +969,7 @@ ExecInitSubPlan(SubPlan *subplan, PlanState *parent)
 								  false);
 			lefttlist = lappend(lefttlist, tle);
 
-			/* Process righthand argument */
+			/* 处理右侧参数         */
 			expr = (Expr *) lsecond(opexpr->args);
 			tle = makeTargetEntry(expr,
 								  i,
@@ -977,12 +977,12 @@ ExecInitSubPlan(SubPlan *subplan, PlanState *parent)
 								  false);
 			righttlist = lappend(righttlist, tle);
 
-			/* Lookup the equality function (potentially cross-type) */
+			/* 查找相等函数（可能是跨类型的）         */
 			cross_eq_funcoids[i - 1] = opexpr->opfuncid;
 			fmgr_info(opexpr->opfuncid, &sstate->cur_eq_funcs[i - 1]);
 			fmgr_info_set_expr((Node *) opexpr, &sstate->cur_eq_funcs[i - 1]);
 
-			/* Look up the equality function for the RHS type */
+			/* 查找适用于 RHS 类型的相等函数      */
 			if (!get_compatible_hash_operators(opexpr->opno,
 											   NULL, &rhs_eq_oper))
 				elog(ERROR, "could not find compatible hash operator for operator %u",
@@ -991,7 +991,7 @@ ExecInitSubPlan(SubPlan *subplan, PlanState *parent)
 			fmgr_info(sstate->tab_eq_funcoids[i - 1],
 					  &sstate->tab_eq_funcs[i - 1]);
 
-			/* Lookup the associated hash functions */
+			/* 查找关联的哈希函数          */
 			if (!get_op_hash_functions(opexpr->opno,
 									   &left_hashfn, &right_hashfn))
 				elog(ERROR, "could not find hash function for hash operator %u",
@@ -999,22 +999,22 @@ ExecInitSubPlan(SubPlan *subplan, PlanState *parent)
 			fmgr_info(left_hashfn, &sstate->lhs_hash_funcs[i - 1]);
 			fmgr_info(right_hashfn, &sstate->tab_hash_funcs[i - 1]);
 
-			/* Set collation */
+			/* 排序规则  */
 			sstate->tab_collations[i - 1] = opexpr->inputcollid;
 
-			/* keyColIdx is just column numbers 1..n */
+			/* keyColIdx 只是列号 1..n           */
 			sstate->keyColIdx[i - 1] = i;
 
 			i++;
 		}
 
 		/*
-		 * Construct tupdescs, slots and projection nodes for left and right
-		 * sides.  The lefthand expressions will be evaluated in the parent
-		 * plan node's exprcontext, which we don't have access to here.
-		 * Fortunately we can just pass NULL for now and fill it in later
-		 * (hack alert!).  The righthand expressions will be evaluated in our
-		 * own innerecontext.
+		 * 为左右两侧构建 tupdesc、slot 和投影节点。左侧    
+		 * 表达式将在父节点的 exprcontext 中求值，而我们   
+		 * 在这里无法访问它。好在现在只需先传 NULL， 
+		 * 稍后再补上（别扭做法！）。右侧表达式将     
+		 * 在我们自己的 innerecontext                                  
+		 * 中求值。      
 		 */
 		tupDescLeft = ExecTypeFromTL(lefttlist);
 		slot = ExecInitExtraTupleSlot(estate, tupDescLeft, &TTSOpsVirtual);
@@ -1033,8 +1033,8 @@ ExecInitSubPlan(SubPlan *subplan, PlanState *parent)
 													NULL);
 
 		/*
-		 * Create comparator for lookups of rows in the table (potentially
-		 * cross-type comparisons).
+		 * 创建用于在表中查找行的比较器（可能为跨      
+		 * 类型比较）。      
 		 */
 		sstate->cur_eq_comp = ExecBuildGroupingEqual(tupDescLeft, tupDescRight,
 													 &TTSOpsVirtual, &TTSOpsMinimalTuple,
@@ -1051,25 +1051,25 @@ ExecInitSubPlan(SubPlan *subplan, PlanState *parent)
 /* ----------------------------------------------------------------
  *		ExecSetParamPlan
  *
- *		Executes a subplan and sets its output parameters.
+ *		执行一个子计划并设置其输出参数。  
  *
- * This is called from ExecEvalParamExec() when the value of a PARAM_EXEC
- * parameter is requested and the param's execPlan field is set (indicating
- * that the param has not yet been evaluated).  This allows lazy evaluation
- * of initplans: we don't run the subplan until/unless we need its output.
- * Note that this routine MUST clear the execPlan fields of the plan's
- * output parameters after evaluating them!
+ * 本函数由 ExecEvalParamExec() 调用：当请求某个 PARAM_EXEC  
+ * 参数的值且该参数的 execPlan 字段已设置时（这表明     
+ * 该参数尚未求值）。这使得 initplan 可以惰性求值：     
+ * 除非需要其输出，否则不会运行子计划。                 
+ * 注意本例程在求值之后必须清除该计划的输出参数 
+ * 的 execPlan 字段！                  
  *
- * The results of this function are stored in the EState associated with the
- * ExprContext (particularly, its ecxt_param_exec_vals); any pass-by-ref
- * result Datums are allocated in the EState's per-query memory.  The passed
- * econtext can be any ExprContext belonging to that EState; which one is
- * important only to the extent that the ExprContext's per-tuple memory
- * context is used to evaluate any parameters passed down to the subplan.
- * (Thus in principle, the shorter-lived the ExprContext the better, since
- * that data isn't needed after we return.  In practice, because initplan
- * parameters are never more complex than Vars, Aggrefs, etc, evaluating them
- * currently never leaks any memory anyway.)
+ * 本函数的结果存储在与 ExprContext 相关联的 EState 中       
+ * （特别是其 ecxt_param_exec_vals）；任何按引用传递      
+ * 的结果 Datum 都分配在 EState 的每查询内存中。传入       
+ * 的 econtext 可以是该 EState 所属的任何 ExprContext；       
+ * 用哪一个仅在如下方面有影响：即 ExprContext 的每    
+ * 元组内存上下文被用来求值传递给子计划的参数。    
+ * （因此原则上，ExprContext 的寿命越短越好，因为那     
+ * 些数据在我们返回后就不再需要了。实践中，由于    
+ * initplan 参数的复杂度从不超过 Var、Aggref 等，对它们      
+ * 求值反正从不泄漏内存。）     
  * ----------------------------------------------------------------
  */
 void
@@ -1095,24 +1095,24 @@ ExecSetParamPlan(SubPlanState *node, ExprContext *econtext)
 		elog(ERROR, "correlated subplans should not be executed via ExecSetParamPlan");
 
 	/*
-	 * Enforce forward scan direction regardless of caller. It's hard but not
-	 * impossible to get here in backward scan, so make it work anyway.
+	 * 无论调用者是谁，一律强制前向扫描方向。虽然很难 
+	 * 经反向扫描到此，但非不可能，仍要让它可行。 
 	 */
 	estate->es_direction = ForwardScanDirection;
 
-	/* Initialize ArrayBuildStateAny in caller's context, if needed */
+	/* 在调用者上下文中按需初始化 ArrayBuildStateAny   */
 	if (subLinkType == ARRAY_SUBLINK)
 		astate = initArrayResultAny(subplan->firstColType,
 									CurrentMemoryContext, true);
 
 	/*
-	 * Must switch to per-query memory context.
+	 * 必须切换到每查询内存上下文 
 	 */
 	oldcontext = MemoryContextSwitchTo(econtext->ecxt_per_query_memory);
 
 	/*
-	 * Run the plan.  (If it needs to be rescanned, the first ExecProcNode
-	 * call will take care of that.)
+	 * 运行该计划。（若需要重新扫描，第一次             
+	 * ExecProcNode 调用即可） 
 	 */
 	for (slot = ExecProcNode(planstate);
 		 !TupIsNull(slot);
@@ -1123,7 +1123,7 @@ ExecSetParamPlan(SubPlanState *node, ExprContext *econtext)
 
 		if (subLinkType == EXISTS_SUBLINK)
 		{
-			/* There can be only one setParam... */
+			/* 只可能有一个 setParam...    */
 			int			paramid = linitial_int(subplan->setParam);
 			ParamExecData *prm = &(econtext->ecxt_param_exec_vals[paramid]);
 
@@ -1140,12 +1140,12 @@ ExecSetParamPlan(SubPlanState *node, ExprContext *econtext)
 			bool		disnull;
 
 			found = true;
-			/* stash away current value */
+			/* 把当前值暂存起来 */
 			Assert(subplan->firstColType == TupleDescAttr(tdesc, 0)->atttypid);
 			dvalue = slot_getattr(slot, 1, &disnull);
 			astate = accumArrayResultAny(astate, dvalue, disnull,
 										 subplan->firstColType, oldcontext);
-			/* keep scanning subplan to collect all values */
+			/* 继续扫描子计划以收集所有值     */
 			continue;
 		}
 
@@ -1160,17 +1160,17 @@ ExecSetParamPlan(SubPlanState *node, ExprContext *econtext)
 		found = true;
 
 		/*
-		 * We need to copy the subplan's tuple into our own context, in case
-		 * any of the params are pass-by-ref type --- the pointers stored in
-		 * the param structs will point at this copied tuple! node->curTuple
-		 * keeps track of the copied tuple for eventual freeing.
+		 * 需把子计划的元组复制到我们自己的上下文中，  
+		 * 以防某些参数是按引用传递的类型 --- 存放在参数
+		 * 结构中的指针将指向这份拷贝的元组！node->curTuple
+		 * 会跟踪这份拷贝元组，以便最终释放。  
 		 */
 		if (node->curTuple)
 			heap_freetuple(node->curTuple);
 		node->curTuple = ExecCopySlotHeapTuple(slot);
 
 		/*
-		 * Now set all the setParam params from the columns of the tuple
+		 * 现在从元组的各列设置所有 setParam 参数         
 		 */
 		foreach(l, subplan->setParam)
 		{
@@ -1186,14 +1186,14 @@ ExecSetParamPlan(SubPlanState *node, ExprContext *econtext)
 
 	if (subLinkType == ARRAY_SUBLINK)
 	{
-		/* There can be only one setParam... */
+		/* 只可能有一个 setParam...    */
 		int			paramid = linitial_int(subplan->setParam);
 		ParamExecData *prm = &(econtext->ecxt_param_exec_vals[paramid]);
 
 		/*
-		 * We build the result array in query context so it won't disappear;
-		 * to avoid leaking memory across repeated calls, we have to remember
-		 * the latest value, much as for curTuple above.
+		 * 结果数组要构建在查询上下文中，这样它才不会  
+		 * 消失；为了避免在重复调用间泄漏内存，我们必须
+		 * 记住最新值，类似上面 curTuple。   
 		 */
 		if (node->curArray != PointerGetDatum(NULL))
 			pfree(DatumGetPointer(node->curArray));
@@ -1208,7 +1208,7 @@ ExecSetParamPlan(SubPlanState *node, ExprContext *econtext)
 	{
 		if (subLinkType == EXISTS_SUBLINK)
 		{
-			/* There can be only one setParam... */
+			/* 只可能有一个 setParam...    */
 			int			paramid = linitial_int(subplan->setParam);
 			ParamExecData *prm = &(econtext->ecxt_param_exec_vals[paramid]);
 
@@ -1218,7 +1218,7 @@ ExecSetParamPlan(SubPlanState *node, ExprContext *econtext)
 		}
 		else
 		{
-			/* For other sublink types, set all the output params to NULL */
+			/* 其他 sublink 类型则把所有输出参数设为 NULL   */
 			foreach(l, subplan->setParam)
 			{
 				int			paramid = lfirst_int(l);
@@ -1233,20 +1233,20 @@ ExecSetParamPlan(SubPlanState *node, ExprContext *econtext)
 
 	MemoryContextSwitchTo(oldcontext);
 
-	/* restore scan direction */
+	/* 恢复扫描方向     */
 	estate->es_direction = dir;
 }
 
 /*
  * ExecSetParamPlanMulti
  *
- * Apply ExecSetParamPlan to evaluate any not-yet-evaluated initplan output
- * parameters whose ParamIDs are listed in "params".  Any listed params that
- * are not initplan outputs are ignored.
+ * 应用 ExecSetParamPlan 来求值所有尚未求值的、其            
+ * ParamID 列在 "params" 中的 initplan 输出参数。列出的         
+ * 非 initplan 输出的则忽略。   
  *
- * As with ExecSetParamPlan, any ExprContext belonging to the current EState
- * can be used, but in principle a shorter-lived ExprContext is better than a
- * longer-lived one.
+ * 与 ExecSetParamPlan 一样，属于当前 EState 的任何              
+ * ExprContext 都可以使用，但原则上寿命较短的优于           
+ * 长寿命的。  
  */
 void
 ExecSetParamPlanMulti(const Bitmapset *params, ExprContext *econtext)
@@ -1260,16 +1260,16 @@ ExecSetParamPlanMulti(const Bitmapset *params, ExprContext *econtext)
 
 		if (prm->execPlan != NULL)
 		{
-			/* Parameter not evaluated yet, so go do it */
+			/* 参数尚未求值，现在就去求值  */
 			ExecSetParamPlan(prm->execPlan, econtext);
-			/* ExecSetParamPlan should have processed this param... */
+			/* ExecSetParamPlan 本应已处理过该参数...      */
 			Assert(prm->execPlan == NULL);
 		}
 	}
 }
 
 /*
- * Mark an initplan as needing recalculation
+ * 把 initplan 标记为需要重算       
  */
 void
 ExecReScanSetParamPlan(SubPlanState *node, PlanState *parent)
@@ -1279,7 +1279,7 @@ ExecReScanSetParamPlan(SubPlanState *node, PlanState *parent)
 	EState	   *estate = parent->state;
 	ListCell   *l;
 
-	/* sanity checks */
+	/* 预防检查  */
 	if (subplan->parParam != NIL)
 		elog(ERROR, "direct correlated subquery unsupported as initplan");
 	if (subplan->setParam == NIL)
@@ -1288,16 +1288,16 @@ ExecReScanSetParamPlan(SubPlanState *node, PlanState *parent)
 		elog(ERROR, "extParam set of initplan is empty");
 
 	/*
-	 * Don't actually re-scan: it'll happen inside ExecSetParamPlan if needed.
+	 * 并不真正重新扫描：需要时在 ExecSetParamPlan 内发生。  
 	 */
 
 	/*
-	 * Mark this subplan's output parameters as needing recalculation.
+	 * 把本子计划的输出参数标记为需要重新计算。   
 	 *
-	 * CTE subplans are never executed via parameter recalculation; instead
-	 * they get run when called by nodeCtescan.c.  So don't mark the output
-	 * parameter of a CTE subplan as dirty, but do set the chgParam bit for it
-	 * so that dependent plan nodes will get told to rescan.
+	 * CTE 子计划绝不会经由参数重算来执行；相反，它们 
+	 * 是在被 nodeCtescan.c 调用时运行。因此不要把 CTE 子   
+	 * 计划的输出参数标记为脏，但确实要为它设置           
+	 * chgParam 位，通知依赖节点重新扫描。     
 	 */
 	foreach(l, subplan->setParam)
 	{

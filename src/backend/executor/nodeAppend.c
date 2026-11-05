@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeAppend.c
- *	  routines to handle append nodes.
+ *	  处理 Append 节点的例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,21 +13,21 @@
  *-------------------------------------------------------------------------
  */
 /* INTERFACE ROUTINES
- *		ExecInitAppend	- initialize the append node
- *		ExecAppend		- retrieve the next tuple from the node
- *		ExecEndAppend	- shut down the append node
- *		ExecReScanAppend - rescan the append node
+ *		ExecInitAppend	- 初始化 append 节点   
+ *		ExecAppend		- 从该节点取下一条元组       
+ *		ExecEndAppend	- 关闭 append 节点     
+ *		ExecReScanAppend - 重扫 append 节点  
  *
  *	 NOTES
- *		Each append node contains a list of one or more subplans which
- *		must be iteratively processed (forwards or backwards).
- *		Tuples are retrieved by executing the 'whichplan'th subplan
- *		until the subplan stops returning tuples, at which point that
- *		plan is shut down and the next started up.
+ *		每个 append 节点都包含一个或多个子计划         
+ *		构成的列表，需按正向或反向迭代处理。
+ *		元组通过执行第 'whichplan' 个子计划来获取， 
+ *		直到该子计划不再返回元组为止，此时该计划 
+ *		会被关闭，并启动下一个。      
  *
- *		Append nodes don't make use of their left and right
- *		subtrees, rather they maintain a list of subplans so
- *		a typical append node looks like this in the plan tree:
+ *		Append 节点不使用其左右子树，           
+ *		而是维护一个子计划列表，因此          
+ *		典型的 append 节点在计划树中形如：        
  *
  *				   ...
  *				   /
@@ -36,16 +36,16 @@
  *			  nil	nil		 ...    ...    ...
  *								 subplans
  *
- *		Append nodes are currently used for unions, and to support
- *		inheritance queries, where several relations need to be scanned.
- *		For example, in our standard person/student/employee/student-emp
- *		example, where student and employee inherit from person
- *		and student-emp inherits from student and employee, the
- *		query:
+ *		Append 节点目前用于 union 查询，并用于支持  
+ *		继承查询，因为这类查询需要扫描多个关系。    
+ *		例如，在我们标准的 person/student/employee/            
+ *		student-emp 例子中，student 和 employee 继承自 
+ *		person，student-emp 继承自 student 和 employee。 
+ *		查询
  *
  *				select name from person
  *
- *		generates the plan:
+ *		生成的计划： 
  *
  *				  |
  *				Append -------+-------+--------+--------+
@@ -65,17 +65,17 @@
 #include "pgstat.h"
 #include "storage/latch.h"
 
-/* Shared state for parallel-aware Append. */
+/* 并行感知 Append 的共享状态。  */
 struct ParallelAppendState
 {
-	LWLock		pa_lock;		/* mutual exclusion to choose next subplan */
-	int			pa_next_plan;	/* next plan to choose by any worker */
+	LWLock		pa_lock;		/* 选择下一个子计划的互斥锁    */
+	int			pa_next_plan;	/* worker 将选的下一个计划   */
 
 	/*
-	 * pa_finished[i] should be true if no more workers should select subplan
-	 * i.  for a non-partial plan, this should be set to true as soon as a
-	 * worker selects the plan; for a partial plan, it remains false until
-	 * some worker executes the plan to completion.
+	 * 当不应再有 worker 选择子计划时，pa_finished[i] 应置     
+	 * 为 true。对非 partial 计划，一旦 worker 选中该计划   
+	 * 就应把它设为 true；而对 partial 计划，它会保持     
+	 * 为 false，直到有 worker 将其做完。
 	 */
 	bool		pa_finished[FLEXIBLE_ARRAY_MEMBER];
 };
@@ -97,12 +97,12 @@ static void classify_matching_subplans(AppendState *node);
 /* ----------------------------------------------------------------
  *		ExecInitAppend
  *
- *		Begin all of the subscans of the append node.
+ *		启动 append 节点的所有子扫描。    
  *
- *	   (This is potentially wasteful, since the entire result of the
- *		append node may not be scanned, but this way all of the
- *		structures get allocated in the executor's top level memory
- *		block instead of that of the call to ExecAppend.)
+ *	   （可能有些浪费，因为未必扫描 append 节点的  
+ *		全部结果，但所有结构会分配到执行器    
+ *		顶层内存块里，而非 ExecAppend 调用所用的     
+ *		内存块中。）                               
  * ----------------------------------------------------------------
  */
 AppendState *
@@ -118,30 +118,30 @@ ExecInitAppend(Append *node, EState *estate, int eflags)
 	int			i,
 				j;
 
-	/* check for unsupported flags */
+	/* 检查不支持的标志    */
 	Assert(!(eflags & EXEC_FLAG_MARK));
 
 	/*
-	 * create new AppendState for our append node
+	 * 为 append 节点创建新的 AppendState 
 	 */
 	appendstate->ps.plan = (Plan *) node;
 	appendstate->ps.state = estate;
 	appendstate->ps.ExecProcNode = ExecAppend;
 
-	/* Let choose_next_subplan_* function handle setting the first subplan */
+	/* 让 choose_next_subplan_* 函数来负责设置第一个子计划   */
 	appendstate->as_whichplan = INVALID_SUBPLAN_INDEX;
 	appendstate->as_syncdone = false;
 	appendstate->as_begun = false;
 
-	/* If run-time partition pruning is enabled, then set that up now */
+	/* 如果启用了运行时分区剪枝，则现在就进行设置*/
 	if (node->part_prune_info != NULL)
 	{
 		PartitionPruneState *prunestate;
 
 		/*
-		 * Set up pruning data structure.  This also initializes the set of
-		 * subplans to initialize (validsubplans) by taking into account the
-		 * result of performing initial pruning if any.
+		 * 建立剪枝数据结构。这也会初始化子计划集合    
+		 * （validsubplans），其中考虑了执行初始剪枝          
+		 * （若有）的结果。                    
 		 */
 		prunestate = ExecInitPartitionPruning(&appendstate->ps,
 											  list_length(node->appendplans),
@@ -151,9 +151,9 @@ ExecInitAppend(Append *node, EState *estate, int eflags)
 		nplans = bms_num_members(validsubplans);
 
 		/*
-		 * When no run-time pruning is required and there's at least one
-		 * subplan, we can fill as_valid_subplans immediately, preventing
-		 * later calls to ExecFindMatchingSubPlans.
+		 * 当无需运行时剪枝且至少有一个子计划时，可 
+		 * 以立即填充 as_valid_subplans，避免稍后再调用     
+		 * ExecFindMatchingSubPlans。             
 		 */
 		if (!prunestate->do_exec_prune && nplans > 0)
 		{
@@ -166,8 +166,8 @@ ExecInitAppend(Append *node, EState *estate, int eflags)
 		nplans = list_length(node->appendplans);
 
 		/*
-		 * When run-time partition pruning is not enabled we can just mark all
-		 * subplans as valid; they must also all be initialized.
+		 * 当运行时分区剪枝未启用时，直接把全部子计划    
+		 * 标为有效；它们也必须全部初始化。     
 		 */
 		Assert(nplans > 0);
 		appendstate->as_valid_subplans = validsubplans =
@@ -177,11 +177,11 @@ ExecInitAppend(Append *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * Initialize result tuple type and slot.
+	 * 初始化结果元组类型和槽。  
 	 */
 	ExecInitResultTupleSlotTL(&appendstate->ps, &TTSOpsVirtual);
 
-	/* node returns slots from each of its subnodes, therefore not fixed */
+	/* 节点返回的槽来自其各个子节点，因此并非固定   */
 	appendstate->ps.resultopsset = true;
 	appendstate->ps.resultopsfixed = false;
 
@@ -189,10 +189,10 @@ ExecInitAppend(Append *node, EState *estate, int eflags)
 											 sizeof(PlanState *));
 
 	/*
-	 * call ExecInitNode on each of the valid plans to be executed and save
-	 * the results into the appendplanstates array.
+	 * 对每个待执行的有效计划调用 ExecInitNode，并把       
+	 * 结果存入 appendplanstates 数组。     
 	 *
-	 * While at it, find out the first valid partial plan.
+	 * 顺便找出第一个有效的 partial 计划。   
 	 */
 	j = 0;
 	asyncplans = NULL;
@@ -204,9 +204,9 @@ ExecInitAppend(Append *node, EState *estate, int eflags)
 		Plan	   *initNode = (Plan *) list_nth(node->appendplans, i);
 
 		/*
-		 * Record async subplans.  When executing EvalPlanQual, we treat them
-		 * as sync ones; don't do this when initializing an EvalPlanQual plan
-		 * tree.
+		 * 记录异步子计划。执行 EvalPlanQual 时会把它们       
+		 * 当作同步子计划；但初始化 EvalPlanQual 计划树时除 
+		 * 外  
 		 */
 		if (initNode->async_capable && estate->es_epq_active == NULL)
 		{
@@ -215,7 +215,7 @@ ExecInitAppend(Append *node, EState *estate, int eflags)
 		}
 
 		/*
-		 * Record the lowest appendplans index which is a valid partial plan.
+		 * 记录作为有效 partial 计划的最小 appendplans 下标。  
 		 */
 		if (i >= node->first_partial_plan && j < firstvalid)
 			firstvalid = j;
@@ -227,7 +227,7 @@ ExecInitAppend(Append *node, EState *estate, int eflags)
 	appendstate->appendplans = appendplanstates;
 	appendstate->as_nplans = nplans;
 
-	/* Initialize async state */
+	/* 初始化异步状态  */
 	appendstate->as_asyncplans = asyncplans;
 	appendstate->as_nasyncplans = nasyncplans;
 	appendstate->as_asyncrequests = NULL;
@@ -267,12 +267,12 @@ ExecInitAppend(Append *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 */
 
 	appendstate->ps.ps_ProjInfo = NULL;
 
-	/* For parallel query, this will be overridden later. */
+	/* 对于并行查询，此值稍后会被覆盖。   */
 	appendstate->choose_next_subplan = choose_next_subplan_locally;
 
 	return appendstate;
@@ -281,7 +281,7 @@ ExecInitAppend(Append *node, EState *estate, int eflags)
 /* ----------------------------------------------------------------
  *	   ExecAppend
  *
- *		Handles iteration over multiple subplans.
+ *		处理对多个子计划的迭代。     
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -291,25 +291,25 @@ ExecAppend(PlanState *pstate)
 	TupleTableSlot *result;
 
 	/*
-	 * If this is the first call after Init or ReScan, we need to do the
-	 * initialization work.
+	 * 如果这是 Init 或 ReScan 之后的首次调用，就需要   
+	 * 进行初始化。  
 	 */
 	if (!node->as_begun)
 	{
 		Assert(node->as_whichplan == INVALID_SUBPLAN_INDEX);
 		Assert(!node->as_syncdone);
 
-		/* Nothing to do if there are no subplans */
+		/* 如果没有子计划，则无事可做*/
 		if (node->as_nplans == 0)
 			return ExecClearTuple(node->ps.ps_ResultTupleSlot);
 
-		/* If there are any async subplans, begin executing them. */
+		/* 若存在异步子计划，则开始执行它们。    */
 		if (node->as_nasyncplans > 0)
 			ExecAppendAsyncBegin(node);
 
 		/*
-		 * If no sync subplan has been chosen, we must choose one before
-		 * proceeding.
+		 * 若尚未选定同步子计划，必须先选定一个再    
+		 * 继续。  
 		 */
 		if (!node->choose_next_subplan(node) && node->as_nasyncremain == 0)
 			return ExecClearTuple(node->ps.ps_ResultTupleSlot);
@@ -318,7 +318,7 @@ ExecAppend(PlanState *pstate)
 			   (node->as_whichplan >= 0 &&
 				node->as_whichplan < node->as_nplans));
 
-		/* And we're initialized. */
+		/* 初始化完成。     */
 		node->as_begun = true;
 	}
 
@@ -329,7 +329,7 @@ ExecAppend(PlanState *pstate)
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * try to get a tuple from an async subplan if any
+		 * 尝试从异步子计划（若有）取元组  
 		 */
 		if (node->as_syncdone || !bms_is_empty(node->as_needrequest))
 		{
@@ -340,35 +340,35 @@ ExecAppend(PlanState *pstate)
 		}
 
 		/*
-		 * figure out which sync subplan we are currently processing
+		 * 弄清当前正在处理的是哪个同步子计划      
 		 */
 		Assert(node->as_whichplan >= 0 && node->as_whichplan < node->as_nplans);
 		subnode = node->appendplans[node->as_whichplan];
 
 		/*
-		 * get a tuple from the subplan
+		 * 从子计划取一条元组 
 		 */
 		result = ExecProcNode(subnode);
 
 		if (!TupIsNull(result))
 		{
 			/*
-			 * If the subplan gave us something then return it as-is. We do
-			 * NOT make use of the result slot that was set up in
-			 * ExecInitAppend; there's no need for it.
+			 * 如果子计划给出了元组，就原样返回。我们并
+			 * 不使用 ExecInitAppend 中设置的结果槽， 
+			 * 因为没有这个必要。            
 			 */
 			return result;
 		}
 
 		/*
-		 * wait or poll for async events if any. We do this before checking
-		 * for the end of iteration, because it might drain the remaining
-		 * async subplans.
+		 * 若有异步事件则等待或轮询。我们把这一步放在 
+		 * 检查迭代结束与否之前，因为它可能排空剩余  
+		 * 异步子计划
 		 */
 		if (node->as_nasyncremain > 0)
 			ExecAppendAsyncEventWait(node);
 
-		/* choose new sync subplan; if no sync/async subplans, we're done */
+		/* 选择新同步子计划；无同步/异步子计划即完成  */
 		if (!node->choose_next_subplan(node) && node->as_nasyncremain == 0)
 			return ExecClearTuple(node->ps.ps_ResultTupleSlot);
 	}
@@ -377,9 +377,9 @@ ExecAppend(PlanState *pstate)
 /* ----------------------------------------------------------------
  *		ExecEndAppend
  *
- *		Shuts down the subscans of the append node.
+ *		关闭 append 节点的各个子扫描。  
  *
- *		Returns nothing of interest.
+ *		无有价值的返回值。 
  * ----------------------------------------------------------------
  */
 void
@@ -390,13 +390,13 @@ ExecEndAppend(AppendState *node)
 	int			i;
 
 	/*
-	 * get information from the node
+	 * 从节点获取信息        
 	 */
 	appendplans = node->appendplans;
 	nplans = node->as_nplans;
 
 	/*
-	 * shut down each of the subscans
+	 * 关闭每一个子扫描      
 	 */
 	for (i = 0; i < nplans; i++)
 		ExecEndNode(appendplans[i]);
@@ -409,9 +409,9 @@ ExecReScanAppend(AppendState *node)
 	int			i;
 
 	/*
-	 * If any PARAM_EXEC Params used in pruning expressions have changed, then
-	 * we'd better unset the valid subplans so that they are reselected for
-	 * the new parameter values.
+	 * 如果剪枝表达式中用到的任何 PARAM_EXEC 参数发生了     
+	 * 变化，则最好取消有效子计划集合，以便针对新     
+	 * 参数值重新选定。 
 	 */
 	if (node->as_prune_state &&
 		bms_overlap(node->ps.chgParam,
@@ -429,21 +429,21 @@ ExecReScanAppend(AppendState *node)
 		PlanState  *subnode = node->appendplans[i];
 
 		/*
-		 * ExecReScan doesn't know about my subplans, so I have to do
-		 * changed-parameter signaling myself.
+		 * ExecReScan 不了解我的子计划，因此参数变化  
+		 * 信号通知由我自行完成。  
 		 */
 		if (node->ps.chgParam != NULL)
 			UpdateChangedParamSet(subnode, node->ps.chgParam);
 
 		/*
-		 * If chgParam of subnode is not null then plan will be re-scanned by
-		 * first ExecProcNode or by first ExecAsyncRequest.
+		 * 如果子节点的 chgParam 非空，计划就会在首次        
+		 * ExecProcNode 或 ExecAsyncRequest 时重扫。  
 		 */
 		if (subnode->chgParam == NULL)
 			ExecReScan(subnode);
 	}
 
-	/* Reset async state */
+	/* 重置异步状态*/
 	if (nasyncplans > 0)
 	{
 		i = -1;
@@ -462,22 +462,22 @@ ExecReScanAppend(AppendState *node)
 		node->as_needrequest = NULL;
 	}
 
-	/* Let choose_next_subplan_* function handle setting the first subplan */
+	/* 让 choose_next_subplan_* 函数来负责设置第一个子计划   */
 	node->as_whichplan = INVALID_SUBPLAN_INDEX;
 	node->as_syncdone = false;
 	node->as_begun = false;
 }
 
 /* ----------------------------------------------------------------
- *						Parallel Append Support
+ *						并行 Append 支持   
  * ----------------------------------------------------------------
  */
 
 /* ----------------------------------------------------------------
  *		ExecAppendEstimate
  *
- *		Compute the amount of space we'll need in the parallel
- *		query DSM, and inform pcxt->estimator about our needs.
+ *		计算我们在并行查询 DSM 中所需的空间， 
+ *		把需求告知 pcxt->estimator。                    
  * ----------------------------------------------------------------
  */
 void
@@ -496,7 +496,7 @@ ExecAppendEstimate(AppendState *node,
 /* ----------------------------------------------------------------
  *		ExecAppendInitializeDSM
  *
- *		Set up shared state for Parallel Append.
+ *		为并行 Append 建立共享状态。  
  * ----------------------------------------------------------------
  */
 void
@@ -517,7 +517,7 @@ ExecAppendInitializeDSM(AppendState *node,
 /* ----------------------------------------------------------------
  *		ExecAppendReInitializeDSM
  *
- *		Reset shared state before beginning a fresh scan.
+ *		在开始全新扫描之前重置共享状态。 
  * ----------------------------------------------------------------
  */
 void
@@ -532,8 +532,8 @@ ExecAppendReInitializeDSM(AppendState *node, ParallelContext *pcxt)
 /* ----------------------------------------------------------------
  *		ExecAppendInitializeWorker
  *
- *		Copy relevant information from TOC into planstate, and initialize
- *		whatever is required to choose and execute the optimal subplan.
+ *		把 TOC 中的相关信息复制到 planstate 里，并初始化 
+ *		选择并执行最优子计划所需的一切。               
  * ----------------------------------------------------------------
  */
 void
@@ -546,8 +546,8 @@ ExecAppendInitializeWorker(AppendState *node, ParallelWorkerContext *pwcxt)
 /* ----------------------------------------------------------------
  *		choose_next_subplan_locally
  *
- *		Choose next sync subplan for a non-parallel-aware Append,
- *		returning false if there are no more.
+ *		为非并行感知 Append 选下一个同步子计划， 
+ *		如果没有更多则返回 false。 
  * ----------------------------------------------------------------
  */
 static bool
@@ -556,25 +556,25 @@ choose_next_subplan_locally(AppendState *node)
 	int			whichplan = node->as_whichplan;
 	int			nextplan;
 
-	/* We should never be called when there are no subplans */
+	/* 如果没有子计划，则决不应被调用        */
 	Assert(node->as_nplans > 0);
 
-	/* Nothing to do if syncdone */
+	/* syncdone 时无事可做  */
 	if (node->as_syncdone)
 		return false;
 
 	/*
-	 * If first call then have the bms member function choose the first valid
-	 * sync subplan by initializing whichplan to -1.  If there happen to be no
-	 * valid sync subplans then the bms member function will handle that by
-	 * returning a negative number which will allow us to exit returning a
-	 * false value.
+	 * 如果是首次调用，则把 whichplan 初始化为 -1，让 bms 成
+	 * 员函数选出第一个有效的同步子计划。如果碰巧不     
+	 * 存在有效的同步子计划，bms 成员函数会返回负数    
+	 * 来处理这种情况，使我们得以退出并返回 false       
+	 * 值。      
 	 */
 	if (whichplan == INVALID_SUBPLAN_INDEX)
 	{
 		if (node->as_nasyncplans > 0)
 		{
-			/* We'd have filled as_valid_subplans already */
+			/* as_valid_subplans 应已填充完毕       */
 			Assert(node->as_valid_subplans_identified);
 		}
 		else if (!node->as_valid_subplans_identified)
@@ -587,7 +587,7 @@ choose_next_subplan_locally(AppendState *node)
 		whichplan = -1;
 	}
 
-	/* Ensure whichplan is within the expected range */
+	/* 确保 whichplan 处于预期范围之内     */
 	Assert(whichplan >= -1 && whichplan <= node->as_nplans);
 
 	if (ScanDirectionIsForward(node->ps.state->es_direction))
@@ -597,7 +597,7 @@ choose_next_subplan_locally(AppendState *node)
 
 	if (nextplan < 0)
 	{
-		/* Set as_syncdone if in async mode */
+		/* 异步模式下设置 as_syncdone*/
 		if (node->as_nasyncplans > 0)
 			node->as_syncdone = true;
 		return false;
@@ -611,9 +611,9 @@ choose_next_subplan_locally(AppendState *node)
 /* ----------------------------------------------------------------
  *		choose_next_subplan_for_leader
  *
- *      Try to pick a plan which doesn't commit us to doing much
- *      work locally, so that as much work as possible is done in
- *      the workers.  Cheapest subplans are at the end.
+ *      尽量挑选一个不需要我们在本地花费太多  
+ *      工作的计划，让尽可能多的工作由 worker     
+ *      去做。最便宜的子计划排在末尾。  
  * ----------------------------------------------------------------
  */
 static bool
@@ -621,28 +621,28 @@ choose_next_subplan_for_leader(AppendState *node)
 {
 	ParallelAppendState *pstate = node->as_pstate;
 
-	/* Backward scan is not supported by parallel-aware plans */
+	/* 并行感知的计划不支持反向扫描             */
 	Assert(ScanDirectionIsForward(node->ps.state->es_direction));
 
-	/* We should never be called when there are no subplans */
+	/* 如果没有子计划，则决不应被调用        */
 	Assert(node->as_nplans > 0);
 
 	LWLockAcquire(&pstate->pa_lock, LW_EXCLUSIVE);
 
 	if (node->as_whichplan != INVALID_SUBPLAN_INDEX)
 	{
-		/* Mark just-completed subplan as finished. */
+		/* 把刚完成子计划标为已完成。  */
 		node->as_pstate->pa_finished[node->as_whichplan] = true;
 	}
 	else
 	{
-		/* Start with last subplan. */
+		/* 从最后一个开始。 */
 		node->as_whichplan = node->as_nplans - 1;
 
 		/*
-		 * If we've yet to determine the valid subplans then do so now.  If
-		 * run-time pruning is disabled then the valid subplans will always be
-		 * set to all subplans.
+		 * 如果尚未确定有效子计划，现在就进行确定。    
+		 * 如果禁用了运行时剪枝，则有效子计划将始终被设 
+		 * 为全部子计划  
 		 */
 		if (!node->as_valid_subplans_identified)
 		{
@@ -651,14 +651,14 @@ choose_next_subplan_for_leader(AppendState *node)
 			node->as_valid_subplans_identified = true;
 
 			/*
-			 * Mark each invalid plan as finished to allow the loop below to
-			 * select the first valid subplan.
+			 * 把每个无效计划标为已结束，让下面的循环能 
+			 * 选出首个有效子计划。 
 			 */
 			mark_invalid_subplans_as_finished(node);
 		}
 	}
 
-	/* Loop until we find a subplan to execute. */
+	/* 循环直到找到待执行子计划。  */
 	while (pstate->pa_finished[node->as_whichplan])
 	{
 		if (node->as_whichplan == 0)
@@ -670,13 +670,13 @@ choose_next_subplan_for_leader(AppendState *node)
 		}
 
 		/*
-		 * We needn't pay attention to as_valid_subplans here as all invalid
-		 * plans have been marked as finished.
+		 * 这里无需理会 as_valid_subplans，因为所有无效        
+		 * 计划均已被标为已结束。  
 		 */
 		node->as_whichplan--;
 	}
 
-	/* If non-partial, immediately mark as finished. */
+	/* 非 partial 则立即标记为已结束。    */
 	if (node->as_whichplan < node->as_first_partial_plan)
 		node->as_pstate->pa_finished[node->as_whichplan] = true;
 
@@ -688,14 +688,14 @@ choose_next_subplan_for_leader(AppendState *node)
 /* ----------------------------------------------------------------
  *		choose_next_subplan_for_worker
  *
- *		Choose next subplan for a parallel-aware Append, returning
- *		false if there are no more.
+ *		为并行感知 Append 选择下一个子计划，如果  
+ *		无更多则返回 false。
  *
- *		We start from the first plan and advance through the list;
- *		when we get back to the end, we loop back to the first
- *		partial plan.  This assigns the non-partial plans first in
- *		order of descending cost and then spreads out the workers
- *		as evenly as possible across the remaining partial plans.
+ *		从第一个计划开始沿列表逐个推进；当回到 
+ *		末端时，再绕回到第一个                     
+ *		partial 计划。这样会先按成本降序安排非     
+ *		partial 计划，然后把 worker 尽量均匀地分     
+ *		散到其余 partial 计划上。                        
  * ----------------------------------------------------------------
  */
 static bool
@@ -703,22 +703,22 @@ choose_next_subplan_for_worker(AppendState *node)
 {
 	ParallelAppendState *pstate = node->as_pstate;
 
-	/* Backward scan is not supported by parallel-aware plans */
+	/* 并行感知的计划不支持反向扫描             */
 	Assert(ScanDirectionIsForward(node->ps.state->es_direction));
 
-	/* We should never be called when there are no subplans */
+	/* 如果没有子计划，则决不应被调用        */
 	Assert(node->as_nplans > 0);
 
 	LWLockAcquire(&pstate->pa_lock, LW_EXCLUSIVE);
 
-	/* Mark just-completed subplan as finished. */
+	/* 把刚完成子计划标为已完成。  */
 	if (node->as_whichplan != INVALID_SUBPLAN_INDEX)
 		node->as_pstate->pa_finished[node->as_whichplan] = true;
 
 	/*
-	 * If we've yet to determine the valid subplans then do so now.  If
-	 * run-time pruning is disabled then the valid subplans will always be set
-	 * to all subplans.
+	 * 如果尚未确定有效子计划，现在就进行确定。    
+	 * 如果禁用了运行时剪枝，则有效子计划总会被设为     
+	 * 全部子计划 
 	 */
 	else if (!node->as_valid_subplans_identified)
 	{
@@ -729,17 +729,17 @@ choose_next_subplan_for_worker(AppendState *node)
 		mark_invalid_subplans_as_finished(node);
 	}
 
-	/* If all the plans are already done, we have nothing to do */
+	/* 如果所有计划都已完成，我们便无事可做   */
 	if (pstate->pa_next_plan == INVALID_SUBPLAN_INDEX)
 	{
 		LWLockRelease(&pstate->pa_lock);
 		return false;
 	}
 
-	/* Save the plan from which we are starting the search. */
+	/* 保存作为搜索起点的计划。                 */
 	node->as_whichplan = pstate->pa_next_plan;
 
-	/* Loop until we find a valid subplan to execute. */
+	/* 循环直至找到有效子计划来执行。  */
 	while (pstate->pa_finished[pstate->pa_next_plan])
 	{
 		int			nextplan;
@@ -748,14 +748,14 @@ choose_next_subplan_for_worker(AppendState *node)
 								   pstate->pa_next_plan);
 		if (nextplan >= 0)
 		{
-			/* Advance to the next valid plan. */
+			/* 前进到下一有效计划。  */
 			pstate->pa_next_plan = nextplan;
 		}
 		else if (node->as_whichplan > node->as_first_partial_plan)
 		{
 			/*
-			 * Try looping back to the first valid partial plan, if there is
-			 * one.  If there isn't, arrange to bail out below.
+			 * 尝试绕回首个有效的 partial 计划（若有）；    
+			 * 若没有，则安排在下方退出。         
 			 */
 			nextplan = bms_next_member(node->as_valid_subplans,
 									   node->as_first_partial_plan - 1);
@@ -765,29 +765,29 @@ choose_next_subplan_for_worker(AppendState *node)
 		else
 		{
 			/*
-			 * At last plan, and either there are no partial plans or we've
-			 * tried them all.  Arrange to bail out.
+			 * 已是最后一个计划，且要么无 partial 计划，   
+			 * 要么均已试过。安排退出。 
 			 */
 			pstate->pa_next_plan = node->as_whichplan;
 		}
 
 		if (pstate->pa_next_plan == node->as_whichplan)
 		{
-			/* We've tried everything! */
+			/* 全部都试过了！   */
 			pstate->pa_next_plan = INVALID_SUBPLAN_INDEX;
 			LWLockRelease(&pstate->pa_lock);
 			return false;
 		}
 	}
 
-	/* Pick the plan we found, and advance pa_next_plan one more time. */
+	/* 选定找到的计划，并把 pa_next_plan 再推进一次。  */
 	node->as_whichplan = pstate->pa_next_plan;
 	pstate->pa_next_plan = bms_next_member(node->as_valid_subplans,
 										   pstate->pa_next_plan);
 
 	/*
-	 * If there are no more valid plans then try setting the next plan to the
-	 * first valid partial plan.
+	 * 如果没有更多有效计划了，则尝试把下一个置为       
+	 * 首个有效partial计划
 	 */
 	if (pstate->pa_next_plan < 0)
 	{
@@ -799,15 +799,15 @@ choose_next_subplan_for_worker(AppendState *node)
 		else
 		{
 			/*
-			 * There are no valid partial plans, and we already chose the last
-			 * non-partial plan; so flag that there's nothing more for our
-			 * fellow workers to do.
+			 * 已经没有有效的 partial 计划，且最后一个非      
+			 * partial 计划也已选过；所以标记我们的伙伴   
+			 * worker 无事可做  
 			 */
 			pstate->pa_next_plan = INVALID_SUBPLAN_INDEX;
 		}
 	}
 
-	/* If non-partial, immediately mark as finished. */
+	/* 非 partial 则立即标记为已结束。    */
 	if (node->as_whichplan < node->as_first_partial_plan)
 		node->as_pstate->pa_finished[node->as_whichplan] = true;
 
@@ -818,28 +818,28 @@ choose_next_subplan_for_worker(AppendState *node)
 
 /*
  * mark_invalid_subplans_as_finished
- *		Marks the ParallelAppendState's pa_finished as true for each invalid
- *		subplan.
+ *		ParallelAppendState 的 pa_finished 对各无效子计划置为     
+ *		true。 
  *
- * This function should only be called for parallel Append with run-time
- * pruning enabled.
+ * 本函数只应被用于启用了运行时剪枝的并行            
+ * Append。       
  */
 static void
 mark_invalid_subplans_as_finished(AppendState *node)
 {
 	int			i;
 
-	/* Only valid to call this while in parallel Append mode */
+	/* 仅在并行 Append 模式下调用才有效          */
 	Assert(node->as_pstate);
 
-	/* Shouldn't have been called when run-time pruning is not enabled */
+	/* 在未启用运行时剪枝时不应调用本函数             */
 	Assert(node->as_prune_state);
 
-	/* Nothing to do if all plans are valid */
+	/* 全部计划有效时无事可做    */
 	if (bms_num_members(node->as_valid_subplans) == node->as_nplans)
 		return;
 
-	/* Mark all non-valid plans as finished */
+	/* 把所有无效计划标为已结束 */
 	for (i = 0; i < node->as_nplans; i++)
 	{
 		if (!bms_is_member(i, node->as_valid_subplans))
@@ -848,14 +848,14 @@ mark_invalid_subplans_as_finished(AppendState *node)
 }
 
 /* ----------------------------------------------------------------
- *						Asynchronous Append Support
+ *						异步 Append 支持       
  * ----------------------------------------------------------------
  */
 
 /* ----------------------------------------------------------------
  *		ExecAppendAsyncBegin
  *
- *		Begin executing designed async-capable subplans.
+ *		开始执行指定的支持异步的子计划。
  * ----------------------------------------------------------------
  */
 static void
@@ -863,16 +863,16 @@ ExecAppendAsyncBegin(AppendState *node)
 {
 	int			i;
 
-	/* Backward scan is not supported by async-aware Appends. */
+	/* 异步感知的 Append 不支持反向扫描。        */
 	Assert(ScanDirectionIsForward(node->ps.state->es_direction));
 
-	/* We should never be called when there are no subplans */
+	/* 如果没有子计划，则决不应被调用        */
 	Assert(node->as_nplans > 0);
 
-	/* We should never be called when there are no async subplans. */
+	/* 如果没有异步子计划，则决不应被调用。      */
 	Assert(node->as_nasyncplans > 0);
 
-	/* If we've yet to determine the valid subplans then do so now. */
+	/* 如果尚未确定有效子计划，现在就进行确定。 */
 	if (!node->as_valid_subplans_identified)
 	{
 		node->as_valid_subplans =
@@ -882,15 +882,15 @@ ExecAppendAsyncBegin(AppendState *node)
 		classify_matching_subplans(node);
 	}
 
-	/* Initialize state variables. */
+	/* 初始化状态变量。    */
 	node->as_syncdone = bms_is_empty(node->as_valid_subplans);
 	node->as_nasyncremain = bms_num_members(node->as_valid_asyncplans);
 
-	/* Nothing to do if there are no valid async subplans. */
+	/* 若无有效的异步子计划，则无事可做。 */
 	if (node->as_nasyncremain == 0)
 		return;
 
-	/* Make a request for each of the valid async subplans. */
+	/* 为每个有效的异步子计划发起请求。     */
 	i = -1;
 	while ((i = bms_next_member(node->as_valid_asyncplans, i)) >= 0)
 	{
@@ -899,7 +899,7 @@ ExecAppendAsyncBegin(AppendState *node)
 		Assert(areq->request_index == i);
 		Assert(!areq->callback_pending);
 
-		/* Do the actual work. */
+		/* 做实际工作。  */
 		ExecAsyncRequest(areq);
 	}
 }
@@ -907,7 +907,7 @@ ExecAppendAsyncBegin(AppendState *node)
 /* ----------------------------------------------------------------
  *		ExecAppendAsyncGetNext
  *
- *		Get the next tuple from any of the asynchronous subplans.
+ *		从任意一个异步子计划获取下一条元组。   
  * ----------------------------------------------------------------
  */
 static bool
@@ -915,10 +915,10 @@ ExecAppendAsyncGetNext(AppendState *node, TupleTableSlot **result)
 {
 	*result = NULL;
 
-	/* We should never be called when there are no valid async subplans. */
+	/* 如果没有有效的异步子计划，则决不应被调用。   */
 	Assert(node->as_nasyncremain > 0);
 
-	/* Request a tuple asynchronously. */
+	/* 异步请求一条元组。     */
 	if (ExecAppendAsyncRequest(node, result))
 		return true;
 
@@ -926,22 +926,22 @@ ExecAppendAsyncGetNext(AppendState *node, TupleTableSlot **result)
 	{
 		CHECK_FOR_INTERRUPTS();
 
-		/* Wait or poll for async events. */
+		/* 等待或轮询异步事件。 */
 		ExecAppendAsyncEventWait(node);
 
-		/* Request a tuple asynchronously. */
+		/* 异步请求一条元组。     */
 		if (ExecAppendAsyncRequest(node, result))
 			return true;
 
-		/* Break from loop if there's any sync subplan that isn't complete. */
+		/* 如果还有未完成的同步子计划，则跳出循环。     */
 		if (!node->as_syncdone)
 			break;
 	}
 
 	/*
-	 * If all sync subplans are complete, we're totally done scanning the
-	 * given node.  Otherwise, we're done with the asynchronous stuff but must
-	 * continue scanning the sync subplans.
+	 * 如果所有同步子计划都已完成，那么对给定节点的
+	 * 扫描就全部完成了。否则异步部分虽已完毕，但仍     
+	 * 须继续扫描同步子计划。   
 	 */
 	if (node->as_syncdone)
 	{
@@ -956,7 +956,7 @@ ExecAppendAsyncGetNext(AppendState *node, TupleTableSlot **result)
 /* ----------------------------------------------------------------
  *		ExecAppendAsyncRequest
  *
- *		Request a tuple asynchronously.
+ *		异步请求一条元组。    
  * ----------------------------------------------------------------
  */
 static bool
@@ -965,7 +965,7 @@ ExecAppendAsyncRequest(AppendState *node, TupleTableSlot **result)
 	Bitmapset  *needrequest;
 	int			i;
 
-	/* Nothing to do if there are no async subplans needing a new request. */
+	/* 如果没有需要新请求的异步子计划，则无事可做。  */
 	if (bms_is_empty(node->as_needrequest))
 	{
 		Assert(node->as_nasyncresults == 0);
@@ -973,8 +973,8 @@ ExecAppendAsyncRequest(AppendState *node, TupleTableSlot **result)
 	}
 
 	/*
-	 * If there are any asynchronously-generated results that have not yet
-	 * been returned, we have nothing to do; just return one of them.
+	 * 如果还有一些异步生成的结果尚未返回，那么       
+	 * 我们无事可做；直接返回其中一个即可。        
 	 */
 	if (node->as_nasyncresults > 0)
 	{
@@ -983,7 +983,7 @@ ExecAppendAsyncRequest(AppendState *node, TupleTableSlot **result)
 		return true;
 	}
 
-	/* Make a new request for each of the async subplans that need it. */
+	/* 为每个有需要的异步子计划发起新请求。          */
 	needrequest = node->as_needrequest;
 	node->as_needrequest = NULL;
 	i = -1;
@@ -991,12 +991,12 @@ ExecAppendAsyncRequest(AppendState *node, TupleTableSlot **result)
 	{
 		AsyncRequest *areq = node->as_asyncrequests[i];
 
-		/* Do the actual work. */
+		/* 做实际工作。  */
 		ExecAsyncRequest(areq);
 	}
 	bms_free(needrequest);
 
-	/* Return one of the asynchronously-generated results if any. */
+	/* 如果存在，则返回一个异步生成的结果。     */
 	if (node->as_nasyncresults > 0)
 	{
 		--node->as_nasyncresults;
@@ -1010,7 +1010,7 @@ ExecAppendAsyncRequest(AppendState *node, TupleTableSlot **result)
 /* ----------------------------------------------------------------
  *		ExecAppendAsyncEventWait
  *
- *		Wait or poll for file descriptor events and fire callbacks.
+ *		等待或轮询文件描述符事件并触发回调。     
  * ----------------------------------------------------------------
  */
 static void
@@ -1022,7 +1022,7 @@ ExecAppendAsyncEventWait(AppendState *node)
 	int			noccurred;
 	int			i;
 
-	/* We should never be called when there are no valid async subplans. */
+	/* 如果没有有效的异步子计划，则决不应被调用。   */
 	Assert(node->as_nasyncremain > 0);
 
 	Assert(node->as_eventset == NULL);
@@ -1032,7 +1032,7 @@ ExecAppendAsyncEventWait(AppendState *node)
 		AddWaitEventToSet(node->as_eventset, WL_EXIT_ON_PM_DEATH, PGINVALID_SOCKET,
 						  NULL, NULL);
 
-		/* Give each waiting subplan a chance to add an event. */
+		/* 让每个等待的子计划有机会添加事件。 */
 		i = -1;
 		while ((i = bms_next_member(node->as_asyncplans, i)) >= 0)
 		{
@@ -1043,35 +1043,35 @@ ExecAppendAsyncEventWait(AppendState *node)
 		}
 
 		/*
-		 * No need for further processing if none of the subplans configured
-		 * any events.
+		 * 如果没有任何子计划配置事件，则无需进一步     
+		 * 处理。  
 		 */
 		if (GetNumRegisteredWaitEvents(node->as_eventset) == 1)
 			noccurred = 0;
 		else
 		{
 			/*
-			 * Add the process latch to the set, so that we wake up to process
-			 * the standard interrupts with CHECK_FOR_INTERRUPTS().
+			 * 把进程 latch 加入集合，以便我们能被唤醒并用  
+			 * CHECK_FOR_INTERRUPTS() 处理标准中断。        
 			 *
-			 * NOTE: For historical reasons, it's important that this is added
-			 * to the WaitEventSet after the ExecAsyncConfigureWait() calls.
-			 * Namely, postgres_fdw calls "GetNumRegisteredWaitEvents(set) ==
-			 * 1" to check if any other events are in the set.  That's a poor
-			 * design, it's questionable for postgres_fdw to be doing that in
-			 * the first place, but we cannot change it now.  The pattern has
-			 * possibly been copied to other extensions too.
+			 * 注意：由于历史原因，这一项必须                  
+			 * 晚于 ExecAsyncConfigureWait() 调用加入到              
+			 * WaitEventSet 中。具体来说，postgres_fdw 会调用      
+			 * "GetNumRegisteredWaitEvents(set) == 1"，以检查            
+			 * 集合中是否还有其他事件。这个设计很糟糕，  
+			 * postgres_fdw 本就不该这么做，但现在无法改变。 
+			 * 该模式亦可能被其他扩展效仿。   
 			 */
 			AddWaitEventToSet(node->as_eventset, WL_LATCH_SET, PGINVALID_SOCKET,
 							  MyLatch, NULL);
 
-			/* Return at most EVENT_BUFFER_SIZE events in one call. */
+			/* 一次至多返回 EVENT_BUFFER_SIZE 个事件。    */
 			if (nevents > EVENT_BUFFER_SIZE)
 				nevents = EVENT_BUFFER_SIZE;
 
 			/*
-			 * If the timeout is -1, wait until at least one event occurs.  If
-			 * the timeout is 0, poll for events, but do not wait at all.
+			 * 若超时值为 -1，则等到至少一个事件发生；若   
+			 * 超时值为 0，则轮询事件但完全不等待。     
 			 */
 			noccurred = WaitEventSetWait(node->as_eventset, timeout,
 										 occurred_event, nevents,
@@ -1087,14 +1087,14 @@ ExecAppendAsyncEventWait(AppendState *node)
 	if (noccurred == 0)
 		return;
 
-	/* Deliver notifications. */
+	/* 分发通知。        */
 	for (i = 0; i < noccurred; i++)
 	{
 		WaitEvent  *w = &occurred_event[i];
 
 		/*
-		 * Each waiting subplan should have registered its wait event with
-		 * user_data pointing back to its AsyncRequest.
+		 * 每个等待的子计划都应该已经注册了它的等待事
+		 * 件，其 user_data 指回 AsyncRequest。  
 		 */
 		if ((w->events & WL_SOCKET_READABLE) != 0)
 		{
@@ -1103,18 +1103,18 @@ ExecAppendAsyncEventWait(AppendState *node)
 			if (areq->callback_pending)
 			{
 				/*
-				 * Mark it as no longer needing a callback.  We must do this
-				 * before dispatching the callback in case the callback resets
-				 * the flag.
+				 * 将其标记为不再需要回调。必须在分派回调
+				 * 之前完成，以防回调重新设置该                 
+				 * 标志。
 				 */
 				areq->callback_pending = false;
 
-				/* Do the actual work. */
+				/* 做实际工作。  */
 				ExecAsyncNotify(areq);
 			}
 		}
 
-		/* Handle standard interrupts */
+		/* 处理标准中断         */
 		if ((w->events & WL_LATCH_SET) != 0)
 		{
 			ResetLatch(MyLatch);
@@ -1126,7 +1126,7 @@ ExecAppendAsyncEventWait(AppendState *node)
 /* ----------------------------------------------------------------
  *		ExecAsyncAppendResponse
  *
- *		Receive a response from an asynchronous request we made.
+ *		接收我们发出的异步请求的响应。           
  * ----------------------------------------------------------------
  */
 void
@@ -1135,33 +1135,33 @@ ExecAsyncAppendResponse(AsyncRequest *areq)
 	AppendState *node = (AppendState *) areq->requestor;
 	TupleTableSlot *slot = areq->result;
 
-	/* The result should be a TupleTableSlot or NULL. */
+	/* 结果应为 TupleTableSlot 或 NULL。        */
 	Assert(slot == NULL || IsA(slot, TupleTableSlot));
 
-	/* Nothing to do if the request is pending. */
+	/* 请求挂起时无事可做。           */
 	if (!areq->request_complete)
 	{
-		/* The request would have been pending for a callback. */
+		/* 该请求之前应是等待回调的挂起状态。 */
 		Assert(areq->callback_pending);
 		return;
 	}
 
-	/* If the result is NULL or an empty slot, there's nothing more to do. */
+	/* 如果结果为 NULL 或空槽，则没有更多要做的了。     */
 	if (TupIsNull(slot))
 	{
-		/* The ending subplan wouldn't have been pending for a callback. */
+		/* 已结束的子计划不应在等待回调的挂起状态。  */
 		Assert(!areq->callback_pending);
 		--node->as_nasyncremain;
 		return;
 	}
 
-	/* Save result so we can return it. */
+	/* 保存结果以便返回。      */
 	Assert(node->as_nasyncresults < node->as_nasyncplans);
 	node->as_asyncresults[node->as_nasyncresults++] = slot;
 
 	/*
-	 * Mark the subplan that returned a result as ready for a new request.  We
-	 * don't launch another one here immediately because it might complete.
+	 * 把返回了结果的子计划标为可发起新请求。我们        
+	 * 并不在这里立即发起下一个，因为它可能会完成。  
 	 */
 	node->as_needrequest = bms_add_member(node->as_needrequest,
 										  areq->request_index);
@@ -1170,9 +1170,9 @@ ExecAsyncAppendResponse(AsyncRequest *areq)
 /* ----------------------------------------------------------------
  *		classify_matching_subplans
  *
- *		Classify the node's as_valid_subplans into sync ones and
- *		async ones, adjust it to contain sync ones only, and save
- *		async ones in the node's as_valid_asyncplans.
+ *		将节点 as_valid_subplans 分为同步/异步两类，
+ *		调整为只含同步子计划，并把异步的保存到
+ *		节点的 as_valid_asyncplans 中。         
  * ----------------------------------------------------------------
  */
 static void
@@ -1183,7 +1183,7 @@ classify_matching_subplans(AppendState *node)
 	Assert(node->as_valid_subplans_identified);
 	Assert(node->as_valid_asyncplans == NULL);
 
-	/* Nothing to do if there are no valid subplans. */
+	/* 若无有效的子计划，则无事可做。 */
 	if (bms_is_empty(node->as_valid_subplans))
 	{
 		node->as_syncdone = true;
@@ -1191,21 +1191,21 @@ classify_matching_subplans(AppendState *node)
 		return;
 	}
 
-	/* Nothing to do if there are no valid async subplans. */
+	/* 若无有效的异步子计划，则无事可做。 */
 	if (!bms_overlap(node->as_valid_subplans, node->as_asyncplans))
 	{
 		node->as_nasyncremain = 0;
 		return;
 	}
 
-	/* Get valid async subplans. */
+	/* 取有效异步子计划  */
 	valid_asyncplans = bms_intersect(node->as_asyncplans,
 									 node->as_valid_subplans);
 
-	/* Adjust the valid subplans to contain sync subplans only. */
+	/* 把有效子计划调整为只包含同步子计划。   */
 	node->as_valid_subplans = bms_del_members(node->as_valid_subplans,
 											  valid_asyncplans);
 
-	/* Save valid async subplans. */
+	/* 保存有效异步子计划*/
 	node->as_valid_asyncplans = valid_asyncplans;
 }

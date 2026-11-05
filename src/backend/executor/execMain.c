@@ -1,30 +1,30 @@
 /*-------------------------------------------------------------------------
  *
  * execMain.c
- *	  top level executor interface routines
+ *	  顶层执行器接口例程          
  *
- * INTERFACE ROUTINES
+ * 接口例程      
  *	ExecutorStart()
  *	ExecutorRun()
  *	ExecutorFinish()
  *	ExecutorEnd()
  *
- *	These four procedures are the external interface to the executor.
- *	In each case, the query descriptor is required as an argument.
+ *	这四个过程是执行器的外部接口。                    
+ *	每种情况下都需要以查询描述符作为参数。     
  *
- *	ExecutorStart must be called at the beginning of execution of any
- *	query plan and ExecutorEnd must always be called at the end of
- *	execution of a plan (unless it is aborted due to error).
+ *	必须在任何查询计划的执行开始时调用 ExecutorStart
+ *	并且总要在计划执行结束时调用 ExecutorEnd        
+ *	（除非因错误而中止）。                       
  *
- *	ExecutorRun accepts direction and count arguments that specify whether
- *	the plan is to be executed forwards, backwards, and for how many tuples.
- *	In some cases ExecutorRun may be called multiple times to process all
- *	the tuples for a plan.  It is also acceptable to stop short of executing
- *	the whole plan (but only if it is a SELECT).
+ *	ExecutorRun 接受 direction 与 count 实参，指定计划          
+ *	应正向还是反向执行，以及执行多少条元组。            
+ *	某些情况下可能需多次调用 ExecutorRun，才能处理完   
+ *	计划所需的全部元组。也可以在执行完整计划之前停下
+ *	（但仅当它是 SELECT 时）。         
  *
- *	ExecutorFinish must be called after the final ExecutorRun call and
- *	before ExecutorEnd.  This can be omitted only in case of EXPLAIN,
- *	which should also omit ExecutorRun.
+ *	必须在最后一次 ExecutorRun 调用之后、                 
+ *	ExecutorEnd 之前调用。仅 EXPLAIN 场景可省略，        
+ *	此时也应省略 ExecutorRun。  
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -69,16 +69,16 @@
 #include "utils/snapmgr.h"
 
 
-/* Hooks for plugins to get control in ExecutorStart/Run/Finish/End */
+/* 插件在 ExecutorStart/Run/Finish/End 中获取控制的钩子  */
 ExecutorStart_hook_type ExecutorStart_hook = NULL;
 ExecutorRun_hook_type ExecutorRun_hook = NULL;
 ExecutorFinish_hook_type ExecutorFinish_hook = NULL;
 ExecutorEnd_hook_type ExecutorEnd_hook = NULL;
 
-/* Hook for plugin to get control in ExecCheckPermissions() */
+/* 插件在 ExecCheckPermissions() 中获取控制的钩子*/
 ExecutorCheckPerms_hook_type ExecutorCheckPerms_hook = NULL;
 
-/* decls for local routines only used within this module */
+/* 仅本模块内部使用的局部例程声明         */
 static void InitPlan(QueryDesc *queryDesc, int eflags);
 static void CheckValidRowMarkRel(Relation rel, RowMarkType markType);
 static void ExecPostprocessPlan(EState *estate);
@@ -100,28 +100,28 @@ static char *ExecBuildSlotValueDescription(Oid reloid,
 										   int maxfieldlen);
 static void EvalPlanQualStart(EPQState *epqstate, Plan *planTree);
 
-/* end of local decls */
+/* 局部声明结束 */
 
 
 /* ----------------------------------------------------------------
  *		ExecutorStart
  *
- *		This routine must be called at the beginning of any execution of any
- *		query plan
+ *		本例程必须在任何查询计划开始执行时                 
+ *		被调用 
  *
- * Takes a QueryDesc previously created by CreateQueryDesc (which is separate
- * only because some places use QueryDescs for utility commands).  The tupDesc
- * field of the QueryDesc is filled in to describe the tuples that will be
- * returned, and the internal fields (estate and planstate) are set up.
+ * 接受先前由 CreateQueryDesc 创建的 QueryDesc（之所以           
+ * 分开创建，只因有些地方将 QueryDesc 用于工具命令）。    
+ * 会填写 QueryDesc 的 tupDesc 字段，用以描述将返回的      
+ * 元组，并建立内部字段（estate 与 planstate）。         
  *
- * eflags contains flag bits as described in executor.h.
+ * eflags 包含 executor.h 中描述的标志位。    
  *
- * NB: the CurrentMemoryContext when this is called will become the parent
- * of the per-query context used for this Executor invocation.
+ * 注意：调用时所处 CurrentMemoryContext 将成为本次          
+ * Executor 调用所用每查询上下文的父上下文。  
  *
- * We provide a function hook variable that lets loadable plugins
- * get control when ExecutorStart is called.  Such a plugin would
- * normally call standard_ExecutorStart().
+ * 我们提供函数钩子变量，让可加载插件能在     
+ * ExecutorStart 被调用时取得控制。插件通常会      
+ * 调用 standard_ExecutorStart()。     
  *
  * ----------------------------------------------------------------
  */
@@ -129,12 +129,12 @@ void
 ExecutorStart(QueryDesc *queryDesc, int eflags)
 {
 	/*
-	 * In some cases (e.g. an EXECUTE statement or an execute message with the
-	 * extended query protocol) the query_id won't be reported, so do it now.
+	 * 某些情况下（例如 EXECUTE 语句或扩展查询协议           
+	 * execute 消息）不会上报 query_id，所以现在就上报。     
 	 *
-	 * Note that it's harmless to report the query_id multiple times, as the
-	 * call will be ignored if the top level query_id has already been
-	 * reported.
+	 * 注意：多次上报 query_id 并无害，如果顶层              
+	 * query_id 已经上报过，则后续调用将被               
+	 * 忽略。
 	 */
 	pgstat_report_query_id(queryDesc->plannedstmt->queryId, false);
 
@@ -150,31 +150,31 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	EState	   *estate;
 	MemoryContext oldcontext;
 
-	/* sanity checks: queryDesc must not be started already */
+	/* 健全性检查：queryDesc 不得已被启动       */
 	Assert(queryDesc != NULL);
 	Assert(queryDesc->estate == NULL);
 
 	/*
-	 * If the transaction is read-only, we need to check if any writes are
-	 * planned to non-temporary tables.  EXPLAIN is considered read-only.
+	 * 若事务为只读，则需检查是否计划对非临时表       
+	 * 执行写入。EXPLAIN 被视为只读。                         
 	 *
-	 * Don't allow writes in parallel mode.  Supporting UPDATE and DELETE
-	 * would require (a) storing the combo CID hash in shared memory, rather
-	 * than synchronizing it just once at the start of parallelism, and (b) an
-	 * alternative to heap_update()'s reliance on xmax for mutual exclusion.
-	 * INSERT may have no such troubles, but we forbid it to simplify the
-	 * checks.
+	 * 并行模式下不允许写入。支持 UPDATE 和 DELETE         
+	 * 需要 (a) 将组合 CID 哈希存入共享内存，而不是        
+	 * 只在并行开始时同步一次；且需要 (b) 一种替代         
+	 * heap_update() 依靠 xmax 实现互斥的做法。                   
+	 * INSERT 可能没有这类麻烦，但我们为简化检查而     
+	 * 禁止 
 	 *
-	 * We have lower-level defenses in CommandCounterIncrement and elsewhere
-	 * against performing unsafe operations in parallel mode, but this gives a
-	 * more user-friendly error message.
+	 * 我们在 CommandCounterIncrement 及其他地方设有              
+	 * 更低层的防线来防止在并行模式下执行不安全操作，  
+	 * 但此处报错更友好。      
 	 */
 	if ((XactReadOnly || IsInParallelMode()) &&
 		!(eflags & EXEC_FLAG_EXPLAIN_ONLY))
 		ExecCheckXactReadOnly(queryDesc->plannedstmt);
 
 	/*
-	 * Build EState, switch into per-query memory context for startup.
+	 * 构建 EState，切入启动用每查询内存上下文。     
 	 */
 	estate = CreateExecutorState();
 	queryDesc->estate = estate;
@@ -182,8 +182,8 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
 
 	/*
-	 * Fill in external parameters, if any, from queryDesc; and allocate
-	 * workspace for internal parameters
+	 * 如有则从 queryDesc 填入外部参数；并为内部参数   
+	 * 分配工作区                  
 	 */
 	estate->es_param_list_info = queryDesc->params;
 
@@ -196,35 +196,35 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 			palloc0(nParamExec * sizeof(ParamExecData));
 	}
 
-	/* We now require all callers to provide sourceText */
+	/* 现在要求所有调用者都提供 sourceText  */
 	Assert(queryDesc->sourceText != NULL);
 	estate->es_sourceText = queryDesc->sourceText;
 
 	/*
-	 * Fill in the query environment, if any, from queryDesc.
+	 * 如有则从 queryDesc 填入查询环境。          
 	 */
 	estate->es_queryEnv = queryDesc->queryEnv;
 
 	/*
-	 * If non-read-only query, set the command ID to mark output tuples with
+	 * 若查询非只读，则设置用于标记输出元组的命令 ID   
 	 */
 	switch (queryDesc->operation)
 	{
 		case CMD_SELECT:
 
 			/*
-			 * SELECT FOR [KEY] UPDATE/SHARE and modifying CTEs need to mark
-			 * tuples
+			 * SELECT FOR [KEY] UPDATE/SHARE 与修改型 CTE 需要标记  
+			 * 元组
 			 */
 			if (queryDesc->plannedstmt->rowMarks != NIL ||
 				queryDesc->plannedstmt->hasModifyingCTE)
 				estate->es_output_cid = GetCurrentCommandId(true);
 
 			/*
-			 * A SELECT without modifying CTEs can't possibly queue triggers,
-			 * so force skip-triggers mode. This is just a marginal efficiency
-			 * hack, since AfterTriggerBeginQuery/AfterTriggerEndQuery aren't
-			 * all that expensive, but we might as well do it.
+			 * 不含修改型 CTE 的 SELECT 不可能排队触发器，    
+			 * 因此强制跳过触发器。这只是微小的效率         
+			 * 手段，因为 AfterTriggerBeginQuery/AfterTriggerEndQuery   
+			 * 并不算昂贵，但我们不妨这么做。  
 			 */
 			if (!queryDesc->plannedstmt->hasModifyingCTE)
 				eflags |= EXEC_FLAG_SKIP_TRIGGERS;
@@ -244,7 +244,7 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	}
 
 	/*
-	 * Copy other important information into the EState
+	 * 将其他重要信息复制进 EState           
 	 */
 	estate->es_snapshot = RegisterSnapshot(queryDesc->snapshot);
 	estate->es_crosscheck_snapshot = RegisterSnapshot(queryDesc->crosscheck_snapshot);
@@ -253,14 +253,14 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	estate->es_jit_flags = queryDesc->plannedstmt->jitFlags;
 
 	/*
-	 * Set up an AFTER-trigger statement context, unless told not to, or
-	 * unless it's EXPLAIN-only mode (when ExecutorFinish won't be called).
+	 * 除非被告知不要，或为仅 EXPLAIN 模式（此时不会  
+	 * 调用 ExecutorFinish），否则建立 AFTER 触发器上下文。 
 	 */
 	if (!(eflags & (EXEC_FLAG_SKIP_TRIGGERS | EXEC_FLAG_EXPLAIN_ONLY)))
 		AfterTriggerBeginQuery();
 
 	/*
-	 * Initialize the plan state tree
+	 * 初始化计划状态树      
 	 */
 	InitPlan(queryDesc, eflags);
 
@@ -270,33 +270,33 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 /* ----------------------------------------------------------------
  *		ExecutorRun
  *
- *		This is the main routine of the executor module. It accepts
- *		the query descriptor from the traffic cop and executes the
- *		query plan.
+ *		这是执行器模块的主例程。它接受来自        
+ *		traffic cop 的查询描述符，并执行查询          
+ *		计划。  
  *
- *		ExecutorStart must have been called already.
+ *		必须已调用过 ExecutorStart。         
  *
- *		If direction is NoMovementScanDirection then nothing is done
- *		except to start up/shut down the destination.  Otherwise,
- *		we retrieve up to 'count' tuples in the specified direction.
+ *		若 direction 为 NoMovementScanDirection，则除了       
+ *		启动/关闭目标外不做其他操作。否则，     
+ *		我们按指定方向最多取出 'count' 条元组。      
  *
- *		Note: count = 0 is interpreted as no portal limit, i.e., run to
- *		completion.  Also note that the count limit is only applied to
- *		retrieved tuples, not for instance to those inserted/updated/deleted
- *		by a ModifyTable plan node.
+ *		注意：count = 0 表示无 portal 限制，即一直运行   
+ *		到完成为止。另注意 count 限制只作用于取出的 
+ *		元组，而不是例如由 ModifyTable 计划节点插入/         
+ *		更新或删除的元组。
  *
- *		execute_once is ignored, and is present only to avoid an API break
- *		in stable branches.
+ *		execute_once 会被忽略，只为避免稳定分支中           
+ *		的 API 中断。  
  *
- *		There is no return value, but output tuples (if any) are sent to
- *		the destination receiver specified in the QueryDesc; and the number
- *		of tuples processed at the top level can be found in
- *		estate->es_processed.  The total number of tuples processed in all
- *		the ExecutorRun calls can be found in estate->es_total_processed.
+ *		没有返回值，但输出元组（若有）会发送到       
+ *		QueryDesc 中指定的目标接收器；顶层处理的            
+ *		元组数可在 estate->es_processed 中查到。   
+ *		而所有 ExecutorRun 调用处理的元组总数可在           
+ *		estate->es_total_processed 中查到。                          
  *
- *		We provide a function hook variable that lets loadable plugins
- *		get control when ExecutorRun is called.  Such a plugin would
- *		normally call standard_ExecutorRun().
+ *		我们提供函数钩子变量，让可加载插件能在     
+ *		ExecutorRun 被调用时取得控制。插件通常会      
+ *		调用 standard_ExecutorRun()。     
  *
  * ----------------------------------------------------------------
  */
@@ -321,7 +321,7 @@ standard_ExecutorRun(QueryDesc *queryDesc,
 	bool		sendTuples;
 	MemoryContext oldcontext;
 
-	/* sanity checks */
+	/* 健全检查  */
 	Assert(queryDesc != NULL);
 
 	estate = queryDesc->estate;
@@ -330,22 +330,22 @@ standard_ExecutorRun(QueryDesc *queryDesc,
 	Assert(!(estate->es_top_eflags & EXEC_FLAG_EXPLAIN_ONLY));
 
 	/*
-	 * Switch into per-query memory context
+	 * 切换到每查询内存上下文   
 	 */
 	oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
 
-	/* Allow instrumentation of Executor overall runtime */
+	/* 允许对执行器整体运行时进行插桩     */
 	if (queryDesc->totaltime)
 		InstrStartNode(queryDesc->totaltime);
 
 	/*
-	 * extract information from the query descriptor and the query feature.
+	 * 从查询描述符与查询特性中提取信息。                 
 	 */
 	operation = queryDesc->operation;
 	dest = queryDesc->dest;
 
 	/*
-	 * startup tuple receiver, if we will be emitting tuples
+	 * 若将发出元组，则启动元组接收器        
 	 */
 	estate->es_processed = 0;
 
@@ -367,13 +367,13 @@ standard_ExecutorRun(QueryDesc *queryDesc,
 					dest);
 
 	/*
-	 * Update es_total_processed to keep track of the number of tuples
-	 * processed across multiple ExecutorRun() calls.
+	 * 更新 es_total_processed，以跟踪多次 ExecutorRun()      
+	 * 调用处理的元组数                      
 	 */
 	estate->es_total_processed += estate->es_processed;
 
 	/*
-	 * shutdown tuple receiver, if we started it
+	 * 若已启动，则关闭元组接收器  
 	 */
 	if (sendTuples)
 		dest->rShutdown(dest);
@@ -387,14 +387,14 @@ standard_ExecutorRun(QueryDesc *queryDesc,
 /* ----------------------------------------------------------------
  *		ExecutorFinish
  *
- *		This routine must be called after the last ExecutorRun call.
- *		It performs cleanup such as firing AFTER triggers.  It is
- *		separate from ExecutorEnd because EXPLAIN ANALYZE needs to
- *		include these actions in the total runtime.
+ *		须在最后一次 ExecutorRun 调用后调用本例程。  
+ *		它执行诸如引发 AFTER 触发器等清理工作。  
+ *		它之所以与 ExecutorEnd 分开，是因为 EXPLAIN    
+ *		ANALYZE 需将其计入总运行时。     
  *
- *		We provide a function hook variable that lets loadable plugins
- *		get control when ExecutorFinish is called.  Such a plugin would
- *		normally call standard_ExecutorFinish().
+ *		我们提供函数钩子变量，让可加载插件能在     
+ *		ExecutorFinish 被调用时取得控制。插件通常会      
+ *		调用 standard_ExecutorFinish()。     
  *
  * ----------------------------------------------------------------
  */
@@ -413,7 +413,7 @@ standard_ExecutorFinish(QueryDesc *queryDesc)
 	EState	   *estate;
 	MemoryContext oldcontext;
 
-	/* sanity checks */
+	/* 健全检查  */
 	Assert(queryDesc != NULL);
 
 	estate = queryDesc->estate;
@@ -421,20 +421,20 @@ standard_ExecutorFinish(QueryDesc *queryDesc)
 	Assert(estate != NULL);
 	Assert(!(estate->es_top_eflags & EXEC_FLAG_EXPLAIN_ONLY));
 
-	/* This should be run once and only once per Executor instance */
+	/* 每个 Executor 实例应运行一次且仅一次           */
 	Assert(!estate->es_finished);
 
-	/* Switch into per-query memory context */
+	/* 切换到每查询内存上下文    */
 	oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
 
-	/* Allow instrumentation of Executor overall runtime */
+	/* 允许对执行器整体运行时进行插桩     */
 	if (queryDesc->totaltime)
 		InstrStartNode(queryDesc->totaltime);
 
-	/* Run ModifyTable nodes to completion */
+	/* 将 ModifyTable 节点执行完毕  */
 	ExecPostprocessPlan(estate);
 
-	/* Execute queued AFTER triggers, unless told not to */
+	/* 如未禁止则执行已排队 AFTER 触发器    */
 	if (!(estate->es_top_eflags & EXEC_FLAG_SKIP_TRIGGERS))
 		AfterTriggerEndQuery(estate);
 
@@ -449,12 +449,12 @@ standard_ExecutorFinish(QueryDesc *queryDesc)
 /* ----------------------------------------------------------------
  *		ExecutorEnd
  *
- *		This routine must be called at the end of execution of any
- *		query plan
+ *		本例程必须在任何查询计划执行结束时       
+ *		调用    
  *
- *		We provide a function hook variable that lets loadable plugins
- *		get control when ExecutorEnd is called.  Such a plugin would
- *		normally call standard_ExecutorEnd().
+ *		我们提供函数钩子变量，让可加载插件能在     
+ *		ExecutorEnd 被调用时取得控制。插件通常会      
+ *		调用 standard_ExecutorEnd()。     
  *
  * ----------------------------------------------------------------
  */
@@ -473,7 +473,7 @@ standard_ExecutorEnd(QueryDesc *queryDesc)
 	EState	   *estate;
 	MemoryContext oldcontext;
 
-	/* sanity checks */
+	/* 健全检查  */
 	Assert(queryDesc != NULL);
 
 	estate = queryDesc->estate;
@@ -481,36 +481,36 @@ standard_ExecutorEnd(QueryDesc *queryDesc)
 	Assert(estate != NULL);
 
 	/*
-	 * Check that ExecutorFinish was called, unless in EXPLAIN-only mode. This
-	 * Assert is needed because ExecutorFinish is new as of 9.1, and callers
-	 * might forget to call it.
+	 * 检查是否已调用 ExecutorFinish，仅 EXPLAIN 模式除外。     
+	 * 此断言是必需的，因为 ExecutorFinish 为 9.1 新增，      
+	 * 调用者可能遗漏。
 	 */
 	Assert(estate->es_finished ||
 		   (estate->es_top_eflags & EXEC_FLAG_EXPLAIN_ONLY));
 
 	/*
-	 * Switch into per-query memory context to run ExecEndPlan
+	 * 切换到每查询内存上下文以运行 ExecEndPlan 
 	 */
 	oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
 
 	ExecEndPlan(queryDesc->planstate, estate);
 
-	/* do away with our snapshots */
+	/* 丢弃我们的快照      */
 	UnregisterSnapshot(estate->es_snapshot);
 	UnregisterSnapshot(estate->es_crosscheck_snapshot);
 
 	/*
-	 * Must switch out of context before destroying it
+	 * 必须在销毁该上下文之前切出它     
 	 */
 	MemoryContextSwitchTo(oldcontext);
 
 	/*
-	 * Release EState and per-query memory context.  This should release
-	 * everything the executor has allocated.
+	 * 释放 EState 与每查询内存上下文。这应当会释放   
+	 * 执行器分配的一切              
 	 */
 	FreeExecutorState(estate);
 
-	/* Reset queryDesc fields that no longer point to anything */
+	/* 重置 queryDesc 中已不再指向任何内容的字段*/
 	queryDesc->tupDesc = NULL;
 	queryDesc->estate = NULL;
 	queryDesc->planstate = NULL;
@@ -520,8 +520,8 @@ standard_ExecutorEnd(QueryDesc *queryDesc)
 /* ----------------------------------------------------------------
  *		ExecutorRewind
  *
- *		This routine may be called on an open queryDesc to rewind it
- *		to the start.
+ *		本例程可在已打开的 queryDesc 上调用，将其    
+ *		倒回。    
  * ----------------------------------------------------------------
  */
 void
@@ -530,18 +530,18 @@ ExecutorRewind(QueryDesc *queryDesc)
 	EState	   *estate;
 	MemoryContext oldcontext;
 
-	/* sanity checks */
+	/* 健全检查  */
 	Assert(queryDesc != NULL);
 
 	estate = queryDesc->estate;
 
 	Assert(estate != NULL);
 
-	/* It's probably not sensible to rescan updating queries */
+	/* 对更新型查询重新扫描多半并不合理      */
 	Assert(queryDesc->operation == CMD_SELECT);
 
 	/*
-	 * Switch into per-query memory context
+	 * 切换到每查询内存上下文   
 	 */
 	oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
 
@@ -556,19 +556,19 @@ ExecutorRewind(QueryDesc *queryDesc)
 
 /*
  * ExecCheckPermissions
- *		Check access permissions of relations mentioned in a query
+ *		检查查询中提及的关系的访问权限             
  *
- * Returns true if permissions are adequate.  Otherwise, throws an appropriate
- * error if ereport_on_violation is true, or simply returns false otherwise.
+ * 若权限足够则返回真。否则，当 ereport_on_violation            
+ * 为真时抛出相应错误，否则仅返回假。                      
  *
- * Note that this does NOT address row-level security policies (aka: RLS).  If
- * rows will be returned to the user as a result of this permission check
- * passing, then RLS also needs to be consulted (and check_enable_rls()).
+ * 注意：这并不处理行级安全策略（即 RLS）。如果           
+ * 本权限检查通过后会有行返回给用户，则还需          
+ * 考虑 RLS（以及 check_enable_rls()）。                          
  *
- * See rewrite/rowsecurity.c.
+ * 见 rewrite/rowsecurity.c.
  *
- * NB: rangeTable is no longer used by us, but kept around for the hooks that
- * might still want to look at the RTEs.
+ * 注意：我们已不再使用 rangeTable，但为可能仍想            
+ * 查看 RTE 的钩子而保留。     
  */
 bool
 ExecCheckPermissions(List *rangeTable, List *rteperminfos,
@@ -580,31 +580,31 @@ ExecCheckPermissions(List *rangeTable, List *rteperminfos,
 #ifdef USE_ASSERT_CHECKING
 	Bitmapset  *indexset = NULL;
 
-	/* Check that rteperminfos is consistent with rangeTable */
+	/* 检查 rteperminfos 与 rangeTable 是否一致       */
 	foreach(l, rangeTable)
 	{
 		RangeTblEntry *rte = lfirst_node(RangeTblEntry, l);
 
 		if (rte->perminfoindex != 0)
 		{
-			/* Sanity checks */
+			/* 健全检查  */
 
 			/*
-			 * Only relation RTEs and subquery RTEs that were once relation
-			 * RTEs (views) have their perminfoindex set.
+			 * 只有关系 RTE 和曾是关系 RTE（视图）的         
+			 * 子查询 RTE 才设置 perminfoindex。  
 			 */
 			Assert(rte->rtekind == RTE_RELATION ||
 				   (rte->rtekind == RTE_SUBQUERY &&
 					rte->relkind == RELKIND_VIEW));
 
 			(void) getRTEPermissionInfo(rteperminfos, rte);
-			/* Many-to-one mapping not allowed */
+			/* 不允许多对一映射        */
 			Assert(!bms_is_member(rte->perminfoindex, indexset));
 			indexset = bms_add_member(indexset, rte->perminfoindex);
 		}
 	}
 
-	/* All rteperminfos are referenced */
+	/* 所有 rteperminfos 均被引用*/
 	Assert(bms_num_members(indexset) == list_length(rteperminfos));
 #endif
 
@@ -632,7 +632,7 @@ ExecCheckPermissions(List *rangeTable, List *rteperminfos,
 
 /*
  * ExecCheckOneRelPerms
- *		Check access permissions for a single relation.
+ *		检查单个关系的访问权限。           
  */
 bool
 ExecCheckOneRelPerms(RTEPermissionInfo *perminfo)
@@ -647,20 +647,20 @@ ExecCheckOneRelPerms(RTEPermissionInfo *perminfo)
 	Assert(requiredPerms != 0);
 
 	/*
-	 * userid to check as: current user unless we have a setuid indication.
+	 * 用以检查的 userid：当前用户，除非有 setuid 迹象。  
 	 *
-	 * Note: GetUserId() is presently fast enough that there's no harm in
-	 * calling it separately for each relation.  If that stops being true, we
-	 * could call it once in ExecCheckPermissions and pass the userid down
-	 * from there.  But for now, no need for the extra clutter.
+	 * 注意：GetUserId() 目前足够快，因此为每个关系      
+	 * 单独调用一次并无妨害。如果这一前提不再成立，    
+	 * 我们可以改为在 ExecCheckPermissions 中调用一次，      
+	 * 并把 userid 向下传递。目前暂无此必要。   
 	 */
 	userid = OidIsValid(perminfo->checkAsUser) ?
 		perminfo->checkAsUser : GetUserId();
 
 	/*
-	 * We must have *all* the requiredPerms bits, but some of the bits can be
-	 * satisfied from column-level rather than relation-level permissions.
-	 * First, remove any bits that are satisfied by relation permissions.
+	 * 我们必须拥有 *全部* requiredPerms 位，但其中一些       
+	 * 位可以由列级权限而非关系级权限来满足。          
+	 * 首先，移除已由关系权限满足的那些位。            
 	 */
 	relPerms = pg_class_aclmask(relOid, userid, requiredPerms, ACLMASK_ALL);
 	remainingPerms = requiredPerms & ~relPerms;
@@ -669,25 +669,25 @@ ExecCheckOneRelPerms(RTEPermissionInfo *perminfo)
 		int			col = -1;
 
 		/*
-		 * If we lack any permissions that exist only as relation permissions,
-		 * we can fail straight away.
+		 * 如果缺少仅以关系权限形式存在的权限，则可以    
+		 * 直接失败。           
 		 */
 		if (remainingPerms & ~(ACL_SELECT | ACL_INSERT | ACL_UPDATE))
 			return false;
 
 		/*
-		 * Check to see if we have the needed privileges at column level.
+		 * 检查我们在列级别是否具有所需权限。           
 		 *
-		 * Note: failures just report a table-level error; it would be nicer
-		 * to report a column-level error if we have some but not all of the
-		 * column privileges.
+		 * 注意：失败仅报表级错误；若我们拥有部分而非  
+		 * 全部列权限，则报告列级错误会更贴切一些，     
+		 * 但尚未实现。
 		 */
 		if (remainingPerms & ACL_SELECT)
 		{
 			/*
-			 * When the query doesn't explicitly reference any columns (for
-			 * example, SELECT COUNT(*) FROM table), allow the query if we
-			 * have SELECT on any column of the rel, as per SQL spec.
+			 * 当查询未显式引用任何列时（例如 SELECT        
+			 * COUNT(*) FROM table），只要拥有该关系任一       
+			 * 列的 SELECT 权限即允许，此为 SQL 规范。  
 			 */
 			if (bms_is_empty(perminfo->selectedCols))
 			{
@@ -698,12 +698,12 @@ ExecCheckOneRelPerms(RTEPermissionInfo *perminfo)
 
 			while ((col = bms_next_member(perminfo->selectedCols, col)) >= 0)
 			{
-				/* bit #s are offset by FirstLowInvalidHeapAttributeNumber */
+				/* 位号以 FirstLowInvalidHeapAttributeNumber 为偏移  */
 				AttrNumber	attno = col + FirstLowInvalidHeapAttributeNumber;
 
 				if (attno == InvalidAttrNumber)
 				{
-					/* Whole-row reference, must have priv on all cols */
+					/* 整行引用，必须对所有列都有权限   */
 					if (pg_attribute_aclcheck_all(relOid, userid, ACL_SELECT,
 												  ACLMASK_ALL) != ACLCHECK_OK)
 						return false;
@@ -718,8 +718,8 @@ ExecCheckOneRelPerms(RTEPermissionInfo *perminfo)
 		}
 
 		/*
-		 * Basically the same for the mod columns, for both INSERT and UPDATE
-		 * privilege as specified by remainingPerms.
+		 * 对 mod 列的处理基本相同，适用于 remainingPerms       
+		 * 所指定的 INSERT 与 UPDATE 权限。 
 		 */
 		if (remainingPerms & ACL_INSERT &&
 			!ExecCheckPermissionsModified(relOid,
@@ -740,8 +740,8 @@ ExecCheckOneRelPerms(RTEPermissionInfo *perminfo)
 
 /*
  * ExecCheckPermissionsModified
- *		Check INSERT or UPDATE access permissions for a single relation (these
- *		are processed uniformly).
+ *		检查单个关系的 INSERT 或 UPDATE 访问权限（这两者      
+ *		处理一致）。       
  */
 static bool
 ExecCheckPermissionsModified(Oid relOid, Oid userid, Bitmapset *modifiedCols,
@@ -750,9 +750,9 @@ ExecCheckPermissionsModified(Oid relOid, Oid userid, Bitmapset *modifiedCols,
 	int			col = -1;
 
 	/*
-	 * When the query doesn't explicitly update any columns, allow the query
-	 * if we have permission on any column of the rel.  This is to handle
-	 * SELECT FOR UPDATE as well as possible corner cases in UPDATE.
+	 * 当查询未显式更新任何列时，如果我们对该关系      
+	 * 任一列具有权限，则允许该查询。这是为了处理   
+	 * SELECT FOR UPDATE 以及 UPDATE 中的一些极端情况。  
 	 */
 	if (bms_is_empty(modifiedCols))
 	{
@@ -763,12 +763,12 @@ ExecCheckPermissionsModified(Oid relOid, Oid userid, Bitmapset *modifiedCols,
 
 	while ((col = bms_next_member(modifiedCols, col)) >= 0)
 	{
-		/* bit #s are offset by FirstLowInvalidHeapAttributeNumber */
+		/* 位号以 FirstLowInvalidHeapAttributeNumber 为偏移  */
 		AttrNumber	attno = col + FirstLowInvalidHeapAttributeNumber;
 
 		if (attno == InvalidAttrNumber)
 		{
-			/* whole-row reference can't happen here */
+			/* 整行引用在此不可能出现     */
 			elog(ERROR, "whole-row update is not implemented");
 		}
 		else
@@ -782,13 +782,13 @@ ExecCheckPermissionsModified(Oid relOid, Oid userid, Bitmapset *modifiedCols,
 }
 
 /*
- * Check that the query does not imply any writes to non-temp tables;
- * unless we're in parallel mode, in which case don't even allow writes
- * to temp tables.
+ * 检查查询不会隐含对非临时表的任何写入；除非   
+ * 我们处于并行模式——此时连临时表也一律禁止     
+ * 写入。      
  *
- * Note: in a Hot Standby this would need to reject writes to temp
- * tables just as we do in parallel mode; but an HS standby can't have created
- * any temp tables in the first place, so no need to check that.
+ * 注意：在热备（Hot Standby）中，这将需要像并行 
+ * 模式那样拒绝临时表写入；但 HS 备机根本无法创建        
+ * 临时表，因此无需做该检查。                      
  */
 static void
 ExecCheckXactReadOnly(PlannedStmt *plannedstmt)
@@ -796,8 +796,8 @@ ExecCheckXactReadOnly(PlannedStmt *plannedstmt)
 	ListCell   *l;
 
 	/*
-	 * Fail if write permissions are requested in parallel mode for table
-	 * (temp or non-temp), otherwise fail for any non-temp table.
+	 * 若在并行模式下对表（临时或非临时）请求写权   
+	 * 限则失败，否则对任何非临时表都失败。    
 	 */
 	foreach(l, plannedstmt->permInfos)
 	{
@@ -820,8 +820,8 @@ ExecCheckXactReadOnly(PlannedStmt *plannedstmt)
 /* ----------------------------------------------------------------
  *		InitPlan
  *
- *		Initializes the query plan: open files, allocate storage
- *		and start up the rule manager
+ *		初始化查询计划：打开文件、分配存储，  
+ *		并启动规则管理器     
  * ----------------------------------------------------------------
  */
 static void
@@ -838,19 +838,19 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 	int			i;
 
 	/*
-	 * Do permissions checks
+	 * 执行权限检查   
 	 */
 	ExecCheckPermissions(rangeTable, plannedstmt->permInfos, true);
 
 	/*
-	 * initialize the node's execution state
+	 * 初始化节点的执行状态       
 	 */
 	ExecInitRangeTable(estate, rangeTable, plannedstmt->permInfos);
 
 	estate->es_plannedstmt = plannedstmt;
 
 	/*
-	 * Next, build the ExecRowMark array from the PlanRowMark(s), if any.
+	 * 接着，若有 PlanRowMark，则据此建 ExecRowMark 数组。  
 	 */
 	if (plannedstmt->rowMarks)
 	{
@@ -863,14 +863,14 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 			Relation	relation;
 			ExecRowMark *erm;
 
-			/* ignore "parent" rowmarks; they are irrelevant at runtime */
+			/* 忽略 "parent" rowmark；它们在运行时无关紧要 */
 			if (rc->isParent)
 				continue;
 
-			/* get relation's OID (will produce InvalidOid if subquery) */
+			/* 获取关系的 OID（子查询则得 InvalidOid）      */
 			relid = exec_rt_fetch(rc->rti, estate)->relid;
 
-			/* open relation, if we need to access it for this mark type */
+			/* 若此标记类型需要访问关系，则打开关系    */
 			switch (rc->markType)
 			{
 				case ROW_MARK_EXCLUSIVE:
@@ -881,16 +881,16 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 					relation = ExecGetRangeTableRelation(estate, rc->rti);
 					break;
 				case ROW_MARK_COPY:
-					/* no physical table access is required */
+					/* 无需物理表访问                */
 					relation = NULL;
 					break;
 				default:
 					elog(ERROR, "unrecognized markType: %d", rc->markType);
-					relation = NULL;	/* keep compiler quiet */
+					relation = NULL;	/* 防编译器告警  */
 					break;
 			}
 
-			/* Check that relation is a legal target for marking */
+			/* 检查关系是否为标记的合法目标        */
 			if (relation)
 				CheckValidRowMarkRel(relation, rc->markType);
 
@@ -915,20 +915,20 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 	}
 
 	/*
-	 * Initialize the executor's tuple table to empty.
+	 * 将执行器的元组表初始化为空。     
 	 */
 	estate->es_tupleTable = NIL;
 
-	/* signal that this EState is not used for EPQ */
+	/* 表明此 EState 不用于 EPQ              */
 	estate->es_epq_active = NULL;
 
 	/*
-	 * Initialize private state information for each SubPlan.  We must do this
-	 * before running ExecInitNode on the main query tree, since
-	 * ExecInitSubPlan expects to be able to find these entries.
+	 * 为每个 SubPlan 初始化私有状态信息。必须先于           
+	 * 对主查询树的 ExecInitNode 执行此操作，因为 
+	 * ExecInitSubPlan 期望能找到这些表项。           
 	 */
 	Assert(estate->es_subplanstates == NIL);
-	i = 1;						/* subplan indices count from 1 */
+	i = 1;						/* 子计划索引自 1 起算  */
 	foreach(l, plannedstmt->subplans)
 	{
 		Plan	   *subplan = (Plan *) lfirst(l);
@@ -936,9 +936,9 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 		int			sp_eflags;
 
 		/*
-		 * A subplan will never need to do BACKWARD scan nor MARK/RESTORE. If
-		 * it is a parameterless subplan (not initplan), we suggest that it be
-		 * prepared to handle REWIND efficiently; otherwise there is no need.
+		 * 子计划绝不需要执行 BACKWARD 扫描或 MARK/RESTORE。    
+		 * 如果它是无参数子计划（非 initplan），我们建议它 
+		 * 准备好高效处理 REWIND；否则无此必要。              
 		 */
 		sp_eflags = eflags
 			& ~(EXEC_FLAG_REWIND | EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK);
@@ -954,20 +954,20 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 	}
 
 	/*
-	 * Initialize the private state information for all the nodes in the query
-	 * tree.  This opens files, allocates storage and leaves us ready to start
-	 * processing tuples.
+	 * 为查询树中所有节点初始化私有状态信息。这一步     
+	 * 会打开文件、分配存储空间，并让我们准备就绪，     
+	 * 以处理元组。
 	 */
 	planstate = ExecInitNode(plan, estate, eflags);
 
 	/*
-	 * Get the tuple descriptor describing the type of tuples to return.
+	 * 获取描述返回元组类型的元组描述符。              
 	 */
 	tupType = ExecGetResultType(planstate);
 
 	/*
-	 * Initialize the junk filter if needed.  SELECT queries need a filter if
-	 * there are any junk attrs in the top-level tlist.
+	 * 如需要则初始化垃圾过滤器。若顶层 tlist 中存在      
+	 * 垃圾属性，则 SELECT 需要过滤器。    
 	 */
 	if (operation == CMD_SELECT)
 	{
@@ -995,7 +995,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 								   slot);
 			estate->es_junkFilter = j;
 
-			/* Want to return the cleaned tuple type */
+			/* 希望返回清理后的元组类型  */
 			tupType = j->jf_cleanTupType;
 		}
 	}
@@ -1005,19 +1005,19 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 }
 
 /*
- * Check that a proposed result relation is a legal target for the operation
+ * 检查拟议的结果关系是否为该操作的合法目标             
  *
- * Generally the parser and/or planner should have noticed any such mistake
- * already, but let's make sure.
+ * 一般来说解析器和/或规划器本应已发现任何此类        
+ * 错误，但需再确认。  
  *
- * For INSERT ON CONFLICT, the result relation is required to support the
- * onConflictAction, regardless of whether a conflict actually occurs.
+ * 对 INSERT ON CONFLICT 而言，无论冲突是否真的发生，     
+ * 结果关系都必须支持 onConflictAction。                    
  *
- * For MERGE, mergeActions is the list of actions that may be performed.  The
- * result relation is required to support every action, regardless of whether
- * or not they are all executed.
+ * 对 MERGE 而言，mergeActions 是可执行动作的列表。            
+ * 结果关系必须支持其中每个动作，无论它们是否           
+ * 全部会被执行。        
  *
- * Note: when changing this function, you probably also need to look at
+ * 注意：修改此函数时，多半还需要查看                 
  * CheckValidRowMarkRel.
  */
 void
@@ -1028,7 +1028,7 @@ CheckValidResultRelNew(ResultRelInfo *resultRelInfo, CmdType operation,
 	TriggerDesc *trigDesc = resultRel->trigdesc;
 	FdwRoutine *fdwroutine;
 
-	/* Expect a fully-formed ResultRelInfo from InitResultRelInfo(). */
+	/* InitResultRelInfo() 应给出成形完整的 ResultRelInfo。 */
 	Assert(resultRelInfo->ri_needLockTagTuple ==
 		   IsInplaceUpdateRelation(resultRel));
 
@@ -1038,8 +1038,8 @@ CheckValidResultRelNew(ResultRelInfo *resultRelInfo, CmdType operation,
 		case RELKIND_PARTITIONED_TABLE:
 
 			/*
-			 * For MERGE, check that the target relation supports each action.
-			 * For other operations, just check the operation itself.
+			 * 对于 MERGE，检查目标关系是否支持每个动作。   
+			 * 对于其他操作，只需检查该操作本身。   
 			 */
 			if (operation == CMD_MERGE)
 			{
@@ -1056,8 +1056,8 @@ CheckValidResultRelNew(ResultRelInfo *resultRelInfo, CmdType operation,
 				CheckCmdReplicaIdentity(resultRel, operation);
 
 			/*
-			 * For INSERT ON CONFLICT DO UPDATE, additionally check that the
-			 * target relation supports UPDATE.
+			 * 对于 INSERT ON CONFLICT DO UPDATE，还要检查           
+			 * 目标关系须支持 UPDATE。 
 			 */
 			if (onConflictAction == ONCONFLICT_UPDATE)
 				CheckCmdReplicaIdentity(resultRel, CMD_UPDATE);
@@ -1077,11 +1077,11 @@ CheckValidResultRelNew(ResultRelInfo *resultRelInfo, CmdType operation,
 		case RELKIND_VIEW:
 
 			/*
-			 * Okay only if there's a suitable INSTEAD OF trigger.  Messages
-			 * here should match rewriteHandler.c's rewriteTargetView and
-			 * RewriteQuery, except that we omit errdetail because we haven't
-			 * got the information handy (and given that we really shouldn't
-			 * get here anyway, it's not worth great exertion to get).
+			 * 仅当存在合适的 INSTEAD OF 触发器方可。此处的 
+			 * 消息应与 rewriteHandler.c 的 rewriteTargetView 及   
+			 * RewriteQuery 一致，只是未包含 errdetail，因为手头
+			 * 没有该信息（反正也不该到这里，不值得费力 
+			 * 获取）。                                           
 			 */
 			switch (operation)
 			{
@@ -1122,7 +1122,7 @@ CheckValidResultRelNew(ResultRelInfo *resultRelInfo, CmdType operation,
 								RelationGetRelationName(resultRel))));
 			break;
 		case RELKIND_FOREIGN_TABLE:
-			/* Okay only if the FDW supports it */
+			/* 仅当 FDW 支持时方可。    */
 			fdwroutine = resultRelInfo->ri_FdwRoutine;
 			switch (operation)
 			{
@@ -1180,8 +1180,8 @@ CheckValidResultRelNew(ResultRelInfo *resultRelInfo, CmdType operation,
 }
 
 /*
- * ABI-compatible wrapper to emulate old version of the above function.
- * Do not call this version in new code.
+ * 与 ABI 兼容的包装函数，模拟上述函数的旧版本。   
+ * 新代码中请勿调用此版本。 
  */
 void
 CheckValidResultRel(ResultRelInfo *resultRelInfo, CmdType operation)
@@ -1190,10 +1190,10 @@ CheckValidResultRel(ResultRelInfo *resultRelInfo, CmdType operation)
 }
 
 /*
- * Check that a proposed rowmark target relation is a legal target
+ * 检查作为 rowmark 候选的目标关系是否合法。      
  *
- * In most cases parser and/or planner should have noticed this already, but
- * they don't cover all cases.
+ * 多数情况下解析器和/或规划器本应早已发现，但         
+ * 并未覆盖全部情况。
  */
 static void
 CheckValidRowMarkRel(Relation rel, RowMarkType markType)
@@ -1207,28 +1207,28 @@ CheckValidRowMarkRel(Relation rel, RowMarkType markType)
 			/* OK */
 			break;
 		case RELKIND_SEQUENCE:
-			/* Must disallow this because we don't vacuum sequences */
+			/* 必须禁止：我们不对序列执行 vacuum。    */
 			ereport(ERROR,
 					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
 					 errmsg("cannot lock rows in sequence \"%s\"",
 							RelationGetRelationName(rel))));
 			break;
 		case RELKIND_TOASTVALUE:
-			/* We could allow this, but there seems no good reason to */
+			/* 本可允许，但似乎没有充分的理由。       */
 			ereport(ERROR,
 					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
 					 errmsg("cannot lock rows in TOAST relation \"%s\"",
 							RelationGetRelationName(rel))));
 			break;
 		case RELKIND_VIEW:
-			/* Should not get here; planner should have expanded the view */
+			/* 不应到达此处；规划器应已展开该视图。     */
 			ereport(ERROR,
 					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
 					 errmsg("cannot lock rows in view \"%s\"",
 							RelationGetRelationName(rel))));
 			break;
 		case RELKIND_MATVIEW:
-			/* Allow referencing a matview, but not actual locking clauses */
+			/* 允许引用物化视图，但禁止实际的锁定子句。*/
 			if (markType != ROW_MARK_REFERENCE)
 				ereport(ERROR,
 						(errcode(ERRCODE_WRONG_OBJECT_TYPE),
@@ -1236,7 +1236,7 @@ CheckValidRowMarkRel(Relation rel, RowMarkType markType)
 								RelationGetRelationName(rel))));
 			break;
 		case RELKIND_FOREIGN_TABLE:
-			/* Okay only if the FDW supports it */
+			/* 仅当 FDW 支持时方可。    */
 			fdwroutine = GetFdwRoutineForRelation(rel, false);
 			if (fdwroutine->RefetchForeignRow == NULL)
 				ereport(ERROR,
@@ -1254,11 +1254,11 @@ CheckValidRowMarkRel(Relation rel, RowMarkType markType)
 }
 
 /*
- * Initialize ResultRelInfo data for one result relation
+ * 为结果关系初始化 ResultRelInfo 数据。     
  *
- * Caution: before Postgres 9.1, this function included the relkind checking
- * that's now in CheckValidResultRel, and it also did ExecOpenIndices if
- * appropriate.  Be sure callers cover those needs.
+ * 注意：Postgres 9.1 之前，该函数含如今在 CheckValidResultRel 
+ * 中的 relkind 检查，适当时候也会执行 ExecOpenIndices。  
+ * 务必确保调用者满足这些需求。      
  */
 void
 InitResultRelInfo(ResultRelInfo *resultRelInfo,
@@ -1276,7 +1276,7 @@ InitResultRelInfo(ResultRelInfo *resultRelInfo,
 	resultRelInfo->ri_IndexRelationInfo = NULL;
 	resultRelInfo->ri_needLockTagTuple =
 		IsInplaceUpdateRelation(resultRelationDesc);
-	/* make a copy so as not to depend on relcache info not changing... */
+	/* 复制一份，以免依赖 relcache 信息保持不变……    */
 	resultRelInfo->ri_TrigDesc = CopyTriggerDesc(resultRelationDesc->trigdesc);
 	if (resultRelInfo->ri_TrigDesc)
 	{
@@ -1300,7 +1300,7 @@ InitResultRelInfo(ResultRelInfo *resultRelInfo,
 	else
 		resultRelInfo->ri_FdwRoutine = NULL;
 
-	/* The following fields are set later if needed */
+	/* 以下字段稍后在需要时设置。      */
 	resultRelInfo->ri_RowIdAttNo = 0;
 	resultRelInfo->ri_extraUpdatedCols = NULL;
 	resultRelInfo->ri_projectNew = NULL;
@@ -1322,16 +1322,16 @@ InitResultRelInfo(ResultRelInfo *resultRelInfo,
 	resultRelInfo->ri_notMatchedMergeAction = NIL;
 
 	/*
-	 * Only ExecInitPartitionInfo() and ExecInitPartitionDispatchInfo() pass
-	 * non-NULL partition_root_rri.  For child relations that are part of the
-	 * initial query rather than being dynamically added by tuple routing,
-	 * this field is filled in ExecInitModifyTable().
+	 * 仅 ExecInitPartitionInfo() 和 ExecInitPartitionDispatchInfo()      
+	 * 会传入非 NULL 的 partition_root_rri。对于初始查询中      
+	 * 的子关系（而非由元组路由动态加入的），该字段 
+	 * ExecInitModifyTable() 中填充。            
 	 */
 	resultRelInfo->ri_RootResultRelInfo = partition_root_rri;
-	/* Set by ExecGetRootToChildMap */
+	/* ExecGetRootToChildMap 设置 */
 	resultRelInfo->ri_RootToChildMap = NULL;
 	resultRelInfo->ri_RootToChildMapValid = false;
-	/* Set by ExecInitRoutingInfo */
+	/* ExecInitRoutingInfo 设置 */
 	resultRelInfo->ri_PartitionTupleSlot = NULL;
 	resultRelInfo->ri_ChildToRootMap = NULL;
 	resultRelInfo->ri_ChildToRootMapValid = false;
@@ -1340,21 +1340,21 @@ InitResultRelInfo(ResultRelInfo *resultRelInfo,
 
 /*
  * ExecGetTriggerResultRel
- *		Get a ResultRelInfo for a trigger target relation.
+ *		获取触发器目标关系的 ResultRelInfo。   
  *
- * Most of the time, triggers are fired on one of the result relations of the
- * query, and so we can just return a suitable one we already made and stored
- * in the es_opened_result_relations or es_tuple_routing_result_relations
- * Lists.
+ * 通常触发器都触发在查询的某个结果关系上，此时可     
+ * 直接返回已建好并存入 es_opened_result_relations 或             
+ * es_tuple_routing_result_relations 列表中的现成                  
+ * 项。
  *
- * However, it is sometimes necessary to fire triggers on other relations;
- * this happens mainly when an RI update trigger queues additional triggers
- * on other relations, which will be processed in the context of the outer
- * query.  For efficiency's sake, we want to have a ResultRelInfo for those
- * triggers too; that can avoid repeated re-opening of the relation.  (It
- * also provides a way for EXPLAIN ANALYZE to report the runtimes of such
- * triggers.)  So we make additional ResultRelInfo's as needed, and save them
- * in es_trig_target_relations.
+ * 但有时需要在其他关系上触发触发器；                    
+ * 这多发生在 RI 更新触发器把额外触发器排入其他关系  
+ * 的队列时，它们在外层查询上下文中处理。为提高效  
+ * 率起见，我们也希望为这些触发器准备 ResultRelInfo，    
+ * 从而避免反复重新打开关系。（这也为 EXPLAIN ANALYZE   
+ * 提供了报告这类触发器运行时间的渠道。）             
+ * 所以我们按需创建额外的 ResultRelInfo，并保存到            
+ * es_trig_target_relations    
  */
 ResultRelInfo *
 ExecGetTriggerResultRel(EState *estate, Oid relid,
@@ -1366,14 +1366,14 @@ ExecGetTriggerResultRel(EState *estate, Oid relid,
 	MemoryContext oldcontext;
 
 	/*
-	 * Before creating a new ResultRelInfo, check if we've already made and
-	 * cached one for this relation.  We must ensure that the given
-	 * 'rootRelInfo' matches the one stored in the cached ResultRelInfo as
-	 * trigger handling for partitions can result in mixed requirements for
-	 * what ri_RootResultRelInfo is set to.
+	 * 创建新的 ResultRelInfo 之前，检查是否为该关系建立  
+	 * 并缓存过它的 ResultRelInfo。必须确保所给的    
+	 * 'rootRelInfo' 与缓存 ResultRelInfo 中保存的那个一致，  
+	 * 因为分区触发器处理可能导致 ri_RootResultRelInfo 的    
+	 * 取值出现不一致的需求。   
 	 */
 
-	/* Search through the query result relations */
+	/* 遍历查询结果关系列表。         */
 	foreach(l, estate->es_opened_result_relations)
 	{
 		rInfo = lfirst(l);
@@ -1383,8 +1383,8 @@ ExecGetTriggerResultRel(EState *estate, Oid relid,
 	}
 
 	/*
-	 * Search through the result relations that were created during tuple
-	 * routing, if any.
+	 * 遍历在元组路由期间创建的那些结果关系，         
+	 * 若有的话。 
 	 */
 	foreach(l, estate->es_tuple_routing_result_relations)
 	{
@@ -1394,7 +1394,7 @@ ExecGetTriggerResultRel(EState *estate, Oid relid,
 			return rInfo;
 	}
 
-	/* Nope, but maybe we already made an extra ResultRelInfo for it */
+	/* 没有；但可能已为它建过额外的 ResultRelInfo。   */
 	foreach(l, estate->es_trig_target_relations)
 	{
 		rInfo = (ResultRelInfo *) lfirst(l);
@@ -1402,24 +1402,24 @@ ExecGetTriggerResultRel(EState *estate, Oid relid,
 			rInfo->ri_RootResultRelInfo == rootRelInfo)
 			return rInfo;
 	}
-	/* Nope, so we need a new one */
+	/* 没有，需新建一个。*/
 
 	/*
-	 * Open the target relation's relcache entry.  We assume that an
-	 * appropriate lock is still held by the backend from whenever the trigger
-	 * event got queued, so we need take no new lock here.  Also, we need not
-	 * recheck the relkind, so no need for CheckValidResultRel.
+	 * 打开目标关系的 relcache 表项。我们假定自从   
+	 * 触发事件入队时起，后端持有适当的锁，故此处无需  
+	 * 再取新锁。另外也无需重新检查 relkind，不必再调用  
+	 * CheckValidResultRel。                                  
 	 */
 	rel = table_open(relid, NoLock);
 
 	/*
-	 * Make the new entry in the right context.
+	 * 在合适的上下文中新建表项。 
 	 */
 	oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
 	rInfo = makeNode(ResultRelInfo);
 	InitResultRelInfo(rInfo,
 					  rel,
-					  0,		/* dummy rangetable index */
+					  0,		/* 占位范围表索引  */
 					  rootRelInfo,
 					  estate->es_instrument);
 	estate->es_trig_target_relations =
@@ -1427,21 +1427,21 @@ ExecGetTriggerResultRel(EState *estate, Oid relid,
 	MemoryContextSwitchTo(oldcontext);
 
 	/*
-	 * Currently, we don't need any index information in ResultRelInfos used
-	 * only for triggers, so no need to call ExecOpenIndices.
+	 * 仅用于触发器的 ResultRelInfo 不需要索引信息，         
+	 * 因此无需调用 ExecOpenIndices。                 
 	 */
 
 	return rInfo;
 }
 
 /*
- * Return the ancestor relations of a given leaf partition result relation
- * up to and including the query's root target relation.
+ * 返回给定叶子分区结果关系的祖先关系，直至并包含  
+ * 查询的根目标关系。                          
  *
- * These work much like the ones opened by ExecGetTriggerResultRel, except
- * that we need to keep them in a separate list.
+ * 它们与 ExecGetTriggerResultRel 打开的那些十分相似，只    
+ * 是需将它们存入单独的列表。      
  *
- * These are closed by ExecCloseResultRelations.
+ * 由 ExecCloseResultRelations 关闭。       
  */
 List *
 ExecGetAncestorResultRels(EState *estate, ResultRelInfo *resultRelInfo)
@@ -1467,22 +1467,22 @@ ExecGetAncestorResultRels(EState *estate, ResultRelInfo *resultRelInfo)
 			ResultRelInfo *rInfo;
 
 			/*
-			 * Ignore the root ancestor here, and use ri_RootResultRelInfo
-			 * (below) for it instead.  Also, we stop climbing up the
-			 * hierarchy when we find the table that was mentioned in the
-			 * query.
+			 * 忽略根祖先，改用 ri_RootResultRelInfo（见下）  
+			 * 来代替。另外，一旦找到查询中所提到的
+			 * 表时就停止上                                        
+			 * 溯。
 			 */
 			if (ancOid == rootRelOid)
 				break;
 
 			/*
-			 * All ancestors up to the root target relation must have been
-			 * locked by the planner or AcquireExecutorLocks().
+			 * 至根目标关系的所有祖先均应已由规划器或  
+			 * AcquireExecutorLocks() 锁定。                
 			 */
 			ancRel = table_open(ancOid, NoLock);
 			rInfo = makeNode(ResultRelInfo);
 
-			/* dummy rangetable index */
+			/* 占位范围表索引  */
 			InitResultRelInfo(rInfo, ancRel, 0, NULL,
 							  estate->es_instrument);
 			ancResultRels = lappend(ancResultRels, rInfo);
@@ -1491,7 +1491,7 @@ ExecGetAncestorResultRels(EState *estate, ResultRelInfo *resultRelInfo)
 		resultRelInfo->ri_ancestorResultRels = ancResultRels;
 	}
 
-	/* We must have found some ancestor */
+	/* 必定已找到某个祖先。   */
 	Assert(resultRelInfo->ri_ancestorResultRels != NIL);
 
 	return resultRelInfo->ri_ancestorResultRels;
@@ -1500,7 +1500,7 @@ ExecGetAncestorResultRels(EState *estate, ResultRelInfo *resultRelInfo)
 /* ----------------------------------------------------------------
  *		ExecPostprocessPlan
  *
- *		Give plan nodes a final chance to execute before shutdown
+ *		在关闭前给计划节点最后一次执行机会。   
  * ----------------------------------------------------------------
  */
 static void
@@ -1509,14 +1509,14 @@ ExecPostprocessPlan(EState *estate)
 	ListCell   *lc;
 
 	/*
-	 * Make sure nodes run forward.
+	 * 确保节点向前运行。 
 	 */
 	estate->es_direction = ForwardScanDirection;
 
 	/*
-	 * Run any secondary ModifyTable nodes to completion, in case the main
-	 * query did not fetch all rows from them.  (We do this to ensure that
-	 * such nodes have predictable results.)
+	 * 将次要 ModifyTable 节点运行完毕，以防主查询未取   
+	 * 其全部行。（这样做是为了确保此类节点具有       
+	 * 可预期的结果。）             
 	 */
 	foreach(lc, estate->es_auxmodifytables)
 	{
@@ -1526,7 +1526,7 @@ ExecPostprocessPlan(EState *estate)
 		{
 			TupleTableSlot *slot;
 
-			/* Reset the per-output-tuple exprcontext each time */
+			/* 每次重置每个输出元组的 exprcontext。 */
 			ResetPerTupleExprContext(estate);
 
 			slot = ExecProcNode(ps);
@@ -1540,13 +1540,13 @@ ExecPostprocessPlan(EState *estate)
 /* ----------------------------------------------------------------
  *		ExecEndPlan
  *
- *		Cleans up the query plan -- closes files and frees up storage
+ *		清理查询计划——关闭文件并释放存储空间。 
  *
- * NOTE: we are no longer very worried about freeing storage per se
- * in this code; FreeExecutorState should be guaranteed to release all
- * memory that needs to be released.  What we are worried about doing
- * is closing relations and dropping buffer pins.  Thus, for example,
- * tuple tables must be cleared or dropped to ensure pins are released.
+ * 注意：已无需担心释放存储本身；FreeExecutorState  
+ * 应保证释放所有需要释放的内存。我们所             
+ * 要做的是关闭关系并丢弃缓冲区 pin。因此，        
+ * 例如，元组表必须被清除或丢弃，以确保            
+ * pin 得以释放。                                                 
  * ----------------------------------------------------------------
  */
 static void
@@ -1555,12 +1555,12 @@ ExecEndPlan(PlanState *planstate, EState *estate)
 	ListCell   *l;
 
 	/*
-	 * shut down the node-type-specific query processing
+	 * 关闭节点类型专有的查询处理。       
 	 */
 	ExecEndNode(planstate);
 
 	/*
-	 * for subplans too
+	 * 子计划亦然 
 	 */
 	foreach(l, estate->es_subplanstates)
 	{
@@ -1570,23 +1570,23 @@ ExecEndPlan(PlanState *planstate, EState *estate)
 	}
 
 	/*
-	 * destroy the executor's tuple table.  Actually we only care about
-	 * releasing buffer pins and tupdesc refcounts; there's no need to pfree
-	 * the TupleTableSlots, since the containing memory context is about to go
-	 * away anyway.
+	 * 销毁执行器的元组表。实际只关心缓冲区钉住与 
+	 * tupdesc 引用计数；无需 pfree 那些 TupleTableSlot，因为   
+	 * 包含它们的内存上下文无论如何都即将消失              
+	 * 了。      
 	 */
 	ExecResetTupleTable(estate->es_tupleTable, false);
 
 	/*
-	 * Close any Relations that have been opened for range table entries or
-	 * result relations.
+	 * 关闭所有为范围表表项或结果关系而打开的           
+	 * 关系。        
 	 */
 	ExecCloseResultRelations(estate);
 	ExecCloseRangeTableRelations(estate);
 }
 
 /*
- * Close any relations that have been opened for ResultRelInfos.
+ * 关闭所有为 ResultRelInfo 而打开的关系。          
  */
 void
 ExecCloseResultRelations(EState *estate)
@@ -1594,11 +1594,11 @@ ExecCloseResultRelations(EState *estate)
 	ListCell   *l;
 
 	/*
-	 * close indexes of result relation(s) if any.  (Rels themselves are
-	 * closed in ExecCloseRangeTableRelations())
+	 * 关闭结果关系（若有）的索引。（关系本身则由  
+	 * ExecCloseRangeTableRelations() 关闭） 
 	 *
-	 * In addition, close the stub RTs that may be in each resultrel's
-	 * ri_ancestorResultRels.
+	 * 另外还要关闭各 resultrel 的 ri_ancestorResultRels 中  
+	 * 存在的占位 RT。 
 	 */
 	foreach(l, estate->es_opened_result_relations)
 	{
@@ -1611,8 +1611,8 @@ ExecCloseResultRelations(EState *estate)
 			ResultRelInfo *rInfo = lfirst(lc);
 
 			/*
-			 * Ancestors with RTI > 0 (should only be the root ancestor) are
-			 * closed by ExecCloseRangeTableRelations.
+			 * RTI > 0 的祖先（应只有根祖先）则由              
+			 * ExecCloseRangeTableRelations 关闭。 
 			 */
 			if (rInfo->ri_RangeTableIndex > 0)
 				continue;
@@ -1621,21 +1621,21 @@ ExecCloseResultRelations(EState *estate)
 		}
 	}
 
-	/* Close any relations that have been opened by ExecGetTriggerResultRel(). */
+	/* 关闭所有曾由 ExecGetTriggerResultRel() 打开的关系。         */
 	foreach(l, estate->es_trig_target_relations)
 	{
 		ResultRelInfo *resultRelInfo = (ResultRelInfo *) lfirst(l);
 
 		/*
-		 * Assert this is a "dummy" ResultRelInfo, see above.  Otherwise we
-		 * might be issuing a duplicate close against a Relation opened by
-		 * ExecGetRangeTableRelation.
+		 * 断言这是"哑" ResultRelInfo，见上文。否则我们可能
+		 * 对 ExecGetRangeTableRelation 打开的关系发出重复      
+		 * 的关闭。              
 		 */
 		Assert(resultRelInfo->ri_RangeTableIndex == 0);
 
 		/*
-		 * Since ExecGetTriggerResultRel doesn't call ExecOpenIndices for
-		 * these rels, we needn't call ExecCloseIndices either.
+		 * 由于 ExecGetTriggerResultRel 不会对这些关系调用    
+		 * ExecOpenIndices，故也无需 ExecCloseIndices。  
 		 */
 		Assert(resultRelInfo->ri_NumIndices == 0);
 
@@ -1644,9 +1644,9 @@ ExecCloseResultRelations(EState *estate)
 }
 
 /*
- * Close all relations opened by ExecGetRangeTableRelation().
+ * 关闭 ExecGetRangeTableRelation() 打开的关系。     
  *
- * We do not release any locks we might hold on those rels.
+ * 不会释放这些关系上可能持有的任何锁。  
  */
 void
 ExecCloseRangeTableRelations(EState *estate)
@@ -1663,10 +1663,10 @@ ExecCloseRangeTableRelations(EState *estate)
 /* ----------------------------------------------------------------
  *		ExecutePlan
  *
- *		Processes the query plan until we have retrieved 'numberTuples' tuples,
- *		moving in the specified direction.
+ *		处理查询计划，直到取回 'numberTuples' 个元组为止，    
+ *		沿指定方向推进。          
  *
- *		Runs to completion if numberTuples is 0
+ *		numberTuples 为 0 时运行到完成  
  * ----------------------------------------------------------------
  */
 static void
@@ -1684,21 +1684,21 @@ ExecutePlan(QueryDesc *queryDesc,
 	uint64		current_tuple_count;
 
 	/*
-	 * initialize local variables
+	 * 初始化局部变量     
 	 */
 	current_tuple_count = 0;
 
 	/*
-	 * Set the direction.
+	 * 设置方向。   
 	 */
 	estate->es_direction = direction;
 
 	/*
-	 * Set up parallel mode if appropriate.
+	 * 如合适则设置并行模式。   
 	 *
-	 * Parallel mode only supports complete execution of a plan.  If we've
-	 * already partially executed it, or if the caller asks us to exit early,
-	 * we must force the plan to run without parallelism.
+	 * 并行模式只支持完整执行计划。如果我们已经部分 
+	 * 执行过该计划，或调用者要求提前退出，则必须强制 
+	 * 计划以非并行方式运行。                 
 	 */
 	if (queryDesc->already_executed || numberTuples != 0)
 		use_parallel_mode = false;
@@ -1711,63 +1711,63 @@ ExecutePlan(QueryDesc *queryDesc,
 		EnterParallelMode();
 
 	/*
-	 * Loop until we've processed the proper number of tuples from the plan.
+	 * 循环，直到从计划中处理了应有数量的元组为止。   
 	 */
 	for (;;)
 	{
-		/* Reset the per-output-tuple exprcontext */
+		/* 重置每输出元组的 exprcontext。*/
 		ResetPerTupleExprContext(estate);
 
 		/*
-		 * Execute the plan and obtain a tuple
+		 * 执行计划并获得一个元组  
 		 */
 		slot = ExecProcNode(planstate);
 
 		/*
-		 * if the tuple is null, then we assume there is nothing more to
-		 * process so we just end the loop...
+		 * 若元组为空，则假定已没有更多要处理的内    
+		 * 容，就直接结束循环…… 
 		 */
 		if (TupIsNull(slot))
 			break;
 
 		/*
-		 * If we have a junk filter, then project a new tuple with the junk
-		 * removed.
+		 * 若有垃圾过滤器，则投影出移除了垃圾的新元    
+		 * 组。  
 		 *
-		 * Store this new "clean" tuple in the junkfilter's resultSlot.
-		 * (Formerly, we stored it back over the "dirty" tuple, which is WRONG
-		 * because that tuple slot has the wrong descriptor.)
+		 * 将新的"干净"元组存入 junkfilter 的 resultSlot。  
+		 * （以前把它存回"脏"元组之上，那是错误的，因为  
+		 * 该元组槽的描述符是错的。）           
 		 */
 		if (estate->es_junkFilter != NULL)
 			slot = ExecFilterJunk(estate->es_junkFilter, slot);
 
 		/*
-		 * If we are supposed to send the tuple somewhere, do so. (In
-		 * practice, this is probably always the case at this point.)
+		 * 若应当把元组发送到某处，就发送。（实际 
+		 * 上此时很可能总是这种情况。）                
 		 */
 		if (sendTuples)
 		{
 			/*
-			 * If we are not able to send the tuple, we assume the destination
-			 * has closed and no more tuples can be sent. If that's the case,
-			 * end the loop.
+			 * 如果元组无法发送出去，我们假定目标已关闭、
+			 * 不再会有元组可发。若是如此，则就此结束     
+			 * 循环。    
 			 */
 			if (!dest->receiveSlot(slot, dest))
 				break;
 		}
 
 		/*
-		 * Count tuples processed, if this is a SELECT.  (For other operation
-		 * types, the ModifyTable plan node must count the appropriate
-		 * events.)
+		 * 若为 SELECT 则统计已处理的元组数。至于其他操    
+		 * 作类型，ModifyTable 计划节点必须统计相应的  
+		 * 事件  
 		 */
 		if (operation == CMD_SELECT)
 			(estate->es_processed)++;
 
 		/*
-		 * check our tuple count.. if we've processed the proper number then
-		 * quit, else loop again and process more tuples.  Zero numberTuples
-		 * means no limit.
+		 * 检查元组计数……若已处理完应处理的数量则退  
+		 * 出，否则循环，处理更多元组。numberTuples 为零    
+		 * 即无限制。
 		 */
 		current_tuple_count++;
 		if (numberTuples && numberTuples == current_tuple_count)
@@ -1775,8 +1775,8 @@ ExecutePlan(QueryDesc *queryDesc,
 	}
 
 	/*
-	 * If we know we won't need to back up, we can release resources at this
-	 * point.
+	 * 如果我们知道不需要回退，就可以在此处释放资      
+	 * 源。
 	 */
 	if (!(estate->es_top_eflags & EXEC_FLAG_BACKWARD))
 		ExecShutdownNode(planstate);
@@ -1787,9 +1787,9 @@ ExecutePlan(QueryDesc *queryDesc,
 
 
 /*
- * ExecRelCheck --- check that tuple meets constraints for result relation
+ * ExecRelCheck --- 检查元组是否满足结果关系的约束         
  *
- * Returns NULL if OK, else name of failed check constraint
+ * 成功返回 NULL，否则为失败的检查约束名。
  */
 static const char *
 ExecRelCheck(ResultRelInfo *resultRelInfo,
@@ -1803,18 +1803,18 @@ ExecRelCheck(ResultRelInfo *resultRelInfo,
 	int			i;
 
 	/*
-	 * CheckConstraintFetch let this pass with only a warning, but now we
-	 * should fail rather than possibly failing to enforce an important
-	 * constraint.
+	 * CheckConstraintFetch 此前只发警告就放行，但现在我们
+	 * 应当报错，而非可能无法强制执行一条重要的约 
+	 * 束。     
 	 */
 	if (ncheck != rel->rd_rel->relchecks)
 		elog(ERROR, "%d pg_constraint record(s) missing for relation \"%s\"",
 			 rel->rd_rel->relchecks - ncheck, RelationGetRelationName(rel));
 
 	/*
-	 * If first time through for this result relation, build expression
-	 * nodetrees for rel's constraint expressions.  Keep them in the per-query
-	 * memory context so they'll survive throughout the query.
+	 * 如果第一次经过该结果关系，则为其约束表达式 
+	 * 构建表达式节点树。将它们保存在查询生存期的内存  
+	 * 上下文中，使其能在整个查询期间存续。 
 	 */
 	if (resultRelInfo->ri_ConstraintExprs == NULL)
 	{
@@ -1833,38 +1833,38 @@ ExecRelCheck(ResultRelInfo *resultRelInfo,
 	}
 
 	/*
-	 * We will use the EState's per-tuple context for evaluating constraint
-	 * expressions (creating it if it's not already there).
+	 * 我们将使用 EState 的每元组上下文来求值约束表达式
+	 * （若尚不存在则创建它）。                
 	 */
 	econtext = GetPerTupleExprContext(estate);
 
-	/* Arrange for econtext's scan tuple to be the tuple under test */
+	/* 让 econtext 的扫描元组成为受测元组。            */
 	econtext->ecxt_scantuple = slot;
 
-	/* And evaluate the constraints */
+	/* 然后求值这些约束。  */
 	for (i = 0; i < ncheck; i++)
 	{
 		ExprState  *checkconstr = resultRelInfo->ri_ConstraintExprs[i];
 
 		/*
-		 * NOTE: SQL specifies that a NULL result from a constraint expression
-		 * is not to be treated as a failure.  Therefore, use ExecCheck not
+		 * 注意：SQL 规定约束表达式得出的 NULL 结果不算      
+		 * 失败。因此要改用 ExecCheck 而非                       
 		 * ExecQual.
 		 */
 		if (!ExecCheck(checkconstr, econtext))
 			return check[i].ccname;
 	}
 
-	/* NULL result means no error */
+	/* NULL 结果即无错误。 */
 	return NULL;
 }
 
 /*
- * ExecPartitionCheck --- check that tuple meets the partition constraint.
+ * ExecPartitionCheck --- 检查元组是否满足分区约束。         
  *
- * Returns true if it meets the partition constraint.  If the constraint
- * fails and we're asked to emit an error, do so and don't return; otherwise
- * return false.
+ * 满足分区约束则返回真。如果约束不满足且被要求   
+ * 报错，则报出错误且不返回；否则返回                      
+ * 假。       
  */
 bool
 ExecPartitionCheck(ResultRelInfo *resultRelInfo, TupleTableSlot *slot,
@@ -1874,17 +1874,17 @@ ExecPartitionCheck(ResultRelInfo *resultRelInfo, TupleTableSlot *slot,
 	bool		success;
 
 	/*
-	 * If first time through, build expression state tree for the partition
-	 * check expression.  (In the corner case where the partition check
-	 * expression is empty, ie there's a default partition and nothing else,
-	 * we'll be fooled into executing this code each time through.  But it's
-	 * pretty darn cheap in that case, so we don't worry about it.)
+	 * 如果是第一次经过，则为分区检查表达式构建表达  
+	 * 式状态树。（分区检查表达式为空的情况下，即 
+	 * 有默认分区而没有其他分区时，我们会被骗得每次都
+	 * 执行这段代码。但该情况下开销非常小，所以不必   
+	 * 为此担心。）                                          
 	 */
 	if (resultRelInfo->ri_PartitionCheckExpr == NULL)
 	{
 		/*
-		 * Ensure that the qual tree and prepared expression are in the
-		 * query-lifespan context.
+		 * 确保 qual 树和预备表达式位于查询生存期的   
+		 * 上下文中。        
 		 */
 		MemoryContext oldcxt = MemoryContextSwitchTo(estate->es_query_cxt);
 		List	   *qual = RelationGetPartitionQual(resultRelInfo->ri_RelationDesc);
@@ -1894,21 +1894,21 @@ ExecPartitionCheck(ResultRelInfo *resultRelInfo, TupleTableSlot *slot,
 	}
 
 	/*
-	 * We will use the EState's per-tuple context for evaluating constraint
-	 * expressions (creating it if it's not already there).
+	 * 我们将使用 EState 的每元组上下文来求值约束表达式
+	 * （若尚不存在则创建它）。                
 	 */
 	econtext = GetPerTupleExprContext(estate);
 
-	/* Arrange for econtext's scan tuple to be the tuple under test */
+	/* 让 econtext 的扫描元组成为受测元组。            */
 	econtext->ecxt_scantuple = slot;
 
 	/*
-	 * As in case of the catalogued constraints, we treat a NULL result as
-	 * success here, not a failure.
+	 * 与编目约束的情形一样，这里我们把 NULL 结果视为 
+	 * 成功而非失败。       
 	 */
 	success = ExecCheck(resultRelInfo->ri_PartitionCheckExpr, econtext);
 
-	/* if asked to emit error, don't actually return on failure */
+	/* 若被要求报错，失败时并不真正返回。      */
 	if (!success && emitError)
 		ExecPartitionCheckEmitError(resultRelInfo, slot, estate);
 
@@ -1916,8 +1916,8 @@ ExecPartitionCheck(ResultRelInfo *resultRelInfo, TupleTableSlot *slot,
 }
 
 /*
- * ExecPartitionCheckEmitError - Form and emit an error message after a failed
- * partition constraint check.
+ * ExecPartitionCheckEmitError - 在分区约束检查失败后构造并发出
+ * 错误消息。            
  */
 void
 ExecPartitionCheckEmitError(ResultRelInfo *resultRelInfo,
@@ -1930,10 +1930,10 @@ ExecPartitionCheckEmitError(ResultRelInfo *resultRelInfo,
 	Bitmapset  *modifiedCols;
 
 	/*
-	 * If the tuple has been routed, it's been converted to the partition's
-	 * rowtype, which might differ from the root table's.  We must convert it
-	 * back to the root table's rowtype so that val_desc in the error message
-	 * matches the input tuple.
+	 * 如果元组已经过路由，则它已被转换为分区的行类  
+	 * 型，可能与根表的不同。我们必须把它转换回根表的 
+	 * 行类型，使错误消息中的 val_desc 与输入元组            
+	 * 一致。               
 	 */
 	if (resultRelInfo->ri_RootResultRelInfo)
 	{
@@ -1945,12 +1945,12 @@ ExecPartitionCheckEmitError(ResultRelInfo *resultRelInfo,
 		tupdesc = RelationGetDescr(rootrel->ri_RelationDesc);
 
 		old_tupdesc = RelationGetDescr(resultRelInfo->ri_RelationDesc);
-		/* a reverse map */
+		/* 反向映射  */
 		map = build_attrmap_by_name_if_req(old_tupdesc, tupdesc, false);
 
 		/*
-		 * Partition-specific slot's tupdesc can't be changed, so allocate a
-		 * new one.
+		 * 分区专属槽的 tupdesc 不能改变，所以要新分配     
+		 * 一个  
 		 */
 		if (map != NULL)
 			slot = execute_attr_map_slot(map, slot,
@@ -1980,15 +1980,15 @@ ExecPartitionCheckEmitError(ResultRelInfo *resultRelInfo,
 }
 
 /*
- * ExecConstraints - check constraints of the tuple in 'slot'
+ * ExecConstraints - 检查 'slot' 中元组的约束        
  *
- * This checks the traditional NOT NULL and check constraints.
+ * 这里检查传统的 NOT NULL 与检查约束。          
  *
- * The partition constraint is *NOT* checked.
+ * 分区约束*不会*被检查。          
  *
- * Note: 'slot' contains the tuple to check the constraints of, which may
- * have been converted from the original input tuple after tuple routing.
- * 'resultRelInfo' is the final result relation, after tuple routing.
+ * 注意：'slot' 包含要检查约束的元组，该元组可能在   
+ * 元组路由之后经过转换，而非原始输入元组。          
+ * 'resultRelInfo' 是元组路由之后的最终结果关系。     
  */
 void
 ExecConstraints(ResultRelInfo *resultRelInfo,
@@ -1999,7 +1999,7 @@ ExecConstraints(ResultRelInfo *resultRelInfo,
 	TupleConstr *constr = tupdesc->constr;
 	Bitmapset  *modifiedCols;
 
-	Assert(constr);				/* we should not be called otherwise */
+	Assert(constr);				/* 否则不应被这样调用。    */
 
 	if (constr->has_not_null)
 	{
@@ -2017,11 +2017,11 @@ ExecConstraints(ResultRelInfo *resultRelInfo,
 				TupleDesc	orig_tupdesc = RelationGetDescr(rel);
 
 				/*
-				 * If the tuple has been routed, it's been converted to the
-				 * partition's rowtype, which might differ from the root
-				 * table's.  We must convert it back to the root table's
-				 * rowtype so that val_desc shown error message matches the
-				 * input tuple.
+				 * 若元组经过路由，则它已被转换为分区的  
+				 * 行类型，可能与根表不同，须转回根表  
+				 * 的行类型，使错误消息中显示的 val_desc  
+				 * 与输入的元组                                      
+				 * 一致。   
 				 */
 				if (resultRelInfo->ri_RootResultRelInfo)
 				{
@@ -2029,14 +2029,14 @@ ExecConstraints(ResultRelInfo *resultRelInfo,
 					AttrMap    *map;
 
 					tupdesc = RelationGetDescr(rootrel->ri_RelationDesc);
-					/* a reverse map */
+					/* 反向映射  */
 					map = build_attrmap_by_name_if_req(orig_tupdesc,
 													   tupdesc,
 													   false);
 
 					/*
-					 * Partition-specific slot's tupdesc can't be changed, so
-					 * allocate a new one.
+					 * 分区专属槽的 tupdesc 不能改变，因此      
+					 * 要分配新的。 
 					 */
 					if (map != NULL)
 						slot = execute_attr_map_slot(map, slot,
@@ -2074,7 +2074,7 @@ ExecConstraints(ResultRelInfo *resultRelInfo,
 			char	   *val_desc;
 			Relation	orig_rel = rel;
 
-			/* See the comment above. */
+			/* 参见上文注释。  */
 			if (resultRelInfo->ri_RootResultRelInfo)
 			{
 				ResultRelInfo *rootrel = resultRelInfo->ri_RootResultRelInfo;
@@ -2082,14 +2082,14 @@ ExecConstraints(ResultRelInfo *resultRelInfo,
 				AttrMap    *map;
 
 				tupdesc = RelationGetDescr(rootrel->ri_RelationDesc);
-				/* a reverse map */
+				/* 反向映射  */
 				map = build_attrmap_by_name_if_req(old_tupdesc,
 												   tupdesc,
 												   false);
 
 				/*
-				 * Partition-specific slot's tupdesc can't be changed, so
-				 * allocate a new one.
+				 * 分区专属槽的 tupdesc 不能改变，因此      
+				 * 要分配新的。 
 				 */
 				if (map != NULL)
 					slot = execute_attr_map_slot(map, slot,
@@ -2117,13 +2117,13 @@ ExecConstraints(ResultRelInfo *resultRelInfo,
 }
 
 /*
- * ExecWithCheckOptions -- check that tuple satisfies any WITH CHECK OPTIONs
- * of the specified kind.
+ * ExecWithCheckOptions -- 检查元组是否满足指定类型的          
+ * WITH CHECK OPTION。  
  *
- * Note that this needs to be called multiple times to ensure that all kinds of
- * WITH CHECK OPTIONs are handled (both those from views which have the WITH
- * CHECK OPTION set and from row-level security policies).  See ExecInsert()
- * and ExecUpdate().
+ * 注意，需要多次调用本函数，以确保所有种类的             
+ * WITH CHECK OPTION 都得到处理（包括来自设置了 WITH           
+ * CHECK OPTION 的视图也包括行级安全策略）。见 ExecInsert()  
+ * 和 ExecUpdate() 
  */
 void
 ExecWithCheckOptions(WCOKind kind, ResultRelInfo *resultRelInfo,
@@ -2136,15 +2136,15 @@ ExecWithCheckOptions(WCOKind kind, ResultRelInfo *resultRelInfo,
 			   *l2;
 
 	/*
-	 * We will use the EState's per-tuple context for evaluating constraint
-	 * expressions (creating it if it's not already there).
+	 * 我们将使用 EState 的每元组上下文来求值约束         
+	 * 表达式（如果尚不存在则创建之）。    
 	 */
 	econtext = GetPerTupleExprContext(estate);
 
-	/* Arrange for econtext's scan tuple to be the tuple under test */
+	/* 让 econtext 的扫描元组成为被测元组               */
 	econtext->ecxt_scantuple = slot;
 
-	/* Check each of the constraints */
+	/* 检查每一个约束         */
 	forboth(l1, resultRelInfo->ri_WithCheckOptions,
 			l2, resultRelInfo->ri_WithCheckOptionExprs)
 	{
@@ -2152,18 +2152,18 @@ ExecWithCheckOptions(WCOKind kind, ResultRelInfo *resultRelInfo,
 		ExprState  *wcoExpr = (ExprState *) lfirst(l2);
 
 		/*
-		 * Skip any WCOs which are not the kind we are looking for at this
-		 * time.
+		 * 跳过并非我们此刻所需种类的                        
+		 * WCO  
 		 */
 		if (wco->kind != kind)
 			continue;
 
 		/*
-		 * WITH CHECK OPTION checks are intended to ensure that the new tuple
-		 * is visible (in the case of a view) or that it passes the
-		 * 'with-check' policy (in the case of row security). If the qual
-		 * evaluates to NULL or FALSE, then the new tuple won't be included in
-		 * the view or doesn't pass the 'with-check' policy for the table.
+		 * WITH CHECK OPTION 检查旨在确保新元组                     
+		 * 可见（对视图而言），或者能通过           
+		 * 'with-check' 策略（对行安全而言）。如果 qual     
+		 * 求值为 NULL 或 FALSE，那么新元组将不会                
+		 * 进入视图，或未通过该表的 'with-check' 策略。    
 		 */
 		if (!ExecQual(wcoExpr, econtext))
 		{
@@ -2173,16 +2173,16 @@ ExecWithCheckOptions(WCOKind kind, ResultRelInfo *resultRelInfo,
 			switch (wco->kind)
 			{
 					/*
-					 * For WITH CHECK OPTIONs coming from views, we might be
-					 * able to provide the details on the row, depending on
-					 * the permissions on the relation (that is, if the user
-					 * could view it directly anyway).  For RLS violations, we
-					 * don't include the data since we don't know if the user
-					 * should be able to view the tuple as that depends on the
-					 * USING policy.
+					 * 对于来自视图的 WITH CHECK OPTION，我们     
+					 * 或能给出该行的细节，视关系权限而定 
+					 * （即用户本就能直接看它）。RLS 违规    
+					 * 我们不包含数据，因为不知道用户          
+					 * 是否应能查看该元组，因为这取决于      
+					 * USING                                                  
+					 * 策略。    
 					 */
 				case WCO_VIEW_CHECK:
-					/* See the comment in ExecConstraints(). */
+					/* 参见 ExecConstraints() 中的注释 */
 					if (resultRelInfo->ri_RootResultRelInfo)
 					{
 						ResultRelInfo *rootrel = resultRelInfo->ri_RootResultRelInfo;
@@ -2190,14 +2190,14 @@ ExecWithCheckOptions(WCOKind kind, ResultRelInfo *resultRelInfo,
 						AttrMap    *map;
 
 						tupdesc = RelationGetDescr(rootrel->ri_RelationDesc);
-						/* a reverse map */
+						/* 反向映射  */
 						map = build_attrmap_by_name_if_req(old_tupdesc,
 														   tupdesc,
 														   false);
 
 						/*
-						 * Partition-specific slot's tupdesc can't be changed,
-						 * so allocate a new one.
+						 * 分区专有槽的 tupdesc 不能改动，         
+						 * 故需另行分配。 
 						 */
 						if (map != NULL)
 							slot = execute_attr_map_slot(map, slot,
@@ -2270,23 +2270,23 @@ ExecWithCheckOptions(WCOKind kind, ResultRelInfo *resultRelInfo,
 }
 
 /*
- * ExecBuildSlotValueDescription -- construct a string representing a tuple
+ * ExecBuildSlotValueDescription -- 构造一个表示元组的字符串   
  *
- * This is intentionally very similar to BuildIndexValueDescription, but
- * unlike that function, we truncate long field values (to at most maxfieldlen
- * bytes).  That seems necessary here since heap field values could be very
- * long, whereas index entries typically aren't so wide.
+ * 本函数有意写得与 BuildIndexValueDescription 非常相似，  
+ * 但不同的是，我们截断过长的字段值（最多 maxfieldlen      
+ * 字节）。这似乎是必要的，因为堆字段值可能非常长，
+ * 而索引条目通常没有这么宽。              
  *
- * Also, unlike the case with index entries, we need to be prepared to ignore
- * dropped columns.  We used to use the slot's tuple descriptor to decode the
- * data, but the slot's descriptor doesn't identify dropped columns, so we
- * now need to be passed the relation's descriptor.
+ * 此外，不同于索引条目，我们还须忽略被删除的列。     
+ * 过去用槽的元组描述符解码数据，但它无法标识           
+ * 被删除的列，所以现在需要把关系的                       
+ * 描述符传进来。                           
  *
- * Note that, like BuildIndexValueDescription, if the user does not have
- * permission to view any of the columns involved, a NULL is returned.  Unlike
- * BuildIndexValueDescription, if the user has access to view a subset of the
- * column involved, that subset will be returned with a key identifying which
- * columns they are.
+ * 注意，与 BuildIndexValueDescription 一样，如果用户没有  
+ * 权限查看任何一列，则返回 NULL。不同的是，若用户       
+ * 有权查看其中一部分列，则会返回该子集，并带有        
+ * 一个键，用以标识                                                  
+ * 哪些列。     
  */
 static char *
 ExecBuildSlotValueDescription(Oid reloid,
@@ -2305,9 +2305,9 @@ ExecBuildSlotValueDescription(Oid reloid,
 	bool		any_perm = false;
 
 	/*
-	 * Check if RLS is enabled and should be active for the relation; if so,
-	 * then don't return anything.  Otherwise, go through normal permission
-	 * checks.
+	 * 检查 RLS 是否已启用且应对该关系生效；若是，       
+	 * 则不返回任何内容。否则走正常的权限                 
+	 * 检查 
 	 */
 	if (check_enable_rls(reloid, InvalidOid, true) == RLS_ENABLED)
 		return NULL;
@@ -2317,23 +2317,23 @@ ExecBuildSlotValueDescription(Oid reloid,
 	appendStringInfoChar(&buf, '(');
 
 	/*
-	 * Check if the user has permissions to see the row.  Table-level SELECT
-	 * allows access to all columns.  If the user does not have table-level
-	 * SELECT then we check each column and include those the user has SELECT
-	 * rights on.  Additionally, we always include columns the user provided
-	 * data for.
+	 * 检查用户是否有权查看该行。表级 SELECT 允许访问    
+	 * 所有列。若用户没有表级 SELECT，我们就逐列检查， 
+	 * 并纳入用户有 SELECT 权限的列。此外，我们总是纳入  
+	 * 用户提供了数据的那些                                       
+	 * 列。   
 	 */
 	aclresult = pg_class_aclcheck(reloid, GetUserId(), ACL_SELECT);
 	if (aclresult != ACLCHECK_OK)
 	{
-		/* Set up the buffer for the column list */
+		/* 为列清单准备好缓冲区        */
 		initStringInfo(&collist);
 		appendStringInfoChar(&collist, '(');
 	}
 	else
 		table_perm = any_perm = true;
 
-	/* Make sure the tuple is fully deconstructed */
+	/* 确保元组已被完整解构             */
 	slot_getallattrs(slot);
 
 	for (i = 0; i < tupdesc->natts; i++)
@@ -2343,17 +2343,17 @@ ExecBuildSlotValueDescription(Oid reloid,
 		int			vallen;
 		Form_pg_attribute att = TupleDescAttr(tupdesc, i);
 
-		/* ignore dropped columns */
+		/* 忽略被删除的列  */
 		if (att->attisdropped)
 			continue;
 
 		if (!table_perm)
 		{
 			/*
-			 * No table-level SELECT, so need to make sure they either have
-			 * SELECT rights on the column or that they have provided the data
-			 * for the column.  If not, omit this column from the error
-			 * message.
+			 * 没有表级 SELECT，需确保用户要么有该列的     
+			 * SELECT 权限，要么已提供该列的数据。否则，     
+			 * 如果不满足，则从错误信息中省略           
+			 * 该列  
 			 */
 			aclresult = pg_attribute_aclcheck(reloid, att->attnum,
 											  GetUserId(), ACL_SELECT);
@@ -2390,7 +2390,7 @@ ExecBuildSlotValueDescription(Oid reloid,
 			else
 				write_comma = true;
 
-			/* truncate if needed */
+			/* 按需截断       */
 			vallen = strlen(val);
 			if (vallen <= maxfieldlen)
 				appendBinaryStringInfo(&buf, val, vallen);
@@ -2403,7 +2403,7 @@ ExecBuildSlotValueDescription(Oid reloid,
 		}
 	}
 
-	/* If we end up with zero columns being returned, then return NULL. */
+	/* 如果最终返回的列数为零，则返回 NULL。            */
 	if (!any_perm)
 		return NULL;
 
@@ -2422,8 +2422,8 @@ ExecBuildSlotValueDescription(Oid reloid,
 
 
 /*
- * ExecUpdateLockMode -- find the appropriate UPDATE tuple lock mode for a
- * given ResultRelInfo
+ * ExecUpdateLockMode -- 为给定的 ResultRelInfo 找出合适的 UPDATE
+ * 元组锁模式    
  */
 LockTupleMode
 ExecUpdateLockMode(EState *estate, ResultRelInfo *relinfo)
@@ -2432,9 +2432,9 @@ ExecUpdateLockMode(EState *estate, ResultRelInfo *relinfo)
 	Bitmapset  *updatedCols;
 
 	/*
-	 * Compute lock mode to use.  If columns that are part of the key have not
-	 * been modified, then we can use a weaker lock, allowing for better
-	 * concurrency.
+	 * 计算要用的锁模式。若键中的列未被修改，              
+	 * 那么就能用较弱的锁，从而获得更好的              
+	 * 并发性。
 	 */
 	updatedCols = ExecGetAllUpdatedCols(relinfo, estate);
 	keyCols = RelationGetIndexAttrBitmap(relinfo->ri_RelationDesc,
@@ -2447,9 +2447,9 @@ ExecUpdateLockMode(EState *estate, ResultRelInfo *relinfo)
 }
 
 /*
- * ExecFindRowMark -- find the ExecRowMark struct for given rangetable index
+ * ExecFindRowMark -- 找给定范围表索引的 ExecRowMark 结构体     
  *
- * If no such struct, either return NULL or throw error depending on missing_ok
+ * 若无该结构体，则依据 missing_ok 返回 NULL 或抛出错误       
  */
 ExecRowMark *
 ExecFindRowMark(EState *estate, Index rti, bool missing_ok)
@@ -2468,11 +2468,11 @@ ExecFindRowMark(EState *estate, Index rti, bool missing_ok)
 }
 
 /*
- * ExecBuildAuxRowMark -- create an ExecAuxRowMark struct
+ * ExecBuildAuxRowMark -- 创建 ExecAuxRowMark 结构体
  *
- * Inputs are the underlying ExecRowMark struct and the targetlist of the
- * input plan node (not planstate node!).  We need the latter to find out
- * the column numbers of the resjunk columns.
+ * 输入为底层 ExecRowMark 结构体与输入计划节点的         
+ * targetlist（不是 planstate 节点！）。后者用于找出       
+ * 各 resjunk 列的列号。               
  */
 ExecAuxRowMark *
 ExecBuildAuxRowMark(ExecRowMark *erm, List *targetlist)
@@ -2482,10 +2482,10 @@ ExecBuildAuxRowMark(ExecRowMark *erm, List *targetlist)
 
 	aerm->rowmark = erm;
 
-	/* Look up the resjunk columns associated with this rowmark */
+	/* 查找与该 rowmark 关联的 resjunk 列               */
 	if (erm->markType != ROW_MARK_COPY)
 	{
-		/* need ctid for all methods other than COPY */
+		/* 除 COPY 外的所有方法都需要 ctid */
 		snprintf(resname, sizeof(resname), "ctid%u", erm->rowmarkId);
 		aerm->ctidAttNo = ExecFindJunkAttributeInTlist(targetlist,
 													   resname);
@@ -2494,7 +2494,7 @@ ExecBuildAuxRowMark(ExecRowMark *erm, List *targetlist)
 	}
 	else
 	{
-		/* need wholerow if COPY */
+		/* COPY 时需 wholerow  */
 		snprintf(resname, sizeof(resname), "wholerow%u", erm->rowmarkId);
 		aerm->wholeAttNo = ExecFindJunkAttributeInTlist(targetlist,
 														resname);
@@ -2502,7 +2502,7 @@ ExecBuildAuxRowMark(ExecRowMark *erm, List *targetlist)
 			elog(ERROR, "could not find junk %s column", resname);
 	}
 
-	/* if child rel, need tableoid */
+	/* 子关系时需要 tableoid */
 	if (erm->rti != erm->prti)
 	{
 		snprintf(resname, sizeof(resname), "tableoid%u", erm->rowmarkId);
@@ -2517,32 +2517,32 @@ ExecBuildAuxRowMark(ExecRowMark *erm, List *targetlist)
 
 
 /*
- * EvalPlanQual logic --- recheck modified tuple(s) to see if we want to
- * process the updated version under READ COMMITTED rules.
+ * EvalPlanQual 逻辑 --- 重新检查被修改的元组，看我们   
+ * 是否要按 READ COMMITTED 规则处理更新版本   
  *
- * See backend/executor/README for some info about how this works.
+ * 其工作原理的说明参见 backend/executor/README。      
  */
 
 
 /*
- * Check the updated version of a tuple to see if we want to process it under
- * READ COMMITTED rules.
+ * 检查元组的更新后版本，以确定是否要按 READ COMMITTED     
+ * 规则处理。      
  *
- *	epqstate - state for EvalPlanQual rechecking
- *	relation - table containing tuple
- *	rti - rangetable index of table containing tuple
- *	inputslot - tuple for processing - this can be the slot from
- *		EvalPlanQualSlot() for this rel, for increased efficiency.
+ *	epqstate - EvalPlanQual 复查的状态     
+ *	relation - 包含元组的表    
+ *	rti - 包含元组的表的范围表索引      
+ *	inputslot - 要处理的元组 - 可以是本关系的      
+ *		EvalPlanQualSlot() 槽，以提高效率。               
  *
- * This tests whether the tuple in inputslot still matches the relevant
- * quals. For that result to be useful, typically the input tuple has to be
- * last row version (otherwise the result isn't particularly useful) and
- * locked (otherwise the result might be out of date). That's typically
- * achieved by using table_tuple_lock() with the
- * TUPLE_LOCK_FLAG_FIND_LAST_VERSION flag.
+ * 本函数测试 inputslot 中的元组是否仍匹配相关的      
+ * qual。为使该结果有用，通常输入元组必须是              
+ * 最后一行版本（否则结果用处不大），并且            
+ * 已被锁定（否则结果可能过时）。这通常              
+ * 通过使用 table_tuple_lock() 并带       
+ * TUPLE_LOCK_FLAG_FIND_LAST_VERSION。   
  *
- * Returns a slot containing the new candidate update/delete tuple, or
- * NULL if we determine we shouldn't process the row.
+ * 返回一个包含新的候选更新/删除元组的槽，如果   
+ * 我们判定不应处理该行，则为 NULL。   
  */
 TupleTableSlot *
 EvalPlanQual(EPQState *epqstate, Relation relation,
@@ -2554,45 +2554,45 @@ EvalPlanQual(EPQState *epqstate, Relation relation,
 	Assert(rti > 0);
 
 	/*
-	 * Need to run a recheck subquery.  Initialize or reinitialize EPQ state.
+	 * 需运行复查子查询。初始化或重新初始化 EPQ 状态。  
 	 */
 	EvalPlanQualBegin(epqstate);
 
 	/*
-	 * Callers will often use the EvalPlanQualSlot to store the tuple to avoid
-	 * an unnecessary copy.
+	 * 调用者常用 EvalPlanQualSlot 存元组，以免一次不必要     
+	 * 的拷贝。        
 	 */
 	testslot = EvalPlanQualSlot(epqstate, relation, rti);
 	if (testslot != inputslot)
 		ExecCopySlot(testslot, inputslot);
 
 	/*
-	 * Mark that an EPQ tuple is available for this relation.  (If there is
-	 * more than one result relation, the others remain marked as having no
-	 * tuple available.)
+	 * 标记本关系有一个可用的 EPQ 元组。（如果有         
+	 * 不止一个结果关系，其余的关系仍保持标记为没有  
+	 * 可用元组）  
 	 */
 	epqstate->relsubs_done[rti - 1] = false;
 	epqstate->relsubs_blocked[rti - 1] = false;
 
 	/*
-	 * Run the EPQ query.  We assume it will return at most one tuple.
+	 * 运行 EPQ 查询。我们假定它至多返回一个元组。 
 	 */
 	slot = EvalPlanQualNext(epqstate);
 
 	/*
-	 * If we got a tuple, force the slot to materialize the tuple so that it
-	 * is not dependent on any local state in the EPQ query (in particular,
-	 * it's highly likely that the slot contains references to any pass-by-ref
-	 * datums that may be present in copyTuple).  As with the next step, this
-	 * is to guard against early re-use of the EPQ query.
+	 * 若得到了元组，强制槽将元组实体化，使其不         
+	 * 依赖于 EPQ 查询中的任何本地状态（尤其是，         
+	 * 槽中很可能含有对 copyTuple 中可能存在的任何按引用   
+	 * 传递的 datum 引用）。与下一步一样，这是为了防      
+	 * 止 EPQ 查询被过早地重用。               
 	 */
 	if (!TupIsNull(slot))
 		ExecMaterializeSlot(slot);
 
 	/*
-	 * Clear out the test tuple, and mark that no tuple is available here.
-	 * This is needed in case the EPQ state is re-used to test a tuple for a
-	 * different target relation.
+	 * 清空测试元组，并标记此处没有可用元组。          
+	 * 在 EPQ 状态被重用于测试另一个目标关系的元组时， 
+	 * 需要这样做。        
 	 */
 	ExecClearTuple(testslot);
 	epqstate->relsubs_blocked[rti - 1] = true;
@@ -2601,17 +2601,17 @@ EvalPlanQual(EPQState *epqstate, Relation relation,
 }
 
 /*
- * EvalPlanQualInit -- initialize during creation of a plan state node
- * that might need to invoke EPQ processing.
+ * EvalPlanQualInit -- 在创建可能需调用 EPQ 处理的计划   
+ * 状态节点时进行初始化。        
  *
- * If the caller intends to use EvalPlanQual(), resultRelations should be
- * a list of RT indexes of potential target relations for EvalPlanQual(),
- * and we will arrange that the other listed relations don't return any
- * tuple during an EvalPlanQual() call.  Otherwise resultRelations
- * should be NIL.
+ * 如果调用者打算使用 EvalPlanQual()，则 resultRelations 应  
+ * 该为 EvalPlanQual() 的潜在目标关系的 RT 索引列表，     
+ * 且我们会安排其他被列出的关系在 EvalPlanQual() 调用 
+ * 期间不返回元组。否则 resultRelations                 
+ * 应为 NIL。 
  *
- * Note: subplan/auxrowmarks can be NULL/NIL if they will be set later
- * with EvalPlanQualSetPlan.
+ * 注意：subplan/auxrowmarks 可为 NULL/NIL，若稍后将以     
+ * EvalPlanQualSetPlan设置
  */
 void
 EvalPlanQualInit(EPQState *epqstate, EState *parentestate,
@@ -2620,27 +2620,27 @@ EvalPlanQualInit(EPQState *epqstate, EState *parentestate,
 {
 	Index		rtsize = parentestate->es_range_table_size;
 
-	/* initialize data not changing over EPQState's lifetime */
+	/* 初始化 EPQState 生存期内不变的数据        */
 	epqstate->parentestate = parentestate;
 	epqstate->epqParam = epqParam;
 	epqstate->resultRelations = resultRelations;
 
 	/*
-	 * Allocate space to reference a slot for each potential rti - do so now
-	 * rather than in EvalPlanQualBegin(), as done for other dynamically
-	 * allocated resources, so EvalPlanQualSlot() can be used to hold tuples
-	 * that *may* need EPQ later, without forcing the overhead of
-	 * EvalPlanQualBegin().
+	 * 为每个潜在的 rti 分配引用槽的空间 - 现在就做，    
+	 * 而非像其他动态资源那样在 EvalPlanQualBegin() 中     
+	 * 分配，这样 EvalPlanQualSlot() 就能用于保存以后可       
+	 * 需要 EPQ 的元组，免去 EvalPlanQualBegin()         
+	 * 的开销。        
 	 */
 	epqstate->tuple_table = NIL;
 	epqstate->relsubs_slot = (TupleTableSlot **)
 		palloc0(rtsize * sizeof(TupleTableSlot *));
 
-	/* ... and remember data that EvalPlanQualBegin will need */
+	/* ... 并记住 EvalPlanQualBegin 将需要的数据     */
 	epqstate->plan = subplan;
 	epqstate->arowMarks = auxrowmarks;
 
-	/* ... and mark the EPQ state inactive */
+	/* ... 并标记 EPQ 状态未激活   */
 	epqstate->origslot = NULL;
 	epqstate->recheckestate = NULL;
 	epqstate->recheckplanstate = NULL;
@@ -2650,27 +2650,27 @@ EvalPlanQualInit(EPQState *epqstate, EState *parentestate,
 }
 
 /*
- * EvalPlanQualSetPlan -- set or change subplan of an EPQState.
+ * EvalPlanQualSetPlan -- 设置/更改 EPQState 子计划。  
  *
- * We used to need this so that ModifyTable could deal with multiple subplans.
- * It could now be refactored out of existence.
+ * 过去需要它，是为了让 ModifyTable 能处理多个子计划。     
+ * 如今本可以把它重构消除掉。     
  */
 void
 EvalPlanQualSetPlan(EPQState *epqstate, Plan *subplan, List *auxrowmarks)
 {
-	/* If we have a live EPQ query, shut it down */
+	/* 若有活跃的 EPQ 查询，将其关闭 */
 	EvalPlanQualEnd(epqstate);
-	/* And set/change the plan pointer */
+	/* 并设置/更改计划指针    */
 	epqstate->plan = subplan;
-	/* The rowmarks depend on the plan, too */
+	/* rowmark 也依赖于计划           */
 	epqstate->arowMarks = auxrowmarks;
 }
 
 /*
- * Return, and create if necessary, a slot for an EPQ test tuple.
+ * 返回一个 EPQ 测试元组用的槽，必要时创建。   
  *
- * Note this only requires EvalPlanQualInit() to have been called,
- * EvalPlanQualBegin() is not necessary.
+ * 注意这只要求已调用过 EvalPlanQualInit()，           
+ * EvalPlanQualBegin() 并非必需。  
  */
 TupleTableSlot *
 EvalPlanQualSlot(EPQState *epqstate,
@@ -2695,10 +2695,10 @@ EvalPlanQualSlot(EPQState *epqstate,
 }
 
 /*
- * Fetch the current row value for a non-locked relation, identified by rti,
- * that needs to be scanned by an EvalPlanQual operation.  origslot must have
- * been set to contain the current result row (top-level row) that we need to
- * recheck.  Returns true if a substitution tuple was found, false if not.
+ * 为 rti 所标识的未锁定关系取出当前行值，该关系需要  
+ * 由 EvalPlanQual 操作来扫描。origslot 必须已被设置为         
+ * 包含我们需要复查的当前结果行（顶层行）。如果找到  
+ * 了替换元组则返回 true，否则返回 false。                  
  */
 bool
 EvalPlanQualFetchRowMark(EPQState *epqstate, Index rti, TupleTableSlot *slot)
@@ -2716,7 +2716,7 @@ EvalPlanQualFetchRowMark(EPQState *epqstate, Index rti, TupleTableSlot *slot)
 	if (RowMarkRequiresRowShareLock(erm->markType))
 		elog(ERROR, "EvalPlanQual doesn't support locking rowmarks");
 
-	/* if child rel, must check whether it produced this row */
+	/* 若是子关系，必须检查它是否产生了该行*/
 	if (erm->rti != erm->prti)
 	{
 		Oid			tableoid;
@@ -2724,7 +2724,7 @@ EvalPlanQualFetchRowMark(EPQState *epqstate, Index rti, TupleTableSlot *slot)
 		datum = ExecGetJunkAttribute(epqstate->origslot,
 									 earm->toidAttNo,
 									 &isNull);
-		/* non-locked rels could be on the inside of outer joins */
+		/* 未锁定的关系可能处于外连接的内侧      */
 		if (isNull)
 			return false;
 
@@ -2733,7 +2733,7 @@ EvalPlanQualFetchRowMark(EPQState *epqstate, Index rti, TupleTableSlot *slot)
 		Assert(OidIsValid(erm->relid));
 		if (tableoid != erm->relid)
 		{
-			/* this child is inactive right now */
+			/* 此子关系当前不活动      */
 			return false;
 		}
 	}
@@ -2742,22 +2742,22 @@ EvalPlanQualFetchRowMark(EPQState *epqstate, Index rti, TupleTableSlot *slot)
 	{
 		Assert(erm->relation != NULL);
 
-		/* fetch the tuple's ctid */
+		/* 取元组的 ctid      */
 		datum = ExecGetJunkAttribute(epqstate->origslot,
 									 earm->ctidAttNo,
 									 &isNull);
-		/* non-locked rels could be on the inside of outer joins */
+		/* 未锁定的关系可能处于外连接的内侧      */
 		if (isNull)
 			return false;
 
-		/* fetch requests on foreign tables must be passed to their FDW */
+		/* 外部表上的获取请求必须传给它们的 FDW         */
 		if (erm->relation->rd_rel->relkind == RELKIND_FOREIGN_TABLE)
 		{
 			FdwRoutine *fdwroutine;
 			bool		updated = false;
 
 			fdwroutine = GetFdwRoutineForRelation(erm->relation, false);
-			/* this should have been checked already, but let's be safe */
+			/* 此点此前应已检查，但稳妥起见仍再检查   */
 			if (fdwroutine->RefetchForeignRow == NULL)
 				ereport(ERROR,
 						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -2773,15 +2773,15 @@ EvalPlanQualFetchRowMark(EPQState *epqstate, Index rti, TupleTableSlot *slot)
 				elog(ERROR, "failed to fetch tuple for EvalPlanQual recheck");
 
 			/*
-			 * Ideally we'd insist on updated == false here, but that assumes
-			 * that FDWs can track that exactly, which they might not be able
-			 * to.  So just ignore the flag.
+			 * 理想情况下此处应坚持 updated == false，但这      
+			 * 假定 FDW 能精确跟踪它，它们未必能做到。      
+			 * 所以就忽略该标志。  
 			 */
 			return true;
 		}
 		else
 		{
-			/* ordinary table, fetch the tuple */
+			/* 普通表，取出元组        */
 			if (!table_tuple_fetch_row_version(erm->relation,
 											   (ItemPointer) DatumGetPointer(datum),
 											   SnapshotAny, slot))
@@ -2793,11 +2793,11 @@ EvalPlanQualFetchRowMark(EPQState *epqstate, Index rti, TupleTableSlot *slot)
 	{
 		Assert(erm->markType == ROW_MARK_COPY);
 
-		/* fetch the whole-row Var for the relation */
+		/* 取出该关系的整行 Var             */
 		datum = ExecGetJunkAttribute(epqstate->origslot,
 									 earm->wholeAttNo,
 									 &isNull);
-		/* non-locked rels could be on the inside of outer joins */
+		/* 未锁定的关系可能处于外连接的内侧      */
 		if (isNull)
 			return false;
 
@@ -2807,9 +2807,9 @@ EvalPlanQualFetchRowMark(EPQState *epqstate, Index rti, TupleTableSlot *slot)
 }
 
 /*
- * Fetch the next row (if any) from EvalPlanQual testing
+ * 从 EvalPlanQual 测试取出下一行（如有）   
  *
- * (In practice, there should never be more than one row...)
+ * （实践中绝不应有多于一行……）            
  */
 TupleTableSlot *
 EvalPlanQualNext(EPQState *epqstate)
@@ -2825,7 +2825,7 @@ EvalPlanQualNext(EPQState *epqstate)
 }
 
 /*
- * Initialize or reset an EvalPlanQual state tree
+ * 初始化或重置 EvalPlanQual 状态树     
  */
 void
 EvalPlanQualBegin(EPQState *epqstate)
@@ -2835,34 +2835,34 @@ EvalPlanQualBegin(EPQState *epqstate)
 
 	if (recheckestate == NULL)
 	{
-		/* First time through, so create a child EState */
+		/* 首次经过，故创建一个子 EState     */
 		EvalPlanQualStart(epqstate, epqstate->plan);
 	}
 	else
 	{
 		/*
-		 * We already have a suitable child EPQ tree, so just reset it.
+		 * 已有合适的子 EPQ 树，所以只需重置它。       
 		 */
 		Index		rtsize = parentestate->es_range_table_size;
 		PlanState  *rcplanstate = epqstate->recheckplanstate;
 
 		/*
-		 * Reset the relsubs_done[] flags to equal relsubs_blocked[], so that
-		 * the EPQ run will never attempt to fetch tuples from blocked target
-		 * relations.
+		 * 将 relsubs_done[] 重置为等于 relsubs_blocked[]，使        
+		 *  EPQ 运行绝不会尝试从被阻塞的目标关系取          
+		 * 元组。 
 		 */
 		memcpy(epqstate->relsubs_done, epqstate->relsubs_blocked,
 			   rtsize * sizeof(bool));
 
-		/* Recopy current values of parent parameters */
+		/* 重新复制父参数的当前值          */
 		if (parentestate->es_plannedstmt->paramExecTypes != NIL)
 		{
 			int			i;
 
 			/*
-			 * Force evaluation of any InitPlan outputs that could be needed
-			 * by the subplan, just in case they got reset since
-			 * EvalPlanQualStart (see comments therein).
+			 * 强制求值可能被子计划需要的 InitPlan 输出，   
+			 * 以防它们在 EvalPlanQualStart 后被重置   
+			 * （其理由见其中的注释）。     
 			 */
 			ExecSetParamPlanMulti(rcplanstate->plan->extParam,
 								  GetPerTupleExprContext(parentestate));
@@ -2871,7 +2871,7 @@ EvalPlanQualBegin(EPQState *epqstate)
 
 			while (--i >= 0)
 			{
-				/* copy value if any, but not execPlan link */
+				/* 有值即复制，不含 execPlan 链接 */
 				recheckestate->es_param_exec_vals[i].value =
 					parentestate->es_param_exec_vals[i].value;
 				recheckestate->es_param_exec_vals[i].isnull =
@@ -2880,8 +2880,8 @@ EvalPlanQualBegin(EPQState *epqstate)
 		}
 
 		/*
-		 * Mark child plan tree as needing rescan at all scan nodes.  The
-		 * first ExecProcNode will take care of actually doing the rescan.
+		 * 将子计划树标记为所有扫描节点都需重扫描。  
+		 * 第一个 ExecProcNode 会负责实际执行重扫描。       
 		 */
 		rcplanstate->chgParam = bms_add_member(rcplanstate->chgParam,
 											   epqstate->epqParam);
@@ -2889,10 +2889,10 @@ EvalPlanQualBegin(EPQState *epqstate)
 }
 
 /*
- * Start execution of an EvalPlanQual plan tree.
+ * 开始执行 EvalPlanQual 计划树。       
  *
- * This is a cut-down version of ExecutorStart(): we copy some state from
- * the top-level estate rather than initializing it fresh.
+ * 这是 ExecutorStart() 的精简版：我们从顶层 estate          
+ * 复制一些状态，而非全新初始化。          
  */
 static void
 EvalPlanQualStart(EPQState *epqstate, Plan *planTree)
@@ -2907,14 +2907,14 @@ EvalPlanQualStart(EPQState *epqstate, Plan *planTree)
 
 	oldcontext = MemoryContextSwitchTo(rcestate->es_query_cxt);
 
-	/* signal that this is an EState for executing EPQ */
+	/* 标明这是一个用于执行 EPQ 的 EState   */
 	rcestate->es_epq_active = epqstate;
 
 	/*
-	 * Child EPQ EStates share the parent's copy of unchanging state such as
-	 * the snapshot, rangetable, and external Param info.  They need their own
-	 * copies of local state, including a tuple table, es_param_exec_vals,
-	 * result-rel info, etc.
+	 * 子 EPQ EState 共享父节点的不变状态副本，例如         
+	 * 快照、范围表和外部参数信息。它们需要自己的        
+	 * 本地状态副本，包括元组表、es_param_exec_vals、       
+	 * result-rel 信息等 
 	 */
 	rcestate->es_direction = ForwardScanDirection;
 	rcestate->es_snapshot = parentestate->es_snapshot;
@@ -2930,20 +2930,20 @@ EvalPlanQualStart(EPQState *epqstate, Plan *planTree)
 	rcestate->es_queryEnv = parentestate->es_queryEnv;
 
 	/*
-	 * ResultRelInfos needed by subplans are initialized from scratch when the
-	 * subplans themselves are initialized.
+	 * 子计划所需的 ResultRelInfos 会在子计划自身初始化时    
+	 * 从头初始化。                  
 	 */
 	rcestate->es_result_relations = NULL;
-	/* es_trig_target_relations must NOT be copied */
+	/* es_trig_target_relations 绝不能被复制 */
 	rcestate->es_top_eflags = parentestate->es_top_eflags;
 	rcestate->es_instrument = parentestate->es_instrument;
-	/* es_auxmodifytables must NOT be copied */
+	/* es_auxmodifytables 绝不能复制    */
 
 	/*
-	 * The external param list is simply shared from parent.  The internal
-	 * param workspace has to be local state, but we copy the initial values
-	 * from the parent, so as to have access to any param values that were
-	 * already set from other parts of the parent's plan tree.
+	 * 外部参数列表直接从父级共享。内部参数工作区    
+	 * 则必须是本地状态，但我们从父级复制初始值，      
+	 * 以便访问父计划树中其他部分已设置的                
+	 * 参数值。                                           
 	 */
 	rcestate->es_param_list_info = parentestate->es_param_list_info;
 	if (parentestate->es_plannedstmt->paramExecTypes != NIL)
@@ -2951,34 +2951,34 @@ EvalPlanQualStart(EPQState *epqstate, Plan *planTree)
 		int			i;
 
 		/*
-		 * Force evaluation of any InitPlan outputs that could be needed by
-		 * the subplan.  (With more complexity, maybe we could postpone this
-		 * till the subplan actually demands them, but it doesn't seem worth
-		 * the trouble; this is a corner case already, since usually the
-		 * InitPlans would have been evaluated before reaching EvalPlanQual.)
+		 * 强制求值子计划可能需要的 InitPlan 输出。         
+		 * （若做得更复杂，或许能把这一步推迟到子计划  
+		 * 真正需要它们的时候，但似乎不值得这么麻烦；  
+		 * 因为这本就是边缘情形，通常 InitPlan             
+		 * 会在到达 EvalPlanQual 之前就已求值。）                
 		 *
-		 * This will not touch output params of InitPlans that occur somewhere
-		 * within the subplan tree, only those that are attached to the
-		 * ModifyTable node or above it and are referenced within the subplan.
-		 * That's OK though, because the planner would only attach such
-		 * InitPlans to a lower-level SubqueryScan node, and EPQ execution
-		 * will not descend into a SubqueryScan.
+		 * 这不会触及子计划树内某处的 InitPlan 输出参数，   
+		 * 只触及挂在 ModifyTable 节点或其上层且在        
+		 * 子计划内被引用的那些。但这没关系，因为规划器 
+		 * 只会把这样的 InitPlan 挂到更低层的 SubqueryScan 
+		 * 节点上，而 EPQ 执行不会下钻进                      
+		 * SubqueryScan。                      
 		 *
-		 * The EState's per-output-tuple econtext is sufficiently short-lived
-		 * for this, since it should get reset before there is any chance of
-		 * doing EvalPlanQual again.
+		 * EState 的每元组输出 econtext 对此生存期足够短，    
+		 * 因为应当在任何可能再次执行 EvalPlanQual 的机会   
+		 * 到来之前被重置。 
 		 */
 		ExecSetParamPlanMulti(planTree->extParam,
 							  GetPerTupleExprContext(parentestate));
 
-		/* now make the internal param workspace ... */
+		/* 现在创建内部参数工作区...      */
 		i = list_length(parentestate->es_plannedstmt->paramExecTypes);
 		rcestate->es_param_exec_vals = (ParamExecData *)
 			palloc0(i * sizeof(ParamExecData));
-		/* ... and copy down all values, whether really needed or not */
+		/* ... 并向下复制所有值，无论是否真正需要    */
 		while (--i >= 0)
 		{
-			/* copy value if any, but not execPlan link */
+			/* 有值即复制，不含 execPlan 链接 */
 			rcestate->es_param_exec_vals[i].value =
 				parentestate->es_param_exec_vals[i].value;
 			rcestate->es_param_exec_vals[i].isnull =
@@ -2987,12 +2987,12 @@ EvalPlanQualStart(EPQState *epqstate, Plan *planTree)
 	}
 
 	/*
-	 * Initialize private state information for each SubPlan.  We must do this
-	 * before running ExecInitNode on the main query tree, since
-	 * ExecInitSubPlan expects to be able to find these entries. Some of the
-	 * SubPlans might not be used in the part of the plan tree we intend to
-	 * run, but since it's not easy to tell which, we just initialize them
-	 * all.
+	 * 为每个 SubPlan 初始化私有状态信息。这必须在           
+	 * 对主查询树执行 ExecInitNode 前完成，因为    
+	 * ExecInitSubPlan 期望能找到这些条目。                       
+	 * 某些 SubPlans 可能并未用在我们打算运行的那部分    
+	 * 计划树中，但由于难以区分是哪些，故一律初始    
+	 * 化 
 	 */
 	Assert(rcestate->es_subplanstates == NIL);
 	foreach(l, parentestate->es_plannedstmt->subplans)
@@ -3006,9 +3006,9 @@ EvalPlanQualStart(EPQState *epqstate, Plan *planTree)
 	}
 
 	/*
-	 * Build an RTI indexed array of rowmarks, so that
-	 * EvalPlanQualFetchRowMark() can efficiently access the to be fetched
-	 * rowmark.
+	 * 构建 RTI 索引的 rowmark 数组，好让   
+	 *  EvalPlanQualFetchRowMark() 能高效访问待取的               
+	 * rowmark 
 	 */
 	epqstate->relsubs_rowmark = (ExecAuxRowMark **)
 		palloc0(rtsize * sizeof(ExecAuxRowMark *));
@@ -3020,8 +3020,8 @@ EvalPlanQualStart(EPQState *epqstate, Plan *planTree)
 	}
 
 	/*
-	 * Initialize per-relation EPQ tuple states.  Result relations, if any,
-	 * get marked as blocked; others as not-fetched.
+	 * 初始化各关系的 EPQ 元组状态。结果关系（如有）   
+	 * 标记为受阻；其余标记为未取。   
 	 */
 	epqstate->relsubs_done = palloc_array(bool, rtsize);
 	epqstate->relsubs_blocked = palloc0_array(bool, rtsize);
@@ -3038,9 +3038,9 @@ EvalPlanQualStart(EPQState *epqstate, Plan *planTree)
 		   rtsize * sizeof(bool));
 
 	/*
-	 * Initialize the private state information for all the nodes in the part
-	 * of the plan tree we need to run.  This opens files, allocates storage
-	 * and leaves us ready to start processing tuples.
+	 * 为我们需要运行的那部分计划树中的所有节点          
+	 * 初始化私有状态信息。这会打开文件、分配存储，   
+	 * 并使我们准备好开始处理元组。     
 	 */
 	epqstate->recheckplanstate = ExecInitNode(planTree, rcestate, 0);
 
@@ -3048,15 +3048,15 @@ EvalPlanQualStart(EPQState *epqstate, Plan *planTree)
 }
 
 /*
- * EvalPlanQualEnd -- shut down at termination of parent plan state node,
- * or if we are done with the current EPQ child.
+ * EvalPlanQualEnd -- 在父计划状态节点终止时关闭，         
+ * 或在我们结束当前 EPQ 子项时。    
  *
- * This is a cut-down version of ExecutorEnd(); basically we want to do most
- * of the normal cleanup, but *not* close result relations (which we are
- * just sharing from the outer query).  We do, however, have to close any
- * result and trigger target relations that got opened, since those are not
- * shared.  (There probably shouldn't be any of the latter, but just in
- * case...)
+ * 这是 ExecutorEnd() 的精简版本；基本上我们想做             
+ * 大部分常规清理，但*不*关闭结果关系（我们只是    
+ * 从外层查询借用它们而已）。不过，我们必须关闭    
+ * 任何已打开的结果与触发器目标关系，因为那些并      
+ * 未被共享。（后者多半不应该存在，但以防           
+ * 万一  
  */
 void
 EvalPlanQualEnd(EPQState *epqstate)
@@ -3069,8 +3069,8 @@ EvalPlanQualEnd(EPQState *epqstate)
 	rtsize = epqstate->parentestate->es_range_table_size;
 
 	/*
-	 * We may have a tuple table, even if EPQ wasn't started, because we allow
-	 * use of EvalPlanQualSlot() without calling EvalPlanQualBegin().
+	 * 即使 EPQ 未启动也可能有元组表，因为允许               
+	 * 用 EvalPlanQualSlot() 而无须调用 EvalPlanQualBegin()    
 	 */
 	if (epqstate->tuple_table != NIL)
 	{
@@ -3080,7 +3080,7 @@ EvalPlanQualEnd(EPQState *epqstate)
 		epqstate->tuple_table = NIL;
 	}
 
-	/* EPQ wasn't started, nothing further to do */
+	/* EPQ 未启动，没有更多要做的事  */
 	if (estate == NULL)
 		return;
 
@@ -3095,17 +3095,17 @@ EvalPlanQualEnd(EPQState *epqstate)
 		ExecEndNode(subplanstate);
 	}
 
-	/* throw away the per-estate tuple table, some node may have used it */
+	/* 丢弃 estate 专有的元组表，可能有节点用过它       */
 	ExecResetTupleTable(estate->es_tupleTable, false);
 
-	/* Close any result and trigger target relations attached to this EState */
+	/* 关闭挂接在本 EState 上的任何结果与触发器目标关系  */
 	ExecCloseResultRelations(estate);
 
 	MemoryContextSwitchTo(oldcontext);
 
 	FreeExecutorState(estate);
 
-	/* Mark EPQState idle */
+	/* 置 EPQState 空闲*/
 	epqstate->origslot = NULL;
 	epqstate->recheckestate = NULL;
 	epqstate->recheckplanstate = NULL;

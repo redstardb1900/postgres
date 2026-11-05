@@ -1,0 +1,47 @@
+{
+ "schema_version": 1,
+ "batch_id": "0271-comment-executor-execmain",
+ "title": "Translate executor comments: executor-execmain",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "de97a6b07682feee918abbe5f4a16d59d6bfdd17",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0271-comment-executor-execmain.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/executor/**",
+   "kind": "c_comment",
+   "note": "P2 executor translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0271-comment-executor-execmain.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/executor/execMain.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 267,
+   "translated": 264,
+   "preserved": 3,
+   "preserved_reasons": [
+    "EN:358 (blk25) /* run plan */ - two-line block, 8-byte micro budget line, kept EN",
+    "EN:548 (blk47) /* rescan plan */ - two-line block, 11-byte micro budget line, kept EN",
+    "EN:1207 (blk96) /* OK */ - structural label, kept EN"
+   ],
+   "note": "P2 executor campaign wave C12"
+  }
+ ],
+ "notes": "Translation agents (C12a/C12b/C12c) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

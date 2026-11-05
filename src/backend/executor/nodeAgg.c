@@ -1,241 +1,241 @@
 /*-------------------------------------------------------------------------
  *
  * nodeAgg.c
- *	  Routines to handle aggregate nodes.
+ *	  处理聚合节点的例程。     
  *
- *	  ExecAgg normally evaluates each aggregate in the following steps:
+ *	  ExecAgg 通常按以下步骤计算每一个聚合：            
  *
  *		 transvalue = initcond
- *		 foreach input_tuple do
+ *		 对每个输入元组:
  *			transvalue = transfunc(transvalue, input_value(s))
  *		 result = finalfunc(transvalue, direct_argument(s))
  *
- *	  If a finalfunc is not supplied then the result is just the ending
- *	  value of transvalue.
+ *	  若未提供 finalfunc，则结果就是 transvalue 的          
+ *	  最终值。        
  *
- *	  Other behaviors can be selected by the "aggsplit" mode, which exists
- *	  to support partial aggregation.  It is possible to:
- *	  * Skip running the finalfunc, so that the output is always the
- *	  final transvalue state.
- *	  * Substitute the combinefunc for the transfunc, so that transvalue
- *	  states (propagated up from a child partial-aggregation step) are merged
- *	  rather than processing raw input rows.  (The statements below about
- *	  the transfunc apply equally to the combinefunc, when it's selected.)
- *	  * Apply the serializefunc to the output values (this only makes sense
- *	  when skipping the finalfunc, since the serializefunc works on the
- *	  transvalue data type).
- *	  * Apply the deserializefunc to the input values (this only makes sense
- *	  when using the combinefunc, for similar reasons).
- *	  It is the planner's responsibility to connect up Agg nodes using these
- *	  alternate behaviors in a way that makes sense, with partial aggregation
- *	  results being fed to nodes that expect them.
+ *	  其他行为可通过 "aggsplit" 模式选择，该模式用于     
+ *	  支持部分聚合。可行的选择包括：      
+ *	  * 跳过 finalfunc 的执行，使输出始终是最终的    
+ *	  transvalue 状态。   
+ *	  * 用 combinefunc 代替 transfunc，使 transvalue               
+ *	  状态（由子部分聚合步骤传递上来）被合并而非处理  
+ *	  原始输入行。（下文关于 transfunc 的说明同样        
+ *	  适用于 combinefunc，当选中它时。）                       
+ *	  * 对输出值应用 serializefunc（这只在跳过 finalfunc       
+ *	  时才有意义，因为 serializefunc 只作用于              
+ *	  transvalue类型。）
+ *	  * 对输入值应用 deserializefunc（这只在使用                
+ *	  combinefunc 时才有意义，理由类似）。 
+ *	  规划器负责把这些采用替代行为的 Agg 节点以合理的  
+ *	  方式连接起来，让部分聚合结果被馈送给需要它们的  
+ *	  节点。                                   
  *
- *	  If a normal aggregate call specifies DISTINCT or ORDER BY, we sort the
- *	  input tuples and eliminate duplicates (if required) before performing
- *	  the above-depicted process.  (However, we don't do that for ordered-set
- *	  aggregates; their "ORDER BY" inputs are ordinary aggregate arguments
- *	  so far as this module is concerned.)	Note that partial aggregation
- *	  is not supported in these cases, since we couldn't ensure global
- *	  ordering or distinctness of the inputs.
+ *	  若普通的聚合调用指定了 DISTINCT 或 ORDER BY，我们      
+ *	  先对输入元组排序并（在需要时）去除重复，之后再
+ *	  执行上述过程。（但有序集聚合不做此处理；它们的  
+ *	  "ORDER BY" 输入就本模块而言只是普通聚合参数，      
+ *	  故本模块不作特殊处理。）注意：这些情形不支持
+ *	  部分聚合，因为无法保证输入全局有序或          
+ *	  无重复性。                        
  *
- *	  If transfunc is marked "strict" in pg_proc and initcond is NULL,
- *	  then the first non-NULL input_value is assigned directly to transvalue,
- *	  and transfunc isn't applied until the second non-NULL input_value.
- *	  The agg's first input type and transtype must be the same in this case!
+ *	  若 transfunc 在 pg_proc 中被标记为 "strict" 且 initcond 
+ *	  为 NULL，则首个非 NULL 的 input_value 直接成为              
+ *	  transvalue，直到第二个非 NULL 的 input_value 才会调用 
+ *	  transfunc！此时聚合首个输入类型必须与 transtype 相同！
  *
- *	  If transfunc is marked "strict" then NULL input_values are skipped,
- *	  keeping the previous transvalue.  If transfunc is not strict then it
- *	  is called for every input tuple and must deal with NULL initcond
- *	  or NULL input_values for itself.
+ *	  若 transfunc 被标记为 "strict"，则 NULL 的 input_value     
+ *	  会被跳过，并保留之前的 transvalue。若 transfunc 非    
+ *	  strict，则每个输入元组都会调用它，须自行处理 
+ *	  NULL initcond 或 input_value。
  *
- *	  If finalfunc is marked "strict" then it is not called when the
- *	  ending transvalue is NULL, instead a NULL result is created
- *	  automatically (this is just the usual handling of strict functions,
- *	  of course).  A non-strict finalfunc can make its own choice of
- *	  what to return for a NULL ending transvalue.
+ *	  若 finalfunc 被标记为 "strict"，则当最终的         
+ *	  transvalue 为 NULL 时不调用它，而是自动产生   
+ *	  一个 NULL 结果（这当然只是严格函数的常规          
+ *	  处理方式）。非 strict 的 finalfunc 可自行决定    
+ *	  对 NULL 最终 transvalue 返回什么。  
  *
- *	  Ordered-set aggregates are treated specially in one other way: we
- *	  evaluate any "direct" arguments and pass them to the finalfunc along
- *	  with the transition value.
+ *	  有序集聚合在另一方面被特殊对待：我们会        
+ *	  计算所有 "direct" 参数，并把它们连同过渡值一起    
+ *	  传给 finalfunc。       
  *
- *	  A finalfunc can have additional arguments beyond the transvalue and
- *	  any "direct" arguments, corresponding to the input arguments of the
- *	  aggregate.  These are always just passed as NULL.  Such arguments may be
- *	  needed to allow resolution of a polymorphic aggregate's result type.
+ *	  finalfunc 除 transvalue 和任何 "direct" 参数之外，        
+ *	  还可以有其他参数，它们对应于聚合的输入参数。 
+ *	  这些参数总是以 NULL 传入。此类参数可能是解析         
+ *	  多态聚合结果类型时所必需的。                          
  *
- *	  We compute aggregate input expressions and run the transition functions
- *	  in a temporary econtext (aggstate->tmpcontext).  This is reset at least
- *	  once per input tuple, so when the transvalue datatype is
- *	  pass-by-reference, we have to be careful to copy it into a longer-lived
- *	  memory context, and free the prior value to avoid memory leakage.  We
- *	  store transvalues in another set of econtexts, aggstate->aggcontexts
- *	  (one per grouping set, see below), which are also used for the hashtable
- *	  structures in AGG_HASHED mode.  These econtexts are rescanned, not just
- *	  reset, at group boundaries so that aggregate transition functions can
- *	  register shutdown callbacks via AggRegisterCallback.
+ *	  我们在一个临时 econtext（aggstate->tmpcontext）中            
+ *	  计算聚合输入表达式并运行转移函数。该上下文至少  
+ *	  每输入元组重置一次，因此当 transvalue 的  
+ *	  数据类型为引用传递时，必须小心将其复制到更长寿  
+ *	  的内存上下文中，并释放旧值以避免内存泄漏。我们
+ *	  把 transvalue 存放在另一组 econtext，即 aggstate           
+ *	  ->aggcontexts（每个分组集一个，见下文）中，这些        
+ *	  econtext 在 AGG_HASHED 模式下也用于存放哈希表              
+ *	  表结构。分组边界处它们被重新扫描而非仅重置，   
+ *	  使转移函数经AggRegisterCallback注册回调。
  *
- *	  The node's regular econtext (aggstate->ss.ps.ps_ExprContext) is used to
- *	  run finalize functions and compute the output tuple; this context can be
- *	  reset once per output tuple.
+ *	  节点的常规 econtext（aggstate->ss.ps.ps_ExprContext）           
+ *	  用于运行最终函数并计算输出元组；该上下文可         
+ *	  每个输出元组重置。 
  *
- *	  The executor's AggState node is passed as the fmgr "context" value in
- *	  all transfunc and finalfunc calls.  It is not recommended that the
- *	  transition functions look at the AggState node directly, but they can
- *	  use AggCheckCallContext() to verify that they are being called by
- *	  nodeAgg.c (and not as ordinary SQL functions).  The main reason a
- *	  transition function might want to know this is so that it can avoid
- *	  palloc'ing a fixed-size pass-by-ref transition value on every call:
- *	  it can instead just scribble on and return its left input.  Ordinarily
- *	  it is completely forbidden for functions to modify pass-by-ref inputs,
- *	  but in the aggregate case we know the left input is either the initial
- *	  transition value or a previous function result, and in either case its
- *	  value need not be preserved.  See int8inc() for an example.  Notice that
- *	  the EEOP_AGG_PLAIN_TRANS step is coded to avoid a data copy step when
- *	  the previous transition value pointer is returned.  It is also possible
- *	  to avoid repeated data copying when the transition value is an expanded
- *	  object: to do that, the transition function must take care to return
- *	  an expanded object that is in a child context of the memory context
- *	  returned by AggCheckCallContext().  Also, some transition functions want
- *	  to store working state in addition to the nominal transition value; they
- *	  can use the memory context returned by AggCheckCallContext() to do that.
+ *	  执行器的 AggState 节点会作为 fmgr 的 "context" 值         
+ *	  传入所有 transfunc 和 finalfunc 调用。不建议           
+ *	  转移函数直接查看 AggState 节点，但它们可以           
+ *	  用 AggCheckCallContext() 来验证自己是被                  
+ *	  nodeAgg.c 调用（而非作为普通 SQL 函数）。转移     
+ *	  函数想知道这一点，主要是为了能避免每次调用    
+ *	  都 palloc 一个定长的引用传递过渡值：                 
+ *	  它可以直接涂写并返回其左输入。通常情况下，       
+ *	  函数完全禁止修改引用传递的输入参数，但在聚合    
+ *	  场景中我们知道左输入要么是初始过渡值，要么是    
+ *	  先前的函数结果，且无论哪种情况，它的值都无需    
+ *	  被保留。示例参见 int8inc()。请注意，                       
+ *	  EEOP_AGG_PLAIN_TRANS 步骤在编码时避免在返回               
+ *	  前一个过渡值指针时进行数据复制。还可以在过渡     
+ *	  值为展开对象时避免反复的数据复制：要做到这        
+ *	  一点，转移函数必须注意返回的展开对象要位于     
+ *	  AggCheckCallContext() 所返回内存上下文的子上下文      
+ *	  中。此外，有些转移函数还希望在名义过渡值之外      
+ *	  存放额外的工作状态；它们可以利用                        
+ *	  AggCheckCallContext() 返回的内存上下文来做到。              
  *
- *	  Note: AggCheckCallContext() is available as of PostgreSQL 9.0.  The
- *	  AggState is available as context in earlier releases (back to 8.1),
- *	  but direct examination of the node is needed to use it before 9.0.
+ *	  注意：AggCheckCallContext() 自 PostgreSQL 9.0 起              
+ *	  可用。更早的版本（追溯到 8.1）中 AggState 会作为  
+ *	  context 传入，但 9.0 前需直接检查节点才能使用。  
  *
- *	  As of 9.4, aggregate transition functions can also use AggGetAggref()
- *	  to get hold of the Aggref expression node for their aggregate call.
- *	  This is mainly intended for ordered-set aggregates, which are not
- *	  supported as window functions.  (A regular aggregate function would
- *	  need some fallback logic to use this, since there's no Aggref node
- *	  for a window function.)
+ *	  从 9.4 起，聚合转移函数也可以使用 AggGetAggref()       
+ *	  来获取其聚合调用的 Aggref 表达式节点。              
+ *	  这主要面向有序集聚合，其不支持作为窗口函数  
+ *	  使用。（普通聚合函数要用它需要一些后备逻辑， 
+ *	  因为窗口函数没有对应的 Aggref                          
+ *	  节点。）           
  *
- *	  Grouping sets:
+ *	  分组集：  
  *
- *	  A list of grouping sets which is structurally equivalent to a ROLLUP
- *	  clause (e.g. (a,b,c), (a,b), (a)) can be processed in a single pass over
- *	  ordered data.  We do this by keeping a separate set of transition values
- *	  for each grouping set being concurrently processed; for each input tuple
- *	  we update them all, and on group boundaries we reset those states
- *	  (starting at the front of the list) whose grouping values have changed
- *	  (the list of grouping sets is ordered from most specific to least
- *	  specific).
+ *	  在结构上等价于 ROLLUP 子句的分组集列表（例如      
+ *	  (a,b,c)、(a,b)、(a)）就能单趟处理完有序数据。            
+ *	  我们的做法是：为每个并发处理的分组集保留一组      
+ *	  独立的过渡值；对每个输入元组，我们都会更新它们   
+ *	  全部；分组边界处我们会重置那些（从列表        
+ *	  前端开始），这些状态的分组值已经发生了变化       
+ *	  （分组集列表按从最具体到最不具体的顺序排列  
+ *	  ）。    
  *
- *	  Where more complex grouping sets are used, we break them down into
- *	  "phases", where each phase has a different sort order (except phase 0
- *	  which is reserved for hashing).  During each phase but the last, the
- *	  input tuples are additionally stored in a tuplesort which is keyed to the
- *	  next phase's sort order; during each phase but the first, the input
- *	  tuples are drawn from the previously sorted data.  (The sorting of the
- *	  data for the first phase is handled by the planner, as it might be
- *	  satisfied by underlying nodes.)
+ *	  在使用更复杂的分组集时，我们会把它们分解为   
+ *	  若干个"阶段"，每个阶段有不同的排序顺序（除了    
+ *	  专用于哈希的阶段 0）。在每个非最后的阶段中，   
+ *	  输入元组还会额外存入一个 tuplesort，它以下一阶段      
+ *	  的排序顺序为键；在每个非最初阶段，输入元组    
+ *	  则取自先前已排序好的数据。（第一阶段的排序       
+ *	  由规划器负责完成，因为它可能由底层的节点来满
+ *	  足。）                      
  *
- *	  Hashing can be mixed with sorted grouping.  To do this, we have an
- *	  AGG_MIXED strategy that populates the hashtables during the first sorted
- *	  phase, and switches to reading them out after completing all sort phases.
- *	  We can also support AGG_HASHED with multiple hash tables and no sorting
- *	  at all.
+ *	  哈希可以与排序分组混合使用。为此，我们提供   
+ *	  AGG_MIXED 策略：在第一个排序阶段填充哈希表，           
+ *	  并在完成全部排序阶段后切换为从中读出。                
+ *	  我们也可以在支持多个哈希表的同时，完全不做        
+ *	  排序 
  *
- *	  From the perspective of aggregate transition and final functions, the
- *	  only issue regarding grouping sets is this: a single call site (flinfo)
- *	  of an aggregate function may be used for updating several different
- *	  transition values in turn. So the function must not cache in the flinfo
- *	  anything which logically belongs as part of the transition value (most
- *	  importantly, the memory context in which the transition value exists).
- *	  The support API functions (AggCheckCallContext, AggRegisterCallback) are
- *	  sensitive to the grouping set for which the aggregate function is
- *	  currently being called.
+ *	  从聚合转移函数与最终函数的角度来看，关于分      
+ *	  组集只有一点问题：聚合函数的单一调用点（flinfo）  
+ *	  可能被用来依次更新多个不同的过渡值。因此函    
+ *	  数不得在 flinfo 中缓存任何逻辑上属于过渡值组成      
+ *	  部分的东西（最重要的是过渡值所在的内存上下       
+ *	  文）。支持 API 函数（AggCheckCallContext、                   
+ *	  AggRegisterCallback）对于聚合函数当前被调用于              
+ *	  哪个分组集是                                               
+ *	  敏感的。           
  *
- *	  Plan structure:
+ *	  计划结构：
  *
- *	  What we get from the planner is actually one "real" Agg node which is
- *	  part of the plan tree proper, but which optionally has an additional list
- *	  of Agg nodes hung off the side via the "chain" field.  This is because an
- *	  Agg node happens to be a convenient representation of all the data we
- *	  need for grouping sets.
+ *	  我们从规划器得到的其实是一个"真实"的 Agg 节点，  
+ *	  它本身就是计划树的组成部分，但可选地通过"chain"      
+ *	  字段在侧面挂上额外的 Agg 节点列表。这是因为           
+ *	  Agg 节点恰好是分组集所需全部数据的一种便利        
+ *	  表示。              
  *
- *	  For many purposes, we treat the "real" node as if it were just the first
- *	  node in the chain.  The chain must be ordered such that hashed entries
- *	  come before sorted/plain entries; the real node is marked AGG_MIXED if
- *	  there are both types present (in which case the real node describes one
- *	  of the hashed groupings, other AGG_HASHED nodes may optionally follow in
- *	  the chain, followed in turn by AGG_SORTED or (one) AGG_PLAIN node).  If
- *	  the real node is marked AGG_HASHED or AGG_SORTED, then all the chained
- *	  nodes must be of the same type; if it is AGG_PLAIN, there can be no
- *	  chained nodes.
+ *	  在许多场合，我们把"真实"节点当作就是链上的          
+ *	  第一个节点。链的顺序必须保证哈希项排在排序/      
+ *	  普通项之前；若两类节点都存在，真实节点就标记为 
+ *	  AGG_MIXED（此时真实节点描述的是其中一个哈希           
+ *	  分组，链上其后可以跟其他 AGG_HASHED 节点，再往         
+ *	  后依次是 AGG_SORTED 或（单个）AGG_PLAIN 节点）。若       
+ *	  真实节点标记为 AGG_HASHED 或 AGG_SORTED，则链上           
+ *	  所有链接节点必须同类型；若为 AGG_PLAIN 则不        
+ *	  能有。     
  *
- *	  We collect all hashed nodes into a single "phase", numbered 0, and create
- *	  a sorted phase (numbered 1..n) for each AGG_SORTED or AGG_PLAIN node.
- *	  Phase 0 is allocated even if there are no hashes, but remains unused in
- *	  that case.
+ *	  我们把所有哈希节点收进一个编号为 0 的"阶段"，        
+ *	  并为每个 AGG_SORTED 或 AGG_PLAIN 节点创建一个排          
+ *	  序阶段（编号 1..n）。即使没有哈希也会分配阶段 0， 
+ *	  闲置。 
  *
- *	  AGG_HASHED nodes actually refer to only a single grouping set each,
- *	  because for each hashed grouping we need a separate grpColIdx and
- *	  numGroups estimate.  AGG_SORTED nodes represent a "rollup", a list of
- *	  grouping sets that share a sort order.  Each AGG_SORTED node other than
- *	  the first one has an associated Sort node which describes the sort order
- *	  to be used; the first sorted node takes its input from the outer subtree,
- *	  which the planner has already arranged to provide ordered data.
+ *	  AGG_HASHED 节点实际上各自只针对单个分组集，        
+ *	  因为每个哈希分组都需要单独的 grpColIdx 和         
+ *	  numGroups 估计值。AGG_SORTED 节点代表一个"rollup"，       
+ *	  即共享一个排序顺序的分组集列表。除第一个之外的  
+ *	  每个 AGG_SORTED 节点都关联一个 Sort 节点，用于描述      
+ *	  要采用的排序顺序；第一个排序节点的输入取自外层    
+ *	  子树，规划器已安排好让它提供有序数据。      
  *
- *	  Memory and ExprContext usage:
+ *	  内存和 ExprContext：     
  *
- *	  Because we're accumulating aggregate values across input rows, we need to
- *	  use more memory contexts than just simple input/output tuple contexts.
- *	  In fact, for a rollup, we need a separate context for each grouping set
- *	  so that we can reset the inner (finer-grained) aggregates on their group
- *	  boundaries while continuing to accumulate values for outer
- *	  (coarser-grained) groupings.  On top of this, we might be simultaneously
- *	  populating hashtables; however, we only need one context for all the
- *	  hashtables.
+ *	  因为我们要跨输入行累积聚合值，所以需要用到          
+ *	  比单纯输入/输出元组上下文更多的内存上下文。      
+ *	  事实上，对一个 rollup 而言，每个分组集都需要单独   
+ *	  上下文，以便在分组边界处重置内层（更细粒度）的   
+ *	  聚合，同时继续为外层                            
+ *	  （更粗粒度）分组累积值。除此之外，我们还可能      
+ *	  同时填充哈希表；不过所有哈希表只需一个上下文  
+ *	  即可。  
  *
- *	  So we create an array, aggcontexts, with an ExprContext for each grouping
- *	  set in the largest rollup that we're going to process, and use the
- *	  per-tuple memory context of those ExprContexts to store the aggregate
- *	  transition values.  hashcontext is the single context created to support
- *	  all hash tables.
+ *	  于是我们创建一个 aggcontexts 数组，为将要处理的         
+ *	  最大 rollup 的每个分组集各建一个 ExprContext，并用 
+ *	  这些 ExprContext 的每元组内存上下文来存放聚合的     
+ *	  过渡值。hashcontext 是单独创建、用来支撑所有            
+ *	  哈希表的。 
  *
- *	  Spilling To Disk
+ *	  溢出到磁盘 
  *
- *	  When performing hash aggregation, if the hash table memory exceeds the
- *	  limit (see hash_agg_check_limits()), we enter "spill mode". In spill
- *	  mode, we advance the transition states only for groups already in the
- *	  hash table. For tuples that would need to create a new hash table
- *	  entries (and initialize new transition states), we instead spill them to
- *	  disk to be processed later. The tuples are spilled in a partitioned
- *	  manner, so that subsequent batches are smaller and less likely to exceed
- *	  hash_mem (if a batch does exceed hash_mem, it must be spilled
- *	  recursively).
+ *	  执行哈希聚合时，如果哈希表内存超出限制（参见    
+ *	  hash_agg_check_limits()），我们就会进入"溢出模式"。    
+ *	  在溢出模式下，我们只为哈希表中已有的分组推进   
+ *	  过渡状态。需新建哈希表项（并初始化新过渡状  
+ *	  态）的元组，我们会改为把它们溢出到磁盘，留待      
+ *	  以后再处理。元组会以分区化的方式溢出，这样后 
+ *	  续批次更小、更不容易超出 hash_mem（如果某一批         
+ *	  次确实超出 hash_mem，就必须递归溢出             
+ *	  ）。       
  *
- *	  Spilled data is written to logical tapes. These provide better control
- *	  over memory usage, disk space, and the number of files than if we were
- *	  to use a BufFile for each spill.  We don't know the number of tapes needed
- *	  at the start of the algorithm (because it can recurse), so a tape set is
- *	  allocated at the beginning, and individual tapes are created as needed.
- *	  As a particular tape is read, logtape.c recycles its disk space. When a
- *	  tape is read to completion, it is destroyed entirely.
+ *	  溢出的数据会写入逻辑磁带。与每次溢出都用一个    
+ *	  BufFile 相比，这样能更好地控制内存用量、磁盘        
+ *	  空间和文件数量。我们并不知道算法开始时需要多        
+ *	  少条磁带（因为算法可能递归），所以一开始就分配   
+ *	  一个磁带集，之后按需创建各条磁带。                    
+ *	  读取某条磁带时，logtape.c 会回收其磁盘空间。当       
+ *	  一条磁带读完后，它会被完全销毁。     
  *
- *	  Tapes' buffers can take up substantial memory when many tapes are open at
- *	  once. We only need one tape open at a time in read mode (using a buffer
- *	  that's a multiple of BLCKSZ); but we need one tape open in write mode (each
- *	  requiring a buffer of size BLCKSZ) for each partition.
+ *	  当许多磁带同时打开时，磁带缓冲区可能占用大量       
+ *	  内存。读模式下我们一次只需打开一条磁带（使用     
+ *	  BLCKSZ 倍数的缓冲区）；但写模式下每个分区都需要        
+ *	  打开一条磁带（缓冲区大小为 BLCKSZ）。  
  *
- *	  Note that it's possible for transition states to start small but then
- *	  grow very large; for instance in the case of ARRAY_AGG. In such cases,
- *	  it's still possible to significantly exceed hash_mem. We try to avoid
- *	  this situation by estimating what will fit in the available memory, and
- *	  imposing a limit on the number of groups separately from the amount of
- *	  memory consumed.
+ *	  请注意，过渡状态可能开始时很小，之后却变得非   
+ *	  常巨大；例如 ARRAY_AGG 的情况。在这类情况下，        
+ *	  仍然可能大幅超出 hash_mem。我们会尽量估算可用      
+ *	  内存的容纳量，并对分组数量施加独立于已耗内存     
+ *	  量的限制，来尽量避免这种                                  
+ *	  情况。       
  *
- *    Transition / Combine function invocation:
+ *    转移/组合函数的调用：          
  *
- *    For performance reasons transition functions, including combine
- *    functions, aren't invoked one-by-one from nodeAgg.c after computing
- *    arguments using the expression evaluation engine. Instead
- *    ExecBuildAggTrans() builds one large expression that does both argument
- *    evaluation and transition function invocation. That avoids performance
- *    issues due to repeated uses of expression evaluation, complications due
- *    to filter expressions having to be evaluated early, and allows to JIT
- *    the entire expression into one native function.
+ *    出于性能考虑，转移函数（包括组合函数）并不
+ *    会在 nodeAgg.c 中先用表达式求值引擎算出参数再     
+ *    逐个调用。取而代之的是，                     
+ *    ExecBuildAggTrans() 会构建一个大表达式，同时完成         
+ *    参数求值和转移函数调用两件事。这避免了因反复    
+ *    使用表达式求值导致的性能问题，避免了过滤表达     
+ *    式必须提前求值的复杂性问题，还允许把整个表达   
+ *    式 JIT 成一个本机函数。               
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -277,92 +277,92 @@
 #include "utils/tuplesort.h"
 
 /*
- * Control how many partitions are created when spilling HashAgg to
- * disk.
+ * 控制在把 HashAgg 溢出到磁盘时创建的分区数量    
+ *      
  *
- * HASHAGG_PARTITION_FACTOR is multiplied by the estimated number of
- * partitions needed such that each partition will fit in memory. The factor
- * is set higher than one because there's not a high cost to having a few too
- * many partitions, and it makes it less likely that a partition will need to
- * be spilled recursively. Another benefit of having more, smaller partitions
- * is that small hash tables may perform better than large ones due to memory
- * caching effects.
+ * HASHAGG_PARTITION_FACTOR 会乘以估计所需的分区数       
+ * 量，使每个分区都能装进内存。该系数设得比 1 大，    
+ * 这是因为分区稍微偏多并不算大的代价，而且这样        
+ * 分区需要被递归溢出的可能性更小。拥有更多、更        
+ * 小的分区还有一个好处：由于内存缓存效应，小           
+ * 哈希表的性能可能比大哈希表                                   
+ * 更好。       
  *
- * We also specify a min and max number of partitions per spill. Too few might
- * mean a lot of wasted I/O from repeated spilling of the same tuples. Too
- * many will result in lots of memory wasted buffering the spill files (which
- * could instead be spent on a larger hash table).
+ * 我们还为每次溢出指定了分区数量的下限和上限。         
+ * 太少可能意味着同一批元组被反复溢出，浪费大量     
+ * I/O。太多则会让大量内存浪费在缓冲溢出文件上           
+ * （本可花在更大的哈希表上）。     
  */
 #define HASHAGG_PARTITION_FACTOR 1.50
 #define HASHAGG_MIN_PARTITIONS 4
 #define HASHAGG_MAX_PARTITIONS 1024
 
 /*
- * For reading from tapes, the buffer size must be a multiple of
- * BLCKSZ. Larger values help when reading from multiple tapes concurrently,
- * but that doesn't happen in HashAgg, so we simply use BLCKSZ. Writing to a
- * tape always uses a buffer of size BLCKSZ.
+ * 读取磁带时，缓冲区大小必须是 BLCKSZ 的        
+ * 倍数。并发读取多条磁带时，更大的值会有帮助，       
+ * 但 HashAgg 中不会这样，所以读取时我们直接用             
+ * BLCKSZ；写磁带缓冲总是 BLCKSZ。 
  */
 #define HASHAGG_READ_BUFFER_SIZE BLCKSZ
 #define HASHAGG_WRITE_BUFFER_SIZE BLCKSZ
 
 /*
- * HyperLogLog is used for estimating the cardinality of the spilled tuples in
- * a given partition. 5 bits corresponds to a size of about 32 bytes and a
- * worst-case error of around 18%. That's effective enough to choose a
- * reasonable number of partitions when recursing.
+ * HyperLogLog 用于估计某个分区中溢出元组的基数。            
+ * 5 位对应约 32 字节的大小和约 18% 的最坏情况误差，   
+ * 这对递归时选择合理的分区数量来说已经             
+ * 足够有效。                                
  */
 #define HASHAGG_HLL_BIT_WIDTH 5
 
 /*
- * Estimate chunk overhead as a constant 16 bytes. XXX: should this be
- * improved?
+ * 把块开销估计为常量 16 字节。XXX：要不要            
+ * 改进？
  */
 #define CHUNKHDRSZ 16
 
 /*
- * Represents partitioned spill data for a single hashtable. Contains the
- * necessary information to route tuples to the correct partition, and to
- * transform the spilled data into new batches.
+ * 表示单个哈希表的分区化溢出数据。包含把元组路    
+ * 由到正确分区所需的信息，以及把溢出数据转变成    
+ * 新批次所需的信息。                 
  *
- * The high bits are used for partition selection (when recursing, we ignore
- * the bits that have already been used for partition selection at an earlier
- * level).
+ * 高位用于分区选择（递归时，我们会忽略在更早          
+ * 层级已被用于分区选择的那些位                                
+ * ）。 
  */
 typedef struct HashAggSpill
 {
-	int			npartitions;	/* number of partitions */
-	LogicalTape **partitions;	/* spill partition tapes */
-	int64	   *ntuples;		/* number of tuples in each partition */
-	uint32		mask;			/* mask to find partition from hash value */
-	int			shift;			/* after masking, shift by this amount */
-	hyperLogLogState *hll_card; /* cardinality estimate for contents */
+	int			npartitions;	/* 分区数量         */
+	LogicalTape **partitions;	/* 溢出分区磁带    */
+	int64	   *ntuples;		/* 每个分区中的元组数量     */
+	uint32		mask;			/* 从哈希值找出分区的掩码      */
+	int			shift;			/* 掩码之后再按此量移位      */
+	hyperLogLogState *hll_card; /* 对内容的基数估计          */
 } HashAggSpill;
 
 /*
- * Represents work to be done for one pass of hash aggregation (with only one
- * grouping set).
+ * 表示哈希聚合单趟处理（仅含一个分组集）所需的        
+ * 工作。     
  *
- * Also tracks the bits of the hash already used for partition selection by
- * earlier iterations, so that this batch can use new bits. If all bits have
- * already been used, no partitioning will be done (any spilled data will go
- * to a single output tape).
+ * 同时还跟踪之前各轮迭代已用于分区选择的哈希         
+ * 位，从而本批次能使用新的位。如果所有位都已被       
+ * 使用过，就不会再做分区（所有溢出数据都会进入       
+ * 单个输出磁带）。 
  */
 typedef struct HashAggBatch
 {
-	int			setno;			/* grouping set */
-	int			used_bits;		/* number of bits of hash already used */
-	LogicalTape *input_tape;	/* input partition tape */
-	int64		input_tuples;	/* number of tuples in this batch */
-	double		input_card;		/* estimated group cardinality */
+	int			setno;			/* 分组集    */
+	int			used_bits;		/* 哈希位中已被使用的位数   */
+	LogicalTape *input_tape;	/* 输入分区磁带   */
+	int64		input_tuples;	/* 本批次中的元组数量    */
+	double		input_card;		/* 分组基数的估计值    */
 } HashAggBatch;
 
-/* used to find referenced colnos */
+/* 用于找出被引用的列号 */
 typedef struct FindColsContext
 {
-	bool		is_aggref;		/* is under an aggref */
-	Bitmapset  *aggregated;		/* column references under an aggref */
-	Bitmapset  *unaggregated;	/* other column references */
+	bool		is_aggref;		/* 是否在aggref下 */
+	Bitmapset  *aggregated;		/* aggref 之下的列引用         */
+	Bitmapset  *unaggregated;	/* 其他列引用         */
 } FindColsContext;
 
 static void select_current_set(AggState *aggstate, int setno, bool is_hash);
@@ -449,14 +449,14 @@ static void build_pertrans_for_aggref(AggStatePerTrans pertrans,
 
 
 /*
- * Select the current grouping set; affects current_set and
+ * 选择当前分组集；会影响 current_set 与       
  * curaggcontext.
  */
 static void
 select_current_set(AggState *aggstate, int setno, bool is_hash)
 {
 	/*
-	 * When changing this, also adapt ExecAggPlainTransByVal() and
+	 * 改动此处时，也要适配 ExecAggPlainTransByVal() 和
 	 * ExecAggPlainTransByRef().
 	 */
 	if (is_hash)
@@ -468,11 +468,11 @@ select_current_set(AggState *aggstate, int setno, bool is_hash)
 }
 
 /*
- * Switch to phase "newphase", which must either be 0 or 1 (to reset) or
- * current_phase + 1. Juggle the tuplesorts accordingly.
+ * 切换到阶段 "newphase"，它必须是 0、1（用于重置）    
+ * 或 current_phase+1。相应调度各 tuplesort。   
  *
- * Phase 0 is for hashing, which we currently handle last in the AGG_MIXED
- * case, so when entering phase 0, all we need to do is drop open sorts.
+ * 阶段 0 用于哈希；在 AGG_MIXED 情形中它被排在            
+ * 最后，所以进入阶段 0 只需丢弃未完的排序。         
  */
 static void
 initialize_phase(AggState *aggstate, int newphase)
@@ -480,8 +480,8 @@ initialize_phase(AggState *aggstate, int newphase)
 	Assert(newphase <= 1 || newphase == aggstate->current_phase + 1);
 
 	/*
-	 * Whatever the previous state, we're now done with whatever input
-	 * tuplesort was in use.
+	 * 无论之前状态如何，我们已经用完了正在         
+	 * 用的 tuplesort。  
 	 */
 	if (aggstate->sort_in)
 	{
@@ -492,7 +492,7 @@ initialize_phase(AggState *aggstate, int newphase)
 	if (newphase <= 1)
 	{
 		/*
-		 * Discard any existing output tuplesort.
+		 * 丢弃已有的输出 tuplesort。    
 		 */
 		if (aggstate->sort_out)
 		{
@@ -503,8 +503,8 @@ initialize_phase(AggState *aggstate, int newphase)
 	else
 	{
 		/*
-		 * The old output tuplesort becomes the new input one, and this is the
-		 * right time to actually sort it.
+		 * 旧的输出 tuplesort 会变成新的输入 tuplesort，          
+		 * 现在就实际对它排序。 
 		 */
 		aggstate->sort_in = aggstate->sort_out;
 		aggstate->sort_out = NULL;
@@ -513,8 +513,8 @@ initialize_phase(AggState *aggstate, int newphase)
 	}
 
 	/*
-	 * If this isn't the last phase, we need to sort appropriately for the
-	 * next phase in sequence.
+	 * 若这不是最后一个阶段，我们需要按序列中的       
+	 * 阶段相应排序。  
 	 */
 	if (newphase > 0 && newphase < aggstate->numphases - 1)
 	{
@@ -537,12 +537,12 @@ initialize_phase(AggState *aggstate, int newphase)
 }
 
 /*
- * Fetch a tuple from either the outer plan (for phase 1) or from the sorter
- * populated by the previous phase.  Copy it to the sorter for the next phase
- * if any.
+ * 从外层计划（用于阶段 1）或前一阶段填充好的           
+ * 排序器中取出一条元组。若还有下一阶段，则复制        
+ * 过去 
  *
- * Callers cannot rely on memory for tuple in returned slot remaining valid
- * past any subsequently fetched tuple.
+ * 调用方不能指望返回槽位中元组的内存在随后取出      
+ * 任何元组之后仍然有效。   
  */
 static TupleTableSlot *
 fetch_input_tuple(AggState *aggstate)
@@ -551,7 +551,7 @@ fetch_input_tuple(AggState *aggstate)
 
 	if (aggstate->sort_in)
 	{
-		/* make sure we check for interrupts in either path through here */
+		/* 确保在这条路径的两个分支里都检查中断        */
 		CHECK_FOR_INTERRUPTS();
 		if (!tuplesort_gettupleslot(aggstate->sort_in, true, false,
 									aggstate->sort_slot, NULL))
@@ -568,33 +568,33 @@ fetch_input_tuple(AggState *aggstate)
 }
 
 /*
- * (Re)Initialize an individual aggregate.
+ * （重新）初始化单个聚合。   
  *
- * This function handles only one grouping set, already set in
- * aggstate->current_set.
+ * 本函数只处理一个分组集，它已在 aggstate->   
+ * current_set 中。    
  *
- * When called, CurrentMemoryContext should be the per-query context.
+ * 调用时，CurrentMemoryContext 应为每查询上下文。      
  */
 static void
 initialize_aggregate(AggState *aggstate, AggStatePerTrans pertrans,
 					 AggStatePerGroup pergroupstate)
 {
 	/*
-	 * Start a fresh sort operation for each DISTINCT/ORDER BY aggregate.
+	 * 为每个 DISTINCT/ORDER BY 聚合开一次全新排序操作。  
 	 */
 	if (pertrans->aggsortrequired)
 	{
 		/*
-		 * In case of rescan, maybe there could be an uncompleted sort
-		 * operation?  Clean it up if so.
+		 * 若为重新扫描：是否可能有未完成的排序？  
+		 * 若有可能就清理掉。   
 		 */
 		if (pertrans->sortstates[aggstate->current_set])
 			tuplesort_end(pertrans->sortstates[aggstate->current_set]);
 
 
 		/*
-		 * We use a plain Datum sorter when there's a single input column;
-		 * otherwise sort the full tuple.  (See comments for
+		 * 只有一个输入列时，用普通 Datum 排序器；        
+		 * 否则对完整元组排序。（参见          
 		 * process_ordered_aggregate_single.)
 		 */
 		if (pertrans->numInputs == 1)
@@ -620,10 +620,10 @@ initialize_aggregate(AggState *aggstate, AggStatePerTrans pertrans,
 	}
 
 	/*
-	 * (Re)set transValue to the initial value.
+	 * 将 transValue 重置为初始值。    
 	 *
-	 * Note that when the initial value is pass-by-ref, we must copy it (into
-	 * the aggcontext) since we will pfree the transValue later.
+	 * 注意当初始值为引用传递时，我们必须把它复制       
+	 * （到 aggcontext），因为会 pfree transValue。     
 	 */
 	if (pertrans->initValueIsNull)
 		pergroupstate->transValue = pertrans->initValue;
@@ -640,27 +640,27 @@ initialize_aggregate(AggState *aggstate, AggStatePerTrans pertrans,
 	pergroupstate->transValueIsNull = pertrans->initValueIsNull;
 
 	/*
-	 * If the initial value for the transition state doesn't exist in the
-	 * pg_aggregate table then we will let the first non-NULL value returned
-	 * from the outer procNode become the initial value. (This is useful for
-	 * aggregates like max() and min().) The noTransValue flag signals that we
-	 * still need to do this.
+	 * 如果过渡状态的初始值在 pg_aggregate 表中不存在， 
+	 * 那么我们就让外层 procNode 返回的第一个非 NULL         
+	 * 值成为初始值。（这对 max() 和 min() 这类聚合很       
+	 * 有用。）noTransValue 标志表示我们仍需要                   
+	 * 继续这样做。    
 	 */
 	pergroupstate->noTransValue = pertrans->initValueIsNull;
 }
 
 /*
- * Initialize all aggregate transition states for a new group of input values.
+ * 为一组新的输入值初始化所有聚合过渡状态。               
  *
- * If there are multiple grouping sets, we initialize only the first numReset
- * of them (the grouping sets are ordered so that the most specific one, which
- * is reset most often, is first). As a convenience, if numReset is 0, we
- * reinitialize all sets.
+ * 若有多个分组集，我们只初始化其中前 numReset 个          
+ * （分组集经过排序，最具体的排在最前，它重置得         
+ * 也最频繁）。方便起见，若 numReset 为 0，则会把       
+ * 它们全部重置。 
  *
- * NB: This cannot be used for hash aggregates, as for those the grouping set
- * number has to be specified from further up.
+ * 注意：这不能用于哈希聚合，因为那些场合的分组        
+ * 集编号必须从更上层指定。       
  *
- * When called, CurrentMemoryContext should be the per-query context.
+ * 调用时，CurrentMemoryContext 应为每查询上下文。      
  */
 static void
 initialize_aggregates(AggState *aggstate,
@@ -693,15 +693,15 @@ initialize_aggregates(AggState *aggstate,
 }
 
 /*
- * Given new input value(s), advance the transition function of one aggregate
- * state within one grouping set only (already set in aggstate->current_set)
+ * 给定新的输入值，只推进单个分组集（已在                 
+ * aggstate->current_set 中设置）内的一个聚合状态               
  *
- * The new values (and null flags) have been preloaded into argument positions
- * 1 and up in pertrans->transfn_fcinfo, so that we needn't copy them again to
- * pass to the transition function.  We also expect that the static fields of
- * the fcinfo are already initialized; that was done by ExecInitAgg().
+ * 新值（以及空标志）已预先装入 pertrans->transfn_fcinfo        
+ * 的参数位置 1 及更高位，因此无需再复制一遍来传给      
+ * 转移函数。我们还预期 fcinfo 的静态字段已经初始         
+ * 化；这是由 ExecInitAgg() 完成的。                         
  *
- * It doesn't matter which memory context this is called in.
+ * 在哪个内存上下文中调用它都没有关系。   
  */
 static void
 advance_transition_function(AggState *aggstate,
@@ -715,8 +715,8 @@ advance_transition_function(AggState *aggstate,
 	if (pertrans->transfn.fn_strict)
 	{
 		/*
-		 * For a strict transfn, nothing happens when there's a NULL input; we
-		 * just keep the prior transValue.
+		 * 对于 strict 的 transfn，NULL 输入时不会有任何          
+		 * 动静；保留旧transValue。
 		 */
 		int			numTransInputs = pertrans->numTransInputs;
 		int			i;
@@ -729,13 +729,13 @@ advance_transition_function(AggState *aggstate,
 		if (pergroupstate->noTransValue)
 		{
 			/*
-			 * transValue has not been initialized. This is the first non-NULL
-			 * input value. We use it as the initial value for transValue. (We
-			 * already checked that the agg's input type is binary-compatible
-			 * with its transtype, so straight copy here is OK.)
+			 * transValue 尚未初始化。这是第一个非 NULL 的输入 
+			 * 值。我们用它作为 transValue 的初值。（已检查过
+			 * 聚合的输入类型与其 transtype 二进制兼容，      
+			 * 所以这里直接复制即可。）             
 			 *
-			 * We must copy the datum into aggcontext if it is pass-by-ref. We
-			 * do not need to pfree the old transValue, since it's NULL.
+			 * 若 datum 是引用传递的，必须把它复制进           
+			 * aggcontext；transValue 为 NULL 故无需 pfree。      
 			 */
 			oldContext = MemoryContextSwitchTo(aggstate->curaggcontext->ecxt_per_tuple_memory);
 			pergroupstate->transValue = datumCopy(fcinfo->args[1].value,
@@ -749,45 +749,45 @@ advance_transition_function(AggState *aggstate,
 		if (pergroupstate->transValueIsNull)
 		{
 			/*
-			 * Don't call a strict function with NULL inputs.  Note it is
-			 * possible to get here despite the above tests, if the transfn is
-			 * strict *and* returned a NULL on a prior cycle. If that happens
-			 * we will propagate the NULL all the way to the end.
+			 * 不得用NULL输入调用 strict 函数。注意，即便 
+			 * 通过了上述测试，当 transfn 为 strict 且上一轮    
+			 * 返回了 NULL，仍可能到达此处。若发生这种      
+			 * 情况，NULL 会被一路传递到最后。      
 			 */
 			return;
 		}
 	}
 
-	/* We run the transition functions in per-input-tuple memory context */
+	/* 我们在每输入元组的内存上下文中运行转移函数   */
 	oldContext = MemoryContextSwitchTo(aggstate->tmpcontext->ecxt_per_tuple_memory);
 
-	/* set up aggstate->curpertrans for AggGetAggref() */
+	/* 为 AggGetAggref() 设置 aggstate->curpertrans */
 	aggstate->curpertrans = pertrans;
 
 	/*
-	 * OK to call the transition function
+	 * 可以调用转移函数了       
 	 */
 	fcinfo->args[0].value = pergroupstate->transValue;
 	fcinfo->args[0].isnull = pergroupstate->transValueIsNull;
-	fcinfo->isnull = false;		/* just in case transfn doesn't set it */
+	fcinfo->isnull = false;		/* 以防 transfn 未设置它         */
 
 	newVal = FunctionCallInvoke(fcinfo);
 
 	aggstate->curpertrans = NULL;
 
 	/*
-	 * If pass-by-ref datatype, must copy the new value into aggcontext and
-	 * free the prior transValue.  But if transfn returned a pointer to its
-	 * first input, we don't need to do anything.
+	 * 如果是引用传递类型，必须把新值复制进 aggcontext   
+	 * 并释放先前的 transValue。但若 transfn 返回的指针      
+	 * 指向首个输入，则无需操作。   
 	 *
-	 * It's safe to compare newVal with pergroup->transValue without regard
-	 * for either being NULL, because ExecAggCopyTransValue takes care to set
-	 * transValue to 0 when NULL. Otherwise we could end up accidentally not
-	 * reparenting, when the transValue has the same numerical value as
-	 * newValue, despite being NULL.  This is a somewhat hot path, making it
-	 * undesirable to instead solve this with another branch for the common
-	 * case of the transition function returning its (modified) input
-	 * argument.
+	 * 即使两者中任一为 NULL，直接比较 newVal 与             
+	 * pergroup->transValue 也是安全的，因为                         
+	 * ExecAggCopyTransValue 会确保在 NULL 时把                       
+	 * transValue 置为 0。否则，当 transValue 与 newValue      
+	 * 数值相同而实际为 NULL 时，我们可能会碰巧不做      
+	 * 重新挂接。此路径相对热门，故不宜另设分支解决  
+	 * 转移函数返回（修改过的）输入参数的常见     
+	 * 情形。
 	 */
 	if (!pertrans->transtypeByVal &&
 		DatumGetPointer(newVal) != DatumGetPointer(pergroupstate->transValue))
@@ -803,15 +803,15 @@ advance_transition_function(AggState *aggstate,
 }
 
 /*
- * Advance each aggregate transition state for one input tuple.  The input
- * tuple has been stored in tmpcontext->ecxt_outertuple, so that it is
- * accessible to ExecEvalExpr.
+ * 为一条输入元组推进每个聚合的过渡状态。输入        
+ * 元组已存入 tmpcontext->ecxt_outertuple，以便               
+ * ExecEvalExpr 访问。     
  *
- * We have two sets of transition states to handle: one for sorted aggregation
- * and one for hashed; we do them both here, to avoid multiple evaluation of
- * the inputs.
+ * 我们有两套要处理的过渡状态：一套用于排序聚合，      
+ * 一套用于哈希聚合；我们同处处理两者，避免再次       
+ * 求值。  
  *
- * When called, CurrentMemoryContext should be the per-query context.
+ * 调用时，CurrentMemoryContext 应为每查询上下文。      
  */
 static void
 advance_aggregates(AggState *aggstate)
@@ -824,26 +824,26 @@ advance_aggregates(AggState *aggstate)
 }
 
 /*
- * Run the transition function for a DISTINCT or ORDER BY aggregate
- * with only one input.  This is called after we have completed
- * entering all the input values into the sort object.  We complete the
- * sort, read out the values in sorted order, and run the transition
- * function on each value (applying DISTINCT if appropriate).
+ * 为只有一个输入的 DISTINCT 或 ORDER BY 聚合           
+ * 运行转移函数。它在所有输入值录入排序器后
+ * 调用。我们完成排序，按序读出各值，并对           
+ * 每个值运行转移函数（适用时施加                    
+ * DISTINCT）。                                            
  *
- * Note that the strictness of the transition function was checked when
- * entering the values into the sort, so we don't check it again here;
- * we just apply standard SQL DISTINCT logic.
+ * 注意：往排序中录入值时已经检查过转移函数的     
+ * 严格性，因此这里不再检查；我们只应用标准的    
+ * SQL DISTINCT 逻辑。                    
  *
- * The one-input case is handled separately from the multi-input case
- * for performance reasons: for single by-value inputs, such as the
- * common case of count(distinct id), the tuplesort_getdatum code path
- * is around 300% faster.  (The speedup for by-reference types is less
- * but still noticeable.)
+ * 单输入与多输入情形分开处理，是出于性能考虑：
+ * 对于单列按值传递输入，例如常见的                
+ * count(distinct id)，tuplesort_getdatum 代码路径               
+ * 要快 300% 左右。（按引用类型的提速幅度较小，    
+ * 但仍很可观。） 
  *
- * This function handles only one grouping set (already set in
- * aggstate->current_set).
+ * 本函数只处理一个分组集（该集已在 aggstate->
+ * current_set 里）。  
  *
- * When called, CurrentMemoryContext should be the per-query context.
+ * 调用时，CurrentMemoryContext 应为每查询上下文。      
  */
 static void
 process_ordered_aggregate_single(AggState *aggstate,
@@ -866,28 +866,28 @@ process_ordered_aggregate_single(AggState *aggstate,
 
 	tuplesort_performsort(pertrans->sortstates[aggstate->current_set]);
 
-	/* Load the column into argument 1 (arg 0 will be transition value) */
+	/* 把该列装入参数 1（参数 0 将是过渡值）            */
 	newVal = &fcinfo->args[1].value;
 	isNull = &fcinfo->args[1].isnull;
 
 	/*
-	 * Note: if input type is pass-by-ref, the datums returned by the sort are
-	 * freshly palloc'd in the per-query context, so we must be careful to
-	 * pfree them when they are no longer needed.
+	 * 注意：若输入类型是引用传递，排序返回的 datum        
+	 * 都是在每查询上下文中新 palloc 出来的，所以必须  
+	 * 小心在不再需要时将其 pfree。   
 	 */
 
 	while (tuplesort_getdatum(pertrans->sortstates[aggstate->current_set],
 							  true, false, newVal, isNull, &newAbbrevVal))
 	{
 		/*
-		 * Clear and select the working context for evaluation of the equality
-		 * function and transition function.
+		 * 清空并为相等函数与转移函数的求值选择工作       
+		 * 上下文。                     
 		 */
 		MemoryContextReset(workcontext);
 		oldContext = MemoryContextSwitchTo(workcontext);
 
 		/*
-		 * If DISTINCT mode, and not distinct from prior, skip it.
+		 * 若 DISTINCT 模式且与先前无差异，跳过。   
 		 */
 		if (isDistinct &&
 			haveOldVal &&
@@ -908,8 +908,8 @@ process_ordered_aggregate_single(AggState *aggstate,
 			MemoryContextSwitchTo(oldContext);
 
 			/*
-			 * Forget the old value, if any, and remember the new one for
-			 * subsequent equality checks.
+			 * 忘掉旧值（若有），并记住新值供后续       
+			 * 相等性检查之用。   
 			 */
 			if (!pertrans->inputtypeByVal)
 			{
@@ -935,16 +935,16 @@ process_ordered_aggregate_single(AggState *aggstate,
 }
 
 /*
- * Run the transition function for a DISTINCT or ORDER BY aggregate
- * with more than one input.  This is called after we have completed
- * entering all the input values into the sort object.  We complete the
- * sort, read out the values in sorted order, and run the transition
- * function on each value (applying DISTINCT if appropriate).
+ * 为有多个输入的 DISTINCT 或 ORDER BY 聚合运行        
+ * 转移函数。这是在把所有输入值都录入排序对象  
+ * 之后调用的。我们完成排序，按排序顺序读出        
+ * 各值，并对每个值运行转移函数（适用时施加     
+ * DISTINCT）。                                            
  *
- * This function handles only one grouping set (already set in
- * aggstate->current_set).
+ * 本函数只处理一个分组集（该集已在 aggstate->
+ * current_set 里）。  
  *
- * When called, CurrentMemoryContext should be the per-query context.
+ * 调用时，CurrentMemoryContext 应为每查询上下文。      
  */
 static void
 process_ordered_aggregate_multi(AggState *aggstate,
@@ -983,13 +983,13 @@ process_ordered_aggregate_multi(AggState *aggstate,
 			!ExecQual(pertrans->equalfnMulti, tmpcontext))
 		{
 			/*
-			 * Extract the first numTransInputs columns as datums to pass to
-			 * the transfn.
+			 * 把前 numTransInputs 列提取为要传给 transfn 的      
+			 * datum。    
 			 */
 			slot_getsomeattrs(slot1, numTransInputs);
 
-			/* Load values into fcinfo */
-			/* Start from 1, since the 0th arg will be the transition value */
+			/* 把值装入 fcinfo     */
+			/* 从 1 开始，因为第 0 个参数将是过渡值          */
 			for (i = 0; i < numTransInputs; i++)
 			{
 				fcinfo->args[i + 1].value = slot1->tts_values[i];
@@ -1000,18 +1000,18 @@ process_ordered_aggregate_multi(AggState *aggstate,
 
 			if (numDistinctCols > 0)
 			{
-				/* swap the slot pointers to retain the current tuple */
+				/* 交换槽位指针以保住当前元组            */
 				TupleTableSlot *tmpslot = slot2;
 
 				slot2 = slot1;
 				slot1 = tmpslot;
-				/* avoid ExecQual() calls by reusing abbreviated keys */
+				/* 复用缩写键以避免 ExecQual() 调用         */
 				oldAbbrevVal = newAbbrevVal;
 				haveOldValue = true;
 			}
 		}
 
-		/* Reset context each time */
+		/* 每次都重置上下文*/
 		ResetExprContext(tmpcontext);
 
 		ExecClearTuple(slot1);
@@ -1023,25 +1023,25 @@ process_ordered_aggregate_multi(AggState *aggstate,
 	tuplesort_end(pertrans->sortstates[aggstate->current_set]);
 	pertrans->sortstates[aggstate->current_set] = NULL;
 
-	/* restore previous slot, potentially in use for grouping sets */
+	/* 恢复先前的槽位（可能供分组集使用）         */
 	tmpcontext->ecxt_outertuple = save;
 }
 
 /*
- * Compute the final value of one aggregate.
+ * 计算单个聚合的最终值。        
  *
- * This function handles only one grouping set (already set in
- * aggstate->current_set).
+ * 本函数只处理一个分组集（该集已在 aggstate->
+ * current_set 里）。  
  *
- * The finalfn will be run, and the result delivered, in the
- * output-tuple context; caller's CurrentMemoryContext does not matter.
- * (But note that in some cases, such as when there is no finalfn, the
- * result might be a pointer to or into the agg's transition value.)
+ * 最终函数会在输出元组上下文中运行并交付
+ * 结果；调用方的 CurrentMemoryContext 无关紧要。          
+ * （但注意，在某些情况下，比如没有最终函数时， 
+ * 结果可能是指向聚合过渡值或其内部的指针。）  
  *
- * The finalfn uses the state as set in the transno.  This also might be
- * being used by another aggregate function, so it's important that we do
- * nothing destructive here.  Moreover, the aggregate's final value might
- * get used in multiple places, so we mustn't return a R/W expanded datum.
+ * 最终函数使用 transno 中设定的状态。其他聚合         
+ * 函数可能也正在使用该状态，因此重要的一点是       
+ * 我们在这里不做任何破坏性操作。此外，聚合的       
+ * 最终值可能被多处使用，故不能返回 R/W 展开 datum。   
  */
 static void
 finalize_aggregate(AggState *aggstate,
@@ -1059,10 +1059,10 @@ finalize_aggregate(AggState *aggstate,
 	oldContext = MemoryContextSwitchTo(aggstate->ss.ps.ps_ExprContext->ecxt_per_tuple_memory);
 
 	/*
-	 * Evaluate any direct arguments.  We do this even if there's no finalfn
-	 * (which is unlikely anyway), so that side-effects happen as expected.
-	 * The direct arguments go into arg positions 1 and up, leaving position 0
-	 * for the transition state value.
+	 * 计算所有直接参数。即使没有最终函数（这本来就   
+	 * 不太可能），我们也照样计算，以便副作用按预期  
+	 * 发生。直接参数会放入参数位置 1 及更高位，位置 0   
+	 * 则留给过渡状态值。    
 	 */
 	i = 1;
 	foreach(lc, peragg->aggdirectargs)
@@ -1077,13 +1077,13 @@ finalize_aggregate(AggState *aggstate,
 	}
 
 	/*
-	 * Apply the agg's finalfn if one is provided, else return transValue.
+	 * 若聚合有最终函数则应用，否则返回 transValue。     
 	 */
 	if (OidIsValid(peragg->finalfn_oid))
 	{
 		int			numFinalArgs = peragg->numFinalArgs;
 
-		/* set up aggstate->curperagg for AggGetAggref() */
+		/* 为 AggGetAggref() 设置 aggstate->curperagg */
 		aggstate->curperagg = peragg;
 
 		InitFunctionCallInfoData(*fcinfo, &peragg->finalfn,
@@ -1091,7 +1091,7 @@ finalize_aggregate(AggState *aggstate,
 								 pertrans->aggCollation,
 								 (void *) aggstate, NULL);
 
-		/* Fill in the transition state value */
+		/* 填入过渡状态值              */
 		fcinfo->args[0].value =
 			MakeExpandedObjectReadOnly(pergroupstate->transValue,
 									   pergroupstate->transValueIsNull,
@@ -1099,7 +1099,7 @@ finalize_aggregate(AggState *aggstate,
 		fcinfo->args[0].isnull = pergroupstate->transValueIsNull;
 		anynull |= pergroupstate->transValueIsNull;
 
-		/* Fill any remaining argument positions with nulls */
+		/* 把其余参数位置填入空值                */
 		for (; i < numFinalArgs; i++)
 		{
 			fcinfo->args[i].value = (Datum) 0;
@@ -1109,7 +1109,7 @@ finalize_aggregate(AggState *aggstate,
 
 		if (fcinfo->flinfo->fn_strict && anynull)
 		{
-			/* don't call a strict function with NULL inputs */
+			/* 不要以 NULL 输入调用 strict 函数     */
 			*resultVal = (Datum) 0;
 			*resultIsNull = true;
 		}
@@ -1138,10 +1138,10 @@ finalize_aggregate(AggState *aggstate,
 }
 
 /*
- * Compute the output value of one partial aggregate.
+ * 计算单个部分聚合的输出值。           
  *
- * The serialization function will be run, and the result delivered, in the
- * output-tuple context; caller's CurrentMemoryContext does not matter.
+ * 序列化函数会运行，其结果也会在输出元组上下文      
+ * 中交付；调用方的 CurrentMemoryContext 无关紧要。       
  */
 static void
 finalize_partialaggregate(AggState *aggstate,
@@ -1155,12 +1155,12 @@ finalize_partialaggregate(AggState *aggstate,
 	oldContext = MemoryContextSwitchTo(aggstate->ss.ps.ps_ExprContext->ecxt_per_tuple_memory);
 
 	/*
-	 * serialfn_oid will be set if we must serialize the transvalue before
-	 * returning it
+	 * 如果必须在返回之前序列化过渡值，则会设置       
+	 * serialfn_oid
 	 */
 	if (OidIsValid(pertrans->serialfn_oid))
 	{
-		/* Don't call a strict serialization function with NULL input. */
+		/* 不要以 NULL 输入调用 strict 序列化函数。       */
 		if (pertrans->serialfn.fn_strict && pergroupstate->transValueIsNull)
 		{
 			*resultVal = (Datum) 0;
@@ -1198,8 +1198,8 @@ finalize_partialaggregate(AggState *aggstate,
 }
 
 /*
- * Extract the attributes that make up the grouping key into the
- * hashslot. This is necessary to compute the hash or perform a lookup.
+ * 把构成分组键的属性提取到 hashslot 中。这是   
+ * 计算哈希或执行查找所必需的。                          
  */
 static inline void
 prepare_hash_slot(AggStatePerHash perhash,
@@ -1208,7 +1208,7 @@ prepare_hash_slot(AggStatePerHash perhash,
 {
 	int			i;
 
-	/* transfer just the needed columns into hashslot */
+	/* 只把所需的列传入 hashslot              */
 	slot_getsomeattrs(inputslot, perhash->largestGrpColIdx);
 	ExecClearTuple(hashslot);
 
@@ -1223,28 +1223,28 @@ prepare_hash_slot(AggStatePerHash perhash,
 }
 
 /*
- * Prepare to finalize and project based on the specified representative tuple
- * slot and grouping set.
+ * 准备好基于给定的代表元组槽位和分组集进行终结         
+ * 与投影。          
  *
- * In the specified tuple slot, force to null all attributes that should be
- * read as null in the context of the current grouping set.  Also stash the
- * current group bitmap where GroupingExpr can get at it.
+ * 在给定的元组槽位中，把在当前分组集语境下应当      
+ * 读为 null 的属性强制置为 null。同时把当前分组          
+ * 位图存放到 GroupingExpr 能取到的地方。    
  *
- * This relies on three conditions:
+ * 这依赖于三个条件：     
  *
- * 1) Nothing is ever going to try and extract the whole tuple from this slot,
- * only reference it in evaluations, which will only access individual
- * attributes.
+ * 1) 永远不会有人试图从这个槽位提取完整元组，            
+ * 只会在求值中引用它，而求值只会访问单个          
+ * 属性。  
  *
- * 2) No system columns are going to need to be nulled. (If a system column is
- * referenced in a group clause, it is actually projected in the outer plan
+ * 2) 不需要有系统列被置为 null。（如果 group 子句            
+ * 中引用了某个系统列，它实际上会在外层计划的         
  * tlist.)
  *
- * 3) Within a given phase, we never need to recover the value of an attribute
- * once it has been set to null.
+ * 3) 在给定阶段内，某个属性一旦被置为 null，我们          
+ * 就无需恢复其值。     
  *
- * Poking into the slot this way is a bit ugly, but the consensus is that the
- * alternative was worse.
+ * 这样去戳槽位的内部有点丑，但大家一致认为              
+ * 替代方案更糟。 
  */
 static void
 prepare_projection_slot(AggState *aggstate, TupleTableSlot *slot, int currentSet)
@@ -1258,9 +1258,9 @@ prepare_projection_slot(AggState *aggstate, TupleTableSlot *slot, int currentSet
 		if (TTS_EMPTY(slot))
 		{
 			/*
-			 * Force all values to be NULL if working on an empty input tuple
-			 * (i.e. an empty grouping set for which no input rows were
-			 * supplied).
+			 * 若处理的是空输入元组，则把所有值置为 NULL   
+			 * （也就是未提供输入行的空分组集           
+			 * ）。    
 			 */
 			ExecStoreAllNullTuple(slot);
 		}
@@ -1268,7 +1268,7 @@ prepare_projection_slot(AggState *aggstate, TupleTableSlot *slot, int currentSet
 		{
 			ListCell   *lc;
 
-			/* all_grouped_cols is arranged in desc order */
+			/* all_grouped_cols 按降序排列           */
 			slot_getsomeattrs(slot, linitial_int(aggstate->all_grouped_cols));
 
 			foreach(lc, aggstate->all_grouped_cols)
@@ -1283,13 +1283,13 @@ prepare_projection_slot(AggState *aggstate, TupleTableSlot *slot, int currentSet
 }
 
 /*
- * Compute the final value of all aggregates for one group.
+ * 为一个分组的所有聚合计算最终值。        
  *
- * This function handles only one grouping set at a time, which the caller must
- * have selected.  It's also the caller's responsibility to adjust the supplied
- * pergroup parameter to point to the current set's transvalues.
+ * 本函数一次只处理一个分组集，调用方必须已经             
+ * 把它选择好。调整所给的 pergroup 参数，使其指向            
+ * 当前分组集的过渡值，这也是调用方的责任。 
  *
- * Results are stored in the output econtext aggvalues/aggnulls.
+ * 结果存放在输出 econtext 的 aggvalues/aggnulls 中。 
  */
 static void
 finalize_aggregates(AggState *aggstate,
@@ -1302,8 +1302,8 @@ finalize_aggregates(AggState *aggstate,
 	int			aggno;
 
 	/*
-	 * If there were any DISTINCT and/or ORDER BY aggregates, sort their
-	 * inputs and run the transition functions.
+	 * 如果有任何 DISTINCT 和/或 ORDER BY 聚合，就对其     
+	 * 输入排序并运行转移函数。    
 	 */
 	for (int transno = 0; transno < aggstate->numtrans; transno++)
 	{
@@ -1344,7 +1344,7 @@ finalize_aggregates(AggState *aggstate,
 	}
 
 	/*
-	 * Run the final functions.
+	 * 运行最终函数。   
 	 */
 	for (aggno = 0; aggno < aggstate->numaggs; aggno++)
 	{
@@ -1364,9 +1364,9 @@ finalize_aggregates(AggState *aggstate,
 }
 
 /*
- * Project the result of a group (whose aggs have already been calculated by
- * finalize_aggregates). Returns the result slot, or NULL if no row is
- * projected (suppressed by qual).
+ * 投影出一个分组的结果（其聚合已由                         
+ * finalize_aggregates 算好）。返回结果槽位，若无行     
+ * 被投影，则返回 NULL。  
  */
 static TupleTableSlot *
 project_aggregates(AggState *aggstate)
@@ -1374,13 +1374,13 @@ project_aggregates(AggState *aggstate)
 	ExprContext *econtext = aggstate->ss.ps.ps_ExprContext;
 
 	/*
-	 * Check the qual (HAVING clause); if the group does not match, ignore it.
+	 * 检查 qual（HAVING 子句）；分组不匹配就忽略它。        
 	 */
 	if (ExecQual(aggstate->ss.ps.qual, econtext))
 	{
 		/*
-		 * Form and return projection tuple using the aggregate results and
-		 * the representative input tuple.
+		 * 用聚合结果和代表输入元组构成并返回投影       
+		 * 元组。                      
 		 */
 		return ExecProject(aggstate->ss.ps.ps_ProjInfo);
 	}
@@ -1391,8 +1391,8 @@ project_aggregates(AggState *aggstate)
 }
 
 /*
- * Find input-tuple columns that are needed, dividing them into
- * aggregated and unaggregated sets.
+ * 找出所需输入元组列，把它们分成已聚合与   
+ * 未聚合两组。               
  */
 static void
 find_cols(AggState *aggstate, Bitmapset **aggregated, Bitmapset **unaggregated)
@@ -1404,11 +1404,11 @@ find_cols(AggState *aggstate, Bitmapset **aggregated, Bitmapset **unaggregated)
 	context.aggregated = NULL;
 	context.unaggregated = NULL;
 
-	/* Examine tlist and quals */
+	/* 检查 tlist 与 quals  */
 	(void) find_cols_walker((Node *) agg->plan.targetlist, &context);
 	(void) find_cols_walker((Node *) agg->plan.qual, &context);
 
-	/* In some cases, grouping columns will not appear in the tlist */
+	/* 某些情况下，分组列不会出现在 tlist 中         */
 	for (int i = 0; i < agg->numCols; i++)
 		context.unaggregated = bms_add_member(context.unaggregated,
 											  agg->grpColIdx[i]);
@@ -1426,7 +1426,7 @@ find_cols_walker(Node *node, FindColsContext *context)
 	{
 		Var		   *var = (Var *) node;
 
-		/* setrefs.c should have set the varno to OUTER_VAR */
+		/* setrefs.c 应已把 varno 设置为 OUTER_VAR    */
 		Assert(var->varno == OUTER_VAR);
 		Assert(var->varlevelsup == 0);
 		if (context->is_aggref)
@@ -1450,20 +1450,20 @@ find_cols_walker(Node *node, FindColsContext *context)
 }
 
 /*
- * (Re-)initialize the hash table(s) to empty.
+ * （重新）将哈希表初始化为空。 
  *
- * To implement hashed aggregation, we need a hashtable that stores a
- * representative tuple and an array of AggStatePerGroup structs for each
- * distinct set of GROUP BY column values.  We compute the hash key from the
- * GROUP BY columns.  The per-group data is allocated in lookup_hash_entry(),
- * for each entry.
+ * 要实现哈希聚合，我们需要一个哈希表，为每组   
+ * 不同的 GROUP BY 列值组合存储一个代表元组，以及一个
+ * AggStatePerGroup 结构数组。哈希键由 GROUP BY 列算出。       
+ * 每组数据在 lookup_hash_entry() 中为每个条目分别              
+ * 进行分配。
  *
- * We have a separate hashtable and associated perhash data structure for each
- * grouping set for which we're doing hashing.
+ * 我们对每个做哈希的分组集，都有一个单独的哈希表及   
+ * 与之关联的 perhash 数据结构。    
  *
- * The contents of the hash tables always live in the hashcontext's per-tuple
- * memory context (there is only one of these for all tables together, since
- * they are all reset at the same time).
+ * 哈希表的内容始终存放在 hashcontext 的每元组内存          
+ * 上下文中（所有表共用一个这样的上下文，因为它们    
+ * 都会在同一时间重置）。    
  */
 static void
 build_hash_tables(AggState *aggstate)
@@ -1486,7 +1486,7 @@ build_hash_tables(AggState *aggstate)
 
 		memory = aggstate->hash_mem_limit / aggstate->num_hashes;
 
-		/* choose reasonable number of buckets per hashtable */
+		/* 为每个哈希表选择合理的桶数           */
 		nbuckets = hash_choose_num_buckets(aggstate->hashentrysize,
 										   perhash->aggnode->numGroups,
 										   memory);
@@ -1498,7 +1498,7 @@ build_hash_tables(AggState *aggstate)
 }
 
 /*
- * Build a single hashtable for this grouping set.
+ * 为该分组集构建单个哈希表。        
  */
 static void
 build_hash_table(AggState *aggstate, int setno, long nbuckets)
@@ -1513,10 +1513,10 @@ build_hash_table(AggState *aggstate, int setno, long nbuckets)
 		   aggstate->aggstrategy == AGG_MIXED);
 
 	/*
-	 * Used to make sure initial hash table allocation does not exceed
-	 * hash_mem. Note that the estimate does not include space for
-	 * pass-by-reference transition data values, nor for the representative
-	 * tuple of each group.
+	 * 用于确保哈希表的初始分配不超过 hash_mem。注意
+	 * 估算不含按引用传递的过渡数据值的空间，  
+	 * 也不包含每组代表元组                                      
+	 * 的空间。        
 	 */
 	additionalsize = aggstate->numtrans * sizeof(AggStatePerGroupData);
 
@@ -1536,29 +1536,29 @@ build_hash_table(AggState *aggstate, int setno, long nbuckets)
 }
 
 /*
- * Compute columns that actually need to be stored in hashtable entries.  The
- * incoming tuples from the child plan node will contain grouping columns,
- * other columns referenced in our targetlist and qual, columns used to
- * compute the aggregate functions, and perhaps just junk columns we don't use
- * at all.  Only columns of the first two types need to be stored in the
- * hashtable, and getting rid of the others can make the table entries
- * significantly smaller.  The hashtable only contains the relevant columns,
- * and is packed/unpacked in lookup_hash_entry() / agg_retrieve_hash_table()
- * into the format of the normal input descriptor.
+ * 计算真正需要存入哈希表条目中的那些列。子计划节点  
+ * 传来的输入元组将包含分组列、在我们的目标列表和  
+ * qual 中引用的其他列、用于计算聚合函数的列，或许
+ * 还有一些我们根本就用不到的 junk 列。只有前两类列才   
+ * 需要存入哈希表，而去掉其余的列就能显著缩小表   
+ * 条目的大小。哈希表只包含相关的列，并且会在    
+ * lookup_hash_entry() / agg_retrieve_hash_table() 中，按普通输入    
+ * 描述符的格式进行打包与                                        
+ * 解包。                                      
  *
- * Additional columns, in addition to the columns grouped by, come from two
- * sources: Firstly functionally dependent columns that we don't need to group
- * by themselves, and secondly ctids for row-marks.
+ * 除分组所依据的列之外，额外的列来自两个来源：其一
+ * 是函数依赖列（它们自身无需作为分组依据），其二是   
+ * 行标记所用的 ctid。                      
  *
- * To eliminate duplicates, we build a bitmapset of the needed columns, and
- * then build an array of the columns included in the hashtable. We might
- * still have duplicates if the passed-in grpColIdx has them, which can happen
- * in edge cases from semijoins/distinct; these can't always be removed,
- * because it's not certain that the duplicate cols will be using the same
- * hash function.
+ * 为消除重复，我们为所需的列构建一个 bitmapset，然后  
+ * 再为哈希表中包含的列构建一个数组。若传入的       
+ * grpColIdx 含有重复项，则仍可能出现重复，这种情况        
+ * 可见于半连接/去重等边界情形；这些重复不一定     
+ * 总能去除，因为无法确定重复列是否使用相同哈希     
+ * 函数。     
  *
- * Note that the array is preserved over ExecReScanAgg, so we allocate it in
- * the per-query context (unlike the hash table itself).
+ * 注意该数组会在 ExecReScanAgg 之后仍保留，故将其          
+ * 分配于查询期上下文（哈希表除外）。  
  */
 static void
 find_hash_columns(AggState *aggstate)
@@ -1571,7 +1571,7 @@ find_hash_columns(AggState *aggstate)
 	EState	   *estate = aggstate->ss.ps.state;
 	int			j;
 
-	/* Find Vars that will be needed in tlist and qual */
+	/* 找出 tlist 和 quals 中将需要的 Var      */
 	find_cols(aggstate, &aggregated_colnos, &base_colnos);
 	aggstate->colnos_needed = bms_union(base_colnos, aggregated_colnos);
 	aggstate->max_colno_needed = 0;
@@ -1600,11 +1600,11 @@ find_hash_columns(AggState *aggstate)
 		perhash->largestGrpColIdx = 0;
 
 		/*
-		 * If we're doing grouping sets, then some Vars might be referenced in
-		 * tlist/qual for the benefit of other grouping sets, but not needed
-		 * when hashing; i.e. prepare_projection_slot will null them out, so
-		 * there'd be no point storing them.  Use prepare_projection_slot's
-		 * logic to determine which.
+		 * 如果我们在做分组集，有些 Var 可能是为其他分组  
+		 * 集而在 tlist/qual 中被引用，但哈希时不需要；即  
+		 * 是说 prepare_projection_slot 会把它们置空，所以存储 
+		 * 它们毫无意义。用 prepare_projection_slot 的逻辑判定
+		 * Var 属于此类。      
 		 */
 		if (aggstate->phases[0].grouped_cols)
 		{
@@ -1621,10 +1621,10 @@ find_hash_columns(AggState *aggstate)
 		}
 
 		/*
-		 * Compute maximum number of input columns accounting for possible
-		 * duplications in the grpColIdx array, which can happen in some edge
-		 * cases where HashAggregate was generated as part of a semijoin or a
-		 * DISTINCT.
+		 * 计算输入列的最大数目，把 grpColIdx 数组中可能 
+		 * 出现的重复计算在内。这种重复在某些边界情形中
+		 * 可能出现，此时 HashAggregate 作为半连接或 DISTINCT   
+		 * 生成。
 		 */
 		maxCols = bms_num_members(colnos) + perhash->numCols;
 
@@ -1633,27 +1633,27 @@ find_hash_columns(AggState *aggstate)
 		perhash->hashGrpColIdxHash =
 			palloc(perhash->numCols * sizeof(AttrNumber));
 
-		/* Add all the grouping columns to colnos */
+		/* 把所有分组列都加入 colnos     */
 		for (i = 0; i < perhash->numCols; i++)
 			colnos = bms_add_member(colnos, grpColIdx[i]);
 
 		/*
-		 * First build mapping for columns directly hashed. These are the
-		 * first, because they'll be accessed when computing hash values and
-		 * comparing tuples for exact matches. We also build simple mapping
-		 * for execGrouping, so it knows where to find the to-be-hashed /
-		 * compared columns in the input.
+		 * 先为直接哈希的列建立映射。它们排在最前，  
+		 * 是因为计算哈希值和比较元组以确认精确匹配时  
+		 * 都要访问它们。我们还为 execGrouping 建立一个     
+		 * 简单映射，让它知道在输入中何处查找待哈希/ 
+		 * 比较的列。               
 		 */
 		for (i = 0; i < perhash->numCols; i++)
 		{
 			perhash->hashGrpColIdxInput[i] = grpColIdx[i];
 			perhash->hashGrpColIdxHash[i] = i + 1;
 			perhash->numhashGrpCols++;
-			/* delete already mapped columns */
+			/* 删除已映射过的列      */
 			colnos = bms_del_member(colnos, grpColIdx[i]);
 		}
 
-		/* and add the remaining columns */
+		/* 然后加入其余的列      */
 		i = -1;
 		while ((i = bms_next_member(colnos, i)) >= 0)
 		{
@@ -1661,7 +1661,7 @@ find_hash_columns(AggState *aggstate)
 			perhash->numhashGrpCols++;
 		}
 
-		/* and build a tuple descriptor for the hashtable */
+		/* 然后为哈希表构建元组描述符        */
 		for (i = 0; i < perhash->numhashGrpCols; i++)
 		{
 			int			varNumber = perhash->hashGrpColIdxInput[i] - 1;
@@ -1689,7 +1689,7 @@ find_hash_columns(AggState *aggstate)
 }
 
 /*
- * Estimate per-hash-table-entry overhead.
+ * 估算每个哈希表条目的开销。
  */
 Size
 hash_agg_entry_size(int numTrans, Size tupleWidth, Size transitionSpace)
@@ -1723,20 +1723,20 @@ hash_agg_entry_size(int numTrans, Size tupleWidth, Size transitionSpace)
 /*
  * hashagg_recompile_expressions()
  *
- * Identifies the right phase, compiles the right expression given the
- * arguments, and then sets phase->evalfunc to that expression.
+ * 确定正确的阶段，按参数编译相应表达式，然后把 
+ * phase->evalfunc 设置为该表达式。                    
  *
- * Different versions of the compiled expression are needed depending on
- * whether hash aggregation has spilled or not, and whether it's reading from
- * the outer plan or a tape. Before spilling to disk, the expression reads
- * from the outer plan and does not need to perform a NULL check. After
- * HashAgg begins to spill, new groups will not be created in the hash table,
- * and the AggStatePerGroup array may be NULL; therefore we need to add a null
- * pointer check to the expression. Then, when reading spilled data from a
- * tape, we change the outer slot type to be a fixed minimal tuple slot.
+ * 根据哈希聚合是否已溢出、以及是从外层计划还是从
+ * 磁带读取，需要用到编译表达式的不同版本。在溢出     
+ * 到磁盘之前，表达式从外层计划读取，且无需执行     
+ * NULL 检查。在 HashAgg 开始溢出之后，哈希表中不会   
+ * 创建新组，并且 AggStatePerGroup 数组可能为 NULL；因此      
+ * 我们需要在表达式中加入空指针检查。然后，当从磁带   
+ * 读取溢出数据时，我们把外层槽的类型改为固定的     
+ * 最小元组槽。                                                   
  *
- * It would be wasteful to recompile every time, so cache the compiled
- * expressions in the AggStatePerPhase, and reuse when appropriate.
+ * 每次重新编译太浪费，因此把编译好的表达式缓存 
+ * 到 AggStatePerPhase 中，并在适当时加以重用。       
  */
 static void
 hashagg_recompile_expressions(AggState *aggstate, bool minslot, bool nullcheck)
@@ -1761,14 +1761,14 @@ hashagg_recompile_expressions(AggState *aggstate, bool minslot, bool nullcheck)
 		bool		dosort = false;
 
 		/*
-		 * If minslot is true, that means we are processing a spilled batch
-		 * (inside agg_refill_hash_table()), and we must not advance the
-		 * sorted grouping sets.
+		 * 如果 minslot 为真，说明我们正在处理溢出的批次 
+		 * （在 agg_refill_hash_table() 中），此时绝不能推进
+		 * 已排序分组集。
 		 */
 		if (aggstate->aggstrategy == AGG_MIXED && !minslot)
 			dosort = true;
 
-		/* temporarily change the outerops while compiling the expression */
+		/* 在编译表达式期间临时更改 outerops                  */
 		if (minslot)
 		{
 			aggstate->ss.ps.outerops = &TTSOpsMinimalTuple;
@@ -1779,7 +1779,7 @@ hashagg_recompile_expressions(AggState *aggstate, bool minslot, bool nullcheck)
 														 dosort, dohash,
 														 nullcheck);
 
-		/* change back */
+		/* 改回      */
 		aggstate->ss.ps.outerops = outerops;
 		aggstate->ss.ps.outeropsfixed = outerfixed;
 	}
@@ -1788,12 +1788,12 @@ hashagg_recompile_expressions(AggState *aggstate, bool minslot, bool nullcheck)
 }
 
 /*
- * Set limits that trigger spilling to avoid exceeding hash_mem. Consider the
- * number of partitions we expect to create (if we do spill).
+ * 设置触发溢出的限制，以避免超出 hash_mem。需要考虑     
+ * 预计创建的分区数（若确实发生溢出）。    
  *
- * There are two limits: a memory limit, and also an ngroups limit. The
- * ngroups limit becomes important when we expect transition values to grow
- * substantially larger than the initial value.
+ * 有两种限制：内存限制，及组数限制。当我们预计  
+ * 过渡值会显著增长到远大于初始值时，ngroups 限制就    
+ * 会变得重要。                          
  */
 void
 hash_agg_set_limits(double hashentrysize, double input_groups, int used_bits,
@@ -1804,7 +1804,7 @@ hash_agg_set_limits(double hashentrysize, double input_groups, int used_bits,
 	Size		partition_mem;
 	Size		hash_mem_limit = get_hash_memory_limit();
 
-	/* if not expected to spill, use all of hash_mem */
+	/* 若预计不会溢出，则用满 hash_mem    */
 	if (input_groups * hashentrysize <= hash_mem_limit)
 	{
 		if (num_partitions != NULL)
@@ -1815,9 +1815,9 @@ hash_agg_set_limits(double hashentrysize, double input_groups, int used_bits,
 	}
 
 	/*
-	 * Calculate expected memory requirements for spilling, which is the size
-	 * of the buffers needed for all the tapes that need to be open at once.
-	 * Then, subtract that from the memory available for holding hash tables.
+	 * 计算溢出所需的内存开销，即所有需要同时保持打开 
+	 * 状态的磁带所需的缓冲区大小。然后，把它从可用于
+	 * 容纳哈希表的内存中扣除。                                  
 	 */
 	npartitions = hash_choose_num_partitions(input_groups,
 											 hashentrysize,
@@ -1831,9 +1831,9 @@ hash_agg_set_limits(double hashentrysize, double input_groups, int used_bits,
 		HASHAGG_WRITE_BUFFER_SIZE * npartitions;
 
 	/*
-	 * Don't set the limit below 3/4 of hash_mem. In that case, we are at the
-	 * minimum number of partitions, so we aren't going to dramatically exceed
-	 * work mem anyway.
+	 * 不要把限制设得低于 hash_mem 的 3/4。在那种情形下，  
+	 * 我们已处于最小分区数，因此并不会大幅超出           
+	 * work_mem。     
 	 */
 	if (hash_mem_limit > 4 * partition_mem)
 		*mem_limit = hash_mem_limit - partition_mem;
@@ -1849,9 +1849,9 @@ hash_agg_set_limits(double hashentrysize, double input_groups, int used_bits,
 /*
  * hash_agg_check_limits
  *
- * After adding a new group to the hash table, check whether we need to enter
- * spill mode. Allocations may happen without adding new groups (for instance,
- * if the transition state size grows), so this check is imperfect.
+ * 向哈希表加入新组之后，检查是否需要进入溢出模式。  
+ * 不加入新组也可能发生内存分配（例如过渡状态的大      
+ * 小增长时），因此这种检查并不完美。             
  */
 static void
 hash_agg_check_limits(AggState *aggstate)
@@ -1863,8 +1863,8 @@ hash_agg_check_limits(AggState *aggstate)
 														true);
 
 	/*
-	 * Don't spill unless there's at least one group in the hash table so we
-	 * can be sure to make progress even in edge cases.
+	 * 除非哈希表中已有至少一个组，否则不要溢出，这样
+	 * 才能确保在边界情形下也能前进。   
 	 */
 	if (aggstate->hash_ngroups_current > 0 &&
 		(meta_mem + hashkey_mem > aggstate->hash_mem_limit ||
@@ -1875,9 +1875,9 @@ hash_agg_check_limits(AggState *aggstate)
 }
 
 /*
- * Enter "spill mode", meaning that no new groups are added to any of the hash
- * tables. Tuples that would create a new group are instead spilled, and
- * processed later.
+ * 进入"溢出模式"，意思是不会再向任何哈希表加入          
+ * 新组。本会创建新组的元组改为被溢出，稍后再加以
+ * 处理。       
  */
 static void
 hash_agg_enter_spill_mode(AggState *aggstate)
@@ -1909,10 +1909,10 @@ hash_agg_enter_spill_mode(AggState *aggstate)
 }
 
 /*
- * Update metrics after filling the hash table.
+ * 在填满哈希表之后更新度量值。  
  *
- * If reading from the outer plan, from_tape should be false; if reading from
- * another tape, from_tape should be true.
+ * 如果从外层计划读取，from_tape 应为 false；如果从另一    
+ * 条磁带读取，则应为 true。    
  */
 static void
 hash_agg_update_metrics(AggState *aggstate, bool from_tape, int npartitions)
@@ -1926,23 +1926,23 @@ hash_agg_update_metrics(AggState *aggstate, bool from_tape, int npartitions)
 		aggstate->aggstrategy != AGG_HASHED)
 		return;
 
-	/* memory for the hash table itself */
+	/* 哈希表本身所需的内存   */
 	meta_mem = MemoryContextMemAllocated(aggstate->hash_metacxt, true);
 
-	/* memory for the group keys and transition states */
+	/* 组键与过渡状态所需的内存            */
 	hashkey_mem = MemoryContextMemAllocated(aggstate->hashcontext->ecxt_per_tuple_memory, true);
 
-	/* memory for read/write tape buffers, if spilled */
+	/* 若溢出，读写磁带缓冲所需的内存  */
 	buffer_mem = npartitions * HASHAGG_WRITE_BUFFER_SIZE;
 	if (from_tape)
 		buffer_mem += HASHAGG_READ_BUFFER_SIZE;
 
-	/* update peak mem */
+	/* 更新 peak mem */
 	total_mem = meta_mem + hashkey_mem + buffer_mem;
 	if (total_mem > aggstate->hash_mem_peak)
 		aggstate->hash_mem_peak = total_mem;
 
-	/* update disk usage */
+	/* 更新磁盘用量*/
 	if (aggstate->hash_tapeset != NULL)
 	{
 		uint64		disk_used = LogicalTapeSetBlocks(aggstate->hash_tapeset) * (BLCKSZ / 1024);
@@ -1951,7 +1951,7 @@ hash_agg_update_metrics(AggState *aggstate, bool from_tape, int npartitions)
 			aggstate->hash_disk_used = disk_used;
 	}
 
-	/* update hashentrysize estimate based on contents */
+	/* 根据内容更新 hashentrysize 估算值      */
 	if (aggstate->hash_ngroups_current > 0)
 	{
 		aggstate->hashentrysize =
@@ -1961,7 +1961,7 @@ hash_agg_update_metrics(AggState *aggstate, bool from_tape, int npartitions)
 }
 
 /*
- * Choose a reasonable number of buckets for the initial hash table size.
+ * 为哈希表的初始大小选择合理的桶数。                   
  */
 static long
 hash_choose_num_buckets(double hashentrysize, long ngroups, Size memory)
@@ -1972,8 +1972,8 @@ hash_choose_num_buckets(double hashentrysize, long ngroups, Size memory)
 	max_nbuckets = memory / hashentrysize;
 
 	/*
-	 * Underestimating is better than overestimating. Too many buckets crowd
-	 * out space for group keys and transition state values.
+	 * 估算偏低比估算偏高要好。桶太多会挤占组键与      
+	 * 过渡状态值的空间。                          
 	 */
 	max_nbuckets >>= 1;
 
@@ -1984,9 +1984,9 @@ hash_choose_num_buckets(double hashentrysize, long ngroups, Size memory)
 }
 
 /*
- * Determine the number of partitions to create when spilling, which will
- * always be a power of two. If log2_npartitions is non-NULL, set
- * *log2_npartitions to the log2() of the number of partitions.
+ * 确定溢出时要创建的分区数，它将总是 2 的幂。如果 
+ * log2_npartitions 非 NULL，则把分区数的 log2() 存入  
+ * *其中。                                                  
  */
 static int
 hash_choose_num_partitions(double input_groups, double hashentrysize,
@@ -2000,8 +2000,8 @@ hash_choose_num_partitions(double input_groups, double hashentrysize,
 	int			partition_bits;
 
 	/*
-	 * Avoid creating so many partitions that the memory requirements of the
-	 * open partition files are greater than 1/4 of hash_mem.
+	 * 避免创建过多分区，以致打开的分区文件所需的内存
+	 * 超过 hash_mem 的 1/4。                            
 	 */
 	partition_limit =
 		(hash_mem_limit * 0.25 - HASHAGG_READ_BUFFER_SIZE) /
@@ -2009,7 +2009,7 @@ hash_choose_num_partitions(double input_groups, double hashentrysize,
 
 	mem_wanted = HASHAGG_PARTITION_FACTOR * input_groups * hashentrysize;
 
-	/* make enough partitions so that each one is likely to fit in memory */
+	/* 创建足够多的分区，使每个分区都可能装进内存    */
 	dpartitions = 1 + (mem_wanted / hash_mem_limit);
 
 	if (dpartitions > partition_limit)
@@ -2020,27 +2020,27 @@ hash_choose_num_partitions(double input_groups, double hashentrysize,
 	if (dpartitions > HASHAGG_MAX_PARTITIONS)
 		dpartitions = HASHAGG_MAX_PARTITIONS;
 
-	/* HASHAGG_MAX_PARTITIONS limit makes this safe */
+	/* HASHAGG_MAX_PARTITIONS 上限保证安全    */
 	npartitions = (int) dpartitions;
 
 	/* ceil(log2(npartitions)) */
 	partition_bits = my_log2(npartitions);
 
-	/* make sure that we don't exhaust the hash bits */
+	/* 确保不会耗尽哈希位                   */
 	if (partition_bits + used_bits >= 32)
 		partition_bits = 32 - used_bits;
 
 	if (log2_npartitions != NULL)
 		*log2_npartitions = partition_bits;
 
-	/* number of partitions will be a power of two */
+	/* 分区数将是 2 的幂                    */
 	npartitions = 1 << partition_bits;
 
 	return npartitions;
 }
 
 /*
- * Initialize a freshly-created TupleHashEntry.
+ * 初始化一个新建的 TupleHashEntry。  
  */
 static void
 initialize_hash_entry(AggState *aggstate, TupleHashTable hashtable,
@@ -2052,7 +2052,7 @@ initialize_hash_entry(AggState *aggstate, TupleHashTable hashtable,
 	aggstate->hash_ngroups_current++;
 	hash_agg_check_limits(aggstate);
 
-	/* no need to allocate or initialize per-group state */
+	/* 无需分配或初始化每组状态              */
 	if (aggstate->numtrans == 0)
 		return;
 
@@ -2063,8 +2063,8 @@ initialize_hash_entry(AggState *aggstate, TupleHashTable hashtable,
 	entry->additional = pergroup;
 
 	/*
-	 * Initialize aggregates for new tuple group, lookup_hash_entries()
-	 * already has selected the relevant grouping set.
+	 * 为新元组组初始化聚合，lookup_hash_entries() 已经   
+	 * 选择好了相关的分组集。              
 	 */
 	for (transno = 0; transno < aggstate->numtrans; transno++)
 	{
@@ -2076,21 +2076,21 @@ initialize_hash_entry(AggState *aggstate, TupleHashTable hashtable,
 }
 
 /*
- * Look up hash entries for the current tuple in all hashed grouping sets.
+ * 在所有做哈希的分组集中查找当前元组的哈希条目。  
  *
- * Be aware that lookup_hash_entry can reset the tmpcontext.
+ * 注意 lookup_hash_entry 可能重置 tmpcontext。      
  *
- * Some entries may be left NULL if we are in "spill mode". The same tuple
- * will belong to different groups for each grouping set, so may match a group
- * already in memory for one set and match a group not in memory for another
- * set. When in "spill mode", the tuple will be spilled for each grouping set
- * where it doesn't match a group in memory.
+ * 如果我们处于"溢出模式"，有些条目可能仍为 NULL。同 
+ * 一个元组对每个分组集都属于不同的组，所以可能对某   
+ * 个分组集匹配到内存中已有的组，而对另一分组集则匹 
+ * 配到内存中没有的组。处于"溢出模式"时，元组会在未   
+ * 匹配内存组的分组集上溢出。  
  *
- * NB: It's possible to spill the same tuple for several different grouping
- * sets. This may seem wasteful, but it's actually a trade-off: if we spill
- * the tuple multiple times for multiple grouping sets, it can be partitioned
- * for each grouping set, making the refilling of the hash table very
- * efficient.
+ * 注意：同一个元组可能为多个不同分组集被溢出。这   
+ * 看似浪费，但实际上是一种权衡：如果我们为多个分组
+ * 集多次溢出同一个元组，即可对每个分组集分别分区，  
+ * 从而使哈希表的重新填充变得非常                     
+ * 高效。 
  */
 static void
 lookup_hash_entries(AggState *aggstate)
@@ -2109,7 +2109,7 @@ lookup_hash_entries(AggState *aggstate)
 		bool		isnew = false;
 		bool	   *p_isnew;
 
-		/* if hash table already spilled, don't create new entries */
+		/* 若哈希表已溢出，则不再创建新条目        */
 		p_isnew = aggstate->hash_spill_mode ? NULL : &isnew;
 
 		select_current_set(aggstate, setno, true);
@@ -2145,15 +2145,15 @@ lookup_hash_entries(AggState *aggstate)
 /*
  * ExecAgg -
  *
- *	  ExecAgg receives tuples from its outer subplan and aggregates over
- *	  the appropriate attribute for each aggregate function use (Aggref
- *	  node) appearing in the targetlist or qual of the node.  The number
- *	  of tuples to aggregate over depends on whether grouped or plain
- *	  aggregation is selected.  In grouped aggregation, we produce a result
- *	  row for each group; in plain aggregation there's a single result row
- *	  for the whole query.  In either case, the value of each aggregate is
- *	  stored in the expression context to be used when ExecProject evaluates
- *	  the result tuple.
+ *	  ExecAgg 从外层子计划接收元组，并对节点的目标    
+ *	  列表或 qual 中出现的每个聚合函数使用点（Aggref  
+ *	  节点），对合适属性进行聚合。要聚合的元组数   
+ *	  量取决于分组聚合还是普通聚合。在分组聚合   
+ *	  中，我们为各组产出一个结果行；在普通聚合中，整
+ *	  个查询只有一个结果行。任何情况下，各聚合的值  
+ *	  都存储在表达式上下文中，供 ExecProject 对             
+ *	  结果元组进行求值时加以                                     
+ *	  使用。        
  */
 static TupleTableSlot *
 ExecAgg(PlanState *pstate)
@@ -2165,7 +2165,7 @@ ExecAgg(PlanState *pstate)
 
 	if (!node->agg_done)
 	{
-		/* Dispatch based on strategy */
+		/* 根据策略进行分发   */
 		switch (node->phase->aggstrategy)
 		{
 			case AGG_HASHED:
@@ -2189,7 +2189,7 @@ ExecAgg(PlanState *pstate)
 }
 
 /*
- * ExecAgg for non-hashed case
+ * 非哈希情形的 ExecAgg 
  */
 static TupleTableSlot *
 agg_retrieve_direct(AggState *aggstate)
@@ -2210,11 +2210,11 @@ agg_retrieve_direct(AggState *aggstate)
 	int			i;
 
 	/*
-	 * get state info from node
+	 * 取得节点状态信息
 	 *
-	 * econtext is the per-output-tuple expression context
+	 * econtext 是每个输出元组的表达式上下文
 	 *
-	 * tmpcontext is the per-input-tuple expression context
+	 * tmpcontext 为每个输入元组表达式上下文  
 	 */
 	econtext = aggstate->ss.ps.ps_ExprContext;
 	tmpcontext = aggstate->tmpcontext;
@@ -2224,32 +2224,32 @@ agg_retrieve_direct(AggState *aggstate)
 	firstSlot = aggstate->ss.ss_ScanTupleSlot;
 
 	/*
-	 * We loop retrieving groups until we find one matching
+	 * 我们循环检索各组，直到找到匹配       
 	 * aggstate->ss.ps.qual
 	 *
-	 * For grouping sets, we have the invariant that aggstate->projected_set
-	 * is either -1 (initial call) or the index (starting from 0) in
-	 * gset_lengths for the group we just completed (either by projecting a
-	 * row or by discarding it in the qual).
+	 * 对分组集，我们有这样的不变式：aggstate->projected_set 
+	 * 要么为 -1（初次调用），要么为刚完成的组在 
+	 * gset_lengths 中的下标（从 0 开始），无论是投影出了 
+	 * 一行还是因 qual 被丢弃）。 
 	 */
 	while (!aggstate->agg_done)
 	{
 		/*
-		 * Clear the per-output-tuple context for each group, as well as
-		 * aggcontext (which contains any pass-by-ref transvalues of the old
-		 * group).  Some aggregate functions store working state in child
-		 * contexts; those now get reset automatically without us needing to
-		 * do anything special.
+		 * 为每组清空每输出元组上下文与 aggcontext（     
+		 * 含旧组的任何按引用传递过渡值）。一些聚合     
+		 * 函数把工作状态存于子上下文，这些上下文则  
+		 * 会自动重置，无需我们做任何                          
+		 * 特殊处理。     
 		 *
-		 * We use ReScanExprContext not just ResetExprContext because we want
-		 * any registered shutdown callbacks to be called.  That allows
-		 * aggregate functions to ensure they've cleaned up any non-memory
-		 * resources.
+		 * 用 ReScanExprContext 而不是 ResetExprContext，因为         
+		 * 希望已注册的关闭回调被调用。这样聚合函数
+		 * 能确保自己清理掉所有非内存                        
+		 * 资源。 
 		 */
 		ReScanExprContext(econtext);
 
 		/*
-		 * Determine how many grouping sets need to be reset at this boundary.
+		 * 确定在此边界处有多少个分组集需要重置。          
 		 */
 		if (aggstate->projected_set >= 0 &&
 			aggstate->projected_set < numGroupingSets)
@@ -2258,10 +2258,10 @@ agg_retrieve_direct(AggState *aggstate)
 			numReset = numGroupingSets;
 
 		/*
-		 * numReset can change on a phase boundary, but that's OK; we want to
-		 * reset the contexts used in _this_ phase, and later, after possibly
-		 * changing phase, initialize the right number of aggregates for the
-		 * _new_ phase.
+		 * numReset 在阶段边界处会改变，但没关系；我们      
+		 * 要重置的是 _this_ 阶段所用的上下文，稍后在可能 
+		 * 改换阶段后，为 _new_ 阶段初始化正确数量的       
+		 * 聚合。   
 		 */
 
 		for (i = 0; i < numReset; i++)
@@ -2270,8 +2270,8 @@ agg_retrieve_direct(AggState *aggstate)
 		}
 
 		/*
-		 * Check if input is complete and there are no more groups to project
-		 * in this phase; move to next phase or mark as done.
+		 * 检查输入是否已完备，以及本阶段是否没有可投影
+		 * 的组；转入下一阶段或标记为完成。  
 		 */
 		if (aggstate->input_done == true &&
 			aggstate->projected_set >= (numGroupingSets - 1))
@@ -2288,8 +2288,8 @@ agg_retrieve_direct(AggState *aggstate)
 			else if (aggstate->aggstrategy == AGG_MIXED)
 			{
 				/*
-				 * Mixed mode; we've output all the grouped stuff and have
-				 * full hashtables, so switch to outputting those.
+				 * 混合模式；已输出全部分组内容，而且    
+				 * 哈希表已满，因此改为输出它们。  
 				 */
 				initialize_phase(aggstate, 0);
 				aggstate->table_filled = true;
@@ -2306,9 +2306,9 @@ agg_retrieve_direct(AggState *aggstate)
 		}
 
 		/*
-		 * Get the number of columns in the next grouping set after the last
-		 * projected one (if any). This is the number of columns to compare to
-		 * see if we reached the boundary of that set too.
+		 * 取最后已投影分组集之后，下一个分组集的列数  
+		 * （若有）。这就是用来判断是否也到达该组边界的 
+		 * 所要比较的列数。                       
 		 */
 		if (aggstate->projected_set >= 0 &&
 			aggstate->projected_set < (numGroupingSets - 1))
@@ -2317,20 +2317,20 @@ agg_retrieve_direct(AggState *aggstate)
 			nextSetSize = 0;
 
 		/*----------
-		 * If a subgroup for the current grouping set is present, project it.
+		 * 如果当前分组集的子组存在，就投影它。            
 		 *
-		 * We have a new group if:
-		 *	- we're out of input but haven't projected all grouping sets
-		 *	  (checked above)
+		 * 何时出现新组：  
+		 *	- 输入已耗尽但尚未投影所有分组集             
+		 *	  （见上文）
 		 * OR
-		 *	  - we already projected a row that wasn't from the last grouping
-		 *		set
+		 *	  - 已投影的行并非来自最后一个分组                
+		 *		集
 		 *	  AND
-		 *	  - the next grouping set has at least one grouping column (since
-		 *		empty grouping sets project only once input is exhausted)
+		 *	  - 下个分组集至少有一个分组列（因空分组集    
+		 *		只有在输入耗尽后才投影一次）               
 		 *	  AND
-		 *	  - the previous and pending rows differ on the grouping columns
-		 *		of the next grouping set
+		 *	  - 前一行与待定行于下一个分组集分组列上存在
+		 *		差异。               
 		 *----------
 		 */
 		tmpcontext->ecxt_innertuple = econtext->ecxt_outertuple;
@@ -2350,15 +2350,15 @@ agg_retrieve_direct(AggState *aggstate)
 		else
 		{
 			/*
-			 * We no longer care what group we just projected, the next
-			 * projection will always be the first (or only) grouping set
-			 * (unless the input proves to be empty).
+			 * 不再关心刚投影的组，下次投影总是        
+			 * 第一个（或唯一）分组集，除非                
+			 * 输入最终为空。                 
 			 */
 			aggstate->projected_set = 0;
 
 			/*
-			 * If we don't already have the first tuple of the new group,
-			 * fetch it from the outer plan.
+			 * 如果还没有新组的首个元组，就从外层计划 
+			 * 取出它。                 
 			 */
 			if (aggstate->grp_firstTuple == NULL)
 			{
@@ -2366,25 +2366,25 @@ agg_retrieve_direct(AggState *aggstate)
 				if (!TupIsNull(outerslot))
 				{
 					/*
-					 * Make a copy of the first input tuple; we will use this
-					 * for comparisons (in group mode) and for projection.
+					 * 复制首个输入元组；我们将用它进行      
+					 * 比较（分组模式下）和投影。            
 					 */
 					aggstate->grp_firstTuple = ExecCopySlotHeapTuple(outerslot);
 				}
 				else
 				{
-					/* outer plan produced no tuples at all */
+					/* 外层计划完全没有产生元组 */
 					if (hasGroupingSets)
 					{
 						/*
-						 * If there was no input at all, we need to project
-						 * rows only if there are grouping sets of size 0.
-						 * Note that this implies that there can't be any
-						 * references to ungrouped Vars, which would otherwise
-						 * cause issues with the empty output slot.
+						 * 如果完全没有输入，我们需要投影行
+						 * 的前提是存在大小为 0 的分组集。  
+						 * 注意这意味着不能有任何对未分组 
+						 * Var 的引用，否则空输出槽会出           
+						 * 问题。                               
 						 *
-						 * XXX: This is no longer true, we currently deal with
-						 * this in finalize_aggregates().
+						 * XXX：这已不再成立，此事目前由         
+						 * finalize_aggregates()处理。
 						 */
 						aggstate->input_done = true;
 
@@ -2394,10 +2394,10 @@ agg_retrieve_direct(AggState *aggstate)
 							if (aggstate->projected_set >= numGroupingSets)
 							{
 								/*
-								 * We can't set agg_done here because we might
-								 * have more phases to do, even though the
-								 * input is empty. So we need to restart the
-								 * whole outer loop.
+								 * 这里不能设 agg_done，即使输入    
+								 * 已空，仍可能有更多阶段。故
+								 * 我们需要重新启动整个           
+								 * 外层循环。  
 								 */
 								break;
 							}
@@ -2409,7 +2409,7 @@ agg_retrieve_direct(AggState *aggstate)
 					else
 					{
 						aggstate->agg_done = true;
-						/* If we are grouping, we should produce no tuples too */
+						/* 如果我们在分组，也应同样不产出元组 */
 						if (node->aggstrategy != AGG_PLAIN)
 							return NULL;
 					}
@@ -2417,33 +2417,33 @@ agg_retrieve_direct(AggState *aggstate)
 			}
 
 			/*
-			 * Initialize working state for a new input tuple group.
+			 * 为新输入元组组初始化工作状态。        
 			 */
 			initialize_aggregates(aggstate, pergroups, numReset);
 
 			if (aggstate->grp_firstTuple != NULL)
 			{
 				/*
-				 * Store the copied first input tuple in the tuple table slot
-				 * reserved for it.  The tuple will be deleted when it is
-				 * cleared from the slot.
+				 * 把复制出的首个输入元组存入元组表中       
+				 * 为它保留的槽位。当元组从槽中清除时，
+				 * 它就会被删除。 
 				 */
 				ExecForceStoreHeapTuple(aggstate->grp_firstTuple,
 										firstSlot, true);
-				aggstate->grp_firstTuple = NULL;	/* don't keep two pointers */
+				aggstate->grp_firstTuple = NULL;	/* 不要保留两个指针*/
 
-				/* set up for first advance_aggregates call */
+				/* 为首次 advance_aggregates 调用准备*/
 				tmpcontext->ecxt_outertuple = firstSlot;
 
 				/*
-				 * Process each outer-plan tuple, and then fetch the next one,
-				 * until we exhaust the outer plan or cross a group boundary.
+				 * 处理每个外层计划元组，再取下一个，直到  
+				 * 外层计划耗尽或越过组边界为止。             
 				 */
 				for (;;)
 				{
 					/*
-					 * During phase 1 only of a mixed agg, we need to update
-					 * hashtables as well in advance_aggregates.
+					 * 只有在混合聚合的阶段 1 中，才要由     
+					 * advance_aggregates 更新哈希表。    
 					 */
 					if (aggstate->aggstrategy == AGG_MIXED &&
 						aggstate->current_phase == 1)
@@ -2451,18 +2451,18 @@ agg_retrieve_direct(AggState *aggstate)
 						lookup_hash_entries(aggstate);
 					}
 
-					/* Advance the aggregates (or combine functions) */
+					/* 推进聚合（或合并函数）             */
 					advance_aggregates(aggstate);
 
-					/* Reset per-input-tuple context after each tuple */
+					/* 每元组之后重置每输入元组上下文  */
 					ResetExprContext(tmpcontext);
 
 					outerslot = fetch_input_tuple(aggstate);
 					if (TupIsNull(outerslot))
 					{
-						/* no more outer-plan tuples available */
+						/* 外层计划没有更多元组可用*/
 
-						/* if we built hash tables, finalize any spills */
+						/* 若构建了哈希表，则收尾所有溢出*/
 						if (aggstate->aggstrategy == AGG_MIXED &&
 							aggstate->current_phase == 1)
 							hashagg_finish_initial_spills(aggstate);
@@ -2478,12 +2478,12 @@ agg_retrieve_direct(AggState *aggstate)
 							break;
 						}
 					}
-					/* set up for next advance_aggregates call */
+					/* 下次 advance_aggregates 调用准备  */
 					tmpcontext->ecxt_outertuple = outerslot;
 
 					/*
-					 * If we are grouping, check whether we've crossed a group
-					 * boundary.
+					 * 若正在分组，则检查是否已跨过组的       
+					 * 边界。
 					 */
 					if (node->aggstrategy != AGG_PLAIN && node->numCols > 0)
 					{
@@ -2499,12 +2499,12 @@ agg_retrieve_direct(AggState *aggstate)
 			}
 
 			/*
-			 * Use the representative input tuple for any references to
-			 * non-aggregated input columns in aggregate direct args, the node
-			 * qual, and the tlist.  (If we are not grouping, and there are no
-			 * input rows at all, we will come here with an empty firstSlot
-			 * ... but if not grouping, there can't be any references to
-			 * non-aggregated input columns, so no problem.)
+			 * 在聚合直接参数、节点 qual 和 tlist 中引用 
+			 * 非聚合输入列之处，都用代表输入元组。（如果
+			 * 我们未在分组，并且没有任何输入行，那么就   
+			 * 会带着空的 firstSlot 到此……但若不分组，    
+			 * 则不可能引用非聚合输入列，                  
+			 * 所以没有问题。）                     
 			 */
 			econtext->ecxt_outertuple = firstSlot;
 		}
@@ -2522,20 +2522,20 @@ agg_retrieve_direct(AggState *aggstate)
 							pergroups[currentSet]);
 
 		/*
-		 * If there's no row to project right now, we must continue rather
-		 * than returning a null since there might be more groups.
+		 * 如果现在没有可投影的行，就必须继续执行而非
+		 * 返回空值，因为可能还有更多的组。       
 		 */
 		result = project_aggregates(aggstate);
 		if (result)
 			return result;
 	}
 
-	/* No more groups */
+	/* 无更多分组*/
 	return NULL;
 }
 
 /*
- * ExecAgg for hashed case: read input and build hash table
+ * ExecAgg 哈希情形：读取输入并构建哈希表   
  */
 static void
 agg_fill_hash_table(AggState *aggstate)
@@ -2544,8 +2544,8 @@ agg_fill_hash_table(AggState *aggstate)
 	ExprContext *tmpcontext = aggstate->tmpcontext;
 
 	/*
-	 * Process each outer-plan tuple, and then fetch the next one, until we
-	 * exhaust the outer plan.
+	 * 处理每个外层计划元组，然后取下一个，直到我们  
+	 * 耗尽外层计划。  
 	 */
 	for (;;)
 	{
@@ -2553,43 +2553,43 @@ agg_fill_hash_table(AggState *aggstate)
 		if (TupIsNull(outerslot))
 			break;
 
-		/* set up for lookup_hash_entries and advance_aggregates */
+		/* 为 lookup_hash_entries/advance_aggregates 做准备  */
 		tmpcontext->ecxt_outertuple = outerslot;
 
-		/* Find or build hashtable entries */
+		/* 查找或构建哈希表项     */
 		lookup_hash_entries(aggstate);
 
-		/* Advance the aggregates (or combine functions) */
+		/* 推进各聚合（或组合函数）          */
 		advance_aggregates(aggstate);
 
 		/*
-		 * Reset per-input-tuple context after each tuple, but note that the
-		 * hash lookups do this too
+		 * 每个元组之后重置每输入元组上下文，但要注意  
+		 * 哈希查找亦如此。
 		 */
 		ResetExprContext(aggstate->tmpcontext);
 	}
 
-	/* finalize spills, if any */
+	/* 若有溢出则收尾   */
 	hashagg_finish_initial_spills(aggstate);
 
 	aggstate->table_filled = true;
-	/* Initialize to walk the first hash table */
+	/* 初始化以遍历第一个哈希表    */
 	select_current_set(aggstate, 0, true);
 	ResetTupleHashIterator(aggstate->perhash[0].hashtable,
 						   &aggstate->perhash[0].hashiter);
 }
 
 /*
- * If any data was spilled during hash aggregation, reset the hash table and
- * reprocess one batch of spilled data. After reprocessing a batch, the hash
- * table will again contain data, ready to be consumed by
- * agg_retrieve_hash_table_in_memory().
+ * 若哈希聚合期间溢出了数据，则重置哈希表，并重       
+ * 处理一批溢出的数据。重处理完一批后，哈希表将       
+ * 再度含有数据，可供消费                     
+ * agg_retrieve_hash_table_in_memory() 
  *
- * Should only be called after all in memory hash table entries have been
- * finalized and emitted.
+ * 只应在内存中所有哈希表项都已终结并输出             
+ * 之后才可调用。 
  *
- * Return false when input is exhausted and there's no more work to be done;
- * otherwise return true.
+ * 当输入已耗尽且没有更多工作要做时返回 false；          
+ * 否则返回 true。  
  */
 static bool
 agg_refill_hash_table(AggState *aggstate)
@@ -2603,7 +2603,7 @@ agg_refill_hash_table(AggState *aggstate)
 	if (aggstate->hash_batches == NIL)
 		return false;
 
-	/* hash_batches is a stack, with the top item at the end of the list */
+	/* hash_batches 是一个栈，栈顶项位于列表末尾           */
 	batch = llast(aggstate->hash_batches);
 	aggstate->hash_batches = list_delete_last(aggstate->hash_batches);
 
@@ -2612,16 +2612,16 @@ agg_refill_hash_table(AggState *aggstate)
 						&aggstate->hash_ngroups_limit, NULL);
 
 	/*
-	 * Each batch only processes one grouping set; set the rest to NULL so
-	 * that advance_aggregates() knows to ignore them. We don't touch
-	 * pergroups for sorted grouping sets here, because they will be needed if
-	 * we rescan later. The expressions for sorted grouping sets will not be
-	 * evaluated after we recompile anyway.
+	 * 每个批次只处理一个分组集；把其余的设为 NULL，  
+	 * 让 advance_aggregates() 知道忽略它们。这里          
+	 * 不去动排序分组集所用的 pergroups，因为若之后          
+	 * 重新扫描时还需要用到它们。而重编译之后，         
+	 * 反正不会求值这些表达式。
 	 */
 	MemSet(aggstate->hash_pergroup, 0,
 		   sizeof(AggStatePerGroup) * aggstate->num_hashes);
 
-	/* free memory and reset hash tables */
+	/* 释放内存并重置哈希表    */
 	ReScanExprContext(aggstate->hashcontext);
 	for (int setno = 0; setno < aggstate->num_hashes; setno++)
 		ResetTupleHashTable(aggstate->perhash[setno].hashtable);
@@ -2629,9 +2629,9 @@ agg_refill_hash_table(AggState *aggstate)
 	aggstate->hash_ngroups_current = 0;
 
 	/*
-	 * In AGG_MIXED mode, hash aggregation happens in phase 1 and the output
-	 * happens in phase 0. So, we switch to phase 1 when processing a batch,
-	 * and back to phase 0 after the batch is done.
+	 * 在 AGG_MIXED 模式下，哈希聚合发生在阶段 1，而输出  
+	 * 发生在阶段 0。因此处理批次时切换到阶段 1，        
+	 * 批次完成后切回阶段 0。            
 	 */
 	Assert(aggstate->current_phase == 0);
 	if (aggstate->phase->aggstrategy == AGG_MIXED)
@@ -2645,11 +2645,11 @@ agg_refill_hash_table(AggState *aggstate)
 	perhash = &aggstate->perhash[aggstate->current_set];
 
 	/*
-	 * Spilled tuples are always read back as MinimalTuples, which may be
-	 * different from the outer plan, so recompile the aggregate expressions.
+	 * 溢出的元组总是以 MinimalTuple 形式读回，这可能    
+	 * 与外层计划不同，所以要重新编译聚合表达式。       
 	 *
-	 * We still need the NULL check, because we are only processing one
-	 * grouping set at a time and the rest will be NULL.
+	 * 我们仍需要 NULL 检查，因为我们每次只处理一个 
+	 * 分组集，其余的将为 NULL。              
 	 */
 	hashagg_recompile_expressions(aggstate, true, true);
 
@@ -2690,29 +2690,29 @@ agg_refill_hash_table(AggState *aggstate)
 			if (!spill_initialized)
 			{
 				/*
-				 * Avoid initializing the spill until we actually need it so
-				 * that we don't assign tapes that will never be used.
+				 * 在实际需要之前不要初始化溢出结构，以免
+				 * 分配永远不会被用到的磁带。            
 				 */
 				spill_initialized = true;
 				hashagg_spill_init(&spill, tapeset, batch->used_bits,
 								   batch->input_card, aggstate->hashentrysize);
 			}
-			/* no memory for a new group, spill */
+			/* 没有内存容纳新组，溢出*/
 			hashagg_spill_tuple(aggstate, &spill, spillslot, hash);
 
 			aggstate->hash_pergroup[batch->setno] = NULL;
 		}
 
 		/*
-		 * Reset per-input-tuple context after each tuple, but note that the
-		 * hash lookups do this too
+		 * 每个元组之后重置每输入元组上下文，但要注意  
+		 * 哈希查找亦如此。
 		 */
 		ResetExprContext(aggstate->tmpcontext);
 	}
 
 	LogicalTapeClose(batch->input_tape);
 
-	/* change back to phase 0 */
+	/* 切回阶段 0         */
 	aggstate->current_phase = 0;
 	aggstate->phase = &aggstate->phases[aggstate->current_phase];
 
@@ -2726,7 +2726,7 @@ agg_refill_hash_table(AggState *aggstate)
 
 	aggstate->hash_spill_mode = false;
 
-	/* prepare to walk the first hash table */
+	/* 准备开始遍历第一个哈希表 */
 	select_current_set(aggstate, batch->setno, true);
 	ResetTupleHashIterator(aggstate->perhash[batch->setno].hashtable,
 						   &aggstate->perhash[batch->setno].hashiter);
@@ -2737,11 +2737,11 @@ agg_refill_hash_table(AggState *aggstate)
 }
 
 /*
- * ExecAgg for hashed case: retrieving groups from hash table
+ * ExecAgg 哈希情形：从哈希表中取出分组        
  *
- * After exhausting in-memory tuples, also try refilling the hash table using
- * previously-spilled tuples. Only returns NULL after all in-memory and
- * spilled tuples are exhausted.
+ * 在内存元组耗尽后，还会尝试用之前溢出的元组           
+ * 重新填充哈希表。只有当所有内存与溢出元组都     
+ * 耗尽才返回 NULL。      
  */
 static TupleTableSlot *
 agg_retrieve_hash_table(AggState *aggstate)
@@ -2765,8 +2765,8 @@ agg_retrieve_hash_table(AggState *aggstate)
 }
 
 /*
- * Retrieve the groups from the in-memory hash tables without considering any
- * spilled tuples.
+ * 不考虑任何溢出元组，从内存中的哈希表取出              
+ * 各分组。   
  */
 static TupleTableSlot *
 agg_retrieve_hash_table_in_memory(AggState *aggstate)
@@ -2780,22 +2780,22 @@ agg_retrieve_hash_table_in_memory(AggState *aggstate)
 	AggStatePerHash perhash;
 
 	/*
-	 * get state info from node.
+	 * 取得节点状态信息 
 	 *
-	 * econtext is the per-output-tuple expression context.
+	 * econtext 是每输出元组的表达式上下文。 
 	 */
 	econtext = aggstate->ss.ps.ps_ExprContext;
 	peragg = aggstate->peragg;
 	firstSlot = aggstate->ss.ss_ScanTupleSlot;
 
 	/*
-	 * Note that perhash (and therefore anything accessed through it) can
-	 * change inside the loop, as we change between grouping sets.
+	 * 注意 perhash（以及通过它访问的东西）可能          
+	 * 在循环中改变，因为我们会切换分组集。     
 	 */
 	perhash = &aggstate->perhash[aggstate->current_set];
 
 	/*
-	 * We loop retrieving groups until we find one satisfying
+	 * 我们循环取出分组，直到找到一个满足   
 	 * aggstate->ss.ps.qual
 	 */
 	for (;;)
@@ -2806,7 +2806,7 @@ agg_retrieve_hash_table_in_memory(AggState *aggstate)
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * Find the next entry in the hash table
+		 * 查找哈希表中的下一个表项 
 		 */
 		entry = ScanTupleHashTable(perhash->hashtable, &perhash->hashiter);
 		if (entry == NULL)
@@ -2816,8 +2816,8 @@ agg_retrieve_hash_table_in_memory(AggState *aggstate)
 			if (nextset < aggstate->num_hashes)
 			{
 				/*
-				 * Switch to next grouping set, reinitialize, and restart the
-				 * loop.
+				 * 切到下一个分组集，重新初始化，重启循    
+				 * 环  
 				 */
 				select_current_set(aggstate, nextset, true);
 
@@ -2834,17 +2834,17 @@ agg_retrieve_hash_table_in_memory(AggState *aggstate)
 		}
 
 		/*
-		 * Clear the per-output-tuple context for each group
+		 * 为每个分组清空每输出元组上下文    
 		 *
-		 * We intentionally don't use ReScanExprContext here; if any aggs have
-		 * registered shutdown callbacks, they mustn't be called yet, since we
-		 * might not be done with that agg.
+		 * 我们有意不在这里使用 ReScanExprContext；若任何       
+		 * 聚合注册了关闭回调，此时还不能调用它们，因为 
+		 * 该聚合可能尚未完成。  
 		 */
 		ResetExprContext(econtext);
 
 		/*
-		 * Transform representative tuple back into one with the right
-		 * columns.
+		 * 把代表元组转换回具有正确列的元组形        
+		 * 式。  
 		 */
 		ExecStoreMinimalTuple(entry->firstTuple, hashslot, false);
 		slot_getallattrs(hashslot);
@@ -2865,8 +2865,8 @@ agg_retrieve_hash_table_in_memory(AggState *aggstate)
 		pergroup = (AggStatePerGroup) entry->additional;
 
 		/*
-		 * Use the representative input tuple for any references to
-		 * non-aggregated input columns in the qual and tlist.
+		 * 对 qual 和 tlist 中非聚合输入列的引用，均 
+		 * 使用代表输入元组。                        
 		 */
 		econtext->ecxt_outertuple = firstSlot;
 
@@ -2881,15 +2881,15 @@ agg_retrieve_hash_table_in_memory(AggState *aggstate)
 			return result;
 	}
 
-	/* No more groups */
+	/* 无更多分组*/
 	return NULL;
 }
 
 /*
  * hashagg_spill_init
  *
- * Called after we determined that spilling is necessary. Chooses the number
- * of partitions to create, and initializes them.
+ * 在我们确定有必要溢出之后调用。选择要创建的分区数 
+ * 并初始化它们。                         
  */
 static void
 hashagg_spill_init(HashAggSpill *spill, LogicalTapeSet *tapeset, int used_bits,
@@ -2919,8 +2919,8 @@ hashagg_spill_init(HashAggSpill *spill, LogicalTapeSet *tapeset, int used_bits,
 /*
  * hashagg_spill_tuple
  *
- * No room for new groups in the hash table. Save for later in the appropriate
- * partition.
+ * 哈希表中没有空间容纳新组。先保存到相应分区，         
+ * 备用。 
  */
 static Size
 hashagg_spill_tuple(AggState *aggstate, HashAggSpill *spill,
@@ -2935,7 +2935,7 @@ hashagg_spill_tuple(AggState *aggstate, HashAggSpill *spill,
 
 	Assert(spill->partitions != NULL);
 
-	/* spill only attributes that we actually need */
+	/* 只溢出我们真正需要的属性        */
 	if (!aggstate->all_cols_needed)
 	{
 		spillslot = aggstate->hash_spill_wslot;
@@ -2962,9 +2962,9 @@ hashagg_spill_tuple(AggState *aggstate, HashAggSpill *spill,
 	spill->ntuples[partition]++;
 
 	/*
-	 * All hash values destined for a given partition have some bits in
-	 * common, which causes bad HLL cardinality estimates. Hash the hash to
-	 * get a more uniform distribution.
+	 * 所有去往给定分区的哈希值都有一些共同的位， 
+	 * 这会导致 HLL 基数估计不准。对哈希值再做哈希，   
+	 * 以获得更均匀的分布。  
 	 */
 	addHyperLogLog(&spill->hll_card[partition], hash_bytes_uint32(hash));
 
@@ -2985,8 +2985,8 @@ hashagg_spill_tuple(AggState *aggstate, HashAggSpill *spill,
 /*
  * hashagg_batch_new
  *
- * Construct a HashAggBatch item, which represents one iteration of HashAgg to
- * be done.
+ * 构造一个 HashAggBatch 条目，它代表待执行的一轮             
+ * HashAgg 
  */
 static HashAggBatch *
 hashagg_batch_new(LogicalTape *input_tape, int setno,
@@ -3005,7 +3005,7 @@ hashagg_batch_new(LogicalTape *input_tape, int setno,
 
 /*
  * hashagg_batch_read
- * 		read the next tuple from a batch's tape.  Return NULL if no more.
+ * 		从批次的磁带读取下一元组；没有则返回 NULL。   
  */
 static MinimalTuple
 hashagg_batch_read(HashAggBatch *batch, uint32 *hashp)
@@ -3052,9 +3052,9 @@ hashagg_batch_read(HashAggBatch *batch, uint32 *hashp)
 /*
  * hashagg_finish_initial_spills
  *
- * After a HashAggBatch has been processed, it may have spilled tuples to
- * disk. If so, turn the spilled partitions into new batches that must later
- * be executed.
+ * 在一个 HashAggBatch 处理完之后，它可能已把元组溢     
+ * 写到磁盘上。若是这样，就把溢出的分区变成必须稍    
+ * 后执行。
  */
 static void
 hashagg_finish_initial_spills(AggState *aggstate)
@@ -3073,9 +3073,9 @@ hashagg_finish_initial_spills(AggState *aggstate)
 		}
 
 		/*
-		 * We're not processing tuples from outer plan any more; only
-		 * processing batches of spilled tuples. The initial spill structures
-		 * are no longer needed.
+		 * 我们不再处理来自外层计划的元组；只处理 
+		 * 溢出元组的批次。最初的溢出结构                     
+		 * 已不再需要。   
 		 */
 		pfree(aggstate->hash_spills);
 		aggstate->hash_spills = NULL;
@@ -3088,7 +3088,7 @@ hashagg_finish_initial_spills(AggState *aggstate)
 /*
  * hashagg_spill_finish
  *
- * Transform spill partitions into new batches.
+ * 把溢出分区转换成新批次。        
  */
 static void
 hashagg_spill_finish(AggState *aggstate, HashAggSpill *spill, int setno)
@@ -3097,7 +3097,7 @@ hashagg_spill_finish(AggState *aggstate, HashAggSpill *spill, int setno)
 	int			used_bits = 32 - spill->shift;
 
 	if (spill->npartitions == 0)
-		return;					/* didn't spill */
+		return;					/* 未溢出    */
 
 	for (i = 0; i < spill->npartitions; i++)
 	{
@@ -3105,14 +3105,14 @@ hashagg_spill_finish(AggState *aggstate, HashAggSpill *spill, int setno)
 		HashAggBatch *new_batch;
 		double		cardinality;
 
-		/* if the partition is empty, don't create a new batch of work */
+		/* 若分区为空，则不创建新的工作批次            */
 		if (spill->ntuples[i] == 0)
 			continue;
 
 		cardinality = estimateHyperLogLog(&spill->hll_card[i]);
 		freeHyperLogLog(&spill->hll_card[i]);
 
-		/* rewinding frees the buffer while not in use */
+		/* 不使用时进行回卷会释放缓冲区  */
 		LogicalTapeRewindForRead(tape, HASHAGG_READ_BUFFER_SIZE);
 
 		new_batch = hashagg_batch_new(tape, setno,
@@ -3128,12 +3128,12 @@ hashagg_spill_finish(AggState *aggstate, HashAggSpill *spill, int setno)
 }
 
 /*
- * Free resources related to a spilled HashAgg.
+ * 释放与溢出 HashAgg 相关的资源。  
  */
 static void
 hashagg_reset_spill_state(AggState *aggstate)
 {
-	/* free spills from initial pass */
+	/* 释放初始阶段的溢出   */
 	if (aggstate->hash_spills != NULL)
 	{
 		int			setno;
@@ -3149,11 +3149,11 @@ hashagg_reset_spill_state(AggState *aggstate)
 		aggstate->hash_spills = NULL;
 	}
 
-	/* free batches */
+	/* 释放批次 */
 	list_free_deep(aggstate->hash_batches);
 	aggstate->hash_batches = NIL;
 
-	/* close tape set */
+	/* 关闭磁带集*/
 	if (aggstate->hash_tapeset != NULL)
 	{
 		LogicalTapeSetClose(aggstate->hash_tapeset);
@@ -3165,8 +3165,8 @@ hashagg_reset_spill_state(AggState *aggstate)
 /* -----------------
  * ExecInitAgg
  *
- *	Creates the run-time information for the agg node produced by the
- *	planner and initializes its outer subtree.
+ *	为规划器生成的 agg 节点创建运行时信息，         
+ *	并初始化其外层子树。            
  *
  * -----------------
  */
@@ -3197,11 +3197,11 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 	bool		use_hashing = (node->aggstrategy == AGG_HASHED ||
 							   node->aggstrategy == AGG_MIXED);
 
-	/* check for unsupported flags */
+	/* 检查不受支持的标志 */
 	Assert(!(eflags & (EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK)));
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	aggstate = makeNode(AggState);
 	aggstate->ss.ps.plan = (Plan *) node;
@@ -3228,15 +3228,15 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 	aggstate->sort_out = NULL;
 
 	/*
-	 * phases[0] always exists, but is dummy in sorted/plain mode
+	 * phases[0] 总是存在，排序/普通模式下是占位  
 	 */
 	numPhases = (use_hashing ? 1 : 2);
 	numHashes = (use_hashing ? 1 : 0);
 
 	/*
-	 * Calculate the maximum number of grouping sets in any phase; this
-	 * determines the size of some allocations.  Also calculate the number of
-	 * phases, since all hashed/mixed nodes contribute to only a single phase.
+	 * 计算任何阶段中分组集数量的最大值；这决定了 
+	 * 某些内存分配的大小。同时还要计算阶段的数量，    
+	 * 因为所有 hashed/mixed 节点都只贡献单个阶段。            
 	 */
 	if (node->groupingSets)
 	{
@@ -3250,8 +3250,8 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 								  list_length(agg->groupingSets));
 
 			/*
-			 * additional AGG_HASHED aggs become part of phase 0, but all
-			 * others add an extra phase.
+			 * 额外的 AGG_HASHED 聚合变成阶段 0 的一部分， 
+			 * 其余另加一阶段。  
 			 */
 			if (agg->aggstrategy != AGG_HASHED)
 				++numPhases;
@@ -3267,18 +3267,18 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 		palloc0(sizeof(ExprContext *) * numGroupingSets);
 
 	/*
-	 * Create expression contexts.  We need three or more, one for
-	 * per-input-tuple processing, one for per-output-tuple processing, one
-	 * for all the hashtables, and one for each grouping set.  The per-tuple
-	 * memory context of the per-grouping-set ExprContexts (aggcontexts)
-	 * replaces the standalone memory context formerly used to hold transition
-	 * values.  We cheat a little by using ExecAssignExprContext() to build
-	 * all of them.
+	 * 创建表达式上下文。需要三个或更多：一个  
+	 * 用于每输入元组处理，一个用于每输出元组处理，  
+	 * 一个用于所有哈希表，一个用于每个分组集。每个   
+	 * 分组集 ExprContext（aggcontext）的每元组内存          
+	 * 上下文取代了以前用于存放过渡值的独立内存上下     
+	 * 文。用 ExecAssignExprContext() 构建它们算是                
+	 * 小作弊。
 	 *
-	 * NOTE: the details of what is stored in aggcontexts and what is stored
-	 * in the regular per-query memory context are driven by a simple
-	 * decision: we want to reset the aggcontext at group boundaries (if not
-	 * hashing) and in ExecReScanAgg to recover no-longer-wanted space.
+	 * 注意：哪些内容存于 aggcontext、哪些存于常规的       
+	 * 每查询内存上下文，由简单决定驱动：我们要  
+	 * 在分组边界处（非哈希时）重置 aggcontext，并          
+	 * 亦在 ExecReScanAgg 中重置以收回不再需要的空间。 
 	 */
 	ExecAssignExprContext(estate, &aggstate->ss.ps);
 	aggstate->tmpcontext = aggstate->ss.ps.ps_ExprContext;
@@ -3295,10 +3295,10 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 	ExecAssignExprContext(estate, &aggstate->ss.ps);
 
 	/*
-	 * Initialize child nodes.
+	 * 初始化子节点。  
 	 *
-	 * If we are doing a hashed aggregation then the child plan does not need
-	 * to handle REWIND efficiently; see ExecReScanAgg.
+	 * 若我们在做哈希聚合，那么子计划不需要高效地       
+	 * 处理 REWIND；参见 ExecReScanAgg。         
 	 */
 	if (node->aggstrategy == AGG_HASHED)
 		eflags &= ~EXEC_FLAG_REWIND;
@@ -3306,7 +3306,7 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 	outerPlanState(aggstate) = ExecInitNode(outerPlan, estate, eflags);
 
 	/*
-	 * initialize source tuple type.
+	 * 初始化源元组类型。  
 	 */
 	aggstate->ss.ps.outerops =
 		ExecGetResultSlotOps(outerPlanState(&aggstate->ss),
@@ -3318,8 +3318,8 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 	scanDesc = aggstate->ss.ss_ScanTupleSlot->tts_tupleDescriptor;
 
 	/*
-	 * If there are more than two phases (including a potential dummy phase
-	 * 0), input will be resorted using tuplesort. Need a slot for that.
+	 * 如果阶段数超过两个（包括潜在的占位阶段           
+	 * 0），输入会用 tuplesort 重排。需要一个槽。        
 	 */
 	if (numPhases > 2)
 	{
@@ -3327,18 +3327,18 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 													 &TTSOpsMinimalTuple);
 
 		/*
-		 * The output of the tuplesort, and the output from the outer child
-		 * might not use the same type of slot. In most cases the child will
-		 * be a Sort, and thus return a TTSOpsMinimalTuple type slot - but the
-		 * input can also be presorted due an index, in which case it could be
-		 * a different type of slot.
+		 * tuplesort 的输出与外层子节点的输出可能不使用   
+		 * 同一种类型的槽。多数情况下子节点会是 Sort，   
+		 * 因而返回 TTSOpsMinimalTuple 类型的槽——但若           
+		 * 输入因索引而预排序，那它就可能是另一种类       
+		 * 型的槽。             
 		 *
-		 * XXX: For efficiency it would be good to instead/additionally
-		 * generate expressions with corresponding settings of outerops* for
-		 * the individual phases - deforming is often a bottleneck for
-		 * aggregations with lots of rows per group. If there's multiple
-		 * sorts, we know that all but the first use TTSOpsMinimalTuple (via
-		 * the nodeAgg.c internal tuplesort).
+		 * XXX: 为了效率，最好另外/同时为各阶段生成   
+		 * 带有相应 outerops* 设置的表达式——对于每组      
+		 * 行数多的聚合，deform 往往是瓶颈。如果       
+		 * 有多个排序，我们知道除第一个外都用          
+		 * TTSOpsMinimalTuple（经由 nodeAgg.c 内部的                  
+		 * tuplesort）。                   
 		 */
 		if (aggstate->ss.ps.outeropsfixed &&
 			aggstate->ss.ps.outerops != &TTSOpsMinimalTuple)
@@ -3346,29 +3346,29 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * Initialize result type, slot and projection.
+	 * 初始化结果类型、槽和投影。     
 	 */
 	ExecInitResultTupleSlotTL(&aggstate->ss.ps, &TTSOpsVirtual);
 	ExecAssignProjectionInfo(&aggstate->ss.ps, NULL);
 
 	/*
-	 * initialize child expressions
+	 * 初始化子表达式       
 	 *
-	 * We expect the parser to have checked that no aggs contain other agg
-	 * calls in their arguments (and just to be sure, we verify it again while
-	 * initializing the plan node).  This would make no sense under SQL
-	 * semantics, and it's forbidden by the spec.  Because it is true, we
-	 * don't need to worry about evaluating the aggs in any particular order.
+	 * 我们预期解析器已检查过：任何聚合的参数中都不 
+	 * 会包含其他聚合调用（为保险起见，我们在初始化     
+	 * 计划节点时会再验证一次）。这在 SQL 语义下     
+	 * 毫无意义，而且规范也禁止它。既然如此，我们   
+	 * 不必操心以任何特定顺序求聚合的值。                   
 	 *
-	 * Note: execExpr.c finds Aggrefs for us, and adds them to aggstate->aggs.
-	 * Aggrefs in the qual are found here; Aggrefs in the targetlist are found
-	 * during ExecAssignProjectionInfo, above.
+	 * 注意：execExpr.c 会找出 Aggrefs 并加入 aggstate->aggs。      
+	 * qual 中的 Aggrefs 在这里找到；targetlist 中的则在上面    
+	 * ExecAssignProjectionInfo 期间找到  
 	 */
 	aggstate->ss.ps.qual =
 		ExecInitQual(node->plan.qual, (PlanState *) aggstate);
 
 	/*
-	 * We should now have found all Aggrefs in the targetlist and quals.
+	 * 现在应已找出 targetlist 和 qual 中的所有 Aggrefs。   
 	 */
 	numaggrefs = list_length(aggstate->aggs);
 	max_aggno = -1;
@@ -3384,8 +3384,8 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 	numtrans = max_transno + 1;
 
 	/*
-	 * For each phase, prepare grouping set data and fmgr lookup data for
-	 * compare functions.  Accumulate all_grouped_cols in passing.
+	 * 为每个阶段准备分组集数据和比较函数的 fmgr       
+	 * 查找数据。顺带累加 all_grouped_cols。            
 	 */
 	aggstate->phases = palloc0(numPhases * sizeof(AggStatePerPhaseData));
 
@@ -3428,11 +3428,11 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 			i = phasedata->numsets++;
 			perhash = &aggstate->perhash[i];
 
-			/* phase 0 always points to the "real" Agg in the hash case */
+			/* 哈希情形下阶段 0 总是指向"真正的" Agg      */
 			phasedata->aggnode = node;
 			phasedata->aggstrategy = node->aggstrategy;
 
-			/* but the actual Agg node representing this hash is saved here */
+			/* 但代表这个哈希的实际 Agg 节点保存在这里     */
 			perhash->aggnode = aggnode;
 
 			phasedata->gset_lengths[i] = perhash->numCols = aggnode->numCols;
@@ -3463,7 +3463,7 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 					int			current_length = list_length(lfirst(l));
 					Bitmapset  *cols = NULL;
 
-					/* planner forces this to be correct */
+					/* 规划器强制这是正确的    */
 					for (j = 0; j < current_length; ++j)
 						cols = bms_add_member(cols, aggnode->grpColIdx[j]);
 
@@ -3485,27 +3485,27 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 			}
 
 			/*
-			 * If we are grouping, precompute fmgr lookup data for inner loop.
+			 * 若在分组，则为内层循环预计算 fmgr 查找数据。
 			 */
 			if (aggnode->aggstrategy == AGG_SORTED)
 			{
 				/*
-				 * Build a separate function for each subset of columns that
-				 * need to be compared.
+				 * 为每个需要比较的列子集构建一个单独的   
+				 * 函数。           
 				 */
 				phasedata->eqfunctions =
 					(ExprState **) palloc0(aggnode->numCols * sizeof(ExprState *));
 
-				/* for each grouping set */
+				/* 对每个分组集    */
 				for (int k = 0; k < phasedata->numsets; k++)
 				{
 					int			length = phasedata->gset_lengths[k];
 
-					/* nothing to do for empty grouping set */
+					/* 对空分组集无需做任何事    */
 					if (length == 0)
 						continue;
 
-					/* if we already had one of this length, it'll do */
+					/* 若已有同长度的，直接用它即可     */
 					if (phasedata->eqfunctions[length - 1] != NULL)
 						continue;
 
@@ -3518,7 +3518,7 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 											   (PlanState *) aggstate);
 				}
 
-				/* and for all grouped columns, unless already computed */
+				/* 以及所有分组列，除非已计算过           */
 				if (aggnode->numCols > 0 &&
 					phasedata->eqfunctions[aggnode->numCols - 1] == NULL)
 				{
@@ -3539,15 +3539,15 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * Convert all_grouped_cols to a descending-order list.
+	 * 把 all_grouped_cols 转为降序列表。          
 	 */
 	i = -1;
 	while ((i = bms_next_member(all_grouped_cols, i)) >= 0)
 		aggstate->all_grouped_cols = lcons_int(i, aggstate->all_grouped_cols);
 
 	/*
-	 * Set up aggregate-result storage in the output expr context, and also
-	 * allocate my private per-agg working storage
+	 * 在输出表达式上下文中建立聚合结果存储，同时     
+	 * 分配我私有的每聚合工作存储    
 	 */
 	econtext = aggstate->ss.ps.ps_ExprContext;
 	econtext->ecxt_aggvalues = (Datum *) palloc0(sizeof(Datum) * numaggs);
@@ -3578,7 +3578,7 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * Hashing can only appear in the initial phase.
+	 * 哈希只能出现在初始阶段。         
 	 */
 	if (use_hashing)
 	{
@@ -3593,7 +3593,7 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 		aggstate->hash_spill_wslot = ExecInitExtraTupleSlot(estate, scanDesc,
 															&TTSOpsVirtual);
 
-		/* this is an array of pointers, not structures */
+		/* 这是一个指针数组，不是结构数组*/
 		aggstate->hash_pergroup = pergroups;
 
 		aggstate->hashentrysize = hash_agg_entry_size(aggstate->numtrans,
@@ -3601,10 +3601,10 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 													  node->transitionSpace);
 
 		/*
-		 * Consider all of the grouping sets together when setting the limits
-		 * and estimating the number of partitions. This can be inaccurate
-		 * when there is more than one grouping set, but should still be
-		 * reasonable.
+		 * 设置限制和估计分区数量时，把所有分组集一起   
+		 * 考虑。当有多个分组集时，这可能会不准确，   
+		 * 但估计仍然应该                                        
+		 * 合理。  
 		 */
 		for (int k = 0; k < aggstate->num_hashes; k++)
 			totalGroups += aggstate->perhash[k].aggnode->numGroups;
@@ -3615,21 +3615,21 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 							&aggstate->hash_planned_partitions);
 		find_hash_columns(aggstate);
 
-		/* Skip massive memory allocation if we are just doing EXPLAIN */
+		/* 若只做 EXPLAIN，则跳过庞大的内存分配          */
 		if (!(eflags & EXEC_FLAG_EXPLAIN_ONLY))
 			build_hash_tables(aggstate);
 
 		aggstate->table_filled = false;
 
-		/* Initialize this to 1, meaning nothing spilled, yet */
+		/* 初始化为 1，表示尚无溢出                */
 		aggstate->hash_batches_used = 1;
 	}
 
 	/*
-	 * Initialize current phase-dependent values to initial phase. The initial
-	 * phase is 1 (first sort pass) for all strategies that use sorting (if
-	 * hashing is being done too, then phase 0 is processed last); but if only
-	 * hashing is being done, then phase 0 is all there is.
+	 * 把当前与阶段相关的值初始化为初始阶段。对于        
+	 * 用排序的策略，初始阶段都是 1（第一趟排序）      
+	 * （若同时也做哈希，则阶段 0 最后处理）；但若只     
+	 * 做哈希，那么就只有阶段 0。              
 	 */
 	if (node->aggstrategy == AGG_HASHED)
 	{
@@ -3645,8 +3645,8 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * Perform lookups of aggregate function info, and initialize the
-	 * unchanging fields of the per-agg and per-trans data.
+	 * 查找聚合函数信息，并初始化每聚合和每过渡  
+	 * 数据中不变的字段。                         
 	 */
 	foreach(l, aggstate->aggs)
 	{
@@ -3666,21 +3666,21 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 		Expr	   *finalfnexpr;
 		Oid			aggtranstype;
 
-		/* Planner should have assigned aggregate to correct level */
+		/* 规划器应该已把聚合分配到正确的层级     */
 		Assert(aggref->agglevelsup == 0);
-		/* ... and the split mode should match */
+		/* ……拆分模式也应匹配      */
 		Assert(aggref->aggsplit == aggstate->aggsplit);
 
 		peragg = &peraggs[aggref->aggno];
 
-		/* Check if we initialized the state for this aggregate already. */
+		/* 检查是否已经为该聚合初始化过状态。           */
 		if (peragg->aggref != NULL)
 			continue;
 
 		peragg->aggref = aggref;
 		peragg->transno = aggref->aggtransno;
 
-		/* Fetch the pg_aggregate row */
+		/* 获取 pg_aggregate 行    */
 		aggTuple = SearchSysCache1(AGGFNOID,
 								   ObjectIdGetDatum(aggref->aggfnoid));
 		if (!HeapTupleIsValid(aggTuple))
@@ -3688,7 +3688,7 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 				 aggref->aggfnoid);
 		aggform = (Form_pg_aggregate) GETSTRUCT(aggTuple);
 
-		/* Check permission to call aggregate function */
+		/* 检查调用聚合函数的权限           */
 		aclresult = object_aclcheck(ProcedureRelationId, aggref->aggfnoid, GetUserId(),
 									ACL_EXECUTE);
 		if (aclresult != ACLCHECK_OK)
@@ -3696,11 +3696,11 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 						   get_func_name(aggref->aggfnoid));
 		InvokeFunctionExecuteHook(aggref->aggfnoid);
 
-		/* planner recorded transition state type in the Aggref itself */
+		/* 规划器已在 Aggref 本身中记录了过渡状态类型 */
 		aggtranstype = aggref->aggtranstype;
 		Assert(OidIsValid(aggtranstype));
 
-		/* Final function only required if we're finalizing the aggregates */
+		/* 只有在对聚合做最终处理时才需要最终函数       */
 		if (DO_AGGSPLIT_SKIPFINAL(aggstate->aggsplit))
 			peragg->finalfn_oid = finalfn_oid = InvalidOid;
 		else
@@ -3710,19 +3710,19 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 		deserialfn_oid = InvalidOid;
 
 		/*
-		 * Check if serialization/deserialization is required.  We only do it
-		 * for aggregates that have transtype INTERNAL.
+		 * 检查是否需要序列化/反序列化。我们只对具有     
+		 * INTERNAL transtype 的聚合才这样做。 
 		 */
 		if (aggtranstype == INTERNALOID)
 		{
 			/*
-			 * The planner should only have generated a serialize agg node if
-			 * every aggregate with an INTERNAL state has a serialization
-			 * function.  Verify that.
+			 * 只有每个含 INTERNAL 状态的聚合都有序列化函数 
+			 * 时，规划器才应生成序列化聚合节点。       
+			 * 请验证这一点。  
 			 */
 			if (DO_AGGSPLIT_SERIALIZE(aggstate->aggsplit))
 			{
-				/* serialization only valid when not running finalfn */
+				/* 序列化仅在未运行 finalfn 时有效        */
 				Assert(DO_AGGSPLIT_SKIPFINAL(aggstate->aggsplit));
 
 				if (!OidIsValid(aggform->aggserialfn))
@@ -3730,10 +3730,10 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 				serialfn_oid = aggform->aggserialfn;
 			}
 
-			/* Likewise for deserialization functions */
+			/* 反序列化函数亦然               */
 			if (DO_AGGSPLIT_DESERIALIZE(aggstate->aggsplit))
 			{
-				/* deserialization only valid when combining states */
+				/* 反序列化仅在合并状态时有效          */
 				Assert(DO_AGGSPLIT_COMBINE(aggstate->aggsplit));
 
 				if (!OidIsValid(aggform->aggdeserialfn))
@@ -3742,7 +3742,7 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 			}
 		}
 
-		/* Check that aggregate owner has permission to call component fns */
+		/* 检查聚合的所有者是否有权调用其组件函数       */
 		{
 			HeapTuple	procTuple;
 
@@ -3784,29 +3784,29 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 		}
 
 		/*
-		 * Get actual datatypes of the (nominal) aggregate inputs.  These
-		 * could be different from the agg's declared input types, when the
-		 * agg accepts ANY or a polymorphic type.
+		 * 获取（名义上的）聚合输入的实际数据类型。  
+		 * 当聚合接受 ANY 或多态类型时，它们可能与聚合  
+		 * 声明的输入类型不同。        
 		 */
 		numAggTransFnArgs = get_aggregate_argtypes(aggref,
 												   aggTransFnInputTypes);
 
-		/* Count the "direct" arguments, if any */
+		/* 统计"直接"参数（如果有）  */
 		numDirectArgs = list_length(aggref->aggdirectargs);
 
-		/* Detect how many arguments to pass to the finalfn */
+		/* 确定要传递给 finalfn 的参数个数       */
 		if (aggform->aggfinalextra)
 			peragg->numFinalArgs = numAggTransFnArgs + 1;
 		else
 			peragg->numFinalArgs = numDirectArgs + 1;
 
-		/* Initialize any direct-argument expressions */
+		/* 初始化所有直接参数表达式       */
 		peragg->aggdirectargs = ExecInitExprList(aggref->aggdirectargs,
 												 (PlanState *) aggstate);
 
 		/*
-		 * build expression trees using actual argument & result types for the
-		 * finalfn, if it exists and is required.
+		 * 如果存在且需要 finalfn，就用实际参数与结果类型  
+		 * 为其构建表达式树。           
 		 */
 		if (OidIsValid(finalfn_oid))
 		{
@@ -3821,14 +3821,14 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 			fmgr_info_set_expr((Node *) finalfnexpr, &peragg->finalfn);
 		}
 
-		/* get info about the output value's datatype */
+		/* 获取输出值数据类型的相关信息 */
 		get_typlenbyval(aggref->aggtype,
 						&peragg->resulttypeLen,
 						&peragg->resulttypeByVal);
 
 		/*
-		 * Build working state for invoking the transition function, if we
-		 * haven't done it already.
+		 * 为调用过渡函数构建相应的工作状态，如果我们
+		 * 尚未构建的话。   
 		 */
 		pertrans = &pertransstates[aggref->aggtransno];
 		if (pertrans->aggref == NULL)
@@ -3839,15 +3839,15 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 			Oid			transfn_oid;
 
 			/*
-			 * If this aggregation is performing state combines, then instead
-			 * of using the transition function, we'll use the combine
-			 * function.
+			 * 若聚合执行状态合并，则不用过渡函数，而     
+			 * 是改用合并                                        
+			 * 函数。
 			 */
 			if (DO_AGGSPLIT_COMBINE(aggstate->aggsplit))
 			{
 				transfn_oid = aggform->aggcombinefn;
 
-				/* If not set then the planner messed up */
+				/* 若未设置，则规划器出了错  */
 				if (!OidIsValid(transfn_oid))
 					elog(ERROR, "combinefn not set for aggregate function");
 			}
@@ -3861,8 +3861,8 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 			InvokeFunctionExecuteHook(transfn_oid);
 
 			/*
-			 * initval is potentially null, so don't try to access it as a
-			 * struct field. Must do it the hard way with SysCacheGetAttr.
+			 * initval 可能为 NULL，故不要当作结构体字段    
+			 * 访问它；必须借助 SysCacheGetAttr 用笨办法。   
 			 */
 			textInitVal = SysCacheGetAttr(AGGFNOID, aggTuple,
 										  Anum_pg_aggregate_agginitval,
@@ -3878,13 +3878,13 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 				aggtranstype};
 
 				/*
-				 * When combining there's only one input, the to-be-combined
-				 * transition value.  The transition value is not counted
-				 * here.
+				 * 合并时仅一个输入：待合并的过渡值。此处
+				 * 不把该过渡值计算在                           
+				 * 内  
 				 */
 				pertrans->numTransInputs = 1;
 
-				/* aggcombinefn always has two arguments of aggtranstype */
+				/* aggcombinefn 的两个参数总是 aggtranstype 类型*/
 				build_pertrans_for_aggref(pertrans, aggstate, estate,
 										  aggref, transfn_oid, aggtranstype,
 										  serialfn_oid, deserialfn_oid,
@@ -3892,10 +3892,10 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 										  combineFnInputTypes, 2);
 
 				/*
-				 * Ensure that a combine function to combine INTERNAL states
-				 * is not strict. This should have been checked during CREATE
-				 * AGGREGATE, but the strict property could have been changed
-				 * since then.
+				 * 确保合并 INTERNAL 状态的合并函数不是严格  
+				 * 函数。这本应在 CREATE AGGREGATE 时检查过，    
+				 * 但此后严格属性可能已被                         
+				 * 更改。  
 				 */
 				if (pertrans->transfn.fn_strict && aggtranstype == INTERNALOID)
 					ereport(ERROR,
@@ -3905,7 +3905,7 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 			}
 			else
 			{
-				/* Detect how many arguments to pass to the transfn */
+				/* 确定要传递给 transfn 的参数个数       */
 				if (AGGKIND_IS_ORDERED_SET(aggref->aggkind))
 					pertrans->numTransInputs = list_length(aggref->args);
 				else
@@ -3919,13 +3919,13 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 										  numAggTransFnArgs);
 
 				/*
-				 * If the transfn is strict and the initval is NULL, make sure
-				 * input type and transtype are the same (or at least
-				 * binary-compatible), so that it's OK to use the first
-				 * aggregated input value as the initial transValue.  This
-				 * should have been checked at agg definition time, but we
-				 * must check again in case the transfn's strictness property
-				 * has been changed.
+				 * 若 transfn 严格且 initval 为 NULL，则须确保输入
+				 * 类型与过渡类型相同（或至少           
+				 * 二进制兼容），这样才能将首个          
+				 * 被聚合的输入值用作初始过渡值。          
+				 * 这一点本应在定义聚合时检查，但鉴于    
+				 * transfn 的严格性可能已被更改，必须           
+				 * 再次检查。  
 				 */
 				if (pertrans->transfn.fn_strict && pertrans->initValueIsNull)
 				{
@@ -3945,21 +3945,21 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * Update aggstate->numaggs to be the number of unique aggregates found.
-	 * Also set numstates to the number of unique transition states found.
+	 * 把 aggstate->numaggs 更新为所找到的不重复聚合个数。  
+	 * 并将 numstates 设为所找到的不重复过渡状态个数。  
 	 */
 	aggstate->numaggs = numaggs;
 	aggstate->numtrans = numtrans;
 
 	/*
-	 * Last, check whether any more aggregates got added onto the node while
-	 * we processed the expressions for the aggregate arguments (including not
-	 * only the regular arguments and FILTER expressions handled immediately
-	 * above, but any direct arguments we might've handled earlier).  If so,
-	 * we have nested aggregate functions, which is semantically nonsensical,
-	 * so complain.  (This should have been caught by the parser, so we don't
-	 * need to work hard on a helpful error message; but we defend against it
-	 * here anyway, just to be sure.)
+	 * 最后，检查在处理聚合参数表达式时节点上是否又   
+	 * 添加了更多聚合（不仅包括上文刚处理过的常规参数  
+	 * 和 FILTER 表达式，还包括我们可能更早处理过的直    
+	 * 接参数）。如果是这样，就说明存在嵌套聚合函数，
+	 * 这在语义上毫无意义，所以要报错。（这本应由       
+	 * 解析器捕获，故我们不必费力编写有用的错误消息； 
+	 * 但保险起见，无论如何都应在此对它加以防范，       
+	 * 以防万一。）            
 	 */
 	if (numaggrefs != list_length(aggstate->aggs))
 		ereport(ERROR,
@@ -3967,11 +3967,11 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 				 errmsg("aggregate function calls cannot be nested")));
 
 	/*
-	 * Build expressions doing all the transition work at once. We build a
-	 * different one for each phase, as the number of transition function
-	 * invocation can differ between phases. Note this'll work both for
-	 * transition and combination functions (although there'll only be one
-	 * phase in the latter case).
+	 * 构建能一次完成所有过渡工作的表达式。我们会为 
+	 * 每个阶段构建不同的表达式，因为过渡函数的调用
+	 * 次数可能因阶段而异。注意无论过渡还是合并函 
+	 * 数都适用（尽管后者情形下只会有                      
+	 * 一个阶段）。        
 	 */
 	for (phaseidx = 0; phaseidx < aggstate->numphases; phaseidx++)
 	{
@@ -3979,15 +3979,15 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 		bool		dohash = false;
 		bool		dosort = false;
 
-		/* phase 0 doesn't necessarily exist */
+		/* 阶段 0 不一定存在          */
 		if (!phase->aggnode)
 			continue;
 
 		if (aggstate->aggstrategy == AGG_MIXED && phaseidx == 1)
 		{
 			/*
-			 * Phase one, and only phase one, in a mixed agg performs both
-			 * sorting and aggregation.
+			 * 混合聚合中只有阶段一会同时进行排序和     
+			 * 聚合两项工作。   
 			 */
 			dohash = true;
 			dosort = true;
@@ -3995,9 +3995,9 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 		else if (aggstate->aggstrategy == AGG_MIXED && phaseidx == 0)
 		{
 			/*
-			 * No need to compute a transition function for an AGG_MIXED phase
-			 * 0 - the contents of the hashtables will have been computed
-			 * during phase 1.
+			 * AGG_MIXED 阶段 0 无需计算过渡函数——哈希表中  
+			 * 的内容将在阶段 1 期                               
+			 * 间被算好。
 			 */
 			continue;
 		}
@@ -4018,7 +4018,7 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 		phase->evaltrans = ExecBuildAggTrans(aggstate, phase, dosort, dohash,
 											 false);
 
-		/* cache compiled expression for outer slot without NULL check */
+		/* 缓存为 outer slot 编译的表达式，不做 NULL 检查*/
 		phase->evaltrans_cache[0][0] = phase->evaltrans;
 	}
 
@@ -4026,14 +4026,14 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 }
 
 /*
- * Build the state needed to calculate a state value for an aggregate.
+ * 为聚合构建计算状态值所需的状态。                   
  *
- * This initializes all the fields in 'pertrans'. 'aggref' is the aggregate
- * to initialize the state for. 'transfn_oid', 'aggtranstype', and the rest
- * of the arguments could be calculated from 'aggref', but the caller has
- * calculated them already, so might as well pass them.
+ * 这会初始化 'pertrans' 中的所有字段。'aggref' 是要为其   
+ * 初始化状态的聚合。'transfn_oid'、'aggtranstype' 及其余     
+ * 参数本可从 'aggref' 算出，但调用者已经算过，不妨   
+ * 直接传过来。                                  
  *
- * 'transfn_oid' may be either the Oid of the aggtransfn or the aggcombinefn.
+ * aggcombinefn 的 Oid。                                                   
  */
 static void
 build_pertrans_for_aggref(AggStatePerTrans pertrans,
@@ -4057,7 +4057,7 @@ build_pertrans_for_aggref(AggStatePerTrans pertrans,
 	int			numDistinctCols;
 	int			i;
 
-	/* Begin filling in the pertrans data */
+	/* 开始填充 pertrans 数据       */
 	pertrans->aggref = aggref;
 	pertrans->aggshared = false;
 	pertrans->aggCollation = aggref->inputcollid;
@@ -4067,20 +4067,20 @@ build_pertrans_for_aggref(AggStatePerTrans pertrans,
 	pertrans->initValue = initValue;
 	pertrans->initValueIsNull = initValueIsNull;
 
-	/* Count the "direct" arguments, if any */
+	/* 统计"直接"参数（如果有）  */
 	numDirectArgs = list_length(aggref->aggdirectargs);
 
-	/* Count the number of aggregated input columns */
+	/* 统计聚合输入列的个数               */
 	pertrans->numInputs = numInputs = list_length(aggref->args);
 
 	pertrans->aggtranstype = aggtranstype;
 
-	/* account for the current transition state */
+	/* 把当前过渡状态计入              */
 	numTransArgs = pertrans->numTransInputs + 1;
 
 	/*
-	 * Set up infrastructure for calling the transfn.  Note that invtransfn is
-	 * not needed here.
+	 * 搭建调用 transfn 所需的基础设施；注意此处不需要     
+	 * invtransfn。   
 	 */
 	build_aggregate_transfn_expr(inputTypes,
 								 numArguments,
@@ -4104,7 +4104,7 @@ build_pertrans_for_aggref(AggStatePerTrans pertrans,
 							 pertrans->aggCollation,
 							 (void *) aggstate, NULL);
 
-	/* get info about the state value's datatype */
+	/* 获取状态值数据类型的相关信息*/
 	get_typlenbyval(aggtranstype,
 					&pertrans->transtypeLen,
 					&pertrans->transtypeByVal);
@@ -4142,19 +4142,19 @@ build_pertrans_for_aggref(AggStatePerTrans pertrans,
 	}
 
 	/*
-	 * If we're doing either DISTINCT or ORDER BY for a plain agg, then we
-	 * have a list of SortGroupClause nodes; fish out the data in them and
-	 * stick them into arrays.  We ignore ORDER BY for an ordered-set agg,
-	 * however; the agg's transfn and finalfn are responsible for that.
+	 * 如果普通聚合要做 DISTINCT 或 ORDER BY，就有一个      
+	 * SortGroupClause 节点列表；把其中数据取出存入数组。
+	 * 但有序集聚合的 ORDER BY 会被忽略；那由聚合自身的
+	 * transfn 和 finalfn 负责。                                   
 	 *
-	 * When the planner has set the aggpresorted flag, the input to the
-	 * aggregate is already correctly sorted.  For ORDER BY aggregates we can
-	 * simply treat these as normal aggregates.  For presorted DISTINCT
-	 * aggregates an extra step must be added to remove duplicate consecutive
-	 * inputs.
+	 * 若已设置 aggpresorted 标志，聚合输入已排好序，  
+	 * 对 ORDER BY 聚合，我们可以直接把它们当作普通聚合   
+	 * 对待。预排序的 DISTINCT 聚合必须增加一个         
+	 * 额外步骤来去除连续出现的重复输                         
+	 * 入。 
 	 *
-	 * Note that by construction, if there is a DISTINCT clause then the ORDER
-	 * BY clause is a prefix of it (see transformDistinctClause).
+	 * 注意，按构造方式，如果存在 DISTINCT 子句，那么 ORDER 
+	 *  BY 子句是其前缀（见 transformDistinctClause）。
 	 */
 	if (AGGKIND_IS_ORDERED_SET(aggref->aggkind))
 	{
@@ -4187,9 +4187,9 @@ build_pertrans_for_aggref(AggStatePerTrans pertrans,
 	pertrans->numDistinctCols = numDistinctCols;
 
 	/*
-	 * If we have either sorting or filtering to do, create a tupledesc and
-	 * slot corresponding to the aggregated inputs (including sort
-	 * expressions) of the agg.
+	 * 如果聚合要排序或过滤，就为该聚合的聚合输入创  
+	 * 建对应的 tupledesc 与槽（含排序表达            
+	 * 式）。               
 	 */
 	if (numSortCols > 0 || aggref->aggfilter)
 	{
@@ -4202,15 +4202,15 @@ build_pertrans_for_aggref(AggStatePerTrans pertrans,
 	if (numSortCols > 0)
 	{
 		/*
-		 * We don't implement DISTINCT or ORDER BY aggs in the HASHED case
-		 * (yet)
+		 * 在 HASHED 模式下，暂不实现 DISTINCT/ORDER BY 聚合   
+		 * (暂)
 		 */
 		Assert(aggstate->aggstrategy != AGG_HASHED && aggstate->aggstrategy != AGG_MIXED);
 
-		/* ORDER BY aggregates are not supported with partial aggregation */
+		/* 在部分聚合的情形下不支持 ORDER BY 聚合           */
 		Assert(!DO_AGGSPLIT_COMBINE(aggstate->aggsplit));
 
-		/* If we have only one input, we need its len/byval info. */
+		/* 若仅一个输入，则需要其 len/byval 信息。  */
 		if (numInputs == 1)
 		{
 			get_typlenbyval(inputTypes[numDirectArgs],
@@ -4219,13 +4219,13 @@ build_pertrans_for_aggref(AggStatePerTrans pertrans,
 		}
 		else if (numDistinctCols > 0)
 		{
-			/* we will need an extra slot to store prior values */
+			/* 需要一个额外槽来存储先前的值       */
 			pertrans->uniqslot =
 				ExecInitExtraTupleSlot(estate, pertrans->sortdesc,
 									   &TTSOpsMinimalTuple);
 		}
 
-		/* Extract the sort information for use later */
+		/* 提取排序信息供以后使用          */
 		pertrans->sortColIdx =
 			(AttrNumber *) palloc(numSortCols * sizeof(AttrNumber));
 		pertrans->sortOperators =
@@ -4241,7 +4241,7 @@ build_pertrans_for_aggref(AggStatePerTrans pertrans,
 			SortGroupClause *sortcl = (SortGroupClause *) lfirst(lc);
 			TargetEntry *tle = get_sortgroupclause_tle(sortcl, aggref->args);
 
-			/* the parser should have made sure of this */
+			/* 解析器应已确保这一点           */
 			Assert(OidIsValid(sortcl->sortop));
 
 			pertrans->sortColIdx[i] = tle->resno;
@@ -4266,7 +4266,7 @@ build_pertrans_for_aggref(AggStatePerTrans pertrans,
 		foreach(lc, aggref->aggdistinct)
 			ops[i++] = ((SortGroupClause *) lfirst(lc))->eqop;
 
-		/* lookup / build the necessary comparators */
+		/* 查找/构建所需的比较器          */
 		if (numDistinctCols == 1)
 			fmgr_info(get_opcode(ops[0]), &pertrans->equalfnOne);
 		else
@@ -4310,9 +4310,9 @@ ExecEndAgg(AggState *node)
 	int			setno;
 
 	/*
-	 * When ending a parallel worker, copy the statistics gathered by the
-	 * worker back into shared memory so that it can be picked up by the main
-	 * process to report in EXPLAIN ANALYZE.
+	 * 并行 worker 结束时，把它收集的统计信息拷回共享 
+	 * 享内存，以便主进程可以取出这些信息，用于在       
+	 * EXPLAIN ANALYZE 中报告。         
 	 */
 	if (node->shared_info && IsParallelWorker())
 	{
@@ -4325,7 +4325,7 @@ ExecEndAgg(AggState *node)
 		si->hash_mem_peak = node->hash_mem_peak;
 	}
 
-	/* Make sure we have closed any open tuplesorts */
+	/* 确保已关闭所有打开的 tuplesort     */
 
 	if (node->sort_in)
 		tuplesort_end(node->sort_in);
@@ -4351,20 +4351,20 @@ ExecEndAgg(AggState *node)
 		}
 	}
 
-	/* And ensure any agg shutdown callbacks have been called */
+	/* 并确保所有聚合关闭回调都已被调用       */
 	for (setno = 0; setno < numGroupingSets; setno++)
 		ReScanExprContext(node->aggcontexts[setno]);
 	if (node->hashcontext)
 		ReScanExprContext(node->hashcontext);
 
 	/*
-	 * We don't actually free any ExprContexts here (see comment in
-	 * ExecFreeExprContext), just unlinking the output one from the plan node
-	 * suffices.
+	 * 我们并不在此真正释放任何 ExprContext（参见   
+	 * ExecFreeExprContext 注释），把输出者从计划节点解开     
+	 * 即可。
 	 */
 	ExecFreeExprContext(&node->ss.ps);
 
-	/* clean up tuple table */
+	/* 清理元组表      */
 	ExecClearTuple(node->ss.ss_ScanTupleSlot);
 
 	outerPlan = outerPlanState(node);
@@ -4386,20 +4386,20 @@ ExecReScanAgg(AggState *node)
 	if (node->aggstrategy == AGG_HASHED)
 	{
 		/*
-		 * In the hashed case, if we haven't yet built the hash table then we
-		 * can just return; nothing done yet, so nothing to undo. If subnode's
-		 * chgParam is not NULL then it will be re-scanned by ExecProcNode,
-		 * else no reason to re-scan it at all.
+		 * 哈希情形下若尚未建哈希表，可直接返回；什么都
+		 * 还没做，所以无可撤销。如果 subnode 的 chgParam 不为
+		 * NULL，则 ExecProcNode 会重扫；否则                      
+		 * 根本不必重扫。               
 		 */
 		if (!node->table_filled)
 			return;
 
 		/*
-		 * If we do have the hash table, and it never spilled, and the subplan
-		 * does not have any parameter changes, and none of our own parameter
-		 * changes affect input expressions of the aggregated functions, then
-		 * we can just rescan the existing hash table; no need to build it
-		 * again.
+		 * 若确有哈希表，它从未溢出，子计划无参数变化， 
+		 * 而且我们的参数变化不影响聚合输入表达式，那么
+		 * 就可以直接重新扫描现有的哈希表，无需再         
+		 * 重新构建它一遍                                          
+		 * 即可
 		 */
 		if (outerPlan->chgParam == NULL && !node->hash_ever_spilled &&
 			!bms_overlap(node->ss.ps.chgParam, aggnode->aggParams))
@@ -4411,7 +4411,7 @@ ExecReScanAgg(AggState *node)
 		}
 	}
 
-	/* Make sure we have closed any open tuplesorts */
+	/* 确保已关闭所有打开的 tuplesort     */
 	for (transno = 0; transno < node->numtrans; transno++)
 	{
 		for (setno = 0; setno < numGroupingSets; setno++)
@@ -4427,11 +4427,11 @@ ExecReScanAgg(AggState *node)
 	}
 
 	/*
-	 * We don't need to ReScanExprContext the output tuple context here;
-	 * ExecReScan already did it. But we do need to reset our per-grouping-set
-	 * contexts, which may have transvalues stored in them. (We use rescan
-	 * rather than just reset because transfns may have registered callbacks
-	 * that need to be run now.) For the AGG_HASHED case, see below.
+	 * 这里无需对输出元组上下文调用 ReScanExprContext；  
+	 * ExecReScan 已做过此事。但我们确实需要重置各分组集   
+	 * 用的上下文，其中可能存有过渡值。（之所以用    
+	 *  rescan 而非仅 reset，因过渡函数可能注册了现在需    
+	 * 要运行的回调。）AGG_HASHED 情形见下文。        
 	 */
 
 	for (setno = 0; setno < numGroupingSets; setno++)
@@ -4439,7 +4439,7 @@ ExecReScanAgg(AggState *node)
 		ReScanExprContext(node->aggcontexts[setno]);
 	}
 
-	/* Release first tuple of group, if we have made a copy */
+	/* 若已制作副本，就释放该组第一个元组  */
 	if (node->grp_firstTuple != NULL)
 	{
 		heap_freetuple(node->grp_firstTuple);
@@ -4447,14 +4447,14 @@ ExecReScanAgg(AggState *node)
 	}
 	ExecClearTuple(node->ss.ss_ScanTupleSlot);
 
-	/* Forget current agg values */
+	/* 忘掉当前聚合值     */
 	MemSet(econtext->ecxt_aggvalues, 0, sizeof(Datum) * node->numaggs);
 	MemSet(econtext->ecxt_aggnulls, 0, sizeof(bool) * node->numaggs);
 
 	/*
-	 * With AGG_HASHED/MIXED, the hash table is allocated in a sub-context of
-	 * the hashcontext. This used to be an issue, but now, resetting a context
-	 * automatically deletes sub-contexts too.
+	 * AGG_HASHED/MIXED 情形下，哈希表分配在 hashcontext 的一个 
+	 * 子上下文中。这曾是问题，但现在重置上下文将自动  
+	 * 删除其子上下文。               
 	 */
 	if (node->aggstrategy == AGG_HASHED || node->aggstrategy == AGG_MIXED)
 	{
@@ -4465,10 +4465,10 @@ ExecReScanAgg(AggState *node)
 		node->hash_ngroups_current = 0;
 
 		ReScanExprContext(node->hashcontext);
-		/* Rebuild an empty hash table */
+		/* 重建一个空哈希表    */
 		build_hash_tables(node);
 		node->table_filled = false;
-		/* iterator will be reset when the table is filled */
+		/* 填充该表时，迭代器会被重置         */
 
 		hashagg_recompile_expressions(node, false, false);
 	}
@@ -4476,7 +4476,7 @@ ExecReScanAgg(AggState *node)
 	if (node->aggstrategy != AGG_HASHED)
 	{
 		/*
-		 * Reset the per-group state (in particular, mark transvalues null)
+		 * 重置每组的状态（尤其是把过渡值标记为空）。 
 		 */
 		for (setno = 0; setno < numGroupingSets; setno++)
 		{
@@ -4484,7 +4484,7 @@ ExecReScanAgg(AggState *node)
 				   sizeof(AggStatePerGroupData) * node->numaggs);
 		}
 
-		/* reset to phase 1 */
+		/* 回到阶段 1   */
 		initialize_phase(node, 1);
 
 		node->input_done = false;
@@ -4497,26 +4497,26 @@ ExecReScanAgg(AggState *node)
 
 
 /***********************************************************************
- * API exposed to aggregate functions
+ * 向聚合函数公开的 API      
  ***********************************************************************/
 
 
 /*
- * AggCheckCallContext - test if a SQL function is being called as an aggregate
+ * AggCheckCallContext - 测试某个 SQL 函数是否正作为聚合被调用 
  *
- * The transition and/or final functions of an aggregate may want to verify
- * that they are being called as aggregates, rather than as plain SQL
- * functions.  They should use this function to do so.  The return value
- * is nonzero if being called as an aggregate, or zero if not.  (Specific
- * nonzero values are AGG_CONTEXT_AGGREGATE or AGG_CONTEXT_WINDOW, but more
- * values could conceivably appear in future.)
+ * 聚合的过渡函数/最终函数可能想验证自己是否作为聚  
+ * 合被调用而非作为普通 SQL 函数被调用。它们应使 
+ * 用本函数来验证。若作为聚合被调用则返回值非零，
+ * 否则返回零。（具体非零值是 AGG_CONTEXT_AGGREGATE 或     
+ * AGG_CONTEXT_WINDOW，不过将来也可能出现别的                  
+ * 取值。）                               
  *
- * If aggcontext isn't NULL, the function also stores at *aggcontext the
- * identity of the memory context that aggregate transition values are being
- * stored in.  Note that the same aggregate call site (flinfo) may be called
- * interleaved on different transition values in different contexts, so it's
- * not kosher to cache aggcontext under fn_extra.  It is, however, kosher to
- * cache it in the transvalue itself (for internal-type transvalues).
+ * 如果 aggcontext 非 NULL，该函数还会把聚合过渡值所存 
+ * 储在的内存上下文的身份存入 *aggcontext。注意，同一    
+ * 聚合调用点（flinfo）可能在不同上下文中交替地用于    
+ * 不同的过渡值，因此把 aggcontext 缓存在 fn_extra 中是      
+ * 不合规矩的。不过，把它缓存在过渡值自身内部（对于 
+ * internal 类型的过渡值）则是合规矩的。               
  */
 int
 AggCheckCallContext(FunctionCallInfo fcinfo, MemoryContext *aggcontext)
@@ -4539,28 +4539,28 @@ AggCheckCallContext(FunctionCallInfo fcinfo, MemoryContext *aggcontext)
 		return AGG_CONTEXT_WINDOW;
 	}
 
-	/* this is just to prevent "uninitialized variable" warnings */
+	/* 这一赋值只是为了避免"未初始化变量"警告  */
 	if (aggcontext)
 		*aggcontext = NULL;
 	return 0;
 }
 
 /*
- * AggGetAggref - allow an aggregate support function to get its Aggref
+ * AggGetAggref - 允许聚合支持函数获取其 Aggref 节点      
  *
- * If the function is being called as an aggregate support function,
- * return the Aggref node for the aggregate call.  Otherwise, return NULL.
+ * 若函数作为聚合支持函数被调用，返回聚合调用  
+ * 的 Aggref 节点；否则返回 NULL。                               
  *
- * Aggregates sharing the same inputs and transition functions can get
- * merged into a single transition calculation.  If the transition function
- * calls AggGetAggref, it will get some one of the Aggrefs for which it is
- * executing.  It must therefore not pay attention to the Aggref fields that
- * relate to the final function, as those are indeterminate.  But if a final
- * function calls AggGetAggref, it will get a precise result.
+ * 输入与过渡函数相同的聚合，可合并成单次过渡计 
+ * 算。若过渡函数调用 AggGetAggref，它将得到其正在        
+ * 执行的某个 Aggref。因此它绝不能关注与最终函数相关 
+ * 的那些 Aggref 字段，因为其值是不确定的。但如果是     
+ * 最终函数调用 AggGetAggref，则将得到一个精确的            
+ * 结果。                                                 
  *
- * Note that if an aggregate is being used as a window function, this will
- * return NULL.  We could provide a similar function to return the relevant
- * WindowFunc node in such cases, but it's not needed yet.
+ * 注意，若聚合正被用作窗口函数，这里会返回 NULL。   
+ * 在这种情形下，我们本可以提供一个类似函数来返回相
+ * 关的 WindowFunc 节点，但目前尚不需要。    
  */
 Aggref *
 AggGetAggref(FunctionCallInfo fcinfo)
@@ -4571,13 +4571,13 @@ AggGetAggref(FunctionCallInfo fcinfo)
 		AggStatePerAgg curperagg;
 		AggStatePerTrans curpertrans;
 
-		/* check curperagg (valid when in a final function) */
+		/* 检查 curperagg（在最终函数中时有效）*/
 		curperagg = aggstate->curperagg;
 
 		if (curperagg)
 			return curperagg->aggref;
 
-		/* check curpertrans (valid when in a transition function) */
+		/* 检查 curpertrans（在过渡函数中时有效）     */
 		curpertrans = aggstate->curpertrans;
 
 		if (curpertrans)
@@ -4587,14 +4587,14 @@ AggGetAggref(FunctionCallInfo fcinfo)
 }
 
 /*
- * AggGetTempMemoryContext - fetch short-term memory context for aggregates
+ * AggGetTempMemoryContext - 获取聚合的短期内存上下文          
  *
- * This is useful in agg final functions; the context returned is one that
- * the final function can safely reset as desired.  This isn't useful for
- * transition functions, since the context returned MAY (we don't promise)
- * be the same as the context those are called in.
+ * 这对聚合的最终函数有用；返回的上下文是最终函数  
+ * 可按需安全重置的上下文。它对过渡函数没什么用， 
+ * 因返回的上下文可能（我们不承诺）正是调用它们的  
+ * 的那个上下文相同。                    
  *
- * As above, this is currently not useful for aggs called as window functions.
+ * 如上所述，它目前对作为窗口函数调用的聚合没有用处。
  */
 MemoryContext
 AggGetTempMemoryContext(FunctionCallInfo fcinfo)
@@ -4609,18 +4609,18 @@ AggGetTempMemoryContext(FunctionCallInfo fcinfo)
 }
 
 /*
- * AggStateIsShared - find out whether transition state is shared
+ * AggStateIsShared - 查明过渡状态是否为共享          
  *
- * If the function is being called as an aggregate support function,
- * return true if the aggregate's transition state is shared across
- * multiple aggregates, false if it is not.
+ * 若该函数作为聚合支持函数被调用，聚合的过     
+ * 渡状态被多个聚合共享，则返回 true；否则返回  
+ *  false。                               
  *
- * Returns true if not called as an aggregate support function.
- * This is intended as a conservative answer, ie "no you'd better not
- * scribble on your input".  In particular, will return true if the
- * aggregate is being used as a window function, which is a scenario
- * in which changing the transition state is a bad idea.  We might
- * want to refine the behavior for the window case in future.
+ * 若非作为聚合支持函数被调用，则返回 true。 
+ * 这意在给出保守答案："不，你最好别乱改你的     
+ * 输入"。                                                      
+ * 特别是，聚合被用作窗口函数时会返回 true，那种
+ * 场景下修改过渡状态并非好主意，将来或许会改
+ * 进窗口情形下的行为。                            
  */
 bool
 AggStateIsShared(FunctionCallInfo fcinfo)
@@ -4631,13 +4631,13 @@ AggStateIsShared(FunctionCallInfo fcinfo)
 		AggStatePerAgg curperagg;
 		AggStatePerTrans curpertrans;
 
-		/* check curperagg (valid when in a final function) */
+		/* 检查 curperagg（在最终函数中时有效）*/
 		curperagg = aggstate->curperagg;
 
 		if (curperagg)
 			return aggstate->pertrans[curperagg->transno].aggshared;
 
-		/* check curpertrans (valid when in a transition function) */
+		/* 检查 curpertrans（在过渡函数中时有效）     */
 		curpertrans = aggstate->curpertrans;
 
 		if (curpertrans)
@@ -4647,19 +4647,19 @@ AggStateIsShared(FunctionCallInfo fcinfo)
 }
 
 /*
- * AggRegisterCallback - register a cleanup callback for an aggregate
+ * AggRegisterCallback - 为聚合注册清理回调                 
  *
- * This is useful for aggs to register shutdown callbacks, which will ensure
- * that non-memory resources are freed.  The callback will occur just before
- * the associated aggcontext (as returned by AggCheckCallContext) is reset,
- * either between groups or as a result of rescanning the query.  The callback
- * will NOT be called on error paths.  The typical use-case is for freeing of
- * tuplestores or tuplesorts maintained in aggcontext, or pins held by slots
- * created by the agg functions.  (The callback will not be called until after
- * the result of the finalfn is no longer needed, so it's safe for the finalfn
- * to return data that will be freed by the callback.)
+ * 这对聚合很有用，可用来注册关闭回调，确保非内存资 
+ * 源得到释放。回调将在关联的 aggcontext（即                 
+ *  AggCheckCallContext 返回的那个）被重置之前发生，无论   
+ * 是在组间还是因重新扫描查询而发生。错误路径上不会   
+ * 调用该回调。典型用例是释放在 aggcontext 中维护的        
+ * tuplestore 或 tuplesort，或者聚合函数所创建槽持有的       
+ * pin。（在 finalfn 的结果不再需要之后回调才会被调用，   
+ * 因此 finalfn 返回将来会被回调释放的                           
+ * 数据是安全的。）                           
  *
- * As above, this is currently not useful for aggs called as window functions.
+ * 如上所述，它目前对作为窗口函数调用的聚合没有用处。
  */
 void
 AggRegisterCallback(FunctionCallInfo fcinfo,
@@ -4680,14 +4680,14 @@ AggRegisterCallback(FunctionCallInfo fcinfo,
 
 
 /* ----------------------------------------------------------------
- *						Parallel Query Support
+ *						并行查询支持    
  * ----------------------------------------------------------------
  */
 
  /* ----------------------------------------------------------------
   *		ExecAggEstimate
   *
-  *		Estimate space required to propagate aggregate statistics.
+  *		估算传播聚合统计信息所需的空间。          
   * ----------------------------------------------------------------
   */
 void
@@ -4695,7 +4695,7 @@ ExecAggEstimate(AggState *node, ParallelContext *pcxt)
 {
 	Size		size;
 
-	/* don't need this if not instrumenting or no workers */
+	/* 若未插桩或没有 worker，则不需要它     */
 	if (!node->ss.ps.instrument || pcxt->nworkers == 0)
 		return;
 
@@ -4708,7 +4708,7 @@ ExecAggEstimate(AggState *node, ParallelContext *pcxt)
 /* ----------------------------------------------------------------
  *		ExecAggInitializeDSM
  *
- *		Initialize DSM space for aggregate statistics.
+ *		为聚合统计信息初始化 DSM 空间。  
  * ----------------------------------------------------------------
  */
 void
@@ -4716,14 +4716,14 @@ ExecAggInitializeDSM(AggState *node, ParallelContext *pcxt)
 {
 	Size		size;
 
-	/* don't need this if not instrumenting or no workers */
+	/* 若未插桩或没有 worker，则不需要它     */
 	if (!node->ss.ps.instrument || pcxt->nworkers == 0)
 		return;
 
 	size = offsetof(SharedAggInfo, sinstrument)
 		+ pcxt->nworkers * sizeof(AggregateInstrumentation);
 	node->shared_info = shm_toc_allocate(pcxt->toc, size);
-	/* ensure any unfilled slots will contain zeroes */
+	/* 确保任何未填充的槽都将包含零    */
 	memset(node->shared_info, 0, size);
 	node->shared_info->num_workers = pcxt->nworkers;
 	shm_toc_insert(pcxt->toc, node->ss.ps.plan->plan_node_id,
@@ -4733,7 +4733,7 @@ ExecAggInitializeDSM(AggState *node, ParallelContext *pcxt)
 /* ----------------------------------------------------------------
  *		ExecAggInitializeWorker
  *
- *		Attach worker to DSM space for aggregate statistics.
+ *		把 worker 附加到聚合统计的 DSM 空间。   
  * ----------------------------------------------------------------
  */
 void
@@ -4746,7 +4746,7 @@ ExecAggInitializeWorker(AggState *node, ParallelWorkerContext *pwcxt)
 /* ----------------------------------------------------------------
  *		ExecAggRetrieveInstrumentation
  *
- *		Transfer aggregate statistics from DSM to private memory.
+ *		把聚合统计信息从 DSM 传送到私有内存。    
  * ----------------------------------------------------------------
  */
 void

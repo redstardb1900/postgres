@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "batch_id": "0273-comment-executor-nodeagg",
+  "title": "Translate executor comments: executor-nodeagg",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "241b4b572f5a664d981caeb46e49a45e2ada7628",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0273-comment-executor-nodeagg.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/executor/**",
+      "kind": "c_comment",
+      "note": "P2 executor translation campaign"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0273-comment-executor-nodeagg.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": []
+    },
+    {
+      "path": "src/backend/executor/nodeAgg.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 334,
+      "translated": 331,
+      "preserved": 3,
+      "preserved_reasons": {
+        "EN:1753": "blk102: pure identifier label (AGG_MIXED enum value) - kept in English",
+        "EN:2026": "blk126: pure expression label (ceil(log2(npartitions))) - kept in English",
+        "EN:2174": "blk136: FALLTHROUGH marker comment - kept in English"
+      },
+      "note": "P2 executor campaign wave C14"
+    }
+  ],
+  "notes": "Translation agents (C14a/C14b/C14c/C14d) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

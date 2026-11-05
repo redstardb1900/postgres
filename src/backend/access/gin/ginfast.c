@@ -490,7 +490,7 @@ ginHeapTupleFastCollect(GinState *ginstate,
 				nentries;
 
 	/*
-	 * 提取需要插入索引的键值
+	 * 提取需要插入到索引中的键值。                  
 	 */
 	entries = ginExtractEntries(ginstate, attnum, value, isNull,
 								&nentries, &categories);

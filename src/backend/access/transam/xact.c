@@ -100,27 +100,27 @@ TransactionId CheckXidAlive = InvalidTransactionId;
 bool		bsysscan = false;
 
 /*
- * 当作为并行工作进程运行时，我们只在并行
- * 状态栈上放置单个 TransactionStateData，其中反映的 XID   
- * 将是启动并行性的后端中当前活动的*最内层*     
- * 子事务的 XID。但是，GetTopTransactionId() 和              
- * TransactionIdIsCurrentTransactionId() 在并行工作进程中 
- * 需要返回与用户后端相同的答案，因此我们需要          
- * 一些额外的记账。                                    
+ * 当以并行 worker 身份运行时，我们只在并行 
+ * worker 的状态栈上放一个 TransactionStateData，而其 XID     
+ * 将是启动并行的后端中当前活动的*最内层*        
+ * 子事务的。但是，                                           
+ * GetTopTransactionId() 和                                      
+ * TransactionIdIsCurrentTransactionId() 在并行 worker 中需要         
+ * 返回与用户后端相同的答案，需额外记账。   
  *
  * XactTopFullTransactionId 存储顶层事务的 XID，在普通后端中   
- * 与 TopTransactionStateData.fullTransactionId 相同；但在      
- * 并行后端中，由于没有完整的事务状态，它将从启动      
+ * 它与 TopTransactionStateData.fullTransactionId 相同；但在   
+ * 并行后端中，因其无完整事务状态，则改为从启动         
  * 并行操作的后端                                                     
  * 复制过来。        
  *
- * nParallelCurrentXids 在普通后端中为 0 且 ParallelCurrentXids      
- * 为 NULL；但在并行后端中，nParallelCurrentXids 将包含需要  
- * 被视为当前的 XIDs 数量，而 ParallelCurrentXids 将包含 XIDs   
- * 本身。这包括并行操作开始时父级中处于当前或            
- * 子提交状态的所有 XIDs。这些 XIDs 按数值顺序             
- * （而非逻辑顺序）排序存储，以使查找尽可能快。       
- *                             
+ * 在普通后端中 nParallelCurrentXids 为 0 且 ParallelCurrentXids     
+ * 为 NULL；但在并行后端中，nParallelCurrentXids 将包含        
+ * 需被视为当前的 XID 的数量，而 ParallelCurrentXids 则包含   
+ * XID 本身。这包括并行操作开始时父后端中处于当前或     
+ * 子提交状态的所有 XID。这些 XID                               
+ * 按数值顺序（而非逻辑顺序）排序存储，以使查找       
+ * 尽可能快。             
  */
 static FullTransactionId XactTopFullTransactionId = {InvalidTransactionId};
 static int	nParallelCurrentXids = 0;
@@ -1429,30 +1429,30 @@ RecordTransactionCommit(void)
 	}
 
 	/*
-	 * 检查我们是否要异步提交。如果 synchronous_commit=off，或者当前事务
-	 * 没有执行任何 WAL 记录操作或没有分配 XID，我们可以允许 XLOG 刷新
-	 * 异步发生。事务可能最终没有写入任何 WAL，即使它有 XID，
-	 * 如果它只写入临时表和/或未记录表。它可能在没有 XID 的情况下
-	 * 写入了 WAL，如果它进行了 HOT 修剪。在崩溃的情况下，
-	 * 这样的事务丢失将是无关紧要的；临时表无论如何都会丢失，
-	 * 未记录表将被截断，HOT 修剪稍后会再次完成。（鉴于上述情况，
-	 * 您可能认为在这种情况下根本不需要发出 XLOG 记录，
-	 * 但我们目前不尝试这样做。这至少在热备模式下会导致问题，
-	 * 因为 KnownAssignedXids 机制需要跟踪每个 XID 分配。
-	 * 可能只有在 wal_level < replica 时跳过它才是可以的，但目前我们不这样做。）
+	 * 检查我们是否要异步提交。我们可以允许 XLOG 刷新     
+	 * 异步进行：若 synchronous_commit=off，或者当前事务       
+	 * 未执行任何 WAL 日志化操作或未分配 xid。事务即使     
+	 * 有 xid，也可能最终不写任何 WAL，若它只写入了         
+	 * 临时表和/或未记录表。若做了 HOT 修剪，它也可能   
+	 * 写了 WAL 而无 xid。崩溃时这种事务的丢失无关紧    
+	 * 要；临时表反正都会丢失，未记录表将被截断，而 
+	 * HOT 修剪稍后会重做。（鉴于上述情况，您可能认为   
+	 * 这种情况根本不必发出 XLOG 记录，但我们目前未      
+	 * 尝试这样做。这至少会在热备模式下导致问题，     
+	 * 因为 KnownAssignedXids 机制需要跟踪每一次 XID             
+	 * 分配。或许可以只在                           
+	 * wal_level < replica 时跳过它才行，但目前我们               
+	 * 暂不这样做。）                                               
+	 *        
 	 *
-	 * 但是，如果我们正在清理任何非临时关系或提交任何想要强制同步提交的命令，
-	 * 那么我们必须立即刷新 XLOG。（如果有任何非临时表要删除，
-	 * 我们不允许异步提交，因为我们可能会在 COMMIT 记录刷新到磁盘之前
-	 * 删除文件。如果要删除的表都是临时表，我们确实允许异步提交，
-	 * 因为如果我们崩溃，它们无论如何都会丢失。）
- *
- *
- *
- *
- *
- *
- */
+	 * 但若我们正在清理任何非临时关系，或提交任何       
+	 * 要强制同步提交的命令，则必须立即刷新 XLOG。   
+	 * （若有任何非临时表待删除，则不允许异步提交，   
+	 * 因为我们可能在 COMMIT 记录刷新到磁盘前删除文件。   
+	 * 不过若所有待删除的表都是临时表，我们确实允       
+	 * 许异步提交，因为一旦崩溃它们反正都会丢失。）   
+	 *                     
+	 */
 	if ((wrote_xlog && markXidCommitted &&
 		 synchronous_commit > SYNCHRONOUS_COMMIT_OFF) ||
 		forceSyncCommit || nrels > 0)
@@ -2488,25 +2488,25 @@ PrepareTransaction(void)
 	PreCommit_CheckForSerializationFailure();
 
 	/*
-	 * 如果在此事务中访问了临时表，则不允许 PREPARE TRANSACTION。
-	 * 让预备事务持有另一个后端的临时表上的锁似乎是个坏主意 ---
-	 * 例如它会阻止后端退出。还有其他问题，例如如果预备事务
-	 * 包含临时表的 DROP，如何清理源后端的本地缓冲区和 ON COMMIT 状态。
+	 * 在此事务中访问过临时表，则不允许 PREPARE              
+	 * TRANSACTION。预备事务持有其他后端临时表的锁似   
+	 * 乎是个坏主意 --- 例如会阻碍该后端退出。还有其他   
+	 * 问题，例如若预备事务包含对临时表的 DROP，            
+	 * 该如何清理源后端的本地缓冲区与 ON COMMIT               
+	 * 状态。                                     
 	 *
-	 * 其他对象类型，如函数、运算符或扩展，共享相同的限制，
-	 * 因为它们不应该被创建、锁定或删除，因为这可能会搞乱此会话
-	 * 或甚至尝试使用相同临时命名空间的后续会话。
+	 * 函数、运算符或扩展等其他对象类型受同样限制，     
+	 * 因其不应被创建、锁定或删除，这可能会搞乱        
+	 * 本会话，甚至扰乱后续尝试使用同一临时命名空间   
+	 * 的会话。                        
 	 *
-	 * 我们必须在执行任何 ON COMMIT 动作之后检查此问题，因为它们
-	 * 可能仍然访问临时关系。
+	 * 必须在执行任何 ON COMMIT 动作之后再做此检查，因     
+	 * 它们可能仍访问临时表。  
 	 *
-	 * XXX 原则上这可以放宽以允许一些有用的特殊情况，
-	 * 例如在事务内创建并删除的临时表。但这似乎需要更多的记账工作。
- *
- *
- *
- *
- */
+	 * XXX 原则上可放宽以允许一些有用的特殊情况，      
+	 * 例如在事务内创建并删除的临时表。但这似     
+	 * 乎需要多得多的记账工作。                             
+	 */
 	if ((MyXactFlags & XACT_FLAGS_ACCESSEDTEMPNAMESPACE))
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -2542,21 +2542,21 @@ PrepareTransaction(void)
 	prepareGID = NULL;
 
 	/*
-	 * 收集 2PC 状态文件的数据。请注意，通常情况下，在此步骤中调用的模块中
-	 * 不应发生实际的状态更改，因为在提交之前仍然可能失败，
-	 * 在这种情况下我们希望事务中止能够清理。（特别是，AtPrepare 例程
-	 * 如果发现无法处理的情况可能会出错。）状态清理应该在下面的
-	 * PostPrepare 例程中进行。但是，一些模块可以在这里继续清除状态，
-	 * 因为它们在中止期间无论如何都不会对其进行任何操作。
+	 * 为 2PC 状态文件收集数据。注意通常此步骤中被调用 
+	 * 的模块内不应发生实际状态更改，因为仍可能在   
+	 * 提交前失败，那样我们希望事务中止能够清理。     
+	 * （特别是 AtPrepare 例程若遇到处理不了的              
+	 * 情形则会出错。）状态清理应在下面 PostPrepare   
+	 * 例程中进行。但有的模块可就在此处清除状态，  
+	 * 因为反正它们在中止期间不会用                             
+	 * 它做任何事情。                                 
 	 *
-	 * 注意：由于 2PC 状态文件记录将按其创建的相同顺序重放，
-	 * 这些调用的顺序必须与我们在 COMMIT PREPARED 或 ROLLBACK PREPARED 期间
-	 * 希望事情发生的顺序匹配；特别是，注意事情应该在释放事务锁之前
-	 * 还是之后发生。
- *
- *
- *
- */
+	 * 注意：由于 2PC 状态文件记录按创建顺序重放，这些 
+	 * 调用的顺序必须与我们在 COMMIT PREPARED 或 ROLLBACK         
+	 * PREPARED 期间期望的顺序一致；尤须注意各项        
+	 * 事项应发生在释放事务的锁之前还是                      
+	 * 之后。                                         
+	 */
 	StartPrepare(gxact);
 
 	AtPrepare_Notify();
@@ -3532,22 +3532,22 @@ PreventInTransactionBlock(bool isTopLevel, const char *stmtType)
  *	WarnNoTransactionBlock
  *	RequireTransactionBlock
  *
- *	这两个函数允许在事务块外执行命令时发出警告或错误。
- *	这对于在事务结束后没有持久效果的命令很有用（所以在事务块外调用它们
- *	大概是错误的）。DECLARE CURSOR 是一个例子。
- *	虽然顶层事务控制命令（BEGIN/COMMIT/ABORT）和无效的 SET 发出警告，
- *	但所有其他无效命令生成错误。
+ *	这两个函数在命令于事务块外执行时给出警告或错误。 
+ *	这对事务结束后没有持久效果的命令很有用（因此在事 
+ *	务块外调用它们大概是错误的）。DECLARE CURSOR 即         
+ *	为一例。顶层事务控制命令（BEGIN/COMMIT/ABORT）与          
+ *	无效的 SET 只发出警告，而所有其他无效命令都           
+ *	生成错误。                                                          
+ *	       
  *
- *	如果我们似乎在用户定义函数内运行，我们不发出任何内容，
- *	因为函数可能发出更多使用当前语句结果的命令。子事务也是如此。
- *	因此这些是 PreventInTransactionBlock 的逆操作。
+ *	如果看似在用户定义的函数内运行，我们什么        
+ *	都不发出，因为该函数可能还会发出更多使用当前    
+ *	语句结果的命令。子事务亦然。                        
+ *	故它们是 PreventInTransactionBlock 的逆操作。
  *
- *	isTopLevel: 从 ProcessUtility 向下传递，以确定我们是否在函数内部。
- *	stmtType: 语句类型名称，用于警告或错误消息。
- *
- *
- *
- *
+ *	isTopLevel: 由 ProcessUtility 向下传入，用于确定我们       
+ *	是否在函数内
+ *	stmtType: 语句类型名，用于警告或错误消息。   
  */
 void
 WarnNoTransactionBlock(bool isTopLevel, const char *stmtType)
@@ -4249,19 +4249,19 @@ DefineSavepoint(const char *name)
 			break;
 
 			/*
-			 * 我们禁止在隐式事务块中使用保存点命令。
-			 * 就本模块而言，允许它们没有太大的困难，
-			 * 但保存点似乎与 exec_simple_query 在出错时
-			 * 放弃整个查询字符串的行为不一致。此外，
-			 * 隐式事务块（相对于常规事务块）的目的是在
-			 * 出错后自动关闭，所以很难看出保存点如何适应这一点。
+			 * 我们禁止在隐式事务块中使用保存点命令。     
+			 * 就本模块而言，允许这样做并没有太大困难， 
+			 * 但保存点似乎与 exec_simple_query 出错时放弃整  
+			 * 个查询字符串的行为不一致。另外，隐式事务块
+			 * （有别于常规块）意在出错后自动关闭，故很  
+			 * 难看出保存点会如何                                  
+			 * 融入其中。                                              
+			 *           
 			 *
-			 * 此错误的提示消息被表述为根本没有活动的事务块，
-			 * 这是历史性的，但也许可以改进。
- *
- *
- *
- */
+			 * 此处的错误消息被表述为似乎根本没有活动  
+			 * 事务块；这是历史习惯，但或许              
+			 * 可以改进。           
+			 */
 		case TBLOCK_IMPLICIT_INPROGRESS:
 			ereport(ERROR,
 					(errcode(ERRCODE_NO_ACTIVE_SQL_TRANSACTION),

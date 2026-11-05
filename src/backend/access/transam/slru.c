@@ -828,21 +828,21 @@ SlruPhysicalWritePage(SlruCtl ctl, int pageno, int slotno, SlruWriteAll fdata)
 	if (fd < 0)
 	{
 		/*
-		 * 若文件尚不存在，我们应创建它。写出并非段内第一页的
-		 * 页时也可能需要创建；我们假定操作系统能应付。（注意：
-		 * 看上去似乎只在对段的第一页调用 SimpleLruZeroPage
-		 * 时创建文件就行。然而，若崩溃并重启后 REDO 逻辑选择从
-		 * 早于最新检查点的检查点重放日志，则我们可能收到要设置
-		 * 已从提交日志截断掉的事务的状态的命令。最简单的处理
-		 * 方式是在此处以及 SlruPhysicalReadPage 中接受对不存在
-		 * 文件的引用。）
+		 * 若该文件还不存在，就应创建它。在写出并非  
+		 * 段内第一页的页时也可能需要这样做；我们假定   
+		 * 操作系统能应付。（注意：似乎只在对段的第     
+		 * 一页调用 SimpleLruZeroPage 时创建文件即可。  
+		 * 然而，若崩溃并重启后 REDO 逻辑选择从早于最
+		 * 新的检查点重放日志，就可能收到要为已        
+		 * 从提交日志中截断掉的事务设置事务状态的命     
+		 * 令。对此最简单的处理                                 
+		 * 办法是接受此处以及 SlruPhysicalReadPage 中              
+		 * 对不存在文件的引用。）                       
+		 *                                                     
 		 *
-		 * 注意：多个后端可能同时为本文件的不同页执行本代码。
-		 * 因此不要使用 O_EXCL 或 O_TRUNC 或类似标志。
-		 *
-		 *
-		 *
-		 *
+		 * 注意：可能有多个后端同时在为同一文件的不同    
+		 * 页执行这段代码。因此，不要使用 O_EXCL 或        
+		 * O_TRUNC 之类的标志。                        
 		 */
 		SlruFileName(ctl, path, segno);
 		fd = OpenTransientFile(path, O_RDWR | O_CREAT | PG_BINARY);
@@ -1001,17 +1001,17 @@ SlruReportIOError(SlruCtl ctl, int pageno, TransactionId xid)
 }
 
 /*
- * 当我们需要空闲槽时，选择要重用的槽。
+ * 需要空闲槽时，选择要重用的槽。      
  *
- * 传入目标页号，是因为要考虑在我们做 I/O 以腾出槽的
- * 同时，别的进程可能已把目标页读入。因此要检查或再检查
- * 是否已有槽持有目标页，若有则返回该槽。于是，返回的槽
- * *要么*已持有 pageno（可为除 EMPTY 外的任意状态），*要么*
- * 是可释放的槽（状态为 EMPTY 或 CLEAN）。
+ * 传入目标页号是因为我们要考虑到，在我们做    
+ * I/O 腾出槽时，别的进程可能把目标页读进来。因  
+ * 此要检查或重新检查是否已有槽持有目标页，若有 
+ * 则返回该槽。因此，返回的槽*要么*是已持有        
+ * pageno 的槽（可为除 EMPTY 外的任意状态），*要么*     
+ * 就是可释放的槽（状态为 EMPTY 或 CLEAN）。             
+ *           
  *
- * 进入时必须持有控制锁，退出时仍持有。
- *
- *
+ * 进入时必须已持有控制锁，退出时仍持有。    
  */
 static int
 SlruSelectLRUPage(SlruCtl ctl, int pageno)
@@ -1039,31 +1039,31 @@ SlruSelectLRUPage(SlruCtl ctl, int pageno)
 		}
 
 		/*
-		 * 若找到任何 EMPTY 槽，就选它。否则挑选要替换的牺牲
-		 * 页。通常取最近最少使用的有效页，但我们绝不会取
-		 * 包含 latest_page_number 的槽，即使它看起来最近最少
-		 * 使用。只有别无选择时我们才会选已在 I/O 忙的槽：读忙
-		 * 槽在读完成后就不会再是最近最少使用，而等待写忙槽上的
-		 * I/O 不如直接另选一槽。测试表明我们改选的槽常常是干净
-		 * 的，从而可以马上开始读。
+		 * 若找到任一 EMPTY 槽，直接选它。否则挑选待    
+		 * 替换的牺牲页。通常取最近最少使用的有效页，  
+		 * 但绝不取 latest_page_number 的槽，哪怕它看 
+		 * 起来最近最少使用。只有别无选择时才会选      
+		 * 择 I/O 忙的槽：读忙槽读完后就不再                
+		 * 是最久未用的，而等待写忙槽上的 I/O 不如直接     
+		 * 另选一个槽。测试表明，我们改选的槽往往        
+		 * 是干净的，从而能够马上开始                          
+		 * 读取。                                                          
+		 *      
 		 *
-		 * 通常 page_lru_count 值各不相同，因而有明确的 LRU 页。
-		 * 但因我们允许在 SimpleLruReadPage_ReadOnly() 内并发执行
-		 * SlruRecentlyUsed()，多个页可能获得相同的 lru_count
-		 * 值。那时我们以选择最靠后的页来打破平局。
+		 * 通常各 page_lru_count 值互不相同，因而会有明     
+		 * 确的 LRU 页。但因允许在 SimpleLruReadPage_       
+		 * ReadOnly() 内并发调用 SlruRecentlyUsed()， 
+		 * 页可能获得相同的 lru_count 值。那种情况下我     
+		 * 们会以选择最靠后的页来打破                          
+		 * 平局。                       
 		 *
-		 * 注意下一行会强制把 cur_lru_count 推进到循环结束后
-		 * 一定超过 page_lru_count 数组中任何值的值。这确保下一次
-		 * 执行SlruRecentlyUsed时会把该页标为新近使用，即使它
-		 * 当时持有当前计数器值。这让我们在多个页具有相同
-		 * lru_count 时回到拥有良好数据的轨道上。
-		 *
-		 *
-		 *
-		 *
-		 *
-		 *
-		 *
+		 * 注意下一行会把 cur_lru_count 强制推进到某个      
+		 * 值，循环结束后必定超过 page_lru_count 数组     
+		 * 中的任何值。这确保下一次执行                      
+		 * SlruRecentlyUsed 时会把该页标记为新近使用，       
+		 * 即使该页当时持有的就是当前计数器值。这样     
+		 * 在多个页具有相同 lru_count 时，我们又能回到     
+		 * 拥有良好数据的轨道上。      
 		 */
 		cur_count = (shared->cur_lru_count)++;
 		for (slotno = 0; slotno < shared->num_slots; slotno++)
@@ -1536,19 +1536,19 @@ SlruScanDirCbDeleteAll(SlruCtl ctl, char *filename, int segpage, void *data)
 }
 
 /*
- * 扫描 SimpleLru 目录，并对其中找到的每个文件应用回调。
+ * 扫描 SimpleLru 目录并对其中找到的每个文件应用回调。    
  *
- * 若回调返回 true，扫描停止。返回回调的最后返回值。
+ * 若回调返回 true，则扫描停止。回调最后一次的           
+ * 返回值将被返回。      
  *
- * 回调收到下列参数：1. 正被截断的 slru 的SlruCtl结构；
- * 2. 正在考虑的文件名；3. 该文件第一页的页号；4. 调用者
- * 给我们的不透明数据指针。
+ * 回调接收以下参数：1. 正被截断的 slru 的 SlruCtl 结构；    
+ * 2. 所考虑的文件名；3. 该文件第一页的页号；4. 指向     
+ * 调用方给我们的不透明数据                                        
+ * 的指针。  
  *
- * 注意：扫描目录的顺序不作保证。
+ * 注意：不保证扫描目录的顺序。                                 
  *
- * 注意：不施加任何加锁。
- *
- *
+ * 注意：不加任何锁。     
  */
 bool
 SlruScanDirectory(SlruCtl ctl, SlruScanCallback callback, void *data)

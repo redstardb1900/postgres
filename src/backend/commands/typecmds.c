@@ -200,16 +200,16 @@ DefineType(ParseState *pstate, List *names, List *parameters)
 	ListCell   *pl;
 	ObjectAddress address;
 
-	/* 从 Postgres 8.4 开始，创建基础类型需要超级用户权限。
-	 * 这纯粹是出于谨慎：不正确的类型定义有太多方式可以破坏
-	 * 系统（例如，表示参数与 C 代码预期的不匹配）。实际上，
-	 * 创建 I/O 函数就需要超级用户权限，因此先前要求拥有 I/O 函数
-	 * 所有权的要求就已经强制了超级用户身份。我们在这里
-	 * 只是再次确认。
-	 * 
-	 * 如果移除此检查，请重新启用下面的 NOT_USED 代码段。
-	 * 
-	 * 
+	/*
+	 * 从 Postgres 8.4                                                   
+	 * 起，创建基础类型需超级用户权限。这纯属简单的偏 
+	 * 执：不正确的类型定义有很多破坏系统的方式（例    
+	 * 如，表示参数与 C 代码所预期的不匹配）。实际上，
+	 * 创建 I/O 函数就需要超级用户权限，因此先前要求
+	 * 拥有 I/O 函数所有权的规定基本上已经强制了超级用
+	 * 户身份。我们在这里只是再三确认。          
+	 *
+	 * XXX 如果移除此测试，请重新启用 NOT_USED 代码段。  
 	 */
 	if (!superuser())
 		ereport(ERROR,
@@ -235,9 +235,9 @@ DefineType(ParseState *pstate, List *names, List *parameters)
 							 CStringGetDatum(typeName),
 							 ObjectIdGetDatum(typeNamespace));
 
-	/* 如果不是 shell，查看它是否是自动生成的数组类型，如果是，
-	 * 则将其重命名移开。
-	 * 
+	/*
+	 * 如果不是 shell，查看它是否为自动生成的数组类型，  
+	 * 如是则改名移开。 
 	 */
 	if (OidIsValid(typoid) && get_typisdefined(typoid))
 	{
@@ -249,9 +249,9 @@ DefineType(ParseState *pstate, List *names, List *parameters)
 					 errmsg("type \"%s\" already exists", typeName)));
 	}
 
-	/* 如果此命令是无参数的 CREATE TYPE，那么我们只是要
-	 * 创建一个 shell 类型，请执行此操作（如果已存在 shell 则失败）。
-	 * 
+	/*
+	 * 如果此命令是不带参数的 CREATE TYPE，那我们只为创建  
+	 * shell 类型而来，就这么做（已有 shell 则报错）。    
 	 */
 	if (parameters == NIL)
 	{
@@ -264,9 +264,9 @@ DefineType(ParseState *pstate, List *names, List *parameters)
 		return address;
 	}
 
-	/* 否则，我们必须已经有了一个 shell 类型，因为没有其他
-	 * 方式可以创建 I/O 函数。
-	 * 
+	/*
+	 * 否则，我们必须已经有一个 shell 类型，因为除此之  
+	 * 外没有其他方式可以创建 I/O 函数。    
 	 */
 	if (!OidIsValid(typoid))
 		ereport(ERROR,
@@ -469,8 +469,8 @@ DefineType(ParseState *pstate, List *names, List *parameters)
 				(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
 				 errmsg("type modifier output function is useless without a type modifier input function")));
 
-	/* 将 I/O 过程名称转换为 OID
-	 * 
+	/*
+	 * 将 I/O 过程名转为 OID   
 	 */
 	inputOid = findTypeInputFunction(inputName, typoid);
 	outputOid = findTypeOutputFunction(outputName, typoid);
@@ -479,17 +479,17 @@ DefineType(ParseState *pstate, List *names, List *parameters)
 	if (sendName)
 		sendOid = findTypeSendFunction(sendName, typoid);
 
-	/* 将 typmodin/out 函数过程名称转换为 OID。
-	 * 
+	/*
+	 * 将 typmodin/out 函数过程名转换为 OID。 
 	 */
 	if (typmodinName)
 		typmodinOid = findTypeTypmodinFunction(typmodinName);
 	if (typmodoutName)
 		typmodoutOid = findTypeTypmodoutFunction(typmodoutName);
 
-	/* 将分析函数过程名称转换为 OID。如果未指定分析函数，
-	 * 我们将使用零来选择内置默认算法。
-	 * 
+	/*
+	 * 将分析函数的过程名转换为 OID。如果未指定分析函   
+	 * 数，我们将使用零来选择内置的默认算法。             
 	 */
 	if (analyzeName)
 		analyzeOid = findTypeAnalyzeFunction(analyzeName, typoid);
@@ -512,17 +512,17 @@ DefineType(ParseState *pstate, List *names, List *parameters)
 					 errmsg("element type cannot be specified without a subscripting function")));
 	}
 
-	/* 检查函数的权限。我们选择要求类型的创建者/拥有者也
-	 * 拥有底层函数。由于创建类型相当于授予对这些函数的公共
-	 * 执行权限，最低限度的合理检查是带授权选项的执行权限。
-	 * 但我们没有办法在授权选项被撤销时使类型消失，
-	 * 因此所有权检查更好。
-	 * 
-	 * 目前，鉴于上面的超级用户检查，这一切都是不必要的。
-	 * 如果我们以后放宽此限制，这些调用可能应该移到
-	 * findTypeInputFunction 等函数中，以便 AlterType 也能使用。
-	 * 
-	 * 
+	/*
+	 * 检查函数的权限。我们选择要求类型的创建者/拥有者 
+	 * 同时拥有底层函数。由于创建类型相当于向公众授予 
+	 * 这些函数的执行权限，最低限度的合理检查是带授权
+	 * 选项的执行权限。但是，如果授权选项被撤销，我
+	 * 们没有办法让该类型随之消失，因此所有权检查 
+	 * 似乎更好。                    
+	 *
+	 * XXX 目前，鉴于上面的超级用户检查，这都是不必     
+	 * 必要的。以后若放宽该检查，这些调用或许应  
+	 * 该移入 findTypeInputFunction 等处，以便 AlterType 共享。  
 	 */
 #ifdef NOT_USED
 	if (inputOid && !object_ownercheck(ProcedureRelationId, inputOid, GetUserId()))
@@ -646,8 +646,8 @@ DefineType(ParseState *pstate, List *names, List *parameters)
 	return address;
 }
 
-/* 类型删除的核心逻辑。
- * 
+/*
+ * 类型删除主体。 
  */
 void
 RemoveTypeById(Oid typeOid)
@@ -739,9 +739,9 @@ DefineDomain(CreateDomainStmt *stmt)
 		aclcheck_error(aclresult, OBJECT_SCHEMA,
 					   get_namespace_name(domainNamespace));
 
-	/* 检查与现有类型名称的冲突。如果存在且是自动生成的数组，
-	 * 我们可以将其重命名移开。
-	 * 
+	/*
+	 * 检查是否与现有类型名冲突。如果存在冲突且它是  
+	 * 自动生成的数组，我们可以把它重命名移开。 
 	 */
 	old_type_oid = GetSysCacheOid2(TYPENAMENSP, Anum_pg_type_oid,
 								   CStringGetDatum(domainName),
@@ -761,13 +761,13 @@ DefineDomain(CreateDomainStmt *stmt)
 	baseType = (Form_pg_type) GETSTRUCT(typeTup);
 	basetypeoid = baseType->oid;
 
-	/* 基础类型必须是普通基础类型、组合类型、另一个域、
-	 * 枚举或范围类型。基于伪类型的域会创建安全漏洞。
-	 * （将其编码为仅检查伪类型会更短；但显式列出受支持
-	 * 的具体 typtype 似乎更安全，而不是假设所有未来的
-	 * typtype 都会被自动支持。）
-	 * 
-	 * 
+	/*
+	 * 基础类型必须是普通基础类型、组合类型、另一个    
+	 * 域、枚举或范围类型。基于伪类型的域会造成安  
+	 * 全漏洞。（把代码写成只检查伪类型会更简短；但 
+	 * 显式列出所支持的具体 typtype                                
+	 * 似乎更安全，而不是假定所有未来的 typtype 都会自 
+	 * 动受支持。）       
 	 */
 	typtype = baseType->typtype;
 	if (typtype != TYPTYPE_BASE &&
@@ -785,14 +785,14 @@ DefineDomain(CreateDomainStmt *stmt)
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error_type(aclresult, basetypeoid);
 
-	/* 收集新域的属性。部分从基础类型继承，
-	 * 部分不继承。如果您更改了任何继承行为，
-	 * 请务必更新 AlterTypeRecurse() 以匹配！
-	 * 
+	/*
+	 * 收集新域的属性。有些属性继承自基础类型，有些则 
+	 * 不是。如果你改变了这里的任何继承行为，务必
+	 * 同步更新 AlterTypeRecurse()！                      
 	 */
 
-	/* 识别排序规则（如果有的话）
-	 * 
+	/*
+	 * 识别排序规则(若有)   
 	 */
 	baseColl = baseType->typcollation;
 	if (stmt->collClause)
@@ -854,9 +854,9 @@ DefineDomain(CreateDomainStmt *stmt)
 	if (!isnull)
 		defaultValueBin = TextDatumGetCString(datum);
 
-	/* 手动遍历约束，以避免 DefineRelation() 等执行的
-	 * 额外处理。
-	 * 
+	/*
+	 * 手动遍历各约束，以避开 DefineRelation()                 
+	 * 等函数所做的额外处理。         
 	 */
 	foreach(listptr, schema)
 	{
@@ -869,9 +869,9 @@ DefineDomain(CreateDomainStmt *stmt)
 		{
 			case CONSTR_DEFAULT:
 
-				/* 继承的默认值可以被用户通过 DEFAULT <expr> 子句
-				 * 覆盖……但只能覆盖一次。
-				 * 
+				/*
+				 * 继承来的默认值可以由用户用 DEFAULT <expr>   
+				 * 子句覆盖……但只能覆盖一次。       
 				 */
 				if (saw_default)
 					ereport(ERROR,
@@ -887,9 +887,9 @@ DefineDomain(CreateDomainStmt *stmt)
 					/* 为 transformExpr 创建一个虚拟 ParseState */
 					pstate = make_parsestate(NULL);
 
-					/* 将 constr->raw_expr 编译成表达式。注意：
-					 * 名称严格用于错误消息
-					 * 
+					/*
+					 * 将 constr->raw_expr 加工成表达式。注意：
+					 * 名称仅用于错误消息       
 					 */
 					defaultExpr = cookDefault(pstate, constr->raw_expr,
 											  basetypeoid,
@@ -916,10 +916,10 @@ DefineDomain(CreateDomainStmt *stmt)
 					}
 					else
 					{
-						/* 表达式必须以 nodeToString 结果的形式存储，
-						 * 但我们也需要有效的文本表示（主要是为了让
-						 * pg_dump 的工作更简单）。
-						 * 
+						/*
+						 * 表达式必须以 nodeToString 结果的形式存 
+						 * 储，但我们还要求有有效的文本表示  
+						 * （主要是让 pg_dump 更轻松）。  
 						 */
 						defaultValue =
 							deparse_expression(defaultExpr,
@@ -967,8 +967,8 @@ DefineDomain(CreateDomainStmt *stmt)
 							 errmsg("check constraints for domains cannot be marked NO INHERIT")));
 				break;
 
-				/* 所有其他情况都是错误情况
-				 * 
+				/*
+				 * 其余皆为错误情况
 				 */
 			case CONSTR_UNIQUE:
 				ereport(ERROR,
@@ -1013,8 +1013,8 @@ DefineDomain(CreateDomainStmt *stmt)
 	/* 为数组类型分配 OID */
 	domainArrayOid = AssignTypeArrayOid();
 
-	/* 让 TypeCreate 执行所有实际工作。
-	 * 
+	/*
+	 * 让 TypeCreate 完成实际工作。 
 	 */
 	address =
 		TypeCreate(InvalidOid,	/* 没有预定的类型 OID */
@@ -1093,8 +1093,8 @@ DefineDomain(CreateDomainStmt *stmt)
 
 	pfree(domainArrayName);
 
-	/* 处理引用 TypeCreate 返回的域 ID 的约束
-	 * 
+	/*
+	 * 处理那些引用 TypeCreate 所返回的域 ID 的约束             
 	 */
 	foreach(listptr, schema)
 	{
@@ -1120,8 +1120,8 @@ DefineDomain(CreateDomainStmt *stmt)
 		CommandCounterIncrement();
 	}
 
-	/* 现在可以清理了。
-	 * 
+	/*
+	 * 可以清理了。  
 	 */
 	ReleaseSysCache(typeTup);
 
@@ -1154,9 +1154,9 @@ DefineEnum(CreateEnumStmt *stmt)
 		aclcheck_error(aclresult, OBJECT_SCHEMA,
 					   get_namespace_name(enumNamespace));
 
-	/* 检查与现有类型名称的冲突。如果存在且是自动生成的数组，
-	 * 我们可以将其重命名移开。
-	 * 
+	/*
+	 * 检查是否与现有类型名冲突。如果存在冲突且它是  
+	 * 自动生成的数组，我们可以把它重命名移开。 
 	 */
 	old_type_oid = GetSysCacheOid2(TYPENAMENSP, Anum_pg_type_oid,
 								   CStringGetDatum(enumName),
@@ -1381,9 +1381,9 @@ DefineRange(ParseState *pstate, CreateRangeStmt *stmt)
 							 CStringGetDatum(typeName),
 							 ObjectIdGetDatum(typeNamespace));
 
-	/* 如果不是 shell，查看它是否是自动生成的数组类型，如果是，
-	 * 则将其重命名移开。
-	 * 
+	/*
+	 * 如果不是 shell，查看它是否为自动生成的数组类型，  
+	 * 如是则改名移开。 
 	 */
 	if (OidIsValid(typoid) && get_typisdefined(typoid))
 	{
@@ -1395,9 +1395,9 @@ DefineRange(ParseState *pstate, CreateRangeStmt *stmt)
 					 errmsg("type \"%s\" already exists", typeName)));
 	}
 
-	/* 与 DefineType() 不同，我们不要求先存在 shell 类型，
-	 * 因为仅当用户想要指定规范函数时才需要它。
-	 * 
+	/*
+	 * 与 DefineType() 不同，我们并不要求先有 shell               
+	 * 类型，因为只有用户想指定规范函数时才需要它。 
 	 */
 
 	/* 从参数列表中提取参数 */
@@ -1563,9 +1563,9 @@ DefineRange(ParseState *pstate, CreateRangeStmt *stmt)
 									 CStringGetDatum(multirangeTypeName),
 									 ObjectIdGetDatum(multirangeNamespace));
 
-		/* 如果不是 shell，查看它是否是自动生成的数组类型，
-		 * 如果是则将其重命名移开。
-		 * 
+		/*
+		 * 如果不是 shell，查看它是否为自动生成的数组类  
+		 * 型，如是则改名移开。 
 		 */
 		if (OidIsValid(old_typoid) && get_typisdefined(old_typoid))
 		{
@@ -1788,14 +1788,14 @@ makeRangeConstructors(const char *name, Oid namespace,
 	}
 }
 
-/* 我们为每个范围类型创建单独的多范围构造函数，
- * 这样其名称就可以像范围构造函数一样包含基础类型。
- * 如果我们有 anyrangearray 多态类型，可以在这里使用它，
- * 但由于每个类型都有自己的构造函数名称，所以没有必要。
- * 
- * 将 castFuncOid 设置为可用于从范围到多范围
- * 进行类型转换的新构造函数的 oid。
- * 
+/*
+ * 我们为每个范围类型单独创建一个多范围构造 
+ * 函数，使其名称可像范围构造函数那样包含基础类
+ * 型。若有 anyrangearray 多态类型便可在此使用，但  
+ * 每个类型都有自己的构造函数名，故无此必要。  
+ *
+ * 将 castFuncOid 设为可用于从范围转换到多范围的新构
+ * 造函数的 oid。                  
  */
 static void
 makeMultirangeConstructors(const char *name, Oid namespace,
@@ -1946,10 +1946,10 @@ findTypeInputFunction(List *procname, Oid typeOid)
 	Oid			procOid;
 	Oid			procOid2;
 
-	/* 输入函数可以接受一个 CSTRING 类型的参数，或三个参数
-	 * （string、typioparam OID、typmod）。
-	 * 如果两种形式都存在，则报歧义错误。
-	 * 
+	/*
+	 * 输入函数可以接受一个 CSTRING 参数，或者三个参数  
+	 * （string、typioparam OID、typmod）。若两种形式并存则报 
+	 * 歧义错误。  
 	 */
 	argList[0] = CSTRINGOID;
 	argList[1] = OIDOID;
@@ -1983,15 +1983,15 @@ findTypeInputFunction(List *procname, Oid typeOid)
 				 errmsg("type input function %s must return type %s",
 						NameListToString(procname), format_type_be(typeOid))));
 
-	/* 如果任何 I/O 函数被标记为 volatile，则打印警告。
-	 * 普遍假设 I/O 函数是 stable 或 immutable 的；
-	 * 这使我们例如可以将 record_in/record_out 标记为
-	 * stable 而不是 volatile。理想情况下，我们应该在此处抛出
-	 * 错误而不是警告；但鉴于此检查是 9.5 中新增的，并且
-	 * volatility 标记可能只是遗漏导致，而非函数行为的真实
-	 * 指示，我们暂时让它以警告形式通过。
-	 * 
-	 * 
+	/*
+	 * 如果该类型的任何 I/O 函数被标记为                       
+	 * volatile，则打印警告。普遍假定 I/O 函数是 stable
+	 *  或 immutable 的；这使我们例如可以把 record_in/record_
+	 * out 标记为 stable 而不是 volatile。理想情况下这里应  
+	 * 抛出错误而不只是警告；但此检查是 9.5 才新增     
+	 * 的，且 volatility 标记可能只是无心之失，并不真正  
+	 * 表明函数的实际行为，所以我们暂时将其作为警告放 
+	 * 行。  
 	 */
 	if (func_volatile(procOid) == PROVOLATILE_VOLATILE)
 		ereport(WARNING,
@@ -2044,10 +2044,10 @@ findTypeReceiveFunction(List *procname, Oid typeOid)
 	Oid			procOid;
 	Oid			procOid2;
 
-	/* 接收函数可以接受一个 INTERNAL 类型的参数，或三个参数
-	 * （internal、typioparam OID、typmod）。
-	 * 如果两种形式都存在，则报歧义错误。
-	 * 
+	/*
+	 * 接收函数可以接受一个 INTERNAL 参数，或者三个参数    
+	 * （internal、typioparam OID、typmod）。若两种形式并存则报 
+	 * 歧义错误。  
 	 */
 	argList[0] = INTERNALOID;
 	argList[1] = OIDOID;
@@ -2132,8 +2132,8 @@ findTypeTypmodinFunction(List *procname)
 	Oid			argList[1];
 	Oid			procOid;
 
-	/* typmodin 函数始终接受一个 cstring[] 参数并返回 int4。
-	 * 
+	/*
+	 * typmodin 函数总是接受一个 cstring[] 参数并返回 int4。   
 	 */
 	argList[0] = CSTRINGARRAYOID;
 
@@ -2166,8 +2166,8 @@ findTypeTypmodoutFunction(List *procname)
 	Oid			argList[1];
 	Oid			procOid;
 
-	/* typmodout 函数始终接受一个 int4 参数并返回 cstring。
-	 * 
+	/*
+	 * typmodout 函数总是接受一个 int4 参数并返回 cstring。   
 	 */
 	argList[0] = INT4OID;
 
@@ -2200,8 +2200,8 @@ findTypeAnalyzeFunction(List *procname, Oid typeOid)
 	Oid			argList[1];
 	Oid			procOid;
 
-	/* 分析函数始终接受一个 INTERNAL 参数并返回 bool。
-	 * 
+	/*
+	 * 分析函数总是接受一个 INTERNAL 参数并返回 bool。     
 	 */
 	argList[0] = INTERNALOID;
 
@@ -2247,9 +2247,9 @@ findTypeSubscriptingFunction(List *procname, Oid typeOid)
 				 errmsg("type subscripting function %s must return type %s",
 						NameListToString(procname), "internal")));
 
-	/* 我们禁止显式选择 array_subscript_handler()，
-	 * 因为它只能应用于自动生成的数组类型。
-	 * 
+	/*
+	 * 我们不允许显式选择 array_subscript_handler()，因为它只 
+	 * 能被应用于自动生成的数组类型。                
 	 */
 	if (procOid == F_ARRAY_SUBSCRIPT_HANDLER)
 		ereport(ERROR,
@@ -2260,13 +2260,13 @@ findTypeSubscriptingFunction(List *procname, Oid typeOid)
 	return procOid;
 }
 
-/* 为范围类型查找合适的支持函数和操作符类。
- * 
+/*
+ * 为范围类型查找合适的支持函数和操作符类。   
  */
 
-/* 查找子类型的命名 btree 操作符类，如果 opcname 为 NIL，
- * 则查找默认 btree 操作符类。
- * 
+/*
+ * 查找子类型的命名 btree 操作符类，opcname 为 NIL    
+ * 时用默认。
  */
 static Oid
 findRangeSubOpclass(List *opcname, Oid subtype)
@@ -2278,9 +2278,9 @@ findRangeSubOpclass(List *opcname, Oid subtype)
 	{
 		opcid = get_opclass_oid(BTREE_AM_OID, opcname, false);
 
-		/* 验证操作符类接受此数据类型。注意，我们将接受
-		 * 二进制兼容性。
-		 * 
+		/*
+		 * 验证操作符类是否接受此数据类型。注意我们将接
+		 * 受二进制兼容。       
 		 */
 		opInputType = get_opclass_input_type(opcid);
 		if (!IsBinaryCoercible(subtype, opInputType))
@@ -2355,9 +2355,9 @@ findRangeSubtypeDiffFunction(List *procname, Oid subtype)
 	Oid			procOid;
 	AclResult	aclresult;
 
-	/* 范围子类型 diff 函数必须接受两个子类型参数，
-	 * 必须返回 float8，并且必须是 immutable 的。
-	 * 
+	/*
+	 * 范围子类型 diff 函数必须接受两个子类型参数，必  
+	 * 须返回 float8，且须为 immutable。 
 	 */
 	argList[0] = subtype;
 	argList[1] = subtype;
@@ -2512,9 +2512,9 @@ DefineCompositeType(RangeVar *typevar, List *coldeflist)
 	Oid			typeNamespace;
 	ObjectAddress address;
 
-	/* 现在设置键/继承等参数。所有这些
-	 * 对组合类型来说都无关紧要……
-	 * 
+	/*
+	 * 现在设置键/继承等参数。所有这些对组合类型来 
+	 * 说都无关紧要……            
 	 */
 	createStmt->relation = typevar;
 	createStmt->tableElts = coldeflist;
@@ -2525,11 +2525,11 @@ DefineCompositeType(RangeVar *typevar, List *coldeflist)
 	createStmt->tablespacename = NULL;
 	createStmt->if_not_exists = false;
 
-	/* 检查与现有类型名称的冲突。如果存在且是自动生成的数组，
-	 * 我们可以将其重命名移开。此检查主要在这里进行，
-	 * 是为了在发生冲突时给出更好的关于"类型"的错误消息，
-	 * 而不是下面关于"关系"的错误消息。
-	 * 
+	/*
+	 * 检查是否与现有类型名冲突。若存在且是自动生成 
+	 * 的数组，可将其重命名移开。此检查主要是为了能 
+	 * 对"类型"给出更好的错误消息，而不是下面关于"  
+	 * 关系"的错误消息。           
 	 */
 	typeNamespace = RangeVarGetAndCheckCreationNamespace(createStmt->relation,
 														 NoLock, NULL);
@@ -2602,9 +2602,9 @@ AlterDomainDefault(List *names, Node *defaultRaw)
 		/* 为 transformExpr 创建一个虚拟 ParseState */
 		pstate = make_parsestate(NULL);
 
-		/* 将 colDef->raw_expr 编译成表达式。注意：名称
-		 * 严格用于错误消息
-		 * 
+		/*
+		 * 将 colDef->raw_expr 加工成表达式。注意：名称  
+		 * 仅用于错误消息     
 		 */
 		defaultExpr = cookDefault(pstate, defaultRaw,
 								  typTup->typbasetype,
@@ -2637,8 +2637,8 @@ AlterDomainDefault(List *names, Node *defaultRaw)
 			defaultValue = deparse_expression(defaultExpr,
 											  NIL, false, false);
 
-			/* 形成带有新默认值的更新元组并写回。
-			 * 
+			/*
+			 * 构造一个带有新默认值的更新元组并写回。    
 			 */
 			new_record[Anum_pg_type_typdefaultbin - 1] = CStringGetTextDatum(nodeToString(defaultExpr));
 
@@ -2785,9 +2785,9 @@ AlterDomainNotNull(List *names, bool notNull)
 		}
 	}
 
-	/* 可以更新 pg_type 行了。我们可以直接修改 typTup，
-	 * 因为它是副本。
-	 * 
+	/*
+	 * 可以更新 pg_type 行了。typTup 是副本，可随意改写。  
+	 *      
 	 */
 	typTup->typnotnull = notNull;
 
@@ -2890,10 +2890,10 @@ AlterDomainDropConstraint(List *names, const char *constrName,
 							constrName, TypeNameToString(typename))));
 	}
 
-	/* 我们必须为域发送 sinval 消息，以确保任何依赖的计划
-	 * 得到重建。由于此命令不会更改域的 pg_type 行，
-	 * 所以不会自动发生；需要手动执行。
-	 * 
+	/*
+	 * 我们必须为该域发出 sinval 消息，以确保所有依赖的 
+	 * 计划得到重建。由于此命令不会更改该域的 pg_type  
+	 * 行，这不会自动发生；需要手动进行。                   
 	 */
 	CacheInvalidateHeapTuple(rel, tup, NULL);
 
@@ -2999,17 +2999,17 @@ AlterDomainAddConstraint(List *names, Node *newConstraint,
 								typTup->typbasetype, typTup->typtypmod,
 								constr, NameStr(typTup->typname), constrAddr);
 
-	/* 如果请求验证约束，则测试所有基于该域的属性中
-	 * 存储的值，该约束正在被添加到这些属性上。
-	 * 
+	/*
+	 * 如果被要求验证约束，则测试根据约束所要加入的域 
+	 * 存储在各属性中的所有值。                            
 	 */
 	if (!constr->skip_validation)
 		validateDomainConstraint(domainoid, ccbin);
 
-	/* 我们必须为域发送 sinval 消息，以确保任何依赖的计划
-	 * 得到重建。由于此命令不会更改域的 pg_type 行，
-	 * 所以不会自动发生；需要手动执行。
-	 * 
+	/*
+	 * 我们必须为该域发出 sinval 消息，以确保所有依赖的 
+	 * 计划得到重建。由于此命令不会更改该域的 pg_type  
+	 * 行，这不会自动发生；需要手动进行。                   
 	 */
 	CacheInvalidateHeapTuple(typrel, tup, NULL);
 
@@ -3211,36 +3211,36 @@ validateDomainConstraint(Oid domainoid, char *ccbin)
 	FreeExecutorState(estate);
 }
 
-/* 
+/*
  * get_rels_with_domain
- * 
- * 获取所有使用该域的关系/属性
- * 
- * 结果是一个 RelToCheck 结构体的列表，每个不同的
- * 关系一个，每个包含一个或多个属于该域类型的属性编号。
- * 我们已经打开了每个 rel 并获取了指定类型的锁。
- * 
- * 我们通过包含派生域类型的属性来支持嵌套域。
- * 当前调用者不需要区分完全属于给定域的属性和
- * 属于派生域的属性。
- * 
- * XXX 这完全不可靠，因为没有办法在命令运行时锁住域
- * 以防止列被添加或删除。我们可以通过在遇到关系时
- * 锁定它们来部分防止列删除，但仍存在竞争条件（在看出
- * pg_depend 条目和获取关系锁之间的窗口）。
- * 此外，同时持有所有关系的锁会产生不可忽视的
- * 死锁风险。我们可以通过使用最弱合适的锁（大多数调用者
- * 使用 ShareLock）来最小化但不能消除死锁风险。
- * 
- * XXX 此 API 不足以支持检查位于容器类型内部的域值，
- * 例如组合类型、数组或范围。目前，如果包含
- * 目标域的容器类型存储在任何地方，我们只报错。
- * 
- * 通常用于在向域添加新约束时获取
- * 测试列表。
  *
+ * 获取所有正在使用该域的关系/属性             
  *
+ * 结果是一个 RelToCheck 结构体列表，每个不同的关  
+ * 系对应一个，其中含一个或多个属于该域类型的属 
+ * 性编号。我们已打开每个 rel 并取得了指定的              
+ * 锁。     
  *
+ * 我们通过把派生域类型的属性也包含进来，来支持嵌
+ * 套域。当前的调用者不需要区分恰好属于给定域的属性和 
+ * 属于派生域的属性。                                                
+ *
+ * XXX 这套机制完全不可靠，因为没有办法锁定域以防止  
+ * 在我们的命令运行期间有列被添加或删除。我们可以 
+ * 在遇到关系时将其锁定，从而部分防止列被删除，但仍
+ * 然存在竞争条件（在看到 pg_depend                              
+ * 条目与获取其引用的关系上的锁之间存在窗口期）。此   
+ * 外，同时持有所有这些关系上的锁会带来不可忽视的死
+ * 锁风险。我们可以使用最弱的合适锁（对大多数调用者 
+ * 是 ShareLock）来把死锁风险降到最低，但无法消除。  
+ *
+ * XXX 这方面的 API 不足以支持检查位于容器类型（如组合
+ * 类型、数组或范围）内部的域值。目前，只要包含  
+ * 目标域的容器类型被存储在任何地方，我们就会直接  
+ * 报错。                        
+ *
+ * 通常用于在向域添加新约束时获取所需的测
+ * 试列表。                
  */
 static List *
 get_rels_with_domain(Oid domainOid, LOCKMODE lockmode)
@@ -3257,9 +3257,9 @@ get_rels_with_domain(Oid domainOid, LOCKMODE lockmode)
 	/* 由于此函数递归，可能会被驱动到栈溢出 */
 	check_stack_depth();
 
-	/* 我们扫描 pg_depend 以查找依赖该域的对象。（对于域，
-	 * 我们可以忽略 refobjsubid。）
-	 * 
+	/*
+	 * 我们扫描 pg_depend 来查找依赖于该域的对象。（对于 
+	 * 域，我们可以忽略 refobjsubid。）     
 	 */
 	depRel = table_open(DependRelationId, AccessShareLock);
 
@@ -3301,9 +3301,9 @@ get_rels_with_domain(Oid domainOid, LOCKMODE lockmode)
 			}
 			else
 			{
-				/* 否则，它是使用该域的某个容器类型，因此如果存在
-				 * 任何此类型的列，则报错。
-				 * 
+				/*
+				 * 否则，它是某个使用该域的容器类型，因此
+				 * 如果存在此类型的列则报错。    
 				 */
 				find_composite_type_dependencies(pg_depend->objid,
 												 NULL,
@@ -3338,9 +3338,9 @@ get_rels_with_domain(Oid domainOid, LOCKMODE lockmode)
 			/* 获取请求的关系锁 */
 			rel = relation_open(pg_depend->objid, lockmode);
 
-			/* 检查 rowtype 是否作为组合类型列存储在任何地方；
-			 * 如果是，我们目前必须报错。
-			 * 
+			/*
+			 * 检查 rowtype 是否在任何地方被存储为组合类型  
+			 * 列；如果是，目前我们必须报错。 
 			 */
 			if (OidIsValid(rel->rd_rel->reltype))
 				find_composite_type_dependencies(rel->rd_rel->reltype,
@@ -3495,9 +3495,9 @@ domainAddConstraint(Oid domainOid, Oid domainNamespace, Oid baseTypeOid,
 	 */
 	assign_expr_collations(pstate, expr);
 
-	/* 域不允许变量（这可能现在是死代码了，因为
-	 * add_missing_from 已成为历史，但为了安全起见保留）。
-	 * 
+	/*
+	 * 域不允许变量（add_missing_from 成为历史后这可能是 
+	 * 死代码，但为保险还是保留）。      
 	 */
 	if (pstate->p_rtable != NIL ||
 		contain_var_clause(expr))
@@ -3505,8 +3505,8 @@ domainAddConstraint(Oid domainOid, Oid domainNamespace, Oid baseTypeOid,
 				(errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
 				 errmsg("cannot use table references in domain check constraint")));
 
-	/* 转换为字符串形式以便存储。
-	 * 
+	/*
+	 * 转换成字符串形式存储。  
 	 */
 	ccbin = nodeToString(expr);
 
@@ -3548,9 +3548,9 @@ domainAddConstraint(Oid domainOid, Oid domainNamespace, Oid baseTypeOid,
 	if (constrAddr)
 		ObjectAddressSet(*constrAddr, ConstraintRelationId, ccoid);
 
-	/* 返回编译后的约束表达式，以便调用例程可以
-	 * 执行任何额外所需的测试。
-	 * 
+	/*
+	 * 返回编译好的约束表达式，以便调用例程执行所需  
+	 * 的任何额外测试。              
 	 */
 	return ccbin;
 }
@@ -3559,11 +3559,11 @@ domainAddConstraint(Oid domainOid, Oid domainNamespace, Oid baseTypeOid,
 static Node *
 replace_domain_constraint_value(ParseState *pstate, ColumnRef *cref)
 {
-	/* 检查对 "value" 的引用，如果是，则用 domainAddConstraint
-	 * 为我们准备的 CoerceToDomainValue 替换。（我们将 VALUE 作为名称
-	 * 处理而非关键字，以避免破坏许多过去使用 VALUE
-	 * 作为列名的应用程序。）
-	 * 
+	/*
+	 * 检查对"value"的引用，如果是，就用 domainAddConstraint 
+	 * 为我们准备的 CoerceToDomainValue 加以替换。（我们把   
+	 * VALUE 当作名称而非关键字处理，以免破坏许多过去   
+	 * 把 VALUE 用作列名的应用程序。）                     
 	 */
 	if (list_length(cref->fields) == 1)
 	{
@@ -3622,10 +3622,10 @@ RenameType(RenameStmt *stmt)
 				 errmsg("%s is not a domain",
 						format_type_be(typeOid))));
 
-	/* 如果是组合类型，我们需要检查它确实是一个
-	 * 独立的组合类型，而不是表的 rowtype。我们希望人们
-	 * 在这种情况下使用 ALTER TABLE 而非 ALTER TYPE。
-	 * 
+	/*
+	 * 如果它是组合类型，我们需要检查它确实是独  
+	 * 立组合类型而非表的 rowtype。我们希望人们在这种情况
+	 * 下使用 ALTER TABLE 而非 ALTER TYPE。      
 	 */
 	if (typTup->typtype == TYPTYPE_COMPOSITE &&
 		get_rel_relkind(typTup->typrelid) != RELKIND_COMPOSITE_TYPE)
@@ -3646,9 +3646,9 @@ RenameType(RenameStmt *stmt)
 				 errhint("You can alter type %s, which will alter the array type as well.",
 						 format_type_be(typTup->typelem))));
 
-	/* 如果是组合类型，我们还需要重命名关联的 pg_class 条目。
-	 * RenameRelationInternal 将自动调用 RenameTypeInternal。
-	 * 
+	/*
+	 * 如果是组合类型，还要重命名关联的 pg_class 条        
+	 * 目。RenameRelationInternal 会自动调用 RenameTypeInternal。
 	 */
 	if (typTup->typtype == TYPTYPE_COMPOSITE)
 		RenameRelationInternal(typTup->typrelid, newTypeName, false, false);
@@ -3705,10 +3705,10 @@ AlterTypeOwner(List *names, Oid newOwnerId, ObjectType objecttype)
 				 errmsg("%s is not a domain",
 						format_type_be(typeOid))));
 
-	/* 如果是组合类型，我们需要检查它确实是一个
-	 * 独立的组合类型，而不是表的 rowtype。我们希望人们
-	 * 在这种情况下使用 ALTER TABLE 而非 ALTER TYPE。
-	 * 
+	/*
+	 * 如果它是组合类型，我们需要检查它确实是独  
+	 * 立组合类型而非表的 rowtype。我们希望人们在这种情况
+	 * 下使用 ALTER TABLE 而非 ALTER TYPE。      
 	 */
 	if (typTup->typtype == TYPTYPE_COMPOSITE &&
 		get_rel_relkind(typTup->typrelid) != RELKIND_COMPOSITE_TYPE)
@@ -3729,9 +3729,9 @@ AlterTypeOwner(List *names, Oid newOwnerId, ObjectType objecttype)
 				 errhint("You can alter type %s, which will alter the array type as well.",
 						 format_type_be(typTup->typelem))));
 
-	/* 如果新所有者与现有所有者相同，视为命令成功。
-	 * 这是为了转储恢复目的。
-	 * 
+	/*
+	 * 如果新所有者与现有所有者相同，则视为命令已 
+	 * 成功。这是为了转储恢复的目的。                     
 	 */
 	if (typTup->typowner != newOwnerId)
 	{
@@ -4041,9 +4041,9 @@ AlterTypeNamespaceInternal(Oid typeOid, Oid nspOid,
 
 		table_close(classRel, RowExclusiveLock);
 
-		/* 检查与组合类型关联的约束（我们目前
-		 * 不支持这个，但将来可能会支持）。
-		 * 
+		/*
+		 * 检查与组合类型相关联的约束（我们目前不支持这
+		 * 种做法，但将来大概会支持）。         
 		 */
 		AlterConstraintNamespaces(typform->typrelid, oldNspOid,
 								  nspOid, false, objsMoved);
@@ -4056,9 +4056,9 @@ AlterTypeNamespaceInternal(Oid typeOid, Oid nspOid,
 									  objsMoved);
 	}
 
-	/* 更新模式依赖（如果有的话）——表 rowtype 没有，隐式数组
-	 * 也没有。
-	 * 
+	/*
+	 * 更新对模式的依赖（如果有）——表的 rowtype 没有 
+	 * 这种依赖，隐式数组也没有。 
 	 */
 	if (oldNspOid != nspOid &&
 		(isCompositeType || typform->typtype != TYPTYPE_COMPOSITE) &&
@@ -4136,24 +4136,24 @@ AlterType(AlterTypeStmt *stmt)
 						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 						 errmsg("storage \"%s\" not recognized", a)));
 
-			/* 验证存储请求。如果类型不是 varlena，
-			 * 它肯定不支持非 PLAIN 存储。
-			 * 
+			/*
+			 * 验证存储请求。如果该类型不是 varlena，它肯 
+			 * 定不支持非 PLAIN 存储。             
 			 */
 			if (atparams.storage != TYPSTORAGE_PLAIN && typForm->typlen != -1)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
 						 errmsg("fixed-size types must have storage PLAIN")));
 
-			/* 允许从 PLAIN 切换到非 PLAIN，但需要超级用户，
-			 * 因为我们无法验证类型的 C 函数是否支持。
-			 * 禁止从非 PLAIN 切换到 PLAIN，
-			 * 因为无法确保没有表具有该类型已 toast 的值。
-			 * 在不同非 PLAIN 设置之间切换是可以的，
-			 * 因为它只是请求在未来创建的列中使用
-			 * 不同策略。
-			 * 
-			 * 
+			/*
+			 * 允许从 PLAIN 切换到非                                 
+			 * PLAIN，但需要超级用户权限，因为我们无法验证
+			 * 该类型的 C 函数是否支持它。从非 PLAIN   
+			 * 切换到 PLAIN 被完全禁止，因为实际上无法确保 
+			 * 没有表拥有该类型的已 TOAST 值。在不同非    
+			 * PLAIN 设置之间切换则是可以的，因为这只是改变
+			 * 了今后创建列时所请求的策                       
+			 * 略。 
 			 */
 			if (atparams.storage != TYPSTORAGE_PLAIN &&
 				typForm->typstorage == TYPSTORAGE_PLAIN)
@@ -4237,9 +4237,9 @@ AlterType(AlterTypeStmt *stmt)
 			requireSuper = true;
 		}
 
-		/* CREATE 所接受的其他选项都无法更改。
-		 * 检查它们以便给出有意义的错误消息。
-		 * 
+		/*
+		 * CREATE 所接受的其余选项都不能更改。检查这些 
+		 * 选项是为了让我们能给出有意义的错误消息。  
 		 */
 		else if (strcmp(defel->defname, "input") == 0 ||
 				 strcmp(defel->defname, "output") == 0 ||
@@ -4264,9 +4264,9 @@ AlterType(AlterTypeStmt *stmt)
 							defel->defname)));
 	}
 
-	/* 权限检查。如果我们决定命令需要超级用户，则要求超级用户；
-	 * 否则必须拥有类型。
-	 * 
+	/*
+	 * 权限检查。若已判定该命令需要超级用户则要求
+	 * 之；否则必须拥有该类型。  
 	 */
 	if (requireSuper)
 	{
@@ -4297,8 +4297,8 @@ AlterType(AlterTypeStmt *stmt)
 				 errmsg("%s is not a base type",
 						format_type_be(typeOid))));
 
-	/* 出于相同的原因，不允许直接修改数组类型。
-	 * 
+	/*
+	 * 出于同样的原因，不允许直接修改数组类型。       
 	 */
 	if (IsTrueArrayType(typForm))
 		ereport(ERROR,
@@ -4448,9 +4448,9 @@ AlterTypeRecurse(Oid typeOid, bool isImplicitArray,
 		}
 	}
 
-	/* 现在我们需要递归到域。但是，某些属性不被域继承，
-	 * 因此清除这些属性的更新标志。
-	 * 
+	/*
+	 * 现在我们需要递归处理域。但是，有些属性不会被  
+	 * 域继承，因此要清除这些属性的更新标志。 
 	 */
 	atparams->updateReceive = false;	/* 域使用 F_DOMAIN_RECV */
 	atparams->updateTypmodin = false;	/* 域没有 typmod */

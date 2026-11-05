@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * nodeRecursiveunion.c
- *	  routines to handle RecursiveUnion nodes.
+ *	  处理 RecursiveUnion 节点的例程。
  *
- * To implement UNION (without ALL), we need a hashtable that stores tuples
- * already seen.  The hash key is computed from the grouping columns.
+ * 为了实现 UNION(不带 ALL)，我们需要一个哈希表            
+ * 来存储已见过的元组。哈希键由分组列计算出。   
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -26,7 +26,7 @@
 
 
 /*
- * Initialize the hash table to empty.
+ * 把哈希表初始化为空。     
  */
 static void
 build_hash_table(RecursiveUnionState *rustate)
@@ -56,19 +56,19 @@ build_hash_table(RecursiveUnionState *rustate)
 /* ----------------------------------------------------------------
  *		ExecRecursiveUnion(node)
  *
- *		Scans the recursive query sequentially and returns the next
- *		qualifying tuple.
+ *		顺序扫描递归查询并返回下一个满足条件的  
+ *		元组。        
  *
- * 1. evaluate non recursive term and assign the result to RT
+ * 1. 求值非递归项并把结果赋给 RT                
  *
- * 2. execute recursive terms
+ * 2. 执行递归项        
  *
  * 2.1 WT := RT
- * 2.2 while WT is not empty repeat 2.3 to 2.6. if WT is empty returns RT
- * 2.3 replace the name of recursive term with WT
- * 2.4 evaluate the recursive term and store into WT
- * 2.5 append WT to RT
- * 2.6 go back to 2.2
+ * 2.2 当 WT 非空时重复 2.3 到 2.6；若 WT 为空则返回 RT    
+ * 2.3 用 WT 替换递归项的名字           
+ * 2.4 求值递归项并存入 WT                  
+ * 2.5 WT 并入 RT   
+ * 2.6 回到 2.2    
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -83,7 +83,7 @@ ExecRecursiveUnion(PlanState *pstate)
 
 	CHECK_FOR_INTERRUPTS();
 
-	/* 1. Evaluate non-recursive term */
+	/* 1. 求值非递归项          */
 	if (!node->recursing)
 	{
 		for (;;)
@@ -93,66 +93,66 @@ ExecRecursiveUnion(PlanState *pstate)
 				break;
 			if (plan->numCols > 0)
 			{
-				/* Find or build hashtable entry for this tuple's group */
+				/* 查找或构建该元组所在组的哈希表项     */
 				LookupTupleHashEntry(node->hashtable, slot, &isnew, NULL);
-				/* Must reset temp context after each hashtable lookup */
+				/* 每次哈希表查找后必须重置临时上下文 */
 				MemoryContextReset(node->tempContext);
-				/* Ignore tuple if already seen */
+				/* 若元组已见过则忽略  */
 				if (!isnew)
 					continue;
 			}
-			/* Each non-duplicate tuple goes to the working table ... */
+			/* 每个非重复的元组都进入工作表...          */
 			tuplestore_puttupleslot(node->working_table, slot);
-			/* ... and to the caller */
+			/* ...并交给调用者 */
 			return slot;
 		}
 		node->recursing = true;
 	}
 
-	/* 2. Execute recursive term */
+	/* 2. 执行递归项        */
 	for (;;)
 	{
 		slot = ExecProcNode(innerPlan);
 		if (TupIsNull(slot))
 		{
-			/* Done if there's nothing in the intermediate table */
+			/* 如果中间表中没有任何内容则完成     */
 			if (node->intermediate_empty)
 				break;
 
-			/* done with old working table ... */
+			/* 用完旧的工作表...        */
 			tuplestore_end(node->working_table);
 
-			/* intermediate table becomes working table */
+			/* 中间表变成工作表                 */
 			node->working_table = node->intermediate_table;
 
-			/* create new empty intermediate table */
+			/* 创建新的空中间表            */
 			node->intermediate_table = tuplestore_begin_heap(false, false,
 															 work_mem);
 			node->intermediate_empty = true;
 
-			/* reset the recursive term */
+			/* 重置递归项          */
 			innerPlan->chgParam = bms_add_member(innerPlan->chgParam,
 												 plan->wtParam);
 
-			/* and continue fetching from recursive term */
+			/* 然后继续从递归项取元组         */
 			continue;
 		}
 
 		if (plan->numCols > 0)
 		{
-			/* Find or build hashtable entry for this tuple's group */
+			/* 查找或构建该元组所在组的哈希表项     */
 			LookupTupleHashEntry(node->hashtable, slot, &isnew, NULL);
-			/* Must reset temp context after each hashtable lookup */
+			/* 每次哈希表查找后必须重置临时上下文 */
 			MemoryContextReset(node->tempContext);
-			/* Ignore tuple if already seen */
+			/* 若元组已见过则忽略  */
 			if (!isnew)
 				continue;
 		}
 
-		/* Else, tuple is good; stash it in intermediate table ... */
+		/* 否则该元组合格；将它存入中间表...        */
 		node->intermediate_empty = false;
 		tuplestore_puttupleslot(node->intermediate_table, slot);
-		/* ... and return it */
+		/* ...并返回它   */
 		return slot;
 	}
 
@@ -169,11 +169,11 @@ ExecInitRecursiveUnion(RecursiveUnion *node, EState *estate, int eflags)
 	RecursiveUnionState *rustate;
 	ParamExecData *prmdata;
 
-	/* check for unsupported flags */
+	/* 检查不支持的标志    */
 	Assert(!(eflags & (EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK)));
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	rustate = makeNode(RecursiveUnionState);
 	rustate->ps.plan = (Plan *) node;
@@ -186,17 +186,17 @@ ExecInitRecursiveUnion(RecursiveUnion *node, EState *estate, int eflags)
 	rustate->tempContext = NULL;
 	rustate->tableContext = NULL;
 
-	/* initialize processing state */
+	/* 初始化处理状态       */
 	rustate->recursing = false;
 	rustate->intermediate_empty = true;
 	rustate->working_table = tuplestore_begin_heap(false, false, work_mem);
 	rustate->intermediate_table = tuplestore_begin_heap(false, false, work_mem);
 
 	/*
-	 * If hashing, we need a per-tuple memory context for comparisons, and a
-	 * longer-lived context to store the hash table.  The table can't just be
-	 * kept in the per-query context because we want to be able to throw it
-	 * away when rescanning.
+	 * 如果使用哈希，就需要一个用于比较的每元组内存   
+	 * 上下文，以及一个寿命更长的上下文来存放哈希表。 
+	 * 该表不能只保存在每查询上下文中，因为我们希望  
+	 * 重扫时丢弃它。
 	 */
 	if (node->numCols > 0)
 	{
@@ -211,8 +211,8 @@ ExecInitRecursiveUnion(RecursiveUnion *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * Make the state structure available to descendant WorkTableScan nodes
-	 * via the Param slot reserved for it.
+	 * 通过为它保留的 Param 槽位，让状态结构对后代       
+	 * WorkTableScan 节点可用。      
 	 */
 	prmdata = &(estate->es_param_exec_vals[node->wtParam]);
 	Assert(prmdata->execPlan == NULL);
@@ -220,34 +220,34 @@ ExecInitRecursiveUnion(RecursiveUnion *node, EState *estate, int eflags)
 	prmdata->isnull = false;
 
 	/*
-	 * Miscellaneous initialization
+	 * 其他初始化             
 	 *
-	 * RecursiveUnion plans don't have expression contexts because they never
-	 * call ExecQual or ExecProject.
+	 * RecursiveUnion 计划没有表达式上下文，因其从不调用    
+	 * ExecQual 或 ExecProject.    
 	 */
 	Assert(node->plan.qual == NIL);
 
 	/*
-	 * RecursiveUnion nodes still have Result slots, which hold pointers to
-	 * tuples, so we have to initialize them.
+	 * RecursiveUnion 节点仍拥有 Result 槽，其中保存            
+	 * 着元组指针，故须初始化。  
 	 */
 	ExecInitResultTypeTL(&rustate->ps);
 
 	/*
-	 * Initialize result tuple type.  (Note: we have to set up the result type
-	 * before initializing child nodes, because nodeWorktablescan.c expects it
-	 * to be valid.)
+	 * 初始化结果元组类型。(注意：必须在初始化子节       
+	 * 点之前设置好它，因为 nodeWorktablescan.c 期望              
+	 * 它有效。 
 	 */
 	rustate->ps.ps_ProjInfo = NULL;
 
 	/*
-	 * initialize child nodes
+	 * 初始化子节点    
 	 */
 	outerPlanState(rustate) = ExecInitNode(outerPlan(node), estate, eflags);
 	innerPlanState(rustate) = ExecInitNode(innerPlan(node), estate, eflags);
 
 	/*
-	 * If hashing, precompute fmgr lookup data for inner loop, and create the
+	 * 如果使用哈希，则为内层循环预计算 fmgr 数据并创建 
 	 * hash table.
 	 */
 	if (node->numCols > 0)
@@ -265,24 +265,24 @@ ExecInitRecursiveUnion(RecursiveUnion *node, EState *estate, int eflags)
 /* ----------------------------------------------------------------
  *		ExecEndRecursiveUnion
  *
- *		frees any storage allocated through C routines.
+ *		释放经 C 例程分配的所有存储。     
  * ----------------------------------------------------------------
  */
 void
 ExecEndRecursiveUnion(RecursiveUnionState *node)
 {
-	/* Release tuplestores */
+	/* 释放 tuplestore   */
 	tuplestore_end(node->working_table);
 	tuplestore_end(node->intermediate_table);
 
-	/* free subsidiary stuff including hashtable */
+	/* 释放包括哈希表在内的附属内容*/
 	if (node->tempContext)
 		MemoryContextDelete(node->tempContext);
 	if (node->tableContext)
 		MemoryContextDelete(node->tableContext);
 
 	/*
-	 * close down subplans
+	 * 关闭子计划    
 	 */
 	ExecEndNode(outerPlanState(node));
 	ExecEndNode(innerPlanState(node));
@@ -291,7 +291,7 @@ ExecEndRecursiveUnion(RecursiveUnionState *node)
 /* ----------------------------------------------------------------
  *		ExecReScanRecursiveUnion
  *
- *		Rescans the relation.
+ *		重新扫描关系。
  * ----------------------------------------------------------------
  */
 void
@@ -302,28 +302,28 @@ ExecReScanRecursiveUnion(RecursiveUnionState *node)
 	RecursiveUnion *plan = (RecursiveUnion *) node->ps.plan;
 
 	/*
-	 * Set recursive term's chgParam to tell it that we'll modify the working
-	 * table and therefore it has to rescan.
+	 * 将递归项的 chgParam 设置为告知它：我们将修改         
+	 * 工作表，故它必须重扫描。 
 	 */
 	innerPlan->chgParam = bms_add_member(innerPlan->chgParam, plan->wtParam);
 
 	/*
-	 * if chgParam of subnode is not null then plan will be re-scanned by
-	 * first ExecProcNode.  Because of above, we only have to do this to the
-	 * non-recursive term.
+	 * 如果子节点的 chgParam 非空，则计划会被第一个     
+	 * ExecProcNode 重扫描。因此我们只需对非递归项           
+	 * 这样做。       
 	 */
 	if (outerPlan->chgParam == NULL)
 		ExecReScan(outerPlan);
 
-	/* Release any hashtable storage */
+	/* 释放所有哈希表存储   */
 	if (node->tableContext)
 		MemoryContextResetAndDeleteChildren(node->tableContext);
 
-	/* Empty hashtable if needed */
+	/* 必要时清空哈希表  */
 	if (plan->numCols > 0)
 		ResetTupleHashTable(node->hashtable);
 
-	/* reset processing state */
+	/* 重置处理状态     */
 	node->recursing = false;
 	node->intermediate_empty = true;
 	tuplestore_clear(node->working_table);

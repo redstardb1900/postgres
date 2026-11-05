@@ -1,26 +1,26 @@
 /*-------------------------------------------------------------------------
  *
  * nodeGather.c
- *	  Support routines for scanning a plan via multiple workers.
+ *	  通过多个 worker 扫描计划的支撑例程。        
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
- * A Gather executor launches parallel workers to run multiple copies of a
- * plan.  It can also run the plan itself, if the workers are not available
- * or have not started up yet.  It then merges all of the results it produces
- * and the results from the workers into a single output stream.  Therefore,
- * it will normally be used with a plan where running multiple copies of the
- * same plan does not produce duplicate output, such as parallel-aware
- * SeqScan.
+ * Gather 执行器会启动并行 worker 来运行一个计划的        
+ * 多个副本。若 worker 不可用或尚未启动，它也会自行    
+ * 运行该计划。随后它会把自身产生的结果与各个 worker    
+ * 的结果合并为单一输出流。                                     
+ * 它通常用于这样的计划：运行同一计划的多个副本不会 
+ * 产生重复输出，例如支持并行的                         
+ * SeqScan 
  *
- * Alternatively, a Gather node can be configured to use just one worker
- * and the single-copy flag can be set.  In this case, the Gather node will
- * run the plan in one worker and will not execute the plan itself.  In
- * this case, it simply returns whatever tuples were returned by the worker.
- * If a worker cannot be obtained, then it will run the plan itself and
- * return the results.  Therefore, a plan used with a single-copy Gather
- * node need not be parallel-aware.
+ * 另一种配置是让 Gather 节点只使用一个 worker，         
+ * 并设置单副本标志。此时，Gather 节点将只在一个        
+ * worker 中运行计划，而自身不执行该计划。这种       
+ * 情况下，它只是简单返回该 worker 返回的所有元组。     
+ * 如果无法获得 worker，那么它会自行运行计划并       
+ * 返回结果。因此，与单副本 Gather 节点配合使用的    
+ * 计划不必支持并行。     
  *
  * IDENTIFICATION
  *	  src/backend/executor/nodeGather.c
@@ -61,11 +61,11 @@ ExecInitGather(Gather *node, EState *estate, int eflags)
 	Plan	   *outerNode;
 	TupleDesc	tupDesc;
 
-	/* Gather node doesn't have innerPlan node. */
+	/* Gather 节点没有 innerPlan 节点。  */
 	Assert(innerPlan(node) == NULL);
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	gatherstate = makeNode(GatherState);
 	gatherstate->ps.plan = (Plan *) node;
@@ -78,37 +78,37 @@ ExecInitGather(Gather *node, EState *estate, int eflags)
 	gatherstate->tuples_needed = -1;
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * create expression context for node
+	 * 创建表达式上下文          
 	 */
 	ExecAssignExprContext(estate, &gatherstate->ps);
 
 	/*
-	 * now initialize outer plan
+	 * 初始化外层计划    
 	 */
 	outerNode = outerPlan(node);
 	outerPlanState(gatherstate) = ExecInitNode(outerNode, estate, eflags);
 	tupDesc = ExecGetResultType(outerPlanState(gatherstate));
 
 	/*
-	 * Leader may access ExecProcNode result directly (if
-	 * need_to_scan_locally), or from workers via tuple queue.  So we can't
-	 * trivially rely on the slot type being fixed for expressions evaluated
-	 * within this node.
+	 * Leader 可能直接取 ExecProcNode 结果（若  
+	 * need_to_scan_locally），或通过元组队列从 worker 取得。 
+	 * 因此本节点内求值的表达式无法简单地假定槽         
+	 * 类型固定。  
 	 */
 	gatherstate->ps.outeropsset = true;
 	gatherstate->ps.outeropsfixed = false;
 
 	/*
-	 * Initialize result type and projection.
+	 * 初始化结果类型与投影。     
 	 */
 	ExecInitResultTypeTL(&gatherstate->ps);
 	ExecConditionalAssignProjectionInfo(&gatherstate->ps, tupDesc, OUTER_VAR);
 
 	/*
-	 * Without projections result slot type is not trivially known, see
-	 * comment above.
+	 * 若无投影，结果槽类型无法简单地确定，参见    
+	 * 上面注释  
 	 */
 	if (gatherstate->ps.ps_ProjInfo == NULL)
 	{
@@ -117,14 +117,14 @@ ExecInitGather(Gather *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * Initialize funnel slot to same tuple descriptor as outer plan.
+	 * 初始化 funnel 槽为与外层计划相同的元组描述符
 	 */
 	gatherstate->funnel_slot = ExecInitExtraTupleSlot(estate, tupDesc,
 													  &TTSOpsMinimalTuple);
 
 	/*
-	 * Gather doesn't support checking a qual (it's always more efficient to
-	 * do it in the child node).
+	 * Gather 不支持检查 qual（在子节点中做这件事            
+	 * 总是更高效）。    
 	 */
 	Assert(!node->plan.qual);
 
@@ -134,8 +134,8 @@ ExecInitGather(Gather *node, EState *estate, int eflags)
 /* ----------------------------------------------------------------
  *		ExecGather(node)
  *
- *		Scans the relation via multiple workers and returns
- *		the next qualifying tuple.
+ *		用多个 worker 扫描关系，返回下一个    
+ *		满足条件的元组。  
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -148,10 +148,10 @@ ExecGather(PlanState *pstate)
 	CHECK_FOR_INTERRUPTS();
 
 	/*
-	 * Initialize the parallel context and workers on first execution. We do
-	 * this on first execution rather than during node initialization, as it
-	 * needs to allocate a large dynamic segment, so it is better to do it
-	 * only if it is really needed.
+	 * 在首次执行时初始化并行上下文与 worker。我们        
+	 * 把它放在首次执行而非节点初始化时做，因为它      
+	 * 要分配很大的动态段，故最好只在真正需要时       
+	 * 才执行这一步。       
 	 */
 	if (!node->initialized)
 	{
@@ -159,14 +159,14 @@ ExecGather(PlanState *pstate)
 		Gather	   *gather = (Gather *) node->ps.plan;
 
 		/*
-		 * Sometimes we might have to run without parallelism; but if parallel
-		 * mode is active then we can try to fire up some workers.
+		 * 有时我们可能必须在没有并行的情况下运行；       
+		 * 但若并行模式已启用，即可尝试启动 worker
 		 */
 		if (gather->num_workers > 0 && estate->es_use_parallel_mode)
 		{
 			ParallelContext *pcxt;
 
-			/* Initialize, or re-initialize, shared state needed by workers. */
+			/* 初始化或重新初始化 worker 所需的共享状态      */
 			if (!node->pei)
 				node->pei = ExecInitParallelPlan(outerPlanState(node),
 												 estate,
@@ -179,19 +179,19 @@ ExecGather(PlanState *pstate)
 										 gather->initParam);
 
 			/*
-			 * Register backend workers. We might not get as many as we
-			 * requested, or indeed any at all.
+			 * 注册后台 worker。得到的数量可能少于请求 
+			 * 量，甚至一个都没有。  
 			 */
 			pcxt = node->pei->pcxt;
 			LaunchParallelWorkers(pcxt);
-			/* We save # workers launched for the benefit of EXPLAIN */
+			/* 保存已启动 worker 数，供 EXPLAIN 使用       */
 			node->nworkers_launched = pcxt->nworkers_launched;
 
-			/* Set up tuple queue readers to read the results. */
+			/* 设置元组队列读取器以读取结果。   */
 			if (pcxt->nworkers_launched > 0)
 			{
 				ExecParallelCreateReaders(node->pei);
-				/* Make a working array showing the active readers */
+				/* 构建工作数组，列出活跃读取器      */
 				node->nreaders = pcxt->nworkers_launched;
 				node->reader = (TupleQueueReader **)
 					palloc(node->nreaders * sizeof(TupleQueueReader *));
@@ -200,40 +200,40 @@ ExecGather(PlanState *pstate)
 			}
 			else
 			{
-				/* No workers?	Then never mind. */
+				/* 无 worker？那就作罢。 */
 				node->nreaders = 0;
 				node->reader = NULL;
 			}
 			node->nextreader = 0;
 		}
 
-		/* Run plan locally if no workers or enabled and not single-copy. */
+		/* 无 worker 或已启用且非单副本时，本地运行计划 */
 		node->need_to_scan_locally = (node->nreaders == 0)
 			|| (!gather->single_copy && parallel_leader_participation);
 		node->initialized = true;
 	}
 
 	/*
-	 * Reset per-tuple memory context to free any expression evaluation
-	 * storage allocated in the previous tuple cycle.
+	 * 重置元组级内存上下文，释放上个元组周期中    
+	 * 分配的表达式求值存储。             
 	 */
 	econtext = node->ps.ps_ExprContext;
 	ResetExprContext(econtext);
 
 	/*
-	 * Get next tuple, either from one of our workers, or by running the plan
-	 * ourselves.
+	 * 获取下一个元组：要么来自我们某个 worker，要么      
+	 * 自产。 
 	 */
 	slot = gather_getnext(node);
 	if (TupIsNull(slot))
 		return NULL;
 
-	/* If no projection is required, we're done. */
+	/* 若无需投影，就完成了。         */
 	if (node->ps.ps_ProjInfo == NULL)
 		return slot;
 
 	/*
-	 * Form the result tuple using ExecProject(), and return it.
+	 * 使用 ExecProject() 形成结果元组并返回。      
 	 */
 	econtext->ecxt_outertuple = slot;
 	return ExecProject(node->ps.ps_ProjInfo);
@@ -242,13 +242,13 @@ ExecGather(PlanState *pstate)
 /* ----------------------------------------------------------------
  *		ExecEndGather
  *
- *		frees any storage allocated through C routines.
+ *		释放通过 C 例程分配的所有存储。  
  * ----------------------------------------------------------------
  */
 void
 ExecEndGather(GatherState *node)
 {
-	ExecEndNode(outerPlanState(node));	/* let children clean up first */
+	ExecEndNode(outerPlanState(node));	/* 先让子节点清理       */
 	ExecShutdownGather(node);
 	ExecFreeExprContext(&node->ps);
 	if (node->ps.ps_ResultTupleSlot)
@@ -256,9 +256,9 @@ ExecEndGather(GatherState *node)
 }
 
 /*
- * Read the next tuple.  We might fetch a tuple from one of the tuple queues
- * using gather_readnext, or if no tuple queue contains a tuple and the
- * single_copy flag is not set, we might generate one locally instead.
+ * 读取下一个元组。我们可能通过 gather_readnext 从某个     
+ * 元组队列中取；若没有元组队列含有元组且           
+ * 未设置 single_copy 标志，则可能在本地生成一个。   
  */
 static TupleTableSlot *
 gather_getnext(GatherState *gatherstate)
@@ -278,9 +278,9 @@ gather_getnext(GatherState *gatherstate)
 
 			if (HeapTupleIsValid(tup))
 			{
-				ExecStoreMinimalTuple(tup,	/* tuple to store */
-									  fslot,	/* slot to store the tuple */
-									  false);	/* don't pfree tuple  */
+				ExecStoreMinimalTuple(tup,	/* 待存元组   */
+									  fslot,	/* 存储元组的槽      */
+									  false);	/* 不 pfree 该元组*/
 				return fslot;
 			}
 		}
@@ -289,7 +289,7 @@ gather_getnext(GatherState *gatherstate)
 		{
 			EState	   *estate = gatherstate->ps.state;
 
-			/* Install our DSA area while executing the plan. */
+			/* 执行计划期间安装我们的 DSA 区域   */
 			estate->es_query_dsa =
 				gatherstate->pei ? gatherstate->pei->area : NULL;
 			outerTupleSlot = ExecProcNode(outerPlan);
@@ -306,7 +306,7 @@ gather_getnext(GatherState *gatherstate)
 }
 
 /*
- * Attempt to read a tuple from one of our parallel workers.
+ * 尝试从我们的某个并行 worker 读取元组。    
  */
 static MinimalTuple
 gather_readnext(GatherState *gatherstate)
@@ -319,24 +319,24 @@ gather_readnext(GatherState *gatherstate)
 		MinimalTuple tup;
 		bool		readerdone;
 
-		/* Check for async events, particularly messages from workers. */
+		/* 检查异步事件，尤其是来自 worker 的消息。    */
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * Attempt to read a tuple, but don't block if none is available.
+		 * 尝试读取元组，但若无可用元组则不阻塞。     
 		 *
-		 * Note that TupleQueueReaderNext will just return NULL for a worker
-		 * which fails to initialize.  We'll treat that worker as having
-		 * produced no tuples; WaitForParallelWorkersToFinish will error out
-		 * when we get there.
+		 * 注意：TupleQueueReaderNext 对初始化失败的 worker       
+		 * 只会返回 NULL。我们将该 worker 视为没有         
+		 * 产出任何元组；等到 WaitForParallelWorkersToFinish 时   
+		 * 它会报错。   
 		 */
 		Assert(gatherstate->nextreader < gatherstate->nreaders);
 		reader = gatherstate->reader[gatherstate->nextreader];
 		tup = TupleQueueReaderNext(reader, true, &readerdone);
 
 		/*
-		 * If this reader is done, remove it from our working array of active
-		 * readers.  If all readers are done, we're outta here.
+		 * 若此读取器已完成，就把它从活跃读取器工作数组
+		 * 中移除。若读取器全部完成，就收工。 
 		 */
 		if (readerdone)
 		{
@@ -356,33 +356,33 @@ gather_readnext(GatherState *gatherstate)
 			continue;
 		}
 
-		/* If we got a tuple, return it. */
+		/* 若有元组，则返回。   */
 		if (tup)
 			return tup;
 
 		/*
-		 * Advance nextreader pointer in round-robin fashion.  Note that we
-		 * only reach this code if we weren't able to get a tuple from the
-		 * current worker.  We used to advance the nextreader pointer after
-		 * every tuple, but it turns out to be much more efficient to keep
-		 * reading from the same queue until that would require blocking.
+		 * 以轮转方式推进 nextreader 指针。注意只有当       
+		 * 无法从当前 worker 取得元组时，才会走到这里。 
+		 * 过去我们在每个元组之后都推进 nextreader 指针， 
+		 * 但事实证明，持续读同一队列会高效得多，      
+		 * 直到必须阻塞为止。                                   
 		 */
 		gatherstate->nextreader++;
 		if (gatherstate->nextreader >= gatherstate->nreaders)
 			gatherstate->nextreader = 0;
 
-		/* Have we visited every (surviving) TupleQueueReader? */
+		/* 是否已遍历每个活跃 TupleQueueReader？     */
 		nvisited++;
 		if (nvisited >= gatherstate->nreaders)
 		{
 			/*
-			 * If (still) running plan locally, return NULL so caller can
-			 * generate another tuple from the local copy of the plan.
+			 * 若（仍）本地运行计划，返回 NULL，让调用  
+			 * 者能从计划的本地副本再生成一个元组。 
 			 */
 			if (gatherstate->need_to_scan_locally)
 				return NULL;
 
-			/* Nothing to do except wait for developments. */
+			/* 除等待事态进展外无事可做。     */
 			(void) WaitLatch(MyLatch, WL_LATCH_SET | WL_EXIT_ON_PM_DEATH, 0,
 							 WAIT_EVENT_EXECUTE_GATHER);
 			ResetLatch(MyLatch);
@@ -394,7 +394,7 @@ gather_readnext(GatherState *gatherstate)
 /* ----------------------------------------------------------------
  *		ExecShutdownGatherWorkers
  *
- *		Stop all the parallel workers.
+ *		停止所有并行 worker。  
  * ----------------------------------------------------------------
  */
 static void
@@ -403,7 +403,7 @@ ExecShutdownGatherWorkers(GatherState *node)
 	if (node->pei != NULL)
 		ExecParallelFinish(node->pei);
 
-	/* Flush local copy of reader array */
+	/* 刷出读取器数组本地副本*/
 	if (node->reader)
 		pfree(node->reader);
 	node->reader = NULL;
@@ -412,7 +412,7 @@ ExecShutdownGatherWorkers(GatherState *node)
 /* ----------------------------------------------------------------
  *		ExecShutdownGather
  *
- *		Destroy the setup for parallel workers including parallel context.
+ *		销毁为并行 worker 建立的设置，包括并行上下文。 
  * ----------------------------------------------------------------
  */
 void
@@ -420,7 +420,7 @@ ExecShutdownGather(GatherState *node)
 {
 	ExecShutdownGatherWorkers(node);
 
-	/* Now destroy the parallel context. */
+	/* 现在销毁并行上下文。    */
 	if (node->pei != NULL)
 	{
 		ExecParallelCleanup(node->pei);
@@ -429,14 +429,14 @@ ExecShutdownGather(GatherState *node)
 }
 
 /* ----------------------------------------------------------------
- *						Join Support
+ *						连接支持
  * ----------------------------------------------------------------
  */
 
 /* ----------------------------------------------------------------
  *		ExecReScanGather
  *
- *		Prepare to re-scan the result of a Gather.
+ *		准备重新扫描 Gather 的结果。    
  * ----------------------------------------------------------------
  */
 void
@@ -445,32 +445,32 @@ ExecReScanGather(GatherState *node)
 	Gather	   *gather = (Gather *) node->ps.plan;
 	PlanState  *outerPlan = outerPlanState(node);
 
-	/* Make sure any existing workers are gracefully shut down */
+	/* 确保所有现存 worker 都已被优雅地关闭      */
 	ExecShutdownGatherWorkers(node);
 
-	/* Mark node so that shared state will be rebuilt at next call */
+	/* 标记节点，使共享状态在下次调用时被重建   */
 	node->initialized = false;
 
 	/*
-	 * Set child node's chgParam to tell it that the next scan might deliver a
-	 * different set of rows within the leader process.  (The overall rowset
-	 * shouldn't change, but the leader process's subset might; hence nodes
-	 * between here and the parallel table scan node mustn't optimize on the
-	 * assumption of an unchanging rowset.)
+	 * 设置子节点的 chgParam，告知它下一次扫描在领导        
+	 * 者进程中可能交付不同的行集合。（总行集不应改   
+	 * 变，但领导者进程的子集可能会变；因此位于此处  
+	 * 与并行表扫描节点之间的节点不得基于行集不变      
+	 * 的假设进行优化。）         
 	 */
 	if (gather->rescan_param >= 0)
 		outerPlan->chgParam = bms_add_member(outerPlan->chgParam,
 											 gather->rescan_param);
 
 	/*
-	 * If chgParam of subnode is not null then plan will be re-scanned by
-	 * first ExecProcNode.  Note: because this does nothing if we have a
-	 * rescan_param, it's currently guaranteed that parallel-aware child nodes
-	 * will not see a ReScan call until after they get a ReInitializeDSM call.
-	 * That ordering might not be something to rely on, though.  A good rule
-	 * of thumb is that ReInitializeDSM should reset only shared state, ReScan
-	 * should reset only local state, and anything that depends on both of
-	 * those steps being finished must wait until the first ExecProcNode call.
+	 * 如果子节点的 chgParam 非空，计划将由首次           
+	 * ExecProcNode 重新扫描。注意：若我们有                
+	 * rescan_param，则此调用不做任何事，这当前保证           
+	 * 支持并行的子节点在收到 ReInitializeDSM 调用               
+	 * 之前不会看到 ReScan 调用。不过这种顺序未必          
+	 * 可靠。一条好的经验法则是：ReInitializeDSM 只             
+	 * 重置共享状态，ReScan 只重置本地状态，而依赖      
+	 * 这两步都完成的操作必须等到首次 ExecProcNode 调用。   
 	 */
 	if (outerPlan->chgParam == NULL)
 		ExecReScan(outerPlan);

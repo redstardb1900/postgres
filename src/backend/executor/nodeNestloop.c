@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeNestloop.c
- *	  routines to support nest-loop joins
+ *	  支持嵌套循环连接的例程  
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,10 +13,10 @@
  *-------------------------------------------------------------------------
  */
 /*
- *	 INTERFACE ROUTINES
- *		ExecNestLoop	 - process a nestloop join of two plans
- *		ExecInitNestLoop - initialize the join
- *		ExecEndNestLoop  - shut down the join
+ *	 接口例程      
+ *		ExecNestLoop - 处理两计划的嵌套循环连接 
+ *		ExecInitNestLoop - 初始化该连接 
+ *		ExecEndNestLoop  - 关闭该连接   
  */
 
 #include "postgres.h"
@@ -30,31 +30,31 @@
 /* ----------------------------------------------------------------
  *		ExecNestLoop(node)
  *
- * old comments
- *		Returns the tuple joined from inner and outer tuples which
- *		satisfies the qualification clause.
+ * 旧注释   
+ *		返回由内层元组与外层元组连接而成且满足 
+ *		限定子句的元组。           
  *
- *		It scans the inner relation to join with current outer tuple.
+ *		它扫描内层关系来与当前外层元组进行连接。 
  *
- *		If none is found, next tuple from the outer relation is retrieved
- *		and the inner relation is scanned from the beginning again to join
- *		with the outer tuple.
+ *		如果没找到这样的元组，则取外层关系的下一个  
+ *		元组，并从头重新扫描内层关系来与外层元组      
+ *		进行连接。      
  *
- *		NULL is returned if all the remaining outer tuples are tried and
- *		all fail to join with the inner tuples.
+ *		如果所有剩余的外层元组都已尝试且都无法与    
+ *		内层元组连接，则返回 NULL。 
  *
- *		NULL is also returned if there is no tuple from inner relation.
+ *		如果内层关系没有元组，同样返回 NULL。          
  *
- *		Conditions:
- *		  -- outerTuple contains current tuple from outer relation and
- *			 the right son(inner relation) maintains "cursor" at the tuple
- *			 returned previously.
- *				This is achieved by maintaining a scan position on the outer
- *				relation.
+ *		条件：  
+ *		  -- outerTuple 保存来自外层关系的当前元组，    
+ *			 右儿子(内层关系)在先前返回的元组处维护     
+ *			 的 "cursor"。     
+ *				这通过在外层关系上维护扫描位置来            
+ *				实现。
  *
- *		Initial States:
- *		  -- the outer child and the inner child
- *			   are prepared to return the first tuple.
+ *		初始状态：
+ *		  -- 外层子节点和内层子节点  
+ *			   都已准备好返回第一个元组。
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -74,7 +74,7 @@ ExecNestLoop(PlanState *pstate)
 	CHECK_FOR_INTERRUPTS();
 
 	/*
-	 * get information from the node
+	 * 从节点获取信息        
 	 */
 	ENL1_printf("getting info from node");
 
@@ -86,22 +86,22 @@ ExecNestLoop(PlanState *pstate)
 	econtext = node->js.ps.ps_ExprContext;
 
 	/*
-	 * Reset per-tuple memory context to free any expression evaluation
-	 * storage allocated in the previous tuple cycle.
+	 * 重置每元组内存上下文，释放上一个元组周期中 
+	 * 分配的表达式求值存储。             
 	 */
 	ResetExprContext(econtext);
 
 	/*
-	 * Ok, everything is setup for the join so now loop until we return a
-	 * qualifying join tuple.
+	 * 好的，连接的一切都已就绪，现在循环直到返回   
+	 * 合格连接元组。 
 	 */
 	ENL1_printf("entering main loop");
 
 	for (;;)
 	{
 		/*
-		 * If we don't have an outer tuple, get the next one and reset the
-		 * inner scan.
+		 * 如果没有外层元组，则取下一个并重置内层的   
+		 * 扫描。  
 		 */
 		if (node->nl_NeedNewOuter)
 		{
@@ -109,7 +109,7 @@ ExecNestLoop(PlanState *pstate)
 			outerTupleSlot = ExecProcNode(outerPlan);
 
 			/*
-			 * if there are no more outer tuples, then the join is complete..
+			 * 如果没有更多外层元组，则连接完成..            
 			 */
 			if (TupIsNull(outerTupleSlot))
 			{
@@ -123,8 +123,8 @@ ExecNestLoop(PlanState *pstate)
 			node->nl_MatchedOuter = false;
 
 			/*
-			 * fetch the values of any outer Vars that must be passed to the
-			 * inner scan, and store them in the appropriate PARAM_EXEC slots.
+			 * 取出必须传递给内层扫描的所有外层 Var 值，  
+			 * 并将它们存入相应的 PARAM_EXEC 槽位。               
 			 */
 			foreach(lc, nl->nestParams)
 			{
@@ -133,27 +133,27 @@ ExecNestLoop(PlanState *pstate)
 				ParamExecData *prm;
 
 				prm = &(econtext->ecxt_param_exec_vals[paramno]);
-				/* Param value should be an OUTER_VAR var */
+				/* 参数值应为 OUTER_VAR 变量       */
 				Assert(IsA(nlp->paramval, Var));
 				Assert(nlp->paramval->varno == OUTER_VAR);
 				Assert(nlp->paramval->varattno > 0);
 				prm->value = slot_getattr(outerTupleSlot,
 										  nlp->paramval->varattno,
 										  &(prm->isnull));
-				/* Flag parameter value as changed */
+				/* 标记该参数值已更改     */
 				innerPlan->chgParam = bms_add_member(innerPlan->chgParam,
 													 paramno);
 			}
 
 			/*
-			 * now rescan the inner plan
+			 * 重新扫描内层计划 
 			 */
 			ENL1_printf("rescanning inner plan");
 			ExecReScan(innerPlan);
 		}
 
 		/*
-		 * we have an outerTuple, try to get the next inner tuple.
+		 * 已有外层元组，尝试取下一个内层元组。 
 		 */
 		ENL1_printf("getting new inner tuple");
 
@@ -171,10 +171,10 @@ ExecNestLoop(PlanState *pstate)
 				 node->js.jointype == JOIN_ANTI))
 			{
 				/*
-				 * We are doing an outer join and there were no join matches
-				 * for this outer tuple.  Generate a fake join tuple with
-				 * nulls for the inner tuple, and return it if it passes the
-				 * non-join quals.
+				 * 我们在做外连接，该外层元组没有匹配项，
+				 * 生成一个内层为空值的假连接元组，      
+				 * 若它能通过非连接限定条件，                  
+				 * 则返回它。
 				 */
 				econtext->ecxt_innertuple = node->nl_NullInnerTupleSlot;
 
@@ -183,8 +183,8 @@ ExecNestLoop(PlanState *pstate)
 				if (otherqual == NULL || ExecQual(otherqual, econtext))
 				{
 					/*
-					 * qualification was satisfied so we project and return
-					 * the slot containing the result tuple using
+					 * 限定条件满足，因此我们投影并返回含 
+					 * 结果元组的槽，使用               
 					 * ExecProject().
 					 */
 					ENL1_printf("qualification succeeded, projecting tuple");
@@ -196,18 +196,18 @@ ExecNestLoop(PlanState *pstate)
 			}
 
 			/*
-			 * Otherwise just return to top of loop for a new outer tuple.
+			 * 否则回到循环顶部以获取新的外层元组。     
 			 */
 			continue;
 		}
 
 		/*
-		 * at this point we have a new pair of inner and outer tuples so we
-		 * test the inner and outer tuples to see if they satisfy the node's
-		 * qualification.
+		 * 此时我们得到了一对新的内外元组，因此我们    
+		 * 要测试这两个元组是否满足节点的                    
+		 * 条件。     
 		 *
-		 * Only the joinquals determine MatchedOuter status, but all quals
-		 * must pass to actually return the tuple.
+		 * 只有 joinquals 决定 MatchedOuter 状态，但              
+		 * 须全部通过才能返回该元组。
 		 */
 		ENL1_printf("testing qualification");
 
@@ -215,16 +215,16 @@ ExecNestLoop(PlanState *pstate)
 		{
 			node->nl_MatchedOuter = true;
 
-			/* In an antijoin, we never return a matched tuple */
+			/* 反连接中我们从不返回已匹配的元组*/
 			if (node->js.jointype == JOIN_ANTI)
 			{
 				node->nl_NeedNewOuter = true;
-				continue;		/* return to top of loop */
+				continue;		/* 回到循环顶部    */
 			}
 
 			/*
-			 * If we only need to join to the first matching inner tuple, then
-			 * consider returning this one, but after that continue with next
+			 * 如果我们只需连接到第一个匹配的内层元组，   
+			 * 那么考虑返回这一个，但之后继续处理下一个  
 			 * outer tuple.
 			 */
 			if (node->js.single_match)
@@ -233,8 +233,8 @@ ExecNestLoop(PlanState *pstate)
 			if (otherqual == NULL || ExecQual(otherqual, econtext))
 			{
 				/*
-				 * qualification was satisfied so we project and return the
-				 * slot containing the result tuple using ExecProject().
+				 * 限定条件已满足，因此我们投影并返回该  
+				 * 包含结果元组的槽，使用 ExecProject()。   
 				 */
 				ENL1_printf("qualification succeeded, projecting tuple");
 
@@ -247,7 +247,7 @@ ExecNestLoop(PlanState *pstate)
 			InstrCountFiltered1(node, 1);
 
 		/*
-		 * Tuple fails qual, so free per-tuple memory and try again.
+		 * 元组未通过 qual，释放每元组内存并重试。 
 		 */
 		ResetExprContext(econtext);
 
@@ -264,14 +264,14 @@ ExecInitNestLoop(NestLoop *node, EState *estate, int eflags)
 {
 	NestLoopState *nlstate;
 
-	/* check for unsupported flags */
+	/* 检查不支持的标志    */
 	Assert(!(eflags & (EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK)));
 
 	NL1_printf("ExecInitNestLoop: %s\n",
 			   "initializing node");
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	nlstate = makeNode(NestLoopState);
 	nlstate->js.ps.plan = (Plan *) node;
@@ -279,19 +279,19 @@ ExecInitNestLoop(NestLoop *node, EState *estate, int eflags)
 	nlstate->js.ps.ExecProcNode = ExecNestLoop;
 
 	/*
-	 * Miscellaneous initialization
+	 * 其他初始化             
 	 *
-	 * create expression context for node
+	 * 为节点创建表达式上下文 
 	 */
 	ExecAssignExprContext(estate, &nlstate->js.ps);
 
 	/*
-	 * initialize child nodes
+	 * 初始化子节点    
 	 *
-	 * If we have no parameters to pass into the inner rel from the outer,
-	 * tell the inner child that cheap rescans would be good.  If we do have
-	 * such parameters, then there is no point in REWIND support at all in the
-	 * inner child, because it will always be rescanned with fresh parameter
+	 * 如果我们没有要从外层传给内层关系的参数，       
+	 * 就告知内层子节点廉价重扫描会很有用。如果有      
+	 * 这类参数，那么内层子节点中 REWIND 支持完全            
+	 * 没有意义，因为它总是带着新的参数值                  
 	 * values.
 	 */
 	outerPlanState(nlstate) = ExecInitNode(outerPlan(node), estate, eflags);
@@ -302,13 +302,13 @@ ExecInitNestLoop(NestLoop *node, EState *estate, int eflags)
 	innerPlanState(nlstate) = ExecInitNode(innerPlan(node), estate, eflags);
 
 	/*
-	 * Initialize result slot, type and projection.
+	 * 初始化结果槽、类型和投影。     
 	 */
 	ExecInitResultTupleSlotTL(&nlstate->js.ps, &TTSOpsVirtual);
 	ExecAssignProjectionInfo(&nlstate->js.ps, NULL);
 
 	/*
-	 * initialize child expressions
+	 * 初始化子表达式       
 	 */
 	nlstate->js.ps.qual =
 		ExecInitQual(node->join.plan.qual, (PlanState *) nlstate);
@@ -317,12 +317,12 @@ ExecInitNestLoop(NestLoop *node, EState *estate, int eflags)
 		ExecInitQual(node->join.joinqual, (PlanState *) nlstate);
 
 	/*
-	 * detect whether we need only consider the first matching inner tuple
+	 * 检测我们是否只需考虑第一个匹配的内层元组       
 	 */
 	nlstate->js.single_match = (node->join.inner_unique ||
 								node->join.jointype == JOIN_SEMI);
 
-	/* set up null tuples for outer joins, if needed */
+	/* 如果需要，为外连接设置空元组    */
 	switch (node->join.jointype)
 	{
 		case JOIN_INNER:
@@ -341,7 +341,7 @@ ExecInitNestLoop(NestLoop *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * finally, wipe the current outer tuple clean.
+	 * 最后，清除当前的外层元组。     
 	 */
 	nlstate->nl_NeedNewOuter = true;
 	nlstate->nl_MatchedOuter = false;
@@ -355,7 +355,7 @@ ExecInitNestLoop(NestLoop *node, EState *estate, int eflags)
 /* ----------------------------------------------------------------
  *		ExecEndNestLoop
  *
- *		closes down scans and frees allocated storage
+ *		关闭扫描并释放已分配的存储      
  * ----------------------------------------------------------------
  */
 void
@@ -365,17 +365,17 @@ ExecEndNestLoop(NestLoopState *node)
 			   "ending node processing");
 
 	/*
-	 * Free the exprcontext
+	 * 释放 exprcontext  
 	 */
 	ExecFreeExprContext(&node->js.ps);
 
 	/*
-	 * clean out the tuple table
+	 * 清空元组表          
 	 */
 	ExecClearTuple(node->js.ps.ps_ResultTupleSlot);
 
 	/*
-	 * close down subplans
+	 * 关闭子计划    
 	 */
 	ExecEndNode(outerPlanState(node));
 	ExecEndNode(innerPlanState(node));
@@ -394,16 +394,16 @@ ExecReScanNestLoop(NestLoopState *node)
 	PlanState  *outerPlan = outerPlanState(node);
 
 	/*
-	 * If outerPlan->chgParam is not null then plan will be automatically
-	 * re-scanned by first ExecProcNode.
+	 * 若 outerPlan->chgParam 非空，则计划会被第一个         
+	 * ExecProcNode 自动重扫。     
 	 */
 	if (outerPlan->chgParam == NULL)
 		ExecReScan(outerPlan);
 
 	/*
-	 * innerPlan is re-scanned for each new outer tuple and MUST NOT be
-	 * re-scanned from here or you'll get troubles from inner index scans when
-	 * outer Vars are used as run-time keys...
+	 * 内层计划会为每个新的外层元组重新扫描，绝对 
+	 * 不能在这里重扫描它，否则当外层 Var 被用作运         
+	 * 行时键时会遇到麻烦...         
 	 */
 
 	node->nl_NeedNewOuter = true;

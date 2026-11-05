@@ -168,6 +168,14 @@ _HEAPAM_LOCK_ALLOW_FALLTHROUGH_PROSE = re.compile(
 # switch annotation, and GCC -Wimplicit-fallthrough does not consult it.
 _TABLESPACE_FALLTHROUGH_PROSE = re.compile(rb"fall through quietly")
 
+# nodeLimit.c ExecLimit header prose: "fall through to the code for that
+# case" describes the state machine moving to WINDOWEND_TIES and entering
+# the shared scan code below.  The real switch annotations in this function
+# are separate one-line comments.  Not a GCC -Wimplicit-fallthrough
+# annotation.
+_LIMIT_FALLTHROUGH_PROSE = re.compile(
+    rb"fall through to the code for\s*\n\s*\*\s*that case")
+
 
 def legal_protected_segments(old_text):
     """Return Copyright/IDENTIFICATION/licence line blobs that must survive.
@@ -240,7 +248,8 @@ def protected_reason(old_text):
                     or _HEAPAM_MULTI_FALLTHROUGH_PROSE.search(old_text)
                     or _HEAPAM_LOCK_NOWAIT_FALLTHROUGH_PROSE.search(old_text)
                     or _HEAPAM_LOCK_ALLOW_FALLTHROUGH_PROSE.search(old_text)
-                    or _TABLESPACE_FALLTHROUGH_PROSE.search(old_text)):
+                    or _TABLESPACE_FALLTHROUGH_PROSE.search(old_text)
+                    or _LIMIT_FALLTHROUGH_PROSE.search(old_text)):
                 continue
             return name
     return None

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeLimit.c
- *	  Routines to handle limiting of query results where appropriate
+ *	  在适当情况下限制查询结果的例程。              
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,10 +13,10 @@
  *-------------------------------------------------------------------------
  */
 /*
- * INTERFACE ROUTINES
- *		ExecLimit		- extract a limited range of tuples
- *		ExecInitLimit	- initialize node and subnodes..
- *		ExecEndLimit	- shutdown node and subnodes
+ * 接口例程      
+ *		ExecLimit - 抽取一个受限范围的元组 
+ *		ExecInitLimit - 初始化节点与子节点   
+ *		ExecEndLimit - 关闭节点与子节点  
  */
 
 #include "postgres.h"
@@ -33,11 +33,11 @@ static int64 compute_tuples_needed(LimitState *node);
 /* ----------------------------------------------------------------
  *		ExecLimit
  *
- *		This is a very simple node which just performs LIMIT/OFFSET
- *		filtering on the stream of tuples returned by a subplan.
+ *		这是一个非常简单的节点，只执行 LIMIT/OFFSET 
+ *		过滤，作用于子计划返回的元组流上。     
  * ----------------------------------------------------------------
  */
-static TupleTableSlot *			/* return: a tuple or NULL */
+static TupleTableSlot *			/* 返回: 元组或 NULL  */
 ExecLimit(PlanState *pstate)
 {
 	LimitState *node = castNode(LimitState, pstate);
@@ -49,23 +49,23 @@ ExecLimit(PlanState *pstate)
 	CHECK_FOR_INTERRUPTS();
 
 	/*
-	 * get information from the node
+	 * 从节点获取信息        
 	 */
 	direction = node->ps.state->es_direction;
 	outerPlan = outerPlanState(node);
 
 	/*
-	 * The main logic is a simple state machine.
+	 * 主逻辑是一个简单的状态机。  
 	 */
 	switch (node->lstate)
 	{
 		case LIMIT_INITIAL:
 
 			/*
-			 * First call for this node, so compute limit/offset. (We can't do
-			 * this any earlier, because parameters from upper nodes will not
-			 * be set during ExecInitLimit.)  This also sets position = 0 and
-			 * changes the state to LIMIT_RESCAN.
+			 * 本节点首次调用，因此计算 limit/offset。（我们  
+			 * 无法更早做这件事，因为上层节点的参数在     
+			 * ExecInitLimit 期间不会被设置。）它还会置 position
+			 * 为 0，状态改为 LIMIT_RESCAN 
 			 */
 			recompute_limits(node);
 
@@ -74,13 +74,13 @@ ExecLimit(PlanState *pstate)
 		case LIMIT_RESCAN:
 
 			/*
-			 * If backwards scan, just return NULL without changing state.
+			 * 若是反向扫描，直接返回 NULL 且不改状态。  
 			 */
 			if (!ScanDirectionIsForward(direction))
 				return NULL;
 
 			/*
-			 * Check for empty window; if so, treat like empty subplan.
+			 * 检查空窗口；若是，按空子计划处理。     
 			 */
 			if (node->count <= 0 && !node->noCount)
 			{
@@ -89,7 +89,7 @@ ExecLimit(PlanState *pstate)
 			}
 
 			/*
-			 * Fetch rows from subplan until we reach position > offset.
+			 * 从子计划取行，直到 position > offset 为止。  
 			 */
 			for (;;)
 			{
@@ -97,16 +97,16 @@ ExecLimit(PlanState *pstate)
 				if (TupIsNull(slot))
 				{
 					/*
-					 * The subplan returns too few tuples for us to produce
-					 * any output at all.
+					 * 子计划返回的元组过少，我们无法产生 
+					 * 任何输出。   
 					 */
 					node->lstate = LIMIT_EMPTY;
 					return NULL;
 				}
 
 				/*
-				 * Tuple at limit is needed for comparison in subsequent
-				 * execution to detect ties.
+				 * 后续执行需用 limit 位置元组进行比较    
+				 * 以检测并列情况。 
 				 */
 				if (node->limitOption == LIMIT_OPTION_WITH_TIES &&
 					node->position - node->offset == node->count - 1)
@@ -119,7 +119,7 @@ ExecLimit(PlanState *pstate)
 			}
 
 			/*
-			 * Okay, we have the first tuple of the window.
+			 * 好，已拿到窗口的第一个元组。  
 			 */
 			node->lstate = LIMIT_INWINDOW;
 			break;
@@ -127,8 +127,8 @@ ExecLimit(PlanState *pstate)
 		case LIMIT_EMPTY:
 
 			/*
-			 * The subplan is known to return no tuples (or not more than
-			 * OFFSET tuples, in general).  So we return no tuples.
+			 * 已知子计划不返回元组（或一般不超过       
+			 * OFFSET 个元组）。所以我们不返回元组。
 			 */
 			return NULL;
 
@@ -136,20 +136,20 @@ ExecLimit(PlanState *pstate)
 			if (ScanDirectionIsForward(direction))
 			{
 				/*
-				 * Forwards scan, so check for stepping off end of window.  At
-				 * the end of the window, the behavior depends on whether WITH
-				 * TIES was specified: if so, we need to change the state
-				 * machine to WINDOWEND_TIES, and fall through to the code for
-				 * that case.  If not (nothing was specified, or ONLY was)
-				 * return NULL without advancing the subplan or the position
-				 * variable, but change the state machine to record having
-				 * done so.
+				 * 前向扫描，故检查是否步出窗口末端。在     
+				 * 窗口末端处，行为取决于是否指定 WITH TIES： 
+				 * 若指定了，则需要把状态机改为            
+				 * WINDOWEND_TIES，并落入该情形对应的代码。      
+				 * 若未指定（或指定 ONLY），则返回 NULL，   
+				 * 不推进子计划或 position 变量，但改变状态  
+				 * 机，用来记录已经这么                         
+				 * 做过  
 				 *
-				 * Once at the end, ideally, we would shut down parallel
-				 * resources; but that would destroy the parallel context
-				 * which might be required for rescans.  To do that, we'll
-				 * need to find a way to pass down more information about
-				 * whether rescans are possible.
+				 * 理想情况下，应在到达末端后关闭并行  
+				 * 资源；但这会销毁重新扫描所需的并行   
+				 * 上下文。为此需要找到一种办法，传递    
+				 * 更多信息，说明重新                           
+				 * 扫描是否可能。        
 				 */
 				if (!node->noCount &&
 					node->position - node->offset >= node->count)
@@ -168,7 +168,7 @@ ExecLimit(PlanState *pstate)
 				else
 				{
 					/*
-					 * Get next tuple from subplan, if any.
+					 * 从子计划取下一个元组。   
 					 */
 					slot = ExecProcNode(outerPlan);
 					if (TupIsNull(slot))
@@ -178,9 +178,9 @@ ExecLimit(PlanState *pstate)
 					}
 
 					/*
-					 * If WITH TIES is active, and this is the last in-window
-					 * tuple, save it to be used in subsequent WINDOWEND_TIES
-					 * processing.
+					 * 若 WITH TIES 生效，且这是窗口内最后       
+					 * 一个元组，则保存它，供后续 WINDOWEND_TIES
+					 * 处理     
 					 */
 					if (node->limitOption == LIMIT_OPTION_WITH_TIES &&
 						node->position - node->offset == node->count - 1)
@@ -195,8 +195,8 @@ ExecLimit(PlanState *pstate)
 			else
 			{
 				/*
-				 * Backwards scan, so check for stepping off start of window.
-				 * As above, only change state-machine status if so.
+				 * 反向扫描，因此检查是否步出窗口起点。    
+				 * 如上，仅在是时才改状态机状态。    
 				 */
 				if (node->position <= node->offset + 1)
 				{
@@ -205,7 +205,7 @@ ExecLimit(PlanState *pstate)
 				}
 
 				/*
-				 * Get previous tuple from subplan; there should be one!
+				 * 从子计划取前一个元组；应该有一个！  
 				 */
 				slot = ExecProcNode(outerPlan);
 				if (TupIsNull(slot))
@@ -222,8 +222,8 @@ ExecLimit(PlanState *pstate)
 			if (ScanDirectionIsForward(direction))
 			{
 				/*
-				 * Advance the subplan until we find the first row with
-				 * different ORDER BY pathkeys.
+				 * 推进子计划，直到找到第一行具有不同 
+				 * 的 ORDER BY pathkeys。    
 				 */
 				slot = ExecProcNode(outerPlan);
 				if (TupIsNull(slot))
@@ -233,8 +233,8 @@ ExecLimit(PlanState *pstate)
 				}
 
 				/*
-				 * Test if the new tuple and the last tuple match. If so we
-				 * return the tuple.
+				 * 测试新元组与最后元组是否匹配。若是，  
+				 * 则返回它。  
 				 */
 				econtext->ecxt_innertuple = slot;
 				econtext->ecxt_outertuple = node->last_slot;
@@ -252,8 +252,8 @@ ExecLimit(PlanState *pstate)
 			else
 			{
 				/*
-				 * Backwards scan, so check for stepping off start of window.
-				 * Change only state-machine status if so.
+				 * 反向扫描，因此检查是否步出窗口起点。    
+				 * 若如此，仅改变状态机状态。
 				 */
 				if (node->position <= node->offset + 1)
 				{
@@ -262,8 +262,8 @@ ExecLimit(PlanState *pstate)
 				}
 
 				/*
-				 * Get previous tuple from subplan; there should be one! And
-				 * change state-machine status.
+				 * 从子计划取前一个元组；应该有一个！并且
+				 * 要改变状态机状态。 
 				 */
 				slot = ExecProcNode(outerPlan);
 				if (TupIsNull(slot))
@@ -279,15 +279,15 @@ ExecLimit(PlanState *pstate)
 				return NULL;
 
 			/*
-			 * Backing up from subplan EOF, so re-fetch previous tuple; there
-			 * should be one!  Note previous tuple must be in window.
+			 * 从子计划 EOF 处回退，所以重新取前一个元组；
+			 * 应该有一个！前一个元组必须在窗口内。
 			 */
 			slot = ExecProcNode(outerPlan);
 			if (TupIsNull(slot))
 				elog(ERROR, "LIMIT subplan failed to run backwards");
 			node->subSlot = slot;
 			node->lstate = LIMIT_INWINDOW;
-			/* position does not change 'cause we didn't advance it before */
+			/* position 不变，因为之前没有推进它               */
 			break;
 
 		case LIMIT_WINDOWEND:
@@ -295,9 +295,9 @@ ExecLimit(PlanState *pstate)
 				return NULL;
 
 			/*
-			 * We already past one position to detect ties so re-fetch
-			 * previous tuple; there should be one!  Note previous tuple must
-			 * be in window.
+			 * 为检测并列已前进过一个位置，所以重新 
+			 * 取前一元组；应该有一个！注意前一元组必须  
+			 * 在窗口内 
 			 */
 			if (node->limitOption == LIMIT_OPTION_WITH_TIES)
 			{
@@ -310,12 +310,12 @@ ExecLimit(PlanState *pstate)
 			else
 			{
 				/*
-				 * Backing up from window end: simply re-return the last tuple
-				 * fetched from the subplan.
+				 * 从窗口末端回退：重新返回上次从子计划     
+				 * 取到的那个元组。 
 				 */
 				slot = node->subSlot;
 				node->lstate = LIMIT_INWINDOW;
-				/* position does not change 'cause we didn't advance it before */
+				/* position 不变，因为之前没有推进它               */
 			}
 			break;
 
@@ -324,31 +324,31 @@ ExecLimit(PlanState *pstate)
 				return NULL;
 
 			/*
-			 * Advancing after having backed off window start: simply
-			 * re-return the last tuple fetched from the subplan.
+			 * 从窗口起点回退后再前进：只需重新返回
+			 * 上次从子计划取到的那个元组。        
 			 */
 			slot = node->subSlot;
 			node->lstate = LIMIT_INWINDOW;
-			/* position does not change 'cause we didn't change it before */
+			/* position 不变，因为之前没有修改它              */
 			break;
 
 		default:
 			elog(ERROR, "impossible LIMIT state: %d",
 				 (int) node->lstate);
-			slot = NULL;		/* keep compiler quiet */
+			slot = NULL;		/* 让编译器安静  */
 			break;
 	}
 
-	/* Return the current tuple */
+	/* 返回当前元组       */
 	Assert(!TupIsNull(slot));
 
 	return slot;
 }
 
 /*
- * Evaluate the limit/offset expressions --- done at startup or rescan.
+ * 求值 limit/offset 表达式 --- 在启动或重新扫描时做。 
  *
- * This is also a handy place to reset the current-position state info.
+ * 这里也是重置当前位置状态信息的好地方。           
  */
 static void
 recompute_limits(LimitState *node)
@@ -362,7 +362,7 @@ recompute_limits(LimitState *node)
 		val = ExecEvalExprSwitchContext(node->limitOffset,
 										econtext,
 										&isNull);
-		/* Interpret NULL offset as no offset */
+		/* NULL offset 视为无 offset       */
 		if (isNull)
 			node->offset = 0;
 		else
@@ -376,7 +376,7 @@ recompute_limits(LimitState *node)
 	}
 	else
 	{
-		/* No OFFSET supplied */
+		/* 未提供 OFFSET   */
 		node->offset = 0;
 	}
 
@@ -385,7 +385,7 @@ recompute_limits(LimitState *node)
 		val = ExecEvalExprSwitchContext(node->limitCount,
 										econtext,
 										&isNull);
-		/* Interpret NULL count as no count (LIMIT ALL) */
+		/* NULL count 视为无 count（LIMIT ALL）    */
 		if (isNull)
 		{
 			node->count = 0;
@@ -403,45 +403,45 @@ recompute_limits(LimitState *node)
 	}
 	else
 	{
-		/* No COUNT supplied */
+		/* 未提供 COUNT   */
 		node->count = 0;
 		node->noCount = true;
 	}
 
-	/* Reset position to start-of-scan */
+	/* 重置 position 为扫描起点 */
 	node->position = 0;
 	node->subSlot = NULL;
 
-	/* Set state-machine state */
+	/* 设置状态机状态   */
 	node->lstate = LIMIT_RESCAN;
 
 	/*
-	 * Notify child node about limit.  Note: think not to "optimize" by
-	 * skipping ExecSetTupleBound if compute_tuples_needed returns < 0.  We
-	 * must update the child node anyway, in case this is a rescan and the
-	 * previous time we got a different result.
+	 * 把 limit 告知子节点。注意：不要想着在            
+	 * compute_tuples_needed 返回 < 0 时跳过                          
+	 * ExecSetTupleBound 就偷懒；无论如何都要更新子节点， 
+	 * 以防重扫时上次结果不同。    
 	 */
 	ExecSetTupleBound(compute_tuples_needed(node), outerPlanState(node));
 }
 
 /*
- * Compute the maximum number of tuples needed to satisfy this Limit node.
- * Return a negative value if there is not a determinable limit.
+ * 计算满足此 Limit 节点所需的最大元组数量。             
+ * 如果不存在可确定的限制，则返回负值。       
  */
 static int64
 compute_tuples_needed(LimitState *node)
 {
 	if ((node->noCount) || (node->limitOption == LIMIT_OPTION_WITH_TIES))
 		return -1;
-	/* Note: if this overflows, we'll return a negative value, which is OK */
+	/* 注意：若此处溢出，会返回负值，这是可以接受的  */
 	return node->count + node->offset;
 }
 
 /* ----------------------------------------------------------------
  *		ExecInitLimit
  *
- *		This initializes the limit node state structures and
- *		the node's subplan.
+ *		它初始化 limit 节点的状态结构            
+ *		及其子计划。 
  * ----------------------------------------------------------------
  */
 LimitState *
@@ -450,11 +450,11 @@ ExecInitLimit(Limit *node, EState *estate, int eflags)
 	LimitState *limitstate;
 	Plan	   *outerPlan;
 
-	/* check for unsupported flags */
+	/* 检查不支持的标志    */
 	Assert(!(eflags & EXEC_FLAG_MARK));
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	limitstate = makeNode(LimitState);
 	limitstate->ps.plan = (Plan *) node;
@@ -464,21 +464,21 @@ ExecInitLimit(Limit *node, EState *estate, int eflags)
 	limitstate->lstate = LIMIT_INITIAL;
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * Limit nodes never call ExecQual or ExecProject, but they need an
-	 * exprcontext anyway to evaluate the limit/offset parameters in.
+	 * Limit 节点从不调用 ExecQual 或 ExecProject，但仍需要
+	 * 一个表达式上下文来求值 limit/offset 参数。      
 	 */
 	ExecAssignExprContext(estate, &limitstate->ps);
 
 	/*
-	 * initialize outer plan
+	 * 初始化外层计划
 	 */
 	outerPlan = outerPlan(node);
 	outerPlanState(limitstate) = ExecInitNode(outerPlan, estate, eflags);
 
 	/*
-	 * initialize child expressions
+	 * 初始化子表达式       
 	 */
 	limitstate->limitOffset = ExecInitExpr((Expr *) node->limitOffset,
 										   (PlanState *) limitstate);
@@ -487,7 +487,7 @@ ExecInitLimit(Limit *node, EState *estate, int eflags)
 	limitstate->limitOption = node->limitOption;
 
 	/*
-	 * Initialize result type.
+	 * 初始化结果类型  
 	 */
 	ExecInitResultTypeTL(&limitstate->ps);
 
@@ -496,13 +496,13 @@ ExecInitLimit(Limit *node, EState *estate, int eflags)
 													&limitstate->ps.resultopsfixed);
 
 	/*
-	 * limit nodes do no projections, so initialize projection info for this
-	 * node appropriately
+	 * limit 节点不做投影，因此为本节点适当地初始化      
+	 * 投影信息      
 	 */
 	limitstate->ps.ps_ProjInfo = NULL;
 
 	/*
-	 * Initialize the equality evaluation, to detect ties.
+	 * 初始化相等性求值，用于检测并列。   
 	 */
 	if (node->limitOption == LIMIT_OPTION_WITH_TIES)
 	{
@@ -527,8 +527,8 @@ ExecInitLimit(Limit *node, EState *estate, int eflags)
 /* ----------------------------------------------------------------
  *		ExecEndLimit
  *
- *		This shuts down the subplan and frees resources allocated
- *		to this node.
+ *		它关闭子计划，并释放分配给本节点         
+ *		的资源    
  * ----------------------------------------------------------------
  */
 void
@@ -545,15 +545,15 @@ ExecReScanLimit(LimitState *node)
 	PlanState  *outerPlan = outerPlanState(node);
 
 	/*
-	 * Recompute limit/offset in case parameters changed, and reset the state
-	 * machine.  We must do this before rescanning our child node, in case
-	 * it's a Sort that we are passing the parameters down to.
+	 * 如果参数变了则重新计算 limit/offset，并重置状态      
+	 * 机。必须在重新扫描子节点之前做这件事，因为    
+	 * 参数向下传递的节点可能是 Sort。           
 	 */
 	recompute_limits(node);
 
 	/*
-	 * if chgParam of subnode is not null then plan will be re-scanned by
-	 * first ExecProcNode.
+	 * 如果子节点的 chgParam 非空，则首次 ExecProcNode 会   
+	 * 重新扫描计划 
 	 */
 	if (outerPlan->chgParam == NULL)
 		ExecReScan(outerPlan);

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeBitmapIndexscan.c
- *	  Routines to support bitmapped index scans of relations
+ *	  支持关系位图索引扫描的例程               
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -14,10 +14,10 @@
  */
 /*
  * INTERFACE ROUTINES
- *		MultiExecBitmapIndexScan	scans a relation using index.
- *		ExecInitBitmapIndexScan		creates and initializes state info.
- *		ExecReScanBitmapIndexScan	prepares to rescan the plan.
- *		ExecEndBitmapIndexScan		releases all storage.
+ *		MultiExecBitmapIndexScan	用索引扫描关系。     
+ *		ExecInitBitmapIndexScan	创建并初始化状态信息。   
+ *		ExecReScanBitmapIndexScan	准备重新扫描计划。 
+ *		ExecEndBitmapIndexScan	释放所有存储。 
  */
 #include "postgres.h"
 
@@ -32,7 +32,7 @@
 /* ----------------------------------------------------------------
  *		ExecBitmapIndexScan
  *
- *		stub for pro forma compliance
+ *		例行公事式的桩函数  
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -54,20 +54,20 @@ MultiExecBitmapIndexScan(BitmapIndexScanState *node)
 	double		nTuples = 0;
 	bool		doscan;
 
-	/* must provide our own instrumentation support */
+	/* 必须提供我们自己的统计支持      */
 	if (node->ss.ps.instrument)
 		InstrStartNode(node->ss.ps.instrument);
 
 	/*
-	 * extract necessary information from index scan node
+	 * 从索引扫描节点提取必要信息           
 	 */
 	scandesc = node->biss_ScanDesc;
 
 	/*
-	 * If we have runtime keys and they've not already been set up, do it now.
-	 * Array keys are also treated as runtime keys; note that if ExecReScan
-	 * returns with biss_RuntimeKeysReady still false, then there is an empty
-	 * array key so we should do nothing.
+	 * 如果有运行时键且尚未设置，现在就设置它们。        
+	 * 数组键也按运行时键处理；注意如果 ExecReScan         
+	 * 返回时 biss_RuntimeKeysReady 仍为 false，则存在              
+	 * 空数组键，无需操作。    
 	 */
 	if (!node->biss_RuntimeKeysReady &&
 		(node->biss_NumRuntimeKeys != 0 || node->biss_NumArrayKeys != 0))
@@ -79,26 +79,26 @@ MultiExecBitmapIndexScan(BitmapIndexScanState *node)
 		doscan = true;
 
 	/*
-	 * Prepare the result bitmap.  Normally we just create a new one to pass
-	 * back; however, our parent node is allowed to store a pre-made one into
-	 * node->biss_result, in which case we just OR our tuple IDs into the
-	 * existing bitmap.  (This saves needing explicit UNION steps.)
+	 * 准备结果位图。通常我们直接新建一个传回去；      
+	 * 不过父节点允许把预先建好的位图存入                   
+	 * node->biss_result，此时只需将我们的元组 TID            
+	 * 按位或并入现有位图（省去显式 UNION 步骤）  
 	 */
 	if (node->biss_result)
 	{
 		tbm = node->biss_result;
-		node->biss_result = NULL;	/* reset for next time */
+		node->biss_result = NULL;	/* 为下次重置     */
 	}
 	else
 	{
-		/* XXX should we use less than work_mem for this? */
+		/* XXX 是否该为此用小于 work_mem 的值？*/
 		tbm = tbm_create(work_mem * 1024L,
 						 ((BitmapIndexScan *) node->ss.ps.plan)->isshared ?
 						 node->ss.ps.state->es_query_dsa : NULL);
 	}
 
 	/*
-	 * Get TIDs from index and insert into bitmap
+	 * 从索引取出 TID 并插入位图       
 	 */
 	while (doscan)
 	{
@@ -108,13 +108,13 @@ MultiExecBitmapIndexScan(BitmapIndexScanState *node)
 
 		doscan = ExecIndexAdvanceArrayKeys(node->biss_ArrayKeys,
 										   node->biss_NumArrayKeys);
-		if (doscan)				/* reset index scan */
+		if (doscan)				/* 重置索引     */
 			index_rescan(node->biss_ScanDesc,
 						 node->biss_ScanKeys, node->biss_NumScanKeys,
 						 NULL, 0);
 	}
 
-	/* must provide our own instrumentation support */
+	/* 必须提供我们自己的统计支持      */
 	if (node->ss.ps.instrument)
 		InstrStopNode(node->ss.ps.instrument, nTuples);
 
@@ -124,8 +124,8 @@ MultiExecBitmapIndexScan(BitmapIndexScanState *node)
 /* ----------------------------------------------------------------
  *		ExecReScanBitmapIndexScan(node)
  *
- *		Recalculates the values of any scan keys whose value depends on
- *		information known at runtime, then rescans the indexed relation.
+ *		重新计算值依赖于运行时信息的扫描键的值，   
+ *		然后重新扫描索引关系。                               
  * ----------------------------------------------------------------
  */
 void
@@ -134,20 +134,20 @@ ExecReScanBitmapIndexScan(BitmapIndexScanState *node)
 	ExprContext *econtext = node->biss_RuntimeContext;
 
 	/*
-	 * Reset the runtime-key context so we don't leak memory as each outer
-	 * tuple is scanned.  Note this assumes that we will recalculate *all*
-	 * runtime keys on each call.
+	 * 重置运行时键上下文，以免每扫描一条外层          
+	 * 元组就泄漏一次内存。注意这里假定每次调用       
+	 * 都重算运行时键。  
 	 */
 	if (econtext)
 		ResetExprContext(econtext);
 
 	/*
-	 * If we are doing runtime key calculations (ie, any of the index key
-	 * values weren't simple Consts), compute the new key values.
+	 * 如果需要做运行时键计算（即任何索引键值都      
+	 * 不是简单 Const），则计算新的键值。          
 	 *
-	 * Array keys are also treated as runtime keys; note that if we return
-	 * with biss_RuntimeKeysReady still false, then there is an empty array
-	 * key so no index scan is needed.
+	 * 数组键也按运行时键处理；注意如果我们返回       
+	 * 时 biss_RuntimeKeysReady 仍为 false，则存在空               
+	 * 数组键，无需索引扫描 
 	 */
 	if (node->biss_NumRuntimeKeys != 0)
 		ExecIndexEvalRuntimeKeys(econtext,
@@ -161,7 +161,7 @@ ExecReScanBitmapIndexScan(BitmapIndexScanState *node)
 	else
 		node->biss_RuntimeKeysReady = true;
 
-	/* reset index scan */
+	/* 重置索引     */
 	if (node->biss_RuntimeKeysReady)
 		index_rescan(node->biss_ScanDesc,
 					 node->biss_ScanKeys, node->biss_NumScanKeys,
@@ -179,13 +179,13 @@ ExecEndBitmapIndexScan(BitmapIndexScanState *node)
 	IndexScanDesc indexScanDesc;
 
 	/*
-	 * extract information from the node
+	 * 从节点提取信息            
 	 */
 	indexRelationDesc = node->biss_RelationDesc;
 	indexScanDesc = node->biss_ScanDesc;
 
 	/*
-	 * Free the exprcontext ... now dead code, see ExecFreeExprContext
+	 * 释放 exprcontext（死代码，见 ExecFreeExprContext）    
 	 */
 #ifdef NOT_USED
 	if (node->biss_RuntimeContext)
@@ -193,7 +193,7 @@ ExecEndBitmapIndexScan(BitmapIndexScanState *node)
 #endif
 
 	/*
-	 * close the index relation (no-op if we didn't open it)
+	 * 关闭索引关系（没打开过则为空操作）  
 	 */
 	if (indexScanDesc)
 		index_endscan(indexScanDesc);
@@ -204,7 +204,7 @@ ExecEndBitmapIndexScan(BitmapIndexScanState *node)
 /* ----------------------------------------------------------------
  *		ExecInitBitmapIndexScan
  *
- *		Initializes the index scan's state information.
+ *		初始化索引扫描的状态信息。        
  * ----------------------------------------------------------------
  */
 BitmapIndexScanState *
@@ -213,66 +213,66 @@ ExecInitBitmapIndexScan(BitmapIndexScan *node, EState *estate, int eflags)
 	BitmapIndexScanState *indexstate;
 	LOCKMODE	lockmode;
 
-	/* check for unsupported flags */
+	/* 检查不支持的标志    */
 	Assert(!(eflags & (EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK)));
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	indexstate = makeNode(BitmapIndexScanState);
 	indexstate->ss.ps.plan = (Plan *) node;
 	indexstate->ss.ps.state = estate;
 	indexstate->ss.ps.ExecProcNode = ExecBitmapIndexScan;
 
-	/* normally we don't make the result bitmap till runtime */
+	/* 通常直到运行时才创建结果位图            */
 	indexstate->biss_result = NULL;
 
 	/*
-	 * We do not open or lock the base relation here.  We assume that an
-	 * ancestor BitmapHeapScan node is holding AccessShareLock (or better) on
-	 * the heap relation throughout the execution of the plan tree.
+	 * 我们不在此处打开或锁定基础关系。我们假定     
+	 * 某个祖先 BitmapHeapScan 节点在整个计划树执行            
+	 * 期间对堆关系持有 AccessShareLock 或更强的锁。 
 	 */
 
 	indexstate->ss.ss_currentRelation = NULL;
 	indexstate->ss.ss_currentScanDesc = NULL;
 
 	/*
-	 * Miscellaneous initialization
+	 * 其他初始化             
 	 *
-	 * We do not need a standard exprcontext for this node, though we may
-	 * decide below to create a runtime-key exprcontext
+	 * 本节点不需要标准 exprcontext，不过我们稍后         
+	 * 可能决定创建运行时键 exprcontext      
 	 */
 
 	/*
-	 * initialize child expressions
+	 * 初始化子表达式       
 	 *
-	 * We don't need to initialize targetlist or qual since neither are used.
+	 * 无需初始化目标列表或 qual，因为两者都不使用。     
 	 *
-	 * Note: we don't initialize all of the indexqual expression, only the
-	 * sub-parts corresponding to runtime keys (see below).
+	 * 注意：我们并非初始化整个 indexqual 表达式，        
+	 * 只初始化对应运行时键的部分。          
 	 */
 
 	/*
-	 * If we are just doing EXPLAIN (ie, aren't going to run the plan), stop
-	 * here.  This allows an index-advisor plugin to EXPLAIN a plan containing
-	 * references to nonexistent indexes.
+	 * 如果只是执行 EXPLAIN（即不打算运行计划），          
+	 * 就到此为止。这样索引顾问插件就能对引用不存在     
+	 * 索引的计划执行 EXPLAIN。  
 	 */
 	if (eflags & EXEC_FLAG_EXPLAIN_ONLY)
 		return indexstate;
 
-	/* Open the index relation. */
+	/* 打开索引关系。    */
 	lockmode = exec_rt_fetch(node->scan.scanrelid, estate)->rellockmode;
 	indexstate->biss_RelationDesc = index_open(node->indexid, lockmode);
 
 	/*
-	 * Initialize index-specific scan state
+	 * 初始化索引专有的扫描状态
 	 */
 	indexstate->biss_RuntimeKeysReady = false;
 	indexstate->biss_RuntimeKeys = NULL;
 	indexstate->biss_NumRuntimeKeys = 0;
 
 	/*
-	 * build the index scan keys from the index qualification
+	 * 从索引条件构建索引扫描键                  
 	 */
 	ExecIndexBuildScanKeys((PlanState *) indexstate,
 						   indexstate->biss_RelationDesc,
@@ -286,10 +286,10 @@ ExecInitBitmapIndexScan(BitmapIndexScan *node, EState *estate, int eflags)
 						   &indexstate->biss_NumArrayKeys);
 
 	/*
-	 * If we have runtime keys or array keys, we need an ExprContext to
-	 * evaluate them. We could just create a "standard" plan node exprcontext,
-	 * but to keep the code looking similar to nodeIndexscan.c, it seems
-	 * better to stick with the approach of using a separate ExprContext.
+	 * 如果有运行时键或数组键，就需要一个             
+	 * ExprContext 来求值。本可以直接创建"标准"的               
+	 * 计划节点 exprcontext，但为了让代码看起来与        
+	 * nodeIndexscan.c 一致，故最好沿用独立 ExprContext        
 	 */
 	if (indexstate->biss_NumRuntimeKeys != 0 ||
 		indexstate->biss_NumArrayKeys != 0)
@@ -306,7 +306,7 @@ ExecInitBitmapIndexScan(BitmapIndexScan *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * Initialize scan descriptor.
+	 * 初始化扫描描述符。
 	 */
 	indexstate->biss_ScanDesc =
 		index_beginscan_bitmap(indexstate->biss_RelationDesc,
@@ -314,8 +314,8 @@ ExecInitBitmapIndexScan(BitmapIndexScan *node, EState *estate, int eflags)
 							   indexstate->biss_NumScanKeys);
 
 	/*
-	 * If no run-time keys to calculate, go ahead and pass the scankeys to the
-	 * index AM.
+	 * 若没有要计算的运行时键，就直接把扫描键传给索引  
+	 * AM。    
 	 */
 	if (indexstate->biss_NumRuntimeKeys == 0 &&
 		indexstate->biss_NumArrayKeys == 0)
@@ -324,7 +324,7 @@ ExecInitBitmapIndexScan(BitmapIndexScan *node, EState *estate, int eflags)
 					 NULL, 0);
 
 	/*
-	 * all done.
+	 * 完成。
 	 */
 	return indexstate;
 }

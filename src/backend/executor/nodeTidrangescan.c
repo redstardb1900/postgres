@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeTidrangescan.c
- *	  Routines to support TID range scans of relations
+ *	  支持关系 TID 范围扫描的例程          
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -26,10 +26,10 @@
 
 
 /*
- * It's sufficient to check varattno to identify the CTID variable, as any
- * Var in the relation scan qual must be for our table.  (Even if it's a
- * parameterized scan referencing some other table's CTID, the other table's
- * Var would have become a Param by the time it gets here.)
+ * 识别 CTID 变量时只需检查 varattno 即可，因为关系扫描 
+ * qual 中的 Var 必然针对本表。（即便它是引用其他表  
+ * CTID 的参数化扫描，该 Var 到达此处时也已变成            
+ * Param。）                                             
  */
 #define IsCTIDVar(node)  \
 	((node) != NULL && \
@@ -42,17 +42,17 @@ typedef enum
 	TIDEXPR_LOWER_BOUND
 } TidExprType;
 
-/* Upper or lower range bound for scan */
+/* 扫描的范围上界或下界      */
 typedef struct TidOpExpr
 {
-	TidExprType exprtype;		/* type of op; lower or upper */
-	ExprState  *exprstate;		/* ExprState for a TID-yielding subexpr */
-	bool		inclusive;		/* whether op is inclusive */
+	TidExprType exprtype;		/* op 类型；上界或下界*/
+	ExprState  *exprstate;		/* TID 子表达式用的 ExprState     */
+	bool		inclusive;		/* op 是否为包含      */
 } TidOpExpr;
 
 /*
- * For the given 'expr', build and return an appropriate TidOpExpr taking into
- * account the expr's operator and operand order.
+ * 对于给定的表达式 expr，构建并返回合适的 TidOpExpr，      
+ * 需考虑其操作符与操作数顺序。    
  */
 static TidOpExpr *
 MakeTidOpExpr(OpExpr *expr, TidRangeScanState *tidstate)
@@ -74,7 +74,7 @@ MakeTidOpExpr(OpExpr *expr, TidRangeScanState *tidstate)
 		elog(ERROR, "could not identify CTID variable");
 
 	tidopexpr = (TidOpExpr *) palloc(sizeof(TidOpExpr));
-	tidopexpr->inclusive = false;	/* for now */
+	tidopexpr->inclusive = false;	/* 暂时  */
 
 	switch (expr->opno)
 	{
@@ -100,8 +100,8 @@ MakeTidOpExpr(OpExpr *expr, TidRangeScanState *tidstate)
 }
 
 /*
- * Extract the qual subexpressions that yield TIDs to search for,
- * and compile them into ExprStates if they're ordinary expressions.
+ * 提取 qual 中产出待搜索 TID 的子表达式，         
+ * 若其为普通表达式则编译成 ExprState。                
  */
 static void
 TidExprListCreate(TidRangeScanState *tidrangestate)
@@ -128,10 +128,10 @@ TidExprListCreate(TidRangeScanState *tidrangestate)
 /* ----------------------------------------------------------------
  *		TidRangeEval
  *
- *		Compute and set node's block and offset range to scan by evaluating
- *		the trss_tidexprs.  Returns false if we detect the range cannot
- *		contain any tuples.  Returns true if it's possible for the range to
- *		contain tuples.
+ *		通过对 trss_tidexprs 求值，计算并设置节点扫描的    
+ *		块号与偏移范围。若发现该范围不可能包含任何
+ *		元组则返回 false；若范围可能包含元组则返回       
+ *		true。        
  * ----------------------------------------------------------------
  */
 static bool
@@ -143,9 +143,9 @@ TidRangeEval(TidRangeScanState *node)
 	ListCell   *l;
 
 	/*
-	 * Set the upper and lower bounds to the absolute limits of the range of
-	 * the ItemPointer type.  Below we'll try to narrow this range on either
-	 * side by looking at the TidOpExprs.
+	 * 把上界和下界设为 ItemPointer 类型取值范围的绝对     
+	 * 极限。随后我们会在两侧尝试借助 TidOpExpr 收窄该    
+	 * 范围。                         
 	 */
 	ItemPointerSet(&lowerBound, 0, 0);
 	ItemPointerSet(&upperBound, InvalidBlockNumber, PG_UINT16_MAX);
@@ -156,13 +156,13 @@ TidRangeEval(TidRangeScanState *node)
 		ItemPointer itemptr;
 		bool		isNull;
 
-		/* Evaluate this bound. */
+		/* 求值此边界。   */
 		itemptr = (ItemPointer)
 			DatumGetPointer(ExecEvalExprSwitchContext(tidopexpr->exprstate,
 													  econtext,
 													  &isNull));
 
-		/* If the bound is NULL, *nothing* matches the qual. */
+		/* 若边界为 NULL，则无元组能满足 qual。 */
 		if (isNull)
 			return false;
 
@@ -173,13 +173,13 @@ TidRangeEval(TidRangeScanState *node)
 			ItemPointerCopy(itemptr, &lb);
 
 			/*
-			 * Normalize non-inclusive ranges to become inclusive.  The
-			 * resulting ItemPointer here may not be a valid item pointer.
+			 * 把非包含范围规范化为包含。此处得到     
+			 * ItemPointer 可能不是有效的条目指针。           
 			 */
 			if (!tidopexpr->inclusive)
 				ItemPointerInc(&lb);
 
-			/* Check if we can narrow the range using this qual */
+			/* 检查能否用此 qual 收窄范围             */
 			if (ItemPointerCompare(&lb, &lowerBound) > 0)
 				ItemPointerCopy(&lb, &lowerBound);
 		}
@@ -191,13 +191,13 @@ TidRangeEval(TidRangeScanState *node)
 			ItemPointerCopy(itemptr, &ub);
 
 			/*
-			 * Normalize non-inclusive ranges to become inclusive.  The
-			 * resulting ItemPointer here may not be a valid item pointer.
+			 * 把非包含范围规范化为包含。此处得到     
+			 * ItemPointer 可能不是有效的条目指针。           
 			 */
 			if (!tidopexpr->inclusive)
 				ItemPointerDec(&ub);
 
-			/* Check if we can narrow the range using this qual */
+			/* 检查能否用此 qual 收窄范围             */
 			if (ItemPointerCompare(&ub, &upperBound) < 0)
 				ItemPointerCopy(&ub, &upperBound);
 		}
@@ -212,8 +212,8 @@ TidRangeEval(TidRangeScanState *node)
 /* ----------------------------------------------------------------
  *		TidRangeNext
  *
- *		Retrieve a tuple from the TidRangeScan node's currentRelation
- *		using the TIDs in the TidRangeScanState information.
+ *		使用 TidRangeScanState 信息中的 TID，从              
+ *		TidRangeScan 的 currentRelation 中取回元组    
  *
  * ----------------------------------------------------------------
  */
@@ -226,7 +226,7 @@ TidRangeNext(TidRangeScanState *node)
 	TupleTableSlot *slot;
 
 	/*
-	 * extract necessary information from TID scan node
+	 * 从 TID 扫描节点提取必要信息          
 	 */
 	scandesc = node->ss.ss_currentScanDesc;
 	estate = node->ss.ps.state;
@@ -235,7 +235,7 @@ TidRangeNext(TidRangeScanState *node)
 
 	if (!node->trss_inScan)
 	{
-		/* First time through, compute TID range to scan */
+		/* 首次执行时计算要扫描的 TID 范围  */
 		if (!TidRangeEval(node))
 			return NULL;
 
@@ -249,7 +249,7 @@ TidRangeNext(TidRangeScanState *node)
 		}
 		else
 		{
-			/* rescan with the updated TID range */
+			/* 用新 TID 范围重新扫描     */
 			table_rescan_tidrange(scandesc, &node->trss_mintid,
 								  &node->trss_maxtid);
 		}
@@ -257,7 +257,7 @@ TidRangeNext(TidRangeScanState *node)
 		node->trss_inScan = true;
 	}
 
-	/* Fetch the next tuple. */
+	/* 取下一条元组。 */
 	if (!table_scan_getnextslot_tidrange(scandesc, direction, slot))
 	{
 		node->trss_inScan = false;
@@ -268,7 +268,7 @@ TidRangeNext(TidRangeScanState *node)
 }
 
 /*
- * TidRangeRecheck -- access method routine to recheck a tuple in EvalPlanQual
+ * TidRangeRecheck -- 在 EvalPlanQual 中复查元组的访问方法例程   
  */
 static bool
 TidRangeRecheck(TidRangeScanState *node, TupleTableSlot *slot)
@@ -278,7 +278,7 @@ TidRangeRecheck(TidRangeScanState *node, TupleTableSlot *slot)
 
 	Assert(ItemPointerIsValid(&slot->tts_tid));
 
-	/* Recheck the ctid is still within range */
+	/* 重新检查 ctid 是否仍在范围内*/
 	if (ItemPointerCompare(&slot->tts_tid, &node->trss_mintid) < 0 ||
 		ItemPointerCompare(&slot->tts_tid, &node->trss_maxtid) > 0)
 		return false;
@@ -289,16 +289,16 @@ TidRangeRecheck(TidRangeScanState *node, TupleTableSlot *slot)
 /* ----------------------------------------------------------------
  *		ExecTidRangeScan(node)
  *
- *		Scans the relation using tids and returns the next qualifying tuple.
- *		We call the ExecScan() routine and pass it the appropriate
- *		access method functions.
+ *		使用 TID 扫描关系并返回下一条满足条件的元组。   
+ *		我们调用 ExecScan() 例程并传给它合适的       
+ *		访问方法函数。   
  *
- *		Conditions:
- *		  -- the "cursor" maintained by the AMI is positioned at the tuple
- *			 returned previously.
+ *		条件：  
+ *		  -- AMI 维护的"游标"定位在先前返回的                
+ *			 元组上。        
  *
- *		Initial States:
- *		  -- the relation indicated is opened for TID range scanning.
+ *		初始状态：
+ *		  -- 指示的关系已为 TID 范围扫描而打开。      
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -318,11 +318,11 @@ ExecTidRangeScan(PlanState *pstate)
 void
 ExecReScanTidRangeScan(TidRangeScanState *node)
 {
-	/* mark scan as not in progress, and tid range list as not computed yet */
+	/* 标记扫描未进行中，且 TID 范围列表尚未计算          */
 	node->trss_inScan = false;
 
 	/*
-	 * We must wait until TidRangeNext before calling table_rescan_tidrange.
+	 * 必须等到 TidRangeNext 之后才能调用 table_rescan_tidrange。
 	 */
 	ExecScanReScan(&node->ss);
 }
@@ -330,8 +330,8 @@ ExecReScanTidRangeScan(TidRangeScanState *node)
 /* ----------------------------------------------------------------
  *		ExecEndTidRangeScan
  *
- *		Releases any storage allocated through C routines.
- *		Returns nothing.
+ *		释放通过 C 例程分配的所有存储。     
+ *		无返回值。 
  * ----------------------------------------------------------------
  */
 void
@@ -343,12 +343,12 @@ ExecEndTidRangeScan(TidRangeScanState *node)
 		table_endscan(scan);
 
 	/*
-	 * Free the exprcontext
+	 * 释放 exprcontext  
 	 */
 	ExecFreeExprContext(&node->ss.ps);
 
 	/*
-	 * clear out tuple table slots
+	 * 清空元组表槽位      
 	 */
 	if (node->ss.ps.ps_ResultTupleSlot)
 		ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
@@ -358,12 +358,12 @@ ExecEndTidRangeScan(TidRangeScanState *node)
 /* ----------------------------------------------------------------
  *		ExecInitTidRangeScan
  *
- *		Initializes the tid range scan's state information, creates
- *		scan keys, and opens the scan relation.
+ *		初始化 TID 范围扫描状态信息，创建扫描      
+ *		键，并打开扫描关系。         
  *
- *		Parameters:
- *		  node: TidRangeScan node produced by the planner.
- *		  estate: the execution state initialized in InitPlan.
+ *		参数：  
+ *		  node: 规划器产生的 TidRangeScan 节点。 
+ *		  estate: 在 InitPlan 中初始化的执行状态。 
  * ----------------------------------------------------------------
  */
 TidRangeScanState *
@@ -373,7 +373,7 @@ ExecInitTidRangeScan(TidRangeScan *node, EState *estate, int eflags)
 	Relation	currentRelation;
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	tidrangestate = makeNode(TidRangeScanState);
 	tidrangestate->ss.ps.plan = (Plan *) node;
@@ -381,40 +381,40 @@ ExecInitTidRangeScan(TidRangeScan *node, EState *estate, int eflags)
 	tidrangestate->ss.ps.ExecProcNode = ExecTidRangeScan;
 
 	/*
-	 * Miscellaneous initialization
+	 * 其他初始化             
 	 *
-	 * create expression context for node
+	 * 为节点创建表达式上下文 
 	 */
 	ExecAssignExprContext(estate, &tidrangestate->ss.ps);
 
 	/*
-	 * mark scan as not in progress, and TID range as not computed yet
+	 * 标记扫描未进行中，且 TID 范围尚未计算          
 	 */
 	tidrangestate->trss_inScan = false;
 
 	/*
-	 * open the scan relation
+	 * 打开扫描关系    
 	 */
 	currentRelation = ExecOpenScanRelation(estate, node->scan.scanrelid, eflags);
 
 	tidrangestate->ss.ss_currentRelation = currentRelation;
-	tidrangestate->ss.ss_currentScanDesc = NULL;	/* no table scan here */
+	tidrangestate->ss.ss_currentScanDesc = NULL;	/* 此处无表扫描 */
 
 	/*
-	 * get the scan type from the relation descriptor.
+	 * 从关系描述符获取扫描类型。        
 	 */
 	ExecInitScanTupleSlot(estate, &tidrangestate->ss,
 						  RelationGetDescr(currentRelation),
 						  table_slot_callbacks(currentRelation));
 
 	/*
-	 * Initialize result type and projection.
+	 * 初始化结果类型与投影。     
 	 */
 	ExecInitResultTypeTL(&tidrangestate->ss.ps);
 	ExecAssignScanProjectionInfo(&tidrangestate->ss);
 
 	/*
-	 * initialize child expressions
+	 * 初始化子表达式       
 	 */
 	tidrangestate->ss.ps.qual =
 		ExecInitQual(node->scan.plan.qual, (PlanState *) tidrangestate);
@@ -422,7 +422,7 @@ ExecInitTidRangeScan(TidRangeScan *node, EState *estate, int eflags)
 	TidExprListCreate(tidrangestate);
 
 	/*
-	 * all done.
+	 * 完成。
 	 */
 	return tidrangestate;
 }

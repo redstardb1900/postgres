@@ -1,14 +1,14 @@
 /*-------------------------------------------------------------------------
  *
  * tstoreReceiver.c
- *	  An implementation of DestReceiver that stores the result tuples in
- *	  a Tuplestore.
+ *	  一种 DestReceiver 实现，将结果元组存入                
+ *	  Tuplestore。
  *
- * Optionally, we can force detoasting (but not decompression) of out-of-line
- * toasted values.  This is to support cursors WITH HOLD, which must retain
- * data even if the underlying table is dropped.
+ * 可选地，我们可以强制 detoast（但不解压）                  
+ * 行外存储的 toast 值。这是为了支持 WITH HOLD 游标，      
+ * 即使底层表被删也须保留数据。   
  *
- * Also optionally, we can apply a tuple conversion map before storing.
+ * 亦可选地，我们可在存储前应用元组转换映射。     
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -30,17 +30,17 @@
 typedef struct
 {
 	DestReceiver pub;
-	/* parameters: */
-	Tuplestorestate *tstore;	/* where to put the data */
-	MemoryContext cxt;			/* context containing tstore */
-	bool		detoast;		/* were we told to detoast? */
-	TupleDesc	target_tupdesc; /* target tupdesc, or NULL if none */
-	const char *map_failure_msg;	/* tupdesc mapping failure message */
-	/* workspace: */
-	Datum	   *outvalues;		/* values array for result tuple */
-	Datum	   *tofree;			/* temp values to be pfree'd */
-	TupleConversionMap *tupmap; /* conversion map, if needed */
-	TupleTableSlot *mapslot;	/* slot for mapped tuples */
+	/* 参数：   */
+	Tuplestorestate *tstore;	/* 数据存放位置    */
+	MemoryContext cxt;			/* 包含 tstore 的上下文*/
+	bool		detoast;		/* 是否要求 detoast？  */
+	TupleDesc	target_tupdesc; /* 目标 tupdesc，无则为 NULL */
+	const char *map_failure_msg;	/* tupdesc 映射失败消息      */
+	/* 工作区  */
+	Datum	   *outvalues;		/* 结果元组的值数组      */
+	Datum	   *tofree;			/* 待 pfree 的临时值    */
+	TupleConversionMap *tupmap; /* 转换映射（如需）  */
+	TupleTableSlot *mapslot;	/* 映射元组的槽     */
 } TStoreState;
 
 
@@ -50,7 +50,7 @@ static bool tstoreReceiveSlot_tupmap(TupleTableSlot *slot, DestReceiver *self);
 
 
 /*
- * Prepare to receive tuples from executor.
+ * 准备接收来自执行器的元组。 
  */
 static void
 tstoreStartupReceiver(DestReceiver *self, int operation, TupleDesc typeinfo)
@@ -60,7 +60,7 @@ tstoreStartupReceiver(DestReceiver *self, int operation, TupleDesc typeinfo)
 	int			natts = typeinfo->natts;
 	int			i;
 
-	/* Check if any columns require detoast work */
+	/* 检查是否有列需要 detoast 处理。*/
 	if (myState->detoast)
 	{
 		for (i = 0; i < natts; i++)
@@ -77,7 +77,7 @@ tstoreStartupReceiver(DestReceiver *self, int operation, TupleDesc typeinfo)
 		}
 	}
 
-	/* Check if tuple conversion is needed */
+	/* 检查是否需要元组转换。   */
 	if (myState->target_tupdesc)
 		myState->tupmap = convert_tuples_by_position(typeinfo,
 													 myState->target_tupdesc,
@@ -85,12 +85,12 @@ tstoreStartupReceiver(DestReceiver *self, int operation, TupleDesc typeinfo)
 	else
 		myState->tupmap = NULL;
 
-	/* Set up appropriate callback */
+	/* 设置合适的回调。    */
 	if (needtoast)
 	{
 		Assert(!myState->tupmap);
 		myState->pub.receiveSlot = tstoreReceiveSlot_detoast;
-		/* Create workspace */
+		/* 创建工作区  */
 		myState->outvalues = (Datum *)
 			MemoryContextAlloc(myState->cxt, natts * sizeof(Datum));
 		myState->tofree = (Datum *)
@@ -115,8 +115,8 @@ tstoreStartupReceiver(DestReceiver *self, int operation, TupleDesc typeinfo)
 }
 
 /*
- * Receive a tuple from the executor and store it in the tuplestore.
- * This is for the easy case where we don't have to detoast nor map anything.
+ * 从执行器接收一个元组并存入 tuplestore。            
+ * 这是无需 detoast 也无需任何映射的简单情形。              
  */
 static bool
 tstoreReceiveSlot_notoast(TupleTableSlot *slot, DestReceiver *self)
@@ -129,8 +129,8 @@ tstoreReceiveSlot_notoast(TupleTableSlot *slot, DestReceiver *self)
 }
 
 /*
- * Receive a tuple from the executor and store it in the tuplestore.
- * This is for the case where we have to detoast any toasted values.
+ * 从执行器接收一个元组并存入 tuplestore。            
+ * 这是需要对被 toast 的值做 detoast 的情形。          
  */
 static bool
 tstoreReceiveSlot_detoast(TupleTableSlot *slot, DestReceiver *self)
@@ -142,13 +142,13 @@ tstoreReceiveSlot_detoast(TupleTableSlot *slot, DestReceiver *self)
 	int			i;
 	MemoryContext oldcxt;
 
-	/* Make sure the tuple is fully deconstructed */
+	/* 确保元组已被完整解构。          */
 	slot_getallattrs(slot);
 
 	/*
-	 * Fetch back any out-of-line datums.  We build the new datums array in
-	 * myState->outvalues[] (but we can re-use the slot's isnull array). Also,
-	 * remember the fetched values to free afterwards.
+	 * 取回所有行外的 datum。新的 datum 数组构建于          
+	 * myState->outvalues[] 中（但可复用槽的 isnull 数组）。      
+	 * 并记住取回的值，以便稍后释放。  
 	 */
 	nfree = 0;
 	for (i = 0; i < natts; i++)
@@ -170,14 +170,14 @@ tstoreReceiveSlot_detoast(TupleTableSlot *slot, DestReceiver *self)
 	}
 
 	/*
-	 * Push the modified tuple into the tuplestore.
+	 * 把修改后的元组推入 tuplestore。   
 	 */
 	oldcxt = MemoryContextSwitchTo(myState->cxt);
 	tuplestore_putvalues(myState->tstore, typeinfo,
 						 myState->outvalues, slot->tts_isnull);
 	MemoryContextSwitchTo(oldcxt);
 
-	/* And release any temporary detoasted values */
+	/* 并释放所有临时 detoast 值。       */
 	for (i = 0; i < nfree; i++)
 		pfree(DatumGetPointer(myState->tofree[i]));
 
@@ -185,8 +185,8 @@ tstoreReceiveSlot_detoast(TupleTableSlot *slot, DestReceiver *self)
 }
 
 /*
- * Receive a tuple from the executor and store it in the tuplestore.
- * This is for the case where we must apply a tuple conversion map.
+ * 从执行器接收一个元组并存入 tuplestore。            
+ * 这是必须应用元组转换映射的情形。                
  */
 static bool
 tstoreReceiveSlot_tupmap(TupleTableSlot *slot, DestReceiver *self)
@@ -200,14 +200,14 @@ tstoreReceiveSlot_tupmap(TupleTableSlot *slot, DestReceiver *self)
 }
 
 /*
- * Clean up at end of an executor run
+ * 执行器运行结束时的清理 
  */
 static void
 tstoreShutdownReceiver(DestReceiver *self)
 {
 	TStoreState *myState = (TStoreState *) self;
 
-	/* Release workspace if any */
+	/* 若有工作区则释放 */
 	if (myState->outvalues)
 		pfree(myState->outvalues);
 	myState->outvalues = NULL;
@@ -223,7 +223,7 @@ tstoreShutdownReceiver(DestReceiver *self)
 }
 
 /*
- * Destroy receiver when done with it
+ * 用完后销毁该接收器。    
  */
 static void
 tstoreDestroyReceiver(DestReceiver *self)
@@ -232,35 +232,35 @@ tstoreDestroyReceiver(DestReceiver *self)
 }
 
 /*
- * Initially create a DestReceiver object.
+ * 最初创建 DestReceiver 对象。    
  */
 DestReceiver *
 CreateTuplestoreDestReceiver(void)
 {
 	TStoreState *self = (TStoreState *) palloc0(sizeof(TStoreState));
 
-	self->pub.receiveSlot = tstoreReceiveSlot_notoast;	/* might change */
+	self->pub.receiveSlot = tstoreReceiveSlot_notoast;	/* 可能改变 */
 	self->pub.rStartup = tstoreStartupReceiver;
 	self->pub.rShutdown = tstoreShutdownReceiver;
 	self->pub.rDestroy = tstoreDestroyReceiver;
 	self->pub.mydest = DestTuplestore;
 
-	/* private fields will be set by SetTuplestoreDestReceiverParams */
+	/* 私有字段将由 SetTuplestoreDestReceiverParams 设置     */
 
 	return (DestReceiver *) self;
 }
 
 /*
- * Set parameters for a TuplestoreDestReceiver
+ * 为 TuplestoreDestReceiver 设置参数    
  *
- * tStore: where to store the tuples
- * tContext: memory context containing tStore
- * detoast: forcibly detoast contained data?
- * target_tupdesc: if not NULL, forcibly convert tuples to this rowtype
- * map_failure_msg: error message to use if mapping to target_tupdesc fails
+ * tStore: 元组存储位置       
+ * tContext: 含 tStore 的内存上下文   
+ * detoast: 强制 detoast 所含数据？  
+ * target_tupdesc: 若非 NULL，强制把元组转换为此行类型  
+ * map_failure_msg: 映射到 target_tupdesc 失败时用的错误消息   
  *
- * We don't currently support both detoast and target_tupdesc at the same
- * time, just because no existing caller needs that combination.
+ * 目前我们并不支持同时使用 detoast 与 target_tupdesc，    
+ * 仅仅因为现有的调用方都不需要这种组合。    
  */
 void
 SetTuplestoreDestReceiverParams(DestReceiver *self,

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * execAmi.c
- *	  miscellaneous executor access method routines
+ *	  杂项执行器访问方法例程            
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -69,30 +69,30 @@ static bool IndexSupportsBackwardScan(Oid indexid);
 
 /*
  * ExecReScan
- *		Reset a plan node so that its output can be re-scanned.
+ *		重置计划节点，使其输出可被重新扫描。 
  *
- * Note that if the plan node has parameters that have changed value,
- * the output might be different from last time.
+ * 注意，如果计划节点具有值已发生变化的参数，   
+ * 其输出可能与上次不同。            
  */
 void
 ExecReScan(PlanState *node)
 {
-	/* If collecting timing stats, update them */
+	/* 若在收集时间统计则更新它们 */
 	if (node->instrument)
 		InstrEndLoop(node->instrument);
 
 	/*
-	 * If we have changed parameters, propagate that info.
+	 * 若有已变化的参数，则传播该信息。   
 	 *
-	 * Note: ExecReScanSetParamPlan() can add bits to node->chgParam,
-	 * corresponding to the output param(s) that the InitPlan will update.
-	 * Since we make only one pass over the list, that means that an InitPlan
-	 * can depend on the output param(s) of a sibling InitPlan only if that
-	 * sibling appears earlier in the list.  This is workable for now given
-	 * the limited ways in which one InitPlan could depend on another, but
-	 * eventually we might need to work harder (or else make the planner
-	 * enlarge the extParam/allParam sets to include the params of depended-on
-	 * InitPlans).
+	 * 注意：ExecReScanSetParamPlan() 可以向 node->chgParam 中
+	 * 添加一些位，对应于该 InitPlan 将更新的输出参数。
+	 * 由于我们对列表只做一趟遍历，这意味着一个 InitPlan 
+	 * 只有当兄弟 InitPlan 在列表中更靠前时，它才能依赖 
+	 * 该兄弟的输出参数。目前这样是可行的，因为一个  
+	 * InitPlan 能依赖另一个 InitPlan 的方式有限，但最终   
+	 * 我们可能需要更加努力（或者让规划器扩大        
+	 * extParam/allParam 集合，把被依赖 InitPlans 的参数也         
+	 * 纳入）  
 	 */
 	if (node->chgParam != NULL)
 	{
@@ -117,18 +117,18 @@ ExecReScan(PlanState *node)
 			if (splan->plan->extParam != NULL)
 				UpdateChangedParamSet(splan, node->chgParam);
 		}
-		/* Well. Now set chgParam for child trees. */
+		/* 好，现在为子树设置 chgParam。 */
 		if (outerPlanState(node) != NULL)
 			UpdateChangedParamSet(outerPlanState(node), node->chgParam);
 		if (innerPlanState(node) != NULL)
 			UpdateChangedParamSet(innerPlanState(node), node->chgParam);
 	}
 
-	/* Call expression callbacks */
+	/* 调用表达式回调     */
 	if (node->ps_ExprContext)
 		ReScanExprContext(node->ps_ExprContext);
 
-	/* And do node-type-specific processing */
+	/* 再执行节点类型专属处理    */
 	switch (nodeTag(node))
 	{
 		case T_ResultState:
@@ -314,15 +314,15 @@ ExecReScan(PlanState *node)
 /*
  * ExecMarkPos
  *
- * Marks the current scan position.
+ * 标记当前扫描位置。     
  *
- * NOTE: mark/restore capability is currently needed only for plan nodes
- * that are the immediate inner child of a MergeJoin node.  Since MergeJoin
- * requires sorted input, there is never any need to support mark/restore in
- * node types that cannot produce sorted output.  There are some cases in
- * which a node can pass through sorted data from its child; if we don't
- * implement mark/restore for such a node type, the planner compensates by
- * inserting a Material node above that node.
+ * 注意：mark/restore 能力目前只需要用于                    
+ * 那些作为 MergeJoin 直接内层子节点的计划类型。          
+ * 由于 MergeJoin 需要有序输入，无法产生有序输出的节点  
+ * 类型永远不需要支持 mark/restore。在某些情况下，      
+ * 节点可以传递来自子节点的有序数据；如果我们      
+ * 不为这类节点类型实现 mark/restore，规划器会代之以    
+ * 在其上方插入 Material 节点。     
  */
 void
 ExecMarkPos(PlanState *node)
@@ -354,7 +354,7 @@ ExecMarkPos(PlanState *node)
 			break;
 
 		default:
-			/* don't make hard error unless caller asks to restore... */
+			/* 调用者未要求恢复时不要硬性报错...       */
 			elog(DEBUG2, "unrecognized node type: %d", (int) nodeTag(node));
 			break;
 	}
@@ -363,15 +363,15 @@ ExecMarkPos(PlanState *node)
 /*
  * ExecRestrPos
  *
- * restores the scan position previously saved with ExecMarkPos()
+ * 恢复先前用 ExecMarkPos() 保存的扫描位置           
  *
- * NOTE: the semantics of this are that the first ExecProcNode following
- * the restore operation will yield the same tuple as the first one following
- * the mark operation.  It is unspecified what happens to the plan node's
- * result TupleTableSlot.  (In most cases the result slot is unchanged by
- * a restore, but the node may choose to clear it or to load it with the
- * restored-to tuple.)	Hence the caller should discard any previously
- * returned TupleTableSlot after doing a restore.
+ * 注意：这里的语义是，restore 之后的第一次             
+ * ExecProcNode 将产生与 mark 操作之后的第一次相同             
+ * 的元组。计划节点的结果槽会发生什么未作规定。    
+ * （大多数情况下 restore 不改变结果槽，但节点可选择 
+ * 清空它，或者用它装入恢复到的那个元组。）         
+ * 因此调用者应在做过 restore 后丢弃任何先前         
+ * 返回的 TupleTableSlot。                   
  */
 void
 ExecRestrPos(PlanState *node)
@@ -409,19 +409,19 @@ ExecRestrPos(PlanState *node)
 }
 
 /*
- * ExecSupportsMarkRestore - does a Path support mark/restore?
+ * ExecSupportsMarkRestore - Path 是否支持 mark/restore？
  *
- * This is used during planning and so must accept a Path, not a Plan.
- * We keep it here to be adjacent to the routines above, which also must
- * know which plan types support mark/restore.
+ * 此函数在规划期间使用，必须接受 Path 而非 Plan。  
+ * 我们把它放在这里以紧邻上述例程，它们也必须      
+ * 知道哪些计划类型支持 mark/restore
  */
 bool
 ExecSupportsMarkRestore(Path *pathnode)
 {
 	/*
-	 * For consistency with the routines above, we do not examine the nodeTag
-	 * but rather the pathtype, which is the Plan node type the Path would
-	 * produce.
+	 * 为与上述例程保持一致，我们不检查 nodeTag，           
+	 * 而是检查 pathtype，即该 Path 将要产生的 Plan 节点    
+	 * 类型  
 	 */
 	switch (pathnode->pathtype)
 	{
@@ -429,7 +429,7 @@ ExecSupportsMarkRestore(Path *pathnode)
 		case T_IndexOnlyScan:
 
 			/*
-			 * Not all index types support mark/restore.
+			 * 索引类型并不都支持 mark/restore 
 			 */
 			return castNode(IndexPath, pathnode)->indexinfo->amcanmarkpos;
 
@@ -445,22 +445,22 @@ ExecSupportsMarkRestore(Path *pathnode)
 		case T_Result:
 
 			/*
-			 * Result supports mark/restore iff it has a child plan that does.
+			 * 当且仅当 Result 有支持 mark/restore 的子计划。     
 			 *
-			 * We have to be careful here because there is more than one Path
-			 * type that can produce a Result plan node.
+			 * 这里必须小心，因为能够产生 Result 计划节点的
+			 * Path 类型不止一种。               
 			 */
 			if (IsA(pathnode, ProjectionPath))
 				return ExecSupportsMarkRestore(((ProjectionPath *) pathnode)->subpath);
 			else if (IsA(pathnode, MinMaxAggPath))
-				return false;	/* childless Result */
+				return false;	/* 无子的 Result */
 			else if (IsA(pathnode, GroupResultPath))
-				return false;	/* childless Result */
+				return false;	/* 无子的 Result */
 			else
 			{
-				/* Simple RTE_RESULT base relation */
+				/* 简单 RTE_RESULT 基础关系  */
 				Assert(IsA(pathnode, Path));
-				return false;	/* childless Result */
+				return false;	/* 无子的 Result */
 			}
 
 		case T_Append:
@@ -468,13 +468,13 @@ ExecSupportsMarkRestore(Path *pathnode)
 				AppendPath *appendPath = castNode(AppendPath, pathnode);
 
 				/*
-				 * If there's exactly one child, then there will be no Append
-				 * in the final plan, so we can handle mark/restore if the
-				 * child plan node can.
+				 * 如果恰好只有一个子节点，那么最终计划中 
+				 * 将不会有 Append，mark/restore 能力取决于     
+				 * 子节点。        
 				 */
 				if (list_length(appendPath->subpaths) == 1)
 					return ExecSupportsMarkRestore((Path *) linitial(appendPath->subpaths));
-				/* Otherwise, Append can't handle it */
+				/* 否则 Append 无法处理它     */
 				return false;
 			}
 
@@ -483,13 +483,13 @@ ExecSupportsMarkRestore(Path *pathnode)
 				MergeAppendPath *mapath = castNode(MergeAppendPath, pathnode);
 
 				/*
-				 * Like the Append case above, single-subpath MergeAppends
-				 * won't be in the final plan, so just return the child's
-				 * mark/restore ability.
+				 * 与上述 Append 相同，单子路径的 MergeAppend  
+				 * 不会进入最终计划，故直接返回子节点的
+				 * mark/restore。      
 				 */
 				if (list_length(mapath->subpaths) == 1)
 					return ExecSupportsMarkRestore((Path *) linitial(mapath->subpaths));
-				/* Otherwise, MergeAppend can't handle it */
+				/* 否则 MergeAppend 无法处理它     */
 				return false;
 			}
 
@@ -501,12 +501,12 @@ ExecSupportsMarkRestore(Path *pathnode)
 }
 
 /*
- * ExecSupportsBackwardScan - does a plan type support backwards scanning?
+ * ExecSupportsBackwardScan - 计划类型是否支持反向扫描？     
  *
- * Ideally, all plan types would support backwards scan, but that seems
- * unlikely to happen soon.  In some cases, a plan node passes the backwards
- * scan down to its children, and so supports backwards scan only if its
- * children do.  Therefore, this routine must be passed a complete plan tree.
+ * 理想情况下，所有计划类型都支持反向扫描，但这  
+ * 似乎不太可能很快实现。在某些情况下，计划节点会把 
+ * 反向扫描下推给子节点，因此只有当其子节点支持   
+ * 反向扫描时才支持。因此必须向例程传入完整计划树。  
  */
 bool
 ExecSupportsBackwardScan(Plan *node)
@@ -515,9 +515,9 @@ ExecSupportsBackwardScan(Plan *node)
 		return false;
 
 	/*
-	 * Parallel-aware nodes return a subset of the tuples in each worker, and
-	 * in general we can't expect to have enough bookkeeping state to know
-	 * which ones we returned in this worker as opposed to some other worker.
+	 * 并行感知节点在每个 worker 中返回元组的一个子集，  
+	 * 通常我们无法指望拥有足够的簿记状态来知道       
+	 * 自己在这个 worker（而非其他 worker）中返回了哪些。  
 	 */
 	if (node->parallel_aware)
 		return false;
@@ -534,7 +534,7 @@ ExecSupportsBackwardScan(Plan *node)
 			{
 				ListCell   *l;
 
-				/* With async, tuples may be interleaved, so can't back up. */
+				/* 有 async 时元组可能交错，因此无法倒回。  */
 				if (((Append *) node)->nasyncplans > 0)
 					return false;
 
@@ -543,12 +543,12 @@ ExecSupportsBackwardScan(Plan *node)
 					if (!ExecSupportsBackwardScan((Plan *) lfirst(l)))
 						return false;
 				}
-				/* need not check tlist because Append doesn't evaluate it */
+				/* 无需检查 tlist，因为 Append 不会对它求值   */
 				return true;
 			}
 
 		case T_SampleScan:
-			/* Simplify life for tablesample methods by disallowing this */
+			/* 通过禁止此功能让 tablesample 方法更简单      */
 			return false;
 
 		case T_Gather:
@@ -576,14 +576,14 @@ ExecSupportsBackwardScan(Plan *node)
 		case T_CteScan:
 		case T_Material:
 		case T_Sort:
-			/* these don't evaluate tlist */
+			/* 它们不对 tlist 求值  */
 			return true;
 
 		case T_IncrementalSort:
 
 			/*
-			 * Unlike full sort, incremental sort keeps only a single group of
-			 * tuples in memory, so it can't scan backwards.
+			 * 与完整排序不同，增量排序在内存中只保留一组
+			 * 元组，因此无法反向扫描。         
 			 */
 			return false;
 
@@ -597,8 +597,8 @@ ExecSupportsBackwardScan(Plan *node)
 }
 
 /*
- * An IndexScan or IndexOnlyScan node supports backward scan only if the
- * index's AM does.
+ * IndexScan 或 IndexOnlyScan 节点仅当索引的 AM 支持          
+ * 反向扫描。 
  */
 static bool
 IndexSupportsBackwardScan(Oid indexid)
@@ -608,13 +608,13 @@ IndexSupportsBackwardScan(Oid indexid)
 	Form_pg_class idxrelrec;
 	IndexAmRoutine *amroutine;
 
-	/* Fetch the pg_class tuple of the index relation */
+	/* 获取索引关系的 pg_class 元组          */
 	ht_idxrel = SearchSysCache1(RELOID, ObjectIdGetDatum(indexid));
 	if (!HeapTupleIsValid(ht_idxrel))
 		elog(ERROR, "cache lookup failed for relation %u", indexid);
 	idxrelrec = (Form_pg_class) GETSTRUCT(ht_idxrel);
 
-	/* Fetch the index AM's API struct */
+	/* 获取索引 AM 的 API 结构  */
 	amroutine = GetIndexAmRoutineByAmId(idxrelrec->relam, false);
 
 	result = amroutine->amcanbackward;
@@ -626,12 +626,12 @@ IndexSupportsBackwardScan(Oid indexid)
 }
 
 /*
- * ExecMaterializesOutput - does a plan type materialize its output?
+ * ExecMaterializesOutput - 计划类型是否物化其输出？    
  *
- * Returns true if the plan node type is one that automatically materializes
- * its output (typically by keeping it in a tuplestore).  For such plans,
- * a rescan without any parameter change will have zero startup cost and
- * very low per-tuple cost.
+ * 如果计划节点类型属于会自动物化其输出（通常          
+ * 保存在 tuplestore 中）的类型则返回 true。对这类        
+ * 计划而言，无参数变化的重新扫描没有启动成本，   
+ * 每元组成本极低。
  */
 bool
 ExecMaterializesOutput(NodeTag plantype)

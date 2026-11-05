@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeMergeAppend.c
- *	  routines to handle MergeAppend nodes.
+ *	  处理 MergeAppend 节点的例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,20 +13,20 @@
  *-------------------------------------------------------------------------
  */
 /* INTERFACE ROUTINES
- *		ExecInitMergeAppend		- initialize the MergeAppend node
- *		ExecMergeAppend			- retrieve the next tuple from the node
- *		ExecEndMergeAppend		- shut down the MergeAppend node
- *		ExecReScanMergeAppend	- rescan the MergeAppend node
+ *		ExecInitMergeAppend		- 初始化 MergeAppend 节点   
+ *		ExecMergeAppend			- 从该节点取下一个元组       
+ *		ExecEndMergeAppend		- 关闭 MergeAppend 节点     
+ *		ExecReScanMergeAppend	- 重扫 MergeAppend 节点  
  *
  *	 NOTES
- *		A MergeAppend node contains a list of one or more subplans.
- *		These are each expected to deliver tuples that are sorted according
- *		to a common sort key.  The MergeAppend node merges these streams
- *		to produce output sorted the same way.
+ *		MergeAppend 节点含一个或多个子计划的列表。  
+ *		这些子计划都应递送按公共排序键排好序的元组， 
+ *		MergeAppend 节点合并这些流，                            
+ *		产生相同方式排序的输出。  
  *
- *		MergeAppend nodes don't make use of their left and right
- *		subtrees, rather they maintain a list of subplans so
- *		a typical MergeAppend node looks like this in the plan tree:
+ *		MergeAppend 节点并不使用其左右子树，        
+ *		而是维护一个子计划列表，因此          
+ *		典型的 MergeAppend 节点在计划树中如下所示：  
  *
  *				   ...
  *				   /
@@ -45,9 +45,9 @@
 #include "miscadmin.h"
 
 /*
- * We have one slot for each item in the heap array.  We use SlotNumber
- * to store slot indexes.  This doesn't actually provide any formal
- * type-safety, but it makes the code more self-documenting.
+ * 堆数组中的每一项各有一个槽。我们用 SlotNumber      
+ * 来存储槽序号。这实际上并未提供任何正式的    
+ * 类型安全，但能让代码更具自解释性。      
  */
 typedef int32 SlotNumber;
 
@@ -58,7 +58,7 @@ static int	heap_compare_slots(Datum a, Datum b, void *arg);
 /* ----------------------------------------------------------------
  *		ExecInitMergeAppend
  *
- *		Begin all of the subscans of the MergeAppend node.
+ *		启动 MergeAppend 节点的所有子扫描。    
  * ----------------------------------------------------------------
  */
 MergeAppendState *
@@ -71,25 +71,25 @@ ExecInitMergeAppend(MergeAppend *node, EState *estate, int eflags)
 	int			i,
 				j;
 
-	/* check for unsupported flags */
+	/* 检查不支持的标志    */
 	Assert(!(eflags & (EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK)));
 
 	/*
-	 * create new MergeAppendState for our node
+	 * 为节点创建新的 MergeAppendState  
 	 */
 	mergestate->ps.plan = (Plan *) node;
 	mergestate->ps.state = estate;
 	mergestate->ps.ExecProcNode = ExecMergeAppend;
 
-	/* If run-time partition pruning is enabled, then set that up now */
+	/* 如果启用了运行时分区剪枝，那么现在设置好   */
 	if (node->part_prune_info != NULL)
 	{
 		PartitionPruneState *prunestate;
 
 		/*
-		 * Set up pruning data structure.  This also initializes the set of
-		 * subplans to initialize (validsubplans) by taking into account the
-		 * result of performing initial pruning if any.
+		 * 建立剪枝数据结构。这同时会初始化子计划集合 
+		 * （validsubplans），其中考虑了初始剪枝的             
+		 * 结果（如果有的话）。              
 		 */
 		prunestate = ExecInitPartitionPruning(&mergestate->ps,
 											  list_length(node->mergeplans),
@@ -99,9 +99,9 @@ ExecInitMergeAppend(MergeAppend *node, EState *estate, int eflags)
 		nplans = bms_num_members(validsubplans);
 
 		/*
-		 * When no run-time pruning is required and there's at least one
-		 * subplan, we can fill ms_valid_subplans immediately, preventing
-		 * later calls to ExecFindMatchingSubPlans.
+		 * 当无需运行时剪枝且至少有一子计划时，我们 
+		 * 可以立即填充 ms_valid_subplans，从而避免以后     
+		 * 调用 ExecFindMatchingSubPlans。      
 		 */
 		if (!prunestate->do_exec_prune && nplans > 0)
 			mergestate->ms_valid_subplans = bms_add_range(NULL, 0, nplans - 1);
@@ -111,8 +111,8 @@ ExecInitMergeAppend(MergeAppend *node, EState *estate, int eflags)
 		nplans = list_length(node->mergeplans);
 
 		/*
-		 * When run-time partition pruning is not enabled we can just mark all
-		 * subplans as valid; they must also all be initialized.
+		 * 当运行时分区剪枝未启用时，我们可以直接把全部 
+		 * 子计划标为有效；它们也须全部初始化  
 		 */
 		Assert(nplans > 0);
 		mergestate->ms_valid_subplans = validsubplans =
@@ -129,20 +129,20 @@ ExecInitMergeAppend(MergeAppend *node, EState *estate, int eflags)
 											  mergestate);
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * MergeAppend nodes do have Result slots, which hold pointers to tuples,
-	 * so we have to initialize them.  FIXME
+	 * MergeAppend 节点确有 Result 槽，存放元组指针，           
+	 * 我们必须初始化它们。 FIXME 
 	 */
 	ExecInitResultTupleSlotTL(&mergestate->ps, &TTSOpsVirtual);
 
-	/* node returns slots from each of its subnodes, therefore not fixed */
+	/* 节点从它的每个子节点返回槽位，因此并不固定   */
 	mergestate->ps.resultopsset = true;
 	mergestate->ps.resultopsfixed = false;
 
 	/*
-	 * call ExecInitNode on each of the valid plans to be executed and save
-	 * the results into the mergeplanstates array.
+	 * 对每个待执行的有效计划调用 ExecInitNode，并将结果 
+	 * 保存到 mergeplanstates 数组中。     
 	 */
 	j = 0;
 	i = -1;
@@ -156,7 +156,7 @@ ExecInitMergeAppend(MergeAppend *node, EState *estate, int eflags)
 	mergestate->ps.ps_ProjInfo = NULL;
 
 	/*
-	 * initialize sort-key information
+	 * 初始化排序键信息       
 	 */
 	mergestate->ms_nkeys = node->numCols;
 	mergestate->ms_sortkeys = palloc0(sizeof(SortSupportData) * node->numCols);
@@ -171,11 +171,11 @@ ExecInitMergeAppend(MergeAppend *node, EState *estate, int eflags)
 		sortKey->ssup_attno = node->sortColIdx[i];
 
 		/*
-		 * It isn't feasible to perform abbreviated key conversion, since
-		 * tuples are pulled into mergestate's binary heap as needed.  It
-		 * would likely be counter-productive to convert tuples into an
-		 * abbreviated representation as they're pulled up, so opt out of that
-		 * additional optimization entirely.
+		 * 缩写键转换并不可行，因为元组是按需           
+		 * 被拉入 mergestate 的二叉堆中的。当元组           
+		 * 被拉出时就将其转换为缩写表示，很可能      
+		 * 适得其反，所以我们完全放弃这项                      
+		 * 额外的优化。               
 		 */
 		sortKey->abbreviate = false;
 
@@ -183,7 +183,7 @@ ExecInitMergeAppend(MergeAppend *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * initialize to show we have not run the subplans yet
+	 * 初始化以表明我们尚未运行各子计划   
 	 */
 	mergestate->ms_initialized = false;
 
@@ -193,7 +193,7 @@ ExecInitMergeAppend(MergeAppend *node, EState *estate, int eflags)
 /* ----------------------------------------------------------------
  *	   ExecMergeAppend
  *
- *		Handles iteration over multiple subplans.
+ *		处理对多个子计划的迭代。     
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -207,22 +207,22 @@ ExecMergeAppend(PlanState *pstate)
 
 	if (!node->ms_initialized)
 	{
-		/* Nothing to do if all subplans were pruned */
+		/* 若子计划已全部剪枝则无事可做*/
 		if (node->ms_nplans == 0)
 			return ExecClearTuple(node->ps.ps_ResultTupleSlot);
 
 		/*
-		 * If we've yet to determine the valid subplans then do so now.  If
-		 * run-time pruning is disabled then the valid subplans will always be
-		 * set to all subplans.
+		 * 如果尚未确定有效子计划，那么现在就确定。若 
+		 * 运行时剪枝被禁用，则有效子计划总是会被设为    
+		 * 全部子计划。  
 		 */
 		if (node->ms_valid_subplans == NULL)
 			node->ms_valid_subplans =
 				ExecFindMatchingSubPlans(node->ms_prune_state, false);
 
 		/*
-		 * First time through: pull the first tuple from each valid subplan,
-		 * and set up the heap.
+		 * 首次执行：从每个有效子计划拉取第一个元组，  
+		 * 并建立堆。     
 		 */
 		i = -1;
 		while ((i = bms_next_member(node->ms_valid_subplans, i)) >= 0)
@@ -237,12 +237,12 @@ ExecMergeAppend(PlanState *pstate)
 	else
 	{
 		/*
-		 * Otherwise, pull the next tuple from whichever subplan we returned
-		 * from last time, and reinsert the subplan index into the heap,
-		 * because it might now compare differently against the existing
-		 * elements of the heap.  (We could perhaps simplify the logic a bit
-		 * by doing this before returning from the prior call, but it's better
-		 * to not pull tuples until necessary.)
+		 * 否则，从上次返回元组的子计划拉取下一元组，  
+		 * 并把该子计划序号重新插入堆中，因它与堆内 
+		 * 现有元素的比较结果现在可能不同了。（我们 
+		 * 若在前次调用返回之前先做，逻辑可稍简化，     
+		 * 但最好必要时才拉取                                        
+		 * 元组。）                        
 		 */
 		i = DatumGetInt32(binaryheap_first(node->ms_heap));
 		node->ms_slots[i] = ExecProcNode(node->mergeplans[i]);
@@ -254,7 +254,7 @@ ExecMergeAppend(PlanState *pstate)
 
 	if (binaryheap_empty(node->ms_heap))
 	{
-		/* All the subplans are exhausted, and so is the heap */
+		/* 所有子计划均已耗尽，堆也已耗尽      */
 		result = ExecClearTuple(node->ps.ps_ResultTupleSlot);
 	}
 	else
@@ -267,7 +267,7 @@ ExecMergeAppend(PlanState *pstate)
 }
 
 /*
- * Compare the tuples in the two given slots.
+ * 比较给定两个槽中的元组。      
  */
 static int32
 heap_compare_slots(Datum a, Datum b, void *arg)
@@ -311,9 +311,9 @@ heap_compare_slots(Datum a, Datum b, void *arg)
 /* ----------------------------------------------------------------
  *		ExecEndMergeAppend
  *
- *		Shuts down the subscans of the MergeAppend node.
+ *		关闭 MergeAppend 节点的各个子扫描。  
  *
- *		Returns nothing of interest.
+ *		无有价值的返回值。 
  * ----------------------------------------------------------------
  */
 void
@@ -324,13 +324,13 @@ ExecEndMergeAppend(MergeAppendState *node)
 	int			i;
 
 	/*
-	 * get information from the node
+	 * 从节点获取信息        
 	 */
 	mergeplans = node->mergeplans;
 	nplans = node->ms_nplans;
 
 	/*
-	 * shut down each of the subscans
+	 * 关闭各个子扫描         
 	 */
 	for (i = 0; i < nplans; i++)
 		ExecEndNode(mergeplans[i]);
@@ -342,9 +342,9 @@ ExecReScanMergeAppend(MergeAppendState *node)
 	int			i;
 
 	/*
-	 * If any PARAM_EXEC Params used in pruning expressions have changed, then
-	 * we'd better unset the valid subplans so that they are reselected for
-	 * the new parameter values.
+	 * 如果剪枝表达式用到的任何 PARAM_EXEC 参数发生变化，  
+	 * 那么最好清空有效子计划集合，以便按新参数值     
+	 * 重新挑选子计划。 
 	 */
 	if (node->ms_prune_state &&
 		bms_overlap(node->ps.chgParam,
@@ -359,15 +359,15 @@ ExecReScanMergeAppend(MergeAppendState *node)
 		PlanState  *subnode = node->mergeplans[i];
 
 		/*
-		 * ExecReScan doesn't know about my subplans, so I have to do
-		 * changed-parameter signaling myself.
+		 * ExecReScan 并不了解我的子计划，我必须自己  
+		 * 完成已变参数的信号传递  
 		 */
 		if (node->ps.chgParam != NULL)
 			UpdateChangedParamSet(subnode, node->ps.chgParam);
 
 		/*
-		 * If chgParam of subnode is not null then plan will be re-scanned by
-		 * first ExecProcNode.
+		 * 如果子节点的 chgParam 非空，则第一个 ExecProcNode    
+		 * 会重新扫描。 
 		 */
 		if (subnode->chgParam == NULL)
 			ExecReScan(subnode);

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeNamedtuplestorescan.c
- *	  routines to handle NamedTuplestoreScan nodes.
+ *	  处理 NamedTuplestoreScan 节点的例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -25,7 +25,7 @@ static TupleTableSlot *NamedTuplestoreScanNext(NamedTuplestoreScanState *node);
 /* ----------------------------------------------------------------
  *		NamedTuplestoreScanNext
  *
- *		This is a workhorse for ExecNamedTuplestoreScan
+ *		这是 ExecNamedTuplestoreScan 的主力函数 
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -33,11 +33,11 @@ NamedTuplestoreScanNext(NamedTuplestoreScanState *node)
 {
 	TupleTableSlot *slot;
 
-	/* We intentionally do not support backward scan. */
+	/* 我们有意不支持反向扫描。           */
 	Assert(ScanDirectionIsForward(node->ss.ps.state->es_direction));
 
 	/*
-	 * Get the next tuple from tuplestore. Return NULL if no more tuples.
+	 * 从 tuplestore 取下条元组。无更多元组时返回 NULL。 
 	 */
 	slot = node->ss.ss_ScanTupleSlot;
 	tuplestore_select_read_pointer(node->relation, node->readptr);
@@ -46,22 +46,22 @@ NamedTuplestoreScanNext(NamedTuplestoreScanState *node)
 }
 
 /*
- * NamedTuplestoreScanRecheck -- access method routine to recheck a tuple in
- * EvalPlanQual
+ * NamedTuplestoreScanRecheck -- 访问方法例程：在 EvalPlanQual 中  
+ * 重检元组
  */
 static bool
 NamedTuplestoreScanRecheck(NamedTuplestoreScanState *node, TupleTableSlot *slot)
 {
-	/* nothing to check */
+	/* 无需检查     */
 	return true;
 }
 
 /* ----------------------------------------------------------------
  *		ExecNamedTuplestoreScan(node)
  *
- *		Scans the CTE sequentially and returns the next qualifying tuple.
- *		We call the ExecScan() routine and pass it the appropriate
- *		access method functions.
+ *		顺序扫描该 CTE，并返回下一个满足条件的元组。 
+ *		我们调用 ExecScan() 例程，把相应的访问方法 
+ *		函数传递给它。   
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -85,17 +85,17 @@ ExecInitNamedTuplestoreScan(NamedTuplestoreScan *node, EState *estate, int eflag
 	NamedTuplestoreScanState *scanstate;
 	EphemeralNamedRelation enr;
 
-	/* check for unsupported flags */
+	/* 检查不支持的标志    */
 	Assert(!(eflags & (EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK)));
 
 	/*
-	 * NamedTuplestoreScan should not have any children.
+	 * NamedTuplestoreScan 不应有任何子节点。  
 	 */
 	Assert(outerPlan(node) == NULL);
 	Assert(innerPlan(node) == NULL);
 
 	/*
-	 * create new NamedTuplestoreScanState for node
+	 * 为节点新建 NamedTuplestoreScanState    
 	 */
 	scanstate = makeNode(NamedTuplestoreScanState);
 	scanstate->ss.ps.plan = (Plan *) node;
@@ -114,40 +114,40 @@ ExecInitNamedTuplestoreScan(NamedTuplestoreScan *node, EState *estate, int eflag
 		tuplestore_alloc_read_pointer(scanstate->relation, EXEC_FLAG_REWIND);
 
 	/*
-	 * The new read pointer copies its position from read pointer 0, which
-	 * could be anywhere, so explicitly rewind it.
+	 * 新的读指针复制自读指针 0，而后者可能在           
+	 * 任意位置，因此需显式回绕。    
 	 */
 	tuplestore_select_read_pointer(scanstate->relation, scanstate->readptr);
 	tuplestore_rescan(scanstate->relation);
 
 	/*
-	 * XXX: Should we add a function to free that read pointer when done?
+	 * XXX: 是否该加个函数，用完后释放该读指针？       
 	 *
-	 * This was attempted, but it did not improve performance or memory usage
-	 * in any tested cases.
+	 * 曾尝试过这样做，但在任何已测案例中未改善          
+	 * 性能/内存。    
 	 */
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * create expression context for node
+	 * 为节点创建表达式上下文 
 	 */
 	ExecAssignExprContext(estate, &scanstate->ss.ps);
 
 	/*
-	 * The scan tuple type is specified for the tuplestore.
+	 * 扫描元组类型由该 tuplestore 指定。       
 	 */
 	ExecInitScanTupleSlot(estate, &scanstate->ss, scanstate->tupdesc,
 						  &TTSOpsMinimalTuple);
 
 	/*
-	 * Initialize result type and projection.
+	 * 初始化结果类型和投影。     
 	 */
 	ExecInitResultTypeTL(&scanstate->ss.ps);
 	ExecAssignScanProjectionInfo(&scanstate->ss);
 
 	/*
-	 * initialize child expressions
+	 * 初始化子表达式       
 	 */
 	scanstate->ss.ps.qual =
 		ExecInitQual(node->scan.plan.qual, (PlanState *) scanstate);
@@ -158,19 +158,19 @@ ExecInitNamedTuplestoreScan(NamedTuplestoreScan *node, EState *estate, int eflag
 /* ----------------------------------------------------------------
  *		ExecEndNamedTuplestoreScan
  *
- *		frees any storage allocated through C routines.
+ *		释放通过 C 例程分配的所有存储。  
  * ----------------------------------------------------------------
  */
 void
 ExecEndNamedTuplestoreScan(NamedTuplestoreScanState *node)
 {
 	/*
-	 * Free exprcontext
+	 * 释放上下文 
 	 */
 	ExecFreeExprContext(&node->ss.ps);
 
 	/*
-	 * clean out the tuple table
+	 * 清空元组表          
 	 */
 	if (node->ss.ps.ps_ResultTupleSlot)
 		ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
@@ -180,7 +180,7 @@ ExecEndNamedTuplestoreScan(NamedTuplestoreScanState *node)
 /* ----------------------------------------------------------------
  *		ExecReScanNamedTuplestoreScan
  *
- *		Rescans the relation.
+ *		重新扫描关系。
  * ----------------------------------------------------------------
  */
 void
@@ -194,7 +194,7 @@ ExecReScanNamedTuplestoreScan(NamedTuplestoreScanState *node)
 	ExecScanReScan(&node->ss);
 
 	/*
-	 * Rewind my own pointer.
+	 * 回绕自身指针。 
 	 */
 	tuplestore_select_read_pointer(tuplestorestate, node->readptr);
 	tuplestore_rescan(tuplestorestate);

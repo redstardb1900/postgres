@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * execAsync.c
- *	  Support routines for asynchronous execution
+ *	  异步执行的支撑例程。             
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -20,15 +20,15 @@
 #include "executor/nodeForeignscan.h"
 
 /*
- * Asynchronously request a tuple from a designed async-capable node.
+ * 以异步方式向指定的支持异步的节点请求元组。   
  */
 void
 ExecAsyncRequest(AsyncRequest *areq)
 {
-	if (areq->requestee->chgParam != NULL)	/* something changed? */
-		ExecReScan(areq->requestee);	/* let ReScan handle this */
+	if (areq->requestee->chgParam != NULL)	/* 有变化吗？    */
+		ExecReScan(areq->requestee);	/* 交给 ReScan 处理   */
 
-	/* must provide our own instrumentation support */
+	/* 必须提供我们自己的统计信息支持*/
 	if (areq->requestee->instrument)
 		InstrStartNode(areq->requestee->instrument);
 
@@ -38,30 +38,30 @@ ExecAsyncRequest(AsyncRequest *areq)
 			ExecAsyncForeignScanRequest(areq);
 			break;
 		default:
-			/* If the node doesn't support async, caller messed up. */
+			/* 若节点不支持异步，则调用方出了错。  */
 			elog(ERROR, "unrecognized node type: %d",
 				 (int) nodeTag(areq->requestee));
 	}
 
 	ExecAsyncResponse(areq);
 
-	/* must provide our own instrumentation support */
+	/* 必须提供我们自己的统计信息支持*/
 	if (areq->requestee->instrument)
 		InstrStopNode(areq->requestee->instrument,
 					  TupIsNull(areq->result) ? 0.0 : 1.0);
 }
 
 /*
- * Give the asynchronous node a chance to configure the file descriptor event
- * for which it wishes to wait.  We expect the node-type specific callback to
- * make a single call of the following form:
+ * 让异步节点有机会配置它想等待的文件描述符事件，     
+ * 我们期望节点类型特定的回调函数按如下形式              
+ * 进行单次调用：                    
  *
  * AddWaitEventToSet(set, WL_SOCKET_READABLE, fd, NULL, areq);
  */
 void
 ExecAsyncConfigureWait(AsyncRequest *areq)
 {
-	/* must provide our own instrumentation support */
+	/* 必须提供我们自己的统计信息支持*/
 	if (areq->requestee->instrument)
 		InstrStartNode(areq->requestee->instrument);
 
@@ -71,23 +71,23 @@ ExecAsyncConfigureWait(AsyncRequest *areq)
 			ExecAsyncForeignScanConfigureWait(areq);
 			break;
 		default:
-			/* If the node doesn't support async, caller messed up. */
+			/* 若节点不支持异步，则调用方出了错。  */
 			elog(ERROR, "unrecognized node type: %d",
 				 (int) nodeTag(areq->requestee));
 	}
 
-	/* must provide our own instrumentation support */
+	/* 必须提供我们自己的统计信息支持*/
 	if (areq->requestee->instrument)
 		InstrStopNode(areq->requestee->instrument, 0.0);
 }
 
 /*
- * Call the asynchronous node back when a relevant event has occurred.
+ * 当相关事件发生时，回调该异步节点。                
  */
 void
 ExecAsyncNotify(AsyncRequest *areq)
 {
-	/* must provide our own instrumentation support */
+	/* 必须提供我们自己的统计信息支持*/
 	if (areq->requestee->instrument)
 		InstrStartNode(areq->requestee->instrument);
 
@@ -97,21 +97,21 @@ ExecAsyncNotify(AsyncRequest *areq)
 			ExecAsyncForeignScanNotify(areq);
 			break;
 		default:
-			/* If the node doesn't support async, caller messed up. */
+			/* 若节点不支持异步，则调用方出了错。  */
 			elog(ERROR, "unrecognized node type: %d",
 				 (int) nodeTag(areq->requestee));
 	}
 
 	ExecAsyncResponse(areq);
 
-	/* must provide our own instrumentation support */
+	/* 必须提供我们自己的统计信息支持*/
 	if (areq->requestee->instrument)
 		InstrStopNode(areq->requestee->instrument,
 					  TupIsNull(areq->result) ? 0.0 : 1.0);
 }
 
 /*
- * Call the requestor back when an asynchronous node has produced a result.
+ * 当异步节点产生了结果时，回调请求方节点。            
  */
 void
 ExecAsyncResponse(AsyncRequest *areq)
@@ -122,16 +122,16 @@ ExecAsyncResponse(AsyncRequest *areq)
 			ExecAsyncAppendResponse(areq);
 			break;
 		default:
-			/* If the node doesn't support async, caller messed up. */
+			/* 若节点不支持异步，则调用方出了错。  */
 			elog(ERROR, "unrecognized node type: %d",
 				 (int) nodeTag(areq->requestor));
 	}
 }
 
 /*
- * A requestee node should call this function to deliver the tuple to its
- * requestor node.  The requestee node can call this from its ExecAsyncRequest
- * or ExecAsyncNotify callback.
+ * 被请求节点应当调用此函数，把元组交付给它的       
+ * 请求方节点。被请求节点可以在其 ExecAsyncRequest 或         
+ * ExecAsyncNotify 回调。   
  */
 void
 ExecAsyncRequestDone(AsyncRequest *areq, TupleTableSlot *result)
@@ -141,9 +141,9 @@ ExecAsyncRequestDone(AsyncRequest *areq, TupleTableSlot *result)
 }
 
 /*
- * A requestee node should call this function to indicate that it is pending
- * for a callback.  The requestee node can call this from its ExecAsyncRequest
- * or ExecAsyncNotify callback.
+ * 被请求节点应调用此函数表明自己正在等待回调。       
+ * 被请求节点可以在其 ExecAsyncRequest 或                           
+ * ExecAsyncNotify 回调。   
  */
 void
 ExecAsyncRequestPending(AsyncRequest *areq)

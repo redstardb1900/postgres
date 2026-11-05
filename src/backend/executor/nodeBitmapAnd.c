@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeBitmapAnd.c
- *	  routines to handle BitmapAnd nodes.
+ *	  处理 BitmapAnd 节点的例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,17 +13,17 @@
  *-------------------------------------------------------------------------
  */
 /* INTERFACE ROUTINES
- *		ExecInitBitmapAnd	- initialize the BitmapAnd node
- *		MultiExecBitmapAnd	- retrieve the result bitmap from the node
- *		ExecEndBitmapAnd	- shut down the BitmapAnd node
- *		ExecReScanBitmapAnd - rescan the BitmapAnd node
+ *		ExecInitBitmapAnd	- 初始化 BitmapAnd 节点   
+ *		MultiExecBitmapAnd	- 从节点取回结果位图             
+ *		ExecEndBitmapAnd	- 关闭 BitmapAnd 节点     
+ *		ExecReScanBitmapAnd - 重扫 BitmapAnd 节点  
  *
  *	 NOTES
- *		BitmapAnd nodes don't make use of their left and right
- *		subtrees, rather they maintain a list of subplans,
- *		much like Append nodes.  The logic is much simpler than
- *		Append, however, since we needn't cope with forward/backward
- *		execution.
+ *		BitmapAnd 节点不使用其左右子树，而是像  
+ *		Append 节点那样维护一份子计划列表。 
+ *		不过其逻辑比 Append 简单得多，因为我们  
+ *		无须应付正向/反向                                   
+ *		执行。 
  */
 
 #include "postgres.h"
@@ -35,7 +35,7 @@
 /* ----------------------------------------------------------------
  *		ExecBitmapAnd
  *
- *		stub for pro forma compliance
+ *		为形式合规而设的桩  
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -48,7 +48,7 @@ ExecBitmapAnd(PlanState *pstate)
 /* ----------------------------------------------------------------
  *		ExecInitBitmapAnd
  *
- *		Begin all of the subscans of the BitmapAnd node.
+ *		启动 BitmapAnd 节点的全部子扫描。    
  * ----------------------------------------------------------------
  */
 BitmapAndState *
@@ -61,18 +61,18 @@ ExecInitBitmapAnd(BitmapAnd *node, EState *estate, int eflags)
 	ListCell   *l;
 	Plan	   *initNode;
 
-	/* check for unsupported flags */
+	/* 检查不支持的标志    */
 	Assert(!(eflags & (EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK)));
 
 	/*
-	 * Set up empty vector of subplan states
+	 * 建立空的子计划状态数组    
 	 */
 	nplans = list_length(node->bitmapplans);
 
 	bitmapplanstates = (PlanState **) palloc0(nplans * sizeof(PlanState *));
 
 	/*
-	 * create new BitmapAndState for our BitmapAnd node
+	 * 为本 BitmapAnd 节点新建 BitmapAndState    
 	 */
 	bitmapandstate->ps.plan = (Plan *) node;
 	bitmapandstate->ps.state = estate;
@@ -81,8 +81,8 @@ ExecInitBitmapAnd(BitmapAnd *node, EState *estate, int eflags)
 	bitmapandstate->nplans = nplans;
 
 	/*
-	 * call ExecInitNode on each of the plans to be executed and save the
-	 * results into the array "bitmapplanstates".
+	 * 对每个待执行的计划调用 ExecInitNode，并把结果     
+	 * 保存到 "bitmapplanstates" 数组中。 
 	 */
 	i = 0;
 	foreach(l, node->bitmapplans)
@@ -93,10 +93,10 @@ ExecInitBitmapAnd(BitmapAnd *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * BitmapAnd plans don't have expression contexts because they never call
-	 * ExecQual or ExecProject.  They don't need any tuple slots either.
+	 * BitmapAnd 计划没有表达式上下文，因为它们从不调用   
+	 * ExecQual 或 ExecProject。它们也不需要任何元组槽。  
 	 */
 
 	return bitmapandstate;
@@ -114,18 +114,18 @@ MultiExecBitmapAnd(BitmapAndState *node)
 	int			i;
 	TIDBitmap  *result = NULL;
 
-	/* must provide our own instrumentation support */
+	/* 必须提供我们自己的统计信息支持*/
 	if (node->ps.instrument)
 		InstrStartNode(node->ps.instrument);
 
 	/*
-	 * get information from the node
+	 * 从节点获取信息        
 	 */
 	bitmapplans = node->bitmapplans;
 	nplans = node->nplans;
 
 	/*
-	 * Scan all the subplans and AND their result bitmaps
+	 * 扫描所有子计划并 AND 其结果位图      
 	 */
 	for (i = 0; i < nplans; i++)
 	{
@@ -138,7 +138,7 @@ MultiExecBitmapAnd(BitmapAndState *node)
 			elog(ERROR, "unrecognized result from subplan");
 
 		if (result == NULL)
-			result = subresult; /* first subplan */
+			result = subresult; /* 首子计划  */
 		else
 		{
 			tbm_intersect(result, subresult);
@@ -146,11 +146,11 @@ MultiExecBitmapAnd(BitmapAndState *node)
 		}
 
 		/*
-		 * If at any stage we have a completely empty bitmap, we can fall out
-		 * without evaluating the remaining subplans, since ANDing them can no
-		 * longer change the result.  (Note: the fact that indxpath.c orders
-		 * the subplans by selectivity should make this case more likely to
-		 * occur.)
+		 * 如果任一阶段得到完全为空的位图，我们就可以   
+		 * 提前退出，不再评估其余子计划，因为把它们       
+		 * AND 起来已不可能再改变结果。（注：indxpath.c      
+		 * 按选择率排序这一事实，应能让该情况更常发生 
+		 * ）。 
 		 */
 		if (tbm_is_empty(result))
 			break;
@@ -159,7 +159,7 @@ MultiExecBitmapAnd(BitmapAndState *node)
 	if (result == NULL)
 		elog(ERROR, "BitmapAnd doesn't support zero inputs");
 
-	/* must provide our own instrumentation support */
+	/* 必须提供我们自己的统计信息支持*/
 	if (node->ps.instrument)
 		InstrStopNode(node->ps.instrument, 0 /* XXX */ );
 
@@ -169,9 +169,9 @@ MultiExecBitmapAnd(BitmapAndState *node)
 /* ----------------------------------------------------------------
  *		ExecEndBitmapAnd
  *
- *		Shuts down the subscans of the BitmapAnd node.
+ *		关闭 BitmapAnd 节点的各子扫描。     
  *
- *		Returns nothing of interest.
+ *		无有价值的返回值。 
  * ----------------------------------------------------------------
  */
 void
@@ -182,13 +182,13 @@ ExecEndBitmapAnd(BitmapAndState *node)
 	int			i;
 
 	/*
-	 * get information from the node
+	 * 从节点获取信息        
 	 */
 	bitmapplans = node->bitmapplans;
 	nplans = node->nplans;
 
 	/*
-	 * shut down each of the subscans (that we've initialized)
+	 * 关闭每一个子扫描（已初始化的那些）    
 	 */
 	for (i = 0; i < nplans; i++)
 	{
@@ -207,15 +207,15 @@ ExecReScanBitmapAnd(BitmapAndState *node)
 		PlanState  *subnode = node->bitmapplans[i];
 
 		/*
-		 * ExecReScan doesn't know about my subplans, so I have to do
-		 * changed-parameter signaling myself.
+		 * ExecReScan 不了解我的子计划，所以我得亲自  
+		 * 完成变更参数的通知。     
 		 */
 		if (node->ps.chgParam != NULL)
 			UpdateChangedParamSet(subnode, node->ps.chgParam);
 
 		/*
-		 * If chgParam of subnode is not null then plan will be re-scanned by
-		 * first ExecProcNode.
+		 * 若子节点的 chgParam 非空，则将由首次 ExecProcNode    
+		 * 重扫该计划。 
 		 */
 		if (subnode->chgParam == NULL)
 			ExecReScan(subnode);

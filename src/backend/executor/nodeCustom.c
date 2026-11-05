@@ -1,7 +1,7 @@
 /* ------------------------------------------------------------------------
  *
  * nodeCustom.c
- *		Routines to handle execution of custom scan node
+ *		处理自定义扫描节点执行的例程。   
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -35,28 +35,28 @@ ExecInitCustomScan(CustomScan *cscan, EState *estate, int eflags)
 	int			tlistvarno;
 
 	/*
-	 * Allocate the CustomScanState object.  We let the custom scan provider
-	 * do the palloc, in case it wants to make a larger object that embeds
-	 * CustomScanState as the first field.  It must set the node tag and the
-	 * methods field correctly at this time.  Other standard fields should be
-	 * set to zero.
+	 * 分配 CustomScanState 对象。我们让自定义扫描提供者    
+	 * 自行执行 palloc，以便它能构造一个把 CustomScanState  
+	 * 作为第一个字段嵌入其中的更大对象。此时它必须把
+	 * 节点标签与 methods 字段设置正确。其他标准字段应    
+	 * 置为零。
 	 */
 	css = castNode(CustomScanState,
 				   cscan->methods->CreateCustomScanState(cscan));
 
-	/* ensure flags is filled correctly */
+	/* 确保 flags 被正确填充     */
 	css->flags = cscan->flags;
 
-	/* fill up fields of ScanState */
+	/* 填充 ScanState 字段     */
 	css->ss.ps.plan = &cscan->scan.plan;
 	css->ss.ps.state = estate;
 	css->ss.ps.ExecProcNode = ExecCustomScan;
 
-	/* create expression context for node */
+	/* 为节点创建表达式上下文  */
 	ExecAssignExprContext(estate, &css->ss.ps);
 
 	/*
-	 * open the scan relation, if any
+	 * 打开扫描关系（如有）
 	 */
 	if (scanrelid > 0)
 	{
@@ -65,17 +65,17 @@ ExecInitCustomScan(CustomScan *cscan, EState *estate, int eflags)
 	}
 
 	/*
-	 * Use a custom slot if specified in CustomScanState or use virtual slot
-	 * otherwise.
+	 * 若 CustomScanState 中指定了自定义槽则用它，否则用虚 
+	 * 拟槽。 
 	 */
 	slotOps = css->slotOps;
 	if (!slotOps)
 		slotOps = &TTSOpsVirtual;
 
 	/*
-	 * Determine the scan tuple type.  If the custom scan provider provided a
-	 * targetlist describing the scan tuples, use that; else use base
-	 * relation's rowtype.
+	 * 确定扫描元组类型。若自定义扫描提供者提供了描述 
+	 * 扫描元组的目标列表，则用之；否则使用基础  
+	 * 行类型。       
 	 */
 	if (cscan->custom_scan_tlist != NIL || scan_rel == NULL)
 	{
@@ -83,30 +83,30 @@ ExecInitCustomScan(CustomScan *cscan, EState *estate, int eflags)
 
 		scan_tupdesc = ExecTypeFromTL(cscan->custom_scan_tlist);
 		ExecInitScanTupleSlot(estate, &css->ss, scan_tupdesc, slotOps);
-		/* Node's targetlist will contain Vars with varno = INDEX_VAR */
+		/* 节点的目标列表将包含 varno = INDEX_VAR 的 Var。*/
 		tlistvarno = INDEX_VAR;
 	}
 	else
 	{
 		ExecInitScanTupleSlot(estate, &css->ss, RelationGetDescr(scan_rel),
 							  slotOps);
-		/* Node's targetlist will contain Vars with varno = scanrelid */
+		/* 节点的目标列表将包含 varno = scanrelid 的 Var。*/
 		tlistvarno = scanrelid;
 	}
 
 	/*
-	 * Initialize result slot, type and projection.
+	 * 初始化结果槽、类型和投影。     
 	 */
 	ExecInitResultTupleSlotTL(&css->ss.ps, &TTSOpsVirtual);
 	ExecAssignScanProjectionInfoWithVarno(&css->ss, tlistvarno);
 
-	/* initialize child expressions */
+	/* 初始化子表达式        */
 	css->ss.ps.qual =
 		ExecInitQual(cscan->scan.plan.qual, (PlanState *) css);
 
 	/*
-	 * The callback of custom-scan provider applies the final initialization
-	 * of the custom-scan-state node according to its logic.
+	 * 自定义扫描提供者的回调按照其自身逻辑，对自定义
+	 * 扫描状态节点做最后的初始化。           
 	 */
 	css->methods->BeginCustomScan(css, estate, eflags);
 
@@ -130,10 +130,10 @@ ExecEndCustomScan(CustomScanState *node)
 	Assert(node->methods->EndCustomScan != NULL);
 	node->methods->EndCustomScan(node);
 
-	/* Free the exprcontext */
+	/* 释放 exprcontext   */
 	ExecFreeExprContext(&node->ss.ps);
 
-	/* Clean out the tuple table */
+	/* 清空元组表           */
 	ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
 	ExecClearTuple(node->ss.ss_ScanTupleSlot);
 }

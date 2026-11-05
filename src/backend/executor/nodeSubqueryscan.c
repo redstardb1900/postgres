@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * nodeSubqueryscan.c
- *	  Support routines for scanning subqueries (subselects in rangetable).
+ *	  扫描子查询（范围表内的 subselect）的支持例程。    
  *
- * This is just enough different from sublinks (nodeSubplan.c) to mean that
- * we need two sets of code.  Ought to look at trying to unify the cases.
+ * 它与 sublink（nodeSubplan.c）的差异刚好大                     
+ * 到需要两套代码。应当考虑尝试统一两者。             
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -18,11 +18,11 @@
  */
 /*
  * INTERFACE ROUTINES
- *		ExecSubqueryScan			scans a subquery.
- *		ExecSubqueryNext			retrieve next tuple in sequential order.
- *		ExecInitSubqueryScan		creates and initializes a subqueryscan node.
- *		ExecEndSubqueryScan			releases any storage allocated.
- *		ExecReScanSubqueryScan		rescans the relation
+ *		ExecSubqueryScan			扫描子查询  
+ *		ExecSubqueryNext			按顺序取下一个元组。          
+ *		ExecInitSubqueryScan		创建并初始化 subqueryscan 节点。   
+ *		ExecEndSubqueryScan			释放所有已分配存储。 
+ *		ExecReScanSubqueryScan	重新扫描关系   
  *
  */
 #include "postgres.h"
@@ -33,13 +33,13 @@
 static TupleTableSlot *SubqueryNext(SubqueryScanState *node);
 
 /* ----------------------------------------------------------------
- *						Scan Support
+ *						扫描支持
  * ----------------------------------------------------------------
  */
 /* ----------------------------------------------------------------
  *		SubqueryNext
  *
- *		This is a workhorse for ExecSubqueryScan
+ *		这是 ExecSubqueryScan 的主力函数 
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -48,35 +48,35 @@ SubqueryNext(SubqueryScanState *node)
 	TupleTableSlot *slot;
 
 	/*
-	 * Get the next tuple from the sub-query.
+	 * 从子查询取下一条元组。     
 	 */
 	slot = ExecProcNode(node->subplan);
 
 	/*
-	 * We just return the subplan's result slot, rather than expending extra
-	 * cycles for ExecCopySlot().  (Our own ScanTupleSlot is used only for
-	 * EvalPlanQual rechecks.)
+	 * 我们直接返回子计划的结果槽，而不必为 ExecCopySlot()
+	 * 耗费额外周期。（我们自己的 ScanTupleSlot 仅用于    
+	 * EvalPlanQual 重查） 
 	 */
 	return slot;
 }
 
 /*
- * SubqueryRecheck -- access method routine to recheck a tuple in EvalPlanQual
+ * SubqueryRecheck -- EvalPlanQual 中重新检查元组的访问方法例程 
  */
 static bool
 SubqueryRecheck(SubqueryScanState *node, TupleTableSlot *slot)
 {
-	/* nothing to check */
+	/* 无需检查     */
 	return true;
 }
 
 /* ----------------------------------------------------------------
  *		ExecSubqueryScan(node)
  *
- *		Scans the subquery sequentially and returns the next qualifying
- *		tuple.
- *		We call the ExecScan() routine and pass it the appropriate
- *		access method functions.
+ *		顺序扫描子查询并返回下一个满足条件的元组。
+ *		我们
+ *		调用 ExecScan() 例程，把相应的访问方法       
+ *		函数传递给它。   
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -98,15 +98,15 @@ ExecInitSubqueryScan(SubqueryScan *node, EState *estate, int eflags)
 {
 	SubqueryScanState *subquerystate;
 
-	/* check for unsupported flags */
+	/* 检查不支持的标志    */
 	Assert(!(eflags & EXEC_FLAG_MARK));
 
-	/* SubqueryScan should not have any "normal" children */
+	/* SubqueryScan 不应有任何"普通"子节点。   */
 	Assert(outerPlan(node) == NULL);
 	Assert(innerPlan(node) == NULL);
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	subquerystate = makeNode(SubqueryScanState);
 	subquerystate->ss.ps.plan = (Plan *) node;
@@ -114,27 +114,27 @@ ExecInitSubqueryScan(SubqueryScan *node, EState *estate, int eflags)
 	subquerystate->ss.ps.ExecProcNode = ExecSubqueryScan;
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * create expression context for node
+	 * 为节点创建表达式上下文 
 	 */
 	ExecAssignExprContext(estate, &subquerystate->ss.ps);
 
 	/*
-	 * initialize subquery
+	 * 初始化子查询 
 	 */
 	subquerystate->subplan = ExecInitNode(node->subplan, estate, eflags);
 
 	/*
-	 * Initialize scan slot and type (needed by ExecAssignScanProjectionInfo)
+	 * 初始化扫描槽与类型（ExecAssignScanProjectionInfo 需要）  
 	 */
 	ExecInitScanTupleSlot(estate, &subquerystate->ss,
 						  ExecGetResultType(subquerystate->subplan),
 						  ExecGetResultSlotOps(subquerystate->subplan, NULL));
 
 	/*
-	 * The slot used as the scantuple isn't the slot above (outside of EPQ),
-	 * but the one from the node below.
+	 * 用作 scantuple 的槽并非上面的槽（EPQ 之外时），      
+	 * 而用下层节点的槽。     
 	 */
 	subquerystate->ss.ps.scanopsset = true;
 	subquerystate->ss.ps.scanops = ExecGetResultSlotOps(subquerystate->subplan,
@@ -144,13 +144,13 @@ ExecInitSubqueryScan(SubqueryScan *node, EState *estate, int eflags)
 	subquerystate->ss.ps.resultopsfixed = subquerystate->ss.ps.scanopsfixed;
 
 	/*
-	 * Initialize result type and projection.
+	 * 初始化结果类型和投影。     
 	 */
 	ExecInitResultTypeTL(&subquerystate->ss.ps);
 	ExecAssignScanProjectionInfo(&subquerystate->ss);
 
 	/*
-	 * initialize child expressions
+	 * 初始化子表达式       
 	 */
 	subquerystate->ss.ps.qual =
 		ExecInitQual(node->scan.plan.qual, (PlanState *) subquerystate);
@@ -161,26 +161,26 @@ ExecInitSubqueryScan(SubqueryScan *node, EState *estate, int eflags)
 /* ----------------------------------------------------------------
  *		ExecEndSubqueryScan
  *
- *		frees any storage allocated through C routines.
+ *		释放通过 C 例程分配的所有存储。  
  * ----------------------------------------------------------------
  */
 void
 ExecEndSubqueryScan(SubqueryScanState *node)
 {
 	/*
-	 * Free the exprcontext
+	 * 释放 exprcontext  
 	 */
 	ExecFreeExprContext(&node->ss.ps);
 
 	/*
-	 * clean out the upper tuple table
+	 * 清空上层元组表          
 	 */
 	if (node->ss.ps.ps_ResultTupleSlot)
 		ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
 	ExecClearTuple(node->ss.ss_ScanTupleSlot);
 
 	/*
-	 * close down subquery
+	 * 关闭子查询    
 	 */
 	ExecEndNode(node->subplan);
 }
@@ -188,7 +188,7 @@ ExecEndSubqueryScan(SubqueryScanState *node)
 /* ----------------------------------------------------------------
  *		ExecReScanSubqueryScan
  *
- *		Rescans the relation.
+ *		重新扫描关系。
  * ----------------------------------------------------------------
  */
 void
@@ -197,16 +197,16 @@ ExecReScanSubqueryScan(SubqueryScanState *node)
 	ExecScanReScan(&node->ss);
 
 	/*
-	 * ExecReScan doesn't know about my subplan, so I have to do
-	 * changed-parameter signaling myself.  This is just as well, because the
-	 * subplan has its own memory context in which its chgParam state lives.
+	 * ExecReScan 并不了解我的子计划，所以变更    
+	 * 参数信号需由我自行发出。这倒正好，因为             
+	 * 子计划有独立内存上下文，chgParam 状态存于其中。   
 	 */
 	if (node->ss.ps.chgParam != NULL)
 		UpdateChangedParamSet(node->subplan, node->ss.ps.chgParam);
 
 	/*
-	 * if chgParam of subnode is not null then plan will be re-scanned by
-	 * first ExecProcNode.
+	 * 若子节点的 chgParam 非空，计划会被首次 ExecProcNode 
+	 * 重新扫描。    
 	 */
 	if (node->subplan->chgParam == NULL)
 		ExecReScan(node->subplan);

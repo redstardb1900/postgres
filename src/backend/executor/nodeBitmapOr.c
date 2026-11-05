@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeBitmapOr.c
- *	  routines to handle BitmapOr nodes.
+ *	  处理 BitmapOr 节点的例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,17 +13,17 @@
  *-------------------------------------------------------------------------
  */
 /* INTERFACE ROUTINES
- *		ExecInitBitmapOr	- initialize the BitmapOr node
- *		MultiExecBitmapOr	- retrieve the result bitmap from the node
- *		ExecEndBitmapOr		- shut down the BitmapOr node
- *		ExecReScanBitmapOr	- rescan the BitmapOr node
+ *		ExecInitBitmapOr	初始化 BitmapOr 节点。  
+ *		MultiExecBitmapOr	从该节点取回结果位图。         
+ *		ExecEndBitmapOr		关闭 BitmapOr 节点。    
+ *		ExecReScanBitmapOr	重扫 BitmapOr 节点    
  *
  *	 NOTES
- *		BitmapOr nodes don't make use of their left and right
- *		subtrees, rather they maintain a list of subplans,
- *		much like Append nodes.  The logic is much simpler than
- *		Append, however, since we needn't cope with forward/backward
- *		execution.
+ *		BitmapOr 节点并不使用其左右子树，        
+ *		而是维护一份子计划列表，              
+ *		很像 Append 节点。不过其逻辑要比 Append    
+ *		简单得多，因为无需应对前向/反向              
+ *		执行。 
  */
 
 #include "postgres.h"
@@ -36,7 +36,7 @@
 /* ----------------------------------------------------------------
  *		ExecBitmapOr
  *
- *		stub for pro forma compliance
+ *		为形式合规而设的桩  
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -49,7 +49,7 @@ ExecBitmapOr(PlanState *pstate)
 /* ----------------------------------------------------------------
  *		ExecInitBitmapOr
  *
- *		Begin all of the subscans of the BitmapOr node.
+ *		启动 BitmapOr 节点的所有子扫描。    
  * ----------------------------------------------------------------
  */
 BitmapOrState *
@@ -62,18 +62,18 @@ ExecInitBitmapOr(BitmapOr *node, EState *estate, int eflags)
 	ListCell   *l;
 	Plan	   *initNode;
 
-	/* check for unsupported flags */
+	/* 检查不支持的标志    */
 	Assert(!(eflags & (EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK)));
 
 	/*
-	 * Set up empty vector of subplan states
+	 * 建立空的子计划状态数组    
 	 */
 	nplans = list_length(node->bitmapplans);
 
 	bitmapplanstates = (PlanState **) palloc0(nplans * sizeof(PlanState *));
 
 	/*
-	 * create new BitmapOrState for our BitmapOr node
+	 * 为 BitmapOr 节点新建 BitmapOrState       
 	 */
 	bitmaporstate->ps.plan = (Plan *) node;
 	bitmaporstate->ps.state = estate;
@@ -82,8 +82,8 @@ ExecInitBitmapOr(BitmapOr *node, EState *estate, int eflags)
 	bitmaporstate->nplans = nplans;
 
 	/*
-	 * call ExecInitNode on each of the plans to be executed and save the
-	 * results into the array "bitmapplanstates".
+	 * 对每个待执行的计划调用 ExecInitNode，并把结果     
+	 * 保存到数组 "bitmapplanstates" 中。 
 	 */
 	i = 0;
 	foreach(l, node->bitmapplans)
@@ -94,10 +94,10 @@ ExecInitBitmapOr(BitmapOr *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * BitmapOr plans don't have expression contexts because they never call
-	 * ExecQual or ExecProject.  They don't need any tuple slots either.
+	 * BitmapOr 计划没有表达式上下文，因为它们从不调用   
+	 * ExecQual 或 ExecProject。它们也不需要任何元组槽。  
 	 */
 
 	return bitmaporstate;
@@ -115,18 +115,18 @@ MultiExecBitmapOr(BitmapOrState *node)
 	int			i;
 	TIDBitmap  *result = NULL;
 
-	/* must provide our own instrumentation support */
+	/* 必须提供我们自己的统计信息支持*/
 	if (node->ps.instrument)
 		InstrStartNode(node->ps.instrument);
 
 	/*
-	 * get information from the node
+	 * 从节点获取信息        
 	 */
 	bitmapplans = node->bitmapplans;
 	nplans = node->nplans;
 
 	/*
-	 * Scan all the subplans and OR their result bitmaps
+	 * 扫描全部子计划，OR 其结果位图。    
 	 */
 	for (i = 0; i < nplans; i++)
 	{
@@ -134,15 +134,15 @@ MultiExecBitmapOr(BitmapOrState *node)
 		TIDBitmap  *subresult;
 
 		/*
-		 * We can special-case BitmapIndexScan children to avoid an explicit
-		 * tbm_union step for each child: just pass down the current result
-		 * bitmap and let the child OR directly into it.
+		 * 我们可以对 BitmapIndexScan 子节点做特殊处理，      
+		 * 以免每个子节点都需显式 tbm_union 步骤：只需     
+		 * 传入当前结果位图，让其直接 OR。
 		 */
 		if (IsA(subnode, BitmapIndexScanState))
 		{
-			if (result == NULL) /* first subplan */
+			if (result == NULL) /* 首子计划  */
 			{
-				/* XXX should we use less than work_mem for this? */
+				/* XXX 是否该为此用小于 work_mem 的值？*/
 				result = tbm_create(work_mem * 1024L,
 									((BitmapOr *) node->ps.plan)->isshared ?
 									node->ps.state->es_query_dsa : NULL);
@@ -157,14 +157,14 @@ MultiExecBitmapOr(BitmapOrState *node)
 		}
 		else
 		{
-			/* standard implementation */
+			/* 标准实现            */
 			subresult = (TIDBitmap *) MultiExecProcNode(subnode);
 
 			if (!subresult || !IsA(subresult, TIDBitmap))
 				elog(ERROR, "unrecognized result from subplan");
 
 			if (result == NULL)
-				result = subresult; /* first subplan */
+				result = subresult; /* 首子计划  */
 			else
 			{
 				tbm_union(result, subresult);
@@ -173,11 +173,11 @@ MultiExecBitmapOr(BitmapOrState *node)
 		}
 	}
 
-	/* We could return an empty result set here? */
+	/* 这里我们能返回空结果集吗？   */
 	if (result == NULL)
 		elog(ERROR, "BitmapOr doesn't support zero inputs");
 
-	/* must provide our own instrumentation support */
+	/* 必须提供我们自己的统计信息支持*/
 	if (node->ps.instrument)
 		InstrStopNode(node->ps.instrument, 0 /* XXX */ );
 
@@ -187,9 +187,9 @@ MultiExecBitmapOr(BitmapOrState *node)
 /* ----------------------------------------------------------------
  *		ExecEndBitmapOr
  *
- *		Shuts down the subscans of the BitmapOr node.
+ *		关闭 BitmapOr 节点的各子扫描。     
  *
- *		Returns nothing of interest.
+ *		无有价值的返回值。 
  * ----------------------------------------------------------------
  */
 void
@@ -200,13 +200,13 @@ ExecEndBitmapOr(BitmapOrState *node)
 	int			i;
 
 	/*
-	 * get information from the node
+	 * 从节点获取信息        
 	 */
 	bitmapplans = node->bitmapplans;
 	nplans = node->nplans;
 
 	/*
-	 * shut down each of the subscans (that we've initialized)
+	 * 关闭各子扫描（仅限已初始化的）。       
 	 */
 	for (i = 0; i < nplans; i++)
 	{
@@ -225,15 +225,15 @@ ExecReScanBitmapOr(BitmapOrState *node)
 		PlanState  *subnode = node->bitmapplans[i];
 
 		/*
-		 * ExecReScan doesn't know about my subplans, so I have to do
-		 * changed-parameter signaling myself.
+		 * ExecReScan 并不了解我的子计划，所以变更     
+		 * 参数信号须自行发出。     
 		 */
 		if (node->ps.chgParam != NULL)
 			UpdateChangedParamSet(subnode, node->ps.chgParam);
 
 		/*
-		 * If chgParam of subnode is not null then plan will be re-scanned by
-		 * first ExecProcNode.
+		 * 若子节点的 chgParam 非空，计划会被首次 ExecProcNode 
+		 * 重新扫描。    
 		 */
 		if (subnode->chgParam == NULL)
 			ExecReScan(subnode);

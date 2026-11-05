@@ -1,0 +1,179 @@
+{
+ "schema_version": 1,
+ "batch_id": "0263-comment-executor-async-custom-scan",
+ "title": "Translate executor comments: executor-async-custom-scan",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "b091c09c2e6010fd3b80962be871b1eba8aff93d",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0263-comment-executor-async-custom-scan.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/executor/**",
+   "kind": "c_comment",
+   "note": "P2 executor translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0263-comment-executor-async-custom-scan.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/executor/execAmi.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 34,
+   "translated": 33,
+   "preserved": 1,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C2"
+  },
+  {
+   "path": "src/backend/executor/execAsync.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 19,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C2"
+  },
+  {
+   "path": "src/backend/executor/execCurrent.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 30,
+   "translated": 30,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C2"
+  },
+  {
+   "path": "src/backend/executor/execJunk.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 21,
+   "translated": 21,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C2"
+  },
+  {
+   "path": "src/backend/executor/nodeBitmapAnd.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 22,
+   "translated": 20,
+   "preserved": 2,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), and separator-only blocks rebuilt byte-identical"
+   ],
+   "note": "P2 executor campaign wave C2"
+  },
+  {
+   "path": "src/backend/executor/nodeBitmapOr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 26,
+   "translated": 24,
+   "preserved": 2,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), and separator-only blocks rebuilt byte-identical"
+   ],
+   "note": "P2 executor campaign wave C2"
+  },
+  {
+   "path": "src/backend/executor/nodeCustom.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 15,
+   "translated": 15,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C2"
+  },
+  {
+   "path": "src/backend/executor/nodeMergeAppend.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 29,
+   "translated": 29,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C2"
+  },
+  {
+   "path": "src/backend/executor/nodeNamedtuplestorescan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 22,
+   "translated": 21,
+   "preserved": 1,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C2"
+  },
+  {
+   "path": "src/backend/executor/nodeSubqueryscan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 26,
+   "translated": 25,
+   "preserved": 1,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C2"
+  },
+  {
+   "path": "src/backend/executor/tqueue.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 22,
+   "translated": 22,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C2"
+  },
+  {
+   "path": "src/backend/executor/tstoreReceiver.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 31,
+   "translated": 31,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 executor campaign wave C2"
+  }
+ ],
+ "notes": "Translation agents (C2a/C2b/C2c) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

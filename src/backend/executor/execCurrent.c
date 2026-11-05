@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * execCurrent.c
- *	  executor support for WHERE CURRENT OF cursor
+ *	  WHERE CURRENT OF 游标的执行器支持   
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -31,14 +31,14 @@ static ScanState *search_plan_tree(PlanState *node, Oid table_oid,
 /*
  * execCurrentOf
  *
- * Given a CURRENT OF expression and the OID of a table, determine which row
- * of the table is currently being scanned by the cursor named by CURRENT OF,
- * and return the row's TID into *current_tid.
+ * 给定一个 CURRENT OF 表达式和某个表的 OID，确定该表中   
+ * 当前正被 CURRENT OF 所指游标扫描的是哪一行，              
+ * 并把该行的 TID 存入 *current_tid。 
  *
- * Returns true if a row was identified.  Returns false if the cursor is valid
- * for the table but is not currently scanning a row of the table (this is a
- * legal situation in inheritance cases).  Raises error if cursor is not a
- * valid updatable scan of the specified table.
+ * 如果确定了某一行则返回 true。如果游标对该表有效，    
+ * 但当前并未在该表上扫描某一行（在继承场景中这是    
+ * 一种合法情况），则返回 false。若该游标不是指定表  
+ * 的有效可更新扫描，则报错。     
  */
 bool
 execCurrentOf(CurrentOfExpr *cexpr,
@@ -51,18 +51,18 @@ execCurrentOf(CurrentOfExpr *cexpr,
 	Portal		portal;
 	QueryDesc  *queryDesc;
 
-	/* Get the cursor name --- may have to look up a parameter reference */
+	/* 获取游标名 --- 可能需要查找参数引用                */
 	if (cexpr->cursor_name)
 		cursor_name = cexpr->cursor_name;
 	else
 		cursor_name = fetch_cursor_param_value(econtext, cexpr->cursor_param);
 
-	/* Fetch table name for possible use in error messages */
+	/* 获取表名，以备错误消息中使用          */
 	table_name = get_rel_name(table_oid);
 	if (table_name == NULL)
 		elog(ERROR, "cache lookup failed for relation %u", table_oid);
 
-	/* Find the cursor's portal */
+	/* 找到游标的 portal   */
 	portal = GetPortalByName(cursor_name);
 	if (!PortalIsValid(portal))
 		ereport(ERROR,
@@ -70,8 +70,8 @@ execCurrentOf(CurrentOfExpr *cexpr,
 				 errmsg("cursor \"%s\" does not exist", cursor_name)));
 
 	/*
-	 * We have to watch out for non-SELECT queries as well as held cursors,
-	 * both of which may have null queryDesc.
+	 * 我们必须同时提防非 SELECT 查询以及已持有的游标，
+	 * 二者的 queryDesc 都可能为空。
 	 */
 	if (portal->strategy != PORTAL_ONE_SELECT)
 		ereport(ERROR,
@@ -86,11 +86,11 @@ execCurrentOf(CurrentOfExpr *cexpr,
 						cursor_name)));
 
 	/*
-	 * We have two different strategies depending on whether the cursor uses
-	 * FOR UPDATE/SHARE or not.  The reason for supporting both is that the
-	 * FOR UPDATE code is able to identify a target table in many cases where
-	 * the other code can't, while the non-FOR-UPDATE case allows use of WHERE
-	 * CURRENT OF with an insensitive cursor.
+	 * 根据游标是否使用 FOR UPDATE/SHARE，我们有两种不同的 
+	 * 策略。两种都支持的原因是：FOR UPDATE 代码在很多   
+	 * 另一种代码无法处理的场景中也能识别目标表，而非 
+	 * FOR UPDATE 的情况则允许在 insensitive 游标上使用           
+	 * WHERE CURRENT OF。                   
 	 */
 	if (queryDesc->estate->es_rowmarks)
 	{
@@ -98,8 +98,8 @@ execCurrentOf(CurrentOfExpr *cexpr,
 		Index		i;
 
 		/*
-		 * Here, the query must have exactly one FOR UPDATE/SHARE reference to
-		 * the target table, and we dig the ctid info out of that.
+		 * 这里，查询必须恰好有对目标表的 FOR UPDATE/SHARE     
+		 * 引用，我们从其中挖出 ctid 信息。          
 		 */
 		erm = NULL;
 		for (i = 0; i < queryDesc->estate->es_range_table_size; i++)
@@ -108,7 +108,7 @@ execCurrentOf(CurrentOfExpr *cexpr,
 
 			if (thiserm == NULL ||
 				!RowMarkRequiresRowShareLock(thiserm->markType))
-				continue;		/* ignore non-FOR UPDATE/SHARE items */
+				continue;		/* 忽略非 FOR UPDATE/SHARE 项    */
 
 			if (thiserm->relid == table_oid)
 			{
@@ -128,8 +128,8 @@ execCurrentOf(CurrentOfExpr *cexpr,
 							cursor_name, table_name)));
 
 		/*
-		 * The cursor must have a current result row: per the SQL spec, it's
-		 * an error if not.
+		 * 游标必须有一个当前结果行：按照 SQL 标准，      
+		 * 无则报错。 
 		 */
 		if (portal->atStart || portal->atEnd)
 			ereport(ERROR,
@@ -137,7 +137,7 @@ execCurrentOf(CurrentOfExpr *cexpr,
 					 errmsg("cursor \"%s\" is not positioned on a row",
 							cursor_name)));
 
-		/* Return the currently scanned TID, if there is one */
+		/* 如果存在，则返回当前扫描的 TID       */
 		if (ItemPointerIsValid(&(erm->curCtid)))
 		{
 			*current_tid = erm->curCtid;
@@ -145,18 +145,18 @@ execCurrentOf(CurrentOfExpr *cexpr,
 		}
 
 		/*
-		 * This table didn't produce the cursor's current row; some other
-		 * inheritance child of the same parent must have.  Signal caller to
-		 * do nothing on this table.
+		 * 该表未产生游标的当前行；必然是同一父表的  
+		 * 某个继承子表产生了它。通知调用者对该表不做  
+		 * 任何处理。          
 		 */
 		return false;
 	}
 	else
 	{
 		/*
-		 * Without FOR UPDATE, we dig through the cursor's plan to find the
-		 * scan node.  Fail if it's not there or buried underneath
-		 * aggregation.
+		 * 没有 FOR UPDATE 时，我们遍历游标的计划来找出    
+		 * 扫描节点。若不在，或被埋于聚合下，    
+		 * 则报错。
 		 */
 		ScanState  *scanstate;
 		bool		pending_rescan = false;
@@ -170,11 +170,11 @@ execCurrentOf(CurrentOfExpr *cexpr,
 							cursor_name, table_name)));
 
 		/*
-		 * The cursor must have a current result row: per the SQL spec, it's
-		 * an error if not.  We test this at the top level, rather than at the
-		 * scan node level, because in inheritance cases any one table scan
-		 * could easily not be on a row. We want to return false, not raise
-		 * error, if the passed-in table OID is for one of the inactive scans.
+		 * 游标必须有一个当前结果行：按照 SQL 标准，若无
+		 * 则报错。我们在顶层而非扫描节点层级做此测试， 
+		 * 因为在继承场景中，任何单个表扫描都很容易    
+		 * 不在任何行上。如果传入的表 OID 对应的是某个  
+		 * 不活跃的扫描，我们希望返回 false 而非报错。      
 		 */
 		if (portal->atStart || portal->atEnd)
 			ereport(ERROR,
@@ -183,24 +183,24 @@ execCurrentOf(CurrentOfExpr *cexpr,
 							cursor_name)));
 
 		/*
-		 * Now OK to return false if we found an inactive scan.  It is
-		 * inactive either if it's not positioned on a row, or there's a
-		 * rescan pending for it.
+		 * 若我们发现的是不活跃扫描，现在可以返回  
+		 * false。不活跃的原因要么是未定位在行上，     
+		 * 或是有待重扫。 
 		 */
 		if (TupIsNull(scanstate->ss_ScanTupleSlot) || pending_rescan)
 			return false;
 
 		/*
-		 * Extract TID of the scan's current row.  The mechanism for this is
-		 * in principle scan-type-dependent, but for most scan types, we can
-		 * just dig the TID out of the physical scan tuple.
+		 * 提取扫描的当前行的 TID。其机制原则上取决于    
+		 * 扫描类型，但对大多数扫描类型而言，我们可以  
+		 * 直接从物理扫描元组中挖出 TID。     
 		 */
 		if (IsA(scanstate, IndexOnlyScanState))
 		{
 			/*
-			 * For IndexOnlyScan, the tuple stored in ss_ScanTupleSlot may be
-			 * a virtual tuple that does not have the ctid column, so we have
-			 * to get the TID from xs_ctup.t_self.
+			 * 对 IndexOnlyScan 而言，ss_ScanTupleSlot 中存储的元组
+			 * 可能是不带 ctid 列的虚拟元组，因此我们必须  
+			 * 从 xs_ctup.t_self 获取 TID。   
 			 */
 			IndexScanDesc scan = ((IndexOnlyScanState *) scanstate)->ioss_ScanDesc;
 
@@ -209,10 +209,10 @@ execCurrentOf(CurrentOfExpr *cexpr,
 		else
 		{
 			/*
-			 * Default case: try to fetch TID from the scan node's current
-			 * tuple.  As an extra cross-check, verify tableoid in the current
-			 * tuple.  If the scan hasn't provided a physical tuple, we have
-			 * to fail.
+			 * 默认：尝试从扫描节点的当前元组获取 TID。 
+			 * 作为额外交叉检查，验证当前元组的 tableoid。   
+			 * 如果扫描没有提供物理元组，我们只能          
+			 * 失败  
 			 */
 			Datum		ldatum;
 			bool		lisnull;
@@ -252,7 +252,7 @@ execCurrentOf(CurrentOfExpr *cexpr,
 /*
  * fetch_cursor_param_value
  *
- * Fetch the string value of a param, verifying it is of type REFCURSOR.
+ * 获取参数的字符串值，并验证其类型为 REFCURSOR。     
  */
 static char *
 fetch_cursor_param_value(ExprContext *econtext, int paramId)
@@ -265,7 +265,7 @@ fetch_cursor_param_value(ExprContext *econtext, int paramId)
 		ParamExternData *prm;
 		ParamExternData prmdata;
 
-		/* give hook a chance in case parameter is dynamic */
+		/* 若参数是动态的，给钩子一个机会   */
 		if (paramInfo->paramFetch != NULL)
 			prm = paramInfo->paramFetch(paramInfo, paramId, false, &prmdata);
 		else
@@ -273,7 +273,7 @@ fetch_cursor_param_value(ExprContext *econtext, int paramId)
 
 		if (OidIsValid(prm->ptype) && !prm->isnull)
 		{
-			/* safety check in case hook did something unexpected */
+			/* 以防钩子做了意外之事的安全检查      */
 			if (prm->ptype != REFCURSOROID)
 				ereport(ERROR,
 						(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -282,7 +282,7 @@ fetch_cursor_param_value(ExprContext *econtext, int paramId)
 								format_type_be(prm->ptype),
 								format_type_be(REFCURSOROID))));
 
-			/* We know that refcursor uses text's I/O routines */
+			/* refcursor 使用 text 的 I/O 例程            */
 			return TextDatumGetCString(prm->value);
 		}
 	}
@@ -296,19 +296,19 @@ fetch_cursor_param_value(ExprContext *econtext, int paramId)
 /*
  * search_plan_tree
  *
- * Search through a PlanState tree for a scan node on the specified table.
- * Return NULL if not found or multiple candidates.
+ * 在 PlanState 树中搜索指定表上的扫描节点。               
+ * 找不到或有多个候选则返回 NULL。    
  *
- * CAUTION: this function is not charged simply with finding some candidate
- * scan, but with ensuring that that scan returned the plan tree's current
- * output row.  That's why we must reject multiple-match cases.
+ * 注意：这个函数的职责并不只是找到某个候选扫描，   
+ * 而是要确保该扫描产生的正是计划树当前的输出行。  
+ * 这正是我们必须拒绝多候选情况的原因。      
  *
- * If a candidate is found, set *pending_rescan to true if that candidate
- * or any node above it has a pending rescan action, i.e. chgParam != NULL.
- * That indicates that we shouldn't consider the node to be positioned on a
- * valid tuple, even if its own state would indicate that it is.  (Caller
- * must initialize *pending_rescan to false, and should not trust its state
- * if multiple candidates are found.)
+ * 如果找到了候选，并且该候选或其上方的任何节点    
+ * 有待处理的重新扫描动作（即 chgParam != NULL），          
+ * 则把 *pending_rescan 设为 true。这表明我们不应认为        
+ * 该节点定位在一个有效元组上，即使它自身的状态    
+ * 显示如此。（调用者必须把 *pending_rescan 初始化为       
+ * false；多候选勿信。）     
  */
 static ScanState *
 search_plan_tree(PlanState *node, Oid table_oid,
@@ -321,14 +321,14 @@ search_plan_tree(PlanState *node, Oid table_oid,
 	switch (nodeTag(node))
 	{
 			/*
-			 * Relation scan nodes can all be treated alike: check to see if
-			 * they are scanning the specified table.
+			 * 关系扫描节点都可以同等对待：检查它们       
+			 * 是否在扫描指定的表。        
 			 *
-			 * ForeignScan and CustomScan might not have a currentRelation, in
-			 * which case we just ignore them.  (We dare not descend to any
-			 * child plan nodes they might have, since we do not know the
-			 * relationship of such a node's current output tuple to the
-			 * children's current outputs.)
+			 * ForeignScan 和 CustomScan 可能没有 currentRelation，     
+			 * 这种情况我们直接忽略它们。（不敢下潜到   
+			 * 其子计划节点，因为我们不知道该节点的    
+			 * 当前输出元组与子节点当前输出之间有何   
+			 * 关系。）                
 			 */
 		case T_SeqScanState:
 		case T_SampleScanState:
@@ -349,26 +349,26 @@ search_plan_tree(PlanState *node, Oid table_oid,
 			}
 
 			/*
-			 * For Append, we can check each input node.  It is safe to
-			 * descend to the inputs because only the input that resulted in
-			 * the Append's current output node could be positioned on a tuple
-			 * at all; the other inputs are either at EOF or not yet started.
-			 * Hence, if the desired table is scanned by some
-			 * currently-inactive input node, we will find that node but then
-			 * our caller will realize that it didn't emit the tuple of
-			 * interest.
+			 * 对 Append，可检查每个输入节点。下潜       
+			 * 到这些输入是安全的，因为只有产生 Append      
+			 * 当前输出节点的那个输入才可能定位在元组上；
+			 * 其他输入要么已到 EOF，要么尚未启动。因此若 
+			 * 目标表由不活跃节点扫描，我们会 
+			 * 找到该节点，但调用者会意识到它并没有        
+			 * 发出我们所关心的那个                          
+			 * 元组。
 			 *
-			 * We do need to watch out for multiple matches (possible if
-			 * Append was from UNION ALL rather than an inheritance tree).
+			 * 我们确实需要提防多重匹配（当 Append 来自 
+			 * UNION ALL 而非继承树时可能出现）。             
 			 *
-			 * Note: we can NOT descend through MergeAppend similarly, since
-			 * its inputs are likely all active, and we don't know which one
-			 * returned the current output tuple.  (Perhaps that could be
-			 * fixed if we were to let this code know more about MergeAppend's
-			 * internal state, but it does not seem worth the trouble.  Users
-			 * should not expect plans for ORDER BY queries to be considered
-			 * simply-updatable, since they won't be if the sorting is
-			 * implemented by a Sort node.)
+			 * 注意：不能类似地下潜穿过 MergeAppend，因为    
+			 * 它的输入可能全部活跃，且不知道是哪一个    
+			 * 返回了当前输出元组。（若让这段代码更    
+			 * 多地了解 MergeAppend 的内部状态，这一点或许     
+			 * 可解决，但似乎不值得费功夫。用户不应期望  
+			 * ORDER BY 查询的计划被视为简单可更新，因为    
+			 * 若排序由 Sort 节点实现，它们就不会是    
+			 * 简单可更新的。）    
 			 */
 		case T_AppendState:
 			{
@@ -384,15 +384,15 @@ search_plan_tree(PlanState *node, Oid table_oid,
 					if (!elem)
 						continue;
 					if (result)
-						return NULL;	/* multiple matches */
+						return NULL;	/* 多重匹配     */
 					result = elem;
 				}
 				break;
 			}
 
 			/*
-			 * Result and Limit can be descended through (these are safe
-			 * because they always return their input's current row)
+			 * Result 和 Limit 可以穿过（它们是安全的，    
+			 * 因为它们总是返回其输入的当前行）     
 			 */
 		case T_ResultState:
 		case T_LimitState:
@@ -402,7 +402,7 @@ search_plan_tree(PlanState *node, Oid table_oid,
 			break;
 
 			/*
-			 * SubqueryScan too, but it keeps the child in a different place
+			 * SubqueryScan 也是如此，但它把子节点存放在别处
 			 */
 		case T_SubqueryScanState:
 			result = search_plan_tree(((SubqueryScanState *) node)->subplan,
@@ -411,13 +411,13 @@ search_plan_tree(PlanState *node, Oid table_oid,
 			break;
 
 		default:
-			/* Otherwise, assume we can't descend through it */
+			/* 否则，假定我们无法下潜穿过它    */
 			break;
 	}
 
 	/*
-	 * If we found a candidate at or below this node, then this node's
-	 * chgParam indicates a pending rescan that will affect the candidate.
+	 * 如果在这个节点处或其下方找到了候选，那么   
+	 * 该节点的 chgParam 表示将影响该候选的重新扫描。   
 	 */
 	if (result && node->chgParam != NULL)
 		*pending_rescan = true;

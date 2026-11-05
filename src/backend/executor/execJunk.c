@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * execJunk.c
- *	  Junk attribute support stuff....
+ *	  junk 属性支撑代码。      
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -17,32 +17,32 @@
 #include "executor/executor.h"
 
 /*-------------------------------------------------------------------------
- *		XXX this stuff should be rewritten to take advantage
- *			of ExecProject() and the ProjectionInfo node.
+ *		XXX 这部分代码应当重写，以利用         
+ *			ExecProject() 与 ProjectionInfo 节点。   
  *			-cim 6/3/91
  *
- * An attribute of a tuple living inside the executor, can be
- * either a normal attribute or a "junk" attribute. "junk" attributes
- * never make it out of the executor, i.e. they are never printed,
- * returned or stored on disk. Their only purpose in life is to
- * store some information useful only to the executor, mainly the values
- * of system attributes like "ctid", or sort key columns that are not to
- * be output.
+ * 执行器内部的元组属性可以是普通属性，    
+ * 也可以是 "junk" 属性。"junk" 属性绝不会               
+ * 离开执行器，即它们永远不会被打印、返回      
+ * 或存入磁盘。它们存在的唯一目的，是保存   
+ * 一些仅对执行器有用的信息，主要是 "ctid" 这类       
+ * 系统属性的值，或者无须输出的排序键                  
+ * 列。    
  *
- * The general idea is the following: A target list consists of a list of
- * TargetEntry nodes containing expressions. Each TargetEntry has a field
- * called 'resjunk'. If the value of this field is true then the
- * corresponding attribute is a "junk" attribute.
+ * 总体思路如下：目标列表由一组包含表达式的          
+ * TargetEntry 节点构成。每个 TargetEntry 都有一个            
+ * 名为 'resjunk' 的字段。若该字段的值为 true，   
+ * 则对应属性就是 "junk" 属性。        
  *
- * When we initialize a plan we call ExecInitJunkFilter to create a filter.
+ * 初始化计划时，我们调用 ExecInitJunkFilter 创建过滤器。 
  *
- * We then execute the plan, treating the resjunk attributes like any others.
+ * 然后执行计划，将 resjunk 属性与其他属性同等对待。     
  *
- * Finally, when at the top level we get back a tuple, we can call
- * ExecFindJunkAttribute/ExecGetJunkAttribute to retrieve the values of the
- * junk attributes we are interested in, and ExecFilterJunk to remove all the
- * junk attributes from a tuple.  This new "clean" tuple is then printed,
- * inserted, or updated.
+ * 最后，在顶层得到元组时，我们可以调用         
+ * ExecFindJunkAttribute/ExecGetJunkAttribute 来获取我们所           
+ * 感兴趣的 junk 属性的值，并用 ExecFilterJunk 从元组          
+ * 中移除所有 junk 属性。这个新的 "干净" 元组随后被   
+ * 打印插入更新。
  *
  *-------------------------------------------------------------------------
  */
@@ -50,11 +50,11 @@
 /*
  * ExecInitJunkFilter
  *
- * Initialize the Junk filter.
+ * 初始化 Junk 过滤器。
  *
- * The source targetlist is passed in.  The output tuple descriptor is
- * built from the non-junk tlist entries.
- * An optional resultSlot can be passed as well; otherwise, we create one.
+ * 传入的是源目标列表。输出元组描述符由非 junk 的 
+ * tlist 条目构建而成。           
+ * 还可传入可选的 resultSlot；否则我们自行创建一个。   
  */
 JunkFilter *
 ExecInitJunkFilter(List *targetList, TupleTableSlot *slot)
@@ -65,12 +65,12 @@ ExecInitJunkFilter(List *targetList, TupleTableSlot *slot)
 	AttrNumber *cleanMap;
 
 	/*
-	 * Compute the tuple descriptor for the cleaned tuple.
+	 * 为清理后的元组计算其元组描述符。   
 	 */
 	cleanTupType = ExecCleanTypeFromTL(targetList);
 
 	/*
-	 * Use the given slot, or make a new slot if we weren't given one.
+	 * 使用给定的槽；若未给定，则新建一个槽。      
 	 */
 	if (slot)
 		ExecSetSlotDescriptor(slot, cleanTupType);
@@ -78,14 +78,14 @@ ExecInitJunkFilter(List *targetList, TupleTableSlot *slot)
 		slot = MakeSingleTupleTableSlot(cleanTupType, &TTSOpsVirtual);
 
 	/*
-	 * Now calculate the mapping between the original tuple's attributes and
-	 * the "clean" tuple's attributes.
+	 * 现在计算原始元组的属性与 "干净" 元组的属性        
+	 * 之间的映射关系。       
 	 *
-	 * The "map" is an array of "cleanLength" attribute numbers, i.e. one
-	 * entry for every attribute of the "clean" tuple. The value of this entry
-	 * is the attribute number of the corresponding attribute of the
-	 * "original" tuple.  (Zero indicates a NULL output attribute, but we do
-	 * not use that feature in this routine.)
+	 * "map" 是一个包含 "cleanLength" 个属性编号的数组，   
+	 * 即 "干净" 元组的每个属性各占一项。该条目的值       
+	 * 是 "原始" 元组中对应属性的属性号。            
+	 * （零值表示输出属性为 NULL，但本例程并不使用       
+	 * 该特性。）                       
 	 */
 	cleanLength = cleanTupType->natts;
 	if (cleanLength > 0)
@@ -111,7 +111,7 @@ ExecInitJunkFilter(List *targetList, TupleTableSlot *slot)
 		cleanMap = NULL;
 
 	/*
-	 * Finally create and initialize the JunkFilter struct.
+	 * 最后创建并初始化 JunkFilter 结构体。    
 	 */
 	junkfilter = makeNode(JunkFilter);
 
@@ -126,12 +126,12 @@ ExecInitJunkFilter(List *targetList, TupleTableSlot *slot)
 /*
  * ExecInitJunkFilterConversion
  *
- * Initialize a JunkFilter for rowtype conversions.
+ * 为行类型转换初始化一个 JunkFilter。 
  *
- * Here, we are given the target "clean" tuple descriptor rather than
- * inferring it from the targetlist.  The target descriptor can contain
- * deleted columns.  It is assumed that the caller has checked that the
- * non-deleted columns match up with the non-junk columns of the targetlist.
+ * 此处直接给定目标 "干净" 元组描述符，而不是     
+ * 从目标列表推断得出。目标描述符可以包含已删除  
+ * 的列。假定调用方已检查目标列表中非 junk 列        
+ * 与非删除列相匹配。                                              
  */
 JunkFilter *
 ExecInitJunkFilterConversion(List *targetList,
@@ -145,7 +145,7 @@ ExecInitJunkFilterConversion(List *targetList,
 	int			i;
 
 	/*
-	 * Use the given slot, or make a new slot if we weren't given one.
+	 * 使用给定的槽；若未给定，则新建一个槽。      
 	 */
 	if (slot)
 		ExecSetSlotDescriptor(slot, cleanTupType);
@@ -153,14 +153,14 @@ ExecInitJunkFilterConversion(List *targetList,
 		slot = MakeSingleTupleTableSlot(cleanTupType, &TTSOpsVirtual);
 
 	/*
-	 * Calculate the mapping between the original tuple's attributes and the
-	 * "clean" tuple's attributes.
+	 * 计算原始元组的属性与 "干净" 元组的属性之间的     
+	 * 映射关系。            
 	 *
-	 * The "map" is an array of "cleanLength" attribute numbers, i.e. one
-	 * entry for every attribute of the "clean" tuple. The value of this entry
-	 * is the attribute number of the corresponding attribute of the
-	 * "original" tuple.  We store zero for any deleted attributes, marking
-	 * that a NULL is needed in the output tuple.
+	 * "map" 是一个包含 "cleanLength" 个属性编号的数组，   
+	 * 即 "干净" 元组的每个属性各占一项。该条目的值       
+	 * 是 "原始" 元组中对应属性的属性号。            
+	 * 对于已删除的属性，我们存入零值，以表明输出     
+	 * 元组中需要 NULL。                   
 	 */
 	cleanLength = cleanTupType->natts;
 	if (cleanLength > 0)
@@ -170,7 +170,7 @@ ExecInitJunkFilterConversion(List *targetList,
 		for (i = 0; i < cleanLength; i++)
 		{
 			if (TupleDescAttr(cleanTupType, i)->attisdropped)
-				continue;		/* map entry is already zero */
+				continue;		/* 该映射项已经为零  */
 			for (;;)
 			{
 				TargetEntry *tle = lfirst(t);
@@ -188,7 +188,7 @@ ExecInitJunkFilterConversion(List *targetList,
 		cleanMap = NULL;
 
 	/*
-	 * Finally create and initialize the JunkFilter struct.
+	 * 最后创建并初始化 JunkFilter 结构体。    
 	 */
 	junkfilter = makeNode(JunkFilter);
 
@@ -203,8 +203,8 @@ ExecInitJunkFilterConversion(List *targetList,
 /*
  * ExecFindJunkAttribute
  *
- * Locate the specified junk attribute in the junk filter's targetlist,
- * and return its resno.  Returns InvalidAttrNumber if not found.
+ * 在 junk 过滤器的目标列表中定位指定的 junk 属性，  
+ * 并返回其 resno。找不到时返回 InvalidAttrNumber。  
  */
 AttrNumber
 ExecFindJunkAttribute(JunkFilter *junkfilter, const char *attrName)
@@ -215,8 +215,8 @@ ExecFindJunkAttribute(JunkFilter *junkfilter, const char *attrName)
 /*
  * ExecFindJunkAttributeInTlist
  *
- * Find a junk attribute given a subplan's targetlist (not necessarily
- * part of a JunkFilter).
+ * 给定子计划的目标列表来查找 junk 属性（未必属于 
+ * JunkFilter）。      
  */
 AttrNumber
 ExecFindJunkAttributeInTlist(List *targetlist, const char *attrName)
@@ -230,7 +230,7 @@ ExecFindJunkAttributeInTlist(List *targetlist, const char *attrName)
 		if (tle->resjunk && tle->resname &&
 			(strcmp(tle->resname, attrName) == 0))
 		{
-			/* We found it ! */
+			/* 找到了！  */
 			return tle->resno;
 		}
 	}
@@ -241,7 +241,7 @@ ExecFindJunkAttributeInTlist(List *targetlist, const char *attrName)
 /*
  * ExecFilterJunk
  *
- * Construct and return a slot with all the junk attributes removed.
+ * 构建并返回一个移除了全部 junk 属性的槽。        
  */
 TupleTableSlot *
 ExecFilterJunk(JunkFilter *junkfilter, TupleTableSlot *slot)
@@ -257,14 +257,14 @@ ExecFilterJunk(JunkFilter *junkfilter, TupleTableSlot *slot)
 	bool	   *old_isnull;
 
 	/*
-	 * Extract all the values of the old tuple.
+	 * 提取旧元组的所有属性值。    
 	 */
 	slot_getallattrs(slot);
 	old_values = slot->tts_values;
 	old_isnull = slot->tts_isnull;
 
 	/*
-	 * get info from the junk filter
+	 * 从 junk 过滤器取信息  
 	 */
 	cleanTupType = junkfilter->jf_cleanTupType;
 	cleanLength = cleanTupType->natts;
@@ -272,14 +272,14 @@ ExecFilterJunk(JunkFilter *junkfilter, TupleTableSlot *slot)
 	resultSlot = junkfilter->jf_resultSlot;
 
 	/*
-	 * Prepare to build a virtual result tuple.
+	 * 准备构建一个虚拟结果元组。 
 	 */
 	ExecClearTuple(resultSlot);
 	values = resultSlot->tts_values;
 	isnull = resultSlot->tts_isnull;
 
 	/*
-	 * Transpose data into proper fields of the new tuple.
+	 * 把数据转置到新元组的相应字段中。   
 	 */
 	for (i = 0; i < cleanLength; i++)
 	{
@@ -298,7 +298,7 @@ ExecFilterJunk(JunkFilter *junkfilter, TupleTableSlot *slot)
 	}
 
 	/*
-	 * And return the virtual tuple.
+	 * 再返回该虚拟元组。  
 	 */
 	return ExecStoreVirtualTuple(resultSlot);
 }

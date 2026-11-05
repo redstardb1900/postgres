@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeMemoize.c
- *	  Routines to handle caching of results from parameterized nodes
+ *	  处理参数化节点结果缓存的例程。                 
  *
  * Portions Copyright (c) 2021-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -10,57 +10,57 @@
  * IDENTIFICATION
  *	  src/backend/executor/nodeMemoize.c
  *
- * Memoize nodes are intended to sit above parameterized nodes in the plan
- * tree in order to cache results from them.  The intention here is that a
- * repeat scan with a parameter value that has already been seen by the node
- * can fetch tuples from the cache rather than having to re-scan the inner
- * node all over again.  The query planner may choose to make use of one of
- * these when it thinks rescans for previously seen values are likely enough
- * to warrant adding the additional node.
+ * Memoize 节点旨在置于计划树中参数化节点之上，         
+ * 以便缓存这些节点的结果。其意图在于：                 
+ * 当节点已见过某参数值后再次扫描时，                      
+ * 可以直接从缓存取元组，而无需重新扫描内节点。     
+ * 查询规划器若认为对曾见值的重扫足够常见、            
+ * 值得为此多加一个节点，就可能选用                         
+ * Memoize。                            
  *
- * The method of cache we use is a hash table.  When the cache fills, we never
- * spill tuples to disk, instead, we choose to evict the least recently used
- * cache entry from the cache.  We remember the least recently used entry by
- * always pushing new entries and entries we look for onto the tail of a
- * doubly linked list.  This means that older items always bubble to the top
- * of this LRU list.
+ * 我们采用的缓存方法是哈希表。当缓存填满时，            
+ * 我们从不将元组溢写到磁盘，而是改为淘汰                
+ * 缓存中最近最少使用的条目。我们将新条目                
+ * 与待查条目总是压入双向链表尾部，以此记住         
+ * 最近最少使用的条目。旧条目在此 LRU 链上总会           
+ * 浮向链顶。  
  *
- * Sometimes our callers won't run their scans to completion. For example a
- * semi-join only needs to run until it finds a matching tuple, and once it
- * does, the join operator skips to the next outer tuple and does not execute
- * the inner side again on that scan.  Because of this, we must keep track of
- * when a cache entry is complete, and by default, we know it is when we run
- * out of tuples to read during the scan.  However, there are cases where we
- * can mark the cache entry as complete without exhausting the scan of all
- * tuples.  One case is unique joins, where the join operator knows that there
- * will only be at most one match for any given outer tuple.  In order to
- * support such cases we allow the "singlerow" option to be set for the cache.
- * This option marks the cache entry as complete after we read the first tuple
- * from the subnode.
+ * 有时调用者不会把扫描运行到底。例如半连接            
+ * 只需运行到找到匹配元组为止，一旦找到，               
+ * 连接算子就会跳到下一个外元组，且在本次扫              
+ * 描中不再执行内侧。因此我们必须跟踪缓存条              
+ * 目何时完整；默认情况下，我们知道当扫描中             
+ * 已无元组可读时它就完整了。不过在某些情况             
+ * 下，无需扫尽所有元组就能把缓存条目标记为           
+ * 完整。一种情况是唯一连接，此时连接算子知               
+ * 道对任一给定外元组至多只有一个匹配。为了          
+ * 支持这类情况，我们允许为缓存设置 "singlerow"               
+ * 选项：在读到子节点的第一个元组后，缓存条目            
+ * 即告完整。  
  *
- * It's possible when we're filling the cache for a given set of parameters
- * that we're unable to free enough memory to store any more tuples.  If this
- * happens then we'll have already evicted all other cache entries.  When
- * caching another tuple would cause us to exceed our memory budget, we must
- * free the entry that we're currently populating and move the state machine
- * into MEMO_CACHE_BYPASS_MODE.  This means that we'll not attempt to cache
- * any further tuples for this particular scan.  We don't have the memory for
- * it.  The state machine will be reset again on the next rescan.  If the
- * memory requirements to cache the next parameter's tuples are less
- * demanding, then that may allow us to start putting useful entries back into
- * the cache again.
+ * 在为某组参数填充缓存时，可能出现无法腾出            
+ * 足够内存来存放更多元组的情况。若真如此，              
+ * 则此时我们应已淘汰了其他所有缓存条目。当          
+ * 再缓存一个元组会超出内存预算时，我们必须             
+ * 释放正在填充的条目，并把状态机转入                      
+ * MEMO_CACHE_BYPASS_MODE。这意味着本次扫描                       
+ * 不再尝试为这个特定扫描缓存更多元组，因为              
+ * 我们没有那么多内存。状态机会在下次重扫时          
+ * 再次重置。若缓存下一组参数元组所需的内存     
+ * 较少，那便可能让我们重新开始向缓存放入有               
+ * 用条目。    
  *
  *
- * INTERFACE ROUTINES
- *		ExecMemoize			- lookup cache, exec subplan when not found
- *		ExecInitMemoize		- initialize node and subnodes
- *		ExecEndMemoize		- shutdown node and subnodes
- *		ExecReScanMemoize	- rescan the memoize node
+ * 接口例程      
+ *		ExecMemoize 查找缓存，未命中则执行子计划   
+ *		ExecInitMemoize 初始化节点及子节点    
+ *		ExecEndMemoize 关闭节点及子节点     
+ *		ExecReScanMemoize 重扫 memoize 节点    
  *
- *		ExecMemoizeEstimate		estimates DSM space needed for parallel plan
- *		ExecMemoizeInitializeDSM initialize DSM for parallel plan
- *		ExecMemoizeInitializeWorker attach to DSM info in parallel worker
- *		ExecMemoizeRetrieveInstrumentation get instrumentation from worker
+ *		ExecMemoizeEstimate 估算并行计划所需的 DSM 空间       
+ *		ExecMemoizeInitializeDSM 为并行计划初始化 DSM    
+ *		ExecMemoizeInitializeWorker 在并行 worker 中附着 DSM 信息
+ *		ExecMemoizeRetrieveInstrumentation 从 worker 获取统计信息  
  *-------------------------------------------------------------------------
  */
 
@@ -74,52 +74,52 @@
 #include "utils/datum.h"
 #include "utils/lsyscache.h"
 
-/* States of the ExecMemoize state machine */
-#define MEMO_CACHE_LOOKUP			1	/* Attempt to perform a cache lookup */
-#define MEMO_CACHE_FETCH_NEXT_TUPLE	2	/* Get another tuple from the cache */
-#define MEMO_FILLING_CACHE			3	/* Read outer node to fill cache */
+/* ExecMemoize 状态机的各状态       */
+#define MEMO_CACHE_LOOKUP			1	/* 尝试执行缓存查找          */
+#define MEMO_CACHE_FETCH_NEXT_TUPLE	2	/* 从缓存获取下一个元组   */
+#define MEMO_FILLING_CACHE			3	/* 读外侧节点以填充缓存*/
 #define MEMO_CACHE_BYPASS_MODE		4	/* Bypass mode.  Just read from our
 										 * subplan without caching anything */
-#define MEMO_END_OF_SCAN			5	/* Ready for rescan */
+#define MEMO_END_OF_SCAN			5	/* 准备好重扫  */
 
 
-/* Helper macros for memory accounting */
+/* 用于内存统计的辅助宏      */
 #define EMPTY_ENTRY_MEMORY_BYTES(e)		(sizeof(MemoizeEntry) + \
 										 sizeof(MemoizeKey) + \
 										 (e)->key->params->t_len);
 #define CACHE_TUPLE_BYTES(t)			(sizeof(MemoizeTuple) + \
 										 (t)->mintuple->t_len)
 
- /* MemoizeTuple Stores an individually cached tuple */
+ /* MemoizeTuple 存储单个被缓存的元组      */
 typedef struct MemoizeTuple
 {
-	MinimalTuple mintuple;		/* Cached tuple */
+	MinimalTuple mintuple;		/* 缓存元组 */
 	struct MemoizeTuple *next;	/* The next tuple with the same parameter
 								 * values or NULL if it's the last one */
 } MemoizeTuple;
 
 /*
  * MemoizeKey
- * The hash table key for cached entries plus the LRU list link
+ * 缓存条目的哈希表键，兼作 LRU 链表链接       
  */
 typedef struct MemoizeKey
 {
 	MinimalTuple params;
-	dlist_node	lru_node;		/* Pointer to next/prev key in LRU list */
+	dlist_node	lru_node;		/* LRU 链表 next/prev 键指针       */
 } MemoizeKey;
 
 /*
  * MemoizeEntry
- *		The data struct that the cache hash table stores
+ *		缓存哈希表所存储的数据结构         
  */
 typedef struct MemoizeEntry
 {
-	MemoizeKey *key;			/* Hash key for hash table lookups */
+	MemoizeKey *key;			/* 哈希表查找用的哈希键  */
 	MemoizeTuple *tuplehead;	/* Pointer to the first tuple or NULL if no
 								 * tuples are cached for this entry */
-	uint32		hash;			/* Hash value (cached) */
-	char		status;			/* Hash status */
-	bool		complete;		/* Did we read the outer plan to completion? */
+	uint32		hash;			/* 哈希值(已缓存)*/
+	char		status;			/* 哈希状态*/
+	bool		complete;		/* 我们是否已把外侧计划读完？   */
 } MemoizeEntry;
 
 
@@ -150,9 +150,9 @@ static bool MemoizeHash_equal(struct memoize_hash *tb,
 
 /*
  * MemoizeHash_hash
- *		Hash function for simplehash hashtable.  'key' is unused here as we
- *		require that all table lookups first populate the MemoizeState's
- *		probeslot with the key values to be looked up.
+ *		simplehash 的哈希函数。'key' 在此不用，因为要求     
+ *		所有表查找都先在 MemoizeState 的 probeslot 中填入   
+ *		待查找的键值。                         
  */
 static uint32
 MemoizeHash_hash(struct memoize_hash *tb, const MemoizeKey *key)
@@ -170,10 +170,10 @@ MemoizeHash_hash(struct memoize_hash *tb, const MemoizeKey *key)
 	{
 		for (int i = 0; i < numkeys; i++)
 		{
-			/* combine successive hashkeys by rotating */
+			/* 通过轮转合并相继的哈希键    */
 			hashkey = pg_rotate_left32(hashkey, 1);
 
-			if (!pslot->tts_isnull[i])	/* treat nulls as having hash key 0 */
+			if (!pslot->tts_isnull[i])	/* 把 NULL 当作哈希键 0 处理*/
 			{
 				FormData_pg_attribute *attr;
 				uint32		hkey;
@@ -193,10 +193,10 @@ MemoizeHash_hash(struct memoize_hash *tb, const MemoizeKey *key)
 
 		for (int i = 0; i < numkeys; i++)
 		{
-			/* combine successive hashkeys by rotating */
+			/* 通过轮转合并相继的哈希键    */
 			hashkey = pg_rotate_left32(hashkey, 1);
 
-			if (!pslot->tts_isnull[i])	/* treat nulls as having hash key 0 */
+			if (!pslot->tts_isnull[i])	/* 把 NULL 当作哈希键 0 处理*/
 			{
 				uint32		hkey;
 
@@ -213,9 +213,9 @@ MemoizeHash_hash(struct memoize_hash *tb, const MemoizeKey *key)
 
 /*
  * MemoizeHash_equal
- *		Equality function for confirming hash value matches during a hash
- *		table lookup.  'key2' is never used.  Instead the MemoizeState's
- *		probeslot is always populated with details of what's being looked up.
+ *		在哈希表查找期间用于确认哈希值匹配的相等函  
+ *		数。'key2' 从不被使用。MemoizeState 的 probeslot       
+ *		总会以被查找对象的详情来填充。                        
  */
 static bool
 MemoizeHash_equal(struct memoize_hash *tb, const MemoizeKey *key1,
@@ -226,7 +226,7 @@ MemoizeHash_equal(struct memoize_hash *tb, const MemoizeKey *key1,
 	TupleTableSlot *tslot = mstate->tableslot;
 	TupleTableSlot *pslot = mstate->probeslot;
 
-	/* probeslot should have already been prepared by prepare_probe_slot() */
+	/* probeslot 应已由 prepare_probe_slot() 准备好                  */
 	ExecStoreMinimalTuple(key1->params, tslot, false);
 
 	if (mstate->binary_mode)
@@ -250,11 +250,11 @@ MemoizeHash_equal(struct memoize_hash *tb, const MemoizeKey *key1,
 				break;
 			}
 
-			/* both NULL? they're equal */
+			/* 均为 NULL？相等     */
 			if (tslot->tts_isnull[i])
 				continue;
 
-			/* perform binary comparison on the two datums */
+			/* 对这两个 datum 执行二进制比较    */
 			attr = &tslot->tts_tupleDescriptor->attrs[i];
 			if (!datum_image_eq(tslot->tts_values[i], pslot->tts_values[i],
 								attr->attbyval, attr->attlen))
@@ -276,24 +276,24 @@ MemoizeHash_equal(struct memoize_hash *tb, const MemoizeKey *key1,
 }
 
 /*
- * Initialize the hash table to empty.
+ * 把哈希表初始化为空。     
  */
 static void
 build_hash_table(MemoizeState *mstate, uint32 size)
 {
-	/* Make a guess at a good size when we're not given a valid size. */
+	/* 当未传入有效大小时，先猜测一个合适的值。   */
 	if (size == 0)
 		size = 1024;
 
-	/* memoize_create will convert the size to a power of 2 */
+	/* memoize_create 会把该大小转换为 2 的幂     */
 	mstate->hashtable = memoize_create(mstate->tableContext, size, mstate);
 }
 
 /*
  * prepare_probe_slot
- *		Populate mstate's probeslot with the values from the tuple stored
- *		in 'key'.  If 'key' is NULL, then perform the population by evaluating
- *		mstate's param_exprs.
+ *		用 'key' 中所存元组的值来填充 mstate 的 probeslot。 
+ *		若 'key' 为 NULL，则通过求值 mstate 的 param_exprs           
+ *		来执行填充。   
  */
 static inline void
 prepare_probe_slot(MemoizeState *mstate, MemoizeKey *key)
@@ -311,7 +311,7 @@ prepare_probe_slot(MemoizeState *mstate, MemoizeKey *key)
 
 		oldcontext = MemoryContextSwitchTo(econtext->ecxt_per_tuple_memory);
 
-		/* Set the probeslot's values based on the current parameter values */
+		/* 依据当前参数值设置 probeslot 的各值                  */
 		for (int i = 0; i < numKeys; i++)
 			pslot->tts_values[i] = ExecEvalExpr(mstate->param_exprs[i],
 												econtext,
@@ -321,7 +321,7 @@ prepare_probe_slot(MemoizeState *mstate, MemoizeKey *key)
 	}
 	else
 	{
-		/* Process the key's MinimalTuple and store the values in probeslot */
+		/* 处理该键的 MinimalTuple 并把值存入 probeslot           */
 		ExecStoreMinimalTuple(key->params, tslot, false);
 		slot_getallattrs(tslot);
 		memcpy(pslot->tts_values, tslot->tts_values, sizeof(Datum) * numKeys);
@@ -333,9 +333,9 @@ prepare_probe_slot(MemoizeState *mstate, MemoizeKey *key)
 
 /*
  * entry_purge_tuples
- *		Remove all tuples from the cache entry pointed to by 'entry'.  This
- *		leaves an empty cache entry.  Also, update the memory accounting to
- *		reflect the removal of the tuples.
+ *		从 'entry' 所指的缓存条目中移除所有元组。          
+ *		这会留下一个空缓存条目。同时更新内存统计，    
+ *		以反映元组的移除。       
  */
 static inline void
 entry_purge_tuples(MemoizeState *mstate, MemoizeEntry *entry)
@@ -349,7 +349,7 @@ entry_purge_tuples(MemoizeState *mstate, MemoizeEntry *entry)
 
 		freed_mem += CACHE_TUPLE_BYTES(tuple);
 
-		/* Free memory used for this tuple */
+		/* 释放该元组占用的内存  */
 		pfree(tuple->mintuple);
 		pfree(tuple);
 
@@ -359,13 +359,13 @@ entry_purge_tuples(MemoizeState *mstate, MemoizeEntry *entry)
 	entry->complete = false;
 	entry->tuplehead = NULL;
 
-	/* Update the memory accounting */
+	/* 更新内存统计           */
 	mstate->mem_used -= freed_mem;
 }
 
 /*
  * remove_cache_entry
- *		Remove 'entry' from the cache and free memory used by it.
+ *		从缓存中移除 'entry' 并释放其占用的内存。
  */
 static void
 remove_cache_entry(MemoizeState *mstate, MemoizeEntry *entry)
@@ -374,17 +374,17 @@ remove_cache_entry(MemoizeState *mstate, MemoizeEntry *entry)
 
 	dlist_delete(&entry->key->lru_node);
 
-	/* Remove all of the tuples from this entry */
+	/* 移除该条目中的全部元组        */
 	entry_purge_tuples(mstate, entry);
 
 	/*
-	 * Update memory accounting. entry_purge_tuples should have already
-	 * subtracted the memory used for each cached tuple.  Here we just update
-	 * the amount used by the entry itself.
+	 * 更新内存统计。entry_purge_tuples 应已扣减过         
+	 * 每个缓存元组所占用的内存。这里我们只需更新       
+	 * 条目本身占用的数量。      
 	 */
 	mstate->mem_used -= EMPTY_ENTRY_MEMORY_BYTES(entry);
 
-	/* Remove the entry from the cache */
+	/* 从缓存中移除该条目     */
 	memoize_delete_item(mstate->hashtable, entry);
 
 	pfree(key->params);
@@ -393,7 +393,7 @@ remove_cache_entry(MemoizeState *mstate, MemoizeEntry *entry)
 
 /*
  * cache_purge_all
- *		Remove all items from the cache
+ *		移除缓存内全部条目。 
  */
 static void
 cache_purge_all(MemoizeState *mstate)
@@ -402,122 +402,122 @@ cache_purge_all(MemoizeState *mstate)
 	PlanState  *pstate = (PlanState *) mstate;
 
 	/*
-	 * Likely the most efficient way to remove all items is to just reset the
-	 * memory context for the cache and then rebuild a fresh hash table.  This
-	 * saves having to remove each item one by one and pfree each cached tuple
+	 * 移除全部条目最高效的方式，很可能就是直接重置    
+	 * 缓存的内存上下文，然后重建一个全新哈希表。        
+	 * 这样就免去了逐个移除条目并 pfree 各缓存元组          
 	 */
 	MemoryContextReset(mstate->tableContext);
 
-	/* Make the hash table the same size as the original size */
+	/* 让哈希表恢复为原来的大小                   */
 	build_hash_table(mstate, ((Memoize *) pstate->plan)->est_entries);
 
-	/* reset the LRU list */
+	/* 重置 LRU 链表  */
 	dlist_init(&mstate->lru_list);
 	mstate->last_tuple = NULL;
 	mstate->entry = NULL;
 
 	mstate->mem_used = 0;
 
-	/* XXX should we add something new to track these purges? */
-	mstate->stats.cache_evictions += evictions; /* Update Stats */
+	/* XXX 是否该新增手段来跟踪这些清除？      */
+	mstate->stats.cache_evictions += evictions; /* 更新统计 */
 }
 
 /*
  * cache_reduce_memory
- *		Evict older and less recently used items from the cache in order to
- *		reduce the memory consumption back to something below the
- *		MemoizeState's mem_limit.
+ *		从缓存中淘汰较旧、最近最少使用的条目，以使    
+ *		内存消耗重新降回 MemoizeState 的 mem_limit      
+ *		之下。                
  *
- * 'specialkey', if not NULL, causes the function to return false if the entry
- * which the key belongs to is removed from the cache.
+ * 'specialkey' 若不为 NULL，则当该键所属的条目被               
+ * 从缓存中移除时，函数会返回 false。   
  */
 static bool
 cache_reduce_memory(MemoizeState *mstate, MemoizeKey *specialkey)
 {
-	bool		specialkey_intact = true;	/* for now */
+	bool		specialkey_intact = true;	/* 暂时  */
 	dlist_mutable_iter iter;
 	uint64		evictions = 0;
 
-	/* Update peak memory usage */
+	/* 更新内存峰值用量 */
 	if (mstate->mem_used > mstate->stats.mem_peak)
 		mstate->stats.mem_peak = mstate->mem_used;
 
-	/* We expect only to be called when we've gone over budget on memory */
+	/* 预期只有在内存超预算时才会被调用                  */
 	Assert(mstate->mem_used > mstate->mem_limit);
 
-	/* Start the eviction process starting at the head of the LRU list. */
+	/* 从 LRU 链表头部开始执行淘汰流程。                  */
 	dlist_foreach_modify(iter, &mstate->lru_list)
 	{
 		MemoizeKey *key = dlist_container(MemoizeKey, lru_node, iter.cur);
 		MemoizeEntry *entry;
 
 		/*
-		 * Populate the hash probe slot in preparation for looking up this LRU
-		 * entry.
+		 * 填充哈希探测槽，为此 LRU 条目的查找做准           
+		 * 备。
 		 */
 		prepare_probe_slot(mstate, key);
 
 		/*
-		 * Ideally the LRU list pointers would be stored in the entry itself
-		 * rather than in the key.  Unfortunately, we can't do that as the
-		 * simplehash.h code may resize the table and allocate new memory for
-		 * entries which would result in those pointers pointing to the old
-		 * buckets.  However, it's fine to use the key to store this as that's
-		 * only referenced by a pointer in the entry, which of course follows
-		 * the entry whenever the hash table is resized.  Since we only have a
-		 * pointer to the key here, we must perform a hash table lookup to
-		 * find the entry that the key belongs to.
+		 * 理想情况下 LRU 链表指针应直接存放在条目本      
+		 * 身中而不是键中。遗憾的是我们做不到这一点，
+		 * 因为 simplehash.h 的代码可能调整表大小并为条目    
+		 * 分配新内存，这会使那些指针指向旧的桶。不过 
+		 * 用键来存放这些是可行的，因为键只被条目中的    
+		 * 一个指针所引用，而该指针当然会随哈希表调整   
+		 * 大小而一起移动。既然这里我们只持有指向键的    
+		 * 指针，所以必须执行一次哈希表查找，才能找到
+		 * 该键所属的条目。               
 		 */
 		entry = memoize_lookup(mstate->hashtable, NULL);
 
 		/*
-		 * Sanity check that we found the entry belonging to the LRU list
-		 * item.  A misbehaving hash or equality function could cause the
-		 * entry not to be found or the wrong entry to be found.
+		 * 健全性检查：确认找到的是该 LRU 链               
+		 * 表项所属的条目。行为异常的哈希或相等函数  
+		 * 可能导致找不到条目或找错条目。        
 		 */
 		if (unlikely(entry == NULL || entry->key != key))
 			elog(ERROR, "could not find memoization table entry");
 
 		/*
-		 * If we're being called to free memory while the cache is being
-		 * populated with new tuples, then we'd better take some care as we
-		 * could end up freeing the entry which 'specialkey' belongs to.
-		 * Generally callers will pass 'specialkey' as the key for the cache
-		 * entry which is currently being populated, so we must set
-		 * 'specialkey_intact' to false to inform the caller the specialkey
-		 * entry has been removed.
+		 * 若在缓存正被填充新元组时被调用去释放内存 
+		 * 则最好多加小心，因为我们可能最终释放掉       
+		 * 'specialkey' 所属的条目。通常调用者会把         
+		 * 'specialkey' 作为正在被填充的缓存条目的键传入， 
+		 * 因此我们必须把 'specialkey_intact' 置为        
+		 * false，以告知调用者 specialkey                           
+		 * 条目已被移除。  
 		 */
 		if (key == specialkey)
 			specialkey_intact = false;
 
 		/*
-		 * Finally remove the entry.  This will remove from the LRU list too.
+		 * 最后移除该条目。这也会把它从 LRU 链表移除。    
 		 */
 		remove_cache_entry(mstate, entry);
 
 		evictions++;
 
-		/* Exit if we've freed enough memory */
+		/* 若已腾出足够内存则退出 */
 		if (mstate->mem_used <= mstate->mem_limit)
 			break;
 	}
 
-	mstate->stats.cache_evictions += evictions; /* Update Stats */
+	mstate->stats.cache_evictions += evictions; /* 更新统计 */
 
 	return specialkey_intact;
 }
 
 /*
  * cache_lookup
- *		Perform a lookup to see if we've already cached tuples based on the
- *		scan's current parameters.  If we find an existing entry we move it to
- *		the end of the LRU list, set *found to true then return it.  If we
- *		don't find an entry then we create a new one and add it to the end of
- *		the LRU list.  We also update cache memory accounting and remove older
- *		entries if we go over the memory budget.  If we managed to free enough
- *		memory we return the new entry, else we return NULL.
+ *		执行一次查找，看是否已基于扫描的当前参数缓    
+ *		存过元组。若找到已有条目，就把它移到 LRU 链        
+ *		表尾部，置 *found 为 true 然后返回它。若没          
+ *		有找到条目，则创建一个新条目并加到 LRU 链表       
+ *		尾部。我们还会更新缓存内存统计，并在超出内       
+ *		存预算时移除较旧的条目。若成功腾出足够内存，    
+ *		则返回新条目，否则返回 NULL。           
  *
- * Callers can assume we'll never return NULL when *found is true.
+ * *found 为 true 时调用者可认定绝不会返回 NULL。   
  */
 static MemoizeEntry *
 cache_lookup(MemoizeState *mstate, bool *found)
@@ -526,20 +526,20 @@ cache_lookup(MemoizeState *mstate, bool *found)
 	MemoizeEntry *entry;
 	MemoryContext oldcontext;
 
-	/* prepare the probe slot with the current scan parameters */
+	/* 用当前扫描参数准备探测槽                    */
 	prepare_probe_slot(mstate, NULL);
 
 	/*
-	 * Add the new entry to the cache.  No need to pass a valid key since the
-	 * hash function uses mstate's probeslot, which we populated above.
+	 * 把新条目加入缓存。无需传入有效键，因为哈希       
+	 * 函数使用的是上面已填充的 mstate probeslot。        
 	 */
 	entry = memoize_insert(mstate->hashtable, NULL, found);
 
 	if (*found)
 	{
 		/*
-		 * Move existing entry to the tail of the LRU list to mark it as the
-		 * most recently used item.
+		 * 把已有条目移到 LRU 链表尾部，以标记它是         
+		 * 最近使用的条目。
 		 */
 		dlist_move_tail(&mstate->lru_list, &entry->key->lru_node);
 
@@ -548,20 +548,20 @@ cache_lookup(MemoizeState *mstate, bool *found)
 
 	oldcontext = MemoryContextSwitchTo(mstate->tableContext);
 
-	/* Allocate a new key */
+	/* 分配一个新键 */
 	entry->key = key = (MemoizeKey *) palloc(sizeof(MemoizeKey));
 	key->params = ExecCopySlotMinimalTuple(mstate->probeslot);
 
-	/* Update the total cache memory utilization */
+	/* 更新缓存的总内存占用量         */
 	mstate->mem_used += EMPTY_ENTRY_MEMORY_BYTES(entry);
 
-	/* Initialize this entry */
+	/* 初始化该条目    */
 	entry->complete = false;
 	entry->tuplehead = NULL;
 
 	/*
-	 * Since this is the most recently used entry, push this entry onto the
-	 * end of the LRU list.
+	 * 由于这是最近使用的条目，故将其压入 LRU 链表      
+	 * 的末端。        
 	 */
 	dlist_push_tail(&mstate->lru_list, &entry->key->lru_node);
 
@@ -570,37 +570,37 @@ cache_lookup(MemoizeState *mstate, bool *found)
 	MemoryContextSwitchTo(oldcontext);
 
 	/*
-	 * If we've gone over our memory budget, then we'll free up some space in
-	 * the cache.
+	 * 如果我们已超出内存预算，那么将在缓存中腾出       
+	 * 空间。 
 	 */
 	if (mstate->mem_used > mstate->mem_limit)
 	{
 		/*
-		 * Try to free up some memory.  It's highly unlikely that we'll fail
-		 * to do so here since the entry we've just added is yet to contain
-		 * any tuples and we're able to remove any other entry to reduce the
-		 * memory consumption.
+		 * 尝试腾出一些内存。这里失败的可能性极小，因  
+		 * 为我们刚添加的条目尚未包含任何元组，而且我 
+		 * 们可以移除任何其他条目来减少内存                 
+		 * 消耗。          
 		 */
 		if (unlikely(!cache_reduce_memory(mstate, key)))
 			return NULL;
 
 		/*
-		 * The process of removing entries from the cache may have caused the
-		 * code in simplehash.h to shuffle elements to earlier buckets in the
-		 * hash table.  If it has, we'll need to find the entry again by
-		 * performing a lookup.  Fortunately, we can detect if this has
-		 * happened by seeing if the entry is still in use and that the key
-		 * pointer matches our expected key.
+		 * 从缓存中移除条目的过程可能已使 simplehash.h        
+		 * 中的代码把元素挪到哈希表中更早的桶里。若是   
+		 * 这样，就需再次执行查找来找到该条目。       
+		 * 幸运的是，我们可以检测这种情况是否发生，
+		 * 方法是看该条目是否仍在使用中，且键指针与我 
+		 * 们预期的键相符。         
 		 */
 		if (entry->status != memoize_SH_IN_USE || entry->key != key)
 		{
 			/*
-			 * We need to repopulate the probeslot as lookups performed during
-			 * the cache evictions above will have stored some other key.
+			 * 我们需要重新填充 probeslot，因为上述缓存淘     
+			 * 汰期间执行的查找已存入了其他键。          
 			 */
 			prepare_probe_slot(mstate, key);
 
-			/* Re-find the newly added entry */
+			/* 重新找到刚添加的条目*/
 			entry = memoize_lookup(mstate->hashtable, NULL);
 			Assert(entry != NULL);
 		}
@@ -611,10 +611,10 @@ cache_lookup(MemoizeState *mstate, bool *found)
 
 /*
  * cache_store_tuple
- *		Add the tuple stored in 'slot' to the mstate's current cache entry.
- *		The cache entry must have already been made with cache_lookup().
- *		mstate's last_tuple field must point to the tail of mstate->entry's
- *		list of tuples.
+ *		把 'slot' 中存储的元组加入 mstate 的当前缓存条目。
+ *		该缓存条目必须已由 cache_lookup() 创建。            
+ *		mstate 的 last_tuple 字段必须指向 mstate->entry 的元组   
+ *		列表末尾。
  */
 static bool
 cache_store_tuple(MemoizeState *mstate, TupleTableSlot *slot)
@@ -632,20 +632,20 @@ cache_store_tuple(MemoizeState *mstate, TupleTableSlot *slot)
 	tuple->mintuple = ExecCopySlotMinimalTuple(slot);
 	tuple->next = NULL;
 
-	/* Account for the memory we just consumed */
+	/* 统计我们刚刚消耗的内存       */
 	mstate->mem_used += CACHE_TUPLE_BYTES(tuple);
 
 	if (entry->tuplehead == NULL)
 	{
 		/*
-		 * This is the first tuple for this entry, so just point the list head
-		 * to it.
+		 * 这是该条目的第一个元组，因此只需让列表头部指 
+		 * 向它
 		 */
 		entry->tuplehead = tuple;
 	}
 	else
 	{
-		/* push this tuple onto the tail of the list */
+		/* 把该元组压入列表尾部            */
 		mstate->last_tuple->next = tuple;
 	}
 
@@ -653,8 +653,8 @@ cache_store_tuple(MemoizeState *mstate, TupleTableSlot *slot)
 	MemoryContextSwitchTo(oldcontext);
 
 	/*
-	 * If we've gone over our memory budget then free up some space in the
-	 * cache.
+	 * 如果我们已超出内存预算，就在缓存中腾出一些空 
+	 * 间。
 	 */
 	if (mstate->mem_used > mstate->mem_limit)
 	{
@@ -664,22 +664,22 @@ cache_store_tuple(MemoizeState *mstate, TupleTableSlot *slot)
 			return false;
 
 		/*
-		 * The process of removing entries from the cache may have caused the
-		 * code in simplehash.h to shuffle elements to earlier buckets in the
-		 * hash table.  If it has, we'll need to find the entry again by
-		 * performing a lookup.  Fortunately, we can detect if this has
-		 * happened by seeing if the entry is still in use and that the key
-		 * pointer matches our expected key.
+		 * 从缓存中移除条目的过程可能已使 simplehash.h        
+		 * 中的代码把元素挪到哈希表中更早的桶里。若是   
+		 * 这样，就需再次执行查找来找到该条目。       
+		 * 幸运的是，我们可以检测这种情况是否发生，
+		 * 方法是看该条目是否仍在使用中，且键指针与我 
+		 * 们预期的键相符。         
 		 */
 		if (entry->status != memoize_SH_IN_USE || entry->key != key)
 		{
 			/*
-			 * We need to repopulate the probeslot as lookups performed during
-			 * the cache evictions above will have stored some other key.
+			 * 我们需要重新填充 probeslot，因为上述缓存淘     
+			 * 汰期间执行的查找已存入了其他键。          
 			 */
 			prepare_probe_slot(mstate, key);
 
-			/* Re-find the entry */
+			/* 再找该条目   */
 			mstate->entry = entry = memoize_lookup(mstate->hashtable, NULL);
 			Assert(entry != NULL);
 		}
@@ -699,8 +699,8 @@ ExecMemoize(PlanState *pstate)
 	CHECK_FOR_INTERRUPTS();
 
 	/*
-	 * Reset per-tuple memory context to free any expression evaluation
-	 * storage allocated in the previous tuple cycle.
+	 * 重置每元组内存上下文，以释放上一个元组周期 
+	 * 中分配的表达式求值存储。          
 	 */
 	ResetExprContext(econtext);
 
@@ -715,34 +715,34 @@ ExecMemoize(PlanState *pstate)
 				Assert(node->entry == NULL);
 
 				/*
-				 * We're only ever in this state for the first call of the
-				 * scan.  Here we have a look to see if we've already seen the
-				 * current parameters before and if we have already cached a
-				 * complete set of records that the outer plan will return for
-				 * these parameters.
+				 * 仅扫描首次调用会进入此状态。在此我们 
+				 * 要看之前是否见过当前参数，以及是否已缓  
+				 * 存外侧计划为这些参数将返回的               
+				 * 完整                                                     
+				 * 记录集。     
 				 *
-				 * When we find a valid cache entry, we'll return the first
-				 * tuple from it. If not found, we'll create a cache entry and
-				 * then try to fetch a tuple from the outer scan.  If we find
-				 * one there, we'll try to cache it.
+				 * 当找到有效缓存条目时，返回其中第一个  
+				 * 元组。若未找到，则创建缓存条目，           
+				 * 然后从外侧扫描获取元组。若在那里找到    
+				 * 就会尝试缓存它。         
 				 */
 
-				/* see if we've got anything cached for the current parameters */
+				/* 看看是否已为当前参数缓存了任何内容         */
 				entry = cache_lookup(node, &found);
 
 				if (found && entry->complete)
 				{
-					node->stats.cache_hits += 1;	/* stats update */
+					node->stats.cache_hits += 1;	/* 更新统计 */
 
 					/*
-					 * Set last_tuple and entry so that the state
-					 * MEMO_CACHE_FETCH_NEXT_TUPLE can easily find the next
-					 * tuple for these parameters.
+					 * 设置 last_tuple 和 entry，使状态   
+					 * MEMO_CACHE_FETCH_NEXT_TUPLE 能轻松找到这些   
+					 * 参数的下一个元组。
 					 */
 					node->last_tuple = entry->tuplehead;
 					node->entry = entry;
 
-					/* Fetch the first cached tuple, if there is one */
+					/* 若有则取第一个缓存元组             */
 					if (entry->tuplehead)
 					{
 						node->mstatus = MEMO_CACHE_FETCH_NEXT_TUPLE;
@@ -754,38 +754,38 @@ ExecMemoize(PlanState *pstate)
 						return slot;
 					}
 
-					/* The cache entry is void of any tuples. */
+					/* 该缓存条目中没有任何元组。*/
 					node->mstatus = MEMO_END_OF_SCAN;
 					return NULL;
 				}
 
-				/* Handle cache miss */
-				node->stats.cache_misses += 1;	/* stats update */
+				/* 处理缓存缺失*/
+				node->stats.cache_misses += 1;	/* 更新统计 */
 
 				if (found)
 				{
 					/*
-					 * A cache entry was found, but the scan for that entry
-					 * did not run to completion.  We'll just remove all
-					 * tuples and start again.  It might be tempting to
-					 * continue where we left off, but there's no guarantee
-					 * the outer node will produce the tuples in the same
-					 * order as it did last time.
+					 * 此时会找到缓存条目，但针对该条目的 
+					 * 扫描并未运行到底。我们只需移除    
+					 * 元组并重新开始。从上次中断处继续
+					 * 处理虽然诱人，但无法保证外侧节点仍 
+					 * 会按照与上次扫描相同的顺序来产出  
+					 * 这些元组。           
 					 */
 					entry_purge_tuples(node, entry);
 				}
 
-				/* Scan the outer node for a tuple to cache */
+				/* 扫描外侧节点找可缓存的元组  */
 				outerNode = outerPlanState(node);
 				outerslot = ExecProcNode(outerNode);
 				if (TupIsNull(outerslot))
 				{
 					/*
-					 * cache_lookup may have returned NULL due to failure to
-					 * free enough cache space, so ensure we don't do anything
-					 * here that assumes it worked. There's no need to go into
-					 * bypass mode here as we're setting mstatus to end of
-					 * scan.
+					 * cache_lookup 可能因腾不出足够缓存空间而 
+					 * 返回 NULL，因此这里不要做任何假定它     
+					 * 已成功的操作。这里无需进入旁路模式， 
+					 * 因为我们正把 mstatus 置为扫描结         
+					 * 束  
 					 */
 					if (likely(entry))
 						entry->complete = true;
@@ -797,28 +797,28 @@ ExecMemoize(PlanState *pstate)
 				node->entry = entry;
 
 				/*
-				 * If we failed to create the entry or failed to store the
-				 * tuple in the entry, then go into bypass mode.
+				 * 若创建条目失败，或向条目存元组失败， 
+				 * 则进入旁路模式。                     
 				 */
 				if (unlikely(entry == NULL ||
 							 !cache_store_tuple(node, outerslot)))
 				{
-					node->stats.cache_overflows += 1;	/* stats update */
+					node->stats.cache_overflows += 1;	/* 更新统计 */
 
 					node->mstatus = MEMO_CACHE_BYPASS_MODE;
 
 					/*
-					 * No need to clear out last_tuple as we'll stay in bypass
-					 * mode until the end of the scan.
+					 * 无需清空 last_tuple，因为在扫描结束前我  
+					 * 们会保持旁路模式。    
 					 */
 				}
 				else
 				{
 					/*
-					 * If we only expect a single row from this scan then we
-					 * can mark that we're not expecting more.  This allows
-					 * cache lookups to work even when the scan has not been
-					 * executed to completion.
+					 * 若预期此扫描只返回单行，那么可以     
+					 * 标记不再期待更多行。这样，即使扫描 
+					 * 尚未真正执行完毕，缓存查找也能正常  
+					 * 工作。              
 					 */
 					entry->complete = node->singlerow;
 					node->mstatus = MEMO_FILLING_CACHE;
@@ -831,14 +831,14 @@ ExecMemoize(PlanState *pstate)
 
 		case MEMO_CACHE_FETCH_NEXT_TUPLE:
 			{
-				/* We shouldn't be in this state if these are not set */
+				/* 若这些未被设置，就不应处于此状态   */
 				Assert(node->entry != NULL);
 				Assert(node->last_tuple != NULL);
 
-				/* Skip to the next tuple to output */
+				/* 跳到下一个待输出的元组*/
 				node->last_tuple = node->last_tuple->next;
 
-				/* No more tuples in the cache */
+				/* 缓存中没有更多元组 */
 				if (node->last_tuple == NULL)
 				{
 					node->mstatus = MEMO_END_OF_SCAN;
@@ -857,43 +857,43 @@ ExecMemoize(PlanState *pstate)
 				TupleTableSlot *outerslot;
 				MemoizeEntry *entry = node->entry;
 
-				/* entry should already have been set by MEMO_CACHE_LOOKUP */
+				/* entry 应已由 MEMO_CACHE_LOOKUP 设置好             */
 				Assert(entry != NULL);
 
 				/*
-				 * When in the MEMO_FILLING_CACHE state, we've just had a
-				 * cache miss and are populating the cache with the current
-				 * scan tuples.
+				 * 处于 MEMO_FILLING_CACHE 状态时，我们刚遭遇 
+				 * 了缓存未命中，正用当前扫描元组填充缓  
+				 * 存。      
 				 */
 				outerNode = outerPlanState(node);
 				outerslot = ExecProcNode(outerNode);
 				if (TupIsNull(outerslot))
 				{
-					/* No more tuples.  Mark it as complete */
+					/* 已无元组，标记为完整。    */
 					entry->complete = true;
 					node->mstatus = MEMO_END_OF_SCAN;
 					return NULL;
 				}
 
 				/*
-				 * Validate if the planner properly set the singlerow flag. It
-				 * should only set that if each cache entry can, at most,
-				 * return 1 row.
+				 * 校验规划器是否正确设置了 singlerow 标志。   
+				 * 只有当每个条目至多能返回 1 行时才应设
+				 * 置它。    
 				 */
 				if (unlikely(entry->complete))
 					elog(ERROR, "cache entry already complete");
 
-				/* Record the tuple in the current cache entry */
+				/* 把该元组记录到当前缓存条目中  */
 				if (unlikely(!cache_store_tuple(node, outerslot)))
 				{
-					/* Couldn't store it?  Handle overflow */
-					node->stats.cache_overflows += 1;	/* stats update */
+					/* 没能存入？处理溢出         */
+					node->stats.cache_overflows += 1;	/* 更新统计 */
 
 					node->mstatus = MEMO_CACHE_BYPASS_MODE;
 
 					/*
-					 * No need to clear out entry or last_tuple as we'll stay
-					 * in bypass mode until the end of the scan.
+					 * 无需清空 entry 或 last_tuple，因为在扫描结
+					 * 束前我们会保持旁路模式。     
 					 */
 				}
 
@@ -907,9 +907,9 @@ ExecMemoize(PlanState *pstate)
 				TupleTableSlot *outerslot;
 
 				/*
-				 * When in bypass mode we just continue to read tuples without
-				 * caching.  We need to wait until the next rescan before we
-				 * can come out of this mode.
+				 * 处于旁路模式时，只是继续读取元组而不     
+				 * 进行缓存。需要等到下一次重扫之后才能   
+				 * 退出此模式。        
 				 */
 				outerNode = outerPlanState(node);
 				outerslot = ExecProcNode(outerNode);
@@ -927,8 +927,8 @@ ExecMemoize(PlanState *pstate)
 		case MEMO_END_OF_SCAN:
 
 			/*
-			 * We've already returned NULL for this scan, but just in case
-			 * something calls us again by mistake.
+			 * 本次扫描我们已经返回过 NULL，但以防有什么
+			 * 东西误再次调用我们。      
 			 */
 			return NULL;
 
@@ -948,7 +948,7 @@ ExecInitMemoize(Memoize *node, EState *estate, int eflags)
 	int			nkeys;
 	Oid		   *eqfuncoids;
 
-	/* check for unsupported flags */
+	/* 检查不支持的标志    */
 	Assert(!(eflags & (EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK)));
 
 	mstate->ss.ps.plan = (Plan *) node;
@@ -956,9 +956,9 @@ ExecInitMemoize(Memoize *node, EState *estate, int eflags)
 	mstate->ss.ps.ExecProcNode = ExecMemoize;
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * create expression context for node
+	 * 为节点创建表达式上下文 
 	 */
 	ExecAssignExprContext(estate, &mstate->ss.ps);
 
@@ -966,21 +966,21 @@ ExecInitMemoize(Memoize *node, EState *estate, int eflags)
 	outerPlanState(mstate) = ExecInitNode(outerNode, estate, eflags);
 
 	/*
-	 * Initialize return slot and type. No need to initialize projection info
-	 * because this node doesn't do projections.
+	 * 初始化返回槽和类型。无需初始化投影信息，          
+	 * 因为该节点不做投影。           
 	 */
 	ExecInitResultTupleSlotTL(&mstate->ss.ps, &TTSOpsMinimalTuple);
 	mstate->ss.ps.ps_ProjInfo = NULL;
 
 	/*
-	 * Initialize scan slot and type.
+	 * 初始化扫描槽和类型。
 	 */
 	ExecCreateScanSlotFromOuterPlan(estate, &mstate->ss, &TTSOpsMinimalTuple);
 
 	/*
-	 * Set the state machine to lookup the cache.  We won't find anything
-	 * until we cache something, but this saves a special case to create the
-	 * first entry.
+	 * 把状态机设为查找缓存。在缓存了内容之前我      
+	 * 们不会找到任何东西，但这省去了创建首个条         
+	 * 目特例。
 	 */
 	mstate->mstatus = MEMO_CACHE_LOOKUP;
 
@@ -1026,10 +1026,10 @@ ExecInitMemoize(Memoize *node, EState *estate, int eflags)
 	pfree(eqfuncoids);
 	mstate->mem_used = 0;
 
-	/* Limit the total memory consumed by the cache to this */
+	/* 把缓存消耗的总内存限制为此值           */
 	mstate->mem_limit = get_hash_memory_limit();
 
-	/* A memory context dedicated for the cache */
+	/* 专用于缓存的内存上下文        */
 	mstate->tableContext = AllocSetContextCreate(CurrentMemoryContext,
 												 "MemoizeHashTable",
 												 ALLOCSET_DEFAULT_SIZES);
@@ -1039,26 +1039,26 @@ ExecInitMemoize(Memoize *node, EState *estate, int eflags)
 	mstate->entry = NULL;
 
 	/*
-	 * Mark if we can assume the cache entry is completed after we get the
-	 * first record for it.  Some callers might not call us again after
-	 * getting the first match. e.g. A join operator performing a unique join
-	 * is able to skip to the next outer tuple after getting the first
-	 * matching inner tuple.  In this case, the cache entry is complete after
-	 * getting the first tuple.  This allows us to mark it as so.
+	 * 标记取到某缓存条目的第一条记录后，我们是否    
+	 * 可以认定该条目已完成。有些调用者在得到第    
+	 * 一个匹配后就不会再调用我们。例如执行唯一连       
+	 * 接的连接算子，在得到第一个匹配的内元组后   
+	 * 便能跳到下一个外元组。此时缓存条目在取到          
+	 * 第一个元组后即完成，因此可如此标记。    
 	 */
 	mstate->singlerow = node->singlerow;
 	mstate->keyparamids = node->keyparamids;
 
 	/*
-	 * Record if the cache keys should be compared bit by bit, or logically
-	 * using the type's hash equality operator
+	 * 记录缓存键应逐位比较，还是用该类型的哈希        
+	 * 相等算子做逻辑比较。         
 	 */
 	mstate->binary_mode = node->binary_mode;
 
-	/* Zero the statistics counters */
+	/* 统计计数器清零        */
 	memset(&mstate->stats, 0, sizeof(MemoizeInstrumentation));
 
-	/* Allocate and set up the actual cache */
+	/* 分配并设置实际的缓存       */
 	build_hash_table(mstate, node->est_entries);
 
 	return mstate;
@@ -1068,7 +1068,7 @@ void
 ExecEndMemoize(MemoizeState *node)
 {
 #ifdef USE_ASSERT_CHECKING
-	/* Validate the memory accounting code is correct in assert builds. */
+	/* 在断言构建中校验内存统计代码是否正确。        */
 	{
 		int			count;
 		uint64		mem = 0;
@@ -1097,15 +1097,15 @@ ExecEndMemoize(MemoizeState *node)
 #endif
 
 	/*
-	 * When ending a parallel worker, copy the statistics gathered by the
-	 * worker back into shared memory so that it can be picked up by the main
-	 * process to report in EXPLAIN ANALYZE.
+	 * 结束并行 worker 时，把该 worker 收集的统计信息     
+	 * 复制回共享内存，以便主进程能取用它们并在          
+	 * EXPLAIN ANALYZE 中报告。         
 	 */
 	if (node->shared_info != NULL && IsParallelWorker())
 	{
 		MemoizeInstrumentation *si;
 
-		/* Make mem_peak available for EXPLAIN */
+		/* 让 mem_peak 可供 EXPLAIN 使用  */
 		if (node->stats.mem_peak == 0)
 			node->stats.mem_peak = node->mem_used;
 
@@ -1114,20 +1114,20 @@ ExecEndMemoize(MemoizeState *node)
 		memcpy(si, &node->stats, sizeof(MemoizeInstrumentation));
 	}
 
-	/* Remove the cache context */
+	/* 移除缓存上下文    */
 	MemoryContextDelete(node->tableContext);
 
 	ExecClearTuple(node->ss.ss_ScanTupleSlot);
-	/* must drop pointer to cache result tuple */
+	/* 必须丢弃缓存结果元组指针    */
 	ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
 
 	/*
-	 * free exprcontext
+	 * 释放上下文 
 	 */
 	ExecFreeExprContext(&node->ss.ps);
 
 	/*
-	 * shut down the subplan
+	 * 关闭子计划      
 	 */
 	ExecEndNode(outerPlanState(node));
 }
@@ -1137,23 +1137,23 @@ ExecReScanMemoize(MemoizeState *node)
 {
 	PlanState  *outerPlan = outerPlanState(node);
 
-	/* Mark that we must lookup the cache for a new set of parameters */
+	/* 标记必须为一组新参数查找缓存                     */
 	node->mstatus = MEMO_CACHE_LOOKUP;
 
-	/* nullify pointers used for the last scan */
+	/* 将上次扫描所用的指针置空    */
 	node->entry = NULL;
 	node->last_tuple = NULL;
 
 	/*
-	 * if chgParam of subnode is not null then plan will be re-scanned by
-	 * first ExecProcNode.
+	 * 如果子节点的 chgParam 非空，则计划会在第一次     
+	 * 调用时重扫。 
 	 */
 	if (outerPlan->chgParam == NULL)
 		ExecReScan(outerPlan);
 
 	/*
-	 * Purge the entire cache if a parameter changed that is not part of the
-	 * cache key.
+	 * 如果变化的参数不属于缓存键的一部分，则清空整个
+	 * 缓存。 
 	 */
 	if (bms_nonempty_difference(outerPlan->chgParam, node->keyparamids))
 		cache_purge_all(node);
@@ -1161,8 +1161,8 @@ ExecReScanMemoize(MemoizeState *node)
 
 /*
  * ExecEstimateCacheEntryOverheadBytes
- *		For use in the query planner to help it estimate the amount of memory
- *		required to store a single entry in the cache.
+ *		供查询规划器使用，帮助它估算在缓存中存            
+ *		储单个条目所需的内存量。          
  */
 double
 ExecEstimateCacheEntryOverheadBytes(double ntuples)
@@ -1172,14 +1172,14 @@ ExecEstimateCacheEntryOverheadBytes(double ntuples)
 }
 
 /* ----------------------------------------------------------------
- *						Parallel Query Support
+ *						并行查询支持    
  * ----------------------------------------------------------------
  */
 
  /* ----------------------------------------------------------------
   *		ExecMemoizeEstimate
   *
-  *		Estimate space required to propagate memoize statistics.
+  *		估算传播 memoize 统计信息所需的空间。     
   * ----------------------------------------------------------------
   */
 void
@@ -1187,7 +1187,7 @@ ExecMemoizeEstimate(MemoizeState *node, ParallelContext *pcxt)
 {
 	Size		size;
 
-	/* don't need this if not instrumenting or no workers */
+	/* 若未启用统计或没有 worker 则无需此项 */
 	if (!node->ss.ps.instrument || pcxt->nworkers == 0)
 		return;
 
@@ -1200,7 +1200,7 @@ ExecMemoizeEstimate(MemoizeState *node, ParallelContext *pcxt)
 /* ----------------------------------------------------------------
  *		ExecMemoizeInitializeDSM
  *
- *		Initialize DSM space for memoize statistics.
+ *		为 memoize 统计初始化 DSM 空间。   
  * ----------------------------------------------------------------
  */
 void
@@ -1208,14 +1208,14 @@ ExecMemoizeInitializeDSM(MemoizeState *node, ParallelContext *pcxt)
 {
 	Size		size;
 
-	/* don't need this if not instrumenting or no workers */
+	/* 若未启用统计或没有 worker 则无需此项 */
 	if (!node->ss.ps.instrument || pcxt->nworkers == 0)
 		return;
 
 	size = offsetof(SharedMemoizeInfo, sinstrument)
 		+ pcxt->nworkers * sizeof(MemoizeInstrumentation);
 	node->shared_info = shm_toc_allocate(pcxt->toc, size);
-	/* ensure any unfilled slots will contain zeroes */
+	/* 确保所有未填充的槽都包含零       */
 	memset(node->shared_info, 0, size);
 	node->shared_info->num_workers = pcxt->nworkers;
 	shm_toc_insert(pcxt->toc, node->ss.ps.plan->plan_node_id,
@@ -1225,7 +1225,7 @@ ExecMemoizeInitializeDSM(MemoizeState *node, ParallelContext *pcxt)
 /* ----------------------------------------------------------------
  *		ExecMemoizeInitializeWorker
  *
- *		Attach worker to DSM space for memoize statistics.
+ *		把 worker 附着到 memoize 统计 DSM 空间。 
  * ----------------------------------------------------------------
  */
 void
@@ -1238,7 +1238,7 @@ ExecMemoizeInitializeWorker(MemoizeState *node, ParallelWorkerContext *pwcxt)
 /* ----------------------------------------------------------------
  *		ExecMemoizeRetrieveInstrumentation
  *
- *		Transfer memoize statistics from DSM to private memory.
+ *		把 memoize 统计信息从 DSM 传到私有内存。  
  * ----------------------------------------------------------------
  */
 void

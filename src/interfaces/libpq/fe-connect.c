@@ -113,9 +113,9 @@ static int	ldapServiceLookup(const char *purl, PQconninfoOption *options,
 #endif
 
 /*
- * 参数/环境变量未指定时的后备选项
-                                                 
-*/
+ * 若这些选项未由参数指定，也未由环境变量定义， 
+ * 则用以下后备选项
+ */
 #define DefaultHost		"localhost"
 #define DefaultOption	""
 #ifdef USE_SSL
@@ -174,11 +174,11 @@ typedef struct _internalPQconninfoOption
 	char	   *compiled;		/* 编译时内置的后备默认值  */
 	char	   *val;			/* 选项的当前值，或 NULL    */
 	char	   *label;			/* 连接对话框中字段的标签 */
-	char	   *dispchar;		/* 指示字段显示方式。取值：
-					 * ""原样 "*"密码隐藏
-					 * "D"调试默认不显                                                                  
-                                                   
-*/
+	char	   *dispchar;		/* Indicates how to display this field in a
+								 * 连接对话框中该字段的显示  
+								 * 方式。取值："" 原样显示，    
+								 * "*" 密码隐藏，"D" 调试不显示   
+								 * by default */
 	int			dispsize;		/* 对话框中字段的字符大小   */
 	/* ---
 		 * 此注释以上须与 libpq-fe.h 的
@@ -457,15 +457,15 @@ pgthreadlock_t pg_g_threadlock = default_threadlock;
 /*
  *		pqDropConnection
  *
- * 关闭物理连接，重置相关状态。
- * 不释放重连所需及后续可用状态。
+ * 关闭与服务器间任何物理连接，并重置连接对象  
+ * 内的相关状态。但并不释放重连所需的状态，    
+ * 也不释放以后可能仍会有用的本地状                      
+ * 态。          
  *
- * 输出缓冲可刷新，因不可能再发送。
- * 未处理输入可能有价值，调用者
- * 决定是否刷新。
-                                                                                                                    
-                                                                                                                  
-*/
+ * 输出缓冲区总是可以刷新的，因为其中的数据已无     
+ * 望再发送。不过，未经处理的输入数据可能仍有      
+ * 价值，因此调用者必须告知我们是否将其刷新。   
+ */
 void
 pqDropConnection(PGconn *conn, bool flushInput)
 {
@@ -656,25 +656,25 @@ pqDropServerData(PGconn *conn)
 /*
  *		PQconnectdbParams
  *
- * 用两个数组的连接信息通过 postmaster
- * 建连到 postgres 后端。
+ * 使用两个数组所给的连接信息，经 postmaster 建立      
+ * 到 postgres 后端的连接。            
  *
- * keywords 数组：
+ * keywords 数组定义如下：  
  *
- *	   const char *params[] = {"o1",
- *							"o2", NULL}
+ *	   const char *params[] = {"option1", "option2", NULL}
  *
- * values 数组：
+ * values 数组定义如下：  
  *
- *	   const char *values[] = {"v1",
- *							"v2", NULL}
+ *	   const char *values[] = {"value1", "value2", NULL}
  *
- * 返回 PGconn*；malloc 失败返 NULL。
- * status 为 CONNECTION_BAD 时部分
- * 字段可能置空。
+ * 返回一个 PGconn*，后续所有 libpq 调用都需要它；          
+ * 分配失败时返回 NULL。 
+ * 若返回连接的 status 字段为 CONNECTION_BAD，            
+ * 则某些字段可能被置空而不是含有有效值。          
  *
- * 无论成败应调 PQfinish（conn 非空时）。
-                                                                                                                                                                                                                                                          */
+ * 无论本次调用是否成功，都应调用 PQfinish（conn 非        
+ * NULL）。     
+ */
 PGconn *
 PQconnectdbParams(const char *const *keywords,
 				  const char *const *values,
@@ -710,26 +710,26 @@ PQpingParams(const char *const *keywords,
 /*
  *		PQconnectdb
  *
- * 用串中连接信息通过 postmaster
- * 建连到 postgres 后端。
+ * 使用一个字符串中的连接信息，经由 postmaster 建立   
+ * 到 postgres 后端的连接。          
  *
- * conninfo 是空格分隔的
+ * conninfo 字符串或者是一个以空白分隔的         
  *
  *	   option = value
  *
- * 列表或 URI（详见文档）。值含单引号
- * 时须 \' 转义。
+ * 定义列表，或者是一个 URI（详见文档）。值可以    
+ * 是不含空白的单一值，或是用单引号括起的字符     
+ * 串。如果值中的任何位置需要出现单引号，则必须用反 
+ * 斜杠转义，如 \'           
  *
- * 返回 PGconn*；malloc 失败返 NULL。
- * status 为 CONNECTION_BAD 时部分
- * 字段可能置空。
+ * 返回一个 PGconn*，后续所有 libpq 调用都需要它；          
+ * 分配失败时返回 NULL。 
+ * 若返回连接的 status 字段为 CONNECTION_BAD，            
+ * 则某些字段可能被置空而不是含有有效值。          
  *
- * 无论成败应调 PQfinish（conn 非空时）。
-                                                                                                               
-                                                                                                              
-                                                                                                             
-                                                                                                             
-*/
+ * 无论本次调用是否成功，都应调用 PQfinish（conn 非        
+ * NULL）。     
+ */
 PGconn *
 PQconnectdb(const char *conninfo)
 {
@@ -979,8 +979,8 @@ connectOptions1(PGconn *conn, const char *conninfo)
 }
 
 /*
- * 统计逗号分隔列表元素数。
-                           */
+ * 统计一个简单逗号分隔列表中的元素个数。     
+ */
 static int
 count_comma_separated_elems(const char *input)
 {
@@ -1014,9 +1014,9 @@ parse_comma_separated_list(char **startptr, bool *more)
 	size_t		len;
 
 	/*
-		 * 找当前元素尾：逗号或串尾。
-		                                                    
-*/
+	 * 查找当前元素的结尾；逗号或字符串结束符都       
+	 * 可作为终止符。
+	 */
 	e = s;
 	while (*e != '\0' && *e != ',')
 		++e;
@@ -1106,10 +1106,10 @@ connectOptions2(PGconn *conn)
 		}
 
 		/*
-			 * 若有 hostaddr，数组按其元素
-			 * 数分配，大小应正确。
-			                                                                              
-*/
+		 * 如果给定了 hostaddr，数组是按照 hostaddr 列表中  
+		 * 的元素数目分配的，所以它确实应当是正确的       
+		 * 大小。  
+		 */
 		Assert(!more);
 		Assert(i == conn->nconnhost);
 	}
@@ -1137,9 +1137,9 @@ connectOptions2(PGconn *conn)
 	}
 
 	/*
-		 * 对各槽位识别地址类型，
-		 * 无给定填默认地址。
-		                                                  */
+	 * 现在，对每个主机槽位，确定其地址说明的类型，     
+	 * 若什么都没给就填默认地址。  
+	 */
 	for (i = 0; i < conn->nconnhost; i++)
 	{
 		pg_conn_host *ch = &conn->connhost[i];
@@ -1176,12 +1176,12 @@ connectOptions2(PGconn *conn)
 	}
 
 	/*
-		 * 确定各主机名对应端口号。
-		 *
-		 * 端口可 null 或空，读时替为
-		 * DEF_PGPORT。
-		                                                                                                                                            
-*/
+	 * 接下来，为每个主机名算出对应的端口号。      
+	 *
+	 * 注意：与上面处理主机名不同，这里可能使端口字段  
+	 * 保持为 NULL 或空串。每次读到这样的字段时都以     
+	 *  DEF_PGPORT 替换。  
+	 */
 	if (conn->pgport != NULL && conn->pgport[0] != '\0')
 	{
 		char	   *s = conn->pgport;
@@ -1195,9 +1195,9 @@ connectOptions2(PGconn *conn)
 		}
 
 		/*
-			 * 仅一个端口则用于全部主机。
-			 * 否则端口数须同主机数。
-			                                               */
+		 * 如果恰好只给了一个端口，则所有主机都用它。  
+		 * 否则端口数必须与主机数完全相同。        
+		 */
 		if (i == 1 && !more)
 		{
 			for (i = 1; i < conn->nconnhost; i++)
@@ -1233,8 +1233,8 @@ connectOptions2(PGconn *conn)
 	}
 
 	/*
-		 * 无数据库名则默认同用户名
-		                        */
+	 * 若未给出数据库名，则默认它等同于用户名    
+	 */
 	if (conn->dbName == NULL || conn->dbName[0] == '\0')
 	{
 		free(conn->dbName);
@@ -1300,9 +1300,9 @@ connectOptions2(PGconn *conn)
 		bool		negated = false;
 
 		/*
-			 * 默认空允许集逐步添加。
-			                                       
-*/
+		 * 默认从空的允许选项集合开始，向其添加。        
+		 *    
+		 */
 		conn->auth_required = true;
 		conn->allowed_auth_methods = 0;
 
@@ -1326,9 +1326,9 @@ connectOptions2(PGconn *conn)
 				if (first)
 				{
 					/*
-						 * 切换许可集并减去。
-						                                               
-*/
+					 * 切换到宽松的允许选项集合，并从中  
+					 * 做减法。     
+					 */
 					conn->auth_required = false;
 					conn->allowed_auth_methods = -1;
 				}
@@ -1437,9 +1437,9 @@ connectOptions2(PGconn *conn)
 	duplicate:
 
 			/*
-				 * 重复方法可能表明
-				 * 设置有错别字。
-				                                           */
+			 * 方法重复可能表明某处设置有拼写错误，而 
+			 * 这类设置拼错极危险。  
+			 */
 			conn->status = CONNECTION_BAD;
 			libpq_append_conn_error(conn, "require_auth method \"%s\" is specified more than once",
 									part);
@@ -1551,9 +1551,9 @@ connectOptions2(PGconn *conn)
 #endif
 
 	/*
-		 * 验证 SSL 协议版本范围
-		                                                              
-*/
+	 * 验证 TLS 协议版本：ssl_min_protocol_version 与         
+	 * ssl_max_protocol_version.
+	 */
 	if (!sslVerifyProtocolVersion(conn->ssl_min_protocol_version))
 	{
 		conn->status = CONNECTION_BAD;
@@ -1747,10 +1747,10 @@ connectOptions2(PGconn *conn)
 	}
 
 	/*
-		 * 到此方可连。（需状态标志
-		 * 非布尔，防 PQreset()。）
-		                                                                                                                      
-*/
+	 * 只有走到这一步才适合尝试连接。（我们需要一个状  
+	 * 态标志，而非仅仅是该函数的布尔结果，以防有人  
+	 * 对 PGconn 调用 PQreset()。）           
+	 */
 	conn->options_valid = true;
 
 	return true;
@@ -2080,10 +2080,10 @@ useKeepalives(PGconn *conn)
 }
 
 /*
- * 解析 "value" 为整数，成功则存
- * *result；有尾随垃圾或溢出报错。
-                                                                                                                                         
-*/
+ * 解析 "value" 并尝试将其解释为一个整数值，如果成功，  
+ * 则将它存入 *result；如果存在任何尾随垃圾或发生溢   
+ * 出，则报错。允许有任意数量的前导和尾随空白。    
+ */
 static bool
 parse_int_param(const char *value, int *result, PGconn *conn,
 				const char *context)
@@ -2100,16 +2100,16 @@ parse_int_param(const char *value, int *result, PGconn *conn,
 	numval = strtol(value, &end, 10);
 
 	/*
-	 * 解析无进展或出错则失败。
-	 * 可正检溢出。
-	                                                                 */
+	 * 如果解析过程中没有进展或发生错误，则返回失败。 
+	 * 这可以正确地检测结果是否溢出。   
+	 */
 	if (value == end || errno != 0 || numval != (int) numval)
 		goto error;
 
 	/*
-	 * 跳尾随空格；终止符前
-	 * 非空格残留则失败
-	                                                 */
+	 * 跳过任何尾随空白；如果在终止字符之前剩下的不是  
+	 * 空白，则失败。          
+	 */
 	while (*end != '\0' && isspace((unsigned char) *end))
 		end++;
 
@@ -2195,9 +2195,9 @@ setKeepalivesInterval(PGconn *conn)
 }
 
 /*
- * 设触发断连的丢包数。
-                                                  
-*/
+ * 设置丢失保活包的计数阈值，达到即触发连接断       
+ * 开。
+ */
 static int
 setKeepalivesCount(PGconn *conn)
 {
@@ -2432,10 +2432,10 @@ connectDBComplete(PGconn *conn)
 		if (timeout > 0)
 		{
 			/*
-			 * 舍入可致过快失败；
-			 * 坚持至少 2 秒。
-			                                                                                             
-*/
+			 * 舍入可能导致连接意外过快失败；为避免       
+			 * 几乎不等待的情况，我们坚持至少                
+			 * 两秒。   
+			 */
 			if (timeout < 2)
 				timeout = 2;
 		}
@@ -2516,30 +2516,30 @@ connectDBComplete(PGconn *conn)
 /* ----------------
  *		PQconnectPoll
  *
- * 轮询异步连接。
+ * 轮询一个异步连接。     
  *
- * 返回 PostgresPollingStatusType。
- * 调前用 select(2) 确数据已到。
+ * 返回 PostgresPollingStatusType。 
+ * 调用此函数之前，先用 select(2) 确定数据何时已经 
+ * 到达。    
  *
- * 无论成败必调 PQfinish。
+ * 无论是否失败都必须调用 PQfinish。    
  *
- * 与 PQconnectStart 配合实现非阻塞
- * 连接。注意事项：
+ * 本函数与 PQconnectStart 旨在允许连接的建立不因           
+ * 远程 I/O 阻塞你的程序的执行。但有一些注意事             
+ * 项：                        
  *
- *	 o	调 PQtrace 需确保流不阻塞。
- *	 o	不提供 IP（仅主机名）则
- *		PQconnectStart 在 getaddrinfo
- *		上阻塞。用 Unix 套接字
- *		（既不提供主机名也不提供
- *		主机地址）则无问题。
- *	 o	后端需 Kerberos 认证时必
- *		须同时提供主机名和地址，
- *		否则可能在 gethostname 上
- *		阻塞。
+ *	 o	调用 PQtrace 时，确保跟踪输出所写入的流对象           
+ *		不会阻塞。
+ *	 o	若不为远程主机提供 IP 地址（即你只提供了主机
+ *		名），则 PQconnectStart 将阻塞在 getaddrinfo 上。  
+ *		若使用 Unix 套接字（即既不给主机名也不给主 
+ *		机地址），则不会有问题。              
+ *	 o	如果你的后端想使用 Kerberos 认证，则你必须同时  
+ *		提供主机名和主机地址两者，否则该函数可能阻塞 
+ *		在 gethostname 上。   
  *
  * ----------------
-                                                                                                                                                                                                                                                                                                                                                                              
-*/
+ */
 PostgresPollingStatusType
 PQconnectPoll(PGconn *conn)
 {
@@ -2556,9 +2556,9 @@ PQconnectPoll(PGconn *conn)
 	switch (conn->status)
 	{
 			/*
-			 * 这两种不应轮询但可处理。
-			                                                
-*/
+			 * 这两种情况下本不该被轮询，但我们能够处理这
+			 * 种情况。  
+			 */
 		case CONNECTION_BAD:
 			return PGRES_POLLING_FAILED;
 		case CONNECTION_OK:
@@ -2653,10 +2653,10 @@ keep_going:						/* 回此处直到无事可做
 		release_conn_addrinfo(conn);
 
 		/*
-		 * 查新主机信息。失败记到
-		 * errorMessage 循环试下个。
-		                                                                                                                         
-*/
+		 * 查找新主机的信息。若失败，则把问题记录到  
+		 *  conn->errorMessage，然后循环回去尝试下一个主机。 
+		 * （注：成功前不清除 try_next_host。）     
+		 */
 		ch = &conn->connhost[conn->whichhost];
 
 		/* 初始化提示结构     */
@@ -2742,21 +2742,21 @@ keep_going:						/* 回此处直到无事可做
 			goto error_return;	/* 消息已录           */
 
 		/*
-		 * 随机负载均衡则打乱地址。
-		                          */
+		 * 若启用了随机负载均衡，则打乱地址顺序。    
+		 */
 		if (conn->load_balance_type == LOAD_BALANCE_RANDOM)
 		{
 			/*
-			 * Fisher-Yates"由内而外"。
-			 * 新值追加再与随机元素交换
-			 *（可含自身）。交换合插入。
+			 * 这是 Fisher-Yates 洗牌算法的"由内而外"变体。  
+			 * 概念上，我们把每个新值追加到数组中，然后
+			 * 让它与随机选中的一个数组元素交换（可能包括
+			 * 自身，否则无法生成最后一个整数排在末尾   
+			 * 的排列）。把交换步骤与插入合并即可       
+			 * 优化。                       
 			 *
-			 * 无需此初始化 prng_state，
-			 * connectOptions2 已做。
-			                                                                                                  
-                                                                                                 
-                                                                                                
-*/
+			 * 这里无需初始化 conn->prng_state，因为那一步       
+			 * 已在 connectOptions2 中完成。 
+			 */
 			for (int i = 1; i < conn->naddr; i++)
 			{
 				int			j = pg_prng_uint64_range(&conn->prng_state, 0, i);
@@ -2775,11 +2775,11 @@ keep_going:						/* 回此处直到无事可做
 	if (reset_connection_state_machine)
 	{
 		/*
-		 * (重)初始化连接控制变量，用于
-		 * 单服务器地址的若干尝试。
-		 * 各尝试间保持，新服务器时重置。
-		                                                                                                                          
-*/
+		 * （重新）初始化连接控制变量，用于对单个服 
+		 * 务器地址的一组连接尝试。这些变量必须在各次 
+		 * 单独的连接尝试之间保持不变，但当我们开始考
+		 * 虑一台新服务器时必须重置它们。     
+		 */
 		conn->pversion = PG_PROTOCOL(3, 0);
 		conn->send_appname = true;
 #ifdef USE_SSL
@@ -2876,9 +2876,9 @@ keep_going:						/* 回此处直到无事可做
 #ifdef SOCK_NONBLOCK
 
 					/*
-					 * 可顺便跳非阻塞系统调用。
-					                                            
-*/
+					 * 若可能，非阻塞模式也不妨省掉一次系
+					 * 统调用。        
+					 */
 					sock_type |= SOCK_NONBLOCK;
 #endif
 					conn->sock = socket(addr_cur->family, sock_type, 0);
@@ -3038,9 +3038,9 @@ keep_going:						/* 回此处直到无事可做
 #endif							/* SO_NOSIGPIPE */
 
 					/*
-					 * 发起连接。非阻塞不应阻塞。
-					                                                                          
-*/
+					 * 开始/建立连接。非阻塞模式下不应阻塞，
+					 * 但如果真的阻塞了，那也只好如此。 
+					 */
 					if (connect(conn->sock, (struct sockaddr *) &addr_cur->addr.addr,
 								addr_cur->addr.salen) < 0)
 					{
@@ -3051,10 +3051,10 @@ keep_going:						/* 回此处直到无事可做
 							SOCK_ERRNO == EINTR)
 						{
 							/*
-							 * 正常-非阻塞连接进行中。
-							 * 告知等可写。
-							                                                                                  
-*/
+							 * 这没问题 - 处于非阻塞模式，       
+							 * 连接正在进行中。告诉调用者等待 
+							 * 套接字可写。             
+							 */
 							conn->status = CONNECTION_STARTED;
 							return PGRES_POLLING_WRITING;
 						}
@@ -3063,10 +3063,10 @@ keep_going:						/* 回此处直到无事可做
 					else
 					{
 						/*
-						 * 已连-非阻塞未非阻塞。
-						 * 推进状态机。
-						                                                                                   
-*/
+						 * 嗯，已连接上了 --- 看来"非阻塞连接"  
+						 * 并非如此。推进状态机并继续做后续  
+						 * 工作。            
+						 */
 						conn->status = CONNECTION_STARTED;
 						goto keep_going;
 					}
@@ -3086,9 +3086,9 @@ keep_going:						/* 回此处直到无事可做
 				socklen_t	optlen = sizeof(optval);
 
 				/*
-				 * 可写，故连接已建。
-				                                                                     
-*/
+				 * 可写了，既然能走到这里，说明连接已经  
+				 * 建立 ... 或者已经失败。
+				 */
 
 				/*
 				 * getsockopt 检查待处理错误。
@@ -3294,11 +3294,11 @@ keep_going:						/* 回此处直到无事可做
 				}
 
 				/*
-					 * 发启动包。
-					 *
-					 * 理论可阻塞但不该。
-					                                                                                              
-*/
+				 * 发送启动数据包。
+				 *
+				 * 理论上这可能会阻塞，但实际不应如此，  
+				 * 因为只有套接字可写时才会走到这里。 
+				 */
 				if (pqPacketSend(conn, 0, startpacket, packetlen) != STATUS_OK)
 				{
 					libpq_append_conn_error(conn, "could not send startup packet: %s",
@@ -3329,10 +3329,10 @@ keep_going:						/* 回此处直到无事可做
 				if (!conn->ssl_in_use)
 				{
 					/*
-						 * 用 pqReadData 因有区分
-						 * 无数据和断连逻辑。
-						                                                                                                     
-*/
+					 * 这里使用 pqReadData，因为它有区分    
+					 * "暂无数据"和"连接关闭"这两种情况。     
+					 * conn->ssl 未设置，故发生普通 recv()。
+					 */
 					char		SSLok;
 					int			rdresult;
 
@@ -3388,11 +3388,11 @@ keep_going:						/* 回此处直到无事可做
 					else if (SSLok == 'E')
 					{
 						/*
-						 * 服务器故障如无法 fork
-						 * 后端。不取错误消息，
-						 * 因服务器未认证。
-						                                                                                                            
-*/
+						 * 某种服务器故障，例如无法 fork      
+						 * 后端进程。不必费心获取错误消息，
+						 * 我们不应信任它，因为服务器尚未完
+						 * 成认证。                          
+						 */
 						libpq_append_conn_error(conn, "server sent an error response during SSL exchange");
 						goto error_return;
 					}
@@ -3411,11 +3411,11 @@ keep_going:						/* 回此处直到无事可做
 				if (pollres == PGRES_POLLING_OK)
 				{
 					/*
-						 * 不应有已缓冲数据。若有
-						 * 是 SSL 握手前收到，未
-						 * 加密，可能是中间人注入。
-						                                                                                                        
-*/
+					 * 此时我们不应该已经有缓冲好的数据。   
+					 * 如果有，那它是在 SSL 握手之前收到的，
+					 * 所以它未被加密，而且实际上可能是由  
+					 * 中间人注入的。                
+					 */
 					if (conn->inCursor != conn->inEnd)
 					{
 						libpq_append_conn_error(conn, "received unencrypted data after SSL response");
@@ -3571,10 +3571,10 @@ keep_going:						/* 回此处直到无事可做
 				int			res;
 
 				/*
-				 * 从当前位置扫描消息（若已
-				 * 在缓冲则直接找到）。
-				                                                                                              
-*/
+				 * 从当前点开始扫描消息（注意：如果发现   
+				 * 消息不完整，将不前进 inStart 就返回，并     
+				 * 在下一次从这里继续）。   
+				 */
 				conn->inCursor = conn->inStart;
 
 				/* 读取类型   */
@@ -3605,18 +3605,18 @@ keep_going:						/* 回此处直到无事可做
 				}
 
 				/*
-				 * 先验消息长度。
+				 * 在使用之前先尝试验证消息长度。  
 				 *
-				 * 认证请求不能很大，虽无
-				 * 正式限制。SASL 或 GSS
-				 * 认证的长度可能来自库，
-				 * 可达 500MB。不直接分配
-				 * 大量内存——不能太信
-				 * 服务器正确性。
-				                                                                                              
-                                                                                            
-                                                                                            
-*/
+				 * 认证请求不会很大，但 GSS 认证请求          
+				 * 可能不小。NegotiateProtocolVersion       
+				 *  也是如此。         
+				 *
+				 * 错误消息可以稍大，但不会巨大。如果在   
+				 * 错误中看到很大的表观长度，则意味着     
+				 * 实际上我们是在与 pre-3.0 协议的服务器 
+				 * 通信；须应对。（版本 14 之前，服务器 
+				 * 在处理启动包前发生的错误也用旧协议。）  
+				 */
 				if (beresp == 'R' && (msgLength < 8 || msgLength > 2000))
 				{
 					libpq_append_conn_error(conn, "received invalid authentication request");
@@ -3680,10 +3680,10 @@ keep_going:						/* 回此处直到无事可做
 				if (avail < msgLength)
 				{
 					/*
-					 * 返回前试扩大输入缓冲
-					 * 以容整条消息。
-					                                                                      
-*/
+					 * 在返回前，若需要则扩大输入缓冲区以 
+					 * 容纳整条消息；详见                   
+					 * pqParseInput3.
+					 */
 					if (pqCheckInBufferSpace(conn->inCursor + (size_t) msgLength,
 											 conn))
 						goto error_return;
@@ -3959,9 +3959,9 @@ keep_going:						/* 回此处直到无事可做
 						sendTerminateConn(conn);
 
 						/*
-						 * 试下主机但不考虑
-						 * 更多地址。
-						                                                */
+						 * 若还有别的主机则尝试之，但不想考虑
+						 * 该主机的其他地址。        
+						 */
 						conn->try_next_host = true;
 						goto keep_going;
 					}
@@ -4014,9 +4014,9 @@ keep_going:						/* 回此处直到无事可做
 						sendTerminateConn(conn);
 
 						/*
-						 * 试下主机但不考虑
-						 * 更多地址。
-						                                                */
+						 * 若还有别的主机则尝试之，但不想考虑
+						 * 该主机的其他地址。        
+						 */
 						conn->try_next_host = true;
 						goto keep_going;
 					}
@@ -4040,13 +4040,13 @@ keep_going:						/* 回此处直到无事可做
 		case CONNECTION_CONSUME:
 			{
 				/*
-				 * 确获得结果后连接空闲。
-				 * 收到 NULL 后推进。
-				 *（还有数据不宜推进：
-				 * 可能无限循环。）
-				                                                                                                 
-                                                                                               
-*/
+				 * 此状态只是确保在获得 SHOW 或 SELECT 查询  
+				 * 的结果后，连接处于空闲。一旦确认没有    
+				 * 问题，就返回 CONNECTION_CHECK_TARGET 状态去决
+				 * 定下一步做什么。我们须临时把 status 设为 
+				 *  CONNECTION_OK，以便使用消费结果的子   
+				 * 程序。   
+				 */
 				conn->status = CONNECTION_OK;
 				if (!PQconsumeInput(conn))
 					goto error_return;
@@ -4197,12 +4197,12 @@ keep_going:						/* 回此处直到无事可做
 error_return:
 
 	/*
-	 * 曾在此关套接字，但使 PQreset
-	 * 尴尬。现改设阻塞模式（自行
-	 * 管理）并离循环。非连态不设
-	 * 阻塞。
-	                                                                                                                                                                                                   
-*/
+	 * 过去我们本来会在此时关闭套接字，但这会让上     
+	 * 层的调用者很难从他们自己的记录（例如一个        
+	 *  fd_set）中移除这个套接字。我们就让这个套接字    
+	 * 在调用 PQfinish 时关闭（即使出错之后也必须调用它， 
+	 * 因为连接结构必须被释放）。 
+	 */
 	conn->status = CONNECTION_BAD;
 	return PGRES_POLLING_FAILED;
 }
@@ -4242,19 +4242,19 @@ internal_ping(PGconn *conn)
 		return PQPING_OK;
 
 	/*
-	 * 无法从 postmaster 获 ERROR
-	 * 则报 PQPING_NO_RESPONSE。可
-	 * 因 pre-7.4 服务器、防火墙等。
-	 * 无响应也可表服务器拒 IP
-	 * 等。
+	 * 如果我们未能从 postmaster 得到任何 ERROR 响应，报  
+	 * 告 PQPING_NO_RESPONSE。对于一台 pre-7.4 服务器，这      
+	 * 个结果可能有些误导，因为它不会送回 SQLSTATE，但那  
+	 * 些服务器早已不再受支持。另一种服务器可能在无  
+	 * SQLSTATE 时返回失败的边角情况是 fork 失败，但对   
+	 * 这种情况 PQPING_NO_RESPONSE 也不算完全不合理。我们预期
+	 * 现代服务器中其他失败情形都产生带 SQLSTATE 的报告。
 	 *
-	 * 曾返 PQPING_NO_ATTEMPT 若
-	 * 未调 connectDBStart，现不
-	 * 区分。标准可改。
-	                                                                                                                                                                     
-                                                                                                                                                                    
-                                                                                                                                                                   
-*/
+	 * 注意：每当我们让 libpq 为客户端错误生成 SQLSTATE   
+	 * 时，要么别把它们存入 last_sqlstate，要么    
+	 * 加一个额外的标志，以便我们能区分客户端错误与服
+	 * 务器端错误。          
+	 */
 	if (strlen(conn->last_sqlstate) != 5)
 		return PQPING_NO_RESPONSE;
 
@@ -4530,9 +4530,9 @@ static void
 sendTerminateConn(PGconn *conn)
 {
 	/*
-	 * 协议不允许认证期间发终止。
-	                                                         
-*/
+	 * 注意：协议不允许我们在启动阶段发送 Terminate     
+	 *  消息。               
+	 */
 	if (conn->sock != PGINVALID_SOCKET && conn->status == CONNECTION_OK)
 	{
 		/*
@@ -4792,25 +4792,25 @@ optional_setsockopt(int fd, int protoid, int optid, int value)
 
 
 /*
- * PQcancel：请求查询取消
+ * PQcancel：请求取消查询 
  *
- * 取消请求成功派发返 true。
- *（若不确知取消已执行返 false，
- * 或无错误。）
+ * 若取消请求被成功派发则返回 true，否则返回    
+ * false（此时可得到一条错误消息）。                        
+ * 注意：成功派发并不能保证在后端会产生任何效果。     
+ * 应用程序必须照常读取操作结果。                         
  *
- * 成功派发不等同取消已执行！
- * 取消可能未执行因可能仍有
- * 数据传输。后端可能收到
- * 取消但拒执行。
+ * 失败时，一条错误消息会被存入 *errbuf，它的大小必须 
+ * 是 errbufsize（推荐 256 字节）。成功返回时不会改动   
+ *  *errbuf。    
  *
- * 对有超时或需取消隐式事务
- * 块的应用，建议在
- * PQgetResult 循环内调
- * PQcancel 并处理 cancel。
-                                                                                                                                                                                                              
-                                                                                                                                                                                                             
-                                                                                                                                                                                                            
-*/
+ * 小心：我们希望本例程能够从信号处理器中被安全地调 
+ * 用（例如，应用程序可能想在 SIGINT 处理器中调用）。 
+ * 这意味着我们不能使用任何可能不可重入的 C 库例程。   
+ * malloc/free 通常不可重入，任何可能调用它们的代码都    
+ * 同样危险。因此我们在此避免使用 sprintf。               
+ *  strcpy/strcat 构建错误消息虽繁琐但应相当安全。       
+ * 我们也保存/恢复 errno，以防信号处理机制没这样做。
+ */
 int
 PQcancel(PGcancel *cancel, char *errbuf, int errbufsize)
 {
@@ -4964,9 +4964,9 @@ retry5:
 cancel_errReturn:
 
 	/*
-	 * 确保不溢出错误缓冲。留 \n 空间。
-	                                                                    
-*/
+	 * 确保不会溢出错误缓冲区。在末尾为 \n 留出空间，    
+	 * 并为结束零字符留出空间。  
+	 */
 	maxlen = errbufsize - strlen(errbuf) - 2;
 	if (maxlen >= 0)
 	{
@@ -5598,10 +5598,10 @@ parseServiceInfo(PQconninfoOption *options, PQExpBuffer errorMessage)
 	struct stat stat_buf;
 
 	/*
-	 * 须特殊处理 PGSERVICE 因
-	 * 服务名默认由此指定。
-	                                                                                                               
-*/
+	 * 我们必须在这里对环境变量 PGSERVICE 进行特殊处理，  
+	 * 因为本函数在为其他连接选项插入环境默认值之前    
+	 * 就已且应被调用。 
+	 */
 	if (service == NULL)
 		service = getenv("PGSERVICE");
 
@@ -6147,10 +6147,10 @@ conninfo_array_parse(const char *const *keywords, const char *const *values,
 		if (strcmp(pname, "dbname") == 0 && pvalue)
 		{
 			/*
-			 * 若是连接串解析但不
-			 * 用默认值。
-			                                                                                                                               
-*/
+			 * 若 value 是连接串则解析它，但不要在这里  
+			 * 使用默认值——它们稍后才获取。我们只想  
+			 * 对传入的参数进行覆盖。             
+			 */
 			if (recognized_connection_string(pvalue))
 			{
 				dbname_options = parse_connection_string(pvalue, errorMessage, false);
@@ -6196,10 +6196,10 @@ conninfo_array_parse(const char *const *keywords, const char *const *values,
 			}
 
 			/*
-			 * 首个 dbname 且有解析
-			 * 连接串，替换现选项。
-			                                                                                                      
-*/
+			 * 若我们正处于第一个 dbname 参数上，且有一个  
+			 * 已解析好的连接串，则复制这些参数，覆盖任   
+			 * 何原有的先前设置。
+			 */
 			if (strcmp(pname, "dbname") == 0 && dbname_options)
 			{
 				PQconninfoOption *str_option;
@@ -6272,16 +6272,16 @@ conninfo_array_parse(const char *const *keywords, const char *const *values,
 }
 
 /*
- * 为未指定选项添加默认值。
+ * 把任何未指定选项的默认值添加到连接选项数组     
+ * 中。        
  *
- * 若有服务说明符用其获取
- * 未显式给的值。否则试环境
- * 变量。再否则用编译选项。
+ * 默认值从服务文件、环境变量等处获得。                
  *
- * 填充后仅连接串未指定的
- * 选项标 val=NULL，表示
- * 隐式设默认值。
-                                                                                                                                                    */
+ * 成功则返回 true，否则返回 false；如果提供了            
+ *  errorMessage，则失败时会被填入。注意：在这里找不    
+ * 到默认值不算错误情形；我们只是把该选项值留作    
+ * NULL.
+ */
 static bool
 conninfo_add_defaults(PQconninfoOption *options, PQExpBuffer errorMessage)
 {
@@ -6291,17 +6291,17 @@ conninfo_add_defaults(PQconninfoOption *options, PQExpBuffer errorMessage)
 	char	   *tmp;
 
 	/*
-	 * 若有服务说明符用其获取
-	 * 未显式给的值。
-	                                                                                                                                          
-*/
+	 * 如果有服务说明符，就用它获取任何未显式给出的  
+	 * 参数。如果没有传入错误消息缓冲区，则忽略错误， 
+	 * 因为失败消息无法传回。                
+	 */
 	if (parseServiceInfo(options, errorMessage) != 0 && errorMessage)
 		return false;
 
 	/*
-	 * 获取未指定参数的后备资源。
-	                                                            
-*/
+	 * 为没有在 conninfo 串或服务中指定的参数获取             
+	 * 后备资源。        
+	 */
 	for (option = options; option->keyword != NULL; option++)
 	{
 		if (strcmp(option->keyword, "sslrootcert") == 0)
@@ -6351,17 +6351,17 @@ conninfo_add_defaults(PQconninfoOption *options, PQExpBuffer errorMessage)
 			}
 
 			/*
-			 * sslmode 未指定。
-			 * 用编译默认填。
-			                                                                                                                          
-*/
+			 * 未指定 sslmode。暂时让它由编译进来的默认值填 
+			 * 入，但如果 sslrootcert=system，我们会在稍后返    
+			 * 回之前覆盖该默认值。 
+			 */
 			sslmode_default = option;
 		}
 
 		/*
-		 * 无环境变量或未设-试编译默认
-		                                                  
-*/
+		 * 未指定环境变量或该变量未设置 - 尝试编译进来  
+		 * 的默认值       
+		 */
 		if (option->compiled != NULL)
 		{
 			option->val = strdup(option->compiled);
@@ -6375,12 +6375,12 @@ conninfo_add_defaults(PQconninfoOption *options, PQExpBuffer errorMessage)
 		}
 
 		/*
-		 * "user" 选项特殊处理。注意
-		 * pg_fe_getauthname() 在其
-		 * 他方法前后也会失败而
-		 * 不存错误消息。
-		                                                                                                                                                                                                                       
-*/
+		 * 对 "user" 选项的特殊处理。注意若 pg_fe_getauthname     
+		 *  失败，我们只是把该值留为 NULL；如果调用者提供 
+		 * 了用户名，就无需把这当作错误情形。我们之所以 
+		 * 现在还要这样做，唯一原因是让 PQconndefaults 的    
+		 * 调用者能看到正确默认值（出错除外）。
+		 */
 		if (strcmp(option->keyword, "user") == 0)
 		{
 			option->val = pg_fe_getauthname(NULL);
@@ -6558,9 +6558,9 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 	}
 	else
 	{
-		/* 移过用户/密码                          
-                        
-*/
+		/*
+		 * 未找到用户名/密码指示符。重置到 URI 起点。  
+		 */
 		p = start;
 	}
 
@@ -6601,9 +6601,9 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 			*(p++) = '\0';
 
 			/*
-			 * 地址后可跟端口/斜杠/问号。
-			                                                           
-*/
+			 * 地址后面可以跟着端口说明符、斜杠、查询或   
+			 * 分隔用的逗号。      
+			 */
 			if (*p && *p != ':' && *p != '/' && *p != '?' && *p != ',')
 			{
 				libpq_append_error(errorMessage,
@@ -6618,9 +6618,9 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 			host = p;
 
 			/*
-			 * 找端口（冒号）或主机
-			 * 尾（斜杠）或问号。
-			                                                           */
+			 * 查找端口说明符（冒号）、主机结尾（斜  
+			 * 杠）或查询（问号）或主机分隔符（逗号）. 
+			 */
 			while (*p && *p != ':' && *p != '/' && *p != '?' && *p != ',')
 				++p;
 		}
@@ -6747,9 +6747,9 @@ conninfo_uri_parse_params(char *params,
 			else if (*p == '&' || *p == '\0')
 			{
 				/*
-				 * 若非尾，截值进；
-				 * p 指向 & 或尾。
-				                                                          */
+				 * 若不在末尾，截取值并前进；p 指向      
+				 * 下一个参数的开头（如果有的话）。
+				 */
 				if (*p != '\0')
 					*p++ = '\0';
 				/* 有 = 吗？          */
@@ -6905,13 +6905,13 @@ conninfo_uri_decode(const char *str, PQExpBuffer errorMessage)
 }
 
 /*
- * 十六进制数字字符转整数值。
+ * 把十六进制数字字符转换为它的整数值。   
  *
- * 成功返 true 值存 *value。
- * 不成功返 false。
-                                                                            
-                                                                           
-*/
+ * 如果成功，返回 true，且 value 填入该数字的基 16 数值。  
+ * 不成功则返回 false。      
+ *
+ * 在 A-F 范围内的小写和大写字母被等同对待。            
+ */
 static bool
 get_hexdigit(char digit, int *value)
 {
@@ -7019,9 +7019,9 @@ conninfo_storeval(PQconninfoOption *connOptions,
  * 在 connOptions 数组中查找关键字对应的 PQconninfoOption
  * 选项。         
  *
- * 成功时返回指向相应 PQconninfoOption 结构的指针          
- *           
- * 不成功时返回 NULL。      
+ * 如果成功，则返回指向相应 PQconninfoOption 结构的       
+ * 指针。 
+ * 如果失败则返回 NULL。   
  */
 static PQconninfoOption *
 conninfo_find(PQconninfoOption *connOptions, const char *keyword)
@@ -7679,17 +7679,17 @@ pgpassfileWarning(PGconn *conn)
 }
 
 /*
- * 检查 SSL 协议值是否有效。
- * 与 SSL 实现无关。
-                                                                                                                                   
-*/
+ * 检查输入中给出的 SSL 协议值是否有效。          
+ * 本例程用作连接参数 ssl_min_protocol_version 和            
+ *  ssl_max_protocol_version 的健全性检查。       
+ */
 static bool
 sslVerifyProtocolVersion(const char *version)
 {
 	/*
-	 * 空串和 NULL 视有效，
-	 * 等价不设。
-	                                                          */
+	 * 空字符串和 NULL 值被视为有效，因为等价于     
+	 * 忽略该参数。                   
+	 */
 	if (!version || strlen(version) == 0)
 		return true;
 

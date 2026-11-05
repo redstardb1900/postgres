@@ -567,18 +567,18 @@ EventTriggerCommonSetup(Node *parsetree,
 	List	   *runlist = NIL;
 
 	/*
-	  * 希望被调用的命令标签列表与 CREATE EVENT TRIGGER 接受的
-	  * 列表完全一致。若此函数被用于不被 CREATE EVENT TRIGGER
-	  * 接受的命令标签时，此调试交叉检查会报错。
-	  * （遗憾似乎没有简单、自动的方式验证 CREATE EVENT TRIGGER
-	  * 是否未接受永不抵达此控制点的额外标签。）
-	  *
-	  * 若此交叉检查失败，可能需要调整 standard_ProcessUtility()
-	  * 不为相关命令类型调用事件触发器，或调整 event_trigger_ok
-	  * 以接受相关命令标签。
-	  *
-	  *
-	  *
+	 * 我们希望本过程实际被调用的命令标签列表，能与   
+	 * CREATE EVENT TRIGGER 接受的列表完全一致。如果          
+	 * 本函数被一个 CREATE EVENT TRIGGER 不接受的命令      
+	 * 标签调用，这个调试交叉检查就会报错。（不幸      
+	 * 的是，似乎没有任何简单、自动化的方法可以验证     
+	 * CREATE EVENT TRIGGER 不会接受那些永远到不了该              
+	 * 控制点的多余内容。）    
+	 *
+	 * 如果这个交叉检查对你失败了，你可能需要调整      
+	 * standard_ProcessUtility()，不再针对出问题的命令类         
+	 * 型来调用事件触发器，或者调整 event_trigger_ok 来       
+	 * 接受相关标签。
 	 */
 #ifdef USE_ASSERT_CHECKING
 	{

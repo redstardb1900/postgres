@@ -1370,21 +1370,21 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 										   SUBOPT_COPY_DATA, &opts);
 
 				/*
-				  * 订阅选项 "two_phase" 要求复制已通过初始表
-				  * 同步阶段后 two_phase 才正确启用。
-				  *
-				  * 但一旦达到两阶段提交 "enabled" 状态，我们
-				  * 不得允许任何后续表初始化发生。因此当用户
-				  * 请求 two_phase = on 模式时，
-				  * ALTER SUBSCRIPTION ... REFRESH 不被允许。
-				  *
-				  * 此限制的例外是 copy_data = false，
-				  * 因为 copy_data 为 false 时表同步将以
-				  * READY 状态启动并直接退出而不做任何事。
-				  *
-				  * 更多详情参见 worker.c 顶部的注释。
-				  *
-				  *
+				 * 订阅选项 "two_phase" 要求复制已经      
+				 * 通过初始表同步阶段，two_phase 才能          
+				 * 被正确启用。                                  
+				 *
+				 * 但达到两阶段提交"已启用"状态后，就不    
+				 * 允许再做任何后续表初始化。故当用户     
+				 * 请求了 two_phase = on 模式时，ALTER                
+				 * SUBSCRIPTION ... REFRESH 不被允许。        
+				 *
+				 * 这一限制的例外是 copy_data =                 
+				 * false 的情形，因为当 copy_data 为 false 时，   
+				 * tablesync 将以 READY 状态启动并直接退出，      
+				 * 不做事。   
+				 *
+				 * 更多细节见 worker.c 顶部的注释。 
 				 */
 				if (sub->twophasestate == LOGICALREP_TWOPHASE_STATE_ENABLED && opts.copy_data)
 					ereport(ERROR,
@@ -1578,20 +1578,20 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 	ReleaseSysCache(tup);
 
 	/*
-	  * 立即停止所有订阅工作进程。
-	  *
-	  * 若需删除复制槽则此步骤必要，以使槽变为可用。
-	  *
-	  * 若订阅被禁用且在同事务中禁用，此步骤也必要。
-	  * 因工作进程尚未感知禁用且仍在运行，后续删除复制源
-	  * 时会导致挂起。若订阅在此事务之前就被禁用，
-	  * 则不应有剩余工作进程，此步骤无影响。
-	  *
-	  * 新工作进程不会启动，因我们持有订阅的排他锁
-	  * 直到事务结束。
-	  *
-	  *
-	  *
+	 * 立即停止所有订阅工作进程。       
+	 *
+	 * 如果我们要删除复制槽，那么这是必要的，这样该槽 
+	 * 才能变得可访问。
+	 *
+	 * 如果订阅已被禁用，且是在同一事务中被禁用的，   
+	 * 那么工作进程尚未看到禁用操作，仍会继续运         
+	 * 行，这会导致稍后我们删除复制源时发生挂起。      
+	 * 如果订阅在本事务之前已被禁用，那么应该不再      
+	 * 有任何工作进程留下来，所以不会有影响。          
+	 *                         
+	 *
+	 * 新的工作进程不会被启动，因为我们在事务结束前   
+	 * 一直持有该订阅上的排他锁。      
 	 */
 	LWLockAcquire(LogicalRepWorkerLock, LW_SHARED);
 	subworkers = logicalrep_workers_find(subid, false);
@@ -1662,8 +1662,8 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 	pgstat_drop_subscription(subid);
 
 	/*
-	  * 若无关联槽，可在此完成。
-	  *
+	 * 如果订阅没有关联的复制槽，那么即可到此结束。 
+	 *      
 	 */
 	if (!slotname && rstates == NIL)
 	{
@@ -1737,8 +1737,8 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 		list_free(rstates);
 
 		/*
-		  * 若有关联槽，则在发布者上删除复制槽。
-		  *
+		 * 如果订阅有关联的复制槽，那么就在发布者上      
+		 * 删除复制槽。                
 		 */
 		if (slotname)
 			ReplicationSlotDropAtPubNode(wrconn, slotname, false);

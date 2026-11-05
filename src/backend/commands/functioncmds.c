@@ -2146,32 +2146,32 @@ ExecuteDoStmt(ParseState *pstate, DoStmt *stmt, bool atomic)
 }
 
 /*
-	 * 执行 CALL 语句
-	 *
-	 * 在顶层 CALL 语句中，允许使用事务终止命令
-	 * （如 COMMIT 或 PL 特定等价命令）。SQL 标准中的
-	 * CALL 建立一个非原子执行上下文。大多数其他命令
-	 * 建立一个原子执行上下文，在其中不允许事务控制操作。
-	 * 如果存在嵌套的 CALL 执行，我们希望递归跟踪执行
-	 * 上下文，以便嵌套的 CALL 也能够进行事务控制。但请
-	 * 注意，例如在 CALL -> SELECT -> CALL 中，第二个
-	 * 调用不能进行事务控制，因为中间的 SELECT 建立了一个
-	 * 原子执行上下文。
-	 *
-	 * 因此，当 ExecuteCallStmt() 从顶层调用时，我们传入
-	 * atomic = false（请记住这意味着允许事务）。然后我们
-	 * 创建一个内容为 atomic = false 的 CallContext 节点，
-	 * 该节点通过 fcinfo->context 字段传递给过程调用。
-	 * 语言实现应根据该信息采取适当措施
-	 * 来允许或禁止
-	 * 事务命令，例如调用
-	 * SPI_connect_ext(SPI_OPT_NONATOMIC)。语言还应将
-	 * atomic 标志传递给任何嵌套的 CALL 调用。
-	 *
-	 * 我们在此函数内创建的表达式数据结构和执行上下文
-	 * 是 CALL 工具语句运行的 Portal 的 portalContext
-	 * 的子项。因此，我们传递给过程的任何按引用传递
-	 * 的值将在过程内部可能发生的事务提交中保持不变。
+ * 执行 CALL 语句    
+ *
+ * 在顶层 CALL 语句内部，允许使用事务终止类的命令，      
+ * 例如 COMMIT 或 PL 特定的等价命令。SQL 标准中的术           
+ * 语是：CALL 建立一个非原子的执行上下文。大多数其   
+ * 他命令建立的是原子执行上下文，在其中不允许事务     
+ * 控制动作。如果存在 CALL 的嵌套执行，我们希望递归    
+ * 地跟踪执行上下文，以便嵌套的 CALL 也能进行事务    
+ * 控制。但请注意，例如在 CALL -> SELECT -> CALL 中，           
+ * 第二个调用不能进行事务控制，因为中间的 SELECT      
+ * 建立了一个原子执行上下文。                               
+ *
+ * 因此当 ExecuteCallStmt() 从顶层被调用时，我们传入           
+ * atomic = false（回想一下，那意味着允许事务）。我   
+ * 们随后创建一个内容为 atomic = false 的 CallContext       
+ * 节点，经 fcinfo->context 字段传入过程调用。语言  
+ * 实现随后应采取适当措施，依据该信息允许或禁止事   
+ * 务命令，例如 SPI_connect_ext(SPI_OPT_NONATOMIC)。  
+ * 语言还应把 atomic 标志传递给任何嵌套的 CALL 调用。     
+ *                                               
+ *
+ * 我们在本函数内创建的表达式数据结构和执行上下 
+ * 文，是 CALL 实用语句所运行的 Portal 的 portalContext    
+ * 的子对象。因此，传给过程的任何按引用传递的     
+ * 值都能在过程内部可能发生的事务提交之后幸存下 
+ * 来。                                        
  */
 void
 ExecuteCallStmt(CallStmt *stmt, ParamListInfo params, bool atomic, DestReceiver *dest)

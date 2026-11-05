@@ -872,16 +872,16 @@ parallel_vacuum_process_one_index(ParallelVacuumState *pvs, Relation indrel,
 	}
 
 	/*
-	 * 将 ambulkdelete 和 amvacuumcleanup 返回的索引批量删除结果复制到
-	 * DSM 段（如果是第一个周期），因为它们是在本地分配的，且索引可能在
-	 * 下一个周期由不同的清理进程处理。复制结果通常只在首次清理索引时发生。
-	 * 对于任何额外的清理遍历，我们直接指向 DSM 段上的结果，并将其传递给
-	 * 清理索引 API，以便工作进程可以直接更新它。
-	 * 
-	 * 由于所有清理工作进程写入批量删除结果到不同的槽位，因此可以在不加锁
-	 *的情况下写入。
-	 * Since all vacuum workers write the bulk-deletion result at different
-	 * slots we can write them without locking.
+	 * 把从 ambulkdelete 和 amvacuumcleanup 返回的索引批量     
+	 * 删除结果复制到 DSM 段（若这是第一周期），因为      
+	 * 它们是在本地分配的，下一个周期可能由另一个不    
+	 * 同的清理进程来清理它。复制结果通常只在索引      
+	 * 第一次被清理时发生。对任何额外的清理轮次，我   
+	 * 们直接指向 DSM 段上的结果并把它传给清理索引的  
+	 * API，让工作进程能够直接更新它。                       
+	 *
+	 * 由于所有清理工作进程在不同的槽位写入批量删除  
+	 * 结果，所以可以不加锁写入。 
 	 */
 	if (!indstats->istat_updated && istat_res != NULL)
 	{

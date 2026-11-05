@@ -42,23 +42,23 @@
 #include "utils/rls.h"
 
 /*
- *	 DoCopy - 执行 SQL COPY 语句
+ *	 DoCopy 执行 SQL COPY 语句         
  *
- * 根据 <from> 参数，卸载或重载表 <relation> 的内容。
- * （<from> = true 表示我们正在向表中插入数据。）在 "TO" 场景中，
- * 我们也支持复制任意 SELECT、INSERT、UPDATE 或 DELETE 查询的输出。
+ * 卸载或重载表 <relation> 的内容，取决于 <from>。             
+ * （<from> = true 表示我们正在向表中插入数据。）在       
+ * "TO" 情形下，我们还支持复制任意 SELECT、INSERT、UPDATE    
+ * 或 DELETE。   
  *
- * 如果 <pipe> 为 false，则在表和名为 <filename> 的文件之间传输数据。
- * 否则，在表和我们的常规输入/输出流之间传输数据。后者可以是 stdin/stdout
- * 或套接字，取决于我们是否在 Postmaster 控制下运行。
+ * 如果 <pipe> 为 false，传输就在表与名为                  
+ * <filename> 的文件之间。否则，传输发生在表与我们的 
+ * 常规输入/输出流之间，后者可为 stdin/stdout 或套  
+ * 接字，取决于我们是否在 Postmaster 控制下运行。     
  *
- * 不允许没有 'pg_read_server_files' 或 'pg_write_server_files' 角色的
- * Postgres 用户从文件读取或向文件写入。
+ * 不允许没有 'pg_read_server_files' 或                        
+ * 'pg_write_server_files' 角色的用户读写文件。       
  *
- * 如果用户没有适当的权限访问表或指定请求的列，则不允许复制。
- *
- *
- *
+ * 如果用户没有访问该表或所请求的特定列的适当权    
+ * 限，则不允许进行复制。               
  */
 void
 DoCopy(ParseState *pstate, const CopyStmt *stmt,
@@ -233,16 +233,16 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 						 errhint("Use INSERT statements instead.")));
 
 			/*
-			 * 目标列表     
+			 * 建目标列表  
 			 *
-			 * 如果 COPY 命令的属性列表中未指定列，则目标 
-			 * 列表就是"所有"列。因此生成 SELECT 语句时应用 
-			 *  '*' 作为目标列表                                   
-			 * 。       
+			 * 如果 COPY 命令属性列表中未指定任何列，则    
+			 * 目标列表就是"所有"列。因此，结果 SELECT 语句 
+			 * 应使用 '*' 作为目标列表。                       
+			 *           
 			 *
-			 * 如果在属性列表中指定了列，                      
-			 * 则为每列创建 ColumnRef 与 ResTarget，并把它       
-			 * 们加到所生成 SELECT 语句的目标列表中。 
+			 * 如果属性列表中指定了列，则为每列创建一个 
+			 * ColumnRef 和 ResTarget，并把它们加入最终 SELECT    
+			 * 语句的目标列表。                              
 			 */
 			if (!stmt->attlist)
 			{
@@ -802,18 +802,18 @@ ProcessCopyOptions(ParseState *pstate,
 }
 
 /*
- * CopyGetAttnums - 构建要复制的属性号整数列表
+ * CopyGetAttnums - 构建要复制的 attnum 整数列表       
  *
- * 输入的 attnamelist 要么是用户指定的列列表，
- * 要么为 NIL（表示没有指定，此时我们需要所有未删除的列）。
+ * 输入的 attnamelist 要么是用户指定的列列表，     
+ * 要么为 NIL（此时我们需要的是所有未删除的         
+ * 列）。
  *
- * 我们在生成的完整列表中不包含生成列，也不允许显式指定它们。
- * 它们对 COPY FROM 没有意义，但我们可能允许它们在 COPY TO 中使用。
- * 但这样至少确保了复制出的内容可以重新复制回去。
+ * 我们不在生成的完整列表中包含生成列，也不允许        
+ * 显式指定它们。它们对 COPY FROM 没有意义，但我们     
+ * 或许可以允许它们用于 COPY TO。但这样至少能确           
+ * 保我们复制出去的任何内容都能被复制回来。  
  *
- * rel 可以为 NULL ... 它仅用于错误报告。
- *
- *
+ * rel 可以是 NULL ……它只用于错误报告。 
  */
 List *
 CopyGetAttnums(TupleDesc tupDesc, Relation rel, List *attnamelist)

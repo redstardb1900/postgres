@@ -83,17 +83,17 @@ double		vacuum_cost_delay = 0;
 int			vacuum_cost_limit = 200;
 
 /*
- * VacuumFailsafeActive 定义为全局变量，以便确定清理表时是否重新启用
- * 基于成本的清理延迟。如果已启用故障安全模式，则在清理完成之前，
- * 不会为该表重新启用基于成本的延迟，无论其他设置如何。
- * 
- * 只有 VACUUM 代码应检查此变量，且只有表访问方法应将其设为 true。
- *在与表 AM 无关的 VACUUM 代码中，此变量用于确定是否允许基于成本的
- * 延迟。表 AM 可自由设置以实现此行为，但默认为 false，并在每次清理
- * 关系之间重置为 false。
- * inspected to determine whether or not to allow cost-based delays. Table AMs
- * are free to set it if they desire this behavior, but it is false by default
- * and reset to false in between vacuuming each relation.
+ * VacuumFailsafeActive 被定义为全局变量，以便我们能确定 
+ * 清理表时是否重新启用基于成本的清理延迟。               
+ * 如果已启用故障安全模式，则在该表的清理完成之前， 
+ * 无论其他设置如何，该表都不会重新启用基于成本的 
+ * 延迟。
+ *
+ * 只有 VACUUM 代码应检查此变量，且只有表访问方法应       
+ * 将其设为 true。在与表 AM 无关的 VACUUM 代码中，此变量  
+ * 用于确定是否允许基于成本的延迟。表 AM 可自由设置     
+ * 它来如愿实现此行为，但默认值为 false。                     
+ * 并在各关系清理之间重置为 false。         
  */
 bool		VacuumFailsafeActive = false;
 
@@ -453,26 +453,26 @@ ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel)
 }
 
 /*
- * 自动清理和 VACUUM / ANALYZE 命令的内部入口点。
+ * 自动清理和 VACUUM / ANALYZE 命令的内部入口点。          
  *
- * relations 如果不为 NIL，是要处理的一列 VacuumRelation；否则，
- * 处理数据库中所有相关的表。对于每个 VacuumRelation，如果提供了有效
- * 的 OID，则处理具有该 OID 的表；否则，VacuumRelation 的 RangeVar
- * 指示要处理什么。
+ * relations 若非 NIL，就是要处理的 VacuumRelation 列表；否则 
+ * 将处理数据库中所有相关的表。对于每个 VacuumRelation， 
+ * 如果提供了有效的 OID，则处理具有该 OID 的表；        
+ * 否则由 VacuumRelation 的 RangeVar 指示要处理什么。     
  *
- * params 包含一组可用于自定义行为的参数。
- * 
- *bstrategy 可以在调用方不想限制 VACUUM / ANALYZE 可使用的
- * shared_buffers 数量时传入 NULL，否则调用方必须构建一个
- * BufferAccessStrategy，其中包含 VACUUM / ANALYZE 应尝试限制自身
- * 使用的 shared_buffers 数量。
- * 
- * isTopLevel 应从 ProcessUtility 向下传递。
+ * params 包含一组可用于自定义行为的                       
+ * 参数。
  *
- * 调用方有责任确保所有参数分配在事务提交后不会消失的内存上下文中。
+ * bstrategy 可以在调用方不想限制 VACUUM / ANALYZE          
+ * 可使用的 shared_buffers 数量时传入 NULL，否则调用方  
+ * 必须构建一个 BufferAccessStrategy，其中包含 VACUUM             
+ * / ANALYZE 应尝试限制自身使用的 shared_buffers 数量。     
+ *       
  *
- * It is the caller's responsibility that all parameters are allocated in a
- * memory context that will not disappear at transaction commit.
+ * isTopLevel 应从 ProcessUtility 向下传递。     
+ *
+ * 调用方需确保所有参数分配在事务提交后不会消失的   
+ * 内存上下文中。                                        
  */
 void
 vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
@@ -1318,17 +1318,17 @@ vacuum_xid_failsafe_check(const struct VacuumCutoffs *cutoffs)
 }
 
 /*
- * vac_estimate_reltuples() -- 估计 pg_class.reltuples 的新值
+ * vac_estimate_reltuples() -- 估计 pg_class.reltuples 的新值          
  *
- *如果我们扫描了整个关系，则只需使用看到的存活元组数；但如果没有，
- *我们不应盲目地从该数字外推，因为 VACUUM 可能扫描了表的某个相当
- *不随机的子集。当我们只有部分信息时，我们取 pg_class.reltuples /
- *pg_class.relpages 的旧值作为未扫描页面中元组密度的度量。
+ *		若扫描了整个关系，则直接使用看到的存活元组数；
+ *		但如果没有，不应盲目地按该数字外推，因为 VACUUM   
+ *		可能扫描了表中相当不随机的子集。                 
+ *		当只有部分信息时，我们取 pg_class.reltuples/            
+ *		pg_class.relpages 的旧值作为未扫描页面中元组密度       
+ *		的度量。                                
  *
- *注意：scanned_tuples 应仅计数*存活*元组，因 pg_class.reltuples 是
- *这样定义的。
- *		Note: scanned_tuples should count only *live* tuples, since
- *		pg_class.reltuples is defined that way.
+ *		注意：scanned_tuples 应只统计*存活*元组，      
+ *		pg_class.reltuples 即如此定义。  
  */
 double
 vac_estimate_reltuples(Relation relation,
@@ -1347,18 +1347,18 @@ vac_estimate_reltuples(Relation relation,
 		return scanned_tuples;
 
 	/*
-	 * 当连续的 VACUUM 命令反复扫描相同几个页面，而表中没有任何实际变化时，
-	 * 我们对元组密度的信念可能逐渐失真。这可能是由 vacuumlazy.c 的实现
-	 * 细节引起的，例如它倾向于始终扫描最后一个堆页面。在此处理此情况。
-	 * 
-	 * 如果根据现有 pg_class 条目关系大小*完全相同*，且仅扫描了其中少数
-	 *页面（少于 2%），则保留 reltuples 的现有值。当只扫描了不超过单个
-	 * 页面的子集时，也保留现有值。
-	 * 
-	 * （注意：此处可能返回 -1。）
-	 * value when only a subset of rel's pages <= a single page were scanned.
+	 * 当连续多个 VACUUM 命令反复扫描同样几页，         
+	 * 而表中内容没有实际变化时，对元组密度的认知就     
+	 * 可能逐渐失真。成因可能是 vacuumlazy.c 的实现细节， 
+	 * 例如它倾向于总是扫描最后一个堆页面。              
+	 * 在这里处理这种情况。                                    
 	 *
-	 * (Note: we might be returning -1 here.)
+	 * 如果按照现有 pg_class 条目，关系大小*完全相同*，  
+	 * 并且只有少数页面（少于 2%）被扫描，则保留   
+	 * reltuples 的现有值。当仅扫描了该关系页面中不超过   
+	 * 单个页面的子集时，也保留现有值。                      
+	 *
+	 * （注意：可能返回 -1。）     
 	 */
 	if (old_rel_pages == total_pages &&
 		scanned_pages < (double) total_pages * 0.02)
@@ -1387,44 +1387,44 @@ vac_estimate_reltuples(Relation relation,
 
 
 /*
- *vac_update_relstats() -- 更新单个关系的统计信息
+ *	vac_update_relstats() -- 更新单个关系的统计信息 
  *
- *更新保存在 pg_class 行中的全关系统计信息。如果执行 ANALYZE，
- *还会有额外的统计信息被更新，但我们总是更新这些统计信息。此例程
- *同时适用于 pg_class 中的索引和堆关系条目。
+ *		更新其 pg_class 行中保存的整个关系统计信息。     
+ *		如果执行 ANALYZE，还会有额外统计信息被更新， 
+ *		但我们总是更新这些统计信息。此例程同时适用于  
+ *		pg_class 中的索引和堆关系条目。           
  *
- *我们在此违反事务语义，用新值覆盖关系的现有 pg_class 元组。
- *只要我们确信新值无论本事务是否提交都是正确的，这是合理安全的。
- *这样做的原因是，如果以常规方式更新这些元组，清理 pg_class 本身
- *将无法很好地工作 --- 当我们完成一个清理周期时，pg_class 中的大多
- *数元组都已变得陈旧。当然，这只适用于固定大小的非空列，而这些
- *正是固定大小的非空列。
+ *		这里我们违反了事务语义：用新值覆盖关系     
+ *		现有的 pg_class 元组。只要我们确信无论本事务   
+ *		是否提交新值都是正确的，这样做就是相当安全      
+ *		的。之所以要这样做，是因为如果以常规方式更新 
+ *		这些元组，那么清理 pg_class 本身就无法很好地工   
+ *		作了 --- 等到一轮清理周期完成时，pg_class 中      
+ *		的大多数元组都已经过时了。当然，这只适用于   
+ *		固定大小的非空列，而这些列恰好就是这样的列。     
  *
- *这样做的另一个原因是，当我们处于惰性 VACUUM 且已设置
- *PROC_IN_VACUUM 时，我们不能执行任何常规更新。有人清理 pg_class
- *时可能会认为他们可以删除标记为 xmin = 我们 xid 的元组。
+ *		这样做的另一个原因是：当我们处于惰性 VACUUM     
+ *		且设置了 PROC_IN_VACUUM 时，不能执行任何常规更新。   
+ *		正在清理 pg_class 的人可能认为能删除 xmin =         
+ *		我们 xid 的元组。    
  *
- *除了根本非事务性的统计信息如 relpages 和 relallvisible 之外，
- *我们还尝试维护某些惰性更新的 DDL 标志，如 relhasindex，如果不正确
- *则清除它们。在 VACUUM 中这样做是安全的，因为 VACUUM 不能与
- *CREATE INDEX/RULE/TRIGGER 并行运行，且不能是事务块的一部分。
- *但是，在处于外部事务内的 ANALYZE 中这样做是*不*安全的，例如当前
- *事务可能已删除最后一个索引；然后我们会认为应清除 relhasindex，
- *但如果事务稍后回滚，这将是错误的。因此，如果我们处于外部事务内，
- *则不更新 DDL 标志。这是可以的，因为推迟标志维护总是允许的。
+ *		除 relpages、relallvisible 这类根本非事                 
+ *		务性的统计信息外，我们还尽力维护某些惰性更      
+ *		新的 DDL 标志（如 relhasindex），不再正确时便          
+ *		将其清除。这在 VACUUM 中是安全的，因为 VACUUM    
+ *		不能与 CREATE INDEX/RULE/TRIGGER 并行运行，也不          
+ *		能属于事务块。但在处于外层事务内的 ANALYZE 中 
+ *		却*不*安全：例如当前事务可能已删除最后一个      
+ *		索引；此时我们会认为应清除 relhasindex，但事务   
+ *		稍后若回滚，那便是错的。所以在外层事务内时      
+ *		就不更新这些 DDL 标志。这没有问题，因为推迟    
+ *		标志维护总是允许                                         
+ *		的。           
  *
- *注意：num_tuples 应仅计数*存活*元组，因 pg_class.reltuples 是这样
- *定义的。
+ *		注意：num_tuples 应只统计*存活*元组，      
+ *		pg_class.reltuples 即如此定义。  
  *
- *此例程由 VACUUM 和 ANALYZE 共享。
- *		So we refrain from updating the DDL flags if we're inside an outer
- *		transaction.  This is OK since postponing the flag maintenance is
- *		always allowable.
- *
- *		Note: num_tuples should count only *live* tuples, since
- *		pg_class.reltuples is defined that way.
- *
- *		This routine is shared by VACUUM and ANALYZE.
+ *		此例程由 VACUUM 和 ANALYZE 共用。    
  */
 void
 vac_update_relstats(Relation relation,
@@ -1681,18 +1681,18 @@ vac_update_datfrozenxid(void)
 		}
 
 		/*
-		 * 某些表 AM 可能不需要每关系的 xid / multixid 水平线。因此，允许
-		 * relfrozenxid 和 relminmxid 分别不设置（即设置为各自的 Invalid*Id）
-		 * 似乎是合理的。因此，仅当设置时才分别验证和计算水平线。
-		 * 
-		 * 如果工作正常，任何关系都不应有"将来"的 relfrozenxid 或 relminmxid。
-		 *但是，已知由于 pg_upgrade 中的 bug 会出现这种情况。如果我们看到
-		 * 任何"将来"的条目，我们退出并不做任何操作。这确保我们不会在这些
-		 * 关系被扫描和清理之前截断 clog 和 multixact SLRU。
-		 * cases have been known to arise due to bugs in pg_upgrade.  If we
-		 * see any entries that are "in the future", chicken out and don't do
-		 * anything.  This ensures we won't truncate clog & multixact SLRUs
-		 * before those relations have been scanned and cleaned up.
+		 * 某些表 AM 可能不需要每关系的 xid / multixid 水平线  
+		 * 因此，允许 relfrozenxid 和 relminmxid 独立地不被       
+		 * 设置（即各自 Invalid*Id），似乎合理。     
+		 * 于是仅当已设置时，才分别验证并计算水平线。  
+		 *     
+		 *
+		 * 如果一切正常，任何关系都不应有"未来"的 
+		 * relfrozenxid 或 relminmxid。不过，已知 pg_upgrade 中      
+		 * 的 bug 曾导致出现这种情况。若看到任何"未来"   
+		 * 的条目，就临阵退缩。这能确保我们不会在这些   
+		 * 关系被扫描并清理之前截断 clog 与 multixact         
+		 * SLRU。                                                 
 		 */
 
 		if (TransactionIdIsValid(relfrozenxid))
@@ -1805,21 +1805,21 @@ vac_update_datfrozenxid(void)
 
 
 /*
- *vac_truncate_clog() -- 尝试截断提交日志
+ *	vac_truncate_clog() -- 尝试截断提交日志          
  *
- *扫描 pg_database 以确定系统范围内最旧的 datfrozenxid，并用它截断
- *事务提交日志（pg_xact）。同时更新由 varsup.c 维护的 XID 回卷限制
- *信息。对 datminmxid 同理。
+ *		扫描 pg_database 来确定全系统最旧的 datfrozenxid，    
+ *		并用它截断事务提交日志（pg_xact）。还更新  
+ *		varsup.c 维护的 XID 回卷限制信息。对 datminmxid 
+ *		同理处理。         
  *
- *传入的 frozenXID 和 minMulti 是调用方自己 pg_database 条目的更新值。
- *它们用于初始化 "min" 计算。调用方还传入 "last sane" XID 和 MXID，
- *因为调用方已有这些值。
+ *		传入的 frozenXID 和 minMulti 是本库 pg_database 条目      
+ *		的更新值。它们用于初始化"min"计算。调用方还传入 
+ *		"last sane" XID 和 MXID，因为调用方已有这              
+ *		些值。             
  *
- *此例程仅在已成功修改本数据库的 datfrozenxid / datminmxid 值或发现
- *共享 XID 回卷限制信息已陈旧时调用。
- *		This routine is only invoked when we've managed to change our
- *		DB's datfrozenxid/datminmxid values, or we found that the shared
- *		XID-wrap-limit info is stale.
+ *		本例程仅在我们成功修改了本库的 datfrozenxid   
+ *		/datminmxid 值，或者发现共享 XID 回卷限制信息     
+ *		已陈旧时才被调用。  
  */
 static void
 vac_truncate_clog(TransactionId frozenXID,
@@ -1972,23 +1972,23 @@ vac_truncate_clog(TransactionId frozenXID,
 
 
 /*
- *vacuum_rel() -- 清理一个堆关系
+ *	vacuum_rel() -- 清理一个堆关系   
  *
- *relid 标识要清理的关系。如果提供了 relation，则使用其中的名称报告
- *打开/锁定关系的任何失败；一旦成功打开关系，不要使用它，因为它可能
- *已过时。
+ *		relid 标识要清理的关系。若提供了 relation，则用   
+ *		其中的名称来报告打开/锁定关系的失败；一旦成功 
+ *		打开关系后就不要再使用它，因为它可能已过时。  
+ *		         
  *
- *如果对此表执行请求的 ANALYZE 操作是安全的，则返回 true。
+ *		若可对此表继续执行请求的 ANALYZE 操作，       
+ *		则返回 true。       
  *
- *一次处理一个堆会带来额外的开销，因为我们需要在清理之前再次确认
- *堆存在。我们这样做的原因是为了使清理可以分布在许多小事务中。否则，
- *两阶段锁定将要求我们在清理器的一次遍历期间锁定整个数据库。
+ *		一次只清理一个堆有额外开销，因为我们要在清 
+ *		理之前再次确认堆存在。这是为了让清理分散   
+ *		到多个小事务。否则，两阶段锁定会要求我       
+ *		们在清理器的一次完整遍历期间锁定整个数据库。  
+ *		                                                                     
  *
- *在进入和退出时，我们不处于事务内部。
- *		many small transactions.  Otherwise, two-phase locking would require
- *		us to lock the entire database during one pass of the vacuum cleaner.
- *
- *		At entry and exit, we are not inside a transaction.
+ *		进入和退出时我们都不在事务之中。   
  */
 static bool
 vacuum_rel(Oid relid, RangeVar *relation, VacuumParams *params,
@@ -2017,26 +2017,26 @@ vacuum_rel(Oid relid, RangeVar *relation, VacuumParams *params,
 	if (!(params->options & VACOPT_FULL))
 	{
 		/*
-		 * 在惰性清理中，我们可以设置 PROC_IN_VACUUM 标志，让其他并发的
-		 * VACUUM 知道在确定其 OldestXmin 时可以忽略此操作。（在完整 VACUUM
-		 * 期间不设置此标志的原因正是：对于功能性索引，我们可能需要运行
-		 * 用户定义的函数，我们希望确保如果它们使用上面设置的快照，它所需
-		 * 的任何元组都不会从其他表中被移除。依赖于其他表内容的索引函数可能
-		 * 存在问题，但我们不会在此违反事务语义来破坏它。）
-		 * 
-		 * 我们也设置 VACUUM_FOR_WRAPAROUND 标志，该标志由自动清理向下传递；
-		 * 用于避免取消在紧急情况下调用的清理。
+		 * 惰性清理中，我们可以设置 PROC_IN_VACUUM 标志， 
+		 * 让其他并发的 VACUUM 知道它们在确定 OldestXmin 时   
+		 * 可以忽略本次清理。（在完整 VACUUM 期间不设置     
+		 * 它的原因恰恰是：可能要为函数索引运行用  
+		 * 户定义的函数，并要确保：若它们使用了上面的   
+		 * 快照，它所需的元组就不会从其他表移除。依赖  
+		 * 其他表内容的索引函数可以说有问题，但我们不  
+		 * 会在此通过违反事务语义的方式破坏它。）         
+		 *                                          
 		 *
-		 * 注意：这些标志一直保持到 CommitTransaction 或 AbortTransaction。
-		 * 我们希望在重置 MyProc->xid/xmin 之前不清除它们，否则
-		 * GetOldestNonRemovableTransactionId() 可能看起来倒退，这可能是
-		 *Not Good。（我们还在获取自己的快照*之前*设置 PROC_IN_VACUUM，
-		 * 以便我们的 xmin 不会在设置标志之前变得可见。）
-		 * AbortTransaction.  We don't want to clear them until we reset
-		 * MyProc->xid/xmin, otherwise GetOldestNonRemovableTransactionId()
-		 * might appear to go backwards, which is probably Not Good.  (We also
-		 * set PROC_IN_VACUUM *before* taking our own snapshot, so that our
-		 * xmin doesn't become visible ahead of setting the flag.)
+		 * 我们也设置 VACUUM_FOR_WRAPAROUND 标志，该标志由自动  
+		 * 清理向下传递；用于避免取消紧急调用的            
+		 * 清理。       
+		 *
+		 * 注意：这些标志保持到 CommitTransaction 或   
+		 * AbortTransaction。在重置 MyProc->xid/xmin 之前，      
+		 * 我们不想清除它们，否则 GetOldestNonRemovable         
+		 * TransactionId() 可能倒退，这可能不是好事。（我们   
+		 * 还在获取自身快照*之前*设置 PROC_IN_VACUUM，        
+		 * 使 xmin 不会先于标志设置变为可见。）    
 		 */
 		LWLockAcquire(ProcArrayLock, LW_EXCLUSIVE);
 		MyProc->statusFlags |= PROC_IN_VACUUM;
@@ -2144,14 +2144,14 @@ vacuum_rel(Oid relid, RangeVar *relation, VacuumParams *params,
 	}
 
 	/*
-	 * 同时获取会话级锁。这将保护我们对关系的跨多个事务的访问，以便我们
-	 * 可以清理关系的 TOAST 表（如果有），安全地知道没有人在删除父关系。
-	 * 
-	 * 注意：这不能阻塞，即使其他人在等待访问，因为锁管理器知道两个锁
-	 *请求来自同一进程。
-	 * NOTE: this cannot block, even if someone else is waiting for access,
-	 * because the lock manager knows that both lock requests are from the
-	 * same process.
+	 * 同时获取会话级锁。它在多个事务中保护我们对  
+	 * 关系的访问，以便放心清理关系的 TOAST 表（      
+	 * 如果有的话），这样就能确信没有人在删除             
+	 * 父关系。                 
+	 *
+	 * 注意：这不会阻塞，即使有人在等待访问，因为锁  
+	 * 管理器知道这两个锁请求来自同一进程。             
+	 *              
 	 */
 	lockrelid = rel->rd_lockInfo.lockRelId;
 	LockRelationIdForSession(&lockrelid, lmode);
@@ -2443,26 +2443,26 @@ vacuum_delay_point(void)
 }
 
 /*
- * 计算并行工作进程的清理延迟。
+ * 为并行工作进程计算清理延迟。     
  *
- * 基于成本的并行清理延迟的基本思想是让每个工作进程按其完成工作的
- * 比例进行睡眠。这通过使用共享成本余额来实现，工作进程在其中累积
- * 其成本。当共享余额超过 vacuum_cost_limit 时，工作进程会进行睡眠。
- * 睡眠后，共享余额对应于超出 vacuum_cost_limit 的成本量进行递减。
- * 
- * 应通过 VacuumSharedCostBalance 和 VacuumActiveNWorkers 从并行
- * 清理工作进程调用此函数。
- * (VacuumCostBalanceLocal) and then reduce the VacuumSharedCostBalance by
- * that amount.  This avoids putting to sleep those workers which have done less
- * I/O than other workers and therefore ensure that workers
- * which are doing more I/O got throttled more.
+ * 并行清理的基于成本延迟，其基本思想是让每个工作进 
+ * 程按其完成工作的份额比例来睡眠。实现方式是让            
+ * 所有并行清理工作进程（含领导进程）都共享看到成  
+ * 本相关参数（主要是 VacuumCostBalance）。我们允许每       
+ * 个工作进程在产生成本时随时更新它，然后据此决定是  
+ * 否需要睡眠。我们按工作进程已产生的成本                
+ * （VacuumCostBalanceLocal）来计算其睡眠时间   
+ * 把 VacuumSharedCostBalance 减去相应的数额。这样可避       
+ * 免让完成 I/O 较少的工作进程陷入睡眠，从而确保 I/O        
+ * 较多的工作进程                                   
+ * 受到更强的节流。                    
  *
- * We allow a worker to sleep only if it has performed I/O above a certain
- * threshold, which is calculated based on the number of active workers
- * (VacuumActiveNWorkers), and the overall cost balance is more than
- * VacuumCostLimit set by the system.  Testing reveals that we achieve
- * the required throttling if we force a worker that has done more than 50%
- * of its share of work to sleep.
+ * 仅当工作进程执行的 I/O 超过某个阈值时，我们才允许
+ * 其睡眠。该阈值基于活跃工作进程的数量              
+ * （VacuumActiveNWorkers）算出，且总成本余额超过      
+ * 系统所设 VacuumCostLimit。测试表明，若我们强制      
+ * 已做完超过其 50% 工作份额的工作进程去睡眠，就能达 
+ * 到所需的节流效果。   
  */
 static double
 compute_parallel_delay(void)

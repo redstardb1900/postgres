@@ -885,22 +885,22 @@ copy_table_data(Oid OIDNewHeap, Oid OIDOldHeap, Oid OIDOldIndex, bool verbose,
 		*pSwapToastByContent = true;
 
 		/*
-		 * 当通过内容交换时，写入 NewHeap 的任何 toast 指针
-		 * 必须使用旧 toast 表的 OID，因为那是 toast 数据
-		 * 最终所在的地方。通过设置 rd_toastoid 来配置此设置。
-		 * 这也告诉 toast_save_datum() 保留 toast 值 OID，
-		 * 
-		 * 这是我们
-		 * 希望的，以便不会使系统目录缓存中的 toast 指针
-		 * 失效，并避免为单个 toast 值创建多个副本。
+		 * 当通过内容交换时，写入 NewHeap 的任何 toast 指针   
+		 * 必须使用旧 toast 表的 OID，因为 toast 数据最终      
+		 * 会在那里被找到。通过设置 rd_toastoid 来完成配      
+		 * 置。这也告诉 toast_save_datum() 保留 toast 值的     
+		 * OID，我们希望这样，以免使系统目录缓存中的 
+		 * toast 指针失效，并避免为单个 toast 值制作多     
+		 * 个副本。       
 		 *
-		 * 请注意，我们必须保持 NewHeap 打开直到我们完成写入数据，
-		 * 因为一旦关系关闭，relcache 将不会保证记住此设置。
-		 * 此外，这种技术依赖于没有人会在我们完成写入它
-		 * 并交换关系之前尝试从 NewHeap 读取的事实 --- 否则他们
-		 * 可能会将 toast 指针跟到错误的地方。（它实际上对于从
-		 * 旧 toast 表复制过来的值是可以工作的，但对于我们
-		 * 新 toast 的任何以前未 toast 的值则不行。）
+		 * 注意，在我们完成数据写入之前，必须保持 NewHeap  
+		 * 处于打开状态，因为一旦关系关闭，relcache 就不    
+		 * 会保证记住这一设置。此外，这种技术还依赖于  
+		 * 这一事实：在我们写完并交换关系之前，没有人
+		 * 会尝试从 NewHeap 读取 --- 否则它们可能沿 toast       
+		 * 指针跟到错误的地方。（对于从旧 toast 表复制过 
+		 * 来的值这实际上可行，但对于我们新 toast 的以前 
+		 * 未被 toast 的值则行不通。）                       
 		 */
 		NewHeap->rd_toastoid = OldHeap->rd_rel->reltoastrelid;
 	}
@@ -1026,30 +1026,30 @@ copy_table_data(Oid OIDNewHeap, Oid OIDOldHeap, Oid OIDOldIndex, bool verbose,
 }
 
 /*
- * 交换两个给定关系的物理文件。
+ * 交换两个给定关系的物理文件。     
  *
- * 我们交换物理标识（reltablespace、relfilenumber），同时保持
- * 两个关系的逻辑标识不变。relpersistence 也被交换，
- * 这是至关重要的，因为它决定了每个关系的缓冲区存放位置。
+ * 我们在交换物理标识（reltablespace、relfilenumber）            
+ * 的同时保持两个关系的逻辑标识不变。relpersistence        
+ * 也被交换，这至关重要，因为它决定每个关系缓冲区     
+ * 位置。
  *
- * 我们可以用两种方式之一交换关联的 TOAST 数据：递归地交换
- * toast 表（及其索引）的物理内容，或者交换给定关系的
- * pg_class 条目中的 TOAST 链接。前者是管理共享系统目录重写
- * 所必需的（在那里我们不能更改 pg_class 链接），而后者是
- * 处理 toast 表被添加或完全删除情况的唯一方式。
+ * 我们可以用两种方式之一来交换关联的 TOAST 数据：      
+ * 递归交换 toast 表（及其索引）的物理内容，或者交      
+ * 换给定关系 pg_class 条目中的 TOAST 链接。前者是管          
+ * 理共享目录重写所必需的（在那里我们不能更改           
+ * pg_class 链接），而后者是处理 toast 表被整体添加        
+ * 或删除情形的唯一方式。    
  *
- * 此外，第一个关系被标记为 relfrozenxid 设置为 frozenXid。
- * 将这个放在这里似乎有点丑陋，但调用者无论如何都得做这件事，
- * 所以放在这里可以省去一次 heap_update。注意：在交换 toast 链接
- * 的情况下，我们假设不需要更改 toast 表的 relfrozenxid：
- * toast 表的新版本应已经将 relfrozenxid 设置为 RecentXmin，
- * 
- * 
- * 这就够了。
+ * 此外，第一个关系被标记为 relfrozenxid 设置为        
+ * frozenXid。把它放在这里似乎有点难看，但调用方反     
+ * 正都得这样做，放在这里可以省去一次 heap_update。    
+ * 注意：在交换 toast 链接的情形中，我们假定不需      
+ * 要更改 toast 表的 relfrozenxid：toast 表的新版本应         
+ * 已把 relfrozenxid 设为 RecentXmin 就足够了。     
  *
- * 最后，如果 r2 及其 toast 表和 toast 索引（如果有的话）是映射的，
- * 它们的 OID 会被发布到 mapped_tables[] 中。这有点土办法，但比
- * 在 finish_heap_swap 中后续再次查找这些信息要好。
+ * 最后，如果 r2 及其 toast 表和 toast 索引（如果有的    
+ * 话）是映射的，它们的 OID 会被输出到 mapped_tables[]   
+ * 中。虽取巧，但胜过日后在 finish_heap_swap 重查。   
  */
 static void
 swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
@@ -1424,20 +1424,20 @@ swap_relation_files(Oid r1, Oid r2, bool target_is_pg_class,
 	table_close(relRelation, RowExclusiveLock);
 
 	/*
-	 * 关闭两个 relcache 条目的 smgr 链接。我们需要这个歪招
-	 * 因为两个链接都将在即将到来的 Comma
-	 * ndCounterIncrement 中
-	 * 被无效化。无论哪个关系第二个被清除，都会有一个
-	 * 挂起的对另一个 smgr 条目的引用。与其尝试通过
-	 * 精心安排操作顺序来避免这个问题，不如先关闭链接。
-	 * （幸运的是，由于其中一个条目在我们的事务中是本地的，
-	 * 只需要用这种方式清除我们自己的 relcache 就足够了；
-	 * 当其他后端看到我们对非临时关系的更新时，
-	 * 这个问题不会出现。）
+	 * 关闭两个 relcache 条目的 smgr 链接。我们需要这一    
+	 * 变通做法，因为两个链接在接下来的 CommandCounter        
+	 * Increment 期间都会失效。无论哪个关系第二个被清      
+	 * 除，它都会有一个指向另一个关系的 smgr 条目的悬    
+	 * 空引用。与其费尽心机安排操作顺序来避开它，最    
+	 * 简单的办法就是先关闭链接。（幸运的是，由于其 
+	 * 中一个条目在我们的事务内是本地的，因此以这种 
+	 * 方式清除自身 relcache 即可；非临时关系，其他  
+	 * 后端无此问题。）
 	 *
-	 * 警告：此步骤的位置与通过递归处理 toast rels 的决定
-	 * 相互作用。当我们尝试重建 pg_class 本身时，对 pg_class
-	 * 的 smgr 关闭必须在此函数中的所有访问之后发生。
+	 * 注意：这一步骤的位置与通过递归处理 toast 关系  
+	 * 的决定相互影响。当我们尝试重建 pg_class 本身时，    
+	 * 对 pg_class 的 smgr 关闭必须发生在本函数中所有       
+	 * 访问后。  
 	 */
 	RelationCloseSmgrByOid(r1);
 	RelationCloseSmgrByOid(r2);

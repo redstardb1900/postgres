@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeIncrementalSort.c
- *	  Routines to handle incremental sorting of relations.
+ *	  处理关系增量排序的例程。                
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -11,16 +11,16 @@
  *
  * DESCRIPTION
  *
- *	Incremental sort is an optimized variant of multikey sort for cases
- *	when the input is already sorted by a prefix of the sort keys.  For
- *	example when a sort by (key1, key2 ... keyN) is requested, and the
- *	input is already sorted by (key1, key2 ... keyM), M < N, we can
- *	divide the input into groups where keys (key1, ... keyM) are equal,
- *	and only sort on the remaining columns.
+ *	增量排序是多键排序的优化变体，适用于输入       
+ *	已按部分排序键前缀排好序的情形。例如当请求按 
+ *	(key1, key2 ... keyN) 排序，而输入已按 (key1, key2        
+ *	) 已排好序（M < N）时，我们可以把输入划分为  
+ *	若干个 (key1, ... keyM) 相等的组，并且只对剩余       
+ *	的列进行排序。                  
  *
- *	Consider the following example.  We have input tuples consisting of
- *	two integers (X, Y) already presorted by X, while it's required to
- *	sort them by both X and Y.  Let input tuples be following.
+ *	考虑下面的例子。输入元组由两个整数 (X, Y)         
+ *	已预先按 X 排好序，但要求同时按 X 与 Y 排序。   
+ *	设输入元组如下。                                  
  *
  *	(1, 5)
  *	(1, 2)
@@ -30,15 +30,15 @@
  *	(3, 3)
  *	(3, 7)
  *
- *	An incremental sort algorithm would split the input into the following
- *	groups, which have equal X, and then sort them by Y individually:
+ *	增量排序算法会把输入切成下列各 X 相等的组，       
+ *	然后再分别按 Y 对每组进行排序：                    
  *
  *		(1, 5) (1, 2)
  *		(2, 9) (2, 1) (2, 5)
  *		(3, 3) (3, 7)
  *
- *	After sorting these groups and putting them altogether, we would get
- *	the following result which is sorted by X and Y, as requested:
+ *	把这些组排序并合并到一起后，将得到如下结果，  
+ *	即所要求的按 X 和 Y 排序的结果：                 
  *
  *	(1, 2)
  *	(1, 5)
@@ -48,30 +48,30 @@
  *	(3, 3)
  *	(3, 7)
  *
- *	Incremental sort may be more efficient than plain sort, particularly
- *	on large datasets, as it reduces the amount of data to sort at once,
- *	making it more likely it fits into work_mem (eliminating the need to
- *	spill to disk).  But the main advantage of incremental sort is that
- *	it can start producing rows early, before sorting the whole dataset,
- *	which is a significant benefit especially for queries with LIMIT.
+ *	在大数据集上，增量排序可能比普通排序更高效，  
+ *	因为它减少了单次排序的数据量，使其更可能装进  
+ *	work_mem（无需溢出到磁盘）。但增量排序的主要      
+ *	优势是它可以在对整个数据集排序完成之前          
+ *	就开始输出行，这对带 LIMIT 的查询                      
+ *	尤其有益。                                                  
  *
- *	The algorithm we've implemented here is modified from the theoretical
- *	base described above by operating in two different modes:
- *	  - Fetching a minimum number of tuples without checking prefix key
- *	    group membership and sorting on all columns when safe.
- *	  - Fetching all tuples for a single prefix key group and sorting on
- *	    solely the unsorted columns.
- *	We always begin in the first mode, and employ a heuristic to switch
- *	into the second mode if we believe it's beneficial.
+ *	这里实现的算法是对上述理论基础的改造，            
+ *	它以两种不同的模式运作：                     
+ *	  - 取回最少数量的元组，不检查前缀键组归属，   
+ *	    安全时对所有列排序。                        
+ *	  - 取回单个前缀键组的全部元组，                      
+ *	    只对未排序列排序。 
+ *	我们总是从第一种模式开始，并在认为有益时       
+ *	借助启发式规则切换到第二种模式。   
  *
- *	Sorting incrementally can potentially use less memory, avoid fetching
- *	and sorting all tuples in the dataset, and begin returning tuples before
- *	the entire result set is available.
+ *	增量排序可能用更少内存，避免取回和排序数据集中
+ *	全部元组，并在整个结果集就绪前开始                     
+ *	返回元组。                    
  *
- *	The hybrid mode approach allows us to optimize for both very small
- *	groups (where the overhead of a new tuplesort is high) and very large
- *	groups (where we can lower cost by not having to sort on already sorted
- *	columns), albeit at some extra cost while switching between modes.
+ *	混合模式方法让我们能同时优化极小的组            
+ *	（此时新 tuplesort 的开销很高）和极大的组             
+ *	（此时不必对已排序的列再排序，从而降低成本），  
+ *	尽管在两种模式间切换时会有一些额外成本。      
  *
  *-------------------------------------------------------------------------
  */
@@ -86,15 +86,15 @@
 #include "utils/tuplesort.h"
 
 /*
- * We need to store the instrumentation information in either local node's sort
- * info or, for a parallel worker process, in the shared info (this avoids
- * having to additionally memcpy the info from local memory to shared memory
- * at each instrumentation call). This macro expands to choose the proper sort
- * state and group info.
+ * 我们需要把 instrumentation 信息存到本地节点的                 
+ * sort 信息中，或者对并行 worker 进程存到共享             
+ * 信息中（这免去了每次 instrumentation 调用时                 
+ * 额外的 memcpy 拷贝）。此宏展开后会选出正确的 sort        
+ * 状态和组信息。
  *
- * Arguments:
- * - node: type IncrementalSortState *
- * - groupName: the token fullsort or prefixsort
+ * 参数： 
+ * - node：IncrementalSortState *    
+ * - groupName：词元 fullsort 或 prefixsort 
  */
 #define INSTRUMENT_SORT_GROUP(node, groupName) \
 	do { \
@@ -119,9 +119,9 @@
 /* ----------------------------------------------------------------
  * instrumentSortedGroup
  *
- * Because incremental sort processes (potentially many) sort batches, we need
- * to capture tuplesort stats each time we finalize a sort state. This summary
- * data is later used for EXPLAIN ANALYZE output.
+ * 由于增量排序会处理（可能许多个）排序批次，我们在   
+ * 结束一个排序状态时都捕获 tuplesort 统计数据，这些       
+ * 摘要数据供 EXPLAIN ANALYZE 使用。     
  * ----------------------------------------------------------------
  */
 static void
@@ -134,7 +134,7 @@ instrumentSortedGroup(IncrementalSortGroupInfo *groupInfo,
 
 	tuplesort_get_stats(sortState, &sort_instr);
 
-	/* Calculate total and maximum memory and disk space used. */
+	/* 计算总内存、最大内存和磁盘空间用量。  */
 	switch (sort_instr.spaceType)
 	{
 		case SORT_SPACE_TYPE_DISK:
@@ -151,14 +151,14 @@ instrumentSortedGroup(IncrementalSortGroupInfo *groupInfo,
 			break;
 	}
 
-	/* Track each sort method we've used. */
+	/* 记录已使用的排序方法。  */
 	groupInfo->sortMethods |= sort_instr.sortMethod;
 }
 
 /* ----------------------------------------------------------------
  * preparePresortedCols
  *
- * Prepare information for presorted_keys comparisons.
+ * 为 presorted_keys 比较准备所需信息。     
  * ----------------------------------------------------------------
  */
 static void
@@ -170,7 +170,7 @@ preparePresortedCols(IncrementalSortState *node)
 		(PresortedKeyData *) palloc(plannode->nPresortedCols *
 									sizeof(PresortedKeyData));
 
-	/* Pre-cache comparison functions for each pre-sorted key. */
+	/* 为每个预排序键预先缓存比较函数。        */
 	for (int i = 0; i < plannode->nPresortedCols; i++)
 	{
 		Oid			equalityOp,
@@ -190,10 +190,10 @@ preparePresortedCols(IncrementalSortState *node)
 		if (!OidIsValid(equalityFunc))
 			elog(ERROR, "missing function for operator %u", equalityOp);
 
-		/* Lookup the comparison function */
+		/* 查找比较函数             */
 		fmgr_info_cxt(equalityFunc, &key->flinfo, CurrentMemoryContext);
 
-		/* We can initialize the callinfo just once and re-use it */
+		/* 我们可以只初始化一次 callinfo 并复用它。*/
 		key->fcinfo = palloc0(SizeForFunctionCallInfo(2));
 		InitFunctionCallInfoData(*key->fcinfo, &key->flinfo, 2,
 								 plannode->sort.collations[i], NULL, NULL);
@@ -205,8 +205,8 @@ preparePresortedCols(IncrementalSortState *node)
 /* ----------------------------------------------------------------
  * isCurrentGroup
  *
- * Check whether a given tuple belongs to the current sort group by comparing
- * the presorted column values to the pivot tuple of the current group.
+ * 比较给定元组的预排序列值与当前组的枢轴元组，即可  
+ * 判断该元组是否属于当前的排序组。                    
  * ----------------------------------------------------------------
  */
 static bool
@@ -217,10 +217,10 @@ isCurrentGroup(IncrementalSortState *node, TupleTableSlot *pivot, TupleTableSlot
 	nPresortedCols = castNode(IncrementalSort, node->ss.ps.plan)->nPresortedCols;
 
 	/*
-	 * That the input is sorted by keys * (0, ... n) implies that the tail
-	 * keys are more likely to change. Therefore we do our comparison starting
-	 * from the last pre-sorted column to optimize for early detection of
-	 * inequality and minimizing the number of function calls..
+	 * 输入已按键 * (0, ... n) 排好序，这意味着靠后的键  
+	 * 更可能发生变化。因此我们从最后一个预排序列开始  
+	 * 比较，以便尽早发现不相等，                           
+	 * 并尽量减少函数调用次数。                    
 	 */
 	for (int i = nPresortedCols - 1; i >= 0; i--)
 	{
@@ -235,7 +235,7 @@ isCurrentGroup(IncrementalSortState *node, TupleTableSlot *pivot, TupleTableSlot
 		datumA = slot_getattr(pivot, attno, &isnullA);
 		datumB = slot_getattr(tuple, attno, &isnullB);
 
-		/* Special case for NULL-vs-NULL, else use standard comparison */
+		/* NULL 与 NULL 比较的特殊情况，否则用标准比较 */
 		if (isnullA || isnullB)
 		{
 			if (isnullA == isnullB)
@@ -249,12 +249,12 @@ isCurrentGroup(IncrementalSortState *node, TupleTableSlot *pivot, TupleTableSlot
 		key->fcinfo->args[0].value = datumA;
 		key->fcinfo->args[1].value = datumB;
 
-		/* just for paranoia's sake, we reset isnull each time */
+		/* 为稳妥起见，每次都重置 isnull            */
 		key->fcinfo->isnull = false;
 
 		result = FunctionCallInvoke(key->fcinfo);
 
-		/* Check for null result, since caller is clearly not expecting one */
+		/* 检查结果是否为 NULL，调用者显然不期望空结果   */
 		if (key->fcinfo->isnull)
 			elog(ERROR, "function %u returned NULL", key->flinfo.fn_oid);
 
@@ -267,20 +267,20 @@ isCurrentGroup(IncrementalSortState *node, TupleTableSlot *pivot, TupleTableSlot
 /* ----------------------------------------------------------------
  * switchToPresortedPrefixMode
  *
- * When we determine that we've likely encountered a large batch of tuples all
- * having the same presorted prefix values, we want to optimize tuplesort by
- * only sorting on unsorted suffix keys.
+ * 当我们判定很可能遇到了一大批具有相同预排序前缀值   
+ * 的元组时，我们想优化 tuplesort，只对未排序的后缀键   
+ * 进行排序。                      
  *
- * The problem is that we've already accumulated several tuples in another
- * tuplesort configured to sort by all columns (assuming that there may be
- * more than one prefix key group). So to switch to presorted prefix mode we
- * have to go back and look at all the tuples we've already accumulated to
- * verify they're all part of the same prefix key group before sorting them
- * solely by unsorted suffix keys.
+ * 问题在于我们已经把若干元组累积到了另一个 tuplesort 
+ * 中，而那个 tuplesort 配置为按所有列排序（因为可能   
+ * 存在多个前缀键组）。要进入预排序前缀模式，          
+ * 我们得回头检查已累积的所有元组，确认它们都属于  
+ * 同一个前缀键组，然后才只用未排序的后缀键对它们   
+ * 进行排序。                
  *
- * While it's likely that all tuples already fetched are all part of a single
- * prefix group, we also have to handle the possibility that there is at least
- * one different prefix key group before the large prefix key group.
+ * 虽然很可能已取回的元组都属于同一个前缀组，           
+ * 我们还得处理这种可能性：在大前缀键组之前至少还      
+ * 存在一个不同的前缀键组。                             
  * ----------------------------------------------------------------
  */
 static void
@@ -297,15 +297,15 @@ switchToPresortedPrefixMode(PlanState *pstate)
 	outerNode = outerPlanState(node);
 	tupDesc = ExecGetResultType(outerNode);
 
-	/* Configure the prefix sort state the first time around. */
+	/* 首次执行时配置前缀排序状态。             */
 	if (node->prefixsort_state == NULL)
 	{
 		Tuplesortstate *prefixsort_state;
 		int			nPresortedCols = plannode->nPresortedCols;
 
 		/*
-		 * Optimize the sort by assuming the prefix columns are all equal and
-		 * thus we only need to sort by any remaining columns.
+		 * 通过假定前缀列全部相等来优化排序，               
+		 * 这样只需按其余的列排序。               
 		 */
 		prefixsort_state = tuplesort_begin_heap(tupDesc,
 												plannode->sort.numCols - nPresortedCols,
@@ -320,14 +320,14 @@ switchToPresortedPrefixMode(PlanState *pstate)
 	}
 	else
 	{
-		/* Next group of presorted data */
+		/* 下一组预排序数据     */
 		tuplesort_reset(node->prefixsort_state);
 	}
 
 	/*
-	 * If the current node has a bound, then it's reasonably likely that a
-	 * large prefix key group will benefit from bounded sort, so configure the
-	 * tuplesort to allow for that optimization.
+	 * 如果当前节点有边界，那么大前缀键组很可能会    
+	 * 受益于有界排序，因此配置 tuplesort 允许                  
+	 * 这一优化。                          
 	 */
 	if (node->bounded)
 	{
@@ -338,20 +338,20 @@ switchToPresortedPrefixMode(PlanState *pstate)
 	}
 
 	/*
-	 * Copy as many tuples as we can (i.e., in the same prefix key group) from
-	 * the full sort state to the prefix sort state.
+	 * 从全排序状态向前缀排序状态尽可能多地拷贝元组     
+	 * （即同一前缀键组内的元组）。   
 	 */
 	for (nTuples = 0; nTuples < node->n_fullsort_remaining; nTuples++)
 	{
 		/*
-		 * When we encounter multiple prefix key groups inside the full sort
-		 * tuplesort we have to carry over the last read tuple into the next
-		 * batch.
+		 * 当我们在全排序 tuplesort 中遇到多个前缀键组时，
+		 * 必须把最后读取的元组结转到下一                    
+		 * 批。
 		 */
 		if (nTuples == 0 && !TupIsNull(node->transfer_tuple))
 		{
 			tuplesort_puttupleslot(node->prefixsort_state, node->transfer_tuple);
-			/* The carried over tuple is our new group pivot tuple. */
+			/* 结转的元组就是我们新的组枢轴元组。  */
 			ExecCopySlot(node->group_pivot, node->transfer_tuple);
 		}
 		else
@@ -361,8 +361,8 @@ switchToPresortedPrefixMode(PlanState *pstate)
 								   false, node->transfer_tuple, NULL);
 
 			/*
-			 * If this is our first time through the loop, then we need to
-			 * save the first tuple we get as our new group pivot.
+			 * 如果这是第一次经过循环，那么我们需要     
+			 * 把得到的第一个元组存为新的组枢轴。
 			 */
 			if (TupIsNull(node->group_pivot))
 				ExecCopySlot(node->group_pivot, node->transfer_tuple);
@@ -374,31 +374,31 @@ switchToPresortedPrefixMode(PlanState *pstate)
 			else
 			{
 				/*
-				 * The tuple isn't part of the current batch so we need to
-				 * carry it over into the next batch of tuples we transfer out
-				 * of the full sort tuplesort into the presorted prefix
-				 * tuplesort. We don't actually have to do anything special to
-				 * save the tuple since we've already loaded it into the
-				 * node->transfer_tuple slot, and, even though that slot
-				 * points to memory inside the full sort tuplesort, we can't
-				 * reset that tuplesort anyway until we've fully transferred
-				 * out its tuples, so this reference is safe. We do need to
-				 * reset the group pivot tuple though since we've finished the
-				 * current prefix key group.
+				 * 该元组不属于当前批次，需要把它结转到 
+				 * 下一批从全排序 tuplesort 转入预排序前缀      
+				 * tuplesort 的元组中。保存该元组无需      
+				 * 特殊操作，因为我们已经把它加载到了        
+				 * node->transfer_tuple 槽；而且即使该槽指向  
+				 * 的内存位于全排序 tuplesort 内，我们反正
+				 * 也要等到把它的元组全部转移出去之后才能
+				 * 重置它，所以该引用是安全的。但我们确实
+				 * 需要重置组枢轴元组，因为                    
+				 * 我们已经完成了当前的前缀键                    
+				 * 组。                   
 				 */
 				ExecClearTuple(node->group_pivot);
 
-				/* Break out of for-loop early */
+				/* 提前跳出 for 循环     */
 				break;
 			}
 		}
 	}
 
 	/*
-	 * Track how many tuples remain in the full sort batch so that we know if
-	 * we need to sort multiple prefix key groups before processing tuples
-	 * remaining in the large single prefix key group we think we've
-	 * encountered.
+	 * 跟踪全排序批次中还剩多少元组，以便知道是否需要 
+	 * 在处理我们认为遇到的大单个前缀键组中剩余的    
+	 * 元组之前，先对多个前缀键组                      
+	 * 排序。   
 	 */
 	SO1_printf("Moving " INT64_FORMAT " tuples to presorted prefix tuplesort\n", nTuples);
 	node->n_fullsort_remaining -= nTuples;
@@ -407,31 +407,31 @@ switchToPresortedPrefixMode(PlanState *pstate)
 	if (node->n_fullsort_remaining == 0)
 	{
 		/*
-		 * We've found that all tuples remaining in the full sort batch are in
-		 * the same prefix key group and moved all of those tuples into the
-		 * presorted prefix tuplesort.  We don't know that we've yet found the
-		 * last tuple in the current prefix key group, so save our pivot
-		 * comparison tuple and continue fetching tuples from the outer
-		 * execution node to load into the presorted prefix tuplesort.
+		 * 我们发现全排序批次中剩余的元组都位于同一       
+		 * 前缀键组，并且已把所有这些元组移入预排序    
+		 * 前缀 tuplesort。我们还不知道当前前缀键组的         
+		 * 最后一个元组是否已经出现，因此先保存枢轴 
+		 * 比较元组，并继续从外层节点取元组装入      
+		 * 预排序前缀 tuplesort。                               
 		 */
 		ExecCopySlot(node->group_pivot, node->transfer_tuple);
 		SO_printf("Setting execution_status to INCSORT_LOADPREFIXSORT (switchToPresortedPrefixMode)\n");
 		node->execution_status = INCSORT_LOADPREFIXSORT;
 
 		/*
-		 * Make sure we clear the transfer tuple slot so that next time we
-		 * encounter a large prefix key group we don't incorrectly assume we
-		 * have a tuple carried over from the previous group.
+		 * 务必清空 transfer tuple 槽，这样下次遇到大        
+		 * 前缀键组时，不会误认为我们有从上一组结转     
+		 * 而来的元组。                                
 		 */
 		ExecClearTuple(node->transfer_tuple);
 	}
 	else
 	{
 		/*
-		 * We finished a group but didn't consume all of the tuples from the
-		 * full sort state, so we'll sort this batch, let the outer node read
-		 * out all of those tuples, and then come back around to find another
-		 * batch.
+		 * 我们完成了一个组，但并未耗尽全排序状态中     
+		 * 的全部元组，所以我们将对该批次排序，让外层   
+		 * 节点读出所有这些元组，然后再回来找另            
+		 * 批。
 		 */
 		SO1_printf("Sorting presorted prefix tuplesort with " INT64_FORMAT " tuples\n", nTuples);
 		tuplesort_performsort(node->prefixsort_state);
@@ -441,10 +441,10 @@ switchToPresortedPrefixMode(PlanState *pstate)
 		if (node->bounded)
 		{
 			/*
-			 * If the current node has a bound and we've already sorted n
-			 * tuples, then the functional bound remaining is (original bound
-			 * - n), so store the current number of processed tuples for use
-			 * in configuring sorting bound.
+			 * 如果当前节点有边界且已排序 n 个，则剩余 
+			 * 的有效边界是（原始边界 - n），故保存已       
+			 * 处理的元组数，供配置排序边界                   
+			 * 时使用。                 
 			 */
 			SO2_printf("Changing bound_Done from " INT64_FORMAT " to " INT64_FORMAT "\n",
 					   Min(node->bound, node->bound_Done + nTuples), node->bound_Done);
@@ -457,39 +457,39 @@ switchToPresortedPrefixMode(PlanState *pstate)
 }
 
 /*
- * Sorting many small groups with tuplesort is inefficient. In order to
- * cope with this problem we don't start a new group until the current one
- * contains at least DEFAULT_MIN_GROUP_SIZE tuples (unfortunately this also
- * means we can't assume small groups of tuples all have the same prefix keys.)
- * When we have a bound that's less than DEFAULT_MIN_GROUP_SIZE we start looking
- * for the new group as soon as we've met our bound to avoid fetching more
- * tuples than we absolutely have to fetch.
+ * 用 tuplesort 对许多小组排序是低效的。为解决这一   
+ * 问题，在当前组包含至少 DEFAULT_MIN_GROUP_SIZE 个           
+ * 元组之前我们不会开始新组（遗憾的是这也意味着      
+ * 我们不能假设小组元组都具有相同的前缀键）。             
+ * 当边界小于 DEFAULT_MIN_GROUP_SIZE 时，一旦达到                    
+ * 边界我们就会开始寻找新组，以避免取回超过必需     
+ * 数量的元组。                      
  */
 #define DEFAULT_MIN_GROUP_SIZE 32
 
 /*
- * While we've optimized for small prefix key groups by not starting our prefix
- * key comparisons until we've reached a minimum number of tuples, we don't want
- * that optimization to cause us to lose out on the benefits of being able to
- * assume a large group of tuples is fully presorted by its prefix keys.
- * Therefore we use the DEFAULT_MAX_FULL_SORT_GROUP_SIZE cutoff as a heuristic
- * for determining when we believe we've encountered a large group, and, if we
- * get to that point without finding a new prefix key group we transition to
- * presorted prefix key mode.
+ * 虽然我们通过在达到最少元组数之前不开始前缀键比较， 
+ * 对小的前缀键组做了优化，但我们不想让这一优化使我     
+ * 们失去能够假定大元组组已按其前缀键完全预排序        
+ * 所带来的好处。因此我们用 DEFAULT_MAX_FULL_SORT           
+ * _GROUP_SIZE 截断值作为启发式标准，用于判定何时            
+ * 我们相信自己遇到了大组；并且如果到该点时仍未         
+ * 发现新的前缀键组，我们就转入预排序                      
+ * 前缀键模式。        
  */
 #define DEFAULT_MAX_FULL_SORT_GROUP_SIZE (2 * DEFAULT_MIN_GROUP_SIZE)
 
 /* ----------------------------------------------------------------
  *		ExecIncrementalSort
  *
- *		Assuming that outer subtree returns tuple presorted by some prefix
- *		of target sort columns, performs incremental sort.
+ *		假定外层子树返回的元组已按目标排序列            
+ *		的某前缀预排序，执行增量排序。     
  *
- *		Conditions:
- *		  -- none.
+ *		条件：  
+ *		  --无。
  *
- *		Initial States:
- *		  -- the outer child is prepared to return the first tuple.
+ *		初始状态：
+ *		  -- 外层子节点已准备好返回第一个元组。   
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -514,49 +514,49 @@ ExecIncrementalSort(PlanState *pstate)
 	fullsort_state = node->fullsort_state;
 
 	/*
-	 * If a previous iteration has sorted a batch, then we need to check to
-	 * see if there are any remaining tuples in that batch that we can return
-	 * before moving on to other execution states.
+	 * 如果上一轮迭代已排好一个批次，那么我们需要     
+	 * 先检查该批次中是否还有可返回的元组，然后才能    
+	 * 转入其他执行状态。                
 	 */
 	if (node->execution_status == INCSORT_READFULLSORT
 		|| node->execution_status == INCSORT_READPREFIXSORT)
 	{
 		/*
-		 * Return next tuple from the current sorted group set if available.
+		 * 如可用，从当前已排序组集返回下一个元组。     
 		 */
 		read_sortstate = node->execution_status == INCSORT_READFULLSORT ?
 			fullsort_state : node->prefixsort_state;
 		slot = node->ss.ps.ps_ResultTupleSlot;
 
 		/*
-		 * We have to populate the slot from the tuplesort before checking
-		 * outerNodeDone because it will set the slot to NULL if no more
-		 * tuples remain. If the tuplesort is empty, but we don't have any
-		 * more tuples available for sort from the outer node, then
-		 * outerNodeDone will have been set so we'll return that now-empty
-		 * slot to the caller.
+		 * 检查 outerNodeDone 前必须先用 tuplesort 填充槽，    
+		 * 因为若无更多元组，它会将该槽置为 NULL。     
+		 * 如果 tuplesort 为空，而外层节点也没有更多       
+		 * 可用于排序的元组，则outerNodeDone 已置位，
+		 * 因此我们会把这个现已为空的槽返回给调         
+		 * 用者。          
 		 */
 		if (tuplesort_gettupleslot(read_sortstate, ScanDirectionIsForward(dir),
 								   false, slot, NULL) || node->outerNodeDone)
 
 			/*
-			 * Note: there isn't a good test case for the node->outerNodeDone
-			 * check directly, but we need it for any plan where the outer
-			 * node will fail when trying to fetch too many tuples.
+			 * 注：对于直接检查 node->outerNodeDone 尚无好的     
+			 * 测试用例，但对于任何外层节点会因取回     
+			 * 过多元组而失败的计划都需要它。       
 			 */
 			return slot;
 		else if (node->n_fullsort_remaining > 0)
 		{
 			/*
-			 * When we transition to presorted prefix mode, we might have
-			 * accumulated at least one additional prefix key group in the
-			 * full sort tuplesort. The first call to
-			 * switchToPresortedPrefixMode() will have pulled the first one of
-			 * those groups out, and we've returned those tuples to the parent
-			 * node, but if at this point we still have tuples remaining in
-			 * the full sort state (i.e., n_fullsort_remaining > 0), then we
-			 * need to re-execute the prefix mode transition function to pull
-			 * out the next prefix key group.
+			 * 转入预排序前缀模式时，全排序 tuplesort 里  
+			 * 可能还累积了至少一个额外前缀键组。首次  
+			 * switchToPresortedPrefixMode()         
+			 * 调用会拉出其中第一个组，并且我们已把         
+			 * 这些元组返回给了父节点，但如果此时全排序   
+			 * 状态中仍有元组剩余（即 n_fullsort_remaining      
+			 *  > 0），就需重新执行前缀模式转换函数，      
+			 * 以便拉出                                                  
+			 * 下一个前缀键组。      
 			 */
 			SO1_printf("Re-calling switchToPresortedPrefixMode() because n_fullsort_remaining is > 0 (" INT64_FORMAT ")\n",
 					   node->n_fullsort_remaining);
@@ -565,10 +565,10 @@ ExecIncrementalSort(PlanState *pstate)
 		else
 		{
 			/*
-			 * If we don't have any sorted tuples to read and we're not
-			 * currently transitioning into presorted prefix sort mode, then
-			 * it's time to start the process all over again by building a new
-			 * group in the full sort state.
+			 * 如果没有已排序元组可读，且当前未处于  
+			 * 向预排序前缀模式转换时，那么就该重新开始 
+			 * 整个流程：在全排序状态中构建                     
+			 * 一个新组。              
 			 */
 			SO_printf("Setting execution_status to INCSORT_LOADFULLSORT (n_fullsort_remaining > 0)\n");
 			node->execution_status = INCSORT_LOADFULLSORT;
@@ -576,7 +576,7 @@ ExecIncrementalSort(PlanState *pstate)
 	}
 
 	/*
-	 * Scan the subplan in the forward direction while creating the sorted
+	 * 创建已排序数据的同时按正向方向扫描子计划。    
 	 * data.
 	 */
 	estate->es_direction = ForwardScanDirection;
@@ -584,28 +584,28 @@ ExecIncrementalSort(PlanState *pstate)
 	outerNode = outerPlanState(node);
 	tupDesc = ExecGetResultType(outerNode);
 
-	/* Load tuples into the full sort state. */
+	/* 把元组装入全排序状态。     */
 	if (node->execution_status == INCSORT_LOADFULLSORT)
 	{
 		/*
-		 * Initialize sorting structures.
+		 * 初始化排序结构。      
 		 */
 		if (fullsort_state == NULL)
 		{
 			/*
-			 * Initialize presorted column support structures for
-			 * isCurrentGroup(). It's correct to do this along with the
-			 * initial initialization for the full sort state (and not for the
-			 * prefix sort state) since we always load the full sort state
+			 * 为 isCurrentGroup() 初始化预排序列        
+			 * 的支撑结构。它与全排序状态一起初始化  
+			 * 是正确的（而非前缀排序状态），因为我们      
+			 * 总是先加载全排序状态。                          
 			 * first.
 			 */
 			preparePresortedCols(node);
 
 			/*
-			 * Since we optimize small prefix key groups by accumulating a
-			 * minimum number of tuples before sorting, we can't assume that a
-			 * group of tuples all have the same prefix key values. Hence we
-			 * setup the full sort tuplesort to sort by all requested sort
+			 * 由于我们通过在排序前积累最少数量的元组  
+			 * 优化小前缀键组，所以不能假定一组元组都具有
+			 * 相同的前缀键值。因此我们配置全排序 tuplesort
+			 * 按所有请求的排序键进行排序。                 
 			 * keys.
 			 */
 			fullsort_state = tuplesort_begin_heap(tupDesc,
@@ -623,23 +623,23 @@ ExecIncrementalSort(PlanState *pstate)
 		}
 		else
 		{
-			/* Reset sort for the next batch. */
+			/* 为下一批重置排序。    */
 			tuplesort_reset(fullsort_state);
 		}
 
 		/*
-		 * Calculate the remaining tuples left if bounded and configure both
-		 * bounded sort and the minimum group size accordingly.
+		 * 如果有边界，则计算剩余元组数，并相应地配置  
+		 * 有界排序和最小组大小这两者。          
 		 */
 		if (node->bounded)
 		{
 			int64		currentBound = node->bound - node->bound_Done;
 
 			/*
-			 * Bounded sort isn't likely to be a useful optimization for full
-			 * sort mode since we limit full sort mode to a relatively small
-			 * number of tuples and tuplesort doesn't switch over to top-n
-			 * heap sort anyway unless it hits (2 * bound) tuples.
+			 * 有界排序对全排序模式而言不太可能是有效的  
+			 * 优化，因为我们把全排序模式限制在相对少量 
+			 * 的元组上，而 tuplesort 除非达到 (2 * bound) 个  
+			 * 元组时才会切换到 top-n 堆排序。        
 			 */
 			if (currentBound < DEFAULT_MIN_GROUP_SIZE)
 				tuplesort_set_bound(fullsort_state, currentBound);
@@ -650,10 +650,10 @@ ExecIncrementalSort(PlanState *pstate)
 			minGroupSize = DEFAULT_MIN_GROUP_SIZE;
 
 		/*
-		 * Because we have to read the next tuple to find out that we've
-		 * encountered a new prefix key group, on subsequent groups we have to
-		 * carry over that extra tuple and add it to the new group's sort here
-		 * before we read any new tuples from the outer node.
+		 * 因为必须读取下一个元组才能发现遇到了新的 
+		 * 前缀键组，所以在后续的组中，我们必须在这里    
+		 * 先结转那个多读的元组，把它加入新组的排序，    
+		 * 然后才从外层节点读取新元组。        
 		 */
 		if (!TupIsNull(node->group_pivot))
 		{
@@ -661,11 +661,11 @@ ExecIncrementalSort(PlanState *pstate)
 			nTuples++;
 
 			/*
-			 * We're in full sort mode accumulating a minimum number of tuples
-			 * and not checking for prefix key equality yet, so we can't
-			 * assume the group pivot tuple will remain the same -- unless
-			 * we're using a minimum group size of 1, in which case the pivot
-			 * is obviously still the pivot.
+			 * 我们处于全排序模式，正在积累最少数量的      
+			 * 且尚未检查前缀键相等性，所以无法假定   
+			 * 组枢轴元组不变，除非所用最小组大小为 1，
+			 * 此时枢轴                                                  
+			 * 显然仍是枢轴。        
 			 */
 			if (nTuples != minGroupSize)
 				ExecClearTuple(node->group_pivot);
@@ -673,23 +673,23 @@ ExecIncrementalSort(PlanState *pstate)
 
 
 		/*
-		 * Pull as many tuples from the outer node as possible given our
-		 * current operating mode.
+		 * 在当前运行模式下，从外层节点尽可能多地    
+		 * 拉取元组。        
 		 */
 		for (;;)
 		{
 			slot = ExecProcNode(outerNode);
 
 			/*
-			 * If the outer node can't provide us any more tuples, then we can
-			 * sort the current group and return those tuples.
+			 * 如果外层节点无法再向我们提供任何元组，那么
+			 * 就能对当前组排序并返回元组。     
 			 */
 			if (TupIsNull(slot))
 			{
 				/*
-				 * We need to know later if the outer node has completed to be
-				 * able to distinguish between being done with a batch and
-				 * being done with the whole node.
+				 * 我们稍后需要知道外层节点是否完成，以便  
+				 * 区分是完成了一个批次，                      
+				 * 还是完成了整个节点。 
 				 */
 				node->outerNodeDone = true;
 
@@ -703,22 +703,22 @@ ExecIncrementalSort(PlanState *pstate)
 				break;
 			}
 
-			/* Accumulate the next group of presorted tuples. */
+			/* 累积下一组预排序元组。              */
 			if (nTuples < minGroupSize)
 			{
 				/*
-				 * If we haven't yet hit our target minimum group size, then
-				 * we don't need to bother checking for inclusion in the
-				 * current prefix group since at this point we'll assume that
-				 * we'll full sort this batch to avoid a large number of very
-				 * tiny (and thus inefficient) sorts.
+				 * 如果尚未达到目标最小组大小，那么无需   
+				 * 费心检查是否属于当前前缀组，因为     
+				 * 我们将假定对本批做全排序，以避免大量    
+				 * 非常微小因而低效的                               
+				 * 排序。                         
 				 */
 				tuplesort_puttupleslot(fullsort_state, slot);
 				nTuples++;
 
 				/*
-				 * If we've reached our minimum group size, then we need to
-				 * store the most recent tuple as a pivot.
+				 * 如果已达到最小组大小，那么需要把        
+				 * 最近的元组存为枢轴。         
 				 */
 				if (nTuples == minGroupSize)
 					ExecCopySlot(node->group_pivot, slot);
@@ -726,18 +726,18 @@ ExecIncrementalSort(PlanState *pstate)
 			else
 			{
 				/*
-				 * If we've already accumulated enough tuples to reach our
-				 * minimum group size, then we need to compare any additional
-				 * tuples to our pivot tuple to see if we reach the end of
-				 * that prefix key group. Only after we find changed prefix
-				 * keys can we guarantee sort stability of the tuples we've
-				 * already accumulated.
+				 * 如果我们已经累积了足够多的元组，达到 
+				 * 了最小组大小，就需要把任何额外元组与    
+				 * 枢轴元组比较，看是否已到该前缀键组    
+				 * 的末尾。只有发现前缀键发生变化之后，  
+				 * 我们才能保证已累积元组的                    
+				 * 排序稳定性。  
 				 */
 				if (isCurrentGroup(node, node->group_pivot, slot))
 				{
 					/*
-					 * As long as the prefix keys match the pivot tuple then
-					 * load the tuple into the tuplesort.
+					 * 只要前缀键匹配枢轴元组，就把它装入  
+					 * tuplesort。                      
 					 */
 					tuplesort_puttupleslot(fullsort_state, slot);
 					nTuples++;
@@ -745,22 +745,22 @@ ExecIncrementalSort(PlanState *pstate)
 				else
 				{
 					/*
-					 * Since the tuple we fetched isn't part of the current
-					 * prefix key group we don't want to sort it as part of
-					 * the current batch. Instead we use the group_pivot slot
-					 * to carry it over to the next batch (even though we
-					 * won't actually treat it as a group pivot).
+					 * 由于取到的元组不属于当前前缀键组， 
+					 * 不想把它作为当前批次的一部分排序。 
+					 * 我们改用 group_pivot 槽把它结转到下一批  
+					 * （尽管                                         
+					 * 不会真的把它当作组枢轴）。   
 					 */
 					ExecCopySlot(node->group_pivot, slot);
 
 					if (node->bounded)
 					{
 						/*
-						 * If the current node has a bound, and we've already
-						 * sorted n tuples, then the functional bound
-						 * remaining is (original bound - n), so store the
-						 * current number of processed tuples for later use
-						 * configuring the sort state's bound.
+						 * 若当前节点有边界且已排序 n 个，     
+						 * 则剩余边界为（原始边界-n）， 
+						 * 保存当前已处理元组数，供配置     
+						 * 排序状态的                                 
+						 * 边界。                          
 						 */
 						SO2_printf("Changing bound_Done from " INT64_FORMAT " to " INT64_FORMAT "\n",
 								   node->bound_Done,
@@ -769,8 +769,8 @@ ExecIncrementalSort(PlanState *pstate)
 					}
 
 					/*
-					 * Once we find changed prefix keys we can complete the
-					 * sort and transition modes to reading out the sorted
+					 * 一旦发现前缀键变化，就能完成排序， 
+					 * 并转换模式去读出已排序的元组。      
 					 * tuples.
 					 */
 					SO1_printf("Sorting fullsort tuplesort with " INT64_FORMAT " tuples\n",
@@ -786,33 +786,33 @@ ExecIncrementalSort(PlanState *pstate)
 			}
 
 			/*
-			 * Unless we've already transitioned modes to reading from the
-			 * full sort state, then we assume that having read at least
-			 * DEFAULT_MAX_FULL_SORT_GROUP_SIZE tuples means it's likely we're
-			 * processing a large group of tuples all having equal prefix keys
-			 * (but haven't yet found the final tuple in that prefix key
-			 * group), so we need to transition into presorted prefix mode.
+			 * 除非我们已转入从全排序状态读取的模式，  
+			 * 否则我们就假定：读取的元组数达到至少   
+			 * DEFAULT_MAX_FULL_SORT_GROUP_SIZE 个就意味着很            
+			 * 可能我们正在处理一个大元组组，其中所有      
+			 * 元组的前缀键都相等（但尚未找到该前缀键
+			 * 组的最后元组），需转入预排序前缀模式。   
 			 */
 			if (nTuples > DEFAULT_MAX_FULL_SORT_GROUP_SIZE &&
 				node->execution_status != INCSORT_READFULLSORT)
 			{
 				/*
-				 * The group pivot we have stored has already been put into
-				 * the tuplesort; we don't want to carry it over. Since we
-				 * haven't yet found the end of the prefix key group, it might
-				 * seem like we should keep this, but we don't actually know
-				 * how many prefix key groups might be represented in the full
-				 * sort state, so we'll let the mode transition function
-				 * manage this state for us.
+				 * 已保存的组枢轴已被放入 tuplesort，          
+				 * 不想把它结转。虽然尚未找到前缀键组    
+				 * 的末尾，看似应当保留它，但我们并不知道  
+				 * 全排序状态中可能含有多少个前缀            
+				 * 键组，所以就让模式转换函数                    
+				 * 替我们管理这一状态即可，                 
+				 * 无需我们操心。    
 				 */
 				ExecClearTuple(node->group_pivot);
 
 				/*
-				 * Unfortunately the tuplesort API doesn't include a way to
-				 * retrieve tuples unless a sort has been performed, so we
-				 * perform the sort even though we could just as easily rely
-				 * on FIFO retrieval semantics when transferring them to the
-				 * presorted prefix tuplesort.
+				 * 遗憾的是 tuplesort API 没有提供在排序前     
+				 * 取回元组的途径，即使本可轻松依靠 FIFO  
+				 * 取回语义将它们转到预排序前缀 tuplesort，  
+				 * 也照样执行                                          
+				 * 排序操作。            
 				 */
 				SO1_printf("Sorting fullsort tuplesort with " INT64_FORMAT " tuples\n", nTuples);
 				tuplesort_performsort(fullsort_state);
@@ -820,14 +820,14 @@ ExecIncrementalSort(PlanState *pstate)
 				INSTRUMENT_SORT_GROUP(node, fullsort);
 
 				/*
-				 * If the full sort tuplesort happened to switch into top-n
-				 * heapsort mode then we will only be able to retrieve
-				 * currentBound tuples (since the tuplesort will have only
-				 * retained the top-n tuples). This is safe even though we
-				 * haven't yet completed fetching the current prefix key group
-				 * because the tuples we've "lost" already sorted "below" the
-				 * retained ones, and we're already contractually guaranteed
-				 * to not need any more than the currentBound tuples.
+				 * 若全排序 tuplesort 恰好切到 top-n 堆排序，  
+				 * 模式，那么只能取回 currentBound 个元组 
+				 * （因为 tuplesort 只保留了前 n 个）。尽管  
+				 * 即使尚未取完当前前缀键组，这也是安全 
+				 * 的，因为我们已丢失的元组本来就排在被     
+				 * 保留元组的后面，而且契约已保证我们绝不 
+				 * 会需要多于 currentBound 个                         
+				 * 元组。                                         
 				 */
 				if (tuplesort_used_bound(node->fullsort_state))
 				{
@@ -842,27 +842,27 @@ ExecIncrementalSort(PlanState *pstate)
 						   nTuples);
 
 				/*
-				 * We might have multiple prefix key groups in the full sort
-				 * state, so the mode transition function needs to know that
-				 * it needs to move from the fullsort to presorted prefix
+				 * 全排序状态中可能有多个前缀键组，模式转
+				 * 换函数需要知道它必须从全排序转入预排序
+				 * 前缀排序。                                       
 				 * sort.
 				 */
 				node->n_fullsort_remaining = nTuples;
 
-				/* Transition the tuples to the presorted prefix tuplesort. */
+				/* 把这些元组转换到预排序前缀 tuplesort。     */
 				switchToPresortedPrefixMode(pstate);
 
 				/*
-				 * Since we know we had tuples to move to the presorted prefix
-				 * tuplesort, we know that unless that transition has verified
-				 * that all tuples belonged to the same prefix key group (in
-				 * which case we can go straight to continuing to load tuples
-				 * into that tuplesort), we should have a tuple to return
+				 * 既然我们知道自己有元组要移到预排序前缀  
+				 * tuplesort，就知道：除非该转换已确认所有     
+				 * 元组都属于同一个前缀键组（此时            
+				 * 可直接继续向该 tuplesort 装元组），否则就  
+				 * 应当有一个元组可在这里返回。            
 				 * here.
 				 *
-				 * Either way, the appropriate execution status should have
-				 * been set by switchToPresortedPrefixMode(), so we can drop
-				 * out of the loop here and let the appropriate path kick in.
+				 * 无论哪种情况，相应的执行状态都应已由  
+				 * switchToPresortedPrefixMode() 设置好，因此我们   
+				 * 可以就此退出循环，让相应路径发挥作用。 
 				 */
 				break;
 			}
@@ -872,45 +872,45 @@ ExecIncrementalSort(PlanState *pstate)
 	if (node->execution_status == INCSORT_LOADPREFIXSORT)
 	{
 		/*
-		 * We only enter this state after the mode transition function has
-		 * confirmed all remaining tuples from the full sort state have the
-		 * same prefix and moved those tuples to the prefix sort state. That
-		 * function has also set a group pivot tuple (which doesn't need to be
-		 * carried over; it's already been put into the prefix sort state).
+		 * 只有在模式转换函数确认全排序状态中剩余      
+		 * 的所有元组都具有相同前缀，并把它们移入       
+		 * 前缀排序状态之后，我们才会进入这一状态。     
+		 * 该函数还设置了一个组枢轴元组（它无需结转；    
+		 * 它已被放入前缀排序状态）。                         
 		 */
 		Assert(!TupIsNull(node->group_pivot));
 
 		/*
-		 * Read tuples from the outer node and load them into the prefix sort
-		 * state until we encounter a tuple whose prefix keys don't match the
-		 * current group_pivot tuple, since we can't guarantee sort stability
-		 * until we have all tuples matching those prefix keys.
+		 * 从外层节点读取元组并装入前缀排序状态，直到   
+		 * 遇到某个前缀键与当前 group_pivot 元组不匹配        
+		 * 的元组为止，因为在拥有所有匹配这些前缀键      
+		 * 的元组前，无法保证排序的稳定性。    
 		 */
 		for (;;)
 		{
 			slot = ExecProcNode(outerNode);
 
 			/*
-			 * If we've exhausted tuples from the outer node we're done
-			 * loading the prefix sort state.
+			 * 如果外层节点的元组已用尽，前缀排序状  
+			 * 态的装载即告完成。   
 			 */
 			if (TupIsNull(slot))
 			{
 				/*
-				 * We need to know later if the outer node has completed to be
-				 * able to distinguish between being done with a batch and
-				 * being done with the whole node.
+				 * 我们稍后需要知道外层节点是否完成，以便  
+				 * 区分是完成了一个批次，                      
+				 * 还是完成了整个节点。 
 				 */
 				node->outerNodeDone = true;
 				break;
 			}
 
 			/*
-			 * If the tuple's prefix keys match our pivot tuple, we're not
-			 * done yet and can load it into the prefix sort state. If not, we
-			 * don't want to sort it as part of the current batch. Instead we
-			 * use the group_pivot slot to carry it over to the next batch
-			 * (even though we won't actually treat it as a group pivot).
+			 * 如果该元组的前缀键与枢轴元组匹配，说明  
+			 * 尚未完成，可以把它装入前缀排序状态。如果   
+			 * 不匹配，我们不想把它作为当前批次的一部分  
+			 * 排序，而是改用 group_pivot 槽把它结转到下一 
+			 * 批（尽管不会真的把它当作组枢轴）。       
 			 */
 			if (isCurrentGroup(node, node->group_pivot, slot))
 			{
@@ -925,7 +925,7 @@ ExecIncrementalSort(PlanState *pstate)
 		}
 
 		/*
-		 * Perform the sort and begin returning the tuples to the parent plan
+		 * 执行排序，并开始把元组返回给父计划节点。      
 		 * node.
 		 */
 		SO1_printf("Sorting presorted prefix tuplesort with " INT64_FORMAT " tuples\n", nTuples);
@@ -939,10 +939,10 @@ ExecIncrementalSort(PlanState *pstate)
 		if (node->bounded)
 		{
 			/*
-			 * If the current node has a bound, and we've already sorted n
-			 * tuples, then the functional bound remaining is (original bound
-			 * - n), so store the current number of processed tuples for use
-			 * in configuring sorting bound.
+			 * 如果当前节点有边界且已排序 n 个元组，     
+			 * 则剩余的有效边界是（原始边界 - n），所以    
+			 * 保存当前已处理的元组数，供配置排序边界    
+			 * 时使用。                 
 			 */
 			SO2_printf("Changing bound_Done from " INT64_FORMAT " to " INT64_FORMAT "\n",
 					   node->bound_Done,
@@ -951,12 +951,12 @@ ExecIncrementalSort(PlanState *pstate)
 		}
 	}
 
-	/* Restore to user specified direction. */
+	/* 恢复为用户指定的方向。    */
 	estate->es_direction = dir;
 
 	/*
-	 * Get the first or next tuple from tuplesort. Returns NULL if no more
-	 * tuples.
+	 * 从 tuplesort 取首个或下一元组。无更多元组时返回  
+	 * NULL。
 	 */
 	read_sortstate = node->execution_status == INCSORT_READFULLSORT ?
 		fullsort_state : node->prefixsort_state;
@@ -969,8 +969,8 @@ ExecIncrementalSort(PlanState *pstate)
 /* ----------------------------------------------------------------
  *		ExecInitIncrementalSort
  *
- *		Creates the run-time state information for the sort node
- *		produced by the planner and initializes its outer subtree.
+ *		为规划器生成的排序节点建运行时状态，  
+ *		并初始化其外层子树。                            
  * ----------------------------------------------------------------
  */
 IncrementalSortState *
@@ -981,13 +981,13 @@ ExecInitIncrementalSort(IncrementalSort *node, EState *estate, int eflags)
 	SO_printf("ExecInitIncrementalSort: initializing sort node\n");
 
 	/*
-	 * Incremental sort can't be used with EXEC_FLAG_BACKWARD or
-	 * EXEC_FLAG_MARK, because the current sort state contains only one sort
-	 * batch rather than the full result set.
+	 * 增量排序不能与 EXEC_FLAG_BACKWARD 或             
+	 * EXEC_FLAG_MARK 一起使用，因为当前排序状态只包含      
+	 * 一个批次而非完整结果集。  
 	 */
 	Assert((eflags & (EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK)) == 0);
 
-	/* Initialize state structure. */
+	/* 初始化状态结构。    */
 	incrsortstate = makeNode(IncrementalSortState);
 	incrsortstate->ss.ps.plan = (Plan *) node;
 	incrsortstate->ss.ps.state = estate;
@@ -1026,37 +1026,37 @@ ExecInitIncrementalSort(IncrementalSort *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * Sort nodes don't initialize their ExprContexts because they never call
-	 * ExecQual or ExecProject.
+	 * 排序节点不初始化 ExprContext，因为它们从不调用       
+	 * ExecQual/ExecProject。 
 	 */
 
 	/*
-	 * Initialize child nodes.
+	 * 初始化子节点。  
 	 *
-	 * Incremental sort does not support backwards scans and mark/restore, so
-	 * we don't bother removing the flags from eflags here. We allow passing a
-	 * REWIND flag, because although incremental sort can't use it, the child
-	 * nodes may be able to do something more useful.
+	 * 增量排序不支持反向扫描和 mark/restore，所以这里      
+	 * 我们无需费心从 eflags 中移除相应标志位。我们允许传
+	 * 入 REWIND 标志，因为虽然增量排序用不上它，但子     
+	 * 节点也许能做一些更有用的事情。 
 	 */
 	outerPlanState(incrsortstate) = ExecInitNode(outerPlan(node), estate, eflags);
 
 	/*
-	 * Initialize scan slot and type.
+	 * 初始化扫描槽和类型。
 	 */
 	ExecCreateScanSlotFromOuterPlan(estate, &incrsortstate->ss, &TTSOpsMinimalTuple);
 
 	/*
-	 * Initialize return slot and type. No need to initialize projection info
-	 * because we don't do any projections.
+	 * 初始化返回槽和类型。无需初始化投影信息，因为    
+	 * 我们不做任何投影。         
 	 */
 	ExecInitResultTupleSlotTL(&incrsortstate->ss.ps, &TTSOpsMinimalTuple);
 	incrsortstate->ss.ps.ps_ProjInfo = NULL;
 
 	/*
-	 * Initialize standalone slots to store a tuple for pivot prefix keys and
-	 * for carrying over a tuple from one batch to the next.
+	 * 初始化独立槽，用于存放枢轴前缀键元组，             
+	 * 以及把元组从一批结转到下一批。        
 	 */
 	incrsortstate->group_pivot =
 		MakeSingleTupleTableSlot(ExecGetResultType(outerPlanState(incrsortstate)),
@@ -1079,16 +1079,16 @@ ExecEndIncrementalSort(IncrementalSortState *node)
 {
 	SO_printf("ExecEndIncrementalSort: shutting down sort node\n");
 
-	/* clean out the scan tuple */
+	/* 清空扫描元组       */
 	ExecClearTuple(node->ss.ss_ScanTupleSlot);
-	/* must drop pointer to sort result tuple */
+	/* 必须丢弃排序结果元组的指针*/
 	ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
-	/* must drop standalone tuple slots from outer node */
+	/* 必须丢弃来自外层节点的独立元组槽 */
 	ExecDropSingleTupleTableSlot(node->group_pivot);
 	ExecDropSingleTupleTableSlot(node->transfer_tuple);
 
 	/*
-	 * Release tuplesort resources.
+	 * 释放 tuplesort 资源     
 	 */
 	if (node->fullsort_state != NULL)
 	{
@@ -1102,7 +1102,7 @@ ExecEndIncrementalSort(IncrementalSortState *node)
 	}
 
 	/*
-	 * Shut down the subplan.
+	 * 关闭子计划。    
 	 */
 	ExecEndNode(outerPlanState(node));
 
@@ -1115,21 +1115,21 @@ ExecReScanIncrementalSort(IncrementalSortState *node)
 	PlanState  *outerPlan = outerPlanState(node);
 
 	/*
-	 * Incremental sort doesn't support efficient rescan even when parameters
-	 * haven't changed (e.g., rewind) because unlike regular sort we don't
-	 * store all tuples at once for the full sort.
+	 * 即使参数未变（如 rewind），增量排序也无法高效地   
+	 * 重新扫描，因为不同于普通排序，我们不会为       
+	 * 全排序一次性存储所有元组。    
 	 *
-	 * So even if EXEC_FLAG_REWIND is set we just reset all of our state and
-	 * re-execute the sort along with the child node. Incremental sort itself
-	 * can't do anything smarter, but maybe the child nodes can.
+	 * 因此即使设置了 EXEC_FLAG_REWIND，我们也只是重置       
+	 * 全部状态并随子节点一起重新执行排序。增量排序    
+	 * 本身无法更聪明，但子节点也许可以。      
 	 *
-	 * In theory if we've only filled the full sort with one batch (and
-	 * haven't reset it for a new batch yet) then we could efficiently rewind,
-	 * but that seems a narrow enough case that it's not worth handling
-	 * specially at this time.
+	 * 理论上若我们只向全排序填充了一个批次（且    
+	 * 尚未为新批次重置它），那么我们可以高效地回退，  
+	 * 但该情形似乎足够窄，眼下不值得                   
+	 * 专门处理。        
 	 */
 
-	/* must drop pointer to sort result tuple */
+	/* 必须丢弃排序结果元组的指针*/
 	ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
 
 	if (node->group_pivot != NULL)
@@ -1144,12 +1144,12 @@ ExecReScanIncrementalSort(IncrementalSortState *node)
 	node->execution_status = INCSORT_LOADFULLSORT;
 
 	/*
-	 * If we've set up either of the sort states yet, we need to reset them.
-	 * We could end them and null out the pointers, but there's no reason to
-	 * repay the setup cost, and because ExecIncrementalSort guards presorted
-	 * column functions by checking to see if the full sort state has been
-	 * initialized yet, setting the sort states to null here might actually
-	 * cause a leak.
+	 * 如果我们已经设置好任意一个排序状态，就需要重置
+	 * 它们。可以结束它们并置空指针，但没有理由去      
+	 * 重新支付设置成本；而且由于 ExecIncrementalSort 会通过 
+	 * 检查全排序状态是否已初始化来守卫预排序          
+	 * 列函数，所以在这里把排序状态置空反而可能造成  
+	 * 泄漏。    
 	 */
 	if (node->fullsort_state != NULL)
 		tuplesort_reset(node->fullsort_state);
@@ -1157,8 +1157,8 @@ ExecReScanIncrementalSort(IncrementalSortState *node)
 		tuplesort_reset(node->prefixsort_state);
 
 	/*
-	 * If chgParam of subnode is not null, then the plan will be re-scanned by
-	 * the first ExecProcNode.
+	 * 如果子节点的 chgParam 非空，那么第一次 ExecProcNode      
+	 * 即会重扫计划。  
 	 */
 	if (outerPlan->chgParam == NULL)
 		ExecReScan(outerPlan);
@@ -1172,7 +1172,7 @@ ExecReScanIncrementalSort(IncrementalSortState *node)
 /* ----------------------------------------------------------------
  *		ExecSortEstimate
  *
- *		Estimate space required to propagate sort statistics.
+ *		估算传播排序统计所需的空间。           
  * ----------------------------------------------------------------
  */
 void
@@ -1180,7 +1180,7 @@ ExecIncrementalSortEstimate(IncrementalSortState *node, ParallelContext *pcxt)
 {
 	Size		size;
 
-	/* don't need this if not instrumenting or no workers */
+	/* 若不做插桩或无 worker，无需此调用     */
 	if (!node->ss.ps.instrument || pcxt->nworkers == 0)
 		return;
 
@@ -1193,7 +1193,7 @@ ExecIncrementalSortEstimate(IncrementalSortState *node, ParallelContext *pcxt)
 /* ----------------------------------------------------------------
  *		ExecSortInitializeDSM
  *
- *		Initialize DSM space for sort statistics.
+ *		为排序统计初始化 DSM 空间。   
  * ----------------------------------------------------------------
  */
 void
@@ -1201,14 +1201,14 @@ ExecIncrementalSortInitializeDSM(IncrementalSortState *node, ParallelContext *pc
 {
 	Size		size;
 
-	/* don't need this if not instrumenting or no workers */
+	/* 若不做插桩或无 worker，无需此调用     */
 	if (!node->ss.ps.instrument || pcxt->nworkers == 0)
 		return;
 
 	size = offsetof(SharedIncrementalSortInfo, sinfo)
 		+ pcxt->nworkers * sizeof(IncrementalSortInfo);
 	node->shared_info = shm_toc_allocate(pcxt->toc, size);
-	/* ensure any unfilled slots will contain zeroes */
+	/* 确保任何未填充的槽都包含零值    */
 	memset(node->shared_info, 0, size);
 	node->shared_info->num_workers = pcxt->nworkers;
 	shm_toc_insert(pcxt->toc, node->ss.ps.plan->plan_node_id,
@@ -1218,7 +1218,7 @@ ExecIncrementalSortInitializeDSM(IncrementalSortState *node, ParallelContext *pc
 /* ----------------------------------------------------------------
  *		ExecSortInitializeWorker
  *
- *		Attach worker to DSM space for sort statistics.
+ *		把 worker 附接到排序统计 DSM 空间。 
  * ----------------------------------------------------------------
  */
 void
@@ -1232,7 +1232,7 @@ ExecIncrementalSortInitializeWorker(IncrementalSortState *node, ParallelWorkerCo
 /* ----------------------------------------------------------------
  *		ExecSortRetrieveInstrumentation
  *
- *		Transfer sort statistics from DSM to private memory.
+ *		把排序统计从 DSM 传送到私有内存。     
  * ----------------------------------------------------------------
  */
 void

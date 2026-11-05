@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeGatherMerge.c
- *		Scan a plan in multiple workers, and do order-preserving merge.
+ *		通过多个 worker 扫描计划，并做保序合并。       
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -28,27 +28,27 @@
 #include "utils/rel.h"
 
 /*
- * When we read tuples from workers, it's a good idea to read several at once
- * for efficiency when possible: this minimizes context-switching overhead.
- * But reading too many at a time wastes memory without improving performance.
- * We'll read up to MAX_TUPLE_STORE tuples (in addition to the first one).
+ * 从 worker 读取元组时，只要可行，最好一次读多条，      
+ * 这样做效率更高，可将上下文切换的开销降到最低。   
+ * 但一次读取过多会浪费内存，且无助于提升性能。         
+ * 我们最多读取 MAX_TUPLE_STORE 条元组（外加第一条）。   
  */
 #define MAX_TUPLE_STORE 10
 
 /*
- * Pending-tuple array for each worker.  This holds additional tuples that
- * we were able to fetch from the worker, but can't process yet.  In addition,
- * this struct holds the "done" flag indicating the worker is known to have
- * no more tuples.  (We do not use this struct for the leader; we don't keep
- * any pending tuples for the leader, and the need_to_scan_locally flag serves
- * as its "done" indicator.)
+ * 每个 worker 的待处理元组数组。其中保存这些元组：   
+ * 我们能够取到它们，但尚无法处理。此外，该结构体还   
+ * 保存 "done" 标志，表明已知该 worker 不会再有              
+ * 更多元组。（leader 不使用该结构体；我们不会为它      
+ * 保存待处理元组，need_to_scan_locally 标志充当它的            
+ * "done" 指示器。）   
  */
 typedef struct GMReaderTupleBuffer
 {
-	MinimalTuple *tuple;		/* array of length MAX_TUPLE_STORE */
-	int			nTuples;		/* number of tuples currently stored */
-	int			readCounter;	/* index of next tuple to extract */
-	bool		done;			/* true if reader is known exhausted */
+	MinimalTuple *tuple;		/* 数组长度为 MAX_TUPLE_STORE */
+	int			nTuples;		/* 当前已存储的元组数量    */
+	int			readCounter;	/* 下一个待提取元组下标 */
+	bool		done;			/* 已知读取器耗尽时为 true  */
 } GMReaderTupleBuffer;
 
 static TupleTableSlot *ExecGatherMerge(PlanState *pstate);
@@ -75,11 +75,11 @@ ExecInitGatherMerge(GatherMerge *node, EState *estate, int eflags)
 	Plan	   *outerNode;
 	TupleDesc	tupDesc;
 
-	/* Gather merge node doesn't have innerPlan node. */
+	/* Gather merge 节点没有 innerPlan 节点。  */
 	Assert(innerPlan(node) == NULL);
 
 	/*
-	 * create state structure
+	 * 创建状态结构体 
 	 */
 	gm_state = makeNode(GatherMergeState);
 	gm_state->ps.plan = (Plan *) node;
@@ -91,49 +91,49 @@ ExecInitGatherMerge(GatherMerge *node, EState *estate, int eflags)
 	gm_state->tuples_needed = -1;
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * create expression context for node
+	 * 为节点创建表达式上下文 
 	 */
 	ExecAssignExprContext(estate, &gm_state->ps);
 
 	/*
-	 * GatherMerge doesn't support checking a qual (it's always more efficient
-	 * to do it in the child node).
+	 * GatherMerge 不支持检查限定条件（在子节点中进行        
+	 * 总是更高效）。       
 	 */
 	Assert(!node->plan.qual);
 
 	/*
-	 * now initialize outer plan
+	 * 初始化外层计划    
 	 */
 	outerNode = outerPlan(node);
 	outerPlanState(gm_state) = ExecInitNode(outerNode, estate, eflags);
 
 	/*
-	 * Leader may access ExecProcNode result directly (if
-	 * need_to_scan_locally), or from workers via tuple queue.  So we can't
-	 * trivially rely on the slot type being fixed for expressions evaluated
-	 * within this node.
+	 * leader 可直接访问 ExecProcNode 结果（若  
+	 * need_to_scan_locally），或经元组队列从 worker 取得。    
+	 * 因此无法想当然认为本节点内求值表达式的 slot       
+	 * 类型固定。  
 	 */
 	gm_state->ps.outeropsset = true;
 	gm_state->ps.outeropsfixed = false;
 
 	/*
-	 * Store the tuple descriptor into gather merge state, so we can use it
-	 * while initializing the gather merge slots.
+	 * 把元组描述符存入 gather merge 状态，供初始化         
+	 * gather merge slot 时使用。            
 	 */
 	tupDesc = ExecGetResultType(outerPlanState(gm_state));
 	gm_state->tupDesc = tupDesc;
 
 	/*
-	 * Initialize result type and projection.
+	 * 初始化结果类型和投影。     
 	 */
 	ExecInitResultTypeTL(&gm_state->ps);
 	ExecConditionalAssignProjectionInfo(&gm_state->ps, tupDesc, OUTER_VAR);
 
 	/*
-	 * Without projections result slot type is not trivially known, see
-	 * comment above.
+	 * 没有投影时结果 slot 类型并非显而易见，见       
+	 * 上文。     
 	 */
 	if (gm_state->ps.ps_ProjInfo == NULL)
 	{
@@ -142,7 +142,7 @@ ExecInitGatherMerge(GatherMerge *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * initialize sort-key information
+	 * 初始化排序键信息       
 	 */
 	if (node->numCols)
 	{
@@ -162,8 +162,8 @@ ExecInitGatherMerge(GatherMerge *node, EState *estate, int eflags)
 			sortKey->ssup_attno = node->sortColIdx[i];
 
 			/*
-			 * We don't perform abbreviated key conversion here, for the same
-			 * reasons that it isn't used in MergeAppend
+			 * 我们此处不进行缩写键转换，原因与 MergeAppend  
+			 * 未使用它的原因相同。           
 			 */
 			sortKey->abbreviate = false;
 
@@ -171,7 +171,7 @@ ExecInitGatherMerge(GatherMerge *node, EState *estate, int eflags)
 		}
 	}
 
-	/* Now allocate the workspace for gather merge */
+	/* 现在为 gather merge 分配工作区      */
 	gather_merge_setup(gm_state);
 
 	return gm_state;
@@ -180,8 +180,8 @@ ExecInitGatherMerge(GatherMerge *node, EState *estate, int eflags)
 /* ----------------------------------------------------------------
  *		ExecGatherMerge(node)
  *
- *		Scans the relation via multiple workers and returns
- *		the next qualifying tuple.
+ *		通过多个 worker 扫描关系并返回          
+ *		满足条件的元组。  
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -194,8 +194,8 @@ ExecGatherMerge(PlanState *pstate)
 	CHECK_FOR_INTERRUPTS();
 
 	/*
-	 * As with Gather, we don't launch workers until this node is actually
-	 * executed.
+	 * 与 Gather 一样，我们直到本节点真正执行时才启动  
+	 * worker。
 	 */
 	if (!node->initialized)
 	{
@@ -203,14 +203,14 @@ ExecGatherMerge(PlanState *pstate)
 		GatherMerge *gm = castNode(GatherMerge, node->ps.plan);
 
 		/*
-		 * Sometimes we might have to run without parallelism; but if parallel
-		 * mode is active then we can try to fire up some workers.
+		 * 有时可能必须以无并行方式运行；但若并行模式    
+		 * 已启用，则可以尝试启动一些 worker。      
 		 */
 		if (gm->num_workers > 0 && estate->es_use_parallel_mode)
 		{
 			ParallelContext *pcxt;
 
-			/* Initialize, or re-initialize, shared state needed by workers. */
+			/* 初始化或重新初始化 worker 所需的共享状态。   */
 			if (!node->pei)
 				node->pei = ExecInitParallelPlan(outerPlanState(node),
 												 estate,
@@ -222,17 +222,17 @@ ExecGatherMerge(PlanState *pstate)
 										 node->pei,
 										 gm->initParam);
 
-			/* Try to launch workers. */
+			/* 尝试启动 worker。 */
 			pcxt = node->pei->pcxt;
 			LaunchParallelWorkers(pcxt);
-			/* We save # workers launched for the benefit of EXPLAIN */
+			/* 保存已启动 worker 数，供 EXPLAIN 使用       */
 			node->nworkers_launched = pcxt->nworkers_launched;
 
-			/* Set up tuple queue readers to read the results. */
+			/* 设置元组队列读取器以读取结果。   */
 			if (pcxt->nworkers_launched > 0)
 			{
 				ExecParallelCreateReaders(node->pei);
-				/* Make a working array showing the active readers */
+				/* 构建工作数组，列出活跃读取器      */
 				node->nreaders = pcxt->nworkers_launched;
 				node->reader = (TupleQueueReader **)
 					palloc(node->nreaders * sizeof(TupleQueueReader *));
@@ -241,39 +241,39 @@ ExecGatherMerge(PlanState *pstate)
 			}
 			else
 			{
-				/* No workers?	Then never mind. */
+				/* 没有 worker 就算了。   */
 				node->nreaders = 0;
 				node->reader = NULL;
 			}
 		}
 
-		/* allow leader to participate if enabled or no choice */
+		/* 若启用或别无选择，允许 leader 参与     */
 		if (parallel_leader_participation || node->nreaders == 0)
 			node->need_to_scan_locally = true;
 		node->initialized = true;
 	}
 
 	/*
-	 * Reset per-tuple memory context to free any expression evaluation
-	 * storage allocated in the previous tuple cycle.
+	 * 重置每元组内存上下文，释放上一个元组周期中 
+	 * 分配的表达式求值存储。             
 	 */
 	econtext = node->ps.ps_ExprContext;
 	ResetExprContext(econtext);
 
 	/*
-	 * Get next tuple, either from one of our workers, or by running the plan
-	 * ourselves.
+	 * 获取下一个元组：或来自我们的某个 worker，或自行   
+	 * 执行。 
 	 */
 	slot = gather_merge_getnext(node);
 	if (TupIsNull(slot))
 		return NULL;
 
-	/* If no projection is required, we're done. */
+	/* 若无需投影，我们就完成了。   */
 	if (node->ps.ps_ProjInfo == NULL)
 		return slot;
 
 	/*
-	 * Form the result tuple using ExecProject(), and return it.
+	 * 用 ExecProject() 构造结果元组并返回它。      
 	 */
 	econtext->ecxt_outertuple = slot;
 	return ExecProject(node->ps.ps_ProjInfo);
@@ -282,13 +282,13 @@ ExecGatherMerge(PlanState *pstate)
 /* ----------------------------------------------------------------
  *		ExecEndGatherMerge
  *
- *		frees any storage allocated through C routines.
+ *		释放通过 C 例程分配的所有存储。  
  * ----------------------------------------------------------------
  */
 void
 ExecEndGatherMerge(GatherMergeState *node)
 {
-	ExecEndNode(outerPlanState(node));	/* let children clean up first */
+	ExecEndNode(outerPlanState(node));	/* 先让子节点清理       */
 	ExecShutdownGatherMerge(node);
 	ExecFreeExprContext(&node->ps);
 	if (node->ps.ps_ResultTupleSlot)
@@ -298,7 +298,7 @@ ExecEndGatherMerge(GatherMergeState *node)
 /* ----------------------------------------------------------------
  *		ExecShutdownGatherMerge
  *
- *		Destroy the setup for parallel workers including parallel context.
+ *		销毁并行 worker 的全部设置，包括并行上下文。    
  * ----------------------------------------------------------------
  */
 void
@@ -306,7 +306,7 @@ ExecShutdownGatherMerge(GatherMergeState *node)
 {
 	ExecShutdownGatherMergeWorkers(node);
 
-	/* Now destroy the parallel context. */
+	/* 现在销毁并行上下文。    */
 	if (node->pei != NULL)
 	{
 		ExecParallelCleanup(node->pei);
@@ -317,7 +317,7 @@ ExecShutdownGatherMerge(GatherMergeState *node)
 /* ----------------------------------------------------------------
  *		ExecShutdownGatherMergeWorkers
  *
- *		Stop all the parallel workers.
+ *		停止所有并行 worker。  
  * ----------------------------------------------------------------
  */
 static void
@@ -326,7 +326,7 @@ ExecShutdownGatherMergeWorkers(GatherMergeState *node)
 	if (node->pei != NULL)
 		ExecParallelFinish(node->pei);
 
-	/* Flush local copy of reader array */
+	/* 清刷读取器数组本地副本*/
 	if (node->reader)
 		pfree(node->reader);
 	node->reader = NULL;
@@ -335,7 +335,7 @@ ExecShutdownGatherMergeWorkers(GatherMergeState *node)
 /* ----------------------------------------------------------------
  *		ExecReScanGatherMerge
  *
- *		Prepare to re-scan the result of a GatherMerge.
+ *		准备重新扫描 GatherMerge 的结果。    
  * ----------------------------------------------------------------
  */
 void
@@ -344,53 +344,53 @@ ExecReScanGatherMerge(GatherMergeState *node)
 	GatherMerge *gm = (GatherMerge *) node->ps.plan;
 	PlanState  *outerPlan = outerPlanState(node);
 
-	/* Make sure any existing workers are gracefully shut down */
+	/* 确保现有 worker 都被妥善关闭                  */
 	ExecShutdownGatherMergeWorkers(node);
 
-	/* Free any unused tuples, so we don't leak memory across rescans */
+	/* 释放未使用的元组，避免在重扫描间泄漏内存   */
 	gather_merge_clear_tuples(node);
 
-	/* Mark node so that shared state will be rebuilt at next call */
+	/* 标记节点，使共享状态在下次调用时重建      */
 	node->initialized = false;
 	node->gm_initialized = false;
 
 	/*
-	 * Set child node's chgParam to tell it that the next scan might deliver a
-	 * different set of rows within the leader process.  (The overall rowset
-	 * shouldn't change, but the leader process's subset might; hence nodes
-	 * between here and the parallel table scan node mustn't optimize on the
-	 * assumption of an unchanging rowset.)
+	 * 设置子节点的 chgParam，告知它下一次扫描在 leader       
+	 * 进程内可能交付不同的行集。（总体行集不应变化，
+	 * 但 leader 进程的子集可能变化；因此从本节点到并行
+	 * 表扫描节点间的节点不得基于行集不变的假设进行   
+	 * 优化。）                        
 	 */
 	if (gm->rescan_param >= 0)
 		outerPlan->chgParam = bms_add_member(outerPlan->chgParam,
 											 gm->rescan_param);
 
 	/*
-	 * If chgParam of subnode is not null then plan will be re-scanned by
-	 * first ExecProcNode.  Note: because this does nothing if we have a
-	 * rescan_param, it's currently guaranteed that parallel-aware child nodes
-	 * will not see a ReScan call until after they get a ReInitializeDSM call.
-	 * That ordering might not be something to rely on, though.  A good rule
-	 * of thumb is that ReInitializeDSM should reset only shared state, ReScan
-	 * should reset only local state, and anything that depends on both of
-	 * those steps being finished must wait until the first ExecProcNode call.
+	 * 若子节点的 chgParam 非空，则计划会被第一次        
+	 * ExecProcNode 重新扫描。注：如果我们设有             
+	 * rescan_param，那么它当前不做任何事，由此可以保证     
+	 * 感知并行的子节点在收到 ReInitializeDSM 调用之前         
+	 * 不会看到 ReScan 调用。不过这种顺序未必可以依赖。 
+	 * 一条好的经验法则是：ReInitializeDSM 只应重置             
+	 * 共享状态，ReScan 只应重置本地状态，而同时依赖   
+	 * 这两步完成的操作必须等到第一次 ExecProcNode 调用。   
 	 */
 	if (outerPlan->chgParam == NULL)
 		ExecReScan(outerPlan);
 }
 
 /*
- * Set up the data structures that we'll need for Gather Merge.
+ * 设置 Gather Merge 所需的数据结构。                
  *
- * We allocate these once on the basis of gm->num_workers, which is an
- * upper bound for the number of workers we'll actually have.  During
- * a rescan, we reset the structures to empty.  This approach simplifies
- * not leaking memory across rescans.
+ * 我们基于 gm->num_workers 一次性分配它们，该值是     
+ * 我们实际会拥有的 worker 数量的上限。重扫描时， 
+ * 我们将这些结构重置为空。这一做法简化了跨重扫描
+ * 不泄漏内存的问题。       
  *
- * In the gm_slots[] array, index 0 is for the leader, and indexes 1 to n
- * are for workers.  The values placed into gm_heap correspond to indexes
- * in gm_slots[].  The gm_tuple_buffers[] array, however, is indexed from
- * 0 to n-1; it has no entry for the leader.
+ * 在 gm_slots[] 数组中，下标 0 属于 leader，下标 1 到 n    
+ * 属于 worker。放入 gm_heap 的值对应 gm_slots[] 的            
+ * 下标。不过 gm_tuple_buffers[] 数组的下标则从 0 到        
+ * n-1；没有 leader 对应的条目。   
  */
 static void
 gather_merge_setup(GatherMergeState *gm_state)
@@ -400,45 +400,45 @@ gather_merge_setup(GatherMergeState *gm_state)
 	int			i;
 
 	/*
-	 * Allocate gm_slots for the number of workers + one more slot for leader.
-	 * Slot 0 is always for the leader.  Leader always calls ExecProcNode() to
-	 * read the tuple, and then stores it directly into its gm_slots entry.
-	 * For other slots, code below will call ExecInitExtraTupleSlot() to
-	 * create a slot for the worker's results.  Note that during any single
-	 * scan, we might have fewer than num_workers available workers, in which
-	 * case the extra array entries go unused.
+	 * 为 worker 数量外加一个 leader 槽来分配 gm_slots。          
+	 * 槽 0 始终属于 leader。leader 总是调用 ExecProcNode()         
+	 * 来读取元组，然后将其直接存入 gm_slots 条目中。    
+	 * 对于其他槽，下面的代码调用 ExecInitExtraTupleSlot() 
+	 * 来为 worker 的结果创建槽。注意在单次扫描期间，   
+	 * 可用的 worker 数量可能少于 num_workers，此时              
+	 * 多余条目将闲置不用。         
 	 */
 	gm_state->gm_slots = (TupleTableSlot **)
 		palloc0((nreaders + 1) * sizeof(TupleTableSlot *));
 
-	/* Allocate the tuple slot and tuple array for each worker */
+	/* 为每个 worker 分配元组槽和元组数组         */
 	gm_state->gm_tuple_buffers = (GMReaderTupleBuffer *)
 		palloc0(nreaders * sizeof(GMReaderTupleBuffer));
 
 	for (i = 0; i < nreaders; i++)
 	{
-		/* Allocate the tuple array with length MAX_TUPLE_STORE */
+		/* 分配长度为 MAX_TUPLE_STORE 的元组数组      */
 		gm_state->gm_tuple_buffers[i].tuple =
 			(MinimalTuple *) palloc0(sizeof(MinimalTuple) * MAX_TUPLE_STORE);
 
-		/* Initialize tuple slot for worker */
+		/* 为 worker 初始化元组槽    */
 		gm_state->gm_slots[i + 1] =
 			ExecInitExtraTupleSlot(gm_state->ps.state, gm_state->tupDesc,
 								   &TTSOpsMinimalTuple);
 	}
 
-	/* Allocate the resources for the merge */
+	/* 为合并分配所需资源          */
 	gm_state->gm_heap = binaryheap_allocate(nreaders + 1,
 											heap_compare_slots,
 											gm_state);
 }
 
 /*
- * Initialize the Gather Merge.
+ * 初始化 Gather Merge。   
  *
- * Reset data structures to ensure they're empty.  Then pull at least one
- * tuple from leader + each worker (or set its "done" indicator), and set up
- * the heap.
+ * 重置各数据结构以确保其为空。然后从 leader 与每个  
+ * worker 处取至少一条元组（或设其 "done" 指示器），然后 
+ * 建堆。
  */
 static void
 gather_merge_init(GatherMergeState *gm_state)
@@ -447,46 +447,46 @@ gather_merge_init(GatherMergeState *gm_state)
 	bool		nowait = true;
 	int			i;
 
-	/* Assert that gather_merge_setup made enough space */
+	/* 断言 gather_merge_setup 已分配足够空间  */
 	Assert(nreaders <= castNode(GatherMerge, gm_state->ps.plan)->num_workers);
 
-	/* Reset leader's tuple slot to empty */
+	/* leader 的元组槽重置为空    */
 	gm_state->gm_slots[0] = NULL;
 
-	/* Reset the tuple slot and tuple array for each worker */
+	/* 重置每个 worker 的元组槽和元组数组      */
 	for (i = 0; i < nreaders; i++)
 	{
-		/* Reset tuple array to empty */
+		/* 元组数组重置为空   */
 		gm_state->gm_tuple_buffers[i].nTuples = 0;
 		gm_state->gm_tuple_buffers[i].readCounter = 0;
-		/* Reset done flag to not-done */
+		/* 将 done 重置为未完成 */
 		gm_state->gm_tuple_buffers[i].done = false;
-		/* Ensure output slot is empty */
+		/* 确保输出槽为空       */
 		ExecClearTuple(gm_state->gm_slots[i + 1]);
 	}
 
-	/* Reset binary heap to empty */
+	/* 将二叉堆重置为空   */
 	binaryheap_reset(gm_state->gm_heap);
 
 	/*
-	 * First, try to read a tuple from each worker (including leader) in
-	 * nowait mode.  After this, if not all workers were able to produce a
-	 * tuple (or a "done" indication), then re-read from remaining workers,
-	 * this time using wait mode.  Add all live readers (those producing at
-	 * least one tuple) to the heap.
+	 * 先以 nowait 模式尝试从每个 worker（包括 leader）    
+	 * 读取一条元组。此后，若并非所有 worker 都能产出  
+	 * 元组（或 "done" 指示），则再从其余 worker 读取，    
+	 * 改用等待模式。将全部活跃读取器（至少产出一条  
+	 * 元组者）加入堆中。  
 	 */
 reread:
 	for (i = 0; i <= nreaders; i++)
 	{
 		CHECK_FOR_INTERRUPTS();
 
-		/* skip this source if already known done */
+		/* 若该源已知已完成，则跳过   */
 		if ((i == 0) ? gm_state->need_to_scan_locally :
 			!gm_state->gm_tuple_buffers[i - 1].done)
 		{
 			if (TupIsNull(gm_state->gm_slots[i]))
 			{
-				/* Don't have a tuple yet, try to get one */
+				/* 还没有元组，尝试获取一条   */
 				if (gather_merge_readnext(gm_state, i, nowait))
 					binaryheap_add_unordered(gm_state->gm_heap,
 											 Int32GetDatum(i));
@@ -494,15 +494,15 @@ reread:
 			else
 			{
 				/*
-				 * We already got at least one tuple from this worker, but
-				 * might as well see if it has any more ready by now.
+				 * 我们已从该 worker 拿到至少一条元组，但  
+				 * 不妨看看它现在是否还有更多就绪。  
 				 */
 				load_tuple_array(gm_state, i);
 			}
 		}
 	}
 
-	/* need not recheck leader, since nowait doesn't matter for it */
+	/* 无需复查 leader，因为 nowait 对它无关紧要      */
 	for (i = 1; i <= nreaders; i++)
 	{
 		if (!gm_state->gm_tuple_buffers[i - 1].done &&
@@ -513,15 +513,15 @@ reread:
 		}
 	}
 
-	/* Now heapify the heap. */
+	/* 现在执行堆化。 */
 	binaryheap_build(gm_state->gm_heap);
 
 	gm_state->gm_initialized = true;
 }
 
 /*
- * Clear out the tuple table slot, and any unused pending tuples,
- * for each gather merge input.
+ * 对每个 gather merge 输入，清空元组表槽以及      
+ * 未用的待处理元组。 
  */
 static void
 gather_merge_clear_tuples(GatherMergeState *gm_state)
@@ -540,9 +540,9 @@ gather_merge_clear_tuples(GatherMergeState *gm_state)
 }
 
 /*
- * Read the next tuple for gather merge.
+ * 为 gather merge 取下一元组。  
  *
- * Fetch the sorted tuple out of the heap.
+ * 从堆中取出已排序的元组。   
  */
 static TupleTableSlot *
 gather_merge_getnext(GatherMergeState *gm_state)
@@ -552,18 +552,18 @@ gather_merge_getnext(GatherMergeState *gm_state)
 	if (!gm_state->gm_initialized)
 	{
 		/*
-		 * First time through: pull the first tuple from each participant, and
-		 * set up the heap.
+		 * 首次执行时：从每个参与者处拉取第一条元组，并 
+		 * 建立堆。    
 		 */
 		gather_merge_init(gm_state);
 	}
 	else
 	{
 		/*
-		 * Otherwise, pull the next tuple from whichever participant we
-		 * returned from last time, and reinsert that participant's index into
-		 * the heap, because it might now compare differently against the
-		 * other elements of the heap.
+		 * 否则，从我们上次返回的参与者拉取下一个   
+		 * 元组，并将该参与者的下标重新插入堆中，因为它 
+		 * 现在与其他堆元素的比较结果                       
+		 * 可能已经不同。      
 		 */
 		i = DatumGetInt32(binaryheap_first(gm_state->gm_heap));
 
@@ -571,28 +571,28 @@ gather_merge_getnext(GatherMergeState *gm_state)
 			binaryheap_replace_first(gm_state->gm_heap, Int32GetDatum(i));
 		else
 		{
-			/* reader exhausted, remove it from heap */
+			/* 读取器耗尽，将其从堆移除  */
 			(void) binaryheap_remove_first(gm_state->gm_heap);
 		}
 	}
 
 	if (binaryheap_empty(gm_state->gm_heap))
 	{
-		/* All the queues are exhausted, and so is the heap */
+		/* 所有队列都已耗尽，堆也已耗尽       */
 		gather_merge_clear_tuples(gm_state);
 		return NULL;
 	}
 	else
 	{
-		/* Return next tuple from whichever participant has the leading one */
+		/* 从拥有首位元组的参与者返回下一个元组           */
 		i = DatumGetInt32(binaryheap_first(gm_state->gm_heap));
 		return gm_state->gm_slots[i];
 	}
 }
 
 /*
- * Read tuple(s) for given reader in nowait mode, and load into its tuple
- * array, until we have MAX_TUPLE_STORE of them or would have to block.
+ * 以 nowait 模式为给定读取器读取元组，并装入其元组  
+ * 数组，直到已有 MAX_TUPLE_STORE 条或将要阻塞为止。   
  */
 static void
 load_tuple_array(GatherMergeState *gm_state, int reader)
@@ -600,17 +600,17 @@ load_tuple_array(GatherMergeState *gm_state, int reader)
 	GMReaderTupleBuffer *tuple_buffer;
 	int			i;
 
-	/* Don't do anything if this is the leader. */
+	/* 若是 leader 则什么都不做。      */
 	if (reader == 0)
 		return;
 
 	tuple_buffer = &gm_state->gm_tuple_buffers[reader - 1];
 
-	/* If there's nothing in the array, reset the counters to zero. */
+	/* 若数组中没有内容，则将计数器重置为零。    */
 	if (tuple_buffer->nTuples == tuple_buffer->readCounter)
 		tuple_buffer->nTuples = tuple_buffer->readCounter = 0;
 
-	/* Try to fill additional slots in the array. */
+	/* 尝试填充数组中的其余槽位。    */
 	for (i = tuple_buffer->nTuples; i < MAX_TUPLE_STORE; i++)
 	{
 		MinimalTuple tuple;
@@ -627,11 +627,11 @@ load_tuple_array(GatherMergeState *gm_state, int reader)
 }
 
 /*
- * Store the next tuple for a given reader into the appropriate slot.
+ * 将给定读取器的下一条元组存入相应的槽。         
  *
- * Returns true if successful, false if not (either reader is exhausted,
- * or we didn't want to wait for a tuple).  Sets done flag if reader
- * is found to be exhausted.
+ * 成功则返回 true，否则返回 false（读取器已耗尽，    
+ * 或者不想等待元组）。若发现读取器已耗尽，     
+ * 则设置 done 标志。 
  */
 static bool
 gather_merge_readnext(GatherMergeState *gm_state, int reader, bool nowait)
@@ -640,8 +640,8 @@ gather_merge_readnext(GatherMergeState *gm_state, int reader, bool nowait)
 	MinimalTuple tup;
 
 	/*
-	 * If we're being asked to generate a tuple from the leader, then we just
-	 * call ExecProcNode as normal to produce one.
+	 * 如果要求我们从 leader 生成元组，那么我们只需像     
+	 * 平常一样调用 ExecProcNode 生成。  
 	 */
 	if (reader == 0)
 	{
@@ -651,7 +651,7 @@ gather_merge_readnext(GatherMergeState *gm_state, int reader, bool nowait)
 			TupleTableSlot *outerTupleSlot;
 			EState	   *estate = gm_state->ps.state;
 
-			/* Install our DSA area while executing the plan. */
+			/* 执行计划期间安装自身 DSA 区域。   */
 			estate->es_query_dsa = gm_state->pei ? gm_state->pei->area : NULL;
 			outerTupleSlot = ExecProcNode(outerPlan);
 			estate->es_query_dsa = NULL;
@@ -661,28 +661,28 @@ gather_merge_readnext(GatherMergeState *gm_state, int reader, bool nowait)
 				gm_state->gm_slots[0] = outerTupleSlot;
 				return true;
 			}
-			/* need_to_scan_locally serves as "done" flag for leader */
+			/* need_to_scan_locally 充当 leader 的 "done" 标志  */
 			gm_state->need_to_scan_locally = false;
 		}
 		return false;
 	}
 
-	/* Otherwise, check the state of the relevant tuple buffer. */
+	/* 否则，检查相关元组缓冲区的状态。         */
 	tuple_buffer = &gm_state->gm_tuple_buffers[reader - 1];
 
 	if (tuple_buffer->nTuples > tuple_buffer->readCounter)
 	{
-		/* Return any tuple previously read that is still buffered. */
+		/* 返回之前读取且仍在缓冲中的任何元组。   */
 		tup = tuple_buffer->tuple[tuple_buffer->readCounter++];
 	}
 	else if (tuple_buffer->done)
 	{
-		/* Reader is known to be exhausted. */
+		/* 已知读取器已耗尽。      */
 		return false;
 	}
 	else
 	{
-		/* Read and buffer next tuple. */
+		/* 读下一元组并缓冲。 */
 		tup = gm_readnext_tuple(gm_state,
 								reader,
 								nowait,
@@ -691,25 +691,25 @@ gather_merge_readnext(GatherMergeState *gm_state, int reader, bool nowait)
 			return false;
 
 		/*
-		 * Attempt to read more tuples in nowait mode and store them in the
-		 * pending-tuple array for the reader.
+		 * 尝试以 nowait 模式读取更多元组，存入读取器的  
+		 * 待处理元组数组中。        
 		 */
 		load_tuple_array(gm_state, reader);
 	}
 
 	Assert(tup);
 
-	/* Build the TupleTableSlot for the given tuple */
-	ExecStoreMinimalTuple(tup,	/* tuple to store */
+	/* 为给定元组构建 TupleTableSlot         */
+	ExecStoreMinimalTuple(tup,	/* 待存元组   */
 						  gm_state->gm_slots[reader],	/* slot in which to
 														 * store the tuple */
-						  true);	/* pfree tuple when done with it */
+						  true);	/* 用完后 pfree 元组        */
 
 	return true;
 }
 
 /*
- * Attempt to read a tuple from given worker.
+ * 尝试从给定 worker 读取元组。    
  */
 static MinimalTuple
 gm_readnext_tuple(GatherMergeState *gm_state, int nreader, bool nowait,
@@ -718,36 +718,36 @@ gm_readnext_tuple(GatherMergeState *gm_state, int nreader, bool nowait,
 	TupleQueueReader *reader;
 	MinimalTuple tup;
 
-	/* Check for async events, particularly messages from workers. */
+	/* 检查异步事件，特别是来自 worker 的消息。    */
 	CHECK_FOR_INTERRUPTS();
 
 	/*
-	 * Attempt to read a tuple.
+	 * 尝试读取元组。   
 	 *
-	 * Note that TupleQueueReaderNext will just return NULL for a worker which
-	 * fails to initialize.  We'll treat that worker as having produced no
-	 * tuples; WaitForParallelWorkersToFinish will error out when we get
-	 * there.
+	 * 注意 TupleQueueReaderNext 对于初始化失败的 worker            
+	 * 只会返回 NULL。我们会把该 worker 视作未产出任何   
+	 * 元组；等执行到 WaitForParallelWorkersToFinish 时会      
+	 * 报错
 	 */
 	reader = gm_state->reader[nreader - 1];
 	tup = TupleQueueReaderNext(reader, nowait, done);
 
 	/*
-	 * Since we'll be buffering these across multiple calls, we need to make a
-	 * copy.
+	 * 由于我们会在多次调用之间缓冲这些元组，因此需要  
+	 * copy 
 	 */
 	return tup ? heap_copy_minimal_tuple(tup) : NULL;
 }
 
 /*
- * We have one slot for each item in the heap array.  We use SlotNumber
- * to store slot indexes.  This doesn't actually provide any formal
- * type-safety, but it makes the code more self-documenting.
+ * 堆数组中的每一项都有一个对应的槽。我们用        
+ * SlotNumber 存储槽下标。这并未真正提供任何形式  
+ * 的类型安全，但能让代码更具自明性。      
  */
 typedef int32 SlotNumber;
 
 /*
- * Compare the tuples in the two given slots.
+ * 比较两个给定槽中的元组。      
  */
 static int32
 heap_compare_slots(Datum a, Datum b, void *arg)

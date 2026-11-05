@@ -1,19 +1,19 @@
 /*-------------------------------------------------------------------------
  *
  * nodeBitmapHeapscan.c
- *	  Routines to support bitmapped scans of relations
+ *	  支撑关系位图扫描的例程               
  *
- * NOTE: it is critical that this plan type only be used with MVCC-compliant
- * snapshots (ie, regular snapshots, not SnapshotAny or one of the other
- * special snapshots).  The reason is that since index and heap scans are
- * decoupled, there can be no assurance that the index tuple prompting a
- * visit to a particular heap TID still exists when the visit is made.
- * Therefore the tuple might not exist anymore either (which is OK because
- * heap_fetch will cope) --- but worse, the tuple slot could have been
- * re-used for a newer tuple.  With an MVCC snapshot the newer tuple is
- * certain to fail the time qual and so it will not be mistakenly returned,
- * but with anything else we might return a tuple that doesn't meet the
- * required index qual conditions.
+ * 注意：该计划类型只能与符合 MVCC 的快照一起使          
+ * 用（即常规快照，而非 SnapshotAny 或其他特殊快        
+ * 照）。原因在于：由于索引扫描与堆扫描是解耦       
+ * 的，无法保证当真正访问某个堆 TID 时，促使这       
+ * 次访问的索引元组仍然存在。因此该元组可能也    
+ * 已不存在（这没有问题，因为 heap_fetch 会应对）        
+ * --- 但更糟的是，元组槽可能已被复用于更新的      
+ * 元组。在 MVCC 快照下，更新的元组必定无法通过     
+ * 时间限定条件，所以不会被错误地返回；但换成         
+ * 其他任何快照，我们可能返回不满足所需索引限     
+ * 定条件的元组。          
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -26,12 +26,12 @@
  *-------------------------------------------------------------------------
  */
 /*
- * INTERFACE ROUTINES
- *		ExecBitmapHeapScan			scans a relation using bitmap info
- *		ExecBitmapHeapNext			workhorse for above
- *		ExecInitBitmapHeapScan		creates and initializes state info.
- *		ExecReScanBitmapHeapScan	prepares to rescan the plan.
- *		ExecEndBitmapHeapScan		releases all storage.
+ * 接口例程      
+ *		ExecBitmapHeapScan			用位图信息扫描关系       
+ *		ExecBitmapHeapNext			上述例程主力 
+ *		ExecInitBitmapHeapScan		创建并初始化状态信息。  
+ *		ExecReScanBitmapHeapScan	准备重新扫描计划。 
+ *		ExecEndBitmapHeapScan		释放所有存储。
  */
 #include "postgres.h"
 
@@ -65,8 +65,8 @@ static bool BitmapShouldInitializeSharedState(ParallelBitmapHeapState *pstate);
 /* ----------------------------------------------------------------
  *		BitmapHeapNext
  *
- *		Retrieve next tuple from the BitmapHeapScan node's currentRelation
- * ----------------------------------------------------------------
+ *		从 BitmapHeapScan 节点的 currentRelation 中取回下一      
+ * 个元组                                                       
  */
 static TupleTableSlot *
 BitmapHeapNext(BitmapHeapScanState *node)
@@ -82,7 +82,7 @@ BitmapHeapNext(BitmapHeapScanState *node)
 	dsa_area   *dsa = node->ss.ps.state->es_query_dsa;
 
 	/*
-	 * extract necessary information from index scan node
+	 * 从索引扫描节点中抽取必要信息        
 	 */
 	econtext = node->ss.ps.ps_ExprContext;
 	slot = node->ss.ss_ScanTupleSlot;
@@ -95,16 +95,16 @@ BitmapHeapNext(BitmapHeapScanState *node)
 	tbmres = node->tbmres;
 
 	/*
-	 * If we haven't yet performed the underlying index scan, do it, and begin
-	 * the iteration over the bitmap.
+	 * 如果尚未执行底层的索引扫描，就执行它，并开        
+	 * 始对位图的迭代。      
 	 *
-	 * For prefetching, we use *two* iterators, one for the pages we are
-	 * actually scanning and another that runs ahead of the first for
-	 * prefetching.  node->prefetch_pages tracks exactly how many pages ahead
-	 * the prefetch iterator is.  Also, node->prefetch_target tracks the
-	 * desired prefetch distance, which starts small and increases up to the
-	 * node->prefetch_maximum.  This is to avoid doing a lot of prefetching in
-	 * a scan that stops after a few tuples because of a LIMIT.
+	 * 对于预取，我们使用*两个*迭代器：一个用于我   
+	 * 们实际扫描的页面，另一个领先前者预取。     
+	 * node->prefetch_pages 精确跟踪预取迭代器领先的             
+	 * 页面数。另外，node->prefetch_target 跟踪期望的       
+	 * 预取距离，它从小开始并逐步增大到                     
+	 * node->prefetch_maximum。这是为了避免在扫描因                
+	 * LIMIT 而只取几行就停时大量预取。           
 	 */
 	if (!node->initialized)
 	{
@@ -131,9 +131,9 @@ BitmapHeapNext(BitmapHeapScanState *node)
 		else
 		{
 			/*
-			 * The leader will immediately come out of the function, but
-			 * others will be blocked until leader populates the TBM and wakes
-			 * them up.
+			 * 领导者立刻从函数中返回，而其他进程则被
+			 * 阻塞，直到领导者填充好 TBM 并唤醒它们          
+			 * 为止  
 			 */
 			if (BitmapShouldInitializeSharedState(pstate))
 			{
@@ -144,9 +144,9 @@ BitmapHeapNext(BitmapHeapScanState *node)
 				node->tbm = tbm;
 
 				/*
-				 * Prepare to iterate over the TBM. This will return the
-				 * dsa_pointer of the iterator state which will be used by
-				 * multiple processes to iterate jointly.
+				 * 准备迭代 TBM。这将返回迭代器状态的    
+				 * dsa_pointer，该指针会被多个进程              
+				 * 用来共同迭代。                 
 				 */
 				pstate->tbmiterator = tbm_prepare_shared_iterate(tbm);
 #ifdef USE_PREFETCH
@@ -156,19 +156,19 @@ BitmapHeapNext(BitmapHeapScanState *node)
 						tbm_prepare_shared_iterate(tbm);
 
 					/*
-					 * We don't need the mutex here as we haven't yet woke up
-					 * others.
+					 * 这里无需互斥锁，因为尚未唤醒别的      
+					 * 进程 
 					 */
 					pstate->prefetch_pages = 0;
 					pstate->prefetch_target = -1;
 				}
 #endif
 
-				/* We have initialized the shared state so wake up others. */
+				/* 共享状态已初始化好，唤醒其他进程。     */
 				BitmapDoneInitializingSharedState(pstate);
 			}
 
-			/* Allocate a private iterator and attach the shared state to it */
+			/* 分配一个私有迭代器，并把共享状态附到其上  */
 			node->shared_tbmiterator = shared_tbmiterator =
 				tbm_attach_shared_iterate(dsa, pstate->tbmiterator);
 			node->tbmres = tbmres = NULL;
@@ -191,7 +191,7 @@ BitmapHeapNext(BitmapHeapScanState *node)
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * Get next page of results if needed
+		 * 如有需要，取下一页结果 
 		 */
 		if (tbmres == NULL)
 		{
@@ -201,7 +201,7 @@ BitmapHeapNext(BitmapHeapScanState *node)
 				node->tbmres = tbmres = tbm_shared_iterate(shared_tbmiterator);
 			if (tbmres == NULL)
 			{
-				/* no more entries in the bitmap */
+				/* 位图中没有更多条目了*/
 				break;
 			}
 
@@ -213,12 +213,12 @@ BitmapHeapNext(BitmapHeapScanState *node)
 				node->lossy_pages++;
 
 			/*
-			 * We can skip fetching the heap page if we don't need any fields
-			 * from the heap, and the bitmap entries don't need rechecking,
-			 * and all tuples on the page are visible to our transaction.
+			 * 若我们不需要堆上的任何字段，位图条目不需  
+			 * 要复查，且页上所有元组对本事务可见，      
+			 * 就可以跳过获取堆页面。                         
 			 *
-			 * XXX: It's a layering violation that we do these checks above
-			 * tableam, they should probably moved below it at some point.
+			 * XXX: 在 tableam 之上做这些检查是破坏分层的行 
+			 * 为，或许将来应该把它们移到 tableam 之下。  
 			 */
 			skip_fetch = (node->can_skip_fetch &&
 						  !tbmres->recheck &&
@@ -228,35 +228,35 @@ BitmapHeapNext(BitmapHeapScanState *node)
 
 			if (skip_fetch)
 			{
-				/* can't be lossy in the skip_fetch case */
+				/* skip_fetch 情形下不可能有损   */
 				Assert(tbmres->ntuples >= 0);
 
 				/*
-				 * The number of tuples on this page is put into
-				 * node->return_empty_tuples.
+				 * 本页面的元组数会被放入            
+				 * node->return_empty_tuples 
 				 */
 				node->return_empty_tuples = tbmres->ntuples;
 			}
 			else if (!table_scan_bitmap_next_block(scan, tbmres))
 			{
-				/* AM doesn't think this block is valid, skip */
+				/* AM 认为该块无效，跳过             */
 				continue;
 			}
 
-			/* Adjust the prefetch target */
+			/* 调整预取目标         */
 			BitmapAdjustPrefetchTarget(node);
 		}
 		else
 		{
 			/*
-			 * Continuing in previously obtained page.
+			 * 继续处理之前获取的页面。   
 			 */
 
 #ifdef USE_PREFETCH
 
 			/*
-			 * Try to prefetch at least a few pages even before we get to the
-			 * second page if we don't stop reading after the first tuple.
+			 * 甚至在第二页之前，也尽量预取至少几页，     
+			 * 如果我们不打算在首个元组后就停止读取。  
 			 */
 			if (!pstate)
 			{
@@ -265,7 +265,7 @@ BitmapHeapNext(BitmapHeapScanState *node)
 			}
 			else if (pstate->prefetch_target < node->prefetch_maximum)
 			{
-				/* take spinlock while updating shared state */
+				/* 更新共享状态时持有自旋锁      */
 				SpinLockAcquire(&pstate->mutex);
 				if (pstate->prefetch_target < node->prefetch_maximum)
 					pstate->prefetch_target++;
@@ -275,52 +275,52 @@ BitmapHeapNext(BitmapHeapScanState *node)
 		}
 
 		/*
-		 * We issue prefetch requests *after* fetching the current page to try
-		 * to avoid having prefetching interfere with the main I/O. Also, this
-		 * should happen only when we have determined there is still something
-		 * to do on the current page, else we may uselessly prefetch the same
-		 * page we are just about to request for real.
+		 * 我们在获取当前页面*之后*才发出预取请求，        
+		 * 以尽量避免预取干扰主 I/O。此外，只有当我们      
+		 * 确定当前页面上还有事情要做时才应这样做，否    
+		 * 则我们可能把即将真正要请求的同一页面白白预   
+		 * 取一遍。                               
 		 *
-		 * XXX: It's a layering violation that we do these checks above
-		 * tableam, they should probably moved below it at some point.
+		 * XXX: 在 tableam 之上做这些检查是破坏分层的行 
+		 * 为，或许将来应该把它们移到 tableam 之下。  
 		 */
 		BitmapPrefetch(node, scan);
 
 		if (node->return_empty_tuples > 0)
 		{
 			/*
-			 * If we don't have to fetch the tuple, just return nulls.
+			 * 若不必获取元组，就直接返回空值。       
 			 */
 			ExecStoreAllNullTuple(slot);
 
 			if (--node->return_empty_tuples == 0)
 			{
-				/* no more tuples to return in the next round */
+				/* 下一轮没有更多要返回的元组了 */
 				node->tbmres = tbmres = NULL;
 			}
 		}
 		else
 		{
 			/*
-			 * Attempt to fetch tuple from AM.
+			 * 尝试从 AM 获取元组。   
 			 */
 			if (!table_scan_bitmap_next_tuple(scan, tbmres, slot))
 			{
-				/* nothing more to look at on this page */
+				/* 此页上没有更多可看的了    */
 				node->tbmres = tbmres = NULL;
 				continue;
 			}
 
 			/*
-			 * If we are using lossy info, we have to recheck the qual
-			 * conditions at every tuple.
+			 * 若有损信息，每个元组都要重新检查限    
+			 * 定条件。              
 			 */
 			if (tbmres->recheck)
 			{
 				econtext->ecxt_scantuple = slot;
 				if (!ExecQualAndReset(node->bitmapqualorig, econtext))
 				{
-					/* Fails recheck, so drop it and loop back for another */
+					/* 重查失败，丢弃它并循环回去取下一个 */
 					InstrCountFiltered2(node, 1);
 					ExecClearTuple(slot);
 					continue;
@@ -328,21 +328,21 @@ BitmapHeapNext(BitmapHeapScanState *node)
 			}
 		}
 
-		/* OK to return this tuple */
+		/* 可以返回该元组   */
 		return slot;
 	}
 
 	/*
-	 * if we get here it means we are at the end of the scan..
+	 * 如果走到这里，说明我们已到扫描末端。 
 	 */
 	return ExecClearTuple(slot);
 }
 
 /*
- *	BitmapDoneInitializingSharedState - Shared state is initialized
+ *	BitmapDoneInitializingSharedState - 共享状态已初始化   
  *
- *	By this time the leader has already populated the TBM and initialized the
- *	shared state so wake up other processes.
+ *	此时领导者已经填充好 TBM 并初始化了共享状态，        
+ *	所以要唤醒其他进程。          
  */
 static inline void
 BitmapDoneInitializingSharedState(ParallelBitmapHeapState *pstate)
@@ -354,7 +354,7 @@ BitmapDoneInitializingSharedState(ParallelBitmapHeapState *pstate)
 }
 
 /*
- *	BitmapAdjustPrefetchIterator - Adjust the prefetch iterator
+ *	BitmapAdjustPrefetchIterator - 调整预取迭代器       
  */
 static inline void
 BitmapAdjustPrefetchIterator(BitmapHeapScanState *node,
@@ -369,12 +369,12 @@ BitmapAdjustPrefetchIterator(BitmapHeapScanState *node,
 
 		if (node->prefetch_pages > 0)
 		{
-			/* The main iterator has closed the distance by one page */
+			/* 主迭代器已把差距缩短了一页               */
 			node->prefetch_pages--;
 		}
 		else if (prefetch_iterator)
 		{
-			/* Do not let the prefetch iterator get behind the main one */
+			/* 不要让预取迭代器落后于主迭代器            */
 			TBMIterateResult *tbmpre = tbm_iterate(prefetch_iterator);
 
 			if (tbmpre == NULL || tbmpre->blockno != tbmres->blockno)
@@ -395,16 +395,16 @@ BitmapAdjustPrefetchIterator(BitmapHeapScanState *node,
 		}
 		else
 		{
-			/* Release the mutex before iterating */
+			/* 在迭代之前释放互斥锁     */
 			SpinLockRelease(&pstate->mutex);
 
 			/*
-			 * In case of shared mode, we can not ensure that the current
-			 * blockno of the main iterator and that of the prefetch iterator
-			 * are same.  It's possible that whatever blockno we are
-			 * prefetching will be processed by another process.  Therefore,
-			 * we don't validate the blockno here as we do in non-parallel
-			 * case.
+			 * 共享模式无法保证主迭代器与预取迭代器的 
+			 * 当前块号相同。我们正在预取的块号有可能由  
+			 * 另一个进程处理。                             
+			 * 因此，我们在这里不像非并行情形那样在       
+			 * 此校验块                                               
+			 * 号  
 			 */
 			if (prefetch_iterator)
 				tbm_shared_iterate(prefetch_iterator);
@@ -414,12 +414,12 @@ BitmapAdjustPrefetchIterator(BitmapHeapScanState *node,
 }
 
 /*
- * BitmapAdjustPrefetchTarget - Adjust the prefetch target
+ * BitmapAdjustPrefetchTarget - 调整预取目标        
  *
- * Increase prefetch target if it's not yet at the max.  Note that
- * we will increase it to zero after fetching the very first
- * page/tuple, then to one after the second tuple is fetched, then
- * it doubles as later pages are fetched.
+ * 如果预取目标尚未达到最大值，则增大它。注意
+ * 取回首个页面/元组后我们会把它增到零，  
+ * 取回第二个元组后加到一，之后随着后续页面的
+ * 取而翻倍。                       
  */
 static inline void
 BitmapAdjustPrefetchTarget(BitmapHeapScanState *node)
@@ -430,7 +430,7 @@ BitmapAdjustPrefetchTarget(BitmapHeapScanState *node)
 	if (pstate == NULL)
 	{
 		if (node->prefetch_target >= node->prefetch_maximum)
-			 /* don't increase any further */ ;
+			 /* 不再继续增大         */ ;
 		else if (node->prefetch_target >= node->prefetch_maximum / 2)
 			node->prefetch_target = node->prefetch_maximum;
 		else if (node->prefetch_target > 0)
@@ -440,12 +440,12 @@ BitmapAdjustPrefetchTarget(BitmapHeapScanState *node)
 		return;
 	}
 
-	/* Do an unlocked check first to save spinlock acquisitions. */
+	/* 先做无锁检查，以节省自旋锁获取的次数。 */
 	if (pstate->prefetch_target < node->prefetch_maximum)
 	{
 		SpinLockAcquire(&pstate->mutex);
 		if (pstate->prefetch_target >= node->prefetch_maximum)
-			 /* don't increase any further */ ;
+			 /* 不再继续增大         */ ;
 		else if (pstate->prefetch_target >= node->prefetch_maximum / 2)
 			pstate->prefetch_target = node->prefetch_maximum;
 		else if (pstate->prefetch_target > 0)
@@ -458,7 +458,7 @@ BitmapAdjustPrefetchTarget(BitmapHeapScanState *node)
 }
 
 /*
- * BitmapPrefetch - Prefetch, if prefetch_pages are behind prefetch_target
+ * BitmapPrefetch - 若 prefetch_pages 落后于 prefetch_target 则预取
  */
 static inline void
 BitmapPrefetch(BitmapHeapScanState *node, TableScanDesc scan)
@@ -479,7 +479,7 @@ BitmapPrefetch(BitmapHeapScanState *node, TableScanDesc scan)
 
 				if (tbmpre == NULL)
 				{
-					/* No more pages to prefetch */
+					/* 无更多页面可预取  */
 					tbm_end_iterate(prefetch_iterator);
 					node->prefetch_iterator = NULL;
 					break;
@@ -487,15 +487,15 @@ BitmapPrefetch(BitmapHeapScanState *node, TableScanDesc scan)
 				node->prefetch_pages++;
 
 				/*
-				 * If we expect not to have to actually read this heap page,
-				 * skip this prefetch call, but continue to run the prefetch
-				 * logic normally.  (Would it be better not to increment
-				 * prefetch_pages?)
+				 * 若预计不必真正读取此堆页面，则跳过      
+				 * 这次预取调用，但仍照常继续运行预取      
+				 * 逻辑。（不递增 prefetch_pages 会更好       
+				 * 吗？）       
 				 *
-				 * This depends on the assumption that the index AM will
-				 * report the same recheck flag for this future heap page as
-				 * it did for the current heap page; which is not a certainty
-				 * but is true in many cases.
+				 * 这依赖于索引 AM 会为此堆页面给出与    
+				 * 当前页面相同的复查标志；这并非必然，但
+				 * 在许多情况下都是                                  
+				 * 成立的。              
 				 */
 				skip_fetch = (node->can_skip_fetch &&
 							  (node->tbmres ? !node->tbmres->recheck : false) &&
@@ -524,8 +524,8 @@ BitmapPrefetch(BitmapHeapScanState *node, TableScanDesc scan)
 				bool		skip_fetch;
 
 				/*
-				 * Recheck under the mutex. If some other process has already
-				 * done enough prefetching then we need not to do anything.
+				 * 在互斥锁下重查。若其他进程已预取足够， 
+				 * 那我们就无需做任何事了。                    
 				 */
 				SpinLockAcquire(&pstate->mutex);
 				if (pstate->prefetch_pages < pstate->prefetch_target)
@@ -541,13 +541,13 @@ BitmapPrefetch(BitmapHeapScanState *node, TableScanDesc scan)
 				tbmpre = tbm_shared_iterate(prefetch_iterator);
 				if (tbmpre == NULL)
 				{
-					/* No more pages to prefetch */
+					/* 无更多页面可预取  */
 					tbm_end_shared_iterate(prefetch_iterator);
 					node->shared_prefetch_iterator = NULL;
 					break;
 				}
 
-				/* As above, skip prefetch if we expect not to need page */
+				/* 同上，如果预计不需要页面，则跳过预取*/
 				skip_fetch = (node->can_skip_fetch &&
 							  (node->tbmres ? !node->tbmres->recheck : false) &&
 							  VM_ALL_VISIBLE(node->ss.ss_currentRelation,
@@ -563,7 +563,7 @@ BitmapPrefetch(BitmapHeapScanState *node, TableScanDesc scan)
 }
 
 /*
- * BitmapHeapRecheck -- access method routine to recheck a tuple in EvalPlanQual
+ * BitmapHeapRecheck -- 在 EvalPlanQual 中复查元组的访问方法例程   
  */
 static bool
 BitmapHeapRecheck(BitmapHeapScanState *node, TupleTableSlot *slot)
@@ -571,11 +571,11 @@ BitmapHeapRecheck(BitmapHeapScanState *node, TupleTableSlot *slot)
 	ExprContext *econtext;
 
 	/*
-	 * extract necessary information from index scan node
+	 * 从索引扫描节点中抽取必要信息        
 	 */
 	econtext = node->ss.ps.ps_ExprContext;
 
-	/* Does the tuple meet the original qual conditions? */
+	/* 该元组满足原始的 qual 条件吗？        */
 	econtext->ecxt_scantuple = slot;
 	return ExecQualAndReset(node->bitmapqualorig, econtext);
 }
@@ -603,10 +603,10 @@ ExecReScanBitmapHeapScan(BitmapHeapScanState *node)
 {
 	PlanState  *outerPlan = outerPlanState(node);
 
-	/* rescan to release any page pin */
+	/* 重新扫描以释放页面 pin*/
 	table_rescan(node->ss.ss_currentScanDesc, NULL);
 
-	/* release bitmaps and buffers if any */
+	/* 有则释放位图和缓冲区     */
 	if (node->tbmiterator)
 		tbm_end_iterate(node->tbmiterator);
 	if (node->prefetch_iterator)
@@ -634,8 +634,8 @@ ExecReScanBitmapHeapScan(BitmapHeapScanState *node)
 	ExecScanReScan(&node->ss);
 
 	/*
-	 * if chgParam of subnode is not null then plan will be re-scanned by
-	 * first ExecProcNode.
+	 * 若子节点的 chgParam 非空，则第一次 ExecProcNode       
+	 * 会重扫计划。 
 	 */
 	if (outerPlan->chgParam == NULL)
 		ExecReScan(outerPlan);
@@ -651,29 +651,29 @@ ExecEndBitmapHeapScan(BitmapHeapScanState *node)
 	TableScanDesc scanDesc;
 
 	/*
-	 * extract information from the node
+	 * 从节点中抽取信息         
 	 */
 	scanDesc = node->ss.ss_currentScanDesc;
 
 	/*
-	 * Free the exprcontext
+	 * 释放 exprcontext  
 	 */
 	ExecFreeExprContext(&node->ss.ps);
 
 	/*
-	 * clear out tuple table slots
+	 * 清空元组表槽         
 	 */
 	if (node->ss.ps.ps_ResultTupleSlot)
 		ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
 	ExecClearTuple(node->ss.ss_ScanTupleSlot);
 
 	/*
-	 * close down subplans
+	 * 关闭子计划    
 	 */
 	ExecEndNode(outerPlanState(node));
 
 	/*
-	 * release bitmaps and buffers if any
+	 * 若有则释放位图和缓冲区 
 	 */
 	if (node->tbmiterator)
 		tbm_end_iterate(node->tbmiterator);
@@ -691,7 +691,7 @@ ExecEndBitmapHeapScan(BitmapHeapScanState *node)
 		ReleaseBuffer(node->pvmbuffer);
 
 	/*
-	 * close heap scan
+	 * 关闭堆扫描
 	 */
 	table_endscan(scanDesc);
 }
@@ -699,7 +699,7 @@ ExecEndBitmapHeapScan(BitmapHeapScanState *node)
 /* ----------------------------------------------------------------
  *		ExecInitBitmapHeapScan
  *
- *		Initializes the scan's state information.
+ *		初始化扫描的状态信息。        
  * ----------------------------------------------------------------
  */
 BitmapHeapScanState *
@@ -708,17 +708,17 @@ ExecInitBitmapHeapScan(BitmapHeapScan *node, EState *estate, int eflags)
 	BitmapHeapScanState *scanstate;
 	Relation	currentRelation;
 
-	/* check for unsupported flags */
+	/* 检查不支持的标志    */
 	Assert(!(eflags & (EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK)));
 
 	/*
-	 * Assert caller didn't ask for an unsafe snapshot --- see comments at
-	 * head of file.
+	 * 断言调用者没有要求不安全的快照 --- 参见文件头  
+	 * 部注释。 
 	 */
 	Assert(IsMVCCSnapshot(estate->es_snapshot));
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	scanstate = makeNode(BitmapHeapScanState);
 	scanstate->ss.ps.plan = (Plan *) node;
@@ -743,62 +743,62 @@ ExecInitBitmapHeapScan(BitmapHeapScan *node, EState *estate, int eflags)
 	scanstate->pstate = NULL;
 
 	/*
-	 * Unfortunately it turns out that the below optimization does not
-	 * take the removal of TIDs by a concurrent vacuum into
-	 * account. The concurrent vacuum can remove dead TIDs and make
-	 * pages ALL_VISIBLE while those dead TIDs are referenced in the
-	 * bitmap. This would lead to a !need_tuples scan returning too
-	 * many tuples.
+	 * 遗憾的是，事实证明下面的优化并未考虑         
+	 * 并发清理移除的 TID。并发清理能移除死
+	 * TID 并把页面置为 ALL_VISIBLE，而这些死 TID 仍被
+	 * 位图引用。这会导致 !need_tuples 的扫描返回     
+	 * 过多的元                                                
+	 * 组。      
 	 *
-	 * In the back-branches, we therefore simply disable the
-	 * optimization. Removing all the relevant code would be too
-	 * invasive (and a major backpatching pain).
+	 * 所以在后向分支干脆禁用该优化。        
+	 * 删除所有相关代码太具侵入性（且向后移植
+	 * 补丁会非常痛苦）。              
 	 */
 	scanstate->can_skip_fetch = false;
 #ifdef NOT_ANYMORE
 	/*
-	 * We can potentially skip fetching heap pages if we do not need any
-	 * columns of the table, either for checking non-indexable quals or for
-	 * returning data.  This test is a bit simplistic, as it checks the
-	 * stronger condition that there's no qual or return tlist at all.  But in
-	 * most cases it's probably not worth working harder than that.
+	 * 如果我们不需要表的任何列，就可能跳过获取堆  
+	 * 页面——无论是为检查不可索引的 qual 还是为返回  
+	 * 数据。这个测试有点简单化，因为它检查的是更 
+	 * 强的条件：根本不存在 qual 或返回 tlist。但在大        
+	 * 多数情况下，大概不值得在这方面更费心。   
 	 */
 	scanstate->can_skip_fetch = (node->scan.plan.qual == NIL &&
 								 node->scan.plan.targetlist == NIL);
 #endif
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * create expression context for node
+	 * 为节点创建表达式上下文 
 	 */
 	ExecAssignExprContext(estate, &scanstate->ss.ps);
 
 	/*
-	 * open the scan relation
+	 * 打开扫描关系    
 	 */
 	currentRelation = ExecOpenScanRelation(estate, node->scan.scanrelid, eflags);
 
 	/*
-	 * initialize child nodes
+	 * 初始化子节点    
 	 */
 	outerPlanState(scanstate) = ExecInitNode(outerPlan(node), estate, eflags);
 
 	/*
-	 * get the scan type from the relation descriptor.
+	 * 从关系描述符中获取扫描类型。     
 	 */
 	ExecInitScanTupleSlot(estate, &scanstate->ss,
 						  RelationGetDescr(currentRelation),
 						  table_slot_callbacks(currentRelation));
 
 	/*
-	 * Initialize result type and projection.
+	 * 初始化结果类型和投影。     
 	 */
 	ExecInitResultTypeTL(&scanstate->ss.ps);
 	ExecAssignScanProjectionInfo(&scanstate->ss);
 
 	/*
-	 * initialize child expressions
+	 * 初始化子表达式       
 	 */
 	scanstate->ss.ps.qual =
 		ExecInitQual(node->scan.plan.qual, (PlanState *) scanstate);
@@ -806,8 +806,8 @@ ExecInitBitmapHeapScan(BitmapHeapScan *node, EState *estate, int eflags)
 		ExecInitQual(node->bitmapqualorig, (PlanState *) scanstate);
 
 	/*
-	 * Maximum number of prefetches for the tablespace if configured,
-	 * otherwise the current value of the effective_io_concurrency GUC.
+	 * 若已配置，则为该表空间的最大预取数；否则  
+	 * 为 effective_io_concurrency GUC 的当前值。                
 	 */
 	scanstate->prefetch_maximum =
 		get_tablespace_io_concurrency(currentRelation->rd_rel->reltablespace);
@@ -820,7 +820,7 @@ ExecInitBitmapHeapScan(BitmapHeapScan *node, EState *estate, int eflags)
 														  NULL);
 
 	/*
-	 * all done.
+	 * 完成。
 	 */
 	return scanstate;
 }
@@ -828,10 +828,10 @@ ExecInitBitmapHeapScan(BitmapHeapScan *node, EState *estate, int eflags)
 /*----------------
  *		BitmapShouldInitializeSharedState
  *
- *		The first process to come here and see the state to the BM_INITIAL
- *		will become the leader for the parallel bitmap scan and will be
- *		responsible for populating the TIDBitmap.  The other processes will
- *		be blocked by the condition variable until the leader wakes them up.
+ *		第一个到达此处并看到状态仍为 BM_INITIAL 的进      
+ *		程将成为并行位图扫描的领导者，并负责填充   
+ *		TIDBitmap。其他进程将被条件变量阻塞，直到领导    
+ *		者唤醒它们。                                                  
  * ---------------
  */
 static bool
@@ -847,11 +847,11 @@ BitmapShouldInitializeSharedState(ParallelBitmapHeapState *pstate)
 			pstate->state = BM_INPROGRESS;
 		SpinLockRelease(&pstate->mutex);
 
-		/* Exit if bitmap is done, or if we're the leader. */
+		/* 位图完成或我们是领导者，则退出。*/
 		if (state != BM_INPROGRESS)
 			break;
 
-		/* Wait for the leader to wake us up. */
+		/* 等待领导者唤醒我们。     */
 		ConditionVariableSleep(&pstate->cv, WAIT_EVENT_PARALLEL_BITMAP_SCAN);
 	}
 
@@ -863,8 +863,8 @@ BitmapShouldInitializeSharedState(ParallelBitmapHeapState *pstate)
 /* ----------------------------------------------------------------
  *		ExecBitmapHeapEstimate
  *
- *		Compute the amount of space we'll need in the parallel
- *		query DSM, and inform pcxt->estimator about our needs.
+ *		计算我们在并行查询 DSM 中需多少空间， 
+ *		并把我们的需求告知 pcxt->estimator。        
  * ----------------------------------------------------------------
  */
 void
@@ -884,7 +884,7 @@ ExecBitmapHeapEstimate(BitmapHeapScanState *node,
 /* ----------------------------------------------------------------
  *		ExecBitmapHeapInitializeDSM
  *
- *		Set up a parallel bitmap heap scan descriptor.
+ *		建立一个并行位图堆扫描描述符。 
  * ----------------------------------------------------------------
  */
 void
@@ -895,7 +895,7 @@ ExecBitmapHeapInitializeDSM(BitmapHeapScanState *node,
 	EState	   *estate = node->ss.ps.state;
 	dsa_area   *dsa = node->ss.ps.state->es_query_dsa;
 
-	/* If there's no DSA, there are no workers; initialize nothing. */
+	/* 没有 DSA 就没有 worker；什么都不初始化。       */
 	if (dsa == NULL)
 		return;
 
@@ -904,7 +904,7 @@ ExecBitmapHeapInitializeDSM(BitmapHeapScanState *node,
 	pstate->tbmiterator = 0;
 	pstate->prefetch_iterator = 0;
 
-	/* Initialize the mutex */
+	/* 初始化互斥锁   */
 	SpinLockInit(&pstate->mutex);
 	pstate->prefetch_pages = 0;
 	pstate->prefetch_target = 0;
@@ -920,7 +920,7 @@ ExecBitmapHeapInitializeDSM(BitmapHeapScanState *node,
 /* ----------------------------------------------------------------
  *		ExecBitmapHeapReInitializeDSM
  *
- *		Reset shared state before beginning a fresh scan.
+ *		在开始全新扫描前重置共享状态。    
  * ----------------------------------------------------------------
  */
 void
@@ -930,7 +930,7 @@ ExecBitmapHeapReInitializeDSM(BitmapHeapScanState *node,
 	ParallelBitmapHeapState *pstate = node->pstate;
 	dsa_area   *dsa = node->ss.ps.state->es_query_dsa;
 
-	/* If there's no DSA, there are no workers; do nothing. */
+	/* 没有 DSA 就没有 worker；什么都不做。     */
 	if (dsa == NULL)
 		return;
 
@@ -949,7 +949,7 @@ ExecBitmapHeapReInitializeDSM(BitmapHeapScanState *node,
 /* ----------------------------------------------------------------
  *		ExecBitmapHeapInitializeWorker
  *
- *		Copy relevant information from TOC into planstate.
+ *		把 TOC 中的相关信息复制到 planstate。  
  * ----------------------------------------------------------------
  */
 void

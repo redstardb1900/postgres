@@ -1,98 +1,98 @@
 /*-------------------------------------------------------------------------
  *
  * execIndexing.c
- *	  routines for inserting index tuples and enforcing unique and
- *	  exclusion constraints.
+ *	  用于插入索引元组并强制唯一约束与排除      
+ *	  约束的例程。    
  *
- * ExecInsertIndexTuples() is the main entry point.  It's called after
- * inserting a tuple to the heap, and it inserts corresponding index tuples
- * into all indexes.  At the same time, it enforces any unique and
- * exclusion constraints:
+ * ExecInsertIndexTuples() 是主入口。它在向堆插入          
+ * 元组后被调用，它会向所有索引插入对应的索引         
+ * 元组。同时，它会强制所有唯一约束和            
+ * 排除约束：       
  *
- * Unique Indexes
+ * 唯一索引  
  * --------------
  *
- * Enforcing a unique constraint is straightforward.  When the index AM
- * inserts the tuple to the index, it also checks that there are no
- * conflicting tuples in the index already.  It does so atomically, so that
- * even if two backends try to insert the same key concurrently, only one
- * of them will succeed.  All the logic to ensure atomicity, and to wait
- * for in-progress transactions to finish, is handled by the index AM.
+ * 强制唯一约束很直接。当索引 AM 将元组插入索引    
+ * 时，它还会检查索引中是否已存在冲突的元组。 
+ * 这一检查是原子性地进行的，因此即便两个后端         
+ * 并发地插入相同的键，也只会有一个成功。确保       
+ * 原子性的全部逻辑，以及等待进行中的事务结束      
+ * 的逻辑，都由索引 AM 处理。                              
  *
- * If a unique constraint is deferred, we request the index AM to not
- * throw an error if a conflict is found.  Instead, we make note that there
- * was a conflict and return the list of indexes with conflicts to the
- * caller.  The caller must re-check them later, by calling index_insert()
- * with the UNIQUE_CHECK_EXISTING option.
+ * 如果唯一约束是可延迟的，我们会请求索引 AM      
+ * 在发现冲突时不要抛出错误。相应地，我们会记         
+ * 下存在冲突这一事实，并把有冲突的索引列表返    
+ * 回给调用者。调用者之后必须带 UNIQUE_CHECK_EXISTING       
+ * 选项重新调用 index_insert()。  
  *
- * Exclusion Constraints
+ * 排除约束         
  * ---------------------
  *
- * Exclusion constraints are different from unique indexes in that when the
- * tuple is inserted to the index, the index AM does not check for
- * duplicate keys at the same time.  After the insertion, we perform a
- * separate scan on the index to check for conflicting tuples, and if one
- * is found, we throw an error and the transaction is aborted.  If the
- * conflicting tuple's inserter or deleter is in-progress, we wait for it
- * to finish first.
+ * 排除约束与唯一索引的不同之处在于：向索引插         
+ * 入元组时，索引 AM 并不会同时检查重复的键。  
+ * 插入完成之后，我们会单独对索引执行一次扫描    
+ * 来检查是否存在冲突元组；如果找到，我们会抛       
+ * 出错误并且事务会被中止。如果冲突元组的          
+ * 插入者或删除者仍在进行中，我们会先等待它          
+ * 完成。       
  *
- * There is a chance of deadlock, if two backends insert a tuple at the
- * same time, and then perform the scan to check for conflicts.  They will
- * find each other's tuple, and both try to wait for each other.  The
- * deadlock detector will detect that, and abort one of the transactions.
- * That's fairly harmless, as one of them was bound to abort with a
- * "duplicate key error" anyway, although you get a different error
- * message.
+ * 如果两个后端同时插入一个元组，然后又执行检     
+ * 查冲突的扫描，就有可能发生死锁。它们会彼此        
+ * 发现对方的元组，并且都试图等待对方。死锁检   
+ * 测器会检测到这种情况，并中止其中一个事务。       
+ * 这相当无害，因为其中一个事务反正注定要以    
+ * "duplicate key error"而中止，尽管你得到的错误消息 
+ * 不同  
  *
- * If an exclusion constraint is deferred, we still perform the conflict
- * checking scan immediately after inserting the index tuple.  But instead
- * of throwing an error if a conflict is found, we return that information
- * to the caller.  The caller must re-check them later by calling
- * check_exclusion_constraint().
+ * 如果排除约束是可延迟的，我们仍会在插入索引      
+ * 元组之后立即执行冲突检查扫描。但不同于唯一        
+ * 约束之处在于：发现冲突时不抛出错误，而是把        
+ * 该信息返回给调用者。调用者稍后须再次调用  
+ * check_exclusion_constraint() 
  *
- * Speculative insertion
+ * 投机性插入      
  * ---------------------
  *
- * Speculative insertion is a two-phase mechanism used to implement
- * INSERT ... ON CONFLICT DO UPDATE/NOTHING.  The tuple is first inserted
- * to the heap and update the indexes as usual, but if a constraint is
- * violated, we can still back out the insertion without aborting the whole
- * transaction.  In an INSERT ... ON CONFLICT statement, if a conflict is
- * detected, the inserted tuple is backed out and the ON CONFLICT action is
- * executed instead.
+ * 投机插入是一种两阶段机制，用于实现             
+ * INSERT ... ON CONFLICT DO UPDATE/NOTHING。元组首                  
+ * 先被插入堆中并照常更新索引；但如果某约束被    
+ * 违反，我们仍可以撤回该次插入而不用中止整个         
+ * 事务。在 INSERT ... ON CONFLICT 语句中，一旦检             
+ * 测到冲突，被插入的元组会被撤回，转而执行            
+ * ON CONFLICT动作
  *
- * Insertion to a unique index works as usual: the index AM checks for
- * duplicate keys atomically with the insertion.  But instead of throwing
- * an error on a conflict, the speculatively inserted heap tuple is backed
- * out.
+ * 向唯一索引插入的工作方式照旧：索引 AM 以原子   
+ * 方式在插入的同时检查重复键。但遇到冲突时不       
+ * 抛出错误，而是把投机插入的堆元组撤                    
+ * 回 
  *
- * Exclusion constraints are slightly more complicated.  As mentioned
- * earlier, there is a risk of deadlock when two backends insert the same
- * key concurrently.  That was not a problem for regular insertions, when
- * one of the transactions has to be aborted anyway, but with a speculative
- * insertion we cannot let a deadlock happen, because we only want to back
- * out the speculatively inserted tuple on conflict, not abort the whole
- * transaction.
+ * 排除约束的情况要更复杂一些。如前所述，当两   
+ * 个后端并发插入相同的键时存在死锁风险。对于       
+ * 常规插入这不成问题，因为反正总有一个事务要       
+ * 被中止；但投机插入不允许发生死锁，因为我们         
+ * 我们只希望在冲突时撤回投机插入的元组，              
+ * 而不是中止整个                                                
+ * 事务。   
  *
- * When a backend detects that the speculative insertion conflicts with
- * another in-progress tuple, it has two options:
+ * 当后端检测到投机插入与另一个进行中的元组相     
+ * 冲突时，它有两个选择：             
  *
- * 1. back out the speculatively inserted tuple, then wait for the other
- *	  transaction, and retry. Or,
- * 2. wait for the other transaction, with the speculatively inserted tuple
- *	  still in place.
+ * 1. 撤回投机插入的元组，然后等待另一个事务，      
+ *	  再重试。或者，      
+ * 2. 等待另一个事务，同时让投机插入的元组保持         
+ *	  原位不动。
  *
- * If two backends insert at the same time, and both try to wait for each
- * other, they will deadlock.  So option 2 is not acceptable.  Option 1
- * avoids the deadlock, but it is prone to a livelock instead.  Both
- * transactions will wake up immediately as the other transaction backs
- * out.  Then they both retry, and conflict with each other again, lather,
- * rinse, repeat.
+ * 如果两个后端同时插入，并且都试图等待对方，       
+ * 就会死锁。因此选择 2 不可接受。选择 1 避免了死  
+ * 锁，但反而容易出现活锁。两个事务都会在对方  
+ * 撤回时立即唤醒。随后二者都重试，并再次相互     
+ * 冲突，周而复始，无限                                         
+ * 往复。     
  *
- * To avoid the livelock, one of the backends must back out first, and then
- * wait, while the other one waits without backing out.  It doesn't matter
- * which one backs out, so we employ an arbitrary rule that the transaction
- * with the higher XID backs out.
+ * 为避免活锁，必须有一个后端先撤回，然后等待；      
+ * 而另一个则不撤回直接等待。由谁撤回并不重要，     
+ * 因此我们采用一条任意规则：让 XID 较大的事务          
+ * 撤回。                     
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -116,7 +116,7 @@
 #include "storage/lmgr.h"
 #include "utils/snapmgr.h"
 
-/* waitMode argument to check_exclusion_or_unique_constraint() */
+/* check_exclusion_or_unique_constraint() 的 waitMode 参数  */
 typedef enum
 {
 	CEOUC_WAIT,
@@ -145,10 +145,10 @@ static bool index_expression_changed_walker(Node *node,
 /* ----------------------------------------------------------------
  *		ExecOpenIndices
  *
- *		Find the indices associated with a result relation, open them,
- *		and save information about them in the result ResultRelInfo.
+ *		找出与结果关系相关联的索引并打开它们，     
+ *		并将它们的信息保存到结果的 ResultRelInfo 中。
  *
- *		At entry, caller has already opened and locked
+ *		进入时，调用者已经打开并锁定了 
  *		resultRelInfo->ri_RelationDesc.
  * ----------------------------------------------------------------
  */
@@ -165,12 +165,12 @@ ExecOpenIndices(ResultRelInfo *resultRelInfo, bool speculative)
 
 	resultRelInfo->ri_NumIndices = 0;
 
-	/* fast path if no indexes */
+	/* 无索引的快速路径*/
 	if (!RelationGetForm(resultRelation)->relhasindex)
 		return;
 
 	/*
-	 * Get cached list of index OIDs
+	 * 获取缓存索引 OID 列表
 	 */
 	indexoidlist = RelationGetIndexList(resultRelation);
 	len = list_length(indexoidlist);
@@ -178,7 +178,7 @@ ExecOpenIndices(ResultRelInfo *resultRelInfo, bool speculative)
 		return;
 
 	/*
-	 * allocate space for result arrays
+	 * 为结果数组分配空间     
 	 */
 	relationDescs = (RelationPtr) palloc(len * sizeof(Relation));
 	indexInfoArray = (IndexInfo **) palloc(len * sizeof(IndexInfo *));
@@ -188,11 +188,11 @@ ExecOpenIndices(ResultRelInfo *resultRelInfo, bool speculative)
 	resultRelInfo->ri_IndexRelationInfo = indexInfoArray;
 
 	/*
-	 * For each index, open the index relation and save pg_index info. We
-	 * acquire RowExclusiveLock, signifying we will update the index.
+	 * 对每个索引，打开索引关系并保存 pg_index 信息。  
+	 * 获取 RowExclusiveLock，表明我们将更新该索引。   
 	 *
-	 * Note: we do this even if the index is not indisready; it's not worth
-	 * the trouble to optimize for the case where it isn't.
+	 * 注意：即使索引不是 indisready，我们也照样这样      
+	 * 做；为它不是的情形做优化并不值得。 
 	 */
 	i = 0;
 	foreach(l, indexoidlist)
@@ -203,12 +203,12 @@ ExecOpenIndices(ResultRelInfo *resultRelInfo, bool speculative)
 
 		indexDesc = index_open(indexOid, RowExclusiveLock);
 
-		/* extract index key information from the index's pg_index info */
+		/* 从索引的 pg_index 信息中提取索引键信息         */
 		ii = BuildIndexInfo(indexDesc);
 
 		/*
-		 * If the indexes are to be used for speculative insertion, add extra
-		 * information required by unique index entries.
+		 * 如果这些索引将用于投机插入，则添加唯一索引   
+		 * 条目所需的额外信息                  
 		 */
 		if (speculative && ii->ii_Unique)
 			BuildSpeculativeIndexInfo(indexDesc, ii);
@@ -224,7 +224,7 @@ ExecOpenIndices(ResultRelInfo *resultRelInfo, bool speculative)
 /* ----------------------------------------------------------------
  *		ExecCloseIndices
  *
- *		Close the index relations stored in resultRelInfo
+ *		关闭 resultRelInfo 中存储的索引关系    
  * ----------------------------------------------------------------
  */
 void
@@ -240,53 +240,53 @@ ExecCloseIndices(ResultRelInfo *resultRelInfo)
 	for (i = 0; i < numIndices; i++)
 	{
 		if (indexDescs[i] == NULL)
-			continue;			/* shouldn't happen? */
+			continue;			/* 不该发生？   */
 
-		/* Drop lock acquired by ExecOpenIndices */
+		/* 释放 ExecOpenIndices 获取的锁   */
 		index_close(indexDescs[i], RowExclusiveLock);
 	}
 
 	/*
-	 * XXX should free indexInfo array here too?  Currently we assume that
-	 * such stuff will be cleaned up automatically in FreeExecutorState.
+	 * XXX 这里是否也应当释放 indexInfo 数组？目前我们    
+	 * 假定这类内容会在 FreeExecutorState 中自动清理。    
 	 */
 }
 
 /* ----------------------------------------------------------------
  *		ExecInsertIndexTuples
  *
- *		This routine takes care of inserting index tuples
- *		into all the relations indexing the result relation
- *		when a heap tuple is inserted into the result relation.
+ *		当堆元组插入结果关系时，本例程    
+ *		负责向对该结果关系建索引的所有关系
+ *		插入索引元组。                                  
  *
- *		When 'update' is true and 'onlySummarizing' is false,
- *		executor is performing an UPDATE that could not use an
- *		optimization like heapam's HOT (in more general terms a
- *		call to table_tuple_update() took place and set
- *		'update_indexes' to TU_All).  Receiving this hint makes
- *		us consider if we should pass down the 'indexUnchanged'
- *		hint in turn.  That's something that we figure out for
- *		each index_insert() call iff 'update' is true.
- *		(When 'update' is false we already know not to pass the
- *		hint to any index.)
+ *		当 'update' 为真且 'onlySummarizing' 为假时，
+ *		执行器在执行无法利用 heapam 的 HOT 类     
+ *		优化的 UPDATE（更一般地说，即发生过      
+ *		table_tuple_update() 调用且 'update_indexes'
+ *		被设为 TU_All）。收到该提示会考虑是否   
+ *		向下传递 'indexUnchanged' 提示。这件事仅    
+ *		当 'update' 为真时才对每次 index_insert()     
+ *		调用来判定。（'update' 为假时已知 
+ *		不会把该提示传给                               
+ *		任何索引。） 
  *
- *		If onlySummarizing is set, an equivalent optimization to
- *		HOT has been applied and any updated columns are indexed
- *		only by summarizing indexes (or in more general terms a
- *		call to table_tuple_update() took place and set
- *		'update_indexes' to TU_Summarizing). We can (and must)
- *		therefore only update the indexes that have
- *		'amsummarizing' = true.
+ *		若设置了 onlySummarizing，说明已应用了与    
+ *		HOT 等价的优化，更新过的列只由汇总索    
+ *		引建立索引（更一般地说，发生过          
+ *		table_tuple_update() 调用并设              
+ *		'update_indexes' 为 TU_Summarizing）。因此可    
+ *		以（且必须）只更新 'amsummarizing'
+ *		= true 的索引。    
  *
- *		Unique and exclusion constraints are enforced at the same
- *		time.  This returns a list of index OIDs for any unique or
- *		exclusion constraints that are deferred and that had
- *		potential (unconfirmed) conflicts.  (if noDupErr == true,
- *		the same is done for non-deferred constraints, but report
- *		if conflict was speculative or deferred conflict to caller)
+ *		唯一约束与排除约束会同时被强制执行。   
+ *		返回那些已延迟且有潜在（未确认）冲突的 
+ *		唯一或排除约束的索引 OID 列表。        
+ *		（若 noDupErr == true，对非延迟约束也如此， 
+ *		但会向调用者报告冲突为投机性或延迟      
+ *		性的。）                                               
  *
- *		If 'arbiterIndexes' is nonempty, noDupErr applies only to
- *		those indexes.  NIL means noDupErr applies to all indexes.
+ *		若 'arbiterIndexes' 非空，则 noDupErr 只适用     
+ *		于这些索引。NIL 则表示适用于所有索引。   
  * ----------------------------------------------------------------
  */
 List *
@@ -313,27 +313,27 @@ ExecInsertIndexTuples(ResultRelInfo *resultRelInfo,
 	Assert(ItemPointerIsValid(tupleid));
 
 	/*
-	 * Get information from the result relation info structure.
+	 * 从结果关系信息结构中获取信息。           
 	 */
 	numIndices = resultRelInfo->ri_NumIndices;
 	relationDescs = resultRelInfo->ri_IndexRelationDescs;
 	indexInfoArray = resultRelInfo->ri_IndexRelationInfo;
 	heapRelation = resultRelInfo->ri_RelationDesc;
 
-	/* Sanity check: slot must belong to the same rel as the resultRelInfo. */
+	/* 完整性检查：slot 必须属于与 resultRelInfo 相同的关系 */
 	Assert(slot->tts_tableOid == RelationGetRelid(heapRelation));
 
 	/*
-	 * We will use the EState's per-tuple context for evaluating predicates
-	 * and index expressions (creating it if it's not already there).
+	 * 我们将使用 EState 的每元组上下文来求值谓词         
+	 * 和索引表达式（若尚未创建则先创建）。        
 	 */
 	econtext = GetPerTupleExprContext(estate);
 
-	/* Arrange for econtext's scan tuple to be the tuple under test */
+	/* 安排 econtext 的扫描元组指向待检测的元组      */
 	econtext->ecxt_scantuple = slot;
 
 	/*
-	 * for each index, form and insert the index tuple
+	 * 对每个索引，构造并插入索引元组  
 	 */
 	for (i = 0; i < numIndices; i++)
 	{
@@ -349,25 +349,25 @@ ExecInsertIndexTuples(ResultRelInfo *resultRelInfo,
 
 		indexInfo = indexInfoArray[i];
 
-		/* If the index is marked as read-only, ignore it */
+		/* 若索引被标记为只读，则忽略它     */
 		if (!indexInfo->ii_ReadyForInserts)
 			continue;
 
 		/*
-		 * Skip processing of non-summarizing indexes if we only update
-		 * summarizing indexes
+		 * 若只更新汇总索引，则跳过非汇总               
+		 * 索引的处理    
 		 */
 		if (onlySummarizing && !indexInfo->ii_Summarizing)
 			continue;
 
-		/* Check for partial index */
+		/* 检查部分索引      */
 		if (indexInfo->ii_Predicate != NIL)
 		{
 			ExprState  *predicate;
 
 			/*
-			 * If predicate state not set up yet, create it (in the estate's
-			 * per-query context)
+			 * 若谓词状态未建立，则在 estate 的每查询上下  
+			 * 文中创建      
 			 */
 			predicate = indexInfo->ii_PredicateState;
 			if (predicate == NULL)
@@ -376,14 +376,14 @@ ExecInsertIndexTuples(ResultRelInfo *resultRelInfo,
 				indexInfo->ii_PredicateState = predicate;
 			}
 
-			/* Skip this index-update if the predicate isn't satisfied */
+			/* 若谓词不满足，则跳过这次索引更新        */
 			if (!ExecQual(predicate, econtext))
 				continue;
 		}
 
 		/*
-		 * FormIndexDatum fills in its values and isnull parameters with the
-		 * appropriate values for the column(s) of the index.
+		 * FormIndexDatum 会用索引各列的适当取值来填充        
+		 * 它的 values 和 isnull 参数。                
 		 */
 		FormIndexDatum(indexInfo,
 					   slot,
@@ -391,24 +391,24 @@ ExecInsertIndexTuples(ResultRelInfo *resultRelInfo,
 					   values,
 					   isnull);
 
-		/* Check whether to apply noDupErr to this index */
+		/* 检查是否对该索引应用 noDupErr       */
 		applyNoDupErr = noDupErr &&
 			(arbiterIndexes == NIL ||
 			 list_member_oid(arbiterIndexes,
 							 indexRelation->rd_index->indexrelid));
 
 		/*
-		 * The index AM does the actual insertion, plus uniqueness checking.
+		 * 索引 AM 负责执行实际的插入，外加唯一性检查。 
 		 *
-		 * For an immediate-mode unique index, we just tell the index AM to
-		 * throw error if not unique.
+		 * 对立即模式唯一索引，我们只要求索引 AM          
+		 * 在不唯一时抛错。  
 		 *
-		 * For a deferrable unique index, we tell the index AM to just detect
-		 * possible non-uniqueness, and we add the index OID to the result
-		 * list if further checking is needed.
+		 * 对可延迟唯一索引，我们让索引 AM 只检测可能     
+		 * 的不唯一性，并在需要进一步检查时把该索引的
+		 * OID 加进结果列表。          
 		 *
-		 * For a speculative insertion (used by INSERT ... ON CONFLICT), do
-		 * the same as for a deferrable unique index.
+		 * 对于投机插入（INSERT ... ON CONFLICT 所用），做     
+		 * 法与可延迟唯一索引相同。      
 		 */
 		if (!indexRelation->rd_index->indisunique)
 			checkUnique = UNIQUE_CHECK_NO;
@@ -420,9 +420,9 @@ ExecInsertIndexTuples(ResultRelInfo *resultRelInfo,
 			checkUnique = UNIQUE_CHECK_PARTIAL;
 
 		/*
-		 * There's definitely going to be an index_insert() call for this
-		 * index.  If we're being called as part of an UPDATE statement,
-		 * consider if the 'indexUnchanged' = true hint should be passed.
+		 * 对这个索引必然会有一次 index_insert() 调用。    
+		 * 若我们正作为 UPDATE 语句的一部分被调用，     
+		 * 则考虑是否应传 'indexUnchanged' = true 提示。       
 		 */
 		indexUnchanged = update && index_unchanged_by_update(resultRelInfo,
 															 estate,
@@ -430,28 +430,28 @@ ExecInsertIndexTuples(ResultRelInfo *resultRelInfo,
 															 indexRelation);
 
 		satisfiesConstraint =
-			index_insert(indexRelation, /* index relation */
-						 values,	/* array of index Datums */
-						 isnull,	/* null flags */
-						 tupleid,	/* tid of heap tuple */
-						 heapRelation,	/* heap relation */
-						 checkUnique,	/* type of uniqueness check to do */
-						 indexUnchanged,	/* UPDATE without logical change? */
-						 indexInfo);	/* index AM may need this */
+			index_insert(indexRelation, /* 索引关系   */
+						 values,	/* 索引 Datum 数组   */
+						 isnull,	/* NULL 标志*/
+						 tupleid,	/* 堆元组的 TID  */
+						 heapRelation,	/* 堆关系     */
+						 checkUnique,	/* 要做的唯一性检查类型 */
+						 indexUnchanged,	/* UPDATE 且无逻辑改动？   */
+						 indexInfo);	/* 索引 AM 可能需要 */
 
 		/*
-		 * If the index has an associated exclusion constraint, check that.
-		 * This is simpler than the process for uniqueness checks since we
-		 * always insert first and then check.  If the constraint is deferred,
-		 * we check now anyway, but don't throw error on violation or wait for
-		 * a conclusive outcome from a concurrent insertion; instead we'll
-		 * queue a recheck event.  Similarly, noDupErr callers (speculative
-		 * inserters) will recheck later, and wait for a conclusive outcome
-		 * then.
+		 * 如果该索引关联有排除约束，则对此进行检查。 
+		 * 这比唯一性检查的过程简单，因为我们总是先插
+		 * 入然后才检查。如果约束是可延迟的，我们现在    
+		 * 也会执行检查，但在违反时不抛错，也不等待并    
+		 * 发插入给出确定性的结果；相反，我们会排队一
+		 * 个重查事件。类似地，noDupErr 调用者（投机插入 
+		 * 者）稍后也会重新检查，并在那时等待确定的结 
+		 * 果  
 		 *
-		 * An index for an exclusion constraint can't also be UNIQUE (not an
-		 * essential property, we just don't allow it in the grammar), so no
-		 * need to preserve the prior state of satisfiesConstraint.
+		 * 排除约束的索引不能同时还是 UNIQUE（这并非本质 
+		 * 属性，只是语法中不允许它），所以无需保留     
+		 * satisfiesConstraint 的先前状态。                  
 		 */
 		if (indexInfo->ii_ExclusionOps != NULL)
 		{
@@ -487,10 +487,10 @@ ExecInsertIndexTuples(ResultRelInfo *resultRelInfo,
 			!satisfiesConstraint)
 		{
 			/*
-			 * The tuple potentially violates the uniqueness or exclusion
-			 * constraint, so make a note of the index so that we can re-check
-			 * it later.  Speculative inserters are told if there was a
-			 * speculative conflict, since that always requires a restart.
+			 * 元组可能违反唯一或排除约束，因此记下该 
+			 * 索引以便稍后重查。投机插入者会被告知         
+			 * 是否发生了投机冲突，因为那总是需要     
+			 * 重新开始。                                            
 			 */
 			result = lappend_oid(result, RelationGetRelid(indexRelation));
 			if (indexRelation->rd_index->indimmediate && specConflict)
@@ -504,18 +504,18 @@ ExecInsertIndexTuples(ResultRelInfo *resultRelInfo,
 /* ----------------------------------------------------------------
  *		ExecCheckIndexConstraints
  *
- *		This routine checks if a tuple violates any unique or
- *		exclusion constraints.  Returns true if there is no conflict.
- *		Otherwise returns false, and the TID of the conflicting
- *		tuple is returned in *conflictTid.
+ *		本例程检查元组是否违反任何唯一或     
+ *		排除约束。无冲突则返回真，否则返回假，    
+ *		冲突元组的 TID 会通过                          
+ *		*conflictTid 返回。            
  *
- *		If 'arbiterIndexes' is given, only those indexes are checked.
- *		NIL means all indexes.
+ *		若给定了 'arbiterIndexes'，则只检查那些索引。  
+ *		NIL 即全部索引   
  *
- *		Note that this doesn't lock the values in any way, so it's
- *		possible that a conflicting tuple is inserted immediately
- *		after this returns.  But this can be used for a pre-check
- *		before insertion.
+ *		注意它不会以任何方式锁定值，故本例程返 
+ *		回后立即插入冲突元组是可能的。但它可用
+ *		以用于插入前的                                    
+ *		预检查。     
  * ----------------------------------------------------------------
  */
 bool
@@ -538,7 +538,7 @@ ExecCheckIndexConstraints(ResultRelInfo *resultRelInfo, TupleTableSlot *slot,
 	ItemPointerSetInvalid(&invalidItemPtr);
 
 	/*
-	 * Get information from the result relation info structure.
+	 * 从结果关系信息结构中获取信息。           
 	 */
 	numIndices = resultRelInfo->ri_NumIndices;
 	relationDescs = resultRelInfo->ri_IndexRelationDescs;
@@ -546,17 +546,17 @@ ExecCheckIndexConstraints(ResultRelInfo *resultRelInfo, TupleTableSlot *slot,
 	heapRelation = resultRelInfo->ri_RelationDesc;
 
 	/*
-	 * We will use the EState's per-tuple context for evaluating predicates
-	 * and index expressions (creating it if it's not already there).
+	 * 我们将使用 EState 的每元组上下文来求值谓词         
+	 * 和索引表达式（若尚未创建则先创建）。        
 	 */
 	econtext = GetPerTupleExprContext(estate);
 
-	/* Arrange for econtext's scan tuple to be the tuple under test */
+	/* 安排 econtext 的扫描元组指向待检测的元组      */
 	econtext->ecxt_scantuple = slot;
 
 	/*
-	 * For each index, form index tuple and check if it satisfies the
-	 * constraint.
+	 * 对每个索引，构造索引元组并检查它是否满足  
+	 * 约束。  
 	 */
 	for (i = 0; i < numIndices; i++)
 	{
@@ -572,11 +572,11 @@ ExecCheckIndexConstraints(ResultRelInfo *resultRelInfo, TupleTableSlot *slot,
 		if (!indexInfo->ii_Unique && !indexInfo->ii_ExclusionOps)
 			continue;
 
-		/* If the index is marked as read-only, ignore it */
+		/* 若索引被标记为只读，则忽略它     */
 		if (!indexInfo->ii_ReadyForInserts)
 			continue;
 
-		/* When specific arbiter indexes requested, only examine them */
+		/* 当指定了特定仲裁索引时，只检查它们        */
 		if (arbiterIndexes != NIL &&
 			!list_member_oid(arbiterIndexes,
 							 indexRelation->rd_index->indexrelid))
@@ -591,14 +591,14 @@ ExecCheckIndexConstraints(ResultRelInfo *resultRelInfo, TupleTableSlot *slot,
 
 		checkedIndex = true;
 
-		/* Check for partial index */
+		/* 检查部分索引      */
 		if (indexInfo->ii_Predicate != NIL)
 		{
 			ExprState  *predicate;
 
 			/*
-			 * If predicate state not set up yet, create it (in the estate's
-			 * per-query context)
+			 * 若谓词状态未建立，则在 estate 的每查询上下  
+			 * 文中创建      
 			 */
 			predicate = indexInfo->ii_PredicateState;
 			if (predicate == NULL)
@@ -607,14 +607,14 @@ ExecCheckIndexConstraints(ResultRelInfo *resultRelInfo, TupleTableSlot *slot,
 				indexInfo->ii_PredicateState = predicate;
 			}
 
-			/* Skip this index-update if the predicate isn't satisfied */
+			/* 若谓词不满足，则跳过这次索引更新        */
 			if (!ExecQual(predicate, econtext))
 				continue;
 		}
 
 		/*
-		 * FormIndexDatum fills in its values and isnull parameters with the
-		 * appropriate values for the column(s) of the index.
+		 * FormIndexDatum 会用索引各列的适当取值来填充        
+		 * 它的 values 和 isnull 参数。                
 		 */
 		FormIndexDatum(indexInfo,
 					   slot,
@@ -639,46 +639,46 @@ ExecCheckIndexConstraints(ResultRelInfo *resultRelInfo, TupleTableSlot *slot,
 }
 
 /*
- * Check for violation of an exclusion or unique constraint
+ * 检查是否违反排除约束或唯一约束           
  *
- * heap: the table containing the new tuple
- * index: the index supporting the constraint
- * indexInfo: info about the index, including the exclusion properties
- * tupleid: heap TID of the new tuple we have just inserted (invalid if we
- *		haven't inserted a new tuple yet)
- * values, isnull: the *index* column values computed for the new tuple
- * estate: an EState we can do evaluation in
- * newIndex: if true, we are trying to build a new index (this affects
- *		only the wording of error messages)
- * waitMode: whether to wait for concurrent inserters/deleters
- * violationOK: if true, don't throw error for violation
- * conflictTid: if not-NULL, the TID of the conflicting tuple is returned here
+ * heap：包含新元组的表            
+ * index：支持该约束的索引          
+ * indexInfo：索引的信息，含排除约束属性                
+ * tupleid：我们刚插入的新元组的堆 TID（若尚未            
+ *		插入新元组则为无效）   
+ * values, isnull：为新元组算出的*索引*列值                
+ * estate：可供我们求值用的 EState 
+ * newIndex：为真表示我们正在尝试构建新索引（这     
+ *		只影响错误消息的措辞）  
+ * waitMode：是否等待并发的插入者/删除者        
+ * violationOK：为真则违反时不抛错            
+ * conflictTid：若非 NULL，冲突元组的 TID 会在此返回            
  *
- * Returns true if OK, false if actual or potential violation
+ * 成功返回真；有实际或潜在冲突则返回假    
  *
- * 'waitMode' determines what happens if a conflict is detected with a tuple
- * that was inserted or deleted by a transaction that's still running.
- * CEOUC_WAIT means that we wait for the transaction to commit, before
- * throwing an error or returning.  CEOUC_NOWAIT means that we report the
- * violation immediately; so the violation is only potential, and the caller
- * must recheck sometime later.  This behavior is convenient for deferred
- * exclusion checks; we need not bother queuing a deferred event if there is
- * definitely no conflict at insertion time.
+ * 'waitMode' 决定当检测到与一个仍处于进行中的事           
+ * 务所插入或删除的元组冲突时会发生什么。          
+ * CEOUC_WAIT 表示我们等待该事务提交之后再抛错        
+ * 或返回。CEOUC_NOWAIT 表示我们立即报告违反；            
+ * 因此该违反只是潜在的，调用者稍后必须重新检          
+ * 查。这一行为对延迟排除检查很方便；如果在插       
+ * 入时肯定没有冲突，我们就不必费心排队延迟事          
+ * 件了。                                
  *
- * CEOUC_LIVELOCK_PREVENTING_WAIT is like CEOUC_NOWAIT, but we will sometimes
- * wait anyway, to prevent livelocking if two transactions try inserting at
- * the same time.  This is used with speculative insertions, for INSERT ON
- * CONFLICT statements. (See notes in file header)
+ * CEOUC_LIVELOCK_PREVENTING_WAIT 类似 CEOUC_NOWAIT，                     
+ * 但有时我们也会等待，以防两个事务同时尝试插         
+ * 入时发生活锁。它用于投机插入，即 INSERT ON             
+ * CONFLICT 语句。（见文件头说明）     
  *
- * If violationOK is true, we just report the potential or actual violation to
- * the caller by returning 'false'.  Otherwise we throw a descriptive error
- * message here.  When violationOK is false, a false result is impossible.
+ * 若 violationOK 为真，我们只需通过返回 'false' 把潜在        
+ * 或实际的违反报告给调用者。否则我们在此抛出         
+ * 一条描述性错误消息。violationOK 为假时不可能返回假  
  *
- * Note: The indexam is normally responsible for checking unique constraints,
- * so this normally only needs to be used for exclusion constraints.  But this
- * function is also called when doing a "pre-check" for conflicts on a unique
- * constraint, when doing speculative insertion.  Caller may use the returned
- * conflict TID to take further steps.
+ * 注意：唯一约束的检查通常由索引访问方法负责，        
+ * 因此它通常只需用于排除约束。但在投机插入时，         
+ * 也会调用本函数来对唯一约束的冲突做"预检查"。         
+ * 调用者可以用返回的冲突 TID 来采取进一步的               
+ * 后续步骤。                    
  */
 static bool
 check_exclusion_or_unique_constraint(Relation heap, Relation index,
@@ -716,11 +716,11 @@ check_exclusion_or_unique_constraint(Relation heap, Relation index,
 	}
 
 	/*
-	 * If any of the input values are NULL, and the index uses the default
-	 * nulls-are-distinct mode, the constraint check is assumed to pass (i.e.,
-	 * we assume the operators are strict).  Otherwise, we interpret the
-	 * constraint as specifying IS NULL for each column whose input value is
-	 * NULL.
+	 * 如果任一输入值为 NULL，且该索引使用默认的        
+	 * nulls-are-distinct 模式，则假定约束检查通过（即          
+	 * 我们假定操作符是严格的）。否则，我们会把     
+	 * 约束解释为对每个输入值为 NULL 的列指定 IS            
+	 * NULL 
 	 */
 	if (!indexInfo->ii_NullsNotDistinct)
 	{
@@ -732,8 +732,8 @@ check_exclusion_or_unique_constraint(Relation heap, Relation index,
 	}
 
 	/*
-	 * Search the tuples that are in the index for any violations, including
-	 * tuples that aren't visible yet.
+	 * 在索引中已有的元组里搜索任何违反情况，包括      
+	 * 尚不可见的元组。       
 	 */
 	InitDirtySnapshot(DirtySnapshot);
 
@@ -750,11 +750,11 @@ check_exclusion_or_unique_constraint(Relation heap, Relation index,
 	}
 
 	/*
-	 * Need a TupleTableSlot to put existing tuples in.
+	 * 需要一个 TupleTableSlot 放现有元组。  
 	 *
-	 * To use FormIndexDatum, we have to make the econtext's scantuple point
-	 * to this slot.  Be sure to save and restore caller's value for
-	 * scantuple.
+	 * 要使用 FormIndexDatum，我们必须让 econtext 的              
+	 * scantuple 指向该 slot。务必保存并恢复调用者的 
+	 * scantuple 
 	 */
 	existing_slot = table_slot_create(heap, NULL);
 
@@ -763,8 +763,8 @@ check_exclusion_or_unique_constraint(Relation heap, Relation index,
 	econtext->ecxt_scantuple = existing_slot;
 
 	/*
-	 * May have to restart scan from this point if a potential conflict is
-	 * found.
+	 * 若发现潜在冲突，则可能必须从此处重新开始       
+	 * 扫描
 	 */
 retry:
 	conflict = false;
@@ -782,12 +782,12 @@ retry:
 		char	   *error_existing;
 
 		/*
-		 * Ignore the entry for the tuple we're trying to check.
+		 * 忽略对应我们正要检查的元组的条目。  
 		 */
 		if (ItemPointerIsValid(tupleid) &&
 			ItemPointerEquals(tupleid, &existing_slot->tts_tid))
 		{
-			if (found_self)		/* should not happen */
+			if (found_self)		/* 不应发生      */
 				elog(ERROR, "found self tuple multiple times in index \"%s\"",
 					 RelationGetRelationName(index));
 			found_self = true;
@@ -795,13 +795,13 @@ retry:
 		}
 
 		/*
-		 * Extract the index column values and isnull flags from the existing
-		 * tuple.
+		 * 从现有的元组中提取索引列值与 isnull 标             
+		 * 志   
 		 */
 		FormIndexDatum(indexInfo, existing_slot, estate,
 					   existing_values, existing_isnull);
 
-		/* If lossy indexscan, must recheck the condition */
+		/* 若为有损索引扫描，须重查该条件  */
 		if (index_scan->xs_recheck)
 		{
 			if (!index_recheck_constraint(index,
@@ -814,14 +814,14 @@ retry:
 		}
 
 		/*
-		 * At this point we have either a conflict or a potential conflict.
+		 * 此时我们要么有冲突，要么有潜在冲突。          
 		 *
-		 * If an in-progress transaction is affecting the visibility of this
-		 * tuple, we need to wait for it to complete and then recheck (unless
-		 * the caller requested not to).  For simplicity we do rechecking by
-		 * just restarting the whole scan --- this case probably doesn't
-		 * happen often enough to be worth trying harder, and anyway we don't
-		 * want to hold any index internal locks while waiting.
+		 * 如果有一个进行中的事务正在影响此元组的可见  
+		 * 性，我们就需要等它完成然后重新检查（除非调   
+		 * 用者要求不必如此）。为简单起见，我们的重新  
+		 * 检查即重启整个扫描 --- 此种情形不常发生，  
+		 * 生得不够频繁，不值得更费心，况且等待时我们   
+		 * 无论如何都不想持有任何索引内部锁。 
 		 */
 		xwait = TransactionIdIsValid(DirtySnapshot.xmin) ?
 			DirtySnapshot.xmin : DirtySnapshot.xmax;
@@ -845,8 +845,8 @@ retry:
 		}
 
 		/*
-		 * We have a definite conflict (or a potential one, but the caller
-		 * didn't want to wait).  Return it to caller, or report it.
+		 * 我们有一个确定的冲突（或者是潜在冲突，但调
+		 * 用者不愿等）。返回给调用者，或者报告。
 		 */
 		if (violationOK)
 		{
@@ -886,11 +886,11 @@ retry:
 	index_endscan(index_scan);
 
 	/*
-	 * Ordinarily, at this point the search should have found the originally
-	 * inserted tuple (if any), unless we exited the loop early because of
-	 * conflict.  However, it is possible to define exclusion constraints for
-	 * which that wouldn't be true --- for instance, if the operator is <>. So
-	 * we no longer complain if found_self is still false.
+	 * 通常，此时搜索应当已经找到了最初插入的那个      
+	 * 元组（如果有的话），除非我们因冲突而提前退    
+	 * 出了循环。不过，也可能定义出使这一点不成立       
+	 * 的排除约束 --- 比如操作符是 <>。所以如果               
+	 * found_self 仍为假，我们也不再抱怨。    
 	 */
 
 	econtext->ecxt_scantuple = save_scantuple;
@@ -901,10 +901,10 @@ retry:
 }
 
 /*
- * Check for violation of an exclusion constraint
+ * 检查是否违反排除约束                
  *
- * This is a dumbed down version of check_exclusion_or_unique_constraint
- * for external callers. They don't need all the special modes.
+ * 本函数是 check_exclusion_or_unique_constraint 的                
+ * 简化版，供外部调用者使用，无需特殊模式。
  */
 void
 check_exclusion_constraint(Relation heap, Relation index,
@@ -920,8 +920,8 @@ check_exclusion_constraint(Relation heap, Relation index,
 }
 
 /*
- * Check existing tuple's index values to see if it really matches the
- * exclusion condition against the new_values.  Returns true if conflict.
+ * 检查现有元组的索引值，看它针对 new_values 是       
+ * 否真的匹配排除条件。若冲突则返回真。                
  */
 static bool
 index_recheck_constraint(Relation index, Oid *constr_procs,
@@ -933,7 +933,7 @@ index_recheck_constraint(Relation index, Oid *constr_procs,
 
 	for (i = 0; i < indnkeyatts; i++)
 	{
-		/* Assume the exclusion operators are strict */
+		/* 假定排除操作符是严格的         */
 		if (existing_isnull[i])
 			return false;
 
@@ -948,11 +948,11 @@ index_recheck_constraint(Relation index, Oid *constr_procs,
 }
 
 /*
- * Check if ExecInsertIndexTuples() should pass indexUnchanged hint.
+ * 检查 ExecInsertIndexTuples() 是否应传递                   
  *
- * When the executor performs an UPDATE that requires a new round of index
- * tuples, determine if we should pass 'indexUnchanged' = true hint for one
- * single index.
+ * indexUnchanged 提示。当执行器执行一次需要新一           
+ * 轮索引元组的 UPDATE 时，判断是否应对单个索引传       
+ * true 提示  
  */
 static bool
 index_unchanged_by_update(ResultRelInfo *resultRelInfo, EState *estate,
@@ -965,22 +965,22 @@ index_unchanged_by_update(ResultRelInfo *resultRelInfo, EState *estate,
 	List	   *idxExprs;
 
 	/*
-	 * Check cache first
+	 * 先查缓存     
 	 */
 	if (indexInfo->ii_CheckedUnchanged)
 		return indexInfo->ii_IndexUnchanged;
 	indexInfo->ii_CheckedUnchanged = true;
 
 	/*
-	 * Check for indexed attribute overlap with updated columns.
+	 * 检查被索引属性与被更新列是否有重叠。   
 	 *
-	 * Only do this for key columns.  A change to a non-key column within an
-	 * INCLUDE index should not be counted here.  Non-key column values are
-	 * opaque payload state to the index AM, a little like an extra table TID.
+	 * 只对键列执行这一检查。INCLUDE 索引中非键列          
+	 * 的改动不应在此计入。非键列的值对索引 AM 而       
+	 * 言是不透明的载荷状态，有点像额外的表 TID。          
 	 *
-	 * Note that row-level BEFORE triggers won't affect our behavior, since
-	 * they don't affect the updatedCols bitmaps generally.  It doesn't seem
-	 * worth the trouble of checking which attributes were changed directly.
+	 * 注意行级 BEFORE 触发器不会影响我们的行为，因      
+	 * 为它们一般不影响 updatedCols 位图。看起来并不        
+	 * 值得费心去检查哪些属性被直接改动。                  
 	 */
 	updatedCols = ExecGetUpdatedCols(resultRelInfo, estate);
 	extraUpdatedCols = ExecGetExtraUpdatedCols(resultRelInfo, estate);
@@ -991,7 +991,7 @@ index_unchanged_by_update(ResultRelInfo *resultRelInfo, EState *estate,
 		if (keycol <= 0)
 		{
 			/*
-			 * Skip expressions for now, but remember to deal with them later
+			 * 暂时跳过表达式，但记得稍后处理它们           
 			 * on
 			 */
 			hasexpression = true;
@@ -1003,19 +1003,19 @@ index_unchanged_by_update(ResultRelInfo *resultRelInfo, EState *estate,
 			bms_is_member(keycol - FirstLowInvalidHeapAttributeNumber,
 						  extraUpdatedCols))
 		{
-			/* Changed key column -- don't hint for this index */
+			/* 键列有改动 -- 不为该索引传提示     */
 			indexInfo->ii_IndexUnchanged = false;
 			return false;
 		}
 	}
 
 	/*
-	 * When we get this far and index has no expressions, return true so that
-	 * index_insert() call will go on to pass 'indexUnchanged' = true hint.
+	 * 当我们走到这里且索引没有表达式时，返回真，       
+	 * 让 index_insert() 调用去传递 'indexUnchanged' =               
 	 *
-	 * The _absence_ of an indexed key attribute that overlaps with updated
-	 * attributes (in addition to the total absence of indexed expressions)
-	 * shows that the index as a whole is logically unchanged by UPDATE.
+	 * true 提示。如果没有任何被索引键属性与被            
+	 * 更新属性重叠（加上完全没有被索引表达式），     
+	 * 就表明整个索引在逻辑上未被 UPDATE 改变。         
 	 */
 	if (!hasexpression)
 	{
@@ -1024,8 +1024,8 @@ index_unchanged_by_update(ResultRelInfo *resultRelInfo, EState *estate,
 	}
 
 	/*
-	 * Need to pass only one bms to expression_tree_walker helper function.
-	 * Avoid allocating memory in common case where there are no extra cols.
+	 * 只需向 expression_tree_walker 辅助函数传递一个 bms。    
+	 * 在没有额外列的常见情况下避免分配内存。            
 	 */
 	if (!extraUpdatedCols)
 		allUpdatedCols = updatedCols;
@@ -1033,12 +1033,12 @@ index_unchanged_by_update(ResultRelInfo *resultRelInfo, EState *estate,
 		allUpdatedCols = bms_union(updatedCols, extraUpdatedCols);
 
 	/*
-	 * We have to work slightly harder in the event of indexed expressions,
-	 * but the principle is the same as before: try to find columns (Vars,
-	 * actually) that overlap with known-updated columns.
+	 * 如果有被索引表达式，我们就得稍微多费些功夫，  
+	 * 但原则与之前相同：设法找出与已知被更新列重    
+	 * 叠的列（即 Vars）。                        
 	 *
-	 * If we find any matching Vars, don't pass hint for index.  Otherwise
-	 * pass hint.
+	 * 若找到任何匹配的 Vars，就不为该索引传提示，否  
+	 * 则传。 
 	 */
 	idxExprs = RelationGetIndexExpressions(indexRelation);
 	hasexpression = index_expression_changed_walker((Node *) idxExprs,
@@ -1054,19 +1054,19 @@ index_unchanged_by_update(ResultRelInfo *resultRelInfo, EState *estate,
 	}
 
 	/*
-	 * Deliberately don't consider index predicates.  We should even give the
-	 * hint when result rel's "updated tuple" has no corresponding index
-	 * tuple, which is possible with a partial index (provided the usual
-	 * conditions are met).
+	 * 有意不去考虑索引谓词。即便结果关系的                
+	 * "被更新元组"没有对应的索引元组，我们也应      
+	 * 当给出提示；这在部分索引下可能（只需满足     
+	 * 常规条件）。  
 	 */
 	indexInfo->ii_IndexUnchanged = true;
 	return true;
 }
 
 /*
- * Indexed expression helper for index_unchanged_by_update().
+ * index_unchanged_by_update() 的被索引表达式辅助   
  *
- * Returns true when Var that appears within allUpdatedCols located.
+ * 函数。当在 allUpdatedCols 中找到 Var 时返回真。     
  */
 static bool
 index_expression_changed_walker(Node *node, Bitmapset *allUpdatedCols)
@@ -1081,11 +1081,11 @@ index_expression_changed_walker(Node *node, Bitmapset *allUpdatedCols)
 		if (bms_is_member(var->varattno - FirstLowInvalidHeapAttributeNumber,
 						  allUpdatedCols))
 		{
-			/* Var was updated -- indicates that we should not hint */
+			/* Var 被更新过 -- 表明我们不应传提示      */
 			return true;
 		}
 
-		/* Still haven't found a reason to not pass the hint */
+		/* 仍未找到不传该提示的理由              */
 		return false;
 	}
 

@@ -1,0 +1,84 @@
+{
+ "schema_version": 1,
+ "batch_id": "0265-comment-executor-indexing-bheapscan-gathermerge-incsort",
+ "title": "Translate executor comments: executor-indexing-bheapscan-gathermerge-incsort",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "314119b4147824e7d73521bf8223a029ca4a42a3",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0265-comment-executor-indexing-bheapscan-gathermerge-incsort.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/executor/**",
+   "kind": "c_comment",
+   "note": "P2 executor translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0265-comment-executor-indexing-bheapscan-gathermerge-incsort.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/executor/execIndexing.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 77,
+   "translated": 76,
+   "preserved": 1,
+   "preserved_reasons": [
+    "Two-line comment blocks (edge lines only, structurally untranslatable)"
+   ],
+   "note": "P2 executor campaign wave C6"
+  },
+  {
+   "path": "src/backend/executor/nodeBitmapHeapscan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 90,
+   "translated": 81,
+   "preserved": 9,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), and separator-only blocks rebuilt byte-identical"
+   ],
+   "note": "P2 executor campaign wave C6"
+  },
+  {
+   "path": "src/backend/executor/nodeGatherMerge.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 96,
+   "translated": 94,
+   "preserved": 2,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), and separator-only blocks rebuilt byte-identical"
+   ],
+   "note": "P2 executor campaign wave C6"
+  },
+  {
+   "path": "src/backend/executor/nodeIncrementalSort.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 102,
+   "translated": 100,
+   "preserved": 2,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), and separator-only blocks rebuilt byte-identical"
+   ],
+   "note": "P2 executor campaign wave C6"
+  }
+ ],
+ "notes": "Translation agents (C6a/C6b/C6c) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

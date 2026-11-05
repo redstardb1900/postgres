@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "batch_id": "0275-comment-executor-nodehash",
+  "title": "Translate executor comments: executor-nodehash",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "eeb9e9060c2e5b3b8591bfa20c9a7f59a5a76ab8",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0275-comment-executor-nodehash.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/executor/**",
+      "kind": "c_comment",
+      "note": "P2 executor translation campaign"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0275-comment-executor-nodehash.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": []
+    },
+    {
+      "path": "src/backend/executor/nodeHash.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 360,
+      "translated": 351,
+      "preserved": 9,
+      "preserved_reasons": {
+        "EN:260": "blk21: one-line fall-through marker comment - kept in English",
+        "EN:1222": "blk125: one-line fall-through marker comment - kept in English",
+        "EN:1228": "blk127: one-line fall-through marker comment - kept in English",
+        "EN:1241": "blk131: one-line fall-through marker comment - kept in English",
+        "EN:1303": "blk138: one-line fall-through marker comment - kept in English",
+        "EN:1581": "blk166: one-line fall-through marker comment - kept in English",
+        "EN:1587": "blk168: one-line fall-through marker comment - kept in English",
+        "EN:2021": "blk202: pure label comment (\"no match\"); rebuild byte-identical to EN, pruned as no-op",
+        "EN:2078": "blk207: pure label comment (\"no match\"); rebuild byte-identical to EN, pruned as no-op"
+      },
+      "note": "P2 executor campaign wave C16"
+    }
+  ],
+  "notes": "Translation agents (C16a/C16b/C16c/C16d) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

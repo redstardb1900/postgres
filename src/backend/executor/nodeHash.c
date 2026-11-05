@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeHash.c
- *	  Routines to hash relations for hashjoin
+ *	  为哈希连接散列关系的例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -10,15 +10,15 @@
  * IDENTIFICATION
  *	  src/backend/executor/nodeHash.c
  *
- * See note on parallelism in nodeHashjoin.c.
+ * 并行性说明见 nodeHashjoin.c。      
  *
  *-------------------------------------------------------------------------
  */
 /*
- * INTERFACE ROUTINES
- *		MultiExecHash	- generate an in-memory hash table of the relation
- *		ExecInitHash	- initialize node and subnodes
- *		ExecEndHash		- shutdown node and subnodes
+ * 接口例程      
+ *		MultiExecHash 生成关系的内存中哈希表。              
+ *		ExecInitHash 初始化节点及子节点。
+ *		ExecEndHash 关闭节点及子节点     
  */
 
 #include "postgres.h"
@@ -85,7 +85,7 @@ static void ExecParallelHashCloseBatchAccessors(HashJoinTable hashtable);
 /* ----------------------------------------------------------------
  *		ExecHash
  *
- *		stub for pro forma compliance
+ *		为形式合规而设的桩  
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -98,14 +98,14 @@ ExecHash(PlanState *pstate)
 /* ----------------------------------------------------------------
  *		MultiExecHash
  *
- *		build hash table for hashjoin, doing partitioning if more
- *		than one batch is required.
+ *		为哈希连接构建哈希表，若需要不止一个   
+ *		批，则做分区。      
  * ----------------------------------------------------------------
  */
 Node *
 MultiExecHash(HashState *node)
 {
-	/* must provide our own instrumentation support */
+	/* 必须自行提供 instrumentation 支持    */
 	if (node->ps.instrument)
 		InstrStartNode(node->ps.instrument);
 
@@ -114,16 +114,16 @@ MultiExecHash(HashState *node)
 	else
 		MultiExecPrivateHash(node);
 
-	/* must provide our own instrumentation support */
+	/* 必须自行提供 instrumentation 支持    */
 	if (node->ps.instrument)
 		InstrStopNode(node->ps.instrument, node->hashtable->partialTuples);
 
 	/*
-	 * We do not return the hash table directly because it's not a subtype of
-	 * Node, and so would violate the MultiExecProcNode API.  Instead, our
-	 * parent Hashjoin node is expected to know how to fish it out of our node
-	 * state.  Ugly but not really worth cleaning up, since Hashjoin knows
-	 * quite a bit more about Hash besides that.
+	 * 我们不直接返回哈希表，因为它并非 Node 的子类型， 
+	 * 因此会违反 MultiExecProcNode API。作为替代，我们的   
+	 * 父节点 Hashjoin 应当知道如何从我们的节点状态中       
+	 * 把它取出。这很丑，但不值得清理，因为 Hashjoin    
+	 * 此外对 Hash 的了解还多得多。  
 	 */
 	return NULL;
 }
@@ -131,8 +131,8 @@ MultiExecHash(HashState *node)
 /* ----------------------------------------------------------------
  *		MultiExecPrivateHash
  *
- *		parallel-oblivious version, building a backend-private
- *		hash table and (if necessary) batch files.
+ *		并行无感知版本，构建后端私有的         
+ *		哈希表与（必要时）批文件。   
  * ----------------------------------------------------------------
  */
 static void
@@ -146,27 +146,27 @@ MultiExecPrivateHash(HashState *node)
 	uint32		hashvalue;
 
 	/*
-	 * get state info from node
+	 * 从节点取状态信息
 	 */
 	outerNode = outerPlanState(node);
 	hashtable = node->hashtable;
 
 	/*
-	 * set expression context
+	 * 设表达式上下文 
 	 */
 	hashkeys = node->hashkeys;
 	econtext = node->ps.ps_ExprContext;
 
 	/*
-	 * Get all tuples from the node below the Hash node and insert into the
-	 * hash table (or temp files).
+	 * 从 Hash 节点下方的节点取得所有元组，并插入        
+	 * 哈希表或临时文件。
 	 */
 	for (;;)
 	{
 		slot = ExecProcNode(outerNode);
 		if (TupIsNull(slot))
 			break;
-		/* We have to compute the hash value */
+		/* 我们必须计算哈希值       */
 		econtext->ecxt_outertuple = slot;
 		if (ExecHashGetHashValue(hashtable, econtext, hashkeys,
 								 false, hashtable->keepNulls,
@@ -177,25 +177,25 @@ MultiExecPrivateHash(HashState *node)
 			bucketNumber = ExecHashGetSkewBucket(hashtable, hashvalue);
 			if (bucketNumber != INVALID_SKEW_BUCKET_NO)
 			{
-				/* It's a skew tuple, so put it into that hash table */
+				/* 这是倾斜元组，故放入该哈希表        */
 				ExecHashSkewTableInsert(hashtable, slot, hashvalue,
 										bucketNumber);
 				hashtable->skewTuples += 1;
 			}
 			else
 			{
-				/* Not subject to skew optimization, so insert normally */
+				/* 不适用倾斜优化，因此正常插入           */
 				ExecHashTableInsert(hashtable, slot, hashvalue);
 			}
 			hashtable->totalTuples += 1;
 		}
 	}
 
-	/* resize the hash table if needed (NTUP_PER_BUCKET exceeded) */
+	/* 必要时调整哈希表大小（NTUP_PER_BUCKET 超出） */
 	if (hashtable->nbuckets != hashtable->nbuckets_optimal)
 		ExecHashIncreaseNumBuckets(hashtable);
 
-	/* Account for the buckets in spaceUsed (reported in EXPLAIN ANALYZE) */
+	/* 把桶计入 spaceUsed（在 EXPLAIN ANALYZE 中报告）          */
 	hashtable->spaceUsed += hashtable->nbuckets * sizeof(HashJoinTuple);
 	if (hashtable->spaceUsed > hashtable->spacePeak)
 		hashtable->spacePeak = hashtable->spaceUsed;
@@ -206,9 +206,9 @@ MultiExecPrivateHash(HashState *node)
 /* ----------------------------------------------------------------
  *		MultiExecParallelHash
  *
- *		parallel-aware version, building a shared hash table and
- *		(if necessary) batch files using the combined effort of
- *		a set of co-operating backends.
+ *		并行感知版本，构建共享哈希表以及        
+ *		（必要时）批文件，动用一组协作          
+ *		后端的共同努力。       
  * ----------------------------------------------------------------
  */
 static void
@@ -225,24 +225,24 @@ MultiExecParallelHash(HashState *node)
 	int			i;
 
 	/*
-	 * get state info from node
+	 * 从节点取状态信息
 	 */
 	outerNode = outerPlanState(node);
 	hashtable = node->hashtable;
 
 	/*
-	 * set expression context
+	 * 设表达式上下文 
 	 */
 	hashkeys = node->hashkeys;
 	econtext = node->ps.ps_ExprContext;
 
 	/*
-	 * Synchronize the parallel hash table build.  At this stage we know that
-	 * the shared hash table has been or is being set up by
-	 * ExecHashTableCreate(), but we don't know if our peers have returned
-	 * from there or are here in MultiExecParallelHash(), and if so how far
-	 * through they are.  To find out, we check the build_barrier phase then
-	 * and jump to the right step in the build algorithm.
+	 * 同步并行哈希表的构建。此时我们知道共享哈希表    
+	 * 已由 ExecHashTableCreate() 建好或在建，     
+	 * 但我们不知道各同伴是已从那里返回，还是仍在    
+	 * MultiExecParallelHash() 里；若是，又进行到了              
+	 * 哪一步。为此我们检查 build_barrier 的阶段，然后      
+	 * 跳到构建算法中正确的步骤。           
 	 */
 	pstate = hashtable->parallel_state;
 	build_barrier = &pstate->build_barrier;
@@ -252,9 +252,9 @@ MultiExecParallelHash(HashState *node)
 		case PHJ_BUILD_ALLOCATE:
 
 			/*
-			 * Either I just allocated the initial hash table in
-			 * ExecHashTableCreate(), or someone else is doing that.  Either
-			 * way, wait for everyone to arrive here so we can proceed.
+			 * 要么我刚在 ExecHashTableCreate() 中分配  
+			 * 初始哈希表，要么别人正在这么做。无论哪种 
+			 * 情况，都等大家到达此处后才能继续。     
 			 */
 			BarrierArriveAndWait(build_barrier, WAIT_EVENT_HASH_BUILD_ALLOCATE);
 			/* Fall through. */
@@ -262,13 +262,13 @@ MultiExecParallelHash(HashState *node)
 		case PHJ_BUILD_HASH_INNER:
 
 			/*
-			 * It's time to begin hashing, or if we just arrived here then
-			 * hashing is already underway, so join in that effort.  While
-			 * hashing we have to be prepared to help increase the number of
-			 * batches or buckets at any time, and if we arrived here when
-			 * that was already underway we'll have to help complete that work
-			 * immediately so that it's safe to access batches and buckets
-			 * below.
+			 * 到了该开始做哈希的时候；如果我们刚到达  
+			 * 此处，则说明哈希已在进行，就加入其中。  
+			 * 做哈希期间，我们必须随时准备帮忙增加批    
+			 * 数或桶数；而如果我们到达时该项工作已在  
+			 * 进行，就必须立刻帮忙把它完成，以便之后能   
+			 * 安全地访问下方的批与                             
+			 * 桶。
 			 */
 			if (PHJ_GROW_BATCHES_PHASE(BarrierAttach(&pstate->grow_batches_barrier)) !=
 				PHJ_GROW_BATCHES_ELECT)
@@ -292,15 +292,15 @@ MultiExecParallelHash(HashState *node)
 			}
 
 			/*
-			 * Make sure that any tuples we wrote to disk are visible to
-			 * others before anyone tries to load them.
+			 * 确保我们写入磁盘的任何元组在有人尝试   
+			 * 加载它们之前对他人可见。    
 			 */
 			for (i = 0; i < hashtable->nbatch; ++i)
 				sts_end_write(hashtable->batches[i].inner_tuples);
 
 			/*
-			 * Update shared counters.  We need an accurate total tuple count
-			 * to control the empty table optimization.
+			 * 更新共享计数器。我们需要准确的总元组数     
+			 * 来控制空表优化。                
 			 */
 			ExecParallelHashMergeCounters(hashtable);
 
@@ -308,26 +308,26 @@ MultiExecParallelHash(HashState *node)
 			BarrierDetach(&pstate->grow_batches_barrier);
 
 			/*
-			 * Wait for everyone to finish building and flushing files and
-			 * counters.
+			 * 等待所有人完成构建并刷写完文件与计数     
+			 * 器。   
 			 */
 			if (BarrierArriveAndWait(build_barrier,
 									 WAIT_EVENT_HASH_BUILD_HASH_INNER))
 			{
 				/*
-				 * Elect one backend to disable any further growth.  Batches
-				 * are now fixed.  While building them we made sure they'd fit
-				 * in our memory budget when we load them back in later (or we
-				 * tried to do that and gave up because we detected extreme
-				 * skew).
+				 * 推选一个后端来禁止任何后续增长。此后批
+				 * 数就此固定。构建时我们已确保之后重新加  
+				 * 载回时它们能装进内存预算——或者我们     
+				 * 尝试过却因检测到极端倾斜而最终           
+				 * 放弃
 				 */
 				pstate->growth = PHJ_GROWTH_DISABLED;
 			}
 	}
 
 	/*
-	 * We're not yet attached to a batch.  We all agree on the dimensions and
-	 * number of inner tuples (for the empty table optimization).
+	 * 我们尚未附加到批上。大家对维度与内层元             
+	 * 组数都有一致认知（用于空表优化）。       
 	 */
 	hashtable->curbatch = -1;
 	hashtable->nbuckets = pstate->nbuckets;
@@ -335,16 +335,16 @@ MultiExecParallelHash(HashState *node)
 	hashtable->totalTuples = pstate->total_tuples;
 
 	/*
-	 * Unless we're completely done and the batch state has been freed, make
-	 * sure we have accessors.
+	 * 除非我们已彻底完成且批状态已被释放，否            
+	 * 则确保有访问器  
 	 */
 	if (BarrierPhase(build_barrier) < PHJ_BUILD_FREE)
 		ExecParallelHashEnsureBatchAccessors(hashtable);
 
 	/*
-	 * The next synchronization point is in ExecHashJoin's HJ_BUILD_HASHTABLE
-	 * case, which will bring the build phase to PHJ_BUILD_RUN (if it isn't
-	 * there already).
+	 * 下一个同步点位于 ExecHashJoin 的 HJ_BUILD_HASHTABLE          
+	 * 分支，它会把构建阶段推进到 PHJ_BUILD_RUN（如果      
+	 * 尚未）。   
 	 */
 	Assert(BarrierPhase(build_barrier) == PHJ_BUILD_HASH_OUTER ||
 		   BarrierPhase(build_barrier) == PHJ_BUILD_RUN ||
@@ -354,7 +354,7 @@ MultiExecParallelHash(HashState *node)
 /* ----------------------------------------------------------------
  *		ExecInitHash
  *
- *		Init routine for Hash node
+ *		Hash 节点初始化例程
  * ----------------------------------------------------------------
  */
 HashState *
@@ -362,40 +362,40 @@ ExecInitHash(Hash *node, EState *estate, int eflags)
 {
 	HashState  *hashstate;
 
-	/* check for unsupported flags */
+	/* 检查不受支持的标志 */
 	Assert(!(eflags & (EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK)));
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	hashstate = makeNode(HashState);
 	hashstate->ps.plan = (Plan *) node;
 	hashstate->ps.state = estate;
 	hashstate->ps.ExecProcNode = ExecHash;
 	hashstate->hashtable = NULL;
-	hashstate->hashkeys = NIL;	/* will be set by parent HashJoin */
+	hashstate->hashkeys = NIL;	/* 将由父节点 HashJoin 设置*/
 
 	/*
-	 * Miscellaneous initialization
+	 * 杂项初始化             
 	 *
-	 * create expression context for node
+	 * 为节点创建表达式上下文 
 	 */
 	ExecAssignExprContext(estate, &hashstate->ps);
 
 	/*
-	 * initialize child nodes
+	 * 初始化子节点    
 	 */
 	outerPlanState(hashstate) = ExecInitNode(outerPlan(node), estate, eflags);
 
 	/*
-	 * initialize our result slot and type. No need to build projection
-	 * because this node doesn't do projections.
+	 * 初始化我们的结果槽与类型。无需构建投影，    
+	 * 因为本节点不做投影。           
 	 */
 	ExecInitResultTupleSlotTL(&hashstate->ps, &TTSOpsMinimalTuple);
 	hashstate->ps.ps_ProjInfo = NULL;
 
 	/*
-	 * initialize child expressions
+	 * 初始化子表达式       
 	 */
 	Assert(node->plan.qual == NIL);
 	hashstate->hashkeys =
@@ -407,7 +407,7 @@ ExecInitHash(Hash *node, EState *estate, int eflags)
 /* ---------------------------------------------------------------
  *		ExecEndHash
  *
- *		clean up routine for Hash node
+ *		Hash 节点的清理例程    
  * ----------------------------------------------------------------
  */
 void
@@ -416,12 +416,12 @@ ExecEndHash(HashState *node)
 	PlanState  *outerPlan;
 
 	/*
-	 * free exprcontext
+	 * 释放上下文 
 	 */
 	ExecFreeExprContext(&node->ps);
 
 	/*
-	 * shut down the subplan
+	 * 关闭子计划      
 	 */
 	outerPlan = outerPlanState(node);
 	ExecEndNode(outerPlan);
@@ -431,7 +431,7 @@ ExecEndHash(HashState *node)
 /* ----------------------------------------------------------------
  *		ExecHashTableCreate
  *
- *		create an empty hashtable data structure for hashjoin.
+ *		为哈希连接创建空的哈希表数据结构。   
  * ----------------------------------------------------------------
  */
 HashJoinTable
@@ -453,17 +453,17 @@ ExecHashTableCreate(HashState *state, List *hashOperators, List *hashCollations,
 	MemoryContext oldcxt;
 
 	/*
-	 * Get information about the size of the relation to be hashed (it's the
-	 * "outer" subtree of this node, but the inner relation of the hashjoin).
-	 * Compute the appropriate size of the hash table.
+	 * 获取待哈希关系的大小信息（它是本节点的            
+	 * "outer" 子树，但也是哈希连接的内关系）。              
+	 * 计算哈希表的恰当大小。              
 	 */
 	node = (Hash *) state->ps.plan;
 	outerNode = outerPlan(node);
 
 	/*
-	 * If this is shared hash table with a partial plan, then we can't use
-	 * outerNode->plan_rows to estimate its size.  We need an estimate of the
-	 * total number of rows across all copies of the partial plan.
+	 * 如果这是带有部分计划的共享哈希表，就不能       
+	 * 用 outerNode->plan_rows 来估计其大小。我们需要            
+	 * 对所有部分计划副本的总行数做出估计。     
 	 */
 	rows = node->plan.parallel_aware ? node->rows_total : outerNode->plan_rows;
 
@@ -475,16 +475,16 @@ ExecHashTableCreate(HashState *state, List *hashOperators, List *hashCollations,
 							&space_allowed,
 							&nbuckets, &nbatch, &num_skew_mcvs);
 
-	/* nbuckets must be a power of 2 */
+	/* nbuckets 必须是 2 的幂   */
 	log2_nbuckets = my_log2(nbuckets);
 	Assert(nbuckets == (1 << log2_nbuckets));
 
 	/*
-	 * Initialize the hash table control block.
+	 * 初始化哈希表控制块。          
 	 *
-	 * The hashtable control block is just palloc'd from the executor's
-	 * per-query memory context.  Everything else should be kept inside the
-	 * subsidiary hashCxt, batchCxt or spillCxt.
+	 * 哈希表控制块只是从执行器的每查询内存          
+	 * 上下文中 palloc 出来的。其余一切都应保留在         
+	 * 下属 hashCxt、batchCxt 或 spillCxt。
 	 */
 	hashtable = palloc_object(HashJoinTableData);
 	hashtable->nbuckets = nbuckets;
@@ -527,8 +527,8 @@ ExecHashTableCreate(HashState *state, List *hashOperators, List *hashCollations,
 #endif
 
 	/*
-	 * Create temporary memory contexts in which to keep the hashtable working
-	 * storage.  See notes in executor/hashjoin.h.
+	 * 创建临时内存上下文，用于存放哈希表的工作存储，  
+	 * 详见 executor/hashjoin.h。              
 	 */
 	hashtable->hashCxt = AllocSetContextCreate(CurrentMemoryContext,
 											   "HashTableContext",
@@ -542,13 +542,13 @@ ExecHashTableCreate(HashState *state, List *hashOperators, List *hashCollations,
 												"HashSpillContext",
 												ALLOCSET_DEFAULT_SIZES);
 
-	/* Allocate data that will live for the life of the hashjoin */
+	/* 分配生命期贯穿整个哈希连接的数据          */
 
 	oldcxt = MemoryContextSwitchTo(hashtable->hashCxt);
 
 	/*
-	 * Get info about the hash functions to be used for each hash key. Also
-	 * remember whether the join operators are strict.
+	 * 获取每个哈希键要使用的哈希函数的信息。另外     
+	 * 还需记住连接算子是否严格。        
 	 */
 	nkeys = list_length(hashOperators);
 	hashtable->outer_hashfunctions = palloc_array(FmgrInfo, nkeys);
@@ -577,8 +577,8 @@ ExecHashTableCreate(HashState *state, List *hashOperators, List *hashCollations,
 		MemoryContext oldctx;
 
 		/*
-		 * allocate and initialize the file arrays in hashCxt (not needed for
-		 * parallel case which uses shared tuplestores instead of raw files)
+		 * 在 hashCxt 中分配并初始化文件数组（并行情形      
+		 * 不需要，它们改用共享 tuplestore 而非原始文件）  
 		 */
 		oldctx = MemoryContextSwitchTo(hashtable->spillCxt);
 
@@ -587,8 +587,8 @@ ExecHashTableCreate(HashState *state, List *hashOperators, List *hashCollations,
 
 		MemoryContextSwitchTo(oldctx);
 
-		/* The files will not be opened until needed... */
-		/* ... but make sure we have temp tablespaces established for them */
+		/* 这些文件要到需要时才会打开…   */
+		/* …但要确保已为它们设置好临时表空间             */
 		PrepareTempTablespaces();
 	}
 
@@ -600,22 +600,22 @@ ExecHashTableCreate(HashState *state, List *hashOperators, List *hashCollations,
 		Barrier    *build_barrier;
 
 		/*
-		 * Attach to the build barrier.  The corresponding detach operation is
-		 * in ExecHashTableDetach.  Note that we won't attach to the
-		 * batch_barrier for batch 0 yet.  We'll attach later and start it out
-		 * in PHJ_BATCH_PROBE phase, because batch 0 is allocated up front and
-		 * then loaded while hashing (the standard hybrid hash join
-		 * algorithm), and we'll coordinate that using build_barrier.
+		 * 附加到构建屏障。对应的分离操作在                   
+		 * ExecHashTableDetach 中。注意我们还不会附加到 
+		 * 批 0 的 batch_barrier。我们稍后才附加，并让它以     
+		 * PHJ_BATCH_PROBE 阶段启动，因为批 0 是预先分配、      
+		 * 在哈希期间加载的（标准的混合哈希连接  
+		 * 算法），协调工作将用 build_barrier 来做。    
 		 */
 		build_barrier = &pstate->build_barrier;
 		BarrierAttach(build_barrier);
 
 		/*
-		 * So far we have no idea whether there are any other participants,
-		 * and if so, what phase they are working on.  The only thing we care
-		 * about at this point is whether someone has already created the
-		 * SharedHashJoinBatch objects and the hash table for batch 0.  One
-		 * backend will be elected to do that now if necessary.
+		 * 到目前为止我们还完全不知道是否有其他参与    
+		 * 者，若有，它们正在做哪个阶段。此时我们唯一   
+		 * 关心的是是否有人已经创建了 SharedHashJoinBatch   
+		 * 对象以及批 0 的哈希表。如有必要，现在会推选 
+		 * 一个后端来做这件事。                      
 		 */
 		if (BarrierPhase(build_barrier) == PHJ_BUILD_ELECT &&
 			BarrierArriveAndWait(build_barrier, WAIT_EVENT_HASH_BUILD_ELECT))
@@ -624,38 +624,38 @@ ExecHashTableCreate(HashState *state, List *hashOperators, List *hashCollations,
 			pstate->space_allowed = space_allowed;
 			pstate->growth = PHJ_GROWTH_OK;
 
-			/* Set up the shared state for coordinating batches. */
+			/* 设置用于协调各批的共享状态。        */
 			ExecParallelHashJoinSetUpBatches(hashtable, nbatch);
 
 			/*
-			 * Allocate batch 0's hash table up front so we can load it
-			 * directly while hashing.
+			 * 预分配批 0 哈希表，以便做哈希时能直接  
+			 * 加载它。           
 			 */
 			pstate->nbuckets = nbuckets;
 			ExecParallelHashTableAlloc(hashtable, 0);
 		}
 
 		/*
-		 * The next Parallel Hash synchronization point is in
-		 * MultiExecParallelHash(), which will progress it all the way to
-		 * PHJ_BUILD_RUN.  The caller must not return control from this
-		 * executor node between now and then.
+		 * 下一个并行哈希同步点位于              
+		 * MultiExecParallelHash() 中，它会把同步一路推进到  
+		 * PHJ_BUILD_RUN。在此之前调用方不得把控制权     
+		 * 从此执行器节点返回。     
 		 */
 	}
 	else
 	{
 		/*
-		 * Prepare context for the first-scan space allocations; allocate the
-		 * hashbucket array therein, and set each bucket "empty".
+		 * 为首次扫描的空间分配准备好上下文；在其中      
+		 * 分配哈希桶数组，并把每个桶置为"空"。 
 		 */
 		MemoryContextSwitchTo(hashtable->batchCxt);
 
 		hashtable->buckets.unshared = palloc0_array(HashJoinTuple, nbuckets);
 
 		/*
-		 * Set up for skew optimization, if possible and there's a need for
-		 * more than one batch.  (In a one-batch join, there's no point in
-		 * it.)
+		 * 如果可能且需要不止一个批，则为倾斜优化做    
+		 * 准备。（在单批连接中，这样做没有意义。）   
+		 *     
 		 */
 		if (nbatch > 1)
 			ExecHashBuildSkewHash(hashtable, node, num_skew_mcvs);
@@ -668,13 +668,13 @@ ExecHashTableCreate(HashState *state, List *hashOperators, List *hashCollations,
 
 
 /*
- * Compute appropriate size for hashtable given the estimated size of the
- * relation to be hashed (number of rows and average row width).
+ * 根据待哈希关系的估计大小（行数与平均行宽）       
+ * 计算哈希表的恰当大小。                            
  *
- * This is exported so that the planner's costsize.c can use it.
+ * 导出它以供规划器的 costsize.c 使用。             
  */
 
-/* Target bucket loading (tuples per bucket) */
+/* 目标桶负载（每桶的元组数）   */
 #define NTUP_PER_BUCKET			1
 
 void
@@ -695,14 +695,14 @@ ExecChooseHashTableSize(double ntuples, int tupwidth, bool useskew,
 	int			nbuckets;
 	double		dbuckets;
 
-	/* Force a plausible relation size if no info */
+	/* 无信息时强制取合理的关系大小 */
 	if (ntuples <= 0.0)
 		ntuples = 1000.0;
 
 	/*
-	 * Estimate tupsize based on footprint of tuple in hashtable... note this
-	 * does not allow for any palloc overhead.  The manipulations of spaceUsed
-	 * don't count palloc overhead either.
+	 * 根据元组在哈希表中的占用空间估计 tupsize……        
+	 * 注意这未计入任何 palloc 开销。对 spaceUsed 的各          
+	 * 种操作也不计 palloc 开销。
 	 */
 	tupsize = HJTUPLE_OVERHEAD +
 		MAXALIGN(SizeofMinimalTupleHeader) +
@@ -710,18 +710,18 @@ ExecChooseHashTableSize(double ntuples, int tupwidth, bool useskew,
 	inner_rel_bytes = ntuples * tupsize;
 
 	/*
-	 * Compute in-memory hashtable size limit from GUCs.
+	 * 由 GUC 计算内存哈希表大小上限。     
 	 */
 	hash_table_bytes = get_hash_memory_limit();
 
 	/*
-	 * Parallel Hash tries to use the combined hash_mem of all workers to
-	 * avoid the need to batch.  If that won't work, it falls back to hash_mem
-	 * per worker and tries to process batches in parallel.
+	 * 并行哈希尝试使用所有 worker 合计的 hash_mem 来      
+	 * 避免分批。如果那样行不通，就退回到每个              
+	 * worker 一份 hash_mem，并尝试并行处理批。
 	 */
 	if (try_combined_hash_mem)
 	{
-		/* Careful, this could overflow size_t */
+		/* 小心，这可能会溢出 size_t  */
 		double		newlimit;
 
 		newlimit = (double) hash_table_bytes * (double) (parallel_workers + 1);
@@ -732,18 +732,18 @@ ExecChooseHashTableSize(double ntuples, int tupwidth, bool useskew,
 	*space_allowed = hash_table_bytes;
 
 	/*
-	 * If skew optimization is possible, estimate the number of skew buckets
-	 * that will fit in the memory allowed, and decrement the assumed space
-	 * available for the main hash table accordingly.
+	 * 如果倾斜优化可行，则估计在允许的内存中能         
+	 * 容纳的倾斜桶数量，并相应扣减假定的主哈希        
+	 * 表可用空间。                            
 	 *
-	 * We make the optimistic assumption that each skew bucket will contain
-	 * one inner-relation tuple.  If that turns out to be low, we will recover
-	 * at runtime by reducing the number of skew buckets.
+	 * 我们乐观地假定每个倾斜桶将包含一个内关系        
+	 * 元组。若实际证明该值偏低，我们会在运行时           
+	 * 通过减少倾斜桶的数量来恢复。        
 	 *
-	 * hashtable->skewBucket will have up to 8 times as many HashSkewBucket
-	 * pointers as the number of MCVs we allow, since ExecHashBuildSkewHash
-	 * will round up to the next power of 2 and then multiply by 4 to reduce
-	 * collisions.
+	 * hashtable->skewBucket 拥有的 HashSkewBucket 指针               
+	 * 最多可达到我们所允许 MCV 数量的 8 倍，因为         
+	 * ExecHashBuildSkewHash 会取整到 2 的幂，再乘 4 以减少     
+	 * 冲突。  
 	 */
 	if (useskew)
 	{
@@ -751,13 +751,13 @@ ExecChooseHashTableSize(double ntuples, int tupwidth, bool useskew,
 		size_t		skew_mcvs;
 
 		/*----------
-		 * Compute number of MCVs we could hold in hash_table_bytes
+		 * 计算 hash_table_bytes 中能容纳的 MCV 数量      
 		 *
-		 * Divisor is:
-		 * size of a hash tuple +
-		 * worst-case size of skewBucket[] per MCV +
-		 * size of skewBucketNums[] entry +
-		 * size of skew bucket struct itself
+		 * 除数：  
+		 * 哈希元组大小 +  
+		 * 每 MCV 的 skewBucket[] 最坏大小 +  
+		 * skewBucketNums[] 条目大小 + 
+		 * 倾斜桶结构本身的大小   
 		 *----------
 		 */
 		bytes_per_mcv = tupsize +
@@ -767,17 +767,17 @@ ExecChooseHashTableSize(double ntuples, int tupwidth, bool useskew,
 		skew_mcvs = hash_table_bytes / bytes_per_mcv;
 
 		/*
-		 * Now scale by SKEW_HASH_MEM_PERCENT (we do it in this order so as
-		 * not to worry about size_t overflow in the multiplication)
+		 * 现在乘以 SKEW_HASH_MEM_PERCENT（按此顺序进行，      
+		 * 这样就不必担心乘法中的 size_t 溢出）       
 		 */
 		skew_mcvs = (skew_mcvs * SKEW_HASH_MEM_PERCENT) / 100;
 
-		/* Now clamp to integer range */
+		/* 现在限制到整数范围*/
 		skew_mcvs = Min(skew_mcvs, INT_MAX);
 
 		*num_skew_mcvs = (int) skew_mcvs;
 
-		/* Reduce hash_table_bytes by the amount needed for the skew table */
+		/* 从 hash_table_bytes 中扣减倾斜表所需的数量          */
 		if (skew_mcvs > 0)
 			hash_table_bytes -= skew_mcvs * bytes_per_mcv;
 	}
@@ -785,47 +785,47 @@ ExecChooseHashTableSize(double ntuples, int tupwidth, bool useskew,
 		*num_skew_mcvs = 0;
 
 	/*
-	 * Set nbuckets to achieve an average bucket load of NTUP_PER_BUCKET when
-	 * memory is filled, assuming a single batch; but limit the value so that
-	 * the pointer arrays we'll try to allocate do not exceed hash_table_bytes
-	 * nor MaxAllocSize.
+	 * 把 nbuckets 设为使得内存装满时（假定单个批）平      
+	 * 均桶负载达到 NTUP_PER_BUCKET；但要对该值加以限制，   
+	 * 使我们试图分配的指针数组不超过 hash_table_bytes 及     
+	 * MaxAllocSize。  
 	 *
-	 * Note that both nbuckets and nbatch must be powers of 2 to make
-	 * ExecHashGetBucketAndBatch fast.
+	 * 注意 nbuckets 与 nbatch 都须为 2 的幂，以便加快  
+	 * ExecHashGetBucketAndBatch速度
 	 */
 	max_pointers = hash_table_bytes / sizeof(HashJoinTuple);
 	max_pointers = Min(max_pointers, MaxAllocSize / sizeof(HashJoinTuple));
-	/* If max_pointers isn't a power of 2, must round it down to one */
+	/* 若 max_pointers 非 2 的幂，须向下取整为 2 的幂   */
 	max_pointers = pg_prevpower2_size_t(max_pointers);
 
-	/* Also ensure we avoid integer overflow in nbatch and nbuckets */
-	/* (this step is redundant given the current value of MaxAllocSize) */
+	/* 同时确保在 nbatch 和 nbuckets 中避免整数溢出    */
+	/* （鉴于 MaxAllocSize 的当前值，此步骤是多余的）   */
 	max_pointers = Min(max_pointers, INT_MAX / 2 + 1);
 
 	dbuckets = ceil(ntuples / NTUP_PER_BUCKET);
 	dbuckets = Min(dbuckets, max_pointers);
 	nbuckets = (int) dbuckets;
-	/* don't let nbuckets be really small, though ... */
+	/* 不过也别让 nbuckets 太小……          */
 	nbuckets = Max(nbuckets, 1024);
-	/* ... and force it to be a power of 2. */
+	/* ……并强制它为 2 的幂。    */
 	nbuckets = pg_nextpower2_32(nbuckets);
 
 	/*
-	 * If there's not enough space to store the projected number of tuples and
-	 * the required bucket headers, we will need multiple batches.
+	 * 如果空间不足以存放预计的元组数以及所需的           
+	 * 桶头，我们将需要多个批。                       
 	 */
 	bucket_bytes = sizeof(HashJoinTuple) * nbuckets;
 	if (inner_rel_bytes + bucket_bytes > hash_table_bytes)
 	{
-		/* We'll need multiple batches */
+		/* 我们将需要多个批    */
 		size_t		sbuckets;
 		double		dbatch;
 		int			minbatch;
 		size_t		bucket_size;
 
 		/*
-		 * If Parallel Hash with combined hash_mem would still need multiple
-		 * batches, we'll have to fall back to regular hash_mem budget.
+		 * 如果使用合计 hash_mem 的并行哈希仍需要多个       
+		 * 批，就必须退回到常规 hash_mem 预算。           
 		 */
 		if (try_combined_hash_mem)
 		{
@@ -839,14 +839,14 @@ ExecChooseHashTableSize(double ntuples, int tupwidth, bool useskew,
 		}
 
 		/*
-		 * Estimate the number of buckets we'll want to have when hash_mem is
-		 * entirely full.  Each bucket will contain a bucket pointer plus
-		 * NTUP_PER_BUCKET tuples, whose projected size already includes
-		 * overhead for the hash code, pointer to the next tuple, etc.
+		 * 估计当 hash_mem 全满时我们希望拥有的桶数。        
+		 * 每个桶将包含一个桶指针外加                       
+		 * NTUP_PER_BUCKET 个元组，其预计大小已包含         
+		 * 哈希码、指向下一元组的指针等的开销。     
 		 */
 		bucket_size = (tupsize * NTUP_PER_BUCKET + sizeof(HashJoinTuple));
 		if (hash_table_bytes <= bucket_size)
-			sbuckets = 1;		/* avoid pg_nextpower2_size_t(0) */
+			sbuckets = 1;		/* 避免 pg_nextpower2_size_t(0)*/
 		else
 			sbuckets = pg_nextpower2_size_t(hash_table_bytes / bucket_size);
 		sbuckets = Min(sbuckets, max_pointers);
@@ -855,16 +855,16 @@ ExecChooseHashTableSize(double ntuples, int tupwidth, bool useskew,
 		bucket_bytes = nbuckets * sizeof(HashJoinTuple);
 
 		/*
-		 * Buckets are simple pointers to hashjoin tuples, while tupsize
-		 * includes the pointer, hash code, and MinimalTupleData.  So buckets
-		 * should never really exceed 25% of hash_mem (even for
-		 * NTUP_PER_BUCKET=1); except maybe for hash_mem values that are not
-		 * 2^N bytes, where we might get more because of doubling. So let's
-		 * look for 50% here.
+		 * 桶是指向哈希连接元组的简单指针，tupsize      
+		 * 则包含指针、哈希码和 MinimalTupleData。因此桶       
+		 * 绝不应真正超过 hash_mem 的 25%（即便     
+		 * NTUP_PER_BUCKET=1 时也是如此）；除非 hash_mem 的值    
+		 * 不是 2^N 字节，此时因倍增可能更多。因此        
+		 * 寻找 50%。     
 		 */
 		Assert(bucket_bytes <= hash_table_bytes / 2);
 
-		/* Calculate required number of batches. */
+		/* 计算所需的批数。              */
 		dbatch = ceil(inner_rel_bytes / (hash_table_bytes - bucket_bytes));
 		dbatch = Min(dbatch, max_pointers);
 		minbatch = (int) dbatch;
@@ -882,7 +882,7 @@ ExecChooseHashTableSize(double ntuples, int tupwidth, bool useskew,
 /* ----------------------------------------------------------------
  *		ExecHashTableDestroy
  *
- *		destroy a hash table
+ *		销毁哈希表     
  * ----------------------------------------------------------------
  */
 void
@@ -891,9 +891,9 @@ ExecHashTableDestroy(HashJoinTable hashtable)
 	int			i;
 
 	/*
-	 * Make sure all the temp files are closed.  We skip batch 0, since it
-	 * can't have any temp files (and the arrays might not even exist if
-	 * nbatch is only 1).  Parallel hash joins don't use these files.
+	 * 确保所有临时文件都已关闭。批 0 被跳过，因为    
+	 * 它不可能有任何临时文件（若 nbatch 只有 1，这    
+	 * 些数组甚至可能不存在）。并行哈希不用它们  
 	 */
 	if (hashtable->innerBatchFile != NULL)
 	{
@@ -906,17 +906,17 @@ ExecHashTableDestroy(HashJoinTable hashtable)
 		}
 	}
 
-	/* Release working memory (batchCxt is a child, so it goes away too) */
+	/* 释放工作内存（batchCxt 是子上下文，会随之消失）*/
 	MemoryContextDelete(hashtable->hashCxt);
 
-	/* And drop the control block */
+	/* 然后丢弃控制块      */
 	pfree(hashtable);
 }
 
 /*
  * ExecHashIncreaseNumBatches
- *		increase the original number of batches in order to reduce
- *		current memory consumption
+ *		增加原始批数以减少                               
+ *		当前的内存消耗。  
  */
 static void
 ExecHashIncreaseNumBatches(HashJoinTable hashtable)
@@ -928,11 +928,11 @@ ExecHashIncreaseNumBatches(HashJoinTable hashtable)
 	long		nfreed;
 	HashMemoryChunk oldchunks;
 
-	/* do nothing if we've decided to shut off growth */
+	/* 若已决定停止增长，则什么也不做  */
 	if (!hashtable->growEnabled)
 		return;
 
-	/* safety check to avoid overflow */
+	/* 防止溢出的安全检查    */
 	if (oldnbatch > Min(INT_MAX / 2, MaxAllocSize / (sizeof(void *) * 2)))
 		return;
 
@@ -948,18 +948,18 @@ ExecHashIncreaseNumBatches(HashJoinTable hashtable)
 	{
 		MemoryContext oldcxt = MemoryContextSwitchTo(hashtable->spillCxt);
 
-		/* we had no file arrays before */
+		/* 此前没有文件数组     */
 		hashtable->innerBatchFile = palloc0_array(BufFile *, nbatch);
 		hashtable->outerBatchFile = palloc0_array(BufFile *, nbatch);
 
 		MemoryContextSwitchTo(oldcxt);
 
-		/* time to establish the temp tablespaces, too */
+		/* 现在也要建立临时表空间           */
 		PrepareTempTablespaces();
 	}
 	else
 	{
-		/* enlarge arrays and zero out added entries */
+		/* 扩大数组并将新增条目清零      */
 		hashtable->innerBatchFile = repalloc0_array(hashtable->innerBatchFile, BufFile *, oldnbatch, nbatch);
 		hashtable->outerBatchFile = repalloc0_array(hashtable->outerBatchFile, BufFile *, oldnbatch, nbatch);
 	}
@@ -967,15 +967,15 @@ ExecHashIncreaseNumBatches(HashJoinTable hashtable)
 	hashtable->nbatch = nbatch;
 
 	/*
-	 * Scan through the existing hash table entries and dump out any that are
-	 * no longer of the current batch.
+	 * 扫描现有的哈希表条目，凡是不再属于当前批的       
+	 * 条目都倒出去。          
 	 */
 	ninmemory = nfreed = 0;
 
-	/* If know we need to resize nbuckets, we can do it while rebatching. */
+	/* 若已知要调整 nbuckets，可在重新分批时做。          */
 	if (hashtable->nbuckets_optimal != hashtable->nbuckets)
 	{
-		/* we never decrease the number of buckets */
+		/* 桶的数量从不会减少             */
 		Assert(hashtable->nbuckets_optimal > hashtable->nbuckets);
 
 		hashtable->nbuckets = hashtable->nbuckets_optimal;
@@ -987,24 +987,24 @@ ExecHashIncreaseNumBatches(HashJoinTable hashtable)
 	}
 
 	/*
-	 * We will scan through the chunks directly, so that we can reset the
-	 * buckets now and not have to keep track which tuples in the buckets have
-	 * already been processed. We will free the old chunks as we go.
+	 * 我们将直接扫描各内存块，这样就能现在重置      
+	 * 各个桶，而无需跟踪桶里哪些元组已被处理过。        
+	 * 旧内存块将在遍历过程中逐一释放。             
 	 */
 	memset(hashtable->buckets.unshared, 0,
 		   sizeof(HashJoinTuple) * hashtable->nbuckets);
 	oldchunks = hashtable->chunks;
 	hashtable->chunks = NULL;
 
-	/* so, let's scan through the old chunks, and all tuples in each chunk */
+	/* 下面扫描旧内存块以及各块中的全部元组              */
 	while (oldchunks != NULL)
 	{
 		HashMemoryChunk nextchunk = oldchunks->next.unshared;
 
-		/* position within the buffer (up to oldchunks->used) */
+		/* 缓冲区内位置（至多 oldchunks->used）     */
 		size_t		idx = 0;
 
-		/* process all tuples stored in this chunk (and then free it) */
+		/* 处理此内存块中的全部元组（然后释放）     */
 		while (idx < oldchunks->used)
 		{
 			HashJoinTuple hashTuple = (HashJoinTuple) (HASH_CHUNK_DATA(oldchunks) + idx);
@@ -1019,19 +1019,19 @@ ExecHashIncreaseNumBatches(HashJoinTable hashtable)
 
 			if (batchno == curbatch)
 			{
-				/* keep tuple in memory - copy it into the new chunk */
+				/* 元组留在内存，复制进新内存块        */
 				HashJoinTuple copyTuple;
 
 				copyTuple = (HashJoinTuple) dense_alloc(hashtable, hashTupleSize);
 				memcpy(copyTuple, hashTuple, hashTupleSize);
 
-				/* and add it back to the appropriate bucket */
+				/* 并将它放回相应的桶               */
 				copyTuple->next.unshared = hashtable->buckets.unshared[bucketno];
 				hashtable->buckets.unshared[bucketno] = copyTuple;
 			}
 			else
 			{
-				/* dump it out */
+				/* 倒出去   */
 				Assert(batchno > curbatch);
 				ExecHashJoinSaveTuple(HJTUPLE_MINTUPLE(hashTuple),
 									  hashTuple->hashvalue,
@@ -1042,14 +1042,14 @@ ExecHashIncreaseNumBatches(HashJoinTable hashtable)
 				nfreed++;
 			}
 
-			/* next tuple in this chunk */
+			/* 块内下一个元组    */
 			idx += MAXALIGN(hashTupleSize);
 
-			/* allow this loop to be cancellable */
+			/* 允许此循环可被取消       */
 			CHECK_FOR_INTERRUPTS();
 		}
 
-		/* we're done with this chunk - free it and proceed to the next one */
+		/* 此内存块已处理完毕，释放它并继续处理下一个  */
 		pfree(oldchunks);
 		oldchunks = nextchunk;
 	}
@@ -1060,12 +1060,12 @@ ExecHashIncreaseNumBatches(HashJoinTable hashtable)
 #endif
 
 	/*
-	 * If we dumped out either all or none of the tuples in the table, disable
-	 * further expansion of nbatch.  This situation implies that we have
-	 * enough tuples of identical hashvalues to overflow spaceAllowed.
-	 * Increasing nbatch will not fix it since there's no way to subdivide the
-	 * group any more finely. We have to just gut it out and hope the server
-	 * has enough RAM.
+	 * 若表中元组已被全部倒出，或一个都没倒出，则禁止  
+	 * nbatch 进一步扩大。这种情况表明，哈希值相同的 
+	 * 元组足够多，以致溢出 spaceAllowed。                 
+	 * 增加 nbatch 并不能解决问题，因为已无法把这组元组   
+	 * 再细分了。我们只能硬扛，指望服务器                  
+	 * 内存够用。
 	 */
 	if (nfreed == 0 || nfreed == ninmemory)
 	{
@@ -1079,8 +1079,8 @@ ExecHashIncreaseNumBatches(HashJoinTable hashtable)
 
 /*
  * ExecParallelHashIncreaseNumBatches
- *		Every participant attached to grow_batches_barrier must run this
- *		function when it observes growth == PHJ_GROWTH_NEED_MORE_BATCHES.
+ *		每个附加到 grow_batches_barrier 的参与者观察到      
+ *		growth == PHJ_GROWTH_NEED_MORE_BATCHES 时必须运行。        
  */
 static void
 ExecParallelHashIncreaseNumBatches(HashJoinTable hashtable)
@@ -1090,19 +1090,19 @@ ExecParallelHashIncreaseNumBatches(HashJoinTable hashtable)
 	Assert(BarrierPhase(&pstate->build_barrier) == PHJ_BUILD_HASH_INNER);
 
 	/*
-	 * It's unlikely, but we need to be prepared for new participants to show
-	 * up while we're in the middle of this operation so we need to switch on
-	 * barrier phase here.
+	 * 可能性虽小，但我们仍需做好准备：操作期间可能有 
+	 * 新参与者加入，因此此处需要按屏障                      
+	 * 阶段来分支。 
 	 */
 	switch (PHJ_GROW_BATCHES_PHASE(BarrierPhase(&pstate->grow_batches_barrier)))
 	{
 		case PHJ_GROW_BATCHES_ELECT:
 
 			/*
-			 * Elect one participant to prepare to grow the number of batches.
-			 * This involves reallocating or resetting the buckets of batch 0
-			 * in preparation for all participants to begin repartitioning the
-			 * tuples.
+			 * 选出一名参与者，为增加批数做准备。            
+			 * 这包括重新分配或重置 0 号批的桶数组，        
+			 * 以便所有参与者随后开始重新分区                  
+			 * 元组 
 			 */
 			if (BarrierArriveAndWait(&pstate->grow_batches_barrier,
 									 WAIT_EVENT_HASH_GROW_BATCHES_ELECT))
@@ -1112,49 +1112,49 @@ ExecParallelHashIncreaseNumBatches(HashJoinTable hashtable)
 				int			new_nbatch;
 				int			i;
 
-				/* Move the old batch out of the way. */
+				/* 把旧批挪开。                 */
 				old_batch0 = hashtable->batches[0].shared;
 				pstate->old_batches = pstate->batches;
 				pstate->old_nbatch = hashtable->nbatch;
 				pstate->batches = InvalidDsaPointer;
 
-				/* Free this backend's old accessors. */
+				/* 释放本后端旧的访问器。  */
 				ExecParallelHashCloseBatchAccessors(hashtable);
 
-				/* Figure out how many batches to use. */
+				/* 算出要使用多少个批。      */
 				if (hashtable->nbatch == 1)
 				{
 					/*
-					 * We are going from single-batch to multi-batch.  We need
-					 * to switch from one large combined memory budget to the
-					 * regular hash_mem budget.
+					 * 我们将从单批转为多批，因此需要          
+					 * 从一份大的合并内存预算切换到常规的   
+					 * hash_mem 预算。      
 					 */
 					pstate->space_allowed = get_hash_memory_limit();
 
 					/*
-					 * The combined hash_mem of all participants wasn't
-					 * enough. Therefore one batch per participant would be
-					 * approximately equivalent and would probably also be
-					 * insufficient.  So try two batches per participant,
-					 * rounded up to a power of two.
+					 * 所有参与者的合并 hash_mem 不足以     
+					 * 支撑。每个参与者一个批大致相当，    
+					 * 且很可能同样不够。因此让每个参与者
+					 * 试两个批，                                   
+					 * 向上取整为 2 的幂。  
 					 */
 					new_nbatch = pg_nextpower2_32(pstate->nparticipants * 2);
 				}
 				else
 				{
 					/*
-					 * We were already multi-batched.  Try doubling the number
-					 * of batches.
+					 * 我们本来就已经是多批了，试着将批数    
+					 * 翻倍。  
 					 */
 					new_nbatch = hashtable->nbatch * 2;
 				}
 
-				/* Allocate new larger generation of batches. */
+				/* 分配一个更大的批世代。          */
 				Assert(hashtable->nbatch == pstate->nbatch);
 				ExecParallelHashJoinSetUpBatches(hashtable, new_nbatch);
 				Assert(hashtable->nbatch == pstate->nbatch);
 
-				/* Replace or recycle batch 0's bucket array. */
+				/* 替换或回收 0 号批的桶数组。    */
 				if (pstate->old_nbatch == 1)
 				{
 					double		dtuples;
@@ -1163,22 +1163,22 @@ ExecParallelHashIncreaseNumBatches(HashJoinTable hashtable)
 					uint32		max_buckets;
 
 					/*
-					 * We probably also need a smaller bucket array.  How many
-					 * tuples do we expect per batch, assuming we have only
-					 * half of them so far?  Normally we don't need to change
-					 * the bucket array's size, because the size of each batch
-					 * stays the same as we add more batches, but in this
-					 * special case we move from a large batch to many smaller
-					 * batches and it would be wasteful to keep the large
-					 * array.
+					 * 我们可能还需要更小的桶数组。预计每    
+					 * 个批会有多少元组？假设目前只得到    
+					 * 一半。通常无需改变桶数组的大小，因为
+					 * 批数增多时每个批的大小保持不变，但在 
+					 * 这种特殊场景下，要从单个大批变为  
+					 * 许多更小的批。                                  
+					 * 此时保留大数组就太                       
+					 * 浪费
 					 */
 					dtuples = (old_batch0->ntuples * 2.0) / new_nbatch;
 
 					/*
-					 * We need to calculate the maximum number of buckets to
-					 * stay within the MaxAllocSize boundary.  Round the
-					 * maximum number to the previous power of 2 given that
-					 * later we round the number to the next power of 2.
+					 * 我们需要算出桶数的最大值，确保不会  
+					 * 超出 MaxAllocSize 边界。鉴于稍后还要  
+					 * 向上取整到下一个 2 的幂，先把最大值 
+					 * 向下取整到前一个 2 的幂。             
 					 */
 					max_buckets = pg_prevpower2_32((uint32)
 												   (MaxAllocSize / sizeof(dsa_pointer_atomic)));
@@ -1200,7 +1200,7 @@ ExecParallelHashIncreaseNumBatches(HashJoinTable hashtable)
 				}
 				else
 				{
-					/* Recycle the existing bucket array. */
+					/* 回收现有的桶数组。        */
 					hashtable->batches[0].shared->buckets = old_batch0->buckets;
 					buckets = (dsa_pointer_atomic *)
 						dsa_get_address(hashtable->area, old_batch0->buckets);
@@ -1208,34 +1208,34 @@ ExecParallelHashIncreaseNumBatches(HashJoinTable hashtable)
 						dsa_pointer_atomic_write(&buckets[i], InvalidDsaPointer);
 				}
 
-				/* Move all chunks to the work queue for parallel processing. */
+				/* 把所有内存块移入工作队列以并行处理。     */
 				pstate->chunk_work_queue = old_batch0->chunks;
 
-				/* Disable further growth temporarily while we're growing. */
+				/* 扩展进行期间，暂时禁止继续增长。        */
 				pstate->growth = PHJ_GROWTH_DISABLED;
 			}
 			else
 			{
-				/* All other participants just flush their tuples to disk. */
+				/* 其余所有参与者只需把元组刷入磁盘。     */
 				ExecParallelHashCloseBatchAccessors(hashtable);
 			}
 			/* Fall through. */
 
 		case PHJ_GROW_BATCHES_REALLOCATE:
-			/* Wait for the above to be finished. */
+			/* 等待上述操作完成。        */
 			BarrierArriveAndWait(&pstate->grow_batches_barrier,
 								 WAIT_EVENT_HASH_GROW_BATCHES_REALLOCATE);
 			/* Fall through. */
 
 		case PHJ_GROW_BATCHES_REPARTITION:
-			/* Make sure that we have the current dimensions and buckets. */
+			/* 确保我们拿到当前的规模参数与桶。           */
 			ExecParallelHashEnsureBatchAccessors(hashtable);
 			ExecParallelHashTableSetCurrentBatch(hashtable, 0);
-			/* Then partition, flush counters. */
+			/* 随后分区、刷入计数器  */
 			ExecParallelHashRepartitionFirst(hashtable);
 			ExecParallelHashRepartitionRest(hashtable);
 			ExecParallelHashMergeCounters(hashtable);
-			/* Wait for the above to be finished. */
+			/* 等待上述操作完成。        */
 			BarrierArriveAndWait(&pstate->grow_batches_barrier,
 								 WAIT_EVENT_HASH_GROW_BATCHES_REPARTITION);
 			/* Fall through. */
@@ -1243,9 +1243,9 @@ ExecParallelHashIncreaseNumBatches(HashJoinTable hashtable)
 		case PHJ_GROW_BATCHES_DECIDE:
 
 			/*
-			 * Elect one participant to clean up and decide whether further
-			 * repartitioning is needed, or should be disabled because it's
-			 * not helping.
+			 * 选出一名参与者负责清理，并判断是否         
+			 * 还需要继续重新分区，抑或因它无济于事      
+			 * 而禁用   
 			 */
 			if (BarrierArriveAndWait(&pstate->grow_batches_barrier,
 									 WAIT_EVENT_HASH_GROW_BATCHES_DECIDE))
@@ -1254,13 +1254,13 @@ ExecParallelHashIncreaseNumBatches(HashJoinTable hashtable)
 				bool		space_exhausted = false;
 				bool		extreme_skew_detected = false;
 
-				/* Make sure that we have the current dimensions and buckets. */
+				/* 确保我们拿到当前的规模参数与桶。           */
 				ExecParallelHashEnsureBatchAccessors(hashtable);
 				ExecParallelHashTableSetCurrentBatch(hashtable, 0);
 
 				old_batches = dsa_get_address(hashtable->area, pstate->old_batches);
 
-				/* Are any of the new generation of batches exhausted? */
+				/* 新一代的批中是否已有用尽的？          */
 				for (int i = 0; i < hashtable->nbatch; ++i)
 				{
 					ParallelHashJoinBatch *batch;
@@ -1278,17 +1278,17 @@ ExecParallelHashIncreaseNumBatches(HashJoinTable hashtable)
 						batch->estimated_size > pstate->space_allowed)
 					{
 						/*
-						 * Did this batch receive ALL of the tuples from its
-						 * parent batch?  That would indicate that further
-						 * repartitioning isn't going to help (the hash values
-						 * are probably all the same).
+						 * 本批是否接收了来自其父批的全部    
+						 * 元组？若真如此，表明进一步的     
+						 * 重新分区已无济于事（哈希值很可能   
+						 * 全都相同。）         
 						 */
 						if (batch->ntuples == hashtable->batches[parent].shared->old_ntuples)
 							extreme_skew_detected = true;
 					}
 				}
 
-				/* Don't keep growing if it's not helping or we'd overflow. */
+				/* 若无济于事或将要溢出，就不要再扩大。   */
 				if (extreme_skew_detected || hashtable->nbatch >= INT_MAX / 2)
 					pstate->growth = PHJ_GROWTH_DISABLED;
 				else if (space_exhausted)
@@ -1296,23 +1296,23 @@ ExecParallelHashIncreaseNumBatches(HashJoinTable hashtable)
 				else
 					pstate->growth = PHJ_GROWTH_OK;
 
-				/* Free the old batches in shared memory. */
+				/* 释放共享内存中的旧批。      */
 				dsa_free(hashtable->area, pstate->old_batches);
 				pstate->old_batches = InvalidDsaPointer;
 			}
 			/* Fall through. */
 
 		case PHJ_GROW_BATCHES_FINISH:
-			/* Wait for the above to complete. */
+			/* 等待上述操作完成。     */
 			BarrierArriveAndWait(&pstate->grow_batches_barrier,
 								 WAIT_EVENT_HASH_GROW_BATCHES_FINISH);
 	}
 }
 
 /*
- * Repartition the tuples currently loaded into memory for inner batch 0
- * because the number of batches has been increased.  Some tuples are retained
- * in memory and some are written out to a later batch.
+ * 由于批数已经增加，需要对内批 0 当前载入            
+ * 内存中的元组重新分区。一部分元组留在内存，            
+ * 另一部分则写出到更靠后的批。          
  */
 static void
 ExecParallelHashRepartitionFirst(HashJoinTable hashtable)
@@ -1326,7 +1326,7 @@ ExecParallelHashRepartitionFirst(HashJoinTable hashtable)
 	{
 		size_t		idx = 0;
 
-		/* Repartition all tuples in this chunk. */
+		/* 重新分区本块内全部元组。  */
 		while (idx < chunk->used)
 		{
 			HashJoinTuple hashTuple = (HashJoinTuple) (HASH_CHUNK_DATA(chunk) + idx);
@@ -1342,7 +1342,7 @@ ExecParallelHashRepartitionFirst(HashJoinTable hashtable)
 			Assert(batchno < hashtable->nbatch);
 			if (batchno == 0)
 			{
-				/* It still belongs in batch 0.  Copy to a new chunk. */
+				/* 它仍属于 0 号批，复制到新内存块。   */
 				copyTuple =
 					ExecParallelHashTupleAlloc(hashtable,
 											   HJTUPLE_OVERHEAD + tuple->t_len,
@@ -1357,13 +1357,13 @@ ExecParallelHashRepartitionFirst(HashJoinTable hashtable)
 				size_t		tuple_size =
 					MAXALIGN(HJTUPLE_OVERHEAD + tuple->t_len);
 
-				/* It belongs in a later batch. */
+				/* 它属于更靠后的批。  */
 				hashtable->batches[batchno].estimated_size += tuple_size;
 				sts_puttuple(hashtable->batches[batchno].inner_tuples,
 							 &hashTuple->hashvalue, tuple);
 			}
 
-			/* Count this tuple. */
+			/* 统计该元组。*/
 			++hashtable->batches[0].old_ntuples;
 			++hashtable->batches[batchno].ntuples;
 
@@ -1371,7 +1371,7 @@ ExecParallelHashRepartitionFirst(HashJoinTable hashtable)
 							HJTUPLE_MINTUPLE(hashTuple)->t_len);
 		}
 
-		/* Free this chunk. */
+		/* 释放该块。  */
 		dsa_free(hashtable->area, chunk_shared);
 
 		CHECK_FOR_INTERRUPTS();
@@ -1379,7 +1379,7 @@ ExecParallelHashRepartitionFirst(HashJoinTable hashtable)
 }
 
 /*
- * Help repartition inner batches 1..n.
+ * 协助重新分区内批 1..n。    
  */
 static void
 ExecParallelHashRepartitionRest(HashJoinTable hashtable)
@@ -1390,7 +1390,7 @@ ExecParallelHashRepartitionRest(HashJoinTable hashtable)
 	ParallelHashJoinBatch *old_batches;
 	int			i;
 
-	/* Get our hands on the previous generation of batches. */
+	/* 取得前一代的批。                             */
 	old_batches = (ParallelHashJoinBatch *)
 		dsa_get_address(hashtable->area, pstate->old_batches);
 	old_inner_tuples = palloc0_array(SharedTuplestoreAccessor *, old_nbatch);
@@ -1404,13 +1404,13 @@ ExecParallelHashRepartitionRest(HashJoinTable hashtable)
 										 &pstate->fileset);
 	}
 
-	/* Join in the effort to repartition them. */
+	/* 参与重新分区工作。             */
 	for (i = 1; i < old_nbatch; ++i)
 	{
 		MinimalTuple tuple;
 		uint32		hashvalue;
 
-		/* Scan one partition from the previous generation. */
+		/* 扫描前一代中的一个分区。             */
 		sts_begin_parallel_scan(old_inner_tuples[i]);
 		while ((tuple = sts_parallel_scan_next(old_inner_tuples[i], &hashvalue)))
 		{
@@ -1418,7 +1418,7 @@ ExecParallelHashRepartitionRest(HashJoinTable hashtable)
 			int			bucketno;
 			int			batchno;
 
-			/* Decide which partition it goes to in the new generation. */
+			/* 决定它在新生代中归属哪个分区。            */
 			ExecHashGetBucketAndBatch(hashtable, hashvalue, &bucketno,
 									  &batchno);
 
@@ -1426,7 +1426,7 @@ ExecParallelHashRepartitionRest(HashJoinTable hashtable)
 			++hashtable->batches[batchno].ntuples;
 			++hashtable->batches[i].old_ntuples;
 
-			/* Store the tuple its new batch. */
+			/* 把元组存入其新批。    */
 			sts_puttuple(hashtable->batches[batchno].inner_tuples,
 						 &hashvalue, tuple);
 
@@ -1439,7 +1439,7 @@ ExecParallelHashRepartitionRest(HashJoinTable hashtable)
 }
 
 /*
- * Transfer the backend-local per-batch counters to the shared totals.
+ * 把后端本地的各批计数器转移到共享总计中。       
  */
 static void
 ExecParallelHashMergeCounters(HashJoinTable hashtable)
@@ -1468,15 +1468,15 @@ ExecParallelHashMergeCounters(HashJoinTable hashtable)
 
 /*
  * ExecHashIncreaseNumBuckets
- *		increase the original number of buckets in order to reduce
- *		number of tuples per bucket
+ *		增大最初的桶数，以便减少每个桶内          
+ *		的元组数量            
  */
 static void
 ExecHashIncreaseNumBuckets(HashJoinTable hashtable)
 {
 	HashMemoryChunk chunk;
 
-	/* do nothing if not an increase (it's called increase for a reason) */
+	/* 非增大则不做任何事（既然叫 increase 就有道理）  */
 	if (hashtable->nbuckets >= hashtable->nbuckets_optimal)
 		return;
 
@@ -1493,10 +1493,10 @@ ExecHashIncreaseNumBuckets(HashJoinTable hashtable)
 	Assert(hashtable->nbuckets == (1 << hashtable->log2_nbuckets));
 
 	/*
-	 * Just reallocate the proper number of buckets - we don't need to walk
-	 * through them - we can walk the dense-allocated chunks (just like in
-	 * ExecHashIncreaseNumBatches, but without all the copying into new
-	 * chunks)
+	 * 只需重新分配合适数量的桶，无需遍历                 
+	 * 它们本身；可以直接遍历密集分配的内存块（正如 
+	 * ExecHashIncreaseNumBatches 中的做法，但不必复制到新 
+	 * 块） 
 	 */
 	hashtable->buckets.unshared =
 		repalloc_array(hashtable->buckets.unshared,
@@ -1505,10 +1505,10 @@ ExecHashIncreaseNumBuckets(HashJoinTable hashtable)
 	memset(hashtable->buckets.unshared, 0,
 		   hashtable->nbuckets * sizeof(HashJoinTuple));
 
-	/* scan through all tuples in all chunks to rebuild the hash table */
+	/* 遍历所有内存块中的全部元组，重建哈希表       */
 	for (chunk = hashtable->chunks; chunk != NULL; chunk = chunk->next.unshared)
 	{
-		/* process all tuples stored in this chunk */
+		/* 处理此内存块内的全部元组    */
 		size_t		idx = 0;
 
 		while (idx < chunk->used)
@@ -1520,16 +1520,16 @@ ExecHashIncreaseNumBuckets(HashJoinTable hashtable)
 			ExecHashGetBucketAndBatch(hashtable, hashTuple->hashvalue,
 									  &bucketno, &batchno);
 
-			/* add the tuple to the proper bucket */
+			/* 把元组加入相应的桶        */
 			hashTuple->next.unshared = hashtable->buckets.unshared[bucketno];
 			hashtable->buckets.unshared[bucketno] = hashTuple;
 
-			/* advance index past the tuple */
+			/* 索引前移越过该元组  */
 			idx += MAXALIGN(HJTUPLE_OVERHEAD +
 							HJTUPLE_MINTUPLE(hashTuple)->t_len);
 		}
 
-		/* allow this loop to be cancellable */
+		/* 允许此循环可被取消       */
 		CHECK_FOR_INTERRUPTS();
 	}
 }
@@ -1545,21 +1545,21 @@ ExecParallelHashIncreaseNumBuckets(HashJoinTable hashtable)
 	Assert(BarrierPhase(&pstate->build_barrier) == PHJ_BUILD_HASH_INNER);
 
 	/*
-	 * It's unlikely, but we need to be prepared for new participants to show
-	 * up while we're in the middle of this operation so we need to switch on
-	 * barrier phase here.
+	 * 可能性虽小，但我们仍需做好准备：操作期间可能有 
+	 * 新参与者加入，因此此处需要按屏障阶段                
+	 * 来分支。       
 	 */
 	switch (PHJ_GROW_BUCKETS_PHASE(BarrierPhase(&pstate->grow_buckets_barrier)))
 	{
 		case PHJ_GROW_BUCKETS_ELECT:
-			/* Elect one participant to prepare to increase nbuckets. */
+			/* 选出一名参与者准备增大 nbuckets。          */
 			if (BarrierArriveAndWait(&pstate->grow_buckets_barrier,
 									 WAIT_EVENT_HASH_GROW_BUCKETS_ELECT))
 			{
 				size_t		size;
 				dsa_pointer_atomic *buckets;
 
-				/* Double the size of the bucket array. */
+				/* 把桶数组的大小翻倍。       */
 				pstate->nbuckets *= 2;
 				size = pstate->nbuckets * sizeof(dsa_pointer_atomic);
 				hashtable->batches[0].shared->size += size / 2;
@@ -1572,22 +1572,22 @@ ExecParallelHashIncreaseNumBuckets(HashJoinTable hashtable)
 				for (i = 0; i < pstate->nbuckets; ++i)
 					dsa_pointer_atomic_init(&buckets[i], InvalidDsaPointer);
 
-				/* Put the chunk list onto the work queue. */
+				/* 把内存块链表放入工作队列。 */
 				pstate->chunk_work_queue = hashtable->batches[0].shared->chunks;
 
-				/* Clear the flag. */
+				/* 清除标志。 */
 				pstate->growth = PHJ_GROWTH_OK;
 			}
 			/* Fall through. */
 
 		case PHJ_GROW_BUCKETS_REALLOCATE:
-			/* Wait for the above to complete. */
+			/* 等待上述操作完成。     */
 			BarrierArriveAndWait(&pstate->grow_buckets_barrier,
 								 WAIT_EVENT_HASH_GROW_BUCKETS_REALLOCATE);
 			/* Fall through. */
 
 		case PHJ_GROW_BUCKETS_REINSERT:
-			/* Reinsert all tuples into the hash table. */
+			/* 把全部元组重新插入哈希表。  */
 			ExecParallelHashEnsureBatchAccessors(hashtable);
 			ExecParallelHashTableSetCurrentBatch(hashtable, 0);
 			while ((chunk = ExecParallelHashPopChunkQueue(hashtable, &chunk_s)))
@@ -1605,16 +1605,16 @@ ExecParallelHashIncreaseNumBuckets(HashJoinTable hashtable)
 											  &bucketno, &batchno);
 					Assert(batchno == 0);
 
-					/* add the tuple to the proper bucket */
+					/* 把元组加入相应的桶        */
 					ExecParallelHashPushTuple(&hashtable->buckets.shared[bucketno],
 											  hashTuple, shared);
 
-					/* advance index past the tuple */
+					/* 索引前移越过该元组  */
 					idx += MAXALIGN(HJTUPLE_OVERHEAD +
 									HJTUPLE_MINTUPLE(hashTuple)->t_len);
 				}
 
-				/* allow this loop to be cancellable */
+				/* 允许此循环可被取消       */
 				CHECK_FOR_INTERRUPTS();
 			}
 			BarrierArriveAndWait(&pstate->grow_buckets_barrier,
@@ -1624,14 +1624,14 @@ ExecParallelHashIncreaseNumBuckets(HashJoinTable hashtable)
 
 /*
  * ExecHashTableInsert
- *		insert a tuple into the hash table depending on the hash value
- *		it may just go to a temp file for later batches
+ *		根据哈希值把元组插入哈希表，也可能直接     
+ *		进入临时文件，留待后续的批使用  
  *
- * Note: the passed TupleTableSlot may contain a regular, minimal, or virtual
- * tuple; the minimal case in particular is certain to happen while reloading
- * tuples from batch files.  We could save some cycles in the regular-tuple
- * case by not forcing the slot contents into minimal form; not clear if it's
- * worth the messiness required.
+ * 注意：传入的 TupleTableSlot 可能包含常规、最小或虚拟    
+ * 元组；最小元组的情形尤其必然出现于从批文件重新     
+ * 载入元组之时。对常规元组情形，若不强制将槽的      
+ * 内容转为最小形式本可省下一些开销；但是否值得为     
+ * 此引入混乱并不明确  
  */
 void
 ExecHashTableInsert(HashJoinTable hashtable,
@@ -1647,18 +1647,18 @@ ExecHashTableInsert(HashJoinTable hashtable,
 							  &bucketno, &batchno);
 
 	/*
-	 * decide whether to put the tuple in the hash table or a temp file
+	 * 决定把元组放入哈希表还是临时文件                
 	 */
 	if (batchno == hashtable->curbatch)
 	{
 		/*
-		 * put the tuple in hash table
+		 * 把元组放入哈希表   
 		 */
 		HashJoinTuple hashTuple;
 		int			hashTupleSize;
 		double		ntuples = (hashtable->totalTuples - hashtable->skewTuples);
 
-		/* Create the HashJoinTuple */
+		/* 创建 HashJoinTuple     */
 		hashTupleSize = HJTUPLE_OVERHEAD + tuple->t_len;
 		hashTuple = (HashJoinTuple) dense_alloc(hashtable, hashTupleSize);
 
@@ -1666,26 +1666,26 @@ ExecHashTableInsert(HashJoinTable hashtable,
 		memcpy(HJTUPLE_MINTUPLE(hashTuple), tuple, tuple->t_len);
 
 		/*
-		 * We always reset the tuple-matched flag on insertion.  This is okay
-		 * even when reloading a tuple from a batch file, since the tuple
-		 * could not possibly have been matched to an outer tuple before it
-		 * went into the batch file.
+		 * 插入时总会重置元组已匹配标志。即便从批文件   
+		 * 重新载入元组时也无妨，因为该元组在           
+		 * 进入批文件之前，不可能已经与任何外层          
+		 * 元组匹配过。       
 		 */
 		HeapTupleHeaderClearMatch(HJTUPLE_MINTUPLE(hashTuple));
 
-		/* Push it onto the front of the bucket's list */
+		/* 把它推到该桶链表的头部           */
 		hashTuple->next.unshared = hashtable->buckets.unshared[bucketno];
 		hashtable->buckets.unshared[bucketno] = hashTuple;
 
 		/*
-		 * Increase the (optimal) number of buckets if we just exceeded the
-		 * NTUP_PER_BUCKET threshold, but only when there's still a single
-		 * batch.
+		 * 若刚超过 NTUP_PER_BUCKET 阈值，则增大桶数           
+		 * （最优值），但仅当仍然只有一个                  
+		 * 批。
 		 */
 		if (hashtable->nbatch == 1 &&
 			ntuples > (hashtable->nbuckets_optimal * NTUP_PER_BUCKET))
 		{
-			/* Guard against integer overflow and alloc size overflow */
+			/* 防止整数溢出以及分配大小溢出             */
 			if (hashtable->nbuckets_optimal <= INT_MAX / 2 &&
 				hashtable->nbuckets_optimal * 2 <= MaxAllocSize / sizeof(HashJoinTuple))
 			{
@@ -1694,7 +1694,7 @@ ExecHashTableInsert(HashJoinTable hashtable,
 			}
 		}
 
-		/* Account for space used, and back off if we've used too much */
+		/* 统计已用空间，若用量过大则回退               */
 		hashtable->spaceUsed += hashTupleSize;
 		if (hashtable->spaceUsed > hashtable->spacePeak)
 			hashtable->spacePeak = hashtable->spaceUsed;
@@ -1706,7 +1706,7 @@ ExecHashTableInsert(HashJoinTable hashtable,
 	else
 	{
 		/*
-		 * put the tuple into a temp file for later batches
+		 * 将元组放入临时文件供后续批次使用
 		 */
 		Assert(batchno > hashtable->curbatch);
 		ExecHashJoinSaveTuple(tuple,
@@ -1721,7 +1721,7 @@ ExecHashTableInsert(HashJoinTable hashtable,
 
 /*
  * ExecParallelHashTableInsert
- *		insert a tuple into a shared hash table or shared batch tuplestore
+ *		将元组插入共享哈希表或共享批元组存储中         
  */
 void
 ExecParallelHashTableInsert(HashJoinTable hashtable,
@@ -1741,7 +1741,7 @@ retry:
 	{
 		HashJoinTuple hashTuple;
 
-		/* Try to load it into memory. */
+		/* 尝试将其载入内存    */
 		Assert(BarrierPhase(&hashtable->parallel_state->build_barrier) ==
 			   PHJ_BUILD_HASH_INNER);
 		hashTuple = ExecParallelHashTupleAlloc(hashtable,
@@ -1750,12 +1750,12 @@ retry:
 		if (hashTuple == NULL)
 			goto retry;
 
-		/* Store the hash value in the HashJoinTuple header. */
+		/* 把哈希值存入 HashJoinTuple 头部中        */
 		hashTuple->hashvalue = hashvalue;
 		memcpy(HJTUPLE_MINTUPLE(hashTuple), tuple, tuple->t_len);
 		HeapTupleHeaderClearMatch(HJTUPLE_MINTUPLE(hashTuple));
 
-		/* Push it onto the front of the bucket's list */
+		/* 将它推到桶链表的前端              */
 		ExecParallelHashPushTuple(&hashtable->buckets.shared[bucketno],
 								  hashTuple, shared);
 	}
@@ -1765,7 +1765,7 @@ retry:
 
 		Assert(batchno > 0);
 
-		/* Try to preallocate space in the batch if necessary. */
+		/* 如有必要，尝试在批中预分配空间       */
 		if (hashtable->batches[batchno].preallocated < tuple_size)
 		{
 			if (!ExecParallelHashTuplePrealloc(hashtable, batchno, tuple_size))
@@ -1784,10 +1784,10 @@ retry:
 }
 
 /*
- * Insert a tuple into the current hash table.  Unlike
- * ExecParallelHashTableInsert, this version is not prepared to send the tuple
- * to other batches or to run out of memory, and should only be called with
- * tuples that belong in the current batch once growth has been disabled.
+ * 向当前哈希表插入一个元组。不同于   
+ * ExecParallelHashTableInsert，此版本不准备将元组发送到其他   
+ * 批次或应对内存耗尽，且只应在禁用增长之后，对      
+ * 属于当前批次的元组调用它。                               
  */
 void
 ExecParallelHashTableInsertCurrentBatch(HashJoinTable hashtable,
@@ -1818,20 +1818,20 @@ ExecParallelHashTableInsertCurrentBatch(HashJoinTable hashtable,
 
 /*
  * ExecHashGetHashValue
- *		Compute the hash value for a tuple
+ *		计算一个元组的哈希值    
  *
- * The tuple to be tested must be in econtext->ecxt_outertuple (thus Vars in
- * the hashkeys expressions need to have OUTER_VAR as varno). If outer_tuple
- * is false (meaning it's the HashJoin's inner node, Hash), econtext,
- * hashkeys, and slot need to be from Hash, with hashkeys/slot referencing and
- * being suitable for tuples from the node below the Hash. Conversely, if
- * outer_tuple is true, econtext is from HashJoin, and hashkeys/slot need to
- * be appropriate for tuples from HashJoin's outer node.
+ * 待检测的元组必须位于 econtext->ecxt_outertuple 中（因此    
+ * hashkeys 表达式里的变量需以 OUTER_VAR 作为 varno）。若     
+ * outer_tuple 为假（即它是 HashJoin 的内节点 Hash），则
+ * econtext、hashkeys 与 slot 必须来自 Hash,hashkeys/slot 引用且适  
+ * 配来自 Hash 下方节点的元组。反之，若                   
+ * outer_tuple 为真，则 econtext 来自 HashJoin，且 hashkeys/slot    
+ * 需适用于 HashJoin 外节点传来的元组。    
  *
- * A true result means the tuple's hash value has been successfully computed
- * and stored at *hashvalue.  A false result means the tuple cannot match
- * because it contains a null attribute, and hence it should be discarded
- * immediately.  (If keep_nulls is true then false is never returned.)
+ * 返回真表示该元组的哈希值已成功计算出来并             
+ * 存放在 *hashvalue 处。返回假表示该元组无法匹配，    
+ * 因为它包含空属性，因此应立即丢弃。                   
+ * （若 keep_nulls 为真则永不返回假。）                   
  */
 bool
 ExecHashGetHashValue(HashJoinTable hashtable,
@@ -1848,8 +1848,8 @@ ExecHashGetHashValue(HashJoinTable hashtable,
 	MemoryContext oldContext;
 
 	/*
-	 * We reset the eval context each time to reclaim any memory leaked in the
-	 * hashkey expressions.
+	 * 我们每次都重置求值上下文，以回收散列键表达式中  
+	 * 泄漏的内存。  
 	 */
 	ResetExprContext(econtext);
 
@@ -1866,39 +1866,39 @@ ExecHashGetHashValue(HashJoinTable hashtable,
 		Datum		keyval;
 		bool		isNull;
 
-		/* combine successive hashkeys by rotating */
+		/* 通过旋转合并相继的散列键    */
 		hashkey = pg_rotate_left32(hashkey, 1);
 
 		/*
-		 * Get the join attribute value of the tuple
+		 * 取得该元组的连接属性值        
 		 */
 		keyval = ExecEvalExpr(keyexpr, econtext, &isNull);
 
 		/*
-		 * If the attribute is NULL, and the join operator is strict, then
-		 * this tuple cannot pass the join qual so we can reject it
-		 * immediately (unless we're scanning the outside of an outer join, in
-		 * which case we must not reject it).  Otherwise we act like the
-		 * hashcode of NULL is zero (this will support operators that act like
-		 * IS NOT DISTINCT, though not any more-random behavior).  We treat
-		 * the hash support function as strict even if the operator is not.
+		 * 如果属性为 NULL，且连接操作符是严格的，那么 
+		 * 该元组无法通过连接条件，我们可以立即  
+		 * 拒绝它（除非我们正在扫描外连接的外侧，此时    
+		 * 我们绝不能拒绝它）。否则，我们把 NULL        
+		 * 的哈希码当作零来处理（这将支持行为类似          
+		 * IS NOT DISTINCT 的操作符，但不支持更随机行为）。
+		 * 即使操作符非严格，仍视哈希支持函数为严格。 
 		 *
-		 * Note: currently, all hashjoinable operators must be strict since
-		 * the hash index AM assumes that.  However, it takes so little extra
-		 * code here to allow non-strict that we may as well do it.
+		 * 注意：当前可哈希连接的操作符都必须严格，    
+		 * 哈希索引 AM 便做了这种假定。不过，在这里支持  
+		 * 非严格只需极少额外代码，不妨这么做。  
 		 */
 		if (isNull)
 		{
 			if (hashtable->hashStrict[i] && !keep_nulls)
 			{
 				MemoryContextSwitchTo(oldContext);
-				return false;	/* cannot match */
+				return false;	/* 无法匹配 */
 			}
-			/* else, leave hashkey unmodified, equivalent to hashcode 0 */
+			/* 否则保持 hashkey 不变，相当于哈希码为 0    */
 		}
 		else
 		{
-			/* Compute the hash function */
+			/* 计算哈希函数        */
 			uint32		hkey;
 
 			hkey = DatumGetUInt32(FunctionCall1Coll(&hashfunctions[i], hashtable->collations[i], keyval));
@@ -1916,30 +1916,30 @@ ExecHashGetHashValue(HashJoinTable hashtable,
 
 /*
  * ExecHashGetBucketAndBatch
- *		Determine the bucket number and batch number for a hash value
+ *		确定一个哈希值对应的桶号与批号                
  *
- * Note: on-the-fly increases of nbatch must not change the bucket number
- * for a given hash code (since we don't move tuples to different hash
- * chains), and must only cause the batch number to remain the same or
- * increase.  Our algorithm is
+ * 注意：动态增大 nbatch 绝不能改变桶号                    
+ * 对于给定的哈希码而言（因为我们不会把元组       
+ * 移到别的哈希链上），且必须只会使批号不变或增 
+ * 大。我们的算法是   
  *		bucketno = hashvalue MOD nbuckets
  *		batchno = ROR(hashvalue, log2_nbuckets) MOD nbatch
- * where nbuckets and nbatch are both expected to be powers of 2, so we can
- * do the computations by shifting and masking.  (This assumes that all hash
- * functions are good about randomizing all their output bits, else we are
- * likely to have very skewed bucket or batch occupancy.)
+ * 其中 nbuckets 和 nbatch 都应当是 2 的幂，这样我们         
+ * 就能用移位和掩码来完成计算。（这里假定所有哈希    
+ * 函数都能很好地随机化所有输出位，否则我们很        
+ * 可能会得到非常倾斜的桶或批。）         
  *
- * nbuckets and log2_nbuckets may change while nbatch == 1 because of dynamic
- * bucket count growth.  Once we start batching, the value is fixed and does
- * not change over the course of the join (making it possible to compute batch
- * number the way we do here).
+ * 在 nbatch == 1 期间，由于动态桶数增长，nbuckets 和          
+ * log2_nbuckets 可能变化。一旦开始分批，该值就固定了，  
+ * 在整个连接期间保持不变（这让我们能以这里的            
+ * 方式计算批号）。   
  *
- * nbatch is always a power of 2; we increase it only by doubling it.  This
- * effectively adds one more bit to the top of the batchno.  In very large
- * joins, we might run out of bits to add, so we do this by rotating the hash
- * value.  This causes batchno to steal bits from bucketno when the number of
- * virtual buckets exceeds 2^32.  It's better to have longer bucket chains
- * than to lose the ability to divide batches.
+ * nbatch 总是 2 的幂；我们只会通过翻倍来增大它。这     
+ * 实际上相当于给批号顶端再增加一位。在非常大的     
+ * 连接中，位可能会用完，所以我们通过旋转哈希值来     
+ * 做到这一点。当虚拟桶数超过 2^32 时，batchno 会从         
+ * bucketno 处窃取一些位。宁可让桶链变得更长，           
+ * 也不要失去划分批次的能力。    
  */
 void
 ExecHashGetBucketAndBatch(HashJoinTable hashtable,
@@ -1965,13 +1965,13 @@ ExecHashGetBucketAndBatch(HashJoinTable hashtable,
 
 /*
  * ExecScanHashBucket
- *		scan a hash bucket for matches to the current outer tuple
+ *		扫描一个哈希桶，寻找与当前外元组匹配者
  *
- * The current outer tuple must be stored in econtext->ecxt_outertuple.
+ * 当前的外元组必须存放在 econtext->ecxt_outertuple 中。  
  *
- * On success, the inner tuple is stored into hjstate->hj_CurTuple and
- * econtext->ecxt_innertuple, using hjstate->hj_HashTupleSlot as the slot
- * for the latter.
+ * 成功时，内元组会存入 hjstate->hj_CurTuple 以及         
+ * econtext->ecxt_innertuple，使用 hjstate->hj_HashTupleSlot 作为   
+ * 其槽位。   
  */
 bool
 ExecScanHashBucket(HashJoinState *hjstate,
@@ -1983,11 +1983,11 @@ ExecScanHashBucket(HashJoinState *hjstate,
 	uint32		hashvalue = hjstate->hj_CurHashValue;
 
 	/*
-	 * hj_CurTuple is the address of the tuple last returned from the current
-	 * bucket, or NULL if it's time to start scanning a new bucket.
+	 * hj_CurTuple 是上次从当前桶返回的元组的地址，          
+	 * 如果该开始扫描新桶了则为 NULL。                
 	 *
-	 * If the tuple hashed to a skew bucket then scan the skew bucket
-	 * otherwise scan the standard hashtable bucket.
+	 * 如果元组散列到了倾斜桶，就扫描该倾斜桶，  
+	 * 否则扫描标准哈希表的桶。         
 	 */
 	if (hashTuple != NULL)
 		hashTuple = hashTuple->next.unshared;
@@ -2002,10 +2002,10 @@ ExecScanHashBucket(HashJoinState *hjstate,
 		{
 			TupleTableSlot *inntuple;
 
-			/* insert hashtable's tuple into exec slot so ExecQual sees it */
+			/* 把哈希表的元组放入执行槽，让 ExecQual 看到  */
 			inntuple = ExecStoreMinimalTuple(HJTUPLE_MINTUPLE(hashTuple),
 											 hjstate->hj_HashTupleSlot,
-											 false);	/* do not pfree */
+											 false);	/* 不要 pfree */
 			econtext->ecxt_innertuple = inntuple;
 
 			if (ExecQualAndReset(hjclauses, econtext))
@@ -2026,13 +2026,13 @@ ExecScanHashBucket(HashJoinState *hjstate,
 
 /*
  * ExecParallelScanHashBucket
- *		scan a hash bucket for matches to the current outer tuple
+ *		扫描一个哈希桶，寻找与当前外元组匹配者
  *
- * The current outer tuple must be stored in econtext->ecxt_outertuple.
+ * 当前的外元组必须存放在 econtext->ecxt_outertuple 中。  
  *
- * On success, the inner tuple is stored into hjstate->hj_CurTuple and
- * econtext->ecxt_innertuple, using hjstate->hj_HashTupleSlot as the slot
- * for the latter.
+ * 成功时，内元组会存入 hjstate->hj_CurTuple 以及         
+ * econtext->ecxt_innertuple，使用 hjstate->hj_HashTupleSlot 作为   
+ * 其槽位。   
  */
 bool
 ExecParallelScanHashBucket(HashJoinState *hjstate,
@@ -2044,8 +2044,8 @@ ExecParallelScanHashBucket(HashJoinState *hjstate,
 	uint32		hashvalue = hjstate->hj_CurHashValue;
 
 	/*
-	 * hj_CurTuple is the address of the tuple last returned from the current
-	 * bucket, or NULL if it's time to start scanning a new bucket.
+	 * hj_CurTuple 是上次从当前桶返回的元组的地址，          
+	 * 如果该开始扫描新桶了则为 NULL。                
 	 */
 	if (hashTuple != NULL)
 		hashTuple = ExecParallelHashNextTuple(hashtable, hashTuple);
@@ -2059,10 +2059,10 @@ ExecParallelScanHashBucket(HashJoinState *hjstate,
 		{
 			TupleTableSlot *inntuple;
 
-			/* insert hashtable's tuple into exec slot so ExecQual sees it */
+			/* 把哈希表的元组放入执行槽，让 ExecQual 看到  */
 			inntuple = ExecStoreMinimalTuple(HJTUPLE_MINTUPLE(hashTuple),
 											 hjstate->hj_HashTupleSlot,
-											 false);	/* do not pfree */
+											 false);	/* 不要 pfree */
 			econtext->ecxt_innertuple = inntuple;
 
 			if (ExecQualAndReset(hjclauses, econtext))
@@ -2083,17 +2083,17 @@ ExecParallelScanHashBucket(HashJoinState *hjstate,
 
 /*
  * ExecPrepHashTableForUnmatched
- *		set up for a series of ExecScanHashTableForUnmatched calls
+ *		为一系列 ExecScanHashTableForUnmatched 调用做准备
  */
 void
 ExecPrepHashTableForUnmatched(HashJoinState *hjstate)
 {
 	/*----------
-	 * During this scan we use the HashJoinState fields as follows:
+	 * 扫描期间我们如下使用 HashJoinState 各字段：   
 	 *
-	 * hj_CurBucketNo: next regular bucket to scan
-	 * hj_CurSkewBucketNo: next skew bucket (an index into skewBucketNums)
-	 * hj_CurTuple: last tuple returned, or NULL to start next bucket
+	 * hj_CurBucketNo: 下个待扫描的常规桶
+	 * hj_CurSkewBucketNo: 下一倾斜桶（skewBucketNums 的下标）  
+	 * hj_CurTuple: 上次返回的元组，NULL 即开始下一桶  
 	 *----------
 	 */
 	hjstate->hj_CurBucketNo = 0;
@@ -2102,9 +2102,9 @@ ExecPrepHashTableForUnmatched(HashJoinState *hjstate)
 }
 
 /*
- * Decide if this process is allowed to run the unmatched scan.  If so, the
- * batch barrier is advanced to PHJ_BATCH_SCAN and true is returned.
- * Otherwise the batch is detached and false is returned.
+ * 判断本进程是否被允许执行未匹配扫描。若允许，      
+ * 批屏障就会推进到 PHJ_BATCH_SCAN 并返回真。          
+ * 否则该批会被分离，并返回假。            
  */
 bool
 ExecParallelPrepHashTableForUnmatched(HashJoinState *hjstate)
@@ -2116,24 +2116,24 @@ ExecParallelPrepHashTableForUnmatched(HashJoinState *hjstate)
 	Assert(BarrierPhase(&batch->batch_barrier) == PHJ_BATCH_PROBE);
 
 	/*
-	 * It would not be deadlock-free to wait on the batch barrier, because it
-	 * is in PHJ_BATCH_PROBE phase, and thus processes attached to it have
-	 * already emitted tuples.  Therefore, we'll hold a wait-free election:
-	 * only one process can continue to the next phase, and all others detach
-	 * from this batch.  They can still go any work on other batches, if there
-	 * are any.
+	 * 在批屏障上等待并非无死锁，因为它处于                
+	 * PHJ_BATCH_PROBE 阶段，因而附属于它的进程已经         
+	 * 发出过元组。因此，我们将举行一次无等待选举：  
+	 * 只有一个进程能继续进入下一阶段，所有其他进程    
+	 * 都从该批分离。如果还有其他批次，它们仍能继续     
+	 * 干活  
 	 */
 	if (!BarrierArriveAndDetachExceptLast(&batch->batch_barrier))
 	{
-		/* This process considers the batch to be done. */
+		/* 该进程认为此批已经完成。         */
 		hashtable->batches[hashtable->curbatch].done = true;
 
-		/* Make sure any temporary files are closed. */
+		/* 确保所有临时文件都已关闭。   */
 		sts_end_parallel_scan(hashtable->batches[curbatch].inner_tuples);
 		sts_end_parallel_scan(hashtable->batches[curbatch].outer_tuples);
 
 		/*
-		 * Track largest batch we've seen, which would normally happen in
+		 * 记录我们见过的最大批，这通常发生在           
 		 * ExecHashTableDetachBatch().
 		 */
 		hashtable->spacePeak =
@@ -2143,12 +2143,12 @@ ExecParallelPrepHashTableForUnmatched(HashJoinState *hjstate)
 		return false;
 	}
 
-	/* Now we are alone with this batch. */
+	/* 现在我们独占该批。       */
 	Assert(BarrierPhase(&batch->batch_barrier) == PHJ_BATCH_SCAN);
 
 	/*
-	 * Has another process decided to give up early and command all processes
-	 * to skip the unmatched scan?
+	 * 是否有别的进程决定提前放弃，并命令所有进程       
+	 * 跳过未匹配扫描？   
 	 */
 	if (batch->skip_unmatched)
 	{
@@ -2157,7 +2157,7 @@ ExecParallelPrepHashTableForUnmatched(HashJoinState *hjstate)
 		return false;
 	}
 
-	/* Now prepare the process local state, just as for non-parallel join. */
+	/* 现在准备进程本地状态，就像非并行连接那样。     */
 	ExecPrepHashTableForUnmatched(hjstate);
 
 	return true;
@@ -2165,11 +2165,11 @@ ExecParallelPrepHashTableForUnmatched(HashJoinState *hjstate)
 
 /*
  * ExecScanHashTableForUnmatched
- *		scan the hash table for unmatched inner tuples
+ *		扫描哈希表中未匹配的内元组       
  *
- * On success, the inner tuple is stored into hjstate->hj_CurTuple and
- * econtext->ecxt_innertuple, using hjstate->hj_HashTupleSlot as the slot
- * for the latter.
+ * 成功时，内元组会存入 hjstate->hj_CurTuple 以及         
+ * econtext->ecxt_innertuple，使用 hjstate->hj_HashTupleSlot 作为   
+ * 其槽位。   
  */
 bool
 ExecScanHashTableForUnmatched(HashJoinState *hjstate, ExprContext *econtext)
@@ -2180,9 +2180,9 @@ ExecScanHashTableForUnmatched(HashJoinState *hjstate, ExprContext *econtext)
 	for (;;)
 	{
 		/*
-		 * hj_CurTuple is the address of the tuple last returned from the
-		 * current bucket, or NULL if it's time to start scanning a new
-		 * bucket.
+		 * hj_CurTuple 是上次从当前桶返回的元组的地址，  
+		 * 如果该开始扫描一个新桶，则为                  
+		 * NULL。
 		 */
 		if (hashTuple != NULL)
 			hashTuple = hashTuple->next.unshared;
@@ -2199,7 +2199,7 @@ ExecScanHashTableForUnmatched(HashJoinState *hjstate, ExprContext *econtext)
 			hjstate->hj_CurSkewBucketNo++;
 		}
 		else
-			break;				/* finished all buckets */
+			break;				/* 已扫完所有桶   */
 
 		while (hashTuple != NULL)
 		{
@@ -2207,16 +2207,16 @@ ExecScanHashTableForUnmatched(HashJoinState *hjstate, ExprContext *econtext)
 			{
 				TupleTableSlot *inntuple;
 
-				/* insert hashtable's tuple into exec slot */
+				/* 把哈希表的元组插入执行槽    */
 				inntuple = ExecStoreMinimalTuple(HJTUPLE_MINTUPLE(hashTuple),
 												 hjstate->hj_HashTupleSlot,
-												 false);	/* do not pfree */
+												 false);	/* 不要 pfree */
 				econtext->ecxt_innertuple = inntuple;
 
 				/*
-				 * Reset temp memory each time; although this function doesn't
-				 * do any qual eval, the caller will, so let's keep it
-				 * parallel to ExecScanHashBucket.
+				 * 每次都重置临时内存；虽然本函数不做任何  
+				 * 条件求值，调用方会做，故让它保持与
+				 * ExecScanHashBucket 平行。   
 				 */
 				ResetExprContext(econtext);
 
@@ -2227,23 +2227,23 @@ ExecScanHashTableForUnmatched(HashJoinState *hjstate, ExprContext *econtext)
 			hashTuple = hashTuple->next.unshared;
 		}
 
-		/* allow this loop to be cancellable */
+		/* 让此循环可以被取消       */
 		CHECK_FOR_INTERRUPTS();
 	}
 
 	/*
-	 * no more unmatched tuples
+	 * 再无未匹配的元组
 	 */
 	return false;
 }
 
 /*
  * ExecParallelScanHashTableForUnmatched
- *		scan the hash table for unmatched inner tuples, in parallel join
+ *		在并行连接中扫描哈希表中未匹配的内元组       
  *
- * On success, the inner tuple is stored into hjstate->hj_CurTuple and
- * econtext->ecxt_innertuple, using hjstate->hj_HashTupleSlot as the slot
- * for the latter.
+ * 成功时，内元组会存入 hjstate->hj_CurTuple 以及         
+ * econtext->ecxt_innertuple，使用 hjstate->hj_HashTupleSlot 作为   
+ * 其槽位。   
  */
 bool
 ExecParallelScanHashTableForUnmatched(HashJoinState *hjstate,
@@ -2255,9 +2255,9 @@ ExecParallelScanHashTableForUnmatched(HashJoinState *hjstate,
 	for (;;)
 	{
 		/*
-		 * hj_CurTuple is the address of the tuple last returned from the
-		 * current bucket, or NULL if it's time to start scanning a new
-		 * bucket.
+		 * hj_CurTuple 是上次从当前桶返回的元组的地址，  
+		 * 如果该开始扫描一个新桶，则为                  
+		 * NULL。
 		 */
 		if (hashTuple != NULL)
 			hashTuple = ExecParallelHashNextTuple(hashtable, hashTuple);
@@ -2265,7 +2265,7 @@ ExecParallelScanHashTableForUnmatched(HashJoinState *hjstate,
 			hashTuple = ExecParallelHashFirstTuple(hashtable,
 												   hjstate->hj_CurBucketNo++);
 		else
-			break;				/* finished all buckets */
+			break;				/* 已扫完所有桶   */
 
 		while (hashTuple != NULL)
 		{
@@ -2273,16 +2273,16 @@ ExecParallelScanHashTableForUnmatched(HashJoinState *hjstate,
 			{
 				TupleTableSlot *inntuple;
 
-				/* insert hashtable's tuple into exec slot */
+				/* 把哈希表的元组插入执行槽    */
 				inntuple = ExecStoreMinimalTuple(HJTUPLE_MINTUPLE(hashTuple),
 												 hjstate->hj_HashTupleSlot,
-												 false);	/* do not pfree */
+												 false);	/* 不要 pfree */
 				econtext->ecxt_innertuple = inntuple;
 
 				/*
-				 * Reset temp memory each time; although this function doesn't
-				 * do any qual eval, the caller will, so let's keep it
-				 * parallel to ExecScanHashBucket.
+				 * 每次都重置临时内存；虽然本函数不做任何  
+				 * 条件求值，调用方会做，故让它保持与
+				 * ExecScanHashBucket 平行。   
 				 */
 				ResetExprContext(econtext);
 
@@ -2293,12 +2293,12 @@ ExecParallelScanHashTableForUnmatched(HashJoinState *hjstate,
 			hashTuple = ExecParallelHashNextTuple(hashtable, hashTuple);
 		}
 
-		/* allow this loop to be cancellable */
+		/* 让此循环可以被取消       */
 		CHECK_FOR_INTERRUPTS();
 	}
 
 	/*
-	 * no more unmatched tuples
+	 * 再无未匹配的元组
 	 */
 	return false;
 }
@@ -2306,7 +2306,7 @@ ExecParallelScanHashTableForUnmatched(HashJoinState *hjstate,
 /*
  * ExecHashTableReset
  *
- *		reset hash table header for new batch
+ *		为新批重置哈希表头部       
  */
 void
 ExecHashTableReset(HashJoinTable hashtable)
@@ -2315,26 +2315,26 @@ ExecHashTableReset(HashJoinTable hashtable)
 	int			nbuckets = hashtable->nbuckets;
 
 	/*
-	 * Release all the hash buckets and tuples acquired in the prior pass, and
-	 * reinitialize the context for a new pass.
+	 * 释放上一轮获得的全部哈希桶和元组，并为              
+	 * 新一轮重新初始化上下文。    
 	 */
 	MemoryContextReset(hashtable->batchCxt);
 	oldcxt = MemoryContextSwitchTo(hashtable->batchCxt);
 
-	/* Reallocate and reinitialize the hash bucket headers. */
+	/* 重新分配并重新初始化哈希桶头部。     */
 	hashtable->buckets.unshared = palloc0_array(HashJoinTuple, nbuckets);
 
 	hashtable->spaceUsed = 0;
 
 	MemoryContextSwitchTo(oldcxt);
 
-	/* Forget the chunks (the memory was freed by the context reset above). */
+	/* 忘记这些块（内存已由上面的上下文重置释放）。   */
 	hashtable->chunks = NULL;
 }
 
 /*
  * ExecHashTableResetMatchFlags
- *		Clear all the HeapTupleHeaderHasMatch flags in the table
+ *		清除表中所有的 HeapTupleHeaderHasMatch 标志    
  */
 void
 ExecHashTableResetMatchFlags(HashJoinTable hashtable)
@@ -2342,7 +2342,7 @@ ExecHashTableResetMatchFlags(HashJoinTable hashtable)
 	HashJoinTuple tuple;
 	int			i;
 
-	/* Reset all flags in the main table ... */
+	/* 重置主表中的所有标志...     */
 	for (i = 0; i < hashtable->nbuckets; i++)
 	{
 		for (tuple = hashtable->buckets.unshared[i]; tuple != NULL;
@@ -2350,7 +2350,7 @@ ExecHashTableResetMatchFlags(HashJoinTable hashtable)
 			HeapTupleHeaderClearMatch(HJTUPLE_MINTUPLE(tuple));
 	}
 
-	/* ... and the same for the skew buckets, if any */
+	/* ...倾斜桶（若有的话）也同样处理 */
 	for (i = 0; i < hashtable->nSkewBuckets; i++)
 	{
 		int			j = hashtable->skewBucketNums[i];
@@ -2368,8 +2368,8 @@ ExecReScanHash(HashState *node)
 	PlanState  *outerPlan = outerPlanState(node);
 
 	/*
-	 * if chgParam of subnode is not null then plan will be re-scanned by
-	 * first ExecProcNode.
+	 * 若子节点的 chgParam 非空，首个 ExecProcNode             
+	 * 会重扫计划    
 	 */
 	if (outerPlan->chgParam == NULL)
 		ExecReScan(outerPlan);
@@ -2379,10 +2379,10 @@ ExecReScanHash(HashState *node)
 /*
  * ExecHashBuildSkewHash
  *
- *		Set up for skew optimization if we can identify the most common values
- *		(MCVs) of the outer relation's join key.  We make a skew hash bucket
- *		for the hash value of each MCV, up to the number of slots allowed
- *		based on available memory.
+ *		如果我们能识别出外关系连接键的最常用值             
+ *		(MCV)，就为倾斜优化做好设置。我们为每个 MCV 的    
+ *		哈希值建立一个倾斜哈希桶，数量上限取决于     
+ *		可用内存。           
  */
 static void
 ExecHashBuildSkewHash(HashJoinTable hashtable, Hash *node, int mcvsToUse)
@@ -2390,15 +2390,15 @@ ExecHashBuildSkewHash(HashJoinTable hashtable, Hash *node, int mcvsToUse)
 	HeapTupleData *statsTuple;
 	AttStatsSlot sslot;
 
-	/* Do nothing if planner didn't identify the outer relation's join key */
+	/* 若规划器未识别出外关系的连接键，则什么都不做  */
 	if (!OidIsValid(node->skewTable))
 		return;
-	/* Also, do nothing if we don't have room for at least one skew bucket */
+	/* 同样，若空间容不下至少一个倾斜桶，照样不做。  */
 	if (mcvsToUse <= 0)
 		return;
 
 	/*
-	 * Try to find the MCV statistics for the outer relation's join key.
+	 * 尝试为外关系的连接键找到 MCV 统计信息。         
 	 */
 	statsTuple = SearchSysCache3(STATRELATTINH,
 								 ObjectIdGetDatum(node->skewTable),
@@ -2420,9 +2420,9 @@ ExecHashBuildSkewHash(HashJoinTable hashtable, Hash *node, int mcvsToUse)
 			mcvsToUse = sslot.nvalues;
 
 		/*
-		 * Calculate the expected fraction of outer relation that will
-		 * participate in the skew optimization.  If this isn't at least
-		 * SKEW_MIN_OUTER_FRACTION, don't use skew optimization.
+		 * 计算外关系中会参与倾斜优化的预期比例。  
+		 * 如果该比例没有达到                                  
+		 * SKEW_MIN_OUTER_FRACTION，则不使用倾斜优化。
 		 */
 		frac = 0;
 		for (i = 0; i < mcvsToUse; i++)
@@ -2435,28 +2435,28 @@ ExecHashBuildSkewHash(HashJoinTable hashtable, Hash *node, int mcvsToUse)
 		}
 
 		/*
-		 * Okay, set up the skew hashtable.
+		 * 好，设置倾斜哈希表。  
 		 *
-		 * skewBucket[] is an open addressing hashtable with a power of 2 size
-		 * that is greater than the number of MCV values.  (This ensures there
-		 * will be at least one null entry, so searches will always
-		 * terminate.)
+		 * skewBucket[] 是一个开放寻址哈希表，其大小是 2       
+		 * 的幂且大于 MCV 值的个数。（这保证了至少会有     
+		 * 一个空表项，因此查找总能                    
+		 * 终止）  
 		 *
-		 * Note: this code could fail if mcvsToUse exceeds INT_MAX/8 or
-		 * MaxAllocSize/sizeof(void *)/8, but that is not currently possible
-		 * since we limit pg_statistic entries to much less than that.
+		 * 注意：若 mcvsToUse 超过 INT_MAX/8 或                 
+		 * MaxAllocSize/sizeof(void *)/8，则这段代码可能失败；   
+		 * 因 pg_statistic 条目限制远小于此，不可能。   
 		 */
 		nbuckets = pg_nextpower2_32(mcvsToUse + 1);
-		/* use two more bits just to help avoid collisions */
+		/* 多用两个位只是为了帮助避免冲突   */
 		nbuckets <<= 2;
 
 		hashtable->skewEnabled = true;
 		hashtable->skewBucketLen = nbuckets;
 
 		/*
-		 * We allocate the bucket memory in the hashtable's batch context. It
-		 * is only needed during the first batch, and this ensures it will be
-		 * automatically removed once the first batch is done.
+		 * 我们在哈希表的批上下文中分配桶内存。它         
+		 * 只在第一批期间需要，这确保它会在首批            
+		 * 完成后被自动移除。                        
 		 */
 		hashtable->skewBucket = (HashSkewBucket **)
 			MemoryContextAllocZero(hashtable->batchCxt,
@@ -2473,13 +2473,13 @@ ExecHashBuildSkewHash(HashJoinTable hashtable, Hash *node, int mcvsToUse)
 			hashtable->spacePeak = hashtable->spaceUsed;
 
 		/*
-		 * Create a skew bucket for each MCV hash value.
+		 * 为每个 MCV 哈希值建一个倾斜桶。 
 		 *
-		 * Note: it is very important that we create the buckets in order of
-		 * decreasing MCV frequency.  If we have to remove some buckets, they
-		 * must be removed in reverse order of creation (see notes in
-		 * ExecHashRemoveNextSkewBucket) and we want the least common MCVs to
-		 * be removed first.
+		 * 注意：极其重要的是，我们要按 MCV 频率递减      
+		 * 的顺序创建这些桶。若必须移除一些桶，            
+		 * 就必须按创建的相反顺序移除（参见          
+		 * ExecHashRemoveNextSkewBucket），且最不常见的              
+		 * MCV 先移除。 
 		 */
 		hashfunctions = hashtable->outer_hashfunctions;
 
@@ -2493,10 +2493,10 @@ ExecHashBuildSkewHash(HashJoinTable hashtable, Hash *node, int mcvsToUse)
 														 sslot.values[i]));
 
 			/*
-			 * While we have not hit a hole in the hashtable and have not hit
-			 * the desired bucket, we have collided with some previous hash
-			 * value, so try the next bucket location.  NB: this code must
-			 * match ExecHashGetSkewBucket.
+			 * 当尚未碰到哈希表中的空洞、也尚未碰到        
+			 * 想要的桶时，就是与此前某个哈希值发生      
+			 * 了碰撞，所以要试下一桶位。此代码须匹配  
+			 * ExecHashGetSkewBucket。    
 			 */
 			bucket = hashvalue & (nbuckets - 1);
 			while (hashtable->skewBucket[bucket] != NULL &&
@@ -2504,13 +2504,13 @@ ExecHashBuildSkewHash(HashJoinTable hashtable, Hash *node, int mcvsToUse)
 				bucket = (bucket + 1) & (nbuckets - 1);
 
 			/*
-			 * If we found an existing bucket with the same hashvalue, leave
-			 * it alone.  It's okay for two MCVs to share a hashvalue.
+			 * 如果找到了具有相同哈希值的现有桶，就       
+			 * 保持原样。两个 MCV 共享哈希值没问题。  
 			 */
 			if (hashtable->skewBucket[bucket] != NULL)
 				continue;
 
-			/* Okay, create a new skew bucket for this hashvalue. */
+			/* 好，为该哈希值新建一个倾斜桶。      */
 			hashtable->skewBucket[bucket] = (HashSkewBucket *)
 				MemoryContextAlloc(hashtable->batchCxt,
 								   sizeof(HashSkewBucket));
@@ -2533,9 +2533,9 @@ ExecHashBuildSkewHash(HashJoinTable hashtable, Hash *node, int mcvsToUse)
 /*
  * ExecHashGetSkewBucket
  *
- *		Returns the index of the skew bucket for this hashvalue,
- *		or INVALID_SKEW_BUCKET_NO if the hashvalue is not
- *		associated with any active skew bucket.
+ *		返回此哈希值对应的倾斜桶下标或           
+ *		INVALID_SKEW_BUCKET_NO（若未关联到任何   
+ *		活动的倾斜桶。）               
  */
 int
 ExecHashGetSkewBucket(HashJoinTable hashtable, uint32 hashvalue)
@@ -2543,34 +2543,34 @@ ExecHashGetSkewBucket(HashJoinTable hashtable, uint32 hashvalue)
 	int			bucket;
 
 	/*
-	 * Always return INVALID_SKEW_BUCKET_NO if not doing skew optimization (in
-	 * particular, this happens after the initial batch is done).
+	 * 若未进行倾斜优化，则总是返回 INVALID_SKEW                
+	 * BUCKET_NO（尤其在初始批完成后会这样）。    
 	 */
 	if (!hashtable->skewEnabled)
 		return INVALID_SKEW_BUCKET_NO;
 
 	/*
-	 * Since skewBucketLen is a power of 2, we can do a modulo by ANDing.
+	 * 由于 skewBucketLen 是 2 的幂，可用按位与做取模。   
 	 */
 	bucket = hashvalue & (hashtable->skewBucketLen - 1);
 
 	/*
-	 * While we have not hit a hole in the hashtable and have not hit the
-	 * desired bucket, we have collided with some other hash value, so try the
-	 * next bucket location.
+	 * 当尚未碰到哈希表中的空洞、也尚未碰到            
+	 * 想要的桶时，就是与其他某个哈希值碰撞了，           
+	 * 故试下一桶位。
 	 */
 	while (hashtable->skewBucket[bucket] != NULL &&
 		   hashtable->skewBucket[bucket]->hashvalue != hashvalue)
 		bucket = (bucket + 1) & (hashtable->skewBucketLen - 1);
 
 	/*
-	 * Found the desired bucket?
+	 * 找到想要的桶了？ 
 	 */
 	if (hashtable->skewBucket[bucket] != NULL)
 		return bucket;
 
 	/*
-	 * There must not be any hashtable entry for this hash value.
+	 * 该哈希值绝不能在哈希表中已有表项。       
 	 */
 	return INVALID_SKEW_BUCKET_NO;
 }
@@ -2578,10 +2578,10 @@ ExecHashGetSkewBucket(HashJoinTable hashtable, uint32 hashvalue)
 /*
  * ExecHashSkewTableInsert
  *
- *		Insert a tuple into the skew hashtable.
+ *		把一个元组插入倾斜哈希表。
  *
- * This should generally match up with the current-batch case in
- * ExecHashTableInsert.
+ * 这大体上应当与 ExecHashTableInsert 当前             
+ * 批情形一致。  
  */
 static void
 ExecHashSkewTableInsert(HashJoinTable hashtable,
@@ -2594,7 +2594,7 @@ ExecHashSkewTableInsert(HashJoinTable hashtable,
 	HashJoinTuple hashTuple;
 	int			hashTupleSize;
 
-	/* Create the HashJoinTuple */
+	/* 创建 HashJoinTuple     */
 	hashTupleSize = HJTUPLE_OVERHEAD + tuple->t_len;
 	hashTuple = (HashJoinTuple) MemoryContextAlloc(hashtable->batchCxt,
 												   hashTupleSize);
@@ -2602,12 +2602,12 @@ ExecHashSkewTableInsert(HashJoinTable hashtable,
 	memcpy(HJTUPLE_MINTUPLE(hashTuple), tuple, tuple->t_len);
 	HeapTupleHeaderClearMatch(HJTUPLE_MINTUPLE(hashTuple));
 
-	/* Push it onto the front of the skew bucket's list */
+	/* 把它推到倾斜桶链表的前端             */
 	hashTuple->next.unshared = hashtable->skewBucket[bucketNumber]->tuples;
 	hashtable->skewBucket[bucketNumber]->tuples = hashTuple;
 	Assert(hashTuple != hashTuple->next.unshared);
 
-	/* Account for space used, and back off if we've used too much */
+	/* 统计已用空间，若用量过大则回退               */
 	hashtable->spaceUsed += hashTupleSize;
 	hashtable->spaceUsedSkew += hashTupleSize;
 	if (hashtable->spaceUsed > hashtable->spacePeak)
@@ -2615,7 +2615,7 @@ ExecHashSkewTableInsert(HashJoinTable hashtable,
 	while (hashtable->spaceUsedSkew > hashtable->spaceAllowedSkew)
 		ExecHashRemoveNextSkewBucket(hashtable);
 
-	/* Check we are not over the total spaceAllowed, either */
+	/* 还要检查我们没有超出总的 spaceAllowed    */
 	if (hashtable->spaceUsed > hashtable->spaceAllowed)
 		ExecHashIncreaseNumBatches(hashtable);
 
@@ -2626,8 +2626,8 @@ ExecHashSkewTableInsert(HashJoinTable hashtable,
 /*
  *		ExecHashRemoveNextSkewBucket
  *
- *		Remove the least valuable skew bucket by pushing its tuples into
- *		the main hash table.
+ *		通过把其元组推入主哈希表，移除价值最低的    
+ *		倾斜桶。        
  */
 static void
 ExecHashRemoveNextSkewBucket(HashJoinTable hashtable)
@@ -2639,20 +2639,20 @@ ExecHashRemoveNextSkewBucket(HashJoinTable hashtable)
 	int			batchno;
 	HashJoinTuple hashTuple;
 
-	/* Locate the bucket to remove */
+	/* 找到要移除的桶       */
 	bucketToRemove = hashtable->skewBucketNums[hashtable->nSkewBuckets - 1];
 	bucket = hashtable->skewBucket[bucketToRemove];
 
 	/*
-	 * Calculate which bucket and batch the tuples belong to in the main
-	 * hashtable.  They all have the same hash value, so it's the same for all
-	 * of them.  Also note that it's not possible for nbatch to increase while
-	 * we are processing the tuples.
+	 * 计算这些元组在主哈希表中属于哪个                 
+	 * 桶和批。它们都有相同的哈希值，因此对                 
+	 * 所有元组都一样。还要注意，处理这些元组时           
+	 * nbatch 不可能增大。    
 	 */
 	hashvalue = bucket->hashvalue;
 	ExecHashGetBucketAndBatch(hashtable, hashvalue, &bucketno, &batchno);
 
-	/* Process all tuples in the bucket */
+	/* 处理该桶中的所有元组   */
 	hashTuple = bucket->tuples;
 	while (hashTuple != NULL)
 	{
@@ -2661,22 +2661,22 @@ ExecHashRemoveNextSkewBucket(HashJoinTable hashtable)
 		Size		tupleSize;
 
 		/*
-		 * This code must agree with ExecHashTableInsert.  We do not use
-		 * ExecHashTableInsert directly as ExecHashTableInsert expects a
-		 * TupleTableSlot while we already have HashJoinTuples.
+		 * 此代码必须与 ExecHashTableInsert 保持一致。       
+		 * 我们不直接用 ExecHashTableInsert，因为它           
+		 * 要的是 TupleTableSlot，现有 HashJoinTuple。  
 		 */
 		tuple = HJTUPLE_MINTUPLE(hashTuple);
 		tupleSize = HJTUPLE_OVERHEAD + tuple->t_len;
 
-		/* Decide whether to put the tuple in the hash table or a temp file */
+		/* 决定把元组放入哈希表还是临时文件                 */
 		if (batchno == hashtable->curbatch)
 		{
-			/* Move the tuple to the main hash table */
+			/* 把元组移入主哈希表           */
 			HashJoinTuple copyTuple;
 
 			/*
-			 * We must copy the tuple into the dense storage, else it will not
-			 * be found by, eg, ExecHashIncreaseNumBatches.
+			 * 必须把元组复制到稠密存储，否则诸如            
+			 * ExecHashIncreaseNumBatches 找不到它。  
 			 */
 			copyTuple = (HashJoinTuple) dense_alloc(hashtable, tupleSize);
 			memcpy(copyTuple, hashTuple, tupleSize);
@@ -2685,12 +2685,12 @@ ExecHashRemoveNextSkewBucket(HashJoinTable hashtable)
 			copyTuple->next.unshared = hashtable->buckets.unshared[bucketno];
 			hashtable->buckets.unshared[bucketno] = copyTuple;
 
-			/* We have reduced skew space, but overall space doesn't change */
+			/* 已缩减倾斜空间，但总空间不变                   */
 			hashtable->spaceUsedSkew -= tupleSize;
 		}
 		else
 		{
-			/* Put the tuple into a temp file for later batches */
+			/* 把元组放入临时文件留给后续批次    */
 			Assert(batchno > hashtable->curbatch);
 			ExecHashJoinSaveTuple(tuple, hashvalue,
 								  &hashtable->innerBatchFile[batchno],
@@ -2702,21 +2702,21 @@ ExecHashRemoveNextSkewBucket(HashJoinTable hashtable)
 
 		hashTuple = nextHashTuple;
 
-		/* allow this loop to be cancellable */
+		/* 允许此循环可被取消       */
 		CHECK_FOR_INTERRUPTS();
 	}
 
 	/*
-	 * Free the bucket struct itself and reset the hashtable entry to NULL.
+	 * 释放桶结构本身，并把哈希表条目重置为 NULL。      
 	 *
-	 * NOTE: this is not nearly as simple as it looks on the surface, because
-	 * of the possibility of collisions in the hashtable.  Suppose that hash
-	 * values A and B collide at a particular hashtable entry, and that A was
-	 * entered first so B gets shifted to a different table entry.  If we were
-	 * to remove A first then ExecHashGetSkewBucket would mistakenly start
-	 * reporting that B is not in the hashtable, because it would hit the NULL
-	 * before finding B.  However, we always remove entries in the reverse
-	 * order of creation, so this failure cannot happen.
+	 * 注意：这远不像表面上看起来那么简单，因为          
+	 * 哈希表中可能发生冲突。假设哈希值 A 和 B             
+	 * 在某一哈希表条目处冲突，且 A 先插入，于是 B        
+	 * 被移到了另一处条目。如果我们先移除 A，               
+	 * 那么 ExecHashGetSkewBucket 就会错误地开始                 
+	 * 报告 B 不在哈希表中，因为它会先命中 NULL               
+	 * 而后才找到 B。不过，我们总是按创建的相反        
+	 * 顺序移除，故此错误不可能发生。    
 	 */
 	hashtable->skewBucket[bucketToRemove] = NULL;
 	hashtable->nSkewBuckets--;
@@ -2725,8 +2725,8 @@ ExecHashRemoveNextSkewBucket(HashJoinTable hashtable)
 	hashtable->spaceUsedSkew -= SKEW_BUCKET_OVERHEAD;
 
 	/*
-	 * If we have removed all skew buckets then give up on skew optimization.
-	 * Release the arrays since they aren't useful any more.
+	 * 如果我们移除了所有倾斜桶，就放弃倾斜优化。       
+	 * 释放这些数组，因为它们已不再有用。  
 	 */
 	if (hashtable->nSkewBuckets == 0)
 	{
@@ -2741,14 +2741,14 @@ ExecHashRemoveNextSkewBucket(HashJoinTable hashtable)
 }
 
 /*
- * Reserve space in the DSM segment for instrumentation data.
+ * 在 DSM 段中为 instrumentation 数据预留空间。   
  */
 void
 ExecHashEstimate(HashState *node, ParallelContext *pcxt)
 {
 	size_t		size;
 
-	/* don't need this if not instrumenting or no workers */
+	/* 不做 instrumentation 或无 worker 时不需要  */
 	if (!node->ps.instrument || pcxt->nworkers == 0)
 		return;
 
@@ -2759,15 +2759,15 @@ ExecHashEstimate(HashState *node, ParallelContext *pcxt)
 }
 
 /*
- * Set up a space in the DSM for all workers to record instrumentation data
- * about their hash table.
+ * 在 DSM 中设一块空间，供所有 worker 记录 instrumentation    
+ * 哈希表数据。     
  */
 void
 ExecHashInitializeDSM(HashState *node, ParallelContext *pcxt)
 {
 	size_t		size;
 
-	/* don't need this if not instrumenting or no workers */
+	/* 不做 instrumentation 或无 worker 时不需要  */
 	if (!node->ps.instrument || pcxt->nworkers == 0)
 		return;
 
@@ -2775,7 +2775,7 @@ ExecHashInitializeDSM(HashState *node, ParallelContext *pcxt)
 		pcxt->nworkers * sizeof(HashInstrumentation);
 	node->shared_info = (SharedHashInfo *) shm_toc_allocate(pcxt->toc, size);
 
-	/* Each per-worker area must start out as zeroes. */
+	/* 每个工作者区域必须初始为零。     */
 	memset(node->shared_info, 0, size);
 
 	node->shared_info->num_workers = pcxt->nworkers;
@@ -2784,22 +2784,22 @@ ExecHashInitializeDSM(HashState *node, ParallelContext *pcxt)
 }
 
 /*
- * Locate the DSM space for hash table instrumentation data that we'll write
- * to at shutdown time.
+ * 找到哈希表 instrumentation 数据的 DSM 空间，我们在         
+ * 关闭时写入。  
  */
 void
 ExecHashInitializeWorker(HashState *node, ParallelWorkerContext *pwcxt)
 {
 	SharedHashInfo *shared_info;
 
-	/* don't need this if not instrumenting */
+	/* 无 instrumentation 时不需要     */
 	if (!node->ps.instrument)
 		return;
 
 	/*
-	 * Find our entry in the shared area, and set up a pointer to it so that
-	 * we'll accumulate stats there when shutting down or rebuilding the hash
-	 * table.
+	 * 在共享区中找到我们的条目，并设置指向它的指针，
+	 * 以便在关闭或重建哈希表时把统计累积到其             
+	 * 中。
 	 */
 	shared_info = (SharedHashInfo *)
 		shm_toc_lookup(pwcxt->toc, node->ps.plan->plan_node_id, false);
@@ -2807,26 +2807,26 @@ ExecHashInitializeWorker(HashState *node, ParallelWorkerContext *pwcxt)
 }
 
 /*
- * Collect EXPLAIN stats if needed, saving them into DSM memory if
- * ExecHashInitializeWorker was called, or local storage if not.  In the
- * parallel case, this must be done in ExecShutdownHash() rather than
- * ExecEndHash() because the latter runs after we've detached from the DSM
- * segment.
+ * 如需要则收集 EXPLAIN 统计，若曾调用过            
+ * ExecHashInitializeWorker 就存入 DSM 内存，否则               
+ * 存入本地存储。并行场景下，这一步必须在         
+ * ExecShutdownHash() 而非 ExecEndHash() 中做，因后者已脱离 DSM
+ * 段。  
  */
 void
 ExecShutdownHash(HashState *node)
 {
-	/* Allocate save space if EXPLAIN'ing and we didn't do so already */
+	/* 若是 EXPLAIN 且尚未分配保存空间，则进行分配   */
 	if (node->ps.instrument && !node->hinstrument)
 		node->hinstrument = palloc0_object(HashInstrumentation);
-	/* Now accumulate data for the current (final) hash table */
+	/* 现在为当前（最终）哈希表累积数据       */
 	if (node->hinstrument && node->hashtable)
 		ExecHashAccumInstrumentation(node->hinstrument, node->hashtable);
 }
 
 /*
- * Retrieve instrumentation data from workers before the DSM segment is
- * detached, so that EXPLAIN can access it.
+ * 在 DSM 段分离之前取回各 worker 的 instrumentation         
+ * 数据，供 EXPLAIN 访问。          
  */
 void
 ExecHashRetrieveInstrumentation(HashState *node)
@@ -2837,7 +2837,7 @@ ExecHashRetrieveInstrumentation(HashState *node)
 	if (shared_info == NULL)
 		return;
 
-	/* Replace node->shared_info with a copy in backend-local memory. */
+	/* 用后端本地内存中的副本替换 node->shared_info。   */
 	size = offsetof(SharedHashInfo, hinstrument) +
 		shared_info->num_workers * sizeof(HashInstrumentation);
 	node->shared_info = palloc(size);
@@ -2845,19 +2845,19 @@ ExecHashRetrieveInstrumentation(HashState *node)
 }
 
 /*
- * Accumulate instrumentation data from 'hashtable' into an
- * initially-zeroed HashInstrumentation struct.
+ * 把 'hashtable' 的 instrumentation 数据累积到     
+ * 初始清零的 HashInstrumentation。      
  *
- * This is used to merge information across successive hash table instances
- * within a single plan node.  We take the maximum values of each interesting
- * number.  The largest nbuckets and largest nbatch values might have occurred
- * in different instances, so there's some risk of confusion from reporting
- * unrelated numbers; but there's a bigger risk of misdiagnosing a performance
- * issue if we don't report the largest values.  Similarly, we want to report
- * the largest spacePeak regardless of whether it happened in the same
- * instance as the largest nbuckets or nbatch.  All the instances should have
- * the same nbuckets_original and nbatch_original; but there's little value
- * in depending on that here, so handle them the same way.
+ * 这用于在单个计划节点内的多个相继哈希表实例         
+ * 之间合并信息。我们对每个关键数字取最大值。           
+ * 最大的 nbuckets 与最大的 nbatch 可能出现在不同               
+ * 实例中，因此把它们一起报告会有混淆的风险；         
+ * 但若不报告最大值，误诊性能问题的风险更大。            
+ * 同样，无论最大 spacePeak 是否发生在与最大                  
+ * nbuckets 或 nbatch 相同的实例中，我们也要报告它。  
+ * 所有实例的 nbuckets_original 与 nbatch_original 应当              
+ * 相同；但在这里依赖它没什么价值，所以对它们         
+ * 也一视同仁地处理。                            
  */
 void
 ExecHashAccumInstrumentation(HashInstrumentation *instrument,
@@ -2876,7 +2876,7 @@ ExecHashAccumInstrumentation(HashInstrumentation *instrument,
 }
 
 /*
- * Allocate 'size' bytes from the currently active HashMemoryChunk
+ * 从当前活动的 HashMemoryChunk 分配 'size' 字节。     
  */
 static void *
 dense_alloc(HashJoinTable hashtable, Size size)
@@ -2884,15 +2884,15 @@ dense_alloc(HashJoinTable hashtable, Size size)
 	HashMemoryChunk newChunk;
 	char	   *ptr;
 
-	/* just in case the size is not already aligned properly */
+	/* 以防大小尚未按正确方式对齐               */
 	size = MAXALIGN(size);
 
 	/*
-	 * If tuple size is larger than threshold, allocate a separate chunk.
+	 * 若元组大小超过阈值，就单独分配一个内存块。   
 	 */
 	if (size > HASH_CHUNK_THRESHOLD)
 	{
-		/* allocate new chunk and put it at the beginning of the list */
+		/* 分配新内存块并将其置于链表开头              */
 		newChunk = (HashMemoryChunk) MemoryContextAlloc(hashtable->batchCxt,
 														HASH_CHUNK_HEADER_SIZE + size);
 		newChunk->maxlen = size;
@@ -2900,8 +2900,8 @@ dense_alloc(HashJoinTable hashtable, Size size)
 		newChunk->ntuples = 1;
 
 		/*
-		 * Add this chunk to the list after the first existing chunk, so that
-		 * we don't lose the remaining space in the "current" chunk.
+		 * 把该内存块加到首个现存内存块之后，这样         
+		 * 就不会丢失"current"内存块中的剩余空间。   
 		 */
 		if (hashtable->chunks != NULL)
 		{
@@ -2918,13 +2918,13 @@ dense_alloc(HashJoinTable hashtable, Size size)
 	}
 
 	/*
-	 * See if we have enough space for it in the current chunk (if any). If
-	 * not, allocate a fresh chunk.
+	 * 看看当前内存块（若有）中是否尚有足够空间，     
+	 * 没有则分配新块。    
 	 */
 	if ((hashtable->chunks == NULL) ||
 		(hashtable->chunks->maxlen - hashtable->chunks->used) < size)
 	{
-		/* allocate new chunk and put it at the beginning of the list */
+		/* 分配新内存块并将其置于链表开头              */
 		newChunk = (HashMemoryChunk) MemoryContextAlloc(hashtable->batchCxt,
 														HASH_CHUNK_HEADER_SIZE + HASH_CHUNK_SIZE);
 
@@ -2938,25 +2938,25 @@ dense_alloc(HashJoinTable hashtable, Size size)
 		return HASH_CHUNK_DATA(newChunk);
 	}
 
-	/* There is enough space in the current chunk, let's add the tuple */
+	/* 当前内存块中还有足够空间，把元组加进来       */
 	ptr = HASH_CHUNK_DATA(hashtable->chunks) + hashtable->chunks->used;
 	hashtable->chunks->used += size;
 	hashtable->chunks->ntuples += 1;
 
-	/* return pointer to the start of the tuple memory */
+	/* 返回指向元组内存起始处的指针      */
 	return ptr;
 }
 
 /*
- * Allocate space for a tuple in shared dense storage.  This is equivalent to
- * dense_alloc but for Parallel Hash using shared memory.
+ * 在共享稠密存储中为一个元组分配空间。这等价于        
+ * dense_alloc，但用于共享内存的并行哈希。 
  *
- * While loading a tuple into shared memory, we might run out of memory and
- * decide to repartition, or determine that the load factor is too high and
- * decide to expand the bucket array, or discover that another participant has
- * commanded us to help do that.  Return NULL if number of buckets or batches
- * has changed, indicating that the caller must retry (considering the
- * possibility that the tuple no longer belongs in the same batch).
+ * 在向共享内存载入元组时，我们可能耗尽内存并         
+ * 决定重新分区，或者发现负载因子过高而决定            
+ * 扩充桶数组，或者发现另一参与者已命令我们               
+ * 协助做这件事。若桶数或批数已改变则返回                 
+ * NULL，表示调用者必须重试（要考虑元组可能         
+ * 已不再属于同一批）。                                  
  */
 static HashJoinTuple
 ExecParallelHashTupleAlloc(HashJoinTable hashtable, size_t size,
@@ -2972,8 +2972,8 @@ ExecParallelHashTupleAlloc(HashJoinTable hashtable, size_t size,
 	size = MAXALIGN(size);
 
 	/*
-	 * Fast path: if there is enough space in this backend's current chunk,
-	 * then we can allocate without any locking.
+	 * 快速路径：若本后端的当前内存块中空间足够，     
+	 * 则无需加锁即可分配。           
 	 */
 	chunk = hashtable->current_chunk;
 	if (chunk != NULL &&
@@ -2993,11 +2993,11 @@ ExecParallelHashTupleAlloc(HashJoinTable hashtable, size_t size,
 		return result;
 	}
 
-	/* Slow path: try to allocate a new chunk. */
+	/* 慢路径：尝试分配新内存块。 */
 	LWLockAcquire(&pstate->lock, LW_EXCLUSIVE);
 
 	/*
-	 * Check if we need to help increase the number of buckets or batches.
+	 * 检查是否需要协助增加桶数或批数。                   
 	 */
 	if (pstate->growth == PHJ_GROWTH_NEED_MORE_BATCHES ||
 		pstate->growth == PHJ_GROWTH_NEED_MORE_BUCKETS)
@@ -3007,32 +3007,32 @@ ExecParallelHashTupleAlloc(HashJoinTable hashtable, size_t size,
 		hashtable->current_chunk = NULL;
 		LWLockRelease(&pstate->lock);
 
-		/* Another participant has commanded us to help grow. */
+		/* 另一参与者已命令我们协助扩充。      */
 		if (growth == PHJ_GROWTH_NEED_MORE_BATCHES)
 			ExecParallelHashIncreaseNumBatches(hashtable);
 		else if (growth == PHJ_GROWTH_NEED_MORE_BUCKETS)
 			ExecParallelHashIncreaseNumBuckets(hashtable);
 
-		/* The caller must retry. */
+		/* 调用者须重试。  */
 		return NULL;
 	}
 
-	/* Oversized tuples get their own chunk. */
+	/* 超大元组有专用内存块。     */
 	if (size > HASH_CHUNK_THRESHOLD)
 		chunk_size = size + HASH_CHUNK_HEADER_SIZE;
 	else
 		chunk_size = HASH_CHUNK_SIZE;
 
-	/* Check if it's time to grow batches or buckets. */
+	/* 检查是否到了扩充批或桶的时候。  */
 	if (pstate->growth != PHJ_GROWTH_DISABLED)
 	{
 		Assert(curbatch == 0);
 		Assert(BarrierPhase(&pstate->build_barrier) == PHJ_BUILD_HASH_INNER);
 
 		/*
-		 * Check if our space limit would be exceeded.  To avoid choking on
-		 * very large tuples or very low hash_mem setting, we'll always allow
-		 * each backend to allocate at least one chunk.
+		 * 检查是否会超出我们的空间限制。为避免在       
+		 * 特大元组或极低 hash_mem 设置而卡住，我们           
+		 * 总允许每后端至少一个内存块。  
 		 */
 		if (hashtable->batches[0].at_least_one_chunk &&
 			hashtable->batches[0].shared->size +
@@ -3045,12 +3045,12 @@ ExecParallelHashTupleAlloc(HashJoinTable hashtable, size_t size,
 			return NULL;
 		}
 
-		/* Check if our load factor limit would be exceeded. */
+		/* 检查是否超出我们的负载因子限制。  */
 		if (hashtable->nbatch == 1)
 		{
 			hashtable->batches[0].shared->ntuples += hashtable->batches[0].ntuples;
 			hashtable->batches[0].ntuples = 0;
-			/* Guard against integer overflow and alloc size overflow */
+			/* 防范整数溢出以及分配大小溢出             */
 			if (hashtable->batches[0].shared->ntuples + 1 >
 				hashtable->nbuckets * NTUP_PER_BUCKET &&
 				hashtable->nbuckets < (INT_MAX / 2) &&
@@ -3065,21 +3065,21 @@ ExecParallelHashTupleAlloc(HashJoinTable hashtable, size_t size,
 		}
 	}
 
-	/* We are cleared to allocate a new chunk. */
+	/* 我们已获准分配新内存块。    */
 	chunk_shared = dsa_allocate(hashtable->area, chunk_size);
 	hashtable->batches[curbatch].shared->size += chunk_size;
 	hashtable->batches[curbatch].at_least_one_chunk = true;
 
-	/* Set up the chunk. */
+	/* 设置内存块。*/
 	chunk = (HashMemoryChunk) dsa_get_address(hashtable->area, chunk_shared);
 	*shared = chunk_shared + HASH_CHUNK_HEADER_SIZE;
 	chunk->maxlen = chunk_size - HASH_CHUNK_HEADER_SIZE;
 	chunk->used = size;
 
 	/*
-	 * Push it onto the list of chunks, so that it can be found if we need to
-	 * increase the number of buckets or batches (batch 0 only) and later for
-	 * freeing the memory (all batches).
+	 * 把它推入内存块链表，这样以后需要增加桶数          
+	 * 或批数时（仅批 0）能够找到它，之后也便于           
+	 * 释放内存（所有批）。   
 	 */
 	chunk->next.shared = hashtable->batches[curbatch].shared->chunks;
 	hashtable->batches[curbatch].shared->chunks = chunk_shared;
@@ -3087,8 +3087,8 @@ ExecParallelHashTupleAlloc(HashJoinTable hashtable, size_t size,
 	if (size <= HASH_CHUNK_THRESHOLD)
 	{
 		/*
-		 * Make this the current chunk so that we can use the fast path to
-		 * fill the rest of it up in future calls.
+		 * 把它设为当前内存块，这样后续调用就能走      
+		 * 快速路径来填满其余部分。   
 		 */
 		hashtable->current_chunk = chunk;
 		hashtable->current_chunk_shared = chunk_shared;
@@ -3102,9 +3102,9 @@ ExecParallelHashTupleAlloc(HashJoinTable hashtable, size_t size,
 }
 
 /*
- * One backend needs to set up the shared batch state including tuplestores.
- * Other backends will ensure they have correctly configured accessors by
- * called ExecParallelHashEnsureBatchAccessors().
+ * 需要由一个后端来建立共享批状态，包括元组             
+ * 存储。其他后端会调用它确保访问器配置正确：       
+ * ExecParallelHashEnsureBatchAccessors()。     
  */
 static void
 ExecParallelHashJoinSetUpBatches(HashJoinTable hashtable, int nbatch)
@@ -3116,7 +3116,7 @@ ExecParallelHashJoinSetUpBatches(HashJoinTable hashtable, int nbatch)
 
 	Assert(hashtable->batches == NULL);
 
-	/* Allocate space. */
+	/* 分配空间。 */
 	pstate->batches =
 		dsa_allocate0(hashtable->area,
 					  EstimateParallelHashJoinBatch(hashtable) * nbatch);
@@ -3124,17 +3124,17 @@ ExecParallelHashJoinSetUpBatches(HashJoinTable hashtable, int nbatch)
 	batches = dsa_get_address(hashtable->area, pstate->batches);
 
 	/*
-	 * Use hash join spill memory context to allocate accessors, including
-	 * buffers for the temporary files.
+	 * 用哈希连接溢出内存上下文来分配访问器，包括    
+	 * 临时文件的缓冲区。     
 	 */
 	oldcxt = MemoryContextSwitchTo(hashtable->spillCxt);
 
-	/* Allocate this backend's accessor array. */
+	/* 分配本后端的访问器数组。    */
 	hashtable->nbatch = nbatch;
 	hashtable->batches =
 		palloc0_array(ParallelHashJoinBatchAccessor, hashtable->nbatch);
 
-	/* Set up the shared state, tuplestores and backend-local accessors. */
+	/* 设置共享状态、元组存储以及后端本地访问器。   */
 	for (i = 0; i < hashtable->nbatch; ++i)
 	{
 		ParallelHashJoinBatchAccessor *accessor = &hashtable->batches[i];
@@ -3142,23 +3142,23 @@ ExecParallelHashJoinSetUpBatches(HashJoinTable hashtable, int nbatch)
 		char		name[MAXPGPATH];
 
 		/*
-		 * All members of shared were zero-initialized.  We just need to set
-		 * up the Barrier.
+		 * shared 的所有成员均已清零。只需设置                
+		 * Barrier。     
 		 */
 		BarrierInit(&shared->batch_barrier, 0);
 		if (i == 0)
 		{
-			/* Batch 0 doesn't need to be loaded. */
+			/* 批 0 无需载入。              */
 			BarrierAttach(&shared->batch_barrier);
 			while (BarrierPhase(&shared->batch_barrier) < PHJ_BATCH_PROBE)
 				BarrierArriveAndWait(&shared->batch_barrier, 0);
 			BarrierDetach(&shared->batch_barrier);
 		}
 
-		/* Initialize accessor state.  All members were zero-initialized. */
+		/* 初始化访问器状态。所有成员均已初始化为零。*/
 		accessor->shared = shared;
 
-		/* Initialize the shared tuplestores. */
+		/* 初始化共享元组存储。     */
 		snprintf(name, sizeof(name), "i%dof%d", i, hashtable->nbatch);
 		accessor->inner_tuples =
 			sts_initialize(ParallelHashJoinBatchInner(shared),
@@ -3184,7 +3184,7 @@ ExecParallelHashJoinSetUpBatches(HashJoinTable hashtable, int nbatch)
 }
 
 /*
- * Free the current set of ParallelHashJoinBatchAccessor objects.
+ * 释放当前的这组 ParallelHashJoinBatchAccessor 对象。 
  */
 static void
 ExecParallelHashCloseBatchAccessors(HashJoinTable hashtable)
@@ -3193,7 +3193,7 @@ ExecParallelHashCloseBatchAccessors(HashJoinTable hashtable)
 
 	for (i = 0; i < hashtable->nbatch; ++i)
 	{
-		/* Make sure no files are left open. */
+		/* 确保无文件保持打开。    */
 		sts_end_write(hashtable->batches[i].inner_tuples);
 		sts_end_write(hashtable->batches[i].outer_tuples);
 		sts_end_parallel_scan(hashtable->batches[i].inner_tuples);
@@ -3204,8 +3204,8 @@ ExecParallelHashCloseBatchAccessors(HashJoinTable hashtable)
 }
 
 /*
- * Make sure this backend has up-to-date accessors for the current set of
- * batches.
+ * 确保本后端对当前这组批拥有最新的访问                
+ * 器。  
  */
 static void
 ExecParallelHashEnsureBatchAccessors(HashJoinTable hashtable)
@@ -3223,28 +3223,28 @@ ExecParallelHashEnsureBatchAccessors(HashJoinTable hashtable)
 	}
 
 	/*
-	 * We should never see a state where the batch-tracking array is freed,
-	 * because we should have given up sooner if we join when the build
-	 * barrier has reached the PHJ_BUILD_FREE phase.
+	 * 批跟踪数组已被释放的状态是我们绝不该看到        
+	 * 的，因为如果我们在构建屏障进入 PHJ_BUILD_FREE    
+	 * 阶段时才加入，本应更早放弃。   
 	 */
 	Assert(DsaPointerIsValid(pstate->batches));
 
 	/*
-	 * Use hash join spill memory context to allocate accessors, including
-	 * buffers for the temporary files.
+	 * 用哈希连接溢出内存上下文来分配访问器，包括    
+	 * 临时文件的缓冲区。     
 	 */
 	oldcxt = MemoryContextSwitchTo(hashtable->spillCxt);
 
-	/* Allocate this backend's accessor array. */
+	/* 分配本后端的访问器数组。    */
 	hashtable->nbatch = pstate->nbatch;
 	hashtable->batches =
 		palloc0_array(ParallelHashJoinBatchAccessor, hashtable->nbatch);
 
-	/* Find the base of the pseudo-array of ParallelHashJoinBatch objects. */
+	/* 找到 ParallelHashJoinBatch 对象伪数组的基址。            */
 	batches = (ParallelHashJoinBatch *)
 		dsa_get_address(hashtable->area, pstate->batches);
 
-	/* Set up the accessor array and attach to the tuplestores. */
+	/* 设置访问器数组并附着到元组存储。         */
 	for (i = 0; i < hashtable->nbatch; ++i)
 	{
 		ParallelHashJoinBatchAccessor *accessor = &hashtable->batches[i];
@@ -3269,7 +3269,7 @@ ExecParallelHashEnsureBatchAccessors(HashJoinTable hashtable)
 }
 
 /*
- * Allocate an empty shared memory hash table for a given batch.
+ * 为给定批分配一个空的共享内存哈希表。       
  */
 void
 ExecParallelHashTableAlloc(HashJoinTable hashtable, int batchno)
@@ -3288,8 +3288,8 @@ ExecParallelHashTableAlloc(HashJoinTable hashtable, int batchno)
 }
 
 /*
- * If we are currently attached to a shared hash join batch, detach.  If we
- * are last to detach, clean up.
+ * 若我们当前附着于共享哈希连接批，则脱离；            
+ * 若最后脱离则清理。  
  */
 void
 ExecHashTableDetachBatch(HashJoinTable hashtable)
@@ -3301,55 +3301,55 @@ ExecHashTableDetachBatch(HashJoinTable hashtable)
 		ParallelHashJoinBatch *batch = hashtable->batches[curbatch].shared;
 		bool		attached = true;
 
-		/* Make sure any temporary files are closed. */
+		/* 确保所有临时文件都已关闭。   */
 		sts_end_parallel_scan(hashtable->batches[curbatch].inner_tuples);
 		sts_end_parallel_scan(hashtable->batches[curbatch].outer_tuples);
 
-		/* After attaching we always get at least to PHJ_BATCH_PROBE. */
+		/* 附着之后我们至少总能到达 PHJ_BATCH_PROBE。    */
 		Assert(BarrierPhase(&batch->batch_barrier) == PHJ_BATCH_PROBE ||
 			   BarrierPhase(&batch->batch_barrier) == PHJ_BATCH_SCAN);
 
 		/*
-		 * If we're abandoning the PHJ_BATCH_PROBE phase early without having
-		 * reached the end of it, it means the plan doesn't want any more
-		 * tuples, and it is happy to abandon any tuples buffered in this
-		 * process's subplans.  For correctness, we can't allow any process to
-		 * execute the PHJ_BATCH_SCAN phase, because we will never have the
-		 * complete set of match bits.  Therefore we skip emitting unmatched
-		 * tuples in all backends (if this is a full/right join), as if those
-		 * tuples were all due to be emitted by this process and it has
-		 * abandoned them too.
+		 * 如果我们在尚未走完 PHJ_BATCH_PROBE 阶段时就          
+		 * 提前放弃它，意味着计划不再想要更多元组，  
+		 * 并且乐于放弃缓冲在本进程子计划中的元组。  
+		 * 为了正确性，我们不能允许任何进程执行             
+		 * PHJ_BATCH_SCAN 阶段，因为我们永远不会有完整       
+		 * 的匹配位集合。因此我们在所有后端中都跳过     
+		 * 发出不匹配的元组（如果这是全/右连接），仿佛  
+		 * 这些元组本该全部由本进程发出，而它也放弃
+		 * 了它们。       
 		 */
 		if (BarrierPhase(&batch->batch_barrier) == PHJ_BATCH_PROBE &&
 			!hashtable->batches[curbatch].outer_eof)
 		{
 			/*
-			 * This flag may be written to by multiple backends during
-			 * PHJ_BATCH_PROBE phase, but will only be read in PHJ_BATCH_SCAN
-			 * phase so requires no extra locking.
+			 * PHJ_BATCH_PROBE 期间，多个后端都可能写入   
+			 * 此标志，但只在 PHJ_BATCH_SCAN 阶段读取，故       
+			 * 无需额外加锁。              
 			 */
 			batch->skip_unmatched = true;
 		}
 
 		/*
-		 * Even if we aren't doing a full/right outer join, we'll step through
-		 * the PHJ_BATCH_SCAN phase just to maintain the invariant that
-		 * freeing happens in PHJ_BATCH_FREE, but that'll be wait-free.
+		 * 即使我们不做全/右外连接，也要走一遍               
+		 * PHJ_BATCH_SCAN 阶段，以维持"在 PHJ_BATCH_FREE        
+		 * 中释放的不变量"，但那将是无等待的。        
 		 */
 		if (BarrierPhase(&batch->batch_barrier) == PHJ_BATCH_PROBE)
 			attached = BarrierArriveAndDetachExceptLast(&batch->batch_barrier);
 		if (attached && BarrierArriveAndDetach(&batch->batch_barrier))
 		{
 			/*
-			 * We are not longer attached to the batch barrier, but we're the
-			 * process that was chosen to free resources and it's safe to
-			 * assert the current phase.  The ParallelHashJoinBatch can't go
-			 * away underneath us while we are attached to the build barrier,
-			 * making this access safe.
+			 * 我们已不再附着于批屏障，但我们是被选中     
+			 * 释放资源的进程，此时断言当前阶段是安全 
+			 * 的。只要我们仍附着于构建屏障，                
+			 * ParallelHashJoinBatch 就不会在我们脚下消失，       
+			 * 故此访问安全。   
 			 */
 			Assert(BarrierPhase(&batch->batch_barrier) == PHJ_BATCH_FREE);
 
-			/* Free shared chunks and buckets. */
+			/* 释放共享内存块和桶。  */
 			while (DsaPointerIsValid(batch->chunks))
 			{
 				HashMemoryChunk chunk =
@@ -3367,21 +3367,21 @@ ExecHashTableDetachBatch(HashJoinTable hashtable)
 		}
 
 		/*
-		 * Track the largest batch we've been attached to.  Though each
-		 * backend might see a different subset of batches, explain.c will
-		 * scan the results from all backends to find the largest value.
+		 * 记录我们附着过的最大批次。虽然每个后端   
+		 * 看到的批次子集可能不同，explain.c 将扫描        
+		 * 所有后端的结果来找最大值。                      
 		 */
 		hashtable->spacePeak =
 			Max(hashtable->spacePeak,
 				batch->size + sizeof(dsa_pointer_atomic) * hashtable->nbuckets);
 
-		/* Remember that we are not attached to a batch. */
+		/* 记住我们未附着于任何批。          */
 		hashtable->curbatch = -1;
 	}
 }
 
 /*
- * Detach from all shared resources.  If we are last to detach, clean up.
+ * 脱离所有共享资源。若我们是最后脱离的，则清理。 
  */
 void
 ExecHashTableDetach(HashJoinTable hashtable)
@@ -3389,8 +3389,8 @@ ExecHashTableDetach(HashJoinTable hashtable)
 	ParallelHashJoinState *pstate = hashtable->parallel_state;
 
 	/*
-	 * If we're involved in a parallel query, we must either have gotten all
-	 * the way to PHJ_BUILD_RUN, or joined too late and be in PHJ_BUILD_FREE.
+	 * 如果我们参与了并行查询，那么要么已一路走到      
+	 * PHJ_BUILD_RUN，要么加入太晚而处于 PHJ_BUILD_FREE。         
 	 */
 	Assert(!pstate ||
 		   BarrierPhase(&pstate->build_barrier) >= PHJ_BUILD_RUN);
@@ -3399,7 +3399,7 @@ ExecHashTableDetach(HashJoinTable hashtable)
 	{
 		int			i;
 
-		/* Make sure any temporary files are closed. */
+		/* 确保所有临时文件都已关闭。   */
 		if (hashtable->batches)
 		{
 			for (i = 0; i < hashtable->nbatch; ++i)
@@ -3411,12 +3411,12 @@ ExecHashTableDetach(HashJoinTable hashtable)
 			}
 		}
 
-		/* If we're last to detach, clean up shared memory. */
+		/* 若最后脱离，则清理共享内存。       */
 		if (BarrierArriveAndDetach(&pstate->build_barrier))
 		{
 			/*
-			 * Late joining processes will see this state and give up
-			 * immediately.
+			 * 较晚加入的进程会看到这一状态并立      
+			 * 即放弃。
 			 */
 			Assert(BarrierPhase(&pstate->build_barrier) == PHJ_BUILD_FREE);
 
@@ -3431,7 +3431,7 @@ ExecHashTableDetach(HashJoinTable hashtable)
 }
 
 /*
- * Get the first tuple in a given bucket identified by number.
+ * 获取编号所标识的给定桶中的第一个元组。  
  */
 static inline HashJoinTuple
 ExecParallelHashFirstTuple(HashJoinTable hashtable, int bucketno)
@@ -3447,7 +3447,7 @@ ExecParallelHashFirstTuple(HashJoinTable hashtable, int bucketno)
 }
 
 /*
- * Get the next tuple in the same bucket as 'tuple'.
+ * 取 'tuple' 所在桶中的下一个元组。    
  */
 static inline HashJoinTuple
 ExecParallelHashNextTuple(HashJoinTable hashtable, HashJoinTuple tuple)
@@ -3461,7 +3461,7 @@ ExecParallelHashNextTuple(HashJoinTable hashtable, HashJoinTuple tuple)
 }
 
 /*
- * Insert a tuple at the front of a chain of tuples in DSA memory atomically.
+ * 把一个元组以原子方式插入 DSA 内存中的元组链头部。   
  */
 static inline void
 ExecParallelHashPushTuple(dsa_pointer_atomic *head,
@@ -3479,7 +3479,7 @@ ExecParallelHashPushTuple(dsa_pointer_atomic *head,
 }
 
 /*
- * Prepare to work on a given batch.
+ * 准备处理给定批。         
  */
 void
 ExecParallelHashTableSetCurrentBatch(HashJoinTable hashtable, int batchno)
@@ -3498,9 +3498,9 @@ ExecParallelHashTableSetCurrentBatch(HashJoinTable hashtable, int batchno)
 }
 
 /*
- * Take the next available chunk from the queue of chunks being worked on in
- * parallel.  Return NULL if there are none left.  Otherwise return a pointer
- * to the chunk, and set *shared to the DSA pointer to the chunk.
+ * 从正被并行处理的内存块队列中取出下一个                
+ * 可用内存块；若已没有则返回 NULL，否则返回               
+ * 指向该块的指针，并把 *shared 设为其 DSA 指针。
  */
 static HashMemoryChunk
 ExecParallelHashPopChunkQueue(HashJoinTable hashtable, dsa_pointer *shared)
@@ -3524,24 +3524,24 @@ ExecParallelHashPopChunkQueue(HashJoinTable hashtable, dsa_pointer *shared)
 }
 
 /*
- * Increase the space preallocated in this backend for a given inner batch by
- * at least a given amount.  This allows us to track whether a given batch
- * would fit in memory when loaded back in.  Also increase the number of
- * batches or buckets if required.
+ * 把本后端为给定内关系批预分配的空间至少再              
+ * 增加给定数量。这让我们能跟踪某批重新载入           
+ * 内存时能否装得下。如有需要，还增加批数或         
+ * 桶数。                      
  *
- * This maintains a running estimation of how much space will be taken when we
- * load the batch back into memory by simulating the way chunks will be handed
- * out to workers.  It's not perfectly accurate because the tuples will be
- * packed into memory chunks differently by ExecParallelHashTupleAlloc(), but
- * it should be pretty close.  It tends to overestimate by a fraction of a
- * chunk per worker since all workers gang up to preallocate during hashing,
- * but workers tend to reload batches alone if there are enough to go around,
- * leaving fewer partially filled chunks.  This effect is bounded by
- * nparticipants.
+ * 它模拟内存块将被分发给 worker 的方式，对我们             
+ * 把批重新载入内存时将占用多少空间维持着一               
+ * 个动态估计。这并非完全准确，因为元组打包           
+ * 进内存块的方式会因 ExecParallelHashTupleAlloc()                  
+ * 而有所不同，但应该相当接近。由于所有 worker          
+ * 都在散列期间一起做预分配，故往往会把每个             
+ * worker 高估约一个内存块的几分之一；但如果批             
+ * 数够多，各 worker 往往单独重载，留下较少的半   
+ * 满块。     
  *
- * Return false if the number of batches or buckets has changed, and the
- * caller should reconsider which batch a given tuple now belongs in and call
- * again.
+ * 如果批数或桶数已变化，则返回 false，调用者应当   
+ * 重新考虑给定元组现在属于哪个批，并再次调              
+ * 用。
  */
 static bool
 ExecParallelHashTuplePrealloc(HashJoinTable hashtable, int batchno, size_t size)
@@ -3556,7 +3556,7 @@ ExecParallelHashTuplePrealloc(HashJoinTable hashtable, int batchno, size_t size)
 
 	LWLockAcquire(&pstate->lock, LW_EXCLUSIVE);
 
-	/* Has another participant commanded us to help grow? */
+	/* 是否已有参与者命令我们协助扩充？   */
 	if (pstate->growth == PHJ_GROWTH_NEED_MORE_BATCHES ||
 		pstate->growth == PHJ_GROWTH_NEED_MORE_BUCKETS)
 	{
@@ -3577,8 +3577,8 @@ ExecParallelHashTuplePrealloc(HashJoinTable hashtable, int batchno, size_t size)
 		 > pstate->space_allowed))
 	{
 		/*
-		 * We have determined that this batch would exceed the space budget if
-		 * loaded into memory.  Command all participants to help repartition.
+		 * 我们已判定该批如果载入内存就会超出空间          
+		 * 预算。命令所有参与者协助重新分区。               
 		 */
 		batch->shared->space_exhausted = true;
 		pstate->growth = PHJ_GROWTH_NEED_MORE_BATCHES;
@@ -3596,23 +3596,23 @@ ExecParallelHashTuplePrealloc(HashJoinTable hashtable, int batchno, size_t size)
 }
 
 /*
- * Calculate the limit on how much memory can be used by Hash and similar
- * plan types.  This is work_mem times hash_mem_multiplier, and is
- * expressed in bytes.
+ * 计算 Hash 及类似计划类型可用内存的限制。             
+ * 它等于 work_mem 乘以 hash_mem_multiplier，               
+ * 以字节计。    
  *
- * Exported for use by the planner, as well as other hash-like executor
- * nodes.  This is a rather random place for this, but there is no better
- * place.
+ * 导出供规划器以及其他类哈希执行节点使用。        
+ * 放在这里颇为随意，因为再也找不到更好的地          
+ * 方。
  */
 size_t
 get_hash_memory_limit(void)
 {
 	double		mem_limit;
 
-	/* Do initial calculation in double arithmetic */
+	/* 先用双精度算术做初始计算        */
 	mem_limit = (double) work_mem * hash_mem_multiplier * 1024.0;
 
-	/* Clamp in case it doesn't fit in size_t */
+	/* 以防装不进 size_t 而做钳制    */
 	mem_limit = Min(mem_limit, (double) SIZE_MAX);
 
 	return (size_t) mem_limit;

@@ -249,16 +249,16 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 		 */
 		if (stmt->row)
 		{
-			/* *
-			 * 禁止使用转换表。
+			/*
+			 * 禁止使用转换表。          
 			 *
-			 * 注意我们在分区中对转换表还有另一项限制；
-			 * 搜索下面的 'has_superclass' 以获得解释。这里的检查只是
-			 * 为了防止这种情况：如果我们在此处允许，则对于没有分区
-			 * 的分区表创建会成功，但在创建第一个分区时会被另一项
-			 * 限制阻止，这是非常不友好的行为。
-			 *
-			 *
+			 * 注意，对分区中                                        
+			 * 的转换表还有另一项限制；'has_superclass'   
+			 * 的解释见下方。这里的检查只是为                
+			 * 了防止如下情形：若在此处允许使用转换表，
+			 * 那么对于没有分区的分区表，创建会成功；但 
+			 * 在创建第一个分区时会被另一项限制阻止，  
+			 * 这是非常不友好的行为。 
 			 */
 			if (stmt->transitionRels != NIL)
 				ereport(ERROR,
@@ -270,9 +270,9 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 	}
 	else if (rel->rd_rel->relkind == RELKIND_VIEW)
 	{
-		/* *
-		 * 视图可以具有 INSTEAD OF 触发器（我们在下面检查它们是
-		 * 行级的），或语句级的 BEFORE/AFTER 触发器。
+		/*
+		 * 视图可有 INSTEAD OF 触发器（下面检查其         
+		 * 为行级），或语句级 BEFORE/AFTER 触发器。
 		 */
 		if (stmt->timing != TRIGGER_TYPE_INSTEAD && stmt->row)
 			ereport(ERROR,
@@ -298,10 +298,10 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 							RelationGetRelationName(rel)),
 					 errdetail("Foreign tables cannot have INSTEAD OF triggers.")));
 
-		/* *
-		 * 我们禁止约束触发器以保护 FK 上的触发器
-		 * 不能延迟的假设。参见下面 AfterTriggers 数据结构的注释。
-		 *
+		/*
+		 * 我们禁止约束触发器，以维护 FK 触                
+		 * 发器不可延迟的假设。参见下方 AfterTriggers 数据 
+		 * 结构处的注释。  
 		 */
 		if (stmt->isconstraint)
 			ereport(ERROR,
@@ -325,12 +325,12 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 
 	if (stmt->isconstraint)
 	{
-		/* *
-		 * 我们必须对目标关系加锁以防止并发删除。
-		 * 不确定 AccessShareLock 是否足够强，但我们至少需要这么多……
-		 * 否则，我们可能会创建一个引用不存在的表的
-		 * pg_constraint 条目。
-		 *
+		/*
+		 * 我们必须在目标关系上加锁以防被并发删除。 
+		 * AccessShareLock 是否足够强并不清楚，但我们肯     
+		 * 定至少需要这个程度的锁……否则，我们最终可  
+		 * 能创建出一个引用不存在的表的 pg_constraint 
+		 * 条目。         
 		 */
 		if (OidIsValid(refRelOid))
 		{
@@ -361,11 +361,11 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 		}
 	}
 
-	/* *
-	 * 当在分区表上调用以创建非内部的 FOR EACH ROW 触发器时，
-	 * 我们也为每个分区创建一个触发器。
+	/*
+	 * 当在分区表上调用、要创建非内部的 FOR EACH ROW      
+	 * 触发器时，我们也会为每个分区创建一个触发器。 
 	 *
-	 * 为此，我们最好提前对所有分区加锁。
+	 * 为此，最好提前在所有分区上持有锁。          
 	 */
 	partition_recurse = !isInternal && stmt->row &&
 		rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE;
@@ -403,19 +403,19 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 					 errmsg("INSTEAD OF triggers cannot have column lists")));
 	}
 
-	/* *
-	 * 我们尚不支持命名 ROW 转换变量，但解析器
-	 * 识别该语法，因此我们可以在这里给出更好的提示。
+	/*
+	 * 我们尚不支持 ROW 转换变量命名，但解析器能识别   
+	 * 该语法，以便我们在此给出更友好的消息。 
 	 *
-	 * 根据标准，REFERENCING TABLE 名称仅允许用于 AFTER
-	 * 触发器。根据标准，REFERENCING ROW 名称不允许与 FOR
-	 * EACH STATEMENT 一起使用。根据标准，每个 OLD/NEW、ROW/TABLE 排列
-	 * 只允许使用一次。根据标准，在创建仅用于 INSERT
-	 * 的触发器时不能指定 OLD，在创建仅用于 DELETE 的
-	 * 触发器时不能指定 NEW。
+	 * 按照标准，REFERENCING TABLE 名称仅允许用            
+	 * 于 AFTER 触发器。按照标准，REFERENCING ROW 名称不允许与
+	 * FOR EACH STATEMENT 同用。按照标准，OLD/NEW、ROW/TABLE 的   
+	 * 每种组合只允许出现一次。按照标准，创建仅用
+	 * 于 INSERT 的触发器时不能指定 OLD，创建仅用于 DELETE  
+	 * 的触发器时不能指定 NEW。 
 	 *
-	 * 请注意，标准允许 AFTER ... FOR EACH ROW 触发器同时
-	 * 引用 ROW 和 TABLE 转换数据。
+	 * 请注意，标准允许 AFTER ... FOR EACH ROW 触发              
+	 * 器同时引用 ROW 和 TABLE 转换数据。
 	 */
 	if (stmt->transitionRels != NIL)
 	{
@@ -432,10 +432,10 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 						 errmsg("ROW variable naming in the REFERENCING clause is not supported"),
 						 errhint("Use OLD TABLE or NEW TABLE for naming transition tables.")));
 
-			/* *
-			 * 由于上述测试，我们在下面省略了进一步的 ROW 相关测试。
-			 * 如果以后允许命名 OLD 和 NEW ROW 变量，
-			 * 则需要在下面进行调整。
+			/*
+			 * 由于上面已做过测试，下面省略进一步的        
+			 * ROW 相关测试。如果以后允许为 OLD 和 NEW ROW   
+			 * 变量命名，则需作调整。
 			 */
 
 			if (rel->rd_rel->relkind == RELKIND_FOREIGN_TABLE)
@@ -452,13 +452,13 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 								RelationGetRelationName(rel)),
 						 errdetail("Triggers on views cannot have transition tables.")));
 
-			/* *
-			 * 我们目前不允许在分区或继承子表上使用
-			 * 带有转换表的行级触发器。此类触发器需要以某种方式
-			 * 查看转换为它们所附属的表格式的元组，并且不清楚每个子表
-			 * 应该看到元组的哪个子集。另请参见
-			 * ATExecAttachPartition() 和 ATExecAddInherit() 中的禁止项。
-			 *
+			/*
+			 * 我们目前不允                                         
+			 * 许分区或继承子表上带有转换表的行级触发  
+			 * 器。这类触发器需要以某种方式看到被转换为所
+			 * 属表格式的元组，且不清楚每个子表应看到元 
+			 * 组的哪个子集。另请参见 ATExecAttachPartition()  
+			 * 和 ATExecAddInherit() 中的禁止规定。   
 			 */
 			if (TRIGGER_FOR_ROW(tgtype) && has_superclass(rel->rd_id))
 			{
@@ -483,15 +483,15 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 						 errmsg("TRUNCATE triggers with transition tables are not supported")));
 
-			/* *
-			 * 我们目前不允许使用带转换表的
-			 * 多事件触发器（"INSERT OR UPDATE"），因为不清楚如何处理
-			 * INSERT ... ON CONFLICT 语句（它可能同时触发
-			 * INSERT 和 UPDATE 触发器）。我们将插入的元组显示给
-			 * INSERT 触发器，将更新的元组显示给 UPDATE 触发器，但
-			 * 尚不清楚 INSERT OR UPDATE 触发器应该看到什么。
-			 * 如果我们能在以后的版本中确定正确的语义，则可以取消此限制。
-			 *
+			/*
+			 * 我们目前不允许带转换表的多事件            
+			 * 触发器（"INSERT OR UPDATE"），因为不清楚如何处  
+			 * 理可能同时触发 INSERT 和 UPDATE 触发器的 INSERT 
+			 * ... ON CONFLICT 语句。把插入的元组展示给 INSERT
+			 * 触发器，将更新的元组展示给 UPDATE 触发器，   
+			 * 但尚不清楚 INSERT OR UPDATE 触发器应看到什么。
+			 * 如果我们能在以后的版本中确定正确的语义，  
+			 * 则可解除此限制。     
 			 */
 			if (((TRIGGER_FOR_INSERT(tgtype) ? 1 : 0) +
 				 (TRIGGER_FOR_UPDATE(tgtype) ? 1 : 0) +
@@ -500,11 +500,11 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 						 errmsg("transition tables cannot be specified for triggers with more than one event")));
 
-			/* *
-			 * 我们目前不允许使用带转换表的
-			 * 列特定触发器。根据规范，这似乎需要为每个列组合
-			 * 累积单独的转换表，这对于一个相当边缘的功能来说工作量太大。
-			 *
+			/*
+			 * 我们目前不允                                    
+			 * 许带转换表的特定列触发器。按规范，
+			 * 这似乎需要为列的每种组合分别累积独立的转   
+			 * 换表，对于相当边缘的特性来说工作量太大。  
 			 */
 			if (stmt->columns != NIL)
 				ereport(ERROR,
@@ -602,12 +602,12 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 		/* 我们还必须修正其排序规则 */
 		assign_expr_collations(pstate, whenClause);
 
-		/* *
-		 * 检查不允许的 OLD/NEW 引用。
+		/*
+		 * 检查不合法的 OLD/NEW 引用。       
 		 *
-		 * 注意：这里使用 pull_var_clause 是可以的，只是因为我们不允许
-		 * WHEN 子句中的子查询；它将无法检查子查询的内容。
-		 *
+		 * 注意：能用 pull_var_clause 仅仅因为我们不允许 
+		 * WHEN 子句包含子选择；否则它将无法检查子选择   
+		 * 的内容。  
 		 */
 		varList = pull_var_clause(whenClause, 0);
 		foreach(lc, varList)
@@ -709,13 +709,13 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 				 errmsg("function %s must return type %s",
 						NameListToString(stmt->funcname), "trigger")));
 
-	/* *
-	 * 扫描 pg_trigger 以查看是否已存在同名触发器。
-	 * 对于内部生成的触发器跳过此步骤，因为我们将在下面修改
-	 * 名称以确保唯一性。
+	/*
+	 * 扫描 pg_trigger，查看是否已存在同名触发器。           
+	 * 对内部生成的触发器跳过此检查，因为稍后我们会 
+	 * 把名称改得唯一。
 	 *
-	 * 注意：这仅因为我们持有关系的 ShareRowExclusiveLock 才是安全的，
-	 * 因此触发器集合不会在我们下面发生变化。
+	 * 注意：这之所以安全，只因为我们持有该关系的     
+	 * ShareRowExclusiveLock，触发器集合不会在期间变化。  
 	 */
 	tgrel = table_open(TriggerRelationId, RowExclusiveLock);
 	if (!isInternal)
@@ -770,11 +770,11 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 					 errmsg("trigger \"%s\" for relation \"%s\" already exists",
 							stmt->trigname, RelationGetRelationName(rel))));
 
-		/* *
-		 * 内部触发器或子触发器（isClone）不能被
-		 * 用户定义的触发器替换。但是，当 in_partition 时跳过此测试，
-		 * 因为那时我们是从分区表递归的，并且检查已在父级进行。
-		 *
+		/*
+		 * 内部触发器或子触发器（isClone）不                     
+		 * 能被用户定义的触发器替换。但 in_partition 
+		 * 时会跳过此测试，因为那时我们正从分区表          
+		 * 递归而下，检查已在父级完成。 
 		 */
 		if ((existing_isInternal || existing_isClone) &&
 			!isInternal && !in_partition)
@@ -783,18 +783,18 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 					 errmsg("trigger \"%s\" for relation \"%s\" is an internal or a child trigger",
 							stmt->trigname, RelationGetRelationName(rel))));
 
-		/* *
-		 * 不允许替换为约束触发器；gram.y
-		 * 应该已经强制执行了这一点。
+		/*
+		 * 不允许替换为约束触发器；                          
+		 * gram.y 本应已强制这一点。
 		 */
 		Assert(!stmt->isconstraint);
 
-		/* *
-		 * 也不允许替换现有的约束触发器。
-		 * （这些限制的原因部分是在这种情况下处理待处理的触发器事件
-		 * 似乎很困难，部分是因为命令可能也意味着更改约束的
-		 * 属性，这似乎不太好。）
-		 *
+		/*
+		 * 也不允许                                                
+		 * 替换现有的约束触发器。（这些限制的部分原因在 
+		 * 于：在此类情况下处理待决触发器事件似乎很困 
+		 * 难；另一部分原因是该命令可能还意味着要更 
+		 * 改约束的属性，这似乎不太好。）
 		 */
 		if (OidIsValid(existing_constraint_oid))
 			ereport(ERROR,
@@ -803,9 +803,9 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 							stmt->trigname, RelationGetRelationName(rel))));
 	}
 
-	/* *
-	 * 如果是用户输入的 CREATE CONSTRAINT TRIGGER 命令，则创建
-	 * 相应的 pg_constraint 条目。
+	/*
+	 * 若是用户输入的 CREATE CONSTRAINT TRIGGER 命令，则创 
+	 * 建相应 pg_constraint 条目。 
 	 */
 	if (stmt->isconstraint && !OidIsValid(constraintOid))
 	{
@@ -844,10 +844,10 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 											  isInternal);	/* is_internal */
 	}
 
-	/* *
-	 * 如果触发器是内部生成的，通过追加触发器 OID 来修改提供的
-	 * 触发器名称以确保唯一性。（在这些情况下，调用者通常会
-	 * 提供一个简单的常量触发器名称。）
+	/*
+	 * 如果触发器是内部生成的，则通过追加触发器 OID       
+	 * 来修改提供的触发器名称，以确保唯一。（这些情况 
+	 * 下调用者通常提供简单常量触发器名。）
 	 */
 	if (isInternal)
 	{
@@ -861,8 +861,8 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 		trigname = stmt->trigname;
 	}
 
-	/* *
-	 * 构建新的 pg_trigger 元组。
+	/*
+	 * 构建新 pg_trigger 元组。 
 	 */
 	memset(nulls, false, sizeof(nulls));
 
@@ -982,8 +982,8 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 	else
 		nulls[Anum_pg_trigger_tgnewtable - 1] = true;
 
-	/* *
-	 * 插入或替换 pg_trigger 中的元组。
+	/*
+	 * 插入或替换 pg_trigger 元组。  
 	 */
 	if (!trigger_exists)
 	{
@@ -1010,9 +1010,9 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 	if (newtablename)
 		pfree(DatumGetPointer(values[Anum_pg_trigger_tgnewtable - 1]));
 
-	/* *
-	 * 更新关系的 pg_class 条目（如有必要）；如果没有，则发送 SI
-	 * 消息以使其他后端（以及此后端）重建 relcache 条目。
+	/*
+	 * 更新关系的 pg_class 条目（如需要）；如无需要，发   
+	 * 送 SI 消息使其他后端（及本后端）重建 relcache 条目。
 	 */
 	pgrel = table_open(RelationRelationId, RowExclusiveLock);
 	tuple = SearchSysCacheCopy1(RELOID,
@@ -1034,16 +1034,16 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 	heap_freetuple(tuple);
 	table_close(pgrel, RowExclusiveLock);
 
-	/* *
-	 * 如果我们正在替换触发器，在记录新的依赖关系之前
-	 * 刷新所有旧依赖关系。
+	/*
+	 * 若正在替换触发器，则在记录新依赖之前先刷新    
+	 * 所有旧依赖。 
 	 */
 	if (trigger_exists)
 		deleteDependencyRecordsFor(TriggerRelationId, trigoid, true);
 
-	/* *
-	 * 记录触发器的依赖关系。始终在函数上放置
-	 * 普通依赖关系。
+	/*
+	 * 为触发器记录依赖。总是在函数上放置普               
+	 * 通依赖。 
 	 */
 	myself.classId = TriggerRelationId;
 	myself.objectId = trigoid;
@@ -1056,11 +1056,11 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 
 	if (isInternal && OidIsValid(constraintOid))
 	{
-		/* *
-		 * 为约束内部生成的触发器，因此将其设为
-		 * 约束的内部依赖关系。我们可以跳过对关系的依赖，
-		 * 因为将通过约束存在间接依赖关系。
-		 *
+		/*
+		 * 这是为约束内部生成的触                           
+		 * 发器，因此将其设为该约束的内部依赖。可以跳 
+		 * 过对各关系的依赖，因为经由约束会存在间接  
+		 * 依赖。  
 		 */
 		referenced.classId = ConstraintRelationId;
 		referenced.objectId = constraintOid;
@@ -1069,10 +1069,10 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 	}
 	else
 	{
-		/* *
-		 * 用户 CREATE TRIGGER，因此放置依赖关系。我们使触发器在
-		 * 其关系被删除或 FK 关系被删除时自动删除。
-		 * （自动删除与 7.3 之前的行为兼容。）
+		/*
+		 * 用户 CREATE TRIGGER，因此放置依赖。我们使触      
+		 * 发器在其关系被删除、或 FK 关系被删除时自动删
+		 * 除。（自动删除与我们 7.3 之前的行为兼容。）
 		 */
 		referenced.classId = RelationRelationId;
 		referenced.objectId = RelationGetRelid(rel);
@@ -1127,9 +1127,9 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 		}
 	}
 
-	/* *
-	 * 如果有 WHEN 子句，在表达式中提到的对象上
-	 * 添加依赖关系（例如，函数以及使用的任何列）。
+	/*
+	 * 如果触发器带 WHEN 子句，则为表达式里提到            
+	 * 的对象添加依赖（例如函数及所用列）。  
 	 */
 	if (whenRtable != NIL)
 		recordDependencyOnExpr(&myself, whenClause, whenRtable,
@@ -1153,10 +1153,10 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 											"part trig clone",
 											ALLOCSET_SMALL_SIZES);
 
-		/* *
-		 * 我们目前不希望使用有效的 indexOid 调用。
-		 * 如果将来发生变化，我们需要在此编写代码来查找
-		 * 相应的子索引。
+		/*
+		 * 我们目前不期望在带有有效 indexOid 的情况下       
+		 * 被调用。若将来有变化，则需在此编写代码来查 
+		 * 找对应的子索引。  
 		 */
 		Assert(!OidIsValid(indexOid));
 
@@ -1171,9 +1171,9 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 
 			childTbl = table_open(partdesc->oids[i], ShareRowExclusiveLock);
 
-			/* *
-			 * 通过复制原始节点来初始化我们构造的解析节点，
-			 * 然后重置我们单独传递的字段。
+			/*
+			 * 通过复制原始解析节点来初始化伪造的解析   
+			 * 节点，然后重置我们单独传递的字段。
 			 */
 			childStmt = (CreateTrigStmt *) copyObject(stmt);
 			childStmt->funcname = NIL;
@@ -1209,14 +1209,14 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 	return myself;
 }
 
-/* *
+/*
  * TriggerSetParentTrigger
- *		将分区的触发器设置为其父触发器的子触发器，
- *		或者如果 parentTrigId 为 InvalidOid，则移除链接。
+ *		将分区触发器设为父触发器的子触发器，若
+ *		parentTrigId 为 InvalidOid 则移除该链接。   
  *
- * 这会更新约束的 pg_trigger 行以将其显示为继承的，并
- * 添加 PARTITION 依赖关系以防止触发器被单独删除。
- * 或者，反向操作。
+ * 这会更新约束的 pg_trigger 行以将其显                         
+ * 示为继承而来，并添加 PARTITION 依赖，防止触发器被 
+ * 单独删除。或者，反向执行。  
  */
 void
 TriggerSetParentTrigger(Relation trigRel,
@@ -1232,8 +1232,8 @@ TriggerSetParentTrigger(Relation trigRel,
 	ObjectAddress depender;
 	ObjectAddress referenced;
 
-	/* *
-	 * 查找要删除的触发器。
+	/*
+	 * 查找待删触发器。   
 	 */
 	ScanKeyInit(&skey[0],
 				Anum_pg_trigger_oid,
@@ -1286,8 +1286,8 @@ TriggerSetParentTrigger(Relation trigRel,
 }
 
 
-/* *
- * 触发器删除的核心。
+/*
+ * 触发器删除要点。 
  */
 void
 RemoveTriggerById(Oid trigOid)
@@ -1301,8 +1301,8 @@ RemoveTriggerById(Oid trigOid)
 
 	tgrel = table_open(TriggerRelationId, RowExclusiveLock);
 
-	/* *
-	 * 查找要删除的触发器。
+	/*
+	 * 查找待删触发器。   
 	 */
 	ScanKeyInit(&skey[0],
 				Anum_pg_trigger_oid,
@@ -1347,14 +1347,14 @@ RemoveTriggerById(Oid trigOid)
 	systable_endscan(tgscan);
 	table_close(tgrel, RowExclusiveLock);
 
-	/* *
-	 * 我们不去尝试判断是否还有其他触发器残留，
-	 * 这是决定是否可以安全清除关系的 relhastriggers 所需的。
-	 * （无论如何，可能有并发进程在添加新触发器。）相反，只需
-	 * 强制执行 relcache 无效化以使其他后端（以及此后端！）重建
-	 * 其 relcache 条目。即使没有触发器残留，将 relhastriggers
-	 * 保持为真也没有太大危害。
-	 *
+	/*
+	 * 我们不去费心判断是否还有其他触发器存在，           
+	 * 而这一判断本是决定是否可安全清除关系 relhastriggers  
+	 * 标志所必需的。（无论如何，都可能有并发进程正在
+	 * 添加新触发器。）因此，只需强制一次 relcache 失效，
+	 * 让其他后端（以及本后端！）重建其 relcache 条目。即 
+	 * 使已没有触发器残留，让 relhastriggers 保持为真也没有
+	 * 太大危害。  
 	 */
 	CacheInvalidateRelcache(rel);
 
@@ -1362,11 +1362,11 @@ RemoveTriggerById(Oid trigOid)
 	table_close(rel, NoLock);
 }
 
-/* *
- * get_trigger_oid - 按名称查找触发器以获取其 OID。
+/*
+ * get_trigger_oid - 按名称查找触发器得到其 OID。  
  *
- * 如果 missing_ok 为假，则在未找到触发器时抛出错误。
- * 如果为真，则只返回 InvalidOid。
+ * missing_ok 为假时，未找到触发器则抛出错误；为  
+ * 真则只返回 InvalidOid。
  */
 Oid
 get_trigger_oid(Oid relid, const char *trigname, bool missing_ok)
@@ -1452,19 +1452,19 @@ RangeVarCallbackForRenameTrigger(const RangeVar *rv, Oid relid, Oid oldrelid,
 	ReleaseSysCache(tuple);
 }
 
-/* *
- *		renametrig		- 更改关系上的触发器的名称
+/*
+ *		renametrig		- 更改关系上某触发器的名称       
  *
- *		触发器名称在触发器目录中更改。
- *		不保留先前名称的记录。
+ *		触发器名在触发器目录中更改。 
+ *		不保留先前名称的记录。      
  *
- *		从关系目录获取正确的关系关系（如果未提供参数）
- *		扫描触发器目录
- *				查找名称冲突（在同一关系内）
- *				查找原始触发器（如果未提供参数）
- *		修改触发器元组中的 tgname
- *
- *		更新目录中的行*/
+ *		从关系目录获取正确的关系（若无参数）   
+ *		查触发器目录  
+ *				查重名（关系内）      
+ *				查原触发器（若无参数）
+ *		改触发器元组的 tgname  
+ *		更新目录中的行
+ */
 ObjectAddress
 renametrig(RenameStmt *stmt)
 {
@@ -1477,9 +1477,9 @@ renametrig(RenameStmt *stmt)
 	Oid			relid;
 	ObjectAddress address;
 
-	/* *
-	 * 查找名称，检查权限，并获取锁（我们不会在事务结束
-	 * 之前释放它）。
+	/*
+	 * 查找名称，检查权限并获取锁（在事务结              
+	 * 束前我们不会释放它）。 
 	 */
 	relid = RangeVarGetRelidExtended(stmt->relation, AccessExclusiveLock,
 									 0,
@@ -1518,11 +1518,11 @@ renametrig(RenameStmt *stmt)
 		trigform = (Form_pg_trigger) GETSTRUCT(tuple);
 		tgoid = trigform->oid;
 
-		/* *
-		 * 如果触发器继承自分区表的父表上的触发器，
-		 * 拒绝重命名。我们不允许分区中的触发器名称与其
-		 * 父触发器不同：这会导致 pg_dump 无法重现的不一致性。
-		 *
+		/*
+		 * 如果触发器源                                            
+		 * 自父分区表上的触发器，则拒绝该重命名。我们不
+		 * 允许分区中的触发器与其父触发器名称不同：那 
+		 * 会造成 pg_dump 无法重现的不一致。  
 		 */
 		if (OidIsValid(trigform->tgparentid))
 			ereport(ERROR,
@@ -1564,20 +1564,20 @@ renametrig(RenameStmt *stmt)
 
 	table_close(tgrel, RowExclusiveLock);
 
-	/* *
-	 * 关闭关系，但保持排他锁！
+	/*
+	 * 关闭关系，保持排他锁！  
 	 */
 	relation_close(targetrel, NoLock);
 
 	return address;
 }
 
-/* *
- * renametrig 的子例程——执行在一个表上重命名一个
- * 触发器的实际工作。
+/*
+ * renametrig 的子例程，执行在表上重命名一个触发      
+ * 器的实际工作。
  *
- * 如果触发器的名称与预期的不同，则引发
- * 一个 NOTICE。
+ * 如果触发器的名称与预期的不同，则就此发出      
+ * 一条 NOTICE。
  */
 static void
 renametrig_internal(Relation tgrel, Relation targetrel, HeapTuple trigtup,
@@ -1593,10 +1593,10 @@ renametrig_internal(Relation tgrel, Relation targetrel, HeapTuple trigtup,
 	if (strcmp(NameStr(tgform->tgname), newname) == 0)
 		return;
 
-	/* *
-	 * 在实际尝试重命名之前，搜索具有相同名称的
-	 * 触发器。在这种情况下更新会失败并显示不友好的消息，
-	 * 最好抛出一个更友好的错误。
+	/*
+	 * 在真正尝试重命名之前，先搜索同名触发器。        
+	 * 那种情况下更新会失败并给出难看的消息，因此最好 
+	 * 抛出一个更友好的错误。
 	 */
 	ScanKeyInit(&key[0],
 				Anum_pg_trigger_tgrelid,
@@ -1621,10 +1621,10 @@ renametrig_internal(Relation tgrel, Relation targetrel, HeapTuple trigtup,
 	tuple = heap_copytuple(trigtup);	/* 需要可修改的副本 */
 	tgform = (Form_pg_trigger) GETSTRUCT(tuple);
 
-	/* *
-	 * 如果触发器名称与预期的不同，通知用户。
-	 * （我们可以继续，因为我们必然是通过 tgparentid 链接到达这里的。）
-	 *
+	/*
+	 * 如果触发器的名称与我们预期的不同，让用户知晓。  
+	 * （我们仍可继续，因为必然是经由 tgparentid 链接到     
+	 * 达这里的。） 
 	 */
 	if (strcmp(NameStr(tgform->tgname), expected_name) != 0)
 		ereport(NOTICE,
@@ -1638,10 +1638,10 @@ renametrig_internal(Relation tgrel, Relation targetrel, HeapTuple trigtup,
 
 	InvokeObjectPostAlterHook(TriggerRelationId, tgform->oid, 0);
 
-	/* *
-	 * 使关系的 relcache 条目无效，以便向其他后端（以及此
-	 * 后端！）发送 SI 消息以使其重建 relcache 条目。
-	 * （理想情况下这应自动发生…）
+	/*
+	 * 使关系的 relcache 条目失效，以便向其他后端（以     
+	 * 及本后端！）发送 SI 消息，使其重建 relcache 条目。
+	 * （理想情况下这应自动发生……）
 	 */
 	CacheInvalidateRelcache(targetrel);
 }
@@ -1658,10 +1658,10 @@ renametrig_partition(Relation tgrel, Oid partitionId, Oid parentTriggerOid,
 	ScanKeyData key;
 	HeapTuple	tuple;
 
-	/* *
-	 * 给定一个关系以及父关系上的触发器 OID，在子表中
-	 * 找到相应的触发器，并将该触发器重命名为给定
-	 * 的名称。
+	/*
+	 * 给定一个关系以及父关系上某触发器的 OID，在子关系
+	 * 中找到对应的那个触发器，并将它重命名为给定的名  
+	 * 称  
 	 */
 	ScanKeyInit(&key,
 				Anum_pg_trigger_tgrelid,
@@ -1704,25 +1704,25 @@ renametrig_partition(Relation tgrel, Oid partitionId, Oid parentTriggerOid,
 	systable_endscan(tgscan);
 }
 
-/* *
+/*
  * EnableDisableTrigger()
  *
- *	由 ALTER TABLE ENABLE/DISABLE [ REPLICA | ALWAYS ] TRIGGER 调用
- *	以更改指定触发器的 'tgenabled' 字段
+ *	由 ALTER TABLE ENABLE/DISABLE [ REPLICA | ALWAYS ] TRIGGER      
+ *	调用，来更改指定触发器的 'tgenabled' 字段 
  *
- * rel: 要处理的关系（调用者必须持有适当的锁）
- * tgname: 要处理的触发器名称，或 NULL 表示扫描所有触发器
- * tgparent: 如果不为零，只处理具有此 tgparentid 的触发器
- * fires_when: tgenabled 字段的新值。除了通用的
- *			   启用/禁用之外，这也定义了在会话复制角色中
- *			   何时应触发该触发器。
- * skip_system: 如果为真，跳过"系统"触发器（约束触发器）
- * recurse: 如果为真，递归到分区
+ * rel: 要处理的关系（调用者必须持有合适的锁） 
+ * tgname: 要处理的触发器名，NULL 扫描全部触发器   
+ * tgparent: 若非零，只处理 tgparentid 为该值的触发器 
+ * fires_when: tgenabled 字段的新值。                         
+ *			   除通用的启用/禁用之外，它还定义在会话复
+ *			   制角色下该触发器应于何时触发。
+ * skip_system: 若为真，跳过"系统"（约束）触发器      
+ * recurse: 若为真，递归到分区   
  *
- * 调用者应该已经检查了表的权限；这里我们还
- * 强制执行需要超级用户权限才能更改
- *
- * 系统触发器的状态*/
+ * 调用者应已检查过表的权限；这                        
+ * 里我们还强制要求：更改系统触发器的状态需要超
+ * 级用户权限
+ */
 void
 EnableDisableTrigger(Relation rel, const char *tgname, Oid tgparent,
 					 char fires_when, bool skip_system, bool recurse,
@@ -1795,14 +1795,14 @@ EnableDisableTrigger(Relation rel, const char *tgname, Oid tgparent,
 			changed = true;
 		}
 
-		/* *
-		 * 当在分区表上更改 FOR EACH ROW 触发器时，除非指定了
-		 * ONLY，否则也在分区上执行相同操作。
+		/*
+		 * 在分区表上更改 FOR EACH ROW 触发器时，除非          
+		 * 指定了 ONLY，否则对分区也做同样的更改。 
 		 *
-		 * 注意即使我们上面没有更改触发器，我们也会递归，
-		 * 因为分区的触发器副本可能具有与父触发器不同的
-		 * tgenabled 值，因此可能需要更改。
-		 *
+		 * 注意，即使上面没有更改该触发器，                
+		 * 我们也会递归，因为分区上该触发器的副本可能 
+		 * 具有与父触发器不同的 tgenabled 值，因此可能需要  
+		 * 更改。  
 		 */
 		if (recurse &&
 			rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE &&
@@ -1838,25 +1838,25 @@ EnableDisableTrigger(Relation rel, const char *tgname, Oid tgparent,
 				 errmsg("trigger \"%s\" for table \"%s\" does not exist",
 						tgname, RelationGetRelationName(rel))));
 
-	/* *
-	 * 如果我们更改了任何内容，广播 SI 无效消息以强制每个
-	 * 后端（包括我们自己的！）重建关系的 relcache 条目。
-	 * 否则它们将无法及时应用更改。
+	/*
+	 * 如果更改了任何内容，广播 SI 失效消息，强制     
+	 * 每个后端（包括我们自己！）重建关系的 relcache   
+	 * 条目。否则它们将无法及时应用该更改。
 	 */
 	if (changed)
 		CacheInvalidateRelcache(rel);
 }
 
 
-/* *
- * 构建要挂载到给定 relcache 条目的触发器数据。
+/*
+ * 为给定 relcache 条目构建触发器数据。        
  *
- * 注意：挂载到 relcache 条目的触发器数据必须存储在
- * CacheMemoryContext 中，以确保它与 relcache 条目一样长久。
- * 但我们应该在一个生命周期较短的工作上下文中运行。为了避免泄漏
- * 先前分配的内存，调用者必须分配并传递一个临时上下文。
- *
- *
+ * 注意，附加到 relcache 条目的触发器数据必须存储在  
+ * CacheMemoryContext 中，以确保其与 relcache 条目存活同样长
+ * 的时间。但我们此时应运行在一个存活期较短的工作上
+ * 下文中。为避免例程中途失败时泄漏缓存内存，我们 
+ * 在工作内存中构建临时 TriggerDesc，并将完成的结构 
+ * 复制到缓存内存中。 
  */
 void
 RelationBuildTriggers(Relation relation)
@@ -1872,19 +1872,19 @@ RelationBuildTriggers(Relation relation)
 	MemoryContext oldContext;
 	int			i;
 
-	/* *
-	 * 分配一个工作数组来保存触发器（如果需要，数组会扩展）
-	 *
+	/*
+	 * 分配一个工作数组来容纳触发器（必要时会              
+	 * 扩展） 
 	 */
 	maxtrigs = 16;
 	triggers = (Trigger *) palloc(maxtrigs * sizeof(Trigger));
 	numtrigs = 0;
 
-	/* *
-	 * 注意：因为我们使用 TriggerRelidNameIndexId 扫描触发器，
-	 * 我们将按名称顺序读取触发器，除非在紧急恢复操作期间
-	 * （即 IgnoreSystemIndexes）。这反过来确保触发器将按名称顺序触发。
-	 *
+	/*
+	 * 注意：由于我们使用 TriggerRelidNameIndexId 扫                
+	 * 描触发器，将按名称顺序读取触发器，除非正 
+	 * 处于紧急恢复操作期间（即 IgnoreSystemIndexes）。这又 
+	 * 进而确保触发器会按名称顺序触发。  
 	 */
 	ScanKeyInit(&skey,
 				Anum_pg_trigger_tgrelid,
@@ -2185,17 +2185,17 @@ equalTriggerDescs(TriggerDesc *trigdesc1, TriggerDesc *trigdesc2)
 	int			i,
 				j;
 
-	/* *
-	 * 我们不需要检查提示标志，只需要检查触发器数组本身；
-	 * 如果我们有相同的触发器且类型相同，标志应该匹配。
+	/*
+	 * 我们无需检查提示标志，只需检查触发器数组本      
+	 * 身；如果触发器相同且类型相同，标志应当也匹配。 
 	 *
-	 * 从 7.3 开始，我们假设触发器集合的顺序在比较中是有意义的；
-	 * 因此我们只比较两个集合中对应的槽位。
+	 * 自 7.3 起我们假定触发器集合的顺序在比较      
+	 * 中有意义；因此只需比较两个集合中对应的槽位。 
 	 *
-	 * 注意：我们必须忽略 tableoid 和 ctid 字段，因为扫描结果
-	 * 可能在不同的系统中具有不同的值。我们假设触发器上的其他
-	 * 系统列没有意义。
-	 *
+	 * 注意：比较 WHEN                                                 
+	 * 子句的 stringToNode 形式意味着解析列位置会影响结果。
+	 * 只要本函数仅用于检测严格相等（例如检查缓存条     
+	 * 目是否过时），这就没有问题。 
 	 */
 	if (trigdesc1 != NULL)
 	{
@@ -2269,10 +2269,10 @@ equalTriggerDescs(TriggerDesc *trigdesc1, TriggerDesc *trigdesc2)
 }
 #endif							/* NOT_USED */
 
-/* *
- * 检查是否存在带有转换表的行级触发器，该触发器会阻止
- * 表成为继承子表或分区。返回第一个此类不兼容触发器的
- * 名称，如果没有则返回 NULL。
+/*
+ * 检查是否存在带转换表、                                         
+ * 且会阻止表成为继承子表或分区的行级触发器。返回第 
+ * 一个此类不兼容触发器的名称，若无则返回 NULL。
  */
 const char *
 FindTriggerIncompatibleWithInheritance(TriggerDesc *trigdesc)
@@ -2295,16 +2295,16 @@ FindTriggerIncompatibleWithInheritance(TriggerDesc *trigdesc)
 	return NULL;
 }
 
-/* *
+/*
  * 调用触发器函数。
  *
- *		trigdata: 触发器描述符。
- *		tgindx: 触发器在 finfo 和 instr 数组中的索引。
- *		finfo: 缓存的触发器函数调用信息数组。
- *		instr: 可选的 EXPLAIN ANALYZE 检测状态数组。
- *		per_tuple_context: 执行触发器的内存上下文。
- *		set_lifetime: 如果为真，新元组被标记为
- *			有 "lifetime"（由触发器设置）。
+ *		trigdata: 触发器描述符 
+ *		tgindx: 在 finfo 和 instr 数组中的下标。 
+ *		finfo: 缓存的触发器函数调用信息数组。     
+ *		instr: 可选的 EXPLAIN ANALYZE 插桩状态数组。         
+ *		per_tuple_context: 执行该函数用的内存上下文。   
+ *
+ * 返回该函数所返回的元组（或 NULL）。      
  */
 static HeapTuple
 ExecCallTriggerFunc(TriggerData *trigdata,
@@ -2318,9 +2318,9 @@ ExecCallTriggerFunc(TriggerData *trigdata,
 	Datum		result;
 	MemoryContext oldContext;
 
-	/* *
-	 * 保护那些可能无法初始化转换表
-	 * 信息的代码路径。
+	/*
+	 * 防范那些可能未能对转换表信息完成初始化的代码路  
+	 * 径  
 	 */
 	Assert(((TRIGGER_FIRED_BY_INSERT(trigdata->tg_event) ||
 			 TRIGGER_FIRED_BY_UPDATE(trigdata->tg_event) ||
@@ -2332,26 +2332,26 @@ ExecCallTriggerFunc(TriggerData *trigdata,
 
 	finfo += tgindx;
 
-	/* *
-	 * 我们缓存 fmgr 查找信息，以避免在每次
-	 * 调用时重新查找。
+	/*
+	 * 我们缓存 fmgr 查找信息，以避免每次调用都重复查 
+	 * 找  
 	 */
 	if (finfo->fn_oid == InvalidOid)
 		fmgr_info(trigdata->tg_trigger->tgfoid, finfo);
 
 	Assert(finfo->fn_oid == trigdata->tg_trigger->tgfoid);
 
-	/* *
-	 * 如果正在进行 EXPLAIN ANALYZE，开始为此触发器计时。
+	/*
+	 * 若在 EXPLAIN ANALYZE 下，开始为此触发器计时。   
 	 */
 	if (instr)
 		InstrStartNode(instr + tgindx);
 
-	/* *
-	 * 在每个元组的内存上下文中进行函数求值，以便
-	 * 泄漏的内存将在每个元组后被回收。特别注意，
-	 * 触发器函数创建的任何新元组将持续到
-	 * 元组周期结束。
+	/*
+	 * 在每元组内存上下文中进行                               
+	 * 函数求值，这样泄漏的内存每元组回收一次。特别要  
+	 * 注意，触发器函数创建的任何新元组都会存活到元组  
+	 * 周期结束。 
 	 */
 	oldContext = MemoryContextSwitchTo(per_tuple_context);
 
@@ -2378,9 +2378,9 @@ ExecCallTriggerFunc(TriggerData *trigdata,
 
 	MemoryContextSwitchTo(oldContext);
 
-	/* *
-	 * 触发器协议允许函数返回空指针，但不允许
-	 * 设置 isnull 结果标志。
+	/*
+	 * 触发器协议允许函数返回空指针，但绝不允许设      
+	 * 置 isnull 结果标志。 
 	 */
 	if (fcinfo->isnull)
 		ereport(ERROR,
@@ -2388,9 +2388,9 @@ ExecCallTriggerFunc(TriggerData *trigdata,
 				 errmsg("trigger function %u returned null value",
 						fcinfo->flinfo->fn_oid)));
 
-	/* *
-	 * 如果正在进行 EXPLAIN ANALYZE，停止为此触发器计时，并计数
-	 * 一个"返回的元组"（实际上是触发次数）。
+	/*
+	 * 若在 EXPLAIN ANALYZE 下，停止为此触发器计时，并         
+	 * 计一次"返回元组"（实为触发次数）。  
 	 */
 	if (instr)
 		InstrStopNode(instr + tgindx, 1);
@@ -2689,12 +2689,12 @@ ExecASDeleteTriggers(EState *estate, ResultRelInfo *relinfo,
 							  false);
 }
 
-/* *
- * 执行 BEFORE ROW DELETE 触发器。
+/*
+ * 执行 BEFORE ROW DELETE 触发器 
  *
- * 如果返回真，调用者可以继续删除。如果返回假，
- * 调用者需要抑制删除，并且如果请求，我们需要传回
- * 并发更新的元组（如果有）。
+ * 返回真表示调用者可以继续执行删除。返回假              
+ * 表示调用者需要抑制删除，且如果被要求，我们还需传  
+ * 回并发更新的元组（如果有）。 
  */
 bool
 ExecBRDeleteTriggers(EState *estate, EPQState *epqstate,
@@ -2990,14 +2990,14 @@ ExecBRUpdateTriggers(EState *estate, EPQState *epqstate,
 								tmresult, tmfd))
 			return false;		/* 取消更新操作 */
 
-		/* *
-		 * 在 READ COMMITTED 隔离级别下，目标元组可能因并发更新而
-		 * 被更改。在这种情况下，我们在 epqslot_candidate 中有一个原始
-		 * 子计划输出元组，需要使用 ExecGetUpdateNewTuple 形成一个新的
-		 * 可插入元组来替换我们从调用者那里收到的元组。
-		 * 所有信息都需要存在于一个元组中的原因是为了
-		 * 触发器的简单性。
-		 *
+		/*
+		 * 在 READ COMMITTED 隔离级别下，目标                      
+		 * 元组可能已因并发更新而被改变。这种情况下，  
+		 * epqslot_candidate 中是原始的子计划输出元组，需     
+		 * 要用 ExecGetUpdateNewTuple 构造一个新的可插入元组， 
+		 * 来替换我们在 newslot 中收到的那个。我们和调用  
+		 * 者都不再关心传入的元组，因此用较新的数据覆盖
+		 * newslot 即可。   
 		 */
 		if (epqslot_candidate != NULL)
 		{
@@ -3006,30 +3006,30 @@ ExecBRUpdateTriggers(EState *estate, EPQState *epqstate,
 			epqslot_clean = ExecGetUpdateNewTuple(relinfo, epqslot_candidate,
 												  oldslot);
 
-			/* *
-			 * 通常，调用者的 newslot 也是由
-			 * ExecGetUpdateNewTuple 生成的，因此 epqslot_clean 将是同一个
-			 * 槽位，不需要复制。但如果不是，做正确的事。
-			 *
+			/*
+			 * 通常，调用者的 newslot 也是由              
+			 * ExecGetUpdateNewTuple 生成的，因此 epqslot_clean 就   
+			 * 是同一个槽位，无需复制。若不是，则正确处 
+			 * 理。
 			 */
 			if (unlikely(newslot != epqslot_clean))
 				ExecCopySlot(newslot, epqslot_clean);
 
-			/* *
-			 * 此时 newslot 包含一个虚拟元组，可能引用
-			 * oldslot 元组的某些磁盘缓冲区中的字段。
-			 * 如果该元组与原始目标元组位于不同的页面上，
-			 * 那么我们对该缓冲区的唯一固定来自 oldslot，并且我们
-			 * 即将释放它。因此强制 materialize 该
-			 * 元组。
-			 *
+			/*
+			 * 此时 newslot 含虚拟元组，可能                
+			 * 引用 oldslot 元组在磁盘缓冲区中的一些字段。 
+			 * 如果该元组与原目标元组不在同一页上，那    
+			 * 么我们对该缓冲区唯一的 pin 来自 oldslot，而我  
+			 * 们即将释放它。因此最好对 newslot 进行物化，  
+			 * 确保它不含指向未 pin 缓冲区的引用。（下     
+			 * 面也会将其物化，但那时才做就不安全了。）
 			 */
 			ExecMaterializeSlot(newslot);
 		}
 
-		/* *
-		 * 这里我们将 oldslot 转换为持有 trigtuple 的物化槽位。
-		 * 传递给触发器的两个槽位都不会持有任何缓冲区固定。
+		/*
+		 * 此处将 oldslot 转换为持有 trigtuple 的物化槽位。   
+		 * 传给触发器的两个槽位均不持有缓冲区 pin。   
 		 */
 		trigtuple = ExecFetchSlotHeapTuple(oldslot, true, &should_free_trig);
 	}
@@ -3087,11 +3087,11 @@ ExecBRUpdateTriggers(EState *estate, EPQState *epqstate,
 		{
 			ExecForceStoreHeapTuple(newtuple, newslot, false);
 
-			/* *
-			 * 如果触发器返回/存储的元组是旧行版本，
-			 * 并且传递给触发器的堆元组是本地分配的，
-			 * 则物化该槽位。否则我们可能在它仍然被槽位引用时
-			 * 释放它。
+			/*
+			 * 如果触发器返回的/即将存储的元组                 
+			 * 是旧行版本，且传给触发器的堆元组是在本
+			 * 地分配的，则物化该槽位。否则我们可能在  
+			 * 它仍被槽位引用时就将其释放。 
 			 */
 			if (should_free_trig && newtuple == trigtuple)
 				ExecMaterializeSlot(newslot);
@@ -3109,15 +3109,15 @@ ExecBRUpdateTriggers(EState *estate, EPQState *epqstate,
 	return true;
 }
 
-/* *
- * 注意：'src_partinfo' 和 'dst_partinfo'，当非 NULL 时，分别引用
- * 查询中提到的根分区表的跨分区更新的源分区和目标分区，
- * 由 'relinfo' 给出。'tupleid' 在这种情况下引用源分区中
- * "旧"元组的 ctid。
- *
- * 当不是跨分区更新时，'src_partinfo' 和 'dst_partinfo' 为 NULL，
- * 'relinfo' 引用触发触发器的目标表。
- *
+/*
+ * 注                                                                        
+ * 意：'src_partinfo' 与 'dst_partinfo'                                 
+ * 在非 NULL 时，分别指查询中 'relinfo' 所给根分区表一  
+ * 次跨分区更新的源分区和目标分区。此时 'tupleid' 指源分
+ * 区中"旧"元组的 ctid，'newslot' 含目标分区中的"新"元 
+ * 组。此接口用于满足 ExecCrossPartitionUpdateForeignKey()
+ * 的要求；那种情况下 is_crosspart_update 必须                   
+ * 为真。 
  */
 void
 ExecARUpdateTriggers(EState *estate, ResultRelInfo *relinfo,
@@ -3147,11 +3147,11 @@ ExecARUpdateTriggers(EState *estate, ResultRelInfo *relinfo,
 		 (transition_capture->tcs_update_old_table ||
 		  transition_capture->tcs_update_new_table)))
 	{
-		/* *
-		 * 注意：如果 UPDATE 作为更新分区键操作的一部分
-		 * 转换为 DELETE+INSERT，那么此函数也会分别为 DELETE 和 INSERT
-		 * 调用以捕获转换表行。在这种情况下，旧元组
-		 * 或新元组可以为 NULL。
+		/*
+		 * 注意：如果 UPDATE 在更新分                             
+		 * 区键操作中被转换为 DELETE+INSERT，那么该函数也会
+		 * 分别为 DELETE 和 INSERT 被调用，以捕获转换表行。  
+		 * 这种情况下旧元组或新元组之一可为 NULL。
 		 */
 		TupleTableSlot *oldslot;
 		ResultRelInfo *tupsrc;
@@ -3342,8 +3342,8 @@ GetTupleForTrigger(EState *estate,
 		/* 如果 EvalPlanQual 可能发生，调用者必须传递 epqstate */
 		Assert(epqstate != NULL);
 
-		/* *
-		 * 锁定元组以进行更新
+		/*
+		 * 锁定元组以更新
 		 */
 		if (!IsolationUsesXactSnapshot())
 			lockflags |= TUPLE_LOCK_FLAG_FIND_LAST_VERSION;
@@ -3363,13 +3363,13 @@ GetTupleForTrigger(EState *estate,
 		{
 			case TM_SelfModified:
 
-				/* *
-				 * 目标元组已被当前命令或当前事务中
-				 * 的后续命令更新或删除。我们在前一种情况下
-				 * 忽略该元组，在后一种情况下抛出错误，
-				 * 原因与 nodeModifyTable.c 中 ExecUpdate 和 ExecDelete
+				/*
+				 * 目标元组已被当前命                           
+				 * 令、或当前事务中更靠后的命令更新或  
+				 * 删除。前一种情况我们忽略该元组，后一种
+				 * 情况则抛出错误，理由与 nodeModifyTable.c 
+				 * 中 ExecUpdate 和 ExecDelete 所         
 				 * 列举的相同。
-				 *
 				 */
 				if (tmfd.cmax != estate->es_output_cid)
 					ereport(ERROR,
@@ -3383,10 +3383,10 @@ GetTupleForTrigger(EState *estate,
 			case TM_Ok:
 				if (tmfd.traversed)
 				{
-					/* *
-					 * 使用 EPQ 重新检查元组。对于 MERGE，我们将此
-					 * 留给调用者（它必须进行额外的重新检查，并且
-					 * 可能最终执行完全不同的操作）。
+					/*
+					 * 使用 EPQ 重新检查元组。对 MERGE，我们留
+					 * 给调用者（它必须做额外的重新检查， 
+					 * 且可能最终执行完全不同的动作）。    
 					 */
 					if (estate->es_plannedstmt->commandType == CMD_MERGE)
 					{
@@ -3400,9 +3400,9 @@ GetTupleForTrigger(EState *estate,
 											relinfo->ri_RangeTableIndex,
 											oldslot);
 
-					/* *
-					 * 如果 PlanQual 对更新后的元组失败——我们不得
-					 * 处理此元组！
+					/*
+					 * 若 PlanQual 对更新元组失败——绝不能 
+					 * 处理该元组！ 
 					 */
 					if (TupIsNull(*epqslot))
 					{
@@ -3439,9 +3439,9 @@ GetTupleForTrigger(EState *estate,
 	}
 	else
 	{
-		/* *
-		 * 我们期望元组存在，因此非常简单的错误处理
-		 * 就足够了。
+		/*
+		 * 我们预期元组存在，因此，用非常简单的错误处理
+		 * 即可。
 		 */
 		if (!table_tuple_fetch_row_version(relation, tid, SnapshotAny,
 										   oldslot))
@@ -3451,8 +3451,8 @@ GetTupleForTrigger(EState *estate,
 	return true;
 }
 
-/* *
- * 触发器是否启用触发？
+/*
+ * 触发器是否启用？   
  */
 static bool
 TriggerEnabled(EState *estate, ResultRelInfo *relinfo,
@@ -3507,17 +3507,17 @@ TriggerEnabled(EState *estate, ResultRelInfo *relinfo,
 
 		Assert(estate != NULL);
 
-		/* *
-		 * 触发器是 relinfo->ri_TrigDesc->triggers[] 的一个元素；
-		 * 找到 relinfo->ri_TrigWhenExprs[] 中匹配的元素
+		/*
+		 * trigger 属于 relinfo->ri_TrigDesc->triggers[]；找出           
+		 * relinfo->ri_TrigWhenExprs[] 中匹配的元素 
 		 */
 		i = trigger - relinfo->ri_TrigDesc->triggers;
 		predicate = &relinfo->ri_TrigWhenExprs[i];
 
-		/* *
-		 * 如果是此 WHEN 表达式的第一次通过，为其构建表达式
-		 * 节点树。将它们保存在每个查询的内存上下文中，以便
-		 * 它们在整个查询期间存活。
+		/*
+		 * 如果首次执行该 WHEN 表达式，则为其构建表达    
+		 * 式节点树。并将其保存在每查询内存上下文中，
+		 * 使其在整个查询期间存活。 
 		 */
 		if (*predicate == NULL)
 		{
@@ -3586,15 +3586,15 @@ typedef struct SetConstraintTriggerData
 
 typedef struct SetConstraintTriggerData *SetConstraintTrigger;
 
-/* *
- * SET CONSTRAINT 事务内状态。
+/*
+ * SET CONSTRAINT 事务内状态。       
  *
- * 我们将其作为单个 palloc 对象，以便可以轻松复制和释放。
+ * 此对象为单个 palloc 分配，以便轻松复制和释放。          
  *
- * all_isset 和 all_isdeferred 用于跟踪
- * SET CONSTRAINTS ALL {DEFERRED, IMMEDIATE}。
+ * all_isset 和 all_isdeferred 用于跟踪          
+ * SET CONSTRAINTS ALL {DEFERRED, IMMEDIATE}。 
  *
- * trigstates[] 存储每个触发器的 tgisdeferred 设置。
+ * trigstates[] 存各触发器 tgisdeferred 设置。   
  */
 typedef struct SetConstraintStateData
 {
@@ -3946,9 +3946,9 @@ static SetConstraintState SetConstraintStateAddItem(SetConstraintState state,
 static void cancel_prior_stmt_triggers(Oid relid, CmdType cmdType, int tgevent);
 
 
-/* *
- * 获取当前触发器查询级别的 FDW 元组存储，必要时创建。
- *
+/*
+ * 获取当前触发器查询层级的 FDW 元组集，如需要则      
+ * 创建之。 
  */
 static Tuplestorestate *
 GetCurrentFDWTuplestore(void)
@@ -3961,9 +3961,9 @@ GetCurrentFDWTuplestore(void)
 		MemoryContext oldcxt;
 		ResourceOwner saveResourceOwner;
 
-		/* *
-		 * 使元组存储在子事务结束前有效。我们实际上
-		 * 只需要它在 AfterTriggerEndQuery() 之前有效。
+		/*
+		 * 使元组存储在子事务结束前保持有效。实际上     
+		 * 只需到 AfterTriggerEndQuery() 为止。
 		 */
 		oldcxt = MemoryContextSwitchTo(CurTransactionContext);
 		saveResourceOwner = CurrentResourceOwner;
@@ -3993,9 +3993,9 @@ afterTriggerCheckState(AfterTriggerShared evtshared)
 	SetConstraintState state = afterTriggers.state;
 	int			i;
 
-	/* *
-	 * 对于不可延迟的触发器（即普通的 AFTER ROW 触发器和
-	 * 声明为 NOT DEFERRABLE 的约束），状态始终为假。
+	/*
+	 * 对于不可延迟的触发器（即普通 AFTER ROW           
+	 * 触发器和声明为 NOT DEFERRABLE 的约束），恒为假。
 	 */
 	if ((evtshared->ats_event & AFTER_TRIGGER_DEFERRABLE) == 0)
 		return false;
@@ -4066,9 +4066,9 @@ afterTriggerAddEvent(AfterTriggerEventList *events,
 	AfterTriggerShared newshared;
 	AfterTriggerEvent newevent;
 
-	/* *
-	 * 如果列表为空或尾部块中没有足够的空间，则创建新块。
-	 * 我们假设这里总是需要一个共享记录。
+	/*
+	 * 如果列表为空或尾部块空间不足，则新建一块。      
+	 * 我们假设这里总是需要一条新的共享记录。     
 	 */
 	chunk = events->tail;
 	if (chunk == NULL ||
@@ -4083,20 +4083,20 @@ afterTriggerAddEvent(AfterTriggerEventList *events,
 									  "AfterTriggerEvents",
 									  ALLOCSET_DEFAULT_SIZES);
 
-		/* *
-		 * 块大小从 1KB 开始，允许增加到 1MB。
-		 * 这些数字相当随意，尽管在 AFTER_TRIGGER_OFFSET 有一个硬限制；
-		 * 否则我们无法使用 ate_flags 中的可用空间将事件记录链接到其共享记录。
-		 * 另一个约束是块大小不能超过 INT_MAX/3，否则在
-		 * AFTER_TRIGGER_2CTIDS 事件大小下，溢出可能被误认为是数据结束。
-		 * 在典型的 32 位机器上，1MB * 3 = 3MB，这正好适合，
-		 * 因为 slop.c 中的 petmem 大小限制为 20MB。因此我们坚持使用 1MB。
-		 *
-		 * 注意：这需要考虑 AfterTriggerEventData 大小，
-		 * 原因在 afterTriggerEnlargeQueryState 中描述。目前这意味着块大小
-		 * 应该是 sizeof(AfterTriggerEventData) 的倍数。在 64 位系统上，
-		 * 具有 3 个 evtTupleCount 值的 AfterTriggerSharedData 为 248 字节，
-		 * AfterTriggerEventData 为 56 字节。
+		/*
+		 * 块大小从 1KB 开始，允许增大到 1MB。              
+		 * 这些数字相当随意，不过在 AFTER_TRIGGER_OFFSET          
+		 * 处有硬限制；否则无法利用 ate_flags 的可用空间    
+		 * 把事件记录链接到其共享记录。另一约束是，   
+		 * 若块大小变得过大，在（并不太常见）的块内       
+		 * 含许多不同事件类型的使用模式下，下面的搜索 
+		 * 循环会变慢。因此，只有当前一块中共享记录   
+		 * 不太多时才将前块大小加倍；否则减半。这使我   
+		 * 们有一定能力适应查询的实际使用模式，同时      
+		 * 在典型使用中仍保持较大的块大小。所有用到     
+		 * 的块大小都应为 MAXALIGN 的倍数，从而确保          
+		 * 共享记录都能安全地                                       
+		 * 对齐。                      
 		 */
 #define MIN_CHUNK_SIZE 1024
 #define MAX_CHUNK_SIZE (1024*1024)
@@ -4133,9 +4133,9 @@ afterTriggerAddEvent(AfterTriggerEventList *events,
 		/* events->tailfree 现在不同步，但我们会在下面修复它 */
 	}
 
-	/* *
-	 * 尝试在块中定位匹配的共享数据记录。如果
-	 * 没有，创建一个新的。
+	/*
+	 * 尝试在块中定位匹配的共享数据记录。如果           
+	 * 没有就新建。   
 	 */
 	for (newshared = ((AfterTriggerShared) chunk->endptr) - 1;
 		 (char *) newshared >= chunk->endfree;
@@ -4323,10 +4323,10 @@ AfterTriggerExecute(EState *estate,
 	bool		should_free_trig = false;
 	bool		should_free_new = false;
 
-	/* *
-	 * 在 trigdesc 中定位触发器。它可能不存在，事实上
-	 * trigdesc 可能为 NULL，如果触发器在事件排队后被删除。
-	 * 在这种情况下，静默地什么都不做。
+	/*
+	 * 在 trigdesc 中定位触发器。它可能不存在，事实上     
+	 * 如果触发器在事件入队后已被删除，则 trigdesc          
+	 * 可能为 NULL。此时静默不做事。  
 	 */
 	if (trigdesc == NULL)
 		return;
@@ -4341,9 +4341,9 @@ AfterTriggerExecute(EState *estate,
 	if (LocTriggerData.tg_trigger == NULL)
 		return;
 
-	/* *
-	 * 如果正在进行 EXPLAIN ANALYZE，开始为此触发器计时。我们希望
-	 * 将重新获取元组的时间包含在触发器成本中。
+	/*
+	 * 如果正在执行 EXPLAIN ANALYZE，开始为此触发器计时。   
+	 * 重新获取元组的时间也要计入触发器成本。    
 	 */
 	if (instr)
 		InstrStartNode(instr + tgindx);
@@ -4370,14 +4370,14 @@ AfterTriggerExecute(EState *estate,
 			/* fall through */
 		case AFTER_TRIGGER_FDW_REUSE:
 
-			/* *
-			 * 将元组存储在槽位中，使 tg_trigtuple 不引用
-			 * 元组存储内存。（触发器函数排队触发器事件
-			 * 添加到同一个元组存储，这可能将其他元组推
-			 * 出内存，这在形式上是可能的。）这种区分
-			 * 是学术性的，因为如果触发器在调用时排队
-			 * 另一个元组，我们将重新获取它。
-			 *
+			/*
+			 * 将元组存入槽位，使 tg_trigtuple 不引用元组存储 
+			 * 内存。（形式上，触发器函数有可能            
+			 * 向同一元组存储添加事件，把其他元组  
+			 * 挤出内存。）这种区分只是理论上的，因为   
+			 * 槽位中一开始放入的就是最小元组，它作为     
+			 * 堆元组形式存放，并在不同的内存上下文         
+			 * 中构造。                
 			 */
 			LocTriggerData.tg_trigslot = trig_tuple_slot1;
 			LocTriggerData.tg_trigtuple =
@@ -4450,10 +4450,10 @@ AfterTriggerExecute(EState *estate,
 												   dst_slot))
 					elog(ERROR, "failed to fetch tuple2 for AFTER trigger");
 
-				/* *
-				 * 将从目标分区获取的元组存储到
-				 * 目标（根分区）表槽位中，必要时进行
-				 * 转换。
+				/*
+				 * 把从目标分区取得的元组存入目标（根分     
+				 * 区）表的槽位中，必要时进行转换。       
+				 *        
 				 */
 				if (dst_relInfo != relInfo)
 				{
@@ -4521,9 +4521,9 @@ AfterTriggerExecute(EState *estate,
 
 	MemoryContextReset(per_tuple_context);
 
-	/* *
-	 * 调用触发器并丢弃任何可能返回的更新后元组。
-	 *（不要让 ExecCallTriggerFunc 测量 EXPLAIN 时间。）
+	/*
+	 * 调用触发器并丢弃任何可能返回的更新元组。        
+	 * （勿让ExecCallTriggerFunc测EXPLAIN时间。）   
 	 */
 	rettuple = ExecCallTriggerFunc(&LocTriggerData,
 								   tgindx,
@@ -4552,28 +4552,28 @@ AfterTriggerExecute(EState *estate,
 			ExecClearTuple(LocTriggerData.tg_newslot);
 	}
 
-	/* *
-	 * 如果正在进行 EXPLAIN ANALYZE，停止为此触发器计时，并计数
-	 * 一个"返回的元组"（实际上是触发次数）。
+	/*
+	 * 如果正在执行 EXPLAIN ANALYZE，停止为此触发器计时，并 
+	 * "返回元组"计一次（实为触发次数）。  
 	 */
 	if (instr)
 		InstrStopNode(instr + tgindx, 1);
 }
 
 
-/* *
+/*
  * afterTriggerMarkEvents()
  *
- *	扫描给定事件列表中尚未调用的事件。标记
- *	现在可以使用当前触发 ID 调用的那些。
+ *	扫描给定事件列表中尚未被调用的事件，并标记     
+ *	那些现在能用当前触发ID调用的事件。 
  *
- *	如果 move_list 不为 NULL，现在不调用的
- *	事件将被转移到 move_list。
+ *	如果 move_list 不为 NULL，那些现在不调用的事件将  
+ *	被转移到 move_list。
  *
- *	当 immediate_only 为真时，不调用延迟的触发器。
- *	当 trigdesc 不为 NULL 时，不调用 trigdesc 中不存在的触发器。
- *	（这是在我们丢弃元组后重新扫描列表时使用的。）
+ *	当 immediate_only 为真时，不调用现被延迟的触发器。    
+ *	（只有在主事务退出时它才为假。）   
  *
+ *	若找到任何可调用事件则返回真。   
  */
 static bool
 afterTriggerMarkEvents(AfterTriggerEventList *events,
@@ -4593,9 +4593,9 @@ afterTriggerMarkEvents(AfterTriggerEventList *events,
 		if (!(event->ate_flags &
 			  (AFTER_TRIGGER_DONE | AFTER_TRIGGER_IN_PROGRESS)))
 		{
-			/* *
-			 * 此触发器尚未被调用或调度。检查是否
-			 * 现在应该调用它。
+			/*
+			 * 此触发器尚未被调用或调度。检查现在是否    
+			 * 该调用它。    
 			 */
 			if (immediate_only && afterTriggerCheckState(evtshared))
 			{
@@ -4603,8 +4603,8 @@ afterTriggerMarkEvents(AfterTriggerEventList *events,
 			}
 			else
 			{
-				/* *
-				 * 将其标记为在此触发周期中触发。
+				/*
+				 * 将其标记为在本触发周期触发。  
 				 */
 				evtshared->ats_firing_id = afterTriggers.firing_counter;
 				event->ate_flags |= AFTER_TRIGGER_IN_PROGRESS;
@@ -4612,8 +4612,8 @@ afterTriggerMarkEvents(AfterTriggerEventList *events,
 			}
 		}
 
-		/* *
-		 * 如果它是延迟的，将其移动到 move_list（如果请求）。
+		/*
+		 * 若是延迟的，按请求将其移入 move_list。 
 		 */
 		if (defer_it && move_list != NULL)
 		{
@@ -4625,10 +4625,10 @@ afterTriggerMarkEvents(AfterTriggerEventList *events,
 		}
 	}
 
-	/* *
-	 * 我们可以允许延迟的触发器，如果在安全限制操作
-	 * 结束之前我们验证了 SET CONSTRAINTS ... IMMEDIATE 已经触发
-	 * 了所有此类触发器。目前，不费这个心。
+	/*
+	 * 我们本可允许延迟触发器，只要在安全受限 
+	 * 操作结束之前验证一条 SET CONSTRAINTS ... IMMEDIATE 已       
+	 * 触发了所有这类触发器。目前暂不费此心。         
 	 */
 	if (deferred_found && InSecurityRestrictedOperation())
 		ereport(ERROR,
@@ -4699,8 +4699,8 @@ afterTriggerInvokeEvents(AfterTriggerEventList *events,
 		{
 			AfterTriggerShared evtshared = GetTriggerSharedData(event);
 
-			/* *
-			 * 是我要触发的事件吗？
+			/*
+			 * 是我要触发的吗？ 
 			 */
 			if ((event->ate_flags & AFTER_TRIGGER_IN_PROGRESS) &&
 				evtshared->ats_firing_id == firing_id)
@@ -4708,9 +4708,9 @@ afterTriggerInvokeEvents(AfterTriggerEventList *events,
 				ResultRelInfo *src_rInfo,
 						   *dst_rInfo;
 
-				/* *
-				 * 那么让我们触发它……但首先，找到正确的关系
-				 * 如果这与之前的关系不同。
+				/*
+				 * 那就触发它……但首先，若本次与之前不     
+				 * 是同一关系，先找正确关系。 
 				 */
 				if (rel == NULL || RelationGetRelid(rel) != evtshared->ats_relid)
 				{
@@ -4757,18 +4757,18 @@ afterTriggerInvokeEvents(AfterTriggerEventList *events,
 				else
 					src_rInfo = dst_rInfo = rInfo;
 
-				/* *
-				 * 触发它。注意 AFTER_TRIGGER_IN_PROGRESS 标志仍然
-				 * 设置，因此对事件列表的递归检查
-				 * 不会尝试重新触发它。
+				/*
+				 * 触发它。注意 AFTER_TRIGGER_IN_PROGRESS 标志      
+				 * 仍被置位，因此递归检查事件列表时不会
+				 * 试图重新触发它。
 				 */
 				AfterTriggerExecute(estate, event, rInfo,
 									src_rInfo, dst_rInfo,
 									trigdesc, finfo, instr,
 									per_tuple_context, slot1, slot2);
 
-				/* *
-				 * 将事件标记为已完成。
+				/*
+				 * 标记事件完成。  
 				 */
 				event->ate_flags &= ~AFTER_TRIGGER_IN_PROGRESS;
 				event->ate_flags |= AFTER_TRIGGER_DONE;
@@ -4786,11 +4786,11 @@ afterTriggerInvokeEvents(AfterTriggerEventList *events,
 			chunk->freeptr = CHUNK_DATA_START(chunk);
 			chunk->endfree = chunk->endptr;
 
-			/* *
-			 * 如果是最后一个块，还必须同步事件列表的 tailfree。
-			 * 注意，如果可能还有其他 AfterTriggerEventList 值指向此
-			 * 事件列表，则 delete_ok 不得传递为真，因为我们无法
-			 * 修复它们的 tailfree 副本。
+			/*
+			 * 如果是最后一个块，还必须同步事件列表的     
+			 * tailfree。注意，如果可能还有                     
+			 * 别的 AfterTriggerEventList 值指向此列表，则不得把
+			 * delete_ok 传为真：tailfree 副本无法修复。  
 			 */
 			if (chunk == events->tail)
 				events->tailfree = chunk->freeptr;
@@ -4816,17 +4816,17 @@ afterTriggerInvokeEvents(AfterTriggerEventList *events,
 }
 
 
-/* *
+/*
  * GetAfterTriggersTableData
  *
- * 为指定的触发器事件（关系 + 操作类型）查找或创建
- * AfterTriggersTableData 结构。忽略标记为 "closed" 的现有结构；
- * 我们不想向其中添加任何额外的元组，也不想更改其
- * stmt-triggers-fired 状态。
+ * 为指定的触发器事件（关系 + 操作类型）查找或  
+ * 创建一个 AfterTriggersTableData 结构。忽略标记为       
+ * "closed" 的现有结构；我们不想向它们添加更多          
+ * 元组或改其 stmt 已触发状态。    
  *
- * 注意：AfterTriggersTableData 列表以及元组存储分配在当前
- *（子）事务的内存上下文中，并将由 AfterTriggerEndXact() 释放。
- *
+ * 注意：AfterTriggersTableData 列表是在当前               
+ * （子）事务的 CurTransactionContext 中，这没问题  
+ * 因为它无需存活过 AfterTriggerEndQuery。   
  */
 static AfterTriggersTableData *
 GetAfterTriggersTableData(Oid relid, CmdType cmdType)
@@ -4874,11 +4874,11 @@ GetAfterTriggersStoreSlot(AfterTriggersTableData *table,
 	{
 		MemoryContext oldcxt;
 
-		/* *
-		 * 我们只需要这个槽位到 AfterTriggerEndQuery，但使其存活到
-		 * 子事务结束也足够好。它将由
-		 * AfterTriggerFreeQuery() 释放。但是，传入的 tupdesc 可能有
-		 * 不同的生命周期，所以我们最好复制它。
+		/*
+		 * 我们只需此槽位到 AfterTriggerEndQuery，但存活到    
+		 * 子事务结束也足够了。它将由                    
+		 * AfterTriggerFreeQuery() 释放。不过，传入的 tupdesc 可能 
+		 * 有不同的生命周期，因此最好复制一份。   
 		 */
 		oldcxt = MemoryContextSwitchTo(CurTransactionContext);
 		tupdesc = CreateTupleDescCopy(tupdesc);
@@ -4968,17 +4968,17 @@ MakeTransitionCaptureState(TriggerDesc *trigdesc, Oid relid, CmdType cmdType)
 	if (afterTriggers.query_depth >= afterTriggers.maxquerydepth)
 		AfterTriggerEnlargeQueryState();
 
-	/* *
-	 * 查找或创建 AfterTriggersTableData 结构来保存
-	 * 元组存储。如果有匹配的结构但标记为已关闭，
-	 * 忽略它；我们需要一个新的。
+	/*
+	 * 查找或创建 AfterTriggersTableData 结构来保存     
+	 * 元组存储。若有匹配的结构但标记为已关闭，        
+	 * 则忽略它，需要新的。 
 	 *
-	 * 注意：AfterTriggersTableData 列表以及元组存储分配在当前
-	 *（子）事务的内存上下文中，并将由 AfterTriggerEndXact()
-	 * 释放。
-	 *
-	 *
-	 *
+	 * 注意：AfterTriggersTableData 列表以及元组存储都是        
+	 * 在当前（子）事务的 CurTransactionContext 中分配的，     
+	 * 而元组存储由（子）事务的资源所有者管理。         
+	 * 这样的生命周期就足够了，因为我们不允许使      
+	 * 用转换表的触发器为可延迟的；它们将在       
+	 * AfterTriggerEndQuery 期间触发，之后即可删除数据。
 	 */
 	table = GetAfterTriggersTableData(relid, cmdType);
 
@@ -5078,9 +5078,9 @@ AfterTriggerEndQuery(EState *estate)
 	/* 也必须在查询内部 */
 	Assert(afterTriggers.query_depth >= 0);
 
-	/* *
-	 * 如果我们甚至没有达到初始化事件堆栈的阶段，
-	 * 肯定不会有任何事件，因此快速退出。
+	/*
+	 * 如果我们甚至尚未初始化事件堆栈，那               
+	 * 么肯定不会有事件，快速退出。     
 	 */
 	if (afterTriggers.query_depth >= afterTriggers.maxquerydepth)
 	{
@@ -5120,24 +5120,24 @@ AfterTriggerEndQuery(EState *estate)
 			if (afterTriggerInvokeEvents(&qs->events, firing_id, estate, false))
 				break;			/* all fired */
 
-			/* *
-			 * 触发触发器可能导致 query_stack 被 repalloc，
-			 * 因此我们必须在每次 afterTriggerInvokeEvents 调用后
-			 * 重新计算 qs。此外，在这里传递 delete_ok = true 是
-			 * 不安全的，因为这可能导致 afterTriggerInvokeEvents 尝试
-			 * 访问 qs->events。
+			/*
+			 * 触发一个触发器可能导致 query_stack 被 repalloc， 
+			 * 因此每次调用 afterTriggerInvokeEvents 后都必须重  
+			 * 新计算 qs。此外，此处传 delete_ok = true 是不安  
+			 * 全的，因为这会让 afterTriggerInvokeEvents 试图   
+			 * 在堆栈被 repalloc 之后访问 qs->events。      
 			 */
 			qs = &afterTriggers.query_stack[afterTriggers.query_depth];
 
-			/* *
-			 * 我们需要再次扫描事件列表。为了降低这样做的
-			 * 成本，清除完全触发的块。我们知道在
-			 * afterTriggerMarkEvents 结束时所有事件都被标记为
-			 * IN_PROGRESS 或 DONE，因此任何仍然感兴趣的事件必须
-			 * 是在那之后添加的，因此它们必须在第一个块中。
-			 *
-			 *
-			 *
+			/*
+			 * 我们需要再次扫描事件列表。为降低开销，    
+			 * 要清除完全触发过的块。我们知道，在           
+			 * afterTriggerMarkEvents 结束时，所有事件都已被标    
+			 * 记为 IN_PROGRESS 或 DONE，故任何仍需关注的      
+			 * 事件必定是在那之后添加的，因此必定位于   
+			 * 当时的尾部块或更后面的块里。所以要清除
+			 * oldtail 之前的所有块。这与传 delete_ok = true 所  
+			 * 要清除的事件集合大体相同。                        
 			 */
 			Assert(oldtail != NULL);
 			while (qs->events.head != oldtail)
@@ -5154,12 +5154,12 @@ AfterTriggerEndQuery(EState *estate)
 }
 
 
-/* *
+/*
  * AfterTriggerFreeQuery
- *	释放触发器查询级别的辅助存储。
- *	这包括关闭元组存储。
- *	注意：重要的是如果被错误中断然后再次为
- *	同一查询级别调用，这应该是安全的。
+ *	释放触发器查询层级的附属存储。        
+ *	这包括关闭元组存储。         
+ *	注意：重要的是本函数若被错误中断后再次为       
+ *	同一查询层级调用时仍是安全的。  
  */
 static void
 AfterTriggerFreeQuery(AfterTriggersQueryData *qs)
@@ -5208,10 +5208,10 @@ AfterTriggerFreeQuery(AfterTriggersQueryData *qs)
 		}
 	}
 
-	/* *
-	 * 现在释放 AfterTriggersTableData 结构和列表单元。先重置列表
-	 * 指针；如果 list_free_deep 以某种方式出错，泄漏该
-	 * 存储比无限循环更好。
+	/*
+	 * 现在释放 AfterTriggersTableData 结构和列表单元。先重置  
+	 * 列表指针；若 list_free_deep 以某种方式出错，宁可泄漏
+	 * 存储，也不要陷入无限循环。 
 	 */
 	qs->tables = NIL;
 	list_free_deep(tables);
@@ -5238,10 +5238,10 @@ AfterTriggerFireDeferred(void)
 	/* 不得在查询内部 */
 	Assert(afterTriggers.query_depth == -1);
 
-	/* *
-	 * 如果有任何触发器要触发，确保我们已经设置了快照
-	 * 供它们使用。（由于 PortalRunUtility 不会为 COMMIT 设置快照，
-	 * 我们不能假设 ActiveSnapshot 在进入时有效。）
+	/*
+	 * 如果有任何要触发的触发器，确保已设置它们要用的  
+	 * 快照。（由于 PortalRunUtility 不为 COMMIT 设置快照，      
+	 * 不能假定进入时ActiveSnapshot有效。）
 	 */
 	events = &afterTriggers.events;
 	if (events->head != NULL)
@@ -5250,9 +5250,9 @@ AfterTriggerFireDeferred(void)
 		snap_pushed = true;
 	}
 
-	/* *
-	 * 运行所有剩余的触发器。循环直到它们全部消失，
-	 * 以防某个触发器为我们排队更多的触发器。
+	/*
+	 * 运行所有剩余的触发器。循环直到它们全部结束，    
+	 * 以防触发器又排队了更多。  
 	 */
 	while (afterTriggerMarkEvents(events, NULL, false))
 	{
@@ -5262,9 +5262,9 @@ AfterTriggerFireDeferred(void)
 			break;				/* all fired */
 	}
 
-	/* *
-	 * 我们不费心释放事件列表，因为它将在
-	 * AfterTriggerEndXact 中消失（并且比通过 pfree 更高效）。
+	/*
+	 * 我们不必费心释放事件列表，因为它反正会在        
+	 * AfterTriggerEndXact 中消失（比 pfree 更高效）。    
 	 */
 
 	if (snap_pushed)
@@ -5288,14 +5288,14 @@ AfterTriggerFireDeferred(void)
 void
 AfterTriggerEndXact(bool isCommit)
 {
-	/* *
-	 * 忘记待处理事件列表。
+	/*
+	 * 忘记待处理事件列表。 
 	 *
-	 * 由于所有信息都在 TopTransactionContext 或其子上下文中，
-	 * 我们实际上不需要做任何事情来回收内存。然而，
-	 * 待处理事件列表可能很大，因此尽快丢弃它是
-	 * 有用的——特别是如果我们即将 commit，我们可能想要
-	 * 释放内存。
+	 * 由于所有信息都在 TopTransactionContext 或其子上下文     
+	 * 中，其实并不需要做任何事来回收内存。不过，  
+	 * 待处理事件列表可能很大，所以尽快将其丢弃是        
+	 * 有益的——尤其是当我们因列表内存耗尽而            
+	 * 中止时！           
 	 */
 	if (afterTriggers.event_cxt)
 	{
@@ -5306,19 +5306,19 @@ AfterTriggerEndXact(bool isCommit)
 		afterTriggers.events.tailfree = NULL;
 	}
 
-	/* *
-	 * 也忘记子事务状态。由于这不可能很大，
-	 * 我们让 TopTransactionContext 的最终重置来释放
-	 * 内存，而不是在这里做。
+	/*
+	 * 也忘记子事务状态。由于这不可能很大，            
+	 * 我们让 TopTransactionContext 最终重置时释放内存，    
+	 * 而不是在这里做。        
 	 */
 	afterTriggers.trans_stack = NULL;
 	afterTriggers.maxtransdepth = 0;
 
 
-	/* *
-	 * 忘记查询堆栈和约束相关状态信息。与
-	 * 子事务状态信息一样，我们不费心在这里
-	 * 释放内存。
+	/*
+	 * 忘记查询堆栈和约束相关的状态信息。与子事务     
+	 * 状态信息一样，我们不费心在这里释放                   
+	 * 内存。   
 	 */
 	afterTriggers.query_stack = NULL;
 	afterTriggers.maxquerydepth = 0;
@@ -5328,20 +5328,20 @@ AfterTriggerEndXact(bool isCommit)
 	afterTriggers.query_depth = -1;
 }
 
-/* *
+/*
  * AfterTriggerBeginSubXact()
  *
- *	开始一个子事务。
+ *	启动子事务。     
  */
 void
 AfterTriggerBeginSubXact(void)
 {
 	int			my_level = GetCurrentTransactionNestLevel();
 
-	/* *
-	 * 如果需要，在 trans_stack 中分配更多空间。（注意：因为
-	 * 子事务的最小嵌套级别是 2，我们浪费了数组的前几个
-	 * 条目；不值得用符号笔法来避免它。）
+	/*
+	 * 如有需要，在 trans_stack 中分配更多空间。（注意，  
+	 * 由于子事务的最小嵌套级别为 2，我们会浪费数组     
+	 * 的前几个条目；不值得费记号功夫去避免它。       
 	 */
 	while (my_level >= afterTriggers.maxtransdepth)
 	{
@@ -5390,8 +5390,8 @@ AfterTriggerEndSubXact(bool isCommit)
 	AfterTriggerEventChunk *chunk;
 	CommandId	subxact_firing_id;
 
-	/* *
-	 * 如果需要，弹出先前状态。
+	/*
+	 * 必要时弹出先前状态。
 	 */
 	if (isCommit)
 	{
@@ -5407,19 +5407,19 @@ AfterTriggerEndSubXact(bool isCommit)
 	}
 	else
 	{
-		/* *
-		 * 中止。子事务开始可能在调用
-		 * AfterTriggerBeginSubXact 之前失败，在这种情况下我们
-		 * 绝不能冒险触及不存在的 trans_stack 级别。
+		/*
+		 * 正在中止。子事务的启动有可能在调用          
+		 * AfterTriggerBeginSubXact 之前失败，此时绝不能去碰   
+		 * 并不存在的 trans_stack 级别。
 		 */
 		if (my_level >= afterTriggers.maxtransdepth)
 			return;
 
-		/* *
-		 * 释放正在中止的查询的查询级别存储，并将
-		 * query_depth 恢复到其子事务前的值。这假设
-		 * 子事务不会向在更早事务状态中
-		 * 启动的查询级别添加事件。
+		/*
+		 * 释放被中止查询的查询层级存储，并将 query_depth   
+		 * 恢复为子事务前的值。这假设子事务不会向 
+		 * 在更早事务状态中启动的查询层级添加            
+		 * 事件。                 
 		 */
 		while (afterTriggers.query_depth > afterTriggers.trans_stack[my_level].query_depth)
 		{
@@ -5450,13 +5450,13 @@ AfterTriggerEndSubXact(bool isCommit)
 		/* 这避免了稍后错误时的双重 pfree： */
 		afterTriggers.trans_stack[my_level].state = NULL;
 
-		/* *
-		 * 扫描此子事务或子子事务标记为 DONE 或 IN PROGRESS
-		 * 的任何剩余延迟事件，并取消标记它们。我们可以
-		 * 识别此类事件，因为它们的触发 ID 大于或等于
-		 * 我们在子事务开始时保存的 firing_counter 值。
-		 *（这基本上是使用 command ID 跟踪的通用技术的穷版。）
-		 *
+		/*
+		 * 扫描那些被本子事务或其子子事务标记为 DONE 或   
+		 * IN PROGRESS 的其余延迟事件，并取消其标记。    
+		 * 我们可以这样识别：它们的触发 ID 大于或等于      
+		 * 我们在子事务开始时保存的 firing_counter 值。（这   
+		 * 实质上假设当前子事务包含其后启动的全部子事
+		 * 务。）                  
 		 */
 		subxact_firing_id = afterTriggers.trans_stack[my_level].firing_counter;
 		for_each_event_chunk(event, chunk, afterTriggers.events)
@@ -5490,13 +5490,13 @@ GetAfterTriggersTransitionTable(int event,
 	bool		update_new_table = transition_capture->tcs_update_new_table;
 	bool		insert_new_table = transition_capture->tcs_insert_new_table;
 
-	/* *
-	 * 对于 INSERT 事件，NEW 应为非 NULL；对于 DELETE 事件，
-	 * OLD 应为非 NULL；而对于 UPDATE 事件，通常 OLD 和 NEW 都
-	 * 为非 NULL。但对于在 UPDATE 分区键行移动期间
-	 * 为捕获转换元组而触发的 UPDATE 事件，
-	 * 当事件是用于"旧"元组时 OLD 为 NULL，当事件是用于
-	 * "新"元组时 NEW 为 NULL。
+	/*
+	 * 对于 INSERT 事件，NEW 应为非 NULL；对于 DELETE 事件，   
+	 * OLD 应为非 NULL；而对于 UPDATE 事件，通常 OLD 和 NEW   
+	 * 都非 NULL。但对为捕获转换元组而在 UPDATE 分区键      
+	 * 行移动期间触发的 UPDATE 事件，当事件针对被插入      
+	 * 的行时 OLD 为 NULL，而当事件针对被删除的行时 NEW    
+	 * 为 NULL。       
 	 */
 	Assert(!(event == TRIGGER_EVENT_DELETE && delete_old_table &&
 			 TupIsNull(oldslot)));
@@ -5523,11 +5523,11 @@ GetAfterTriggersTransitionTable(int event,
 	return tuplestore;
 }
 
-/* *
- * 将给定的堆元组添加到给定的元组存储，必要时应用
- * 转换映射。
+/*
+ * 将给定的堆元组添加到给定的元组存储，必要时施加    
+ * 转换映射。  
  *
- * 如果提供了 original_insert_tuple，我们可以不加转换地添加该元组。
+ * 如果传入 original_insert_tuple，我们能不加转换添加该元组。
  */
 static void
 TransitionTableAddTuple(EState *estate,
@@ -5657,9 +5657,9 @@ SetConstraintStateCopy(SetConstraintState origstate)
 	return state;
 }
 
-/* *
- * 向 SetConstraintState 添加每个触发器的条目。返回可能
- * 已更改的状态对象指针（如果我们必须 repalloc，它将更改）。
+/*
+ * 向 SetConstraintState 添加一个每触发器条目。返回可能已  
+ * 更改的状态对象指针（若必须 repalloc 则会更改）。 
  */
 static SetConstraintState
 SetConstraintStateAddItem(SetConstraintState state,
@@ -5721,8 +5721,8 @@ AfterTriggerSetState(ConstraintsSetStmt *stmt)
 		 */
 		afterTriggers.state->numstates = 0;
 
-		/* *
-		 * 将每个事务的 ALL 状态设置为已知。
+		/*
+		 * 将每事务的 ALL 状态设为已知。  
 		 */
 		afterTriggers.state->all_isset = true;
 		afterTriggers.state->all_isdeferred = stmt->deferred;
@@ -5738,16 +5738,16 @@ AfterTriggerSetState(ConstraintsSetStmt *stmt)
 		/*
 		 * 处理 SET CONSTRAINTS 约束名 [, ...]      
 		 *
-		 * 首先，识别所有指名的约束并制作其 OID 列表。    
-		 * 因为与 SQL 标准不同，我们允许同一个模式内存在  
-		 * 多个同名约束，指称未必唯一。故策略是   
-		 * 瞄准第一个有匹配的搜索路径模式内的所有  
-		 * 匹配约束，但无视首个匹配之后其他模式内的
-		 * 匹配。                                                        
-		 * （这有点奇怪，但这是历史行为。）     
+		 * 首先，识别所有指名的约束并建立其 OID 的列表。 
+		 * 由于与 SQL 规范不同，我们允许同一模式内有多个  
+		 * 同名约束，所以这些指称不一定唯一。      
+		 * 策略是：瞄准首个有匹配的搜索路径模式内  
+		 * 所有匹配约束，但无视首个匹配后的其他模   
+		 * 式中的匹配。                                               
+		 * （这有点怪，但这是历史行为。）        
 		 *
-		 * 分区表上的约束可能在分区中有对应约束。 
-		 * 把这些也一并获取。                    
+		 * 分区表中的约束可能在分区里有对应约束。 
+		 * 把这些约束也一并获取。              
 		 */
 		conrel = table_open(ConstraintRelationId, AccessShareLock);
 
@@ -5831,8 +5831,8 @@ AfterTriggerSetState(ConstraintsSetStmt *stmt)
 
 			list_free(namespacelist);
 
-			/* *
-			 * 未找到？
+			/*
+			 * 未找到? 
 			 */
 			if (!found)
 				ereport(ERROR,
@@ -5841,11 +5841,11 @@ AfterTriggerSetState(ConstraintsSetStmt *stmt)
 								constraint->relname)));
 		}
 
-		/* *
-		 * 扫描约束的任何可能的后代。我们将找到的内容
-		 * 附加到我们正在扫描的同一个列表中；这具有
-		 * 我们也为那些创建新扫描的效果，因此如果有
-		 * 进一步的后代，我们也会捕获它们。
+		/*
+		 * 扫描这些约束的任何可能的后代。我们把找到的 
+		 * 东西都追加到我们正在扫描的同一个列表中；这样 
+		 * 也会为它们建立新的扫描，因此如果还有更深的
+		 * 后代，我们也能捕获到。          
 		 */
 		foreach(lc, conoidlist)
 		{
@@ -5898,11 +5898,11 @@ AfterTriggerSetState(ConstraintsSetStmt *stmt)
 			{
 				Form_pg_trigger pg_trigger = (Form_pg_trigger) GETSTRUCT(htup);
 
-				/* *
-				 * 静默跳过在 pg_trigger 中标记为不可延迟的
-				 * 触发器。这不是错误条件，因为可延迟的
-				 * RI 约束可能有一些不可延迟的
-				 * 操作。
+				/*
+				 * 静默跳过在 pg_trigger 中被标记为不可延迟     
+				 * 的触发器。这不算错误，因为可延迟 RI 
+				 * 约束可能带有一些不可延迟的动作。     
+				 *         
 				 */
 				if (pg_trigger->tgdeferrable)
 					tgoidlist = lappend_oid(tgoidlist, pg_trigger->oid);
@@ -5913,9 +5913,9 @@ AfterTriggerSetState(ConstraintsSetStmt *stmt)
 
 		table_close(tgrel, AccessShareLock);
 
-		/* *
-		 * 现在我们可以为此次事务设置单个触发器的
-		 * 触发器状态。
+		/*
+		 * 现在我们可以为此次事务设置各触发器的状态。  
+		 *      
 		 */
 		foreach(lc, tgoidlist)
 		{
@@ -5941,16 +5941,16 @@ AfterTriggerSetState(ConstraintsSetStmt *stmt)
 		}
 	}
 
-	/* *
-	 * SQL99 要求将约束设置为 IMMEDIATE 时，在 SET CONSTRAINTS
-	 * 命令执行时必须对该约束进行任何延迟
-	 * 检查——即 SET CONSTRAINTS 命令的效果
-	 * 追溯适用。我们已经更新了约束状态，因此扫描
-	 * 待处理触发器事件的列表，并立即触发
-	 * 以前延迟但现在变为立即的事件。
-	 *（但前提是尚未开始触发 after triggers。）
+	/*
+	 * SQL99 要求，当一个约束被设置为 IMMEDIATE 时，任何      
+	 * 针对该约束的延迟检查都必须在 SET CONSTRAINTS          
+	 * 命令执行时进行——即 SET CONSTRAINTS 命令的              
+	 * 效果是追溯适用的。我们已经更新了约束状态，       
+	 * 因此扫描先前延迟的事件列表，触发已变为立       
+	 * 即的。 
 	 *
-	 *
+	 * 显然，若这是 SET ... DEFERRED，它就不可能已把任何   
+	 * 未触发的事件转换为立即事件，故此时无需做事。  
 	 */
 	if (!stmt->deferred)
 	{
@@ -5961,14 +5961,14 @@ AfterTriggerSetState(ConstraintsSetStmt *stmt)
 		{
 			CommandId	firing_id = afterTriggers.firing_counter++;
 
-			/* *
-			 * 确保已建立快照，以防触发器
-			 * 函数需要。注意我们避免设置快照，如果
-			 * 我们没有找到至少一个现在必须触发的触发器。
-			 * 这是为了 BEGIN; SET CONSTRAINTS ...; SET TRANSACTION
-			 * ISOLATION LEVEL SERIALIZABLE ... 能正常工作。
-			 *
-			 *
+			/*
+			 * 确保已建立快照，以防触发器函数需要。   
+			 * 注意，若没有找到至少一个现在必须触发的    
+			 * 触发器，就避免设置快照。这是为了让 BEGIN;  
+			 *  SET CONSTRAINTS ...; SET TRANSACTION                      
+			 *  ISOLATION LEVEL SERIALIZABLE; ... 能正常运行。        
+			 * （若正处于事务开始处，则任何触发器事件都   
+			 * 尚不可能入队。） 
 			 */
 			if (!snapshot_set)
 			{
@@ -6018,10 +6018,10 @@ AfterTriggerPendingOnRel(Oid relid)
 	{
 		AfterTriggerShared evtshared = GetTriggerSharedData(event);
 
-		/* *
-		 * 我们可以忽略已完成的事件。（即使 DONE 标志被
-		 * 子事务中止回滚，也没关系，因为 TRUNCATE
-		 * 或任何操作的效果也必须回滚。）
+		/*
+		 * 我们可以忽略已完成的事件。（即使 DONE 标志   
+		 * 被子事务中止回滚，也没关系，因为 TRUNCATE 等     
+		 * 其他操作效果也须回滚。）  
 		 */
 		if (event->ate_flags & AFTER_TRIGGER_DONE)
 			continue;
@@ -6030,10 +6030,10 @@ AfterTriggerPendingOnRel(Oid relid)
 			return true;
 	}
 
-	/* *
-	 * 也扫描不完整查询排队的事件。这只有在
-	 * TRUNCATE/etc 由同一关系上更新查询中的函数或触发器
-	 * 执行时才重要，这是相当反常的，但让我们检查一下。
+	/*
+	 * 也扫描由未完成的查询排队的事件。只有当             
+	 * TRUNCATE 等操作由同一关系上更新查询内的函数或        
+	 * 触发器执行时才有影响，这相当反常，但仍需检查。 
 	 */
 	for (depth = 0; depth <= afterTriggers.query_depth && depth < afterTriggers.maxquerydepth; depth++)
 	{
@@ -6113,10 +6113,10 @@ AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 	int			i;
 	Tuplestorestate *fdw_tuplestore = NULL;
 
-	/* *
-	 * 检查状态。我们使用普通测试而不是 Assert，因为在
-	 * 给定错误配置的 RI 触发器的情况下可能以错误状态
-	 * 到达这里，特别是延迟级联操作触发器时。
+	/*
+	 * 检查状态。我们使用普通测试而不是 Assert，因为       
+	 * 在 RI 触发器配置不当的情况下可能以错误状态到 
+	 * 这里，尤其延迟级联触发器时。    
 	 */
 	if (afterTriggers.query_depth < 0)
 		elog(ERROR, "AfterTriggerSaveEvent() called outside of query");
@@ -6133,9 +6133,9 @@ AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 	{
 		TupleTableSlot *original_insert_tuple = transition_capture->tcs_original_insert_tuple;
 
-		/* *
-		 * 根据事件，在适当的转换表中捕获
-		 * 旧元组。
+		/*
+		 * 根据事件，在适当的转换表中捕获旧元组。         
+		 *           
 		 */
 		if (!TupIsNull(oldslot))
 		{
@@ -6149,9 +6149,9 @@ AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 									oldslot, NULL, old_tuplestore);
 		}
 
-		/* *
-		 * 根据事件，在适当的转换表中捕获
-		 * 新元组。
+		/*
+		 * 根据事件，在适当的转换表中捕获新元组。         
+		 *           
 		 */
 		if (!TupIsNull(newslot))
 		{
@@ -6165,12 +6165,12 @@ AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 									newslot, original_insert_tuple, new_tuplestore);
 		}
 
-		/* *
-		 * 如果转换表是我们来这里的唯一原因，返回。如
-		 * 上面所述，在存在转换表的情况下，在更新元组
-		 * 路由期间我们也可以在这里，在这种情况下，此函数
-		 * 分别为 OLD 和 NEW 调用，因此我们期望其中
-		 * 恰好一个为 NULL。
+		/*
+		 * 如果转换表是来此处的唯一原因，则返回。如   
+		 * 前所述，在存在转换表的情况下，更新元组路由期 
+		 * 间也可能到这里，此时本函数会分别为 OLD 和  
+		 * NEW 各调用一次，因此我们期望两者中恰好有一个为
+		 * NULL。    
 		 */
 		if (trigdesc == NULL ||
 			(event == TRIGGER_EVENT_DELETE && !trigdesc->trig_delete_after_row) ||
@@ -6180,12 +6180,12 @@ AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 			return;
 	}
 
-	/* *
-	 * 我们通常不会在这里看到针对行级触发器的分区表，
-	 * 除了跨分区更新的特殊情况。在这种情况下，
-	 * nodeModifyTable.c:ExecCrossPartitionUpdateForeignKey() 在这里调用
-	 * 以在根目标分区表上排队更新事件，同时
-	 * 传入 src_partinfo 和 dst_partinfo。
+	/*
+	 * 对于行级触发器，我们在这里通常看不到分区表，  
+	 * 除非是跨分区更新的特殊情况。在这种情况下，       
+	 * nodeModifyTable.c:ExecCrossPartitionUpdateForeignKey() 会在       
+	 * 这里调用，以便在根目标分区表上排队一个更新 
+	 * 事件，同时传入源分区和目标分区及其元组。   
 	 */
 	Assert(!row_trigger ||
 		   rel->rd_rel->relkind != RELKIND_PARTITIONED_TABLE ||
@@ -6193,17 +6193,17 @@ AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 			TRIGGER_FIRED_BY_UPDATE(event) &&
 			src_partinfo != NULL && dst_partinfo != NULL));
 
-	/* *
-	 * 验证事件代码并收集关联的元组 CTID。
+	/*
+	 * 校验事件代码并收集关联的元组 CTID。             
 	 *
-	 * 事件代码将既用作位掩码又用作数组偏移量，因此
-	 * 验证很重要，以确保我们不会走出我们的
-	 * 数组边界。
+	 * 事件代码将既用作位掩码又用作数组偏移量，因此   
+	 * 校验很重要，可确保我们不会越过数组的边界。       
+	 *        
 	 *
-	 * 此外，如果我们正在考虑语句级触发器，检查
-	 * 我们是否在错误的上下文中调用了此函数。
-	 *
-	 *
+	 * 此外，如果我们正在考虑语句级触发器，则检查是   
+	 * 否已经为此事件排队了一组这样的触发器，如果是   
+	 * 则取消先前那组。这保留了语句级触发器每条语       
+	 * 句只触发一次且在行级触发器之后的行为。 
 	 */
 	switch (event)
 	{
@@ -6254,9 +6254,9 @@ AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 				ItemPointerCopy(&(oldslot->tts_tid), &(new_event.ate_ctid1));
 				ItemPointerCopy(&(newslot->tts_tid), &(new_event.ate_ctid2));
 
-				/* *
-				 * 还要记住分区的 OID，以便稍后在
-				 * AfterTriggerExecute() 中获取这些元组。
+				/*
+				 * 同时记住分区 OID，稍后由 AfterTriggerExecute()  
+				 * 取出这些元组。                 
 				 */
 				if (rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
 				{
@@ -6362,12 +6362,12 @@ AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 				new_event.ate_flags = AFTER_TRIGGER_FDW_REUSE;
 		}
 
-		/* *
-		 * 如果触发器是外键强制触发器，在某些
-		 * 情况下我们可以跳过排队事件，因为我们可以通过检查
-		 * 判断 FK 约束仍然会通过。在分区表的跨分区
-		 * 更新期间，也有一些情况我们可以跳过。
-		 *
+		/*
+		 * 如果该触发器是外键强制触发器，那么在某些  
+		 * 情况下我们可以跳过事件排队，因为通过检查就  
+		 * 能判断 FK 约束仍会通过。在分区表的跨分区更新
+		 * 期间也存在一些可以跳过事件排队的                   
+		 * 情况。                                    
 		 */
 		if (TRIGGER_FIRED_BY_UPDATE(event) || TRIGGER_FIRED_BY_DELETE(event))
 		{
@@ -6375,14 +6375,14 @@ AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 			{
 				case RI_TRIGGER_PK:
 
-					/* *
-					 * 对于分区 PK 表的跨分区更新，
-					 * 跳过由源叶分区上的组件删除触发的事件，
-					 * 除非约束源于分区本身
-					 *（!tgisclone），因为将在根分区
-					 * 表上触发的更新事件将充分
-					 * 处理。
-					 *
+					/*
+					 * 对于分区 PK 表的跨分区更新，应跳过由  
+					 * 源叶分区上的组件删除所触发的事件，
+					 * 除非该约束源自分区本身（!tgisclone），  
+					 * 因为在根（分区）目标表上将触发的 
+					 * 更新事件会被用来执行必要的    
+					 * 外键强制实施                                    
+					 * 操作。                                
 					 */
 					if (is_crosspart_update &&
 						TRIGGER_FIRED_BY_DELETE(event) &&
@@ -6422,13 +6422,13 @@ AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 
 				case RI_TRIGGER_NONE:
 
-					/* *
-					 * 不是 FK 触发器。无需排队在分区表
-					 * 的跨分区更新期间触发的更新事件，
-					 * 因为相同的行触发器必须存在于受此更新
-					 * 影响的叶分区中，并且在它们上触发的事件
-					 * 是充分的。
-					 *
+					/*
+					 * 不是 FK 触发器。分区表跨分区更新期间 
+					 * 触发的更新事件不必排队，因为  
+					 * 相同的行触发器必存在于受此更新影响的 
+					 * 叶分区中，而在这些分区上触发的事件  
+					 * 会被排队                                        
+					 * 代替。      
 					 */
 					if (row_trigger &&
 						rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
@@ -6437,10 +6437,10 @@ AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 			}
 		}
 
-		/* *
-		 * 如果触发器是延迟的唯一约束检查触发器，仅当
-		 * 唯一约束可能被违反时才排队它，
-		 * 我们在索引插入时就知道这一点。
+		/*
+		 * 如果该触发器是延迟的唯一约束检查触发器，只有
+		 * 在唯一约束可能被违反时才将其排队，这一点     
+		 * 在索引插入时便可知道。 
 		 */
 		if (trigger->tgfoid == F_UNIQUE_KEY_RECHECK)
 		{
@@ -6448,10 +6448,10 @@ AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 				continue;		/* 唯一性确实未被违反 */
 		}
 
-		/* *
-		 * 填充事件结构并将其添加到当前查询的队列中。
-		 * 注意：只要此触发器不使用转换表，我们将 ats_table 设置
-		 * 为 NULL，以提高共享事件数据的可共享性。
+		/*
+		 * 填充事件结构并将其加入当前查询的队列。注意 
+		 * 只要此触发器不使用转换表，我们就把 ats_table  
+		 * 设为 NULL，以提高共享事件数据的可共享性。        
 		 */
 		new_shared.ats_event =
 			(event & TRIGGER_EVENT_OPMASK) |
@@ -6472,10 +6472,10 @@ AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 							 &new_event, &new_shared);
 	}
 
-	/* *
-	 * 最后，spool 任何外来元组。元组存储将它们压缩为
-	 * 最小元组，因此这会丢失任何系统列。执行器在我们之前
-	 * 丢失了这些列（出于无关原因），因此这是可以的。
+	/*
+	 * 最后，spool 任何外来元组。元组存储会把它们压缩为
+	 * 最小元组，因此这会丢失任何系统列。执行器在我  
+	 * 们之前就因无关原因丢失了这些列，所以没问题。
 	 */
 	if (fdw_tuplestore)
 	{
@@ -6486,9 +6486,9 @@ AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 	}
 }
 
-/* *
- * 检测我们是否已经为给定关系 + 操作排队了 BEFORE STATEMENT
- * 触发器，并设置标志以便下次调用返回 "true"。
+/*
+ * 检测我们是否已经为给定的关系 + 操作排队了 BEFORE     
+ *  STATEMENT 触发器，并设置标志使下次调用报告 "true"。      
  */
 static bool
 before_stmt_triggers_fired(Oid relid, CmdType cmdType)
@@ -6504,12 +6504,12 @@ before_stmt_triggers_fired(Oid relid, CmdType cmdType)
 	if (afterTriggers.query_depth >= afterTriggers.maxquerydepth)
 		AfterTriggerEnlargeQueryState();
 
-	/* *
-	 * 我们将此状态保存在与关系 + 操作的转换表相同的
-	 * AfterTriggersTableData 中。这样，如果我们被迫创建新的
-	 * 转换表集合（因为在已经触发触发器后有更多元组
-	 * 被输入），我们将允许在该集合上执行新的一组
-	 * 语句触发器。
+	/*
+	 * 我们将此状态保存在同时保存关系 + 操作的转换 
+	 * 表的 AfterTriggersTableData 中。这样，如果我们被迫创建  
+	 * 新的转换表集合（因为在已触发触发器后有更多      
+	 * 元组被输入），我们就允许新的一组语句触发器       
+	 * 被排队。                     
 	 */
 	table = GetAfterTriggersTableData(relid, cmdType);
 	result = table->before_trig_done;
@@ -6542,22 +6542,22 @@ cancel_prior_stmt_triggers(Oid relid, CmdType cmdType, int tgevent)
 	AfterTriggersTableData *table;
 	AfterTriggersQueryData *qs = &afterTriggers.query_stack[afterTriggers.query_depth];
 
-	/* *
-	 * 我们将此状态保存在与关系 + 操作的转换表相同的
-	 * AfterTriggersTableData 中。这样，如果我们被迫创建新的
-	 * 转换表集合（因为在已经触发触发器后有更多元组
-	 * 被输入），我们将允许在该集合上执行新的一组
-	 * 语句触发器。
+	/*
+	 * 我们将此状态保存在同时保存关系 + 操作的转换 
+	 * 表的 AfterTriggersTableData 中。这样，如果我们被迫创建  
+	 * 新的转换表集合（因为在已触发触发器后有更多      
+	 * 元组被输入），我们就允许新的一组语句触发器       
+	 * 被排队，而不取消旧的那一组。                      
 	 */
 	table = GetAfterTriggersTableData(relid, cmdType);
 
 	if (table->after_trig_done)
 	{
-		/* *
-		 * 我们想从插入任何语句触发器之前存在的
-		 * 尾部位置开始扫描。但事件列表在那时可能
-		 * 完全为空，在这种情况下从当前
-		 * 头部扫描。
+		/*
+		 * 我们要从插入任何语句触发器之前存在的尾部位   
+		 * 置开始扫描。但事件列表在那时可能完全为空，
+		 * 在这种情况下就从当前的头部                       
+		 * 扫描。    
 		 */
 		AfterTriggerEvent event;
 		AfterTriggerEventChunk *chunk;
@@ -6581,9 +6581,9 @@ cancel_prior_stmt_triggers(Oid relid, CmdType cmdType, int tgevent)
 			{
 				AfterTriggerShared evtshared = GetTriggerSharedData(event);
 
-				/* *
-				 * 当我们到达不是目标关系的 AS 触发器
-				 * 的事件时退出循环。
+				/*
+				 * 到达不是目标关系 AS 触发器的事件时，退出
+				 * 循环。           
 				 */
 				if (evtshared->ats_relid != relid)
 					goto done;
@@ -6614,9 +6614,9 @@ done:
 void
 assign_session_replication_role(int newval, void *extra)
 {
-	/* *
-	 * 更改复制角色时必须刷新计划缓存；但不必
-	 * 不必要地刷新。
+	/*
+	 * 更改复制角色时必须刷新计划缓存；但无必要时    
+	 * 不刷新。        
 	 */
 	if (SessionReplicationRole != newval)
 		ResetPlanCache();

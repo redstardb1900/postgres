@@ -1,0 +1,49 @@
+{
+ "schema_version": 1,
+ "batch_id": "0270-comment-executor-spi",
+ "title": "Translate executor comments: executor-spi",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "26611dd47660844bbf8cc2a819e51df5d1036f17",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0270-comment-executor-spi.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/executor/**",
+   "kind": "c_comment",
+   "note": "P2 executor translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0270-comment-executor-spi.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/executor/spi.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 268,
+   "translated": 263,
+   "preserved": 5,
+   "preserved_reasons": [
+    "EN:1612 /* translator: %s is name of a SQL command, eg INSERT */ - gettext translator hint, kept in EN",
+    "EN:1744 /* translator: %s is a SQL statement name */ - gettext translator hint, kept in EN",
+    "EN:2568 /* translator: %s is name of a SQL command, eg INSERT */ - gettext translator hint, kept in EN",
+    "EN:2655 /* translator: %s is a SQL statement name */ - gettext translator hint, kept in EN",
+    "EN:2114 (blk155) /* =================== private functions =================== - pure separator/label block, rebuild byte-identical to EN (pruned no-op)"
+   ],
+   "note": "P2 executor campaign wave C11"
+  }
+ ],
+ "notes": "Translation agents (C11a/C11b/C11c) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

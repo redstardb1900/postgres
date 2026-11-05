@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * spi.c
- *				Server Programming Interface
+ *				服务器编程接口       
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -37,10 +37,10 @@
 
 
 /*
- * These global variables are part of the API for various SPI functions
- * (a horrible API choice, but it's too late now).  To reduce the risk of
- * interference between different SPI callers, we save and restore them
- * when entering/exiting a SPI nesting level.
+ * 这些全局变量是 SPI 函数 API 的一部分（这一 API      
+ * 选择很糟糕，但为时已晚）。为降低 SPI 调用者相互  
+ * 干扰的风险，会在进入/退出 SPI 嵌套层级时保存并  
+ * 恢复这些变量。                     
  */
 uint64		SPI_processed = 0;
 SPITupleTable *SPI_tuptable = NULL;
@@ -48,8 +48,8 @@ int			SPI_result = 0;
 
 static _SPI_connection *_SPI_stack = NULL;
 static _SPI_connection *_SPI_current = NULL;
-static int	_SPI_stack_depth = 0;	/* allocated size of _SPI_stack */
-static int	_SPI_connected = -1;	/* current stack index */
+static int	_SPI_stack_depth = 0;	/* _SPI_stack 的已分配大小*/
+static int	_SPI_connected = -1;	/* 当前栈索引     */
 
 typedef struct SPICallbackArg
 {
@@ -89,7 +89,7 @@ static MemoryContext _SPI_procmem(void);
 static bool _SPI_checktuples(void);
 
 
-/* =================== interface functions =================== */
+/* =================== 接口函数 ===================        */
 
 int
 SPI_connect(void)
@@ -102,7 +102,7 @@ SPI_connect_ext(int options)
 {
 	int			newdepth;
 
-	/* Enlarge stack if necessary */
+	/* 必要时扩大栈         */
 	if (_SPI_stack == NULL)
 	{
 		if (_SPI_connected != -1 || _SPI_stack_depth != 0)
@@ -127,7 +127,7 @@ SPI_connect_ext(int options)
 		}
 	}
 
-	/* Enter new stack level */
+	/* 进入新的栈层级 */
 	_SPI_connected++;
 	Assert(_SPI_connected >= 0 && _SPI_connected < _SPI_stack_depth);
 
@@ -136,7 +136,7 @@ SPI_connect_ext(int options)
 	_SPI_current->tuptable = NULL;
 	_SPI_current->execSubid = InvalidSubTransactionId;
 	slist_init(&_SPI_current->tuptables);
-	_SPI_current->procCxt = NULL;	/* in case we fail to create 'em */
+	_SPI_current->procCxt = NULL;	/* 以防创建它们失败      */
 	_SPI_current->execCxt = NULL;
 	_SPI_current->connectSubid = GetCurrentSubTransactionId();
 	_SPI_current->queryEnv = NULL;
@@ -147,17 +147,17 @@ SPI_connect_ext(int options)
 	_SPI_current->outer_result = SPI_result;
 
 	/*
-	 * Create memory contexts for this procedure
+	 * 为该过程创建内存上下文        
 	 *
-	 * In atomic contexts (the normal case), we use TopTransactionContext,
-	 * otherwise PortalContext, so that it lives across transaction
-	 * boundaries.
+	 * 原子上下文（正常情况）下使用 TopTransactionContext，
+	 * 否则使用 PortalContext，使其存活跨越事务       
+	 * 边界。  
 	 *
-	 * XXX It could be better to use PortalContext as the parent context in
-	 * all cases, but we may not be inside a portal (consider deferred-trigger
-	 * execution).  Perhaps CurTransactionContext could be an option?  For now
-	 * it doesn't matter because we clean up explicitly in AtEOSubXact_SPI();
-	 * but see also AtEOXact_SPI().
+	 * XXX 若一律用 PortalContext 作为父上下文会更好，但    
+	 * 可能并不处于 portal 内（考虑延迟触发器执行）。也许
+	 * CurTransactionContext 是个选项？目前这一点无关紧要，    
+	 * 因为我们会在 AtEOSubXact_SPI() 中显式清理；               
+	 * 另见 AtEOXact_SPI()。    
 	 */
 	_SPI_current->procCxt = AllocSetContextCreate(_SPI_current->atomic ? TopTransactionContext : PortalContext,
 												  "SPI Proc",
@@ -165,12 +165,12 @@ SPI_connect_ext(int options)
 	_SPI_current->execCxt = AllocSetContextCreate(_SPI_current->atomic ? TopTransactionContext : _SPI_current->procCxt,
 												  "SPI Exec",
 												  ALLOCSET_DEFAULT_SIZES);
-	/* ... and switch to procedure's context */
+	/* ... 并切换到过程上下文       */
 	_SPI_current->savedcxt = MemoryContextSwitchTo(_SPI_current->procCxt);
 
 	/*
-	 * Reset API global variables so that current caller cannot accidentally
-	 * depend on state of an outer caller.
+	 * 重置这些 API 全局变量，使当前调用者不会意外地    
+	 * 依赖外层调用者的状态。  
 	 */
 	SPI_processed = 0;
 	SPI_tuptable = NULL;
@@ -184,28 +184,28 @@ SPI_finish(void)
 {
 	int			res;
 
-	res = _SPI_begin_call(false);	/* just check we're connected */
+	res = _SPI_begin_call(false);	/* 仅检查是否已连接   */
 	if (res < 0)
 		return res;
 
-	/* Restore memory context as it was before procedure call */
+	/* 把内存上下文恢复为过程调用前的状态    */
 	MemoryContextSwitchTo(_SPI_current->savedcxt);
 
-	/* Release memory used in procedure call (including tuptables) */
+	/* 释放在过程调用中使用的内存（包括 tuptable）*/
 	MemoryContextDelete(_SPI_current->execCxt);
 	_SPI_current->execCxt = NULL;
 	MemoryContextDelete(_SPI_current->procCxt);
 	_SPI_current->procCxt = NULL;
 
 	/*
-	 * Restore outer API variables, especially SPI_tuptable which is probably
-	 * pointing at a just-deleted tuptable
+	 * 恢复外层的 API 全局变量，尤其是 SPI_tuptable，它可能 
+	 * 正指向刚删除的 tuptable。  
 	 */
 	SPI_processed = _SPI_current->outer_processed;
 	SPI_tuptable = _SPI_current->outer_tuptable;
 	SPI_result = _SPI_current->outer_result;
 
-	/* Exit stack level */
+	/* 退出栈层级  */
 	_SPI_connected--;
 	if (_SPI_connected < 0)
 		_SPI_current = NULL;
@@ -216,8 +216,8 @@ SPI_finish(void)
 }
 
 /*
- * SPI_start_transaction is a no-op, kept for backwards compatibility.
- * SPI callers are *always* inside a transaction.
+ * SPI_start_transaction 是空操作，保留是为了向后兼容。
+ * SPI 调用者总是处于事务之中。      
  */
 void
 SPI_start_transaction(void)
@@ -231,10 +231,10 @@ _SPI_commit(bool chain)
 	SavedTransactionCharacteristics savetc;
 
 	/*
-	 * Complain if we are in a context that doesn't permit transaction
-	 * termination.  (Note: here and _SPI_rollback should be the only places
-	 * that throw ERRCODE_INVALID_TRANSACTION_TERMINATION, so that callers can
-	 * test for that with security that they know what happened.)
+	 * 若当前上下文不允许终止事务，则发出抱怨。   
+	 * （注意：此处与 _SPI_rollback 应当是仅有的两个抛出   
+	 * ERRCODE_INVALID_TRANSACTION_TERMINATION 的地方，                   
+	 * 这样调用者测试时便能确知发生了什么。） 
 	 */
 	if (_SPI_current->atomic)
 		ereport(ERROR,
@@ -242,14 +242,14 @@ _SPI_commit(bool chain)
 				 errmsg("invalid transaction termination")));
 
 	/*
-	 * This restriction is required by PLs implemented on top of SPI.  They
-	 * use subtransactions to establish exception blocks that are supposed to
-	 * be rolled back together if there is an error.  Terminating the
-	 * top-level transaction in such a block violates that idea.  A future PL
-	 * implementation might have different ideas about this, in which case
-	 * this restriction would have to be refined or the check possibly be
-	 * moved out of SPI into the PLs.  Note however that the code below relies
-	 * on not being within a subtransaction.
+	 * 这一限制是基于 SPI 之上的 PL 实现所要求的。        
+	 * 它们用子事务建立异常块，出错时块内状态应当       
+	 * 被一起回滚。                                            
+	 * 在此类块中终止顶层事务违背该理念。未来的          
+	 * PL 实现对此可能有不同想法，若那样这一限制       
+	 * 就得细化，或者把检查移出 SPI、下放到各 PL。     
+	 * 不过要注意，下面的代码依赖于不在子事务内           
+	 * 这一前提。                      
 	 */
 	if (IsSubTransaction())
 		ereport(ERROR,
@@ -259,26 +259,26 @@ _SPI_commit(bool chain)
 	if (chain)
 		SaveTransactionCharacteristics(&savetc);
 
-	/* Catch any error occurring during the COMMIT */
+	/* 捕获 COMMIT 期间发生的任何错误   */
 	PG_TRY();
 	{
-		/* Protect current SPI stack entry against deletion */
+		/* 保护当前 SPI 栈条目不被删除           */
 		_SPI_current->internal_xact = true;
 
 		/*
-		 * Hold any pinned portals that any PLs might be using.  We have to do
-		 * this before changing transaction state, since this will run
-		 * user-defined code that might throw an error.
+		 * 占住任何 PL 可能正在使用的钉住 portal。我们必须  
+		 * 要在改变事务状态前做这事，因为那将运行  
+		 * 可能抛出错误的用户代码。        
 		 */
 		HoldPinnedPortals();
 
-		/* Release snapshots associated with portals */
+		/* 释放与 portal 关联的快照          */
 		ForgetPortalSnapshots();
 
-		/* Do the deed */
+		/* 执行操作*/
 		CommitTransactionCommand();
 
-		/* Immediately start a new transaction */
+		/* 立即启动一个新事务         */
 		StartTransactionCommand();
 		if (chain)
 			RestoreTransactionCharacteristics(&savetc);
@@ -291,18 +291,18 @@ _SPI_commit(bool chain)
 	{
 		ErrorData  *edata;
 
-		/* Save error info in caller's context */
+		/* 错误信息存入调用者上下文*/
 		MemoryContextSwitchTo(oldcontext);
 		edata = CopyErrorData();
 		FlushErrorState();
 
 		/*
-		 * Abort the failed transaction.  If this fails too, we'll just
-		 * propagate the error out ... there's not that much we can do.
+		 * 中止失败的事务。若这一步也失败，那就只能
+		 * 把错误向外传播……我们对此无能为力。      
 		 */
 		AbortCurrentTransaction();
 
-		/* ... and start a new one */
+		/* ……再启动新事务*/
 		StartTransactionCommand();
 		if (chain)
 			RestoreTransactionCharacteristics(&savetc);
@@ -311,7 +311,7 @@ _SPI_commit(bool chain)
 
 		_SPI_current->internal_xact = false;
 
-		/* Now that we've cleaned up the transaction, re-throw the error */
+		/* 既然事务已清理完毕，重新抛出该错误           */
 		ReThrowError(edata);
 	}
 	PG_END_TRY();
@@ -335,13 +335,13 @@ _SPI_rollback(bool chain)
 	MemoryContext oldcontext = CurrentMemoryContext;
 	SavedTransactionCharacteristics savetc;
 
-	/* see comments in _SPI_commit() */
+	/* 见 _SPI_commit() 中注释   */
 	if (_SPI_current->atomic)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TRANSACTION_TERMINATION),
 				 errmsg("invalid transaction termination")));
 
-	/* see comments in _SPI_commit() */
+	/* 见 _SPI_commit() 中注释   */
 	if (IsSubTransaction())
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TRANSACTION_TERMINATION),
@@ -350,27 +350,27 @@ _SPI_rollback(bool chain)
 	if (chain)
 		SaveTransactionCharacteristics(&savetc);
 
-	/* Catch any error occurring during the ROLLBACK */
+	/* 捕获 ROLLBACK 期间发生的任何错误   */
 	PG_TRY();
 	{
-		/* Protect current SPI stack entry against deletion */
+		/* 保护当前 SPI 栈条目不被删除           */
 		_SPI_current->internal_xact = true;
 
 		/*
-		 * Hold any pinned portals that any PLs might be using.  We have to do
-		 * this before changing transaction state, since this will run
-		 * user-defined code that might throw an error, and in any case
-		 * couldn't be run in an already-aborted transaction.
+		 * 占住任何 PL 可能正在使用的钉住 portal。我们必须  
+		 * 要在改变事务状态前做这事，因为那将运行  
+		 * 可能抛错的用户代码；反正也无法在已中止   
+		 * 事务里运行。                                
 		 */
 		HoldPinnedPortals();
 
-		/* Release snapshots associated with portals */
+		/* 释放与 portal 关联的快照          */
 		ForgetPortalSnapshots();
 
-		/* Do the deed */
+		/* 执行操作*/
 		AbortCurrentTransaction();
 
-		/* Immediately start a new transaction */
+		/* 立即启动一个新事务         */
 		StartTransactionCommand();
 		if (chain)
 			RestoreTransactionCharacteristics(&savetc);
@@ -383,19 +383,19 @@ _SPI_rollback(bool chain)
 	{
 		ErrorData  *edata;
 
-		/* Save error info in caller's context */
+		/* 错误信息存入调用者上下文*/
 		MemoryContextSwitchTo(oldcontext);
 		edata = CopyErrorData();
 		FlushErrorState();
 
 		/*
-		 * Try again to abort the failed transaction.  If this fails too,
-		 * we'll just propagate the error out ... there's not that much we can
-		 * do.
+		 * 重试中止失败的事务。若这步也失败，就只能  
+		 * 把错误向外传播……对此我们无能为                   
+		 * 力
 		 */
 		AbortCurrentTransaction();
 
-		/* ... and start a new one */
+		/* ……再启动新事务*/
 		StartTransactionCommand();
 		if (chain)
 			RestoreTransactionCharacteristics(&savetc);
@@ -404,7 +404,7 @@ _SPI_rollback(bool chain)
 
 		_SPI_current->internal_xact = false;
 
-		/* Now that we've cleaned up the transaction, re-throw the error */
+		/* 既然事务已清理完毕，重新抛出该错误           */
 		ReThrowError(edata);
 	}
 	PG_END_TRY();
@@ -423,7 +423,7 @@ SPI_rollback_and_chain(void)
 }
 
 /*
- * Clean up SPI state at transaction commit or abort.
+ * 在事务提交或中止时清理 SPI 状态。   
  */
 void
 AtEOXact_SPI(bool isCommit)
@@ -431,8 +431,8 @@ AtEOXact_SPI(bool isCommit)
 	bool		found = false;
 
 	/*
-	 * Pop stack entries, stopping if we find one marked internal_xact (that
-	 * one belongs to the caller of SPI_commit or SPI_rollback).
+	 * 弹出各栈条目，遇到标记了 internal_xact 的条目就停止
+	 * （它属于 SPI_commit/SPI_rollback 的调用者）。  
 	 */
 	while (_SPI_connected >= 0)
 	{
@@ -444,15 +444,15 @@ AtEOXact_SPI(bool isCommit)
 		found = true;
 
 		/*
-		 * We need not release the procedure's memory contexts explicitly, as
-		 * they'll go away automatically when their parent context does; see
-		 * notes in SPI_connect_ext.
+		 * 无需显式释放过程的内存上下文，因为父上下文   
+		 * 消失时它们会自动随之消失；参见 SPI_connect_ext 中
+		 * 的说明。             
 		 */
 
 		/*
-		 * Restore outer global variables and pop the stack entry.  Unlike
-		 * SPI_finish(), we don't risk switching to memory contexts that might
-		 * be already gone.
+		 * 恢复外层全局变量并弹出栈条目。与 SPI_finish()  
+		 * 不同，我们不会冒切换到可能已消失的内存上下    
+		 * 文的风险。 
 		 */
 		SPI_processed = connection->outer_processed;
 		SPI_tuptable = connection->outer_tuptable;
@@ -465,7 +465,7 @@ AtEOXact_SPI(bool isCommit)
 			_SPI_current = &(_SPI_stack[_SPI_connected]);
 	}
 
-	/* We should only find entries to pop during an ABORT. */
+	/* 只有 ABORT 时才应发现待弹出条目。      */
 	if (found && isCommit)
 		ereport(WARNING,
 				(errcode(ERRCODE_WARNING),
@@ -474,10 +474,10 @@ AtEOXact_SPI(bool isCommit)
 }
 
 /*
- * Clean up SPI state at subtransaction commit or abort.
+ * 在子事务提交或中止时清理 SPI 状态。   
  *
- * During commit, there shouldn't be any unclosed entries remaining from
- * the current subtransaction; we emit a warning if any are found.
+ * 提交时，不应有当前子事务遗留的未关闭条目；若   
+ * 发现任何此类条目则发出警告。                     
  */
 void
 AtEOSubXact_SPI(bool isCommit, SubTransactionId mySubid)
@@ -489,7 +489,7 @@ AtEOSubXact_SPI(bool isCommit, SubTransactionId mySubid)
 		_SPI_connection *connection = &(_SPI_stack[_SPI_connected]);
 
 		if (connection->connectSubid != mySubid)
-			break;				/* couldn't be any underneath it either */
+			break;				/* 其下也不可能再有其他条目 */
 
 		if (connection->internal_xact)
 			break;
@@ -497,7 +497,7 @@ AtEOSubXact_SPI(bool isCommit, SubTransactionId mySubid)
 		found = true;
 
 		/*
-		 * Release procedure memory explicitly (see note in SPI_connect)
+		 * 显式释放过程内存（参见 SPI_connect 中的说明）
 		 */
 		if (connection->execCxt)
 		{
@@ -511,9 +511,9 @@ AtEOSubXact_SPI(bool isCommit, SubTransactionId mySubid)
 		}
 
 		/*
-		 * Restore outer global variables and pop the stack entry.  Unlike
-		 * SPI_finish(), we don't risk switching to memory contexts that might
-		 * be already gone.
+		 * 恢复外层全局变量并弹出栈条目。与 SPI_finish()  
+		 * 不同，我们不会冒切换到可能已消失的内存上下    
+		 * 文的风险。 
 		 */
 		SPI_processed = connection->outer_processed;
 		SPI_tuptable = connection->outer_tuptable;
@@ -533,16 +533,16 @@ AtEOSubXact_SPI(bool isCommit, SubTransactionId mySubid)
 				 errhint("Check for missing \"SPI_finish\" calls.")));
 
 	/*
-	 * If we are aborting a subtransaction and there is an open SPI context
-	 * surrounding the subxact, clean up to prevent memory leakage.
+	 * 如果我们正在中止一个子事务，且其外围存在未关  
+	 * 闭的 SPI 上下文，则做清理以防内存泄漏。    
 	 */
 	if (_SPI_current && !isCommit)
 	{
 		slist_mutable_iter siter;
 
 		/*
-		 * Throw away executor state if current executor operation was started
-		 * within current subxact (essentially, force a _SPI_end_call(true)).
+		 * 如果当前执行器操作是在当前子事务内启动的，则 
+		 * 丢弃执行器状态（即强制 _SPI_end_call(true)）。       
 		 */
 		if (_SPI_current->execSubid >= mySubid)
 		{
@@ -550,7 +550,7 @@ AtEOSubXact_SPI(bool isCommit, SubTransactionId mySubid)
 			MemoryContextResetAndDeleteChildren(_SPI_current->execCxt);
 		}
 
-		/* throw away any tuple tables created within current subxact */
+		/* 丢弃当前子事务内创建的任何元组表           */
 		slist_foreach_modify(siter, &_SPI_current->tuptables)
 		{
 			SPITupleTable *tuptable;
@@ -559,10 +559,10 @@ AtEOSubXact_SPI(bool isCommit, SubTransactionId mySubid)
 			if (tuptable->subid >= mySubid)
 			{
 				/*
-				 * If we used SPI_freetuptable() here, its internal search of
-				 * the tuptables list would make this operation O(N^2).
-				 * Instead, just free the tuptable manually.  This should
-				 * match what SPI_freetuptable() does.
+				 * 若在此用 SPI_freetuptable()，其对 tuptables 列表 
+				 * 的内部搜索将使本操作变成 O(N^2)。      
+				 * 所以，这里只是手动释放该 tuptable。      
+				 * 应与 SPI_freetuptable() 相符。
 				 */
 				slist_delete_current(&siter);
 				if (tuptable == _SPI_current->tuptable)
@@ -576,23 +576,23 @@ AtEOSubXact_SPI(bool isCommit, SubTransactionId mySubid)
 }
 
 /*
- * Are we executing inside a procedure (that is, a nonatomic SPI context)?
+ * 我们是否正在过程（即非原子 SPI 上下文）内执行？   
  */
 bool
 SPI_inside_nonatomic_context(void)
 {
 	if (_SPI_current == NULL)
-		return false;			/* not in any SPI context at all */
-	/* these tests must match _SPI_commit's opinion of what's atomic: */
+		return false;			/* 完全不在 SPI 上下文中 */
+	/* 这些测试必须与 _SPI_commit 的原子性判定一致：  */
 	if (_SPI_current->atomic)
-		return false;			/* it's atomic (ie function not procedure) */
+		return false;			/* 原子性的（即函数而非过程） */
 	if (IsSubTransaction())
-		return false;			/* if within subtransaction, it's atomic */
+		return false;			/* 若在子事务内，则是原子的  */
 	return true;
 }
 
 
-/* Parse, plan, and execute a query string */
+/* 解析、规划并执行查询字符串 */
 int
 SPI_execute(const char *src, bool read_only, long tcount)
 {
@@ -626,14 +626,14 @@ SPI_execute(const char *src, bool read_only, long tcount)
 	return res;
 }
 
-/* Obsolete version of SPI_execute */
+/* SPI_execute 的过时版本     */
 int
 SPI_exec(const char *src, long tcount)
 {
 	return SPI_execute(src, false, tcount);
 }
 
-/* Parse, plan, and execute a query string, with extensible options */
+/* 解析、规划并执行查询字符串，带可扩展的选项  */
 int
 SPI_execute_extended(const char *src,
 					 const SPIExecuteOptions *options)
@@ -668,7 +668,7 @@ SPI_execute_extended(const char *src,
 	return res;
 }
 
-/* Execute a previously prepared plan */
+/* 执行先前准备好的计划     */
 int
 SPI_execute_plan(SPIPlanPtr plan, Datum *Values, const char *Nulls,
 				 bool read_only, long tcount)
@@ -700,14 +700,14 @@ SPI_execute_plan(SPIPlanPtr plan, Datum *Values, const char *Nulls,
 	return res;
 }
 
-/* Obsolete version of SPI_execute_plan */
+/* SPI_execute_plan 的过时版本     */
 int
 SPI_execp(SPIPlanPtr plan, Datum *Values, const char *Nulls, long tcount)
 {
 	return SPI_execute_plan(plan, Values, Nulls, false, tcount);
 }
 
-/* Execute a previously prepared plan */
+/* 执行先前准备好的计划     */
 int
 SPI_execute_plan_extended(SPIPlanPtr plan,
 						  const SPIExecuteOptions *options)
@@ -729,7 +729,7 @@ SPI_execute_plan_extended(SPIPlanPtr plan,
 	return res;
 }
 
-/* Execute a previously prepared plan */
+/* 执行先前准备好的计划     */
 int
 SPI_execute_plan_with_paramlist(SPIPlanPtr plan, ParamListInfo params,
 								bool read_only, long tcount)
@@ -758,17 +758,17 @@ SPI_execute_plan_with_paramlist(SPIPlanPtr plan, ParamListInfo params,
 }
 
 /*
- * SPI_execute_snapshot -- identical to SPI_execute_plan, except that we allow
- * the caller to specify exactly which snapshots to use, which will be
- * registered here.  Also, the caller may specify that AFTER triggers should be
- * queued as part of the outer query rather than being fired immediately at the
- * end of the command.
+ * SPI_execute_snapshot -- 与 SPI_execute_plan 相同，但允许调用者   
+ * 精确指定使用哪些快照，快照将在此处注册。       
+ * 此外，调用者可以指定把 AFTER 触发器排队为外层查询      
+ * 的一部分，而不是在命令末尾                                     
+ * 立即触发。    
  *
- * This is currently not documented in spi.sgml because it is only intended
- * for use by RI triggers.
+ * 此函数目前未在 spi.sgml 中记载，因为它只打算供 RI     
+ * 触发器使用。     
  *
- * Passing snapshot == InvalidSnapshot will select the normal behavior of
- * fetching a new snapshot for each query.
+ * 传入 snapshot == InvalidSnapshot 将选择常规行为，即        
+ * 为每个查询获取一个新快照。
  */
 int
 SPI_execute_snapshot(SPIPlanPtr plan,
@@ -804,9 +804,9 @@ SPI_execute_snapshot(SPIPlanPtr plan,
 }
 
 /*
- * SPI_execute_with_args -- plan and execute a query with supplied arguments
+ * SPI_execute_with_args -- 使用给定参数规划并执行查询         
  *
- * This is functionally equivalent to SPI_prepare followed by
+ * 这在功能上等同于先 SPI_prepare 再               
  * SPI_execute_plan.
  */
 int
@@ -891,7 +891,7 @@ SPI_prepare_cursor(const char *src, int nargs, Oid *argtypes,
 
 	_SPI_prepare_plan(src, &plan);
 
-	/* copy plan to procedure context */
+	/* 复制计划到过程上下文 */
 	result = _SPI_make_plan_non_temp(&plan);
 
 	_SPI_end_call(true);
@@ -927,7 +927,7 @@ SPI_prepare_extended(const char *src,
 
 	_SPI_prepare_plan(src, &plan);
 
-	/* copy plan to procedure context */
+	/* 复制计划到过程上下文 */
 	result = _SPI_make_plan_non_temp(&plan);
 
 	_SPI_end_call(true);
@@ -965,7 +965,7 @@ SPI_prepare_params(const char *src,
 
 	_SPI_prepare_plan(src, &plan);
 
-	/* copy plan to procedure context */
+	/* 复制计划到过程上下文 */
 	result = _SPI_make_plan_non_temp(&plan);
 
 	_SPI_end_call(true);
@@ -983,9 +983,9 @@ SPI_keepplan(SPIPlanPtr plan)
 		return SPI_ERROR_ARGUMENT;
 
 	/*
-	 * Mark it saved, reparent it under CacheMemoryContext, and mark all the
-	 * component CachedPlanSources as saved.  This sequence cannot fail
-	 * partway through, so there's no risk of long-term memory leakage.
+	 * 把它标记为已保存，重新挂到 CacheMemoryContext 之下， 
+	 * 并把各 CachedPlanSource 标记为已保存。该序列不会 
+	 * 中途失败，因此没有长期内存泄漏的风险。       
 	 */
 	plan->saved = true;
 	MemoryContextSetParent(plan->plancxt, CacheMemoryContext);
@@ -1011,7 +1011,7 @@ SPI_saveplan(SPIPlanPtr plan)
 		return NULL;
 	}
 
-	SPI_result = _SPI_begin_call(false);	/* don't change context */
+	SPI_result = _SPI_begin_call(false);	/* 不改变上下文   */
 	if (SPI_result < 0)
 		return NULL;
 
@@ -1030,7 +1030,7 @@ SPI_freeplan(SPIPlanPtr plan)
 	if (plan == NULL || plan->magic != _SPI_PLAN_MAGIC)
 		return SPI_ERROR_ARGUMENT;
 
-	/* Release the plancache entries */
+	/* 释放这些 plancache 条目 */
 	foreach(lc, plan->plancache_list)
 	{
 		CachedPlanSource *plansource = (CachedPlanSource *) lfirst(lc);
@@ -1038,7 +1038,7 @@ SPI_freeplan(SPIPlanPtr plan)
 		DropCachedPlan(plansource);
 	}
 
-	/* Now get rid of the _SPI_plan and subsidiary data in its plancxt */
+	/* 接着清掉 _SPI_plan 及其 plancxt 中的附属数据        */
 	MemoryContextDelete(plan->plancxt);
 
 	return 0;
@@ -1089,7 +1089,7 @@ SPI_returntuple(HeapTuple tuple, TupleDesc tupdesc)
 		return NULL;
 	}
 
-	/* For RECORD results, make sure a typmod has been assigned */
+	/* 对 RECORD 结果，确保已分配 typmod               */
 	if (tupdesc->tdtypeid == RECORDOID &&
 		tupdesc->tdtypmod < 0)
 		assign_record_type_typmod(tupdesc);
@@ -1134,10 +1134,10 @@ SPI_modifytuple(Relation rel, HeapTuple tuple, int natts, int *attnum,
 	v = (Datum *) palloc(numberOfAttributes * sizeof(Datum));
 	n = (bool *) palloc(numberOfAttributes * sizeof(bool));
 
-	/* fetch old values and nulls */
+	/* 取出旧值和空值      */
 	heap_deform_tuple(tuple, rel->rd_att, v, n);
 
-	/* replace values and nulls */
+	/* 替换值和空值       */
 	for (i = 0; i < natts; i++)
 	{
 		if (attnum[i] <= 0 || attnum[i] > numberOfAttributes)
@@ -1146,13 +1146,13 @@ SPI_modifytuple(Relation rel, HeapTuple tuple, int natts, int *attnum,
 		n[attnum[i] - 1] = (Nulls && Nulls[i] == 'n');
 	}
 
-	if (i == natts)				/* no errors in *attnum */
+	if (i == natts)				/* *attnum 中无错误 */
 	{
 		mtuple = heap_form_tuple(rel->rd_att, v, n);
 
 		/*
-		 * copy the identification info of the old tuple: t_ctid, t_self, and
-		 * OID (if any)
+		 * 复制旧元组的标识信息：t_ctid、t_self，以及 OID     
+		 * （如有）
 		 */
 		mtuple->t_data->t_ctid = tuple->t_data->t_ctid;
 		mtuple->t_self = tuple->t_self;
@@ -1191,7 +1191,7 @@ SPI_fnumber(TupleDesc tupdesc, const char *fname)
 	if (sysatt != NULL)
 		return sysatt->attnum;
 
-	/* SPI_ERROR_NOATTRIBUTE is different from all sys column numbers */
+	/* SPI_ERROR_NOATTRIBUTE 与所有系统列号都不同           */
 	return SPI_ERROR_NOATTRIBUTE;
 }
 
@@ -1300,10 +1300,10 @@ SPI_gettype(TupleDesc tupdesc, int fnumber)
 }
 
 /*
- * Get the data type OID for a column.
+ * 获取某列的数据类型 OID。 
  *
- * There's nothing similar for typmod and typcollation.  The rare consumers
- * thereof should inspect the TupleDesc directly.
+ * typmod 和 typcollation 没有类似的函数。少数用到它们的   
+ * 使用者应当直接检查 TupleDesc。      
  */
 Oid
 SPI_gettypeid(TupleDesc tupdesc, int fnumber)
@@ -1347,14 +1347,14 @@ SPI_palloc(Size size)
 void *
 SPI_repalloc(void *pointer, Size size)
 {
-	/* No longer need to worry which context chunk was in... */
+	/* 不必再关心该块原先在哪个上下文中……*/
 	return repalloc(pointer, size);
 }
 
 void
 SPI_pfree(void *pointer)
 {
-	/* No longer need to worry which context chunk was in... */
+	/* 不必再关心该块原先在哪个上下文中……*/
 	pfree(pointer);
 }
 
@@ -1379,7 +1379,7 @@ SPI_datumTransfer(Datum value, bool typByVal, int typLen)
 void
 SPI_freetuple(HeapTuple tuple)
 {
-	/* No longer need to worry which context tuple was in... */
+	/* 不必关心该元组原先在哪个上下文中……*/
 	heap_freetuple(tuple);
 }
 
@@ -1388,18 +1388,18 @@ SPI_freetuptable(SPITupleTable *tuptable)
 {
 	bool		found = false;
 
-	/* ignore call if NULL pointer */
+	/* NULL 指针则忽略调用  */
 	if (tuptable == NULL)
 		return;
 
 	/*
-	 * Search only the topmost SPI context for a matching tuple table.
+	 * 只在最上层的 SPI 上下文中搜索匹配的元组表。 
 	 */
 	if (_SPI_current != NULL)
 	{
 		slist_mutable_iter siter;
 
-		/* find tuptable in active list, then remove it */
+		/* 在活跃列表找到 tuptable 并移除     */
 		slist_foreach_modify(siter, &_SPI_current->tuptables)
 		{
 			SPITupleTable *tt;
@@ -1415,10 +1415,10 @@ SPI_freetuptable(SPITupleTable *tuptable)
 	}
 
 	/*
-	 * Refuse the deletion if we didn't find it in the topmost SPI context.
-	 * This is primarily a guard against double deletion, but might prevent
-	 * other errors as well.  Since the worst consequence of not deleting a
-	 * tuptable would be a transient memory leak, this is just a WARNING.
+	 * 若未在最上层的 SPI 上下文中找到它，则拒绝删除。
+	 * 这主要是防止重复删除，但也可能避免其他错误。  
+	 * 因为漏删 tuptable 的最坏后果只是短暂内存泄漏，    
+	 * 因此这里只发出 WARNING。                                  
 	 */
 	if (!found)
 	{
@@ -1426,13 +1426,13 @@ SPI_freetuptable(SPITupleTable *tuptable)
 		return;
 	}
 
-	/* for safety, reset global variables that might point at tuptable */
+	/* 为安全起见，重置可能指向 tuptable 的全局变量   */
 	if (tuptable == _SPI_current->tuptable)
 		_SPI_current->tuptable = NULL;
 	if (tuptable == SPI_tuptable)
 		SPI_tuptable = NULL;
 
-	/* release all memory belonging to tuptable */
+	/* 释放 tuptable 所属的全部内存    */
 	MemoryContextDelete(tuptable->tuptabcxt);
 }
 
@@ -1440,7 +1440,7 @@ SPI_freetuptable(SPITupleTable *tuptable)
 /*
  * SPI_cursor_open()
  *
- *	Open a prepared SPI plan as a portal
+ *	打开 prepared SPI 计划为 portal
  */
 Portal
 SPI_cursor_open(const char *name, SPIPlanPtr plan,
@@ -1450,13 +1450,13 @@ SPI_cursor_open(const char *name, SPIPlanPtr plan,
 	Portal		portal;
 	ParamListInfo paramLI;
 
-	/* build transient ParamListInfo in caller's context */
+	/* 在调用者上下文中构建临时 ParamListInfo*/
 	paramLI = _SPI_convert_params(plan->nargs, plan->argtypes,
 								  Values, Nulls);
 
 	portal = SPI_cursor_open_internal(name, plan, paramLI, read_only);
 
-	/* done with the transient ParamListInfo */
+	/* 临时 ParamListInfo 使用完毕     */
 	if (paramLI)
 		pfree(paramLI);
 
@@ -1467,7 +1467,7 @@ SPI_cursor_open(const char *name, SPIPlanPtr plan,
 /*
  * SPI_cursor_open_with_args()
  *
- * Parse and plan a query and open it as a portal.
+ * 解析并规划查询，再打开为 portal.   
  */
 Portal
 SPI_cursor_open_with_args(const char *name,
@@ -1499,17 +1499,17 @@ SPI_cursor_open_with_args(const char *name,
 	plan.parserSetup = NULL;
 	plan.parserSetupArg = NULL;
 
-	/* build transient ParamListInfo in executor context */
+	/* 在执行器上下文中构建临时 ParamListInfo*/
 	paramLI = _SPI_convert_params(nargs, argtypes,
 								  Values, Nulls);
 
 	_SPI_prepare_plan(src, &plan);
 
-	/* We needn't copy the plan; SPI_cursor_open_internal will do so */
+	/* 计划无需复制；SPI_cursor_open_internal 会代为复制 */
 
 	result = SPI_cursor_open_internal(name, &plan, paramLI, read_only);
 
-	/* And clean up */
+	/* 然后清理 */
 	_SPI_end_call(true);
 
 	return result;
@@ -1519,8 +1519,8 @@ SPI_cursor_open_with_args(const char *name,
 /*
  * SPI_cursor_open_with_paramlist()
  *
- *	Same as SPI_cursor_open except that parameters (if any) are passed
- *	as a ParamListInfo, which supports dynamic parameter set determination
+ *	与 SPI_cursor_open 类似，但参数(若有)以 ParamListInfo   
+ *	传入，它支持动态确定参数集                               
  */
 Portal
 SPI_cursor_open_with_paramlist(const char *name, SPIPlanPtr plan,
@@ -1529,7 +1529,7 @@ SPI_cursor_open_with_paramlist(const char *name, SPIPlanPtr plan,
 	return SPI_cursor_open_internal(name, plan, params, read_only);
 }
 
-/* Parse a query and open it as a cursor */
+/* 解析一条查询并打开为游标  */
 Portal
 SPI_cursor_parse_open(const char *name,
 					  const char *src,
@@ -1557,12 +1557,12 @@ SPI_cursor_parse_open(const char *name,
 
 	_SPI_prepare_plan(src, &plan);
 
-	/* We needn't copy the plan; SPI_cursor_open_internal will do so */
+	/* 计划无需复制；SPI_cursor_open_internal 会代为复制 */
 
 	result = SPI_cursor_open_internal(name, &plan,
 									  options->params, options->read_only);
 
-	/* And clean up */
+	/* 然后清理 */
 	_SPI_end_call(true);
 
 	return result;
@@ -1572,7 +1572,7 @@ SPI_cursor_parse_open(const char *name,
 /*
  * SPI_cursor_open_internal()
  *
- *	Common code for SPI_cursor_open variants
+ *	SPI_cursor_open 各变体的公共代码
  */
 static Portal
 SPI_cursor_open_internal(const char *name, SPIPlanPtr plan,
@@ -1589,12 +1589,12 @@ SPI_cursor_open_internal(const char *name, SPIPlanPtr plan,
 	ErrorContextCallback spierrcontext;
 
 	/*
-	 * Check that the plan is something the Portal code will special-case as
-	 * returning one tupleset.
+	 * 检查该计划是否是 Portal 代码会特判为                   
+	 * 返回一个元组集. 
 	 */
 	if (!SPI_is_cursor_plan(plan))
 	{
-		/* try to give a good error message */
+		/* 尽量给出恰当的错误消息*/
 		const char *cmdtag;
 
 		if (list_length(plan->plancache_list) != 1)
@@ -1602,7 +1602,7 @@ SPI_cursor_open_internal(const char *name, SPIPlanPtr plan,
 					(errcode(ERRCODE_INVALID_CURSOR_DEFINITION),
 					 errmsg("cannot open multi-query plan as cursor")));
 		plansource = (CachedPlanSource *) linitial(plan->plancache_list);
-		/* A SELECT that fails SPI_is_cursor_plan() must be SELECT INTO */
+		/* 未通过 SPI_is_cursor_plan() 的必是 SELECT INTO         */
 		if (plansource->commandTag == CMDTAG_SELECT)
 			cmdtag = "SELECT INTO";
 		else
@@ -1616,35 +1616,35 @@ SPI_cursor_open_internal(const char *name, SPIPlanPtr plan,
 	Assert(list_length(plan->plancache_list) == 1);
 	plansource = (CachedPlanSource *) linitial(plan->plancache_list);
 
-	/* Push the SPI stack */
+	/* 压入 SPI 栈     */
 	if (_SPI_begin_call(true) < 0)
 		elog(ERROR, "SPI_cursor_open called while not connected");
 
-	/* Reset SPI result (note we deliberately don't touch lastoid) */
+	/* 重置 SPI 结果（注意我们刻意不动 lastoid）     */
 	SPI_processed = 0;
 	SPI_tuptable = NULL;
 	_SPI_current->processed = 0;
 	_SPI_current->tuptable = NULL;
 
-	/* Create the portal */
+	/* 创建该 portal  */
 	if (name == NULL || name[0] == '\0')
 	{
-		/* Use a random nonconflicting name */
+		/* 使用随机的非冲突名称   */
 		portal = CreateNewPortal();
 	}
 	else
 	{
-		/* In this path, error if portal of same name already exists */
+		/* 此路径下，若同名 portal 已存在则报错        */
 		portal = CreatePortal(name, false, false);
 	}
 
-	/* Copy the plan's query string into the portal */
+	/* 把计划的查询字符串复制进 portal  */
 	query_string = MemoryContextStrdup(portal->portalContext,
 									   plansource->query_string);
 
 	/*
-	 * Setup error traceback support for ereport(), in case GetCachedPlan
-	 * throws an error.
+	 * 为 ereport() 设置错误回溯支持，以防 GetCachedPlan     
+	 * 抛出错误.   
 	 */
 	spicallbackarg.query = plansource->query_string;
 	spicallbackarg.mode = plan->parse_mode;
@@ -1654,43 +1654,43 @@ SPI_cursor_open_internal(const char *name, SPIPlanPtr plan,
 	error_context_stack = &spierrcontext;
 
 	/*
-	 * Note: for a saved plan, we mustn't have any failure occur between
-	 * GetCachedPlan and PortalDefineQuery; that would result in leaking our
-	 * plancache refcount.
+	 * 注意：对于已保存的计划，在 GetCachedPlan 与        
+	 * PortalDefineQuery 间绝不能失败，否则会泄漏 plancache     
+	 * 引用计数。    
 	 */
 
-	/* Replan if needed, and increment plan refcount for portal */
+	/* 必要时重新规划并为 portal 增加引用计数    */
 	cplan = GetCachedPlan(plansource, paramLI, NULL, _SPI_current->queryEnv);
 	stmt_list = cplan->stmt_list;
 
 	if (!plan->saved)
 	{
 		/*
-		 * We don't want the portal to depend on an unsaved CachedPlanSource,
-		 * so must copy the plan into the portal's context.  An error here
-		 * will result in leaking our refcount on the plan, but it doesn't
-		 * matter because the plan is unsaved and hence transient anyway.
+		 * 我们不希望 portal 依赖未保存的 CachedPlanSource，     
+		 * 故须把计划复制进 portal 上下文。此处发生错误 
+		 * 会泄漏我们对该计划的引用计数，但不要紧，   
+		 * 反正该计划未保存、本质上是临时性的。        
 		 */
 		oldcontext = MemoryContextSwitchTo(portal->portalContext);
 		stmt_list = copyObject(stmt_list);
 		MemoryContextSwitchTo(oldcontext);
 		ReleaseCachedPlan(cplan, NULL);
-		cplan = NULL;			/* portal shouldn't depend on cplan */
+		cplan = NULL;			/* portal 不应依赖 cplan        */
 	}
 
 	/*
-	 * Set up the portal.
+	 * 设置该 portal. 
 	 */
 	PortalDefineQuery(portal,
-					  NULL,		/* no statement name */
+					  NULL,		/* 无语句名称   */
 					  query_string,
 					  plansource->commandTag,
 					  stmt_list,
 					  cplan);
 
 	/*
-	 * Set up options for portal.  Default SCROLL type is chosen the same way
-	 * as PerformCursorOpen does it.
+	 * 为 portal 设置选项。默认 SCROLL 类型的选择方式与      
+	 * PerformCursorOpen 相同.    
 	 */
 	portal->cursorOptions = plan->cursor_options;
 	if (!(portal->cursorOptions & (CURSOR_OPT_SCROLL | CURSOR_OPT_NO_SCROLL)))
@@ -1705,9 +1705,9 @@ SPI_cursor_open_internal(const char *name, SPIPlanPtr plan,
 	}
 
 	/*
-	 * Disallow SCROLL with SELECT FOR UPDATE.  This is not redundant with the
-	 * check in transformDeclareCursorStmt because the cursor options might
-	 * not have come through there.
+	 * 禁止在 SELECT FOR UPDATE 上使用 SCROLL。这与                  
+	 * transformDeclareCursorStmt 检查并不重复，因为游标选项  
+	 * 可能未经该处传来.   
 	 */
 	if (portal->cursorOptions & CURSOR_OPT_SCROLL)
 	{
@@ -1720,15 +1720,15 @@ SPI_cursor_open_internal(const char *name, SPIPlanPtr plan,
 					 errdetail("Scrollable cursors must be READ ONLY.")));
 	}
 
-	/* Make current query environment available to portal at execution time. */
+	/* 让 portal 在执行时能够使用当前查询环境。              */
 	portal->queryEnv = _SPI_current->queryEnv;
 
 	/*
-	 * If told to be read-only, we'd better check for read-only queries. This
-	 * can't be done earlier because we need to look at the finished, planned
-	 * queries.  (In particular, we don't want to do it between GetCachedPlan
-	 * and PortalDefineQuery, because throwing an error between those steps
-	 * would result in leaking our plancache refcount.)
+	 * 若被要求只读，就必须检查查询是否只读。这无法    
+	 * 提前进行，因为需查看规划后的最终查询。（特别是 
+	 * 我们不想在 GetCachedPlan 与 PortalDefineQuery 之间            
+	 * 进行这一检查，因为在这两步之间抛出错误会泄漏  
+	 * 我们的 plancache 引用计数。）          
 	 */
 	if (read_only)
 	{
@@ -1747,7 +1747,7 @@ SPI_cursor_open_internal(const char *name, SPIPlanPtr plan,
 		}
 	}
 
-	/* Set up the snapshot to use. */
+	/* 设置要使用的快照.   */
 	if (read_only)
 		snapshot = GetActiveSnapshot();
 	else
@@ -1757,9 +1757,9 @@ SPI_cursor_open_internal(const char *name, SPIPlanPtr plan,
 	}
 
 	/*
-	 * If the plan has parameters, copy them into the portal.  Note that this
-	 * must be done after revalidating the plan, because in dynamic parameter
-	 * cases the set of parameters could have changed during re-parsing.
+	 * 若计划带参数，就把它们复制进 portal。注意，这一步
+	 * 必须在重新验证计划之后进行，因为动态参数下，    
+	 * 参数集合在重新解析期间可能已经发生变化。     
 	 */
 	if (paramLI)
 	{
@@ -1769,19 +1769,19 @@ SPI_cursor_open_internal(const char *name, SPIPlanPtr plan,
 	}
 
 	/*
-	 * Start portal execution.
+	 * 启动 portal 执行.  
 	 */
 	PortalStart(portal, paramLI, 0, snapshot);
 
 	Assert(portal->strategy != PORTAL_MULTI_QUERY);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = spierrcontext.previous;
 
-	/* Pop the SPI stack */
+	/* 弹出 SPI 栈    */
 	_SPI_end_call(true);
 
-	/* Return the created portal */
+	/* 返回已创建的 portal */
 	return portal;
 }
 
@@ -1789,7 +1789,7 @@ SPI_cursor_open_internal(const char *name, SPIPlanPtr plan,
 /*
  * SPI_cursor_find()
  *
- *	Find the portal of an existing open cursor
+ *	查找现有已打开游标的 portal     
  */
 Portal
 SPI_cursor_find(const char *name)
@@ -1801,7 +1801,7 @@ SPI_cursor_find(const char *name)
 /*
  * SPI_cursor_fetch()
  *
- *	Fetch rows in a cursor
+ *	从游标中取行    
  */
 void
 SPI_cursor_fetch(Portal portal, bool forward, long count)
@@ -1809,14 +1809,14 @@ SPI_cursor_fetch(Portal portal, bool forward, long count)
 	_SPI_cursor_operation(portal,
 						  forward ? FETCH_FORWARD : FETCH_BACKWARD, count,
 						  CreateDestReceiver(DestSPI));
-	/* we know that the DestSPI receiver doesn't need a destroy call */
+	/* 我们已知 DestSPI 接收器不需要 destroy 调用        */
 }
 
 
 /*
  * SPI_cursor_move()
  *
- *	Move in a cursor
+ *	游标内移动 
  */
 void
 SPI_cursor_move(Portal portal, bool forward, long count)
@@ -1830,7 +1830,7 @@ SPI_cursor_move(Portal portal, bool forward, long count)
 /*
  * SPI_scroll_cursor_fetch()
  *
- *	Fetch rows in a scrollable cursor
+ *	从可滚动游标中取行      
  */
 void
 SPI_scroll_cursor_fetch(Portal portal, FetchDirection direction, long count)
@@ -1838,14 +1838,14 @@ SPI_scroll_cursor_fetch(Portal portal, FetchDirection direction, long count)
 	_SPI_cursor_operation(portal,
 						  direction, count,
 						  CreateDestReceiver(DestSPI));
-	/* we know that the DestSPI receiver doesn't need a destroy call */
+	/* 我们已知 DestSPI 接收器不需要 destroy 调用        */
 }
 
 
 /*
  * SPI_scroll_cursor_move()
  *
- *	Move in a scrollable cursor
+ *	可滚动游标内移动   
  */
 void
 SPI_scroll_cursor_move(Portal portal, FetchDirection direction, long count)
@@ -1857,7 +1857,7 @@ SPI_scroll_cursor_move(Portal portal, FetchDirection direction, long count)
 /*
  * SPI_cursor_close()
  *
- *	Close a cursor
+ *	关闭游标  
  */
 void
 SPI_cursor_close(Portal portal)
@@ -1869,8 +1869,8 @@ SPI_cursor_close(Portal portal)
 }
 
 /*
- * Returns the Oid representing the type id for argument at argIndex. First
- * parameter is at index zero.
+ * 返回表示 argIndex 处参数类型 id 的 Oid。第一个            
+ * 参数位于索引 0 处.  
  */
 Oid
 SPI_getargtypeid(SPIPlanPtr plan, int argIndex)
@@ -1885,7 +1885,7 @@ SPI_getargtypeid(SPIPlanPtr plan, int argIndex)
 }
 
 /*
- * Returns the number of arguments for the prepared plan.
+ * 返回已准备计划的参数个数.                 
  */
 int
 SPI_getargcount(SPIPlanPtr plan)
@@ -1899,13 +1899,13 @@ SPI_getargcount(SPIPlanPtr plan)
 }
 
 /*
- * Returns true if the plan contains exactly one command
- * and that command returns tuples to the caller (eg, SELECT or
- * INSERT ... RETURNING, but not SELECT ... INTO). In essence,
- * the result indicates if the command can be used with SPI_cursor_open
+ * 若计划恰好只含一条命令，且该命令     
+ * 会向调用者返回元组（如 SELECT 或                
+ * INSERT ... RETURNING，但不含 SELECT ... INTO）。     
+ * 本质上，该结果说明命令能否配合 SPI_cursor_open 使用
  *
- * Parameters
- *	  plan: A plan previously prepared using SPI_prepare
+ * 参数    
+ *	  plan: 之前用 SPI_prepare 准备的计划       
  */
 bool
 SPI_is_cursor_plan(SPIPlanPtr plan)
@@ -1921,18 +1921,18 @@ SPI_is_cursor_plan(SPIPlanPtr plan)
 	if (list_length(plan->plancache_list) != 1)
 	{
 		SPI_result = 0;
-		return false;			/* not exactly 1 pre-rewrite command */
+		return false;			/* 重写前命令数不恰好为 1  */
 	}
 	plansource = (CachedPlanSource *) linitial(plan->plancache_list);
 
 	/*
-	 * We used to force revalidation of the cached plan here, but that seems
-	 * unnecessary: invalidation could mean a change in the rowtype of the
-	 * tuples returned by a plan, but not whether it returns tuples at all.
+	 * 过去在此强制重新验证缓存计划，但似乎不必要：   
+	 * 失效可能意味着计划返回元组的 rowtype 发生变化， 
+	 * 而不在于它是否返回元组.                                  
 	 */
 	SPI_result = 0;
 
-	/* Does it return tuples? */
+	/* 它是否返回元组? */
 	if (plansource->resultDesc)
 		return true;
 
@@ -1940,10 +1940,10 @@ SPI_is_cursor_plan(SPIPlanPtr plan)
 }
 
 /*
- * SPI_plan_is_valid --- test whether a SPI plan is currently valid
- * (that is, not marked as being in need of revalidation).
+ * SPI_plan_is_valid --- 测试 SPI 计划当前是否有效       
+ * （即未被标记为需要重新验证）。          
  *
- * See notes for CachedPlanIsValid before using this.
+ * 使用前请参阅 CachedPlanIsValid 的说明.   
  */
 bool
 SPI_plan_is_valid(SPIPlanPtr plan)
@@ -1963,11 +1963,11 @@ SPI_plan_is_valid(SPIPlanPtr plan)
 }
 
 /*
- * SPI_result_code_string --- convert any SPI return code to a string
+ * SPI_result_code_string --- 将 SPI 返回码转换为字符串    
  *
- * This is often useful in error messages.  Most callers will probably
- * only pass negative (error-case) codes, but for generality we recognize
- * the success codes too.
+ * 这在错误消息中常常很有用。大多数调用者可能    
+ * 只传负数（错误情形）码，但为通用起见我们也识别 
+ * 成功码。          
  */
 const char *
 SPI_result_code_string(int code)
@@ -2037,20 +2037,20 @@ SPI_result_code_string(int code)
 		case SPI_OK_MERGE:
 			return "SPI_OK_MERGE";
 	}
-	/* Unrecognized code ... return something useful ... */
+	/* 未识别的码……返回有用的内容……  */
 	sprintf(buf, "Unrecognized SPI code %d", code);
 	return buf;
 }
 
 /*
- * SPI_plan_get_plan_sources --- get a SPI plan's underlying list of
+ * SPI_plan_get_plan_sources --- 获取 SPI 计划底层的         
  * CachedPlanSources.
  *
- * CAUTION: there is no check on whether the CachedPlanSources are up-to-date.
+ * CAUTION: 对于 CachedPlanSource 是否为最新，没有任何检查.     
  *
- * This is exported so that PL/pgSQL can use it (this beats letting PL/pgSQL
- * look directly into the SPIPlan for itself).  It's not documented in
- * spi.sgml because we'd just as soon not have too many places using this.
+ * 导出此函数是为了供 PL/pgSQL 使用（这好过让 PL/pgSQL      
+ * 自行直接窥探 SPIPlan）。它未在                          
+ * spi.sgml 中文档化，因为我们并不希望太多地方使用它. 
  */
 List *
 SPI_plan_get_plan_sources(SPIPlanPtr plan)
@@ -2060,16 +2060,16 @@ SPI_plan_get_plan_sources(SPIPlanPtr plan)
 }
 
 /*
- * SPI_plan_get_cached_plan --- get a SPI plan's generic CachedPlan,
- * if the SPI plan contains exactly one CachedPlanSource.  If not,
- * return NULL.
+ * SPI_plan_get_cached_plan --- 获取 SPI 计划的通用          
+ * CachedPlan，若计划并非只含一个 CachedPlanSource，   
+ * 返回 NULL 
  *
- * The plan's refcount is incremented (and logged in CurrentResourceOwner,
- * if it's a saved plan).  Caller is responsible for doing ReleaseCachedPlan.
+ * 计划引用计数会递增（若为已保存计划，还会登记到  
+ * CurrentResourceOwner）。调用者负责执行 ReleaseCachedPlan.        
  *
- * This is exported so that PL/pgSQL can use it (this beats letting PL/pgSQL
- * look directly into the SPIPlan for itself).  It's not documented in
- * spi.sgml because we'd just as soon not have too many places using this.
+ * 导出此函数是为了供 PL/pgSQL 使用（这好过让 PL/pgSQL      
+ * 自行直接窥探 SPIPlan）。它未在                          
+ * spi.sgml 中文档化，因为我们并不希望太多地方使用它. 
  */
 CachedPlan *
 SPI_plan_get_cached_plan(SPIPlanPtr plan)
@@ -2081,16 +2081,16 @@ SPI_plan_get_cached_plan(SPIPlanPtr plan)
 
 	Assert(plan->magic == _SPI_PLAN_MAGIC);
 
-	/* Can't support one-shot plans here */
+	/* 此处不支持一次性计划    */
 	if (plan->oneshot)
 		return NULL;
 
-	/* Must have exactly one CachedPlanSource */
+	/* 必须恰有一个 CachedPlanSource    */
 	if (list_length(plan->plancache_list) != 1)
 		return NULL;
 	plansource = (CachedPlanSource *) linitial(plan->plancache_list);
 
-	/* Setup error traceback support for ereport() */
+	/* 为 ereport() 设置错误回溯支持      */
 	spicallbackarg.query = plansource->query_string;
 	spicallbackarg.mode = plan->parse_mode;
 	spierrcontext.callback = _SPI_error_callback;
@@ -2098,13 +2098,13 @@ SPI_plan_get_cached_plan(SPIPlanPtr plan)
 	spierrcontext.previous = error_context_stack;
 	error_context_stack = &spierrcontext;
 
-	/* Get the generic plan for the query */
+	/* 获取该查询的通用计划     */
 	cplan = GetCachedPlan(plansource, NULL,
 						  plan->saved ? CurrentResourceOwner : NULL,
 						  _SPI_current->queryEnv);
 	Assert(cplan == plansource->gplan);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = spierrcontext.previous;
 
 	return cplan;
@@ -2115,8 +2115,8 @@ SPI_plan_get_cached_plan(SPIPlanPtr plan)
 
 /*
  * spi_dest_startup
- *		Initialize to receive tuples from Executor into SPITupleTable
- *		of current SPI procedure
+ *		初始化以接收执行器元组到当前 SPI 过程的     
+ *		SPITupleTable 中       
  */
 void
 spi_dest_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
@@ -2131,9 +2131,9 @@ spi_dest_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
 	if (_SPI_current->tuptable != NULL)
 		elog(ERROR, "improper call to spi_dest_startup");
 
-	/* We create the tuple table context as a child of procCxt */
+	/* 把元组表上下文创建为 procCxt 的子上下文  */
 
-	oldcxt = _SPI_procmem();	/* switch to procedure memory context */
+	oldcxt = _SPI_procmem();	/* 切换到过程内存上下文     */
 
 	tuptabcxt = AllocSetContextCreate(CurrentMemoryContext,
 									  "SPI TupTable",
@@ -2146,13 +2146,13 @@ spi_dest_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
 	tuptable->subid = GetCurrentSubTransactionId();
 
 	/*
-	 * The tuptable is now valid enough to be freed by AtEOSubXact_SPI, so put
-	 * it onto the SPI context's tuptables list.  This will ensure it's not
-	 * leaked even in the unlikely event the following few lines fail.
+	 * 此时 tuptable 已足够有效，能被 AtEOSubXact_SPI 释放，     
+	 * 把它挂到 SPI 上下文的 tuptables 列表上。这样能确保 
+	 * 即使接下来几行代码万一失败也不会泄漏它。   
 	 */
 	slist_push_head(&_SPI_current->tuptables, &tuptable->next);
 
-	/* set up initial allocations */
+	/* 建立初始分配         */
 	tuptable->alloced = 128;
 	tuptable->vals = (HeapTuple *) palloc(tuptable->alloced * sizeof(HeapTuple));
 	tuptable->numvals = 0;
@@ -2163,8 +2163,8 @@ spi_dest_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
 
 /*
  * spi_printtup
- *		store tuple retrieved by Executor into SPITupleTable
- *		of current SPI procedure
+ *		把执行器取回的元组存入当前 SPI 过程  
+ *		SPITupleTable 中       
  */
 bool
 spi_printtup(TupleTableSlot *slot, DestReceiver *self)
@@ -2183,7 +2183,7 @@ spi_printtup(TupleTableSlot *slot, DestReceiver *self)
 
 	if (tuptable->numvals >= tuptable->alloced)
 	{
-		/* Double the size of the pointer array */
+		/* 将指针数组的大小翻倍       */
 		uint64		newalloced = tuptable->alloced * 2;
 
 		tuptable->vals = (HeapTuple *) repalloc_huge(tuptable->vals,
@@ -2200,21 +2200,21 @@ spi_printtup(TupleTableSlot *slot, DestReceiver *self)
 }
 
 /*
- * Static functions
+ * 静态函数    
  */
 
 /*
- * Parse and analyze a querystring.
+ * 解析并分析查询字符串. 
  *
- * At entry, plan->argtypes and plan->nargs (or alternatively plan->parserSetup
- * and plan->parserSetupArg) must be valid, as must plan->parse_mode and
+ * 入口处 plan->argtypes、plan->nargs（或备选的 plan->parserSetup     
+ * 与 plan->parserSetupArg）必须有效，plan->parse_mode 与       
  * plan->cursor_options.
  *
- * Results are stored into *plan (specifically, plan->plancache_list).
- * Note that the result data is all in CurrentMemoryContext or child contexts
- * thereof; in practice this means it is in the SPI executor context, and
- * what we are creating is a "temporary" SPIPlan.  Cruft generated during
- * parsing is also left in CurrentMemoryContext.
+ * 结果存入 *plan（具体说是 plan->plancache_list）。       
+ * 注意结果数据全部位于 CurrentMemoryContext 或其子上下文； 
+ * 实际即数据在 SPI 执行器上下文，我们创建的           
+ * 是一个"temporary" SPIPlan。解析期间产生的垃圾也会留在
+ * CurrentMemoryContext 中.                    
  */
 static void
 _SPI_prepare_plan(const char *src, SPIPlanPtr plan)
@@ -2226,7 +2226,7 @@ _SPI_prepare_plan(const char *src, SPIPlanPtr plan)
 	ErrorContextCallback spierrcontext;
 
 	/*
-	 * Setup error traceback support for ereport()
+	 * 为 ereport() 设置错误回溯支持     
 	 */
 	spicallbackarg.query = src;
 	spicallbackarg.mode = plan->parse_mode;
@@ -2236,13 +2236,13 @@ _SPI_prepare_plan(const char *src, SPIPlanPtr plan)
 	error_context_stack = &spierrcontext;
 
 	/*
-	 * Parse the request string into a list of raw parse trees.
+	 * 把请求字符串解析为原始解析树的列表.    
 	 */
 	raw_parsetree_list = raw_parser(src, plan->parse_mode);
 
 	/*
-	 * Do parse analysis and rule rewrite for each raw parsetree, storing the
-	 * results into unsaved plancache entries.
+	 * 对每个原始解析树做解析分析与规则重写，结果存入 
+	 * 未保存的 plancache 条目.         
 	 */
 	plancache_list = NIL;
 
@@ -2253,16 +2253,16 @@ _SPI_prepare_plan(const char *src, SPIPlanPtr plan)
 		CachedPlanSource *plansource;
 
 		/*
-		 * Create the CachedPlanSource before we do parse analysis, since it
-		 * needs to see the unmodified raw parse tree.
+		 * 在做解析分析之前先创建 CachedPlanSource，因为它   
+		 * 需要看到未修改的原始解析树.   
 		 */
 		plansource = CreateCachedPlan(parsetree,
 									  src,
 									  CreateCommandTag(parsetree->stmt));
 
 		/*
-		 * Parameter datatypes are driven by parserSetup hook if provided,
-		 * otherwise we use the fixed parameter list.
+		 * 若提供 parserSetup 钩子，由它驱动参数数据类型  
+		 * 否则我们使用固定的参数列表.  
 		 */
 		if (plan->parserSetup != NULL)
 		{
@@ -2282,7 +2282,7 @@ _SPI_prepare_plan(const char *src, SPIPlanPtr plan)
 														   _SPI_current->queryEnv);
 		}
 
-		/* Finish filling in the CachedPlanSource */
+		/* 完成 CachedPlanSource 的填写      */
 		CompleteCachedPlan(plansource,
 						   stmt_list,
 						   NULL,
@@ -2291,7 +2291,7 @@ _SPI_prepare_plan(const char *src, SPIPlanPtr plan)
 						   plan->parserSetup,
 						   plan->parserSetupArg,
 						   plan->cursor_options,
-						   false);	/* not fixed result */
+						   false);	/* 非固定结果  */
 
 		plancache_list = lappend(plancache_list, plansource);
 	}
@@ -2300,29 +2300,29 @@ _SPI_prepare_plan(const char *src, SPIPlanPtr plan)
 	plan->oneshot = false;
 
 	/*
-	 * Pop the error context stack
+	 * 弹出错误上下文栈   
 	 */
 	error_context_stack = spierrcontext.previous;
 }
 
 /*
- * Parse, but don't analyze, a querystring.
+ * 解析但不分析查询字符串.      
  *
- * This is a stripped-down version of _SPI_prepare_plan that only does the
- * initial raw parsing.  It creates "one shot" CachedPlanSources
- * that still require parse analysis before execution is possible.
+ * 这是 _SPI_prepare_plan 的精简版本，只做最初的             
+ * 原始解析。它创建"one shot" CachedPlanSources，      
+ * 在执行可行之前仍需做解析分析.                    
  *
- * The advantage of using the "one shot" form of CachedPlanSource is that
- * we eliminate data copying and invalidation overhead.  Postponing parse
- * analysis also prevents issues if some of the raw parsetrees are DDL
- * commands that affect validity of later parsetrees.  Both of these
- * attributes are good things for SPI_execute() and similar cases.
+ * 使用"one shot"形式 CachedPlanSource 的好处是                  
+ * 消除了数据复制与失效处理开销。推迟解析分析还能 
+ * 避免某些原始解析树是 DDL 命令、影响后续解析树  
+ * 有效性时产生的问题。这两个特性对                 
+ * SPI_execute() 及类似场景都是好事.                     
  *
- * Results are stored into *plan (specifically, plan->plancache_list).
- * Note that the result data is all in CurrentMemoryContext or child contexts
- * thereof; in practice this means it is in the SPI executor context, and
- * what we are creating is a "temporary" SPIPlan.  Cruft generated during
- * parsing is also left in CurrentMemoryContext.
+ * 结果存入 *plan（具体说是 plan->plancache_list）。       
+ * 注意结果数据全部位于 CurrentMemoryContext 或其子上下文； 
+ * 实际即数据在 SPI 执行器上下文，我们创建的           
+ * 是一个"temporary" SPIPlan。解析期间产生的垃圾也会留在
+ * CurrentMemoryContext 中.                    
  */
 static void
 _SPI_prepare_oneshot_plan(const char *src, SPIPlanPtr plan)
@@ -2334,7 +2334,7 @@ _SPI_prepare_oneshot_plan(const char *src, SPIPlanPtr plan)
 	ErrorContextCallback spierrcontext;
 
 	/*
-	 * Setup error traceback support for ereport()
+	 * 为 ereport() 设置错误回溯支持     
 	 */
 	spicallbackarg.query = src;
 	spicallbackarg.mode = plan->parse_mode;
@@ -2344,12 +2344,12 @@ _SPI_prepare_oneshot_plan(const char *src, SPIPlanPtr plan)
 	error_context_stack = &spierrcontext;
 
 	/*
-	 * Parse the request string into a list of raw parse trees.
+	 * 把请求字符串解析为原始解析树的列表.    
 	 */
 	raw_parsetree_list = raw_parser(src, plan->parse_mode);
 
 	/*
-	 * Construct plancache entries, but don't do parse analysis yet.
+	 * 构建 plancache 条目，但先不做解析分析.          
 	 */
 	plancache_list = NIL;
 
@@ -2369,30 +2369,30 @@ _SPI_prepare_oneshot_plan(const char *src, SPIPlanPtr plan)
 	plan->oneshot = true;
 
 	/*
-	 * Pop the error context stack
+	 * 弹出错误上下文栈   
 	 */
 	error_context_stack = spierrcontext.previous;
 }
 
 /*
- * _SPI_execute_plan: execute the given plan with the given options
+ * _SPI_execute_plan: 以给定选项执行给定计划            
  *
- * options contains options accessible from outside SPI:
- * params: parameter values to pass to query
- * read_only: true for read-only execution (no CommandCounterIncrement)
- * allow_nonatomic: true to allow nonatomic CALL/DO execution
- * must_return_tuples: throw error if query doesn't return tuples
- * tcount: execution tuple-count limit, or 0 for none
- * dest: DestReceiver to receive output, or NULL for normal SPI output
- * owner: ResourceOwner that will be used to hold refcount on plan;
- *		if NULL, CurrentResourceOwner is used (ignored for non-saved plan)
+ * options 包含可从 SPI 外部访问的选项:      
+ * params: 传给查询的参数值         
+ * read_only: true 表示只读执行（无 CommandCounterIncrement） 
+ * allow_nonatomic: true 表示允许非原子 CALL/DO 执行
+ * must_return_tuples: 查询未返回元组时抛错            
+ * tcount: 执行元组数上限，0 表示不限    
+ * dest: 接收输出的 DestReceiver，NULL 表示常规 SPI 输出  
+ * owner: 用于持有计划引用计数的 ResourceOwner；       
+ *		NULL 则用 CurrentResourceOwner（未保存计划则忽略）    
  *
- * Additional, only-internally-accessible options:
- * snapshot: query snapshot to use, or InvalidSnapshot for the normal
- *		behavior of taking a new snapshot for each query.
- * crosscheck_snapshot: for RI use, all others pass InvalidSnapshot
- * fire_triggers: true to fire AFTER triggers at end of query (normal case);
- *		false means any AFTER triggers are postponed to end of outer query
+ * 其他仅限内部访问的选项:             
+ * snapshot: 使用的查询快照，InvalidSnapshot 表示          
+ *		对每条查询取新快照的常规行为.      
+ * crosscheck_snapshot: 供 RI 用，其他均传 InvalidSnapshot  
+ * fire_triggers: true 表示查询结束时触发 AFTER 触发器，       
+ *		常规情形；false 表示 AFTER 触发器推迟到外层末尾  
  */
 static int
 _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
@@ -2412,18 +2412,18 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 	ListCell   *lc1;
 
 	/*
-	 * We allow nonatomic behavior only if options->allow_nonatomic is set
-	 * *and* the SPI_OPT_NONATOMIC flag was given when connecting and we are
-	 * not inside a subtransaction.  The latter two tests match whether
-	 * _SPI_commit() would allow a commit; see there for more commentary.
+	 * 仅当 options->allow_nonatomic 已设置，且连接时给定了  
+	 * *SPI_OPT_NONATOMIC 标志，且我们不处于子事务，则允许  
+	 * 非原子行为，才允许。后两项测试与 _SPI_commit()  
+	 * 是否允许提交相一致；更多说明见该处.              
 	 */
 	allow_nonatomic = options->allow_nonatomic &&
 		!_SPI_current->atomic && !IsSubTransaction();
 
 	/*
-	 * Setup error traceback support for ereport()
+	 * 为 ereport() 设置错误回溯支持     
 	 */
-	spicallbackarg.query = NULL;	/* we'll fill this below */
+	spicallbackarg.query = NULL;	/* 稍后再填充       */
 	spicallbackarg.mode = plan->parse_mode;
 	spierrcontext.callback = _SPI_error_callback;
 	spierrcontext.arg = &spicallbackarg;
@@ -2431,35 +2431,35 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 	error_context_stack = &spierrcontext;
 
 	/*
-	 * We support four distinct snapshot management behaviors:
+	 * 我们支持四种不同的快照管理行为：       
 	 *
-	 * snapshot != InvalidSnapshot, read_only = true: use exactly the given
-	 * snapshot.
+	 * snapshot != InvalidSnapshot, read_only = true：严格按给定的  
+	 * 快照。
 	 *
-	 * snapshot != InvalidSnapshot, read_only = false: use the given snapshot,
-	 * modified by advancing its command ID before each querytree.
+	 * snapshot != InvalidSnapshot, read_only = false：采用                
+	 * 的快照，但在每个 querytree 前推进命令 ID。   
 	 *
-	 * snapshot == InvalidSnapshot, read_only = true: do nothing for queries
-	 * that require no snapshot.  For those that do, ensure that a Portal
-	 * snapshot exists; then use that, or use the entry-time ActiveSnapshot if
-	 * that exists and is different.
+	 * snapshot == InvalidSnapshot, read_only = true：对不需要快照   
+	 * 的查询不做处理。对需要的查询，确保存在 Portal  
+	 * 快照；或者当进入时的 ActiveSnapshot 存在且不同时使用 
+	 * 后者。                    
 	 *
-	 * snapshot == InvalidSnapshot, read_only = false: do nothing for queries
-	 * that require no snapshot.  For those that do, ensure that a Portal
-	 * snapshot exists; then, in atomic execution (!allow_nonatomic) take a
-	 * full new snapshot for each user command, and advance its command ID
-	 * before each querytree within the command.  In allow_nonatomic mode we
-	 * just use the Portal snapshot unmodified.
+	 * snapshot == InvalidSnapshot, read_only = false：对不需要快照   
+	 * 的查询不做处理。对需要的查询，确保存在 Portal  
+	 * 快照；并在原子执行（!allow_nonatomic）时为每个       
+	 * 用户命令取一个完整的新快照，并在命令内每个    
+	 * querytree 前推进其命令 ID。在 allow_nonatomic 模式下      
+	 * 我们原样使用 Portal 快照。     
 	 *
-	 * In the first two cases, we can just push the snap onto the stack once
-	 * for the whole plan list.
+	 * 在前两种情形下，只需为整个计划列表把该快照压栈
+	 * 一次即可。         
 	 *
-	 * Note that snapshot != InvalidSnapshot implies an atomic execution
-	 * context.
+	 * 注意 snapshot != InvalidSnapshot 意味着处于原子执行   
+	 * 语境  
 	 */
 	if (snapshot != InvalidSnapshot)
 	{
-		/* this intentionally tests the options field not the derived value */
+		/* 这里刻意测试的是 options 字段而非派生出的值     */
 		Assert(!options->allow_nonatomic);
 		if (options->read_only)
 		{
@@ -2468,15 +2468,15 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 		}
 		else
 		{
-			/* Make sure we have a private copy of the snapshot to modify */
+			/* 确保拥有一份快照私有副本以便修改           */
 			PushCopiedSnapshot(snapshot);
 			pushed_active_snap = true;
 		}
 	}
 
 	/*
-	 * Ensure that we have a resource owner if plan is saved, and not if it
-	 * isn't.
+	 * 若保存计划须持有资源所有者，否则不必持           
+	 * 有。
 	 */
 	if (!plan->saved)
 		plan_owner = NULL;
@@ -2484,10 +2484,10 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 		plan_owner = CurrentResourceOwner;
 
 	/*
-	 * We interpret must_return_tuples as "there must be at least one query,
-	 * and all of them must return tuples".  This is a bit laxer than
-	 * SPI_is_cursor_plan's check, but there seems no reason to enforce that
-	 * there be only one query.
+	 * 我们将 must_return_tuples 理解为"必须至少有一个查询、
+	 * 且全部查询都必须返回元组"。这比                
+	 * SPI_is_cursor_plan 的检查略宽松，但似乎没有理由强制  
+	 * 只能有一个查询。
 	 */
 	if (options->must_return_tuples && plan->plancache_list == NIL)
 		ereport(ERROR,
@@ -2503,7 +2503,7 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 		spicallbackarg.query = plansource->query_string;
 
 		/*
-		 * If this is a one-shot plan, we still need to do parse analysis.
+		 * 如果这是一次性计划，我们仍需执行解析分析。
 		 */
 		if (plan->oneshot)
 		{
@@ -2512,8 +2512,8 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 			List	   *querytree_list;
 
 			/*
-			 * Parameter datatypes are driven by parserSetup hook if provided,
-			 * otherwise we use the fixed parameter list.
+			 * 参数数据类型由 parserSetup 钩子驱动，              
+			 * 若未提供，则用固定参数列表。
 			 */
 			if (parsetree == NULL)
 				querytree_list = NIL;
@@ -2535,7 +2535,7 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 																	_SPI_current->queryEnv);
 			}
 
-			/* Finish filling in the CachedPlanSource */
+			/* 完成 CachedPlanSource 的填充      */
 			CompleteCachedPlan(plansource,
 							   querytree_list,
 							   NULL,
@@ -2544,21 +2544,21 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 							   plan->parserSetup,
 							   plan->parserSetupArg,
 							   plan->cursor_options,
-							   false);	/* not fixed result */
+							   false);	/* 非固定结果  */
 		}
 
 		/*
-		 * If asked to, complain when query does not return tuples.
-		 * (Replanning can't change this, so we can check it before that.
-		 * However, we can't check it till after parse analysis, so in the
-		 * case of a one-shot plan this is the earliest we could check.)
+		 * 若被要求，则当查询未返回元组时抱怨。  
+		 * （重新计划改变不了它，可在此之前检查。     
+		 * 不过要到解析分析之后才能检查，所以对一次性
+		 * 计划而言，此处已是可能检查的最早时机。） 
 		 */
 		if (options->must_return_tuples && !plansource->resultDesc)
 		{
-			/* try to give a good error message */
+			/* 尽量给出有用的错误消息*/
 			const char *cmdtag;
 
-			/* A SELECT without resultDesc must be SELECT INTO */
+			/* 不带 resultDesc 的 SELECT 必是 SELECT INTO */
 			if (plansource->commandTag == CMDTAG_SELECT)
 				cmdtag = "SELECT INTO";
 			else
@@ -2570,8 +2570,8 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 		}
 
 		/*
-		 * Replan if needed, and increment plan refcount.  If it's a saved
-		 * plan, the refcount must be backed by the plan_owner.
+		 * 需要时重新计划并递增计划引用计数。若计划已
+		 * 保存，则引用计数须由 plan_owner 支撑。 
 		 */
 		cplan = GetCachedPlan(plansource, options->params,
 							  plan_owner, _SPI_current->queryEnv);
@@ -2579,8 +2579,8 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 		stmt_list = cplan->stmt_list;
 
 		/*
-		 * If we weren't given a specific snapshot to use, and the statement
-		 * list requires a snapshot, set that up.
+		 * 若未指定要使用的快照，且语句列表需要快照，  
+		 * 则做好设置。                    
 		 */
 		if (snapshot == InvalidSnapshot &&
 			(list_length(stmt_list) > 1 ||
@@ -2589,21 +2589,21 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 														stmt_list)))))
 		{
 			/*
-			 * First, ensure there's a Portal-level snapshot.  This back-fills
-			 * the snapshot stack in case the previous operation was a COMMIT
-			 * or ROLLBACK inside a procedure or DO block.  (We can't put back
-			 * the Portal snapshot any sooner, or we'd break cases like doing
-			 * SET or LOCK just after COMMIT.)  It's enough to check once per
-			 * statement list, since COMMIT/ROLLBACK/CALL/DO can't appear
-			 * within a multi-statement list.
+			 * 首先，确保存在 Portal 级快照。如果前一个操作 
+			 * 是过程或 DO 块内的 COMMIT 或 ROLLBACK，就用它     
+			 * 回填快照栈。（我们无法更早恢复 Portal 快照， 
+			 * 否则会破坏诸如 COMMIT 后紧接着执行 SET 或       
+			 * LOCK 的情形。）对每条语句列表只需检查一次，
+			 * 因为 COMMIT/ROLLBACK/CALL/DO 不会出现在            
+			 * 多条语句列表中。      
 			 */
 			EnsurePortalSnapshotExists();
 
 			/*
-			 * In the default non-read-only case, get a new per-statement-list
-			 * snapshot, replacing any that we pushed in a previous cycle.
-			 * Skip it when doing non-atomic execution, though (we rely
-			 * entirely on the Portal snapshot in that case).
+			 * 在默认非只读情形下，获取新的每语句列表      
+			 * 快照，替换先前压入的那份。非原子执行时  
+			 * 则跳过该步骤（那种情况下我们完全依赖  
+			 * Portal 快照）。                           
 			 */
 			if (!options->read_only && !allow_nonatomic)
 			{
@@ -2621,15 +2621,15 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 			DestReceiver *dest;
 
 			/*
-			 * Reset output state.  (Note that if a non-SPI receiver is used,
-			 * _SPI_current->processed will stay zero, and that's what we'll
-			 * report to the caller.  It's the receiver's job to count tuples
-			 * in that case.)
+			 * 重置输出状态。（注意若使用非 SPI 的接收器，
+			 * _SPI_current->processed 将保持为 0，这也正是我们  
+			 * 将报告给调用者的值。统计元组是接收器的     
+			 * 职责。）  
 			 */
 			_SPI_current->processed = 0;
 			_SPI_current->tuptable = NULL;
 
-			/* Check for unsupported cases. */
+			/* 检查不支持的情形。  */
 			if (stmt->utilityStmt)
 			{
 				if (IsA(stmt->utilityStmt, CopyStmt))
@@ -2657,9 +2657,9 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 								CreateCommandName((Node *) stmt))));
 
 			/*
-			 * If not read-only mode, advance the command counter before each
-			 * command and update the snapshot.  (But skip it if the snapshot
-			 * isn't under our control.)
+			 * 若非只读模式，在每条命令前推进命令计数器  
+			 * 并更新快照。（但若快照不受我们控制则跳过  
+			 * 该步骤。）          
 			 */
 			if (!options->read_only && pushed_active_snap)
 			{
@@ -2668,8 +2668,8 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 			}
 
 			/*
-			 * Select appropriate tuple receiver.  Output from non-canSetTag
-			 * subqueries always goes to the bit bucket.
+			 * 选择合适的元组接收器。非 canSetTag 子查询的  
+			 * 输出总是被丢弃。                 
 			 */
 			if (!canSetTag)
 				dest = CreateDestReceiver(DestNone);
@@ -2705,8 +2705,8 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 				QueryCompletion qc;
 
 				/*
-				 * If we're not allowing nonatomic operations, tell
-				 * ProcessUtility this is an atomic execution context.
+				 * 若不允许非原子操作，则告知         
+				 * ProcessUtility 这是原子执行上下文。      
 				 */
 				if (allow_nonatomic)
 					context = PROCESS_UTILITY_QUERY_NONATOMIC;
@@ -2716,22 +2716,22 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 				InitializeQueryCompletion(&qc);
 				ProcessUtility(stmt,
 							   plansource->query_string,
-							   true,	/* protect plancache's node tree */
+							   true,	/* 保护 plancache 的节点树 */
 							   context,
 							   options->params,
 							   _SPI_current->queryEnv,
 							   dest,
 							   &qc);
 
-				/* Update "processed" if stmt returned tuples */
+				/* 若 stmt 返回元组则更新 "processed" */
 				if (_SPI_current->tuptable)
 					_SPI_current->processed = _SPI_current->tuptable->numvals;
 
 				res = SPI_OK_UTILITY;
 
 				/*
-				 * Some utility statements return a row count, even though the
-				 * tuples are not returned to the caller.
+				 * 有些实用工具语句会返回行数，尽管元组未  
+				 * 返回给调用者。                 
 				 */
 				if (IsA(stmt->utilityStmt, CreateTableAsStmt))
 				{
@@ -2742,8 +2742,8 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 					else
 					{
 						/*
-						 * Must be an IF NOT EXISTS that did nothing, or a
-						 * CREATE ... WITH NO DATA.
+						 * 必定是没做事的 IF NOT EXISTS，或是   
+						 * CREATE ... WITH NO DATA 
 						 */
 						Assert(ctastmt->if_not_exists ||
 							   ctastmt->into->skipData);
@@ -2751,8 +2751,8 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 					}
 
 					/*
-					 * For historical reasons, if CREATE TABLE AS was spelled
-					 * as SELECT INTO, return a special return code.
+					 * 由于历史原因，若 CREATE TABLE AS 被写成    
+					 * SELECT INTO，则返回特殊的返回码。 
 					 */
 					if (ctastmt->is_select_into)
 						res = SPI_OK_SELINTO;
@@ -2765,9 +2765,9 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 			}
 
 			/*
-			 * The last canSetTag query sets the status values returned to the
-			 * caller.  Be careful to free any tuptables not returned, to
-			 * avoid intra-transaction memory leak.
+			 * 最后 canSetTag 查询设置返回给调用者的状态值。 
+			 * 务必释放所有未返回的 tuptable，以防事务内 
+			 * 内存泄漏。                     
 			 */
 			if (canSetTag)
 			{
@@ -2783,9 +2783,9 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 			}
 
 			/*
-			 * We don't issue a destroy call to the receiver.  The SPI and
-			 * None receivers would ignore it anyway, while if the caller
-			 * supplied a receiver, it's not our job to destroy it.
+			 * 我们不会向接收器发出销毁调用。SPI 与 None  
+			 * 接收器反正会忽略它；若为调用者所提供， 
+			 * 那销毁它就不是我们的职责。             
 			 */
 
 			if (res < 0)
@@ -2795,14 +2795,14 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 			}
 		}
 
-		/* Done with this plan, so release refcount */
+		/* 该计划已用完，释放引用计数  */
 		ReleaseCachedPlan(cplan, plan_owner);
 		cplan = NULL;
 
 		/*
-		 * If not read-only mode, advance the command counter after the last
-		 * command.  This ensures that its effects are visible, in case it was
-		 * DDL that would affect the next CachedPlanSource.
+		 * 若非只读模式，则在最后一条命令之后推进命令  
+		 * 计数器。这能确保其效果可见，以防它是会影响    
+		 * 下一个 CachedPlanSource 的 DDL。           
 		 */
 		if (!options->read_only)
 			CommandCounterIncrement();
@@ -2810,30 +2810,30 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 
 fail:
 
-	/* Pop the snapshot off the stack if we pushed one */
+	/* 若压入过快照，就把它从栈中弹出   */
 	if (pushed_active_snap)
 		PopActiveSnapshot();
 
-	/* We no longer need the cached plan refcount, if any */
+	/* 不再需要缓存计划的引用计数（若有）*/
 	if (cplan)
 		ReleaseCachedPlan(cplan, plan_owner);
 
 	/*
-	 * Pop the error context stack
+	 * 弹出错误上下文栈   
 	 */
 	error_context_stack = spierrcontext.previous;
 
-	/* Save results for caller */
+	/* 为调用者保存结果*/
 	SPI_processed = my_processed;
 	SPI_tuptable = my_tuptable;
 
-	/* tuptable now is caller's responsibility, not SPI's */
+	/* tuptable 现在归调用者管，不归 SPI 管    */
 	_SPI_current->tuptable = NULL;
 
 	/*
-	 * If none of the queries had canSetTag, return SPI_OK_REWRITTEN. Prior to
-	 * 8.4, we used return the last query's result code, but not its auxiliary
-	 * results, but that's confusing.
+	 * 若没有任何查询带 canSetTag，则返回 SPI_OK_REWRITTEN。     
+	 * 在 8.4 之前我们曾返回最后一个查询的结果码，却不给
+	 * 辅助结果，令人费解。
 	 */
 	if (my_res == 0)
 		my_res = SPI_OK_REWRITTEN;
@@ -2842,7 +2842,7 @@ fail:
 }
 
 /*
- * Convert arrays of query parameters to form wanted by planner and executor
+ * 把查询参数数组转换成规划器和执行器想要的形式       
  */
 static ParamListInfo
 _SPI_convert_params(int nargs, Oid *argtypes,
@@ -2881,7 +2881,7 @@ _SPI_pquery(QueryDesc *queryDesc, bool fire_triggers, uint64 tcount)
 		case CMD_SELECT:
 			if (queryDesc->dest->mydest == DestNone)
 			{
-				/* Don't return SPI_OK_SELECT if we're discarding result */
+				/* 若要丢弃结果，则不要返回 SPI_OK_SELECT    */
 				res = SPI_OK_UTILITY;
 			}
 			else
@@ -2917,9 +2917,9 @@ _SPI_pquery(QueryDesc *queryDesc, bool fire_triggers, uint64 tcount)
 		ResetUsage();
 #endif
 
-	/* Select execution options */
+	/* 选择执行选项       */
 	if (fire_triggers)
-		eflags = 0;				/* default run-to-completion flags */
+		eflags = 0;				/* 默认的运行至完成标志  */
 	else
 		eflags = EXEC_FLAG_SKIP_TRIGGERS;
 
@@ -2938,7 +2938,7 @@ _SPI_pquery(QueryDesc *queryDesc, bool fire_triggers, uint64 tcount)
 
 	ExecutorFinish(queryDesc);
 	ExecutorEnd(queryDesc);
-	/* FreeQueryDesc is done by the caller */
+	/* FreeQueryDesc 由调用者完成    */
 
 #ifdef SPI_EXECUTOR_STATS
 	if (ShowExecutorStats)
@@ -2951,7 +2951,7 @@ _SPI_pquery(QueryDesc *queryDesc, bool fire_triggers, uint64 tcount)
 /*
  * _SPI_error_callback
  *
- * Add context information when a query invoked via SPI fails
+ * 当经 SPI 调用的查询失败时添加上下文信息  
  */
 static void
 _SPI_error_callback(void *arg)
@@ -2960,12 +2960,12 @@ _SPI_error_callback(void *arg)
 	const char *query = carg->query;
 	int			syntaxerrposition;
 
-	if (query == NULL)			/* in case arg wasn't set yet */
+	if (query == NULL)			/* 以防 arg 尚未设置    */
 		return;
 
 	/*
-	 * If there is a syntax error position, convert to internal syntax error;
-	 * otherwise treat the query as an item of context stack
+	 * 若存在语法错误位置，则转换为内部语法错误；       
+	 * 否则把该查询当作上下文栈的一项。     
 	 */
 	syntaxerrposition = geterrposition();
 	if (syntaxerrposition > 0)
@@ -2976,7 +2976,7 @@ _SPI_error_callback(void *arg)
 	}
 	else
 	{
-		/* Use the parse mode to decide how to describe the query */
+		/* 用解析模式来决定如何描述该查询          */
 		switch (carg->mode)
 		{
 			case RAW_PARSE_PLPGSQL_EXPR:
@@ -2997,7 +2997,7 @@ _SPI_error_callback(void *arg)
 /*
  * _SPI_cursor_operation()
  *
- *	Do a FETCH or MOVE in a cursor
+ *	对游标执行 FETCH 或 MOVE
  */
 static void
 _SPI_cursor_operation(Portal portal, FetchDirection direction, long count,
@@ -3005,47 +3005,47 @@ _SPI_cursor_operation(Portal portal, FetchDirection direction, long count,
 {
 	uint64		nfetched;
 
-	/* Check that the portal is valid */
+	/* 检查 portal 是否有效     */
 	if (!PortalIsValid(portal))
 		elog(ERROR, "invalid portal in SPI cursor operation");
 
-	/* Push the SPI stack */
+	/* 压入 SPI 栈     */
 	if (_SPI_begin_call(true) < 0)
 		elog(ERROR, "SPI cursor operation called while not connected");
 
-	/* Reset the SPI result (note we deliberately don't touch lastoid) */
+	/* 重置 SPI 结果（注意我们刻意不碰 lastoid）         */
 	SPI_processed = 0;
 	SPI_tuptable = NULL;
 	_SPI_current->processed = 0;
 	_SPI_current->tuptable = NULL;
 
-	/* Run the cursor */
+	/* 运行游标   */
 	nfetched = PortalRunFetch(portal,
 							  direction,
 							  count,
 							  dest);
 
 	/*
-	 * Think not to combine this store with the preceding function call. If
-	 * the portal contains calls to functions that use SPI, then _SPI_stack is
-	 * likely to move around while the portal runs.  When control returns,
-	 * _SPI_current will point to the correct stack entry... but the pointer
-	 * may be different than it was beforehand. So we must be sure to re-fetch
-	 * the pointer after the function call completes.
+	 * 切勿把这次保存与前面的函数调用合并。若           
+	 * portal 内含有使用 SPI 的函数调用，则 portal 运行期间   
+	 * _SPI_stack 很可能会移动。当控制返回时，              
+	 * _SPI_current 将指向正确的栈条目……但该指针           
+	 * 可能已与之前不同。因此必须确保在函数调用           
+	 * 完成后重新获取该指针。             
 	 */
 	_SPI_current->processed = nfetched;
 
 	if (dest->mydest == DestSPI && _SPI_checktuples())
 		elog(ERROR, "consistency check on SPI tuple count failed");
 
-	/* Put the result into place for access by caller */
+	/* 把结果放置到位，供调用者访问     */
 	SPI_processed = _SPI_current->processed;
 	SPI_tuptable = _SPI_current->tuptable;
 
-	/* tuptable now is caller's responsibility, not SPI's */
+	/* tuptable 现在归调用者管，不归 SPI 管    */
 	_SPI_current->tuptable = NULL;
 
-	/* Pop the SPI stack */
+	/* 弹出 SPI 栈    */
 	_SPI_end_call(true);
 }
 
@@ -3063,11 +3063,11 @@ _SPI_procmem(void)
 }
 
 /*
- * _SPI_begin_call: begin a SPI operation within a connected procedure
+ * _SPI_begin_call：在已连接的过程内开始一次 SPI 操作  
  *
- * use_exec is true if we intend to make use of the procedure's execCxt
- * during this SPI operation.  We'll switch into that context, and arrange
- * for it to be cleaned up at _SPI_end_call or if an error occurs.
+ * use_exec 为 true 表示我们打算在本次 SPI 操作中         
+ * 利用过程的 execCxt。我们会切换进该上下文，并安排   
+ * 在 _SPI_end_call 或出错时清理它。                     
  */
 static int
 _SPI_begin_call(bool use_exec)
@@ -3077,9 +3077,9 @@ _SPI_begin_call(bool use_exec)
 
 	if (use_exec)
 	{
-		/* remember when the Executor operation started */
+		/* 记住 Executor 操作的开始时间        */
 		_SPI_current->execSubid = GetCurrentSubTransactionId();
-		/* switch to the Executor memory context */
+		/* 切换到 Executor 内存上下文    */
 		_SPI_execmem();
 	}
 
@@ -3087,22 +3087,22 @@ _SPI_begin_call(bool use_exec)
 }
 
 /*
- * _SPI_end_call: end a SPI operation within a connected procedure
+ * _SPI_end_call：在已连接的过程内结束一次 SPI 操作
  *
- * use_exec must be the same as in the previous _SPI_begin_call
+ * use_exec 必须与之前 _SPI_begin_call 中传入的相同 
  *
- * Note: this currently has no failure return cases, so callers don't check
+ * 注意：该函数目前没有失败返回情形，调用者不检查   
  */
 static int
 _SPI_end_call(bool use_exec)
 {
 	if (use_exec)
 	{
-		/* switch to the procedure memory context */
+		/* 切换到过程内存上下文         */
 		_SPI_procmem();
-		/* mark Executor context no longer in use */
+		/* 标记 Executor 上下文不再使用  */
 		_SPI_current->execSubid = InvalidSubTransactionId;
-		/* and free Executor memory */
+		/* 并释放 Executor 内存*/
 		MemoryContextResetAndDeleteChildren(_SPI_current->execCxt);
 	}
 
@@ -3116,7 +3116,7 @@ _SPI_checktuples(void)
 	SPITupleTable *tuptable = _SPI_current->tuptable;
 	bool		failed = false;
 
-	if (tuptable == NULL)		/* spi_dest_startup was not called */
+	if (tuptable == NULL)		/* 未调用 spi_dest_startup      */
 		failed = true;
 	else if (processed != tuptable->numvals)
 		failed = true;
@@ -3125,13 +3125,13 @@ _SPI_checktuples(void)
 }
 
 /*
- * Convert a "temporary" SPIPlan into an "unsaved" plan.
+ * 把"临时" SPIPlan 转换成"未保存"计划。    
  *
- * The passed _SPI_plan struct is on the stack, and all its subsidiary data
- * is in or under the current SPI executor context.  Copy the plan into the
- * SPI procedure context so it will survive _SPI_end_call().  To minimize
- * data copying, this destructively modifies the input plan, by taking the
- * plancache entries away from it and reparenting them to the new SPIPlan.
+ * 传入的 _SPI_plan 结构体位于栈上，其全部附属数据都    
+ * 处于当前 SPI 执行器上下文（或其下）。把计划复制到 
+ * SPI 过程上下文，使其能在 _SPI_end_call() 之后存活。为 
+ * 减少数据复制，此处以破坏性方式修改输入计划：把  
+ * plancache 条目从它那里取走并重新挂到新 SPIPlan 之下。 
  */
 static SPIPlanPtr
 _SPI_make_plan_non_temp(SPIPlanPtr plan)
@@ -3142,22 +3142,22 @@ _SPI_make_plan_non_temp(SPIPlanPtr plan)
 	MemoryContext oldcxt;
 	ListCell   *lc;
 
-	/* Assert the input is a temporary SPIPlan */
+	/* 断言输入是临时 SPIPlan           */
 	Assert(plan->magic == _SPI_PLAN_MAGIC);
 	Assert(plan->plancxt == NULL);
-	/* One-shot plans can't be saved */
+	/* 一次性计划无法被保存*/
 	Assert(!plan->oneshot);
 
 	/*
-	 * Create a memory context for the plan, underneath the procedure context.
-	 * We don't expect the plan to be very large.
+	 * 为该计划创建内存上下文，置于过程上下文之下。     
+	 * 我们预计该计划不会很大。      
 	 */
 	plancxt = AllocSetContextCreate(parentcxt,
 									"SPI Plan",
 									ALLOCSET_SMALL_SIZES);
 	oldcxt = MemoryContextSwitchTo(plancxt);
 
-	/* Copy the _SPI_plan struct and subsidiary data into the new context */
+	/* 把 _SPI_plan 结构体及附属数据复制进新上下文        */
 	newplan = (SPIPlanPtr) palloc0(sizeof(_SPI_plan));
 	newplan->magic = _SPI_PLAN_MAGIC;
 	newplan->plancxt = plancxt;
@@ -3175,10 +3175,10 @@ _SPI_make_plan_non_temp(SPIPlanPtr plan)
 	newplan->parserSetupArg = plan->parserSetupArg;
 
 	/*
-	 * Reparent all the CachedPlanSources into the procedure context.  In
-	 * theory this could fail partway through due to the pallocs, but we don't
-	 * care too much since both the procedure context and the executor context
-	 * would go away on error.
+	 * 把所有 CachedPlanSource 重新挂到过程上下文之下。   
+	 * 理论上这可能因 palloc 而中途失败，但我们对此         
+	 * 并不太在意，因为出错时过程上下文与执行器上下文  
+	 * 都会消失。        
 	 */
 	foreach(lc, plan->plancache_list)
 	{
@@ -3186,20 +3186,20 @@ _SPI_make_plan_non_temp(SPIPlanPtr plan)
 
 		CachedPlanSetParentContext(plansource, parentcxt);
 
-		/* Build new list, with list cells in plancxt */
+		/* 构建新列表，其单元位于 plancxt  */
 		newplan->plancache_list = lappend(newplan->plancache_list, plansource);
 	}
 
 	MemoryContextSwitchTo(oldcxt);
 
-	/* For safety, unlink the CachedPlanSources from the temporary plan */
+	/* 保险起见，把 CachedPlanSource 与临时计划解除链接  */
 	plan->plancache_list = NIL;
 
 	return newplan;
 }
 
 /*
- * Make a "saved" copy of the given plan.
+ * 为给定计划制作"已保存"副本
  */
 static SPIPlanPtr
 _SPI_save_plan(SPIPlanPtr plan)
@@ -3209,20 +3209,20 @@ _SPI_save_plan(SPIPlanPtr plan)
 	MemoryContext oldcxt;
 	ListCell   *lc;
 
-	/* One-shot plans can't be saved */
+	/* 一次性计划无法被保存*/
 	Assert(!plan->oneshot);
 
 	/*
-	 * Create a memory context for the plan.  We don't expect the plan to be
-	 * very large, so use smaller-than-default alloc parameters.  It's a
-	 * transient context until we finish copying everything.
+	 * 为该计划创建一个内存上下文。我们预计计划不会   
+	 * 很大，故用小于默认值的分配参数。在完成全部  
+	 * 复制之前它是一个临时上下文。           
 	 */
 	plancxt = AllocSetContextCreate(CurrentMemoryContext,
 									"SPI Plan",
 									ALLOCSET_SMALL_SIZES);
 	oldcxt = MemoryContextSwitchTo(plancxt);
 
-	/* Copy the SPI plan into its own context */
+	/* 把 SPI 计划复制进专属上下文 */
 	newplan = (SPIPlanPtr) palloc0(sizeof(_SPI_plan));
 	newplan->magic = _SPI_PLAN_MAGIC;
 	newplan->plancxt = plancxt;
@@ -3239,7 +3239,7 @@ _SPI_save_plan(SPIPlanPtr plan)
 	newplan->parserSetup = plan->parserSetup;
 	newplan->parserSetupArg = plan->parserSetupArg;
 
-	/* Copy all the plancache entries */
+	/* 复制所有 plancache 条目  */
 	foreach(lc, plan->plancache_list)
 	{
 		CachedPlanSource *plansource = (CachedPlanSource *) lfirst(lc);
@@ -3252,9 +3252,9 @@ _SPI_save_plan(SPIPlanPtr plan)
 	MemoryContextSwitchTo(oldcxt);
 
 	/*
-	 * Mark it saved, reparent it under CacheMemoryContext, and mark all the
-	 * component CachedPlanSources as saved.  This sequence cannot fail
-	 * partway through, so there's no risk of long-term memory leakage.
+	 * 将其标记为已保存，重新挂到 CacheMemoryContext 之下， 
+	 * 把各成员 CachedPlanSource 都标记为已保存。这一    
+	 * 序列无法中途失败，因此无长期内存泄漏风险。 
 	 */
 	newplan->saved = true;
 	MemoryContextSetParent(newplan->plancxt, CacheMemoryContext);
@@ -3270,15 +3270,15 @@ _SPI_save_plan(SPIPlanPtr plan)
 }
 
 /*
- * Internal lookup of ephemeral named relation by name.
+ * 按名称内部查找临时命名关系。          
  */
 static EphemeralNamedRelation
 _SPI_find_ENR_by_name(const char *name)
 {
-	/* internal static function; any error is bug in SPI itself */
+	/* 内部静态函数；任何错误都是 SPI 自身的 bug*/
 	Assert(name != NULL);
 
-	/* fast exit if no tuplestores have been added */
+	/* 若没添加过 tuplestore，则快速退出*/
 	if (_SPI_current->queryEnv == NULL)
 		return NULL;
 
@@ -3286,8 +3286,8 @@ _SPI_find_ENR_by_name(const char *name)
 }
 
 /*
- * Register an ephemeral named relation for use by the planner and executor on
- * subsequent calls using this SPI connection.
+ * 注册一个临时命名关系，供本 SPI 连接上的后续调用中    
+ * 的规划器和执行器使用。          
  */
 int
 SPI_register_relation(EphemeralNamedRelation enr)
@@ -3298,7 +3298,7 @@ SPI_register_relation(EphemeralNamedRelation enr)
 	if (enr == NULL || enr->md.name == NULL)
 		return SPI_ERROR_ARGUMENT;
 
-	res = _SPI_begin_call(false);	/* keep current memory context */
+	res = _SPI_begin_call(false);	/* 保持当前内存上下文 */
 	if (res < 0)
 		return res;
 
@@ -3320,8 +3320,8 @@ SPI_register_relation(EphemeralNamedRelation enr)
 }
 
 /*
- * Unregister an ephemeral named relation by name.  This will probably be a
- * rarely used function, since SPI_finish will clear it automatically.
+ * 按名称注销一个临时命名关系。这大概会是一个很少   
+ * 被用到的函数，因为 SPI_finish 会自动清除它。       
  */
 int
 SPI_unregister_relation(const char *name)
@@ -3332,7 +3332,7 @@ SPI_unregister_relation(const char *name)
 	if (name == NULL)
 		return SPI_ERROR_ARGUMENT;
 
-	res = _SPI_begin_call(false);	/* keep current memory context */
+	res = _SPI_begin_call(false);	/* 保持当前内存上下文 */
 	if (res < 0)
 		return res;
 
@@ -3351,10 +3351,10 @@ SPI_unregister_relation(const char *name)
 }
 
 /*
- * Register the transient relations from 'tdata' using this SPI connection.
- * This should be called by PL implementations' trigger handlers after
- * connecting, in order to make transition tables visible to any queries run
- * in this connection.
+ * 使用本 SPI 连接注册来自 'tdata' 的过渡关系。             
+ * 各 PL 实现的触发器处理器应在连接之后调用它，   
+ * 以使过渡表对本连接中运行的任何                            
+ * 查询可见。    
  */
 int
 SPI_register_trigger_data(TriggerData *tdata)

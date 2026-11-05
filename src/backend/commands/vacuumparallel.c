@@ -501,17 +501,17 @@ parallel_vacuum_cleanup_all_indexes(ParallelVacuumState *pvs, long num_table_tup
 }
 
 /*
- * 计算要请求的并行工作进程数量。索引清理和索引清除都可以使用并行
- * 工作进程执行。只有当索引的大小大于
- * min_parallel_index_scan_size 时才有资格进行并行清理，因为为非常小的
- * 索引调用工作进程会损害性能。
- * 
- *nrequested 是用户请求的并行工作进程数。如果 nrequested 为 0，
- * 我们根据 nindexes 计算并行度，即支持并行清理的索引数量。此函数还会
- * 设置 will_parallel_vacuum 以记住参与并行清理的索引。
- * the number of indexes that support parallel vacuum.  This function also
- * sets will_parallel_vacuum to remember indexes that participate in parallel
- * vacuum.
+ * 计算要请求的并行工作进程数量。索引清理              
+ * 和索引清除都可以使用并行工作进程执行。      
+ * 只有当索引的大小大于 min_parallel_index_scan_size           
+ * 时才有资格并行清理，因为很小的索引调用工作进程  
+ * 会损害性能。   
+ *
+ * nrequested 是用户请求的并行工作进程数。如果          
+ * nrequested 为 0，我们根据 nindexes 计算并行度，即            
+ * 支持并行清理的索引数量。此函数还会                    
+ * 设置 will_parallel_vacuum 以记住参与并行清理的索引。       
+ *        
  */
 static int
 parallel_vacuum_compute_workers(Relation *indrels, int nindexes, int nrequested,

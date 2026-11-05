@@ -660,9 +660,9 @@ lo_import_internal(PGconn *conn, const char *filename, Oid oid)
 	/* 由于这是查询周期的开始，重置错误状态              */
 	pqClearConnErrorState(conn);
 
-	/*打开要读取的文件
-	 * 
-	    */
+	/*
+	 * 打开要读取的文件   
+	 */
 	fd = open(filename, O_RDONLY | PG_BINARY, 0666);
 	if (fd < 0)
 	{							/* error */
@@ -671,9 +671,9 @@ lo_import_internal(PGconn *conn, const char *filename, Oid oid)
 		return InvalidOid;
 	}
 
-	/*创建一个反转对象
-	 * 
-	   */
+	/*
+	 * 创建一个反转对象  
+	 */
 	if (oid == InvalidOid)
 		lobjOid = lo_creat(conn, INV_READ | INV_WRITE);
 	else
@@ -694,9 +694,9 @@ lo_import_internal(PGconn *conn, const char *filename, Oid oid)
 		return InvalidOid;
 	}
 
-	/*从文件读取并写入大对象
-	 * 
-	                   */
+	/*
+	 * 从文件读取并写入大对象                  
+	 */
 	while ((nbytes = read(fd, buf, LO_BUFSIZE)) > 0)
 	{
 		tmp = lo_write(conn, lobj, buf, nbytes);
@@ -755,9 +755,9 @@ lo_export(PGconn *conn, Oid lobjId, const char *filename)
 	int			lobj;
 	char		sebuf[PG_STRERROR_R_BUFLEN];
 
-	/*打开大对象。
-	 * 
-	     */
+	/*
+	 * 打开大对象。    
+	 */
 	lobj = lo_open(conn, lobjId, INV_READ);
 	if (lobj == -1)
 	{
@@ -765,9 +765,9 @@ lo_export(PGconn *conn, Oid lobjId, const char *filename)
 		return -1;
 	}
 
-	/*创建要写入的文件
-	 * 
-	         */
+	/*
+	 * 创建要写入的文件        
+	 */
 	fd = open(filename, O_CREAT | O_WRONLY | O_TRUNC | PG_BINARY, 0666);
 	if (fd < 0)
 	{
@@ -909,9 +909,9 @@ lo_initialize(PGconn *conn)
 		return -1;
 	}
 
-	/*检查结果并将 OID 放入结构中
-	 * 
-	               */
+	/*
+	 * 检查结果并将 OID 放入结构中              
+	 */
 	for (n = 0; n < PQntuples(res); n++)
 	{
 		fname = PQgetvalue(res, n, 0);
@@ -1008,9 +1008,9 @@ lo_initialize(PGconn *conn)
 		return -1;
 	}
 
-	/*将结构放入连接控制中
-	 * 
-	                */
+	/*
+	 * 将结构放入连接控制中               
+	 */
 	conn->lobjfuncs = lobjfuncs;
 	return 0;
 }

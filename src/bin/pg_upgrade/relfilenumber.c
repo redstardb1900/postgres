@@ -137,9 +137,9 @@ transfer_single_new_db(FileNameMap *maps, int size, char *old_tablespace)
 	int			mapnum;
 	bool		vm_must_add_frozenbit = false;
 
-	/*需重写可见性映射？
-	 * 
-	          */
+	/*
+	 * 需重写可见性映射？         
+	 */
 	if (old_cluster.controldata.cat_ver < VISIBILITY_MAP_FROZEN_BIT_CAT_VER &&
 		new_cluster.controldata.cat_ver >= VISIBILITY_MAP_FROZEN_BIT_CAT_VER)
 		vm_must_add_frozenbit = true;
@@ -152,9 +152,9 @@ transfer_single_new_db(FileNameMap *maps, int size, char *old_tablespace)
 			/* 传输主文件       */
 			transfer_relfile(&maps[mapnum], "", vm_must_add_frozenbit);
 
-			/*复制/链接任何 fsm 和 vm 文件
-			 * 
-			         */
+			/*
+			 * 复制/链接任何 fsm 和 vm 文件        
+			 */
 			transfer_relfile(&maps[mapnum], "_fsm", vm_must_add_frozenbit);
 			transfer_relfile(&maps[mapnum], "_vm", vm_must_add_frozenbit);
 		}

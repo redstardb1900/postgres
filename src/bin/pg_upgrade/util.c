@@ -316,9 +316,9 @@ quote_identifier(const char *s)
 }
 
 
-/*获用户信息
- *
-  */
+/*
+ * 获用户信息
+ */
 int
 get_user_info(char **user_name_p)
 {

@@ -4615,9 +4615,9 @@ PQreset(PGconn *conn)
 
 		if (connectDBStart(conn) && connectDBComplete(conn))
 		{
-			/* 连已关非错-静默忽略           
-         
-*/
+			/*
+			 * 连已关非错-静默忽略           
+			 */
 			int			i;
 
 			for (i = 0; i < conn->nEvents; i++)
@@ -4667,9 +4667,9 @@ PQresetPoll(PGconn *conn)
 
 		if (status == PGRES_POLLING_OK)
 		{
-			/* 填充 conn 余部                
-              
-*/
+			/*
+			 * 填充 conn 余部                     
+			 */
 			int			i;
 
 			for (i = 0; i < conn->nEvents; i++)
@@ -6238,9 +6238,9 @@ conninfo_array_parse(const char *const *keywords, const char *const *values,
 			}
 			else
 			{
-				/* 用解析连接覆现选项               
-              
-*/
+				/*
+				 * 用解析连接覆现选项                  
+				 */
 				free(option->val);
 				option->val = strdup(pvalue);
 				if (!option->val)
@@ -6256,9 +6256,9 @@ conninfo_array_parse(const char *const *keywords, const char *const *values,
 	}
 	PQconninfoFree(dbname_options);
 
-	/* 对基连接无用了             
-            
-*/
+	/*
+	 * 对基连接无用了                    
+	 */
 	if (use_defaults)
 	{
 		if (!conninfo_add_defaults(options, errorMessage))
@@ -6310,9 +6310,9 @@ conninfo_add_defaults(PQconninfoOption *options, PQExpBuffer errorMessage)
 		if (option->val != NULL)
 			continue;			/* 环境变量未设               */
 
-		/* 无值则报错                   
-                 
-*/
+		/*
+		 * 无值则报错                             
+		 */
 		if (option->envvar != NULL)
 		{
 			if ((tmp = getenv(option->envvar)) != NULL)
@@ -6574,9 +6574,9 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 	 */
 	for (;;)
 	{
-		/* 一次拆一个对      
-     
-*/
+		/*
+		 * 一次拆一个对    
+		 */
 		if (*p == '[')
 		{
 			host = ++p;
@@ -6782,9 +6782,9 @@ conninfo_uri_parse_params(char *params,
 		}
 		malloced = true;
 
-		/* 现有 keyword=pkey, value=pvalue                
-               
-*/
+		/*
+		 * 现有 keyword=pkey, value=pvalue                        
+		 */
 		if (strcmp(keyword, "ssl") == 0 &&
 			strcmp(value, "true") == 0)
 		{
@@ -7038,9 +7038,9 @@ conninfo_find(PQconninfoOption *connOptions, const char *keyword)
 }
 
 
-/* 选项数组以 keyword=NULL 终             
-           
-*/
+/*
+ * 选项数组以 keyword=NULL 终                     
+ */
 PQconninfoOption *
 PQconninfo(PGconn *conn)
 {

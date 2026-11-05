@@ -153,8 +153,8 @@ PQinitOpenSSL(int do_ssl, int do_crypto)
 #endif
 }
 
-/*初始化全局 SSL 上下文
- *	
+/*
+ *	初始化全局 SSL 上下文
  */
 int
 pqsecure_initialize(PGconn *conn, bool do_ssl, bool do_crypto)
@@ -168,9 +168,9 @@ pqsecure_initialize(PGconn *conn, bool do_ssl, bool do_crypto)
 	return r;
 }
 
-/*开始或继续协商安全会话。
- *	
-            */
+/*
+ *	开始或继续协商安全会话。           
+ */
 PostgresPollingStatusType
 pqsecure_open_client(PGconn *conn)
 {
@@ -182,8 +182,8 @@ pqsecure_open_client(PGconn *conn)
 #endif
 }
 
-/*关闭安全会话。
- *	
+/*
+ *	关闭安全会话。
  */
 void
 pqsecure_close(PGconn *conn)

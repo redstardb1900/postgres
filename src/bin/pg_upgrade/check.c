@@ -98,9 +98,9 @@ check_and_dump_old_cluster(bool live_check)
 	get_loadable_libraries();
 
 
-	/*检查各故障情况
-	 * 
-	           */
+	/*
+	 * 检查各故障情况          
+	 */
 	check_is_install_user(&old_cluster);
 	check_proper_datallowconn(&old_cluster);
 	check_for_prepared_transactions(&old_cluster);
@@ -115,8 +115,8 @@ check_and_dump_old_cluster(bool live_check)
 	if (GET_MAJOR_VERSION(old_cluster.major_version) <= 1500)
 		check_for_aclitem_data_type_usage(&old_cluster);
 
-	/*PG 12 除类型 abstime、reltime、tinterval。
-	 * 
+	/*
+	 * PG 12 除类型 abstime、reltime、tinterval。
 	 */
 	if (GET_MAJOR_VERSION(old_cluster.major_version) <= 1100)
 	{

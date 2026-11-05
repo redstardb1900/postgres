@@ -90,9 +90,9 @@ static bool calculate_client_proof(fe_scram_state *state,
 								   const char *client_final_message_without_proof,
 								   uint8 *result, const char **errstr);
 
-/*初始化 SCRAM 交换状态。
- * 
-   */
+/*
+ * 初始化 SCRAM 交换状态。  
+ */
 static void *
 scram_init(PGconn *conn,
 		   const char *password,
@@ -172,9 +172,9 @@ scram_channel_bound(void *opaq)
 	return true;
 }
 
-/*释放 SCRAM 交换状态
- * 
-  */
+/*
+ * 释放 SCRAM 交换状态 
+ */
 static void
 scram_free(void *opaq)
 {
@@ -199,9 +199,9 @@ scram_free(void *opaq)
 	free(state);
 }
 
-/*与后端交换 SCRAM 消息。
- * 
-        */
+/*
+ * 与后端交换 SCRAM 消息。       
+ */
 static void
 scram_exchange(void *opaq, char *input, int inputlen,
 			   char **output, int *outputlen,
@@ -344,9 +344,9 @@ read_attr_value(char **input, char attr, PQExpBuffer errorMessage)
 	return begin;
 }
 
-/*构建客户端发送的第一条交换消息。
- * 
-     */
+/*
+ * 构建客户端发送的第一条交换消息。    
+ */
 static char *
 build_client_first_message(fe_scram_state *state)
 {
@@ -449,9 +449,9 @@ oom_error:
 	return NULL;
 }
 
-/*构建客户端发送的最后一条交换消息。
- * 
-    */
+/*
+ * 构建客户端发送的最后一条交换消息。   
+ */
 static char *
 build_client_final_message(fe_scram_state *state)
 {
@@ -601,9 +601,9 @@ oom_error:
 	return NULL;
 }
 
-/*读取来自服务器的第一条交换消息。
- * 
-        */
+/*
+ * 读取来自服务器的第一条交换消息。       
+ */
 static bool
 read_server_first_message(fe_scram_state *state, char *input)
 {
@@ -687,9 +687,9 @@ read_server_first_message(fe_scram_state *state, char *input)
 	return true;
 }
 
-/*读取来自服务器的最后一条交换消息。
- * 
-     */
+/*
+ * 读取来自服务器的最后一条交换消息。    
+ */
 static bool
 read_server_final_message(fe_scram_state *state, char *input)
 {

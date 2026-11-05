@@ -228,8 +228,8 @@ DefineType(ParseState *pstate, List *names, List *parameters)
 					   get_namespace_name(typeNamespace));
 #endif
 
-	/* 查看类型是否已存在。
-	 * 
+	/*
+	 * 查看类型是否已存在。     
 	 */
 	typoid = GetSysCacheOid2(TYPENAMENSP, Anum_pg_type_oid,
 							 CStringGetDatum(typeName),
@@ -452,8 +452,8 @@ DefineType(ParseState *pstate, List *names, List *parameters)
 	if (collatableEl)
 		collation = defGetBoolean(collatableEl) ? DEFAULT_COLLATION_OID : InvalidOid;
 
-	/* 确保我们有必需的定义
-	 * 
+	/*
+	 * 确保我们有必需的定义            
 	 */
 	if (inputName == NIL)
 		ereport(ERROR,
@@ -600,8 +600,8 @@ DefineType(ParseState *pstate, List *names, List *parameters)
 				   collation);	/* 类型的排序规则 */
 	Assert(typoid == address.objectId);
 
-	/* 创建与之配套的数组类型。
-	 * 
+	/*
+	 * 创建与之配套的数组类型。    
 	 */
 	array_type = makeArrayTypeName(typeName, typeNamespace);
 
@@ -754,8 +754,8 @@ DefineDomain(CreateDomainStmt *stmt)
 					 errmsg("type \"%s\" already exists", domainName)));
 	}
 
-	/* 查找基础类型。
-	 * 
+	/*
+	 * 查找基础类型。 
 	 */
 	typeTup = typenameType(NULL, stmt->typeName, &basetypeMod);
 	baseType = (Form_pg_type) GETSTRUCT(typeTup);
@@ -1050,8 +1050,8 @@ DefineDomain(CreateDomainStmt *stmt)
 				   typNotNull,	/* 类型 NOT NULL */
 				   domaincoll); /* 类型的排序规则 */
 
-	/* 创建与之配套的数组类型。
-	 * 
+	/*
+	 * 创建与之配套的数组类型。    
 	 */
 	domainArrayName = makeArrayTypeName(domainName, domainNamespace);
 
@@ -1210,8 +1210,8 @@ DefineEnum(CreateEnumStmt *stmt)
 	/* 将枚举值插入 pg_enum */
 	EnumValuesCreate(enumTypeAddr.objectId, stmt->vals);
 
-	/* 创建与之配套的数组类型。
-	 * 
+	/*
+	 * 创建与之配套的数组类型。    
 	 */
 	enumArrayName = makeArrayTypeName(enumName, enumNamespace);
 
@@ -1374,8 +1374,8 @@ DefineRange(ParseState *pstate, CreateRangeStmt *stmt)
 		aclcheck_error(aclresult, OBJECT_SCHEMA,
 					   get_namespace_name(typeNamespace));
 
-	/* 查看类型是否已存在。
-	 * 
+	/*
+	 * 查看类型是否已存在。     
 	 */
 	typoid = GetSysCacheOid2(TYPENAMENSP, Anum_pg_type_oid,
 							 CStringGetDatum(typeName),
@@ -1556,8 +1556,8 @@ DefineRange(ParseState *pstate, CreateRangeStmt *stmt)
 	{
 		Oid			old_typoid;
 
-		/* 查看多范围类型是否已存在。
-		 * 
+		/*
+		 * 查看多范围类型是否已存在。       
 		 */
 		old_typoid = GetSysCacheOid2(TYPENAMENSP, Anum_pg_type_oid,
 									 CStringGetDatum(multirangeTypeName),
@@ -1621,8 +1621,8 @@ DefineRange(ParseState *pstate, CreateRangeStmt *stmt)
 	RangeCreate(typoid, rangeSubtype, rangeCollation, rangeSubOpclass,
 				rangeCanonical, rangeSubtypeDiff, multirangeOid);
 
-	/* 创建与之配套的数组类型。
-	 * 
+	/*
+	 * 创建与之配套的数组类型。    
 	 */
 	rangeArrayName = makeArrayTypeName(typeName, typeNamespace);
 
@@ -2546,8 +2546,8 @@ DefineCompositeType(RangeVar *typevar, List *coldeflist)
 					 errmsg("type \"%s\" already exists", createStmt->relation->relname)));
 	}
 
-	/* 最后创建关系。这也会创建类型。
-	 * 
+	/*
+	 * 最后创建关系。这也会创建类型。            
 	 */
 	DefineRelation(createStmt, RELKIND_COMPOSITE_TYPE, InvalidOid, &address,
 				   NULL);
@@ -3058,8 +3058,8 @@ AlterDomainValidateConstraint(List *names, const char *constrName)
 	/* 检查它是否为域，并检查用户是否有 ALTER DOMAIN 的权限 */
 	checkDomainOwner(tup);
 
-	/* 查找并检查目标约束
-	 * 
+	/*
+	 * 查找并检查目标约束         
 	 */
 	conrel = table_open(ConstraintRelationId, RowExclusiveLock);
 
@@ -3098,8 +3098,8 @@ AlterDomainValidateConstraint(List *names, const char *constrName)
 
 	validateDomainConstraint(domainoid, conbin);
 
-	/* 现在我们还在里面，更新目录。
-	 * 
+	/*
+	 * 现在我们还在里面，更新目录。          
 	 */
 	copyTuple = heap_copytuple(tuple);
 	copy_con = (Form_pg_constraint) GETSTRUCT(copyTuple);
@@ -3442,8 +3442,8 @@ domainAddConstraint(Oid domainOid, Oid domainNamespace, Oid baseTypeOid,
 	CoerceToDomainValue *domVal;
 	Oid			ccoid;
 
-	/* 分配或验证约束名称
-	 * 
+	/*
+	 * 分配或验证约束名称       
 	 */
 	if (constr->conname)
 	{
@@ -3462,8 +3462,8 @@ domainAddConstraint(Oid domainOid, Oid domainNamespace, Oid baseTypeOid,
 											   domainNamespace,
 											   NIL);
 
-	/* 将 raw_expr 中的 A_EXPR 转换为 EXPR
-	 * 
+	/*
+	 * 将 raw_expr 中的 A_EXPR 转换为 EXPR  
 	 */
 	pstate = make_parsestate(NULL);
 
@@ -3485,13 +3485,13 @@ domainAddConstraint(Oid domainOid, Oid domainNamespace, Oid baseTypeOid,
 
 	expr = transformExpr(pstate, constr->raw_expr, EXPR_KIND_DOMAIN_CHECK);
 
-	/* 确保产生布尔结果。
-	 * 
+	/*
+	 * 确保产生布尔结果。          
 	 */
 	expr = coerce_to_boolean(pstate, expr, "CHECK");
 
-	/* 修正排序规则信息。
-	 * 
+	/*
+	 * 修正排序规则信息。  
 	 */
 	assign_expr_collations(pstate, expr);
 
@@ -3510,8 +3510,8 @@ domainAddConstraint(Oid domainOid, Oid domainNamespace, Oid baseTypeOid,
 	 */
 	ccbin = nodeToString(expr);
 
-	/* 将约束存储在 pg_constraint 中
-	 * 
+	/*
+	 * 将约束存储在 pg_constraint 中 
 	 */
 	ccoid =
 		CreateConstraintEntry(constr->conname,	/* Constraint Name */
@@ -3960,8 +3960,8 @@ AlterTypeNamespaceInternal(Oid typeOid, Oid nspOid,
 	bool		isCompositeType;
 	ObjectAddress thisobj;
 
-	/* 确保我们之前没有移动过此对象。
-	 * 
+	/*
+	 * 确保我们之前没有移动过此对象。     
 	 */
 	thisobj.classId = TypeRelationId;
 	thisobj.objectId = typeOid;

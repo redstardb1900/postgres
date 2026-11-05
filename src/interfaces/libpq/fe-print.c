@@ -628,9 +628,9 @@ output_row(FILE *fout, const PQprintOpt *po, const int nFields, char **fields,
 
 
 
-/*非常旧的打印例程
- * 
-     */
+/*
+ * 非常旧的打印例程    
+ */
 
 void
 PQdisplayTuples(const PGresult *res,

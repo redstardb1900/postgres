@@ -146,9 +146,9 @@ main(int argc, char **argv)
 
 	stop_postmaster(false);
 
-	/*对新集簇的破坏性更改
-	 * 
-	     */
+	/*
+	 * 对新集簇的破坏性更改    
+	 */
 
 	copy_xact_xlog_xid();
 
@@ -479,9 +479,9 @@ prepare_new_globals(void)
 	                       */
 	set_frozenxids(false);
 
-	/*恢复全局对象（角色和表空间）。
-	 * 
-	       */
+	/*
+	 * 恢复全局对象（角色和表空间）。      
+	 */
 	prep_status("Restoring global objects in the new cluster");
 
 	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
@@ -596,9 +596,9 @@ create_new_objects(void)
 	get_db_and_rel_infos(&new_cluster);
 }
 
-/*从新集簇中删除给定子目录内容
- * 
-                  */
+/*
+ * 从新集簇中删除给定子目录内容                 
+ */
 static void
 remove_new_subdir(const char *subdir, bool rmtopdir)
 {
@@ -613,9 +613,9 @@ remove_new_subdir(const char *subdir, bool rmtopdir)
 	check_ok();
 }
 
-/*从旧集簇复制文件到新集簇
- * 
-        */
+/*
+ * 从旧集簇复制文件到新集簇       
+ */
 static void
 copy_subdir_files(const char *old_subdir, const char *new_subdir)
 {

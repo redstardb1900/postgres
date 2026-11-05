@@ -748,13 +748,13 @@ pqsecure_open_gss(PGconn *conn)
 	return PGRES_POLLING_WRITING;
 }
 
-/*GSSAPI 信息函数。
- * 
-        */
+/*
+ * GSSAPI 信息函数。       
+ */
 
-/*返回 GSSAPI 上下文本身。
- * 
-  */
+/*
+ * 返回 GSSAPI 上下文本身。 
+ */
 void *
 PQgetgssctx(PGconn *conn)
 {

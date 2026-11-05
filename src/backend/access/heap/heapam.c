@@ -2112,9 +2112,9 @@ heap_prepare_insert(Relation relation, HeapTuple tup, TransactionId xid,
 }
 
 /*
- * heap_multi_insert() 的辅助函数，计算插入剩余 heaptuple 需要的
- * 整页数量。用来确定
- * 关系需要扩展多少。
+ * heap_multi_insert() 的辅助函数，计算插入剩余的            
+ * heaptuple 需要多少整页。用于确定关系需要扩展多少。 
+ *                                           
  */
 static int
 heap_multi_insert_pages(HeapTuple *heaptuples, int done, int ntuples, Size saveFreeSpace)

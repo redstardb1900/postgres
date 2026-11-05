@@ -154,14 +154,14 @@ gistvacuumscan(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 	stats->pages_free = 0;
 
 	/*
-	 * 创建整数集合，以便在 page_set_context 中记住所有内部页
-	 * 与空叶子页。在内部，整数集合会记住该上下文，使这些
-	 * 整数集合的后续分配都从同一上下文进行。
+	 * 创建整数集合，在 page_set_context 中记住所有内部页与  
+	 * 空叶子页。在内部，整数集合会记住该上下文，从而
+	 * 这些整数集合的后续分配                                     
+	 * 将从同一上下文中进行。  
 	 *
-	 * XXX 下面使用的分配大小早于 generation 上下文的块增长
-	 * 代码。这些值或许应经基准测试后设为更合适的数值。
-	  *
-	  *
+	 * XXX 下面使用的分配大小早于 generation 上下文的块增长 
+	 * 代码。这些值应经基准测试后设为                      
+	 * 更合适的值。   
 	 */
 	vstate.page_set_context = GenerationContextCreate(CurrentMemoryContext,
 													  "GiST VACUUM page set context",
@@ -430,9 +430,9 @@ restart:
 		}
 
 		/*
-		 * 记住此页的块号，以便稍后在 gistvacuum_delete_empty_pages()
-		 * 中查找空叶子页的父页时可以再次访问它。
-		  *
+		 * 记住此页的块号，稍后在 gistvacuum_delete_empty_pages()
+		 * 中查找空叶子页的父页时可再次访问它。      
+		 *                             
 		 */
 		if (blkno == orig_blkno)
 			intset_add_member(vstate->internal_page_set, blkno);
@@ -521,17 +521,17 @@ gistvacuum_delete_empty_pages(IndexVacuumInfo *info, GistVacState *vstate)
 		}
 
 		/*
-		 * 为避免死锁，子页必须在父页之前加锁，因此我们必须释放
-		 * 父页上的锁，锁住子页，然后再重新获取父页的锁。（而且
-		 * 反正也不想在持锁时做 I/O。）
+		 * 为避免死锁，子页必须先于父页加锁，因此需
+		 * 先释放父页的锁，锁住子页，再重新获取父页锁。
+		 * （而且反正我们也不想在做                              
+		 * I/O 时还持有锁。）             
 		 *
-		 * 在我们未持有父页锁的瞬间，下行指针可能被并发插入移走，
-		 * 因此在取得两把锁之后，必须重新检查它是否仍指向同一子
-		 * 页。另外，另一个后端可能已向该页插入了元组，使它不再
-		 * 为空。gistdeletepage() 会重新检查所有这些条件。
-		  *
-		  *
-		  *
+		 * 在我们未持父页锁时，下行链接可能被并发插   
+		 * 入移走，故取得两锁后必须复查其是否仍指  
+		 * 向同一子页。此外，别的后端可能已插入元组让它
+		 * 不再为空。gistdeletepage() 会重新检查                  
+		 * 所有这些                                                       
+		 * 条件。                      
 		 */
 		LockBuffer(buffer, GIST_UNLOCK);
 

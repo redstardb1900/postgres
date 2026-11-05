@@ -93,23 +93,23 @@ typedef struct SlruWriteAllData *SlruWriteAll;
 )
 
 /*
- * 把缓冲区槽标为"最近使用"。注意参数会被多次求值！
+ * 将缓冲区槽位标记为"最近使用"的宏。注意参数会被多次 
+ * 求值！    
  *
- * 使用 if 测试的原因是：经常会连续多次访问同一页
- * （尤其是最新页）。通过抑制对 cur_lru_count 的无用递增，
- * 我们降低旧页计数"回卷"从而显得像最近使用的概率。
+ * 用 if 测试是因为常会对同一页（尤其最新页）连续
+ * 访问。通过抑制对 cur_lru_count 的                               
+ * 无用递增，降低旧页计数"回卷"而貌似最近               
+ * 被使用过的概率。                                            
  *
- * 我们允许在 SimpleLruReadPage_ReadOnly() 内由多个进程
- * 并发执行本代码。只要 int 的读与写是原子的，就不至于
- * 把完全胡乱的值带进计算。不过，若某进程在执行本宏时
- * 被延迟，cur_lru_count 或个别 page_lru_count 项仍可能被
- * "复位"到低于应有的值。在 SlruSelectLRUPage() 中小心
- * 处理后，危害不大；绝对最坏的后果也只是换出页面的选择
- * 非最优。允许并发读取 SLRU 页的收益看起来值得这么做。
- *
- *
- *
- *
+ * 我们允许在 SimpleLruReadPage_ReadOnly() 中由多个进程并发      
+ * 执行该代码。只要 int 读和写是原子的，就不至于让      
+ * 完全错误的值进入计算。但是，如果某个进程在执行此宏
+ * 时被延迟，cur_lru_count 或 page_lru_count 项仍可能  
+ * 能被"复位"为低于其应有值的数。在 SlruSelectLRUPage()        
+ * 中细心处理时，危害不大；无论如何其绝对最坏         
+ * 后果也只是换出页的选择非最优。允许并发读取         
+ * SLRU 页的收益看起来是值得的。                               
+ *                                                                  
  */
 #define SlruRecentlyUsed(shared, slotno)	\
 	do { \
@@ -332,11 +332,11 @@ SimpleLruZeroLSNs(SlruCtl ctl, int slotno)
 }
 
 /*
- * 等待页槽上任何活动 I/O 完成。（这并不保证返回前没有
- * 新的 I/O 被启动。事实上该槽甚至可能已不再包含同一页。）
+ * 等待页槽上的任何活动 I/O 完成。（这不保证在   
+ * 我们返回之前没有新的 I/O 被启动。事实上该槽甚   
+ * 至可能已不再包含同一页了。）                     
  *
- * 进入时必须持有控制锁，退出时仍持有。
- *
+ * 进入时必须持有控制锁，退出时也将持有。    
  */
 static void
 SimpleLruWaitIO(SlruCtl ctl, int slotno)

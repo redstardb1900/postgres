@@ -423,18 +423,18 @@ XLogReadRecord(XLogReaderState *state, char **errormsg)
 }
 
 /*
- * 为已解码记录分配空间。返回对象中唯一已初始化的
- * 成员是 'oversized' 标志，表示该已解码记录装不进
- * 解码缓冲区，最终必须显式释放。
+ * 为已解码记录分配空间。返回对象中唯一被初始化的
+ * 成员是 'oversized' 标志，它表示该已解码记录装不进解 
+ * 码缓冲区，最终必须被显式地释放。                       
+ *                  
  *
- * 调用者负责在成功把记录解码进该空间后，用实际
- * 大小调整 decode_buffer_tail。这样若解码失败，
- * 则除 'oversized' 已置位而必须 pfree() 外，无需撤销。
+ * 成功把记录解码进该空间后，调用者负责用实际大小   
+ * 调整 decode_buffer_tail。这样，如果解码失败，则除非     
+ * 'oversized' 标志已被置位且必须调用 pfree()，否则没有     
+ * 任何需要撤销的东西。     
  *
- * 若解码缓冲区无空间且 allow_oversized 为假，或
- * 超大缓冲区内存分配失败，则返回 NULL。
- *
- *
+ * 若解码缓冲区中没有空间且 allow_oversized 为假，或者     
+ * 为超大缓冲区分配内存失败，则返回 NULL。        
  */
 static DecodedXLogRecord *
 XLogReadRecordAlloc(XLogReaderState *state, size_t xl_tot_len, bool allow_oversized)

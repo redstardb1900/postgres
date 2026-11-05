@@ -2608,9 +2608,9 @@ _bt_check_natts(Relation rel, bool heapkeyspace, Page page, OffsetNumber offnum)
 	Assert(heapkeyspace);
 
 	/*
-	 * 对 heapkeyspace 索引的枢轴元组，属性个数的显式表示是强制的，
-	 * 无论是否存在
-	 * 非键属性。
+	 * 对 heapkeyspace 索引枢轴元组来说，属性个数的显式    
+	 * 表示是强制性的，无论是否存在非键属性。              
+	 *                    
 	 */
 	if (!BTreeTupleIsPivot(itup))
 		return false;

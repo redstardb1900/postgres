@@ -100,38 +100,38 @@ TransactionId CheckXidAlive = InvalidTransactionId;
 bool		bsysscan = false;
 
 /*
- * 当作为并行工作进程运行时，我们只在并行工作进程的状态栈上放置单个
- * TransactionStateData，其中反映的XID将是启动并行性的后端中当前活动的*最内层*
- * 子事务的XID。但是，GetTopTransactionId() 和 TransactionIdIsCurrentTransactionId()
- * 需要在并行工作进程中返回与用户后端相同的答案，因此我们需要一些额外的记账。
+ * 当作为并行工作进程运行时，我们只在并行
+ * 状态栈上放置单个 TransactionStateData，其中反映的 XID   
+ * 将是启动并行性的后端中当前活动的*最内层*     
+ * 子事务的 XID。但是，GetTopTransactionId() 和              
+ * TransactionIdIsCurrentTransactionId() 在并行工作进程中 
+ * 需要返回与用户后端相同的答案，因此我们需要          
+ * 一些额外的记账。                                    
  *
- * XactTopFullTransactionId 存储我们顶层事务的XID，它在普通后端中
- * 与 TopTransactionStateData.fullTransactionId 相同；但在并行后端中，
- * 由于没有完整的事务状态，它将从启动并行操作的后端复制过来。
+ * XactTopFullTransactionId 存储顶层事务的 XID，在普通后端中   
+ * 与 TopTransactionStateData.fullTransactionId 相同；但在      
+ * 并行后端中，由于没有完整的事务状态，它将从启动      
+ * 并行操作的后端                                                     
+ * 复制过来。        
  *
- * nParallelCurrentXids 在普通后端中将为0且ParallelCurrentXids为NULL，
- * 但在并行后端中，nParallelCurrentXids 将包含需要被视为当前的 XIDs 数量，
- * 而ParallelCurrentXids将包含 XIDs 本身。这包括在并行操作开始时在父级中
- * 当前或子提交的所有 XIDs。XIDs 按照数值顺序（非逻辑顺序）排序存储，
- * 以便尽可能快地进行查找。
- *
- *
- *
- *
- *
- *
- *
+ * nParallelCurrentXids 在普通后端中为 0 且 ParallelCurrentXids      
+ * 为 NULL；但在并行后端中，nParallelCurrentXids 将包含需要  
+ * 被视为当前的 XIDs 数量，而 ParallelCurrentXids 将包含 XIDs   
+ * 本身。这包括并行操作开始时父级中处于当前或            
+ * 子提交状态的所有 XIDs。这些 XIDs 按数值顺序             
+ * （而非逻辑顺序）排序存储，以使查找尽可能快。       
+ *                             
  */
 static FullTransactionId XactTopFullTransactionId = {InvalidTransactionId};
 static int	nParallelCurrentXids = 0;
 static TransactionId *ParallelCurrentXids;
 
 /*
- * 各种标志位用于记录顶层事务中发生的事件。这些标志位仅持久化在
- * MyXactFlags 中，目的是让我们记住稍后在事务中需要做某些事情。
- * 这是全局可访问的，因此可以从任何需要记录标志的地方设置。
- *
- *
+ * 用于记录顶层事务中发生的事件的各种标志位。      
+ * 这些标志位仅持久化在 MyXactFlags 中，目的是让我们记住  
+ * 在事务中稍后需要做某些事情。它是全局可访问的，   
+ * 因此可以从任何需要记录标志的代码中                       
+ * 设置。       
  */
 int			MyXactFlags;
 
@@ -684,14 +684,14 @@ AssignTransactionId(TransactionState s)
 		log_unknown_top = true;
 
 	/*
-	 * 生成一个新的FullTransactionId并在PGPROC和pg_subtrans中记录其xid。
+	 * 生成新的 FullTransactionId 并记录其 xid 于 PGPROC 和   
+	 * pg_subtrans.
 	 *
-	 * 注意：我们必须在Xid出现在共享存储中除PGPROC之外的任何地方之前
-	 * 创建subtrans条目；因为如果PGPROC中没有空间，subtrans条目是确保
-	 * 其他后端将Xid视为"运行中"所需的。参见GetNewTransactionId。
- *
- *
- */
+	 * 注意：必须在 Xid 出现在共享存储中除 PGPROC 之外的   
+	 * 任何地方之前创建 subtrans 条目；因为若 PGPROC 中没有 
+	 * 空间，就需要 subtrans 条目来确保其他后端将 Xid 视为 
+	 * "运行中"。参见 GetNewTransactionId。    
+	 */
 	s->fullTransactionId = GetNewTransactionId(isSubXact);
 	if (!isSubXact)
 		XactTopFullTransactionId = s->fullTransactionId;
@@ -720,23 +720,23 @@ AssignTransactionId(TransactionState s)
 	CurrentResourceOwner = currentOwner;
 
 	/*
-	 * 在每个顶层事务中，每分配 PGPROC_MAX_CACHED_SUBXIDS 个事务 ID，
-	 * 我们就会为该分配发出一条 WAL 记录。我们包含顶层 XIDs 和所有
-	 * 尚未使用 XLOG_XACT_ASSIGNMENT 记录报告的子事务 XID。
+	 * 顶层事务中每分配 PGPROC_MAX_CACHED_SUBXIDS 个事务 ID，  
+	 * 我们就为该分配发出 WAL 记录，其中包含顶层 xid   
+	 * 以及所有尚未使用 XLOG_XACT_ASSIGNMENT 记录报告          
+	 * 的子事务 XID。                         
 	 *
-	 * 这是限制热备服务器跟踪进行中 XID 所需共享内存量所必需的。
-	 * 参见 RecordKnownAssignedTransactionIds() 的注释。
+	 * 这是为了限制热备服务器跟踪进行中 XID 所需共享内存
+	 * 量。参见 RecordKnownAssignedTransactionIds()。            
+	 *                                     
 	 *
-	 * 我们不跟踪每个子事务 XID 的直接父事务，只跟踪每个子事务所属的
-	 * 顶层事务。这在恢复中是正确的，因为中止的子事务会单独进行 WAL 记录。
+	 * 我们不跟踪每个子 xid 的直接父事务，只跟踪         
+	 * 其所属的顶层事务。这在恢复中正确，仅因中止的    
+	 * 子事务会单独进行 WAL 记录。                          
+	 *        
 	 *
-	 * 即使在我们之上的几层在我们递归向上处理之前没有分配 XID 的情况下，
-	 * 这也是正确的。
- *
- *
- *
- *
- */
+	 * 即使我们之上好几层在我们递归向上处理前尚未分配 
+	 * xid 的情况下，这也是正确的。                  
+	 */
 	if (isSubXact && XLogStandbyInfoActive())
 	{
 		unreportedXids[nUnreportedXids] = XidFromFullTransactionId(s->fullTransactionId);
@@ -1374,22 +1374,22 @@ RecordTransactionCommit(void)
 					  replorigin_session_origin != DoNotReplicateId);
 
 		/*
-		 * 将我们自己标记为在"提交临界区"内。这会强制任何并发检查点等待，
-		 * 直到我们更新了 pg_xact。如果没有这个，检查点有可能在 XLOG 记录之后
-		 * 设置 REDO 但未能将 pg_xact 更新刷新到磁盘，导致如果系统稍后崩溃，
-		 * 事务提交会丢失。
+		 * 将我们自己标记为在"提交临界区"内。           
+		 * 这会强制任何并发检查点等待，直到我们更新
+		 * pg_xact。否则，检查点可能在 XLOG 记录之后设置   
+		 * REDO，却未把 pg_xact 更新刷入磁盘；若系统稍后     
+		 * 崩溃就会导致事务提交                               
+		 * 丢失。              
 		 *
-		 * 注意：我们可以（但不麻烦）在 RecordTransactionAbort 中设置此标志。
-		 * 那是因为事务中止的丢失是非关键的；假设它中止了就是了。
+		 * 注意：此标志在 RecordTransactionAbort 中也  
+		 * 可以设置，但没必要。因为丢失事务中止并非关键 
+		 * 反正可以假定它已中止。                                
 		 *
-		 * 在不持有 ProcArrayLock 的情况下更改我们自己后端的 delayChkptFlags
-		 * 标志是安全的，因为只有我们在修改它。这使得检查点确定哪些事务
-		 * 正在延迟检查点有点模糊，但这无关紧要。
- *
- *
- *
- *
- */
+		 * 在不持有 ProcArrayLock 时更改我们自己后端的      
+		 * delayChkptFlags 标志是安全的，因为只有我们    
+		 * 在修改它。这使检查点对哪些事务在延迟检查点的 
+		 * 判断有些模糊，但这无关紧要。                     
+		 */
 		Assert((MyProc->delayChkptFlags & DELAY_CHKPT_START) == 0);
 		START_CRIT_SECTION();
 		MyProc->delayChkptFlags |= DELAY_CHKPT_START;
@@ -1411,14 +1411,14 @@ RecordTransactionCommit(void)
 									   XactLastRecEnd);
 
 		/*
-		 * 记录提交时间戳。如果没有复制源，该值来自普通提交时间戳；
-		 * 否则，时间戳已由复制在 replorigin_session_origin_timestamp 中设置。
+		 * 记录提交时间戳。如果没有复制源，值来自  
+		 * 普通提交时间戳；否则，已由复制             
+		 * 在 replorigin_session_origin_timestamp 中设置。               
+		 *             
 		 *
-		 * 我们不需要在这里 WAL 记录任何内容，因为上面写入的提交记录
-		 * 已经包含了数据。
- *
- *
- */
+		 * 无需在此记录任何 WAL；上面的提交记录已     
+		 * 包含了数据。                      
+		 */
 
 		if (!replorigin || replorigin_session_origin_timestamp == 0)
 			replorigin_session_origin_timestamp = GetCurrentTransactionStopTimestamp();
@@ -1468,16 +1468,16 @@ RecordTransactionCommit(void)
 	else
 	{
 		/*
-		 * 异步提交情况：
+		 * 异步提交情况：    
 		 *
-		 * 这使得在 postmaster 崩溃的情况下可能导致已提交事务丢失，
-		 * 因为 WAL 缓冲区未写入。理想情况下，我们可以在没有 fsync 的情况下
-		 * 发出 WAL 写入，但某些 wal_sync_methods 不允许单独的写入/fsync。
+		 * 此时 postmaster 崩溃可能丢失已提交的事务，因为  
+		 * WAL 缓冲区未被写入。理想情况下我们能在没有      
+		 * fsync 的情况下发出 WAL 写入，但某些      
+		 * wal_sync_methods 不允许单独的写入/fsync。 
 		 *
-		 * 报告最新的异步提交 LSN，以便 WAL 写入器知道刷新此提交。
- *
- *
- */
+		 * 报告最新的异步提交 LSN，让 WAL 写入器知道刷新    
+		 * 此提交。      
+		 */
 		XLogSetAsyncXactLSN(XactLastRecEnd);
 
 		/*
@@ -1832,13 +1832,13 @@ static void
 AtAbort_Memory(void)
 {
 	/*
-	 * 切换到 TransactionAbortContext，即使其他地方没有空闲空间，
-	 * 它也应该有一些。我们将在这个上下文中工作，直到完成清理。
+	 * 切换到 TransactionAbortContext，即使其他地方都没有       
+	 * 空闲空间，它也应有。我们将在此上下文中工作，
+	 * 直到完成清理。
 	 *
-	 * 极有可能在我们还没能创建 TransactionAbortContext 时就到达这里；
-	 * 如果是这样，使用 TopMemoryContext。
- *
- */
+	 * 在尚未能创建 TransactionAbortContext 时就到达这里的    
+	 * 情况极罕见；若如此，则用 TopMemoryContext。
+	 */
 	if (TransactionAbortContext != NULL)
 		MemoryContextSwitchTo(TransactionAbortContext);
 	else
@@ -1892,10 +1892,10 @@ AtSubAbort_childXids(void)
 	TransactionState s = CurrentTransactionState;
 
 	/*
-	 * 我们将子事务 XID 数组保存在 TopTransactionContext 中（参见 AtSubCommit_childXids）。
-	 * 这意味着我们最好在中止时显式释放数组以避免泄漏。
- *
- */
+	 * 我们将子 XID 数组保存在 TopTransactionContext 中
+	 * （参见 AtSubCommit_childXids）。因此最好在中止时 
+	 * 显式释放数组以免泄漏。    
+	 */
 	if (s->childXids != NULL)
 		pfree(s->childXids);
 	s->childXids = NULL;
@@ -2195,11 +2195,11 @@ CommitTransaction(void)
 	}
 
 	/*
-	 * 剩余的操作不能调用任何用户定义的代码，因此开始关闭事务内服务是安全的。
-	 * 但请注意，这些大多数仍然可能抛出错误，这将使我们切换到事务中止路径。
- *
- *
- */
+	 * 剩余的操作不能调用任何用户定义的代码，因此可以
+	 * 安全地开始关闭事务内服务。但注意其中大多数        
+	 * 仍可能抛出错误，使我们转入事务中止路径。        
+	 *                            
+	 */
 
 	CallXactCallbacks(is_parallel_worker ? XACT_EVENT_PARALLEL_PRE_COMMIT
 					  : XACT_EVENT_PRE_COMMIT);
@@ -2291,20 +2291,20 @@ CommitTransaction(void)
 	ProcArrayEndTransaction(MyProc, latestXid);
 
 	/*
-	 * 这都是提交后清理。请注意，如果在这里引发错误，
-	 * 中止事务已经太晚了。这应该只是非关键的资源释放。
+	 * 这是提交后的清理。注意若在此处引发错误，           
+	 * 此时中止事务已太迟。这应当只是               
+	 * 非关键的资源释放。    
 	 *
-	 * 操作的顺序不是完全随机的。其思想是：
-	 * 释放对其他后端可见的资源（例如文件、缓冲区固定）；
-	 * 然后释放锁；然后释放后端本地资源。我们希望在
-	 * 任何等待我们的后端看到我们的事务已完全清理的时刻释放锁。
+	 * 操作的顺序并非完全随机。其思想是：             
+	 * 先释放对其他后端可见的资源（如文件、缓冲区      
+	 * 固定）；再释放锁；再释放后端本地资源。要在     
+	 * 任何等待我们的后端看到我们的事务已完全清理的  
+	 * 时刻释放锁。                        
 	 *
-	 * 可以与单个查询关联的资源由 ResourceOwner 机制处理。
-	 * 这里的其他调用是用于后端范围的状态。
- *
- *
- *
- */
+	 * 可与单个查询关联的资源由 ResourceOwner 机制处理。     
+	 * 这里的其他调用用于后端范围的状态。                    
+	 *       
+	 */
 
 	CallXactCallbacks(is_parallel_worker ? XACT_EVENT_PARALLEL_COMMIT
 					  : XACT_EVENT_COMMIT);
@@ -2453,11 +2453,11 @@ PrepareTransaction(void)
 	CallXactCallbacks(XACT_EVENT_PRE_PREPARE);
 
 	/*
-	 * 剩余的操作不能调用任何用户定义的代码，因此开始关闭事务内服务是安全的。
-	 * 但请注意，这些大多数仍然可能抛出错误，这将使我们切换到事务中止路径。
- *
- *
- */
+	 * 剩余的操作不能调用任何用户定义的代码，因此可以
+	 * 安全地开始关闭事务内服务。但注意其中大多数        
+	 * 仍可能抛出错误，使我们转入事务中止路径。        
+	 *                            
+	 */
 
 	/* 关闭延迟触发器管理器 */
 	AfterTriggerEndXact(true);
@@ -2708,11 +2708,11 @@ AbortTransaction(void)
 	AtAbort_ResourceOwner();
 
 	/*
-	 * 尽可能快地释放我们可能持有的任何 LW 锁。（但是，常规锁必须保持到我们完成中止。）
-	 * 释放 LW 锁至关重要，因为我们可能会在清理时再次尝试获取它们！
- *
- *
- */
+	 * 尽快释放我们可能持有的任何 LW 锁。               
+	 * （不过常规锁必须保持到我们完成中止为止。）
+	 * 释放 LW 锁至关重要，因为我们可能在清理时再次    
+	 * 抓取它们！   
+	 */
 	LWLockReleaseAll();
 
 	/* 清除等待信息和命令进度指示器 */
@@ -2766,15 +2766,15 @@ AbortTransaction(void)
 	s->state = TRANS_ABORT;
 
 	/*
-	 * 重置可能已被临时更改的用户 ID。我们需要这个来清理，
-	 * 以防控制从 SECURITY DEFINER 函数或 CurrentUserId 的其他本地更改中逃逸；
-	 * 因此，SecurityRestrictionContext 的先前值也需要恢复。
+	 * 重置可能已被临时更改的用户 ID。我们需要这样做来 
+	 * 进行清理，以防控制流从 SECURITY DEFINER 函数或          
+	 * CurrentUserId 的其他本地更改中逃逸；因此，             
+	 * SecurityRestrictionContext 的旧值也需恢复。  
 	 *
-	 * （注意：这里不需要恢复会话授权或角色设置，因为那些只能通过 GUC 更改，
-	 * GUC 会在需要时负责回滚它们。）
- *
- *
- */
+	 * （注意：无需在此恢复会话授权或角色设置，因为 
+	 * 它们只能通过 GUC 更改，而 GUC 会在需要时负责回滚  
+	 * 它们。）                               
+	 */
 	SetUserIdAndSecContext(s->prevUser, s->prevSecContext);
 
 	/* 忘记任何活动的 REINDEX。 */
@@ -2805,11 +2805,11 @@ AbortTransaction(void)
 	AtAbort_Twophase();
 
 	/*
-	 * 在 pg_xact 中公布我们中止的事实（假设我们已经到了分配 XID 来公布的地步）。
-	 * 但如果我们在并行工作进程内部，跳过此操作；用户后端必须是写入中止记录的那个。
- *
- *
- */
+	 * 在 pg_xact 中公布我们已中止的事实（前提是我们已    
+	 * 分配了 XID）。但如果我们在并行工作进程内，         
+	 * 则跳过此步；必须由用户后端来写入中止记录。       
+	 *        
+	 */
 	if (!is_parallel_worker)
 		latestXid = RecordTransactionAbort(false);
 	else
@@ -3126,10 +3126,10 @@ CommitTransactionCommand(void)
 			break;
 
 			/*
-			 * 这里我们处于一个完美的事务块中，但用户还是告诉我们要 ROLLBACK。
-			 * 我们必须中止事务然后清理。
- *
- */
+			 * 这里我们原本处于一个良好的事务块中，但用户
+			 * 还是要求 ROLLBACK。必须中止事务然后清理。    
+			 *                   
+			 */
 		case TBLOCK_ABORT_PENDING:
 			AbortTransaction();
 			CleanupTransaction();
@@ -3316,12 +3316,12 @@ AbortCurrentTransaction(void)
 			else
 			{
 				/*
-				 * 我们可能在事务启动期间出错后到达这里（状态将是 TRANS_START）。
-				 * 需要清理未完全启动的事务。首先，调整底层状态以抑制
-				 * AbortTransaction 的警告消息。
- *
- *
- */
+				 * 事务启动期间发生错误后也可能到达这里 
+				 * （状态将为 TRANS_START）。需要清理     
+				 * 未完全启动的事务。首先，调整          
+				 * 底层状态以抑制 AbortTransaction 的      
+				 * 警告消息。  
+				 */
 				if (s->state == TRANS_START)
 					s->state = TRANS_INPROGRESS;
 				AbortTransaction();
@@ -3342,12 +3342,12 @@ AbortCurrentTransaction(void)
 			break;
 
 			/*
-			 * 如果我们在 TBLOCK_BEGIN 中，这意味着在读取 "BEGIN TRANSACTION" 之后
-			 * 立即出现问题。我们假设用户会将错误解释为 BEGIN 未能让他进入事务块，
-			 * 所以我们应该中止并返回空闲状态。
- *
- *
- */
+			 * 如果我们在 TBLOCK_BEGIN 状态，说明在读取        
+			 * "BEGIN TRANSACTION" 后立刻出了问题。我们         
+			 * 假设用户会把该错误理解为 BEGIN 未能使他进入  
+			 * 事务块，所以我们应当中止并返回空闲状         
+			 * 态。
+			 */
 		case TBLOCK_BEGIN:
 			AbortTransaction();
 			CleanupTransaction();
@@ -3367,10 +3367,10 @@ AbortCurrentTransaction(void)
 			break;
 
 			/*
-			 * 这里，我们在尝试 COMMIT 时失败了。清理事务并返回空闲状态
-			 * （我们不想留在事务中）。
- *
- */
+			 * 这里，尝试 COMMIT 失败。清理事务并返回
+			 * 到空闲状态（我们不想留在事务中）。            
+			 *                  
+			 */
 		case TBLOCK_END:
 			AbortTransaction();
 			CleanupTransaction();
@@ -3407,10 +3407,10 @@ AbortCurrentTransaction(void)
 			break;
 
 			/*
-			 * 这里，我们在尝试 PREPARE 时失败了。清理事务并返回空闲状态
-			 * （我们不想留在事务中）。
- *
- */
+			 * 这里，尝试 PREPARE 失败。清理事务并返回
+			 * 到空闲状态（我们不想留在事务中）。            
+			 *                  
+			 */
 		case TBLOCK_PREPARE:
 			AbortTransaction();
 			CleanupTransaction();
@@ -3456,26 +3456,26 @@ AbortCurrentTransaction(void)
 /*
  *	PreventInTransactionBlock
  *
- *	此例程由不能在事务块内运行的语句调用，通常是因为它们有不可回滚的副作用
- *	或执行内部提交。
+ *	本例程供不能在事务块内运行的语句调用，通常    
+ *	是它们具有不可回滚的副作用                           
+ *	或执行内部提交。            
  *
- *	如果此例程成功完成，则调用语句可以保证如果它无错误完成，其结果将立即提交。
+ *	如果此例程成功完成，则保证调用语句若无错误地   
+ *	完成，其结果将被立即提交。                           
+ *	                      
  *
- *	如果我们已经启动了事务块，则发出错误；如果我们似乎在用户定义函数内运行
- *	（这可能发出更多命令并可能在语句完成后导致失败），也发出错误。子事务也被禁止。
+ *	若已经启动了事务块，则报错；如果我们似乎正在用户  
+ *	定义的函数内运行（它可能发出更多命令并可能在语    
+ *	句完成后失败），也要报错。子事务同样                    
+ *	被禁止。                                  
  *
- *	我们还必须在 MyXactFlags 中设置 XACT_FLAGS_NEEDIMMEDIATECOMMIT，
- *	以确保 postgres.c 在语句完成后提交。
+ *	还必须在 MyXactFlags 中设置 XACT_FLAGS_NEEDIMMEDIATECOMMIT，     
+ *	以确保 postgres.c 在语句完成后接着执行提交。              
  *
- *	isTopLevel: 从 ProcessUtility 向下传递，以确定我们是否在函数内部。
- *	（如果这为 false，我们将总是失败，但在这里集中检查比让调用者做更方便。）
- *	stmtType: 语句类型名称，用于错误消息。
- *
- *
- *
- *
- *
- *
+ *	isTopLevel: 从 ProcessUtility 向下传递，用于确定我们       
+ *	是否位于函数内。（若为 false，我们总会失败，    
+ *	但在此处集中进行该检查比让调用者去做更方便。）    
+ *	stmtType: 语句类型名，用于错误消息。 
  */
 void
 PreventInTransactionBlock(bool isTopLevel, const char *stmtType)
@@ -3595,18 +3595,18 @@ CheckTransactionBlock(bool isTopLevel, bool throwError, const char *stmtType)
 /*
  *	IsInTransactionBlock
  *
- *	此例程用于需要在事务块内与作为单个命令运行时表现不同的语句。
- *	ANALYZE 目前是唯一的例子。
+ *	此例程用于在事务块内与作为单个命令运行时行为   
+ *	有所不同的语句。ANALYZE 是目前唯一的例子。          
+ *	                           
  *
- *	如果此例程返回 "false"，则调用语句被允许执行内部事务提交和启动循环；
- *	没有搞乱任何正在进行的事务的风险。（请注意，这不是 PreventInTransactionBlock
- *	提供的相同保证，因为我们不会强制语句后提交。）
+ *	若此例程返回 "false"，则调用语句被允许执行内部     
+ *	事务提交并启动循环；不会有搞乱任何正在进行的事  
+ *	务的风险。（请注意，这并不是                              
+ *	PreventInTransactionBlock 所提供的同一保证，因为我们    
+ *	不会强制在语句之后提交。）          
  *
- *	isTopLevel: 从 ProcessUtility 向下传递，以确定我们是否在函数内部。
- *
- *
- *
- *
+ *	isTopLevel: 从 ProcessUtility 向下传递，用于确定我们是否 
+ *	在函数内。   
  */
 bool
 IsInTransactionBlock(bool isTopLevel)
@@ -3636,15 +3636,15 @@ IsInTransactionBlock(bool isTopLevel)
 
 
 /*
- * 注册或注销事务开始和结束操作的回调函数。
+ * 注册或注销用于事务开始和结束操作的回调函数。  
+ *            
  *
- * 这些函数旨在供动态加载的模块使用。
- * 对于内置模块，我们通常只是硬编码适当的调用
- * （主要是因为这样可以更容易地在需要时控制顺序）。
+ * 这些函数旨在供动态加载的模块使用。                
+ * 对于内置模块，我们通常只是直接硬编码适当的调用
+ * （主要因为这样在需要时更容易控制调用的顺序）。    
  *
- * 在事务结束时，回调发生在提交后或中止后，
- * 因此回调函数只能执行非关键的清理。
- *
+ * 在事务结束时，回调发生在提交后或中止后，因此回调 
+ * 函数只能执行非关键的清理。            
  */
 void
 RegisterXactCallback(XactCallback callback, void *arg)
@@ -3696,15 +3696,15 @@ CallXactCallbacks(XactEvent event)
 
 
 /*
- * 注册或注销子事务开始和结束操作的回调函数。
+ * 注册或注销用于子事务开始和结束操作的回调函数。  
+ *            
  *
- * 与上述基本相同，但用于子事务事件。
+ * 与上面基本相同，但用于子事务事件。      
  *
- * 在子事务结束时，回调发生在子提交后或子中止后，
- * 因此回调函数只能执行非关键的清理。在子事务开始时，
- * 当子事务完成初始化时调用回调。
- *
- *
+ * 在子事务结束时，回调发生在子提交后或子中止后，      
+ * 因此回调函数只能做非关键的清理。在子事务  
+ * 开始时，回调会在该子事务完成初始化时                  
+ * 被调用。          
  */
 void
 RegisterSubXactCallback(SubXactCallback callback, void *arg)
@@ -4174,14 +4174,14 @@ BeginImplicitTransactionBlock(void)
 	TransactionState s = CurrentTransactionState;
 
 	/*
-	 * 如果我们处于 STARTED 状态（即没有打开事务块），
-	 * 切换到 IMPLICIT_INPROGRESS 状态，创建一个隐式事务块。
+	 * 若我们处于 STARTED 状态（即没有打开事务块），    
+	 * 则切换到 IMPLICIT_INPROGRESS 状态，创建一个隐式事务   
+	 * 块。
 	 *
-	 * 为了调用者方便，我们在这里认为所有其他事务状态都是合法的；
-	 * 否则调用者需要自己的状态检查，这似乎相当无意义。
- *
- *
- */
+	 * 为方便调用者，这里把所有其他事务状态都视为    
+	 * 合法的；否则调用者将需要自己的状态检查，这似乎 
+	 * 相当无意义。     
+	 */
 	if (s->blockState == TBLOCK_STARTED)
 		s->blockState = TBLOCK_IMPLICIT_INPROGRESS;
 }
@@ -4731,12 +4731,12 @@ AbortOutOfAnyTransaction(void)
 				else
 				{
 					/*
-					 * 我们可能在事务启动期间出错后到达这里
-					 * （状态将是 TRANS_START）。需要清理未完全启动的事务。
-					 * 首先，调整底层状态以抑制 AbortTransaction 的警告消息。
- *
- *
- */
+					 * 事务启动期间发生错误后也可能到达这里 
+					 * （状态将为 TRANS_START）。需要清理     
+					 * 未完全启动的事务。首先，调整          
+					 * 底层状态以抑制 AbortTransaction 的      
+					 * 警告消息。  
+					 */
 					if (s->state == TRANS_START)
 						s->state = TRANS_INPROGRESS;
 					AbortTransaction();
@@ -4824,11 +4824,11 @@ IsTransactionBlock(void)
 }
 
 /*
- * IsTransactionOrTransactionBlock --- 我们是否在事务或事务块内？
- * （只有当此函数返回 false 时，后端才真正"空闲"。）
+ * IsTransactionOrTransactionBlock --- 我们是否处于事务或       
+ * 事务块中？只有当此函数返回 false 时后端才真正是 
+ * "空闲"。    
  *
- * 这应该与 IsTransactionBlock 和 IsTransactionState 匹配。
- *
+ * 这应与 IsTransactionBlock 和 IsTransactionState 相匹配。    
  */
 bool
 IsTransactionOrTransactionBlock(void)
@@ -5067,14 +5067,14 @@ AbortSubTransaction(void)
 	AtSubAbort_ResourceOwner();
 
 	/*
-	 * 尽可能快地释放我们可能持有的任何 LW 锁。（但是，常规锁必须保持到我们完成中止。）
-	 * 释放 LW 锁至关重要，因为我们可能会在清理时再次尝试获取它们！
+	 * 尽快释放我们可能持有的任何 LW 锁。               
+	 * （不过常规锁必须保持到我们完成中止为止。）
+	 * 释放 LW 锁至关重要，因为我们可能在清理时再次    
+	 * 抓取它们！   
 	 *
-	 * FIXME 这可能不正确 --- 是否有一些我们应该保留的锁？
-	 * 例如缓冲区锁？我不这么认为，但我不确定。
- *
- *
- */
+	 * FIXME 这可能不正确 --- 是否有我们应保留的锁？      
+	 * 例如缓冲区锁？我觉得不是，但不确定。        
+	 */
 	LWLockReleaseAll();
 
 	pgstat_report_wait_end();

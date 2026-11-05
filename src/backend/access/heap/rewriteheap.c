@@ -796,9 +796,9 @@ logical_begin_heap_rewrite(RewriteState state)
 	TransactionId logical_xmin;
 
 	/*
-	 * 只有当重写后的表在逻辑解码期间可以被访问时，才需要持久化这些映射；
-	 * 否则就可以跳过任何
-	 * 额外工作。
+	 * 只有当重写后的表在逻辑解码期间可被访问时，     
+	 * 才需要持久化这些映射；否则可以跳过            
+	 * 额外工作。 
 	 */
 	state->rs_logical_rewrite =
 		RelationIsAccessibleInLogicalDecoding(state->rs_old_rel);

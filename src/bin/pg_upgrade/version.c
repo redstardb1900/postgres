@@ -14,19 +14,19 @@
 #include "pg_upgrade.h"
 
 
-/*检测是否有存储列依赖给定类型。如有则写报告并返回 true。base_query 产生单列 "oid"，包含跨版本磁盘表示不一致类型的 OID。检查表、物化视图和索引（视图无存储）。
- * 
- *	
+/*
+ * check_for_data_types_usage()
+ *	检测是否存在依赖于给定类型的已存储列。             
  *
- * 
+ * 如果有，则向给定文件写入报告并返回 true。   
  *
- * 
- * 
- * 
+ * base_query 应当是一条 SELECT，产生名为 "oid" 的单      
+ * 列，其中包含一个或多个已知在不同服务器版本间     
+ * 磁盘表示不一致的类型的 pg_type OID。            
  *
- * 
- * 
-                                                                                                                                                                                                                                                         */
+ * 我们会在表、物化视图和索引中检查这些类型，但不检 
+ * 查视图；视图不涉及存储。  
+ */
 bool
 check_for_data_types_usage(ClusterInfo *cluster,
 						   const char *base_query,
@@ -49,12 +49,12 @@ check_for_data_types_usage(ClusterInfo *cluster,
 					i_relname,
 					i_attname;
 
-		/*类型可能包装在域、数组、复合或范围中并嵌套。用递归 CTE 处理。
-		 * 
-		 * 
-		 * 
-		 * 
-		                                                                                                                                                                    */
+		/*
+		 * 所关注的类型可能被包裹在域、数组、复合或
+		 * 范围中，且这些容器类型可嵌套（其程度取决    
+		 * 于服务器版本，但无关紧要）。要处理这些情  
+		 * 况，我们需要一个递归的 CTE。                          
+		 */
 		initPQExpBuffer(&querybuf);
 		appendPQExpBuffer(&querybuf,
 						  "WITH RECURSIVE oids AS ( "
@@ -139,16 +139,16 @@ check_for_data_types_usage(ClusterInfo *cluster,
 	return found;
 }
 
-/*包装函数：将 type_name（完全限定）转为 base_query 查 check_for_data_types_usage。
- * 
- *	
+/*
+ * check_for_data_type_usage()
+ *	检测是否存在依赖于给定类型的已存储列。              
  *
- * 
+ * 如果有，则向给定文件写入报告并返回 true。   
  *
- * 
- * 
- * 
-                                                                                                                                                                                                                            */
+ * type_name 应当是一个完全限定的类型名。这只是一
+ * 个围绕 check_for_data_types_usage() 的简单包装，把    
+ * 类型名转成 base_query  
+ */
 bool
 check_for_data_type_usage(ClusterInfo *cluster,
 						  const char *type_name,
@@ -168,14 +168,14 @@ check_for_data_type_usage(ClusterInfo *cluster,
 }
 
 
-/*9.3->9.4: 完全实现 line 类型，此前仅编译期启用，磁盘格式不同。
- * 
- *	
- *	
- *	
- *	
- *	
-                                                                                                                                                                                        */
+/*
+ * old_9_3_check_for_line_data_type_usage()
+ *	9.3 -> 9.4
+ *	在 9.4 中完整实现 'line' 数据类型，此前它默认返回   
+ *	"not enabled"，并且只有在启用编译期开关时          
+ *	才在功能上启用；9.4 起 "line" 的磁盘表示格式 
+ *	不同了。          
+ */
 void
 old_9_3_check_for_line_data_type_usage(ClusterInfo *cluster)
 {
@@ -203,19 +203,19 @@ old_9_3_check_for_line_data_type_usage(ClusterInfo *cluster)
 }
 
 
-/*9.6->10: 不再允许含 unknown 列的表/视图。视图静默转 text 无需处理；含 unknown 列的表 DDL 重载失败需预检；物化视图更严重，改 text 与磁盘不匹配，必须拒绝。
- * 
- *	
- *	
- *	
- *	
- *	
- *	
- *	
- *	
- *	
- *	
-                                                                                                                                                                                                                                                                                                                                                                                                                                                              */
+/*
+ * old_9_6_check_for_unknown_data_type_usage()
+ *	9.6 -> 10
+ *	不再允许创建带有 "unknown" 类型列的表或视图。      
+ *	对于带有这类列的视图，我们并不提出抱怨，因为 
+ *	它们应当在 DDL 转储和重载期间被静默地转换为     
+ *	"text" 列；看起来不值得让用户手动去做这件事。   
+ *	然而，如果有一个带这类列的表，那么 DDL 重载将
+ *	会失败，因此我们应当预先检测到它，而不是在   
+ *	升级中途失败。而若存在带这类列的物化视图，  
+ *	那么 DDL 重载将静默地把它改为 "text"，而这将与   
+ *	磁盘存储不匹配（类似 "cstring"）。所以必须拒绝它  
+ */
 void
 old_9_6_check_for_unknown_data_type_usage(ClusterInfo *cluster)
 {
@@ -241,11 +241,11 @@ old_9_6_check_for_unknown_data_type_usage(ClusterInfo *cluster)
 		check_ok();
 }
 
-/*9.6->10: 哈希索引二进制格式变更
- * 
- *	
- *	
-                                                    */
+/*
+ * old_9_6_invalidate_hash_indexes()
+ *	9.6 -> 10
+ *	哈希索引二进制格式已从 9.6->10.0 改变 
+ */
 void
 old_9_6_invalidate_hash_indexes(ClusterInfo *cluster, bool check_mode)
 {
@@ -353,14 +353,14 @@ old_9_6_invalidate_hash_indexes(ClusterInfo *cluster, bool check_mode)
 		check_ok();
 }
 
-/*11->12: sql_identifier 从 name 改 varchar，影响存储（name 引用传递非 varlena），磁盘格式不同致用户表损坏。
- * 
- *	
- *	
- *	
- *	
- *	
-                                                                                                                                                                    */
+/*
+ * old_11_check_for_sql_identifier_data_type_usage()
+ *	11 -> 12
+ *	在 12 中，sql_identifier 数据类型从 name 切换成了         
+ *	varchar，这确实会影响存储（name 是引用传递，但并   
+ *	非 varlena）。这意味着列使用 sql_identifier 的用户表   
+ *	损坏，因磁盘格式不同  
+ */
 void
 old_11_check_for_sql_identifier_data_type_usage(ClusterInfo *cluster)
 {
@@ -388,10 +388,10 @@ old_11_check_for_sql_identifier_data_type_usage(ClusterInfo *cluster)
 }
 
 
-/*报告需更新的扩展
- * 
- *	
-                                            */
+/*
+ * report_extension_updates()
+ *	报告那些应当被更新的扩展。  
+ */
 void
 report_extension_updates(ClusterInfo *cluster)
 {

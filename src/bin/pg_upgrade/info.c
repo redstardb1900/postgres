@@ -28,14 +28,14 @@ static void print_db_infos(DbInfoArr *db_arr);
 static void print_rel_infos(RelInfoArr *rel_arr);
 
 
-/*生成 old_db 到 new_db 的数据库映射。返回 malloc 数组，长度通过 *nmaps 返回。
- * 
+/*
+ * gen_db_file_maps()
  *
- * 
+ * 生成从 "old_db" 到 "new_db" 的数据库映射。  
  *
- * 
- * 
-                                                               */
+ * 返回 malloc 分配的映射数组。数组长度通过       
+ * *nmaps 返回。        
+ */
 FileNameMap *
 gen_db_file_maps(DbInfo *old_db, DbInfo *new_db,
 				 int *nmaps,
@@ -51,11 +51,11 @@ gen_db_file_maps(DbInfo *old_db, DbInfo *new_db,
 	maps = (FileNameMap *) pg_malloc(sizeof(FileNameMap) *
 									 old_db->rel_arr.nrels);
 
-	/*RelInfo 数组按 OID 排序。扫描匹配。全部不匹配则中止并打印不匹配信息。
-	 * 
-	 * 
-	 * 
-	                                                                                              */
+	/*
+	 * 每个 RelInfo 数组都应已按 OID 排序。我们会扫描        
+	 * 这些数组并进行匹配。如果不能匹配所有项，将会  
+	 * 中止，但先尽量多地打印不匹配信息。 
+	 */
 	old_relnum = new_relnum = 0;
 	while (old_relnum < old_db->rel_arr.nrels ||
 		   new_relnum < new_db->rel_arr.nrels)
@@ -68,10 +68,10 @@ gen_db_file_maps(DbInfo *old_db, DbInfo *new_db,
 		/* 处理数组耗尽                            */
 		if (!new_rel)
 		{
-			/*old_rel 不应不匹配（强制新关系保留 TOAST）。
-			 * 
-			 * 
-			                                                        */
+			/*
+			 * old_rel 未匹配。这不应发生，因若旧关系有   
+			 * TOAST 表，就强制新关系也有 TOAST 表。      
+			 */
 			report_unmatched_relation(old_rel, old_db, false);
 			all_matched = false;
 			old_relnum++;
@@ -79,12 +79,12 @@ gen_db_file_maps(DbInfo *old_db, DbInfo *new_db,
 		}
 		if (!old_rel)
 		{
-			/*new_rel 也不应不匹配。TOAST 表可忽略因新服务器可能创建了不需的 TOAST。
-			 * 
-			 * 
-			 * 
-			 * 
-			                                                                                                   */
+			/*
+			 * new_rel 未匹配。这实际也不应发生，但如果它是 
+			 * 一个 TOAST 表，则可忽略它并继续，      
+			 * 并假定新服务器创建了一个不需要的           
+			 * TOAST 表。       
+			 */
 			if (strcmp(new_rel->nspname, "pg_toast") != 0)
 			{
 				report_unmatched_relation(new_rel, new_db, true);
@@ -115,11 +115,11 @@ gen_db_file_maps(DbInfo *old_db, DbInfo *new_db,
 			continue;
 		}
 
-		/*验证同 OID 关系同名。名称空间应同，TOAST 表（及索引）relname 可不同。
-		 * 
-		 * 
-		 * 
-		                                                                        */
+		/*
+		 * 验证相同 OID 的关系是否同名。命名空间名称应  
+		 * 当总是匹配，但 TOAST 表（及其索引）的 relname  
+		 * 可能不匹配。                     
+		 */
 		if (strcmp(old_rel->nspname, new_rel->nspname) != 0 ||
 			strcmp(old_rel->relname, new_rel->relname) != 0)
 		{
@@ -151,11 +151,11 @@ gen_db_file_maps(DbInfo *old_db, DbInfo *new_db,
 }
 
 
-/*填充文件节点映射结构返回到 map。
- * 
+/*
+ * create_rel_filename_map()
  *
- * 
-                                    */
+ * 填充文件节点映射结构并在 "map" 中返回。 
+ */
 static void
 create_rel_filename_map(const char *old_data, const char *new_data,
 						const DbInfo *old_db, const DbInfo *new_db,
@@ -165,10 +165,10 @@ create_rel_filename_map(const char *old_data, const char *new_data,
 	/* 新旧表空间不匹则分处                               */
 	if (strlen(old_rel->tablespace) == 0)
 	{
-		/*关系属默认表空间，relfiles 应在数据目录。
-		 * 
-		 * 
-		                                       */
+		/*
+		 * 该关系属于默认表空间，因此其 relfile 应当存在  
+		 * 于数据目录中。         
+		 */
 		map->old_tablespace = old_data;
 		map->old_tablespace_suffix = "/base";
 	}
@@ -201,10 +201,10 @@ create_rel_filename_map(const char *old_data, const char *new_data,
 }
 
 
-/*报告不能匹配的关系，尽所能标识。
- * 
- * 
-                                                 */
+/*
+ * 对我们无法匹配到另一数据库的关系发出抱怨，   
+ * 并尽可能标识出它。   
+ */
 static void
 report_unmatched_relation(const RelInfo *rel, const DbInfo *db, bool is_new_db)
 {
@@ -352,12 +352,12 @@ get_template0_info(ClusterInfo *cluster)
 }
 
 
-/*扫描 pg_database 系统目录，填充所有用户数据库。
- * 
- * 
- * 
- * 
-               */
+/*
+ * get_db_infos()
+ *
+ * 扫描 pg_database 系统目录并填充所有用户   
+ * 数据库 
+ */
 static void
 get_db_infos(ClusterInfo *cluster)
 {
@@ -475,11 +475,11 @@ get_rel_infos(ClusterInfo *cluster, DbInfo *dbinfo)
 			 "      relname IN ('pg_largeobject') ))), ",
 			 FirstNormalObjectId);
 
-	/*添加一 CTE 收集属于 regular_heap CTE 所选表的 toast 表 OID。（因上述命名空间名称规则不适用 toast 表，必须单独进行。）
-	 * 
-	 * 
-	 * 
-	                                               */
+	/*
+	 * 添加一个 CTE，收集属于 regular_heap CTE 所选表的       
+	 * toast 表的 OID。（由于上述命名空间名称规则不    
+	 * 适用于 toast 表，所以必须单独进行此项操作。）    
+	 */
 	snprintf(query + strlen(query), sizeof(query) - strlen(query),
 			 "  toast_heap (reloid, indtable, toastheap) AS ( "
 			 "  SELECT c.reltoastrelid, 0::oid, c.oid "

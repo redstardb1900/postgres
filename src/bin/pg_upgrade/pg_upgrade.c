@@ -7,32 +7,32 @@
  *	src/bin/pg_upgrade/pg_upgrade.c
  */
 
-/*简化升级：强制新旧集簇间系统值一致。控 pg_class.oid 和 relfilenode 赋值使 toast oid 一致（因 toast 指针存于用户表）。虽 oid 和 relfilenode 初始同但 CLUSTER/REINDEX/VACUUM FULL 可使其不同，控 relfilenode 分配使文件名匹配。控 pg_tablespace.oid 使 oid 匹配。控 pg_type.oid 因存于用户复合类型。控 pg_enum.oid 因存于用户枚举值。控 pg_authid.oid（历史原因，oid 曾存 pg_largeobject_metadata，今用 SQL 复制），未来可改。
- *	
- *	
+/*
+ *	为简化升级，我们强制某些系统值在新旧集簇间保持
+ *	一致：                              
  *
- *	
- *	
- *	
+ *	我们控制 pg_class.oid（含 relfilenode）的全部赋值，使  
+ *	toast oid 在新旧集簇间保持一致。这很重要，因为  
+ *	toast oid 以 toast 指针的形式存储在用户表中。    
  *
- *	
- *	
- *	
- *	
+ *	虽然 pg_class.oid 和 pg_class.relfilenode 在一个集簇中最初  
+ *	相同，但可能因 CLUSTER、REINDEX 或 VACUUM FULL 而          
+ *	产生分歧。我们控制 pg_class.relfilenode 的赋值，使文件   
+ *	名在新旧集簇间匹配。           
  *
- *	
- *	
+ *	我们控制 pg_tablespace.oid 的赋值，让 oid 在新旧集簇之间   
+ *	相互匹配。                 
  *
- *	
- *	
+ *	我们控制 pg_type.oid 的所有赋值，因这些 oid 存于用户  
+ *	复合类型值中。         
  *
- *	
- *	
+ *	我们控制 pg_enum.oid 的所有赋值，因这些 oid 作为枚举  
+ *	值存储在用户表中。   
  *
- *	
- *	
- *	
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               */
+ *	我们控制 pg_authid.oid 所有赋值是因历史原因（这些 oid 
+ *	曾被存储在 pg_largeobject_metadata 中，现在通过 SQL 命令     
+ *	复制），这一点将来可能会改变。                
+ */
 
 
 
@@ -82,10 +82,10 @@ main(int argc, char **argv)
 	char	   *deletion_script_file_name = NULL;
 	bool		live_check = false;
 
-	/*pg_upgrade 当前未用 common/logging.c，但初始化因可能调用使用它的通用代码。
-	 * 
-	 * 
-	                       */
+	/*
+	 * pg_upgrade 当前并不使用 common/logging.c，但因为可能    
+	 * 调用它的通用代码，仍要初始化。      
+	 */
 	pg_logging_init(argv[0]);
 	set_pglocale_pgservice(argv[0], PG_TEXTDOMAIN("pg_upgrade"));
 
@@ -99,20 +99,20 @@ main(int argc, char **argv)
 	adjust_data_dir(&old_cluster);
 	adjust_data_dir(&new_cluster);
 
-	/*据 PGDATA 权限设掩码，需正确创建输出目录。
-	 * 
-	 * 
-	                                                      */
+	/*
+	 * 根据 PGDATA 权限设置掩码，需以正确权限创建输出   
+	 * 目录所必需的。                       
+	 */
 	if (!GetDataDirectoryCreatePerm(new_cluster.pgdata))
 		pg_fatal("could not read permissions of directory \"%s\": %s",
 				 new_cluster.pgdata, strerror(errno));
 
 	umask(pg_mode_mask);
 
-	/*在 adjust_data_dir() 调整新集簇数据目录后执行。
-	 * 
-	 * 
-	                                   */
+	/*
+	 * 此操作需在 adjust_data_dir() 调整新集簇数据目录后  
+	 * 进行。                    
+	 */
 	make_outputdirs(new_cluster.pgdata);
 
 	setup(argv[0], &live_check);
@@ -163,24 +163,24 @@ main(int argc, char **argv)
 
 	stop_postmaster(false);
 
-	/*多数故障在 create_new_objects() 已完成。在此执行因恰在链接前，链接将新旧数据文件关联，新集簇启动后旧集簇不可安全启动。
-	 * 
-	 * 
-	 * 
-	 * 
-	                                                                                                      */
+	/*
+	 * 大多数故障发生在 create_new_objects() 中，该函数此时 
+	 * 已执行完毕。此处执行因它恰在链接之前，而链接   
+	 * 会把新旧集簇数据文件链接起来，使旧集簇在新 
+	 * 集簇启动后无法再安全启动。                           
+	 */
 	if (user_opts.transfer_mode == TRANSFER_MODE_LINK)
 		disable_old_cluster();
 
 	transfer_all_new_tablespaces(&old_cluster.dbarr, &new_cluster.dbarr,
 								 old_cluster.pgdata, new_cluster.pgdata);
 
-	/*假设 OID 仅系统表用，无需恢复 OID 计数器因未传输任何 OID，但为安全仍做。较晚执行因不需模式加载用新 oid。
-	 * 
-	 * 
-	 * 
-	 * 
-	                                                                                                                       */
+	/*
+	 * 假设 OID 只用于系统表，则无需恢复 OID 计数器， 
+	 * 因为我们没有从旧系统传输任何 OID，但为保险起见  
+	 * 还是执行了。之所以在这里较晚执行，是因为无需让
+	 * 模式加载使用新的 oid。                               
+	 */
 	prep_status("Setting next OID for new cluster");
 	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
 			  "\"%s/pg_resetwal\" -o %u \"%s\"",
@@ -215,11 +215,11 @@ main(int argc, char **argv)
 	return 0;
 }
 
-/*创建输出目录集并分配适当权限，填充 log_opts。
- * 
- * 
- * 
-                                                                                      */
+/*
+ * 创建用于存放内部生成数据的输出目录集，并赋      
+ * 予适当权限，在此过程中填充                            
+ * log_opts。 
+ */
 static void
 make_outputdirs(char *pgdata)
 {
@@ -264,10 +264,10 @@ make_outputdirs(char *pgdata)
 	if (len >= MAXPGPATH)
 		pg_fatal("directory path for new cluster is too long");
 
-	/*忽略根路径已存在错误，因跨运行保持。
-	 * 
-	 * 
-	                               */
+	/*
+	 * 忽略根路径已存在的错误，因其在多次运行间保持 
+	 * 不变。        
+	 */
 	if (mkdir(log_opts.rootdir, pg_dir_create_mode) < 0 && errno != EEXIST)
 		pg_fatal("could not create directory \"%s\": %m", log_opts.rootdir);
 	if (mkdir(log_opts.basedir, pg_dir_create_mode) < 0)
@@ -308,17 +308,17 @@ make_outputdirs(char *pgdata)
 static void
 setup(char *argv0, bool *live_check)
 {
-	/*确保用户环境干净，否则连接服务器时混淆 libpq。
-	 * 
-	 * 
-	                                                          */
+	/*
+	 * 确保用户环境干净，否则连接其中一台（或两台）服
+	 * 务器时，可能会使 libpq 产生混淆。        
+	 */
 	check_pghost_envvar();
 
-	/*用户未指定 -B 新二进制目录则用当前 pg_upgrade 路径。
-	 * 
-	 * 
-	 * 
-	                                                                             */
+	/*
+	 * 若用户未用 -B 指定新二进制程序的目录，则默认    
+	 * 使用当前所执行的 pg_upgrade 可执行文件所在的           
+	 * 路径 
+	 */
 	if (!new_cluster.bindir)
 	{
 		char		exec_path[MAXPGPATH];
@@ -336,15 +336,15 @@ setup(char *argv0, bool *live_check)
 	/* 除实检外不应运行 postmaster                       */
 	if (pid_lock_file_exists(old_cluster.pgdata))
 	{
-		/*有 postmaster.pid 则尝试启动。启动则 pid 过时故停止。未启动则假设在运行。pid 文件来自崩溃则此可重放 WAL 中的已提交事务（WAL 文件不传至新集簇），避免丢失。后检查干净关闭。
-		 * 
-		 * 
-		 * 
-		 * 
-		 * 
-		 * 
-		 * 
-		                                                                                                                                                                                 */
+		/*
+		 * 若有 postmaster.pid 文件，就尝试启动服务器。若它 
+		 * 能启动，说明 pid 文件过时，故停止服务器。若不 
+		 * 能启动，则假定服务器在运行。若 pid 文件是崩溃 
+		 * 遗留的，也让 WAL 中已提交的事务得到重放而不  
+		 * 丢失，因 WAL 文件不会从旧服务器传到新服务器。 
+		 * 我们稍后会检查服务器是否已                           
+		 * 干净关闭。      
+		 */
 		if (start_postmaster(&old_cluster, false))
 			stop_postmaster(false);
 		else
@@ -369,13 +369,13 @@ setup(char *argv0, bool *live_check)
 }
 
 
-/*将语言环境和编码复制到新集簇 template0。需复制 encoding、datlocprovider、datcollate、datctype、daticulocale。无需 datcollversion（从未为 template0 设）。
- * 
+/*
+ * 将语言环境和编码信息复制到新集簇的 template0 中。  
  *
- * 
- * 
- * 
-                                      */
+ * 我们需要复制 encoding、datlocprovider、datcollate、           
+ * datctype 和 daticulocale。datcollversion 无需复制，template0    
+ * 未设。 
+ */
 static void
 set_locale_and_encoding(void)
 {
@@ -444,11 +444,11 @@ set_locale_and_encoding(void)
 static void
 prepare_new_cluster(void)
 {
-	/*加载模式后冻结更合理但会丢失加载恢复的 frozenxids。用 --analyze 免 autovacuum 后改统计。
-	 * 
-	 * 
-	 * 
-	                                                                            */
+	/*
+	 * 在加载模式后再冻结更合理，但那会使我们丢失加载
+	 * 的 frozenxids。我们使用 --analyze，这样 autovacuum       
+	 * 以后不会更新统计信息                         
+	 */
 	prep_status("Analyzing all rows in the new cluster");
 	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
 			  "\"%s/vacuumdb\" %s --all --analyze %s",
@@ -456,12 +456,12 @@ prepare_new_cluster(void)
 			  log_opts.verbose ? "--verbose" : "");
 	check_ok();
 
-	/*分析后冻结使 pg_statistic 也被冻。template0 不在此冻但行已由 initdb 冻，后设 datfrozenxid/relfrozenxids/relminmxid 匹配新 xid 计数器。
-	 * 
-	 * 
-	 * 
-	 * 
-	                                                             */
+	/*
+	 * 我们在分析后冻结，这样 pg_statistic 也一并被冻结。   
+	 * template0 不在此冻结，其数据行已由 initdb 冻结，而  
+	 * 稍后设置 datfrozenxid/relfrozenxids/relminmxid 以匹配新的    
+	 * xid 计数器 
+	 */
 	prep_status("Freezing all rows in the new cluster");
 	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
 			  "\"%s/vacuumdb\" %s --all --freeze %s",
@@ -500,11 +500,11 @@ create_new_objects(void)
 
 	prep_status_progress("Restoring database schemas in the new cluster");
 
-	/*不能与其他数据库同时处理 template1 因被临时删除时连接失败。故在单独非并行过程中处理。
-	 * 
-	 * 
-	 * 
-	                                                                */
+	/*
+	 * 我们无法与其他数据库并行处理 template1 数据库， 
+	 * 因为当它被临时删除时，连接尝试将会失败。所以要 
+	 * 在单独的不可并行步骤中处理它。    
+	 */
 	for (dbnum = 0; dbnum < old_cluster.dbarr.ndbs; dbnum++)
 	{
 		char		sql_file_name[MAXPGPATH],
@@ -520,11 +520,11 @@ create_new_objects(void)
 		snprintf(sql_file_name, sizeof(sql_file_name), DB_DUMP_FILE_MASK, old_db->db_oid);
 		snprintf(log_file_name, sizeof(log_file_name), DB_DUMP_LOG_FILE_MASK, old_db->db_oid);
 
-		/*template1 已存在于目标安装，告诉 pg_restore 删并重建否则无法传播数据库级属性。
-		 * 
-		 * 
-		 * 
-		                                                                      */
+		/*
+		 * template1 数据库已存在于目标安装中，所以要告诉 
+		 * pg_restore 将其删除并重建；否则我们将无法传播它  
+		 * 的数据库级属性。                   
+		 */
 		create_opts = "--clean --create";
 
 		exec_prog(log_file_name,
@@ -557,11 +557,11 @@ create_new_objects(void)
 		snprintf(sql_file_name, sizeof(sql_file_name), DB_DUMP_FILE_MASK, old_db->db_oid);
 		snprintf(log_file_name, sizeof(log_file_name), DB_DUMP_LOG_FILE_MASK, old_db->db_oid);
 
-		/*postgres 已存在于目标安装，告诉 pg_restore 删并重建否则无法传播数据库级属性。
-		 * 
-		 * 
-		 * 
-		                                                                      */
+		/*
+		 * postgres 数据库已存在于目标安装中，所以要告诉    
+		 * pg_restore 将其删除并重建；否则我们将无法传播它  
+		 * 的数据库级属性。                
+		 */
 		if (strcmp(old_db->db_name, "postgres") == 0)
 			create_opts = "--clean --create";
 		else
@@ -585,10 +585,10 @@ create_new_objects(void)
 	end_progress_output();
 	check_ok();
 
-	/*9.3 前集簇无数据库或关系级 minmxids，恢复模式后设之。
-	 * 
-	 * 
-	                                             */
+	/*
+	 * 在 9.3 之前的集簇中，我们没有数据库或关系级的     
+	 * minmxids，所以恢复模式后再设置。   
+	 */
 	if (GET_MAJOR_VERSION(old_cluster.major_version) <= 902)
 		set_frozenxids(true);
 
@@ -644,10 +644,10 @@ copy_subdir_files(const char *old_subdir, const char *new_subdir)
 static void
 copy_xact_xlog_xid(void)
 {
-	/*复制旧提交日志到新数据目录。pg_clog 在 post-10 集簇更名 pg_xact。
-	 * 
-	 * 
-	         */
+	/*
+	 * 把旧的提交日志复制到新数据目录。pg_clog 在      
+	 * 10 后更名为 pg_xact。  
+	 */
 	copy_subdir_files(GET_MAJOR_VERSION(old_cluster.major_version) <= 906 ?
 					  "pg_clog" : "pg_xact",
 					  GET_MAJOR_VERSION(new_cluster.major_version) <= 906 ?
@@ -679,12 +679,12 @@ copy_xact_xlog_xid(void)
 			  new_cluster.pgdata);
 	check_ok();
 
-	/*若旧服务 MULTIXACT_FORMATCHANGE_CAT_VER 前新后，不复制 pg_multixact 文件但重置 pg_control 防新服务读截止前多事务。
-	 * 
-	 * 
-	 * 
-	 * 
-	                                                                                                                               */
+	/*
+	 * 如果旧服务器早于 MULTIXACT_FORMATCHANGE_CAT_VER 这一       
+	 * 变更（见 pg_upgrade.h）而新服务器晚于它，那么我  
+	 * 们就不会复制 pg_multixact 文件，但仍需重置           
+	 * pg_control，使新服务器不读取早于截止值的 multi。  
+	 */
 	if (old_cluster.controldata.cat_ver >= MULTIXACT_FORMATCHANGE_CAT_VER &&
 		new_cluster.controldata.cat_ver >= MULTIXACT_FORMATCHANGE_CAT_VER)
 	{
@@ -693,10 +693,10 @@ copy_xact_xlog_xid(void)
 
 		prep_status("Setting next multixact ID and offset for new cluster");
 
-		/*保留所有文件和内容故保 "next" 计数器和系统最旧 multi。
-		 * 
-		 * 
-		                                               */
+		/*
+		 * 我们保留全部文件和内容，因此必须同时保留"next" 
+		 * 两个计数器和系统上现存的最旧 multi。  
+		 */
 		exec_prog(UTILITY_LOG_FILE, NULL, true, true,
 				  "\"%s/pg_resetwal\" -O %u -m %u,%u \"%s\"",
 				  new_cluster.bindir,
@@ -708,23 +708,23 @@ copy_xact_xlog_xid(void)
 	}
 	else if (new_cluster.controldata.cat_ver >= MULTIXACT_FORMATCHANGE_CAT_VER)
 	{
-		/*删 initdb 创建的 offsets/0000 因不匹配新 multi-xid。members 从零始无需删。
-		 * 
-		 * 
-		 * 
-		                                                 */
+		/*
+		 * 删除 initdb 创建的、已不匹配新 multi-xid 值的       
+		 * offsets/0000 文件。"members" 从零开始，因此无需删  
+		 * 除它。 
+		 */
 		remove_new_subdir("pg_multixact/offsets", false);
 
 		prep_status("Setting oldest multixact ID in new cluster");
 
-		/*此时不保留文件，但重要是最旧 multi 设为旧系统最新值使 multixact.c 对可能存在的事务返空集。设 next multi 为后续值；旧集簇 next=MaxMultiXactId 时可回绕（0）但 multixact.c 可处理。
-		 * 
-		 * 
-		 * 
-		 * 
-		 * 
-		 * 
-		                                                                                                                                                           */
+		/*
+		 * 此情况下我们不保留文件，但重要的是让最旧的  
+		 * multi 被设为旧系统用过的最新值，这样 multixact.c   
+		 * 会对磁盘上可能存在的 multi 返回空集。我们把  
+		 * next multi 设置为紧随其后的值；如果旧集簇的        
+		 * next=MaxMultiXactId，则它可能回绕（即 0），但  
+		 * multixact.c 完全可以应付这种情况。                     
+		 */
 		exec_prog(UTILITY_LOG_FILE, NULL, true, true,
 				  "\"%s/pg_resetwal\" -m %u,%u \"%s\"",
 				  new_cluster.bindir,
@@ -745,27 +745,27 @@ copy_xact_xlog_xid(void)
 }
 
 
-/*恢复前在新集簇调用 (minmxid_only=false)。确保 initdb 建的可 vacuum 表的 relfrozenxid/relminmxid 匹配旧集簇计数器，并初始化内建数据库的 datfrozenxid/datminmxid。用户表创建时字段由 binary-upgrade 恢复脚本正确恢复，用户数据库 datfrozenxid/datminmxid 同理。9.3 前源不存每个表/DB minmxid，恢复填充值为零。故 9.3 前源恢复后第二次调用 (minmxid_only=true)，初始化所有表和数据库的 minmxid。frozenxid 不变。
- *	
+/*
+ *	set_frozenxids()
  *
- * 
- * 
- * 
- * 
- * 
+ * 它在我们恢复任何内容之前在新集簇上被调用，   
+ * minmxid_only = false。其目的是确保所有由 initdb 创建       
+ * 的可 vacuum 表都拥有与旧集簇 xid/mxid 计数器相匹配       
+ * 的 relfrozenxid/relminmxid。还会设置内建数据库的 datfrozenxid
+ * /datminmxid 以匹配。    
  *
- * 
- * 
- * 
- * 
- * 
- * 
+ * 我们稍后创建用户表时，其 relfrozenxid/relminmxid 字段将   
+ * 由 binary-upgrade 恢复脚本正确地恢复。用户数据库的     
+ * datfrozenxid/datminmxid 也是如此。然而，如果我们要从        
+ * 9.3 之前的数据库升级，它并不存储每表或每数据库的  
+ * minmxid，那么恢复脚本填充的 relminmxid/datminmxid 值就        
+ * 是零。 
  *
- * 
- * 
- * 
- * 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           */
+ * 因此，源数据库为 9.3 之前的版本时，在一切恢复
+ * 完毕后再调用，minmxid_only = true。此轮会用期望的 
+ * minmxid 值初始化所有的表和数据库，既包括               
+ * initdb 创建的也包括用户对象。frozenxid 值保持不变。      
+ */
 static void
 set_frozenxids(bool minmxid_only)
 {
@@ -811,13 +811,13 @@ set_frozenxids(bool minmxid_only)
 		char	   *datname = PQgetvalue(dbres, dbnum, i_datname);
 		char	   *datallowconn = PQgetvalue(dbres, dbnum, i_datallowconn);
 
-		/*须更新 datallowconn=false 数据库（如 template0）因 autovacuum 即使关闭也递增其冻结 xid。临时改 datallowconn 以启用。
-		 * 
-		 * 
-		 * 
-		 * 
-		 * 
-		                                                                                                                                               */
+		/*
+		 * 须更新 datallowconn = false 的数据库（如        
+		 * template0），因为即使关闭了 autovacuum，它也会  
+		 * 递增它们的 datfrozenxids、relfrozenxids 和 relminmxid，    
+		 * 即便所有数据行都已冻结。为做到这一点，我们会
+		 * 暂时改变 datallowconn。       
+		 */
 		if (strcmp(datallowconn, "f") == 0)
 			PQclear(executeQueryOrDie(conn_template1,
 									  "ALTER DATABASE %s ALLOW_CONNECTIONS = true",

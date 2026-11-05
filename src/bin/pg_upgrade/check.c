@@ -36,13 +36,13 @@ static void check_for_new_tablespace_dir(ClusterInfo *new_cluster);
 static void check_for_user_defined_encoding_conversions(ClusterInfo *cluster);
 
 
-/*非 Win 直接返参数。Win 正斜杠转反斜杠适如 RMDIR/DEL 内建命令。
- * 
- * 
- * 
- * 
- * 
-                                                                                                      */
+/*
+ * fix_path_separator
+ * 非 Windows 下直接返回参数。      
+ * Windows 下则把正斜杠转换为反斜杠，     
+ * 使之适合于 RMDIR 和 DEL 等                    
+ * 内建命令。    
+ */
 static char *
 fix_path_separator(char *path)
 {
@@ -108,10 +108,10 @@ check_and_dump_old_cluster(bool live_check)
 	check_for_reg_data_type_usage(&old_cluster);
 	check_for_isn_and_int8_passing_mismatch(&old_cluster);
 
-	/*PG 16 增 aclitem 尺寸，破坏现有数据磁盘格式。
-	 * 
-	 * 
-	                                      */
+	/*
+	 * PG 16 增大了 'aclitem' 类型的尺寸，这会破坏现有  
+	 * 数据的磁盘格式。         
+	 */
 	if (GET_MAJOR_VERSION(old_cluster.major_version) <= 1500)
 		check_for_aclitem_data_type_usage(&old_cluster);
 
@@ -125,55 +125,55 @@ check_and_dump_old_cluster(bool live_check)
 		check_for_removed_data_type_usage(&old_cluster, "12", "tinterval");
 	}
 
-	/*PG 14 改编码转换函数签名。旧版转换无法自动升级因用户定义函数需匹配新签名。
-	 * 
-	 * 
-	 * 
-	 * 
-	                                                                                                                                            */
+	/*
+	 * PG 14 更改了编码转换函数的函数签名。                   
+	 * 旧版转换无法自动升级，因为编码转换所用的用 
+	 * 户定义函数需要被修改，以使之匹配                   
+	 * 新的签名。                               
+	 */
 	if (GET_MAJOR_VERSION(old_cluster.major_version) <= 1300)
 		check_for_user_defined_encoding_conversions(&old_cluster);
 
-	/*PG 14 前允许用户定义后缀运算符，现不支持。验证无。
-	 * 
-	 * 
-	                                                  */
+	/*
+	 * PG 14 之前允许用户定义后缀运算符，现已不再   
+	 * 支持。若适用，请验证不存在此类运算符。 
+	 */
 	if (GET_MAJOR_VERSION(old_cluster.major_version) <= 1300)
 		check_for_user_defined_postfix_ops(&old_cluster);
 
-	/*PG 14 多态函数从 anyarray 改 anycompatiblearray。
-	 * 
-	 * 
-	                */
+	/*
+	 * PG 14 将多态函数从 anyarray 更改为         
+	 * anycompatiblearray 
+	 */
 	if (GET_MAJOR_VERSION(old_cluster.major_version) <= 1300)
 		check_for_incompatible_polymorphics(&old_cluster);
 
-	/*PG 12 前允许表 WITH OIDS，现不支持。验证无。
-	 * 
-	 * 
-	                                                               */
+	/*
+	 * PG 12 之前允许表被声明为 WITH OIDS，这已不再被  
+	 * 支持。若适用，请验证不存在此类表。      
+	 */
 	if (GET_MAJOR_VERSION(old_cluster.major_version) <= 1100)
 		check_for_tables_with_oids(&old_cluster);
 
-	/*PG 18 前允许子表省略父列非空约束，但模式恢复会失败。验证无。
-	 * 
-	 * 
-	 * 
-	                                                               */
+	/*
+	 * PG 18 之前允许子表省略其父表列所具有的非空约束， 
+	 * 但这类子表的模式恢复会失败，请验证不                
+	 * 存在。
+	 */
 	check_for_not_null_inheritance(&old_cluster);
 
-	/*PG 12 改 sql_identifier 为 name 而非 varchar 存储，破坏现有数据磁盘格式。防升级用户对象（表/索引等）。
-	 * 
-	 * 
-	 * 
-	                                                                         */
+	/*
+	 * PG 12 将 'sql_identifier' 类型的存储改为基于 name         
+	 * 而非 varchar，这会破坏现有数据的磁盘格式。因此     
+	 * 当它用于用户对象（表、索引等）时须阻止升级     
+	 */
 	if (GET_MAJOR_VERSION(old_cluster.major_version) <= 1100)
 		old_11_check_for_sql_identifier_data_type_usage(&old_cluster);
 
-	/*PG 10 前允许含 unknown 列的表和非 WAL 哈希索引
-	 * 
-	 * 
-	                         */
+	/*
+	 * PG 10 之前允许含 'unknown' 类型列的表和非 WAL 记录的    
+	 * 哈希索引
+	 */
 	if (GET_MAJOR_VERSION(old_cluster.major_version) <= 906)
 	{
 		old_9_6_check_for_unknown_data_type_usage(&old_cluster);
@@ -193,10 +193,10 @@ check_and_dump_old_cluster(bool live_check)
 	if (GET_MAJOR_VERSION(old_cluster.major_version) <= 903)
 		old_9_3_check_for_line_data_type_usage(&old_cluster);
 
-	/*非检查选项但今执行因旧服务器仅此时运行。
-	 * 
-	 * 
-	                                     */
+	/*
+	 * 虽非检查选项，但现在执行它，因为这是运行旧服    
+	 * 务器的唯一时机。  
+	 */
 	if (!user_opts.check)
 		generate_old_dump();
 

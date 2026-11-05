@@ -19,15 +19,15 @@ LogOpts		log_opts;
 static void pg_log_v(eLogType type, const char *fmt, va_list ap) pg_attribute_printf(2, 0);
 
 
-/*显示操作结果（ok、failed 等）。功能与 pg_log() 相同，保留以区分操作结果与其他消息。
- * 
+/*
+ * report_status()
  *
- *	
+ *	显示一次操作的结果（ok、failed、错误消息等）。  
  *
- *	
- *	
- *	
-                                                                                                                              */
+ *	这在功能上已与 pg_log() 无差别，但我们仍保留它，
+ *	以在操作结果与其他消息之间                         
+ *	保持记法上的区别。
+ */
 void
 report_status(eLogType type, const char *fmt,...)
 {
@@ -42,11 +42,11 @@ report_status(eLogType type, const char *fmt,...)
 void
 end_progress_output(void)
 {
-	/*tty 输出擦进度行前内容，tty/verbose 缩进使 report_status() 对齐。
-	 * 
-	 * 
-	 * 
-	                                                              */
+	/*
+	 * 对于输出到 tty 的情况，擦除进度行先前的内容。当处
+	 * 于 tty 或详细模式时，缩进使 report_status() 输出能
+	 * 对齐 
+	 */
 	if (log_opts.isatty)
 	{
 		printf("\r");
@@ -68,10 +68,10 @@ cleanup_output_dirs(void)
 	if (log_opts.retain)
 		return;
 
-	/*尝试两次。第二次等文件在 Windows 上完成 unlink。
-	 * 
-	 * 
-	                      */
+	/*
+	 * 尝试两次。在 Windows 上，第二次可能要等文件    
+	 * 完成解除链接。
+	 */
 	if (!rmtree(log_opts.basedir, true))
 		rmtree(log_opts.basedir, true);
 
@@ -86,20 +86,20 @@ cleanup_output_dirs(void)
 		case 1:					/* 存在且空     */
 		case 2:					/* 存在且仅点文件              */
 
-			/*尝试两次。第二次等文件在 Windows 上完成 unlink。
-			 * 
-			 * 
-			                      */
+			/*
+			 * 尝试两次。第二次可能在 Windows 上等待文件 
+			 * 完成解除链接。      
+			 */
 			if (!rmtree(log_opts.rootdir, true))
 				rmtree(log_opts.rootdir, true);
 			break;
 
 		case 4:					/* 存在 */
 
-			/*保留根目录含过去日志活动。
-			 * 
-			 * 
-			                         */
+			/*
+			 * 保留根目录，因为它包含一些过去的日志
+			 * 活动。
+			 */
 			break;
 
 		default:
@@ -110,21 +110,21 @@ cleanup_output_dirs(void)
 	}
 }
 
-/*显示即将开始操作的描述。填充消息到 MESSAGE_WIDTH 使 ok/failed 对齐。（过长截断勿冗长。）
- * 
+/*
+ * prep_status
  *
- *	
- *	
- *	
- *	
+ *	显示一条消息，描述我们即将开始的操作。我们会把
+ *	消息填充到 MESSAGE_WIDTH 个字符，以便所有的"ok"        
+ *	和 "failed" 指示符都整齐排列。（过长的消息会被  
+ *	截断，所以不要太过冗长。）      
  *
- *	
- *	
- *	
- *	
- *	
- *	
-                                                                                                                                                                                                                                                                                                                                                                                   */
+ *	典型的序列看起来像这样：    
+ *		prep_status("about to flarb the next %d files", fileCount);
+ *		if ((message = flarbFiles(fileCount)) == NULL)
+ *		  report_status(PG_REPORT, "ok");
+ *		else
+ *		  pg_log(PG_FATAL, "failed: %s", message);
+ */
 void
 prep_status(const char *fmt,...)
 {
@@ -139,19 +139,19 @@ prep_status(const char *fmt,...)
 	pg_log(PG_REPORT_NONL, "%-*s", MESSAGE_WIDTH, message);
 }
 
-/*类似 prep_status() 但用于较长操作。当前处理项通过 pg_log(PG_STATUS) 展示。
- * 
+/*
+ * prep_status_progress
  *
- * 
- * 
- * 
+ *   类似 prep_status()，但用于可能耗时较长的操作。    
+ *   关于当前正在处理哪个条目的详细信息可以通过      
+ *   pg_log(PG_STATUS, ...) 显示。典型的序列看起来如下：    
  *
- * 
- * 
- * 
- * 
- * 
-                                                                                                                                                                                                                                                                                           */
+ *   prep_status_progress("copying files");
+ *   for (...)
+ *     pg_log(PG_STATUS, "%s", filename);
+ *   end_progress_output();
+ *   report_status(PG_REPORT, "ok");
+ */
 void
 prep_status_progress(const char *fmt,...)
 {
@@ -162,10 +162,10 @@ prep_status_progress(const char *fmt,...)
 	vsnprintf(message, sizeof(message), fmt, args);
 	va_end(args);
 
-	/*tty/verbose 追加换行。pg_log_v() 将进度项放下一行。
-	 * 
-	 * 
-	                                                          */
+	/*
+	 * 如果输出到 tty 或处于详细模式，则追加换行符。    
+	 * pg_log_v() 会把各个进度项放到下一行。   
+	 */
 	if (log_opts.isatty || log_opts.verbose)
 		pg_log(PG_REPORT, "%-*s", MESSAGE_WIDTH, message);
 	else
@@ -207,16 +207,16 @@ pg_log_v(eLogType type, const char *fmt, va_list ap)
 
 		case PG_STATUS:
 
-			/*终端输出加两空格不要换行（\r 使下条同行）。左截断适配 MESSAGE_WIDTH。非交互仅 verbose 展示，否则输出过大。
-			 * 
-			 * 
-			 * 
-			 * 
+			/*
+			 * 输出到终端时，我们加两个前导空格且不加 
+			 * 换行；而是追加 \r，使下一条消息输出在同一 
+			 * 行上。左截断以适配 MESSAGE_WIDTH（这两 
+			 * 个空格也算在内）。                         
 			 *
-			 * 
-			 * 
-			 * 
-			                                                                                                                                                                                                                    */
+			 * 对非交互式输出，仅在启用了详细模式时才显
+			 * 示进度；否则的话，默认情况下输出会大到 
+			 * 不合理。     
+			 */
 			if (log_opts.isatty)
 			{
 				bool		itfits = (strlen(message) <= MESSAGE_WIDTH - 2);
@@ -343,11 +343,11 @@ get_user_info(char **user_name_p)
 }
 
 
-/*将字符串转为 oid
+/*
+ *	str2uint()
  *
- *
- *
-            */
+ *	字符串转 oid     
+ */
 unsigned int
 str2uint(const char *str)
 {

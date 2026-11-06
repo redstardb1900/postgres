@@ -1,0 +1,45 @@
+{
+ "schema_version": 1,
+ "batch_id": "0285-comment-postmaster-bgworker",
+ "title": "Translate comments: postmaster-bgworker",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "334f0447839b4bd2e431b8751df0d4caed0f636d",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0285-comment-postmaster-bgworker.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/postmaster/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0285-comment-postmaster-bgworker.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/postmaster/bgworker.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 100,
+   "translated": 100,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 translation campaign wave E3"
+  }
+ ],
+ "notes": "Translation agents (E3a/E3b) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

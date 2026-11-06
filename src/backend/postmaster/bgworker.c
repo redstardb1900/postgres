@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
  * bgworker.c
- *		POSTGRES pluggable background workers implementation
+ *		POSTGRES 可插拔后台 worker 实现              
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -37,61 +37,61 @@
 #include "utils/timeout.h"
 
 /*
- * The postmaster's list of registered background workers, in private memory.
+ * postmaster 私有内存中的已注册后台 worker 列表。             
  */
 slist_head	BackgroundWorkerList = SLIST_STATIC_INIT(BackgroundWorkerList);
 
 /*
- * BackgroundWorkerSlots exist in shared memory and can be accessed (via
- * the BackgroundWorkerArray) by both the postmaster and by regular backends.
- * However, the postmaster cannot take locks, even spinlocks, because this
- * might allow it to crash or become wedged if shared memory gets corrupted.
- * Such an outcome is intolerable.  Therefore, we need a lockless protocol
- * for coordinating access to this data.
+ * BackgroundWorkerSlot 位于共享内存中，postmaster 与普通    
+ * 后端均可（经由 BackgroundWorkerArray）访问它。不过          
+ * postmaster 无法获取任何锁，连 spinlock 也不行，若共享  
+ * 内存一旦损坏，就可能崩溃或卡死。这不可容忍。因此 
+ * 我们需要一套无锁协议，用于协调                          
+ * 对该数据的访问。             
  *
- * The 'in_use' flag is used to hand off responsibility for the slot between
- * the postmaster and the rest of the system.  When 'in_use' is false,
- * the postmaster will ignore the slot entirely, except for the 'in_use' flag
- * itself, which it may read.  In this state, regular backends may modify the
- * slot.  Once a backend sets 'in_use' to true, the slot becomes the
- * responsibility of the postmaster.  Regular backends may no longer modify it,
- * but the postmaster may examine it.  Thus, a backend initializing a slot
- * must fully initialize the slot - and insert a write memory barrier - before
- * marking it as in use.
+ * 'in_use' 标志用于在 postmaster 与系统其余部分间交接槽位 
+ * 归属权。'in_use' 为 false 时，postmaster 会完全忽略该 
+ * 槽，但 'in_use' 标志本身例外，postmaster 仍可读取。        
+ * 此状态下，普通后端可修改该槽。一旦某后端将 'in_use'  
+ * 设为 true，槽即由 postmaster 负责，普通后端不得再
+ * 修改它，但 postmaster 可查看。                                     
+ * 因此，后端在初始化槽位时必须完整初始化槽位，     
+ * 并插入写内存屏障，然后才能                                    
+ * 标记为 in_use。  
  *
- * As an exception, however, even when the slot is in use, regular backends
- * may set the 'terminate' flag for a slot, telling the postmaster not
- * to restart it.  Once the background worker is no longer running, the slot
- * will be released for reuse.
+ * 不过有个例外：即便槽位正处于 in_use 状态，普通后端 
+ * 也可以设置槽的 'terminate' 标志，告知 postmaster 不要
+ * 重启它。后台 worker 不再运行后，该槽就会被释放以供  
+ * 复用。                  
  *
- * In addition to coordinating with the postmaster, backends modifying this
- * data structure must coordinate with each other.  Since they can take locks,
- * this is straightforward: any backend wishing to manipulate a slot must
- * take BackgroundWorkerLock in exclusive mode.  Backends wishing to read
- * data that might get concurrently modified by other backends should take
- * this lock in shared mode.  No matter what, backends reading this data
- * structure must be able to tolerate concurrent modifications by the
- * postmaster.
+ * 除与 postmaster 协调外，修改此数据结构的后端之间也   
+ * 必须相互协调。由于它们可以获取锁，这很简单：任何想
+ * 操纵槽位的后端都必须以独占方式加 BackgroundWorkerLock 
+ * 锁。要读取可能被其他后端并发改动的数据，应以    
+ * 共享模式持有该锁。总之，读取此数据结构的后端     
+ * 都必须能够容忍 postmaster 的并发修改。                  
+ *                                                                   
+ *            
  */
 typedef struct BackgroundWorkerSlot
 {
 	bool		in_use;
 	bool		terminate;
-	pid_t		pid;			/* InvalidPid = not started yet; 0 = dead */
-	uint64		generation;		/* incremented when slot is recycled */
+	pid_t		pid;			/* InvalidPid=尚未启动；0=已死亡  */
+	uint64		generation;		/* 槽位回收复用时递增       */
 	BackgroundWorker worker;
 } BackgroundWorkerSlot;
 
 /*
- * In order to limit the total number of parallel workers (according to
- * max_parallel_workers GUC), we maintain the number of active parallel
- * workers.  Since the postmaster cannot take locks, two variables are used for
- * this purpose: the number of registered parallel workers (modified by the
- * backends, protected by BackgroundWorkerLock) and the number of terminated
- * parallel workers (modified only by the postmaster, lockless).  The active
- * number of parallel workers is the number of registered workers minus the
- * terminated ones.  These counters can of course overflow, but it's not
- * important here since the subtraction will still give the right number.
+ * 为了限制并行 worker 总数（依据 max_parallel_workers      
+ * GUC），需维护活跃并行 worker 的数量。由于 postmaster 
+ * 无法获取锁，这一目的要用两个变量来实现：已注册并行 
+ * worker 的数量（由后端修改，受 BackgroundWorkerLock 保护） 
+ * 和已终止并行 worker 数量（仅 postmaster 可改，无锁）。  
+ * 活跃并行 worker 数量为已注册数减已终止数。这些        
+ * 计数器当然会溢出，但这无关紧要，因为相减仍能得到
+ * 正确的数值。                                                   
+ *                                                                       
  */
 typedef struct BackgroundWorkerArray
 {
@@ -110,8 +110,8 @@ struct BackgroundWorkerHandle
 static BackgroundWorkerArray *BackgroundWorkerData;
 
 /*
- * List of internal background worker entry points.  We need this for
- * reasons explained in LookupBackgroundWorkerFunction(), below.
+ * 内部后台 worker 入口点列表。设置它的缘由见下文 
+ * LookupBackgroundWorkerFunction() 的说明。                
  */
 static const struct
 {
@@ -134,19 +134,19 @@ static const struct
 	}
 };
 
-/* Private functions. */
+/* 内部函数。    */
 static bgworker_main_type LookupBackgroundWorkerFunction(const char *libraryname, const char *funcname);
 
 
 /*
- * Calculate shared memory needed.
+ * 计算所需共享内存。    
  */
 Size
 BackgroundWorkerShmemSize(void)
 {
 	Size		size;
 
-	/* Array of workers is variably sized. */
+	/* worker 数组大小可变。        */
 	size = offsetof(BackgroundWorkerArray, slot);
 	size = add_size(size, mul_size(max_worker_processes,
 								   sizeof(BackgroundWorkerSlot)));
@@ -155,7 +155,7 @@ BackgroundWorkerShmemSize(void)
 }
 
 /*
- * Initialize shared memory.
+ * 初始化共享内存。 
  */
 void
 BackgroundWorkerShmemInit(void)
@@ -175,10 +175,10 @@ BackgroundWorkerShmemInit(void)
 		BackgroundWorkerData->parallel_terminate_count = 0;
 
 		/*
-		 * Copy contents of worker list into shared memory.  Record the shared
-		 * memory slot assigned to each worker.  This ensures a 1-to-1
-		 * correspondence between the postmaster's private list and the array
-		 * in shared memory.
+		 * 把 worker 列表内容复制进共享内存。记录分给每个  
+		 * worker 的共享内存槽位。这保证了                
+		 * postmaster 私有列表与共享内存数组一一对应。       
+		 *                  
 		 */
 		slist_foreach(siter, &BackgroundWorkerList)
 		{
@@ -192,13 +192,13 @@ BackgroundWorkerShmemInit(void)
 			slot->pid = InvalidPid;
 			slot->generation = 0;
 			rw->rw_shmem_slot = slotno;
-			rw->rw_worker.bgw_notify_pid = 0;	/* might be reinit after crash */
+			rw->rw_worker.bgw_notify_pid = 0;	/* 崩溃后或需再初始化 */
 			memcpy(&slot->worker, &rw->rw_worker, sizeof(BackgroundWorker));
 			++slotno;
 		}
 
 		/*
-		 * Mark any remaining slots as not in use.
+		 * 把其余槽位标记为未占用。   
 		 */
 		while (slotno < max_worker_processes)
 		{
@@ -213,8 +213,8 @@ BackgroundWorkerShmemInit(void)
 }
 
 /*
- * Search the postmaster's backend-private list of RegisteredBgWorker objects
- * for the one that maps to the given slot number.
+ * 在 postmaster 私有的 RegisteredBgWorker 对象列表中查找         
+ * 与给定槽号对应的那个对象。        
  */
 static RegisteredBgWorker *
 FindRegisteredWorkerBySlotNumber(int slotno)
@@ -234,12 +234,12 @@ FindRegisteredWorkerBySlotNumber(int slotno)
 }
 
 /*
- * Notice changes to shared memory made by other backends.
- * Accept new worker requests only if allow_new_workers is true.
+ * 注意其他后端对共享内存所做的修改。    
+ * allow_new_workers 为 true 时才接受新 worker 请求。  
  *
- * This code runs in the postmaster, so we must be very careful not to assume
- * that shared memory contents are sane.  Otherwise, a rogue backend could
- * take out the postmaster.
+ * 这段代码运行在 postmaster 中，因此绝不能想当然地认为  
+ * 共享内存内容是完好可信的。否则失控后端即可        
+ * 搞垮 postmaster。    
  */
 void
 BackgroundWorkerStateChange(bool allow_new_workers)
@@ -247,11 +247,11 @@ BackgroundWorkerStateChange(bool allow_new_workers)
 	int			slotno;
 
 	/*
-	 * The total number of slots stored in shared memory should match our
-	 * notion of max_worker_processes.  If it does not, something is very
-	 * wrong.  Further down, we always refer to this value as
-	 * max_worker_processes, in case shared memory gets corrupted while we're
-	 * looping.
+	 * 共享内存中保存的槽位总数应与我们所知的         
+	 * max_worker_processes 一致。若不一致，说明出了大      
+	 * 问题。下文凡引用该值，一律写作         
+	 * max_worker_processes，以防循环期间共享内存被损坏。     
+	 *         
 	 */
 	if (max_worker_processes != BackgroundWorkerData->total_slots)
 	{
@@ -263,8 +263,8 @@ BackgroundWorkerStateChange(bool allow_new_workers)
 	}
 
 	/*
-	 * Iterate through slots, looking for newly-registered workers or workers
-	 * who must die.
+	 * 遍历各槽位，查找新注册的 worker 或必须终止的        
+	 * worker。    
 	 */
 	for (slotno = 0; slotno < max_worker_processes; ++slotno)
 	{
@@ -275,18 +275,18 @@ BackgroundWorkerStateChange(bool allow_new_workers)
 			continue;
 
 		/*
-		 * Make sure we don't see the in_use flag before the updated slot
-		 * contents.
+		 * 确保不会先于更新后的槽位内容见到 in_use       
+		 * 标志。
 		 */
 		pg_read_barrier();
 
-		/* See whether we already know about this worker. */
+		/* 看看我们是否已知晓该 worker。       */
 		rw = FindRegisteredWorkerBySlotNumber(slotno);
 		if (rw != NULL)
 		{
 			/*
-			 * In general, the worker data can't change after it's initially
-			 * registered.  However, someone can set the terminate flag.
+			 * 一般而言，worker 数据初次注册后不再变化。   
+			 * 但有人可以设置 terminate 标志。                
 			 */
 			if (slot->terminate && !rw->rw_terminate)
 			{
@@ -295,7 +295,7 @@ BackgroundWorkerStateChange(bool allow_new_workers)
 					kill(rw->rw_pid, SIGTERM);
 				else
 				{
-					/* Report never-started, now-terminated worker as dead. */
+					/* 未启动即已终止的 worker 记为已死亡。   */
 					ReportBackgroundWorkerPID(rw);
 				}
 			}
@@ -303,29 +303,29 @@ BackgroundWorkerStateChange(bool allow_new_workers)
 		}
 
 		/*
-		 * If we aren't allowing new workers, then immediately mark it for
-		 * termination; the next stanza will take care of cleaning it up.
-		 * Doing this ensures that any process waiting for the worker will get
-		 * awoken, even though the worker will never be allowed to run.
+		 * 若不允许新 worker，就立即将其标记为待终止；  
+		 * 下一个代码段会负责清理它。                       
+		 * 这样做确保任何等待该 worker 的进程都会被唤醒，  
+		 * 即使该 worker 永远不会被允许运行。             
 		 */
 		if (!allow_new_workers)
 			slot->terminate = true;
 
 		/*
-		 * If the worker is marked for termination, we don't need to add it to
-		 * the registered workers list; we can just free the slot. However, if
-		 * bgw_notify_pid is set, the process that registered the worker may
-		 * need to know that we've processed the terminate request, so be sure
-		 * to signal it.
+		 * 如果 worker 被标记待终止，就无需将其加入已注册  
+		 * worker 列表，直接释放槽位即可。但如果设置了      
+		 * bgw_notify_pid，注册该 worker 的进程可能需要知道    
+		 * 我们已处理终止请求，因此务必向它发送信号。    
+		 *              
 		 */
 		if (slot->terminate)
 		{
 			int			notify_pid;
 
 			/*
-			 * We need a memory barrier here to make sure that the load of
-			 * bgw_notify_pid and the update of parallel_terminate_count
-			 * complete before the store to in_use.
+			 * 这里需要内存屏障，确保 bgw_notify_pid 读取    
+			 * 与 parallel_terminate_count 的更新先于对 in_use   
+			 * 的写入完成。                  
 			 */
 			notify_pid = slot->worker.bgw_notify_pid;
 			if ((slot->worker.bgw_flags & BGWORKER_CLASS_PARALLEL) != 0)
@@ -342,7 +342,7 @@ BackgroundWorkerStateChange(bool allow_new_workers)
 		}
 
 		/*
-		 * Copy the registration data into the registered workers list.
+		 * 把注册数据复制进已注册 worker 列表。          
 		 */
 		rw = malloc(sizeof(RegisteredBgWorker));
 		if (rw == NULL)
@@ -354,8 +354,8 @@ BackgroundWorkerStateChange(bool allow_new_workers)
 		}
 
 		/*
-		 * Copy strings in a paranoid way.  If shared memory is corrupted, the
-		 * source data might not even be NUL-terminated.
+		 * 以偏执的方式复制字符串。如果共享内存已损坏， 
+		 * 源数据甚至可能缺 NUL 结尾。       
 		 */
 		ascii_safe_strlcpy(rw->rw_worker.bgw_name,
 						   slot->worker.bgw_name, BGW_MAXLEN);
@@ -367,12 +367,12 @@ BackgroundWorkerStateChange(bool allow_new_workers)
 						   slot->worker.bgw_function_name, BGW_MAXLEN);
 
 		/*
-		 * Copy various fixed-size fields.
+		 * 复制各种定长字段。    
 		 *
-		 * flags, start_time, and restart_time are examined by the postmaster,
-		 * but nothing too bad will happen if they are corrupted.  The
-		 * remaining fields will only be examined by the child process.  It
-		 * might crash, but we won't.
+		 * flags、start_time、restart_time 由 postmaster 检查，即使   
+		 * 损坏也无碍。其余字段只会被子进程检查，  
+		 * 它可能崩溃，但我们不会。                            
+		 *                           
 		 */
 		rw->rw_worker.bgw_flags = slot->worker.bgw_flags;
 		rw->rw_worker.bgw_start_time = slot->worker.bgw_start_time;
@@ -381,13 +381,13 @@ BackgroundWorkerStateChange(bool allow_new_workers)
 		memcpy(rw->rw_worker.bgw_extra, slot->worker.bgw_extra, BGW_EXTRALEN);
 
 		/*
-		 * Copy the PID to be notified about state changes, but only if the
-		 * postmaster knows about a backend with that PID.  It isn't an error
-		 * if the postmaster doesn't know about the PID, because the backend
-		 * that requested the worker could have died (or been killed) just
-		 * after doing so.  Nonetheless, at least until we get some experience
-		 * with how this plays out in the wild, log a message at a relative
-		 * high debug level.
+		 * 复制需要获知状态变化的 PID，但前提是 postmaster 
+		 * 知道拥有该 PID 的后端。如果 postmaster 不知道该    
+		 * PID 也非错误，因为请求该 worker 的后端可能刚刚  
+		 * 发出请求即死亡（或被杀）了。不过，至少在   
+		 * 积累一些实际经验之前，要以相对较高的调试级别 
+		 * 记录一条日志。                                           
+		 *                  
 		 */
 		rw->rw_worker.bgw_notify_pid = slot->worker.bgw_notify_pid;
 		if (!PostmasterMarkPIDForWorkerNotify(rw->rw_worker.bgw_notify_pid))
@@ -397,7 +397,7 @@ BackgroundWorkerStateChange(bool allow_new_workers)
 			rw->rw_worker.bgw_notify_pid = 0;
 		}
 
-		/* Initialize postmaster bookkeeping. */
+		/* 初始化 postmaster 记账。     */
 		rw->rw_backend = NULL;
 		rw->rw_pid = 0;
 		rw->rw_child_slot = 0;
@@ -405,7 +405,7 @@ BackgroundWorkerStateChange(bool allow_new_workers)
 		rw->rw_shmem_slot = slotno;
 		rw->rw_terminate = false;
 
-		/* Log it! */
+		/* 记录  */
 		ereport(DEBUG1,
 				(errmsg_internal("registering background worker \"%s\"",
 								 rw->rw_worker.bgw_name)));
@@ -415,15 +415,15 @@ BackgroundWorkerStateChange(bool allow_new_workers)
 }
 
 /*
- * Forget about a background worker that's no longer needed.
+ * 忘记不再需要的后台 worker。                    
  *
- * The worker must be identified by passing an slist_mutable_iter that
- * points to it.  This convention allows deletion of workers during
- * searches of the worker list, and saves having to search the list again.
+ * 必须通过传入指向它的 slist_mutable_iter 来标识。     
+ * 这一惯例允许在遍历 worker 列表期间删除 worker， 
+ * 也省去了再次搜索列表的麻烦。                             
  *
- * Caller is responsible for notifying bgw_notify_pid, if appropriate.
+ * 如属适当，由调用者负责通知 bgw_notify_pid。          
  *
- * This function must be invoked only in the postmaster.
+ * 本函数只能在 postmaster 中调用。           
  */
 void
 ForgetBackgroundWorker(slist_mutable_iter *cur)
@@ -438,8 +438,8 @@ ForgetBackgroundWorker(slist_mutable_iter *cur)
 	Assert(slot->in_use);
 
 	/*
-	 * We need a memory barrier here to make sure that the update of
-	 * parallel_terminate_count completes before the store to in_use.
+	 * 这里需要内存屏障，确保 parallel_terminate_count   
+	 * 的更新先于对 in_use 的写入完成。                  
 	 */
 	if ((rw->rw_worker.bgw_flags & BGWORKER_CLASS_PARALLEL) != 0)
 		BackgroundWorkerData->parallel_terminate_count++;
@@ -456,9 +456,9 @@ ForgetBackgroundWorker(slist_mutable_iter *cur)
 }
 
 /*
- * Report the PID of a newly-launched background worker in shared memory.
+ * 在共享内存中登记新启动后台 worker 的 PID。             
  *
- * This function should only be called from the postmaster.
+ * 本函数只应由 postmaster 调用。                 
  */
 void
 ReportBackgroundWorkerPID(RegisteredBgWorker *rw)
@@ -474,10 +474,10 @@ ReportBackgroundWorkerPID(RegisteredBgWorker *rw)
 }
 
 /*
- * Report that the PID of a background worker is now zero because a
- * previously-running background worker has exited.
+ * 登记某后台 worker 的 PID 已变为 0，因为一个先前 
+ * 在运行的后台 worker 已退出。          
  *
- * This function should only be called from the postmaster.
+ * 本函数只应由 postmaster 调用。                 
  */
 void
 ReportBackgroundWorkerExit(slist_mutable_iter *cur)
@@ -494,11 +494,11 @@ ReportBackgroundWorkerExit(slist_mutable_iter *cur)
 	notify_pid = rw->rw_worker.bgw_notify_pid;
 
 	/*
-	 * If this worker is slated for deregistration, do that before notifying
-	 * the process which started it.  Otherwise, if that process tries to
-	 * reuse the slot immediately, it might not be available yet.  In theory
-	 * that could happen anyway if the process checks slot->pid at just the
-	 * wrong moment, but this makes the window narrower.
+	 * 如果该 worker 已列入待注销名单，先完成注销再       
+	 * 通知启动它的进程。否则若该进程立即尝试复用   
+	 * 槽位，该槽可能尚不可用。理论上，如果进程恰好   
+	 * 在错误的时刻检查 slot->pid，这种情形无论如何       
+	 * 都可能发生，但这能把窗口收窄。    
 	 */
 	if (rw->rw_terminate ||
 		rw->rw_worker.bgw_restart_time == BGW_NEVER_RESTART)
@@ -509,9 +509,9 @@ ReportBackgroundWorkerExit(slist_mutable_iter *cur)
 }
 
 /*
- * Cancel SIGUSR1 notifications for a PID belonging to an exiting backend.
+ * 为一个正在退出的后端所属的 PID 取消 SIGUSR1 通知。   
  *
- * This function should only be called from the postmaster.
+ * 本函数只应由 postmaster 调用。                 
  */
 void
 BackgroundWorkerStopNotifications(pid_t pid)
@@ -529,16 +529,16 @@ BackgroundWorkerStopNotifications(pid_t pid)
 }
 
 /*
- * Cancel any not-yet-started worker requests that have waiting processes.
+ * 取消那些已有进程在等待的、尚未启动的 worker 请求。
  *
- * This is called during a normal ("smart" or "fast") database shutdown.
- * After this point, no new background workers will be started, so anything
- * that might be waiting for them needs to be kicked off its wait.  We do
- * that by canceling the bgworker registration entirely, which is perhaps
- * overkill, but since we're shutting down it does not matter whether the
- * registration record sticks around.
+ * 本函数在正常（"smart"/"fast"）数据库关闭期间调用。 
+ * 此后不会再启动新的后台 worker，因此任何可能在        
+ * 等待它们的进程都必须结束等待。我们的做法          
+ * 是完全取消 bgworker 注册，这或许有点小题大做，      
+ * 但既然正在关闭，注册记录是否留存已无关紧要。    
+ *                                   
  *
- * This function should only be called from the postmaster.
+ * 本函数只应由 postmaster 调用。                 
  */
 void
 ForgetUnstartedBackgroundWorkers(void)
@@ -554,11 +554,11 @@ ForgetUnstartedBackgroundWorkers(void)
 		Assert(rw->rw_shmem_slot < max_worker_processes);
 		slot = &BackgroundWorkerData->slot[rw->rw_shmem_slot];
 
-		/* If it's not yet started, and there's someone waiting ... */
+		/* 若它尚未启动，且有人在等待...               */
 		if (slot->pid == InvalidPid &&
 			rw->rw_worker.bgw_notify_pid != 0)
 		{
-			/* ... then zap it, and notify the waiter */
+			/* ...就删掉它，并通知等待者   */
 			int			notify_pid = rw->rw_worker.bgw_notify_pid;
 
 			ForgetBackgroundWorker(&iter);
@@ -569,14 +569,14 @@ ForgetUnstartedBackgroundWorkers(void)
 }
 
 /*
- * Reset background worker crash state.
+ * 重置后台 worker 崩溃状态。 
  *
- * We assume that, after a crash-and-restart cycle, background workers without
- * the never-restart flag should be restarted immediately, instead of waiting
- * for bgw_restart_time to elapse.  On the other hand, workers with that flag
- * should be forgotten immediately, since we won't ever restart them.
+ * 我们假定，在经历崩溃与重启的一个周期之后，            
+ * 不带 never-restart 标志的后台 worker 应立即重启，            
+ * 而不必等待 bgw_restart_time 流逝。另一方面，带有           
+ * 该标志的 worker 应立即忘记，因为我们永不重启。 
  *
- * This function should only be called from the postmaster.
+ * 本函数只应由 postmaster 调用。                 
  */
 void
 ResetBackgroundWorkerCrashTimes(void)
@@ -592,33 +592,33 @@ ResetBackgroundWorkerCrashTimes(void)
 		if (rw->rw_worker.bgw_restart_time == BGW_NEVER_RESTART)
 		{
 			/*
-			 * Workers marked BGW_NEVER_RESTART shouldn't get relaunched after
-			 * the crash, so forget about them.  (If we wait until after the
-			 * crash to forget about them, and they are parallel workers,
-			 * parallel_terminate_count will get incremented after we've
-			 * already zeroed parallel_register_count, which would be bad.)
+			 * 标记为 BGW_NEVER_RESTART 的 worker 在崩溃后不应      
+			 * 再重启，所以要忘掉它们。（若等到崩溃后    
+			 * 才忘记它们，而它们又是并行 worker，那么   
+			 * 在我们已将 parallel_register_count 清零之后，  
+			 * parallel_terminate_count 仍会递增，那就糟了。）  
 			 */
 			ForgetBackgroundWorker(&iter);
 		}
 		else
 		{
 			/*
-			 * The accounting which we do via parallel_register_count and
-			 * parallel_terminate_count would get messed up if a worker marked
-			 * parallel could survive a crash and restart cycle. All such
-			 * workers should be marked BGW_NEVER_RESTART, and thus control
-			 * should never reach this branch.
+			 * 我们经由 parallel_register_count 与                  
+			 * parallel_terminate_count 完成的记账，若标记为        
+			 * parallel 的 worker 若挺过崩溃重启循环，记账  
+			 * 会乱套。这类 worker 都应标为 BGW_NEVER_RESTART， 
+			 * 控制流不该到此分支。 
 			 */
 			Assert((rw->rw_worker.bgw_flags & BGWORKER_CLASS_PARALLEL) == 0);
 
 			/*
-			 * Allow this worker to be restarted immediately after we finish
-			 * resetting.
+			 * 允许该 worker 在我们完成重置后立即              
+			 * 重启。 
 			 */
 			rw->rw_crashed_at = 0;
 
 			/*
-			 * If there was anyone waiting for it, they're history.
+			 * 等待它的那些进程就此完蛋了。          
 			 */
 			rw->rw_worker.bgw_notify_pid = 0;
 		}
@@ -627,8 +627,8 @@ ResetBackgroundWorkerCrashTimes(void)
 
 #ifdef EXEC_BACKEND
 /*
- * In EXEC_BACKEND mode, workers use this to retrieve their details from
- * shared memory.
+ * EXEC_BACKEND 模式下，worker 用它从共享内存中取          
+ * 回详情。  
  */
 BackgroundWorker *
 BackgroundWorkerEntry(int slotno)
@@ -640,27 +640,27 @@ BackgroundWorkerEntry(int slotno)
 	slot = &BackgroundWorkerData->slot[slotno];
 	Assert(slot->in_use);
 
-	/* must copy this in case we don't intend to retain shmem access */
+	/* 必须复制一份，以防不再保留共享内存访问。  */
 	memcpy(&myEntry, &slot->worker, sizeof myEntry);
 	return &myEntry;
 }
 #endif
 
 /*
- * Complain about the BackgroundWorker definition using error level elevel.
- * Return true if it looks ok, false if not (unless elevel >= ERROR, in
- * which case we won't return at all in the not-OK case).
+ * 以错误级别 elevel 报告 BackgroundWorker 定义的问题。       
+ * 若看起来没问题则返回 true，否则返回 false（不过   
+ * elevel >= ERROR 时则根本不会返回）。        
  */
 static bool
 SanityCheckBackgroundWorker(BackgroundWorker *worker, int elevel)
 {
-	/* sanity check for flags */
+	/* 校验 flags。        */
 
 	/*
-	 * We used to support workers not connected to shared memory, but don't
-	 * anymore. Thus this is a required flag now. We're not removing the flag
-	 * for compatibility reasons and because the flag still provides some
-	 * signal when reading code.
+	 * 过去我们支持不连接共享内存的 worker，但现在       
+	 * 不再支持了。因此该标志现在是必需的。出于兼容性 
+	 * 考虑，也由于该标志在阅读代码时仍能提供一些   
+	 * 信息，故未移除。 
 	 */
 	if (!(worker->bgw_flags & BGWORKER_SHMEM_ACCESS))
 	{
@@ -682,7 +682,7 @@ SanityCheckBackgroundWorker(BackgroundWorker *worker, int elevel)
 			return false;
 		}
 
-		/* XXX other checks? */
+		/* XXX 其他检查  */
 	}
 
 	if ((worker->bgw_restart_time < 0 &&
@@ -697,9 +697,9 @@ SanityCheckBackgroundWorker(BackgroundWorker *worker, int elevel)
 	}
 
 	/*
-	 * Parallel workers may not be configured for restart, because the
-	 * parallel_register_count/parallel_terminate_count accounting can't
-	 * handle parallel workers lasting through a crash-and-restart cycle.
+	 * 并行 worker 不可配置为自动重启，因为             
+	 * parallel_register_count/parallel_terminate_count 这             
+	 * 套记账无法应对挺过崩溃重启周期的并行 worker。  
 	 */
 	if (worker->bgw_restart_time != BGW_NEVER_RESTART &&
 		(worker->bgw_flags & BGWORKER_CLASS_PARALLEL) != 0)
@@ -712,7 +712,7 @@ SanityCheckBackgroundWorker(BackgroundWorker *worker, int elevel)
 	}
 
 	/*
-	 * If bgw_type is not filled in, use bgw_name.
+	 * bgw_type 未填则用 bgw_name。          
 	 */
 	if (strcmp(worker->bgw_type, "") == 0)
 		strcpy(worker->bgw_type, worker->bgw_name);
@@ -721,7 +721,7 @@ SanityCheckBackgroundWorker(BackgroundWorker *worker, int elevel)
 }
 
 /*
- * Standard SIGTERM handler for background workers
+ * 后台 worker 的标准 SIGTERM 处理器      
  */
 static void
 bgworker_die(SIGNAL_ARGS)
@@ -735,10 +735,10 @@ bgworker_die(SIGNAL_ARGS)
 }
 
 /*
- * Start a new background worker
+ * 启动新后台 worker       
  *
- * This is the main entry point for background worker, to be called from
- * postmaster.
+ * 这是后台 worker 的主入口点，由 postmaster 调用。       
+ *            
  */
 void
 StartBackgroundWorker(void)
@@ -757,23 +757,23 @@ StartBackgroundWorker(void)
 
 	SetProcessingMode(InitProcessing);
 
-	/* Apply PostAuthDelay */
+	/* 应用 PostAuthDelay*/
 	if (PostAuthDelay > 0)
 		pg_usleep(PostAuthDelay * 1000000L);
 
 	/*
-	 * Set up signal handlers.
+	 * 建立信号处理器  
 	 */
 	if (worker->bgw_flags & BGWORKER_BACKEND_DATABASE_CONNECTION)
 	{
 		/*
-		 * SIGINT is used to signal canceling the current action
+		 * SIGINT 用于请求取消当前操作                
 		 */
 		pqsignal(SIGINT, StatementCancelHandler);
 		pqsignal(SIGUSR1, procsignal_sigusr1_handler);
 		pqsignal(SIGFPE, FloatExceptionHandler);
 
-		/* XXX Any other handlers needed here? */
+		/* XXX 还需其他处理器吗？     */
 	}
 	else
 	{
@@ -782,94 +782,94 @@ StartBackgroundWorker(void)
 		pqsignal(SIGFPE, SIG_IGN);
 	}
 	pqsignal(SIGTERM, bgworker_die);
-	/* SIGQUIT handler was already set up by InitPostmasterChild */
+	/* SIGQUIT 处理器已由 InitPostmasterChild 建立完毕  */
 	pqsignal(SIGHUP, SIG_IGN);
 
-	InitializeTimeouts();		/* establishes SIGALRM handler */
+	InitializeTimeouts();		/* 建立 SIGALRM 处理器    */
 
 	pqsignal(SIGPIPE, SIG_IGN);
 	pqsignal(SIGUSR2, SIG_IGN);
 	pqsignal(SIGCHLD, SIG_DFL);
 
 	/*
-	 * If an exception is encountered, processing resumes here.
+	 * 若遇到异常，处理流程会从此处继续。     
 	 *
-	 * We just need to clean up, report the error, and go away.
+	 * 只需清理现场、报告错误，然后退出。     
 	 */
 	if (sigsetjmp(local_sigjmp_buf, 1) != 0)
 	{
-		/* Since not using PG_TRY, must reset error stack by hand */
+		/* 由于未使用 PG_TRY，必须手工重置错误栈   */
 		error_context_stack = NULL;
 
-		/* Prevent interrupts while cleaning up */
+		/* 清理期间屏蔽中断             */
 		HOLD_INTERRUPTS();
 
 		/*
-		 * sigsetjmp will have blocked all signals, but we may need to accept
-		 * signals while communicating with our parallel leader.  Once we've
-		 * done HOLD_INTERRUPTS() it should be safe to unblock signals.
+		 * sigsetjmp 已阻塞所有信号，但在与并行 leader 通信时
+		 * 我们可能要接收信号。一旦执行 HOLD_INTERRUPTS()，  
+		 * 解除信号阻塞就应该是安全的。                  
 		 */
 		BackgroundWorkerUnblockSignals();
 
-		/* Report the error to the parallel leader and the server log */
+		/* 向并行 leader 与服务器日志报告该错误         */
 		EmitErrorReport();
 
 		/*
-		 * Do we need more cleanup here?  For shmem-connected bgworkers, we
-		 * will call InitProcess below, which will install ProcKill as exit
-		 * callback.  That will take care of releasing locks, etc.
+		 * 此处还需要更多清理吗？对连接共享内存的       
+		 * bgworker 会调用下面的 InitProcess，它将安装 ProcKill 
+		 * 作为退出回调，它会负责释放锁等事宜。 
 		 */
 
-		/* and go away */
+		/* 然后退出*/
 		proc_exit(1);
 	}
 
-	/* We can now handle ereport(ERROR) */
+	/* 现在可处理 ereport(ERROR)   */
 	PG_exception_stack = &local_sigjmp_buf;
 
 	/*
-	 * Create a per-backend PGPROC struct in shared memory, except in the
-	 * EXEC_BACKEND case where this was done in SubPostmasterMain. We must do
-	 * this before we can use LWLocks (and in the EXEC_BACKEND case we already
-	 * had to do some stuff with LWLocks).
+	 * 在共享内存中为每个后端创建 PGPROC 结构，          
+	 * EXEC_BACKEND 模式除外，那一情形已在 SubPostmasterMain      
+	 * 中完成。使用 LWLock 之前必须先做到这一点（而         
+	 * EXEC_BACKEND 下已用过它）。 
 	 */
 #ifndef EXEC_BACKEND
 	InitProcess();
 #endif
 
 	/*
-	 * Early initialization.
+	 * 早期初始化。   
 	 */
 	BaseInit();
 
 	/*
-	 * Look up the entry point function, loading its library if necessary.
+	 * 查找入口点函数，必要时加载其所在的库。          
 	 */
 	entrypt = LookupBackgroundWorkerFunction(worker->bgw_library_name,
 											 worker->bgw_function_name);
 
 	/*
-	 * Note that in normal processes, we would call InitPostgres here.  For a
-	 * worker, however, we don't know what database to connect to, yet; so we
-	 * need to wait until the user code does it via
-	 * BackgroundWorkerInitializeConnection().
+	 * 注意在普通进程中，我们会在此处调用 InitPostgres。   
+	 * 但对 worker 而言，我们还不知道要连接哪个数据库；  
+	 * 因此需要等待用户代码经由        
+	 * BackgroundWorkerInitializeConnection() 
 	 */
 
 	/*
-	 * Now invoke the user-defined worker code
+	 * 现在调用用户的 worker 代码    
 	 */
 	entrypt(worker->bgw_main_arg);
 
-	/* ... and if it returns, we're done */
+	/* ...它若返回，即告完成    */
 	proc_exit(0);
 }
 
 /*
- * Register a new static background worker.
+ * 注册一个新的静态后台 worker。
  *
- * This can only be called directly from postmaster or in the _PG_init
- * function of a module library that's loaded by shared_preload_libraries;
- * otherwise it will have no effect.
+ * 本函数只能由 postmaster 直接调用，或在由             
+ * shared_preload_libraries 加载的库的 _PG_init 函数中调用；   
+ * 否则不起任何作用。      
  */
 void
 RegisterBackgroundWorker(BackgroundWorker *worker)
@@ -905,10 +905,10 @@ RegisterBackgroundWorker(BackgroundWorker *worker)
 	}
 
 	/*
-	 * Enforce maximum number of workers.  Note this is overly restrictive: we
-	 * could allow more non-shmem-connected workers, because these don't count
-	 * towards the MAX_BACKENDS limit elsewhere.  For now, it doesn't seem
-	 * important to relax this restriction.
+	 * 强制执行 worker 数上限。注意这一限制过于严格：我们
+	 * 本可以允许更多不连接共享内存的 worker，因为它们    
+	 * 不计入别处 MAX_BACKENDS 限制。目前来看，放宽这条  
+	 * 限制似乎并不重要。         
 	 */
 	if (++numworkers > max_worker_processes)
 	{
@@ -924,7 +924,7 @@ RegisterBackgroundWorker(BackgroundWorker *worker)
 	}
 
 	/*
-	 * Copy the registration data into the registered workers list.
+	 * 把注册数据复制进已注册 worker 列表。          
 	 */
 	rw = malloc(sizeof(RegisteredBgWorker));
 	if (rw == NULL)
@@ -946,14 +946,14 @@ RegisterBackgroundWorker(BackgroundWorker *worker)
 }
 
 /*
- * Register a new background worker from a regular backend.
+ * 由普通后端注册新的后台 worker。             
  *
- * Returns true on success and false on failure.  Failure typically indicates
- * that no background worker slots are currently available.
+ * 成功返回 true，失败返回 false。失败通常表示当前没有   
+ * 可用的后台 worker 槽位。                        
  *
- * If handle != NULL, we'll set *handle to a pointer that can subsequently
- * be used as an argument to GetBackgroundWorkerPid().  The caller can
- * free this pointer using pfree(), if desired.
+ * 如果 handle 非 NULL，我们会把 *handle 设为一个指针，    
+ * 该指针随后可用作 GetBackgroundWorkerPid() 的参数。     
+ * 调用者可按需以 pfree() 释放。     
  */
 bool
 RegisterDynamicBackgroundWorker(BackgroundWorker *worker,
@@ -965,12 +965,12 @@ RegisterDynamicBackgroundWorker(BackgroundWorker *worker,
 	uint64		generation = 0;
 
 	/*
-	 * We can't register dynamic background workers from the postmaster. If
-	 * this is a standalone backend, we're the only process and can't start
-	 * any more.  In a multi-process environment, it might be theoretically
-	 * possible, but we don't currently support it due to locking
-	 * considerations; see comments on the BackgroundWorkerSlot data
-	 * structure.
+	 * 我们无法从 postmaster 注册动态后台 worker。如果这是 
+	 * 单机后端，我们是唯一进程，无法再启动更多。     
+	 * 多进程环境中，理论上或许可行，但由于加锁方面  
+	 * 的考虑，暂不支持；参见 BackgroundWorkerSlot    
+	 * 数据结构的注释。                                     
+	 *           
 	 */
 	if (!IsUnderPostmaster)
 		return false;
@@ -983,13 +983,13 @@ RegisterDynamicBackgroundWorker(BackgroundWorker *worker,
 	LWLockAcquire(BackgroundWorkerLock, LW_EXCLUSIVE);
 
 	/*
-	 * If this is a parallel worker, check whether there are already too many
-	 * parallel workers; if so, don't register another one.  Our view of
-	 * parallel_terminate_count may be slightly stale, but that doesn't really
-	 * matter: we would have gotten the same result if we'd arrived here
-	 * slightly earlier anyway.  There's no help for it, either, since the
-	 * postmaster must not take locks; a memory barrier wouldn't guarantee
-	 * anything useful.
+	 * 如果这是并行 worker，检查并行 worker 是否已太多；    
+	 * 若是，就不再注册新的。我们对                       
+	 * parallel_terminate_count 的看法可能稍有滞后，但这无关    
+	 * 紧要：即便早一点到这里，也会得到同样结果。  
+	 * 这一点也无能为力，因为 postmaster 绝不能获取锁； 
+	 * 内存屏障保证不了任何有用的东西。                   
+	 *                 
 	 */
 	if (parallel && (BackgroundWorkerData->parallel_register_count -
 					 BackgroundWorkerData->parallel_terminate_count) >=
@@ -1003,7 +1003,7 @@ RegisterDynamicBackgroundWorker(BackgroundWorker *worker,
 	}
 
 	/*
-	 * Look for an unused slot.  If we find one, grab it.
+	 * 寻找未使用的槽位。找到就占据它。  
 	 */
 	for (slotno = 0; slotno < BackgroundWorkerData->total_slots; ++slotno)
 	{
@@ -1012,7 +1012,7 @@ RegisterDynamicBackgroundWorker(BackgroundWorker *worker,
 		if (!slot->in_use)
 		{
 			memcpy(&slot->worker, worker, sizeof(BackgroundWorker));
-			slot->pid = InvalidPid; /* indicates not started yet */
+			slot->pid = InvalidPid; /* 表示尚未启动        */
 			slot->generation++;
 			slot->terminate = false;
 			generation = slot->generation;
@@ -1020,8 +1020,8 @@ RegisterDynamicBackgroundWorker(BackgroundWorker *worker,
 				BackgroundWorkerData->parallel_register_count++;
 
 			/*
-			 * Make sure postmaster doesn't see the slot as in use before it
-			 * sees the new contents.
+			 * 确保 postmaster 不会在新内容就位前把槽位       
+			 * 当作已占用。    
 			 */
 			pg_write_barrier();
 
@@ -1033,12 +1033,12 @@ RegisterDynamicBackgroundWorker(BackgroundWorker *worker,
 
 	LWLockRelease(BackgroundWorkerLock);
 
-	/* If we found a slot, tell the postmaster to notice the change. */
+	/* 若找到了槽位，就提醒 postmaster 注意此变化。  */
 	if (success)
 		SendPostmasterSignal(PMSIGNAL_BACKGROUND_WORKER_CHANGE);
 
 	/*
-	 * If we found a slot and the user has provided a handle, initialize it.
+	 * 如果找到了槽位且用户提供了 handle，就初始化它。  
 	 */
 	if (success && handle)
 	{
@@ -1051,21 +1051,21 @@ RegisterDynamicBackgroundWorker(BackgroundWorker *worker,
 }
 
 /*
- * Get the PID of a dynamically-registered background worker.
+ * 获取动态注册的后台 worker 的 PID。             
  *
- * If the worker is determined to be running, the return value will be
- * BGWH_STARTED and *pidp will get the PID of the worker process.  If the
- * postmaster has not yet attempted to start the worker, the return value will
- * be BGWH_NOT_YET_STARTED.  Otherwise, the return value is BGWH_STOPPED.
+ * 若认定 worker 正在运行，返回值将为 BGWH_STARTED，    
+ * *pidp 将得到该 worker 进程的 PID。如果 postmaster 尚未    
+ * 尝试启动该 worker，返回值将为 BGWH_NOT_YET_STARTED。           
+ * 否则返回值为 BGWH_STOPPED。                                    
  *
- * BGWH_STOPPED can indicate either that the worker is temporarily stopped
- * (because it is configured for automatic restart and exited non-zero),
- * or that the worker is permanently stopped (because it exited with exit
- * code 0, or was not configured for automatic restart), or even that the
- * worker was unregistered without ever starting (either because startup
- * failed and the worker is not configured for automatic restart, or because
- * TerminateBackgroundWorker was used before the worker was successfully
- * started).
+ * BGWH_STOPPED 既可表示 worker 暂时停止（因为它配置        
+ * 了自动重启且以非零值退出），也可表示 worker 永久 
+ * 停止（因它以退出码 0 退出，或未配置自动重启）， 
+ * 甚至表示 worker 从未启动即被注销（或因启动失败     
+ * 且 worker 未配置自动重启，或因在 worker 成功启动     
+ * 之前使用了 TerminateBackgroundWorker）。                          
+ *                                                                      
+ *          
  */
 BgwHandleStatus
 GetBackgroundWorkerPid(BackgroundWorkerHandle *handle, pid_t *pidp)
@@ -1077,29 +1077,29 @@ GetBackgroundWorkerPid(BackgroundWorkerHandle *handle, pid_t *pidp)
 	slot = &BackgroundWorkerData->slot[handle->slot];
 
 	/*
-	 * We could probably arrange to synchronize access to data using memory
-	 * barriers only, but for now, let's just keep it simple and grab the
-	 * lock.  It seems unlikely that there will be enough traffic here to
-	 * result in meaningful contention.
+	 * 我们大概可只靠内存屏障来同步数据访问，但眼下  
+	 * 还是保持简单，直接获取锁。这里似乎不太可能有
+	 * 足够的流量，从而造成有意义的争用。               
+	 *                                 
 	 */
 	LWLockAcquire(BackgroundWorkerLock, LW_SHARED);
 
 	/*
-	 * The generation number can't be concurrently changed while we hold the
-	 * lock.  The pid, which is updated by the postmaster, can change at any
-	 * time, but we assume such changes are atomic.  So the value we read
-	 * won't be garbage, but it might be out of date by the time the caller
-	 * examines it (but that's unavoidable anyway).
+	 * 持有锁期间，generation 编号不会被并发修改。          
+	 * pid 由 postmaster 更新，随时可能变，但我们假定这些  
+	 * 变化是原子的。因此我们读到的值不会是垃圾，   
+	 * 但在调用者查看时可能已过时（不过这本来就无可  
+	 * 避免）。                                
 	 *
-	 * The in_use flag could be in the process of changing from true to false,
-	 * but if it is already false then it can't change further.
+	 * in_use 标志可能正处于从 true 变为 false 的过程中，但   
+	 * 如果它已是 false，就不会再变化。           
 	 */
 	if (handle->generation != slot->generation || !slot->in_use)
 		pid = 0;
 	else
 		pid = slot->pid;
 
-	/* All done. */
+	/* 完成。 */
 	LWLockRelease(BackgroundWorkerLock);
 
 	if (pid == 0)
@@ -1111,16 +1111,16 @@ GetBackgroundWorkerPid(BackgroundWorkerHandle *handle, pid_t *pidp)
 }
 
 /*
- * Wait for a background worker to start up.
+ * 等待一个后台 worker 启动。      
  *
- * This is like GetBackgroundWorkerPid(), except that if the worker has not
- * yet started, we wait for it to do so; thus, BGWH_NOT_YET_STARTED is never
- * returned.  However, if the postmaster has died, we give up and return
- * BGWH_POSTMASTER_DIED, since it that case we know that startup will not
- * take place.
+ * 本函数与 GetBackgroundWorkerPid() 类似，但如果 worker         
+ * 尚未启动，我们会等它启动；因此绝不会返回             
+ * BGWH_NOT_YET_STARTED。但如果 postmaster 已死亡，我们就    
+ * 放弃并返回 BGWH_POSTMASTER_DIED，因为知道启动不会       
+ * 发生。  
  *
- * The caller *must* have set our PID as the worker's bgw_notify_pid,
- * else we will not be awoken promptly when the worker's state changes.
+ * 调用者必须已把我们的 PID 设为该 worker 的           
+ * bgw_notify_pid，否则状态变化时不会被及时唤醒。      
  */
 BgwHandleStatus
 WaitForBackgroundWorkerStartup(BackgroundWorkerHandle *handle, pid_t *pidp)
@@ -1157,15 +1157,15 @@ WaitForBackgroundWorkerStartup(BackgroundWorkerHandle *handle, pid_t *pidp)
 }
 
 /*
- * Wait for a background worker to stop.
+ * 等待一个后台 worker 停止。  
  *
- * If the worker hasn't yet started, or is running, we wait for it to stop
- * and then return BGWH_STOPPED.  However, if the postmaster has died, we give
- * up and return BGWH_POSTMASTER_DIED, because it's the postmaster that
- * notifies us when a worker's state changes.
+ * 如果该 worker 尚未启动或正在运行，我们会等它停止，
+ * 然后返回 BGWH_STOPPED。但如果 postmaster 已死亡，我们就     
+ * 放弃并返回 BGWH_POSTMASTER_DIED，因为 worker 状态变化   
+ * 时是由 postmaster 通知我们的。   
  *
- * The caller *must* have set our PID as the worker's bgw_notify_pid,
- * else we will not be awoken promptly when the worker's state changes.
+ * 调用者必须已把我们的 PID 设为该 worker 的           
+ * bgw_notify_pid，否则状态变化时不会被及时唤醒。      
  */
 BgwHandleStatus
 WaitForBackgroundWorkerShutdown(BackgroundWorkerHandle *handle)
@@ -1200,11 +1200,11 @@ WaitForBackgroundWorkerShutdown(BackgroundWorkerHandle *handle)
 }
 
 /*
- * Instruct the postmaster to terminate a background worker.
+ * 指示 postmaster 终止某个后台 worker。           
  *
- * Note that it's safe to do this without regard to whether the worker is
- * still running, or even if the worker may already have exited and been
- * unregistered.
+ * 注意这一操作无需顾及该 worker 是否仍在运行，        
+ * 甚至无需顾及它是否已经退出并被注销。               
+ *              
  */
 void
 TerminateBackgroundWorker(BackgroundWorkerHandle *handle)
@@ -1215,7 +1215,7 @@ TerminateBackgroundWorker(BackgroundWorkerHandle *handle)
 	Assert(handle->slot < max_worker_processes);
 	slot = &BackgroundWorkerData->slot[handle->slot];
 
-	/* Set terminate flag in shared memory, unless slot has been reused. */
+	/* 在共享内存设置 terminate 标志，除非槽位被复用。 */
 	LWLockAcquire(BackgroundWorkerLock, LW_EXCLUSIVE);
 	if (handle->generation == slot->generation)
 	{
@@ -1224,35 +1224,35 @@ TerminateBackgroundWorker(BackgroundWorkerHandle *handle)
 	}
 	LWLockRelease(BackgroundWorkerLock);
 
-	/* Make sure the postmaster notices the change to shared memory. */
+	/* 确保 postmaster 注意到共享内存的这一变化。     */
 	if (signal_postmaster)
 		SendPostmasterSignal(PMSIGNAL_BACKGROUND_WORKER_CHANGE);
 }
 
 /*
- * Look up (and possibly load) a bgworker entry point function.
+ * 查找（并可能加载）bgworker 入口点函数。      
  *
- * For functions contained in the core code, we use library name "postgres"
- * and consult the InternalBGWorkers array.  External functions are
- * looked up, and loaded if necessary, using load_external_function().
+ * 对核心代码中的函数，我们使用库名 "postgres"，并查    
+ * 阅 InternalBGWorkers 数组。外部函数则通过            
+ * load_external_function() 查找，必要时加以加载。         
  *
- * The point of this is to pass function names as strings across process
- * boundaries.  We can't pass actual function addresses because of the
- * possibility that the function has been loaded at a different address
- * in a different process.  This is obviously a hazard for functions in
- * loadable libraries, but it can happen even for functions in the core code
- * on platforms using EXEC_BACKEND (e.g., Windows).
+ * 这样做的意义在于以字符串形式跨进程边界传递      
+ * 函数名。我们无法传递实际的函数地址，因为函数 
+ * 有可能已在不同进程中加载到不同的地址。对可     
+ * 加载库中的函数来说，这显然是一种危险；但即使  
+ * 对核心代码中的函数，在使用 EXEC_BACKEND 的平台           
+ * （如 Windows）上也可能发生。          
  *
- * At some point it might be worthwhile to get rid of InternalBGWorkers[]
- * in favor of applying load_external_function() for core functions too;
- * but that raises portability issues that are not worth addressing now.
+ * 将来或许值得去掉 InternalBGWorkers[]，改为对核心        
+ * 函数也应用 load_external_function()；但这会带来           
+ * 可移植性问题，眼下不值得处理。                        
  */
 static bgworker_main_type
 LookupBackgroundWorkerFunction(const char *libraryname, const char *funcname)
 {
 	/*
-	 * If the function is to be loaded from postgres itself, search the
-	 * InternalBGWorkers array.
+	 * 如果该函数要从 postgres 本体加载，就搜索         
+	 * InternalBGWorkers 数组
 	 */
 	if (strcmp(libraryname, "postgres") == 0)
 	{
@@ -1264,22 +1264,22 @@ LookupBackgroundWorkerFunction(const char *libraryname, const char *funcname)
 				return InternalBGWorkers[i].fn_addr;
 		}
 
-		/* We can only reach this by programming error. */
+		/* 只有编程错误才会走到这里。      */
 		elog(ERROR, "internal function \"%s\" not found", funcname);
 	}
 
-	/* Otherwise load from external library. */
+	/* 否则从外部库加载。           */
 	return (bgworker_main_type)
 		load_external_function(libraryname, funcname, true, NULL);
 }
 
 /*
- * Given a PID, get the bgw_type of the background worker.  Returns NULL if
- * not a valid background worker.
+ * 根据给定 PID 获取后台 worker 的 bgw_type。若非有效        
+ * 后台 worker 返回 NULL。  
  *
- * The return value is in static memory belonging to this function, so it has
- * to be used before calling this function again.  This is so that the caller
- * doesn't have to worry about the background worker locking protocol.
+ * 返回值位于本函数专属的静态内存中，因此必须在        
+ * 再次调用本函数之前使用它。这样调用者就不必           
+ * 操心后台 worker 的加锁协议。                             
  */
 const char *
 GetBackgroundWorkerTypeByPid(pid_t pid)

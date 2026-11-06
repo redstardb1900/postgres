@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_relation.c
- *	  parser support routines dealing with relations
+ *	  处理关系相关的解析器支持例程    
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -39,37 +39,37 @@
 
 
 /*
- * Support for fuzzily matching columns.
+ * 支持对列的模糊匹配。       
  *
- * This is for building diagnostic messages, where multiple or non-exact
- * matching attributes are of interest.
+ * 用于构建诊断消息，其中涉及多个                        
+ * 或非精确匹配的属性。      
  *
- * "distance" is the current best fuzzy-match distance if rfirst isn't NULL,
- * otherwise it is the maximum acceptable distance plus 1.
+ * "distance"在rfirst非NULL时为当前最佳模糊匹配距离，        
+ * 否则为可接受的最大距离加 1。              
  *
- * rfirst/first record the closest non-exact match so far, and distance
- * is its distance from the target name.  If we have found a second non-exact
- * match of exactly the same distance, rsecond/second record that.  (If
- * we find three of the same distance, we conclude that "distance" is not
- * a tight enough bound for a useful hint and clear rfirst/rsecond again.
- * Only if we later find something closer will we re-populate rfirst.)
+ * rfirst/first 记录迄今最接近的非精确匹配，distance     
+ * 为其与目标名的距离。若已找到第二个非精确              
+ * 且距离完全相同的匹配，rsecond/second 记录之（若     
+ * 找到三个相同距离的匹配，就断定 "distance" 上限       
+ * 不够紧，给不出有效提示，再次清除 rfirst               
+ * 和 rsecond。稍后发现更近者才会重新填充 rfirst。） 
  *
- * rexact1/exact1 record the location of the first exactly-matching column,
- * if any.  If we find multiple exact matches then rexact2/exact2 record
- * another one (we don't especially care which).  Currently, these get
- * populated independently of the fuzzy-match fields.
+ * rexact1/exact1 记录第一个精确匹配列的位置（若有），   
+ * 若找到多个精确匹配，则 rexact2/exact2 记录另一处     
+ * （不太在意是哪一个）。目前这些字段                
+ * 的填充独立于模糊匹配字段。           
  */
 typedef struct
 {
-	int			distance;		/* Current or limit distance */
-	RangeTblEntry *rfirst;		/* RTE of closest non-exact match, or NULL */
-	AttrNumber	first;			/* Col index in rfirst */
-	RangeTblEntry *rsecond;		/* RTE of another non-exact match w/same dist */
-	AttrNumber	second;			/* Col index in rsecond */
-	RangeTblEntry *rexact1;		/* RTE of first exact match, or NULL */
-	AttrNumber	exact1;			/* Col index in rexact1 */
-	RangeTblEntry *rexact2;		/* RTE of second exact match, or NULL */
-	AttrNumber	exact2;			/* Col index in rexact2 */
+	int			distance;		/* 当前或极限距离     */
+	RangeTblEntry *rfirst;		/* 最近非精确匹配的 RTE 或 NULL   */
+	AttrNumber	first;			/* rfirst 中的列号 */
+	RangeTblEntry *rsecond;		/* 另一相同距离非精确匹配的 RTE   */
+	AttrNumber	second;			/* rsecond 中的列号 */
+	RangeTblEntry *rexact1;		/* 首个精确匹配的 RTE 或 NULL*/
+	AttrNumber	exact1;			/* rexact1 中的列号 */
+	RangeTblEntry *rexact2;		/* 第二精确匹配的 RTE 或 NULL */
+	AttrNumber	exact2;			/* rexact2 中的列号 */
 } FuzzyAttrMatchState;
 
 #define MAX_FUZZY_DISTANCE				3
@@ -106,24 +106,24 @@ static bool isQueryUsingTempRelation_walker(Node *node, void *context);
 
 /*
  * refnameNamespaceItem
- *	  Given a possibly-qualified refname, look to see if it matches any visible
- *	  namespace item.  If so, return a pointer to the nsitem; else return NULL.
+ *	  给定可能带限定的 refname，查看其是否匹配任何可见的  
+ *	  命名空间条目。若匹配则返回 nsitem，否则返回 NULL。    
  *
- *	  Optionally get nsitem's nesting depth (0 = current) into *sublevels_up.
- *	  If sublevels_up is NULL, only consider items at the current nesting
- *	  level.
+ *	  可将 nsitem 嵌套深度（0=当前层）存入 *sublevels_up。     
+ *	  若 sublevels_up 为 NULL，则只考虑当前嵌套               
+ *	  层。
  *
- * An unqualified refname (schemaname == NULL) can match any item with matching
- * alias, or matching unqualified relname in the case of alias-less relation
- * items.  It is possible that such a refname matches multiple items in the
- * nearest nesting level that has a match; if so, we report an error via
- * ereport().
+ * 不带限定的 refname（schemaname == NULL）可匹配任何具有匹配  
+ * 别名的条目；无别名的关系条目，则可匹配不带限定的 
+ * relname。这样的 refname 可能在有匹配的最近嵌套           
+ * 层中匹配多个条目；若如此我们会经 ereport() 报错。 
+ *           
  *
- * A qualified refname (schemaname != NULL) can only match a relation item
- * that (a) has no alias and (b) is for the same relation identified by
- * schemaname.refname.  In this case we convert schemaname.refname to a
- * relation OID and search by relid, rather than by alias name.  This is
- * peculiar, but it's what SQL says to do.
+ * 带限定的 refname（schemaname != NULL）只能匹配满足以下   
+ * 条件的关系条目：(a) 无别名且 (b) 是由                 
+ * schemaname.refname 标识的同一关系。此时我们会把       
+ * 转为关系 OID，按 relid 搜索而非按别名。虽怪，       
+ * 但 SQL 确实如此规定。          
  */
 ParseNamespaceItem *
 refnameNamespaceItem(ParseState *pstate,
@@ -142,12 +142,12 @@ refnameNamespaceItem(ParseState *pstate,
 		Oid			namespaceId;
 
 		/*
-		 * We can use LookupNamespaceNoError() here because we are only
-		 * interested in finding existing RTEs.  Checking USAGE permission on
-		 * the schema is unnecessary since it would have already been checked
-		 * when the RTE was made.  Furthermore, we want to report "RTE not
-		 * found", not "no permissions for schema", if the name happens to
-		 * match a schema name the user hasn't got access to.
+		 * 此处可用 LookupNamespaceNoError()，因为我们只想  
+		 * 查找已存在的 RTE。无需检查模式上的 USAGE 权限， 
+		 * 因为创建 RTE 时已经检查过了。此外，若该名称    
+		 * 恰好匹配用户无权访问的模式名，我们想报告   
+		 * "RTE not found"，而不是 "no permissions for schema"。     
+		 *                                                   
 		 */
 		namespaceId = LookupNamespaceNoError(schemaname);
 		if (!OidIsValid(namespaceId))
@@ -180,21 +180,21 @@ refnameNamespaceItem(ParseState *pstate,
 }
 
 /*
- * Search the query's table namespace for an item matching the
- * given unqualified refname.  Return the nsitem if a unique match, or NULL
- * if no match.  Raise error if multiple matches.
+ * 在查询的表命名空间中搜索与给定不带限定  
+ * refname 匹配的条目。唯一匹配则返回 nsitem，无匹配      
+ * 返回 NULL；多个匹配则报错。        
  *
- * Note: it might seem that we shouldn't have to worry about the possibility
- * of multiple matches; after all, the SQL standard disallows duplicate table
- * aliases within a given SELECT level.  Historically, however, Postgres has
- * been laxer than that.  For example, we allow
+ * 注：似乎我们本不必担心出现多个匹配的可能；          
+ * 毕竟 SQL 标准禁止在同一 SELECT 层内出现重复的表          
+ * 别名。但 Postgres 历来都比这更宽松。例如，               
+ * 我们允许                                
  *		SELECT ... FROM tab1 x CROSS JOIN (tab2 x CROSS JOIN tab3 y) z
- * on the grounds that the aliased join (z) hides the aliases within it,
- * therefore there is no conflict between the two RTEs named "x".  However,
- * if tab3 is a LATERAL subquery, then from within the subquery both "x"es
- * are visible.  Rather than rejecting queries that used to work, we allow
- * this situation, and complain only if there's actually an ambiguous
- * reference to "x".
+ * 理由是带别名的连接（z）会隐藏其内部别名，故两  
+ * 个名为 "x" 的 RTE 之间并不冲突。但是，若 tab3 是        
+ * LATERAL 子查询，那么从子查询内部两个 "x" 都可见。    
+ * 我们不想拒绝以前可行的查询，故允许这种情形，     
+ * 只有当确实存在对 "x" 的歧义引用时才会             
+ * 报错。        
  */
 static ParseNamespaceItem *
 scanNameSpaceForRefname(ParseState *pstate, const char *refname, int location)
@@ -206,10 +206,10 @@ scanNameSpaceForRefname(ParseState *pstate, const char *refname, int location)
 	{
 		ParseNamespaceItem *nsitem = (ParseNamespaceItem *) lfirst(l);
 
-		/* Ignore columns-only items */
+		/* 忽略仅列条目        */
 		if (!nsitem->p_rel_visible)
 			continue;
-		/* If not inside LATERAL, ignore lateral-only items */
+		/* 若不在 LATERAL 内，则忽略仅横向条目 */
 		if (nsitem->p_lateral_only && !pstate->p_lateral_active)
 			continue;
 
@@ -229,12 +229,12 @@ scanNameSpaceForRefname(ParseState *pstate, const char *refname, int location)
 }
 
 /*
- * Search the query's table namespace for a relation item matching the
- * given relation OID.  Return the nsitem if a unique match, or NULL
- * if no match.  Raise error if multiple matches.
+ * 在查询的表命名空间中搜索与给定关系 OID 匹配的  
+ * 关系条目。唯一匹配则返回 nsitem，无匹配返回    
+ * NULL；多个匹配则报错。               
  *
- * See the comments for refnameNamespaceItem to understand why this
- * acts the way it does.
+ * 为何如此行事，参见 refnameNamespaceItem                
+ * 的注释。         
  */
 static ParseNamespaceItem *
 scanNameSpaceForRelid(ParseState *pstate, Oid relid, int location)
@@ -247,14 +247,14 @@ scanNameSpaceForRelid(ParseState *pstate, Oid relid, int location)
 		ParseNamespaceItem *nsitem = (ParseNamespaceItem *) lfirst(l);
 		RangeTblEntry *rte = nsitem->p_rte;
 
-		/* Ignore columns-only items */
+		/* 忽略仅列条目        */
 		if (!nsitem->p_rel_visible)
 			continue;
-		/* If not inside LATERAL, ignore lateral-only items */
+		/* 若不在 LATERAL 内，则忽略仅横向条目 */
 		if (nsitem->p_lateral_only && !pstate->p_lateral_active)
 			continue;
 
-		/* yes, the test for alias == NULL should be there... */
+		/* 是的，这里应有 alias == NULL 测试...      */
 		if (rte->rtekind == RTE_RELATION &&
 			rte->relid == relid &&
 			rte->alias == NULL)
@@ -273,10 +273,10 @@ scanNameSpaceForRelid(ParseState *pstate, Oid relid, int location)
 }
 
 /*
- * Search the query's CTE namespace for a CTE matching the given unqualified
- * refname.  Return the CTE (and its levelsup count) if a match, or NULL
- * if no match.  We need not worry about multiple matches, since parse_cte.c
- * rejects WITH lists containing duplicate CTE names.
+ * 在查询的 CTE 命名空间中搜索与给定不带限定 refname      
+ * 匹配的 CTE。若匹配则返回该 CTE（及 levelsup 计数），
+ * 无匹配返回 NULL。无需担心多个匹配，因为 parse_cte.c     
+ * 会拒绝含重复 CTE 名称的 WITH 列表。   
  */
 CommonTableExpr *
 scanNameSpaceForCTE(ParseState *pstate, const char *refname,
@@ -305,9 +305,9 @@ scanNameSpaceForCTE(ParseState *pstate, const char *refname,
 }
 
 /*
- * Search for a possible "future CTE", that is one that is not yet in scope
- * according to the WITH scoping rules.  This has nothing to do with valid
- * SQL semantics, but it's important for error reporting purposes.
+ * 搜索可能的"未来 CTE"，即按 WITH 作用域规则               
+ * 尚不在作用域内的 CTE。这与合法 SQL 语义无关，        
+ * 但对错误报告很重要。                                 
  */
 static bool
 isFutureCTE(ParseState *pstate, const char *refname)
@@ -328,8 +328,8 @@ isFutureCTE(ParseState *pstate, const char *refname)
 }
 
 /*
- * Search the query's ephemeral named relation namespace for a relation
- * matching the given unqualified refname.
+ * 在查询的瞬态命名关系命名空间中搜索与给定        
+ * 不带限定 refname 匹配的关系。
  */
 bool
 scanNameSpaceForENR(ParseState *pstate, const char *refname)
@@ -339,18 +339,18 @@ scanNameSpaceForENR(ParseState *pstate, const char *refname)
 
 /*
  * searchRangeTableForRel
- *	  See if any RangeTblEntry could possibly match the RangeVar.
- *	  If so, return a pointer to the RangeTblEntry; else return NULL.
+ *	  查看是否有 RangeTblEntry 可能匹配该 RangeVar。  
+ *	  若有则返回该 RangeTblEntry 指针，否则 NULL。       
  *
- * This is different from refnameNamespaceItem in that it considers every
- * entry in the ParseState's rangetable(s), not only those that are currently
- * visible in the p_namespace list(s).  This behavior is invalid per the SQL
- * spec, and it may give ambiguous results (there might be multiple equally
- * valid matches, but only one will be returned).  This must be used ONLY
- * as a heuristic in giving suitable error messages.  See errorMissingRTE.
+ * 它与 refnameNamespaceItem 的不同在于：它会考虑            
+ * ParseState 的所有范围表条目，而不只是当前在               
+ * p_namespace 列表中可见的那些。按 SQL 标准这一              
+ * 行为无效，且可能给出歧义结果（可能存在多个         
+ * 同样有效的匹配，但只返回其一）。它只能用作       
+ * 给出合适错误消息的启发式手段。参见 errorMissingRTE。 
  *
- * Notice that we consider both matches on actual relation (or CTE) name
- * and matches on alias.
+ * 注意我们会同时考虑对实际关系（或 CTE）名的匹配  
+ * 及别名匹配。   
  */
 static RangeTblEntry *
 searchRangeTableForRel(ParseState *pstate, RangeVar *relation)
@@ -363,16 +363,16 @@ searchRangeTableForRel(ParseState *pstate, RangeVar *relation)
 	Index		levelsup;
 
 	/*
-	 * If it's an unqualified name, check for possible CTE matches. A CTE
-	 * hides any real relation matches.  If no CTE, look for a matching
-	 * relation.
+	 * 若名称不带限定，则检查是否有可匹配的 CTE。CTE  
+	 * 会遮蔽真实关系匹配。若无 CTE，则查找匹配的   
+	 * 关系。
 	 *
-	 * NB: It's not critical that RangeVarGetRelid return the correct answer
-	 * here in the face of concurrent DDL.  If it doesn't, the worst case
-	 * scenario is a less-clear error message.  Also, the tables involved in
-	 * the query are already locked, which reduces the number of cases in
-	 * which surprising behavior can occur.  So we do the name lookup
-	 * unlocked.
+	 * 注意：面对并发 DDL，RangeVarGetRelid 在此返回的答案   
+	 * 并不必须正确。若不正确，最坏情况也只是一条   
+	 * 不够清晰的错误消息。而且查询涉及的表均已锁定，
+	 * 这减少了出现意外行为的情况数量。因此我们进行
+	 * 不加锁的名称查找。                                   
+	 *          
 	 */
 	if (!relation->schemaname)
 	{
@@ -384,7 +384,7 @@ searchRangeTableForRel(ParseState *pstate, RangeVar *relation)
 	if (!cte && !isenr)
 		relId = RangeVarGetRelid(relation, NoLock, true);
 
-	/* Now look for RTEs matching either the relation/CTE/ENR or the alias */
+	/* 然后查找匹配关系/CTE/ENR 或别名的 RTE                   */
 	for (levelsup = 0;
 		 pstate != NULL;
 		 pstate = pstate->parentParseState, levelsup++)
@@ -416,19 +416,19 @@ searchRangeTableForRel(ParseState *pstate, RangeVar *relation)
 }
 
 /*
- * Check for relation-name conflicts between two namespace lists.
- * Raise an error if any is found.
+ * 检查两个命名空间列表之间的关系名冲突。     
+ * 若发现冲突则报错。    
  *
- * Note: we assume that each given argument does not contain conflicts
- * itself; we just want to know if the two can be merged together.
+ * 注：我们假定每个给定参数自身不含冲突；          
+ * 我们只想知道两者能否合并在一起。               
  *
- * Per SQL, two alias-less plain relation RTEs do not conflict even if
- * they have the same eref->aliasname (ie, same relation name), if they
- * are for different relation OIDs (implying they are in different schemas).
+ * 按 SQL 规则，两个无别名普通关系 RTE 即使            
+ * eref->aliasname 相同（即关系名相同），只要二者的    
+ * 关系 OID 不同（即处于不同模式），则互不冲突。        
  *
- * We ignore the lateral-only flags in the namespace items: the lists must
- * not conflict, even when all items are considered visible.  However,
- * columns-only items should be ignored.
+ * 我们忽略命名空间条目中的仅横向标志：两个列表     
+ * 必须互不冲突，即使所有条目均视为可见。不过， 
+ * 应忽略仅列条目。             
  */
 void
 checkNameSpaceConflicts(ParseState *pstate, List *namespace1,
@@ -455,11 +455,11 @@ checkNameSpaceConflicts(ParseState *pstate, List *namespace1,
 			if (!nsitem2->p_rel_visible)
 				continue;
 			if (strcmp(aliasname2, aliasname1) != 0)
-				continue;		/* definitely no conflict */
+				continue;		/* 肯定无冲突        */
 			if (rte1->rtekind == RTE_RELATION && rte1->alias == NULL &&
 				rte2->rtekind == RTE_RELATION && rte2->alias == NULL &&
 				rte1->relid != rte2->relid)
-				continue;		/* no conflict per SQL rule */
+				continue;		/* 按 SQL 规则无冲突  */
 			ereport(ERROR,
 					(errcode(ERRCODE_DUPLICATE_ALIAS),
 					 errmsg("table name \"%s\" specified more than once",
@@ -469,15 +469,15 @@ checkNameSpaceConflicts(ParseState *pstate, List *namespace1,
 }
 
 /*
- * Complain if a namespace item is currently disallowed as a LATERAL reference.
- * This enforces both SQL:2008's rather odd idea of what to do with a LATERAL
- * reference to the wrong side of an outer join, and our own prohibition on
- * referencing the target table of an UPDATE or DELETE as a lateral reference
- * in a FROM/USING clause.
+ * 若命名空间条目当前不允许作为 LATERAL 引用则报错。       
+ * 这既强制执行了 SQL:2008 对外连接错误一侧的 LATERAL        
+ * 引用的颇为古怪的处理方式，也强制执行我们自己      
+ * 的禁令：在 FROM/USING 子句中不得横向引用 UPDATE             
+ * 或 DELETE 目标表。
  *
- * Note: the pstate should be the same query level the nsitem was found in.
+ * 注：pstate 应当是发现该 nsitem 时所在的查询层级。      
  *
- * Convenience subroutine to avoid multiple copies of a rather ugly ereport.
+ * 便捷子例程，用于避免重复书写相当丑陋的 ereport。     
  */
 static void
 check_lateral_ref_ok(ParseState *pstate, ParseNamespaceItem *nsitem,
@@ -485,7 +485,7 @@ check_lateral_ref_ok(ParseState *pstate, ParseNamespaceItem *nsitem,
 {
 	if (nsitem->p_lateral_only && !nsitem->p_lateral_ok)
 	{
-		/* SQL:2008 demands this be an error, not an invisible item */
+		/* SQL:2008 要求此为错误，而非不可见条目      */
 		RangeTblEntry *rte = nsitem->p_rte;
 		char	   *refname = nsitem->p_names->aliasname;
 
@@ -503,8 +503,8 @@ check_lateral_ref_ok(ParseState *pstate, ParseNamespaceItem *nsitem,
 }
 
 /*
- * Given an RT index and nesting depth, find the corresponding
- * ParseNamespaceItem (there must be one).
+ * 给定 RT 索引和嵌套深度，找到对应的          
+ * ParseNamespaceItem（必定存在）。
  */
 ParseNamespaceItem *
 GetNSItemByRangeTablePosn(ParseState *pstate,
@@ -526,12 +526,12 @@ GetNSItemByRangeTablePosn(ParseState *pstate,
 			return nsitem;
 	}
 	elog(ERROR, "nsitem not found (internal error)");
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 让编译器安静  */
 }
 
 /*
- * Given an RT index and nesting depth, find the corresponding RTE.
- * (Note that the RTE need not be in the query's namespace.)
+ * 给定 RT 索引和嵌套深度，找到对应的 RTE。        
+ * （注意该 RTE 不必在查询命名空间中。）    
  */
 RangeTblEntry *
 GetRTEByRangeTablePosn(ParseState *pstate,
@@ -548,10 +548,10 @@ GetRTEByRangeTablePosn(ParseState *pstate,
 }
 
 /*
- * Fetch the CTE for a CTE-reference RTE.
+ * 为 CTE 引用 RTE 取得其 CTE。   
  *
- * rtelevelsup is the number of query levels above the given pstate that the
- * RTE came from.
+ * rtelevelsup 是该 RTE 相对给定 pstate 之上的查询               
+ * 层数。     
  */
 CommonTableExpr *
 GetCTEForRTE(ParseState *pstate, RangeTblEntry *rte, int rtelevelsup)
@@ -564,7 +564,7 @@ GetCTEForRTE(ParseState *pstate, RangeTblEntry *rte, int rtelevelsup)
 	while (levelsup-- > 0)
 	{
 		pstate = pstate->parentParseState;
-		if (!pstate)			/* shouldn't happen */
+		if (!pstate)			/* 不应发生     */
 			elog(ERROR, "bad levelsup for CTE \"%s\"", rte->ctename);
 	}
 	foreach(lc, pstate->p_ctenamespace)
@@ -574,14 +574,14 @@ GetCTEForRTE(ParseState *pstate, RangeTblEntry *rte, int rtelevelsup)
 		if (strcmp(cte->ctename, rte->ctename) == 0)
 			return cte;
 	}
-	/* shouldn't happen */
+	/* 不应发生     */
 	elog(ERROR, "could not find CTE \"%s\"", rte->ctename);
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 让编译器安静  */
 }
 
 /*
  * updateFuzzyAttrMatchState
- *	  Using Levenshtein distance, consider if column is best fuzzy match.
+ *	  用 Levenshtein 距离判断列是否为最佳模糊匹配。      
  */
 static void
 updateFuzzyAttrMatchState(int fuzzy_rte_penalty,
@@ -591,18 +591,18 @@ updateFuzzyAttrMatchState(int fuzzy_rte_penalty,
 	int			columndistance;
 	int			matchlen;
 
-	/* Bail before computing the Levenshtein distance if there's no hope. */
+	/* 若已无希望，则免算 Levenshtein 距离，直接退出。   */
 	if (fuzzy_rte_penalty > fuzzystate->distance)
 		return;
 
 	/*
-	 * Outright reject dropped columns, which can appear here with apparent
-	 * empty actual names, per remarks within scanRTEForColumn().
+	 * 直接拒绝已删除列；此类列在此处表现为实际        
+	 * 名称为空，理由见 scanRTEForColumn() 的说明。  
 	 */
 	if (actual[0] == '\0')
 		return;
 
-	/* Use Levenshtein to compute match distance. */
+	/* 用 Levenshtein 计算匹配距离。      */
 	matchlen = strlen(match);
 	columndistance =
 		varstr_levenshtein_less_equal(actual, strlen(actual), match, matchlen,
@@ -612,25 +612,25 @@ updateFuzzyAttrMatchState(int fuzzy_rte_penalty,
 									  true);
 
 	/*
-	 * If more than half the characters are different, don't treat it as a
-	 * match, to avoid making ridiculous suggestions.
+	 * 若超过一半的字符不同，就不要将其视为匹配，    
+	 * 以免给出荒谬的建议。                
 	 */
 	if (columndistance > matchlen / 2)
 		return;
 
 	/*
-	 * From this point on, we can ignore the distinction between the RTE-name
-	 * distance and the column-name distance.
+	 * 从这里开始，我们可以忽略 RTE 名距离与列              
+	 * 名距离之间的区别。           
 	 */
 	columndistance += fuzzy_rte_penalty;
 
 	/*
-	 * If the new distance is less than or equal to that of the best match
-	 * found so far, update fuzzystate.
+	 * 若新距离小于等于迄今找到的最佳匹配的距离，    
+	 * 则更新 fuzzystate。         
 	 */
 	if (columndistance < fuzzystate->distance)
 	{
-		/* Store new lowest observed distance as first/only match */
+		/* 将新观测到的最低距离存为首/唯一匹配   */
 		fuzzystate->distance = columndistance;
 		fuzzystate->rfirst = rte;
 		fuzzystate->first = attnum;
@@ -638,30 +638,30 @@ updateFuzzyAttrMatchState(int fuzzy_rte_penalty,
 	}
 	else if (columndistance == fuzzystate->distance)
 	{
-		/* If we already have a match of this distance, update state */
+		/* 若已有该距离的匹配，则更新状态             */
 		if (fuzzystate->rsecond != NULL)
 		{
 			/*
-			 * Too many matches at same distance.  Clearly, this value of
-			 * distance is too low a bar, so drop these entries while keeping
-			 * the current distance value, so that only smaller distances will
-			 * be considered interesting.  Only if we find something of lower
-			 * distance will we re-populate rfirst (via the stanza above).
+			 * 相同距离的匹配太多。这个 distance 值显然   
+			 * 定得太低，因此丢弃这些条目，同时保留当前  
+			 * distance 值，这样只有更小的距离才会被视为      
+			 * 有意义的。只有找到距离更小的对象时，        
+			 * 才会重新填充 rfirst（通过上面的代码段）。 
 			 */
 			fuzzystate->rfirst = NULL;
 			fuzzystate->rsecond = NULL;
 		}
 		else if (fuzzystate->rfirst != NULL)
 		{
-			/* Record as provisional second match */
+			/* 记录为临时第二匹配        */
 			fuzzystate->rsecond = rte;
 			fuzzystate->second = attnum;
 		}
 		else
 		{
 			/*
-			 * Do nothing.  When rfirst is NULL, distance is more than what we
-			 * want to consider acceptable, so we should ignore this match.
+			 * 什么也不做。当 rfirst 为 NULL 时，distance 已超出 
+			 * 我们可接受的范围，故应忽略此匹配。         
 			 */
 		}
 	}
@@ -669,12 +669,12 @@ updateFuzzyAttrMatchState(int fuzzy_rte_penalty,
 
 /*
  * scanNSItemForColumn
- *	  Search the column names of a single namespace item for the given name.
- *	  If found, return an appropriate Var node, else return NULL.
- *	  If the name proves ambiguous within this nsitem, raise error.
+ *	  在单个命名空间条目的列名中搜索给定名称。          
+ *	  若找到则返回相应 Var 节点，否则 NULL。       
+ *	  若该名称在此 nsitem 内有歧义，则报错。        
  *
- * Side effect: if we find a match, mark the corresponding RTE as requiring
- * read access for the column.
+ * 副作用：若找到匹配，则将相应的 RTE 标记为             
+ * 需要该列的读权限。
  */
 Node *
 scanNSItemForColumn(ParseState *pstate, ParseNamespaceItem *nsitem,
@@ -685,17 +685,17 @@ scanNSItemForColumn(ParseState *pstate, ParseNamespaceItem *nsitem,
 	Var		   *var;
 
 	/*
-	 * Scan the nsitem's column names (or aliases) for a match.  Complain if
-	 * multiple matches.
+	 * 扫描 nsitem 列名（或别名）以寻找匹配，若多个匹配 
+	 * 则报错。     
 	 */
 	attnum = scanRTEForColumn(pstate, rte, nsitem->p_names,
 							  colname, location,
 							  0, NULL);
 
 	if (attnum == InvalidAttrNumber)
-		return NULL;			/* Return NULL if no match */
+		return NULL;			/* 无匹配则返回 NULL */
 
-	/* In constraint check, no system column is allowed except tableOid */
+	/* 在约束检查中，除 tableOid 外不允许任何系统列    */
 	if (pstate->p_expr_kind == EXPR_KIND_CHECK_CONSTRAINT &&
 		attnum < InvalidAttrNumber && attnum != TableOidAttributeNumber)
 		ereport(ERROR,
@@ -704,7 +704,7 @@ scanNSItemForColumn(ParseState *pstate, ParseNamespaceItem *nsitem,
 						colname),
 				 parser_errposition(pstate, location)));
 
-	/* In generated column, no system column is allowed except tableOid */
+	/* 在生成列中，除 tableOid 外不允许任何系统列       */
 	if (pstate->p_expr_kind == EXPR_KIND_GENERATED_COLUMN &&
 		attnum < InvalidAttrNumber && attnum != TableOidAttributeNumber)
 		ereport(ERROR,
@@ -714,7 +714,7 @@ scanNSItemForColumn(ParseState *pstate, ParseNamespaceItem *nsitem,
 				 parser_errposition(pstate, location)));
 
 	/*
-	 * In a MERGE WHEN condition, no system column is allowed except tableOid
+	 * 在 MERGE WHEN 条件中，除 tableOid 外不允许系统列         
 	 */
 	if (pstate->p_expr_kind == EXPR_KIND_MERGE_WHEN &&
 		attnum < InvalidAttrNumber && attnum != TableOidAttributeNumber)
@@ -724,13 +724,13 @@ scanNSItemForColumn(ParseState *pstate, ParseNamespaceItem *nsitem,
 						colname),
 				 parser_errposition(pstate, location)));
 
-	/* Found a valid match, so build a Var */
+	/* 找到有效匹配，故构建 Var  */
 	if (attnum > InvalidAttrNumber)
 	{
-		/* Get attribute data from the ParseNamespaceColumn array */
+		/* 从 ParseNamespaceColumn 数组获取属性数据      */
 		ParseNamespaceColumn *nscol = &nsitem->p_nscolumns[attnum - 1];
 
-		/* Complain if dropped column.  See notes in scanRTEForColumn. */
+		/* 已删除列则报错，见 scanRTEForColumn 说明。      */
 		if (nscol->p_varno == 0)
 			ereport(ERROR,
 					(errcode(ERRCODE_UNDEFINED_COLUMN),
@@ -744,13 +744,13 @@ scanNSItemForColumn(ParseState *pstate, ParseNamespaceItem *nsitem,
 					  nscol->p_vartypmod,
 					  nscol->p_varcollid,
 					  sublevels_up);
-		/* makeVar doesn't offer parameters for these, so set them by hand: */
+		/* makeVar 未提供这些参数，所以手动设置：            */
 		var->varnosyn = nscol->p_varnosyn;
 		var->varattnosyn = nscol->p_varattnosyn;
 	}
 	else
 	{
-		/* System column, so use predetermined type data */
+		/* 系统列，因此使用预定的类型数据 */
 		const FormData_pg_attribute *sysatt;
 
 		sysatt = SystemAttributeDefinition(attnum);
@@ -763,10 +763,10 @@ scanNSItemForColumn(ParseState *pstate, ParseNamespaceItem *nsitem,
 	}
 	var->location = location;
 
-	/* Mark Var if it's nulled by any outer joins */
+	/* 若 Var 被任何外连接置空则标记  */
 	markNullableIfNeeded(pstate, var);
 
-	/* Require read access to the column */
+	/* 需要对该列的读权限       */
 	markVarForSelectPriv(pstate, var);
 
 	return (Node *) var;
@@ -774,27 +774,27 @@ scanNSItemForColumn(ParseState *pstate, ParseNamespaceItem *nsitem,
 
 /*
  * scanRTEForColumn
- *	  Search the column names of a single RTE for the given name.
- *	  If found, return the attnum (possibly negative, for a system column);
- *	  else return InvalidAttrNumber.
- *	  If the name proves ambiguous within this RTE, raise error.
+ *	  在单个 RTE 的列名中搜索给定名称。            
+ *	  若找到则返回 attnum（系统列可能为负），否则返回  
+ *	  InvalidAttrNumber。          
+ *	  若名称在此 RTE 内有歧义，则报错。           
  *
- * Actually, we only search the names listed in "eref".  This can be either
- * rte->eref, in which case we are indeed searching all the column names,
- * or for a join it can be rte->join_using_alias, in which case we are only
- * considering the common column names (which are the first N columns of the
- * join, so everything works).
+ * 实际上，我们只搜索 "eref" 中列出的名称。它可以是    
+ * rte->eref（此时我们确实在搜索所有列名），             
+ * 对于连接也可以是 rte->join_using_alias，此时我们           
+ * 只考虑公共列名（它们是连接的前 N 列，因此             
+ * 一切正常）。         
  *
- * pstate and location are passed only for error-reporting purposes.
+ * pstate 和 location 仅出于错误报告目的而传入。      
  *
- * Side effect: if fuzzystate is non-NULL, check non-system columns
- * for an approximate match and update fuzzystate accordingly.
+ * 副作用：若 fuzzystate 非 NULL，则检查非系统列是  
+ * 否有近似匹配，并相应更新 fuzzystate。         
  *
- * Note: this is factored out of scanNSItemForColumn because error message
- * creation may want to check RTEs that are not in the namespace.  To support
- * that usage, minimize the number of validity checks performed here.  It's
- * okay to complain about ambiguous-name cases, though, since if we are
- * working to complain about an invalid name, we've already eliminated that.
+ * 注：此函数从 scanNSItemForColumn 中拆分出来，因为        
+ * 错误消息的创建可能需要检查不在命名空间内的           
+ * RTE。为支持这种用法，这里要尽量少做有效性检查。   
+ * 不过，报告名称歧义的情况是可以的，因为若我们  
+ * 正要报告某个无效名称，那已经排除了这种情况。       
  */
 static int
 scanRTEForColumn(ParseState *pstate, RangeTblEntry *rte,
@@ -808,17 +808,17 @@ scanRTEForColumn(ParseState *pstate, RangeTblEntry *rte,
 	ListCell   *c;
 
 	/*
-	 * Scan the user column names (or aliases) for a match. Complain if
-	 * multiple matches.
+	 * 扫描用户列名（或别名）寻找匹配；若多个匹配 
+	 * 则报错。     
 	 *
-	 * Note: eref->colnames may include entries for dropped columns, but those
-	 * will be empty strings that cannot match any legal SQL identifier, so we
-	 * don't bother to test for that case here.
+	 * 注：eref->colnames 可能包含已删除列的条目，但那些     
+	 * 条目是空字符串，无法匹配任何合法 SQL 标识符，      
+	 * 故此处不必为此专门检测。    
 	 *
-	 * Should this somehow go wrong and we try to access a dropped column,
-	 * we'll still catch it by virtue of the check in scanNSItemForColumn().
-	 * Callers interested in finding match with shortest distance need to
-	 * defend against this directly, though.
+	 * 即便万一出现差错而去访问已删除列，                
+	 * scanNSItemForColumn() 中的检查仍会将其捕获。              
+	 * 不过，想要寻找最短距离匹配的调用者需要         
+	 * 直接防范这种情况。          
 	 */
 	foreach(c, eref->colnames)
 	{
@@ -836,32 +836,32 @@ scanRTEForColumn(ParseState *pstate, RangeTblEntry *rte,
 			result = attnum;
 		}
 
-		/* Update fuzzy match state, if provided. */
+		/* 若提供则更新模糊匹配状态   */
 		if (fuzzystate != NULL)
 			updateFuzzyAttrMatchState(fuzzy_rte_penalty, fuzzystate,
 									  rte, attcolname, colname, attnum);
 	}
 
 	/*
-	 * If we have a unique match, return it.  Note that this allows a user
-	 * alias to override a system column name (such as OID) without error.
+	 * 若存在唯一匹配则返回之。注意这允许用户别名    
+	 * 无错地覆盖系统列名（例如 OID）。                     
 	 */
 	if (result)
 		return result;
 
 	/*
-	 * If the RTE represents a real relation, consider system column names.
-	 * Composites are only used for pseudo-relations like ON CONFLICT's
-	 * excluded.
+	 * 若 RTE 代表真实关系，则考虑系统列名。               
+	 * 复合类型仅用于 ON CONFLICT 的 excluded 这类伪        
+	 * 关系。
 	 */
 	if (rte->rtekind == RTE_RELATION &&
 		rte->relkind != RELKIND_COMPOSITE_TYPE)
 	{
-		/* quick check to see if name could be a system column */
+		/* 快速检查名称是否可能是系统列          */
 		attnum = specialAttNum(colname);
 		if (attnum != InvalidAttrNumber)
 		{
-			/* now check to see if column actually is defined */
+			/* 然后检查该列是否确实已定义        */
 			if (SearchSysCacheExists2(ATTNUM,
 									  ObjectIdGetDatum(rte->relid),
 									  Int16GetDatum(attnum)))
@@ -874,10 +874,10 @@ scanRTEForColumn(ParseState *pstate, RangeTblEntry *rte,
 
 /*
  * colNameToVar
- *	  Search for an unqualified column name.
- *	  If found, return the appropriate Var node (or expression).
- *	  If not found, return NULL.  If the name proves ambiguous, raise error.
- *	  If localonly is true, only names in the innermost query are considered.
+ *	  搜索不带限定的列名。        
+ *	  若找到则返回相应 Var 节点（或表达式）。  
+ *	  若未找到则返回 NULL；若名称有歧义则报错。           
+ *	  若 localonly 为真，则只考虑最内层查询中的名称。      
  */
 Node *
 colNameToVar(ParseState *pstate, const char *colname, bool localonly,
@@ -896,14 +896,14 @@ colNameToVar(ParseState *pstate, const char *colname, bool localonly,
 			ParseNamespaceItem *nsitem = (ParseNamespaceItem *) lfirst(l);
 			Node	   *newresult;
 
-			/* Ignore table-only items */
+			/* 忽略仅表条目      */
 			if (!nsitem->p_cols_visible)
 				continue;
-			/* If not inside LATERAL, ignore lateral-only items */
+			/* 若不在 LATERAL 内，则忽略仅横向条目 */
 			if (nsitem->p_lateral_only && !pstate->p_lateral_active)
 				continue;
 
-			/* use orig_pstate here for consistency with other callers */
+			/* 此处用 orig_pstate 以与其他调用者保持一致 */
 			newresult = scanNSItemForColumn(orig_pstate, nsitem, sublevels_up,
 											colname, location);
 
@@ -921,7 +921,7 @@ colNameToVar(ParseState *pstate, const char *colname, bool localonly,
 		}
 
 		if (result != NULL || localonly)
-			break;				/* found, or don't want to look at parent */
+			break;				/* 已找到，或不想查看父查询   */
 
 		pstate = pstate->parentParseState;
 		sublevels_up++;
@@ -932,21 +932,21 @@ colNameToVar(ParseState *pstate, const char *colname, bool localonly,
 
 /*
  * searchRangeTableForCol
- *	  See if any RangeTblEntry could possibly provide the given column name (or
- *	  find the best match available).  Returns state with relevant details.
+ *	  查看是否有 RangeTblEntry 可能提供给定的列名（或          
+ *	  找到可用的最佳匹配）。返回带有相关细节的状态。
  *
- * This is different from colNameToVar in that it considers every entry in
- * the ParseState's rangetable(s), not only those that are currently visible
- * in the p_namespace list(s).  This behavior is invalid per the SQL spec,
- * and it may give ambiguous results (since there might be multiple equally
- * valid matches).  This must be used ONLY as a heuristic in giving suitable
- * error messages.  See errorMissingColumn.
+ * 它与 colNameToVar 的不同在于：它会考虑                     
+ * ParseState 中所有的范围表条目，而不只是当前在           
+ * p_namespace 列表中可见的那些。按 SQL 标准这一            
+ * 行为无效，且可能给出歧义结果（可能存在多个         
+ * 同样有效的匹配）。它只能用作报错启发，参见          
+ * errorMissingColumn。                   
  *
- * This function is also different in that it will consider approximate
- * matches -- if the user entered an alias/column pair that is only slightly
- * different from a valid pair, we may be able to infer what they meant to
- * type and provide a reasonable hint.  We return a FuzzyAttrMatchState
- * struct providing information about both exact and approximate matches.
+ * 此函数的另一不同之处是它会考虑近似匹配——     
+ * 若用户输入的别名/列名组合与有效组合略有不同，      
+ * 我们或许能推断出其想输入的内容并给出合理提示。  
+ * 我们返回一个 FuzzyAttrMatchState 结构，提供              
+ * 精确匹配与近似匹配两类信息。                            
  */
 static FuzzyAttrMatchState *
 searchRangeTableForCol(ParseState *pstate, const char *alias, const char *colname,
@@ -972,19 +972,19 @@ searchRangeTableForCol(ParseState *pstate, const char *alias, const char *colnam
 			int			attnum;
 
 			/*
-			 * Typically, it is not useful to look for matches within join
-			 * RTEs; they effectively duplicate other RTEs for our purposes,
-			 * and if a match is chosen from a join RTE, an unhelpful alias is
-			 * displayed in the final diagnostic message.
+			 * 通常，在连接 RTE 内部寻找匹配没什么用；   
+			 * 就我们的目的而言，它们实际上复制了其他    
+			 * RTE。而若从连接 RTE 中选定匹配，最终诊断       
+			 * 消息中显示的别名无助于诊断。
 			 */
 			if (rte->rtekind == RTE_JOIN)
 				continue;
 
 			/*
-			 * If the user didn't specify an alias, then matches against one
-			 * RTE are as good as another.  But if the user did specify an
-			 * alias, then we want at least a fuzzy - and preferably an exact
-			 * - match for the range table entry.
+			 * 若用户未指定别名，那么与哪个 RTE 匹配都     
+			 * 一样。但若用户指定别名，则我们希望范围  
+			 * 表条目至少是模糊匹配——最好是精确匹配。  
+			 *                                   
 			 */
 			if (alias != NULL)
 				fuzzy_rte_penalty =
@@ -996,10 +996,10 @@ searchRangeTableForCol(ParseState *pstate, const char *alias, const char *colnam
 												  true);
 
 			/*
-			 * Scan for a matching column, and update fuzzystate.  Non-exact
-			 * matches are dealt with inside scanRTEForColumn, but exact
-			 * matches are handled here.  (There won't be more than one exact
-			 * match in the same RTE, else we'd have thrown error earlier.)
+			 * 扫描匹配的列并更新 fuzzystate。非精确匹配     
+			 * 在 scanRTEForColumn 内部处理，但精确匹配      
+			 * 则在此处处理。（同一个 RTE 内不会有超过      
+			 * 一个精确匹配，否则我们早已报错。）         
 			 */
 			attnum = scanRTEForColumn(orig_pstate, rte, rte->eref,
 									  colname, location,
@@ -1013,7 +1013,7 @@ searchRangeTableForCol(ParseState *pstate, const char *alias, const char *colnam
 				}
 				else
 				{
-					/* Needn't worry about overwriting previous rexact2 */
+					/* 无需担心覆盖之前的 rexact2              */
 					fuzzystate->rexact2 = rte;
 					fuzzystate->exact2 = attnum;
 				}
@@ -1028,8 +1028,8 @@ searchRangeTableForCol(ParseState *pstate, const char *alias, const char *colnam
 
 /*
  * markNullableIfNeeded
- *		If the RTE referenced by the Var is nullable by outer join(s)
- *		at this point in the query, set var->varnullingrels to show that.
+ *		若 Var 引用的 RTE 在查询中此点可被外连接      
+ *		置空，则设置 var->varnullingrels 以表明这一点。     
  */
 void
 markNullableIfNeeded(ParseState *pstate, Var *var)
@@ -1037,19 +1037,19 @@ markNullableIfNeeded(ParseState *pstate, Var *var)
 	int			rtindex = var->varno;
 	Bitmapset  *relids;
 
-	/* Find the appropriate pstate */
+	/* 找到合适的 pstate      */
 	for (int lv = 0; lv < var->varlevelsup; lv++)
 		pstate = pstate->parentParseState;
 
-	/* Find currently-relevant join relids for the Var's rel */
+	/* 找到与 Var 的关系当前相关的连接 relid    */
 	if (rtindex > 0 && rtindex <= list_length(pstate->p_nullingrels))
 		relids = (Bitmapset *) list_nth(pstate->p_nullingrels, rtindex - 1);
 	else
 		relids = NULL;
 
 	/*
-	 * Merge with any already-declared nulling rels.  (Typically there won't
-	 * be any, but let's get it right if there are.)
+	 * 与任何已声明的置空关系合并。（通常不会有，      
+	 * 但若有就把它做对。）               
 	 */
 	if (relids != NULL)
 		var->varnullingrels = bms_union(var->varnullingrels, relids);
@@ -1057,10 +1057,10 @@ markNullableIfNeeded(ParseState *pstate, Var *var)
 
 /*
  * markRTEForSelectPriv
- *	   Mark the specified column of the RTE with index rtindex
- *	   as requiring SELECT privilege
+ *	   将索引为 rtindex 的 RTE 的指定列标记为     
+ *	   需要 SELECT 权限         
  *
- * col == InvalidAttrNumber means a "whole row" reference
+ * col == InvalidAttrNumber 表示"整行"引用         
  */
 static void
 markRTEForSelectPriv(ParseState *pstate, int rtindex, AttrNumber col)
@@ -1071,10 +1071,10 @@ markRTEForSelectPriv(ParseState *pstate, int rtindex, AttrNumber col)
 	{
 		RTEPermissionInfo *perminfo;
 
-		/* Make sure the rel as a whole is marked for SELECT access */
+		/* 确保该关系整体被标记为需要 SELECT 访问    */
 		perminfo = getRTEPermissionInfo(pstate->p_rteperminfos, rte);
 		perminfo->requiredPerms |= ACL_SELECT;
-		/* Must offset the attnum to fit in a bitmapset */
+		/* 必须偏移 attnum 才能放进 bitmapset   */
 		perminfo->selectedCols =
 			bms_add_member(perminfo->selectedCols,
 						   col - FirstLowInvalidHeapAttributeNumber);
@@ -1084,8 +1084,8 @@ markRTEForSelectPriv(ParseState *pstate, int rtindex, AttrNumber col)
 		if (col == InvalidAttrNumber)
 		{
 			/*
-			 * A whole-row reference to a join has to be treated as whole-row
-			 * references to the two inputs.
+			 * 对连接的整行引用必须被视为对两个输入的     
+			 * 整行引用。              
 			 */
 			JoinExpr   *j;
 
@@ -1096,7 +1096,7 @@ markRTEForSelectPriv(ParseState *pstate, int rtindex, AttrNumber col)
 			if (j == NULL)
 				elog(ERROR, "could not find JoinExpr for whole-row reference");
 
-			/* Note: we can't see FromExpr here */
+			/* 注：这里看不到 FromExpr   */
 			if (IsA(j->larg, RangeTblRef))
 			{
 				int			varno = ((RangeTblRef *) j->larg)->rtindex;
@@ -1131,20 +1131,20 @@ markRTEForSelectPriv(ParseState *pstate, int rtindex, AttrNumber col)
 		else
 		{
 			/*
-			 * Join alias Vars for ordinary columns must refer to merged JOIN
-			 * USING columns.  We don't need to do anything here, because the
-			 * join input columns will also be referenced in the join's qual
-			 * clause, and will get marked for select privilege there.
+			 * 普通列的连接别名 Var 必须引用已合并的 JOIN    
+			 * USING 列。这里无需做任何处理，因为连接输入  
+			 * 列也会出现在连接的 qual 子句中，并会在那里 
+			 * 被标记需要 SELECT 特权。                       
 			 */
 		}
 	}
-	/* other RTE types don't require privilege marking */
+	/* 其他 RTE 类型无需特权标记             */
 }
 
 /*
  * markVarForSelectPriv
- *	   Mark the RTE referenced by the Var as requiring SELECT privilege
- *	   for the Var's column (the Var could be a whole-row Var, too)
+ *	   将 Var 引用的 RTE 标记为需要其列上的 SELECT 权限 
+ *	   （Var 也可能是整行 Var）                            
  */
 void
 markVarForSelectPriv(ParseState *pstate, Var *var)
@@ -1152,7 +1152,7 @@ markVarForSelectPriv(ParseState *pstate, Var *var)
 	Index		lv;
 
 	Assert(IsA(var, Var));
-	/* Find the appropriate pstate if it's an uplevel Var */
+	/* 如果是上层 Var，找到合适的 pstate       */
 	for (lv = 0; lv < var->varlevelsup; lv++)
 		pstate = pstate->parentParseState;
 	markRTEForSelectPriv(pstate, var->varno, var->varattno);
@@ -1160,18 +1160,18 @@ markVarForSelectPriv(ParseState *pstate, Var *var)
 
 /*
  * buildRelationAliases
- *		Construct the eref column name list for a relation RTE.
- *		This code is also used for function RTEs.
+ *		为关系 RTE 构造 eref 列名列表。              
+ *		此代码也用于函数 RTE。          
  *
- * tupdesc: the physical column information
- * alias: the user-supplied alias, or NULL if none
- * eref: the eref Alias to store column names in
+ * tupdesc：物理列信息               
+ * alias：用户提供的别名，无则为 NULL 
+ * eref：存储列名的 eref Alias            
  *
- * eref->colnames is filled in.  Also, alias->colnames is rebuilt to insert
- * empty strings for any dropped columns, so that it will be one-to-one with
- * physical column numbers.
+ * 填充 eref->colnames。同时重建 alias->colnames，插入           
+ * 空串以表示每个被删除的列，从而与物理列号             
+ * 一一对应。         
  *
- * It is an error for there to be more aliases present than required.
+ * 若提供的别名多于所需数目，将报错。               
  */
 static void
 buildRelationAliases(TupleDesc tupdesc, Alias *alias, Alias *eref)
@@ -1190,7 +1190,7 @@ buildRelationAliases(TupleDesc tupdesc, Alias *alias, Alias *eref)
 		aliaslist = alias->colnames;
 		aliaslc = list_head(aliaslist);
 		numaliases = list_length(aliaslist);
-		/* We'll rebuild the alias colname list */
+		/* 我们将重建别名的列名列表 */
 		alias->colnames = NIL;
 	}
 	else
@@ -1207,7 +1207,7 @@ buildRelationAliases(TupleDesc tupdesc, Alias *alias, Alias *eref)
 
 		if (attr->attisdropped)
 		{
-			/* Always insert an empty string for a dropped column */
+			/* 对被删除的列总是插入一个空串         */
 			attrname = makeString(pstrdup(""));
 			if (aliaslc)
 				alias->colnames = lappend(alias->colnames, attrname);
@@ -1215,7 +1215,7 @@ buildRelationAliases(TupleDesc tupdesc, Alias *alias, Alias *eref)
 		}
 		else if (aliaslc)
 		{
-			/* Use the next user-supplied alias */
+			/* 使用下一个用户别名      */
 			attrname = lfirst_node(String, aliaslc);
 			aliaslc = lnext(aliaslist, aliaslc);
 			alias->colnames = lappend(alias->colnames, attrname);
@@ -1223,13 +1223,13 @@ buildRelationAliases(TupleDesc tupdesc, Alias *alias, Alias *eref)
 		else
 		{
 			attrname = makeString(pstrdup(NameStr(attr->attname)));
-			/* we're done with the alias if any */
+			/* 若有别名则到此用完      */
 		}
 
 		eref->colnames = lappend(eref->colnames, attrname);
 	}
 
-	/* Too many user-supplied aliases? */
+	/* 用户别名太多了？        */
 	if (aliaslc)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
@@ -1239,16 +1239,16 @@ buildRelationAliases(TupleDesc tupdesc, Alias *alias, Alias *eref)
 
 /*
  * chooseScalarFunctionAlias
- *		Select the column alias for a function in a function RTE,
- *		when the function returns a scalar type (not composite or RECORD).
+ *		为函数 RTE 中的函数选择列别名，             
+ *		当函数返回标量类型（非复合或 RECORD）时。        
  *
- * funcexpr: transformed expression tree for the function call
- * funcname: function name (as determined by FigureColname)
- * alias: the user-supplied alias for the RTE, or NULL if none
- * nfuncs: the number of functions appearing in the function RTE
+ * funcexpr：函数调用转换后的表达式树            
+ * funcname：函数名（由 FigureColname 确定）      
+ * alias：RTE 的用户别名，无则为 NULL               
+ * nfuncs：函数 RTE 中出现的函数数量                 
  *
- * Note that the name we choose might be overridden later, if the user-given
- * alias includes column alias names.  That's of no concern here.
+ * 注意：若用户给出的别名包含列别名，我们所选的名字 
+ * 之后可能被覆盖，此处无需关心。                 
  */
 static char *
 chooseScalarFunctionAlias(Node *funcexpr, char *funcname,
@@ -1257,8 +1257,8 @@ chooseScalarFunctionAlias(Node *funcexpr, char *funcname,
 	char	   *pname;
 
 	/*
-	 * If the expression is a simple function call, and the function has a
-	 * single OUT parameter that is named, use the parameter's name.
+	 * 若表达式为简单函数调用，且函数只有单个具名的 
+	 * OUT 参数，则使用该参数名。                        
 	 */
 	if (funcexpr && IsA(funcexpr, FuncExpr))
 	{
@@ -1268,27 +1268,27 @@ chooseScalarFunctionAlias(Node *funcexpr, char *funcname,
 	}
 
 	/*
-	 * If there's just one function in the RTE, and the user gave an RTE alias
-	 * name, use that name.  (This makes FROM func() AS foo use "foo" as the
-	 * column name as well as the table alias.)
+	 * 若 RTE 中只有一个函数，且用户给出了 RTE 的             
+	 * 别名，则用该名。（这使 FROM func() AS foo 的列名       
+	 * 和表别名同为 "foo"。）          
 	 */
 	if (nfuncs == 1 && alias)
 		return alias->aliasname;
 
 	/*
-	 * Otherwise use the function name.
+	 * 否则使用函数名。        
 	 */
 	return funcname;
 }
 
 /*
  * buildNSItemFromTupleDesc
- *		Build a ParseNamespaceItem, given a tupdesc describing the columns.
+ *		根据描述各列的 tupdesc 构建 ParseNamespaceItem。         
  *
- * rte: the new RangeTblEntry for the rel
- * rtindex: its index in the rangetable list
- * perminfo: permission list entry for the rel
- * tupdesc: the physical column information
+ * rte：该 rel 的新 RangeTblEntry    
+ * rtindex：其在范围表中的下标    
+ * perminfo：该 rel 的权限列表条目   
+ * tupdesc：物理列信息               
  */
 static ParseNamespaceItem *
 buildNSItemFromTupleDesc(RangeTblEntry *rte, Index rtindex,
@@ -1300,10 +1300,10 @@ buildNSItemFromTupleDesc(RangeTblEntry *rte, Index rtindex,
 	int			maxattrs = tupdesc->natts;
 	int			varattno;
 
-	/* colnames must have the same number of entries as the nsitem */
+	/* colnames 的条目数必须与 nsitem 一致                */
 	Assert(maxattrs == list_length(rte->eref->colnames));
 
-	/* extract per-column data from the tupdesc */
+	/* 从 tupdesc 提取每列数据           */
 	nscolumns = (ParseNamespaceColumn *)
 		palloc0(maxattrs * sizeof(ParseNamespaceColumn));
 
@@ -1311,7 +1311,7 @@ buildNSItemFromTupleDesc(RangeTblEntry *rte, Index rtindex,
 	{
 		Form_pg_attribute attr = TupleDescAttr(tupdesc, varattno);
 
-		/* For a dropped column, just leave the entry as zeroes */
+		/* 对被删除的列，条目保持为全零           */
 		if (attr->attisdropped)
 			continue;
 
@@ -1324,14 +1324,14 @@ buildNSItemFromTupleDesc(RangeTblEntry *rte, Index rtindex,
 		nscolumns[varattno].p_varattnosyn = varattno + 1;
 	}
 
-	/* ... and build the nsitem */
+	/* 随后构建 nsitem      */
 	nsitem = (ParseNamespaceItem *) palloc(sizeof(ParseNamespaceItem));
 	nsitem->p_names = rte->eref;
 	nsitem->p_rte = rte;
 	nsitem->p_rtindex = rtindex;
 	nsitem->p_perminfo = perminfo;
 	nsitem->p_nscolumns = nscolumns;
-	/* set default visibility flags; might get changed later */
+	/* 设置默认可见性标志，之后可能被修改   */
 	nsitem->p_rel_visible = true;
 	nsitem->p_cols_visible = true;
 	nsitem->p_lateral_only = false;
@@ -1342,13 +1342,13 @@ buildNSItemFromTupleDesc(RangeTblEntry *rte, Index rtindex,
 
 /*
  * buildNSItemFromLists
- *		Build a ParseNamespaceItem, given column type information in lists.
+ *		根据列表形式的列类型信息构建 ParseNamespaceItem。   
  *
- * rte: the new RangeTblEntry for the rel
- * rtindex: its index in the rangetable list
- * coltypes: per-column datatype OIDs
- * coltypmods: per-column type modifiers
- * colcollation: per-column collation OIDs
+ * rte：该 rel 的新 RangeTblEntry    
+ * rtindex：其在范围表中的下标    
+ * coltypes：每列的类型 OID    
+ * coltypmods：每列的类型修饰符
+ * colcollation：各列排序规则 OID  
  */
 static ParseNamespaceItem *
 buildNSItemFromLists(RangeTblEntry *rte, Index rtindex,
@@ -1362,13 +1362,13 @@ buildNSItemFromLists(RangeTblEntry *rte, Index rtindex,
 	ListCell   *lcm;
 	ListCell   *lcc;
 
-	/* colnames must have the same number of entries as the nsitem */
+	/* colnames 的条目数必须与 nsitem 一致                */
 	Assert(maxattrs == list_length(rte->eref->colnames));
 
 	Assert(maxattrs == list_length(coltypmods));
 	Assert(maxattrs == list_length(colcollations));
 
-	/* extract per-column data from the lists */
+	/* 从这些列表提取每列数据      */
 	nscolumns = (ParseNamespaceColumn *)
 		palloc0(maxattrs * sizeof(ParseNamespaceColumn));
 
@@ -1387,14 +1387,14 @@ buildNSItemFromLists(RangeTblEntry *rte, Index rtindex,
 		varattno++;
 	}
 
-	/* ... and build the nsitem */
+	/* 随后构建 nsitem      */
 	nsitem = (ParseNamespaceItem *) palloc(sizeof(ParseNamespaceItem));
 	nsitem->p_names = rte->eref;
 	nsitem->p_rte = rte;
 	nsitem->p_rtindex = rtindex;
 	nsitem->p_perminfo = NULL;
 	nsitem->p_nscolumns = nscolumns;
-	/* set default visibility flags; might get changed later */
+	/* 设置默认可见性标志，之后可能被修改   */
 	nsitem->p_rel_visible = true;
 	nsitem->p_cols_visible = true;
 	nsitem->p_lateral_only = false;
@@ -1404,15 +1404,15 @@ buildNSItemFromLists(RangeTblEntry *rte, Index rtindex,
 }
 
 /*
- * Open a table during parse analysis
+ * 在解析分析期间打开表    
  *
- * This is essentially just the same as table_openrv(), except that it caters
- * to some parser-specific error reporting needs, notably that it arranges
- * to include the RangeVar's parse location in any resulting error.
+ * 本质上与 table_openrv() 相同，但它额外满足了                
+ * 解析器特有的一些错误报告需求，尤其是让结果        
+ * 错误中包含 RangeVar 的解析位置。                     
  *
- * Note: properly, lockmode should be declared LOCKMODE not int, but that
- * would require importing storage/lock.h into parse_relation.h.  Since
- * LOCKMODE is typedef'd as int anyway, that seems like overkill.
+ * 注意：严格来说 lockmode 应声明为 LOCKMODE 而非           
+ * int，但那需要把 storage/lock.h 引入 parse_relation.h。     
+ * 由于 LOCKMODE 反正就是 int，那似乎小题大做。   
  */
 Relation
 parserOpenTable(ParseState *pstate, const RangeVar *relation, int lockmode)
@@ -1432,10 +1432,10 @@ parserOpenTable(ParseState *pstate, const RangeVar *relation, int lockmode)
 		else
 		{
 			/*
-			 * An unqualified name might have been meant as a reference to
-			 * some not-yet-in-scope CTE.  The bare "does not exist" message
-			 * has proven remarkably unhelpful for figuring out such problems,
-			 * so we take pains to offer a specific hint.
+			 * 不带限定名的引用可能原本是想指向某个     
+			 * 尚未进入作用域的 CTE。仅有"不存在"报错信息 
+			 * 对排查此类问题帮助甚微，因此我们费心提供   
+			 * 专门的提示。                        
 			 */
 			if (isFutureCTE(pstate, relation->relname))
 				ereport(ERROR,
@@ -1457,14 +1457,14 @@ parserOpenTable(ParseState *pstate, const RangeVar *relation, int lockmode)
 }
 
 /*
- * Add an entry for a relation to the pstate's range table (p_rtable).
- * Then, construct and return a ParseNamespaceItem for the new RTE.
+ * 向 pstate 的范围表（p_rtable）加入关系的条目。      
+ * 然后为新 RTE 构造并返回 ParseNamespaceItem。          
  *
- * We do not link the ParseNamespaceItem into the pstate here; it's the
- * caller's job to do that in the appropriate way.
+ * 此处不把 ParseNamespaceItem 链入 pstate；这是              
+ * 调用者以适当方式完成的工作。     
  *
- * Note: formerly this checked for refname conflicts, but that's wrong.
- * Caller is responsible for checking for conflicts in the appropriate scope.
+ * 注意：以前此处检查 refname 冲突，但那是错的。     
+ * 调用者负责在适当的作用域内检查冲突。                    
  */
 ParseNamespaceItem *
 addRangeTableEntry(ParseState *pstate,
@@ -1486,17 +1486,17 @@ addRangeTableEntry(ParseState *pstate,
 	rte->alias = alias;
 
 	/*
-	 * Identify the type of lock we'll need on this relation.  It's not the
-	 * query's target table (that case is handled elsewhere), so we need
-	 * either RowShareLock if it's locked by FOR UPDATE/SHARE, or plain
-	 * AccessShareLock otherwise.
+	 * 确定该关系所需的锁类型。查询目标表的情况        
+	 * 在别处处理，所以这里我们需要                       
+	 * RowShareLock（若被 FOR UPDATE/SHARE 锁定），否则       
+	 * 用 AccessShareLock。    
 	 */
 	lockmode = isLockedRefname(pstate, refname) ? RowShareLock : AccessShareLock;
 
 	/*
-	 * Get the rel's OID.  This access also ensures that we have an up-to-date
-	 * relcache entry for the rel.  Since this is typically the first access
-	 * to a rel in a statement, we must open the rel with the proper lockmode.
+	 * 获取该 rel 的 OID。这次访问也确保我们拥有最新的     
+	 * rel 的 relcache 条目。由于这通常是语句中对             
+	 * 关系的首次访问，必须以正确的 lockmode 打开它。       
 	 */
 	rel = parserOpenTable(pstate, relation, lockmode);
 	rte->relid = RelationGetRelid(rel);
@@ -1504,17 +1504,17 @@ addRangeTableEntry(ParseState *pstate,
 	rte->rellockmode = lockmode;
 
 	/*
-	 * Build the list of effective column names using user-supplied aliases
-	 * and/or actual column names.
+	 * 使用用户提供的别名和/或实际列名，构建有效的    
+	 * 列名列表。            
 	 */
 	rte->eref = makeAlias(refname, NIL);
 	buildRelationAliases(rel->rd_att, alias, rte->eref);
 
 	/*
-	 * Set flags and initialize access permissions.
+	 * 设置标志并初始化访问权限。     
 	 *
-	 * The initial default on access checks is always check-for-READ-access,
-	 * which is the right thing for all except target tables.
+	 * 访问检查的初始默认总是检查是否可读，               
+	 * 这对目标表以外的所有情况都正确。      
 	 */
 	rte->lateral = false;
 	rte->inh = inh;
@@ -1524,23 +1524,23 @@ addRangeTableEntry(ParseState *pstate,
 	perminfo->requiredPerms = ACL_SELECT;
 
 	/*
-	 * Add completed RTE to pstate's range table list, so that we know its
-	 * index.  But we don't add it to the join list --- caller must do that if
-	 * appropriate.
+	 * 把完成的 RTE 加入 pstate 的范围表列表，以便知道其
+	 * 下标。若合适须由调用者加入连接列表，此处不加。  
+	 *             
 	 */
 	pstate->p_rtable = lappend(pstate->p_rtable, rte);
 
 	/*
-	 * Build a ParseNamespaceItem, but don't add it to the pstate's namespace
-	 * list --- caller must do that if appropriate.
+	 * 构建 ParseNamespaceItem，但不把它链入 pstate 的             
+	 * 命名空间列表；由调用者完成。  
 	 */
 	nsitem = buildNSItemFromTupleDesc(rte, list_length(pstate->p_rtable),
 									  perminfo, rel->rd_att);
 
 	/*
-	 * Drop the rel refcount, but keep the access lock till end of transaction
-	 * so that the table can't be deleted or have its schema modified
-	 * underneath us.
+	 * 递减 rel 的引用计数，但把访问锁保留到事务结束，   
+	 * 使表无法被删除或在背后被修改模式，           
+	 *               
 	 */
 	table_close(rel, NoLock);
 
@@ -1548,20 +1548,20 @@ addRangeTableEntry(ParseState *pstate,
 }
 
 /*
- * Add an entry for a relation to the pstate's range table (p_rtable).
- * Then, construct and return a ParseNamespaceItem for the new RTE.
+ * 向 pstate 的范围表（p_rtable）加入关系的条目。      
+ * 然后为新 RTE 构造并返回 ParseNamespaceItem。          
  *
- * This is just like addRangeTableEntry() except that it makes an RTE
- * given an already-open relation instead of a RangeVar reference.
+ * 这与 addRangeTableEntry() 基本相同，只是它用           
+ * 已打开的关系而非 RangeVar 引用来构造 RTE。       
  *
- * lockmode is the lock type required for query execution; it must be one
- * of AccessShareLock, RowShareLock, or RowExclusiveLock depending on the
- * RTE's role within the query.  The caller must hold that lock mode
- * or a stronger one.
+ * lockmode 是查询执行所需的锁类型；它必须是             
+ * AccessShareLock、RowShareLock 或 RowExclusiveLock                   
+ * 之一，视 RTE 在查询中的角色。调用者须已持有   
+ * 或更强。      
  *
- * Note: properly, lockmode should be declared LOCKMODE not int, but that
- * would require importing storage/lock.h into parse_relation.h.  Since
- * LOCKMODE is typedef'd as int anyway, that seems like overkill.
+ * 注意：严格来说 lockmode 应声明为 LOCKMODE 而非           
+ * int，但那需要把 storage/lock.h 引入 parse_relation.h。     
+ * 由于 LOCKMODE 反正就是 int，那似乎小题大做。   
  */
 ParseNamespaceItem *
 addRangeTableEntryForRelation(ParseState *pstate,
@@ -1589,17 +1589,17 @@ addRangeTableEntryForRelation(ParseState *pstate,
 	rte->rellockmode = lockmode;
 
 	/*
-	 * Build the list of effective column names using user-supplied aliases
-	 * and/or actual column names.
+	 * 使用用户提供的别名和/或实际列名，构建有效的    
+	 * 列名列表。            
 	 */
 	rte->eref = makeAlias(refname, NIL);
 	buildRelationAliases(rel->rd_att, alias, rte->eref);
 
 	/*
-	 * Set flags and initialize access permissions.
+	 * 设置标志并初始化访问权限。     
 	 *
-	 * The initial default on access checks is always check-for-READ-access,
-	 * which is the right thing for all except target tables.
+	 * 访问检查的初始默认总是检查是否可读，               
+	 * 这对目标表以外的所有情况都正确。      
 	 */
 	rte->lateral = false;
 	rte->inh = inh;
@@ -1609,30 +1609,30 @@ addRangeTableEntryForRelation(ParseState *pstate,
 	perminfo->requiredPerms = ACL_SELECT;
 
 	/*
-	 * Add completed RTE to pstate's range table list, so that we know its
-	 * index.  But we don't add it to the join list --- caller must do that if
-	 * appropriate.
+	 * 把完成的 RTE 加入 pstate 的范围表列表，以便知道其
+	 * 下标。若合适须由调用者加入连接列表，此处不加。  
+	 *             
 	 */
 	pstate->p_rtable = lappend(pstate->p_rtable, rte);
 
 	/*
-	 * Build a ParseNamespaceItem, but don't add it to the pstate's namespace
-	 * list --- caller must do that if appropriate.
+	 * 构建 ParseNamespaceItem，但不把它链入 pstate 的             
+	 * 命名空间列表；由调用者完成。  
 	 */
 	return buildNSItemFromTupleDesc(rte, list_length(pstate->p_rtable),
 									perminfo, rel->rd_att);
 }
 
 /*
- * Add an entry for a subquery to the pstate's range table (p_rtable).
- * Then, construct and return a ParseNamespaceItem for the new RTE.
+ * 向 pstate 的范围表（p_rtable）加入子查询的条目。   
+ * 然后为新 RTE 构造并返回 ParseNamespaceItem。          
  *
- * This is much like addRangeTableEntry() except that it makes a subquery RTE.
+ * 这与 addRangeTableEntry() 很相似，只是构造子查询 RTE。       
  *
- * If the subquery does not have an alias, the auto-generated relation name in
- * the returned ParseNamespaceItem will be marked as not visible, and so only
- * unqualified references to the subquery columns will be allowed, and the
- * relation name will not conflict with others in the pstate's namespace list.
+ * 若子查询没有别名，返回的 ParseNamespaceItem 中自动          
+ * 生成的关系名将被标记为不可见，因此仅允许              
+ * 对子查询列的不带限定引用，且该关系名不会           
+ * 与 pstate 命名空间列表中的其他名字冲突。                   
  */
 ParseNamespaceItem *
 addRangeTableEntryForSubquery(ParseState *pstate,
@@ -1660,7 +1660,7 @@ addRangeTableEntryForSubquery(ParseState *pstate,
 	eref = alias ? copyObject(alias) : makeAlias("unnamed_subquery", NIL);
 	numaliases = list_length(eref->colnames);
 
-	/* fill in any unspecified alias columns, and extract column type info */
+	/* 填充所有未指定的别名列，并提取列类型信息        */
 	coltypes = coltypmods = colcollations = NIL;
 	varattno = 0;
 	foreach(tlistitem, subquery->targetList)
@@ -1694,31 +1694,31 @@ addRangeTableEntryForSubquery(ParseState *pstate,
 	rte->eref = eref;
 
 	/*
-	 * Set flags.
+	 * 设标志 
 	 *
-	 * Subqueries are never checked for access rights, so no need to perform
-	 * addRTEPermissionInfo().
+	 * 子查询从不检查访问权限，因此无需执行               
+	 * addRTEPermissionInfo() 
 	 */
 	rte->lateral = lateral;
-	rte->inh = false;			/* never true for subqueries */
+	rte->inh = false;			/* 对子查询永不为真  */
 	rte->inFromCl = inFromCl;
 
 	/*
-	 * Add completed RTE to pstate's range table list, so that we know its
-	 * index.  But we don't add it to the join list --- caller must do that if
-	 * appropriate.
+	 * 把完成的 RTE 加入 pstate 的范围表列表，以便知道其
+	 * 下标。若合适须由调用者加入连接列表，此处不加。  
+	 *             
 	 */
 	pstate->p_rtable = lappend(pstate->p_rtable, rte);
 
 	/*
-	 * Build a ParseNamespaceItem, but don't add it to the pstate's namespace
-	 * list --- caller must do that if appropriate.
+	 * 构建 ParseNamespaceItem，但不把它链入 pstate 的             
+	 * 命名空间列表；由调用者完成。  
 	 */
 	nsitem = buildNSItemFromLists(rte, list_length(pstate->p_rtable),
 								  coltypes, coltypmods, colcollations);
 
 	/*
-	 * Mark it visible as a relation name only if it had a user-written alias.
+	 * 仅当它有用户手写的别名时，才标记为关系名可见。  
 	 */
 	nsitem->p_rel_visible = (alias != NULL);
 
@@ -1726,10 +1726,10 @@ addRangeTableEntryForSubquery(ParseState *pstate,
 }
 
 /*
- * Add an entry for a function (or functions) to the pstate's range table
- * (p_rtable).  Then, construct and return a ParseNamespaceItem for the new RTE.
+ * 向 pstate 的范围表（p_rtable）加入函数（一个或         
+ * 多个）的条目。然后为新 RTE 构造并返回 ParseNamespaceItem。  
  *
- * This is much like addRangeTableEntry() except that it makes a function RTE.
+ * 这与 addRangeTableEntry() 很相似，只是构造函数 RTE。          
  */
 ParseNamespaceItem *
 addRangeTableEntryForFunction(ParseState *pstate,
@@ -1761,14 +1761,14 @@ addRangeTableEntryForFunction(ParseState *pstate,
 	rte->rtekind = RTE_FUNCTION;
 	rte->relid = InvalidOid;
 	rte->subquery = NULL;
-	rte->functions = NIL;		/* we'll fill this list below */
+	rte->functions = NIL;		/* 该列表稍后填充      */
 	rte->funcordinality = rangefunc->ordinality;
 	rte->alias = alias;
 
 	/*
-	 * Choose the RTE alias name.  We default to using the first function's
-	 * name even when there's more than one; which is maybe arguable but beats
-	 * using something constant like "table".
+	 * 选择 RTE 别名。默认使用第一个函数的名字，         
+	 * 即使函数不止一个；这或许有争议，但总好过           
+	 * 用"table"这类固定名。          
 	 */
 	if (alias)
 		aliasname = alias->aliasname;
@@ -1778,7 +1778,7 @@ addRangeTableEntryForFunction(ParseState *pstate,
 	eref = makeAlias(aliasname, NIL);
 	rte->eref = eref;
 
-	/* Process each function ... */
+	/* 逐个处理各函数     */
 	functupdescs = (TupleDesc *) palloc(nfuncs * sizeof(TupleDesc));
 
 	totalatts = 0;
@@ -1792,41 +1792,41 @@ addRangeTableEntryForFunction(ParseState *pstate,
 		TypeFuncClass functypclass;
 		Oid			funcrettype;
 
-		/* Initialize RangeTblFunction node */
+		/* 初始化 RangeTblFunction       */
 		rtfunc->funcexpr = funcexpr;
 		rtfunc->funccolnames = NIL;
 		rtfunc->funccoltypes = NIL;
 		rtfunc->funccoltypmods = NIL;
 		rtfunc->funccolcollations = NIL;
-		rtfunc->funcparams = NULL;	/* not set until planning */
+		rtfunc->funcparams = NULL;	/* 规划期才设置     */
 
 		/*
-		 * Now determine if the function returns a simple or composite type.
+		 * 现在确定函数返回的是简单类型还是复合类型。  
 		 */
 		functypclass = get_expr_result_type(funcexpr,
 											&funcrettype,
 											&tupdesc);
 
 		/*
-		 * A coldeflist is required if the function returns RECORD and hasn't
-		 * got a predetermined record type, and is prohibited otherwise.  This
-		 * can be a bit confusing, so we expend some effort on delivering a
-		 * relevant error message.
+		 * 若函数返回 RECORD 且没有预定记录类型，则需要    
+		 * coldeflist，否则禁止使用。这一点可能令人困惑，   
+		 * 因此我们会在给出相关错误信息上花些功夫。    
+		 *                        
 		 */
 		if (coldeflist != NIL)
 		{
 			switch (functypclass)
 			{
 				case TYPEFUNC_RECORD:
-					/* ok */
+					/* 可*/
 					break;
 				case TYPEFUNC_COMPOSITE:
 				case TYPEFUNC_COMPOSITE_DOMAIN:
 
 					/*
-					 * If the function's raw result type is RECORD, we must
-					 * have resolved it using its OUT parameters.  Otherwise,
-					 * it must have a named composite type.
+					 * 若函数的原始结果类型为 RECORD，则必须
+					 * 已用其 OUT 参数把它解析出来。否则，    
+					 * 它必须有具名复合类型。   
 					 */
 					if (exprType(funcexpr) == RECORDOID)
 						ereport(ERROR,
@@ -1862,12 +1862,12 @@ addRangeTableEntryForFunction(ParseState *pstate,
 		if (functypclass == TYPEFUNC_COMPOSITE ||
 			functypclass == TYPEFUNC_COMPOSITE_DOMAIN)
 		{
-			/* Composite data type, e.g. a table's row type */
+			/* 复合类型，例如表的行类型         */
 			Assert(tupdesc);
 		}
 		else if (functypclass == TYPEFUNC_SCALAR)
 		{
-			/* Base data type, i.e. scalar */
+			/* 基础类型，即标量    */
 			tupdesc = CreateTemplateTupleDesc(1);
 			TupleDescInitEntry(tupdesc,
 							   (AttrNumber) 1,
@@ -1885,9 +1885,9 @@ addRangeTableEntryForFunction(ParseState *pstate,
 			ListCell   *col;
 
 			/*
-			 * Use the column definition list to construct a tupdesc and fill
-			 * in the RangeTblFunction's lists.  Limit number of columns to
-			 * MaxHeapAttributeNumber, because CheckAttributeNamesTypes will.
+			 * 用列定义列表构造 tupdesc，并填充                  
+			 * RangeTblFunction 的各列表。列数上限为             
+			 * MaxHeapAttributeNumber，CheckAttributeNamesTypes 亦然。   
 			 */
 			if (list_length(coldeflist) > MaxHeapAttributeNumber)
 				ereport(ERROR,
@@ -1938,13 +1938,13 @@ addRangeTableEntryForFunction(ParseState *pstate,
 			}
 
 			/*
-			 * Ensure that the coldeflist defines a legal set of names (no
-			 * duplicates, but we needn't worry about system column names) and
-			 * datatypes.  Although we mostly can't allow pseudo-types, it
-			 * seems safe to allow RECORD and RECORD[], since values within
-			 * those type classes are self-identifying at runtime, and the
-			 * coldeflist doesn't represent anything that will be visible to
-			 * other sessions.
+			 * 确保 coldeflist 定义出合法的名字集合（不得  
+			 * 重复，但无需担心系统列名）以及                  
+			 * 数据类型合法。虽然多数伪类型不可用，但  
+			 * 允许 RECORD 与 RECORD[] 似乎安全，因为这些      
+			 * 类型类别中的值在运行时可自我识别，而     
+			 * coldeflist 并不代表任何其他会话可见的内容。  
+			 *                
 			 */
 			CheckAttributeNamesTypes(tupdesc, RELKIND_COMPOSITE_TYPE,
 									 CHKATYPE_ANYRECORD);
@@ -1956,26 +1956,26 @@ addRangeTableEntryForFunction(ParseState *pstate,
 							funcname, format_type_be(funcrettype)),
 					 parser_errposition(pstate, exprLocation(funcexpr))));
 
-		/* Finish off the RangeTblFunction and add it to the RTE's list */
+		/* 完成 RangeTblFunction 并把它加入 RTE 的列表        */
 		rtfunc->funccolcount = tupdesc->natts;
 		rte->functions = lappend(rte->functions, rtfunc);
 
-		/* Save the tupdesc for use below */
+		/* 保存 tupdesc 供下文使用 */
 		functupdescs[funcno] = tupdesc;
 		totalatts += tupdesc->natts;
 		funcno++;
 	}
 
 	/*
-	 * If there's more than one function, or we want an ordinality column, we
-	 * have to produce a merged tupdesc.
+	 * 若有多个函数，或者想要 ordinality（序号）列，        
+	 * 就必须生成合并 tupdesc。 
 	 */
 	if (nfuncs > 1 || rangefunc->ordinality)
 	{
 		if (rangefunc->ordinality)
 			totalatts++;
 
-		/* Disallow more columns than will fit in a tuple */
+		/* 禁止列数超过元组可容纳的上限     */
 		if (totalatts > MaxTupleAttributeNumber)
 			ereport(ERROR,
 					(errcode(ERRCODE_TOO_MANY_COLUMNS),
@@ -1984,7 +1984,7 @@ addRangeTableEntryForFunction(ParseState *pstate,
 					 parser_errposition(pstate,
 										exprLocation((Node *) funcexprs))));
 
-		/* Merge the tuple descs of each function into a composite one */
+		/* 把各函数的 tupdesc 合并为一个复合 tupdesc       */
 		tupdesc = CreateTemplateTupleDesc(totalatts);
 		natts = 0;
 		for (i = 0; i < nfuncs; i++)
@@ -1993,7 +1993,7 @@ addRangeTableEntryForFunction(ParseState *pstate,
 				TupleDescCopyEntry(tupdesc, ++natts, functupdescs[i], j);
 		}
 
-		/* Add the ordinality column if needed */
+		/* 若需要则加入 ordinality 列   */
 		if (rangefunc->ordinality)
 		{
 			TupleDescInitEntry(tupdesc,
@@ -2002,50 +2002,50 @@ addRangeTableEntryForFunction(ParseState *pstate,
 							   INT8OID,
 							   -1,
 							   0);
-			/* no need to set collation */
+			/* 无需设置排序规则 */
 		}
 
 		Assert(natts == totalatts);
 	}
 	else
 	{
-		/* We can just use the single function's tupdesc as-is */
+		/* 直接原样使用单个函数的 tupdesc           */
 		tupdesc = functupdescs[0];
 	}
 
-	/* Use the tupdesc while assigning column aliases for the RTE */
+	/* 为 RTE 分配列别名时使用该 tupdesc                */
 	buildRelationAliases(tupdesc, alias, eref);
 
 	/*
-	 * Set flags and access permissions.
+	 * 设置标志和访问权限。   
 	 *
-	 * Functions are never checked for access rights (at least, not by
-	 * ExecCheckPermissions()), so no need to perform addRTEPermissionInfo().
+	 * 函数从不检查访问权限（至少 ExecCheckPermissions() 
+	 * 不做此项检查），因此无需执行 addRTEPermissionInfo()。  
 	 */
 	rte->lateral = lateral;
-	rte->inh = false;			/* never true for functions */
+	rte->inh = false;			/* 对函数永不为真    */
 	rte->inFromCl = inFromCl;
 
 	/*
-	 * Add completed RTE to pstate's range table list, so that we know its
-	 * index.  But we don't add it to the join list --- caller must do that if
-	 * appropriate.
+	 * 把完成的 RTE 加入 pstate 的范围表列表，以便知道其
+	 * 下标。若合适须由调用者加入连接列表，此处不加。  
+	 *             
 	 */
 	pstate->p_rtable = lappend(pstate->p_rtable, rte);
 
 	/*
-	 * Build a ParseNamespaceItem, but don't add it to the pstate's namespace
-	 * list --- caller must do that if appropriate.
+	 * 构建 ParseNamespaceItem，但不把它链入 pstate 的             
+	 * 命名空间列表；由调用者完成。  
 	 */
 	return buildNSItemFromTupleDesc(rte, list_length(pstate->p_rtable), NULL,
 									tupdesc);
 }
 
 /*
- * Add an entry for a table function to the pstate's range table (p_rtable).
- * Then, construct and return a ParseNamespaceItem for the new RTE.
+ * 向 pstate 的范围表（p_rtable）加入表函数的条目。         
+ * 然后为新 RTE 构造并返回 ParseNamespaceItem。          
  *
- * This is much like addRangeTableEntry() except that it makes a tablefunc RTE.
+ * 这与 addRangeTableEntry() 很相似，只是构造 tablefunc RTE。       
  */
 ParseNamespaceItem *
 addRangeTableEntryForTableFunc(ParseState *pstate,
@@ -2061,7 +2061,7 @@ addRangeTableEntryForTableFunc(ParseState *pstate,
 
 	Assert(pstate != NULL);
 
-	/* Disallow more columns than will fit in a tuple */
+	/* 禁止列数超过元组可容纳的上限     */
 	if (list_length(tf->colnames) > MaxTupleAttributeNumber)
 		ereport(ERROR,
 				(errcode(ERRCODE_TOO_MANY_COLUMNS),
@@ -2087,7 +2087,7 @@ addRangeTableEntryForTableFunc(ParseState *pstate,
 	eref = alias ? copyObject(alias) : makeAlias(refname, NIL);
 	numaliases = list_length(eref->colnames);
 
-	/* fill in any unspecified alias columns */
+	/* 填充所有未指定的别名列     */
 	if (numaliases < list_length(tf->colnames))
 		eref->colnames = list_concat(eref->colnames,
 									 list_copy_tail(tf->colnames, numaliases));
@@ -2102,25 +2102,25 @@ addRangeTableEntryForTableFunc(ParseState *pstate,
 	rte->eref = eref;
 
 	/*
-	 * Set flags and access permissions.
+	 * 设置标志和访问权限。   
 	 *
-	 * Tablefuncs are never checked for access rights (at least, not by
-	 * ExecCheckPermissions()), so no need to perform addRTEPermissionInfo().
+	 * 表函数从不检查权限（至少 ExecCheckPermissions()     
+	 * 不做此项检查），因此无需执行 addRTEPermissionInfo()。  
 	 */
 	rte->lateral = lateral;
-	rte->inh = false;			/* never true for tablefunc RTEs */
+	rte->inh = false;			/* 对 tablefunc RTE 永不为真*/
 	rte->inFromCl = inFromCl;
 
 	/*
-	 * Add completed RTE to pstate's range table list, so that we know its
-	 * index.  But we don't add it to the join list --- caller must do that if
-	 * appropriate.
+	 * 把完成的 RTE 加入 pstate 的范围表列表，以便知道其
+	 * 下标。若合适须由调用者加入连接列表，此处不加。  
+	 *             
 	 */
 	pstate->p_rtable = lappend(pstate->p_rtable, rte);
 
 	/*
-	 * Build a ParseNamespaceItem, but don't add it to the pstate's namespace
-	 * list --- caller must do that if appropriate.
+	 * 构建 ParseNamespaceItem，但不把它链入 pstate 的             
+	 * 命名空间列表；由调用者完成。  
 	 */
 	return buildNSItemFromLists(rte, list_length(pstate->p_rtable),
 								rte->coltypes, rte->coltypmods,
@@ -2128,10 +2128,10 @@ addRangeTableEntryForTableFunc(ParseState *pstate,
 }
 
 /*
- * Add an entry for a VALUES list to the pstate's range table (p_rtable).
- * Then, construct and return a ParseNamespaceItem for the new RTE.
+ * 向 pstate 的范围表（p_rtable）加入 VALUES 列表的条目。 
+ * 然后为新 RTE 构造并返回 ParseNamespaceItem。          
  *
- * This is much like addRangeTableEntry() except that it makes a values RTE.
+ * 这与 addRangeTableEntry() 很相似，只是构造 values RTE。       
  */
 ParseNamespaceItem *
 addRangeTableEntryForValues(ParseState *pstate,
@@ -2162,7 +2162,7 @@ addRangeTableEntryForValues(ParseState *pstate,
 
 	eref = alias ? copyObject(alias) : makeAlias(refname, NIL);
 
-	/* fill in any unspecified alias columns */
+	/* 填充所有未指定的别名列     */
 	numcolumns = list_length((List *) linitial(exprs));
 	numaliases = list_length(eref->colnames);
 	while (numaliases < numcolumns)
@@ -2183,25 +2183,25 @@ addRangeTableEntryForValues(ParseState *pstate,
 	rte->eref = eref;
 
 	/*
-	 * Set flags and access permissions.
+	 * 设置标志和访问权限。   
 	 *
-	 * Subqueries are never checked for access rights, so no need to perform
-	 * addRTEPermissionInfo().
+	 * 子查询从不检查访问权限，因此无需执行               
+	 * addRTEPermissionInfo() 
 	 */
 	rte->lateral = lateral;
-	rte->inh = false;			/* never true for values RTEs */
+	rte->inh = false;			/* 对 values RTE 永不为真*/
 	rte->inFromCl = inFromCl;
 
 	/*
-	 * Add completed RTE to pstate's range table list, so that we know its
-	 * index.  But we don't add it to the join list --- caller must do that if
-	 * appropriate.
+	 * 把完成的 RTE 加入 pstate 的范围表列表，以便知道其
+	 * 下标。若合适须由调用者加入连接列表，此处不加。  
+	 *             
 	 */
 	pstate->p_rtable = lappend(pstate->p_rtable, rte);
 
 	/*
-	 * Build a ParseNamespaceItem, but don't add it to the pstate's namespace
-	 * list --- caller must do that if appropriate.
+	 * 构建 ParseNamespaceItem，但不把它链入 pstate 的             
+	 * 命名空间列表；由调用者完成。  
 	 */
 	return buildNSItemFromLists(rte, list_length(pstate->p_rtable),
 								rte->coltypes, rte->coltypmods,
@@ -2209,12 +2209,12 @@ addRangeTableEntryForValues(ParseState *pstate,
 }
 
 /*
- * Add an entry for a join to the pstate's range table (p_rtable).
- * Then, construct and return a ParseNamespaceItem for the new RTE.
+ * 向 pstate 的范围表（p_rtable）加入连接的条目。  
+ * 然后为新 RTE 构造并返回 ParseNamespaceItem。          
  *
- * This is much like addRangeTableEntry() except that it makes a join RTE.
- * Also, it's more convenient for the caller to construct the
- * ParseNamespaceColumn array, so we pass that in.
+ * 这与 addRangeTableEntry() 很相似，只是构造连接 RTE。      
+ * 此外，由调用者构造 ParseNamespaceColumn 数组   
+ * 更为方便，因此我们将其传入。     
  */
 ParseNamespaceItem *
 addRangeTableEntryForJoin(ParseState *pstate,
@@ -2237,8 +2237,8 @@ addRangeTableEntryForJoin(ParseState *pstate,
 	Assert(pstate != NULL);
 
 	/*
-	 * Fail if join has too many columns --- we must be able to reference any
-	 * of the columns with an AttrNumber.
+	 * 若连接的列过多则报错 —— 必须能用 AttrNumber         
+	 * 引用其中任意一列。       
 	 */
 	if (list_length(aliasvars) > MaxAttrNumber)
 		ereport(ERROR,
@@ -2260,7 +2260,7 @@ addRangeTableEntryForJoin(ParseState *pstate,
 	eref = alias ? copyObject(alias) : makeAlias("unnamed_join", NIL);
 	numaliases = list_length(eref->colnames);
 
-	/* fill in any unspecified alias columns */
+	/* 填充未指定的别名列           */
 	if (numaliases < list_length(colnames))
 		eref->colnames = list_concat(eref->colnames,
 									 list_copy_tail(colnames, numaliases));
@@ -2274,25 +2274,25 @@ addRangeTableEntryForJoin(ParseState *pstate,
 	rte->eref = eref;
 
 	/*
-	 * Set flags and access permissions.
+	 * 设置标志与访问权限。   
 	 *
-	 * Joins are never checked for access rights, so no need to perform
-	 * addRTEPermissionInfo().
+	 * 连接从不检查访问权限，因此无需调用             
+	 * addRTEPermissionInfo() 
 	 */
 	rte->lateral = false;
-	rte->inh = false;			/* never true for joins */
+	rte->inh = false;			/* 连接永不为真   */
 	rte->inFromCl = inFromCl;
 
 	/*
-	 * Add completed RTE to pstate's range table list, so that we know its
-	 * index.  But we don't add it to the join list --- caller must do that if
-	 * appropriate.
+	 * 将完成的 RTE 加入 pstate 的范围表列表，以得知其   
+	 * 索引。但不加入连接列表——若合适由调用者添加     
+	 *             
 	 */
 	pstate->p_rtable = lappend(pstate->p_rtable, rte);
 
 	/*
-	 * Build a ParseNamespaceItem, but don't add it to the pstate's namespace
-	 * list --- caller must do that if appropriate.
+	 * 构造 ParseNamespaceItem，但不把它加入 pstate 的命名空间 
+	 * 列表——若合适则由调用者添加  
 	 */
 	nsitem = (ParseNamespaceItem *) palloc(sizeof(ParseNamespaceItem));
 	nsitem->p_names = rte->eref;
@@ -2300,7 +2300,7 @@ addRangeTableEntryForJoin(ParseState *pstate,
 	nsitem->p_perminfo = NULL;
 	nsitem->p_rtindex = list_length(pstate->p_rtable);
 	nsitem->p_nscolumns = nscolumns;
-	/* set default visibility flags; might get changed later */
+	/* 设置默认可见性标志，之后可能被改变   */
 	nsitem->p_rel_visible = true;
 	nsitem->p_cols_visible = true;
 	nsitem->p_lateral_only = false;
@@ -2310,10 +2310,10 @@ addRangeTableEntryForJoin(ParseState *pstate,
 }
 
 /*
- * Add an entry for a CTE reference to the pstate's range table (p_rtable).
- * Then, construct and return a ParseNamespaceItem for the new RTE.
+ * 在 pstate 的范围表 (p_rtable) 中为 CTE 引用添加条目。     
+ * 然后为新 RTE 构造并返回一个 ParseNamespaceItem。    
  *
- * This is much like addRangeTableEntry() except that it makes a CTE RTE.
+ * 与 addRangeTableEntry() 很相似，但生成的是 CTE RTE。       
  */
 ParseNamespaceItem *
 addRangeTableEntryForCTE(ParseState *pstate,
@@ -2338,17 +2338,17 @@ addRangeTableEntryForCTE(ParseState *pstate,
 	rte->ctename = cte->ctename;
 	rte->ctelevelsup = levelsup;
 
-	/* Self-reference if and only if CTE's parse analysis isn't completed */
+	/* 当且仅当 CTE 尚未完成解析时为自引用                 */
 	rte->self_reference = !IsA(cte->ctequery, Query);
 	Assert(cte->cterecursive || !rte->self_reference);
-	/* Bump the CTE's refcount if this isn't a self-reference */
+	/* 若非自引用，则递增该 CTE 的引用计数     */
 	if (!rte->self_reference)
 		cte->cterefcount++;
 
 	/*
-	 * We throw error if the CTE is INSERT/UPDATE/DELETE without RETURNING.
-	 * This won't get checked in case of a self-reference, but that's OK
-	 * because data-modifying CTEs aren't allowed to be recursive anyhow.
+	 * 若 CTE 是不带 RETURNING 的 INSERT/UPDATE/DELETE 则报错。   
+	 * 自引用情形不做此检查，但无妨，因为              
+	 * 数据修改型 CTE 本就不允许递归。                      
 	 */
 	if (IsA(cte->ctequery, Query))
 	{
@@ -2374,7 +2374,7 @@ addRangeTableEntryForCTE(ParseState *pstate,
 		eref = makeAlias(refname, NIL);
 	numaliases = list_length(eref->colnames);
 
-	/* fill in any unspecified alias columns */
+	/* 填充未指定的别名列           */
 	varattno = 0;
 	foreach(lc, cte->ctecolnames)
 	{
@@ -2419,33 +2419,33 @@ addRangeTableEntryForCTE(ParseState *pstate,
 	}
 
 	/*
-	 * Set flags and access permissions.
+	 * 设置标志与访问权限。   
 	 *
-	 * Subqueries are never checked for access rights, so no need to perform
-	 * addRTEPermissionInfo().
+	 * 子查询从不检查访问权限，因此无需调用               
+	 * addRTEPermissionInfo() 
 	 */
 	rte->lateral = false;
-	rte->inh = false;			/* never true for subqueries */
+	rte->inh = false;			/* 子查询永不为真     */
 	rte->inFromCl = inFromCl;
 
 	/*
-	 * Add completed RTE to pstate's range table list, so that we know its
-	 * index.  But we don't add it to the join list --- caller must do that if
-	 * appropriate.
+	 * 将完成的 RTE 加入 pstate 的范围表列表，以得知其   
+	 * 索引。但不加入连接列表——若合适由调用者添加     
+	 *             
 	 */
 	pstate->p_rtable = lappend(pstate->p_rtable, rte);
 
 	/*
-	 * Build a ParseNamespaceItem, but don't add it to the pstate's namespace
-	 * list --- caller must do that if appropriate.
+	 * 构造 ParseNamespaceItem，但不把它加入 pstate 的命名空间 
+	 * 列表——若合适则由调用者添加  
 	 */
 	psi = buildNSItemFromLists(rte, list_length(pstate->p_rtable),
 							   rte->coltypes, rte->coltypmods,
 							   rte->colcollations);
 
 	/*
-	 * The columns added by search and cycle clauses are not included in star
-	 * expansion in queries contained in the CTE.
+	 * search 与 cycle 子句添加的列不包含在该 CTE                
+	 * 所包含查询的星号展开之中。   
 	 */
 	if (rte->ctelevelsup > 0)
 		for (int i = 0; i < n_dontexpand_columns; i++)
@@ -2455,17 +2455,17 @@ addRangeTableEntryForCTE(ParseState *pstate,
 }
 
 /*
- * Add an entry for an ephemeral named relation reference to the pstate's
- * range table (p_rtable).
- * Then, construct and return a ParseNamespaceItem for the new RTE.
+ * 在 pstate 的范围表 (p_rtable) 中为临时命名关系引用     
+ * 添加一个条目。  
+ * 然后为新 RTE 构造并返回一个 ParseNamespaceItem。    
  *
- * It is expected that the RangeVar, which up until now is only known to be an
- * ephemeral named relation, will (in conjunction with the QueryEnvironment in
- * the ParseState), create a RangeTblEntry for a specific *kind* of ephemeral
- * named relation, based on enrtype.
+ * 预期这个 RangeVar（此前仅知其为临时命名关系）            
+ * 将结合 ParseState 中的 QueryEnvironment，依据 enrtype              
+ * 为特定*种类*的临时命名关系创建相应的 RangeTblEntry。    
+ *                                  
  *
- * This is much like addRangeTableEntry() except that it makes an RTE for an
- * ephemeral named relation.
+ * 与 addRangeTableEntry() 很相似，但生成的 RTE 对应             
+ * 临时命名关系。    
  */
 ParseNamespaceItem *
 addRangeTableEntryForENR(ParseState *pstate,
@@ -2491,24 +2491,24 @@ addRangeTableEntryForENR(ParseState *pstate,
 
 		default:
 			elog(ERROR, "unexpected enrtype: %d", enrmd->enrtype);
-			return NULL;		/* for fussy compilers */
+			return NULL;		/* 取悦编译器     */
 	}
 
 	/*
-	 * Record dependency on a relation.  This allows plans to be invalidated
-	 * if they access transition tables linked to a table that is altered.
+	 * 记录对某个关系的依赖。当计划访问的传递表         
+	 * 所链接的表被改动时，这些计划即可失效。          
 	 */
 	rte->relid = enrmd->reliddesc;
 
 	/*
-	 * Build the list of effective column names using user-supplied aliases
-	 * and/or actual column names.
+	 * 以用户提供的别名和/或实际列名构建                   
+	 * 有效列名的列表。   
 	 */
 	tupdesc = ENRMetadataGetTupDesc(enrmd);
 	rte->eref = makeAlias(refname, NIL);
 	buildRelationAliases(tupdesc, alias, rte->eref);
 
-	/* Record additional data for ENR, including column type info */
+	/* 记录 ENR 的附加数据，包括列类型信息         */
 	rte->enrname = enrmd->name;
 	rte->enrtuples = enrmd->enrtuples;
 	rte->coltypes = NIL;
@@ -2520,14 +2520,14 @@ addRangeTableEntryForENR(ParseState *pstate,
 
 		if (att->attisdropped)
 		{
-			/* Record zeroes for a dropped column */
+			/* 为已删除列记录零值        */
 			rte->coltypes = lappend_oid(rte->coltypes, InvalidOid);
 			rte->coltypmods = lappend_int(rte->coltypmods, 0);
 			rte->colcollations = lappend_oid(rte->colcollations, InvalidOid);
 		}
 		else
 		{
-			/* Let's just make sure we can tell this isn't dropped */
+			/* 确保我们能辨别此列未被删除             */
 			if (att->atttypid == InvalidOid)
 				elog(ERROR, "atttypid is invalid for non-dropped column in \"%s\"",
 					 rv->relname);
@@ -2539,25 +2539,25 @@ addRangeTableEntryForENR(ParseState *pstate,
 	}
 
 	/*
-	 * Set flags and access permissions.
+	 * 设置标志与访问权限。   
 	 *
-	 * ENRs are never checked for access rights, so no need to perform
-	 * addRTEPermissionInfo().
+	 * 从不检查 ENR 的访问权限，因此无需调用          
+	 * addRTEPermissionInfo() 
 	 */
 	rte->lateral = false;
-	rte->inh = false;			/* never true for ENRs */
+	rte->inh = false;			/* ENR 永不为真    */
 	rte->inFromCl = inFromCl;
 
 	/*
-	 * Add completed RTE to pstate's range table list, so that we know its
-	 * index.  But we don't add it to the join list --- caller must do that if
-	 * appropriate.
+	 * 将完成的 RTE 加入 pstate 的范围表列表，以得知其   
+	 * 索引。但不加入连接列表——若合适由调用者添加     
+	 *             
 	 */
 	pstate->p_rtable = lappend(pstate->p_rtable, rte);
 
 	/*
-	 * Build a ParseNamespaceItem, but don't add it to the pstate's namespace
-	 * list --- caller must do that if appropriate.
+	 * 构造 ParseNamespaceItem，但不把它加入 pstate 的命名空间 
+	 * 列表——若合适则由调用者添加  
 	 */
 	return buildNSItemFromTupleDesc(rte, list_length(pstate->p_rtable), NULL,
 									tupdesc);
@@ -2565,17 +2565,17 @@ addRangeTableEntryForENR(ParseState *pstate,
 
 
 /*
- * Has the specified refname been selected FOR UPDATE/FOR SHARE?
+ * 指定的 refname 是否已被选定 FOR UPDATE/FOR SHARE？ 
  *
- * This is used when we have not yet done transformLockingClause, but need
- * to know the correct lock to take during initial opening of relations.
+ * 用于尚未执行 transformLockingClause，但需要知道            
+ * 初次打开关系时应取何种锁的场合。                     
  *
- * Note that refname may be NULL (for a subquery without an alias), in which
- * case the relation can't be locked by name, but it might still be locked if
- * a locking clause requests that all tables be locked.
+ * 注意 refname 可能为 NULL（对应无别名的子查询），此时  
+ * 无法按名字锁定该关系，但若 locking 子句要求              
+ * 锁定所有表，则它仍可能被锁定。       
  *
- * Note: we pay no attention to whether it's FOR UPDATE vs FOR SHARE,
- * since the table-level lock is the same either way.
+ * 注意：我们不去区分 FOR UPDATE 与 FOR SHARE，           
+ * 因为两者的表级锁是相同的。           
  */
 bool
 isLockedRefname(ParseState *pstate, const char *refname)
@@ -2583,8 +2583,8 @@ isLockedRefname(ParseState *pstate, const char *refname)
 	ListCell   *l;
 
 	/*
-	 * If we are in a subquery specified as locked FOR UPDATE/SHARE from
-	 * parent level, then act as though there's a generic FOR UPDATE here.
+	 * 若我们处于被上层指定为 FOR UPDATE/SHARE 锁定的     
+	 * 子查询中，则视作此处存在通用 FOR UPDATE。           
 	 */
 	if (pstate->p_locked_from_parent)
 		return true;
@@ -2595,12 +2595,12 @@ isLockedRefname(ParseState *pstate, const char *refname)
 
 		if (lc->lockedRels == NIL)
 		{
-			/* all tables used in query */
+			/* 查询用到的全部表 */
 			return true;
 		}
 		else if (refname != NULL)
 		{
-			/* just the named tables */
+			/* 仅指定的那些表 */
 			ListCell   *l2;
 
 			foreach(l2, lc->lockedRels)
@@ -2616,10 +2616,10 @@ isLockedRefname(ParseState *pstate, const char *refname)
 }
 
 /*
- * Add the given nsitem/RTE as a top-level entry in the pstate's join list
- * and/or namespace list.  (We assume caller has checked for any
- * namespace conflicts.)  The nsitem is always marked as unconditionally
- * visible, that is, not LATERAL-only.
+ * 把给定的 nsitem/RTE 作为顶层条目加入 pstate 的            
+ * 连接列表和/或命名空间列表。（调用者应已   
+ * 检查过命名空间冲突。）该 nsitem 总是标记为无条件 
+ * 可见，即并非仅 LATERAL。   
  */
 void
 addNSItemToQuery(ParseState *pstate, ParseNamespaceItem *nsitem,
@@ -2635,7 +2635,7 @@ addNSItemToQuery(ParseState *pstate, ParseNamespaceItem *nsitem,
 	}
 	if (addToRelNameSpace || addToVarNameSpace)
 	{
-		/* Set the new nsitem's visibility flags correctly */
+		/* 正确设置新 nsitem 的可见性标志       */
 		nsitem->p_rel_visible = addToRelNameSpace;
 		nsitem->p_cols_visible = addToVarNameSpace;
 		nsitem->p_lateral_only = false;
@@ -2645,21 +2645,21 @@ addNSItemToQuery(ParseState *pstate, ParseNamespaceItem *nsitem,
 }
 
 /*
- * expandRTE -- expand the columns of a rangetable entry
+ * expandRTE —— 展开范围表条目的列         
  *
- * This creates lists of an RTE's column names (aliases if provided, else
- * real names) and Vars for each column.  Only user columns are considered.
- * If include_dropped is false then dropped columns are omitted from the
- * results.  If include_dropped is true then empty strings and NULL constants
- * (not Vars!) are returned for dropped columns.
+ * 创建 RTE 的列名列表（有别名则用别名，否则           
+ * 用真实名）以及各列的 Var。只考虑用户列。              
+ * 若 include_dropped 为假，则结果中省略已删除列。       
+ * 若 include_dropped 为真，则已删除列对应空字符串与         
+ * NULL 常量（而非 Var）。               
  *
- * rtindex, sublevels_up, and location are the varno, varlevelsup, and location
- * values to use in the created Vars.  Ordinarily rtindex should match the
- * actual position of the RTE in its rangetable.
+ * rtindex、sublevels_up 与 location 是所建 Var 的 varno、              
+ * varlevelsup 与 location 值。通常 rtindex 应与该 RTE 在        
+ * 范围表中的实际位置一致。         
  *
- * The output lists go into *colnames and *colvars.
- * If only one of the two kinds of output list is needed, pass NULL for the
- * output pointer for the unwanted one.
+ * 输出列表放入 *colnames 与 *colvars。    
+ * 若只需要两种输出列表之一，则对不需要的那个         
+ * 输出指针传 NULL。             
  */
 void
 expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
@@ -2676,14 +2676,14 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
 	switch (rte->rtekind)
 	{
 		case RTE_RELATION:
-			/* Ordinary relation RTE */
+			/* 普通关系 RTE      */
 			expandRelation(rte->relid, rte->eref,
 						   rtindex, sublevels_up, location,
 						   include_dropped, colnames, colvars);
 			break;
 		case RTE_SUBQUERY:
 			{
-				/* Subquery RTE */
+				/* 子查询 RTE*/
 				ListCell   *aliasp_item = list_head(rte->eref->colnames);
 				ListCell   *tlistitem;
 
@@ -2698,12 +2698,12 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
 					Assert(varattno == te->resno);
 
 					/*
-					 * Formerly it was possible for the subquery tlist to have
-					 * more non-junk entries than the colnames list does (if
-					 * this RTE has been expanded from a view that has more
-					 * columns than it did when the current query was parsed).
-					 * Now that ApplyRetrieveRule cleans up such cases, we
-					 * shouldn't see that anymore, but let's just check.
+					 * 从前子查询目标列表的非垃圾条目可能    
+					 * 多于 colnames 列表的数目（若此 RTE 展开  
+					 * 自某个视图，而其列数多于当前查询    
+					 * 被解析时该视图所具有的列数）。          
+					 * 如今 ApplyRetrieveRule 会清理这类情形，  
+					 * 不应再遇到该情形，但仍照例检查。 
 					 */
 					if (!aliasp_item)
 						elog(ERROR, "too few column names for subquery %s",
@@ -2736,7 +2736,7 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
 			break;
 		case RTE_FUNCTION:
 			{
-				/* Function RTE */
+				/* 函数 RTE   */
 				int			atts_done = 0;
 				ListCell   *lc;
 
@@ -2747,7 +2747,7 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
 					Oid			funcrettype = InvalidOid;
 					TupleDesc	tupdesc = NULL;
 
-					/* If it has a coldeflist, it returns RECORD */
+					/* 若带 coldeflist，则返回 RECORD      */
 					if (rtfunc->funccolnames != NIL)
 						functypclass = TYPEFUNC_RECORD;
 					else
@@ -2758,7 +2758,7 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
 					if (functypclass == TYPEFUNC_COMPOSITE ||
 						functypclass == TYPEFUNC_COMPOSITE_DOMAIN)
 					{
-						/* Composite data type, e.g. a table's row type */
+						/* 复合数据类型，例如表的行类型   */
 						Assert(tupdesc);
 						expandTupleDesc(tupdesc, rte->eref,
 										rtfunc->funccolcount, atts_done,
@@ -2767,7 +2767,7 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
 					}
 					else if (functypclass == TYPEFUNC_SCALAR)
 					{
-						/* Base data type, i.e. scalar */
+						/* 基础类型，即标量    */
 						if (colnames)
 							*colnames = lappend(*colnames,
 												list_nth(rte->eref->colnames,
@@ -2793,7 +2793,7 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
 						{
 							List	   *namelist;
 
-							/* extract appropriate subset of column list */
+							/* 提取列列表的相应子集            */
 							namelist = list_copy_tail(rte->eref->colnames,
 													  atts_done);
 							namelist = list_truncate(namelist,
@@ -2831,13 +2831,13 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
 					}
 					else
 					{
-						/* addRangeTableEntryForFunction should've caught this */
+						/* addRangeTableEntryForFunction 本应捕获此情况 */
 						elog(ERROR, "function in FROM has unsupported return type");
 					}
 					atts_done += rtfunc->funccolcount;
 				}
 
-				/* Append the ordinality column if any */
+				/* 如有序数列则附加之         */
 				if (rte->funcordinality)
 				{
 					if (colnames)
@@ -2860,7 +2860,7 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
 			break;
 		case RTE_JOIN:
 			{
-				/* Join RTE */
+				/* 连接RTE*/
 				ListCell   *colname;
 				ListCell   *aliasvar;
 
@@ -2874,12 +2874,12 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
 					varattno++;
 
 					/*
-					 * During ordinary parsing, there will never be any
-					 * deleted columns in the join.  While this function is
-					 * also used by the rewriter and planner, they do not
-					 * currently call it on any JOIN RTEs.  Therefore, this
-					 * next bit is dead code, but it seems prudent to handle
-					 * the case correctly anyway.
+					 * 普通解析时，连接中绝不会有         
+					 * 已删除列。此函数虽也供重写器          
+					 * 和规划器用，但它们目前不会对任何  
+					 * JOIN RTE 调用。故接下来这段是死代码， 
+					 * 但稳妥起见仍正确处理该情形。           
+					 *                           
 					 */
 					if (avar == NULL)
 					{
@@ -2891,9 +2891,9 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
 							if (colvars)
 							{
 								/*
-								 * Can't use join's column type here (it might
-								 * be dropped!); but it doesn't really matter
-								 * what type the Const claims to be.
+								 * 此处无法使用连接列类型（可能 
+								 * 已删除！）；不过 Const 自称何  
+								 * 种类型都无所谓。         
 								 */
 								*colvars = lappend(*colvars,
 												   makeNullConst(INT4OID, -1,
@@ -2916,13 +2916,13 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
 						Var		   *varnode;
 
 						/*
-						 * If the joinaliasvars entry is a simple Var, just
-						 * copy it (with adjustment of varlevelsup and
-						 * location); otherwise it is a JOIN USING column and
-						 * we must generate a join alias Var.  This matches
-						 * the results that expansion of "join.*" by
-						 * expandNSItemVars would have produced, if we had
-						 * access to the ParseNamespaceItem for the join.
+						 * 若 joinaliasvars 条目为简单 Var，则     
+						 * 原样复制它（调整 varlevelsup 和   
+						 * location）；否则它是 JOIN USING 列，须   
+						 * 生成连接别名 Var。这与若能访问该  
+						 * 连接的 ParseNamespaceItem，那么    
+						 * expandNSItemVars 展开"join.*"的结果       
+						 * 就会一致。                               
 						 */
 						if (IsA(avar, Var))
 						{
@@ -2947,7 +2947,7 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
 		case RTE_CTE:
 		case RTE_NAMEDTUPLESTORE:
 			{
-				/* Tablefunc, Values, CTE, or ENR RTE */
+				/* Tablefunc/Values/CTE/ENR 型 RTE   */
 				ListCell   *aliasp_item = list_head(rte->eref->colnames);
 				ListCell   *lct;
 				ListCell   *lcm;
@@ -2966,7 +2966,7 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
 
 					if (colnames)
 					{
-						/* Assume there is one alias per output column */
+						/* 假定每个输出列对应一个别名     */
 						if (OidIsValid(coltype))
 						{
 							char	   *label = strVal(lfirst(aliasp_item));
@@ -2997,8 +2997,8 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
 						else if (include_dropped)
 						{
 							/*
-							 * It doesn't really matter what type the Const
-							 * claims to be.
+							 * Const 声称的类型其实无关紧要。  
+							 *              
 							 */
 							*colvars = lappend(*colvars,
 											   makeNullConst(INT4OID, -1,
@@ -3009,7 +3009,7 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
 			}
 			break;
 		case RTE_RESULT:
-			/* These expose no columns, so nothing to do */
+			/* 这些不暴露任何列，故无事可做*/
 			break;
 		default:
 			elog(ERROR, "unrecognized RTE kind: %d", (int) rte->rtekind);
@@ -3017,7 +3017,7 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
 }
 
 /*
- * expandRelation -- expandRTE subroutine
+ * expandRelation：expandRTE子程序   
  */
 static void
 expandRelation(Oid relid, Alias *eref, int rtindex, int sublevels_up,
@@ -3026,7 +3026,7 @@ expandRelation(Oid relid, Alias *eref, int rtindex, int sublevels_up,
 {
 	Relation	rel;
 
-	/* Get the tupledesc and turn it over to expandTupleDesc */
+	/* 取得 tupledesc 并转交 expandTupleDesc 处理     */
 	rel = relation_open(relid, AccessShareLock);
 	expandTupleDesc(rel->rd_att, eref, rel->rd_att->natts, 0,
 					rtindex, sublevels_up,
@@ -3036,13 +3036,13 @@ expandRelation(Oid relid, Alias *eref, int rtindex, int sublevels_up,
 }
 
 /*
- * expandTupleDesc -- expandRTE subroutine
+ * expandTupleDesc：expandRTE子程序   
  *
- * Generate names and/or Vars for the first "count" attributes of the tupdesc,
- * and append them to colnames/colvars.  "offset" is added to the varattno
- * that each Var would otherwise have, and we also skip the first "offset"
- * entries in eref->colnames.  (These provisions allow use of this code for
- * an individual composite-returning function in an RTE_FUNCTION RTE.)
+ * 为 tupdesc 的前 count 个属性生成名称和/或 Var，               
+ * 并把它们追加到 colnames/colvars。offset 会加到              
+ * 各 Var 本来的 varattno 上，且跳过 eref->colnames              
+ * 的前 offset 个条目。（这些设定使此代码也能用于       
+ * RTE_FUNCTION RTE 中的单个复合返回函数。）              
  */
 static void
 expandTupleDesc(TupleDesc tupdesc, Alias *eref, int count, int offset,
@@ -3070,8 +3070,8 @@ expandTupleDesc(TupleDesc tupdesc, Alias *eref, int count, int offset,
 				if (colvars)
 				{
 					/*
-					 * can't use atttypid here, but it doesn't really matter
-					 * what type the Const claims to be.
+					 * 此处无法使用 atttypid，不过它声称什么  
+					 * 类型都无关紧要。         
 					 */
 					*colvars = lappend(*colvars,
 									   makeNullConst(INT4OID, -1, InvalidOid));
@@ -3093,7 +3093,7 @@ expandTupleDesc(TupleDesc tupdesc, Alias *eref, int count, int offset,
 			}
 			else
 			{
-				/* If we run out of aliases, use the underlying name */
+				/* 若别名用尽，则使用底层名称           */
 				label = NameStr(attr->attname);
 			}
 			*colnames = lappend(*colnames, makeString(pstrdup(label)));
@@ -3116,14 +3116,14 @@ expandTupleDesc(TupleDesc tupdesc, Alias *eref, int count, int offset,
 
 /*
  * expandNSItemVars
- *	  Produce a list of Vars, and optionally a list of column names,
- *	  for the non-dropped columns of the nsitem.
+ *	  生成 Var 列表，并可选地生成列名列表，         
+ *	  对应 nsitem 的未删除列。          
  *
- * The emitted Vars are marked with the given sublevels_up and location.
+ * 生成的 Var 标以给定的 sublevels_up 与 location。           
  *
- * If colnames isn't NULL, a list of String items for the columns is stored
- * there; note that it's just a subset of the RTE's eref list, and hence
- * the list elements mustn't be modified.
+ * 若 colnames 非 NULL，则该列的 String 项列表会存于          
+ * 其中；注意它只是 RTE eref 列表的子集，因而           
+ * 列表元素不可修改。           
  */
 List *
 expandNSItemVars(ParseState *pstate, ParseNamespaceItem *nsitem,
@@ -3145,7 +3145,7 @@ expandNSItemVars(ParseState *pstate, ParseNamespaceItem *nsitem,
 
 		if (nscol->p_dontexpand)
 		{
-			/* skip */
+			/* 略  */
 		}
 		else if (colname[0])
 		{
@@ -3158,12 +3158,12 @@ expandNSItemVars(ParseState *pstate, ParseNamespaceItem *nsitem,
 						  nscol->p_vartypmod,
 						  nscol->p_varcollid,
 						  sublevels_up);
-			/* makeVar doesn't offer parameters for these, so set by hand: */
+			/* makeVar 不为此提供参数，故手工设置：          */
 			var->varnosyn = nscol->p_varnosyn;
 			var->varattnosyn = nscol->p_varattnosyn;
 			var->location = location;
 
-			/* ... and update varnullingrels */
+			/* 并更新 varnullingrels      */
 			markNullableIfNeeded(pstate, var);
 
 			result = lappend(result, var);
@@ -3172,7 +3172,7 @@ expandNSItemVars(ParseState *pstate, ParseNamespaceItem *nsitem,
 		}
 		else
 		{
-			/* dropped column, ignore */
+			/* 已删除列，忽略  */
 			Assert(nscol->p_varno == 0);
 		}
 		colindex++;
@@ -3182,12 +3182,12 @@ expandNSItemVars(ParseState *pstate, ParseNamespaceItem *nsitem,
 
 /*
  * expandNSItemAttrs -
- *	  Workhorse for "*" expansion: produce a list of targetentries
- *	  for the attributes of the nsitem
+ *	  星号展开的主力：为该 nsitem 的属性生成       
+ *	  目标列表项列表。        
  *
- * pstate->p_next_resno determines the resnos assigned to the TLEs.
- * The referenced columns are marked as requiring SELECT access, if
- * caller requests that.
+ * pstate->p_next_resno 决定各 TLE 的 resno。                 
+ * 若调用者要求，则把被引用列标记为需要          
+ * SELECT 访问。     
  */
 List *
 expandNSItemAttrs(ParseState *pstate, ParseNamespaceItem *nsitem,
@@ -3204,12 +3204,12 @@ expandNSItemAttrs(ParseState *pstate, ParseNamespaceItem *nsitem,
 	vars = expandNSItemVars(pstate, nsitem, sublevels_up, location, &names);
 
 	/*
-	 * Require read access to the table.  This is normally redundant with the
-	 * markVarForSelectPriv calls below, but not if the table has zero
-	 * columns.  We need not do anything if the nsitem is for a join: its
-	 * component tables will have been marked ACL_SELECT when they were added
-	 * to the rangetable.  (This step changes things only for the target
-	 * relation of UPDATE/DELETE, which cannot be under a join.)
+	 * 需要对表的读权限。这通常与下面的 markVarForSelectPriv 
+	 * 调用重复，但表没有任何列时并非如此。         
+	 * 若 nsitem 属于连接则无需任何操作：其成员表       
+	 * 在加入范围表时已被标记 ACL_SELECT。（此步              
+	 * 仅对 UPDATE/DELETE 的目标关系产生影响，              
+	 * 它不可能位于连接之下。）                     
 	 */
 	if (rte->rtekind == RTE_RELATION)
 	{
@@ -3231,29 +3231,29 @@ expandNSItemAttrs(ParseState *pstate, ParseNamespaceItem *nsitem,
 
 		if (require_col_privs)
 		{
-			/* Require read access to each column */
+			/* 需要对每列的读权限        */
 			markVarForSelectPriv(pstate, varnode);
 		}
 	}
 
-	Assert(name == NULL && var == NULL);	/* lists not the same length? */
+	Assert(name == NULL && var == NULL);	/* 两个列表长度不同？*/
 
 	return te_list;
 }
 
 /*
  * get_rte_attribute_name
- *		Get an attribute name from a RangeTblEntry
+ *		从 RangeTblEntry 取得属性名         
  *
- * This is unlike get_attname() because we use aliases if available.
- * In particular, it will work on an RTE for a subselect or join, whereas
- * get_attname() only works on real relations.
+ * 与 get_attname() 不同：这里尽可能使用别名。        
+ * 尤其是它可用于子查询或连接的 RTE，而                  
+ * get_attname() 仅用于真实关系。     
  *
- * "*" is returned if the given attnum is InvalidAttrNumber --- this case
- * occurs when a Var represents a whole tuple of a relation.
+ * 若给定 attnum 为 InvalidAttrNumber，则返回"*"                 
+ * ——当 Var 代表整个元组时即属此情形。    
  *
- * It is caller's responsibility to not call this on a dropped attribute.
- * (You will get some answer for such cases, but it might not be sensible.)
+ * 调用者须保证不对已删除属性调用本函数。             
+ * （对这类情形你会得到某个答案，但未必合理。）      
  */
 char *
 get_rte_attribute_name(RangeTblEntry *rte, AttrNumber attnum)
@@ -3262,36 +3262,36 @@ get_rte_attribute_name(RangeTblEntry *rte, AttrNumber attnum)
 		return "*";
 
 	/*
-	 * If there is a user-written column alias, use it.
+	 * 若有用户书写的列别名，则用之。   
 	 */
 	if (rte->alias &&
 		attnum > 0 && attnum <= list_length(rte->alias->colnames))
 		return strVal(list_nth(rte->alias->colnames, attnum - 1));
 
 	/*
-	 * If the RTE is a relation, go to the system catalogs not the
-	 * eref->colnames list.  This is a little slower but it will give the
-	 * right answer if the column has been renamed since the eref list was
-	 * built (which can easily happen for rules).
+	 * 若 RTE 是关系，则查系统目录而非               
+	 * eref->colnames 列表。稍慢，但在 eref 列表               
+	 * 建成后列已被重命名的情况下能给出正确             
+	 * 答案（对规则这很易发生）。   
 	 */
 	if (rte->rtekind == RTE_RELATION)
 		return get_attname(rte->relid, attnum, false);
 
 	/*
-	 * Otherwise use the column name from eref.  There should always be one.
+	 * 否则使用 eref 中的列名。那里应当总有名字。         
 	 */
 	if (attnum > 0 && attnum <= list_length(rte->eref->colnames))
 		return strVal(list_nth(rte->eref->colnames, attnum - 1));
 
-	/* else caller gave us a bogus attnum */
+	/* 否则即调用者给了伪 attnum */
 	elog(ERROR, "invalid attnum %d for rangetable entry %s",
 		 attnum, rte->eref->aliasname);
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 让编译器安静  */
 }
 
 /*
  * get_rte_attribute_is_dropped
- *		Check whether attempted attribute ref is to a dropped column
+ *		检查所尝试的属性引用是否指向已删除列      
  */
 bool
 get_rte_attribute_is_dropped(RangeTblEntry *rte, AttrNumber attnum)
@@ -3303,7 +3303,7 @@ get_rte_attribute_is_dropped(RangeTblEntry *rte, AttrNumber attnum)
 		case RTE_RELATION:
 			{
 				/*
-				 * Plain relation RTE --- get the attribute's catalog entry
+				 * 普通关系 RTE —— 取得该属性的目录条目  
 				 */
 				HeapTuple	tp;
 				Form_pg_attribute att_tup;
@@ -3311,7 +3311,7 @@ get_rte_attribute_is_dropped(RangeTblEntry *rte, AttrNumber attnum)
 				tp = SearchSysCache2(ATTNUM,
 									 ObjectIdGetDatum(rte->relid),
 									 Int16GetDatum(attnum));
-				if (!HeapTupleIsValid(tp))	/* shouldn't happen */
+				if (!HeapTupleIsValid(tp))	/* 不应发生     */
 					elog(ERROR, "cache lookup failed for attribute %d of relation %u",
 						 attnum, rte->relid);
 				att_tup = (Form_pg_attribute) GETSTRUCT(tp);
@@ -3325,14 +3325,14 @@ get_rte_attribute_is_dropped(RangeTblEntry *rte, AttrNumber attnum)
 		case RTE_CTE:
 
 			/*
-			 * Subselect, Table Functions, Values, CTE RTEs never have dropped
-			 * columns
+			 * 子查询、表函数、Values、CTE 这些 RTE 绝不会有   
+			 *        
 			 */
 			result = false;
 			break;
 		case RTE_NAMEDTUPLESTORE:
 			{
-				/* Check dropped-ness by testing for valid coltype */
+				/* 借 coltype 是否有效判断列已删除      */
 				if (attnum <= 0 ||
 					attnum > list_length(rte->coltypes))
 					elog(ERROR, "invalid varattno %d", attnum);
@@ -3342,11 +3342,11 @@ get_rte_attribute_is_dropped(RangeTblEntry *rte, AttrNumber attnum)
 		case RTE_JOIN:
 			{
 				/*
-				 * A join RTE would not have dropped columns when constructed,
-				 * but one in a stored rule might contain columns that were
-				 * dropped from the underlying tables, if said columns are
-				 * nowhere explicitly referenced in the rule.  This will be
-				 * signaled to us by a null pointer in the joinaliasvars list.
+				 * 连接 RTE 构造时不会有已删除列，               
+				 * 但存储规则中的连接可能含这类列：        
+				 * 它们已从底层表中删除，前提是这些列    
+				 * 在规则中没有任何显式引用。这种情形     
+				 * 会以 joinaliasvars 列表的空指针向我们示警。  
 				 */
 				Var		   *aliasvar;
 
@@ -3360,16 +3360,16 @@ get_rte_attribute_is_dropped(RangeTblEntry *rte, AttrNumber attnum)
 			break;
 		case RTE_FUNCTION:
 			{
-				/* Function RTE */
+				/* 函数 RTE   */
 				ListCell   *lc;
 				int			atts_done = 0;
 
 				/*
-				 * Dropped attributes are only possible with functions that
-				 * return named composite types.  In such a case we have to
-				 * look up the result type to see if it currently has this
-				 * column dropped.  So first, loop over the funcs until we
-				 * find the one that covers the requested column.
+				 * 只有返回命名复合类型的函数才可能有     
+				 * 已删除属性。此时必须查结果类型，        
+				 * 看看它当前是否已删除此列。因此首先    
+				 * 遍历各函数，直到找到覆盖所求列的那    
+				 * 一个为止。                               
 				 */
 				foreach(lc, rte->functions)
 				{
@@ -3380,15 +3380,15 @@ get_rte_attribute_is_dropped(RangeTblEntry *rte, AttrNumber attnum)
 					{
 						TupleDesc	tupdesc;
 
-						/* If it has a coldeflist, it returns RECORD */
+						/* 若带 coldeflist，则返回 RECORD      */
 						if (rtfunc->funccolnames != NIL)
-							return false;	/* can't have any dropped columns */
+							return false;	/* 不可能有已删除列       */
 
 						tupdesc = get_expr_result_tupdesc(rtfunc->funcexpr,
 														  true);
 						if (tupdesc)
 						{
-							/* Composite data type, e.g. a table's row type */
+							/* 复合数据类型，例如表的行类型   */
 							Form_pg_attribute att_tup;
 
 							Assert(tupdesc);
@@ -3397,49 +3397,49 @@ get_rte_attribute_is_dropped(RangeTblEntry *rte, AttrNumber attnum)
 													attnum - atts_done - 1);
 							return att_tup->attisdropped;
 						}
-						/* Otherwise, it can't have any dropped columns */
+						/* 否则不可能有任何已删除列         */
 						return false;
 					}
 					atts_done += rtfunc->funccolcount;
 				}
 
-				/* If we get here, must be looking for the ordinality column */
+				/* 若走到这里，必然是在找序数列                */
 				if (rte->funcordinality && attnum == atts_done + 1)
 					return false;
 
-				/* this probably can't happen ... */
+				/* 这种情况多半不会发生 */
 				ereport(ERROR,
 						(errcode(ERRCODE_UNDEFINED_COLUMN),
 						 errmsg("column %d of relation \"%s\" does not exist",
 								attnum,
 								rte->eref->aliasname)));
-				result = false; /* keep compiler quiet */
+				result = false; /* 让编译器安静  */
 			}
 			break;
 		case RTE_RESULT:
-			/* this probably can't happen ... */
+			/* 这种情况多半不会发生 */
 			ereport(ERROR,
 					(errcode(ERRCODE_UNDEFINED_COLUMN),
 					 errmsg("column %d of relation \"%s\" does not exist",
 							attnum,
 							rte->eref->aliasname)));
-			result = false;		/* keep compiler quiet */
+			result = false;		/* 让编译器安静  */
 			break;
 		default:
 			elog(ERROR, "unrecognized RTE kind: %d", (int) rte->rtekind);
-			result = false;		/* keep compiler quiet */
+			result = false;		/* 让编译器安静  */
 	}
 
 	return result;
 }
 
 /*
- * Given a targetlist and a resno, return the matching TargetEntry
+ * 给定目标列表和 resno，返回匹配的 TargetEntry      
  *
- * Returns NULL if resno is not present in list.
+ * 若列表中无 resno 则返回 NULL。      
  *
- * Note: we need to search, rather than just indexing with list_nth(),
- * because not all tlists are sorted by resno.
+ * 注意：须进行搜索，而非直接用 list_nth() 取下标， 
+ * 因为 tlist 未必都按 resno 排序。  
  */
 TargetEntry *
 get_tle_by_resno(List *tlist, AttrNumber resno)
@@ -3457,9 +3457,9 @@ get_tle_by_resno(List *tlist, AttrNumber resno)
 }
 
 /*
- * Given a Query and rangetable index, return relation's RowMarkClause if any
+ * 给定查询和范围表索引，若有则返回关系的 RowMarkClause   
  *
- * Returns NULL if relation is not selected FOR UPDATE/SHARE
+ * 若关系未被 FOR UPDATE/SHARE 选中则返回 NULL    
  */
 RowMarkClause *
 get_parse_rowmark(Query *qry, Index rtindex)
@@ -3477,13 +3477,13 @@ get_parse_rowmark(Query *qry, Index rtindex)
 }
 
 /*
- *	given relation and att name, return attnum of variable
+ *	给定关系和属性名，返回该变量的 attnum  
  *
- *	Returns InvalidAttrNumber if the attr doesn't exist (or is dropped).
+ *	若属性不存在（或已删除），返回 InvalidAttrNumber。  
  *
- *	This should only be used if the relation is already
- *	table_open()'ed.  Use the cache version get_attnum()
- *	for access to non-opened relations.
+ *	须已用 table_open() 打开关系方可使用。 
+ *	未打开的关系请用缓存版本 get_attnum()   
+ *	来访问。                       
  */
 int
 attnameAttNum(Relation rd, const char *attname, bool sysColOK)
@@ -3504,17 +3504,17 @@ attnameAttNum(Relation rd, const char *attname, bool sysColOK)
 			return i;
 	}
 
-	/* on failure */
+	/* 失败时  */
 	return InvalidAttrNumber;
 }
 
 /* specialAttNum()
  *
- * Check attribute name to see if it is "special", e.g. "xmin".
+ * 检查属性名是否为特殊名称，如 "xmin"。        
  * - thomas 2000-02-07
  *
- * Note: this only discovers whether the name could be a system attribute.
- * Caller needs to ensure that it really is an attribute of the rel.
+ * 注意：这只能判断该名称是否可能是系统属性。        
+ * 调用者需确保它确实是该关系的属性。              
  */
 static int
 specialAttNum(const char *attname)
@@ -3529,11 +3529,11 @@ specialAttNum(const char *attname)
 
 
 /*
- * given attribute id, return name of that attribute
+ * 给定属性标识，返回该属性的名称    
  *
- *	This should only be used if the relation is already
- *	table_open()'ed.  Use the cache version get_atttype()
- *	for access to non-opened relations.
+ *	须已用 table_open() 打开关系方可使用。 
+ *	未打开的关系请用缓存版本 get_atttype()   
+ *	来访问。                       
  */
 const NameData *
 attnumAttName(Relation rd, int attid)
@@ -3551,11 +3551,11 @@ attnumAttName(Relation rd, int attid)
 }
 
 /*
- * given attribute id, return type of that attribute
+ * 给定属性标识，返回该属性的类型    
  *
- *	This should only be used if the relation is already
- *	table_open()'ed.  Use the cache version get_atttype()
- *	for access to non-opened relations.
+ *	须已用 table_open() 打开关系方可使用。 
+ *	未打开的关系请用缓存版本 get_atttype()   
+ *	来访问。                       
  */
 Oid
 attnumTypeId(Relation rd, int attid)
@@ -3573,16 +3573,16 @@ attnumTypeId(Relation rd, int attid)
 }
 
 /*
- * given attribute id, return collation of that attribute
+ * 给定属性标识，返回该属性的排序规则   
  *
- *	This should only be used if the relation is already table_open()'ed.
+ *	须已用 table_open() 打开关系方可使用。                  
  */
 Oid
 attnumCollationId(Relation rd, int attid)
 {
 	if (attid <= 0)
 	{
-		/* All system attributes are of noncollatable types. */
+		/* 所有系统属性均为不可排序类型。     */
 		return InvalidOid;
 	}
 	if (attid > rd->rd_att->natts)
@@ -3591,10 +3591,10 @@ attnumCollationId(Relation rd, int attid)
 }
 
 /*
- * Generate a suitable error about a missing RTE.
+ * 针对缺失的 RTE 生成适当的错误。  
  *
- * Since this is a very common type of error, we work rather hard to
- * produce a helpful message.
+ * 由于这类错误十分常见，我们花了很大功夫        
+ * 以给出有用提示。  
  */
 void
 errorMissingRTE(ParseState *pstate, RangeVar *relation)
@@ -3603,21 +3603,21 @@ errorMissingRTE(ParseState *pstate, RangeVar *relation)
 	const char *badAlias = NULL;
 
 	/*
-	 * Check to see if there are any potential matches in the query's
-	 * rangetable.  (Note: cases involving a bad schema name in the RangeVar
-	 * will throw error immediately here.  That seems OK.)
+	 * 检查查询的范围表中是否存在潜在匹配。        
+	 * （注意：RangeVar 中模式名有误时会立即在此报错。   
+	 * 这样做似乎没问题。）                     
 	 */
 	rte = searchRangeTableForRel(pstate, relation);
 
 	/*
-	 * If we found a match that has an alias and the alias is visible in the
-	 * namespace, then the problem is probably use of the relation's real name
-	 * instead of its alias, ie "SELECT foo.* FROM foo f". This mistake is
-	 * common enough to justify a specific hint.
+	 * 若找到的匹配带别名且该别名在命名空间中可见，   
+	 * 则问题很可能出在使用了关系的真实名称而非别名，  
+	 * 即 "SELECT foo.* FROM foo f"。这种错误很常见，           
+	 * 值得为其给出专门的提示。     
 	 *
-	 * If we found a match that doesn't meet those criteria, assume the
-	 * problem is illegal use of a relation outside its scope, as in the
-	 * MySQL-ism "SELECT ... FROM a, b LEFT JOIN c ON (a.x = c.y)".
+	 * 若找到的匹配不满足上述条件，则可认为这是    
+	 * 在关系作用域外非法使用该关系，例如 MySQL 写法 
+	 * "SELECT ... FROM a, b LEFT JOIN c ON (a.x = c.y)"。        
 	 */
 	if (rte && rte->alias &&
 		strcmp(rte->eref->aliasname, relation->relname) != 0)
@@ -3632,7 +3632,7 @@ errorMissingRTE(ParseState *pstate, RangeVar *relation)
 			badAlias = rte->eref->aliasname;
 	}
 
-	/* If it looks like the user forgot to use an alias, hint about that */
+	/* 若看似用户忘了使用别名，则就此给出提示。      */
 	if (badAlias)
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_TABLE),
@@ -3641,7 +3641,7 @@ errorMissingRTE(ParseState *pstate, RangeVar *relation)
 				 errhint("Perhaps you meant to reference the table alias \"%s\".",
 						 badAlias),
 				 parser_errposition(pstate, relation->location)));
-	/* Hint about case where we found an (inaccessible) exact match */
+	/* 若找到（不可访问的）精确匹配，则给出提示 */
 	else if (rte)
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_TABLE),
@@ -3652,7 +3652,7 @@ errorMissingRTE(ParseState *pstate, RangeVar *relation)
 				 rte_visible_if_lateral(pstate, rte) ?
 				 errhint("To reference that table, you must mark this subquery with LATERAL.") : 0,
 				 parser_errposition(pstate, relation->location)));
-	/* Else, we have nothing to offer but the bald statement of error */
+	/* 否则除了干巴巴的报错之外我们无可奉告。      */
 	else
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_TABLE),
@@ -3662,10 +3662,10 @@ errorMissingRTE(ParseState *pstate, RangeVar *relation)
 }
 
 /*
- * Generate a suitable error about a missing column.
+ * 针对缺失的列生成适当的错误。       
  *
- * Since this is a very common type of error, we work rather hard to
- * produce a helpful message.
+ * 由于这类错误十分常见，我们花了很大功夫        
+ * 以给出有用提示。  
  */
 void
 errorMissingColumn(ParseState *pstate,
@@ -3674,21 +3674,21 @@ errorMissingColumn(ParseState *pstate,
 	FuzzyAttrMatchState *state;
 
 	/*
-	 * Search the entire rtable looking for possible matches.  If we find one,
-	 * emit a hint about it.
+	 * 搜索整个范围表以寻找可能的匹配。若找到匹配，     
+	 * 则给出提示。   
 	 */
 	state = searchRangeTableForCol(pstate, relname, colname, location);
 
 	/*
-	 * If there are exact match(es), they must be inaccessible for some
-	 * reason.
+	 * 若有精确匹配，则必定是因某种原因无法访问。 
+	 *        
 	 */
 	if (state->rexact1)
 	{
 		/*
-		 * We don't try too hard when there's multiple inaccessible exact
-		 * matches, but at least be sure that we don't misleadingly suggest
-		 * that there's only one.
+		 * 存在多个不可访问的精确匹配时不必费力，     
+		 * 但至少要确保不会误导性地暗示只有一个。       
+		 *                       
 		 */
 		if (state->rexact2)
 			ereport(ERROR,
@@ -3700,7 +3700,7 @@ errorMissingColumn(ParseState *pstate,
 							   colname),
 					 !relname ? errhint("Try using a table-qualified name.") : 0,
 					 parser_errposition(pstate, location)));
-		/* Single exact match, so try to determine why it's inaccessible. */
+		/* 仅一个精确匹配，尝试查明其为何不可访问。   */
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_COLUMN),
 				 relname ?
@@ -3717,7 +3717,7 @@ errorMissingColumn(ParseState *pstate,
 
 	if (!state->rsecond)
 	{
-		/* If we found no match at all, we have little to report */
+		/* 若完全找不到匹配，可报告的内容甚少。*/
 		if (!state->rfirst)
 			ereport(ERROR,
 					(errcode(ERRCODE_UNDEFINED_COLUMN),
@@ -3725,7 +3725,7 @@ errorMissingColumn(ParseState *pstate,
 					 errmsg("column %s.%s does not exist", relname, colname) :
 					 errmsg("column \"%s\" does not exist", colname),
 					 parser_errposition(pstate, location)));
-		/* Handle case where we have a single alternative spelling to offer */
+		/* 处理只有一个备选拼写可提供的情况。              */
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_COLUMN),
 				 relname ?
@@ -3739,7 +3739,7 @@ errorMissingColumn(ParseState *pstate,
 	}
 	else
 	{
-		/* Handle case where there are two equally useful column hints */
+		/* 处理存在两条同等有用的列提示的情况。      */
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_COLUMN),
 				 relname ?
@@ -3757,8 +3757,8 @@ errorMissingColumn(ParseState *pstate,
 }
 
 /*
- * Find ParseNamespaceItem for RTE, if it's visible at all.
- * We assume an RTE couldn't appear more than once in the namespace lists.
+ * 若 RTE 可见，则查找其 ParseNamespaceItem。     
+ * 我们假定一个 RTE 在命名空间列表中不会出现多次。   
  */
 static ParseNamespaceItem *
 findNSItemForRTE(ParseState *pstate, RangeTblEntry *rte)
@@ -3780,33 +3780,33 @@ findNSItemForRTE(ParseState *pstate, RangeTblEntry *rte)
 }
 
 /*
- * Would this RTE be visible, if only the user had written LATERAL?
+ * 如果用户写了 LATERAL，这个 RTE 会可见吗？         
  *
- * This is a helper for deciding whether to issue a HINT about LATERAL.
- * As such, it doesn't need to be 100% accurate; the HINT could be useful
- * even if it's not quite right.  Hence, we don't delve into fine points
- * about whether a found nsitem has the appropriate one of p_rel_visible or
- * p_cols_visible set.
+ * 本辅助函数用于决定是否就 LATERAL 发出提示。        
+ * 因此它无需做到百分之百准确；即使不十分准确，    
+ * 提示也可能有用。因此我们不去细究找到的 nsitem     
+ * 是否设置了 p_rel_visible 或 p_cols_visible 中的适当者。     
+ *                    
  */
 static bool
 rte_visible_if_lateral(ParseState *pstate, RangeTblEntry *rte)
 {
 	ParseNamespaceItem *nsitem;
 
-	/* If LATERAL *is* active, we're clearly barking up the wrong tree */
+	/* 若 LATERAL 确实已启用，那显然是找错了方向。    */
 	if (pstate->p_lateral_active)
 		return false;
 	nsitem = findNSItemForRTE(pstate, rte);
 	if (nsitem)
 	{
-		/* Found it, report whether it's LATERAL-only */
+		/* 找到了，报告其是否仅限 LATERAL  */
 		return nsitem->p_lateral_only && nsitem->p_lateral_ok;
 	}
 	return false;
 }
 
 /*
- * Would columns in this RTE be visible if qualified?
+ * 若加以限定，该 RTE 中的列可见吗？   
  */
 static bool
 rte_visible_if_qualified(ParseState *pstate, RangeTblEntry *rte)
@@ -3815,7 +3815,7 @@ rte_visible_if_qualified(ParseState *pstate, RangeTblEntry *rte)
 
 	if (nsitem)
 	{
-		/* Found it, report whether it's relation-only */
+		/* 找到了，报告其是否仅限关系。  */
 		return nsitem->p_rel_visible && !nsitem->p_cols_visible;
 	}
 	return false;
@@ -3823,8 +3823,8 @@ rte_visible_if_qualified(ParseState *pstate, RangeTblEntry *rte)
 
 
 /*
- * Examine a fully-parsed query, and return true iff any relation underlying
- * the query is a temporary relation (table, view, or materialized view).
+ * 检查一个已完成解析的查询，当且仅当查询底层          
+ * 存在临时关系（表、视图或物化视图）时返回 true。  
  */
 bool
 isQueryUsingTempRelation(Query *query)
@@ -3871,10 +3871,10 @@ isQueryUsingTempRelation_walker(Node *node, void *context)
 
 /*
  * addRTEPermissionInfo
- *		Creates RTEPermissionInfo for a given RTE and adds it into the
- *		provided list.
+ *		为给定 RTE 创建 RTEPermissionInfo 并加入列表。     
+ *		              
  *
- * Returns the RTEPermissionInfo and sets rte->perminfoindex.
+ * 返回 RTEPermissionInfo 并设置 rte->perminfoindex。  
  */
 RTEPermissionInfo *
 addRTEPermissionInfo(List **rteperminfos, RangeTblEntry *rte)
@@ -3884,15 +3884,15 @@ addRTEPermissionInfo(List **rteperminfos, RangeTblEntry *rte)
 	Assert(OidIsValid(rte->relid));
 	Assert(rte->perminfoindex == 0);
 
-	/* Nope, so make one and add to the list. */
+	/* 没有，新建一个加入列表。   */
 	perminfo = makeNode(RTEPermissionInfo);
 	perminfo->relid = rte->relid;
 	perminfo->inh = rte->inh;
-	/* Other information is set by fetching the node as and where needed. */
+	/* 其他信息会在需要时通过获取相应节点来设置。    */
 
 	*rteperminfos = lappend(*rteperminfos, perminfo);
 
-	/* Note its index (1-based!) */
+	/* 记其索引，1 起！   */
 	rte->perminfoindex = list_length(*rteperminfos);
 
 	return perminfo;
@@ -3900,10 +3900,10 @@ addRTEPermissionInfo(List **rteperminfos, RangeTblEntry *rte)
 
 /*
  * getRTEPermissionInfo
- *		Find RTEPermissionInfo for a given relation in the provided list.
+ *		在给定列表中查找给定关系的 RTEPermissionInfo。     
  *
- * This is a simple list_nth() operation, though it's good to have the
- * function for the various sanity checks.
+ * 这只是简单的 list_nth() 操作，不过保留此函数利于 
+ * 进行各种健全性检查。         
  */
 RTEPermissionInfo *
 getRTEPermissionInfo(List *rteperminfos, RangeTblEntry *rte)

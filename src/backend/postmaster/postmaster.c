@@ -1,35 +1,35 @@
 /*-------------------------------------------------------------------------
  *
  * postmaster.c
- *	  This program acts as a clearing house for requests to the
- *	  POSTGRES system.  Frontend programs send a startup message
- *	  to the Postmaster and the postmaster uses the info in the
- *	  message to setup a backend process.
+ *	  本程序是 POSTGRES 系统的请求中转站。        
+ *	  前端程序向 Postmaster 发启动消息，postmaster   
+ *	  用消息中的信息来设置一个后端进程。      
+ *	                                     
  *
- *	  The postmaster also manages system-wide operations such as
- *	  startup and shutdown. The postmaster itself doesn't do those
- *	  operations, mind you --- it just forks off a subprocess to do them
- *	  at the right times.  It also takes care of resetting the system
- *	  if a backend crashes.
+ *	  postmaster 还负责管理系统级操作，例如启动  
+ *	  与关机。postmaster 本身并不执行这些操作，    
+ *	  而是在恰当时机 fork 出子进程来执行。它还会在   
+ *	  后端崩溃时负责重置系统。                           
+ *	                       
  *
- *	  The postmaster process creates the shared memory and semaphore
- *	  pools during startup, but as a rule does not touch them itself.
- *	  In particular, it is not a member of the PGPROC array of backends
- *	  and so it cannot participate in lock-manager operations.  Keeping
- *	  the postmaster away from shared memory operations makes it simpler
- *	  and more reliable.  The postmaster is almost always able to recover
- *	  from crashes of individual backends by resetting shared memory;
- *	  if it did much with shared memory then it would be prone to crashing
- *	  along with the backends.
+ *	  postmaster 在启动时创建共享内存与信号量池，   
+ *	  但按惯例并不亲自访问它们。它尤其不是后端   
+ *	  PGPROC 数组的成员，因此无法参与锁管理器操作。 
+ *	  让 postmaster 远离共享内存操作会更简单可靠。     
+ *	                                                                    
+ *	  postmaster 几乎总能通过重置共享内存，从单个后端  
+ *	  的崩溃中恢复；若它频繁使用共享内存，就可能
+ *	  随同后端一起崩溃。                                         
+ *	                          
  *
- *	  When a request message is received, we now fork() immediately.
- *	  The child process performs authentication of the request, and
- *	  then becomes a backend if successful.  This allows the auth code
- *	  to be written in a simple single-threaded style (as opposed to the
- *	  crufty "poor man's multitasking" code that used to be needed).
- *	  More importantly, it ensures that blockages in non-multithreaded
- *	  libraries like SSL or PAM cannot cause denial of service to other
- *	  clients.
+ *	  现在收到请求消息就 fork()。子进程对请求进行 
+ *	  认证，成功后成为后端。这样认证代码便能以 
+ *	  简单的单线程风格编写（而非过去所需的蹩脚    
+ *	  "穷人式多任务"代码）。                                  
+ *	                                                                
+ *	  更重要的是，它确保 SSL 或 PAM 等非多线程库中   
+ *	  的阻塞不会导致对其他客户端的拒绝服务。        
+ *	          
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -41,24 +41,24 @@
  *
  * NOTES
  *
- * Initialization:
- *		The Postmaster sets up shared memory data structures
- *		for the backends.
+ * 初始化：   
+ *		Postmaster 为后端建共享内存数据结构。  
+ *		                 
  *
- * Synchronization:
- *		The Postmaster shares memory with the backends but should avoid
- *		touching shared memory, so as not to become stuck if a crashing
- *		backend screws up locks or shared memory.  Likewise, the Postmaster
- *		should never block on messages from frontend clients.
+ * 同步：       
+ *		Postmaster 与后端共享内存，但应避免触碰它，    
+ *		以免在崩溃的后端弄坏锁或共享内存时卡住。   
+ *		同样，Postmaster 绝不应在前端客户端消息上阻塞。  
+ *		                                                     
  *
- * Garbage Collection:
- *		The Postmaster cleans up after backends if they have an emergency
- *		exit and/or core dump.
+ * 垃圾回收：    
+ *		若后端紧急退出和/或核心转储，Postmaster 会清理  
+ *		善后。             
  *
- * Error Reporting:
- *		Use write_stderr() only for reporting "interactive" errors
- *		(essentially, bogus arguments on the command line).  Once the
- *		postmaster is launched, use ereport().
+ * 错误报告： 
+ *		write_stderr() 只用于报告"交互式"错误（基本  
+ *		就是命令行参数无效）。postmaster 启动之后     
+ *		应改用 ereport()。                
  *
  *-------------------------------------------------------------------------
  */
@@ -137,51 +137,51 @@
 
 
 /*
- * Possible types of a backend. Beyond being the possible bkend_type values in
- * struct bkend, these are OR-able request flag bits for SignalSomeChildren()
- * and CountChildren().
+ * 后端类型的可能取值。除作为 struct bkend 的取值外，       
+ * 它们也是 SignalSomeChildren() 与 CountChildren()                     
+ * 可 OR 标志位。 
  */
-#define BACKEND_TYPE_NORMAL		0x0001	/* normal backend */
-#define BACKEND_TYPE_AUTOVAC	0x0002	/* autovacuum worker process */
-#define BACKEND_TYPE_WALSND		0x0004	/* walsender process */
-#define BACKEND_TYPE_BGWORKER	0x0008	/* bgworker process */
-#define BACKEND_TYPE_ALL		0x000F	/* OR of all the above */
+#define BACKEND_TYPE_NORMAL		0x0001	/* 普通后端   */
+#define BACKEND_TYPE_AUTOVAC	0x0002	/* autovacuum worker 进程  */
+#define BACKEND_TYPE_WALSND		0x0004	/* walsender 进程  */
+#define BACKEND_TYPE_BGWORKER	0x0008	/* bgworker 进程  */
+#define BACKEND_TYPE_ALL		0x000F	/* 以上各项的 OR  */
 
 /*
- * List of active backends (or child processes anyway; we don't actually
- * know whether a given child has become a backend or is still in the
- * authorization phase).  This is used mainly to keep track of how many
- * children we have and send them appropriate signals when necessary.
+ * 活动后端（或子进程）的列表；我们其实并不清楚某
+ * 个子进程已变成后端还是仍在授权阶段。它主要   
+ * 用于掌握我们拥有多少子进程，并在必要时向它们  
+ * 发送适当的信号。                                          
  *
- * As shown in the above set of backend types, this list includes not only
- * "normal" client sessions, but also autovacuum workers, walsenders, and
- * background workers.  (Note that at the time of launch, walsenders are
- * labeled BACKEND_TYPE_NORMAL; we relabel them to BACKEND_TYPE_WALSND
- * upon noticing they've changed their PMChildFlags entry.  Hence that check
- * must be done before any operation that needs to distinguish walsenders
- * from normal backends.)
+ * 如上面那组后端类型所示，此列表不仅包含"普通"的   
+ * 客户端会话，还包括 autovacuum worker、walsender 和         
+ * 后台工作进程。（注意：启动时 walsender 被标为       
+ * BACKEND_TYPE_NORMAL；一旦注意到它们改动了               
+ * PMChildFlags 表项，就重新标为 BACKEND_TYPE_WALSND。             
+ * 因此，任何需要区分 walsender 与普通后端的操作，     
+ * 都须先检查。） 
  *
- * Also, "dead_end" children are in it: these are children launched just for
- * the purpose of sending a friendly rejection message to a would-be client.
- * We must track them because they are attached to shared memory, but we know
- * they will never become live backends.  dead_end children are not assigned a
- * PMChildSlot.  dead_end children have bkend_type NORMAL.
+ * 另外，"dead_end"子进程也在列表中：这类子进程的         
+ * 唯一用途是向潜在客户端发送友好的拒绝消息。          
+ * 我们必须跟踪它们，因为它们已挂在共享内存上，        
+ * 但我们知道它们绝不会变成真正的后端。这类               
+ * 子进程没有 PMChildSlot，bkend_type 是 NORMAL。 
  *
- * "Special" children such as the startup, bgwriter and autovacuum launcher
- * tasks are not in this list.  They are tracked via StartupPID and other
- * pid_t variables below.  (Thus, there can't be more than one of any given
- * "special" child process type.  We use BackendList entries for any child
- * process there can be more than one of.)
+ * startup、bgwriter 和 autovacuum launcher 之类的"特殊"            
+ * 子任务不在此列表中。它们通过 StartupPID 等下文的    
+ * pid_t 变量来跟踪。（因此，任何给定的"特殊"子进       
+ * 程类型至多只有一个。BackendList 表项用于所有           
+ * 可能有多个的子进程。）      
  */
 typedef struct bkend
 {
-	pid_t		pid;			/* process id of backend */
-	int32		cancel_key;		/* cancel key for cancels for this backend */
-	int			child_slot;		/* PMChildSlot for this backend, if any */
-	int			bkend_type;		/* child process flavor, see above */
-	bool		dead_end;		/* is it going to send an error and quit? */
-	bool		bgworker_notify;	/* gets bgworker start/stop notifications */
-	dlist_node	elem;			/* list link in BackendList */
+	pid_t		pid;			/* 该后端的进程 ID */
+	int32		cancel_key;		/* 此后端的取消密钥                */
+	int			child_slot;		/* 此后端的 PMChildSlot（若有） */
+	int			bkend_type;		/* 子进程类别，见上文     */
+	bool		dead_end;		/* 它是否将发送错误并退出？   */
+	bool		bgworker_notify;	/* 接收 bgworker 启停通知           */
+	dlist_node	elem;			/* BackendList 链表项    */
 } Backend;
 
 static dlist_head BackendList = DLIST_STATIC_INIT(BackendList);
@@ -194,47 +194,47 @@ BackgroundWorker *MyBgworkerEntry = NULL;
 
 
 
-/* The socket number we are listening for connections on */
+/* 我们监听连接的套接字编号                  */
 int			PostPortNumber = DEF_PGPORT;
 
-/* The directory names for Unix socket(s) */
+/* Unix 套接字的目录名             */
 char	   *Unix_socket_directories;
 
-/* The TCP listen address(es) */
+/* TCP 监听地址           */
 char	   *ListenAddresses;
 
 /*
- * SuperuserReservedConnections is the number of backends reserved for
- * superuser use, and ReservedConnections is the number of backends reserved
- * for use by roles with privileges of the pg_use_reserved_connections
- * predefined role.  These are taken out of the pool of MaxConnections backend
- * slots, so the number of backend slots available for roles that are neither
- * superuser nor have privileges of pg_use_reserved_connections is
- * (MaxConnections - SuperuserReservedConnections - ReservedConnections).
+ * SuperuserReservedConnections 是为超级用户保留的           
+ * 后端槽数，ReservedConnections 是为拥有                          
+ * pg_use_reserved_connections 预定义角色特权的角色         
+ * 保留的后端槽数。它们从 MaxConnections 个后端槽的           
+ * 池中扣除，因此既非超级用户又不具备                       
+ * pg_use_reserved_connections 特权的角色可用槽数为     
+ * (MaxConnections-SuperuserReservedConnections-ReservedConnections).    
  *
- * If the number of remaining slots is less than or equal to
- * SuperuserReservedConnections, only superusers can make new connections.  If
- * the number of remaining slots is greater than SuperuserReservedConnections
- * but less than or equal to
- * (SuperuserReservedConnections + ReservedConnections), only superusers and
- * roles with privileges of pg_use_reserved_connections can make new
- * connections.  Note that pre-existing superuser and
- * pg_use_reserved_connections connections don't count against the limits.
+ * 如果剩余槽数小于等于                           
+ * SuperuserReservedConnections，则只有超级用户可以                 
+ * 建立新连接。如果剩余槽数大于 SuperuserReservedConnections   
+ * 且小于等于          
+ * (SuperuserReservedConnections + ReservedConnections)，                  
+ * 则只有超级用户和拥有 pg_use_reserved_connections       
+ * 特权的角色可新建连接。已有的超级  
+ * 用户和 pg_use_reserved_connections 连接不计入这些限制。   
  */
 int			SuperuserReservedConnections;
 int			ReservedConnections;
 
-/* The socket(s) we're listening to. */
+/* 我们正在监听的套接字。 */
 #define MAXLISTEN	64
 static pgsocket ListenSocket[MAXLISTEN];
 
-/* still more option variables */
+/* 还有更多选项变量    */
 bool		EnableSSL = false;
 
 int			PreAuthDelay = 0;
 int			AuthenticationTimeout = 60;
 
-bool		log_hostname;		/* for ps display and logging */
+bool		log_hostname;		/* 用于 ps 显示和日志  */
 bool		Log_connections = false;
 bool		Db_user_namespace = false;
 
@@ -245,7 +245,7 @@ bool		remove_temp_files_after_crash = true;
 bool		send_abort_for_crash = false;
 bool		send_abort_for_kill = false;
 
-/* PIDs of special child processes; 0 when not running */
+/* 特殊子进程的 PID；未运行时为 0          */
 static pid_t StartupPID = 0,
 			BgWriterPID = 0,
 			CheckpointerPID = 0,
@@ -255,18 +255,18 @@ static pid_t StartupPID = 0,
 			PgArchPID = 0,
 			SysLoggerPID = 0;
 
-/* Startup process's status */
+/* startup 进程的状态  */
 typedef enum
 {
 	STARTUP_NOT_RUNNING,
 	STARTUP_RUNNING,
-	STARTUP_SIGNALED,			/* we sent it a SIGQUIT or SIGKILL */
+	STARTUP_SIGNALED,			/* 已向它发送 SIGQUIT/SIGKILL */
 	STARTUP_CRASHED
 } StartupStatusEnum;
 
 static StartupStatusEnum StartupStatus = STARTUP_NOT_RUNNING;
 
-/* Startup/shutdown state */
+/* 启动/关机状态    */
 #define			NoShutdown		0
 #define			SmartShutdown	1
 #define			FastShutdown	2
@@ -274,104 +274,104 @@ static StartupStatusEnum StartupStatus = STARTUP_NOT_RUNNING;
 
 static int	Shutdown = NoShutdown;
 
-static bool FatalError = false; /* T if recovering from backend crash */
+static bool FatalError = false; /* 从后端崩溃中恢复时为真  */
 
 /*
- * We use a simple state machine to control startup, shutdown, and
- * crash recovery (which is rather like shutdown followed by startup).
+ * 用简单的状态机来控制启动、关机以及崩溃恢复
+ * （崩溃恢复颇像先关机再启动）。                      
  *
- * After doing all the postmaster initialization work, we enter PM_STARTUP
- * state and the startup process is launched. The startup process begins by
- * reading the control file and other preliminary initialization steps.
- * In a normal startup, or after crash recovery, the startup process exits
- * with exit code 0 and we switch to PM_RUN state.  However, archive recovery
- * is handled specially since it takes much longer and we would like to support
- * hot standby during archive recovery.
+ * 完成 postmaster 的全部初始化工作后，我们进入           
+ * PM_STARTUP 状态并启动 startup 进程。startup 进程              
+ * 一开始会读取控制文件并做其他预备初始化。        
+ * 正常启动或崩溃恢复之后，startup 进程以退出码         
+ * 0 退出，随后我们切换到 PM_RUN 状态。而归档恢复          
+ * 被特殊处理，因为它耗时更长，且我们希望在归档          
+ * 恢复期间支持热备。         
  *
- * When the startup process is ready to start archive recovery, it signals the
- * postmaster, and we switch to PM_RECOVERY state. The background writer and
- * checkpointer are launched, while the startup process continues applying WAL.
- * If Hot Standby is enabled, then, after reaching a consistent point in WAL
- * redo, startup process signals us again, and we switch to PM_HOT_STANDBY
- * state and begin accepting connections to perform read-only queries.  When
- * archive recovery is finished, the startup process exits with exit code 0
- * and we switch to PM_RUN state.
+ * 当 startup 进程准备好开始归档恢复时，它会向               
+ * postmaster 发信号，于是我们切换到 PM_RECOVERY                 
+ * 状态，同时启动 bgwriter 和 checkpointer，startup                   
+ * 进程则继续重放 WAL。若启用了热备，那么在 WAL           
+ * 重放达到一致点后，startup 进程会再次发信号，我们   
+ * 便切换到 PM_HOT_STANDBY 状态，开始接受连接以执            
+ * 行只读查询。归档恢复完成后，startup 进程以退出       
+ * 码 0 退出，转 PM_RUN。  
  *
- * Normal child backends can only be launched when we are in PM_RUN or
- * PM_HOT_STANDBY state.  (connsAllowed can also restrict launching.)
- * In other states we handle connection requests by launching "dead_end"
- * child processes, which will simply send the client an error message and
- * quit.  (We track these in the BackendList so that we can know when they
- * are all gone; this is important because they're still connected to shared
- * memory, and would interfere with an attempt to destroy the shmem segment,
- * possibly leading to SHMALL failure when we try to make a new one.)
- * In PM_WAIT_DEAD_END state we are waiting for all the dead_end children
- * to drain out of the system, and therefore stop accepting connection
- * requests at all until the last existing child has quit (which hopefully
- * will not be very long).
+ * 普通子后端只有在我们处于 PM_RUN 或 PM_HOT_STANDBY     
+ * 状态时才能启动。（connsAllowed 也可限制启动。）  
+ * 在其他状态下，我们通过启动"dead_end"子进程来        
+ * 处理连接请求，这类子进程只会向客户端发送错误     
+ * 消息然后退出。（我们在 BackendList 中跟踪它们，       
+ * 以便知道它们何时全部消失；这一点很重要，因为       
+ * 它们仍连接着共享内存，会妨碍销毁共享内存段的       
+ * 尝试，可能在新建段时导致 SHMALL 失败。）          
+ * 在 PM_WAIT_DEAD_END 状态下，我们等待所有 dead_end          
+ * 子进程离开系统，因此会完全停止接受连接请求， 
+ * 直到最后一个现存子进程退出（希望这一过程不会     
+ * 太久）。           
  *
- * Notice that this state variable does not distinguish *why* we entered
- * states later than PM_RUN --- Shutdown and FatalError must be consulted
- * to find that out.  FatalError is never true in PM_RECOVERY, PM_HOT_STANDBY,
- * or PM_RUN states, nor in PM_SHUTDOWN states (because we don't enter those
- * states when trying to recover from a crash).  It can be true in PM_STARTUP
- * state, because we don't clear it until we've successfully started WAL redo.
+ * 注意，该状态变量并不区分我们进入 PM_RUN 之后       
+ * 各状态的原因；须结合 Shutdown 与 FatalError 才能         
+ * 判断。FatalError 在 PM_RECOVERY、PM_HOT_STANDBY、                    
+ * PM_RUN 状态下均不为真，PM_SHUTDOWN 状态下也是               
+ * （因为从崩溃恢复期间不会进入这些状态）。              
+ * PM_STARTUP 状态下可为真，直到成功开始 WAL 重放才清除。  
  */
 typedef enum
 {
-	PM_INIT,					/* postmaster starting */
-	PM_STARTUP,					/* waiting for startup subprocess */
-	PM_RECOVERY,				/* in archive recovery mode */
-	PM_HOT_STANDBY,				/* in hot standby mode */
-	PM_RUN,						/* normal "database is alive" state */
-	PM_STOP_BACKENDS,			/* need to stop remaining backends */
-	PM_WAIT_BACKENDS,			/* waiting for live backends to exit */
+	PM_INIT,					/* postmaster 启动中*/
+	PM_STARTUP,					/* 等待 startup 子进程       */
+	PM_RECOVERY,				/* 归档恢复模式中    */
+	PM_HOT_STANDBY,				/* 热备模式中     */
+	PM_RUN,						/* 正常的"数据库存活"状态 */
+	PM_STOP_BACKENDS,			/* 需要停止其余的后端     */
+	PM_WAIT_BACKENDS,			/* 等待存活的后端退出       */
 	PM_SHUTDOWN,				/* waiting for checkpointer to do shutdown
 								 * ckpt */
 	PM_SHUTDOWN_2,				/* waiting for archiver and walsenders to
 								 * finish */
-	PM_WAIT_DEAD_END,			/* waiting for dead_end children to exit */
-	PM_NO_CHILDREN				/* all important children have exited */
+	PM_WAIT_DEAD_END,			/* 等待 dead_end 子进程退出       */
+	PM_NO_CHILDREN				/* 所有重要子进程均已退出  */
 } PMState;
 
 static PMState pmState = PM_INIT;
 
 /*
- * While performing a "smart shutdown", we restrict new connections but stay
- * in PM_RUN or PM_HOT_STANDBY state until all the client backends are gone.
- * connsAllowed is a sub-state indicator showing the active restriction.
- * It is of no interest unless pmState is PM_RUN or PM_HOT_STANDBY.
+ * 执行"智能关闭"时，我们会限制新连接，但仍保持        
+ * 在 PM_RUN 或 PM_HOT_STANDBY 状态，直到所有客户端             
+ * 后端离开。connsAllowed 是子状态指示器，标示现行     
+ * 限制；仅在pmState为PM_RUN/PM_HOT_STANDBY时才有意义。
  */
 static bool connsAllowed = true;
 
-/* Start time of SIGKILL timeout during immediate shutdown or child crash */
-/* Zero means timeout is not running */
+/* 立即关闭或子进程崩溃期间 SIGKILL 超时的开始时间     */
+/* 为零表示超时未在运行    */
 static time_t AbortStartTime = 0;
 
-/* Length of said timeout */
+/* 该超时的时长     */
 #define SIGKILL_CHILDREN_AFTER_SECS		5
 
-static bool ReachedNormalRunning = false;	/* T if we've reached PM_RUN */
+static bool ReachedNormalRunning = false;	/* 到达 PM_RUN 后为真   */
 
 bool		ClientAuthInProgress = false;	/* T during new-client
 											 * authentication */
 
-bool		redirection_done = false;	/* stderr redirected for syslogger? */
+bool		redirection_done = false;	/* stderr 已重定向给 syslogger?*/
 
-/* received START_AUTOVAC_LAUNCHER signal */
+/* 已收到 START_AUTOVAC_LAUNCHER 信号*/
 static bool start_autovac_launcher = false;
 
-/* the launcher needs to be signaled to communicate some condition */
+/* 需要向 launcher 发信号以告知某种状态               */
 static bool avlauncher_needs_signal = false;
 
-/* received START_WALRECEIVER signal */
+/* 收到 START_WALRECEIVER 信号   */
 static bool WalReceiverRequested = false;
 
-/* set when there's a worker that needs to be started up */
+/* 当有需要启动的 worker 时设置                */
 static bool StartWorkerNeeded = true;
 static bool HaveCrashedWorker = false;
 
-/* set when signals arrive */
+/* 收到信号时设置   */
 static volatile sig_atomic_t pending_pm_pmsignal;
 static volatile sig_atomic_t pending_pm_child_exit;
 static volatile sig_atomic_t pending_pm_reload_request;
@@ -379,11 +379,11 @@ static volatile sig_atomic_t pending_pm_shutdown_request;
 static volatile sig_atomic_t pending_pm_fast_shutdown_request;
 static volatile sig_atomic_t pending_pm_immediate_shutdown_request;
 
-/* event multiplexing object */
+/* 事件多路复用对象  */
 static WaitEventSet *pm_wait_set;
 
 #ifdef USE_SSL
-/* Set when and if SSL has been initialized properly */
+/* 当 SSL 已正确初始化时设置               */
 static bool LoadedSSL = false;
 #endif
 
@@ -392,7 +392,7 @@ static DNSServiceRef bonjour_sdref = NULL;
 #endif
 
 /*
- * postmaster.c - function prototypes
+ * postmaster.c - 函数原型       
  */
 static void CloseServerPorts(int status, Datum arg);
 static void unlink_external_pid_file(int status, Datum arg);
@@ -445,10 +445,10 @@ static void MaybeStartWalReceiver(void);
 static void InitPostmasterDeathWatchHandle(void);
 
 /*
- * Archiver is allowed to start up at the current postmaster state?
+ * 按当前 postmaster 状态，archiver 允许启动吗？       
  *
- * If WAL archiving is enabled always, we are allowed to start archiver
- * even during recovery.
+ * 若 WAL 归档始终启用，则即使在恢复期间也允许      
+ * 启动 archiver。   
  */
 #define PgArchStartupAllowed()	\
 	(((XLogArchivingActive() && pmState == PM_RUN) ||			\
@@ -459,7 +459,7 @@ static void InitPostmasterDeathWatchHandle(void);
 #ifdef EXEC_BACKEND
 
 #ifdef WIN32
-#define WNOHANG 0				/* ignored, so any integer value will do */
+#define WNOHANG 0				/* 参数被忽略，任意整数皆可  */
 
 static pid_t waitpid(pid_t pid, int *exitstatus, int options);
 static void WINAPI pgwin32_deadchild_callback(PVOID lpParameter, BOOLEAN TimerOrWaitFired);
@@ -477,7 +477,7 @@ typedef struct
 static pid_t backend_forkexec(Port *port);
 static pid_t internal_forkexec(int argc, char *argv[], Port *port);
 
-/* Type for a socket that can be inherited to a client process */
+/* 可继承给客户端进程的套接字类型               */
 #ifdef WIN32
 typedef struct
 {
@@ -490,7 +490,7 @@ typedef int InheritableSocket;
 #endif
 
 /*
- * Structure contains all variables passed to exec:ed backends
+ * 结构体包含传给 exec 启动的后端的全部变量  
  */
 typedef struct
 {
@@ -563,24 +563,24 @@ static void ShmemBackendArrayRemove(Backend *bn);
 #define StartWalWriter()		StartChildProcess(WalWriterProcess)
 #define StartWalReceiver()		StartChildProcess(WalReceiverProcess)
 
-/* Macros to check exit status of a child process */
+/* 检查子进程退出状态的宏              */
 #define EXIT_STATUS_0(st)  ((st) == 0)
 #define EXIT_STATUS_1(st)  (WIFEXITED(st) && WEXITSTATUS(st) == 1)
 #define EXIT_STATUS_3(st)  (WIFEXITED(st) && WEXITSTATUS(st) == 3)
 
 #ifndef WIN32
 /*
- * File descriptors for pipe used to monitor if postmaster is alive.
- * First is POSTMASTER_FD_WATCH, second is POSTMASTER_FD_OWN.
+ * 监视 postmaster 是否存活的管道文件描述符。        
+ * 首为 POSTMASTER_FD_WATCH，次为 POSTMASTER_FD_OWN。  
  */
 int			postmaster_alive_fds[2] = {-1, -1};
 #else
-/* Process handle of postmaster used for the same purpose on Windows */
+/* Windows 上用于同一用途的 postmaster 进程句柄          */
 HANDLE		PostmasterHandle;
 #endif
 
 /*
- * Postmaster main entry point
+ * Postmaster 主入口       
  */
 void
 PostmasterMain(int argc, char *argv[])
@@ -599,44 +599,44 @@ PostmasterMain(int argc, char *argv[])
 	IsPostmasterEnvironment = true;
 
 	/*
-	 * Start our win32 signal implementation
+	 * 启动 win32 信号实现            
 	 */
 #ifdef WIN32
 	pgwin32_signal_initialize();
 #endif
 
 	/*
-	 * We should not be creating any files or directories before we check the
-	 * data directory (see checkDataDir()), but just in case set the umask to
-	 * the most restrictive (owner-only) permissions.
+	 * 在检查数据目录前不应创建任何文件或目录（见       
+	 * checkDataDir()），但以防万一，先把 umask 设为最          
+	 * 严格的（仅属主）权限。             
 	 *
-	 * checkDataDir() will reset the umask based on the data directory
-	 * permissions.
+	 * checkDataDir() 会根据数据目录权限重置 umask。      
+	 *             
 	 */
 	umask(PG_MODE_MASK_OWNER);
 
 	/*
-	 * By default, palloc() requests in the postmaster will be allocated in
-	 * the PostmasterContext, which is space that can be recycled by backends.
-	 * Allocated data that needs to be available to backends should be
-	 * allocated in TopMemoryContext.
+	 * 默认情况下，postmaster 中的 palloc() 请求会分配在     
+	 * PostmasterContext——一块可被后端回收的空间。            
+	 * 需要让后端可用的已分配数据应改在               
+	 * TopMemoryContext 分配。    
 	 */
 	PostmasterContext = AllocSetContextCreate(TopMemoryContext,
 											  "Postmaster",
 											  ALLOCSET_DEFAULT_SIZES);
 	MemoryContextSwitchTo(PostmasterContext);
 
-	/* Initialize paths to installation files */
+	/* 初始化安装文件路径            */
 	getInstallationPaths(argv[0]);
 
 	/*
-	 * Set up signal handlers for the postmaster process.
+	 * 为 postmaster 进程设置信号处理器。     
 	 *
-	 * CAUTION: when changing this list, check for side-effects on the signal
-	 * handling setup of child processes.  See tcop/postgres.c,
+	 * 注意：修改此清单时，须检查对子进程信号处理       
+	 * 设置的副作用。参见 tcop/postgres.c、          
 	 * bootstrap/bootstrap.c, postmaster/bgwriter.c, postmaster/walwriter.c,
-	 * postmaster/autovacuum.c, postmaster/pgarch.c, postmaster/syslogger.c,
-	 * postmaster/bgworker.c and postmaster/checkpointer.c.
+	 * postmaster/autovacuum.c, postmaster/pgarch.c, postmaster/syslogger.c 
+	 * postmaster/bgworker.c and postmaster/checkpointer.c 
 	 */
 	pqinitmask();
 	sigprocmask(SIG_SETMASK, &BlockSig, NULL);
@@ -645,49 +645,49 @@ PostmasterMain(int argc, char *argv[])
 	pqsignal(SIGINT, handle_pm_shutdown_request_signal);
 	pqsignal(SIGQUIT, handle_pm_shutdown_request_signal);
 	pqsignal(SIGTERM, handle_pm_shutdown_request_signal);
-	pqsignal(SIGALRM, SIG_IGN); /* ignored */
-	pqsignal(SIGPIPE, SIG_IGN); /* ignored */
+	pqsignal(SIGALRM, SIG_IGN); /* 忽略  */
+	pqsignal(SIGPIPE, SIG_IGN); /* 忽略  */
 	pqsignal(SIGUSR1, handle_pm_pmsignal_signal);
-	pqsignal(SIGUSR2, dummy_handler);	/* unused, reserve for children */
+	pqsignal(SIGUSR2, dummy_handler);	/* 未用，为子进程保留  */
 	pqsignal(SIGCHLD, handle_pm_child_exit_signal);
 
-	/* This may configure SIGURG, depending on platform. */
+	/* 视平台而定，此处可能配置 SIGURG。    */
 	InitializeLatchSupport();
 	InitProcessLocalLatch();
 
 	/*
-	 * No other place in Postgres should touch SIGTTIN/SIGTTOU handling.  We
-	 * ignore those signals in a postmaster environment, so that there is no
-	 * risk of a child process freezing up due to writing to stderr.  But for
-	 * a standalone backend, their default handling is reasonable.  Hence, all
-	 * child processes should just allow the inherited settings to stand.
+	 * Postgres 中其他任何地方都不得触碰 SIGTTIN/SIGTTOU 的    
+	 * 处理。在 postmaster 环境里我们忽略这两个信号，这   
+	 * 样子进程就不会因写 stderr 而有卡死风险。但对独     
+	 * 立后端而言，它们的默认处理是合理的。因此，所     
+	 * 有子进程都应直接沿用继承下来的设置。            
 	 */
 #ifdef SIGTTIN
-	pqsignal(SIGTTIN, SIG_IGN); /* ignored */
+	pqsignal(SIGTTIN, SIG_IGN); /* 忽略  */
 #endif
 #ifdef SIGTTOU
-	pqsignal(SIGTTOU, SIG_IGN); /* ignored */
+	pqsignal(SIGTTOU, SIG_IGN); /* 忽略  */
 #endif
 
-	/* ignore SIGXFSZ, so that ulimit violations work like disk full */
+	/* 忽略 SIGXFSZ，使 ulimit 超限按磁盘满处理          */
 #ifdef SIGXFSZ
-	pqsignal(SIGXFSZ, SIG_IGN); /* ignored */
+	pqsignal(SIGXFSZ, SIG_IGN); /* 忽略  */
 #endif
 
-	/* Begin accepting signals. */
+	/* 开始接收信号。    */
 	sigprocmask(SIG_SETMASK, &UnBlockSig, NULL);
 
 	/*
-	 * Options setup
+	 * 选项设置 
 	 */
 	InitializeGUCOptions();
 
 	opterr = 1;
 
 	/*
-	 * Parse command-line options.  CAUTION: keep this in sync with
-	 * tcop/postgres.c (the option sets should not conflict) and with the
-	 * common help() function in main/main.c.
+	 * 解析命令行选项。注意：须与 tcop/postgres.c     
+	 * 保持同步（选项集不应冲突），并与 main/main.c      
+	 * 的公共 help() 函数一致。      
 	 */
 	while ((opt = getopt(argc, argv, "B:bC:c:D:d:EeFf:h:ijk:lN:OPp:r:S:sTt:W:-:")) != -1)
 	{
@@ -698,7 +698,7 @@ PostmasterMain(int argc, char *argv[])
 				break;
 
 			case 'b':
-				/* Undocumented flag used for binary upgrades */
+				/* 用于二进制升级的未文档化开关 */
 				IsBinaryUpgrade = true;
 				break;
 
@@ -771,7 +771,7 @@ PostmasterMain(int argc, char *argv[])
 				break;
 
 			case 'j':
-				/* only used by interactive backend */
+				/* 仅交互式后端使用         */
 				break;
 
 			case 'k':
@@ -799,7 +799,7 @@ PostmasterMain(int argc, char *argv[])
 				break;
 
 			case 'r':
-				/* only used by single-user backend */
+				/* 仅单用户后端使用         */
 				break;
 
 			case 'S':
@@ -813,8 +813,8 @@ PostmasterMain(int argc, char *argv[])
 			case 'T':
 
 				/*
-				 * This option used to be defined as sending SIGSTOP after a
-				 * backend crash, but sending SIGABRT seems more useful.
+				 * 此选项曾定义为崩溃后发送 SIGSTOP，但发送 
+				 * SIGABRT 看起来更有用。                        
 				 */
 				SetConfigOption("send_abort_for_crash", "true", PGC_POSTMASTER, PGC_S_ARGV);
 				break;
@@ -848,7 +848,7 @@ PostmasterMain(int argc, char *argv[])
 	}
 
 	/*
-	 * Postmaster accepts no non-option switch arguments.
+	 * Postmaster 不接受任何非选项开关参数。
 	 */
 	if (optind < argc)
 	{
@@ -860,8 +860,8 @@ PostmasterMain(int argc, char *argv[])
 	}
 
 	/*
-	 * Locate the proper configuration files and data directory, and read
-	 * postgresql.conf for the first time.
+	 * 定位正确的配置文件与数据目录，并首次读取      
+	 * postgresql.conf。                 
 	 */
 	if (!SelectConfigFiles(userDoption, progname))
 		ExitPostmaster(2);
@@ -869,24 +869,24 @@ PostmasterMain(int argc, char *argv[])
 	if (output_config_variable != NULL)
 	{
 		/*
-		 * If this is a runtime-computed GUC, it hasn't yet been initialized,
-		 * and the present value is not useful.  However, this is a convenient
-		 * place to print the value for most GUCs because it is safe to run
-		 * postmaster startup to this point even if the server is already
-		 * running.  For the handful of runtime-computed GUCs that we cannot
-		 * provide meaningful values for yet, we wait until later in
-		 * postmaster startup to print the value.  We won't be able to use -C
-		 * on running servers for those GUCs, but using this option now would
-		 * lead to incorrect results for them.
+		 * 若这是运行时计算的 GUC，此刻尚未初始化，        
+		 * 现值无参考意义。不过，对多数 GUC 而言在这里打  
+		 * 印值是安全的：即使服务器已在运行，把          
+		 * postmaster 启动推进到这一步也无妨。少数无法   
+		 * 给出有意义值的运行时计算 GUC，则留待             
+		 * postmaster 启动后期再打印。那些 GUC 将无法  
+		 * 在运行中的服务器上使用 -C，但现在就启用该选项
+		 * 对它们会得出错误结果。                                 
+		 *                                    
 		 */
 		int			flags = GetConfigOptionFlags(output_config_variable, true);
 
 		if ((flags & GUC_RUNTIME_COMPUTED) == 0)
 		{
 			/*
-			 * "-C guc" was specified, so print GUC's value and exit.  No
-			 * extra permission check is needed because the user is reading
-			 * inside the data dir.
+			 * 指定了 "-C guc"，故打印 GUC 值并退出。无需  
+			 * 额外的权限检查，因为用户读取的是数据目录
+			 * 内的文件。     
 			 */
 			const char *config_val = GetConfigOption(output_config_variable,
 													 false, false);
@@ -896,27 +896,27 @@ PostmasterMain(int argc, char *argv[])
 		}
 
 		/*
-		 * A runtime-computed GUC will be printed later on.  As we initialize
-		 * a server startup sequence, silence any log messages that may show
-		 * up in the output generated.  FATAL and more severe messages are
-		 * useful to show, even if one would only expect at least PANIC.  LOG
-		 * entries are hidden.
+		 * 运行时计算的 GUC 稍后再打印。在我们初始化       
+		 * 服务器启动序列时，屏蔽可能出现的日志消息，  
+		 * 不让其进入生成输出。FATAL 及更严重消息值得   
+		 * 展示出来，即便通常预期至少是 PANIC。而 LOG        
+		 * 条目被隐藏。 
 		 */
 		SetConfigOption("log_min_messages", "FATAL", PGC_SUSET,
 						PGC_S_OVERRIDE);
 	}
 
-	/* Verify that DataDir looks reasonable */
+	/* 检查 DataDir 是否合理          */
 	checkDataDir();
 
-	/* Check that pg_control exists */
+	/* 检查 pg_control 存在     */
 	checkControlFile();
 
-	/* And switch working directory into it */
+	/* 然后将工作目录切换进去    */
 	ChangeToDataDir();
 
 	/*
-	 * Check for invalid combinations of GUC settings.
+	 * 检查 GUC 设置的无效组合。            
 	 */
 	if (SuperuserReservedConnections + ReservedConnections >= MaxConnections)
 	{
@@ -934,8 +934,8 @@ PostmasterMain(int argc, char *argv[])
 				(errmsg("WAL streaming (max_wal_senders > 0) requires wal_level \"replica\" or \"logical\"")));
 
 	/*
-	 * Other one-time internal sanity checks can go here, if they are fast.
-	 * (Put any slow processing further down, after postmaster.pid creation.)
+	 * 其他一次性内部完整性检查若够快，可放在这里。  
+	 * （慢的处理放到更后面，在创建 postmaster.pid 之后。）
 	 */
 	if (!CheckDateTokenTables())
 	{
@@ -944,15 +944,15 @@ PostmasterMain(int argc, char *argv[])
 	}
 
 	/*
-	 * Now that we are done processing the postmaster arguments, reset
-	 * getopt(3) library so that it will work correctly in subprocesses.
+	 * 既然已处理完 postmaster 参数，现在重置            
+	 * getopt(3) 库，使其能在子进程中正确工作。          
 	 */
 	optind = 1;
 #ifdef HAVE_INT_OPTRESET
-	optreset = 1;				/* some systems need this too */
+	optreset = 1;				/* 某些系统亦需此步   */
 #endif
 
-	/* For debugging: display postmaster environment */
+	/* 调试用：显示 postmaster 环境          */
 	{
 #if !defined(WIN32) || defined(_MSC_VER)
 		extern char **environ;
@@ -972,45 +972,45 @@ PostmasterMain(int argc, char *argv[])
 	}
 
 	/*
-	 * Create lockfile for data directory.
+	 * 为数据目录创建锁文件。  
 	 *
-	 * We want to do this before we try to grab the input sockets, because the
-	 * data directory interlock is more reliable than the socket-file
-	 * interlock (thanks to whoever decided to put socket files in /tmp :-().
-	 * For the same reason, it's best to grab the TCP socket(s) before the
-	 * Unix socket(s).
+	 * 这一步最好抢在输入套接字之前完成，因为              
+	 * 数据目录互锁比套接字文件互锁                    
+	 * 更可靠（感谢那位把套接字文件放进 /tmp 的人 :-()     
+	 * 同理，最好先抢占 TCP 套接字再抢                       
+	 * Unix 套接字 
 	 *
-	 * Also note that this internally sets up the on_proc_exit function that
-	 * is responsible for removing both data directory and socket lockfiles;
-	 * so it must happen before opening sockets so that at exit, the socket
-	 * lockfiles go away after CloseServerPorts runs.
+	 * 另注意，此步会内部设置 on_proc_exit 函数，该函数    
+	 * 负责同时移除数据目录和套接字锁文件；               
+	 * 因此必须在打开套接字前完成，这样退出时套接字  
+	 * 锁文件会在 CloseServerPorts 后移除。 
 	 */
 	CreateDataDirLockFile(true);
 
 	/*
-	 * Read the control file (for error checking and config info).
+	 * 读取控制文件（用于错误检查与配置）。     
 	 *
-	 * Since we verify the control file's CRC, this has a useful side effect
-	 * on machines where we need a run-time test for CRC support instructions.
-	 * The postmaster will do the test once at startup, and then its child
-	 * processes will inherit the correct function pointer and not need to
-	 * repeat the test.
+	 * 由于要校验控制文件的 CRC，这会带来一个有用的     
+	 * 副作用：在需要运行时测试 CRC 支持指令的机器上。   
+	 * postmaster 在启动时做一次该测试，之后其子进程     
+	 * 会继承正确的函数指针，无需再                         
+	 * 重复测试。 
 	 */
 	LocalProcessControlFile(false);
 
 	/*
-	 * Register the apply launcher.  It's probably a good idea to call this
-	 * before any modules had a chance to take the background worker slots.
+	 * 注册 apply launcher。最好尽早调用这个函数，           
+	 * 要赶在任何模块占用后台工作进程槽位之前。        
 	 */
 	ApplyLauncherRegister();
 
 	/*
-	 * process any libraries that should be preloaded at postmaster start
+	 * 处理那些应在 postmaster 启动时预加载的库            
 	 */
 	process_shared_preload_libraries();
 
 	/*
-	 * Initialize SSL library, if specified.
+	 * 若已指定，初始化 SSL 库。  
 	 */
 #ifdef USE_SSL
 	if (EnableSSL)
@@ -1021,39 +1021,39 @@ PostmasterMain(int argc, char *argv[])
 #endif
 
 	/*
-	 * Now that loadable modules have had their chance to alter any GUCs,
-	 * calculate MaxBackends.
+	 * 既然可加载模块已有机会修改任何 GUC，              
+	 * 计算 MaxBackends。 
 	 */
 	InitializeMaxBackends();
 
 	/*
-	 * Give preloaded libraries a chance to request additional shared memory.
+	 * 给预加载的库一个请求额外共享内存的机会。          
 	 */
 	process_shmem_requests();
 
 	/*
-	 * Now that loadable modules have had their chance to request additional
-	 * shared memory, determine the value of any runtime-computed GUCs that
-	 * depend on the amount of shared memory required.
+	 * 既然可加载模块已有机会请求额外共享内存，         
+	 * 现在确定任意运行时计算的 GUC，其值                   
+	 * 取决于所需共享内存的数量。        
 	 */
 	InitializeShmemGUCs();
 
 	/*
-	 * Now that modules have been loaded, we can process any custom resource
-	 * managers specified in the wal_consistency_checking GUC.
+	 * 既然模块已加载，现在就能处理 wal_consistency_checking  
+	 * GUC 中指定的自定义资源管理器。            
 	 */
 	InitializeWalConsistencyChecking();
 
 	/*
-	 * If -C was specified with a runtime-computed GUC, we held off printing
-	 * the value earlier, as the GUC was not yet initialized.  We handle -C
-	 * for most GUCs before we lock the data directory so that the option may
-	 * be used on a running server.  However, a handful of GUCs are runtime-
-	 * computed and do not have meaningful values until after locking the data
-	 * directory, and we cannot safely calculate their values earlier on a
-	 * running server.  At this point, such GUCs should be properly
-	 * initialized, and we haven't yet set up shared memory, so this is a good
-	 * time to handle the -C option for these special GUCs.
+	 * 如果 -C 指定的是运行时计算的 GUC，我们此前会       
+	 * 暂缓打印其值，因为该 GUC 尚未初始化。我们会      
+	 * 在锁定数据目录之前处理大多数 GUC 的 -C，这样选项  
+	 * 能在运行中的服务器上使用。然而少数 GUC 属运行时 
+	 * 计算型，锁定数据目录之前没有有意义的值，而且     
+	 * 运行中的服务器上我们无法提前安全算出其值。    
+	 * 此时，这类 GUC 应该已经妥善                      
+	 * 初始化完毕，共享内存尚未建立，故现在是处理        
+	 * 这些特殊 GUC 的 -C 选项的好时机。       
 	 */
 	if (output_config_variable != NULL)
 	{
@@ -1065,35 +1065,35 @@ PostmasterMain(int argc, char *argv[])
 	}
 
 	/*
-	 * Set up shared memory and semaphores.
+	 * 建立共享内存和信号量。   
 	 *
-	 * Note: if using SysV shmem and/or semas, each postmaster startup will
-	 * normally choose the same IPC keys.  This helps ensure that we will
-	 * clean up dead IPC objects if the postmaster crashes and is restarted.
+	 * 注意：若使用 SysV 共享内存和/或信号量，则每次    
+	 * postmaster 启动通常选中同一 IPC 键，这有助于        
+	 * 确保 postmaster 崩溃后重启即清理失效的 IPC 对象。    
 	 */
 	CreateSharedMemoryAndSemaphores();
 
 	/*
-	 * Estimate number of openable files.  This must happen after setting up
-	 * semaphores, because on some platforms semaphores count as open files.
+	 * 估算可打开文件的数量。此步必须放在                  
+	 * 信号量建立后，因某些平台信号量算作打开文件。   
 	 */
 	set_max_safe_fds();
 
 	/*
-	 * Set reference point for stack-depth checking.
+	 * 为栈深度检查设置参照点。         
 	 */
 	(void) set_stack_base();
 
 	/*
-	 * Initialize pipe (or process handle on Windows) that allows children to
-	 * wake up from sleep on postmaster death.
+	 * 初始化管道（Windows 上为进程句柄），让子进程能在  
+	 * postmaster 死亡时从睡眠唤醒。 
 	 */
 	InitPostmasterDeathWatchHandle();
 
 #ifdef WIN32
 
 	/*
-	 * Initialize I/O completion port used to deliver list of dead children.
+	 * 初始化 I/O 完成端口，用于传递死亡子进程列表。    
 	 */
 	win32ChildQueue = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 1);
 	if (win32ChildQueue == NULL)
@@ -1102,43 +1102,43 @@ PostmasterMain(int argc, char *argv[])
 #endif
 
 #ifdef EXEC_BACKEND
-	/* Write out nondefault GUC settings for child processes to use */
+	/* 写出非默认 GUC 设置供子进程使用                 */
 	write_nondefault_variables(PGC_POSTMASTER);
 
 	/*
-	 * Clean out the temp directory used to transmit parameters to child
-	 * processes (see internal_forkexec, below).  We must do this before
-	 * launching any child processes, else we have a race condition: we could
-	 * remove a parameter file before the child can read it.  It should be
-	 * safe to do so now, because we verified earlier that there are no
-	 * conflicting Postgres processes in this data directory.
+	 * 清理向子进程传递参数所用的临时目录（见        
+	 * internal_forkexec）。必须在启动任何子进程之前      
+	 * 进行，否则会有竞态条件：我们可能在子进程还       
+	 * 没来得及读取参数文件之前就把它删掉。现在       
+	 * 这样做是安全的，因为我们此前已验证             
+	 * 此数据目录中没有冲突的 Postgres 进程。  
 	 */
 	RemovePgTempFilesInDir(PG_TEMP_FILES_DIR, true, false);
 #endif
 
 	/*
-	 * Forcibly remove the files signaling a standby promotion request.
-	 * Otherwise, the existence of those files triggers a promotion too early,
-	 * whether a user wants that or not.
+	 * 强制移除那些指示备库提升请求的文件。          
+	 * 否则这些文件的存在会过早触发一次提升，              
+	 * 无论用户是否愿意。      
 	 *
-	 * This removal of files is usually unnecessary because they can exist
-	 * only during a few moments during a standby promotion. However there is
-	 * a race condition: if pg_ctl promote is executed and creates the files
-	 * during a promotion, the files can stay around even after the server is
-	 * brought up to be the primary.  Then, if a new standby starts by using
-	 * the backup taken from the new primary, the files can exist at server
-	 * startup and must be removed in order to avoid an unexpected promotion.
+	 * 这种文件移除通常无必要，因为它们只在备库提升 
+	 * 期间的几个时刻存在。然而有一个竞态条件：          
+	 * 如果 pg_ctl promote 在提升期间执行并创建文件，        
+	 * 这些文件可能在服务器晋升为主库之后仍然             
+	 * 存在。之后，若一个新备库使用从新主库取得的      
+	 * 备份启动，这些文件可能在服务器启动时存在，     
+	 * 必须将其移除，以免发生意外的提升。                   
 	 *
-	 * Note that promotion signal files need to be removed before the startup
-	 * process is invoked. Because, after that, they can be used by
-	 * postmaster's SIGUSR1 signal handler.
+	 * 还有一点：提升信号文件必须在调用启动进程          
+	 * 之前移除。因为此后它们可能被                  
+	 * postmaster 的 SIGUSR1 所用。    
 	 */
 	RemovePromoteSignalFiles();
 
-	/* Do the same for logrotate signal file */
+	/* 对 logrotate 信号文件同理      */
 	RemoveLogrotateSignalFiles();
 
-	/* Remove any outdated file holding the current log filenames. */
+	/* 移除保存现行日志文件名的过时文件。         */
 	if (unlink(LOG_METAINFO_DATAFILE) < 0 && errno != ENOENT)
 		ereport(LOG,
 				(errcode_for_file_access(),
@@ -1146,10 +1146,10 @@ PostmasterMain(int argc, char *argv[])
 						LOG_METAINFO_DATAFILE)));
 
 	/*
-	 * Initialize input sockets.
+	 * 初始化输入套接字 
 	 *
-	 * Mark them all closed, and set up an on_proc_exit function that's
-	 * charged with closing the sockets again at postmaster shutdown.
+	 * 把它们都标为已关闭，并设置 on_proc_exit            
+	 * 函数，负责在 postmaster 关闭时关掉套接字。     
 	 */
 	for (i = 0; i < MAXLISTEN; i++)
 		ListenSocket[i] = PGINVALID_SOCKET;
@@ -1157,20 +1157,20 @@ PostmasterMain(int argc, char *argv[])
 	on_proc_exit(CloseServerPorts, 0);
 
 	/*
-	 * If enabled, start up syslogger collection subprocess
+	 * 如果启用，启动 syslogger 收集子进程     
 	 */
 	SysLoggerPID = SysLogger_Start();
 
 	/*
-	 * Reset whereToSendOutput from DestDebug (its starting state) to
-	 * DestNone. This stops ereport from sending log messages to stderr unless
-	 * Log_destination permits.  We don't do this until the postmaster is
-	 * fully launched, since startup failures may as well be reported to
-	 * stderr.
+	 * 把 whereToSendOutput 从初始状态 DestDebug 重置        
+	 * 为 DestNone。这样 ereport 就不会往 stderr 发日志，         
+	 * 除非 Log_destination 允许。要等 postmaster 完全          
+	 * 启动后才做，因为启动失败也该报告给              
+	 * stderr 
 	 *
-	 * If we are in fact disabling logging to stderr, first emit a log message
-	 * saying so, to provide a breadcrumb trail for users who may not remember
-	 * that their logging is configured to go somewhere else.
+	 * 如果确实要禁用 stderr 日志，先发一条日志消息，      
+	 * 说明此事，为可能不记得日志被配置到别处的用户     
+	 * 留下一条追踪线索。                           
 	 */
 	if (!(Log_destination & LOG_DESTINATION_STDERR))
 		ereport(LOG,
@@ -1181,15 +1181,15 @@ PostmasterMain(int argc, char *argv[])
 	whereToSendOutput = DestNone;
 
 	/*
-	 * Report server startup in log.  While we could emit this much earlier,
-	 * it seems best to do so after starting the log collector, if we intend
-	 * to use one.
+	 * 在日志中报告服务器启动。虽可更早发出，            
+	 * 但若要用日志收集器，宜在启动之后再做。            
+	 *            
 	 */
 	ereport(LOG,
 			(errmsg("starting %s", PG_VERSION_STR)));
 
 	/*
-	 * Establish input sockets.
+	 * 建立输入套接字。
 	 */
 	if (ListenAddresses)
 	{
@@ -1198,13 +1198,13 @@ PostmasterMain(int argc, char *argv[])
 		ListCell   *l;
 		int			success = 0;
 
-		/* Need a modifiable copy of ListenAddresses */
+		/* 需要 ListenAddresses 的可修改副本 */
 		rawstring = pstrdup(ListenAddresses);
 
-		/* Parse string into list of hostnames */
+		/* 把字符串解析成主机名列表*/
 		if (!SplitGUCList(rawstring, ',', &elemlist))
 		{
-			/* syntax error in list */
+			/* 列表有语法错误*/
 			ereport(FATAL,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("invalid list syntax in parameter \"%s\"",
@@ -1229,7 +1229,7 @@ PostmasterMain(int argc, char *argv[])
 			if (status == STATUS_OK)
 			{
 				success++;
-				/* record the first successful host addr in lockfile */
+				/* 把首个成功的主机地址记入锁文件     */
 				if (!listen_addr_saved)
 				{
 					AddToDataDirLockFile(LOCK_FILE_LINE_LISTEN_ADDR, curhost);
@@ -1251,16 +1251,16 @@ PostmasterMain(int argc, char *argv[])
 	}
 
 #ifdef USE_BONJOUR
-	/* Register for Bonjour only if we opened TCP socket(s) */
+	/* 仅当打开了 TCP 套接字才注册 Bonjour       */
 	if (enable_bonjour && ListenSocket[0] != PGINVALID_SOCKET)
 	{
 		DNSServiceErrorType err;
 
 		/*
-		 * We pass 0 for interface_index, which will result in registering on
-		 * all "applicable" interfaces.  It's not entirely clear from the
-		 * DNS-SD docs whether this would be appropriate if we have bound to
-		 * just a subset of the available network interfaces.
+		 * 我们为 interface_index 传 0，注册到所有"适用"         
+		 * 的接口上。DNS-SD 文档并未完全讲清楚，          
+		 * 如果只绑定到可用网络接口的一个子集，           
+		 * 这种做法是否妥当。                       
 		 */
 		err = DNSServiceRegister(&bonjour_sdref,
 								 0,
@@ -1280,11 +1280,11 @@ PostmasterMain(int argc, char *argv[])
 							(long) err)));
 
 		/*
-		 * We don't bother to read the mDNS daemon's reply, and we expect that
-		 * it will automatically terminate our registration when the socket is
-		 * closed at postmaster termination.  So there's nothing more to be
-		 * done here.  However, the bonjour_sdref is kept around so that
-		 * forked children can close their copies of the socket.
+		 * 我们不去读 mDNS 守护进程的应答，而是预期          
+		 * 套接字在 postmaster 终止时关闭，它就会自动          
+		 * 注销我们的注册。所以这里无事可做。但          
+		 * bonjour_sdref 仍要保留，以便 fork 出的子进程     
+		 * 能关闭它们自己那份套接字副本。        
 		 */
 	}
 #endif
@@ -1296,13 +1296,13 @@ PostmasterMain(int argc, char *argv[])
 		ListCell   *l;
 		int			success = 0;
 
-		/* Need a modifiable copy of Unix_socket_directories */
+		/* 需要 Unix_socket_directories 的可修改副本 */
 		rawstring = pstrdup(Unix_socket_directories);
 
-		/* Parse string into list of directories */
+		/* 把字符串解析成目录列表     */
 		if (!SplitDirectoriesString(rawstring, ',', &elemlist))
 		{
-			/* syntax error in list */
+			/* 列表有语法错误*/
 			ereport(FATAL,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("invalid list syntax in parameter \"%s\"",
@@ -1321,7 +1321,7 @@ PostmasterMain(int argc, char *argv[])
 			if (status == STATUS_OK)
 			{
 				success++;
-				/* record the first successful Unix socket in lockfile */
+				/* 把首个成功的 Unix 套接字记入锁文件    */
 				if (success == 1)
 					AddToDataDirLockFile(LOCK_FILE_LINE_SOCKET_DIR, socketdir);
 			}
@@ -1340,29 +1340,29 @@ PostmasterMain(int argc, char *argv[])
 	}
 
 	/*
-	 * check that we have some socket to listen on
+	 * 检查确实有套接字可监听          
 	 */
 	if (ListenSocket[0] == PGINVALID_SOCKET)
 		ereport(FATAL,
 				(errmsg("no socket created for listening")));
 
 	/*
-	 * If no valid TCP ports, write an empty line for listen address,
-	 * indicating the Unix socket must be used.  Note that this line is not
-	 * added to the lock file until there is a socket backing it.
+	 * 若无有效 TCP 端口，就为监听地址写一个空行，
+	 * 表示必须使用 Unix 套接字。注意这一行要等到        
+	 * 有套接字支撑它时才会写入锁文件。          
 	 */
 	if (!listen_addr_saved)
 		AddToDataDirLockFile(LOCK_FILE_LINE_LISTEN_ADDR, "");
 
 	/*
-	 * Record postmaster options.  We delay this till now to avoid recording
-	 * bogus options (eg, unusable port number).
+	 * 记录 postmaster 选项。推迟到现在才记，以免记下      
+	 * 无效选项（如端口不可用）。  
 	 */
 	if (!CreateOptsFile(argc, argv, my_exec_path))
 		ExitPostmaster(1);
 
 	/*
-	 * Write the external PID file if requested
+	 * 如果被要求，写外部 PID 文件  
 	 */
 	if (external_pid_file)
 	{
@@ -1373,7 +1373,7 @@ PostmasterMain(int argc, char *argv[])
 			fprintf(fpidfile, "%d\n", MyProcPid);
 			fclose(fpidfile);
 
-			/* Make PID file world readable */
+			/* 让 PID 文件人人可读   */
 			if (chmod(external_pid_file, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) != 0)
 				write_stderr("%s: could not change permissions of external PID file \"%s\": %s\n",
 							 progname, external_pid_file, strerror(errno));
@@ -1386,24 +1386,24 @@ PostmasterMain(int argc, char *argv[])
 	}
 
 	/*
-	 * Remove old temporary files.  At this point there can be no other
-	 * Postgres processes running in this directory, so this should be safe.
+	 * 移除旧临时文件。此时不可能再有其他             
+	 * Postgres 进程在此目录中运行，故应是安全的。         
 	 */
 	RemovePgTempFiles();
 
 	/*
-	 * Initialize the autovacuum subsystem (again, no process start yet)
+	 * 初始化 autovacuum 子系统（仍未启动进程）           
 	 */
 	autovac_init();
 
 	/*
-	 * Load configuration files for client authentication.
+	 * 加载客户端认证的配置文件。            
 	 */
 	if (!load_hba())
 	{
 		/*
-		 * It makes no sense to continue if we fail to load the HBA file,
-		 * since there is no way to connect to the database in this case.
+		 * 若加载 HBA 文件失败，继续毫无意义，            
+		 * 因为这种情况下无法连接到数据库。              
 		 */
 		ereport(FATAL,
 		/* translator: %s is a configuration file */
@@ -1412,25 +1412,25 @@ PostmasterMain(int argc, char *argv[])
 	if (!load_ident())
 	{
 		/*
-		 * We can start up without the IDENT file, although it means that you
-		 * cannot log in using any of the authentication methods that need a
-		 * user name mapping. load_ident() already logged the details of error
-		 * to the log.
+		 * 没有 IDENT 文件也能启动，尽管这意味着你           
+		 * 无法使用需要用户名映射的认证方法登录。        
+		 * load_ident() 已把错误详情记录到日志中。               
+		 *            
 		 */
 	}
 
 #ifdef HAVE_PTHREAD_IS_THREADED_NP
 
 	/*
-	 * On macOS, libintl replaces setlocale() with a version that calls
-	 * CFLocaleCopyCurrent() when its second argument is "" and every relevant
-	 * environment variable is unset or empty.  CFLocaleCopyCurrent() makes
-	 * the process multithreaded.  The postmaster calls sigprocmask() and
-	 * calls fork() without an immediate exec(), both of which have undefined
-	 * behavior in a multithreaded program.  A multithreaded postmaster is the
-	 * normal case on Windows, which offers neither fork() nor sigprocmask().
-	 * Currently, macOS is the only platform having pthread_is_threaded_np(),
-	 * so we need not worry whether this HINT is appropriate elsewhere.
+	 * 在 macOS 上，libintl 会把 setlocale() 替换为            
+	 * 一个版本，它在第二参数为 "" 且相关环境变量都       
+	 * 未设置或为空时调用 CFLocaleCopyCurrent()。它使          
+	 * 进程变为多线程。postmaster 会调用 sigprocmask()，     
+	 * 并调用 fork() 而不立即 exec()，两者在多线程程序中    
+	 * 都是未定义行为。多线程 postmaster 在 Windows               
+	 * 是常态，而 Windows 既无 fork() 也无 sigprocmask()。         
+	 * 目前，macOS 是唯一拥有 pthread_is_threaded_np() 的平台，  
+	 * 所以无需担心这条 HINT 在别处是否合适。          
 	 */
 	if (pthread_is_threaded_np() != 0)
 		ereport(FATAL,
@@ -1440,46 +1440,46 @@ PostmasterMain(int argc, char *argv[])
 #endif
 
 	/*
-	 * Remember postmaster startup time
+	 * 记住 postmaster 启动时间  
 	 */
 	PgStartTime = GetCurrentTimestamp();
 
 	/*
-	 * Report postmaster status in the postmaster.pid file, to allow pg_ctl to
-	 * see what's happening.
+	 * 在 postmaster.pid 文件中报告 postmaster 状态，让 pg_ctl 能  
+	 * 了解状况。      
 	 */
 	AddToDataDirLockFile(LOCK_FILE_LINE_PM_STATUS, PM_STATUS_STARTING);
 
-	/* Start bgwriter and checkpointer so they can help with recovery */
+	/* 启动 bgwriter 和 checkpointer，让它们协助恢复       */
 	if (CheckpointerPID == 0)
 		CheckpointerPID = StartCheckpointer();
 	if (BgWriterPID == 0)
 		BgWriterPID = StartBackgroundWriter();
 
 	/*
-	 * We're ready to rock and roll...
+	 * 万事俱备……             
 	 */
 	StartupPID = StartupDataBase();
 	Assert(StartupPID != 0);
 	StartupStatus = STARTUP_RUNNING;
 	pmState = PM_STARTUP;
 
-	/* Some workers may be scheduled to start now */
+	/* 有些工作进程或已排定现在启动 */
 	maybe_start_bgworkers();
 
 	status = ServerLoop();
 
 	/*
-	 * ServerLoop probably shouldn't ever return, but if it does, close down.
+	 * ServerLoop 理应永不返回，但若真返回，就关闭。        
 	 */
 	ExitPostmaster(status != STATUS_OK);
 
-	abort();					/* not reached */
+	abort();					/* 不会到达*/
 }
 
 
 /*
- * on_proc_exit callback to close server's listen sockets
+ * 关闭监听套接字的 on_proc_exit 回调          
  */
 static void
 CloseServerPorts(int status, Datum arg)
@@ -1487,10 +1487,10 @@ CloseServerPorts(int status, Datum arg)
 	int			i;
 
 	/*
-	 * First, explicitly close all the socket FDs.  We used to just let this
-	 * happen implicitly at postmaster exit, but it's better to close them
-	 * before we remove the postmaster.pid lockfile; otherwise there's a race
-	 * condition if a new postmaster wants to re-use the TCP port number.
+	 * 首先显式关闭所有套接字 FD。过去我们任由            
+	 * 退出时隐式发生，但最好赶在移除                      
+	 * postmaster.pid 锁文件之前关掉它们；否则，若新          
+	 * postmaster 想重用 TCP 端口号，就会有竞态条件。     
 	 */
 	for (i = 0; i < MAXLISTEN; i++)
 	{
@@ -1502,20 +1502,20 @@ CloseServerPorts(int status, Datum arg)
 	}
 
 	/*
-	 * Next, remove any filesystem entries for Unix sockets.  To avoid race
-	 * conditions against incoming postmasters, this must happen after closing
-	 * the sockets and before removing lock files.
+	 * 接下来，移除 Unix 套接字的文件系统条目。为避免  
+	 * 与后到的 postmaster 产生竞态，这一步必须在关闭        
+	 * 套接字后、移除锁文件前。       
 	 */
 	RemoveSocketFiles();
 
 	/*
-	 * We don't do anything about socket lock files here; those will be
-	 * removed in a later on_proc_exit callback.
+	 * 这里我们不动套接字锁文件；那些将由             
+	 * on_proc_exit 回调移除。             
 	 */
 }
 
 /*
- * on_proc_exit callback to delete external_pid_file
+ * 删除 external_pid_file 的 on_proc_exit 回调 
  */
 static void
 unlink_external_pid_file(int status, Datum arg)
@@ -1526,21 +1526,21 @@ unlink_external_pid_file(int status, Datum arg)
 
 
 /*
- * Compute and check the directory paths to files that are part of the
- * installation (as deduced from the postgres executable's own location)
+ * 计算并检查属于安装的各文件的目录路径             
+ * （依据 postgres 可执行文件自身的位置推断）           
  */
 static void
 getInstallationPaths(const char *argv0)
 {
 	DIR		   *pdir;
 
-	/* Locate the postgres executable itself */
+	/* 定位 postgres 可执行文件       */
 	if (find_my_exec(argv0, my_exec_path) < 0)
 		ereport(FATAL,
 				(errmsg("%s: could not locate my own executable path", argv0)));
 
 #ifdef EXEC_BACKEND
-	/* Locate executable backend before we change working directory */
+	/* 在改变工作目录之前定位可执行后端             */
 	if (find_other_exec(argv0, "postgres", PG_BACKEND_VERSIONSTR,
 						postgres_exec_path) < 0)
 		ereport(FATAL,
@@ -1549,17 +1549,17 @@ getInstallationPaths(const char *argv0)
 #endif
 
 	/*
-	 * Locate the pkglib directory --- this has to be set early in case we try
-	 * to load any modules from it in response to postgresql.conf entries.
+	 * 定位 pkglib 目录——必须尽早设置，以防我们随后因   
+	 * postgresql.conf 条目而尝试从其中加载模块。            
 	 */
 	get_pkglib_path(my_exec_path, pkglib_path);
 
 	/*
-	 * Verify that there's a readable directory there; otherwise the Postgres
-	 * installation is incomplete or corrupt.  (A typical cause of this
-	 * failure is that the postgres executable has been moved or hardlinked to
-	 * some directory that's not a sibling of the installation lib/
-	 * directory.)
+	 * 验证那里有个可读的目录；否则说明 Postgres 安装      
+	 * 不完整或已损坏。（此失败的典型原因是          
+	 * postgres 可执行文件被移动或硬链接到了某个              
+	 * 与安装的 lib/ 目录不同级的目录。）            
+	 *            
 	 */
 	pdir = AllocateDir(pkglib_path);
 	if (pdir == NULL)
@@ -1572,16 +1572,16 @@ getInstallationPaths(const char *argv0)
 	FreeDir(pdir);
 
 	/*
-	 * XXX is it worth similarly checking the share/ directory?  If the lib/
-	 * directory is there, then share/ probably is too.
+	 * XXX 是否也值得检查 share/ 目录？如果 lib/                
+	 * 目录在，那 share/ 大概率也在。       
 	 */
 }
 
 /*
- * Check that pg_control exists in the correct location in the data directory.
+ * 检查 pg_control 是否存在于数据目录中正确位置。            
  *
- * No attempt is made to validate the contents of pg_control here.  This is
- * just a sanity check to see if we are looking at a real data directory.
+ * 这里不会尝试校验 pg_control 的内容。这只是               
+ * 一次完整性检查，确认看到的是真实数据目录。       
  */
 static void
 checkControlFile(void)
@@ -1604,13 +1604,13 @@ checkControlFile(void)
 }
 
 /*
- * Determine how long should we let ServerLoop sleep, in milliseconds.
+ * 决定该让 ServerLoop 睡眠多久，以毫秒计。             
  *
- * In normal conditions we wait at most one minute, to ensure that the other
- * background tasks handled by ServerLoop get done even when no requests are
- * arriving.  However, if there are background workers waiting to be started,
- * we don't actually sleep so that they are quickly serviced.  Other exception
- * cases are as shown in the code.
+ * 正常情况下我们至多等待一分钟，以确保其他             
+ * 由 ServerLoop 处理的后台任务即使没有请求到达             
+ * 也能完成。不过，如果有后台工作进程正等待启动，     
+ * 我们实际上并不睡眠，以便它们得到快速处理。其余      
+ * 例外见代码所示。       
  */
 static int
 DetermineSleepTime(void)
@@ -1618,8 +1618,8 @@ DetermineSleepTime(void)
 	TimestampTz next_wakeup = 0;
 
 	/*
-	 * Normal case: either there are no background workers at all, or we're in
-	 * a shutdown sequence (during which we ignore bgworkers altogether).
+	 * 正常情况：要么根本没有后台工作进程，要么我们     
+	 * 正在关闭序列中（完全无视 bgworker）。               
 	 */
 	if (Shutdown > NoShutdown ||
 		(!StartWorkerNeeded && !HaveCrashedWorker))
@@ -1628,7 +1628,7 @@ DetermineSleepTime(void)
 		{
 			int			seconds;
 
-			/* time left to abort; clamp to 0 in case it already expired */
+			/* 距中止的剩余时间；若已过期则钳到 0        */
 			seconds = SIGKILL_CHILDREN_AFTER_SECS -
 				(time(NULL) - AbortStartTime);
 
@@ -1646,10 +1646,10 @@ DetermineSleepTime(void)
 		slist_mutable_iter siter;
 
 		/*
-		 * When there are crashed bgworkers, we sleep just long enough that
-		 * they are restarted when they request to be.  Scan the list to
-		 * determine the minimum of all wakeup times according to most recent
-		 * crash time and requested restart interval.
+		 * 当有已崩溃的 bgworker 时，我们睡眠时长只要足以
+		 * 使它们在自身请求的时刻被重启。扫描列表    
+		 * 依据最近崩溃时间和重启间隔求出                     
+		 * 各唤醒时刻的最小值。            
 		 */
 		slist_foreach_modify(siter, &BackgroundWorkerList)
 		{
@@ -1679,7 +1679,7 @@ DetermineSleepTime(void)
 	{
 		int			ms;
 
-		/* result of TimestampDifferenceMilliseconds is in [0, INT_MAX] */
+		/* TimestampDifferenceMilliseconds 的结果在 [0, INT_MAX] 内*/
 		ms = (int) TimestampDifferenceMilliseconds(GetCurrentTimestamp(),
 												   next_wakeup);
 		return Min(60 * 1000, ms);
@@ -1689,13 +1689,13 @@ DetermineSleepTime(void)
 }
 
 /*
- * Activate or deactivate notifications of server socket events.  Since we
- * don't currently have a way to remove events from an existing WaitEventSet,
- * we'll just destroy and recreate the whole thing.  This is called during
- * shutdown so we can wait for backends to exit without accepting new
- * connections, and during crash reinitialization when we need to start
- * listening for new connections again.  The WaitEventSet will be freed in fork
- * children by ClosePostmasterPorts().
+ * 激活或停用服务器套接字事件的通知。由于我们        
+ * 目前没有办法从既有 WaitEventSet 中移除事件，               
+ * 只能销毁再重建整个集合。本函数在关闭期间           
+ * 被调用，让我们不收新连接等待后端退出，         
+ * 也在崩溃后重新初始化期间调用，那时需要重新     
+ * 开始监听新连接。WaitEventSet 在 fork 出的子进程中            
+ * 由 ClosePostmasterPorts() 释放  
  */
 static void
 ConfigurePostmasterWaitSet(bool accept_connections)
@@ -1706,7 +1706,7 @@ ConfigurePostmasterWaitSet(bool accept_connections)
 		FreeWaitEventSet(pm_wait_set);
 	pm_wait_set = NULL;
 
-	/* How many server sockets do we need to wait for? */
+	/* 要等几个服务器套接字？               */
 	nsockets = 0;
 	if (accept_connections)
 	{
@@ -1728,7 +1728,7 @@ ConfigurePostmasterWaitSet(bool accept_connections)
 }
 
 /*
- * Main idle loop of postmaster
+ * postmaster 空闲主循环  
  */
 static int
 ServerLoop(void)
@@ -1749,11 +1749,11 @@ ServerLoop(void)
 								   DetermineSleepTime(),
 								   events,
 								   lengthof(events),
-								   0 /* postmaster posts no wait_events */ );
+								   0 /* postmaster 不发布 wait_event */ );
 
 		/*
-		 * Latch set by signal handler, or new connection pending on any of
-		 * our sockets? If the latter, fork a child process to deal with it.
+		 * 信号处理器置了 latch，还是某个套接字有待       
+		 * 新连接等待处理？若是后者，fork 子进程处理。   
 		 */
 		for (int i = 0; i < nevents; i++)
 		{
@@ -1761,11 +1761,11 @@ ServerLoop(void)
 				ResetLatch(MyLatch);
 
 			/*
-			 * The following requests are handled unconditionally, even if we
-			 * didn't see WL_LATCH_SET.  This gives high priority to shutdown
-			 * and reload requests where the latch happens to appear later in
-			 * events[] or will be reported by a later call to
-			 * WaitEventSetWait().
+			 * 下面的请求会被无条件处理，即便没有看到     
+			 * WL_LATCH_SET。这给关闭与重载请求高优先级：     
+			 * 这些请求的 latch 恰巧在 events[] 较晚出现，      
+			 * 或稍后 WaitEventSetWait() 报告时。      
+			 *                    
 			 */
 			if (pending_pm_shutdown_request)
 				process_pm_shutdown_request();
@@ -1786,8 +1786,8 @@ ServerLoop(void)
 					BackendStartup(port);
 
 					/*
-					 * We no longer need the open socket or port structure in
-					 * this process
+					 * 本进程不再需要该打开的套接字或         
+					 * 端口结构
 					 */
 					StreamClose(port->sock);
 					ConnFree(port);
@@ -1795,14 +1795,14 @@ ServerLoop(void)
 			}
 		}
 
-		/* If we have lost the log collector, try to start a new one */
+		/* 若丢失日志收集进程，则尝试启动新的       */
 		if (SysLoggerPID == 0 && Logging_collector)
 			SysLoggerPID = SysLogger_Start();
 
 		/*
-		 * If no background writer process is running, and we are not in a
-		 * state that prevents it, start one.  It doesn't matter if this
-		 * fails, we'll just try again later.  Likewise for the checkpointer.
+		 * 若 bgwriter 未在运行，且当前状态并不禁止，     
+		 * 就启动一个。即使失败也无妨，稍后再试。    
+		 * 对 checkpointer 同样如此。                                  
 		 */
 		if (pmState == PM_RUN || pmState == PM_RECOVERY ||
 			pmState == PM_HOT_STANDBY || pmState == PM_STARTUP)
@@ -1814,18 +1814,18 @@ ServerLoop(void)
 		}
 
 		/*
-		 * Likewise, if we have lost the walwriter process, try to start a new
-		 * one.  But this is needed only in normal operation (else we cannot
-		 * be writing any new WAL).
+		 * 同样，若丢失了 walwriter 进程，则尝试启动新的。  
+		 * 但这仅在正常运行时才需要（否则我们不可能     
+		 * 在写入新 WAL）     
 		 */
 		if (WalWriterPID == 0 && pmState == PM_RUN)
 			WalWriterPID = StartWalWriter();
 
 		/*
-		 * If we have lost the autovacuum launcher, try to start a new one. We
-		 * don't want autovacuum to run in binary upgrade mode because
-		 * autovacuum might update relfrozenxid for empty tables before the
-		 * physical files are put in place.
+		 * 若丢失了 autovacuum launcher，则尝试启动新的。        
+		 * 二进制升级时不希望 autovacuum 运行，因为     
+		 * autovacuum 可能会在物理文件就位之前更新           
+		 * 空表的 relfrozenxid。       
 		 */
 		if (!IsBinaryUpgrade && AutoVacPID == 0 &&
 			(AutoVacuumingActive() || start_autovac_launcher) &&
@@ -1833,14 +1833,14 @@ ServerLoop(void)
 		{
 			AutoVacPID = StartAutoVacLauncher();
 			if (AutoVacPID != 0)
-				start_autovac_launcher = false; /* signal processed */
+				start_autovac_launcher = false; /* 信号已处理  */
 		}
 
-		/* If we have lost the archiver, try to start a new one. */
+		/* 若丢失了 archiver，则尝试启动新的。      */
 		if (PgArchPID == 0 && PgArchStartupAllowed())
 			PgArchPID = StartArchiver();
 
-		/* If we need to signal the autovacuum launcher, do so now */
+		/* 若需向 autovacuum launcher 发信号，现在就发  */
 		if (avlauncher_needs_signal)
 		{
 			avlauncher_needs_signal = false;
@@ -1848,65 +1848,65 @@ ServerLoop(void)
 				kill(AutoVacPID, SIGUSR2);
 		}
 
-		/* If we need to start a WAL receiver, try to do that now */
+		/* 若需启动 WAL receiver，现在就试着启动      */
 		if (WalReceiverRequested)
 			MaybeStartWalReceiver();
 
-		/* Get other worker processes running, if needed */
+		/* 需要时让其余 worker 进程跑起来     */
 		if (StartWorkerNeeded || HaveCrashedWorker)
 			maybe_start_bgworkers();
 
 #ifdef HAVE_PTHREAD_IS_THREADED_NP
 
 		/*
-		 * With assertions enabled, check regularly for appearance of
-		 * additional threads.  All builds check at start and exit.
+		 * 在启用断言的构建中，定期检查是否出现了 
+		 * 额外线程。各构建都在启动/退出时检查。 
 		 */
 		Assert(pthread_is_threaded_np() == 0);
 #endif
 
 		/*
-		 * Lastly, check to see if it's time to do some things that we don't
-		 * want to do every single time through the loop, because they're a
-		 * bit expensive.  Note that there's up to a minute of slop in when
-		 * these tasks will be performed, since DetermineSleepTime() will let
-		 * us sleep at most that long; except for SIGKILL timeout which has
-		 * special-case logic there.
+		 * 最后，检查是否到了做某些事情的时间；这些事  
+		 * 情不想每轮循环都做，因为开销有点大。注意： 
+		 * 这些任务的执行时间最多偏差约一分钟，因为    
+		 * DetermineSleepTime() 允许我们最多睡这么久；唯有      
+		 * SIGKILL 超时在那里有专门的特例处理。              
+		 *                          
 		 */
 		now = time(NULL);
 
 		/*
-		 * If we already sent SIGQUIT to children and they are slow to shut
-		 * down, it's time to send them SIGKILL (or SIGABRT if requested).
-		 * This doesn't happen normally, but under certain conditions backends
-		 * can get stuck while shutting down.  This is a last measure to get
-		 * them unwedged.
+		 * 若我们已向子进程发出 SIGQUIT 而它们迟迟不退， 
+		 * 就该向它们发送 SIGKILL（若要求则用 SIGABRT）。  
+		 * 正常情况下不会发生这种情况，但某些条件下后端 
+		 * 关闭时可能卡住。这是让它们脱困的最后一招。  
+		 *               
 		 *
-		 * Note we also do this during recovery from a process crash.
+		 * 注意，进程崩溃恢复期间我们也会这样做。 
 		 */
 		if ((Shutdown >= ImmediateShutdown || FatalError) &&
 			AbortStartTime != 0 &&
 			(now - AbortStartTime) >= SIGKILL_CHILDREN_AFTER_SECS)
 		{
-			/* We were gentle with them before. Not anymore */
+			/* 之前对它们很客气，现在不了      */
 			ereport(LOG,
 			/* translator: %s is SIGKILL or SIGABRT */
 					(errmsg("issuing %s to recalcitrant children",
 							send_abort_for_kill ? "SIGABRT" : "SIGKILL")));
 			TerminateChildren(send_abort_for_kill ? SIGABRT : SIGKILL);
-			/* reset flag so we don't SIGKILL again */
+			/* 重置标志，以免再次 SIGKILL  */
 			AbortStartTime = 0;
 		}
 
 		/*
-		 * Once a minute, verify that postmaster.pid hasn't been removed or
-		 * overwritten.  If it has, we force a shutdown.  This avoids having
-		 * postmasters and child processes hanging around after their database
-		 * is gone, and maybe causing problems if a new database cluster is
-		 * created in the same place.  It also provides some protection
-		 * against a DBA foolishly removing postmaster.pid and manually
-		 * starting a new postmaster.  Data corruption is likely to ensue from
-		 * that anyway, but we can minimize the damage by aborting ASAP.
+		 * 每分钟检查一次 postmaster.pid 是否被删除或覆盖。
+		 * 若确实如此，就强制关闭。这样可以避免数据库  
+		 * 消失后仍有 postmaster 和子进程逗留，也避免在       
+		 * 同一位置新建集簇时出问题。它还提供一定       
+		 * 的保护：防止 DBA 轻率删除 postmaster.pid 并      
+		 * 手动启动新 postmaster。这样数据多半会损坏， 
+		 * 但我们仍能尽快中止，把损害降到最低。             
+		 *                                                              
 		 */
 		if (now - last_lockfile_recheck_time >= 1 * SECS_PER_MINUTE)
 		{
@@ -1920,9 +1920,9 @@ ServerLoop(void)
 		}
 
 		/*
-		 * Touch Unix socket and lock files every 58 minutes, to ensure that
-		 * they are not removed by overzealous /tmp-cleaning tasks.  We assume
-		 * no one runs cleaners with cutoff times of less than an hour ...
+		 * 每 58 分钟触碰一次 Unix 套接字与锁文件，以防    
+		 * 它们被过分热心的 /tmp 清理任务删掉。我们假定    
+		 * 没人运行截止时间不足一小时的清理程序……   
 		 */
 		if (now - last_touch_time >= 58 * SECS_PER_MINUTE)
 		{
@@ -1934,22 +1934,22 @@ ServerLoop(void)
 }
 
 /*
- * Read a client's startup packet and do something according to it.
+ * 读取客户端的启动包，并据此做相应的处理。    
  *
- * Returns STATUS_OK or STATUS_ERROR, or might call ereport(FATAL) and
- * not return at all.
+ * 返回 STATUS_OK 或 STATUS_ERROR，也可能调用 ereport(FATAL) 
+ * 而不返回。   
  *
- * (Note that ereport(FATAL) stuff is sent to the client, so only use it
- * if that's what you want.  Return STATUS_ERROR if you don't want to
- * send anything to the client, which would typically be appropriate
- * if we detect a communications failure.)
+ * 注意：ereport(FATAL) 的消息会发给客户端，所以只有   
+ * 确实想这么做才用它。若不想向客户端发送任何   
+ * 东西，就返回 STATUS_ERROR；这通常适用于检测到    
+ * 通信故障的情况。               
  *
- * Set ssl_done and/or gss_done when negotiation of an encrypted layer
- * (currently, TLS or GSSAPI) is completed. A successful negotiation of either
- * encryption layer sets both flags, but a rejected negotiation sets only the
- * flag for that layer, since the client may wish to try the other one. We
- * should make no assumption here about the order in which the client may make
- * requests.
+ * 当加密层协商完成时，设置 ssl_done 和/或 gss_done（  
+ * 当前为 TLS 或 GSSAPI）。任一加密层成功协商都会设置      
+ * 两个标志，而被拒绝的协商只设置对应层的标志，因为  
+ * 客户端可能还想尝试另一层。我们不应就客户端        
+ * 发出请求的顺序做任何假设。                                    
+ *          
  */
 static int
 ProcessStartupPacket(Port *port, bool ssl_done, bool gss_done)
@@ -1962,29 +1962,29 @@ ProcessStartupPacket(Port *port, bool ssl_done, bool gss_done)
 	pq_startmsgread();
 
 	/*
-	 * Grab the first byte of the length word separately, so that we can tell
-	 * whether we have no data at all or an incomplete packet.  (This might
-	 * sound inefficient, but it's not really, because of buffering in
-	 * pqcomm.c.)
+	 * 单独抓取长度字的第一个字节，这样我们就能区分    
+	 * 到底是完全没有数据还是包不完整。这听起来可能  
+	 * 效率不高，但由于 pqcomm.c 中的缓冲，实际并非  
+	 * 如此。 
 	 */
 	if (pq_getbytes((char *) &len, 1) == EOF)
 	{
 		/*
-		 * If we get no data at all, don't clutter the log with a complaint;
-		 * such cases often occur for legitimate reasons.  An example is that
-		 * we might be here after responding to NEGOTIATE_SSL_CODE, and if the
-		 * client didn't like our response, it'll probably just drop the
-		 * connection.  Service-monitoring software also often just opens and
-		 * closes a connection without sending anything.  (So do port
-		 * scanners, which may be less benign, but it's not really our job to
-		 * notice those.)
+		 * 若完全收不到数据，别往日志塞抱怨信息；这种  
+		 * 情况往往有正当理由。例如：我们可能在响应      
+		 * NEGOTIATE_SSL_CODE 之后到达这里，而如果客户端不满意
+		 * 我们的响应，多半会直接断开。服务监控软件 
+		 * 也常常只是打开再关闭连接，不发任何内容。（   
+		 * 端口扫描器也是如此。它们未必那么友善， 
+		 * 不过留意这些并非我们的分内之事。）               
+		 *               
 		 */
 		return STATUS_ERROR;
 	}
 
 	if (pq_getbytes(((char *) &len) + 1, 3) == EOF)
 	{
-		/* Got a partial length word, so bleat about that */
+		/* 长度字不完整，就此抱怨一下        */
 		if (!ssl_done && !gss_done)
 			ereport(COMMERROR,
 					(errcode(ERRCODE_PROTOCOL_VIOLATION),
@@ -2005,9 +2005,9 @@ ProcessStartupPacket(Port *port, bool ssl_done, bool gss_done)
 	}
 
 	/*
-	 * Allocate space to hold the startup packet, plus one extra byte that's
-	 * initialized to be zero.  This ensures we will have null termination of
-	 * all strings inside the packet.
+	 * 分配空间来存放启动包，外加一个初始化为零的额   
+	 * 外字节。这保证了包内所有字符串都以空字符结尾。 
+	 *                               
 	 */
 	buf = palloc(len + 1);
 	buf[len] = '\0';
@@ -2022,8 +2022,8 @@ ProcessStartupPacket(Port *port, bool ssl_done, bool gss_done)
 	pq_endmsgread();
 
 	/*
-	 * The first field is either a protocol version number or a special
-	 * request code.
+	 * 第一个字段是协议版本号或特殊请求码。          
+	 *              
 	 */
 	port->proto = proto = pg_ntoh32(*((ProtocolVersion *) buf));
 
@@ -2037,7 +2037,7 @@ ProcessStartupPacket(Port *port, bool ssl_done, bool gss_done)
 			return STATUS_ERROR;
 		}
 		processCancelRequest(port, buf);
-		/* Not really an error, but we don't want to proceed further */
+		/* 这并非真正的错误，只是不想继续处理下去 */
 		return STATUS_ERROR;
 	}
 
@@ -2046,24 +2046,24 @@ ProcessStartupPacket(Port *port, bool ssl_done, bool gss_done)
 		char		SSLok;
 
 #ifdef USE_SSL
-		/* No SSL when disabled or on Unix sockets */
+		/* 禁用 SSL 或 Unix 套接字时无 SSL */
 		if (!LoadedSSL || port->laddr.addr.ss_family == AF_UNIX)
 			SSLok = 'N';
 		else
-			SSLok = 'S';		/* Support for SSL */
+			SSLok = 'S';		/* 支持 SSL      */
 #else
-		SSLok = 'N';			/* No support for SSL */
+		SSLok = 'N';			/* 不支持 SSL      */
 #endif
 
 retry1:
 		if (send(port->sock, &SSLok, 1, 0) != 1)
 		{
 			if (errno == EINTR)
-				goto retry1;	/* if interrupted, just retry */
+				goto retry1;	/* 被中断就重试         */
 			ereport(COMMERROR,
 					(errcode_for_socket_access(),
 					 errmsg("failed to send SSL negotiation response: %m")));
-			return STATUS_ERROR;	/* close the connection */
+			return STATUS_ERROR;	/* 关闭连接         */
 		}
 
 #ifdef USE_SSL
@@ -2072,10 +2072,10 @@ retry1:
 #endif
 
 		/*
-		 * At this point we should have no data already buffered.  If we do,
-		 * it was received before we performed the SSL handshake, so it wasn't
-		 * encrypted and indeed may have been injected by a man-in-the-middle.
-		 * We report this case to the client.
+		 * 此时我们本不应有任何已缓冲数据。如果存在，  
+		 * 说明它是在 SSL 握手之前收到的，因此未经加密，  
+		 * 确实可能是由中间人注入的。我们要把这种情况    
+		 * 报告给客户端。             
 		 */
 		if (pq_buffer_has_data())
 			ereport(FATAL,
@@ -2084,9 +2084,9 @@ retry1:
 					 errdetail("This could be either a client-software bug or evidence of an attempted man-in-the-middle attack.")));
 
 		/*
-		 * regular startup packet, cancel, etc packet should follow, but not
-		 * another SSL negotiation request, and a GSS request should only
-		 * follow if SSL was rejected (client may negotiate in either order)
+		 * 下面应跟着常规启动包或取消等包，而非另一次  
+		 * SSL 协商请求；仅当 SSL 被拒绝才允许 GSS 请求   
+		 * （客户端按任一顺序协商都可以。）                 
 		 */
 		return ProcessStartupPacket(port, true, SSLok == 'S');
 	}
@@ -2095,7 +2095,7 @@ retry1:
 		char		GSSok = 'N';
 
 #ifdef ENABLE_GSS
-		/* No GSSAPI encryption when on Unix socket */
+		/* Unix 套接字上不用 GSSAPI 加密    */
 		if (port->laddr.addr.ss_family != AF_UNIX)
 			GSSok = 'G';
 #endif
@@ -2107,7 +2107,7 @@ retry1:
 			ereport(COMMERROR,
 					(errcode_for_socket_access(),
 					 errmsg("failed to send GSSAPI negotiation response: %m")));
-			return STATUS_ERROR;	/* close the connection */
+			return STATUS_ERROR;	/* 关闭连接         */
 		}
 
 #ifdef ENABLE_GSS
@@ -2116,10 +2116,10 @@ retry1:
 #endif
 
 		/*
-		 * At this point we should have no data already buffered.  If we do,
-		 * it was received before we performed the GSS handshake, so it wasn't
-		 * encrypted and indeed may have been injected by a man-in-the-middle.
-		 * We report this case to the client.
+		 * 此时我们本不应有任何已缓冲数据。如果存在，  
+		 * 说明它是在 GSS 握手之前收到的，因此未经加密，  
+		 * 确实可能是由中间人注入的。我们要把这种情况    
+		 * 报告给客户端。             
 		 */
 		if (pq_buffer_has_data())
 			ereport(FATAL,
@@ -2128,22 +2128,22 @@ retry1:
 					 errdetail("This could be either a client-software bug or evidence of an attempted man-in-the-middle attack.")));
 
 		/*
-		 * regular startup packet, cancel, etc packet should follow, but not
-		 * another GSS negotiation request, and an SSL request should only
-		 * follow if GSS was rejected (client may negotiate in either order)
+		 * 下面应跟着常规启动包或取消等包，而非另一次  
+		 * GSS 协商请求；仅当 GSS 被拒绝才允许 SSL 请求    
+		 * （客户端按任一顺序协商都可以。）                 
 		 */
 		return ProcessStartupPacket(port, GSSok == 'G', true);
 	}
 
-	/* Could add additional special packet types here */
+	/* 可以在这里添加其他特殊包类型     */
 
 	/*
-	 * Set FrontendProtocol now so that ereport() knows what format to send if
-	 * we fail during startup.
+	 * 现在设置 FrontendProtocol；万一启动期间失败，ereport()   
+	 * 即知报文格式。  
 	 */
 	FrontendProtocol = proto;
 
-	/* Check that the major protocol version is in range. */
+	/* 检查主协议版本号是否处于有效范围。*/
 	if (PG_PROTOCOL_MAJOR(proto) < PG_PROTOCOL_MAJOR(PG_PROTOCOL_EARLIEST) ||
 		PG_PROTOCOL_MAJOR(proto) > PG_PROTOCOL_MAJOR(PG_PROTOCOL_LATEST))
 		ereport(FATAL,
@@ -2155,24 +2155,24 @@ retry1:
 						PG_PROTOCOL_MINOR(PG_PROTOCOL_LATEST))));
 
 	/*
-	 * Now fetch parameters out of startup packet and save them into the Port
-	 * structure.  All data structures attached to the Port struct must be
-	 * allocated in TopMemoryContext so that they will remain available in a
-	 * running backend (even after PostmasterContext is destroyed).  We need
-	 * not worry about leaking this storage on failure, since we aren't in the
-	 * postmaster process anymore.
+	 * 现在从启动包中取出各参数，保存到 Port 结构里。    
+	 * 所有挂在 Port 结构上的数据结构都必须在             
+	 * TopMemoryContext 中分配，这样运行中的后端才能          
+	 * 继续使用它们（即使 PostmasterContext 已被销毁）。     
+	 * 我们无需担心失败时泄漏这些内存，因为此时我们     
+	 * 早已脱离 postmaster。 
 	 */
 	oldcontext = MemoryContextSwitchTo(TopMemoryContext);
 
-	/* Handle protocol version 3 startup packet */
+	/* 处理协议版本 3 的启动包        */
 	{
 		int32		offset = sizeof(ProtocolVersion);
 		List	   *unrecognized_protocol_options = NIL;
 
 		/*
-		 * Scan packet body for name/option pairs.  We can assume any string
-		 * beginning within the packet body is null-terminated, thanks to
-		 * zeroing extra byte above.
+		 * 扫描包体，找出其中的名称/选项对。凡是在包体 
+		 * 内开始的字符串都视为已由空字符终止，这多  
+		 * 亏上述字节清零。 
 		 */
 		port->guc_options = NIL;
 
@@ -2183,10 +2183,10 @@ retry1:
 			char	   *valptr;
 
 			if (*nameptr == '\0')
-				break;			/* found packet terminator */
+				break;			/* 找到了包终止符   */
 			valoffset = offset + strlen(nameptr) + 1;
 			if (valoffset >= len)
-				break;			/* missing value, will complain below */
+				break;			/* 值缺失，下文会就此报错  */
 			valptr = buf + valoffset;
 
 			if (strcmp(nameptr, "database") == 0)
@@ -2198,11 +2198,11 @@ retry1:
 			else if (strcmp(nameptr, "replication") == 0)
 			{
 				/*
-				 * Due to backward compatibility concerns the replication
-				 * parameter is a hybrid beast which allows the value to be
-				 * either boolean or the string 'database'. The latter
-				 * connects to a specific database which is e.g. required for
-				 * logical decoding while.
+				 * 由于向后兼容问题，replication 参数         
+				 * 是个混合体：取值既可为布尔值，           
+				 * 也可以是 'database' 字符串。后者         
+				 * 会连接到特定数据库，逻辑解码需要它。    
+				 *                        
 				 */
 				if (strcmp(valptr, "database") == 0)
 				{
@@ -2220,26 +2220,26 @@ retry1:
 			else if (strncmp(nameptr, "_pq_.", 5) == 0)
 			{
 				/*
-				 * Any option beginning with _pq_. is reserved for use as a
-				 * protocol-level option, but at present no such options are
-				 * defined.
+				 * 任何以 _pq_. 开头的选项都保留作协议级选 
+				 * 项，但目前尚未定义任何此类选项。         
+				 *         
 				 */
 				unrecognized_protocol_options =
 					lappend(unrecognized_protocol_options, pstrdup(nameptr));
 			}
 			else
 			{
-				/* Assume it's a generic GUC option */
+				/* 假定它是通用 GUC 选项    */
 				port->guc_options = lappend(port->guc_options,
 											pstrdup(nameptr));
 				port->guc_options = lappend(port->guc_options,
 											pstrdup(valptr));
 
 				/*
-				 * Copy application_name to port if we come across it.  This
-				 * is done so we can log the application_name in the
-				 * connection authorization message.  Note that the GUC would
-				 * be used but we haven't gone through GUC setup yet.
+				 * 碰到 application_name 就复制到 port 中。这是   
+				 * 为了在连接授权消息里记录该名称。 
+				 * 注意：本应使用 GUC，但我们还没走过 GUC     
+				 * 设置流程。                                   
 				 */
 				if (strcmp(nameptr, "application_name") == 0)
 				{
@@ -2250,8 +2250,8 @@ retry1:
 		}
 
 		/*
-		 * If we didn't find a packet terminator exactly at the end of the
-		 * given packet length, complain.
+		 * 若没能在给定包长度末尾恰好找到包终止符，   
+		 * 就要提出抱怨。         
 		 */
 		if (offset != len - 1)
 			ereport(FATAL,
@@ -2259,47 +2259,47 @@ retry1:
 					 errmsg("invalid startup packet layout: expected terminator as last byte")));
 
 		/*
-		 * If the client requested a newer protocol version or if the client
-		 * requested any protocol options we didn't recognize, let them know
-		 * the newest minor protocol version we do support and the names of
-		 * any unrecognized options.
+		 * 如果客户端请求了更新的协议版本，或者请求了  
+		 * 我们不认识的协议选项，就把我们支持的最新的  
+		 * 次协议版本号，以及无法识别的选项名称          
+		 * 一并告知客户端。 
 		 */
 		if (PG_PROTOCOL_MINOR(proto) > PG_PROTOCOL_MINOR(PG_PROTOCOL_LATEST) ||
 			unrecognized_protocol_options != NIL)
 			SendNegotiateProtocolVersion(unrecognized_protocol_options);
 	}
 
-	/* Check a user name was given. */
+	/* 检查是否给出用户名  */
 	if (port->user_name == NULL || port->user_name[0] == '\0')
 		ereport(FATAL,
 				(errcode(ERRCODE_INVALID_AUTHORIZATION_SPECIFICATION),
 				 errmsg("no PostgreSQL user name specified in startup packet")));
 
-	/* The database defaults to the user name. */
+	/* 数据库默认取用户名。          */
 	if (port->database_name == NULL || port->database_name[0] == '\0')
 		port->database_name = pstrdup(port->user_name);
 
 	if (Db_user_namespace)
 	{
 		/*
-		 * If user@, it is a global user, remove '@'. We only want to do this
-		 * if there is an '@' at the end and no earlier in the user string or
-		 * they may fake as a local user of another database attaching to this
-		 * database.
+		 * 若用户名形如 user@，则是全局用户，去掉 '@'。     
+		 * 仅当 '@' 位于末尾且用户串中前面没有 '@' 时才     
+		 * 这样做，以免他们假冒别库本地用户连入本库，    
+		 *          
 		 */
 		if (strchr(port->user_name, '@') ==
 			port->user_name + strlen(port->user_name) - 1)
 			*strchr(port->user_name, '@') = '\0';
 		else
 		{
-			/* Append '@' and dbname */
+			/* 追加 '@' 和 dbname */
 			port->user_name = psprintf("%s@%s", port->user_name, port->database_name);
 		}
 	}
 
 	/*
-	 * Truncate given database and user names to length of a Postgres name.
-	 * This avoids lookup failures when overlength names are given.
+	 * 把给定数据库与用户名截断到 Postgres 名字长度。    
+	 * 这样可以避免超长名称导致查找失败。         
 	 */
 	if (strlen(port->database_name) >= NAMEDATALEN)
 		port->database_name[NAMEDATALEN - 1] = '\0';
@@ -2312,25 +2312,25 @@ retry1:
 		MyBackendType = B_BACKEND;
 
 	/*
-	 * Normal walsender backends, e.g. for streaming replication, are not
-	 * connected to a particular database. But walsenders used for logical
-	 * replication need to connect to a specific database. We allow streaming
-	 * replication commands to be issued even if connected to a database as it
-	 * can make sense to first make a basebackup and then stream changes
-	 * starting from that.
+	 * 普通的 walsender 后端（例如流复制用途）并不连接 
+	 * 到特定数据库。但用于逻辑复制的 walsender 则需要  
+	 * 连接到特定数据库。我们允许在已连接数据库的情    
+	 * 况下发出流复制命令，因为先做一个基础备份、然     
+	 * 后从该备份起流式传输变更，是说得通的。        
+	 *                    
 	 */
 	if (am_walsender && !am_db_walsender)
 		port->database_name[0] = '\0';
 
 	/*
-	 * Done putting stuff in TopMemoryContext.
+	 * TopMemoryContext 阶段到此为止。 
 	 */
 	MemoryContextSwitchTo(oldcontext);
 
 	/*
-	 * If we're going to reject the connection due to database state, say so
-	 * now instead of wasting cycles on an authentication exchange. (This also
-	 * allows a pg_ping utility to be written.)
+	 * 如果因为数据库状态要拒绝连接，现在就说出来，   
+	 * 免得把 CPU 周期浪费在认证交互上。（这也让编写      
+	 * pg_ping 工具成为可能。）        
 	 */
 	switch (port->canAcceptConnections)
 	{
@@ -2374,17 +2374,17 @@ retry1:
 }
 
 /*
- * Send a NegotiateProtocolVersion to the client.  This lets the client know
- * that they have requested a newer minor protocol version than we are able
- * to speak.  We'll speak the highest version we know about; the client can,
- * of course, abandon the connection if that's a problem.
+ * 向客户端发送 NegotiateProtocolVersion。这让客户端知道，   
+ * 自己请求的次协议版本新于我们所能支持的。            
+ * 我们会讲自己已知的最高版本；如果这成问题，          
+ * 客户端当然可以放弃连接。                  
  *
- * We also include in the response a list of protocol options we didn't
- * understand.  This allows clients to include optional parameters that might
- * be present either in newer protocol versions or third-party protocol
- * extensions without fear of having to reconnect if those options are not
- * understood, while at the same time making certain that the client is aware
- * of which options were actually accepted.
+ * 我们还在响应中附上无法识别的协议选项列表。     
+ * 这使客户端可以带上可选参数，这些参数可能存在        
+ * 于更新的协议版本或第三方协议扩展中，即使这些  
+ * 选项不被理解也无需担心重连，同时还能确保客户     
+ * 端清楚哪些选项实际被接受了。                                
+ *                                         
  */
 static void
 SendNegotiateProtocolVersion(List *unrecognized_protocol_options)
@@ -2399,13 +2399,13 @@ SendNegotiateProtocolVersion(List *unrecognized_protocol_options)
 		pq_sendstring(&buf, lfirst(lc));
 	pq_endmessage(&buf);
 
-	/* no need to flush, some other message will follow */
+	/* 不必刷新，后面还会有其他消息       */
 }
 
 /*
- * The client has sent a cancel request packet, not a normal
- * start-a-new-connection packet.  Perform the necessary processing.
- * Nothing is sent back to the client.
+ * 客户端发来的是取消请求包，而不是         
+ * 建立新连接的包。执行必要的处理。                 
+ * 不回发任何内容给客户端  
  */
 static void
 processCancelRequest(Port *port, void *pkt)
@@ -2425,9 +2425,9 @@ processCancelRequest(Port *port, void *pkt)
 	cancelAuthCode = (int32) pg_ntoh32(canc->cancelAuthCode);
 
 	/*
-	 * See if we have a matching backend.  In the EXEC_BACKEND case, we can no
-	 * longer access the postmaster's own backend list, and must rely on the
-	 * duplicate array in shared memory.
+	 * 看看有没有匹配的后端。在 EXEC_BACKEND 情形下，我们   
+	 * 已无法访问 postmaster 自身的后端列表，得依靠共享   
+	 * 内存中的副本数组。      
 	 */
 #ifndef EXEC_BACKEND
 	dlist_foreach(iter, &BackendList)
@@ -2442,36 +2442,36 @@ processCancelRequest(Port *port, void *pkt)
 		{
 			if (bp->cancel_key == cancelAuthCode)
 			{
-				/* Found a match; signal that backend to cancel current op */
+				/* 找到匹配；向该后端发信号取消当前操作  */
 				ereport(DEBUG2,
 						(errmsg_internal("processing cancel request: sending SIGINT to process %d",
 										 backendPID)));
 				signal_child(bp->pid, SIGINT);
 			}
 			else
-				/* Right PID, wrong key: no way, Jose */
+				/* PID 对而密钥不对：没门    */
 				ereport(LOG,
 						(errmsg("wrong key in cancel request for process %d",
 								backendPID)));
 			return;
 		}
-#ifndef EXEC_BACKEND			/* make GNU Emacs 26.1 see brace balance */
+#ifndef EXEC_BACKEND			/* 让 GNU Emacs 26.1 看到括号配平 */
 	}
 #else
 	}
 #endif
 
-	/* No matching backend */
+	/* 无匹配的后端  */
 	ereport(LOG,
 			(errmsg("PID %d in cancel request did not match any process",
 					backendPID)));
 }
 
 /*
- * canAcceptConnections --- check to see if database state allows connections
- * of the specified type.  backend_type can be BACKEND_TYPE_NORMAL,
- * BACKEND_TYPE_AUTOVAC, or BACKEND_TYPE_BGWORKER.  (Note that we don't yet
- * know whether a NORMAL connection might turn into a walsender.)
+ * canAcceptConnections —— 检查数据库状态是否允许指定       
+ * 类型的连接。backend_type 可为 BACKEND_TYPE_NORMAL、    
+ * BACKEND_TYPE_AUTOVAC 或 BACKEND_TYPE_BGWORKER。（注意我们        
+ * 尚不知道 NORMAL 连接是否会转变成 walsender。）  
  */
 static CAC_state
 canAcceptConnections(int backend_type)
@@ -2479,43 +2479,43 @@ canAcceptConnections(int backend_type)
 	CAC_state	result = CAC_OK;
 
 	/*
-	 * Can't start backends when in startup/shutdown/inconsistent recovery
-	 * state.  We treat autovac workers the same as user backends for this
-	 * purpose.  However, bgworkers are excluded from this test; we expect
-	 * bgworker_should_start_now() decided whether the DB state allows them.
+	 * 处于启动/关闭/不一致恢复状态时不能启动后端。  
+	 * 为此目的，autovac worker 与用户后端同等对待。       
+	 * 不过 bgworker 不受此检查约束；我们认为               
+	 * bgworker_should_start_now() 已判定 DB 状态是否允许它们。 
 	 */
 	if (pmState != PM_RUN && pmState != PM_HOT_STANDBY &&
 		backend_type != BACKEND_TYPE_BGWORKER)
 	{
 		if (Shutdown > NoShutdown)
-			return CAC_SHUTDOWN;	/* shutdown is pending */
+			return CAC_SHUTDOWN;	/* 关闭已被挂起  */
 		else if (!FatalError && pmState == PM_STARTUP)
-			return CAC_STARTUP; /* normal startup */
+			return CAC_STARTUP; /* 正常启动   */
 		else if (!FatalError && pmState == PM_RECOVERY)
 			return CAC_NOTCONSISTENT;	/* not yet at consistent recovery
 										 * state */
 		else
-			return CAC_RECOVERY;	/* else must be crash recovery */
+			return CAC_RECOVERY;	/* 否则必定是崩溃恢复 */
 	}
 
 	/*
-	 * "Smart shutdown" restrictions are applied only to normal connections,
-	 * not to autovac workers or bgworkers.
+	 * "智能关闭"的限制只适用于普通连接，                   
+	 * 不适用于 autovac/bgworker。    
 	 */
 	if (!connsAllowed && backend_type == BACKEND_TYPE_NORMAL)
-		return CAC_SHUTDOWN;	/* shutdown is pending */
+		return CAC_SHUTDOWN;	/* 关闭已被挂起  */
 
 	/*
-	 * Don't start too many children.
+	 * 子进程别启动太多。   
 	 *
-	 * We allow more connections here than we can have backends because some
-	 * might still be authenticating; they might fail auth, or some existing
-	 * backend might exit before the auth cycle is completed.  The exact
-	 * MaxBackends limit is enforced when a new backend tries to join the
-	 * shared-inval backend array.
+	 * 此处允许的连接数多于后端数上限，因为有些连接   
+	 * 可能尚在认证；它们可能认证失败，或者某些已有   
+	 * 后端会在认证周期完成前退出。确切的 MaxBackends  
+	 * 上限会在新后端试图加入共享失效后端数组时      
+	 * 强制执行。            
 	 *
-	 * The limit here must match the sizes of the per-child-process arrays;
-	 * see comments for MaxLivePostmasterChildren().
+	 * 这里的限制必须与每个子进程数组的大小相符；     
+	 * 见 MaxLivePostmasterChildren() 注释。    
 	 */
 	if (CountChildren(BACKEND_TYPE_ALL) >= MaxLivePostmasterChildren())
 		result = CAC_TOOMANY;
@@ -2525,9 +2525,9 @@ canAcceptConnections(int backend_type)
 
 
 /*
- * ConnCreate -- create a local connection data structure
+ * ConnCreate —— 创建本地连接数据结构      
  *
- * Returns NULL on failure, other than out-of-memory which is fatal.
+ * 失败时返回 NULL；只有内存耗尽是致命的。         
  */
 static Port *
 ConnCreate(int serverFd)
@@ -2555,10 +2555,10 @@ ConnCreate(int serverFd)
 
 
 /*
- * ConnFree -- free a local connection data structure
+ * ConnFree —— 释放本地连接数据结构    
  *
- * Caller has already closed the socket if any, so there's not much
- * to do here.
+ * 调用者已关闭套接字（如有），这里没多少事    
+ * 可做。  
  */
 static void
 ConnFree(Port *port)
@@ -2568,21 +2568,21 @@ ConnFree(Port *port)
 
 
 /*
- * ClosePostmasterPorts -- close all the postmaster's open sockets
+ * ClosePostmasterPorts —— 关闭 postmaster 全部套接字  
  *
- * This is called during child process startup to release file descriptors
- * that are not needed by that child process.  The postmaster still has
- * them open, of course.
+ * 在子进程启动期间调用，用来释放该子进程用不着     
+ * 的文件描述符。当然，postmaster 自己仍持有它们。   
+ *                      
  *
- * Note: we pass am_syslogger as a boolean because we don't want to set
- * the global variable yet when this is called.
+ * 注意：这里以布尔值传入 am_syslogger，因为我们不    
+ * 想在此时就设置那个全局变量。  
  */
 void
 ClosePostmasterPorts(bool am_syslogger)
 {
 	int			i;
 
-	/* Release resources held by the postmaster's WaitEventSet. */
+	/* 释放 postmaster 的 WaitEventSet 持有的资源。    */
 	if (pm_wait_set)
 	{
 		FreeWaitEventSetAfterFork(pm_wait_set);
@@ -2592,22 +2592,22 @@ ClosePostmasterPorts(bool am_syslogger)
 #ifndef WIN32
 
 	/*
-	 * Close the write end of postmaster death watch pipe. It's important to
-	 * do this as early as possible, so that if postmaster dies, others won't
-	 * think that it's still running because we're holding the pipe open.
+	 * 关闭 postmaster 死亡监视管道的写端。要尽早做，      
+	 * 这一点很重要：这样一旦 postmaster 死亡，别人就不会 
+	 * 因为我们还握着管道不放而误以为它仍在运行。   
 	 */
 	if (close(postmaster_alive_fds[POSTMASTER_FD_OWN]) != 0)
 		ereport(FATAL,
 				(errcode_for_file_access(),
 				 errmsg_internal("could not close postmaster death monitoring pipe in child process: %m")));
 	postmaster_alive_fds[POSTMASTER_FD_OWN] = -1;
-	/* Notify fd.c that we released one pipe FD. */
+	/* 告知 fd.c 已释放一个管道 FD。   */
 	ReleaseExternalFD();
 #endif
 
 	/*
-	 * Close the postmaster's listen sockets.  These aren't tracked by fd.c,
-	 * so we don't call ReleaseExternalFD() here.
+	 * 关闭 postmaster 的监听套接字。fd.c 并不跟踪它们，    
+	 * 因此不用 ReleaseExternalFD()。       
 	 */
 	for (i = 0; i < MAXLISTEN; i++)
 	{
@@ -2619,8 +2619,8 @@ ClosePostmasterPorts(bool am_syslogger)
 	}
 
 	/*
-	 * If using syslogger, close the read side of the pipe.  We don't bother
-	 * tracking this in fd.c, either.
+	 * 如果使用 syslogger，就关闭管道的读端。这个同样     
+	 * 不必在 fd.c 中跟踪。   
 	 */
 	if (!am_syslogger)
 	{
@@ -2636,7 +2636,7 @@ ClosePostmasterPorts(bool am_syslogger)
 	}
 
 #ifdef USE_BONJOUR
-	/* If using Bonjour, close the connection to the mDNS daemon */
+	/* 若用 Bonjour，则关闭与 mDNS 守护进程的连接  */
 	if (bonjour_sdref)
 		close(DNSServiceRefSockFD(bonjour_sdref));
 #endif
@@ -2644,9 +2644,9 @@ ClosePostmasterPorts(bool am_syslogger)
 
 
 /*
- * InitProcessGlobals -- set MyStartTime[stamp], random seeds
+ * InitProcessGlobals —— 设 MyStartTime、随机种子  
  *
- * Called early in the postmaster and every backend.
+ * 在 postmaster 和各后端中都很早调用。 
  */
 void
 InitProcessGlobals(void)
@@ -2655,20 +2655,20 @@ InitProcessGlobals(void)
 	MyStartTime = timestamptz_to_time_t(MyStartTimestamp);
 
 	/*
-	 * Set a different global seed in every process.  We want something
-	 * unpredictable, so if possible, use high-quality random bits for the
-	 * seed.  Otherwise, fall back to a seed based on timestamp and PID.
+	 * 每个进程中都设置不同的全局种子。我们想要    
+	 * 不可预测的东西，所以如有可能，用高质量随机位 
+	 * 作为种子。否则就用基于时间戳和 PID 的种子。   
 	 */
 	if (unlikely(!pg_prng_strong_seed(&pg_global_prng_state)))
 	{
 		uint64		rseed;
 
 		/*
-		 * Since PIDs and timestamps tend to change more frequently in their
-		 * least significant bits, shift the timestamp left to allow a larger
-		 * total number of seeds in a given time period.  Since that would
-		 * leave only 20 bits of the timestamp that cycle every ~1 second,
-		 * also mix in some higher bits.
+		 * 由于 PID 与时间戳的低位变化更频繁，将时间戳   
+		 * 左移，以便在给定时段内有更大的种子总数。      
+		 * 但这样时间戳只剩 20 位，约每 1 秒循环一次，  
+		 * 所以还要混入一些更高位。                           
+		 *                              
 		 */
 		rseed = ((uint64) MyProcPid) ^
 			((uint64) MyStartTimestamp << 12) ^
@@ -2678,8 +2678,8 @@ InitProcessGlobals(void)
 	}
 
 	/*
-	 * Also make sure that we've set a good seed for random(3).  Use of that
-	 * is deprecated in core Postgres, but extensions might use it.
+	 * 还要确保为 random(3) 设好优质种子。核心 Postgres       
+	 * 已不再推荐使用它，但扩展可能会用。         
 	 */
 #ifndef WIN32
 	srandom(pg_prng_uint32(&pg_global_prng_state));
@@ -2687,8 +2687,8 @@ InitProcessGlobals(void)
 }
 
 /*
- * Child processes use SIGUSR1 to notify us of 'pmsignals'.  pg_ctl uses
- * SIGUSR1 to ask postmaster to check for logrotate and promote files.
+ * 子进程用 SIGUSR1 发送 'pmsignals' 来通知我们。pg_ctl 用 
+ * SIGUSR1 请求 postmaster 检查 logrotate 和 promote 文件。   
  */
 static void
 handle_pm_pmsignal_signal(SIGNAL_ARGS)
@@ -2702,7 +2702,7 @@ handle_pm_pmsignal_signal(SIGNAL_ARGS)
 }
 
 /*
- * pg_ctl uses SIGHUP to request a reload of the configuration files.
+ * pg_ctl 使用 SIGHUP 请求重新加载配置文件。            
  */
 static void
 handle_pm_reload_request_signal(SIGNAL_ARGS)
@@ -2716,7 +2716,7 @@ handle_pm_reload_request_signal(SIGNAL_ARGS)
 }
 
 /*
- * Re-read config files, and tell children to do same.
+ * 重读配置文件，并让子进程照做。      
  */
 static void
 process_pm_reload_request(void)
@@ -2749,7 +2749,7 @@ process_pm_reload_request(void)
 		if (SysLoggerPID != 0)
 			signal_child(SysLoggerPID, SIGHUP);
 
-		/* Reload authentication config files too */
+		/* 同时重新加载认证配置文件   */
 		if (!load_hba())
 			ereport(LOG,
 			/* translator: %s is a configuration file */
@@ -2760,7 +2760,7 @@ process_pm_reload_request(void)
 					(errmsg("%s was not reloaded", IdentFileName)));
 
 #ifdef USE_SSL
-		/* Reload SSL configuration as well */
+		/* 同时重新加载 SSL 配置    */
 		if (EnableSSL)
 		{
 			if (secure_initialize(false) == 0)
@@ -2777,15 +2777,15 @@ process_pm_reload_request(void)
 #endif
 
 #ifdef EXEC_BACKEND
-		/* Update the starting-point file for future children */
+		/* 更新供后续子进程使用的起始点文件   */
 		write_nondefault_variables(PGC_SIGHUP);
 #endif
 	}
 }
 
 /*
- * pg_ctl uses SIGTERM, SIGINT and SIGQUIT to request different types of
- * shutdown.
+ * pg_ctl 用 SIGTERM、SIGINT、SIGQUIT 请求不同类型的          
+ * 关闭。
  */
 static void
 handle_pm_shutdown_request_signal(SIGNAL_ARGS)
@@ -2795,7 +2795,7 @@ handle_pm_shutdown_request_signal(SIGNAL_ARGS)
 	switch (postgres_signal_arg)
 	{
 		case SIGTERM:
-			/* smart is implied if the other two flags aren't set */
+			/* 另两个标志都未设置时即隐含 smart      */
 			pending_pm_shutdown_request = true;
 			break;
 		case SIGINT:
@@ -2813,7 +2813,7 @@ handle_pm_shutdown_request_signal(SIGNAL_ARGS)
 }
 
 /*
- * Process shutdown request.
+ * 处理关闭请求。    
  */
 static void
 process_pm_shutdown_request(void)
@@ -2826,9 +2826,9 @@ process_pm_shutdown_request(void)
 	pending_pm_shutdown_request = false;
 
 	/*
-	 * If more than one shutdown request signal arrived since the last server
-	 * loop, take the one that is the most immediate.  That matches the
-	 * priority that would apply if we processed them one by one in any order.
+	 * 若自上次服务器循环以来收到了不止一个关闭          
+	 * 请求信号，则取其中最紧迫的那个。这与按任意 
+	 * 顺序逐一处理它们时本会适用的优先级相匹配。        
 	 */
 	if (pending_pm_immediate_shutdown_request)
 	{
@@ -2849,9 +2849,9 @@ process_pm_shutdown_request(void)
 		case SmartShutdown:
 
 			/*
-			 * Smart Shutdown:
+			 * 智能关闭：
 			 *
-			 * Wait for children to end their work, then shut down.
+			 * 等待子进程结束其工作，然后关闭。    
 			 */
 			if (Shutdown >= SmartShutdown)
 				break;
@@ -2859,29 +2859,29 @@ process_pm_shutdown_request(void)
 			ereport(LOG,
 					(errmsg("received smart shutdown request")));
 
-			/* Report status */
+			/* 报告状态  */
 			AddToDataDirLockFile(LOCK_FILE_LINE_PM_STATUS, PM_STATUS_STOPPING);
 #ifdef USE_SYSTEMD
 			sd_notify(0, "STOPPING=1");
 #endif
 
 			/*
-			 * If we reached normal running, we go straight to waiting for
-			 * client backends to exit.  If already in PM_STOP_BACKENDS or a
-			 * later state, do not change it.
+			 * 若已达到正常运行，就直接进入等待客户端  
+			 * 后端退出。若已处于 PM_STOP_BACKENDS 或更          
+			 * 晚的状态，则不更改。
 			 */
 			if (pmState == PM_RUN || pmState == PM_HOT_STANDBY)
 				connsAllowed = false;
 			else if (pmState == PM_STARTUP || pmState == PM_RECOVERY)
 			{
-				/* There should be no clients, so proceed to stop children */
+				/* 此时应无客户端，因此继续停止子进程     */
 				pmState = PM_STOP_BACKENDS;
 			}
 
 			/*
-			 * Now wait for online backup mode to end and backends to exit. If
-			 * that is already the case, PostmasterStateMachine will take the
-			 * next step.
+			 * 现在等待在线备份模式结束以及后端退出。若已
+			 * 是这种情况，PostmasterStateMachine 会采取下一      
+			 * 步骤。 
 			 */
 			PostmasterStateMachine();
 			break;
@@ -2889,10 +2889,10 @@ process_pm_shutdown_request(void)
 		case FastShutdown:
 
 			/*
-			 * Fast Shutdown:
+			 * 快速关闭  
 			 *
-			 * Abort all children with SIGTERM (rollback active transactions
-			 * and exit) and shut down when they are gone.
+			 * 用 SIGTERM 中止所有子进程（回滚活动事务并    
+			 * 退出），等它们消失后即关闭。 
 			 */
 			if (Shutdown >= FastShutdown)
 				break;
@@ -2900,7 +2900,7 @@ process_pm_shutdown_request(void)
 			ereport(LOG,
 					(errmsg("received fast shutdown request")));
 
-			/* Report status */
+			/* 报告状态  */
 			AddToDataDirLockFile(LOCK_FILE_LINE_PM_STATUS, PM_STATUS_STOPPING);
 #ifdef USE_SYSTEMD
 			sd_notify(0, "STOPPING=1");
@@ -2908,21 +2908,21 @@ process_pm_shutdown_request(void)
 
 			if (pmState == PM_STARTUP || pmState == PM_RECOVERY)
 			{
-				/* Just shut down background processes silently */
+				/* 直接静默关闭后台进程               */
 				pmState = PM_STOP_BACKENDS;
 			}
 			else if (pmState == PM_RUN ||
 					 pmState == PM_HOT_STANDBY)
 			{
-				/* Report that we're about to zap live client sessions */
+				/* 报告即将清除存活的客户端会话          */
 				ereport(LOG,
 						(errmsg("aborting any active transactions")));
 				pmState = PM_STOP_BACKENDS;
 			}
 
 			/*
-			 * PostmasterStateMachine will issue any necessary signals, or
-			 * take the next step if no child processes need to be killed.
+			 * PostmasterStateMachine 会发出任何必要的信号，若
+			 * 无需杀死任何子进程，则采取下一步。        
 			 */
 			PostmasterStateMachine();
 			break;
@@ -2930,11 +2930,11 @@ process_pm_shutdown_request(void)
 		case ImmediateShutdown:
 
 			/*
-			 * Immediate Shutdown:
+			 * 立即关闭：    
 			 *
-			 * abort all children with SIGQUIT, wait for them to exit,
-			 * terminate remaining ones with SIGKILL, then exit without
-			 * attempt to properly shut down the data base system.
+			 * 用 SIGQUIT 中止所有子进程，等它们退出， 
+			 * 再用 SIGKILL 终止余下的，然后退出而不     
+			 * 尝试妥善关闭数据库系统。               
 			 */
 			if (Shutdown >= ImmediateShutdown)
 				break;
@@ -2942,24 +2942,24 @@ process_pm_shutdown_request(void)
 			ereport(LOG,
 					(errmsg("received immediate shutdown request")));
 
-			/* Report status */
+			/* 报告状态  */
 			AddToDataDirLockFile(LOCK_FILE_LINE_PM_STATUS, PM_STATUS_STOPPING);
 #ifdef USE_SYSTEMD
 			sd_notify(0, "STOPPING=1");
 #endif
 
-			/* tell children to shut down ASAP */
-			/* (note we don't apply send_abort_for_crash here) */
+			/* 让子进程尽快关闭        */
+			/* （此处不适用 send_abort_for_crash）      */
 			SetQuitSignalReason(PMQUIT_FOR_STOP);
 			TerminateChildren(SIGQUIT);
 			pmState = PM_WAIT_BACKENDS;
 
-			/* set stopwatch for them to die */
+			/* 为其死亡设定计时器   */
 			AbortStartTime = time(NULL);
 
 			/*
-			 * Now wait for backends to exit.  If there are none,
-			 * PostmasterStateMachine will take the next step.
+			 * 现在等待后端退出。若已没有后端，  
+			 * PostmasterStateMachine 会采取下一步。   
 			 */
 			PostmasterStateMachine();
 			break;
@@ -2978,13 +2978,13 @@ handle_pm_child_exit_signal(SIGNAL_ARGS)
 }
 
 /*
- * Cleanup after a child process dies.
+ * 子进程死亡后的清理。     
  */
 static void
 process_pm_child_exit(void)
 {
-	int			pid;			/* process id of dead child process */
-	int			exitstatus;		/* its exit status */
+	int			pid;			/* 已死子进程的进程 ID      */
+	int			exitstatus;		/* 其退出状态 */
 
 	pending_pm_child_exit = false;
 
@@ -2994,22 +2994,22 @@ process_pm_child_exit(void)
 	while ((pid = waitpid(-1, &exitstatus, WNOHANG)) > 0)
 	{
 		/*
-		 * Check if this child was a startup process.
+		 * 检查该子进程是否为 startup 进程
 		 */
 		if (pid == StartupPID)
 		{
 			StartupPID = 0;
 
 			/*
-			 * Startup process exited in response to a shutdown request (or it
-			 * completed normally regardless of the shutdown request).
+			 * startup 进程因响应关闭请求而退出（或者是       
+			 * 无视关闭请求而正常完成）。                
 			 */
 			if (Shutdown > NoShutdown &&
 				(EXIT_STATUS_0(exitstatus) || EXIT_STATUS_1(exitstatus)))
 			{
 				StartupStatus = STARTUP_NOT_RUNNING;
 				pmState = PM_WAIT_BACKENDS;
-				/* PostmasterStateMachine logic does the rest */
+				/* 其余由 PostmasterStateMachine 处理    */
 				continue;
 			}
 
@@ -3021,14 +3021,14 @@ process_pm_child_exit(void)
 				Shutdown = Max(Shutdown, SmartShutdown);
 				TerminateChildren(SIGTERM);
 				pmState = PM_WAIT_BACKENDS;
-				/* PostmasterStateMachine logic does the rest */
+				/* 其余由 PostmasterStateMachine 处理    */
 				continue;
 			}
 
 			/*
-			 * Unexpected exit of startup process (including FATAL exit)
-			 * during PM_STARTUP is treated as catastrophic. There are no
-			 * other processes running yet, so we can just exit.
+			 * startup 进程意外退出（包括 FATAL 退出）在   
+			 * PM_STARTUP 期间被视为灾难性事件。此时还     
+			 * 没有其他进程在运行，可直接退出。 
 			 */
 			if (pmState == PM_STARTUP &&
 				StartupStatus != STARTUP_SIGNALED &&
@@ -3042,22 +3042,22 @@ process_pm_child_exit(void)
 			}
 
 			/*
-			 * After PM_STARTUP, any unexpected exit (including FATAL exit) of
-			 * the startup process is catastrophic, so kill other children,
-			 * and set StartupStatus so we don't try to reinitialize after
-			 * they're gone.  Exception: if StartupStatus is STARTUP_SIGNALED,
-			 * then we previously sent the startup process a SIGQUIT; so
-			 * that's probably the reason it died, and we do want to try to
-			 * restart in that case.
+			 * PM_STARTUP 之后，startup 进程的任何意外退出        
+			 * （包括 FATAL 退出）均为灾难，须杀死其他     
+			 * 子进程，并设置 StartupStatus 以免在它们死后  
+			 * 再尝试重新初始化。例外：若 StartupStatus 为      
+			 * STARTUP_SIGNALED，则说明我们先前已向 startup   
+			 * 进程发送过 SIGQUIT，故它多半因此而死，且    
+			 * 确实应重启。   
 			 *
-			 * This stanza also handles the case where we sent a SIGQUIT
-			 * during PM_STARTUP due to some dead_end child crashing: in that
-			 * situation, if the startup process dies on the SIGQUIT, we need
-			 * to transition to PM_WAIT_BACKENDS state which will allow
-			 * PostmasterStateMachine to restart the startup process.  (On the
-			 * other hand, the startup process might complete normally, if we
-			 * were too late with the SIGQUIT.  In that case we'll fall
-			 * through and commence normal operations.)
+			 * 这一段还处理另一种情形：我们在 PM_STARTUP 
+			 * 期间因某个 dead_end 子进程崩溃而发送 SIGQUIT：  
+			 * 在此情形下，若 startup 进程死于该 SIGQUIT，我们
+			 * 就要转入 PM_WAIT_BACKENDS 状态，以便允许     
+			 * PostmasterStateMachine 重启 startup 进程。（反过       
+			 * 来说，若 SIGQUIT 发得太迟，startup 进程或许能   
+			 * 正常完成。那样的话我们会顺延进入，     
+			 * 开始正常运作。）                
 			 */
 			if (!EXIT_STATUS_0(exitstatus))
 			{
@@ -3075,7 +3075,7 @@ process_pm_child_exit(void)
 			}
 
 			/*
-			 * Startup succeeded, commence normal operations
+			 * 启动成功，开始正常运作。         
 			 */
 			StartupStatus = STARTUP_NOT_RUNNING;
 			FatalError = false;
@@ -3085,9 +3085,9 @@ process_pm_child_exit(void)
 			connsAllowed = true;
 
 			/*
-			 * Crank up the background tasks, if we didn't do that already
-			 * when we entered consistent recovery state.  It doesn't matter
-			 * if this fails, we'll just try again later.
+			 * 启动后台任务，若在进入一致性恢复状态时  
+			 * 尚未做过此事。就算失败也不要紧，我们稍后 
+			 * 会再次尝试。                        
 			 */
 			if (CheckpointerPID == 0)
 				CheckpointerPID = StartCheckpointer();
@@ -3097,22 +3097,22 @@ process_pm_child_exit(void)
 				WalWriterPID = StartWalWriter();
 
 			/*
-			 * Likewise, start other special children as needed.  In a restart
-			 * situation, some of them may be alive already.
+			 * 同样地，按需启动其他特殊子进程。在重启的   
+			 * 情形中，其中一些可能已在运行。
 			 */
 			if (!IsBinaryUpgrade && AutoVacuumingActive() && AutoVacPID == 0)
 				AutoVacPID = StartAutoVacLauncher();
 			if (PgArchStartupAllowed() && PgArchPID == 0)
 				PgArchPID = StartArchiver();
 
-			/* workers may be scheduled to start now */
+			/* worker 现在可能已被排定启动 */
 			maybe_start_bgworkers();
 
-			/* at this point we are really open for business */
+			/* 此刻我们真正开始对外提供服务    */
 			ereport(LOG,
 					(errmsg("database system is ready to accept connections")));
 
-			/* Report status */
+			/* 报告状态  */
 			AddToDataDirLockFile(LOCK_FILE_LINE_PM_STATUS, PM_STATUS_READY);
 #ifdef USE_SYSTEMD
 			sd_notify(0, "READY=1");
@@ -3122,9 +3122,9 @@ process_pm_child_exit(void)
 		}
 
 		/*
-		 * Was it the bgwriter?  Normal exit can be ignored; we'll start a new
-		 * one at the next iteration of the postmaster's main loop, if
-		 * necessary.  Any other exit condition is treated as a crash.
+		 * 是 bgwriter 吗？正常退出可以忽略；必要时会在      
+		 * postmaster 主循环的下一轮迭代中启动新的。   
+		 * 其他任何退出情形均视为崩溃。                 
 		 */
 		if (pid == BgWriterPID)
 		{
@@ -3136,7 +3136,7 @@ process_pm_child_exit(void)
 		}
 
 		/*
-		 * Was it the checkpointer?
+		 * 是 checkpointer 吗？ 
 		 */
 		if (pid == CheckpointerPID)
 		{
@@ -3144,28 +3144,28 @@ process_pm_child_exit(void)
 			if (EXIT_STATUS_0(exitstatus) && pmState == PM_SHUTDOWN)
 			{
 				/*
-				 * OK, we saw normal exit of the checkpointer after it's been
-				 * told to shut down.  We expect that it wrote a shutdown
-				 * checkpoint.  (If for some reason it didn't, recovery will
-				 * occur on next postmaster start.)
+				 * 好，checkpointer 被告知关闭后已正常退出。   
+				 * 我们预期它已写下关闭检查点。            
+				 * （若因某种原因未写，下次 postmaster 启动   
+				 * 时会执行恢复。）        
 				 *
-				 * At this point we should have no normal backend children
-				 * left (else we'd not be in PM_SHUTDOWN state) but we might
-				 * have dead_end children to wait for.
+				 * 此时应无普通后端子进程（否则不会在    
+				 * PM_SHUTDOWN 状态）但可能还有需要等待的      
+				 * dead_end 子进程。              
 				 *
-				 * If we have an archiver subprocess, tell it to do a last
-				 * archive cycle and quit. Likewise, if we have walsender
-				 * processes, tell them to send any remaining WAL and quit.
+				 * 若有 archiver 子进程，让它做最后一轮归档
+				 * 然后退出。同样，若有 walsender 进程，    
+				 * 让它们发送剩余的 WAL 然后退出。            
 				 */
 				Assert(Shutdown > NoShutdown);
 
-				/* Waken archiver for the last time */
+				/* 最后一次唤醒 archiver      */
 				if (PgArchPID != 0)
 					signal_child(PgArchPID, SIGUSR2);
 
 				/*
-				 * Waken walsenders for the last time. No regular backends
-				 * should be around anymore.
+				 * 最后一次唤醒 walsender。不应再有任何      
+				 * 普通后端了。       
 				 */
 				SignalChildren(SIGUSR2);
 
@@ -3174,8 +3174,8 @@ process_pm_child_exit(void)
 			else
 			{
 				/*
-				 * Any unexpected exit of the checkpointer (including FATAL
-				 * exit) is treated as a crash.
+				 * checkpointer 任何意外退出（包括 FATAL 退出）
+				 * 均按崩溃处理。       
 				 */
 				HandleChildCrash(pid, exitstatus,
 								 _("checkpointer process"));
@@ -3185,9 +3185,9 @@ process_pm_child_exit(void)
 		}
 
 		/*
-		 * Was it the wal writer?  Normal exit can be ignored; we'll start a
-		 * new one at the next iteration of the postmaster's main loop, if
-		 * necessary.  Any other exit condition is treated as a crash.
+		 * 是 wal writer 吗？正常退出可以忽略；必要时会在  
+		 * postmaster 主循环的下一轮迭代中启动新的。       
+		 * 其他任何退出情形均视为崩溃。                 
 		 */
 		if (pid == WalWriterPID)
 		{
@@ -3199,10 +3199,10 @@ process_pm_child_exit(void)
 		}
 
 		/*
-		 * Was it the wal receiver?  If exit status is zero (normal) or one
-		 * (FATAL exit), we assume everything is all right just like normal
-		 * backends.  (If we need a new wal receiver, we'll start one at the
-		 * next iteration of the postmaster's main loop.)
+		 * 是 wal receiver 吗？若退出状态为 0（正常）或 1（ 
+		 * FATAL 退出），我们像对待普通后端一样，认定    
+		 * 一切正常。（若需要新的 wal receiver，会在          
+		 * postmaster 主循环下轮迭代启动。）  
 		 */
 		if (pid == WalReceiverPID)
 		{
@@ -3214,10 +3214,10 @@ process_pm_child_exit(void)
 		}
 
 		/*
-		 * Was it the autovacuum launcher?	Normal exit can be ignored; we'll
-		 * start a new one at the next iteration of the postmaster's main
-		 * loop, if necessary.  Any other exit condition is treated as a
-		 * crash.
+		 * 是 autovacuum launcher 吗？正常退出可以忽略；我们  
+		 * 会在 postmaster 主循环下一轮迭代中启动新的。  
+		 * 必要时如此。任何其他退出情形均视为崩溃。 
+		 *       
 		 */
 		if (pid == AutoVacPID)
 		{
@@ -3229,13 +3229,13 @@ process_pm_child_exit(void)
 		}
 
 		/*
-		 * Was it the archiver?  If exit status is zero (normal) or one (FATAL
-		 * exit), we assume everything is all right just like normal backends
-		 * and just try to restart a new one so that we immediately retry
-		 * archiving remaining files. (If fail, we'll try again in future
-		 * cycles of the postmaster's main loop.) Unless we were waiting for
-		 * it to shut down; don't restart it in that case, and
-		 * PostmasterStateMachine() will advance to the next shutdown step.
+		 * 是 archiver 吗？若退出状态为 0（正常）或 1（FATAL   
+		 * 退出），就像对待普通后端一样认定一切正常，并
+		 * 只须重启新 archiver，立即重试归档余下文件。  
+		 * （若失败，则会在 postmaster 主循环以后的        
+		 * 循环中再次尝试。）除非我们正在等它关闭；     
+		 * 那种情况下不要重启它，而由            
+		 * PostmasterStateMachine() 推进到下一个关闭步骤。      
 		 */
 		if (pid == PgArchPID)
 		{
@@ -3248,11 +3248,11 @@ process_pm_child_exit(void)
 			continue;
 		}
 
-		/* Was it the system logger?  If so, try to start a new one */
+		/* 是系统 logger 吗？若是，尝试启动新的       */
 		if (pid == SysLoggerPID)
 		{
 			SysLoggerPID = 0;
-			/* for safety's sake, launch new logger *first* */
+			/* 为安全起见，先启动新 logger        */
 			SysLoggerPID = SysLogger_Start();
 			if (!EXIT_STATUS_0(exitstatus))
 				LogChildExit(LOG, _("system logger process"),
@@ -3260,39 +3260,39 @@ process_pm_child_exit(void)
 			continue;
 		}
 
-		/* Was it one of our background workers? */
+		/* 是后台工作进程之一吗？     */
 		if (CleanupBackgroundWorker(pid, exitstatus))
 		{
-			/* have it be restarted */
+			/* 让它重新启动   */
 			HaveCrashedWorker = true;
 			continue;
 		}
 
 		/*
-		 * Else do standard backend child cleanup.
+		 * 否则照标准清理后端子进程。
 		 */
 		CleanupBackend(pid, exitstatus);
-	}							/* loop over pending child-death reports */
+	}							/* 遍历挂起的子进程死亡报告  */
 
 	/*
-	 * After cleaning out the SIGCHLD queue, see if we have any state changes
-	 * or actions to make.
+	 * 清空 SIGCHLD 队列后，看看是否有需要做出状态变更    
+	 * 或动作。       
 	 */
 	PostmasterStateMachine();
 }
 
 /*
- * Scan the bgworkers list and see if the given PID (which has just stopped
- * or crashed) is in it.  Handle its shutdown if so, and return true.  If not a
- * bgworker, return false.
+ * 扫描 bgworkers 列表，查看给定的 PID（刚刚停止或崩溃的
+ * 那个进程）是否在其中。若是，处理其关闭并返回 true。  
+ * 否则返回 false。  
  *
- * This is heavily based on CleanupBackend.  One important difference is that
- * we don't know yet that the dying process is a bgworker, so we must be silent
- * until we're sure it is.
+ * 此函数大量借鉴了 CleanupBackend。一个重要区别在于：     
+ * 我们还不知道正在死去的进程是否为 bgworker，因此在       
+ * 确认前须沉默。  
  */
 static bool
 CleanupBackgroundWorker(int pid,
-						int exitstatus) /* child's exit status */
+						int exitstatus) /* 其退出状态     */
 {
 	char		namebuf[MAXPGPATH];
 	slist_mutable_iter iter;
@@ -3307,7 +3307,7 @@ CleanupBackgroundWorker(int pid,
 			continue;
 
 #ifdef WIN32
-		/* see CleanupBackend */
+		/* 见 CleanupBackend */
 		if (exitstatus == ERROR_WAIT_NO_CHILDREN)
 			exitstatus = 0;
 #endif
@@ -3318,19 +3318,19 @@ CleanupBackgroundWorker(int pid,
 
 		if (!EXIT_STATUS_0(exitstatus))
 		{
-			/* Record timestamp, so we know when to restart the worker. */
+			/* 记录时间戳，以便知道何时重启该 worker。  */
 			rw->rw_crashed_at = GetCurrentTimestamp();
 		}
 		else
 		{
-			/* Zero exit status means terminate */
+			/* 退出状态为零表示终止   */
 			rw->rw_crashed_at = 0;
 			rw->rw_terminate = true;
 		}
 
 		/*
-		 * Additionally, just like a backend, any exit status other than 0 or
-		 * 1 is considered a crash and causes a system-wide restart.
+		 * 此外，与后端一样，退出状态非 0/1 即视为崩溃， 
+		 * 并将导致全系统重启。                           
 		 */
 		if (!EXIT_STATUS_0(exitstatus) && !EXIT_STATUS_1(exitstatus))
 		{
@@ -3339,9 +3339,9 @@ CleanupBackgroundWorker(int pid,
 		}
 
 		/*
-		 * We must release the postmaster child slot. If the worker failed to
-		 * do so, it did not clean up after itself, requiring a crash-restart
-		 * cycle.
+		 * 必须释放 postmaster 子进程槽位。若 worker 未能这样 
+		 * 做，即它未自行清理，需一次崩溃重启循环。      
+		 *       
 		 */
 		if (!ReleasePostmasterChildSlot(rw->rw_child_slot))
 		{
@@ -3349,17 +3349,17 @@ CleanupBackgroundWorker(int pid,
 			return true;
 		}
 
-		/* Get it out of the BackendList and clear out remaining data */
+		/* 将其从 BackendList 中移除并清空其余数据       */
 		dlist_delete(&rw->rw_backend->elem);
 #ifdef EXEC_BACKEND
 		ShmemBackendArrayRemove(rw->rw_backend);
 #endif
 
 		/*
-		 * It's possible that this background worker started some OTHER
-		 * background worker and asked to be notified when that worker started
-		 * or stopped.  If so, cancel any notifications destined for the
-		 * now-dead backend.
+		 * 该 worker 可能启动了其他后台工作进程并请求 
+		 * 在该 worker 启动或停止时收到通知。若是，则取消  
+		 * 所有发给现已死亡后端的此类通知。             
+		 *                  
 		 */
 		if (rw->rw_backend->bgworker_notify)
 			BackgroundWorkerStopNotifications(rw->rw_pid);
@@ -3367,7 +3367,7 @@ CleanupBackgroundWorker(int pid,
 		rw->rw_backend = NULL;
 		rw->rw_pid = 0;
 		rw->rw_child_slot = 0;
-		ReportBackgroundWorkerExit(&iter);	/* report child death */
+		ReportBackgroundWorkerExit(&iter);	/* 报告 child 死亡*/
 
 		LogChildExit(EXIT_STATUS_0(exitstatus) ? DEBUG1 : LOG,
 					 namebuf, pid, exitstatus);
@@ -3379,34 +3379,34 @@ CleanupBackgroundWorker(int pid,
 }
 
 /*
- * CleanupBackend -- cleanup after terminated backend.
+ * CleanupBackend——清理已终止的后端。    
  *
- * Remove all local state associated with backend.
+ * 移除与后端关联的全部本地状态。  
  *
- * If you change this, see also CleanupBackgroundWorker.
+ * 若修改此处，另见 CleanupBackgroundWorker。  
  */
 static void
 CleanupBackend(int pid,
-			   int exitstatus)	/* child's exit status. */
+			   int exitstatus)	/* 其退出状态。   */
 {
 	dlist_mutable_iter iter;
 
 	LogChildExit(DEBUG2, _("server process"), pid, exitstatus);
 
 	/*
-	 * If a backend dies in an ugly way then we must signal all other backends
-	 * to quickdie.  If exit status is zero (normal) or one (FATAL exit), we
-	 * assume everything is all right and proceed to remove the backend from
-	 * the active backend list.
+	 * 若后端死得难看，就必须通知所有其他后端执行        
+	 * quickdie。若退出状态为 0（正常）或 1（FATAL 退出），
+	 * 我们就认为一切正常，并继续将该后端从活动后端   
+	 * 列表中移除。      
 	 */
 
 #ifdef WIN32
 
 	/*
-	 * On win32, also treat ERROR_WAIT_NO_CHILDREN (128) as nonfatal case,
-	 * since that sometimes happens under load when the process fails to start
-	 * properly (long before it starts using shared memory). Microsoft reports
-	 * it is related to mutex failure:
+	 * 在 win32 上，ERROR_WAIT_NO_CHILDREN (128) 也被视为          
+	 * 非致命情形，高负载下进程有时会启动失败（远在     
+	 * 它开始使用共享内存之前）。微软称这与互斥锁失败  
+	 * 有关：                      
 	 * http://archives.postgresql.org/pgsql-hackers/2010-09/msg00790.php
 	 */
 	if (exitstatus == ERROR_WAIT_NO_CHILDREN)
@@ -3433,8 +3433,8 @@ CleanupBackend(int pid,
 				if (!ReleasePostmasterChildSlot(bp->child_slot))
 				{
 					/*
-					 * Uh-oh, the child failed to clean itself up.  Treat as a
-					 * crash after all.
+					 * 糟糕，子进程未能自行清理。仍将其视为 
+					 * 崩溃处理。 
 					 */
 					HandleChildCrash(pid, exitstatus, _("server process"));
 					return;
@@ -3446,12 +3446,12 @@ CleanupBackend(int pid,
 			if (bp->bgworker_notify)
 			{
 				/*
-				 * This backend may have been slated to receive SIGUSR1 when
-				 * some background worker started or stopped.  Cancel those
-				 * notifications, as we don't want to signal PIDs that are not
-				 * PostgreSQL backends.  This gets skipped in the (probably
-				 * very common) case where the backend has never requested any
-				 * such notifications.
+				 * 某 worker 启停时，此后端可能已被安排接收 
+				 * SIGUSR1 信号。须取消这些通知，我们不想   
+				 * 向非 PostgreSQL 后端的 PID 发信号。若后端从未
+				 * 请求过此类通知，（多半常见）则会跳过  
+				 * 此步。                                                  
+				 *                    
 				 */
 				BackgroundWorkerStopNotifications(bp->pid);
 			}
@@ -3463,11 +3463,11 @@ CleanupBackend(int pid,
 }
 
 /*
- * HandleChildCrash -- cleanup after failed backend, bgwriter, checkpointer,
- * walwriter, autovacuum, archiver or background worker.
+ * HandleChildCrash——在后端、bgwriter、checkpointer、walwriter、 
+ * autovacuum、archiver 或 bgworker 崩溃后清理。
  *
- * The objectives here are to clean up our local state about the child
- * process, and to signal all other remaining children to quickdie.
+ * 此处目标在于清理我们关于该子进程的本地状态， 
+ * 并向所有其余存留的子进程发信号让其 quickdie。 
  */
 static void
 HandleChildCrash(int pid, int exitstatus, const char *procname)
@@ -3478,11 +3478,11 @@ HandleChildCrash(int pid, int exitstatus, const char *procname)
 	bool		take_action;
 
 	/*
-	 * We only log messages and send signals if this is the first process
-	 * crash and we're not doing an immediate shutdown; otherwise, we're only
-	 * here to update postmaster's idea of live processes.  If we have already
-	 * signaled children, nonzero exit status is to be expected, so don't
-	 * clutter log.
+	 * 仅当这是首次进程崩溃且非立即关闭时，我们才   
+	 * 记录消息并发送信号；否则我们在此只是为了更新    
+	 * postmaster 对存活进程的认知。如果我们已经向子进      
+	 * 程发过信号，非零退出属意料之中，所以不要      
+	 * 塞满日志
 	 */
 	take_action = !FatalError && Shutdown != ImmediateShutdown;
 
@@ -3494,18 +3494,18 @@ HandleChildCrash(int pid, int exitstatus, const char *procname)
 		SetQuitSignalReason(PMQUIT_FOR_CRASH);
 	}
 
-	/* Process background workers. */
+	/* 处理后台工作进程。 */
 	slist_foreach(siter, &BackgroundWorkerList)
 	{
 		RegisteredBgWorker *rw;
 
 		rw = slist_container(RegisteredBgWorker, rw_lnode, siter.cur);
 		if (rw->rw_pid == 0)
-			continue;			/* not running */
+			continue;			/* 未在运行*/
 		if (rw->rw_pid == pid)
 		{
 			/*
-			 * Found entry for freshly-dead worker, so remove it.
+			 * 找到刚死 worker 表项，故将其移除。   
 			 */
 			(void) ReleasePostmasterChildSlot(rw->rw_child_slot);
 			dlist_delete(&rw->rw_backend->elem);
@@ -3516,22 +3516,22 @@ HandleChildCrash(int pid, int exitstatus, const char *procname)
 			rw->rw_backend = NULL;
 			rw->rw_pid = 0;
 			rw->rw_child_slot = 0;
-			/* don't reset crashed_at */
-			/* don't report child stop, either */
-			/* Keep looping so we can signal remaining workers */
+			/* 不要重置 crashed_at*/
+			/* 也不要报告子进程停止  */
+			/* 继续循环，以便向其余 worker 发信号 */
 		}
 		else
 		{
 			/*
-			 * This worker is still alive.  Unless we did so already, tell it
-			 * to commit hara-kiri.
+			 * 该 worker 仍然存活。除非已这样做过，否则叫它
+			 * 切腹自尽。     
 			 */
 			if (take_action)
 				sigquit_child(rw->rw_pid);
 		}
 	}
 
-	/* Process regular backends */
+	/* 处理普通后端       */
 	dlist_foreach_modify(iter, &BackendList)
 	{
 		bp = dlist_container(Backend, elem, iter.cur);
@@ -3539,7 +3539,7 @@ HandleChildCrash(int pid, int exitstatus, const char *procname)
 		if (bp->pid == pid)
 		{
 			/*
-			 * Found entry for freshly-dead backend, so remove it.
+			 * 找到刚死 backend 的表项，故将其移除。
 			 */
 			if (!bp->dead_end)
 			{
@@ -3550,19 +3550,19 @@ HandleChildCrash(int pid, int exitstatus, const char *procname)
 			}
 			dlist_delete(iter.cur);
 			free(bp);
-			/* Keep looping so we can signal remaining backends */
+			/* 继续循环，以便向其余后端发信号    */
 		}
 		else
 		{
 			/*
-			 * This backend is still alive.  Unless we did so already, tell it
-			 * to commit hara-kiri.
+			 * 该后端仍然存活。除非已这样做过，否则叫它   
+			 * 切腹自尽。     
 			 *
-			 * We could exclude dead_end children here, but at least when
-			 * sending SIGABRT it seems better to include them.
+			 * 本可将 dead_end 子进程排除在外，但至少发送
+			 * SIGABRT 时将它们包括在内似乎更好。 
 			 *
-			 * Background workers were already processed above; ignore them
-			 * here.
+			 * 后台工作进程上面已处理过；此处忽略。      
+			 *      
 			 */
 			if (bp->bkend_type == BACKEND_TYPE_BGWORKER)
 				continue;
@@ -3572,11 +3572,11 @@ HandleChildCrash(int pid, int exitstatus, const char *procname)
 		}
 	}
 
-	/* Take care of the startup process too */
+	/* 也要处理 startup 进程          */
 	if (pid == StartupPID)
 	{
 		StartupPID = 0;
-		/* Caller adjusts StartupStatus, so don't touch it here */
+		/* 调用方会调整 StartupStatus，此处别动它   */
 	}
 	else if (StartupPID != 0 && take_action)
 	{
@@ -3584,48 +3584,48 @@ HandleChildCrash(int pid, int exitstatus, const char *procname)
 		StartupStatus = STARTUP_SIGNALED;
 	}
 
-	/* Take care of the bgwriter too */
+	/* 也要照管 bgwriter         */
 	if (pid == BgWriterPID)
 		BgWriterPID = 0;
 	else if (BgWriterPID != 0 && take_action)
 		sigquit_child(BgWriterPID);
 
-	/* Take care of the checkpointer too */
+	/* 也要照管 checkpointer         */
 	if (pid == CheckpointerPID)
 		CheckpointerPID = 0;
 	else if (CheckpointerPID != 0 && take_action)
 		sigquit_child(CheckpointerPID);
 
-	/* Take care of the walwriter too */
+	/* 也要照管 walwriter         */
 	if (pid == WalWriterPID)
 		WalWriterPID = 0;
 	else if (WalWriterPID != 0 && take_action)
 		sigquit_child(WalWriterPID);
 
-	/* Take care of the walreceiver too */
+	/* 也要照管 walreceiver         */
 	if (pid == WalReceiverPID)
 		WalReceiverPID = 0;
 	else if (WalReceiverPID != 0 && take_action)
 		sigquit_child(WalReceiverPID);
 
-	/* Take care of the autovacuum launcher too */
+	/* 也要照管 autovacuum launcher         */
 	if (pid == AutoVacPID)
 		AutoVacPID = 0;
 	else if (AutoVacPID != 0 && take_action)
 		sigquit_child(AutoVacPID);
 
-	/* Take care of the archiver too */
+	/* 也要照管 archiver         */
 	if (pid == PgArchPID)
 		PgArchPID = 0;
 	else if (PgArchPID != 0 && take_action)
 		sigquit_child(PgArchPID);
 
-	/* We do NOT restart the syslogger */
+	/* 我们绝不重启 syslogger    */
 
 	if (Shutdown != ImmediateShutdown)
 		FatalError = true;
 
-	/* We now transit into a state of waiting for children to die */
+	/* 现在转入等待子进程消亡的状态                 */
 	if (pmState == PM_RECOVERY ||
 		pmState == PM_HOT_STANDBY ||
 		pmState == PM_RUN ||
@@ -3634,21 +3634,21 @@ HandleChildCrash(int pid, int exitstatus, const char *procname)
 		pmState = PM_WAIT_BACKENDS;
 
 	/*
-	 * .. and if this doesn't happen quickly enough, now the clock is ticking
-	 * for us to kill them without mercy.
+	 * 而如果它们没有很快消亡，就轮到我们开始计时，    
+	 * 毫不留情地杀掉它们。    
 	 */
 	if (AbortStartTime == 0)
 		AbortStartTime = time(NULL);
 }
 
 /*
- * Log the death of a child process.
+ * 记录子进程的消亡。      
  */
 static void
 LogChildExit(int lev, const char *procname, int pid, int exitstatus)
 {
 	/*
-	 * size of activity_buffer is arbitrary, but set equal to default
+	 * activity_buffer 大小随意，但设为等于默认值       
 	 * track_activity_query_size
 	 */
 	char		activity_buffer[1024];
@@ -3704,23 +3704,23 @@ LogChildExit(int lev, const char *procname, int pid, int exitstatus)
 }
 
 /*
- * Advance the postmaster's state machine and take actions as appropriate
+ * 推进 postmaster 的状态机并酌情采取相应动作。          
  *
- * This is common code for process_pm_shutdown_request(),
- * process_pm_child_exit() and process_pm_pmsignal(), which process the signals
- * that might mean we need to change state.
+ * 这是 process_pm_shutdown_request()、               
+ * process_pm_child_exit() 和 process_pm_pmsignal() 的公共代码，        
+ * 处理可能需改变状态的信号。 
  */
 static void
 PostmasterStateMachine(void)
 {
-	/* If we're doing a smart shutdown, try to advance that state. */
+	/* 若执行智能关闭，则尝试推进该状态。         */
 	if (pmState == PM_RUN || pmState == PM_HOT_STANDBY)
 	{
 		if (!connsAllowed)
 		{
 			/*
-			 * This state ends when we have no normal client backends running.
-			 * Then we're ready to stop other children.
+			 * 没有普通客户端后端在运行时，此状态结束。   
+			 * 然后便可停止其他子进程。    
 			 */
 			if (CountChildren(BACKEND_TYPE_NORMAL) == 0)
 				pmState = PM_STOP_BACKENDS;
@@ -3728,58 +3728,58 @@ PostmasterStateMachine(void)
 	}
 
 	/*
-	 * If we're ready to do so, signal child processes to shut down.  (This
-	 * isn't a persistent state, but treating it as a distinct pmState allows
-	 * us to share this code across multiple shutdown code paths.)
+	 * 如果已就绪，就通知子进程关闭。（这                 
+	 * 并非持久状态，但把它当作一个独立的 pmState           
+	 * 可在多条关闭代码路径间共用此代码。）     
 	 */
 	if (pmState == PM_STOP_BACKENDS)
 	{
 		/*
-		 * Forget any pending requests for background workers, since we're no
-		 * longer willing to launch any new workers.  (If additional requests
-		 * arrive, BackgroundWorkerStateChange will reject them.)
+		 * 忘掉所有未决的后台 worker 请求，因为我们不再    
+		 * 愿意启动任何新 worker。（若有额外请求到来，     
+		 * BackgroundWorkerStateChange 会拒绝它们。）     
 		 */
 		ForgetUnstartedBackgroundWorkers();
 
-		/* Signal all backend children except walsenders */
+		/* 通知除 walsender 外的后端子进程     */
 		SignalSomeChildren(SIGTERM,
 						   BACKEND_TYPE_ALL - BACKEND_TYPE_WALSND);
-		/* and the autovac launcher too */
+		/* 以及 autovac launcher      */
 		if (AutoVacPID != 0)
 			signal_child(AutoVacPID, SIGTERM);
-		/* and the bgwriter too */
+		/* 以及 bgwriter      */
 		if (BgWriterPID != 0)
 			signal_child(BgWriterPID, SIGTERM);
-		/* and the walwriter too */
+		/* 以及 walwriter      */
 		if (WalWriterPID != 0)
 			signal_child(WalWriterPID, SIGTERM);
-		/* If we're in recovery, also stop startup and walreceiver procs */
+		/* 若在恢复中，也停止 startup 与 walreceiver 进程    */
 		if (StartupPID != 0)
 			signal_child(StartupPID, SIGTERM);
 		if (WalReceiverPID != 0)
 			signal_child(WalReceiverPID, SIGTERM);
-		/* checkpointer, archiver, stats, and syslogger may continue for now */
+		/* checkpointer、archiver、stats 与 syslogger 暂可继续        */
 
-		/* Now transition to PM_WAIT_BACKENDS state to wait for them to die */
+		/* 现在转入 PM_WAIT_BACKENDS 状态，等待它们消亡        */
 		pmState = PM_WAIT_BACKENDS;
 	}
 
 	/*
-	 * If we are in a state-machine state that implies waiting for backends to
-	 * exit, see if they're all gone, and change state if so.
+	 * 如果当前状态机状态意味着正在等待后端退出，        
+	 * 检查是否都已消失，若是则改变状态。   
 	 */
 	if (pmState == PM_WAIT_BACKENDS)
 	{
 		/*
-		 * PM_WAIT_BACKENDS state ends when we have no regular backends
-		 * (including autovac workers), no bgworkers (including unconnected
-		 * ones), and no walwriter, autovac launcher or bgwriter.  If we are
-		 * doing crash recovery or an immediate shutdown then we expect the
-		 * checkpointer to exit as well, otherwise not. The stats and
-		 * syslogger processes are disregarded since they are not connected to
-		 * shared memory; we also disregard dead_end children here. Walsenders
-		 * and archiver are also disregarded, they will be terminated later
-		 * after writing the checkpoint record.
+		 * PM_WAIT_BACKENDS 状态在不再有普通后端（含       
+		 * autovac worker），没有 bgworker（包括未连接           
+		 * 的），也没有 walwriter、autovac launcher 或 bgwriter。  
+		 * 如果正在做崩溃恢复或立即关闭，那么预期       
+		 * checkpointer 也退出，否则不退出。               
+		 * stats 与 syslogger 进程不参与判断，因为它们未连接  
+		 * 到共享内存；此处同样不计 dead_end 子进程。         
+		 * walsender 与 archiver 也不计入，它们将在稍后        
+		 * 写完检查点记录后终止。   
 		 */
 		if (CountChildren(BACKEND_TYPE_ALL - BACKEND_TYPE_WALSND) == 0 &&
 			StartupPID == 0 &&
@@ -3793,29 +3793,29 @@ PostmasterStateMachine(void)
 			if (Shutdown >= ImmediateShutdown || FatalError)
 			{
 				/*
-				 * Start waiting for dead_end children to die.  This state
-				 * change causes ServerLoop to stop creating new ones.
+				 * 开始等待 dead_end 子进程消亡。状态变更   
+				 * 使 ServerLoop 不再创建新的此类进程。   
 				 */
 				pmState = PM_WAIT_DEAD_END;
 
 				/*
-				 * We already SIGQUIT'd the archiver and stats processes, if
-				 * any, when we started immediate shutdown or entered
-				 * FatalError state.
+				 * archiver 与 stats 进程（若有）早已被我们     
+				 * SIGQUIT 过：当启动立即关闭或进入      
+				 * FatalError 时   
 				 */
 			}
 			else
 			{
 				/*
-				 * If we get here, we are proceeding with normal shutdown. All
-				 * the regular children are gone, and it's time to tell the
-				 * checkpointer to do a shutdown checkpoint.
+				 * 若走到这里，说明我们正在正常关闭。        
+				 * 所有普通子进程都已消失，是时候通知     
+				 * checkpointer 做关闭检查点了。    
 				 */
 				Assert(Shutdown > NoShutdown);
-				/* Start the checkpointer if not running */
+				/* 若未运行则启动 checkpointer    */
 				if (CheckpointerPID == 0)
 					CheckpointerPID = StartCheckpointer();
-				/* And tell it to shut down */
+				/* 并让它关闭          */
 				if (CheckpointerPID != 0)
 				{
 					signal_child(CheckpointerPID, SIGUSR2);
@@ -3824,19 +3824,19 @@ PostmasterStateMachine(void)
 				else
 				{
 					/*
-					 * If we failed to fork a checkpointer, just shut down.
-					 * Any required cleanup will happen at next restart. We
-					 * set FatalError so that an "abnormal shutdown" message
-					 * gets logged when we exit.
+					 * 若 fork checkpointer 失败，就直接关闭。   
+					 * 所需的清理工作留待下次重启时进行。 
+					 * 我们置上 FatalError，以便退出时记录      
+					 * "abnormal shutdown"消息
 					 *
-					 * We don't consult send_abort_for_crash here, as it's
-					 * unlikely that dumping cores would illuminate the reason
-					 * for checkpointer fork failure.
+					 * 此处不查 send_abort_for_crash，因为         
+					 * 转储核心不太可能阐明 checkpointer fork       
+					 * 失败的原因。            
 					 */
 					FatalError = true;
 					pmState = PM_WAIT_DEAD_END;
 
-					/* Kill the walsenders and archiver too */
+					/* 同时杀掉 walsenders 与 archiver */
 					SignalChildren(SIGQUIT);
 					if (PgArchPID != 0)
 						signal_child(PgArchPID, SIGQUIT);
@@ -3848,10 +3848,10 @@ PostmasterStateMachine(void)
 	if (pmState == PM_SHUTDOWN_2)
 	{
 		/*
-		 * PM_SHUTDOWN_2 state ends when there's no other children than
-		 * dead_end children left. There shouldn't be any regular backends
-		 * left by now anyway; what we're really waiting for is walsenders and
-		 * archiver.
+		 * 当除 dead_end 子进程外再无其他子进程时，     
+		 * PM_SHUTDOWN_2 状态结束。此时不该再有普通后端    
+		 * 残留；真正等待的是 walsenders 与 archiver。             
+		 *          
 		 */
 		if (PgArchPID == 0 && CountChildren(BACKEND_TYPE_ALL) == 0)
 		{
@@ -3861,46 +3861,46 @@ PostmasterStateMachine(void)
 
 	if (pmState == PM_WAIT_DEAD_END)
 	{
-		/* Don't allow any new socket connection events. */
+		/* 不再允许新的套接字连接事件。    */
 		ConfigurePostmasterWaitSet(false);
 
 		/*
-		 * PM_WAIT_DEAD_END state ends when the BackendList is entirely empty
-		 * (ie, no dead_end children remain), and the archiver is gone too.
+		 * BackendList 完全变空（即已无 dead_end 子进程），     
+		 * 且 archiver 消失，PM_WAIT_DEAD_END 状态即告结束。    
 		 *
-		 * The reason we wait for those two is to protect them against a new
-		 * postmaster starting conflicting subprocesses; this isn't an
-		 * ironclad protection, but it at least helps in the
-		 * shutdown-and-immediately-restart scenario.  Note that they have
-		 * already been sent appropriate shutdown signals, either during a
-		 * normal state transition leading up to PM_WAIT_DEAD_END, or during
-		 * FatalError processing.
+		 * 之所以等待这两个进程，是为了防止新 postmaster   
+		 * 启动冲突的子进程；这并非万无一失，        
+		 * 但至少有助于关闭后立即重启场景。 
+		 * 注意它们已被发送过合适的关闭信号，要么      
+		 * 在通往 PM_WAIT_DEAD_END 的正常状态转换期间，      
+		 * 要么是在 FatalError 处理期间。                          
+		 *                       
 		 */
 		if (dlist_is_empty(&BackendList) && PgArchPID == 0)
 		{
-			/* These other guys should be dead already */
+			/* 其余这些进程应该早已消亡    */
 			Assert(StartupPID == 0);
 			Assert(WalReceiverPID == 0);
 			Assert(BgWriterPID == 0);
 			Assert(CheckpointerPID == 0);
 			Assert(WalWriterPID == 0);
 			Assert(AutoVacPID == 0);
-			/* syslogger is not considered here */
+			/* 此处不把 syslogger 计入    */
 			pmState = PM_NO_CHILDREN;
 		}
 	}
 
 	/*
-	 * If we've been told to shut down, we exit as soon as there are no
-	 * remaining children.  If there was a crash, cleanup will occur at the
-	 * next startup.  (Before PostgreSQL 8.3, we tried to recover from the
-	 * crash before exiting, but that seems unwise if we are quitting because
-	 * we got SIGTERM from init --- there may well not be time for recovery
-	 * before init decides to SIGKILL us.)
+	 * 若收到关闭指示，一旦不再有剩余子进程，       
+	 * 我们便退出。如果发生过崩溃，清理将留到           
+	 * 下次启动时进行。（PostgreSQL 8.3 之前，我们尝试    
+	 * 在退出前先恢复崩溃；但如果退出是因为收到 init     
+	 * 的 SIGTERM 才退出，那就可能来不及在 init 决定        
+	 * SIGKILL 之前完成恢复。）   
 	 *
-	 * Note that the syslogger continues to run.  It will exit when it sees
-	 * EOF on its input pipe, which happens when there are no more upstream
-	 * processes.
+	 * 注意 syslogger 将继续运行。它在输入管道上读到      
+	 * EOF 时退出；当再无任何上游进程时就会出现 EOF。   
+	 *           
 	 */
 	if (Shutdown > NoShutdown && pmState == PM_NO_CHILDREN)
 	{
@@ -3912,20 +3912,20 @@ PostmasterStateMachine(void)
 		else
 		{
 			/*
-			 * Normal exit from the postmaster is here.  We don't need to log
-			 * anything here, since the UnlinkLockFiles proc_exit callback
-			 * will do so, and that should be the last user-visible action.
+			 * postmaster 的正常退出就在此处，无需在此记录   
+			 * 任何日志，因为 UnlinkLockFiles proc_exit 回调     
+			 * 会代为记录，这应是最后用户可见的动作。   
 			 */
 			ExitPostmaster(0);
 		}
 	}
 
 	/*
-	 * If the startup process failed, or the user does not want an automatic
-	 * restart after backend crashes, wait for all non-syslogger children to
-	 * exit, and then exit postmaster.  We don't try to reinitialize when the
-	 * startup process fails, because more than likely it will just fail again
-	 * and we will keep trying forever.
+	 * 如果 startup 进程失败，或者用户不希望在               
+	 * 后端崩溃后自动重启，那么等待所有非 syslogger        
+	 * 子进程退出后再退出 postmaster。当 startup 进程           
+	 * 失败时我们不再尝试重新初始化，因为多半只会        
+	 * 再次失败并永远重试。  
 	 */
 	if (pmState == PM_NO_CHILDREN)
 	{
@@ -3944,57 +3944,57 @@ PostmasterStateMachine(void)
 	}
 
 	/*
-	 * If we need to recover from a crash, wait for all non-syslogger children
-	 * to exit, then reset shmem and StartupDataBase.
+	 * 如果需从崩溃中恢复，则等待全部非 syslogger 子进程   
+	 * 退出；再重置 shmem 与 StartupDataBase  
 	 */
 	if (FatalError && pmState == PM_NO_CHILDREN)
 	{
 		ereport(LOG,
 				(errmsg("all server processes terminated; reinitializing")));
 
-		/* remove leftover temporary files after a crash */
+		/* 崩溃后清除遗留的临时文件          */
 		if (remove_temp_files_after_crash)
 			RemovePgTempFiles();
 
-		/* allow background workers to immediately restart */
+		/* 允许后台 worker 立即重启                */
 		ResetBackgroundWorkerCrashTimes();
 
 		shmem_exit(1);
 
-		/* re-read control file into local memory */
+		/* 将控制文件重读进本地内存   */
 		LocalProcessControlFile(true);
 
-		/* re-create shared memory and semaphores */
+		/* 重建共享内存与信号量         */
 		CreateSharedMemoryAndSemaphores();
 
 		StartupPID = StartupDataBase();
 		Assert(StartupPID != 0);
 		StartupStatus = STARTUP_RUNNING;
 		pmState = PM_STARTUP;
-		/* crash recovery started, reset SIGKILL flag */
+		/* 崩溃恢复开始，重置 SIGKILL 标志 */
 		AbortStartTime = 0;
 
-		/* start accepting server socket connection events again */
+		/* 重新开始接受服务器套接字连接事件      */
 		ConfigurePostmasterWaitSet(true);
 	}
 }
 
 
 /*
- * Send a signal to a postmaster child process
+ * 向 postmaster 子进程发送信号       
  *
- * On systems that have setsid(), each child process sets itself up as a
- * process group leader.  For signals that are generally interpreted in the
- * appropriate fashion, we signal the entire process group not just the
- * direct child process.  This allows us to, for example, SIGQUIT a blocked
- * archive_recovery script, or SIGINT a script being run by a backend via
- * system().
+ * 在拥有 setsid() 的系统上，每个子进程都会把自己     
+ * 设为进程组组长。对于通常会被恰当解释的信号，      
+ * 我们不只通知直接子进程，而是通知整个进程组。  
+ * 例如我们可以 SIGQUIT 掉被阻塞的 archive_recovery             
+ * 脚本；或 SIGINT 掉后端经 system() 运行的                   
+ * 脚本   
  *
- * There is a race condition for recently-forked children: they might not
- * have executed setsid() yet.  So we signal the child directly as well as
- * the group.  We assume such a child will handle the signal before trying
- * to spawn any grandchild processes.  We also assume that signaling the
- * child twice will not cause any problems.
+ * 对于新近 fork 出的子进程存在竞态问题：它们可能    
+ * 尚未执行过 setsid()。所以我们既直接通知子进程，     
+ * 也通知进程组。我们假定这类子进程在试图派生        
+ * 任何孙进程之前就会处理好该信号。我们还假定，   
+ * 通知子进程两次不会有问题。 
  */
 static void
 signal_child(pid_t pid, int signal)
@@ -4019,12 +4019,12 @@ signal_child(pid_t pid, int signal)
 }
 
 /*
- * Convenience function for killing a child process after a crash of some
- * other child process.  We log the action at a higher level than we would
- * otherwise do, and we apply send_abort_for_crash to decide which signal
- * to send.  Normally it's SIGQUIT -- and most other comments in this file
- * are written on the assumption that it is -- but developers might prefer
- * to use SIGABRT to collect per-child core dumps.
+ * 用于在某子进程崩溃后杀掉另一子进程的便利函数。 
+ * 我们以比平常更高的级别记录这一动作，并且用        
+ * send_abort_for_crash 来决定发送哪种信号。通常是          
+ * SIGQUIT——本文件多数其他注释都基于该假设——       
+ * 但开发者可能更愿意用 SIGABRT 来收集每子进程的        
+ * 核心转储。                                
  */
 static void
 sigquit_child(pid_t pid)
@@ -4037,8 +4037,8 @@ sigquit_child(pid_t pid)
 }
 
 /*
- * Send a signal to the targeted children (but NOT special children;
- * dead_end children are never signaled, either).
+ * 向目标子进程发送信号（但不包括特殊子进程；  
+ * dead_end 子进程也从不会被通知）。 
  */
 static bool
 SignalSomeChildren(int signal, int target)
@@ -4054,14 +4054,14 @@ SignalSomeChildren(int signal, int target)
 			continue;
 
 		/*
-		 * Since target == BACKEND_TYPE_ALL is the most common case, we test
-		 * it first and avoid touching shared memory for every child.
+		 * 由于 target == BACKEND_TYPE_ALL 是最常见情形，          
+		 * 我们先测试它，避免逐个触碰共享内存。    
 		 */
 		if (target != BACKEND_TYPE_ALL)
 		{
 			/*
-			 * Assign bkend_type for any recently announced WAL Sender
-			 * processes.
+			 * 为新报到的 WAL Sender 进程指定 bkend_type     
+			 *           
 			 */
 			if (bp->bkend_type == BACKEND_TYPE_NORMAL &&
 				IsPostmasterChildWalSender(bp->child_slot))
@@ -4081,8 +4081,8 @@ SignalSomeChildren(int signal, int target)
 }
 
 /*
- * Send a termination signal to children.  This considers all of our children
- * processes, except syslogger and dead_end backends.
+ * 向子进程发送终止信号。这会考虑我们的所有子进程，  
+ * syslogger 和 dead_end 后端除外。            
  */
 static void
 TerminateChildren(int signal)
@@ -4109,21 +4109,21 @@ TerminateChildren(int signal)
 }
 
 /*
- * BackendStartup -- start backend process
+ * BackendStartup——启动后端进程 
  *
- * returns: STATUS_ERROR if the fork failed, STATUS_OK otherwise.
+ * 返回：fork 失败则 STATUS_ERROR，否则 STATUS_OK。    
  *
- * Note: if you change this code, also consider StartAutovacuumWorker.
+ * 注意：改动此代码时也请考虑 StartAutovacuumWorker      
  */
 static int
 BackendStartup(Port *port)
 {
-	Backend    *bn;				/* for backend cleanup */
+	Backend    *bn;				/* 用于后端清理  */
 	pid_t		pid;
 
 	/*
-	 * Create backend data structure.  Better before the fork() so we can
-	 * handle failure cleanly.
+	 * 创建后端数据结构。最好在 fork() 之前完成，以便 
+	 * 干净地处理失败  
 	 */
 	bn = (Backend *) malloc(sizeof(Backend));
 	if (!bn)
@@ -4135,9 +4135,9 @@ BackendStartup(Port *port)
 	}
 
 	/*
-	 * Compute the cancel key that will be assigned to this backend. The
-	 * backend will have its own copy in the forked-off process' value of
-	 * MyCancelKey, so that it can transmit the key to the frontend.
+	 * 计算将分配给此后端的取消密钥。                    
+	 * 后端在 fork 出的进程里的 MyCancelKey 值中持有        
+	 * 自己的副本，从而能将密钥传给前端。          
 	 */
 	if (!RandomCancelKey(&MyCancelKey))
 	{
@@ -4150,19 +4150,19 @@ BackendStartup(Port *port)
 
 	bn->cancel_key = MyCancelKey;
 
-	/* Pass down canAcceptConnections state */
+	/* 传递 canAcceptConnections 状态   */
 	port->canAcceptConnections = canAcceptConnections(BACKEND_TYPE_NORMAL);
 	bn->dead_end = (port->canAcceptConnections != CAC_OK);
 
 	/*
-	 * Unless it's a dead_end child, assign it a child slot number
+	 * 除非是 dead_end 子进程，否则给它分配子槽号 
 	 */
 	if (!bn->dead_end)
 		bn->child_slot = MyPMChildSlot = AssignPostmasterChildSlot();
 	else
 		bn->child_slot = 0;
 
-	/* Hasn't asked to be notified about any bgworkers yet */
+	/* 尚未请求获得任何 bgworker 通知            */
 	bn->bgworker_notify = false;
 
 #ifdef EXEC_BACKEND
@@ -4173,32 +4173,32 @@ BackendStartup(Port *port)
 	{
 		free(bn);
 
-		/* Detangle from postmaster */
+		/* 脱离 postmaster        */
 		InitPostmasterChild();
 
-		/* Close the postmaster's sockets */
+		/* 关闭 postmaster 的套接字 */
 		ClosePostmasterPorts(false);
 
-		/* Perform additional initialization and collect startup packet */
+		/* 执行额外初始化并收集启动包                      */
 		BackendInitialize(port);
 
 		/*
-		 * Create a per-backend PGPROC struct in shared memory. We must do
-		 * this before we can use LWLocks. In the !EXEC_BACKEND case (here)
-		 * this could be delayed a bit further, but EXEC_BACKEND needs to do
-		 * stuff with LWLocks before PostgresMain(), so we do it here as well
-		 * for symmetry.
+		 * 在共享内存中为每个后端创建 PGPROC 结构，必须 
+		 * 先完成这一步才能使用 LWLock。在 !EXEC_BACKEND       
+		 * 情形（此处）中本可再推迟些，但 EXEC_BACKEND       
+		 * 要在 PostgresMain() 前用 LWLock，为对称起见也          
+		 * 在此执行 
 		 */
 		InitProcess();
 
-		/* And run the backend */
+		/* 然后运行后端  */
 		BackendRun(port);
 	}
 #endif							/* EXEC_BACKEND */
 
 	if (pid < 0)
 	{
-		/* in parent, fork failed */
+		/* 父进程 fork 失败  */
 		int			save_errno = errno;
 
 		if (!bn->dead_end)
@@ -4211,17 +4211,17 @@ BackendStartup(Port *port)
 		return STATUS_ERROR;
 	}
 
-	/* in parent, successful fork */
+	/* 父进程中，fork 成功 */
 	ereport(DEBUG2,
 			(errmsg_internal("forked new backend, pid=%d socket=%d",
 							 (int) pid, (int) port->sock)));
 
 	/*
-	 * Everything's been successful, it's safe to add this backend to our list
-	 * of backends.
+	 * 一切顺利，可放心将此后端加入我们的后端列表。     
+	 *             
 	 */
 	bn->pid = pid;
-	bn->bkend_type = BACKEND_TYPE_NORMAL;	/* Can change later to WALSND */
+	bn->bkend_type = BACKEND_TYPE_NORMAL;	/* 以后可改为 WALSND     */
 	dlist_push_head(&BackendList, &bn->elem);
 
 #ifdef EXEC_BACKEND
@@ -4233,12 +4233,12 @@ BackendStartup(Port *port)
 }
 
 /*
- * Try to report backend fork() failure to client before we close the
- * connection.  Since we do not care to risk blocking the postmaster on
- * this connection, we set the connection to non-blocking and try only once.
+ * 关闭连接前，尽量把后端 fork() 失败报给客户端。 
+ * 由于不愿冒让 postmaster 阻塞在此连接上的风险，     
+ * 我们把连接设为非阻塞模式，并且只尝试一次。          
  *
- * This is grungy special-purpose code; we cannot use backend libpq since
- * it's not up and running.
+ * 这是凑合的专用代码；后端 libpq 尚未就绪运行，      
+ * 故无法使用它。   
  */
 static void
 report_fork_failure_to_client(Port *port, int errnum)
@@ -4246,16 +4246,16 @@ report_fork_failure_to_client(Port *port, int errnum)
 	char		buffer[1000];
 	int			rc;
 
-	/* Format the error message packet (always V2 protocol) */
+	/* 格式化错误消息包（总是 V2 协议）       */
 	snprintf(buffer, sizeof(buffer), "E%s%s\n",
 			 _("could not fork new process for connection: "),
 			 strerror(errnum));
 
-	/* Set port to non-blocking.  Don't do send() if this fails */
+	/* 把 port 设为非阻塞。若失败则不做 send()     */
 	if (!pg_set_noblock(port->sock))
 		return;
 
-	/* We'll retry after EINTR, but ignore all other failures */
+	/* 遇到 EINTR 会重试，但忽略其他所有失败   */
 	do
 	{
 		rc = send(port->sock, buffer, strlen(buffer) + 1, 0);
@@ -4264,16 +4264,16 @@ report_fork_failure_to_client(Port *port, int errnum)
 
 
 /*
- * BackendInitialize -- initialize an interactive (postmaster-child)
- *				backend process, and collect the client's startup packet.
+ * BackendInitialize——初始化交互式（postmaster 子       
+ *				进程）后端，并收集客户端的启动包。      
  *
- * returns: nothing.  Will not return at all if there's any failure.
+ * 返回：无。若出现任何失败则完全不返回。        
  *
- * Note: this code does not depend on having any access to shared memory.
- * Indeed, our approach to SIGTERM/timeout handling *requires* that
- * shared memory not have been touched yet; see comments within.
- * In the EXEC_BACKEND case, we are physically attached to shared memory
- * but have not yet set up most of our local pointers to shmem structures.
+ * 注意：此代码不依赖于对共享内存的任何访问。       
+ * 实际上，我们对 SIGTERM/超时的处理方式*要求*     
+ * 共享内存尚未被触碰过；详见其中的注释。    
+ * 在 EXEC_BACKEND 情形下，我们在物理上已挂接到          
+ * 共享内存，但多数指向 shmem 结构的本地指针尚未建立 
  */
 static void
 BackendInitialize(Port *port)
@@ -4284,53 +4284,53 @@ BackendInitialize(Port *port)
 	char		remote_port[NI_MAXSERV];
 	StringInfoData ps_data;
 
-	/* Save port etc. for ps status */
+	/* 为 ps 状态保存 port 等 */
 	MyProcPort = port;
 
-	/* Tell fd.c about the long-lived FD associated with the port */
+	/* 把与 port 关联的长期存活 FD 告知 fd.c           */
 	ReserveExternalFD();
 
 	/*
-	 * PreAuthDelay is a debugging aid for investigating problems in the
-	 * authentication cycle: it can be set in postgresql.conf to allow time to
-	 * attach to the newly-forked backend with a debugger.  (See also
-	 * PostAuthDelay, which we allow clients to pass through PGOPTIONS, but it
-	 * is not honored until after authentication.)
+	 * PreAuthDelay 是排查认证环节问题的调试辅助：       
+	 * 可以在 postgresql.conf 里设置它，以便有时间用调试器   
+	 * 附加到新 fork 的后端上。（另见 PostAuthDelay，   
+	 * 我们允许客户端经 PGOPTIONS 传递它，但要到认证之后   
+	 * 才会生效。）                         
 	 */
 	if (PreAuthDelay > 0)
 		pg_usleep(PreAuthDelay * 1000000L);
 
-	/* This flag will remain set until InitPostgres finishes authentication */
-	ClientAuthInProgress = true;	/* limit visibility of log messages */
+	/* 此标志将保持置位，直到 InitPostgres 完成认证          */
+	ClientAuthInProgress = true;	/* 限制日志消息的可见性   */
 
-	/* set these to empty in case they are needed before we set them up */
+	/* 把它们置空，以防在正式设置前就需要用到        */
 	port->remote_host = "";
 	port->remote_port = "";
 
 	/*
-	 * Initialize libpq and enable reporting of ereport errors to the client.
-	 * Must do this now because authentication uses libpq to send messages.
+	 * 初始化 libpq 并启用向客户端报告 ereport 错误。         
+	 * 必须现在就做，因为认证要使用 libpq 发送消息。    
 	 */
-	pq_init();					/* initialize libpq to talk to client */
-	whereToSendOutput = DestRemote; /* now safe to ereport to client */
+	pq_init();					/* 初始化 libpq 与客户端通信 */
+	whereToSendOutput = DestRemote; /* 现在才能安全 ereport    */
 
 	/*
-	 * We arrange to do _exit(1) if we receive SIGTERM or timeout while trying
-	 * to collect the startup packet; while SIGQUIT results in _exit(2).
-	 * Otherwise the postmaster cannot shutdown the database FAST or IMMED
-	 * cleanly if a buggy client fails to send the packet promptly.
+	 * 若收集启动包时收到 SIGTERM 或超时，则安排 _exit(1)；  
+	 * 而 SIGQUIT 导致 _exit(2)。                                   
+	 * 否则若有缺陷客户端未及时发包，postmaster 无法     
+	 * 干净地以 FAST 或 IMMED 方式关闭数据库。        
 	 *
-	 * Exiting with _exit(1) is only possible because we have not yet touched
-	 * shared memory; therefore no outside-the-process state needs to get
-	 * cleaned up.
+	 * 能用 _exit(1) 退出，是因为尚未触及共享内存；         
+	 * 因此进程外没有任何状态需要清理。                  
+	 *            
 	 */
 	pqsignal(SIGTERM, process_startup_packet_die);
-	/* SIGQUIT handler was already set up by InitPostmasterChild */
-	InitializeTimeouts();		/* establishes SIGALRM handler */
+	/* SIGQUIT 处理器已由 InitPostmasterChild 设置        */
+	InitializeTimeouts();		/* 建立 SIGALRM 处理器    */
 	sigprocmask(SIG_SETMASK, &StartupBlockSig, NULL);
 
 	/*
-	 * Get the remote host name and port for logging and status display.
+	 * 获取远程主机名和端口，用于日志与状态显示。  
 	 */
 	remote_host[0] = '\0';
 	remote_port[0] = '\0';
@@ -4343,13 +4343,13 @@ BackendInitialize(Port *port)
 								 gai_strerror(ret))));
 
 	/*
-	 * Save remote_host and remote_port in port structure (after this, they
-	 * will appear in log_line_prefix data for log messages).
+	 * 把 remote_host/remote_port 保存进 port 结构（此后它们    
+	 * 将出现在 log_line_prefix 日志数据里）。    
 	 */
 	port->remote_host = strdup(remote_host);
 	port->remote_port = strdup(remote_port);
 
-	/* And now we can issue the Log_connections message, if wanted */
+	/* 现在可以按需发出 Log_connections 消息了          */
 	if (Log_connections)
 	{
 		if (remote_port[0])
@@ -4364,15 +4364,15 @@ BackendInitialize(Port *port)
 	}
 
 	/*
-	 * If we did a reverse lookup to name, we might as well save the results
-	 * rather than possibly repeating the lookup during authentication.
+	 * 若做过反向查找得出名字，不妨把结果保存下来，   
+	 * 免得认证期间可能重复查找。                         
 	 *
-	 * Note that we don't want to specify NI_NAMEREQD above, because then we'd
-	 * get nothing useful for a client without an rDNS entry.  Therefore, we
-	 * must check whether we got a numeric IPv4 or IPv6 address, and not save
-	 * it into remote_hostname if so.  (This test is conservative and might
-	 * sometimes classify a hostname as numeric, but an error in that
-	 * direction is safe; it only results in a possible extra lookup.)
+	 * 注意我们不想在前面指定 NI_NAMEREQD，否则                 
+	 * 对没有 rDNS 记录的客户端将一无所获。因此我们      
+	 * 必须检查拿到的是数字 IPv4 还是 IPv6 地址，若是则    
+	 * 把它存入 remote_hostname。（该测试偏保守，可能       
+	 * 有时会把主机名误判为数字，但那方面的        
+	 * 出错也无害；至多导致一次额外查找。）         
 	 */
 	if (log_hostname &&
 		ret == 0 &&
@@ -4381,56 +4381,56 @@ BackendInitialize(Port *port)
 		port->remote_hostname = strdup(remote_host);
 
 	/*
-	 * Ready to begin client interaction.  We will give up and _exit(1) after
-	 * a time delay, so that a broken client can't hog a connection
-	 * indefinitely.  PreAuthDelay and any DNS interactions above don't count
-	 * against the time limit.
+	 * 准备开始客户端交互。超过时限即放弃并 _exit(1)，    
+	 * 以免出故障的客户端长期霸占一个连接。      
+	 * 前面的 PreAuthDelay 和 DNS 交互不计入此时限。            
+	 *                        
 	 *
-	 * Note: AuthenticationTimeout is applied here while waiting for the
-	 * startup packet, and then again in InitPostgres for the duration of any
-	 * authentication operations.  So a hostile client could tie up the
-	 * process for nearly twice AuthenticationTimeout before we kick him off.
+	 * 注意：在等待启动包时应用 AuthenticationTimeout，    
+	 * 随后在 InitPostgres 中再次应用，贯穿认证全程。        
+	 * 这样恶意客户端几乎能把进程占用近两倍          
+	 * 的 AuthenticationTimeout，然后我们才会踢掉它。            
 	 *
-	 * Note: because PostgresMain will call InitializeTimeouts again, the
-	 * registration of STARTUP_PACKET_TIMEOUT will be lost.  This is okay
-	 * since we never use it again after this function.
+	 * 注意：因 PostgresMain 再次调用 InitializeTimeouts，      
+	 * STARTUP_PACKET_TIMEOUT 的注册将丢失。这没有问题，    
+	 * 因为本函数之后不再用它。            
 	 */
 	RegisterTimeout(STARTUP_PACKET_TIMEOUT, StartupPacketTimeoutHandler);
 	enable_timeout_after(STARTUP_PACKET_TIMEOUT, AuthenticationTimeout * 1000);
 
 	/*
-	 * Receive the startup packet (which might turn out to be a cancel request
-	 * packet).
+	 * 接收启动包（它也可能是取消请求包）。                 
+	 *         
 	 */
 	status = ProcessStartupPacket(port, false, false);
 
 	/*
-	 * Disable the timeout, and prevent SIGTERM again.
+	 * 禁用超时，并阻止再次的 SIGTERM。   
 	 */
 	disable_timeout(STARTUP_PACKET_TIMEOUT, false);
 	sigprocmask(SIG_SETMASK, &BlockSig, NULL);
 
 	/*
-	 * As a safety check that nothing in startup has yet performed
-	 * shared-memory modifications that would need to be undone if we had
-	 * exited through SIGTERM or timeout above, check that no on_shmem_exit
-	 * handlers have been registered yet.  (This isn't terribly bulletproof,
-	 * since someone might misuse an on_proc_exit handler for shmem cleanup,
-	 * but it's a cheap and helpful check.  We cannot disallow on_proc_exit
-	 * handlers unfortunately, since pq_init() already registered one.)
+	 * 作为安全检查：确认启动阶段尚未做过        
+	 * 需撤销的共享内存修改（若上文经 SIGTERM 或超时   
+	 * 退出），要检查尚未注册任何 on_shmem_exit 处理器。  
+	 * （这并非十分可靠，因为有人可能误用 on_proc_exit     
+	 * 处理器来做共享内存清理，但该检查廉价而有用。   
+	 * 遗憾的是我们无法禁止 on_proc_exit 处理器，            
+	 * 因为 pq_init() 已经注册了一个。）                    
 	 */
 	check_on_shmem_exit_lists_are_empty();
 
 	/*
-	 * Stop here if it was bad or a cancel packet.  ProcessStartupPacket
-	 * already did any appropriate error reporting.
+	 * 若是坏包或取消包就在此停止。ProcessStartupPacket   
+	 * 已做过相应的错误报告。           
 	 */
 	if (status != STATUS_OK)
 		proc_exit(0);
 
 	/*
-	 * Now that we have the user and database name, we can set the process
-	 * title for ps.  It's good to do this as early as possible in startup.
+	 * 既然已拿到用户名和数据库名，就可以设置          
+	 * ps 的进程标题了。启动阶段宜尽早完成此事。        
 	 */
 	initStringInfo(&ps_data);
 	if (am_walsender)
@@ -4450,17 +4450,17 @@ BackendInitialize(Port *port)
 
 
 /*
- * BackendRun -- set up the backend's argument list and invoke PostgresMain()
+ * BackendRun——构造后端参数列表并调用 PostgresMain()          
  *
- * returns:
- *		Doesn't return at all.
+ * 返回: 
+ *		完全不返回。    
  */
 static void
 BackendRun(Port *port)
 {
 	/*
-	 * Make sure we aren't in PostmasterContext anymore.  (We can't delete it
-	 * just yet, though, because InitPostgres will need the HBA data.)
+	 * 确保我们已不再处于 PostmasterContext 中。（不过还不能
+	 * 删除它，因为 InitPostgres 还需要 HBA 数据。）     
 	 */
 	MemoryContextSwitchTo(TopMemoryContext);
 
@@ -4471,35 +4471,35 @@ BackendRun(Port *port)
 #ifdef EXEC_BACKEND
 
 /*
- * postmaster_forkexec -- fork and exec a postmaster subprocess
+ * postmaster_forkexec——fork/exec 出 postmaster 子进程 
  *
- * The caller must have set up the argv array already, except for argv[2]
- * which will be filled with the name of the temp variable file.
+ * 调用者必须已构造好 argv 数组，只有 argv[2] 除外，    
+ * 该位置将填入临时变量文件名。                   
  *
- * Returns the child process PID, or -1 on fork failure (a suitable error
- * message has been logged on failure).
+ * 返回子进程 PID，fork 失败则返回 -1（失败时已记录    
+ * 相应的错误消息）。         
  *
- * All uses of this routine will dispatch to SubPostmasterMain in the
- * child process.
+ * 本例程的调用都会在子进程中转入 SubPostmasterMain   
+ *               
  */
 pid_t
 postmaster_forkexec(int argc, char *argv[])
 {
 	Port		port;
 
-	/* This entry point passes dummy values for the Port variables */
+	/* 此入口点为 Port 变量传入哑值                     */
 	memset(&port, 0, sizeof(port));
 	return internal_forkexec(argc, argv, &port);
 }
 
 /*
- * backend_forkexec -- fork/exec off a backend process
+ * backend_forkexec——fork/exec 一个后端进程 
  *
- * Some operating systems (WIN32) don't have fork() so we have to simulate
- * it by storing parameters that need to be passed to the child and
- * then create a new child process.
+ * 某些操作系统（WIN32）没有 fork()，因此我们必须模拟  
+ * 它：把需传给子进程的参数先存放起来，          
+ * 然后创建新的子进程。  
  *
- * returns the pid of the fork/exec'd process, or -1 on failure
+ * 返回 fork/exec 出的进程的 pid，失败则返回 -1   
  */
 static pid_t
 backend_forkexec(Port *port)
@@ -4509,7 +4509,7 @@ backend_forkexec(Port *port)
 
 	av[ac++] = "postgres";
 	av[ac++] = "--forkbackend";
-	av[ac++] = NULL;			/* filled in by internal_forkexec */
+	av[ac++] = NULL;			/* 由 internal_forkexec 填写   */
 
 	av[ac] = NULL;
 	Assert(ac < lengthof(av));
@@ -4520,10 +4520,10 @@ backend_forkexec(Port *port)
 #ifndef WIN32
 
 /*
- * internal_forkexec non-win32 implementation
+ * internal_forkexec 的非 win32 实现     
  *
- * - writes out backend variables to the parameter file
- * - fork():s, and then exec():s the child process
+ * - 把后端变量写出到参数文件              
+ * - 先 fork() 再 exec() 子进程              
  */
 static pid_t
 internal_forkexec(int argc, char *argv[], Port *port)
@@ -4535,20 +4535,20 @@ internal_forkexec(int argc, char *argv[], Port *port)
 	FILE	   *fp;
 
 	if (!save_backend_variables(&param, port))
-		return -1;				/* log made by save_backend_variables */
+		return -1;				/* save_backend_variables 所记日志*/
 
-	/* Calculate name for temp file */
+	/* 计算临时文件名        */
 	snprintf(tmpfilename, MAXPGPATH, "%s/%s.backend_var.%d.%lu",
 			 PG_TEMP_FILES_DIR, PG_TEMP_FILE_PREFIX,
 			 MyProcPid, ++tmpBackendFileNum);
 
-	/* Open file */
+	/* 开文件 */
 	fp = AllocateFile(tmpfilename, PG_BINARY_W);
 	if (!fp)
 	{
 		/*
-		 * As in OpenTemporaryFileInTablespace, try to make the temp-file
-		 * directory, ignoring errors.
+		 * 与 OpenTemporaryFileInTablespace 一样，试着创建临时 
+		 * 目录，忽略错误。   
 		 */
 		(void) MakePGDirectory(PG_TEMP_FILES_DIR);
 
@@ -4572,7 +4572,7 @@ internal_forkexec(int argc, char *argv[], Port *port)
 		return -1;
 	}
 
-	/* Release file */
+	/* 释放文件 */
 	if (FreeFile(fp))
 	{
 		ereport(LOG,
@@ -4581,16 +4581,16 @@ internal_forkexec(int argc, char *argv[], Port *port)
 		return -1;
 	}
 
-	/* Make sure caller set up argv properly */
+	/* 确保调用者已正确设置 argv   */
 	Assert(argc >= 3);
 	Assert(argv[argc] == NULL);
 	Assert(strncmp(argv[1], "--fork", 6) == 0);
 	Assert(argv[2] == NULL);
 
-	/* Insert temp file name after --fork argument */
+	/* 把临时文件名插到 --fork 参数之后*/
 	argv[2] = tmpfilename;
 
-	/* Fire off execv in child */
+	/* 子进程执行 execv   */
 	if ((pid = fork_process()) == 0)
 	{
 		if (execv(postgres_exec_path, argv) < 0)
@@ -4598,24 +4598,24 @@ internal_forkexec(int argc, char *argv[], Port *port)
 			ereport(LOG,
 					(errmsg("could not execute server process \"%s\": %m",
 							postgres_exec_path)));
-			/* We're already in the child process here, can't return */
+			/* 此处已位于子进程中，不能返回            */
 			exit(1);
 		}
 	}
 
-	return pid;					/* Parent returns pid, or -1 on fork failure */
+	return pid;					/* 父进程返回 pid，失败则返回 -1  */
 }
 #else							/* WIN32 */
 
 /*
- * internal_forkexec win32 implementation
+ * internal_forkexec win32 实现        
  *
- * - starts backend using CreateProcess(), in suspended state
- * - writes out backend variables to the parameter file
- *	- during this, duplicates handles and sockets required for
- *	  inheritance into the new process
- * - resumes execution of the new process once the backend parameter
- *	 file is complete.
+ * - 以挂起状态用 CreateProcess() 启动后端         
+ * - 把后端变量写出到参数文件              
+ *	- 期间复制新进程需继承的                       
+ *	  句柄与套接字              
+ * - 待后端参数文件写全后即恢复                        
+ *	 新进程执行  
  */
 static pid_t
 internal_forkexec(int argc, char *argv[], Port *port)
@@ -4632,16 +4632,16 @@ internal_forkexec(int argc, char *argv[], Port *port)
 	char		paramHandleStr[32];
 	win32_deadchild_waitinfo *childinfo;
 
-	/* Make sure caller set up argv properly */
+	/* 确保调用者已正确设置 argv   */
 	Assert(argc >= 3);
 	Assert(argv[argc] == NULL);
 	Assert(strncmp(argv[1], "--fork", 6) == 0);
 	Assert(argv[2] == NULL);
 
-	/* Resume here if we need to retry */
+	/* 若需重试，从此处恢复  */
 retry:
 
-	/* Set up shared memory for parameter passing */
+	/* 设置用于传参的共享内存          */
 	ZeroMemory(&sa, sizeof(sa));
 	sa.nLength = sizeof(sa);
 	sa.bInheritHandle = TRUE;
@@ -4669,7 +4669,7 @@ retry:
 		return -1;
 	}
 
-	/* Insert temp file name after --fork argument */
+	/* 把临时文件名插到 --fork 参数之后*/
 #ifdef _WIN64
 	sprintf(paramHandleStr, "%llu", (LONG_PTR) paramHandle);
 #else
@@ -4677,7 +4677,7 @@ retry:
 #endif
 	argv[2] = paramHandleStr;
 
-	/* Format the cmd line */
+	/* 格式化命令行  */
 	cmdLine[sizeof(cmdLine) - 1] = '\0';
 	cmdLine[sizeof(cmdLine) - 2] = '\0';
 	snprintf(cmdLine, sizeof(cmdLine) - 1, "\"%s\"", postgres_exec_path);
@@ -4701,8 +4701,8 @@ retry:
 	si.cb = sizeof(si);
 
 	/*
-	 * Create the subprocess in a suspended state. This will be resumed later,
-	 * once we have written out the parameter file.
+	 * 以挂起状态创建子进程。稍后再恢复其运行，           
+	 * 待写完参数文件之后。              
 	 */
 	if (!CreateProcess(NULL, cmdLine, NULL, NULL, TRUE, CREATE_SUSPENDED,
 					   NULL, NULL, &si, &pi))
@@ -4718,8 +4718,8 @@ retry:
 	if (!save_backend_variables(param, port, pi.hProcess, pi.dwProcessId))
 	{
 		/*
-		 * log made by save_backend_variables, but we have to clean up the
-		 * mess with the half-started process
+		 * 日志由 save_backend_variables 记录，但我们必须      
+		 * 清理半启动的进程。       
 		 */
 		if (!TerminateProcess(pi.hProcess, 255))
 			ereport(LOG,
@@ -4729,10 +4729,10 @@ retry:
 		CloseHandle(pi.hThread);
 		UnmapViewOfFile(param);
 		CloseHandle(paramHandle);
-		return -1;				/* log made by save_backend_variables */
+		return -1;				/* save_backend_variables 所记日志*/
 	}
 
-	/* Drop the parameter shared memory that is now inherited to the backend */
+	/* 释放现已由后端继承的参数共享内存                      */
 	if (!UnmapViewOfFile(param))
 		ereport(LOG,
 				(errmsg("could not unmap view of backend parameter file: error code %lu",
@@ -4743,15 +4743,15 @@ retry:
 						GetLastError())));
 
 	/*
-	 * Reserve the memory region used by our main shared memory segment before
-	 * we resume the child process.  Normally this should succeed, but if ASLR
-	 * is active then it might sometimes fail due to the stack or heap having
-	 * gotten mapped into that range.  In that case, just terminate the
-	 * process and retry.
+	 * 在恢复子进程之前，预留主共享内存段所用的           
+	 * 内存区域。通常应当成功，但若 ASLR 激活，              
+	 * 则有时会因栈或堆已映射进该区域而失败。             
+	 * 那种情况下，直接终止进程并重试。                
+	 *                   
 	 */
 	if (!pgwin32_ReserveSharedMemoryRegion(pi.hProcess))
 	{
-		/* pgwin32_ReserveSharedMemoryRegion already made a log entry */
+		/* pgwin32_ReserveSharedMemoryRegion 已记过日志          */
 		if (!TerminateProcess(pi.hProcess, 255))
 			ereport(LOG,
 					(errmsg_internal("could not terminate process that failed to reserve memory: error code %lu",
@@ -4767,9 +4767,9 @@ retry:
 	}
 
 	/*
-	 * Now that the backend variables are written out, we start the child
-	 * thread so it can start initializing while we set up the rest of the
-	 * parent state.
+	 * 后端变量写出之后，我们即启动子线程，            
+	 * 使其能在我们设置其余父进程状态时开始初始化。 
+	 *              
 	 */
 	if (ResumeThread(pi.hThread) == -1)
 	{
@@ -4791,9 +4791,9 @@ retry:
 	}
 
 	/*
-	 * Queue a waiter to signal when this child dies. The wait will be handled
-	 * automatically by an operating system thread pool.  The memory will be
-	 * freed by a later call to waitpid().
+	 * 排入一个等待器，在该子进程消亡时发出信号。        
+	 * 该等待将交由操作系统线程池自动处理。其内存      
+	 * 稍后由 waitpid() 释放。      
 	 */
 	childinfo = palloc(sizeof(win32_deadchild_waitinfo));
 	childinfo->procHandle = pi.hProcess;
@@ -4809,7 +4809,7 @@ retry:
 				(errmsg_internal("could not register process for wait: error code %lu",
 								 GetLastError())));
 
-	/* Don't close pi.hProcess here - waitpid() needs access to it */
+	/* 此处别关闭 pi.hProcess，waitpid() 还要用它        */
 
 	CloseHandle(pi.hThread);
 
@@ -4819,57 +4819,57 @@ retry:
 
 
 /*
- * SubPostmasterMain -- Get the fork/exec'd process into a state equivalent
- *			to what it would be if we'd simply forked on Unix, and then
- *			dispatch to the appropriate place.
+ * SubPostmasterMain——让 fork/exec 出的进程达到                 
+ *			与 Unix 上直接 fork 相当的状态，然后           
+ *			再转入相应入口。          
  *
- * The first two command line arguments are expected to be "--forkFOO"
- * (where FOO indicates which postmaster child we are to become), and
- * the name of a variables file that we can read to load data that would
- * have been inherited by fork() on Unix.  Remaining arguments go to the
- * subprocess FooMain() routine.
+ * 前两个命令行参数应为 "--forkFOO"                         
+ * （FOO 指明我们要成为哪种 postmaster 子进程），     
+ * 以及一个变量文件名，我们读取它即可加载在         
+ * Unix 上本可由 fork() 继承的数据。其余参数交给        
+ * 子进程 FooMain() 例程。
  */
 void
 SubPostmasterMain(int argc, char *argv[])
 {
 	Port		port;
 
-	/* In EXEC_BACKEND case we will not have inherited these settings */
+	/* EXEC_BACKEND 情形下我们不会继承这些设置           */
 	IsPostmasterEnvironment = true;
 	whereToSendOutput = DestNone;
 
-	/* Setup essential subsystems (to ensure elog() behaves sanely) */
+	/* 初始化基本子系统（确保 elog() 行为正常）     */
 	InitializeGUCOptions();
 
-	/* Check we got appropriate args */
+	/* 检查参数是否合适      */
 	if (argc < 3)
 		elog(FATAL, "invalid subpostmaster invocation");
 
-	/* Read in the variables file */
+	/* 读入变量文件         */
 	memset(&port, 0, sizeof(Port));
 	read_backend_variables(argv[2], &port);
 
-	/* Close the postmaster's sockets (as soon as we know them) */
+	/* 关闭 postmaster 的套接字（一旦知道就关）   */
 	ClosePostmasterPorts(strcmp(argv[1], "--forklog") == 0);
 
-	/* Setup as postmaster child */
+	/* postmaster 子进程设置*/
 	InitPostmasterChild();
 
 	/*
-	 * If appropriate, physically re-attach to shared memory segment. We want
-	 * to do this before going any further to ensure that we can attach at the
-	 * same address the postmaster used.  On the other hand, if we choose not
-	 * to re-attach, we may have other cleanup to do.
+	 * 如适用，物理性地重新挂接共享内存段。我们要       
+	 * 在做任何后续工作之前完成此事，以确保能在           
+	 * postmaster 所用的同一地址挂接。反之若选择不           
+	 * 重新挂接，可能还需别的清理。    
 	 *
-	 * If testing EXEC_BACKEND on Linux, you should run this as root before
-	 * starting the postmaster:
+	 * 若在 Linux 上测试 EXEC_BACKEND，启动 postmaster 前         
+	 * 先以 root 运行：   
 	 *
 	 * sysctl -w kernel.randomize_va_space=0
 	 *
-	 * This prevents using randomized stack and code addresses that cause the
-	 * child process's memory map to be different from the parent's, making it
-	 * sometimes impossible to attach to shared memory at the desired address.
-	 * Return the setting to its old value (usually '1' or '2') when finished.
+	 * 这可避免使用随机化的栈与代码地址——它们会使    
+	 * 子进程的内存映射与父进程不同，从而有时              
+	 * 无法在期望地址挂接共享内存。                             
+	 * 结束后把该设置改回原值（通常为 '1' 或 '2'）。        
 	 */
 	if (strcmp(argv[1], "--forkbackend") == 0 ||
 		strcmp(argv[1], "--forkavlauncher") == 0 ||
@@ -4880,53 +4880,53 @@ SubPostmasterMain(int argc, char *argv[])
 	else
 		PGSharedMemoryNoReAttach();
 
-	/* autovacuum needs this set before calling InitProcess */
+	/* autovacuum 要求在 InitProcess 之前设好此项  */
 	if (strcmp(argv[1], "--forkavlauncher") == 0)
 		AutovacuumLauncherIAm();
 	if (strcmp(argv[1], "--forkavworker") == 0)
 		AutovacuumWorkerIAm();
 
-	/* Read in remaining GUC variables */
+	/* 读入其余 GUC 变量         */
 	read_nondefault_variables();
 
 	/*
-	 * Check that the data directory looks valid, which will also check the
-	 * privileges on the data directory and update our umask and file/group
-	 * variables for creating files later.  Note: this should really be done
-	 * before we create any files or directories.
+	 * 检查数据目录是否有效，这同时会检查                 
+	 * 数据目录的权限，并更新我们的 umask 与文件/组      
+	 * 变量，供日后创建文件之用。注意：此事确实应      
+	 * 在创建任何文件或目录之前。   
 	 */
 	checkDataDir();
 
 	/*
-	 * (re-)read control file, as it contains config. The postmaster will
-	 * already have read this, but this process doesn't know about that.
+	 * （重新）读取控制文件，因为其中含有配置。      
+	 * postmaster 已读过它，但本进程并不知情。            
 	 */
 	LocalProcessControlFile(false);
 
 	/*
-	 * Reload any libraries that were preloaded by the postmaster.  Since we
-	 * exec'd this process, those libraries didn't come along with us; but we
-	 * should load them into all child processes to be consistent with the
-	 * non-EXEC_BACKEND behavior.
+	 * 重新加载 postmaster 预加载的所有库。由于我们         
+	 * 是 exec 出来的，那些库并未随之而来；但我们          
+	 * 仍应加载进所有子进程，保持与非 EXEC_BACKEND         
+	 * 情形一致。           
 	 */
 	process_shared_preload_libraries();
 
-	/* Run backend or appropriate child */
+	/* 运行后端或相应子进程   */
 	if (strcmp(argv[1], "--forkbackend") == 0)
 	{
-		Assert(argc == 3);		/* shouldn't be any more args */
+		Assert(argc == 3);		/* 不应再有任何参数   */
 
 		/*
-		 * Need to reinitialize the SSL library in the backend, since the
-		 * context structures contain function pointers and cannot be passed
-		 * through the parameter file.
+		 * 需要在后端中重新初始化 SSL 库，因为            
+		 * 上下文结构含有函数指针，无法通过参数           
+		 * 文件传递。            
 		 *
-		 * If for some reason reload fails (maybe the user installed broken
-		 * key files), soldier on without SSL; that's better than all
-		 * connections becoming impossible.
+		 * 若因某种原因重载失败（例如用户装了损坏的    
+		 * 密钥文件），那就无 SSL 硬撑；总比全部     
+		 * 连接都无法建立要好。  
 		 *
-		 * XXX should we do this in all child processes?  For the moment it's
-		 * enough to do it in backend children.
+		 * XXX 是否应在所有子进程中都这样做？目前只在     
+		 * 后端子进程中做即可。      
 		 */
 #ifdef USE_SSL
 		if (EnableSSL)
@@ -4940,27 +4940,27 @@ SubPostmasterMain(int argc, char *argv[])
 #endif
 
 		/*
-		 * Perform additional initialization and collect startup packet.
+		 * 执行额外初始化并收集启动包。                   
 		 *
-		 * We want to do this before InitProcess() for a couple of reasons: 1.
-		 * so that we aren't eating up a PGPROC slot while waiting on the
-		 * client. 2. so that if InitProcess() fails due to being out of
-		 * PGPROC slots, we have already initialized libpq and are able to
-		 * report the error to the client.
+		 * 我们希望在 InitProcess() 之前做这件事，原因有二： 
+		 * 1. 等待客户端期间不占用 PGPROC 槽位；2. 若      
+		 * InitProcess() 因 PGPROC 槽位耗尽而失败，我们也   
+		 * 已经初始化好了 libpq，能够向客户端               
+		 * 报告该错误。             
 		 */
 		BackendInitialize(&port);
 
-		/* Restore basic shared memory pointers */
+		/* 恢复基本共享内存指针       */
 		InitShmemAccess(UsedShmemSegAddr);
 
-		/* Need a PGPROC to run CreateSharedMemoryAndSemaphores */
+		/* 运行 CreateSharedMemoryAndSemaphores 需要 PGPROC */
 		InitProcess();
 
-		/* Attach process to shared data structures */
+		/* 把进程挂接到共享数据结构     */
 		CreateSharedMemoryAndSemaphores();
 
-		/* And run the backend */
-		BackendRun(&port);		/* does not return */
+		/* 然后运行后端  */
+		BackendRun(&port);		/* 不会返回    */
 	}
 	if (strcmp(argv[1], "--forkaux") == 0)
 	{
@@ -4968,61 +4968,61 @@ SubPostmasterMain(int argc, char *argv[])
 
 		Assert(argc == 4);
 
-		/* Restore basic shared memory pointers */
+		/* 恢复基本共享内存指针       */
 		InitShmemAccess(UsedShmemSegAddr);
 
-		/* Need a PGPROC to run CreateSharedMemoryAndSemaphores */
+		/* 运行 CreateSharedMemoryAndSemaphores 需要 PGPROC */
 		InitAuxiliaryProcess();
 
-		/* Attach process to shared data structures */
+		/* 把进程挂接到共享数据结构     */
 		CreateSharedMemoryAndSemaphores();
 
 		auxtype = atoi(argv[3]);
-		AuxiliaryProcessMain(auxtype);	/* does not return */
+		AuxiliaryProcessMain(auxtype);	/* 不会返回    */
 	}
 	if (strcmp(argv[1], "--forkavlauncher") == 0)
 	{
-		/* Restore basic shared memory pointers */
+		/* 恢复基本共享内存指针       */
 		InitShmemAccess(UsedShmemSegAddr);
 
-		/* Need a PGPROC to run CreateSharedMemoryAndSemaphores */
+		/* 运行 CreateSharedMemoryAndSemaphores 需要 PGPROC */
 		InitProcess();
 
-		/* Attach process to shared data structures */
+		/* 把进程挂接到共享数据结构     */
 		CreateSharedMemoryAndSemaphores();
 
-		AutoVacLauncherMain(argc - 2, argv + 2);	/* does not return */
+		AutoVacLauncherMain(argc - 2, argv + 2);	/* 不会返回    */
 	}
 	if (strcmp(argv[1], "--forkavworker") == 0)
 	{
-		/* Restore basic shared memory pointers */
+		/* 恢复基本共享内存指针       */
 		InitShmemAccess(UsedShmemSegAddr);
 
-		/* Need a PGPROC to run CreateSharedMemoryAndSemaphores */
+		/* 运行 CreateSharedMemoryAndSemaphores 需要 PGPROC */
 		InitProcess();
 
-		/* Attach process to shared data structures */
+		/* 把进程挂接到共享数据结构     */
 		CreateSharedMemoryAndSemaphores();
 
-		AutoVacWorkerMain(argc - 2, argv + 2);	/* does not return */
+		AutoVacWorkerMain(argc - 2, argv + 2);	/* 不会返回    */
 	}
 	if (strncmp(argv[1], "--forkbgworker=", 15) == 0)
 	{
 		int			shmem_slot;
 
-		/* do this as early as possible; in particular, before InitProcess() */
+		/* 尽早做这件事；尤其是在 InitProcess() 之前            */
 		IsBackgroundWorker = true;
 
-		/* Restore basic shared memory pointers */
+		/* 恢复基本共享内存指针       */
 		InitShmemAccess(UsedShmemSegAddr);
 
-		/* Need a PGPROC to run CreateSharedMemoryAndSemaphores */
+		/* 运行 CreateSharedMemoryAndSemaphores 需要 PGPROC */
 		InitProcess();
 
-		/* Attach process to shared data structures */
+		/* 把进程挂接到共享数据结构     */
 		CreateSharedMemoryAndSemaphores();
 
-		/* Fetch MyBgworkerEntry from shared memory */
+		/* 从共享内存取 MyBgworkerEntry       */
 		shmem_slot = atoi(argv[1] + 15);
 		MyBgworkerEntry = BackgroundWorkerEntry(shmem_slot);
 
@@ -5030,20 +5030,20 @@ SubPostmasterMain(int argc, char *argv[])
 	}
 	if (strcmp(argv[1], "--forklog") == 0)
 	{
-		/* Do not want to attach to shared memory */
+		/* 不希望挂接共享内存            */
 
-		SysLoggerMain(argc, argv);	/* does not return */
+		SysLoggerMain(argc, argv);	/* 不会返回    */
 	}
 
-	abort();					/* shouldn't get here */
+	abort();					/* 不应到达此处 */
 }
 #endif							/* EXEC_BACKEND */
 
 
 /*
- * ExitPostmaster -- cleanup
+ * ExitPostmaster 清理    
  *
- * Do NOT call exit() directly --- always go through here!
+ * 切勿直接调用 exit() —— 一律经由此处！ 
  */
 static void
 ExitPostmaster(int status)
@@ -5051,11 +5051,11 @@ ExitPostmaster(int status)
 #ifdef HAVE_PTHREAD_IS_THREADED_NP
 
 	/*
-	 * There is no known cause for a postmaster to become multithreaded after
-	 * startup.  However, we might reach here via an error exit before
-	 * reaching the test in PostmasterMain, so provide the same hint as there.
-	 * This message uses LOG level, because an unclean shutdown at this point
-	 * would usually not look much different from a clean shutdown.
+	 * 尚无已知原因会使 postmaster 在启动后变成多线程。    
+	 * 不过我们可能经由错误退出，在到达 PostmasterMain
+	 * 中的测试前走到这里，故给出与那里相同的提示。     
+	 * 此消息使用 LOG 级别，因为此时若非正常关闭，        
+	 * 通常与正常关闭看起来没有太大差别。         
 	 */
 	if (pthread_is_threaded_np() != 0)
 		ereport(LOG,
@@ -5064,21 +5064,21 @@ ExitPostmaster(int status)
 				 errhint("Set the LC_ALL environment variable to a valid locale.")));
 #endif
 
-	/* should cleanup shared memory and kill all backends */
+	/* 应当清理共享内存并终止所有后端      */
 
 	/*
-	 * Not sure of the semantics here.  When the Postmaster dies, should the
-	 * backends all be killed? probably not.
+	 * 此处语义尚不明确。当 postmaster 死亡时，是否         
+	 * 应终止所有后端？不必。    
 	 *
-	 * MUST		-- vadim 05-10-1999
+	 * 必须-- vadim 05-10-1999
 	 */
 
 	proc_exit(status);
 }
 
 /*
- * Handle pmsignal conditions representing requests from backends,
- * and check for promote and logrotate requests from pg_ctl.
+ * 处理代表后端请求的 pmsignal 条件，                 
+ * 并检查来自 pg_ctl 的提升与日志轮转请求。 
  */
 static void
 process_pm_pmsignal(void)
@@ -5089,30 +5089,30 @@ process_pm_pmsignal(void)
 			(errmsg_internal("postmaster received pmsignal signal")));
 
 	/*
-	 * RECOVERY_STARTED and BEGIN_HOT_STANDBY signals are ignored in
-	 * unexpected states. If the startup process quickly starts up, completes
-	 * recovery, exits, we might process the death of the startup process
-	 * first. We don't want to go back to recovery in that case.
+	 * 在意外状态下，RECOVERY_STARTED 与                    
+	 * BEGIN_HOT_STANDBY 信号会被忽略。若 startup 进程             
+	 * 快速启动、完成恢复后退出，则可能先处理 startup 
+	 * 进程死亡。此时我们不想回到恢复状态。   
 	 */
 	if (CheckPostmasterSignal(PMSIGNAL_RECOVERY_STARTED) &&
 		pmState == PM_STARTUP && Shutdown == NoShutdown)
 	{
-		/* WAL redo has started. We're out of reinitialization. */
+		/* WAL 重做已开始，已脱离重新初始化。    */
 		FatalError = false;
 		AbortStartTime = 0;
 
 		/*
-		 * Start the archiver if we're responsible for (re-)archiving received
-		 * files.
+		 * 如果我们负责（重新）归档已接收的文件，则启动 
+		 *       
 		 */
 		Assert(PgArchPID == 0);
 		if (XLogArchivingAlways())
 			PgArchPID = StartArchiver();
 
 		/*
-		 * If we aren't planning to enter hot standby mode later, treat
-		 * RECOVERY_STARTED as meaning we're out of startup, and report status
-		 * accordingly.
+		 * 如果我们不打算稍后进入热备模式，则将      
+		 * RECOVERY_STARTED 视为已脱离启动，并据此报告           
+		 * 状态。   
 		 */
 		if (!EnableHotStandby)
 		{
@@ -5131,7 +5131,7 @@ process_pm_pmsignal(void)
 		ereport(LOG,
 				(errmsg("database system is ready to accept read-only connections")));
 
-		/* Report status */
+		/* 报告状态  */
 		AddToDataDirLockFile(LOCK_FILE_LINE_PM_STATUS, PM_STATUS_READY);
 #ifdef USE_SYSTEMD
 		sd_notify(0, "READY=1");
@@ -5140,14 +5140,14 @@ process_pm_pmsignal(void)
 		pmState = PM_HOT_STANDBY;
 		connsAllowed = true;
 
-		/* Some workers may be scheduled to start now */
+		/* 某些 worker 现在可能已排定启动  */
 		StartWorkerNeeded = true;
 	}
 
-	/* Process background worker state changes. */
+	/* 处理后台 worker 的状态变化。   */
 	if (CheckPostmasterSignal(PMSIGNAL_BACKGROUND_WORKER_CHANGE))
 	{
-		/* Accept new worker requests only if not stopping. */
+		/* 未停止时才接受新的 worker 请求。     */
 		BackgroundWorkerStateChange(pmState < PM_STOP_BACKENDS);
 		StartWorkerNeeded = true;
 	}
@@ -5155,7 +5155,7 @@ process_pm_pmsignal(void)
 	if (StartWorkerNeeded || HaveCrashedWorker)
 		maybe_start_bgworkers();
 
-	/* Tell syslogger to rotate logfile if requested */
+	/* 请求时通知 syslogger 轮转日志文件  */
 	if (SysLoggerPID != 0)
 	{
 		if (CheckLogrotateSignal())
@@ -5173,13 +5173,13 @@ process_pm_pmsignal(void)
 		Shutdown <= SmartShutdown && pmState < PM_STOP_BACKENDS)
 	{
 		/*
-		 * Start one iteration of the autovacuum daemon, even if autovacuuming
-		 * is nominally not enabled.  This is so we can have an active defense
-		 * against transaction ID wraparound.  We set a flag for the main loop
-		 * to do it rather than trying to do it here --- this is because the
-		 * autovac process itself may send the signal, and we want to handle
-		 * that by launching another iteration as soon as the current one
-		 * completes.
+		 * 即使名义上未启用 autovacuum，也启动一轮              
+		 * autovacuum 守护进程迭代。这是为了能对事务 ID        
+		 * 回卷保持主动防御。我们设置一个标志，让主循环 
+		 * 去执行，而不是在此处尝试执行 —— 这是因为   
+		 * autovac 进程自身可能发送该信号，而我们希望在   
+		 * 当前一轮完成后尽快启动另一轮来处理它。     
+		 *           
 		 */
 		start_autovac_launcher = true;
 	}
@@ -5187,27 +5187,27 @@ process_pm_pmsignal(void)
 	if (CheckPostmasterSignal(PMSIGNAL_START_AUTOVAC_WORKER) &&
 		Shutdown <= SmartShutdown && pmState < PM_STOP_BACKENDS)
 	{
-		/* The autovacuum launcher wants us to start a worker process. */
+		/* autovacuum launcher 要求我们启动 worker 进程。     */
 		StartAutovacuumWorker();
 	}
 
 	if (CheckPostmasterSignal(PMSIGNAL_START_WALRECEIVER))
 	{
-		/* Startup Process wants us to start the walreceiver process. */
-		/* Start immediately if possible, else remember request for later. */
+		/* startup 进程要求我们启动 walreceiver 进程。     */
+		/* 如可能则立即启动，否则记住该请求稍后处理。 */
 		WalReceiverRequested = true;
 		MaybeStartWalReceiver();
 	}
 
 	/*
-	 * Try to advance postmaster's state machine, if a child requests it.
+	 * 如果子进程有请求，尝试推进 postmaster 的状态机。
 	 *
-	 * Be careful about the order of this action relative to this function's
-	 * other actions.  Generally, this should be after other actions, in case
-	 * they have effects PostmasterStateMachine would need to know about.
-	 * However, we should do it before the CheckPromoteSignal step, which
-	 * cannot have any (immediate) effect on the state machine, but does
-	 * depend on what state we're in now.
+	 * 需要注意此操作相对于本函数其他操作的顺序。      
+	 * 一般来说，它应放在其他操作之后，以防其他操作    
+	 * 产生了 PostmasterStateMachine 需要知晓的影响。         
+	 * 不过应在 CheckPromoteSignal 步骤之前执行，             
+	 * 该步骤对状态机没有（即时）影响，但确实依赖  
+	 * 我们当前所处的状态。    
 	 */
 	if (CheckPostmasterSignal(PMSIGNAL_ADVANCE_STATE_MACHINE))
 	{
@@ -5220,27 +5220,27 @@ process_pm_pmsignal(void)
 		CheckPromoteSignal())
 	{
 		/*
-		 * Tell startup process to finish recovery.
+		 * 通知 startup 进程完成恢复。    
 		 *
-		 * Leave the promote signal file in place and let the Startup process
-		 * do the unlink.
+		 * 保留提升信号文件不删，交由 startup 进程            
+		 * 去删除。  
 		 */
 		signal_child(StartupPID, SIGUSR2);
 	}
 }
 
 /*
- * SIGTERM while processing startup packet.
+ * 处理启动包时收到 SIGTERM。     
  *
- * Running proc_exit() from a signal handler would be quite unsafe.
- * However, since we have not yet touched shared memory, we can just
- * pull the plug and exit without running any atexit handlers.
+ * 从信号处理器中调用 proc_exit() 相当不安全。      
+ * 不过由于我们尚未触碰共享内存，可以直接        
+ * 切断退出，不运行任何 atexit 处理器。         
  *
- * One might be tempted to try to send a message, or log one, indicating
- * why we are disconnecting.  However, that would be quite unsafe in itself.
- * Also, it seems undesirable to provide clues about the database's state
- * to a client that has not yet completed authentication, or even sent us
- * a startup packet.
+ * 有人可能想尝试发送一条消息，或记录一条日志，   
+ * 来说明我们为何断开连接。然而这本身也相当不安全。 
+ * 另外，向尚未完成认证、甚至尚未给我们发送          
+ * 启动包的客户端，似乎都不宜透露数据库状态。       
+ *                  
  */
 static void
 process_startup_packet_die(SIGNAL_ARGS)
@@ -5249,13 +5249,13 @@ process_startup_packet_die(SIGNAL_ARGS)
 }
 
 /*
- * Dummy signal handler
+ * 空信号处理器  
  *
- * We use this for signals that we don't actually use in the postmaster,
- * but we do use in backends.  If we were to SIG_IGN such signals in the
- * postmaster, then a newly started backend might drop a signal that arrives
- * before it's able to reconfigure its signal processing.  (See notes in
- * tcop/postgres.c.)
+ * 它用于那些 postmaster 实际不用、而后端会用的信号。
+ * 如果 postmaster 对这类信号置 SIG_IGN，                      
+ * 那么新启动的后端可能会丢失在其重新配置信号处理    
+ * 之前到达的信号。（参见 tcop/postgres.c 中的说明。） 
+ *                  
  */
 static void
 dummy_handler(SIGNAL_ARGS)
@@ -5263,8 +5263,8 @@ dummy_handler(SIGNAL_ARGS)
 }
 
 /*
- * Timeout while processing startup packet.
- * As for process_startup_packet_die(), we exit via _exit(1).
+ * 处理启动包时超时。             
+ * 同 process_startup_packet_die()，经 _exit(1) 退出。 
  */
 static void
 StartupPacketTimeoutHandler(void)
@@ -5274,7 +5274,7 @@ StartupPacketTimeoutHandler(void)
 
 
 /*
- * Generate a random cancel key.
+ * 生成随机取消键。     
  */
 static bool
 RandomCancelKey(int32 *cancel_key)
@@ -5283,8 +5283,8 @@ RandomCancelKey(int32 *cancel_key)
 }
 
 /*
- * Count up number of child processes of specified types (dead_end children
- * are always excluded).
+ * 统计指定类型的子进程数量（dead_end 子进程               
+ * 总是被排除）。
  */
 static int
 CountChildren(int target)
@@ -5300,14 +5300,14 @@ CountChildren(int target)
 			continue;
 
 		/*
-		 * Since target == BACKEND_TYPE_ALL is the most common case, we test
-		 * it first and avoid touching shared memory for every child.
+		 * 由于 target == BACKEND_TYPE_ALL 是最常见情形，          
+		 * 先测它，避免每个子进程都触碰共享内存。 
 		 */
 		if (target != BACKEND_TYPE_ALL)
 		{
 			/*
-			 * Assign bkend_type for any recently announced WAL Sender
-			 * processes.
+			 * 为最近宣告的 WAL Sender 进程指定 bkend_type  
+			 *           
 			 */
 			if (bp->bkend_type == BACKEND_TYPE_NORMAL &&
 				IsPostmasterChildWalSender(bp->child_slot))
@@ -5324,13 +5324,13 @@ CountChildren(int target)
 
 
 /*
- * StartChildProcess -- start an auxiliary process for the postmaster
+ * StartChildProcess —— 为 postmaster 启动一个辅助进程  
  *
- * "type" determines what kind of child will be started.  All child types
- * initially go to AuxiliaryProcessMain, which will handle common setup.
+ * "type" 决定启动哪种子进程。所有类型的子进程         
+ * 最初都进入 AuxiliaryProcessMain，由它处理公共设置。   
  *
- * Return value of StartChildProcess is subprocess' PID, or 0 if failed
- * to start subprocess.
+ * StartChildProcess 的返回值是子进程的 PID，若启动       
+ * 失败则为 0。   
  */
 static pid_t
 StartChildProcess(AuxProcType type)
@@ -5344,11 +5344,11 @@ StartChildProcess(AuxProcType type)
 		char		typebuf[32];
 
 		/*
-		 * Set up command-line arguments for subprocess
+		 * 为子进程设置命令行参数           
 		 */
 		av[ac++] = "postgres";
 		av[ac++] = "--forkaux";
-		av[ac++] = NULL;		/* filled in by postmaster_forkexec */
+		av[ac++] = NULL;		/* 由 postmaster_forkexec 填入   */
 
 		snprintf(typebuf, sizeof(typebuf), "%d", type);
 		av[ac++] = typebuf;
@@ -5361,25 +5361,25 @@ StartChildProcess(AuxProcType type)
 #else							/* !EXEC_BACKEND */
 	pid = fork_process();
 
-	if (pid == 0)				/* child */
+	if (pid == 0)				/* 子端*/
 	{
 		InitPostmasterChild();
 
-		/* Close the postmaster's sockets */
+		/* 关闭 postmaster 的套接字 */
 		ClosePostmasterPorts(false);
 
-		/* Release postmaster's working memory context */
+		/* 释放 postmaster 的工作内存上下文  */
 		MemoryContextSwitchTo(TopMemoryContext);
 		MemoryContextDelete(PostmasterContext);
 		PostmasterContext = NULL;
 
-		AuxiliaryProcessMain(type); /* does not return */
+		AuxiliaryProcessMain(type); /* 不返回       */
 	}
 #endif							/* EXEC_BACKEND */
 
 	if (pid < 0)
 	{
-		/* in parent, fork failed */
+		/* 父进程 fork 失败  */
 		int			save_errno = errno;
 
 		errno = save_errno;
@@ -5416,8 +5416,8 @@ StartChildProcess(AuxProcType type)
 		}
 
 		/*
-		 * fork failure is fatal during startup, but there's no need to choke
-		 * immediately if starting other child types fails.
+		 * 启动期间 fork 失败是致命的，但若其他类型的      
+		 * 子进程启动失败，则无需立即崩溃。
 		 */
 		if (type == StartupProcess)
 			ExitPostmaster(1);
@@ -5425,19 +5425,19 @@ StartChildProcess(AuxProcType type)
 	}
 
 	/*
-	 * in parent, successful fork
+	 * 父进程中 fork 成功  
 	 */
 	return pid;
 }
 
 /*
  * StartAutovacuumWorker
- *		Start an autovac worker process.
+ *		启动 autovac worker 进程。 
  *
- * This function is here because it enters the resulting PID into the
- * postmaster's private backends list.
+ * 此函数放在这里，是因为它会把得到的 PID 填入    
+ * postmaster 私有的后端列表。
  *
- * NB -- this code very roughly matches BackendStartup.
+ * 注意：此代码与 BackendStartup 大致相似。
  */
 static void
 StartAutovacuumWorker(void)
@@ -5445,19 +5445,19 @@ StartAutovacuumWorker(void)
 	Backend    *bn;
 
 	/*
-	 * If not in condition to run a process, don't try, but handle it like a
-	 * fork failure.  This does not normally happen, since the signal is only
-	 * supposed to be sent by autovacuum launcher when it's OK to do it, but
-	 * we have to check to avoid race-condition problems during DB state
-	 * changes.
+	 * 如果当前条件不允许运行进程，不要尝试，而是      
+	 * 像对待 fork 失败那样处理。这通常不会发生，因为    
+	 * 该信号只应在时机合适时由 autovacuum launcher 发送，   
+	 * 但仍须检查以避免数据库状态变更期间的竞态     
+	 *         
 	 */
 	if (canAcceptConnections(BACKEND_TYPE_AUTOVAC) == CAC_OK)
 	{
 		/*
-		 * Compute the cancel key that will be assigned to this session. We
-		 * probably don't need cancel keys for autovac workers, but we'd
-		 * better have something random in the field to prevent unfriendly
-		 * people from sending cancels to them.
+		 * 计算将指派给本会话的取消键。我们                
+		 * 对 autovac worker 可能并不需要取消键，但         
+		 * 该字段中最好有些随机值，以防不怀好意者      
+		 * 向它们发送取消请求。      
 		 */
 		if (!RandomCancelKey(&MyCancelKey))
 		{
@@ -5472,7 +5472,7 @@ StartAutovacuumWorker(void)
 		{
 			bn->cancel_key = MyCancelKey;
 
-			/* Autovac workers are not dead_end and need a child slot */
+			/* autovac worker 非 dead_end，需要子进程槽位    */
 			bn->dead_end = false;
 			bn->child_slot = MyPMChildSlot = AssignPostmasterChildSlot();
 			bn->bgworker_notify = false;
@@ -5485,7 +5485,7 @@ StartAutovacuumWorker(void)
 #ifdef EXEC_BACKEND
 				ShmemBackendArrayAdd(bn);
 #endif
-				/* all OK */
+				/* 正常 */
 				return;
 			}
 
@@ -5503,13 +5503,13 @@ StartAutovacuumWorker(void)
 	}
 
 	/*
-	 * Report the failure to the launcher, if it's running.  (If it's not, we
-	 * might not even be connected to shared memory, so don't try to call
-	 * AutoVacWorkerFailed.)  Note that we also need to signal it so that it
-	 * responds to the condition, but we don't do that here, instead waiting
-	 * for ServerLoop to do it.  This way we avoid a ping-pong signaling in
-	 * quick succession between the autovac launcher and postmaster in case
-	 * things get ugly.
+	 * 如果 launcher 在运行，则向其报告此次失败。（如果   
+	 * 未在运行，我们甚至可能尚未连接到共享内存，   
+	 * 所以不要尝试调用 AutoVacWorkerFailed。）注意             
+	 * 我们还需要向它发信号使其响应这一状况，但此处   
+	 * 并不这么做，而是等 ServerLoop 去做。这样可避免     
+	 * 在情况变糟时 autovac launcher 与 postmaster 间快速        
+	 * 连续信令。 
 	 */
 	if (AutoVacPID != 0)
 	{
@@ -5520,15 +5520,15 @@ StartAutovacuumWorker(void)
 
 /*
  * MaybeStartWalReceiver
- *		Start the WAL receiver process, if not running and our state allows.
+ *		若未运行且状态允许，则启动 WAL 接收器进程。      
  *
- * Note: if WalReceiverPID is already nonzero, it might seem that we should
- * clear WalReceiverRequested.  However, there's a race condition if the
- * walreceiver terminates and the startup process immediately requests a new
- * one: it's quite possible to get the signal for the request before reaping
- * the dead walreceiver process.  Better to risk launching an extra
- * walreceiver than to miss launching one we need.  (The walreceiver code
- * has logic to recognize that it should go away if not needed.)
+ * 注意：如果 WalReceiverPID 已非零，看似我们应当           
+ * 清除 WalReceiverRequested。然而，如果 walreceiver            
+ * 终止且 startup 进程随即请求新进程，就存在竞态：       
+ * 完全可能在回收已死亡 walreceiver 进程之前就收到         
+ * 该请求的信号。宁可冒险多启动一个 walreceiver， 
+ * 也不要错过启动所需的那一个。（walreceiver 代码       
+ * 有逻辑识别出自己应在不需要时退出。）       
  */
 static void
 MaybeStartWalReceiver(void)
@@ -5541,13 +5541,13 @@ MaybeStartWalReceiver(void)
 		WalReceiverPID = StartWalReceiver();
 		if (WalReceiverPID != 0)
 			WalReceiverRequested = false;
-		/* else leave the flag set, so we'll try again later */
+		/* 否则保持标志置位，以便稍后再试     */
 	}
 }
 
 
 /*
- * Create the opts file
+ * 创建 opts 文件  
  */
 static bool
 CreateOptsFile(int argc, char *argv[], char *fullprogname)
@@ -5585,13 +5585,13 @@ CreateOptsFile(int argc, char *argv[], char *fullprogname)
 /*
  * MaxLivePostmasterChildren
  *
- * This reports the number of entries needed in per-child-process arrays
- * (the PMChildFlags array, and if EXEC_BACKEND the ShmemBackendArray).
- * These arrays include regular backends, autovac workers, walsenders
- * and background workers, but not special children nor dead_end children.
- * This allows the arrays to have a fixed maximum size, to wit the same
- * too-many-children limit enforced by canAcceptConnections().  The exact value
- * isn't too critical as long as it's more than MaxBackends.
+ * 此函数报告每个子进程数组所需的条目数               
+ * （PMChildFlags 数组；若为 EXEC_BACKEND 还有                 
+ * ShmemBackendArray）。这些数组涵盖普通后端、          
+ * autovac worker 和后台 worker，但不包括特殊子进程与       
+ * dead_end 子进程。这使数组可以有固定的最大尺寸，  
+ * 即 canAcceptConnections() 强制的同一子进程过多上限。          
+ * 具体值不太关键，只要大于 MaxBackends。      
  */
 int
 MaxLivePostmasterChildren(void)
@@ -5601,26 +5601,26 @@ MaxLivePostmasterChildren(void)
 }
 
 /*
- * Connect background worker to a database.
+ * 将后台 worker 连接到数据库。  
  */
 void
 BackgroundWorkerInitializeConnection(const char *dbname, const char *username, uint32 flags)
 {
 	BackgroundWorker *worker = MyBgworkerEntry;
 
-	/* XXX is this the right errcode? */
+	/* XXX 这个 errcode 对吗？   */
 	if (!(worker->bgw_flags & BGWORKER_BACKEND_DATABASE_CONNECTION))
 		ereport(FATAL,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg("database connection requirement not indicated during registration")));
 
-	InitPostgres(dbname, InvalidOid,	/* database to connect to */
-				 username, InvalidOid,	/* role to connect as */
-				 false,			/* never honor session_preload_libraries */
-				 (flags & BGWORKER_BYPASS_ALLOWCONN) != 0,	/* ignore datallowconn? */
-				 NULL);			/* no out_dbname */
+	InitPostgres(dbname, InvalidOid,	/* 要连接的数据库  */
+				 username, InvalidOid,	/* 连接所用角色 */
+				 false,			/* 从不遵循 session_preload_libraries*/
+				 (flags & BGWORKER_BYPASS_ALLOWCONN) != 0,	/* 忽略 datallowconn? */
+				 NULL);			/* 无 out_dbname*/
 
-	/* it had better not gotten out of "init" mode yet */
+	/* 它最好尚未脱离 "init" 模式             */
 	if (!IsInitProcessingMode())
 		ereport(ERROR,
 				(errmsg("invalid processing mode in background worker")));
@@ -5628,26 +5628,26 @@ BackgroundWorkerInitializeConnection(const char *dbname, const char *username, u
 }
 
 /*
- * Connect background worker to a database using OIDs.
+ * 使用 OID 将后台 worker 连接到数据库。  
  */
 void
 BackgroundWorkerInitializeConnectionByOid(Oid dboid, Oid useroid, uint32 flags)
 {
 	BackgroundWorker *worker = MyBgworkerEntry;
 
-	/* XXX is this the right errcode? */
+	/* XXX 这个 errcode 对吗？   */
 	if (!(worker->bgw_flags & BGWORKER_BACKEND_DATABASE_CONNECTION))
 		ereport(FATAL,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg("database connection requirement not indicated during registration")));
 
-	InitPostgres(NULL, dboid,	/* database to connect to */
-				 NULL, useroid, /* role to connect as */
-				 false,			/* never honor session_preload_libraries */
-				 (flags & BGWORKER_BYPASS_ALLOWCONN) != 0,	/* ignore datallowconn? */
-				 NULL);			/* no out_dbname */
+	InitPostgres(NULL, dboid,	/* 要连接的数据库  */
+				 NULL, useroid, /* 连接所用角色 */
+				 false,			/* 从不遵循 session_preload_libraries*/
+				 (flags & BGWORKER_BYPASS_ALLOWCONN) != 0,	/* 忽略 datallowconn? */
+				 NULL);			/* 无 out_dbname*/
 
-	/* it had better not gotten out of "init" mode yet */
+	/* 它最好尚未脱离 "init" 模式             */
 	if (!IsInitProcessingMode())
 		ereport(ERROR,
 				(errmsg("invalid processing mode in background worker")));
@@ -5655,7 +5655,7 @@ BackgroundWorkerInitializeConnectionByOid(Oid dboid, Oid useroid, uint32 flags)
 }
 
 /*
- * Block/unblock signals in a background worker
+ * 阻塞/解除阻塞后台 worker 的信号  
  */
 void
 BackgroundWorkerBlockSignals(void)
@@ -5681,7 +5681,7 @@ bgworker_forkexec(int shmem_slot)
 
 	av[ac++] = "postgres";
 	av[ac++] = forkav;
-	av[ac++] = NULL;			/* filled in by postmaster_forkexec */
+	av[ac++] = NULL;			/* 由 postmaster_forkexec 填入   */
 	av[ac] = NULL;
 
 	Assert(ac < lengthof(av));
@@ -5691,13 +5691,13 @@ bgworker_forkexec(int shmem_slot)
 #endif
 
 /*
- * Start a new bgworker.
- * Starting time conditions must have been checked already.
+ * 启动新 bgworker。
+ * 启动时机条件必须已经检查过。              
  *
- * Returns true on success, false on failure.
- * In either case, update the RegisteredBgWorker's state appropriately.
+ * 成功返回 true，失败返回 false。 
+ * 两种情况下都要适当更新 RegisteredBgWorker 的状态。   
  *
- * This code is heavily based on autovacuum.c, q.v.
+ * 此代码大量借鉴自 autovacuum.c。        
  */
 static bool
 do_start_bgworker(RegisteredBgWorker *rw)
@@ -5707,14 +5707,14 @@ do_start_bgworker(RegisteredBgWorker *rw)
 	Assert(rw->rw_pid == 0);
 
 	/*
-	 * Allocate and assign the Backend element.  Note we must do this before
-	 * forking, so that we can handle failures (out of memory or child-process
-	 * slots) cleanly.
+	 * 分配并指派 Backend 元素。注意必须在 fork 之前         
+	 * 完成，以便能干净地处理失败（内存耗尽或子进程     
+	 * 槽位）。   
 	 *
-	 * Treat failure as though the worker had crashed.  That way, the
-	 * postmaster will wait a bit before attempting to start it again; if we
-	 * tried again right away, most likely we'd find ourselves hitting the
-	 * same resource-exhaustion condition.
+	 * 把失败当作该 worker 已崩溃来处理。这样，      
+	 * postmaster 在再次尝试启动它之前会先等待片刻；       
+	 * 如果我们立刻重试，多半会再次撞上同样的          
+	 * 资源耗尽状况。              
 	 */
 	if (!assign_backendlist_entry(rw))
 	{
@@ -5733,50 +5733,50 @@ do_start_bgworker(RegisteredBgWorker *rw)
 #endif
 	{
 		case -1:
-			/* in postmaster, fork failed ... */
+			/* postmaster 中 fork 失败…  */
 			ereport(LOG,
 					(errmsg("could not fork worker process: %m")));
-			/* undo what assign_backendlist_entry did */
+			/* 撤销 assign_backendlist_entry 操作 */
 			ReleasePostmasterChildSlot(rw->rw_child_slot);
 			rw->rw_child_slot = 0;
 			free(rw->rw_backend);
 			rw->rw_backend = NULL;
-			/* mark entry as crashed, so we'll try again later */
+			/* 标记条目为已崩溃，稍后重试         */
 			rw->rw_crashed_at = GetCurrentTimestamp();
 			break;
 
 #ifndef EXEC_BACKEND
 		case 0:
-			/* in postmaster child ... */
+			/* postmaster 子进程中 */
 			InitPostmasterChild();
 
-			/* Close the postmaster's sockets */
+			/* 关闭 postmaster 的套接字 */
 			ClosePostmasterPorts(false);
 
 			/*
-			 * Before blowing away PostmasterContext, save this bgworker's
-			 * data where it can find it.
+			 * 在销毁 PostmasterContext 之前，先保存此 bgworker 
+			 * 的数据供其取用。  
 			 */
 			MyBgworkerEntry = (BackgroundWorker *)
 				MemoryContextAlloc(TopMemoryContext, sizeof(BackgroundWorker));
 			memcpy(MyBgworkerEntry, &rw->rw_worker, sizeof(BackgroundWorker));
 
-			/* Release postmaster's working memory context */
+			/* 释放 postmaster 的工作内存上下文  */
 			MemoryContextSwitchTo(TopMemoryContext);
 			MemoryContextDelete(PostmasterContext);
 			PostmasterContext = NULL;
 
 			StartBackgroundWorker();
 
-			exit(1);			/* should not get here */
+			exit(1);			/* 不应到达此处  */
 			break;
 #endif
 		default:
-			/* in postmaster, fork successful ... */
+			/* postmaster 中 fork 成功…      */
 			rw->rw_pid = worker_pid;
 			rw->rw_backend->pid = rw->rw_pid;
 			ReportBackgroundWorkerPID(rw);
-			/* add new worker to lists of backends */
+			/* 将新 worker 加入后端列表    */
 			dlist_push_head(&BackendList, &rw->rw_backend->elem);
 #ifdef EXEC_BACKEND
 			ShmemBackendArrayAdd(rw->rw_backend);
@@ -5788,8 +5788,8 @@ do_start_bgworker(RegisteredBgWorker *rw)
 }
 
 /*
- * Does the current postmaster state require starting a worker with the
- * specified start_time?
+ * 当前 postmaster 状态是否要求以指定的启动时间        
+ * 启动 worker？     
  */
 static bool
 bgworker_should_start_now(BgWorkerStartTime start_time)
@@ -5826,12 +5826,12 @@ bgworker_should_start_now(BgWorkerStartTime start_time)
 }
 
 /*
- * Allocate the Backend struct for a connected background worker, but don't
- * add it to the list of backends just yet.
+ * 为已连接的后台 worker 分配 Backend 结构体，但暂时       
+ * 不要将其加入后端列表。       
  *
- * On failure, return false without changing any worker state.
+ * 失败时返回 false，且不改变任何 worker 状态。
  *
- * Some info from the Backend is copied into the passed rw.
+ * Backend 的部分信息会复制到传入的 rw 中。  
  */
 static bool
 assign_backendlist_entry(RegisteredBgWorker *rw)
@@ -5839,9 +5839,9 @@ assign_backendlist_entry(RegisteredBgWorker *rw)
 	Backend    *bn;
 
 	/*
-	 * Check that database state allows another connection.  Currently the
-	 * only possible failure is CAC_TOOMANY, so we just log an error message
-	 * based on that rather than checking the error code precisely.
+	 * 检查数据库状态是否允许再建立一个连接。当前    
+	 * 唯一可能的失败是 CAC_TOOMANY，所以我们只据此         
+	 * 记录一条错误消息，而不精确检查错误码。   
 	 */
 	if (canAcceptConnections(BACKEND_TYPE_BGWORKER) != CAC_OK)
 	{
@@ -5852,10 +5852,10 @@ assign_backendlist_entry(RegisteredBgWorker *rw)
 	}
 
 	/*
-	 * Compute the cancel key that will be assigned to this session. We
-	 * probably don't need cancel keys for background workers, but we'd better
-	 * have something random in the field to prevent unfriendly people from
-	 * sending cancels to them.
+	 * 计算将指派给本会话的取消键。我们                
+	 * 对后台 worker 可能并不需要取消键，但该字段中         
+	 * 最好有些随机值，以防不怀好意者                       
+	 * 向其发取消请求。
 	 */
 	if (!RandomCancelKey(&MyCancelKey))
 	{
@@ -5887,15 +5887,15 @@ assign_backendlist_entry(RegisteredBgWorker *rw)
 }
 
 /*
- * If the time is right, start background worker(s).
+ * 时机一到就启动后台工作进程。       
  *
- * As a side effect, the bgworker control variables are set or reset
- * depending on whether more workers may need to be started.
+ * 作为副作用，bgworker 控制变量会被设置或复位，  
+ * 视是否还需启动更多工作进程而定。         
  *
- * We limit the number of workers started per call, to avoid consuming the
- * postmaster's attention for too long when many such requests are pending.
- * As long as StartWorkerNeeded is true, ServerLoop will not block and will
- * call this function again after dealing with any other issues.
+ * 我们限制每次调用启动的 worker 数量，以免在            
+ * 大量此类请求待处理时占用 postmaster 太久的注意力。   
+ * 只要 StartWorkerNeeded 为真，ServerLoop 就不会阻塞，         
+ * 而会在处理完其他事务后再次调用本函数。    
  */
 static void
 maybe_start_bgworkers(void)
@@ -5906,8 +5906,8 @@ maybe_start_bgworkers(void)
 	slist_mutable_iter iter;
 
 	/*
-	 * During crash recovery, we have no need to be called until the state
-	 * transition out of recovery.
+	 * 崩溃恢复期间，在状态脱离恢复之前，                
+	 * 无需调用本函数。   
 	 */
 	if (FatalError)
 	{
@@ -5916,7 +5916,7 @@ maybe_start_bgworkers(void)
 		return;
 	}
 
-	/* Don't need to be called again unless we find a reason for it below */
+	/* 除非在下面找到理由，否则无需再次被调用。       */
 	StartWorkerNeeded = false;
 	HaveCrashedWorker = false;
 
@@ -5926,11 +5926,11 @@ maybe_start_bgworkers(void)
 
 		rw = slist_container(RegisteredBgWorker, rw_lnode, iter.cur);
 
-		/* ignore if already running */
+		/* 已在运行则忽略。  */
 		if (rw->rw_pid != 0)
 			continue;
 
-		/* if marked for death, clean up and remove from list */
+		/* 若标记待终止，则清理并移出列表。   */
 		if (rw->rw_terminate)
 		{
 			ForgetBackgroundWorker(&iter);
@@ -5938,11 +5938,11 @@ maybe_start_bgworkers(void)
 		}
 
 		/*
-		 * If this worker has crashed previously, maybe it needs to be
-		 * restarted (unless on registration it specified it doesn't want to
-		 * be restarted at all).  Check how long ago did a crash last happen.
-		 * If the last crash is too recent, don't start it right away; let it
-		 * be restarted once enough time has passed.
+		 * 若此 worker 之前崩溃过，可能需要重启它      
+		 * （除非注册时声明完全不想重启）。                 
+		 * 检查上一次崩溃发生在多久之前。                     
+		 * 若上次崩溃距今太近，不要立刻启动；               
+		 * 待时间足够后再重启它。        
 		 */
 		if (rw->rw_crashed_at != 0)
 		{
@@ -5954,21 +5954,21 @@ maybe_start_bgworkers(void)
 
 				ForgetBackgroundWorker(&iter);
 
-				/* Report worker is gone now. */
+				/* 报告 worker 已消失。 */
 				if (notify_pid != 0)
 					kill(notify_pid, SIGUSR1);
 
 				continue;
 			}
 
-			/* read system time only when needed */
+			/* 需要时才读取系统时间。 */
 			if (now == 0)
 				now = GetCurrentTimestamp();
 
 			if (!TimestampDifferenceExceeds(rw->rw_crashed_at, now,
 											rw->rw_worker.bgw_restart_time * 1000))
 			{
-				/* Set flag to remember that we have workers to start later */
+				/* 设置标志，记住稍后还有 worker 待启动。    */
 				HaveCrashedWorker = true;
 				continue;
 			}
@@ -5976,19 +5976,19 @@ maybe_start_bgworkers(void)
 
 		if (bgworker_should_start_now(rw->rw_worker.bgw_start_time))
 		{
-			/* reset crash time before trying to start worker */
+			/* 尝试启动 worker 前重置崩溃时间。   */
 			rw->rw_crashed_at = 0;
 
 			/*
-			 * Try to start the worker.
+			 * 尝试启动 worker。  
 			 *
-			 * On failure, give up processing workers for now, but set
-			 * StartWorkerNeeded so we'll come back here on the next iteration
-			 * of ServerLoop to try again.  (We don't want to wait, because
-			 * there might be additional ready-to-run workers.)  We could set
-			 * HaveCrashedWorker as well, since this worker is now marked
-			 * crashed, but there's no need because the next run of this
-			 * function will do that.
+			 * 若失败，暂时放弃处理 worker，但置位      
+			 * StartWorkerNeeded，以便 ServerLoop 下一轮                
+			 * 循环时回到此处重试。（不想等待，因为      
+			 * 可能还有别的可运行 worker。）本也可置          
+			 * HaveCrashedWorker，因为此 worker 现已被            
+			 * 标记为已崩溃，但没必要：本函数下次      
+			 * 运行自会如此。 
 			 */
 			if (!do_start_bgworker(rw))
 			{
@@ -5997,10 +5997,10 @@ maybe_start_bgworkers(void)
 			}
 
 			/*
-			 * If we've launched as many workers as allowed, quit, but have
-			 * ServerLoop call us again to look for additional ready-to-run
-			 * workers.  There might not be any, but we'll find out the next
-			 * time we run.
+			 * 若已启动的 worker 达到允许上限，则退出，    
+			 * 但让 ServerLoop 再次调用我们去找别的            
+			 * 可运行 worker。可能一个也没有，下回            
+			 * 便知。   
 			 */
 			if (++num_launched >= MAX_BGWORKERS_TO_LAUNCH)
 			{
@@ -6012,9 +6012,9 @@ maybe_start_bgworkers(void)
 }
 
 /*
- * When a backend asks to be notified about worker state changes, we
- * set a flag in its backend entry.  The background worker machinery needs
- * to know when such backends exit.
+ * 当某个后端请求获知 worker 状态变化时，我们      
+ * 在其后端表项中设置标志。后台工作进程机制需要     
+ * 知道此类后端何时退出  
  */
 bool
 PostmasterMarkPIDForWorkerNotify(int pid)
@@ -6037,8 +6037,8 @@ PostmasterMarkPIDForWorkerNotify(int pid)
 #ifdef EXEC_BACKEND
 
 /*
- * The following need to be available to the save/restore_backend_variables
- * functions.  They are marked NON_EXEC_STATIC in their home modules.
+ * 以下各项需供 save/restore_backend_variables 函数使用。它们 
+ * 在其所属模块中被标记为 NON_EXEC_STATIC。              
  */
 extern slock_t *ShmemLock;
 extern slock_t *ProcStructLock;
@@ -6057,7 +6057,7 @@ static void read_inheritable_socket(SOCKET *dest, InheritableSocket *src);
 #endif
 
 
-/* Save critical backend variables into the BackendParameters struct */
+/* 将关键后端变量保存到 BackendParameters 结构中。     */
 #ifndef WIN32
 static bool
 save_backend_variables(BackendParameters *param, Port *port)
@@ -6135,8 +6135,8 @@ save_backend_variables(BackendParameters *param, Port *port,
 
 #ifdef WIN32
 /*
- * Duplicate a handle for usage in a child process, and write the child
- * process instance of the handle to the parameter file.
+ * 复制一个句柄供子进程使用，并将句柄的              
+ * 子进程实例写入参数文件。                 
  */
 static bool
 write_duplicated_handle(HANDLE *dest, HANDLE src, HANDLE childProcess)
@@ -6162,11 +6162,11 @@ write_duplicated_handle(HANDLE *dest, HANDLE src, HANDLE childProcess)
 }
 
 /*
- * Duplicate a socket for usage in a child process, and write the resulting
- * structure to the parameter file.
- * This is required because a number of LSPs (Layered Service Providers) very
- * common on Windows (antivirus, firewalls, download managers etc) break
- * straight socket inheritance.
+ * 复制一个套接字供子进程使用，并将所得                  
+ * 结构写入参数文件。     
+ * 这样做是因为 Windows 上非常常见的许多 LSP（分层服务    
+ * 提供商，杀毒软件、防火墙、下载工具等）会破坏   
+ * 套接字的直接继承。 
  */
 static bool
 write_inheritable_socket(InheritableSocket *dest, SOCKET src, pid_t childpid)
@@ -6174,7 +6174,7 @@ write_inheritable_socket(InheritableSocket *dest, SOCKET src, pid_t childpid)
 	dest->origsocket = src;
 	if (src != 0 && src != PGINVALID_SOCKET)
 	{
-		/* Actual socket */
+		/* 真套接字  */
 		if (WSADuplicateSocket(src, childpid, &dest->wsainfo) != 0)
 		{
 			ereport(LOG,
@@ -6187,7 +6187,7 @@ write_inheritable_socket(InheritableSocket *dest, SOCKET src, pid_t childpid)
 }
 
 /*
- * Read a duplicate socket structure back, and get the socket descriptor.
+ * 读回复制的套接字结构，并取得套接字描述符。       
  */
 static void
 read_inheritable_socket(SOCKET *dest, InheritableSocket *src)
@@ -6196,12 +6196,12 @@ read_inheritable_socket(SOCKET *dest, InheritableSocket *src)
 
 	if (src->origsocket == PGINVALID_SOCKET || src->origsocket == 0)
 	{
-		/* Not a real socket! */
+		/* 非真套接字！ */
 		*dest = src->origsocket;
 	}
 	else
 	{
-		/* Actual socket, so create from structure */
+		/* 实际套接字，故从结构创建。 */
 		s = WSASocket(FROM_PROTOCOL_INFO,
 					  FROM_PROTOCOL_INFO,
 					  FROM_PROTOCOL_INFO,
@@ -6217,9 +6217,9 @@ read_inheritable_socket(SOCKET *dest, InheritableSocket *src)
 		*dest = s;
 
 		/*
-		 * To make sure we don't get two references to the same socket, close
-		 * the original one. (This would happen when inheritance actually
-		 * works..
+		 * 为免对同一套接字产生两个引用，关闭原始         
+		 * 套接字。（这只在继承真正生效时发生。）     
+		 *        
 		 */
 		closesocket(src->origsocket);
 	}
@@ -6232,10 +6232,10 @@ read_backend_variables(char *id, Port *port)
 	BackendParameters param;
 
 #ifndef WIN32
-	/* Non-win32 implementation reads from file */
+	/* 非 win32 实现从文件读取。       */
 	FILE	   *fp;
 
-	/* Open file */
+	/* 开文件 */
 	fp = AllocateFile(id, PG_BINARY_R);
 	if (!fp)
 	{
@@ -6251,7 +6251,7 @@ read_backend_variables(char *id, Port *port)
 		exit(1);
 	}
 
-	/* Release file */
+	/* 释放文件 */
 	FreeFile(fp);
 	if (unlink(id) != 0)
 	{
@@ -6260,7 +6260,7 @@ read_backend_variables(char *id, Port *port)
 		exit(1);
 	}
 #else
-	/* Win32 version uses mapped file */
+	/* win32 下采用映射文件。 */
 	HANDLE		paramHandle;
 	BackendParameters *paramp;
 
@@ -6297,7 +6297,7 @@ read_backend_variables(char *id, Port *port)
 	restore_backend_variables(&param, port);
 }
 
-/* Restore critical backend variables from the BackendParameters struct */
+/* 从 BackendParameters 结构恢复关键后端变量。              */
 static void
 restore_backend_variables(BackendParameters *param, Port *port)
 {
@@ -6360,9 +6360,9 @@ restore_backend_variables(BackendParameters *param, Port *port)
 	strlcpy(pkglib_path, param->pkglib_path, MAXPGPATH);
 
 	/*
-	 * We need to restore fd.c's counts of externally-opened FDs; to avoid
-	 * confusion, be sure to do this after restoring max_safe_fds.  (Note:
-	 * BackendInitialize will handle this for port->sock.)
+	 * 我们需要恢复 fd.c 中外部打开 FD 的计数；为免      
+	 * 混淆，务必在恢复 max_safe_fds 之后再做。（注        
+	 * 意：BackendInitialize 会处理 port->sock。） 
 	 */
 #ifndef WIN32
 	if (postmaster_alive_fds[0] >= 0)
@@ -6385,14 +6385,14 @@ ShmemBackendArrayAllocation(void)
 	Size		size = ShmemBackendArraySize();
 
 	ShmemBackendArray = (Backend *) ShmemAlloc(size);
-	/* Mark all slots as empty */
+	/* 将所有槽置为空。*/
 	memset(ShmemBackendArray, 0, size);
 }
 
 static void
 ShmemBackendArrayAdd(Backend *bn)
 {
-	/* The array slot corresponding to my PMChildSlot should be free */
+	/* 与我的 PMChildSlot 对应的数组槽应当空闲。       */
 	int			i = bn->child_slot - 1;
 
 	Assert(ShmemBackendArray[i].pid == 0);
@@ -6405,7 +6405,7 @@ ShmemBackendArrayRemove(Backend *bn)
 	int			i = bn->child_slot - 1;
 
 	Assert(ShmemBackendArray[i].pid == bn->pid);
-	/* Mark the slot as empty */
+	/* 把该槽标为空。  */
 	ShmemBackendArray[i].pid = 0;
 }
 #endif							/* EXEC_BACKEND */
@@ -6414,8 +6414,8 @@ ShmemBackendArrayRemove(Backend *bn)
 #ifdef WIN32
 
 /*
- * Subset implementation of waitpid() for Windows.  We assume pid is -1
- * (that is, check all child processes) and options is WNOHANG (don't wait).
+ * 面向 Windows 的 waitpid() 子集实现。假定 pid 为 -1       
+ * （即检查所有子进程），options 为 WNOHANG（不等待）。   
  */
 static pid_t
 waitpid(pid_t pid, int *exitstatus, int options)
@@ -6426,7 +6426,7 @@ waitpid(pid_t pid, int *exitstatus, int options)
 	ULONG_PTR	key;
 	OVERLAPPED *ovl;
 
-	/* Try to consume one win32_deadchild_waitinfo from the queue. */
+	/* 尝试从队列中取用一个 win32_deadchild_waitinfo。  */
 	if (!GetQueuedCompletionStatus(win32ChildQueue, &dwd, &key, &ovl, 0))
 	{
 		errno = EAGAIN;
@@ -6437,15 +6437,15 @@ waitpid(pid_t pid, int *exitstatus, int options)
 	pid = childinfo->procId;
 
 	/*
-	 * Remove handle from wait - required even though it's set to wait only
-	 * once
+	 * 须从等待中移除句柄——即使只设定等待一次。     
+	 *     
 	 */
 	UnregisterWaitEx(childinfo->waitHandle, NULL);
 
 	if (!GetExitCodeProcess(childinfo->procHandle, &exitcode))
 	{
 		/*
-		 * Should never happen. Inform user and set a fixed exitcode.
+		 * 本不应发生。告知用户并设定固定退出码。 
 		 */
 		write_stderr("could not read exit code for process\n");
 		exitcode = 255;
@@ -6453,14 +6453,14 @@ waitpid(pid_t pid, int *exitstatus, int options)
 	*exitstatus = exitcode;
 
 	/*
-	 * Close the process handle.  Only after this point can the PID can be
-	 * recycled by the kernel.
+	 * 关闭进程句柄。只有过了这一步之后，内核          
+	 * 才能回收该 PID。 
 	 */
 	CloseHandle(childinfo->procHandle);
 
 	/*
-	 * Free struct that was allocated before the call to
-	 * RegisterWaitForSingleObject()
+	 * 释放在调用 RegisterWaitForSingleObject()    
+	 * 之前分配的结构体。  
 	 */
 	pfree(childinfo);
 
@@ -6468,22 +6468,22 @@ waitpid(pid_t pid, int *exitstatus, int options)
 }
 
 /*
- * Note! Code below executes on a thread pool! All operations must
- * be thread safe! Note that elog() and friends must *not* be used.
+ * 注意！以下代码运行于线程池之上！所有操作   
+ * 都必须线程安全！切勿使用 elog() 等函数。        
  */
 static void WINAPI
 pgwin32_deadchild_callback(PVOID lpParameter, BOOLEAN TimerOrWaitFired)
 {
-	/* Should never happen, since we use INFINITE as timeout value. */
+	/* 不应发生，因为我们以 INFINITE 为超时值。      */
 	if (TimerOrWaitFired)
 		return;
 
 	/*
-	 * Post the win32_deadchild_waitinfo object for waitpid() to deal with. If
-	 * that fails, we leak the object, but we also leak a whole process and
-	 * get into an unrecoverable state, so there's not much point in worrying
-	 * about that.  We'd like to panic, but we can't use that infrastructure
-	 * from this thread.
+	 * 把 win32_deadchild_waitinfo 对象投递给 waitpid() 处理。若    
+	 * 投递失败，我们会泄漏该对象，但那时整个进程     
+	 * 都已泄漏且陷入不可挽回的状态，担心这个没什么    
+	 * 意义。我们想 panic，但无法从这个线程使用那套      
+	 * 基础设施。  
 	 */
 	if (!PostQueuedCompletionStatus(win32ChildQueue,
 									0,
@@ -6491,16 +6491,16 @@ pgwin32_deadchild_callback(PVOID lpParameter, BOOLEAN TimerOrWaitFired)
 									NULL))
 		write_stderr("could not post child completion status\n");
 
-	/* Queue SIGCHLD signal. */
+	/* 将 SIGCHLD 入队。 */
 	pg_queue_signal(SIGCHLD);
 }
 #endif							/* WIN32 */
 
 /*
- * Initialize one and only handle for monitoring postmaster death.
+ * 初始化用于监视 postmaster 死亡的唯一句柄。      
  *
- * Called once in the postmaster, so that child processes can subsequently
- * monitor if their parent is dead.
+ * 在 postmaster 中调用一次，此后子进程即可借此           
+ * 监视父进程是否已死。  
  */
 static void
 InitPostmasterDeathWatchHandle(void)
@@ -6508,13 +6508,13 @@ InitPostmasterDeathWatchHandle(void)
 #ifndef WIN32
 
 	/*
-	 * Create a pipe. Postmaster holds the write end of the pipe open
-	 * (POSTMASTER_FD_OWN), and children hold the read end. Children can pass
-	 * the read file descriptor to select() to wake up in case postmaster
-	 * dies, or check for postmaster death with a (read() == 0). Children must
-	 * close the write end as soon as possible after forking, because EOF
-	 * won't be signaled in the read end until all processes have closed the
-	 * write fd. That is taken care of in ClosePostmasterPorts().
+	 * 创建一个管道。postmaster 保持管道写端打开      
+	 * （POSTMASTER_FD_OWN），子进程持有读端。子进程           
+	 * 可把读文件描述符传给 select()，以便 postmaster       
+	 * 死亡时被唤醒，或以 (read() == 0) 检测 postmaster            
+	 * 是否死亡。子进程必须在 fork 之后尽快关闭写端，
+	 * 因为只有所有进程都关闭了写 fd，读端才会收到      
+	 * EOF 信号。这由 ClosePostmasterPorts() 负责处理。
 	 */
 	Assert(MyProcPid == PostmasterPid);
 	if (pipe(postmaster_alive_fds) < 0)
@@ -6522,13 +6522,13 @@ InitPostmasterDeathWatchHandle(void)
 				(errcode_for_file_access(),
 				 errmsg_internal("could not create pipe to monitor postmaster death: %m")));
 
-	/* Notify fd.c that we've eaten two FDs for the pipe. */
+	/* 通知 fd.c：已为管道用掉两个 FD。       */
 	ReserveExternalFD();
 	ReserveExternalFD();
 
 	/*
-	 * Set O_NONBLOCK to allow testing for the fd's presence with a read()
-	 * call.
+	 * 设置 O_NONBLOCK，以便用 read() 探测该 fd 存在与否。  
+	 *      
 	 */
 	if (fcntl(postmaster_alive_fds[POSTMASTER_FD_WATCH], F_SETFL, O_NONBLOCK) == -1)
 		ereport(FATAL,
@@ -6537,7 +6537,7 @@ InitPostmasterDeathWatchHandle(void)
 #else
 
 	/*
-	 * On Windows, we use a process handle for the same purpose.
+	 * 在 Windows 下我们用进程句柄实现此目的。   
 	 */
 	if (DuplicateHandle(GetCurrentProcess(),
 						GetCurrentProcess(),

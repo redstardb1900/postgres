@@ -1,0 +1,46 @@
+{
+ "schema_version": 1,
+ "batch_id": "0282-comment-postmaster-postmaster",
+ "title": "Translate comments: postmaster-postmaster",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "9e95271abfbd92475ee7a4975d254a6012bd310e",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0282-comment-postmaster-postmaster.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/postmaster/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0282-comment-postmaster-postmaster.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/postmaster/postmaster.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 672,
+   "translated": 642,
+   "preserved": 30,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), gettext translator hints (R5-protected), and separator-only blocks rebuilt byte-identical"
+   ],
+   "note": "P2 translation campaign wave E1"
+  }
+ ],
+ "notes": "Translation agents (E1a/E1b/E1c/E1d/E1e/E1f/E1g/E1h) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

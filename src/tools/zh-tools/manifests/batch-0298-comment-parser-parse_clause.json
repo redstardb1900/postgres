@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0298-comment-parser-parse_clause",
+ "title": "Translate comments: parser-parse_clause",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "2afc6b3add8f662753919d0d4339a6a0e4487321",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0298-comment-parser-parse_clause.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/parser/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  },
+  {
+   "pattern": "src/tools/zh-tools/zhtools/c_verify.py",
+   "kind": "tool",
+   "note": "tool change riding with this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0298-comment-parser-parse_clause.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/c_verify.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "tool change riding with this batch"
+  },
+  {
+   "path": "src/backend/parser/parse_clause.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 285,
+   "translated": 279,
+   "preserved": 6,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), gettext translator hints (R5-protected), and separator-only blocks rebuilt byte-identical"
+   ],
+   "note": "P2 translation campaign wave F13/F14/F15"
+  }
+ ],
+ "notes": "Translation agents (F13/F14/F15) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message. 6 preserved = gettext translator-hint labels (R5). Tool change riding with batch: c_verify.py gains 2 prose fallthrough exemptions (parse_clause SQL99 prose, same pattern as the 11 existing site-specific exemptions)."
+}

@@ -176,6 +176,21 @@ _TABLESPACE_FALLTHROUGH_PROSE = re.compile(rb"fall through quietly")
 _LIMIT_FALLTHROUGH_PROSE = re.compile(
     rb"fall through to the code for\s*\n\s*\*\s*that case")
 
+# parse_clause.c findTargetlistEntrySQL92 header prose: "we fall through to
+# the SQL99 rules" describes the SQL92 matching strategy handing over to the
+# SQL99 interpretation when no column-name/number match is found.  There is
+# no switch statement here; the SQL99 path is reached by ordinary control
+# flow.  Not a GCC -Wimplicit-fallthrough annotation.
+_PARSECLAUSE_SQL99_FALLTHROUGH_PROSE = re.compile(
+    rb"we fall through to the SQL99 rules")
+
+# parse_clause.c transformSortClause GROUP BY prose: "fall through to use
+# SQL99 rules" describes preferring a column match and otherwise continuing
+# with the SQL99 interpretation below.  Prose about which matching rules
+# apply next, not a switch annotation.
+_PARSECLAUSE_GROUPBY_FALLTHROUGH_PROSE = re.compile(
+    rb"fall through to use SQL99 rules")
+
 
 def legal_protected_segments(old_text):
     """Return Copyright/IDENTIFICATION/licence line blobs that must survive.
@@ -249,7 +264,9 @@ def protected_reason(old_text):
                     or _HEAPAM_LOCK_NOWAIT_FALLTHROUGH_PROSE.search(old_text)
                     or _HEAPAM_LOCK_ALLOW_FALLTHROUGH_PROSE.search(old_text)
                     or _TABLESPACE_FALLTHROUGH_PROSE.search(old_text)
-                    or _LIMIT_FALLTHROUGH_PROSE.search(old_text)):
+                    or _LIMIT_FALLTHROUGH_PROSE.search(old_text)
+                    or _PARSECLAUSE_SQL99_FALLTHROUGH_PROSE.search(old_text)
+                    or _PARSECLAUSE_GROUPBY_FALLTHROUGH_PROSE.search(old_text)):
                 continue
             return name
     return None

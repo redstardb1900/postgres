@@ -1,0 +1,46 @@
+{
+ "schema_version": 1,
+ "batch_id": "0287-comment-postmaster-syslogger",
+ "title": "Translate comments: postmaster-syslogger",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "61b8dacfbe761c59caa7ac8590fddd45156b9c47",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0287-comment-postmaster-syslogger.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/postmaster/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0287-comment-postmaster-syslogger.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/postmaster/syslogger.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 145,
+   "translated": 134,
+   "preserved": 11,
+   "preserved_reasons": [
+    "Platform-conditional macro tags kept in English (WIN32 x6, EXEC_BACKEND x2)",
+    "Unit label comment (msec) and a two-line block whose lines carry the block's own /* and */ edges"
+   ],
+   "note": "P2 translation campaign wave E5"
+  }
+ ],
+ "notes": "Translation agents (E5a/E5b) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

@@ -2,14 +2,14 @@
  *
  * syslogger.c
  *
- * The system logger (syslogger) appeared in Postgres 8.0. It catches all
- * stderr output from the postmaster, backends, and other subprocesses
- * by redirecting to a pipe, and writes it to a set of logfiles.
- * It's possible to have size and age limits for the logfile configured
- * in postgresql.conf. If these limits are reached or passed, the
- * current logfile is closed and a new one is created (rotated).
- * The logfiles are stored in a subdirectory (configurable in
- * postgresql.conf), using a user-selectable naming scheme.
+ * 系统日志进程（syslogger）出现于 Postgres 8.0。            
+ * 它经由管道重定向，捕获 postmaster、后端及其他     
+ * 子进程的全部 stderr 输出，并写入一组日志     
+ * postgresql.conf 中可配置日志文件的大小和时效限制。 
+ * 达到或超过限制后，当前日志文件即被关闭     
+ * 并创建新文件（即轮转）。                         
+ * 日志文件存于子目录中（可在 postgresql.conf   
+ * 里配置），命名方案可由用户选择。        
  *
  * Author: Andreas Pflug <pgadmin@pse-consulting.de>
  *
@@ -54,19 +54,19 @@
 #include "utils/timestamp.h"
 
 /*
- * We read() into a temp buffer twice as big as a chunk, so that any fragment
- * left after processing can be moved down to the front and we'll still have
- * room to read a full chunk.
+ * 我们 read() 到大小两倍于块的临时缓冲，这样处理后的   
+ * 残留片段可以移到开头，且仍有空间读入完整的一块。 
+ *                           
  */
 #define READ_BUF_SIZE (2 * PIPE_CHUNK_SIZE)
 
-/* Log rotation signal file path, relative to $PGDATA */
+/* 日志轮转信号文件路径，相对于 $PGDATA */
 #define LOGROTATE_SIGNAL_FILE	"logrotate"
 
 
 /*
- * GUC parameters.  Logging_collector cannot be changed after postmaster
- * start, but the rest can change at SIGHUP.
+ * GUC 参数。logging_collector 在 postmaster 启动后无法        
+ * 更改，其余可在 SIGHUP 时改。   
  */
 bool		Logging_collector = false;
 int			Log_RotationAge = HOURS_PER_DAY * MINS_PER_HOUR;
@@ -79,7 +79,7 @@ int			Log_file_mode = S_IRUSR | S_IWUSR;
 extern bool redirection_done;
 
 /*
- * Private state
+ * 私有状态 
  */
 static pg_time_t next_rotation_time;
 static bool pipe_eof_seen = false;
@@ -93,26 +93,26 @@ static char *last_csv_file_name = NULL;
 static char *last_json_file_name = NULL;
 
 /*
- * Buffers for saving partial messages from different backends.
+ * 保存来自不同后端的残缺消息的缓冲区。      
  *
- * Keep NBUFFER_LISTS lists of these, with the entry for a given source pid
- * being in the list numbered (pid % NBUFFER_LISTS), so as to cut down on
- * the number of entries we have to examine for any one incoming message.
- * There must never be more than one entry for the same source pid.
+ * 这些缓冲区保存在 NBUFFER_LISTS 个链表中，给定来源 pid  
+ * 的表项位于编号 (pid % NBUFFER_LISTS) 的链表内，以便     
+ * 减少处理任一到来消息所需检查的表项数量。          
+ * 同一个来源 pid 绝不能存在多个表项。              
  *
- * An inactive buffer is not removed from its list, just held for re-use.
- * An inactive buffer has pid == 0 and undefined contents of data.
+ * 非活动缓冲区不从链表移除，只是留着供复用。       
+ * 非活动缓冲区的 pid 为 0，data 内容未定义。      
  */
 typedef struct
 {
-	int32		pid;			/* PID of source process */
-	StringInfoData data;		/* accumulated data, as a StringInfo */
+	int32		pid;			/* 源进程的 pid      */
+	StringInfoData data;		/* 累积数据，StringInfo 类型  */
 } save_buffer;
 
 #define NBUFFER_LISTS 256
 static List *buffer_lists[NBUFFER_LISTS];
 
-/* These must be exported for EXEC_BACKEND case ... annoying */
+/* EXEC_BACKEND 情形下必须导出……有点烦人      */
 #ifndef WIN32
 int			syslogPipe[2] = {-1, -1};
 #else
@@ -125,12 +125,12 @@ static CRITICAL_SECTION sysloggerSection;
 #endif
 
 /*
- * Flags set by interrupt handlers for later service in the main loop.
+ * 由中断处理程序置位的标志，供主循环稍后处理。 
  */
 static volatile sig_atomic_t rotation_requested = false;
 
 
-/* Local subroutines */
+/* 本地子例程   */
 #ifdef EXEC_BACKEND
 static int	syslogger_fdget(FILE *file);
 static FILE *syslogger_fdopen(int fd);
@@ -158,8 +158,8 @@ static void update_metainfo_datafile(void);
 
 
 /*
- * Main entry point for syslogger process
- * argc/argv parameters are valid only in EXEC_BACKEND case.
+ * syslogger 进程的主入口点       
+ * argc/argv 参数仅在 EXEC_BACKEND 情形下有效。   
  */
 NON_EXEC_STATIC void
 SysLoggerMain(int argc, char *argv[])
@@ -184,26 +184,26 @@ SysLoggerMain(int argc, char *argv[])
 	init_ps_display(NULL);
 
 	/*
-	 * If we restarted, our stderr is already redirected into our own input
-	 * pipe.  This is of course pretty useless, not to mention that it
-	 * interferes with detecting pipe EOF.  Point stderr to /dev/null. This
-	 * assumes that all interesting messages generated in the syslogger will
-	 * come through elog.c and will be sent to write_syslogger_file.
+	 * 如果我们是重启而来，stderr 已经被重定向             
+	 * 进自己的输入管道。这毫无用处，更会干扰      
+	 * 管道 EOF 的检测。把 stderr 指向 /dev/null。这里假定   
+	 * syslogger 产生的所有重要消息都经过 elog.c                
+	 * 并被送往 write_syslogger_file。                         
 	 */
 	if (redirection_done)
 	{
 		int			fd = open(DEVNULL, O_WRONLY, 0);
 
 		/*
-		 * The closes might look redundant, but they are not: we want to be
-		 * darn sure the pipe gets closed even if the open failed.  We can
-		 * survive running with stderr pointing nowhere, but we can't afford
-		 * to have extra pipe input descriptors hanging around.
+		 * 这些 close 看似多余，实则不然：即使 open 失败，
+		 * 我们也要确保管道被关闭。stderr 指向空处尚可  
+		 * 活得下去，但绝不能让多余的管道输入描述符     
+		 * 悬在那里。                                     
 		 *
-		 * As we're just trying to reset these to go to DEVNULL, there's not
-		 * much point in checking for failure from the close/dup2 calls here,
-		 * if they fail then presumably the file descriptors are closed and
-		 * any writes will go into the bitbucket anyway.
+		 * 既然只是想把它们重置为 DEVNULL，就无需            
+		 * 检查这里 close/dup2 调用的失败：就算失败，         
+		 * 描述符多半已被关闭，后续写入反正都会          
+		 * 被丢弃。                                 
 		 */
 		close(STDOUT_FILENO);
 		close(STDERR_FILENO);
@@ -216,9 +216,9 @@ SysLoggerMain(int argc, char *argv[])
 	}
 
 	/*
-	 * Syslogger's own stderr can't be the syslogPipe, so set it back to text
-	 * mode if we didn't just close it. (It was set to binary in
-	 * SubPostmasterMain).
+	 * syslogger 自身的 stderr 无法用作 syslogPipe，若没有        
+	 * 刚刚关闭它，就设回文本。（SubPostmasterMain 
+	 * 内设二进制） 
 	 */
 #ifdef WIN32
 	else
@@ -226,9 +226,9 @@ SysLoggerMain(int argc, char *argv[])
 #endif
 
 	/*
-	 * Also close our copy of the write end of the pipe.  This is needed to
-	 * ensure we can detect pipe EOF correctly.  (But note that in the restart
-	 * case, the postmaster already did this.)
+	 * 同时关闭我们自己持有的管道写端。这样做是        
+	 * 为了确保能正确检测管道 EOF。（但注意在重启          
+	 * 场景下，postmaster 已做过。） 
 	 */
 #ifndef WIN32
 	if (syslogPipe[1] >= 0)
@@ -241,11 +241,11 @@ SysLoggerMain(int argc, char *argv[])
 #endif
 
 	/*
-	 * Properly accept or ignore signals the postmaster might send us
+	 * 恰当地接受或忽略 postmaster 可能发来的信号     
 	 *
-	 * Note: we ignore all termination signals, and instead exit only when all
-	 * upstream processes are gone, to ensure we don't miss any dying gasps of
-	 * broken backends...
+	 * 注意：我们忽略所有终止信号，只有当所有上游        
+	 * 进程都消失时才退出，以确保不会漏掉崩溃后端        
+	 * 的临终遗言…
 	 */
 
 	pqsignal(SIGHUP, SignalHandlerForConfigReload); /* set flag to read config
@@ -255,18 +255,18 @@ SysLoggerMain(int argc, char *argv[])
 	pqsignal(SIGQUIT, SIG_IGN);
 	pqsignal(SIGALRM, SIG_IGN);
 	pqsignal(SIGPIPE, SIG_IGN);
-	pqsignal(SIGUSR1, sigUsr1Handler);	/* request log rotation */
+	pqsignal(SIGUSR1, sigUsr1Handler);	/* 请求轮转日志   */
 	pqsignal(SIGUSR2, SIG_IGN);
 
 	/*
-	 * Reset some signals that are accepted by postmaster but not here
+	 * 重置若干 postmaster 接受而此处不接受的信号      
 	 */
 	pqsignal(SIGCHLD, SIG_DFL);
 
 	sigprocmask(SIG_SETMASK, &UnBlockSig, NULL);
 
 #ifdef WIN32
-	/* Fire up separate data transfer thread */
+	/* 启动单独的数据传输线程     */
 	InitializeCriticalSection(&sysloggerSection);
 	EnterCriticalSection(&sysloggerSection);
 
@@ -276,9 +276,9 @@ SysLoggerMain(int argc, char *argv[])
 #endif							/* WIN32 */
 
 	/*
-	 * Remember active logfiles' name(s).  We recompute 'em from the reference
-	 * time because passing down just the pg_time_t is a lot cheaper than
-	 * passing a whole file path in the EXEC_BACKEND case.
+	 * 记住活动日志文件的文件名。这些名字根据参考时间  
+	 * 重新推算，因为在 EXEC_BACKEND 情形下只传 pg_time_t   
+	 * 比传整个文件路径便宜得多。            
 	 */
 	last_sys_file_name = logfile_getname(first_syslogger_file_time, NULL);
 	if (csvlogFile != NULL)
@@ -286,30 +286,30 @@ SysLoggerMain(int argc, char *argv[])
 	if (jsonlogFile != NULL)
 		last_json_file_name = logfile_getname(first_syslogger_file_time, ".json");
 
-	/* remember active logfile parameters */
+	/* 记住活动日志文件参数     */
 	currentLogDir = pstrdup(Log_directory);
 	currentLogFilename = pstrdup(Log_filename);
 	currentLogRotationAge = Log_RotationAge;
-	/* set next planned rotation time */
+	/* 设定下次计划轮转时间 */
 	set_next_rotation_time();
 	update_metainfo_datafile();
 
 	/*
-	 * Reset whereToSendOutput, as the postmaster will do (but hasn't yet, at
-	 * the point where we forked).  This prevents duplicate output of messages
-	 * from syslogger itself.
+	 * 像 postmaster 那样重置 whereToSendOutput（但在我们被 fork  
+	 * 出来的时刻它尚未这么做）。这可避免 syslogger 自身的
+	 * 消息重复输出。 
 	 */
 	whereToSendOutput = DestNone;
 
 	/*
-	 * Set up a reusable WaitEventSet object we'll use to wait for our latch,
-	 * and (except on Windows) our socket.
+	 * 建立可复用的 WaitEventSet 对象，等待我们的 latch        
+	 * （Windows 除外）与套接字。
 	 *
-	 * Unlike all other postmaster child processes, we'll ignore postmaster
-	 * death because we want to collect final log output from all backends and
-	 * then exit last.  We'll do that by running until we see EOF on the
-	 * syslog pipe, which implies that all other backends have exited
-	 * (including the postmaster).
+	 * 与其他 postmaster 子进程不同，我们忽略 postmaster      
+	 * 死亡，因为要收集完所有后端的最终日志输出，        
+	 * 最后退出。做法是持续运行，直至 syslog 管道      
+	 * 出现 EOF——这意味着包括 postmaster 在内的       
+	 * 其余后端均已退出。
 	 */
 	wes = CreateWaitEventSet(CurrentMemoryContext, 2);
 	AddWaitEventToSet(wes, WL_LATCH_SET, PGINVALID_SOCKET, MyLatch, NULL);
@@ -317,7 +317,7 @@ SysLoggerMain(int argc, char *argv[])
 	AddWaitEventToSet(wes, WL_SOCKET_READABLE, syslogPipe[0], NULL, NULL);
 #endif
 
-	/* main worker loop */
+	/* 主工作循环  */
 	for (;;)
 	{
 		bool		time_based_rotation = false;
@@ -329,11 +329,11 @@ SysLoggerMain(int argc, char *argv[])
 		int			rc;
 #endif
 
-		/* Clear any already-pending wakeups */
+		/* 清掉任何已挂起的唤醒    */
 		ResetLatch(MyLatch);
 
 		/*
-		 * Process any requests or signals received recently.
+		 * 处理最近收到的请求或信号。           
 		 */
 		if (ConfigReloadPending)
 		{
@@ -341,9 +341,9 @@ SysLoggerMain(int argc, char *argv[])
 			ProcessConfigFile(PGC_SIGHUP);
 
 			/*
-			 * Check if the log directory or filename pattern changed in
-			 * postgresql.conf. If so, force rotation to make sure we're
-			 * writing the logfiles in the right place.
+			 * 检查 postgresql.conf 的日志目录或文件名模式 
+			 * 有无变化。若有则强制轮转，确保日志写到
+			 * 正确的位置。                      
 			 */
 			if (strcmp(Log_directory, currentLogDir) != 0)
 			{
@@ -352,7 +352,7 @@ SysLoggerMain(int argc, char *argv[])
 				rotation_requested = true;
 
 				/*
-				 * Also, create new directory if not present; ignore errors
+				 * 另外，若目录不存在则新建；忽略错误     
 				 */
 				(void) MakePGDirectory(Log_directory);
 			}
@@ -364,24 +364,24 @@ SysLoggerMain(int argc, char *argv[])
 			}
 
 			/*
-			 * Force a rotation if CSVLOG output was just turned on or off and
-			 * we need to open or close csvlogFile accordingly.
+			 * 如果 CSVLOG 输出刚被打开或关闭，则强制轮转， 
+			 * 以便相应地打开或关闭 csvlogFile。    
 			 */
 			if (((Log_destination & LOG_DESTINATION_CSVLOG) != 0) !=
 				(csvlogFile != NULL))
 				rotation_requested = true;
 
 			/*
-			 * Force a rotation if JSONLOG output was just turned on or off
-			 * and we need to open or close jsonlogFile accordingly.
+			 * 若 JSONLOG 输出刚被打开或关闭，则强制轮转，
+			 * 以便相应地打开或关闭 jsonlogFile。        
 			 */
 			if (((Log_destination & LOG_DESTINATION_JSONLOG) != 0) !=
 				(jsonlogFile != NULL))
 				rotation_requested = true;
 
 			/*
-			 * If rotation time parameter changed, reset next rotation time,
-			 * but don't immediately force a rotation.
+			 * 若轮转时间参数有变，重置下一次轮转时间， 
+			 * 但不立即强制轮转。            
 			 */
 			if (currentLogRotationAge != Log_RotationAge)
 			{
@@ -390,8 +390,8 @@ SysLoggerMain(int argc, char *argv[])
 			}
 
 			/*
-			 * If we had a rotation-disabling failure, re-enable rotation
-			 * attempts after SIGHUP, and force one immediately.
+			 * 如果之前发生过导致轮转被禁用的失败，则 
+			 * SIGHUP 后重启轮转尝试，并立即强制。
 			 */
 			if (rotation_disabled)
 			{
@@ -400,16 +400,16 @@ SysLoggerMain(int argc, char *argv[])
 			}
 
 			/*
-			 * Force rewriting last log filename when reloading configuration.
-			 * Even if rotation_requested is false, log_destination may have
-			 * been changed and we don't want to wait the next file rotation.
+			 * 重新加载配置时强制重写最后一个日志文件名。
+			 * 即使 rotation_requested 为假，log_destination 也可能 
+			 * 已经改变，我们不想等到下一次文件轮转。     
 			 */
 			update_metainfo_datafile();
 		}
 
 		if (Log_RotationAge > 0 && !rotation_disabled)
 		{
-			/* Do a logfile rotation if it's time */
+			/* 到时间就做日志轮转        */
 			now = (pg_time_t) time(NULL);
 			if (now >= next_rotation_time)
 				rotation_requested = time_based_rotation = true;
@@ -417,7 +417,7 @@ SysLoggerMain(int argc, char *argv[])
 
 		if (!rotation_requested && Log_RotationSize > 0 && !rotation_disabled)
 		{
-			/* Do a rotation if file is too big */
+			/* 文件太大就做轮转         */
 			if (ftell(syslogFile) >= Log_RotationSize * 1024L)
 			{
 				rotation_requested = true;
@@ -440,8 +440,8 @@ SysLoggerMain(int argc, char *argv[])
 		if (rotation_requested)
 		{
 			/*
-			 * Force rotation when both values are zero. It means the request
-			 * was sent by pg_rotate_logfile() or "pg_ctl logrotate".
+			 * 两个值都为零时强制轮转。这意味着请求来自  
+			 * pg_rotate_logfile() 或 "pg_ctl logrotate"。         
 			 */
 			if (!time_based_rotation && size_rotation_for == 0)
 				size_rotation_for = LOG_DESTINATION_STDERR |
@@ -451,16 +451,16 @@ SysLoggerMain(int argc, char *argv[])
 		}
 
 		/*
-		 * Calculate time till next time-based rotation, so that we don't
-		 * sleep longer than that.  We assume the value of "now" obtained
-		 * above is still close enough.  Note we can't make this calculation
-		 * until after calling logfile_rotate(), since it will advance
-		 * next_rotation_time.
+		 * 计算下次按时间轮转还有多久，以免睡过头。  
+		 * 我们假定上面取到的 "now" 值仍然足够接近。    
+		 * 注意必须等 logfile_rotate() 调用后才能计算，        
+		 * 因为它会推进 next_rotation_time。                   
+		 *                    
 		 *
-		 * Also note that we need to beware of overflow in calculation of the
-		 * timeout: with large settings of Log_RotationAge, next_rotation_time
-		 * could be more than INT_MAX msec in the future.  In that case we'll
-		 * wait no more than INT_MAX msec, and try again.
+		 * 另注意计算超时值时要提防溢出：若 Log_RotationAge  
+		 * 设得很大，next_rotation_time 可能位于 INT_MAX 毫秒      
+		 * 之后的未来。那种情况下最多等 INT_MAX 毫秒，      
+		 * 然后重试。                               
 		 */
 		if (Log_RotationAge > 0 && !rotation_disabled)
 		{
@@ -480,7 +480,7 @@ SysLoggerMain(int argc, char *argv[])
 			cur_timeout = -1L;
 
 		/*
-		 * Sleep until there's something to do
+		 * 睡到有事可做为止           
 		 */
 #ifndef WIN32
 		rc = WaitEventSetWait(wes, cur_timeout, &event, 1,
@@ -509,27 +509,27 @@ SysLoggerMain(int argc, char *argv[])
 			else
 			{
 				/*
-				 * Zero bytes read when select() is saying read-ready means
-				 * EOF on the pipe: that is, there are no longer any processes
-				 * with the pipe write end open.  Therefore, the postmaster
-				 * and all backends are shut down, and we are done.
+				 * select() 报告可读却读到零字节即管道 EOF： 
+				 * 也就是说不再有进程持有管道写端。因此     
+				 * postmaster 与所有后端均已关闭，工作到此   
+				 * 结束。                                       
 				 */
 				pipe_eof_seen = true;
 
-				/* if there's any data left then force it out now */
+				/* 若还有残留数据就立刻刷出去        */
 				flush_pipe_input(logbuffer, &bytes_in_logbuffer);
 			}
 		}
 #else							/* WIN32 */
 
 		/*
-		 * On Windows we leave it to a separate thread to transfer data and
-		 * detect pipe EOF.  The main thread just wakes up to handle SIGHUP
-		 * and rotation conditions.
+		 * 在 Windows 上，数据传输与管道 EOF 检测交给        
+		 * 单独的线程。主线程只是醒来处理 SIGHUP            
+		 * 和轮转条件。      
 		 *
-		 * Server code isn't generally thread-safe, so we ensure that only one
-		 * of the threads is active at a time by entering the critical section
-		 * whenever we're not sleeping.
+		 * 服务端代码一般不是线程安全的，只要不在睡眠， 
+		 * 我们就进入临界区，保证任一时刻只有一个线程    
+		 * 处于活动状态。       
 		 */
 		LeaveCriticalSection(&sysloggerSection);
 
@@ -542,18 +542,18 @@ SysLoggerMain(int argc, char *argv[])
 		if (pipe_eof_seen)
 		{
 			/*
-			 * seeing this message on the real stderr is annoying - so we make
-			 * it DEBUG1 to suppress in normal use.
+			 * 在真正的 stderr 上看到这条消息很烦人，          
+			 * 故定为 DEBUG1 平时不输出。 
 			 */
 			ereport(DEBUG1,
 					(errmsg_internal("logger shutting down")));
 
 			/*
-			 * Normal exit from the syslogger is here.  Note that we
-			 * deliberately do not close syslogFile before exiting; this is to
-			 * allow for the possibility of elog messages being generated
-			 * inside proc_exit.  Regular exit() will take care of flushing
-			 * and closing stdio channels.
+			 * syslogger 的正常退出在这里。注意我们    
+			 * 故意不在退出前关闭 syslogFile；这是为了          
+			 * 给 proc_exit 内部可能产生的 elog 消息           
+			 * 留有余地。常规的 exit() 会负责刷新             
+			 * 并关闭 stdio 通道。  
 			 */
 			proc_exit(0);
 		}
@@ -561,7 +561,7 @@ SysLoggerMain(int argc, char *argv[])
 }
 
 /*
- * Postmaster subroutine to start a syslogger subprocess.
+ * postmaster 启动 syslogger 子进程的子例程。  
  */
 int
 SysLogger_Start(void)
@@ -573,21 +573,21 @@ SysLogger_Start(void)
 		return 0;
 
 	/*
-	 * If first time through, create the pipe which will receive stderr
-	 * output.
+	 * 首次执行时，创建用于接收 stderr 输出的管道。  
+	 *        
 	 *
-	 * If the syslogger crashes and needs to be restarted, we continue to use
-	 * the same pipe (indeed must do so, since extant backends will be writing
-	 * into that pipe).
+	 * 如果 syslogger 崩溃而需要重启，我们继续使用           
+	 * 同一条管道（实际上也必须如此：现存后端仍在        
+	 * 写它）。    
 	 *
-	 * This means the postmaster must continue to hold the read end of the
-	 * pipe open, so we can pass it down to the reincarnated syslogger. This
-	 * is a bit klugy but we have little choice.
+	 * 这意味着 postmaster 必须一直持有管道读端的          
+	 * 打开状态，以便把它传给重生的 syslogger。              
+	 * 这有点笨拙，但别无选择。     
 	 *
-	 * Also note that we don't bother counting the pipe FDs by calling
-	 * Reserve/ReleaseExternalFD.  There's no real need to account for them
-	 * accurately in the postmaster or syslogger process, and both ends of the
-	 * pipe will wind up closed in all other postmaster children.
+	 * 另注意我们懒得调用 Reserve/ReleaseExternalFD          
+	 * 来清点管道占用的 FD。在 postmaster 或 syslogger          
+	 * 进程中没必要精确记账，而且管道两端                    
+	 * 在所有其他 postmaster 子进程中都会被关闭。 
 	 */
 #ifndef WIN32
 	if (syslogPipe[0] < 0)
@@ -614,21 +614,21 @@ SysLogger_Start(void)
 #endif
 
 	/*
-	 * Create log directory if not present; ignore errors
+	 * 若日志目录不存在则创建；忽略错误  
 	 */
 	(void) MakePGDirectory(Log_directory);
 
 	/*
-	 * The initial logfile is created right in the postmaster, to verify that
-	 * the Log_directory is writable.  We save the reference time so that the
-	 * syslogger child process can recompute this file name.
+	 * 初始日志文件直接由 postmaster 创建，以验证             
+	 * Log_directory 可写。我们保存参考时间，                    
+	 * 供 syslogger 子进程重新计算该文件名。   
 	 *
-	 * It might look a bit strange to re-do this during a syslogger restart,
-	 * but we must do so since the postmaster closed syslogFile after the
-	 * previous fork (and remembering that old file wouldn't be right anyway).
-	 * Note we always append here, we won't overwrite any existing file.  This
-	 * is consistent with the normal rules, because by definition this is not
-	 * a time-based rotation.
+	 * 在 syslogger 重启期间重做这件事看似有点奇怪，       
+	 * 但必须如此，因为 postmaster 在上次 fork 之后         
+	 * 已关闭 syslogFile（而且记住旧文件本来也不对）。      
+	 * 注意我们这里总是追加，不会覆盖任何已有文件。     
+	 * 这与常规规则一致，因为按定义这不是                   
+	 * 按时间的轮转。 
 	 */
 	first_syslogger_file_time = time(NULL);
 
@@ -639,9 +639,9 @@ SysLogger_Start(void)
 	pfree(filename);
 
 	/*
-	 * Likewise for the initial CSV log file, if that's enabled.  (Note that
-	 * we open syslogFile even when only CSV output is nominally enabled,
-	 * since some code paths will write to syslogFile anyway.)
+	 * 若启用 CSV 日志，初始 CSV 日志文件亦然。（注意     
+	 * 即使名义上只启用 CSV，我们也会打开 syslogFile，   
+	 * 因为某些代码路径仍会写入 syslogFile。）  
 	 */
 	if (Log_destination & LOG_DESTINATION_CSVLOG)
 	{
@@ -653,9 +653,9 @@ SysLogger_Start(void)
 	}
 
 	/*
-	 * Likewise for the initial JSON log file, if that's enabled.  (Note that
-	 * we open syslogFile even when only JSON output is nominally enabled,
-	 * since some code paths will write to syslogFile anyway.)
+	 * 若启用 JSON 日志，初始 JSON 日志文件亦然。（注意    
+	 * 即使名义上只启用 JSON，我们也会打开 syslogFile，   
+	 * 因为某些代码路径仍会写入 syslogFile。）  
 	 */
 	if (Log_destination & LOG_DESTINATION_JSONLOG)
 	{
@@ -679,25 +679,25 @@ SysLogger_Start(void)
 
 #ifndef EXEC_BACKEND
 		case 0:
-			/* in postmaster child ... */
+			/* postmaster 子进程… */
 			InitPostmasterChild();
 
-			/* Close the postmaster's sockets */
+			/* 关闭 postmaster 的套接字 */
 			ClosePostmasterPorts(true);
 
-			/* Drop our connection to postmaster's shared memory, as well */
+			/* 同时断开我们与 postmaster 共享内存的连接     */
 			dsm_detach_all();
 			PGSharedMemoryDetach();
 
-			/* do the work */
+			/* 执行工作*/
 			SysLoggerMain(0, NULL);
 			break;
 #endif
 
 		default:
-			/* success, in postmaster */
+			/* postmaster 中成功   */
 
-			/* now we redirect stderr, if not done already */
+			/* 现在重定向 stderr（若尚未做）    */
 			if (!redirection_done)
 			{
 #ifdef WIN32
@@ -705,9 +705,9 @@ SysLogger_Start(void)
 #endif
 
 				/*
-				 * Leave a breadcrumb trail when redirecting, in case the user
-				 * forgets that redirection is active and looks only at the
-				 * original stderr target file.
+				 * 重定向时留下踪迹，以防用户忘记重定向     
+				 * 已生效，而只去查看原始的 stderr             
+				 * 目标文件。             
 				 */
 				ereport(LOG,
 						(errmsg("redirecting log output to logging collector process"),
@@ -725,15 +725,15 @@ SysLogger_Start(void)
 					ereport(FATAL,
 							(errcode_for_file_access(),
 							 errmsg("could not redirect stderr: %m")));
-				/* Now we are done with the write end of the pipe. */
+				/* 现在管道写端已用完。                  */
 				close(syslogPipe[1]);
 				syslogPipe[1] = -1;
 #else
 
 				/*
-				 * open the pipe in binary mode and make sure stderr is binary
-				 * after it's been dup'ed into, to avoid disturbing the pipe
-				 * chunking protocol.
+				 * 以二进制模式打开管道，并确保 stderr 被      
+				 * dup 进来之后仍是二进制，以免扰乱管道     
+				 * 分块协议。   
 				 */
 				fflush(stderr);
 				fd = _open_osfhandle((intptr_t) syslogPipe[1],
@@ -746,16 +746,16 @@ SysLogger_Start(void)
 				_setmode(STDERR_FILENO, _O_BINARY);
 
 				/*
-				 * Now we are done with the write end of the pipe.
-				 * CloseHandle() must not be called because the preceding
-				 * close() closes the underlying handle.
+				 * 现在管道写端已用完。                 
+				 * 绝不能调用 CloseHandle()，因为前面的       
+				 * close() 已关闭底层句柄。     
 				 */
 				syslogPipe[1] = 0;
 #endif
 				redirection_done = true;
 			}
 
-			/* postmaster will never write the file(s); close 'em */
+			/* postmaster 从不写这些文件；把它们关掉 */
 			fclose(syslogFile);
 			syslogFile = NULL;
 			if (csvlogFile != NULL)
@@ -771,7 +771,7 @@ SysLogger_Start(void)
 			return (int) sysloggerPid;
 	}
 
-	/* we should never reach here */
+	/* 绝不应走到这里      */
 	return 0;
 }
 
@@ -781,8 +781,8 @@ SysLogger_Start(void)
 /*
  * syslogger_fdget() -
  *
- * Utility wrapper to grab the file descriptor of an opened error output
- * file.  Used when building the command to fork the logging collector.
+ * 工具性包装：获取已打开错误输出文件的描述符。   
+ * 在构建 fork 日志收集器的命令时使用。                 
  */
 static int
 syslogger_fdget(FILE *file)
@@ -803,8 +803,8 @@ syslogger_fdget(FILE *file)
 /*
  * syslogger_fdopen() -
  *
- * Utility wrapper to re-open an error output file, using the given file
- * descriptor.  Used when parsing arguments in a forked logging collector.
+ * 工具性包装函数：用给定的文件描述符重新打开错误
+ * 输出文件。在 fork 出的日志收集器解析参数时使用。  
  */
 static FILE *
 syslogger_fdopen(int fd)
@@ -835,7 +835,7 @@ syslogger_fdopen(int fd)
 /*
  * syslogger_forkexec() -
  *
- * Format up the arglist for, then fork and exec, a syslogger process
+ * 为 syslogger 进程准备参数表，然后 fork 并 exec        
  */
 static pid_t
 syslogger_forkexec(void)
@@ -848,9 +848,9 @@ syslogger_forkexec(void)
 
 	av[ac++] = "postgres";
 	av[ac++] = "--forklog";
-	av[ac++] = NULL;			/* filled in by postmaster_forkexec */
+	av[ac++] = NULL;			/* 由 postmaster_forkexec 填写   */
 
-	/* static variables (those not passed by write_backend_variables) */
+	/* 静态变量（write_backend_variables 不传递的那些）   */
 	snprintf(filenobuf, sizeof(filenobuf), "%d",
 			 syslogger_fdget(syslogFile));
 	av[ac++] = filenobuf;
@@ -870,7 +870,7 @@ syslogger_forkexec(void)
 /*
  * syslogger_parseArgs() -
  *
- * Extract data from the arglist for exec'ed syslogger process
+ * 从参数表提取 exec 启动的 syslogger 的数据      
  */
 static void
 syslogger_parseArgs(int argc, char *argv[])
@@ -881,11 +881,11 @@ syslogger_parseArgs(int argc, char *argv[])
 	argv += 3;
 
 	/*
-	 * Re-open the error output files that were opened by SysLogger_Start().
+	 * 重新打开由 SysLogger_Start() 打开的错误输出文件。     
 	 *
-	 * We expect this will always succeed, which is too optimistic, but if it
-	 * fails there's not a lot we can do to report the problem anyway.  As
-	 * coded, we'll just crash on a null pointer dereference after failure...
+	 * 我们预期这总会成功，未免过于乐观；但即便失败， 
+	 * 我们也没什么办法报告问题。按现在的写法，       
+	 * 失败后我们会因空指针解引用而直接崩溃……          
 	 */
 	fd = atoi(*argv++);
 	syslogFile = syslogger_fdopen(fd);
@@ -898,32 +898,32 @@ syslogger_parseArgs(int argc, char *argv[])
 
 
 /* --------------------------------
- *		pipe protocol handling
+ *		管道协议处理    
  * --------------------------------
  */
 
 /*
- * Process data received through the syslogger pipe.
+ * 处理经由 syslogger 管道收到的数据。  
  *
- * This routine interprets the log pipe protocol which sends log messages as
- * (hopefully atomic) chunks - such chunks are detected and reassembled here.
+ * 本例程解释日志管道协议：日志消息以（但愿原子的） 
+ * 块为单位发送——块的识别与重组都在这里完成。        
  *
- * The protocol has a header that starts with two nul bytes, then has a 16 bit
- * length, the pid of the sending process, and a flag to indicate if it is
- * the last chunk in a message. Incomplete chunks are saved until we read some
- * more, and non-final chunks are accumulated until we get the final chunk.
+ * 协议头部以两个 nul 字节开头，随后是 16 位长度、         
+ * 发送进程的 pid，以及指示是否为消息最后一块的       
+ * 标志。不完整的块会保存下来等待继续读取，               
+ * 非末块则持续累积，直到收到末块。                        
  *
- * All of this is to avoid 2 problems:
- * . partial messages being written to logfiles (messes rotation), and
- * . messages from different backends being interleaved (messages garbled).
+ * 一切只为避开两个问题：  
+ * . 残缺消息被写进日志文件（搅乱轮转），           
+ * . 不同后端的消息交错（消息变乱）。                      
  *
- * Any non-protocol messages are written out directly. These should only come
- * from non-PostgreSQL sources, however (e.g. third party libraries writing to
- * stderr).
+ * 任何非协议消息都会直接写出。不过它们应当只           
+ * 来自非 PostgreSQL 来源（如往 stderr 写的第三方库）。       
+ *         
  *
- * logbuffer is the data input buffer, and *bytes_in_logbuffer is the number
- * of bytes present.  On exit, any not-yet-eaten data is left-justified in
- * logbuffer, and *bytes_in_logbuffer is updated.
+ * logbuffer 是数据输入缓冲，*bytes_in_logbuffer 是                
+ * 其中的字节数。退出时，尚未吃掉的数据会左移至     
+ * logbuffer 开头，并更新其字节数。   
  */
 static void
 process_pipe_input(char *logbuffer, int *bytes_in_logbuffer)
@@ -932,14 +932,14 @@ process_pipe_input(char *logbuffer, int *bytes_in_logbuffer)
 	int			count = *bytes_in_logbuffer;
 	int			dest = LOG_DESTINATION_STDERR;
 
-	/* While we have enough for a header, process data... */
+	/* 只要数据够一个头部就继续处理……   */
 	while (count >= (int) (offsetof(PipeProtoHeader, data) + 1))
 	{
 		PipeProtoHeader p;
 		int			chunklen;
 		bits8		dest_flags;
 
-		/* Do we have a valid header? */
+		/* 头部有效吗？         */
 		memcpy(&p, cursor, offsetof(PipeProtoHeader, data));
 		dest_flags = p.flags & (PIPE_PROTO_DEST_STDERR |
 								PIPE_PROTO_DEST_CSVLOG |
@@ -957,7 +957,7 @@ process_pipe_input(char *logbuffer, int *bytes_in_logbuffer)
 
 			chunklen = PIPE_HEADER_SIZE + p.len;
 
-			/* Fall out of loop if we don't have the whole chunk yet */
+			/* 若整块尚未收齐则跳出循环                  */
 			if (count < chunklen)
 				break;
 
@@ -969,11 +969,11 @@ process_pipe_input(char *logbuffer, int *bytes_in_logbuffer)
 				dest = LOG_DESTINATION_JSONLOG;
 			else
 			{
-				/* this should never happen as of the header validation */
+				/* 经过头部校验后这绝不应再发生           */
 				Assert(false);
 			}
 
-			/* Locate any existing buffer for this source pid */
+			/* 为该来源 pid 找到已有的缓冲区      */
 			buffer_list = buffer_lists[p.pid % NBUFFER_LISTS];
 			foreach(cell, buffer_list)
 			{
@@ -991,11 +991,11 @@ process_pipe_input(char *logbuffer, int *bytes_in_logbuffer)
 			if ((p.flags & PIPE_PROTO_IS_LAST) == 0)
 			{
 				/*
-				 * Save a complete non-final chunk in a per-pid buffer
+				 * 把完整非末块存入按 pid 分的缓冲区    
 				 */
 				if (existing_slot != NULL)
 				{
-					/* Add chunk to data from preceding chunks */
+					/* 把该块并入前面各块的数据    */
 					str = &(existing_slot->data);
 					appendBinaryStringInfo(str,
 										   cursor + PIPE_HEADER_SIZE,
@@ -1003,12 +1003,12 @@ process_pipe_input(char *logbuffer, int *bytes_in_logbuffer)
 				}
 				else
 				{
-					/* First chunk of message, save in a new buffer */
+					/* 消息的首块，保存到新缓冲区中   */
 					if (free_slot == NULL)
 					{
 						/*
-						 * Need a free slot, but there isn't one in the list,
-						 * so create a new one and extend the list with it.
+						 * 需空槽而链表没有时，新建一个并     
+						 * 用它扩展链表。                           
 						 */
 						free_slot = palloc(sizeof(save_buffer));
 						buffer_list = lappend(buffer_list, free_slot);
@@ -1025,8 +1025,8 @@ process_pipe_input(char *logbuffer, int *bytes_in_logbuffer)
 			else
 			{
 				/*
-				 * Final chunk --- add it to anything saved for that pid, and
-				 * either way write the whole thing out.
+				 * 末块——并入该 pid 已保存的数据，无论     
+				 * 哪种情况都把整体写出。    
 				 */
 				if (existing_slot != NULL)
 				{
@@ -1035,65 +1035,65 @@ process_pipe_input(char *logbuffer, int *bytes_in_logbuffer)
 										   cursor + PIPE_HEADER_SIZE,
 										   p.len);
 					write_syslogger_file(str->data, str->len, dest);
-					/* Mark the buffer unused, and reclaim string storage */
+					/* 标记缓冲区未用，回收字符串存储      */
 					existing_slot->pid = 0;
 					pfree(str->data);
 				}
 				else
 				{
-					/* The whole message was one chunk, evidently. */
+					/* 显然整条消息就是一块。           */
 					write_syslogger_file(cursor + PIPE_HEADER_SIZE, p.len,
 										 dest);
 				}
 			}
 
-			/* Finished processing this chunk */
+			/* 本块处理完毕             */
 			cursor += chunklen;
 			count -= chunklen;
 		}
 		else
 		{
-			/* Process non-protocol data */
+			/* 处理非协议数据     */
 
 			/*
-			 * Look for the start of a protocol header.  If found, dump data
-			 * up to there and repeat the loop.  Otherwise, dump it all and
-			 * fall out of the loop.  (Note: we want to dump it all if at all
-			 * possible, so as to avoid dividing non-protocol messages across
-			 * logfiles.  We expect that in many scenarios, a non-protocol
-			 * message will arrive all in one read(), and we want to respect
-			 * the read() boundary if possible.)
+			 * 寻找协议头部的起点。若找到，把之前的数据 
+			 * 全部写出并重复循环。若没找到，则全部写出
+			 * 并跳出循环。（注意：要尽可能全部写出，     
+			 * 以免非协议消息被分散到多个日志文件。        
+			 * 我们预期在许多场景中，非协议消息会        
+			 * 随一次 read() 全部到达，只要可能就尊重        
+			 * read() 边界。）              
 			 */
 			for (chunklen = 1; chunklen < count; chunklen++)
 			{
 				if (cursor[chunklen] == '\0')
 					break;
 			}
-			/* fall back on the stderr log as the destination */
+			/* 退回到 stderr 日志作为目标            */
 			write_syslogger_file(cursor, chunklen, LOG_DESTINATION_STDERR);
 			cursor += chunklen;
 			count -= chunklen;
 		}
 	}
 
-	/* We don't have a full chunk, so left-align what remains in the buffer */
+	/* 没有收齐整块时，把缓冲中剩余内容左对齐            */
 	if (count > 0 && cursor != logbuffer)
 		memmove(logbuffer, cursor, count);
 	*bytes_in_logbuffer = count;
 }
 
 /*
- * Force out any buffered data
+ * 刷出所有缓冲数据   
  *
- * This is currently used only at syslogger shutdown, but could perhaps be
- * useful at other times, so it is careful to leave things in a clean state.
+ * 目前这只在 syslogger 关闭时使用，但其他时候            
+ * 也许用得上，所以它小心地把状态留在干净的样子。    
  */
 static void
 flush_pipe_input(char *logbuffer, int *bytes_in_logbuffer)
 {
 	int			i;
 
-	/* Dump any incomplete protocol messages */
+	/* 倾倒任何未完成的协议消息  */
 	for (i = 0; i < NBUFFER_LISTS; i++)
 	{
 		List	   *list = buffer_lists[i];
@@ -1109,7 +1109,7 @@ flush_pipe_input(char *logbuffer, int *bytes_in_logbuffer)
 
 				write_syslogger_file(str->data, str->len,
 									 LOG_DESTINATION_STDERR);
-				/* Mark the buffer unused, and reclaim string storage */
+				/* 标记缓冲区未用，回收字符串存储      */
 				buf->pid = 0;
 				pfree(str->data);
 			}
@@ -1117,8 +1117,8 @@ flush_pipe_input(char *logbuffer, int *bytes_in_logbuffer)
 	}
 
 	/*
-	 * Force out any remaining pipe data as-is; we don't bother trying to
-	 * remove any protocol headers that may exist in it.
+	 * 把管道中剩余的数据原样刷出；懒得费心去掉      
+	 * 其中可能存在的协议头部。             
 	 */
 	if (*bytes_in_logbuffer > 0)
 		write_syslogger_file(logbuffer, *bytes_in_logbuffer,
@@ -1128,16 +1128,16 @@ flush_pipe_input(char *logbuffer, int *bytes_in_logbuffer)
 
 
 /* --------------------------------
- *		logfile routines
+ *		日志例程    
  * --------------------------------
  */
 
 /*
- * Write text to the currently open logfile
+ * 向当前日志文件写入文本       
  *
- * This is exported so that elog.c can call it when MyBackendType is B_LOGGER.
- * This allows the syslogger process to record elog messages of its own,
- * even though its stderr does not point at the syslog pipe.
+ * 导出此函数是为了让 elog.c 在 MyBackendType 为 B_LOGGER          
+ * 时调用。syslogger 进程由此能记录自己的 elog 消息，  
+ * 尽管它的 stderr 并不指向 syslog 管道。        
  */
 void
 write_syslogger_file(const char *buffer, int count, int destination)
@@ -1146,17 +1146,17 @@ write_syslogger_file(const char *buffer, int count, int destination)
 	FILE	   *logfile;
 
 	/*
-	 * If we're told to write to a structured log file, but it's not open,
-	 * dump the data to syslogFile (which is always open) instead.  This can
-	 * happen if structured output is enabled after postmaster start and we've
-	 * been unable to open logFile.  There are also race conditions during a
-	 * parameter change whereby backends might send us structured output
-	 * before we open the logFile or after we close it.  Writing formatted
-	 * output to the regular log file isn't great, but it beats dropping log
-	 * output on the floor.
+	 * 若要求写入结构化日志文件，但它尚未打开，       
+	 * 就转储到 syslogFile（它总是打开）。这可能             
+	 * 发生在 postmaster 启动后才启用结构化输出、而我们     
+	 * 一直无法打开 logFile 的情形。参数变更期间还存在   
+	 * 竞态：后端可能在我们打开 logFile 之前或关闭     
+	 * 之后发来结构化输出。把格式化输出写进普通       
+	 * 日志文件并不理想，但总好过把日志输出               
+	 * 直接丢掉。     
 	 *
-	 * Think not to improve this by trying to open logFile on-the-fly.  Any
-	 * failure in that would lead to recursion.
+	 * 别想通过即时打开 logFile 来改进这一点。              
+	 * 任何此类失败都会导致递归。 
 	 */
 	if ((destination & LOG_DESTINATION_CSVLOG) && csvlogFile != NULL)
 		logfile = csvlogFile;
@@ -1168,10 +1168,10 @@ write_syslogger_file(const char *buffer, int count, int destination)
 	rc = fwrite(buffer, 1, count, logfile);
 
 	/*
-	 * Try to report any failure.  We mustn't use ereport because it would
-	 * just recurse right back here, but write_stderr is OK: it will write
-	 * either to the postmaster's original stderr, or to /dev/null, but never
-	 * to our input pipe which would result in a different sort of looping.
+	 * 设法报告失败。绝不能用 ereport，因为它会直接     
+	 * 递归回到这里；但 write_stderr 没问题：它只会写到  
+	 * postmaster 原始的 stderr 或 /dev/null，绝不会写              
+	 * 入我们的输入管道，那会导致另一种死循环。        
 	 */
 	if (rc != count)
 		write_stderr("could not write to log file: %s\n", strerror(errno));
@@ -1180,11 +1180,11 @@ write_syslogger_file(const char *buffer, int count, int destination)
 #ifdef WIN32
 
 /*
- * Worker thread to transfer data from the pipe to the current logfile.
+ * 把数据从管道传输到当前日志文件的工作线程。     
  *
- * We need this because on Windows, WaitForMultipleObjects does not work on
- * unnamed pipes: it always reports "signaled", so the blocking ReadFile won't
- * allow for SIGHUP; and select is for sockets only.
+ * 必须有这个线程：Windows 上 WaitForMultipleObjects              
+ * 不能用于无名管道：它总报告"已通知"，故阻塞的 ReadFile 
+ * 无法响应 SIGHUP；select 仅限套接字。  
  */
 static unsigned int __stdcall
 pipeThread(void *arg)
@@ -1203,10 +1203,10 @@ pipeThread(void *arg)
 						  &bytesRead, 0);
 
 		/*
-		 * Enter critical section before doing anything that might touch
-		 * global state shared by the main thread. Anything that uses
-		 * palloc()/pfree() in particular are not safe outside the critical
-		 * section.
+		 * 做任何可能触及主线程共享的全局状态之前， 
+		 * 先进入临界区。尤其是用                         
+		 * palloc()/pfree() 的操作在临界区之外都不安全。     
+		 *         
 		 */
 		EnterCriticalSection(&sysloggerSection);
 		if (!result)
@@ -1228,8 +1228,8 @@ pipeThread(void *arg)
 		}
 
 		/*
-		 * If we've filled the current logfile, nudge the main thread to do a
-		 * log rotation.
+		 * 如果当前日志文件已写满，轻推主线程去            
+		 * 做轮转。 
 		 */
 		if (Log_RotationSize > 0)
 		{
@@ -1241,13 +1241,13 @@ pipeThread(void *arg)
 		LeaveCriticalSection(&sysloggerSection);
 	}
 
-	/* We exit the above loop only upon detecting pipe EOF */
+	/* 仅在检测到管道 EOF 时才退出上述循环  */
 	pipe_eof_seen = true;
 
-	/* if there's any data left then force it out now */
+	/* 若还有残留数据就立刻刷出去        */
 	flush_pipe_input(logbuffer, &bytes_in_logbuffer);
 
-	/* set the latch to waken the main thread, which will quit */
+	/* 设置 latch 唤醒主线程，后者将退出          */
 	SetLatch(MyLatch);
 
 	LeaveCriticalSection(&sysloggerSection);
@@ -1257,11 +1257,11 @@ pipeThread(void *arg)
 #endif							/* WIN32 */
 
 /*
- * Open a new logfile with proper permissions and buffering options.
+ * 以正确的权限和缓冲选项打开新的日志文件。     
  *
- * If allow_errors is true, we just log any open failure and return NULL
- * (with errno still correct for the fopen failure).
- * Otherwise, errors are treated as fatal.
+ * 若 allow_errors 为真，则只记录打开失败并返回 NULL     
+ * （errno 仍保持 fopen 失败时的值）。   
+ * 否则，错误按致命处理。      
  */
 static FILE *
 logfile_open(const char *filename, const char *mode, bool allow_errors)
@@ -1270,8 +1270,8 @@ logfile_open(const char *filename, const char *mode, bool allow_errors)
 	mode_t		oumask;
 
 	/*
-	 * Note we do not let Log_file_mode disable IWUSR, since we certainly want
-	 * to be able to write the files ourselves.
+	 * 注意我们不让 Log_file_mode 取消 IWUSR，因为                 
+	 * 我们当然要能写这些文件。    
 	 */
 	oumask = umask((mode_t) ((~(Log_file_mode | S_IWUSR)) & (S_IRWXU | S_IRWXG | S_IRWXO)));
 	fh = fopen(filename, mode);
@@ -1282,7 +1282,7 @@ logfile_open(const char *filename, const char *mode, bool allow_errors)
 		setvbuf(fh, NULL, PG_IOLBF, 0);
 
 #ifdef WIN32
-		/* use CRLF line endings on Windows */
+		/* Windows 下用 CRLF 行尾       */
 		_setmode(_fileno(fh), _O_TEXT);
 #endif
 	}
@@ -1301,12 +1301,12 @@ logfile_open(const char *filename, const char *mode, bool allow_errors)
 }
 
 /*
- * Do logfile rotation for a single destination, as specified by target_dest.
- * The information stored in *last_file_name and *logFile is updated on a
- * successful file rotation.
+ * 对 target_dest 指定的单一目标做日志文件轮转。             
+ * 成功轮转后，*last_file_name 与 *logFile 中保存的信息     
+ * 会被更新。          
  *
- * Returns false if the rotation has been stopped, or true to move on to
- * the processing of other formats.
+ * 若轮转已被中止则返回假；否则返回真，继续处理   
+ * 其他格式。                 
  */
 static bool
 logfile_rotate_dest(bool time_based_rotation, int size_rotation_for,
@@ -1318,10 +1318,10 @@ logfile_rotate_dest(bool time_based_rotation, int size_rotation_for,
 	FILE	   *fh;
 
 	/*
-	 * If the target destination was just turned off, close the previous file
-	 * and unregister its data.  This cannot happen for stderr as syslogFile
-	 * is assumed to be always opened even if stderr is disabled in
-	 * log_destination.
+	 * 若目标刚被停用，则关闭旧文件并注销其数据。       
+	 * stderr 不会出现这种情况：即使 log_destination 停用了   
+	 * stderr，syslogFile 也被视为始终打开。             
+	 *                 
 	 */
 	if ((Log_destination & target_dest) == 0 &&
 		target_dest != LOG_DESTINATION_STDERR)
@@ -1336,13 +1336,13 @@ logfile_rotate_dest(bool time_based_rotation, int size_rotation_for,
 	}
 
 	/*
-	 * Leave if it is not time for a rotation or if the target destination has
-	 * no need to do a rotation based on the size of its file.
+	 * 若未到轮转时间，或目标基于文件大小不需要轮转，  
+	 * 则直接返回。                                     
 	 */
 	if (!time_based_rotation && (size_rotation_for & target_dest) == 0)
 		return true;
 
-	/* file extension depends on the destination type */
+	/* 文件扩展名取决于目标类型           */
 	if (target_dest == LOG_DESTINATION_STDERR)
 		logFileExt = NULL;
 	else if (target_dest == LOG_DESTINATION_CSVLOG)
@@ -1351,18 +1351,18 @@ logfile_rotate_dest(bool time_based_rotation, int size_rotation_for,
 		logFileExt = ".json";
 	else
 	{
-		/* cannot happen */
+		/* 不会发生  */
 		Assert(false);
 	}
 
-	/* build the new file name */
+	/* 构造新文件名      */
 	filename = logfile_getname(fntime, logFileExt);
 
 	/*
-	 * Decide whether to overwrite or append.  We can overwrite if (a)
-	 * Log_truncate_on_rotation is set, (b) the rotation was triggered by
-	 * elapsed time and not something else, and (c) the computed file name is
-	 * different from what we were previously logging into.
+	 * 决定覆盖还是追加。能覆盖的条件：(a) 设置了  
+	 * Log_truncate_on_rotation，(b) 轮转由时间到点触发        
+	 * 而非其他原因，且 (c) 算出的文件名与之前写入的     
+	 * 文件不同。                                     
 	 */
 	if (Log_truncate_on_rotation && time_based_rotation &&
 		*last_file_name != NULL &&
@@ -1374,10 +1374,10 @@ logfile_rotate_dest(bool time_based_rotation, int size_rotation_for,
 	if (!fh)
 	{
 		/*
-		 * ENFILE/EMFILE are not too surprising on a busy system; just keep
-		 * using the old file till we manage to get a new one.  Otherwise,
-		 * assume something's wrong with Log_directory and stop trying to
-		 * create files.
+		 * 在繁忙的系统上 ENFILE/EMFILE 并不稀奇；继续       
+		 * 用旧文件，直到成功拿到新文件。否则，         
+		 * 视 Log_directory 有问题，停止尝试创建文件。     
+		 *              
 		 */
 		if (errno != ENFILE && errno != EMFILE)
 		{
@@ -1391,12 +1391,12 @@ logfile_rotate_dest(bool time_based_rotation, int size_rotation_for,
 		return false;
 	}
 
-	/* fill in the new information */
+	/* 填入新信息             */
 	if (*logFile != NULL)
 		fclose(*logFile);
 	*logFile = fh;
 
-	/* instead of pfree'ing filename, remember it for next time */
+	/* 不 pfree filename，而是把它留给下次使用      */
 	if (*last_file_name != NULL)
 		pfree(*last_file_name);
 	*last_file_name = filename;
@@ -1405,7 +1405,7 @@ logfile_rotate_dest(bool time_based_rotation, int size_rotation_for,
 }
 
 /*
- * perform logfile rotation
+ * 执行日志文件轮转
  */
 static void
 logfile_rotate(bool time_based_rotation, int size_rotation_for)
@@ -1415,28 +1415,28 @@ logfile_rotate(bool time_based_rotation, int size_rotation_for)
 	rotation_requested = false;
 
 	/*
-	 * When doing a time-based rotation, invent the new logfile name based on
-	 * the planned rotation time, not current time, to avoid "slippage" in the
-	 * file name when we don't do the rotation immediately.
+	 * 做基于时间的轮转时，以计划轮转时间而非当前时间 
+	 * 推导新文件名，以免不立即执行轮转时文件名           
+	 * 出现"滑动"。                                   
 	 */
 	if (time_based_rotation)
 		fntime = next_rotation_time;
 	else
 		fntime = time(NULL);
 
-	/* file rotation for stderr */
+	/* stderr 的文件轮转   */
 	if (!logfile_rotate_dest(time_based_rotation, size_rotation_for, fntime,
 							 LOG_DESTINATION_STDERR, &last_sys_file_name,
 							 &syslogFile))
 		return;
 
-	/* file rotation for csvlog */
+	/* csvlog 的文件轮转   */
 	if (!logfile_rotate_dest(time_based_rotation, size_rotation_for, fntime,
 							 LOG_DESTINATION_CSVLOG, &last_csv_file_name,
 							 &csvlogFile))
 		return;
 
-	/* file rotation for jsonlog */
+	/* jsonlog 的文件轮转   */
 	if (!logfile_rotate_dest(time_based_rotation, size_rotation_for, fntime,
 							 LOG_DESTINATION_JSONLOG, &last_json_file_name,
 							 &jsonlogFile))
@@ -1449,12 +1449,12 @@ logfile_rotate(bool time_based_rotation, int size_rotation_for)
 
 
 /*
- * construct logfile name using timestamp information
+ * 用时间戳信息构造日志文件名           
  *
- * If suffix isn't NULL, append it to the name, replacing any ".log"
- * that may be in the pattern.
+ * 若 suffix 非 NULL，就把它附到名字末尾，替换模式 
+ * 中已有的 ".log"。     
  *
- * Result is palloc'd.
+ * palloc 分配。   
  */
 static char *
 logfile_getname(pg_time_t timestamp, const char *suffix)
@@ -1468,7 +1468,7 @@ logfile_getname(pg_time_t timestamp, const char *suffix)
 
 	len = strlen(filename);
 
-	/* treat Log_filename as a strftime pattern */
+	/* 把 Log_filename 当作 strftime 模式  */
 	pg_strftime(filename + len, MAXPGPATH - len, Log_filename,
 				pg_localtime(&timestamp, log_timezone));
 
@@ -1484,7 +1484,7 @@ logfile_getname(pg_time_t timestamp, const char *suffix)
 }
 
 /*
- * Determine the next planned rotation time, and store in next_rotation_time.
+ * 确定下一次计划轮转时间，并存入 next_rotation_time。       
  */
 static void
 set_next_rotation_time(void)
@@ -1493,17 +1493,17 @@ set_next_rotation_time(void)
 	struct pg_tm *tm;
 	int			rotinterval;
 
-	/* nothing to do if time-based rotation is disabled */
+	/* 若按时间轮转已禁用则无事可做       */
 	if (Log_RotationAge <= 0)
 		return;
 
 	/*
-	 * The requirements here are to choose the next time > now that is a
-	 * "multiple" of the log rotation interval.  "Multiple" can be interpreted
-	 * fairly loosely.  In this version we align to log_timezone rather than
-	 * GMT.
+	 * 这里的要求是选出大于 now、且是日志轮转间隔    
+	 * "倍数"的下一个时刻。对"倍数"可以理解得                
+	 * 相当宽松。本版本对齐到 log_timezone 而非 GMT。         
+	 *     
 	 */
-	rotinterval = Log_RotationAge * SECS_PER_MINUTE;	/* convert to seconds */
+	rotinterval = Log_RotationAge * SECS_PER_MINUTE;	/* 换算成秒       */
 	now = (pg_time_t) time(NULL);
 	tm = pg_localtime(&now, log_timezone);
 	now += tm->tm_gmtoff;
@@ -1514,12 +1514,12 @@ set_next_rotation_time(void)
 }
 
 /*
- * Store the name of the file(s) where the log collector, when enabled, writes
- * log messages.  Useful for finding the name(s) of the current log file(s)
- * when there is time-based logfile rotation.  Filenames are stored in a
- * temporary file and which is renamed into the final destination for
- * atomicity.  The file is opened with the same permissions as what gets
- * created in the data directory and has proper buffering options.
+ * 存储启用日志收集器时写入日志消息的文件名。            
+ * 在存在按时间轮转时，可用于查找当前日志               
+ * 文件的文件名。文件名先写入临时文件，               
+ * 再原子性地改名到最终位置。文件以与数据         
+ * 目录中创建物相同的权限打开，并采用                  
+ * 恰当的缓冲选项。                                       
  */
 static void
 update_metainfo_datafile(void)
@@ -1539,7 +1539,7 @@ update_metainfo_datafile(void)
 		return;
 	}
 
-	/* use the same permissions as the data directory for the new file */
+	/* 新文件使用与数据目录相同的权限                   */
 	oumask = umask(pg_mode_mask);
 	fh = fopen(LOG_METAINFO_DATAFILE_TMP, "w");
 	umask(oumask);
@@ -1549,7 +1549,7 @@ update_metainfo_datafile(void)
 		setvbuf(fh, NULL, PG_IOLBF, 0);
 
 #ifdef WIN32
-		/* use CRLF line endings on Windows */
+		/* Windows 下用 CRLF 行尾       */
 		_setmode(_fileno(fh), _O_TEXT);
 #endif
 	}
@@ -1610,13 +1610,13 @@ update_metainfo_datafile(void)
 }
 
 /* --------------------------------
- *		signal handler routines
+ *		信号处理例程     
  * --------------------------------
  */
 
 /*
- * Check to see if a log rotation request has arrived.  Should be
- * called by postmaster after receiving SIGUSR1.
+ * 检查是否有日志轮转请求到来。postmaster 在      
+ * 收到 SIGUSR1 之后应调用它。         
  */
 bool
 CheckLogrotateSignal(void)
@@ -1630,7 +1630,7 @@ CheckLogrotateSignal(void)
 }
 
 /*
- * Remove the file signaling a log rotation request.
+ * 移除指示日志轮转请求的信号文件。 
  */
 void
 RemoveLogrotateSignalFiles(void)
@@ -1638,7 +1638,7 @@ RemoveLogrotateSignalFiles(void)
 	unlink(LOGROTATE_SIGNAL_FILE);
 }
 
-/* SIGUSR1: set flag to rotate logfile */
+/* SIGUSR1：置日志轮转标志     */
 static void
 sigUsr1Handler(SIGNAL_ARGS)
 {

@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "batch_id": "0276-comment-executor-expr",
+  "title": "Translate executor comments: executor-expr",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "86348e84c0dc1ca18e2290345668550e58e1e38b",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0276-comment-executor-expr.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/executor/**",
+      "kind": "c_comment",
+      "note": "P2 executor translation campaign"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0276-comment-executor-expr.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": []
+    },
+    {
+      "path": "src/backend/executor/execExpr.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 335,
+      "translated": 334,
+      "preserved": 1,
+      "preserved_reasons": {
+        "EN:3045": "blk243: code-formula label comment restating adjacent code (ptr += nlower * sizeof(bool)) - kept identical to EN"
+      },
+      "note": "P2 executor campaign wave C17"
+    }
+  ],
+  "notes": "Translation agents (C17a/C17b/C17c/C17d) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

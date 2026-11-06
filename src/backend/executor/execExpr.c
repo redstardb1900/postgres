@@ -1,22 +1,22 @@
 /*-------------------------------------------------------------------------
  *
  * execExpr.c
- *	  Expression evaluation infrastructure.
+ *	  表达式求值基础设施。       
  *
- *	During executor startup, we compile each expression tree (which has
- *	previously been processed by the parser and planner) into an ExprState,
- *	using ExecInitExpr() et al.  This converts the tree into a flat array
- *	of ExprEvalSteps, which may be thought of as instructions in a program.
- *	At runtime, we'll execute steps, starting with the first, until we reach
- *	an EEOP_DONE opcode.
+ *	执行器启动时，我们会把每棵表达式树（先前已由 
+ *	解析器和规划器处理过）编译成 ExprState，                
+ *	借助 ExecInitExpr() 等函数。这会把该树转换成一个     
+ *	扁平的 ExprEvalStep 数组，可将其视为程序中的指令。   
+ *	运行时，我们会从第一步开始执行这些步骤，直到遇到
+ *	EEOP_DONE 为止。 
  *
- *	This file contains the "compilation" logic.  It is independent of the
- *	specific execution technology we use (switch statement, computed goto,
- *	JIT compilation, etc).
+ *	本文件包含"编译"逻辑，它与我们采用的                
+ *	具体执行技术（switch 语句、computed goto、JIT              
+ *	编译等）无关。 
  *
- *	See src/backend/executor/README for some background, specifically the
- *	"Expression Trees and ExprState nodes", "Expression Initialization",
- *	and "Expression Evaluation" sections.
+ *	背景知识参见 src/backend/executor/README，特别是           
+ *	"Expression Trees and ExprState nodes"、"Expression Initialization"
+ *	与 "Expression Evaluation" 各节。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -54,11 +54,11 @@
 
 typedef struct ExprSetupInfo
 {
-	/* Highest attribute numbers fetched from inner/outer/scan tuple slots: */
+	/* 从 inner/outer/scan 元组槽取的最高属性号：               */
 	AttrNumber	last_inner;
 	AttrNumber	last_outer;
 	AttrNumber	last_scan;
-	/* MULTIEXPR SubPlan nodes appearing in the expression: */
+	/* 表达式中出现的 MULTIEXPR SubPlan 节点：    */
 	List	   *multiexpr_subplans;
 } ExprSetupInfo;
 
@@ -90,38 +90,38 @@ static void ExecBuildAggTransCall(ExprState *state, AggState *aggstate,
 
 
 /*
- * ExecInitExpr: prepare an expression tree for execution
+ * ExecInitExpr：为执行准备一棵表达式树      
  *
- * This function builds and returns an ExprState implementing the given
- * Expr node tree.  The return ExprState can then be handed to ExecEvalExpr
- * for execution.  Because the Expr tree itself is read-only as far as
- * ExecInitExpr and ExecEvalExpr are concerned, several different executions
- * of the same plan tree can occur concurrently.  (But note that an ExprState
- * does mutate at runtime, so it can't be re-used concurrently.)
+ * 本函数构建并返回一个 ExprState，用以实现给定的    
+ * Expr 节点树。返回的 ExprState 随后可交给 ExecEvalExpr       
+ * 执行。由于就 Expr 树本身而言，ExecInitExpr 和         
+ * ExecEvalExpr 均视其为只读，因此同一棵计划树的多个      
+ * 不同执行可以并发进行。（但请注意 ExprState 在运行      
+ * 时会发生变动，故不能并发地重复使用。）    
  *
- * This must be called in a memory context that will last as long as repeated
- * executions of the expression are needed.  Typically the context will be
- * the same as the per-query context of the associated ExprContext.
+ * 必须在寿命足以覆盖表达式重复执行需求的内存上下文  
+ * 中调用本函数。通常，该上下文会与相关 ExprContext 的 
+ * 每查询上下文相同。                                     
  *
- * Any Aggref, WindowFunc, or SubPlan nodes found in the tree are added to
- * the lists of such nodes held by the parent PlanState.
+ * 树中发现的任何 Aggref、WindowFunc 或 SubPlan 节点都会     
+ * 加入父 PlanState 所持有的此类节点列表。
  *
- * Note: there is no ExecEndExpr function; we assume that any resource
- * cleanup needed will be handled by just releasing the memory context
- * in which the state tree is built.  Functions that require additional
- * cleanup work can register a shutdown callback in the ExprContext.
+ * 注意：没有 ExecEndExpr 函数；我们假定所需的资源   
+ * 清理只需释放构建状态树的内存上下文即可完成。 
+ * 需要额外清理工作的函数可以在 ExprContext 中注册    
+ * 关闭回调。                                                  
  *
- *	'node' is the root of the expression tree to compile.
- *	'parent' is the PlanState node that owns the expression.
+ *	'node' 是待编译表达式树的根节点。       
+ *	'parent' 是拥有该表达式的 PlanState 节点。   
  *
- * 'parent' may be NULL if we are preparing an expression that is not
- * associated with a plan tree.  (If so, it can't have aggs or subplans.)
- * Such cases should usually come through ExecPrepareExpr, not directly here.
+ * 如果准备的表达式不关联计划树，'parent' 可以为   
+ * NULL。（这样它就不能包含聚合或子计划。）            
+ * 这类情形通常应当经由 ExecPrepareExpr，而非直接到这里。 
  *
- * Also, if 'node' is NULL, we just return NULL.  This is convenient for some
- * callers that may or may not have an expression that needs to be compiled.
- * Note that a NULL ExprState pointer *cannot* be handed to ExecEvalExpr,
- * although ExecQual and ExecCheck will accept one (and treat it as "true").
+ * 另外，若 'node' 为 NULL，我们就直接返回 NULL。这对某些  
+ * 调用方很方便：它们可能有、也可能没有需要编译的    
+ * 表达式。注意：NULL ExprState 指针*不能*交给              
+ * ExecEvalExpr，但 ExecQual/ExecCheck 会接受（视为"真"）。      
  */
 ExprState *
 ExecInitExpr(Expr *node, PlanState *parent)
@@ -129,23 +129,23 @@ ExecInitExpr(Expr *node, PlanState *parent)
 	ExprState  *state;
 	ExprEvalStep scratch = {0};
 
-	/* Special case: NULL expression produces a NULL ExprState pointer */
+	/* 特殊情形：NULL 表达式产生 NULL ExprState 指针       */
 	if (node == NULL)
 		return NULL;
 
-	/* Initialize ExprState with empty step list */
+	/* 用空步骤列表初始化 ExprState     */
 	state = makeNode(ExprState);
 	state->expr = node;
 	state->parent = parent;
 	state->ext_params = NULL;
 
-	/* Insert setup steps as needed */
+	/* 按需插入设置步骤     */
 	ExecCreateExprSetupSteps(state, (Node *) node);
 
-	/* Compile the expression proper */
+	/* 编译表达式主体         */
 	ExecInitExprRec(node, state, &state->resvalue, &state->resnull);
 
-	/* Finally, append a DONE step */
+	/* 最后追加 DONE 步骤    */
 	scratch.opcode = EEOP_DONE;
 	ExprEvalPushStep(state, &scratch);
 
@@ -155,10 +155,10 @@ ExecInitExpr(Expr *node, PlanState *parent)
 }
 
 /*
- * ExecInitExprWithParams: prepare a standalone expression tree for execution
+ * ExecInitExprWithParams：为执行准备独立的表达式树             
  *
- * This is the same as ExecInitExpr, except that there is no parent PlanState,
- * and instead we may have a ParamListInfo describing PARAM_EXTERN Params.
+ * 与 ExecInitExpr 相同，只是没有父 PlanState，                     
+ * 但可能会有描述 PARAM_EXTERN 参数的 ParamListInfo。          
  */
 ExprState *
 ExecInitExprWithParams(Expr *node, ParamListInfo ext_params)
@@ -166,23 +166,23 @@ ExecInitExprWithParams(Expr *node, ParamListInfo ext_params)
 	ExprState  *state;
 	ExprEvalStep scratch = {0};
 
-	/* Special case: NULL expression produces a NULL ExprState pointer */
+	/* 特殊情形：NULL 表达式产生 NULL ExprState 指针       */
 	if (node == NULL)
 		return NULL;
 
-	/* Initialize ExprState with empty step list */
+	/* 用空步骤列表初始化 ExprState     */
 	state = makeNode(ExprState);
 	state->expr = node;
 	state->parent = NULL;
 	state->ext_params = ext_params;
 
-	/* Insert setup steps as needed */
+	/* 按需插入设置步骤     */
 	ExecCreateExprSetupSteps(state, (Node *) node);
 
-	/* Compile the expression proper */
+	/* 编译表达式主体         */
 	ExecInitExprRec(node, state, &state->resvalue, &state->resnull);
 
-	/* Finally, append a DONE step */
+	/* 最后追加 DONE 步骤    */
 	scratch.opcode = EEOP_DONE;
 	ExprEvalPushStep(state, &scratch);
 
@@ -192,22 +192,22 @@ ExecInitExprWithParams(Expr *node, ParamListInfo ext_params)
 }
 
 /*
- * ExecInitQual: prepare a qual for execution by ExecQual
+ * ExecInitQual：准备一个待 ExecQual 执行的 qual
  *
- * Prepares for the evaluation of a conjunctive boolean expression (qual list
- * with implicit AND semantics) that returns true if none of the
- * subexpressions are false.
+ * 准备对合取布尔表达式（即具有隐式 AND 语义的 qual       
+ * 列表）求值，若无任何子表达式为 false 则返回
+ * true。                  
  *
- * We must return true if the list is empty.  Since that's a very common case,
- * we optimize it a bit further by translating to a NULL ExprState pointer
- * rather than setting up an ExprState that computes constant TRUE.  (Some
- * especially hot-spot callers of ExecQual detect this and avoid calling
- * ExecQual at all.)
+ * 列表为空时必须返回 true。由于这是极常见的情形，       
+ * 我们进一步将其优化为转换成 NULL ExprState 指针，       
+ * 而不是构造一个计算常量 TRUE 的 ExprState。（某些       
+ * 特别热点 ExecQual 调用方会检测到这一点，从而干脆  
+ * 避开它。）  
  *
- * If any of the subexpressions yield NULL, then the result of the conjunction
- * is false.  This makes ExecQual primarily useful for evaluating WHERE
- * clauses, since SQL specifies that tuples with null WHERE results do not
- * get selected.
+ * 若任一子表达式得出 NULL，则整个合取的结果为 false。    
+ * 这使得 ExecQual 主要适合用来求值 WHERE 子句，         
+ * 因为 SQL 规定 WHERE 结果为 null 的元组不会被              
+ * 选中。    
  */
 ExprState *
 ExecInitQual(List *qual, PlanState *parent)
@@ -217,7 +217,7 @@ ExecInitQual(List *qual, PlanState *parent)
 	List	   *adjust_jumps = NIL;
 	ListCell   *lc;
 
-	/* short-circuit (here and in ExecQual) for empty restriction list */
+	/* 限制列表为空时短路（此处与 ExecQual 中均是）   */
 	if (qual == NIL)
 		return NULL;
 
@@ -228,23 +228,23 @@ ExecInitQual(List *qual, PlanState *parent)
 	state->parent = parent;
 	state->ext_params = NULL;
 
-	/* mark expression as to be used with ExecQual() */
+	/* 标记表达式将配合 ExecQual() 使用    */
 	state->flags = EEO_FLAG_IS_QUAL;
 
-	/* Insert setup steps as needed */
+	/* 按需插入设置步骤     */
 	ExecCreateExprSetupSteps(state, (Node *) qual);
 
 	/*
-	 * ExecQual() needs to return false for an expression returning NULL. That
-	 * allows us to short-circuit the evaluation the first time a NULL is
-	 * encountered.  As qual evaluation is a hot-path this warrants using a
-	 * special opcode for qual evaluation that's simpler than BOOL_AND (which
-	 * has more complex NULL handling).
+	 * 对于返回 NULL 的表达式，ExecQual() 需要返回 false。      
+	 * 这让我们在首次遇到 NULL 时即可短路求值。qual     
+	 * 求值是热路径，故值得为 qual 求值用专门操作码，  
+	 * 该操作码比 BOOL_AND 更简单（后者的 NULL                   
+	 * 处理更复杂）。           
 	 */
 	scratch.opcode = EEOP_QUAL;
 
 	/*
-	 * We can use ExprState's resvalue/resnull as target for each qual expr.
+	 * 各 qual 表达式的目标可用 ExprState 的 resvalue/resnull。  
 	 */
 	scratch.resvalue = &state->resvalue;
 	scratch.resnull = &state->resnull;
@@ -253,17 +253,17 @@ ExecInitQual(List *qual, PlanState *parent)
 	{
 		Expr	   *node = (Expr *) lfirst(lc);
 
-		/* first evaluate expression */
+		/* 先对表达式求值     */
 		ExecInitExprRec(node, state, &state->resvalue, &state->resnull);
 
-		/* then emit EEOP_QUAL to detect if it's false (or null) */
+		/* 再生成 EEOP_QUAL 检测是否 false（或 null）  */
 		scratch.d.qualexpr.jumpdone = -1;
 		ExprEvalPushStep(state, &scratch);
 		adjust_jumps = lappend_int(adjust_jumps,
 								   state->steps_len - 1);
 	}
 
-	/* adjust jump targets */
+	/* 调整跳转目标  */
 	foreach(lc, adjust_jumps)
 	{
 		ExprEvalStep *as = &state->steps[lfirst_int(lc)];
@@ -274,9 +274,9 @@ ExecInitQual(List *qual, PlanState *parent)
 	}
 
 	/*
-	 * At the end, we don't need to do anything more.  The last qual expr must
-	 * have yielded TRUE, and since its result is stored in the desired output
-	 * location, we're done.
+	 * 最后无需再做任何事。最后一个 qual 表达式必然        
+	 * 已得出 TRUE，而其结果就存放在所需的输出位置中，   
+	 * 因此即告完成。
 	 */
 	scratch.opcode = EEOP_DONE;
 	ExprEvalPushStep(state, &scratch);
@@ -287,36 +287,36 @@ ExecInitQual(List *qual, PlanState *parent)
 }
 
 /*
- * ExecInitCheck: prepare a check constraint for execution by ExecCheck
+ * ExecInitCheck：准备一个待 ExecCheck 执行的检查约束     
  *
- * This is much like ExecInitQual/ExecQual, except that a null result from
- * the conjunction is treated as TRUE.  This behavior is appropriate for
- * evaluating CHECK constraints, since SQL specifies that NULL constraint
- * conditions are not failures.
+ * 与 ExecInitQual/ExecQual 非常相似，不同之处在于合取      
+ * 得出 null 时视为 TRUE。该行为很适合评估                
+ * 检查约束，因为 SQL 规定 NULL 约束条件                    
+ * 不算失败。             
  *
- * Note that like ExecInitQual, this expects input in implicit-AND format.
- * Users of ExecCheck that have expressions in normal explicit-AND format
- * can just apply ExecInitExpr to produce suitable input for ExecCheck.
+ * 注意与 ExecInitQual 一样，本函数要求输入为隐式 AND     
+ * 格式。持有常规显式 AND 格式表达式的 ExecCheck 用户   
+ * 只需应用 ExecInitExpr 就能产生适合 ExecCheck 的输入。 
  */
 ExprState *
 ExecInitCheck(List *qual, PlanState *parent)
 {
-	/* short-circuit (here and in ExecCheck) for empty restriction list */
+	/* 限制列表为空时短路（此处与 ExecCheck 中均是）   */
 	if (qual == NIL)
 		return NULL;
 
 	Assert(IsA(qual, List));
 
 	/*
-	 * Just convert the implicit-AND list to an explicit AND (if there's more
-	 * than one entry), and compile normally.  Unlike ExecQual, we can't
-	 * short-circuit on NULL results, so the regular AND behavior is needed.
+	 * 只需把隐式 AND 列表转换为显式 AND（若多于             
+	 * 一个）并正常编译。与 ExecQual 不同，不能          
+	 * 对 NULL 结果短路，因此需要常规的 AND 行为。          
 	 */
 	return ExecInitExpr(make_ands_explicit(qual), parent);
 }
 
 /*
- * Call ExecInitExpr() on a list of expressions, return a list of ExprStates.
+ * 对一个表达式列表调用 ExecInitExpr()，返回 ExprState 列表。
  */
 List *
 ExecInitExprList(List *nodes, PlanState *parent)
@@ -337,21 +337,21 @@ ExecInitExprList(List *nodes, PlanState *parent)
 /*
  *		ExecBuildProjectionInfo
  *
- * Build a ProjectionInfo node for evaluating the given tlist in the given
- * econtext, and storing the result into the tuple slot.  (Caller must have
- * ensured that tuple slot has a descriptor matching the tlist!)
+ * 构建一个 ProjectionInfo 节点，用于在给定的 econtext 中   
+ * 对给定 tlist 求值，并把结果存入元组槽（调用方必须  
+ * 已确保该元组槽具有与 tlist 匹配的描述符！）
  *
- * inputDesc can be NULL, but if it is not, we check to see whether simple
- * Vars in the tlist match the descriptor.  It is important to provide
- * inputDesc for relation-scan plan nodes, as a cross check that the relation
- * hasn't been changed since the plan was made.  At higher levels of a plan,
- * there is no need to recheck.
+ * inputDesc 可为 NULL；若非 NULL，我们会检查 tlist 中        
+ * 的简单 Var 是否匹配描述符。为关系扫描计划节点  
+ * 提供 inputDesc 很重要，可作为交叉检查，确认该关         
+ * 系自计划生成以来未被更改过。在计划的较高层级，    
+ * 无需再复查。          
  *
- * This is implemented by internally building an ExprState that performs the
- * whole projection in one go.
+ * 其实现方式是在内部构建一个 ExprState，一次性完成      
+ * 整个投影。            
  *
- * Caution: before PG v10, the targetList was a list of ExprStates; now it
- * should be the planner-created targetlist, since we do the compilation here.
+ * 注意：在 PG v10 之前，targetList 是 ExprState 列表；        
+ * 现在它应当是规划器创建的 targetlist——编译在此进行。 
  */
 ProjectionInfo *
 ExecBuildProjectionInfo(List *targetList,
@@ -366,7 +366,7 @@ ExecBuildProjectionInfo(List *targetList,
 	ListCell   *lc;
 
 	projInfo->pi_exprContext = econtext;
-	/* We embed ExprState into ProjectionInfo instead of doing extra palloc */
+	/* 将 ExprState 内嵌进 ProjectionInfo，而不是额外 palloc      */
 	projInfo->pi_state.type = T_ExprState;
 	state = &projInfo->pi_state;
 	state->expr = (Expr *) targetList;
@@ -375,10 +375,10 @@ ExecBuildProjectionInfo(List *targetList,
 
 	state->resultslot = slot;
 
-	/* Insert setup steps as needed */
+	/* 按需插入设置步骤     */
 	ExecCreateExprSetupSteps(state, (Node *) targetList);
 
-	/* Now compile each tlist column */
+	/* 现在编译每个 tlist 列  */
 	foreach(lc, targetList)
 	{
 		TargetEntry *tle = lfirst_node(TargetEntry, lc);
@@ -387,31 +387,31 @@ ExecBuildProjectionInfo(List *targetList,
 		bool		isSafeVar = false;
 
 		/*
-		 * If tlist expression is a safe non-system Var, use the fast-path
-		 * ASSIGN_*_VAR opcodes.  "Safe" means that we don't need to apply
-		 * CheckVarSlotCompatibility() during plan startup.  If a source slot
-		 * was provided, we make the equivalent tests here; if a slot was not
-		 * provided, we assume that no check is needed because we're dealing
-		 * with a non-relation-scan-level expression.
+		 * 若 tlist 表达式是安全的非系统 Var，用快速路径 
+		 * 的 ASSIGN_*_VAR 操作码。"安全"即无需在计划启动  
+		 * 期间应用 CheckVarSlotCompatibility()。若提供了源槽，  
+		 * 我们就在此处做等价的测试；若未提供槽，         
+		 * 则假定无需检查，因为我们处理的是                 
+		 * 非关系扫描层级的表达式。      
 		 */
 		if (tle->expr != NULL &&
 			IsA(tle->expr, Var) &&
 			((Var *) tle->expr)->varattno > 0)
 		{
-			/* Non-system Var, but how safe is it? */
+			/* 非系统 Var，但有多安全？  */
 			variable = (Var *) tle->expr;
 			attnum = variable->varattno;
 
 			if (inputDesc == NULL)
-				isSafeVar = true;	/* can't check, just assume OK */
+				isSafeVar = true;	/* 无法检查，只假定 OK */
 			else if (attnum <= inputDesc->natts)
 			{
 				Form_pg_attribute attr = TupleDescAttr(inputDesc, attnum - 1);
 
 				/*
-				 * If user attribute is dropped or has a type mismatch, don't
-				 * use ASSIGN_*_VAR.  Instead let the normal expression
-				 * machinery handle it (which'll possibly error out).
+				 * 若用户属性已删除或类型不匹配，不要使用 
+				 * ASSIGN_*_VAR，而是交给常规表达式机制来 
+				 * 处理（它可能会报错）。                 
 				 */
 				if (!attr->attisdropped && variable->vartype == attr->atttypid)
 				{
@@ -422,23 +422,23 @@ ExecBuildProjectionInfo(List *targetList,
 
 		if (isSafeVar)
 		{
-			/* Fast-path: just generate an EEOP_ASSIGN_*_VAR step */
+			/* 快速路径：只生成 EEOP_ASSIGN_*_VAR 步骤  */
 			switch (variable->varno)
 			{
 				case INNER_VAR:
-					/* get the tuple from the inner node */
+					/* 从内节点获取元组          */
 					scratch.opcode = EEOP_ASSIGN_INNER_VAR;
 					break;
 
 				case OUTER_VAR:
-					/* get the tuple from the outer node */
+					/* 从外节点获取元组          */
 					scratch.opcode = EEOP_ASSIGN_OUTER_VAR;
 					break;
 
-					/* INDEX_VAR is handled by default case */
+					/* INDEX_VAR 由默认分支处理      */
 
 				default:
-					/* get the tuple from the relation being scanned */
+					/* 从被扫描的关系获取元组             */
 					scratch.opcode = EEOP_ASSIGN_SCAN_VAR;
 					break;
 			}
@@ -450,19 +450,19 @@ ExecBuildProjectionInfo(List *targetList,
 		else
 		{
 			/*
-			 * Otherwise, compile the column expression normally.
+			 * 否则，按常规编译该列表达式。        
 			 *
-			 * We can't tell the expression to evaluate directly into the
-			 * result slot, as the result slot (and the exprstate for that
-			 * matter) can change between executions.  We instead evaluate
-			 * into the ExprState's resvalue/resnull and then move.
+			 * 不能让表达式直接求值到结果槽中，因为    
+			 * 结果槽（exprstate 亦然）在执行间会变化。    
+			 * 先求值到 ExprState 的 resvalue/resnull，             
+			 * 再移动。                                        
 			 */
 			ExecInitExprRec(tle->expr, state,
 							&state->resvalue, &state->resnull);
 
 			/*
-			 * Column might be referenced multiple times in upper nodes, so
-			 * force value to R/O - but only if it could be an expanded datum.
+			 * 该列可能在上层节点中被引用多次，因此      
+			 * 需强制其为 R/O，但仅当它可能是展开 datum 时。 
 			 */
 			if (get_typlen(exprType((Node *) tle->expr)) == -1)
 				scratch.opcode = EEOP_ASSIGN_TMP_MAKE_RO;
@@ -484,34 +484,34 @@ ExecBuildProjectionInfo(List *targetList,
 /*
  *		ExecBuildUpdateProjection
  *
- * Build a ProjectionInfo node for constructing a new tuple during UPDATE.
- * The projection will be executed in the given econtext and the result will
- * be stored into the given tuple slot.  (Caller must have ensured that tuple
- * slot has a descriptor matching the target rel!)
+ * 构建一个 ProjectionInfo 节点，用于在 UPDATE 期间构造     
+ * 新元组。该投影会在给定的 econtext 中执行，结果将      
+ * 被存入给定的元组槽。（调用方必须已确保该元组槽     
+ * 具有与目标 rel 匹配的描述符！）   
  *
- * When evalTargetList is false, targetList contains the UPDATE ... SET
- * expressions that have already been computed by a subplan node; the values
- * from this tlist are assumed to be available in the "outer" tuple slot.
- * When evalTargetList is true, targetList contains the UPDATE ... SET
- * expressions that must be computed (which could contain references to
- * the outer, inner, or scan tuple slots).
+ * 当 evalTargetList 为 false 时，targetList 包含的是已由    
+ * 子计划节点计算出的 UPDATE ... SET 表达式；                  
+ * 假定来自该 tlist 的值可在"outer"元组槽中获得。        
+ * 当 evalTargetList 为 true 时，targetList 包含必须计算    
+ * 的 UPDATE ... SET 表达式（其中可能引用                   
+ * 外层、内层或扫描元组槽）。
  *
- * In either case, targetColnos contains a list of the target column numbers
- * corresponding to the non-resjunk entries of targetList.  The tlist values
- * are assigned into these columns of the result tuple slot.  Target columns
- * not listed in targetColnos are filled from the UPDATE's old tuple, which
- * is assumed to be available in the "scan" tuple slot.
+ * 无论哪种情形，targetColnos 都包含一个列表，列出与      
+ * targetList 中非 resjunk 条目对应的目标列号。tlist 的        
+ * 值将被赋给结果元组槽的这些列。未列入                   
+ * targetColnos 的目标列将用 UPDATE 的旧元组填充，            
+ * 其假定可在"scan"元组槽中获得。          
  *
- * targetList can also contain resjunk columns.  These must be evaluated
- * if evalTargetList is true, but their values are discarded.
+ * targetList 中也可以有 resjunk 列。若 evalTargetList          
+ * 为 true 则必须求值，但其值会被丢弃。       
  *
- * relDesc must describe the relation we intend to update.
+ * relDesc 必须描述我们打算更新的关系。     
  *
- * This is basically a specialized variant of ExecBuildProjectionInfo.
- * However, it also performs sanity checks equivalent to ExecCheckPlanOutput.
- * Since we never make a normal tlist equivalent to the whole
- * tuple-to-be-assigned, there is no convenient way to apply
- * ExecCheckPlanOutput, so we must do our safety checks here.
+ * 这基本上是 ExecBuildProjectionInfo 的一个特化变体。   
+ * 但它还会执行与 ExecCheckPlanOutput 等价的健全性检查。     
+ * 由于从不构造与整个待赋值元组等价的常规 
+ * tlist，因此没有便捷的途径来应用             
+ * ExecCheckPlanOutput，必须在此处做安全检查。   
  */
 ProjectionInfo *
 ExecBuildUpdateProjection(List *targetList,
@@ -534,21 +534,21 @@ ExecBuildUpdateProjection(List *targetList,
 			   *lc2;
 
 	projInfo->pi_exprContext = econtext;
-	/* We embed ExprState into ProjectionInfo instead of doing extra palloc */
+	/* 将 ExprState 内嵌进 ProjectionInfo，而不是额外 palloc      */
 	projInfo->pi_state.type = T_ExprState;
 	state = &projInfo->pi_state;
 	if (evalTargetList)
 		state->expr = (Expr *) targetList;
 	else
-		state->expr = NULL;		/* not used */
+		state->expr = NULL;		/* 未使用*/
 	state->parent = parent;
 	state->ext_params = NULL;
 
 	state->resultslot = slot;
 
 	/*
-	 * Examine the targetList to see how many non-junk columns there are, and
-	 * to verify that the non-junk columns come before the junk ones.
+	 * 检查 targetList，看其中有多少个非垃圾列，并验证非  
+	 * 垃圾列是否排在垃圾列之前。                       
 	 */
 	nAssignableCols = 0;
 	sawJunk = false;
@@ -566,14 +566,14 @@ ExecBuildUpdateProjection(List *targetList,
 		}
 	}
 
-	/* We should have one targetColnos entry per non-junk column */
+	/* 每个非垃圾列应有一个 targetColnos 条目        */
 	if (nAssignableCols != list_length(targetColnos))
 		elog(ERROR, "targetColnos does not match subplan target list");
 
 	/*
-	 * Build a bitmapset of the columns in targetColnos.  (We could just use
-	 * list_member_int() tests, but that risks O(N^2) behavior with many
-	 * columns.)
+	 * 为 targetColnos 中的列构建一个 bitmapset。（其实可以   
+	 * 直接用 list_member_int() 测试，但列多时有 O(N^2) 之  
+	 * 患。）
 	 */
 	assignedCols = NULL;
 	foreach(lc, targetColnos)
@@ -584,9 +584,9 @@ ExecBuildUpdateProjection(List *targetList,
 	}
 
 	/*
-	 * We need to insert EEOP_*_FETCHSOME steps to ensure the input tuples are
-	 * sufficiently deconstructed.  The scan tuple must be deconstructed at
-	 * least as far as the last old column we need.
+	 * 我们需要插入 EEOP_*_FETCHSOME 步骤，以确保输入元组     
+	 * 已被充分解构。扫描元组必须至少解构到所需的     
+	 * 最后一个旧列。                       
 	 */
 	for (int attnum = relDesc->natts; attnum > 0; attnum--)
 	{
@@ -601,9 +601,9 @@ ExecBuildUpdateProjection(List *targetList,
 	}
 
 	/*
-	 * If we're actually evaluating the tlist, incorporate its input
-	 * requirements too; otherwise, we'll just need to fetch the appropriate
-	 * number of columns of the "outer" tuple.
+	 * 若确实要求值 tlist，则将其输入需求也算入； 
+	 * 否则只需获取                                                   
+	 * "outer"元组的相应列数即可。  
 	 */
 	if (evalTargetList)
 		expr_setup_walker((Node *) targetList, &deform);
@@ -613,11 +613,11 @@ ExecBuildUpdateProjection(List *targetList,
 	ExecPushExprSetupSteps(state, &deform);
 
 	/*
-	 * Now generate code to evaluate the tlist's assignable expressions or
-	 * fetch them from the outer tuple, incidentally validating that they'll
-	 * be of the right data type.  The checks above ensure that the forboth()
-	 * will iterate over exactly the non-junk columns.  Note that we don't
-	 * bother evaluating any remaining resjunk columns.
+	 * 现在生成代码来求值 tlist 中可赋值的表达式，或从
+	 * 外层元组中取它们，顺带验证它们将具有正确的      
+	 * 数据类型。上面的检查确保 forboth() 恰好会遍历全部  
+	 * 非垃圾列。注意我们不必费心求值剩余的             
+	 * resjunk 列。                                  
 	 */
 	outerattnum = 0;
 	forboth(lc, targetList, lc2, targetColnos)
@@ -629,7 +629,7 @@ ExecBuildUpdateProjection(List *targetList,
 		Assert(!tle->resjunk);
 
 		/*
-		 * Apply sanity checks comparable to ExecCheckPlanOutput().
+		 * 做与 ExecCheckPlanOutput() 相当的健全性检查。
 		 */
 		if (targetattnum <= 0 || targetattnum > relDesc->natts)
 			ereport(ERROR,
@@ -653,25 +653,25 @@ ExecBuildUpdateProjection(List *targetList,
 							   targetattnum,
 							   format_type_be(exprType((Node *) tle->expr)))));
 
-		/* OK, generate code to perform the assignment. */
+		/* 好，生成执行赋值的代码。         */
 		if (evalTargetList)
 		{
 			/*
-			 * We must evaluate the TLE's expression and assign it.  We do not
-			 * bother jumping through hoops for "safe" Vars like
-			 * ExecBuildProjectionInfo does; this is a relatively less-used
-			 * path and it doesn't seem worth expending code for that.
+			 * 我们必须求值该 TLE 的表达式并赋值。我们不必 
+			 * 为"safe" Var 而像下述那样大费周折：  
+			 * ExecBuildProjectionInfo 那样；这条路径相对少用，
+			 * 为此而耗费代码似乎不值得。                
 			 */
 			ExecInitExprRec(tle->expr, state,
 							&state->resvalue, &state->resnull);
-			/* Needn't worry about read-only-ness here, either. */
+			/* 此处也无需担心只读性问题。          */
 			scratch.opcode = EEOP_ASSIGN_TMP;
 			scratch.d.assign_tmp.resultnum = targetattnum - 1;
 			ExprEvalPushStep(state, &scratch);
 		}
 		else
 		{
-			/* Just assign from the outer tuple. */
+			/* 直接从外层元组赋值。    */
 			scratch.opcode = EEOP_ASSIGN_OUTER_VAR;
 			scratch.d.assign_var.attnum = outerattnum;
 			scratch.d.assign_var.resultnum = targetattnum - 1;
@@ -681,8 +681,8 @@ ExecBuildUpdateProjection(List *targetList,
 	}
 
 	/*
-	 * Now generate code to copy over any old columns that were not assigned
-	 * to, and to ensure that dropped columns are set to NULL.
+	 * 现在生成代码，复制所有未被赋值的旧列，并确保已
+	 * 删除的列被置为 NULL。                          
 	 */
 	for (int attnum = 1; attnum <= relDesc->natts; attnum++)
 	{
@@ -690,21 +690,21 @@ ExecBuildUpdateProjection(List *targetList,
 
 		if (attr->attisdropped)
 		{
-			/* Put a null into the ExprState's resvalue/resnull ... */
+			/* 把 null 放入 ExprState 的 resvalue/resnull ...   */
 			scratch.opcode = EEOP_CONST;
 			scratch.resvalue = &state->resvalue;
 			scratch.resnull = &state->resnull;
 			scratch.d.constval.value = (Datum) 0;
 			scratch.d.constval.isnull = true;
 			ExprEvalPushStep(state, &scratch);
-			/* ... then assign it to the result slot */
+			/* ...然后把它赋给结果槽        */
 			scratch.opcode = EEOP_ASSIGN_TMP;
 			scratch.d.assign_tmp.resultnum = attnum - 1;
 			ExprEvalPushStep(state, &scratch);
 		}
 		else if (!bms_is_member(attnum, assignedCols))
 		{
-			/* Certainly the right type, so needn't check */
+			/* 类型必然正确，因此无需检查    */
 			scratch.opcode = EEOP_ASSIGN_SCAN_VAR;
 			scratch.d.assign_var.attnum = attnum - 1;
 			scratch.d.assign_var.resultnum = attnum - 1;
@@ -721,15 +721,15 @@ ExecBuildUpdateProjection(List *targetList,
 }
 
 /*
- * ExecPrepareExpr --- initialize for expression execution outside a normal
- * Plan tree context.
+ * ExecPrepareExpr --- 在正常 Plan 树上下文之外初始化          
+ * 表达式执行。
  *
- * This differs from ExecInitExpr in that we don't assume the caller is
- * already running in the EState's per-query context.  Also, we run the
- * passed expression tree through expression_planner() to prepare it for
- * execution.  (In ordinary Plan trees the regular planning process will have
- * made the appropriate transformations on expressions, but for standalone
- * expressions this won't have happened.)
+ * 它与 ExecInitExpr 的不同在于：我们不假定调用方已经
+ * 运行在 EState 的每查询上下文中。此外，我们将传入
+ * 的表达式树经过 expression_planner() 处理，为执行做     
+ * 准备。（在常规 Plan 树中，计划流程已对表达式           
+ * 做适当的变换，但对独立表达式而言                       
+ * 这不会发生。）                 
  */
 ExprState *
 ExecPrepareExpr(Expr *node, EState *estate)
@@ -749,15 +749,15 @@ ExecPrepareExpr(Expr *node, EState *estate)
 }
 
 /*
- * ExecPrepareQual --- initialize for qual execution outside a normal
- * Plan tree context.
+ * ExecPrepareQual --- 于正常 Plan 树上下文外初始          
+ * 化 qual 执行。
  *
- * This differs from ExecInitQual in that we don't assume the caller is
- * already running in the EState's per-query context.  Also, we run the
- * passed expression tree through expression_planner() to prepare it for
- * execution.  (In ordinary Plan trees the regular planning process will have
- * made the appropriate transformations on expressions, but for standalone
- * expressions this won't have happened.)
+ * 它与 ExecInitQual 的不同在于：我们不假定调用方已经
+ * 运行在 EState 的每查询上下文中。此外，我们将传入
+ * 的表达式树经过 expression_planner() 处理，为执行做     
+ * 准备。（在常规 Plan 树中，计划流程已对表达式           
+ * 做适当的变换，但对独立表达式而言                       
+ * 这不会发生。）                 
  */
 ExprState *
 ExecPrepareQual(List *qual, EState *estate)
@@ -777,10 +777,10 @@ ExecPrepareQual(List *qual, EState *estate)
 }
 
 /*
- * ExecPrepareCheck -- initialize check constraint for execution outside a
- * normal Plan tree context.
+ * ExecPrepareCheck -- 在正常 Plan 树上下文之外初始化         
+ * 检查约束供执行。 
  *
- * See ExecPrepareExpr() and ExecInitCheck() for details.
+ * 详情参见 ExecPrepareExpr() 与 ExecInitCheck()。 
  */
 ExprState *
 ExecPrepareCheck(List *qual, EState *estate)
@@ -800,10 +800,10 @@ ExecPrepareCheck(List *qual, EState *estate)
 }
 
 /*
- * Call ExecPrepareExpr() on each member of a list of Exprs, and return
- * a list of ExprStates.
+ * 对 Expr 列表的每个成员调用 ExecPrepareExpr()，并返回  
+ * ExprState 列表。  
  *
- * See ExecPrepareExpr() for details.
+ * 详情参见 ExecPrepareExpr()。 
  */
 List *
 ExecPrepareExprList(List *nodes, EState *estate)
@@ -812,7 +812,7 @@ ExecPrepareExprList(List *nodes, EState *estate)
 	MemoryContext oldcontext;
 	ListCell   *lc;
 
-	/* Ensure that the list cell nodes are in the right context too */
+	/* 确保 list cell 节点也处于正确的上下文中        */
 	oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
 
 	foreach(lc, nodes)
@@ -828,15 +828,15 @@ ExecPrepareExprList(List *nodes, EState *estate)
 }
 
 /*
- * ExecCheck - evaluate a check constraint
+ * ExecCheck - 求值一个检查约束   
  *
- * For check constraints, a null result is taken as TRUE, ie the constraint
- * passes.
+ * 对于检查约束，null 结果被视为 TRUE，即该约束           
+ * 通过 
  *
- * The check constraint may have been prepared with ExecInitCheck
- * (possibly via ExecPrepareCheck) if the caller had it in implicit-AND
- * format, but a regular boolean expression prepared with ExecInitExpr or
- * ExecPrepareExpr works too.
+ * 该检查约束可能经 ExecInitCheck 准备（或经        
+ * ExecPrepareCheck）；若调用方持有的格式是隐式          
+ * AND 格式，但用 ExecInitExpr 或 ExecPrepareExpr 准备的        
+ * 常规表达式亦可。  
  */
 bool
 ExecCheck(ExprState *state, ExprContext *econtext)
@@ -844,11 +844,11 @@ ExecCheck(ExprState *state, ExprContext *econtext)
 	Datum		ret;
 	bool		isnull;
 
-	/* short-circuit (here and in ExecInitCheck) for empty restriction list */
+	/* 限制列表为空时短路（此处与 ExecInitCheck 中均是）   */
 	if (state == NULL)
 		return true;
 
-	/* verify that expression was not compiled using ExecInitQual */
+	/* 验证表达式并非用 ExecInitQual 编译               */
 	Assert(!(state->flags & EEO_FLAG_IS_QUAL));
 
 	ret = ExecEvalExprSwitchContext(state, econtext, &isnull);
@@ -860,12 +860,12 @@ ExecCheck(ExprState *state, ExprContext *econtext)
 }
 
 /*
- * Prepare a compiled expression for execution.  This has to be called for
- * every ExprState before it can be executed.
+ * 为执行准备一个已编译的表达式。每个 ExprState 在可以
+ * 执行之前都必须调用本函数。   
  *
- * NB: While this currently only calls ExecReadyInterpretedExpr(),
- * this will likely get extended to further expression evaluation methods.
- * Therefore this should be used instead of directly calling
+ * 注意：虽然目前只调用 ExecReadyInterpretedExpr()，   
+ * 但将来很可能扩展到更多表达式求值方法。因此应     
+ * 使用本函数，而不是直接调用                  
  * ExecReadyInterpretedExpr().
  */
 static void
@@ -878,12 +878,12 @@ ExecReadyExpr(ExprState *state)
 }
 
 /*
- * Append the steps necessary for the evaluation of node to ExprState->steps,
- * possibly recursing into sub-expressions of node.
+ * 把求值 node 所需的步骤追加到 ExprState->steps，               
+ * 并可能递归进入 node 的子表达式。   
  *
- * node - expression to evaluate
- * state - ExprState to whose ->steps to append the necessary operations
- * resv / resnull - where to store the result of the node into
+ * node - 待求值的表达式 
+ * state - 要把必要操作追加到其 ->steps 的 ExprState         
+ * resv / resnull - node 结果的存放位置                
  */
 static void
 ExecInitExprRec(Expr *node, ExprState *state,
@@ -891,15 +891,15 @@ ExecInitExprRec(Expr *node, ExprState *state,
 {
 	ExprEvalStep scratch = {0};
 
-	/* Guard against stack overflow due to overly complex expressions */
+	/* 防止因表达式过于复杂而导致栈溢出               */
 	check_stack_depth();
 
-	/* Step's output location is always what the caller gave us */
+	/* 步骤的输出位置始终是调用方给我们的位置*/
 	Assert(resv != NULL && resnull != NULL);
 	scratch.resvalue = resv;
 	scratch.resnull = resnull;
 
-	/* cases should be ordered as they are in enum NodeTag */
+	/* 各情形应按 enum NodeTag 中的顺序排列     */
 	switch (nodeTag(node))
 	{
 		case T_Var:
@@ -908,12 +908,12 @@ ExecInitExprRec(Expr *node, ExprState *state,
 
 				if (variable->varattno == InvalidAttrNumber)
 				{
-					/* whole-row Var */
+					/* 整行 Var    */
 					ExecInitWholeRowVar(&scratch, variable, state);
 				}
 				else if (variable->varattno <= 0)
 				{
-					/* system column */
+					/* 系统列     */
 					scratch.d.var.attnum = variable->varattno;
 					scratch.d.var.vartype = variable->vartype;
 					switch (variable->varno)
@@ -925,7 +925,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 							scratch.opcode = EEOP_OUTER_SYSVAR;
 							break;
 
-							/* INDEX_VAR is handled by default case */
+							/* INDEX_VAR 由默认分支处理      */
 
 						default:
 							scratch.opcode = EEOP_SCAN_SYSVAR;
@@ -934,7 +934,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				}
 				else
 				{
-					/* regular user column */
+					/* 常规用户列     */
 					scratch.d.var.attnum = variable->varattno - 1;
 					scratch.d.var.vartype = variable->vartype;
 					switch (variable->varno)
@@ -946,7 +946,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 							scratch.opcode = EEOP_OUTER_VAR;
 							break;
 
-							/* INDEX_VAR is handled by default case */
+							/* INDEX_VAR 由默认分支处理      */
 
 						default:
 							scratch.opcode = EEOP_SCAN_VAR;
@@ -986,10 +986,10 @@ ExecInitExprRec(Expr *node, ExprState *state,
 					case PARAM_EXTERN:
 
 						/*
-						 * If we have a relevant ParamCompileHook, use it;
-						 * otherwise compile a standard EEOP_PARAM_EXTERN
-						 * step.  ext_params, if supplied, takes precedence
-						 * over info from the parent node's EState (if any).
+						 * 若有相关 ParamCompileHook，就用它；   
+						 * 否则编译一个标准的 EEOP_PARAM_EXTERN 
+						 * 步骤。ext_params 若有提供则优先于    
+						 * 父节点 EState 信息（若存在）。        
 						 */
 						if (state->ext_params)
 							params = state->ext_params;
@@ -1034,7 +1034,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				}
 				else
 				{
-					/* planner messed up */
+					/* 规划器搞砸了*/
 					elog(ERROR, "Aggref found in non-Agg plan node");
 				}
 
@@ -1081,17 +1081,17 @@ ExecInitExprRec(Expr *node, ExprState *state,
 					if (wfunc->winagg)
 						winstate->numaggs++;
 
-					/* for now initialize agg using old style expressions */
+					/* 目前先用旧式表达式来初始化聚合      */
 					wfstate->args = ExecInitExprList(wfunc->args,
 													 state->parent);
 					wfstate->aggfilter = ExecInitExpr(wfunc->aggfilter,
 													  state->parent);
 
 					/*
-					 * Complain if the windowfunc's arguments contain any
-					 * windowfuncs; nested window functions are semantically
-					 * nonsensical.  (This should have been caught earlier,
-					 * but we defend against it here anyway.)
+					 * 若窗口函数参数含窗口函数则报错；  
+					 * 嵌套的窗口函数在语义上不通。           
+					 * （这种情况本应更早被发现，             
+					 * 但我们仍在此处防御它。）  
 					 */
 					if (nfuncs != winstate->numfuncs)
 						ereport(ERROR,
@@ -1100,7 +1100,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				}
 				else
 				{
-					/* planner messed up */
+					/* 规划器搞砸了*/
 					elog(ERROR, "WindowFunc found in non-WindowAgg plan node");
 				}
 
@@ -1149,13 +1149,13 @@ ExecInitExprRec(Expr *node, ExprState *state,
 							 state);
 
 				/*
-				 * Change opcode of call instruction to EEOP_DISTINCT.
+				 * 把调用指令的操作码改为 EEOP_DISTINCT。 
 				 *
-				 * XXX: historically we've not called the function usage
-				 * pgstat infrastructure - that seems inconsistent given that
-				 * we do so for normal function *and* operator evaluation.  If
-				 * we decided to do that here, we'd probably want separate
-				 * opcodes for FUSAGE or not.
+				 * XXX：历史上我们从未调用函数用量统计  
+				 * pgstat 基础设施；鉴于我们对普通函数*和*    
+				 * 运算符求值都会调用它，这显得不一致。若  
+				 * 决定在此也这样做，可能需要单独的       
+				 * 操作码区分 FUSAGE。 
 				 */
 				scratch.opcode = EEOP_DISTINCT;
 				ExprEvalPushStep(state, &scratch);
@@ -1171,21 +1171,21 @@ ExecInitExprRec(Expr *node, ExprState *state,
 							 state);
 
 				/*
-				 * If first argument is of varlena type, we'll need to ensure
-				 * that the value passed to the comparison function is a
-				 * read-only pointer.
+				 * 若第一个参数为 varlena 类型，我们需要确保 
+				 * 传给比较函数的值是                          
+				 * 只读指针。   
 				 */
 				scratch.d.func.make_ro =
 					(get_typlen(exprType((Node *) linitial(op->args))) == -1);
 
 				/*
-				 * Change opcode of call instruction to EEOP_NULLIF.
+				 * 把调用指令的操作码改为 EEOP_NULLIF。 
 				 *
-				 * XXX: historically we've not called the function usage
-				 * pgstat infrastructure - that seems inconsistent given that
-				 * we do so for normal function *and* operator evaluation.  If
-				 * we decided to do that here, we'd probably want separate
-				 * opcodes for FUSAGE or not.
+				 * XXX：历史上我们从未调用函数用量统计  
+				 * pgstat 基础设施；鉴于我们对普通函数*和*    
+				 * 运算符求值都会调用它，这显得不一致。若  
+				 * 决定在此也这样做，可能需要单独的       
+				 * 操作码区分 FUSAGE。 
 				 */
 				scratch.opcode = EEOP_NULLIF;
 				ExprEvalPushStep(state, &scratch);
@@ -1203,10 +1203,10 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				Oid			cmpfuncid;
 
 				/*
-				 * Select the correct comparison function.  When we do hashed
-				 * NOT IN clauses, the opfuncid will be the inequality
-				 * comparison function and negfuncid will be set to equality.
-				 * We need to use the equality function for hash probes.
+				 * 选择正确的比较函数。当我们处理哈希       
+				 * NOT IN 子句时，opfuncid 将是不等           
+				 * 比较函数，而 negfuncid 被设为相等。           
+				 * 哈希探测时需要使用相等函数。           
 				 */
 				if (OidIsValid(opexpr->negfuncid))
 				{
@@ -1220,7 +1220,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				scalararg = (Expr *) linitial(opexpr->args);
 				arrayarg = (Expr *) lsecond(opexpr->args);
 
-				/* Check permission to call function */
+				/* 检查调用函数的权限       */
 				aclresult = object_aclcheck(ProcedureRelationId, cmpfuncid,
 											GetUserId(),
 											ACL_EXECUTE);
@@ -1240,7 +1240,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 					InvokeFunctionExecuteHook(opexpr->hashfuncid);
 				}
 
-				/* Set up the primary fmgr lookup information */
+				/* 设置主 fmgr 查找信息                */
 				finfo = palloc0(sizeof(FmgrInfo));
 				fcinfo = palloc0(SizeForFunctionCallInfo(2));
 				fmgr_info(cmpfuncid, finfo);
@@ -1249,28 +1249,28 @@ ExecInitExprRec(Expr *node, ExprState *state,
 										 opexpr->inputcollid, NULL, NULL);
 
 				/*
-				 * If hashfuncid is set, we create a EEOP_HASHED_SCALARARRAYOP
-				 * step instead of a EEOP_SCALARARRAYOP.  This provides much
-				 * faster lookup performance than the normal linear search
-				 * when the number of items in the array is anything but very
-				 * small.
+				 * 若已设置 hashfuncid，我们会创建                  
+				 * EEOP_HASHED_SCALARARRAYOP 步骤而非                   
+				 * EEOP_SCALARARRAYOP。这样当数组元素             
+				 * 数量不算极小时，查找性能远超线性搜索。 
+				 *       
 				 */
 				if (OidIsValid(opexpr->hashfuncid))
 				{
-					/* Evaluate scalar directly into left function argument */
+					/* 把标量直接求值到左侧函数参数中        */
 					ExecInitExprRec(scalararg, state,
 									&fcinfo->args[0].value, &fcinfo->args[0].isnull);
 
 					/*
-					 * Evaluate array argument into our return value.  There's
-					 * no danger in that, because the return value is
-					 * guaranteed to be overwritten by
-					 * EEOP_HASHED_SCALARARRAYOP, and will not be passed to
-					 * any other expression.
+					 * 把数组参数求值到我们的返回值中。       
+					 * 没有危险，因为返回值必定会被    
+					 * EEOP_HASHED_SCALARARRAYOP      
+					 * 所覆盖；不会传给                            
+					 * 其他表达式。   
 					 */
 					ExecInitExprRec(arrayarg, state, resv, resnull);
 
-					/* And perform the operation */
+					/* 然后执行该操作     */
 					scratch.opcode = EEOP_HASHED_SCALARARRAYOP;
 					scratch.d.hashedscalararrayop.inclause = opexpr->useOr;
 					scratch.d.hashedscalararrayop.finfo = finfo;
@@ -1282,20 +1282,20 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				}
 				else
 				{
-					/* Evaluate scalar directly into left function argument */
+					/* 把标量直接求值到左侧函数参数中        */
 					ExecInitExprRec(scalararg, state,
 									&fcinfo->args[0].value,
 									&fcinfo->args[0].isnull);
 
 					/*
-					 * Evaluate array argument into our return value.  There's
-					 * no danger in that, because the return value is
-					 * guaranteed to be overwritten by EEOP_SCALARARRAYOP, and
-					 * will not be passed to any other expression.
+					 * 把数组参数求值到我们的返回值中。       
+					 * 没有危险，因为返回值必定会被    
+					 * EEOP_SCALARARRAYOP 覆盖，且                        
+					 * 不会传给任何其他表达式。       
 					 */
 					ExecInitExprRec(arrayarg, state, resv, resnull);
 
-					/* And perform the operation */
+					/* 然后执行该操作     */
 					scratch.opcode = EEOP_SCALARARRAYOP;
 					scratch.d.scalararrayop.element_type = InvalidOid;
 					scratch.d.scalararrayop.useOr = opexpr->useOr;
@@ -1315,32 +1315,32 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				int			off;
 				ListCell   *lc;
 
-				/* allocate scratch memory used by all steps of AND/OR */
+				/* 分配 AND/OR 所有步骤共用的临时内存     */
 				if (boolexpr->boolop != NOT_EXPR)
 					scratch.d.boolexpr.anynull = (bool *) palloc(sizeof(bool));
 
 				/*
-				 * For each argument evaluate the argument itself, then
-				 * perform the bool operation's appropriate handling.
+				 * 对每个参数先求值其本身，再执行       
+				 * 布尔操作相应的处理。                    
 				 *
-				 * We can evaluate each argument into our result area, since
-				 * the short-circuiting logic means we only need to remember
-				 * previous NULL values.
+				 * 可以把每个参数求值到结果区域中，因为   
+				 * 短路逻辑意味着我们只需记住                  
+				 * 先前的 NULL 值。
 				 *
-				 * AND/OR is split into separate STEP_FIRST (one) / STEP (zero
-				 * or more) / STEP_LAST (one) steps, as each of those has to
-				 * perform different work.  The FIRST/LAST split is valid
-				 * because AND/OR have at least two arguments.
+				 * AND/OR 被拆分为 STEP_FIRST（一个）/ STEP（零     
+				 * 个或多个）/ STEP_LAST（一个）步骤，因为    
+				 * 各自要做的工作不同。FIRST/LAST 拆分是    
+				 * 有效，因 AND/OR 至少两参数。     
 				 */
 				off = 0;
 				foreach(lc, boolexpr->args)
 				{
 					Expr	   *arg = (Expr *) lfirst(lc);
 
-					/* Evaluate argument into our output variable */
+					/* 把参数求值到我们的输出变量中 */
 					ExecInitExprRec(arg, state, resv, resnull);
 
-					/* Perform the appropriate step type */
+					/* 执行相应的步骤类型       */
 					switch (boolexpr->boolop)
 					{
 						case AND_EXPR:
@@ -1381,7 +1381,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 					off++;
 				}
 
-				/* adjust jump targets */
+				/* 调整跳转目标  */
 				foreach(lc, adjust_jumps)
 				{
 					ExprEvalStep *as = &state->steps[lfirst_int(lc)];
@@ -1399,10 +1399,10 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				SubPlanState *sstate;
 
 				/*
-				 * Real execution of a MULTIEXPR SubPlan has already been
-				 * done. What we have to do here is return a dummy NULL record
-				 * value in case this targetlist element is assigned
-				 * someplace.
+				 * MULTIEXPR SubPlan 的实际执行早已完成。      
+				 * 这里要做的只是返回一个哑 NULL record 值，    
+				 * 以防该 targetlist 元素被赋值到          
+				 * 某处。 
 				 */
 				if (subplan->subLinkType == MULTIEXPR_SUBLINK)
 				{
@@ -1418,7 +1418,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 
 				sstate = ExecInitSubPlan(subplan, state->parent);
 
-				/* add SubPlanState nodes to state->parent->subPlan */
+				/* 将 SubPlanState 加进 state->parent->subPlan   */
 				state->parent->subPlan = lappend(state->parent->subPlan,
 												 sstate);
 
@@ -1433,10 +1433,10 @@ ExecInitExprRec(Expr *node, ExprState *state,
 			{
 				FieldSelect *fselect = (FieldSelect *) node;
 
-				/* evaluate row/record argument into result area */
+				/* 把行/record 参数求值到结果区域中  */
 				ExecInitExprRec(fselect->arg, state, resv, resnull);
 
-				/* and extract field */
+				/* 然后提取字段*/
 				scratch.opcode = EEOP_FIELDSELECT;
 				scratch.d.fieldselect.fieldnum = fselect->fieldnum;
 				scratch.d.fieldselect.resulttype = fselect->resulttype;
@@ -1457,23 +1457,23 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				ListCell   *l1,
 						   *l2;
 
-				/* find out the number of columns in the composite type */
+				/* 查出复合类型的列数                          */
 				tupDesc = lookup_rowtype_tupdesc(fstore->resulttype, -1);
 				ncolumns = tupDesc->natts;
 				ReleaseTupleDesc(tupDesc);
 
-				/* create workspace for column values */
+				/* 为列值创建工作区           */
 				values = (Datum *) palloc(sizeof(Datum) * ncolumns);
 				nulls = (bool *) palloc(sizeof(bool) * ncolumns);
 
-				/* create shared composite-type-lookup cache struct */
+				/* 创建共享的复合类型查找缓存结构    */
 				rowcachep = palloc(sizeof(ExprEvalRowtypeCache));
 				rowcachep->cacheptr = NULL;
 
-				/* emit code to evaluate the composite input value */
+				/* 生成求值复合输入值的代码            */
 				ExecInitExprRec(fstore->arg, state, resv, resnull);
 
-				/* next, deform the input tuple into our workspace */
+				/* 接着把输入元组解构到工作区中      */
 				scratch.opcode = EEOP_FIELDSTORE_DEFORM;
 				scratch.d.fieldstore.fstore = fstore;
 				scratch.d.fieldstore.rowcache = rowcachep;
@@ -1482,7 +1482,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				scratch.d.fieldstore.ncolumns = ncolumns;
 				ExprEvalPushStep(state, &scratch);
 
-				/* evaluate new field values, store in workspace columns */
+				/* 求值新的字段值，存入工作区列中         */
 				forboth(l1, fstore->newvals, l2, fstore->fieldnums)
 				{
 					Expr	   *e = (Expr *) lfirst(l1);
@@ -1495,28 +1495,28 @@ ExecInitExprRec(Expr *node, ExprState *state,
 							 fieldnum);
 
 					/*
-					 * Use the CaseTestExpr mechanism to pass down the old
-					 * value of the field being replaced; this is needed in
-					 * case the newval is itself a FieldStore or
-					 * SubscriptingRef that has to obtain and modify the old
-					 * value.  It's safe to reuse the CASE mechanism because
-					 * there cannot be a CASE between here and where the value
-					 * would be needed, and a field assignment can't be within
-					 * a CASE either.  (So saving and restoring
-					 * innermost_caseval is just paranoia, but let's do it
-					 * anyway.)
+					 * 借助 CaseTestExpr 传下被替换字段旧值    
+					 * ；当新值本身是 FieldStore 或                
+					 * SubscriptingRef 时就需用它获取并 
+					 * 修改旧值。复用 CASE 机制是安全的，     
+					 * 因为此处与需要值的位置之间不可能     
+					 * 存在 CASE，且字段赋值也不可能位于 CASE   
+					 * 之内。（因此保存并恢复                      
+					 * innermost_caseval 只是出于谨慎， 
+					 * 但我们还是这么做。）                     
+					 *         
 					 *
-					 * Another non-obvious point is that it's safe to use the
-					 * field's values[]/nulls[] entries as both the caseval
-					 * source and the result address for this subexpression.
-					 * That's okay only because (1) both FieldStore and
-					 * SubscriptingRef evaluate their arg or refexpr inputs
-					 * first, and (2) any such CaseTestExpr is directly the
-					 * arg or refexpr input.  So any read of the caseval will
-					 * occur before there's a chance to overwrite it.  Also,
-					 * if multiple entries in the newvals/fieldnums lists
-					 * target the same field, they'll effectively be applied
-					 * left-to-right which is what we want.
+					 * 另一个不明显要点：字段的 values[]/nulls[] 
+					 * 条目既用作该子表达式的 caseval 源、    
+					 * 又用作其结果地址是安全的。              
+					 * 没问题，是因为 (1) FieldStore 和        
+					 * SubscriptingRef 都会先求值其 arg 或 refexpr  
+					 * 输入，(2) 任何这类 CaseTestExpr 都直接是 
+					 * arg/refexpr 输入，故对 caseval 的任何读取   
+					 * 都发生在覆盖它之前。另外，              
+					 * 若 newvals/fieldnums 有多个条目             
+					 * 指向同一字段，实际上会按从左到右     
+					 * 顺序生效，正是所需。      
 					 */
 					save_innermost_caseval = state->innermost_caseval;
 					save_innermost_casenull = state->innermost_casenull;
@@ -1531,7 +1531,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 					state->innermost_casenull = save_innermost_casenull;
 				}
 
-				/* finally, form result tuple */
+				/* 最后组成结果元组   */
 				scratch.opcode = EEOP_FIELDSTORE_FORM;
 				scratch.d.fieldstore.fstore = fstore;
 				scratch.d.fieldstore.rowcache = rowcachep;
@@ -1544,7 +1544,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 
 		case T_RelabelType:
 			{
-				/* relabel doesn't need to do anything at runtime */
+				/* relabel 在运行时无需做任何事         */
 				RelabelType *relabel = (RelabelType *) node;
 
 				ExecInitExprRec(relabel->arg, state, resv, resnull);
@@ -1559,20 +1559,20 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				Oid			typioparam;
 				FunctionCallInfo fcinfo_in;
 
-				/* evaluate argument into step's result area */
+				/* 把参数求值到步骤的结果区域中*/
 				ExecInitExprRec(iocoerce->arg, state, resv, resnull);
 
 				/*
-				 * Prepare both output and input function calls, to be
-				 * evaluated inside a single evaluation step for speed - this
-				 * can be a very common operation.
+				 * 同时准备输出与输入函数调用，以便   
+				 * 在单个求值步骤内完成求值以提速——       
+				 * 这是极常见的操作。    
 				 *
-				 * We don't check permissions here as a type's input/output
-				 * function are assumed to be executable by everyone.
+				 * 此处不检查权限，因为类型的输入/输出    
+				 * 函数被假定人人可执行。                 
 				 */
 				scratch.opcode = EEOP_IOCOERCE;
 
-				/* lookup the source type's output function */
+				/* 查找源类型的输出函数           */
 				scratch.d.iocoerce.finfo_out = palloc0(sizeof(FmgrInfo));
 				scratch.d.iocoerce.fcinfo_data_out = palloc0(SizeForFunctionCallInfo(1));
 
@@ -1584,7 +1584,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 										 scratch.d.iocoerce.finfo_out,
 										 1, InvalidOid, NULL, NULL);
 
-				/* lookup the result type's input function */
+				/* 查找结果类型的输入函数       */
 				scratch.d.iocoerce.finfo_in = palloc0(sizeof(FmgrInfo));
 				scratch.d.iocoerce.fcinfo_data_in = palloc0(SizeForFunctionCallInfo(3));
 
@@ -1597,8 +1597,8 @@ ExecInitExprRec(Expr *node, ExprState *state,
 										 3, InvalidOid, NULL, NULL);
 
 				/*
-				 * We can preload the second and third arguments for the input
-				 * function, since they're constants.
+				 * 输入函数的第二、第三个参数可以预加载，  
+				 * 因为它们是常量。          
 				 */
 				fcinfo_in = scratch.d.iocoerce.fcinfo_data_in;
 				fcinfo_in->args[1].value = ObjectIdGetDatum(typioparam);
@@ -1616,7 +1616,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				Oid			resultelemtype;
 				ExprState  *elemstate;
 
-				/* evaluate argument into step's result area */
+				/* 把参数求值到步骤的结果区域中*/
 				ExecInitExprRec(acoerce->arg, state, resv, resnull);
 
 				resultelemtype = get_element_type(acoerce->resulttype);
@@ -1626,10 +1626,10 @@ ExecInitExprRec(Expr *node, ExprState *state,
 							 errmsg("target type is not an array")));
 
 				/*
-				 * Construct a sub-expression for the per-element expression;
-				 * but don't ready it until after we check it for triviality.
-				 * We assume it hasn't any Var references, but does have a
-				 * CaseTestExpr representing the source array element values.
+				 * 为逐元素表达式构造一个子表达式；          
+				 * 但在检查其平凡性之后再 ready 它。            
+				 * 我们假定它不含 Var 引用，但含有一个     
+				 * 代表源数组元素值的 CaseTestExpr。               
 				 */
 				elemstate = makeNode(ExprState);
 				elemstate->expr = acoerce->elemexpr;
@@ -1645,15 +1645,15 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				if (elemstate->steps_len == 1 &&
 					elemstate->steps[0].opcode == EEOP_CASE_TESTVAL)
 				{
-					/* Trivial, so we need no per-element work at runtime */
+					/* 平凡，故运行时无需任何逐元素处理   */
 					elemstate = NULL;
 				}
 				else
 				{
-					/* Not trivial, so append a DONE step */
+					/* 非平凡，故追加 DONE 步骤  */
 					scratch.opcode = EEOP_DONE;
 					ExprEvalPushStep(elemstate, &scratch);
-					/* and ready the subexpression */
+					/* 然后 ready 子表达式   */
 					ExecReadyExpr(elemstate);
 				}
 
@@ -1663,13 +1663,13 @@ ExecInitExprRec(Expr *node, ExprState *state,
 
 				if (elemstate)
 				{
-					/* Set up workspace for array_map */
+					/* 为 array_map 设置工作区  */
 					scratch.d.arraycoerce.amstate =
 						(ArrayMapState *) palloc0(sizeof(ArrayMapState));
 				}
 				else
 				{
-					/* Don't need workspace if there's no subexpression */
+					/* 若无子表达式则不需要工作区          */
 					scratch.d.arraycoerce.amstate = NULL;
 				}
 
@@ -1682,15 +1682,15 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				ConvertRowtypeExpr *convert = (ConvertRowtypeExpr *) node;
 				ExprEvalRowtypeCache *rowcachep;
 
-				/* cache structs must be out-of-line for space reasons */
+				/* 出于空间考虑，缓存结构必须放在行外 */
 				rowcachep = palloc(2 * sizeof(ExprEvalRowtypeCache));
 				rowcachep[0].cacheptr = NULL;
 				rowcachep[1].cacheptr = NULL;
 
-				/* evaluate argument into step's result area */
+				/* 把参数求值到步骤的结果区域中*/
 				ExecInitExprRec(convert->arg, state, resv, resnull);
 
-				/* and push conversion step */
+				/* 然后压入转换步骤 */
 				scratch.opcode = EEOP_CONVERT_ROWTYPE;
 				scratch.d.convert_rowtype.inputtype =
 					exprType((Node *) convert->arg);
@@ -1703,7 +1703,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				break;
 			}
 
-			/* note that CaseWhen expressions are handled within this block */
+			/* 注意 CaseWhen 表达式在本块内处理                  */
 		case T_CaseExpr:
 			{
 				CaseExpr   *caseExpr = (CaseExpr *) node;
@@ -1713,13 +1713,13 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				ListCell   *lc;
 
 				/*
-				 * If there's a test expression, we have to evaluate it and
-				 * save the value where the CaseTestExpr placeholders can find
-				 * it.
+				 * 若存在测试表达式，须求值它，并把值     
+				 * 存进 CaseTestExpr 占位符可找到的位置            
+				 *    
 				 */
 				if (caseExpr->arg != NULL)
 				{
-					/* Evaluate testexpr into caseval/casenull workspace */
+					/* 把 testexpr 求值到 caseval/casenull 工作区 */
 					caseval = palloc(sizeof(Datum));
 					casenull = palloc(sizeof(bool));
 
@@ -1727,29 +1727,29 @@ ExecInitExprRec(Expr *node, ExprState *state,
 									caseval, casenull);
 
 					/*
-					 * Since value might be read multiple times, force to R/O
-					 * - but only if it could be an expanded datum.
+					 * 由于该值可能被读取多次，须强制为 R/O  
+					 * ——但仅当可能是展开 datum 时。 
 					 */
 					if (get_typlen(exprType((Node *) caseExpr->arg)) == -1)
 					{
-						/* change caseval in-place */
+						/* 就地修改 caseval    */
 						scratch.opcode = EEOP_MAKE_READONLY;
 						scratch.resvalue = caseval;
 						scratch.resnull = casenull;
 						scratch.d.make_readonly.value = caseval;
 						scratch.d.make_readonly.isnull = casenull;
 						ExprEvalPushStep(state, &scratch);
-						/* restore normal settings of scratch fields */
+						/* 恢复临时字段的常规设置         */
 						scratch.resvalue = resv;
 						scratch.resnull = resnull;
 					}
 				}
 
 				/*
-				 * Prepare to evaluate each of the WHEN clauses in turn; as
-				 * soon as one is true we return the value of the
-				 * corresponding THEN clause.  If none are true then we return
-				 * the value of the ELSE clause, or NULL if there is none.
+				 * 准备依次求值各个 WHEN 子句；一旦某个     
+				 * 条件为真，就返回相应 THEN 子句    
+				 * 的值。若都不为真，则返回 ELSE 子句           
+				 * 的值，若没有 ELSE 则返回 NULL。              
 				 */
 				foreach(lc, caseExpr->args)
 				{
@@ -1759,65 +1759,65 @@ ExecInitExprRec(Expr *node, ExprState *state,
 					int			whenstep;
 
 					/*
-					 * Make testexpr result available to CaseTestExpr nodes
-					 * within the condition.  We must save and restore prior
-					 * setting of innermost_caseval fields, in case this node
-					 * is itself within a larger CASE.
+					 * 使 testexpr 的结果可为条件内的            
+					 * CaseTestExpr 节点使用。须保存并恢复       
+					 * innermost_caseval 先前的设置，以防本节点   
+					 * 位于更大的 CASE 之内。 
 					 *
-					 * If there's no test expression, we don't actually need
-					 * to save and restore these fields; but it's less code to
-					 * just do so unconditionally.
+					 * 若没有测试表达式，实际上并不需要     
+					 * 保存和恢复这些字段；但无条件地          
+					 * 这样做更省代码。   
 					 */
 					save_innermost_caseval = state->innermost_caseval;
 					save_innermost_casenull = state->innermost_casenull;
 					state->innermost_caseval = caseval;
 					state->innermost_casenull = casenull;
 
-					/* evaluate condition into CASE's result variables */
+					/* 把条件求值到 CASE 的结果变量中      */
 					ExecInitExprRec(when->expr, state, resv, resnull);
 
 					state->innermost_caseval = save_innermost_caseval;
 					state->innermost_casenull = save_innermost_casenull;
 
-					/* If WHEN result isn't true, jump to next CASE arm */
+					/* 若 WHEN 结果非真，跳到下一 CASE 分支 */
 					scratch.opcode = EEOP_JUMP_IF_NOT_TRUE;
-					scratch.d.jump.jumpdone = -1;	/* computed later */
+					scratch.d.jump.jumpdone = -1;	/* 稍后计算   */
 					ExprEvalPushStep(state, &scratch);
 					whenstep = state->steps_len - 1;
 
 					/*
-					 * If WHEN result is true, evaluate THEN result, storing
-					 * it into the CASE's result variables.
+					 * 若 WHEN 结果为真，则求值 THEN 结果，     
+					 * 存入 CASE 的结果变量中。   
 					 */
 					ExecInitExprRec(when->result, state, resv, resnull);
 
-					/* Emit JUMP step to jump to end of CASE's code */
+					/* 生成 JUMP 步骤以跳到 CASE 代码末尾*/
 					scratch.opcode = EEOP_JUMP;
-					scratch.d.jump.jumpdone = -1;	/* computed later */
+					scratch.d.jump.jumpdone = -1;	/* 稍后计算   */
 					ExprEvalPushStep(state, &scratch);
 
 					/*
-					 * Don't know address for that jump yet, compute once the
-					 * whole CASE expression is built.
+					 * 还不知道该跳转的地址，待整个 CASE       
+					 * 表达式建成后再计算。 
 					 */
 					adjust_jumps = lappend_int(adjust_jumps,
 											   state->steps_len - 1);
 
 					/*
-					 * But we can set WHEN test's jump target now, to make it
-					 * jump to the next WHEN subexpression or the ELSE.
+					 * 但 WHEN 测试的跳转目标现在就能设置，   
+					 * 跳到下一个 WHEN 子表达式或 ELSE。    
 					 */
 					state->steps[whenstep].d.jump.jumpdone = state->steps_len;
 				}
 
-				/* transformCaseExpr always adds a default */
+				/* transformCaseExpr 总会添加默认值 */
 				Assert(caseExpr->defresult);
 
-				/* evaluate ELSE expr into CASE's result variables */
+				/* 把 ELSE 表达式求值到 CASE 结果变量中*/
 				ExecInitExprRec(caseExpr->defresult, state,
 								resv, resnull);
 
-				/* adjust jump targets */
+				/* 调整跳转目标  */
 				foreach(lc, adjust_jumps)
 				{
 					ExprEvalStep *as = &state->steps[lfirst_int(lc)];
@@ -1833,13 +1833,13 @@ ExecInitExprRec(Expr *node, ExprState *state,
 		case T_CaseTestExpr:
 			{
 				/*
-				 * Read from location identified by innermost_caseval.  Note
-				 * that innermost_caseval could be NULL, if this node isn't
-				 * actually within a CaseExpr, ArrayCoerceExpr, etc structure.
-				 * That can happen because some parts of the system abuse
-				 * CaseTestExpr to cause a read of a value externally supplied
-				 * in econtext->caseValue_datum.  We'll take care of that
-				 * scenario at runtime.
+				 * 从 innermost_caseval 标识的位置读取。注意，  
+				 * 若本节点实际上不在 CaseExpr、ArrayCoerceExpr  
+				 * 之类的结构之内，innermost_caseval 可能为 NULL。
+				 * 之所以可能，是因为系统某些部分会      
+				 * 滥用 CaseTestExpr 来读取外部经                     
+				 * econtext->caseValue_datum 提供的值。             
+				 * 运行时处理。  
 				 */
 				scratch.opcode = EEOP_CASE_TESTVAL;
 				scratch.d.casetest.value = state->innermost_caseval;
@@ -1857,9 +1857,9 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				int			elemoff;
 
 				/*
-				 * Evaluate by computing each element, and then forming the
-				 * array.  Elements are computed into scratch arrays
-				 * associated with the ARRAYEXPR step.
+				 * 求值方式是先计算每个元素，然后           
+				 * 组成数组。各元素被计算到             
+				 * ARRAYEXPR 步骤临时数组里。 
 				 */
 				scratch.opcode = EEOP_ARRAYEXPR;
 				scratch.d.arrayexpr.elemvalues =
@@ -1868,17 +1868,17 @@ ExecInitExprRec(Expr *node, ExprState *state,
 					(bool *) palloc(sizeof(bool) * nelems);
 				scratch.d.arrayexpr.nelems = nelems;
 
-				/* fill remaining fields of step */
+				/* 填充 step 的其余字段   */
 				scratch.d.arrayexpr.multidims = arrayexpr->multidims;
 				scratch.d.arrayexpr.elemtype = arrayexpr->element_typeid;
 
-				/* do one-time catalog lookup for type info */
+				/* 对类型信息做一次性查找        */
 				get_typlenbyvalalign(arrayexpr->element_typeid,
 									 &scratch.d.arrayexpr.elemlength,
 									 &scratch.d.arrayexpr.elembyval,
 									 &scratch.d.arrayexpr.elemalign);
 
-				/* prepare to evaluate all arguments */
+				/* 准备求值所有参数          */
 				elemoff = 0;
 				foreach(lc, arrayexpr->elements)
 				{
@@ -1890,7 +1890,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 					elemoff++;
 				}
 
-				/* and then collect all into an array */
+				/* 然后把它们都收集进数组  */
 				ExprEvalPushStep(state, &scratch);
 				break;
 			}
@@ -1903,49 +1903,49 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				int			i;
 				ListCell   *l;
 
-				/* Build tupdesc to describe result tuples */
+				/* 构建描述结果元组的 tupdesc     */
 				if (rowexpr->row_typeid == RECORDOID)
 				{
-					/* generic record, use types of given expressions */
+					/* 通用 record：使用给定表达式的类型 */
 					tupdesc = ExecTypeFromExprList(rowexpr->args);
-					/* ... but adopt RowExpr's column aliases */
+					/* ...但采用 RowExpr 的列别名      */
 					ExecTypeSetColNames(tupdesc, rowexpr->colnames);
-					/* Bless the tupdesc so it can be looked up later */
+					/* Bless 该 tupdesc，以便日后可查         */
 					BlessTupleDesc(tupdesc);
 				}
 				else
 				{
-					/* it's been cast to a named type, use that */
+					/* 已被 cast 为具名类型，使用它  */
 					tupdesc = lookup_rowtype_tupdesc_copy(rowexpr->row_typeid, -1);
 				}
 
 				/*
-				 * In the named-type case, the tupdesc could have more columns
-				 * than are in the args list, since the type might have had
-				 * columns added since the ROW() was parsed.  We want those
-				 * extra columns to go to nulls, so we make sure that the
-				 * workspace arrays are large enough and then initialize any
-				 * extra columns to read as NULLs.
+				 * 在具名类型的情形下，tupdesc 的列数可能多于
+				 * args 列表中的列数，因为该类型自 ROW() 被  
+				 * 解析以来可能加过列。希望这些额外列     
+				 * 取值 NULL，因此确保工作区数组足够大， 
+				 * 然后把各额外列初始化，                        
+				 * 使其读取 NULL。           
 				 */
 				Assert(nelems <= tupdesc->natts);
 				nelems = Max(nelems, tupdesc->natts);
 
 				/*
-				 * Evaluate by first building datums for each field, and then
-				 * a final step forming the composite datum.
+				 * 求值方式是先为每个字段构建 datum，然后    
+				 * 由最后一步组成复合 datum。     
 				 */
 				scratch.opcode = EEOP_ROW;
 				scratch.d.row.tupdesc = tupdesc;
 
-				/* space for the individual field datums */
+				/* 供各字段 datum 使用的空间    */
 				scratch.d.row.elemvalues =
 					(Datum *) palloc(sizeof(Datum) * nelems);
 				scratch.d.row.elemnulls =
 					(bool *) palloc(sizeof(bool) * nelems);
-				/* as explained above, make sure any extra columns are null */
+				/* 如上所述，确保任何额外的列均为 NULL       */
 				memset(scratch.d.row.elemnulls, true, sizeof(bool) * nelems);
 
-				/* Set up evaluation, skipping any deleted columns */
+				/* 设置求值，跳过任何已删除的列      */
 				i = 0;
 				foreach(l, rowexpr->args)
 				{
@@ -1955,10 +1955,10 @@ ExecInitExprRec(Expr *node, ExprState *state,
 					if (!att->attisdropped)
 					{
 						/*
-						 * Guard against ALTER COLUMN TYPE on rowtype since
-						 * the RowExpr was created.  XXX should we check
-						 * typmod too?	Not sure we can be sure it'll be the
-						 * same.
+						 * 防范自 RowExpr 创建以来 rowtype 上发生
+						 * ALTER COLUMN TYPE。XXX 是否也应检查   
+						 * typmod？不确定能否保证它相同。      
+						 *      
 						 */
 						if (exprType((Node *) e) != att->atttypid)
 							ereport(ERROR,
@@ -1970,21 +1970,21 @@ ExecInitExprRec(Expr *node, ExprState *state,
 					else
 					{
 						/*
-						 * Ignore original expression and insert a NULL. We
-						 * don't really care what type of NULL it is, so
-						 * always make an int4 NULL.
+						 * 忽略原表达式并插入一个 NULL。我们 
+						 * 并不在意 NULL 是什么类型，所以   
+						 * 总是生成 int4 NULL。
 						 */
 						e = (Expr *) makeNullConst(INT4OID, -1, InvalidOid);
 					}
 
-					/* Evaluate column expr into appropriate workspace slot */
+					/* 把列表达式求值到相应的工作区槽中     */
 					ExecInitExprRec(e, state,
 									&scratch.d.row.elemvalues[i],
 									&scratch.d.row.elemnulls[i]);
 					i++;
 				}
 
-				/* And finally build the row value */
+				/* 最后再构建行值           */
 				ExprEvalPushStep(state, &scratch);
 				break;
 			}
@@ -2002,9 +2002,9 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				ListCell   *lc;
 
 				/*
-				 * Iterate over each field, prepare comparisons.  To handle
-				 * NULL results, prepare jumps to after the expression.  If a
-				 * comparison yields a != 0 result, jump to the final step.
+				 * 遍历每个字段，准备比较操作。为处理     
+				 * NULL 结果，准备好跳转到表达式之后。        
+				 * 若比较结果 != 0，则跳转到最后一步。      
 				 */
 				Assert(list_length(rcexpr->largs) == nopers);
 				Assert(list_length(rcexpr->rargs) == nopers);
@@ -2041,7 +2041,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 						elog(ERROR, "missing support function %d(%u,%u) in opfamily %u",
 							 BTORDER_PROC, lefttype, righttype, opfamily);
 
-					/* Set up the primary fmgr lookup information */
+					/* 设置主要的 fmgr 查找信息          */
 					finfo = palloc0(sizeof(FmgrInfo));
 					fcinfo = palloc0(SizeForFunctionCallInfo(2));
 					fmgr_info(proc, finfo);
@@ -2050,13 +2050,13 @@ ExecInitExprRec(Expr *node, ExprState *state,
 											 inputcollid, NULL, NULL);
 
 					/*
-					 * If we enforced permissions checks on index support
-					 * functions, we'd need to make a check here.  But the
-					 * index support machinery doesn't do that, and thus
-					 * neither does this code.
+					 * 如果我们对索引支持函数强制执行     
+					 * 权限检查，就得在此处做检查。但      
+					 * 索引支持机制并不这么做，因此       
+					 * 本代码亦然。     
 					 */
 
-					/* evaluate left and right args directly into fcinfo */
+					/* 把左右两个参数直接求值进 fcinfo       */
 					ExecInitExprRec(left_expr, state,
 									&fcinfo->args[0].value, &fcinfo->args[0].isnull);
 					ExecInitExprRec(right_expr, state,
@@ -2066,7 +2066,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 					scratch.d.rowcompare_step.finfo = finfo;
 					scratch.d.rowcompare_step.fcinfo_data = fcinfo;
 					scratch.d.rowcompare_step.fn_addr = finfo->fn_addr;
-					/* jump targets filled below */
+					/* 跳转目标稍后填充  */
 					scratch.d.rowcompare_step.jumpnull = -1;
 					scratch.d.rowcompare_step.jumpdone = -1;
 
@@ -2076,8 +2076,8 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				}
 
 				/*
-				 * We could have a zero-column rowtype, in which case the rows
-				 * necessarily compare equal.
+				 * 可能存在零列的行类型，此时两行              
+				 * 必然彼此相等。     
 				 */
 				if (nopers == 0)
 				{
@@ -2087,12 +2087,12 @@ ExecInitExprRec(Expr *node, ExprState *state,
 					ExprEvalPushStep(state, &scratch);
 				}
 
-				/* Finally, examine the last comparison result */
+				/* 最后检查最后一次比较的结果     */
 				scratch.opcode = EEOP_ROWCOMPARE_FINAL;
 				scratch.d.rowcompare_final.rctype = rcexpr->rctype;
 				ExprEvalPushStep(state, &scratch);
 
-				/* adjust jump targets */
+				/* 调整跳转目标  */
 				foreach(lc, adjust_jumps)
 				{
 					ExprEvalStep *as = &state->steps[lfirst_int(lc)];
@@ -2101,9 +2101,9 @@ ExecInitExprRec(Expr *node, ExprState *state,
 					Assert(as->d.rowcompare_step.jumpdone == -1);
 					Assert(as->d.rowcompare_step.jumpnull == -1);
 
-					/* jump to comparison evaluation */
+					/* 跳转到比较求值处      */
 					as->d.rowcompare_step.jumpdone = state->steps_len - 1;
-					/* jump to the following expression */
+					/* 跳转到后面的表达式      */
 					as->d.rowcompare_step.jumpnull = state->steps_len;
 				}
 
@@ -2116,23 +2116,23 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				List	   *adjust_jumps = NIL;
 				ListCell   *lc;
 
-				/* We assume there's at least one arg */
+				/* 我们假定至少有一个参数  */
 				Assert(coalesce->args != NIL);
 
 				/*
-				 * Prepare evaluation of all coalesced arguments, after each
-				 * one push a step that short-circuits if not null.
+				 * 准备好对所有合并参数的求值，每处理完   
+				 * 一个就压入非 NULL 即短路的步骤。   
 				 */
 				foreach(lc, coalesce->args)
 				{
 					Expr	   *e = (Expr *) lfirst(lc);
 
-					/* evaluate argument, directly into result datum */
+					/* 把参数直接求值到结果 datum 中      */
 					ExecInitExprRec(e, state, resv, resnull);
 
-					/* if it's not null, skip to end of COALESCE expr */
+					/* 若非 NULL，跳到 COALESCE 表达式末尾  */
 					scratch.opcode = EEOP_JUMP_IF_NOT_NULL;
-					scratch.d.jump.jumpdone = -1;	/* adjust later */
+					scratch.d.jump.jumpdone = -1;	/* 稍后调整 */
 					ExprEvalPushStep(state, &scratch);
 
 					adjust_jumps = lappend_int(adjust_jumps,
@@ -2140,12 +2140,12 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				}
 
 				/*
-				 * No need to add a constant NULL return - we only can get to
-				 * the end of the expression if a NULL already is being
-				 * returned.
+				 * 无需添加返回常量 NULL 的步骤——只有当    
+				 * 已经在返回 NULL 时，才可能到达表达式 
+				 * 末尾。
 				 */
 
-				/* adjust jump targets */
+				/* 调整跳转目标  */
 				foreach(lc, adjust_jumps)
 				{
 					ExprEvalStep *as = &state->steps[lfirst_int(lc)];
@@ -2168,7 +2168,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				ListCell   *lc;
 				int			off;
 
-				/* Look up the btree comparison function for the datatype */
+				/* 查找该数据类型对应的 btree 比较函数      */
 				typentry = lookup_type_cache(minmaxexpr->minmaxtype,
 											 TYPECACHE_CMP_PROC);
 				if (!OidIsValid(typentry->cmp_proc))
@@ -2178,13 +2178,13 @@ ExecInitExprRec(Expr *node, ExprState *state,
 									format_type_be(minmaxexpr->minmaxtype))));
 
 				/*
-				 * If we enforced permissions checks on index support
-				 * functions, we'd need to make a check here.  But the index
-				 * support machinery doesn't do that, and thus neither does
-				 * this code.
+				 * 如果我们对索引支持函数强制执行     
+				 * 权限检查，就得在此处做检查。但索引      
+				 * 支持机制并不这么做，因此本代码           
+				 * 亦然。 
 				 */
 
-				/* Perform function lookup */
+				/* 执行函数查找      */
 				finfo = palloc0(sizeof(FmgrInfo));
 				fcinfo = palloc0(SizeForFunctionCallInfo(2));
 				fmgr_info(typentry->cmp_proc, finfo);
@@ -2193,7 +2193,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 										 minmaxexpr->inputcollid, NULL, NULL);
 
 				scratch.opcode = EEOP_MINMAX;
-				/* allocate space to store arguments */
+				/* 分配存储参数的空间       */
 				scratch.d.minmax.values =
 					(Datum *) palloc(sizeof(Datum) * nelems);
 				scratch.d.minmax.nulls =
@@ -2204,7 +2204,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				scratch.d.minmax.finfo = finfo;
 				scratch.d.minmax.fcinfo_data = fcinfo;
 
-				/* evaluate expressions into minmax->values/nulls */
+				/* 把表达式求值到 minmax->values/nulls 中 */
 				off = 0;
 				foreach(lc, minmaxexpr->args)
 				{
@@ -2216,7 +2216,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 					off++;
 				}
 
-				/* and push the final comparison */
+				/* 再压入最后的比较      */
 				ExprEvalPushStep(state, &scratch);
 				break;
 			}
@@ -2243,7 +2243,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				scratch.opcode = EEOP_XMLEXPR;
 				scratch.d.xmlexpr.xexpr = xexpr;
 
-				/* allocate space for storing all the arguments */
+				/* 分配存储所有参数的空间            */
 				if (nnamed)
 				{
 					scratch.d.xmlexpr.named_argvalue =
@@ -2270,7 +2270,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 					scratch.d.xmlexpr.argnull = NULL;
 				}
 
-				/* prepare argument execution */
+				/* 准备参数的执行      */
 				off = 0;
 				foreach(arg, xexpr->named_args)
 				{
@@ -2293,7 +2293,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 					off++;
 				}
 
-				/* and evaluate the actual XML expression */
+				/* 再求值实际的 XML 表达式       */
 				ExprEvalPushStep(state, &scratch);
 				break;
 			}
@@ -2344,7 +2344,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 
 						if (IsA(arg, Const))
 						{
-							/* Don't evaluate const arguments every round */
+							/* 不要每轮都对常量参数求值       */
 							Const	   *con = (Const *) arg;
 
 							jcstate->arg_values[argno] = con->constvalue;
@@ -2414,14 +2414,14 @@ ExecInitExprRec(Expr *node, ExprState *state,
 					elog(ERROR, "unrecognized nulltesttype: %d",
 						 (int) ntest->nulltesttype);
 				}
-				/* initialize cache in case it's a row test */
+				/* 以防是行测试，先初始化缓存  */
 				scratch.d.nulltest_row.rowcache.cacheptr = NULL;
 
-				/* first evaluate argument into result variable */
+				/* 先把参数求值到结果变量中         */
 				ExecInitExprRec(ntest->arg, state,
 								resv, resnull);
 
-				/* then push the test of that argument */
+				/* 再压入对该参数的测试      */
 				ExprEvalPushStep(state, &scratch);
 				break;
 			}
@@ -2431,10 +2431,10 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				BooleanTest *btest = (BooleanTest *) node;
 
 				/*
-				 * Evaluate argument, directly into result datum.  That's ok,
-				 * because resv/resnull is definitely not used anywhere else,
-				 * and will get overwritten by the below EEOP_BOOLTEST_IS_*
-				 * step.
+				 * 把参数直接求值进结果 datum，这样做没问题 
+				 * 因为 resv/resnull 绝不会在别处使用，而且     
+				 * 会被下面的 EEOP_BOOLTEST_IS_* 步骤覆盖。      
+				 *      
 				 */
 				ExecInitExprRec(btest->arg, state, resv, resnull);
 
@@ -2453,11 +2453,11 @@ ExecInitExprRec(Expr *node, ExprState *state,
 						scratch.opcode = EEOP_BOOLTEST_IS_NOT_FALSE;
 						break;
 					case IS_UNKNOWN:
-						/* Same as scalar IS NULL test */
+						/* 同标量 IS NULL 测试    */
 						scratch.opcode = EEOP_NULLTEST_ISNULL;
 						break;
 					case IS_NOT_UNKNOWN:
-						/* Same as scalar IS NOT NULL test */
+						/* 同标量 IS NOT NULL 测试    */
 						scratch.opcode = EEOP_NULLTEST_ISNOTNULL;
 						break;
 					default:
@@ -2481,15 +2481,15 @@ ExecInitExprRec(Expr *node, ExprState *state,
 		case T_CoerceToDomainValue:
 			{
 				/*
-				 * Read from location identified by innermost_domainval.  Note
-				 * that innermost_domainval could be NULL, if we're compiling
-				 * a standalone domain check rather than one embedded in a
-				 * larger expression.  In that case we must read from
-				 * econtext->domainValue_datum.  We'll take care of that
-				 * scenario at runtime.
+				 * 从 innermost_domainval 标识的位置读取。注意，  
+				 * 若编译的是独立的域检查而非嵌入更大       
+				 * 表达式中的检查，则 innermost_domainval        
+				 * 可能为 NULL。那种情况下就必须从      
+				 * econtext->domainValue_datum 读取。我们会在    
+				 * 运行时处理。  
 				 */
 				scratch.opcode = EEOP_DOMAIN_TESTVAL;
-				/* we share instruction union variant with case testval */
+				/* 与 case 测试值共用指令联合体变体        */
 				scratch.d.casetest.value = state->innermost_domainval;
 				scratch.d.casetest.isnull = state->innermost_domainnull;
 
@@ -2524,10 +2524,10 @@ ExecInitExprRec(Expr *node, ExprState *state,
 }
 
 /*
- * Add another expression evaluation step to ExprState->steps.
+ * 向 ExprState->steps 添加一个表达式求值步骤。  
  *
- * Note that this potentially re-allocates es->steps, therefore no pointer
- * into that array may be used while the expression is still being built.
+ * 注意这可能会重新分配 es->steps，因此只要表达式       
+ * 还在构建之中，就不得使用指向该数组的任何指针。 
  */
 void
 ExprEvalPushStep(ExprState *es, const ExprEvalStep *s)
@@ -2548,12 +2548,12 @@ ExprEvalPushStep(ExprState *es, const ExprEvalStep *s)
 }
 
 /*
- * Perform setup necessary for the evaluation of a function-like expression,
- * appending argument evaluation steps to the steps list in *state, and
- * setting up *scratch so it is ready to be pushed.
+ * 为函数类表达式的求值做必要的准备工作，把参数求值 
+ * 步骤附加到 *state 里的步骤列表，并把 *scratch         
+ * 设置妥当，使其随时可以压入。      
  *
- * *scratch is not pushed here, so that callers may override the opcode,
- * which is useful for function-like cases like DISTINCT.
+ * *scratch 不在此处压入，调用者可借此改写操作码，   
+ * 这对 DISTINCT 之类的函数式场景很有用。  
  */
 static void
 ExecInitFunc(ExprEvalStep *scratch, Expr *node, List *args, Oid funcid,
@@ -2566,17 +2566,17 @@ ExecInitFunc(ExprEvalStep *scratch, Expr *node, List *args, Oid funcid,
 	int			argno;
 	ListCell   *lc;
 
-	/* Check permission to call function */
+	/* 检查调用函数的权限       */
 	aclresult = object_aclcheck(ProcedureRelationId, funcid, GetUserId(), ACL_EXECUTE);
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error(aclresult, OBJECT_FUNCTION, get_func_name(funcid));
 	InvokeFunctionExecuteHook(funcid);
 
 	/*
-	 * Safety check on nargs.  Under normal circumstances this should never
-	 * fail, as parser should check sooner.  But possibly it might fail if
-	 * server has been compiled with FUNC_MAX_ARGS smaller than some functions
-	 * declared in pg_proc?
+	 * 对 nargs 的安全性检查。正常情况下它绝不应失败， 
+	 * 因为解析器应更早检查。但如果服务器编译时的    
+	 * FUNC_MAX_ARGS 小于 pg_proc 中某些函数声明的值，            
+	 * 还会失败吗？  
 	 */
 	if (nargs > FUNC_MAX_ARGS)
 		ereport(ERROR,
@@ -2586,25 +2586,25 @@ ExecInitFunc(ExprEvalStep *scratch, Expr *node, List *args, Oid funcid,
 							   FUNC_MAX_ARGS,
 							   FUNC_MAX_ARGS)));
 
-	/* Allocate function lookup data and parameter workspace for this call */
+	/* 为此次调用分配函数查找数据与参数工作区           */
 	scratch->d.func.finfo = palloc0(sizeof(FmgrInfo));
 	scratch->d.func.fcinfo_data = palloc0(SizeForFunctionCallInfo(nargs));
 	flinfo = scratch->d.func.finfo;
 	fcinfo = scratch->d.func.fcinfo_data;
 
-	/* Set up the primary fmgr lookup information */
+	/* 设置主要的 fmgr 查找信息          */
 	fmgr_info(funcid, flinfo);
 	fmgr_info_set_expr((Node *) node, flinfo);
 
-	/* Initialize function call parameter structure too */
+	/* 同时初始化函数调用参数结构          */
 	InitFunctionCallInfoData(*fcinfo, flinfo,
 							 nargs, inputcollid, NULL, NULL);
 
-	/* Keep extra copies of this info to save an indirection at runtime */
+	/* 多保留一份该信息，省去运行时的一次间接寻址  */
 	scratch->d.func.fn_addr = flinfo->fn_addr;
 	scratch->d.func.nargs = nargs;
 
-	/* We only support non-set functions here */
+	/* 此处只支持非集合返回函数   */
 	if (flinfo->fn_retset)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -2613,7 +2613,7 @@ ExecInitFunc(ExprEvalStep *scratch, Expr *node, List *args, Oid funcid,
 				 executor_errposition(state->parent->state,
 									  exprLocation((Node *) node)) : 0));
 
-	/* Build code to evaluate arguments directly into the fcinfo struct */
+	/* 构建把参数直接求值到 fcinfo 结构中的代码         */
 	argno = 0;
 	foreach(lc, args)
 	{
@@ -2622,8 +2622,8 @@ ExecInitFunc(ExprEvalStep *scratch, Expr *node, List *args, Oid funcid,
 		if (IsA(arg, Const))
 		{
 			/*
-			 * Don't evaluate const arguments every round; especially
-			 * interesting for constants in comparisons.
+			 * 不要每一轮都对常量参数重新求值；这对
+			 * 比较中的常量尤其有意义。     
 			 */
 			Const	   *con = (Const *) arg;
 
@@ -2639,7 +2639,7 @@ ExecInitFunc(ExprEvalStep *scratch, Expr *node, List *args, Oid funcid,
 		argno++;
 	}
 
-	/* Insert appropriate opcode depending on strictness and stats level */
+	/* 根据严格性与统计级别插入相应的操作码            */
 	if (pgstat_track_functions <= flinfo->fn_stats)
 	{
 		if (flinfo->fn_strict && nargs > 0)
@@ -2657,24 +2657,24 @@ ExecInitFunc(ExprEvalStep *scratch, Expr *node, List *args, Oid funcid,
 }
 
 /*
- * Add expression steps performing setup that's needed before any of the
- * main execution of the expression.
+ * 添加若干表达式步骤，完成表达式主体开始执行      
+ * 之前所需的准备工作。   
  */
 static void
 ExecCreateExprSetupSteps(ExprState *state, Node *node)
 {
 	ExprSetupInfo info = {0, 0, 0, NIL};
 
-	/* Prescan to find out what we need. */
+	/* 预扫描，弄清需要什么。 */
 	expr_setup_walker(node, &info);
 
-	/* And generate those steps. */
+	/* 再生成这些步骤。  */
 	ExecPushExprSetupSteps(state, &info);
 }
 
 /*
- * Add steps performing expression setup as indicated by "info".
- * This is useful when building an ExprState covering more than one expression.
+ * 按 "info" 指示添加表达式准备工作的步骤。     
+ * 在构建覆盖多个表达式的 ExprState 时，这一功能很有用。  
  */
 static void
 ExecPushExprSetupSteps(ExprState *state, ExprSetupInfo *info)
@@ -2686,8 +2686,8 @@ ExecPushExprSetupSteps(ExprState *state, ExprSetupInfo *info)
 	scratch.resnull = NULL;
 
 	/*
-	 * Add steps deforming the ExprState's inner/outer/scan slots as much as
-	 * required by any Vars appearing in the expression.
+	 * 添加步骤，把 ExprState 的 inner/outer/scan 槽解构          
+	 * 到表达式中各 Var 所需的程度。        
 	 */
 	if (info->last_inner > 0)
 	{
@@ -2721,11 +2721,11 @@ ExecPushExprSetupSteps(ExprState *state, ExprSetupInfo *info)
 	}
 
 	/*
-	 * Add steps to execute any MULTIEXPR SubPlans appearing in the
-	 * expression.  We need to evaluate these before any of the Params
-	 * referencing their outputs are used, but after we've prepared for any
-	 * Var references they may contain.  (There cannot be cross-references
-	 * between MULTIEXPR SubPlans, so we needn't worry about their order.)
+	 * 添加步骤，执行表达式中出现的所有            
+	 * MULTIEXPR SubPlan。必须在引用其输出的                
+	 * 任何 Param 被使用之前对其求值，但要在为其          
+	 * 可能包含的 Var 引用做好准备之后。（                 
+	 * MULTIEXPR SubPlan 间无交叉引用，无需担心顺序。）    
 	 */
 	foreach(lc, info->multiexpr_subplans)
 	{
@@ -2734,21 +2734,21 @@ ExecPushExprSetupSteps(ExprState *state, ExprSetupInfo *info)
 
 		Assert(subplan->subLinkType == MULTIEXPR_SUBLINK);
 
-		/* This should match what ExecInitExprRec does for other SubPlans: */
+		/* 应与 ExecInitExprRec 对其他 SubPlan 的做法一致：     */
 
 		if (!state->parent)
 			elog(ERROR, "SubPlan found with no parent plan");
 
 		sstate = ExecInitSubPlan(subplan, state->parent);
 
-		/* add SubPlanState nodes to state->parent->subPlan */
+		/* SubPlanState 节点加入 state->parent->subPlan */
 		state->parent->subPlan = lappend(state->parent->subPlan,
 										 sstate);
 
 		scratch.opcode = EEOP_SUBPLAN;
 		scratch.d.subplan.sstate = sstate;
 
-		/* The result can be ignored, but we better put it somewhere */
+		/* 结果可忽略，但我们最好还是把它放在某处 */
 		scratch.resvalue = &state->resvalue;
 		scratch.resnull = &state->resnull;
 
@@ -2757,7 +2757,7 @@ ExecPushExprSetupSteps(ExprState *state, ExprSetupInfo *info)
 }
 
 /*
- * expr_setup_walker: expression walker for ExecCreateExprSetupSteps
+ * expr_setup_walker: ExecCreateExprSetupSteps 的表达式遍历器
  */
 static bool
 expr_setup_walker(Node *node, ExprSetupInfo *info)
@@ -2779,7 +2779,7 @@ expr_setup_walker(Node *node, ExprSetupInfo *info)
 				info->last_outer = Max(info->last_outer, attnum);
 				break;
 
-				/* INDEX_VAR is handled by default case */
+				/* INDEX_VAR 由 default 分支处理   */
 
 			default:
 				info->last_scan = Max(info->last_scan, attnum);
@@ -2788,7 +2788,7 @@ expr_setup_walker(Node *node, ExprSetupInfo *info)
 		return false;
 	}
 
-	/* Collect all MULTIEXPR SubPlans, too */
+	/* 同时收集所有 MULTIEXPR SubPlan*/
 	if (IsA(node, SubPlan))
 	{
 		SubPlan    *subplan = (SubPlan *) node;
@@ -2799,10 +2799,10 @@ expr_setup_walker(Node *node, ExprSetupInfo *info)
 	}
 
 	/*
-	 * Don't examine the arguments or filters of Aggrefs or WindowFuncs,
-	 * because those do not represent expressions to be evaluated within the
-	 * calling expression's econtext.  GroupingFunc arguments are never
-	 * evaluated at all.
+	 * 不要检查 Aggrefs 或 WindowFuncs 的参数或过滤器，    
+	 * 因为它们并不代表要在调用表达式的                     
+	 * econtext 中求值的表达式。GroupingFunc 的参数         
+	 * 从不求值。  
 	 */
 	if (IsA(node, Aggref))
 		return false;
@@ -2815,13 +2815,13 @@ expr_setup_walker(Node *node, ExprSetupInfo *info)
 }
 
 /*
- * Compute additional information for EEOP_*_FETCHSOME ops.
+ * 为 EEOP_*_FETCHSOME 操作计算附加信息。        
  *
- * The goal is to determine whether a slot is 'fixed', that is, every
- * evaluation of the expression will have the same type of slot, with an
- * equivalent descriptor.
+ * 其目的是判断槽是否"固定"，也就是说，每一次    
+ * 表达式求值遇到的槽都是同一类型，且带有等价的   
+ * 描述符。          
  *
- * Returns true if the deforming step is required, false otherwise.
+ * 若需要解构步骤则返回 true，否则返回 false。     
  */
 static bool
 ExecComputeSlotInfo(ExprState *state, ExprEvalStep *op)
@@ -2910,7 +2910,7 @@ ExecComputeSlotInfo(ExprState *state, ExprEvalStep *op)
 		op->d.fetch.known_desc = NULL;
 	}
 
-	/* if the slot is known to always virtual we never need to deform */
+	/* 若已知槽始终是虚拟槽，则永远无需解构         */
 	if (op->d.fetch.fixed && op->d.fetch.kind == &TTSOpsVirtual)
 		return false;
 
@@ -2918,33 +2918,33 @@ ExecComputeSlotInfo(ExprState *state, ExprEvalStep *op)
 }
 
 /*
- * Prepare step for the evaluation of a whole-row variable.
- * The caller still has to push the step.
+ * 准备好整行变量求值所需的步骤。           
+ * 调用者仍需压入该步骤。     
  */
 static void
 ExecInitWholeRowVar(ExprEvalStep *scratch, Var *variable, ExprState *state)
 {
 	PlanState  *parent = state->parent;
 
-	/* fill in all but the target */
+	/* 除目标外全部填好   */
 	scratch->opcode = EEOP_WHOLEROW;
 	scratch->d.wholerow.var = variable;
 	scratch->d.wholerow.first = true;
 	scratch->d.wholerow.slow = false;
-	scratch->d.wholerow.tupdesc = NULL; /* filled at runtime */
+	scratch->d.wholerow.tupdesc = NULL; /* 运行时填充   */
 	scratch->d.wholerow.junkFilter = NULL;
 
 	/*
-	 * If the input tuple came from a subquery, it might contain "resjunk"
-	 * columns (such as GROUP BY or ORDER BY columns), which we don't want to
-	 * keep in the whole-row result.  We can get rid of such columns by
-	 * passing the tuple through a JunkFilter --- but to make one, we have to
-	 * lay our hands on the subquery's targetlist.  Fortunately, there are not
-	 * very many cases where this can happen, and we can identify all of them
-	 * by examining our parent PlanState.  We assume this is not an issue in
-	 * standalone expressions that don't have parent plans.  (Whole-row Vars
-	 * can occur in such expressions, but they will always be referencing
-	 * table rows.)
+	 * 若输入元组来自子查询，其中可能含有 "resjunk"      
+	 * 列（例如 GROUP BY 或 ORDER BY 列），我们不想把这类     
+	 * 列保留在整行结果中。让元组通过一个 JunkFilter  
+	 * 即可去掉这类列——但要构造过滤器，就必须先拿    
+	 * 到子查询的目标列表。幸运的是，会发生这种情况的  
+	 * 场景并不多，而且只需检查父 PlanState 就能把这些     
+	 * 情形都识别出来。我们假定，在没有父计划的独立   
+	 * 表达式中这不成问题。（整行 Var 也可能出现在这类 
+	 * 表达式中，但它们引用的必然是表的                  
+	 * 行。）   
 	 */
 	if (parent)
 	{
@@ -2967,7 +2967,7 @@ ExecInitWholeRowVar(ExprEvalStep *scratch, Var *variable, ExprState *state)
 			bool		junk_filter_needed = false;
 			ListCell   *tlist;
 
-			/* Detect whether subplan tlist actually has any junk columns */
+			/* 检查子计划的 tlist 是否真含有 junk 列          */
 			foreach(tlist, subplan->plan->targetlist)
 			{
 				TargetEntry *tle = (TargetEntry *) lfirst(tlist);
@@ -2979,7 +2979,7 @@ ExecInitWholeRowVar(ExprEvalStep *scratch, Var *variable, ExprState *state)
 				}
 			}
 
-			/* If so, build the junkfilter now */
+			/* 若有，现在构建 junkfilter*/
 			if (junk_filter_needed)
 			{
 				scratch->d.wholerow.junkFilter =
@@ -2992,7 +2992,7 @@ ExecInitWholeRowVar(ExprEvalStep *scratch, Var *variable, ExprState *state)
 }
 
 /*
- * Prepare evaluation of a SubscriptingRef expression.
+ * 准备好 SubscriptingRef 表达式的求值。    
  */
 static void
 ExecInitSubscriptingRef(ExprEvalStep *scratch, SubscriptingRef *sbsref,
@@ -3009,7 +3009,7 @@ ExecInitSubscriptingRef(ExprEvalStep *scratch, SubscriptingRef *sbsref,
 	ListCell   *lc;
 	int			i;
 
-	/* Look up the subscripting support methods */
+	/* 查找下标支持方法                 */
 	sbsroutines = getSubscriptingRoutines(sbsref->refcontainertype, NULL);
 	if (!sbsroutines)
 		ereport(ERROR,
@@ -3020,16 +3020,16 @@ ExecInitSubscriptingRef(ExprEvalStep *scratch, SubscriptingRef *sbsref,
 				 executor_errposition(state->parent->state,
 									  exprLocation((Node *) sbsref)) : 0));
 
-	/* Allocate sbsrefstate, with enough space for per-subscript arrays too */
+	/* 分配 sbsrefstate，并为各下标数组预留足够空间         */
 	sbsrefstate = palloc0(MAXALIGN(sizeof(SubscriptingRefState)) +
 						  (nupper + nlower) * (sizeof(Datum) +
 											   2 * sizeof(bool)));
 
-	/* Fill constant fields of SubscriptingRefState */
+	/* 填写 SubscriptingRefState 常量字段     */
 	sbsrefstate->isassignment = isAssignment;
 	sbsrefstate->numupper = nupper;
 	sbsrefstate->numlower = nlower;
-	/* Set up per-subscript arrays */
+	/* 设置各下标数组       */
 	ptr = ((char *) sbsrefstate) + MAXALIGN(sizeof(SubscriptingRefState));
 	sbsrefstate->upperindex = (Datum *) ptr;
 	ptr += nupper * sizeof(Datum);
@@ -3045,43 +3045,43 @@ ExecInitSubscriptingRef(ExprEvalStep *scratch, SubscriptingRef *sbsref,
 	/* ptr += nlower * sizeof(bool); */
 
 	/*
-	 * Let the container-type-specific code have a chance.  It must fill the
-	 * "methods" struct with function pointers for us to possibly use in
-	 * execution steps below; and it can optionally set up some data pointed
-	 * to by the workspace field.
+	 * 让容器类型专属的代码参与进来。它必须在 "methods"  
+	 * 结构中填入我们在下面执行步骤里                    
+	 * 可能用到的函数指针；还可以选择性地设置            
+	 * workspace 所指数据。 
 	 */
 	memset(&methods, 0, sizeof(methods));
 	sbsroutines->exec_setup(sbsref, sbsrefstate, &methods);
 
 	/*
-	 * Evaluate array input.  It's safe to do so into resv/resnull, because we
-	 * won't use that as target for any of the other subexpressions, and it'll
-	 * be overwritten by the final EEOP_SBSREF_FETCH/ASSIGN step, which is
-	 * pushed last.
+	 * 对数组输入求值。将其求值到 resv/resnull 是安全的，   
+	 * 因为我们不会把它用作其他任何子表达式的目标，     
+	 * 而且它会被最后压入的 EEOP_SBSREF_FETCH/ASSIGN 步骤     
+	 * 覆盖。   
 	 */
 	ExecInitExprRec(sbsref->refexpr, state, resv, resnull);
 
 	/*
-	 * If refexpr yields NULL, and the operation should be strict, then result
-	 * is NULL.  We can implement this with just JUMP_IF_NULL, since we
-	 * evaluated the array into the desired target location.
+	 * 若 refexpr 产生 NULL，且操作应当是严格的，则结果      
+	 * 为 NULL。只需 JUMP_IF_NULL 就能实现，因为我们      
+	 * 已经把数组求值到了期望的目标位置。  
 	 */
 	if (!isAssignment && sbsroutines->fetch_strict)
 	{
 		scratch->opcode = EEOP_JUMP_IF_NULL;
-		scratch->d.jump.jumpdone = -1;	/* adjust later */
+		scratch->d.jump.jumpdone = -1;	/* 稍后调整 */
 		ExprEvalPushStep(state, scratch);
 		adjust_jumps = lappend_int(adjust_jumps,
 								   state->steps_len - 1);
 	}
 
-	/* Evaluate upper subscripts */
+	/* 求值上界下标        */
 	i = 0;
 	foreach(lc, sbsref->refupperindexpr)
 	{
 		Expr	   *e = (Expr *) lfirst(lc);
 
-		/* When slicing, individual subscript bounds can be omitted */
+		/* 切片时，各个下标边界都可以省略            */
 		if (!e)
 		{
 			sbsrefstate->upperprovided[i] = false;
@@ -3090,7 +3090,7 @@ ExecInitSubscriptingRef(ExprEvalStep *scratch, SubscriptingRef *sbsref,
 		else
 		{
 			sbsrefstate->upperprovided[i] = true;
-			/* Each subscript is evaluated into appropriate array entry */
+			/* 每个下标都求值到相应的数组条目中         */
 			ExecInitExprRec(e, state,
 							&sbsrefstate->upperindex[i],
 							&sbsrefstate->upperindexnull[i]);
@@ -3098,13 +3098,13 @@ ExecInitSubscriptingRef(ExprEvalStep *scratch, SubscriptingRef *sbsref,
 		i++;
 	}
 
-	/* Evaluate lower subscripts similarly */
+	/* 类似地求值下界下标         */
 	i = 0;
 	foreach(lc, sbsref->reflowerindexpr)
 	{
 		Expr	   *e = (Expr *) lfirst(lc);
 
-		/* When slicing, individual subscript bounds can be omitted */
+		/* 切片时，各个下标边界都可以省略            */
 		if (!e)
 		{
 			sbsrefstate->lowerprovided[i] = false;
@@ -3113,7 +3113,7 @@ ExecInitSubscriptingRef(ExprEvalStep *scratch, SubscriptingRef *sbsref,
 		else
 		{
 			sbsrefstate->lowerprovided[i] = true;
-			/* Each subscript is evaluated into appropriate array entry */
+			/* 每个下标都会被求值到对应的数组条目中   */
 			ExecInitExprRec(e, state,
 							&sbsrefstate->lowerindex[i],
 							&sbsrefstate->lowerindexnull[i]);
@@ -3121,13 +3121,13 @@ ExecInitSubscriptingRef(ExprEvalStep *scratch, SubscriptingRef *sbsref,
 		i++;
 	}
 
-	/* SBSREF_SUBSCRIPTS checks and converts all the subscripts at once */
+	/* SBSREF_SUBSCRIPTS 一次性检查并转换所有下标           */
 	if (methods.sbs_check_subscripts)
 	{
 		scratch->opcode = EEOP_SBSREF_SUBSCRIPTS;
 		scratch->d.sbsref_subscript.subscriptfunc = methods.sbs_check_subscripts;
 		scratch->d.sbsref_subscript.state = sbsrefstate;
-		scratch->d.sbsref_subscript.jumpdone = -1;	/* adjust later */
+		scratch->d.sbsref_subscript.jumpdone = -1;	/* 稍后调整 */
 		ExprEvalPushStep(state, scratch);
 		adjust_jumps = lappend_int(adjust_jumps,
 								   state->steps_len - 1);
@@ -3138,7 +3138,7 @@ ExecInitSubscriptingRef(ExprEvalStep *scratch, SubscriptingRef *sbsref,
 		Datum	   *save_innermost_caseval;
 		bool	   *save_innermost_casenull;
 
-		/* Check for unimplemented methods */
+		/* 检查未实现的方法        */
 		if (!methods.sbs_assign)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -3146,18 +3146,18 @@ ExecInitSubscriptingRef(ExprEvalStep *scratch, SubscriptingRef *sbsref,
 							format_type_be(sbsref->refcontainertype))));
 
 		/*
-		 * We might have a nested-assignment situation, in which the
-		 * refassgnexpr is itself a FieldStore or SubscriptingRef that needs
-		 * to obtain and modify the previous value of the array element or
-		 * slice being replaced.  If so, we have to extract that value from
-		 * the array and pass it down via the CaseTestExpr mechanism.  It's
-		 * safe to reuse the CASE mechanism because there cannot be a CASE
-		 * between here and where the value would be needed, and an array
-		 * assignment can't be within a CASE either.  (So saving and restoring
-		 * innermost_caseval is just paranoia, but let's do it anyway.)
+		 * 我们可能碰到嵌套赋值的情形，其中的      
+		 * refassgnexpr 本身是 FieldStore 或 SubscriptingRef，需要   
+		 * 获取并修改被替换的数组元素或切片的原有值。
+		 * 若是如此，就必须从数组中提取该值，经          
+		 * CaseTestExpr 机制向下传递。可安全复用 CASE          
+		 * 机制，因为从这点到用到该值处之间不会有      
+		 * CASE，且数组赋值也不可能处于 CASE 之中。       
+		 * （所以保存并恢复 innermost_caseval 只是保险起见，   
+		 * 但我们还是会这么做。）                           
 		 *
-		 * Since fetching the old element might be a nontrivial expense, do it
-		 * only if the argument actually needs it.
+		 * 由于取出旧元素可能开销不小，因此只在参数确实 
+		 * 需要该值时才执行。            
 		 */
 		if (isAssignmentIndirectionExpr(sbsref->refassgnexpr))
 		{
@@ -3172,20 +3172,20 @@ ExecInitSubscriptingRef(ExprEvalStep *scratch, SubscriptingRef *sbsref,
 			ExprEvalPushStep(state, scratch);
 		}
 
-		/* SBSREF_OLD puts extracted value into prevvalue/prevnull */
+		/* SBSREF_OLD 把提取出的值放入 prevvalue/prevnull  */
 		save_innermost_caseval = state->innermost_caseval;
 		save_innermost_casenull = state->innermost_casenull;
 		state->innermost_caseval = &sbsrefstate->prevvalue;
 		state->innermost_casenull = &sbsrefstate->prevnull;
 
-		/* evaluate replacement value into replacevalue/replacenull */
+		/* 把替换值求值到 replacevalue/replacenull 中       */
 		ExecInitExprRec(sbsref->refassgnexpr, state,
 						&sbsrefstate->replacevalue, &sbsrefstate->replacenull);
 
 		state->innermost_caseval = save_innermost_caseval;
 		state->innermost_casenull = save_innermost_casenull;
 
-		/* and perform the assignment */
+		/* 然后执行赋值         */
 		scratch->opcode = EEOP_SBSREF_ASSIGN;
 		scratch->d.sbsref.subscriptfunc = methods.sbs_assign;
 		scratch->d.sbsref.state = sbsrefstate;
@@ -3193,14 +3193,14 @@ ExecInitSubscriptingRef(ExprEvalStep *scratch, SubscriptingRef *sbsref,
 	}
 	else
 	{
-		/* array fetch is much simpler */
+		/* 数组读取则简单得多 */
 		scratch->opcode = EEOP_SBSREF_FETCH;
 		scratch->d.sbsref.subscriptfunc = methods.sbs_fetch;
 		scratch->d.sbsref.state = sbsrefstate;
 		ExprEvalPushStep(state, scratch);
 	}
 
-	/* adjust jump targets */
+	/* 调整跳转目标  */
 	foreach(lc, adjust_jumps)
 	{
 		ExprEvalStep *as = &state->steps[lfirst_int(lc)];
@@ -3220,27 +3220,27 @@ ExecInitSubscriptingRef(ExprEvalStep *scratch, SubscriptingRef *sbsref,
 }
 
 /*
- * Helper for preparing SubscriptingRef expressions for evaluation: is expr
- * a nested FieldStore or SubscriptingRef that needs the old element value
- * passed down?
+ * 辅助函数：为求值准备 SubscriptingRef 表达式；expr 是     
+ * 一个嵌套的 FieldStore 或 SubscriptingRef，需要传递旧       
+ * 元素值？
  *
- * (We could use this in FieldStore too, but in that case passing the old
- * value is so cheap there's no need.)
+ * （FieldStore 中本也可使用它，但那种情况下传递旧值  
+ * 极为廉价，无此必要。）  
  *
- * Note: it might seem that this needs to recurse, but in most cases it does
- * not; the CaseTestExpr, if any, will be directly the arg or refexpr of the
- * top-level node.  Nested-assignment situations give rise to expression
- * trees in which each level of assignment has its own CaseTestExpr, and the
- * recursive structure appears within the newvals or refassgnexpr field.
- * There is an exception, though: if the array is an array-of-domain, we will
- * have a CoerceToDomain or RelabelType as the refassgnexpr, and we need to
- * be able to look through that.
+ * 注意：看似这里需要递归，但多数情况下并不需要；    
+ * 即便有 CaseTestExpr，它也会直接作为顶层节点的 arg 或    
+ * refexpr。嵌套赋值情形产生的表达式树中，每层赋值  
+ * 都有属于自己的 CaseTestExpr，而递归结构则出现在         
+ * newvals 或 refassgnexpr 字段之中。                             
+ * 但有一个例外：如果该数组是域上的数组，那么我们会  
+ * 得到 CoerceToDomain 或 RelabelType 作为 refassgnexpr，此时      
+ * 必须能够看穿它。     
  */
 static bool
 isAssignmentIndirectionExpr(Expr *expr)
 {
 	if (expr == NULL)
-		return false;			/* just paranoia */
+		return false;			/* 纯属谨慎  */
 	if (IsA(expr, FieldStore))
 	{
 		FieldStore *fstore = (FieldStore *) expr;
@@ -3271,7 +3271,7 @@ isAssignmentIndirectionExpr(Expr *expr)
 }
 
 /*
- * Prepare evaluation of a CoerceToDomain expression.
+ * 准备对 CoerceToDomain 表达式求值。       
  */
 static void
 ExecInitCoerceToDomain(ExprEvalStep *scratch, CoerceToDomain *ctest,
@@ -3283,33 +3283,33 @@ ExecInitCoerceToDomain(ExprEvalStep *scratch, CoerceToDomain *ctest,
 	ListCell   *l;
 
 	scratch->d.domaincheck.resulttype = ctest->resulttype;
-	/* we'll allocate workspace only if needed */
+	/* 只有在需要时才分配工作区    */
 	scratch->d.domaincheck.checkvalue = NULL;
 	scratch->d.domaincheck.checknull = NULL;
 
 	/*
-	 * Evaluate argument - it's fine to directly store it into resv/resnull,
-	 * if there's constraint failures there'll be errors, otherwise it's what
-	 * needs to be returned.
+	 * 对参数求值——直接把它存入 resv/resnull 没有问题， 
+	 * 因为若有约束失败就会报错，否则它就是                
+	 * 需要返回的值。
 	 */
 	ExecInitExprRec(ctest->arg, state, resv, resnull);
 
 	/*
-	 * Note: if the argument is of varlena type, it could be a R/W expanded
-	 * object.  We want to return the R/W pointer as the final result, but we
-	 * have to pass a R/O pointer as the value to be tested by any functions
-	 * in check expressions.  We don't bother to emit a MAKE_READONLY step
-	 * unless there's actually at least one check expression, though.  Until
-	 * we've tested that, domainval/domainnull are NULL.
+	 * 注意：若参数为 varlena 类型，它可能是读写的展开  
+	 * 对象。我们希望返回 R/W 指针作为最终结果，但传给  
+	 * 检查表达式中各函数的待测值却必须是 R/O 指针。    
+	 * 不过，只有确实存在至少一个检查表达式时，我们 
+	 * 才生成 MAKE_READONLY 步骤。而在做此检验之前，         
+	 * domainval/domainnull 均为 NULL。              
 	 */
 
 	/*
-	 * Collect the constraints associated with the domain.
+	 * 收集与该域相关联的各条约束。         
 	 *
-	 * Note: before PG v10 we'd recheck the set of constraints during each
-	 * evaluation of the expression.  Now we bake them into the ExprState
-	 * during executor initialization.  That means we don't need typcache.c to
-	 * provide compiled exprs.
+	 * 注意：PG v10 之前，每次对表达式求值都要重新检查
+	 * 约束集。现在我们会在执行器初始化时把它们固化
+	 * 进 ExprState。这意味着我们不再需要 typcache.c 提供       
+	 * 编译表达式。     
 	 */
 	constraint_ref = (DomainConstraintRef *)
 		palloc(sizeof(DomainConstraintRef));
@@ -3319,9 +3319,9 @@ ExecInitCoerceToDomain(ExprEvalStep *scratch, CoerceToDomain *ctest,
 							false);
 
 	/*
-	 * Compile code to check each domain constraint.  NOTNULL constraints can
-	 * just be applied on the resv/resnull value, but for CHECK constraints we
-	 * need more pushups.
+	 * 生成检查每条域约束的代码。NOTNULL 约束只须作用     
+	 * 于 resv/resnull 值即可，但对 CHECK 约束则需                 
+	 * 要多费周折。
 	 */
 	foreach(l, constraint_ref->constraints)
 	{
@@ -3338,7 +3338,7 @@ ExecInitCoerceToDomain(ExprEvalStep *scratch, CoerceToDomain *ctest,
 				ExprEvalPushStep(state, scratch);
 				break;
 			case DOM_CONSTRAINT_CHECK:
-				/* Allocate workspace for CHECK output if we didn't yet */
+				/* 若尚未分配，则为 CHECK 输出分配工作区 */
 				if (scratch->d.domaincheck.checkvalue == NULL)
 				{
 					scratch->d.domaincheck.checkvalue =
@@ -3348,24 +3348,24 @@ ExecInitCoerceToDomain(ExprEvalStep *scratch, CoerceToDomain *ctest,
 				}
 
 				/*
-				 * If first time through, determine where CoerceToDomainValue
-				 * nodes should read from.
+				 * 首次经过时，确定 CoerceToDomainValue 节点       
+				 * 应从何处读值。  
 				 */
 				if (domainval == NULL)
 				{
 					/*
-					 * Since value might be read multiple times, force to R/O
-					 * - but only if it could be an expanded datum.
+					 * 因 value 可能被多次读取，强制转为 R/O， 
+					 * 但仅当可能是展开 datum 时。       
 					 */
 					if (get_typlen(ctest->resulttype) == -1)
 					{
 						ExprEvalStep scratch2 = {0};
 
-						/* Yes, so make output workspace for MAKE_READONLY */
+						/* 是，为 MAKE_READONLY 生成输出工作区   */
 						domainval = (Datum *) palloc(sizeof(Datum));
 						domainnull = (bool *) palloc(sizeof(bool));
 
-						/* Emit MAKE_READONLY */
+						/* 生成MAKE_READONLY*/
 						scratch2.opcode = EEOP_MAKE_READONLY;
 						scratch2.resvalue = domainval;
 						scratch2.resnull = domainnull;
@@ -3375,24 +3375,24 @@ ExecInitCoerceToDomain(ExprEvalStep *scratch, CoerceToDomain *ctest,
 					}
 					else
 					{
-						/* No, so it's fine to read from resv/resnull */
+						/* 否，从 resv/resnull 读取即可        */
 						domainval = resv;
 						domainnull = resnull;
 					}
 				}
 
 				/*
-				 * Set up value to be returned by CoerceToDomainValue nodes.
-				 * We must save and restore innermost_domainval/null fields,
-				 * in case this node is itself within a check expression for
-				 * another domain.
+				 * 设置 CoerceToDomainValue 节点要返回的值。      
+				 * 必须保存并恢复 innermost_domainval/null           
+				 * 字段，以防本节点自身正处于另一域的检查
+				 * 表达式中。
 				 */
 				save_innermost_domainval = state->innermost_domainval;
 				save_innermost_domainnull = state->innermost_domainnull;
 				state->innermost_domainval = domainval;
 				state->innermost_domainnull = domainnull;
 
-				/* evaluate check expression value */
+				/* 对检查表达式的值求值  */
 				ExecInitExprRec(con->check_expr, state,
 								scratch->d.domaincheck.checkvalue,
 								scratch->d.domaincheck.checknull);
@@ -3400,7 +3400,7 @@ ExecInitCoerceToDomain(ExprEvalStep *scratch, CoerceToDomain *ctest,
 				state->innermost_domainval = save_innermost_domainval;
 				state->innermost_domainnull = save_innermost_domainnull;
 
-				/* now test result */
+				/* 再测试结果 */
 				scratch->opcode = EEOP_DOMAIN_CHECK;
 				ExprEvalPushStep(state, scratch);
 
@@ -3414,18 +3414,18 @@ ExecInitCoerceToDomain(ExprEvalStep *scratch, CoerceToDomain *ctest,
 }
 
 /*
- * Build transition/combine function invocations for all aggregate transition
- * / combination function invocations in a grouping sets phase. This has to
- * invoke all sort based transitions in a phase (if doSort is true), all hash
- * based transitions (if doHash is true), or both (both true).
+ * 为分组集阶段中所有聚合构建转移/组合函数调用。       
+ * 它必须调用阶段中所有基于排序的转移（doSort            
+ * 为真时）、所有基于哈希的转移（doHash 为真时），或    
+ * 两者都调用（两者都为真）。                    
  *
- * The resulting expression will, for each set of transition values, first
- * check for filters, evaluate aggregate input, check that that input is not
- * NULL for a strict transition function, and then finally invoke the
- * transition for each of the concurrently computed grouping sets.
+ * 所得表达式对每组转移值会先检查过滤器，再           
+ * 求值聚合输入，并在转移函数为严格时检查该输入是否 
+ * 为 NULL，最后为每个并发计算的分组集                
+ * 调用转移。                                                
  *
- * If nullcheck is true, the generated code will check for a NULL pointer to
- * the array of AggStatePerGroup, and skip evaluation if so.
+ * 若 nullcheck 为真，生成的代码会检查指向 AggStatePerGroup   
+ * 数组是否为 NULL 指针，若是则跳过求值。   
  */
 ExprState *
 ExecBuildAggTrans(AggState *aggstate, AggStatePerPhase phase,
@@ -3444,8 +3444,8 @@ ExecBuildAggTrans(AggState *aggstate, AggStatePerPhase phase,
 	scratch.resnull = &state->resnull;
 
 	/*
-	 * First figure out which slots, and how many columns from each, we're
-	 * going to need.
+	 * 先弄清我们需要哪些 slot，以及每个 slot 各需要     
+	 * 多少列。  
 	 */
 	for (int transno = 0; transno < aggstate->numtrans; transno++)
 	{
@@ -3465,7 +3465,7 @@ ExecBuildAggTrans(AggState *aggstate, AggStatePerPhase phase,
 	ExecPushExprSetupSteps(state, &deform);
 
 	/*
-	 * Emit instructions for each transition value / grouping set combination.
+	 * 为每个转移值/分组集组合生成指令。                      
 	 */
 	for (int transno = 0; transno < aggstate->numtrans; transno++)
 	{
@@ -3478,34 +3478,34 @@ ExecBuildAggTrans(AggState *aggstate, AggStatePerPhase phase,
 		ListCell   *bail;
 
 		/*
-		 * If filter present, emit. Do so before evaluating the input, to
-		 * avoid potentially unneeded computations, or even worse, unintended
-		 * side-effects.  When combining, all the necessary filtering has
-		 * already been done.
+		 * 若有过滤器则生成。应在求值输入前做，以免  
+		 * 产生可能多余的计算，或更糟的意外副作用。在   
+		 * 组合时，所有必要的过滤都已经                    
+		 * 完成了。      
 		 */
 		if (pertrans->aggref->aggfilter && !isCombine)
 		{
-			/* evaluate filter expression */
+			/* 对过滤表达式求值   */
 			ExecInitExprRec(pertrans->aggref->aggfilter, state,
 							&state->resvalue, &state->resnull);
-			/* and jump out if false */
+			/* 若为假则跳出    */
 			scratch.opcode = EEOP_JUMP_IF_NOT_TRUE;
-			scratch.d.jump.jumpdone = -1;	/* adjust later */
+			scratch.d.jump.jumpdone = -1;	/* 稍后调整 */
 			ExprEvalPushStep(state, &scratch);
 			adjust_bailout = lappend_int(adjust_bailout,
 										 state->steps_len - 1);
 		}
 
 		/*
-		 * Evaluate arguments to aggregate/combine function.
+		 * 对聚合/组合函数的参数求值。         
 		 */
 		argno = 0;
 		if (isCombine)
 		{
 			/*
-			 * Combining two aggregate transition values. Instead of directly
-			 * coming from a tuple the input is a, potentially deserialized,
-			 * transition value.
+			 * 组合两个聚合转移值。输入并非直接来自元组  
+			 * 而是可能经过反序列化的一个                      
+			 * 转移值。     
 			 */
 			TargetEntry *source_tle;
 
@@ -3516,14 +3516,14 @@ ExecBuildAggTrans(AggState *aggstate, AggStatePerPhase phase,
 			source_tle = (TargetEntry *) linitial(pertrans->aggref->args);
 
 			/*
-			 * deserialfn_oid will be set if we must deserialize the input
-			 * state before calling the combine function.
+			 * 若须在调用组合函数前反序列化输入状态，  
+			 * 则会设置 deserialfn_oid。            
 			 */
 			if (!OidIsValid(pertrans->deserialfn_oid))
 			{
 				/*
-				 * Start from 1, since the 0th arg will be the transition
-				 * value
+				 * 从 1 开始，因为第 0 个参数将是转移      
+				 * 值  
 				 */
 				ExecInitExprRec(source_tle->expr, state,
 								&trans_fcinfo->args[argno + 1].value,
@@ -3533,18 +3533,18 @@ ExecBuildAggTrans(AggState *aggstate, AggStatePerPhase phase,
 			{
 				FunctionCallInfo ds_fcinfo = pertrans->deserialfn_fcinfo;
 
-				/* evaluate argument */
+				/* 对参数求值   */
 				ExecInitExprRec(source_tle->expr, state,
 								&ds_fcinfo->args[0].value,
 								&ds_fcinfo->args[0].isnull);
 
-				/* Dummy second argument for type-safety reasons */
+				/* 出于类型安全考虑的哑第二参数    */
 				ds_fcinfo->args[1].value = PointerGetDatum(NULL);
 				ds_fcinfo->args[1].isnull = false;
 
 				/*
-				 * Don't call a strict deserialization function with NULL
-				 * input
+				 * 不要以 NULL 输入调用严格的反序列化函   
+				 * 数  
 				 */
 				if (pertrans->deserialfn.fn_strict)
 					scratch.opcode = EEOP_AGG_STRICT_DESERIALIZE;
@@ -3552,17 +3552,17 @@ ExecBuildAggTrans(AggState *aggstate, AggStatePerPhase phase,
 					scratch.opcode = EEOP_AGG_DESERIALIZE;
 
 				scratch.d.agg_deserialize.fcinfo_data = ds_fcinfo;
-				scratch.d.agg_deserialize.jumpnull = -1;	/* adjust later */
+				scratch.d.agg_deserialize.jumpnull = -1;	/* 稍后调整 */
 				scratch.resvalue = &trans_fcinfo->args[argno + 1].value;
 				scratch.resnull = &trans_fcinfo->args[argno + 1].isnull;
 
 				ExprEvalPushStep(state, &scratch);
-				/* don't add an adjustment unless the function is strict */
+				/* 除非函数严格，否则不要添加调整         */
 				if (pertrans->deserialfn.fn_strict)
 					adjust_bailout = lappend_int(adjust_bailout,
 												 state->steps_len - 1);
 
-				/* restore normal settings of scratch fields */
+				/* 恢复 scratch 字段的正常设置      */
 				scratch.resvalue = &state->resvalue;
 				scratch.resnull = &state->resnull;
 			}
@@ -3575,9 +3575,9 @@ ExecBuildAggTrans(AggState *aggstate, AggStatePerPhase phase,
 			ListCell   *arg;
 
 			/*
-			 * Normal transition function without ORDER BY / DISTINCT or with
-			 * ORDER BY / DISTINCT but the planner has given us pre-sorted
-			 * input.
+			 * 无 ORDER BY / DISTINCT 的普通转移函数；或有        
+			 * ORDER BY / DISTINCT 但规划器已给了我们预排序   
+			 * 输入
 			 */
 			strictargs = trans_fcinfo->args + 1;
 
@@ -3586,15 +3586,15 @@ ExecBuildAggTrans(AggState *aggstate, AggStatePerPhase phase,
 				TargetEntry *source_tle = (TargetEntry *) lfirst(arg);
 
 				/*
-				 * Don't initialize args for any ORDER BY clause that might
-				 * exist in a presorted aggregate.
+				 * 不要为可能存在于预排序聚合中的 ORDER BY  
+				 * 子句初始化参数。       
 				 */
 				if (argno == pertrans->numTransInputs)
 					break;
 
 				/*
-				 * Start from 1, since the 0th arg will be the transition
-				 * value
+				 * 从 1 开始，因为第 0 个参数将是转移      
+				 * 值  
 				 */
 				ExecInitExprRec(source_tle->expr, state,
 								&trans_fcinfo->args[argno + 1].value,
@@ -3606,8 +3606,8 @@ ExecBuildAggTrans(AggState *aggstate, AggStatePerPhase phase,
 		else if (pertrans->numInputs == 1)
 		{
 			/*
-			 * Non-presorted DISTINCT and/or ORDER BY case, with a single
-			 * column sorted on.
+			 * 非预排序的 DISTINCT 和/或 ORDER BY 情形，且按 
+			 * 单列排序。  
 			 */
 			TargetEntry *source_tle =
 				(TargetEntry *) linitial(pertrans->aggref->args);
@@ -3625,8 +3625,8 @@ ExecBuildAggTrans(AggState *aggstate, AggStatePerPhase phase,
 		else
 		{
 			/*
-			 * Non-presorted DISTINCT and/or ORDER BY case, with multiple
-			 * columns sorted on.
+			 * 非预排序的 DISTINCT 和/或 ORDER BY 情形，且    
+			 * 按多列排序。
 			 */
 			Datum	   *values = pertrans->sortslot->tts_values;
 			bool	   *nulls = pertrans->sortslot->tts_isnull;
@@ -3646,9 +3646,9 @@ ExecBuildAggTrans(AggState *aggstate, AggStatePerPhase phase,
 		}
 
 		/*
-		 * For a strict transfn, nothing happens when there's a NULL input; we
-		 * just keep the prior transValue. This is true for both plain and
-		 * sorted/distinct aggregates.
+		 * 对严格 transfn，NULL 输入时什么都不会发生；         
+		 * 我们只是沿用原先的 transValue。这对普通聚合和 
+		 * 排序/DISTINCT 聚合。  
 		 */
 		if (trans_fcinfo->flinfo->fn_strict && pertrans->numTransInputs > 0)
 		{
@@ -3658,14 +3658,14 @@ ExecBuildAggTrans(AggState *aggstate, AggStatePerPhase phase,
 				scratch.opcode = EEOP_AGG_STRICT_INPUT_CHECK_ARGS;
 			scratch.d.agg_strict_input_check.nulls = strictnulls;
 			scratch.d.agg_strict_input_check.args = strictargs;
-			scratch.d.agg_strict_input_check.jumpnull = -1; /* adjust later */
+			scratch.d.agg_strict_input_check.jumpnull = -1; /* 稍后调整 */
 			scratch.d.agg_strict_input_check.nargs = pertrans->numTransInputs;
 			ExprEvalPushStep(state, &scratch);
 			adjust_bailout = lappend_int(adjust_bailout,
 										 state->steps_len - 1);
 		}
 
-		/* Handle DISTINCT aggregates which have pre-sorted input */
+		/* 处理带预排序输入的 DISTINCT 聚合            */
 		if (pertrans->numDistinctCols > 0 && !pertrans->aggsortrequired)
 		{
 			if (pertrans->numDistinctCols > 1)
@@ -3674,16 +3674,16 @@ ExecBuildAggTrans(AggState *aggstate, AggStatePerPhase phase,
 				scratch.opcode = EEOP_AGG_PRESORTED_DISTINCT_SINGLE;
 
 			scratch.d.agg_presorted_distinctcheck.pertrans = pertrans;
-			scratch.d.agg_presorted_distinctcheck.jumpdistinct = -1;	/* adjust later */
+			scratch.d.agg_presorted_distinctcheck.jumpdistinct = -1;	/* 稍后调整 */
 			ExprEvalPushStep(state, &scratch);
 			adjust_bailout = lappend_int(adjust_bailout,
 										 state->steps_len - 1);
 		}
 
 		/*
-		 * Call transition function (once for each concurrently evaluated
-		 * grouping set). Do so for both sort and hash based computations, as
-		 * applicable.
+		 * 调用转移函数（每个并发求值分组集一次）。  
+		 * 排序和哈希两种计算，只要适用都会这么            
+		 * 做。     
 		 */
 		if (doSort)
 		{
@@ -3704,7 +3704,7 @@ ExecBuildAggTrans(AggState *aggstate, AggStatePerPhase phase,
 			int			numHashes = aggstate->num_hashes;
 			int			setoff;
 
-			/* in MIXED mode, there'll be preceding transition values */
+			/* 在 MIXED 模式下，会有前序的转移值存在   */
 			if (aggstate->aggstrategy != AGG_HASHED)
 				setoff = aggstate->maxsets;
 			else
@@ -3719,7 +3719,7 @@ ExecBuildAggTrans(AggState *aggstate, AggStatePerPhase phase,
 			}
 		}
 
-		/* adjust early bail out jump target(s) */
+		/* 调整提前退出的跳转目标    */
 		foreach(bail, adjust_bailout)
 		{
 			ExprEvalStep *as = &state->steps[lfirst_int(bail)];
@@ -3762,9 +3762,9 @@ ExecBuildAggTrans(AggState *aggstate, AggStatePerPhase phase,
 }
 
 /*
- * Build transition/combine function invocation for a single transition
- * value. This is separated from ExecBuildAggTrans() because there are
- * multiple callsites (hash and sort in some grouping set cases).
+ * 为单个转移值构建状态转移/组合函数调用。          
+ * 之所以从 ExecBuildAggTrans() 拆出，是因为有多个       
+ * 调用点（某些分组集情形下用哈希和排序）。  
  */
 static void
 ExecBuildAggTransCall(ExprState *state, AggState *aggstate,
@@ -3781,50 +3781,50 @@ ExecBuildAggTransCall(ExprState *state, AggState *aggstate,
 	else
 		aggcontext = aggstate->aggcontexts[setno];
 
-	/* add check for NULL pointer? */
+	/* 添加 NULL 指针检查？ */
 	if (nullcheck)
 	{
 		scratch->opcode = EEOP_AGG_PLAIN_PERGROUP_NULLCHECK;
 		scratch->d.agg_plain_pergroup_nullcheck.setoff = setoff;
-		/* adjust later */
+		/* 稍后调整 */
 		scratch->d.agg_plain_pergroup_nullcheck.jumpnull = -1;
 		ExprEvalPushStep(state, scratch);
 		adjust_jumpnull = state->steps_len - 1;
 	}
 
 	/*
-	 * Determine appropriate transition implementation.
+	 * 确定合适的转移实现方式。            
 	 *
-	 * For non-ordered aggregates and ORDER BY / DISTINCT aggregates with
-	 * presorted input:
+	 * 对于非有序聚合，以及带预排序输入的 ORDER BY      
+	 * /DISTINCT 聚合
 	 *
-	 * If the initial value for the transition state doesn't exist in the
-	 * pg_aggregate table then we will let the first non-NULL value returned
-	 * from the outer procNode become the initial value. (This is useful for
-	 * aggregates like max() and min().) The noTransValue flag signals that we
-	 * need to do so. If true, generate a
-	 * EEOP_AGG_INIT_STRICT_PLAIN_TRANS{,_BYVAL} step. This step also needs to
-	 * do the work described next:
+	 * 如果转移状态的初值在 pg_aggregate 表中不存在，    
+	 * 那么我们就让外层 procNode 返回的第一个非 NULL 值     
+	 * 成为初值。（这对 max()/min() 之类聚合很有用。）     
+	 * noTransValue 标志用来表示需要这样做。若为真，则       
+	 * 会生成一个                   
+	 * EEOP_AGG_INIT_STRICT_PLAIN_TRANS{,_BYVAL} 步骤，它                 
+	 * 还需完成下述工作：
 	 *
-	 * If the function is strict, but does have an initial value, choose
-	 * EEOP_AGG_STRICT_PLAIN_TRANS{,_BYVAL}, which skips the transition
-	 * function if the transition value has become NULL (because a previous
-	 * transition function returned NULL). This step also needs to do the work
-	 * described next:
+	 * 如果函数是严格的，但确实有初值，则选择        
+	 * EEOP_AGG_STRICT_PLAIN_TRANS{,_BYVAL}，它会在转移值       
+	 * 变为 NULL 时跳过转移函数（因为之前某个转移函数  
+	 * 返回了 NULL）。该步骤也需完成下述                        
+	 * 工作：      
 	 *
-	 * Otherwise we call EEOP_AGG_PLAIN_TRANS{,_BYVAL}, which does not have to
-	 * perform either of the above checks.
+	 * 否则我们调用 EEOP_AGG_PLAIN_TRANS{,_BYVAL}，它无须           
+	 * 执行上述任何一种检查。  
 	 *
-	 * Having steps with overlapping responsibilities is not nice, but
-	 * aggregations are very performance sensitive, making this worthwhile.
+	 * 让步骤职责重叠并不理想，但聚合对性能极为   
+	 * 敏感，这样做是值得的。                                   
 	 *
-	 * For ordered aggregates:
+	 * 对于有序聚合：  
 	 *
-	 * Only need to choose between the faster path for a single ordered
-	 * column, and the one between multiple columns. Checking strictness etc
-	 * is done when finalizing the aggregate. See
-	 * process_ordered_aggregate_{single, multi} and
-	 * advance_transition_function.
+	 * 只需在单有序列的较快路径与多列路径之间做出 
+	 * 选择。严格性等检查会推迟到聚合定稿时进行。      
+	 * 参见 process_ordered_aggregate_         
+	 * {single, multi} 与                          
+	 * advance_transition_function 
 	 */
 	if (!pertrans->aggsortrequired)
 	{
@@ -3861,7 +3861,7 @@ ExecBuildAggTransCall(ExprState *state, AggState *aggstate,
 	scratch->d.agg_trans.aggcontext = aggcontext;
 	ExprEvalPushStep(state, scratch);
 
-	/* fix up jumpnull */
+	/* 修正 jumpnull */
 	if (adjust_jumpnull != -1)
 	{
 		ExprEvalStep *as = &state->steps[adjust_jumpnull];
@@ -3873,15 +3873,15 @@ ExecBuildAggTransCall(ExprState *state, AggState *aggstate,
 }
 
 /*
- * Build equality expression that can be evaluated using ExecQual(), returning
- * true if the expression context's inner/outer tuple are NOT DISTINCT. I.e
- * two nulls match, a null and a not-null don't match.
+ * 构建能用 ExecQual() 求值的相等表达式，当表达式上下文的
+ * 内层/外层元组 NOT DISTINCT 时返回真。也就是说：         
+ * 两个 NULL 匹配，NULL 与非 NULL 不匹配。 
  *
- * desc: tuple descriptor of the to-be-compared tuples
- * numCols: the number of attributes to be examined
- * keyColIdx: array of attribute column numbers
- * eqFunctions: array of function oids of the equality functions to use
- * parent: parent executor node
+ * desc: 待比较元组的元组描述符            
+ * numCols: 要检查的属性数量               
+ * keyColIdx: 属性列号组成的数组      
+ * eqFunctions: 待使用的相等函数的函数 OID 数组           
+ * parent: 父执行器节点  
  */
 ExprState *
 ExecBuildGroupingEqual(TupleDesc ldesc, TupleDesc rdesc,
@@ -3899,8 +3899,8 @@ ExecBuildGroupingEqual(TupleDesc ldesc, TupleDesc rdesc,
 	ListCell   *lc;
 
 	/*
-	 * When no columns are actually compared, the result's always true. See
-	 * special case in ExecQual().
+	 * 当实际上没有比较任何列时，结果总为真。参见     
+	 * ExecQual() 的特例。    
 	 */
 	if (numCols == 0)
 		return NULL;
@@ -3912,7 +3912,7 @@ ExecBuildGroupingEqual(TupleDesc ldesc, TupleDesc rdesc,
 	scratch.resvalue = &state->resvalue;
 	scratch.resnull = &state->resnull;
 
-	/* compute max needed attribute */
+	/* 计算所需最大属性号  */
 	for (int natt = 0; natt < numCols; natt++)
 	{
 		int			attno = keyColIdx[natt];
@@ -3922,7 +3922,7 @@ ExecBuildGroupingEqual(TupleDesc ldesc, TupleDesc rdesc,
 	}
 	Assert(maxatt >= 0);
 
-	/* push deform steps */
+	/* 压入解构步骤*/
 	scratch.opcode = EEOP_INNER_FETCHSOME;
 	scratch.d.fetch.last_var = maxatt;
 	scratch.d.fetch.fixed = false;
@@ -3940,8 +3940,8 @@ ExecBuildGroupingEqual(TupleDesc ldesc, TupleDesc rdesc,
 		ExprEvalPushStep(state, &scratch);
 
 	/*
-	 * Start comparing at the last field (least significant sort key). That's
-	 * the most likely to be different if we are dealing with sorted input.
+	 * 从最后一个字段（最不重要的排序键）开始比较。    
+	 * 对于已排序的输入，它是最可能不同的字段。        
 	 */
 	for (int natt = numCols; --natt >= 0;)
 	{
@@ -3954,14 +3954,14 @@ ExecBuildGroupingEqual(TupleDesc ldesc, TupleDesc rdesc,
 		FunctionCallInfo fcinfo;
 		AclResult	aclresult;
 
-		/* Check permission to call function */
+		/* 检查调用该函数的权限    */
 		aclresult = object_aclcheck(ProcedureRelationId, foid, GetUserId(), ACL_EXECUTE);
 		if (aclresult != ACLCHECK_OK)
 			aclcheck_error(aclresult, OBJECT_FUNCTION, get_func_name(foid));
 
 		InvokeFunctionExecuteHook(foid);
 
-		/* Set up the primary fmgr lookup information */
+		/* 设置主 fmgr 查找信息                */
 		finfo = palloc0(sizeof(FmgrInfo));
 		fcinfo = palloc0(SizeForFunctionCallInfo(2));
 		fmgr_info(foid, finfo);
@@ -3969,7 +3969,7 @@ ExecBuildGroupingEqual(TupleDesc ldesc, TupleDesc rdesc,
 		InitFunctionCallInfoData(*fcinfo, finfo, 2,
 								 collid, NULL, NULL);
 
-		/* left arg */
+		/* 左参数*/
 		scratch.opcode = EEOP_INNER_VAR;
 		scratch.d.var.attnum = attno - 1;
 		scratch.d.var.vartype = latt->atttypid;
@@ -3977,7 +3977,7 @@ ExecBuildGroupingEqual(TupleDesc ldesc, TupleDesc rdesc,
 		scratch.resnull = &fcinfo->args[0].isnull;
 		ExprEvalPushStep(state, &scratch);
 
-		/* right arg */
+		/* 右参数 */
 		scratch.opcode = EEOP_OUTER_VAR;
 		scratch.d.var.attnum = attno - 1;
 		scratch.d.var.vartype = ratt->atttypid;
@@ -3985,7 +3985,7 @@ ExecBuildGroupingEqual(TupleDesc ldesc, TupleDesc rdesc,
 		scratch.resnull = &fcinfo->args[1].isnull;
 		ExprEvalPushStep(state, &scratch);
 
-		/* evaluate distinctness */
+		/* 对去重判定求值 */
 		scratch.opcode = EEOP_NOT_DISTINCT;
 		scratch.d.func.finfo = finfo;
 		scratch.d.func.fcinfo_data = fcinfo;
@@ -3995,7 +3995,7 @@ ExecBuildGroupingEqual(TupleDesc ldesc, TupleDesc rdesc,
 		scratch.resnull = &state->resnull;
 		ExprEvalPushStep(state, &scratch);
 
-		/* then emit EEOP_QUAL to detect if result is false (or null) */
+		/* 再生成 EEOP_QUAL 检测结果是否为假（或 NULL） */
 		scratch.opcode = EEOP_QUAL;
 		scratch.d.qualexpr.jumpdone = -1;
 		scratch.resvalue = &state->resvalue;
@@ -4005,7 +4005,7 @@ ExecBuildGroupingEqual(TupleDesc ldesc, TupleDesc rdesc,
 								   state->steps_len - 1);
 	}
 
-	/* adjust jump targets */
+	/* 调整跳转目标  */
 	foreach(lc, adjust_jumps)
 	{
 		ExprEvalStep *as = &state->steps[lfirst_int(lc)];
@@ -4026,19 +4026,19 @@ ExecBuildGroupingEqual(TupleDesc ldesc, TupleDesc rdesc,
 }
 
 /*
- * Build equality expression that can be evaluated using ExecQual(), returning
- * true if the expression context's inner/outer tuples are equal.  Datums in
- * the inner/outer slots are assumed to be in the same order and quantity as
- * the 'eqfunctions' parameter.  NULLs are treated as equal.
+ * 构建能用 ExecQual() 求值的相等表达式，当表达式上下文的
+ * 内层/外层元组相等时返回真。内层/外层 slot 中的        
+ * 各 datum 被假定与 'eqfunctions' 参数具有相同的顺序         
+ * 和数量。NULL 被视为相等。                      
  *
- * desc: tuple descriptor of the to-be-compared tuples
- * lops: the slot ops for the inner tuple slots
- * rops: the slot ops for the outer tuple slots
- * eqFunctions: array of function oids of the equality functions to use
- * this must be the same length as the 'param_exprs' list.
- * collations: collation Oids to use for equality comparison. Must be the
- * same length as the 'param_exprs' list.
- * parent: parent executor node
+ * desc: 待比较元组的元组描述符            
+ * lops: 内层元组 slot 的 slot 算子     
+ * rops: 外层元组 slot 的 slot 算子     
+ * eqFunctions: 待使用的相等函数的函数 OID 数组           
+ * 其长度必须与 'param_exprs' 列表相同。       
+ * collations: 用于相等比较的排序规则 OID。长度必须      
+ * 与 'param_exprs' 列表相同。     
+ * parent: 父执行器节点  
  */
 ExprState *
 ExecBuildParamSetEqual(TupleDesc desc,
@@ -4062,7 +4062,7 @@ ExecBuildParamSetEqual(TupleDesc desc,
 	scratch.resvalue = &state->resvalue;
 	scratch.resnull = &state->resnull;
 
-	/* push deform steps */
+	/* 压入解构步骤*/
 	scratch.opcode = EEOP_INNER_FETCHSOME;
 	scratch.d.fetch.last_var = maxatt;
 	scratch.d.fetch.fixed = false;
@@ -4088,14 +4088,14 @@ ExecBuildParamSetEqual(TupleDesc desc,
 		FunctionCallInfo fcinfo;
 		AclResult	aclresult;
 
-		/* Check permission to call function */
+		/* 检查调用该函数的权限    */
 		aclresult = object_aclcheck(ProcedureRelationId, foid, GetUserId(), ACL_EXECUTE);
 		if (aclresult != ACLCHECK_OK)
 			aclcheck_error(aclresult, OBJECT_FUNCTION, get_func_name(foid));
 
 		InvokeFunctionExecuteHook(foid);
 
-		/* Set up the primary fmgr lookup information */
+		/* 设置主 fmgr 查找信息                */
 		finfo = palloc0(sizeof(FmgrInfo));
 		fcinfo = palloc0(SizeForFunctionCallInfo(2));
 		fmgr_info(foid, finfo);
@@ -4103,7 +4103,7 @@ ExecBuildParamSetEqual(TupleDesc desc,
 		InitFunctionCallInfoData(*fcinfo, finfo, 2,
 								 collid, NULL, NULL);
 
-		/* left arg */
+		/* 左参数*/
 		scratch.opcode = EEOP_INNER_VAR;
 		scratch.d.var.attnum = attno;
 		scratch.d.var.vartype = att->atttypid;
@@ -4111,7 +4111,7 @@ ExecBuildParamSetEqual(TupleDesc desc,
 		scratch.resnull = &fcinfo->args[0].isnull;
 		ExprEvalPushStep(state, &scratch);
 
-		/* right arg */
+		/* 右参数 */
 		scratch.opcode = EEOP_OUTER_VAR;
 		scratch.d.var.attnum = attno;
 		scratch.d.var.vartype = att->atttypid;
@@ -4119,7 +4119,7 @@ ExecBuildParamSetEqual(TupleDesc desc,
 		scratch.resnull = &fcinfo->args[1].isnull;
 		ExprEvalPushStep(state, &scratch);
 
-		/* evaluate distinctness */
+		/* 对去重判定求值 */
 		scratch.opcode = EEOP_NOT_DISTINCT;
 		scratch.d.func.finfo = finfo;
 		scratch.d.func.fcinfo_data = fcinfo;
@@ -4129,7 +4129,7 @@ ExecBuildParamSetEqual(TupleDesc desc,
 		scratch.resnull = &state->resnull;
 		ExprEvalPushStep(state, &scratch);
 
-		/* then emit EEOP_QUAL to detect if result is false (or null) */
+		/* 再生成 EEOP_QUAL 检测结果是否为假（或 NULL） */
 		scratch.opcode = EEOP_QUAL;
 		scratch.d.qualexpr.jumpdone = -1;
 		scratch.resvalue = &state->resvalue;
@@ -4139,7 +4139,7 @@ ExecBuildParamSetEqual(TupleDesc desc,
 								   state->steps_len - 1);
 	}
 
-	/* adjust jump targets */
+	/* 调整跳转目标  */
 	foreach(lc, adjust_jumps)
 	{
 		ExprEvalStep *as = &state->steps[lfirst_int(lc)];

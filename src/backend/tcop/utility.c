@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * utility.c
- *	  Contains functions which control the execution of the POSTGRES utility
- *	  commands.  At one time acted as an interface between the Lisp and C
- *	  systems.
+ *	  包含控制 POSTGRES 实用命令执行的函数。                  
+ *	  它曾一度充当 Lisp 与 C 两个系统之间的接口。       
+ *	          
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -73,10 +73,10 @@
 #include "utils/rel.h"
 #include "utils/syscache.h"
 
-/* Hook for plugins to get control in ProcessUtility() */
+/* 供插件在 ProcessUtility() 中接管的钩子    */
 ProcessUtility_hook_type ProcessUtility_hook = NULL;
 
-/* local function declarations */
+/* 局部函数声明          */
 static int	ClassifyUtilityCommandAsReadOnly(Node *parsetree);
 static void ProcessUtilitySlow(ParseState *pstate,
 							   PlannedStmt *pstmt,
@@ -89,13 +89,13 @@ static void ProcessUtilitySlow(ParseState *pstate,
 static void ExecDropStmt(DropStmt *stmt, bool isTopLevel);
 
 /*
- * CommandIsReadOnly: is an executable query read-only?
+ * CommandIsReadOnly：可执行查询是否只读？  
  *
- * This is a much stricter test than we apply for XactReadOnly mode;
- * the query must be *in truth* read-only, because the caller wishes
- * not to do CommandCounterIncrement for it.
+ * 该测试比 XactReadOnly 模式的测试严格得多；         
+ * 查询必须*真正*只读，因为调用者不希望            
+ * 为它执行 CommandCounterIncrement。  
  *
- * Note: currently no need to support raw or analyzed queries here
+ * 注意：目前无需在此支持原始或已分析的查询   
  */
 bool
 CommandIsReadOnly(PlannedStmt *pstmt)
@@ -107,7 +107,7 @@ CommandIsReadOnly(PlannedStmt *pstmt)
 			if (pstmt->rowMarks != NIL)
 				return false;	/* SELECT FOR [KEY] UPDATE/SHARE */
 			else if (pstmt->hasModifyingCTE)
-				return false;	/* data-modifying CTE */
+				return false;	/* 数据修改型 CTE*/
 			else
 				return true;
 		case CMD_UPDATE:
@@ -116,7 +116,7 @@ CommandIsReadOnly(PlannedStmt *pstmt)
 		case CMD_MERGE:
 			return false;
 		case CMD_UTILITY:
-			/* For now, treat all utility commands as read/write */
+			/* 目前将所有实用命令都视为读/写处理 */
 			return false;
 		default:
 			elog(WARNING, "unrecognized commandType: %d",
@@ -127,9 +127,9 @@ CommandIsReadOnly(PlannedStmt *pstmt)
 }
 
 /*
- * Determine the degree to which a utility command is read only.
+ * 判定一条实用命令的只读程度。                   
  *
- * Note the definitions of the relevant flags in src/include/utility/tcop.h.
+ * 相关标志位的定义见 src/include/utility/tcop.h。                
  */
 static int
 ClassifyUtilityCommandAsReadOnly(Node *parsetree)
@@ -219,21 +219,21 @@ ClassifyUtilityCommandAsReadOnly(Node *parsetree)
 		case T_TruncateStmt:
 		case T_ViewStmt:
 			{
-				/* DDL is not read-only, and neither is TRUNCATE. */
+				/* DDL 不是只读的，TRUNCATE 也不是。    */
 				return COMMAND_IS_NOT_READ_ONLY;
 			}
 
 		case T_AlterSystemStmt:
 			{
 				/*
-				 * Surprisingly, ALTER SYSTEM meets all our definitions of
-				 * read-only: it changes nothing that affects the output of
-				 * pg_dump, it doesn't write WAL or imperil the application of
-				 * future WAL, and it doesn't depend on any state that needs
-				 * to be synchronized with parallel workers.
+				 * 出人意料的是，ALTER SYSTEM 满足我们的      
+				 * 全部只读定义：它不改变任何会影响 pg_dump
+				 * 输出的内容，不写 WAL 也不危及未来 WAL 的    
+				 * 重放，也不依赖任何需要由并行 worker 同步 
+				 * 的状态。                             
 				 *
-				 * So, despite the fact that it writes to a file, it's read
-				 * only!
+				 * 所以，尽管它会写文件，它却是只读的！  
+				 *      
 				 */
 				return COMMAND_IS_STRICTLY_READ_ONLY;
 			}
@@ -242,10 +242,10 @@ ClassifyUtilityCommandAsReadOnly(Node *parsetree)
 		case T_DoStmt:
 			{
 				/*
-				 * Commands inside the DO block or the called procedure might
-				 * not be read only, but they'll be checked separately when we
-				 * try to execute them.  Here we only need to worry about the
-				 * DO or CALL command itself.
+				 * DO 块或被调用过程内命令可能并非只读，    
+				 * 但在尝试执行它们时会单独检查。              
+				 * 这里只需关心 DO 或 CALL 命令本身。            
+				 *                           
 				 */
 				return COMMAND_IS_STRICTLY_READ_ONLY;
 			}
@@ -253,11 +253,11 @@ ClassifyUtilityCommandAsReadOnly(Node *parsetree)
 		case T_CheckPointStmt:
 			{
 				/*
-				 * You might think that this should not be permitted in
-				 * recovery, but we interpret a CHECKPOINT command during
-				 * recovery as a request for a restartpoint instead. We allow
-				 * this since it can be a useful way of reducing switchover
-				 * time when using various forms of replication.
+				 * 你也许认为恢复期间不应允许此命令， 
+				 * 但我们将恢复期间的 CHECKPOINT 命令解释为
+				 * 重启点请求。我们允许这样做，因为它能    
+				 * 有效缩短各种复制形式下的切换时间。     
+				 *                                              
 				 */
 				return COMMAND_IS_STRICTLY_READ_ONLY;
 			}
@@ -275,11 +275,11 @@ ClassifyUtilityCommandAsReadOnly(Node *parsetree)
 		case T_VariableSetStmt:
 			{
 				/*
-				 * These modify only backend-local state, so they're OK to run
-				 * in a read-only transaction or on a standby. However, they
-				 * are disallowed in parallel mode, because they either rely
-				 * upon or modify backend-local state that might not be
-				 * synchronized among cooperating backends.
+				 * 这些只改后端本地状态，故可在只读事务     
+				 * 或备库上运行。但是，它们                     
+				 * 并行模式下不允许，因为它们要么依赖      
+				 * 或修改协作后端间可能未同步的状态。 
+				 *                                         
 				 */
 				return COMMAND_OK_IN_RECOVERY | COMMAND_OK_IN_READ_ONLY_TXN;
 			}
@@ -289,15 +289,15 @@ ClassifyUtilityCommandAsReadOnly(Node *parsetree)
 		case T_VacuumStmt:
 			{
 				/*
-				 * These commands write WAL, so they're not strictly
-				 * read-only, and running them in parallel workers isn't
-				 * supported.
+				 * 这些命令写 WAL，故并非严格只读，   
+				 * 并且不支持在并行 worker 中运行。         
+				 *           
 				 *
-				 * However, they don't change the database state in a way that
-				 * would affect pg_dump output, so it's fine to run them in a
-				 * read-only transaction. (CLUSTER might change the order of
-				 * rows on disk, which could affect the ordering of pg_dump
-				 * output, but that's not semantically significant.)
+				 * 不过，它们不会以会影响 pg_dump 输出的方式  
+				 * 改变数据库状态，故在只读事务中运行它们 
+				 * 是没问题的。（CLUSTER 可能改变磁盘上行的 
+				 * 顺序，这可能影响 pg_dump 输出的顺序，     
+				 * 但这在语义上无关紧要。）             
 				 */
 				return COMMAND_OK_IN_READ_ONLY_TXN;
 			}
@@ -307,11 +307,11 @@ ClassifyUtilityCommandAsReadOnly(Node *parsetree)
 				CopyStmt   *stmt = (CopyStmt *) parsetree;
 
 				/*
-				 * You might think that COPY FROM is not at all read only, but
-				 * it's OK to copy into a temporary table, because that
-				 * wouldn't change the output of pg_dump.  If the target table
-				 * turns out to be non-temporary, DoCopy itself will call
-				 * PreventCommandIfReadOnly.
+				 * 你可能认为 COPY FROM 完全不是只读的，但      
+				 * 复制入临时表没有问题，因为那样       
+				 * 不会改变 pg_dump 的输出。若目标表最终并非  
+				 * 临时表，DoCopy 自己就会调用                 
+				 * PreventCommandIfReadOnly 
 				 */
 				if (stmt->is_from)
 					return COMMAND_OK_IN_READ_ONLY_TXN;
@@ -323,8 +323,8 @@ ClassifyUtilityCommandAsReadOnly(Node *parsetree)
 		case T_VariableShowStmt:
 			{
 				/*
-				 * These commands don't modify any data and are safe to run in
-				 * a parallel worker.
+				 * 这些命令不修改任何数据，在并行 worker 中   
+				 * 运行安全。   
 				 */
 				return COMMAND_IS_STRICTLY_READ_ONLY;
 			}
@@ -333,14 +333,14 @@ ClassifyUtilityCommandAsReadOnly(Node *parsetree)
 		case T_NotifyStmt:
 			{
 				/*
-				 * NOTIFY requires an XID assignment, so it can't be permitted
-				 * on a standby. Perhaps LISTEN could, since without NOTIFY it
-				 * would be OK to just do nothing, at least until promotion,
-				 * but we currently prohibit it lest the user get the wrong
-				 * idea.
+				 * NOTIFY 需要分配 XID，故备库上不允许使用。   
+				 * 如果没有 NOTIFY，LISTEN 或许本可以放行，      
+				 * 因为什么也不做并无妨，至少提升前如此，
+				 * 但我们目前禁止它，以免用户产生误解。  
+				 *      
 				 *
-				 * (We do allow T_UnlistenStmt on a standby, though, because
-				 * it's a no-op.)
+				 * （不过备库上允许 T_UnlistenStmt，因为它是个
+				 * no-op）。   
 				 */
 				return COMMAND_OK_IN_READ_ONLY_TXN;
 			}
@@ -350,9 +350,9 @@ ClassifyUtilityCommandAsReadOnly(Node *parsetree)
 				LockStmt   *stmt = (LockStmt *) parsetree;
 
 				/*
-				 * Only weaker locker modes are allowed during recovery. The
-				 * restrictions here must match those in
-				 * LockAcquireExtended().
+				 * 恢复期间只允许较弱的加锁模式。            
+				 * 限制须与下面函数一致：    
+				 * LockAcquireExtended() 
 				 */
 				if (stmt->mode > RowExclusiveLock)
 					return COMMAND_OK_IN_READ_ONLY_TXN;
@@ -365,13 +365,13 @@ ClassifyUtilityCommandAsReadOnly(Node *parsetree)
 				TransactionStmt *stmt = (TransactionStmt *) parsetree;
 
 				/*
-				 * PREPARE, COMMIT PREPARED, and ROLLBACK PREPARED all write
-				 * WAL, so they're not read-only in the strict sense; but the
-				 * first and third do not change pg_dump output, so they're OK
-				 * in a read-only transactions.
+				 * PREPARE、COMMIT PREPARED 与 ROLLBACK PREPARED          
+				 * 都写 WAL，故严格意义上并非只读；但其中   
+				 * 第一个和第三个不改变 pg_dump 输出，因此     
+				 * 可用于只读事务。    
 				 *
-				 * We also consider COMMIT PREPARED to be OK in a read-only
-				 * transaction environment, by way of exception.
+				 * 作为例外，我们也认为 COMMIT PREPARED 在      
+				 * 只读事务环境中是可行的。         
 				 */
 				switch (stmt->kind)
 				{
@@ -391,21 +391,21 @@ ClassifyUtilityCommandAsReadOnly(Node *parsetree)
 				}
 				elog(ERROR, "unrecognized TransactionStmtKind: %d",
 					 (int) stmt->kind);
-				return 0;		/* silence stupider compilers */
+				return 0;		/* 让较笨的编译器安静*/
 			}
 
 		default:
 			elog(ERROR, "unrecognized node type: %d",
 				 (int) nodeTag(parsetree));
-			return 0;			/* silence stupider compilers */
+			return 0;			/* 让较笨的编译器安静*/
 	}
 }
 
 /*
- * PreventCommandIfReadOnly: throw error if XactReadOnly
+ * PreventCommandIfReadOnly：若 XactReadOnly 则报错
  *
- * This is useful partly to ensure consistency of the error message wording;
- * some callers have checked XactReadOnly for themselves.
+ * 此函数部分用于保证错误消息措辞的一致性；             
+ * 有些调用者已自行检查过 XactReadOnly。     
  */
 void
 PreventCommandIfReadOnly(const char *cmdname)
@@ -419,11 +419,11 @@ PreventCommandIfReadOnly(const char *cmdname)
 }
 
 /*
- * PreventCommandIfParallelMode: throw error if current (sub)transaction is
- * in parallel mode.
+ * PreventCommandIfParallelMode：若当前（子）事务处于并行     
+ * 模式报错。  
  *
- * This is useful partly to ensure consistency of the error message wording;
- * some callers have checked IsInParallelMode() for themselves.
+ * 此函数部分用于保证错误消息措辞的一致性；             
+ * 有些调用者已自行检查过 IsInParallelMode()。     
  */
 void
 PreventCommandIfParallelMode(const char *cmdname)
@@ -437,12 +437,12 @@ PreventCommandIfParallelMode(const char *cmdname)
 }
 
 /*
- * PreventCommandDuringRecovery: throw error if RecoveryInProgress
+ * PreventCommandDuringRecovery：若 RecoveryInProgress 则报错
  *
- * The majority of operations that are unsafe in a Hot Standby
- * will be rejected by XactReadOnly tests.  However there are a few
- * commands that are allowed in "read-only" xacts but cannot be allowed
- * in Hot Standby mode.  Those commands should call this function.
+ * 在热备上不安全的操作中，大多数都会被     
+ * XactReadOnly 测试拒绝。但少数几条命令               
+ * 虽允许出现在"只读"事务中，却不允许出现在         
+ * 热备模式中。这些命令应当调用本函数。         
  */
 void
 PreventCommandDuringRecovery(const char *cmdname)
@@ -456,11 +456,11 @@ PreventCommandDuringRecovery(const char *cmdname)
 }
 
 /*
- * CheckRestrictedOperation: throw error for hazardous command if we're
- * inside a security restriction context.
+ * CheckRestrictedOperation：若处于安全限制上下文中，     
+ * 则对危险命令报错。           
  *
- * This is needed to protect session-local state for which there is not any
- * better-defined protection mechanism, such as ownership.
+ * 需要用它来保护会话本地状态，这类状态没有            
+ * 更明确的保护机制，比如所有权。          
  */
 static void
 CheckRestrictedOperation(const char *cmdname)
@@ -475,32 +475,32 @@ CheckRestrictedOperation(const char *cmdname)
 
 /*
  * ProcessUtility
- *		general utility function invoker
+ *		通用实用函数调用器     
  *
- *	pstmt: PlannedStmt wrapper for the utility statement
- *	queryString: original source text of command
- *	readOnlyTree: if true, pstmt's node tree must not be modified
- *	context: identifies source of statement (toplevel client command,
- *		non-toplevel client command, subcommand of a larger utility command)
- *	params: parameters to use during execution
- *	queryEnv: environment for parse through execution (e.g., ephemeral named
- *		tables like trigger transition tables).  May be NULL.
- *	dest: where to send results
- *	qc: where to store command completion status data.  May be NULL,
- *		but if not, then caller must have initialized it.
+ *	pstmt：实用语句的 PlannedStmt 包装          
+ *	queryString：命令的原始源码文本   
+ *	readOnlyTree：若为真，pstmt 的节点树不得被修改 
+ *	context：标识语句的来源（顶层客户端命令、       
+ *		非顶层客户端命令、更大的实用命令的子命令）     
+ *	params：执行期间使用的参数      
+ *	queryEnv：供解析到执行使用的环境（例如瞬时             
+ *		命名表，如触发器过渡表）。可为 NULL。
+ *	dest：结果发往何处  
+ *	qc：存储命令完成状态数据之处。可为 NULL，      
+ *		否则调用者必须已初始化它。          
  *
- * Caller MUST supply a queryString; it is not allowed (anymore) to pass NULL.
- * If you really don't have source text, you can pass a constant string,
- * perhaps "(query not available)".
+ * 调用者必须提供 queryString；（如今）不允许传入 NULL。    
+ * 如果确实没有源码文本，可传入一个常量字符串，   
+ * 例如"(query not available)"   
  *
- * Note for users of ProcessUtility_hook: the same queryString may be passed
- * to multiple invocations of ProcessUtility when processing a query string
- * containing multiple semicolon-separated statements.  One should use
- * pstmt->stmt_location and pstmt->stmt_len to identify the substring
- * containing the current statement.  Keep in mind also that some utility
- * statements (e.g., CREATE SCHEMA) will recurse to ProcessUtility to process
- * sub-statements, often passing down the same queryString, stmt_location,
- * and stmt_len that were given for the whole statement.
+ * ProcessUtility_hook 的用户请注意：在处理含多条分号        
+ * 分隔语句的查询串时，同一 queryString 可能会传给        
+ * ProcessUtility 的多次调用。应使用 pstmt 的               
+ * stmt_location 与 stmt_len 来标识包含当前语句的         
+ * 子串。还要记住，某些实用语句（例如 CREATE SCHEMA）  
+ * 会递归调用 ProcessUtility 来处理子语句，且常会向下传    
+ * 入相同的 queryString、stmt_location 与 stmt_len，即当初      
+ * 针对整条语句给出的那些值。              
  */
 void
 ProcessUtility(PlannedStmt *pstmt,
@@ -514,13 +514,13 @@ ProcessUtility(PlannedStmt *pstmt,
 {
 	Assert(IsA(pstmt, PlannedStmt));
 	Assert(pstmt->commandType == CMD_UTILITY);
-	Assert(queryString != NULL);	/* required as of 8.4 */
+	Assert(queryString != NULL);	/* 8.4 起必须如此*/
 	Assert(qc == NULL || qc->commandTag == CMDTAG_UNKNOWN);
 
 	/*
-	 * We provide a function hook variable that lets loadable plugins get
-	 * control when ProcessUtility is called.  Such a plugin would normally
-	 * call standard_ProcessUtility().
+	 * 我们提供一个函数钩子变量，让可加载插件能在   
+	 * ProcessUtility 被调用时获得控制权，通常会调用        
+	 * standard_ProcessUtility()。   
 	 */
 	if (ProcessUtility_hook)
 		(*ProcessUtility_hook) (pstmt, queryString, readOnlyTree,
@@ -533,15 +533,15 @@ ProcessUtility(PlannedStmt *pstmt,
 }
 
 /*
- * standard_ProcessUtility itself deals only with utility commands for
- * which we do not provide event trigger support.  Commands that do have
- * such support are passed down to ProcessUtilitySlow, which contains the
- * necessary infrastructure for such triggers.
+ * standard_ProcessUtility 本身只处理我们不提供             
+ * 事件触发器支持的实用命令。有此支持的命令         
+ * 则会向下传给 ProcessUtilitySlow，其中包含这类            
+ * 触发器所需的基础设施。          
  *
- * This division is not just for performance: it's critical that the
- * event trigger code not be invoked when doing START TRANSACTION for
- * example, because we might need to refresh the event trigger cache,
- * which requires being in a valid transaction.
+ * 这种划分不只是为了性能：关键在于例如执行     
+ * START TRANSACTION 时不触发事件触发器代码，            
+ * 因为我们可能需要刷新事件触发器缓存，而这      
+ * 要求处于有效事务中。              
  */
 void
 standard_ProcessUtility(PlannedStmt *pstmt,
@@ -559,22 +559,22 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 	ParseState *pstate;
 	int			readonly_flags;
 
-	/* This can recurse, so check for excessive recursion */
+	/* 这里可能递归，故检查是否递归过度   */
 	check_stack_depth();
 
 	/*
-	 * If the given node tree is read-only, make a copy to ensure that parse
-	 * transformations don't damage the original tree.  This could be
-	 * refactored to avoid making unnecessary copies in more cases, but it's
-	 * not clear that it's worth a great deal of trouble over.  Statements
-	 * that are complex enough to be expensive to copy are exactly the ones
-	 * we'd need to copy, so that only marginal savings seem possible.
+	 * 若给定的节点树是只读的，则制作一份副本，         
+	 * 以确保解析转换不会破坏原始树。这一点可以  
+	 * 重构，以便在更多情况下避免不必要的复制，         
+	 * 但是否值得费这么大工夫并不清楚。复杂到          
+	 * 复制代价高昂的语句恰恰正是我们需要复制           
+	 * 的语句，因此似乎只能节省边角成本。            
 	 */
 	if (readOnlyTree)
 		pstmt = copyObject(pstmt);
 	parsetree = pstmt->utilityStmt;
 
-	/* Prohibit read/write commands in read-only states. */
+	/* 在只读状态下禁止读/写命令。          */
 	readonly_flags = ClassifyUtilityCommandAsReadOnly(parsetree);
 	if (readonly_flags != COMMAND_IS_STRICTLY_READ_ONLY &&
 		(XactReadOnly || IsInParallelMode()))
@@ -596,7 +596,7 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 	switch (nodeTag(parsetree))
 	{
 			/*
-			 * ******************** transactions ********************
+			 * ******************** 事务 ********************      
 			 */
 		case T_TransactionStmt:
 			{
@@ -605,8 +605,8 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 				switch (stmt->kind)
 				{
 						/*
-						 * START TRANSACTION, as defined by SQL99: Identical
-						 * to BEGIN.  Same code for both.
+						 * SQL99 定义的 START TRANSACTION：与          
+						 * BEGIN 等同。共用代码。
 						 */
 					case TRANS_STMT_BEGIN:
 					case TRANS_STMT_START:
@@ -637,7 +637,7 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 					case TRANS_STMT_COMMIT:
 						if (!EndTransactionBlock(stmt->chain))
 						{
-							/* report unsuccessful commit in qc */
+							/* 在 qc 中报告未成功提交  */
 							if (qc)
 								SetQueryCompletion(qc, CMDTAG_ROLLBACK, 0);
 						}
@@ -646,7 +646,7 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 					case TRANS_STMT_PREPARE:
 						if (!PrepareTransactionBlock(stmt->gid))
 						{
-							/* report unsuccessful commit in qc */
+							/* 在 qc 中报告未成功提交  */
 							if (qc)
 								SetQueryCompletion(qc, CMDTAG_ROLLBACK, 0);
 						}
@@ -681,8 +681,8 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 						RollbackToSavepoint(stmt->savepoint_name);
 
 						/*
-						 * CommitTransactionCommand is in charge of
-						 * re-defining the savepoint again
+						 * CommitTransactionCommand 负责         
+						 * 再次定义保存点。       
 						 */
 						break;
 				}
@@ -690,7 +690,7 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 			break;
 
 			/*
-			 * Portal (cursor) manipulation
+			 * 门户（游标）操作    
 			 */
 		case T_DeclareCursorStmt:
 			PerformCursorOpen(pstate, (DeclareCursorStmt *) parsetree, params,
@@ -715,19 +715,19 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 			break;
 
 		case T_CreateTableSpaceStmt:
-			/* no event triggers for global objects */
+			/* 全局对象无事件触发器       */
 			PreventInTransactionBlock(isTopLevel, "CREATE TABLESPACE");
 			CreateTableSpace((CreateTableSpaceStmt *) parsetree);
 			break;
 
 		case T_DropTableSpaceStmt:
-			/* no event triggers for global objects */
+			/* 全局对象无事件触发器       */
 			PreventInTransactionBlock(isTopLevel, "DROP TABLESPACE");
 			DropTableSpace((DropTableSpaceStmt *) parsetree);
 			break;
 
 		case T_AlterTableSpaceOptionsStmt:
-			/* no event triggers for global objects */
+			/* 全局对象无事件触发器       */
 			AlterTableSpaceOptions((AlterTableSpaceOptionsStmt *) parsetree);
 			break;
 
@@ -766,38 +766,38 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 			break;
 
 		case T_GrantRoleStmt:
-			/* no event triggers for global objects */
+			/* 全局对象无事件触发器       */
 			GrantRole(pstate, (GrantRoleStmt *) parsetree);
 			break;
 
 		case T_CreatedbStmt:
-			/* no event triggers for global objects */
+			/* 全局对象无事件触发器       */
 			PreventInTransactionBlock(isTopLevel, "CREATE DATABASE");
 			createdb(pstate, (CreatedbStmt *) parsetree);
 			break;
 
 		case T_AlterDatabaseStmt:
-			/* no event triggers for global objects */
+			/* 全局对象无事件触发器       */
 			AlterDatabase(pstate, (AlterDatabaseStmt *) parsetree, isTopLevel);
 			break;
 
 		case T_AlterDatabaseRefreshCollStmt:
-			/* no event triggers for global objects */
+			/* 全局对象无事件触发器       */
 			AlterDatabaseRefreshColl((AlterDatabaseRefreshCollStmt *) parsetree);
 			break;
 
 		case T_AlterDatabaseSetStmt:
-			/* no event triggers for global objects */
+			/* 全局对象无事件触发器       */
 			AlterDatabaseSet((AlterDatabaseSetStmt *) parsetree);
 			break;
 
 		case T_DropdbStmt:
-			/* no event triggers for global objects */
+			/* 全局对象无事件触发器       */
 			PreventInTransactionBlock(isTopLevel, "DROP DATABASE");
 			DropDatabase(pstate, (DropdbStmt *) parsetree);
 			break;
 
-			/* Query-level asynchronous notification */
+			/* 查询级异步通知                 */
 		case T_NotifyStmt:
 			{
 				NotifyStmt *stmt = (NotifyStmt *) parsetree;
@@ -813,13 +813,13 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 				CheckRestrictedOperation("LISTEN");
 
 				/*
-				 * We don't allow LISTEN in background processes, as there is
-				 * no mechanism for them to collect NOTIFY messages, so they'd
-				 * just block cleanout of the async SLRU indefinitely.
-				 * (Authors of custom background workers could bypass this
-				 * restriction by calling Async_Listen directly, but then it's
-				 * on them to provide some mechanism to process the message
-				 * queue.)  Note there seems no reason to forbid UNLISTEN.
+				 * 后台进程不允许 LISTEN，因为它们没有         
+				 * 收集 NOTIFY 消息的机制，否则它们会无限期   
+				 * 阻塞 async SLRU 的清理。                     
+				 * （自定义后台 worker 的作者可以直接调用  
+				 * Async_Listen 来绕过此限制，但之后就得由       
+				 * 他们自行提供机制来处理消息队列了。     
+				 * ）注意似乎没有理由禁止 UNLISTEN。          
 				 */
 				if (MyBackendType != B_BACKEND)
 					ereport(ERROR,
@@ -848,8 +848,8 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 			{
 				LoadStmt   *stmt = (LoadStmt *) parsetree;
 
-				closeAllVfds(); /* probably not necessary... */
-				/* Allowed names are restricted if you're not superuser */
+				closeAllVfds(); /* 大概不需要……     */
+				/* 若非超级用户，允许的名字将受限        */
 				load_file(stmt->filename, !superuser());
 			}
 			break;
@@ -888,54 +888,54 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 			break;
 
 		case T_DiscardStmt:
-			/* should we allow DISCARD PLANS? */
+			/* 应允许 DISCARD PLANS 吗？ */
 			CheckRestrictedOperation("DISCARD");
 			DiscardCommand((DiscardStmt *) parsetree, isTopLevel);
 			break;
 
 		case T_CreateEventTrigStmt:
-			/* no event triggers on event triggers */
+			/* 事件触发器无事件触发器   */
 			CreateEventTrigger((CreateEventTrigStmt *) parsetree);
 			break;
 
 		case T_AlterEventTrigStmt:
-			/* no event triggers on event triggers */
+			/* 事件触发器无事件触发器   */
 			AlterEventTrigger((AlterEventTrigStmt *) parsetree);
 			break;
 
 			/*
-			 * ******************************** ROLE statements ****
+			 * ******************************** ROLE 语句 ****    
 			 */
 		case T_CreateRoleStmt:
-			/* no event triggers for global objects */
+			/* 全局对象无事件触发器       */
 			CreateRole(pstate, (CreateRoleStmt *) parsetree);
 			break;
 
 		case T_AlterRoleStmt:
-			/* no event triggers for global objects */
+			/* 全局对象无事件触发器       */
 			AlterRole(pstate, (AlterRoleStmt *) parsetree);
 			break;
 
 		case T_AlterRoleSetStmt:
-			/* no event triggers for global objects */
+			/* 全局对象无事件触发器       */
 			AlterRoleSet((AlterRoleSetStmt *) parsetree);
 			break;
 
 		case T_DropRoleStmt:
-			/* no event triggers for global objects */
+			/* 全局对象无事件触发器       */
 			DropRole((DropRoleStmt *) parsetree);
 			break;
 
 		case T_ReassignOwnedStmt:
-			/* no event triggers for global objects */
+			/* 全局对象无事件触发器       */
 			ReassignOwnedObjects((ReassignOwnedStmt *) parsetree);
 			break;
 
 		case T_LockStmt:
 
 			/*
-			 * Since the lock would just get dropped immediately, LOCK TABLE
-			 * outside a transaction block is presumed to be user error.
+			 * 由于锁会立即被丢弃，事务块外的 LOCK TABLE     
+			 * 被认定为用户错误。                              
 			 */
 			RequireTransactionBlock(isTopLevel, "LOCK TABLE");
 			LockTableCommand((LockStmt *) parsetree);
@@ -965,8 +965,8 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 			break;
 
 			/*
-			 * The following statements are supported by Event Triggers only
-			 * in some cases, so we "fast path" them in the other cases.
+			 * 下列语句仅在某些情况下受事件触发器支持， 
+			 * 故在其他情况下对它们走"快速路径"。       
 			 */
 
 		case T_GrantStmt:
@@ -1074,7 +1074,7 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 			}
 
 		default:
-			/* All other statement types have event trigger support */
+			/* 其余所有语句类型都有事件触发器支持  */
 			ProcessUtilitySlow(pstate, pstmt, queryString,
 							   context, params, queryEnv,
 							   dest, qc);
@@ -1084,17 +1084,17 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 	free_parsestate(pstate);
 
 	/*
-	 * Make effects of commands visible, for instance so that
-	 * PreCommit_on_commit_actions() can see them (see for example bug
-	 * #15631).
+	 * 使命令的效果可见，例如让                  
+	 * PreCommit_on_commit_actions() 能看到它们 (例如 bug      
+	 * #15631) 
 	 */
 	CommandCounterIncrement();
 }
 
 /*
- * The "Slow" variant of ProcessUtility should only receive statements
- * supported by the event triggers facility.  Therefore, we always
- * perform the trigger support calls if the context allows it.
+ * ProcessUtility 的"Slow"变体只应接收事件                   
+ * 触发器设施支持的语句。因此只要上下文允许，
+ * 我们总是执行触发器支持调用。                 
  */
 static void
 ProcessUtilitySlow(ParseState *pstate,
@@ -1114,10 +1114,10 @@ ProcessUtilitySlow(ParseState *pstate,
 	ObjectAddress address;
 	ObjectAddress secondaryObject = InvalidObjectAddress;
 
-	/* All event trigger calls are done only when isCompleteQuery is true */
+	/* 仅当 isCompleteQuery 为真时才执行事件触发器调用     */
 	needCleanup = isCompleteQuery && EventTriggerBeginCompleteQuery();
 
-	/* PG_TRY block is to ensure we call EventTriggerEndCompleteQuery */
+	/* 用 PG_TRY 块确保调用 EventTriggerEndCompleteQuery        */
 	PG_TRY();
 	{
 		if (isCompleteQuery)
@@ -1126,7 +1126,7 @@ ProcessUtilitySlow(ParseState *pstate,
 		switch (nodeTag(parsetree))
 		{
 				/*
-				 * relation and attribute manipulation
+				 * 关系与属性操作              
 				 */
 			case T_CreateSchemaStmt:
 				CreateSchemaCommand((CreateSchemaStmt *) parsetree,
@@ -1135,7 +1135,7 @@ ProcessUtilitySlow(ParseState *pstate,
 									pstmt->stmt_len);
 
 				/*
-				 * EventTriggerCollectSimpleCommand called by
+				 * EventTriggerCollectSimpleCommand 由      
 				 * CreateSchemaCommand
 				 */
 				commandCollected = true;
@@ -1147,14 +1147,14 @@ ProcessUtilitySlow(ParseState *pstate,
 					List	   *stmts;
 					RangeVar   *table_rv = NULL;
 
-					/* Run parse analysis ... */
+					/* 解析分析……     */
 					stmts = transformCreateStmt((CreateStmt *) parsetree,
 												queryString);
 
 					/*
-					 * ... and do it.  We can't use foreach() because we may
-					 * modify the list midway through, so pick off the
-					 * elements one at a time, the hard way.
+					 * ……然后执行。无法使用 foreach()，因为 
+					 * 可能中途修改列表，只能逐一取出  
+					 * 元素，用笨办法。             
 					 */
 					while (stmts != NIL)
 					{
@@ -1168,10 +1168,10 @@ ProcessUtilitySlow(ParseState *pstate,
 							Datum		toast_options;
 							static char *validnsps[] = HEAP_RELOPT_NAMESPACES;
 
-							/* Remember transformed RangeVar for LIKE */
+							/* 记住为 LIKE 转换后的 RangeVar   */
 							table_rv = cstmt->relation;
 
-							/* Create the table itself */
+							/* 创建表本身         */
 							address = DefineRelation(cstmt,
 													 RELKIND_RELATION,
 													 InvalidOid, NULL,
@@ -1181,14 +1181,14 @@ ProcessUtilitySlow(ParseState *pstate,
 															 stmt);
 
 							/*
-							 * Let NewRelationCreateToastTable decide if this
-							 * one needs a secondary relation too.
+							 * 让 NewRelationCreateToastTable 决定这一  
+							 * 个是否也需要次要关系。  
 							 */
 							CommandCounterIncrement();
 
 							/*
-							 * parse and validate reloptions for the toast
-							 * table
+							 * 为 toast 表解析并校验 reloptions    
+							 *      
 							 */
 							toast_options = transformRelOptions((Datum) 0,
 																cstmt->options,
@@ -1207,10 +1207,10 @@ ProcessUtilitySlow(ParseState *pstate,
 						{
 							CreateForeignTableStmt *cstmt = (CreateForeignTableStmt *) stmt;
 
-							/* Remember transformed RangeVar for LIKE */
+							/* 记住为 LIKE 转换后的 RangeVar   */
 							table_rv = cstmt->base.relation;
 
-							/* Create the table itself */
+							/* 创建表本身         */
 							address = DefineRelation(&cstmt->base,
 													 RELKIND_FOREIGN_TABLE,
 													 InvalidOid, NULL,
@@ -1224,10 +1224,10 @@ ProcessUtilitySlow(ParseState *pstate,
 						else if (IsA(stmt, TableLikeClause))
 						{
 							/*
-							 * Do delayed processing of LIKE options.  This
-							 * will result in additional sub-statements for us
-							 * to process.  Those should get done before any
-							 * remaining actions, so prepend them to "stmts".
+							 * 对 LIKE 选项做延迟处理，这会     
+							 * 产生额外子语句。它们应在其余     
+							 * 任何动作之前完成，故前插到      
+							 * "stmts"。                                    
 							 */
 							TableLikeClause *like = (TableLikeClause *) stmt;
 							List	   *morestmts;
@@ -1240,9 +1240,9 @@ ProcessUtilitySlow(ParseState *pstate,
 						else
 						{
 							/*
-							 * Recurse for anything else.  Note the recursive
-							 * call will stash the objects so created into our
-							 * event trigger context.
+							 * 其余一律递归。注意递归调用会把 
+							 * 新建的对象存入我们的事件触发器  
+							 * 上下文中。       
 							 */
 							PlannedStmt *wrapper;
 
@@ -1263,14 +1263,14 @@ ProcessUtilitySlow(ParseState *pstate,
 										   NULL);
 						}
 
-						/* Need CCI between commands */
+						/* 命令之间需要 CCI    */
 						if (stmts != NIL)
 							CommandCounterIncrement();
 					}
 
 					/*
-					 * The multiple commands generated here are stashed
-					 * individually, so disable collection below.
+					 * 这里生成的多条命令是单独存放的，
+					 * 因此禁用下层的收集。            
 					 */
 					commandCollected = true;
 				}
@@ -1284,15 +1284,15 @@ ProcessUtilitySlow(ParseState *pstate,
 					ListCell   *cell;
 
 					/*
-					 * Disallow ALTER TABLE .. DETACH CONCURRENTLY in a
-					 * transaction block or function.  (Perhaps it could be
-					 * allowed in a procedure, but don't hold your breath.)
+					 * 禁止在事务块或函数中 ALTER TABLE ..   
+					 * DETACH CONCURRENTLY。（也许在过程中可以   
+					 * 允许，但别抱太大期望。）                
 					 */
 					foreach(cell, atstmt->cmds)
 					{
 						AlterTableCmd *cmd = (AlterTableCmd *) lfirst(cell);
 
-						/* Disallow DETACH CONCURRENTLY in a transaction block */
+						/* 事务块中不允许 DETACH CONCURRENTLY           */
 						if (cmd->subtype == AT_DetachPartition)
 						{
 							if (((PartitionCmd *) cmd->def)->concurrent)
@@ -1302,10 +1302,10 @@ ProcessUtilitySlow(ParseState *pstate,
 					}
 
 					/*
-					 * Figure out lock mode, and acquire lock.  This also does
-					 * basic permissions checks, so that we won't wait for a
-					 * lock on (for example) a relation on which we have no
-					 * permissions.
+					 * 确定锁模式并获取锁。这还会执行基本的 
+					 * 权限检查，从而不会在（比如）无权限  
+					 * 的关系上等待锁。                            
+					 *             
 					 */
 					lockmode = AlterTableGetLockLevel(atstmt->cmds);
 					relid = AlterTableLookupRelation(atstmt, lockmode);
@@ -1314,21 +1314,21 @@ ProcessUtilitySlow(ParseState *pstate,
 					{
 						AlterTableUtilityContext atcontext;
 
-						/* Set up info needed for recursive callbacks ... */
+						/* 设置递归回调所需的信息……        */
 						atcontext.pstmt = pstmt;
 						atcontext.queryString = queryString;
 						atcontext.relid = relid;
 						atcontext.params = params;
 						atcontext.queryEnv = queryEnv;
 
-						/* ... ensure we have an event trigger context ... */
+						/* ……确保有事件触发器上下文……   */
 						EventTriggerAlterTableStart(parsetree);
 						EventTriggerAlterTableRelid(relid);
 
-						/* ... and do it */
+						/* ……执行  */
 						AlterTable(atstmt, lockmode, &atcontext);
 
-						/* done */
+						/* 完  */
 						EventTriggerAlterTableEnd();
 					}
 					else
@@ -1337,7 +1337,7 @@ ProcessUtilitySlow(ParseState *pstate,
 										atstmt->relation->relname)));
 				}
 
-				/* ALTER TABLE stashes commands internally */
+				/* ALTER TABLE 在内部存放命令       */
 				commandCollected = true;
 				break;
 
@@ -1346,50 +1346,50 @@ ProcessUtilitySlow(ParseState *pstate,
 					AlterDomainStmt *stmt = (AlterDomainStmt *) parsetree;
 
 					/*
-					 * Some or all of these functions are recursive to cover
-					 * inherited things, so permission checks are done there.
+					 * 这些函数部分或全部递归，以覆盖继承  
+					 * 的对象，因此权限检查在那里完成。      
 					 */
 					switch (stmt->subtype)
 					{
-						case 'T':	/* ALTER DOMAIN DEFAULT */
+						case 'T':	/* ALTER DOMAIN默认值*/
 
 							/*
-							 * Recursively alter column default for table and,
-							 * if requested, for descendants
+							 * 递归修改表的列默认值；若有要求  
+							 * 则连同后代一起修改  
 							 */
 							address =
 								AlterDomainDefault(stmt->typeName,
 												   stmt->def);
 							break;
-						case 'N':	/* ALTER DOMAIN DROP NOT NULL */
+						case 'N':	/* ALTER DOMAIN 去除非空  */
 							address =
 								AlterDomainNotNull(stmt->typeName,
 												   false);
 							break;
-						case 'O':	/* ALTER DOMAIN SET NOT NULL */
+						case 'O':	/* ALTER DOMAIN 设置非空 */
 							address =
 								AlterDomainNotNull(stmt->typeName,
 												   true);
 							break;
-						case 'C':	/* ADD CONSTRAINT */
+						case 'C':	/* 添加约束   */
 							address =
 								AlterDomainAddConstraint(stmt->typeName,
 														 stmt->def,
 														 &secondaryObject);
 							break;
-						case 'X':	/* DROP CONSTRAINT */
+						case 'X':	/* 删除约束    */
 							address =
 								AlterDomainDropConstraint(stmt->typeName,
 														  stmt->name,
 														  stmt->behavior,
 														  stmt->missing_ok);
 							break;
-						case 'V':	/* VALIDATE CONSTRAINT */
+						case 'V':	/* 验证约束        */
 							address =
 								AlterDomainValidateConstraint(stmt->typeName,
 															  stmt->name);
 							break;
-						default:	/* oops */
+						default:	/* 唉  */
 							elog(ERROR, "unrecognized alter domain type: %d",
 								 (int) stmt->subtype);
 							break;
@@ -1398,7 +1398,7 @@ ProcessUtilitySlow(ParseState *pstate,
 				break;
 
 				/*
-				 * ************* object creation / destruction **************
+				 * ************* 对象创建 / 销毁 **************        
 				 */
 			case T_DefineStmt:
 				{
@@ -1460,7 +1460,7 @@ ProcessUtilitySlow(ParseState *pstate,
 				}
 				break;
 
-			case T_IndexStmt:	/* CREATE INDEX */
+			case T_IndexStmt:	/* 创建索引 */
 				{
 					IndexStmt  *stmt = (IndexStmt *) parsetree;
 					Oid			relid;
@@ -1473,13 +1473,13 @@ ProcessUtilitySlow(ParseState *pstate,
 												  "CREATE INDEX CONCURRENTLY");
 
 					/*
-					 * Look up the relation OID just once, right here at the
-					 * beginning, so that we don't end up repeating the name
-					 * lookup later and latching onto a different relation
-					 * partway through.  To avoid lock upgrade hazards, it's
-					 * important that we take the strongest lock that will
-					 * eventually be needed here, so the lockmode calculation
-					 * needs to match what DefineIndex() does.
+					 * 关系 OID 只在这里开头查找一次，         
+					 * 以免后续重复名称查找并中途锁定到     
+					 * 另一个关系。为避免锁升级风险，务必
+					 * 在这里一开始就取最终需要的最强锁，  
+					 * 锁模式计算必须与 DefineIndex() 的做法   
+					 * 保持一致。                                       
+					 *                                        
 					 */
 					lockmode = stmt->concurrent ? ShareUpdateExclusiveLock
 						: ShareLock;
@@ -1490,15 +1490,15 @@ ProcessUtilitySlow(ParseState *pstate,
 												 NULL);
 
 					/*
-					 * CREATE INDEX on partitioned tables (but not regular
-					 * inherited tables) recurses to partitions, so we must
-					 * acquire locks early to avoid deadlocks.
+					 * 分区表上的 CREATE INDEX 会递归到分区    
+					 * （但普通继承表不会），故须尽早       
+					 * 获取锁以避免死锁。            
 					 *
-					 * We also take the opportunity to verify that all
-					 * partitions are something we can put an index on, to
-					 * avoid building some indexes only to fail later.  While
-					 * at it, also count the partitions, so that DefineIndex
-					 * needn't do a duplicative find_all_inheritors search.
+					 * 我们也借此机会验证所有分区都是  
+					 * 可以建立索引的对象，以免建了一部分
+					 * 之后却失败的情况。顺便还统计分区数，
+					 * 让 DefineIndex 无需再做一次重复的          
+					 * find_all_inheritors 搜索。                       
 					 */
 					if (stmt->relation->inh &&
 						get_rel_relkind(relid) == RELKIND_PARTITIONED_TABLE)
@@ -1528,34 +1528,34 @@ ProcessUtilitySlow(ParseState *pstate,
 										 errdetail("Table \"%s\" contains partitions that are foreign tables.",
 												   stmt->relation->relname)));
 						}
-						/* count direct and indirect children, but not rel */
+						/* 统计直接与间接子表，不含 rel 本身 */
 						nparts = list_length(inheritors) - 1;
 						list_free(inheritors);
 					}
 
 					/*
-					 * If the IndexStmt is already transformed, it must have
-					 * come from generateClonedIndexStmt, which in current
-					 * usage means it came from expandTableLikeClause rather
-					 * than from original parse analysis.  And that means we
-					 * must treat it like ALTER TABLE ADD INDEX, not CREATE.
-					 * (This is a bit grotty, but currently it doesn't seem
-					 * worth adding a separate bool field for the purpose.)
+					 * 若 IndexStmt 已经过转换，那它必然来自   
+					 * generateClonedIndexStmt，而在当前用法中    
+					 * 这意味着它来自 expandTableLikeClause，       
+					 * 而非原始的解析分析。所以必须把它     
+					 * 当作 ALTER TABLE ADD INDEX 而非 CREATE。        
+					 * （这有点不雅，但目前看还不值得       
+					 * 为此单独增加一个 bool 字段。）          
 					 */
 					is_alter_table = stmt->transformed;
 
-					/* Run parse analysis ... */
+					/* 解析分析……     */
 					stmt = transformIndexStmt(relid, stmt, queryString);
 
-					/* ... and do it */
+					/* ……执行  */
 					EventTriggerAlterTableStart(parsetree);
 					address =
-						DefineIndex(relid,	/* OID of heap relation */
+						DefineIndex(relid,	/* 堆关系的 OID     */
 									stmt,
-									InvalidOid, /* no predefined OID */
-									InvalidOid, /* no parent index */
-									InvalidOid, /* no parent constraint */
-									nparts, /* # of partitions, or -1 */
+									InvalidOid, /* 无预定义 OID  */
+									InvalidOid, /* 无父索引    */
+									InvalidOid, /* 无父约束         */
+									nparts, /* 分区数量，或 -1  */
 									is_alter_table,
 									true,	/* check_rights */
 									true,	/* check_not_in_use */
@@ -1563,9 +1563,9 @@ ProcessUtilitySlow(ParseState *pstate,
 									false); /* quiet */
 
 					/*
-					 * Add the CREATE INDEX node itself to stash right away;
-					 * if there were any commands stashed in the ALTER TABLE
-					 * code, we need them to appear after this one.
+					 * 把 CREATE INDEX 节点本身立即存入 stash；   
+					 * 若 ALTER TABLE 代码中存放了任何命令，    
+					 * 就需要它们出现在本命令之后。  
 					 */
 					EventTriggerCollectSimpleCommand(address, secondaryObject,
 													 parsetree);
@@ -1613,17 +1613,17 @@ ProcessUtilitySlow(ParseState *pstate,
 
 			case T_DropUserMappingStmt:
 				RemoveUserMapping((DropUserMappingStmt *) parsetree);
-				/* no commands stashed for DROP */
+				/* DROP 不存放命令         */
 				commandCollected = true;
 				break;
 
 			case T_ImportForeignSchemaStmt:
 				ImportForeignSchema((ImportForeignSchemaStmt *) parsetree);
-				/* commands are stashed inside ImportForeignSchema */
+				/* 命令存放在 ImportForeignSchema 内部      */
 				commandCollected = true;
 				break;
 
-			case T_CompositeTypeStmt:	/* CREATE TYPE (composite) */
+			case T_CompositeTypeStmt:	/* CREATE TYPE（组合） */
 				{
 					CompositeTypeStmt *stmt = (CompositeTypeStmt *) parsetree;
 
@@ -1632,38 +1632,38 @@ ProcessUtilitySlow(ParseState *pstate,
 				}
 				break;
 
-			case T_CreateEnumStmt:	/* CREATE TYPE AS ENUM */
+			case T_CreateEnumStmt:	/* 创建枚举类型  */
 				address = DefineEnum((CreateEnumStmt *) parsetree);
 				break;
 
-			case T_CreateRangeStmt: /* CREATE TYPE AS RANGE */
+			case T_CreateRangeStmt: /* 创建范围类型   */
 				address = DefineRange(pstate, (CreateRangeStmt *) parsetree);
 				break;
 
-			case T_AlterEnumStmt:	/* ALTER TYPE (enum) */
+			case T_AlterEnumStmt:	/* ALTER TYPE 枚举 */
 				address = AlterEnum((AlterEnumStmt *) parsetree);
 				break;
 
-			case T_ViewStmt:	/* CREATE VIEW */
+			case T_ViewStmt:	/* 创建视图*/
 				EventTriggerAlterTableStart(parsetree);
 				address = DefineView((ViewStmt *) parsetree, queryString,
 									 pstmt->stmt_location, pstmt->stmt_len);
 				EventTriggerCollectSimpleCommand(address, secondaryObject,
 												 parsetree);
-				/* stashed internally */
+				/* 在内部存放    */
 				commandCollected = true;
 				EventTriggerAlterTableEnd();
 				break;
 
-			case T_CreateFunctionStmt:	/* CREATE FUNCTION */
+			case T_CreateFunctionStmt:	/* 创建函数    */
 				address = CreateFunction(pstate, (CreateFunctionStmt *) parsetree);
 				break;
 
-			case T_AlterFunctionStmt:	/* ALTER FUNCTION */
+			case T_AlterFunctionStmt:	/* 更改函数   */
 				address = AlterFunction(pstate, (AlterFunctionStmt *) parsetree);
 				break;
 
-			case T_RuleStmt:	/* CREATE RULE */
+			case T_RuleStmt:	/* 创建规则*/
 				address = DefineRule((RuleStmt *) parsetree, queryString);
 				break;
 
@@ -1683,10 +1683,10 @@ ProcessUtilitySlow(ParseState *pstate,
 			case T_RefreshMatViewStmt:
 
 				/*
-				 * REFRESH CONCURRENTLY executes some DDL commands internally.
-				 * Inhibit DDL command collection here to avoid those commands
-				 * from showing up in the deparsed command queue.  The refresh
-				 * command itself is queued, which is enough.
+				 * REFRESH CONCURRENTLY 会在内部执行一些 DDL 命令。
+				 * 此处禁止收集 DDL 命令，以免这些命令         
+				 * 出现在反解析命令队列中。刷新命令本身     
+				 * 会入队，这就够了。               
 				 */
 				EventTriggerInhibitCommandCollection();
 				PG_TRY(2);
@@ -1726,7 +1726,7 @@ ProcessUtilitySlow(ParseState *pstate,
 
 			case T_CreateOpClassStmt:
 				DefineOpClass((CreateOpClassStmt *) parsetree);
-				/* command is stashed in DefineOpClass */
+				/* 命令存放在 DefineOpClass 中   */
 				commandCollected = true;
 				break;
 
@@ -1734,8 +1734,8 @@ ProcessUtilitySlow(ParseState *pstate,
 				address = DefineOpFamily((CreateOpFamilyStmt *) parsetree);
 
 				/*
-				 * DefineOpFamily calls EventTriggerCollectSimpleCommand
-				 * directly.
+				 * DefineOpFamily 调用EventTriggerCollectSimpleCommand
+				 * 直接。
 				 */
 				commandCollected = true;
 				break;
@@ -1746,7 +1746,7 @@ ProcessUtilitySlow(ParseState *pstate,
 
 			case T_AlterOpFamilyStmt:
 				AlterOpFamily((AlterOpFamilyStmt *) parsetree);
-				/* commands are stashed in AlterOpFamily */
+				/* 命令存放在 AlterOpFamily 中     */
 				commandCollected = true;
 				break;
 
@@ -1758,8 +1758,8 @@ ProcessUtilitySlow(ParseState *pstate,
 				AlterTSConfiguration((AlterTSConfigurationStmt *) parsetree);
 
 				/*
-				 * Commands are stashed in MakeConfigurationMapping and
-				 * DropConfigurationMapping, which are called from
+				 * 命令存放在 MakeConfigurationMapping 与        
+				 * DropConfigurationMapping，调用者是        
 				 * AlterTSConfiguration
 				 */
 				commandCollected = true;
@@ -1767,13 +1767,13 @@ ProcessUtilitySlow(ParseState *pstate,
 
 			case T_AlterTableMoveAllStmt:
 				AlterTableMoveAll((AlterTableMoveAllStmt *) parsetree);
-				/* commands are stashed in AlterTableMoveAll */
+				/* 命令存放在 AlterTableMoveAll 中     */
 				commandCollected = true;
 				break;
 
 			case T_DropStmt:
 				ExecDropStmt((DropStmt *) parsetree, isTopLevel);
-				/* no commands stashed for DROP */
+				/* DROP 不存放命令         */
 				commandCollected = true;
 				break;
 
@@ -1811,13 +1811,13 @@ ProcessUtilitySlow(ParseState *pstate,
 
 			case T_GrantStmt:
 				ExecuteGrantStmt((GrantStmt *) parsetree);
-				/* commands are stashed in ExecGrantStmt_oids */
+				/* 命令存放在 ExecGrantStmt_oids 中     */
 				commandCollected = true;
 				break;
 
 			case T_DropOwnedStmt:
 				DropOwnedObjects((DropOwnedStmt *) parsetree);
-				/* no commands stashed for DROP */
+				/* DROP 不存放命令         */
 				commandCollected = true;
 				break;
 
@@ -1827,11 +1827,11 @@ ProcessUtilitySlow(ParseState *pstate,
 				commandCollected = true;
 				break;
 
-			case T_CreatePolicyStmt:	/* CREATE POLICY */
+			case T_CreatePolicyStmt:	/* 创建策略  */
 				address = CreatePolicy((CreatePolicyStmt *) parsetree);
 				break;
 
-			case T_AlterPolicyStmt: /* ALTER POLICY */
+			case T_AlterPolicyStmt: /* 更改策略 */
 				address = AlterPolicy((AlterPolicyStmt *) parsetree);
 				break;
 
@@ -1851,8 +1851,8 @@ ProcessUtilitySlow(ParseState *pstate,
 				AlterPublication(pstate, (AlterPublicationStmt *) parsetree);
 
 				/*
-				 * AlterPublication calls EventTriggerCollectSimpleCommand
-				 * directly
+				 * AlterPublication 调用EventTriggerCollectSimpleCommand
+				 * 直接  
 				 */
 				commandCollected = true;
 				break;
@@ -1871,7 +1871,7 @@ ProcessUtilitySlow(ParseState *pstate,
 
 			case T_DropSubscriptionStmt:
 				DropSubscription((DropSubscriptionStmt *) parsetree, isTopLevel);
-				/* no commands stashed for DROP */
+				/* DROP 不存放命令         */
 				commandCollected = true;
 				break;
 
@@ -1887,19 +1887,19 @@ ProcessUtilitySlow(ParseState *pstate,
 								 errmsg("CREATE STATISTICS only supports relation names in the FROM clause")));
 
 					/*
-					 * CREATE STATISTICS will influence future execution plans
-					 * but does not interfere with currently executing plans.
-					 * So it should be enough to take ShareUpdateExclusiveLock
-					 * on relation, conflicting with ANALYZE and other DDL
-					 * that sets statistical information, but not with normal
-					 * queries.
+					 * CREATE STATISTICS 会影响未来的执行计划       
+					 * 但不会干扰当前正在执行的计划。         
+					 * 因此对关系加 ShareUpdateExclusiveLock 即可，  
+					 * 它与 ANALYZE 及其他会设置统计信息的   
+					 * DDL 冲突，但不会与普通查询冲突。        
+					 *         
 					 *
-					 * XXX RangeVarCallbackOwnsRelation not needed here, to
-					 * keep the same behavior as before.
+					 * XXX 此处不需要 RangeVarCallbackOwnsRelation， 
+					 * 以保持原有行为。         
 					 */
 					relid = RangeVarGetRelid(rel, ShareUpdateExclusiveLock, false);
 
-					/* Run parse analysis ... */
+					/* 解析分析……     */
 					stmt = transformStatsStmt(relid, stmt, queryString);
 
 					address = CreateStatistics(stmt, true);
@@ -1921,8 +1921,8 @@ ProcessUtilitySlow(ParseState *pstate,
 		}
 
 		/*
-		 * Remember the object so that ddl_command_end event triggers have
-		 * access to it.
+		 * 记住该对象，让 ddl_command_end 事件触发器能       
+		 * 访问它。 
 		 */
 		if (!commandCollected)
 			EventTriggerCollectSimpleCommand(address, secondaryObject,
@@ -1944,17 +1944,17 @@ ProcessUtilitySlow(ParseState *pstate,
 
 /*
  * ProcessUtilityForAlterTable
- *		Recursive entry from ALTER TABLE
+ *		由 ALTER TABLE 递归进入    
  *
- * ALTER TABLE sometimes generates subcommands such as CREATE INDEX.
- * It calls this, not the main entry point ProcessUtility, to execute
- * such subcommands.
+ * ALTER TABLE 有时会生成 CREATE INDEX 等子命令。         
+ * 它调用本函数而非主入口 ProcessUtility 来执行        
+ * 这些子命令  
  *
- * stmt: the utility command to execute
- * context: opaque passthrough struct with the info we need
+ * stmt：待执行的实用命令     
+ * context：不透明的透传结构，含所需信息    
  *
- * It's caller's responsibility to do CommandCounterIncrement after
- * calling this, if needed.
+ * 调用者有责任在调用后执行 CommandCounterIncrement， 
+ * （如需要）。      
  */
 void
 ProcessUtilityForAlterTable(Node *stmt, AlterTableUtilityContext *context)
@@ -1962,13 +1962,13 @@ ProcessUtilityForAlterTable(Node *stmt, AlterTableUtilityContext *context)
 	PlannedStmt *wrapper;
 
 	/*
-	 * For event triggers, we must "close" the current complex-command set,
-	 * and start a new one afterwards; this is needed to ensure the ordering
-	 * of command events is consistent with the way they were executed.
+	 * 对事件触发器而言，必须"关闭"当前的复杂命令集，
+	 * 随后再开启新集合；这是为确保命令事件的顺序      
+	 * 与其执行方式保持一致。                               
 	 */
 	EventTriggerAlterTableEnd();
 
-	/* Create a suitable wrapper */
+	/* 创建合适的包装器  */
 	wrapper = makeNode(PlannedStmt);
 	wrapper->commandType = CMD_UTILITY;
 	wrapper->canSetTag = false;
@@ -1990,7 +1990,7 @@ ProcessUtilityForAlterTable(Node *stmt, AlterTableUtilityContext *context)
 }
 
 /*
- * Dispatch function for DropStmt
+ * DropStmt 的分派函数      
  */
 static void
 ExecDropStmt(DropStmt *stmt, bool isTopLevel)
@@ -2019,11 +2019,11 @@ ExecDropStmt(DropStmt *stmt, bool isTopLevel)
 
 /*
  * UtilityReturnsTuples
- *		Return "true" if this utility statement will send output to the
- *		destination.
+ *		若此实用命令将向目标发送输出，则返回         
+ *		"true"。   
  *
- * Generally, there should be a case here for each case in ProcessUtility
- * where "dest" is passed on.
+ * 通常，ProcessUtility 中每个继续传递 "dest" 的情形        
+ * 此处均应有分支。  
  */
 bool
 UtilityReturnsTuples(Node *parsetree)
@@ -2045,7 +2045,7 @@ UtilityReturnsTuples(Node *parsetree)
 					return false;
 				portal = GetPortalByName(stmt->portalname);
 				if (!PortalIsValid(portal))
-					return false;	/* not our business to raise error */
+					return false;	/* 报错不是本函数的职责  */
 				return portal->tupDesc ? true : false;
 			}
 
@@ -2056,7 +2056,7 @@ UtilityReturnsTuples(Node *parsetree)
 
 				entry = FetchPreparedStatement(stmt->name, false);
 				if (!entry)
-					return false;	/* not our business to raise error */
+					return false;	/* 报错不是本函数的职责  */
 				if (entry->plansource->resultDesc)
 					return true;
 				return false;
@@ -2075,11 +2075,11 @@ UtilityReturnsTuples(Node *parsetree)
 
 /*
  * UtilityTupleDescriptor
- *		Fetch the actual output tuple descriptor for a utility statement
- *		for which UtilityReturnsTuples() previously returned "true".
+ *		取回某实用命令实际的输出元组描述符，          
+ *		其 UtilityReturnsTuples() 曾返回 "true"。              
  *
- * The returned descriptor is created in (or copied into) the current memory
- * context.
+ * 返回的描述符在当前内存上下文中创建（或复制），    
+ *         
  */
 TupleDesc
 UtilityTupleDescriptor(Node *parsetree)
@@ -2098,7 +2098,7 @@ UtilityTupleDescriptor(Node *parsetree)
 					return NULL;
 				portal = GetPortalByName(stmt->portalname);
 				if (!PortalIsValid(portal))
-					return NULL;	/* not our business to raise error */
+					return NULL;	/* 报错不是本函数的职责  */
 				return CreateTupleDescCopy(portal->tupDesc);
 			}
 
@@ -2109,7 +2109,7 @@ UtilityTupleDescriptor(Node *parsetree)
 
 				entry = FetchPreparedStatement(stmt->name, false);
 				if (!entry)
-					return NULL;	/* not our business to raise error */
+					return NULL;	/* 报错不是本函数的职责  */
 				return FetchPreparedStatementResultDesc(entry);
 			}
 
@@ -2131,7 +2131,7 @@ UtilityTupleDescriptor(Node *parsetree)
 
 /*
  * QueryReturnsTuples
- *		Return "true" if this Query will send output to the destination.
+ *		若该 Query 会向目标发送输出，则返回 "true"。     
  */
 #ifdef NOT_USED
 bool
@@ -2140,14 +2140,14 @@ QueryReturnsTuples(Query *parsetree)
 	switch (parsetree->commandType)
 	{
 		case CMD_SELECT:
-			/* returns tuples */
+			/* 返回元组   */
 			return true;
 		case CMD_MERGE:
 			return false;
 		case CMD_INSERT:
 		case CMD_UPDATE:
 		case CMD_DELETE:
-			/* the forms with RETURNING return tuples */
+			/* 带 RETURNING 的形式返回元组    */
 			if (parsetree->returningList)
 				return true;
 			break;
@@ -2155,27 +2155,27 @@ QueryReturnsTuples(Query *parsetree)
 			return UtilityReturnsTuples(parsetree->utilityStmt);
 		case CMD_UNKNOWN:
 		case CMD_NOTHING:
-			/* probably shouldn't get here */
+			/* 通常不应走到这里    */
 			break;
 	}
-	return false;				/* default */
+	return false;				/* 默认  */
 }
 #endif
 
 
 /*
  * UtilityContainsQuery
- *		Return the contained Query, or NULL if there is none
+ *		返回其所包含的 Query，若无则返回 NULL  
  *
- * Certain utility statements, such as EXPLAIN, contain a plannable Query.
- * This function encapsulates knowledge of exactly which ones do.
- * We assume it is invoked only on already-parse-analyzed statements
- * (else the contained parsetree isn't a Query yet).
+ * 某些实用命令（如 EXPLAIN）包含可规划的 Query。         
+ * 本函数封装了哪些命令含 Query 的确切知识。    
+ * 我们假定它只在已完成解析的语句上被调用        
+ * （否则所含解析树还不是 Query）。    
  *
- * In some cases (currently, only EXPLAIN of CREATE TABLE AS/SELECT INTO and
- * CREATE MATERIALIZED VIEW), potentially Query-containing utility statements
- * can be nested.  This function will drill down to a non-utility Query, or
- * return NULL if none.
+ * 在某些情形（目前仅为 CREATE TABLE AS/SELECT INTO 与           
+ * CREATE MATERIALIZED VIEW），可能含 Query 的实用命令             
+ * 可以嵌套。本函数会向下钻取到非实用命令的 Query，   
+ * 无则返回 NULL。
  */
 Query *
 UtilityContainsQuery(Node *parsetree)
@@ -2210,9 +2210,9 @@ UtilityContainsQuery(Node *parsetree)
 
 /*
  * AlterObjectTypeCommandTag
- *		helper function for CreateCommandTag
+ *		CreateCommandTag 的辅助函数    
  *
- * This covers most cases where ALTER is used with an ObjectType enum.
+ * 这涵盖将 ALTER 与 ObjectType 枚举联用的大多数情形。
  */
 static CommandTag
 AlterObjectTypeCommandTag(ObjectType objtype)
@@ -2353,12 +2353,12 @@ AlterObjectTypeCommandTag(ObjectType objtype)
 
 /*
  * CreateCommandTag
- *		utility to get a CommandTag for the command operation,
- *		given either a raw (un-analyzed) parsetree, an analyzed Query,
- *		or a PlannedStmt.
+ *		为命令操作获取 CommandTag 的实用函数，   
+ *		输入可为未分析的原始解析树、已分析 Query 或 
+ *		PlannedStmt。   
  *
- * This must handle all command types, but since the vast majority
- * of 'em are utility commands, it seems sensible to keep it here.
+ * 它必须处理所有命令类型，但绝大多数都是      
+ * 实用命令，故将其留在此处似乎更为合理。      
  */
 CommandTag
 CreateCommandTag(Node *parsetree)
@@ -2367,12 +2367,12 @@ CreateCommandTag(Node *parsetree)
 
 	switch (nodeTag(parsetree))
 	{
-			/* recurse if we're given a RawStmt */
+			/* 若给定的是 RawStmt 则递归*/
 		case T_RawStmt:
 			tag = CreateCommandTag(((RawStmt *) parsetree)->stmt);
 			break;
 
-			/* raw plannable queries */
+			/* 原始可规划查询 */
 		case T_InsertStmt:
 			tag = CMDTAG_INSERT;
 			break;
@@ -2397,7 +2397,7 @@ CreateCommandTag(Node *parsetree)
 			tag = CMDTAG_SELECT;
 			break;
 
-			/* utility statements --- same whether raw or cooked */
+			/* 实用命令——原始或加工后皆相同     */
 		case T_TransactionStmt:
 			{
 				TransactionStmt *stmt = (TransactionStmt *) parsetree;
@@ -2675,8 +2675,8 @@ CreateCommandTag(Node *parsetree)
 		case T_RenameStmt:
 
 			/*
-			 * When the column is renamed, the command tag is created from its
-			 * relation type
+			 * 列被重命名时，命令标签会依据其关系类型创建
+			 *              
 			 */
 			tag = AlterObjectTypeCommandTag(((RenameStmt *) parsetree)->renameType == OBJECT_COLUMN ?
 											((RenameStmt *) parsetree)->relationType :
@@ -3101,7 +3101,7 @@ CreateCommandTag(Node *parsetree)
 			}
 			break;
 
-			/* already-planned queries */
+			/* 已规划的查询      */
 		case T_PlannedStmt:
 			{
 				PlannedStmt *stmt = (PlannedStmt *) parsetree;
@@ -3111,13 +3111,13 @@ CreateCommandTag(Node *parsetree)
 					case CMD_SELECT:
 
 						/*
-						 * We take a little extra care here so that the result
-						 * will be useful for complaints about read-only
-						 * statements
+						 * 我们在此稍费心思，让结果在关于只读
+						 * 语句的报错中更有用。               
+						 *           
 						 */
 						if (stmt->rowMarks != NIL)
 						{
-							/* not 100% but probably close enough */
+							/* 并非 100%，但大概足够接近*/
 							switch (((PlanRowMark *) linitial(stmt->rowMarks))->strength)
 							{
 								case LCS_FORKEYSHARE:
@@ -3164,7 +3164,7 @@ CreateCommandTag(Node *parsetree)
 			}
 			break;
 
-			/* parsed-and-rewritten-but-not-planned queries */
+			/* 已解析并重写但尚未规划的查询   */
 		case T_Query:
 			{
 				Query	   *stmt = (Query *) parsetree;
@@ -3174,13 +3174,13 @@ CreateCommandTag(Node *parsetree)
 					case CMD_SELECT:
 
 						/*
-						 * We take a little extra care here so that the result
-						 * will be useful for complaints about read-only
-						 * statements
+						 * 我们在此稍费心思，让结果在关于只读
+						 * 语句的报错中更有用。               
+						 *           
 						 */
 						if (stmt->rowMarks != NIL)
 						{
-							/* not 100% but probably close enough */
+							/* 并非 100%，但大概足够接近*/
 							switch (((RowMarkClause *) linitial(stmt->rowMarks))->strength)
 							{
 								case LCS_FORKEYSHARE:
@@ -3240,12 +3240,12 @@ CreateCommandTag(Node *parsetree)
 
 /*
  * GetCommandLogLevel
- *		utility to get the minimum log_statement level for a command,
- *		given either a raw (un-analyzed) parsetree, an analyzed Query,
- *		or a PlannedStmt.
+ *		为命令获取最低 log_statement 级别的实用函数， 
+ *		输入可为未分析的原始解析树、已分析 Query 或 
+ *		PlannedStmt。   
  *
- * This must handle all command types, but since the vast majority
- * of 'em are utility commands, it seems sensible to keep it here.
+ * 它必须处理所有命令类型，但绝大多数都是      
+ * 实用命令，故将其留在此处似乎更为合理。      
  */
 LogStmtLevel
 GetCommandLogLevel(Node *parsetree)
@@ -3254,12 +3254,12 @@ GetCommandLogLevel(Node *parsetree)
 
 	switch (nodeTag(parsetree))
 	{
-			/* recurse if we're given a RawStmt */
+			/* 若给定的是 RawStmt 则递归*/
 		case T_RawStmt:
 			lev = GetCommandLogLevel(((RawStmt *) parsetree)->stmt);
 			break;
 
-			/* raw plannable queries */
+			/* 原始可规划查询 */
 		case T_InsertStmt:
 		case T_DeleteStmt:
 		case T_UpdateStmt:
@@ -3269,7 +3269,7 @@ GetCommandLogLevel(Node *parsetree)
 
 		case T_SelectStmt:
 			if (((SelectStmt *) parsetree)->intoClause)
-				lev = LOGSTMT_DDL;	/* SELECT INTO */
+				lev = LOGSTMT_DDL;	/* 查询建表*/
 			else
 				lev = LOGSTMT_ALL;
 			break;
@@ -3278,7 +3278,7 @@ GetCommandLogLevel(Node *parsetree)
 			lev = LOGSTMT_ALL;
 			break;
 
-			/* utility statements --- same whether raw or cooked */
+			/* 实用命令——原始或加工后皆相同     */
 		case T_TransactionStmt:
 			lev = LOGSTMT_ALL;
 			break;
@@ -3354,7 +3354,7 @@ GetCommandLogLevel(Node *parsetree)
 			{
 				PrepareStmt *stmt = (PrepareStmt *) parsetree;
 
-				/* Look through a PREPARE to the contained stmt */
+				/* 透过 PREPARE 查看其包含的 stmt       */
 				lev = GetCommandLogLevel(stmt->query);
 			}
 			break;
@@ -3364,7 +3364,7 @@ GetCommandLogLevel(Node *parsetree)
 				ExecuteStmt *stmt = (ExecuteStmt *) parsetree;
 				PreparedStatement *ps;
 
-				/* Look through an EXECUTE to the referenced stmt */
+				/* 透过 EXECUTE 查看所引用的 stmt         */
 				ps = FetchPreparedStatement(stmt->name, false);
 				if (ps && ps->plansource->raw_parse_tree)
 					lev = GetCommandLogLevel(ps->plansource->raw_parse_tree->stmt);
@@ -3522,19 +3522,19 @@ GetCommandLogLevel(Node *parsetree)
 				bool		analyze = false;
 				ListCell   *lc;
 
-				/* Look through an EXPLAIN ANALYZE to the contained stmt */
+				/* 透过 EXPLAIN ANALYZE 查看其包含的 stmt        */
 				foreach(lc, stmt->options)
 				{
 					DefElem    *opt = (DefElem *) lfirst(lc);
 
 					if (strcmp(opt->defname, "analyze") == 0)
 						analyze = defGetBoolean(opt);
-					/* don't "break", as explain.c will use the last value */
+					/* 勿 "break"，因 explain.c 会取最后的值      */
 				}
 				if (analyze)
 					return GetCommandLogLevel(stmt->query);
 
-				/* Plain EXPLAIN isn't so interesting */
+				/* 普通 EXPLAIN 意义不大。     */
 				lev = LOGSTMT_ALL;
 			}
 			break;
@@ -3620,7 +3620,7 @@ GetCommandLogLevel(Node *parsetree)
 			break;
 
 		case T_ReindexStmt:
-			lev = LOGSTMT_ALL;	/* should this be DDL? */
+			lev = LOGSTMT_ALL;	/* 这该算 DDL 吗？*/
 			break;
 
 		case T_CreateConversionStmt:
@@ -3699,7 +3699,7 @@ GetCommandLogLevel(Node *parsetree)
 			lev = LOGSTMT_DDL;
 			break;
 
-			/* already-planned queries */
+			/* 已规划的查询      */
 		case T_PlannedStmt:
 			{
 				PlannedStmt *stmt = (PlannedStmt *) parsetree;
@@ -3730,7 +3730,7 @@ GetCommandLogLevel(Node *parsetree)
 			}
 			break;
 
-			/* parsed-and-rewritten-but-not-planned queries */
+			/* 已解析并重写但尚未规划的查询   */
 		case T_Query:
 			{
 				Query	   *stmt = (Query *) parsetree;

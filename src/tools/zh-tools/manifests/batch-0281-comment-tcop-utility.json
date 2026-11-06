@@ -1,0 +1,46 @@
+{
+ "schema_version": 1,
+ "batch_id": "0281-comment-tcop-utility",
+ "title": "Translate comments: tcop-utility",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "6ac1fc25d5d04335dd301d8a25aefe132f5d4ac1",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0281-comment-tcop-utility.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/tcop/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0281-comment-tcop-utility.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/tcop/utility.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 191,
+   "translated": 179,
+   "preserved": 12,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), gettext translator hints (R5-protected), and separator-only blocks rebuilt byte-identical"
+   ],
+   "note": "P2 translation campaign wave D2"
+  }
+ ],
+ "notes": "Translation agents (D2a/D2b) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

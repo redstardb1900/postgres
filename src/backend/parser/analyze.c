@@ -1,17 +1,17 @@
 /*-------------------------------------------------------------------------
  *
  * analyze.c
- *	  transform the raw parse tree into a query tree
+ *	  将原始解析树转换为查询树          
  *
- * For optimizable statements, we are careful to obtain a suitable lock on
- * each referenced table, and other modules of the backend preserve or
- * re-obtain these locks before depending on the results.  It is therefore
- * okay to do significant semantic analysis of these statements.  For
- * utility commands, no locks are obtained here (and if they were, we could
- * not be sure we'd still have them at execution).  Hence the general rule
- * for utility commands is to just dump them into a Query node untransformed.
- * DECLARE CURSOR, EXPLAIN, and CREATE TABLE AS are exceptions because they
- * contain optimizable statements, which we should transform.
+ * 对于可优化的语句，我们小心地获取合适的锁并        
+ * 作用于每个被引用的表，后端的其他模块会保留    
+ * 或在依赖结果之前重新获取这些锁。因此对这些        
+ * 语句做深入的语义分析是没有问题的。对于实用   
+ * 命令，这里不会获取任何锁（即便获取了，也无         
+ * 法确定执行时仍持有它们）。因此对实用命令的        
+ * 一般规则是将其不加变换地倒入 Query 节点。                
+ * DECLARE CURSOR、EXPLAIN 和 CREATE TABLE AS 是例外，因为它们   
+ * 包含可优化的语句，需要加以变换。          
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -56,7 +56,7 @@
 #include "utils/syscache.h"
 
 
-/* Hook for plugins to get control at end of parse analysis */
+/* 供插件在解析分析结束时取得控制权的钩子*/
 post_parse_analyze_hook_type post_parse_analyze_hook = NULL;
 
 static Query *transformOptionalSelectInto(ParseState *pstate, Node *parseTree);
@@ -94,14 +94,14 @@ static bool test_raw_expression_coverage(Node *node, void *context);
 
 /*
  * parse_analyze_fixedparams
- *		Analyze a raw parse tree and transform it to Query form.
+ *		分析原始解析树并将其转换为 Query 形式。 
  *
- * Optionally, information about $n parameter types can be supplied.
- * References to $n indexes not defined by paramTypes[] are disallowed.
+ * 可选择提供关于 $n 参数类型的信息。                
+ * paramTypes[] 未定义的 $n 索引引用会被拒绝。            
  *
- * The result is a Query node.  Optimizable statements require considerable
- * transformation, while utility-type statements are simply hung off
- * a dummy CMD_UTILITY Query node.
+ * 结果是一个 Query 节点。可优化的语句需要大量的        
+ * 变换，而实用型语句只是挂在虚拟的                 
+ * CMD_UTILITY Query 节点上。 
  */
 Query *
 parse_analyze_fixedparams(RawStmt *parseTree, const char *sourceText,
@@ -112,7 +112,7 @@ parse_analyze_fixedparams(RawStmt *parseTree, const char *sourceText,
 	Query	   *query;
 	JumbleState *jstate = NULL;
 
-	Assert(sourceText != NULL); /* required as of 8.4 */
+	Assert(sourceText != NULL); /* 自 8.4 起必需  */
 
 	pstate->p_sourcetext = sourceText;
 
@@ -139,9 +139,9 @@ parse_analyze_fixedparams(RawStmt *parseTree, const char *sourceText,
 /*
  * parse_analyze_varparams
  *
- * This variant is used when it's okay to deduce information about $n
- * symbol datatypes from context.  The passed-in paramTypes[] array can
- * be modified or enlarged (via repalloc).
+ * 当允许从上下文推断 $n 符号的数据类型时，        
+ * 可使用此变体。传入的 paramTypes[] 数组可以修改，   
+ * 或通过 repalloc 扩大。           
  */
 Query *
 parse_analyze_varparams(RawStmt *parseTree, const char *sourceText,
@@ -152,7 +152,7 @@ parse_analyze_varparams(RawStmt *parseTree, const char *sourceText,
 	Query	   *query;
 	JumbleState *jstate = NULL;
 
-	Assert(sourceText != NULL); /* required as of 8.4 */
+	Assert(sourceText != NULL); /* 自 8.4 起必需  */
 
 	pstate->p_sourcetext = sourceText;
 
@@ -162,7 +162,7 @@ parse_analyze_varparams(RawStmt *parseTree, const char *sourceText,
 
 	query = transformTopLevelStmt(pstate, parseTree);
 
-	/* make sure all is well with parameter types */
+	/* 确保参数类型没有问题             */
 	check_variable_parameters(pstate, query);
 
 	if (IsQueryIdEnabled())
@@ -181,8 +181,8 @@ parse_analyze_varparams(RawStmt *parseTree, const char *sourceText,
 /*
  * parse_analyze_withcb
  *
- * This variant is used when the caller supplies their own parser callback to
- * resolve parameters and possibly other things.
+ * 当调用者提供自己的解析器回调来解析参数                 
+ * 以及可能的其他事项时使用。      
  */
 Query *
 parse_analyze_withcb(RawStmt *parseTree, const char *sourceText,
@@ -194,7 +194,7 @@ parse_analyze_withcb(RawStmt *parseTree, const char *sourceText,
 	Query	   *query;
 	JumbleState *jstate = NULL;
 
-	Assert(sourceText != NULL); /* required as of 8.4 */
+	Assert(sourceText != NULL); /* 自 8.4 起必需  */
 
 	pstate->p_sourcetext = sourceText;
 	pstate->p_queryEnv = queryEnv;
@@ -218,7 +218,7 @@ parse_analyze_withcb(RawStmt *parseTree, const char *sourceText,
 
 /*
  * parse_sub_analyze
- *		Entry point for recursively analyzing a sub-statement.
+ *		递归分析子语句的入口点。                  
  */
 Query *
 parse_sub_analyze(Node *parseTree, ParseState *parentParseState,
@@ -242,17 +242,17 @@ parse_sub_analyze(Node *parseTree, ParseState *parentParseState,
 
 /*
  * transformTopLevelStmt -
- *	  transform a Parse tree into a Query tree.
+ *	  将解析树变换成查询树。        
  *
- * This function is just responsible for transferring statement location data
- * from the RawStmt into the finished Query.
+ * 此函数只负责把语句位置数据从 RawStmt 转移到              
+ * 最终的 Query 中。                   
  */
 Query *
 transformTopLevelStmt(ParseState *pstate, RawStmt *parseTree)
 {
 	Query	   *result;
 
-	/* We're at top level, so allow SELECT INTO */
+	/* 当前处于顶层，允许 SELECT INTO  */
 	result = transformOptionalSelectInto(pstate, parseTree->stmt);
 
 	result->stmt_location = parseTree->stmt_location;
@@ -263,13 +263,13 @@ transformTopLevelStmt(ParseState *pstate, RawStmt *parseTree)
 
 /*
  * transformOptionalSelectInto -
- *	  If SELECT has INTO, convert it to CREATE TABLE AS.
+ *	  若 SELECT 带 INTO，转换为 CREATE TABLE AS。
  *
- * The only thing we do here that we don't do in transformStmt() is to
- * convert SELECT ... INTO into CREATE TABLE AS.  Since utility statements
- * aren't allowed within larger statements, this is only allowed at the top
- * of the parse tree, and so we only try it before entering the recursive
- * transformStmt() processing.
+ * 这里唯一一件与 transformStmt() 不同的事，是把        
+ * SELECT ... INTO 转换成 CREATE TABLE AS。由于实用语句         
+ * 不允许出现在更大的语句中，所以只有位于解析树      
+ * 顶层时才被允许，所以我们只在进入递归                
+ * transformStmt() 之前。  
  */
 static Query *
 transformOptionalSelectInto(ParseState *pstate, Node *parseTree)
@@ -278,7 +278,7 @@ transformOptionalSelectInto(ParseState *pstate, Node *parseTree)
 	{
 		SelectStmt *stmt = (SelectStmt *) parseTree;
 
-		/* If it's a set-operation tree, drill down to leftmost SelectStmt */
+		/* 若是集合操作树，则下钻到最左侧的 SelectStmt     */
 		while (stmt && stmt->op != SETOP_NONE)
 			stmt = stmt->larg;
 		Assert(stmt && IsA(stmt, SelectStmt) && stmt->larg == NULL);
@@ -293,9 +293,9 @@ transformOptionalSelectInto(ParseState *pstate, Node *parseTree)
 			ctas->is_select_into = true;
 
 			/*
-			 * Remove the intoClause from the SelectStmt.  This makes it safe
-			 * for transformSelectStmt to complain if it finds intoClause set
-			 * (implying that the INTO appeared in a disallowed place).
+			 * 从 SelectStmt 中移除 intoClause。这样即使            
+			 * transformSelectStmt 发现它已被设置，也能安全      
+			 * 地报错（说明 INTO 在不允许的位置）。     
 			 */
 			stmt->intoClause = NULL;
 
@@ -308,7 +308,7 @@ transformOptionalSelectInto(ParseState *pstate, Node *parseTree)
 
 /*
  * transformStmt -
- *	  recursively transform a Parse tree into a Query tree.
+ *	  递归地把解析树变换成查询树。           
  */
 Query *
 transformStmt(ParseState *pstate, Node *parseTree)
@@ -316,9 +316,9 @@ transformStmt(ParseState *pstate, Node *parseTree)
 	Query	   *result;
 
 	/*
-	 * We apply RAW_EXPRESSION_COVERAGE_TEST testing to basic DML statements;
-	 * we can't just run it on everything because raw_expression_tree_walker()
-	 * doesn't claim to handle utility statements.
+	 * 我们对基础 DML 语句应用 RAW_EXPRESSION_COVERAGE_TEST         
+	 * testing；不能对一切语句都运行，是因为函数             
+	 * raw_expression_tree_walker() 不处理。  
 	 */
 #ifdef RAW_EXPRESSION_COVERAGE_TEST
 	switch (nodeTag(parseTree))
@@ -336,14 +336,14 @@ transformStmt(ParseState *pstate, Node *parseTree)
 #endif							/* RAW_EXPRESSION_COVERAGE_TEST */
 
 	/*
-	 * Caution: when changing the set of statement types that have non-default
-	 * processing here, see also stmt_requires_parse_analysis() and
-	 * analyze_requires_snapshot().
+	 * 注意：当修改此处具有非默认处理的语句类型           
+	 * 集合时参见 stmt_requires_parse_analysis() 与          
+	 * analyze_requires_snapshot() 
 	 */
 	switch (nodeTag(parseTree))
 	{
 			/*
-			 * Optimizable statements
+			 * 可优化的语句    
 			 */
 		case T_InsertStmt:
 			result = transformInsertStmt(pstate, (InsertStmt *) parseTree);
@@ -384,7 +384,7 @@ transformStmt(ParseState *pstate, Node *parseTree)
 			break;
 
 			/*
-			 * Special cases
+			 * 特殊情况 
 			 */
 		case T_DeclareCursorStmt:
 			result = transformDeclareCursorStmt(pstate,
@@ -409,8 +409,8 @@ transformStmt(ParseState *pstate, Node *parseTree)
 		default:
 
 			/*
-			 * other statements don't require any transformation; just return
-			 * the original parsetree with a Query node plastered on top.
+			 * 其他语句不需要任何变换；只需返回              
+			 * 在顶部罩上一个 Query 节点的原始解析树。   
 			 */
 			result = makeNode(Query);
 			result->commandType = CMD_UTILITY;
@@ -418,7 +418,7 @@ transformStmt(ParseState *pstate, Node *parseTree)
 			break;
 	}
 
-	/* Mark as original query until we learn differently */
+	/* 在得知实情之前，先标记为原始查询  */
 	result->querySource = QSRC_ORIGINAL;
 	result->canSetTag = true;
 
@@ -427,18 +427,18 @@ transformStmt(ParseState *pstate, Node *parseTree)
 
 /*
  * stmt_requires_parse_analysis
- *		Returns true if parse analysis will do anything non-trivial
- *		with the given raw parse tree.
+ *		如果解析分析对给定的原始解析树会做非平  
+ *		凡处理，就返回真。   
  *
- * Generally, this should return true for any statement type for which
- * transformStmt() does more than wrap a CMD_UTILITY Query around it.
- * When it returns false, the caller can assume that there is no situation
- * in which parse analysis of the raw statement could need to be re-done.
+ * 一般而言，对任何一种语句类型，只要                
+ * transformStmt() 对它的处理超出了用 CMD_UTILITY Query     
+ * 包装，就应返回真。当它返回假时，调用者可以        
+ * 认定不存在任何需要重做原始语句解析分析的情形。 
  *
- * Currently, since the rewriter and planner do nothing for CMD_UTILITY
- * Queries, a false result means that the entire parse analysis/rewrite/plan
- * pipeline will never need to be re-done.  If that ever changes, callers
- * will likely need adjustment.
+ * 当前，由于重写器和规划器对 CMD_UTILITY 查询          
+ * 不做任何处理，返回假就意味着解析分析/重写/           
+ * 规划流水线永远无需重做。如果这一点发生变化，    
+ * 调用者或需调整。    
  */
 bool
 stmt_requires_parse_analysis(RawStmt *parseTree)
@@ -448,7 +448,7 @@ stmt_requires_parse_analysis(RawStmt *parseTree)
 	switch (nodeTag(parseTree->stmt))
 	{
 			/*
-			 * Optimizable statements
+			 * 可优化的语句    
 			 */
 		case T_InsertStmt:
 		case T_DeleteStmt:
@@ -461,7 +461,7 @@ stmt_requires_parse_analysis(RawStmt *parseTree)
 			break;
 
 			/*
-			 * Special cases
+			 * 特殊情况 
 			 */
 		case T_DeclareCursorStmt:
 		case T_ExplainStmt:
@@ -471,7 +471,7 @@ stmt_requires_parse_analysis(RawStmt *parseTree)
 			break;
 
 		default:
-			/* all other statements just get wrapped in a CMD_UTILITY Query */
+			/* 其余语句只是被包进一个 CMD_UTILITY Query 中。   */
 			result = false;
 			break;
 	}
@@ -481,31 +481,31 @@ stmt_requires_parse_analysis(RawStmt *parseTree)
 
 /*
  * analyze_requires_snapshot
- *		Returns true if a snapshot must be set before doing parse analysis
- *		on the given raw parse tree.
+ *		如果在解析分析之前必须为给定的原始解析树      
+ *		设置快照则返回真。 
  */
 bool
 analyze_requires_snapshot(RawStmt *parseTree)
 {
 	/*
-	 * Currently, this should return true in exactly the same cases that
-	 * stmt_requires_parse_analysis() does, so we just invoke that function
-	 * rather than duplicating it.  We keep the two entry points separate for
-	 * clarity of callers, since from the callers' standpoint these are
-	 * different conditions.
+	 * 当前，它应当在恰好与 stmt_requires_parse_analysis()    
+	 * 相同的情形下返回真，因此我们直接调用该函数，  
+	 * 而不重复实现一份。为了调用者的清晰性，我们       
+	 * 把这两个入口点分开保留，因为从调用者的角度 
+	 * 条件不相同。   
 	 *
-	 * While there may someday be a statement type for which transformStmt()
-	 * does something nontrivial and yet no snapshot is needed for that
-	 * processing, it seems likely that making such a choice would be fragile.
-	 * If you want to install an exception, document the reasoning for it in a
-	 * comment.
+	 * 虽然将来也许会有某种语句类型，其 transformStmt()     
+	 * 会做实质处理，但该处理并不需要快照。不过    
+	 * 做出这样的选择似乎会很难维护。如果你想安装        
+	 * 例外，请在注释中说明这样做的理由。                    
+	 *         
 	 */
 	return stmt_requires_parse_analysis(parseTree);
 }
 
 /*
  * transformDeleteStmt -
- *	  transforms a Delete Statement
+ *	  变换 DELETE 语句。      
  */
 static Query *
 transformDeleteStmt(ParseState *pstate, DeleteStmt *stmt)
@@ -516,7 +516,7 @@ transformDeleteStmt(ParseState *pstate, DeleteStmt *stmt)
 
 	qry->commandType = CMD_DELETE;
 
-	/* process the WITH clause independently of all else */
+	/* 独立于其他一切来处理 WITH 子句        */
 	if (stmt->withClause)
 	{
 		qry->hasRecursive = stmt->withClause->recursive;
@@ -524,29 +524,29 @@ transformDeleteStmt(ParseState *pstate, DeleteStmt *stmt)
 		qry->hasModifyingCTE = pstate->p_hasModifyingCTE;
 	}
 
-	/* set up range table with just the result rel */
+	/* 只用结果关系建立范围表           */
 	qry->resultRelation = setTargetTable(pstate, stmt->relation,
 										 stmt->relation->inh,
 										 true,
 										 ACL_DELETE);
 	nsitem = pstate->p_target_nsitem;
 
-	/* there's no DISTINCT in DELETE */
+	/* DELETE 中没有 DISTINCT     */
 	qry->distinctClause = NIL;
 
-	/* subqueries in USING cannot access the result relation */
+	/* USING 中的子查询无法访问结果关系         */
 	nsitem->p_lateral_only = true;
 	nsitem->p_lateral_ok = false;
 
 	/*
-	 * The USING clause is non-standard SQL syntax, and is equivalent in
-	 * functionality to the FROM list that can be specified for UPDATE. The
-	 * USING keyword is used rather than FROM because FROM is already a
-	 * keyword in the DELETE syntax.
+	 * USING 子句并非标准 SQL 语法，功能上等价于         
+	 * 可为 UPDATE 指定的 FROM 列表。使用 USING 关键字        
+	 * 而非 FROM，因为 FROM 已经是 DELETE                      
+	 * 语法中的关键字。     
 	 */
 	transformFromClause(pstate, stmt->usingClause);
 
-	/* remaining clauses can reference the result relation normally */
+	/* 其余子句可以正常引用结果关系                   */
 	nsitem->p_lateral_only = false;
 	nsitem->p_lateral_ok = true;
 
@@ -555,7 +555,7 @@ transformDeleteStmt(ParseState *pstate, DeleteStmt *stmt)
 
 	qry->returningList = transformReturningList(pstate, stmt->returningList);
 
-	/* done building the range table and jointree */
+	/* 范围表和连接树的构建已完成    */
 	qry->rtable = pstate->p_rtable;
 	qry->rteperminfos = pstate->p_rteperminfos;
 	qry->jointree = makeFromExpr(pstate->p_joinlist, qual);
@@ -567,7 +567,7 @@ transformDeleteStmt(ParseState *pstate, DeleteStmt *stmt)
 
 	assign_query_collations(pstate, qry);
 
-	/* this must be done after collations, for reliable comparison of exprs */
+	/* 为可靠比较表达式，此步必须在排序规则之后完成   */
 	if (pstate->p_hasAggs)
 		parseCheckAggregates(pstate, qry);
 
@@ -576,7 +576,7 @@ transformDeleteStmt(ParseState *pstate, DeleteStmt *stmt)
 
 /*
  * transformInsertStmt -
- *	  transform an Insert Statement
+ *	  变换 INSERT 语句。      
  */
 static Query *
 transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
@@ -598,13 +598,13 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 	bool		isOnConflictUpdate;
 	AclMode		targetPerms;
 
-	/* There can't be any outer WITH to worry about */
+	/* 不会有任何需要操心的外层 WITH    */
 	Assert(pstate->p_ctenamespace == NIL);
 
 	qry->commandType = CMD_INSERT;
 	pstate->p_is_insert = true;
 
-	/* process the WITH clause independently of all else */
+	/* 独立于其他一切来处理 WITH 子句        */
 	if (stmt->withClause)
 	{
 		qry->hasRecursive = stmt->withClause->recursive;
@@ -618,13 +618,13 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 						  stmt->onConflictClause->action == ONCONFLICT_UPDATE);
 
 	/*
-	 * We have three cases to deal with: DEFAULT VALUES (selectStmt == NULL),
-	 * VALUES list, or general SELECT input.  We special-case VALUES, both for
-	 * efficiency and so we can handle DEFAULT specifications.
+	 * 我们要处理三种情形：DEFAULT VALUES（selectStmt             
+	 *  == NULL）、VALUES 列表或一般 SELECT 输入。我们            
+	 * VALUES 做特判，为效率，也为处理 DEFAULT。 
 	 *
-	 * The grammar allows attaching ORDER BY, LIMIT, FOR UPDATE, or WITH to a
-	 * VALUES clause.  If we have any of those, treat it as a general SELECT;
-	 * so it will work, but you can't use DEFAULT items together with those.
+	 * 语法允许把 ORDER BY、LIMIT、FOR UPDATE 或 WITH 附            
+	 * 加到 VALUES 子句上。若存在其中一种，就把它当        
+	 * 作一般 SELECT；可行，但 DEFAULT 项不能与之同用。     
 	 */
 	isGeneralSelect = (selectStmt && (selectStmt->valuesLists == NIL ||
 									  selectStmt->sortClause != NIL ||
@@ -634,13 +634,13 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 									  selectStmt->withClause != NULL));
 
 	/*
-	 * If a non-nil rangetable/namespace was passed in, and we are doing
-	 * INSERT/SELECT, arrange to pass the rangetable/rteperminfos/namespace
-	 * down to the SELECT.  This can only happen if we are inside a CREATE
-	 * RULE, and in that case we want the rule's OLD and NEW rtable entries to
-	 * appear as part of the SELECT's rtable, not as outer references for it.
-	 * (Kluge!) The SELECT's joinlist is not affected however.  We must do
-	 * this before adding the target table to the INSERT's rtable.
+	 * 若传入了非空的 rangetable/namespace，且我们正在     
+	 * 做 INSERT/SELECT，就要安排把 rangetable/rteperminfos/        
+	 * namespace 传递给 SELECT。这只可能发生在 CREATE          
+	 * RULE 之内，此时我们希望规则的 OLD 和 NEW rtable           
+	 * 条目作为 SELECT 的 rtable 部分出现，而不是作            
+	 * 为它的外层引用。（权宜之计！）SELECT 的 joinlist   
+	 * 则不受影响。且须先于目标表加入 INSERT rtable
 	 */
 	if (isGeneralSelect)
 	{
@@ -653,16 +653,16 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 	}
 	else
 	{
-		sub_rtable = NIL;		/* not used, but keep compiler quiet */
+		sub_rtable = NIL;		/* 未使用，避免编译器告警 */
 		sub_rteperminfos = NIL;
 		sub_namespace = NIL;
 	}
 
 	/*
-	 * Must get write lock on INSERT target table before scanning SELECT, else
-	 * we will grab the wrong kind of initial lock if the target table is also
-	 * mentioned in the SELECT part.  Note that the target table is not added
-	 * to the joinlist or namespace.
+	 * 扫描 SELECT 之前必须先获取 INSERT 目标表的写锁，       
+	 * 否则若目标表也出现在 SELECT 部分中，我们最初拿      
+	 * 到的初始锁类型就是错的。注意目标表不会被加       
+	 * 入 joinlist/namespace。    
 	 */
 	targetPerms = ACL_INSERT;
 	if (isOnConflictUpdate)
@@ -670,51 +670,51 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 	qry->resultRelation = setTargetTable(pstate, stmt->relation,
 										 false, false, targetPerms);
 
-	/* Validate stmt->cols list, or build default list if no list given */
+	/* 校验 stmt->cols 列表，若未给列表则构建默认列表  */
 	icolumns = checkInsertTargets(pstate, stmt->cols, &attrnos);
 	Assert(list_length(icolumns) == list_length(attrnos));
 
 	/*
-	 * Determine which variant of INSERT we have.
+	 * 判定当前是哪种 INSERT 变体。    
 	 */
 	if (selectStmt == NULL)
 	{
 		/*
-		 * We have INSERT ... DEFAULT VALUES.  We can handle this case by
-		 * emitting an empty targetlist --- all columns will be defaulted when
-		 * the planner expands the targetlist.
+		 * 我们遇到的是 INSERT ... DEFAULT VALUES。这种情形   
+		 * 可以这样处理：发出空目标列表，这样当规划器    
+		 * 展开时各列将取默认值。  
 		 */
 		exprList = NIL;
 	}
 	else if (isGeneralSelect)
 	{
 		/*
-		 * We make the sub-pstate a child of the outer pstate so that it can
-		 * see any Param definitions supplied from above.  Since the outer
-		 * pstate's rtable and namespace are presently empty, there are no
-		 * side-effects of exposing names the sub-SELECT shouldn't be able to
-		 * see.
+		 * 我们把子 pstate 设为外层 pstate 的子节点，这样它 
+		 * 就能看到来自上层提供的任何 Param 定义。        
+		 * 由于外层 pstate 的 rtable 与命名空间当前为空，  
+		 * 不会有暴露子 SELECT 不应见名称的副作用。          
+		 *     
 		 */
 		ParseState *sub_pstate = make_parsestate(pstate);
 		Query	   *selectQuery;
 
 		/*
-		 * Process the source SELECT.
+		 * 处理源 SELECT。       
 		 *
-		 * It is important that this be handled just like a standalone SELECT;
-		 * otherwise the behavior of SELECT within INSERT might be different
-		 * from a stand-alone SELECT. (Indeed, Postgres up through 6.5 had
-		 * bugs of just that nature...)
+		 * 关键是这里的处理必须与独立 SELECT 完全一样；     
+		 * 否则 INSERT 内 SELECT 的行为就可能与独立 SELECT      
+		 * 不同。（事实上，6.5 及之前的 Postgres 有此类    
+		 * 缺陷。）                
 		 *
-		 * The sole exception is that we prevent resolving unknown-type
-		 * outputs as TEXT.  This does not change the semantics since if the
-		 * column type matters semantically, it would have been resolved to
-		 * something else anyway.  Doing this lets us resolve such outputs as
-		 * the target column's type, which we handle below.
+		 * 唯一的例外是：我们阻止把未知类型输出解   
+		 * 析为 TEXT。语义不受影响，因为若列的类型         
+		 * 在语义上有影响，那么它无论如何都会被解析为 
+		 * 其他类型。这样做让我们能把此类输出解析成      
+		 * 目标列的类型，下面会处理。         
 		 */
 		sub_pstate->p_rtable = sub_rtable;
 		sub_pstate->p_rteperminfos = sub_rteperminfos;
-		sub_pstate->p_joinexprs = NIL;	/* sub_rtable has no joins */
+		sub_pstate->p_joinexprs = NIL;	/* sub_rtable 无连接    */
 		sub_pstate->p_nullingrels = NIL;
 		sub_pstate->p_namespace = sub_namespace;
 		sub_pstate->p_resolve_unknowns = false;
@@ -723,14 +723,14 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 
 		free_parsestate(sub_pstate);
 
-		/* The grammar should have produced a SELECT */
+		/* 语法应该已经生成了 SELECT        */
 		if (!IsA(selectQuery, Query) ||
 			selectQuery->commandType != CMD_SELECT)
 			elog(ERROR, "unexpected non-SELECT command in INSERT ... SELECT");
 
 		/*
-		 * Make the source be a subquery in the INSERT's rangetable, and add
-		 * it to the INSERT's joinlist (but not the namespace).
+		 * 让源成为 INSERT 的 rangetable 中的子查询，并把它   
+		 * 加入 INSERT joinlist（命名空间除外）。   
 		 */
 		nsitem = addRangeTableEntryForSubquery(pstate,
 											   selectQuery,
@@ -740,16 +740,16 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 		addNSItemToQuery(pstate, nsitem, true, false, false);
 
 		/*----------
-		 * Generate an expression list for the INSERT that selects all the
-		 * non-resjunk columns from the subquery.  (INSERT's tlist must be
-		 * separate from the subquery's tlist because we may add columns,
-		 * insert datatype coercions, etc.)
+		 * 为 INSERT 生成表达式列表，从中选出子查询的    
+		 * 全部非 resjunk 列。（INSERT 的 tlist 必须与子查询 
+		 * 的 tlist 相互独立，因为要添加列、插入类型    
+		 * 强制转换等操作。）     
 		 *
-		 * HACK: unknown-type constants and params in the SELECT's targetlist
-		 * are copied up as-is rather than being referenced as subquery
-		 * outputs.  This is to ensure that when we try to coerce them to
-		 * the target column's datatype, the right things happen (see
-		 * special cases in coerce_type).  Otherwise, this fails:
+		 * HACK：SELECT 目标列表里的未知类型常量和参数       
+		 * 会被原样复制，而非作为子查询输出引用。   
+		 * 这样做是为了确保当我们把它们强转到目标列  
+		 * 数据类型时行为正确（见 coerce_type 中的      
+		 * 特例）。否则，如下语句会失败：         
 		 *		INSERT INTO foo SELECT 'bar', ... FROM baz
 		 *----------
 		 */
@@ -775,7 +775,7 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 			exprList = lappend(exprList, expr);
 		}
 
-		/* Prepare row for assignment to target table */
+		/* 准备用于赋给目标表的行          */
 		exprList = transformInsertRow(pstate, exprList,
 									  stmt->cols,
 									  icolumns, attrnos,
@@ -784,10 +784,10 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 	else if (list_length(selectStmt->valuesLists) > 1)
 	{
 		/*
-		 * Process INSERT ... VALUES with multiple VALUES sublists. We
-		 * generate a VALUES RTE holding the transformed expression lists, and
-		 * build up a targetlist containing Vars that reference the VALUES
-		 * RTE.
+		 * 处理带多个 VALUES 子列表的 INSERT ... VALUES。   
+		 * 会生成 VALUES RTE 来容纳变换后的表达式列表，并    
+		 * 构建目标列表，其中的 Var 引用 VALUES RTE。        
+		 *     
 		 */
 		List	   *exprsLists = NIL;
 		List	   *coltypes = NIL;
@@ -803,20 +803,20 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 			List	   *sublist = (List *) lfirst(lc);
 
 			/*
-			 * Do basic expression transformation (same as a ROW() expr, but
-			 * allow SetToDefault at top level)
+			 * 做基本的表达式变换（与 ROW() 表达式相同，   
+			 * 顶层允许 SetToDefault）    
 			 */
 			sublist = transformExpressionList(pstate, sublist,
 											  EXPR_KIND_VALUES, true);
 
 			/*
-			 * All the sublists must be the same length, *after*
-			 * transformation (which might expand '*' into multiple items).
-			 * The VALUES RTE can't handle anything different.
+			 * 所有子列表必须在完成变换             
+			 * 之后才相同（变换可能把 '*' 展开成多项）    
+			 * VALUES RTE 不能处理任何差异。         
 			 */
 			if (sublist_length < 0)
 			{
-				/* Remember post-transformation length of first sublist */
+				/* 记住第一个子列表变换后的长度           */
 				sublist_length = list_length(sublist);
 			}
 			else if (sublist_length != list_length(sublist))
@@ -829,14 +829,14 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 			}
 
 			/*
-			 * Prepare row for assignment to target table.  We process any
-			 * indirection on the target column specs normally but then strip
-			 * off the resulting field/array assignment nodes, since we don't
-			 * want the parsed statement to contain copies of those in each
-			 * VALUES row.  (It's annoying to have to transform the
-			 * indirection specs over and over like this, but avoiding it
-			 * would take some really messy refactoring of
-			 * transformAssignmentIndirection.)
+			 * 准备用于赋给目标表的行。我们会正常处理  
+			 * 目标列规格上的任何间接引用，但随后会剥离  
+			 * 由此得到的字段/数组赋值节点，因为我们不想 
+			 * 让解析后的语句在每个 VALUES 行里都带有这些 
+			 * 节点的副本。（反复变换间接引用规    
+			 * 格确实麻烦，但要避免它就得对                
+			 * transformAssignmentIndirection 进行      
+			 * 真正烦琐的重构。）     
 			 */
 			sublist = transformInsertRow(pstate, sublist,
 										 stmt->cols,
@@ -844,16 +844,16 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 										 true);
 
 			/*
-			 * We must assign collations now because assign_query_collations
-			 * doesn't process rangetable entries.  We just assign all the
-			 * collations independently in each row, and don't worry about
-			 * whether they are consistent vertically.  The outer INSERT query
-			 * isn't going to care about the collations of the VALUES columns,
-			 * so it's not worth the effort to identify a common collation for
-			 * each one here.  (But note this does have one user-visible
-			 * consequence: INSERT ... VALUES won't complain about conflicting
-			 * explicit COLLATEs in a column, whereas the same VALUES
-			 * construct in another context would complain.)
+			 * 必须现在指定排序规则：assign_query_collations     
+			 * 不处理范围表条目。我们让每行都独立地     
+			 * 指定排序规则，不必担心各行在竖直方向上  
+			 * 是否一致。外层 INSERT 查询不在乎 VALUES 列的     
+			 * 排序规则，因此不值得在这里为每一列找出      
+			 * 一个公共排序规则。（不过要注意，这确实有   
+			 * 一个用户可见的后果：INSERT ... VALUES 不会就
+			 * 某列中冲突的显式 COLLATE 报错，而同样的         
+			 * VALUES 构造放到其他上下文则会报错。）  
+			 *                                              
 			 */
 			assign_list_collations(pstate, sublist);
 
@@ -861,11 +861,11 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 		}
 
 		/*
-		 * Construct column type/typmod/collation lists for the VALUES RTE.
-		 * Every expression in each column has been coerced to the type/typmod
-		 * of the corresponding target column or subfield, so it's sufficient
-		 * to look at the exprType/exprTypmod of the first row.  We don't care
-		 * about the collation labeling, so just fill in InvalidOid for that.
+		 * 为 VALUES RTE 构建列类型/typmod/排序规则列表。     
+		 * 每一列中的每个表达式都已被强转为对应目标       
+		 * 列或子字段的类型/typmod，所以只需查看第一行     
+		 * 的 exprType/exprTypmod 就足够了。排序规则标签          
+		 * 无须关心，直接为其填入 InvalidOid 即可。            
 		 */
 		foreach(lc, (List *) linitial(exprsLists))
 		{
@@ -877,17 +877,17 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 		}
 
 		/*
-		 * Ordinarily there can't be any current-level Vars in the expression
-		 * lists, because the namespace was empty ... but if we're inside
-		 * CREATE RULE, then NEW/OLD references might appear.  In that case we
-		 * have to mark the VALUES RTE as LATERAL.
+		 * 通常情况下，表达式列表中不可能有当前层         
+		 * 的 Var，因为命名空间为空……但若我们处于    
+		 * CREATE RULE 内，则可能出现 NEW/OLD 引用。那时          
+		 * 须将 VALUES RTE 标为 LATERAL。    
 		 */
 		if (list_length(pstate->p_rtable) != 1 &&
 			contain_vars_of_level((Node *) exprsLists, 0))
 			lateral = true;
 
 		/*
-		 * Generate the VALUES RTE
+		 * 生成 VALUES RTE      
 		 */
 		nsitem = addRangeTableEntryForValues(pstate, exprsLists,
 											 coltypes, coltypmods, colcollations,
@@ -895,12 +895,12 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 		addNSItemToQuery(pstate, nsitem, true, false, false);
 
 		/*
-		 * Generate list of Vars referencing the RTE
+		 * 生成引用该 RTE 的 Var 列表       
 		 */
 		exprList = expandNSItemVars(pstate, nsitem, 0, -1, NULL);
 
 		/*
-		 * Re-apply any indirection on the target column specs to the Vars
+		 * 把目标列规格上的间接引用重新应用到 Var        
 		 */
 		exprList = transformInsertRow(pstate, exprList,
 									  stmt->cols,
@@ -910,10 +910,10 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 	else
 	{
 		/*
-		 * Process INSERT ... VALUES with a single VALUES sublist.  We treat
-		 * this case separately for efficiency.  The sublist is just computed
-		 * directly as the Query's targetlist, with no VALUES RTE.  So it
-		 * works just like a SELECT without any FROM.
+		 * 处理带单个 VALUES 子列表的 INSERT ... VALUES。这种   
+		 * 情形单独处理是为了效率。子列表直接作为         
+		 * Query 的目标列表直接算出，不设 VALUES             
+		 *  RTE。效果同不带 FROM 的 SELECT。 
 		 */
 		List	   *valuesLists = selectStmt->valuesLists;
 
@@ -921,15 +921,15 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 		Assert(selectStmt->intoClause == NULL);
 
 		/*
-		 * Do basic expression transformation (same as a ROW() expr, but allow
-		 * SetToDefault at top level)
+		 * 做基本的表达式变换（与 ROW() 表达式相同，顶层   
+		 * 可用 SetToDefault）    
 		 */
 		exprList = transformExpressionList(pstate,
 										   (List *) linitial(valuesLists),
 										   EXPR_KIND_VALUES_SINGLE,
 										   true);
 
-		/* Prepare row for assignment to target table */
+		/* 准备用于赋给目标表的行          */
 		exprList = transformInsertRow(pstate, exprList,
 									  stmt->cols,
 									  icolumns, attrnos,
@@ -937,8 +937,8 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 	}
 
 	/*
-	 * Generate query's target list using the computed list of expressions.
-	 * Also, mark all the target columns as needing insert permissions.
+	 * 用算出的表达式列表生成查询的目标列表。           
+	 * 同时把所有目标列标记为需要插入权限。          
 	 */
 	perminfo = pstate->p_target_nsitem->p_perminfo;
 	qry->targetList = NIL;
@@ -961,9 +961,9 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 	}
 
 	/*
-	 * If we have any clauses yet to process, set the query namespace to
-	 * contain only the target relation, removing any entries added in a
-	 * sub-SELECT or VALUES list.
+	 * 如果还有待处理的子句，就把查询命名空间        
+	 * 设为只含目标关系，并移除在子 SELECT 或            
+	 * VALUES 加的条目。    
 	 */
 	if (stmt->onConflictClause || stmt->returningList)
 	{
@@ -972,17 +972,17 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 						 false, true, true);
 	}
 
-	/* Process ON CONFLICT, if any. */
+	/* 有 ON CONFLICT 就处理。 */
 	if (stmt->onConflictClause)
 		qry->onConflict = transformOnConflictClause(pstate,
 													stmt->onConflictClause);
 
-	/* Process RETURNING, if any. */
+	/* 有 RETURNING 就处理。 */
 	if (stmt->returningList)
 		qry->returningList = transformReturningList(pstate,
 													stmt->returningList);
 
-	/* done building the range table and jointree */
+	/* 范围表和连接树的构建已完成    */
 	qry->rtable = pstate->p_rtable;
 	qry->rteperminfos = pstate->p_rteperminfos;
 	qry->jointree = makeFromExpr(pstate->p_joinlist, NULL);
@@ -996,14 +996,14 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 }
 
 /*
- * Prepare an INSERT row for assignment to the target table.
+ * 准备一条要赋给目标表的 INSERT 行。          
  *
- * exprlist: transformed expressions for source values; these might come from
- * a VALUES row, or be Vars referencing a sub-SELECT or VALUES RTE output.
- * stmtcols: original target-columns spec for INSERT (we just test for NIL)
- * icolumns: effective target-columns spec (list of ResTarget)
- * attrnos: integer column numbers (must be same length as icolumns)
- * strip_indirection: if true, remove any field/array assignment nodes
+ * exprlist：源值的变换后表达式；它们可能来自               
+ * VALUES 行，或是引用子 SELECT 或 VALUES RTE 输出              
+ * 的 Var。stmtcols：INSERT 原始目标列规格（只测试 NIL）    
+ * icolumns：有效目标列规格（ResTarget 列表）     
+ * attrnos：整型列号（长度必须与 icolumns 相同）      
+ * strip_indirection：为真时移除任何字段/数组赋值节点 
  */
 List *
 transformInsertRow(ParseState *pstate, List *exprlist,
@@ -1016,11 +1016,11 @@ transformInsertRow(ParseState *pstate, List *exprlist,
 	ListCell   *attnos;
 
 	/*
-	 * Check length of expr list.  It must not have more expressions than
-	 * there are target columns.  We allow fewer, but only if no explicit
-	 * columns list was given (the remaining columns are implicitly
-	 * defaulted).  Note we must check this *after* transformation because
-	 * that could expand '*' into multiple items.
+	 * 检查表达式列表的长度。它的表达式不能多于      
+	 * 目标列的数目。可以更少，但前提是未给出显式   
+	 * 列清单（其余列隐式取默认值）。注意要      
+	 * 必须在变换之后检查这一点，因为变换可能          
+	 * 把 '*' 展开成多个条目。          
 	 */
 	if (list_length(exprlist) > list_length(icolumns))
 		ereport(ERROR,
@@ -1033,13 +1033,13 @@ transformInsertRow(ParseState *pstate, List *exprlist,
 		list_length(exprlist) < list_length(icolumns))
 	{
 		/*
-		 * We can get here for cases like INSERT ... SELECT (a,b,c) FROM ...
-		 * where the user accidentally created a RowExpr instead of separate
-		 * columns.  Add a suitable hint if that seems to be the problem,
-		 * because the main error message is quite misleading for this case.
-		 * (If there's no stmtcols, you'll get something about data type
-		 * mismatch, which is less misleading so we don't worry about giving a
-		 * hint in that case.)
+		 * 对于 INSERT ... SELECT (a,b,c) FROM ... 这类情形，        
+		 * 我们也会到达此处，即用户误建了一个              
+		 * RowExpr 而非分离的列。若看起来问题在此，      
+		 * 就追加一条合适的提示，因为对这种情形来说     
+		 * 主错误消息对此颇有误导。（没有 stmtcols 时   
+		 * 会得到数据类型不匹配的报错，误导较小，故不    
+		 * 给提示。）    
 		 */
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
@@ -1054,7 +1054,7 @@ transformInsertRow(ParseState *pstate, List *exprlist,
 	}
 
 	/*
-	 * Prepare columns for assignment to target table.
+	 * 准备要赋给目标表的各列。           
 	 */
 	result = NIL;
 	forthree(lc, exprlist, icols, icolumns, attnos, attrnos)
@@ -1073,9 +1073,9 @@ transformInsertRow(ParseState *pstate, List *exprlist,
 		if (strip_indirection)
 		{
 			/*
-			 * We need to remove top-level FieldStores and SubscriptingRefs,
-			 * as well as any CoerceToDomain appearing above one of those ---
-			 * but not a CoerceToDomain that isn't above one of those.
+			 * 须移除顶层的 FieldStore 和 SubscriptingRef，         
+			 * 以及位于其上方的任何 CoerceToDomain —— 但不   
+			 * 包括不位于其上方的 CoerceToDomain。          
 			 */
 			while (expr)
 			{
@@ -1113,7 +1113,7 @@ transformInsertRow(ParseState *pstate, List *exprlist,
 
 /*
  * transformOnConflictClause -
- *	  transforms an OnConflictClause in an INSERT
+ *	  变换 INSERT 中的 OnConflictClause。   
  */
 static OnConflictExpr *
 transformOnConflictClause(ParseState *pstate,
@@ -1130,10 +1130,10 @@ transformOnConflictClause(ParseState *pstate,
 	OnConflictExpr *result;
 
 	/*
-	 * If this is ON CONFLICT ... UPDATE, first create the range table entry
-	 * for the EXCLUDED pseudo relation, so that that will be present while
-	 * processing arbiter expressions.  (You can't actually reference it from
-	 * there, but this provides a useful error message if you try.)
+	 * 如果这是 ON CONFLICT ... UPDATE，先创建 EXCLUDED             
+	 * 伪关系的范围表条目，以便处理仲裁器表达式        
+	 * 时它已经在场。（你无法真正从那里引用它，          
+	 * 但若尝试，这会给出有用的错误消息。）      
 	 */
 	if (onConflictClause->action == ONCONFLICT_UPDATE)
 	{
@@ -1149,39 +1149,39 @@ transformOnConflictClause(ParseState *pstate,
 		exclRelIndex = exclNSItem->p_rtindex;
 
 		/*
-		 * relkind is set to composite to signal that we're not dealing with
-		 * an actual relation, and no permission checks are required on it.
-		 * (We'll check the actual target relation, instead.)
+		 * 将 relkind 设为 composite，表示我们处理的并非       
+		 * 是一个真实的关系，并且无需对它做权限检查。 
+		 * （我们改为检查真正的目标关系。）  
 		 */
 		exclRte->relkind = RELKIND_COMPOSITE_TYPE;
 
-		/* Create EXCLUDED rel's targetlist for use by EXPLAIN */
+		/* 为 EXPLAIN 创建 EXCLUDED 关系的目标列表   */
 		exclRelTlist = BuildOnConflictExcludedTargetlist(targetrel,
 														 exclRelIndex);
 	}
 
-	/* Process the arbiter clause, ON CONFLICT ON (...) */
+	/* 处理仲裁器子句 ON CONFLICT ON (...)       */
 	transformOnConflictArbiter(pstate, onConflictClause, &arbiterElems,
 							   &arbiterWhere, &arbiterConstraint);
 
-	/* Process DO UPDATE */
+	/* 处理 DO UPDATE  */
 	if (onConflictClause->action == ONCONFLICT_UPDATE)
 	{
 		/*
-		 * Expressions in the UPDATE targetlist need to be handled like UPDATE
-		 * not INSERT.  We don't need to save/restore this because all INSERT
-		 * expressions have been parsed already.
+		 * UPDATE 目标列表里的表达式须按 UPDATE 而非             
+		 * INSERT 来处理。我们无需保存/恢复它，因为所有    
+		 * INSERT 表达式已解析完毕。   
 		 */
 		pstate->p_is_insert = false;
 
 		/*
-		 * Add the EXCLUDED pseudo relation to the query namespace, making it
-		 * available in the UPDATE subexpressions.
+		 * 把 EXCLUDED 伪关系加入查询命名空间，使其在        
+		 * UPDATE 子表达式中可用。        
 		 */
 		addNSItemToQuery(pstate, exclNSItem, false, true, true);
 
 		/*
-		 * Now transform the UPDATE subexpressions.
+		 * 现在变换 UPDATE 子表达式。     
 		 */
 		onConflictSet =
 			transformUpdateTargetList(pstate, onConflictClause->targetList);
@@ -1191,15 +1191,15 @@ transformOnConflictClause(ParseState *pstate,
 											   EXPR_KIND_WHERE, "WHERE");
 
 		/*
-		 * Remove the EXCLUDED pseudo relation from the query namespace, since
-		 * it's not supposed to be available in RETURNING.  (Maybe someday we
-		 * could allow that, and drop this step.)
+		 * 从查询命名空间中移除 EXCLUDED 伪关系，因为它      
+		 * 不应在 RETURNING 中可用。（也许某天我们可以       
+		 * 允许它，并删去此步骤。）  
 		 */
 		Assert((ParseNamespaceItem *) llast(pstate->p_namespace) == exclNSItem);
 		pstate->p_namespace = list_delete_last(pstate->p_namespace);
 	}
 
-	/* Finally, build ON CONFLICT DO [NOTHING | UPDATE] expression */
+	/* 最后构建 ON CONFLICT DO [NOTHING | UPDATE] 表达式    */
 	result = makeNode(OnConflictExpr);
 
 	result->action = onConflictClause->action;
@@ -1217,10 +1217,10 @@ transformOnConflictClause(ParseState *pstate,
 
 /*
  * BuildOnConflictExcludedTargetlist
- *		Create target list for the EXCLUDED pseudo-relation of ON CONFLICT,
- *		representing the columns of targetrel with varno exclRelIndex.
+ *		为 ON CONFLICT 的 EXCLUDED 伪关系构建目标列表，        
+ *		以 varno exclRelIndex 表示 targetrel 的各列。          
  *
- * Note: Exported for use in the rewriter.
+ * 注：导出供重写器使用。      
  */
 List *
 BuildOnConflictExcludedTargetlist(Relation targetrel,
@@ -1232,8 +1232,8 @@ BuildOnConflictExcludedTargetlist(Relation targetrel,
 	TargetEntry *te;
 
 	/*
-	 * Note that resnos of the tlist must correspond to attnos of the
-	 * underlying relation, hence we need entries for dropped columns too.
+	 * tlist 的 resno 必须与底层关系的 attno 相对应，   
+	 * 因此被删除的列也需要有对应的条目。                
 	 */
 	for (attno = 0; attno < RelationGetNumberOfAttributes(targetrel); attno++)
 	{
@@ -1243,8 +1243,8 @@ BuildOnConflictExcludedTargetlist(Relation targetrel,
 		if (attr->attisdropped)
 		{
 			/*
-			 * can't use atttypid here, but it doesn't really matter what type
-			 * the Const claims to be.
+			 * 这里无法使用 atttypid，不过 Const 声称的类型     
+			 * 其实无关紧要。  
 			 */
 			var = (Var *) makeNullConst(INT4OID, -1, InvalidOid);
 			name = NULL;
@@ -1267,11 +1267,11 @@ BuildOnConflictExcludedTargetlist(Relation targetrel,
 	}
 
 	/*
-	 * Add a whole-row-Var entry to support references to "EXCLUDED.*".  Like
-	 * the other entries in the EXCLUDED tlist, its resno must match the Var's
-	 * varattno, else the wrong things happen while resolving references in
-	 * setrefs.c.  This is against normal conventions for targetlists, but
-	 * it's okay since we don't use this as a real tlist.
+	 * 添加 whole-row Var 条目以支持对 "EXCLUDED.*" 的引用。     
+	 * 如同 EXCLUDED tlist 中其他条目，其 resno 必须与该 Var 的 
+	 * varattno 一致，否则 setrefs.c 里解析引用时会出错。   
+	 * 这违背目标列表的常规约定，但我们不会把它用作 
+	 * tlist，所以没有问题。                     
 	 */
 	var = makeVar(exclRelIndex, InvalidAttrNumber,
 				  targetrel->rd_rel->reltype,
@@ -1285,12 +1285,12 @@ BuildOnConflictExcludedTargetlist(Relation targetrel,
 
 /*
  * count_rowexpr_columns -
- *	  get number of columns contained in a ROW() expression;
- *	  return -1 if expression isn't a RowExpr or a Var referencing one.
+ *	  取得 ROW() 表达式所包含的列数；           
+ *	  若表达式不是 RowExpr 或引用它的 Var 则返回 -1。   
  *
- * This is currently used only for hint purposes, so we aren't terribly
- * tense about recognizing all possible cases.  The Var case is interesting
- * because that's what we'll get in the INSERT ... SELECT (...) case.
+ * 目前这只用于提示目的，无需苛求识别所有情形。  
+ * Var 情形很有意思，                                               
+ * 因为 INSERT ... SELECT (...) 场景中得到的正是它。     
  */
 static int
 count_rowexpr_columns(ParseState *pstate, Node *expr)
@@ -1311,7 +1311,7 @@ count_rowexpr_columns(ParseState *pstate, Node *expr)
 			rte = GetRTEByRangeTablePosn(pstate, var->varno, var->varlevelsup);
 			if (rte->rtekind == RTE_SUBQUERY)
 			{
-				/* Subselect-in-FROM: examine sub-select's output expr */
+				/* FROM 子查询：检查子查询的输出表达式  */
 				TargetEntry *ste = get_tle_by_resno(rte->subquery->targetList,
 													attnum);
 
@@ -1329,10 +1329,10 @@ count_rowexpr_columns(ParseState *pstate, Node *expr)
 
 /*
  * transformSelectStmt -
- *	  transforms a Select Statement
+ *	  转换 Select 语句         
  *
- * Note: this covers only cases with no set operations and no VALUES lists;
- * see below for the other cases.
+ * 注：只涵盖无集合操作且无 VALUES 列表的情形；          
+ * 其他情形见下文。      
  */
 static Query *
 transformSelectStmt(ParseState *pstate, SelectStmt *stmt)
@@ -1343,7 +1343,7 @@ transformSelectStmt(ParseState *pstate, SelectStmt *stmt)
 
 	qry->commandType = CMD_SELECT;
 
-	/* process the WITH clause independently of all else */
+	/* 独立于其他部分处理 WITH 子句           */
 	if (stmt->withClause)
 	{
 		qry->hasRecursive = stmt->withClause->recursive;
@@ -1351,7 +1351,7 @@ transformSelectStmt(ParseState *pstate, SelectStmt *stmt)
 		qry->hasModifyingCTE = pstate->p_hasModifyingCTE;
 	}
 
-	/* Complain if we get called from someplace where INTO is not allowed */
+	/* 如果在不允许 INTO 的地方被调用则报错                */
 	if (stmt->intoClause)
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
@@ -1359,41 +1359,41 @@ transformSelectStmt(ParseState *pstate, SelectStmt *stmt)
 				 parser_errposition(pstate,
 									exprLocation((Node *) stmt->intoClause))));
 
-	/* make FOR UPDATE/FOR SHARE info available to addRangeTableEntry */
+	/* 把 FOR UPDATE/FOR SHARE 信息提供给 addRangeTableEntry    */
 	pstate->p_locking_clause = stmt->lockingClause;
 
-	/* make WINDOW info available for window functions, too */
+	/* 也让窗口函数能获取 WINDOW 信息            */
 	pstate->p_windowdefs = stmt->windowClause;
 
-	/* process the FROM clause */
+	/* 处理 FROM 子句      */
 	transformFromClause(pstate, stmt->fromClause);
 
-	/* transform targetlist */
+	/* 转换目标列表   */
 	qry->targetList = transformTargetList(pstate, stmt->targetList,
 										  EXPR_KIND_SELECT_TARGET);
 
-	/* mark column origins */
+	/* 标记列的来源  */
 	markTargetListOrigins(pstate, qry->targetList);
 
-	/* transform WHERE */
+	/* 转换 WHERE    */
 	qual = transformWhereClause(pstate, stmt->whereClause,
 								EXPR_KIND_WHERE, "WHERE");
 
-	/* initial processing of HAVING clause is much like WHERE clause */
+	/* HAVING 子句的初步处理与 WHERE 子句十分相似      */
 	qry->havingQual = transformWhereClause(pstate, stmt->havingClause,
 										   EXPR_KIND_HAVING, "HAVING");
 
 	/*
-	 * Transform sorting/grouping stuff.  Do ORDER BY first because both
-	 * transformGroupClause and transformDistinctClause need the results. Note
-	 * that these functions can also change the targetList, so it's passed to
-	 * them by reference.
+	 * 转换排序/分组相关内容。先处理 ORDER BY，因为    
+	 * transformGroupClause 和 transformDistinctClause 都需要其结果。 
+	 * 注意这些函数还可能修改 targetList，故按引用传入。  
+	 *                   
 	 */
 	qry->sortClause = transformSortClause(pstate,
 										  stmt->sortClause,
 										  &qry->targetList,
 										  EXPR_KIND_ORDER_BY,
-										  false /* allow SQL92 rules */ );
+										  false /* 按 SQL92 规则  */ );
 
 	qry->groupClause = transformGroupClause(pstate,
 											stmt->groupClause,
@@ -1401,7 +1401,7 @@ transformSelectStmt(ParseState *pstate, SelectStmt *stmt)
 											&qry->targetList,
 											qry->sortClause,
 											EXPR_KIND_GROUP_BY,
-											false /* allow SQL92 rules */ );
+											false /* 按 SQL92 规则  */ );
 	qry->groupDistinct = stmt->groupDistinct;
 
 	if (stmt->distinctClause == NIL)
@@ -1411,7 +1411,7 @@ transformSelectStmt(ParseState *pstate, SelectStmt *stmt)
 	}
 	else if (linitial(stmt->distinctClause) == NULL)
 	{
-		/* We had SELECT DISTINCT */
+		/* 原为 SELECT DISTINCT */
 		qry->distinctClause = transformDistinctClause(pstate,
 													  &qry->targetList,
 													  qry->sortClause,
@@ -1420,7 +1420,7 @@ transformSelectStmt(ParseState *pstate, SelectStmt *stmt)
 	}
 	else
 	{
-		/* We had SELECT DISTINCT ON */
+		/* 原为 SELECT DISTINCT ON */
 		qry->distinctClause = transformDistinctOnClause(pstate,
 														stmt->distinctClause,
 														&qry->targetList,
@@ -1428,7 +1428,7 @@ transformSelectStmt(ParseState *pstate, SelectStmt *stmt)
 		qry->hasDistinctOn = true;
 	}
 
-	/* transform LIMIT */
+	/* 转换 LIMIT    */
 	qry->limitOffset = transformLimitClause(pstate, stmt->limitOffset,
 											EXPR_KIND_OFFSET, "OFFSET",
 											stmt->limitOption);
@@ -1437,12 +1437,12 @@ transformSelectStmt(ParseState *pstate, SelectStmt *stmt)
 										   stmt->limitOption);
 	qry->limitOption = stmt->limitOption;
 
-	/* transform window clauses after we have seen all window functions */
+	/* 在看完所有窗口函数之后再转换窗口子句           */
 	qry->windowClause = transformWindowDefinitions(pstate,
 												   pstate->p_windowdefs,
 												   &qry->targetList);
 
-	/* resolve any still-unresolved output columns as being type text */
+	/* 把仍未确定类型的输出列定为 text 类型            */
 	if (pstate->p_resolve_unknowns)
 		resolveTargetListUnknowns(pstate, qry->targetList);
 
@@ -1463,7 +1463,7 @@ transformSelectStmt(ParseState *pstate, SelectStmt *stmt)
 
 	assign_query_collations(pstate, qry);
 
-	/* this must be done after collations, for reliable comparison of exprs */
+	/* 必须在排序规则之后做，才能可靠地比较表达式      */
 	if (pstate->p_hasAggs || qry->groupClause || qry->groupingSets || qry->havingQual)
 		parseCheckAggregates(pstate, qry);
 
@@ -1472,9 +1472,9 @@ transformSelectStmt(ParseState *pstate, SelectStmt *stmt)
 
 /*
  * transformValuesClause -
- *	  transforms a VALUES clause that's being used as a standalone SELECT
+ *	  转换被当作独立 SELECT 使用的 VALUES 子句               
  *
- * We build a Query containing a VALUES RTE, rather as if one had written
+ * 我们构建一个包含 VALUES RTE 的 Query，就像写的是       
  *			SELECT * FROM (VALUES ...) AS "*VALUES*"
  */
 static Query *
@@ -1495,7 +1495,7 @@ transformValuesClause(ParseState *pstate, SelectStmt *stmt)
 
 	qry->commandType = CMD_SELECT;
 
-	/* Most SELECT stuff doesn't apply in a VALUES clause */
+	/* 多数 SELECT 处理都不适用于 VALUES 子句  */
 	Assert(stmt->distinctClause == NIL);
 	Assert(stmt->intoClause == NULL);
 	Assert(stmt->targetList == NIL);
@@ -1506,7 +1506,7 @@ transformValuesClause(ParseState *pstate, SelectStmt *stmt)
 	Assert(stmt->windowClause == NIL);
 	Assert(stmt->op == SETOP_NONE);
 
-	/* process the WITH clause independently of all else */
+	/* 独立于其他部分处理 WITH 子句           */
 	if (stmt->withClause)
 	{
 		qry->hasRecursive = stmt->withClause->recursive;
@@ -1515,33 +1515,33 @@ transformValuesClause(ParseState *pstate, SelectStmt *stmt)
 	}
 
 	/*
-	 * For each row of VALUES, transform the raw expressions.
+	 * 对 VALUES 的每一行，转换其原始表达式。 
 	 *
-	 * Note that the intermediate representation we build is column-organized
-	 * not row-organized.  That simplifies the type and collation processing
-	 * below.
+	 * 注意我们构建的中间表示是按列组织的，                
+	 * 而非按行组织。这简化了后面类型与排序规则处理。
+	 *       
 	 */
 	foreach(lc, stmt->valuesLists)
 	{
 		List	   *sublist = (List *) lfirst(lc);
 
 		/*
-		 * Do basic expression transformation (same as a ROW() expr, but here
-		 * we disallow SetToDefault)
+		 * 做基本的表达式转换（与 ROW() 相同，但这里        
+		 * 禁用 SetToDefault）。
 		 */
 		sublist = transformExpressionList(pstate, sublist,
 										  EXPR_KIND_VALUES, false);
 
 		/*
-		 * All the sublists must be the same length, *after* transformation
-		 * (which might expand '*' into multiple items).  The VALUES RTE can't
-		 * handle anything different.
+		 * 所有子列表都必须在转换*之后*具有相同长度     
+		 * （转换可能把 '*' 展开为多个条目）。VALUES RTE 无法
+		 * 处理任何差异。     
 		 */
 		if (sublist_length < 0)
 		{
-			/* Remember post-transformation length of first sublist */
+			/* 记住第一个子列表转换后的长度           */
 			sublist_length = list_length(sublist);
-			/* and allocate array for per-column lists */
+			/* 并为按列列表分配数组          */
 			colexprs = (List **) palloc0(sublist_length * sizeof(List *));
 		}
 		else if (sublist_length != list_length(sublist))
@@ -1553,7 +1553,7 @@ transformValuesClause(ParseState *pstate, SelectStmt *stmt)
 										exprLocation((Node *) sublist))));
 		}
 
-		/* Build per-column expression lists */
+		/* 构建按列的表达式列表    */
 		i = 0;
 		foreach(lc2, sublist)
 		{
@@ -1563,26 +1563,26 @@ transformValuesClause(ParseState *pstate, SelectStmt *stmt)
 			i++;
 		}
 
-		/* Release sub-list's cells to save memory */
+		/* 释放子列表的单元以节省内存 */
 		list_free(sublist);
 
-		/* Prepare an exprsLists element for this row */
+		/* 为该行准备一个 exprsLists 元素    */
 		exprsLists = lappend(exprsLists, NIL);
 	}
 
 	/*
-	 * Now resolve the common types of the columns, and coerce everything to
-	 * those types.  Then identify the common typmod and common collation, if
-	 * any, of each column.
+	 * 现在解析各列的共同类型，并把全部表达式强转到   
+	 * 这些类型。然后确定每列共同的 typmod 与排序规则     
+	 * （若存在）。  
 	 *
-	 * We must do collation processing now because (1) assign_query_collations
-	 * doesn't process rangetable entries, and (2) we need to label the VALUES
-	 * RTE with column collations for use in the outer query.  We don't
-	 * consider conflict of implicit collations to be an error here; instead
-	 * the column will just show InvalidOid as its collation, and you'll get a
-	 * failure later if that results in failure to resolve a collation.
+	 * 必须现在做排序规则处理，因为 (1) assign_query_collations 
+	 * 不处理范围表项，且 (2) 我们需要为 VALUES RTE 标注      
+	 * 列排序规则供外层查询使用。我们在这里          
+	 * 不把隐式排序规则之间的冲突视为错误；相反，      
+	 * 该列的排序规则只会显示为 InvalidOid，如果这导致无法
+	 * 解析出排序规则，稍后就会报错。                   
 	 *
-	 * Note we modify the per-column expression lists in-place.
+	 * 注意我们会就地修改按列的表达式列表。  
 	 */
 	for (i = 0; i < sublist_length; i++)
 	{
@@ -1609,7 +1609,7 @@ transformValuesClause(ParseState *pstate, SelectStmt *stmt)
 	}
 
 	/*
-	 * Finally, rearrange the coerced expressions into row-organized lists.
+	 * 最后把强转后的表达式重排为按行组织的列表。     
 	 */
 	for (i = 0; i < sublist_length; i++)
 	{
@@ -1625,17 +1625,17 @@ transformValuesClause(ParseState *pstate, SelectStmt *stmt)
 	}
 
 	/*
-	 * Ordinarily there can't be any current-level Vars in the expression
-	 * lists, because the namespace was empty ... but if we're inside CREATE
-	 * RULE, then NEW/OLD references might appear.  In that case we have to
-	 * mark the VALUES RTE as LATERAL.
+	 * 正常情况下表达式列表中不会有本层的 Var，因为  
+	 * 命名空间为空 ... 但如果在 CREATE RULE 内部，            
+	 * 那么可能出现 NEW/OLD 引用。那种情况下我们必须把  
+	 * VALUES RTE 标为 LATERAL。   
 	 */
 	if (pstate->p_rtable != NIL &&
 		contain_vars_of_level((Node *) exprsLists, 0))
 		lateral = true;
 
 	/*
-	 * Generate the VALUES RTE
+	 * 生成 VALUES RTE      
 	 */
 	nsitem = addRangeTableEntryForValues(pstate, exprsLists,
 										 coltypes, coltypmods, colcollations,
@@ -1643,20 +1643,20 @@ transformValuesClause(ParseState *pstate, SelectStmt *stmt)
 	addNSItemToQuery(pstate, nsitem, true, true, true);
 
 	/*
-	 * Generate a targetlist as though expanding "*"
+	 * 如同展开 "*" 一样生成目标列表    
 	 */
 	Assert(pstate->p_next_resno == 1);
 	qry->targetList = expandNSItemAttrs(pstate, nsitem, 0, true, -1);
 
 	/*
-	 * The grammar allows attaching ORDER BY, LIMIT, and FOR UPDATE to a
-	 * VALUES, so cope.
+	 * 语法允许把 ORDER BY、LIMIT 和 FOR UPDATE 附加到 VALUES 
+	 * 故需处理。 
 	 */
 	qry->sortClause = transformSortClause(pstate,
 										  stmt->sortClause,
 										  &qry->targetList,
 										  EXPR_KIND_ORDER_BY,
-										  false /* allow SQL92 rules */ );
+										  false /* 按 SQL92 规则  */ );
 
 	qry->limitOffset = transformLimitClause(pstate, stmt->limitOffset,
 											EXPR_KIND_OFFSET, "OFFSET",
@@ -1688,13 +1688,13 @@ transformValuesClause(ParseState *pstate, SelectStmt *stmt)
 
 /*
  * transformSetOperationStmt -
- *	  transforms a set-operations tree
+ *	  转换集合操作树           
  *
- * A set-operation tree is just a SELECT, but with UNION/INTERSECT/EXCEPT
- * structure to it.  We must transform each leaf SELECT and build up a top-
- * level Query that contains the leaf SELECTs as subqueries in its rangetable.
- * The tree of set operations is converted into the setOperations field of
- * the top-level Query.
+ * 集合操作树本质上就是一个 SELECT，只是带有            
+ * UNION/INTERSECT/EXCEPT 结构。我们必须转换每个叶子          
+ * SELECT，并构建一个顶级 Query，将叶子 SELECT 作为子查询    
+ * 放进其范围表。集合操作树则被存入顶级 Query 的       
+ * 字段。           
  */
 static Query *
 transformSetOperationStmt(ParseState *pstate, SelectStmt *stmt)
@@ -1727,12 +1727,12 @@ transformSetOperationStmt(ParseState *pstate, SelectStmt *stmt)
 	qry->commandType = CMD_SELECT;
 
 	/*
-	 * Find leftmost leaf SelectStmt.  We currently only need to do this in
-	 * order to deliver a suitable error message if there's an INTO clause
-	 * there, implying the set-op tree is in a context that doesn't allow
-	 * INTO.  (transformSetOperationTree would throw error anyway, but it
-	 * seems worth the trouble to throw a different error for non-leftmost
-	 * INTO, so we produce that error in transformSetOperationTree.)
+	 * 找出最左边的叶子 SelectStmt。目前只需用它来         
+	 * 在有 INTO 子句时给出合适的错误消息，因为这暗示 
+	 * 集合操作树所在的上下文不允许 INTO。（本来       
+	 * transformSetOperationTree 也会报错，但针对非最左侧    
+	 * 的 INTO 单独报错似乎值得，因此该错误由             
+	 * transformSetOperationTree 产生。）                       
 	 */
 	leftmostSelect = stmt->larg;
 	while (leftmostSelect && leftmostSelect->op != SETOP_NONE)
@@ -1747,9 +1747,9 @@ transformSetOperationStmt(ParseState *pstate, SelectStmt *stmt)
 									exprLocation((Node *) leftmostSelect->intoClause))));
 
 	/*
-	 * We need to extract ORDER BY and other top-level clauses here and not
-	 * let transformSetOperationTree() see them --- else it'll just recurse
-	 * right back here!
+	 * 我们需要在这里提取 ORDER BY 和其他顶级子句，不能 
+	 * 让 transformSetOperationTree() 看到它们---否则它只会递归
+	 * 回这里！    
 	 */
 	sortClause = stmt->sortClause;
 	limitOffset = stmt->limitOffset;
@@ -1763,7 +1763,7 @@ transformSetOperationStmt(ParseState *pstate, SelectStmt *stmt)
 	stmt->lockingClause = NIL;
 	stmt->withClause = NULL;
 
-	/* We don't support FOR UPDATE/SHARE with set ops at the moment. */
+	/* 目前我们不支持对集合操作使用 FOR UPDATE/SHARE。*/
 	if (lockingClause)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -1773,7 +1773,7 @@ transformSetOperationStmt(ParseState *pstate, SelectStmt *stmt)
 						LCS_asString(((LockingClause *)
 									  linitial(lockingClause))->strength))));
 
-	/* Process the WITH clause independently of all else */
+	/* 独立于其他部分处理 WITH 子句           */
 	if (withClause)
 	{
 		qry->hasRecursive = withClause->recursive;
@@ -1782,7 +1782,7 @@ transformSetOperationStmt(ParseState *pstate, SelectStmt *stmt)
 	}
 
 	/*
-	 * Recursively transform the components of the tree.
+	 * 递归转换该树的各个组成部分。       
 	 */
 	sostmt = castNode(SetOperationStmt,
 					  transformSetOperationTree(pstate, stmt, true, NULL));
@@ -1790,7 +1790,7 @@ transformSetOperationStmt(ParseState *pstate, SelectStmt *stmt)
 	qry->setOperations = (Node *) sostmt;
 
 	/*
-	 * Re-find leftmost SELECT (now it's a sub-query in rangetable)
+	 * 重新找出最左 SELECT（现为范围表内子查询）  
 	 */
 	node = sostmt->larg;
 	while (node && IsA(node, SetOperationStmt))
@@ -1801,15 +1801,15 @@ transformSetOperationStmt(ParseState *pstate, SelectStmt *stmt)
 	Assert(leftmostQuery != NULL);
 
 	/*
-	 * Generate dummy targetlist for outer query using column names of
-	 * leftmost select and common datatypes/collations of topmost set
-	 * operation.  Also make lists of the dummy vars and their names for use
-	 * in parsing ORDER BY.
+	 * 使用最左 select 的列名与最顶层集合操作的共同 
+	 * 数据类型/排序规则为外层生成虚拟目标列表， 
+	 * 还要为解析 ORDER BY 制作虚拟 Var 及其名称的列表。   
+	 *                     
 	 *
-	 * Note: we use leftmostRTI as the varno of the dummy variables. It
-	 * shouldn't matter too much which RT index they have, as long as they
-	 * have one that corresponds to a real RT entry; else funny things may
-	 * happen when the tree is mashed by rule rewriting.
+	 * 注：我们用 leftmostRTI 作为虚拟变量的 varno。只要
+	 * 它们的 RT 下标是什么不要紧，只要对应一个真实的
+	 * 范围表项即可；否则这棵树被规则重写搅乱时可能 
+	 * 出现怪事。                                  
 	 */
 	qry->targetList = NIL;
 	targetvars = NIL;
@@ -1858,14 +1858,14 @@ transformSetOperationStmt(ParseState *pstate, SelectStmt *stmt)
 	}
 
 	/*
-	 * As a first step towards supporting sort clauses that are expressions
-	 * using the output columns, generate a namespace entry that makes the
-	 * output columns visible.  A Join RTE node is handy for this, since we
-	 * can easily control the Vars generated upon matches.
+	 * 为支持用输出列表达式写排序子句，第一步我们先  
+	 * 生成一个让输出列可见的命名空间条目。Join RTE     
+	 * 节点很适合此事，因为我们能轻松控制匹配时所     
+	 * 生成的 Var。                                   
 	 *
-	 * Note: we don't yet do anything useful with such cases, but at least
-	 * "ORDER BY upper(foo)" will draw the right error message rather than
-	 * "foo not found".
+	 * 注：对这类情形我们暂时做不了有用的事，但至少 
+	 * "ORDER BY upper(foo)" 会给出正确的错误消息，而不是   
+	 * "foo 未找到" 
 	 */
 	sv_rtable_length = list_length(pstate->p_rtable);
 
@@ -1884,14 +1884,14 @@ transformSetOperationStmt(ParseState *pstate, SelectStmt *stmt)
 	sv_namespace = pstate->p_namespace;
 	pstate->p_namespace = NIL;
 
-	/* add jnsitem to column namespace only */
+	/* 只把 jnsitem 加入列命名空间 */
 	addNSItemToQuery(pstate, jnsitem, false, false, true);
 
 	/*
-	 * For now, we don't support resjunk sort clauses on the output of a
-	 * setOperation tree --- you can only use the SQL92-spec options of
-	 * selecting an output column by name or number.  Enforce by checking that
-	 * transformSortClause doesn't add any items to tlist.
+	 * 暂不支持集合操作树输出上的 resjunk 排序子句     
+	 * --- 只能使用 SQL92 规定的做法：按名称或编号     
+	 * 选择输出列。强制手段是检查 transformSortClause 不会     
+	 * 向 tlist 添加任何条目。                    
 	 */
 	tllen = list_length(qry->targetList);
 
@@ -1899,9 +1899,9 @@ transformSetOperationStmt(ParseState *pstate, SelectStmt *stmt)
 										  sortClause,
 										  &qry->targetList,
 										  EXPR_KIND_ORDER_BY,
-										  false /* allow SQL92 rules */ );
+										  false /* 按 SQL92 规则  */ );
 
-	/* restore namespace, remove join RTE from rtable */
+	/* 恢复命名空间，从 rtable 移除 join RTE*/
 	pstate->p_namespace = sv_namespace;
 	pstate->p_rtable = list_truncate(pstate->p_rtable, sv_rtable_length);
 
@@ -1939,7 +1939,7 @@ transformSetOperationStmt(ParseState *pstate, SelectStmt *stmt)
 
 	assign_query_collations(pstate, qry);
 
-	/* this must be done after collations, for reliable comparison of exprs */
+	/* 必须在排序规则之后做，才能可靠地比较表达式      */
 	if (pstate->p_hasAggs || qry->groupClause || qry->groupingSets || qry->havingQual)
 		parseCheckAggregates(pstate, qry);
 
@@ -1947,10 +1947,10 @@ transformSetOperationStmt(ParseState *pstate, SelectStmt *stmt)
 }
 
 /*
- * Make a SortGroupClause node for a SetOperationStmt's groupClauses
+ * 为 SetOperationStmt 的 groupClauses 建 SortGroupClause 节点 
  *
- * If require_hash is true, the caller is indicating that they need hash
- * support or they will fail.  So look extra hard for hash support.
+ * 如果 require_hash 为真，表示调用者需要哈希支持，    
+ * 否则将失败。所以要格外用力地找哈希支持。    
  */
 SortGroupClause *
 makeSortGroupClauseForSetOp(Oid rescoltype, bool require_hash)
@@ -1960,26 +1960,26 @@ makeSortGroupClauseForSetOp(Oid rescoltype, bool require_hash)
 	Oid			eqop;
 	bool		hashable;
 
-	/* determine the eqop and optional sortop */
+	/* 确定 eqop 以及可选的 sortop     */
 	get_sort_group_operators(rescoltype,
 							 false, true, false,
 							 &sortop, &eqop, NULL,
 							 &hashable);
 
 	/*
-	 * The type cache doesn't believe that record is hashable (see
-	 * cache_record_field_properties()), but if the caller really needs hash
-	 * support, we can assume it does.  Worst case, if any components of the
-	 * record don't support hashing, we will fail at execution.
+	 * 类型缓存不认为 record 可哈希（见               
+	 * cache_record_field_properties()），但如果调用者确实需要  
+	 * 哈希支持，我们可以假定它有。最坏情形是 record 的 
+	 * 某组件不支持哈希，就会在执行时失败。  
 	 */
 	if (require_hash && (rescoltype == RECORDOID || rescoltype == RECORDARRAYOID))
 		hashable = true;
 
-	/* we don't have a tlist yet, so can't assign sortgrouprefs */
+	/* 此时还没有 tlist，因此无法分配 sortgroupref  */
 	grpcl->tleSortGroupRef = 0;
 	grpcl->eqop = eqop;
 	grpcl->sortop = sortop;
-	grpcl->nulls_first = false; /* OK with or without sortop */
+	grpcl->nulls_first = false; /* 有无 sortop 都可以   */
 	grpcl->hashable = hashable;
 
 	return grpcl;
@@ -1987,17 +1987,17 @@ makeSortGroupClauseForSetOp(Oid rescoltype, bool require_hash)
 
 /*
  * transformSetOperationTree
- *		Recursively transform leaves and internal nodes of a set-op tree
+ *		递归转换集合操作树的叶子节点与内部节点       
  *
- * In addition to returning the transformed node, if targetlist isn't NULL
- * then we return a list of its non-resjunk TargetEntry nodes.  For a leaf
- * set-op node these are the actual targetlist entries; otherwise they are
- * dummy entries created to carry the type, typmod, collation, and location
- * (for error messages) of each output column of the set-op node.  This info
- * is needed only during the internal recursion of this function, so outside
- * callers pass NULL for targetlist.  Note: the reason for passing the
- * actual targetlist entries of a leaf node is so that upper levels can
- * replace UNKNOWN Consts with properly-coerced constants.
+ * 除了返回转换后的节点之外，如果 targetlist 不是 NULL，
+ * 我们还会返回其非 resjunk TargetEntry 节点列表。对叶子  
+ * 集合操作节点而言，这些是实际目标列表条目；否则  
+ * 它们用来携带类型、typmod、排序规则和位置（供         
+ * 错误消息用）集合操作节点各输出列的信息。这些信息 
+ * 只在本函数的内部递归期间需要，所以外部调用者给    
+ * targetlist 传 NULL。注：传叶子实际目标列表条目的   
+ * 原因是让上层能够把 UNKNOWN Const 替换为正确强转     
+ * 的常量。                                           
  */
 static Node *
 transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
@@ -2007,11 +2007,11 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 
 	Assert(stmt && IsA(stmt, SelectStmt));
 
-	/* Guard against stack overflow due to overly complex set-expressions */
+	/* 防范因集合表达式过于复杂而导致的栈溢出          */
 	check_stack_depth();
 
 	/*
-	 * Validity-check both leaf and internal SELECTs for disallowed ops.
+	 * 对叶子和内部 SELECT 检查是否含不允许的操作。   
 	 */
 	if (stmt->intoClause)
 		ereport(ERROR,
@@ -2020,7 +2020,7 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 				 parser_errposition(pstate,
 									exprLocation((Node *) stmt->intoClause))));
 
-	/* We don't support FOR UPDATE/SHARE with set ops at the moment. */
+	/* 目前我们不支持对集合操作使用 FOR UPDATE/SHARE。*/
 	if (stmt->lockingClause)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -2031,10 +2031,10 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 									  linitial(stmt->lockingClause))->strength))));
 
 	/*
-	 * If an internal node of a set-op tree has ORDER BY, LIMIT, FOR UPDATE,
-	 * or WITH clauses attached, we need to treat it like a leaf node to
-	 * generate an independent sub-Query tree.  Otherwise, it can be
-	 * represented by a SetOperationStmt node underneath the parent Query.
+	 * 如果集合操作树的内部节点带有 ORDER BY、LIMIT、FOR    
+	 * UPDATE 或 WITH 子句，就要把它当叶子节点处理，    
+	 * 以生成独立的子 Query 树。否则它可由            
+	 * SetOperationStmt 节点表示，位于父 Query 之下。          
 	 */
 	if (stmt->op == SETOP_NONE)
 	{
@@ -2053,7 +2053,7 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 
 	if (isLeaf)
 	{
-		/* Process leaf SELECT */
+		/* 处理叶子 SELECT */
 		Query	   *selectQuery;
 		char		selectName[32];
 		ParseNamespaceItem *nsitem;
@@ -2061,27 +2061,27 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 		ListCell   *tl;
 
 		/*
-		 * Transform SelectStmt into a Query.
+		 * 把 SelectStmt 转换为 Query。 
 		 *
-		 * This works the same as SELECT transformation normally would, except
-		 * that we prevent resolving unknown-type outputs as TEXT.  This does
-		 * not change the subquery's semantics since if the column type
-		 * matters semantically, it would have been resolved to something else
-		 * anyway.  Doing this lets us resolve such outputs using
-		 * select_common_type(), below.
+		 * 这一步与通常的 SELECT 转换一样，但我们会阻止把  
+		 * 未知类型输出按 TEXT 解析，这不改变子查询语义，
+		 * 因为若列类型有语义作用，它早就会被解析   
+		 * 成别的。这样我们就能在下方用 select_common_type()    
+		 * 解析这些输出。                                 
+		 *                             
 		 *
-		 * Note: previously transformed sub-queries don't affect the parsing
-		 * of this sub-query, because they are not in the toplevel pstate's
-		 * namespace list.
+		 * 注：已转换子查询不影响本子查询解析，因其     
+		 * 并不在顶层 pstate 的命名空间                          
+		 * 列表中。   
 		 */
 		selectQuery = parse_sub_analyze((Node *) stmt, pstate,
 										NULL, false, false);
 
 		/*
-		 * Check for bogus references to Vars on the current query level (but
-		 * upper-level references are okay). Normally this can't happen
-		 * because the namespace will be empty, but it could happen if we are
-		 * inside a rule.
+		 * 检查当前层 Var 的非法引用（上层引用无妨），    
+		 * 正常情况下这不会发生，因为命名空间为空；
+		 * 但如果我们位于规则内部，这种情况就可能发生。
+		 *               
 		 */
 		if (pstate->p_namespace)
 		{
@@ -2094,7 +2094,7 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 		}
 
 		/*
-		 * Extract a list of the non-junk TLEs for upper-level processing.
+		 * 提取非垃圾 TLE 的列表供上层处理使用。          
 		 */
 		if (targetlist)
 		{
@@ -2109,7 +2109,7 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 		}
 
 		/*
-		 * Make the leaf query be a subquery in the top-level rangetable.
+		 * 让叶子查询成为顶级范围表中的一个子查询。  
 		 */
 		snprintf(selectName, sizeof(selectName), "*SELECT* %d",
 				 list_length(pstate->p_rtable) + 1);
@@ -2120,7 +2120,7 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 											   false);
 
 		/*
-		 * Return a RangeTblRef to replace the SelectStmt in the set-op tree.
+		 * 返回 RangeTblRef 以替换集合操作树中的 SelectStmt。   
 		 */
 		rtr = makeNode(RangeTblRef);
 		rtr->rtindex = nsitem->p_rtindex;
@@ -2128,7 +2128,7 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 	}
 	else
 	{
-		/* Process an internal node (set operation node) */
+		/* 处理内部节点（集合操作节点）    */
 		SetOperationStmt *op = makeNode(SetOperationStmt);
 		List	   *ltargetlist;
 		List	   *rtargetlist;
@@ -2146,31 +2146,31 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 		op->all = stmt->all;
 
 		/*
-		 * Recursively transform the left child node.
+		 * 递归转换左子节点。               
 		 */
 		op->larg = transformSetOperationTree(pstate, stmt->larg,
 											 false,
 											 &ltargetlist);
 
 		/*
-		 * If we are processing a recursive union query, now is the time to
-		 * examine the non-recursive term's output columns and mark the
-		 * containing CTE as having those result columns.  We should do this
-		 * only at the topmost setop of the CTE, of course.
+		 * 若在处理递归 union 查询，现在就该检查非递归项
+		 * 的输出列，并把包含这些列的 CTE 标记为拥有 
+		 * 这些结果列。当然只在 CTE 顶层 setop 上这样做，  
+		 *                                                 
 		 */
 		if (isTopLevel && recursive)
 			determineRecursiveColTypes(pstate, op->larg, ltargetlist);
 
 		/*
-		 * Recursively transform the right child node.
+		 * 递归转换右子节点。                
 		 */
 		op->rarg = transformSetOperationTree(pstate, stmt->rarg,
 											 false,
 											 &rtargetlist);
 
 		/*
-		 * Verify that the two children have the same number of non-junk
-		 * columns, and determine the types of the merged output columns.
+		 * 验证两个子节点非垃圾列数相同，并确定合并 
+		 * 后输出列的类型。                                      
 		 */
 		if (list_length(ltargetlist) != list_length(rtargetlist))
 			ereport(ERROR,
@@ -2200,7 +2200,7 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 			int32		rescoltypmod;
 			Oid			rescolcoll;
 
-			/* select common type, same as CASE et al */
+			/* 选择共同类型，与 CASE 等相同*/
 			rescoltype = select_common_type(pstate,
 											list_make2(lcolnode, rcolnode),
 											context,
@@ -2208,31 +2208,31 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 			bestlocation = exprLocation(bestexpr);
 
 			/*
-			 * Verify the coercions are actually possible.  If not, we'd fail
-			 * later anyway, but we want to fail now while we have sufficient
-			 * context to produce an error cursor position.
+			 * 验证强转确实可行；否则稍后会失败，但我们  
+			 * 希望现在就失败，趁有足够上下文可给出错误  
+			 * 光标位置。                             
 			 *
-			 * For all non-UNKNOWN-type cases, we verify coercibility but we
-			 * don't modify the child's expression, for fear of changing the
-			 * child query's semantics.
+			 * 对非 UNKNOWN 类型情形，只验证可强转性，并不 
+			 * 修改子表达式，以免改变子查询的语义。       
+			 *                         
 			 *
-			 * If a child expression is an UNKNOWN-type Const or Param, we
-			 * want to replace it with the coerced expression.  This can only
-			 * happen when the child is a leaf set-op node.  It's safe to
-			 * replace the expression because if the child query's semantics
-			 * depended on the type of this output column, it'd have already
-			 * coerced the UNKNOWN to something else.  We want to do this
-			 * because (a) we want to verify that a Const is valid for the
-			 * target type, or resolve the actual type of an UNKNOWN Param,
-			 * and (b) we want to avoid unnecessary discrepancies between the
-			 * output type of the child query and the resolved target type.
-			 * Such a discrepancy would disable optimization in the planner.
+			 * 若子表达式为 UNKNOWN 的 Const 或 Param，我们    
+			 * 想把它替换为强转后的表达式。这只可能        
+			 * 发生在子节点为叶子集合操作节点时。替换 
+			 * 表达式是安全的，因为若子查询语义依赖它， 
+			 * 输出列类型，那早就会把 UNKNOWN 强转成别的    
+			 * 这么做是因为 (a) 要验证 Const 对目标类型    
+			 * 有效，或解析 UNKNOWN Param 的实际类型；(b)     
+			 * 我们想避免子查询输出类型与解析目标类型间
+			 * 出现不必要的差异。                                   
+			 *                                                             
+			 * 这种差异会禁用规划器中的优化。                
 			 *
-			 * If it's some other UNKNOWN-type node, eg a Var, we do nothing
-			 * (knowing that coerce_to_common_type would fail).  The planner
-			 * is sometimes able to fold an UNKNOWN Var to a constant before
-			 * it has to coerce the type, so failing now would just break
-			 * cases that might work.
+			 * 若是其他 UNKNOWN 节点（如 Var），我们就不做，
+			 * （coerce_to_common_type 会失败）。规划器有时能   
+			 * 在强转类型前把 UNKNOWN Var 折叠为常量，故      
+			 * 现在就失败只会破坏原本可能成功的情形。 
+			 *                       
 			 */
 			if (lcoltype != UNKNOWNOID)
 				lcolnode = coerce_to_common_type(pstate, lcolnode,
@@ -2261,27 +2261,27 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 												rescoltype);
 
 			/*
-			 * Select common collation.  A common collation is required for
-			 * all set operators except UNION ALL; see SQL:2008 7.13 <query
-			 * expression> Syntax Rule 15c.  (If we fail to identify a common
-			 * collation for a UNION ALL column, the colCollations element
-			 * will be set to InvalidOid, which may result in a runtime error
-			 * if something at a higher query level wants to use the column's
-			 * collation.)
+			 * 选共同排序规则。UNION ALL 以外的集合操作     
+			 * 都需要共同排序规则；见 SQL:2008 7.13 <query      
+			 * expression> 语法规则 15c。（如果无法为 UNION ALL   
+			 * 的列找到共同排序规则，colCollations 元素设为
+			 * InvalidOid，若上层查询要用该列的排序规则，就 
+			 * 可能在运行时出错。                                   
+			 *            
 			 */
 			rescolcoll = select_common_collation(pstate,
 												 list_make2(lcolnode, rcolnode),
 												 (op->op == SETOP_UNION && op->all));
 
-			/* emit results */
+			/* 产出结果 */
 			op->colTypes = lappend_oid(op->colTypes, rescoltype);
 			op->colTypmods = lappend_int(op->colTypmods, rescoltypmod);
 			op->colCollations = lappend_oid(op->colCollations, rescolcoll);
 
 			/*
-			 * For all cases except UNION ALL, identify the grouping operators
-			 * (and, if available, sorting operators) that will be used to
-			 * eliminate duplicates.
+			 * 除 UNION ALL 之外的情形，找出将用于消除重复的 
+			 * 分组运算符（及排序运算符，若有）。        
+			 *                      
 			 */
 			if (op->op != SETOP_UNION || !op->all)
 			{
@@ -2291,8 +2291,8 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 												  bestlocation);
 
 				/*
-				 * If it's a recursive union, we need to require hashing
-				 * support.
+				 * 若是递归 union，就需要哈希支持。        
+				 *         
 				 */
 				op->groupClauses = lappend(op->groupClauses,
 										   makeSortGroupClauseForSetOp(rescoltype, recursive));
@@ -2301,9 +2301,9 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 			}
 
 			/*
-			 * Construct a dummy tlist entry to return.  We use a SetToDefault
-			 * node for the expression, since it carries exactly the fields
-			 * needed, but any other expression node type would do as well.
+			 * 构建一个返回用的虚拟 tlist 条目。用 SetToDefault 
+			 * 节点作表达式，因为它正好带有需要的字段，
+			 * 但任何其他表达式节点类型也同样可行。      
 			 */
 			if (targetlist)
 			{
@@ -2315,7 +2315,7 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 				rescolnode->collation = rescolcoll;
 				rescolnode->location = bestlocation;
 				restle = makeTargetEntry((Expr *) rescolnode,
-										 0, /* no need to set resno */
+										 0, /* 无需设置 resno   */
 										 NULL,
 										 false);
 				*targetlist = lappend(*targetlist, restle);
@@ -2327,8 +2327,8 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 }
 
 /*
- * Process the outputs of the non-recursive term of a recursive union
- * to set up the parent CTE's columns
+ * 处理递归 UNION 非递归项的输出，                       
+ * 以建立父 CTE 的列           
  */
 static void
 determineRecursiveColTypes(ParseState *pstate, Node *larg, List *nrtargetlist)
@@ -2342,7 +2342,7 @@ determineRecursiveColTypes(ParseState *pstate, Node *larg, List *nrtargetlist)
 	int			next_resno;
 
 	/*
-	 * Find leftmost leaf SELECT
+	 * 找最左叶子 SELECT   
 	 */
 	node = larg;
 	while (node && IsA(node, SetOperationStmt))
@@ -2353,8 +2353,8 @@ determineRecursiveColTypes(ParseState *pstate, Node *larg, List *nrtargetlist)
 	Assert(leftmostQuery != NULL);
 
 	/*
-	 * Generate dummy targetlist using column names of leftmost select and
-	 * dummy result expressions of the non-recursive term.
+	 * 使用最左侧 select 的列名与非递归项的                 
+	 * 哑结果表达式生成哑目标列表。         
 	 */
 	targetList = NIL;
 	next_resno = 1;
@@ -2375,14 +2375,14 @@ determineRecursiveColTypes(ParseState *pstate, Node *larg, List *nrtargetlist)
 		targetList = lappend(targetList, tle);
 	}
 
-	/* Now build CTE's output column info using dummy targetlist */
+	/* 现在用哑目标列表构建 CTE 的输出列信息     */
 	analyzeCTETargetList(pstate, pstate->p_parent_cte, targetList);
 }
 
 
 /*
  * transformReturnStmt -
- *	  transforms a return statement
+ *	  转换 return 语句         
  */
 static Query *
 transformReturnStmt(ParseState *pstate, ReturnStmt *stmt)
@@ -2413,7 +2413,7 @@ transformReturnStmt(ParseState *pstate, ReturnStmt *stmt)
 
 /*
  * transformUpdateStmt -
- *	  transforms an update statement
+ *	  转换 UPDATE 语句          
  */
 static Query *
 transformUpdateStmt(ParseState *pstate, UpdateStmt *stmt)
@@ -2425,7 +2425,7 @@ transformUpdateStmt(ParseState *pstate, UpdateStmt *stmt)
 	qry->commandType = CMD_UPDATE;
 	pstate->p_is_insert = false;
 
-	/* process the WITH clause independently of all else */
+	/* 独立于其他一切单独处理 WITH 子句     */
 	if (stmt->withClause)
 	{
 		qry->hasRecursive = stmt->withClause->recursive;
@@ -2439,17 +2439,17 @@ transformUpdateStmt(ParseState *pstate, UpdateStmt *stmt)
 										 ACL_UPDATE);
 	nsitem = pstate->p_target_nsitem;
 
-	/* subqueries in FROM cannot access the result relation */
+	/* FROM 中的子查询无法访问结果关系         */
 	nsitem->p_lateral_only = true;
 	nsitem->p_lateral_ok = false;
 
 	/*
-	 * the FROM clause is non-standard SQL syntax. We used to be able to do
-	 * this with REPLACE in POSTQUEL so we keep the feature.
+	 * FROM 子句是非标准的 SQL 语法。我们过去能够在       
+	 * POSTQUEL 中以 REPLACE 实现之，故保留。     
 	 */
 	transformFromClause(pstate, stmt->fromClause);
 
-	/* remaining clauses can reference the result relation normally */
+	/* 其余子句可正常引用结果关系                      */
 	nsitem->p_lateral_only = false;
 	nsitem->p_lateral_ok = true;
 
@@ -2459,8 +2459,8 @@ transformUpdateStmt(ParseState *pstate, UpdateStmt *stmt)
 	qry->returningList = transformReturningList(pstate, stmt->returningList);
 
 	/*
-	 * Now we are done with SELECT-like processing, and can get on with
-	 * transforming the target list to match the UPDATE target columns.
+	 * 现在 SELECT 类处理已完成，可以继续                 
+	 * 转换目标列表以匹配 UPDATE 目标列。                 
 	 */
 	qry->targetList = transformUpdateTargetList(pstate, stmt->targetList);
 
@@ -2478,7 +2478,7 @@ transformUpdateStmt(ParseState *pstate, UpdateStmt *stmt)
 
 /*
  * transformUpdateTargetList -
- *	handle SET clause in UPDATE/MERGE/INSERT ... ON CONFLICT UPDATE
+ *	UPDATE/MERGE/INSERT ... ON CONFLICT UPDATE 的 SET 子句处理
  */
 List *
 transformUpdateTargetList(ParseState *pstate, List *origTlist)
@@ -2491,11 +2491,11 @@ transformUpdateTargetList(ParseState *pstate, List *origTlist)
 	tlist = transformTargetList(pstate, origTlist,
 								EXPR_KIND_UPDATE_SOURCE);
 
-	/* Prepare to assign non-conflicting resnos to resjunk attributes */
+	/* 准备为 resjunk 属性分配互不冲突的 resno            */
 	if (pstate->p_next_resno <= RelationGetNumberOfAttributes(pstate->p_target_relation))
 		pstate->p_next_resno = RelationGetNumberOfAttributes(pstate->p_target_relation) + 1;
 
-	/* Prepare non-junk columns for assignment to target table */
+	/* 准备非垃圾列以便赋给目标表                 */
 	target_perminfo = pstate->p_target_nsitem->p_perminfo;
 	orig_tl = list_head(origTlist);
 
@@ -2508,10 +2508,10 @@ transformUpdateTargetList(ParseState *pstate, List *origTlist)
 		if (tle->resjunk)
 		{
 			/*
-			 * Resjunk nodes need no additional processing, but be sure they
-			 * have resnos that do not match any target columns; else rewriter
-			 * or planner might get confused.  They don't need a resname
-			 * either.
+			 * resjunk 节点无需额外处理，但务必确保           
+			 * 其 resno 不与任何目标列匹配；否则重写器        
+			 * 或规划器可能被搞糊涂。resname 也无需。    
+			 *        
 			 */
 			tle->resno = (AttrNumber) pstate->p_next_resno++;
 			tle->resname = NULL;
@@ -2536,7 +2536,7 @@ transformUpdateTargetList(ParseState *pstate, List *origTlist)
 							  origTarget->indirection,
 							  origTarget->location);
 
-		/* Mark the target column as requiring update permissions */
+		/* 将目标列标记为需要 UPDATE 权限              */
 		target_perminfo->updatedCols = bms_add_member(target_perminfo->updatedCols,
 													  attrno - FirstLowInvalidHeapAttributeNumber);
 
@@ -2550,7 +2550,7 @@ transformUpdateTargetList(ParseState *pstate, List *origTlist)
 
 /*
  * transformReturningList -
- *	handle a RETURNING clause in INSERT/UPDATE/DELETE
+ *	INSERT/UPDATE/DELETE 的 RETURNING 子句处理  
  */
 static List *
 transformReturningList(ParseState *pstate, List *returningList)
@@ -2559,24 +2559,24 @@ transformReturningList(ParseState *pstate, List *returningList)
 	int			save_next_resno;
 
 	if (returningList == NIL)
-		return NIL;				/* nothing to do */
+		return NIL;				/* 无事可做  */
 
 	/*
-	 * We need to assign resnos starting at one in the RETURNING list. Save
-	 * and restore the main tlist's value of p_next_resno, just in case
-	 * someone looks at it later (probably won't happen).
+	 * RETURNING 列表的 resno 需从 1 开始分配。为此            
+	 * 要保存并恢复主 tlist 的 p_next_resno 值，以防       
+	 * 日后有人查看（大概率不会发生）。  
 	 */
 	save_next_resno = pstate->p_next_resno;
 	pstate->p_next_resno = 1;
 
-	/* transform RETURNING identically to a SELECT targetlist */
+	/* 把 RETURNING 按 SELECT 目标列表同样转换      */
 	rlist = transformTargetList(pstate, returningList, EXPR_KIND_RETURNING);
 
 	/*
-	 * Complain if the nonempty tlist expanded to nothing (which is possible
-	 * if it contains only a star-expansion of a zero-column table).  If we
-	 * allow this, the parsed Query will look like it didn't have RETURNING,
-	 * with results that would probably surprise the user.
+	 * 若非空 tlist 展开后为空则报错（当它只含              
+	 * 零列表的星号展开时便可能发生）。我们若           
+	 * 允许，解析出的 Query 就会看似没有 RETURNING，          
+	 * 其结果多半会让用户感到意外。         
 	 */
 	if (rlist == NIL)
 		ereport(ERROR,
@@ -2585,14 +2585,14 @@ transformReturningList(ParseState *pstate, List *returningList)
 				 parser_errposition(pstate,
 									exprLocation(linitial(returningList)))));
 
-	/* mark column origins */
+	/* 标记列来源     */
 	markTargetListOrigins(pstate, rlist);
 
-	/* resolve any still-unresolved output columns as being type text */
+	/* 把仍未定型的输出列定为 text 类型                  */
 	if (pstate->p_resolve_unknowns)
 		resolveTargetListUnknowns(pstate, rlist);
 
-	/* restore state */
+	/* 恢复状态  */
 	pstate->p_next_resno = save_next_resno;
 
 	return rlist;
@@ -2601,14 +2601,14 @@ transformReturningList(ParseState *pstate, List *returningList)
 
 /*
  * transformPLAssignStmt -
- *	  transform a PL/pgSQL assignment statement
+ *	  转换 PL/pgSQL 赋值语句             
  *
- * If there is no opt_indirection, the transformed statement looks like
- * "SELECT a_expr ...", except the expression has been cast to the type of
- * the target.  With indirection, it's still a SELECT, but the expression will
- * incorporate FieldStore and/or assignment SubscriptingRef nodes to compute a
- * new value for a container-type variable represented by the target.  The
- * expression references the target as the container source.
+ * 若没有 opt_indirection，转换后的语句形如                
+ * "SELECT a_expr ..."，只是表达式已被                            
+ * 强制转换为目标类型。若有下标，它仍是 SELECT，           
+ * 但表达式会纳入 FieldStore 和/或赋值 SubscriptingRef 节点，   
+ * 为该目标代表的容器类型变量计算新值。                 
+ * 表达式将目标引用为容器来源。               
  */
 static Query *
 transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
@@ -2629,15 +2629,15 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
 	ListCell   *l;
 
 	/*
-	 * First, construct a ColumnRef for the target variable.  If the target
-	 * has more than one dotted name, we have to pull the extra names out of
-	 * the indirection list.
+	 * 首先，为目标变量构造 ColumnRef。若目标                
+	 * 带有多个点分名称，就得把多余名称从间接            
+	 * 列表中移出。   
 	 */
 	cref->fields = list_make1(makeString(stmt->name));
 	cref->location = stmt->location;
 	if (nnames > 1)
 	{
-		/* avoid munging the raw parsetree */
+		/* 避免弄乱原始解析树     */
 		indirection = list_copy(indirection);
 		while (--nnames > 0 && indirection != NIL)
 		{
@@ -2651,8 +2651,8 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
 	}
 
 	/*
-	 * Transform the target reference.  Typically we will get back a Param
-	 * node, but there's no reason to be too picky about its type.
+	 * 转换目标引用。通常我们会得到一个 Param             
+	 * 节点，但无需过分挑剔其类型。                 
 	 */
 	target = transformExpr(pstate, (Node *) cref,
 						   EXPR_KIND_UPDATE_TARGET);
@@ -2661,26 +2661,26 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
 	targetcollation = exprCollation(target);
 
 	/*
-	 * The rest mostly matches transformSelectStmt, except that we needn't
-	 * consider WITH or INTO, and we build a targetlist our own way.
+	 * 其余部分大多与 transformSelectStmt 相同，只是无需    
+	 * 考虑 WITH 或 INTO，且自行构建目标列表。        
 	 */
 	qry->commandType = CMD_SELECT;
 	pstate->p_is_insert = false;
 
-	/* make FOR UPDATE/FOR SHARE info available to addRangeTableEntry */
+	/* 把 FOR UPDATE/FOR SHARE 信息提供给 addRangeTableEntry    */
 	pstate->p_locking_clause = sstmt->lockingClause;
 
-	/* make WINDOW info available for window functions, too */
+	/* 也让窗口函数能拿到 WINDOW 信息            */
 	pstate->p_windowdefs = sstmt->windowClause;
 
-	/* process the FROM clause */
+	/* 处理 FROM 子句      */
 	transformFromClause(pstate, sstmt->fromClause);
 
-	/* initially transform the targetlist as if in SELECT */
+	/* 先按 SELECT 的情形初步转换目标列表    */
 	tlist = transformTargetList(pstate, sstmt->targetList,
 								EXPR_KIND_SELECT_TARGET);
 
-	/* we should have exactly one targetlist item */
+	/* 应当恰好只有一个目标列表项    */
 	if (list_length(tlist) != 1)
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
@@ -2692,8 +2692,8 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
 	tle = linitial_node(TargetEntry, tlist);
 
 	/*
-	 * This next bit is similar to transformAssignedExpr; the key difference
-	 * is we use COERCION_PLPGSQL not COERCION_ASSIGNMENT.
+	 * 本段与 transformAssignedExpr 类似；关键差别是采用       
+	 * COERCION_PLPGSQL 而非 COERCION_ASSIGNMENT。     
 	 */
 	type_id = exprType((Node *) tle->expr);
 
@@ -2720,17 +2720,17 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
 			 (type_id == RECORDOID || ISCOMPLEX(type_id)))
 	{
 		/*
-		 * Hack: do not let coerce_to_target_type() deal with inconsistent
-		 * composite types.  Just pass the expression result through as-is,
-		 * and let the PL/pgSQL executor do the conversion its way.  This is
-		 * rather bogus, but it's needed for backwards compatibility.
+		 * Hack：别让 coerce_to_target_type() 处理不一致的       
+		 * 组合类型。表达式结果原样透传即可，             
+		 * 类型转换交给 PL/pgSQL 执行器自行完成。             
+		 * 这做法颇为拙劣，但为向后兼容所必需。    
 		 */
 	}
 	else
 	{
 		/*
-		 * For normal non-qualified target column, do type checking and
-		 * coercion.
+		 * 对普通未限定的目标列做类型检查与转换。   
+		 *          
 		 */
 		Node	   *orig_expr = (Node *) tle->expr;
 
@@ -2741,7 +2741,7 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
 								  COERCION_PLPGSQL,
 								  COERCE_IMPLICIT_CAST,
 								  -1);
-		/* With COERCION_PLPGSQL, this error is probably unreachable */
+		/* 在 COERCION_PLPGSQL 下此错误多半不可达          */
 		if (tle->expr == NULL)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -2758,25 +2758,25 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
 
 	qry->targetList = list_make1(tle);
 
-	/* transform WHERE */
+	/* 转换 WHERE    */
 	qual = transformWhereClause(pstate, sstmt->whereClause,
 								EXPR_KIND_WHERE, "WHERE");
 
-	/* initial processing of HAVING clause is much like WHERE clause */
+	/* HAVING 子句的初步处理与 WHERE 子句十分类似      */
 	qry->havingQual = transformWhereClause(pstate, sstmt->havingClause,
 										   EXPR_KIND_HAVING, "HAVING");
 
 	/*
-	 * Transform sorting/grouping stuff.  Do ORDER BY first because both
-	 * transformGroupClause and transformDistinctClause need the results. Note
-	 * that these functions can also change the targetList, so it's passed to
-	 * them by reference.
+	 * 转换排序/分组相关内容。先做 ORDER BY，因为       
+	 * transformGroupClause 与 transformDistinctClause 都需要             
+	 * 其结果。另请注意这些函数还会改动 targetList，        
+	 * 按引用传入。
 	 */
 	qry->sortClause = transformSortClause(pstate,
 										  sstmt->sortClause,
 										  &qry->targetList,
 										  EXPR_KIND_ORDER_BY,
-										  false /* allow SQL92 rules */ );
+										  false /* 按 SQL92 规则  */ );
 
 	qry->groupClause = transformGroupClause(pstate,
 											sstmt->groupClause,
@@ -2784,7 +2784,7 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
 											&qry->targetList,
 											qry->sortClause,
 											EXPR_KIND_GROUP_BY,
-											false /* allow SQL92 rules */ );
+											false /* 按 SQL92 规则  */ );
 	qry->groupDistinct = sstmt->groupDistinct;
 
 	if (sstmt->distinctClause == NIL)
@@ -2794,7 +2794,7 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
 	}
 	else if (linitial(sstmt->distinctClause) == NULL)
 	{
-		/* We had SELECT DISTINCT */
+		/* 原为 SELECT DISTINCT */
 		qry->distinctClause = transformDistinctClause(pstate,
 													  &qry->targetList,
 													  qry->sortClause,
@@ -2803,7 +2803,7 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
 	}
 	else
 	{
-		/* We had SELECT DISTINCT ON */
+		/* 原为 SELECT DISTINCT ON */
 		qry->distinctClause = transformDistinctOnClause(pstate,
 														sstmt->distinctClause,
 														&qry->targetList,
@@ -2811,7 +2811,7 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
 		qry->hasDistinctOn = true;
 	}
 
-	/* transform LIMIT */
+	/* 转换 LIMIT    */
 	qry->limitOffset = transformLimitClause(pstate, sstmt->limitOffset,
 											EXPR_KIND_OFFSET, "OFFSET",
 											sstmt->limitOption);
@@ -2820,7 +2820,7 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
 										   sstmt->limitOption);
 	qry->limitOption = sstmt->limitOption;
 
-	/* transform window clauses after we have seen all window functions */
+	/* 在见过所有窗口函数之后再转换窗口子句           */
 	qry->windowClause = transformWindowDefinitions(pstate,
 												   pstate->p_windowdefs,
 												   &qry->targetList);
@@ -2842,7 +2842,7 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
 
 	assign_query_collations(pstate, qry);
 
-	/* this must be done after collations, for reliable comparison of exprs */
+	/* 此步须在排序规则之后做，以便可靠地比较表达式   */
 	if (pstate->p_hasAggs || qry->groupClause || qry->groupingSets || qry->havingQual)
 		parseCheckAggregates(pstate, qry);
 
@@ -2852,13 +2852,13 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
 
 /*
  * transformDeclareCursorStmt -
- *	transform a DECLARE CURSOR Statement
+ *	转换 DECLARE CURSOR 语句        
  *
- * DECLARE CURSOR is like other utility statements in that we emit it as a
- * CMD_UTILITY Query node; however, we must first transform the contained
- * query.  We used to postpone that until execution, but it's really necessary
- * to do it during the normal parse analysis phase to ensure that side effects
- * of parser hooks happen at the expected time.
+ * DECLARE CURSOR 与其他实用语句类似：我们也把它作为     
+ * CMD_UTILITY Query 节点发出；但必须先转换其                
+ * 所含查询。过去我们把它推迟到执行时，但                  
+ * 确实必须在正常解析分析阶段完成，从而确保               
+ * 解析器钩子的副作用如期发生。  
  */
 static Query *
 transformDeclareCursorStmt(ParseState *pstate, DeclareCursorStmt *stmt)
@@ -2882,26 +2882,26 @@ transformDeclareCursorStmt(ParseState *pstate, DeclareCursorStmt *stmt)
 				 errmsg("cannot specify both %s and %s",
 						"ASENSITIVE", "INSENSITIVE")));
 
-	/* Transform contained query, not allowing SELECT INTO */
+	/* 转换所含查询，不允许 SELECT INTO          */
 	query = transformStmt(pstate, stmt->query);
 	stmt->query = (Node *) query;
 
-	/* Grammar should not have allowed anything but SELECT */
+	/* 文法本不应允许 SELECT 以外的任何东西  */
 	if (!IsA(query, Query) ||
 		query->commandType != CMD_SELECT)
 		elog(ERROR, "unexpected non-SELECT command in DECLARE CURSOR");
 
 	/*
-	 * We also disallow data-modifying WITH in a cursor.  (This could be
-	 * allowed, but the semantics of when the updates occur might be
-	 * surprising.)
+	 * 游标中同样禁止数据修改 WITH。（这本可以         
+	 * 允许，但更新发生时机的语义可能意外。）    
+	 *             
 	 */
 	if (query->hasModifyingCTE)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("DECLARE CURSOR must not contain data-modifying statements in WITH")));
 
-	/* FOR UPDATE and WITH HOLD are not compatible */
+	/* FOR UPDATE 与 WITH HOLD 不兼容          */
 	if (query->rowMarks != NIL && (stmt->options & CURSOR_OPT_HOLD))
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -2912,7 +2912,7 @@ transformDeclareCursorStmt(ParseState *pstate, DeclareCursorStmt *stmt)
 									  linitial(query->rowMarks))->strength)),
 				 errdetail("Holdable cursors must be READ ONLY.")));
 
-	/* FOR UPDATE and SCROLL are not compatible */
+	/* FOR UPDATE 与 SCROLL 不兼容          */
 	if (query->rowMarks != NIL && (stmt->options & CURSOR_OPT_SCROLL))
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -2923,7 +2923,7 @@ transformDeclareCursorStmt(ParseState *pstate, DeclareCursorStmt *stmt)
 									  linitial(query->rowMarks))->strength)),
 				 errdetail("Scrollable cursors must be READ ONLY.")));
 
-	/* FOR UPDATE and INSENSITIVE are not compatible */
+	/* FOR UPDATE 与 INSENSITIVE 不兼容          */
 	if (query->rowMarks != NIL && (stmt->options & CURSOR_OPT_INSENSITIVE))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_CURSOR_DEFINITION),
@@ -2934,7 +2934,7 @@ transformDeclareCursorStmt(ParseState *pstate, DeclareCursorStmt *stmt)
 									  linitial(query->rowMarks))->strength)),
 				 errdetail("Insensitive cursors must be READ ONLY.")));
 
-	/* represent the command as a utility Query */
+	/* 把该命令表示为实用 Query        */
 	result = makeNode(Query);
 	result->commandType = CMD_UTILITY;
 	result->utilityStmt = (Node *) stmt;
@@ -2945,13 +2945,13 @@ transformDeclareCursorStmt(ParseState *pstate, DeclareCursorStmt *stmt)
 
 /*
  * transformExplainStmt -
- *	transform an EXPLAIN Statement
+ *	转换 EXPLAIN 语句         
  *
- * EXPLAIN is like other utility statements in that we emit it as a
- * CMD_UTILITY Query node; however, we must first transform the contained
- * query.  We used to postpone that until execution, but it's really necessary
- * to do it during the normal parse analysis phase to ensure that side effects
- * of parser hooks happen at the expected time.
+ * EXPLAIN 与其他实用语句类似：我们也把它作为     
+ * CMD_UTILITY Query 节点发出；但必须先转换其                
+ * 所含查询。过去我们把它推迟到执行时，但                  
+ * 确实必须在正常解析分析阶段完成，从而确保               
+ * 解析器钩子的副作用如期发生。  
  */
 static Query *
 transformExplainStmt(ParseState *pstate, ExplainStmt *stmt)
@@ -2962,9 +2962,9 @@ transformExplainStmt(ParseState *pstate, ExplainStmt *stmt)
 	int			numParams = 0;
 
 	/*
-	 * If we have no external source of parameter definitions, and the
-	 * GENERIC_PLAN option is specified, then accept variable parameter
-	 * definitions (similarly to PREPARE, for example).
+	 * 若没有参数定义的外部来源，且指定了            
+	 * GENERIC_PLAN 选项，则接受可变参数定义               
+	 * （例如类似 PREPARE 的做法）。         
 	 */
 	if (pstate->p_paramref_hook == NULL)
 	{
@@ -2976,20 +2976,20 @@ transformExplainStmt(ParseState *pstate, ExplainStmt *stmt)
 
 			if (strcmp(opt->defname, "generic_plan") == 0)
 				generic_plan = defGetBoolean(opt);
-			/* don't "break", as we want the last value */
+			/* 勿 "break"，我们要取最后的值   */
 		}
 		if (generic_plan)
 			setup_parse_variable_parameters(pstate, &paramTypes, &numParams);
 	}
 
-	/* transform contained query, allowing SELECT INTO */
+	/* 转换所含查询，允许 SELECT INTO         */
 	stmt->query = (Node *) transformOptionalSelectInto(pstate, stmt->query);
 
-	/* make sure all is well with parameter types */
+	/* 确保参数类型没有问题             */
 	if (generic_plan)
 		check_variable_parameters(pstate, (Query *) stmt->query);
 
-	/* represent the command as a utility Query */
+	/* 把该命令表示为实用 Query        */
 	result = makeNode(Query);
 	result->commandType = CMD_UTILITY;
 	result->utilityStmt = (Node *) stmt;
@@ -3000,10 +3000,10 @@ transformExplainStmt(ParseState *pstate, ExplainStmt *stmt)
 
 /*
  * transformCreateTableAsStmt -
- *	transform a CREATE TABLE AS, SELECT ... INTO, or CREATE MATERIALIZED VIEW
- *	Statement
+ *	转换 CREATE TABLE AS, SELECT ... INTO 或 CREATE MATERIALIZED VIEW     
+ *	语句   
  *
- * As with DECLARE CURSOR and EXPLAIN, transform the contained statement now.
+ * 与 DECLARE CURSOR 和 EXPLAIN 一样，现在就转换所含语句。    
  */
 static Query *
 transformCreateTableAsStmt(ParseState *pstate, CreateTableAsStmt *stmt)
@@ -3011,17 +3011,17 @@ transformCreateTableAsStmt(ParseState *pstate, CreateTableAsStmt *stmt)
 	Query	   *result;
 	Query	   *query;
 
-	/* transform contained query, not allowing SELECT INTO */
+	/* 转换所含查询，不允许 SELECT INTO          */
 	query = transformStmt(pstate, stmt->query);
 	stmt->query = (Node *) query;
 
-	/* additional work needed for CREATE MATERIALIZED VIEW */
+	/* CREATE MATERIALIZED VIEW 还需额外处理         */
 	if (stmt->objtype == OBJECT_MATVIEW)
 	{
 		/*
-		 * Prohibit a data-modifying CTE in the query used to create a
-		 * materialized view. It's not sufficiently clear what the user would
-		 * want to happen if the MV is refreshed or incrementally maintained.
+		 * 禁止在创建物化视图的查询中使用数据修改  
+		 * 的 CTE。MV 若被刷新或做增量维护，用户想           
+		 * 得到什么并不明确。                                       
 		 */
 		if (query->hasModifyingCTE)
 			ereport(ERROR,
@@ -3029,9 +3029,9 @@ transformCreateTableAsStmt(ParseState *pstate, CreateTableAsStmt *stmt)
 					 errmsg("materialized views must not use data-modifying statements in WITH")));
 
 		/*
-		 * Check whether any temporary database objects are used in the
-		 * creation query. It would be hard to refresh data or incrementally
-		 * maintain it if a source disappeared.
+		 * 检查创建查询是否用到了任何临时数据库      
+		 * 对象。若某个来源消失，数据将难以刷新           
+		 * 或增量维护。                  
 		 */
 		if (isQueryUsingTempRelation(query))
 			ereport(ERROR,
@@ -3039,9 +3039,9 @@ transformCreateTableAsStmt(ParseState *pstate, CreateTableAsStmt *stmt)
 					 errmsg("materialized views must not use temporary tables or views")));
 
 		/*
-		 * A materialized view would either need to save parameters for use in
-		 * maintaining/loading the data or prohibit them entirely.  The latter
-		 * seems safer and more sane.
+		 * 物化视图要么得保存参数供维护/加载数据            
+		 * 之用，要么完全禁用参数。后者                         
+		 * 看来更稳妥合理。  
 		 */
 		if (query_contains_extern_params(query))
 			ereport(ERROR,
@@ -3049,11 +3049,11 @@ transformCreateTableAsStmt(ParseState *pstate, CreateTableAsStmt *stmt)
 					 errmsg("materialized views may not be defined using bound parameters")));
 
 		/*
-		 * For now, we disallow unlogged materialized views, because it seems
-		 * like a bad idea for them to just go to empty after a crash. (If we
-		 * could mark them as unpopulated, that would be better, but that
-		 * requires catalog changes which crash recovery can't presently
-		 * handle.)
+		 * 目前我们不允许无日志的物化视图，因为            
+		 * 崩溃后它们直接变空似乎是个坏主意。（若         
+		 * 能将其标记为未填充会更好，但这需要对        
+		 * 系统目录的修改，崩溃恢复目前无法处理。） 
+		 *         
 		 */
 		if (stmt->into->rel->relpersistence == RELPERSISTENCE_UNLOGGED)
 			ereport(ERROR,
@@ -3061,15 +3061,15 @@ transformCreateTableAsStmt(ParseState *pstate, CreateTableAsStmt *stmt)
 					 errmsg("materialized views cannot be unlogged")));
 
 		/*
-		 * At runtime, we'll need a copy of the parsed-but-not-rewritten Query
-		 * for purposes of creating the view's ON SELECT rule.  We stash that
-		 * in the IntoClause because that's where intorel_startup() can
-		 * conveniently get it from.
+		 * 运行时我们需要一份已解析但未重写的                
+		 * Query 副本，用于创建视图的 ON SELECT 规则。          
+		 * 存入 IntoClause，intorel_startup() 便能方便地       
+		 * 从中取到它。       
 		 */
 		stmt->into->viewQuery = (Node *) copyObject(query);
 	}
 
-	/* represent the command as a utility Query */
+	/* 把该命令表示为实用 Query        */
 	result = makeNode(Query);
 	result->commandType = CMD_UTILITY;
 	result->utilityStmt = (Node *) stmt;
@@ -3078,7 +3078,7 @@ transformCreateTableAsStmt(ParseState *pstate, CreateTableAsStmt *stmt)
 }
 
 /*
- * transform a CallStmt
+ * 转换 CallStmt     
  */
 static Query *
 transformCallStmt(ParseState *pstate, CallStmt *stmt)
@@ -3094,8 +3094,8 @@ transformCallStmt(ParseState *pstate, CallStmt *stmt)
 	Query	   *result;
 
 	/*
-	 * First, do standard parse analysis on the procedure call and its
-	 * arguments, allowing us to identify the called procedure.
+	 * 首先对过程调用及其参数做标准解析分析，      
+	 * 从而识别出被调用的过程。                    
 	 */
 	targs = NIL;
 	foreach(lc, stmt->funccall->args)
@@ -3122,25 +3122,25 @@ transformCallStmt(ParseState *pstate, CallStmt *stmt)
 		elog(ERROR, "cache lookup failed for function %u", fexpr->funcid);
 
 	/*
-	 * Expand the argument list to deal with named-argument notation and
-	 * default arguments.  For ordinary FuncExprs this'd be done during
-	 * planning, but a CallStmt doesn't go through planning, and there seems
-	 * no good reason not to do it here.
+	 * 展开参数列表以处理命名参数记法和默认           
+	 * 参数。对普通 FuncExpr 这本可在规划期间            
+	 * 完成，但 CallStmt 不经过规划阶段，                       
+	 * 没理由不在此处做。      
 	 */
 	fexpr->args = expand_function_arguments(fexpr->args,
 											true,
 											fexpr->funcresulttype,
 											proctup);
 
-	/* Fetch proargmodes; if it's null, there are no output args */
+	/* 获取 proargmodes；若为空则没有输出参数       */
 	proargmodes = SysCacheGetAttr(PROCOID, proctup,
 								  Anum_pg_proc_proargmodes,
 								  &isNull);
 	if (!isNull)
 	{
 		/*
-		 * Split the list into input arguments in fexpr->args and output
-		 * arguments in stmt->outargs.  INOUT arguments appear in both lists.
+		 * 把列表拆为 fexpr->args 的输入参数与               
+		 * stmt->outargs 的输出参数，INOUT 参数两边皆有。       
 		 */
 		ArrayType  *arr;
 		int			numargs;
@@ -3148,7 +3148,7 @@ transformCallStmt(ParseState *pstate, CallStmt *stmt)
 		List	   *inargs;
 		int			i;
 
-		arr = DatumGetArrayTypeP(proargmodes);	/* ensure not toasted */
+		arr = DatumGetArrayTypeP(proargmodes);	/* 确保未 TOAST 化*/
 		numargs = list_length(fexpr->args);
 		if (ARR_NDIM(arr) != 1 ||
 			ARR_DIMS(arr)[0] != numargs ||
@@ -3178,7 +3178,7 @@ transformCallStmt(ParseState *pstate, CallStmt *stmt)
 					outargs = lappend(outargs, copyObject(n));
 					break;
 				default:
-					/* note we don't support PROARGMODE_TABLE */
+					/* 注意我们不支持 PROARGMODE_TABLE */
 					elog(ERROR, "invalid argmode %c for procedure",
 						 argmodes[i]);
 					break;
@@ -3193,7 +3193,7 @@ transformCallStmt(ParseState *pstate, CallStmt *stmt)
 
 	ReleaseSysCache(proctup);
 
-	/* represent the command as a utility Query */
+	/* 将该命令表示为实用命令 Query  */
 	result = makeNode(Query);
 	result->commandType = CMD_UTILITY;
 	result->utilityStmt = (Node *) stmt;
@@ -3202,8 +3202,8 @@ transformCallStmt(ParseState *pstate, CallStmt *stmt)
 }
 
 /*
- * Produce a string representation of a LockClauseStrength value.
- * This should only be applied to valid values (not LCS_NONE).
+ * 生成 LockClauseStrength 值的字符串表示。            
+ * 只应对有效值使用（LCS_NONE 除外）。           
  */
 const char *
 LCS_asString(LockClauseStrength strength)
@@ -3222,18 +3222,18 @@ LCS_asString(LockClauseStrength strength)
 		case LCS_FORUPDATE:
 			return "FOR UPDATE";
 	}
-	return "FOR some";			/* shouldn't happen */
+	return "FOR some";			/* 不应发生     */
 }
 
 /*
- * Check for features that are not supported with FOR [KEY] UPDATE/SHARE.
+ * 检查 FOR [KEY] UPDATE/SHARE 不支持的特性。                   
  *
- * exported so planner can check again after rewriting, query pullup, etc
+ * 导出以便规划器在重写、查询提升等后再次检查       
  */
 void
 CheckSelectLocking(Query *qry, LockClauseStrength strength)
 {
-	Assert(strength != LCS_NONE);	/* else caller error */
+	Assert(strength != LCS_NONE);	/* 否则调用出错*/
 
 	if (qry->setOperations)
 		ereport(ERROR,
@@ -3287,12 +3287,12 @@ CheckSelectLocking(Query *qry, LockClauseStrength strength)
 }
 
 /*
- * Transform a FOR [KEY] UPDATE/SHARE clause
+ * 转换 FOR [KEY] UPDATE/SHARE 子句     
  *
- * This basically involves replacing names by integer relids.
+ * 其核心是把名称替换为整数 relid。             
  *
- * NB: if you need to change this, see also markQueryForLocking()
- * in rewriteHandler.c, and isLockedRefname() in parse_relation.c.
+ * 注意：若需修改此处，另见 rewriteHandler.c 中的  
+ * markQueryForLocking()、parse_relation.c 的 isLockedRefname() 
  */
 static void
 transformLockingClause(ParseState *pstate, Query *qry, LockingClause *lc,
@@ -3306,21 +3306,21 @@ transformLockingClause(ParseState *pstate, Query *qry, LockingClause *lc,
 
 	CheckSelectLocking(qry, lc->strength);
 
-	/* make a clause we can pass down to subqueries to select all rels */
+	/* 构造一个下传给子查询以选定所有关系的子句    */
 	allrels = makeNode(LockingClause);
-	allrels->lockedRels = NIL;	/* indicates all rels */
+	allrels->lockedRels = NIL;	/* 表示所有关系 */
 	allrels->strength = lc->strength;
 	allrels->waitPolicy = lc->waitPolicy;
 
 	if (lockedRels == NIL)
 	{
 		/*
-		 * Lock all regular tables used in query and its subqueries.  We
-		 * examine inFromCl to exclude auto-added RTEs, particularly NEW/OLD
-		 * in rules.  This is a bit of an abuse of a mostly-obsolete flag, but
-		 * it's convenient.  We can't rely on the namespace mechanism that has
-		 * largely replaced inFromCl, since for example we need to lock
-		 * base-relation RTEs even if they are masked by upper joins.
+		 * 锁定查询及其子查询中使用的所有常规表。    
+		 * 检查 inFromCl 以排除自动加入的 RTE，尤其是         
+		 * 规则中的 NEW/OLD。这有点滥用大多已过时的           
+		 * 标志，但很方便。我们不能依赖已大体取代          
+		 * inFromCl 的命名空间机制，例如我们需要锁定   
+		 * 基础关系 RTE，即使它们被上层连接所遮掩。
 		 */
 		i = 0;
 		foreach(rt, qry->rtable)
@@ -3349,17 +3349,17 @@ transformLockingClause(ParseState *pstate, Query *qry, LockingClause *lc,
 									   pushedDown);
 
 					/*
-					 * FOR UPDATE/SHARE of subquery is propagated to all of
-					 * subquery's rels, too.  We could do this later (based on
-					 * the marking of the subquery RTE) but it is convenient
-					 * to have local knowledge in each query level about which
-					 * rels need to be opened with RowShareLock.
+					 * 子查询的 FOR UPDATE/SHARE 也会传播到       
+					 * 子查询的所有关系。本可稍后再做（基于 
+					 * 子查询 RTE 的标记），但让每个查询层次
+					 * 都本地了解哪些关系需以 RowShareLock 打开  
+					 *                                          
 					 */
 					transformLockingClause(pstate, rte->subquery,
 										   allrels, true);
 					break;
 				default:
-					/* ignore JOIN, SPECIAL, FUNCTION, VALUES, CTE RTEs */
+					/* 忽略 JOIN/SPECIAL/FUNCTION/VALUES/CTE 型 RTE  */
 					break;
 			}
 		}
@@ -3367,15 +3367,15 @@ transformLockingClause(ParseState *pstate, Query *qry, LockingClause *lc,
 	else
 	{
 		/*
-		 * Lock just the named tables.  As above, we allow locking any base
-		 * relation regardless of alias-visibility rules, so we need to
-		 * examine inFromCl to exclude OLD/NEW.
+		 * 只锁定具名的表。同上，我们允许锁定任何基础 
+		 * 关系而不论别名可见性规则，因此需要检查   
+		 * inFromCl 以排除 OLD/NEW。       
 		 */
 		foreach(l, lockedRels)
 		{
 			RangeVar   *thisrel = (RangeVar *) lfirst(l);
 
-			/* For simplicity we insist on unqualified alias names here */
+			/* 为简单起见，此处要求别名为非限定名      */
 			if (thisrel->catalogname || thisrel->schemaname)
 				ereport(ERROR,
 						(errcode(ERRCODE_SYNTAX_ERROR),
@@ -3396,13 +3396,13 @@ transformLockingClause(ParseState *pstate, Query *qry, LockingClause *lc,
 					continue;
 
 				/*
-				 * A join RTE without an alias is not visible as a relation
-				 * name and needs to be skipped (otherwise it might hide a
-				 * base relation with the same name), except if it has a USING
-				 * alias, which *is* visible.
+				 * 不带别名的连接 RTE 不会作为关系名可见，
+				 * 需要跳过（否则会遮蔽同名基础关系）， 
+				 * 除非它带有 USING 子句别名，此时该别名       
+				 * 是可见的。           
 				 *
-				 * Subquery and values RTEs without aliases are never visible
-				 * as relation names and must always be skipped.
+				 * 不带别名的子查询和 values RTE 从不作为       
+				 * 关系名可见，必须始终跳过。      
 				 */
 				if (rte->alias == NULL)
 				{
@@ -3436,7 +3436,7 @@ transformLockingClause(ParseState *pstate, Query *qry, LockingClause *lc,
 						case RTE_SUBQUERY:
 							applyLockingClause(qry, i, lc->strength,
 											   lc->waitPolicy, pushedDown);
-							/* see comment above */
+							/* 见上文注释   */
 							transformLockingClause(pstate, rte->subquery,
 												   allrels, true);
 							break;
@@ -3495,14 +3495,14 @@ transformLockingClause(ParseState *pstate, Query *qry, LockingClause *lc,
 									 parser_errposition(pstate, thisrel->location)));
 							break;
 
-							/* Shouldn't be possible to see RTE_RESULT here */
+							/* 此处不应出现 RTE_RESULT                */
 
 						default:
 							elog(ERROR, "unrecognized RTE type: %d",
 								 (int) rte->rtekind);
 							break;
 					}
-					break;		/* out of foreach loop */
+					break;		/* foreach 循环外   */
 				}
 			}
 			if (rt == NULL)
@@ -3519,7 +3519,7 @@ transformLockingClause(ParseState *pstate, Query *qry, LockingClause *lc,
 }
 
 /*
- * Record locking info for a single rangetable item
+ * 为单个范围表项记录锁定信息         
  */
 void
 applyLockingClause(Query *qry, Index rtindex,
@@ -3528,33 +3528,33 @@ applyLockingClause(Query *qry, Index rtindex,
 {
 	RowMarkClause *rc;
 
-	Assert(strength != LCS_NONE);	/* else caller error */
+	Assert(strength != LCS_NONE);	/* 否则调用出错*/
 
-	/* If it's an explicit clause, make sure hasForUpdate gets set */
+	/* 若是显式子句，则确保设置 hasForUpdate           */
 	if (!pushedDown)
 		qry->hasForUpdate = true;
 
-	/* Check for pre-existing entry for same rtindex */
+	/* 检查同一 rtindex 是否已有现存条目 */
 	if ((rc = get_parse_rowmark(qry, rtindex)) != NULL)
 	{
 		/*
-		 * If the same RTE is specified with more than one locking strength,
-		 * use the strongest.  (Reasonable, since you can't take both a shared
-		 * and exclusive lock at the same time; it'll end up being exclusive
-		 * anyway.)
+		 * 若同一 RTE 被指定了不止一种锁定强度，则取      
+		 * 最强者。（合理，因为共享锁与排他锁无法          
+		 * 同时取得，反正最终都会以排他锁收场。）        
+		 *         
 		 *
-		 * Similarly, if the same RTE is specified with more than one lock
-		 * wait policy, consider that NOWAIT wins over SKIP LOCKED, which in
-		 * turn wins over waiting for the lock (the default).  This is a bit
-		 * more debatable but raising an error doesn't seem helpful. (Consider
-		 * for instance SELECT FOR UPDATE NOWAIT from a view that internally
-		 * contains a plain FOR UPDATE spec.)  Having NOWAIT win over SKIP
-		 * LOCKED is reasonable since the former throws an error in case of
-		 * coming across a locked tuple, which may be undesirable in some
-		 * cases but it seems better than silently returning inconsistent
-		 * results.
+		 * 类似地，若同一 RTE 被指定了不止一种锁等待    
+		 * 策略，可认为 NOWAIT 优先于 SKIP LOCKED，               
+		 * 而后者又优先于等待锁（默认行为）。这有        
+		 * 点争议，但抛出错误似乎没什么帮助。（设想       
+		 * 例如从内部含有普通 FOR UPDATE 声明的视图           
+		 * 中发出 SELECT FOR UPDATE NOWAIT。）让                    
+		 * NOWAIT 优先于 SKIP LOCKED 是合理的，因为              
+		 * 前者在遇到已锁定元组时会抛出错误，某些     
+		 * 场合下或许欠妥，但总比悄悄返回不一致结果  
+		 *         
 		 *
-		 * And of course pushedDown becomes false if any clause is explicit.
+		 * 当然，任一子句为显式时 pushedDown 即为 false        
 		 */
 		rc->strength = Max(rc->strength, strength);
 		rc->waitPolicy = Max(rc->waitPolicy, waitPolicy);
@@ -3562,7 +3562,7 @@ applyLockingClause(Query *qry, Index rtindex,
 		return;
 	}
 
-	/* Make a new RowMarkClause */
+	/* 新建 RowMarkClause     */
 	rc = makeNode(RowMarkClause);
 	rc->rti = rtindex;
 	rc->strength = strength;
@@ -3572,12 +3572,12 @@ applyLockingClause(Query *qry, Index rtindex,
 }
 
 /*
- * Coverage testing for raw_expression_tree_walker().
+ * raw_expression_tree_walker() 的覆盖测试      
  *
- * When enabled, we run raw_expression_tree_walker() over every DML statement
- * submitted to parse analysis.  Without this provision, that function is only
- * applied in limited cases involving CTEs, and we don't really want to have
- * to test everything inside as well as outside a CTE.
+ * 启用后，我们会对提交给解析分析的每条 DML                
+ * 语句运行 raw_expression_tree_walker()。若无此安排，             
+ * 该函数只在涉及 CTE 的少数场景下被应用，                 
+ * 我们不想对 CTE 内外都做全面测试。    
  */
 #ifdef RAW_EXPRESSION_COVERAGE_TEST
 

@@ -1,0 +1,60 @@
+{
+ "schema_version": 1,
+ "batch_id": "0277-comment-executor-exprinterp",
+ "title": "Translate executor comments: executor-exprinterp",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "bd9d9e93e0258d5e10f8b391a9082c2e3526b16c",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0277-comment-executor-exprinterp.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/executor/**",
+   "kind": "c_comment",
+   "note": "P2 executor translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0277-comment-executor-exprinterp.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/executor/execExprInterp.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 398,
+   "translated": 382,
+   "preserved": 16,
+   "preserved_reasons": {
+    "EN:90": "blk2: macro condition tag HAVE_COMPUTED_GOTO (pure code-macro label)",
+    "EN:122": "blk7: macro condition tag !EEO_USE_COMPUTED_GOTO (pure code-macro label)",
+    "EN:129": "blk8: macro condition tag EEO_USE_COMPUTED_GOTO (pure code-macro label)",
+    "EN:379": "blk29: macro condition tag EEO_USE_COMPUTED_GOTO (pure code-macro label)",
+    "EN:512": "blk32: macro condition tag EEO_USE_COMPUTED_GOTO (pure code-macro label)",
+    "EN:796": "blk46: prose comment containing 'fall through to that' - R5-protected as potential GCC -Wimplicit-fallthrough annotation, kept identical to EN",
+    "EN:863": "blk55: prose comment containing 'fall through to that' - R5-protected as potential GCC -Wimplicit-fallthrough annotation, kept identical to EN",
+    "EN:801": "blk47: FALL THROUGH control-flow label",
+    "EN:868": "blk56: FALL THROUGH control-flow label",
+    "EN:1612": "blk134: fallthrough control-flow label",
+    "EN:2363": "blk200: identifier label nmembers (restates adjacent field name)",
+    "EN:2388": "blk202: identifier label nmembers (restates adjacent field name)",
+    "EN:3684": "blk324: operator label IN (pure keyword label)",
+    "EN:3686": "blk325: operator label NOT IN (pure keyword label)",
+    "EN:4640": "blk388: cross-reference label cf. select_current_set() rebuilt byte-identical to EN",
+    "EN:4672": "blk393: cross-reference label cf. select_current_set() rebuilt byte-identical to EN"
+   },
+   "note": "P2 executor campaign wave C18"
+  }
+ ],
+ "notes": "Translation agents (C18a/C18b/C18c/C18d) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

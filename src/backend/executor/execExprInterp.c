@@ -1,49 +1,49 @@
 /*-------------------------------------------------------------------------
  *
  * execExprInterp.c
- *	  Interpreted evaluation of an expression step list.
+ *	  表达式步骤列表的解释执行。           
  *
- * This file provides either a "direct threaded" (for gcc, clang and
- * compatible) or a "switch threaded" (for all compilers) implementation of
- * expression evaluation.  The former is amongst the fastest known methods
- * of interpreting programs without resorting to assembly level work, or
- * just-in-time compilation, but it requires support for computed gotos.
- * The latter is amongst the fastest approaches doable in standard C.
+ * 本文件提供表达式求值的"直接线程化"(gcc、        
+ * clang 及兼容编译器）或"switch 线程化"（所有编译器）   
+ * 实现。前者是已知最快的解释方法之一，                 
+ * 无需汇编级工作或即时编译即可解释执行程序，      
+ * 但需要支持计算 goto。                                        
+ * 后者是标准 C 可做到的最快方法之一。               
  *
- * In either case we use ExprEvalStep->opcode to dispatch to the code block
- * within ExecInterpExpr() that implements the specific opcode type.
+ * 两种情形均用 ExprEvalStep->opcode 分派至 ExecInterpExpr() 内  
+ * 实现该特定操作码类型的代码块。                    
  *
- * Switch-threading uses a plain switch() statement to perform the
- * dispatch.  This has the advantages of being plain C and allowing the
- * compiler to warn if implementation of a specific opcode has been forgotten.
- * The disadvantage is that dispatches will, as commonly implemented by
- * compilers, happen from a single location, requiring more jumps and causing
- * bad branch prediction.
+ * switch 线程化用普通 switch() 语句执行分派。       
+ * 分派。其优点是纯 C 实现，并且允许编译器           
+ * 对某个特定操作码的实现被遗漏时发出警告。               
+ * 缺点是正如编译器通常实现的那样，分派都发生     
+ * 在单一位置，需要更多跳转并导致                             
+ * 分支预测糟糕。 
  *
- * In direct threading, we use gcc's label-as-values extension - also adopted
- * by some other compilers - to replace ExprEvalStep->opcode with the address
- * of the block implementing the instruction. Dispatch to the next instruction
- * is done by a "computed goto".  This allows for better branch prediction
- * (as the jumps are happening from different locations) and fewer jumps
- * (as no preparatory jump to a common dispatch location is needed).
+ * 直接线程化使用 gcc 的 label-as-values 扩展（也被采纳）， 
+ * 一些编译器 - 把 ExprEvalStep->opcode 替换为实现该指令       
+ * 的代码块地址。到下一条指令的分派由"计算 goto"完成。  
+ * 这带来更好的分支预测（因为跳转来自不同位置）     
+ * 以及更少的跳转，因为无需先跳到公共分派位置      
+ * 做预备跳转。                                               
  *
- * When using direct threading, ExecReadyInterpretedExpr will replace
- * each step's opcode field with the address of the relevant code block and
- * ExprState->flags will contain EEO_FLAG_DIRECT_THREADED to remember that
- * that's been done.
+ * 直接线程化下，ExecReadyInterpretedExpr 会把每步的     
+ * opcode 字段替换为相应代码块地址，且 ExprState->flags 中  
+ * 会包含 EEO_FLAG_DIRECT_THREADED 以记住已做                     
+ * 此替换。     
  *
- * For very simple instructions the overhead of the full interpreter
- * "startup", as minimal as it is, is noticeable.  Therefore
- * ExecReadyInterpretedExpr will choose to implement certain simple
- * opcode patterns using special fast-path routines (ExecJust*).
+ * 对非常简单的指令，完整解释器"启动"的开销      
+ * 虽小但可察觉。因此                              
+ * ExecReadyInterpretedExpr 选择用快速路径例程(ExecJust*) 
+ * 来实现某些简单的操作码模式。                   
  *
- * Complex or uncommon instructions are not implemented in-line in
- * ExecInterpExpr(), rather we call out to a helper function appearing later
- * in this file.  For one reason, there'd not be a noticeable performance
- * benefit, but more importantly those complex routines are intended to be
- * shared between different expression evaluation approaches.  For instance
- * a JIT compiler would generate calls to them.  (This is why they are
- * exported rather than being "static" in this file.)
+ * 复杂或罕见指令不在 ExecInterpExpr() 内联实现，   
+ * 而是调用本文件后面出现的辅助函数。                      
+ * 一方面没有明显性能收益，                                  
+ * 但更重要的是这些复杂例程要在不同表达式求值        
+ * 方法之间共享。例如 JIT 编译器会生成对它们的调用    
+ * （这就是它们被导出而非在本文件中设为             
+ * static 的原因。）                            
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -81,37 +81,37 @@
 #include "utils/xml.h"
 
 /*
- * Use computed-goto-based opcode dispatch when computed gotos are available.
- * But use a separate symbol so that it's easy to adjust locally in this file
- * for development and testing.
+ * 在计算 goto 可用时用基于计算 goto 的操作码分派，        
+ * 但用单独符号，以便在本文件内为开发测试                 
+ * 而局部调整。          
  */
 #ifdef HAVE_COMPUTED_GOTO
 #define EEO_USE_COMPUTED_GOTO
 #endif							/* HAVE_COMPUTED_GOTO */
 
 /*
- * Macros for opcode dispatch.
+ * 用于操作码分派的宏
  *
- * EEO_SWITCH - just hides the switch if not in use.
- * EEO_CASE - labels the implementation of named expression step type.
- * EEO_DISPATCH - jump to the implementation of the step type for 'op'.
- * EEO_OPCODE - compute opcode required by used expression evaluation method.
- * EEO_NEXT - increment 'op' and jump to correct next step type.
- * EEO_JUMP - jump to the specified step number within the current expression.
+ * EEO_SWITCH - 不用时仅隐藏 switch。        
+ * EEO_CASE - 标注命名表达式步骤类型的实现。           
+ * EEO_DISPATCH - 跳转到 'op' 步骤类型的实现。              
+ * EEO_OPCODE - 按所用表达式求值方法计算所需操作码。       
+ * EEO_NEXT - 递增 'op' 并跳到正确的下一步类型。  
+ * EEO_JUMP - 跳到当前表达式内指定的步骤编号。                
  */
 #if defined(EEO_USE_COMPUTED_GOTO)
 
-/* struct for jump target -> opcode lookup table */
+/* 跳转目标 -> 操作码查找表的结构体*/
 typedef struct ExprEvalOpLookup
 {
 	const void *opcode;
 	ExprEvalOp	op;
 } ExprEvalOpLookup;
 
-/* to make dispatch_table accessible outside ExecInterpExpr() */
+/* 使 dispatch_table 能在 ExecInterpExpr() 之外访问    */
 static const void **dispatch_table = NULL;
 
-/* jump target -> opcode lookup table */
+/* 跳转目标 -> 操作码查找表 */
 static ExprEvalOpLookup reverse_dispatch_table[EEOP_LAST];
 
 #define EEO_SWITCH()
@@ -144,7 +144,7 @@ static ExprEvalOpLookup reverse_dispatch_table[EEOP_LAST];
 static Datum ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull);
 static void ExecInitInterpreter(void);
 
-/* support functions */
+/* 支持函数      */
 static void CheckVarSlotCompatibility(TupleTableSlot *slot, int attnum, Oid vartype);
 static void CheckOpSlotCompatibility(ExprEvalStep *op, TupleTableSlot *slot);
 static TupleDesc get_cached_rowtype(Oid type_id, int32 typmod,
@@ -153,7 +153,7 @@ static TupleDesc get_cached_rowtype(Oid type_id, int32 typmod,
 static void ExecEvalRowNullInt(ExprState *state, ExprEvalStep *op,
 							   ExprContext *econtext, bool checkisnull);
 
-/* fast-path evaluation functions */
+/* 快速路径求值函数       */
 static Datum ExecJustInnerVar(ExprState *state, ExprContext *econtext, bool *isnull);
 static Datum ExecJustOuterVar(ExprState *state, ExprContext *econtext, bool *isnull);
 static Datum ExecJustScanVar(ExprState *state, ExprContext *econtext, bool *isnull);
@@ -169,7 +169,7 @@ static Datum ExecJustAssignInnerVarVirt(ExprState *state, ExprContext *econtext,
 static Datum ExecJustAssignOuterVarVirt(ExprState *state, ExprContext *econtext, bool *isnull);
 static Datum ExecJustAssignScanVarVirt(ExprState *state, ExprContext *econtext, bool *isnull);
 
-/* execution helper functions */
+/* 执行辅助函数         */
 static pg_attribute_always_inline void ExecAggPlainTransByVal(AggState *aggstate,
 															  AggStatePerTrans pertrans,
 															  AggStatePerGroup pergroup,
@@ -183,13 +183,13 @@ static pg_attribute_always_inline void ExecAggPlainTransByRef(AggState *aggstate
 
 /*
  * ScalarArrayOpExprHashEntry
- * 		Hash table entry type used during EEOP_HASHED_SCALARARRAYOP
+ * 		EEOP_HASHED_SCALARARRAYOP 期间用的哈希表条目类型
  */
 typedef struct ScalarArrayOpExprHashEntry
 {
 	Datum		key;
-	uint32		status;			/* hash status */
-	uint32		hash;			/* hash value (cached) */
+	uint32		status;			/* 哈希状态*/
+	uint32		hash;			/* 已缓存哈希值  */
 } ScalarArrayOpExprHashEntry;
 
 #define SH_PREFIX saophash
@@ -205,17 +205,17 @@ static uint32 saop_element_hash(struct saophash_hash *tb, Datum key);
 
 /*
  * ScalarArrayOpExprHashTable
- *		Hash table for EEOP_HASHED_SCALARARRAYOP
+ *		EEOP_HASHED_SCALARARRAYOP 的哈希表  
  */
 typedef struct ScalarArrayOpExprHashTable
 {
-	saophash_hash *hashtab;		/* underlying hash table */
+	saophash_hash *hashtab;		/* 底层哈希表       */
 	struct ExprEvalStep *op;
-	FmgrInfo	hash_finfo;		/* function's lookup data */
-	FunctionCallInfoBaseData hash_fcinfo_data;	/* arguments etc */
+	FmgrInfo	hash_finfo;		/* 函数的查找数据  */
+	FunctionCallInfoBaseData hash_fcinfo_data;	/* 参数等     */
 } ScalarArrayOpExprHashTable;
 
-/* Define parameters for ScalarArrayOpExpr hash table code generation. */
+/* 为 ScalarArrayOpExpr 哈希表代码生成定义参数。          */
 #define SH_PREFIX saophash
 #define SH_ELEMENT_TYPE ScalarArrayOpExprHashEntry
 #define SH_KEY_TYPE Datum
@@ -229,48 +229,48 @@ typedef struct ScalarArrayOpExprHashTable
 #include "lib/simplehash.h"
 
 /*
- * Prepare ExprState for interpreted execution.
+ * 准备 ExprState 以进行解释执行。   
  */
 void
 ExecReadyInterpretedExpr(ExprState *state)
 {
-	/* Ensure one-time interpreter setup has been done */
+	/* 确保一次性解释器初始化已完成      */
 	ExecInitInterpreter();
 
-	/* Simple validity checks on expression */
+	/* 对表达式的简单有效性检查 */
 	Assert(state->steps_len >= 1);
 	Assert(state->steps[state->steps_len - 1].opcode == EEOP_DONE);
 
 	/*
-	 * Don't perform redundant initialization. This is unreachable in current
-	 * cases, but might be hit if there's additional expression evaluation
-	 * methods that rely on interpreted execution to work.
+	 * 不要做冗余初始化。这在当前情形下不可达，          
+	 * 但若存在额外的表达式求值方法，即依赖             
+	 * 解释执行才能工作，则可能命中此处。
 	 */
 	if (state->flags & EEO_FLAG_INTERPRETER_INITIALIZED)
 		return;
 
 	/*
-	 * First time through, check whether attribute matches Var.  Might not be
-	 * ok anymore, due to schema changes. We do that by setting up a callback
-	 * that does checking on the first call, which then sets the evalfunc
-	 * callback to the actual method of execution.
+	 * 首次执行时检查属性是否仍匹配 Var；由于模式变更，
+	 * 它可能不再匹配。为此设置一个回调，在首次调用    
+	 * 时做检查，随后把 evalfunc 回调设为                    
+	 * 实际执行方法。                      
 	 */
 	state->evalfunc = ExecInterpExprStillValid;
 
-	/* DIRECT_THREADED should not already be set */
+	/* DIRECT_THREADED 尚不应已被设置     */
 	Assert((state->flags & EEO_FLAG_DIRECT_THREADED) == 0);
 
 	/*
-	 * There shouldn't be any errors before the expression is fully
-	 * initialized, and even if so, it'd lead to the expression being
-	 * abandoned.  So we can set the flag now and save some code.
+	 * 表达式完全初始化之前不应有任何错误；      
+	 * 即便有，也只会导致表达式被放弃。              
+	 * 因此可以现在就设置标志，省去一些代码。 
 	 */
 	state->flags |= EEO_FLAG_INTERPRETER_INITIALIZED;
 
 	/*
-	 * Select fast-path evalfuncs for very simple expressions.  "Starting up"
-	 * the full interpreter is a measurable overhead for these, and these
-	 * patterns occur often enough to be worth optimizing.
+	 * 为极简表达式选择快速路径 evalfunc。对它们而言，    
+	 * 完整解释器的"启动"开销可测量，且这些模式       
+	 * 出现够频繁，值得优化。                  
 	 */
 	if (state->steps_len == 3)
 	{
@@ -365,8 +365,8 @@ ExecReadyInterpretedExpr(ExprState *state)
 #if defined(EEO_USE_COMPUTED_GOTO)
 
 	/*
-	 * In the direct-threaded implementation, replace each opcode with the
-	 * address to jump to.  (Use ExecEvalStepOp() to get back the opcode.)
+	 * 直接线程化中，把每个操作码替换为跳转地址。    
+	 * （用 ExecEvalStepOp() 取回操作码。）                      
 	 */
 	for (int off = 0; off < state->steps_len; off++)
 	{
@@ -383,13 +383,13 @@ ExecReadyInterpretedExpr(ExprState *state)
 
 
 /*
- * Evaluate expression identified by "state" in the execution context
- * given by "econtext".  *isnull is set to the is-null flag for the result,
- * and the Datum value is the function result.
+ * 在 "econtext" 给出的执行上下文中求值 "state"          
+ * 标识的表达式。*isnull 设为结果的 is-null 标志，          
+ * Datum 值即函数结果。                
  *
- * As a special case, return the dispatch table's address if state is NULL.
- * This is used by ExecInitInterpreter to set up the dispatch_table global.
- * (Only applies when EEO_USE_COMPUTED_GOTO is defined.)
+ * 特例：state 为 NULL 时返回分派表地址。ExecInitInterpreter  
+ * 用它设置 dispatch_table 全局变量。（仅在定义了           
+ * EEO_USE_COMPUTED_GOTO 时适用。）                
  */
 static Datum
 ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
@@ -401,7 +401,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 	TupleTableSlot *scanslot;
 
 	/*
-	 * This array has to be in the same order as enum ExprEvalOp.
+	 * 此数组必须与 enum ExprEvalOp 同序。              
 	 */
 #if defined(EEO_USE_COMPUTED_GOTO)
 	static const void *const dispatch_table[] = {
@@ -511,7 +511,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 	Assert(state != NULL);
 #endif							/* EEO_USE_COMPUTED_GOTO */
 
-	/* setup state */
+	/* 建立状态*/
 	op = state->steps;
 	resultslot = state->resultslot;
 	innerslot = econtext->ecxt_innertuple;
@@ -561,10 +561,10 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			int			attnum = op->d.var.attnum;
 
 			/*
-			 * Since we already extracted all referenced columns from the
-			 * tuple with a FETCHSOME step, we can just grab the value
-			 * directly out of the slot's decomposed-data arrays.  But let's
-			 * have an Assert to check that that did happen.
+			 * 由于用 FETCHSOME 步骤提取了全部被引用列，  
+			 * 可直接从 slot 的 decomposed-data 数组取值。  
+			 * 但用一个 Assert 来检查                                
+			 * 确实发生了这种情况。               
 			 */
 			Assert(attnum >= 0 && attnum < innerslot->tts_nvalid);
 			*op->resvalue = innerslot->tts_values[attnum];
@@ -577,7 +577,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		{
 			int			attnum = op->d.var.attnum;
 
-			/* See EEOP_INNER_VAR comments */
+			/* 见 EEOP_INNER_VAR 注释   */
 
 			Assert(attnum >= 0 && attnum < outerslot->tts_nvalid);
 			*op->resvalue = outerslot->tts_values[attnum];
@@ -590,7 +590,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		{
 			int			attnum = op->d.var.attnum;
 
-			/* See EEOP_INNER_VAR comments */
+			/* 见 EEOP_INNER_VAR 注释   */
 
 			Assert(attnum >= 0 && attnum < scanslot->tts_nvalid);
 			*op->resvalue = scanslot->tts_values[attnum];
@@ -619,7 +619,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_WHOLEROW)
 		{
-			/* too complex for an inline implementation */
+			/* 对内联实现而言过于复杂        */
 			ExecEvalWholeRowVar(state, op, econtext);
 
 			EEO_NEXT();
@@ -631,8 +631,8 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			int			attnum = op->d.assign_var.attnum;
 
 			/*
-			 * We do not need CheckVarSlotCompatibility here; that was taken
-			 * care of at compilation time.  But see EEOP_INNER_VAR comments.
+			 * 此处无需 CheckVarSlotCompatibility；编译期处理。  
+			 * 但参见 EEOP_INNER_VAR 的注释。                         
 			 */
 			Assert(attnum >= 0 && attnum < innerslot->tts_nvalid);
 			Assert(resultnum >= 0 && resultnum < resultslot->tts_tupleDescriptor->natts);
@@ -648,8 +648,8 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			int			attnum = op->d.assign_var.attnum;
 
 			/*
-			 * We do not need CheckVarSlotCompatibility here; that was taken
-			 * care of at compilation time.  But see EEOP_INNER_VAR comments.
+			 * 此处无需 CheckVarSlotCompatibility；编译期处理。  
+			 * 但参见 EEOP_INNER_VAR 的注释。                         
 			 */
 			Assert(attnum >= 0 && attnum < outerslot->tts_nvalid);
 			Assert(resultnum >= 0 && resultnum < resultslot->tts_tupleDescriptor->natts);
@@ -665,8 +665,8 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			int			attnum = op->d.assign_var.attnum;
 
 			/*
-			 * We do not need CheckVarSlotCompatibility here; that was taken
-			 * care of at compilation time.  But see EEOP_INNER_VAR comments.
+			 * 此处无需 CheckVarSlotCompatibility；编译期处理。  
+			 * 但参见 EEOP_INNER_VAR 的注释。                         
 			 */
 			Assert(attnum >= 0 && attnum < scanslot->tts_nvalid);
 			Assert(resultnum >= 0 && resultnum < resultslot->tts_tupleDescriptor->natts);
@@ -711,19 +711,19 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		}
 
 		/*
-		 * Function-call implementations. Arguments have previously been
-		 * evaluated directly into fcinfo->args.
+		 * 函数调用的实现。参数此前已被直接求值       
+		 * 到 fcinfo->args 中。              
 		 *
-		 * As both STRICT checks and function-usage are noticeable performance
-		 * wise, and function calls are a very hot-path (they also back
-		 * operators!), it's worth having so many separate opcodes.
+		 * STRICT 检查和函数用法有明显性能影响，而且         
+		 * 函数调用是极热路径（运算符也靠它），所以
+		 * 值得设置这么多独立的操作码。              
 		 *
-		 * Note: the reason for using a temporary variable "d", here and in
-		 * other places, is that some compilers think "*op->resvalue = f();"
-		 * requires them to evaluate op->resvalue into a register before
-		 * calling f(), just in case f() is able to modify op->resvalue
-		 * somehow.  The extra line of code can save a useless register spill
-		 * and reload across the function call.
+		 * 注：此处及其他地方用临时变量 "d" 的原因是，  
+		 * 某些编译器认为 "*op->resvalue = f();" 要求它们在     
+		 * 调用 f() 之前先把 op->resvalue 求值入寄存器，   
+		 * 以防 f() 以某种方式修改 op->resvalue。            
+		 * 这多出的一行代码可省掉跨函数调用的一次无用   
+		 * 寄存器溢出与重载。         
 		 */
 		EEO_CASE(EEOP_FUNCEXPR)
 		{
@@ -745,7 +745,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			int			nargs = op->d.func.nargs;
 			Datum		d;
 
-			/* strict function, so check for NULL args */
+			/* 严格函数，检查参数是否 NULL  */
 			for (int argno = 0; argno < nargs; argno++)
 			{
 				if (args[argno].isnull)
@@ -765,7 +765,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_FUNCEXPR_FUSAGE)
 		{
-			/* not common enough to inline */
+			/* 不够常见，不必内联 */
 			ExecEvalFuncExprFusage(state, op, econtext);
 
 			EEO_NEXT();
@@ -773,21 +773,21 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_FUNCEXPR_STRICT_FUSAGE)
 		{
-			/* not common enough to inline */
+			/* 不够常见，不必内联 */
 			ExecEvalFuncExprStrictFusage(state, op, econtext);
 
 			EEO_NEXT();
 		}
 
 		/*
-		 * If any of its clauses is FALSE, an AND's result is FALSE regardless
-		 * of the states of the rest of the clauses, so we can stop evaluating
-		 * and return FALSE immediately.  If none are FALSE and one or more is
-		 * NULL, we return NULL; otherwise we return TRUE.  This makes sense
-		 * when you interpret NULL as "don't know": perhaps one of the "don't
-		 * knows" would have been FALSE if we'd known its value.  Only when
-		 * all the inputs are known to be TRUE can we state confidently that
-		 * the AND's result is TRUE.
+		 * 若任一子句为 FALSE，则无论其余子句状态如何，AND 
+		 * 的结果都是 FALSE，故可停止求值并立即返回 FALSE。 
+		 * 若无 FALSE 但有一或多个 NULL，则返回 NULL；否则     
+		 * 返回 TRUE。把 NULL 解读为"不知道"时这是合理的： 
+		 * 也许某个"不知道"若已知其值本会是 FALSE。只有当 
+		 * 所有输入都确知为 TRUE 时，我们才能确信          
+		 * AND 的结果确实是                                           
+		 *  TRUE。                 
 		 */
 		EEO_CASE(EEOP_BOOL_AND_STEP_FIRST)
 		{
@@ -809,8 +809,8 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			}
 			else if (!DatumGetBool(*op->resvalue))
 			{
-				/* result is already set to FALSE, need not change it */
-				/* bail out early */
+				/* 结果已设为 FALSE，无需修改               */
+				/* 提前退出   */
 				EEO_JUMP(op->d.boolexpr.jumpdone);
 			}
 
@@ -821,16 +821,16 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		{
 			if (*op->resnull)
 			{
-				/* result is already set to NULL, need not change it */
+				/* 结果已设为 NULL，无需修改               */
 			}
 			else if (!DatumGetBool(*op->resvalue))
 			{
-				/* result is already set to FALSE, need not change it */
+				/* 结果已设为 FALSE，无需修改               */
 
 				/*
-				 * No point jumping early to jumpdone - would be same target
-				 * (as this is the last argument to the AND expression),
-				 * except more expensive.
+				 * 没必要提前跳到 jumpdone - 目标会相同         
+				 * （因为这是 AND 表达式的末参数），      
+				 * 只是更昂贵。    
 				 */
 			}
 			else if (*op->d.boolexpr.anynull)
@@ -840,21 +840,21 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			}
 			else
 			{
-				/* result is already set to TRUE, need not change it */
+				/* 结果已设为 TRUE，无需修改               */
 			}
 
 			EEO_NEXT();
 		}
 
 		/*
-		 * If any of its clauses is TRUE, an OR's result is TRUE regardless of
-		 * the states of the rest of the clauses, so we can stop evaluating
-		 * and return TRUE immediately.  If none are TRUE and one or more is
-		 * NULL, we return NULL; otherwise we return FALSE.  This makes sense
-		 * when you interpret NULL as "don't know": perhaps one of the "don't
-		 * knows" would have been TRUE if we'd known its value.  Only when all
-		 * the inputs are known to be FALSE can we state confidently that the
-		 * OR's result is FALSE.
+		 * 若任一子句为 TRUE，则无论其余子句状态如何，OR   
+		 * 的结果都是 TRUE，故可停止求值并立即返回 TRUE。
+		 * 若无 TRUE 但有一或多个 NULL，则返回 NULL；否则    
+		 * 返回 FALSE。把 NULL 解读为"不知道"时这是合理的： 
+		 * 也许某个"不知道"若已知其值本会是 TRUE。只有当  
+		 * 所有输入都确知为 FALSE 时，我们才能确信            
+		 * OR 的结果确实是                                             
+		 *  FALSE。            
 		 */
 		EEO_CASE(EEOP_BOOL_OR_STEP_FIRST)
 		{
@@ -876,8 +876,8 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			}
 			else if (DatumGetBool(*op->resvalue))
 			{
-				/* result is already set to TRUE, need not change it */
-				/* bail out early */
+				/* 结果已设为 TRUE，无需修改               */
+				/* 提前退出   */
 				EEO_JUMP(op->d.boolexpr.jumpdone);
 			}
 
@@ -888,16 +888,16 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		{
 			if (*op->resnull)
 			{
-				/* result is already set to NULL, need not change it */
+				/* 结果已设为 NULL，无需修改               */
 			}
 			else if (DatumGetBool(*op->resvalue))
 			{
-				/* result is already set to TRUE, need not change it */
+				/* 结果已设为 TRUE，无需修改               */
 
 				/*
-				 * No point jumping to jumpdone - would be same target (as
-				 * this is the last argument to the AND expression), except
-				 * more expensive.
+				 * 不必跳往 jumpdone——目标相同（AND 表达式
+				 * 最后一个参数），只是                          
+				 * 更昂贵。   
 				 */
 			}
 			else if (*op->d.boolexpr.anynull)
@@ -907,7 +907,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			}
 			else
 			{
-				/* result is already set to FALSE, need not change it */
+				/* 结果已设为 FALSE，无需修改               */
 			}
 
 			EEO_NEXT();
@@ -916,10 +916,10 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		EEO_CASE(EEOP_BOOL_NOT_STEP)
 		{
 			/*
-			 * Evaluation of 'not' is simple... if expr is false, then return
-			 * 'true' and vice versa.  It's safe to do this even on a
-			 * nominally null value, so we ignore resnull; that means that
-			 * NULL in produces NULL out, which is what we want.
+			 * 'not' 求值很简单...若 expr 为假则返回 'true'，    
+			 * 反之亦然。对名义上为 null 的值也安全，
+			 * 因此忽略 resnull；这意味着 NULL 进 NULL 出，   
+			 * 这正是我们想要的。                      
 			 */
 			*op->resvalue = BoolGetDatum(!DatumGetBool(*op->resvalue));
 
@@ -928,21 +928,21 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_QUAL)
 		{
-			/* simplified version of BOOL_AND_STEP for use by ExecQual() */
+			/* 供 ExecQual() 用的 BOOL_AND_STEP 简化版             */
 
-			/* If argument (also result) is false or null ... */
+			/* 若参数（兼结果）为 false 或 null...  */
 			if (*op->resnull ||
 				!DatumGetBool(*op->resvalue))
 			{
-				/* ... bail out early, returning FALSE */
+				/* ... 提前退出并返回 FALSE     */
 				*op->resnull = false;
 				*op->resvalue = BoolGetDatum(false);
 				EEO_JUMP(op->d.qualexpr.jumpdone);
 			}
 
 			/*
-			 * Otherwise, leave the TRUE value in place, in case this is the
-			 * last qual.  Then, TRUE is the correct answer.
+			 * 否则保留 TRUE 值不动，以防这是最后的 qual。  
+			 * 此时 TRUE 就是正确答案。            
 			 */
 
 			EEO_NEXT();
@@ -950,13 +950,13 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_JUMP)
 		{
-			/* Unconditionally jump to target step */
+			/* 无条件跳转到目标步骤      */
 			EEO_JUMP(op->d.jump.jumpdone);
 		}
 
 		EEO_CASE(EEOP_JUMP_IF_NULL)
 		{
-			/* Transfer control if current result is null */
+			/* 若当前结果为 null 则转移控制    */
 			if (*op->resnull)
 				EEO_JUMP(op->d.jump.jumpdone);
 
@@ -965,7 +965,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_JUMP_IF_NOT_NULL)
 		{
-			/* Transfer control if current result is non-null */
+			/* 若当前结果为非 null 则转移控制     */
 			if (!*op->resnull)
 				EEO_JUMP(op->d.jump.jumpdone);
 
@@ -974,7 +974,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_JUMP_IF_NOT_TRUE)
 		{
-			/* Transfer control if current result is null or false */
+			/* 若当前结果为 null 或 false 则转移控制   */
 			if (*op->resnull || !DatumGetBool(*op->resvalue))
 				EEO_JUMP(op->d.jump.jumpdone);
 
@@ -999,7 +999,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_NULLTEST_ROWISNULL)
 		{
-			/* out of line implementation: too large */
+			/* 转为外联实现：代码过大     */
 			ExecEvalRowNull(state, op, econtext);
 
 			EEO_NEXT();
@@ -1007,13 +1007,13 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_NULLTEST_ROWISNOTNULL)
 		{
-			/* out of line implementation: too large */
+			/* 转为外联实现：代码过大     */
 			ExecEvalRowNotNull(state, op, econtext);
 
 			EEO_NEXT();
 		}
 
-		/* BooleanTest implementations for all booltesttypes */
+		/* 面向所有 booltesttype 的 BooleanTest 实现  */
 
 		EEO_CASE(EEOP_BOOLTEST_IS_TRUE)
 		{
@@ -1022,7 +1022,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 				*op->resvalue = BoolGetDatum(false);
 				*op->resnull = false;
 			}
-			/* else, input value is the correct output as well */
+			/* 否则，输入值同时就是正确输出      */
 
 			EEO_NEXT();
 		}
@@ -1060,14 +1060,14 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 				*op->resvalue = BoolGetDatum(true);
 				*op->resnull = false;
 			}
-			/* else, input value is the correct output as well */
+			/* 否则，输入值同时就是正确输出      */
 
 			EEO_NEXT();
 		}
 
 		EEO_CASE(EEOP_PARAM_EXEC)
 		{
-			/* out of line implementation: too large */
+			/* 转为外联实现：代码过大     */
 			ExecEvalParamExec(state, op, econtext);
 
 			EEO_NEXT();
@@ -1075,14 +1075,14 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_PARAM_EXTERN)
 		{
-			/* out of line implementation: too large */
+			/* 转为外联实现：代码过大     */
 			ExecEvalParamExtern(state, op, econtext);
 			EEO_NEXT();
 		}
 
 		EEO_CASE(EEOP_PARAM_CALLBACK)
 		{
-			/* allow an extension module to supply a PARAM_EXTERN value */
+			/* 允许扩展模块提供 PARAM_EXTERN 值                */
 			op->d.cparam.paramfunc(state, op, econtext);
 			EEO_NEXT();
 		}
@@ -1090,13 +1090,13 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		EEO_CASE(EEOP_CASE_TESTVAL)
 		{
 			/*
-			 * Normally upper parts of the expression tree have setup the
-			 * values to be returned here, but some parts of the system
-			 * currently misuse {caseValue,domainValue}_{datum,isNull} to set
-			 * run-time data.  So if no values have been set-up, use
-			 * ExprContext's.  This isn't pretty, but also not *that* ugly,
-			 * and this is unlikely to be performance sensitive enough to
-			 * worry about an extra branch.
+			 * 通常上层已设好返回值，但系统有些部分    
+			 * 目前误用 {caseValue,domainValue}_{datum,isNull} 来 
+			 * 设置运行时数据。若没有值被设置过，就用     
+			 * ExprContext 的。                                   
+			 * 这不雅观，但也没*那么*难看，而且这里       
+			 * 不太可能对性能敏感到值得为一个额外       
+			 * 分支而操心。          
 			 */
 			if (op->d.casetest.value)
 			{
@@ -1115,7 +1115,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		EEO_CASE(EEOP_DOMAIN_TESTVAL)
 		{
 			/*
-			 * See EEOP_CASE_TESTVAL comment.
+			 * 见 EEOP_CASE_TESTVAL 注释  
 			 */
 			if (op->d.casetest.value)
 			{
@@ -1134,7 +1134,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		EEO_CASE(EEOP_MAKE_READONLY)
 		{
 			/*
-			 * Force a varlena value that might be read multiple times to R/O
+			 * 强制把可能被多次读取的 varlena 值变为 R/O       
 			 */
 			if (!*op->d.make_readonly.isnull)
 				*op->resvalue =
@@ -1147,16 +1147,16 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		EEO_CASE(EEOP_IOCOERCE)
 		{
 			/*
-			 * Evaluate a CoerceViaIO node.  This can be quite a hot path, so
-			 * inline as much work as possible.  The source value is in our
-			 * result variable.
+			 * 求值 CoerceViaIO 节点。这可能是相当热的路径， 
+			 * 因此尽可能多地内联工作。源值在我们的结果
+			 * 变量中。    
 			 */
 			char	   *str;
 
-			/* call output function (similar to OutputFunctionCall) */
+			/* 调用输出函数（类似 OutputFunctionCall）    */
 			if (*op->resnull)
 			{
-				/* output functions are not called on nulls */
+				/* 输出函数不会在 null 上被调用  */
 				str = NULL;
 			}
 			else
@@ -1170,11 +1170,11 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 				fcinfo_out->isnull = false;
 				str = DatumGetCString(FunctionCallInvoke(fcinfo_out));
 
-				/* OutputFunctionCall assumes result isn't null */
+				/* OutputFunctionCall 假定结果非 null      */
 				Assert(!fcinfo_out->isnull);
 			}
 
-			/* call input function (similar to InputFunctionCall) */
+			/* 调用输入函数（类似 InputFunctionCall）   */
 			if (!op->d.iocoerce.finfo_in->fn_strict || str != NULL)
 			{
 				FunctionCallInfo fcinfo_in;
@@ -1183,13 +1183,13 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 				fcinfo_in = op->d.iocoerce.fcinfo_data_in;
 				fcinfo_in->args[0].value = PointerGetDatum(str);
 				fcinfo_in->args[0].isnull = *op->resnull;
-				/* second and third arguments are already set up */
+				/* 第二和第三个参数已设置好          */
 
 				fcinfo_in->isnull = false;
 				d = FunctionCallInvoke(fcinfo_in);
 				*op->resvalue = d;
 
-				/* Should get null result if and only if str is NULL */
+				/* 当且仅当 str 为 NULL 时得 null 结果      */
 				if (str == NULL)
 				{
 					Assert(*op->resnull);
@@ -1208,37 +1208,37 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		EEO_CASE(EEOP_DISTINCT)
 		{
 			/*
-			 * IS DISTINCT FROM must evaluate arguments (already done into
-			 * fcinfo->args) to determine whether they are NULL; if either is
-			 * NULL then the result is determined.  If neither is NULL, then
-			 * proceed to evaluate the comparison function, which is just the
-			 * type's standard equality operator.  We need not care whether
-			 * that function is strict.  Because the handling of nulls is
-			 * different, we can't just reuse EEOP_FUNCEXPR.
+			 * IS DISTINCT FROM 必须求值参数（已求值到         
+			 * fcinfo->args）以判断它们是否为 NULL；若任一为   
+			 * NULL 则结果已定。若两者均非 NULL，则继续求值
+			 * 比较函数，即该类型标准的相等运算符。我们  
+			 * 无需关心函数是否严格；由于 null 处理不同，
+			 * 不能直接复用                                        
+			 * EEOP_FUNCEXPR。                             
 			 */
 			FunctionCallInfo fcinfo = op->d.func.fcinfo_data;
 
-			/* check function arguments for NULLness */
+			/* 检查函数参数是否为 NULL      */
 			if (fcinfo->args[0].isnull && fcinfo->args[1].isnull)
 			{
-				/* Both NULL? Then is not distinct... */
+				/* 两者都 NULL？那么不相异...*/
 				*op->resvalue = BoolGetDatum(false);
 				*op->resnull = false;
 			}
 			else if (fcinfo->args[0].isnull || fcinfo->args[1].isnull)
 			{
-				/* Only one is NULL? Then is distinct... */
+				/* 只有一个 NULL？那么相异...   */
 				*op->resvalue = BoolGetDatum(true);
 				*op->resnull = false;
 			}
 			else
 			{
-				/* Neither null, so apply the equality function */
+				/* 两者皆非 null，故应用相等函数    */
 				Datum		eqresult;
 
 				fcinfo->isnull = false;
 				eqresult = op->d.func.fn_addr(fcinfo);
-				/* Must invert result of "="; safe to do even if null */
+				/* 必须反转 "=" 的结果；即使 null 也安全 */
 				*op->resvalue = BoolGetDatum(!DatumGetBool(eqresult));
 				*op->resnull = fcinfo->isnull;
 			}
@@ -1246,7 +1246,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			EEO_NEXT();
 		}
 
-		/* see EEOP_DISTINCT for comments, this is just inverted */
+		/* 注释见 EEOP_DISTINCT，此处只是反转          */
 		EEO_CASE(EEOP_NOT_DISTINCT)
 		{
 			FunctionCallInfo fcinfo = op->d.func.fcinfo_data;
@@ -1277,22 +1277,22 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		EEO_CASE(EEOP_NULLIF)
 		{
 			/*
-			 * The arguments are already evaluated into fcinfo->args.
+			 * 参数已求值到 fcinfo->args 中。                
 			 */
 			FunctionCallInfo fcinfo = op->d.func.fcinfo_data;
 			Datum		save_arg0 = fcinfo->args[0].value;
 
-			/* if either argument is NULL they can't be equal */
+			/* 若任一参数为 NULL，两者不可能相等*/
 			if (!fcinfo->args[0].isnull && !fcinfo->args[1].isnull)
 			{
 				Datum		result;
 
 				/*
-				 * If first argument is of varlena type, it might be an
-				 * expanded datum.  We need to ensure that the value passed to
-				 * the comparison function is a read-only pointer.  However,
-				 * if we end by returning the first argument, that will be the
-				 * original read-write pointer if it was read-write.
+				 * 若首参为 varlena 类型，则可能是 expanded 
+				 * datum。需确保传给比较函数的值是只读指针。
+				 * 但若最终返回首参，                              
+				 * 则返回的将是原始读写指针，                    
+				 * 若其原本为读写。                         
 				 */
 				if (op->d.func.make_ro)
 					fcinfo->args[0].value =
@@ -1301,7 +1301,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 				fcinfo->isnull = false;
 				result = op->d.func.fn_addr(fcinfo);
 
-				/* if the arguments are equal return null */
+				/* 若参数相等则返回 NULL          */
 				if (!fcinfo->isnull && DatumGetBool(result))
 				{
 					*op->resvalue = (Datum) 0;
@@ -1311,7 +1311,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 				}
 			}
 
-			/* Arguments aren't equal, so return the first one */
+			/* 参数不相等，因此返回第一个参数   */
 			*op->resvalue = save_arg0;
 			*op->resnull = fcinfo->args[0].isnull;
 
@@ -1321,8 +1321,8 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		EEO_CASE(EEOP_SQLVALUEFUNCTION)
 		{
 			/*
-			 * Doesn't seem worthwhile to have an inline implementation
-			 * efficiency-wise.
+			 * 从效率角度看，似乎不值得专门              
+			 * 实现内联。 
 			 */
 			ExecEvalSQLValueFunction(state, op);
 
@@ -1331,7 +1331,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_CURRENTOFEXPR)
 		{
-			/* error invocation uses space, and shouldn't ever occur */
+			/* 错误调用会占用空间，且不应该发生      */
 			ExecEvalCurrentOfExpr(state, op);
 
 			EEO_NEXT();
@@ -1340,8 +1340,8 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		EEO_CASE(EEOP_NEXTVALUEEXPR)
 		{
 			/*
-			 * Doesn't seem worthwhile to have an inline implementation
-			 * efficiency-wise.
+			 * 从效率角度看，似乎不值得专门              
+			 * 实现内联。 
 			 */
 			ExecEvalNextValueExpr(state, op);
 
@@ -1350,7 +1350,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_ARRAYEXPR)
 		{
-			/* too complex for an inline implementation */
+			/* 过于复杂，不适合内联实现     */
 			ExecEvalArrayExpr(state, op);
 
 			EEO_NEXT();
@@ -1358,7 +1358,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_ARRAYCOERCE)
 		{
-			/* too complex for an inline implementation */
+			/* 过于复杂，不适合内联实现     */
 			ExecEvalArrayCoerce(state, op, econtext);
 
 			EEO_NEXT();
@@ -1366,7 +1366,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_ROW)
 		{
-			/* too complex for an inline implementation */
+			/* 过于复杂，不适合内联实现     */
 			ExecEvalRow(state, op);
 
 			EEO_NEXT();
@@ -1377,7 +1377,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			FunctionCallInfo fcinfo = op->d.rowcompare_step.fcinfo_data;
 			Datum		d;
 
-			/* force NULL result if strict fn and NULL input */
+			/* 严格函数遇 NULL 输入则强制 NULL     */
 			if (op->d.rowcompare_step.finfo->fn_strict &&
 				(fcinfo->args[0].isnull || fcinfo->args[1].isnull))
 			{
@@ -1385,12 +1385,12 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 				EEO_JUMP(op->d.rowcompare_step.jumpnull);
 			}
 
-			/* Apply comparison function */
+			/* 应用比较函数        */
 			fcinfo->isnull = false;
 			d = op->d.rowcompare_step.fn_addr(fcinfo);
 			*op->resvalue = d;
 
-			/* force NULL result if NULL function result */
+			/* 函数结果为 NULL 则强制结果 NULL */
 			if (fcinfo->isnull)
 			{
 				*op->resnull = true;
@@ -1398,7 +1398,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			}
 			*op->resnull = false;
 
-			/* If unequal, no need to compare remaining columns */
+			/* 若不相等，则无需比较其余列          */
 			if (DatumGetInt32(*op->resvalue) != 0)
 			{
 				EEO_JUMP(op->d.rowcompare_step.jumpdone);
@@ -1415,7 +1415,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			*op->resnull = false;
 			switch (rctype)
 			{
-					/* EQ and NE cases aren't allowed here */
+					/* 此处不允许 EQ 和 NE 情形    */
 				case ROWCOMPARE_LT:
 					*op->resvalue = BoolGetDatum(cmpresult < 0);
 					break;
@@ -1438,7 +1438,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_MINMAX)
 		{
-			/* too complex for an inline implementation */
+			/* 过于复杂，不适合内联实现     */
 			ExecEvalMinMax(state, op);
 
 			EEO_NEXT();
@@ -1446,7 +1446,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_FIELDSELECT)
 		{
-			/* too complex for an inline implementation */
+			/* 过于复杂，不适合内联实现     */
 			ExecEvalFieldSelect(state, op, econtext);
 
 			EEO_NEXT();
@@ -1454,7 +1454,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_FIELDSTORE_DEFORM)
 		{
-			/* too complex for an inline implementation */
+			/* 过于复杂，不适合内联实现     */
 			ExecEvalFieldStoreDeForm(state, op, econtext);
 
 			EEO_NEXT();
@@ -1462,7 +1462,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_FIELDSTORE_FORM)
 		{
-			/* too complex for an inline implementation */
+			/* 过于复杂，不适合内联实现     */
 			ExecEvalFieldStoreForm(state, op, econtext);
 
 			EEO_NEXT();
@@ -1470,14 +1470,14 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_SBSREF_SUBSCRIPTS)
 		{
-			/* Precheck SubscriptingRef subscript(s) */
+			/* 预检查 SubscriptingRef 下标      */
 			if (op->d.sbsref_subscript.subscriptfunc(state, op, econtext))
 			{
 				EEO_NEXT();
 			}
 			else
 			{
-				/* Subscript is null, short-circuit SubscriptingRef to NULL */
+				/* 下标为 NULL，将 SubscriptingRef 短路为 NULL      */
 				EEO_JUMP(op->d.sbsref_subscript.jumpdone);
 			}
 		}
@@ -1486,7 +1486,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			EEO_CASE(EEOP_SBSREF_ASSIGN)
 			EEO_CASE(EEOP_SBSREF_FETCH)
 		{
-			/* Perform a SubscriptingRef fetch or assignment */
+			/* 执行 SubscriptingRef 读取或赋值        */
 			op->d.sbsref.subscriptfunc(state, op, econtext);
 
 			EEO_NEXT();
@@ -1494,7 +1494,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_CONVERT_ROWTYPE)
 		{
-			/* too complex for an inline implementation */
+			/* 过于复杂，不适合内联实现     */
 			ExecEvalConvertRowtype(state, op, econtext);
 
 			EEO_NEXT();
@@ -1502,7 +1502,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_SCALARARRAYOP)
 		{
-			/* too complex for an inline implementation */
+			/* 过于复杂，不适合内联实现     */
 			ExecEvalScalarArrayOp(state, op);
 
 			EEO_NEXT();
@@ -1510,7 +1510,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_HASHED_SCALARARRAYOP)
 		{
-			/* too complex for an inline implementation */
+			/* 过于复杂，不适合内联实现     */
 			ExecEvalHashedScalarArrayOp(state, op, econtext);
 
 			EEO_NEXT();
@@ -1518,7 +1518,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_DOMAIN_NOTNULL)
 		{
-			/* too complex for an inline implementation */
+			/* 过于复杂，不适合内联实现     */
 			ExecEvalConstraintNotNull(state, op);
 
 			EEO_NEXT();
@@ -1526,7 +1526,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_DOMAIN_CHECK)
 		{
-			/* too complex for an inline implementation */
+			/* 过于复杂，不适合内联实现     */
 			ExecEvalConstraintCheck(state, op);
 
 			EEO_NEXT();
@@ -1534,7 +1534,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_XMLEXPR)
 		{
-			/* too complex for an inline implementation */
+			/* 过于复杂，不适合内联实现     */
 			ExecEvalXmlExpr(state, op);
 
 			EEO_NEXT();
@@ -1542,14 +1542,14 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_JSON_CONSTRUCTOR)
 		{
-			/* too complex for an inline implementation */
+			/* 过于复杂，不适合内联实现     */
 			ExecEvalJsonConstructor(state, op, econtext);
 			EEO_NEXT();
 		}
 
 		EEO_CASE(EEOP_IS_JSON)
 		{
-			/* too complex for an inline implementation */
+			/* 过于复杂，不适合内联实现     */
 			ExecEvalJsonIsPredicate(state, op);
 
 			EEO_NEXT();
@@ -1558,8 +1558,8 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		EEO_CASE(EEOP_AGGREF)
 		{
 			/*
-			 * Returns a Datum whose value is the precomputed aggregate value
-			 * found in the given expression context.
+			 * 返回一个 Datum，其值即为给定表达式              
+			 * 上下文中预计算的聚合值。  
 			 */
 			int			aggno = op->d.aggref.aggno;
 
@@ -1573,7 +1573,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_GROUPING_FUNC)
 		{
-			/* too complex/uncommon for an inline implementation */
+			/* 过于复杂/少见，不适合内联实现       */
 			ExecEvalGroupingFunc(state, op);
 
 			EEO_NEXT();
@@ -1582,7 +1582,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		EEO_CASE(EEOP_WINDOW_FUNC)
 		{
 			/*
-			 * Like Aggref, just return a precomputed value from the econtext.
+			 * 与 Aggref 类似，从 econtext 返回预计算的值。      
 			 */
 			WindowFuncExprState *wfunc = op->d.window_func.wfstate;
 
@@ -1596,23 +1596,23 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_SUBPLAN)
 		{
-			/* too complex for an inline implementation */
+			/* 过于复杂，不适合内联实现     */
 			ExecEvalSubPlan(state, op, econtext);
 
 			EEO_NEXT();
 		}
 
-		/* evaluate a strict aggregate deserialization function */
+		/* 求值严格聚合反序列化函数                 */
 		EEO_CASE(EEOP_AGG_STRICT_DESERIALIZE)
 		{
-			/* Don't call a strict deserialization function with NULL input */
+			/* 不要以 NULL 输入调用严格反序列化函数          */
 			if (op->d.agg_deserialize.fcinfo_data->args[0].isnull)
 				EEO_JUMP(op->d.agg_deserialize.jumpnull);
 
 			/* fallthrough */
 		}
 
-		/* evaluate aggregate deserialization function (non-strict portion) */
+		/* 求值聚合反序列化函数（非严格部分）              */
 		EEO_CASE(EEOP_AGG_DESERIALIZE)
 		{
 			FunctionCallInfo fcinfo = op->d.agg_deserialize.fcinfo_data;
@@ -1620,8 +1620,8 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			MemoryContext oldContext;
 
 			/*
-			 * We run the deserialization functions in per-input-tuple memory
-			 * context.
+			 * 我们会在每个输入元组专用的内存上下文中运  
+			 * 行。  
 			 */
 			oldContext = MemoryContextSwitchTo(aggstate->tmpcontext->ecxt_per_tuple_memory);
 			fcinfo->isnull = false;
@@ -1633,8 +1633,8 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		}
 
 		/*
-		 * Check that a strict aggregate transition / combination function's
-		 * input is not NULL.
+		 * 检查严格聚合转换/合并函数的输入                   
+		 * 不得为 NULL。 
 		 */
 
 		EEO_CASE(EEOP_AGG_STRICT_INPUT_CHECK_ARGS)
@@ -1664,7 +1664,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		}
 
 		/*
-		 * Check for a NULL pointer to the per-group states.
+		 * 检查指向各组状态的指针是否为 NULL  
 		 */
 
 		EEO_CASE(EEOP_AGG_PLAIN_PERGROUP_NULLCHECK)
@@ -1680,15 +1680,15 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		}
 
 		/*
-		 * Different types of aggregate transition functions are implemented
-		 * as different types of steps, to avoid incurring unnecessary
-		 * overhead.  There's a step type for each valid combination of having
-		 * a by value / by reference transition type, [not] needing to the
-		 * initialize the transition value for the first row in a group from
-		 * input, and [not] strict transition function.
+		 * 不同类型的聚合转换函数各自被实现为不同类型  
+		 * 的步骤，避免产生不必要的开销。按值传递  
+		 * 还是按引用传递、是否需要从输入为组内首行初    
+		 * 始化转换值、以及转换函数是否严格，上述条件
+		 * 的每种有效组合都对应一种                             
+		 * 专门的步骤类型。                    
 		 *
-		 * Could optimize further by splitting off by-reference for
-		 * fixed-length types, but currently that doesn't seem worth it.
+		 * 还可进一步优化，把定长类型按引用传递  
+		 * 单独拆分出来，但目前来看似乎并不值得。    
 		 */
 
 		EEO_CASE(EEOP_AGG_PLAIN_TRANS_INIT_STRICT_BYVAL)
@@ -1702,14 +1702,14 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 			if (pergroup->noTransValue)
 			{
-				/* If transValue has not yet been initialized, do so now. */
+				/* 若 transValue 尚未初始化，则现在初始化    */
 				ExecAggInitGroup(aggstate, pertrans, pergroup,
 								 op->d.agg_trans.aggcontext);
-				/* copied trans value from input, done this round */
+				/* 已从输入复制转换值，本轮完成     */
 			}
 			else if (likely(!pergroup->transValueIsNull))
 			{
-				/* invoke transition function, unless prevented by strictness */
+				/* 调用转换函数，除非因严格性而跳过           */
 				ExecAggPlainTransByVal(aggstate, pertrans, pergroup,
 									   op->d.agg_trans.aggcontext,
 									   op->d.agg_trans.setno);
@@ -1718,7 +1718,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			EEO_NEXT();
 		}
 
-		/* see comments above EEOP_AGG_PLAIN_TRANS_INIT_STRICT_BYVAL */
+		/* 注释见上方 EEOP_AGG_PLAIN_TRANS_INIT_STRICT_BYVAL    */
 		EEO_CASE(EEOP_AGG_PLAIN_TRANS_STRICT_BYVAL)
 		{
 			AggState   *aggstate = castNode(AggState, state->parent);
@@ -1736,7 +1736,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			EEO_NEXT();
 		}
 
-		/* see comments above EEOP_AGG_PLAIN_TRANS_INIT_STRICT_BYVAL */
+		/* 注释见上方 EEOP_AGG_PLAIN_TRANS_INIT_STRICT_BYVAL    */
 		EEO_CASE(EEOP_AGG_PLAIN_TRANS_BYVAL)
 		{
 			AggState   *aggstate = castNode(AggState, state->parent);
@@ -1753,7 +1753,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			EEO_NEXT();
 		}
 
-		/* see comments above EEOP_AGG_PLAIN_TRANS_INIT_STRICT_BYVAL */
+		/* 注释见上方 EEOP_AGG_PLAIN_TRANS_INIT_STRICT_BYVAL    */
 		EEO_CASE(EEOP_AGG_PLAIN_TRANS_INIT_STRICT_BYREF)
 		{
 			AggState   *aggstate = castNode(AggState, state->parent);
@@ -1774,7 +1774,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			EEO_NEXT();
 		}
 
-		/* see comments above EEOP_AGG_PLAIN_TRANS_INIT_STRICT_BYVAL */
+		/* 注释见上方 EEOP_AGG_PLAIN_TRANS_INIT_STRICT_BYVAL    */
 		EEO_CASE(EEOP_AGG_PLAIN_TRANS_STRICT_BYREF)
 		{
 			AggState   *aggstate = castNode(AggState, state->parent);
@@ -1791,7 +1791,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			EEO_NEXT();
 		}
 
-		/* see comments above EEOP_AGG_PLAIN_TRANS_INIT_STRICT_BYVAL */
+		/* 注释见上方 EEOP_AGG_PLAIN_TRANS_INIT_STRICT_BYVAL    */
 		EEO_CASE(EEOP_AGG_PLAIN_TRANS_BYREF)
 		{
 			AggState   *aggstate = castNode(AggState, state->parent);
@@ -1830,19 +1830,19 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 				EEO_JUMP(op->d.agg_presorted_distinctcheck.jumpdistinct);
 		}
 
-		/* process single-column ordered aggregate datum */
+		/* 处理单列有序聚合 Datum                */
 		EEO_CASE(EEOP_AGG_ORDERED_TRANS_DATUM)
 		{
-			/* too complex for an inline implementation */
+			/* 过于复杂，不适合内联实现     */
 			ExecEvalAggOrderedTransDatum(state, op, econtext);
 
 			EEO_NEXT();
 		}
 
-		/* process multi-column ordered aggregate tuple */
+		/* 处理多列有序聚合元组               */
 		EEO_CASE(EEOP_AGG_ORDERED_TRANS_TUPLE)
 		{
-			/* too complex for an inline implementation */
+			/* 过于复杂，不适合内联实现     */
 			ExecEvalAggOrderedTransTuple(state, op, econtext);
 
 			EEO_NEXT();
@@ -1850,7 +1850,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_LAST)
 		{
-			/* unreachable */
+			/* 不可达。*/
 			Assert(false);
 			goto out;
 		}
@@ -1862,29 +1862,29 @@ out:
 }
 
 /*
- * Expression evaluation callback that performs extra checks before executing
- * the expression. Declared extern so other methods of execution can use it
- * too.
+ * 表达式求值回调，会在执行表达式之前执行额外检查。  
+ * 该函数声明为 extern，因此其他执行方式也能使           
+ * 用 
  */
 Datum
 ExecInterpExprStillValid(ExprState *state, ExprContext *econtext, bool *isNull)
 {
 	/*
-	 * First time through, check whether attribute matches Var.  Might not be
-	 * ok anymore, due to schema changes.
+	 * 首轮执行时检查属性是否仍与 Var 匹配；由于           
+	 * 模式或已变，未必成立。 
 	 */
 	CheckExprStillValid(state, econtext);
 
-	/* skip the check during further executions */
+	/* 后续执行时跳过该检查           */
 	state->evalfunc = (ExprStateEvalFunc) state->evalfunc_private;
 
-	/* and actually execute */
+	/* 然后实际执行   */
 	return state->evalfunc(state, econtext, isNull);
 }
 
 /*
- * Check that an expression is still valid in the face of potential schema
- * changes since the plan has been created.
+ * 检查表达式在计划创建之后可能发生模式变更           
+ * 的情况下是否仍然有效。       
  */
 void
 CheckExprStillValid(ExprState *state, ExprContext *econtext)
@@ -1933,36 +1933,36 @@ CheckExprStillValid(ExprState *state, ExprContext *econtext)
 }
 
 /*
- * Check whether a user attribute in a slot can be referenced by a Var
- * expression.  This should succeed unless there have been schema changes
- * since the expression tree has been created.
+ * 检查 slot 中的用户属性能否被 Var 表达式引用。     
+ * 只要创建表达式树之后未发生模式变更，此检查       
+ * 就应当成功。                         
  */
 static void
 CheckVarSlotCompatibility(TupleTableSlot *slot, int attnum, Oid vartype)
 {
 	/*
-	 * What we have to check for here is the possibility of an attribute
-	 * having been dropped or changed in type since the plan tree was created.
-	 * Ideally the plan will get invalidated and not re-used, but just in
-	 * case, we keep these defenses.  Fortunately it's sufficient to check
-	 * once on the first time through.
+	 * 此处需要检查的可能性是：属性在计划树创建之  
+	 * 后被删除或类型被改变。理想情况下计划会失效        
+	 * 而不再被复用，但以防万一，我们保留了这些防   
+	 * 御措施。幸运的是，只需在首轮执行时检查一次    
+	 * 即可。                      
 	 *
-	 * Note: ideally we'd check typmod as well as typid, but that seems
-	 * impractical at the moment: in many cases the tupdesc will have been
-	 * generated by ExecTypeFromTL(), and that can't guarantee to generate an
-	 * accurate typmod in all cases, because some expression node types don't
-	 * carry typmod.  Fortunately, for precisely that reason, there should be
-	 * no places with a critical dependency on the typmod of a value.
+	 * 注：理想情况下还应同时检查 typmod 与 typid，     
+	 * 但这目前似乎不切实际：许多情况下 tupdesc 是       
+	 * 由 ExecTypeFromTL() 生成的，而它无法保证在                
+	 * 所有情况下都能生成准确的 typmod，因为某些表         
+	 * 达式节点类型并不携带 typmod。幸运的是，恰恰         
+	 * 因此，不应有地方对值的 typmod 存在关键依赖。
 	 *
-	 * System attributes don't require checking since their types never
-	 * change.
+	 * 系统属性无需检查，因为其类型永远不会改       
+	 * 变。 
 	 */
 	if (attnum > 0)
 	{
 		TupleDesc	slot_tupdesc = slot->tts_tupleDescriptor;
 		Form_pg_attribute attr;
 
-		if (attnum > slot_tupdesc->natts)	/* should never happen */
+		if (attnum > slot_tupdesc->natts)	/* 不应该发生     */
 			elog(ERROR, "attribute number %d exceeds number of columns %d",
 				 attnum, slot_tupdesc->natts);
 
@@ -1986,19 +1986,19 @@ CheckVarSlotCompatibility(TupleTableSlot *slot, int attnum, Oid vartype)
 }
 
 /*
- * Verify that the slot is compatible with a EEOP_*_FETCHSOME operation.
+ * 验证 slot 与 EEOP_*_FETCHSOME 操作是否兼容。               
  */
 static void
 CheckOpSlotCompatibility(ExprEvalStep *op, TupleTableSlot *slot)
 {
 #ifdef USE_ASSERT_CHECKING
-	/* there's nothing to check */
+	/* 无需检查任何内容 */
 	if (!op->d.fetch.fixed)
 		return;
 
 	/*
-	 * Should probably fixed at some point, but for now it's easier to allow
-	 * buffer and heap tuples to be used interchangeably.
+	 * 这一点或许终应修正，但目前更简单的做法是允      
+	 * 许缓冲区元组与堆元组互换使用。     
 	 */
 	if (slot->tts_ops == &TTSOpsBufferHeapTuple &&
 		op->d.fetch.kind == &TTSOpsHeapTuple)
@@ -2008,8 +2008,8 @@ CheckOpSlotCompatibility(ExprEvalStep *op, TupleTableSlot *slot)
 		return;
 
 	/*
-	 * At the moment we consider it OK if a virtual slot is used instead of a
-	 * specific type of slot, as a virtual slot never needs to be deformed.
+	 * 目前我们认为，用虚拟 slot 代替某种特定类型          
+	 * 的 slot 是可以的，因为虚拟 slot 从不需要变形。     
 	 */
 	if (slot->tts_ops == &TTSOpsVirtual)
 		return;
@@ -2019,21 +2019,21 @@ CheckOpSlotCompatibility(ExprEvalStep *op, TupleTableSlot *slot)
 }
 
 /*
- * get_cached_rowtype: utility function to lookup a rowtype tupdesc
+ * get_cached_rowtype：查找 rowtype tupdesc 的工具函数     
  *
- * type_id, typmod: identity of the rowtype
- * rowcache: space for caching identity info
- *		(rowcache->cacheptr must be initialized to NULL)
- * changed: if not NULL, *changed is set to true on any update
+ * type_id, typmod：rowtype 的标识     
+ * rowcache：缓存标识信息的空间   
+ *		（rowcache->cacheptr 必须初始化为 NULL）
+ * changed：若非 NULL，更新发生时置为 true         
  *
- * The returned TupleDesc is not guaranteed pinned; caller must pin it
- * to use it across any operation that might incur cache invalidation,
- * including for example detoasting of input tuples.
- * (The TupleDesc is always refcounted, so just use IncrTupleDescRefCount.)
+ * 返回的 TupleDesc 不保证处于 pinned 状态；调用者若   
+ * 要在任何可能引发缓存失效的操作期间使用它，    
+ * 例如对输入元组做 detoast。              
+ * （TupleDesc 总是有引用计数，只需用 IncrTupleDescRefCount） 
  *
- * NOTE: because composite types can change contents, we must be prepared
- * to re-do this during any node execution; cannot call just once during
- * expression initialization.
+ * 注意：由于复合类型的内容可能变化，我们必须       
+ * 随时准备在节点执行期间重做；不能只在表达式      
+ * 初始化时调用。     
  */
 static TupleDesc
 get_cached_rowtype(Oid type_id, int32 typmod,
@@ -2043,11 +2043,11 @@ get_cached_rowtype(Oid type_id, int32 typmod,
 	if (type_id != RECORDOID)
 	{
 		/*
-		 * It's a named composite type, so use the regular typcache.  Do a
-		 * lookup first time through, or if the composite type changed.  Note:
-		 * "tupdesc_id == 0" may look redundant, but it protects against the
-		 * admittedly-theoretical possibility that type_id was RECORDOID the
-		 * last time through, so that the cacheptr isn't TypeCacheEntry *.
+		 * 这是命名的复合类型，所以使用常规 typcache。   
+		 * 首轮执行或复合类型变更时进行查找。注意：       
+		 * "tupdesc_id == 0" 似乎多余，但它能防止出现           
+		 * 一种纯属理论上的可能：上一轮的 type_id 是        
+		 * RECORDOID，导致 cacheptr 不是 TypeCacheEntry *。         
 		 */
 		TypeCacheEntry *typentry = (TypeCacheEntry *) rowcache->cacheptr;
 
@@ -2071,10 +2071,10 @@ get_cached_rowtype(Oid type_id, int32 typmod,
 	else
 	{
 		/*
-		 * A RECORD type, once registered, doesn't change for the life of the
-		 * backend.  So we don't need a typcache entry as such, which is good
-		 * because there isn't one.  It's possible that the caller is asking
-		 * about a different type than before, though.
+		 * RECORD 类型一经注册，在后端存续期间就不会        
+		 * 再变化。因此我们并不真正需要 typcache 条目，     
+		 * 这反而正好，因为本来也没有这样的条目。不过  
+		 * 调用者查询的类型可能已变。    
 		 */
 		TupleDesc	tupDesc = (TupleDesc) rowcache->cacheptr;
 
@@ -2084,10 +2084,10 @@ get_cached_rowtype(Oid type_id, int32 typmod,
 					 typmod != tupDesc->tdtypmod))
 		{
 			tupDesc = lookup_rowtype_tupdesc(type_id, typmod);
-			/* Drop pin acquired by lookup_rowtype_tupdesc */
+			/* 释放 lookup_rowtype_tupdesc 获取的 pin */
 			ReleaseTupleDesc(tupDesc);
 			rowcache->cacheptr = (void *) tupDesc;
-			rowcache->tupdesc_id = 0;	/* not a valid value for non-RECORD */
+			rowcache->tupdesc_id = 0;	/* 非 RECORD 时不是有效值    */
 			if (changed)
 				*changed = true;
 		}
@@ -2097,10 +2097,10 @@ get_cached_rowtype(Oid type_id, int32 typmod,
 
 
 /*
- * Fast-path functions, for very simple expressions
+ * 快速路径函数，用于极简单的表达式
  */
 
-/* implementation of ExecJust(Inner|Outer|Scan)Var */
+/* ExecJust(Inner|Outer|Scan)Var 的实现         */
 static pg_attribute_always_inline Datum
 ExecJustVarImpl(ExprState *state, TupleTableSlot *slot, bool *isnull)
 {
@@ -2110,35 +2110,35 @@ ExecJustVarImpl(ExprState *state, TupleTableSlot *slot, bool *isnull)
 	CheckOpSlotCompatibility(&state->steps[0], slot);
 
 	/*
-	 * Since we use slot_getattr(), we don't need to implement the FETCHSOME
-	 * step explicitly, and we also needn't Assert that the attnum is in range
-	 * --- slot_getattr() will take care of any problems.
+	 * 由于使用了 slot_getattr()，我们无需显式实现            
+	 * FETCHSOME 步骤，也无需断言 attnum 在有效范围              
+	 * --- 一旦出问题会由 slot_getattr() 处理。
 	 */
 	return slot_getattr(slot, attnum, isnull);
 }
 
-/* Simple reference to inner Var */
+/* 简单引用 inner Var        */
 static Datum
 ExecJustInnerVar(ExprState *state, ExprContext *econtext, bool *isnull)
 {
 	return ExecJustVarImpl(state, econtext->ecxt_innertuple, isnull);
 }
 
-/* Simple reference to outer Var */
+/* 简单引用 outer Var        */
 static Datum
 ExecJustOuterVar(ExprState *state, ExprContext *econtext, bool *isnull)
 {
 	return ExecJustVarImpl(state, econtext->ecxt_outertuple, isnull);
 }
 
-/* Simple reference to scan Var */
+/* 简单引用 scan Var        */
 static Datum
 ExecJustScanVar(ExprState *state, ExprContext *econtext, bool *isnull)
 {
 	return ExecJustVarImpl(state, econtext->ecxt_scantuple, isnull);
 }
 
-/* implementation of ExecJustAssign(Inner|Outer|Scan)Var */
+/* ExecJustAssign(Inner|Outer|Scan)Var 的实现         */
 static pg_attribute_always_inline Datum
 ExecJustAssignVarImpl(ExprState *state, TupleTableSlot *inslot, bool *isnull)
 {
@@ -2150,13 +2150,13 @@ ExecJustAssignVarImpl(ExprState *state, TupleTableSlot *inslot, bool *isnull)
 	CheckOpSlotCompatibility(&state->steps[0], inslot);
 
 	/*
-	 * We do not need CheckVarSlotCompatibility here; that was taken care of
-	 * at compilation time.
+	 * 此处无需 CheckVarSlotCompatibility，这在编译                
+	 * 时已处理过。  
 	 *
-	 * Since we use slot_getattr(), we don't need to implement the FETCHSOME
-	 * step explicitly, and we also needn't Assert that the attnum is in range
-	 * --- slot_getattr() will take care of any problems.  Nonetheless, check
-	 * that resultnum is in range.
+	 * 由于使用了 slot_getattr()，我们无需显式实现            
+	 * FETCHSOME 步骤，也无需断言 attnum 在有效范围              
+	 * （slot_getattr() 会处理任何问题）。不过仍需检查       
+	 * resultnum 是否越界。  
 	 */
 	Assert(resultnum >= 0 && resultnum < outslot->tts_tupleDescriptor->natts);
 	outslot->tts_values[resultnum] =
@@ -2164,28 +2164,28 @@ ExecJustAssignVarImpl(ExprState *state, TupleTableSlot *inslot, bool *isnull)
 	return 0;
 }
 
-/* Evaluate inner Var and assign to appropriate column of result tuple */
+/* 求值 inner Var 并赋给结果元组的相应列                  */
 static Datum
 ExecJustAssignInnerVar(ExprState *state, ExprContext *econtext, bool *isnull)
 {
 	return ExecJustAssignVarImpl(state, econtext->ecxt_innertuple, isnull);
 }
 
-/* Evaluate outer Var and assign to appropriate column of result tuple */
+/* 求值 outer Var 并赋给结果元组的相应列                  */
 static Datum
 ExecJustAssignOuterVar(ExprState *state, ExprContext *econtext, bool *isnull)
 {
 	return ExecJustAssignVarImpl(state, econtext->ecxt_outertuple, isnull);
 }
 
-/* Evaluate scan Var and assign to appropriate column of result tuple */
+/* 求值 scan Var 并赋给结果元组的相应列                  */
 static Datum
 ExecJustAssignScanVar(ExprState *state, ExprContext *econtext, bool *isnull)
 {
 	return ExecJustAssignVarImpl(state, econtext->ecxt_scantuple, isnull);
 }
 
-/* Evaluate CASE_TESTVAL and apply a strict function to it */
+/* 求值 CASE_TESTVAL 并对其应用严格函数         */
 static Datum
 ExecJustApplyFuncToCase(ExprState *state, ExprContext *econtext, bool *isnull)
 {
@@ -2196,8 +2196,8 @@ ExecJustApplyFuncToCase(ExprState *state, ExprContext *econtext, bool *isnull)
 	Datum		d;
 
 	/*
-	 * XXX with some redesign of the CaseTestExpr mechanism, maybe we could
-	 * get rid of this data shuffling?
+	 * XXX 若对 CaseTestExpr 机制稍作重新设计，或许           
+	 * 就能免去数据搬运？    
 	 */
 	*op->resvalue = *op->d.casetest.value;
 	*op->resnull = *op->d.casetest.isnull;
@@ -2208,7 +2208,7 @@ ExecJustApplyFuncToCase(ExprState *state, ExprContext *econtext, bool *isnull)
 	fcinfo = op->d.func.fcinfo_data;
 	args = fcinfo->args;
 
-	/* strict function, so check for NULL args */
+	/* 严格函数，检查参数是否 NULL  */
 	for (int argno = 0; argno < nargs; argno++)
 	{
 		if (args[argno].isnull)
@@ -2223,7 +2223,7 @@ ExecJustApplyFuncToCase(ExprState *state, ExprContext *econtext, bool *isnull)
 	return d;
 }
 
-/* Simple Const expression */
+/* 简单 Const 表达式  */
 static Datum
 ExecJustConst(ExprState *state, ExprContext *econtext, bool *isnull)
 {
@@ -2233,7 +2233,7 @@ ExecJustConst(ExprState *state, ExprContext *econtext, bool *isnull)
 	return op->d.constval.value;
 }
 
-/* implementation of ExecJust(Inner|Outer|Scan)VarVirt */
+/* ExecJust(Inner|Outer|Scan)VarVirt 的实现         */
 static pg_attribute_always_inline Datum
 ExecJustVarVirtImpl(ExprState *state, TupleTableSlot *slot, bool *isnull)
 {
@@ -2241,10 +2241,10 @@ ExecJustVarVirtImpl(ExprState *state, TupleTableSlot *slot, bool *isnull)
 	int			attnum = op->d.var.attnum;
 
 	/*
-	 * As it is guaranteed that a virtual slot is used, there never is a need
-	 * to perform tuple deforming (nor would it be possible). Therefore
-	 * execExpr.c has not emitted an EEOP_*_FETCHSOME step. Verify, as much as
-	 * possible, that that determination was accurate.
+	 * 由于已保证使用虚拟 slot，因此永远不需要执行        
+	 * 元组变形 （也不可能做到）。因此 execExpr.c       
+	 * 并未生成 EEOP_*_FETCHSOME 步骤。请尽可能验                 
+	 * 证该判断是准确的。                    
 	 */
 	Assert(TTS_IS_VIRTUAL(slot));
 	Assert(TTS_FIXED(slot));
@@ -2255,28 +2255,28 @@ ExecJustVarVirtImpl(ExprState *state, TupleTableSlot *slot, bool *isnull)
 	return slot->tts_values[attnum];
 }
 
-/* Like ExecJustInnerVar, optimized for virtual slots */
+/* 类似 ExecJustInnerVar，为虚拟 slot 优化    */
 static Datum
 ExecJustInnerVarVirt(ExprState *state, ExprContext *econtext, bool *isnull)
 {
 	return ExecJustVarVirtImpl(state, econtext->ecxt_innertuple, isnull);
 }
 
-/* Like ExecJustOuterVar, optimized for virtual slots */
+/* 类似 ExecJustOuterVar，为虚拟 slot 优化    */
 static Datum
 ExecJustOuterVarVirt(ExprState *state, ExprContext *econtext, bool *isnull)
 {
 	return ExecJustVarVirtImpl(state, econtext->ecxt_outertuple, isnull);
 }
 
-/* Like ExecJustScanVar, optimized for virtual slots */
+/* 类似 ExecJustScanVar，为虚拟 slot 优化    */
 static Datum
 ExecJustScanVarVirt(ExprState *state, ExprContext *econtext, bool *isnull)
 {
 	return ExecJustVarVirtImpl(state, econtext->ecxt_scantuple, isnull);
 }
 
-/* implementation of ExecJustAssign(Inner|Outer|Scan)VarVirt */
+/* ExecJustAssign(Inner|Outer|Scan)VarVirt 的实现         */
 static pg_attribute_always_inline Datum
 ExecJustAssignVarVirtImpl(ExprState *state, TupleTableSlot *inslot, bool *isnull)
 {
@@ -2285,7 +2285,7 @@ ExecJustAssignVarVirtImpl(ExprState *state, TupleTableSlot *inslot, bool *isnull
 	int			resultnum = op->d.assign_var.resultnum;
 	TupleTableSlot *outslot = state->resultslot;
 
-	/* see ExecJustVarVirtImpl for comments */
+	/* 注释见 ExecJustVarVirtImpl        */
 
 	Assert(TTS_IS_VIRTUAL(inslot));
 	Assert(TTS_FIXED(inslot));
@@ -2298,21 +2298,21 @@ ExecJustAssignVarVirtImpl(ExprState *state, TupleTableSlot *inslot, bool *isnull
 	return 0;
 }
 
-/* Like ExecJustAssignInnerVar, optimized for virtual slots */
+/* 类似 ExecJustAssignInnerVar，为虚拟 slot 优化    */
 static Datum
 ExecJustAssignInnerVarVirt(ExprState *state, ExprContext *econtext, bool *isnull)
 {
 	return ExecJustAssignVarVirtImpl(state, econtext->ecxt_innertuple, isnull);
 }
 
-/* Like ExecJustAssignOuterVar, optimized for virtual slots */
+/* 类似 ExecJustAssignOuterVar，为虚拟 slot 优化    */
 static Datum
 ExecJustAssignOuterVarVirt(ExprState *state, ExprContext *econtext, bool *isnull)
 {
 	return ExecJustAssignVarVirtImpl(state, econtext->ecxt_outertuple, isnull);
 }
 
-/* Like ExecJustAssignScanVar, optimized for virtual slots */
+/* 类似 ExecJustAssignScanVar，为虚拟 slot 优化    */
 static Datum
 ExecJustAssignScanVarVirt(ExprState *state, ExprContext *econtext, bool *isnull)
 {
@@ -2321,8 +2321,8 @@ ExecJustAssignScanVarVirt(ExprState *state, ExprContext *econtext, bool *isnull)
 
 #if defined(EEO_USE_COMPUTED_GOTO)
 /*
- * Comparator used when building address->opcode lookup table for
- * ExecEvalStepOp() in the threaded dispatch case.
+ * 在线程化分派情形下，为 ExecEvalStepOp() 构建     
+ * address->opcode 查找表的比较器。       
  */
 static int
 dispatch_compare_ptr(const void *a, const void *b)
@@ -2339,26 +2339,26 @@ dispatch_compare_ptr(const void *a, const void *b)
 #endif
 
 /*
- * Do one-time initialization of interpretation machinery.
+ * 对解释执行机制做一次性初始化。          
  */
 static void
 ExecInitInterpreter(void)
 {
 #if defined(EEO_USE_COMPUTED_GOTO)
-	/* Set up externally-visible pointer to dispatch table */
+	/* 设置对外可见的分派表指针                */
 	if (dispatch_table == NULL)
 	{
 		dispatch_table = (const void **)
 			DatumGetPointer(ExecInterpExpr(NULL, NULL, NULL));
 
-		/* build reverse lookup table */
+		/* 构建反向查找表      */
 		for (int i = 0; i < EEOP_LAST; i++)
 		{
 			reverse_dispatch_table[i].opcode = dispatch_table[i];
 			reverse_dispatch_table[i].op = (ExprEvalOp) i;
 		}
 
-		/* make it bsearch()able */
+		/* 使 bsearch() 可用  */
 		qsort(reverse_dispatch_table,
 			  EEOP_LAST /* nmembers */ ,
 			  sizeof(ExprEvalOpLookup),
@@ -2368,10 +2368,10 @@ ExecInitInterpreter(void)
 }
 
 /*
- * Function to return the opcode of an expression step.
+ * 返回表达式步骤 opcode 的函数。           
  *
- * When direct-threading is in use, ExprState->opcode isn't easily
- * decipherable. This function returns the appropriate enum member.
+ * 使用 direct-threading 时，ExprState->opcode 不易         
+ * 解读。本函数会返回相应的枚举成员。             
  */
 ExprEvalOp
 ExecEvalStepOp(ExprState *state, ExprEvalStep *op)
@@ -2388,7 +2388,7 @@ ExecEvalStepOp(ExprState *state, ExprEvalStep *op)
 					  EEOP_LAST /* nmembers */ ,
 					  sizeof(ExprEvalOpLookup),
 					  dispatch_compare_ptr);
-		Assert(res);			/* unknown ops shouldn't get looked up */
+		Assert(res);			/* 未知 op 不应被查找           */
 		return res->op;
 	}
 #endif
@@ -2397,11 +2397,11 @@ ExecEvalStepOp(ExprState *state, ExprEvalStep *op)
 
 
 /*
- * Out-of-line helper functions for complex instructions.
+ * 复杂指令的 Out-of-line 辅助函数。           
  */
 
 /*
- * Evaluate EEOP_FUNCEXPR_FUSAGE
+ * 求值 EEOP_FUNCEXPR_FUSAGE  
  */
 void
 ExecEvalFuncExprFusage(ExprState *state, ExprEvalStep *op,
@@ -2422,7 +2422,7 @@ ExecEvalFuncExprFusage(ExprState *state, ExprEvalStep *op,
 }
 
 /*
- * Evaluate EEOP_FUNCEXPR_STRICT_FUSAGE
+ * 求值 EEOP_FUNCEXPR_STRICT_FUSAGE  
  */
 void
 ExecEvalFuncExprStrictFusage(ExprState *state, ExprEvalStep *op,
@@ -2435,7 +2435,7 @@ ExecEvalFuncExprStrictFusage(ExprState *state, ExprEvalStep *op,
 	int			nargs = op->d.func.nargs;
 	Datum		d;
 
-	/* strict function, so check for NULL args */
+	/* strict 函数，需检查 NULL 参数   */
 	for (int argno = 0; argno < nargs; argno++)
 	{
 		if (args[argno].isnull)
@@ -2456,10 +2456,10 @@ ExecEvalFuncExprStrictFusage(ExprState *state, ExprEvalStep *op,
 }
 
 /*
- * Evaluate a PARAM_EXEC parameter.
+ * 求值 PARAM_EXEC 参数。     
  *
- * PARAM_EXEC params (internal executor parameters) are stored in the
- * ecxt_param_exec_vals array, and can be accessed by array index.
+ * PARAM_EXEC 参数（执行器内部参数）存储在             
+ * ecxt_param_exec_vals 数组，可用数组下标访问。      
  */
 void
 ExecEvalParamExec(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
@@ -2469,9 +2469,9 @@ ExecEvalParamExec(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 	prm = &(econtext->ecxt_param_exec_vals[op->d.param.paramid]);
 	if (unlikely(prm->execPlan != NULL))
 	{
-		/* Parameter not evaluated yet, so go do it */
+		/* 参数尚未求值，故现在求值     */
 		ExecSetParamPlan(prm->execPlan, econtext);
-		/* ExecSetParamPlan should have processed this param... */
+		/* ExecSetParamPlan 本应已处理过该参数...      */
 		Assert(prm->execPlan == NULL);
 	}
 	*op->resvalue = prm->value;
@@ -2479,9 +2479,9 @@ ExecEvalParamExec(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 }
 
 /*
- * Evaluate a PARAM_EXTERN parameter.
+ * 求值 PARAM_EXTERN 参数。     
  *
- * PARAM_EXTERN parameters must be sought in ecxt_param_list_info.
+ * PARAM_EXTERN 参数必须在 ecxt_param_list_info 中查找。 
  */
 void
 ExecEvalParamExtern(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
@@ -2495,7 +2495,7 @@ ExecEvalParamExtern(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 		ParamExternData *prm;
 		ParamExternData prmdata;
 
-		/* give hook a chance in case parameter is dynamic */
+		/* 参数可能为动态，让钩子函数先处理*/
 		if (paramInfo->paramFetch != NULL)
 			prm = paramInfo->paramFetch(paramInfo, paramId, false, &prmdata);
 		else
@@ -2503,7 +2503,7 @@ ExecEvalParamExtern(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 
 		if (likely(OidIsValid(prm->ptype)))
 		{
-			/* safety check in case hook did something unexpected */
+			/* 以防钩子做出意外行为的安全检查      */
 			if (unlikely(prm->ptype != op->d.param.paramtype))
 				ereport(ERROR,
 						(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -2523,7 +2523,7 @@ ExecEvalParamExtern(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 }
 
 /*
- * Evaluate a SQLValueFunction expression.
+ * 求值 SQLValueFunction 表达式。   
  */
 void
 ExecEvalSQLValueFunction(ExprState *state, ExprEvalStep *op)
@@ -2534,8 +2534,8 @@ ExecEvalSQLValueFunction(ExprState *state, ExprEvalStep *op)
 	*op->resnull = false;
 
 	/*
-	 * Note: current_schema() can return NULL.  current_user() etc currently
-	 * cannot, but might as well code those cases the same way for safety.
+	 * 注意：current_schema() 可能返回 NULL。current_user() 等     
+	 * 目前不能，但为安全起见不妨同样编码这些情况。 
 	 */
 	switch (svf->op)
 	{
@@ -2584,13 +2584,13 @@ ExecEvalSQLValueFunction(ExprState *state, ExprEvalStep *op)
 }
 
 /*
- * Raise error if a CURRENT OF expression is evaluated.
+ * 若 CURRENT OF 表达式被求值则报错。       
  *
- * The planner should convert CURRENT OF into a TidScan qualification, or some
- * other special handling in a ForeignScan node.  So we have to be able to do
- * ExecInitExpr on a CurrentOfExpr, but we shouldn't ever actually execute it.
- * If we get here, we suppose we must be dealing with CURRENT OF on a foreign
- * table whose FDW doesn't handle it, and complain accordingly.
+ * 规划器应当把 CURRENT OF 转换成 TidScan 限定条件，或在      
+ * ForeignScan 节点中做其他特殊处理。因此我们必须能对     
+ * CurrentOfExpr 执行 ExecInitExpr，但绝不应真正执行它。         
+ * 若走到这里，我们推测必然是在处理某个外表上的        
+ * CURRENT OF，其 FDW 不支持它，此时应相应报错。
  */
 void
 ExecEvalCurrentOfExpr(ExprState *state, ExprEvalStep *op)
@@ -2601,7 +2601,7 @@ ExecEvalCurrentOfExpr(ExprState *state, ExprEvalStep *op)
 }
 
 /*
- * Evaluate NextValueExpr.
+ * 求值 NextValueExpr。
  */
 void
 ExecEvalNextValueExpr(ExprState *state, ExprEvalStep *op)
@@ -2627,7 +2627,7 @@ ExecEvalNextValueExpr(ExprState *state, ExprEvalStep *op)
 }
 
 /*
- * Evaluate NullTest / IS NULL for rows.
+ * 对行求值 NullTest / IS NULL。   
  */
 void
 ExecEvalRowNull(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
@@ -2636,7 +2636,7 @@ ExecEvalRowNull(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 }
 
 /*
- * Evaluate NullTest / IS NOT NULL for rows.
+ * 对行求值 NullTest / IS NOT NULL。   
  */
 void
 ExecEvalRowNotNull(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
@@ -2644,7 +2644,7 @@ ExecEvalRowNotNull(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 	ExecEvalRowNullInt(state, op, econtext, false);
 }
 
-/* Common code for IS [NOT] NULL on a row value */
+/* 对行值执行 IS [NOT] NULL 的公共代码*/
 static void
 ExecEvalRowNullInt(ExprState *state, ExprEvalStep *op,
 				   ExprContext *econtext, bool checkisnull)
@@ -2659,7 +2659,7 @@ ExecEvalRowNullInt(ExprState *state, ExprEvalStep *op,
 
 	*op->resnull = false;
 
-	/* NULL row variables are treated just as NULL scalar columns */
+	/* NULL 行变量就像 NULL 标量列一样对待            */
 	if (isnull)
 	{
 		*op->resvalue = BoolGetDatum(checkisnull);
@@ -2667,19 +2667,19 @@ ExecEvalRowNullInt(ExprState *state, ExprEvalStep *op,
 	}
 
 	/*
-	 * The SQL standard defines IS [NOT] NULL for a non-null rowtype argument
-	 * as:
+	 * SQL 标准为非空 rowtype 参数定义的 IS [NOT] NULL             
+	 * 为
 	 *
-	 * "R IS NULL" is true if every field is the null value.
+	 * "R IS NULL" 在每个字段均为空值时为真。  
 	 *
-	 * "R IS NOT NULL" is true if no field is the null value.
+	 * "R IS NOT NULL" 在没有字段为空值时为真。  
 	 *
-	 * This definition is (apparently intentionally) not recursive; so our
-	 * tests on the fields are primitive attisnull tests, not recursive checks
-	 * to see if they are all-nulls or no-nulls rowtypes.
+	 * 该定义（显然是有意地）并非递归的；因此我们对 
+	 * 字段的测试只是原始的 attisnull 测试，而非递归检查   
+	 * 看它们是否为全空或全非空的 rowtype。
 	 *
-	 * The standard does not consider the possibility of zero-field rows, but
-	 * here we consider them to vacuously satisfy both predicates.
+	 * 标准没有考虑零字段的行这种情况，但我们             
+	 * 在这里认为它们平凡地满足这两个谓词。     
 	 */
 
 	tuple = DatumGetHeapTupleHeader(value);
@@ -2687,24 +2687,24 @@ ExecEvalRowNullInt(ExprState *state, ExprEvalStep *op,
 	tupType = HeapTupleHeaderGetTypeId(tuple);
 	tupTypmod = HeapTupleHeaderGetTypMod(tuple);
 
-	/* Lookup tupdesc if first time through or if type changes */
+	/* 若首次执行或类型变化，则查找 tupdesc      */
 	tupDesc = get_cached_rowtype(tupType, tupTypmod,
 								 &op->d.nulltest_row.rowcache, NULL);
 
 	/*
-	 * heap_attisnull needs a HeapTuple not a bare HeapTupleHeader.
+	 * heap_attisnull 需要 HeapTuple 而非裸 HeapTupleHeader。
 	 */
 	tmptup.t_len = HeapTupleHeaderGetDatumLength(tuple);
 	tmptup.t_data = tuple;
 
 	for (int att = 1; att <= tupDesc->natts; att++)
 	{
-		/* ignore dropped columns */
+		/* 忽略已删除的列  */
 		if (TupleDescAttr(tupDesc, att - 1)->attisdropped)
 			continue;
 		if (heap_attisnull(&tmptup, att, tupDesc))
 		{
-			/* null field disproves IS NOT NULL */
+			/* 空字段可否定 IS NOT NULL   */
 			if (!checkisnull)
 			{
 				*op->resvalue = BoolGetDatum(false);
@@ -2713,7 +2713,7 @@ ExecEvalRowNullInt(ExprState *state, ExprEvalStep *op,
 		}
 		else
 		{
-			/* non-null field disproves IS NULL */
+			/* 非空字段可否定 IS NULL    */
 			if (checkisnull)
 			{
 				*op->resvalue = BoolGetDatum(false);
@@ -2726,10 +2726,10 @@ ExecEvalRowNullInt(ExprState *state, ExprEvalStep *op,
 }
 
 /*
- * Evaluate an ARRAY[] expression.
+ * 求值 ARRAY[] 表达式。    
  *
- * The individual array elements (or subarrays) have already been evaluated
- * into op->d.arrayexpr.elemvalues[]/elemnulls[].
+ * 各个数组元素（或子数组）已经被求值到                  
+ * op->d.arrayexpr.elemvalues[]/elemnulls[]      
  */
 void
 ExecEvalArrayExpr(ExprState *state, ExprEvalStep *op)
@@ -2741,16 +2741,16 @@ ExecEvalArrayExpr(ExprState *state, ExprEvalStep *op)
 	int			dims[MAXDIM];
 	int			lbs[MAXDIM];
 
-	/* Set non-null as default */
+	/* 将默认值设为非空*/
 	*op->resnull = false;
 
 	if (!op->d.arrayexpr.multidims)
 	{
-		/* Elements are presumably of scalar type */
+		/* 元素大概属于标量类型         */
 		Datum	   *dvalues = op->d.arrayexpr.elemvalues;
 		bool	   *dnulls = op->d.arrayexpr.elemnulls;
 
-		/* setup for 1-D array of the given length */
+		/* 为给定长度的一维数组做设置 */
 		ndims = 1;
 		dims[0] = nelems;
 		lbs[0] = 1;
@@ -2763,7 +2763,7 @@ ExecEvalArrayExpr(ExprState *state, ExprEvalStep *op)
 	}
 	else
 	{
-		/* Must be nested array expressions */
+		/* 必然是嵌套的数组表达式*/
 		int			nbytes = 0;
 		int			nitems;
 		int			outer_nelems = 0;
@@ -2786,7 +2786,7 @@ ExecEvalArrayExpr(ExprState *state, ExprEvalStep *op)
 		subbytes = (int *) palloc(nelems * sizeof(int));
 		subnitems = (int *) palloc(nelems * sizeof(int));
 
-		/* loop through and get data area from each element */
+		/* 遍历并从每个元素获取数据区          */
 		for (int elemoff = 0; elemoff < nelems; elemoff++)
 		{
 			Datum		arraydatum;
@@ -2797,7 +2797,7 @@ ExecEvalArrayExpr(ExprState *state, ExprEvalStep *op)
 			arraydatum = op->d.arrayexpr.elemvalues[elemoff];
 			eisnull = op->d.arrayexpr.elemnulls[elemoff];
 
-			/* temporarily ignore null subarrays */
+			/* 暂时忽略空值子数组       */
 			if (eisnull)
 			{
 				haveempty = true;
@@ -2806,7 +2806,7 @@ ExecEvalArrayExpr(ExprState *state, ExprEvalStep *op)
 
 			array = DatumGetArrayTypeP(arraydatum);
 
-			/* run-time double-check on element type */
+			/* 对元素类型做运行时复核     */
 			if (element_type != ARR_ELEMTYPE(array))
 				ereport(ERROR,
 						(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -2817,7 +2817,7 @@ ExecEvalArrayExpr(ExprState *state, ExprEvalStep *op)
 								   format_type_be(element_type))));
 
 			this_ndims = ARR_NDIM(array);
-			/* temporarily ignore zero-dimensional subarrays */
+			/* 暂时忽略零维子数组                   */
 			if (this_ndims <= 0)
 			{
 				haveempty = true;
@@ -2826,7 +2826,7 @@ ExecEvalArrayExpr(ExprState *state, ExprEvalStep *op)
 
 			if (firstone)
 			{
-				/* Get sub-array details from first member */
+				/* 从第一个成员获取子数组详情 */
 				elem_ndims = this_ndims;
 				ndims = elem_ndims + 1;
 				if (ndims <= 0 || ndims > MAXDIM)
@@ -2844,7 +2844,7 @@ ExecEvalArrayExpr(ExprState *state, ExprEvalStep *op)
 			}
 			else
 			{
-				/* Check other sub-arrays are compatible */
+				/* 检查其他子数组是否兼容     */
 				if (elem_ndims != this_ndims ||
 					memcmp(elem_dims, ARR_DIMS(array),
 						   elem_ndims * sizeof(int)) != 0 ||
@@ -2860,7 +2860,7 @@ ExecEvalArrayExpr(ExprState *state, ExprEvalStep *op)
 			subbitmaps[outer_nelems] = ARR_NULLBITMAP(array);
 			subbytes[outer_nelems] = ARR_SIZE(array) - ARR_DATA_OFFSET(array);
 			nbytes += subbytes[outer_nelems];
-			/* check for overflow of total request */
+			/* 检查总请求是否溢出         */
 			if (!AllocSizeIsValid(nbytes))
 				ereport(ERROR,
 						(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
@@ -2873,14 +2873,14 @@ ExecEvalArrayExpr(ExprState *state, ExprEvalStep *op)
 		}
 
 		/*
-		 * If all items were null or empty arrays, return an empty array;
-		 * otherwise, if some were and some weren't, raise error.  (Note: we
-		 * must special-case this somehow to avoid trying to generate a 1-D
-		 * array formed from empty arrays.  It's not ideal...)
+		 * 若所有项都是空值或空数组，则返回空数组；  
+		 * 否则若有些是有些不是，则报错。（注意：我们  
+		 * 必须以某种方式特判这一点，避免尝试生成由空 
+		 * 数组构成的一维数组。这并不理想...）
 		 */
 		if (haveempty)
 		{
-			if (ndims == 0)		/* didn't find any nonempty array */
+			if (ndims == 0)		/* 未找到任何非空数组    */
 			{
 				*op->resvalue = PointerGetDatum(construct_empty_array(element_type));
 				return;
@@ -2891,7 +2891,7 @@ ExecEvalArrayExpr(ExprState *state, ExprEvalStep *op)
 							"expressions with matching dimensions")));
 		}
 
-		/* setup for multi-D array */
+		/* 为多维数组做设置*/
 		dims[0] = outer_nelems;
 		lbs[0] = 1;
 		for (int i = 1; i < ndims; i++)
@@ -2900,7 +2900,7 @@ ExecEvalArrayExpr(ExprState *state, ExprEvalStep *op)
 			lbs[i] = elem_lbs[i - 1];
 		}
 
-		/* check for subscript overflow */
+		/* 检查下标是否溢出     */
 		nitems = ArrayGetNItems(ndims, dims);
 		ArrayCheckBounds(ndims, dims, lbs);
 
@@ -2911,7 +2911,7 @@ ExecEvalArrayExpr(ExprState *state, ExprEvalStep *op)
 		}
 		else
 		{
-			dataoffset = 0;		/* marker for no null bitmap */
+			dataoffset = 0;		/* 无空值位图的标记  */
 			nbytes += ARR_OVERHEAD_NONULLS(ndims);
 		}
 
@@ -2941,28 +2941,28 @@ ExecEvalArrayExpr(ExprState *state, ExprEvalStep *op)
 }
 
 /*
- * Evaluate an ArrayCoerceExpr expression.
+ * 求值 ArrayCoerceExpr 表达式。    
  *
- * Source array is in step's result variable.
+ * 源数组位于步骤的结果变量中。
  */
 void
 ExecEvalArrayCoerce(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 {
 	Datum		arraydatum;
 
-	/* NULL array -> NULL result */
+	/* NULL 数组则输出 NULL */
 	if (*op->resnull)
 		return;
 
 	arraydatum = *op->resvalue;
 
 	/*
-	 * If it's binary-compatible, modify the element type in the array header,
-	 * but otherwise leave the array as we received it.
+	 * 若二进制兼容，则修改数组头中的元素类型，           
+	 * 除此之外对数组不作任何改动。      
 	 */
 	if (op->d.arraycoerce.elemexprstate == NULL)
 	{
-		/* Detoast input array if necessary, and copy in any case */
+		/* 必要时 detoast 输入数组，无论如何都复制 */
 		ArrayType  *array = DatumGetArrayTypePCopy(arraydatum);
 
 		ARR_ELEMTYPE(array) = op->d.arraycoerce.resultelemtype;
@@ -2971,7 +2971,7 @@ ExecEvalArrayCoerce(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 	}
 
 	/*
-	 * Use array_map to apply the sub-expression to each array element.
+	 * 用 array_map 把子表达式应用到每个数组元素。     
 	 */
 	*op->resvalue = array_map(arraydatum,
 							  op->d.arraycoerce.elemexprstate,
@@ -2981,17 +2981,17 @@ ExecEvalArrayCoerce(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 }
 
 /*
- * Evaluate a ROW() expression.
+ * 求值 ROW() 表达式。   
  *
- * The individual columns have already been evaluated into
- * op->d.row.elemvalues[]/elemnulls[].
+ * 各个列已经被求值到                            
+ * op->d.row.elemvalues[]/elemnulls[] 
  */
 void
 ExecEvalRow(ExprState *state, ExprEvalStep *op)
 {
 	HeapTuple	tuple;
 
-	/* build tuple from evaluated field values */
+	/* 用已求值的字段值构建元组    */
 	tuple = heap_form_tuple(op->d.row.tupdesc,
 							op->d.row.elemvalues,
 							op->d.row.elemnulls);
@@ -3001,10 +3001,10 @@ ExecEvalRow(ExprState *state, ExprEvalStep *op)
 }
 
 /*
- * Evaluate GREATEST() or LEAST() expression (note this is *not* MIN()/MAX()).
+ * 求值 GREATEST()/LEAST() 表达式（注意并非 MIN()/MAX()）。       
  *
- * All of the to-be-compared expressions have already been evaluated into
- * op->d.minmax.values[]/nulls[].
+ * 所有待比较的表达式都已经被求值到                      
+ * op->d.minmax.values[]/nulls[] 
  */
 void
 ExecEvalMinMax(ExprState *state, ExprEvalStep *op)
@@ -3014,22 +3014,22 @@ ExecEvalMinMax(ExprState *state, ExprEvalStep *op)
 	FunctionCallInfo fcinfo = op->d.minmax.fcinfo_data;
 	MinMaxOp	operator = op->d.minmax.op;
 
-	/* set at initialization */
+	/* 在初始化时设置 */
 	Assert(fcinfo->args[0].isnull == false);
 	Assert(fcinfo->args[1].isnull == false);
 
-	/* default to null result */
+	/* 默认结果为空值  */
 	*op->resnull = true;
 
 	for (int off = 0; off < op->d.minmax.nelems; off++)
 	{
-		/* ignore NULL inputs */
+		/* 忽略 NULL 输入 */
 		if (nulls[off])
 			continue;
 
 		if (*op->resnull)
 		{
-			/* first nonnull input, adopt value */
+			/* 首个非空输入，采纳其值*/
 			*op->resvalue = values[off];
 			*op->resnull = false;
 		}
@@ -3037,13 +3037,13 @@ ExecEvalMinMax(ExprState *state, ExprEvalStep *op)
 		{
 			int			cmpresult;
 
-			/* apply comparison function */
+			/* 应用比较函数        */
 			fcinfo->args[0].value = *op->resvalue;
 			fcinfo->args[1].value = values[off];
 
 			fcinfo->isnull = false;
 			cmpresult = DatumGetInt32(FunctionCallInvoke(fcinfo));
-			if (fcinfo->isnull) /* probably should not happen */
+			if (fcinfo->isnull) /* 大概率不应发生      */
 				continue;
 
 			if (cmpresult > 0 && operator == IS_LEAST)
@@ -3055,9 +3055,9 @@ ExecEvalMinMax(ExprState *state, ExprEvalStep *op)
 }
 
 /*
- * Evaluate a FieldSelect node.
+ * 求值 FieldSelect 节点。
  *
- * Source record is in step's result variable.
+ * 源记录位于步骤的结果变量中。 
  */
 void
 ExecEvalFieldSelect(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
@@ -3071,44 +3071,44 @@ ExecEvalFieldSelect(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 	Form_pg_attribute attr;
 	HeapTupleData tmptup;
 
-	/* NULL record -> NULL result */
+	/* NULL 记录则输出 NULL  */
 	if (*op->resnull)
 		return;
 
 	tupDatum = *op->resvalue;
 
-	/* We can special-case expanded records for speed */
+	/* 为提升速度可对展开记录做特判     */
 	if (VARATT_IS_EXTERNAL_EXPANDED(DatumGetPointer(tupDatum)))
 	{
 		ExpandedRecordHeader *erh = (ExpandedRecordHeader *) DatumGetEOHP(tupDatum);
 
 		Assert(erh->er_magic == ER_MAGIC);
 
-		/* Extract record's TupleDesc */
+		/* 提取记录的 TupleDesc  */
 		tupDesc = expanded_record_get_tupdesc(erh);
 
 		/*
-		 * Find field's attr record.  Note we don't support system columns
-		 * here: a datum tuple doesn't have valid values for most of the
-		 * interesting system columns anyway.
+		 * 找到该字段的 attr 记录。注意我们这里不支持   
+		 * 系统列：datum 元组对多数感兴趣的系统列       
+		 * 反正也没有有效值。       
 		 */
-		if (fieldnum <= 0)		/* should never happen */
+		if (fieldnum <= 0)		/* 不应发生        */
 			elog(ERROR, "unsupported reference to system column %d in FieldSelect",
 				 fieldnum);
-		if (fieldnum > tupDesc->natts)	/* should never happen */
+		if (fieldnum > tupDesc->natts)	/* 不应发生        */
 			elog(ERROR, "attribute number %d exceeds number of columns %d",
 				 fieldnum, tupDesc->natts);
 		attr = TupleDescAttr(tupDesc, fieldnum - 1);
 
-		/* Check for dropped column, and force a NULL result if so */
+		/* 检查已删除的列，若有则强制结果为 NULL   */
 		if (attr->attisdropped)
 		{
 			*op->resnull = true;
 			return;
 		}
 
-		/* Check for type mismatch --- possible after ALTER COLUMN TYPE? */
-		/* As in CheckVarSlotCompatibility, we should but can't check typmod */
+		/* 检查类型不匹配 --- ALTER COLUMN TYPE 后可能发生？*/
+		/* CheckVarSlotCompatibility 中同样本应检查 typmod 却不能  */
 		if (op->d.fieldselect.resulttype != attr->atttypid)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -3117,44 +3117,44 @@ ExecEvalFieldSelect(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 							   format_type_be(attr->atttypid),
 							   format_type_be(op->d.fieldselect.resulttype))));
 
-		/* extract the field */
+		/* 提取该字段   */
 		*op->resvalue = expanded_record_get_field(erh, fieldnum,
 												  op->resnull);
 	}
 	else
 	{
-		/* Get the composite datum and extract its type fields */
+		/* 获取组合 datum 并提取其类型字段         */
 		tuple = DatumGetHeapTupleHeader(tupDatum);
 
 		tupType = HeapTupleHeaderGetTypeId(tuple);
 		tupTypmod = HeapTupleHeaderGetTypMod(tuple);
 
-		/* Lookup tupdesc if first time through or if type changes */
+		/* 若首次执行或类型变化，则查找 tupdesc      */
 		tupDesc = get_cached_rowtype(tupType, tupTypmod,
 									 &op->d.fieldselect.rowcache, NULL);
 
 		/*
-		 * Find field's attr record.  Note we don't support system columns
-		 * here: a datum tuple doesn't have valid values for most of the
-		 * interesting system columns anyway.
+		 * 找到该字段的 attr 记录。注意我们这里不支持   
+		 * 系统列：datum 元组对多数感兴趣的系统列       
+		 * 反正也没有有效值。       
 		 */
-		if (fieldnum <= 0)		/* should never happen */
+		if (fieldnum <= 0)		/* 不应发生        */
 			elog(ERROR, "unsupported reference to system column %d in FieldSelect",
 				 fieldnum);
-		if (fieldnum > tupDesc->natts)	/* should never happen */
+		if (fieldnum > tupDesc->natts)	/* 不应发生        */
 			elog(ERROR, "attribute number %d exceeds number of columns %d",
 				 fieldnum, tupDesc->natts);
 		attr = TupleDescAttr(tupDesc, fieldnum - 1);
 
-		/* Check for dropped column, and force a NULL result if so */
+		/* 检查已删除的列，若有则强制结果为 NULL   */
 		if (attr->attisdropped)
 		{
 			*op->resnull = true;
 			return;
 		}
 
-		/* Check for type mismatch --- possible after ALTER COLUMN TYPE? */
-		/* As in CheckVarSlotCompatibility, we should but can't check typmod */
+		/* 检查类型不匹配 --- ALTER COLUMN TYPE 后可能发生？*/
+		/* CheckVarSlotCompatibility 中同样本应检查 typmod 却不能  */
 		if (op->d.fieldselect.resulttype != attr->atttypid)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -3163,11 +3163,11 @@ ExecEvalFieldSelect(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 							   format_type_be(attr->atttypid),
 							   format_type_be(op->d.fieldselect.resulttype))));
 
-		/* heap_getattr needs a HeapTuple not a bare HeapTupleHeader */
+		/* heap_getattr 需要 HeapTuple 而非裸 HeapTupleHeader   */
 		tmptup.t_len = HeapTupleHeaderGetDatumLength(tuple);
 		tmptup.t_data = tuple;
 
-		/* extract the field */
+		/* 提取该字段   */
 		*op->resvalue = heap_getattr(&tmptup,
 									 fieldnum,
 									 tupDesc,
@@ -3176,28 +3176,28 @@ ExecEvalFieldSelect(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 }
 
 /*
- * Deform source tuple, filling in the step's values/nulls arrays, before
- * evaluating individual new values as part of a FieldStore expression.
- * Subsequent steps will overwrite individual elements of the values/nulls
- * arrays with the new field values, and then FIELDSTORE_FORM will build the
- * new tuple value.
+ * 先解构源元组，填充步骤的 values/nulls 数组，然后再  
+ * 作为 FieldStore 表达式的一部分求值各个新值。        
+ * 后续步骤会用新的字段值覆盖 values/nulls 数组的         
+ * 个别元素，然后 FIELDSTORE_FORM 会构建                          
+ * 新元组值。 
  *
- * Source record is in step's result variable.
+ * 源记录位于步骤的结果变量中。 
  */
 void
 ExecEvalFieldStoreDeForm(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 {
 	if (*op->resnull)
 	{
-		/* Convert null input tuple into an all-nulls row */
+		/* 把空输入元组转换成全空的行        */
 		memset(op->d.fieldstore.nulls, true,
 			   op->d.fieldstore.ncolumns * sizeof(bool));
 	}
 	else
 	{
 		/*
-		 * heap_deform_tuple needs a HeapTuple not a bare HeapTupleHeader. We
-		 * set all the fields in the struct just in case.
+		 * heap_deform_tuple 需要 HeapTuple 而非裸 HeapTupleHeader。   
+		 * 以防万一，设置结构中全部字段。 
 		 */
 		Datum		tupDatum = *op->resvalue;
 		HeapTupleHeader tuphdr;
@@ -3211,15 +3211,15 @@ ExecEvalFieldStoreDeForm(ExprState *state, ExprEvalStep *op, ExprContext *econte
 		tmptup.t_data = tuphdr;
 
 		/*
-		 * Lookup tupdesc if first time through or if type changes.  Because
-		 * we don't pin the tupdesc, we must not do this lookup until after
-		 * doing DatumGetHeapTupleHeader: that could do database access while
-		 * detoasting the datum.
+		 * 若首次执行或类型变化则查找 tupdesc。由于我们   
+		 * 并不固定 tupdesc，所以在 DatumGetHeapTupleHeader        
+		 * 之前不能执行这次查找：解 toast 该 datum 时可能    
+		 * 访问数据库。   
 		 */
 		tupDesc = get_cached_rowtype(op->d.fieldstore.fstore->resulttype, -1,
 									 op->d.fieldstore.rowcache, NULL);
 
-		/* Check that current tupdesc doesn't have more fields than allocated */
+		/* 检查当前 tupdesc 的字段数是否超过已分配的数量    */
 		if (unlikely(tupDesc->natts > op->d.fieldstore.ncolumns))
 			elog(ERROR, "too many columns in composite type %u",
 				 op->d.fieldstore.fstore->resulttype);
@@ -3231,8 +3231,8 @@ ExecEvalFieldStoreDeForm(ExprState *state, ExprEvalStep *op, ExprContext *econte
 }
 
 /*
- * Compute the new composite datum after each individual field value of a
- * FieldStore expression has been evaluated.
+ * 在 FieldStore 表达式的各个单独字段值都求值后，       
+ * 计算新的组合 datum。              
  */
 void
 ExecEvalFieldStoreForm(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
@@ -3240,7 +3240,7 @@ ExecEvalFieldStoreForm(ExprState *state, ExprEvalStep *op, ExprContext *econtext
 	TupleDesc	tupDesc;
 	HeapTuple	tuple;
 
-	/* Lookup tupdesc (should be valid already) */
+	/* 查找 tupdesc（应当已经有效）   */
 	tupDesc = get_cached_rowtype(op->d.fieldstore.fstore->resulttype, -1,
 								 op->d.fieldstore.rowcache, NULL);
 
@@ -3253,10 +3253,10 @@ ExecEvalFieldStoreForm(ExprState *state, ExprEvalStep *op, ExprContext *econtext
 }
 
 /*
- * Evaluate a rowtype coercion operation.
- * This may require rearranging field positions.
+ * 求值 rowtype 强制转换操作。  
+ * 这可能需要重新安排字段位置。   
  *
- * Source record is in step's result variable.
+ * 源记录位于步骤的结果变量中。 
  */
 void
 ExecEvalConvertRowtype(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
@@ -3269,7 +3269,7 @@ ExecEvalConvertRowtype(ExprState *state, ExprEvalStep *op, ExprContext *econtext
 				outdesc;
 	bool		changed = false;
 
-	/* NULL in -> NULL out */
+	/* NULL 则输出 NULL */
 	if (*op->resnull)
 		return;
 
@@ -3277,9 +3277,9 @@ ExecEvalConvertRowtype(ExprState *state, ExprEvalStep *op, ExprContext *econtext
 	tuple = DatumGetHeapTupleHeader(tupDatum);
 
 	/*
-	 * Lookup tupdescs if first time through or if type changes.  We'd better
-	 * pin them since type conversion functions could do catalog lookups and
-	 * hence cause cache invalidation.
+	 * 若首次执行或类型变化则查找 tupdesc。我们最好        
+	 * 固定它们，因为类型转换函数可能做系统表查找，   
+	 * 进而导致缓存失效。    
 	 */
 	indesc = get_cached_rowtype(op->d.convert_rowtype.inputtype, -1,
 								op->d.convert_rowtype.incache,
@@ -3291,50 +3291,50 @@ ExecEvalConvertRowtype(ExprState *state, ExprEvalStep *op, ExprContext *econtext
 	IncrTupleDescRefCount(outdesc);
 
 	/*
-	 * We used to be able to assert that incoming tuples are marked with
-	 * exactly the rowtype of indesc.  However, now that ExecEvalWholeRowVar
-	 * might change the tuples' marking to plain RECORD due to inserting
-	 * aliases, we can only make this weak test:
+	 * 我们过去能够断言传入元组被标记为恰好是        
+	 * indesc 的 rowtype。然而，既然 ExecEvalWholeRowVar             
+	 * 可能因插入别名而把元组标记改为普通 RECORD，    
+	 * 我们只能做这一弱测试：        
 	 */
 	Assert(HeapTupleHeaderGetTypeId(tuple) == indesc->tdtypeid ||
 		   HeapTupleHeaderGetTypeId(tuple) == RECORDOID);
 
-	/* if first time through, or after change, initialize conversion map */
+	/* 若首次执行或发生变化，则初始化转换映射         */
 	if (changed)
 	{
 		MemoryContext old_cxt;
 
-		/* allocate map in long-lived memory context */
+		/* 在长寿内存上下文中分配映射   */
 		old_cxt = MemoryContextSwitchTo(econtext->ecxt_per_query_memory);
 
-		/* prepare map from old to new attribute numbers */
+		/* 准备从旧属性号到新属性号的映射 */
 		op->d.convert_rowtype.map = convert_tuples_by_name(indesc, outdesc);
 
 		MemoryContextSwitchTo(old_cxt);
 	}
 
-	/* Following steps need a HeapTuple not a bare HeapTupleHeader */
+	/* 后续步骤需要 HeapTuple 而非裸 HeapTupleHeader      */
 	tmptup.t_len = HeapTupleHeaderGetDatumLength(tuple);
 	tmptup.t_data = tuple;
 
 	if (op->d.convert_rowtype.map != NULL)
 	{
-		/* Full conversion with attribute rearrangement needed */
+		/* 需要带属性重排的完整转换                */
 		result = execute_attr_map_tuple(&tmptup, op->d.convert_rowtype.map);
-		/* Result already has appropriate composite-datum header fields */
+		/* 结果已具有合适的组合 datum 头部字段            */
 		*op->resvalue = HeapTupleGetDatum(result);
 	}
 	else
 	{
 		/*
-		 * The tuple is physically compatible as-is, but we need to insert the
-		 * destination rowtype OID in its composite-datum header field, so we
-		 * have to copy it anyway.  heap_copy_tuple_as_datum() is convenient
-		 * for this since it will both make the physical copy and insert the
-		 * correct composite header fields.  Note that we aren't expecting to
-		 * have to flatten any toasted fields: the input was a composite
-		 * datum, so it shouldn't contain any.  So heap_copy_tuple_as_datum()
-		 * is overkill here, but its check for external fields is cheap.
+		 * 该元组本身在物理上是兼容的，但我们需要在它的 
+		 * 组合 datum 头部字段中插入目标 rowtype OID，因此     
+		 * 我们无论如何都得复制它。heap_copy_tuple_as_datum()   
+		 * 对此很方便，因为它既做物理复制又插入正确的  
+		 * 组合头部字段。注意我们并不预期要摊平任何      
+		 * 被 toast 的字段：输入本是组合 datum，因此它   
+		 * 不应含任何 toast 字段。所以 heap_copy_tuple_as_datum()  
+		 * 是大材小用，但其对外部字段的检查很廉价。 
 		 */
 		*op->resvalue = heap_copy_tuple_as_datum(&tmptup, outdesc);
 	}
@@ -3344,14 +3344,14 @@ ExecEvalConvertRowtype(ExprState *state, ExprEvalStep *op, ExprContext *econtext
 }
 
 /*
- * Evaluate "scalar op ANY/ALL (array)".
+ * 求值"标量 op ANY/ALL (array)"。 
  *
- * Source array is in our result area, scalar arg is already evaluated into
- * fcinfo->args[0].
+ * 源数组在我们的结果区中，标量参数已被求值到         
+ * fcinfo->args[0] 
  *
- * The operator always yields boolean, and we combine the results across all
- * array elements using OR and AND (for ANY and ALL respectively).  Of course
- * we short-circuit as soon as the result is known.
+ * 该操作符总是返回布尔值，我们用 OR 和 AND（分别        
+ * 对应 ANY 和 ALL）组合所有数组元素上的结果。当然        
+ * 一旦结果可知就立即短路。            
  */
 void
 ExecEvalScalarArrayOp(ExprState *state, ExprEvalStep *op)
@@ -3371,20 +3371,20 @@ ExecEvalScalarArrayOp(ExprState *state, ExprEvalStep *op)
 	int			bitmask;
 
 	/*
-	 * If the array is NULL then we return NULL --- it's not very meaningful
-	 * to do anything else, even if the operator isn't strict.
+	 * 若数组为 NULL，则我们返回 NULL ---                         
+	 * 即便操作符非严格，做其他事也无意义。 
 	 */
 	if (*op->resnull)
 		return;
 
-	/* Else okay to fetch and detoast the array */
+	/* 否则可取出并 detoast 该数组     */
 	arr = DatumGetArrayTypeP(*op->resvalue);
 
 	/*
-	 * If the array is empty, we return either FALSE or TRUE per the useOr
-	 * flag.  This is correct even if the scalar is NULL; since we would
-	 * evaluate the operator zero times, it matters not whether it would want
-	 * to return NULL.
+	 * 若数组为空，则依据 useOr 标志返回 FALSE 或 TRUE。   
+	 * 即使标量为 NULL，这也是正确的；因为我们会      
+	 * 对操作符求值零次，故它是否想返回 NULL 都             
+	 * 无关紧要。
 	 */
 	nitems = ArrayGetNItems(ARR_NDIM(arr), ARR_DIMS(arr));
 	if (nitems <= 0)
@@ -3395,8 +3395,8 @@ ExecEvalScalarArrayOp(ExprState *state, ExprEvalStep *op)
 	}
 
 	/*
-	 * If the scalar is NULL, and the function is strict, return NULL; no
-	 * point in iterating the loop.
+	 * 若标量为 NULL 且函数是 strict 的，则返回 NULL；     
+	 * 没必要迭代循环。    
 	 */
 	if (fcinfo->args[0].isnull && strictfunc)
 	{
@@ -3405,8 +3405,8 @@ ExecEvalScalarArrayOp(ExprState *state, ExprEvalStep *op)
 	}
 
 	/*
-	 * We arrange to look up info about the element type only once per series
-	 * of calls, assuming the element type doesn't change underneath us.
+	 * 我们安排每轮调用序列只查找一次元素类型信息，    
+	 * 前提是元素类型不会在我们底下悄然改变。        
 	 */
 	if (op->d.scalararrayop.element_type != ARR_ELEMTYPE(arr))
 	{
@@ -3421,11 +3421,11 @@ ExecEvalScalarArrayOp(ExprState *state, ExprEvalStep *op)
 	typbyval = op->d.scalararrayop.typbyval;
 	typalign = op->d.scalararrayop.typalign;
 
-	/* Initialize result appropriately depending on useOr */
+	/* 依据 useOr 适当地初始化结果              */
 	result = BoolGetDatum(!useOr);
 	resultnull = false;
 
-	/* Loop over the array elements */
+	/* 遍历数组元素           */
 	s = (char *) ARR_DATA_PTR(arr);
 	bitmap = ARR_NULLBITMAP(arr);
 	bitmask = 1;
@@ -3435,7 +3435,7 @@ ExecEvalScalarArrayOp(ExprState *state, ExprEvalStep *op)
 		Datum		elt;
 		Datum		thisresult;
 
-		/* Get array element, checking for NULL */
+		/* 取出数组元素，检查 NULL     */
 		if (bitmap && (*bitmap & bitmask) == 0)
 		{
 			fcinfo->args[1].value = (Datum) 0;
@@ -3450,7 +3450,7 @@ ExecEvalScalarArrayOp(ExprState *state, ExprEvalStep *op)
 			fcinfo->args[1].isnull = false;
 		}
 
-		/* Call comparison function */
+		/* 调用比较函数       */
 		if (fcinfo->args[1].isnull && strictfunc)
 		{
 			fcinfo->isnull = true;
@@ -3462,7 +3462,7 @@ ExecEvalScalarArrayOp(ExprState *state, ExprEvalStep *op)
 			thisresult = op->d.scalararrayop.fn_addr(fcinfo);
 		}
 
-		/* Combine results per OR or AND semantics */
+		/* 按 OR 或 AND 语义合并结果       */
 		if (fcinfo->isnull)
 			resultnull = true;
 		else if (useOr)
@@ -3471,7 +3471,7 @@ ExecEvalScalarArrayOp(ExprState *state, ExprEvalStep *op)
 			{
 				result = BoolGetDatum(true);
 				resultnull = false;
-				break;			/* needn't look at any more elements */
+				break;			/* 无须再查看更多元素       */
 			}
 		}
 		else
@@ -3480,11 +3480,11 @@ ExecEvalScalarArrayOp(ExprState *state, ExprEvalStep *op)
 			{
 				result = BoolGetDatum(false);
 				resultnull = false;
-				break;			/* needn't look at any more elements */
+				break;			/* 无须再查看更多元素       */
 			}
 		}
 
-		/* advance bitmap pointer if any */
+		/* 如有则前移位图指针   */
 		if (bitmap)
 		{
 			bitmask <<= 1;
@@ -3501,10 +3501,10 @@ ExecEvalScalarArrayOp(ExprState *state, ExprEvalStep *op)
 }
 
 /*
- * Hash function for scalar array hash op elements.
+ * 标量数组哈希操作的元素哈希函数   
  *
- * We use the element type's default hash opclass, and the column collation
- * if the type is collation-sensitive.
+ * 我们使用元素类型的默认哈希 opclass，以及列排序规则 
+ * 若类型对排序规则敏感。  
  */
 static uint32
 saop_element_hash(struct saophash_hash *tb, Datum key)
@@ -3522,8 +3522,8 @@ saop_element_hash(struct saophash_hash *tb, Datum key)
 }
 
 /*
- * Matching function for scalar array hash op elements, to be used in hashtable
- * lookups.
+ * 标量数组哈希 op 元素的匹配函数，供哈希表查找时         
+ * 所用  
  */
 static bool
 saop_hash_element_match(struct saophash_hash *tb, Datum key1, Datum key2)
@@ -3544,17 +3544,17 @@ saop_hash_element_match(struct saophash_hash *tb, Datum key1, Datum key2)
 }
 
 /*
- * Evaluate "scalar op ANY (const array)".
+ * 求值 "scalar op ANY (const array)"。
  *
- * Similar to ExecEvalScalarArrayOp, but optimized for faster repeat lookups
- * by building a hashtable on the first lookup.  This hashtable will be reused
- * by subsequent lookups.  Unlike ExecEvalScalarArrayOp, this version only
- * supports OR semantics.
+ * 与 ExecEvalScalarArrayOp 相似，但通过在首次查找时构建     
+ * 哈希表来优化重复查找的速度。该哈希表将被               
+ * 后续查找重用。与 ExecEvalScalarArrayOp 不同，此版本      
+ * 仅支持 OR 语义。
  *
- * Source array is in our result area, scalar arg is already evaluated into
+ * 源数组位于我们的结果区中，标量参数已求值到         
  * fcinfo->args[0].
  *
- * The operator always yields boolean.
+ * 操作符总是产生布尔值。  
  */
 void
 ExecEvalHashedScalarArrayOp(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
@@ -3569,12 +3569,12 @@ ExecEvalHashedScalarArrayOp(ExprState *state, ExprEvalStep *op, ExprContext *eco
 	bool		resultnull;
 	bool		hashfound;
 
-	/* We don't setup a hashed scalar array op if the array const is null. */
+	/* 若数组常量为 null，则不建立哈希标量数组操作。   */
 	Assert(!*op->resnull);
 
 	/*
-	 * If the scalar is NULL, and the function is strict, return NULL; no
-	 * point in executing the search.
+	 * 若标量为 NULL 且函数是 strict 的，则返回 NULL；     
+	 * 没必要执行该搜索。   
 	 */
 	if (fcinfo->args[0].isnull && strictfunc)
 	{
@@ -3582,7 +3582,7 @@ ExecEvalHashedScalarArrayOp(ExprState *state, ExprEvalStep *op, ExprContext *eco
 		return;
 	}
 
-	/* Build the hash table on first evaluation */
+	/* 在首次求值时构建哈希表        */
 	if (elements_tab == NULL)
 	{
 		ScalarArrayOpExpr *saop;
@@ -3626,10 +3626,10 @@ ExecEvalHashedScalarArrayOp(ExprState *state, ExprEvalStep *op, ExprContext *eco
 								 NULL);
 
 		/*
-		 * Create the hash table sizing it according to the number of elements
-		 * in the array.  This does assume that the array has no duplicates.
-		 * If the array happens to contain many duplicate values then it'll
-		 * just mean that we sized the table a bit on the large side.
+		 * 创建哈希表，其大小依据数组中元素的数目而定。 
+		 * 这确实假定了数组中没有重复值。                    
+		 * 若数组恰巧包含许多重复值，那只意味着          
+		 * 我们把表建得稍大了一点而已。                
 		 */
 		elements_tab->hashtab = saophash_create(CurrentMemoryContext, nitems,
 												elements_tab);
@@ -3641,7 +3641,7 @@ ExecEvalHashedScalarArrayOp(ExprState *state, ExprEvalStep *op, ExprContext *eco
 		bitmask = 1;
 		for (int i = 0; i < nitems; i++)
 		{
-			/* Get array element, checking for NULL. */
+			/* 取出数组元素，检查 NULL。   */
 			if (bitmap && (*bitmap & bitmask) == 0)
 			{
 				has_nulls = true;
@@ -3657,7 +3657,7 @@ ExecEvalHashedScalarArrayOp(ExprState *state, ExprEvalStep *op, ExprContext *eco
 				saophash_insert(elements_tab->hashtab, element, &hashfound);
 			}
 
-			/* Advance bitmap pointer if any. */
+			/* 如有则前移位图指针。 */
 			if (bitmap)
 			{
 				bitmask <<= 1;
@@ -3670,16 +3670,16 @@ ExecEvalHashedScalarArrayOp(ExprState *state, ExprEvalStep *op, ExprContext *eco
 		}
 
 		/*
-		 * Remember if we had any nulls so that we know if we need to execute
-		 * non-strict functions with a null lhs value if no match is found.
+		 * 记住是否遇到过空值，从而得知在未找到匹配时   
+		 * 是否需要以空的 lhs 值执行非 strict 函数。         
 		 */
 		op->d.hashedscalararrayop.has_nulls = has_nulls;
 	}
 
-	/* Check the hash to see if we have a match. */
+	/* 在哈希表中查找是否有匹配。   */
 	hashfound = NULL != saophash_lookup(elements_tab->hashtab, scalar);
 
-	/* the result depends on if the clause is an IN or NOT IN clause */
+	/* 结果取决于该子句是 IN 还是 NOT IN 子句           */
 	if (inclause)
 		result = BoolGetDatum(hashfound);	/* IN */
 	else
@@ -3688,10 +3688,10 @@ ExecEvalHashedScalarArrayOp(ExprState *state, ExprEvalStep *op, ExprContext *eco
 	resultnull = false;
 
 	/*
-	 * If we didn't find a match in the array, we still might need to handle
-	 * the possibility of null values.  We didn't put any NULLs into the
-	 * hashtable, but instead marked if we found any when building the table
-	 * in has_nulls.
+	 * 若未在数组中找到匹配，我们仍可能需要处理         
+	 * 存在空值的可能性。我们没有把任何 NULL 放入     
+	 * 哈希表，而是在建表时用 has_nulls 标记是否见过       
+	 * 空值。    
 	 */
 	if (!hashfound && op->d.hashedscalararrayop.has_nulls)
 	{
@@ -3699,8 +3699,8 @@ ExecEvalHashedScalarArrayOp(ExprState *state, ExprEvalStep *op, ExprContext *eco
 		{
 
 			/*
-			 * We have nulls in the array so a non-null lhs and no match must
-			 * yield NULL.
+			 * 数组中存在空值，故非空的 lhs 且无匹配必      
+			 * 得 NULL。
 			 */
 			result = (Datum) 0;
 			resultnull = true;
@@ -3708,11 +3708,11 @@ ExecEvalHashedScalarArrayOp(ExprState *state, ExprEvalStep *op, ExprContext *eco
 		else
 		{
 			/*
-			 * Execute function will null rhs just once.
+			 * 以空的 rhs 只执行一次函数。   
 			 *
-			 * The hash lookup path will have scribbled on the lhs argument so
-			 * we need to set it up also (even though we entered this function
-			 * with it already set).
+			 * 哈希查找路径会涂改 lhs 参数，因此我们也需要 
+			 * 把它设置好（即便进入本函数时                     
+			 * 它已设置）。   
 			 */
 			fcinfo->args[0].value = scalar;
 			fcinfo->args[0].isnull = scalar_isnull;
@@ -3723,8 +3723,8 @@ ExecEvalHashedScalarArrayOp(ExprState *state, ExprEvalStep *op, ExprContext *eco
 			resultnull = fcinfo->isnull;
 
 			/*
-			 * Reverse the result for NOT IN clauses since the above function
-			 * is the equality function and we need not-equals.
+			 * 对 NOT IN 子句要反转结果，因为上述函数是      
+			 * 相等函数，而我们需要的是不等。   
 			 */
 			if (!inclause)
 				result = !result;
@@ -3736,7 +3736,7 @@ ExecEvalHashedScalarArrayOp(ExprState *state, ExprEvalStep *op, ExprContext *eco
 }
 
 /*
- * Evaluate a NOT NULL domain constraint.
+ * 求值 NOT NULL 域约束。          
  */
 void
 ExecEvalConstraintNotNull(ExprState *state, ExprEvalStep *op)
@@ -3750,7 +3750,7 @@ ExecEvalConstraintNotNull(ExprState *state, ExprEvalStep *op)
 }
 
 /*
- * Evaluate a CHECK domain constraint.
+ * 求值 CHECK 域约束。          
  */
 void
 ExecEvalConstraintCheck(ExprState *state, ExprEvalStep *op)
@@ -3767,10 +3767,10 @@ ExecEvalConstraintCheck(ExprState *state, ExprEvalStep *op)
 }
 
 /*
- * Evaluate the various forms of XmlExpr.
+ * 求值各种形式的 XmlExpr。      
  *
- * Arguments have been evaluated into named_argvalue/named_argnull
- * and/or argvalue/argnull arrays.
+ * 参数已求值到 named_argvalue/named_argnull                
+ * 和/或 argvalue/argnull 数组
  */
 void
 ExecEvalXmlExpr(ExprState *state, ExprEvalStep *op)
@@ -3778,7 +3778,7 @@ ExecEvalXmlExpr(ExprState *state, ExprEvalStep *op)
 	XmlExpr    *xexpr = op->d.xmlexpr.xexpr;
 	Datum		value;
 
-	*op->resnull = true;		/* until we get a result */
+	*op->resnull = true;		/* 直到得到结果    */
 	*op->resvalue = (Datum) 0;
 
 	switch (xexpr->op)
@@ -3861,7 +3861,7 @@ ExecEvalXmlExpr(ExprState *state, ExprEvalStep *op)
 				text	   *data;
 				bool		preserve_whitespace;
 
-				/* arguments are known to be text, bool */
+				/* 参数已知为 text 与 bool        */
 				Assert(list_length(xexpr->args) == 2);
 
 				if (argnull[0])
@@ -3869,7 +3869,7 @@ ExecEvalXmlExpr(ExprState *state, ExprEvalStep *op)
 				value = argvalue[0];
 				data = DatumGetTextPP(value);
 
-				if (argnull[1]) /* probably can't happen */
+				if (argnull[1]) /* 多半不会发生    */
 					return;
 				value = argvalue[1];
 				preserve_whitespace = DatumGetBool(value);
@@ -3886,7 +3886,7 @@ ExecEvalXmlExpr(ExprState *state, ExprEvalStep *op)
 				text	   *arg;
 				bool		isnull;
 
-				/* optional argument is known to be text */
+				/* 可选参数已知为 text            */
 				Assert(list_length(xexpr->args) <= 1);
 
 				if (xexpr->args)
@@ -3918,7 +3918,7 @@ ExecEvalXmlExpr(ExprState *state, ExprEvalStep *op)
 				text	   *version;
 				int			standalone;
 
-				/* arguments are known to be xml, text, int */
+				/* 参数已知为 xml、text、int         */
 				Assert(list_length(xexpr->args) == 3);
 
 				if (argnull[0])
@@ -3930,7 +3930,7 @@ ExecEvalXmlExpr(ExprState *state, ExprEvalStep *op)
 				else
 					version = DatumGetTextPP(argvalue[1]);
 
-				Assert(!argnull[2]);	/* always present */
+				Assert(!argnull[2]);	/* 总是存在   */
 				standalone = DatumGetInt32(argvalue[2]);
 
 				*op->resvalue = PointerGetDatum(xmlroot(data,
@@ -3945,7 +3945,7 @@ ExecEvalXmlExpr(ExprState *state, ExprEvalStep *op)
 				Datum	   *argvalue = op->d.xmlexpr.argvalue;
 				bool	   *argnull = op->d.xmlexpr.argnull;
 
-				/* argument type is known to be xml */
+				/* 参数类型已知为 xml        */
 				Assert(list_length(xexpr->args) == 1);
 
 				if (argnull[0])
@@ -3965,7 +3965,7 @@ ExecEvalXmlExpr(ExprState *state, ExprEvalStep *op)
 				Datum	   *argvalue = op->d.xmlexpr.argvalue;
 				bool	   *argnull = op->d.xmlexpr.argnull;
 
-				/* optional argument is known to be xml */
+				/* 可选参数已知为 xml            */
 				Assert(list_length(xexpr->args) == 1);
 
 				if (argnull[0])
@@ -3985,7 +3985,7 @@ ExecEvalXmlExpr(ExprState *state, ExprEvalStep *op)
 }
 
 /*
- * Evaluate a JSON constructor expression.
+ * 求值 JSON 构造器表达式。      
  */
 void
 ExecEvalJsonConstructor(ExprState *state, ExprEvalStep *op,
@@ -4022,7 +4022,7 @@ ExecEvalJsonConstructor(ExprState *state, ExprEvalStep *op,
 }
 
 /*
- * Evaluate a IS JSON predicate.
+ * 求值 IS JSON 谓词。     
  */
 void
 ExecEvalJsonIsPredicate(ExprState *state, ExprEvalStep *op)
@@ -4070,8 +4070,8 @@ ExecEvalJsonIsPredicate(ExprState *state, ExprEvalStep *op)
 		}
 
 		/*
-		 * Do full parsing pass only for uniqueness check or for JSON text
-		 * validation.
+		 * 仅为唯一性检查或 JSON 文本校验才做完整解析   
+		 * 遍历。  
 		 */
 		if (res && (pred->unique_keys || exprtype == TEXTOID))
 			res = json_validate(json, pred->unique_keys, false);
@@ -4101,7 +4101,7 @@ ExecEvalJsonIsPredicate(ExprState *state, ExprEvalStep *op)
 			}
 		}
 
-		/* Key uniqueness check is redundant for jsonb */
+		/* 对 jsonb 而言键唯一性检查多余    */
 	}
 	else
 		res = false;
@@ -4113,11 +4113,11 @@ ExecEvalJsonIsPredicate(ExprState *state, ExprEvalStep *op)
 /*
  * ExecEvalGroupingFunc
  *
- * Computes a bitmask with a bit for each (unevaluated) argument expression
- * (rightmost arg is least significant bit).
+ * 计算一个位掩码，每个（未求值的）参数表达式占一位
+ * （最右参数是最低有效位）。  
  *
- * A bit is set if the corresponding expression is NOT part of the set of
- * grouping expressions in the current grouping set.
+ * 若相应表达式不属于当前分组集的分组表达式          
+ * 集合，则置位该位。                      
  */
 void
 ExecEvalGroupingFunc(ExprState *state, ExprEvalStep *op)
@@ -4142,24 +4142,24 @@ ExecEvalGroupingFunc(ExprState *state, ExprEvalStep *op)
 }
 
 /*
- * Hand off evaluation of a subplan to nodeSubplan.c
+ * 把子计划的求值转交给 nodeSubplan.c     
  */
 void
 ExecEvalSubPlan(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 {
 	SubPlanState *sstate = op->d.subplan.sstate;
 
-	/* could potentially be nested, so make sure there's enough stack */
+	/* 可能存在嵌套，所以要确保栈空间充足            */
 	check_stack_depth();
 
 	*op->resvalue = ExecSubPlan(sstate, econtext, op->resnull);
 }
 
 /*
- * Evaluate a wholerow Var expression.
+ * 求值 wholerow Var 表达式。   
  *
- * Returns a Datum whose value is the value of a whole-row range variable
- * with respect to given expression context.
+ * 返回一个 Datum，其值是给定表达式上下文下             
+ * 整行范围变量的值。              
  */
 void
 ExecEvalWholeRowVar(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
@@ -4171,49 +4171,49 @@ ExecEvalWholeRowVar(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 	HeapTupleHeader dtuple;
 	HeapTuple	tuple;
 
-	/* This was checked by ExecInitExpr */
+	/* 这已由 ExecInitExpr 检查过 */
 	Assert(variable->varattno == InvalidAttrNumber);
 
-	/* Get the input slot we want */
+	/* 取所需的输入槽      */
 	switch (variable->varno)
 	{
 		case INNER_VAR:
-			/* get the tuple from the inner node */
+			/* 从内侧节点取元组          */
 			slot = econtext->ecxt_innertuple;
 			break;
 
 		case OUTER_VAR:
-			/* get the tuple from the outer node */
+			/* 从外侧节点取元组          */
 			slot = econtext->ecxt_outertuple;
 			break;
 
-			/* INDEX_VAR is handled by default case */
+			/* INDEX_VAR 由默认分支处理      */
 
 		default:
-			/* get the tuple from the relation being scanned */
+			/* 从正在扫描的关系取元组             */
 			slot = econtext->ecxt_scantuple;
 			break;
 	}
 
-	/* Apply the junkfilter if any */
+	/* 如有 junkfilter 则应用 */
 	if (op->d.wholerow.junkFilter != NULL)
 		slot = ExecFilterJunk(op->d.wholerow.junkFilter, slot);
 
 	/*
-	 * If first time through, obtain tuple descriptor and check compatibility.
+	 * 首次经过时，获取元组描述符并检查兼容性。           
 	 *
-	 * XXX: It'd be great if this could be moved to the expression
-	 * initialization phase, but due to using slots that's currently not
-	 * feasible.
+	 * XXX: 若能挪到表达式初始化阶段就太好了，   
+	 * 但因使用槽的缘故目前尚                                
+	 * 不可行
 	 */
 	if (op->d.wholerow.first)
 	{
-		/* optimistically assume we don't need slow path */
+		/* 乐观地假定不需要慢速路径          */
 		op->d.wholerow.slow = false;
 
 		/*
-		 * If the Var identifies a named composite type, we must check that
-		 * the actual tuple type is compatible with it.
+		 * 若 Var 标识的是具名组合类型，我们必须检查     
+		 * 实际的元组类型与它兼容。        
 		 */
 		if (variable->vartype != RECORDOID)
 		{
@@ -4221,19 +4221,19 @@ ExecEvalWholeRowVar(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 			TupleDesc	slot_tupdesc;
 
 			/*
-			 * We really only care about numbers of attributes and data types.
-			 * Also, we can ignore type mismatch on columns that are dropped
-			 * in the destination type, so long as (1) the physical storage
-			 * matches or (2) the actual column value is NULL.  Case (1) is
-			 * helpful in some cases involving out-of-date cached plans, while
-			 * case (2) is expected behavior in situations such as an INSERT
-			 * into a table with dropped columns (the planner typically
-			 * generates an INT4 NULL regardless of the dropped column type).
-			 * If we find a dropped column and cannot verify that case (1)
-			 * holds, we have to use the slow path to check (2) for each row.
+			 * 我们真正在意的只是属性数目和数据类型。      
+			 * 另外，对目标类型中已被删除的列，我们可以 
+			 * 忽略其类型不匹配，只要 (1) 物理存储          
+			 * 一致，或 (2) 实际列值为 NULL。情形 (1)          
+			 * 有助于某些涉及过期缓存计划的情形，而         
+			 * 情形 (2) 则是诸如向含被删列的表中 INSERT       
+			 * 这类场景下的预期行为（规划器通常        
+			 * 会无视被删列的类型而生成 INT4 NULL）。          
+			 * 如果我们发现被删列且无法证实情形 (1)       
+			 * 成立，就得对每一行用慢速路径检查 (2)。       
 			 *
-			 * If vartype is a domain over composite, just look through that
-			 * to the base composite type.
+			 * 若 vartype 是组合上的域，只需直接看穿到       
+			 * 底层组合类型。      
 			 */
 			var_tupdesc = lookup_rowtype_tupdesc_domain(variable->vartype,
 														-1, false);
@@ -4256,7 +4256,7 @@ ExecEvalWholeRowVar(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 				Form_pg_attribute sattr = TupleDescAttr(slot_tupdesc, i);
 
 				if (vattr->atttypid == sattr->atttypid)
-					continue;	/* no worries */
+					continue;	/* 无顾虑  */
 				if (!vattr->attisdropped)
 					ereport(ERROR,
 							(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -4268,13 +4268,13 @@ ExecEvalWholeRowVar(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 
 				if (vattr->attlen != sattr->attlen ||
 					vattr->attalign != sattr->attalign)
-					op->d.wholerow.slow = true; /* need to check for nulls */
+					op->d.wholerow.slow = true; /* 需检查空值         */
 			}
 
 			/*
-			 * Use the variable's declared rowtype as the descriptor for the
-			 * output values.  In particular, we *must* absorb any
-			 * attisdropped markings.
+			 * 用该变量的声明行类型作为输出值的描述符。 
+			 * 特别地，我们*必须*吸收任何             
+			 * attisdropped 标记。
 			 */
 			oldcontext = MemoryContextSwitchTo(econtext->ecxt_per_query_memory);
 			output_tupdesc = CreateTupleDescCopy(var_tupdesc);
@@ -4285,35 +4285,35 @@ ExecEvalWholeRowVar(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 		else
 		{
 			/*
-			 * In the RECORD case, we use the input slot's rowtype as the
-			 * descriptor for the output values, modulo possibly assigning new
-			 * column names below.
+			 * RECORD 情形下，我们用输入槽的行类型作为   
+			 * 输出值的描述符，只是稍后可能重新指派         
+			 * 新的列名。    
 			 */
 			oldcontext = MemoryContextSwitchTo(econtext->ecxt_per_query_memory);
 			output_tupdesc = CreateTupleDescCopy(slot->tts_tupleDescriptor);
 			MemoryContextSwitchTo(oldcontext);
 
 			/*
-			 * It's possible that the input slot is a relation scan slot and
-			 * so is marked with that relation's rowtype.  But we're supposed
-			 * to be returning RECORD, so reset to that.
+			 * 输入槽有可能是一个关系扫描槽，因而被标以 
+			 * 该关系的行类型。但我们应该返回的是           
+			 * RECORD，所以重置为它。           
 			 */
 			output_tupdesc->tdtypeid = RECORDOID;
 			output_tupdesc->tdtypmod = -1;
 
 			/*
-			 * We already got the correct physical datatype info above, but
-			 * now we should try to find the source RTE and adopt its column
-			 * aliases, since it's unlikely that the input slot has the
-			 * desired names.
+			 * 上面已获得正确的物理数据类型信息，但      
+			 * 现在应尝试找到源 RTE 并采用其列别名，因为  
+			 * 输入槽不太可能已带有想要的                 
+			 * 名称。     
 			 *
-			 * If we can't locate the RTE, assume the column names we've got
-			 * are OK.  (As of this writing, the only cases where we can't
-			 * locate the RTE are in execution of trigger WHEN clauses, and
-			 * then the Var will have the trigger's relation's rowtype, so its
-			 * names are fine.)  Also, if the creator of the RTE didn't bother
-			 * to fill in an eref field, assume our column names are OK. (This
-			 * happens in COPY, and perhaps other places.)
+			 * 若找不到 RTE，则假定现有列名没问题。         
+			 * （截至撰写本文时，找不到 RTE 的唯一情形   
+			 * 是触发器 WHEN 子句的执行期间，此时 Var        
+			 * 带有触发器关系的行类型，故名称没问题）      
+			 * 另外，若 RTE 的创建者懒得填写 eref 字段，       
+			 * 则假定我们的列名没问题。（这                     
+			 * 发生于 COPY 或其他地方。）       
 			 */
 			if (econtext->ecxt_estate &&
 				variable->varno <= econtext->ecxt_estate->es_range_table_size)
@@ -4326,21 +4326,21 @@ ExecEvalWholeRowVar(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 			}
 		}
 
-		/* Bless the tupdesc if needed, and save it in the execution state */
+		/* 必要时 bless tupdesc，并保存进执行状态              */
 		op->d.wholerow.tupdesc = BlessTupleDesc(output_tupdesc);
 
 		op->d.wholerow.first = false;
 	}
 
 	/*
-	 * Make sure all columns of the slot are accessible in the slot's
-	 * Datum/isnull arrays.
+	 * 确保槽的所有列都能在槽的 Datum/isnull 数组中   
+	 * 被访问。        
 	 */
 	slot_getallattrs(slot);
 
 	if (op->d.wholerow.slow)
 	{
-		/* Check to see if any dropped attributes are non-null */
+		/* 检查是否有任何被删除的属性非空       */
 		TupleDesc	tupleDesc = slot->tts_tupleDescriptor;
 		TupleDesc	var_tupdesc = op->d.wholerow.tupdesc;
 
@@ -4352,9 +4352,9 @@ ExecEvalWholeRowVar(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 			Form_pg_attribute sattr = TupleDescAttr(tupleDesc, i);
 
 			if (!vattr->attisdropped)
-				continue;		/* already checked non-dropped cols */
+				continue;		/* 已检查过非删除列         */
 			if (slot->tts_isnull[i])
-				continue;		/* null is always okay */
+				continue;		/* 空值总是允许  */
 			if (vattr->attlen != sattr->attlen ||
 				vattr->attalign != sattr->attalign)
 				ereport(ERROR,
@@ -4366,9 +4366,9 @@ ExecEvalWholeRowVar(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 	}
 
 	/*
-	 * Build a composite datum, making sure any toasted fields get detoasted.
+	 * 构建组合 datum，确保所有 TOAST 字段均被 detoast。       
 	 *
-	 * (Note: it is critical that we not change the slot's state here.)
+	 * （注意：此处绝不可改变槽的状态。）             
 	 */
 	tuple = toast_build_flattened_tuple(slot->tts_tupleDescriptor,
 										slot->tts_values,
@@ -4376,10 +4376,10 @@ ExecEvalWholeRowVar(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 	dtuple = tuple->t_data;
 
 	/*
-	 * Label the datum with the composite type info we identified before.
+	 * 用先前识别的组合类型信息标记该 datum。            
 	 *
-	 * (Note: we could skip doing this by passing op->d.wholerow.tupdesc to
-	 * the tuple build step; but that seems a tad risky so let's not.)
+	 * （注意：本可把 op->d.wholerow.tupdesc 传给元组           
+	 * 构建步骤省去标记；但略冒险，先不这么做。）
 	 */
 	HeapTupleHeaderSetTypeId(dtuple, op->d.wholerow.tupdesc->tdtypeid);
 	HeapTupleHeaderSetTypMod(dtuple, op->d.wholerow.tupdesc->tdtypmod);
@@ -4394,19 +4394,19 @@ ExecEvalSysVar(ExprState *state, ExprEvalStep *op, ExprContext *econtext,
 {
 	Datum		d;
 
-	/* slot_getsysattr has sufficient defenses against bad attnums */
+	/* slot_getsysattr 对坏的 attnum 已有足够防御         */
 	d = slot_getsysattr(slot,
 						op->d.var.attnum,
 						op->resnull);
 	*op->resvalue = d;
-	/* this ought to be unreachable, but it's cheap enough to check */
+	/* 这本应不可达，但检查它的代价足够低          */
 	if (unlikely(*op->resnull))
 		elog(ERROR, "failed to fetch attribute from slot");
 }
 
 /*
- * Transition value has not been initialized. This is the first non-NULL input
- * value for a group. We use it as the initial value for transValue.
+ * 转换值尚未初始化。这是该组的第一个非 NULL                
+ * 输入值。我们把它用作 transValue 的初始值。        
  */
 void
 ExecAggInitGroup(AggState *aggstate, AggStatePerTrans pertrans, AggStatePerGroup pergroup,
@@ -4416,10 +4416,10 @@ ExecAggInitGroup(AggState *aggstate, AggStatePerTrans pertrans, AggStatePerGroup
 	MemoryContext oldContext;
 
 	/*
-	 * We must copy the datum into aggcontext if it is pass-by-ref. We do not
-	 * need to pfree the old transValue, since it's NULL.  (We already checked
-	 * that the agg's input type is binary-compatible with its transtype, so
-	 * straight copy here is OK.)
+	 * 若 datum 是按引用传递的，必须把它复制进               
+	 * aggcontext。旧 transValue 为 NULL，故无须                       
+	 * pfree 它。（已查聚合输入与 transtype 二进制兼容，    
+	 * 故照抄即可。）     
 	 */
 	oldContext = MemoryContextSwitchTo(aggcontext->ecxt_per_tuple_memory);
 	pergroup->transValue = datumCopy(fcinfo->args[1].value,
@@ -4431,35 +4431,35 @@ ExecAggInitGroup(AggState *aggstate, AggStatePerTrans pertrans, AggStatePerGroup
 }
 
 /*
- * Ensure that the new transition value is stored in the aggcontext,
- * rather than the per-tuple context.  This should be invoked only when
- * we know (a) the transition data type is pass-by-reference, and (b)
- * the newValue is distinct from the oldValue.
+ * 确保新的转换值存入 aggcontext，而不是               
+ * 每元组上下文。仅当我们知道 (a) 转换数据            
+ * 类型为按引用传递，且 (b) newValue 不同于             
+ * oldValue 时才应调用本函数。       
  *
- * NB: This can change the current memory context.
+ * NB: 这可能会改变当前内存上下文。 
  *
- * We copy the presented newValue into the aggcontext, except when the datum
- * points to a R/W expanded object that is already a child of the aggcontext,
- * in which case we need not copy.  We then delete the oldValue, if not null.
+ * 我们会把传入的 newValue 复制进 aggcontext，                   
+ * 除非该 datum 指向一个已是 aggcontext 子对象的                
+ * R/W 展开对象，此时无须复制。随后删除 oldValue（若       
  *
- * If the presented datum points to a R/W expanded object that is a child of
- * some other context, ideally we would just reparent it under the aggcontext.
- * Unfortunately, that doesn't work easily, and it wouldn't help anyway for
- * aggregate-aware transfns.  We expect that a transfn that deals in expanded
- * objects and is aware of the memory management conventions for aggregate
- * transition values will (1) on first call, return a R/W expanded object that
- * is already in the right context, allowing us to do nothing here, and (2) on
- * subsequent calls, modify and return that same object, so that control
- * doesn't even reach here.  However, if we have a generic transfn that
- * returns a new R/W expanded object (probably in the per-tuple context),
- * reparenting that result would cause problems.  We'd pass that R/W object to
- * the next invocation of the transfn, and then it would be at liberty to
- * change or delete that object, and if it deletes it then our own attempt to
- * delete the now-old transvalue afterwards would be a double free.  We avoid
- * this problem by forcing the stored transvalue to always be a flat
- * non-expanded object unless the transfn is visibly doing aggregate-aware
- * memory management.  This is somewhat inefficient, but the best answer to
- * that is to write a smarter transfn.
+ * 非空）。若传入的 datum 指向某个其他上下文的            
+ * R/W 展开子对象，理想情况下只需把它改挂到                 
+ * aggcontext 之下。遗憾的是这不易做到，且对                
+ * 感知聚合的 transfn 也无济于事。我们期望，一个           
+ * 处理展开对象并知晓聚合转换值内存管理约定的        
+ * transfn 会 (1) 在首次调用时返回一个已处于正确              
+ * 上下文的 R/W 展开对象，使我们在此无事可做，且          
+ * (2) 在后续调用中修改并返回同一对象，于是控        
+ * 制根本不会到达此处。然而，如果我们的 transfn      
+ * 是通用型的，返回一个新的 R/W 展开对象（多半        
+ * 在每元组上下文中），对那个结果改挂父上下文            
+ * 会引发问题。我们会把该 R/W 对象传给 transfn            
+ * 的下一次调用，届时它可以随意修改或删除该对           
+ * 象；如果它删除了该对象，那么我们随后删除已           
+ * 变旧的 transvalue 的尝试就会成为双重释放。避免  
+ * 此问题的办法是强制所存的 transvalue 总为扁平           
+ * 非展开对象，除非 transfn 明显做聚合感知内存管理。   
+ * 低效，宜写更聪明的 transfn
  */
 Datum
 ExecAggCopyTransValue(AggState *aggstate, AggStatePerTrans pertrans,
@@ -4475,7 +4475,7 @@ ExecAggCopyTransValue(AggState *aggstate, AggStatePerTrans pertrans,
 										   false,
 										   pertrans->transtypeLen) &&
 			MemoryContextGetParent(DatumGetEOHP(newValue)->eoh_context) == CurrentMemoryContext)
-			 /* do nothing */ ;
+			 /* 空操作  */ ;
 		else
 			newValue = datumCopy(newValue,
 								 pertrans->transtypeByVal,
@@ -4484,9 +4484,9 @@ ExecAggCopyTransValue(AggState *aggstate, AggStatePerTrans pertrans,
 	else
 	{
 		/*
-		 * Ensure that AggStatePerGroup->transValue ends up being 0, so
-		 * callers can safely compare newValue/oldValue without having to
-		 * check their respective nullness.
+		 * 确保 AggStatePerGroup->transValue 最终为 0，          
+		 * 以便调用者能放心比较 newValue/oldValue，而不必  
+		 * 检查各自是否为空。     
 		 */
 		newValue = (Datum) 0;
 	}
@@ -4506,9 +4506,9 @@ ExecAggCopyTransValue(AggState *aggstate, AggStatePerTrans pertrans,
 
 /*
  * ExecEvalPreOrderedDistinctSingle
- *		Returns true when the aggregate transition value Datum is distinct
- *		from the previous input Datum and returns false when the input Datum
- *		matches the previous input Datum.
+ *		当聚合转换值 Datum 与上一输入 Datum 不同时          
+ *		返回 true，输入 Datum 与上一输入 Datum 相同             
+ *		时返回 false。               
  */
 bool
 ExecEvalPreOrderedDistinctSingle(AggState *aggstate, AggStatePerTrans pertrans)
@@ -4549,15 +4549,15 @@ ExecEvalPreOrderedDistinctSingle(AggState *aggstate, AggStatePerTrans pertrans)
 
 /*
  * ExecEvalPreOrderedDistinctMulti
- *		Returns true when the aggregate input is distinct from the previous
- *		input and returns false when the input matches the previous input, or
- *		when there was no previous input.
+ *		当聚合输入与上一输入不同时返回 true，输入与     
+ *		上一输入相同时返回 false，或者没有上一输入时      
+ *		也返回 false。               
  */
 bool
 ExecEvalPreOrderedDistinctMulti(AggState *aggstate, AggStatePerTrans pertrans)
 {
 	ExprContext *tmpcontext = aggstate->tmpcontext;
-	bool		isdistinct = false; /* for now */
+	bool		isdistinct = false; /* 目前  */
 	TupleTableSlot *save_outer;
 	TupleTableSlot *save_inner;
 
@@ -4571,7 +4571,7 @@ ExecEvalPreOrderedDistinctMulti(AggState *aggstate, AggStatePerTrans pertrans)
 	pertrans->sortslot->tts_nvalid = pertrans->numInputs;
 	ExecStoreVirtualTuple(pertrans->sortslot);
 
-	/* save the previous slots before we overwrite them */
+	/* 在覆盖它们之前先保存先前的槽       */
 	save_outer = tmpcontext->ecxt_outertuple;
 	save_inner = tmpcontext->ecxt_innertuple;
 
@@ -4590,7 +4590,7 @@ ExecEvalPreOrderedDistinctMulti(AggState *aggstate, AggStatePerTrans pertrans)
 		isdistinct = true;
 	}
 
-	/* restore the original slots */
+	/* 恢复原来的槽         */
 	tmpcontext->ecxt_outertuple = save_outer;
 	tmpcontext->ecxt_innertuple = save_inner;
 
@@ -4598,7 +4598,7 @@ ExecEvalPreOrderedDistinctMulti(AggState *aggstate, AggStatePerTrans pertrans)
 }
 
 /*
- * Invoke ordered transition function, with a datum argument.
+ * 以 datum 参数调用有序转换函数。               
  */
 void
 ExecEvalAggOrderedTransDatum(ExprState *state, ExprEvalStep *op,
@@ -4612,7 +4612,7 @@ ExecEvalAggOrderedTransDatum(ExprState *state, ExprEvalStep *op,
 }
 
 /*
- * Invoke ordered transition function, with a tuple argument.
+ * 以 tuple 参数调用有序转换函数。               
  */
 void
 ExecEvalAggOrderedTransTuple(ExprState *state, ExprEvalStep *op,
@@ -4627,7 +4627,7 @@ ExecEvalAggOrderedTransTuple(ExprState *state, ExprEvalStep *op,
 	tuplesort_puttupleslot(pertrans->sortstates[setno], pertrans->sortslot);
 }
 
-/* implementation of transition function invocation for byval types */
+/* 按值传递类型的转换函数调用实现                    */
 static pg_attribute_always_inline void
 ExecAggPlainTransByVal(AggState *aggstate, AggStatePerTrans pertrans,
 					   AggStatePerGroup pergroup,
@@ -4641,15 +4641,15 @@ ExecAggPlainTransByVal(AggState *aggstate, AggStatePerTrans pertrans,
 	aggstate->curaggcontext = aggcontext;
 	aggstate->current_set = setno;
 
-	/* set up aggstate->curpertrans for AggGetAggref() */
+	/* 为 AggGetAggref() 设置 aggstate->curpertrans */
 	aggstate->curpertrans = pertrans;
 
-	/* invoke transition function in per-tuple context */
+	/* 在每元组上下文中调用转换函数      */
 	oldContext = MemoryContextSwitchTo(aggstate->tmpcontext->ecxt_per_tuple_memory);
 
 	fcinfo->args[0].value = pergroup->transValue;
 	fcinfo->args[0].isnull = pergroup->transValueIsNull;
-	fcinfo->isnull = false;		/* just in case transfn doesn't set it */
+	fcinfo->isnull = false;		/* 以防 transfn 不设置它         */
 
 	newVal = FunctionCallInvoke(fcinfo);
 
@@ -4659,7 +4659,7 @@ ExecAggPlainTransByVal(AggState *aggstate, AggStatePerTrans pertrans,
 	MemoryContextSwitchTo(oldContext);
 }
 
-/* implementation of transition function invocation for byref types */
+/* 按引用传递类型的转换函数调用实现                 */
 static pg_attribute_always_inline void
 ExecAggPlainTransByRef(AggState *aggstate, AggStatePerTrans pertrans,
 					   AggStatePerGroup pergroup,
@@ -4673,31 +4673,31 @@ ExecAggPlainTransByRef(AggState *aggstate, AggStatePerTrans pertrans,
 	aggstate->curaggcontext = aggcontext;
 	aggstate->current_set = setno;
 
-	/* set up aggstate->curpertrans for AggGetAggref() */
+	/* 为 AggGetAggref() 设置 aggstate->curpertrans */
 	aggstate->curpertrans = pertrans;
 
-	/* invoke transition function in per-tuple context */
+	/* 在每元组上下文中调用转换函数      */
 	oldContext = MemoryContextSwitchTo(aggstate->tmpcontext->ecxt_per_tuple_memory);
 
 	fcinfo->args[0].value = pergroup->transValue;
 	fcinfo->args[0].isnull = pergroup->transValueIsNull;
-	fcinfo->isnull = false;		/* just in case transfn doesn't set it */
+	fcinfo->isnull = false;		/* 以防 transfn 不设置它         */
 
 	newVal = FunctionCallInvoke(fcinfo);
 
 	/*
-	 * For pass-by-ref datatype, must copy the new value into aggcontext and
-	 * free the prior transValue.  But if transfn returned a pointer to its
-	 * first input, we don't need to do anything.
+	 * 对按引用传递的类型，必须把新值复制进 aggcontext    
+	 * 并释放先前的 transValue。但如果 transfn 返回的         
+	 * 是其首输入，则无须做任何事。
 	 *
-	 * It's safe to compare newVal with pergroup->transValue without regard
-	 * for either being NULL, because ExecAggCopyTransValue takes care to set
-	 * transValue to 0 when NULL. Otherwise we could end up accidentally not
-	 * reparenting, when the transValue has the same numerical value as
-	 * newValue, despite being NULL.  This is a somewhat hot path, making it
-	 * undesirable to instead solve this with another branch for the common
-	 * case of the transition function returning its (modified) input
-	 * argument.
+	 * 可以不考虑 NULL 地比较 newVal 与                           
+	 * pergroup->transValue，因为 ExecAggCopyTransValue                   
+	 * 会在 NULL 时把 transValue 置 0。否则可能                   
+	 * 出现意外地不改挂父上下文的情况：transValue      
+	 * 数值上与 newValue 相同，尽管它是 NULL。这条            
+	 * 路径相当热，不宜为此再设分支处理常见              
+	 * 情形，即转换函数返回其（修改后的）输入参  
+	 * 数。   
 	 */
 	if (DatumGetPointer(newVal) != DatumGetPointer(pergroup->transValue))
 		newVal = ExecAggCopyTransValue(aggstate, pertrans,

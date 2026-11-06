@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "batch_id": "0291-comment-postmaster-walwriter",
+  "title": "Translate comments: postmaster-walwriter",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "6d45d72d9b8fdb55353d5f63fc4f8f3a3015d2e7",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0291-comment-postmaster-walwriter.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/postmaster/**",
+      "kind": "c_comment",
+      "note": "P2 comment translation campaign"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0291-comment-postmaster-walwriter.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": []
+    },
+    {
+      "path": "src/backend/postmaster/walwriter.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 34,
+      "translated": 34,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "P2 translation campaign wave E9"
+    }
+  ],
+  "notes": "Translation agents (E9) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

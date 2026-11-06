@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeModifyTable.c
- *	  routines to handle ModifyTable nodes.
+ *	  处理 ModifyTable 节点的例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,39 +13,39 @@
  *-------------------------------------------------------------------------
  */
 /* INTERFACE ROUTINES
- *		ExecInitModifyTable - initialize the ModifyTable node
- *		ExecModifyTable		- retrieve the next tuple from the node
- *		ExecEndModifyTable	- shut down the ModifyTable node
- *		ExecReScanModifyTable - rescan the ModifyTable node
+ *		ExecInitModifyTable - 初始化 ModifyTable 节点   
+ *		ExecModifyTable		- 抽取节点的下一个元组       
+ *		ExecEndModifyTable	- 关闭 ModifyTable 节点     
+ *		ExecReScanModifyTable - 重扫 ModifyTable 节点  
  *
  *	 NOTES
- *		The ModifyTable node receives input from its outerPlan, which is
- *		the data to insert for INSERT cases, the changed columns' new
- *		values plus row-locating info for UPDATE and MERGE cases, or just the
- *		row-locating info for DELETE cases.
+ *		ModifyTable 节点从其 outerPlan 接收输入：可能是     
+ *		INSERT 场景下是要插入的数据；UPDATE 与 MERGE     
+ *		场景下是变更列的新值加行定位信息；DELETE 场景     
+ *		下则只有行定位信息。     
  *
- *		The relation to modify can be an ordinary table, a view having an
- *		INSTEAD OF trigger, or a foreign table.  Earlier processing already
- *		pointed ModifyTable to the underlying relations of any automatically
- *		updatable view not using an INSTEAD OF trigger, so code here can
- *		assume it won't have one as a modification target.  This node does
- *		process ri_WithCheckOptions, which may have expressions from those
- *		automatically updatable views.
+ *		要修改的关系可以是普通表、带 INSTEAD OF 触发器  
+ *		的视图或外部表。前面的处理已把所有非 INSTEAD OF  
+ *		方式的自动可更新视图都指向底层关系，因此这里  
+ *		可以假定它不会以这种视图为修改目标。本节点 
+ *		确实会处理 ri_WithCheckOptions，其中可能                
+ *		含有来自那些自动可更新视图的                        
+ *		表达式。                  
  *
- *		MERGE runs a join between the source relation and the target
- *		table; if any WHEN NOT MATCHED clauses are present, then the
- *		join is an outer join.  In this case, any unmatched tuples will
- *		have NULL row-locating info, and only INSERT can be run. But for
- *		matched tuples, then row-locating info is used to determine the
- *		tuple to UPDATE or DELETE. When all clauses are WHEN MATCHED,
- *		then an inner join is used, so all tuples contain row-locating info.
+ *		MERGE 对源关系与目标表执行连接；若存在任何
+ *		WHEN NOT MATCHED 子句，那么该连接就是外连接。 
+ *		此时未匹配元组的行定位信息均为 NULL，          
+ *		且只能执行 INSERT。而对已匹配元组，则用行定   
+ *		信息确定要 UPDATE 或 DELETE 的元组。当所有子句  
+ *		是 WHEN MATCHED 时就用内连接，因此所有元组     
+ *		都会包含行定位信息。                                      
  *
- *		If the query specifies RETURNING, then the ModifyTable returns a
- *		RETURNING tuple after completing each row insert, update, or delete.
- *		It must be called again to continue the operation.  Without RETURNING,
- *		we just loop within the node until all the work is done, then
- *		return NULL.  This avoids useless call/return overhead.  (MERGE does
- *		not support RETURNING.)
+ *		如果查询指定了 RETURNING，那么 ModifyTable 会在每  
+ *		完成一行插入、更新或删除之后返回一个 RETURNING 元
+ *		组。之后必须再次调用才能继续操作。若无 RETURNING，
+ *		节点内循环，直到工作全部完成，返回 NULL。  
+ *		这避免了无用的调用/返回开销。（MERGE 并不支持    
+ *		RETURNING。）        
  */
 
 #include "postgres.h"
@@ -75,56 +75,56 @@
 
 typedef struct MTTargetRelLookup
 {
-	Oid			relationOid;	/* hash key, must be first */
-	int			relationIndex;	/* rel's index in resultRelInfo[] array */
+	Oid			relationOid;	/* 哈希键，必须居首*/
+	int			relationIndex;	/* rel 在 resultRelInfo[] 中的下标 */
 } MTTargetRelLookup;
 
 /*
- * Context struct for a ModifyTable operation, containing basic execution
- * state and some output variables populated by ExecUpdateAct() and
- * ExecDeleteAct() to report the result of their actions to callers.
+ * ModifyTable 操作的上下文结构体，包含基本的执行状态 
+ * 以及一些输出变量，由 ExecUpdateAct() 与              
+ * ExecDeleteAct() 填充，用于向调用者报告动作结果。 
  */
 typedef struct ModifyTableContext
 {
-	/* Operation state */
+	/* 操作状态    */
 	ModifyTableState *mtstate;
 	EPQState   *epqstate;
 	EState	   *estate;
 
 	/*
-	 * Slot containing tuple obtained from ModifyTable's subplan.  Used to
-	 * access "junk" columns that are not going to be stored.
+	 * 存放从 ModifyTable 的子计划取得的元组的槽。用于访
+	 * 问那些不会被存储的 "junk" 列。             
 	 */
 	TupleTableSlot *planSlot;
 
-	/* MERGE specific */
-	MergeActionState *relaction;	/* MERGE action in progress */
+	/* MERGE 专属   */
+	MergeActionState *relaction;	/* MERGE 动作进行中    */
 
 	/*
-	 * Information about the changes that were made concurrently to a tuple
-	 * being updated or deleted
+	 * 有关某元组被并发更改的信息，该元组正在被更     
+	 * 新或删除            
 	 */
 	TM_FailureData tmfd;
 
 	/*
-	 * The tuple projected by the INSERT's RETURNING clause, when doing a
-	 * cross-partition UPDATE
+	 * 执行跨分区 UPDATE 时，由 INSERT 的 RETURNING 子句投   
+	 * 影出来的元组    
 	 */
 	TupleTableSlot *cpUpdateReturningSlot;
 } ModifyTableContext;
 
 /*
- * Context struct containing output data specific to UPDATE operations.
+ * 包含 UPDATE 操作专属输出数据的上下文结构体。      
  */
 typedef struct UpdateContext
 {
-	bool		updated;		/* did UPDATE actually occur? */
-	bool		crossPartUpdate;	/* was it a cross-partition update? */
-	TU_UpdateIndexes updateIndexes; /* Which index updates are required? */
+	bool		updated;		/* UPDATE 是否发生过？  */
+	bool		crossPartUpdate;	/* 是否为跨分区更新？      */
+	TU_UpdateIndexes updateIndexes; /* 需要哪些索引更新？       */
 
 	/*
-	 * Lock mode to acquire on the latest tuple version before performing
-	 * EvalPlanQual on it
+	 * 在对最新元组版本执行 EvalPlanQual 之前要获取的    
+	 * 锁模式         
 	 */
 	LockTupleMode lockmode;
 } UpdateContext;
@@ -172,19 +172,19 @@ static void ExecMergeNotMatched(ModifyTableContext *context,
 
 
 /*
- * Verify that the tuples to be produced by INSERT match the
- * target relation's rowtype
+ * 校验 INSERT 将产生的元组是否与目标关系的 
+ * 行类型相符          
  *
- * We do this to guard against stale plans.  If plan invalidation is
- * functioning properly then we should never get a failure here, but better
- * safe than sorry.  Note that this is called after we have obtained lock
- * on the target rel, so the rowtype can't change underneath us.
+ * 这样做是为防范过期的计划。如果计划失效机制  
+ * 运转正常，那么这里本不应出现失败，但稳妥总比      
+ * 后悔好。注意本函数在已获得目标关系上的锁之后    
+ * 才被调用，所以行类型不会在背后变化。       
  *
- * The plan output is represented by its targetlist, because that makes
- * handling the dropped-column case easier.
+ * 计划输出用其目标列表来表示，因为这样更便于     
+ * 处理被删除列的情形。          
  *
- * We used to use this for UPDATE as well, but now the equivalent checks
- * are done in ExecBuildUpdateProjection.
+ * 以前 UPDATE 也使用这一校验，但等价的检查现          
+ * 改在 ExecBuildUpdateProjection 做  
  */
 static void
 ExecCheckPlanOutput(Relation resultRel, List *targetList)
@@ -198,7 +198,7 @@ ExecCheckPlanOutput(Relation resultRel, List *targetList)
 		TargetEntry *tle = (TargetEntry *) lfirst(lc);
 		Form_pg_attribute attr;
 
-		Assert(!tle->resjunk);	/* caller removed junk items already */
+		Assert(!tle->resjunk);	/* 调用者已移除 junk 项       */
 
 		if (attno >= resultDesc->natts)
 			ereport(ERROR,
@@ -209,14 +209,14 @@ ExecCheckPlanOutput(Relation resultRel, List *targetList)
 		attno++;
 
 		/*
-		 * Special cases here should match planner's expand_insert_targetlist.
+		 * 这里的特例处理应与规划器的 expand_insert_targetlist   
 		 */
 		if (attr->attisdropped)
 		{
 			/*
-			 * For a dropped column, we can't check atttypid (it's likely 0).
-			 * In any case the planner has most likely inserted an INT4 null.
-			 * What we insist on is just *some* NULL constant.
+			 * 对于被删除的列，无法检查 atttypid（其值可能  
+			 * 是 0）。反正规划器多半已插入了 INT4 空值。   
+			 * 坚持要求的只是*某个* NULL 常量。   
 			 */
 			if (!IsA(tle->expr, Const) ||
 				!((Const *) tle->expr)->constisnull)
@@ -229,11 +229,11 @@ ExecCheckPlanOutput(Relation resultRel, List *targetList)
 		else if (attr->attgenerated)
 		{
 			/*
-			 * For a generated column, the planner will have inserted a null
-			 * of the column's base type (to avoid possibly failing on domain
-			 * not-null constraints).  It doesn't seem worth insisting on that
-			 * exact type though, since a null value is type-independent.  As
-			 * above, just insist on *some* NULL constant.
+			 * 对于生成列，规划器已插入一个该列基类型的 
+			 * 空值（避免可能违反域的非空约束）。但        
+			 * 似乎不值得坚持恰好为该类型，因为空值与      
+			 * 类型无关。所以与上文一样，只要求是*某个*   
+			 * NULL 常量。                             
 			 */
 			if (!IsA(tle->expr, Const) ||
 				!((Const *) tle->expr)->constisnull)
@@ -245,7 +245,7 @@ ExecCheckPlanOutput(Relation resultRel, List *targetList)
 		}
 		else
 		{
-			/* Normal case: demand type match */
+			/* 常规情况：类型须匹配 */
 			if (exprType((Node *) tle->expr) != attr->atttypid)
 				ereport(ERROR,
 						(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -264,16 +264,16 @@ ExecCheckPlanOutput(Relation resultRel, List *targetList)
 }
 
 /*
- * ExecProcessReturning --- evaluate a RETURNING list
+ * ExecProcessReturning --- 计算 RETURNING 列表  
  *
- * resultRelInfo: current result rel
- * tupleSlot: slot holding tuple actually inserted/updated/deleted
- * planSlot: slot holding tuple returned by top subplan node
+ * resultRelInfo: 当前结果 rel  
+ * tupleSlot: 保存实际被插入/更新/删除的元组的槽  
+ * planSlot: 保存顶层子计划节点返回元组的槽  
  *
- * Note: If tupleSlot is NULL, the FDW should have already provided econtext's
- * scan tuple.
+ * 注意：若 tupleSlot 为 NULL，FDW 应已提供 econtext 的扫描      
+ * 元组。  
  *
- * Returns a slot holding the result tuple
+ * 返回一个保存结果元组的槽   
  */
 static TupleTableSlot *
 ExecProcessReturning(ResultRelInfo *resultRelInfo,
@@ -283,29 +283,29 @@ ExecProcessReturning(ResultRelInfo *resultRelInfo,
 	ProjectionInfo *projectReturning = resultRelInfo->ri_projectReturning;
 	ExprContext *econtext = projectReturning->pi_exprContext;
 
-	/* Make tuple and any needed join variables available to ExecProject */
+	/* 把元组以及所需的连接变量提供给 ExecProject 使用  */
 	if (tupleSlot)
 		econtext->ecxt_scantuple = tupleSlot;
 	econtext->ecxt_outertuple = planSlot;
 
 	/*
-	 * RETURNING expressions might reference the tableoid column, so
-	 * reinitialize tts_tableOid before evaluating them.
+	 * RETURNING 表达式可能引用 tableoid 列，因此要在  
+	 * 求值之前重新初始化 tts_tableOid。      
 	 */
 	econtext->ecxt_scantuple->tts_tableOid =
 		RelationGetRelid(resultRelInfo->ri_RelationDesc);
 
-	/* Compute the RETURNING expressions */
+	/* 计算 RETURNING 表达式        */
 	return ExecProject(projectReturning);
 }
 
 /*
- * ExecCheckTupleVisible -- verify tuple is visible
+ * ExecCheckTupleVisible -- 检查元组可见性  
  *
- * It would not be consistent with guarantees of the higher isolation levels to
- * proceed with avoiding insertion (taking speculative insertion's alternative
- * path) on the basis of another tuple that is not visible to MVCC snapshot.
- * Check for the need to raise a serialization failure, and do so as necessary.
+ * 如果基于另一个对 MVCC 快照不可见的元组来继续回避插    
+ * 入（走推测性插入的替代路径），这与更高隔离级别      
+ * 所提供的保证不一致。检查是否需要报告序列化          
+ * 失败，必要时就如此处理。                                        
  */
 static void
 ExecCheckTupleVisible(EState *estate,
@@ -326,10 +326,10 @@ ExecCheckTupleVisible(EState *estate,
 		xmin = DatumGetTransactionId(xminDatum);
 
 		/*
-		 * We should not raise a serialization failure if the conflict is
-		 * against a tuple inserted by our own transaction, even if it's not
-		 * visible to our snapshot.  (This would happen, for example, if
-		 * conflicting keys are proposed for insertion in a single command.)
+		 * 如果冲突对象是自己事务插入的元组，则不应  
+		 * 报告序列化失败，即便它对我们的快照不可见。  
+		 * （例如，在同一条命令内为插入提议相互冲突 
+		 * 的键。）                                                     
 		 */
 		if (!TransactionIdIsCurrentTransactionId(xmin))
 			ereport(ERROR,
@@ -339,7 +339,7 @@ ExecCheckTupleVisible(EState *estate,
 }
 
 /*
- * ExecCheckTIDVisible -- convenience variant of ExecCheckTupleVisible()
+ * ExecCheckTIDVisible -- ExecCheckTupleVisible() 的便捷变体       
  */
 static void
 ExecCheckTIDVisible(EState *estate,
@@ -349,7 +349,7 @@ ExecCheckTIDVisible(EState *estate,
 {
 	Relation	rel = relinfo->ri_RelationDesc;
 
-	/* Redundantly check isolation level */
+	/* 重复检查一次隔离级别    */
 	if (!IsolationUsesXactSnapshot())
 		return;
 
@@ -360,16 +360,16 @@ ExecCheckTIDVisible(EState *estate,
 }
 
 /*
- * Initialize to compute stored generated columns for a tuple
+ * 初始化，以便为一个元组计算存储生成列    
  *
- * This fills the resultRelInfo's ri_GeneratedExprsI/ri_NumGeneratedNeededI
- * or ri_GeneratedExprsU/ri_NumGeneratedNeededU fields, depending on cmdtype.
- * If cmdType == CMD_UPDATE, the ri_extraUpdatedCols field is filled too.
+ * 本函数填充 resultRelInfo 的 ri_GeneratedExprsI/                   
+ * ri_NumGeneratedNeededI 或 ri_GeneratedExprsU/                            
+ * ri_NumGeneratedNeededU 字段，具体取决于 cmdtype。            
  *
- * Note: usually, a given query would need only one of ri_GeneratedExprsI and
- * ri_GeneratedExprsU per result rel; but MERGE can need both, and so can
- * cross-partition UPDATEs, since a partition might be the target of both
- * UPDATE and INSERT actions.
+ * 注意：通常，给定查询对每个结果关系只需要              
+ * ri_GeneratedExprsI 与 ri_GeneratedExprsU 之一；但 MERGE          
+ * 可能两者都需要，跨分区 UPDATE 亦然，因某分区可能  
+ * 同为 UPDATE/INSERT。   
  */
 void
 ExecInitStoredGenerated(ResultRelInfo *resultRelInfo,
@@ -384,15 +384,15 @@ ExecInitStoredGenerated(ResultRelInfo *resultRelInfo,
 	Bitmapset  *updatedCols;
 	MemoryContext oldContext;
 
-	/* Nothing to do if no generated columns */
+	/* 若无生成列则无需做任何事  */
 	if (!(tupdesc->constr && tupdesc->constr->has_generated_stored))
 		return;
 
 	/*
-	 * In an UPDATE, we can skip computing any generated columns that do not
-	 * depend on any UPDATE target column.  But if there is a BEFORE ROW
-	 * UPDATE trigger, we cannot skip because the trigger might change more
-	 * columns.
+	 * 在 UPDATE 中，可以跳过计算那些不依赖任何 UPDATE      
+	 * 目标列的生成列。但如果存在 BEFORE ROW UPDATE        
+	 * 触发器，不能跳过，因为该触发器可能更改更多的  
+	 * 列。  
 	 */
 	if (cmdtype == CMD_UPDATE &&
 		!(rel->trigdesc && rel->trigdesc->trig_update_before_row))
@@ -401,8 +401,8 @@ ExecInitStoredGenerated(ResultRelInfo *resultRelInfo,
 		updatedCols = NULL;
 
 	/*
-	 * Make sure these data structures are built in the per-query memory
-	 * context so they'll survive throughout the query.
+	 * 务必让这些数据结构建在每查询内存上下文中，  
+	 * 以便它们能在整个查询期间存活。   
 	 */
 	oldContext = MemoryContextSwitchTo(estate->es_query_cxt);
 
@@ -415,15 +415,15 @@ ExecInitStoredGenerated(ResultRelInfo *resultRelInfo,
 		{
 			Expr	   *expr;
 
-			/* Fetch the GENERATED AS expression tree */
+			/* 取出 GENERATED AS 表达式树       */
 			expr = (Expr *) build_column_default(rel, i + 1);
 			if (expr == NULL)
 				elog(ERROR, "no generation expression found for column number %d of table \"%s\"",
 					 i + 1, RelationGetRelationName(rel));
 
 			/*
-			 * If it's an update with a known set of update target columns,
-			 * see if we can skip the computation.
+			 * 若这次更新有已知的目标列集合，则看看能否
+			 * 跳过该计算。                 
 			 */
 			if (updatedCols)
 			{
@@ -432,14 +432,14 @@ ExecInitStoredGenerated(ResultRelInfo *resultRelInfo,
 				pull_varattnos((Node *) expr, 1, &attrs_used);
 
 				if (!bms_overlap(updatedCols, attrs_used))
-					continue;	/* need not update this column */
+					continue;	/* 无需更新此列          */
 			}
 
-			/* No luck, so prepare the expression for execution */
+			/* 未能跳过，故准备该表达式以供执行 */
 			ri_GeneratedExprs[i] = ExecPrepareExpr(expr, estate);
 			ri_NumGeneratedNeeded++;
 
-			/* If UPDATE, mark column in resultRelInfo->ri_extraUpdatedCols */
+			/* UPDATE 时在 resultRelInfo->ri_extraUpdatedCols 中标记   */
 			if (cmdtype == CMD_UPDATE)
 				resultRelInfo->ri_extraUpdatedCols =
 					bms_add_member(resultRelInfo->ri_extraUpdatedCols,
@@ -447,10 +447,10 @@ ExecInitStoredGenerated(ResultRelInfo *resultRelInfo,
 		}
 	}
 
-	/* Save in appropriate set of fields */
+	/* 保存到相应的一组字段中 */
 	if (cmdtype == CMD_UPDATE)
 	{
-		/* Don't call twice */
+		/* 勿调用两次  */
 		Assert(resultRelInfo->ri_GeneratedExprsU == NULL);
 
 		resultRelInfo->ri_GeneratedExprsU = ri_GeneratedExprs;
@@ -458,7 +458,7 @@ ExecInitStoredGenerated(ResultRelInfo *resultRelInfo,
 	}
 	else
 	{
-		/* Don't call twice */
+		/* 勿调用两次  */
 		Assert(resultRelInfo->ri_GeneratedExprsI == NULL);
 
 		resultRelInfo->ri_GeneratedExprsI = ri_GeneratedExprs;
@@ -469,7 +469,7 @@ ExecInitStoredGenerated(ResultRelInfo *resultRelInfo,
 }
 
 /*
- * Compute stored generated columns for a tuple
+ * 为一个元组计算存储生成列        
  */
 void
 ExecComputeStoredGenerated(ResultRelInfo *resultRelInfo,
@@ -485,12 +485,12 @@ ExecComputeStoredGenerated(ResultRelInfo *resultRelInfo,
 	Datum	   *values;
 	bool	   *nulls;
 
-	/* We should not be called unless this is true */
+	/* 若非如此，本函数不应被调用     */
 	Assert(tupdesc->constr && tupdesc->constr->has_generated_stored);
 
 	/*
-	 * Initialize the expressions if we didn't already, and check whether we
-	 * can exit early because nothing needs to be computed.
+	 * 若尚未初始化这些表达式则先初始化，并检查是否   
+	 * 可提前退出，因为无需计算任何内容。 
 	 */
 	if (cmdtype == CMD_UPDATE)
 	{
@@ -504,7 +504,7 @@ ExecComputeStoredGenerated(ResultRelInfo *resultRelInfo,
 	{
 		if (resultRelInfo->ri_GeneratedExprsI == NULL)
 			ExecInitStoredGenerated(resultRelInfo, estate, cmdtype);
-		/* Early exit is impossible given the prior Assert */
+		/* 有了前面的 Assert，提前退出不可能  */
 		Assert(resultRelInfo->ri_NumGeneratedNeededI > 0);
 		ri_GeneratedExprs = resultRelInfo->ri_GeneratedExprsI;
 	}
@@ -533,8 +533,8 @@ ExecComputeStoredGenerated(ResultRelInfo *resultRelInfo,
 			val = ExecEvalExpr(ri_GeneratedExprs[i], econtext, &isnull);
 
 			/*
-			 * We must make a copy of val as we have no guarantees about where
-			 * memory for a pass-by-reference Datum is located.
+			 * 必须复制一份 val，因为我们无法保证传引用     
+			 * Datum 的内存位于何处。                  
 			 */
 			if (!isnull)
 				val = datumCopy(val, attr->attbyval, attr->attlen);
@@ -560,12 +560,12 @@ ExecComputeStoredGenerated(ResultRelInfo *resultRelInfo,
 
 /*
  * ExecInitInsertProjection
- *		Do one-time initialization of projection data for INSERT tuples.
+ *		对 INSERT 元组的投影数据做一次性初始化。        
  *
- * INSERT queries may need a projection to filter out junk attrs in the tlist.
+ * INSERT 查询可能需要投影来过滤掉 tlist 中的 junk 属性。    
  *
- * This is also a convenient place to verify that the
- * output of an INSERT matches the target table.
+ * 也便于校验 INSERT 输出是否匹配目标   
+ * 表。                                       
  */
 static void
 ExecInitInsertProjection(ModifyTableState *mtstate,
@@ -578,7 +578,7 @@ ExecInitInsertProjection(ModifyTableState *mtstate,
 	bool		need_projection = false;
 	ListCell   *l;
 
-	/* Extract non-junk columns of the subplan's result tlist. */
+	/* 抽取子计划结果 tlist 的非 junk 列。          */
 	foreach(l, subplan->targetlist)
 	{
 		TargetEntry *tle = (TargetEntry *) lfirst(l);
@@ -590,22 +590,22 @@ ExecInitInsertProjection(ModifyTableState *mtstate,
 	}
 
 	/*
-	 * The junk-free list must produce a tuple suitable for the result
-	 * relation.
+	 * 去除 junk 后的列表必须产生适合结果关系的      
+	 * 元组。
 	 */
 	ExecCheckPlanOutput(resultRelInfo->ri_RelationDesc, insertTargetList);
 
-	/* We'll need a slot matching the table's format. */
+	/* 需要一个与表格式相匹配的槽。     */
 	resultRelInfo->ri_newTupleSlot =
 		table_slot_create(resultRelInfo->ri_RelationDesc,
 						  &estate->es_tupleTable);
 
-	/* Build ProjectionInfo if needed (it probably isn't). */
+	/* 按需构建 ProjectionInfo（多半不需要）。 */
 	if (need_projection)
 	{
 		TupleDesc	relDesc = RelationGetDescr(resultRelInfo->ri_RelationDesc);
 
-		/* need an expression context to do the projection */
+		/* 需要一个表达式上下文来做投影      */
 		if (mtstate->ps.ps_ExprContext == NULL)
 			ExecAssignExprContext(estate, &mtstate->ps);
 
@@ -622,20 +622,20 @@ ExecInitInsertProjection(ModifyTableState *mtstate,
 
 /*
  * ExecInitUpdateProjection
- *		Do one-time initialization of projection data for UPDATE tuples.
+ *		对 UPDATE 元组的投影数据做一次性初始化。        
  *
- * UPDATE always needs a projection, because (1) there's always some junk
- * attrs, and (2) we may need to merge values of not-updated columns from
- * the old tuple into the final tuple.  In UPDATE, the tuple arriving from
- * the subplan contains only new values for the changed columns, plus row
- * identity info in the junk attrs.
+ * UPDATE 总是需要投影，因为 (1) 总是存在一些 junk        
+ * 属性；(2) 可能需要把未更新列的值从旧元组合并      
+ * 到最终元组中。在 UPDATE 里，来自子计划的元组只      
+ * 包含变更列的新值，外加 junk 属性中的行标识          
+ * 信息。                       
  *
- * This is "one-time" for any given result rel, but we might touch more than
- * one result rel in the course of an inherited UPDATE, and each one needs
- * its own projection due to possible column order variation.
+ * 对任一给定的结果关系而言这都是"一次性"的，           
+ * 但在继承 UPDATE 过程中可能触及多个结果关系，         
+ * 每个都需自己的投影，因列顺序可能不同。 
  *
- * This is also a convenient place to verify that the output of an UPDATE
- * matches the target table (ExecBuildUpdateProjection does that).
+ * 这里也便于校验 UPDATE 的输出是否匹配目标              
+ * 表（ExecBuildUpdateProjection 会做这件事）。          
  */
 static void
 ExecInitUpdateProjection(ModifyTableState *mtstate,
@@ -649,8 +649,8 @@ ExecInitUpdateProjection(ModifyTableState *mtstate,
 	List	   *updateColnos;
 
 	/*
-	 * Usually, mt_lastResultIndex matches the target rel.  If it happens not
-	 * to, we can get the index the hard way with an integer division.
+	 * 通常 mt_lastResultIndex 与目标关系相匹配。如果           
+	 * 碰巧不匹配，则可用整数除法算出该下标。      
 	 */
 	whichrel = mtstate->mt_lastResultIndex;
 	if (resultRelInfo != mtstate->resultRelInfo + whichrel)
@@ -662,9 +662,9 @@ ExecInitUpdateProjection(ModifyTableState *mtstate,
 	updateColnos = (List *) list_nth(node->updateColnosLists, whichrel);
 
 	/*
-	 * For UPDATE, we use the old tuple to fill up missing values in the tuple
-	 * produced by the subplan to get the new tuple.  We need two slots, both
-	 * matching the table's desired format.
+	 * 对于 UPDATE，我们用旧元组来填充子计划产出的          
+	 * 元组中缺失的值，从而得到新元组。需要两个          
+	 * 均匹配表期望格式的槽。   
 	 */
 	resultRelInfo->ri_oldTupleSlot =
 		table_slot_create(resultRelInfo->ri_RelationDesc,
@@ -673,13 +673,13 @@ ExecInitUpdateProjection(ModifyTableState *mtstate,
 		table_slot_create(resultRelInfo->ri_RelationDesc,
 						  &estate->es_tupleTable);
 
-	/* need an expression context to do the projection */
+	/* 需要一个表达式上下文来做投影      */
 	if (mtstate->ps.ps_ExprContext == NULL)
 		ExecAssignExprContext(estate, &mtstate->ps);
 
 	resultRelInfo->ri_projectNew =
 		ExecBuildUpdateProjection(subplan->targetlist,
-								  false,	/* subplan did the evaluation */
+								  false,	/* 求值已由子计划完成*/
 								  updateColnos,
 								  relDesc,
 								  mtstate->ps.ps_ExprContext,
@@ -691,9 +691,9 @@ ExecInitUpdateProjection(ModifyTableState *mtstate,
 
 /*
  * ExecGetInsertNewTuple
- *		This prepares a "new" tuple ready to be inserted into given result
- *		relation, by removing any junk columns of the plan's output tuple
- *		and (if necessary) coercing the tuple to the right tuple format.
+ *		本函数准备一个可插入给定结果关系的"新"元组， 
+ *		做法是移除计划输出元组中的所有 junk 列，        
+ *		并（如有必要）把元组强转成正确的元组格式。 
  */
 static TupleTableSlot *
 ExecGetInsertNewTuple(ResultRelInfo *relinfo,
@@ -703,9 +703,9 @@ ExecGetInsertNewTuple(ResultRelInfo *relinfo,
 	ExprContext *econtext;
 
 	/*
-	 * If there's no projection to be done, just make sure the slot is of the
-	 * right type for the target rel.  If the planSlot is the right type we
-	 * can use it as-is, else copy the data into ri_newTupleSlot.
+	 * 如果没有要做的投影，只需确保槽的类型适合          
+	 * 目标关系。若 planSlot 本身类型正确，可以直接       
+	 * 使用它，否则把数据复制进 ri_newTupleSlot。   
 	 */
 	if (newProj == NULL)
 	{
@@ -719,11 +719,11 @@ ExecGetInsertNewTuple(ResultRelInfo *relinfo,
 	}
 
 	/*
-	 * Else project; since the projection output slot is ri_newTupleSlot, this
-	 * will also fix any slot-type problem.
+	 * 否则执行投影；由于投影的输出槽是 ri_newTupleSlot，    
+	 * 这也能解决槽类型问题。   
 	 *
-	 * Note: currently, this is dead code, because INSERT cases don't receive
-	 * any junk columns so there's never a projection to be done.
+	 * 注意：目前这是死代码，因为 INSERT 场景根本           
+	 * 不会收到任何 junk 列，因此无需做投影。    
 	 */
 	econtext = newProj->pi_exprContext;
 	econtext->ecxt_outertuple = planSlot;
@@ -732,12 +732,12 @@ ExecGetInsertNewTuple(ResultRelInfo *relinfo,
 
 /*
  * ExecGetUpdateNewTuple
- *		This prepares a "new" tuple by combining an UPDATE subplan's output
- *		tuple (which contains values of changed columns) with unchanged
- *		columns taken from the old tuple.
+ *		本函数把 UPDATE 子计划的输出元组（其中包含        
+ *		变更列值）与来自旧元组的未变更列组合起      
+ *		来，得到一个"新"元组。 
  *
- * The subplan tuple might also contain junk columns, which are ignored.
- * Note that the projection also ensures we have a slot of the right type.
+ * 子计划元组中可能还含有 junk 列，它们会被忽略。   
+ * 注意该投影还确保我们得到类型正确的槽。              
  */
 TupleTableSlot *
 ExecGetUpdateNewTuple(ResultRelInfo *relinfo,
@@ -747,7 +747,7 @@ ExecGetUpdateNewTuple(ResultRelInfo *relinfo,
 	ProjectionInfo *newProj = relinfo->ri_projectNew;
 	ExprContext *econtext;
 
-	/* Use a few extra Asserts to protect against outside callers */
+	/* 额外多用几个 Assert 来防范外部调用者         */
 	Assert(relinfo->ri_projectNewInfoValid);
 	Assert(planSlot != NULL && !TTS_EMPTY(planSlot));
 	Assert(oldSlot != NULL && !TTS_EMPTY(oldSlot));
@@ -761,20 +761,20 @@ ExecGetUpdateNewTuple(ResultRelInfo *relinfo,
 /* ----------------------------------------------------------------
  *		ExecInsert
  *
- *		For INSERT, we have to insert the tuple into the target relation
- *		(or partition thereof) and insert appropriate tuples into the index
- *		relations.
+ *		对 INSERT 而言，我们必须把元组插入目标关系     
+ *		（或其分区）中，并向各索引关系插入相应的       
+ *		元组。 
  *
- *		slot contains the new tuple value to be stored.
+ *		slot 中包含待存储的新元组值。      
  *
- *		Returns RETURNING result if any, otherwise NULL.
- *		*inserted_tuple is the tuple that's effectively inserted;
- *		*insert_destrel is the relation where it was inserted.
- *		These are only set on success.
+ *		有 RETURNING 结果就返回，否则 NULL。  
+ *		*inserted_tuple 是实际被插入的元组；           
+ *		*insert_destrel 是其被插入其中的关系。     
+ *		两者仅成功时才设置。
  *
- *		This may change the currently active tuple conversion map in
- *		mtstate->mt_transition_capture, so the callers must take care to
- *		save the previous value to avoid losing track of it.
+ *		本函数可能改变 mtstate->mt_transition_capture 里    
+ *		当前活跃的元组转换映射，调用者须小心保存旧 
+ *		值，以免失去对它的追踪。                
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -798,8 +798,8 @@ ExecInsert(ModifyTableContext *context,
 	MemoryContext oldContext;
 
 	/*
-	 * If the input result relation is a partitioned table, find the leaf
-	 * partition to insert the tuple into.
+	 * 如果输入的结果关系是分区表，则找到要插入      
+	 * 该元组的叶子分区。        
 	 */
 	if (proute)
 	{
@@ -816,50 +816,50 @@ ExecInsert(ModifyTableContext *context,
 	resultRelationDesc = resultRelInfo->ri_RelationDesc;
 
 	/*
-	 * Open the table's indexes, if we have not done so already, so that we
-	 * can add new index entries for the inserted tuple.
+	 * 如果尚未打开该表的索引，现在就打开，以便        
+	 * 能为被插入的元组添加新索引条目。 
 	 */
 	if (resultRelationDesc->rd_rel->relhasindex &&
 		resultRelInfo->ri_IndexRelationDescs == NULL)
 		ExecOpenIndices(resultRelInfo, onconflict != ONCONFLICT_NONE);
 
 	/*
-	 * BEFORE ROW INSERT Triggers.
+	 * BEFORE ROW INSERT 触发器
 	 *
-	 * Note: We fire BEFORE ROW TRIGGERS for every attempted insertion in an
-	 * INSERT ... ON CONFLICT statement.  We cannot check for constraint
-	 * violations before firing these triggers, because they can change the
-	 * values to insert.  Also, they can run arbitrary user-defined code with
-	 * side-effects that we can't cancel by just not inserting the tuple.
+	 * 注意：在 INSERT ... ON CONFLICT 语句中，我们会为每      
+	 * 一次尝试的插入都触发 BEFORE ROW 触发器。我们不  
+	 * 能在触发这些触发器之前检查约束违反，因为        
+	 * 它们可能更改待插入的值。而且它们能运行任意       
+	 * 用户代码，其副作用无法仅靠不插入元组来取消。
 	 */
 	if (resultRelInfo->ri_TrigDesc &&
 		resultRelInfo->ri_TrigDesc->trig_insert_before_row)
 	{
-		/* Flush any pending inserts, so rows are visible to the triggers */
+		/* 冲刷所有待处理的插入，让行对触发器可见      */
 		if (estate->es_insert_pending_result_relations != NIL)
 			ExecPendingInserts(estate);
 
 		if (!ExecBRInsertTriggers(estate, resultRelInfo, slot))
-			return NULL;		/* "do nothing" */
+			return NULL;		/* 无操作    */
 	}
 
-	/* INSTEAD OF ROW INSERT Triggers */
+	/* INSTEAD OF ROW INSERT 触发器*/
 	if (resultRelInfo->ri_TrigDesc &&
 		resultRelInfo->ri_TrigDesc->trig_insert_instead_row)
 	{
 		if (!ExecIRInsertTriggers(estate, resultRelInfo, slot))
-			return NULL;		/* "do nothing" */
+			return NULL;		/* 无操作    */
 	}
 	else if (resultRelInfo->ri_FdwRoutine)
 	{
 		/*
-		 * GENERATED expressions might reference the tableoid column, so
-		 * (re-)initialize tts_tableOid before evaluating them.
+		 * GENERATED 表达式可能引用 tableoid 列，因此要     
+		 * 在求值之前（重新）初始化 tts_tableOid。
 		 */
 		slot->tts_tableOid = RelationGetRelid(resultRelInfo->ri_RelationDesc);
 
 		/*
-		 * Compute stored generated columns
+		 * 计算存储生成列           
 		 */
 		if (resultRelationDesc->rd_att->constr &&
 			resultRelationDesc->rd_att->constr->has_generated_stored)
@@ -867,16 +867,16 @@ ExecInsert(ModifyTableContext *context,
 									   CMD_INSERT);
 
 		/*
-		 * If the FDW supports batching, and batching is requested, accumulate
-		 * rows and insert them in batches. Otherwise use the per-row inserts.
+		 * 如果 FDW 支持批量操作且请求了批量，则累积        
+		 * 各行并分批插入。否则使用逐行插入。                
 		 */
 		if (resultRelInfo->ri_BatchSize > 1)
 		{
 			bool		flushed = false;
 
 			/*
-			 * When we've reached the desired batch size, perform the
-			 * insertion.
+			 * 当达到所需的批量大小后，就执行实际   
+			 * 插入。 
 			 */
 			if (resultRelInfo->ri_NumSlots == resultRelInfo->ri_BatchSize)
 			{
@@ -899,12 +899,12 @@ ExecInsert(ModifyTableContext *context,
 			}
 
 			/*
-			 * Initialize the batch slots. We don't know how many slots will
-			 * be needed, so we initialize them as the batch grows, and we
-			 * keep them across batches. To mitigate an inefficiency in how
-			 * resource owner handles objects with many references (as with
-			 * many slots all referencing the same tuple descriptor) we copy
-			 * the appropriate tuple descriptor for each slot.
+			 * 初始化批量槽。我们不知道需要多少个槽，    
+			 * 因此随批量增长逐步初始化，并让其跨批量  
+			 * 保持不变。为缓解资源所有者处理多引用对象
+			 * 时的低效问题（例如许多槽都引用同一个元组
+			 * 描述符的情形），为每个槽复制相应的元组    
+			 * 描述符。                                   
 			 */
 			if (resultRelInfo->ri_NumSlots >= resultRelInfo->ri_NumSlotsInitialized)
 			{
@@ -918,7 +918,7 @@ ExecInsert(ModifyTableContext *context,
 				resultRelInfo->ri_PlanSlots[resultRelInfo->ri_NumSlots] =
 					MakeSingleTupleTableSlot(plan_tdesc, planSlot->tts_ops);
 
-				/* remember how many batch slots we initialized */
+				/* 记住我们已初始化了多少个批量槽*/
 				resultRelInfo->ri_NumSlotsInitialized++;
 			}
 
@@ -929,13 +929,13 @@ ExecInsert(ModifyTableContext *context,
 						 planSlot);
 
 			/*
-			 * If these are the first tuples stored in the buffers, add the
-			 * target rel and the mtstate to the
-			 * es_insert_pending_result_relations and
-			 * es_insert_pending_modifytables lists respectively, except in
-			 * the case where flushing was done above, in which case they
-			 * would already have been added to the lists, so no need to do
-			 * this.
+			 * 如果这些是存入缓冲区的首批元组，就把目标
+			 * 关系和 mtstate 分别加进   
+			 * es_insert_pending_result_relations 和
+			 * es_insert_pending_modifytables 列表，除非上面的     
+			 * 冲刷已执行过；那种情况下它们早已被加入 
+			 * 列表，因此无须再这样                              
+			 * 做  
 			 */
 			if (resultRelInfo->ri_NumSlots == 0 && !flushed)
 			{
@@ -958,20 +958,20 @@ ExecInsert(ModifyTableContext *context,
 		}
 
 		/*
-		 * insert into foreign table: let the FDW do it
+		 * 插入外部表：交给 FDW 处理         
 		 */
 		slot = resultRelInfo->ri_FdwRoutine->ExecForeignInsert(estate,
 															   resultRelInfo,
 															   slot,
 															   planSlot);
 
-		if (slot == NULL)		/* "do nothing" */
+		if (slot == NULL)		/* 无操作    */
 			return NULL;
 
 		/*
-		 * AFTER ROW Triggers or RETURNING expressions might reference the
-		 * tableoid column, so (re-)initialize tts_tableOid before evaluating
-		 * them.  (This covers the case where the FDW replaced the slot.)
+		 * AFTER ROW 触发器或 RETURNING 表达式可能引用         
+		 * tableoid 列，因此要在求值之前（重新）初始化      
+		 * tts_tableOid。（这涵盖了 FDW 替换槽的情形。）   
 		 */
 		slot->tts_tableOid = RelationGetRelid(resultRelInfo->ri_RelationDesc);
 	}
@@ -980,13 +980,13 @@ ExecInsert(ModifyTableContext *context,
 		WCOKind		wco_kind;
 
 		/*
-		 * Constraints and GENERATED expressions might reference the tableoid
-		 * column, so (re-)initialize tts_tableOid before evaluating them.
+		 * 约束和 GENERATED 表达式可能引用 tableoid 列，         
+		 * 因此要在求值之前（重新）初始化 tts_tableOid。  
 		 */
 		slot->tts_tableOid = RelationGetRelid(resultRelationDesc);
 
 		/*
-		 * Compute stored generated columns
+		 * 计算存储生成列           
 		 */
 		if (resultRelationDesc->rd_att->constr &&
 			resultRelationDesc->rd_att->constr->has_generated_stored)
@@ -994,16 +994,16 @@ ExecInsert(ModifyTableContext *context,
 									   CMD_INSERT);
 
 		/*
-		 * Check any RLS WITH CHECK policies.
+		 * 检查 RLS WITH CHECK 策略。   
 		 *
-		 * Normally we should check INSERT policies. But if the insert is the
-		 * result of a partition key update that moved the tuple to a new
-		 * partition, we should instead check UPDATE policies, because we are
-		 * executing policies defined on the target table, and not those
-		 * defined on the child partitions.
+		 * 通常应检查 INSERT 策略。但如果该插入是把元       
+		 * 组移到新分区的分区键更新的结果，那就应改  
+		 * 查 UPDATE 策略，因为我们执行的是定义在目标       
+		 * 表上的策略，而不是定义在子分区上的          
+		 * 那些策略。                 
 		 *
-		 * If we're running MERGE, we refer to the action that we're executing
-		 * to know if we're doing an INSERT or UPDATE to a partition table.
+		 * 如果正在运行 MERGE，则要看正在执行的动作，       
+		 * 以此得知我们是在对分区表做 INSERT 还是 UPDATE。 
 		 */
 		if (mtstate->operation == CMD_UPDATE)
 			wco_kind = WCO_RLS_UPDATE_CHECK;
@@ -1014,22 +1014,22 @@ ExecInsert(ModifyTableContext *context,
 			wco_kind = WCO_RLS_INSERT_CHECK;
 
 		/*
-		 * ExecWithCheckOptions() will skip any WCOs which are not of the kind
-		 * we are looking for at this point.
+		 * ExecWithCheckOptions() 会跳过所有与此时要找的           
+		 * 类型不同的 WCO。           
 		 */
 		if (resultRelInfo->ri_WithCheckOptions != NIL)
 			ExecWithCheckOptions(wco_kind, resultRelInfo, slot, estate);
 
 		/*
-		 * Check the constraints of the tuple.
+		 * 检查元组的约束。           
 		 */
 		if (resultRelationDesc->rd_att->constr)
 			ExecConstraints(resultRelInfo, slot, estate);
 
 		/*
-		 * Also check the tuple against the partition constraint, if there is
-		 * one; except that if we got here via tuple-routing, we don't need to
-		 * if there's no BR trigger defined on the partition.
+		 * 另外，若存在分区约束，还要对照它检查元组；   
+		 * 但如果元组是经路由到达此处，且该分区上没       
+		 * 有定义 BR 触发器，就无须检查。       
 		 */
 		if (resultRelationDesc->rd_rel->relispartition &&
 			(resultRelInfo->ri_RootResultRelInfo == NULL ||
@@ -1039,7 +1039,7 @@ ExecInsert(ModifyTableContext *context,
 
 		if (onconflict != ONCONFLICT_NONE && resultRelInfo->ri_NumIndices > 0)
 		{
-			/* Perform a speculative insertion. */
+			/* 执行一次推测性插入。   */
 			uint32		specToken;
 			ItemPointerData conflictTid;
 			bool		specConflict;
@@ -1048,17 +1048,17 @@ ExecInsert(ModifyTableContext *context,
 			arbiterIndexes = resultRelInfo->ri_onConflictArbiterIndexes;
 
 			/*
-			 * Do a non-conclusive check for conflicts first.
+			 * 首先做一次非结论性的冲突检查。 
 			 *
-			 * We're not holding any locks yet, so this doesn't guarantee that
-			 * the later insert won't conflict.  But it avoids leaving behind
-			 * a lot of canceled speculative insertions, if you run a lot of
-			 * INSERT ON CONFLICT statements that do conflict.
+			 * 此时我们尚未持有任何锁，所以这并不能保证   
+			 * 稍后的插入不会冲突。但这能避免在大量执行  
+			 * 相互冲突的 INSERT ON CONFLICT 语句时，留下大     
+			 * 量被取消的推测性插入。              
 			 *
-			 * We loop back here if we find a conflict below, either during
-			 * the pre-check, or when we re-check after inserting the tuple
-			 * speculatively.  Better allow interrupts in case some bug makes
-			 * this an infinite loop.
+			 * 如果在后面发现冲突，无论是在预检查期间，
+			 * 或在推测插入元组后复查时回到这里，         
+			 * 最好允许中断，以防某个 bug 使这里变成无限   
+			 * 循环。             
 			 */
 	vlock:
 			CHECK_FOR_INTERRUPTS();
@@ -1066,14 +1066,14 @@ ExecInsert(ModifyTableContext *context,
 			if (!ExecCheckIndexConstraints(resultRelInfo, slot, estate,
 										   &conflictTid, arbiterIndexes))
 			{
-				/* committed conflict tuple found */
+				/* 找到已提交的冲突元组 */
 				if (onconflict == ONCONFLICT_UPDATE)
 				{
 					/*
-					 * In case of ON CONFLICT DO UPDATE, execute the UPDATE
-					 * part.  Be prepared to retry if the UPDATE fails because
-					 * of another concurrent UPDATE/DELETE to the conflict
-					 * tuple.
+					 * 若是 ON CONFLICT DO UPDATE，则执行其中的   
+					 * UPDATE 部分。若该 UPDATE 因其他并发          
+					 * 的 UPDATE/DELETE 冲突元组而失败，须重   
+					 * 试。
 					 */
 					TupleTableSlot *returning = NULL;
 
@@ -1090,15 +1090,15 @@ ExecInsert(ModifyTableContext *context,
 				else
 				{
 					/*
-					 * In case of ON CONFLICT DO NOTHING, do nothing. However,
-					 * verify that the tuple is visible to the executor's MVCC
-					 * snapshot at higher isolation levels.
+					 * 若是 ON CONFLICT DO NOTHING，则什么都不做。  
+					 * 但在更高隔离级别下，须校验其对执行器 
+					 * 的 MVCC 快照是否可见。      
 					 *
-					 * Using ExecGetReturningSlot() to store the tuple for the
-					 * recheck isn't that pretty, but we can't trivially use
-					 * the input slot, because it might not be of a compatible
-					 * type. As there's no conflicting usage of
-					 * ExecGetReturningSlot() in the DO NOTHING case...
+					 * 用 ExecGetReturningSlot() 来存放该元组以供复 
+					 * 查不优雅，但不能简单用输入槽，因为  
+					 * 其类型可能不兼容。而 DO NOTHING 情形下    
+					 * ExecGetReturningSlot() 无冲突用途  
+					 * 因此可放心用它存放待复检元组。   
 					 */
 					Assert(onconflict == ONCONFLICT_NOTHING);
 					ExecCheckTIDVisible(estate, resultRelInfo, &conflictTid,
@@ -1109,44 +1109,44 @@ ExecInsert(ModifyTableContext *context,
 			}
 
 			/*
-			 * Before we start insertion proper, acquire our "speculative
-			 * insertion lock".  Others can use that to wait for us to decide
-			 * if we're going to go ahead with the insertion, instead of
-			 * waiting for the whole transaction to complete.
+			 * 在正式开始插入之前，取得我们的"推测性   
+			 * 插入锁"。其他人可以利用它来等待我们决定    
+			 * 是否继续执行插入，而不必去等               
+			 * 待整个事务完成。                      
 			 */
 			specToken = SpeculativeInsertionLockAcquire(GetCurrentTransactionId());
 
-			/* insert the tuple, with the speculative token */
+			/* 插入该元组，附带推测性令牌      */
 			table_tuple_insert_speculative(resultRelationDesc, slot,
 										   estate->es_output_cid,
 										   0,
 										   NULL,
 										   specToken);
 
-			/* insert index entries for tuple */
+			/* 为元组插入索引条目    */
 			recheckIndexes = ExecInsertIndexTuples(resultRelInfo,
 												   slot, estate, false, true,
 												   &specConflict,
 												   arbiterIndexes,
 												   false);
 
-			/* adjust the tuple's state accordingly */
+			/* 相应地调整该元组的状态    */
 			table_tuple_complete_speculative(resultRelationDesc, slot,
 											 specToken, !specConflict);
 
 			/*
-			 * Wake up anyone waiting for our decision.  They will re-check
-			 * the tuple, see that it's no longer speculative, and wait on our
-			 * XID as if this was a regularly inserted tuple all along.  Or if
-			 * we killed the tuple, they will see it's dead, and proceed as if
-			 * the tuple never existed.
+			 * 唤醒所有等待我们决定的人。他们会重新检查
+			 * 该元组，发现它不再是推测性的，然后像对待   
+			 * 常规插入的元组那样等待我们的 XID。而如果我  
+			 * 们已杀死了该元组，他们会看到它已死，当作它
+			 * 从未存在过。      
 			 */
 			SpeculativeInsertionLockRelease(GetCurrentTransactionId());
 
 			/*
-			 * If there was a conflict, start from the beginning.  We'll do
-			 * the pre-check again, which will now find the conflicting tuple
-			 * (unless it aborts before we get there).
+			 * 如果曾有冲突，就从头开始。我们会再次执   
+			 * 行预检查，这次会找到那个冲突元组（除非它  
+			 * 在到达之前就已中止）。      
 			 */
 			if (specConflict)
 			{
@@ -1154,16 +1154,16 @@ ExecInsert(ModifyTableContext *context,
 				goto vlock;
 			}
 
-			/* Since there was no insertion conflict, we're done */
+			/* 既然没有插入冲突，我们就完成了     */
 		}
 		else
 		{
-			/* insert the tuple normally */
+			/* 正常插入该元组     */
 			table_tuple_insert(resultRelationDesc, slot,
 							   estate->es_output_cid,
 							   0, NULL);
 
-			/* insert index entries for tuple */
+			/* 为元组插入索引条目    */
 			if (resultRelInfo->ri_NumIndices > 0)
 				recheckIndexes = ExecInsertIndexTuples(resultRelInfo,
 													   slot, estate, false,
@@ -1176,10 +1176,10 @@ ExecInsert(ModifyTableContext *context,
 		(estate->es_processed)++;
 
 	/*
-	 * If this insert is the result of a partition key update that moved the
-	 * tuple to a new partition, put this row into the transition NEW TABLE,
-	 * if there is one. We need to do this separately for DELETE and INSERT
-	 * because they happen on different tables.
+	 * 若此次插入源于分区键更新把元组移到了新分区，   
+	 * 则把该行放入转换 NEW TABLE（若存在的话）。           
+	 * 对 DELETE 和 INSERT 需要分开处理，                         
+	 * 因为二者发生在不同的表上。 
 	 */
 	ar_insert_trig_tcs = mtstate->mt_transition_capture;
 	if (mtstate->operation == CMD_UPDATE && mtstate->mt_transition_capture
@@ -1195,34 +1195,34 @@ ExecInsert(ModifyTableContext *context,
 							 false);
 
 		/*
-		 * We've already captured the NEW TABLE row, so make sure any AR
-		 * INSERT trigger fired below doesn't capture it again.
+		 * NEW TABLE 行已被捕获，须确保下方触发的任何   
+		 * AR INSERT 触发器不会再次捕获它。         
 		 */
 		ar_insert_trig_tcs = NULL;
 	}
 
-	/* AFTER ROW INSERT Triggers */
+	/* AFTER ROW INSERT 触发器*/
 	ExecARInsertTriggers(estate, resultRelInfo, slot, recheckIndexes,
 						 ar_insert_trig_tcs);
 
 	list_free(recheckIndexes);
 
 	/*
-	 * Check any WITH CHECK OPTION constraints from parent views.  We are
-	 * required to do this after testing all constraints and uniqueness
-	 * violations per the SQL spec, so we do it after actually inserting the
-	 * record into the heap and all indexes.
+	 * 检查来自父视图的 WITH CHECK OPTION 约束。按照 SQL    
+	 * 规范要求，我们必须在测完所有约束和唯一性    
+	 * 冲突之后再执行此项检查，因此在把记录实际插入   
+	 * 堆和所有索引之后才进行。 
 	 *
-	 * ExecWithCheckOptions will elog(ERROR) if a violation is found, so the
-	 * tuple will never be seen, if it violates the WITH CHECK OPTION.
+	 * 如果发现违反，ExecWithCheckOptions 会 elog(ERROR)，         
+	 * 因此违反 WITH CHECK OPTION 的元组将永远不可见。  
 	 *
-	 * ExecWithCheckOptions() will skip any WCOs which are not of the kind we
-	 * are looking for at this point.
+	 * ExecWithCheckOptions() 会跳过所有此时并非我们所           
+	 * 要查找类型的 WCO。     
 	 */
 	if (resultRelInfo->ri_WithCheckOptions != NIL)
 		ExecWithCheckOptions(WCO_VIEW_CHECK, resultRelInfo, slot, estate);
 
-	/* Process RETURNING if present */
+	/* 如有则处理 RETURNING    */
 	if (resultRelInfo->ri_projectReturning)
 		result = ExecProcessReturning(resultRelInfo, slot, planSlot);
 
@@ -1237,9 +1237,9 @@ ExecInsert(ModifyTableContext *context,
 /* ----------------------------------------------------------------
  *		ExecBatchInsert
  *
- *		Insert multiple tuples in an efficient way.
- *		Currently, this handles inserting into a foreign table without
- *		RETURNING clause.
+ *		以高效的方式插入多个元组。    
+ *		当前此函数处理向外表的插入，且该外表没有  
+ *		RETURNING 子句 
  * ----------------------------------------------------------------
  */
 static void
@@ -1257,7 +1257,7 @@ ExecBatchInsert(ModifyTableState *mtstate,
 	TupleTableSlot **rslots;
 
 	/*
-	 * insert into foreign table: let the FDW do it
+	 * 插入外表：交给 FDW 处理            
 	 */
 	rslots = resultRelInfo->ri_FdwRoutine->ExecForeignBatchInsert(estate,
 																  resultRelInfo,
@@ -1270,18 +1270,18 @@ ExecBatchInsert(ModifyTableState *mtstate,
 		slot = rslots[i];
 
 		/*
-		 * AFTER ROW Triggers might reference the tableoid column, so
-		 * (re-)initialize tts_tableOid before evaluating them.
+		 * AFTER ROW 触发器可能引用 tableoid 列，因此在  
+		 * 求值前要（重新）初始化 tts_tableOid。   
 		 */
 		slot->tts_tableOid = RelationGetRelid(resultRelInfo->ri_RelationDesc);
 
-		/* AFTER ROW INSERT Triggers */
+		/* AFTER ROW INSERT 触发器*/
 		ExecARInsertTriggers(estate, resultRelInfo, slot, NIL,
 							 mtstate->mt_transition_capture);
 
 		/*
-		 * Check any WITH CHECK OPTION constraints from parent views.  See the
-		 * comment in ExecInsert.
+		 * 检查来自父视图的 WITH CHECK OPTION 约束。               
+		 * 详见 ExecInsert。  
 		 */
 		if (resultRelInfo->ri_WithCheckOptions != NIL)
 			ExecWithCheckOptions(WCO_VIEW_CHECK, resultRelInfo, slot, estate);
@@ -1290,7 +1290,7 @@ ExecBatchInsert(ModifyTableState *mtstate,
 	if (canSetTag && numInserted > 0)
 		estate->es_processed += numInserted;
 
-	/* Clean up all the slots, ready for the next batch */
+	/* 清理所有槽，为下一批做好准备       */
 	for (i = 0; i < numSlots; i++)
 	{
 		ExecClearTuple(slots[i]);
@@ -1300,7 +1300,7 @@ ExecBatchInsert(ModifyTableState *mtstate,
 }
 
 /*
- * ExecPendingInserts -- flushes all pending inserts to the foreign tables
+ * ExecPendingInserts -- 把所有待处理插入刷入外表             
  */
 static void
 ExecPendingInserts(EState *estate)
@@ -1329,11 +1329,11 @@ ExecPendingInserts(EState *estate)
 }
 
 /*
- * ExecDeletePrologue -- subroutine for ExecDelete
+ * ExecDeletePrologue -- ExecDelete 的子例程  
  *
- * Prepare executor state for DELETE.  Actually, the only thing we have to do
- * here is execute BEFORE ROW triggers.  We return false if one of them makes
- * the delete a no-op; otherwise, return true.
+ * 为 DELETE 准备执行器状态。实际上，这里唯一要做的      
+ * 就是执行 BEFORE ROW 触发器。若其中某触发器使删除成为  
+ * 无操作则返回 false，否则 true。  
  */
 static bool
 ExecDeletePrologue(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
@@ -1343,11 +1343,11 @@ ExecDeletePrologue(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
 	if (result)
 		*result = TM_Ok;
 
-	/* BEFORE ROW DELETE triggers */
+	/* BEFORE ROW DELETE 触发器*/
 	if (resultRelInfo->ri_TrigDesc &&
 		resultRelInfo->ri_TrigDesc->trig_delete_before_row)
 	{
-		/* Flush any pending inserts, so rows are visible to the triggers */
+		/* 刷出所有待处理插入，让行对触发器可见         */
 		if (context->estate->es_insert_pending_result_relations != NIL)
 			ExecPendingInserts(context->estate);
 
@@ -1360,11 +1360,11 @@ ExecDeletePrologue(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
 }
 
 /*
- * ExecDeleteAct -- subroutine for ExecDelete
+ * ExecDeleteAct -- ExecDelete 的子例程  
  *
- * Actually delete the tuple from a plain table.
+ * 实际从普通表中删除元组。         
  *
- * Caller is in charge of doing EvalPlanQual as necessary
+ * 必要时由调用者负责执行 EvalPlanQual。     
  */
 static TM_Result
 ExecDeleteAct(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
@@ -1376,17 +1376,17 @@ ExecDeleteAct(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
 							  estate->es_output_cid,
 							  estate->es_snapshot,
 							  estate->es_crosscheck_snapshot,
-							  true /* wait for commit */ ,
+							  true /* 等待提交    */ ,
 							  &context->tmfd,
 							  changingPart);
 }
 
 /*
- * ExecDeleteEpilogue -- subroutine for ExecDelete
+ * ExecDeleteEpilogue -- ExecDelete 的子例程  
  *
- * Closing steps of tuple deletion; this invokes AFTER FOR EACH ROW triggers,
- * including the UPDATE triggers if the deletion is being done as part of a
- * cross-partition tuple move.
+ * 元组删除的收尾步骤；此函数调用 AFTER FOR EACH ROW          
+ * 触发器；若该删除是跨分区元组移动的一部分，也包括
+ * UPDATE 触发器。        
  */
 static void
 ExecDeleteEpilogue(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
@@ -1397,10 +1397,10 @@ ExecDeleteEpilogue(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
 	TransitionCaptureState *ar_delete_trig_tcs;
 
 	/*
-	 * If this delete is the result of a partition key update that moved the
-	 * tuple to a new partition, put this row into the transition OLD TABLE,
-	 * if there is one. We need to do this separately for DELETE and INSERT
-	 * because they happen on different tables.
+	 * 若此次删除源于分区键更新把元组移到了新分区，   
+	 * 则把该行放入转换 OLD TABLE（若存在的话）。           
+	 * 对 DELETE 和 INSERT 需要分开处理，                         
+	 * 因为二者发生在不同的表上。 
 	 */
 	ar_delete_trig_tcs = mtstate->mt_transition_capture;
 	if (mtstate->operation == CMD_UPDATE && mtstate->mt_transition_capture &&
@@ -1413,13 +1413,13 @@ ExecDeleteEpilogue(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
 							 false);
 
 		/*
-		 * We've already captured the OLD TABLE row, so make sure any AR
-		 * DELETE trigger fired below doesn't capture it again.
+		 * OLD TABLE 行已被捕获，须确保下方触发的任何   
+		 * AR DELETE 触发器不会再次捕获它。         
 		 */
 		ar_delete_trig_tcs = NULL;
 	}
 
-	/* AFTER ROW DELETE Triggers */
+	/* AFTER ROW DELETE 触发器*/
 	ExecARDeleteTriggers(estate, resultRelInfo, tupleid, oldtuple,
 						 ar_delete_trig_tcs, changingPart);
 }
@@ -1427,23 +1427,23 @@ ExecDeleteEpilogue(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
 /* ----------------------------------------------------------------
  *		ExecDelete
  *
- *		DELETE is like UPDATE, except that we delete the tuple and no
- *		index modifications are needed.
+ *		DELETE 与 UPDATE 类似，只是我们删除元组，       
+ *		并且不需要修改索引。 
  *
- *		When deleting from a table, tupleid identifies the tuple to delete and
- *		oldtuple is NULL.  When deleting through a view INSTEAD OF trigger,
- *		oldtuple is passed to the triggers and identifies what to delete, and
- *		tupleid is invalid.  When deleting from a foreign table, tupleid is
- *		invalid; the FDW has to figure out which row to delete using data from
- *		the planSlot.  oldtuple is passed to foreign table triggers; it is
- *		NULL when the foreign table has no relevant triggers.  We use
- *		tupleDeleted to indicate whether the tuple is actually deleted,
- *		callers can use it to decide whether to continue the operation.  When
- *		this DELETE is a part of an UPDATE of partition-key, then the slot
- *		returned by EvalPlanQual() is passed back using output parameter
- *		epqreturnslot.
+ *		从表中删除时，tupleid 标识要删除的元组，              
+ *		oldtuple 为 NULL。通过视图 INSTEAD OF 触发器删除时，  
+ *		oldtuple 传给触发器并标识要删除的内容，               
+ *		tupleid 无效。从外表删除时，tupleid 无效；            
+ *		FDW 必须使用 planSlot 中的数据确定要删除哪一行。     
+ *		oldtuple 会传给外表触发器；当外表没有               
+ *		相关触发器时其为 NULL。我们用 tupleDeleted       
+ *		来指示元组是否真的被删除了，调用者可以用它
+ *		来决定是否继续该操作。当此 DELETE 是分区键          
+ *		UPDATE 的一部分时，EvalPlanQual() 返回的槽              
+ *		会通过输出参数传回，该参数即                      
+ *		epqreturnslot 
  *
- *		Returns RETURNING result if any, otherwise NULL.
+ *		有则返回 RETURNING 结果，否则 NULL。  
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -1467,14 +1467,14 @@ ExecDelete(ModifyTableContext *context,
 		*tupleDeleted = false;
 
 	/*
-	 * Prepare for the delete.  This includes BEFORE ROW triggers, so we're
-	 * done if it says we are.
+	 * 为删除做准备。这包括 BEFORE ROW 触发器，若它说     
+	 * 完成即完成。     
 	 */
 	if (!ExecDeletePrologue(context, resultRelInfo, tupleid, oldtuple,
 							epqreturnslot, tmresult))
 		return NULL;
 
-	/* INSTEAD OF ROW DELETE Triggers */
+	/* INSTEAD OF ROW DELETE 触发器*/
 	if (resultRelInfo->ri_TrigDesc &&
 		resultRelInfo->ri_TrigDesc->trig_delete_instead_row)
 	{
@@ -1489,10 +1489,10 @@ ExecDelete(ModifyTableContext *context,
 	else if (resultRelInfo->ri_FdwRoutine)
 	{
 		/*
-		 * delete from foreign table: let the FDW do it
+		 * 从外表删除：交给 FDW 处理         
 		 *
-		 * We offer the returning slot as a place to store RETURNING data,
-		 * although the FDW can return some other slot if it wants.
+		 * 我们提供 returning 槽来存放 RETURNING 数据，        
+		 * 不过 FDW 愿意的话可以返回其他槽。         
 		 */
 		slot = ExecGetReturningSlot(estate, resultRelInfo);
 		slot = resultRelInfo->ri_FdwRoutine->ExecForeignDelete(estate,
@@ -1504,8 +1504,8 @@ ExecDelete(ModifyTableContext *context,
 			return NULL;
 
 		/*
-		 * RETURNING expressions might reference the tableoid column, so
-		 * (re)initialize tts_tableOid before evaluating them.
+		 * RETURNING 表达式可能引用 tableoid 列，因此在     
+		 * 求值前要（重新）初始化 tts_tableOid。  
 		 */
 		if (TTS_EMPTY(slot))
 			ExecStoreAllNullTuple(slot);
@@ -1515,13 +1515,13 @@ ExecDelete(ModifyTableContext *context,
 	else
 	{
 		/*
-		 * delete the tuple
+		 * 删除该元组 
 		 *
-		 * Note: if context->estate->es_crosscheck_snapshot isn't
-		 * InvalidSnapshot, we check that the row to be deleted is visible to
-		 * that snapshot, and throw a can't-serialize error if not. This is a
-		 * special-case behavior needed for referential integrity updates in
-		 * transaction-snapshot mode transactions.
+		 * 注意：若 context->estate->es_crosscheck_snapshot  
+		 * 不是 InvalidSnapshot 时，检查待删行是否可见，       
+		 * 若不可见则抛出无法序列化错误。这是一个         
+		 * 特殊行为，是事务快照模式下引用完整性更新     
+		 * 所必需的。                        
 		 */
 ldelete:
 		result = ExecDeleteAct(context, resultRelInfo, tupleid, changingPart);
@@ -1534,28 +1534,28 @@ ldelete:
 			case TM_SelfModified:
 
 				/*
-				 * The target tuple was already updated or deleted by the
-				 * current command, or by a later command in the current
-				 * transaction.  The former case is possible in a join DELETE
-				 * where multiple tuples join to the same target tuple. This
-				 * is somewhat questionable, but Postgres has always allowed
-				 * it: we just ignore additional deletion attempts.
+				 * 目标元组已经被当前命令、或者被当前   
+				 * 事务中更晚的命令更新或删除。前一种  
+				 * 情况可能出现在联接 DELETE 中：有多个        
+				 * 元组联接到了同一个目标元组上。这种      
+				 * 做法有点可疑，但 Postgres 向来都允许        
+				 * 它：我们只是忽略额外的删除尝试。
 				 *
-				 * The latter case arises if the tuple is modified by a
-				 * command in a BEFORE trigger, or perhaps by a command in a
-				 * volatile function used in the query.  In such situations we
-				 * should not ignore the deletion, but it is equally unsafe to
-				 * proceed.  We don't want to discard the original DELETE
-				 * while keeping the triggered actions based on its deletion;
-				 * and it would be no better to allow the original DELETE
-				 * while discarding updates that it triggered.  The row update
-				 * carries some information that might be important according
-				 * to business rules; so throwing an error is the only safe
-				 * course.
+				 * 后一种情况出现在元组被某个 BEFORE      
+				 * 触发器中的命令修改，或者也许是被查      
+				 * 询中所用易变函数里的命令修改。此种        
+				 * 情况下我们不应忽略该删除，但继续执        
+				 * 行同样是不安全的。我们不想丢弃原来   
+				 * 的 DELETE 却保留基于其删除而触发的           
+				 * 动作；但允许原来的 DELETE 而丢弃它       
+				 * 所触发的更新也好不到哪里去。被更新        
+				 * 的行所携带的信息可能按业务规则而言       
+				 * 相当重要；所以抛出错误是唯一安全的     
+				 * 做法 
 				 *
-				 * If a trigger actually intends this type of interaction, it
-				 * can re-execute the DELETE and then return NULL to cancel
-				 * the outer delete.
+				 * 如果触发器确实想要这种类型的交互，       
+				 * 它可以重新执行 DELETE 并返回 NULL 取消      
+				 * 外层删除。  
 				 */
 				if (context->tmfd.cmax != estate->es_output_cid)
 					ereport(ERROR,
@@ -1563,7 +1563,7 @@ ldelete:
 							 errmsg("tuple to be deleted was already modified by an operation triggered by the current command"),
 							 errhint("Consider using an AFTER trigger instead of a BEFORE trigger to propagate changes to other rows.")));
 
-				/* Else, already deleted by self; nothing to do */
+				/* 否则，已被自己删除；无事可做   */
 				return NULL;
 
 			case TM_Ok:
@@ -1580,8 +1580,8 @@ ldelete:
 								 errmsg("could not serialize access due to concurrent update")));
 
 					/*
-					 * Already know that we're going to need to do EPQ, so
-					 * fetch tuple directly into the right slot.
+					 * 已知需要做 EPQ，因此直接把元组取到  
+					 * 正确的槽中。                       
 					 */
 					EvalPlanQualBegin(context->epqstate);
 					inputslot = EvalPlanQualSlot(context->epqstate, resultRelationDesc,
@@ -1603,12 +1603,12 @@ ldelete:
 												   resultRelInfo->ri_RangeTableIndex,
 												   inputslot);
 							if (TupIsNull(epqslot))
-								/* Tuple not passing quals anymore, exiting... */
+								/* 元组不再满足限定条件，退出…  */
 								return NULL;
 
 							/*
-							 * If requested, skip delete and pass back the
-							 * updated row.
+							 * 如果被要求，跳过删除并传回    
+							 * 更新行。
 							 */
 							if (epqreturnslot)
 							{
@@ -1621,15 +1621,15 @@ ldelete:
 						case TM_SelfModified:
 
 							/*
-							 * This can be reached when following an update
-							 * chain from a tuple updated by another session,
-							 * reaching a tuple that was already updated in
-							 * this transaction. If previously updated by this
-							 * command, ignore the delete, otherwise error
-							 * out.
+							 * 当沿更新链追踪一个被另一会话  
+							 * 更新的元组，并到本事务中已更新 
+							 * 的元组时就会到这里。若先前是  
+							 * 由本命令更新，则忽略此次删除，  
+							 * 否则将报                               
+							 * 错 
 							 *
-							 * See also TM_SelfModified response to
-							 * table_tuple_delete() above.
+							 * 见前文 table_tuple_delete() 对  
+							 * TM_SelfModified 响应     
 							 */
 							if (context->tmfd.cmax != estate->es_output_cid)
 								ereport(ERROR,
@@ -1639,20 +1639,20 @@ ldelete:
 							return NULL;
 
 						case TM_Deleted:
-							/* tuple already deleted; nothing to do */
+							/* 元组已被删除；无事可做    */
 							return NULL;
 
 						default:
 
 							/*
-							 * TM_Invisible should be impossible because we're
-							 * waiting for updated row versions, and would
-							 * already have errored out if the first version
-							 * is invisible.
+							 * TM_Invisible 应该不可能出现，因为    
+							 * 我们正等待被更新行的版本，如 
+							 * 果第一个版本不可见则早已报      
+							 * 错了。    
 							 *
-							 * TM_Updated should be impossible, because we're
-							 * locking the latest version via
-							 * TUPLE_LOCK_FLAG_FIND_LAST_VERSION.
+							 * TM_Updated 也应不可能，因为           
+							 * 正用它锁定最新版本：
+							 * TUPLE_LOCK_FLAG_FIND_LAST_VERSION 
 							 */
 							elog(ERROR, "unexpected table_tuple_lock status: %u",
 								 result);
@@ -1668,7 +1668,7 @@ ldelete:
 					ereport(ERROR,
 							(errcode(ERRCODE_T_R_SERIALIZATION_FAILURE),
 							 errmsg("could not serialize access due to concurrent delete")));
-				/* tuple already deleted; nothing to do */
+				/* 元组已被删除；无事可做    */
 				return NULL;
 
 			default:
@@ -1678,36 +1678,36 @@ ldelete:
 		}
 
 		/*
-		 * Note: Normally one would think that we have to delete index tuples
-		 * associated with the heap tuple now...
+		 * 注意：通常人们会认为现在必须删除与该堆         
+		 * 元组关联的索引元组……    
 		 *
-		 * ... but in POSTGRES, we have no need to do this because VACUUM will
-		 * take care of it later.  We can't delete index tuples immediately
-		 * anyway, since the tuple is still visible to other transactions.
+		 * ……但在 POSTGRES 中我们无需这样做，因为            
+		 * VACUUM 以后会处理它。反正我们也无法立即         
+		 * 删除它们，因为该元组对其他事务仍可见。      
 		 */
 	}
 
 	if (canSetTag)
 		(estate->es_processed)++;
 
-	/* Tell caller that the delete actually happened. */
+	/* 告知调用者删除确实发生了。        */
 	if (tupleDeleted)
 		*tupleDeleted = true;
 
 	ExecDeleteEpilogue(context, resultRelInfo, tupleid, oldtuple, changingPart);
 
-	/* Process RETURNING if present and if requested */
+	/* 如有且被要求则处理 RETURNING         */
 	if (processReturning && resultRelInfo->ri_projectReturning)
 	{
 		/*
-		 * We have to put the target tuple into a slot, which means first we
-		 * gotta fetch it.  We can use the trigger tuple slot.
+		 * 我们必须把目标元组放入某个槽中，这意味着     
+		 * 首先得取出它。可用触发器元组槽。   
 		 */
 		TupleTableSlot *rslot;
 
 		if (resultRelInfo->ri_FdwRoutine)
 		{
-			/* FDW must have provided a slot containing the deleted row */
+			/* FDW 必须已提供了包含被删除行的槽           */
 			Assert(!TupIsNull(slot));
 		}
 		else
@@ -1728,8 +1728,8 @@ ldelete:
 		rslot = ExecProcessReturning(resultRelInfo, slot, context->planSlot);
 
 		/*
-		 * Before releasing the target tuple again, make sure rslot has a
-		 * local copy of any pass-by-reference values.
+		 * 在再次释放目标元组之前，确保 rslot 拥有       
+		 * 所有引用传递值的本地副本。    
 		 */
 		ExecMaterializeSlot(rslot);
 
@@ -1742,23 +1742,23 @@ ldelete:
 }
 
 /*
- * ExecCrossPartitionUpdate --- Move an updated tuple to another partition.
+ * ExecCrossPartitionUpdate --- 把已更新元组移往另一分区       
  *
- * This works by first deleting the old tuple from the current partition,
- * followed by inserting the new tuple into the root parent table, that is,
- * mtstate->rootResultRelInfo.  It will be re-routed from there to the
- * correct partition.
+ * 做法是先从当前分区删除旧元组，再把新元组插入    
+ * 根父表，即 mtstate->rootResultRelInfo。元组                     
+ * 会从那里被重新路由到正确的                            
+ * 分区。         
  *
- * Returns true if the tuple has been successfully moved, or if it's found
- * that the tuple was concurrently deleted so there's nothing more to do
- * for the caller.
+ * 如果元组已成功移动，或者发现该元组已被并           
+ * 发删除、调用者无需再做任何事，则返回               
+ * true。        
  *
- * False is returned if the tuple we're trying to move is found to have been
- * concurrently updated.  In that case, the caller must check if the updated
- * tuple that's returned in *retry_slot still needs to be re-routed, and call
- * this function again or perform a regular update accordingly.  For MERGE,
- * the updated tuple is not returned in *retry_slot; it has its own retry
- * logic.
+ * 如果发现要移动的元组已被并发更新，则返回 false。    
+ * 在这种情况下，调用者必须检查 *retry_slot 中返回的      
+ * 已更新元组是否仍需重新路由，并据此再次调用本函数  
+ * 或相应地执行常规更新。对 MERGE 而言，更新后的元组  
+ * 不会在 *retry_slot 中返回；它有自己的重试               
+ * 逻辑
  */
 static bool
 ExecCrossPartitionUpdate(ModifyTableContext *context,
@@ -1782,9 +1782,9 @@ ExecCrossPartitionUpdate(ModifyTableContext *context,
 	*retry_slot = NULL;
 
 	/*
-	 * Disallow an INSERT ON CONFLICT DO UPDATE that causes the original row
-	 * to migrate to a different partition.  Maybe this can be implemented
-	 * some day, but it seems a fringe feature with little redeeming value.
+	 * 禁止会导致原行迁移到不同分区的 INSERT ON CONFLICT     
+	 * DO UPDATE。也许某天能够实现，但它似乎是个没什么 
+	 * 价值的小众特性。                                            
 	 */
 	if (((ModifyTable *) mtstate->ps.plan)->onConflictAction == ONCONFLICT_UPDATE)
 		ereport(ERROR,
@@ -1793,28 +1793,28 @@ ExecCrossPartitionUpdate(ModifyTableContext *context,
 				 errdetail("The result tuple would appear in a different partition than the original tuple.")));
 
 	/*
-	 * When an UPDATE is run directly on a leaf partition, simply fail with a
-	 * partition constraint violation error.
+	 * 当直接在叶子分区上运行 UPDATE 时，只需让它以分区  
+	 * 约束违反错误失败。          
 	 */
 	if (resultRelInfo == mtstate->rootResultRelInfo)
 		ExecPartitionCheckEmitError(resultRelInfo, slot, estate);
 
-	/* Initialize tuple routing info if not already done. */
+	/* 若元组路由信息未初始化则初始化。   */
 	if (mtstate->mt_partition_tuple_routing == NULL)
 	{
 		Relation	rootRel = mtstate->rootResultRelInfo->ri_RelationDesc;
 		MemoryContext oldcxt;
 
-		/* Things built here have to last for the query duration. */
+		/* 这里构建的东西必须存活整个查询期。    */
 		oldcxt = MemoryContextSwitchTo(estate->es_query_cxt);
 
 		mtstate->mt_partition_tuple_routing =
 			ExecSetupPartitionTupleRouting(estate, rootRel);
 
 		/*
-		 * Before a partition's tuple can be re-routed, it must first be
-		 * converted to the root's format, so we'll need a slot for storing
-		 * such tuples.
+		 * 分区的元组在被重新路由之前，必须先转换    
+		 * 为根的格式，因此我们需要一个槽来存放          
+		 * 元组。   
 		 */
 		Assert(mtstate->mt_root_tuple_slot == NULL);
 		mtstate->mt_root_tuple_slot = table_slot_create(rootRel, NULL);
@@ -1823,8 +1823,8 @@ ExecCrossPartitionUpdate(ModifyTableContext *context,
 	}
 
 	/*
-	 * Row movement, part 1.  Delete the tuple, but skip RETURNING processing.
-	 * We want to return rows from INSERT.
+	 * 行移动，第 1 部分。删除元组，但跳过 RETURNING 处理，
+	 * 我们要从 INSERT 返回行。   
 	 */
 	ExecDelete(context, resultRelInfo,
 			   tupleid, oldtuple,
@@ -1834,33 +1834,33 @@ ExecCrossPartitionUpdate(ModifyTableContext *context,
 			   tmresult, &tuple_deleted, &epqslot);
 
 	/*
-	 * For some reason if DELETE didn't happen (e.g. trigger prevented it, or
-	 * it was already deleted by self, or it was concurrently deleted by
-	 * another transaction), then we should skip the insert as well;
-	 * otherwise, an UPDATE could cause an increase in the total number of
-	 * rows across all partitions, which is clearly wrong.
+	 * 由于某种原因，如果 DELETE 没有发生（例如触发器     
+	 * 阻止了它，或已被自己删除，或被另一事务并发  
+	 * 删除），那么我们也应跳过插入；                
+	 * 否则，一个 UPDATE 可能导致所有分区的总行数        
+	 * 增加，这显然是错误的。                  
 	 *
-	 * For a normal UPDATE, the case where the tuple has been the subject of a
-	 * concurrent UPDATE or DELETE would be handled by the EvalPlanQual
-	 * machinery, but for an UPDATE that we've translated into a DELETE from
-	 * this partition and an INSERT into some other partition, that's not
-	 * available, because CTID chains can't span relation boundaries.  We
-	 * mimic the semantics to a limited extent by skipping the INSERT if the
-	 * DELETE fails to find a tuple.  This ensures that two concurrent
-	 * attempts to UPDATE the same tuple at the same time can't turn one tuple
-	 * into two, and that an UPDATE of a just-deleted tuple can't resurrect
-	 * it.
+	 * 对于普通 UPDATE 而言，元组被并发 UPDATE 或 DELETE         
+	 * 作用的情况本由 EvalPlanQual 机制处理，但对我们  
+	 * 把 UPDATE 转换为从此分区 DELETE 并向其他分区           
+	 * INSERT 的情形，该机制不可用，因为 CTID 链无法     
+	 * 跨越关系边界。我们有限度地模拟其语义：如果   
+	 * DELETE 未能找到元组就跳过 INSERT。这确保两个并       
+	 * 发尝试同时 UPDATE 同一元组不会把一个元组       
+	 * 变成两个；而且对刚被删除的元组                          
+	 * UPDATE 也不会让它复                                           
+	 * 活
 	 */
 	if (!tuple_deleted)
 	{
 		/*
-		 * epqslot will be typically NULL.  But when ExecDelete() finds that
-		 * another transaction has concurrently updated the same row, it
-		 * re-fetches the row, skips the delete, and epqslot is set to the
-		 * re-fetched tuple slot.  In that case, we need to do all the checks
-		 * again.  For MERGE, we leave everything to the caller (it must do
-		 * additional rechecking, and might end up executing a different
-		 * action entirely).
+		 * epqslot 通常为 NULL。但当 ExecDelete() 发现另一        
+		 * 个事务并发更新了同一行，它就会重新取回该 
+		 * 行、跳过删除，并把 epqslot 设为重新取回的元组
+		 * 槽。在这种情况下，我们需要再次做所有的检查。
+		 * 对 MERGE 来说，一切交由调用者处理（它必须做   
+		 * 额外的复查，且最终可能执行完全不同          
+		 * 的动作）。  
 		 */
 		if (context->relaction != NULL)
 			return *tmresult == TM_Ok;
@@ -1868,10 +1868,10 @@ ExecCrossPartitionUpdate(ModifyTableContext *context,
 			return true;
 		else
 		{
-			/* Fetch the most recent version of old tuple. */
+			/* 取回旧元组的最新版本。           */
 			TupleTableSlot *oldSlot;
 
-			/* ... but first, make sure ri_oldTupleSlot is initialized. */
+			/* ……但首先要确保 ri_oldTupleSlot 已初始化。 */
 			if (unlikely(!resultRelInfo->ri_projectNewInfoValid))
 				ExecInitUpdateProjection(mtstate, resultRelInfo);
 			oldSlot = resultRelInfo->ri_oldTupleSlot;
@@ -1880,7 +1880,7 @@ ExecCrossPartitionUpdate(ModifyTableContext *context,
 											   SnapshotAny,
 											   oldSlot))
 				elog(ERROR, "failed to fetch tuple being updated");
-			/* and project the new tuple to retry the UPDATE with */
+			/* 并把新元组投影出来以便重试 UPDATE     */
 			*retry_slot = ExecGetUpdateNewTuple(resultRelInfo, epqslot,
 												oldSlot);
 			return false;
@@ -1888,9 +1888,9 @@ ExecCrossPartitionUpdate(ModifyTableContext *context,
 	}
 
 	/*
-	 * resultRelInfo is one of the per-relation resultRelInfos.  So we should
-	 * convert the tuple into root's tuple descriptor if needed, since
-	 * ExecInsert() starts the search from root.
+	 * resultRelInfo 是各关系的 resultRelInfo 之一。所以           
+	 * 必要时应把元组转换为根的元组描述符，因为   
+	 * ExecInsert() 从根开始搜索。       
 	 */
 	tupconv_map = ExecGetChildToRootMap(resultRelInfo);
 	if (tupconv_map != NULL)
@@ -1898,28 +1898,28 @@ ExecCrossPartitionUpdate(ModifyTableContext *context,
 									 slot,
 									 mtstate->mt_root_tuple_slot);
 
-	/* Tuple routing starts from the root table. */
+	/* 元组路由从根表开始。            */
 	context->cpUpdateReturningSlot =
 		ExecInsert(context, mtstate->rootResultRelInfo, slot, canSetTag,
 				   inserted_tuple, insert_destrel);
 
 	/*
-	 * Reset the transition state that may possibly have been written by
-	 * INSERT.
+	 * 重置可能已被 INSERT 写入的转换状态。               
+	 *        
 	 */
 	if (mtstate->mt_transition_capture)
 		mtstate->mt_transition_capture->tcs_original_insert_tuple = NULL;
 
-	/* We're done moving. */
+	/* 移动完成。    */
 	return true;
 }
 
 /*
- * ExecUpdatePrologue -- subroutine for ExecUpdate
+ * ExecUpdatePrologue -- ExecUpdate 的子例程  
  *
- * Prepare executor state for UPDATE.  This includes running BEFORE ROW
- * triggers.  We return false if one of them makes the update a no-op;
- * otherwise, return true.
+ * 为 UPDATE 准备执行器状态。这包括运行 BEFORE ROW       
+ * 触发器。若其中某触发器令更新成为无操作，返回 
+ * false，否则 true。 
  */
 static bool
 ExecUpdatePrologue(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
@@ -1934,18 +1934,18 @@ ExecUpdatePrologue(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
 	ExecMaterializeSlot(slot);
 
 	/*
-	 * Open the table's indexes, if we have not done so already, so that we
-	 * can add new index entries for the updated tuple.
+	 * 如果尚未打开该表的索引，则将其打开，以便能     
+	 * 为更新后的元组添加新的索引条目。
 	 */
 	if (resultRelationDesc->rd_rel->relhasindex &&
 		resultRelInfo->ri_IndexRelationDescs == NULL)
 		ExecOpenIndices(resultRelInfo, false);
 
-	/* BEFORE ROW UPDATE triggers */
+	/* BEFORE ROW UPDATE 触发器*/
 	if (resultRelInfo->ri_TrigDesc &&
 		resultRelInfo->ri_TrigDesc->trig_update_before_row)
 	{
-		/* Flush any pending inserts, so rows are visible to the triggers */
+		/* 刷出所有待处理插入，让行对触发器可见         */
 		if (context->estate->es_insert_pending_result_relations != NIL)
 			ExecPendingInserts(context->estate);
 
@@ -1958,10 +1958,10 @@ ExecUpdatePrologue(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
 }
 
 /*
- * ExecUpdatePrepareSlot -- subroutine for ExecUpdateAct
+ * ExecUpdatePrepareSlot -- ExecUpdateAct 的子例程  
  *
- * Apply the final modifications to the tuple slot before the update.
- * (This is split out because we also need it in the foreign-table code path.)
+ * 在更新之前对元组槽应用最终的修改。               
+ * （把它单独拆出来是因为外表代码路径也需要它。）      
  */
 static void
 ExecUpdatePrepareSlot(ResultRelInfo *resultRelInfo,
@@ -1971,13 +1971,13 @@ ExecUpdatePrepareSlot(ResultRelInfo *resultRelInfo,
 	Relation	resultRelationDesc = resultRelInfo->ri_RelationDesc;
 
 	/*
-	 * Constraints and GENERATED expressions might reference the tableoid
-	 * column, so (re-)initialize tts_tableOid before evaluating them.
+	 * 约束和 GENERATED 表达式可能引用 tableoid 列，         
+	 * 因此在求值之前要（重新）初始化 tts_tableOid。  
 	 */
 	slot->tts_tableOid = RelationGetRelid(resultRelationDesc);
 
 	/*
-	 * Compute stored generated columns
+	 * 计算存储的生成列        
 	 */
 	if (resultRelationDesc->rd_att->constr &&
 		resultRelationDesc->rd_att->constr->has_generated_stored)
@@ -1986,17 +1986,17 @@ ExecUpdatePrepareSlot(ResultRelInfo *resultRelInfo,
 }
 
 /*
- * ExecUpdateAct -- subroutine for ExecUpdate
+ * ExecUpdateAct -- ExecUpdate 的子例程  
  *
- * Actually update the tuple, when operating on a plain table.  If the
- * table is a partition, and the command was called referencing an ancestor
- * partitioned table, this routine migrates the resulting tuple to another
- * partition.
+ * 在普通表上操作时实际更新该元组。如果表是       
+ * 一个分区、且命令是以引用某个祖先分区表的            
+ * 方式调用的，此例程会把所得元组迁移到另一个        
+ * 分区。 
  *
- * The caller is in charge of keeping indexes current as necessary.  The
- * caller is also in charge of doing EvalPlanQual if the tuple is found to
- * be concurrently updated.  However, in case of a cross-partition update,
- * this routine does it.
+ * 必要时由调用者负责保持索引为最新。                  
+ * 若发现元组已被并发更新，也由调用者负责              
+ * 执行 EvalPlanQual。但在跨分区更新的情况下，             
+ * 由本例程执行。
  */
 static TM_Result
 ExecUpdateAct(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
@@ -2011,44 +2011,44 @@ ExecUpdateAct(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
 	updateCxt->crossPartUpdate = false;
 
 	/*
-	 * If we move the tuple to a new partition, we loop back here to recompute
-	 * GENERATED values (which are allowed to be different across partitions)
-	 * and recheck any RLS policies and constraints.  We do not fire any
-	 * BEFORE triggers of the new partition, however.
+	 * 若把元组移动到新分区，就会循环回到这里重新        
+	 * 计算 GENERATED 值（各分区之间允许它们不同），并     
+	 * 重新检查 RLS 策略和约束。但不会触发新分区的   
+	 * 任何 BEFORE 触发器。                    
 	 */
 lreplace:
-	/* Fill in GENERATEd columns */
+	/* 填入 GENERATED 列      */
 	ExecUpdatePrepareSlot(resultRelInfo, slot, estate);
 
-	/* ensure slot is independent, consider e.g. EPQ */
+	/* 确保槽是独立的，例如考虑 EPQ      */
 	ExecMaterializeSlot(slot);
 
 	/*
-	 * If partition constraint fails, this row might get moved to another
-	 * partition, in which case we should check the RLS CHECK policy just
-	 * before inserting into the new partition, rather than doing it here.
-	 * This is because a trigger on that partition might again change the row.
-	 * So skip the WCO checks if the partition constraint fails.
+	 * 如果分区约束检查失败，该行可能会被移动到另一
+	 * 个分区；那种情况下我们应在向新分区插入之前   
+	 * 检查 RLS CHECK 策略，而不是在这里检查。这是因     
+	 * 为该分区上的触发器可能再次修改该行。                 
+	 * 因此若分区约束失败，就跳过 WCO 检查。    
 	 */
 	partition_constraint_failed =
 		resultRelationDesc->rd_rel->relispartition &&
 		!ExecPartitionCheck(resultRelInfo, slot, estate, false);
 
-	/* Check any RLS UPDATE WITH CHECK policies */
+	/* 检查任何 RLS UPDATE WITH CHECK 策略*/
 	if (!partition_constraint_failed &&
 		resultRelInfo->ri_WithCheckOptions != NIL)
 	{
 		/*
-		 * ExecWithCheckOptions() will skip any WCOs which are not of the kind
-		 * we are looking for at this point.
+		 * ExecWithCheckOptions() 会跳过所有此时并非我们所        
+		 * 要查找类型的 WCO。        
 		 */
 		ExecWithCheckOptions(WCO_RLS_UPDATE_CHECK,
 							 resultRelInfo, slot, estate);
 	}
 
 	/*
-	 * If a partition check failed, try to move the row into the right
-	 * partition.
+	 * 如果分区检查失败，则尝试把该行移动到正确的
+	 * 分区。 
 	 */
 	if (partition_constraint_failed)
 	{
@@ -2057,10 +2057,10 @@ lreplace:
 		ResultRelInfo *insert_destrel = NULL;
 
 		/*
-		 * ExecCrossPartitionUpdate will first DELETE the row from the
-		 * partition it's currently in and then insert it back into the root
-		 * table, which will re-route it to the correct partition.  However,
-		 * if the tuple has been concurrently updated, a retry is needed.
+		 * ExecCrossPartitionUpdate 会先从该行当前所在的    
+		 * 分区中 DELETE 掉它，然后再把它插回根表，由根   
+		 * 表把它重新路由到正确分区。但是，如果该元组  
+		 * 已被并发更新，就需要进行重试。                 
 		 */
 		if (ExecCrossPartitionUpdate(context, resultRelInfo,
 									 tupleid, oldtuple, slot,
@@ -2070,23 +2070,23 @@ lreplace:
 									 &inserted_tuple,
 									 &insert_destrel))
 		{
-			/* success! */
+			/* 成功！*/
 			updateCxt->updated = true;
 			updateCxt->crossPartUpdate = true;
 
 			/*
-			 * If the partitioned table being updated is referenced in foreign
-			 * keys, queue up trigger events to check that none of them were
-			 * violated.  No special treatment is needed in
-			 * non-cross-partition update situations, because the leaf
-			 * partition's AR update triggers will take care of that.  During
-			 * cross-partition updates implemented as delete on the source
-			 * partition followed by insert on the destination partition,
-			 * AR-UPDATE triggers of the root table (that is, the table
-			 * mentioned in the query) must be fired.
+			 * 如果被更新的分区表被外键所引用，则排队      
+			 * 触发器事件，以检查这些外键没有一个被违    
+			 * 反。非跨分区更新时无需任何     
+			 * 特殊处理，因为叶子分区的 AR 更新         
+			 * 触发器会处理好这件事。而在以对源分区        
+			 * 删除、向目标分区插入来实现的跨分区更     
+			 * 新中，必须触发根表——也就是该查询里    
+			 * 提到的那张根表——的 AR-UPDATE 触发         
+			 * 器。                                
 			 *
-			 * NULL insert_destrel means that the move failed to occur, that
-			 * is, the update failed, so no need to anything in that case.
+			 * NULL insert_destrel 表示移动未能发生，也就        
+			 * 是说更新已失败，这种情况无需做任何事。  
 			 */
 			if (insert_destrel &&
 				resultRelInfo->ri_TrigDesc &&
@@ -2101,43 +2101,43 @@ lreplace:
 		}
 
 		/*
-		 * No luck, a retry is needed.  If running MERGE, we do not do so
-		 * here; instead let it handle that on its own rules.
+		 * 没能成功，需要重试。如果正在运行 MERGE，     
+		 * 我们不在此时重试；由它自行处理。  
 		 */
 		if (context->relaction != NULL)
 			return result;
 
 		/*
-		 * ExecCrossPartitionUpdate installed an updated version of the new
-		 * tuple in the retry slot; start over.
+		 * ExecCrossPartitionUpdate 已在重试槽中装入了新         
+		 * 元组的更新版；重新开始。
 		 */
 		slot = retry_slot;
 		goto lreplace;
 	}
 
 	/*
-	 * Check the constraints of the tuple.  We've already checked the
-	 * partition constraint above; however, we must still ensure the tuple
-	 * passes all other constraints, so we will call ExecConstraints() and
-	 * have it validate all remaining checks.
+	 * 检查该元组的约束。分区约束已在上面检查过  
+	 * 了；但我们仍须确保该元组通过所有其他约束，    
+	 * 因此我们会调用 ExecConstraints()，让它验证所有       
+	 * 其余的检查。                    
 	 */
 	if (resultRelationDesc->rd_att->constr)
 		ExecConstraints(resultRelInfo, slot, estate);
 
 	/*
-	 * replace the heap tuple
+	 * 替换该堆元组    
 	 *
-	 * Note: if es_crosscheck_snapshot isn't InvalidSnapshot, we check that
-	 * the row to be updated is visible to that snapshot, and throw a
-	 * can't-serialize error if not. This is a special-case behavior needed
-	 * for referential integrity updates in transaction-snapshot mode
-	 * transactions.
+	 * 注意：若 es_crosscheck_snapshot 不是 InvalidSnapshot，       
+	 * 则检查待更新行对该快照是否可见，若不可见  
+	 * 则抛出无法序列化的错误。这是一种特殊行为，     
+	 * 是事务快照模式下引用完整性更新所必需        
+	 * 的。       
 	 */
 	result = table_tuple_update(resultRelationDesc, tupleid, slot,
 								estate->es_output_cid,
 								estate->es_snapshot,
 								estate->es_crosscheck_snapshot,
-								true /* wait for commit */ ,
+								true /* 等待提交    */ ,
 								&context->tmfd, &updateCxt->lockmode,
 								&updateCxt->updateIndexes);
 	if (result == TM_Ok)
@@ -2147,10 +2147,10 @@ lreplace:
 }
 
 /*
- * ExecUpdateEpilogue -- subroutine for ExecUpdate
+ * ExecUpdateEpilogue -- ExecUpdate 的子例程  
  *
- * Closing steps of updating a tuple.  Must be called if ExecUpdateAct
- * returns indicating that the tuple was updated.
+ * 元组更新的收尾步骤。当 ExecUpdateAct 返回并          
+ * 表明元组已更新时，必须调用它。 
  */
 static void
 ExecUpdateEpilogue(ModifyTableContext *context, UpdateContext *updateCxt,
@@ -2160,7 +2160,7 @@ ExecUpdateEpilogue(ModifyTableContext *context, UpdateContext *updateCxt,
 	ModifyTableState *mtstate = context->mtstate;
 	List	   *recheckIndexes = NIL;
 
-	/* insert index entries for tuple if necessary */
+	/* 必要时为元组插入索引条目        */
 	if (resultRelInfo->ri_NumIndices > 0 && (updateCxt->updateIndexes != TU_None))
 		recheckIndexes = ExecInsertIndexTuples(resultRelInfo,
 											   slot, context->estate,
@@ -2168,7 +2168,7 @@ ExecUpdateEpilogue(ModifyTableContext *context, UpdateContext *updateCxt,
 											   NULL, NIL,
 											   (updateCxt->updateIndexes == TU_Summarizing));
 
-	/* AFTER ROW UPDATE Triggers */
+	/* AFTER ROW UPDATE 触发器*/
 	ExecARUpdateTriggers(context->estate, resultRelInfo,
 						 NULL, NULL,
 						 tupleid, oldtuple, slot,
@@ -2181,13 +2181,13 @@ ExecUpdateEpilogue(ModifyTableContext *context, UpdateContext *updateCxt,
 	list_free(recheckIndexes);
 
 	/*
-	 * Check any WITH CHECK OPTION constraints from parent views.  We are
-	 * required to do this after testing all constraints and uniqueness
-	 * violations per the SQL spec, so we do it after actually updating the
-	 * record in the heap and all indexes.
+	 * 检查来自父视图的 WITH CHECK OPTION 约束。按照        
+	 * SQL 规范的要求，我们必须在测完所有约束和唯一
+	 * 性冲突之后才能做这项检查，因此须在更新           
+	 * 堆和所有索引后进行。     
 	 *
-	 * ExecWithCheckOptions() will skip any WCOs which are not of the kind we
-	 * are looking for at this point.
+	 * ExecWithCheckOptions() 会跳过所有此时并非我们所           
+	 * 要查找类型的 WCO。     
 	 */
 	if (resultRelInfo->ri_WithCheckOptions != NIL)
 		ExecWithCheckOptions(WCO_VIEW_CHECK, resultRelInfo,
@@ -2195,9 +2195,9 @@ ExecUpdateEpilogue(ModifyTableContext *context, UpdateContext *updateCxt,
 }
 
 /*
- * Queues up an update event using the target root partitioned table's
- * trigger to check that a cross-partition update hasn't broken any foreign
- * keys pointing into it.
+ * 使用目标根分区表的触发器来排队更新事件，       
+ * 以检查跨分区更新没有破坏指向它的任何外               
+ * 键。                
  */
 static void
 ExecCrossPartitionUpdateForeignKey(ModifyTableContext *context,
@@ -2215,11 +2215,11 @@ ExecCrossPartitionUpdateForeignKey(ModifyTableContext *context,
 	ancestorRels = ExecGetAncestorResultRels(context->estate, sourcePartInfo);
 
 	/*
-	 * For any foreign keys that point directly into a non-root ancestors of
-	 * the source partition, we can in theory fire an update event to enforce
-	 * those constraints using their triggers, if we could tell that both the
-	 * source and the destination partitions are under the same ancestor. But
-	 * for now, we simply report an error that those cannot be enforced.
+	 * 对于直接指向源分区的非根祖先的外键，理论上      
+	 * 我们可以触发一个更新事件、用它们的触发器来       
+	 * 强制这些约束——前提是我们能判断源分区与目       
+	 * 标分区都位于同一个祖先之下。但就目前而言，       
+	 * 我们只是报告这些约束无法被强制的错误。        
 	 */
 	foreach(lc, ancestorRels)
 	{
@@ -2227,7 +2227,7 @@ ExecCrossPartitionUpdateForeignKey(ModifyTableContext *context,
 		TriggerDesc *trigdesc = rInfo->ri_TrigDesc;
 		bool		has_noncloned_fkey = false;
 
-		/* Root ancestor's triggers will be processed. */
+		/* 根祖先的触发器将被处理。        */
 		if (rInfo == rootRelInfo)
 			continue;
 
@@ -2257,7 +2257,7 @@ ExecCrossPartitionUpdateForeignKey(ModifyTableContext *context,
 							 RelationGetRelationName(rootRelInfo->ri_RelationDesc))));
 	}
 
-	/* Perform the root table's triggers. */
+	/* 执行根表的触发器。        */
 	ExecARUpdateTriggers(context->estate,
 						 rootRelInfo, sourcePartInfo, destPartInfo,
 						 tupleid, NULL, newslot, NIL, NULL, true);
@@ -2266,29 +2266,29 @@ ExecCrossPartitionUpdateForeignKey(ModifyTableContext *context,
 /* ----------------------------------------------------------------
  *		ExecUpdate
  *
- *		note: we can't run UPDATE queries with transactions
- *		off because UPDATEs are actually INSERTs and our
- *		scan will mistakenly loop forever, updating the tuple
- *		it just inserted..  This should be fixed but until it
- *		is, we don't want to get stuck in an infinite loop
- *		which corrupts your database..
+ *		注意：事务关闭时无法运行 UPDATE 查询 
+ *		因为 UPDATE 实为 INSERT，我们的扫描会
+ *		错误地无限循环，不停更新它刚插入的  
+ *		那个元组。该问题应修复，但修复前，  
+ *		我们可不想陷入那种会                    
+ *		损坏数据库的无限循环
  *
- *		When updating a table, tupleid identifies the tuple to update and
- *		oldtuple is NULL.  When updating through a view INSTEAD OF trigger,
- *		oldtuple is passed to the triggers and identifies what to update, and
- *		tupleid is invalid.  When updating a foreign table, tupleid is
- *		invalid; the FDW has to figure out which row to update using data from
- *		the planSlot.  oldtuple is passed to foreign table triggers; it is
- *		NULL when the foreign table has no relevant triggers.
+ *		更新表时，tupleid 标识要更新的元组，而            
+ *		oldtuple 为 NULL。通过视图 INSTEAD OF 触发器更新时，  
+ *		oldtuple 传给触发器并标识要更新的内容，               
+ *		tupleid 无效。更新外表时，tupleid 无效；          
+ *		FDW 必须使用 planSlot 中的数据确定要更新哪一行。     
+ *		oldtuple 会传给外表触发器；当外表没有               
+ *		相关触发器时其为 NULL。                     
  *
- *		slot contains the new tuple value to be stored.
- *		planSlot is the output of the ModifyTable's subplan; we use it
- *		to access values from other input tables (for RETURNING),
- *		row-ID junk columns, etc.
+ *		slot 包含要存储的新元组值。         
+ *		planSlot 是 ModifyTable 子计划的输出；我们用它    
+ *		来访问其他输入表的值（用于 RETURNING）、  
+ *		行 ID junk 列等等。 
  *
- *		Returns RETURNING result if any, otherwise NULL.  On exit, if tupleid
- *		had identified the tuple to update, it will identify the tuple
- *		actually updated after EvalPlanQual.
+ *		有则返回 RETURNING 结果，否则 NULL。退出时，           
+ *		若 tupleid 标识了待更新元组，则它将标识经     
+ *		EvalPlanQual 更新的元组。     
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -2302,19 +2302,19 @@ ExecUpdate(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
 	TM_Result	result;
 
 	/*
-	 * abort the operation if not running transactions
+	 * 如果事务没有在运行则中止该操作  
 	 */
 	if (IsBootstrapProcessingMode())
 		elog(ERROR, "cannot UPDATE during bootstrap");
 
 	/*
-	 * Prepare for the update.  This includes BEFORE ROW triggers, so we're
-	 * done if it says we are.
+	 * 为更新做准备。这包括 BEFORE ROW 触发器，若它说     
+	 * 完成即完成。     
 	 */
 	if (!ExecUpdatePrologue(context, resultRelInfo, tupleid, oldtuple, slot, NULL))
 		return NULL;
 
-	/* INSTEAD OF ROW UPDATE Triggers */
+	/* INSTEAD OF ROW UPDATE 触发器*/
 	if (resultRelInfo->ri_TrigDesc &&
 		resultRelInfo->ri_TrigDesc->trig_update_instead_row)
 	{
@@ -2324,11 +2324,11 @@ ExecUpdate(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
 	}
 	else if (resultRelInfo->ri_FdwRoutine)
 	{
-		/* Fill in GENERATEd columns */
+		/* 填写 GENERATEd 列      */
 		ExecUpdatePrepareSlot(resultRelInfo, slot, estate);
 
 		/*
-		 * update in foreign table: let the FDW do it
+		 * 更新外部表：交给 FDW 处理       
 		 */
 		slot = resultRelInfo->ri_FdwRoutine->ExecForeignUpdate(estate,
 															   resultRelInfo,
@@ -2339,9 +2339,9 @@ ExecUpdate(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
 			return NULL;
 
 		/*
-		 * AFTER ROW Triggers or RETURNING expressions might reference the
-		 * tableoid column, so (re-)initialize tts_tableOid before evaluating
-		 * them.  (This covers the case where the FDW replaced the slot.)
+		 * AFTER ROW 触发器或 RETURNING 表达式可能引用         
+		 * tableoid 列，因此在求值之前先（重新）初始化      
+		 * tts_tableOid。（这覆盖 FDW 替换了 slot 的情况。）
 		 */
 		slot->tts_tableOid = RelationGetRelid(resultRelationDesc);
 	}
@@ -2350,11 +2350,11 @@ ExecUpdate(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
 		ItemPointerData lockedtid;
 
 		/*
-		 * If we generate a new candidate tuple after EvalPlanQual testing, we
-		 * must loop back here to try again.  (We don't need to redo triggers,
-		 * however.  If there are any BEFORE triggers then trigger.c will have
-		 * done table_tuple_lock to lock the correct tuple, so there's no need
-		 * to do them again.)
+		 * 如果在 EvalPlanQual 测试之后生成了新的候选元组，  
+		 * 就必须循环回来再试。（不过触发器无需重做：    
+		 * 如果存在 BEFORE 触发器，trigger.c 已经调用             
+		 * table_tuple_lock 锁好了元组，无需                          
+		 * 再次锁定。）
 		 */
 redo_act:
 		lockedtid = *tupleid;
@@ -2362,9 +2362,9 @@ redo_act:
 							   canSetTag, &updateCxt);
 
 		/*
-		 * If ExecUpdateAct reports that a cross-partition update was done,
-		 * then the RETURNING tuple (if any) has been projected and there's
-		 * nothing else for us to do.
+		 * 如果 ExecUpdateAct 报告已执行跨分区更新，          
+		 * 那么 RETURNING 元组（如果有）已被投影，           
+		 * 无需再做其他事。  
 		 */
 		if (updateCxt.crossPartUpdate)
 			return context->cpUpdateReturningSlot;
@@ -2374,27 +2374,27 @@ redo_act:
 			case TM_SelfModified:
 
 				/*
-				 * The target tuple was already updated or deleted by the
-				 * current command, or by a later command in the current
-				 * transaction.  The former case is possible in a join UPDATE
-				 * where multiple tuples join to the same target tuple. This
-				 * is pretty questionable, but Postgres has always allowed it:
-				 * we just execute the first update action and ignore
-				 * additional update attempts.
+				 * 目标元组已被当前命令，或本事务中      
+				 * 较晚的命令更新或删除。前者见于        
+				 * 连接 UPDATE：多个元组连接到同一               
+				 * 目标元组。虽可疑，但 Postgres 一直           
+				 * 允许这种做法：我们只执行第一个              
+				 * 更新动作并忽略                             
+				 * 其余更新尝试。      
 				 *
-				 * The latter case arises if the tuple is modified by a
-				 * command in a BEFORE trigger, or perhaps by a command in a
-				 * volatile function used in the query.  In such situations we
-				 * should not ignore the update, but it is equally unsafe to
-				 * proceed.  We don't want to discard the original UPDATE
-				 * while keeping the triggered actions based on it; and we
-				 * have no principled way to merge this update with the
-				 * previous ones.  So throwing an error is the only safe
-				 * course.
+				 * 后者为 BEFORE 触发器中的命令所致，     
+				 * 或查询中易变函数里的命令修改时。此时   
+				 * 不应忽略该更新，但继续执行同样不安全。  
+				 * 我们不想丢弃原始 UPDATE 却保留其             
+				 * 基于它的触发动作；也没有原则性         
+				 * 方法把这次更新与之前几次合并。          
+				 * 所以抛错是唯一                               
+				 * 安全的                                            
+				 * 做法 
 				 *
-				 * If a trigger actually intends this type of interaction, it
-				 * can re-execute the UPDATE (assuming it can figure out how)
-				 * and then return NULL to cancel the outer update.
+				 * 若触发器确需这种交互，它可以（在能       
+				 * 搞清楚怎么做前提下）重新执行该 UPDATE，   
+				 * 然后返回 NULL 以取消外层更新。      
 				 */
 				if (context->tmfd.cmax != estate->es_output_cid)
 					ereport(ERROR,
@@ -2402,7 +2402,7 @@ redo_act:
 							 errmsg("tuple to be updated was already modified by an operation triggered by the current command"),
 							 errhint("Consider using an AFTER trigger instead of a BEFORE trigger to propagate changes to other rows.")));
 
-				/* Else, already updated by self; nothing to do */
+				/* 否则，已被自身更新；无事可做   */
 				return NULL;
 
 			case TM_Ok:
@@ -2420,8 +2420,8 @@ redo_act:
 								 errmsg("could not serialize access due to concurrent update")));
 
 					/*
-					 * Already know that we're going to need to do EPQ, so
-					 * fetch tuple directly into the right slot.
+					 * 已经知道需要执行 EPQ，所以              
+					 * 直接取元组到正确的 slot 中。  
 					 */
 					inputslot = EvalPlanQualSlot(context->epqstate, resultRelationDesc,
 												 resultRelInfo->ri_RangeTableIndex);
@@ -2443,10 +2443,10 @@ redo_act:
 												   resultRelInfo->ri_RangeTableIndex,
 												   inputslot);
 							if (TupIsNull(epqslot))
-								/* Tuple not passing quals anymore, exiting... */
+								/* 元组不再通过 qual，退出...         */
 								return NULL;
 
-							/* Make sure ri_oldTupleSlot is initialized. */
+							/* 确保 ri_oldTupleSlot 已初始化。    */
 							if (unlikely(!resultRelInfo->ri_projectNewInfoValid))
 								ExecInitUpdateProjection(context->mtstate,
 														 resultRelInfo);
@@ -2459,7 +2459,7 @@ redo_act:
 										  tupleid, InplaceUpdateTupleLock);
 							}
 
-							/* Fetch the most recent version of old tuple. */
+							/* 获取旧元组的最新版本。           */
 							oldSlot = resultRelInfo->ri_oldTupleSlot;
 							if (!table_tuple_fetch_row_version(resultRelationDesc,
 															   tupleid,
@@ -2471,21 +2471,21 @@ redo_act:
 							goto redo_act;
 
 						case TM_Deleted:
-							/* tuple already deleted; nothing to do */
+							/* 元组已被删除；无事可做    */
 							return NULL;
 
 						case TM_SelfModified:
 
 							/*
-							 * This can be reached when following an update
-							 * chain from a tuple updated by another session,
-							 * reaching a tuple that was already updated in
-							 * this transaction. If previously modified by
-							 * this command, ignore the redundant update,
-							 * otherwise error out.
+							 * 从其他会话更新的元组沿更新链  
+							 * 追踪而来，到达一个本事务中已被 
+							 * 更新的元组，就到这里。若先前  
+							 * 被本命令修改过，就忽略          
+							 * 这次冗余更新，                     
+							 * 否则报错。     
 							 *
-							 * See also TM_SelfModified response to
-							 * table_tuple_update() above.
+							 * 另见上文 table_tuple_update()   
+							 * TM_SelfModified 响应。  
 							 */
 							if (context->tmfd.cmax != estate->es_output_cid)
 								ereport(ERROR,
@@ -2495,7 +2495,7 @@ redo_act:
 							return NULL;
 
 						default:
-							/* see table_tuple_lock call in ExecDelete() */
+							/* 见 ExecDelete() 中 table_tuple_lock     */
 							elog(ERROR, "unexpected table_tuple_lock status: %u",
 								 result);
 							return NULL;
@@ -2509,7 +2509,7 @@ redo_act:
 					ereport(ERROR,
 							(errcode(ERRCODE_T_R_SERIALIZATION_FAILURE),
 							 errmsg("could not serialize access due to concurrent delete")));
-				/* tuple already deleted; nothing to do */
+				/* 元组已被删除；无事可做    */
 				return NULL;
 
 			default:
@@ -2525,7 +2525,7 @@ redo_act:
 	ExecUpdateEpilogue(context, &updateCxt, resultRelInfo, tupleid, oldtuple,
 					   slot);
 
-	/* Process RETURNING if present */
+	/* 如有 RETURNING 则处理   */
 	if (resultRelInfo->ri_projectReturning)
 		return ExecProcessReturning(resultRelInfo, slot, context->planSlot);
 
@@ -2533,15 +2533,15 @@ redo_act:
 }
 
 /*
- * ExecOnConflictUpdate --- execute UPDATE of INSERT ON CONFLICT DO UPDATE
+ * ExecOnConflictUpdate --- 执行 INSERT ON CONFLICT DO UPDATE           
  *
- * Try to lock tuple for update as part of speculative insertion.  If
- * a qual originating from ON CONFLICT DO UPDATE is satisfied, update
- * (but still lock row, even though it may not satisfy estate's
- * snapshot).
+ * 在投机插入过程中尝试为更新锁定元组。如果      
+ * 源自 ON CONFLICT DO UPDATE 的 qual 满足，则更新          
+ * （但仍锁行，即使可能不满足 estate 快照       
+ * ）。    
  *
- * Returns true if we're done (with or without an update), or false if
- * the caller must retry the INSERT from scratch.
+ * 如果已完成（无论有无更新）则返回 true；调用者  
+ * 须从头重试 INSERT 则返回 false。     
  */
 static bool
 ExecOnConflictUpdate(ModifyTableContext *context,
@@ -2564,21 +2564,21 @@ ExecOnConflictUpdate(ModifyTableContext *context,
 	bool		isnull;
 
 	/*
-	 * Parse analysis should have blocked ON CONFLICT for all system
-	 * relations, which includes these.  There's no fundamental obstacle to
-	 * supporting this; we'd just need to handle LOCKTAG_TUPLE like the other
-	 * ExecUpdate() caller.
+	 * 解析分析应已对所有系统关系（含这些关系） 
+	 * 禁止了 ON CONFLICT。支持它并没有根本性的              
+	 * 障碍；只是需要像其他 ExecUpdate() 调用者那样           
+	 * 处理 LOCKTAG_TUPLE
 	 */
 	Assert(!resultRelInfo->ri_needLockTagTuple);
 
-	/* Determine lock mode to use */
+	/* 确定要使用的锁模式*/
 	lockmode = ExecUpdateLockMode(context->estate, resultRelInfo);
 
 	/*
-	 * Lock tuple for update.  Don't follow updates when tuple cannot be
-	 * locked without doing so.  A row locking conflict here means our
-	 * previous conclusion that the tuple is conclusively committed is not
-	 * true anymore.
+	 * 为更新锁定元组。若不跟随更新就无法锁定时，  
+	 * 才去跟随更新。这里的行锁冲突意味着            
+	 * 我们先前关于该元组确定已提交的结论                
+	 * 不再成立 
 	 */
 	test = table_tuple_lock(relation, conflictTid,
 							context->estate->es_snapshot,
@@ -2588,26 +2588,26 @@ ExecOnConflictUpdate(ModifyTableContext *context,
 	switch (test)
 	{
 		case TM_Ok:
-			/* success! */
+			/* 成功！*/
 			break;
 
 		case TM_Invisible:
 
 			/*
-			 * This can occur when a just inserted tuple is updated again in
-			 * the same command. E.g. because multiple rows with the same
-			 * conflicting key values are inserted.
+			 * 刚插入的元组在同一命令内又被更新时          
+			 * 便可能发生：例如插入多行具有相同的       
+			 * 冲突键值的行。               
 			 *
-			 * This is somewhat similar to the ExecUpdate() TM_SelfModified
-			 * case.  We do not want to proceed because it would lead to the
-			 * same row being updated a second time in some unspecified order,
-			 * and in contrast to plain UPDATEs there's no historical behavior
-			 * to break.
+			 * 这有点类似于 ExecUpdate() 的 TM_SelfModified         
+			 * 情形。我们不想继续，因为那会导致             
+			 * 同一行以某种未指定的顺序被更新第二次，      
+			 * 而且与普通 UPDATE 不同，这里没有可供打破的    
+			 * 先例。
 			 *
-			 * It is the user's responsibility to prevent this situation from
-			 * occurring.  These problems are why the SQL standard similarly
-			 * specifies that for SQL MERGE, an exception must be raised in
-			 * the event of an attempt to update the same row twice.
+			 * 防止这种情况发生是用户的责任。这正是        
+			 * SQL 标准同样规定，对 SQL MERGE 而言，             
+			 * 试图把同一行更新两次时，必须                  
+			 * 抛出异常。                                      
 			 */
 			xminDatum = slot_getsysattr(existing,
 										MinTransactionIdAttributeNumber,
@@ -2623,16 +2623,16 @@ ExecOnConflictUpdate(ModifyTableContext *context,
 								"ON CONFLICT DO UPDATE"),
 						 errhint("Ensure that no rows proposed for insertion within the same command have duplicate constrained values.")));
 
-			/* This shouldn't happen */
+			/* 不应发生这种事 */
 			elog(ERROR, "attempted to lock invisible tuple");
 			break;
 
 		case TM_SelfModified:
 
 			/*
-			 * This state should never be reached. As a dirty snapshot is used
-			 * to find conflicting tuples, speculative insertion wouldn't have
-			 * seen this row to conflict with.
+			 * 绝不应到达这种状态。由于使用脏快照            
+			 * 来寻找冲突元组，投机插入不可能                  
+			 * 看到过这一冲突行。    
 			 */
 			elog(ERROR, "unexpected self-updated tuple");
 			break;
@@ -2644,19 +2644,19 @@ ExecOnConflictUpdate(ModifyTableContext *context,
 						 errmsg("could not serialize access due to concurrent update")));
 
 			/*
-			 * As long as we don't support an UPDATE of INSERT ON CONFLICT for
-			 * a partitioned table we shouldn't reach to a case where tuple to
-			 * be lock is moved to another partition due to concurrent update
-			 * of the partition key.
+			 * 只要仍不支持分区表的 INSERT ON CONFLICT DO UPDATE， 
+			 * 就不应到达这种情况：待锁定的元组               
+			 * 因分区键被并发更新而移动到另                    
+			 * 一个分区。      
 			 */
 			Assert(!ItemPointerIndicatesMovedPartitions(&tmfd.ctid));
 
 			/*
-			 * Tell caller to try again from the very start.
+			 * 告诉调用者从头开始重试。         
 			 *
-			 * It does not make sense to use the usual EvalPlanQual() style
-			 * loop here, as the new version of the row might not conflict
-			 * anymore, or the conflicting tuple has actually been deleted.
+			 * 这里不适合使用通常的 EvalPlanQual() 式           
+			 * 循环，因为行的新版本可能不再冲突，        
+			 * 或者冲突元组实际上已被删除。                  
 			 */
 			ExecClearTuple(existing);
 			return false;
@@ -2667,7 +2667,7 @@ ExecOnConflictUpdate(ModifyTableContext *context,
 						(errcode(ERRCODE_T_R_SERIALIZATION_FAILURE),
 						 errmsg("could not serialize access due to concurrent delete")));
 
-			/* see TM_Updated case */
+			/* TM_Updated 情形   */
 			Assert(!ItemPointerIndicatesMovedPartitions(&tmfd.ctid));
 			ExecClearTuple(existing);
 			return false;
@@ -2676,29 +2676,29 @@ ExecOnConflictUpdate(ModifyTableContext *context,
 			elog(ERROR, "unrecognized table_tuple_lock status: %u", test);
 	}
 
-	/* Success, the tuple is locked. */
+	/* 成功，元组已锁定。   */
 
 	/*
-	 * Verify that the tuple is visible to our MVCC snapshot if the current
-	 * isolation level mandates that.
+	 * 若当前隔离级别有此要求，则验证元组                 
+	 * 对 MVCC 快照可见。      
 	 *
-	 * It's not sufficient to rely on the check within ExecUpdate() as e.g.
-	 * CONFLICT ... WHERE clause may prevent us from reaching that.
+	 * 仅依赖 ExecUpdate() 内部的检查并不足够，因为例如   
+	 * CONFLICT ... WHERE 子句可能使我们到不了那里。  
 	 *
-	 * This means we only ever continue when a new command in the current
-	 * transaction could see the row, even though in READ COMMITTED mode the
-	 * tuple will not be visible according to the current statement's
-	 * snapshot.  This is in line with the way UPDATE deals with newer tuple
-	 * versions.
+	 * 这意味着只有当前事务中的新命令能看到该行时   
+	 * 我们才会继续，尽管在 READ COMMITTED 模式下，           
+	 * 按当前语句的快照该元组并不可见。              
+	 * 这与 UPDATE 处理较新元组版本的方式                      
+	 * 一致。
 	 */
 	ExecCheckTupleVisible(context->estate, relation, existing);
 
 	/*
-	 * Make tuple and any needed join variables available to ExecQual and
-	 * ExecProject.  The EXCLUDED tuple is installed in ecxt_innertuple, while
-	 * the target's existing tuple is installed in the scantuple.  EXCLUDED
-	 * has been made to reference INNER_VAR in setrefs.c, but there is no
-	 * other redirection.
+	 * 把元组及所需的连接变量提供给 ExecQual 和           
+	 * ExecProject。EXCLUDED 元组放入 ecxt_innertuple，                 
+	 * 目标的既有元组放入 scantuple。EXCLUDED                    
+	 * 已在 setrefs.c 中改为引用 INNER_VAR，                     
+	 * 别无重定向。
 	 */
 	econtext->ecxt_scantuple = existing;
 	econtext->ecxt_innertuple = excludedSlot;
@@ -2706,62 +2706,62 @@ ExecOnConflictUpdate(ModifyTableContext *context,
 
 	if (!ExecQual(onConflictSetWhere, econtext))
 	{
-		ExecClearTuple(existing);	/* see return below */
+		ExecClearTuple(existing);	/* 见下方返回  */
 		InstrCountFiltered1(&mtstate->ps, 1);
-		return true;			/* done with the tuple */
+		return true;			/* 元组处理完毕  */
 	}
 
 	if (resultRelInfo->ri_WithCheckOptions != NIL)
 	{
 		/*
-		 * Check target's existing tuple against UPDATE-applicable USING
-		 * security barrier quals (if any), enforced here as RLS checks/WCOs.
+		 * 对照适用于 UPDATE 的 USING 安全 qual（如有），  
+		 * 在此以 RLS 检查/WCO 的形式强制执行。                 
 		 *
-		 * The rewriter creates UPDATE RLS checks/WCOs for UPDATE security
-		 * quals, and stores them as WCOs of "kind" WCO_RLS_CONFLICT_CHECK,
-		 * but that's almost the extent of its special handling for ON
-		 * CONFLICT DO UPDATE.
+		 * 重写器为 UPDATE 安全 qual 创建 UPDATE RLS 检查/WCO，
+		 * 并把它们存为 "kind" 为 WCO_RLS_CONFLICT_CHECK 的 WCO， 
+		 * 不过，它对 ON CONFLICT DO UPDATE 的特殊处理      
+		 * 到此为止。    
 		 *
-		 * The rewriter will also have associated UPDATE applicable straight
-		 * RLS checks/WCOs for the benefit of the ExecUpdate() call that
-		 * follows.  INSERTs and UPDATEs naturally have mutually exclusive WCO
-		 * kinds, so there is no danger of spurious over-enforcement in the
-		 * INSERT or UPDATE path.
+		 * 重写器也会为随后的 ExecUpdate() 调用关联适用于   
+		 * UPDATE 的直接 RLS 检查/WCO。INSERT 和 UPDATE 的 WCO  
+		 * 种类天然互斥，因此                                        
+		 * 在 INSERT 或 UPDATE 路径中不会出现虚假的            
+		 * 过度强制。       
 		 */
 		ExecWithCheckOptions(WCO_RLS_CONFLICT_CHECK, resultRelInfo,
 							 existing,
 							 mtstate->ps.state);
 	}
 
-	/* Project the new tuple version */
+	/* 投影新的元组版本      */
 	ExecProject(resultRelInfo->ri_onConflict->oc_ProjInfo);
 
 	/*
-	 * Note that it is possible that the target tuple has been modified in
-	 * this session, after the above table_tuple_lock. We choose to not error
-	 * out in that case, in line with ExecUpdate's treatment of similar cases.
-	 * This can happen if an UPDATE is triggered from within ExecQual(),
-	 * ExecWithCheckOptions() or ExecProject() above, e.g. by selecting from a
-	 * wCTE in the ON CONFLICT's SET.
+	 * 注意，在上面的 table_tuple_lock 之后，目标元组       
+	 * 可能已在本会话中被修改。我们选择此时不报错，    
+	 * 与 ExecUpdate 对类似情形的处理一致。                       
+	 * 如果 UPDATE 是从上面的 ExecQual()、                      
+	 * ExecWithCheckOptions() 或 ExecProject() 内触发，例如 ON CONFLICT
+	 * 的 SET 中选择 wCTE 时。 
 	 */
 
-	/* Execute UPDATE with projection */
+	/* 用投影执行 UPDATE         */
 	*returning = ExecUpdate(context, resultRelInfo,
 							conflictTid, NULL,
 							resultRelInfo->ri_onConflict->oc_ProjSlot,
 							canSetTag);
 
 	/*
-	 * Clear out existing tuple, as there might not be another conflict among
-	 * the next input rows. Don't want to hold resources till the end of the
-	 * query.
+	 * 清掉既有元组，因为后续输入行中可能不再有冲突。 
+	 * 不想把资源一直持有到查询                                 
+	 * 结束
 	 */
 	ExecClearTuple(existing);
 	return true;
 }
 
 /*
- * Perform MERGE.
+ * 执行 MERGE  
  */
 static TupleTableSlot *
 ExecMerge(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
@@ -2770,84 +2770,84 @@ ExecMerge(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
 	bool		matched;
 
 	/*-----
-	 * If we are dealing with a WHEN MATCHED case (tupleid is valid), we
-	 * execute the first action for which the additional WHEN MATCHED AND
-	 * quals pass.  If an action without quals is found, that action is
-	 * executed.
+	 * 若处理 WHEN MATCHED 情形（tupleid 有效），我们       
+	 * 执行第一个满足附加 WHEN MATCHED AND qual 的动作。    
+	 * 如果找到一个不带 qual 的动作，就                   
+	 * 执行它
 	 *
-	 * Similarly, if we are dealing with WHEN NOT MATCHED case, we look at
-	 * the given WHEN NOT MATCHED actions in sequence until one passes.
+	 * 类似地，若处理 WHEN NOT MATCHED 情形，我们按顺序    
+	 * 逐一查看 WHEN NOT MATCHED 动作，直到一个通过。    
 	 *
-	 * Things get interesting in case of concurrent update/delete of the
-	 * target tuple. Such concurrent update/delete is detected while we are
-	 * executing a WHEN MATCHED action.
+	 * 当目标元组被并发更新/删除时，情况变得有趣。 
+	 * 这种并发更新/删除会在我们执行 WHEN MATCHED 动作     
+	 * 期间被检测到。           
 	 *
-	 * A concurrent update can:
+	 * 并发更新可以：   
 	 *
-	 * 1. modify the target tuple so that it no longer satisfies the
-	 *    additional quals attached to the current WHEN MATCHED action
+	 * 1. 修改目标元组，使它不再满足                   
+	 *    附加在当前 WHEN MATCHED 动作上的附加 qual        
 	 *
-	 *    In this case, we are still dealing with a WHEN MATCHED case.
-	 *    We recheck the list of WHEN MATCHED actions from the start and
-	 *    choose the first one that satisfies the new target tuple.
+	 *    此时我们处理的仍是 WHEN MATCHED 情形。          
+	 *    我们从头重新检查 WHEN MATCHED 动作列表，         
+	 *    选择第一个满足新目标元组的动作。         
 	 *
-	 * 2. modify the target tuple so that the join quals no longer pass and
-	 *    hence the source tuple no longer has a match.
+	 * 2. 修改目标元组，使连接 qual 不再通过，              
+	 *    因而源元组不再有匹配。            
 	 *
-	 *    In this case, the source tuple no longer matches the target tuple,
-	 *    so we now instead find a qualifying WHEN NOT MATCHED action to
-	 *    execute.
+	 *    在这种情况下，源元组不再匹配目标元组，         
+	 *    于是转而寻找可执行的 WHEN NOT MATCHED 动作        
+	 *    执行  
 	 *
-	 * XXX Hmmm, what if the updated tuple would now match one that was
-	 * considered NOT MATCHED so far?
+	 * XXX 嗯，若更新后的元组此时能匹配此前判为      
+	 * NOT MATCHED 的元组？      
 	 *
-	 * A concurrent delete changes a WHEN MATCHED case to WHEN NOT MATCHED.
+	 * 并发删除会把 WHEN MATCHED 情形变为 WHEN NOT MATCHED。    
 	 *
-	 * ExecMergeMatched takes care of following the update chain and
-	 * re-finding the qualifying WHEN MATCHED action, as long as the updated
-	 * target tuple still satisfies the join quals, i.e., it remains a WHEN
-	 * MATCHED case. If the tuple gets deleted or the join quals fail, it
-	 * returns and we try ExecMergeNotMatched. Given that ExecMergeMatched
-	 * always make progress by following the update chain and we never switch
-	 * from ExecMergeNotMatched to ExecMergeMatched, there is no risk of a
-	 * livelock.
+	 * 只要更新后的元组仍满足连接 qual（仍是 WHEN   
+	 * MATCHED 情形），ExecMergeMatched 就会负责沿着更新链     
+	 * 追踪并重新寻找可满足的 WHEN MATCHED 动作。如果元组
+	 * 被删除或连接 qual 失败，它就返回，我们转而尝试
+	 * ExecMergeNotMatched。鉴于 ExecMergeMatched 总是通过         
+	 * 沿更新链追踪来取得进展，而且我们从不会从          
+	 * ExecMergeNotMatched 切换回 ExecMergeMatched，因此不存在   
+	 * 活锁。
 	 */
 	matched = tupleid != NULL;
 	if (matched)
 		matched = ExecMergeMatched(context, resultRelInfo, tupleid, canSetTag);
 
 	/*
-	 * Either we were dealing with a NOT MATCHED tuple or ExecMergeMatched()
-	 * returned "false", indicating the previously MATCHED tuple no longer
-	 * matches.
+	 * 要么处理的是 NOT MATCHED 元组，要么 ExecMergeMatched()    
+	 * 返回了 "false"，表示先前 MATCHED 的元组不再           
+	 * 匹配  
 	 */
 	if (!matched)
 		ExecMergeNotMatched(context, resultRelInfo, canSetTag);
 
-	/* No RETURNING support yet */
+	/* 尚不支持 RETURNING   */
 	return NULL;
 }
 
 /*
- * Check and execute the first qualifying MATCHED action. The current target
- * tuple is identified by tupleid.
+ * 检查并执行第一个满足条件的 MATCHED 动作。当前目标    
+ * 元组由 tupleid 标识。    
  *
- * We start from the first WHEN MATCHED action and check if the WHEN quals
- * pass, if any. If the WHEN quals for the first action do not pass, we
- * check the second, then the third and so on. If we reach to the end, no
- * action is taken and we return true, indicating that no further action is
- * required for this tuple.
+ * 我们从第一个 WHEN MATCHED 动作开始，检查其 WHEN qual     
+ * （如有）是否通过。若第一个动作的 WHEN qual 不过，
+ * 就检查第二个、第三个，依此类推。若到末尾，       
+ * 则不采取任何动作并返回 true，表示该元组无需          
+ * 进一步的处理。   
  *
- * If we do find a qualifying action, then we attempt to execute the action.
+ * 如果确实找到满足条件的动作，就尝试执行该动作。    
  *
- * If the tuple is concurrently updated, EvalPlanQual is run with the updated
- * tuple to recheck the join quals. Note that the additional quals associated
- * with individual actions are evaluated by this routine via ExecQual, while
- * EvalPlanQual checks for the join quals. If EvalPlanQual tells us that the
- * updated tuple still passes the join quals, then we restart from the first
- * action to look for a qualifying action. Otherwise, we return false --
- * meaning that a NOT MATCHED action must now be executed for the current
- * source tuple.
+ * 如果元组被并发更新，则用更新后的元组运行 EvalPlanQual 
+ * 来复查连接 qual。注意，各动作关联的附加 qual             
+ * 由本例程通过 ExecQual 求值，                                    
+ * 而连接 qual 由 EvalPlanQual 检查。如果 EvalPlanQual 告诉我们
+ * 更新后的元组仍通过连接 qual，则从第一个动作           
+ * 重新开始寻找满足条件的动作。否则返回 false --      
+ * 表示须为当前源元组执行 NOT MATCHED                         
+ * 动作。    
  */
 static bool
 ExecMergeMatched(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
@@ -2864,16 +2864,16 @@ ExecMergeMatched(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
 	bool		no_further_action = true;
 
 	/*
-	 * If there are no WHEN MATCHED actions, we are done.
+	 * 若没有 WHEN MATCHED 动作，即告完成。   
 	 */
 	if (resultRelInfo->ri_matchedMergeAction == NIL)
 		return no_further_action;
 
 	/*
-	 * Make tuple and any needed join variables available to ExecQual and
-	 * ExecProject. The target's existing tuple is installed in the scantuple.
-	 * Again, this target relation's slot is required only in the case of a
-	 * MATCHED tuple and UPDATE/DELETE actions.
+	 * 把元组及所需的连接变量提供给 ExecQual 和           
+	 * ExecProject。目标的既有元组放入 scantuple。                 
+	 * 同样，只有在 MATCHED 元组以及 UPDATE/DELETE 动作的     
+	 * 情形下才需目标关系的 slot。  
 	 */
 	econtext->ecxt_scantuple = resultRelInfo->ri_oldTupleSlot;
 	econtext->ecxt_innertuple = context->planSlot;
@@ -2884,9 +2884,9 @@ lmerge_matched:
 	if (resultRelInfo->ri_needLockTagTuple)
 	{
 		/*
-		 * This locks even for CMD_DELETE, for CMD_NOTHING, and for tuples
-		 * that don't match mas_whenqual.  MERGE on system catalogs is a minor
-		 * use case, so don't bother optimizing those.
+		 * 对 CMD_DELETE、CMD_NOTHING，以及不匹配 mas_whenqual    
+		 * 的元组也照样加锁。系统目录上的 MERGE 是次要      
+		 * 用例，不值得为它们做优化。    
 		 */
 		LockTuple(resultRelInfo->ri_RelationDesc, tupleid,
 				  InplaceUpdateTupleLock);
@@ -2896,12 +2896,12 @@ lmerge_matched:
 		ItemPointerSetInvalid(&lockedtid);
 
 	/*
-	 * This routine is only invoked for matched rows, and we must have found
-	 * the tupleid of the target row in that case; fetch that tuple.
+	 * 本例程只对匹配行调用，此时我们必须已找到         
+	 * 目标行的 tupleid；取出该元组。                    
 	 *
-	 * We use SnapshotAny for this because we might get called again after
-	 * EvalPlanQual returns us a new tuple, which may not be visible to our
-	 * MVCC snapshot.
+	 * 为此我们使用 SnapshotAny，因为在 EvalPlanQual 返回     
+	 * 新元组后我们可能再次被调用，而其 MVCC 快照未必  
+	 * 可见。     
 	 */
 
 	if (!table_tuple_fetch_row_version(resultRelInfo->ri_RelationDesc,
@@ -2918,26 +2918,26 @@ lmerge_matched:
 		UpdateContext updateCxt = {0};
 
 		/*
-		 * Test condition, if any.
+		 * 求值 WHEN 条件     
 		 *
-		 * In the absence of any condition, we perform the action
-		 * unconditionally (no need to check separately since ExecQual() will
-		 * return true if there are no conditions to evaluate).
+		 * 在没有任何条件时，我们无条件执行动作
+		 * （无需单独检查，因为如果没有条件可求值，      
+		 * ExecQual() 会返回 true）。                     
 		 */
 		if (!ExecQual(relaction->mas_whenqual, econtext))
 			continue;
 
 		/*
-		 * Check if the existing target tuple meets the USING checks of
-		 * UPDATE/DELETE RLS policies. If those checks fail, we throw an
-		 * error.
+		 * 检查既有元组是否满足 UPDATE/DELETE RLS 策略的  
+		 * USING 检查。如果这些检查失败，我们             
+		 * 报错
 		 *
-		 * The WITH CHECK quals for UPDATE RLS policies are applied in
-		 * ExecUpdateAct() and hence we need not do anything special to handle
-		 * them.
+		 * UPDATE RLS 策略的 WITH CHECK qual 已在                
+		 * ExecUpdateAct() 中应用，故此处无需处理                  
+		 * 之  
 		 *
-		 * NOTE: We must do this after WHEN quals are evaluated, so that we
-		 * check policies only when they matter.
+		 * 注意：必须在 WHEN qual 求值之后再做这件事，     
+		 * 仅在策略有影响时检查。    
 		 */
 		if (resultRelInfo->ri_WithCheckOptions && commandType != CMD_NOTHING)
 		{
@@ -2948,15 +2948,15 @@ lmerge_matched:
 								 context->mtstate->ps.state);
 		}
 
-		/* Perform stated action */
+		/* 执行既定动作    */
 		switch (commandType)
 		{
 			case CMD_UPDATE:
 
 				/*
-				 * Project the output tuple, and use that to update the table.
-				 * We don't need to filter out junk attributes, because the
-				 * UPDATE action's targetlist doesn't have any.
+				 * 投影出输出元组，并用它来更新表。           
+				 * 我们不需要过滤掉 junk 属性，因为           
+				 * UPDATE 动作目标列表没有此类属性 
 				 */
 				newslot = ExecProject(relaction->mas_proj);
 
@@ -2966,17 +2966,17 @@ lmerge_matched:
 				{
 					if (result == TM_Ok)
 						goto out;	/* "do nothing" */
-					break;		/* concurrent update/delete */
+					break;		/* 并发更新/删除      */
 				}
 				result = ExecUpdateAct(context, resultRelInfo, tupleid, NULL,
 									   newslot, canSetTag, &updateCxt);
 
 				/*
-				 * As in ExecUpdate(), if ExecUpdateAct() reports that a
-				 * cross-partition update was done, then there's nothing else
-				 * for us to do --- the UPDATE has been turned into a DELETE
-				 * and an INSERT, and we must not perform any of the usual
-				 * post-update tasks.
+				 * 与 ExecUpdate() 一样，若 ExecUpdateAct() 报告 
+				 * 跨分区更新，那么我们无需再做任何事 --    
+				 * 该 UPDATE 已被拆成一次 DELETE 和一次 INSERT， 
+				 * 我们绝不能再执行任何常规的                
+				 * 更新后任务。
 				 */
 				if (updateCxt.crossPartUpdate)
 				{
@@ -2999,7 +2999,7 @@ lmerge_matched:
 				{
 					if (result == TM_Ok)
 						goto out;	/* "do nothing" */
-					break;		/* concurrent update/delete */
+					break;		/* 并发更新/删除      */
 				}
 				result = ExecDeleteAct(context, resultRelInfo, tupleid, false);
 				if (result == TM_Ok)
@@ -3011,7 +3011,7 @@ lmerge_matched:
 				break;
 
 			case CMD_NOTHING:
-				/* Doing nothing is always OK */
+				/* 什么都不做也可以   */
 				result = TM_Ok;
 				break;
 
@@ -3022,7 +3022,7 @@ lmerge_matched:
 		switch (result)
 		{
 			case TM_Ok:
-				/* all good; perform final actions */
+				/* 正常；执行最终动作     */
 				if (canSetTag && commandType != CMD_NOTHING)
 					(estate->es_processed)++;
 
@@ -3031,22 +3031,22 @@ lmerge_matched:
 			case TM_SelfModified:
 
 				/*
-				 * The target tuple was already updated or deleted by the
-				 * current command, or by a later command in the current
-				 * transaction.  The former case is explicitly disallowed by
-				 * the SQL standard for MERGE, which insists that the MERGE
-				 * join condition should not join a target row to more than
-				 * one source row.
+				 * 目标元组已被当前命令，或本事务中      
+				 * 较晚的命令更新或删除。前者              
+				 * 被 SQL 标准对 MERGE 明确禁止，标准            
+				 * 坚持 MERGE 连接条件不得把一个                
+				 * 目标行连接到                                      
+				 * 多个源行。
 				 *
-				 * The latter case arises if the tuple is modified by a
-				 * command in a BEFORE trigger, or perhaps by a command in a
-				 * volatile function used in the query.  In such situations we
-				 * should not ignore the MERGE action, but it is equally
-				 * unsafe to proceed.  We don't want to discard the original
-				 * MERGE action while keeping the triggered actions based on
-				 * it; and it would be no better to allow the original MERGE
-				 * action while discarding the updates that it triggered.  So
-				 * throwing an error is the only safe course.
+				 * 后者为 BEFORE 触发器中的命令所致，     
+				 * 或查询中易变函数里的命令修改时。此时   
+				 * 我们不应忽略该 MERGE 动作，但继续执行       
+				 * 同样不安全。我们不想丢弃原始           
+				 * MERGE 动作却保留基于它的触发动作；         
+				 * 而允许保留原始 MERGE 动作却丢弃它           
+				 * 触发的更新也不好。所以                        
+				 * 抛错才是唯一安全的                               
+				 * 做法。                                 
 				 */
 				if (context->tmfd.cmax != estate->es_output_cid)
 					ereport(ERROR,
@@ -3062,7 +3062,7 @@ lmerge_matched:
 									"MERGE"),
 							 errhint("Ensure that not more than one source row matches any one target row.")));
 
-				/* This shouldn't happen */
+				/* 不应发生这种事 */
 				elog(ERROR, "attempted to update or delete invisible tuple");
 				break;
 
@@ -3073,8 +3073,8 @@ lmerge_matched:
 							 errmsg("could not serialize access due to concurrent delete")));
 
 				/*
-				 * If the tuple was already deleted, return to let caller
-				 * handle it under NOT MATCHED clauses.
+				 * 如果元组已被删除，返回让调用者         
+				 * 按 NOT MATCHED 子句处理。     
 				 */
 				no_further_action = false;
 				goto out;
@@ -3087,14 +3087,14 @@ lmerge_matched:
 					LockTupleMode lockmode;
 
 					/*
-					 * The target tuple was concurrently updated by some other
-					 * transaction. Run EvalPlanQual() with the new version of
-					 * the tuple. If it does not return a tuple, then we
-					 * switch to the NOT MATCHED list of actions. If it does
-					 * return a tuple and the join qual is still satisfied,
-					 * then we just need to recheck the MATCHED actions,
-					 * starting from the top, and execute the first qualifying
-					 * action.
+					 * 目标元组被其他事务并发更新。用          
+					 * 新版本的元组运行 EvalPlanQual()。若          
+					 * 它不返回元组，则切换到                
+					 * NOT MATCHED 动作列表。若它返回              
+					 * 元组且连接 qual 仍满足，那么只需       
+					 * 从头重新检查 MATCHED 动作，             
+					 * 并执行第一个满足条件的                      
+					 * 动作 
 					 */
 					resultRelationDesc = resultRelInfo->ri_RelationDesc;
 					lockmode = ExecUpdateLockMode(estate, resultRelInfo);
@@ -3117,10 +3117,10 @@ lmerge_matched:
 												   inputslot);
 
 							/*
-							 * If we got no tuple, or the tuple we get has a
-							 * NULL ctid, go back to caller: this one is not a
-							 * MATCHED tuple anymore, so they can retry with
-							 * NOT MATCHED actions.
+							 * 若未得到元组，或所得元组 ctid    
+							 * 为 NULL，返回调用者：已非 MATCHED    
+							 * 元组，因此调用者可以用 NOT MATCHED
+							 * 动作重试。     
 							 */
 							if (TupIsNull(epqslot))
 							{
@@ -3138,13 +3138,13 @@ lmerge_matched:
 							}
 
 							/*
-							 * When a tuple was updated and migrated to
-							 * another partition concurrently, the current
-							 * MERGE implementation can't follow.  There's
-							 * probably a better way to handle this case, but
-							 * it'd require recognizing the relation to which
-							 * the tuple moved, and setting our current
-							 * resultRelInfo to that.
+							 * 当元组被并发更新并迁移到    
+							 * 另一分区时，当前的 MERGE          
+							 * 实现无法追踪。也许有更好       
+							 * 的办法处理这种情况，但那          
+							 * 需要识别元组迁移到的                
+							 * 关系，并把当前的 resultRelInfo  
+							 * 设为该关系。    
 							 */
 							if (ItemPointerIndicatesMovedPartitions(tupleid))
 								ereport(ERROR,
@@ -3152,15 +3152,15 @@ lmerge_matched:
 										 errmsg("tuple to be deleted was already moved to another partition due to concurrent update")));
 
 							/*
-							 * A non-NULL ctid means that we are still dealing
-							 * with MATCHED case. Restart the loop so that we
-							 * apply all the MATCHED rules again, to ensure
-							 * that the first qualifying WHEN MATCHED action
-							 * is executed.
+							 * 非 NULL 的 ctid 意味着我们处理的     
+							 * 仍是 MATCHED 情形。重启循环，       
+							 * 重新应用全部 MATCHED 规则，确保  
+							 * 第一个满足条件的 WHEN MATCHED 动作 
+							 * 得以执行
 							 *
-							 * tupleid has been updated to that of the new
-							 * tuple, as required for the refetch we do at the
-							 * top.
+							 * tupleid 已被更新为新元组的值，  
+							 * 这是我们在顶部重新取数所需        
+							 * 的 
 							 */
 							if (resultRelInfo->ri_needLockTagTuple)
 								UnlockTuple(resultRelInfo->ri_RelationDesc,
@@ -3171,8 +3171,8 @@ lmerge_matched:
 						case TM_Deleted:
 
 							/*
-							 * tuple already deleted; tell caller to run NOT
-							 * MATCHED actions
+							 * 元组已被删除；让调用者执行 NOT  
+							 * MATCHED 动作 
 							 */
 							no_further_action = false;
 							goto out;
@@ -3180,12 +3180,12 @@ lmerge_matched:
 						case TM_SelfModified:
 
 							/*
-							 * This can be reached when following an update
-							 * chain from a tuple updated by another session,
-							 * reaching a tuple that was already updated or
-							 * deleted by the current command, or by a later
-							 * command in the current transaction. As above,
-							 * this should always be treated as an error.
+							 * 当沿更新链从被其他会话更新的  
+							 * 元组追踪，到达一个已被当前命令 
+							 * 或本事务较晚命令更新或删除的  
+							 * 元组时，就会到这里。如上         
+							 * 所述，这始终都应被视为            
+							 * 错误。                                 
 							 */
 							if (context->tmfd.cmax != estate->es_output_cid)
 								ereport(ERROR,
@@ -3201,13 +3201,13 @@ lmerge_matched:
 												"MERGE"),
 										 errhint("Ensure that not more than one source row matches any one target row.")));
 
-							/* This shouldn't happen */
+							/* 不应发生这种事 */
 							elog(ERROR, "attempted to update or delete invisible tuple");
 							no_further_action = false;
 							goto out;
 
 						default:
-							/* see table_tuple_lock call in ExecDelete() */
+							/* 见 ExecDelete() 中 table_tuple_lock     */
 							elog(ERROR, "unexpected table_tuple_lock status: %u",
 								 result);
 							no_further_action = false;
@@ -3218,20 +3218,20 @@ lmerge_matched:
 			case TM_Invisible:
 			case TM_WouldBlock:
 			case TM_BeingModified:
-				/* these should not occur */
+				/* 这些不应出现     */
 				elog(ERROR, "unexpected tuple operation result: %d", result);
 				break;
 		}
 
 		/*
-		 * We've activated one of the WHEN clauses, so we don't search
-		 * further. This is required behaviour, not an optimization.
+		 * 已激活某个 WHEN 子句，故不再继续搜索。     
+		 * 这是要求的行为，不是优化。                  
 		 */
 		break;
 	}
 
 	/*
-	 * Successfully executed an action or no qualifying action was found.
+	 * 成功执行了某个动作，或未找到满足条件的动作。
 	 */
 out:
 	if (ItemPointerIsValid(&lockedtid))
@@ -3241,7 +3241,7 @@ out:
 }
 
 /*
- * Execute the first qualifying NOT MATCHED action.
+ * 执行首个满足条件的 NOT MATCHED 动作  
  */
 static void
 ExecMergeNotMatched(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
@@ -3253,20 +3253,20 @@ ExecMergeNotMatched(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
 	ListCell   *l;
 
 	/*
-	 * For INSERT actions, the root relation's merge action is OK since the
-	 * INSERT's targetlist and the WHEN conditions can only refer to the
-	 * source relation and hence it does not matter which result relation we
-	 * work with.
+	 * 对 INSERT 动作，使用根关系的 merge 动作即可，因为  
+	 * INSERT 的目标列表和 WHEN 条件只能引用                
+	 * 源关系，所以使用哪个结果关系                           
+	 * 均可    
 	 *
-	 * XXX does this mean that we can avoid creating copies of actionStates on
-	 * partitioned tables, for not-matched actions?
+	 * XXX 这是否意味着对分区表可以避免为                      
+	 * not-matched 动作建 actionStates 副本？
 	 */
 	actionStates = resultRelInfo->ri_notMatchedMergeAction;
 
 	/*
-	 * Make source tuple available to ExecQual and ExecProject. We don't need
-	 * the target tuple, since the WHEN quals and targetlist can't refer to
-	 * the target columns.
+	 * 把源元组提供给 ExecQual 和 ExecProject。我们不需要      
+	 * 目标元组，因为 WHEN qual 和目标列表不能引用         
+	 * 目标列。       
 	 */
 	econtext->ecxt_scantuple = NULL;
 	econtext->ecxt_innertuple = context->planSlot;
@@ -3279,24 +3279,24 @@ ExecMergeNotMatched(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
 		TupleTableSlot *newslot;
 
 		/*
-		 * Test condition, if any.
+		 * 求值 WHEN 条件     
 		 *
-		 * In the absence of any condition, we perform the action
-		 * unconditionally (no need to check separately since ExecQual() will
-		 * return true if there are no conditions to evaluate).
+		 * 在没有任何条件时，我们无条件执行动作
+		 * （无需单独检查，因为如果没有条件可求值，      
+		 * ExecQual() 会返回 true）。                     
 		 */
 		if (!ExecQual(action->mas_whenqual, econtext))
 			continue;
 
-		/* Perform stated action */
+		/* 执行既定动作    */
 		switch (commandType)
 		{
 			case CMD_INSERT:
 
 				/*
-				 * Project the tuple.  In case of a partitioned table, the
-				 * projection was already built to use the root's descriptor,
-				 * so we don't need to map the tuple here.
+				 * 投影元组。对分区表而言，投影             
+				 * 在构建时就已使用根的描述符，                
+				 * 因此这里无需映射元组。      
 				 */
 				newslot = ExecProject(action->mas_proj);
 				context->relaction = action;
@@ -3306,22 +3306,22 @@ ExecMergeNotMatched(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
 				mtstate->mt_merge_inserted += 1;
 				break;
 			case CMD_NOTHING:
-				/* Do nothing */
+				/* 不做事  */
 				break;
 			default:
 				elog(ERROR, "unknown action in MERGE WHEN NOT MATCHED clause");
 		}
 
 		/*
-		 * We've activated one of the WHEN clauses, so we don't search
-		 * further. This is required behaviour, not an optimization.
+		 * 已激活某个 WHEN 子句，故不再继续搜索。     
+		 * 这是要求的行为，不是优化。                  
 		 */
 		break;
 	}
 }
 
 /*
- * Initialize state for execution of MERGE.
+ * 初始化 MERGE 执行所需的状态。
  */
 void
 ExecInitMerge(ModifyTableState *mtstate, EState *estate)
@@ -3343,11 +3343,11 @@ ExecInitMerge(ModifyTableState *mtstate, EState *estate)
 	econtext = mtstate->ps.ps_ExprContext;
 
 	/*
-	 * Create a MergeActionState for each action on the mergeActionList and
-	 * add it to either a list of matched actions or not-matched actions.
+	 * 为 mergeActionList 上每个动作创建一个 MergeActionState， 
+	 * 并把它加入匹配动作列表或不匹配动作列表。      
 	 *
-	 * Similar logic appears in ExecInitPartitionInfo(), so if changing
-	 * anything here, do so there too.
+	 * ExecInitPartitionInfo() 中有类似逻辑，若改此处，    
+	 * 那边也要同步修改。    
 	 */
 	i = 0;
 	foreach(lc, node->mergeActionLists)
@@ -3360,7 +3360,7 @@ ExecInitMerge(ModifyTableState *mtstate, EState *estate)
 		i++;
 		relationDesc = RelationGetDescr(resultRelInfo->ri_RelationDesc);
 
-		/* initialize slots for MERGE fetches from this rel */
+		/* 为此关系的 MERGE 取数初始化 slot       */
 		if (unlikely(!resultRelInfo->ri_projectNewInfoValid))
 			ExecInitMergeTupleSlots(mtstate, resultRelInfo);
 
@@ -3373,8 +3373,8 @@ ExecInitMerge(ModifyTableState *mtstate, EState *estate)
 			List	  **list;
 
 			/*
-			 * Build action merge state for this rel.  (For partitions,
-			 * equivalent code exists in ExecInitPartitionInfo.)
+			 * 为该关系构建 merge 动作状态。（对分区， 
+			 * ExecInitPartitionInfo 中有等价代码。）   
 			 */
 			action_state = makeNode(MergeActionState);
 			action_state->mas_action = action;
@@ -3382,9 +3382,9 @@ ExecInitMerge(ModifyTableState *mtstate, EState *estate)
 													  &mtstate->ps);
 
 			/*
-			 * We create two lists - one for WHEN MATCHED actions and one for
-			 * WHEN NOT MATCHED actions - and stick the MergeActionState into
-			 * the appropriate list.
+			 * 创建两列表 -- 一个给 WHEN MATCHED 动作，一个给  
+			 * WHEN NOT MATCHED 动作 -- 并把 MergeActionState 放入     
+			 * 相应的列表。   
 			 */
 			if (action_state->mas_action->matched)
 				list = &resultRelInfo->ri_matchedMergeAction;
@@ -3395,20 +3395,20 @@ ExecInitMerge(ModifyTableState *mtstate, EState *estate)
 			switch (action->commandType)
 			{
 				case CMD_INSERT:
-					/* INSERT actions always use rootRelInfo */
+					/* INSERT 动作始终使用 rootRelInfo */
 					ExecCheckPlanOutput(rootRelInfo->ri_RelationDesc,
 										action->targetList);
 
 					/*
-					 * If the MERGE targets a partitioned table, any INSERT
-					 * actions must be routed through it, not the child
-					 * relations. Initialize the routing struct and the root
-					 * table's "new" tuple slot for that, if not already done.
-					 * The projection we prepare, for all relations, uses the
-					 * root relation descriptor, and targets the plan's root
-					 * slot.  (This is consistent with the fact that we
-					 * checked the plan output to match the root relation,
-					 * above.)
+					 * 如果 MERGE 的目标是分区表，任何 INSERT  
+					 * 动作都必须经由它路由，而不是子   
+					 * 关系。为此初始化路由结构以及根        
+					 * 表的 "new" 元组 slot（如果尚未做）。       
+					 * 我们为所有关系准备的投影都使用         
+					 * 根关系描述符，并指向计划的根           
+					 * slot。这与我们上方检查过计划        
+					 * 输出匹配根关系这一事实                  
+					 * 一致 
 					 */
 					if (rootRelInfo->ri_RelationDesc->rd_rel->relkind ==
 						RELKIND_PARTITIONED_TABLE)
@@ -3416,12 +3416,12 @@ ExecInitMerge(ModifyTableState *mtstate, EState *estate)
 						if (mtstate->mt_partition_tuple_routing == NULL)
 						{
 							/*
-							 * Initialize planstate for routing if not already
-							 * done.
+							 * 若尚未做，则初始化路由 planstate 即
+							 * 可  
 							 *
-							 * Note that the slot is managed as a standalone
-							 * slot belonging to ModifyTableState, so we pass
-							 * NULL for the 2nd argument.
+							 * 注意 slot 由 ModifyTableState 作为独立
+							 * slot 来管理，因此第二个参数        
+							 * 传 NULL。               
 							 */
 							mtstate->mt_root_tuple_slot =
 								table_slot_create(rootRelInfo->ri_RelationDesc,
@@ -3436,14 +3436,14 @@ ExecInitMerge(ModifyTableState *mtstate, EState *estate)
 					else
 					{
 						/*
-						 * If the MERGE targets an inherited table, we insert
-						 * into the root table, so we must initialize its
-						 * "new" tuple slot, if not already done, and use its
-						 * relation descriptor for the projection.
+						 * 若 MERGE 目标是继承表，则插入根表， 
+						 * 须初始化其 "new" slot（若未做），  
+						 * 并在投影中使用它的                       
+						 * 关系描述符。                     
 						 *
-						 * For non-inherited tables, rootRelInfo and
-						 * resultRelInfo are the same, and the "new" tuple
-						 * slot will already have been initialized.
+						 * 对非继承表，rootRelInfo 与        
+						 * resultRelInfo 相同，"new" 元组            
+						 * slot 应已初始化。                 
 						 */
 						if (rootRelInfo->ri_newTupleSlot == NULL)
 							rootRelInfo->ri_newTupleSlot =
@@ -3486,16 +3486,16 @@ ExecInitMerge(ModifyTableState *mtstate, EState *estate)
 	}
 
 	/*
-	 * If the MERGE targets an inherited table, any INSERT actions will use
-	 * rootRelInfo, and rootRelInfo will not be in the resultRelInfo array.
-	 * Therefore we must initialize its WITH CHECK OPTION constraints, as
-	 * ExecInitModifyTable did for the resultRelInfo entries, but there should
-	 * be nothing to do for RETURNING, since MERGE does not support RETURNING.
+	 * 若 MERGE 目标是继承表，任何 INSERT 动作都会用        
+	 * rootRelInfo，而 rootRelInfo 不在 resultRelInfo 数组中。     
+	 * 因此必须初始化它的 WITH CHECK OPTION 约束，           
+	 * 正如 ExecInitModifyTable 对 resultRelInfo 条目所做的那样；  
+	 * 但 RETURNING 无事可做，因为 MERGE 不支持 RETURNING。       
 	 *
-	 * Note that the planner does not build a withCheckOptionList for the root
-	 * relation, but as in ExecInitPartitionInfo, we can use the first
-	 * resultRelInfo entry as a reference to calculate the attno's for the
-	 * root table.
+	 * 注意规划器不会为根关系构建 withCheckOptionList，         
+	 * 但与 ExecInitPartitionInfo 一样，可用第一个          
+	 * resultRelInfo 条目作为参照来计算                          
+	 * attno。   
 	 */
 	if (rootRelInfo != mtstate->resultRelInfo &&
 		rootRelInfo->ri_RelationDesc->rd_rel->relkind != RELKIND_PARTITIONED_TABLE &&
@@ -3509,14 +3509,14 @@ ExecInitMerge(ModifyTableState *mtstate, EState *estate)
 			List	   *wcoList;
 			List	   *wcoExprs = NIL;
 
-			/* There should be as many WCO lists as result rels */
+			/* WCO 列表数量应与结果关系数量相同   */
 			Assert(list_length(node->withCheckOptionLists) ==
 				   list_length(node->resultRelations));
 
 			/*
-			 * Use the first WCO list as a reference. In the most common case,
-			 * this will be for the same relation as rootRelInfo, and so there
-			 * will be no need to adjust its attno's.
+			 * 用第一个 WCO 列表作参照。在最常见的情况下， 
+			 * 它对应的关系就是 rootRelInfo 的关系，              
+			 * 因而无需调整其 attno。        
 			 */
 			wcoList = linitial(node->withCheckOptionLists);
 			if (rootRelation != firstResultRel)
@@ -3525,7 +3525,7 @@ ExecInitMerge(ModifyTableState *mtstate, EState *estate)
 				AttrMap    *part_attmap;
 				bool		found_whole_row;
 
-				/* Convert any Vars in it to contain the root's attno's */
+				/* 把其中的 Var 转换为包含根的 attno         */
 				part_attmap =
 					build_attrmap_by_name(RelationGetDescr(rootRelation),
 										  RelationGetDescr(firstResultRel),
@@ -3552,16 +3552,16 @@ ExecInitMerge(ModifyTableState *mtstate, EState *estate)
 			rootRelInfo->ri_WithCheckOptionExprs = wcoExprs;
 		}
 
-		/* MERGE does not support RETURNING */
+		/* MERGE 不支持 RETURNING        */
 		Assert(node->returningLists == NIL);
 	}
 }
 
 /*
- * Initializes the tuple slots in a ResultRelInfo for any MERGE action.
+ * 为 MERGE 动作初始化 ResultRelInfo 中的元组 slot。        
  *
- * We mark 'projectNewInfoValid' even though the projections themselves
- * are not initialized here.
+ * 即便投影本身并不在此处初始化，仍标记              
+ * 'projectNewInfoValid'    
  */
 void
 ExecInitMergeTupleSlots(ModifyTableState *mtstate,
@@ -3581,7 +3581,7 @@ ExecInitMergeTupleSlots(ModifyTableState *mtstate,
 }
 
 /*
- * Process BEFORE EACH STATEMENT triggers
+ * 处理 BEFORE EACH STATEMENT 触发器
  */
 static void
 fireBSTriggers(ModifyTableState *node)
@@ -3618,7 +3618,7 @@ fireBSTriggers(ModifyTableState *node)
 }
 
 /*
- * Process AFTER EACH STATEMENT triggers
+ * 处理 AFTER EACH STATEMENT 触发器
  */
 static void
 fireASTriggers(ModifyTableState *node)
@@ -3662,8 +3662,8 @@ fireASTriggers(ModifyTableState *node)
 }
 
 /*
- * Set up the state needed for collecting transition tuples for AFTER
- * triggers.
+ * 设置收集 AFTER 触发器过渡元组所需的                 
+ * 状态。
  */
 static void
 ExecSetupTransitionCaptureState(ModifyTableState *mtstate, EState *estate)
@@ -3671,7 +3671,7 @@ ExecSetupTransitionCaptureState(ModifyTableState *mtstate, EState *estate)
 	ModifyTable *plan = (ModifyTable *) mtstate->ps.plan;
 	ResultRelInfo *targetRelInfo = mtstate->rootResultRelInfo;
 
-	/* Check for transition tables on the directly targeted relation. */
+	/* 检查直接目标关系上的过渡表。                     */
 	mtstate->mt_transition_capture =
 		MakeTransitionCaptureState(targetRelInfo->ri_TrigDesc,
 								   RelationGetRelid(targetRelInfo->ri_RelationDesc),
@@ -3685,14 +3685,14 @@ ExecSetupTransitionCaptureState(ModifyTableState *mtstate, EState *estate)
 }
 
 /*
- * ExecPrepareTupleRouting --- prepare for routing one tuple
+ * ExecPrepareTupleRouting --- 为元组路由做准备     
  *
- * Determine the partition in which the tuple in slot is to be inserted,
- * and return its ResultRelInfo in *partRelInfo.  The return value is
- * a slot holding the tuple of the partition rowtype.
+ * 确定 slot 中的元组要插入哪个分区                        
+ * 并把其 ResultRelInfo 存入 *partRelInfo。返回值是一个  
+ * 容纳该分区行类型元组的 slot。         
  *
- * This also sets the transition table information in mtstate based on the
- * selected partition.
+ * 这还会根据所选分区，在 mtstate 中设置过渡表           
+ * 信息。          
  */
 static TupleTableSlot *
 ExecPrepareTupleRouting(ModifyTableState *mtstate,
@@ -3706,20 +3706,20 @@ ExecPrepareTupleRouting(ModifyTableState *mtstate,
 	TupleConversionMap *map;
 
 	/*
-	 * Lookup the target partition's ResultRelInfo.  If ExecFindPartition does
-	 * not find a valid partition for the tuple in 'slot' then an error is
-	 * raised.  An error may also be raised if the found partition is not a
-	 * valid target for INSERTs.  This is required since a partitioned table
-	 * UPDATE to another partition becomes a DELETE+INSERT.
+	 * 查找目标分区的 ResultRelInfo。若 ExecFindPartition            
+	 * 为 'slot' 中的元组找不到有效分区则报错。           
+	 * 若找到的分区不是 INSERT 的有效目标也会报错。      
+	 * 这一检查是必需的，因为分区表 UPDATE 到另一分区    
+	 * 会变成 DELETE+INSERT。                          
 	 */
 	partrel = ExecFindPartition(mtstate, targetRelInfo, proute, slot, estate);
 
 	/*
-	 * If we're capturing transition tuples, we might need to convert from the
-	 * partition rowtype to root partitioned table's rowtype.  But if there
-	 * are no BEFORE triggers on the partition that could change the tuple, we
-	 * can just remember the original unconverted tuple to avoid a needless
-	 * round trip conversion.
+	 * 若正在收集过渡元组，可能需要把分区行类型转换为  
+	 * 根分区表的行类型。但如果该分区上没有能改变     
+	 * 元组的 BEFORE 触发器，我们可以直接记住原始未转换   
+	 * 元组，以免做一次不必要的                                
+	 * 往返转换。       
 	 */
 	if (mtstate->mt_transition_capture != NULL)
 	{
@@ -3733,7 +3733,7 @@ ExecPrepareTupleRouting(ModifyTableState *mtstate,
 	}
 
 	/*
-	 * Convert the tuple, if necessary.
+	 * 如有必要则转换元组。  
 	 */
 	map = ExecGetRootToChildMap(partrel, estate);
 	if (map != NULL)
@@ -3750,8 +3750,8 @@ ExecPrepareTupleRouting(ModifyTableState *mtstate,
 /* ----------------------------------------------------------------
  *	   ExecModifyTable
  *
- *		Perform table modifications as required, and return RETURNING results
- *		if needed.
+ *		按需执行表修改，并在需要时返回 RETURNING              
+ *		结果。 
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
@@ -3774,28 +3774,28 @@ ExecModifyTable(PlanState *pstate)
 	CHECK_FOR_INTERRUPTS();
 
 	/*
-	 * This should NOT get called during EvalPlanQual; we should have passed a
-	 * subplan tree to EvalPlanQual, instead.  Use a runtime test not just
-	 * Assert because this condition is easy to miss in testing.  (Note:
-	 * although ModifyTable should not get executed within an EvalPlanQual
-	 * operation, we do have to allow it to be initialized and shut down in
-	 * case it is within a CTE subplan.  Hence this test must be here, not in
-	 * ExecInitModifyTable.)
+	 * 本函数不应在 EvalPlanQual 期间被调用；                     
+	 * 而应把子计划树传给 EvalPlanQual。要用运行时测试   
+	 * 而非仅靠 Assert，因为测试中极易漏掉此情形。    
+	 * （注意：虽然 ModifyTable 不应在 EvalPlanQual 中执行， 
+	 * 但我们必须允许其被初始化和关闭，以防它位于     
+	 * CTE 子计划中，因此该测试必须放在此处而不是         
+	 * ExecInitModifyTable  
 	 */
 	if (estate->es_epq_active != NULL)
 		elog(ERROR, "ModifyTable should not be called during EvalPlanQual");
 
 	/*
-	 * If we've already completed processing, don't try to do more.  We need
-	 * this test because ExecPostprocessPlan might call us an extra time, and
-	 * our subplan's nodes aren't necessarily robust against being called
-	 * extra times.
+	 * 若已处理完毕就不要再做。我们需要这一测试，      
+	 * 因为 ExecPostprocessPlan 可能会额外多调用我们一次，    
+	 * 而我们的子计划节点未必经得起额外                  
+	 * 调用。   
 	 */
 	if (node->mt_done)
 		return NULL;
 
 	/*
-	 * On first call, fire BEFORE STATEMENT triggers before proceeding.
+	 * 首次调用时先触发 BEFORE STATEMENT 触发器再继续。 
 	 */
 	if (node->fireBSTriggers)
 	{
@@ -3803,47 +3803,47 @@ ExecModifyTable(PlanState *pstate)
 		node->fireBSTriggers = false;
 	}
 
-	/* Preload local variables */
+	/* 预加载局部变量   */
 	resultRelInfo = node->resultRelInfo + node->mt_lastResultIndex;
 	subplanstate = outerPlanState(node);
 
-	/* Set global context */
+	/* 设全局上下文 */
 	context.mtstate = node;
 	context.epqstate = &node->mt_epqstate;
 	context.estate = estate;
 
 	/*
-	 * Fetch rows from subplan, and execute the required table modification
-	 * for each row.
+	 * 从子计划取出各行，并对每行执行所需的              
+	 * 表修改。 
 	 */
 	for (;;)
 	{
 		/*
-		 * Reset the per-output-tuple exprcontext.  This is needed because
-		 * triggers expect to use that context as workspace.  It's a bit ugly
-		 * to do this below the top level of the plan, however.  We might need
-		 * to rethink this later.
+		 * 重置每个输出元组的 exprcontext。之所以需要，   
+		 * 是因为触发器要把该上下文当作工作区使用。      
+		 * 不过把这一步放在计划顶层之下略显别扭，          
+		 * 日后或需斟酌。 
 		 */
 		ResetPerTupleExprContext(estate);
 
 		/*
-		 * Reset per-tuple memory context used for processing on conflict and
-		 * returning clauses, to free any expression evaluation storage
-		 * allocated in the previous cycle.
+		 * 重置用于处理 ON CONFLICT 与 RETURNING 子句的            
+		 * 每元组内存上下文，以释放上一轮分配的      
+		 * 表达式求值存储。        
 		 */
 		if (pstate->ps_ExprContext)
 			ResetExprContext(pstate->ps_ExprContext);
 
 		context.planSlot = ExecProcNode(subplanstate);
 
-		/* No more tuples to process? */
+		/* 已无待处理元组？   */
 		if (TupIsNull(context.planSlot))
 			break;
 
 		/*
-		 * When there are multiple result relations, each tuple contains a
-		 * junk column that gives the OID of the rel from which it came.
-		 * Extract it and select the correct result relation.
+		 * 当有多个结果关系时，每个元组都含 junk 列，   
+		 * 它给出元组来源关系的 OID。需提取该值，      
+		 * 并据此选出正确的结果关系。           
 		 */
 		if (AttributeNumberIsValid(node->mt_resultOidAttno))
 		{
@@ -3856,44 +3856,44 @@ ExecModifyTable(PlanState *pstate)
 			if (isNull)
 			{
 				/*
-				 * For commands other than MERGE, any tuples having InvalidOid
-				 * for tableoid are errors.  For MERGE, we may need to handle
-				 * them as WHEN NOT MATCHED clauses if any, so do that.
+				 * 对 MERGE 以外的命令，tableoid 为 InvalidOid 的    
+				 * 元组都是错误。对 MERGE，可能需把它们按    
+				 * WHEN NOT MATCHED 子句处理，若有则照做。  
 				 *
-				 * Note that we use the node's toplevel resultRelInfo, not any
-				 * specific partition's.
+				 * 注意我们使用节点的顶层 resultRelInfo，         
+				 * 非特定分区的。
 				 */
 				if (operation == CMD_MERGE)
 				{
 					EvalPlanQualSetSlot(&node->mt_epqstate, context.planSlot);
 
 					ExecMerge(&context, node->resultRelInfo, NULL, node->canSetTag);
-					continue;	/* no RETURNING support yet */
+					continue;	/* 尚不支持 RETURNING   */
 				}
 
 				elog(ERROR, "tableoid is NULL");
 			}
 			resultoid = DatumGetObjectId(datum);
 
-			/* If it's not the same as last time, we need to locate the rel */
+			/* 若与上次不同，则需要重新定位关系             */
 			if (resultoid != node->mt_lastResultOid)
 				resultRelInfo = ExecLookupResultRelByOid(node, resultoid,
 														 false, true);
 		}
 
 		/*
-		 * If resultRelInfo->ri_usesFdwDirectModify is true, all we need to do
-		 * here is compute the RETURNING expressions.
+		 * 若 resultRelInfo->ri_usesFdwDirectModify 为真，我们在此    
+		 * 只需计算 RETURNING 表达式。       
 		 */
 		if (resultRelInfo->ri_usesFdwDirectModify)
 		{
 			Assert(resultRelInfo->ri_projectReturning);
 
 			/*
-			 * A scan slot containing the data that was actually inserted,
-			 * updated or deleted has already been made available to
-			 * ExecProcessReturning by IterateDirectModify, so no need to
-			 * provide it here.
+			 * 实际插入、更新或删除数据的扫描 slot 已由  
+			 * IterateDirectModify 提供给 ExecProcessReturning，
+			 * 因此无需                                              
+			 * 在此提供。 
 			 */
 			slot = ExecProcessReturning(resultRelInfo, NULL, context.planSlot);
 
@@ -3907,11 +3907,11 @@ ExecModifyTable(PlanState *pstate)
 		oldtuple = NULL;
 
 		/*
-		 * For UPDATE/DELETE/MERGE, fetch the row identity info for the tuple
-		 * to be updated/deleted/merged.  For a heap relation, that's a TID;
-		 * otherwise we may have a wholerow junk attr that carries the old
-		 * tuple in toto.  Keep this in step with the part of
-		 * ExecInitModifyTable that sets up ri_RowIdAttNo.
+		 * 对 UPDATE/DELETE/MERGE，要取回待更新/删除/合并        
+		 * 元组的行标识信息。堆关系对应 TID；否则可能是 
+		 * 可整体携带旧元组的 wholerow junk 属性。请与      
+		 * ExecInitModifyTable 设置 ri_RowIdAttNo 的部分
+		 * 保持同步。                                
 		 */
 		if (operation == CMD_UPDATE || operation == CMD_DELETE ||
 			operation == CMD_MERGE)
@@ -3925,19 +3925,19 @@ ExecModifyTable(PlanState *pstate)
 				relkind == RELKIND_MATVIEW ||
 				relkind == RELKIND_PARTITIONED_TABLE)
 			{
-				/* ri_RowIdAttNo refers to a ctid attribute */
+				/* ri_RowIdAttNo 指向一个 ctid 属性   */
 				Assert(AttributeNumberIsValid(resultRelInfo->ri_RowIdAttNo));
 				datum = ExecGetJunkAttribute(slot,
 											 resultRelInfo->ri_RowIdAttNo,
 											 &isNull);
 
 				/*
-				 * For commands other than MERGE, any tuples having a null row
-				 * identifier are errors.  For MERGE, we may need to handle
-				 * them as WHEN NOT MATCHED clauses if any, so do that.
+				 * 对 MERGE 以外的命令，任何行标识为空的元组 
+				 * 都是错误。对 MERGE，我们可能需把它们按  
+				 * WHEN NOT MATCHED 子句处理，若有则照做。  
 				 *
-				 * Note that we use the node's toplevel resultRelInfo, not any
-				 * specific partition's.
+				 * 注意我们使用节点的顶层 resultRelInfo，         
+				 * 非特定分区的。
 				 */
 				if (isNull)
 				{
@@ -3946,39 +3946,39 @@ ExecModifyTable(PlanState *pstate)
 						EvalPlanQualSetSlot(&node->mt_epqstate, context.planSlot);
 
 						ExecMerge(&context, node->resultRelInfo, NULL, node->canSetTag);
-						continue;	/* no RETURNING support yet */
+						continue;	/* 尚不支持 RETURNING   */
 					}
 
 					elog(ERROR, "ctid is NULL");
 				}
 
 				tupleid = (ItemPointer) DatumGetPointer(datum);
-				tuple_ctid = *tupleid;	/* be sure we don't free ctid!! */
+				tuple_ctid = *tupleid;	/* 切记不要释放 ctid！   */
 				tupleid = &tuple_ctid;
 			}
 
 			/*
-			 * Use the wholerow attribute, when available, to reconstruct the
-			 * old relation tuple.  The old tuple serves one or both of two
-			 * purposes: 1) it serves as the OLD tuple for row triggers, 2) it
-			 * provides values for any unchanged columns for the NEW tuple of
-			 * an UPDATE, because the subplan does not produce all the columns
-			 * of the target table.
+			 * 在可用时利用 wholerow 属性来重建旧关系元组。 
+			 * 旧元组承担以下两项用途之一或两者：         
+			 * 1) 作为行触发器的 OLD 元组，2) 为 UPDATE 的 NEW    
+			 * 元组提供未改动列的值，因为子计划              
+			 * 并不会产出                                                
+			 * 目标表各列。  
 			 *
-			 * Note that the wholerow attribute does not carry system columns,
-			 * so foreign table triggers miss seeing those, except that we
-			 * know enough here to set t_tableOid.  Quite separately from
-			 * this, the FDW may fetch its own junk attrs to identify the row.
+			 * 注意 wholerow 属性不携带系统列，                    
+			 * 外表触发器看不到它们；但我们在此足以     
+			 * 设置 t_tableOid。另外与此完全无关的是，     
+			 * FDW 也可能取自己的 junk 属性来识别该行。        
 			 *
-			 * Other relevant relkinds, currently limited to views having
-			 * INSTEAD OF triggers, always have a wholerow attribute.
+			 * 其他相关 relkind（目前仅限于有 INSTEAD OF      
+			 * 触发器的视图）总是拥有 wholerow 属性。  
 			 */
 			else if (AttributeNumberIsValid(resultRelInfo->ri_RowIdAttNo))
 			{
 				datum = ExecGetJunkAttribute(slot,
 											 resultRelInfo->ri_RowIdAttNo,
 											 &isNull);
-				/* shouldn't ever get a null result... */
+				/* 按理不应得到空结果……   */
 				if (isNull)
 					elog(ERROR, "wholerow is NULL");
 
@@ -3986,7 +3986,7 @@ ExecModifyTable(PlanState *pstate)
 				oldtupdata.t_len =
 					HeapTupleHeaderGetDatumLength(oldtupdata.t_data);
 				ItemPointerSetInvalid(&(oldtupdata.t_self));
-				/* Historically, view triggers see invalid t_tableOid. */
+				/* 按惯例视图触发器看到的 t_tableOid 无效 */
 				oldtupdata.t_tableOid =
 					(relkind == RELKIND_VIEW) ? InvalidOid :
 					RelationGetRelid(resultRelInfo->ri_RelationDesc);
@@ -3995,7 +3995,7 @@ ExecModifyTable(PlanState *pstate)
 			}
 			else
 			{
-				/* Only foreign tables are allowed to omit a row-ID attr */
+				/* 只有外表才允许省略行标识属性            */
 				Assert(relkind == RELKIND_FOREIGN_TABLE);
 			}
 		}
@@ -4003,7 +4003,7 @@ ExecModifyTable(PlanState *pstate)
 		switch (operation)
 		{
 			case CMD_INSERT:
-				/* Initialize projection info if first time for this table */
+				/* 若该表是首次处理，则初始化投影信息     */
 				if (unlikely(!resultRelInfo->ri_projectNewInfoValid))
 					ExecInitInsertProjection(node, resultRelInfo);
 				slot = ExecGetInsertNewTuple(resultRelInfo, context.planSlot);
@@ -4014,24 +4014,24 @@ ExecModifyTable(PlanState *pstate)
 			case CMD_UPDATE:
 				tuplock = false;
 
-				/* Initialize projection info if first time for this table */
+				/* 若该表是首次处理，则初始化投影信息     */
 				if (unlikely(!resultRelInfo->ri_projectNewInfoValid))
 					ExecInitUpdateProjection(node, resultRelInfo);
 
 				/*
-				 * Make the new tuple by combining plan's output tuple with
-				 * the old tuple being updated.
+				 * 把计划输出元组与被更新的旧元组组合，  
+				 * 以构造新元组。       
 				 */
 				oldSlot = resultRelInfo->ri_oldTupleSlot;
 				if (oldtuple != NULL)
 				{
 					Assert(!resultRelInfo->ri_needLockTagTuple);
-					/* Use the wholerow junk attr as the old tuple. */
+					/* 用 wholerow junk 属性作为旧元组。   */
 					ExecForceStoreHeapTuple(oldtuple, oldSlot, false);
 				}
 				else
 				{
-					/* Fetch the most recent version of old tuple. */
+					/* 取回旧元组的最新版本。           */
 					Relation	relation = resultRelInfo->ri_RelationDesc;
 
 					if (resultRelInfo->ri_needLockTagTuple)
@@ -4048,7 +4048,7 @@ ExecModifyTable(PlanState *pstate)
 											 oldSlot);
 				context.relaction = NULL;
 
-				/* Now apply the update. */
+				/* 现在执行更新。 */
 				slot = ExecUpdate(&context, resultRelInfo, tupleid, oldtuple,
 								  slot, node->canSetTag);
 				if (tuplock)
@@ -4071,21 +4071,21 @@ ExecModifyTable(PlanState *pstate)
 		}
 
 		/*
-		 * If we got a RETURNING result, return it to caller.  We'll continue
-		 * the work on next call.
+		 * 若得到 RETURNING 结果，就把它返回给调用者。下次 
+		 * 调用时继续。    
 		 */
 		if (slot)
 			return slot;
 	}
 
 	/*
-	 * Insert remaining tuples for batch insert.
+	 * 插入剩余元组完成批量插入。  
 	 */
 	if (estate->es_insert_pending_result_relations != NIL)
 		ExecPendingInserts(estate);
 
 	/*
-	 * We're done, but fire AFTER STATEMENT triggers before exiting.
+	 * 已完成，退出前须触发 AFTER STATEMENT 触发器。  
 	 */
 	fireASTriggers(node);
 
@@ -4096,13 +4096,13 @@ ExecModifyTable(PlanState *pstate)
 
 /*
  * ExecLookupResultRelByOid
- * 		If the table with given OID is among the result relations to be
- * 		updated by the given ModifyTable node, return its ResultRelInfo.
+ * 		若给定 OID 的表属于该 ModifyTable 节点要更新的   
+ * 		结果关系之一，则返回其 ResultRelInfo。              
  *
- * If not found, return NULL if missing_ok, else raise error.
+ * 未找到时 missing_ok 则返回 NULL，否则报错。  
  *
- * If update_cache is true, then upon successful lookup, update the node's
- * one-element cache.  ONLY ExecModifyTable may pass true for this.
+ * 若 update_cache 为真，则查找成功后会更新节点的         
+ * 单元素缓存。只有 ExecModifyTable 可为此传真值。  
  */
 ResultRelInfo *
 ExecLookupResultRelByOid(ModifyTableState *node, Oid resultoid,
@@ -4110,7 +4110,7 @@ ExecLookupResultRelByOid(ModifyTableState *node, Oid resultoid,
 {
 	if (node->mt_resultOidHash)
 	{
-		/* Use the pre-built hash table to locate the rel */
+		/* 用预建的哈希表来定位关系           */
 		MTTargetRelLookup *mtlookup;
 
 		mtlookup = (MTTargetRelLookup *)
@@ -4127,7 +4127,7 @@ ExecLookupResultRelByOid(ModifyTableState *node, Oid resultoid,
 	}
 	else
 	{
-		/* With few target rels, just search the ResultRelInfo array */
+		/* 目标关系较少时，直接搜索 ResultRelInfo 数组 */
 		for (int ndx = 0; ndx < node->mt_nrels; ndx++)
 		{
 			ResultRelInfo *rInfo = node->resultRelInfo + ndx;
@@ -4166,11 +4166,11 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 	int			i;
 	Relation	rel;
 
-	/* check for unsupported flags */
+	/* 检查不支持的标志位 */
 	Assert(!(eflags & (EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK)));
 
 	/*
-	 * create state structure
+	 * 创建状态结构    
 	 */
 	mtstate = makeNode(ModifyTableState);
 	mtstate->ps.plan = (Plan *) node;
@@ -4190,17 +4190,17 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 	mtstate->mt_merge_deleted = 0;
 
 	/*----------
-	 * Resolve the target relation. This is the same as:
+	 * 解析目标关系。这等价于：             
 	 *
-	 * - the relation for which we will fire FOR STATEMENT triggers,
-	 * - the relation into whose tuple format all captured transition tuples
-	 *   must be converted, and
-	 * - the root partitioned table used for tuple routing.
+	 * - 我们将对其触发 FOR STATEMENT 触发器的关系，  
+	 * - 收集的过渡元组都必须转换成其元组格式的关系， 
+	 *   以及                
+	 * - 用于元组路由的根分区表。              
 	 *
-	 * If it's a partitioned or inherited table, the root partition or
-	 * appendrel RTE doesn't appear elsewhere in the plan and its RT index is
-	 * given explicitly in node->rootRelation.  Otherwise, the target relation
-	 * is the sole relation in the node->resultRelations list.
+	 * 若它是分区表或继承表，则根分区或 appendrel RTE 
+	 * 不会出现在计划的其他位置，其 RT 索引由               
+	 * node->rootRelation 显式给出。否则，目标关系就是          
+	 * node->resultRelations 列表中唯一的关系。      
 	 *----------
 	 */
 	if (node->rootRelation > 0)
@@ -4217,23 +4217,23 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 							   linitial_int(node->resultRelations));
 	}
 
-	/* set up epqstate with dummy subplan data for the moment */
+	/* 暂时用哑子计划数据来设置 epqstate          */
 	EvalPlanQualInit(&mtstate->mt_epqstate, estate, NULL, NIL,
 					 node->epqParam, node->resultRelations);
 	mtstate->fireBSTriggers = true;
 
 	/*
-	 * Build state for collecting transition tuples.  This requires having a
-	 * valid trigger query context, so skip it in explain-only mode.
+	 * 构建收集过渡元组的状态。这需要有有效的触发器   
+	 * 查询上下文，故在 explain-only 模式下跳过。     
 	 */
 	if (!(eflags & EXEC_FLAG_EXPLAIN_ONLY))
 		ExecSetupTransitionCaptureState(mtstate, estate);
 
 	/*
-	 * Open all the result relations and initialize the ResultRelInfo structs.
-	 * (But root relation was initialized above, if it's part of the array.)
-	 * We must do this before initializing the subplan, because direct-modify
-	 * FDWs expect their ResultRelInfos to be available.
+	 * 打开所有结果关系并初始化 ResultRelInfo 结构。           
+	 * 但根关系若属于该数组，则已在上面初始化过。      
+	 * 我们必须在初始化子计划之前完成这一步，因为       
+	 * direct-modify FDW 要求 ResultRelInfo 可用。 
 	 */
 	resultRelInfo = mtstate->resultRelInfo;
 	i = 0;
@@ -4250,20 +4250,20 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 			ExecInitResultRelation(estate, resultRelInfo, resultRelation);
 
 			/*
-			 * For child result relations, store the root result relation
-			 * pointer.  We do so for the convenience of places that want to
-			 * look at the query's original target relation but don't have the
-			 * mtstate handy.
+			 * 对子结果关系，要存储根结果关系指针。    
+			 * 这是为了方便那些想查看查询原始目标关系、 
+			 * 却没有 mtstate 可用的                                    
+			 * 地方。     
 			 */
 			resultRelInfo->ri_RootResultRelInfo = mtstate->rootResultRelInfo;
 		}
 
-		/* Initialize the usesFdwDirectModify flag */
+		/* 初始化 usesFdwDirectModify 标志    */
 		resultRelInfo->ri_usesFdwDirectModify =
 			bms_is_member(i, node->fdwDirectModifyPlans);
 
 		/*
-		 * Verify result relation is a valid target for the current operation
+		 * 验证结果关系是当前操作的有效目标                  
 		 */
 		CheckValidResultRelNew(resultRelInfo, operation,
 							   node->onConflictAction, mergeActions);
@@ -4273,18 +4273,18 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * Now we may initialize the subplan.
+	 * 现在可初始化子计划了。 
 	 */
 	outerPlanState(mtstate) = ExecInitNode(subplan, estate, eflags);
 
 	/*
-	 * Do additional per-result-relation initialization.
+	 * 为每个结果关系做额外初始化。       
 	 */
 	for (i = 0; i < nrels; i++)
 	{
 		resultRelInfo = &mtstate->resultRelInfo[i];
 
-		/* Let FDWs init themselves for foreign-table result rels */
+		/* 让 FDW 为外表结果关系自行初始化           */
 		if (!resultRelInfo->ri_usesFdwDirectModify &&
 			resultRelInfo->ri_FdwRoutine != NULL &&
 			resultRelInfo->ri_FdwRoutine->BeginForeignModify != NULL)
@@ -4299,10 +4299,10 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 		}
 
 		/*
-		 * For UPDATE/DELETE/MERGE, find the appropriate junk attr now, either
-		 * a 'ctid' or 'wholerow' attribute depending on relkind.  For foreign
-		 * tables, the FDW might have created additional junk attr(s), but
-		 * those are no concern of ours.
+		 * 对 UPDATE/DELETE/MERGE，现在要按 relkind 找出合适        
+		 * 的 junk 属性，是 'ctid' 还是 'wholerow'。对外表而言，
+		 * FDW 可能已创建了额外的 junk 属性，                 
+		 * 但这与我们无关。     
 		 */
 		if (operation == CMD_UPDATE || operation == CMD_DELETE ||
 			operation == CMD_MERGE)
@@ -4322,16 +4322,16 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 			else if (relkind == RELKIND_FOREIGN_TABLE)
 			{
 				/*
-				 * We don't support MERGE with foreign tables for now.  (It's
-				 * problematic because the implementation uses CTID.)
+				 * 我们不支持外表上的 MERGE。（其实现依赖    
+				 * CTID，因此有问题。）                      
 				 */
 				Assert(operation != CMD_MERGE);
 
 				/*
-				 * When there is a row-level trigger, there should be a
-				 * wholerow attribute.  We also require it to be present in
-				 * UPDATE and MERGE, so we can get the values of unchanged
-				 * columns.
+				 * 有行级触发器时就应有 wholerow 属性。   
+				 * 我们还要求 UPDATE 和 MERGE 中也存在它，     
+				 * 以便能取到未改动列的                         
+				 * 值。  
 				 */
 				resultRelInfo->ri_RowIdAttNo =
 					ExecFindJunkAttributeInTlist(subplan->targetlist,
@@ -4342,9 +4342,9 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 			}
 			else
 			{
-				/* No support for MERGE */
+				/* 不支持 MERGE      */
 				Assert(operation != CMD_MERGE);
-				/* Other valid target relkinds must provide wholerow */
+				/* 其他有效目标 relkind 必须提供 wholerow  */
 				resultRelInfo->ri_RowIdAttNo =
 					ExecFindJunkAttributeInTlist(subplan->targetlist,
 												 "wholerow");
@@ -4355,24 +4355,24 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * If this is an inherited update/delete/merge, there will be a junk
-	 * attribute named "tableoid" present in the subplan's targetlist.  It
-	 * will be used to identify the result relation for a given tuple to be
-	 * updated/deleted/merged.
+	 * 若这是继承的 update/delete/merge，则会有一个名为   
+	 * "tableoid" 的 junk 属性。它将用于识别给定待           
+	 * 更新/删除/合并的元组所对应的                           
+	 * 结果关系。        
 	 */
 	mtstate->mt_resultOidAttno =
 		ExecFindJunkAttributeInTlist(subplan->targetlist, "tableoid");
 	Assert(AttributeNumberIsValid(mtstate->mt_resultOidAttno) || nrels == 1);
-	mtstate->mt_lastResultOid = InvalidOid; /* force lookup at first tuple */
-	mtstate->mt_lastResultIndex = 0;	/* must be zero if no such attr */
+	mtstate->mt_lastResultOid = InvalidOid; /* 首个元组强制查找    */
+	mtstate->mt_lastResultIndex = 0;	/* 若无此属性则为 0      */
 
-	/* Get the root target relation */
+	/* 获取根目标关系        */
 	rel = mtstate->rootResultRelInfo->ri_RelationDesc;
 
 	/*
-	 * Build state for tuple routing if it's a partitioned INSERT.  An UPDATE
-	 * or MERGE might need this too, but only if it actually moves tuples
-	 * between partitions; in that case setup is done by
+	 * 若是分区表 INSERT，则构建元组路由状态。UPDATE         
+	 * 或 MERGE 也可能需要它，但仅当其确实在分区间     
+	 * 移动元组时，由下述函数完成设置： 
 	 * ExecCrossPartitionUpdate.
 	 */
 	if (rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE &&
@@ -4381,7 +4381,7 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 			ExecSetupPartitionTupleRouting(estate, rel);
 
 	/*
-	 * Initialize any WITH CHECK OPTION constraints if needed.
+	 * 如有需要，初始化 WITH CHECK OPTION 约束。   
 	 */
 	resultRelInfo = mtstate->resultRelInfo;
 	foreach(l, node->withCheckOptionLists)
@@ -4405,7 +4405,7 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * Initialize RETURNING projections if needed.
+	 * 需要时初始化 RETURNING 投影。     
 	 */
 	if (node->returningLists)
 	{
@@ -4413,22 +4413,22 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 		ExprContext *econtext;
 
 		/*
-		 * Initialize result tuple slot and assign its rowtype using the first
-		 * RETURNING list.  We assume the rest will look the same.
+		 * 初始化结果元组 slot，并使用第一个 RETURNING 列表   
+		 * 来指定其行类型。假定其余的都相同。    
 		 */
 		mtstate->ps.plan->targetlist = (List *) linitial(node->returningLists);
 
-		/* Set up a slot for the output of the RETURNING projection(s) */
+		/* 为 RETURNING 投影的输出设置一个 slot              */
 		ExecInitResultTupleSlotTL(&mtstate->ps, &TTSOpsVirtual);
 		slot = mtstate->ps.ps_ResultTupleSlot;
 
-		/* Need an econtext too */
+		/* 也需要 econtext   */
 		if (mtstate->ps.ps_ExprContext == NULL)
 			ExecAssignExprContext(estate, &mtstate->ps);
 		econtext = mtstate->ps.ps_ExprContext;
 
 		/*
-		 * Build a projection for each result rel.
+		 * 为每个结果关系构建投影。   
 		 */
 		resultRelInfo = mtstate->resultRelInfo;
 		foreach(l, node->returningLists)
@@ -4445,8 +4445,8 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 	else
 	{
 		/*
-		 * We still must construct a dummy result tuple type, because InitPlan
-		 * expects one (maybe should change that?).
+		 * 我们仍须构造一个哑结果元组类型，因为 InitPlan    
+		 * 需要一个（也许该改掉？）。 
 		 */
 		mtstate->ps.plan->targetlist = NIL;
 		ExecInitResultTypeTL(&mtstate->ps);
@@ -4454,18 +4454,18 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 		mtstate->ps.ps_ExprContext = NULL;
 	}
 
-	/* Set the list of arbiter indexes if needed for ON CONFLICT */
+	/* ON CONFLICT 需要时设置仲裁索引列表             */
 	resultRelInfo = mtstate->resultRelInfo;
 	if (node->onConflictAction != ONCONFLICT_NONE)
 	{
-		/* insert may only have one relation, inheritance is not expanded */
+		/* insert 只能有一个关系，继承未展开                 */
 		Assert(nrels == 1);
 		resultRelInfo->ri_onConflictArbiterIndexes = node->arbiterIndexes;
 	}
 
 	/*
-	 * If needed, Initialize target list, projection and qual for ON CONFLICT
-	 * DO UPDATE.
+	 * 需要时为 ON CONFLICT DO UPDATE 初始化目标列表、投影     
+	 * 与qual。
 	 */
 	if (node->onConflictAction == ONCONFLICT_UPDATE)
 	{
@@ -4473,32 +4473,32 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 		ExprContext *econtext;
 		TupleDesc	relationDesc;
 
-		/* already exists if created by RETURNING processing above */
+		/* 若由上面的 RETURNING 处理创建，则已存在   */
 		if (mtstate->ps.ps_ExprContext == NULL)
 			ExecAssignExprContext(estate, &mtstate->ps);
 
 		econtext = mtstate->ps.ps_ExprContext;
 		relationDesc = resultRelInfo->ri_RelationDesc->rd_att;
 
-		/* create state for DO UPDATE SET operation */
+		/* 为 DO UPDATE SET 操作创建状态     */
 		resultRelInfo->ri_onConflict = onconfl;
 
-		/* initialize slot for the existing tuple */
+		/* 为现有元组初始化 slot          */
 		onconfl->oc_Existing =
 			table_slot_create(resultRelInfo->ri_RelationDesc,
 							  &mtstate->ps.state->es_tupleTable);
 
 		/*
-		 * Create the tuple slot for the UPDATE SET projection. We want a slot
-		 * of the table's type here, because the slot will be used to insert
-		 * into the table, and for RETURNING processing - which may access
-		 * system attributes.
+		 * 为 UPDATE SET 投影创建元组 slot。这里想要表类型     
+		 * 的 slot，因为它将用于向表插入，以及用于         
+		 * RETURNING 处理，后者可能访问                          
+		 * 系统属性。   
 		 */
 		onconfl->oc_ProjSlot =
 			table_slot_create(resultRelInfo->ri_RelationDesc,
 							  &mtstate->ps.state->es_tupleTable);
 
-		/* build UPDATE SET projection state */
+		/* 构建 UPDATE SET 投影状态    */
 		onconfl->oc_ProjInfo =
 			ExecBuildUpdateProjection(node->onConflictSet,
 									  true,
@@ -4508,7 +4508,7 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 									  onconfl->oc_ProjSlot,
 									  &mtstate->ps);
 
-		/* initialize state to evaluate the WHERE clause, if any */
+		/* 初始化 WHERE 子句求值（若有）的状态     */
 		if (node->onConflictWhere)
 		{
 			ExprState  *qualexpr;
@@ -4520,10 +4520,10 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * If we have any secondary relations in an UPDATE or DELETE, they need to
-	 * be treated like non-locked relations in SELECT FOR UPDATE, i.e., the
-	 * EvalPlanQual mechanism needs to be told about them.  This also goes for
-	 * the source relations in a MERGE.  Locate the relevant ExecRowMarks.
+	 * 若 UPDATE 或 DELETE 中有次要关系，则需要把                
+	 * 它们当作 SELECT FOR UPDATE 中未加锁的关系对待，       
+	 * 即需要把 EvalPlanQual 机制告知它们。对 MERGE 的           
+	 * 源关系也是如此。请找出相关的 ExecRowMark。          
 	 */
 	arowmarks = NIL;
 	foreach(l, node->rowMarks)
@@ -4532,29 +4532,29 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 		ExecRowMark *erm;
 		ExecAuxRowMark *aerm;
 
-		/* ignore "parent" rowmarks; they are irrelevant at runtime */
+		/* 忽略 "parent" rowmark；它们在运行时无关紧要 */
 		if (rc->isParent)
 			continue;
 
-		/* Find ExecRowMark and build ExecAuxRowMark */
+		/* 找 ExecRowMark 并建 ExecAuxRowMark     */
 		erm = ExecFindRowMark(estate, rc->rti, false);
 		aerm = ExecBuildAuxRowMark(erm, subplan->targetlist);
 		arowmarks = lappend(arowmarks, aerm);
 	}
 
-	/* For a MERGE command, initialize its state */
+	/* 对 MERGE 命令，初始化其状态     */
 	if (mtstate->operation == CMD_MERGE)
 		ExecInitMerge(mtstate, estate);
 
 	EvalPlanQualSetPlan(&mtstate->mt_epqstate, subplan, arowmarks);
 
 	/*
-	 * If there are a lot of result relations, use a hash table to speed the
-	 * lookups.  If there are not a lot, a simple linear search is faster.
+	 * 若结果关系很多，就用哈希表来加速查找。            
+	 * 若不多，简单的线性搜索反而更快。                   
 	 *
-	 * It's not clear where the threshold is, but try 64 for starters.  In a
-	 * debugging build, use a small threshold so that we get some test
-	 * coverage of both code paths.
+	 * 阈值在哪里并不清楚，先尝试 64。在调试构建中      
+	 * 使用小阈值，以便两条代码路径都得到测试      
+	 * 覆盖。                   
 	 */
 #ifdef USE_ASSERT_CHECKING
 #define MT_NRELS_HASH 4
@@ -4591,16 +4591,16 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 		mtstate->mt_resultOidHash = NULL;
 
 	/*
-	 * Determine if the FDW supports batch insert and determine the batch size
-	 * (a FDW may support batching, but it may be disabled for the
-	 * server/table).
+	 * 确定 FDW 是否支持批量插入，并确定批量大小            
+	 * （FDW 可能支持批处理，但可能对服务器/表   
+	 * 禁用）。  
 	 *
-	 * We only do this for INSERT, so that for UPDATE/DELETE the batch size
-	 * remains set to 0.
+	 * 我们只对 INSERT 这样做，因此 UPDATE/DELETE 的批量      
+	 * 大小仍为 0。
 	 */
 	if (operation == CMD_INSERT)
 	{
-		/* insert may only have one relation, inheritance is not expanded */
+		/* insert 只能有一个关系，继承未展开                 */
 		Assert(nrels == 1);
 		resultRelInfo = mtstate->resultRelInfo;
 		if (!resultRelInfo->ri_usesFdwDirectModify &&
@@ -4617,13 +4617,13 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 	}
 
 	/*
-	 * Lastly, if this is not the primary (canSetTag) ModifyTable node, add it
-	 * to estate->es_auxmodifytables so that it will be run to completion by
-	 * ExecPostprocessPlan.  (It'd actually work fine to add the primary
-	 * ModifyTable node too, but there's no need.)  Note the use of lcons not
-	 * lappend: we need later-initialized ModifyTable nodes to be shut down
-	 * before earlier ones.  This ensures that we don't throw away RETURNING
-	 * rows that need to be seen by a later CTE subplan.
+	 * 最后，若这不是主（canSetTag）ModifyTable 节点，把它     
+	 * 加入 estate->es_auxmodifytables，使其会由                     
+	 * ExecPostprocessPlan 运行至完成。（其实加入主         
+	 * ModifyTable 节点也可以，但没有必要。）注意用的是    
+	 * lcons 而非 lappend：我们需要后初始化的                  
+	 * ModifyTable 节点先关闭。这可确保不丢弃                  
+	 * 后续 CTE 子计划要看到的 RETURNING 行。
 	 */
 	if (!mtstate->canSetTag)
 		estate->es_auxmodifytables = lcons(mtstate,
@@ -4635,9 +4635,9 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 /* ----------------------------------------------------------------
  *		ExecEndModifyTable
  *
- *		Shuts down the plan.
+ *		关闭该计划。  
  *
- *		Returns nothing of interest.
+ *		无值得关注的返回。 
  * ----------------------------------------------------------------
  */
 void
@@ -4646,7 +4646,7 @@ ExecEndModifyTable(ModifyTableState *node)
 	int			i;
 
 	/*
-	 * Allow any FDWs to shut down
+	 * 让各 FDW 关闭          
 	 */
 	for (i = 0; i < node->mt_nrels; i++)
 	{
@@ -4660,8 +4660,8 @@ ExecEndModifyTable(ModifyTableState *node)
 														   resultRelInfo);
 
 		/*
-		 * Cleanup the initialized batch slots. This only matters for FDWs
-		 * with batching, but the other cases will have ri_NumSlotsInitialized
+		 * 清理已初始化的批量 slot。这只对支持批处理的 
+		 * FDW 有意义，其他情形下 ri_NumSlotsInitialized             
 		 * == 0.
 		 */
 		for (j = 0; j < resultRelInfo->ri_NumSlotsInitialized; j++)
@@ -4672,8 +4672,8 @@ ExecEndModifyTable(ModifyTableState *node)
 	}
 
 	/*
-	 * Close all the partitioned tables, leaf partitions, and their indices
-	 * and release the slot used for tuple routing, if set.
+	 * 关闭所有分区表、叶子分区及其索引，并释放        
+	 * 元组路由所用 slot（若已设置）。        
 	 */
 	if (node->mt_partition_tuple_routing)
 	{
@@ -4684,23 +4684,23 @@ ExecEndModifyTable(ModifyTableState *node)
 	}
 
 	/*
-	 * Free the exprcontext
+	 * 释放 exprcontext  
 	 */
 	ExecFreeExprContext(&node->ps);
 
 	/*
-	 * clean out the tuple table
+	 * 清空元组表          
 	 */
 	if (node->ps.ps_ResultTupleSlot)
 		ExecClearTuple(node->ps.ps_ResultTupleSlot);
 
 	/*
-	 * Terminate EPQ execution if active
+	 * 若 EPQ 在执行则终止       
 	 */
 	EvalPlanQualEnd(&node->mt_epqstate);
 
 	/*
-	 * shut down subplan
+	 * 关闭子计划  
 	 */
 	ExecEndNode(outerPlanState(node));
 }
@@ -4709,8 +4709,8 @@ void
 ExecReScanModifyTable(ModifyTableState *node)
 {
 	/*
-	 * Currently, we don't need to support rescan on ModifyTable nodes. The
-	 * semantics of that would be a bit debatable anyway.
+	 * 当前我们不需要支持 ModifyTable 节点的重扫描。       
+	 * 反正其语义也颇有争议。                 
 	 */
 	elog(ERROR, "ExecReScanModifyTable is not implemented");
 }

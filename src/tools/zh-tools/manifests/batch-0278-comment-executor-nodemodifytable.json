@@ -1,0 +1,57 @@
+{
+ "schema_version": 1,
+ "batch_id": "0278-comment-executor-nodemodifytable",
+ "title": "Translate executor comments: executor-nodemodifytable",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "7b945d734b1a26ebc0620d019f1e162d1928cef6",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0278-comment-executor-nodemodifytable.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/executor/**",
+   "kind": "c_comment",
+   "note": "P2 executor translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0278-comment-executor-nodemodifytable.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/executor/nodeModifyTable.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 399,
+   "translated": 386,
+   "preserved": 13,
+   "preserved_reasons": {
+    "EN:1486": "blk125: quoted label \"do nothing\" (restates adjacent code value)",
+    "EN:1503": "blk127: quoted label \"do nothing\" (restates adjacent code value)",
+    "EN:1831": "blk152: field-name label processReturning (restates adjacent struct field)",
+    "EN:1832": "blk153: field-name label changingPart (restates adjacent struct field)",
+    "EN:1833": "blk154: field-name label canSetTag (restates adjacent struct field)",
+    "EN:2323": "blk199: quoted label \"do nothing\" (restates adjacent code value)",
+    "EN:2338": "blk202: quoted label \"do nothing\" rebuilt byte-identical to EN",
+    "EN:2621": "blk223: gettext translator hint 'translator: %s is a SQL command name' - R5-protected, kept identical to EN",
+    "EN:2968": "blk252: quoted label \"do nothing\" rebuilt byte-identical to EN",
+    "EN:3001": "blk255: quoted label \"do nothing\" rebuilt byte-identical to EN",
+    "EN:3060": "blk260: gettext translator hint 'translator: %s is a SQL command name' - R5-protected, kept identical to EN",
+    "EN:3199": "blk269: gettext translator hint 'translator: %s is a SQL command name' - R5-protected, kept identical to EN",
+    "EN:4152": "blk343: ExecInitModifyTable function-banner separator rebuilt byte-identical to EN"
+   },
+   "note": "P2 executor campaign wave C19"
+  }
+ ],
+ "notes": "Translation agents (C19a/C19b/C19c/C19d) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

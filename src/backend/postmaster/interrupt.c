@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * interrupt.c
- *	  Interrupt handling routines.
+ *	  中断处理例程。       
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -28,7 +28,7 @@ volatile sig_atomic_t ConfigReloadPending = false;
 volatile sig_atomic_t ShutdownRequestPending = false;
 
 /*
- * Simple interrupt handler for main loops of background processes.
+ * 后台进程主循环用的简单中断处理器。             
  */
 void
 HandleMainLoopInterrupts(void)
@@ -45,17 +45,17 @@ HandleMainLoopInterrupts(void)
 	if (ShutdownRequestPending)
 		proc_exit(0);
 
-	/* Perform logging of memory contexts of this process */
+	/* 记录本进程的内存上下文日志            */
 	if (LogMemoryContextPending)
 		ProcessLogMemoryContextInterrupt();
 }
 
 /*
- * Simple signal handler for triggering a configuration reload.
+ * 用于触发配置重新加载的简单信号处理器。   
  *
- * Normally, this handler would be used for SIGHUP. The idea is that code
- * which uses it would arrange to check the ConfigReloadPending flag at
- * convenient places inside main loops, or else call HandleMainLoopInterrupts.
+ * 通常此处理器用于 SIGHUP。其构想是：使用它的代码   
+ * 会安排在主循环便利处检查 ConfigReloadPending 标志，  
+ * 否则就调用 HandleMainLoopInterrupts。                                
  */
 void
 SignalHandlerForConfigReload(SIGNAL_ARGS)
@@ -69,40 +69,40 @@ SignalHandlerForConfigReload(SIGNAL_ARGS)
 }
 
 /*
- * Simple signal handler for exiting quickly as if due to a crash.
+ * 如同因崩溃而快速退出的简单信号处理器。      
  *
- * Normally, this would be used for handling SIGQUIT.
+ * 通常它用于处理 SIGQUIT。                  
  */
 void
 SignalHandlerForCrashExit(SIGNAL_ARGS)
 {
 	/*
-	 * We DO NOT want to run proc_exit() or atexit() callbacks -- we're here
-	 * because shared memory may be corrupted, so we don't want to try to
-	 * clean up our transaction.  Just nail the windows shut and get out of
-	 * town.  The callbacks wouldn't be safe to run from a signal handler,
-	 * anyway.
+	 * 我们绝不想要运行 proc_exit() 或 atexit() 回调：我们    
+	 * 来到这里就是因为共享内存可能已损坏，所以我们
+	 * 不想试图清理事务。只需钉死窗户赶紧走人。        
+	 * 反正从信号处理器里运行这些回调也不安全。       
+	 *        
 	 *
-	 * Note we do _exit(2) not _exit(0).  This is to force the postmaster into
-	 * a system reset cycle if someone sends a manual SIGQUIT to a random
-	 * backend.  This is necessary precisely because we don't clean up our
-	 * shared memory state.  (The "dead man switch" mechanism in pmsignal.c
-	 * should ensure the postmaster sees this as a crash, too, but no harm in
-	 * being doubly sure.)
+	 * 注意我们用 _exit(2) 而非 _exit(0)。这是为了在有人       
+	 * 手动向随机后端发 SIGQUIT 时把 postmaster 逼入         
+	 * 系统复位循环。这之所以必要，恰恰因为我们不    
+	 * 清理共享内存状态。（pmsignal.c 的"死人开关"机制    
+	 * 应能确保 postmaster 也把这视为崩溃，但多加             
+	 * 保险无害。） 
 	 */
 	_exit(2);
 }
 
 /*
- * Simple signal handler for triggering a long-running background process to
- * shut down and exit.
+ * 用于触发长时间运行的后台进程关闭并退出的简单       
+ * 信号处理器。 
  *
- * Typically, this handler would be used for SIGTERM, but some processes use
- * other signals. In particular, the checkpointer and parallel apply worker
- * exit on SIGUSR2, and the WAL writer exits on either SIGINT or SIGTERM.
+ * 通常此处理器用于 SIGTERM，但有些进程使用其他信号。  
+ * 其中 checkpointer 与 parallel apply worker 于 SIGUSR2 退出，     
+ * 而 WAL writer 则在 SIGINT 或 SIGTERM 之一到达时退出。     
  *
- * ShutdownRequestPending should be checked at a convenient place within the
- * main loop, or else the main loop should call HandleMainLoopInterrupts.
+ * 应在主循环中的便利位置检查 ShutdownRequestPending，        
+ * 否则主循环就应调用 HandleMainLoopInterrupts。               
  */
 void
 SignalHandlerForShutdownRequest(SIGNAL_ARGS)

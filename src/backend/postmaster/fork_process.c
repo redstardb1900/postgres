@@ -1,8 +1,8 @@
 /*
  * fork_process.c
- *	 A simple wrapper on top of fork(). This does not handle the
- *	 EXEC_BACKEND case; it might be extended to do so, but it would be
- *	 considerably more complex.
+ *	 fork() 之上的简单包装器。此函数不处理       
+ *	 EXEC_BACKEND 情形；可以扩展去支持它，但那会       
+ *	 复杂得多。           
  *
  * Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -24,10 +24,10 @@
 
 #ifndef WIN32
 /*
- * Wrapper for fork(). Return values are the same as those for fork():
- * -1 if the fork failed, 0 in the child process, and the PID of the
- * child in the parent process.  Signals are blocked while forking, so
- * the child must unblock.
+ * fork() 的包装器。返回值与 fork() 的返回值相同：    
+ * fork 失败则为 -1，子进程中为 0，父进程中则为    
+ * 子进程的 PID。fork 期间信号被阻塞，因此子进程    
+ * 必须解除阻塞。  
  */
 pid_t
 fork_process(void)
@@ -41,70 +41,70 @@ fork_process(void)
 #endif
 
 	/*
-	 * Flush stdio channels just before fork, to avoid double-output problems.
+	 * fork 前一刻刷新 stdio 通道，避免双重输出问题。        
 	 */
 	fflush(NULL);
 
 #ifdef LINUX_PROFILE
 
 	/*
-	 * Linux's fork() resets the profiling timer in the child process. If we
-	 * want to profile child processes then we need to save and restore the
-	 * timer setting.  This is a waste of time if not profiling, however, so
-	 * only do it if commanded by specific -DLINUX_PROFILE switch.
+	 * Linux 的 fork() 会重置子进程中的剖析计时器。如果要 
+	 * 剖析子进程，就需保存并恢复计时器设置。           
+	 * 但不剖析时这样做浪费时间，所以只在用特定         
+	 * -DLINUX_PROFILE 开关指定时才执行。                
 	 */
 	getitimer(ITIMER_PROF, &prof_itimer);
 #endif
 
 	/*
-	 * We start postmaster children with signals blocked.  This allows them to
-	 * install their own handlers before unblocking, to avoid races where they
-	 * might run the postmaster's handler and miss an important control
-	 * signal. With more analysis this could potentially be relaxed.
+	 * 我们启动 postmaster 子进程时让信号阻塞。这使它们     
+	 * 能先安装自己的处理器再解除阻塞，以免竞态中        
+	 * 它们可能运行 postmaster 处理器而漏掉重要          
+	 * 的控制信号。经过更多分析后，这有望放宽。 
 	 */
 	sigprocmask(SIG_SETMASK, &BlockSig, &save_mask);
 	result = fork();
 	if (result == 0)
 	{
-		/* fork succeeded, in child */
+		/* 子进程内 fork 成功 */
 		MyProcPid = getpid();
 #ifdef LINUX_PROFILE
 		setitimer(ITIMER_PROF, &prof_itimer, NULL);
 #endif
 
 		/*
-		 * By default, Linux tends to kill the postmaster in out-of-memory
-		 * situations, because it blames the postmaster for the sum of child
-		 * process sizes *including shared memory*.  (This is unbelievably
-		 * stupid, but the kernel hackers seem uninterested in improving it.)
-		 * Therefore it's often a good idea to protect the postmaster by
-		 * setting its OOM score adjustment negative (which has to be done in
-		 * a root-owned startup script).  Since the adjustment is inherited by
-		 * child processes, this would ordinarily mean that all the
-		 * postmaster's children are equally protected against OOM kill, which
-		 * is not such a good idea.  So we provide this code to allow the
-		 * children to change their OOM score adjustments again.  Both the
-		 * file name to write to and the value to write are controlled by
-		 * environment variables, which can be set by the same startup script
-		 * that did the original adjustment.
+		 * 默认时 Linux 在 OOM 情况下常会杀掉 postmaster，    
+		 * 因为它把子进程尺寸总和（*含共享内存*）都      
+		 * 算在 postmaster 头上。（这愚蠢得难以置信，      
+		 * 但内核黑客们似乎无意改进它。）                     
+		 * 因此用如下方法保护 postmaster 常是好主意：    
+		 * 把它的 OOM score adjustment 设为负值（这必须在        
+		 * root 属主的开机脚本中完成）。由于该调整值会被  
+		 * 子进程继承，通常即所有 postmaster 的        
+		 * 子进程都同等地防 OOM kill，这未必是好主意。       
+		 * 所以我们提供这段代码，让子进程能重新修改  
+		 * 它们自己的 OOM score adjustment。写入的目标文件   
+		 * 名与写入值均由环境变量控制，可由当初做     
+		 * 原始调整的那个开机脚本设置。                        
+		 *                                  
 		 */
 		oomfilename = getenv("PG_OOM_ADJUST_FILE");
 
 		if (oomfilename != NULL)
 		{
 			/*
-			 * Use open() not stdio, to ensure we control the open flags. Some
-			 * Linux security environments reject anything but O_WRONLY.
+			 * 用 open() 而非 stdio，以便掌控打开标志。某些    
+			 * Linux 安全环境拒绝 O_WRONLY 以外的一切。     
 			 */
 			int			fd = open(oomfilename, O_WRONLY, 0);
 
-			/* We ignore all errors */
+			/* 忽略所有错误   */
 			if (fd >= 0)
 			{
 				const char *oomvalue = getenv("PG_OOM_ADJUST_VALUE");
 				int			rc;
 
-				if (oomvalue == NULL)	/* supply a useful default */
+				if (oomvalue == NULL)	/* 提供有用的默认值*/
 					oomvalue = "0";
 
 				rc = write(fd, oomvalue, strlen(oomvalue));
@@ -113,12 +113,12 @@ fork_process(void)
 			}
 		}
 
-		/* do post-fork initialization for random number generation */
+		/* 为随机数生成做 fork 后初始化                  */
 		pg_strong_random_init();
 	}
 	else
 	{
-		/* in parent, restore signal mask */
+		/* 父进程中恢复信号掩码 */
 		sigprocmask(SIG_SETMASK, &save_mask, NULL);
 	}
 

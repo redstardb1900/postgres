@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "batch_id": "0292-comment-postmaster-forkprocess",
+  "title": "Translate comments: postmaster-forkprocess",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "12521bc0c7d1b3c841e51d866dab188a3bce57a1",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0292-comment-postmaster-forkprocess.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/postmaster/**",
+      "kind": "c_comment",
+      "note": "P2 comment translation campaign"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0292-comment-postmaster-forkprocess.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": []
+    },
+    {
+      "path": "src/backend/postmaster/fork_process.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 13,
+      "translated": 12,
+      "preserved": 1,
+      "preserved_reasons": [
+        "WIN32 macro condition tag, not prose (blk12)"
+      ],
+      "note": "P2 translation campaign wave EA"
+    }
+  ],
+  "notes": "Translation agents (EA) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "batch_id": "0289-comment-comment-postmaster-startup",
+  "title": "Translate comments: postmaster-startup",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "30cfe3b27bb4d5e9b1c42cd2c8f834b108af8df3",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0289-comment-postmaster-startup.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/postmaster/**",
+      "kind": "c_comment",
+      "note": "P2 comment translation campaign"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0289-comment-postmaster-startup.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": []
+    },
+    {
+      "path": "src/backend/postmaster/startup.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 48,
+      "translated": 48,
+      "preserved": 0,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION"
+      ],
+      "note": "P2 translation campaign wave E7"
+    }
+  ],
+  "notes": "Translation agents (E7) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

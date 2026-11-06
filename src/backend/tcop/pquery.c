@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pquery.c
- *	  POSTGRES process query command code
+ *	  POSTGRES 查询命令处理代码  
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -29,8 +29,8 @@
 
 
 /*
- * ActivePortal is the currently executing Portal (the most closely nested,
- * if there are several).
+ * ActivePortal 是当前执行的门户（嵌套最深的一个，        
+ * 如存在多个）。 
  */
 Portal		ActivePortal = NULL;
 
@@ -75,24 +75,24 @@ CreateQueryDesc(PlannedStmt *plannedstmt,
 {
 	QueryDesc  *qd = (QueryDesc *) palloc(sizeof(QueryDesc));
 
-	qd->operation = plannedstmt->commandType;	/* operation */
+	qd->operation = plannedstmt->commandType;	/* 操作    */
 	qd->plannedstmt = plannedstmt;	/* plan */
-	qd->sourceText = sourceText;	/* query text */
-	qd->snapshot = RegisterSnapshot(snapshot);	/* snapshot */
-	/* RI check snapshot */
+	qd->sourceText = sourceText;	/* 查询串  */
+	qd->snapshot = RegisterSnapshot(snapshot);	/* 快照   */
+	/* RI 检查快照   */
 	qd->crosscheck_snapshot = RegisterSnapshot(crosscheck_snapshot);
-	qd->dest = dest;			/* output dest */
-	qd->params = params;		/* parameter values passed into query */
+	qd->dest = dest;			/* 输出目标*/
+	qd->params = params;		/* 传入查询的参数值           */
 	qd->queryEnv = queryEnv;
-	qd->instrument_options = instrument_options;	/* instrumentation wanted? */
+	qd->instrument_options = instrument_options;	/* 需要监测统计吗？*/
 
-	/* null these fields until set by ExecutorStart */
+	/* 在 ExecutorStart 设置前先置为 NULL    */
 	qd->tupDesc = NULL;
 	qd->estate = NULL;
 	qd->planstate = NULL;
 	qd->totaltime = NULL;
 
-	/* not yet executed */
+	/* 尚未执行     */
 	qd->already_executed = false;
 
 	return qd;
@@ -104,33 +104,33 @@ CreateQueryDesc(PlannedStmt *plannedstmt,
 void
 FreeQueryDesc(QueryDesc *qdesc)
 {
-	/* Can't be a live query */
+	/* 不能是活动查询 */
 	Assert(qdesc->estate == NULL);
 
-	/* forget our snapshots */
+	/* 注销我们的快照*/
 	UnregisterSnapshot(qdesc->snapshot);
 	UnregisterSnapshot(qdesc->crosscheck_snapshot);
 
-	/* Only the QueryDesc itself need be freed */
+	/* 只需释放 QueryDesc 本身           */
 	pfree(qdesc);
 }
 
 
 /*
  * ProcessQuery
- *		Execute a single plannable query within a PORTAL_MULTI_QUERY,
- *		PORTAL_ONE_RETURNING, or PORTAL_ONE_MOD_WITH portal
+ *		执行 PORTAL_MULTI_QUERY、PORTAL_ONE_RETURNING 或         
+ *		PORTAL_ONE_MOD_WITH 门户内的可规划查询    
  *
- *	plan: the plan tree for the query
- *	sourceText: the source text of the query
- *	params: any parameters needed
- *	dest: where to send results
- *	qc: where to store the command completion status data.
+ *	plan: 该查询的计划树      
+ *	sourceText: 查询的源文本          
+ *	params: 所需的参数      
+ *	dest: 结果发送目的地
+ *	qc: 存储命令完成状态数据的位置。        
  *
- * qc may be NULL if caller doesn't want a status string.
+ * 若调用者不需要状态串，qc 可为 NULL。    
  *
- * Must be called in a memory context that will be reset or deleted on
- * error; otherwise the executor's memory usage will be leaked.
+ * 必须在出错时会被重置或删除的内存上下文中调用 
+ * 否则执行器占用的内存将被泄漏。               
  */
 static void
 ProcessQuery(PlannedStmt *plan,
@@ -143,24 +143,24 @@ ProcessQuery(PlannedStmt *plan,
 	QueryDesc  *queryDesc;
 
 	/*
-	 * Create the QueryDesc object
+	 * 创建 QueryDesc 对象    
 	 */
 	queryDesc = CreateQueryDesc(plan, sourceText,
 								GetActiveSnapshot(), InvalidSnapshot,
 								dest, params, queryEnv, 0);
 
 	/*
-	 * Call ExecutorStart to prepare the plan for execution
+	 * 调用 ExecutorStart 为执行做好准备          
 	 */
 	ExecutorStart(queryDesc, 0);
 
 	/*
-	 * Run the plan to completion.
+	 * 完整地执行该计划。
 	 */
 	ExecutorRun(queryDesc, ForwardScanDirection, 0, true);
 
 	/*
-	 * Build command completion status data, if caller wants one.
+	 * 若调用者需要，则构建命令完成状态数据。 
 	 */
 	if (qc)
 	{
@@ -188,7 +188,7 @@ ProcessQuery(PlannedStmt *plan,
 	}
 
 	/*
-	 * Now, we close down all the scans and free allocated resources.
+	 * 现在，关闭所有扫描并释放已分配的资源。     
 	 */
 	ExecutorFinish(queryDesc);
 	ExecutorEnd(queryDesc);
@@ -198,12 +198,12 @@ ProcessQuery(PlannedStmt *plan,
 
 /*
  * ChoosePortalStrategy
- *		Select portal execution strategy given the intended statement list.
+ *		根据给定的语句列表选择门户执行策略。             
  *
- * The list elements can be Querys or PlannedStmts.
- * That's more general than portals need, but plancache.c uses this too.
+ * 列表元素可以是 Query 或 PlannedStmt。  
+ * 这比门户所需的更通用，但 plancache.c 也会用到。     
  *
- * See the comments in portal.h.
+ * 见 portal.h 中的注释。 
  */
 PortalStrategy
 ChoosePortalStrategy(List *stmts)
@@ -212,10 +212,10 @@ ChoosePortalStrategy(List *stmts)
 	ListCell   *lc;
 
 	/*
-	 * PORTAL_ONE_SELECT and PORTAL_UTIL_SELECT need only consider the
-	 * single-statement case, since there are no rewrite rules that can add
-	 * auxiliary queries to a SELECT or a utility command. PORTAL_ONE_MOD_WITH
-	 * likewise allows only one top-level statement.
+	 * PORTAL_ONE_SELECT 与 PORTAL_UTIL_SELECT 只需考虑          
+	 * 单语句情形，因为不存在能为 SELECT 或实用命令      
+	 * 添加辅助查询的重写规则。而 PORTAL_ONE_MOD_WITH            
+	 * 同样只允许一个顶层语句。         
 	 */
 	if (list_length(stmts) == 1)
 	{
@@ -238,7 +238,7 @@ ChoosePortalStrategy(List *stmts)
 				{
 					if (UtilityReturnsTuples(query->utilityStmt))
 						return PORTAL_UTIL_SELECT;
-					/* it can't be ONE_RETURNING, so give up */
+					/* 不可能是 ONE_RETURNING，放弃   */
 					return PORTAL_MULTI_QUERY;
 				}
 			}
@@ -260,7 +260,7 @@ ChoosePortalStrategy(List *stmts)
 				{
 					if (UtilityReturnsTuples(pstmt->utilityStmt))
 						return PORTAL_UTIL_SELECT;
-					/* it can't be ONE_RETURNING, so give up */
+					/* 不可能是 ONE_RETURNING，放弃   */
 					return PORTAL_MULTI_QUERY;
 				}
 			}
@@ -270,9 +270,9 @@ ChoosePortalStrategy(List *stmts)
 	}
 
 	/*
-	 * PORTAL_ONE_RETURNING has to allow auxiliary queries added by rewrite.
-	 * Choose PORTAL_ONE_RETURNING if there is exactly one canSetTag query and
-	 * it has a RETURNING list.
+	 * PORTAL_ONE_RETURNING 必须允许重写添加的辅助查询。      
+	 * 若恰好有一个 canSetTag 查询且带有 RETURNING 列表，则选 
+	 * PORTAL_ONE_RETURNING。 
 	 */
 	nSetTag = 0;
 	foreach(lc, stmts)
@@ -286,10 +286,10 @@ ChoosePortalStrategy(List *stmts)
 			if (query->canSetTag)
 			{
 				if (++nSetTag > 1)
-					return PORTAL_MULTI_QUERY;	/* no need to look further */
+					return PORTAL_MULTI_QUERY;	/* 无需再往下查找   */
 				if (query->commandType == CMD_UTILITY ||
 					query->returningList == NIL)
-					return PORTAL_MULTI_QUERY;	/* no need to look further */
+					return PORTAL_MULTI_QUERY;	/* 无需再往下查找   */
 			}
 		}
 		else if (IsA(stmt, PlannedStmt))
@@ -299,10 +299,10 @@ ChoosePortalStrategy(List *stmts)
 			if (pstmt->canSetTag)
 			{
 				if (++nSetTag > 1)
-					return PORTAL_MULTI_QUERY;	/* no need to look further */
+					return PORTAL_MULTI_QUERY;	/* 无需再往下查找   */
 				if (pstmt->commandType == CMD_UTILITY ||
 					!pstmt->hasReturning)
-					return PORTAL_MULTI_QUERY;	/* no need to look further */
+					return PORTAL_MULTI_QUERY;	/* 无需再往下查找   */
 			}
 		}
 		else
@@ -311,38 +311,38 @@ ChoosePortalStrategy(List *stmts)
 	if (nSetTag == 1)
 		return PORTAL_ONE_RETURNING;
 
-	/* Else, it's the general case... */
+	/* 否则就是一般情形…… */
 	return PORTAL_MULTI_QUERY;
 }
 
 /*
  * FetchPortalTargetList
- *		Given a portal that returns tuples, extract the query targetlist.
- *		Returns NIL if the portal doesn't have a determinable targetlist.
+ *		给定返回元组的门户，提取查询目标列表。        
+ *		若门户没有可确定的目标列表，则返回 NIL。       
  *
- * Note: do not modify the result.
+ * 注意：不要修改结果。 
  */
 List *
 FetchPortalTargetList(Portal portal)
 {
-	/* no point in looking if we determined it doesn't return tuples */
+	/* 若已确定其不返回元组，再查也毫无意义        */
 	if (portal->strategy == PORTAL_MULTI_QUERY)
 		return NIL;
-	/* get the primary statement and find out what it returns */
+	/* 获取主语句并查明其返回什么                */
 	return FetchStatementTargetList((Node *) PortalGetPrimaryStmt(portal));
 }
 
 /*
  * FetchStatementTargetList
- *		Given a statement that returns tuples, extract the query targetlist.
- *		Returns NIL if the statement doesn't have a determinable targetlist.
+ *		给定一条返回元组的语句，提取其查询目标列表。  
+ *		若该语句没有可确定的目标列表，则返回 NIL。       
  *
- * This can be applied to a Query or a PlannedStmt.
- * That's more general than portals need, but plancache.c uses this too.
+ * 可用于 Query 或 PlannedStmt。              
+ * 这比门户所需的更通用，但 plancache.c 也会用到。     
  *
- * Note: do not modify the result.
+ * 注意：不要修改结果。 
  *
- * XXX be careful to keep this in sync with UtilityReturnsTuples.
+ * XXX 注意与 UtilityReturnsTuples 保持同步。            
  */
 List *
 FetchStatementTargetList(Node *stmt)
@@ -355,7 +355,7 @@ FetchStatementTargetList(Node *stmt)
 
 		if (query->commandType == CMD_UTILITY)
 		{
-			/* transfer attention to utility statement */
+			/* 把注意力转向实用语句          */
 			stmt = query->utilityStmt;
 		}
 		else
@@ -373,7 +373,7 @@ FetchStatementTargetList(Node *stmt)
 
 		if (pstmt->commandType == CMD_UTILITY)
 		{
-			/* transfer attention to utility statement */
+			/* 把注意力转向实用语句          */
 			stmt = pstmt->utilityStmt;
 		}
 		else
@@ -408,26 +408,26 @@ FetchStatementTargetList(Node *stmt)
 
 /*
  * PortalStart
- *		Prepare a portal for execution.
+ *		为执行准备门户。       
  *
- * Caller must already have created the portal, done PortalDefineQuery(),
- * and adjusted portal options if needed.
+ * 调用者必须已创建该门户，并完成 PortalDefineQuery()，  
+ * 并在必要时调整门户选项。  
  *
- * If parameters are needed by the query, they must be passed in "params"
- * (caller is responsible for giving them appropriate lifetime).
+ * 如果查询需要参数，则必须通过 params 传入              
+ * （由调用者负责给它们适当的生存期）。       
  *
- * The caller can also provide an initial set of "eflags" to be passed to
- * ExecutorStart (but note these can be modified internally, and they are
- * currently only honored for PORTAL_ONE_SELECT portals).  Most callers
- * should simply pass zero.
+ * 调用者还可提供一组初始 eflags，供传给                  
+ * ExecutorStart（但注意这些标志可能被内部修改，目前   
+ * 仅对 PORTAL_ONE_SELECT 门户有效）。多数调用者          
+ * 直接传零即可。   
  *
- * The caller can optionally pass a snapshot to be used; pass InvalidSnapshot
- * for the normal behavior of setting a new snapshot.  This parameter is
- * presently ignored for non-PORTAL_ONE_SELECT portals (it's only intended
- * to be used for cursors).
+ * 调用者可选择传入要使用的快照；传 InvalidSnapshot          
+ * 以获得设置新快照的常规行为。该参数                  
+ * 目前对非 PORTAL_ONE_SELECT 门户忽略（它只打算             
+ * 用于游标）。      
  *
- * On return, portal is ready to accept PortalRun() calls, and the result
- * tupdesc (if any) is known.
+ * 返回时，门户已就绪，可接受 PortalRun() 调用，结果   
+ * tupdesc（若有）已知 
  */
 void
 PortalStart(Portal portal, ParamListInfo params,
@@ -444,7 +444,7 @@ PortalStart(Portal portal, ParamListInfo params,
 	Assert(portal->status == PORTAL_DEFINED);
 
 	/*
-	 * Set up global portal context pointers.
+	 * 设置全局门户上下文指针。  
 	 */
 	saveActivePortal = ActivePortal;
 	saveResourceOwner = CurrentResourceOwner;
@@ -458,39 +458,39 @@ PortalStart(Portal portal, ParamListInfo params,
 
 		oldContext = MemoryContextSwitchTo(PortalContext);
 
-		/* Must remember portal param list, if any */
+		/* 若有参数列表，必须记住它    */
 		portal->portalParams = params;
 
 		/*
-		 * Determine the portal execution strategy
+		 * 确定门户执行策略               
 		 */
 		portal->strategy = ChoosePortalStrategy(portal->stmts);
 
 		/*
-		 * Fire her up according to the strategy
+		 * 按策略将它启动起来。       
 		 */
 		switch (portal->strategy)
 		{
 			case PORTAL_ONE_SELECT:
 
-				/* Must set snapshot before starting executor. */
+				/* 必须在启动执行器前设置快照。  */
 				if (snapshot)
 					PushActiveSnapshot(snapshot);
 				else
 					PushActiveSnapshot(GetTransactionSnapshot());
 
 				/*
-				 * We could remember the snapshot in portal->portalSnapshot,
-				 * but presently there seems no need to, as this code path
-				 * cannot be used for non-atomic execution.  Hence there can't
-				 * be any commit/abort that might destroy the snapshot.  Since
-				 * we don't do that, there's also no need to force a
-				 * non-default nesting level for the snapshot.
+				 * 本可把该快照记入 portal->portalSnapshot，       
+				 * 但目前似乎没必要，因为该代码路径       
+				 * 无法用于非原子执行，因此不可能发生        
+				 * 可能销毁该快照的提交/中止。既然             
+				 * 我们不那样做，也就无需强制使用    
+				 * 非默认嵌套级别的快照。          
 				 */
 
 				/*
-				 * Create QueryDesc in portal's context; for the moment, set
-				 * the destination to DestNone.
+				 * 在门户上下文中创建 QueryDesc；暂时先把     
+				 * 目的地设为 DestNone。 
 				 */
 				queryDesc = CreateQueryDesc(linitial_node(PlannedStmt, portal->stmts),
 											portal->sourceText,
@@ -502,9 +502,9 @@ PortalStart(Portal portal, ParamListInfo params,
 											0);
 
 				/*
-				 * If it's a scrollable cursor, executor needs to support
-				 * REWIND and backwards scan, as well as whatever the caller
-				 * might've asked for.
+				 * 如果是可滚动游标，则执行器需要支持   
+				 * REWIND 与反向扫描，外加调用者所要求的     
+				 * 其他一切。    
 				 */
 				if (portal->cursorOptions & CURSOR_OPT_SCROLL)
 					myeflags = eflags | EXEC_FLAG_REWIND | EXEC_FLAG_BACKWARD;
@@ -512,25 +512,25 @@ PortalStart(Portal portal, ParamListInfo params,
 					myeflags = eflags;
 
 				/*
-				 * Call ExecutorStart to prepare the plan for execution
+				 * 调用 ExecutorStart 为执行做好准备          
 				 */
 				ExecutorStart(queryDesc, myeflags);
 
 				/*
-				 * This tells PortalCleanup to shut down the executor
+				 * 这会告知 PortalCleanup 关闭执行器        
 				 */
 				portal->queryDesc = queryDesc;
 
 				/*
-				 * Remember tuple descriptor (computed by ExecutorStart)
+				 * 记住元组描述符（由 ExecutorStart 计算）  
 				 */
 				portal->tupDesc = queryDesc->tupDesc;
 
 				/*
-				 * Reset cursor position data to "start of query"
+				 * 将游标位置数据重置为"查询起点"  
 				 */
 				portal->atStart = true;
-				portal->atEnd = false;	/* allow fetches */
+				portal->atEnd = false;	/* 允许抓取  */
 				portal->portalPos = 0;
 
 				PopActiveSnapshot();
@@ -540,8 +540,8 @@ PortalStart(Portal portal, ParamListInfo params,
 			case PORTAL_ONE_MOD_WITH:
 
 				/*
-				 * We don't start the executor until we are told to run the
-				 * portal.  We do need to set up the result tupdesc.
+				 * 直到被告知运行门户时才会启动执行器。  
+				 * 但我们确实需要设置结果 tupdesc。     
 				 */
 				{
 					PlannedStmt *pstmt;
@@ -552,18 +552,18 @@ PortalStart(Portal portal, ParamListInfo params,
 				}
 
 				/*
-				 * Reset cursor position data to "start of query"
+				 * 将游标位置数据重置为"查询起点"  
 				 */
 				portal->atStart = true;
-				portal->atEnd = false;	/* allow fetches */
+				portal->atEnd = false;	/* 允许抓取  */
 				portal->portalPos = 0;
 				break;
 
 			case PORTAL_UTIL_SELECT:
 
 				/*
-				 * We don't set snapshot here, because PortalRunUtility will
-				 * take care of it if needed.
+				 * 我们不在此设置快照，PortalRunUtility 会在    
+				 * 需要时设置它。     
 				 */
 				{
 					PlannedStmt *pstmt = PortalGetPrimaryStmt(portal);
@@ -573,25 +573,25 @@ PortalStart(Portal portal, ParamListInfo params,
 				}
 
 				/*
-				 * Reset cursor position data to "start of query"
+				 * 将游标位置数据重置为"查询起点"  
 				 */
 				portal->atStart = true;
-				portal->atEnd = false;	/* allow fetches */
+				portal->atEnd = false;	/* 允许抓取  */
 				portal->portalPos = 0;
 				break;
 
 			case PORTAL_MULTI_QUERY:
-				/* Need do nothing now */
+				/* 现在无事可做  */
 				portal->tupDesc = NULL;
 				break;
 		}
 	}
 	PG_CATCH();
 	{
-		/* Uncaught error while executing portal: mark it dead */
+		/* 执行门户未捕获错误：将其标为失效    */
 		MarkPortalFailed(portal);
 
-		/* Restore global vars and propagate error */
+		/* 恢复全局变量并传播错误       */
 		ActivePortal = saveActivePortal;
 		CurrentResourceOwner = saveResourceOwner;
 		PortalContext = savePortalContext;
@@ -611,13 +611,13 @@ PortalStart(Portal portal, ParamListInfo params,
 
 /*
  * PortalSetResultFormat
- *		Select the format codes for a portal's output.
+ *		为门户的输出选择格式代码。       
  *
- * This must be run after PortalStart for a portal that will be read by
- * a DestRemote or DestRemoteExecute destination.  It is not presently needed
- * for other destination types.
+ * 对于将经由 DestRemote 或 DestRemoteExecute 目的地读取的 
+ * 门户，必须在 PortalStart 之后运行。目前其他目的地类型 
+ * 并不需要它。          
  *
- * formats[] is the client format request, as per Bind message conventions.
+ * formats[] 是客户端的格式请求，遵循 Bind 消息的约定。  
  */
 void
 PortalSetResultFormat(Portal portal, int nFormats, int16 *formats)
@@ -625,7 +625,7 @@ PortalSetResultFormat(Portal portal, int nFormats, int16 *formats)
 	int			natts;
 	int			i;
 
-	/* Do nothing if portal won't return tuples */
+	/* 门户不返回元组则无需操作     */
 	if (portal->tupDesc == NULL)
 		return;
 	natts = portal->tupDesc->natts;
@@ -634,7 +634,7 @@ PortalSetResultFormat(Portal portal, int nFormats, int16 *formats)
 						   natts * sizeof(int16));
 	if (nFormats > 1)
 	{
-		/* format specified for each column */
+		/* 为每列指定了格式         */
 		if (nFormats != natts)
 			ereport(ERROR,
 					(errcode(ERRCODE_PROTOCOL_VIOLATION),
@@ -644,7 +644,7 @@ PortalSetResultFormat(Portal portal, int nFormats, int16 *formats)
 	}
 	else if (nFormats > 0)
 	{
-		/* single format specified, use for all columns */
+		/* 只指定了一个格式，用于所有列   */
 		int16		format1 = formats[0];
 
 		for (i = 0; i < natts; i++)
@@ -652,7 +652,7 @@ PortalSetResultFormat(Portal portal, int nFormats, int16 *formats)
 	}
 	else
 	{
-		/* use default format for all columns */
+		/* 对所有列使用默认格式     */
 		for (i = 0; i < natts; i++)
 			portal->formats[i] = 0;
 	}
@@ -660,27 +660,27 @@ PortalSetResultFormat(Portal portal, int nFormats, int16 *formats)
 
 /*
  * PortalRun
- *		Run a portal's query or queries.
+ *		运行门户的查询。        
  *
- * count <= 0 is interpreted as a no-op: the destination gets started up
- * and shut down, but nothing else happens.  Also, count == FETCH_ALL is
- * interpreted as "all rows".  Note that count is ignored in multi-query
- * situations, where we always run the portal to completion.
+ * count <= 0 被解释为无操作：目的地会经历启动          
+ * 和关闭，但不会发生其他事情。count == FETCH_ALL         
+ * 被解释为"所有行"。注意在多查询情形下 count          
+ * 会被忽略，我们总将门户运行完毕。         
  *
- * isTopLevel: true if query is being executed at backend "top level"
- * (that is, directly from a client command message)
+ * isTopLevel: 若查询正在后端的"顶层"执行，则为 true  
+ * （即直接来自客户端命令消息）。    
  *
- * run_once: ignored, present only to avoid an API break in stable branches.
+ * run_once: 被忽略，只为避免稳定分支的 API 中断而存在。 
  *
- * dest: where to send output of primary (canSetTag) query
+ * dest: 主（canSetTag）查询的输出发送目的地 
  *
- * altdest: where to send output of non-primary queries
+ * altdest: 非主查询的输出发送目的地       
  *
- * qc: where to store command completion status data.
- *		May be NULL if caller doesn't want status data.
+ * qc: 存储命令完成状态数据的位置。    
+ *		不需要状态数据时可为 NULL。         
  *
- * Returns true if the portal's execution is complete, false if it was
- * suspended due to exhaustion of the count parameter.
+ * 若门户的执行已完成则返回 true，若因 count 参数    
+ * 耗尽而挂起则返回 false。                  
  */
 bool
 PortalRun(Portal portal, long count, bool isTopLevel, bool run_once,
@@ -700,35 +700,35 @@ PortalRun(Portal portal, long count, bool isTopLevel, bool run_once,
 
 	TRACE_POSTGRESQL_QUERY_EXECUTE_START();
 
-	/* Initialize empty completion data */
+	/* 初始化空的完成数据      */
 	if (qc)
 		InitializeQueryCompletion(qc);
 
 	if (log_executor_stats && portal->strategy != PORTAL_MULTI_QUERY)
 	{
 		elog(DEBUG3, "PortalRun");
-		/* PORTAL_MULTI_QUERY logs its own stats per query */
+		/* PORTAL_MULTI_QUERY 按查询记录自身统计  */
 		ResetUsage();
 	}
 
 	/*
-	 * Check for improper portal use, and mark portal active.
+	 * 检查是否被误用，并将门户标为活跃。   
 	 */
 	MarkPortalActive(portal);
 
 	/*
-	 * Set up global portal context pointers.
+	 * 设置全局门户上下文指针。  
 	 *
-	 * We have to play a special game here to support utility commands like
-	 * VACUUM and CLUSTER, which internally start and commit transactions.
-	 * When we are called to execute such a command, CurrentResourceOwner will
-	 * be pointing to the TopTransactionResourceOwner --- which will be
-	 * destroyed and replaced in the course of the internal commit and
-	 * restart.  So we need to be prepared to restore it as pointing to the
-	 * exit-time TopTransactionResourceOwner.  (Ain't that ugly?  This idea of
-	 * internally starting whole new transactions is not good.)
-	 * CurrentMemoryContext has a similar problem, but the other pointers we
-	 * save here will be NULL or pointing to longer-lived objects.
+	 * 这里我们必须耍点特殊把戏，以支持诸如 VACUUM 和   
+	 * CLUSTER 这类命令，它们在内部启动并提交事务。     
+	 * 当我们被调用来执行这类命令时，CurrentResourceOwner      
+	 * 将指向 TopTransactionResourceOwner --- 它会在             
+	 * 内部提交与重启的过程中被销毁并替换。         
+	 * 所以我们需要准备好把它恢复为指向                    
+	 * 退出时的 TopTransactionResourceOwner。（这很丑陋吧？       
+	 * 在内部启动全新事务的想法并不好。）     
+	 * CurrentMemoryContext 也有类似问题，但我们在此保存的   
+	 * 其余指针将为 NULL 或指向存续更久的对象。  
 	 */
 	saveTopTransactionResourceOwner = TopTransactionResourceOwner;
 	saveTopTransactionContext = TopTransactionContext;
@@ -753,22 +753,22 @@ PortalRun(Portal portal, long count, bool isTopLevel, bool run_once,
 			case PORTAL_UTIL_SELECT:
 
 				/*
-				 * If we have not yet run the command, do so, storing its
-				 * results in the portal's tuplestore.  But we don't do that
-				 * for the PORTAL_ONE_SELECT case.
+				 * 若尚未运行该命令，就运行它，并将结果
+				 * 存入门户的 tuplestore。但对 PORTAL_ONE_SELECT    
+				 * 情形则不这么做。       
 				 */
 				if (portal->strategy != PORTAL_ONE_SELECT && !portal->holdStore)
 					FillPortalStore(portal, isTopLevel);
 
 				/*
-				 * Now fetch desired portion of results.
+				 * 现在获取所需部分的结果。 
 				 */
 				nprocessed = PortalRunSelect(portal, true, count, dest);
 
 				/*
-				 * If the portal result contains a command tag and the caller
-				 * gave us a pointer to store it, copy it and update the
-				 * rowcount.
+				 * 若门户结果含命令标签，且调用者传入了    
+				 * 存储它的指针，则复制该标签并更新     
+				 * 行数。
 				 */
 				if (qc && portal->qc.commandTag != CMDTAG_UNKNOWN)
 				{
@@ -776,11 +776,11 @@ PortalRun(Portal portal, long count, bool isTopLevel, bool run_once,
 					qc->nprocessed = nprocessed;
 				}
 
-				/* Mark portal not active */
+				/* 标记门户非活跃  */
 				portal->status = PORTAL_READY;
 
 				/*
-				 * Since it's a forward fetch, say DONE iff atEnd is now true.
+				 * 由于是向前抓取，atEnd 现在为真时报 DONE。   
 				 */
 				result = portal->atEnd;
 				break;
@@ -789,26 +789,26 @@ PortalRun(Portal portal, long count, bool isTopLevel, bool run_once,
 				PortalRunMulti(portal, isTopLevel, false,
 							   dest, altdest, qc);
 
-				/* Prevent portal's commands from being re-executed */
+				/* 防止门户的命令被再次执行             */
 				MarkPortalDone(portal);
 
-				/* Always complete at end of RunMulti */
+				/* 在 RunMulti 结束时总是完成 */
 				result = true;
 				break;
 
 			default:
 				elog(ERROR, "unrecognized portal strategy: %d",
 					 (int) portal->strategy);
-				result = false; /* keep compiler quiet */
+				result = false; /* 使编译器安静  */
 				break;
 		}
 	}
 	PG_CATCH();
 	{
-		/* Uncaught error while executing portal: mark it dead */
+		/* 执行门户未捕获错误：将其标为失效    */
 		MarkPortalFailed(portal);
 
-		/* Restore global vars and propagate error */
+		/* 恢复全局变量并传播错误       */
 		if (saveMemoryContext == saveTopTransactionContext)
 			MemoryContextSwitchTo(TopTransactionContext);
 		else
@@ -845,21 +845,21 @@ PortalRun(Portal portal, long count, bool isTopLevel, bool run_once,
 
 /*
  * PortalRunSelect
- *		Execute a portal's query in PORTAL_ONE_SELECT mode, and also
- *		when fetching from a completed holdStore in PORTAL_ONE_RETURNING,
- *		PORTAL_ONE_MOD_WITH, and PORTAL_UTIL_SELECT cases.
+ *		以 PORTAL_ONE_SELECT 模式执行门户查询，以及从  
+ *		已完成的 holdStore 抓取时，即 PORTAL_ONE_RETURNING、   
+ *		PORTAL_ONE_MOD_WITH 与 PORTAL_UTIL_SELECT。     
  *
- * This handles simple N-rows-forward-or-backward cases.  For more complex
- * nonsequential access to a portal, see PortalRunFetch.
+ * 本函数处理简单的向前/向后 N 行情形。更复杂的       
+ * 非顺序门户访问见 PortalRunFetch。           
  *
- * count <= 0 is interpreted as a no-op: the destination gets started up
- * and shut down, but nothing else happens.  Also, count == FETCH_ALL is
- * interpreted as "all rows".  (cf FetchStmt.howMany)
+ * count <= 0 被解释为无操作：目的地会经历启动          
+ * 和关闭，但不会发生其他事情。count == FETCH_ALL         
+ * 被解释为"所有行"（cf FetchStmt.howMany） 
  *
- * Caller must already have validated the Portal and done appropriate
- * setup (cf. PortalRun).
+ * 调用者必须已校验过该 Portal 并完成适当设置       
+ * （见 PortalRun）。
  *
- * Returns number of rows processed (suitable for use in result tag)
+ * 返回已处理的行数（适合用于结果标签）。        
  */
 static uint64
 PortalRunSelect(Portal portal,
@@ -872,45 +872,45 @@ PortalRunSelect(Portal portal,
 	uint64		nprocessed;
 
 	/*
-	 * NB: queryDesc will be NULL if we are fetching from a held cursor or a
-	 * completed utility query; can't use it in that path.
+	 * 注意：从已保持的游标或已完成的实用查询抓取时，
+	 * queryDesc 将为 NULL；那条路径无法使用。
 	 */
 	queryDesc = portal->queryDesc;
 
-	/* Caller messed up if we have neither a ready query nor held data. */
+	/* 既无就绪查询也无保持数据，即调用者出错了。  */
 	Assert(queryDesc || portal->holdStore);
 
 	/*
-	 * Force the queryDesc destination to the right thing.  This supports
-	 * MOVE, for example, which will pass in dest = DestNone.  This is okay to
-	 * change as long as we do it on every fetch.  (The Executor must not
-	 * assume that dest never changes.)
+	 * 强制把 queryDesc 的目的地设置为正确的值。这支持 
+	 * 例如 MOVE，它会传入 dest = DestNone。只要每次抓取        
+	 * 都这样做就是允许的。（执行器绝不能               
+	 * 假设 dest 永不改变。）  
 	 */
 	if (queryDesc)
 		queryDesc->dest = dest;
 
 	/*
-	 * Determine which direction to go in, and check to see if we're already
-	 * at the end of the available tuples in that direction.  If so, set the
-	 * direction to NoMovement to avoid trying to fetch any tuples.  (This
-	 * check exists because not all plan node types are robust about being
-	 * called again if they've already returned NULL once.)  Then call the
-	 * executor (we must not skip this, because the destination needs to see a
-	 * setup and shutdown even if no tuples are available).  Finally, update
-	 * the portal position state depending on the number of tuples that were
-	 * retrieved.
+	 * 确定移动方向，并检查我们是否已经处于该方向上的
+	 * 可用元组末尾。如果是，则将方向设置为 NoMovement， 
+	 * 以免抓取任何元组。（这一检查的存在，是因为    
+	 * 并非所有计划节点类型在已返回过一次 NULL 之后仍 
+	 * 能被健壮地再次调用。）然后调用执行器（绝不能 
+	 * 跳过它，因为目的地需要看到一次启动和关闭，        
+	 * 即使没有元组可用）。最后，还要根据取回的         
+	 * 元组数量来更新门户的位置状态。                        
+	 *           
 	 */
 	if (forward)
 	{
 		if (portal->atEnd || count <= 0)
 		{
 			direction = NoMovementScanDirection;
-			count = 0;			/* don't pass negative count to executor */
+			count = 0;			/* 不要把负数 count 传给执行器 */
 		}
 		else
 			direction = ForwardScanDirection;
 
-		/* In the executor, zero count processes all rows */
+		/* 执行器中 count 为零会处理所有行    */
 		if (count == FETCH_ALL)
 			count = 0;
 
@@ -928,9 +928,9 @@ PortalRunSelect(Portal portal,
 		if (!ScanDirectionIsNoMovement(direction))
 		{
 			if (nprocessed > 0)
-				portal->atStart = false;	/* OK to go backward now */
+				portal->atStart = false;	/* 现在可以向后了 */
 			if (count == 0 || nprocessed < (uint64) count)
-				portal->atEnd = true;	/* we retrieved 'em all */
+				portal->atEnd = true;	/* 已取回全部行   */
 			portal->portalPos += nprocessed;
 		}
 	}
@@ -945,12 +945,12 @@ PortalRunSelect(Portal portal,
 		if (portal->atStart || count <= 0)
 		{
 			direction = NoMovementScanDirection;
-			count = 0;			/* don't pass negative count to executor */
+			count = 0;			/* 不要向执行器传递负的 count  */
 		}
 		else
 			direction = BackwardScanDirection;
 
-		/* In the executor, zero count processes all rows */
+		/* 执行器中 count 为零表示处理全部行 */
 		if (count == FETCH_ALL)
 			count = 0;
 
@@ -969,12 +969,12 @@ PortalRunSelect(Portal portal,
 		{
 			if (nprocessed > 0 && portal->atEnd)
 			{
-				portal->atEnd = false;	/* OK to go forward now */
-				portal->portalPos++;	/* adjust for endpoint case */
+				portal->atEnd = false;	/* 现在可以向前了*/
+				portal->portalPos++;	/* 为端点情形作调整 */
 			}
 			if (count == 0 || nprocessed < (uint64) count)
 			{
-				portal->atStart = true; /* we retrieved 'em all */
+				portal->atStart = true; /* 已取回全部行   */
 				portal->portalPos = 0;
 			}
 			else
@@ -989,10 +989,10 @@ PortalRunSelect(Portal portal,
 
 /*
  * FillPortalStore
- *		Run the query and load result tuples into the portal's tuple store.
+ *		运行查询并把结果元组载入门户的 tuplestore。        
  *
- * This is used for PORTAL_ONE_RETURNING, PORTAL_ONE_MOD_WITH, and
- * PORTAL_UTIL_SELECT cases only.
+ * 仅用于 PORTAL_ONE_RETURNING、PORTAL_ONE_MOD_WITH 和       
+ * PORTAL_UTIL_SELECT 情形。  
  */
 static void
 FillPortalStore(Portal portal, bool isTopLevel)
@@ -1016,10 +1016,10 @@ FillPortalStore(Portal portal, bool isTopLevel)
 		case PORTAL_ONE_MOD_WITH:
 
 			/*
-			 * Run the portal to completion just as for the default
-			 * PORTAL_MULTI_QUERY case, but send the primary query's output to
-			 * the tuplestore.  Auxiliary query outputs are discarded. Set the
-			 * portal's holdSnapshot to the snapshot used (or a copy of it).
+			 * 把门户运行到完成，方式同默认          
+			 * PORTAL_MULTI_QUERY 情形，但把主查询的输出发往     
+			 * tuplestore。辅助查询的输出被丢弃。将门户的     
+			 * holdSnapshot 设置为所用快照（或其副本）。      
 			 */
 			PortalRunMulti(portal, isTopLevel, true,
 						   treceiver, None_Receiver, &qc);
@@ -1036,7 +1036,7 @@ FillPortalStore(Portal portal, bool isTopLevel)
 			break;
 	}
 
-	/* Override portal completion data with actual command results */
+	/* 用实际命令结果覆盖门户的完成数据            */
 	if (qc.commandTag != CMDTAG_UNKNOWN)
 		CopyQueryCompletion(&portal->qc, &qc);
 
@@ -1045,15 +1045,15 @@ FillPortalStore(Portal portal, bool isTopLevel)
 
 /*
  * RunFromStore
- *		Fetch tuples from the portal's tuple store.
+ *		从门户的 tuplestore 中取元组。    
  *
- * Calling conventions are similar to ExecutorRun, except that we
- * do not depend on having a queryDesc or estate.  Therefore we return the
- * number of tuples processed as the result, not in estate->es_processed.
+ * 调用约定与 ExecutorRun 类似，只是我们             
+ * 不要求存在 queryDesc 或 estate。因此我们把                 
+ * 处理元组数作为结果返回，而非 estate->es_processed。    
  *
- * One difference from ExecutorRun is that the destination receiver functions
- * are run in the caller's memory context (since we have no estate).  Watch
- * out for memory leaks.
+ * 与 ExecutorRun 的不同之处是：目的地接收器函数运行在    
+ * 调用者的内存上下文中（因为我们没有 estate）。注意  
+ * 提防内存泄漏。
  */
 static uint64
 RunFromStore(Portal portal, ScanDirection direction, uint64 count,
@@ -1068,7 +1068,7 @@ RunFromStore(Portal portal, ScanDirection direction, uint64 count,
 
 	if (ScanDirectionIsNoMovement(direction))
 	{
-		/* do nothing except start/stop the destination */
+		/* 除启动/停止目的地外什么都不做  */
 	}
 	else
 	{
@@ -1090,9 +1090,9 @@ RunFromStore(Portal portal, ScanDirection direction, uint64 count,
 				break;
 
 			/*
-			 * If we are not able to send the tuple, we assume the destination
-			 * has closed and no more tuples can be sent. If that's the case,
-			 * end the loop.
+			 * 如果无法发送元组，我们假定目的地               
+			 * 已经关闭、不可能再发送元组。若真如此，     
+			 * 结束循环 
 			 */
 			if (!dest->receiveSlot(slot, dest))
 				break;
@@ -1100,9 +1100,9 @@ RunFromStore(Portal portal, ScanDirection direction, uint64 count,
 			ExecClearTuple(slot);
 
 			/*
-			 * check our tuple count.. if we've processed the proper number
-			 * then quit, else loop again and process more tuples. Zero count
-			 * means no limit.
+			 * 检查元组计数：若已处理了正确数量            
+			 * 则退出，否则再循环处理更多元组。count 为零  
+			 * 即无限制   
 			 */
 			current_tuple_count++;
 			if (count && count == current_tuple_count)
@@ -1119,7 +1119,7 @@ RunFromStore(Portal portal, ScanDirection direction, uint64 count,
 
 /*
  * PortalRunUtility
- *		Execute a utility statement inside a portal.
+ *		在门户内执行一条实用语句。     
  */
 static void
 PortalRunUtility(Portal portal, PlannedStmt *pstmt,
@@ -1127,13 +1127,13 @@ PortalRunUtility(Portal portal, PlannedStmt *pstmt,
 				 DestReceiver *dest, QueryCompletion *qc)
 {
 	/*
-	 * Set snapshot if utility stmt needs one.
+	 * 实用语句需要时设置快照。   
 	 */
 	if (PlannedStmtRequiresSnapshot(pstmt))
 	{
 		Snapshot	snapshot = GetTransactionSnapshot();
 
-		/* If told to, register the snapshot we're using and save in portal */
+		/* 如被要求，注册所用快照并保存到门户中           */
 		if (setHoldSnapshot)
 		{
 			snapshot = RegisterSnapshot(snapshot);
@@ -1141,13 +1141,13 @@ PortalRunUtility(Portal portal, PlannedStmt *pstmt,
 		}
 
 		/*
-		 * In any case, make the snapshot active and remember it in portal.
-		 * Because the portal now references the snapshot, we must tell
-		 * snapmgr.c that the snapshot belongs to the portal's transaction
-		 * level, else we risk portalSnapshot becoming a dangling pointer.
+		 * 无论如何，都要激活该快照并记入门户。          
+		 * 因为门户现在引用该快照，必须告诉            
+		 * snapmgr.c：该快照属于门户的事务层级，            
+		 * 否则 portalSnapshot 可能变成悬空指针。              
 		 */
 		PushActiveSnapshotWithLevel(snapshot, portal->createLevel);
-		/* PushActiveSnapshotWithLevel might have copied the snapshot */
+		/* PushActiveSnapshotWithLevel 可能已复制过快照       */
 		portal->portalSnapshot = GetActiveSnapshot();
 	}
 	else
@@ -1155,21 +1155,21 @@ PortalRunUtility(Portal portal, PlannedStmt *pstmt,
 
 	ProcessUtility(pstmt,
 				   portal->sourceText,
-				   (portal->cplan != NULL), /* protect tree if in plancache */
+				   (portal->cplan != NULL), /* plancache 内保护计划树 */
 				   isTopLevel ? PROCESS_UTILITY_TOPLEVEL : PROCESS_UTILITY_QUERY,
 				   portal->portalParams,
 				   portal->queryEnv,
 				   dest,
 				   qc);
 
-	/* Some utility statements may change context on us */
+	/* 某些实用语句可能改变当前上下文    */
 	MemoryContextSwitchTo(portal->portalContext);
 
 	/*
-	 * Some utility commands (e.g., VACUUM) pop the ActiveSnapshot stack from
-	 * under us, so don't complain if it's now empty.  Otherwise, our snapshot
-	 * should be the top one; pop it.  Note that this could be a different
-	 * snapshot from the one we made above; see EnsurePortalSnapshotExists.
+	 * 某些实用命令（如 VACUUM）会把 ActiveSnapshot               
+	 * 栈从我们脚下弹空，故若其现已为空也不报错。        
+	 * 否则，我们的快照应当位于栈顶；将其弹出。       
+	 * 注意它可能异于上文快照；见 EnsurePortalSnapshotExists  
 	 */
 	if (portal->portalSnapshot != NULL && ActiveSnapshotSet())
 	{
@@ -1181,8 +1181,8 @@ PortalRunUtility(Portal portal, PlannedStmt *pstmt,
 
 /*
  * PortalRunMulti
- *		Execute a portal's queries in the general case (multi queries
- *		or non-SELECT-like queries)
+ *		一般情形下执行门户的查询（多查询             
+ *		或非 SELECT 类查询） 
  */
 static void
 PortalRunMulti(Portal portal,
@@ -1194,14 +1194,14 @@ PortalRunMulti(Portal portal,
 	ListCell   *stmtlist_item;
 
 	/*
-	 * If the destination is DestRemoteExecute, change to DestNone.  The
-	 * reason is that the client won't be expecting any tuples, and indeed has
-	 * no way to know what they are, since there is no provision for Describe
-	 * to send a RowDescription message when this portal execution strategy is
-	 * in effect.  This presently will only affect SELECT commands added to
-	 * non-SELECT queries by rewrite rules: such commands will be executed,
-	 * but the results will be discarded unless you use "simple Query"
-	 * protocol.
+	 * 若目的地为 DestRemoteExecute，则改成 DestNone。原因  
+	 * 是客户端不会预期收到任何元组，而且确实              
+	 * 无从得知它们是什么，因为该门户执行策略下没有    
+	 * 让 Describe 发送 RowDescription 消息的机制。这只影响      
+	 * 由重写规则加入非 SELECT 查询的 SELECT 命令：它们    
+	 * 会被执行，但结果会被丢弃，除非使用                 
+	 * "simple Query" 协议。                                       
+	 *          
 	 */
 	if (dest->mydest == DestRemoteExecute)
 		dest = None_Receiver;
@@ -1209,22 +1209,22 @@ PortalRunMulti(Portal portal,
 		altdest = None_Receiver;
 
 	/*
-	 * Loop to handle the individual queries generated from a single parsetree
-	 * by analysis and rewrite.
+	 * 循环处理由单个 parsetree 经分析与重写产生的            
+	 * 各个查询。         
 	 */
 	foreach(stmtlist_item, portal->stmts)
 	{
 		PlannedStmt *pstmt = lfirst_node(PlannedStmt, stmtlist_item);
 
 		/*
-		 * If we got a cancel signal in prior command, quit
+		 * 若上一命令中收到取消信号则退出   
 		 */
 		CHECK_FOR_INTERRUPTS();
 
 		if (pstmt->utilityStmt == NULL)
 		{
 			/*
-			 * process a plannable query.
+			 * 处理可规划查询。  
 			 */
 			TRACE_POSTGRESQL_QUERY_EXECUTE_START();
 
@@ -1232,16 +1232,16 @@ PortalRunMulti(Portal portal,
 				ResetUsage();
 
 			/*
-			 * Must always have a snapshot for plannable queries.  First time
-			 * through, take a new snapshot; for subsequent queries in the
-			 * same portal, just update the snapshot's copy of the command
-			 * counter.
+			 * 可规划查询必须总有快照。第一次                 
+			 * 进入时取一个新快照；对同一门户中的        
+			 * 后续查询，只更新快照中命令计数器副本。  
+			 *         
 			 */
 			if (!active_snapshot_set)
 			{
 				Snapshot	snapshot = GetTransactionSnapshot();
 
-				/* If told to, register the snapshot and save in portal */
+				/* 如果被要求，注册快照并保存到门户中  */
 				if (setHoldSnapshot)
 				{
 					snapshot = RegisterSnapshot(snapshot);
@@ -1249,19 +1249,19 @@ PortalRunMulti(Portal portal,
 				}
 
 				/*
-				 * We can't have the holdSnapshot also be the active one,
-				 * because UpdateActiveSnapshotCommandId would complain.  So
-				 * force an extra snapshot copy.  Plain PushActiveSnapshot
-				 * would have copied the transaction snapshot anyway, so this
-				 * only adds a copy step when setHoldSnapshot is true.  (It's
-				 * okay for the command ID of the active snapshot to diverge
-				 * from what holdSnapshot has.)
+				 * 不能让 holdSnapshot 同时也是活动快照，    
+				 * 因为 UpdateActiveSnapshotCommandId 会抱怨。所以  
+				 * 强制额外复制快照。普通 PushActiveSnapshot   
+				 * 反正也会复制事务快照，因此这一步          
+				 * 只在 setHoldSnapshot 为真时才加复制步骤。（  
+				 * 活动快照的命令 ID 与 holdSnapshot 的值         
+				 * 不一致也没关系。） 
 				 */
 				PushCopiedSnapshot(snapshot);
 
 				/*
-				 * As for PORTAL_ONE_SELECT portals, it does not seem
-				 * necessary to maintain portal->portalSnapshot here.
+				 * 与 PORTAL_ONE_SELECT 类门户一样，这里    
+				 * 似乎不必维护 portal->portalSnapshot。      
 				 */
 
 				active_snapshot_set = true;
@@ -1271,7 +1271,7 @@ PortalRunMulti(Portal portal,
 
 			if (pstmt->canSetTag)
 			{
-				/* statement can set tag string */
+				/* 语句可设置命令标签  */
 				ProcessQuery(pstmt,
 							 portal->sourceText,
 							 portal->portalParams,
@@ -1280,7 +1280,7 @@ PortalRunMulti(Portal portal,
 			}
 			else
 			{
-				/* stmt added by rewrite cannot set tag */
+				/* 重写加入的语句无法设标签 */
 				ProcessQuery(pstmt,
 							 portal->sourceText,
 							 portal->portalParams,
@@ -1296,67 +1296,67 @@ PortalRunMulti(Portal portal,
 		else
 		{
 			/*
-			 * process utility functions (create, destroy, etc..)
+			 * 处理实用函数（创建、销毁等）        
 			 *
-			 * We must not set a snapshot here for utility commands (if one is
-			 * needed, PortalRunUtility will do it).  If a utility command is
-			 * alone in a portal then everything's fine.  The only case where
-			 * a utility command can be part of a longer list is that rules
-			 * are allowed to include NotifyStmt.  NotifyStmt doesn't care
-			 * whether it has a snapshot or not, so we just leave the current
-			 * snapshot alone if we have one.
+			 * 对实用命令我们绝不能在此设置快照（如果      
+			 * 需要，PortalRunUtility 会设置）。若实用命令      
+			 * 独自位于门户中，则一切正常。唯一可能出现  
+			 * 实用命令位于更长列表中的情形是规则         
+			 * 允许包含 NotifyStmt。NotifyStmt 并不在乎          
+			 * 自己是否有快照，所以我们只需保持当前        
+			 * 快照不动即可。         
 			 */
 			if (pstmt->canSetTag)
 			{
 				Assert(!active_snapshot_set);
-				/* statement can set tag string */
+				/* 语句可设置命令标签  */
 				PortalRunUtility(portal, pstmt, isTopLevel, false,
 								 dest, qc);
 			}
 			else
 			{
 				Assert(IsA(pstmt->utilityStmt, NotifyStmt));
-				/* stmt added by rewrite cannot set tag */
+				/* 重写加入的语句无法设标签 */
 				PortalRunUtility(portal, pstmt, isTopLevel, false,
 								 altdest, NULL);
 			}
 		}
 
 		/*
-		 * Clear subsidiary contexts to recover temporary memory.
+		 * 清空附属上下文以回收临时内存。         
 		 */
 		Assert(portal->portalContext == CurrentMemoryContext);
 
 		MemoryContextDeleteChildren(portal->portalContext);
 
 		/*
-		 * Avoid crashing if portal->stmts has been reset.  This can only
-		 * occur if a CALL or DO utility statement executed an internal
-		 * COMMIT/ROLLBACK (cf PortalReleaseCachedPlan).  The CALL or DO must
-		 * have been the only statement in the portal, so there's nothing left
-		 * for us to do; but we don't want to dereference a now-dangling list
-		 * pointer.
+		 * 避免在 portal->stmts 已被重置时崩溃。这只可能  
+		 * 发生在 CALL 或 DO 实用语句执行了内部           
+		 * COMMIT/ROLLBACK 的情况（参见 PortalReleaseCachedPlan）。  
+		 * CALL 或 DO 必然是门户中唯一的语句，所以我们       
+		 * 再没有什么要做；但别解引用已悬空的列表指针。
+		 *         
 		 */
 		if (portal->stmts == NIL)
 			break;
 
 		/*
-		 * Increment command counter between queries, but not after the last
-		 * one.
+		 * 查询间递增命令计数器，最后一条之后不递增。  
+		 *     
 		 */
 		if (lnext(portal->stmts, stmtlist_item) != NULL)
 			CommandCounterIncrement();
 	}
 
-	/* Pop the snapshot if we pushed one. */
+	/* 压入过快照则将其弹出。  */
 	if (active_snapshot_set)
 		PopActiveSnapshot();
 
 	/*
-	 * If a command tag was requested and we did not fill in a run-time-
-	 * determined tag above, copy the parse-time tag from the Portal.  (There
-	 * might not be any tag there either, in edge cases such as empty prepared
-	 * statements.  That's OK.)
+	 * 若请求了命令标签而上面未填入运行时确定的     
+	 * 标签，则从门户复制解析期标签。（                      
+	 * 边缘情形（如空预处理语句）那里也可能没有标签。  
+	 * 没关系。）         
 	 */
 	if (qc &&
 		qc->commandTag == CMDTAG_UNKNOWN &&
@@ -1366,15 +1366,15 @@ PortalRunMulti(Portal portal,
 
 /*
  * PortalRunFetch
- *		Variant form of PortalRun that supports SQL FETCH directions.
+ *		PortalRun 的变体形式，支持 SQL FETCH 方向。       
  *
- * Note: we presently assume that no callers of this want isTopLevel = true.
+ * 注意：目前假定没有调用者会传 isTopLevel = true。          
  *
- * count <= 0 is interpreted as a no-op: the destination gets started up
- * and shut down, but nothing else happens.  Also, count == FETCH_ALL is
- * interpreted as "all rows".  (cf FetchStmt.howMany)
+ * count <= 0 被解释为无操作：目的地会经历启动          
+ * 和关闭，但不发生其他事情。此外 count == FETCH_ALL     
+ * 被解释为"所有行"。(cf FetchStmt.howMany)  
  *
- * Returns number of rows processed (suitable for use in result tag)
+ * 返回已处理的行数（适合用于结果标签）           
  */
 uint64
 PortalRunFetch(Portal portal,
@@ -1391,12 +1391,12 @@ PortalRunFetch(Portal portal,
 	Assert(PortalIsValid(portal));
 
 	/*
-	 * Check for improper portal use, and mark portal active.
+	 * 检查是否被误用，并将门户标为活跃。   
 	 */
 	MarkPortalActive(portal);
 
 	/*
-	 * Set up global portal context pointers.
+	 * 设置全局门户上下文指针。  
 	 */
 	saveActivePortal = ActivePortal;
 	saveResourceOwner = CurrentResourceOwner;
@@ -1421,30 +1421,30 @@ PortalRunFetch(Portal portal,
 			case PORTAL_UTIL_SELECT:
 
 				/*
-				 * If we have not yet run the command, do so, storing its
-				 * results in the portal's tuplestore.
+				 * 若尚未运行该命令，则运行它并把结果   
+				 * 存入门户的 tuplestore。      
 				 */
 				if (!portal->holdStore)
 					FillPortalStore(portal, false /* isTopLevel */ );
 
 				/*
-				 * Now fetch desired portion of results.
+				 * 现在获取所需部分的结果。 
 				 */
 				result = DoPortalRunFetch(portal, fdirection, count, dest);
 				break;
 
 			default:
 				elog(ERROR, "unsupported portal strategy");
-				result = 0;		/* keep compiler quiet */
+				result = 0;		/* 使编译器安静  */
 				break;
 		}
 	}
 	PG_CATCH();
 	{
-		/* Uncaught error while executing portal: mark it dead */
+		/* 执行门户未捕获错误：将其标为失效    */
 		MarkPortalFailed(portal);
 
-		/* Restore global vars and propagate error */
+		/* 恢复全局变量并传播错误       */
 		ActivePortal = saveActivePortal;
 		CurrentResourceOwner = saveResourceOwner;
 		PortalContext = savePortalContext;
@@ -1455,7 +1455,7 @@ PortalRunFetch(Portal portal,
 
 	MemoryContextSwitchTo(oldContext);
 
-	/* Mark portal not active */
+	/* 标记门户非活跃  */
 	portal->status = PORTAL_READY;
 
 	ActivePortal = saveActivePortal;
@@ -1467,12 +1467,12 @@ PortalRunFetch(Portal portal,
 
 /*
  * DoPortalRunFetch
- *		Guts of PortalRunFetch --- the portal context is already set up
+ *		PortalRunFetch 的主体 --- 门户上下文已经建立       
  *
- * Here, count < 0 typically reverses the direction.  Also, count == FETCH_ALL
- * is interpreted as "all rows".  (cf FetchStmt.howMany)
+ * 这里 count < 0 通常表示反转方向。此外 count == FETCH_ALL      
+ * 被解释为"所有行"。(cf FetchStmt.howMany)     
  *
- * Returns number of rows processed (suitable for use in result tag)
+ * 返回已处理的行数（适合用于结果标签）           
  */
 static uint64
 DoPortalRunFetch(Portal portal,
@@ -1488,13 +1488,13 @@ DoPortalRunFetch(Portal portal,
 		   portal->strategy == PORTAL_UTIL_SELECT);
 
 	/*
-	 * Note: we disallow backwards fetch (including re-fetch of current row)
-	 * for NO SCROLL cursors, but we interpret that very loosely: you can use
-	 * any of the FetchDirection options, so long as the end result is to move
-	 * forwards by at least one row.  Currently it's sufficient to check for
-	 * NO SCROLL in DoPortalRewind() and in the forward == false path in
-	 * PortalRunSelect(); but someday we might prefer to account for that
-	 * restriction explicitly here.
+	 * 注意：禁止向后取行（含重取当前行），               
+	 * 但我们对 NO SCROLL 游标的解释非常宽松：可以使用     
+	 * 任何 FetchDirection 选项，只要最终结果是向前             
+	 * 移动至少一行。目前只需在 DoPortalRewind() 与            
+	 * PortalRunSelect() 的 forward == false 路径中检查           
+	 * NO SCROLL 就够了；但将来或许更愿意                    
+	 * 显式考虑此限制。    
 	 */
 	switch (fdirection)
 	{
@@ -1504,7 +1504,7 @@ DoPortalRunFetch(Portal portal,
 				fdirection = FETCH_BACKWARD;
 				count = -count;
 			}
-			/* fall out of switch to share code with FETCH_BACKWARD */
+			/* 跳出 switch 以与 FETCH_BACKWARD 共享代码     */
 			break;
 		case FETCH_BACKWARD:
 			if (count < 0)
@@ -1512,25 +1512,25 @@ DoPortalRunFetch(Portal portal,
 				fdirection = FETCH_FORWARD;
 				count = -count;
 			}
-			/* fall out of switch to share code with FETCH_FORWARD */
+			/* 跳出 switch 以与 FETCH_FORWARD 共享代码     */
 			break;
 		case FETCH_ABSOLUTE:
 			if (count > 0)
 			{
 				/*
-				 * Definition: Rewind to start, advance count-1 rows, return
-				 * next row (if any).
+				 * 定义：回绕起点，前进 count-1 行，返回下一
+				 * 行（若有）。
 				 *
-				 * In practice, if the goal is less than halfway back to the
-				 * start, it's better to scan from where we are.
+				 * 实践中，若目标位置距起点不足一半，      
+				 * 则从当前位置扫描更好。            
 				 *
-				 * Also, if current portalPos is outside the range of "long",
-				 * do it the hard way to avoid possible overflow of the count
-				 * argument to PortalRunSelect.  We must exclude exactly
-				 * LONG_MAX, as well, lest the count look like FETCH_ALL.
+				 * 此外，若当前 portalPos 超出 "long" 的范围，   
+				 * 就用笨办法以避免 PortalRunSelect 的 count        
+				 * 参数可能溢出的风险。还必须把 LONG_MAX  
+				 * 本身排除在外，以免看起来像 FETCH_ALL。  
 				 *
-				 * In any case, we arrange to fetch the target row going
-				 * forwards.
+				 * 无论如何，都安排向前去取目标行。     
+				 *          
 				 */
 				if ((uint64) (count - 1) <= portal->portalPos / 2 ||
 					portal->portalPos >= (uint64) LONG_MAX)
@@ -1545,7 +1545,7 @@ DoPortalRunFetch(Portal portal,
 					long		pos = (long) portal->portalPos;
 
 					if (portal->atEnd)
-						pos++;	/* need one extra fetch if off end */
+						pos++;	/* 若越过末尾需多取一次  */
 					if (count <= pos)
 						PortalRunSelect(portal, false, pos - count + 1,
 										None_Receiver);
@@ -1558,11 +1558,11 @@ DoPortalRunFetch(Portal portal,
 			else if (count < 0)
 			{
 				/*
-				 * Definition: Advance to end, back up abs(count)-1 rows,
-				 * return prior row (if any).  We could optimize this if we
-				 * knew in advance where the end was, but typically we won't.
-				 * (Is it worth considering case where count > half of size of
-				 * query?  We could rewind once we know the size ...)
+				 * 定义：前进到末尾，回退 abs(count)-1 行， 
+				 * 返回前一行（若有）。若预先知道末尾     
+				 * 在哪里，本可优化，但通常我们无从得知。 
+				 * （是否值得考虑 count 超过查询规模一半       
+				 * 的情形？得知规模即可回绕……）     
 				 */
 				PortalRunSelect(portal, true, FETCH_ALL, None_Receiver);
 				if (count < -1)
@@ -1572,7 +1572,7 @@ DoPortalRunFetch(Portal portal,
 			else
 			{
 				/* count == 0 */
-				/* Rewind to start, return zero rows */
+				/* 回绕到起点，返回零行    */
 				DoPortalRewind(portal);
 				return PortalRunSelect(portal, true, 0L, dest);
 			}
@@ -1581,7 +1581,7 @@ DoPortalRunFetch(Portal portal,
 			if (count > 0)
 			{
 				/*
-				 * Definition: advance count-1 rows, return next row (if any).
+				 * 定义：前进 count-1 行，返回下一行（若有）  
 				 */
 				if (count > 1)
 					PortalRunSelect(portal, true, count - 1, None_Receiver);
@@ -1590,8 +1590,8 @@ DoPortalRunFetch(Portal portal,
 			else if (count < 0)
 			{
 				/*
-				 * Definition: back up abs(count)-1 rows, return prior row (if
-				 * any).
+				 * 定义：回退 abs(count)-1 行，返回前一行，若有
+				 * 。  
 				 */
 				if (count < -1)
 					PortalRunSelect(portal, false, -count - 1, None_Receiver);
@@ -1600,7 +1600,7 @@ DoPortalRunFetch(Portal portal,
 			else
 			{
 				/* count == 0 */
-				/* Same as FETCH FORWARD 0, so fall out of switch */
+				/* 与 FETCH FORWARD 0 相同，故跳出 switch  */
 				fdirection = FETCH_FORWARD;
 			}
 			break;
@@ -1610,39 +1610,39 @@ DoPortalRunFetch(Portal portal,
 	}
 
 	/*
-	 * Get here with fdirection == FETCH_FORWARD or FETCH_BACKWARD, and count
-	 * >= 0.
+	 * 至此处时 fdirection 为 FETCH_FORWARD 或 FETCH_BACKWARD，count  
+	 * >= 0 
 	 */
 	forward = (fdirection == FETCH_FORWARD);
 
 	/*
-	 * Zero count means to re-fetch the current row, if any (per SQL)
+	 * count 为零表示重取当前行（若有的话，按 SQL） 
 	 */
 	if (count == 0)
 	{
 		bool		on_row;
 
-		/* Are we sitting on a row? */
+		/* 正停在某行上吗？ */
 		on_row = (!portal->atStart && !portal->atEnd);
 
 		if (dest->mydest == DestNone)
 		{
-			/* MOVE 0 returns 0/1 based on if FETCH 0 would return a row */
+			/* MOVE 0 返回 0/1，取决于 FETCH 0 是否会返回行  */
 			return on_row ? 1 : 0;
 		}
 		else
 		{
 			/*
-			 * If we are sitting on a row, back up one so we can re-fetch it.
-			 * If we are not sitting on a row, we still have to start up and
-			 * shut down the executor so that the destination is initialized
-			 * and shut down correctly; so keep going.  To PortalRunSelect,
-			 * count == 0 means we will retrieve no row.
+			 * 若正停在某个行上，则回退一行以便重取。     
+			 * 如果未停在行上，我们仍须启动并关闭          
+			 * 执行器，使目的地被正确初始化和关闭；所以 
+			 * 继续前进。对 PortalRunSelect 来说，count == 0      
+			 * 表示我们将取不到任何行。     
 			 */
 			if (on_row)
 			{
 				PortalRunSelect(portal, false, 1L, None_Receiver);
-				/* Set up to fetch one row forward */
+				/* 设置为向前取一行        */
 				count = 1;
 				forward = true;
 			}
@@ -1650,7 +1650,7 @@ DoPortalRunFetch(Portal portal,
 	}
 
 	/*
-	 * Optimize MOVE BACKWARD ALL into a Rewind.
+	 * 将 MOVE BACKWARD ALL 优化为回绕。 
 	 */
 	if (!forward && count == FETCH_ALL && dest->mydest == DestNone)
 	{
@@ -1666,7 +1666,7 @@ DoPortalRunFetch(Portal portal,
 }
 
 /*
- * DoPortalRewind - rewind a Portal to starting point
+ * DoPortalRewind - 将门户回绕到起点         
  */
 static void
 DoPortalRewind(Portal portal)
@@ -1674,20 +1674,20 @@ DoPortalRewind(Portal portal)
 	QueryDesc  *queryDesc;
 
 	/*
-	 * No work is needed if we've not advanced nor attempted to advance the
-	 * cursor (and we don't want to throw a NO SCROLL error in this case).
+	 * 如果我们既未前进过，也未尝试前进游标，           
+	 * 则无需任何操作（此时也不想让 NO SCROLL 报错）。  
 	 */
 	if (portal->atStart && !portal->atEnd)
 		return;
 
-	/* Otherwise, cursor must allow scrolling */
+	/* 否则游标必须允许滚动         */
 	if (portal->cursorOptions & CURSOR_OPT_NO_SCROLL)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("cursor can only scan forward"),
 				 errhint("Declare it with SCROLL option to enable backward scan.")));
 
-	/* Rewind holdStore, if we have one */
+	/* 回绕 holdStore（若有）     */
 	if (portal->holdStore)
 	{
 		MemoryContext oldcontext;
@@ -1697,7 +1697,7 @@ DoPortalRewind(Portal portal)
 		MemoryContextSwitchTo(oldcontext);
 	}
 
-	/* Rewind executor, if active */
+	/* 执行器活动时回绕   */
 	queryDesc = portal->queryDesc;
 	if (queryDesc)
 	{
@@ -1712,36 +1712,36 @@ DoPortalRewind(Portal portal)
 }
 
 /*
- * PlannedStmtRequiresSnapshot - what it says on the tin
+ * PlannedStmtRequiresSnapshot - 顾名思义           
  */
 bool
 PlannedStmtRequiresSnapshot(PlannedStmt *pstmt)
 {
 	Node	   *utilityStmt = pstmt->utilityStmt;
 
-	/* If it's not a utility statement, it definitely needs a snapshot */
+	/* 如果不是实用语句，那它肯定需要快照             */
 	if (utilityStmt == NULL)
 		return true;
 
 	/*
-	 * Most utility statements need a snapshot, and the default presumption
-	 * about new ones should be that they do too.  Hence, enumerate those that
-	 * do not need one.
+	 * 大多数实用语句都需要快照，对新语句的默认        
+	 * 假设也应当是同样需要。因此，这里枚举                 
+	 * 无需快照者 
 	 *
-	 * Transaction control, LOCK, and SET must *not* set a snapshot, since
-	 * they need to be executable at the start of a transaction-snapshot-mode
-	 * transaction without freezing a snapshot.  By extension we allow SHOW
-	 * not to set a snapshot.  The other stmts listed are just efficiency
-	 * hacks.  Beware of listing anything that can modify the database --- if,
-	 * say, it has to update an index with expressions that invoke
-	 * user-defined functions, then it had better have a snapshot.
+	 * 事务控制、LOCK 与 SET 绝*不*能设置快照，因为       
+	 * 它们必须能在事务快照模式事务的开头执行，          
+	 * 而不冻结快照。据此我们也允许 SHOW 不设置           
+	 * 快照。所列的其他语句只是效率上的技巧。         
+	 * 当心列出任何能修改数据库的对象 --- 比如说，若      
+	 * 它必须用含用户定义函数调用的表达式更新  
+	 * 索引，那它最好有快照。                          
 	 */
 	if (IsA(utilityStmt, TransactionStmt) ||
 		IsA(utilityStmt, LockStmt) ||
 		IsA(utilityStmt, VariableSetStmt) ||
 		IsA(utilityStmt, VariableShowStmt) ||
 		IsA(utilityStmt, ConstraintsSetStmt) ||
-	/* efficiency hacks from here down */
+	/* 从此往下都是效率技巧  */
 		IsA(utilityStmt, FetchStmt) ||
 		IsA(utilityStmt, ListenStmt) ||
 		IsA(utilityStmt, NotifyStmt) ||
@@ -1753,14 +1753,14 @@ PlannedStmtRequiresSnapshot(PlannedStmt *pstmt)
 }
 
 /*
- * EnsurePortalSnapshotExists - recreate Portal-level snapshot, if needed
+ * EnsurePortalSnapshotExists - 按需重建门户级快照              
  *
- * Generally, we will have an active snapshot whenever we are executing
- * inside a Portal, unless the Portal's query is one of the utility
- * statements exempted from that rule (see PlannedStmtRequiresSnapshot).
- * However, procedures and DO blocks can commit or abort the transaction,
- * and thereby destroy all snapshots.  This function can be called to
- * re-establish the Portal-level snapshot when none exists.
+ * 一般而言，只要我们在某个门户内执行，              
+ * 就会有活动快照，除非该门户的查询属于          
+ * 被豁免的实用语句（见 PlannedStmtRequiresSnapshot）。     
+ * 然而，过程与 DO 块可以提交或中止事务，               
+ * 从而销毁所有快照。可以调用本函数来在            
+ * 不存在任何快照时重建门户级快照。        
  */
 void
 EnsurePortalSnapshotExists(void)
@@ -1768,26 +1768,26 @@ EnsurePortalSnapshotExists(void)
 	Portal		portal;
 
 	/*
-	 * Nothing to do if a snapshot is set.  (We take it on faith that the
-	 * outermost active snapshot belongs to some Portal; or if there is no
-	 * Portal, it's somebody else's responsibility to manage things.)
+	 * 若已设置快照则无事可做。（我们宁可相信         
+	 * 最外层的活动快照属于某个门户；而如果             
+	 * 没有门户，那就归别人负责管理。）              
 	 */
 	if (ActiveSnapshotSet())
 		return;
 
-	/* Otherwise, we'd better have an active Portal */
+	/* 否则我们最好有一个活动门户      */
 	portal = ActivePortal;
 	if (unlikely(portal == NULL))
 		elog(ERROR, "cannot execute SQL without an outer snapshot or portal");
 	Assert(portal->portalSnapshot == NULL);
 
 	/*
-	 * Create a new snapshot, make it active, and remember it in portal.
-	 * Because the portal now references the snapshot, we must tell snapmgr.c
-	 * that the snapshot belongs to the portal's transaction level, else we
-	 * risk portalSnapshot becoming a dangling pointer.
+	 * 创建新快照，将其激活，并记入门户。              
+	 * 因为门户现在引用该快照，必须告知 snapmgr.c            
+	 * 该快照属于门户的事务层级，以免                       
+	 * portalSnapshot 变成悬空指针。            
 	 */
 	PushActiveSnapshotWithLevel(GetTransactionSnapshot(), portal->createLevel);
-	/* PushActiveSnapshotWithLevel might have copied the snapshot */
+	/* PushActiveSnapshotWithLevel 可能已复制过快照       */
 	portal->portalSnapshot = GetActiveSnapshot();
 }

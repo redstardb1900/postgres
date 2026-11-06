@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * fastpath.c
- *	  routines to handle function requests from the frontend
+ *	  处理来自前端的函数调用请求的例程      
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -11,7 +11,7 @@
  *	  src/backend/tcop/fastpath.c
  *
  * NOTES
- *	  This cruft is the server side of PQfn.
+ *	  本文件是 PQfn 的服务器端。  
  *
  *-------------------------------------------------------------------------
  */
@@ -36,24 +36,24 @@
 
 
 /*
- * Formerly, this code attempted to cache the function and type info
- * looked up by fetch_fp_info, but only for the duration of a single
- * transaction command (since in theory the info could change between
- * commands).  This was utterly useless, because postgres.c executes
- * each fastpath call as a separate transaction command, and so the
- * cached data could never actually have been reused.  If it had worked
- * as intended, it would have had problems anyway with dangling references
- * in the FmgrInfo struct.  So, forget about caching and just repeat the
- * syscache fetches on each usage.  They're not *that* expensive.
+ * 此前，这段代码曾尝试缓存 fetch_fp_info 查到的     
+ * 函数与类型信息，但只维持单个事务命令之久     
+ * （理论上这些信息可能在命令之间变化）。         
+ * 这完全没用，因为 postgres.c 把每次 fastpath 调用    
+ * 当作单独的事务命令执行，缓存的数据因此       
+ * 永远不可能被真正复用。即使按原意生效，           
+ * 它也难免因 FmgrInfo 结构体里的悬空引用出问题。       
+ * 所以放弃缓存，改为在每次使用时重新执行            
+ * syscache 查询——它们并没有那么昂贵。           
  */
 struct fp_info
 {
 	Oid			funcid;
-	FmgrInfo	flinfo;			/* function lookup info for funcid */
-	Oid			namespace;		/* other stuff from pg_proc */
+	FmgrInfo	flinfo;			/* funcid 的函数查找信息    */
+	Oid			namespace;		/* pg_proc 的其他信息  */
 	Oid			rettype;
 	Oid			argtypes[FUNC_MAX_ARGS];
-	char		fname[NAMEDATALEN]; /* function name for logging */
+	char		fname[NAMEDATALEN]; /* 用于日志的函数名  */
 };
 
 
@@ -113,8 +113,8 @@ SendFunctionResult(Datum retval, bool isnull, Oid rettype, int16 format)
 /*
  * fetch_fp_info
  *
- * Performs catalog lookups to load a struct fp_info 'fip' for the
- * function 'func_id'.
+ * 查找系统目录，为函数 'func_id' 装载                
+ * fp_info（fip）。
  */
 static void
 fetch_fp_info(Oid func_id, struct fp_info *fip)
@@ -125,12 +125,12 @@ fetch_fp_info(Oid func_id, struct fp_info *fip)
 	Assert(fip != NULL);
 
 	/*
-	 * Since the validity of this structure is determined by whether the
-	 * funcid is OK, we clear the funcid here.  It must not be set to the
-	 * correct value until we are about to return with a good struct fp_info,
-	 * since we can be interrupted (i.e., with an ereport(ERROR, ...)) at any
-	 * time.  [No longer really an issue since we don't save the struct
-	 * fp_info across transactions anymore, but keep it anyway.]
+	 * 结构体是否有效，取决于 funcid 是否可用；所以   
+	 * 我们在此清空 funcid。在即将带着完好的 fp_info      
+	 * 结构体返回之前，不能把它设成正确的值；因为       
+	 * 随时可能被打断（比如 ereport(ERROR, ...)）。              
+	 * [如今已不再跨事务保存 fp_info，这其实不再是    
+	 * 问题了，但仍保留这一做法。]                 
 	 */
 	MemSet(fip, 0, sizeof(struct fp_info));
 	fip->funcid = InvalidOid;
@@ -142,14 +142,14 @@ fetch_fp_info(Oid func_id, struct fp_info *fip)
 				 errmsg("function with OID %u does not exist", func_id)));
 	pp = (Form_pg_proc) GETSTRUCT(func_htp);
 
-	/* reject pg_proc entries that are unsafe to call via fastpath */
+	/* 拒绝不能安全地经 fastpath 调用的 pg_proc 条目  */
 	if (pp->prokind != PROKIND_FUNCTION || pp->proretset)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("cannot call function \"%s\" via fastpath interface",
 						NameStr(pp->proname))));
 
-	/* watch out for catalog entries with more than FUNC_MAX_ARGS args */
+	/* 当心参数多于 FUNC_MAX_ARGS 的系统目录条目          */
 	if (pp->pronargs > FUNC_MAX_ARGS)
 		elog(ERROR, "function %s has more than %d arguments",
 			 NameStr(pp->proname), FUNC_MAX_ARGS);
@@ -164,7 +164,7 @@ fetch_fp_info(Oid func_id, struct fp_info *fip)
 	fmgr_info(func_id, &fip->flinfo);
 
 	/*
-	 * This must be last!
+	 * 必须放最后！
 	 */
 	fip->funcid = func_id;
 }
@@ -173,17 +173,17 @@ fetch_fp_info(Oid func_id, struct fp_info *fip)
 /*
  * HandleFunctionRequest
  *
- * Server side of PQfn (fastpath function calls from the frontend).
- * This corresponds to the libpq protocol symbol "F".
+ * PQfn 的服务器端（前端的 fastpath 函数调用）。    
+ * 对应 libpq 协议符号 "F"。                  
  *
- * INPUT:
- *		postgres.c has already read the message body and will pass it in
- *		msgBuf.
+ * 输入
+ *		postgres.c 已读取消息体，并将通过 msgBuf 传入。   
+ *		       
  *
- * Note: palloc()s done here and in the called function do not need to be
- * cleaned up explicitly.  We are called from PostgresMain() in the
- * MessageContext memory context, which will be automatically reset when
- * control returns to PostgresMain.
+ * 注意：此处与被调函数里的 palloc() 无需显式清理，   
+ * 我们在 PostgresMain() 的 MessageContext                     
+ * 内存上下文里被调用；控制返回时它自动重置。      
+ *                                 
  */
 void
 HandleFunctionRequest(StringInfo msgBuf)
@@ -200,8 +200,8 @@ HandleFunctionRequest(StringInfo msgBuf)
 	char		msec_str[32];
 
 	/*
-	 * We only accept COMMIT/ABORT if we are in an aborted transaction, and
-	 * COMMIT/ABORT cannot be executed through the fastpath interface.
+	 * 只有在已中止的事务里才接受 COMMIT/ABORT，而且       
+	 * COMMIT/ABORT 无法经 fastpath 接口执行。                
 	 */
 	if (IsAbortedTransactionBlockState())
 		ereport(ERROR,
@@ -210,24 +210,24 @@ HandleFunctionRequest(StringInfo msgBuf)
 						"commands ignored until end of transaction block")));
 
 	/*
-	 * Now that we know we are in a valid transaction, set snapshot in case
-	 * needed by function itself or one of the datatype I/O routines.
+	 * 既然已确认处于有效事务中，就先设置快照，以备  
+	 * 函数自身或某个数据类型 I/O 例程需要。         
 	 */
 	PushActiveSnapshot(GetTransactionSnapshot());
 
 	/*
-	 * Begin parsing the buffer contents.
+	 * 开始解析缓冲区内容。    
 	 */
-	fid = (Oid) pq_getmsgint(msgBuf, 4);	/* function oid */
+	fid = (Oid) pq_getmsgint(msgBuf, 4);	/* 函数 OID   */
 
 	/*
-	 * There used to be a lame attempt at caching lookup info here. Now we
-	 * just do the lookups on every call.
+	 * 这里曾有过一个蹩脚的查找信息缓存尝试；如今    
+	 * 每次调用都直接查找。    
 	 */
 	fip = &my_fp;
 	fetch_fp_info(fid, fip);
 
-	/* Log as soon as we have the function OID and name */
+	/* 一旦拿到函数 OID 与名字就记录日志  */
 	if (log_statement == LOGSTMT_ALL)
 	{
 		ereport(LOG,
@@ -237,8 +237,8 @@ HandleFunctionRequest(StringInfo msgBuf)
 	}
 
 	/*
-	 * Check permission to access and call function.  Since we didn't go
-	 * through a normal name lookup, we need to check schema usage too.
+	 * 检查访问与调用函数的权限。由于没有经过常规  
+	 * 的名字查找，还需要检查 schema 使用权。           
 	 */
 	aclresult = object_aclcheck(NamespaceRelationId, fip->namespace, GetUserId(), ACL_USAGE);
 	if (aclresult != ACLCHECK_OK)
@@ -253,21 +253,21 @@ HandleFunctionRequest(StringInfo msgBuf)
 	InvokeFunctionExecuteHook(fid);
 
 	/*
-	 * Prepare function call info block and insert arguments.
+	 * 准备函数调用信息块并插入参数。         
 	 *
-	 * Note: for now we pass collation = InvalidOid, so collation-sensitive
-	 * functions can't be called this way.  Perhaps we should pass
-	 * DEFAULT_COLLATION_OID, instead?
+	 * 注意：目前传入 collation = InvalidOid，因此对排序      
+	 * 规则敏感的函数无法这样调用。或许应该传  
+	 * DEFAULT_COLLATION_OID？       
 	 */
 	InitFunctionCallInfoData(*fcinfo, &fip->flinfo, 0, InvalidOid, NULL, NULL);
 
 	rformat = parse_fcall_arguments(msgBuf, fip, fcinfo);
 
-	/* Verify we reached the end of the message where expected. */
+	/* 确认已在预期位置到达消息末尾               */
 	pq_getmsgend(msgBuf);
 
 	/*
-	 * If func is strict, must not call it for null args.
+	 * 若函数 strict，参数为空不得调用。    
 	 */
 	callit = true;
 	if (fip->flinfo.fn_strict)
@@ -286,7 +286,7 @@ HandleFunctionRequest(StringInfo msgBuf)
 
 	if (callit)
 	{
-		/* Okay, do it ... */
+		/* 执行……    */
 		retval = FunctionCallInvoke(fcinfo);
 	}
 	else
@@ -295,16 +295,16 @@ HandleFunctionRequest(StringInfo msgBuf)
 		retval = (Datum) 0;
 	}
 
-	/* ensure we do at least one CHECK_FOR_INTERRUPTS per function call */
+	/* 保证每次函数调用至少执行一次 CHECK_FOR_INTERRUPTS  */
 	CHECK_FOR_INTERRUPTS();
 
 	SendFunctionResult(retval, fcinfo->isnull, fip->rettype, rformat);
 
-	/* We no longer need the snapshot */
+	/* 已不再需要该快照       */
 	PopActiveSnapshot();
 
 	/*
-	 * Emit duration logging if appropriate.
+	 * 适当时记录耗时日志。       
 	 */
 	switch (check_log_duration(msec_str, was_logged))
 	{
@@ -321,10 +321,10 @@ HandleFunctionRequest(StringInfo msgBuf)
 }
 
 /*
- * Parse function arguments in a 3.0 protocol message
+ * 解析 3.0 协议消息中的函数参数         
  *
- * Argument values are loaded into *fcinfo, and the desired result format
- * is returned.
+ * 参数值被装入 *fcinfo，期望的结果格式则作为           
+ * 返回值。
  */
 static int16
 parse_fcall_arguments(StringInfo msgBuf, struct fp_info *fip,
@@ -336,7 +336,7 @@ parse_fcall_arguments(StringInfo msgBuf, struct fp_info *fip,
 	int16	   *aformats = NULL;
 	StringInfoData abuf;
 
-	/* Get the argument format codes */
+	/* 取得参数格式编码      */
 	numAFormats = pq_getmsgint(msgBuf, 2);
 	if (numAFormats > 0)
 	{
@@ -345,7 +345,7 @@ parse_fcall_arguments(StringInfo msgBuf, struct fp_info *fip,
 			aformats[i] = pq_getmsgint(msgBuf, 2);
 	}
 
-	nargs = pq_getmsgint(msgBuf, 2);	/* # of arguments */
+	nargs = pq_getmsgint(msgBuf, 2);	/* 参数个数   */
 
 	if (fip->flinfo.fn_nargs != nargs || nargs > FUNC_MAX_ARGS)
 		ereport(ERROR,
@@ -364,7 +364,7 @@ parse_fcall_arguments(StringInfo msgBuf, struct fp_info *fip,
 	initStringInfo(&abuf);
 
 	/*
-	 * Copy supplied arguments into arg vector.
+	 * 把给定参数复制进参数数组。 
 	 */
 	for (i = 0; i < nargs; ++i)
 	{
@@ -385,7 +385,7 @@ parse_fcall_arguments(StringInfo msgBuf, struct fp_info *fip,
 						 errmsg("invalid argument size %d in function call message",
 								argsize)));
 
-			/* Reset abuf to empty, and insert raw data into it */
+			/* 将 abuf 重置为空，插入原始数据       */
 			resetStringInfo(&abuf);
 			appendBinaryStringInfo(&abuf,
 								   pq_getmsgbytes(msgBuf, argsize),
@@ -397,7 +397,7 @@ parse_fcall_arguments(StringInfo msgBuf, struct fp_info *fip,
 		else if (numAFormats > 0)
 			aformat = aformats[0];
 		else
-			aformat = 0;		/* default = text */
+			aformat = 0;		/* 默认为 text */
 
 		if (aformat == 0)
 		{
@@ -408,10 +408,10 @@ parse_fcall_arguments(StringInfo msgBuf, struct fp_info *fip,
 			getTypeInputInfo(fip->argtypes[i], &typinput, &typioparam);
 
 			/*
-			 * Since stringinfo.c keeps a trailing null in place even for
-			 * binary data, the contents of abuf are a valid C string.  We
-			 * have to do encoding conversion before calling the typinput
-			 * routine, though.
+			 * stringinfo.c 连二进制数据也保留结尾 null，    
+			 * abuf 的内容是有效的 C 字符串。但调用         
+			 * typinput 例程之前必须先做编码转换。          
+			 *                 
 			 */
 			if (argsize == -1)
 				pstring = NULL;
@@ -420,7 +420,7 @@ parse_fcall_arguments(StringInfo msgBuf, struct fp_info *fip,
 
 			fcinfo->args[i].value = OidInputFunctionCall(typinput, pstring,
 														 typioparam, -1);
-			/* Free result of encoding conversion, if any */
+			/* 释放编码转换的结果（如有）    */
 			if (pstring && pstring != abuf.data)
 				pfree(pstring);
 		}
@@ -430,7 +430,7 @@ parse_fcall_arguments(StringInfo msgBuf, struct fp_info *fip,
 			Oid			typioparam;
 			StringInfo	bufptr;
 
-			/* Call the argument type's binary input converter */
+			/* 调用参数类型的二进制输入转换器   */
 			getTypeBinaryInputInfo(fip->argtypes[i], &typreceive, &typioparam);
 
 			if (argsize == -1)
@@ -441,7 +441,7 @@ parse_fcall_arguments(StringInfo msgBuf, struct fp_info *fip,
 			fcinfo->args[i].value = OidReceiveFunctionCall(typreceive, bufptr,
 														   typioparam, -1);
 
-			/* Trouble if it didn't eat the whole buffer */
+			/* 未吃掉整个缓冲区即有问题      */
 			if (argsize != -1 && abuf.cursor != abuf.len)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_BINARY_REPRESENTATION),
@@ -454,6 +454,6 @@ parse_fcall_arguments(StringInfo msgBuf, struct fp_info *fip,
 					 errmsg("unsupported format code: %d", aformat)));
 	}
 
-	/* Return result format code */
+	/* 返回结果格式编码  */
 	return (int16) pq_getmsgint(msgBuf, 2);
 }

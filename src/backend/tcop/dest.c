@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * dest.c
- *	  support for communication destinations
+ *	  通信目的地支持                 
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -13,17 +13,17 @@
  *-------------------------------------------------------------------------
  */
 /*
- *	 INTERFACE ROUTINES
- *		BeginCommand - initialize the destination at start of command
- *		CreateDestReceiver - create tuple receiver object for destination
- *		EndCommand - clean up the destination at end of command
- *		NullCommand - tell dest that an empty query string was recognized
- *		ReadyForQuery - tell dest that we are ready for a new query
+ *	 接口例程      
+ *		BeginCommand - 在命令开始时初始化目的地          
+ *		CreateDestReceiver - 为目的地创建元组接收器对象     
+ *		EndCommand - 在命令结束时清理目的地         
+ *		NullCommand - 告知目的地已识别出空查询串            
+ *		ReadyForQuery - 告知目的地已准备好新查询       
  *
  *	 NOTES
- *		These routines do the appropriate work before and after
- *		tuples are returned by a query to keep the backend and the
- *		"destination" portals synchronized.
+ *		这些例程在查询返回元组的前后做相应的 
+ *		工作，让后端与"目的地"门户保持同步。     
+ *		                                   
  */
 
 #include "postgres.h"
@@ -43,7 +43,7 @@
 
 
 /* ----------------
- *		dummy DestReceiver functions
+ *		dummy DestReceiver 函数   
  * ----------------
  */
 static bool
@@ -60,11 +60,11 @@ donothingStartup(DestReceiver *self, int operation, TupleDesc typeinfo)
 static void
 donothingCleanup(DestReceiver *self)
 {
-	/* this is used for both shutdown and destroy methods */
+	/* shutdown 与 destroy 两个方法都用它         */
 }
 
 /* ----------------
- *		static DestReceiver structs for dest types needing no local state
+ *		无本地状态目的地类型的静态 DestReceiver 结构体   
  * ----------------
  */
 static const DestReceiver donothingDR = {
@@ -88,33 +88,33 @@ static const DestReceiver spi_printtupDR = {
 };
 
 /*
- * Globally available receiver for DestNone.
+ * DestNone 可用的全局接收器。     
  *
- * It's ok to cast the constness away as any modification of the none receiver
- * would be a bug (which gets easier to catch this way).
+ * 把 const 限定去掉是安全的：对 none 接收器的任何修改     
+ * 都会是 bug（这样更容易抓住它）。       
  */
 DestReceiver *None_Receiver = (DestReceiver *) &donothingDR;
 
 /* ----------------
- *		BeginCommand - initialize the destination at start of command
+ *		BeginCommand - 在命令开始时初始化目的地          
  * ----------------
  */
 void
 BeginCommand(CommandTag commandTag, CommandDest dest)
 {
-	/* Nothing to do at present */
+	/* 目前无事可做       */
 }
 
 /* ----------------
- *		CreateDestReceiver - return appropriate receiver function set for dest
+ *		CreateDestReceiver - 为目的地返回合适的接收器函数集    
  * ----------------
  */
 DestReceiver *
 CreateDestReceiver(CommandDest dest)
 {
 	/*
-	 * It's ok to cast the constness away as any modification of the none
-	 * receiver would be a bug (which gets easier to catch this way).
+	 * 把 const 限定去掉是安全的：none 接收器任何修改   
+	 * 都会是 bug（这样更容易抓住它）。                
 	 */
 
 	switch (dest)
@@ -154,12 +154,12 @@ CreateDestReceiver(CommandDest dest)
 			return CreateTupleQueueDestReceiver(NULL);
 	}
 
-	/* should never get here */
+	/* 不应到达此处    */
 	pg_unreachable();
 }
 
 /* ----------------
- *		EndCommand - clean up the destination at end of command
+ *		EndCommand - 在命令结束时清理目的地         
  * ----------------
  */
 void
@@ -192,9 +192,9 @@ EndCommand(const QueryCompletion *qc, CommandDest dest, bool force_undecorated_o
 }
 
 /* ----------------
- *		EndReplicationCommand - stripped down version of EndCommand
+ *		EndReplicationCommand - EndCommand 的精简版本         
  *
- *		For use by replication commands.
+ *		供复制命令使用。        
  * ----------------
  */
 void
@@ -204,10 +204,10 @@ EndReplicationCommand(const char *commandTag)
 }
 
 /* ----------------
- *		NullCommand - tell dest that an empty query string was recognized
+ *		NullCommand - 告知目的地已识别出空查询串            
  *
- *		This ensures that there will be a recognizable end to the response
- *		to an Execute message in the extended query protocol.
+ *		这保证扩展查询协议中 Execute 消息的响应有一个   
+ *		可识别的结束。                                
  * ----------------
  */
 void
@@ -219,7 +219,7 @@ NullCommand(CommandDest dest)
 		case DestRemoteExecute:
 		case DestRemoteSimple:
 
-			/* Tell the FE that we saw an empty query string */
+			/* 告知前端我们见到了空查询串       */
 			pq_putemptymessage('I');
 			break;
 
@@ -237,14 +237,14 @@ NullCommand(CommandDest dest)
 }
 
 /* ----------------
- *		ReadyForQuery - tell dest that we are ready for a new query
+ *		ReadyForQuery - 告知目的地已准备好新查询       
  *
- *		The ReadyForQuery message is sent so that the FE can tell when
- *		we are done processing a query string.
- *		In versions 3.0 and up, it also carries a transaction state indicator.
+ *		发送 ReadyForQuery 消息，让前端能分辨何时        
+ *		处理完了一个查询串。        
+ *		3.0 及以上版本中，它还携带事务状态指示。            
  *
- *		Note that by flushing the stdio buffer here, we can avoid doing it
- *		most other places and thus reduce the number of separate packets sent.
+ *		注意：在此冲刷 stdio 缓冲区后，其余大多数地方  
+ *		都可免了这一步，从而减少单独发送的包数。          
  * ----------------
  */
 void
@@ -262,7 +262,7 @@ ReadyForQuery(CommandDest dest)
 				pq_sendbyte(&buf, TransactionBlockStatusCode());
 				pq_endmessage(&buf);
 			}
-			/* Flush output at end of cycle in any case. */
+			/* 每轮结束时无论如何都冲刷输出*/
 			pq_flush();
 			break;
 

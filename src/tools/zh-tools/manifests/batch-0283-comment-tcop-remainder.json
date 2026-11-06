@@ -1,0 +1,82 @@
+{
+ "schema_version": 1,
+ "batch_id": "0283-comment-tcop-remainder",
+ "title": "Translate comments: tcop-remainder",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "22c4dd133bf6a0b3adc7ad6c34aceaac9f8a2f63",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0283-comment-tcop-remainder.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/tcop/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0283-comment-tcop-remainder.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/tcop/cmdtag.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 9,
+   "preserved": 1,
+   "preserved_reasons": [
+    "Two-line block whose both lines carry the /* and */ edge markers (no keyable interior lines)"
+   ],
+   "note": "P2 translation campaign wave D3/D4/D5/D6"
+  },
+  {
+   "path": "src/backend/tcop/dest.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 17,
+   "translated": 17,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION"
+   ],
+   "note": "P2 translation campaign wave D3/D4/D5/D6"
+  },
+  {
+   "path": "src/backend/tcop/fastpath.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 37,
+   "translated": 36,
+   "preserved": 1,
+   "preserved_reasons": [
+    "Separator-only block rebuilt byte-identical to baseline (no-op pruned)"
+   ],
+   "note": "P2 translation campaign wave D3/D4/D5/D6"
+  },
+  {
+   "path": "src/backend/tcop/pquery.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 174,
+   "translated": 168,
+   "preserved": 6,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "keep-EN labels (identifier label lines, e.g. protocol message names)"
+   ],
+   "note": "P2 translation campaign wave D3/D4/D5/D6"
+  }
+ ],
+ "notes": "Translation agents (D3a/D3b/D4/D5/D6) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

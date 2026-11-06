@@ -1,0 +1,47 @@
+{
+ "schema_version": 1,
+ "batch_id": "0284-comment-postmaster-autovacuum",
+ "title": "Translate comments: postmaster-autovacuum",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "d6ba14c3baf5e475eb9997cfb8ca72459d56ad2e",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0284-comment-postmaster-autovacuum.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/postmaster/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0284-comment-postmaster-autovacuum.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/postmaster/autovacuum.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 357,
+   "translated": 346,
+   "preserved": 11,
+   "preserved_reasons": [
+    "Section banner separators (AUTOVACUUM LAUNCHER / AUTOVACUUM WORKER headers) and a function-separator banner, one of them rebuilt byte-identical as a no-op",
+    "Two-line blocks whose both lines carry the /* and */ edge markers (no keyable interior lines)",
+    "Single-line micro comments whose entire text lies on the /* */ edge line (done, 1s, be tidy, pg_class.reltuples)"
+   ],
+   "note": "P2 translation campaign wave E2"
+  }
+ ],
+ "notes": "Translation agents (E2a/E2b/E2c/E2d) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

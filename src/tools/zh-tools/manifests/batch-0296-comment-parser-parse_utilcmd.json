@@ -1,0 +1,45 @@
+{
+ "schema_version": 1,
+ "batch_id": "0296-comment-parser-parse_utilcmd",
+ "title": "Translate comments: parser-parse_utilcmd",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "61475a626952de0fa711d7113672ab33815b2266",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0296-comment-parser-parse_utilcmd.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/parser/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0296-comment-parser-parse_utilcmd.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/parser/parse_utilcmd.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 322,
+   "translated": 321,
+   "preserved": 1,
+   "preserved_reasons": [
+    "FALL THRU fall-through annotation (R5-protected control-flow marker)"
+   ],
+   "note": "P2 translation campaign wave F5678 (incl. 2 review-restored trailing-comment blocks)"
+  }
+ ],
+ "notes": "Translation agents (F5/F6/F7/F8) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

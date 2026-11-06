@@ -1,15 +1,15 @@
 /*-------------------------------------------------------------------------
  *
  * parse_utilcmd.c
- *	  Perform parse analysis work for various utility commands
+ *	  为各种实用命令执行解析分析工作           
  *
- * Formerly we did this work during parse_analyze_*() in analyze.c.  However
- * that is fairly unsafe in the presence of querytree caching, since any
- * database state that we depend on in making the transformations might be
- * obsolete by the time the utility command is executed; and utility commands
- * have no infrastructure for holding locks or rechecking plan validity.
- * Hence these functions are now called at the start of execution of their
- * respective utility commands.
+ * 此前这项工作由 analyze.c 的 parse_analyze_*() 完成，          
+ * 但在有查询树缓存时这样做相当不安全，因为         
+ * 依赖的数据库状态到实用命令执行时可能已过时；     
+ * 而实用命令没有用于持锁或重新检查计划有效性的        
+ * 基础设施。                                                      
+ * 因此这些函数现在在各实用命令开始执行时调用。     
+ *                             
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -69,41 +69,41 @@
 #include "utils/typcache.h"
 
 
-/* State shared by transformCreateStmt and its subroutines */
+/* transformCreateStmt 及其子程序共享的状态      */
 typedef struct
 {
-	ParseState *pstate;			/* overall parser state */
-	const char *stmtType;		/* "CREATE [FOREIGN] TABLE" or "ALTER TABLE" */
-	RangeVar   *relation;		/* relation to create */
-	Relation	rel;			/* opened/locked rel, if ALTER */
-	List	   *inhRelations;	/* relations to inherit from */
-	bool		isforeign;		/* true if CREATE/ALTER FOREIGN TABLE */
-	bool		isalter;		/* true if altering existing table */
-	List	   *columns;		/* ColumnDef items */
-	List	   *ckconstraints;	/* CHECK constraints */
-	List	   *fkconstraints;	/* FOREIGN KEY constraints */
-	List	   *ixconstraints;	/* index-creating constraints */
-	List	   *likeclauses;	/* LIKE clauses that need post-processing */
-	List	   *blist;			/* "before list" of things to do before
-								 * creating the table */
-	List	   *alist;			/* "after list" of things to do after creating
-								 * the table */
-	IndexStmt  *pkey;			/* PRIMARY KEY index, if any */
-	bool		ispartitioned;	/* true if table is partitioned */
-	PartitionBoundSpec *partbound;	/* transformed FOR VALUES */
-	bool		ofType;			/* true if statement contains OF typename */
+	ParseState *pstate;			/* 整体解析器状态*/
+	const char *stmtType;		/* CREATE [FOREIGN] TABLE 或 ALTER TABLE    */
+	RangeVar   *relation;		/* 要创建的关系 */
+	Relation	rel;			/* ALTER 时锁定的关系    */
+	List	   *inhRelations;	/* 要继承的关系        */
+	bool		isforeign;		/* 若为 CREATE/ALTER FOREIGN TABLE  */
+	bool		isalter;		/* 若在修改既有表则为真  */
+	List	   *columns;		/* ColumnDef 项   */
+	List	   *ckconstraints;	/* CHECK 约束      */
+	List	   *fkconstraints;	/* FOREIGN KEY 约束      */
+	List	   *ixconstraints;	/* 会创建索引的约束   */
+	List	   *likeclauses;	/* 需要后处理的 LIKE 子句         */
+	List	   *blist;			/* "before list"，即建表前要做  
+								 * 的事             */
+	List	   *alist;			/* "after list"，即建表后要做          
+								 * 的事    */
+	IndexStmt  *pkey;			/* PRIMARY KEY 索引(若有)*/
+	bool		ispartitioned;	/* 若表为分区表则为真  */
+	PartitionBoundSpec *partbound;	/* 已转换的 FOR VALUES*/
+	bool		ofType;			/* 若语句含 OF typename 则为真     */
 } CreateStmtContext;
 
-/* State shared by transformCreateSchemaStmtElements and its subroutines */
+/* transformCreateSchemaStmtElements 及其子程序共享的状态      */
 typedef struct
 {
-	const char *schemaname;		/* name of schema */
-	List	   *sequences;		/* CREATE SEQUENCE items */
-	List	   *tables;			/* CREATE TABLE items */
-	List	   *views;			/* CREATE VIEW items */
-	List	   *indexes;		/* CREATE INDEX items */
-	List	   *triggers;		/* CREATE TRIGGER items */
-	List	   *grants;			/* GRANT items */
+	const char *schemaname;		/* 模式名      */
+	List	   *sequences;		/* CREATE SEQUENCE 项   */
+	List	   *tables;			/* CREATE TABLE 项   */
+	List	   *views;			/* CREATE VIEW 项   */
+	List	   *indexes;		/* CREATE INDEX 项   */
+	List	   *triggers;		/* CREATE TRIGGER 项   */
+	List	   *grants;			/* GRANT 项   */
 } CreateSchemaStmtContext;
 
 
@@ -144,19 +144,19 @@ static Const *transformPartitionBoundValue(ParseState *pstate, Node *val,
 
 /*
  * transformCreateStmt -
- *	  parse analysis for CREATE TABLE
+ *	  CREATE TABLE 的解析分析   
  *
- * Returns a List of utility commands to be done in sequence.  One of these
- * will be the transformed CreateStmt, but there may be additional actions
- * to be done before and after the actual DefineRelation() call.
- * In addition to normal utility commands such as AlterTableStmt and
- * IndexStmt, the result list may contain TableLikeClause(s), representing
- * the need to perform additional parse analysis after DefineRelation().
+ * 返回一个需按顺序执行的实用命令列表。其中之一      
+ * 是转换后的 CreateStmt，但也可能有额外动作               
+ * 需要在实际的 DefineRelation() 调用前后完成。    
+ * 除 AlterTableStmt、IndexStmt 等常规实用命令之外，    
+ * 结果列表还可能包含 TableLikeClause，表示                   
+ * 需要在 DefineRelation() 之后执行额外解析分析            
  *
- * SQL allows constraints to be scattered all over, so thumb through
- * the columns and collect all constraints into one place.
- * If there are any implied indices (e.g. UNIQUE or PRIMARY KEY)
- * then expand those into multiple IndexStmt blocks.
+ * SQL 允许约束散布在各处，因此需要遍历             
+ * 各列并把所有约束收集到一处。             
+ * 如果存在隐式索引（如 UNIQUE 或 PRIMARY KEY），  
+ * 则将其展开成多个 IndexStmt 块。        
  *	  - thomas 1997-12-02
  */
 List *
@@ -171,15 +171,15 @@ transformCreateStmt(CreateStmt *stmt, const char *queryString)
 	Oid			existing_relid;
 	ParseCallbackState pcbstate;
 
-	/* Set up pstate */
+	/* 设置 pstate */
 	pstate = make_parsestate(NULL);
 	pstate->p_sourcetext = queryString;
 
 	/*
-	 * Look up the creation namespace.  This also checks permissions on the
-	 * target namespace, locks it against concurrent drops, checks for a
-	 * preexisting relation in that namespace with the same name, and updates
-	 * stmt->relation->relpersistence if the selected namespace is temporary.
+	 * 查找创建命名空间。这同时检查目标命名空间上的  
+	 * 权限，锁定它防止并发删除，检查是否已有同名  
+	 * 的既有关系，若选定的是临时命名空间还会更新       
+	 * stmt->relation->relpersistence。                                     
 	 */
 	setup_parser_errposition_callback(&pcbstate, pstate,
 									  stmt->relation->location);
@@ -189,21 +189,21 @@ transformCreateStmt(CreateStmt *stmt, const char *queryString)
 	cancel_parser_errposition_callback(&pcbstate);
 
 	/*
-	 * If the relation already exists and the user specified "IF NOT EXISTS",
-	 * bail out with a NOTICE.
+	 * 如果关系已存在且用户指定了 "IF NOT EXISTS"，            
+	 * 以 NOTICE 退出。   
 	 */
 	if (stmt->if_not_exists && OidIsValid(existing_relid))
 	{
 		/*
-		 * If we are in an extension script, insist that the pre-existing
-		 * object be a member of the extension, to avoid security risks.
+		 * 如果处于扩展脚本中，坚持要求既存对象必须  
+		 * 属于该扩展，以规避安全风险。                   
 		 */
 		ObjectAddress address;
 
 		ObjectAddressSet(address, RelationRelationId, existing_relid);
 		checkMembershipInCurrentExtension(&address);
 
-		/* OK to skip */
+		/* 可跳过  */
 		ereport(NOTICE,
 				(errcode(ERRCODE_DUPLICATE_TABLE),
 				 errmsg("relation \"%s\" already exists, skipping",
@@ -212,17 +212,17 @@ transformCreateStmt(CreateStmt *stmt, const char *queryString)
 	}
 
 	/*
-	 * If the target relation name isn't schema-qualified, make it so.  This
-	 * prevents some corner cases in which added-on rewritten commands might
-	 * think they should apply to other relations that have the same name and
-	 * are earlier in the search path.  But a local temp table is effectively
-	 * specified to be in pg_temp, so no need for anything extra in that case.
+	 * 如果目标关系名未带模式限定，则补上。这防止      
+	 * 一些边角情况：附加进来的重写命令可能误以为      
+	 * 自己应该应用于同名且在搜索路径中更靠前的          
+	 * 其他关系。但本地临时表实际已指定属于 pg_temp，     
+	 * 因此这种情况无需任何额外处理。                          
 	 */
 	if (stmt->relation->schemaname == NULL
 		&& stmt->relation->relpersistence != RELPERSISTENCE_TEMP)
 		stmt->relation->schemaname = get_namespace_name(namespaceid);
 
-	/* Set up CreateStmtContext */
+	/* 设置 CreateStmtContext */
 	cxt.pstate = pstate;
 	if (IsA(stmt, CreateForeignTableStmt))
 	{
@@ -250,7 +250,7 @@ transformCreateStmt(CreateStmt *stmt, const char *queryString)
 	cxt.partbound = stmt->partbound;
 	cxt.ofType = (stmt->ofTypename != NULL);
 
-	Assert(!stmt->ofTypename || !stmt->inhRelations);	/* grammar enforces */
+	Assert(!stmt->ofTypename || !stmt->inhRelations);	/* 由语法强制  */
 
 	if (stmt->ofTypename)
 		transformOfType(&cxt, stmt->ofTypename);
@@ -264,8 +264,8 @@ transformCreateStmt(CreateStmt *stmt, const char *queryString)
 	}
 
 	/*
-	 * Run through each primary element in the table creation clause. Separate
-	 * column defs from constraints, and do preliminary analysis.
+	 * 遍历建表子句中的每个主要元素。把列定义与约束     
+	 * 分开，并做初步分析。                            
 	 */
 	foreach(elements, stmt->tableElts)
 	{
@@ -293,10 +293,10 @@ transformCreateStmt(CreateStmt *stmt, const char *queryString)
 	}
 
 	/*
-	 * Transfer anything we already have in cxt.alist into save_alist, to keep
-	 * it separate from the output of transformIndexConstraints.  (This may
-	 * not be necessary anymore, but we'll keep doing it to preserve the
-	 * historical order of execution of the alist commands.)
+	 * 把 cxt.alist 中已有的内容转移到 save_alist，使其          
+	 * 与 transformIndexConstraints 的输出分开。（这              
+	 * 可能已无必要，但为了保持 alist 命令的历史执行 
+	 * 顺序，仍会继续这样做。）                 
 	 */
 	save_alist = cxt.alist;
 	cxt.alist = NIL;
@@ -304,39 +304,39 @@ transformCreateStmt(CreateStmt *stmt, const char *queryString)
 	Assert(stmt->constraints == NIL);
 
 	/*
-	 * Postprocess constraints that give rise to index definitions.
+	 * 后处理会引出索引定义的约束。                  
 	 */
 	transformIndexConstraints(&cxt);
 
 	/*
-	 * Re-consideration of LIKE clauses should happen after creation of
-	 * indexes, but before creation of foreign keys.  This order is critical
-	 * because a LIKE clause may attempt to create a primary key.  If there's
-	 * also a pkey in the main CREATE TABLE list, creation of that will not
-	 * check for a duplicate at runtime (since index_check_primary_key()
-	 * expects that we rejected dups here).  Creation of the LIKE-generated
-	 * pkey behaves like ALTER TABLE ADD, so it will check, but obviously that
-	 * only works if it happens second.  On the other hand, we want to make
-	 * pkeys before foreign key constraints, in case the user tries to make a
-	 * self-referential FK.
+	 * LIKE 子句的重新考虑应发生在索引创建之后、     
+	 * 外键创建之前。这一顺序至关重要，因为 LIKE          
+	 * 子句可能试图创建主键。如果主 CREATE TABLE 列表中     
+	 * 还有 pkey，那么其创建在运行时不会检查重复（因为
+	 * index_check_primary_key() 期望我们已在此拒绝重复      
+	 * ）。LIKE 生成的 pkey 创建行为如同 ALTER TABLE ADD，     
+	 * 所以它会检查，但显然仅在其后进行才有效。           
+	 * 另一方面，我们希望先于外键约束创建主键，以防  
+	 * 用户试图创建自引用外键。                                  
+	 *                     
 	 */
 	cxt.alist = list_concat(cxt.alist, cxt.likeclauses);
 
 	/*
-	 * Postprocess foreign-key constraints.
+	 * 后处理外键约束。            
 	 */
 	transformFKConstraints(&cxt, true, false);
 
 	/*
-	 * Postprocess check constraints.
+	 * 后处理 CHECK 约束。     
 	 *
-	 * For regular tables all constraints can be marked valid immediately,
-	 * because the table is new therefore empty. Not so for foreign tables.
+	 * 对普通表而言，所有约束都可立即标记为有效，    
+	 * 因为新表必然为空。外部表则不然。                    
 	 */
 	transformCheckConstraints(&cxt, !cxt.isforeign);
 
 	/*
-	 * Output results.
+	 * 输出结果。
 	 */
 	stmt->tableElts = cxt.columns;
 	stmt->constraints = cxt.ckconstraints;
@@ -350,12 +350,12 @@ transformCreateStmt(CreateStmt *stmt, const char *queryString)
 
 /*
  * generateSerialExtraStmts
- *		Generate CREATE SEQUENCE and ALTER SEQUENCE ... OWNED BY statements
- *		to create the sequence for a serial or identity column.
+ *		生成 CREATE SEQUENCE 和 ALTER SEQUENCE ... OWNED BY 语句      
+ *		用于为 serial 或标识列创建其序列。        
  *
- * This includes determining the name the sequence will have.  The caller
- * can ask to get back the name components by passing non-null pointers
- * for snamespace_p and sname_p.
+ * 这包括确定序列将使用的名称。调用者可以通过传入 
+ * 非空指针来取回名称组件。                                
+ *  snamespace_p 与 sname_p。 
  */
 static void
 generateSerialExtraStmts(CreateStmtContext *cxt, ColumnDef *column,
@@ -374,13 +374,13 @@ generateSerialExtraStmts(CreateStmtContext *cxt, ColumnDef *column,
 	AlterSeqStmt *altseqstmt;
 	List	   *attnamelist;
 
-	/* Make a copy of this as we may end up modifying it in the code below */
+	/* 复制一份，因为下面的代码可能会修改它              */
 	seqoptions = list_copy(seqoptions);
 
 	/*
-	 * Check for non-SQL-standard options (not supported within CREATE
-	 * SEQUENCE, because they'd be redundant), and remove them from the
-	 * seqoptions list if found.
+	 * 检查非 SQL 标准选项（CREATE SEQUENCE 不支持，      
+	 * 因为它们是冗余的），并从 seqoptions 列表中移除 
+	 *                          
 	 */
 	foreach(option, seqoptions)
 	{
@@ -404,17 +404,17 @@ generateSerialExtraStmts(CreateStmtContext *cxt, ColumnDef *column,
 	}
 
 	/*
-	 * Determine namespace and name to use for the sequence.
+	 * 确定序列要使用的命名空间和名称。     
 	 */
 	if (nameEl)
 	{
-		/* Use specified name */
+		/* 使用指定名称 */
 		RangeVar   *rv = makeRangeVarFromNameList(castNode(List, nameEl->arg));
 
 		snamespace = rv->schemaname;
 		if (!snamespace)
 		{
-			/* Given unqualified SEQUENCE NAME, select namespace */
+			/* 若 SEQUENCE NAME 未限定，选择命名空间  */
 			if (cxt->rel)
 				snamespaceid = RelationGetNamespace(cxt->rel);
 			else
@@ -426,15 +426,15 @@ generateSerialExtraStmts(CreateStmtContext *cxt, ColumnDef *column,
 	else
 	{
 		/*
-		 * Generate a name.
+		 * 生成名称。 
 		 *
-		 * Although we use ChooseRelationName, it's not guaranteed that the
-		 * selected sequence name won't conflict; given sufficiently long
-		 * field names, two different serial columns in the same table could
-		 * be assigned the same sequence name, and we'd not notice since we
-		 * aren't creating the sequence quite yet.  In practice this seems
-		 * quite unlikely to be a problem, especially since few people would
-		 * need two serial columns in one table.
+		 * 虽然我们使用了 ChooseRelationName，但不保证所选   
+		 * 的序列名不会冲突；在字段名足够长时，        
+		 * 同一表中两个不同 serial 列可能得到相同的序列   
+		 * 名，且因尚未创建序列而不会察觉。实践中这    
+		 * 看起来很难成为问题，尤其因为很少有人在      
+		 * 一个表中需要两个 serial 列。                           
+		 *                                      
 		 */
 		if (cxt->rel)
 			snamespaceid = RelationGetNamespace(cxt->rel);
@@ -457,14 +457,14 @@ generateSerialExtraStmts(CreateStmtContext *cxt, ColumnDef *column,
 							 cxt->relation->relname, column->colname)));
 
 	/*
-	 * Determine the persistence of the sequence.  By default we copy the
-	 * persistence of the table, but if LOGGED or UNLOGGED was specified, use
-	 * that (as long as the table isn't TEMP).
+	 * 确定序列的持久性。默认复制该表的持久性，若   
+	 * 指定了 LOGGED 或 UNLOGGED 则使用它（前提是表             
+	 * 不是 TEMP）。                      
 	 *
-	 * For CREATE TABLE, we get the persistence from cxt->relation, which
-	 * comes from the CreateStmt in progress.  For ALTER TABLE, the parser
-	 * won't set cxt->relation->relpersistence, but we have cxt->rel as the
-	 * existing table, so we copy the persistence from there.
+	 * 对 CREATE TABLE，我们从 cxt->relation 取得持久性，     
+	 * 它来自正在处理的 CreateStmt。对 ALTER TABLE，解析器  
+	 * 不会设置 cxt->relation->relpersistence，但有 cxt->rel        
+	 * 作为既存表，所以从那里复制持久性。   
 	 */
 	seqpersistence = cxt->rel ? cxt->rel->rd_rel->relpersistence : cxt->relation->relpersistence;
 	if (loggedEl)
@@ -481,8 +481,8 @@ generateSerialExtraStmts(CreateStmtContext *cxt, ColumnDef *column,
 	}
 
 	/*
-	 * Build a CREATE SEQUENCE command to create the sequence object, and add
-	 * it to the list of things to be done before this CREATE/ALTER TABLE.
+	 * 构建一条 CREATE SEQUENCE 命令来创建该序列对象，        
+	 * 并将其加入此 CREATE/ALTER TABLE 之前待办事项列表。  
 	 */
 	seqstmt = makeNode(CreateSeqStmt);
 	seqstmt->for_identity = for_identity;
@@ -491,10 +491,10 @@ generateSerialExtraStmts(CreateStmtContext *cxt, ColumnDef *column,
 	seqstmt->options = seqoptions;
 
 	/*
-	 * If a sequence data type was specified, add it to the options.  Prepend
-	 * to the list rather than append; in case a user supplied their own AS
-	 * clause, the "redundant options" error will point to their occurrence,
-	 * not our synthetic one.
+	 * 如果指定了序列数据类型，则将其加入选项。前置    
+	 * 到列表头部而非追加；这样若用户提供了自己的     
+	 *  AS 子句，"redundant options" 错误将指向其出现位置，   
+	 * 而非合成项。    
 	 */
 	if (seqtypid)
 		seqstmt->options = lcons(makeDefElem("as",
@@ -503,11 +503,11 @@ generateSerialExtraStmts(CreateStmtContext *cxt, ColumnDef *column,
 								 seqstmt->options);
 
 	/*
-	 * If this is ALTER ADD COLUMN, make sure the sequence will be owned by
-	 * the table's owner.  The current user might be someone else (perhaps a
-	 * superuser, or someone who's only a member of the owning role), but the
-	 * SEQUENCE OWNED BY mechanisms will bleat unless table and sequence have
-	 * exactly the same owning role.
+	 * 如果这是 ALTER ADD COLUMN，则确保序列将由表            
+	 * 的所有者。当前用户可能是别人（比如超级用户，   
+	 * 或仅是拥有角色成员的人），但 SEQUENCE OWNED BY          
+	 * 机制会抱怨，除非表和序列拥有完全相同的             
+	 * 拥有角色。              
 	 */
 	if (cxt->rel)
 		seqstmt->ownerId = cxt->rel->rd_rel->relowner;
@@ -517,21 +517,21 @@ generateSerialExtraStmts(CreateStmtContext *cxt, ColumnDef *column,
 	cxt->blist = lappend(cxt->blist, seqstmt);
 
 	/*
-	 * Store the identity sequence name that we decided on.  ALTER TABLE ...
-	 * ADD COLUMN ... IDENTITY needs this so that it can fill the new column
-	 * with values from the sequence, while the association of the sequence
-	 * with the table is not set until after the ALTER TABLE.
+	 * 存储我们确定的标识序列名。ALTER TABLE ... ADD           
+	 * COLUMN ... IDENTITY 需要它来用序列值填充新列，          
+	 * 而序列与表的关联要到 ALTER TABLE 之后才建立。       
+	 *                                                       
 	 */
 	column->identitySequence = seqstmt->sequence;
 
 	/*
-	 * Build an ALTER SEQUENCE ... OWNED BY command to mark the sequence as
-	 * owned by this column, and add it to the appropriate list of things to
-	 * be done along with this CREATE/ALTER TABLE.  In a CREATE or ALTER ADD
-	 * COLUMN, it must be done after the statement because we don't know the
-	 * column's attnum yet.  But if we do have the attnum (in AT_AddIdentity),
-	 * we can do the marking immediately, which improves some ALTER TABLE
-	 * behaviors.
+	 * 构建一条 ALTER SEQUENCE ... OWNED BY 命令，把序列         
+	 * 标记为归此列所有，并将其加到与该 CREATE/ALTER        
+	 *  TABLE 一起执行的待办事项列表。在 CREATE 或            
+	 * ALTER ADD COLUMN 中必须在该语句之后执行，因为          
+	 * 我们还不知道列的 attnum。但如果我们确实有 attnum      
+	 * （AT_AddIdentity），则可立即标记，改善某些行为    
+	 *           
 	 */
 	altseqstmt = makeNode(AlterSeqStmt);
 	altseqstmt->sequence = makeRangeVar(snamespace, sname, -1);
@@ -555,8 +555,8 @@ generateSerialExtraStmts(CreateStmtContext *cxt, ColumnDef *column,
 
 /*
  * transformColumnDefinition -
- *		transform a single ColumnDef within CREATE TABLE
- *		Also used in ALTER TABLE ADD COLUMN
+ *		转换 CREATE TABLE 中的单个 ColumnDef      
+ *		也用于 ALTER TABLE ADD COLUMN   
  */
 static void
 transformColumnDefinition(CreateStmtContext *cxt, ColumnDef *column)
@@ -570,7 +570,7 @@ transformColumnDefinition(CreateStmtContext *cxt, ColumnDef *column)
 
 	cxt->columns = lappend(cxt->columns, column);
 
-	/* Check for SERIAL pseudo-types */
+	/* 检查 SERIAL 伪类型       */
 	is_serial = false;
 	if (column->typeName
 		&& list_length(column->typeName->names) == 1
@@ -601,9 +601,9 @@ transformColumnDefinition(CreateStmtContext *cxt, ColumnDef *column)
 		}
 
 		/*
-		 * We have to reject "serial[]" explicitly, because once we've set
-		 * typeid, LookupTypeName won't notice arrayBounds.  We don't need any
-		 * special coding for serial(typmod) though.
+		 * 我们必须显式拒绝 "serial[]"，因为一旦设置了    
+		 * typeid，LookupTypeName 不会注意到 arrayBounds，             
+		 * 但 serial(typmod) 无需特殊处理。 
 		 */
 		if (is_serial && column->typeName->arrayBounds != NIL)
 			ereport(ERROR,
@@ -613,11 +613,11 @@ transformColumnDefinition(CreateStmtContext *cxt, ColumnDef *column)
 										column->typeName->location)));
 	}
 
-	/* Do necessary work on the column type declaration */
+	/* 对列类型声明做必要的工作             */
 	if (column->typeName)
 		transformColumnType(cxt, column);
 
-	/* Special actions for SERIAL pseudo-types */
+	/* SERIAL 伪类型的特殊动作         */
 	if (is_serial)
 	{
 		char	   *snamespace;
@@ -634,14 +634,14 @@ transformColumnDefinition(CreateStmtContext *cxt, ColumnDef *column)
 								 &snamespace, &sname);
 
 		/*
-		 * Create appropriate constraints for SERIAL.  We do this in full,
-		 * rather than shortcutting, so that we will detect any conflicting
-		 * constraints the user wrote (like a different DEFAULT).
+		 * 为 SERIAL 创建合适的约束。需完整执行，          
+		 * 而不是走捷径，这样我们就能检测到用户写的    
+		 * 任何冲突约束（如不同的 DEFAULT）。       
 		 *
-		 * Create an expression tree representing the function call
-		 * nextval('sequencename').  We cannot reduce the raw tree to cooked
-		 * form until after the sequence is created, but there's no need to do
-		 * so.
+		 * 创建一个表达式树来表示函数调用           
+		 * nextval('sequencename')。我们无法把原始树化简为      
+		 * 成品形式；待序列创建之后，但我们无需这样做。 
+		 *    
 		 */
 		qstring = quote_qualified_identifier(snamespace, sname);
 		snamenode = makeNode(A_Const);
@@ -669,7 +669,7 @@ transformColumnDefinition(CreateStmtContext *cxt, ColumnDef *column)
 		column->constraints = lappend(column->constraints, constraint);
 	}
 
-	/* Process column constraints, if any... */
+	/* 处理列约束（若有）……     */
 	transformConstraintAttrs(cxt, column->constraints);
 
 	saw_nullable = false;
@@ -754,7 +754,7 @@ transformColumnDefinition(CreateStmtContext *cxt, ColumnDef *column)
 					column->identity = constraint->generated_when;
 					saw_identity = true;
 
-					/* An identity column is implicitly NOT NULL */
+					/* 标识列隐含 NOT NULL                  */
 					if (saw_nullable && !column->is_not_null)
 						ereport(ERROR,
 								(errcode(ERRCODE_SYNTAX_ERROR),
@@ -811,7 +811,7 @@ transformColumnDefinition(CreateStmtContext *cxt, ColumnDef *column)
 				break;
 
 			case CONSTR_EXCLUSION:
-				/* grammar does not allow EXCLUDE as a column constraint */
+				/* 语法不允许 EXCLUDE 作为列约束               */
 				elog(ERROR, "column exclusion constraints are not supported");
 				break;
 
@@ -824,8 +824,8 @@ transformColumnDefinition(CreateStmtContext *cxt, ColumnDef *column)
 												constraint->location)));
 
 				/*
-				 * Fill in the current attribute's name and throw it into the
-				 * list of FK constraints to be processed later.
+				 * 填入当前属性名，并将其放入待稍后处理的 
+				 * 外键约束列表。                        
 				 */
 				constraint->fk_attrs = list_make1(makeString(column->colname));
 				cxt->fkconstraints = lappend(cxt->fkconstraints, constraint);
@@ -835,7 +835,7 @@ transformColumnDefinition(CreateStmtContext *cxt, ColumnDef *column)
 			case CONSTR_ATTR_NOT_DEFERRABLE:
 			case CONSTR_ATTR_DEFERRED:
 			case CONSTR_ATTR_IMMEDIATE:
-				/* transformConstraintAttrs took care of these */
+				/* transformConstraintAttrs 已处理这些    */
 				break;
 
 			default:
@@ -870,8 +870,8 @@ transformColumnDefinition(CreateStmtContext *cxt, ColumnDef *column)
 	}
 
 	/*
-	 * If needed, generate ALTER FOREIGN TABLE ALTER COLUMN statement to add
-	 * per-column foreign data wrapper options to this column after creation.
+	 * 如有需要，生成 ALTER FOREIGN TABLE ALTER COLUMN               
+	 * 语句，在创建完成后为该列添加每列 FDW 选项。        
 	 */
 	if (column->fdwoptions != NIL)
 	{
@@ -897,7 +897,7 @@ transformColumnDefinition(CreateStmtContext *cxt, ColumnDef *column)
 
 /*
  * transformTableConstraint
- *		transform a Constraint node within CREATE TABLE or ALTER TABLE
+ *		转换 CREATE TABLE 或 ALTER TABLE 内的 Constraint 节点  
  */
 static void
 transformTableConstraint(CreateStmtContext *cxt, Constraint *constraint)
@@ -975,12 +975,12 @@ transformTableConstraint(CreateStmtContext *cxt, Constraint *constraint)
 /*
  * transformTableLikeClause
  *
- * Change the LIKE <srctable> portion of a CREATE TABLE statement into
- * column definitions that recreate the user defined column portions of
- * <srctable>.  Also, if there are any LIKE options that we can't fully
- * process at this point, add the TableLikeClause to cxt->likeclauses, which
- * will cause utility.c to call expandTableLikeClause() after the new
- * table has been created.
+ * 把 CREATE TABLE 语句中的 LIKE <srctable> 部分变成         
+ * 列定义，重现 <srctable> 中用户定义的列部分。        
+ * 此外，如果有此刻无法完全处理的 LIKE 选项，        
+ * 则把该 TableLikeClause 加入 cxt->likeclauses，由此               
+ * 让 utility.c 在新表创建后调用 expandTableLikeClause()。 
+ *                        
  */
 static void
 transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_clause)
@@ -995,13 +995,13 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 	setup_parser_errposition_callback(&pcbstate, cxt->pstate,
 									  table_like_clause->relation->location);
 
-	/* we could support LIKE in many cases, but worry about it another day */
+	/* 很多情况下我们本可支持 LIKE，但改日再操心此事   */
 	if (cxt->isforeign)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("LIKE is not supported for creating foreign tables")));
 
-	/* Open the relation referenced by the LIKE clause */
+	/* 打开 LIKE 子句引用的关系               */
 	relation = relation_openrv(table_like_clause->relation, AccessShareLock);
 
 	if (relation->rd_rel->relkind != RELKIND_RELATION &&
@@ -1019,7 +1019,7 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 	cancel_parser_errposition_callback(&pcbstate);
 
 	/*
-	 * Check for privileges
+	 * 检查权限        
 	 */
 	if (relation->rd_rel->relkind == RELKIND_COMPOSITE_TYPE)
 	{
@@ -1041,9 +1041,9 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 	tupleDesc = RelationGetDescr(relation);
 
 	/*
-	 * Insert the copied attributes into the cxt for the new table definition.
-	 * We must do this now so that they appear in the table in the relative
-	 * position where the LIKE clause is, as required by SQL99.
+	 * 把复制的属性插入 cxt 以构成新表的定义。               
+	 * 必须现在就插入，使其在表中出现的位置与           
+	 * LIKE 子句所在位置一致，SQL99 有此要求。   
 	 */
 	for (parent_attno = 1; parent_attno <= tupleDesc->natts;
 		 parent_attno++)
@@ -1054,16 +1054,16 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 		ColumnDef  *def;
 
 		/*
-		 * Ignore dropped columns in the parent.
+		 * 忽略父表中被删除的列。    
 		 */
 		if (attribute->attisdropped)
 			continue;
 
 		/*
-		 * Create a new column, which is marked as NOT inherited.
+		 * 创建一个新列，标记为非继承。            
 		 *
-		 * For constraints, ONLY the NOT NULL constraint is inherited by the
-		 * new column definition per SQL99.
+		 * 在约束方面，依据 SQL99 只有 NOT NULL 约束会被      
+		 * 新列定义继承。           
 		 */
 		def = makeNode(ColumnDef);
 		def->colname = pstrdup(attributeName);
@@ -1082,20 +1082,20 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 		def->location = -1;
 
 		/*
-		 * Add to column list
+		 * 加入列列表   
 		 */
 		cxt->columns = lappend(cxt->columns, def);
 
 		/*
-		 * Although we don't transfer the column's default/generation
-		 * expression now, we need to mark it GENERATED if appropriate.
+		 * 虽然不转移该列的默认值/生成表达式，但若
+		 * 合适仍需将其标记为 GENERATED。                    
 		 */
 		if (attribute->atthasdef && attribute->attgenerated &&
 			(table_like_clause->options & CREATE_TABLE_LIKE_GENERATED))
 			def->generated = attribute->attgenerated;
 
 		/*
-		 * Copy identity if requested
+		 * 按需复制标识属性  
 		 */
 		if (attribute->attidentity &&
 			(table_like_clause->options & CREATE_TABLE_LIKE_IDENTITY))
@@ -1104,8 +1104,8 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 			List	   *seq_options;
 
 			/*
-			 * find sequence owned by old column; extract sequence parameters;
-			 * build new create sequence command
+			 * 找到旧列拥有的序列；提取序列参数；            
+			 * 构建新的创建序列命令   
 			 */
 			seq_relid = getIdentitySequence(RelationGetRelid(relation), attribute->attnum, false);
 			seq_options = sequence_options(seq_relid);
@@ -1116,13 +1116,13 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 			def->identity = attribute->attidentity;
 		}
 
-		/* Likewise, copy storage if requested */
+		/* 同样，按需复制存储         */
 		if (table_like_clause->options & CREATE_TABLE_LIKE_STORAGE)
 			def->storage = attribute->attstorage;
 		else
 			def->storage = 0;
 
-		/* Likewise, copy compression if requested */
+		/* 同样，按需复制压缩             */
 		if ((table_like_clause->options & CREATE_TABLE_LIKE_COMPRESSION) != 0
 			&& CompressionMethodIsValid(attribute->attcompression))
 			def->compression =
@@ -1130,7 +1130,7 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 		else
 			def->compression = NULL;
 
-		/* Likewise, copy comment if requested */
+		/* 同样，按需复制注释         */
 		if ((table_like_clause->options & CREATE_TABLE_LIKE_COMMENTS) &&
 			(comment = GetComment(attribute->attrelid,
 								  RelationRelationId,
@@ -1149,13 +1149,13 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 	}
 
 	/*
-	 * We cannot yet deal with defaults, CHECK constraints, indexes, or
-	 * statistics, since we don't yet know what column numbers the copied
-	 * columns will have in the finished table.  If any of those options are
-	 * specified, add the LIKE clause to cxt->likeclauses so that
-	 * expandTableLikeClause will be called after we do know that.  Also,
-	 * remember the relation OID so that expandTableLikeClause is certain to
-	 * open the same table.
+	 * 我们还无法处理默认值、CHECK 约束、索引或统计 
+	 * 信息，因为尚不知被复制列在最终表中的列号。   
+	 * 如果指定了其中任何选项，则把该 LIKE 子句加入      
+	 * cxt->likeclauses，以便在确切知道之后再调用   
+	 * expandTableLikeClause。此外，记住关系 OID，以确保     
+	 * expandTableLikeClause 一定会打开同一张表。                 
+	 *                     
 	 */
 	if (table_like_clause->options &
 		(CREATE_TABLE_LIKE_DEFAULTS |
@@ -1169,9 +1169,9 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 	}
 
 	/*
-	 * Close the parent rel, but keep our AccessShareLock on it until xact
-	 * commit.  That will prevent someone else from deleting or ALTERing the
-	 * parent before we can run expandTableLikeClause.
+	 * 关闭父关系，但在事务提交前保留其上的             
+	 * AccessShareLock。这可防止父表在能运行                     
+	 * expandTableLikeClause 前被删除或改动。 
 	 */
 	table_close(relation, NoLock);
 }
@@ -1179,10 +1179,10 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 /*
  * expandTableLikeClause
  *
- * Process LIKE options that require knowing the final column numbers
- * assigned to the new table's columns.  This executes after we have
- * run DefineRelation for the new table.  It returns a list of utility
- * commands that should be run to generate indexes etc.
+ * 处理那些需要知道分配给新表各列的最终列号的   
+ * LIKE 选项。它在新表运行 DefineRelation 之后执行。  
+ * 它返回一组为生成索引等而需执行的实用命令。    
+ *                                                     
  */
 List *
 expandTableLikeClause(RangeVar *heapRel, TableLikeClause *table_like_clause)
@@ -1198,11 +1198,11 @@ expandTableLikeClause(RangeVar *heapRel, TableLikeClause *table_like_clause)
 	char	   *comment;
 
 	/*
-	 * Open the relation referenced by the LIKE clause.  We should still have
-	 * the table lock obtained by transformTableLikeClause (and this'll throw
-	 * an assertion failure if not).  Hence, no need to recheck privileges
-	 * etc.  We must open the rel by OID not name, to be sure we get the same
-	 * table.
+	 * 打开该 LIKE 子句引用的关系。此时应仍持有             
+	 * transformTableLikeClause 获取的表锁（如果没有则会         
+	 * 触发断言失败）。因此无需重新检查权限等。我们 
+	 * 必须按 OID 而非名称打开关系，确保拿到同一张表     
+	 *       
 	 */
 	if (!OidIsValid(table_like_clause->relationOid))
 		elog(ERROR, "expandTableLikeClause called on untransformed LIKE clause");
@@ -1213,21 +1213,21 @@ expandTableLikeClause(RangeVar *heapRel, TableLikeClause *table_like_clause)
 	constr = tupleDesc->constr;
 
 	/*
-	 * Open the newly-created child relation; we have lock on that too.
+	 * 打开新建的子关系；我们也已持有它的锁。       
 	 */
 	childrel = relation_openrv(heapRel, NoLock);
 
 	/*
-	 * Construct a map from the LIKE relation's attnos to the child rel's.
-	 * This re-checks type match etc, although it shouldn't be possible to
-	 * have a failure since both tables are locked.
+	 * 构造从 LIKE 关系属性号到子关系属性号的映射。    
+	 * 它重新检查类型匹配等，虽然照理不应失败，       
+	 * 因为两个表都已加锁。              
 	 */
 	attmap = build_attrmap_by_name(RelationGetDescr(childrel),
 								   tupleDesc,
 								   false);
 
 	/*
-	 * Process defaults, if required.
+	 * 按需处理默认值。      
 	 */
 	if ((table_like_clause->options &
 		 (CREATE_TABLE_LIKE_DEFAULTS | CREATE_TABLE_LIKE_GENERATED)) &&
@@ -1240,15 +1240,15 @@ expandTableLikeClause(RangeVar *heapRel, TableLikeClause *table_like_clause)
 														parent_attno - 1);
 
 			/*
-			 * Ignore dropped columns in the parent.
+			 * 忽略父关系中已删除的列。 
 			 */
 			if (attribute->attisdropped)
 				continue;
 
 			/*
-			 * Copy default, if present and it should be copied.  We have
-			 * separate options for plain default expressions and GENERATED
-			 * defaults.
+			 * 默认值存在且应复制时才复制。我们为普通 
+			 * 默认表达式与 GENERATED 默认值各有独立选项。 
+			 *          
 			 */
 			if (attribute->atthasdef &&
 				(attribute->attgenerated ?
@@ -1260,7 +1260,7 @@ expandTableLikeClause(RangeVar *heapRel, TableLikeClause *table_like_clause)
 				AlterTableCmd *atsubcmd;
 				bool		found_whole_row;
 
-				/* Find default in constraint structure */
+				/* 在约束结构中查找默认值    */
 				for (int i = 0; i < constr->num_defval; i++)
 				{
 					if (attrdef[i].adnum == parent_attno)
@@ -1283,9 +1283,9 @@ expandTableLikeClause(RangeVar *heapRel, TableLikeClause *table_like_clause)
 													&found_whole_row);
 
 				/*
-				 * Prevent this for the same reason as for constraints below.
-				 * Note that defaults cannot contain any vars, so it's OK that
-				 * the error message refers to generated columns.
+				 * 出于与下文约束相同的理由予以禁止。       
+				 * 注意默认值不含任何变量，故错误信息        
+				 * 提及生成列是可以的。                
 				 */
 				if (found_whole_row)
 					ereport(ERROR,
@@ -1301,8 +1301,8 @@ expandTableLikeClause(RangeVar *heapRel, TableLikeClause *table_like_clause)
 	}
 
 	/*
-	 * Copy CHECK constraints if requested, being careful to adjust attribute
-	 * numbers so they match the child.
+	 * 如果要求则复制 CHECK 约束，注意要调整属性号，      
+	 * 使之与子表匹配。        
 	 */
 	if ((table_like_clause->options & CREATE_TABLE_LIKE_CONSTRAINTS) &&
 		constr != NULL)
@@ -1325,10 +1325,10 @@ expandTableLikeClause(RangeVar *heapRel, TableLikeClause *table_like_clause)
 											 InvalidOid, &found_whole_row);
 
 			/*
-			 * We reject whole-row variables because the whole point of LIKE
-			 * is that the new table's rowtype might later diverge from the
-			 * parent's.  So, while translation might be possible right now,
-			 * it wouldn't be possible to guarantee it would work in future.
+			 * 我们拒绝整行变量，因为 LIKE 的意义就在于    
+			 * 新表行类型日后可能与父表的不同。            
+			 * 所以，虽然目前或许还能做转换，                
+			 * 却无法保证它将来也能继续有效。                
 			 */
 			if (found_whole_row)
 				ereport(ERROR,
@@ -1346,7 +1346,7 @@ expandTableLikeClause(RangeVar *heapRel, TableLikeClause *table_like_clause)
 			n->raw_expr = NULL;
 			n->cooked_expr = nodeToString(ccbin_node);
 
-			/* We can skip validation, since the new table should be empty. */
+			/* 新表应当为空，因此可以跳过验证。             */
 			n->skip_validation = true;
 			n->initially_valid = true;
 
@@ -1355,7 +1355,7 @@ expandTableLikeClause(RangeVar *heapRel, TableLikeClause *table_like_clause)
 			atsubcmd->def = (Node *) n;
 			atsubcmds = lappend(atsubcmds, atsubcmd);
 
-			/* Copy comment on constraint */
+			/* 复制约束的注释      */
 			if ((table_like_clause->options & CREATE_TABLE_LIKE_COMMENTS) &&
 				(comment = GetComment(get_relation_constraint_oid(RelationGetRelid(relation),
 																  n->conname, false),
@@ -1376,9 +1376,9 @@ expandTableLikeClause(RangeVar *heapRel, TableLikeClause *table_like_clause)
 	}
 
 	/*
-	 * If we generated any ALTER TABLE actions above, wrap them into a single
-	 * ALTER TABLE command.  Stick it at the front of the result, so it runs
-	 * before any CommentStmts we made above.
+	 * 如果上文生成了 ALTER TABLE 动作，就把它们包成一条   
+	 * ALTER TABLE 命令，放在结果最前面，让它先于上文      
+	 * 生成的 CommentStmt 之前执行。 
 	 */
 	if (atsubcmds)
 	{
@@ -1392,7 +1392,7 @@ expandTableLikeClause(RangeVar *heapRel, TableLikeClause *table_like_clause)
 	}
 
 	/*
-	 * Process indexes if required.
+	 * 按需处理索引。       
 	 */
 	if ((table_like_clause->options & CREATE_TABLE_LIKE_INDEXES) &&
 		relation->rd_rel->relhasindex)
@@ -1410,20 +1410,20 @@ expandTableLikeClause(RangeVar *heapRel, TableLikeClause *table_like_clause)
 
 			parent_index = index_open(parent_index_oid, AccessShareLock);
 
-			/* Build CREATE INDEX statement to recreate the parent_index */
+			/* 构建 CREATE INDEX 语句以重建 parent_index          */
 			index_stmt = generateClonedIndexStmt(heapRel,
 												 parent_index,
 												 attmap,
 												 NULL);
 
-			/* Copy comment on index, if requested */
+			/* 如要求则复制索引的注释   */
 			if (table_like_clause->options & CREATE_TABLE_LIKE_COMMENTS)
 			{
 				comment = GetComment(parent_index_oid, RelationRelationId, 0);
 
 				/*
-				 * We make use of IndexStmt's idxcomment option, so as not to
-				 * need to know now what name the index will have.
+				 * 我们利用 IndexStmt 的 idxcomment 选项，无需     
+				 * 现在就知道索引将叫什么名字。     
 				 */
 				index_stmt->idxcomment = comment;
 			}
@@ -1435,7 +1435,7 @@ expandTableLikeClause(RangeVar *heapRel, TableLikeClause *table_like_clause)
 	}
 
 	/*
-	 * Process extended statistics if required.
+	 * 按需处理扩展统计。             
 	 */
 	if (table_like_clause->options & CREATE_TABLE_LIKE_STATISTICS)
 	{
@@ -1454,14 +1454,14 @@ expandTableLikeClause(RangeVar *heapRel, TableLikeClause *table_like_clause)
 													parent_stat_oid,
 													attmap);
 
-			/* Copy comment on statistics object, if requested */
+			/* 如要求则复制统计对象的注释         */
 			if (table_like_clause->options & CREATE_TABLE_LIKE_COMMENTS)
 			{
 				comment = GetComment(parent_stat_oid, StatisticExtRelationId, 0);
 
 				/*
-				 * We make use of CreateStatsStmt's stxcomment option, so as
-				 * not to need to know now what name the statistics will have.
+				 * 我们利用 CreateStatsStmt 的 stxcomment 选项，    
+				 * 无需现在就知道统计对象将叫什么名字。     
 				 */
 				stats_stmt->stxcomment = comment;
 			}
@@ -1472,13 +1472,13 @@ expandTableLikeClause(RangeVar *heapRel, TableLikeClause *table_like_clause)
 		list_free(parent_extstats);
 	}
 
-	/* Done with child rel */
+	/* 子关系用毕     */
 	table_close(childrel, NoLock);
 
 	/*
-	 * Close the parent rel, but keep our AccessShareLock on it until xact
-	 * commit.  That will prevent someone else from deleting or ALTERing the
-	 * parent before the child is committed.
+	 * 关闭父关系，但保持其上的 AccessShareLock 直到事务  
+	 * 提交。这样可防止他人在子关系提交之前删除或      
+	 * ALTER 父关系。                   
 	 */
 	table_close(relation, NoLock);
 
@@ -1498,7 +1498,7 @@ transformOfType(CreateStmtContext *cxt, TypeName *ofTypename)
 	tuple = typenameType(NULL, ofTypename, NULL);
 	check_of_type(tuple);
 	ofTypeId = ((Form_pg_type) GETSTRUCT(tuple))->oid;
-	ofTypename->typeOid = ofTypeId; /* cached for later */
+	ofTypename->typeOid = ofTypeId; /* 缓存供后用  */
 
 	tupdesc = lookup_rowtype_tupdesc(ofTypeId, -1);
 	for (i = 0; i < tupdesc->natts; i++)
@@ -1531,22 +1531,22 @@ transformOfType(CreateStmtContext *cxt, TypeName *ofTypename)
 }
 
 /*
- * Generate an IndexStmt node using information from an already existing index
- * "source_idx".
+ * 根据已存在索引 "source_idx" 的信息生成 IndexStmt 节点。     
+ *              
  *
- * heapRel is stored into the IndexStmt's relation field, but we don't use it
- * otherwise; some callers pass NULL, if they don't need it to be valid.
- * (The target relation might not exist yet, so we mustn't try to access it.)
+ * heapRel 会被存入 IndexStmt 的 relation 字段，但除此之外      
+ * 并不使用它；不需要它有效时调用者可传 NULL。       
+ * （目标关系可能尚不存在，所以绝不能尝试访问它。）  
  *
- * Attribute numbers in expression Vars are adjusted according to attmap.
+ * 表达式 Var 中的属性号会按 attmap 进行调整。            
  *
- * If constraintOid isn't NULL, we store the OID of any constraint associated
- * with the index there.
+ * 若 constraintOid 不是 NULL，则把与该索引相关联的约束的   
+ * OID 存到这里。  
  *
- * Unlike transformIndexConstraint, we don't make any effort to force primary
- * key columns to be NOT NULL.  The larger cloning process this is part of
- * should have cloned their NOT NULL status separately (and DefineIndex will
- * complain if that fails to happen).
+ * 与 transformIndexConstraint 不同，我们不打算强制把主键      
+ * 列设为 NOT NULL。作为其组成部分的更大克隆流程应当  
+ * 已经单独克隆过它们的 NOT NULL 状态（若未做到，         
+ * DefineIndex 会报错）。       
  */
 IndexStmt *
 generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
@@ -1575,36 +1575,36 @@ generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
 		*constraintOid = InvalidOid;
 
 	/*
-	 * Fetch pg_class tuple of source index.  We can't use the copy in the
-	 * relcache entry because it doesn't include optional fields.
+	 * 取源索引的 pg_class 元组。我们不能使用 relcache      
+	 * 条目里的副本，因为它不含可选字段。       
 	 */
 	ht_idxrel = SearchSysCache1(RELOID, ObjectIdGetDatum(source_relid));
 	if (!HeapTupleIsValid(ht_idxrel))
 		elog(ERROR, "cache lookup failed for relation %u", source_relid);
 	idxrelrec = (Form_pg_class) GETSTRUCT(ht_idxrel);
 
-	/* Fetch pg_index tuple for source index from relcache entry */
+	/* 从 relcache 条目取源索引的 pg_index 元组        */
 	ht_idx = source_idx->rd_indextuple;
 	idxrec = (Form_pg_index) GETSTRUCT(ht_idx);
 	indrelid = idxrec->indrelid;
 
-	/* Fetch the pg_am tuple of the index' access method */
+	/* 取该索引访问方法的 pg_am 元组          */
 	ht_am = SearchSysCache1(AMOID, ObjectIdGetDatum(idxrelrec->relam));
 	if (!HeapTupleIsValid(ht_am))
 		elog(ERROR, "cache lookup failed for access method %u",
 			 idxrelrec->relam);
 	amrec = (Form_pg_am) GETSTRUCT(ht_am);
 
-	/* Extract indcollation from the pg_index tuple */
+	/* 从 pg_index 元组提取 indcollation       */
 	datum = SysCacheGetAttrNotNull(INDEXRELID, ht_idx,
 								   Anum_pg_index_indcollation);
 	indcollation = (oidvector *) DatumGetPointer(datum);
 
-	/* Extract indclass from the pg_index tuple */
+	/* 从 pg_index 元组提取 indclass       */
 	datum = SysCacheGetAttrNotNull(INDEXRELID, ht_idx, Anum_pg_index_indclass);
 	indclass = (oidvector *) DatumGetPointer(datum);
 
-	/* Begin building the IndexStmt */
+	/* 开始构建 IndexStmt       */
 	index = makeNode(IndexStmt);
 	index->relation = heapRel;
 	index->accessMethod = pstrdup(NameStr(amrec->amname));
@@ -1621,24 +1621,24 @@ generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
 	index->unique = idxrec->indisunique;
 	index->nulls_not_distinct = idxrec->indnullsnotdistinct;
 	index->primary = idxrec->indisprimary;
-	index->transformed = true;	/* don't need transformIndexStmt */
+	index->transformed = true;	/* 无需 transformIndexStmt     */
 	index->concurrent = false;
 	index->if_not_exists = false;
 	index->reset_default_tblspc = false;
 
 	/*
-	 * We don't try to preserve the name of the source index; instead, just
-	 * let DefineIndex() choose a reasonable name.  (If we tried to preserve
-	 * the name, we'd get duplicate-relation-name failures unless the source
-	 * table was in a different schema.)
+	 * 我们不去保留源索引的名字；而是直接让              
+	 * DefineIndex() 选一个合理的名字。（若试图保留          
+	 * 名字，那么除非源表位于不同的模式中，否则会      
+	 * 出现重名失败。）         
 	 */
 	index->idxname = NULL;
 
 	/*
-	 * If the index is marked PRIMARY or has an exclusion condition, it's
-	 * certainly from a constraint; else, if it's not marked UNIQUE, it
-	 * certainly isn't.  If it is or might be from a constraint, we have to
-	 * fetch the pg_constraint record.
+	 * 若索引被标记为 PRIMARY 或带有排他条件，那它      
+	 * 肯定来自约束；否则，若它未标记为 UNIQUE，      
+	 * 就肯定不是。如果它确定或可能来自约束，           
+	 * 须取 pg_constraint 记录。 
 	 */
 	if (index->primary || index->unique || idxrec->indisexclusion)
 	{
@@ -1663,7 +1663,7 @@ generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
 			index->deferrable = conrec->condeferrable;
 			index->initdeferred = conrec->condeferred;
 
-			/* If it's an exclusion constraint, we need the operator names */
+			/* 如果是排他约束，就需要操作符的名字         */
 			if (idxrec->indisexclusion)
 			{
 				Datum	   *elems;
@@ -1671,7 +1671,7 @@ generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
 				int			i;
 
 				Assert(conrec->contype == CONSTRAINT_EXCLUSION);
-				/* Extract operator OIDs from the pg_constraint tuple */
+				/* 从 pg_constraint 元组提取操作符 OID        */
 				datum = SysCacheGetAttrNotNull(CONSTROID, ht_constr,
 											   Anum_pg_constraint_conexclop);
 				deconstruct_array_builtin(DatumGetArrayTypeP(datum), OIDOID, &elems, NULL, &nElems);
@@ -1692,7 +1692,7 @@ generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
 							 operid);
 					operform = (Form_pg_operator) GETSTRUCT(opertup);
 					oprname = pstrdup(NameStr(operform->oprname));
-					/* For simplicity we always schema-qualify the op name */
+					/* 为简单起见，操作符名总是加模式限定 */
 					nspname = get_namespace_name(operform->oprnamespace);
 					namelist = list_make2(makeString(nspname),
 										  makeString(oprname));
@@ -1710,7 +1710,7 @@ generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
 	else
 		index->isconstraint = false;
 
-	/* Get the index expressions, if any */
+	/* 取索引表达式（若有）    */
 	datum = SysCacheGetAttr(INDEXRELID, ht_idx,
 							Anum_pg_index_indexprs, &isnull);
 	if (!isnull)
@@ -1723,7 +1723,7 @@ generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
 	else
 		indexprs = NIL;
 
-	/* Build the list of IndexElem */
+	/* 构建 IndexElem 列表     */
 	index->indexParams = NIL;
 	index->indexIncludingParams = NIL;
 
@@ -1740,7 +1740,7 @@ generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
 
 		if (AttributeNumberIsValid(attnum))
 		{
-			/* Simple index column */
+			/* 普通索引列     */
 			char	   *attname;
 
 			attname = get_attname(indrelid, attnum, false);
@@ -1751,7 +1751,7 @@ generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
 		}
 		else
 		{
-			/* Expressional index */
+			/* 表达式索引    */
 			Node	   *indexkey;
 			bool		found_whole_row;
 
@@ -1760,13 +1760,13 @@ generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
 			indexkey = (Node *) lfirst(indexpr_item);
 			indexpr_item = lnext(indexprs, indexpr_item);
 
-			/* Adjust Vars to match new table's column numbering */
+			/* 调整 Var 使之匹配新表的列编号         */
 			indexkey = map_variable_attnos(indexkey,
 										   1, 0,
 										   attmap,
 										   InvalidOid, &found_whole_row);
 
-			/* As in expandTableLikeClause, reject whole-row variables */
+			/* 与 expandTableLikeClause 一样，拒绝整行变量   */
 			if (found_whole_row)
 				ereport(ERROR,
 						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -1780,13 +1780,13 @@ generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
 			keycoltype = exprType(indexkey);
 		}
 
-		/* Copy the original index column name */
+		/* 复制原索引列名               */
 		iparam->indexcolname = pstrdup(NameStr(attr->attname));
 
-		/* Add the collation name, if non-default */
+		/* 若非默认则加上排序规则名   */
 		iparam->collation = get_collation(indcollation->values[keyno], keycoltype);
 
-		/* Add the operator class name, if non-default */
+		/* 若非默认则加上操作符类名        */
 		iparam->opclass = get_opclass(indclass->values[keyno], keycoltype);
 		iparam->opclassopts =
 			untransformRelOptions(get_attoptions(source_relid, keyno + 1));
@@ -1794,14 +1794,14 @@ generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
 		iparam->ordering = SORTBY_DEFAULT;
 		iparam->nulls_ordering = SORTBY_NULLS_DEFAULT;
 
-		/* Adjust options if necessary */
+		/* 必要时调整选项       */
 		if (source_idx->rd_indam->amcanorder)
 		{
 			/*
-			 * If it supports sort ordering, copy DESC and NULLS opts. Don't
-			 * set non-default settings unnecessarily, though, so as to
-			 * improve the chance of recognizing equivalence to constraint
-			 * indexes.
+			 * 若它支持排序顺序，则复制 DESC 与 NULLS 选项。
+			 * 但不要不必要地设置非默认值，以便        
+			 * 提高识别出与约束索引等价的机会。           
+			 *         
 			 */
 			if (opt & INDOPTION_DESC)
 			{
@@ -1819,7 +1819,7 @@ generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
 		index->indexParams = lappend(index->indexParams, iparam);
 	}
 
-	/* Handle included columns separately */
+	/* 单独处理包含列              */
 	for (keyno = idxrec->indnkeyatts; keyno < idxrec->indnatts; keyno++)
 	{
 		IndexElem  *iparam;
@@ -1831,7 +1831,7 @@ generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
 
 		if (AttributeNumberIsValid(attnum))
 		{
-			/* Simple index column */
+			/* 普通索引列     */
 			char	   *attname;
 
 			attname = get_attname(indrelid, attnum, false);
@@ -1844,18 +1844,18 @@ generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("expressions are not supported in included columns")));
 
-		/* Copy the original index column name */
+		/* 复制原索引列名               */
 		iparam->indexcolname = pstrdup(NameStr(attr->attname));
 
 		index->indexIncludingParams = lappend(index->indexIncludingParams, iparam);
 	}
-	/* Copy reloptions if any */
+	/* 有则复制 reloptions*/
 	datum = SysCacheGetAttr(RELOID, ht_idxrel,
 							Anum_pg_class_reloptions, &isnull);
 	if (!isnull)
 		index->options = untransformRelOptions(datum);
 
-	/* If it's a partial index, decompile and append the predicate */
+	/* 如果是部分索引，则反编译并追加其谓词。   */
 	datum = SysCacheGetAttr(INDEXRELID, ht_idx,
 							Anum_pg_index_indpred, &isnull);
 	if (!isnull)
@@ -1864,17 +1864,17 @@ generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
 		Node	   *pred_tree;
 		bool		found_whole_row;
 
-		/* Convert text string to node tree */
+		/* 把文本串转成节点树      */
 		pred_str = TextDatumGetCString(datum);
 		pred_tree = (Node *) stringToNode(pred_str);
 
-		/* Adjust Vars to match new table's column numbering */
+		/* 调整 Var 使之匹配新表的列编号         */
 		pred_tree = map_variable_attnos(pred_tree,
 										1, 0,
 										attmap,
 										InvalidOid, &found_whole_row);
 
-		/* As in expandTableLikeClause, reject whole-row variables */
+		/* 与 expandTableLikeClause 一样，拒绝整行变量   */
 		if (found_whole_row)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -1885,7 +1885,7 @@ generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
 		index->whereClause = pred_tree;
 	}
 
-	/* Clean up */
+	/* 清理   */
 	ReleaseSysCache(ht_idxrel);
 	ReleaseSysCache(ht_am);
 
@@ -1893,11 +1893,11 @@ generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
 }
 
 /*
- * Generate a CreateStatsStmt node using information from an already existing
- * extended statistic "source_statsid", for the rel identified by heapRel and
- * heapRelid.
+ * 根据已存在的扩展统计 "source_statsid" 的信息，为           
+ * heapRel 与 heapRelid 所标识的关系生成 CreateStatsStmt            
+ *           
  *
- * Attribute numbers in expression Vars are adjusted according to attmap.
+ * 表达式 Var 中的属性号会按 attmap 进行调整。            
  */
 static CreateStatsStmt *
 generateClonedExtStatsStmt(RangeVar *heapRel, Oid heapRelid,
@@ -1918,14 +1918,14 @@ generateClonedExtStatsStmt(RangeVar *heapRel, Oid heapRelid,
 	Assert(heapRel != NULL);
 
 	/*
-	 * Fetch pg_statistic_ext tuple of source statistics object.
+	 * 取源统计对象的 pg_statistic_ext 元组。         
 	 */
 	ht_stats = SearchSysCache1(STATEXTOID, ObjectIdGetDatum(source_statsid));
 	if (!HeapTupleIsValid(ht_stats))
 		elog(ERROR, "cache lookup failed for statistics object %u", source_statsid);
 	statsrec = (Form_pg_statistic_ext) GETSTRUCT(ht_stats);
 
-	/* Determine which statistics types exist */
+	/* 确定存在哪些统计类型         */
 	datum = SysCacheGetAttrNotNull(STATEXTOID, ht_stats,
 								   Anum_pg_statistic_ext_stxkind);
 	arr = DatumGetArrayTypeP(datum);
@@ -1943,13 +1943,13 @@ generateClonedExtStatsStmt(RangeVar *heapRel, Oid heapRelid,
 		else if (enabled[i] == STATS_EXT_MCV)
 			stat_types = lappend(stat_types, makeString("mcv"));
 		else if (enabled[i] == STATS_EXT_EXPRESSIONS)
-			/* expression stats are not exposed to users */
+			/* 表达式统计不对用户暴露         */
 			continue;
 		else
 			elog(ERROR, "unrecognized statistics kind %c", enabled[i]);
 	}
 
-	/* Determine which columns the statistics are on */
+	/* 确定统计位于哪些列上                */
 	for (i = 0; i < statsrec->stxkeys.dim1; i++)
 	{
 		StatsElem  *selem = makeNode(StatsElem);
@@ -1962,13 +1962,13 @@ generateClonedExtStatsStmt(RangeVar *heapRel, Oid heapRelid,
 	}
 
 	/*
-	 * Now handle expressions, if there are any. The order (with respect to
-	 * regular attributes) does not really matter for extended stats, so we
-	 * simply append them after simple column references.
+	 * 接下来处理表达式（如果有）。相对于普通属性     
+	 * 的顺序对扩展统计其实无关紧要，因此我们           
+	 * 只是把它们追加在普通列引用之后。  
 	 *
-	 * XXX Some places during build/estimation treat expressions as if they
-	 * are before attributes, but for the CREATE command that's entirely
-	 * irrelevant.
+	 * XXX 在构建/估算期间，有些地方把表达式当作         
+	 * 位于属性之前，但对 CREATE 命令来说这完全         
+	 * 无关。  
 	 */
 	datum = SysCacheGetAttr(STATEXTOID, ht_stats,
 							Anum_pg_statistic_ext_stxexprs, &isnull);
@@ -1988,7 +1988,7 @@ generateClonedExtStatsStmt(RangeVar *heapRel, Oid heapRelid,
 			StatsElem  *selem = makeNode(StatsElem);
 			bool		found_whole_row;
 
-			/* Adjust Vars to match new table's column numbering */
+			/* 调整 Var 使之匹配新表的列编号         */
 			expr = map_variable_attnos(expr,
 									   1, 0,
 									   attmap,
@@ -2004,27 +2004,27 @@ generateClonedExtStatsStmt(RangeVar *heapRel, Oid heapRelid,
 		pfree(exprsString);
 	}
 
-	/* finally, build the output node */
+	/* 最后构建输出节点       */
 	stats = makeNode(CreateStatsStmt);
 	stats->defnames = NULL;
 	stats->stat_types = stat_types;
 	stats->exprs = def_names;
 	stats->relations = list_make1(heapRel);
 	stats->stxcomment = NULL;
-	stats->transformed = true;	/* don't need transformStatsStmt again */
+	stats->transformed = true;	/* 无需再次 transformStatsStmt     */
 	stats->if_not_exists = false;
 
-	/* Clean up */
+	/* 清理   */
 	ReleaseSysCache(ht_stats);
 
 	return stats;
 }
 
 /*
- * get_collation		- fetch qualified name of a collation
+ * get_collation		- 获取排序规则的限定名     
  *
- * If collation is InvalidOid or is the default for the given actual_datatype,
- * then the return value is NIL.
+ * 若 collation 为 InvalidOid 或等于给定 actual_datatype               
+ * 的默认值则返回 NIL。 
  */
 static List *
 get_collation(Oid collation, Oid actual_datatype)
@@ -2036,16 +2036,16 @@ get_collation(Oid collation, Oid actual_datatype)
 	char	   *coll_name;
 
 	if (!OidIsValid(collation))
-		return NIL;				/* easy case */
+		return NIL;				/* 简单    */
 	if (collation == get_typcollation(actual_datatype))
-		return NIL;				/* just let it default */
+		return NIL;				/* 让它取默认值  */
 
 	ht_coll = SearchSysCache1(COLLOID, ObjectIdGetDatum(collation));
 	if (!HeapTupleIsValid(ht_coll))
 		elog(ERROR, "cache lookup failed for collation %u", collation);
 	coll_rec = (Form_pg_collation) GETSTRUCT(ht_coll);
 
-	/* For simplicity, we always schema-qualify the name */
+	/* 为简单起见，名字总是加模式限定     */
 	nsp_name = get_namespace_name(coll_rec->collnamespace);
 	coll_name = pstrdup(NameStr(coll_rec->collname));
 	result = list_make2(makeString(nsp_name), makeString(coll_name));
@@ -2055,10 +2055,10 @@ get_collation(Oid collation, Oid actual_datatype)
 }
 
 /*
- * get_opclass			- fetch qualified name of an index operator class
+ * get_opclass		- 获取索引操作符类的限定名            
  *
- * If the opclass is the default for the given actual_datatype, then
- * the return value is NIL.
+ * 若操作符类是给定 actual_datatype 的默认类，         
+ * 则返回 NIL。        
  */
 static List *
 get_opclass(Oid opclass, Oid actual_datatype)
@@ -2074,7 +2074,7 @@ get_opclass(Oid opclass, Oid actual_datatype)
 
 	if (GetDefaultOpClass(actual_datatype, opc_rec->opcmethod) != opclass)
 	{
-		/* For simplicity, we always schema-qualify the name */
+		/* 为简单起见，名字总是加模式限定     */
 		char	   *nsp_name = get_namespace_name(opc_rec->opcnamespace);
 		char	   *opc_name = pstrdup(NameStr(opc_rec->opcname));
 
@@ -2088,9 +2088,9 @@ get_opclass(Oid opclass, Oid actual_datatype)
 
 /*
  * transformIndexConstraints
- *		Handle UNIQUE, PRIMARY KEY, EXCLUDE constraints, which create indexes.
- *		We also merge in any index definitions arising from
- *		LIKE ... INCLUDING INDEXES.
+ *		处理会创建索引的 UNIQUE、PRIMARY KEY、EXCLUDE 约束。     
+ *		还会合并进 LIKE ... INCLUDING INDEXES 所     
+ *		产生的索引定义。   
  */
 static void
 transformIndexConstraints(CreateStmtContext *cxt)
@@ -2101,10 +2101,10 @@ transformIndexConstraints(CreateStmtContext *cxt)
 	ListCell   *lc;
 
 	/*
-	 * Run through the constraints that need to generate an index. For PRIMARY
-	 * KEY, mark each column as NOT NULL and create an index. For UNIQUE or
-	 * EXCLUDE, create an index as for PRIMARY KEY, but do not insist on NOT
-	 * NULL.
+	 * 遍历那些需要生成索引的约束。对 PRIMARY KEY，           
+	 * 把每一列标记为 NOT NULL 并创建索引。对 UNIQUE 或     
+	 * EXCLUDE，则像 PRIMARY KEY 那样创建索引，但不强求 NOT   
+	 * NULL 
 	 */
 	foreach(lc, cxt->ixconstraints)
 	{
@@ -2120,17 +2120,17 @@ transformIndexConstraints(CreateStmtContext *cxt)
 	}
 
 	/*
-	 * Scan the index list and remove any redundant index specifications. This
-	 * can happen if, for instance, the user writes UNIQUE PRIMARY KEY. A
-	 * strict reading of SQL would suggest raising an error instead, but that
-	 * strikes me as too anal-retentive. - tgl 2001-02-14
+	 * 扫描索引列表并移除任何冗余的索引声明。这种        
+	 * 情况可能出现在例如用户写了 UNIQUE PRIMARY KEY 时。 
+	 * 严格按 SQL 来讲应该改为抛出一个错误，但我觉得     
+	 * 那太过迂腐刻板。 - tgl 2001-02-14         
 	 *
-	 * XXX in ALTER TABLE case, it'd be nice to look for duplicate
-	 * pre-existing indexes, too.
+	 * XXX 在 ALTER TABLE 情形下，若还能查找重复的   
+	 * 既有索引就更好。  
 	 */
 	if (cxt->pkey != NULL)
 	{
-		/* Make sure we keep the PKEY index in preference to others... */
+		/* 务必优先保留 PKEY 索引而非其他索引……      */
 		finalindexlist = list_make1(cxt->pkey);
 	}
 
@@ -2141,7 +2141,7 @@ transformIndexConstraints(CreateStmtContext *cxt)
 
 		index = lfirst(lc);
 
-		/* if it's pkey, it's already in finalindexlist */
+		/* 如果是 pkey，它已在 finalindexlist 中*/
 		if (index == cxt->pkey)
 			continue;
 
@@ -2161,10 +2161,10 @@ transformIndexConstraints(CreateStmtContext *cxt)
 				priorindex->unique |= index->unique;
 
 				/*
-				 * If the prior index is as yet unnamed, and this one is
-				 * named, then transfer the name to the prior index. This
-				 * ensures that if we have named and unnamed constraints,
-				 * we'll use (at least one of) the names for the index.
+				 * 若先前索引尚未命名，而这个已命名，  
+				 * 则把名字转移给先前的索引。这样         
+				 * 以确保同时有命名与未命名约束时，      
+				 * 索引将（至少部分）使用这些名字。    
 				 */
 				if (priorindex->idxname == NULL)
 					priorindex->idxname = index->idxname;
@@ -2178,22 +2178,22 @@ transformIndexConstraints(CreateStmtContext *cxt)
 	}
 
 	/*
-	 * Now append all the IndexStmts to cxt->alist.  If we generated an ALTER
-	 * TABLE SET NOT NULL statement to support a primary key, it's already in
-	 * cxt->alist.
+	 * 现在把所有 IndexStmt 追加到 cxt->alist。                     
+	 * 若为支持主键生成 ALTER TABLE SET NOT NULL 语句，它已在  
+	 * cxt->alist 
 	 */
 	cxt->alist = list_concat(cxt->alist, finalindexlist);
 }
 
 /*
  * transformIndexConstraint
- *		Transform one UNIQUE, PRIMARY KEY, or EXCLUDE constraint for
- *		transformIndexConstraints.
+ *		为 transformIndexConstraints 转换 UNIQUE、PRIMARY KEY   
+ *		或 EXCLUDE 约束。     
  *
- * We return an IndexStmt.  For a PRIMARY KEY constraint, we additionally
- * produce NOT NULL constraints, either by marking ColumnDefs in cxt->columns
- * as is_not_null or by adding an ALTER TABLE SET NOT NULL command to
- * cxt->alist.
+ * 我们返回一个 IndexStmt。对于 PRIMARY KEY 约束，我们     
+ * 还会额外产生 NOT NULL 约束，或是把 cxt->columns 中的        
+ * ColumnDef 标记为 is_not_null，或加入 ALTER TABLE SET NOT   
+ * NULL 命令
  */
 static IndexStmt *
 transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
@@ -2217,8 +2217,8 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 		cxt->pkey = index;
 
 		/*
-		 * In ALTER TABLE case, a primary index might already exist, but
-		 * DefineIndex will check for it.
+		 * 在 ALTER TABLE 情形下，主索引可能已经存在，但
+		 * DefineIndex 会检查。      
 		 */
 	}
 	index->nulls_not_distinct = constraint->nulls_not_distinct;
@@ -2229,7 +2229,7 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 	if (constraint->conname != NULL)
 		index->idxname = pstrdup(constraint->conname);
 	else
-		index->idxname = NULL;	/* DefineIndex will choose name */
+		index->idxname = NULL;	/* 名字由 DefineIndex 选定 */
 
 	index->relation = cxt->relation;
 	index->accessMethod = constraint->access_method ? constraint->access_method : DEFAULT_INDEX_TYPE;
@@ -2250,10 +2250,10 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 	index->reset_default_tblspc = constraint->reset_default_tblspc;
 
 	/*
-	 * If it's ALTER TABLE ADD CONSTRAINT USING INDEX, look up the index and
-	 * verify it's usable, then extract the implied column name list.  (We
-	 * will not actually need the column name list at runtime, but we need it
-	 * now to check for duplicate column entries below.)
+	 * 如果是 ALTER TABLE ADD CONSTRAINT USING INDEX，则查找         
+	 * 该索引并验证可用，再提取隐含列名列表。（我们 
+	 * 运行时实际上并不需要这份列名列表，但现在需要    
+	 * 用它检查下方是否有重复的列项。） 
 	 */
 	if (constraint->indexname != NULL)
 	{
@@ -2266,21 +2266,21 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 		Datum		indclassDatum;
 		int			i;
 
-		/* Grammar should not allow this with explicit column list */
+		/* 文法不应允许在显式给出列清单时这样做  */
 		Assert(constraint->keys == NIL);
 
-		/* Grammar should only allow PRIMARY and UNIQUE constraints */
+		/* 文法只应允许 PRIMARY 与 UNIQUE 约束             */
 		Assert(constraint->contype == CONSTR_PRIMARY ||
 			   constraint->contype == CONSTR_UNIQUE);
 
-		/* Must be ALTER, not CREATE, but grammar doesn't enforce that */
+		/* 必须是 ALTER 而非 CREATE，文法并未强制这点    */
 		if (!cxt->isalter)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("cannot use an existing index in CREATE TABLE"),
 					 parser_errposition(cxt->pstate, constraint->location)));
 
-		/* Look for the index in the same schema as the table */
+		/* 在与表相同的模式中查找该索引         */
 		index_oid = get_relname_relid(index_name, RelationGetNamespace(heap_rel));
 
 		if (!OidIsValid(index_oid))
@@ -2289,11 +2289,11 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 					 errmsg("index \"%s\" does not exist", index_name),
 					 parser_errposition(cxt->pstate, constraint->location)));
 
-		/* Open the index (this will throw an error if it is not an index) */
+		/* 打开该索引（若它不是索引将抛出错误）          */
 		index_rel = index_open(index_oid, AccessShareLock);
 		index_form = index_rel->rd_index;
 
-		/* Check that it does not have an associated constraint already */
+		/* 检查它是否已经存在关联的约束                   */
 		if (OidIsValid(get_index_constraint(index_oid)))
 			ereport(ERROR,
 					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -2301,7 +2301,7 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 							index_name),
 					 parser_errposition(cxt->pstate, constraint->location)));
 
-		/* Perform validity checks on the index */
+		/* 对该索引执行有效性检查    */
 		if (index_form->indrelid != RelationGetRelid(heap_rel))
 			ereport(ERROR,
 					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -2337,9 +2337,9 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 					 parser_errposition(cxt->pstate, constraint->location)));
 
 		/*
-		 * It's probably unsafe to change a deferred index to non-deferred. (A
-		 * non-constraint index couldn't be deferred anyway, so this case
-		 * should never occur; no need to sweat, but let's check it.)
+		 * 把延迟索引改成非延迟很可能不安全（非约束索引 
+		 * 本来就无法延迟，故这种情况不应出现；        
+		 * 无需多虑，但仍要检查一下）                   
 		 */
 		if (!index_form->indimmediate && !constraint->deferrable)
 			ereport(ERROR,
@@ -2349,11 +2349,11 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 					 parser_errposition(cxt->pstate, constraint->location)));
 
 		/*
-		 * Insist on it being a btree.  That's the only kind that supports
-		 * uniqueness at the moment anyway; but we must have an index that
-		 * exactly matches what you'd get from plain ADD CONSTRAINT syntax,
-		 * else dump and reload will produce a different index (breaking
-		 * pg_upgrade in particular).
+		 * 坚持要求该索引为 btree。目前也只有 btree         
+		 * 支持唯一性；但我们必须有一个与普通            
+		 * ADD CONSTRAINT 语法所得索引完全一致的                
+		 * 索引，否则 dump/reload 会得出不同索引（尤其   
+		 * 破坏 pg_upgrade）。   
 		 */
 		if (index_rel->rd_rel->relam != get_index_am_oid(DEFAULT_INDEX_TYPE, false))
 			ereport(ERROR,
@@ -2361,7 +2361,7 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 					 errmsg("index \"%s\" is not a btree", index_name),
 					 parser_errposition(cxt->pstate, constraint->location)));
 
-		/* Must get indclass the hard way */
+		/* indclass 只能费力获取    */
 		indclassDatum = SysCacheGetAttrNotNull(INDEXRELID,
 											   index_rel->rd_indextuple,
 											   Anum_pg_index_indclass);
@@ -2375,9 +2375,9 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 			Oid			defopclass;
 
 			/*
-			 * We shouldn't see attnum == 0 here, since we already rejected
-			 * expression indexes.  If we do, SystemAttributeDefinition will
-			 * throw an error.
+			 * 此处不应出现 attnum == 0，表达式索引已被      
+			 * 拒绝；若真的出现，SystemAttributeDefinition         
+			 * 将报错。   
 			 */
 			if (attnum > 0)
 			{
@@ -2391,12 +2391,12 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 			if (i < index_form->indnkeyatts)
 			{
 				/*
-				 * Insist on default opclass, collation, and sort options.
-				 * While the index would still work as a constraint with
-				 * non-default settings, it might not provide exactly the same
-				 * uniqueness semantics as you'd get from a normally-created
-				 * constraint; and there's also the dump/reload problem
-				 * mentioned above.
+				 * 坚持默认 opclass、collation 和排序选项。    
+				 * 索引用非默认设置仍可作为约束，        
+				 * 但其唯一性语义未必与正常创建的约束        
+				 * 完全相同；另外还有上面提到的 dump/reload   
+				 * 问题。                                           
+				 *                 
 				 */
 				Datum		attoptions =
 					get_attoptions(RelationGetRelid(index_rel), i + 1);
@@ -2419,16 +2419,16 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 				constraint->including = lappend(constraint->including, makeString(attname));
 		}
 
-		/* Close the index relation but keep the lock */
+		/* 关闭索引关系但保留锁             */
 		relation_close(index_rel, NoLock);
 
 		index->indexOid = index_oid;
 	}
 
 	/*
-	 * If it's an EXCLUDE constraint, the grammar returns a list of pairs of
-	 * IndexElems and operator names.  We have to break that apart into
-	 * separate lists.
+	 * 若是 EXCLUDE 约束，语法分析返回的是 IndexElem           
+	 * 与操作符名成对的列表，我们必须拆成独立的    
+	 * 列表。      
 	 */
 	if (constraint->contype == CONSTR_EXCLUSION)
 	{
@@ -2448,10 +2448,10 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 	}
 
 	/*
-	 * For UNIQUE and PRIMARY KEY, we just have a list of column names.
+	 * 对于 UNIQUE 和 PRIMARY KEY，我们只有列名的列表。  
 	 *
-	 * Make sure referenced keys exist.  If we are making a PRIMARY KEY index,
-	 * also make sure they are NOT NULL.
+	 * 确保被引用的键存在。若创建的是 PRIMARY KEY 索引，    
+	 * 并确保它们是 NOT NULL。   
 	 */
 	else
 	{
@@ -2464,7 +2464,7 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 			ListCell   *columns;
 			IndexElem  *iparam;
 
-			/* Make sure referenced column exists. */
+			/* 确保被引用的列存在。      */
 			foreach(columns, cxt->columns)
 			{
 				column = lfirst_node(ColumnDef, columns);
@@ -2477,10 +2477,10 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 			if (found)
 			{
 				/*
-				 * column is defined in the new table.  For PRIMARY KEY, we
-				 * can apply the NOT NULL constraint cheaply here ... unless
-				 * the column is marked is_from_type, in which case marking it
-				 * here would be ineffective (see MergeAttributes).
+				 * 该列定义于新表。对 PRIMARY KEY，可在此处  
+				 * 以低成本施加 NOT NULL 约束……除非           
+				 * 该列标记了 is_from_type，此时在此处标记将    
+				 * 不会生效（见 MergeAttributes）。        
 				 */
 				if (constraint->contype == CONSTR_PRIMARY &&
 					!column->is_from_type)
@@ -2492,15 +2492,15 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 			else if (SystemAttributeByName(key) != NULL)
 			{
 				/*
-				 * column will be a system column in the new table, so accept
-				 * it. System columns can't ever be null, so no need to worry
-				 * about PRIMARY/NOT NULL constraint.
+				 * 该列在新表中将是系统列，因此接受它。    
+				 * 系统列永远不可能为空，故无需担心          
+				 * PRIMARY/NOT NULL 约束。        
 				 */
 				found = true;
 			}
 			else if (cxt->inhRelations)
 			{
-				/* try inherited tables */
+				/* 尝试继承表      */
 				ListCell   *inher;
 
 				foreach(inher, cxt->inhRelations)
@@ -2510,7 +2510,7 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 					int			count;
 
 					rel = table_openrv(inh, AccessShareLock);
-					/* check user requested inheritance from valid relkind */
+					/* 检查用户是否从有效的 relkind 继承       */
 					if (rel->rd_rel->relkind != RELKIND_RELATION &&
 						rel->rd_rel->relkind != RELKIND_FOREIGN_TABLE &&
 						rel->rd_rel->relkind != RELKIND_PARTITIONED_TABLE)
@@ -2531,11 +2531,11 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 							found = true;
 
 							/*
-							 * It's tempting to set forced_not_null if the
-							 * parent column is already NOT NULL, but that
-							 * seems unsafe because the column's NOT NULL
-							 * marking might disappear between now and
-							 * execution.  Do the runtime check to be safe.
+							 * 如果父列已是 NOT NULL，很想设置 
+							 * forced_not_null，但这似乎不安全， 
+							 * 因为该列的 NOT NULL 标记           
+							 * 可能在执行前消失。            
+							 * 为安全起见，请做运行时检查。  
 							 */
 							break;
 						}
@@ -2547,9 +2547,9 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 			}
 
 			/*
-			 * In the ALTER TABLE case, don't complain about index keys not
-			 * created in the command; they may well exist already.
-			 * DefineIndex will complain about them if not.
+			 * 在 ALTER TABLE 场景下，不要抱怨命令中未        
+			 * 创建的索引键；它们很可能已经存在。 
+			 * 若不存在，DefineIndex 会报错。     
 			 */
 			if (!found && !cxt->isalter)
 				ereport(ERROR,
@@ -2557,7 +2557,7 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 						 errmsg("column \"%s\" named in key does not exist", key),
 						 parser_errposition(cxt->pstate, constraint->location)));
 
-			/* Check for PRIMARY KEY(foo, foo) */
+			/* 检查 PRIMARY KEY(foo, foo)    */
 			foreach(columns, index->indexParams)
 			{
 				iparam = (IndexElem *) lfirst(columns);
@@ -2578,7 +2578,7 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 				}
 			}
 
-			/* OK, add it to the index definition */
+			/* 好，将它加入索引定义     */
 			iparam = makeNode(IndexElem);
 			iparam->name = pstrdup(key);
 			iparam->expr = NULL;
@@ -2591,8 +2591,8 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 			index->indexParams = lappend(index->indexParams, iparam);
 
 			/*
-			 * For a primary-key column, also create an item for ALTER TABLE
-			 * SET NOT NULL if we couldn't ensure it via is_not_null above.
+			 * 对主键列，若上面未能用 is_not_null 确保，      
+			 * 则还要为 ALTER TABLE SET NOT NULL 创建一项。       
 			 */
 			if (constraint->contype == CONSTR_PRIMARY && !forced_not_null)
 			{
@@ -2606,11 +2606,11 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 	}
 
 	/*
-	 * Add included columns to index definition.  This is much like the
-	 * simple-column-name-list code above, except that we don't worry about
-	 * NOT NULL marking; included columns in a primary key should not be
-	 * forced NOT NULL.  We don't complain about duplicate columns, either,
-	 * though maybe we should?
+	 * 把包含列加入索引定义。这与上面处理简单列名 
+	 * 列表的代码非常相似，只是我们不关心 NOT NULL        
+	 * 标记；主键中的包含列不应被强制为 NOT NULL。     
+	 * 对重复列也不报错，不过也许应该报错？              
+	 *                        
 	 */
 	foreach(lc, constraint->including)
 	{
@@ -2635,14 +2635,14 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 			if (SystemAttributeByName(key) != NULL)
 			{
 				/*
-				 * column will be a system column in the new table, so accept
-				 * it.
+				 * 该列在新表中将是系统列，因此接受它。    
+				 *    
 				 */
 				found = true;
 			}
 			else if (cxt->inhRelations)
 			{
-				/* try inherited tables */
+				/* 尝试继承表      */
 				ListCell   *inher;
 
 				foreach(inher, cxt->inhRelations)
@@ -2652,7 +2652,7 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 					int			count;
 
 					rel = table_openrv(inh, AccessShareLock);
-					/* check user requested inheritance from valid relkind */
+					/* 检查用户是否从有效的 relkind 继承       */
 					if (rel->rd_rel->relkind != RELKIND_RELATION &&
 						rel->rd_rel->relkind != RELKIND_FOREIGN_TABLE &&
 						rel->rd_rel->relkind != RELKIND_PARTITIONED_TABLE)
@@ -2682,9 +2682,9 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 		}
 
 		/*
-		 * In the ALTER TABLE case, don't complain about index keys not
-		 * created in the command; they may well exist already. DefineIndex
-		 * will complain about them if not.
+		 * 在 ALTER TABLE 场景下，不要抱怨命令中未        
+		 * 创建的索引键；它们很可能已经存在。DefineIndex  
+		 * 会报错。                    
 		 */
 		if (!found && !cxt->isalter)
 			ereport(ERROR,
@@ -2692,7 +2692,7 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 					 errmsg("column \"%s\" named in key does not exist", key),
 					 parser_errposition(cxt->pstate, constraint->location)));
 
-		/* OK, add it to the index definition */
+		/* 好，将它加入索引定义     */
 		iparam = makeNode(IndexElem);
 		iparam->name = pstrdup(key);
 		iparam->expr = NULL;
@@ -2704,8 +2704,8 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 	}
 
 	/*
-	 * If we found anything that requires run-time SET NOT NULL, build a full
-	 * ALTER TABLE command for that and add it to cxt->alist.
+	 * 如果发现了任何需要运行时 SET NOT NULL 的项，就构建  
+	 * 完整的 ALTER TABLE 命令并加入 cxt->alist。   
 	 */
 	if (notnullcmds)
 	{
@@ -2724,12 +2724,12 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
 
 /*
  * transformCheckConstraints
- *		handle CHECK constraints
+ *		处理 CHECK 约束     
  *
- * Right now, there's nothing to do here when called from ALTER TABLE,
- * but the other constraint-transformation functions are called in both
- * the CREATE TABLE and ALTER TABLE paths, so do the same here, and just
- * don't do anything if we're not authorized to skip validation.
+ * 目前从 ALTER TABLE 调用到这里时无事可做，            
+ * 但其他约束转换函数在 CREATE TABLE 与 ALTER TABLE         
+ * 两条路径中都会被调用，所以这里也照此办理，      
+ * 若无权限跳过校验，就不做任何事。             
  */
 static void
 transformCheckConstraints(CreateStmtContext *cxt, bool skipValidation)
@@ -2740,9 +2740,9 @@ transformCheckConstraints(CreateStmtContext *cxt, bool skipValidation)
 		return;
 
 	/*
-	 * If creating a new table (but not a foreign table), we can safely skip
-	 * validation of check constraints, and nonetheless mark them valid. (This
-	 * will override any user-supplied NOT VALID flag.)
+	 * 创建新表（但非外部表）时，可安全跳过               
+	 * 对 CHECK 约束的校验，并且仍将它们标记为有效。       
+	 * （将覆盖用户给的 NOT VALID 标志。） 
 	 */
 	if (skipValidation)
 	{
@@ -2758,7 +2758,7 @@ transformCheckConstraints(CreateStmtContext *cxt, bool skipValidation)
 
 /*
  * transformFKConstraints
- *		handle FOREIGN KEY constraints
+ *		处理 FOREIGN KEY 约束     
  */
 static void
 transformFKConstraints(CreateStmtContext *cxt,
@@ -2770,9 +2770,9 @@ transformFKConstraints(CreateStmtContext *cxt,
 		return;
 
 	/*
-	 * If CREATE TABLE or adding a column with NULL default, we can safely
-	 * skip validation of FK constraints, and nonetheless mark them valid.
-	 * (This will override any user-supplied NOT VALID flag.)
+	 * 如果是 CREATE TABLE 或者添加带 NULL 默认值的列，     
+	 * 就可以安全跳过 FK 约束校验，同时仍把它们标记   
+	 * 为有效。（覆盖用户的 NOT VALID 标志。） 
 	 */
 	if (skipValidation)
 	{
@@ -2786,15 +2786,15 @@ transformFKConstraints(CreateStmtContext *cxt,
 	}
 
 	/*
-	 * For CREATE TABLE or ALTER TABLE ADD COLUMN, gin up an ALTER TABLE ADD
-	 * CONSTRAINT command to execute after the basic command is complete. (If
-	 * called from ADD CONSTRAINT, that routine will add the FK constraints to
-	 * its own subcommand list.)
+	 * 对于 CREATE TABLE 或 ALTER TABLE ADD COLUMN，需要生成        
+	 * 一条 ALTER TABLE ADD CONSTRAINT 命令，待基础命令完成后   
+	 * 执行。（若由 ADD CONSTRAINT 调用，例程会把 FK 约束      
+	 * 并入子命令列表） 
 	 *
-	 * Note: the ADD CONSTRAINT command must also execute after any index
-	 * creation commands.  Thus, this should run after
-	 * transformIndexConstraints, so that the CREATE INDEX commands are
-	 * already in cxt->alist.  See also the handling of cxt->likeclauses.
+	 * 注意：ADD CONSTRAINT 命令还须在任何创建索引命令   
+	 * 之后执行。因此，它应运行在        
+	 * transformIndexConstraints 之后，这样 CREATE INDEX 命令   
+	 * 已经在 cxt->alist 中。另见 cxt->likeclauses 的处理。   
 	 */
 	if (!isAddConstraint)
 	{
@@ -2820,16 +2820,16 @@ transformFKConstraints(CreateStmtContext *cxt,
 }
 
 /*
- * transformIndexStmt - parse analysis for CREATE INDEX and ALTER TABLE
+ * transformIndexStmt - CREATE INDEX 与 ALTER TABLE 的解析分析   
  *
- * Note: this is a no-op for an index not using either index expressions or
- * a predicate expression.  There are several code paths that create indexes
- * without bothering to call this, because they know they don't have any
- * such expressions to deal with.
+ * 注意：对既不用索引表达式也不用谓词的索引，         
+ * 本函数是空操作。有若干代码路径创建索引时             
+ * 并未调用它，因为它们知道自己没有这类表达式      
+ * 需要处理。               
  *
- * To avoid race conditions, it's important that this function rely only on
- * the passed-in relid (and not on stmt->relation) to determine the target
- * relation.
+ * 为避免竞态条件，本函数确定目标关系时只能依赖      
+ * 传入的 relid（而不能依赖 stmt->relation）。                 
+ *          
  */
 IndexStmt *
 transformIndexStmt(Oid relid, IndexStmt *stmt, const char *queryString)
@@ -2839,69 +2839,69 @@ transformIndexStmt(Oid relid, IndexStmt *stmt, const char *queryString)
 	ListCell   *l;
 	Relation	rel;
 
-	/* Nothing to do if statement already transformed. */
+	/* 若语句已转换过，则无事可做。      */
 	if (stmt->transformed)
 		return stmt;
 
-	/* Set up pstate */
+	/* 设置 pstate */
 	pstate = make_parsestate(NULL);
 	pstate->p_sourcetext = queryString;
 
 	/*
-	 * Put the parent table into the rtable so that the expressions can refer
-	 * to its fields without qualification.  Caller is responsible for locking
-	 * relation, but we still need to open it.
+	 * 把父表放入 rtable，使表达式无需限定即可引用         
+	 * 其字段。调用方负责锁定关系，但我们仍需打开它。  
+	 *                                        
 	 */
 	rel = relation_open(relid, NoLock);
 	nsitem = addRangeTableEntryForRelation(pstate, rel,
 										   AccessShareLock,
 										   NULL, false, true);
 
-	/* no to join list, yes to namespaces */
+	/* 进命名空间不进连接列表  */
 	addNSItemToQuery(pstate, nsitem, false, true, true);
 
-	/* take care of the where clause */
+	/* 处理 WHERE 子句           */
 	if (stmt->whereClause)
 	{
 		stmt->whereClause = transformWhereClause(pstate,
 												 stmt->whereClause,
 												 EXPR_KIND_INDEX_PREDICATE,
 												 "WHERE");
-		/* we have to fix its collations too */
+		/* 还需要修正它的排序规则 */
 		assign_expr_collations(pstate, stmt->whereClause);
 	}
 
-	/* take care of any index expressions */
+	/* 处理所有索引表达式        */
 	foreach(l, stmt->indexParams)
 	{
 		IndexElem  *ielem = (IndexElem *) lfirst(l);
 
 		if (ielem->expr)
 		{
-			/* Extract preliminary index col name before transforming expr */
+			/* 在转换表达式之前先提取初步的索引列名      */
 			if (ielem->indexcolname == NULL)
 				ielem->indexcolname = FigureIndexColname(ielem->expr);
 
-			/* Now do parse transformation of the expression */
+			/* 现在对表达式做解析转换             */
 			ielem->expr = transformExpr(pstate, ielem->expr,
 										EXPR_KIND_INDEX_EXPRESSION);
 
-			/* We have to fix its collations too */
+			/* 还需要修正它的排序规则 */
 			assign_expr_collations(pstate, ielem->expr);
 
 			/*
-			 * transformExpr() should have already rejected subqueries,
-			 * aggregates, window functions, and SRFs, based on the EXPR_KIND_
-			 * for an index expression.
+			 * transformExpr() 应已按索引表达式的 EXPR_KIND_  
+			 * 拒绝了子查询、聚集、窗口函数和 SRF。           
+			 *                         
 			 *
-			 * DefineIndex() will make more checks.
+			 * DefineIndex() 会做更多检查。 
 			 */
 		}
 	}
 
 	/*
-	 * Check that only the base rel is mentioned.  (This should be dead code
-	 * now that add_missing_from is history.)
+	 * 检查是否只提到了基础关系。（既然 add_missing_from    
+	 * 已成历史，应为死代码。）  
 	 */
 	if (list_length(pstate->p_rtable) != 1)
 		ereport(ERROR,
@@ -2910,21 +2910,21 @@ transformIndexStmt(Oid relid, IndexStmt *stmt, const char *queryString)
 
 	free_parsestate(pstate);
 
-	/* Close relation */
+	/* 关闭关系   */
 	table_close(rel, NoLock);
 
-	/* Mark statement as successfully transformed */
+	/* 把语句标记为已成功转换          */
 	stmt->transformed = true;
 
 	return stmt;
 }
 
 /*
- * transformStatsStmt - parse analysis for CREATE STATISTICS
+ * transformStatsStmt - CREATE STATISTICS 的解析分析   
  *
- * To avoid race conditions, it's important that this function relies only on
- * the passed-in relid (and not on stmt->relation) to determine the target
- * relation.
+ * 为避免竞态条件，本函数确定目标关系时只能依赖传入  
+ * 的 relid（而不能依赖 stmt->relation）。                       
+ *          
  */
 CreateStatsStmt *
 transformStatsStmt(Oid relid, CreateStatsStmt *stmt, const char *queryString)
@@ -2934,46 +2934,46 @@ transformStatsStmt(Oid relid, CreateStatsStmt *stmt, const char *queryString)
 	ListCell   *l;
 	Relation	rel;
 
-	/* Nothing to do if statement already transformed. */
+	/* 若语句已转换过，则无事可做。      */
 	if (stmt->transformed)
 		return stmt;
 
-	/* Set up pstate */
+	/* 设置 pstate */
 	pstate = make_parsestate(NULL);
 	pstate->p_sourcetext = queryString;
 
 	/*
-	 * Put the parent table into the rtable so that the expressions can refer
-	 * to its fields without qualification.  Caller is responsible for locking
-	 * relation, but we still need to open it.
+	 * 把父表放入 rtable，使表达式无需限定即可引用         
+	 * 其字段。调用方负责锁定关系，但我们仍需打开它。  
+	 *                                        
 	 */
 	rel = relation_open(relid, NoLock);
 	nsitem = addRangeTableEntryForRelation(pstate, rel,
 										   AccessShareLock,
 										   NULL, false, true);
 
-	/* no to join list, yes to namespaces */
+	/* 进命名空间不进连接列表  */
 	addNSItemToQuery(pstate, nsitem, false, true, true);
 
-	/* take care of any expressions */
+	/* 处理所有表达式        */
 	foreach(l, stmt->exprs)
 	{
 		StatsElem  *selem = (StatsElem *) lfirst(l);
 
 		if (selem->expr)
 		{
-			/* Now do parse transformation of the expression */
+			/* 现在对表达式做解析转换             */
 			selem->expr = transformExpr(pstate, selem->expr,
 										EXPR_KIND_STATS_EXPRESSION);
 
-			/* We have to fix its collations too */
+			/* 还需要修正它的排序规则 */
 			assign_expr_collations(pstate, selem->expr);
 		}
 	}
 
 	/*
-	 * Check that only the base rel is mentioned.  (This should be dead code
-	 * now that add_missing_from is history.)
+	 * 检查是否只提到了基础关系。（既然 add_missing_from    
+	 * 已成历史，应为死代码。）  
 	 */
 	if (list_length(pstate->p_rtable) != 1)
 		ereport(ERROR,
@@ -2982,10 +2982,10 @@ transformStatsStmt(Oid relid, CreateStatsStmt *stmt, const char *queryString)
 
 	free_parsestate(pstate);
 
-	/* Close relation */
+	/* 关闭关系   */
 	table_close(rel, NoLock);
 
-	/* Mark statement as successfully transformed */
+	/* 把语句标记为已成功转换          */
 	stmt->transformed = true;
 
 	return stmt;
@@ -2994,12 +2994,12 @@ transformStatsStmt(Oid relid, CreateStatsStmt *stmt, const char *queryString)
 
 /*
  * transformRuleStmt -
- *	  transform a CREATE RULE Statement. The action is a list of parse
- *	  trees which is transformed into a list of query trees, and we also
- *	  transform the WHERE clause if any.
+ *	  转换 CREATE RULE 语句。其动作是解析树列表，会被
+ *	  转换为查询树列表，另外我们还要转换               
+ *	  WHERE 子句（若有）。       
  *
- * actions and whereClause are output parameters that receive the
- * transformed results.
+ * actions 和 whereClause 是输出参数，用于接收转换  
+ * 后的结果。     
  */
 void
 transformRuleStmt(RuleStmt *stmt, const char *queryString,
@@ -3011,10 +3011,10 @@ transformRuleStmt(RuleStmt *stmt, const char *queryString,
 	ParseNamespaceItem *newnsitem;
 
 	/*
-	 * To avoid deadlock, make sure the first thing we do is grab
-	 * AccessExclusiveLock on the target relation.  This will be needed by
-	 * DefineQueryRewrite(), and we don't want to grab a lesser lock
-	 * beforehand.
+	 * 为免死锁，第一件事必须在目标关系上获取 
+	 * AccessExclusiveLock。DefineQueryRewrite() 会需要它，         
+	 * 我们不想事先获取更弱的锁。                      
+	 *            
 	 */
 	rel = table_openrv(stmt->relation, AccessExclusiveLock);
 
@@ -3023,14 +3023,14 @@ transformRuleStmt(RuleStmt *stmt, const char *queryString,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("rules on materialized views are not supported")));
 
-	/* Set up pstate */
+	/* 设置 pstate */
 	pstate = make_parsestate(NULL);
 	pstate->p_sourcetext = queryString;
 
 	/*
-	 * NOTE: 'OLD' must always have a varno equal to 1 and 'NEW' equal to 2.
-	 * Set up their ParseNamespaceItems in the main pstate for use in parsing
-	 * the rule qualification.
+	 * 注意：'OLD' 的 varno 必须总为 1，'NEW' 的必须总为 2。 
+	 * 请在主 pstate 中设置它们的 ParseNamespaceItems，供解析   
+	 * 规则限定用。     
 	 */
 	oldnsitem = addRangeTableEntryForRelation(pstate, rel,
 											  AccessShareLock,
@@ -3042,11 +3042,11 @@ transformRuleStmt(RuleStmt *stmt, const char *queryString,
 											  false, false);
 
 	/*
-	 * They must be in the namespace too for lookup purposes, but only add the
-	 * one(s) that are relevant for the current kind of rule.  In an UPDATE
-	 * rule, quals must refer to OLD.field or NEW.field to be unambiguous, but
-	 * there's no need to be so picky for INSERT & DELETE.  We do not add them
-	 * to the joinlist.
+	 * 为便于查找，它们也必须位于命名空间中，但只添加  
+	 * 与当前规则种类相关者。UPDATE 规则中，限定条件    
+	 * 必须引用 OLD.field 或 NEW.field 才无歧义，但 INSERT 与     
+	 * DELETE 则无需如此挑剔。我们不会将其加入连接列表。 
+	 *                 
 	 */
 	switch (stmt->event)
 	{
@@ -3069,25 +3069,25 @@ transformRuleStmt(RuleStmt *stmt, const char *queryString,
 			break;
 	}
 
-	/* take care of the where clause */
+	/* 处理 WHERE 子句           */
 	*whereClause = transformWhereClause(pstate,
 										stmt->whereClause,
 										EXPR_KIND_WHERE,
 										"WHERE");
-	/* we have to fix its collations too */
+	/* 还需要修正它的排序规则 */
 	assign_expr_collations(pstate, *whereClause);
 
-	/* this is probably dead code without add_missing_from: */
-	if (list_length(pstate->p_rtable) != 2) /* naughty, naughty... */
+	/* 没有 add_missing_from 时这多半是死代码：  */
+	if (list_length(pstate->p_rtable) != 2) /* 太调皮了……  */
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
 				 errmsg("rule WHERE condition cannot contain references to other relations")));
 
 	/*
-	 * 'instead nothing' rules with a qualification need a query rangetable so
-	 * the rewrite handler can add the negated rule qualification to the
-	 * original query. We create a query with the new command type CMD_NOTHING
-	 * here that is treated specially by the rewrite system.
+	 * 有限定条件的 'instead nothing' 规则要有查询范围表，    
+	 * 以便重写处理器把取反的规则限定加到原查询     
+	 * 中。此处创建一个命令类型为 CMD_NOTHING 的新查询，    
+	 * 重写系统会特殊处理它。                    
 	 */
 	if (stmt->actions == NIL)
 	{
@@ -3096,7 +3096,7 @@ transformRuleStmt(RuleStmt *stmt, const char *queryString,
 		nothing_qry->commandType = CMD_NOTHING;
 		nothing_qry->rtable = pstate->p_rtable;
 		nothing_qry->rteperminfos = pstate->p_rteperminfos;
-		nothing_qry->jointree = makeFromExpr(NIL, NULL);	/* no join wanted */
+		nothing_qry->jointree = makeFromExpr(NIL, NULL);	/* 无需连接   */
 
 		*actions = list_make1(nothing_qry);
 	}
@@ -3106,7 +3106,7 @@ transformRuleStmt(RuleStmt *stmt, const char *queryString,
 		List	   *newactions = NIL;
 
 		/*
-		 * transform each statement, like parse_sub_analyze()
+		 * 像 parse_sub_analyze() 那样转换每条语句  
 		 */
 		foreach(l, stmt->actions)
 		{
@@ -3118,17 +3118,17 @@ transformRuleStmt(RuleStmt *stmt, const char *queryString,
 						has_new;
 
 			/*
-			 * Since outer ParseState isn't parent of inner, have to pass down
-			 * the query text by hand.
+			 * 由于外层 ParseState 不是内层父节点，必须手工   
+			 * 传下查询文本。  
 			 */
 			sub_pstate->p_sourcetext = queryString;
 
 			/*
-			 * Set up OLD/NEW in the rtable for this statement.  The entries
-			 * are added only to relnamespace, not varnamespace, because we
-			 * don't want them to be referred to by unqualified field names
-			 * nor "*" in the rule actions.  We decide later whether to put
-			 * them in the joinlist.
+			 * 在本语句的 rtable 中设置 OLD/NEW。这些条目      
+			 * 只加入 relnamespace，而不加入 varnamespace，因为 
+			 * 不想让它们在规则动作中被非限定字段名或   
+			 * "*" 所引用。是否加入连接列表稍后决定。     
+			 *                      
 			 */
 			oldnsitem = addRangeTableEntryForRelation(sub_pstate, rel,
 													  AccessShareLock,
@@ -3141,13 +3141,13 @@ transformRuleStmt(RuleStmt *stmt, const char *queryString,
 			addNSItemToQuery(sub_pstate, oldnsitem, false, true, false);
 			addNSItemToQuery(sub_pstate, newnsitem, false, true, false);
 
-			/* Transform the rule action statement */
+			/* 转换规则动作语句            */
 			top_subqry = transformStmt(sub_pstate, action);
 
 			/*
-			 * We cannot support utility-statement actions (eg NOTIFY) with
-			 * nonempty rule WHERE conditions, because there's no way to make
-			 * the utility action execute conditionally.
+			 * 规则 WHERE 条件非空，无法支持工具语句动作  
+			 * （如 NOTIFY），因为没办法让工具动作有条件地 
+			 * 执行。                                
 			 */
 			if (top_subqry->commandType == CMD_UTILITY &&
 				*whereClause != NULL)
@@ -3156,17 +3156,17 @@ transformRuleStmt(RuleStmt *stmt, const char *queryString,
 						 errmsg("rules with WHERE conditions can only have SELECT, INSERT, UPDATE, or DELETE actions")));
 
 			/*
-			 * If the action is INSERT...SELECT, OLD/NEW have been pushed down
-			 * into the SELECT, and that's what we need to look at. (Ugly
-			 * kluge ... try to fix this when we redesign querytrees.)
+			 * 如果动作是 INSERT...SELECT，OLD/NEW 已被下推到      
+			 * SELECT 中，那是要检查的对象。（丑陋的      
+			 * 权宜之计……重新设计查询树时再修）    
 			 */
 			sub_qry = getInsertSelectQuery(top_subqry, NULL);
 
 			/*
-			 * If the sub_qry is a setop, we cannot attach any qualifications
-			 * to it, because the planner won't notice them.  This could
-			 * perhaps be relaxed someday, but for now, we may as well reject
-			 * such a rule immediately.
+			 * 若 sub_qry 是集合操作，无法附加任何限定条件  
+			 * 因为规划器注意不到它们。这也许将来能   
+			 * 放宽，但目前不妨立即拒绝这种规则。           
+			 *                         
 			 */
 			if (sub_qry->setOperations != NULL && *whereClause != NULL)
 				ereport(ERROR,
@@ -3174,7 +3174,7 @@ transformRuleStmt(RuleStmt *stmt, const char *queryString,
 						 errmsg("conditional UNION/INTERSECT/EXCEPT statements are not implemented")));
 
 			/*
-			 * Validate action's use of OLD/NEW, qual too
+			 * 检查动作中 OLD/NEW 和 qual 的使用
 			 */
 			has_old =
 				rangeTableEntry_used((Node *) sub_qry, PRS2_OLD_VARNO, 0) ||
@@ -3196,7 +3196,7 @@ transformRuleStmt(RuleStmt *stmt, const char *queryString,
 								 errmsg("ON SELECT rule cannot use NEW")));
 					break;
 				case CMD_UPDATE:
-					/* both are OK */
+					/* 两者皆可*/
 					break;
 				case CMD_INSERT:
 					if (has_old)
@@ -3217,18 +3217,18 @@ transformRuleStmt(RuleStmt *stmt, const char *queryString,
 			}
 
 			/*
-			 * OLD/NEW are not allowed in WITH queries, because they would
-			 * amount to outer references for the WITH, which we disallow.
-			 * However, they were already in the outer rangetable when we
-			 * analyzed the query, so we have to check.
+			 * WITH 查询中不允许出现 OLD/NEW，因为对 WITH 而 
+			 * 言属于 WITH 的外层引用，这是被禁止的        
+			 * 但分析查询时它们已在外层范围表中，所以 
+			 * 必须进行检查。                   
 			 *
-			 * Note that in the INSERT...SELECT case, we need to examine the
-			 * CTE lists of both top_subqry and sub_qry.
+			 * 注意在 INSERT...SELECT 情形下，需要检查           
+			 * top_subqry 与 sub_qry 的 CTE 列表。 
 			 *
-			 * Note that we aren't digging into the body of the query looking
-			 * for WITHs in nested sub-SELECTs.  A WITH down there can
-			 * legitimately refer to OLD/NEW, because it'd be an
-			 * indirect-correlated outer reference.
+			 * 注意我们并不深入查询体去寻找嵌套子           
+			 * SELECT 中的 WITH。位于深处的 WITH 可以       
+			 * 合法地引用 OLD/NEW，因为那将是        
+			 * 间接关联的外层引用。      
 			 */
 			if (rangeTableEntry_used((Node *) top_subqry->cteList,
 									 PRS2_OLD_VARNO, 0) ||
@@ -3246,34 +3246,34 @@ transformRuleStmt(RuleStmt *stmt, const char *queryString,
 						 errmsg("cannot refer to NEW within WITH query")));
 
 			/*
-			 * For efficiency's sake, add OLD to the rule action's jointree
-			 * only if it was actually referenced in the statement or qual.
+			 * 为效率起见，只有 OLD 真的被语句或限定条件 
+			 * 引用时，才把 OLD 加入规则动作的连接树。    
 			 *
-			 * For INSERT, NEW is not really a relation (only a reference to
-			 * the to-be-inserted tuple) and should never be added to the
-			 * jointree.
+			 * 对 INSERT 而言，NEW 并不是真关系（只是对将    
+			 * 插入的元组的引用），绝不应加入连接树。 
+			 *          
 			 *
-			 * For UPDATE, we treat NEW as being another kind of reference to
-			 * OLD, because it represents references to *transformed* tuples
-			 * of the existing relation.  It would be wrong to enter NEW
-			 * separately in the jointree, since that would cause a double
-			 * join of the updated relation.  It's also wrong to fail to make
-			 * a jointree entry if only NEW and not OLD is mentioned.
+			 * 对 UPDATE，我们把 NEW 视为对 OLD 的另一种         
+			 * 引用，因为它代表对现有关系*变换后*元组的  
+			 * 引用。把 NEW 单独登记进连接树是错误的， 
+			 * 因为那会导致被更新关系被连接两次。        
+			 * 如果只提到 NEW 而没提到 OLD，连接树中却不     
+			 * 建立条目也是错误的。                        
 			 */
 			if (has_old || (has_new && stmt->event == CMD_UPDATE))
 			{
 				RangeTblRef *rtr;
 
 				/*
-				 * If sub_qry is a setop, manipulating its jointree will do no
-				 * good at all, because the jointree is dummy. (This should be
-				 * a can't-happen case because of prior tests.)
+				 * 若 sub_qry 是集合操作，摆弄它的连接树毫无  
+				 * 用处，因为连接树是假的。（此前的           
+				 * 检查本应排除这种情况。）        
 				 */
 				if (sub_qry->setOperations != NULL)
 					ereport(ERROR,
 							(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 							 errmsg("conditional UNION/INTERSECT/EXCEPT statements are not implemented")));
-				/* hackishly add OLD to the already-built FROM clause */
+				/* 硬把 OLD 塞进已构建好的 FROM 子句       */
 				rtr = makeNode(RangeTblRef);
 				rtr->rtindex = oldnsitem->p_rtindex;
 				sub_qry->jointree->fromlist =
@@ -3290,22 +3290,22 @@ transformRuleStmt(RuleStmt *stmt, const char *queryString,
 
 	free_parsestate(pstate);
 
-	/* Close relation, but keep the exclusive lock */
+	/* 关闭关系，但保留排他锁           */
 	table_close(rel, NoLock);
 }
 
 
 /*
  * transformAlterTableStmt -
- *		parse analysis for ALTER TABLE
+ *		ALTER TABLE 的解析分析   
  *
- * Returns the transformed AlterTableStmt.  There may be additional actions
- * to be done before and after the transformed statement, which are returned
- * in *beforeStmts and *afterStmts as lists of utility command parsetrees.
+ * 返回转换后的 AlterTableStmt。在转换后的语句之前和      
+ * 之后还可能有需要执行的其他动作，它们以工具命令    
+ * 解析树列表的形式在 *beforeStmts 和 *afterStmts 中返回。  
  *
- * To avoid race conditions, it's important that this function rely only on
- * the passed-in relid (and not on stmt->relation) to determine the target
- * relation.
+ * 为避免竞态条件，本函数确定目标关系时只能依赖传入
+ * 的 relid（而不能依赖 stmt->relation）。                       
+ *          
  */
 AlterTableStmt *
 transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
@@ -3324,11 +3324,11 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 	AlterTableCmd *newcmd;
 	ParseNamespaceItem *nsitem;
 
-	/* Caller is responsible for locking the relation */
+	/* 调用方负责锁定该关系                 */
 	rel = relation_open(relid, NoLock);
 	tupdesc = RelationGetDescr(rel);
 
-	/* Set up pstate */
+	/* 设置 pstate */
 	pstate = make_parsestate(NULL);
 	pstate->p_sourcetext = queryString;
 	nsitem = addRangeTableEntryForRelation(pstate,
@@ -3339,7 +3339,7 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 										   true);
 	addNSItemToQuery(pstate, nsitem, false, true, true);
 
-	/* Set up CreateStmtContext */
+	/* 设置 CreateStmtContext */
 	cxt.pstate = pstate;
 	if (rel->rd_rel->relkind == RELKIND_FOREIGN_TABLE)
 	{
@@ -3368,8 +3368,8 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 	cxt.ofType = false;
 
 	/*
-	 * Transform ALTER subcommands that need it (most don't).  These largely
-	 * re-use code from CREATE TABLE.
+	 * 转换需要处理的 ALTER 子命令（多数不需要）。它们  
+	 * 多半复用 CREATE TABLE     
 	 */
 	foreach(lcmd, stmt->cmds)
 	{
@@ -3384,15 +3384,15 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 					transformColumnDefinition(&cxt, def);
 
 					/*
-					 * If the column has a non-null default, we can't skip
-					 * validation of foreign keys.
+					 * 如果该列有非空默认值，就无法跳过   
+					 * 外键校验。            
 					 */
 					if (def->raw_default != NULL)
 						skipValidation = false;
 
 					/*
-					 * All constraints are processed in other ways. Remove the
-					 * original list
+					 * 所有约束均以其他方式处理。删除原列表 
+					 *              
 					 */
 					def->constraints = NIL;
 
@@ -3403,7 +3403,7 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 			case AT_AddConstraint:
 
 				/*
-				 * The original AddConstraint cmd node doesn't go to newcmds
+				 * 原始 AddConstraint 命令节点不会进入 newcmds    
 				 */
 				if (IsA(cmd->def, Constraint))
 				{
@@ -3422,8 +3422,8 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 					AttrNumber	attnum;
 
 					/*
-					 * For ALTER COLUMN TYPE, transform the USING clause if
-					 * one was specified.
+					 * 若为 ALTER COLUMN TYPE 指定了 USING            
+					 * 子句则转换。
 					 */
 					if (def->raw_default)
 					{
@@ -3433,8 +3433,8 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 					}
 
 					/*
-					 * For identity column, create ALTER SEQUENCE command to
-					 * change the data type of the sequence.
+					 * 对于标识列，创建 ALTER SEQUENCE 命令       
+					 * 以修改该序列的数据类型。 
 					 */
 					attnum = get_attnum(relid, cmd->name);
 					if (attnum == InvalidAttrNumber)
@@ -3491,8 +3491,8 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 			case AT_SetIdentity:
 				{
 					/*
-					 * Create an ALTER SEQUENCE statement for the internal
-					 * sequence of the identity column.
+					 * 为标识列的内部序列创建一条            
+					 * ALTER SEQUENCE 语句。        
 					 */
 					ListCell   *lc;
 					List	   *newseqopts = NIL;
@@ -3501,8 +3501,8 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 					Oid			seq_relid;
 
 					/*
-					 * Split options into those handled by ALTER SEQUENCE and
-					 * those for ALTER TABLE proper.
+					 * 把选项拆分为由 ALTER SEQUENCE 处理的        
+					 * 与 ALTER TABLE 本身的。 
 					 */
 					foreach(lc, castNode(List, cmd->def))
 					{
@@ -3538,11 +3538,11 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 					}
 
 					/*
-					 * If column was not an identity column, we just let the
-					 * ALTER TABLE command error out later.  (There are cases
-					 * this fails to cover, but we'll need to restructure
-					 * where creation of the sequence dependency linkage
-					 * happens before we can fix it.)
+					 * 若该列不是标识列，就放任                 
+					 * 后面的 ALTER TABLE 命令随后报错。（有些  
+					 * 情况未覆盖，但我们需要重构           
+					 * 序列依赖链接的创建位置，             
+					 * 之后才能修复。）      
 					 */
 
 					cmd->def = (Node *) newdef;
@@ -3556,7 +3556,7 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 					PartitionCmd *partcmd = (PartitionCmd *) cmd->def;
 
 					transformPartitionCmd(&cxt, partcmd);
-					/* assign transformed value of the partition bound */
+					/* 赋予分区边界的转换结果。            */
 					partcmd->bound = cxt.partbound;
 				}
 
@@ -3566,9 +3566,9 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 			default:
 
 				/*
-				 * Currently, we shouldn't actually get here for subcommand
-				 * types that don't require transformation; but if we do, just
-				 * emit them unchanged.
+				 * 目前，对于无需转换的子命令类型，        
+				 * 我们本不该走到这里；但若真到了，           
+				 * 照原样输出。  
 				 */
 				newcmds = lappend(newcmds, cmd);
 				break;
@@ -3576,31 +3576,31 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 	}
 
 	/*
-	 * Transfer anything we already have in cxt.alist into save_alist, to keep
-	 * it separate from the output of transformIndexConstraints.
+	 * 把 cxt.alist 中已有的内容转移到 save_alist，                
+	 * 使其与 transformIndexConstraints 的输出分开。   
 	 */
 	save_alist = cxt.alist;
 	cxt.alist = NIL;
 
-	/* Postprocess constraints */
+	/* 对约束进行后处理*/
 	transformIndexConstraints(&cxt);
 	transformFKConstraints(&cxt, skipValidation, true);
 	transformCheckConstraints(&cxt, false);
 
 	/*
-	 * Push any index-creation commands into the ALTER, so that they can be
-	 * scheduled nicely by tablecmds.c.  Note that tablecmds.c assumes that
-	 * the IndexStmt attached to an AT_AddIndex or AT_AddIndexConstraint
-	 * subcommand has already been through transformIndexStmt.
+	 * 把所有创建索引的命令都推入 ALTER 中，                
+	 * 以便 tablecmds.c 能妥善安排它们。注意 tablecmds.c       
+	 * 假定附在 AT_AddIndex 或 AT_AddIndexConstraint 子命令上  
+	 * 的 IndexStmt 已经过 transformIndexStmt 处理。   
 	 */
 	foreach(l, cxt.alist)
 	{
 		Node	   *istmt = (Node *) lfirst(l);
 
 		/*
-		 * We assume here that cxt.alist contains only IndexStmts and possibly
-		 * ALTER TABLE SET NOT NULL statements generated from primary key
-		 * constraints.  We absorb the subcommands of the latter directly.
+		 * 我们假定 cxt.alist 中只包含 IndexStmts，                  
+		 * 以及可能由主键约束生成的                          
+		 * ALTER TABLE SET NOT NULL 语句；其子命令直接吸收。  
 		 */
 		if (IsA(istmt, IndexStmt))
 		{
@@ -3623,7 +3623,7 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 	}
 	cxt.alist = NIL;
 
-	/* Append any CHECK or FK constraints to the commands list */
+	/* 把 CHECK 或 FK 约束追加到命令列表。         */
 	foreach(l, cxt.ckconstraints)
 	{
 		newcmd = makeNode(AlterTableCmd);
@@ -3639,11 +3639,11 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 		newcmds = lappend(newcmds, newcmd);
 	}
 
-	/* Close rel */
+	/* 关闭 rel*/
 	relation_close(rel, NoLock);
 
 	/*
-	 * Output results.
+	 * 输出结果。
 	 */
 	stmt->cmds = newcmds;
 
@@ -3655,13 +3655,13 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 
 
 /*
- * Preprocess a list of column constraint clauses
- * to attach constraint attributes to their primary constraint nodes
- * and detect inconsistent/misplaced constraint attributes.
+ * 预处理列约束子句列表，             
+ * 把约束属性附加到其主约束节点上，                 
+ * 并检测不一致或放错位置的约束属性。     
  *
- * NOTE: currently, attributes are only supported for FOREIGN KEY, UNIQUE,
- * EXCLUSION, and PRIMARY KEY constraints, but someday they ought to be
- * supported for other constraint types.
+ * 注意：目前只有 FOREIGN KEY、UNIQUE、                          
+ * EXCLUSION 和 PRIMARY KEY 约束支持属性，                     
+ * 但其他类型将来也应支持。 
  */
 static void
 transformConstraintAttrs(CreateStmtContext *cxt, List *constraintList)
@@ -3738,7 +3738,7 @@ transformConstraintAttrs(CreateStmtContext *cxt, List *constraintList)
 				lastprimarycon->initdeferred = true;
 
 				/*
-				 * If only INITIALLY DEFERRED appears, assume DEFERRABLE
+				 * 若只出现 INITIALLY DEFERRED，视为 DEFERRABLE  
 				 */
 				if (!saw_deferrability)
 					lastprimarycon->deferrable = true;
@@ -3765,9 +3765,9 @@ transformConstraintAttrs(CreateStmtContext *cxt, List *constraintList)
 				break;
 
 			default:
-				/* Otherwise it's not an attribute */
+				/* 否则它就不是属性。     */
 				lastprimarycon = con;
-				/* reset flags for new primary node */
+				/* 为新主节点重置标志位。*/
 				saw_deferrability = false;
 				saw_initially = false;
 				break;
@@ -3776,14 +3776,14 @@ transformConstraintAttrs(CreateStmtContext *cxt, List *constraintList)
 }
 
 /*
- * Special handling of type definition for a column
+ * 对列的类型定义做特殊处理。         
  */
 static void
 transformColumnType(CreateStmtContext *cxt, ColumnDef *column)
 {
 	/*
-	 * All we really need to do here is verify that the type is valid,
-	 * including any collation spec that might be present.
+	 * 这里我们真正要做的只是验证类型有效，         
+	 * 包括可能存在的任何排序规则说明。   
 	 */
 	Type		ctype = typenameType(cxt->pstate, column->typeName, NULL);
 
@@ -3794,7 +3794,7 @@ transformColumnType(CreateStmtContext *cxt, ColumnDef *column)
 		LookupCollation(cxt->pstate,
 						column->collClause->collname,
 						column->collClause->location);
-		/* Complain if COLLATE is applied to an uncollatable type */
+		/* 若 COLLATE 应用于不可排序的类型则报错。 */
 		if (!OidIsValid(typtup->typcollation))
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -3810,30 +3810,30 @@ transformColumnType(CreateStmtContext *cxt, ColumnDef *column)
 
 /*
  * transformCreateSchemaStmtElements -
- *	  analyzes the elements of a CREATE SCHEMA statement
+ *	  分析 CREATE SCHEMA 语句的各个元素。     
  *
- * Split the schema element list from a CREATE SCHEMA statement into
- * individual commands and place them in the result list in an order
- * such that there are no forward references (e.g. GRANT to a table
- * created later in the list). Note that the logic we use for determining
- * forward references is presently quite incomplete.
+ * 把 CREATE SCHEMA 语句中的模式元素列表拆分成        
+ * 各条命令，并按无前向引用的顺序放入              
+ * 结果列表（例如对列表中后面创建的表             
+ * 发出 GRANT）。注意我们判定前向引用所用的             
+ * 逻辑目前还相当不完整。                
  *
- * "schemaName" is the name of the schema that will be used for the creation
- * of the objects listed, that may be compiled from the schema name defined
- * in the statement or a role specification.
+ * "schemaName" 是创建所列各对象时                                 
+ * 所用模式的名称，该名称可由语句中定义的               
+ * 模式名或角色说明组合而成。  
  *
- * SQL also allows constraints to make forward references, so thumb through
- * the table columns and move forward references to a posterior alter-table
- * command.
+ * SQL 也允许约束形成前向引用，因此需要遍历              
+ * 各表列，把前向引用挪到其后的 alter-table                  
+ * 命令  
  *
- * The result is a list of parse nodes that still need to be analyzed ---
- * but we can't analyze the later commands until we've executed the earlier
- * ones, because of possible inter-object references.
+ * 结果是一个仍需分析的解析节点列表，                   
+ * 但在执行完前面的命令之前无法分析                        
+ * 后面的命令，对象间可能相互引用。  
  *
- * Note: this breaks the rules a little bit by modifying schema-name fields
- * within passed-in structs.  However, the transformation would be the same
- * if done over, so it should be all right to scribble on the input to this
- * extent.
+ * 注意：这样做稍微破坏了规矩，因为要修改传入         
+ * 结构中的模式名字段。不过就算重来一遍                  
+ * 转换结果也一样，所以不妨对输入小幅涂改。            
+ *        
  */
 List *
 transformCreateSchemaStmtElements(List *schemaElts, const char *schemaName)
@@ -3851,8 +3851,8 @@ transformCreateSchemaStmtElements(List *schemaElts, const char *schemaName)
 	cxt.grants = NIL;
 
 	/*
-	 * Run through each schema element in the schema element list. Separate
-	 * statements by type, and do preliminary analysis.
+	 * 遍历模式元素列表中的每个模式元素。                 
+	 * 按类型区分语句并做初步分析。      
 	 */
 	foreach(elements, schemaElts)
 	{
@@ -3876,7 +3876,7 @@ transformCreateSchemaStmtElements(List *schemaElts, const char *schemaName)
 					setSchemaName(cxt.schemaname, &elp->relation->schemaname);
 
 					/*
-					 * XXX todo: deal with constraints
+					 * XXX 待办：处理约束      
 					 */
 					cxt.tables = lappend(cxt.tables, element);
 				}
@@ -3889,7 +3889,7 @@ transformCreateSchemaStmtElements(List *schemaElts, const char *schemaName)
 					setSchemaName(cxt.schemaname, &elp->view->schemaname);
 
 					/*
-					 * XXX todo: deal with references between views
+					 * XXX 待办：处理视图间的引用       
 					 */
 					cxt.views = lappend(cxt.views, element);
 				}
@@ -3936,7 +3936,7 @@ transformCreateSchemaStmtElements(List *schemaElts, const char *schemaName)
 
 /*
  * setSchemaName
- *		Set or check schema name in an element of a CREATE SCHEMA command
+ *		设置或检查 CREATE SCHEMA 命令元素中的模式名。     
  */
 static void
 setSchemaName(const char *context_schema, char **stmt_schema_name)
@@ -3953,10 +3953,10 @@ setSchemaName(const char *context_schema, char **stmt_schema_name)
 
 /*
  * transformPartitionCmd
- *		Analyze the ATTACH/DETACH PARTITION command
+ *		分析 ATTACH/DETACH PARTITION 命令      
  *
- * In case of the ATTACH PARTITION command, cxt->partbound is set to the
- * transformed value of cmd->bound.
+ * 对于 ATTACH PARTITION 命令，cxt->partbound                      
+ * 为 cmd->bound 的转换值。  
  */
 static void
 transformPartitionCmd(CreateStmtContext *cxt, PartitionCmd *cmd)
@@ -3966,7 +3966,7 @@ transformPartitionCmd(CreateStmtContext *cxt, PartitionCmd *cmd)
 	switch (parentRel->rd_rel->relkind)
 	{
 		case RELKIND_PARTITIONED_TABLE:
-			/* transform the partition bound, if any */
+			/* 转换分区边界（如有）。     */
 			Assert(RelationGetPartitionKey(parentRel) != NULL);
 			if (cmd->bound != NULL)
 				cxt->partbound = transformPartitionBound(cxt->pstate, parentRel,
@@ -3975,8 +3975,8 @@ transformPartitionCmd(CreateStmtContext *cxt, PartitionCmd *cmd)
 		case RELKIND_PARTITIONED_INDEX:
 
 			/*
-			 * A partitioned index cannot have a partition bound set.  ALTER
-			 * INDEX prevents that with its grammar, but not ALTER TABLE.
+			 * 分区索引无法设置分区边界。                      
+			 * ALTER INDEX 靠语法阻止，ALTER TABLE 则不行。    
 			 */
 			if (cmd->bound != NULL)
 				ereport(ERROR,
@@ -3985,21 +3985,21 @@ transformPartitionCmd(CreateStmtContext *cxt, PartitionCmd *cmd)
 								RelationGetRelationName(parentRel))));
 			break;
 		case RELKIND_RELATION:
-			/* the table must be partitioned */
+			/* 该表必须是分区表。   */
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
 					 errmsg("table \"%s\" is not partitioned",
 							RelationGetRelationName(parentRel))));
 			break;
 		case RELKIND_INDEX:
-			/* the index must be partitioned */
+			/* 索引必须是分区索引。*/
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
 					 errmsg("index \"%s\" is not partitioned",
 							RelationGetRelationName(parentRel))));
 			break;
 		default:
-			/* parser shouldn't let this case through */
+			/* 解析器不应让这种情况通过。*/
 			elog(ERROR, "\"%s\" is not a partitioned table or index",
 				 RelationGetRelationName(parentRel));
 			break;
@@ -4009,7 +4009,7 @@ transformPartitionCmd(CreateStmtContext *cxt, PartitionCmd *cmd)
 /*
  * transformPartitionBound
  *
- * Transform a partition bound specification
+ * 转换一个分区边界规格说明。  
  */
 PartitionBoundSpec *
 transformPartitionBound(ParseState *pstate, Relation parent,
@@ -4021,16 +4021,16 @@ transformPartitionBound(ParseState *pstate, Relation parent,
 	int			partnatts = get_partition_natts(key);
 	List	   *partexprs = get_partition_exprs(key);
 
-	/* Avoid scribbling on input */
+	/* 避免涂改输入。     */
 	result_spec = copyObject(spec);
 
 	if (spec->is_default)
 	{
 		/*
-		 * Hash partitioning does not support a default partition; there's no
-		 * use case for it (since the set of partitions to create is perfectly
-		 * defined), and if users do get into it accidentally, it's hard to
-		 * back out from it afterwards.
+		 * 哈希分区不支持默认分区；                              
+		 * 它没有用例（因为要创建的分区集合                   
+		 * 是完全确定的），而且如果用户不小心             
+		 * 陷入就很难退出。    
 		 */
 		if (strategy == PARTITION_STRATEGY_HASH)
 			ereport(ERROR,
@@ -4038,9 +4038,9 @@ transformPartitionBound(ParseState *pstate, Relation parent,
 					 errmsg("a hash-partitioned table may not have a default partition")));
 
 		/*
-		 * In case of the default partition, parser had no way to identify the
-		 * partition strategy. Assign the parent's strategy to the default
-		 * partition bound spec.
+		 * 对于默认分区，解析器无从识别分区策略，          
+		 * 因此把父分区的策略赋予默认分区边界规格。   
+		 *                      
 		 */
 		result_spec->strategy = strategy;
 
@@ -4081,7 +4081,7 @@ transformPartitionBound(ParseState *pstate, Relation parent,
 					 errmsg("invalid bound specification for a list partition"),
 					 parser_errposition(pstate, exprLocation((Node *) spec))));
 
-		/* Get the only column's name in case we need to output an error */
+		/* 取唯一列的名称，以备需要输出错误。           */
 		if (key->partattrs[0] != 0)
 			colname = get_attname(RelationGetRelid(parent),
 								  key->partattrs[0], false);
@@ -4090,7 +4090,7 @@ transformPartitionBound(ParseState *pstate, Relation parent,
 										 deparse_context_for(RelationGetRelationName(parent),
 															 RelationGetRelid(parent)),
 										 false, false);
-		/* Need its type data too */
+		/* 还需类型数据     */
 		coltype = get_partition_col_typid(key, 0);
 		coltypmod = get_partition_col_typmod(key, 0);
 		partcollation = get_partition_col_collation(key, 0);
@@ -4107,7 +4107,7 @@ transformPartitionBound(ParseState *pstate, Relation parent,
 												 colname, coltype, coltypmod,
 												 partcollation);
 
-			/* Don't add to the result if the value is a duplicate */
+			/* 若值重复则不加入结果。                   */
 			duplicate = false;
 			foreach(cell2, result_spec->listdatums)
 			{
@@ -4144,8 +4144,8 @@ transformPartitionBound(ParseState *pstate, Relation parent,
 					 errmsg("TO must specify exactly one value per partitioning column")));
 
 		/*
-		 * Convert raw parse nodes into PartitionRangeDatum nodes and perform
-		 * any necessary validation.
+		 * 把原始解析节点转换为 PartitionRangeDatum 节点，      
+		 * 并做必要的验证。 
 		 */
 		result_spec->lowerdatums =
 			transformPartitionRangeBounds(pstate, spec->lowerdatums,
@@ -4162,8 +4162,8 @@ transformPartitionBound(ParseState *pstate, Relation parent,
 
 /*
  * transformPartitionRangeBounds
- *		This converts the expressions for range partition bounds from the raw
- *		grammar representation to PartitionRangeDatum structs
+ *		此函数把范围分区边界的表达式从原始的               
+ *		语法表示转换为 PartitionRangeDatum 结构。  
  */
 static List *
 transformPartitionRangeBounds(ParseState *pstate, List *blist,
@@ -4183,8 +4183,8 @@ transformPartitionRangeBounds(ParseState *pstate, List *blist,
 		PartitionRangeDatum *prd = NULL;
 
 		/*
-		 * Infinite range bounds -- "minvalue" and "maxvalue" -- get passed in
-		 * as ColumnRefs.
+		 * 无限范围边界（"minvalue" 与 "maxvalue"）传入时         
+		 * 为 ColumnRefs
 		 */
 		if (IsA(expr, ColumnRef))
 		{
@@ -4192,8 +4192,8 @@ transformPartitionRangeBounds(ParseState *pstate, List *blist,
 			char	   *cname = NULL;
 
 			/*
-			 * There should be a single field named either "minvalue" or
-			 * "maxvalue".
+			 * 字段名应当是 "minvalue" 或 "maxvalue"             
+			 * 之一。  
 			 */
 			if (list_length(cref->fields) == 1 &&
 				IsA(linitial(cref->fields), String))
@@ -4202,10 +4202,10 @@ transformPartitionRangeBounds(ParseState *pstate, List *blist,
 			if (cname == NULL)
 			{
 				/*
-				 * ColumnRef is not in the desired single-field-name form. For
-				 * consistency between all partition strategies, let the
-				 * expression transformation report any errors rather than
-				 * doing it ourselves.
+				 * ColumnRef 不是想要的单字段名形式。             
+				 * 为了让所有分区策略保持一致，           
+				 * 任何错误都交给表达式转换报告，          
+				 * 而非自己做。 
 				 */
 			}
 			else if (strcmp("minvalue", cname) == 0)
@@ -4230,7 +4230,7 @@ transformPartitionRangeBounds(ParseState *pstate, List *blist,
 			Oid			partcollation;
 			Const	   *value;
 
-			/* Get the column's name in case we need to output an error */
+			/* 取该列的名称，以备需要输出错误。         */
 			if (key->partattrs[i] != 0)
 				colname = get_attname(RelationGetRelid(parent),
 									  key->partattrs[i], false);
@@ -4243,7 +4243,7 @@ transformPartitionRangeBounds(ParseState *pstate, List *blist,
 				++j;
 			}
 
-			/* Need its type data too */
+			/* 还需类型数据     */
 			coltype = get_partition_col_typid(key, i);
 			coltypmod = get_partition_col_typmod(key, i);
 			partcollation = get_partition_col_collation(key, i);
@@ -4268,8 +4268,8 @@ transformPartitionRangeBounds(ParseState *pstate, List *blist,
 	}
 
 	/*
-	 * Once we see MINVALUE or MAXVALUE for one column, the remaining columns
-	 * must be the same.
+	 * 一旦某列出现 MINVALUE 或 MAXVALUE，其余列                  
+	 * 必须相同。  
 	 */
 	validateInfiniteBounds(pstate, result);
 
@@ -4279,8 +4279,8 @@ transformPartitionRangeBounds(ParseState *pstate, List *blist,
 /*
  * validateInfiniteBounds
  *
- * Check that a MAXVALUE or MINVALUE specification in a partition bound is
- * followed only by more of the same.
+ * 检查分区边界中的 MAXVALUE 或 MINVALUE 规格说明            
+ * 其后只能跟同类说明。    
  */
 static void
 validateInfiniteBounds(ParseState *pstate, List *blist)
@@ -4319,7 +4319,7 @@ validateInfiniteBounds(ParseState *pstate, List *blist)
 }
 
 /*
- * Transform one entry in a partition bound spec, producing a constant.
+ * 转换分区边界规格中的一个条目，产出一个常量。  
  */
 static Const *
 transformPartitionBoundValue(ParseState *pstate, Node *val,
@@ -4328,20 +4328,20 @@ transformPartitionBoundValue(ParseState *pstate, Node *val,
 {
 	Node	   *value;
 
-	/* Transform raw parsetree */
+	/* 转换原始解析树。*/
 	value = transformExpr(pstate, val, EXPR_KIND_PARTITION_BOUND);
 
 	/*
-	 * transformExpr() should have already rejected column references,
-	 * subqueries, aggregates, window functions, and SRFs, based on the
-	 * EXPR_KIND_ of a partition bound expression.
+	 * transformExpr() 本应已根据分区边界表达式的        
+	 * EXPR_KIND_ 拒绝列引用、子查询、聚合、              
+	 * 窗口函数和 SRF。                     
 	 */
 	Assert(!contain_var_clause(value));
 
 	/*
-	 * Coerce to the correct type.  This might cause an explicit coercion step
-	 * to be added on top of the expression, which must be evaluated before
-	 * returning the result to the caller.
+	 * 强制转换到正确类型。这可能会在表达式                 
+	 * 之上再叠加一个显式转换步骤，该步骤必须           
+	 * 求值后再返回给调用者。  
 	 */
 	value = coerce_to_target_type(pstate,
 								  value, exprType(value),
@@ -4359,8 +4359,8 @@ transformPartitionBoundValue(ParseState *pstate, Node *val,
 				 parser_errposition(pstate, exprLocation(val))));
 
 	/*
-	 * Evaluate the expression, if needed, assigning the partition key's data
-	 * type and collation to the resulting Const node.
+	 * 如需要则对表达式求值，并把分区键的数据类型       
+	 * 和排序规则赋给所得 Const 节点。    
 	 */
 	if (!IsA(value, Const))
 	{
@@ -4374,18 +4374,18 @@ transformPartitionBoundValue(ParseState *pstate, Node *val,
 	else
 	{
 		/*
-		 * If the expression is already a Const, as is often the case, we can
-		 * skip the rather expensive steps above.  But we still have to insert
-		 * the right collation, since coerce_to_target_type doesn't handle
-		 * that.
+		 * 如果表达式已经是 Const（这很常见），               
+		 * 就可以跳过上面相当昂贵的步骤。但仍须插入       
+		 * 正确排序规则，因 coerce_to_target_type 不管此事。 
+		 *      
 		 */
 		((Const *) value)->constcollid = partCollation;
 	}
 
 	/*
-	 * Attach original expression's parse location to the Const, so that
-	 * that's what will be reported for any later errors related to this
-	 * partition bound.
+	 * 把原始表达式的解析位置附加到 Const 上，          
+	 * 这样之后与此分区边界相关的任何错误              
+	 * 都报出它。 
 	 */
 	((Const *) value)->location = exprLocation(val);
 

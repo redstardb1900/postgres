@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "batch_id": "0290-comment-postmaster-bgwriter",
+  "title": "Translate comments: postmaster-bgwriter",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "1496f3087182b47c8146acb32687e2857b8f308d",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0290-comment-postmaster-bgwriter.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/postmaster/**",
+      "kind": "c_comment",
+      "note": "P2 comment translation campaign"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0290-comment-postmaster-bgwriter.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": []
+    },
+    {
+      "path": "src/backend/postmaster/bgwriter.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 39,
+      "translated": 38,
+      "preserved": 1,
+      "preserved_reasons": [
+        "bare /* ms */ unit label, not prose (blk34)"
+      ],
+      "note": "P2 translation campaign wave E8"
+    }
+  ],
+  "notes": "Translation agents (E8) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

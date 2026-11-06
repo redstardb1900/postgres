@@ -1,0 +1,46 @@
+{
+ "schema_version": 1,
+ "batch_id": "0288-comment-postmaster-pgarch",
+ "title": "Translate comments: postmaster-pgarch",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "260cf125009652a85e6c615228b788bef074b27a",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0288-comment-postmaster-pgarch.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/postmaster/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0288-comment-postmaster-pgarch.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/postmaster/pgarch.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 93,
+   "translated": 90,
+   "preserved": 3,
+   "preserved_reasons": [
+    "Two-line blocks whose both lines carry the /* and */ edge markers (x2)",
+    "Section separator banner rebuilt byte-identical as a no-op"
+   ],
+   "note": "P2 translation campaign wave E6"
+  }
+ ],
+ "notes": "Translation agents (E6a/E6b) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

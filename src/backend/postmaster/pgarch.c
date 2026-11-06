@@ -2,17 +2,17 @@
  *
  * pgarch.c
  *
- *	PostgreSQL WAL archiver
+ *	PostgreSQL WAL归档器
  *
- *	All functions relating to archiver are included here
+ *	archiver 相关的全部函数收录在本文件中 
  *
- *	- All functions executed by archiver process
+ *	- archiver 进程执行的所有函数      
  *
- *	- archiver is forked from postmaster, and the two
- *	processes then communicate using signals. All functions
- *	executed by postmaster are included in this file.
+ *	- archiver 由 postmaster fork，二者随后    
+ *	通过信号通信。postmaster 执行的所有函数  
+ *	都收录在本文件之中。                   
  *
- *	Initial author: Simon Riggs		simon@2ndquadrant.com
+ *	最初作者：Simon Riggs		simon@2ndquadrant.com 
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -52,7 +52,7 @@
 
 
 /* ----------
- * Timer definitions.
+ * 定时器定义。
  * ----------
  */
 #define PGARCH_AUTOWAKE_INTERVAL 60 /* How often to force a poll of the
@@ -61,29 +61,29 @@
 									 * failed archiver; in seconds. */
 
 /*
- * Maximum number of retries allowed when attempting to archive a WAL
- * file.
+ * 归档 WAL 文件时允许的最大重试次数。                
+ *      
  */
 #define NUM_ARCHIVE_RETRIES 3
 
 /*
- * Maximum number of retries allowed when attempting to remove an
- * orphan archive status file.
+ * 尝试删除孤儿 archive status 文件时允许的          
+ * 最大重试次数。      
  */
 #define NUM_ORPHAN_CLEANUP_RETRIES 3
 
 /*
- * Maximum number of .ready files to gather per directory scan.
+ * 每轮目录扫描最多收集的 .ready 文件数。       
  */
 #define NUM_FILES_PER_DIRECTORY_SCAN 64
 
-/* Shared memory area for archiver process */
+/* archiver 进程的共享内存区       */
 typedef struct PgArchData
 {
-	int			pgprocno;		/* pgprocno of archiver process */
+	int			pgprocno;		/* archiver 进程的 pgprocno  */
 
 	/*
-	 * Forces a directory scan in pgarch_readyXlog().  Protected by arch_lck.
+	 * 强制 pgarch_readyXlog() 进行目录扫描。由 arch_lck 保护。 
 	 */
 	bool		force_dir_scan;
 
@@ -104,37 +104,37 @@ static ArchiveModuleState *archive_module_state;
 
 
 /*
- * Stuff for tracking multiple files to archive from each scan of
- * archive_status.  Minimizing the number of directory scans when there are
- * many files to archive can significantly improve archival rate.
+ * 用于跟踪 archive_status 每轮扫描中发现的          
+ * 多个待归档文件。尽量减少目录扫描的次数，在待归档
+ * 文件很多时可显著提高归档速度。                 
  *
- * arch_heap is a max-heap that is used during the directory scan to track
- * the highest-priority files to archive.  After the directory scan
- * completes, the file names are stored in ascending order of priority in
- * arch_files.  pgarch_readyXlog() returns files from arch_files until it
- * is empty, at which point another directory scan must be performed.
+ * arch_heap 是一个最大堆，目录扫描期间用它跟踪          
+ * 优先级最高的待归档文件。扫描完成后，文件按 
+ * 优先级升序存入 arch_files。pgarch_readyXlog()                 
+ * 会不断从 arch_files 返回文件，直至取空，此时就       
+ * 必须再执行一次目录扫描。                              
  *
- * We only need this data in the archiver process, so make it a palloc'd
- * struct rather than a bunch of static arrays.
+ * 这些数据只在 archiver 进程中用到，因此把它做成     
+ * palloc 的 struct，而非静态数组。   
  */
 struct arch_files_state
 {
 	binaryheap *arch_heap;
-	int			arch_files_size;	/* number of live entries in arch_files[] */
+	int			arch_files_size;	/* arch_files[] 中的有效条目数     */
 	char	   *arch_files[NUM_FILES_PER_DIRECTORY_SCAN];
-	/* buffers underlying heap, and later arch_files[], entries: */
+	/* 堆底层缓冲区，后来即 arch_files[] 的条目：  */
 	char		arch_filenames[NUM_FILES_PER_DIRECTORY_SCAN][MAX_XFN_CHARS + 1];
 };
 
 static struct arch_files_state *arch_files = NULL;
 
 /*
- * Flags set by interrupt handlers for later service in the main loop.
+ * 由中断处理程序设置、供主循环稍后处理的标志。 
  */
 static volatile sig_atomic_t ready_to_stop = false;
 
 /* ----------
- * Local function forward declarations
+ * 局部函数前置声明           
  * ----------
  */
 static void pgarch_waken_stop(SIGNAL_ARGS);
@@ -149,7 +149,7 @@ static int	ready_file_comparator(Datum a, Datum b, void *arg);
 static void LoadArchiveLibrary(void);
 static void pgarch_call_module_shutdown_cb(int code, Datum arg);
 
-/* Report shared memory space needed by PgArchShmemInit */
+/* 报告 PgArchShmemInit 所需的共享内存空间   */
 Size
 PgArchShmemSize(void)
 {
@@ -160,7 +160,7 @@ PgArchShmemSize(void)
 	return size;
 }
 
-/* Allocate and initialize archiver-related shared memory */
+/* 分配并初始化 archiver 相关的共享内存      */
 void
 PgArchShmemInit(void)
 {
@@ -171,7 +171,7 @@ PgArchShmemInit(void)
 
 	if (!found)
 	{
-		/* First time through, so initialize */
+		/* 首次运行，执行初始化。 */
 		MemSet(PgArch, 0, PgArchShmemSize());
 		PgArch->pgprocno = INVALID_PGPROCNO;
 		SpinLockInit(&PgArch->arch_lck);
@@ -181,14 +181,14 @@ PgArchShmemInit(void)
 /*
  * PgArchCanRestart
  *
- * Return true and archiver is allowed to restart if enough time has
- * passed since it was launched last to reach PGARCH_RESTART_INTERVAL.
- * Otherwise return false.
+ * 若距上次启动已达 PGARCH_RESTART_INTERVAL，              
+ * 则返回 true，表示 archiver 可重启；否则返回          
+ * false。               
  *
- * This is a safety valve to protect against continuous respawn attempts if the
- * archiver is dying immediately at launch. Note that since we will retry to
- * launch the archiver from the postmaster main loop, we will get another
- * chance later.
+ * 这是一个安全阀，用于防止 archiver 一启动就立刻            
+ * 死亡时不断尝试重新拉起。注意，由于我们会从          
+ * postmaster 主循环里重试拉起 archiver，后面还有           
+ * 机会。    
  */
 bool
 PgArchCanRestart(void)
@@ -197,8 +197,8 @@ PgArchCanRestart(void)
 	time_t		curtime = time(NULL);
 
 	/*
-	 * Return false and don't restart archiver if too soon since last archiver
-	 * start.
+	 * 若距 archiver 上次启动过近，则返回 false 且不重启。   
+	 *       
 	 */
 	if ((unsigned int) (curtime - last_pgarch_start_time) <
 		(unsigned int) PGARCH_RESTART_INTERVAL)
@@ -209,50 +209,50 @@ PgArchCanRestart(void)
 }
 
 
-/* Main entry point for archiver process */
+/* archiver 进程的主入口           */
 void
 PgArchiverMain(void)
 {
 	/*
-	 * Ignore all signals usually bound to some action in the postmaster,
-	 * except for SIGHUP, SIGTERM, SIGUSR1, SIGUSR2, and SIGQUIT.
+	 * 忽略 postmaster 里通常绑定了动作的所有信号，      
+	 * SIGHUP、SIGTERM、SIGUSR1、SIGUSR2、SIGQUIT 除外。  
 	 */
 	pqsignal(SIGHUP, SignalHandlerForConfigReload);
 	pqsignal(SIGINT, SIG_IGN);
 	pqsignal(SIGTERM, SignalHandlerForShutdownRequest);
-	/* SIGQUIT handler was already set up by InitPostmasterChild */
+	/* SIGQUIT 处理程序已由 InitPostmasterChild 设置好  */
 	pqsignal(SIGALRM, SIG_IGN);
 	pqsignal(SIGPIPE, SIG_IGN);
 	pqsignal(SIGUSR1, procsignal_sigusr1_handler);
 	pqsignal(SIGUSR2, pgarch_waken_stop);
 
-	/* Reset some signals that are accepted by postmaster but not here */
+	/* 重置一些 postmaster 接受但此处不接受的信号       */
 	pqsignal(SIGCHLD, SIG_DFL);
 
-	/* Unblock signals (they were blocked when the postmaster forked us) */
+	/* 解除信号阻塞（postmaster fork 我们时它们被阻塞）  */
 	sigprocmask(SIG_SETMASK, &UnBlockSig, NULL);
 
-	/* We shouldn't be launched unnecessarily. */
+	/* 非必要不应启动本进程。       */
 	Assert(XLogArchivingActive());
 
-	/* Arrange to clean up at archiver exit */
+	/* 安排在 archiver 退出时清理   */
 	on_shmem_exit(pgarch_die, 0);
 
 	/*
-	 * Advertise our pgprocno so that backends can use our latch to wake us up
-	 * while we're sleeping.
+	 * 公开本进程的 pgprocno，让后端在我们休眠时用           
+	 * latch 唤醒我们。
 	 */
 	PgArch->pgprocno = MyProc->pgprocno;
 
-	/* Create workspace for pgarch_readyXlog() */
+	/* 为 pgarch_readyXlog() 创建工作区  */
 	arch_files = palloc(sizeof(struct arch_files_state));
 	arch_files->arch_files_size = 0;
 
-	/* Initialize our max-heap for prioritizing files to archive. */
+	/* 初始化最大堆，为待归档文件排优先级。     */
 	arch_files->arch_heap = binaryheap_allocate(NUM_FILES_PER_DIRECTORY_SCAN,
 												ready_file_comparator, NULL);
 
-	/* Load the archive_library. */
+	/* 加载 archive_library。 */
 	LoadArchiveLibrary();
 
 	pgarch_MainLoop();
@@ -261,7 +261,7 @@ PgArchiverMain(void)
 }
 
 /*
- * Wake up the archiver
+ * 唤醒 archiver。  
  */
 void
 PgArchWakeup(void)
@@ -269,23 +269,23 @@ PgArchWakeup(void)
 	int			arch_pgprocno = PgArch->pgprocno;
 
 	/*
-	 * We don't acquire ProcArrayLock here.  It's actually fine because
-	 * procLatch isn't ever freed, so we just can potentially set the wrong
-	 * process' (or no process') latch.  Even in that case the archiver will
-	 * be relaunched shortly and will start archiving.
+	 * 这里不加 ProcArrayLock。这样做其实没问题，因为  
+	 * procLatch 从不释放，我们最多可能设错进程             
+	 * （或不设任何进程）的 latch。即便如此，archiver 也   
+	 * 很快就会被重新拉起并开始归档。  
 	 */
 	if (arch_pgprocno != INVALID_PGPROCNO)
 		SetLatch(&ProcGlobal->allProcs[arch_pgprocno].procLatch);
 }
 
 
-/* SIGUSR2 signal handler for archiver process */
+/* archiver 进程的 SIGUSR2 处理程序     */
 static void
 pgarch_waken_stop(SIGNAL_ARGS)
 {
 	int			save_errno = errno;
 
-	/* set flag to do a final cycle and shut down afterwards */
+	/* 设置标志做最后一轮归档，然后关闭。   */
 	ready_to_stop = true;
 	SetLatch(MyLatch);
 
@@ -295,7 +295,7 @@ pgarch_waken_stop(SIGNAL_ARGS)
 /*
  * pgarch_MainLoop
  *
- * Main loop for archiver
+ * archiver 的主循环 
  */
 static void
 pgarch_MainLoop(void)
@@ -303,26 +303,26 @@ pgarch_MainLoop(void)
 	bool		time_to_stop;
 
 	/*
-	 * There shouldn't be anything for the archiver to do except to wait for a
-	 * signal ... however, the archiver exists to protect our data, so it
-	 * wakes up occasionally to allow itself to be proactive.
+	 * 除了等待信号之外，archiver 本没有什么要做的           
+	 * 事情……但 archiver 的职责就是保护数据，因此它  
+	 * 会时不时醒来，让自己保持主动。         
 	 */
 	do
 	{
 		ResetLatch(MyLatch);
 
-		/* When we get SIGUSR2, we do one more archive cycle, then exit */
+		/* 收到 SIGUSR2 后，再做一轮归档，然后退出       */
 		time_to_stop = ready_to_stop;
 
-		/* Check for barrier events and config update */
+		/* 检查屏障事件与配置更新          */
 		HandlePgArchInterrupts();
 
 		/*
-		 * If we've gotten SIGTERM, we normally just sit and do nothing until
-		 * SIGUSR2 arrives.  However, that means a random SIGTERM would
-		 * disable archiving indefinitely, which doesn't seem like a good
-		 * idea.  If more than 60 seconds pass since SIGTERM, exit anyway, so
-		 * that the postmaster can start a new archiver if needed.
+		 * 收到 SIGTERM 后，在 SIGUSR2 到来之前，我们通常      
+		 * 只会干坐着。但一次随意的 SIGTERM 就可能      
+		 * 让归档无限期停摆，这不太好。若 SIGTERM 过后  
+		 * 超过 60 秒，无论如何都会退出，以便 postmaster 在  
+		 * 需要时能启动新的 archiver。                   
 		 */
 		if (ShutdownRequestPending)
 		{
@@ -335,14 +335,14 @@ pgarch_MainLoop(void)
 				break;
 		}
 
-		/* Do what we're here for */
+		/* 干我们该干的事  */
 		pgarch_ArchiverCopyLoop();
 
 		/*
-		 * Sleep until a signal is received, or until a poll is forced by
-		 * PGARCH_AUTOWAKE_INTERVAL, or until postmaster dies.
+		 * 休眠，直到收到信号、PGARCH_AUTOWAKE_INTERVAL        
+		 * 强制轮询，或 postmaster 死亡。            
 		 */
-		if (!time_to_stop)		/* Don't wait during last iteration */
+		if (!time_to_stop)		/* 最后一轮不再等待         */
 		{
 			int			rc;
 
@@ -355,9 +355,9 @@ pgarch_MainLoop(void)
 		}
 
 		/*
-		 * The archiver quits either when the postmaster dies (not expected)
-		 * or after completing one more archiving cycle after receiving
-		 * SIGUSR2.
+		 * archiver 退出有两种情形：postmaster 死亡（不应      
+		 * 发生），或收到 SIGUSR2 后再归档一轮并退出。
+		 *         
 		 */
 	} while (!time_to_stop);
 }
@@ -365,21 +365,21 @@ pgarch_MainLoop(void)
 /*
  * pgarch_ArchiverCopyLoop
  *
- * Archives all outstanding xlogs then returns
+ * 归档所有未处理的 xlog 后返回    
  */
 static void
 pgarch_ArchiverCopyLoop(void)
 {
 	char		xlog[MAX_XFN_CHARS + 1];
 
-	/* force directory scan in the first call to pgarch_readyXlog() */
+	/* 让首次 pgarch_readyXlog() 调用强制扫描目录        */
 	arch_files->arch_files_size = 0;
 
 	/*
-	 * loop through all xlogs with archive_status of .ready and archive
-	 * them...mostly we expect this to be a single file, though it is possible
-	 * some backend will add files onto the list of those that need archiving
-	 * while we are still copying earlier archives
+	 * 遍历所有 archive_status 为 .ready 的 xlog 并归档，    
+	 * 多数时候预期只有一个文件，但仍可能有后端趁        
+	 * 我们复制之前归档时，把文件加进待归档列表          
+	 *                                            
 	 */
 	while (pgarch_readyXlog(xlog))
 	{
@@ -392,23 +392,23 @@ pgarch_ArchiverCopyLoop(void)
 			char		pathname[MAXPGPATH];
 
 			/*
-			 * Do not initiate any more archive commands after receiving
-			 * SIGTERM, nor after the postmaster has died unexpectedly. The
-			 * first condition is to try to keep from having init SIGKILL the
-			 * command, and the second is to avoid conflicts with another
-			 * archiver spawned by a newer postmaster.
+			 * 收到 SIGTERM 之后不再发起归档命令，         
+			 * postmaster 意外死亡后也不发起。前一条件是    
+			 * 尽量避免 init 用 SIGKILL 杀掉该命令，后一条件  
+			 * 则是避免与更新的 postmaster 拉起的另一       
+			 * archiver 发生冲突。               
 			 */
 			if (ShutdownRequestPending || !PostmasterIsAlive())
 				return;
 
 			/*
-			 * Check for barrier events and config update.  This is so that
-			 * we'll adopt a new setting for archive_command as soon as
-			 * possible, even if there is a backlog of files to be archived.
+			 * 检查屏障事件与配置更新。这样 archive_command  
+			 * 的新设置能尽快生效，即使还有大量文件  
+			 * 等待归档也是如此。                                  
 			 */
 			HandlePgArchInterrupts();
 
-			/* can't do anything if not configured ... */
+			/* 若未配置则什么也做不了…… */
 			if (ArchiveCallbacks->check_configured_cb != NULL &&
 				!ArchiveCallbacks->check_configured_cb(archive_module_state))
 			{
@@ -418,13 +418,13 @@ pgarch_ArchiverCopyLoop(void)
 			}
 
 			/*
-			 * Since archive status files are not removed in a durable manner,
-			 * a system crash could leave behind .ready files for WAL segments
-			 * that have already been recycled or removed.  In this case,
-			 * simply remove the orphan status file and move on.  unlink() is
-			 * used here as even on subsequent crashes the same orphan files
-			 * would get removed, so there is no need to worry about
-			 * durability.
+			 * 由于 archive status 文件的删除不保证持久，        
+			 * 系统崩溃可能为已回收或已删除的 WAL 段留下    
+			 * .ready 文件。这种情况直接删除孤儿状态文件
+			 * 并继续即可。这里用 unlink() 是因为，即便后续 
+			 * 再崩溃时同样的孤儿文件也会被删掉，因此    
+			 * 无需担心持久性。                             
+			 *            
 			 */
 			snprintf(pathname, MAXPGPATH, XLOGDIR "/%s", xlog);
 			if (stat(pathname, &stat_buf) != 0 && errno == ENOENT)
@@ -438,7 +438,7 @@ pgarch_ArchiverCopyLoop(void)
 							(errmsg("removed orphan archive status file \"%s\"",
 									xlogready)));
 
-					/* leave loop and move to the next status file */
+					/* 跳出循环，处理下一个状态文件  */
 					break;
 				}
 
@@ -448,33 +448,33 @@ pgarch_ArchiverCopyLoop(void)
 							(errmsg("removal of orphan archive status file \"%s\" failed too many times, will try again later",
 									xlogready)));
 
-					/* give up cleanup of orphan status files */
+					/* 放弃清理孤儿状态文件         */
 					return;
 				}
 
-				/* wait a bit before retrying */
+				/* 稍候片刻再重试      */
 				pg_usleep(1000000L);
 				continue;
 			}
 
 			if (pgarch_archiveXlog(xlog))
 			{
-				/* successful */
+				/* 成功     */
 				pgarch_archiveDone(xlog);
 
 				/*
-				 * Tell the cumulative stats system about the WAL file that we
-				 * successfully archived
+				 * 将成功归档的 WAL 文件上报给累计统计系统   
+				 *                      
 				 */
 				pgstat_report_archiver(xlog, false);
 
-				break;			/* out of inner retry loop */
+				break;			/* 跳出内层循环      */
 			}
 			else
 			{
 				/*
-				 * Tell the cumulative stats system about the WAL file that we
-				 * failed to archive
+				 * 把归档失败的 WAL 文件上报给累计统计系统   
+				 *                  
 				 */
 				pgstat_report_archiver(xlog, true);
 
@@ -483,9 +483,9 @@ pgarch_ArchiverCopyLoop(void)
 					ereport(WARNING,
 							(errmsg("archiving write-ahead log file \"%s\" failed too many times, will try again later",
 									xlog)));
-					return;		/* give up archiving for now */
+					return;		/* 暂时放弃归档        */
 				}
-				pg_usleep(1000000L);	/* wait a bit before retrying */
+				pg_usleep(1000000L);	/* 稍候片刻再重试      */
 			}
 		}
 	}
@@ -494,9 +494,9 @@ pgarch_ArchiverCopyLoop(void)
 /*
  * pgarch_archiveXlog
  *
- * Invokes archive_file_cb to copy one archive file to wherever it should go
+ * 调用 archive_file_cb 把一个归档文件复制到应去的地方     
  *
- * Returns true if successful
+ * 成功则返回 true。   
  */
 static bool
 pgarch_archiveXlog(char *xlog)
@@ -507,7 +507,7 @@ pgarch_archiveXlog(char *xlog)
 
 	snprintf(pathname, MAXPGPATH, XLOGDIR "/%s", xlog);
 
-	/* Report archive activity in PS display */
+	/* 在 PS 显示中报告归档活动    */
 	snprintf(activitymsg, sizeof(activitymsg), "archiving %s", xlog);
 	set_ps_display(activitymsg);
 
@@ -524,24 +524,24 @@ pgarch_archiveXlog(char *xlog)
 /*
  * pgarch_readyXlog
  *
- * Return name of the oldest xlog file that has not yet been archived.
- * No notification is set that file archiving is now in progress, so
- * this would need to be extended if multiple concurrent archival
- * tasks were created. If a failure occurs, we will completely
- * re-copy the file at the next available opportunity.
+ * 返回尚未归档的最旧 xlog 文件的名字。                
+ * 并不设置文件归档已开始的通知，因此              
+ * 若要创建多个并发归档任务，这里需要扩展。  
+ * 一旦失败，下次有机会时我们会                 
+ * 把该文件完整重拷一遍。                  
  *
- * It is important that we return the oldest, so that we archive xlogs
- * in order that they were written, for two reasons:
- * 1) to maintain the sequential chain of xlogs required for recovery
- * 2) because the oldest ones will sooner become candidates for
- * recycling at time of checkpoint
+ * 必须返回最旧的文件，这样才能按写入顺序          
+ * 归档 xlog，原因有二：                    
+ * 1) 维护恢复所需的 xlog 顺序链；                        
+ * 2) 最旧的文件会最先成为检查点时               
+ * 回收的候选。             
  *
- * NOTE: the "oldest" comparison will consider any .history file to be older
- * than any other file except another .history file.  Segments on a timeline
- * with a smaller ID will be older than all segments on a timeline with a
- * larger ID; the net result being that past timelines are given higher
- * priority for archiving.  This seems okay, or at least not obviously worth
- * changing.
+ * 注意："最旧"比较会把任何 .history 文件视为比             
+ * 除其他 .history 文件外任何文件都更旧。较小 ID            
+ * 时间线上的段都比较大 ID 时间线上的所有段            
+ * 更旧；最终效果是过去时间线在归档时获得更高     
+ * 的优先级。这似乎没问题，或至少并非显然值得          
+ * 改。   
  */
 static bool
 pgarch_readyXlog(char *xlog)
@@ -552,8 +552,8 @@ pgarch_readyXlog(char *xlog)
 	bool		force_dir_scan;
 
 	/*
-	 * If a directory scan was requested, clear the stored file names and
-	 * proceed.
+	 * 若请求过目录扫描，就清空已存文件名并继续。   
+	 *         
 	 */
 	SpinLockAcquire(&PgArch->arch_lck);
 	force_dir_scan = PgArch->force_dir_scan;
@@ -564,10 +564,10 @@ pgarch_readyXlog(char *xlog)
 		arch_files->arch_files_size = 0;
 
 	/*
-	 * If we still have stored file names from the previous directory scan,
-	 * try to return one of those.  We check to make sure the status file is
-	 * still present, as the archive_command for a previous file may have
-	 * already marked it done.
+	 * 若上一轮目录扫描留下的文件名还在，                 
+	 * 就尝试返回其中之一。我们会检查状态文件            
+	 * 是否仍存在，前一文件的 archive_command 可能已       
+	 * 把它标为 done。   
 	 */
 	while (arch_files->arch_files_size > 0)
 	{
@@ -590,12 +590,12 @@ pgarch_readyXlog(char *xlog)
 					 errmsg("could not stat file \"%s\": %m", status_file)));
 	}
 
-	/* arch_heap is probably empty, but let's make sure */
+	/* arch_heap 大概为空，但仍确认一下      */
 	binaryheap_reset(arch_files->arch_heap);
 
 	/*
-	 * Open the archive status directory and read through the list of files
-	 * with the .ready suffix, looking for the earliest files.
+	 * 打开 archive status 目录并遍历其中的文件列表，       
+	 * 找出带 .ready 后缀的最旧文件。              
 	 */
 	snprintf(XLogArchiveStatusDir, MAXPGPATH, XLOGDIR "/archive_status");
 	rldir = AllocateDir(XLogArchiveStatusDir);
@@ -606,34 +606,34 @@ pgarch_readyXlog(char *xlog)
 		char		basename[MAX_XFN_CHARS + 1];
 		char	   *arch_file;
 
-		/* Ignore entries with unexpected number of characters */
+		/* 忽略字符数不合预期的条目                */
 		if (basenamelen < MIN_XFN_CHARS ||
 			basenamelen > MAX_XFN_CHARS)
 			continue;
 
-		/* Ignore entries with unexpected characters */
+		/* 忽略含意外字符的条目            */
 		if (strspn(rlde->d_name, VALID_XFN_CHARS) < basenamelen)
 			continue;
 
-		/* Ignore anything not suffixed with .ready */
+		/* 忽略不带 .ready 后缀的条目      */
 		if (strcmp(rlde->d_name + basenamelen, ".ready") != 0)
 			continue;
 
-		/* Truncate off the .ready */
+		/* 截掉 .ready 后缀    */
 		memcpy(basename, rlde->d_name, basenamelen);
 		basename[basenamelen] = '\0';
 
 		/*
-		 * Store the file in our max-heap if it has a high enough priority.
+		 * 若优先级够高，就把该文件存入我们的最大堆。 
 		 */
 		if (arch_files->arch_heap->bh_size < NUM_FILES_PER_DIRECTORY_SCAN)
 		{
-			/* If the heap isn't full yet, quickly add it. */
+			/* 若堆未满，直接快速加入。        */
 			arch_file = arch_files->arch_filenames[arch_files->arch_heap->bh_size];
 			strcpy(arch_file, basename);
 			binaryheap_add_unordered(arch_files->arch_heap, CStringGetDatum(arch_file));
 
-			/* If we just filled the heap, make it a valid one. */
+			/* 若刚填满堆，就把它整理成有效堆。 */
 			if (arch_files->arch_heap->bh_size == NUM_FILES_PER_DIRECTORY_SCAN)
 				binaryheap_build(arch_files->arch_heap);
 		}
@@ -641,8 +641,8 @@ pgarch_readyXlog(char *xlog)
 									   CStringGetDatum(basename), NULL) > 0)
 		{
 			/*
-			 * Remove the lowest priority file and add the current one to the
-			 * heap.
+			 * 移除优先级最低者，把当前文件加入堆中。     
+			 *      
 			 */
 			arch_file = DatumGetCString(binaryheap_remove_first(arch_files->arch_heap));
 			strcpy(arch_file, basename);
@@ -651,26 +651,26 @@ pgarch_readyXlog(char *xlog)
 	}
 	FreeDir(rldir);
 
-	/* If no files were found, simply return. */
+	/* 若没找到文件，直接返回。   */
 	if (arch_files->arch_heap->bh_size == 0)
 		return false;
 
 	/*
-	 * If we didn't fill the heap, we didn't make it a valid one.  Do that
-	 * now.
+	 * 若没填满堆，就还没把它变成有效堆，现在补上。 
+	 *     
 	 */
 	if (arch_files->arch_heap->bh_size < NUM_FILES_PER_DIRECTORY_SCAN)
 		binaryheap_build(arch_files->arch_heap);
 
 	/*
-	 * Fill arch_files array with the files to archive in ascending order of
-	 * priority.
+	 * 把待归档文件按优先级升序填入 arch_files 数组。      
+	 *          
 	 */
 	arch_files->arch_files_size = arch_files->arch_heap->bh_size;
 	for (int i = 0; i < arch_files->arch_files_size; i++)
 		arch_files->arch_files[i] = DatumGetCString(binaryheap_remove_first(arch_files->arch_heap));
 
-	/* Return the highest priority file. */
+	/* 返回优先级最高的文件。 */
 	arch_files->arch_files_size--;
 	strcpy(xlog, arch_files->arch_files[arch_files->arch_files_size]);
 
@@ -680,10 +680,10 @@ pgarch_readyXlog(char *xlog)
 /*
  * ready_file_comparator
  *
- * Compares the archival priority of the given files to archive.  If "a"
- * has a higher priority than "b", a negative value will be returned.  If
- * "b" has a higher priority than "a", a positive value will be returned.
- * If "a" and "b" have equivalent values, 0 will be returned.
+ * 比较待归档文件的归档优先级。若 "a" 的优先级       
+ * 高于 "b"，则返回负值。若 "b" 的优先级高于             
+ * "a"，则返回正值。若 "a" 与 "b" 优先级相同，            
+ * 则返回 0。                                            
  */
 static int
 ready_file_comparator(Datum a, Datum b, void *arg)
@@ -693,20 +693,20 @@ ready_file_comparator(Datum a, Datum b, void *arg)
 	bool		a_history = IsTLHistoryFileName(a_str);
 	bool		b_history = IsTLHistoryFileName(b_str);
 
-	/* Timeline history files always have the highest priority. */
+	/* 时间线历史文件的优先级总是最高。         */
 	if (a_history != b_history)
 		return a_history ? -1 : 1;
 
-	/* Priority is given to older files. */
+	/* 越旧的文件优先级越高。 */
 	return strcmp(a_str, b_str);
 }
 
 /*
  * PgArchForceDirScan
  *
- * When called, the next call to pgarch_readyXlog() will perform a
- * directory scan.  This is useful for ensuring that important files such
- * as timeline history files are archived as quickly as possible.
+ * 调用本函数后，下一次 pgarch_readyXlog() 调用将    
+ * 执行目录扫描。这有助于确保时间线历史文件等       
+ * 重要文件尽快归档。                                   
  */
 void
 PgArchForceDirScan(void)
@@ -719,10 +719,10 @@ PgArchForceDirScan(void)
 /*
  * pgarch_archiveDone
  *
- * Emit notification that an xlog file has been successfully archived.
- * We do this by renaming the status file from NNN.ready to NNN.done.
- * Eventually, a checkpoint process will notice this and delete both the
- * NNN.done file and the xlog file itself.
+ * 发出 xlog 文件已成功归档的通知。                      
+ * 做法是把状态文件从 NNN.ready 重命名为 NNN.done。    
+ * 最终 checkpointer 进程会注意到这一点，并删除          
+ * NNN.done 与 xlog 文件本身。      
  */
 static void
 pgarch_archiveDone(char *xlog)
@@ -734,11 +734,11 @@ pgarch_archiveDone(char *xlog)
 	StatusFilePath(rlogdone, xlog, ".done");
 
 	/*
-	 * To avoid extra overhead, we don't durably rename the .ready file to
-	 * .done.  Archive commands and libraries must gracefully handle attempts
-	 * to re-archive files (e.g., if the server crashes just before this
-	 * function is called), so it should be okay if the .ready file reappears
-	 * after a crash.
+	 * 为避免额外开销，我们不把 .ready 文件持久地        
+	 * 重命名为 .done。归档命令和库必须能优雅地处理       
+	 * 重新归档文件的尝试（例如服务器恰在本函数     
+	 * 调用前崩溃），所以 .ready 文件崩溃后重新出现        
+	 * 也无妨。  
 	 */
 	if (rename(rlogready, rlogdone) < 0)
 		ereport(WARNING,
@@ -751,7 +751,7 @@ pgarch_archiveDone(char *xlog)
 /*
  * pgarch_die
  *
- * Exit-time cleanup handler
+ * 退出时的清理例程 
  */
 static void
 pgarch_die(int code, Datum arg)
@@ -760,12 +760,12 @@ pgarch_die(int code, Datum arg)
 }
 
 /*
- * Interrupt handler for WAL archiver process.
+ * WAL archiver 进程中断处理程序。   
  *
- * This is called in the loops pgarch_MainLoop and pgarch_ArchiverCopyLoop.
- * It checks for barrier events, config update and request for logging of
- * memory contexts, but not shutdown request because how to handle
- * shutdown request is different between those loops.
+ * 本函数在 pgarch_MainLoop 与 pgarch_ArchiverCopyLoop                
+ * 循环中调用。它检查屏障事件、配置更新以及          
+ * 打印内存上下文的请求；关闭请求除外，因为   
+ * 两个循环处理它的方式不同。           
  */
 static void
 HandlePgArchInterrupts(void)
@@ -773,7 +773,7 @@ HandlePgArchInterrupts(void)
 	if (ProcSignalBarrierPending)
 		ProcessProcSignalBarrier();
 
-	/* Perform logging of memory contexts of this process */
+	/* 打印本进程的内存上下文                  */
 	if (LogMemoryContextPending)
 		ProcessLogMemoryContextInterrupt();
 
@@ -797,13 +797,13 @@ HandlePgArchInterrupts(void)
 		if (archiveLibChanged)
 		{
 			/*
-			 * Ideally, we would simply unload the previous archive module and
-			 * load the new one, but there is presently no mechanism for
-			 * unloading a library (see the comment above
-			 * internal_load_library()).  To deal with this, we simply restart
-			 * the archiver.  The new archive module will be loaded when the
-			 * new archiver process starts up.  Note that this triggers the
-			 * module's shutdown callback, if defined.
+			 * 理想情况下，只需卸载旧的归档模块再加载新   
+			 * 模块即可，但目前没有卸载库的机制         
+			 * （见上文 internal_load_library()      
+			 * 处的注释）。为解决此问题，我们直接重启      
+			 * archiver。新的归档模块会在新 archiver 进程       
+			 * 启动时加载。注意这会触发模块的关闭回调   
+			 * （若已定义）。                  
 			 */
 			ereport(LOG,
 					(errmsg("restarting archiver process because value of "
@@ -817,7 +817,7 @@ HandlePgArchInterrupts(void)
 /*
  * LoadArchiveLibrary
  *
- * Loads the archiving callbacks into our local ArchiveCallbacks.
+ * 把归档回调加载进本地的 ArchiveCallbacks。         
  */
 static void
 LoadArchiveLibrary(void)
@@ -831,8 +831,8 @@ LoadArchiveLibrary(void)
 				 errdetail("Only one of archive_command, archive_library may be set.")));
 
 	/*
-	 * If shell archiving is enabled, use our special initialization function.
-	 * Otherwise, load the library and call its _PG_archive_module_init().
+	 * 若启用了 shell 归档，就使用我们专用的初始化函数。 
+	 * 否则加载库并调用其 _PG_archive_module_init()。           
 	 */
 	if (XLogArchiveLibrary[0] == '\0')
 		archive_init = shell_archive_init;
@@ -859,7 +859,7 @@ LoadArchiveLibrary(void)
 }
 
 /*
- * Call the shutdown callback of the loaded archive module, if defined.
+ * 调用已加载归档模块的关闭回调（若已定义）。     
  */
 static void
 pgarch_call_module_shutdown_cb(int code, Datum arg)

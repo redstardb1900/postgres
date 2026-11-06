@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * execSRF.c
- *	  Routines implementing the API for set-returning functions
+ *	  实现集合返回函数 API 的例程。                
  *
- * This file serves nodeFunctionscan.c and nodeProjectSet.c, providing
- * common code for calling set-returning functions according to the
- * ReturnSetInfo API.
+ * 本文件服务于 nodeFunctionscan.c 与 nodeProjectSet.c，      
+ * 按照 ReturnSetInfo API 为调用集合返回函数提供      
+ * 公共代码。   
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -34,7 +34,7 @@
 #include "utils/typcache.h"
 
 
-/* static function decls */
+/* 静态函数声明    */
 static void init_sexpr(Oid foid, Oid input_collation, Expr *node,
 					   SetExprState *sexpr, PlanState *parent,
 					   MemoryContext sexprCxt, bool allowSRF, bool needDescForSRF);
@@ -49,9 +49,9 @@ static void tupledesc_match(TupleDesc dst_tupdesc, TupleDesc src_tupdesc);
 
 
 /*
- * Prepare function call in FROM (ROWS FROM) for execution.
+ * 为执行准备 FROM (ROWS FROM) 中的函数调用。  
  *
- * This is used by nodeFunctionscan.c.
+ * 由 nodeFunctionscan.c 使用。   
  */
 SetExprState *
 ExecInitTableFunctionResult(Expr *expr,
@@ -64,13 +64,13 @@ ExecInitTableFunctionResult(Expr *expr,
 	state->func.fn_oid = InvalidOid;
 
 	/*
-	 * Normally the passed expression tree will be a FuncExpr, since the
-	 * grammar only allows a function call at the top level of a table
-	 * function reference.  However, if the function doesn't return set then
-	 * the planner might have replaced the function call via constant-folding
-	 * or inlining.  So if we see any other kind of expression node, execute
-	 * it via the general ExecEvalExpr() code.  That code path will not
-	 * support set-returning functions buried in the expression, though.
+	 * 传入的表达式树通常是 FuncExpr，因为语法           
+	 * 只允许在表函数引用的顶层出现函数调用。      
+	 * 不过，若函数不返回集合，规划器可能已通过         
+	 * 常量折叠或内联替换了函数调用。因此若我们看到    
+	 * 任何其他种类的表达式节点，就通过通用的            
+	 * ExecEvalExpr() 代码来执行它。但该代码路径          
+	 * 不支持深藏在表达式中的集合返回函数。           
 	 */
 	if (IsA(expr, FuncExpr))
 	{
@@ -93,10 +93,10 @@ ExecInitTableFunctionResult(Expr *expr,
 /*
  *		ExecMakeTableFunctionResult
  *
- * Evaluate a table function, producing a materialized result in a Tuplestore
- * object.
+ * 对一个表函数求值，把结果物化在 Tuplestore 对象中。     
+ *        
  *
- * This is used by nodeFunctionscan.c.
+ * 由 nodeFunctionscan.c 使用。   
  */
 Tuplestorestate *
 ExecMakeTableFunctionResult(SetExprState *setexpr,
@@ -118,17 +118,17 @@ ExecMakeTableFunctionResult(SetExprState *setexpr,
 	bool		first_time = true;
 
 	/*
-	 * Execute per-tablefunc actions in appropriate context.
+	 * 在合适上下文中执行各表函数的动作。  
 	 *
-	 * The FunctionCallInfo needs to live across all the calls to a
-	 * ValuePerCall function, so it can't be allocated in the per-tuple
-	 * context. Similarly, the function arguments need to be evaluated in a
-	 * context that is longer lived than the per-tuple context: The argument
-	 * values would otherwise disappear when we reset that context in the
-	 * inner loop.  As the caller's CurrentMemoryContext is typically a
-	 * query-lifespan context, we don't want to leak memory there.  We require
-	 * the caller to pass a separate memory context that can be used for this,
-	 * and can be reset each time through to avoid bloat.
+	 * FunctionCallInfo 需要在对一个 ValuePerCall            
+	 * 函数的全部调用期间存活，因此不能分配在       
+	 * 每元组上下文中。类似地，函数参数也需要在比     
+	 * 每元组上下文存活期更长的上下文中求值：否则      
+	 * 当在内循环中重置该上下文时，参数值就会消失。
+	 * 由于调用者的 CurrentMemoryContext 通常是               
+	 * 查询生命周期的上下文，我们不希望在那里泄漏        
+	 * 内存。我们要求调用者传入一个可为此用途使用的     
+	 * 独立内存上下文，每轮重置防膨胀。  
 	 */
 	MemoryContextReset(argContext);
 	callerContext = MemoryContextSwitchTo(argContext);
@@ -138,11 +138,11 @@ ExecMakeTableFunctionResult(SetExprState *setexpr,
 	returnsTuple = type_is_rowtype(funcrettype);
 
 	/*
-	 * Prepare a resultinfo node for communication.  We always do this even if
-	 * not expecting a set result, so that we can pass expectedDesc.  In the
-	 * generic-expression case, the expression doesn't actually get to see the
-	 * resultinfo, but set it up anyway because we use some of the fields as
-	 * our own state variables.
+	 * 准备一个用于通信的 resultinfo 节点。即使并不期待     
+	 * 集合结果也总是这样做，以便能传递 expectedDesc。     
+	 * 在通用表达式情形下，表达式实际上看不到该           
+	 * resultinfo，但仍要设置它，因为其中一些字段           
+	 * 要用作状态变量。
 	 */
 	rsinfo.type = T_ReturnSetInfo;
 	rsinfo.econtext = econtext;
@@ -151,40 +151,40 @@ ExecMakeTableFunctionResult(SetExprState *setexpr,
 	if (randomAccess)
 		rsinfo.allowedModes |= (int) SFRM_Materialize_Random;
 	rsinfo.returnMode = SFRM_ValuePerCall;
-	/* isDone is filled below */
+	/* isDone 在下方填充 */
 	rsinfo.setResult = NULL;
 	rsinfo.setDesc = NULL;
 
 	fcinfo = palloc(SizeForFunctionCallInfo(list_length(setexpr->args)));
 
 	/*
-	 * Normally the passed expression tree will be a SetExprState, since the
-	 * grammar only allows a function call at the top level of a table
-	 * function reference.  However, if the function doesn't return set then
-	 * the planner might have replaced the function call via constant-folding
-	 * or inlining.  So if we see any other kind of expression node, execute
-	 * it via the general ExecEvalExpr() code; the only difference is that we
-	 * don't get a chance to pass a special ReturnSetInfo to any functions
-	 * buried in the expression.
+	 * 传入的表达式树通常是 SetExprState，因为语法           
+	 * 只允许在表函数引用的顶层出现函数调用。      
+	 * 不过，若函数不返回集合，规划器可能已通过         
+	 * 常量折叠或内联替换了该函数调用。因此若我们看到 
+	 * 任何其他种类的表达式节点，就通过通用的            
+	 * ExecEvalExpr() 代码执行它；唯一区别是我们                
+	 * 没有机会向深藏于表达式中的函数传递特殊的       
+	 * ReturnSetInfo。         
 	 */
 	if (!setexpr->elidedFuncState)
 	{
 		/*
-		 * This path is similar to ExecMakeFunctionResultSet.
+		 * 此路径与 ExecMakeFunctionResultSet 类似。  
 		 */
 		returnsSet = setexpr->funcReturnsSet;
 		InitFunctionCallInfoData(*fcinfo, &(setexpr->func),
 								 list_length(setexpr->args),
 								 setexpr->fcinfo->fncollation,
 								 NULL, (Node *) &rsinfo);
-		/* evaluate the function's argument list */
+		/* 对函数的参数列表求值        */
 		Assert(CurrentMemoryContext == argContext);
 		ExecEvalFuncArgs(fcinfo, setexpr->args, econtext);
 
 		/*
-		 * If function is strict, and there are any NULL arguments, skip
-		 * calling the function and act like it returned NULL (or an empty
-		 * set, in the returns-set case).
+		 * 若函数是 strict 的且有 NULL 参数，则跳过        
+		 * 调用该函数，表现得如同它返回了 NULL（若       
+		 * 返回集合则为空集）。
 		 */
 		if (setexpr->func.fn_strict)
 		{
@@ -199,18 +199,18 @@ ExecMakeTableFunctionResult(SetExprState *setexpr,
 	}
 	else
 	{
-		/* Treat setexpr as a generic expression */
+		/* 把 setexpr 视为通用表达式     */
 		InitFunctionCallInfoData(*fcinfo, NULL, 0, InvalidOid, NULL, NULL);
 	}
 
 	/*
-	 * Switch to short-lived context for calling the function or expression.
+	 * 切换到短命上下文来调用该函数或表达式。            
 	 */
 	MemoryContextSwitchTo(econtext->ecxt_per_tuple_memory);
 
 	/*
-	 * Loop to handle the ValuePerCall protocol (which is also the same
-	 * behavior needed in the generic ExecEvalExpr path).
+	 * 循环处理 ValuePerCall 协议（这也是通用              
+	 * ExecEvalExpr 路径所需的行为）。          
 	 */
 	for (;;)
 	{
@@ -219,13 +219,13 @@ ExecMakeTableFunctionResult(SetExprState *setexpr,
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * Reset per-tuple memory context before each call of the function or
-		 * expression. This cleans up any local memory the function may leak
-		 * when called.
+		 * 在每次调用函数或表达式之前重置每元组内存      
+		 * 上下文。这会清理函数调用时可能泄漏的局部     
+		 * 内存。   
 		 */
 		ResetExprContext(econtext);
 
-		/* Call the function or expression one time */
+		/* 调用一次函数或表达式           */
 		if (!setexpr->elidedFuncState)
 		{
 			pgstat_init_function_usage(fcinfo, &fcusage);
@@ -244,18 +244,18 @@ ExecMakeTableFunctionResult(SetExprState *setexpr,
 			rsinfo.isDone = ExprSingleResult;
 		}
 
-		/* Which protocol does function want to use? */
+		/* 函数想使用哪种协议？            */
 		if (rsinfo.returnMode == SFRM_ValuePerCall)
 		{
 			/*
-			 * Check for end of result set.
+			 * 检查结果集的末尾。 
 			 */
 			if (rsinfo.isDone == ExprEndResult)
 				break;
 
 			/*
-			 * If first time through, build tuplestore for result.  For a
-			 * scalar function result type, also make a suitable tupdesc.
+			 * 若是第一轮，为结果构建 tuplestore。对标量  
+			 * 函数结果类型，还要做一个合适的 tupdesc。  
 			 */
 			if (first_time)
 			{
@@ -279,7 +279,7 @@ ExecMakeTableFunctionResult(SetExprState *setexpr,
 			}
 
 			/*
-			 * Store current resultset item.
+			 * 保存当前结果集条目  
 			 */
 			if (returnsTuple)
 			{
@@ -293,10 +293,10 @@ ExecMakeTableFunctionResult(SetExprState *setexpr,
 							MemoryContextSwitchTo(econtext->ecxt_per_query_memory);
 
 						/*
-						 * This is the first non-NULL result from the
-						 * function.  Use the type info embedded in the
-						 * rowtype Datum to look up the needed tupdesc.  Make
-						 * a copy for the query.
+						 * 这是该函数首个非 NULL 的结果，
+						 * 用行类型 Datum 内嵌的类型信息来 
+						 * 查找所需的 tupdesc。并为该查询         
+						 * 制作一份副本。
 						 */
 						tupdesc = lookup_rowtype_tupdesc_copy(HeapTupleHeaderGetTypeId(td),
 															  HeapTupleHeaderGetTypMod(td));
@@ -306,8 +306,8 @@ ExecMakeTableFunctionResult(SetExprState *setexpr,
 					else
 					{
 						/*
-						 * Verify all later returned rows have same subtype;
-						 * necessary in case the type is RECORD.
+						 * 验证后续返回的行都有相同子类型； 
+						 * 类型为 RECORD 时必须如此。  
 						 */
 						if (HeapTupleHeaderGetTypeId(td) != tupdesc->tdtypeid ||
 							HeapTupleHeaderGetTypMod(td) != tupdesc->tdtypmod)
@@ -317,8 +317,8 @@ ExecMakeTableFunctionResult(SetExprState *setexpr,
 					}
 
 					/*
-					 * tuplestore_puttuple needs a HeapTuple not a bare
-					 * HeapTupleHeader, but it doesn't need all the fields.
+					 * tuplestore_puttuple 需要 HeapTuple 而非     
+					 * 光秃的 HeapTupleHeader，无须全部字段。   
 					 */
 					tmptup.t_len = HeapTupleHeaderGetDatumLength(td);
 					tmptup.t_data = td;
@@ -328,12 +328,12 @@ ExecMakeTableFunctionResult(SetExprState *setexpr,
 				else
 				{
 					/*
-					 * NULL result from a tuple-returning function; expand it
-					 * to a row of all nulls.  We rely on the expectedDesc to
-					 * form such rows.  (Note: this would be problematic if
-					 * tuplestore_putvalues saved the tdtypeid/tdtypmod from
-					 * the provided descriptor, since that might not match
-					 * what we get from the function itself.  But it doesn't.)
+					 * 返回元组的函数给出 NULL 结果；将其扩   
+					 * 展成一行全空值。我们依靠 expectedDesc 来 
+					 * 构造这些行。（注意：若                   
+					 * tuplestore_putvalues 保存了所提供描述符的  
+					 * tdtypeid/tdtypmod，便有问题：可能与函数 
+					 * 本身给出的不一致。但实际并非如此。） 
 					 */
 					int			natts = expectedDesc->natts;
 					bool	   *nullflags;
@@ -345,20 +345,20 @@ ExecMakeTableFunctionResult(SetExprState *setexpr,
 			}
 			else
 			{
-				/* Scalar-type case: just store the function result */
+				/* 标量类型情形：直接存储函数结果    */
 				tuplestore_putvalues(tupstore, tupdesc, &result, &fcinfo->isnull);
 			}
 
 			/*
-			 * Are we done?
+			 * 完成了？
 			 */
 			if (rsinfo.isDone != ExprMultipleResult)
 				break;
 
 			/*
-			 * Check that set-returning functions were properly declared.
-			 * (Note: for historical reasons, we don't complain if a non-SRF
-			 * returns ExprEndResult; that's treated as returning NULL.)
+			 * 检查集合返回函数是否被正确地声明。       
+			 * （注意：出于历史原因，非 SRF 返回              
+			 * ExprEndResult 时不报错；视为返回 NULL。）     
 			 */
 			if (!returnsSet)
 				ereport(ERROR,
@@ -367,12 +367,12 @@ ExecMakeTableFunctionResult(SetExprState *setexpr,
 		}
 		else if (rsinfo.returnMode == SFRM_Materialize)
 		{
-			/* check we're on the same page as the function author */
+			/* 检查我们与函数作者的假设是否一致    */
 			if (!first_time || rsinfo.isDone != ExprSingleResult || !returnsSet)
 				ereport(ERROR,
 						(errcode(ERRCODE_E_R_I_E_SRF_PROTOCOL_VIOLATED),
 						 errmsg("table-function protocol for materialize mode was not followed")));
-			/* Done evaluating the set result */
+			/* 集合结果求值完毕       */
 			break;
 		}
 		else
@@ -387,10 +387,10 @@ ExecMakeTableFunctionResult(SetExprState *setexpr,
 no_function_result:
 
 	/*
-	 * If we got nothing from the function (ie, an empty-set or NULL result),
-	 * we have to create the tuplestore to return, and if it's a
-	 * non-set-returning function then insert a single all-nulls row.  As
-	 * above, we depend on the expectedDesc to manufacture the dummy row.
+	 * 如果没从函数得到任何结果（即空集或 NULL 结果）， 
+	 * 就必须创建要返回的 tuplestore，而如果这是 
+	 * 非集合返回函数，则插入一行全空值。同上面      
+	 * 一样，我们依靠 expectedDesc 来构造该占位行。       
 	 */
 	if (rsinfo.setResult == NULL)
 	{
@@ -413,17 +413,17 @@ no_function_result:
 	}
 
 	/*
-	 * If function provided a tupdesc, cross-check it.  We only really need to
-	 * do this for functions returning RECORD, but might as well do it always.
+	 * 如果函数提供了 tupdesc，就交叉检查它。其实只有      
+	 * 返回 RECORD 的函数才需要这样做，但总是做也无妨。   
 	 */
 	if (rsinfo.setDesc)
 	{
 		tupledesc_match(expectedDesc, rsinfo.setDesc);
 
 		/*
-		 * If it is a dynamically-allocated TupleDesc, free it: it is
-		 * typically allocated in a per-query context, so we must avoid
-		 * leaking it across multiple usages.
+		 * 如果它是动态分配的 TupleDesc，就释放它：它
+		 * 通常分配在每查询上下文中，因此必须避免   
+		 * 在多次使用间泄漏它。    
 		 */
 		if (rsinfo.setDesc->tdrefcount == -1)
 			FreeTupleDesc(rsinfo.setDesc);
@@ -431,15 +431,15 @@ no_function_result:
 
 	MemoryContextSwitchTo(callerContext);
 
-	/* All done, pass back the tuplestore */
+	/* 全部完成，交回 tuplestore   */
 	return rsinfo.setResult;
 }
 
 
 /*
- * Prepare targetlist SRF function call for execution.
+ * 为执行准备目标列表 SRF 函数调用。    
  *
- * This is used by nodeProjectSet.c.
+ * 由 nodeProjectSet.c 使用。   
  */
 SetExprState *
 ExecInitFunctionResultSet(Expr *expr,
@@ -452,8 +452,8 @@ ExecInitFunctionResultSet(Expr *expr,
 	state->func.fn_oid = InvalidOid;
 
 	/*
-	 * Initialize metadata.  The expression node could be either a FuncExpr or
-	 * an OpExpr.
+	 * 初始化元数据。表达式节点可能是 FuncExpr 或             
+	 * OpExpr。 
 	 */
 	if (IsA(expr, FuncExpr))
 	{
@@ -475,7 +475,7 @@ ExecInitFunctionResultSet(Expr *expr,
 		elog(ERROR, "unrecognized node type: %d",
 			 (int) nodeTag(expr));
 
-	/* shouldn't get here unless the selected function returns set */
+	/* 除非所选函数返回集合，否则不应走到这里   */
 	Assert(state->func.fn_retset);
 
 	return state;
@@ -484,15 +484,15 @@ ExecInitFunctionResultSet(Expr *expr,
 /*
  *		ExecMakeFunctionResultSet
  *
- * Evaluate the arguments to a set-returning function and then call the
- * function itself.  The argument expressions may not contain set-returning
- * functions (the planner is supposed to have separated evaluation for those).
+ * 对一个集合返回函数的参数求值，然后调用该        
+ * 函数本身。参数表达式不能包含集合返回函数            
+ * （规划器应当已把那些函数的求值分离出来）。            
  *
- * This should be called in a short-lived (per-tuple) context, argContext
- * needs to live until all rows have been returned (i.e. *isDone set to
- * ExprEndResult or ExprSingleResult).
+ * 本函数应在短命（每元组）上下文中调用，而          
+ * argContext 须活到各行返回完（*isDone 设为 ExprEndResult  
+ * 或 ExprSingleResult）。         
  *
- * This is used by nodeProjectSet.c.
+ * 由 nodeProjectSet.c 使用。   
  */
 Datum
 ExecMakeFunctionResultSet(SetExprState *fcache,
@@ -511,13 +511,13 @@ ExecMakeFunctionResultSet(SetExprState *fcache,
 
 restart:
 
-	/* Guard against stack overflow due to overly complex expressions */
+	/* 防止因表达式过于复杂而导致栈溢出               */
 	check_stack_depth();
 
 	/*
-	 * If a previous call of the function returned a set result in the form of
-	 * a tuplestore, continue reading rows from the tuplestore until it's
-	 * empty.
+	 * 如果该函数的前一次调用返回了以 tuplestore 形式        
+	 * 存在的集合结果，则从该 tuplestore 读取直到取空   
+	 *       
 	 */
 	if (fcache->funcResultStore)
 	{
@@ -526,9 +526,9 @@ restart:
 		bool		foundTup;
 
 		/*
-		 * Have to make sure tuple in slot lives long enough, otherwise
-		 * clearing the slot could end up trying to free something already
-		 * freed.
+		 * 必须确保槽中的元组存活得足够久，否则      
+		 * 清除槽时可能最终试图释放已被释放的东西。   
+		 *       
 		 */
 		oldContext = MemoryContextSwitchTo(slot->tts_mcxt);
 		foundTup = tuplestore_gettupleslot(fcache->funcResultStore, true, false,
@@ -540,17 +540,17 @@ restart:
 			*isDone = ExprMultipleResult;
 			if (fcache->funcReturnsTuple)
 			{
-				/* We must return the whole tuple as a Datum. */
+				/* 必须把整个元组作为 Datum 返回。*/
 				*isNull = false;
 				return ExecFetchSlotHeapTupleDatum(fcache->funcResultSlot);
 			}
 			else
 			{
-				/* Extract the first column and return it as a scalar. */
+				/* 抽取第一列并将其作为标量返回。       */
 				return slot_getattr(fcache->funcResultSlot, 1, isNull);
 			}
 		}
-		/* Exhausted the tuplestore, so clean up */
+		/* tuplestore 已取尽，故清理      */
 		tuplestore_end(fcache->funcResultStore);
 		fcache->funcResultStore = NULL;
 		*isDone = ExprEndResult;
@@ -559,14 +559,14 @@ restart:
 	}
 
 	/*
-	 * arguments is a list of expressions to evaluate before passing to the
-	 * function manager.  We skip the evaluation if it was already done in the
-	 * previous call (ie, we are continuing the evaluation of a set-valued
-	 * function).  Otherwise, collect the current argument values into fcinfo.
+	 * arguments 是表达式列表，须先求值再传给                
+	 * 函数管理器。若求值已在前一次调用中完成，           
+	 * （即我们正在继续对一个集合值函数的求值），    
+	 * 就跳过它。否则把当前参数值收集到 fcinfo 中。         
 	 *
-	 * The arguments have to live in a context that lives at least until all
-	 * rows from this SRF have been returned, otherwise ValuePerCall SRFs
-	 * would reference freed memory after the first returned row.
+	 * 这些参数必须存放在一个上下文中，其寿命            
+	 * 至少要延续到该 SRF 所有行都返回之后，否则       
+	 * ValuePerCall SRF 首行后即引用已释放的内存。  
 	 */
 	fcinfo = fcache->fcinfo;
 	arguments = fcache->args;
@@ -579,29 +579,29 @@ restart:
 	}
 	else
 	{
-		/* Reset flag (we may set it again below) */
+		/* 重置标志（下面可能再设置）*/
 		fcache->setArgsValid = false;
 	}
 
 	/*
-	 * Now call the function, passing the evaluated parameter values.
+	 * 现在调用该函数，传入已求值的参数值。        
 	 */
 
-	/* Prepare a resultinfo node for communication. */
+	/* 准备用于通信的 resultinfo 节点。   */
 	fcinfo->resultinfo = (Node *) &rsinfo;
 	rsinfo.type = T_ReturnSetInfo;
 	rsinfo.econtext = econtext;
 	rsinfo.expectedDesc = fcache->funcResultDesc;
 	rsinfo.allowedModes = (int) (SFRM_ValuePerCall | SFRM_Materialize);
-	/* note we do not set SFRM_Materialize_Random or _Preferred */
+	/* 注意：不设置 SFRM_Materialize_Random/_Preferred    */
 	rsinfo.returnMode = SFRM_ValuePerCall;
-	/* isDone is filled below */
+	/* isDone 在下方填充 */
 	rsinfo.setResult = NULL;
 	rsinfo.setDesc = NULL;
 
 	/*
-	 * If function is strict, and there are any NULL arguments, skip calling
-	 * the function.
+	 * 若函数是 strict 的且有任一 NULL 参数，就跳过调用。 
+	 *              
 	 */
 	callit = true;
 	if (fcache->func.fn_strict)
@@ -631,24 +631,24 @@ restart:
 	}
 	else
 	{
-		/* for a strict SRF, result for NULL is an empty set */
+		/* 对 strict SRF 而言，NULL 的结果为空集   */
 		result = (Datum) 0;
 		*isNull = true;
 		*isDone = ExprEndResult;
 	}
 
-	/* Which protocol does function want to use? */
+	/* 函数想使用哪种协议？            */
 	if (rsinfo.returnMode == SFRM_ValuePerCall)
 	{
 		if (*isDone != ExprEndResult)
 		{
 			/*
-			 * Save the current argument values to re-use on the next call.
+			 * 保存当前参数值以供下次调用时复用。         
 			 */
 			if (*isDone == ExprMultipleResult)
 			{
 				fcache->setArgsValid = true;
-				/* Register cleanup callback if we didn't already */
+				/* 若尚未注册则注册清理回调           */
 				if (!fcache->shutdown_reg)
 				{
 					RegisterExprContextCallback(econtext,
@@ -661,21 +661,21 @@ restart:
 	}
 	else if (rsinfo.returnMode == SFRM_Materialize)
 	{
-		/* check we're on the same page as the function author */
+		/* 检查我们与函数作者的假设是否一致    */
 		if (rsinfo.isDone != ExprSingleResult)
 			ereport(ERROR,
 					(errcode(ERRCODE_E_R_I_E_SRF_PROTOCOL_VIOLATED),
 					 errmsg("table-function protocol for materialize mode was not followed")));
 		if (rsinfo.setResult != NULL)
 		{
-			/* prepare to return values from the tuplestore */
+			/* 准备从 tuplestore 返回值               */
 			ExecPrepareTuplestoreResult(fcache, econtext,
 										rsinfo.setResult,
 										rsinfo.setDesc);
-			/* loop back to top to start returning from tuplestore */
+			/* 回跳到顶部，开始从 tuplestore 返回       */
 			goto restart;
 		}
-		/* if setResult was left null, treat it as empty set */
+		/* 如果 setResult 保持为 NULL，则视作空集 */
 		*isDone = ExprEndResult;
 		*isNull = true;
 		result = (Datum) 0;
@@ -691,7 +691,7 @@ restart:
 
 
 /*
- * init_sexpr - initialize a SetExprState node during first use
+ * init_sexpr - 在首次使用时初始化 SetExprState 节点
  */
 static void
 init_sexpr(Oid foid, Oid input_collation, Expr *node,
@@ -701,17 +701,17 @@ init_sexpr(Oid foid, Oid input_collation, Expr *node,
 	AclResult	aclresult;
 	size_t		numargs = list_length(sexpr->args);
 
-	/* Check permission to call function */
+	/* 检查调用函数的权限       */
 	aclresult = object_aclcheck(ProcedureRelationId, foid, GetUserId(), ACL_EXECUTE);
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error(aclresult, OBJECT_FUNCTION, get_func_name(foid));
 	InvokeFunctionExecuteHook(foid);
 
 	/*
-	 * Safety check on nargs.  Under normal circumstances this should never
-	 * fail, as parser should check sooner.  But possibly it might fail if
-	 * server has been compiled with FUNC_MAX_ARGS smaller than some functions
-	 * declared in pg_proc?
+	 * 对 nargs 的安全检查。正常情况下它绝不应             
+	 * 失败，因为解析器应当更早检查。但若编译          
+	 * 服务器时所用 FUNC_MAX_ARGS 小于 pg_proc 中                    
+	 * 声明的函数？  
 	 */
 	if (list_length(sexpr->args) > FUNC_MAX_ARGS)
 		ereport(ERROR,
@@ -721,18 +721,18 @@ init_sexpr(Oid foid, Oid input_collation, Expr *node,
 							   FUNC_MAX_ARGS,
 							   FUNC_MAX_ARGS)));
 
-	/* Set up the primary fmgr lookup information */
+	/* 建立主要的 fmgr 查找信息          */
 	fmgr_info_cxt(foid, &(sexpr->func), sexprCxt);
 	fmgr_info_set_expr((Node *) sexpr->expr, &(sexpr->func));
 
-	/* Initialize the function call parameter struct as well */
+	/* 同时初始化函数调用参数结构体            */
 	sexpr->fcinfo =
 		(FunctionCallInfo) palloc(SizeForFunctionCallInfo(numargs));
 	InitFunctionCallInfoData(*sexpr->fcinfo, &(sexpr->func),
 							 numargs,
 							 input_collation, NULL, NULL);
 
-	/* If function returns set, check if that's allowed by caller */
+	/* 若函数返回集合，检查调用者是否允许如此  */
 	if (sexpr->func.fn_retset && !allowSRF)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -740,10 +740,10 @@ init_sexpr(Oid foid, Oid input_collation, Expr *node,
 				 parent ? executor_errposition(parent->state,
 											   exprLocation((Node *) node)) : 0));
 
-	/* Otherwise, caller should have marked the sexpr correctly */
+	/* 否则，调用者应当已正确地标记该 sexpr      */
 	Assert(sexpr->func.fn_retset == sexpr->funcReturnsSet);
 
-	/* If function returns set, prepare expected tuple descriptor */
+	/* 如果函数返回集合，准备期望的元组描述符  */
 	if (sexpr->func.fn_retset && needDescForSRF)
 	{
 		TypeFuncClass functypclass;
@@ -755,21 +755,21 @@ init_sexpr(Oid foid, Oid input_collation, Expr *node,
 											&funcrettype,
 											&tupdesc);
 
-		/* Must save tupdesc in sexpr's context */
+		/* 须将 tupdesc 存入 sexpr 上下文*/
 		oldcontext = MemoryContextSwitchTo(sexprCxt);
 
 		if (functypclass == TYPEFUNC_COMPOSITE ||
 			functypclass == TYPEFUNC_COMPOSITE_DOMAIN)
 		{
-			/* Composite data type, e.g. a table's row type */
+			/* 复合数据类型，例如某表的行类型*/
 			Assert(tupdesc);
-			/* Must copy it out of typcache for safety */
+			/* 安全起见须从 typcache 复制出来*/
 			sexpr->funcResultDesc = CreateTupleDescCopy(tupdesc);
 			sexpr->funcReturnsTuple = true;
 		}
 		else if (functypclass == TYPEFUNC_SCALAR)
 		{
-			/* Base data type, i.e. scalar */
+			/* 基础类型，即标量    */
 			tupdesc = CreateTemplateTupleDesc(1);
 			TupleDescInitEntry(tupdesc,
 							   (AttrNumber) 1,
@@ -782,13 +782,13 @@ init_sexpr(Oid foid, Oid input_collation, Expr *node,
 		}
 		else if (functypclass == TYPEFUNC_RECORD)
 		{
-			/* This will work if function doesn't need an expectedDesc */
+			/* 如果函数不需要 expectedDesc，这样可行       */
 			sexpr->funcResultDesc = NULL;
 			sexpr->funcReturnsTuple = true;
 		}
 		else
 		{
-			/* Else, we will fail if function needs an expectedDesc */
+			/* 否则，若函数需要 expectedDesc 就会失败   */
 			sexpr->funcResultDesc = NULL;
 		}
 
@@ -797,39 +797,39 @@ init_sexpr(Oid foid, Oid input_collation, Expr *node,
 	else
 		sexpr->funcResultDesc = NULL;
 
-	/* Initialize additional state */
+	/* 初始化附加状态       */
 	sexpr->funcResultStore = NULL;
 	sexpr->funcResultSlot = NULL;
 	sexpr->shutdown_reg = false;
 }
 
 /*
- * callback function in case a SetExprState needs to be shut down before it
- * has been run to completion
+ * 当某个 SetExprState 需要在运行完毕之前被关闭             
+ * 时所用的回调函数  
  */
 static void
 ShutdownSetExpr(Datum arg)
 {
 	SetExprState *sexpr = castNode(SetExprState, DatumGetPointer(arg));
 
-	/* If we have a slot, make sure it's let go of any tuplestore pointer */
+	/* 如果我们有槽，确保它已释放任何 tuplestore 指针    */
 	if (sexpr->funcResultSlot)
 		ExecClearTuple(sexpr->funcResultSlot);
 
-	/* Release any open tuplestore */
+	/* 释放打开的 tuplestore  */
 	if (sexpr->funcResultStore)
 		tuplestore_end(sexpr->funcResultStore);
 	sexpr->funcResultStore = NULL;
 
-	/* Clear any active set-argument state */
+	/* 清除所有活跃集合参数状态*/
 	sexpr->setArgsValid = false;
 
-	/* execUtils will deregister the callback... */
+	/* execUtils 会注销该回调……        */
 	sexpr->shutdown_reg = false;
 }
 
 /*
- * Evaluate arguments for a function.
+ * 对函数的参数求值。       
  */
 static void
 ExecEvalFuncArgs(FunctionCallInfo fcinfo,
@@ -856,10 +856,10 @@ ExecEvalFuncArgs(FunctionCallInfo fcinfo,
 /*
  *		ExecPrepareTuplestoreResult
  *
- * Subroutine for ExecMakeFunctionResultSet: prepare to extract rows from a
- * tuplestore function result.  We must set up a funcResultSlot (unless
- * already done in a previous call cycle) and verify that the function
- * returned the expected tuple descriptor.
+ * ExecMakeFunctionResultSet 的子例程：准备从                      
+ * tuplestore 函数结果中抽取行。我们必须建立            
+ * funcResultSlot（除非前轮调用已建立过），并验证     
+ * 函数是否返回期望的描述符。
  */
 static void
 ExecPrepareTuplestoreResult(SetExprState *sexpr,
@@ -871,21 +871,21 @@ ExecPrepareTuplestoreResult(SetExprState *sexpr,
 
 	if (sexpr->funcResultSlot == NULL)
 	{
-		/* Create a slot so we can read data out of the tuplestore */
+		/* 创建一个槽以便从 tuplestore 中读出数据     */
 		TupleDesc	slotDesc;
 		MemoryContext oldcontext;
 
 		oldcontext = MemoryContextSwitchTo(sexpr->func.fn_mcxt);
 
 		/*
-		 * If we were not able to determine the result rowtype from context,
-		 * and the function didn't return a tupdesc, we have to fail.
+		 * 如果无法从上下文确定结果的行类型，              
+		 * 且函数也没有返回 tupdesc，那就必须失败。  
 		 */
 		if (sexpr->funcResultDesc)
 			slotDesc = sexpr->funcResultDesc;
 		else if (resultDesc)
 		{
-			/* don't assume resultDesc is long-lived */
+			/* 不要假定 resultDesc 是长寿的  */
 			slotDesc = CreateTupleDescCopy(resultDesc);
 		}
 		else
@@ -894,7 +894,7 @@ ExecPrepareTuplestoreResult(SetExprState *sexpr,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("function returning setof record called in "
 							"context that cannot accept type record")));
-			slotDesc = NULL;	/* keep compiler quiet */
+			slotDesc = NULL;	/* 让编译器安静  */
 		}
 
 		sexpr->funcResultSlot = MakeSingleTupleTableSlot(slotDesc,
@@ -903,8 +903,8 @@ ExecPrepareTuplestoreResult(SetExprState *sexpr,
 	}
 
 	/*
-	 * If function provided a tupdesc, cross-check it.  We only really need to
-	 * do this for functions returning RECORD, but might as well do it always.
+	 * 如果函数提供了 tupdesc，就交叉检查它。其实只有      
+	 * 返回 RECORD 的函数才需要这样做，但总是做也无妨。   
 	 */
 	if (resultDesc)
 	{
@@ -912,15 +912,15 @@ ExecPrepareTuplestoreResult(SetExprState *sexpr,
 			tupledesc_match(sexpr->funcResultDesc, resultDesc);
 
 		/*
-		 * If it is a dynamically-allocated TupleDesc, free it: it is
-		 * typically allocated in a per-query context, so we must avoid
-		 * leaking it across multiple usages.
+		 * 如果它是动态分配的 TupleDesc，就释放它：它
+		 * 通常分配在每查询上下文中，因此必须避免   
+		 * 在多次使用间泄漏它。    
 		 */
 		if (resultDesc->tdrefcount == -1)
 			FreeTupleDesc(resultDesc);
 	}
 
-	/* Register cleanup callback if we didn't already */
+	/* 若尚未注册则注册清理回调           */
 	if (!sexpr->shutdown_reg)
 	{
 		RegisterExprContextCallback(econtext,
@@ -931,14 +931,14 @@ ExecPrepareTuplestoreResult(SetExprState *sexpr,
 }
 
 /*
- * Check that function result tuple type (src_tupdesc) matches or can
- * be considered to match what the query expects (dst_tupdesc). If
- * they don't match, ereport.
+ * 检查函数结果元组类型 (src_tupdesc) 是否匹配         
+ * 或可视为匹配查询期望的类型 (dst_tupdesc)。若    
+ * 不匹配则 ereport。   
  *
- * We really only care about number of attributes and data type.
- * Also, we can ignore type mismatch on columns that are dropped in the
- * destination type, so long as the physical storage matches.  This is
- * helpful in some cases involving out-of-date cached plans.
+ * 我们真正在意的只是属性数量和数据类型。    
+ * 此外，对于目标类型中已被删除的列，我们可以     
+ * 忽略其类型不匹配，只要物理存储方式一致。这    
+ * 在某些涉及过期缓存计划的情形下很有用。
  */
 static void
 tupledesc_match(TupleDesc dst_tupdesc, TupleDesc src_tupdesc)
@@ -960,7 +960,7 @@ tupledesc_match(TupleDesc dst_tupdesc, TupleDesc src_tupdesc)
 		Form_pg_attribute sattr = TupleDescAttr(src_tupdesc, i);
 
 		if (IsBinaryCoercible(sattr->atttypid, dattr->atttypid))
-			continue;			/* no worries */
+			continue;			/* 无妨     */
 		if (!dattr->attisdropped)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),

@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  * auxprocess.c
- *	  functions related to auxiliary processes.
+ *	  与辅助进程相关的函数。        
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -38,20 +38,20 @@ static void ShutdownAuxiliaryProcess(int code, Datum arg);
 
 
 /* ----------------
- *		global variables
+ *		全局变量    
  * ----------------
  */
 
-AuxProcType MyAuxProcType = NotAnAuxProcess;	/* declared in miscadmin.h */
+AuxProcType MyAuxProcType = NotAnAuxProcess;	/* miscadmin.h 中声明   */
 
 
 /*
  *	 AuxiliaryProcessMain
  *
- *	 The main entry point for auxiliary processes, such as the bgwriter,
- *	 walwriter, walreceiver, bootstrapper and the shared memory checker code.
+ *	 bgwriter、walwriter、walreceiver、bootstrapper 和共享内存  
+ *	 检查代码等辅助进程的主入口点。                           
  *
- *	 This code is here just because of historical reasons.
+ *	 这段代码放在这里只是出于历史原因。  
  */
 void
 AuxiliaryProcessMain(AuxProcType auxtype)
@@ -91,14 +91,14 @@ AuxiliaryProcessMain(AuxProcType auxtype)
 	IgnoreSystemIndexes = true;
 
 	/*
-	 * As an auxiliary process, we aren't going to do the full InitPostgres
-	 * pushups, but there are a couple of things that need to get lit up even
-	 * in an auxiliary process.
+	 * 作为辅助进程，我们不做全套 InitPostgres 准备工作，
+	 * 但有少数几件事即使在辅助进程中也需要点亮。       
+	 *                         
 	 */
 
 	/*
-	 * Create a PGPROC so we can use LWLocks.  In the EXEC_BACKEND case, this
-	 * was already done by SubPostmasterMain().
+	 * 创建一个 PGPROC 以便使用 LWLock。在 EXEC_BACKEND 下，     
+	 * 这已由 SubPostmasterMain() 做过。 
 	 */
 #ifndef EXEC_BACKEND
 	InitAuxiliaryProcess();
@@ -107,30 +107,30 @@ AuxiliaryProcessMain(AuxProcType auxtype)
 	BaseInit();
 
 	/*
-	 * Assign the ProcSignalSlot for an auxiliary process.  Since it doesn't
-	 * have a BackendId, the slot is statically allocated based on the
-	 * auxiliary process type (MyAuxProcType).  Backends use slots indexed in
-	 * the range from 1 to MaxBackends (inclusive), so we use MaxBackends +
-	 * AuxProcType + 1 as the index of the slot for an auxiliary process.
+	 * 为辅助进程指派 ProcSignalSlot。由于它没有 BackendId，  
+	 * 槽位按辅助进程类型（MyAuxProcType）静态分配。  
+	 * 后端槽位的编号为 1 到 MaxBackends（含），故我们用    
+	 * MaxBackends + AuxProcType + 1 作为辅助进程槽位的           
+	 * 索引。                                                         
 	 *
-	 * This will need rethinking if we ever want more than one of a particular
-	 * auxiliary process type.
+	 * 如果将来想要某一特定类型的多个辅助进程，           
+	 * 就得重新思考。  
 	 */
 	ProcSignalInit(MaxBackends + MyAuxProcType + 1);
 
 	/*
-	 * Auxiliary processes don't run transactions, but they may need a
-	 * resource owner anyway to manage buffer pins acquired outside
-	 * transactions (and, perhaps, other things in future).
+	 * 辅助进程不运行事务，但可能仍需资源所有者   
+	 * 来管理事务外获取的缓冲区 pin（也许还有     
+	 * 将来的其他东西）。                         
 	 */
 	CreateAuxProcessResourceOwner();
 
 
-	/* Initialize backend status information */
+	/* 初始化后端状态信息           */
 	pgstat_beinit();
 	pgstat_bestart();
 
-	/* register a before-shutdown callback for LWLock cleanup */
+	/* 注册一个 LWLock 清理用的关闭前回调        */
 	before_shmem_exit(ShutdownAuxiliaryProcess, 0);
 
 	SetProcessingMode(NormalProcessing);
@@ -168,11 +168,11 @@ AuxiliaryProcessMain(AuxProcType auxtype)
 }
 
 /*
- * Begin shutdown of an auxiliary process.  This is approximately the equivalent
- * of ShutdownPostgres() in postinit.c.  We can't run transactions in an
- * auxiliary process, so most of the work of AbortTransaction() is not needed,
- * but we do need to make sure we've released any LWLocks we are holding.
- * (This is only critical during an error exit.)
+ * 开始辅助进程的关闭。这大致相当于 postinit.c 中的           
+ * ShutdownPostgres()。辅助进程无法运行事务，因此         
+ * AbortTransaction() 的大部分工作都无需执行，                    
+ * 但确实要确保释放我们持有的所有 LWLock。               
+ * （这仅在错误退出时才关键。）   
  */
 static void
 ShutdownAuxiliaryProcess(int code, Datum arg)

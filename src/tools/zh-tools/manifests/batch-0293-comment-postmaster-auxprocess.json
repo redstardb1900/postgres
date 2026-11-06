@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "batch_id": "0293-comment-postmaster-auxprocess",
+  "title": "Translate comments: postmaster-auxprocess",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "e30cfb4eddd81c2ca1c4f7af9ec0a3e5b7d83063",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0293-comment-postmaster-auxprocess.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/postmaster/**",
+      "kind": "c_comment",
+      "note": "P2 comment translation campaign"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0293-comment-postmaster-auxprocess.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": []
+    },
+    {
+      "path": "src/backend/postmaster/auxprocess.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 11,
+      "translated": 11,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "P2 translation campaign wave EB"
+    }
+  ],
+  "notes": "Translation agents (EB) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

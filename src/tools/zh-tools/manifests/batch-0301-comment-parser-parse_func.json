@@ -1,0 +1,45 @@
+{
+ "schema_version": 1,
+ "batch_id": "0301-comment-parser-parse_func",
+ "title": "Translate comments: parser-parse_func",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "067543e8e91d3870edd657d7e28c75342600e4f2",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0301-comment-parser-parse_func.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/parser/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0301-comment-parser-parse_func.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/parser/parse_func.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 222,
+   "translated": 219,
+   "preserved": 3,
+   "preserved_reasons": [
+    "Identifier-echo labels kept EN: blk78 /* func_match_argtypes() */, blk113 /* func_select_candidate() */; gettext translator hint R5-protected: blk221 (\"translator: %s is name of a SQL construct, eg GROUP BY\")"
+   ],
+   "note": "P2 translation campaign wave F22/F23/F24. Coordinator pre-review unification applied to the ammo: aggregate family unified to glossary (聚集->聚合 27 values, 假设集->假想集 2) and decided phrasebook rows enforced (operator->操作符 10, too-many->过多 2, too-few->过少 1, missing->缺少 1; all zero-byte)."
+  }
+ ],
+ "notes": "Translation agents (F22/F23/F24) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

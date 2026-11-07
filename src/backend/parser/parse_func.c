@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_func.c
- *		handle function calls in parser
+ *		解析器中处理函数调用 
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -35,7 +35,7 @@
 #include "utils/syscache.h"
 
 
-/* Possible error codes from LookupFuncNameInternal */
+/* LookupFuncNameInternal 可能返回的错误码  */
 typedef enum
 {
 	FUNCLOOKUP_NOSUCHFUNC,
@@ -55,36 +55,36 @@ static Oid	LookupFuncNameInternal(ObjectType objtype, List *funcname,
 
 
 /*
- *	Parse a function call
+ *	解析函数调用   
  *
- *	For historical reasons, Postgres tries to treat the notations tab.col
- *	and col(tab) as equivalent: if a single-argument function call has an
- *	argument of complex type and the (unqualified) function name matches
- *	any attribute of the type, we can interpret it as a column projection.
- *	Conversely a function of a single complex-type argument can be written
- *	like a column reference, allowing functions to act like computed columns.
+ *	出于历史原因，Postgres 试图将 tab.col 与                  
+ *	col(tab) 视为等价：若单参数函数调用的参数是         
+ *	复合类型且（未限定的）函数名匹配该类型的        
+ *	任一属性，即可解释为列投影；反之，接受单个复    
+ *	合类型参数的函数也能写成列引用的样子，让函数    
+ *	如同计算列一般发挥作用。                                     
  *
- *	If both interpretations are possible, we prefer the one matching the
- *	syntactic form, but otherwise the form does not matter.
+ *	若两种解释都可行，优先取符合句法形式的那个；  
+ *	除此之外形式并不重要。                      
  *
- *	Hence, both cases come through here.  If fn is null, we're dealing with
- *	column syntax not function syntax.  In the function-syntax case,
- *	the FuncCall struct is needed to carry various decoration that applies
- *	to aggregate and window functions.
+ *	因此两种情况都会经过这里。若 fn 为空，处理的       
+ *	是列语法而非函数语法。函数语法情形下，       
+ *	FuncCall 结构体用于携带各种修饰信息，这些修饰       
+ *	适用于聚合与窗口函数。 
  *
- *	Also, when fn is null, we return NULL on failure rather than
- *	reporting a no-such-function error.
+ *	另外，当 fn 为空时，失败时返回 NULL 而不是  
+ *	报告函数不存在错误。     
  *
- *	The argument expressions (in fargs) must have been transformed
- *	already.  However, nothing in *fn has been transformed.
+ *	参数表达式（fargs 内）必须已转换完毕。不过  
+ *	*fn 中的内容均未经转换。                     
  *
- *	last_srf should be a copy of pstate->p_last_srf from just before we
- *	started transforming fargs.  If the caller knows that fargs couldn't
- *	contain any SRF calls, last_srf can just be pstate->p_last_srf.
+ *	last_srf 应当是刚开始转换 fargs 之前 pstate->p_last_srf  
+ *	的副本。若调用者确知 fargs 不可能包含 SRF 调用，  
+ *	则 last_srf 可直接取 pstate->p_last_srf。                
  *
- *	proc_call is true if we are considering a CALL statement, so that the
- *	name must resolve to a procedure name, not anything else.  This flag
- *	also specifies that the argument list includes any OUT-mode arguments.
+ *	若正在考虑 CALL 语句则 proc_call 为真，此时名称       
+ *	必须解析为过程名而非其他。此标志还规定参数列  
+ *	表可以包含任意 OUT 模式的参数。                          
  */
 Node *
 ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
@@ -119,7 +119,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 	ParseCallbackState pcbstate;
 
 	/*
-	 * If there's an aggregate filter, transform it using transformWhereClause
+	 * 若存在聚合过滤器，则用 transformWhereClause 转换之       
 	 */
 	if (fn && fn->agg_filter != NULL)
 		agg_filter = (Expr *) transformWhereClause(pstate, fn->agg_filter,
@@ -127,10 +127,10 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 												   "FILTER");
 
 	/*
-	 * Most of the rest of the parser just assumes that functions do not have
-	 * more than FUNC_MAX_ARGS parameters.  We have to test here to protect
-	 * against array overruns, etc.  Of course, this may not be a function,
-	 * but the test doesn't hurt.
+	 * 解析器的其余部分大多直接假定函数的参数不超过    
+	 * FUNC_MAX_ARGS 个。我们必须在此测试以防数组越界      
+	 * 等问题。当然这可能不是函数，但该测试无害。     
+	 *                           
 	 */
 	if (list_length(fargs) > FUNC_MAX_ARGS)
 		ereport(ERROR,
@@ -142,14 +142,14 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 				 parser_errposition(pstate, location)));
 
 	/*
-	 * Extract arg type info in preparation for function lookup.
+	 * 为函数查找而提取参数类型信息。            
 	 *
-	 * If any arguments are Param markers of type VOID, we discard them from
-	 * the parameter list. This is a hack to allow the JDBC driver to not have
-	 * to distinguish "input" and "output" parameter symbols while parsing
-	 * function-call constructs.  Don't do this if dealing with column syntax,
-	 * nor if we had WITHIN GROUP (because in that case it's critical to keep
-	 * the argument count unchanged).
+	 * 若有参数是 VOID 类型的 Param 标记，则将其从参        
+	 * 数列表中丢弃。这是个 hack，让 JDBC 驱动在解析         
+	 * 函数调用构造时无需区分输入与输出参数符号。    
+	 * 处理列语法时不要这样做；有 WITHIN GROUP 时也            
+	 * 不要这样做，因为那种情况下参数个数必须保持       
+	 * 不变。                     
 	 */
 	nargs = 0;
 	foreach(l, fargs)
@@ -168,12 +168,12 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 	}
 
 	/*
-	 * Check for named arguments; if there are any, build a list of names.
+	 * 检查命名参数；若有则构建名字列表。                
 	 *
-	 * We allow mixed notation (some named and some not), but only with all
-	 * the named parameters after all the unnamed ones.  So the name list
-	 * corresponds to the last N actual parameters and we don't need any extra
-	 * bookkeeping to match things up.
+	 * 我们允许混合记法（一部分命名一部分不命名），  
+	 * 但仅当所有命名参数都位于未命名参数之后。      
+	 * 因此名字列表对应最后 N 个实际参数，无需任何        
+	 * 额外的簿记来匹配。    
 	 */
 	argnames = NIL;
 	foreach(l, fargs)
@@ -185,7 +185,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 			NamedArgExpr *na = (NamedArgExpr *) arg;
 			ListCell   *lc;
 
-			/* Reject duplicate arg names */
+			/* 拒绝重复的参数名   */
 			foreach(lc, argnames)
 			{
 				if (strcmp(na->name, (char *) lfirst(lc)) == 0)
@@ -214,11 +214,11 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 	}
 
 	/*
-	 * Decide whether it's legitimate to consider the construct to be a column
-	 * projection.  For that, there has to be a single argument of complex
-	 * type, the function name must not be qualified, and there cannot be any
-	 * syntactic decoration that'd require it to be a function (such as
-	 * aggregate or variadic decoration, or named arguments).
+	 * 判断把该构造视为列投影是否合理。为此，必须存     
+	 * 在单个复合类型参数，函数名不得带限定，且不得 
+	 * 存在任何需要它必须是函数的句法修饰（例如聚合    
+	 * 或 variadic 修饰，或命名参数）。                     
+	 *                                                       
 	 */
 	could_be_projection = (nargs == 1 && !proc_call &&
 						   agg_order == NIL && agg_filter == NULL &&
@@ -229,7 +229,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 							ISCOMPLEX(actual_arg_types[0])));
 
 	/*
-	 * If it's column syntax, check for column projection case first.
+	 * 若是列语法，先检查列投影情形。                 
 	 */
 	if (could_be_projection && is_column)
 	{
@@ -241,24 +241,24 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 			return retval;
 
 		/*
-		 * If ParseComplexProjection doesn't recognize it as a projection,
-		 * just press on.
+		 * 若 ParseComplexProjection 不认为它是投影，            
+		 * 则继续。  
 		 */
 	}
 
 	/*
-	 * func_get_detail looks up the function in the catalogs, does
-	 * disambiguation for polymorphic functions, handles inheritance, and
-	 * returns the funcid and type and set or singleton status of the
-	 * function's return value.  It also returns the true argument types to
-	 * the function.
+	 * func_get_detail 在系统目录中查找函数，为多态 
+	 * 函数做消歧，处理继承，并返回函数返回值的      
+	 * funcid、类型及集合/单例状态。                      
+	 * 它还返回该函数真正的参数类型。                       
+	 *              
 	 *
-	 * Note: for a named-notation or variadic function call, the reported
-	 * "true" types aren't really what is in pg_proc: the types are reordered
-	 * to match the given argument order of named arguments, and a variadic
-	 * argument is replaced by a suitable number of copies of its element
-	 * type.  We'll fix up the variadic case below.  We may also have to deal
-	 * with default arguments.
+	 * 注：对于命名记法或 variadic 的函数调用，报告的  
+	 * "真实"类型并非 pg_proc 中的类型：类型会被重排        
+	 * 以匹配命名参数的给定顺序，且 variadic 参数会被    
+	 * 合适数量的元素类型副本所替代。下面会修正      
+	 * variadic 情形。我们还可能需要处理默认参数。          
+	 *                        
 	 */
 
 	setup_parser_errposition_callback(&pcbstate, pstate, location);
@@ -273,10 +273,10 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 	cancel_parser_errposition_callback(&pcbstate);
 
 	/*
-	 * Check for various wrong-kind-of-routine cases.
+	 * 检查各种例程类别错误的情形。    
 	 */
 
-	/* If this is a CALL, reject things that aren't procedures */
+	/* 若这是 CALL，则拒绝非过程的情形            */
 	if (proc_call &&
 		(fdresult == FUNCDETAIL_NORMAL ||
 		 fdresult == FUNCDETAIL_AGGREGATE ||
@@ -290,7 +290,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 											  actual_arg_types)),
 				 errhint("To call a function, use SELECT."),
 				 parser_errposition(pstate, location)));
-	/* Conversely, if not a CALL, reject procedures */
+	/* 反之，若不是 CALL，则拒绝过程    */
 	if (fdresult == FUNCDETAIL_PROCEDURE && !proc_call)
 		ereport(ERROR,
 				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
@@ -306,8 +306,8 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 		fdresult == FUNCDETAIL_COERCION)
 	{
 		/*
-		 * In these cases, complain if there was anything indicating it must
-		 * be an aggregate or window function.
+		 * 在这些情形下，若有任何表明它必须是聚合或窗  
+		 * 口函数的迹象就报错。     
 		 */
 		if (agg_star)
 			ereport(ERROR,
@@ -349,30 +349,30 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 	}
 
 	/*
-	 * So far so good, so do some fdresult-type-specific processing.
+	 * 一切顺利，下面做 fdresult 类型特定处理。      
 	 */
 	if (fdresult == FUNCDETAIL_NORMAL || fdresult == FUNCDETAIL_PROCEDURE)
 	{
-		/* Nothing special to do for these cases. */
+		/* 这些情形无需特殊处理。      */
 	}
 	else if (fdresult == FUNCDETAIL_AGGREGATE)
 	{
 		/*
-		 * It's an aggregate; fetch needed info from the pg_aggregate entry.
+		 * 这是聚合；从 pg_aggregate 条目获取所需信息。      
 		 */
 		HeapTuple	tup;
 		Form_pg_aggregate classForm;
 		int			catDirectArgs;
 
 		tup = SearchSysCache1(AGGFNOID, ObjectIdGetDatum(funcid));
-		if (!HeapTupleIsValid(tup)) /* should not happen */
+		if (!HeapTupleIsValid(tup)) /* 不应发生      */
 			elog(ERROR, "cache lookup failed for aggregate %u", funcid);
 		classForm = (Form_pg_aggregate) GETSTRUCT(tup);
 		aggkind = classForm->aggkind;
 		catDirectArgs = classForm->aggnumdirectargs;
 		ReleaseSysCache(tup);
 
-		/* Now check various disallowed cases. */
+		/* 现在检查各种禁止情形。   */
 		if (AGGKIND_IS_ORDERED_SET(aggkind))
 		{
 			int			numAggregatedArgs;
@@ -390,19 +390,19 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 						 errmsg("OVER is not supported for ordered-set aggregate %s",
 								NameListToString(funcname)),
 						 parser_errposition(pstate, location)));
-			/* gram.y rejects DISTINCT + WITHIN GROUP */
+			/* gram.y 拒绝 DISTINCT + WITHIN GROUP  */
 			Assert(!agg_distinct);
-			/* gram.y rejects VARIADIC + WITHIN GROUP */
+			/* gram.y 拒绝 VARIADIC + WITHIN GROUP  */
 			Assert(!func_variadic);
 
 			/*
-			 * Since func_get_detail was working with an undifferentiated list
-			 * of arguments, it might have selected an aggregate that doesn't
-			 * really match because it requires a different division of direct
-			 * and aggregated arguments.  Check that the number of direct
-			 * arguments is actually OK; if not, throw an "undefined function"
-			 * error, similarly to the case where a misplaced ORDER BY is used
-			 * in a regular aggregate call.
+			 * 由于 func_get_detail 处理的是未区分的参数列表， 
+			 * 它可能选出并不真正匹配的聚合，因为它需要  
+			 * 直接与聚合参数有不同的划分。需检查直接参   
+			 * 数的个数是否合适；若否，则抛出"未定义函
+			 * 数"错误，与在普通聚合调用中误用 ORDER BY 的    
+			 * 情形类似。                                                
+			 *                             
 			 */
 			numAggregatedArgs = list_length(agg_order);
 			numDirectArgs = nargs - numAggregatedArgs;
@@ -410,7 +410,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 
 			if (!OidIsValid(vatype))
 			{
-				/* Test is simple if aggregate isn't variadic */
+				/* 若聚合非 variadic，测试很简单    */
 				if (numDirectArgs != catDirectArgs)
 					ereport(ERROR,
 							(errcode(ERRCODE_UNDEFINED_FUNCTION),
@@ -428,11 +428,11 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 			else
 			{
 				/*
-				 * If it's variadic, we have two cases depending on whether
-				 * the agg was "... ORDER BY VARIADIC" or "..., VARIADIC ORDER
-				 * BY VARIADIC".  It's the latter if catDirectArgs equals
-				 * pronargs; to save a catalog lookup, we reverse-engineer
-				 * pronargs from the info we got from func_get_detail.
+				 * 若为 variadic，有两种情形，视聚合是        
+				 * "... ORDER BY VARIADIC" 还是 "..., VARIADIC              
+				 * ORDER BY VARIADIC"。若 catDirectArgs 等于         
+				 * pronargs 则是后者；为省一次目录查找，从 
+				 * func_get_detail 信息反推 pronargs。           
 				 */
 				int			pronargs;
 
@@ -441,7 +441,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 					pronargs -= nvargs - 1;
 				if (catDirectArgs < pronargs)
 				{
-					/* VARIADIC isn't part of direct args, so still easy */
+					/* VARIADIC 不属于直接参数，故仍简单     */
 					if (numDirectArgs != catDirectArgs)
 						ereport(ERROR,
 								(errcode(ERRCODE_UNDEFINED_FUNCTION),
@@ -459,13 +459,13 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 				else
 				{
 					/*
-					 * Both direct and aggregated args were declared variadic.
-					 * For a standard ordered-set aggregate, it's okay as long
-					 * as there aren't too few direct args.  For a
-					 * hypothetical-set aggregate, we assume that the
-					 * hypothetical arguments are those that matched the
-					 * variadic parameter; there must be just as many of them
-					 * as there are aggregated arguments.
+					 * 直接参数与聚合参数都声明为 variadic。    
+					 * 对标准有序集聚合而言，只要                
+					 * 直接参数不致过少即可。          
+					 * 对假想集聚合，假定假设参数就是 
+					 * 匹配 variadic 参数；其个数须正好等于
+					 * 聚合参数的个数。                              
+					 *                                   
 					 */
 					if (aggkind == AGGKIND_HYPOTHETICAL)
 					{
@@ -500,14 +500,14 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 				}
 			}
 
-			/* Check type matching of hypothetical arguments */
+			/* 检查假设参数的类型匹配             */
 			if (aggkind == AGGKIND_HYPOTHETICAL)
 				unify_hypothetical_args(pstate, fargs, numAggregatedArgs,
 										actual_arg_types, declared_arg_types);
 		}
 		else
 		{
-			/* Normal aggregate, so it can't have WITHIN GROUP */
+			/* 普通聚合，因此不能有 WITHIN GROUP     */
 			if (agg_within_group)
 				ereport(ERROR,
 						(errcode(ERRCODE_WRONG_OBJECT_TYPE),
@@ -519,7 +519,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 	else if (fdresult == FUNCDETAIL_WINDOWFUNC)
 	{
 		/*
-		 * True window functions must be called with a window definition.
+		 * 真正的窗口函数必须随窗口定义一起调用。     
 		 */
 		if (!over)
 			ereport(ERROR,
@@ -527,7 +527,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 					 errmsg("window function %s requires an OVER clause",
 							NameListToString(funcname)),
 					 parser_errposition(pstate, location)));
-		/* And, per spec, WITHIN GROUP isn't allowed */
+		/* 而且按规范 WITHIN GROUP 不被允许 */
 		if (agg_within_group)
 			ereport(ERROR,
 					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
@@ -538,8 +538,8 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 	else if (fdresult == FUNCDETAIL_COERCION)
 	{
 		/*
-		 * We interpreted it as a type coercion. coerce_type can handle these
-		 * cases, so why duplicate code...
+		 * 我们将其解释为类型转换。coerce_type 能处理这类   
+		 * 情形，何必重复代码。 
 		 */
 		return coerce_type(pstate, linitial(fargs),
 						   actual_arg_types[0], rettype, -1,
@@ -548,11 +548,11 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 	else if (fdresult == FUNCDETAIL_MULTIPLE)
 	{
 		/*
-		 * We found multiple possible functional matches.  If we are dealing
-		 * with attribute notation, return failure, letting the caller report
-		 * "no such column" (we already determined there wasn't one).  If
-		 * dealing with function notation, report "ambiguous function",
-		 * regardless of whether there's also a column by this name.
+		 * 我们找到了多个可能的函数匹配。若处理的是属  
+		 * 性记法，则返回失败，让调用者报告"无此列"       
+		 * （我们已确定没有这样的列）。若处理的是函  
+		 * 数记法，则报告"函数有歧义"，无论是否还有 
+		 * 同名的列。                                          
 		 */
 		if (is_column)
 			return NULL;
@@ -579,15 +579,15 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 	else
 	{
 		/*
-		 * Not found as a function.  If we are dealing with attribute
-		 * notation, return failure, letting the caller report "no such
-		 * column" (we already determined there wasn't one).
+		 * 未找到函数。若是属性记法则返回失败，    
+		 * 让调用者报告"无此列"（已确定没有这样       
+		 * 的列）。                                     
 		 */
 		if (is_column)
 			return NULL;
 
 		/*
-		 * Check for column projection interpretation, since we didn't before.
+		 * 由于之前没检查过，现在检查列投影解释。          
 		 */
 		if (could_be_projection)
 		{
@@ -600,12 +600,12 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 		}
 
 		/*
-		 * No function, and no column either.  Since we're dealing with
-		 * function notation, report "function does not exist".
+		 * 既无函数也无列。既然处理的是函数记法，   
+		 * 报告"函数不存在"。                          
 		 */
 		if (list_length(agg_order) > 1 && !agg_within_group)
 		{
-			/* It's agg(x, ORDER BY y,z) ... perhaps misplaced ORDER BY */
+			/* 这是 agg(x, ORDER BY y,z)，ORDER BY 或许错位      */
 			ereport(ERROR,
 					(errcode(ERRCODE_UNDEFINED_FUNCTION),
 					 errmsg("function %s does not exist",
@@ -637,18 +637,18 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 	}
 
 	/*
-	 * If there are default arguments, we have to include their types in
-	 * actual_arg_types for the purpose of checking generic type consistency.
-	 * However, we do NOT put them into the generated parse node, because
-	 * their actual values might change before the query gets run.  The
-	 * planner has to insert the up-to-date values at plan time.
+	 * 若有默认参数，为检查通用类型一致性，须把它  
+	 * 们的类型计入 actual_arg_types。但我们绝不把它们        
+	 * 放进生成的解析节点，因为在查询运行之前其实际
+	 * 值可能改变。规划器必须在计划时插入最新值。 
+	 *                                                          
 	 */
 	nargsplusdefs = nargs;
 	foreach(l, argdefaults)
 	{
 		Node	   *expr = (Node *) lfirst(l);
 
-		/* probably shouldn't happen ... */
+		/* 或许不该发生……      */
 		if (nargsplusdefs >= FUNC_MAX_ARGS)
 			ereport(ERROR,
 					(errcode(ERRCODE_TOO_MANY_ARGUMENTS),
@@ -662,9 +662,9 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 	}
 
 	/*
-	 * enforce consistency with polymorphic argument and return types,
-	 * possibly adjusting return type or declared_arg_types (which will be
-	 * used as the cast destination by make_fn_arguments)
+	 * 强制与多态参数及返回类型保持一致，            
+	 * 可能调整返回类型或 declared_arg_types（后者将被      
+	 * make_fn_arguments 用作转换目标）           
 	 */
 	rettype = enforce_generic_type_consistency(actual_arg_types,
 											   declared_arg_types,
@@ -672,13 +672,13 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 											   rettype,
 											   false);
 
-	/* perform the necessary typecasting of arguments */
+	/* 对参数执行必要的类型转换           */
 	make_fn_arguments(pstate, fargs, actual_arg_types, declared_arg_types);
 
 	/*
-	 * If the function isn't actually variadic, forget any VARIADIC decoration
-	 * on the call.  (Perhaps we should throw an error instead, but
-	 * historically we've allowed people to write that.)
+	 * 若函数实际上并非 variadic，则忽略调用上的任何        
+	 * VARIADIC 修饰。（或许应改为抛错，但历来      
+	 * 我们都允许这么写。）                   
 	 */
 	if (!OidIsValid(vatype))
 	{
@@ -687,8 +687,8 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 	}
 
 	/*
-	 * If it's a variadic function call, transform the last nvargs arguments
-	 * into an array --- unless it's an "any" variadic.
+	 * 若是 variadic 函数调用，则把最后 nvargs 个参数         
+	 * 转换成数组 —— 除非是"any"变参。  
 	 */
 	if (nvargs > 0 && vatype != ANYOID)
 	{
@@ -701,7 +701,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 		fargs = list_truncate(fargs, non_var_args);
 
 		newa->elements = vargs;
-		/* assume all the variadic arguments were coerced to the same type */
+		/* 假定所有 variadic 参数都已被转换为同一类型      */
 		newa->element_typeid = exprType((Node *) linitial(vargs));
 		newa->array_typeid = get_array_type(newa->element_typeid);
 		if (!OidIsValid(newa->array_typeid))
@@ -710,21 +710,21 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 					 errmsg("could not find array type for data type %s",
 							format_type_be(newa->element_typeid)),
 					 parser_errposition(pstate, exprLocation((Node *) vargs))));
-		/* array_collid will be set by parse_collate.c */
+		/* array_collid 将由 parse_collate.c 设置  */
 		newa->multidims = false;
 		newa->location = exprLocation((Node *) vargs);
 
 		fargs = lappend(fargs, newa);
 
-		/* We could not have had VARIADIC marking before ... */
+		/* 此前不可能已有 VARIADIC 标记……       */
 		Assert(!func_variadic);
-		/* ... but now, it's a VARIADIC call */
+		/* ……但现在是 VARIADIC 调用*/
 		func_variadic = true;
 	}
 
 	/*
-	 * If an "any" variadic is called with explicit VARIADIC marking, insist
-	 * that the variadic parameter be of some array type.
+	 * 若"any"变参函数带着显式 VARIADIC 标记被调用，         
+	 * 则坚持变参参数必须是数组类型。     
 	 */
 	if (nargs > 0 && vatype == ANYOID && func_variadic)
 	{
@@ -738,11 +738,11 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 										exprLocation((Node *) llast(fargs)))));
 	}
 
-	/* if it returns a set, check that's OK */
+	/* 若返回集合，检查是否允许 */
 	if (retset)
 		check_srf_call_placement(pstate, last_srf, location);
 
-	/* build the appropriate output structure */
+	/* 构建适当的输出结构            */
 	if (fdresult == FUNCDETAIL_NORMAL || fdresult == FUNCDETAIL_PROCEDURE)
 	{
 		FuncExpr   *funcexpr = makeNode(FuncExpr);
@@ -752,7 +752,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 		funcexpr->funcretset = retset;
 		funcexpr->funcvariadic = func_variadic;
 		funcexpr->funcformat = funcformat;
-		/* funccollid and inputcollid will be set by parse_collate.c */
+		/* funccollid 与 inputcollid 将由 parse_collate.c 设置  */
 		funcexpr->args = fargs;
 		funcexpr->location = location;
 
@@ -760,30 +760,30 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 	}
 	else if (fdresult == FUNCDETAIL_AGGREGATE && !over)
 	{
-		/* aggregate function */
+		/* 聚合函数       */
 		Aggref	   *aggref = makeNode(Aggref);
 
 		aggref->aggfnoid = funcid;
 		aggref->aggtype = rettype;
-		/* aggcollid and inputcollid will be set by parse_collate.c */
-		aggref->aggtranstype = InvalidOid;	/* will be set by planner */
-		/* aggargtypes will be set by transformAggregateCall */
-		/* aggdirectargs and args will be set by transformAggregateCall */
-		/* aggorder and aggdistinct will be set by transformAggregateCall */
+		/* aggcollid 与 inputcollid 将由 parse_collate.c 设置  */
+		aggref->aggtranstype = InvalidOid;	/* 将由规划器设置  */
+		/* aggargtypes 将由 transformAggregateCall 设置  */
+		/* aggdirectargs 与 args 将由 transformAggregateCall 设置  */
+		/* aggorder 与 aggdistinct 将由 transformAggregateCall 设置  */
 		aggref->aggfilter = agg_filter;
 		aggref->aggstar = agg_star;
 		aggref->aggvariadic = func_variadic;
 		aggref->aggkind = aggkind;
 		aggref->aggpresorted = false;
-		/* agglevelsup will be set by transformAggregateCall */
-		aggref->aggsplit = AGGSPLIT_SIMPLE; /* planner might change this */
-		aggref->aggno = -1;		/* planner will set aggno and aggtransno */
+		/* agglevelsup 将由 transformAggregateCall 设置  */
+		aggref->aggsplit = AGGSPLIT_SIMPLE; /* 规划器可能改变它  */
+		aggref->aggno = -1;		/* 规划器将设置 aggno/aggtransno   */
 		aggref->aggtransno = -1;
 		aggref->location = location;
 
 		/*
-		 * Reject attempt to call a parameterless aggregate without (*)
-		 * syntax.  This is mere pedantry but some folks insisted ...
+		 * 拒绝不带 (*) 语法就调用无参数聚合的企图。 
+		 * 这只是咬文嚼字，但有些人坚持要这样…… 
 		 */
 		if (fargs == NIL && !agg_star && !agg_within_group)
 			ereport(ERROR,
@@ -799,13 +799,13 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 					 parser_errposition(pstate, location)));
 
 		/*
-		 * We might want to support named arguments later, but disallow it for
-		 * now.  We'd need to figure out the parsed representation (should the
-		 * NamedArgExprs go above or below the TargetEntry nodes?) and then
-		 * teach the planner to reorder the list properly.  Or maybe we could
-		 * make transformAggregateCall do that?  However, if you'd also like
-		 * to allow default arguments for aggregates, we'd need to do it in
-		 * planning to avoid semantic problems.
+		 * 或许以后会想支持命名参数，但目前不允许。       
+		 * 我们需要确定解析表示（NamedArgExprs 应放在           
+		 * TargetEntry 节点之上还是之下？）再教规划          
+		 * 器正确重排该列表。或者也许可以让                  
+		 * transformAggregateCall 来做？不过，若还想允许         
+		 * 聚合使用默认参数，就需要在规划阶段做，以    
+		 * 避免语义问题。               
 		 */
 		if (argnames != NIL)
 			ereport(ERROR,
@@ -813,31 +813,31 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 					 errmsg("aggregates cannot use named arguments"),
 					 parser_errposition(pstate, location)));
 
-		/* parse_agg.c does additional aggregate-specific processing */
+		/* parse_agg.c 做额外的聚合特定处理                */
 		transformAggregateCall(pstate, aggref, fargs, agg_order, agg_distinct);
 
 		retval = (Node *) aggref;
 	}
 	else
 	{
-		/* window function */
+		/* 窗口函数    */
 		WindowFunc *wfunc = makeNode(WindowFunc);
 
-		Assert(over);			/* lack of this was checked above */
-		Assert(!agg_within_group);	/* also checked above */
+		Assert(over);			/* 上文已检查过此项缺失 */
+		Assert(!agg_within_group);	/* 上文已检查    */
 
 		wfunc->winfnoid = funcid;
 		wfunc->wintype = rettype;
-		/* wincollid and inputcollid will be set by parse_collate.c */
+		/* wincollid 与 inputcollid 将由 parse_collate.c 设置  */
 		wfunc->args = fargs;
-		/* winref will be set by transformWindowFuncCall */
+		/* winref 将由 transformWindowFuncCall 设置  */
 		wfunc->winstar = agg_star;
 		wfunc->winagg = (fdresult == FUNCDETAIL_AGGREGATE);
 		wfunc->aggfilter = agg_filter;
 		wfunc->location = location;
 
 		/*
-		 * agg_star is allowed for aggregate functions but distinct isn't
+		 * agg_star 允许用于聚合，distinct 则不行              
 		 */
 		if (agg_distinct)
 			ereport(ERROR,
@@ -846,8 +846,8 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 					 parser_errposition(pstate, location)));
 
 		/*
-		 * Reject attempt to call a parameterless aggregate without (*)
-		 * syntax.  This is mere pedantry but some folks insisted ...
+		 * 拒绝不带 (*) 语法就调用无参数聚合的企图。 
+		 * 这只是咬文嚼字，但有些人坚持要这样…… 
 		 */
 		if (wfunc->winagg && fargs == NIL && !agg_star)
 			ereport(ERROR,
@@ -857,7 +857,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 					 parser_errposition(pstate, location)));
 
 		/*
-		 * ordered aggs not allowed in windows yet
+		 * 窗口中尚不允许有序聚合      
 		 */
 		if (agg_order != NIL)
 			ereport(ERROR,
@@ -866,7 +866,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 					 parser_errposition(pstate, location)));
 
 		/*
-		 * FILTER is not yet supported with true window functions
+		 * 真正的窗口函数尚不支持 FILTER              
 		 */
 		if (!wfunc->winagg && agg_filter)
 			ereport(ERROR,
@@ -875,7 +875,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 					 parser_errposition(pstate, location)));
 
 		/*
-		 * Window functions can't either take or return sets
+		 * 窗口函数既不能接受也不能返回集合 
 		 */
 		if (pstate->p_last_srf != last_srf)
 			ereport(ERROR,
@@ -891,13 +891,13 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 					 errmsg("window functions cannot return sets"),
 					 parser_errposition(pstate, location)));
 
-		/* parse_agg.c does additional window-func-specific processing */
+		/* parse_agg.c 做额外的窗口函数特定处理            */
 		transformWindowFuncCall(pstate, wfunc, over);
 
 		retval = (Node *) wfunc;
 	}
 
-	/* if it returns a set, remember it for error checks at higher levels */
+	/* 若返回集合，记下它供上层错误检查                   */
 	if (retset)
 		pstate->p_last_srf = retval;
 
@@ -907,22 +907,22 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 
 /* func_match_argtypes()
  *
- * Given a list of candidate functions (having the right name and number
- * of arguments) and an array of input datatype OIDs, produce a shortlist of
- * those candidates that actually accept the input datatypes (either exactly
- * or by coercion), and return the number of such candidates.
+ * 给定一份候选函数列表（名字与参数个数都对）      
+ * 和一个输入数据类型 OID 数组，产出一个实际接           
+ * 受这些输入类型的（或经强制转换后接受的）候          
+ * 选函数短名单，并返回其数量。                
  *
- * Note that can_coerce_type will assume that UNKNOWN inputs are coercible to
- * anything, so candidates will not be eliminated on that basis.
+ * 注意 can_coerce_type 会假定 UNKNOWN 输入可转换                  
+ * 为任何类型，因此不会据此排除候选。          
  *
- * NB: okay to modify input list structure, as long as we find at least
- * one match.  If no match at all, the list must remain unmodified.
+ * 注意：只要找到至少一个匹配，修改输入列表结     
+ * 构没问题。若完全无匹配，列表须保持原样。    
  */
 int
 func_match_argtypes(int nargs,
 					Oid *input_typeids,
 					FuncCandidateList raw_candidates,
-					FuncCandidateList *candidates)	/* return value */
+					FuncCandidateList *candidates)	/* 返回值    */
 {
 	FuncCandidateList current_candidate;
 	FuncCandidateList next_candidate;
@@ -949,58 +949,58 @@ func_match_argtypes(int nargs,
 
 
 /* func_select_candidate()
- *		Given the input argtype array and more than one candidate
- *		for the function, attempt to resolve the conflict.
+ *		给定输入参数类型数组与多个函数候选，   
+ *		尝试解决冲突。                             
  *
- * Returns the selected candidate if the conflict can be resolved,
- * otherwise returns NULL.
+ * 若冲突可以解决，则返回选出的候选，            
+ * 否则返回 NULL。   
  *
- * Note that the caller has already determined that there is no candidate
- * exactly matching the input argtypes, and has pruned away any "candidates"
- * that aren't actually coercion-compatible with the input types.
+ * 注意调用者已确定没有候选与输入参数类型完全       
+ * 匹配，并已剪除任何实际上与输入类型不可强制          
+ * 转换兼容的"候选"。                                    
  *
- * This is also used for resolving ambiguous operator references.  Formerly
- * parse_oper.c had its own, essentially duplicate code for the purpose.
- * The following comments (formerly in parse_oper.c) are kept to record some
- * of the history of these heuristics.
+ * 它也用于消解有歧义的操作符引用。以前                  
+ * parse_oper.c 为此目的有一份本质重复的代码。           
+ * 下面的注释（原在 parse_oper.c 中）被保留下来，           
+ * 记录这些启发式的历史。  
  *
  * OLD COMMENTS:
  *
- * This routine is new code, replacing binary_oper_select_candidate()
- * which dates from v4.2/v1.0.x days. It tries very hard to match up
- * operators with types, including allowing type coercions if necessary.
- * The important thing is that the code do as much as possible,
- * while _never_ doing the wrong thing, where "the wrong thing" would
- * be returning an operator when other better choices are available,
- * or returning an operator which is a non-intuitive possibility.
+ * 本例程是新代码，取代了源自 v4.2/v1.0.x 时代的     
+ * binary_oper_select_candidate()。它竭尽全力去匹           
+ * 配操作符与类型，必要时还允许类型强制转换。      
+ * 重要的是代码要尽可能多做，                     
+ * 但绝不做错事；所谓"错事"指的是在存在更佳       
+ * 选择时仍返回某操作符，或返回非直观可能性的  
+ * 操作符。                                                  
  * - thomas 1998-05-21
  *
- * The comments below came from binary_oper_select_candidate(), and
- * illustrate the issues and choices which are possible:
+ * 下面的注释来自 binary_oper_select_candidate()，         
+ * 展示了可能出现的问题与选择：           
  * - thomas 1998-05-20
  *
- * current wisdom holds that the default operator should be one in which
- * both operands have the same type (there will only be one such
- * operator)
+ * 当时的普遍观点是：默认操作符应当是两个操作      
+ * 数同类型的操作符（这样的操作符只有一个） 
+ *          
  *
- * 7.27.93 - I have decided not to do this; it's too hard to justify, and
- * it's easy enough to typecast explicitly - avi
- * [the rest of this routine was commented out since then - ay]
+ * 7.27.93 —— 我决定不这样做；太难自圆其说，          
+ * 显式类型转换足够容易 —— avi    
+ * [本例程其余部分自那时起已注释掉 —— ay]   
  *
- * 6/23/95 - I don't complete agree with avi. In particular, casting
- * floats is a pain for users. Whatever the rationale behind not doing
- * this is, I need the following special case to work.
+ * 6/23/95 —— 我不完全同意 avi。尤其对用户来说， 
+ * 浮点转换是件麻烦事。不管不这样做的理由是什    
+ * 么，我需要以下特例能够工作。         
  *
- * In the WHERE clause of a query, if a float is specified without
- * quotes, we treat it as float8. I added the float48* operators so
- * that we can operate on float4 and float8. But now we have more than
- * one matching operator if the right arg is unknown (eg. float
- * specified with quotes). This break some stuff in the regression
- * test where there are floats in quotes not properly casted. Below is
- * the solution. In addition to requiring the operator operates on the
- * same type for both operands [as in the code Avi originally
- * commented out], we also require that the operators be equivalent in
- * some sense. (see equivalentOpersAfterPromotion for details.)
+ * 在查询的 WHERE 子句中，若浮点数没加引号，我  
+ * 们将其当作 float8。我加入了 float48* 操作符，     
+ * 以便能对 float4 与 float8 运算。但现在若右参数      
+ * 未知（如带引号的浮点数），匹配操作符就有
+ * 不止一个。这破坏了回归测试中一些内容，那里
+ * 有未正确转换的带引号浮点数。解决办法如下。    
+ * 除了要求操作符对两个操作数用同一类型［如同    
+ * Avi 最初注释掉的代码］，还要求它们在某种
+ * 意义上等价（详见 equivalentOpersAfterPromotion）。       
+ *                                                             
  * - ay 6/95
  */
 FuncCandidateList
@@ -1025,7 +1025,7 @@ func_select_candidate(int nargs,
 	bool		slot_has_preferred_type[FUNC_MAX_ARGS];
 	bool		resolved_unknowns;
 
-	/* protect local fixed-size arrays */
+	/* 保护本地定长数组        */
 	if (nargs > FUNC_MAX_ARGS)
 		ereport(ERROR,
 				(errcode(ERRCODE_TOO_MANY_ARGUMENTS),
@@ -1035,17 +1035,17 @@ func_select_candidate(int nargs,
 							   FUNC_MAX_ARGS)));
 
 	/*
-	 * If any input types are domains, reduce them to their base types. This
-	 * ensures that we will consider functions on the base type to be "exact
-	 * matches" in the exact-match heuristic; it also makes it possible to do
-	 * something useful with the type-category heuristics. Note that this
-	 * makes it difficult, but not impossible, to use functions declared to
-	 * take a domain as an input datatype.  Such a function will be selected
-	 * over the base-type function only if it is an exact match at all
-	 * argument positions, and so was already chosen by our caller.
+	 * 若任何输入类型是域，则将其约减为基类型。这      
+	 * 保证精确匹配启发式中基类型上的函数算作"精确     
+	 * 匹配"；也使类型类别启发式能发挥作用。注意         
+	 * 这使得使用声明为接受域的函数变得困难，但并   
+	 * 非不可能。这样的函数只有在所有参数位置都是     
+	 * 精确匹配时才胜过基类型函数，调用者早已            
+	 * 把它选了出来。                                          
+	 *                                                             
 	 *
-	 * While we're at it, count the number of unknown-type arguments for use
-	 * later.
+	 * 趁此机会，顺便统计未知类型参数个数备用            
+	 *       
 	 */
 	nunknowns = 0;
 	for (i = 0; i < nargs; i++)
@@ -1054,15 +1054,15 @@ func_select_candidate(int nargs,
 			input_base_typeids[i] = getBaseType(input_typeids[i]);
 		else
 		{
-			/* no need to call getBaseType on UNKNOWNOID */
+			/* 对 UNKNOWNOID 无需调用 getBaseType   */
 			input_base_typeids[i] = UNKNOWNOID;
 			nunknowns++;
 		}
 	}
 
 	/*
-	 * Run through all candidates and keep those with the most matches on
-	 * exact types. Keep all candidates if none match.
+	 * 遍历所有候选，保留精确类型匹配数最多的那些。
+	 * 若无匹配则保留全部候选。           
 	 */
 	ncandidates = 0;
 	nbestMatch = 0;
@@ -1080,7 +1080,7 @@ func_select_candidate(int nargs,
 				nmatch++;
 		}
 
-		/* take this one as the best choice so far? */
+		/* 把它当作迄今最佳的选择？     */
 		if ((nmatch > nbestMatch) || (last_candidate == NULL))
 		{
 			nbestMatch = nmatch;
@@ -1088,30 +1088,30 @@ func_select_candidate(int nargs,
 			last_candidate = current_candidate;
 			ncandidates = 1;
 		}
-		/* no worse than the last choice, so keep this one too? */
+		/* 不比上一个选择差，所以也保留这个？  */
 		else if (nmatch == nbestMatch)
 		{
 			last_candidate->next = current_candidate;
 			last_candidate = current_candidate;
 			ncandidates++;
 		}
-		/* otherwise, don't bother keeping this one... */
+		/* 否则就不必保留这个……           */
 	}
 
-	if (last_candidate)			/* terminate rebuilt list */
+	if (last_candidate)			/* 结束重建列表     */
 		last_candidate->next = NULL;
 
 	if (ncandidates == 1)
 		return candidates;
 
 	/*
-	 * Still too many candidates? Now look for candidates which have either
-	 * exact matches or preferred types at the args that will require
-	 * coercion. (Restriction added in 7.4: preferred type must be of same
-	 * category as input type; give no preference to cross-category
-	 * conversions to preferred types.)  Keep all candidates if none match.
+	 * 候选仍然过多？现在寻找那些在需要强制转换的     
+	 * 参数上有精确或首选类型匹配的候选。（7.4     
+	 * 新增限制：首选类型必须与输入类型同类；对跨类 
+	 * 别转换为首选类型不优先。）若无匹配则保留
+	 * 全部候选。                                                     
 	 */
-	for (i = 0; i < nargs; i++) /* avoid multiple lookups */
+	for (i = 0; i < nargs; i++) /* 避免多次查找     */
 		slot_category[i] = TypeCategory(input_base_typeids[i]);
 	ncandidates = 0;
 	nbestMatch = 0;
@@ -1147,39 +1147,39 @@ func_select_candidate(int nargs,
 		}
 	}
 
-	if (last_candidate)			/* terminate rebuilt list */
+	if (last_candidate)			/* 结束重建列表     */
 		last_candidate->next = NULL;
 
 	if (ncandidates == 1)
 		return candidates;
 
 	/*
-	 * Still too many candidates?  Try assigning types for the unknown inputs.
+	 * 候选仍然过多？尝试为未知输入指定类型。              
 	 *
-	 * If there are no unknown inputs, we have no more heuristics that apply,
-	 * and must fail.
+	 * 若无未知输入，则已无适用的启发式，                   
+	 * 必须失败  
 	 */
 	if (nunknowns == 0)
-		return NULL;			/* failed to select a best candidate */
+		return NULL;			/* 未能选出最佳候选          */
 
 	/*
-	 * The next step examines each unknown argument position to see if we can
-	 * determine a "type category" for it.  If any candidate has an input
-	 * datatype of STRING category, use STRING category (this bias towards
-	 * STRING is appropriate since unknown-type literals look like strings).
-	 * Otherwise, if all the candidates agree on the type category of this
-	 * argument position, use that category.  Otherwise, fail because we
-	 * cannot determine a category.
+	 * 下一步检查每个未知参数位置，看能否确定它的       
+	 * "类型类别"。若任何候选有 STRING 类别的输入        
+	 * 数据类型，则使用 STRING 类别（偏向 STRING 是         
+	 * 合适的，因为未知类型字面量看起来像字符串）。   
+	 * 否则，若所有候选都认同该参数位置的类别，       
+	 * 就使用该类别。否则失败，因为无法确定类别。  
+	 *                             
 	 *
-	 * If we are able to determine a type category, also notice whether any of
-	 * the candidates takes a preferred datatype within the category.
+	 * 若能确定类别，还要留意是否有候选在该类别           
+	 * 中接受首选数据类型。                                
 	 *
-	 * Having completed this examination, remove candidates that accept the
-	 * wrong category at any unknown position.  Also, if at least one
-	 * candidate accepted a preferred type at a position, remove candidates
-	 * that accept non-preferred types.  If just one candidate remains, return
-	 * that one.  However, if this rule turns out to reject all candidates,
-	 * keep them all instead.
+	 * 检查完毕后，删除在任何未知位置接受错误类别     
+	 * 的候选。若至少有一个候选在某位置接受        
+	 * 了首选类型，则删除接受非首选类型的候选。若     
+	 * 只剩一个候选，则返回它。但如果这条规则拒绝        
+	 * 了所有候选，则改为保留全部。                          
+	 *                       
 	 */
 	resolved_unknowns = false;
 	for (i = 0; i < nargs; i++)
@@ -1188,7 +1188,7 @@ func_select_candidate(int nargs,
 
 		if (input_base_typeids[i] != UNKNOWNOID)
 			continue;
-		resolved_unknowns = true;	/* assume we can do it */
+		resolved_unknowns = true;	/* 假定能做到     */
 		slot_category[i] = TYPCATEGORY_INVALID;
 		slot_has_preferred_type[i] = false;
 		have_conflict = false;
@@ -1203,28 +1203,28 @@ func_select_candidate(int nargs,
 										&current_is_preferred);
 			if (slot_category[i] == TYPCATEGORY_INVALID)
 			{
-				/* first candidate */
+				/* 首个候选    */
 				slot_category[i] = current_category;
 				slot_has_preferred_type[i] = current_is_preferred;
 			}
 			else if (current_category == slot_category[i])
 			{
-				/* more candidates in same category */
+				/* 同类别中更多候选         */
 				slot_has_preferred_type[i] |= current_is_preferred;
 			}
 			else
 			{
-				/* category conflict! */
+				/* 类别冲突！    */
 				if (current_category == TYPCATEGORY_STRING)
 				{
-					/* STRING always wins if available */
+					/* STRING 可用时总胜出       */
 					slot_category[i] = current_category;
 					slot_has_preferred_type[i] = current_is_preferred;
 				}
 				else
 				{
 					/*
-					 * Remember conflict, but keep going (might find STRING)
+					 * 记住冲突，但继续（可能找到 STRING）    
 					 */
 					have_conflict = true;
 				}
@@ -1232,7 +1232,7 @@ func_select_candidate(int nargs,
 		}
 		if (have_conflict && slot_category[i] != TYPCATEGORY_STRING)
 		{
-			/* Failed to resolve category conflict at this position */
+			/* 未能在此位置解决类别冲突                 */
 			resolved_unknowns = false;
 			break;
 		}
@@ -1240,7 +1240,7 @@ func_select_candidate(int nargs,
 
 	if (resolved_unknowns)
 	{
-		/* Strip non-matching candidates */
+		/* 剔除不匹配的候选      */
 		ncandidates = 0;
 		first_candidate = candidates;
 		last_candidate = NULL;
@@ -1272,13 +1272,13 @@ func_select_candidate(int nargs,
 			}
 			if (keepit)
 			{
-				/* keep this candidate */
+				/* 保留此候选     */
 				last_candidate = current_candidate;
 				ncandidates++;
 			}
 			else
 			{
-				/* forget this candidate */
+				/* 丢弃此候选       */
 				if (last_candidate)
 					last_candidate->next = current_candidate->next;
 				else
@@ -1286,11 +1286,11 @@ func_select_candidate(int nargs,
 			}
 		}
 
-		/* if we found any matches, restrict our attention to those */
+		/* 若已找到任何匹配，则只关注这些匹配      */
 		if (last_candidate)
 		{
 			candidates = first_candidate;
-			/* terminate rebuilt list */
+			/* 结束重建列表     */
 			last_candidate->next = NULL;
 		}
 
@@ -1299,14 +1299,14 @@ func_select_candidate(int nargs,
 	}
 
 	/*
-	 * Last gasp: if there are both known- and unknown-type inputs, and all
-	 * the known types are the same, assume the unknown inputs are also that
-	 * type, and see if that gives us a unique match.  If so, use that match.
+	 * 最后手段：若输入同时存在已知与未知类型，        
+	 * 且所有已知类型相同，则假定未知输入也为该类型，
+	 * 再看能否据此得到唯一匹配；若能，则采用该匹配。 
 	 *
-	 * NOTE: for a binary operator with one unknown and one non-unknown input,
-	 * we already tried this heuristic in binary_oper_exact().  However, that
-	 * code only finds exact matches, whereas here we will handle matches that
-	 * involve coercion, polymorphic type resolution, etc.
+	 * 注：对于一端未知、另一端非未知的二元操作符，     
+	 * binary_oper_exact() 中已试过此启发式；但该代码           
+	 * 只找精确匹配，而这里还会处理涉及强制转换、        
+	 * 多态类型解析等情况。                     
 	 */
 	if (nunknowns < nargs)
 	{
@@ -1316,11 +1316,11 @@ func_select_candidate(int nargs,
 		{
 			if (input_base_typeids[i] == UNKNOWNOID)
 				continue;
-			if (known_type == UNKNOWNOID)	/* first known arg? */
+			if (known_type == UNKNOWNOID)	/* 首已知参数  */
 				known_type = input_base_typeids[i];
 			else if (known_type != input_base_typeids[i])
 			{
-				/* oops, not all match */
+				/* 并非全部匹配  */
 				known_type = UNKNOWNOID;
 				break;
 			}
@@ -1328,7 +1328,7 @@ func_select_candidate(int nargs,
 
 		if (known_type != UNKNOWNOID)
 		{
-			/* okay, just one known type, apply the heuristic */
+			/* 仅一种已知类型，应用该启发式     */
 			for (i = 0; i < nargs; i++)
 				input_base_typeids[i] = known_type;
 			ncandidates = 0;
@@ -1342,53 +1342,53 @@ func_select_candidate(int nargs,
 									COERCION_IMPLICIT))
 				{
 					if (++ncandidates > 1)
-						break;	/* not unique, give up */
+						break;	/* 不唯一，放弃  */
 					last_candidate = current_candidate;
 				}
 			}
 			if (ncandidates == 1)
 			{
-				/* successfully identified a unique match */
+				/* 成功找到唯一匹配               */
 				last_candidate->next = NULL;
 				return last_candidate;
 			}
 		}
 	}
 
-	return NULL;				/* failed to select a best candidate */
+	return NULL;				/* 未能选出最佳候选          */
 }								/* func_select_candidate() */
 
 
 /* func_get_detail()
  *
- * Find the named function in the system catalogs.
+ * 在系统目录中查找命名函数。        
  *
- * Attempt to find the named function in the system catalogs with
- * arguments exactly as specified, so that the normal case (exact match)
- * is as quick as possible.
+ * 尝试在系统目录中找到实参与指定完全一致的  
+ * 函数，使常见情形（精确匹配）尽可能快。            
+ *                         
  *
- * If an exact match isn't found:
- *	1) check for possible interpretation as a type coercion request
- *	2) apply the ambiguous-function resolution rules
+ * 若未找到精确匹配：   
+ *	1) 检查是否可解释为类型强制转换请求            
+ *	2) 应用歧义函数消解规则               
  *
- * Return values *funcid through *true_typeids receive info about the function.
- * If argdefaults isn't NULL, *argdefaults receives a list of any default
- * argument expressions that need to be added to the given arguments.
+ * *funcid 至 *true_typeids 各返回值接收该函数的信息。           
+ * 若 argdefaults 非 NULL，*argdefaults 接收需要添加到         
+ * 给定实参的默认参数表达式列表。                     
  *
- * When processing a named- or mixed-notation call (ie, fargnames isn't NIL),
- * the returned true_typeids and argdefaults are ordered according to the
- * call's argument ordering: first any positional arguments, then the named
- * arguments, then defaulted arguments (if needed and allowed by
- * expand_defaults).  Some care is needed if this information is to be compared
- * to the function's pg_proc entry, but in practice the caller can usually
- * just work with the call's argument ordering.
+ * 处理命名记法或混合记法调用时（即 fargnames 非 NIL），  
+ * 返回的 true_typeids 与 argdefaults 按调用实参顺序排列： 
+ * 先是位置实参，再是命名实参，然后是带默认值的实参
+ * （若需要且 expand_defaults 允许）。                 
+ * 若这些信息要与函数的 pg_proc 条目做比较，需加小心；    
+ * 但实践中调用方通常只需按调用实参顺序处理。        
+ *                                             
  *
- * We rely primarily on fargnames/nargs/argtypes as the argument description.
- * The actual expression node list is passed in fargs so that we can check
- * for type coercion of a constant.  Some callers pass fargs == NIL indicating
- * they don't need that check made.  Note also that when fargnames isn't NIL,
- * the fargs list must be passed if the caller wants actual argument position
- * information to be returned into the NamedArgExpr nodes.
+ * 我们主要依据 fargnames/nargs/argtypes 来描述实参。            
+ * 实际表达式列表经 fargs 传入，以便检查常量是否被    
+ * 强制转换。部分调用方传入 fargs == NIL，表示不需要        
+ * 做该项检查。另请注意，当 fargnames 非 NIL 时，             
+ * 若调用方希望将实际实参位置信息回填到 NamedArgExpr       
+ * 节点，就必须传入 fargs 列表。               
  */
 FuncDetailCode
 func_get_detail(List *funcname,
@@ -1399,18 +1399,18 @@ func_get_detail(List *funcname,
 				bool expand_variadic,
 				bool expand_defaults,
 				bool include_out_arguments,
-				Oid *funcid,	/* return value */
-				Oid *rettype,	/* return value */
-				bool *retset,	/* return value */
-				int *nvargs,	/* return value */
-				Oid *vatype,	/* return value */
-				Oid **true_typeids, /* return value */
-				List **argdefaults) /* optional return value */
+				Oid *funcid,	/* 返回值    */
+				Oid *rettype,	/* 返回值    */
+				bool *retset,	/* 返回值    */
+				int *nvargs,	/* 返回值    */
+				Oid *vatype,	/* 返回值    */
+				Oid **true_typeids, /* 返回值    */
+				List **argdefaults) /* 可选返回值       */
 {
 	FuncCandidateList raw_candidates;
 	FuncCandidateList best_candidate;
 
-	/* initialize output arguments to silence compiler warnings */
+	/* 初始化输出参数，以免编译器警告            */
 	*funcid = InvalidOid;
 	*rettype = InvalidOid;
 	*retset = false;
@@ -1420,20 +1420,20 @@ func_get_detail(List *funcname,
 	if (argdefaults)
 		*argdefaults = NIL;
 
-	/* Get list of possible candidates from namespace search */
+	/* 从命名空间搜索获取候选列表               */
 	raw_candidates = FuncnameGetCandidates(funcname, nargs, fargnames,
 										   expand_variadic, expand_defaults,
 										   include_out_arguments, false);
 
 	/*
-	 * Quickly check if there is an exact match to the input datatypes (there
-	 * can be only one)
+	 * 快速检查是否存在与输入数据类型精确匹配的函数    
+	 * （仅一个） 
 	 */
 	for (best_candidate = raw_candidates;
 		 best_candidate != NULL;
 		 best_candidate = best_candidate->next)
 	{
-		/* if nargs==0, argtypes can be null; don't pass that to memcmp */
+		/* 若 nargs==0，argtypes 可为 NULL；勿将其传给 memcmp */
 		if (nargs == 0 ||
 			memcmp(argtypes, best_candidate->args, nargs * sizeof(Oid)) == 0)
 			break;
@@ -1442,43 +1442,43 @@ func_get_detail(List *funcname,
 	if (best_candidate == NULL)
 	{
 		/*
-		 * If we didn't find an exact match, next consider the possibility
-		 * that this is really a type-coercion request: a single-argument
-		 * function call where the function name is a type name.  If so, and
-		 * if the coercion path is RELABELTYPE or COERCEVIAIO, then go ahead
-		 * and treat the "function call" as a coercion.
+		 * 若未找到精确匹配，接下来考虑：这其实是一次
+		 * 类型强制转换请求：单参数调用，函数名是     
+		 * 一个类型名。如果强制转换路径为 RELABELTYPE 或    
+		 * COERCEVIAIO，就将"函数调用"当作强制转换处理。    
+		 *                                             
 		 *
-		 * This interpretation needs to be given higher priority than
-		 * interpretations involving a type coercion followed by a function
-		 * call, otherwise we can produce surprising results. For example, we
-		 * want "text(varchar)" to be interpreted as a simple coercion, not as
-		 * "text(name(varchar))" which the code below this point is entirely
-		 * capable of selecting.
+		 * 这种解释必须高于"先转换再调用"的解释，  
+		 * 否则可能产生意外结果。                               
+		 * 例如，希望 "text(varchar)" 被解释为简单强制转换， 
+		 * 而不是 "text(name(varchar))"——此点之下的代码完全   
+		 * 有能力选出该解释。                                      
+		 *                      
 		 *
-		 * We also treat a coercion of a previously-unknown-type literal
-		 * constant to a specific type this way.
+		 * 先前未知类型字面常量到具体类型的转换，也 
+		 * 按此方式处理。                
 		 *
-		 * The reason we reject COERCION_PATH_FUNC here is that we expect the
-		 * cast implementation function to be named after the target type.
-		 * Thus the function will be found by normal lookup if appropriate.
+		 * 此处拒绝 COERCION_PATH_FUNC 的原因在于：我们预期    
+		 * 转换实现函数会以目标类型命名，因此若合适，
+		 * 普通的函数查找即可找到该函数。                   
 		 *
-		 * The reason we reject COERCION_PATH_ARRAYCOERCE is mainly that you
-		 * can't write "foo[] (something)" as a function call.  In theory
-		 * someone might want to invoke it as "_foo (something)" but we have
-		 * never supported that historically, so we can insist that people
-		 * write it as a normal cast instead.
+		 * 拒绝 COERCION_PATH_ARRAYCOERCE 主要是因为无法把        
+		 * "foo[] (something)" 写成函数调用。理论上或许有人
+		 * 想以 "_foo (something)" 的形式调用它，但我们历来   
+		 * 从未支持过这种写法，故可坚持要求人们改用普
+		 * 通的强制转换语法。       
 		 *
-		 * We also reject the specific case of COERCEVIAIO for a composite
-		 * source type and a string-category target type.  This is a case that
-		 * find_coercion_pathway() allows by default, but experience has shown
-		 * that it's too commonly invoked by mistake.  So, again, insist that
-		 * people use cast syntax if they want to do that.
+		 * 我们还拒绝复合类型源、字符串类别目标的      
+		 * COERCEVIAIO 特定情形。find_coercion_pathway() 默认          
+		 * 允许这种情况，但经验表明该情形被误用得太频繁 
+		 * 了。因此同样地，若人们想这样做，就坚持要求其
+		 * 改用强制转换语法。                    
 		 *
-		 * NB: it's important that this code does not exceed what coerce_type
-		 * can do, because the caller will try to apply coerce_type if we
-		 * return FUNCDETAIL_COERCION.  If we return that result for something
-		 * coerce_type can't handle, we'll cause infinite recursion between
-		 * this module and coerce_type!
+		 * 注意：此代码的行为绝不能超出 coerce_type 所能做  
+		 * 的范围，因为若我们返回 FUNCDETAIL_COERCION，调用
+		 * 方会尝试应用 coerce_type。若对 coerce_type 无法处理   
+		 * 的情形返回该结果，会在本模块与 coerce_type 之间
+		 * 造成无限递归！       
 		 */
 		if (nargs == 1 && fargs != NIL && fargnames == NIL)
 		{
@@ -1492,7 +1492,7 @@ func_get_detail(List *funcname,
 
 				if (sourceType == UNKNOWNOID && IsA(arg1, Const))
 				{
-					/* always treat typename('literal') as coercion */
+					/* 总把 typename('literal') 视为强制转换*/
 					iscoercion = true;
 				}
 				else
@@ -1524,7 +1524,7 @@ func_get_detail(List *funcname,
 
 				if (iscoercion)
 				{
-					/* Treat it as a type coercion */
+					/* 按类型强制转换处理 */
 					*funcid = InvalidOid;
 					*rettype = targetType;
 					*retset = false;
@@ -1537,7 +1537,7 @@ func_get_detail(List *funcname,
 		}
 
 		/*
-		 * didn't find an exact match, so now try to match up candidates...
+		 * 未找到精确匹配，现在开始尝试匹配各候选…    
 		 */
 		if (raw_candidates != NULL)
 		{
@@ -1549,12 +1549,12 @@ func_get_detail(List *funcname,
 											  raw_candidates,
 											  &current_candidates);
 
-			/* one match only? then run with it... */
+			/* 仅一个匹配？那就采用它…*/
 			if (ncandidates == 1)
 				best_candidate = current_candidates;
 
 			/*
-			 * multiple candidates? then better decide or throw an error...
+			 * 多个候选？那最好做出决定，否则报错…      
 			 */
 			else if (ncandidates > 1)
 			{
@@ -1563,8 +1563,8 @@ func_get_detail(List *funcname,
 													   current_candidates);
 
 				/*
-				 * If we were able to choose a best candidate, we're done.
-				 * Otherwise, ambiguous function call.
+				 * 若能选出最佳候选，就完成了。             
+				 * 否则为歧义函数调用。     
 				 */
 				if (!best_candidate)
 					return FUNCDETAIL_MULTIPLE;
@@ -1579,17 +1579,17 @@ func_get_detail(List *funcname,
 		FuncDetailCode result;
 
 		/*
-		 * If processing named args or expanding variadics or defaults, the
-		 * "best candidate" might represent multiple equivalently good
-		 * functions; treat this case as ambiguous.
+		 * 若正在处理命名实参、展开可变参数或默认值， 
+		 * "最佳候选"可能代表多个同等优良的函数；   
+		 * 将此情形视为歧义。             
 		 */
 		if (!OidIsValid(best_candidate->oid))
 			return FUNCDETAIL_MULTIPLE;
 
 		/*
-		 * We disallow VARIADIC with named arguments unless the last argument
-		 * (the one with VARIADIC attached) actually matched the variadic
-		 * parameter.  This is mere pedantry, really, but some folks insisted.
+		 * 除非最后一个实参（附带 VARIADIC 的那个）确实匹  
+		 * 配可变参数，否则不允许 VARIADIC 与命名实参。 
+		 * 这纯属吹毛求疵，但当初有人坚持如此。             
 		 */
 		if (fargnames != NIL && !expand_variadic && nargs > 0 &&
 			best_candidate->argnumbers[nargs - 1] != nargs - 1)
@@ -1600,9 +1600,9 @@ func_get_detail(List *funcname,
 		*true_typeids = best_candidate->args;
 
 		/*
-		 * If processing named args, return actual argument positions into
-		 * NamedArgExpr nodes in the fargs list.  This is a bit ugly but not
-		 * worth the extra notation needed to do it differently.
+		 * 若处理命名实参，则把实际实参位置回填到      
+		 * fargs 列表的 NamedArgExpr 节点中。这做法有点丑，   
+		 * 但换别的方式需要额外记法，不值得。  
 		 */
 		if (best_candidate->argnumbers != NULL)
 		{
@@ -1621,21 +1621,21 @@ func_get_detail(List *funcname,
 
 		ftup = SearchSysCache1(PROCOID,
 							   ObjectIdGetDatum(best_candidate->oid));
-		if (!HeapTupleIsValid(ftup))	/* should not happen */
+		if (!HeapTupleIsValid(ftup))	/* 不应发生      */
 			elog(ERROR, "cache lookup failed for function %u",
 				 best_candidate->oid);
 		pform = (Form_pg_proc) GETSTRUCT(ftup);
 		*rettype = pform->prorettype;
 		*retset = pform->proretset;
 		*vatype = pform->provariadic;
-		/* fetch default args if caller wants 'em */
+		/* 调用方需要时取回默认参数   */
 		if (argdefaults && best_candidate->ndargs > 0)
 		{
 			Datum		proargdefaults;
 			char	   *str;
 			List	   *defaults;
 
-			/* shouldn't happen, FuncnameGetCandidates messed up */
+			/* 不应发生：FuncnameGetCandidates 出了错    */
 			if (best_candidate->ndargs > pform->pronargdefaults)
 				elog(ERROR, "not enough default arguments");
 
@@ -1645,16 +1645,16 @@ func_get_detail(List *funcname,
 			defaults = castNode(List, stringToNode(str));
 			pfree(str);
 
-			/* Delete any unused defaults from the returned list */
+			/* 从返回列表中删除未用到的默认参数  */
 			if (best_candidate->argnumbers != NULL)
 			{
 				/*
-				 * This is a bit tricky in named notation, since the supplied
-				 * arguments could replace any subset of the defaults.  We
-				 * work by making a bitmapset of the argnumbers of defaulted
-				 * arguments, then scanning the defaults list and selecting
-				 * the needed items.  (This assumes that defaulted arguments
-				 * should be supplied in their positional order.)
+				 * 命名记法下这有点棘手，因为给定实参可能 
+				 * 替换默认参数中的任意子集。                
+				 * 做法是先为默认参数的参数号建 bitmapset，  
+				 * 然后扫描默认参数列表，选出所需的项。  
+				 * （假定默认参数应按其位置顺序提供。）   
+				 *                                               
 				 */
 				Bitmapset  *defargnumbers;
 				int		   *firstdefarg;
@@ -1682,8 +1682,8 @@ func_get_detail(List *funcname,
 			else
 			{
 				/*
-				 * Defaults for positional notation are lots easier; just
-				 * remove any unwanted ones from the front.
+				 * 位置记法下容易得多；只需删去前端的   
+				 * 多余默认参数。                   
 				 */
 				int			ndelete;
 
@@ -1710,7 +1710,7 @@ func_get_detail(List *funcname,
 				break;
 			default:
 				elog(ERROR, "unrecognized prokind: %c", pform->prokind);
-				result = FUNCDETAIL_NORMAL; /* keep compiler quiet */
+				result = FUNCDETAIL_NORMAL; /* 让编译器安静  */
 				break;
 		}
 
@@ -1725,16 +1725,16 @@ func_get_detail(List *funcname,
 /*
  * unify_hypothetical_args()
  *
- * Ensure that each hypothetical direct argument of a hypothetical-set
- * aggregate has the same type as the corresponding aggregated argument.
- * Modify the expressions in the fargs list, if necessary, and update
- * actual_arg_types[].
+ * 确保假想集聚合的每个假设直接实参都与其对应    
+ * 的聚合实参类型相同。若有必要，修改 fargs 列表中  
+ * 的表达式，并更新 actual_arg_types[]。                    
+ *                    
  *
- * If the agg declared its args non-ANY (even ANYELEMENT), we need only a
- * sanity check that the declared types match; make_fn_arguments will coerce
- * the actual arguments to match the declared ones.  But if the declaration
- * is ANY, nothing will happen in make_fn_arguments, so we need to fix any
- * mismatch here.  We use the same type resolution logic as UNION etc.
+ * 若聚合声明的实参类型非 ANY（哪怕是 ANYELEMENT），    
+ * 则只需做一致性检查确认声明类型匹配即可；             
+ * make_fn_arguments 会把实际实参强制转换为声明的类型。   
+ * 但若声明是 ANY，make_fn_arguments 中不会发生任何转       
+ * 换，任何不匹配均需在此修复。解析同 UNION 等。   
  */
 static void
 unify_hypothetical_args(ParseState *pstate,
@@ -1749,11 +1749,11 @@ unify_hypothetical_args(ParseState *pstate,
 
 	numDirectArgs = list_length(fargs) - numAggregatedArgs;
 	numNonHypotheticalArgs = numDirectArgs - numAggregatedArgs;
-	/* safety check (should only trigger with a misdeclared agg) */
+	/* 安全检查（应只在聚合声明有误时触发）    */
 	if (numNonHypotheticalArgs < 0)
 		elog(ERROR, "incorrect number of arguments to hypothetical-set aggregate");
 
-	/* Check each hypothetical arg and corresponding aggregated arg */
+	/* 检查每个假设实参及其对应的聚合实参          */
 	for (hargpos = numNonHypotheticalArgs; hargpos < numDirectArgs; hargpos++)
 	{
 		int			aargpos = numDirectArgs + (hargpos - numNonHypotheticalArgs);
@@ -1762,18 +1762,18 @@ unify_hypothetical_args(ParseState *pstate,
 		Oid			commontype;
 		int32		commontypmod;
 
-		/* A mismatch means AggregateCreate didn't check properly ... */
+		/* 不匹配意味着 AggregateCreate 没有正确检查…   */
 		if (declared_arg_types[hargpos] != declared_arg_types[aargpos])
 			elog(ERROR, "hypothetical-set aggregate has inconsistent declared argument types");
 
-		/* No need to unify if make_fn_arguments will coerce */
+		/* make_fn_arguments 会强制转换时无需统一  */
 		if (declared_arg_types[hargpos] != ANYOID)
 			continue;
 
 		/*
-		 * Select common type, giving preference to the aggregated argument's
-		 * type (we'd rather coerce the direct argument once than coerce all
-		 * the aggregated values).
+		 * 选择公共类型，偏向聚合实参的类型（宁可对直   
+		 * 接实参强制转换一次，也不愿强制转换全部聚合  
+		 * 值）。              
 		 */
 		commontype = select_common_type(pstate,
 										list_make2(lfirst(aarg), lfirst(harg)),
@@ -1784,8 +1784,8 @@ unify_hypothetical_args(ParseState *pstate,
 											commontype);
 
 		/*
-		 * Perform the coercions.  We don't need to worry about NamedArgExprs
-		 * here because they aren't supported with aggregates.
+		 * 执行强制转换。无需担心 NamedArgExpr，因为聚合不  
+		 * 支持它们。                                    
 		 */
 		lfirst(harg) = coerce_type(pstate,
 								   (Node *) lfirst(harg),
@@ -1810,15 +1810,15 @@ unify_hypothetical_args(ParseState *pstate,
 /*
  * make_fn_arguments()
  *
- * Given the actual argument expressions for a function, and the desired
- * input types for the function, add any necessary typecasting to the
- * expression tree.  Caller should already have verified that casting is
- * allowed.
+ * 给定某函数的实际实参表达式，以及该函数期望的   
+ * 输入类型，向表达式树添加任何必要的类型转换。
+ * 调用方应已验证过允许进行转换。                        
+ *         
  *
- * Caution: given argument list is modified in-place.
+ * 注意：给定实参列表会被就地修改。  
  *
- * As with coerce_type, pstate may be NULL if no special unknown-Param
- * processing is wanted.
+ * 与 coerce_type 一样，若无需特殊的未知 Param 处理，  
+ * pstate 可为 NULL。
  */
 void
 make_fn_arguments(ParseState *pstate,
@@ -1831,14 +1831,14 @@ make_fn_arguments(ParseState *pstate,
 
 	foreach(current_fargs, fargs)
 	{
-		/* types don't match? then force coercion using a function call... */
+		/* 类型不匹配？那就用函数调用强制转换…          */
 		if (actual_arg_types[i] != declared_arg_types[i])
 		{
 			Node	   *node = (Node *) lfirst(current_fargs);
 
 			/*
-			 * If arg is a NamedArgExpr, coerce its input expr instead --- we
-			 * want the NamedArgExpr to stay at the top level of the list.
+			 * 若 arg 是 NamedArgExpr，则改为强制转换其内层     
+			 * 表达式，以让 NamedArgExpr 保持在列表的顶层。
 			 */
 			if (IsA(node, NamedArgExpr))
 			{
@@ -1871,10 +1871,10 @@ make_fn_arguments(ParseState *pstate,
 
 /*
  * FuncNameAsType -
- *	  convenience routine to see if a function name matches a type name
+ *	  便捷例程：检查函数名是否与某类型名匹配        
  *
- * Returns the OID of the matching type, or InvalidOid if none.  We ignore
- * shell types and complex types.
+ * 返回匹配类型的 OID；无匹配则得 InvalidOid。我们忽略  
+ * shell 类型与复合类型。
  */
 static Oid
 FuncNameAsType(List *funcname)
@@ -1883,8 +1883,8 @@ FuncNameAsType(List *funcname)
 	Type		typtup;
 
 	/*
-	 * temp_ok=false protects the <refsect1 id="sql-createfunction-security">
-	 * contract for writing SECURITY DEFINER functions safely.
+	 * temp_ok=false 用于保护安全编写 SECURITY DEFINER 函数的     
+	 * <refsect1 id="sql-createfunction-security"> 约定。  
 	 */
 	typtup = LookupTypeNameExtended(NULL, makeTypeNameFromNameList(funcname),
 									NULL, false, false);
@@ -1903,9 +1903,9 @@ FuncNameAsType(List *funcname)
 
 /*
  * ParseComplexProjection -
- *	  handles function calls with a single argument that is of complex type.
- *	  If the function call is actually a column projection, return a suitably
- *	  transformed expression tree.  If not, return NULL.
+ *	  处理实参唯一且为复合类型的函数调用。                
+ *	  若该函数调用实为列投影，则返回经过适当变换        
+ *	  的表达式树；否则返回 NULL。            
  */
 static Node *
 ParseComplexProjection(ParseState *pstate, const char *funcname, Node *first_arg,
@@ -1915,14 +1915,14 @@ ParseComplexProjection(ParseState *pstate, const char *funcname, Node *first_arg
 	int			i;
 
 	/*
-	 * Special case for whole-row Vars so that we can resolve (foo.*).bar even
-	 * when foo is a reference to a subselect, join, or RECORD function. A
-	 * bonus is that we avoid generating an unnecessary FieldSelect; our
-	 * result can omit the whole-row Var and just be a Var for the selected
-	 * field.
+	 * 对整行 Var 作特殊处理，使 (foo.*).bar 即便在 foo 是      
+	 * 子选择、连接或 RECORD 函数的引用时也能解析。另  
+	 * 一好处是省去多余的 FieldSelect；我们的结果可     
+	 * 以省略整行 Var，仅用所选字段的一个 Var 表示。     
+	 *       
 	 *
-	 * This case could be handled by expandRecordVariable, but it's more
-	 * efficient to do it this way when possible.
+	 * 此情形本可由 expandRecordVariable 处理，但可行时    
+	 * 用这种做法效率更高。            
 	 */
 	if (IsA(first_arg, Var) &&
 		((Var *) first_arg)->varattno == InvalidAttrNumber)
@@ -1932,18 +1932,18 @@ ParseComplexProjection(ParseState *pstate, const char *funcname, Node *first_arg
 		nsitem = GetNSItemByRangeTablePosn(pstate,
 										   ((Var *) first_arg)->varno,
 										   ((Var *) first_arg)->varlevelsup);
-		/* Return a Var if funcname matches a column, else NULL */
+		/* funcname 匹配列名则返回 Var，否则为 NULL  */
 		return scanNSItemForColumn(pstate, nsitem,
 								   ((Var *) first_arg)->varlevelsup,
 								   funcname, location);
 	}
 
 	/*
-	 * Else do it the hard way with get_expr_result_tupdesc().
+	 * 否则用 get_expr_result_tupdesc() 走复杂路线。 
 	 *
-	 * If it's a Var of type RECORD, we have to work even harder: we have to
-	 * find what the Var refers to, and pass that to get_expr_result_tupdesc.
-	 * That task is handled by expandRecordVariable().
+	 * 若这是 RECORD 类型的 Var，则要更费功夫：必须找出   
+	 * 该 Var 引用的对象，并把它传给 get_expr_result_tupdesc。  
+	 * 该任务由 expandRecordVariable() 处理。  
 	 */
 	if (IsA(first_arg, Var) &&
 		((Var *) first_arg)->vartype == RECORDOID)
@@ -1951,7 +1951,7 @@ ParseComplexProjection(ParseState *pstate, const char *funcname, Node *first_arg
 	else
 		tupdesc = get_expr_result_tupdesc(first_arg, true);
 	if (!tupdesc)
-		return NULL;			/* unresolvable RECORD type */
+		return NULL;			/* RECORD 类型无法解析*/
 
 	for (i = 0; i < tupdesc->natts; i++)
 	{
@@ -1960,33 +1960,33 @@ ParseComplexProjection(ParseState *pstate, const char *funcname, Node *first_arg
 		if (strcmp(funcname, NameStr(att->attname)) == 0 &&
 			!att->attisdropped)
 		{
-			/* Success, so generate a FieldSelect expression */
+			/* 成功，因此生成 FieldSelect 表达式   */
 			FieldSelect *fselect = makeNode(FieldSelect);
 
 			fselect->arg = (Expr *) first_arg;
 			fselect->fieldnum = i + 1;
 			fselect->resulttype = att->atttypid;
 			fselect->resulttypmod = att->atttypmod;
-			/* save attribute's collation for parse_collate.c */
+			/* 为 parse_collate.c 保存属性排序规则   */
 			fselect->resultcollid = att->attcollation;
 			return (Node *) fselect;
 		}
 	}
 
-	return NULL;				/* funcname does not match any column */
+	return NULL;				/* funcname 与任何列都不匹配  */
 }
 
 /*
  * funcname_signature_string
- *		Build a string representing a function name, including arg types.
- *		The result is something like "foo(integer)".
+ *		构造表示函数名的字符串，其中包含参数类型。  
+ *		结果形如 "foo(integer)"。              
  *
- * If argnames isn't NIL, it is a list of C strings representing the actual
- * arg names for the last N arguments.  This must be considered part of the
- * function signature too, when dealing with named-notation function calls.
+ * 若 argnames 非 NIL，则它是由 C 字符串组成的列表，       
+ * 表示最后 N 个实参的实际名称。处理命名记法函数      
+ * 调用时，也必须把它视为函数签名的一部分。            
  *
- * This is typically used in the construction of function-not-found error
- * messages.
+ * 这通常用于构造"找不到函数"的错误消息。              
+ *          
  */
 const char *
 funcname_signature_string(const char *funcname, int nargs,
@@ -2018,12 +2018,12 @@ funcname_signature_string(const char *funcname, int nargs,
 
 	appendStringInfoChar(&argbuf, ')');
 
-	return argbuf.data;			/* return palloc'd string buffer */
+	return argbuf.data;			/* 返回 palloc 缓冲区       */
 }
 
 /*
  * func_signature_string
- *		As above, but function name is passed as a qualified name list.
+ *		同上，但函数名以限定名列表的形式传入。      
  */
 const char *
 func_signature_string(List *funcname, int nargs,
@@ -2035,14 +2035,14 @@ func_signature_string(List *funcname, int nargs,
 
 /*
  * LookupFuncNameInternal
- *		Workhorse for LookupFuncName/LookupFuncWithArgs
+ *		LookupFuncName/LookupFuncWithArgs 主力函数 
  *
- * In an error situation, e.g. can't find the function, then we return
- * InvalidOid and set *lookupError to indicate what went wrong.
+ * 出错时（例如找不到函数），我们返回 InvalidOid，  
+ * 并设置 *lookupError 指明出了什么问题。          
  *
- * Possible errors:
- *	FUNCLOOKUP_NOSUCHFUNC: we can't find a function of this name.
- *	FUNCLOOKUP_AMBIGUOUS: more than one function matches.
+ * 可能错误： 
+ *	FUNCLOOKUP_NOSUCHFUNC：找不到该名称的函数。       
+ *	FUNCLOOKUP_AMBIGUOUS：多个函数匹配。         
  */
 static Oid
 LookupFuncNameInternal(ObjectType objtype, List *funcname,
@@ -2053,64 +2053,64 @@ LookupFuncNameInternal(ObjectType objtype, List *funcname,
 	Oid			result = InvalidOid;
 	FuncCandidateList clist;
 
-	/* NULL argtypes allowed for nullary functions only */
+	/* 仅零参函数允许 argtypes 为 NULL          */
 	Assert(argtypes != NULL || nargs == 0);
 
-	/* Always set *lookupError, to forestall uninitialized-variable warnings */
+	/* 总是设置 *lookupError，以免出现未初始化变量警告      */
 	*lookupError = FUNCLOOKUP_NOSUCHFUNC;
 
-	/* Get list of candidate objects */
+	/* 获取候选对象列表      */
 	clist = FuncnameGetCandidates(funcname, nargs, NIL, false, false,
 								  include_out_arguments, missing_ok);
 
-	/* Scan list for a match to the arg types (if specified) and the objtype */
+	/* 扫描列表，找与参数类型（如指定）及 objtype 匹配者 */
 	for (; clist != NULL; clist = clist->next)
 	{
-		/* Check arg type match, if specified */
+		/* 若指定则检查参数类型     */
 		if (nargs >= 0)
 		{
-			/* if nargs==0, argtypes can be null; don't pass that to memcmp */
+			/* 若 nargs==0，argtypes 可为 NULL；勿将其传给 memcmp */
 			if (nargs > 0 &&
 				memcmp(argtypes, clist->args, nargs * sizeof(Oid)) != 0)
 				continue;
 		}
 
-		/* Check for duplicates reported by FuncnameGetCandidates */
+		/* 检查 FuncnameGetCandidates 报告的重复项        */
 		if (!OidIsValid(clist->oid))
 		{
 			*lookupError = FUNCLOOKUP_AMBIGUOUS;
 			return InvalidOid;
 		}
 
-		/* Check objtype match, if specified */
+		/* 若指定则检查 objtype 匹配 */
 		switch (objtype)
 		{
 			case OBJECT_FUNCTION:
 			case OBJECT_AGGREGATE:
-				/* Ignore procedures */
+				/* 忽略过程      */
 				if (get_func_prokind(clist->oid) == PROKIND_PROCEDURE)
 					continue;
 				break;
 			case OBJECT_PROCEDURE:
-				/* Ignore non-procedures */
+				/* 忽略非过程       */
 				if (get_func_prokind(clist->oid) != PROKIND_PROCEDURE)
 					continue;
 				break;
 			case OBJECT_ROUTINE:
-				/* no restriction */
+				/* 无限制      */
 				break;
 			default:
 				Assert(false);
 		}
 
-		/* Check for multiple matches */
+		/* 检查是否有多个匹配*/
 		if (OidIsValid(result))
 		{
 			*lookupError = FUNCLOOKUP_AMBIGUOUS;
 			return InvalidOid;
 		}
 
-		/* OK, we have a candidate */
+		/* 找到了一个候选   */
 		result = clist->oid;
 	}
 
@@ -2120,24 +2120,24 @@ LookupFuncNameInternal(ObjectType objtype, List *funcname,
 /*
  * LookupFuncName
  *
- * Given a possibly-qualified function name and optionally a set of argument
- * types, look up the function.  Pass nargs == -1 to indicate that the number
- * and types of the arguments are unspecified (this is NOT the same as
- * specifying that there are no arguments).
+ * 给定可能带限定的函数名以及可选的一组参数类型，    
+ * 查找该函数。传 nargs == -1 表示实参的个数与类型          
+ * 均未指定（这与指定"没有实参"不是一回事）。     
+ *                                         
  *
- * If the function name is not schema-qualified, it is sought in the current
- * namespace search path.
+ * 若函数名未带模式限定，则在当前的命名空间搜索       
+ * 路径中查找。    
  *
- * If the function is not found, we return InvalidOid if missing_ok is true,
- * else raise an error.
+ * 若找不到函数，missing_ok 为真时返回 InvalidOid，            
+ * 否则报错。     
  *
- * If nargs == -1 and multiple functions are found matching this function name
- * we will raise an ambiguous-function error, regardless of what missing_ok is
- * set to.
+ * 若 nargs == -1 且找到多个与该函数名匹配的函数，           
+ * 无论 missing_ok 设为何值都会抛出歧义函数错误。            
+ *        
  *
- * Only functions will be found; procedures will be ignored even if they
- * match the name and argument types.  (However, we don't trouble to reject
- * aggregates or window functions here.)
+ * 只会找到函数；即使过程与名称和参数类型都匹      
+ * 配也会被忽略。（不过此处不费心去拒绝聚合或         
+ * 窗口函数。）                   
  */
 Oid
 LookupFuncName(List *funcname, int nargs, const Oid *argtypes, bool missing_ok)
@@ -2156,7 +2156,7 @@ LookupFuncName(List *funcname, int nargs, const Oid *argtypes, bool missing_ok)
 	switch (lookupError)
 	{
 		case FUNCLOOKUP_NOSUCHFUNC:
-			/* Let the caller deal with it when missing_ok is true */
+			/* missing_ok 为真时交由调用方处理           */
 			if (missing_ok)
 				return InvalidOid;
 
@@ -2174,7 +2174,7 @@ LookupFuncName(List *funcname, int nargs, const Oid *argtypes, bool missing_ok)
 			break;
 
 		case FUNCLOOKUP_AMBIGUOUS:
-			/* Raise an error regardless of missing_ok */
+			/* 无论 missing_ok 为何都报错       */
 			ereport(ERROR,
 					(errcode(ERRCODE_AMBIGUOUS_FUNCTION),
 					 errmsg("function name \"%s\" is not unique",
@@ -2183,23 +2183,23 @@ LookupFuncName(List *funcname, int nargs, const Oid *argtypes, bool missing_ok)
 			break;
 	}
 
-	return InvalidOid;			/* Keep compiler quiet */
+	return InvalidOid;			/* 让编译器安静  */
 }
 
 /*
  * LookupFuncWithArgs
  *
- * Like LookupFuncName, but the argument types are specified by an
- * ObjectWithArgs node.  Also, this function can check whether the result is a
- * function, procedure, or aggregate, based on the objtype argument.  Pass
- * OBJECT_ROUTINE to accept any of them.
+ * 与 LookupFuncName 类似，但参数类型由 ObjectWithArgs  
+ * 节点指定。此外，本函数可基于 objtype 实参检查结果      
+ * 是函数、过程还是聚合。传 OBJECT_ROUTINE 表示             
+ * 接受其中任意一种。          
  *
- * For historical reasons, we also accept aggregates when looking for a
- * function.
+ * 由于历史原因，查找函数时也接受聚合。              
+ *          
  *
- * When missing_ok is true we don't generate any error for missing objects and
- * return InvalidOid.  Other types of errors can still be raised, regardless
- * of the value of missing_ok.
+ * missing_ok 为真时，对缺少对象不产生任何错误并返          
+ * 回 InvalidOid。其他类型的错误仍可能抛出，无论           
+ * missing_ok 取值如何。 
  */
 Oid
 LookupFuncWithArgs(ObjectType objtype, ObjectWithArgs *func, bool missing_ok)
@@ -2237,8 +2237,8 @@ LookupFuncWithArgs(ObjectType objtype, ObjectWithArgs *func, bool missing_ok)
 	}
 
 	/*
-	 * First, perform a lookup considering only input arguments (traditional
-	 * Postgres rules).
+	 * 首先按传统 Postgres 规则，只考虑输入实参执           
+	 * 行查找。    
 	 */
 	i = 0;
 	foreach(args_item, func->objargs)
@@ -2247,24 +2247,24 @@ LookupFuncWithArgs(ObjectType objtype, ObjectWithArgs *func, bool missing_ok)
 
 		argoids[i] = LookupTypeNameOid(NULL, t, missing_ok);
 		if (!OidIsValid(argoids[i]))
-			return InvalidOid;	/* missing_ok must be true */
+			return InvalidOid;	/* missing_ok 必为真    */
 		i++;
 	}
 
 	/*
-	 * Set nargs for LookupFuncNameInternal. It expects -1 to mean no args
-	 * were specified.
+	 * 为 LookupFuncNameInternal 设置 nargs。-1 表示未指          
+	 * 定实参。   
 	 */
 	nargs = func->args_unspecified ? -1 : argcount;
 
 	/*
-	 * In args_unspecified mode, also tell LookupFuncNameInternal to consider
-	 * the object type, since there seems no reason not to.  However, if we
-	 * have an argument list, disable the objtype check, because we'd rather
-	 * complain about "object is of wrong type" than "object doesn't exist".
-	 * (Note that with args, FuncnameGetCandidates will have ensured there's
-	 * only one argtype match, so we're not risking an ambiguity failure via
-	 * this choice.)
+	 * 在 args_unspecified 模式下，还要让 LookupFuncNameInternal     
+	 * 考虑对象类型，似乎没有理由不这样做。但若给了  
+	 * 实参列表，则禁用 objtype 检查，因为我们宁可报      
+	 * "对象类型不对"，也不愿报"对象不存在"。              
+	 * （带实参时 FuncnameGetCandidates 已确保只有一个参数    
+	 * 类型匹配，所以这一选择不会带来歧义失败的风      
+	 * 险。）    
 	 */
 	oid = LookupFuncNameInternal(func->args_unspecified ? objtype : OBJECT_ROUTINE,
 								 func->objname, nargs, argoids,
@@ -2272,12 +2272,12 @@ LookupFuncWithArgs(ObjectType objtype, ObjectWithArgs *func, bool missing_ok)
 								 &lookupError);
 
 	/*
-	 * If PROCEDURE or ROUTINE was specified, and we have an argument list
-	 * that contains no parameter mode markers, and we didn't already discover
-	 * that there's ambiguity, perform a lookup considering all arguments.
-	 * (Note: for a zero-argument procedure, or in args_unspecified mode, the
-	 * normal lookup is sufficient; so it's OK to require non-NIL objfuncargs
-	 * to perform this lookup.)
+	 * 若指定了 PROCEDURE 或 ROUTINE，且我们手上有实参      
+	 * 列表而其中不含参数模式标记，且尚未发现存在        
+	 * 歧义，则再做一次考虑全部实参的查找。（注：对 
+	 * 零参过程，或在 args_unspecified 模式下，普通查找       
+	 * 已足够；因此需要 objfuncargs 非 NIL 才做这次查找）    
+	 *                         
 	 */
 	if ((objtype == OBJECT_PROCEDURE || objtype == OBJECT_ROUTINE) &&
 		func->objfuncargs != NIL &&
@@ -2286,12 +2286,12 @@ LookupFuncWithArgs(ObjectType objtype, ObjectWithArgs *func, bool missing_ok)
 		bool		have_param_mode = false;
 
 		/*
-		 * Check for non-default parameter mode markers.  If there are any,
-		 * then the command does not conform to SQL-spec syntax, so we may
-		 * assume that the traditional Postgres lookup method of considering
-		 * only input parameters is sufficient.  (Note that because the spec
-		 * doesn't have OUT arguments for functions, we also don't need this
-		 * hack in FUNCTION or AGGREGATE mode.)
+		 * 检查非默认参数模式标记。若存在任一标记，则 
+		 * 说明命令不符合 SQL 规范语法，因此可假定传统 
+		 * 的 Postgres 查找方法——即只考虑输入参数——    
+		 * 就已足够。（注意，因为规范中函数没有 OUT       
+		 * 参数，所以在 FUNCTION 或 AGGREGATE                        
+		 * 模式下无需这种技巧。）   
 		 */
 		foreach(args_item, func->objfuncargs)
 		{
@@ -2308,21 +2308,21 @@ LookupFuncWithArgs(ObjectType objtype, ObjectWithArgs *func, bool missing_ok)
 		{
 			Oid			poid;
 
-			/* Without mode marks, objargs surely includes all params */
+			/* 无模式标记时，objargs 必然包含全部参数  */
 			Assert(list_length(func->objfuncargs) == argcount);
 
-			/* For objtype == OBJECT_PROCEDURE, we can ignore non-procedures */
+			/* 对于 objtype == OBJECT_PROCEDURE，可忽略非过程       */
 			poid = LookupFuncNameInternal(objtype, func->objname,
 										  argcount, argoids,
 										  true, missing_ok,
 										  &lookupError);
 
-			/* Combine results, handling ambiguity */
+			/* 合并结果，并处理歧义      */
 			if (OidIsValid(poid))
 			{
 				if (OidIsValid(oid) && oid != poid)
 				{
-					/* oops, we got hits both ways, on different objects */
+					/* 糟糕，两个方向都命中了不同的对象  */
 					oid = InvalidOid;
 					lookupError = FUNCLOOKUP_AMBIGUOUS;
 				}
@@ -2337,20 +2337,20 @@ LookupFuncWithArgs(ObjectType objtype, ObjectWithArgs *func, bool missing_ok)
 	if (OidIsValid(oid))
 	{
 		/*
-		 * Even if we found the function, perform validation that the objtype
-		 * matches the prokind of the found function.  For historical reasons
-		 * we allow the objtype of FUNCTION to include aggregates and window
-		 * functions; but we draw the line if the object is a procedure.  That
-		 * is a new enough feature that this historical rule does not apply.
+		 * 即使已经找到了函数，也要验证 objtype 是否         
+		 * 与所找到函数的 prokind 相符。基于历史原因，      
+		 * 我们允许 FUNCTION 的 objtype 涵盖聚合和                
+		 * 窗口函数；但若对象是过程则不在此列。该功能    
+		 * 较新，这一历史规则并不适用。                       
 		 *
-		 * (This check is partially redundant with the objtype check in
-		 * LookupFuncNameInternal; but not entirely, since we often don't tell
-		 * LookupFuncNameInternal to apply that check at all.)
+		 * （此项检查与 LookupFuncNameInternal 中的 objtype    
+		 * 检查部分重复；但并不完全重复，因为我们常常    
+		 * 不让 LookupFuncNameInternal 执行该检查。）
 		 */
 		switch (objtype)
 		{
 			case OBJECT_FUNCTION:
-				/* Only complain if it's a procedure. */
+				/* 仅当它是过程时才报错。  */
 				if (get_func_prokind(oid) == PROKIND_PROCEDURE)
 					ereport(ERROR,
 							(errcode(ERRCODE_WRONG_OBJECT_TYPE),
@@ -2360,7 +2360,7 @@ LookupFuncWithArgs(ObjectType objtype, ObjectWithArgs *func, bool missing_ok)
 				break;
 
 			case OBJECT_PROCEDURE:
-				/* Reject if found object is not a procedure. */
+				/* 若找到的对象不是过程则拒绝。 */
 				if (get_func_prokind(oid) != PROKIND_PROCEDURE)
 					ereport(ERROR,
 							(errcode(ERRCODE_WRONG_OBJECT_TYPE),
@@ -2370,7 +2370,7 @@ LookupFuncWithArgs(ObjectType objtype, ObjectWithArgs *func, bool missing_ok)
 				break;
 
 			case OBJECT_AGGREGATE:
-				/* Reject if found object is not an aggregate. */
+				/* 若找到对象非聚合函数则拒绝。  */
 				if (get_func_prokind(oid) != PROKIND_AGGREGATE)
 					ereport(ERROR,
 							(errcode(ERRCODE_WRONG_OBJECT_TYPE),
@@ -2380,19 +2380,19 @@ LookupFuncWithArgs(ObjectType objtype, ObjectWithArgs *func, bool missing_ok)
 				break;
 
 			default:
-				/* OBJECT_ROUTINE accepts anything. */
+				/* OBJECT_ROUTINE 均可接受。   */
 				break;
 		}
 
-		return oid;				/* All good */
+		return oid;				/* 无异常*/
 	}
 	else
 	{
-		/* Deal with cases where the lookup failed */
+		/* 处理函数查找失败的情形       */
 		switch (lookupError)
 		{
 			case FUNCLOOKUP_NOSUCHFUNC:
-				/* Suppress no-such-func errors when missing_ok is true */
+				/* missing_ok 为真时抑制找不到函数的错误   */
 				if (missing_ok)
 					break;
 
@@ -2432,7 +2432,7 @@ LookupFuncWithArgs(ObjectType objtype, ObjectWithArgs *func, bool missing_ok)
 						break;
 
 					default:
-						/* FUNCTION and ROUTINE */
+						/* FUNCTION 与 ROUTINE */
 						if (func->args_unspecified)
 							ereport(ERROR,
 									(errcode(ERRCODE_UNDEFINED_FUNCTION),
@@ -2485,7 +2485,7 @@ LookupFuncWithArgs(ObjectType objtype, ObjectWithArgs *func, bool missing_ok)
 						break;
 
 					default:
-						Assert(false);	/* Disallowed by Assert above */
+						Assert(false);	/* 上方 Assert 已排除    */
 						break;
 				}
 				break;
@@ -2497,14 +2497,14 @@ LookupFuncWithArgs(ObjectType objtype, ObjectWithArgs *func, bool missing_ok)
 
 /*
  * check_srf_call_placement
- *		Verify that a set-returning function is called in a valid place,
- *		and throw a nice error if not.
+ *		验证集合返回函数是否在有效位置被调用，       
+ *		否则给出友好错误。   
  *
- * A side-effect is to set pstate->p_hasTargetSRFs true if appropriate.
+ * 副作用是：适当时将 pstate->p_hasTargetSRFs 置为真。    
  *
- * last_srf should be a copy of pstate->p_last_srf from just before we
- * started transforming the function's arguments.  This allows detection
- * of whether the SRF's arguments contain any SRFs.
+ * last_srf 应是刚开始转换函数参数之前                   
+ * pstate->p_last_srf 的副本。这可用于检测                    
+ * SRF 的参数中是否包含 SRF。             
  */
 void
 check_srf_call_placement(ParseState *pstate, Node *last_srf, int location)
@@ -2513,39 +2513,39 @@ check_srf_call_placement(ParseState *pstate, Node *last_srf, int location)
 	bool		errkind;
 
 	/*
-	 * Check to see if the set-returning function is in an invalid place
-	 * within the query.  Basically, we don't allow SRFs anywhere except in
-	 * the targetlist (which includes GROUP BY/ORDER BY expressions), VALUES,
-	 * and functions in FROM.
+	 * 检查集合返回函数在查询中是否位于无效位置。  
+	 * 基本上，除目标列表（含 GROUP BY/ORDER BY                 
+	 * 表达式）、VALUES 以及 FROM 中的函数外，                  
+	 * 不允许 SRF。      
 	 *
-	 * For brevity we support two schemes for reporting an error here: set
-	 * "err" to a custom message, or set "errkind" true if the error context
-	 * is sufficiently identified by what ParseExprKindName will return, *and*
-	 * what it will return is just a SQL keyword.  (Otherwise, use a custom
-	 * message to avoid creating translation problems.)
+	 * 为简洁起见，这里支持两种报错方案：把 "err"       
+	 * 设为自定义消息；或者，若 ParseExprKindName 的返回值  
+	 * 足以标识错误上下文，*且*其返回值只是一个            
+	 * SQL 关键字，则设 "errkind" 为真。（否则应使用        
+	 * 自定义消息，以免产生翻译问题。）
 	 */
 	err = NULL;
 	errkind = false;
 	switch (pstate->p_expr_kind)
 	{
 		case EXPR_KIND_NONE:
-			Assert(false);		/* can't happen */
+			Assert(false);		/* 不会发生 */
 			break;
 		case EXPR_KIND_OTHER:
-			/* Accept SRF here; caller must throw error if wanted */
+			/* 此处接受 SRF；若需报错由调用者负责  */
 			break;
 		case EXPR_KIND_JOIN_ON:
 		case EXPR_KIND_JOIN_USING:
 			err = _("set-returning functions are not allowed in JOIN conditions");
 			break;
 		case EXPR_KIND_FROM_SUBSELECT:
-			/* can't get here, but just in case, throw an error */
+			/* 不会到这里，但保险起见抛出错误    */
 			errkind = true;
 			break;
 		case EXPR_KIND_FROM_FUNCTION:
-			/* okay, but we don't allow nested SRFs here */
-			/* errmsg is chosen to match transformRangeFunction() */
-			/* errposition should point to the inner SRF */
+			/* 可以，但此处不允许嵌套 SRF。  */
+			/* errmsg 选择与 transformRangeFunction() 一致   */
+			/* errposition 应指向内层 SRF。        */
 			if (pstate->p_last_srf != last_srf)
 				ereport(ERROR,
 						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -2567,7 +2567,7 @@ check_srf_call_placement(ParseState *pstate, Node *last_srf, int location)
 			break;
 		case EXPR_KIND_WINDOW_PARTITION:
 		case EXPR_KIND_WINDOW_ORDER:
-			/* okay, these are effectively GROUP BY/ORDER BY */
+			/* 可以，实际相当于 GROUP BY/ORDER BY    */
 			pstate->p_hasTargetSRFs = true;
 			break;
 		case EXPR_KIND_WINDOW_FRAME_RANGE:
@@ -2577,21 +2577,21 @@ check_srf_call_placement(ParseState *pstate, Node *last_srf, int location)
 			break;
 		case EXPR_KIND_SELECT_TARGET:
 		case EXPR_KIND_INSERT_TARGET:
-			/* okay */
+			/* 可  */
 			pstate->p_hasTargetSRFs = true;
 			break;
 		case EXPR_KIND_UPDATE_SOURCE:
 		case EXPR_KIND_UPDATE_TARGET:
-			/* disallowed because it would be ambiguous what to do */
+			/* 禁止，因为会导致无法确定该如何处理 */
 			errkind = true;
 			break;
 		case EXPR_KIND_GROUP_BY:
 		case EXPR_KIND_ORDER_BY:
-			/* okay */
+			/* 可  */
 			pstate->p_hasTargetSRFs = true;
 			break;
 		case EXPR_KIND_DISTINCT_ON:
-			/* okay */
+			/* 可  */
 			pstate->p_hasTargetSRFs = true;
 			break;
 		case EXPR_KIND_LIMIT:
@@ -2602,11 +2602,11 @@ check_srf_call_placement(ParseState *pstate, Node *last_srf, int location)
 			errkind = true;
 			break;
 		case EXPR_KIND_VALUES:
-			/* SRFs are presently not supported by nodeValuesscan.c */
+			/* nodeValuesscan.c 目前不支持 SRF。              */
 			errkind = true;
 			break;
 		case EXPR_KIND_VALUES_SINGLE:
-			/* okay, since we process this like a SELECT tlist */
+			/* 可以，按 SELECT 目标列表一样处理    */
 			pstate->p_hasTargetSRFs = true;
 			break;
 		case EXPR_KIND_MERGE_WHEN:
@@ -2658,11 +2658,11 @@ check_srf_call_placement(ParseState *pstate, Node *last_srf, int location)
 			break;
 
 			/*
-			 * There is intentionally no default: case here, so that the
-			 * compiler will warn if we add a new ParseExprKind without
-			 * extending this switch.  If we do see an unrecognized value at
-			 * runtime, the behavior will be the same as for EXPR_KIND_OTHER,
-			 * which is sane anyway.
+			 * 这里有意不设 default: 分支，这样在新增     
+			 * ParseExprKind 而不扩展此 switch 时，编译器会 
+			 * 发出警告。若运行时遇到无法识别的值，       
+			 * 其行为与 EXPR_KIND_OTHER 相同，                        
+			 * 反正也合理。   
 			 */
 	}
 	if (err)

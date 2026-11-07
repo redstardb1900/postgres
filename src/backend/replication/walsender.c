@@ -2,39 +2,39 @@
  *
  * walsender.c
  *
- * The WAL sender process (walsender) is new as of Postgres 9.0. It takes
- * care of sending XLOG from the primary server to a single recipient.
- * (Note that there can be more than one walsender process concurrently.)
- * It is started by the postmaster when the walreceiver of a standby server
- * connects to the primary server and requests XLOG streaming replication.
+ * WAL 发送进程（walsender）是 Postgres 9.0 新增的，          
+ * 负责把 XLOG 从主库发送给单个接收方。                
+ * （注意可以同时存在多个 walsender 进程。）              
+ * 当备库的 walreceiver 连接到主库并请求 XLOG 流复制时，  
+ * postmaster 便会启动它。                                          
  *
- * A walsender is similar to a regular backend, ie. there is a one-to-one
- * relationship between a connection and a walsender process, but instead
- * of processing SQL queries, it understands a small set of special
- * replication-mode commands. The START_REPLICATION command begins streaming
- * WAL to the client. While streaming, the walsender keeps reading XLOG
- * records from the disk and sends them to the standby server over the
- * COPY protocol, until either side ends the replication by exiting COPY
- * mode (or until the connection is closed).
+ * walsender 与普通后端类似：连接与 walsender 进程之间    
+ * 是一对一的关系，但它处理的不是 SQL 查询，           
+ * 而是理解一小组特殊的复制模式命令。             
+ * START_REPLICATION 命令开始向客户端流式发送 WAL。            
+ * 流式发送期间，walsender 持续从磁盘读 XLOG 记录，    
+ * 并通过 COPY 协议发送给备库，直到某一方             
+ * 通过退出 COPY 模式而结束复制                              
+ * （或直到连接关闭）。           
  *
- * Normal termination is by SIGTERM, which instructs the walsender to
- * close the connection and exit(0) at the next convenient moment. Emergency
- * termination is by SIGQUIT; like any backend, the walsender will simply
- * abort and exit on SIGQUIT. A close of the connection and a FATAL error
- * are treated as not a crash but approximately normal termination;
- * the walsender will exit quickly without sending any more XLOG records.
+ * 正常终止由 SIGTERM 触发，指示 walsender 在下一个    
+ * 合适的时机关闭连接并 exit(0)。紧急终止使用 SIGQUIT；   
+ * 与其他后端一样，walsender 收到 SIGQUIT 即直接中止并   
+ * 退出。连接关闭和 FATAL 错误不算崩溃，而近似         
+ * 于正常终止；walsender 快速退出，                     
+ * 不再发送任何 XLOG 记录。                                     
  *
- * If the server is shut down, checkpointer sends us
- * PROCSIG_WALSND_INIT_STOPPING after all regular backends have exited.  If
- * the backend is idle or runs an SQL query this causes the backend to
- * shutdown, if logical replication is in progress all existing WAL records
- * are processed followed by a shutdown.  Otherwise this causes the walsender
- * to switch to the "stopping" state. In this state, the walsender will reject
- * any further replication commands. The checkpointer begins the shutdown
- * checkpoint once all walsenders are confirmed as stopping. When the shutdown
- * checkpoint finishes, the postmaster sends us SIGUSR2. This instructs
- * walsender to send any outstanding WAL, including the shutdown checkpoint
- * record, wait for it to be replicated to the standby, and then exit.
+ * 若服务器关闭，checkpointer 会在         
+ * 所有普通后端退出后发来 PROCSIG_WALSND_INIT_STOPPING。       
+ * 若后端空闲或执行 SQL 查询，后端会随之关闭；     
+ * 若逻辑复制进行中，则先处理完所有现有 WAL 记录，    
+ * 然后再关闭。否则，walsender 会切换到"stopping"状态。      
+ * 在此状态下，walsender 会拒绝任何后续的复制命令。        
+ * checkpointer 在确认所有 walsender 都进入停止状态后，    
+ * 就会开始关闭检查点。当关闭检查点完成后，               
+ * postmaster 会给我们发送 SIGUSR2，指示 walsender 发送     
+ * 所有未发出的 WAL（含关闭检查点记录），等待复制     
+ * 到备库，然后退出。                                        
  *
  *
  * Portions Copyright (c) 2010-2023, PostgreSQL Global Development Group
@@ -95,33 +95,33 @@
 #include "utils/timeout.h"
 #include "utils/timestamp.h"
 
-/* Minimum interval used by walsender for stats flushes, in ms */
+/* walsender 用于统计刷写的最小间隔（毫秒）     */
 #define WALSENDER_STATS_FLUSH_INTERVAL         1000
 
 /*
- * Maximum data payload in a WAL data message.  Must be >= XLOG_BLCKSZ.
+ * WAL 数据消息的最大数据载荷。必须 >= XLOG_BLCKSZ。    
  *
- * We don't have a good idea of what a good value would be; there's some
- * overhead per message in both walsender and walreceiver, but on the other
- * hand sending large batches makes walsender less responsive to signals
- * because signals are checked only between messages.  128kB (with
- * default 8k blocks) seems like a reasonable guess for now.
+ * 对于什么才是合适的取值，我们没有很好的概念；   
+ * 每条消息在 walsender 与 walreceiver 中都有一定开销，      
+ * 但另一方面，大批量发送会降低 walsender 对信号响应 
+ * 能力，因为只在消息之间才检查信号。            
+ * 128kB（默认 8k 块）目前算是合理的猜测。   
  */
 #define MAX_SEND_SIZE (XLOG_BLCKSZ * 16)
 
-/* Array of WalSnds in shared memory */
+/* 共享内存中的 WalSnds 数组 */
 WalSndCtlData *WalSndCtl = NULL;
 
-/* My slot in the shared memory array */
+/* 共享内存数组中我的槽位  */
 WalSnd	   *MyWalSnd = NULL;
 
-/* Global state */
-bool		am_walsender = false;	/* Am I a walsender process? */
+/* 全局状态 */
+bool		am_walsender = false;	/* 是 walsender 进程吗？*/
 bool		am_cascading_walsender = false; /* Am I cascading WAL to another
 											 * standby? */
-bool		am_db_walsender = false;	/* Connected to a database? */
+bool		am_db_walsender = false;	/* 已连接到数据库？ */
 
-/* GUC variables */
+/* GUC 变量    */
 int			max_wal_senders = 10;	/* the maximum number of concurrent
 									 * walsenders */
 int			wal_sender_timeout = 60 * 1000; /* maximum time to send one WAL
@@ -129,22 +129,22 @@ int			wal_sender_timeout = 60 * 1000; /* maximum time to send one WAL
 bool		log_replication_commands = false;
 
 /*
- * State for WalSndWakeupRequest
+ * WalSndWakeupRequest 状态   
  */
 bool		wake_wal_senders = false;
 
 /*
- * xlogreader used for replication.  Note that a WAL sender doing physical
- * replication does not need xlogreader to read WAL, but it needs one to
- * keep a state of its work.
+ * 复制用的 xlogreader。注意，物理复制的 WAL 发送进程    
+ * 并不需要 xlogreader 来读 WAL，但需要一个来              
+ * 记录其工作状态。 
  */
 static XLogReaderState *xlogreader = NULL;
 
 /*
- * These variables keep track of the state of the timeline we're currently
- * sending. sendTimeLine identifies the timeline. If sendTimeLineIsHistoric,
- * the timeline is not the latest timeline on this server, and the server's
- * history forked off from that timeline at sendTimeLineValidUpto.
+ * 这些变量跟踪我们当前正在发送的时间线的状态。     
+ * sendTimeLine 标识该时间线。若 sendTimeLineIsHistoric，          
+ * 则它不是本服务器上最新的时间线，且本服务器         
+ * 的历史自 sendTimeLineValidUpto 起与它分岔。          
  */
 static TimeLineID sendTimeLine = 0;
 static TimeLineID sendTimeLineNextTLI = 0;
@@ -152,65 +152,65 @@ static bool sendTimeLineIsHistoric = false;
 static XLogRecPtr sendTimeLineValidUpto = InvalidXLogRecPtr;
 
 /*
- * How far have we sent WAL already? This is also advertised in
- * MyWalSnd->sentPtr.  (Actually, this is the next WAL location to send.)
+ * 我们已经把 WAL 发送到哪里了？该值也通过    
+ * MyWalSnd->sentPtr 对外公布。（实为下一条待发位置）    
  */
 static XLogRecPtr sentPtr = InvalidXLogRecPtr;
 
-/* Buffers for constructing outgoing messages and processing reply messages. */
+/* 用于构造外发消息和处理应答消息的缓冲区。              */
 static StringInfoData output_message;
 static StringInfoData reply_message;
 static StringInfoData tmpbuf;
 
-/* Timestamp of last ProcessRepliesIfAny(). */
+/* 上次 ProcessRepliesIfAny() 时间戳。*/
 static TimestampTz last_processing = 0;
 
 /*
- * Timestamp of last ProcessRepliesIfAny() that saw a reply from the
- * standby. Set to 0 if wal_sender_timeout doesn't need to be active.
+ * 上次看到备库应答的 ProcessRepliesIfAny() 时间戳。   
+ * 若 wal_sender_timeout 无需处于活动状态，则设为 0。  
  */
 static TimestampTz last_reply_timestamp = 0;
 
-/* Have we sent a heartbeat message asking for reply, since last reply? */
+/* 自上次应答以来，是否发送过请求应答的心跳？      */
 static bool waiting_for_ping_response = false;
 
 /*
- * While streaming WAL in Copy mode, streamingDoneSending is set to true
- * after we have sent CopyDone. We should not send any more CopyData messages
- * after that. streamingDoneReceiving is set to true when we receive CopyDone
- * from the other end. When both become true, it's time to exit Copy mode.
+ * 在 Copy 模式下流式发送 WAL 时，发送 CopyDone 之后      
+ * streamingDoneSending 就被置为 true。此后不应再发送            
+ * 任何 CopyData 消息。streamingDoneReceiving 则在收到              
+ * 另一端 CopyDone 时置为 true。两者皆真即退出 Copy         
  */
 static bool streamingDoneSending;
 static bool streamingDoneReceiving;
 
-/* Are we there yet? */
+/* 我们到了吗？*/
 static bool WalSndCaughtUp = false;
 
-/* Flags set by signal handlers for later service in main loop */
+/* 信号处理程序设置、供主循环稍后处理的标志*/
 static volatile sig_atomic_t got_SIGUSR2 = false;
 static volatile sig_atomic_t got_STOPPING = false;
 
 /*
- * This is set while we are streaming. When not set
- * PROCSIG_WALSND_INIT_STOPPING signal will be handled like SIGTERM. When set,
- * the main loop is responsible for checking got_STOPPING and terminating when
- * it's set (after streaming any remaining WAL).
+ * 流式发送期间置位。未置位时，      
+ * PROCSIG_WALSND_INIT_STOPPING 信号按 SIGTERM 处理。置位后，       
+ * 主循环负责检查 got_STOPPING，并在它置位时结束运行（     
+ * 发送完剩余 WAL 之后）。             
  */
 static volatile sig_atomic_t replication_active = false;
 
 static LogicalDecodingContext *logical_decoding_ctx = NULL;
 
-/* A sample associating a WAL location with the time it was written. */
+/* 将 WAL 位置与其写入时间关联起来的一个样本。    */
 typedef struct
 {
 	XLogRecPtr	lsn;
 	TimestampTz time;
 } WalTimeSample;
 
-/* The size of our buffer of time samples. */
+/* 时间样本缓冲区的大小。       */
 #define LAG_TRACKER_BUFFER_SIZE 8192
 
-/* A mechanism for tracking replication lag. */
+/* 一种用于跟踪复制延迟的机制。*/
 typedef struct
 {
 	XLogRecPtr	last_lsn;
@@ -220,26 +220,26 @@ typedef struct
 	WalTimeSample last_read[NUM_SYNC_REP_WAIT_MODE];
 
 	/*
-	 * Overflow entries for read heads that collide with the write head.
+	 * 供与写头发生碰撞的读头使用的溢出条目。        
 	 *
-	 * When the cyclic buffer fills (write head is about to collide with a
-	 * read head), we save that read head's current sample here and mark it as
-	 * using overflow (read_heads[i] = -1). This allows the write head to
-	 * continue advancing while the overflowed mode continues lag computation
-	 * using the saved sample.
+	 * 循环缓冲区填满（写头将撞上某读头）时，我们    
+	 * 把该读头的当前样本保存在这里，并把它标记为        
+	 * 使用溢出（read_heads[i] = -1）。写头可继续推进，   
+	 * 而溢出模式则继续计算延迟，                               
+	 * 用保存的样本。  
 	 *
-	 * Once the standby's reported LSN advances past the overflow entry's LSN,
-	 * we transition back to normal buffer-based tracking.
+	 * 一旦备库报告的 LSN 越过溢出条目的 LSN，我们就        
+	 * 就转回正常的基于缓冲区的跟踪。      
 	 */
 	WalTimeSample overflowed[NUM_SYNC_REP_WAIT_MODE];
 } LagTracker;
 
 static LagTracker *lag_tracker;
 
-/* Signal handlers */
+/* 信号处理    */
 static void WalSndLastCycleHandler(SIGNAL_ARGS);
 
-/* Prototypes for private functions */
+/* 私有函数的原型            */
 typedef void (*WalSndSendDataCallback) (void);
 static void WalSndLoop(WalSndSendDataCallback send_data);
 static void InitWalSenderSlot(void);
@@ -278,35 +278,35 @@ static void WalSndSegmentOpen(XLogReaderState *state, XLogSegNo nextSegNo,
 							  TimeLineID *tli_p);
 
 
-/* Initialize walsender process before entering the main command loop */
+/* 在进入主命令循环之前初始化 walsender 进程           */
 void
 InitWalSender(void)
 {
 	am_cascading_walsender = RecoveryInProgress();
 
-	/* Create a per-walsender data structure in shared memory */
+	/* 在共享内存中为每个 walsender 建数据结构  */
 	InitWalSenderSlot();
 
 	/*
-	 * We don't currently need any ResourceOwner in a walsender process, but
-	 * if we did, we could call CreateAuxProcessResourceOwner here.
+	 * 目前 walsender 进程并不需要任何 ResourceOwner，但如果  
+	 * 如需要，可调用 CreateAuxProcessResourceOwner。      
 	 */
 
 	/*
-	 * Let postmaster know that we're a WAL sender. Once we've declared us as
-	 * a WAL sender process, postmaster will let us outlive the bgwriter and
-	 * kill us last in the shutdown sequence, so we get a chance to stream all
-	 * remaining WAL at shutdown, including the shutdown checkpoint. Note that
-	 * there's no going back, and we mustn't write any WAL records after this.
+	 * 让 postmaster 知道自己是 WAL 发送进程。一经声明，     
+	 * WAL 发送进程后，postmaster 会让我们活得比               
+	 * bgwriter 更久，并在关闭序列中最后终止我们，让我们  
+	 * 有机会在关闭时把所有剩余 WAL 流式发完，包括关闭   
+	 * 检查点。注意，此后没有回头，无法再写 WAL 记录。   
 	 */
 	MarkPostmasterChildWalSender();
 	SendPostmasterSignal(PMSIGNAL_ADVANCE_STATE_MACHINE);
 
 	/*
-	 * If the client didn't specify a database to connect to, show in PGPROC
-	 * that our advertised xmin should affect vacuum horizons in all
-	 * databases.  This allows physical replication clients to send hot
-	 * standby feedback that will delay vacuum cleanup in all databases.
+	 * 若客户端未指定要连接的数据库，则在 PGPROC 中表明 
+	 * 我们的 xmin 应影响所有库中清理视界。          
+	 * 这样物理复制客户端就能发送热备反馈，          
+	 * 从而延迟所有数据库中的清理回收工作。           
 	 */
 	if (MyDatabaseId == InvalidOid)
 	{
@@ -317,16 +317,16 @@ InitWalSender(void)
 		LWLockRelease(ProcArrayLock);
 	}
 
-	/* Initialize empty timestamp buffer for lag tracking. */
+	/* 为延迟跟踪初始化空的时间戳缓冲区。 */
 	lag_tracker = MemoryContextAllocZero(TopMemoryContext, sizeof(LagTracker));
 }
 
 /*
- * Clean up after an error.
+ * 错误后的清理。   
  *
- * WAL sender processes don't use transactions like regular backends do.
- * This function does any cleanup required after an error in a WAL sender
- * process, similar to what transaction abort does in a regular backend.
+ * WAL 发送进程不像普通后端那样使用事务。              
+ * 本函数完成 WAL 发送进程中出错后所需的清理工作，  
+ * 类似于普通后端中事务中止所做的操作。               
  */
 void
 WalSndErrorCleanup(void)
@@ -346,9 +346,9 @@ WalSndErrorCleanup(void)
 	replication_active = false;
 
 	/*
-	 * If there is a transaction in progress, it will clean up our
-	 * ResourceOwner, but if a replication command set up a resource owner
-	 * without a transaction, we've got to clean that up now.
+	 * 如果有事务正在进行，它会清理我们的        
+	 * ResourceOwner，但如果某个复制命令设置资源所有者   
+	 * 而没有事务，那么现在必须把它清理。   
 	 */
 	if (!IsTransactionOrTransactionBlock())
 		WalSndResourceCleanup(false);
@@ -356,12 +356,12 @@ WalSndErrorCleanup(void)
 	if (got_STOPPING || got_SIGUSR2)
 		proc_exit(0);
 
-	/* Revert back to startup state */
+	/* 退回启动状态           */
 	WalSndSetState(WALSNDSTATE_STARTUP);
 }
 
 /*
- * Clean up any ResourceOwner we created.
+ * 清理所创建的 ResourceOwner。   
  */
 void
 WalSndResourceCleanup(bool isCommit)
@@ -372,13 +372,13 @@ WalSndResourceCleanup(bool isCommit)
 		return;
 
 	/*
-	 * Deleting CurrentResourceOwner is not allowed, so we must save a pointer
-	 * in a local variable and clear it first.
+	 * 删除 CurrentResourceOwner 是不允许的，因此我们必须先把 
+	 * 指针存入局部变量并清除。   
 	 */
 	resowner = CurrentResourceOwner;
 	CurrentResourceOwner = NULL;
 
-	/* Now we can release resources and delete it. */
+	/* 现在即可释放资源并删除它。     */
 	ResourceOwnerRelease(resowner,
 						 RESOURCE_RELEASE_BEFORE_LOCKS, isCommit, true);
 	ResourceOwnerRelease(resowner,
@@ -389,24 +389,24 @@ WalSndResourceCleanup(bool isCommit)
 }
 
 /*
- * Handle a client's connection abort in an orderly manner.
+ * 以有序的方式处理客户端连接中止。        
  */
 static void
 WalSndShutdown(void)
 {
 	/*
-	 * Reset whereToSendOutput to prevent ereport from attempting to send any
-	 * more messages to the standby.
+	 * 重置 whereToSendOutput，防止 ereport 试图向备库再发送    
+	 * 任何消息。              
 	 */
 	if (whereToSendOutput == DestRemote)
 		whereToSendOutput = DestNone;
 
 	proc_exit(0);
-	abort();					/* keep the compiler quiet */
+	abort();					/* 让编译器保持安静*/
 }
 
 /*
- * Handle the IDENTIFY_SYSTEM command.
+ * 处理 IDENTIFY_SYSTEM 命令。   
  */
 static void
 IdentifySystem(void)
@@ -423,9 +423,9 @@ IdentifySystem(void)
 	TimeLineID	currTLI;
 
 	/*
-	 * Reply with a result set with one row, four columns. First col is system
-	 * ID, second is timeline ID, third is current xlog location and the
-	 * fourth contains the database name if we are connected to one.
+	 * 以单行四列的结果集应答。第一列是系统标识符，     
+	 * 第二列是时间线 ID，第三列是 xlog 位置，第四列  
+	 * 在已连接到数据库时包含数据库名。             
 	 */
 
 	snprintf(sysid, sizeof(sysid), UINT64_FORMAT,
@@ -443,19 +443,19 @@ IdentifySystem(void)
 	{
 		MemoryContext cur = CurrentMemoryContext;
 
-		/* syscache access needs a transaction env. */
+		/* syscache 访问需要一个事务环境  */
 		StartTransactionCommand();
-		/* make dbname live outside TX context */
+		/* dbname 存活到事务上下文外  */
 		MemoryContextSwitchTo(cur);
 		dbname = get_database_name(MyDatabaseId);
 		CommitTransactionCommand();
-		/* CommitTransactionCommand switches to TopMemoryContext */
+		/* CommitTransactionCommand 切换到 TopMemoryContext   */
 		MemoryContextSwitchTo(cur);
 	}
 
 	dest = CreateDestReceiver(DestRemoteSimple);
 
-	/* need a tuple descriptor representing four columns */
+	/* 需要一个表示四列的元组描述符        */
 	tupdesc = CreateTemplateTupleDesc(4);
 	TupleDescInitBuiltinEntry(tupdesc, (AttrNumber) 1, "systemid",
 							  TEXTOID, -1, 0);
@@ -466,31 +466,31 @@ IdentifySystem(void)
 	TupleDescInitBuiltinEntry(tupdesc, (AttrNumber) 4, "dbname",
 							  TEXTOID, -1, 0);
 
-	/* prepare for projection of tuples */
+	/* 准备元组的投影            */
 	tstate = begin_tup_output_tupdesc(dest, tupdesc, &TTSOpsVirtual);
 
-	/* column 1: system identifier */
+	/* 列 1：系统标识符     */
 	values[0] = CStringGetTextDatum(sysid);
 
-	/* column 2: timeline */
+	/* 列 2：时间线  */
 	values[1] = Int64GetDatum(currTLI);
 
-	/* column 3: wal location */
+	/* 列 3：WAL 位置     */
 	values[2] = CStringGetTextDatum(xloc);
 
-	/* column 4: database name, or NULL if none */
+	/* 列 4：数据库名，若无则为 NULL */
 	if (dbname)
 		values[3] = CStringGetTextDatum(dbname);
 	else
 		nulls[3] = true;
 
-	/* send it to dest */
+	/* 发送到目标 */
 	do_tup_output(tstate, values, nulls);
 
 	end_tup_output(tstate);
 }
 
-/* Handle READ_REPLICATION_SLOT command */
+/* 处理 READ_REPLICATION_SLOT 命令  */
 static void
 ReadReplicationSlot(ReadReplicationSlotCmd *cmd)
 {
@@ -507,7 +507,7 @@ ReadReplicationSlot(ReadReplicationSlotCmd *cmd)
 							  TEXTOID, -1, 0);
 	TupleDescInitBuiltinEntry(tupdesc, (AttrNumber) 2, "restart_lsn",
 							  TEXTOID, -1, 0);
-	/* TimeLineID is unsigned, so int4 is not wide enough. */
+	/* TimeLineID 无符号，int4 宽度不够。         */
 	TupleDescInitBuiltinEntry(tupdesc, (AttrNumber) 3, "restart_tli",
 							  INT8OID, -1, 0);
 
@@ -524,7 +524,7 @@ ReadReplicationSlot(ReadReplicationSlotCmd *cmd)
 		ReplicationSlot slot_contents;
 		int			i = 0;
 
-		/* Copy slot contents while holding spinlock */
+		/* 持有 spinlock 期间复制槽内容     */
 		SpinLockAcquire(&slot->mutex);
 		slot_contents = *slot;
 		SpinLockRelease(&slot->mutex);
@@ -536,12 +536,12 @@ ReadReplicationSlot(ReadReplicationSlotCmd *cmd)
 					errmsg("cannot use %s with a logical replication slot",
 						   "READ_REPLICATION_SLOT"));
 
-		/* slot type */
+		/* 槽类型 */
 		values[i] = CStringGetTextDatum("physical");
 		nulls[i] = false;
 		i++;
 
-		/* start LSN */
+		/* 起始 LSN*/
 		if (!XLogRecPtrIsInvalid(slot_contents.data.restart_lsn))
 		{
 			char		xloc[64];
@@ -553,7 +553,7 @@ ReadReplicationSlot(ReadReplicationSlotCmd *cmd)
 		}
 		i++;
 
-		/* timeline this WAL was produced on */
+		/* 产生该 WAL 的时间线        */
 		if (!XLogRecPtrIsInvalid(slot_contents.data.restart_lsn))
 		{
 			TimeLineID	slots_position_timeline;
@@ -561,8 +561,8 @@ ReadReplicationSlot(ReadReplicationSlotCmd *cmd)
 			List	   *timeline_history = NIL;
 
 			/*
-			 * While in recovery, use as timeline the currently-replaying one
-			 * to get the LSN position's history.
+			 * 在恢复期间，使用当前正在重放的时间线，     
+			 * 以获取 LSN 位置的历史。  
 			 */
 			if (RecoveryInProgress())
 				(void) GetXLogReplayRecPtr(&current_timeline);
@@ -588,7 +588,7 @@ ReadReplicationSlot(ReadReplicationSlotCmd *cmd)
 
 
 /*
- * Handle TIMELINE_HISTORY command.
+ * 处理 TIMELINE_HISTORY 命令  
  */
 static void
 SendTimeLineHistory(TimeLineHistoryCmd *cmd)
@@ -606,8 +606,8 @@ SendTimeLineHistory(TimeLineHistoryCmd *cmd)
 	dest = CreateDestReceiver(DestRemoteSimple);
 
 	/*
-	 * Reply with a result set with one row, and two columns. The first col is
-	 * the name of the history file, 2nd is the contents.
+	 * 以单行两列的结果集应答。第一列是历史文件名，     
+	 * 第二列是其内容。                          
 	 */
 	tupdesc = CreateTemplateTupleDesc(2);
 	TupleDescInitBuiltinEntry(tupdesc, (AttrNumber) 1, "filename", TEXTOID, -1, 0);
@@ -616,14 +616,14 @@ SendTimeLineHistory(TimeLineHistoryCmd *cmd)
 	TLHistoryFileName(histfname, cmd->timeline);
 	TLHistoryFilePath(path, cmd->timeline);
 
-	/* Send a RowDescription message */
+	/* 发送 RowDescription 消息  */
 	dest->rStartup(dest, CMD_SELECT, tupdesc);
 
-	/* Send a DataRow message */
+	/* 发送 DataRow 消息  */
 	pq_beginmessage(&buf, 'D');
-	pq_sendint16(&buf, 2);		/* # of columns */
+	pq_sendint16(&buf, 2);		/* 列数       */
 	len = strlen(histfname);
-	pq_sendint32(&buf, len);	/* col1 len */
+	pq_sendint32(&buf, len);	/* 列 1 长*/
 	pq_sendbytes(&buf, histfname, len);
 
 	fd = OpenTransientFile(path, O_RDONLY | PG_BINARY);
@@ -632,7 +632,7 @@ SendTimeLineHistory(TimeLineHistoryCmd *cmd)
 				(errcode_for_file_access(),
 				 errmsg("could not open file \"%s\": %m", path)));
 
-	/* Determine file length and send it to client */
+	/* 确定文件长度并发送给客户端     */
 	histfilelen = lseek(fd, 0, SEEK_END);
 	if (histfilelen < 0)
 		ereport(ERROR,
@@ -643,7 +643,7 @@ SendTimeLineHistory(TimeLineHistoryCmd *cmd)
 				(errcode_for_file_access(),
 				 errmsg("could not seek to beginning of file \"%s\": %m", path)));
 
-	pq_sendint32(&buf, histfilelen);	/* col2 len */
+	pq_sendint32(&buf, histfilelen);	/* 列 2 长*/
 
 	bytesleft = histfilelen;
 	while (bytesleft > 0)
@@ -678,10 +678,10 @@ SendTimeLineHistory(TimeLineHistoryCmd *cmd)
 }
 
 /*
- * Handle START_REPLICATION command.
+ * 处理 START_REPLICATION 命令  
  *
- * At the moment, this never returns, but an ereport(ERROR) will take us back
- * to the main loop.
+ * 目前本函数从不返回，但 ereport(ERROR) 会把我们带回       
+ * 主循环。     
  */
 static void
 StartReplication(StartReplicationCmd *cmd)
@@ -690,7 +690,7 @@ StartReplication(StartReplicationCmd *cmd)
 	XLogRecPtr	FlushPtr;
 	TimeLineID	FlushTLI;
 
-	/* create xlogreader for physical replication */
+	/* 为物理复制创建 xlogreader           */
 	xlogreader =
 		XLogReaderAllocate(wal_segment_size, NULL,
 						   XL_ROUTINE(.segment_open = WalSndSegmentOpen,
@@ -704,12 +704,12 @@ StartReplication(StartReplicationCmd *cmd)
 				 errdetail("Failed while allocating a WAL reading processor.")));
 
 	/*
-	 * We assume here that we're logging enough information in the WAL for
-	 * log-shipping, since this is checked in PostmasterMain().
+	 * 这里我们假定 WAL 中为日志传送记录了足够信息，  
+	 * 因为这一点已在 PostmasterMain() 中检查过。  
 	 *
-	 * NOTE: wal_level can only change at shutdown, so in most cases it is
-	 * difficult for there to be WAL data that we can still see that was
-	 * written at wal_level='minimal'.
+	 * 注意：wal_level 只能在关闭时更改，故多数情况下   
+	 * 很难还有以 wal_level='minimal'                              
+	 * 写入且仍可见数据。    
 	 */
 
 	if (cmd->slotname)
@@ -721,15 +721,15 @@ StartReplication(StartReplicationCmd *cmd)
 					 errmsg("cannot use a logical replication slot for physical replication")));
 
 		/*
-		 * We don't need to verify the slot's restart_lsn here; instead we
-		 * rely on the caller requesting the starting point to use.  If the
-		 * WAL segment doesn't exist, we'll fail later.
+		 * 这里无需验证槽的 restart_lsn；相反，我们依赖   
+		 * 调用者来请求使用的起始点。如果该                
+		 * WAL 段不存在，稍后会失败。       
 		 */
 	}
 
 	/*
-	 * Select the timeline. If it was given explicitly by the client, use
-	 * that. Otherwise use the timeline of the last replayed record.
+	 * 选择时间线。若客户端显式给出，就用该值；      
+	 * 否则使用最后重放的记录的时间线。             
 	 */
 	am_cascading_walsender = RecoveryInProgress();
 	if (am_cascading_walsender)
@@ -754,8 +754,8 @@ StartReplication(StartReplicationCmd *cmd)
 			sendTimeLineIsHistoric = true;
 
 			/*
-			 * Check that the timeline the client requested exists, and the
-			 * requested start location is on that timeline.
+			 * 检查客户端所求时间线是否存在，以及请求   
+			 * 起始位置是否在该时间线上。      
 			 */
 			timeLineHistory = readTimeLineHistory(FlushTLI);
 			switchpoint = tliSwitchPoint(cmd->timeline, timeLineHistory,
@@ -763,22 +763,22 @@ StartReplication(StartReplicationCmd *cmd)
 			list_free_deep(timeLineHistory);
 
 			/*
-			 * Found the requested timeline in the history. Check that
-			 * requested startpoint is on that timeline in our history.
+			 * 在历史中找到请求的时间线。检查请求的 
+			 * 起始点在我们历史中是否属于该时间线。  
 			 *
-			 * This is quite loose on purpose. We only check that we didn't
-			 * fork off the requested timeline before the switchpoint. We
-			 * don't check that we switched *to* it before the requested
-			 * starting point. This is because the client can legitimately
-			 * request to start replication from the beginning of the WAL
-			 * segment that contains switchpoint, but on the new timeline, so
-			 * that it doesn't end up with a partial segment. If you ask for
-			 * too old a starting point, you'll get an error later when we
-			 * fail to find the requested WAL segment in pg_wal.
+			 * 这是有意放宽的。我们只检查自己没有         
+			 * 在切换点之前从请求的时间线分岔。我们    
+			 * 不检查是否在请求的起始点之前切换*到*它 
+			 * 起始点。这是因为客户端完全可以合理地     
+			 * 请求从含切换点的 WAL 段开头开始复制，     
+			 * 但使用新时间线，从而避免拿到不完整的段。  
+			 * 如果请求的起始点太旧，那么稍后当我们在    
+			 * pg_wal 中找不到请求的 WAL 段时，                 
+			 * 就会报错。                                  
 			 *
-			 * XXX: we could be more strict here and only allow a startpoint
-			 * that's older than the switchpoint, if it's still in the same
-			 * WAL segment.
+			 * XXX：这里可以更严格一些，只允许起始点       
+			 * 比切换点更早，前提是它仍位于同一个         
+			 * WAL 段。  
 			 */
 			if (!XLogRecPtrIsInvalid(switchpoint) &&
 				switchpoint < cmd->startpoint)
@@ -803,21 +803,21 @@ StartReplication(StartReplicationCmd *cmd)
 
 	streamingDoneSending = streamingDoneReceiving = false;
 
-	/* If there is nothing to stream, don't even enter COPY mode */
+	/* 若无内容可流式发送，干脆不进入 COPY 模式 */
 	if (!sendTimeLineIsHistoric || cmd->startpoint < sendTimeLineValidUpto)
 	{
 		/*
-		 * When we first start replication the standby will be behind the
-		 * primary. For some applications, for example synchronous
-		 * replication, it is important to have a clear state for this initial
-		 * catchup mode, so we can trigger actions when we change streaming
-		 * state later. We may stay in this state for a long time, which is
-		 * exactly why we want to be able to monitor whether or not we are
-		 * still here.
+		 * 刚启动复制时，备库落后主库。对某些应用，  
+		 * 例如同步复制，让这种初始追赶模式       
+		 * 有一个清晰的状态，这样我们以后改变流式发送    
+		 * 状态时就能触发相应动作。我们可能在这种状态 
+		 * 中停留很长时间，这正是我们希望能够监控       
+		 * 自己是否仍处于这一状态，                           
+		 * 还在吗  
 		 */
 		WalSndSetState(WALSNDSTATE_CATCHUP);
 
-		/* Send a CopyBothResponse message, and start streaming */
+		/* 发送 CopyBothResponse 消息并开始流式发送  */
 		pq_beginmessage(&buf, 'W');
 		pq_sendbyte(&buf, 0);
 		pq_sendint16(&buf, 0);
@@ -825,8 +825,8 @@ StartReplication(StartReplicationCmd *cmd)
 		pq_flush();
 
 		/*
-		 * Don't allow a request to stream from a future point in WAL that
-		 * hasn't been flushed to disk in this server yet.
+		 * 不允许从本服务器尚未刷写到磁盘的 WAL 未来    
+		 * 位置进行流式发送。                    
 		 */
 		if (FlushPtr < cmd->startpoint)
 		{
@@ -836,17 +836,17 @@ StartReplication(StartReplicationCmd *cmd)
 							LSN_FORMAT_ARGS(FlushPtr))));
 		}
 
-		/* Start streaming from the requested point */
+		/* 从请求的位置开始流式发送     */
 		sentPtr = cmd->startpoint;
 
-		/* Initialize shared memory status, too */
+		/* 同时初始化共享内存状态    */
 		SpinLockAcquire(&MyWalSnd->mutex);
 		MyWalSnd->sentPtr = sentPtr;
 		SpinLockRelease(&MyWalSnd->mutex);
 
 		SyncRepInitConfig();
 
-		/* Main loop of walsender */
+		/* walsender 的主循环 */
 		replication_active = true;
 
 		WalSndLoop(XLogSendPhysical);
@@ -863,8 +863,8 @@ StartReplication(StartReplicationCmd *cmd)
 		ReplicationSlotRelease();
 
 	/*
-	 * Copy is finished now. Send a single-row result set indicating the next
-	 * timeline.
+	 * Copy 现已结束。发送单行结果集，指明下一条时间     
+	 * 线。   
 	 */
 	if (sendTimeLineIsHistoric)
 	{
@@ -881,9 +881,9 @@ StartReplication(StartReplicationCmd *cmd)
 		dest = CreateDestReceiver(DestRemoteSimple);
 
 		/*
-		 * Need a tuple descriptor representing two columns. int8 may seem
-		 * like a surprising data type for this, but in theory int4 would not
-		 * be wide enough for this, as TimeLineID is unsigned.
+		 * 需要一个表示两列的元组描述符。用 int8 似乎   
+		 * 让人意外，但理论上 int4 的宽度不足以表达它，   
+		 * 因为 TimeLineID 是无符号的。               
 		 */
 		tupdesc = CreateTemplateTupleDesc(2);
 		TupleDescInitBuiltinEntry(tupdesc, (AttrNumber) 1, "next_tli",
@@ -891,29 +891,29 @@ StartReplication(StartReplicationCmd *cmd)
 		TupleDescInitBuiltinEntry(tupdesc, (AttrNumber) 2, "next_tli_startpos",
 								  TEXTOID, -1, 0);
 
-		/* prepare for projection of tuple */
+		/* 准备元组的投影           */
 		tstate = begin_tup_output_tupdesc(dest, tupdesc, &TTSOpsVirtual);
 
 		values[0] = Int64GetDatum((int64) sendTimeLineNextTLI);
 		values[1] = CStringGetTextDatum(startpos_str);
 
-		/* send it to dest */
+		/* 发送到目标 */
 		do_tup_output(tstate, values, nulls);
 
 		end_tup_output(tstate);
 	}
 
-	/* Send CommandComplete message */
+	/* 发送 CommandComplete 消息*/
 	EndReplicationCommand("START_STREAMING");
 }
 
 /*
- * XLogReaderRoutine->page_read callback for logical decoding contexts, as a
- * walsender process.
+ * 作为 walsender 进程时的 XLogReaderRoutine->page_read               
+ * 回调。         
  *
- * Inside the walsender we can do better than read_local_xlog_page,
- * which has to do a plain sleep/busy loop, because the walsender's latch gets
- * set every time WAL is flushed.
+ * 在 walsender 内部我们可以做得比 read_local_xlog_page  
+ * 更好，后者只能用简单的睡眠/忙循环，因为每次           
+ * 刷 WAL 即置位锁存器。 
  */
 static int
 logical_read_xlog_page(XLogReaderState *state, XLogRecPtr targetPagePtr, int reqLen,
@@ -926,17 +926,17 @@ logical_read_xlog_page(XLogReaderState *state, XLogRecPtr targetPagePtr, int req
 	TimeLineID	currTLI;
 
 	/*
-	 * Make sure we have enough WAL available before retrieving the current
-	 * timeline. This is needed to determine am_cascading_walsender accurately
-	 * which is needed to determine the current timeline.
+	 * 在获取当前时间线之前，先确保有足够 WAL 可用。   
+	 * 这需要用来准确判定 am_cascading_walsender，                  
+	 * 而判定当前时间线又需要它。           
 	 */
 	flushptr = WalSndWaitForWal(targetPagePtr + reqLen);
 
 	/*
-	 * Since logical decoding is also permitted on a standby server, we need
-	 * to check if the server is in recovery to decide how to get the current
-	 * timeline ID (so that it also cover the promotion or timeline change
-	 * cases).
+	 * 由于备库上也允许逻辑解码，我们需要检查服务器   
+	 * 是否处于恢复中，以决定如何获取当前时间线标识符 
+	 * （这样也才能涵盖提升或时间线变更                   
+	 * ）。 
 	 */
 	am_cascading_walsender = RecoveryInProgress();
 
@@ -951,32 +951,32 @@ logical_read_xlog_page(XLogReaderState *state, XLogRecPtr targetPagePtr, int req
 	sendTimeLineValidUpto = state->currTLIValidUntil;
 	sendTimeLineNextTLI = state->nextTLI;
 
-	/* fail if not (implies we are going to shut down) */
+	/* 不满足则失败（意味着即将关闭）   */
 	if (flushptr < targetPagePtr + reqLen)
 		return -1;
 
 	if (targetPagePtr + XLOG_BLCKSZ <= flushptr)
-		count = XLOG_BLCKSZ;	/* more than one block available */
+		count = XLOG_BLCKSZ;	/* 可用数据超过一个块   */
 	else
-		count = flushptr - targetPagePtr;	/* part of the page available */
+		count = flushptr - targetPagePtr;	/* 仅页的一部分可用   */
 
-	/* now actually read the data, we know it's there */
+	/* 现在真正读取数据，已知其存在     */
 	if (!WALRead(state,
 				 cur_page,
 				 targetPagePtr,
 				 XLOG_BLCKSZ,
 				 currTLI,		/* Pass the current TLI because only
-								 * WalSndSegmentOpen controls whether new TLI
+								 * WalSndSegmentOpen 控制是否需要 TLI  
 								 * is needed. */
 				 &errinfo))
 		WALReadRaiseError(&errinfo);
 
 	/*
-	 * After reading into the buffer, check that what we read was valid. We do
-	 * this after reading, because even though the segment was present when we
-	 * opened it, it might get recycled or removed while we read it. The
-	 * read() succeeds in that case, but the data we tried to read might
-	 * already have been overwritten with new WAL records.
+	 * 读入缓冲区后，检查我们读到的内容是否有效。这样  
+	 * 做是因为，即使我们打开段文件时它还存在，在读取  
+	 * 期间它可能被回收或移除。此时 read() 会成功，   
+	 * 但我们尝试读取的数据可能已被新的 WAL 记录      
+	 * 覆盖。                                          
 	 */
 	XLByteToSeg(targetPagePtr, segno, state->segcxt.ws_segsize);
 	CheckXLogRemoved(segno, state->seg.ws_tli);
@@ -985,7 +985,7 @@ logical_read_xlog_page(XLogReaderState *state, XLogRecPtr targetPagePtr, int req
 }
 
 /*
- * Process extra options given to CREATE_REPLICATION_SLOT.
+ * 处理 CREATE_REPLICATION_SLOT 的额外选项。      
  */
 static void
 parseCreateReplSlotOptions(CreateReplicationSlotCmd *cmd,
@@ -998,7 +998,7 @@ parseCreateReplSlotOptions(CreateReplicationSlotCmd *cmd,
 	bool		reserve_wal_given = false;
 	bool		two_phase_given = false;
 
-	/* Parse options */
+	/* 解析选项  */
 	foreach(lc, cmd->options)
 	{
 		DefElem    *defel = (DefElem *) lfirst(lc);
@@ -1052,7 +1052,7 @@ parseCreateReplSlotOptions(CreateReplicationSlotCmd *cmd,
 }
 
 /*
- * Create a new replication slot.
+ * 创建新的复制槽。      
  */
 static void
 CreateReplicationSlot(CreateReplicationSlotCmd *cmd)
@@ -1084,11 +1084,11 @@ CreateReplicationSlot(CreateReplicationSlotCmd *cmd)
 		CheckLogicalDecodingRequirements();
 
 		/*
-		 * Initially create persistent slot as ephemeral - that allows us to
-		 * nicely handle errors during initialization because it'll get
-		 * dropped if this transaction fails. We'll make it persistent at the
-		 * end. Temporary slots can be created as temporary from beginning as
-		 * they get dropped on error as well.
+		 * 先把持久槽创建为瞬态槽，这让我们能在初始化  
+		 * 期间妥善处理错误，因为事务失败会丢弃它   
+		 * 。最后将它变为持久槽。临时槽则可以从一         
+		 * 开始就创建为临时槽，因为它们出错时同样会被   
+		 * 丢弃。                         
 		 */
 		ReplicationSlotCreate(cmd->slotname, true,
 							  cmd->temporary ? RS_TEMPORARY : RS_EPHEMERAL,
@@ -1101,8 +1101,8 @@ CreateReplicationSlot(CreateReplicationSlotCmd *cmd)
 		bool		need_full_snapshot = false;
 
 		/*
-		 * Do options check early so that we can bail before calling the
-		 * DecodingContextFindStartpoint which can take long time.
+		 * 提前做选项检查，以便在调用可能耗时很久的 
+		 * DecodingContextFindStartpoint 之前就退出。       
 		 */
 		if (snapshot_action == CRS_EXPORT_SNAPSHOT)
 		{
@@ -1157,22 +1157,22 @@ CreateReplicationSlot(CreateReplicationSlotCmd *cmd)
 										WalSndUpdateProgress);
 
 		/*
-		 * Signal that we don't need the timeout mechanism. We're just
-		 * creating the replication slot and don't yet accept feedback
-		 * messages or send keepalives. As we possibly need to wait for
-		 * further WAL the walsender would otherwise possibly be killed too
-		 * soon.
+		 * 标记我们不需要超时机制。我们只是在创建  
+		 * 复制槽，还不会接收反馈消息，也不发送     
+		 * keepalive。因为可能需要等待更多 WAL，否则     
+		 * WAL 发送进程可能会过早被终止                        
+		 * 。  
 		 */
 		last_reply_timestamp = 0;
 
-		/* build initial snapshot, might take a while */
+		/* 构建初始快照，可能耗时较久    */
 		DecodingContextFindStartpoint(ctx);
 
 		/*
-		 * Export or use the snapshot if we've been asked to do so.
+		 * 若被要求这样做，则导出或使用该快照。  
 		 *
-		 * NB. We will convert the snapbuild.c kind of snapshot to normal
-		 * snapshot when doing this.
+		 * 注意，做这件事时我们会把 snapbuild.c 那种       
+		 * 快照转成普通快照 
 		 */
 		if (snapshot_action == CRS_EXPORT_SNAPSHOT)
 		{
@@ -1186,7 +1186,7 @@ CreateReplicationSlot(CreateReplicationSlotCmd *cmd)
 			RestoreTransactionSnapshot(snap, MyProc);
 		}
 
-		/* don't need the decoding context anymore */
+		/* 不再需要解码上下文             */
 		FreeDecodingContext(ctx);
 
 		if (!cmd->temporary)
@@ -1198,7 +1198,7 @@ CreateReplicationSlot(CreateReplicationSlotCmd *cmd)
 
 		ReplicationSlotMarkDirty();
 
-		/* Write this slot to disk if it's a permanent one. */
+		/* 如果这是持久槽，则将它写入磁盘。 */
 		if (!cmd->temporary)
 			ReplicationSlotSave();
 	}
@@ -1209,11 +1209,11 @@ CreateReplicationSlot(CreateReplicationSlotCmd *cmd)
 	dest = CreateDestReceiver(DestRemoteSimple);
 
 	/*----------
-	 * Need a tuple descriptor representing four columns:
-	 * - first field: the slot name
-	 * - second field: LSN at which we became consistent
-	 * - third field: exported snapshot's name
-	 * - fourth field: output plugin
+	 * 需要一个表示四列的元组描述符：     
+	 * - 第一个：槽名称     
+	 * - 第二个：我们达到一致性的 LSN       
+	 * - 第三个：导出的快照名       
+	 * - 第四个：输出插件   
 	 *----------
 	 */
 	tupdesc = CreateTemplateTupleDesc(4);
@@ -1226,29 +1226,29 @@ CreateReplicationSlot(CreateReplicationSlotCmd *cmd)
 	TupleDescInitBuiltinEntry(tupdesc, (AttrNumber) 4, "output_plugin",
 							  TEXTOID, -1, 0);
 
-	/* prepare for projection of tuples */
+	/* 为元组的投影做准备      */
 	tstate = begin_tup_output_tupdesc(dest, tupdesc, &TTSOpsVirtual);
 
-	/* slot_name */
+	/* 槽名称 */
 	slot_name = NameStr(MyReplicationSlot->data.name);
 	values[0] = CStringGetTextDatum(slot_name);
 
-	/* consistent wal location */
+	/* 一致性 WAL 位置    */
 	values[1] = CStringGetTextDatum(xloc);
 
-	/* snapshot name, or NULL if none */
+	/* 快照名称，无则为 NULL  */
 	if (snapshot_name != NULL)
 		values[2] = CStringGetTextDatum(snapshot_name);
 	else
 		nulls[2] = true;
 
-	/* plugin, or NULL if none */
+	/* 插件，无则 NULL    */
 	if (cmd->plugin != NULL)
 		values[3] = CStringGetTextDatum(cmd->plugin);
 	else
 		nulls[3] = true;
 
-	/* send it to dest */
+	/* 发送给目标 */
 	do_tup_output(tstate, values, nulls);
 	end_tup_output(tstate);
 
@@ -1256,7 +1256,7 @@ CreateReplicationSlot(CreateReplicationSlotCmd *cmd)
 }
 
 /*
- * Get rid of a replication slot that is no longer wanted.
+ * 丢弃不再需要的复制槽。                      
  */
 static void
 DropReplicationSlot(DropReplicationSlotCmd *cmd)
@@ -1265,8 +1265,8 @@ DropReplicationSlot(DropReplicationSlotCmd *cmd)
 }
 
 /*
- * Load previously initiated logical slot and prepare for sending data (via
- * WalSndLoop).
+ * 加载先前启动的逻辑槽，准备经 WalSndLoop 发送数据      
+ * 。         
  */
 static void
 StartLogicalReplication(StartReplicationCmd *cmd)
@@ -1274,7 +1274,7 @@ StartLogicalReplication(StartReplicationCmd *cmd)
 	StringInfoData buf;
 	QueryCompletion qc;
 
-	/* make sure that our requirements are still fulfilled */
+	/* 确保我们的要求仍然得到满足             */
 	CheckLogicalDecodingRequirements();
 
 	Assert(!MyReplicationSlot);
@@ -1282,9 +1282,9 @@ StartLogicalReplication(StartReplicationCmd *cmd)
 	ReplicationSlotAcquire(cmd->slotname, true);
 
 	/*
-	 * Force a disconnect, so that the decoding code doesn't need to care
-	 * about an eventual switch from running in recovery, to running in a
-	 * normal environment. Client code is expected to handle reconnects.
+	 * 强制断开连接，这样解码代码就不需要关心         
+	 * 从在恢复中运行最终切换为在正常环境中运行      
+	 * 可能的切换。预期客户端代码会处理重连。        
 	 */
 	if (am_cascading_walsender && !RecoveryInProgress())
 	{
@@ -1294,11 +1294,11 @@ StartLogicalReplication(StartReplicationCmd *cmd)
 	}
 
 	/*
-	 * Create our decoding context, making it start at the previously ack'ed
-	 * position.
+	 * 创建我们的解码上下文，让它从先前已确认的位置   
+	 * 开始   
 	 *
-	 * Do this before sending a CopyBothResponse message, so that any errors
-	 * are reported early.
+	 * 在发送 CopyBothResponse 消息之前先做这件事，以便      
+	 * 尽早报出错误 
 	 */
 	logical_decoding_ctx =
 		CreateDecodingContext(cmd->startpoint, cmd->options, false,
@@ -1311,24 +1311,24 @@ StartLogicalReplication(StartReplicationCmd *cmd)
 
 	WalSndSetState(WALSNDSTATE_CATCHUP);
 
-	/* Send a CopyBothResponse message, and start streaming */
+	/* 发送 CopyBothResponse，随后开始流式传输   */
 	pq_beginmessage(&buf, 'W');
 	pq_sendbyte(&buf, 0);
 	pq_sendint16(&buf, 0);
 	pq_endmessage(&buf);
 	pq_flush();
 
-	/* Start reading WAL from the oldest required WAL. */
+	/* 从所需的最旧 WAL 开始读取。          */
 	XLogBeginRead(logical_decoding_ctx->reader,
 				  MyReplicationSlot->data.restart_lsn);
 
 	/*
-	 * Report the location after which we'll send out further commits as the
-	 * current sentPtr.
+	 * 报告我们会在其后才发送更多提交的那个位置，即   
+	 * 当前 sentPtr  
 	 */
 	sentPtr = MyReplicationSlot->data.confirmed_flush;
 
-	/* Also update the sent position status in shared memory */
+	/* 同时更新共享内存中的已发送位置状态   */
 	SpinLockAcquire(&MyWalSnd->mutex);
 	MyWalSnd->sentPtr = MyReplicationSlot->data.restart_lsn;
 	SpinLockRelease(&MyWalSnd->mutex);
@@ -1337,7 +1337,7 @@ StartLogicalReplication(StartReplicationCmd *cmd)
 
 	SyncRepInitConfig();
 
-	/* Main loop of walsender */
+	/* walsender 主循环    */
 	WalSndLoop(XLogSendLogical);
 
 	FreeDecodingContext(logical_decoding_ctx);
@@ -1348,23 +1348,23 @@ StartLogicalReplication(StartReplicationCmd *cmd)
 		proc_exit(0);
 	WalSndSetState(WALSNDSTATE_STARTUP);
 
-	/* Get out of COPY mode (CommandComplete). */
+	/* 退出 COPY 模式（CommandComplete） */
 	SetQueryCompletion(&qc, CMDTAG_COPY, 0);
 	EndCommand(&qc, DestRemote, false);
 }
 
 /*
- * LogicalDecodingContext 'prepare_write' callback.
+ * LogicalDecodingContext 'prepare_write' 回调   
  *
- * Prepare a write into a StringInfo.
+ * 准备写入 StringInfo。        
  *
- * Don't do anything lasting in here, it's quite possible that nothing will be done
- * with the data.
+ * 在这里不要做任何持久性的事情，数据很可能根本              
+ * 用不上     
  */
 static void
 WalSndPrepareWrite(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId xid, bool last_write)
 {
-	/* can't have sync rep confused by sending the same LSN several times */
+	/* 无法让同步复制因多次发送同一 LSN 而产生混淆     */
 	if (!last_write)
 		lsn = InvalidXLogRecPtr;
 
@@ -1375,18 +1375,18 @@ WalSndPrepareWrite(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId xi
 	pq_sendint64(ctx->out, lsn);	/* walEnd */
 
 	/*
-	 * Fill out the sendtime later, just as it's done in XLogSendPhysical, but
-	 * reserve space here.
+	 * sendtime 字段稍后再填，做法与 XLogSendPhysical 相同，     
+	 * 但此处占位。 
 	 */
 	pq_sendint64(ctx->out, 0);	/* sendtime */
 }
 
 /*
- * LogicalDecodingContext 'write' callback.
+ * LogicalDecodingContext 'write' 回调   
  *
- * Actually write out data previously prepared by WalSndPrepareWrite out to
- * the network. Take as long as needed, but process replies from the other
- * side and check timeouts during that.
+ * 把先前由 WalSndPrepareWrite 准备好的数据真正写出          
+ * 到网络。需要多久就用多久，但在此期间要处理对端  
+ * 的回复并检查超时。         
  */
 static void
 WalSndWriteData(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId xid,
@@ -1395,9 +1395,9 @@ WalSndWriteData(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId xid,
 	TimestampTz now;
 
 	/*
-	 * Fill the send timestamp last, so that it is taken as late as possible.
-	 * This is somewhat ugly, but the protocol is set as it's already used for
-	 * several releases by streaming physical replication.
+	 * 把发送时间戳放在最后填写，这样它就能尽可能晚    
+	 * 地被取值。这有些丑陋，但协议已经定型，因为物理  
+	 * 流复制已经使用了多个发布版本。      
 	 */
 	resetStringInfo(&tmpbuf);
 	now = GetCurrentTimestamp();
@@ -1405,16 +1405,16 @@ WalSndWriteData(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId xid,
 	memcpy(&ctx->out->data[1 + sizeof(int64) + sizeof(int64)],
 		   tmpbuf.data, sizeof(int64));
 
-	/* output previously gathered data in a CopyData packet */
+	/* 在 CopyData 包中输出先前收集的数据       */
 	pq_putmessage_noblock('d', ctx->out->data, ctx->out->len);
 
 	CHECK_FOR_INTERRUPTS();
 
-	/* Try to flush pending output to the client */
+	/* 尝试把待输出数据刷写到客户端*/
 	if (pq_flush_if_writable() != 0)
 		WalSndShutdown();
 
-	/* Try taking fast path unless we get too close to walsender timeout. */
+	/* 除非临近 WAL 发送进程超时，否则尝试走快速路径  */
 	if (now < TimestampTzPlusMilliseconds(last_reply_timestamp,
 										  wal_sender_timeout / 2) &&
 		!pq_is_send_pending())
@@ -1422,13 +1422,13 @@ WalSndWriteData(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId xid,
 		return;
 	}
 
-	/* If we have pending write here, go to slow path */
+	/* 若此处有待写入，则走慢速路径     */
 	ProcessPendingWrites();
 }
 
 /*
- * Wait until there is no pending write. Also process replies from the other
- * side and check timeouts during that.
+ * 等待直到没有待处理的写入。在此期间还要处理对端    
+ * 的回复，并检查超时。      
  */
 static void
 ProcessPendingWrites(void)
@@ -1437,13 +1437,13 @@ ProcessPendingWrites(void)
 	{
 		long		sleeptime;
 
-		/* Check for input from the client */
+		/* 检查来自客户端的输入  */
 		ProcessRepliesIfAny();
 
-		/* die if timeout was reached */
+		/* 若已到超时则退出   */
 		WalSndCheckTimeOut();
 
-		/* Send keepalive if the time has come */
+		/* 到时间就发送 keepalive        */
 		WalSndKeepaliveIfNecessary();
 
 		if (!pq_is_send_pending())
@@ -1451,16 +1451,16 @@ ProcessPendingWrites(void)
 
 		sleeptime = WalSndComputeSleeptime(GetCurrentTimestamp());
 
-		/* Sleep until something happens or we time out */
+		/* 休眠直到有事发生或我们超时      */
 		WalSndWait(WL_SOCKET_WRITEABLE | WL_SOCKET_READABLE, sleeptime,
 				   WAIT_EVENT_WAL_SENDER_WRITE_DATA);
 
-		/* Clear any already-pending wakeups */
+		/* 清除任何已挂起的唤醒    */
 		ResetLatch(MyLatch);
 
 		CHECK_FOR_INTERRUPTS();
 
-		/* Process any requests or signals received recently */
+		/* 处理最近收到的任何请求或信号        */
 		if (ConfigReloadPending)
 		{
 			ConfigReloadPending = false;
@@ -1468,21 +1468,21 @@ ProcessPendingWrites(void)
 			SyncRepInitConfig();
 		}
 
-		/* Try to flush pending output to the client */
+		/* 尝试把待输出数据刷写到客户端*/
 		if (pq_flush_if_writable() != 0)
 			WalSndShutdown();
 	}
 
-	/* reactivate latch so WalSndLoop knows to continue */
+	/* 重新激活锁存器让 WalSndLoop 知道继续 */
 	SetLatch(MyLatch);
 }
 
 /*
- * LogicalDecodingContext 'update_progress' callback.
+ * LogicalDecodingContext 'update_progress' 回调   
  *
- * Write the current position to the lag tracker (see XLogSendPhysical).
+ * 把当前位置写入延迟追踪器（参见 XLogSendPhysical）。 
  *
- * When skipping empty transactions, send a keepalive message if necessary.
+ * 跳过空事务时，若有必要则发送 keepalive 消息。          
  */
 static void
 WalSndUpdateProgress(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId xid,
@@ -1494,12 +1494,12 @@ WalSndUpdateProgress(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId 
 	bool		end_xact = ctx->end_xact;
 
 	/*
-	 * Track lag no more than once per WALSND_LOGICAL_LAG_TRACK_INTERVAL_MS to
-	 * avoid flooding the lag tracker when we commit frequently.
+	 * 每 WALSND_LOGICAL_LAG_TRACK_INTERVAL_MS 至多追踪                  
+	 * 一次滞后；提交过频会淹没滞后追踪器。   
 	 *
-	 * We don't have a mechanism to get the ack for any LSN other than end
-	 * xact LSN from the downstream. So, we track lag only for end of
-	 * transaction LSN.
+	 * 我们无法从下游获得事务结束 LSN 之外任何 LSN 的   
+	 * 确认，所以我们只追踪事务结束 LSN 的滞后      
+	 * 。             
 	 */
 #define WALSND_LOGICAL_LAG_TRACK_INTERVAL_MS	1000
 	if (end_xact && TimestampDifferenceExceeds(sendTime, now,
@@ -1510,12 +1510,12 @@ WalSndUpdateProgress(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId 
 	}
 
 	/*
-	 * When skipping empty transactions in synchronous replication, we send a
-	 * keepalive message to avoid delaying such transactions.
+	 * 在同步复制中跳过空事务时，我们会发送一条          
+	 * keepalive 消息，以免延误这类事务。        
 	 *
-	 * It is okay to check sync_standbys_status without lock here as in the
-	 * worst case we will just send an extra keepalive message when it is
-	 * really not required.
+	 * 此处不加锁检查 sync_standbys_status 也是可以的，       
+	 * 因为最坏的情况只是发送了一条其实并不需要的   
+	 * 多余 keepalive    
 	 */
 	if (skipped_xact &&
 		SyncRepRequested() &&
@@ -1523,21 +1523,21 @@ WalSndUpdateProgress(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId 
 	{
 		WalSndKeepalive(false, lsn);
 
-		/* Try to flush pending output to the client */
+		/* 尝试把待输出数据刷写到客户端*/
 		if (pq_flush_if_writable() != 0)
 			WalSndShutdown();
 
-		/* If we have pending write here, make sure it's actually flushed */
+		/* 如果此处有待写入，则确保它确实被刷写         */
 		if (pq_is_send_pending())
 			pending_writes = true;
 	}
 
 	/*
-	 * Process pending writes if any or try to send a keepalive if required.
-	 * We don't need to try sending keep alive messages at the transaction end
-	 * as that will be done at a later point in time. This is required only
-	 * for large transactions where we don't send any changes to the
-	 * downstream and the receiver can timeout due to that.
+	 * 处理待处理的写入（若有），或在需要时尝试发送   
+	 * keepalive。事务结束时无需尝试发送 keepalive 消息，      
+	 * 因为那会在稍后的时间点完成。只有大型事务才需  
+	 * 要这样：这类事务不向下游发送任何变更，接 
+	 * 收方可能因此超时。                         
 	 */
 	if (pending_writes || (!end_xact &&
 						   now >= TimestampTzPlusMilliseconds(last_reply_timestamp,
@@ -1546,11 +1546,11 @@ WalSndUpdateProgress(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId 
 }
 
 /*
- * Wait till WAL < loc is flushed to disk so it can be safely sent to client.
+ * 等待 WAL < loc 被刷写到磁盘，这样它就能被安全地         
  *
- * Returns end LSN of flushed WAL.  Normally this will be >= loc, but
- * if we detect a shutdown request (either from postmaster or client)
- * we will return early, so caller must always check.
+ * 发送给客户端。返回已刷写 WAL 的末尾 LSN。通常   
+ * 它会 >= loc，但若来自 postmaster 或客户端的关闭     
+ * 请求，则提前返回，调用方须检查。  
  */
 static XLogRecPtr
 WalSndWaitForWal(XLogRecPtr loc)
@@ -1560,15 +1560,15 @@ WalSndWaitForWal(XLogRecPtr loc)
 	TimestampTz last_flush = 0;
 
 	/*
-	 * Fast path to avoid acquiring the spinlock in case we already know we
-	 * have enough WAL available. This is particularly interesting if we're
-	 * far behind.
+	 * 快速路径：如果已经知道有足够可用的 WAL，就避免 
+	 * 获取自旋锁。如果我们远远落后，这条路径就尤其  
+	 * 有用。  
 	 */
 	if (RecentFlushPtr != InvalidXLogRecPtr &&
 		loc <= RecentFlushPtr)
 		return RecentFlushPtr;
 
-	/* Get a more recent flush pointer. */
+	/* 获取更新的刷写指针。   */
 	if (!RecoveryInProgress())
 		RecentFlushPtr = GetFlushRecPtr(NULL);
 	else
@@ -1579,12 +1579,12 @@ WalSndWaitForWal(XLogRecPtr loc)
 		long		sleeptime;
 		TimestampTz now;
 
-		/* Clear any already-pending wakeups */
+		/* 清除任何已挂起的唤醒    */
 		ResetLatch(MyLatch);
 
 		CHECK_FOR_INTERRUPTS();
 
-		/* Process any requests or signals received recently */
+		/* 处理最近收到的任何请求或信号        */
 		if (ConfigReloadPending)
 		{
 			ConfigReloadPending = false;
@@ -1592,80 +1592,80 @@ WalSndWaitForWal(XLogRecPtr loc)
 			SyncRepInitConfig();
 		}
 
-		/* Check for input from the client */
+		/* 检查来自客户端的输入  */
 		ProcessRepliesIfAny();
 
 		/*
-		 * If we're shutting down, trigger pending WAL to be written out,
-		 * otherwise we'd possibly end up waiting for WAL that never gets
-		 * written, because walwriter has shut down already.
+		 * 若我们在关闭，则触发把待处理的 WAL 写出，   
+		 * 否则我们可能最终等待永远写不出的 WAL，       
+		 * 因为 walwriter 已经先关闭了。           
 		 */
 		if (got_STOPPING)
 			XLogBackgroundFlush();
 
-		/* Update our idea of the currently flushed position. */
+		/* 更新我们对当前已刷写位置的认知。   */
 		if (!RecoveryInProgress())
 			RecentFlushPtr = GetFlushRecPtr(NULL);
 		else
 			RecentFlushPtr = GetXLogReplayRecPtr(NULL);
 
 		/*
-		 * If postmaster asked us to stop, don't wait anymore.
+		 * 若 postmaster 要求停止，就不再等待。   
 		 *
-		 * It's important to do this check after the recomputation of
-		 * RecentFlushPtr, so we can send all remaining data before shutting
-		 * down.
+		 * 这项检查必须在重新计算 RecentFlushPtr 之后   
+		 * 进行，这样关闭前能把其余数据全部发出           
+		 * 。  
 		 */
 		if (got_STOPPING)
 			break;
 
 		/*
-		 * We only send regular messages to the client for full decoded
-		 * transactions, but a synchronous replication and walsender shutdown
-		 * possibly are waiting for a later location. So, before sleeping, we
-		 * send a ping containing the flush location. If the receiver is
-		 * otherwise idle, this keepalive will trigger a reply. Processing the
-		 * reply will update these MyWalSnd locations.
+		 * 只对完整解码的事务向客户端发常规消息，   
+		 * 但同步复制和 WAL 发送进程关闭都可能正等待更    
+		 * 靠后的位置。所以在休眠之前，我们发送一条包   
+		 * 含刷写位置的 ping。若接收方本就空闲，这条  
+		 * keepalive 将触发一条回复。处理该回复会更新这些   
+		 * MyWalSnd 位置。                         
 		 */
 		if (MyWalSnd->flush < sentPtr &&
 			MyWalSnd->write < sentPtr &&
 			!waiting_for_ping_response)
 			WalSndKeepalive(false, InvalidXLogRecPtr);
 
-		/* check whether we're done */
+		/* 检查是否已完成    */
 		if (loc <= RecentFlushPtr)
 			break;
 
-		/* Waiting for new WAL. Since we need to wait, we're now caught up. */
+		/* 正在等待新 WAL。既然要等，说明已赶上进度。    */
 		WalSndCaughtUp = true;
 
 		/*
-		 * Try to flush any pending output to the client.
+		 * 尝试把待处理输出刷写给客户端。 
 		 */
 		if (pq_flush_if_writable() != 0)
 			WalSndShutdown();
 
 		/*
-		 * If we have received CopyDone from the client, sent CopyDone
-		 * ourselves, and the output buffer is empty, it's time to exit
-		 * streaming, so fail the current WAL fetch request.
+		 * 若已从客户端收到 CopyDone，自己也发了        
+		 * CopyDone，且输出缓冲区为空，就该退出流式传 
+		 * 输了，因此当前 WAL 获取请求失败。  
 		 */
 		if (streamingDoneReceiving && streamingDoneSending &&
 			!pq_is_send_pending())
 			break;
 
-		/* die if timeout was reached */
+		/* 若已到超时则退出   */
 		WalSndCheckTimeOut();
 
-		/* Send keepalive if the time has come */
+		/* 到时间就发送 keepalive        */
 		WalSndKeepaliveIfNecessary();
 
 		/*
-		 * Sleep until something happens or we time out.  Also wait for the
-		 * socket becoming writable, if there's still pending output.
-		 * Otherwise we might sit on sendable output data while waiting for
-		 * new WAL to be generated.  (But if we have nothing to send, we don't
-		 * want to wake on socket-writable.)
+		 * 休眠直到有事发生或超时。若仍有待输出数据， 
+		 * 则还要等套接字可写，否则在等新 WAL 生成  
+		 * 期间，我们可能一直压着可发送的输出数据。    
+		 * （但如果我们没有要发送的东西，就不希望因       
+		 * 套接字可写而醒来）      
 		 */
 		now = GetCurrentTimestamp();
 		sleeptime = WalSndComputeSleeptime(now);
@@ -1675,7 +1675,7 @@ WalSndWaitForWal(XLogRecPtr loc)
 		if (pq_is_send_pending())
 			wakeEvents |= WL_SOCKET_WRITEABLE;
 
-		/* Report IO statistics, if needed */
+		/* 需要时报告 IO 统计信息 */
 		if (TimestampDifferenceExceeds(last_flush, now,
 									   WALSENDER_STATS_FLUSH_INTERVAL))
 		{
@@ -1686,16 +1686,16 @@ WalSndWaitForWal(XLogRecPtr loc)
 		WalSndWait(wakeEvents, sleeptime, WAIT_EVENT_WAL_SENDER_WAIT_WAL);
 	}
 
-	/* reactivate latch so WalSndLoop knows to continue */
+	/* 重新激活锁存器让 WalSndLoop 知道继续 */
 	SetLatch(MyLatch);
 	return RecentFlushPtr;
 }
 
 /*
- * Execute an incoming replication command.
+ * 执行一条传入的复制命令。    
  *
- * Returns true if the cmd_string was recognized as WalSender command, false
- * if not.
+ * 如果 cmd_string 被识别为 WalSender 命令则返回真，否则     
+ * 为假 
  */
 bool
 exec_replication_command(const char *cmd_string)
@@ -1707,16 +1707,16 @@ exec_replication_command(const char *cmd_string)
 	MemoryContext old_context;
 
 	/*
-	 * If WAL sender has been told that shutdown is getting close, switch its
-	 * status accordingly to handle the next replication commands correctly.
+	 * 如果已告知 WAL 发送进程关闭即将到来，则据此        
+	 * 切换其状态，以便正确处理接下来的复制命令。      
 	 */
 	if (got_STOPPING)
 		WalSndSetState(WALSNDSTATE_STOPPING);
 
 	/*
-	 * Throw error if in stopping mode.  We need prevent commands that could
-	 * generate WAL while the shutdown checkpoint is being written.  To be
-	 * safe, we just prohibit all new commands.
+	 * 如果处于停止模式则抛出错误。在关闭检查点正在   
+	 * 被写出的期间，需要阻止可能产生 WAL 的命令。     
+	 * 安全起见，干脆禁止新命令。 
 	 */
 	if (MyWalSnd->state == WALSNDSTATE_STOPPING)
 		ereport(ERROR,
@@ -1724,15 +1724,15 @@ exec_replication_command(const char *cmd_string)
 				 errmsg("cannot execute new commands while WAL sender is in stopping mode")));
 
 	/*
-	 * CREATE_REPLICATION_SLOT ... LOGICAL exports a snapshot until the next
-	 * command arrives. Clean up the old stuff if there's anything.
+	 * CREATE_REPLICATION_SLOT ... LOGICAL 会导出一个快               
+	 * 照，保留到下一命令到来。有残留就清除。   
 	 */
 	SnapBuildClearExportedSnapshot();
 
 	CHECK_FOR_INTERRUPTS();
 
 	/*
-	 * Prepare to parse and execute the command.
+	 * 准备解析并执行该命令。        
 	 */
 	cmd_context = AllocSetContextCreate(CurrentMemoryContext,
 										"Replication command context",
@@ -1742,28 +1742,28 @@ exec_replication_command(const char *cmd_string)
 	replication_scanner_init(cmd_string);
 
 	/*
-	 * Is it a WalSender command?
+	 * 是 WalSender 命令？   
 	 */
 	if (!replication_scanner_is_replication_command())
 	{
-		/* Nope; clean up and get out. */
+		/* 不是；清理后退出。 */
 		replication_scanner_finish();
 
 		MemoryContextSwitchTo(old_context);
 		MemoryContextDelete(cmd_context);
 
-		/* XXX this is a pretty random place to make this check */
+		/* XXX 在这里做这项检查的位置相当随意    */
 		if (MyDatabaseId == InvalidOid)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("cannot execute SQL commands in WAL sender for physical replication")));
 
-		/* Tell the caller that this wasn't a WalSender command. */
+		/* 告诉调用者这不是一条 WalSender 命令。    */
 		return false;
 	}
 
 	/*
-	 * Looks like a WalSender command, so parse it.
+	 * 看似 WalSender 命令，故解析。      
 	 */
 	parse_rc = replication_yyparse();
 	if (parse_rc != 0)
@@ -1776,23 +1776,23 @@ exec_replication_command(const char *cmd_string)
 	cmd_node = replication_parse_result;
 
 	/*
-	 * Report query to various monitoring facilities.  For this purpose, we
-	 * report replication commands just like SQL commands.
+	 * 向各种监控设施报告查询。为此目的，                 
+	 * 我们像 SQL 命令一样报告复制命令。    
 	 */
 	debug_query_string = cmd_string;
 
 	pgstat_report_activity(STATE_RUNNING, cmd_string);
 
 	/*
-	 * Log replication command if log_replication_commands is enabled. Even
-	 * when it's disabled, log the command with DEBUG1 level for backward
-	 * compatibility.
+	 * 若已启用 log_replication_commands 则记录复制命令。      
+	 * 即便被禁用，也以 DEBUG1 级别记录该命令，以保持 
+	 * 兼容性。  
 	 */
 	ereport(log_replication_commands ? LOG : DEBUG1,
 			(errmsg("received replication command: %s", cmd_string)));
 
 	/*
-	 * Disallow replication commands in aborted transaction blocks.
+	 * 不允许在已中止的事务块中使用复制命令。   
 	 */
 	if (IsAbortedTransactionBlockState())
 		ereport(ERROR,
@@ -1803,8 +1803,8 @@ exec_replication_command(const char *cmd_string)
 	CHECK_FOR_INTERRUPTS();
 
 	/*
-	 * Allocate buffers that will be used for each outgoing and incoming
-	 * message.  We do this just once per command to reduce palloc overhead.
+	 * 分配将用于每条发出与接收消息的缓冲区。        
+	 * 我们每条命令只分配一次，以减少 palloc 开销。       
 	 */
 	initStringInfo(&output_message);
 	initStringInfo(&reply_message);
@@ -1861,7 +1861,7 @@ exec_replication_command(const char *cmd_string)
 				else
 					StartLogicalReplication(cmd);
 
-				/* dupe, but necessary per libpqrcv_endstreaming */
+				/* 重复，但 libpqrcv_endstreaming 需要它  */
 				EndReplicationCommand(cmdtag);
 
 				Assert(xlogreader != NULL);
@@ -1884,7 +1884,7 @@ exec_replication_command(const char *cmd_string)
 				cmdtag = "SHOW";
 				set_ps_display(cmdtag);
 
-				/* syscache access needs a transaction environment */
+				/* syscache 访问需要一个事务环境         */
 				StartTransactionCommand();
 				GetPGVariable(n->name, dest);
 				CommitTransactionCommand();
@@ -1902,9 +1902,9 @@ exec_replication_command(const char *cmd_string)
 	MemoryContextDelete(cmd_context);
 
 	/*
-	 * We need not update ps display or pg_stat_activity, because PostgresMain
-	 * will reset those to "idle".  But we must reset debug_query_string to
-	 * ensure it doesn't become a dangling pointer.
+	 * 我们无需更新 ps display 或 pg_stat_activity；PostgresMain      
+	 * 会把它们重置为"idle"。但必须重置 debug_query_string    
+	 * 以确保它不会成为悬空指针。     
 	 */
 	debug_query_string = NULL;
 
@@ -1912,8 +1912,8 @@ exec_replication_command(const char *cmd_string)
 }
 
 /*
- * Process any incoming messages while streaming. Also checks if the remote
- * end has closed the connection.
+ * 在流式传输期间处理任何收到的消息。同时检查远端   
+ * 是否已关闭连接。      
  */
 static void
 ProcessRepliesIfAny(void)
@@ -1926,9 +1926,9 @@ ProcessRepliesIfAny(void)
 	last_processing = GetCurrentTimestamp();
 
 	/*
-	 * If we already received a CopyDone from the frontend, any subsequent
-	 * message is the beginning of a new command, and should be processed in
-	 * the main processing loop.
+	 * 如果我们已经从前端收到 CopyDone，则后续任何消息 
+	 * 都是新命令的开头，并且应当在主处理循环中         
+	 * 处理。                
 	 */
 	while (!streamingDoneReceiving)
 	{
@@ -1936,7 +1936,7 @@ ProcessRepliesIfAny(void)
 		r = pq_getbyte_if_available(&firstchar);
 		if (r < 0)
 		{
-			/* unexpected error or EOF */
+			/* 意外错误或 EOF     */
 			ereport(COMMERROR,
 					(errcode(ERRCODE_PROTOCOL_VIOLATION),
 					 errmsg("unexpected EOF on standby connection")));
@@ -1944,12 +1944,12 @@ ProcessRepliesIfAny(void)
 		}
 		if (r == 0)
 		{
-			/* no data available without blocking */
+			/* 非阻塞模式下无可用数据  */
 			pq_endmsgread();
 			break;
 		}
 
-		/* Validate message type and set packet size limit */
+		/* 校验消息类型并设置包大小上限      */
 		switch (firstchar)
 		{
 			case 'd':
@@ -1964,11 +1964,11 @@ ProcessRepliesIfAny(void)
 						(errcode(ERRCODE_PROTOCOL_VIOLATION),
 						 errmsg("invalid standby message type \"%c\"",
 								firstchar)));
-				maxmsglen = 0;	/* keep compiler quiet */
+				maxmsglen = 0;	/* 让编译器安静  */
 				break;
 		}
 
-		/* Read the message contents */
+		/* 读取消息内容        */
 		resetStringInfo(&reply_message);
 		if (pq_getmessage(&reply_message, maxmsglen))
 		{
@@ -1978,11 +1978,11 @@ ProcessRepliesIfAny(void)
 			proc_exit(0);
 		}
 
-		/* ... and process it */
+		/* 随后处理它    */
 		switch (firstchar)
 		{
 				/*
-				 * 'd' means a standby reply wrapped in a CopyData packet.
+				 * 'd' 表示封装在 CopyData 包内的备库应答。  
 				 */
 			case 'd':
 				ProcessStandbyMessage();
@@ -1990,8 +1990,8 @@ ProcessRepliesIfAny(void)
 				break;
 
 				/*
-				 * CopyDone means the standby requested to finish streaming.
-				 * Reply with CopyDone, if we had not sent that already.
+				 * CopyDone 表示备库请求结束流式传输。         
+				 * 如果我们尚未发送，则回应 CopyDone。     
 				 */
 			case 'c':
 				if (!streamingDoneSending)
@@ -2005,7 +2005,7 @@ ProcessRepliesIfAny(void)
 				break;
 
 				/*
-				 * 'X' means that the standby is closing down the socket.
+				 * 'X' 表示备库正在关闭套接字。              
 				 */
 			case 'X':
 				proc_exit(0);
@@ -2016,7 +2016,7 @@ ProcessRepliesIfAny(void)
 	}
 
 	/*
-	 * Save the last reply timestamp if we've received at least one reply.
+	 * 若至少收到一个应答，则保存最后应答时间戳。    
 	 */
 	if (received)
 	{
@@ -2026,7 +2026,7 @@ ProcessRepliesIfAny(void)
 }
 
 /*
- * Process a status update message received from standby.
+ * 处理从备库收到的状态更新消息。         
  */
 static void
 ProcessStandbyMessage(void)
@@ -2034,7 +2034,7 @@ ProcessStandbyMessage(void)
 	char		msgtype;
 
 	/*
-	 * Check message type from the first byte.
+	 * 从首字节检查消息类型。      
 	 */
 	msgtype = pq_getmsgbyte(&reply_message);
 
@@ -2057,7 +2057,7 @@ ProcessStandbyMessage(void)
 }
 
 /*
- * Remember that a walreceiver just confirmed receipt of lsn `lsn`.
+ * 记住某个 walreceiver 刚确认收到了 lsn `lsn`。        
  */
 static void
 PhysicalConfirmReceivedLocation(XLogRecPtr lsn)
@@ -2081,19 +2081,19 @@ PhysicalConfirmReceivedLocation(XLogRecPtr lsn)
 	}
 
 	/*
-	 * One could argue that the slot should be saved to disk now, but that'd
-	 * be energy wasted - the worst thing lost information could cause here is
-	 * to give wrong information in a statistics view - we'll just potentially
-	 * be more conservative in removing files.
+	 * 有人可能会说现在就该把槽保存到磁盘，但那纯属   
+	 * 白费功夫：信息丢失在此处最坏的后果是                 
+	 * 在统计视图中给出错误信息，我们至多只会              
+	 * 在删除文件时更为保守。      
 	 *
-	 * Checkpointer makes special efforts to keep the WAL segments required by
-	 * the restart_lsn written to the disk. See CreateCheckPoint() and
-	 * CreateRestartPoint() for details.
+	 * 检查点进程会特别努力把 restart_lsn 所需的 WAL 段保留  
+	 * 在磁盘上。详情参见 CreateCheckPoint() 与             
+	 * CreateRestartPoint() 的说明   
 	 */
 }
 
 /*
- * Regular reply from standby advising of WAL locations on standby server.
+ * 备库的常规应答，告知备库服务器上的 WAL 位置。      
  */
 static void
 ProcessStandbyReplyMessage(void)
@@ -2111,7 +2111,7 @@ ProcessStandbyReplyMessage(void)
 
 	static bool fullyAppliedLastTime = false;
 
-	/* the caller already consumed the msgtype byte */
+	/* 调用者已消费 msgtype 字节            */
 	writePtr = pq_getmsgint64(&reply_message);
 	flushPtr = pq_getmsgint64(&reply_message);
 	applyPtr = pq_getmsgint64(&reply_message);
@@ -2122,7 +2122,7 @@ ProcessStandbyReplyMessage(void)
 	{
 		char	   *replyTimeStr;
 
-		/* Copy because timestamptz_to_str returns a static buffer */
+		/* 复制，因 timestamptz_to_str 返回静态缓冲区   */
 		replyTimeStr = pstrdup(timestamptz_to_str(replyTime));
 
 		elog(DEBUG2, "write %X/%X flush %X/%X apply %X/%X%s reply_time %s",
@@ -2135,19 +2135,19 @@ ProcessStandbyReplyMessage(void)
 		pfree(replyTimeStr);
 	}
 
-	/* See if we can compute the round-trip lag for these positions. */
+	/* 看看我们能否为这些位置计算往返滞后。        */
 	now = GetCurrentTimestamp();
 	writeLag = LagTrackerRead(SYNC_REP_WAIT_WRITE, writePtr, now);
 	flushLag = LagTrackerRead(SYNC_REP_WAIT_FLUSH, flushPtr, now);
 	applyLag = LagTrackerRead(SYNC_REP_WAIT_APPLY, applyPtr, now);
 
 	/*
-	 * If the standby reports that it has fully replayed the WAL in two
-	 * consecutive reply messages, then the second such message must result
-	 * from wal_receiver_status_interval expiring on the standby.  This is a
-	 * convenient time to forget the lag times measured when it last
-	 * wrote/flushed/applied a WAL record, to avoid displaying stale lag data
-	 * until more WAL traffic arrives.
+	 * 如果备库在连续两条应答消息中均报告已          
+	 * 完整重放 WAL，则第二条消息必然是备库上             
+	 * wal_receiver_status_interval 到期所致。这是忘掉它          
+	 * 上次写入/刷写/应用记录时测得的滞后时间，  
+	 * 以免在更多 WAL 流量到来之前显示                          
+	 * 陈旧的滞后数据。       
 	 */
 	clearLagTimes = false;
 	if (applyPtr == sentPtr)
@@ -2159,13 +2159,13 @@ ProcessStandbyReplyMessage(void)
 	else
 		fullyAppliedLastTime = false;
 
-	/* Send a reply if the standby requested one. */
+	/* 若备库请求应答，则发送之。    */
 	if (replyRequested)
 		WalSndKeepalive(false, InvalidXLogRecPtr);
 
 	/*
-	 * Update shared state for this WalSender process based on reply data from
-	 * standby.
+	 * 根据备库应答数据更新本 WalSender 进程的共享状         
+	 * 态。  
 	 */
 	{
 		WalSnd	   *walsnd = MyWalSnd;
@@ -2188,7 +2188,7 @@ ProcessStandbyReplyMessage(void)
 		SyncRepReleaseWaiters();
 
 	/*
-	 * Advance our local xmin horizon when the client confirmed a flush.
+	 * 客户端确认刷写后，推进本地的 xmin 视界。        
 	 */
 	if (MyReplicationSlot && flushPtr != InvalidXLogRecPtr)
 	{
@@ -2199,7 +2199,7 @@ ProcessStandbyReplyMessage(void)
 	}
 }
 
-/* compute new replication slot xmin horizon if needed */
+/* 如有需要，计算新的复制槽 xmin 视界    */
 static void
 PhysicalReplicationSlotNewXmin(TransactionId feedbackXmin, TransactionId feedbackCatalogXmin)
 {
@@ -2210,9 +2210,9 @@ PhysicalReplicationSlotNewXmin(TransactionId feedbackXmin, TransactionId feedbac
 	MyProc->xmin = InvalidTransactionId;
 
 	/*
-	 * For physical replication we don't need the interlock provided by xmin
-	 * and effective_xmin since the consequences of a missed increase are
-	 * limited to query cancellations, so set both at once.
+	 * 物理复制不需要 xmin 与 effective_xmin 提供的              
+	 * 互锁机制，因为漏掉一次增加的后果不过是         
+	 * 查询取消而已，故一次性设置两者。    
 	 */
 	if (!TransactionIdIsNormal(slot->data.xmin) ||
 		!TransactionIdIsNormal(feedbackXmin) ||
@@ -2240,14 +2240,14 @@ PhysicalReplicationSlotNewXmin(TransactionId feedbackXmin, TransactionId feedbac
 }
 
 /*
- * Check that the provided xmin/epoch are sane, that is, not in the future
- * and not so far back as to be already wrapped around.
+ * 检查所给的 xmin/epoch 是否合理，即不在未来，           
+ * 也未倒退到已经回绕的地步。             
  *
- * Epoch of nextXid should be same as standby, or if the counter has
- * wrapped, then one greater than standby.
+ * nextXid 的纪元应与备库相同；若计数器已回绕，   
+ * 则比备库大 1。                   
  *
- * This check doesn't care about whether clog exists for these xids
- * at all.
+ * 这项检查完全不关心这些 xid 的 clog 是否存在     
+ * 。    
  */
 static bool
 TransactionIdInRecentPast(TransactionId xid, uint32 epoch)
@@ -2272,13 +2272,13 @@ TransactionIdInRecentPast(TransactionId xid, uint32 epoch)
 	}
 
 	if (!TransactionIdPrecedesOrEquals(xid, nextXid))
-		return false;			/* epoch OK, but it's wrapped around */
+		return false;			/* 纪元 OK，但已回绕          */
 
 	return true;
 }
 
 /*
- * Hot Standby feedback
+ * 热备反馈        
  */
 static void
 ProcessStandbyHSFeedbackMessage(void)
@@ -2290,9 +2290,9 @@ ProcessStandbyHSFeedbackMessage(void)
 	TimestampTz replyTime;
 
 	/*
-	 * Decipher the reply message. The caller already consumed the msgtype
-	 * byte. See XLogWalRcvSendHSFeedback() in walreceiver.c for the creation
-	 * of this message.
+	 * 解读应答消息。调用者已消费 msgtype 字节。此消息 
+	 * 由 walreceiver.c 中的 XLogWalRcvSendHSFeedback()                   
+	 * 构造。       
 	 */
 	replyTime = pq_getmsgint64(&reply_message);
 	feedbackXmin = pq_getmsgint(&reply_message, 4);
@@ -2304,7 +2304,7 @@ ProcessStandbyHSFeedbackMessage(void)
 	{
 		char	   *replyTimeStr;
 
-		/* Copy because timestamptz_to_str returns a static buffer */
+		/* 复制，因 timestamptz_to_str 返回静态缓冲区   */
 		replyTimeStr = pstrdup(timestamptz_to_str(replyTime));
 
 		elog(DEBUG2, "hot standby feedback xmin %u epoch %u, catalog_xmin %u epoch %u reply_time %s",
@@ -2318,8 +2318,8 @@ ProcessStandbyHSFeedbackMessage(void)
 	}
 
 	/*
-	 * Update shared state for this WalSender process based on reply data from
-	 * standby.
+	 * 根据备库应答数据更新本 WalSender 进程的共享状         
+	 * 态。  
 	 */
 	{
 		WalSnd	   *walsnd = MyWalSnd;
@@ -2330,8 +2330,8 @@ ProcessStandbyHSFeedbackMessage(void)
 	}
 
 	/*
-	 * Unset WalSender's xmins if the feedback message values are invalid.
-	 * This happens when the downstream turned hot_standby_feedback off.
+	 * 若反馈消息的值无效，则清除 WalSender 的 xmin。      
+	 * 当下游关闭 hot_standby_feedback 时便会如此。          
 	 */
 	if (!TransactionIdIsNormal(feedbackXmin)
 		&& !TransactionIdIsNormal(feedbackCatalogXmin))
@@ -2343,8 +2343,8 @@ ProcessStandbyHSFeedbackMessage(void)
 	}
 
 	/*
-	 * Check that the provided xmin/epoch are sane, that is, not in the future
-	 * and not so far back as to be already wrapped around.  Ignore if not.
+	 * 检查所给的 xmin/epoch 是否合理，即不在未来，           
+	 * 也未倒退到已经回绕的地步。若不合理则忽略。     
 	 */
 	if (TransactionIdIsNormal(feedbackXmin) &&
 		!TransactionIdInRecentPast(feedbackXmin, feedbackEpoch))
@@ -2355,37 +2355,37 @@ ProcessStandbyHSFeedbackMessage(void)
 		return;
 
 	/*
-	 * Set the WalSender's xmin equal to the standby's requested xmin, so that
-	 * the xmin will be taken into account by GetSnapshotData() /
-	 * ComputeXidHorizons().  This will hold back the removal of dead rows and
-	 * thereby prevent the generation of cleanup conflicts on the standby
-	 * server.
+	 * 把 WalSender 的 xmin 设为备库请求的 xmin，这样             
+	 * GetSnapshotData() / ComputeXidHorizons() 会考虑        
+	 * 该 xmin。这会拖住死行的清除，从而防止在备库         
+	 * 服务器上产生清理冲突                                    
+	 * 。    
 	 *
-	 * There is a small window for a race condition here: although we just
-	 * checked that feedbackXmin precedes nextXid, the nextXid could have
-	 * gotten advanced between our fetching it and applying the xmin below,
-	 * perhaps far enough to make feedbackXmin wrap around.  In that case the
-	 * xmin we set here would be "in the future" and have no effect.  No point
-	 * in worrying about this since it's too late to save the desired data
-	 * anyway.  Assuming that the standby sends us an increasing sequence of
-	 * xmins, this could only happen during the first reply cycle, else our
-	 * own xmin would prevent nextXid from advancing so far.
+	 * 这里存在一个小小的竞态条件窗口：虽然我们刚刚 
+	 * 检查过 feedbackXmin 位于 nextXid 之前，但在我们       
+	 * 取到它并在下方应用 xmin 之间，nextXid 可能已经      
+	 * 前进到使 feedbackXmin 回绕的程度。那样的话，           
+	 * 我们在这里设置的 xmin 将是"未来的"并且不起作用。   
+	 * 无需为此担忧，反正要保住所需数据已为时过晚。 
+	 * 假设备库向我们发送的是递增的 xmin 序列，那么      
+	 * 这只可能发生在第一轮应答期间，否则我们自己的  
+	 * xmin 会阻止 nextXid 前进得这么远。         
 	 *
-	 * We don't bother taking the ProcArrayLock here.  Setting the xmin field
-	 * is assumed atomic, and there's no real need to prevent concurrent
-	 * horizon determinations.  (If we're moving our xmin forward, this is
-	 * obviously safe, and if we're moving it backwards, well, the data is at
-	 * risk already since a VACUUM could already have determined the horizon.)
+	 * 我们不为此费神去拿 ProcArrayLock。设置 xmin 字段        
+	 * 被假定是原子的，并且确实无需阻止并发的视界  
+	 * 判定。（如果我们把 xmin 向前移动，这显然安全； 
+	 * 而如果我们把它向后移动，那么数据本来就处于       
+	 * 危险之中，因为 VACUUM 可能早已判定过视界。）         
 	 *
-	 * If we're using a replication slot we reserve the xmin via that,
-	 * otherwise via the walsender's PGPROC entry. We can only track the
-	 * catalog xmin separately when using a slot, so we store the least of the
-	 * two provided when not using a slot.
+	 * 如果使用复制槽，我们就通过该槽保留 xmin，    
+	 * 否则通过 walsender 的 PGPROC 条目保留。只有使用    
+	 * 槽时才能分开跟踪系统表 xmin，所以不使用槽时，      
+	 * 保存两者中较小的一个。  
 	 *
-	 * XXX: It might make sense to generalize the ephemeral slot concept and
-	 * always use the slot mechanism to handle the feedback xmin.
+	 * XXX：也许值得泛化瞬态槽的概念，总是使用槽机制   
+	 * 来处理反馈 xmin。                                   
 	 */
-	if (MyReplicationSlot != NULL)	/* XXX: persistency configurable? */
+	if (MyReplicationSlot != NULL)	/* XXX：持久性可配置吗？ */
 		PhysicalReplicationSlotNewXmin(feedbackXmin, feedbackCatalogXmin);
 	else
 	{
@@ -2398,11 +2398,11 @@ ProcessStandbyHSFeedbackMessage(void)
 }
 
 /*
- * Compute how long send/receive loops should sleep.
+ * 计算发送/接收循环该睡多久。         
  *
- * If wal_sender_timeout is enabled we want to wake up in time to send
- * keepalives and to abort the connection if wal_sender_timeout has been
- * reached.
+ * 如果启用了 wal_sender_timeout，我们希望及时醒来      
+ * 发送保活，并在 wal_sender_timeout 到期时中止连接       
+ * 。     
  */
 static long
 WalSndComputeSleeptime(TimestampTz now)
@@ -2414,22 +2414,22 @@ WalSndComputeSleeptime(TimestampTz now)
 		TimestampTz wakeup_time;
 
 		/*
-		 * At the latest stop sleeping once wal_sender_timeout has been
-		 * reached.
+		 * 最迟在 wal_sender_timeout 到期时停止睡眠          
+		 * 。     
 		 */
 		wakeup_time = TimestampTzPlusMilliseconds(last_reply_timestamp,
 												  wal_sender_timeout);
 
 		/*
-		 * If no ping has been sent yet, wakeup when it's time to do so.
-		 * WalSndKeepaliveIfNecessary() wants to send a keepalive once half of
-		 * the timeout passed without a response.
+		 * 如果尚未发送过 ping，则在到点时唤醒。        
+		 * WalSndKeepaliveIfNecessary() 希望在一半超时过去           
+		 * 而无响应时即发送保活。     
 		 */
 		if (!waiting_for_ping_response)
 			wakeup_time = TimestampTzPlusMilliseconds(last_reply_timestamp,
 													  wal_sender_timeout / 2);
 
-		/* Compute relative time until wakeup. */
+		/* 计算距唤醒的相对时间。   */
 		sleeptime = TimestampDifferenceMilliseconds(now, wakeup_time);
 	}
 
@@ -2437,23 +2437,23 @@ WalSndComputeSleeptime(TimestampTz now)
 }
 
 /*
- * Check whether there have been responses by the client within
- * wal_sender_timeout and shutdown if not.  Using last_processing as the
- * reference point avoids counting server-side stalls against the client.
- * However, a long server-side stall can make WalSndKeepaliveIfNecessary()
- * postdate last_processing by more than wal_sender_timeout.  If that happens,
- * the client must reply almost immediately to avoid a timeout.  This rarely
- * affects the default configuration, under which clients spontaneously send a
- * message every standby_message_timeout = wal_sender_timeout/6 = 10s.  We
- * could eliminate that problem by recognizing timeout expiration at
- * wal_sender_timeout/2 after the keepalive.
+ * 检查客户端在 wal_sender_timeout 内有无响应，    
+ * 若无则关闭。以 last_processing 为基准点，可避免       
+ * 把服务器端的停滞算到客户端头上。然而，长时间的 
+ * 服务器端停滞可能使 WalSndKeepaliveIfNecessary() 把           
+ * last_processing 推后超过 wal_sender_timeout。若如此，             
+ * 客户端就必须几乎立即回复才能避免超时。这在默认    
+ * 配置下很少成为问题：在该配置下客户端会每隔            
+ * standby_message_timeout = wal_sender_timeout/6 = 10s                   
+ * 自发地发送消息。在保活后 wal_sender_timeout/2        
+ * 处识别超时即可消除该问题。  
  */
 static void
 WalSndCheckTimeOut(void)
 {
 	TimestampTz timeout;
 
-	/* don't bail out if we're doing something that doesn't require timeouts */
+	/* 如果我们正在做的事情不需要超时机制，则不要退出 */
 	if (last_reply_timestamp <= 0)
 		return;
 
@@ -2463,9 +2463,9 @@ WalSndCheckTimeOut(void)
 	if (wal_sender_timeout > 0 && last_processing >= timeout)
 	{
 		/*
-		 * Since typically expiration of replication timeout means
-		 * communication problem, we don't send the error message to the
-		 * standby.
+		 * 由于复制超时到期通常意味着                
+		 * 通信问题，故我们不向备库发送错误消息       
+		 * 。     
 		 */
 		ereport(COMMERROR,
 				(errmsg("terminating walsender process due to replication timeout")));
@@ -2474,31 +2474,31 @@ WalSndCheckTimeOut(void)
 	}
 }
 
-/* Main loop of walsender process that streams the WAL over Copy messages. */
+/* 通过 Copy 消息流式发送 WAL 的 walsender 进程主循环。     */
 static void
 WalSndLoop(WalSndSendDataCallback send_data)
 {
 	TimestampTz last_flush = 0;
 
 	/*
-	 * Initialize the last reply timestamp. That enables timeout processing
-	 * from hereon.
+	 * 初始化最后应答时间戳。从此起即可处理超时        
+	 * 。         
 	 */
 	last_reply_timestamp = GetCurrentTimestamp();
 	waiting_for_ping_response = false;
 
 	/*
-	 * Loop until we reach the end of this timeline or the client requests to
-	 * stop streaming.
+	 * 循环，直到到达此时间线的末尾，或客户端请求停止 
+	 * 传输。      
 	 */
 	for (;;)
 	{
-		/* Clear any already-pending wakeups */
+		/* 清除任何已挂起的唤醒    */
 		ResetLatch(MyLatch);
 
 		CHECK_FOR_INTERRUPTS();
 
-		/* Process any requests or signals received recently */
+		/* 处理最近收到的任何请求或信号        */
 		if (ConfigReloadPending)
 		{
 			ConfigReloadPending = false;
@@ -2506,43 +2506,43 @@ WalSndLoop(WalSndSendDataCallback send_data)
 			SyncRepInitConfig();
 		}
 
-		/* Check for input from the client */
+		/* 检查来自客户端的输入  */
 		ProcessRepliesIfAny();
 
 		/*
-		 * If we have received CopyDone from the client, sent CopyDone
-		 * ourselves, and the output buffer is empty, it's time to exit
-		 * streaming.
+		 * 如果已收到客户端的 CopyDone，而且自己也已  
+		 * 发送 CopyDone，输出缓冲为空就该退流式         
+		 * 发送。 
 		 */
 		if (streamingDoneReceiving && streamingDoneSending &&
 			!pq_is_send_pending())
 			break;
 
 		/*
-		 * If we don't have any pending data in the output buffer, try to send
-		 * some more.  If there is some, we don't bother to call send_data
-		 * again until we've flushed it ... but we'd better assume we are not
-		 * caught up.
+		 * 若输出缓冲区无待发数据，则尝试再发送一些。    
+		 * 若有一些，则在刷写完之前就无需再调用         
+		 * send_data ... 但我们最好假定尚未                         
+		 * 追上。 
 		 */
 		if (!pq_is_send_pending())
 			send_data();
 		else
 			WalSndCaughtUp = false;
 
-		/* Try to flush pending output to the client */
+		/* 尝试向客户端刷写待发输出      */
 		if (pq_flush_if_writable() != 0)
 			WalSndShutdown();
 
-		/* If nothing remains to be sent right now ... */
+		/* 若眼下没有剩余待发内容……     */
 		if (WalSndCaughtUp && !pq_is_send_pending())
 		{
 			/*
-			 * If we're in catchup state, move to streaming.  This is an
-			 * important state change for users to know about, since before
-			 * this point data loss might occur if the primary dies and we
-			 * need to failover to the standby. The state change is also
-			 * important for synchronous replication, since commits that
-			 * started to wait at that point might wait for some time.
+			 * 若处于追赶状态，则转入流式传输。这是   
+			 * 用户须要知道的重要状态变更，因为在此      
+			 * 之前，若主库死亡且需故障切换到备库，     
+			 * 就可能丢失数据。该状态变更对同步复制   
+			 * 也很重要，因为在那一刻开始等待的提交   
+			 * 可能要等上一段时间。                         
 			 */
 			if (MyWalSnd->state == WALSNDSTATE_CATCHUP)
 			{
@@ -2553,30 +2553,30 @@ WalSndLoop(WalSndSendDataCallback send_data)
 			}
 
 			/*
-			 * When SIGUSR2 arrives, we send any outstanding logs up to the
-			 * shutdown checkpoint record (i.e., the latest record), wait for
-			 * them to be replicated to the standby, and exit. This may be a
-			 * normal termination at shutdown, or a promotion, the walsender
-			 * is not sure which.
+			 * SIGUSR2 到来时，我们把所有未发的日志一直    
+			 * 发送至关闭检查点记录（即最新记录），等待  
+			 * 它们复制到备库，随后退出。这可能是关闭时 
+			 * 的正常终止，也可能是提升，walsender 不确定   
+			 * 是哪一种。   
 			 */
 			if (got_SIGUSR2)
 				WalSndDone(send_data);
 		}
 
-		/* Check for replication timeout. */
+		/* 检查复制是否已超时。 */
 		WalSndCheckTimeOut();
 
-		/* Send keepalive if the time has come */
+		/* 如果时间已到，则发送保活*/
 		WalSndKeepaliveIfNecessary();
 
 		/*
-		 * Block if we have unsent data.  XXX For logical replication, let
-		 * WalSndWaitForWal() handle any other blocking; idle receivers need
-		 * its additional actions.  For physical replication, also block if
-		 * caught up; its send_data does not block.
+		 * 如果有未发送的数据则阻塞。XXX 逻辑复制交给  
+		 * WalSndWaitForWal() 处理其他任何阻塞；空闲的接       
+		 * 收端需要它的额外操作。物理复制则在已追上时 
+		 * 也阻塞；其 send_data 不阻塞。  
 		 *
-		 * The IO statistics are reported in WalSndWaitForWal() for the
-		 * logical WAL senders.
+		 * IO 统计在 WalSndWaitForWal() 中报告，对象为逻辑 
+		 * WAL 发送进程    
 		 */
 		if ((WalSndCaughtUp && send_data != XLogSendLogical &&
 			 !streamingDoneSending) ||
@@ -2592,8 +2592,8 @@ WalSndLoop(WalSndSendDataCallback send_data)
 				wakeEvents = 0;
 
 			/*
-			 * Use fresh timestamp, not last_processing, to reduce the chance
-			 * of reaching wal_sender_timeout before sending a keepalive.
+			 * 用新时间戳而非 last_processing，以减少在发       
+			 * 保活之前就达到 wal_sender_timeout 的机会。     
 			 */
 			now = GetCurrentTimestamp();
 			sleeptime = WalSndComputeSleeptime(now);
@@ -2601,7 +2601,7 @@ WalSndLoop(WalSndSendDataCallback send_data)
 			if (pq_is_send_pending())
 				wakeEvents |= WL_SOCKET_WRITEABLE;
 
-			/* Report IO statistics, if needed */
+			/* 如需要则报告 IO 统计    */
 			if (TimestampDifferenceExceeds(last_flush, now,
 										   WALSENDER_STATS_FLUSH_INTERVAL))
 			{
@@ -2609,28 +2609,28 @@ WalSndLoop(WalSndSendDataCallback send_data)
 				last_flush = now;
 			}
 
-			/* Sleep until something happens or we time out */
+			/* 睡眠直到有事件发生或我们超时   */
 			WalSndWait(wakeEvents, sleeptime, WAIT_EVENT_WAL_SENDER_MAIN);
 		}
 	}
 }
 
-/* Initialize a per-walsender data structure for this walsender process */
+/* 为该 walsender 进程初始化 per-walsender 数据结构          */
 static void
 InitWalSenderSlot(void)
 {
 	int			i;
 
 	/*
-	 * WalSndCtl should be set up already (we inherit this by fork() or
-	 * EXEC_BACKEND mechanism from the postmaster).
+	 * WalSndCtl 应当已经设置好（我们通过 fork() 或       
+	 * EXEC_BACKEND 机制从 postmaster 继承） 
 	 */
 	Assert(WalSndCtl != NULL);
 	Assert(MyWalSnd == NULL);
 
 	/*
-	 * Find a free walsender slot and reserve it. This must not fail due to
-	 * the prior check for free WAL senders in InitProcess().
+	 * 找一个空闲 walsender 槽并保留。InitProcess() 已先行    
+	 * 检查过空闲 WAL 发送进程，故不会失败。 
 	 */
 	for (i = 0; i < max_wal_senders; i++)
 	{
@@ -2646,7 +2646,7 @@ InitWalSenderSlot(void)
 		else
 		{
 			/*
-			 * Found a free slot. Reserve it for us.
+			 * 找到空闲槽。留给我们用。 
 			 */
 			walsnd->pid = MyProcPid;
 			walsnd->state = WALSNDSTATE_STARTUP;
@@ -2663,15 +2663,15 @@ InitWalSenderSlot(void)
 			walsnd->replyTime = 0;
 
 			/*
-			 * The kind assignment is done here and not in StartReplication()
-			 * and StartLogicalReplication(). Indeed, the logical walsender
-			 * needs to read WAL records (like snapshot of running
-			 * transactions) during the slot creation. So it needs to be woken
-			 * up based on its kind.
+			 * kind 赋值在此完成，而非在 StartReplication()        
+			 * 或 StartLogicalReplication() 中。事实上，逻辑      
+			 * walsender 需在槽创建期间读 WAL 记录（   
+			 * 运行中事务的快照），所以它需要根据自身的   
+			 * kind 被唤醒。    
 			 *
-			 * The kind assignment could also be done in StartReplication(),
-			 * StartLogicalReplication() and CREATE_REPLICATION_SLOT but it
-			 * seems better to set it on one place.
+			 * kind 的赋值也可以在 StartReplication()、             
+			 * StartLogicalReplication() 和 CREATE_REPLICATION_SLOT 中   
+			 * 完成。集中一处更好。      
 			 */
 			if (MyDatabaseId == InvalidOid)
 				walsnd->kind = REPLICATION_KIND_PHYSICAL;
@@ -2679,7 +2679,7 @@ InitWalSenderSlot(void)
 				walsnd->kind = REPLICATION_KIND_LOGICAL;
 
 			SpinLockRelease(&walsnd->mutex);
-			/* don't need the lock anymore */
+			/* 不再需要该锁          */
 			MyWalSnd = (WalSnd *) walsnd;
 
 			break;
@@ -2688,11 +2688,11 @@ InitWalSenderSlot(void)
 
 	Assert(MyWalSnd != NULL);
 
-	/* Arrange to clean up at walsender exit */
+	/* 安排在 walsender 退出时清理   */
 	on_shmem_exit(WalSndKill, 0);
 }
 
-/* Destroy the per-walsender data structure for this walsender process */
+/* 销毁该 walsender 进程的 per-walsender 数据结构            */
 static void
 WalSndKill(int code, Datum arg)
 {
@@ -2703,14 +2703,14 @@ WalSndKill(int code, Datum arg)
 	MyWalSnd = NULL;
 
 	SpinLockAcquire(&walsnd->mutex);
-	/* clear latch while holding the spinlock, so it can safely be read */
+	/* 持自旋锁时清除锁存器，使其可被安全读取        */
 	walsnd->latch = NULL;
-	/* Mark WalSnd struct as no longer being in use. */
+	/* 将 WalSnd 结构标记为不再使用。     */
 	walsnd->pid = 0;
 	SpinLockRelease(&walsnd->mutex);
 }
 
-/* XLogReaderRoutine->segment_open callback */
+/* XLogReaderRoutine->segment_open 回调   */
 static void
 WalSndSegmentOpen(XLogReaderState *state, XLogSegNo nextSegNo,
 				  TimeLineID *tli_p)
@@ -2718,13 +2718,13 @@ WalSndSegmentOpen(XLogReaderState *state, XLogSegNo nextSegNo,
 	char		path[MAXPGPATH];
 
 	/*-------
-	 * When reading from a historic timeline, and there is a timeline switch
-	 * within this segment, read from the WAL segment belonging to the new
-	 * timeline.
+	 * 从历史时间线读取，且该段内存在时间线切换时，   
+	 * 应从属于新时间线的 WAL 段读取                          
+	 * 。      
 	 *
-	 * For example, imagine that this server is currently on timeline 5, and
-	 * we're streaming timeline 4. The switch from timeline 4 to 5 happened at
-	 * 0/13002088. In pg_wal, we have these files:
+	 * 例如，假设本服务器当前位于时间线 5，而我们正在 
+	 * 流式发送时间线 4。从时间线 4 切换到 5 发生在         
+	 * 0/13002088。pg_wal 中有这些文件：  
 	 *
 	 * ...
 	 * 000000040000000000000012
@@ -2733,13 +2733,13 @@ WalSndSegmentOpen(XLogReaderState *state, XLogSegNo nextSegNo,
 	 * 000000050000000000000014
 	 * ...
 	 *
-	 * In this situation, when requested to send the WAL from segment 0x13, on
-	 * timeline 4, we read the WAL from file 000000050000000000000013. Archive
-	 * recovery prefers files from newer timelines, so if the segment was
-	 * restored from the archive on this server, the file belonging to the old
-	 * timeline, 000000040000000000000013, might not exist. Their contents are
-	 * equal up to the switchpoint, because at a timeline switch, the used
-	 * portion of the old segment is copied to the new file.  -------
+	 * 在这种情况下，当被要求发送时间线 4 上段 0x13 的     
+	 * WAL 时，我们从文件 000000050000000000000013 读取。           
+	 * 归档恢复偏好较新时间线的文件，因此若该段      
+	 * 是从归档恢复到本服务器上的，那么属于旧时间线     
+	 * 的文件 000000040000000000000013 可能并不存在。               
+	 * 两者的内容在切换点之前相等，因为在时间线切换 
+	 * 时旧段的已用部分会复制到新文件中。 -------   
 	 */
 	*tli_p = sendTimeLine;
 	if (sendTimeLineIsHistoric)
@@ -2757,8 +2757,8 @@ WalSndSegmentOpen(XLogReaderState *state, XLogSegNo nextSegNo,
 		return;
 
 	/*
-	 * If the file is not found, assume it's because the standby asked for a
-	 * too old WAL segment that has already been removed or recycled.
+	 * 如果找不到该文件，则假定是备库请求了太旧的      
+	 * WAL 段，该段已被移除或回收。                      
 	 */
 	if (errno == ENOENT)
 	{
@@ -2780,14 +2780,14 @@ WalSndSegmentOpen(XLogReaderState *state, XLogSegNo nextSegNo,
 }
 
 /*
- * Send out the WAL in its normal physical/stored form.
+ * 以正常的物理/存储形式发送 WAL。        
  *
- * Read up to MAX_SEND_SIZE bytes of WAL that's been flushed to disk,
- * but not yet sent to the client, and buffer it in the libpq output
- * buffer.
+ * 读取最多 MAX_SEND_SIZE 字节已刷写到磁盘、但尚未   
+ * 发送给客户端的 WAL，缓冲到 libpq 输出缓冲区      
+ * 。    
  *
- * If there is no unsent WAL remaining, WalSndCaughtUp is set to true,
- * otherwise WalSndCaughtUp is set to false.
+ * 如果没有剩余未发送的 WAL，则 WalSndCaughtUp 被设     
+ * 置为 true，否则被置为 false。   
  */
 static void
 XLogSendPhysical(void)
@@ -2799,7 +2799,7 @@ XLogSendPhysical(void)
 	XLogSegNo	segno;
 	WALReadError errinfo;
 
-	/* If requested switch the WAL sender to the stopping state. */
+	/* 被要求时把 WAL 发送进程切换到停止状态。  */
 	if (got_STOPPING)
 		WalSndSetState(WALSNDSTATE_STOPPING);
 
@@ -2809,13 +2809,13 @@ XLogSendPhysical(void)
 		return;
 	}
 
-	/* Figure out how far we can safely send the WAL. */
+	/* 算出我们能安全发送 WAL 到多远。   */
 	if (sendTimeLineIsHistoric)
 	{
 		/*
-		 * Streaming an old timeline that's in this server's history, but is
-		 * not the one we're currently inserting or replaying. It can be
-		 * streamed up to the point where we switched off that timeline.
+		 * 流式发送本服务器历史中的旧时间线，但它并非  
+		 * 我们当前写入或重放的那条。可发送到          
+		 * 我们离开该时间线的切换点为止。                
 		 */
 		SendRqstPtr = sendTimeLineValidUpto;
 	}
@@ -2824,21 +2824,21 @@ XLogSendPhysical(void)
 		TimeLineID	SendRqstTLI;
 
 		/*
-		 * Streaming the latest timeline on a standby.
+		 * 在备库上流式发送最新时间线。 
 		 *
-		 * Attempt to send all WAL that has already been replayed, so that we
-		 * know it's valid. If we're receiving WAL through streaming
-		 * replication, it's also OK to send any WAL that has been received
-		 * but not replayed.
+		 * 尝试发送所有已重放的 WAL 以确认其有效。若我们 
+		 * 正通过流复制接收 WAL，则发送已接收但     
+		 * 尚未重放的 WAL 也是可以的                             
+		 * 。              
 		 *
-		 * The timeline we're recovering from can change, or we can be
-		 * promoted. In either case, the current timeline becomes historic. We
-		 * need to detect that so that we don't try to stream past the point
-		 * where we switched to another timeline. We check for promotion or
-		 * timeline switch after calculating FlushPtr, to avoid a race
-		 * condition: if the timeline becomes historic just after we checked
-		 * that it was still current, it's still be OK to stream it up to the
-		 * FlushPtr that was calculated before it became historic.
+		 * 所恢复的时间线可能改变，或我们被提升。  
+		 * 无论哪种，当前时间线都将成为历史时间线。我们 
+		 * 需检测到它，以免试图越过切换到另一时间线的  
+		 * 点。算出 FlushPtr 后才检查提升或时间线切换，   
+		 * 以免竞态条件：若时间线在检查过它仍是     
+		 * 当前之后才变为历史，那么把它发送到变为        
+		 * 历史之前算出的 FlushPtr 仍然是没问题的              
+		 * 。                                                    
 		 */
 		bool		becameHistoric = false;
 
@@ -2846,7 +2846,7 @@ XLogSendPhysical(void)
 
 		if (!RecoveryInProgress())
 		{
-			/* We have been promoted. */
+			/* 我们已被提升。  */
 			SendRqstTLI = GetWALInsertionTimeLine();
 			am_cascading_walsender = false;
 			becameHistoric = true;
@@ -2854,8 +2854,8 @@ XLogSendPhysical(void)
 		else
 		{
 			/*
-			 * Still a cascading standby. But is the timeline we're sending
-			 * still the one recovery is recovering from?
+			 * 仍是级联备库。但我们发送的时间线是不是   
+			 * 恢复进程正在恢复的那条？      
 			 */
 			if (sendTimeLine != SendRqstTLI)
 				becameHistoric = true;
@@ -2864,9 +2864,9 @@ XLogSendPhysical(void)
 		if (becameHistoric)
 		{
 			/*
-			 * The timeline we were sending has become historic. Read the
-			 * timeline history file of the new timeline to see where exactly
-			 * we forked off from the timeline we were sending.
+			 * 我们发送的时间线已变成历史时间线。读取 
+			 * 新时间线的历史文件，以查明我们究竟在何处  
+			 * 自先前发送的时间线分叉出来的。   
 			 */
 			List	   *history;
 
@@ -2884,65 +2884,65 @@ XLogSendPhysical(void)
 	else
 	{
 		/*
-		 * Streaming the current timeline on a primary.
+		 * 在主库上流式发送当前时间线。  
 		 *
-		 * Attempt to send all data that's already been written out and
-		 * fsync'd to disk.  We cannot go further than what's been written out
-		 * given the current implementation of WALRead().  And in any case
-		 * it's unsafe to send WAL that is not securely down to disk on the
-		 * primary: if the primary subsequently crashes and restarts, standbys
-		 * must not have applied any WAL that got lost on the primary.
+		 * 尝试发送所有已写出且 fsync 到磁盘的数据。  
+		 * 鉴于 WALRead() 目前的实现，我们无法发送更多。     
+		 * 况且无论如何，在主库上发送尚未                  
+		 * 可靠落盘的 WAL 是不安全的：若主库随后崩溃     
+		 * 并重启，备库必须尚未应用任何已在主库             
+		 * 不复存在的 WAL。                                     
 		 */
 		SendRqstPtr = GetFlushRecPtr(NULL);
 	}
 
 	/*
-	 * Record the current system time as an approximation of the time at which
-	 * this WAL location was written for the purposes of lag tracking.
+	 * 记录当前系统时间，作为此 WAL 位置写入时刻的近似   
+	 * 值，用于滞后跟踪。                                    
 	 *
-	 * In theory we could make XLogFlush() record a time in shmem whenever WAL
-	 * is flushed and we could get that time as well as the LSN when we call
-	 * GetFlushRecPtr() above (and likewise for the cascading standby
-	 * equivalent), but rather than putting any new code into the hot WAL path
-	 * it seems good enough to capture the time here.  We should reach this
-	 * after XLogFlush() runs WalSndWakeupProcessRequests(), and although that
-	 * may take some time, we read the WAL flush pointer and take the time
-	 * very close to together here so that we'll get a later position if it is
-	 * still moving.
+	 * 理论上，我们本可以让 XLogFlush() 在 WAL 刷写时           
+	 * 在共享内存中记录一个时间，并在调用上面的         
+	 * GetFlushRecPtr() 时取回时间和 LSN（级联备库的     
+	 * 对应调用也是如此），但与其向热点 WAL 路径添加      
+	 * 新代码，在这里采集时间似乎就足够了。我们应当  
+	 * 是在 XLogFlush() 执行 WalSndWakeupProcessRequests() 之后         
+	 * 到达这里；尽管可能耗时，读取 WAL 刷写指针和     
+	 * 取时间应在此几乎同时完成，这样若仍在移动，位置  
+	 * 更靠后。 
 	 *
-	 * Because LagTrackerWrite ignores samples when the LSN hasn't advanced,
-	 * this gives us a cheap approximation for the WAL flush time for this
-	 * LSN.
+	 * 由于 LagTrackerWrite 会忽略 LSN 未前进时的样本，        
+	 * 这就为此 LSN 的 WAL 刷写时间提供了一个廉价近似   
+	 * 。 
 	 *
-	 * Note that the LSN is not necessarily the LSN for the data contained in
-	 * the present message; it's the end of the WAL, which might be further
-	 * ahead.  All the lag tracking machinery cares about is finding out when
-	 * that arbitrary LSN is eventually reported as written, flushed and
-	 * applied, so that it can measure the elapsed time.
+	 * 注意，该 LSN 未必就是本消息所含数据对应的 LSN；    
+	 * 它是 WAL 末端，可能更靠前。滞后跟踪机制只关心   
+	 * 的是这个任意 LSN 何时最终被报告为已写入、已刷写  
+	 * 和已应用，                                                  
+	 * 以便它能测量经过的时间。             
 	 */
 	LagTrackerWrite(SendRqstPtr, GetCurrentTimestamp());
 
 	/*
-	 * If this is a historic timeline and we've reached the point where we
-	 * forked to the next timeline, stop streaming.
+	 * 若这是历史时间线，且我们已到达分叉到下一条    
+	 * 时间线的点，就停止流式发送。  
 	 *
-	 * Note: We might already have sent WAL > sendTimeLineValidUpto. The
-	 * startup process will normally replay all WAL that has been received
-	 * from the primary, before promoting, but if the WAL streaming is
-	 * terminated at a WAL page boundary, the valid portion of the timeline
-	 * might end in the middle of a WAL record. We might've already sent the
-	 * first half of that partial WAL record to the cascading standby, so that
-	 * sentPtr > sendTimeLineValidUpto. That's OK; the cascading standby can't
-	 * replay the partial WAL record either, so it can still follow our
-	 * timeline switch.
+	 * 注意：可能已发送超过 sendTimeLineValidUpto 的 WAL。  
+	 * 提升前，startup 进程通常会重放从主库收到的        
+	 * 全部 WAL；但如果 WAL 流式发送止于页边界，      
+	 * 时间线的有效部分可能结束于一条 WAL 记录中途。   
+	 * 我们可能已把那条部分 WAL 记录的前半发送给级联    
+	 * 备库，故 sentPtr > sendTimeLineValidUpto。无妨；级联备库   
+	 * 也无法重放部分 WAL 记录，仍能跟随我们的               
+	 * 时间线切换                                                 
+	 * 。             
 	 */
 	if (sendTimeLineIsHistoric && sendTimeLineValidUpto <= sentPtr)
 	{
-		/* close the current file. */
+		/* 关闭当前文件。   */
 		if (xlogreader->seg.ws_file >= 0)
 			wal_segment_close(xlogreader);
 
-		/* Send CopyDone */
+		/* 发送CopyDone*/
 		pq_putmessage_noblock('c', NULL, 0);
 		streamingDoneSending = true;
 
@@ -2954,7 +2954,7 @@ XLogSendPhysical(void)
 		return;
 	}
 
-	/* Do we have any work to do? */
+	/* 是否有工作要做？   */
 	Assert(sentPtr <= SendRqstPtr);
 	if (SendRqstPtr <= sentPtr)
 	{
@@ -2963,21 +2963,21 @@ XLogSendPhysical(void)
 	}
 
 	/*
-	 * Figure out how much to send in one message. If there's no more than
-	 * MAX_SEND_SIZE bytes to send, send everything. Otherwise send
-	 * MAX_SEND_SIZE bytes, but round back to logfile or page boundary.
+	 * 计算单条消息要发送多少。若待发送量不超过       
+	 * MAX_SEND_SIZE 字节，就全部发送；否则发送       
+	 * MAX_SEND_SIZE 字节，但回退到日志文件或页边界。  
 	 *
-	 * The rounding is not only for performance reasons. Walreceiver relies on
-	 * the fact that we never split a WAL record across two messages. Since a
-	 * long WAL record is split at page boundary into continuation records,
-	 * page boundary is always a safe cut-off point. We also assume that
-	 * SendRqstPtr never points to the middle of a WAL record.
+	 * 取整不仅是为了性能。walreceiver 依赖于这一事实：     
+	 * 我们绝不会把一条 WAL 记录拆到两条消息中。由于     
+	 * 长的 WAL 记录会在页边界处拆成延续记录，因此页   
+	 * 边界始终是安全的截断点。我们还假定              
+	 * SendRqstPtr 绝不指向 WAL 记录中间。           
 	 */
 	startptr = sentPtr;
 	endptr = startptr;
 	endptr += MAX_SEND_SIZE;
 
-	/* if we went beyond SendRqstPtr, back off */
+	/* 若越过了 SendRqstPtr，则回退    */
 	if (SendRqstPtr <= endptr)
 	{
 		endptr = SendRqstPtr;
@@ -2988,7 +2988,7 @@ XLogSendPhysical(void)
 	}
 	else
 	{
-		/* round down to page boundary. */
+		/* 向下取整到页边界。  */
 		endptr -= (endptr % XLOG_BLCKSZ);
 		WalSndCaughtUp = false;
 	}
@@ -2997,7 +2997,7 @@ XLogSendPhysical(void)
 	Assert(nbytes <= MAX_SEND_SIZE);
 
 	/*
-	 * OK to read and send the slice.
+	 * 可读取并发送切片。   
 	 */
 	resetStringInfo(&output_message);
 	pq_sendbyte(&output_message, 'w');
@@ -3007,8 +3007,8 @@ XLogSendPhysical(void)
 	pq_sendint64(&output_message, 0);	/* sendtime, filled in last */
 
 	/*
-	 * Read the log directly into the output buffer to avoid extra memcpy
-	 * calls.
+	 * 把日志直接读进输出缓冲区省去多余的 memcpy 调用 
+	 * 。   
 	 */
 	enlargeStringInfo(&output_message, nbytes);
 
@@ -3018,20 +3018,20 @@ retry:
 				 startptr,
 				 nbytes,
 				 xlogreader->seg.ws_tli,	/* Pass the current TLI because
-											 * only WalSndSegmentOpen controls
+											 * 仅 WalSndSegmentOpen 控制   
 											 * whether new TLI is needed. */
 				 &errinfo))
 		WALReadRaiseError(&errinfo);
 
-	/* See logical_read_xlog_page(). */
+	/* 见 logical_read_xlog_page()  */
 	XLByteToSeg(startptr, segno, xlogreader->segcxt.ws_segsize);
 	CheckXLogRemoved(segno, xlogreader->seg.ws_tli);
 
 	/*
-	 * During recovery, the currently-open WAL file might be replaced with the
-	 * file of the same name retrieved from archive. So we always need to
-	 * check what we read was valid after reading into the buffer. If it's
-	 * invalid, we try to open and read the file again.
+	 * 在恢复期间，当前打开的 WAL 文件可能会被归档中      
+	 * 取回的同名文件替换，因此总要在读入后检查      
+	 * 读到的内容是否有效。                                     
+	 * 若无效，就重新打开文件再读。      
 	 */
 	if (am_cascading_walsender)
 	{
@@ -3055,7 +3055,7 @@ retry:
 	output_message.data[output_message.len] = '\0';
 
 	/*
-	 * Fill the send timestamp last, so that it is taken as late as possible.
+	 * 最后再填充发送时间戳，使其取值尽可能晚。          
 	 */
 	resetStringInfo(&tmpbuf);
 	pq_sendint64(&tmpbuf, GetCurrentTimestamp());
@@ -3066,7 +3066,7 @@ retry:
 
 	sentPtr = endptr;
 
-	/* Update shared memory status */
+	/* 更新共享内存状态    */
 	{
 		WalSnd	   *walsnd = MyWalSnd;
 
@@ -3075,7 +3075,7 @@ retry:
 		SpinLockRelease(&walsnd->mutex);
 	}
 
-	/* Report progress of XLOG streaming in PS display */
+	/* 在 PS 显示中报告 XLOG 流式发送进度  */
 	if (update_process_title)
 	{
 		char		activitymsg[50];
@@ -3087,7 +3087,7 @@ retry:
 }
 
 /*
- * Stream out logically decoded data.
+ * 流式发送逻辑解码数据。 
  */
 static void
 XLogSendLogical(void)
@@ -3096,24 +3096,24 @@ XLogSendLogical(void)
 	char	   *errm;
 
 	/*
-	 * We'll use the current flush point to determine whether we've caught up.
-	 * This variable is static in order to cache it across calls.  Caching is
-	 * helpful because GetFlushRecPtr() needs to acquire a heavily-contended
-	 * spinlock.
+	 * 我们将用当前刷写位置来判断是否已经跟上。           
+	 * 此变量声明为 static，以便跨调用缓存。缓存很有      
+	 * 帮助，因为 GetFlushRecPtr() 需要获取竞争激烈的自旋   
+	 * 锁。   
 	 */
 	static XLogRecPtr flushPtr = InvalidXLogRecPtr;
 
 	/*
-	 * Don't know whether we've caught up yet. We'll set WalSndCaughtUp to
-	 * true in WalSndWaitForWal, if we're actually waiting. We also set to
-	 * true if XLogReadRecord() had to stop reading but WalSndWaitForWal
-	 * didn't wait - i.e. when we're shutting down.
+	 * 尚不知道是否已跟上。若确实在等待，我们会在    
+	 * WalSndWaitForWal 中把 WalSndCaughtUp 设为 true。另外，若  
+	 * XLogReadRecord() 被迫停止读取而 WalSndWaitForWal          
+	 * 未等待也设 true（正在关闭）。   
 	 */
 	WalSndCaughtUp = false;
 
 	record = XLogReadRecord(logical_decoding_ctx->reader, &errm);
 
-	/* xlog record was invalid */
+	/* 该 xlog 记录无效   */
 	if (errm != NULL)
 		elog(ERROR, "could not find record while sending logically-decoded data: %s",
 			 errm);
@@ -3121,9 +3121,9 @@ XLogSendLogical(void)
 	if (record != NULL)
 	{
 		/*
-		 * Note the lack of any call to LagTrackerWrite() which is handled by
-		 * WalSndUpdateProgress which is called by output plugin through
-		 * logical decoding write api.
+		 * 注意这里没有调用 LagTrackerWrite()，该工作由         
+		 * WalSndUpdateProgress 完成，由输出插件经逻辑解    
+		 * 码写 API 调用。       
 		 */
 		LogicalDecodingProcessRecord(logical_decoding_ctx, logical_decoding_ctx->reader);
 
@@ -3131,19 +3131,19 @@ XLogSendLogical(void)
 	}
 
 	/*
-	 * If first time through in this session, initialize flushPtr.  Otherwise,
-	 * we only need to update flushPtr if EndRecPtr is past it.
+	 * 若本会话首次执行到这里，则初始化 flushPtr；否则，  
+	 * 仅当 EndRecPtr 越过它时才需更新 flushPtr。   
 	 */
 	if (flushPtr == InvalidXLogRecPtr ||
 		logical_decoding_ctx->reader->EndRecPtr >= flushPtr)
 	{
 		/*
-		 * For cascading logical WAL senders, we use the replay LSN instead of
-		 * the flush LSN, since logical decoding on a standby only processes
-		 * WAL that has been replayed.  This distinction becomes particularly
-		 * important during shutdown, as new WAL is no longer replayed and the
-		 * last replayed LSN marks the furthest point up to which decoding can
-		 * proceed.
+		 * 级联逻辑 WAL 发送进程使用重放 LSN 而非刷写 LSN，  
+		 * 因为备库上的逻辑解码只处理已被重放的 WAL。    
+		 * 这种区别在关闭时尤其重要：新 WAL 不再重放，而 
+		 * 最后一次重放的 LSN 标记着解码能推进到的最远     
+		 * 位置                                                             
+		 * 。     
 		 */
 		if (am_cascading_walsender)
 			flushPtr = GetXLogReplayRecPtr(NULL);
@@ -3151,19 +3151,19 @@ XLogSendLogical(void)
 			flushPtr = GetFlushRecPtr(NULL);
 	}
 
-	/* If EndRecPtr is still past our flushPtr, it means we caught up. */
+	/* 若 EndRecPtr 仍越过 flushPtr，说明我们已经跟上。  */
 	if (logical_decoding_ctx->reader->EndRecPtr >= flushPtr)
 		WalSndCaughtUp = true;
 
 	/*
-	 * If we're caught up and have been requested to stop, have WalSndLoop()
-	 * terminate the connection in an orderly manner, after writing out all
-	 * the pending data.
+	 * 若已跟上且被要求停止，就让 WalSndLoop() 在写出全部 
+	 * 待发数据之后，以有序的方式                             
+	 * 断开连接。  
 	 */
 	if (WalSndCaughtUp && got_STOPPING)
 		got_SIGUSR2 = true;
 
-	/* Update shared memory status */
+	/* 更新共享内存状态    */
 	{
 		WalSnd	   *walsnd = MyWalSnd;
 
@@ -3174,26 +3174,26 @@ XLogSendLogical(void)
 }
 
 /*
- * Shutdown if the sender is caught up.
+ * 发送进程跟上后即关闭。   
  *
- * NB: This should only be called when the shutdown signal has been received
- * from postmaster.
+ * 注意：只应在从 postmaster 收到关闭信号之后才调用       
+ * 本函数。    
  *
- * Note that if we determine that there's still more data to send, this
- * function will return control to the caller.
+ * 注意：若判定还有数据要发送，本函数交还控制     
+ * 给调用者。                            
  */
 static void
 WalSndDone(WalSndSendDataCallback send_data)
 {
 	XLogRecPtr	replicatedPtr;
 
-	/* ... let's just be real sure we're caught up ... */
+	/* ……务必彻底确认我们已经跟上……*/
 	send_data();
 
 	/*
-	 * To figure out whether all WAL has successfully been replicated, check
-	 * flush location if valid, write otherwise. Tools like pg_receivewal will
-	 * usually (unless in synchronous mode) return an invalid flush location.
+	 * 要确认所有 WAL 是否都已成功复制，可检查刷写位置 
+	 * 有效则用刷写位置，否则用写位置。pg_receivewal 这类   
+	 * 工具通常（同步模式除外）会返回无效的刷写位置。 
 	 */
 	replicatedPtr = XLogRecPtrIsInvalid(MyWalSnd->flush) ?
 		MyWalSnd->write : MyWalSnd->flush;
@@ -3203,7 +3203,7 @@ WalSndDone(WalSndSendDataCallback send_data)
 	{
 		QueryCompletion qc;
 
-		/* Inform the standby that XLOG streaming is done */
+		/* 告知备库 XLOG 流式发送已结束        */
 		SetQueryCompletion(&qc, CMDTAG_COPY, 0);
 		EndCommand(&qc, DestRemote, false);
 		pq_flush();
@@ -3215,12 +3215,12 @@ WalSndDone(WalSndSendDataCallback send_data)
 }
 
 /*
- * Returns the latest point in WAL that has been safely flushed to disk, and
- * can be sent to the standby. This should only be called when in recovery,
- * ie. we're streaming to a cascaded standby.
+ * 返回 WAL 中已安全刷写到磁盘、且可以发送给备库的     
+ * 最靠后的位置。只应在恢复期间调用本函数，也就是   
+ * 即正在向级联备库流式发送。   
  *
- * As a side-effect, *tli is updated to the TLI of the last
- * replayed WAL record.
+ * 副作用：*tli 更新为最后重放的 WAL 记录的 
+ * TLI。              
  */
 static XLogRecPtr
 GetStandbyFlushRecPtr(TimeLineID *tli)
@@ -3232,9 +3232,9 @@ GetStandbyFlushRecPtr(TimeLineID *tli)
 	XLogRecPtr	result;
 
 	/*
-	 * We can safely send what's already been replayed. Also, if walreceiver
-	 * is streaming WAL from the same timeline, we can send anything that it
-	 * has streamed, but hasn't been replayed yet.
+	 * 已重放的内容可以安全发送。此外，如果 walreceiver   
+	 * 正从同一时间线接收 WAL，则它已流式接收但未重放  
+	 * 的内容也都可以发送。             
 	 */
 
 	receivePtr = GetWalRcvFlushRecPtr(NULL, &receiveTLI);
@@ -3251,7 +3251,7 @@ GetStandbyFlushRecPtr(TimeLineID *tli)
 }
 
 /*
- * Request walsenders to reload the currently-open WAL file
+ * 请求 walsender 重新加载当前打开的 WAL 文件 
  */
 void
 WalSndRqstFileReload(void)
@@ -3274,7 +3274,7 @@ WalSndRqstFileReload(void)
 }
 
 /*
- * Handle PROCSIG_WALSND_INIT_STOPPING signal.
+ * 处理 PROCSIG_WALSND_INIT_STOPPING 信号 
  */
 void
 HandleWalSndInitStopping(void)
@@ -3282,10 +3282,10 @@ HandleWalSndInitStopping(void)
 	Assert(am_walsender);
 
 	/*
-	 * If replication has not yet started, die like with SIGTERM. If
-	 * replication is active, only set a flag and wake up the main loop. It
-	 * will send any outstanding WAL, wait for it to be replicated to the
-	 * standby, and then exit gracefully.
+	 * 若复制尚未开始，则像 SIGTERM 一样直接退出。 
+	 * 若复制正在进行，则只设置标志并唤醒主循环。它  
+	 * 会发出所有待发 WAL，等它复制到备库后再优雅     
+	 * 地退出。                      
 	 */
 	if (!replication_active)
 		kill(MyProcPid, SIGTERM);
@@ -3294,9 +3294,9 @@ HandleWalSndInitStopping(void)
 }
 
 /*
- * SIGUSR2: set flag to do a last cycle and shut down afterwards. The WAL
- * sender should already have been switched to WALSNDSTATE_STOPPING at
- * this point.
+ * SIGUSR2：设标志做最后一轮循环，之后关闭。            
+ * 此时 WAL 发送进程应已切换到 WALSNDSTATE_STOPPING        
+ * 状态。  
  */
 static void
 WalSndLastCycleHandler(SIGNAL_ARGS)
@@ -3309,26 +3309,26 @@ WalSndLastCycleHandler(SIGNAL_ARGS)
 	errno = save_errno;
 }
 
-/* Set up signal handlers */
+/* 设置信号处理器  */
 void
 WalSndSignals(void)
 {
-	/* Set up signal handlers */
+	/* 设置信号处理器  */
 	pqsignal(SIGHUP, SignalHandlerForConfigReload);
-	pqsignal(SIGINT, StatementCancelHandler);	/* query cancel */
-	pqsignal(SIGTERM, die);		/* request shutdown */
-	/* SIGQUIT handler was already set up by InitPostmasterChild */
-	InitializeTimeouts();		/* establishes SIGALRM handler */
+	pqsignal(SIGINT, StatementCancelHandler);	/* 查询取消 */
+	pqsignal(SIGTERM, die);		/* 请求关闭     */
+	/* SIGQUIT 处理器已由 InitPostmasterChild 设置好     */
+	InitializeTimeouts();		/* 建立 SIGALRM 处理器    */
 	pqsignal(SIGPIPE, SIG_IGN);
 	pqsignal(SIGUSR1, procsignal_sigusr1_handler);
 	pqsignal(SIGUSR2, WalSndLastCycleHandler);	/* request a last cycle and
 												 * shutdown */
 
-	/* Reset some signals that are accepted by postmaster but not here */
+	/* 重置一些由 postmaster 接受但此处不接受的信号    */
 	pqsignal(SIGCHLD, SIG_DFL);
 }
 
-/* Report shared-memory space needed by WalSndShmemInit */
+/* 报告 WalSndShmemInit 所需的共享内存空间   */
 Size
 WalSndShmemSize(void)
 {
@@ -3340,7 +3340,7 @@ WalSndShmemSize(void)
 	return size;
 }
 
-/* Allocate and initialize walsender-related shared memory */
+/* 分配并初始化 walsender 相关的共享内存      */
 void
 WalSndShmemInit(void)
 {
@@ -3352,7 +3352,7 @@ WalSndShmemInit(void)
 
 	if (!found)
 	{
-		/* First time through, so initialize */
+		/* 首次执行，故初始化       */
 		MemSet(WalSndCtl, 0, WalSndShmemSize());
 
 		for (i = 0; i < NUM_SYNC_REP_WAIT_MODE; i++)
@@ -3371,28 +3371,28 @@ WalSndShmemInit(void)
 }
 
 /*
- * Wake up physical, logical or both kinds of walsenders
+ * 唤醒物理、逻辑或两类 walsender             
  *
- * The distinction between physical and logical walsenders is done, because:
- * - physical walsenders can't send data until it's been flushed
- * - logical walsenders on standby can't decode and send data until it's been
- *   applied
+ * 区分物理与逻辑 walsender 的原因如下：                       
+ * - 物理 walsender 在数据刷写前无法发送            
+ * - 备库上的逻辑 walsender 在被应用前无法解码并             
+ *   发送 
  *
- * For cascading replication we need to wake up physical walsenders separately
- * from logical walsenders (see the comment before calling WalSndWakeup() in
- * ApplyWalRecord() for more details).
+ * 对于级联复制，我们需要单独唤醒物理 walsender，           
+ * 使其区别于逻辑 walsender（详见 ApplyWalRecord() 中调用      
+ * WalSndWakeup() 前的注释）。  
  *
- * This will be called inside critical sections, so throwing an error is not
- * advisable.
+ * 它会在临界区内被调用，因此抛出错误并非明智          
+ * 之举。 
  */
 void
 WalSndWakeup(bool physical, bool logical)
 {
 	/*
-	 * Wake up all the walsenders waiting on WAL being flushed or replayed
-	 * respectively.  Note that waiting walsender would have prepared to sleep
-	 * on the CV (i.e., added itself to the CV's waitlist) in WalSndWait()
-	 * before actually waiting.
+	 * 唤醒各等待 WAL 刷写或重放的 walsender。                
+	 * 注意，正在等待的 walsender 应已准备在 WalSndWait() 中    
+	 * 在 CV 上休眠（即加入 CV 的等待列表），之后才     
+	 * 等待。               
 	 */
 	if (physical)
 		ConditionVariableBroadcast(&WalSndCtl->wal_flush_cv);
@@ -3402,9 +3402,9 @@ WalSndWakeup(bool physical, bool logical)
 }
 
 /*
- * Wait for readiness on the FeBe socket, or a timeout.  The mask should be
- * composed of optional WL_SOCKET_WRITEABLE and WL_SOCKET_READABLE flags.  Exit
- * on postmaster death.
+ * 等待 FeBe 套接字就绪或超时；掩码应由                     
+ * WL_SOCKET_WRITEABLE 和 WL_SOCKET_READABLE 标志组成。若 postmaster    
+ * 死亡则退出。  
  */
 static void
 WalSndWait(uint32 socket_events, long timeout, uint32 wait_event)
@@ -3414,28 +3414,28 @@ WalSndWait(uint32 socket_events, long timeout, uint32 wait_event)
 	ModifyWaitEvent(FeBeWaitSet, FeBeWaitSetSocketPos, socket_events, NULL);
 
 	/*
-	 * We use a condition variable to efficiently wake up walsenders in
-	 * WalSndWakeup().
+	 * 我们用一个条件变量在 WalSndWakeup() 中高效唤醒   
+	 * walsender。   
 	 *
-	 * Every walsender prepares to sleep on a shared memory CV. Note that it
-	 * just prepares to sleep on the CV (i.e., adds itself to the CV's
-	 * waitlist), but does not actually wait on the CV (IOW, it never calls
-	 * ConditionVariableSleep()). It still uses WaitEventSetWait() for
-	 * waiting, because we also need to wait for socket events. The processes
-	 * (startup process, walreceiver etc.) wanting to wake up walsenders use
-	 * ConditionVariableBroadcast(), which in turn calls SetLatch(), helping
-	 * walsenders come out of WaitEventSetWait().
+	 * 每个 walsender 都准备在共享内存 CV 上休眠。注意      
+	 * 它只准备在 CV 休眠（即加入 CV 等待列表），    
+	 * 并不会真正在 CV 上等待（换言之，它从不调用       
+	 * ConditionVariableSleep()）。它仍用 WaitEventSetWait() 等 
+	 * 待，因为我们还需要等待套接字事件。想要唤醒       
+	 * walsender 的进程（startup 进程、walreceiver 等）会使用   
+	 * ConditionVariableBroadcast()，它进而调用 SetLatch()，帮助   
+	 * walsender 脱离 WaitEventSetWait()。    
 	 *
-	 * This approach is simple and efficient because, one doesn't have to loop
-	 * through all the walsenders slots, with a spinlock acquisition and
-	 * release for every iteration, just to wake up only the waiting
-	 * walsenders. It makes WalSndWakeup() callers' life easy.
+	 * 此法简单高效：不必带着自旋锁的获取与释放遍历     
+	 * 每个槽位，只为唤醒正在等待的 walsender。它让    
+	 * WalSndWakeup() 的调用者省心不少                      
+	 * 。                                                    
 	 *
-	 * XXX: A desirable future improvement would be to add support for CVs
-	 * into WaitEventSetWait().
+	 * XXX：一个值得考虑的将来改进是为 WaitEventSetWait()   
+	 * 加入 CV 的支持。  
 	 *
-	 * And, we use separate shared memory CVs for physical and logical
-	 * walsenders for selective wake ups, see WalSndWakeup() for more details.
+	 * 另外，物理与逻辑 walsender 各用独立的共享内存 
+	 * CV，以便选择性唤醒，详见 WalSndWakeup()。                  
 	 */
 	if (MyWalSnd->kind == REPLICATION_KIND_PHYSICAL)
 		ConditionVariablePrepareToSleep(&WalSndCtl->wal_flush_cv);
@@ -3453,10 +3453,10 @@ WalSndWait(uint32 socket_events, long timeout, uint32 wait_event)
 }
 
 /*
- * Signal all walsenders to move to stopping state.
+ * 让所有 walsender 转入 stopping 状态。   
  *
- * This will trigger walsenders to move to a state where no further WAL can be
- * generated. See this file's header for details.
+ * 这会促使 walsender 进入无法再生成 WAL 的状态。              
+ * 详见本文件开头的说明。             
  */
 void
 WalSndInitStopping(void)
@@ -3480,9 +3480,9 @@ WalSndInitStopping(void)
 }
 
 /*
- * Wait that all the WAL senders have quit or reached the stopping state. This
- * is used by the checkpointer to control when the shutdown checkpoint can
- * safely be performed.
+ * 等待所有 WAL 发送进程退出或到达 stopping 状态。这         
+ * 由检查点进程用来控制关闭检查点何时能安全执行     
+ * 。                 
  */
 void
 WalSndWaitStopping(void)
@@ -3513,15 +3513,15 @@ WalSndWaitStopping(void)
 			SpinLockRelease(&walsnd->mutex);
 		}
 
-		/* safe to leave if confirmation is done for all WAL senders */
+		/* 若所有 WAL 发送进程均已确认，即可离开     */
 		if (all_stopped)
 			return;
 
-		pg_usleep(10000L);		/* wait for 10 msec */
+		pg_usleep(10000L);		/* 等待 10 毫秒 */
 	}
 }
 
-/* Set state for current walsender (only called in walsender) */
+/* 设置当前 walsender 的状态（仅 walsender 调用） */
 void
 WalSndSetState(WalSndState state)
 {
@@ -3538,8 +3538,8 @@ WalSndSetState(WalSndState state)
 }
 
 /*
- * Return a string constant representing the state. This is used
- * in system views, and should *not* be translated.
+ * 返回表示该状态的字符串常量。它用于          
+ * 系统视图，绝不应进行翻译。         
  */
 static const char *
 WalSndGetStateString(WalSndState state)
@@ -3573,8 +3573,8 @@ offset_to_interval(TimeOffset offset)
 }
 
 /*
- * Returns activity of walsenders, including pids and xlog locations sent to
- * standby servers.
+ * 返回各 walsender 的活动，包括 pid 以及发送到备库的      
+ * xlog 位置。  
  */
 Datum
 pg_stat_get_wal_senders(PG_FUNCTION_ARGS)
@@ -3588,8 +3588,8 @@ pg_stat_get_wal_senders(PG_FUNCTION_ARGS)
 	InitMaterializedSRF(fcinfo, 0);
 
 	/*
-	 * Get the currently active synchronous standbys.  This could be out of
-	 * date before we're done, but we'll use the data anyway.
+	 * 取得当前活跃的同步备库。数据可能在我们用完前  
+	 * 就已过时，但无论如何仍会使用。         
 	 */
 	num_standbys = SyncRepGetCandidateStandbys(&sync_standbys);
 
@@ -3612,7 +3612,7 @@ pg_stat_get_wal_senders(PG_FUNCTION_ARGS)
 		bool		nulls[PG_STAT_GET_WAL_SENDERS_COLS] = {0};
 		int			j;
 
-		/* Collect data from shared memory */
+		/* 从共享内存收集数据     */
 		SpinLockAcquire(&walsnd->mutex);
 		if (walsnd->pid == 0)
 		{
@@ -3633,9 +3633,9 @@ pg_stat_get_wal_senders(PG_FUNCTION_ARGS)
 		SpinLockRelease(&walsnd->mutex);
 
 		/*
-		 * Detect whether walsender is/was considered synchronous.  We can
-		 * provide some protection against stale data by checking the PID
-		 * along with walsnd_index.
+		 * 检测 walsender 现在或过去是否被认定为同步。    
+		 * 连同 walsnd_index 一起检查 PID，可防过期数据的  
+		 * 影响。               
 		 */
 		is_sync_standby = false;
 		for (j = 0; j < num_standbys; j++)
@@ -3653,9 +3653,9 @@ pg_stat_get_wal_senders(PG_FUNCTION_ARGS)
 		if (!has_privs_of_role(GetUserId(), ROLE_PG_READ_ALL_STATS))
 		{
 			/*
-			 * Only superusers and roles with privileges of pg_read_all_stats
-			 * can see details. Other users only get the pid value to know
-			 * it's a walsender, but no details.
+			 * 仅超级用户和拥有 pg_read_all_stats 权限的角色    
+			 * 才能看到详情。其他用户仅得 pid 值，得知   
+			 * 是 walsender，但无详情。  
 			 */
 			MemSet(&nulls[1], true, PG_STAT_GET_WAL_SENDERS_COLS - 1);
 		}
@@ -3680,9 +3680,9 @@ pg_stat_get_wal_senders(PG_FUNCTION_ARGS)
 			values[5] = LSNGetDatum(apply);
 
 			/*
-			 * Treat a standby such as a pg_basebackup background process
-			 * which always returns an invalid flush location, as an
-			 * asynchronous standby.
+			 * 把 pg_basebackup 后台进程这类备库，因其总是 
+			 * 返回无效刷写位置，故视为异步备库     
+			 * 。                  
 			 */
 			priority = XLogRecPtrIsInvalid(flush) ? 0 : priority;
 
@@ -3704,15 +3704,15 @@ pg_stat_get_wal_senders(PG_FUNCTION_ARGS)
 			values[9] = Int32GetDatum(priority);
 
 			/*
-			 * More easily understood version of standby state. This is purely
-			 * informational.
+			 * 备库状态的更易理解版本，纯粹                     
+			 * 供参考。  
 			 *
-			 * In quorum-based sync replication, the role of each standby
-			 * listed in synchronous_standby_names can be changing very
-			 * frequently. Any standbys considered as "sync" at one moment can
-			 * be switched to "potential" ones at the next moment. So, it's
-			 * basically useless to report "sync" or "potential" as their sync
-			 * states. We report just "quorum" for them.
+			 * 在仲裁式同步复制中，synchronous_standby_names   
+			 * 所列的每个备库角色都可能频繁变化。     
+			 * 某一刻被视为 "sync" 的备库，下一刻可能变成    
+			 * "potential"。所以把它们当作同步状态报告       
+			 * "sync" 或 "potential" 基本没有意义。对它们只报    
+			 * 告 "quorum"。                          
 			 */
 			if (priority == 0)
 				values[10] = CStringGetTextDatum("async");
@@ -3736,39 +3736,39 @@ pg_stat_get_wal_senders(PG_FUNCTION_ARGS)
 }
 
 /*
- * Send a keepalive message to standby.
+ * 向备库发送 keepalive 消息。 
  *
- * If requestReply is set, the message requests the other party to send
- * a message back to us, for heartbeat purposes.  We also set a flag to
- * let nearby code know that we're waiting for that response, to avoid
- * repeated requests.
+ * 若设置了 requestReply，该消息会请求对方回发一条    
+ * 消息回来用于心跳。还会设置标志，让附近的代码  
+ * 知道我们正等待该响应，以免一再重复                
+ * 发起请求。   
  *
- * writePtr is the location up to which the WAL is sent. It is essentially
- * the same as sentPtr but in some cases, we need to send keep alive before
- * sentPtr is updated like when skipping empty transactions.
+ * writePtr 是 WAL 已发送到的位置。它本质上与 sentPtr       
+ * 相同，但某些情况下我们需要在 sentPtr 更新之前发      
+ * 送 keepalive，比如跳过空事务时。              
  */
 static void
 WalSndKeepalive(bool requestReply, XLogRecPtr writePtr)
 {
 	elog(DEBUG2, "sending replication keepalive");
 
-	/* construct the message... */
+	/* 构造该消息...       */
 	resetStringInfo(&output_message);
 	pq_sendbyte(&output_message, 'k');
 	pq_sendint64(&output_message, XLogRecPtrIsInvalid(writePtr) ? sentPtr : writePtr);
 	pq_sendint64(&output_message, GetCurrentTimestamp());
 	pq_sendbyte(&output_message, requestReply ? 1 : 0);
 
-	/* ... and send it wrapped in CopyData */
+	/* ……再以 CopyData 包裹发送  */
 	pq_putmessage_noblock('d', output_message.data, output_message.len);
 
-	/* Set local flag */
+	/* 设本地标志*/
 	if (requestReply)
 		waiting_for_ping_response = true;
 }
 
 /*
- * Send keepalive message if too much time has elapsed.
+ * 若已耗时过长，则发送 keepalive 消息。  
  */
 static void
 WalSndKeepaliveIfNecessary(void)
@@ -3776,8 +3776,8 @@ WalSndKeepaliveIfNecessary(void)
 	TimestampTz ping_time;
 
 	/*
-	 * Don't send keepalive messages if timeouts are globally disabled or
-	 * we're doing something not partaking in timeouts.
+	 * 若超时被全局禁用，或所做的事不参与超时，就   
+	 * 不发送 keepalive 消息。                   
 	 */
 	if (wal_sender_timeout <= 0 || last_reply_timestamp <= 0)
 		return;
@@ -3786,9 +3786,9 @@ WalSndKeepaliveIfNecessary(void)
 		return;
 
 	/*
-	 * If half of wal_sender_timeout has lapsed without receiving any reply
-	 * from the standby, send a keep-alive message to the standby requesting
-	 * an immediate reply.
+	 * 如果 wal_sender_timeout 已过半而未收到任何来自备库   
+	 * 的回复，则向备库发一条 keep-alive 消息，请求立即   
+	 * 回复。          
 	 */
 	ping_time = TimestampTzPlusMilliseconds(last_reply_timestamp,
 											wal_sender_timeout / 2);
@@ -3796,17 +3796,17 @@ WalSndKeepaliveIfNecessary(void)
 	{
 		WalSndKeepalive(true, InvalidXLogRecPtr);
 
-		/* Try to flush pending output to the client */
+		/* 尝试把待发输出刷写给客户端   */
 		if (pq_flush_if_writable() != 0)
 			WalSndShutdown();
 	}
 }
 
 /*
- * Record the end of the WAL and the time it was flushed locally, so that
- * LagTrackerRead can compute the elapsed time (lag) when this WAL location is
- * eventually reported to have been written, flushed and applied by the
- * standby in a reply message.
+ * 记录 WAL 末端及其在本地被刷写的时间，以便           
+ * LagTrackerRead 能在该 WAL 位置最终被备库在回复消息          
+ * 中报告为已写入、已刷写并已应用时算出经过的     
+ * 时间（滞后）。      
  */
 static void
 LagTrackerWrite(XLogRecPtr lsn, TimestampTz local_flush_time)
@@ -3818,26 +3818,26 @@ LagTrackerWrite(XLogRecPtr lsn, TimestampTz local_flush_time)
 		return;
 
 	/*
-	 * If the lsn hasn't advanced since last time, then do nothing.  This way
-	 * we only record a new sample when new WAL has been written.
+	 * 若 lsn 未比上次前进，则什么都不做。这样              
+	 * 只有写入了新 WAL 才会记录新样本。           
 	 */
 	if (lag_tracker->last_lsn == lsn)
 		return;
 	lag_tracker->last_lsn = lsn;
 
 	/*
-	 * If advancing the write head of the circular buffer would crash into any
-	 * of the read heads, then the buffer is full.  In other words, the
-	 * slowest reader (presumably apply) is the one that controls the release
-	 * of space.
+	 * 若向前推进循环缓冲区的写头会撞上任何一个读头，  
+	 * 那么缓冲区已满。换言之，                            
+	 * 是最慢的读者（多半是 apply）控制着空间的             
+	 * 释放   
 	 */
 	new_write_head = (lag_tracker->write_head + 1) % LAG_TRACKER_BUFFER_SIZE;
 	for (i = 0; i < NUM_SYNC_REP_WAIT_MODE; ++i)
 	{
 		/*
-		 * If the buffer is full, move the slowest reader to a separate
-		 * overflow entry and free its space in the buffer so the write head
-		 * can advance.
+		 * 若缓冲区已满，则把最慢的读者移至单独的   
+		 * 溢出条目并腾出缓冲区中的空间，让写头能        
+		 * 推进。   
 		 */
 		if (new_write_head == lag_tracker->read_heads[i])
 		{
@@ -3847,24 +3847,24 @@ LagTrackerWrite(XLogRecPtr lsn, TimestampTz local_flush_time)
 		}
 	}
 
-	/* Store a sample at the current write head position. */
+	/* 在当前写头位置存入一个样本。         */
 	lag_tracker->buffer[lag_tracker->write_head].lsn = lsn;
 	lag_tracker->buffer[lag_tracker->write_head].time = local_flush_time;
 	lag_tracker->write_head = new_write_head;
 }
 
 /*
- * Find out how much time has elapsed between the moment WAL location 'lsn'
- * (or the highest known earlier LSN) was flushed locally and the time 'now'.
- * We have a separate read head for each of the reported LSN locations we
- * receive in replies from standby; 'head' controls which read head is
- * used.  Whenever a read head crosses an LSN which was written into the
- * lag buffer with LagTrackerWrite, we can use the associated timestamp to
- * find out the time this LSN (or an earlier one) was flushed locally, and
- * therefore compute the lag.
+ * 计算 WAL 位置 'lsn'（或已知最高更早 LSN）本地刷写      
+ * 的时刻与 'now' 之间经过了多久。备库在回复中报告       
+ * 的每个已报告 LSN 位置都有一个独立的读头；'head'     
+ * 决定使用哪一个读头。每当某个读头越过一条经    
+ * LagTrackerWrite 记入滞后缓冲的 LSN，就能用其关联的    
+ * 时间戳查明该 LSN（或更早的）本地被刷写的时间，并 
+ * 据此计算出滞后。如果没有新的样本数据可用，就返  
+ * 回 -1，否则返回     
  *
- * Return -1 if no new sample data is available, and otherwise the elapsed
- * time in microseconds.
+ * 以微秒为单位                                                     
+ * 的经过时间。   
  */
 static TimeOffset
 LagTrackerRead(int head, XLogRecPtr lsn, TimestampTz now)
@@ -3872,14 +3872,14 @@ LagTrackerRead(int head, XLogRecPtr lsn, TimestampTz now)
 	TimestampTz time = 0;
 
 	/*
-	 * If 'lsn' has not passed the WAL position stored in the overflow entry,
-	 * return the elapsed time (in microseconds) since the saved local flush
-	 * time. If the flush time is in the future (due to clock drift), return
-	 * -1 to treat as no valid sample.
+	 * 若 'lsn' 还未越过溢出条目中存储的 WAL 位置，则返回 
+	 * 自所存本地刷写时间起经过的时间（微秒）。若      
+	 * 刷写时间在未来（因时钟漂移），就返回 -1，视作   
+	 * 无有效样本。             
 	 *
-	 * Otherwise, switch back to using the buffer to control the read head and
-	 * compute the elapsed time.  The read head is then reset to point to the
-	 * oldest entry in the buffer.
+	 * 否则，改回用缓冲区来控制读头并计算经过的时间。  
+	 * 之后读头会被重置为指向缓冲区内                         
+	 * 最旧的条目。         
 	 */
 	if (lag_tracker->read_heads[head] == -1)
 	{
@@ -3893,7 +3893,7 @@ LagTrackerRead(int head, XLogRecPtr lsn, TimestampTz now)
 			(lag_tracker->write_head + 1) % LAG_TRACKER_BUFFER_SIZE;
 	}
 
-	/* Read all unread samples up to this LSN or end of buffer. */
+	/* 读到此 LSN 或缓冲区末端的所有未读样本。 */
 	while (lag_tracker->read_heads[head] != lag_tracker->write_head &&
 		   lag_tracker->buffer[lag_tracker->read_heads[head]].lsn <= lsn)
 	{
@@ -3905,39 +3905,39 @@ LagTrackerRead(int head, XLogRecPtr lsn, TimestampTz now)
 	}
 
 	/*
-	 * If the lag tracker is empty, that means the standby has processed
-	 * everything we've ever sent so we should now clear 'last_read'.  If we
-	 * didn't do that, we'd risk using a stale and irrelevant sample for
-	 * interpolation at the beginning of the next burst of WAL after a period
-	 * of idleness.
+	 * 若滞后跟踪器为空，说明备库已处理完我们发     
+	 * 的一切内容，因此现在应清除 'last_read'。否则会      
+	 * 有风险：在空闲期后的下一波 WAL 突发开始时，   
+	 * 用陈旧且不相关的样本来做插值                            
+	 * 。         
 	 */
 	if (lag_tracker->read_heads[head] == lag_tracker->write_head)
 		lag_tracker->last_read[head].time = 0;
 
 	if (time > now)
 	{
-		/* If the clock somehow went backwards, treat as not found. */
+		/* 如果时钟不知为何倒退了，则视为未找到。*/
 		return -1;
 	}
 	else if (time == 0)
 	{
 		/*
-		 * We didn't cross a time.  If there is a future sample that we
-		 * haven't reached yet, and we've already reached at least one sample,
-		 * let's interpolate the local flushed time.  This is mainly useful
-		 * for reporting a completely stuck apply position as having
-		 * increasing lag, since otherwise we'd have to wait for it to
-		 * eventually start moving again and cross one of our samples before
-		 * we can show the lag increasing.
+		 * 未跨过时间点。若存在一个我们尚未达到的   
+		 * 未来样本，而且我们已经到达了至少一个样本，    
+		 * 那就对本地刷写时间做插值。这主要用于          
+		 * 把完全卡住的 apply 位置报告成滞后增长，  
+		 * 否则就得等它最终重新移动并越过我们的某  
+		 * 个样本，之后                                               
+		 * 才能显示滞后在增加。 
 		 */
 		if (lag_tracker->read_heads[head] == lag_tracker->write_head)
 		{
-			/* There are no future samples, so we can't interpolate. */
+			/* 没有未来样本，因此无法进行插值。      */
 			return -1;
 		}
 		else if (lag_tracker->last_read[head].time != 0)
 		{
-			/* We can interpolate between last_read and the next sample. */
+			/* 可在 last_read 与下一个样本之间插值。        */
 			double		fraction;
 			WalTimeSample prev = lag_tracker->last_read[head];
 			WalTimeSample next = lag_tracker->buffer[lag_tracker->read_heads[head]];
@@ -3945,9 +3945,9 @@ LagTrackerRead(int head, XLogRecPtr lsn, TimestampTz now)
 			if (lsn < prev.lsn)
 			{
 				/*
-				 * Reported LSNs shouldn't normally go backwards, but it's
-				 * possible when there is a timeline change.  Treat as not
-				 * found.
+				 * 报告的 LSN 通常不应后退，但发生时间线  
+				 * 切换时则可能。此时视为未找到             
+				 * 。   
 				 */
 				return -1;
 			}
@@ -3956,32 +3956,32 @@ LagTrackerRead(int head, XLogRecPtr lsn, TimestampTz now)
 
 			if (prev.time > next.time)
 			{
-				/* If the clock somehow went backwards, treat as not found. */
+				/* 如果时钟不知为何倒退了，则视为未找到。*/
 				return -1;
 			}
 
-			/* See how far we are between the previous and next samples. */
+			/* 查看我们在前后两个样本之间的位置。       */
 			fraction =
 				(double) (lsn - prev.lsn) / (double) (next.lsn - prev.lsn);
 
-			/* Scale the local flush time proportionally. */
+			/* 按比例缩放本地刷写时间。       */
 			time = (TimestampTz)
 				((double) prev.time + (next.time - prev.time) * fraction);
 		}
 		else
 		{
 			/*
-			 * We have only a future sample, implying that we were entirely
-			 * caught up but and now there is a new burst of WAL and the
-			 * standby hasn't processed the first sample yet.  Until the
-			 * standby reaches the future sample the best we can do is report
-			 * the hypothetical lag if that sample were to be replayed now.
+			 * 只剩一个未来样本，说明我们此前完全         
+			 * 跟上，又来了一波 WAL，备库还没处理第一  
+			 * 个样本。备库到达它之前，能做的最好是   
+			 * 报告该样本若当下被重放将有的假设滞后        
+			 * 。                                                         
 			 */
 			time = lag_tracker->buffer[lag_tracker->read_heads[head]].time;
 		}
 	}
 
-	/* Return the elapsed time since local flush time in microseconds. */
+	/* 返回自本地刷写以来经过的时间（微秒）。       */
 	Assert(time != 0);
 	return now - time;
 }

@@ -1,0 +1,120 @@
+{
+ "schema_version": 1,
+ "batch_id": "0317-comment-replication-walsender",
+ "title": "Translate comments: comment-replication-walsender",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "d6a7700104df7fda36418ed9a39c6df493071768",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0317-comment-replication-walsender.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/replication/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0317-comment-replication-walsender.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/replication/walsender.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 377,
+   "translated": 358,
+   "preserved": 19,
+   "preserved_reasons": [
+    {
+     "block": 7,
+     "reason": "two-line block whose both lines are structural edges; zero interior content lines, kept byte-identical EN (G3c blk39 structural precedent)"
+    },
+    {
+     "block": 10,
+     "reason": "two-line block whose both lines are structural edges; zero interior content lines, kept byte-identical EN (G3c blk39 structural precedent)"
+    },
+    {
+     "block": 11,
+     "reason": "two-line block whose both lines are structural edges; zero interior content lines, kept byte-identical EN (G3c blk39 structural precedent)"
+    },
+    {
+     "block": 105,
+     "reason": "NLS translator banner kept EN per policy (batch 0314 translator-banner keeps precedent)"
+    },
+    {
+     "block": 106,
+     "reason": "NLS translator banner kept EN per policy (batch 0314 translator-banner keeps precedent)"
+    },
+    {
+     "block": 107,
+     "reason": "NLS translator banner kept EN per policy (batch 0314 translator-banner keeps precedent)"
+    },
+    {
+     "block": 108,
+     "reason": "NLS translator banner kept EN per policy (batch 0314 translator-banner keeps precedent)"
+    },
+    {
+     "block": 109,
+     "reason": "NLS translator banner kept EN per policy (batch 0314 translator-banner keeps precedent)"
+    },
+    {
+     "block": 110,
+     "reason": "NLS translator banner kept EN per policy (batch 0314 translator-banner keeps precedent)"
+    },
+    {
+     "block": 136,
+     "reason": "protocol field label kept EN (batch 0314 protocol-label precedent)"
+    },
+    {
+     "block": 137,
+     "reason": "protocol field label kept EN (batch 0314 protocol-label precedent)"
+    },
+    {
+     "block": 139,
+     "reason": "protocol field label kept EN (batch 0314 protocol-label precedent)"
+    },
+    {
+     "block": 196,
+     "reason": "ONE block 'done': mid budget 5B cannot fit Chinese; kept keyed-EN value (renders no-op; marker-comment family)"
+    },
+    {
+     "block": 209,
+     "reason": "ONE block 'NOT REACHED': flow marker kept EN (fall-through-marker family)"
+    },
+    {
+     "block": 236,
+     "reason": "ONE block '10 s': ASCII time annotation kept EN (ASCII-annotation family)"
+    },
+    {
+     "block": 292,
+     "reason": "protocol field label kept EN (batch 0314 protocol-label precedent)"
+    },
+    {
+     "block": 293,
+     "reason": "protocol field label kept EN (batch 0314 protocol-label precedent)"
+    },
+    {
+     "block": 294,
+     "reason": "protocol label line 'sendtime, filled in last' kept EN (batch 0314 protocol-label precedent)"
+    },
+    {
+     "block": 328,
+     "reason": "two-line block whose both lines are structural edges; zero interior content lines, kept byte-identical EN (G3c blk39 structural precedent)"
+    }
+   ],
+   "note": "P2 translation campaign wave G7"
+  }
+ ],
+ "notes": "P2 remainder campaign, replication wave G7 (WAL sender, whole-file batch, four slices): translate the comment blocks of replication/walsender.c (walsender process lifecycle and shutdown handshake, START_REPLICATION physical streaming, catchup state and keepalive logic, timeline history negotiation, wal_sender_timeout, Hot Standby feedback, logical-decoding walsender mode: CREATE_REPLICATION_SLOT/START_REPLICATION SLOT options parsing, output messages and protocol labels).  377 blocks in four slices (dump block numbers global): a blk0-93 (94), b blk94-187 (94), c blk188-281 (94), d blk282-376 (95).  358 translated + 19 preserved (see preserved_reasons: 3 two-line structural keeps, 6 NLS translator banners, 6 protocol labels, 3 tiny EN markers done/NOT REACHED/10 s, blk328 two-edge block).  Pre-flight: per-slice coordinator scans (exec, duplicate keys, edge keys, slice-range coverage, out-of-range check, byte budgets) clean; keyscanG7 cross-slice: zero block-key overlap, union coverage 373/377 keyed with exactly 4 keep-by-omission blocks (blk7/10/11/328, all zero-interior), 15 keyed blocks render byte-identical EN (the keyed-EN keeps above); 358 changed = wave key.  Coordinator term alignment (tree-precedent enforced): G7c blk254 normal termination 中止->终止 (G7a termination precedent x4); G7c blk253 failover 故障转移->故障切换 (TL13 ERROR caught at gate, spec surgery + delta re-apply exactly 1 block); G7b ephemeral 短暂槽->瞬态槽 + G7c blk233 临时槽->瞬态槽 x2 total (0316 slot.c ruling; blk233 fixed in r1 surgery D4).  G7d disciplined around 终止 with 止于/结束于/断开连接 renderings per EN context.  Apply: slices bank-applied on delivery (exec_apply idempotent delta; final re-apply after TL13 surgery changed exactly 1 block); audit 358 blocks OK; spec_check G7a-d OK.  Gates: verify 619 files 0 violations (616 + slot.c + pgoutput.c + walsender.c entering the tool's counting domain); term 0 errors, 741 warnings (737 baseline + 4 triaged advisory walsender rows: P24 at :1284 预期 faithful for 'expected to', P04 at :2886 confirms must-not rendered as 肯定式 必须尚未应用, P26/P63 at :1 header-block granularity noise); render_scan x2 hard-zero plus manual EN-residue grep zero (0315 lesson); no tool change in this batch.  Agent filings: G7c self-caught 7 budget overruns, 3 missing keys, 4 double-punctuations before delivery (coordinator scan clean); period-only tail lines 19 legitimate after r1 surgery removed 5 defective cross-line double-periods (launcher.c:522/ tablesync.c:657 precedent), budget-forced compressions filed per slice (G7c 189/191/197/221/230/249/254/257/262/263/272/278, G7d 283/295/308/319/336/338/348/366/371/284); G7d noted mid-flight worktree applies from sibling slices (expected under concurrent delivery).    Review: r1 FAIL(minor) — 9 text-layer defects D1-D9 (D1 paren-width mix blk336; D2 cross-line 'WAL。' duplicate blk284; D3 x5 cross-line double-periods blk156/169/336/348/375; D4 ephemeral 临时槽 blk233; D5 kill 被杀掉 blk111; D6 dropped consequence clause + 即使-dangling blk283; D7 dropped 'streaming' blk249; D8 dangling 在 + missing object blk257; D9 timeline-ID asymmetry blk46) + notes account fixes N1 (blk61->blk254: dump budget column misread as block id), N2 (period-only lines recounted: 24 sites verified line-by-line, 5 defective removed), N3 (ephemeral x2).  Reviewer independently confirmed byte-model, gates, keeps, manifest.  Coordinator surgery: 17 assert-guarded spec patches, with 2 reviewer byte-math corrections en route (blk46 line budget is 65 not 70 -> 时间线 ID rendering, budget-forced vs sibling blk93 时间线标识符, filed; blk249 budget 60 not 61 -> 退流式发送/发送。 rewrap); delta re-apply exactly 12 blocks (blk46/111/156/169/233/249/257/283/284/336/348/375); six gates re-green (verify 619/0, term 0 errors/741 warnings, render x3 zero, audit 358, spec_check OK, scope S2-only).  Manifest batch_id de-doubled (O3).  R2 verdict: PASS (full re-render from specs byte-identical to worktree; 377 blocks LF/bytes == EN; 358 != EN / 19 == EN exactly; D1-D9 confirmed eliminated and faithful; gates independently re-run; 22 neighbor blocks regression-free; advisory observations O1 no-trailing-punct convention = 0316 slot.c precedent family, O2 'current' dropped budget-forced, O4 ONE trailing space)."
+}

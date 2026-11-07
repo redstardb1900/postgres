@@ -1,0 +1,43 @@
+{
+ "schema_version": 1,
+ "batch_id": "0306-comment-parser-parse_oper",
+ "title": "Translate comments: parser-parse_oper",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "fb9cc8c937710cedb5fd15c6c5ab1dd99bf3f435",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0306-comment-parser-parse_oper.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/parser/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0306-comment-parser-parse_oper.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/parser/parse_oper.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 92,
+   "translated": 92,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "P2 translation campaign wave F33"
+  }
+ ],
+ "notes": "Whole-file batch: 92 blocks (37 multi + 55 ONE), all translated, 0 preserved. No tool change this batch. Coordinator pre-flight: keyscan found one merged-line gap (blk17 li6 empty key, F7/D1b precedent); ammo: coercion prose -> 强制转换 per corpus (blk26/39, twin-uniform 可强制转换兼容; sole uncommitted 'coercion 兼容' eliminated); blk76 reflow restored dropped clause 'for a given search path (or single specified schema OID)' (term_lint PT_OID error cleared). Legal leaves EN-verified: blk1 insists-on, blk8 is-wanted. Gates: verify 0 violations (6 W7 filings R10 class: L61 FIRST emphasis word, L170 OIDs->OID singular, L312 argtype generic prose, L367/515 IMPORTANT label, L605 type generic), term 0 errors 0 parse_oper warning lines, render hard-zero, audit 92 OK, spec_check OK. Review round 1: FAIL (3 MED + 4 LOW filed + 3 LOW filed-only).  All 7 reviewer proposals adopted after coordinator verbatim EN verification (one reviewer line-number typo noted: twin cited li617, substance proven via spec values); coordinator added 2 adjudications: blk76 li5 操作符 restored (my r1 reflow had dropped it; 74B<=74 exact) and blk1 li6/li7 if-any zero-loss reflow (reviewer's own alternative was 69B > 67 budget; split 57B/67B fits).  Surgery fix0306r1.py = 10 lines into F33; delta vs pre-surgery snapshot exactly 10 lines; six gates re-run green.  Round 2 review verdict: PASS (drift exactly 10 lines / 8 hunks, 10/10 byte-landed, six gates green, filings maintained, zero new defects)."
+}

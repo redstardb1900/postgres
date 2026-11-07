@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_oper.c
- *		handle operator things for parser
+ *		为解析器处理操作符      
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -32,36 +32,36 @@
 
 
 /*
- * The lookup key for the operator lookaside hash table.  Unused bits must be
- * zeroes to ensure hashing works consistently --- in particular, oprname
- * must be zero-padded and any unused entries in search_path must be zero.
+ * 操作符旁路缓存哈希表的查找键。为保证哈希一致，     
+ * 未用位必须为零 --- 特别是 oprname 必须补零，           
+ * 并且 search_path 中未用的表项也必须为零。                
  *
- * search_path contains the actual search_path with which the entry was
- * derived (minus temp namespace if any), or else the single specified
- * schema OID if we are looking up an explicitly-qualified operator name.
+ * search_path 保存导出该表项时的实际 search_path           
+ * （若有临时命名空间则去除），否则为单独          
+ * 指定的模式 OID（用于查找显式限定的操作符名）。   
  *
- * search_path has to be fixed-length since the hashtable code insists on
- * fixed-size keys.  If your search path is longer than that, we just punt
- * and don't cache anything.
+ * search_path 必须是定长的，因为哈希表代码要求键       
+ * 具有固定尺寸。若搜索路径超过该长度，我们只能     
+ * 放弃任何缓存。    
  */
 
-/* If your search_path is longer than this, sucks to be you ... */
+/* 若你的 search_path 比这还长，那你可就惨了 ...  */
 #define MAX_CACHED_PATH_LEN		16
 
 typedef struct OprCacheKey
 {
 	char		oprname[NAMEDATALEN];
-	Oid			left_arg;		/* Left input OID, or 0 if prefix op */
-	Oid			right_arg;		/* Right input OID */
+	Oid			left_arg;		/* 左输入 OID，前缀则为 0    */
+	Oid			right_arg;		/* 右输入 OID   */
 	Oid			search_path[MAX_CACHED_PATH_LEN];
 } OprCacheKey;
 
 typedef struct OprCacheEntry
 {
-	/* the hash lookup key MUST BE FIRST */
+	/* 哈希查找键必须放在首位 */
 	OprCacheKey key;
 
-	Oid			opr_oid;		/* OID of the resolved operator */
+	Oid			opr_oid;		/* 已解析操作符的 OID    */
 } OprCacheEntry;
 
 
@@ -85,17 +85,17 @@ static void InvalidateOprCacheCallBack(Datum arg, int cacheid, uint32 hashvalue)
 
 /*
  * LookupOperName
- *		Given a possibly-qualified operator name and exact input datatypes,
- *		look up the operator.
+ *		给定可能限定的操作符名与确切输入数据类型，    
+ *		查找操作符。   
  *
- * Pass oprleft = InvalidOid for a prefix op.
+ * 前缀操作符传 oprleft=InvalidOid。  
  *
- * If the operator name is not schema-qualified, it is sought in the current
- * namespace search path.
+ * 若操作符名不带模式限定，则在当前的命名空间搜索    
+ * 路径中查找。    
  *
- * If the operator is not found, we return InvalidOid if noError is true,
- * else raise an error.  pstate and location are used only to report the
- * error position; pass NULL/-1 if not available.
+ * 若未找到操作符，noError 为真时返回 InvalidOid，         
+ * 否则抛出错误。pstate 和 location 仅用于报告错误       
+ * 位置；不可用时传 NULL/-1。           
  */
 Oid
 LookupOperName(ParseState *pstate, List *opername, Oid oprleft, Oid oprright,
@@ -107,7 +107,7 @@ LookupOperName(ParseState *pstate, List *opername, Oid oprleft, Oid oprright,
 	if (OidIsValid(result))
 		return result;
 
-	/* we don't use op_error here because only an exact match is wanted */
+	/* 这里不用 op_error，因为只要求精确匹配              */
 	if (!noError)
 	{
 		char		oprkind;
@@ -122,7 +122,7 @@ LookupOperName(ParseState *pstate, List *opername, Oid oprleft, Oid oprright,
 					(errcode(ERRCODE_SYNTAX_ERROR),
 					 errmsg("postfix operators are not supported"),
 					 parser_errposition(pstate, location)));
-			oprkind = 0;		/* keep compiler quiet */
+			oprkind = 0;		/* 安抚编译器     */
 		}
 
 		ereport(ERROR,
@@ -138,8 +138,8 @@ LookupOperName(ParseState *pstate, List *opername, Oid oprleft, Oid oprright,
 
 /*
  * LookupOperWithArgs
- *		Like LookupOperName, but the argument types are specified by
- *		a ObjectWithArgs node.
+ *		类似 LookupOperName，但参数类型由 ObjectWithArgs   
+ *		节点给出。       
  */
 Oid
 LookupOperWithArgs(ObjectWithArgs *oper, bool noError)
@@ -168,25 +168,25 @@ LookupOperWithArgs(ObjectWithArgs *oper, bool noError)
 }
 
 /*
- * get_sort_group_operators - get default sorting/grouping operators for type
+ * get_sort_group_operators - 取该类型的默认排序/分组操作符    
  *
- * We fetch the "<", "=", and ">" operators all at once to reduce lookup
- * overhead (knowing that most callers will be interested in at least two).
- * However, a given datatype might have only an "=" operator, if it is
- * hashable but not sortable.  (Other combinations of present and missing
- * operators shouldn't happen, unless the system catalogs are messed up.)
+ * 一次取出 "<"、"="、">" 操作符以减少查找                
+ * 开销（多数调用者至少会用到其中两个）。               
+ * 但某数据类型可能只有 "=" 操作符，即它可哈希     
+ * 而不可排序。（其他存在/缺少组合不应出现，         
+ * 除非系统目录被弄乱了。）                                  
  *
- * If an operator is missing and the corresponding needXX flag is true,
- * throw a standard error message, else return InvalidOid.
+ * 若某操作符缺少且对应 needXX 标志为真，则抛出      
+ * 标准错误消息，否则返回 InvalidOid。        
  *
- * In addition to the operator OIDs themselves, this function can identify
- * whether the "=" operator is hashable.
+ * 除操作符 OID 本身外，本函数还能判断 "=" 操作          
+ * 符是否可哈希。                
  *
- * Callers can pass NULL pointers for any results they don't care to get.
+ * 调用者对不需要的结果可传 NULL 指针。                   
  *
- * Note: the results are guaranteed to be exact or binary-compatible matches,
- * since most callers are not prepared to cope with adding any run-time type
- * coercion steps.
+ * 注意：结果保证是精确匹配或二进制兼容匹配，因为     
+ * 多数调用者没有准备应付额外的运行期类型转换步骤。 
+ *                
  */
 void
 get_sort_group_operators(Oid argtype,
@@ -202,10 +202,10 @@ get_sort_group_operators(Oid argtype,
 	bool		hashable;
 
 	/*
-	 * Look up the operators using the type cache.
+	 * 通过类型缓存查找这些操作符。 
 	 *
-	 * Note: the search algorithm used by typcache.c ensures that the results
-	 * are consistent, ie all from matching opclasses.
+	 * 注意：typcache.c 所用的搜索算法保证结果是一致的，  
+	 * 即全部来自匹配的操作符类。        
 	 */
 	if (isHashable != NULL)
 		cache_flags = TYPECACHE_LT_OPR | TYPECACHE_EQ_OPR | TYPECACHE_GT_OPR |
@@ -219,7 +219,7 @@ get_sort_group_operators(Oid argtype,
 	gt_opr = typentry->gt_opr;
 	hashable = OidIsValid(typentry->hash_proc);
 
-	/* Report errors if needed */
+	/* 需要时报错         */
 	if ((needLT && !OidIsValid(lt_opr)) ||
 		(needGT && !OidIsValid(gt_opr)))
 		ereport(ERROR,
@@ -233,7 +233,7 @@ get_sort_group_operators(Oid argtype,
 				 errmsg("could not identify an equality operator for type %s",
 						format_type_be(argtype))));
 
-	/* Return results as needed */
+	/* 按需返回结果       */
 	if (ltOpr)
 		*ltOpr = lt_opr;
 	if (eqOpr)
@@ -245,14 +245,14 @@ get_sort_group_operators(Oid argtype,
 }
 
 
-/* given operator tuple, return the operator OID */
+/* 给定操作符元组，返回其操作符 OID*/
 Oid
 oprid(Operator op)
 {
 	return ((Form_pg_operator) GETSTRUCT(op))->oid;
 }
 
-/* given operator tuple, return the underlying function's OID */
+/* 给定操作符元组，返回底层函数的 OID          */
 Oid
 oprfuncid(Operator op)
 {
@@ -263,12 +263,12 @@ oprfuncid(Operator op)
 
 
 /* binary_oper_exact()
- * Check for an "exact" match to the specified operand types.
+ * 检查与给定操作数类型是否"精确"匹配。     
  *
- * If one operand is an unknown literal, assume it should be taken to be
- * the same type as the other operand for this purpose.  Also, consider
- * the possibility that the other operand is a domain type that needs to
- * be reduced to its base type to find an "exact" match.
+ * 若某操作数是未知类型字面量，则此处假定它与另一
+ * 操作数同类型。此外要考虑另一操作数是域类型、  
+ * 需要归约到其基类型才能找到"精确"匹配的情形。    
+ *                                                      
  */
 static Oid
 binary_oper_exact(List *opname, Oid arg1, Oid arg2)
@@ -276,7 +276,7 @@ binary_oper_exact(List *opname, Oid arg1, Oid arg2)
 	Oid			result;
 	bool		was_unknown = false;
 
-	/* Unspecified type for one of the arguments? then use the other */
+	/* 某参数类型未指定？那就用另一个的类型        */
 	if ((arg1 == UNKNOWNOID) && (arg2 != InvalidOid))
 	{
 		arg1 = arg2;
@@ -294,7 +294,7 @@ binary_oper_exact(List *opname, Oid arg1, Oid arg2)
 
 	if (was_unknown)
 	{
-		/* arg1 and arg2 are the same here, need only look at arg1 */
+		/* 此处 arg1 与 arg2 相同，只需查看 arg1         */
 		Oid			basetype = getBaseType(arg1);
 
 		if (basetype != arg1)
@@ -310,32 +310,32 @@ binary_oper_exact(List *opname, Oid arg1, Oid arg2)
 
 
 /* oper_select_candidate()
- *		Given the input argtype array and one or more candidates
- *		for the operator, attempt to resolve the conflict.
+ *		给定输入参数类型数组与若干候选，        
+ *		尝试消解冲突。                             
  *
- * Returns FUNCDETAIL_NOTFOUND, FUNCDETAIL_MULTIPLE, or FUNCDETAIL_NORMAL.
- * In the success case the Oid of the best candidate is stored in *operOid.
+ * 返回 FUNCDETAIL_NOTFOUND、FUNCDETAIL_MULTIPLE 或                   
+ * FUNCDETAIL_NORMAL。成功时最优候选的 OID 存入                 
  *
- * Note that the caller has already determined that there is no candidate
- * exactly matching the input argtype(s).  Incompatible candidates are not yet
- * pruned away, however.
+ * *operOid。注意调用者已经确定不存在与输入参数类     
+ * 型完全匹配的候选。不过不兼容的候选尚未被剪除。      
+ *                      
  */
 static FuncDetailCode
 oper_select_candidate(int nargs,
 					  Oid *input_typeids,
 					  FuncCandidateList candidates,
-					  Oid *operOid) /* output argument */
+					  Oid *operOid) /* 输出参数    */
 {
 	int			ncandidates;
 
 	/*
-	 * Delete any candidates that cannot actually accept the given input
-	 * types, whether directly or by coercion.
+	 * 删除那些实际无法接受给定输入类型的候选，     
+	 * 无论直接还是经转换接受。   
 	 */
 	ncandidates = func_match_argtypes(nargs, input_typeids,
 									  candidates, &candidates);
 
-	/* Done if no candidate or only one candidate survives */
+	/* 若无候选或仅剩一个候选即告完成       */
 	if (ncandidates == 0)
 	{
 		*operOid = InvalidOid;
@@ -348,8 +348,8 @@ oper_select_candidate(int nargs,
 	}
 
 	/*
-	 * Use the same heuristics as for ambiguous functions to resolve the
-	 * conflict.
+	 * 采用与歧义函数相同的启发式规则来消解           
+	 * 冲突。
 	 */
 	candidates = func_select_candidate(nargs, input_typeids, candidates);
 
@@ -360,23 +360,23 @@ oper_select_candidate(int nargs,
 	}
 
 	*operOid = InvalidOid;
-	return FUNCDETAIL_MULTIPLE; /* failed to select a best candidate */
+	return FUNCDETAIL_MULTIPLE; /* 未能选出最佳候选          */
 }
 
 
 /* oper() -- search for a binary operator
- * Given operator name, types of arg1 and arg2, return oper struct.
+ * 给定操作符名与 arg1、arg2 类型，返回 oper结构。 
  *
- * IMPORTANT: the returned operator (if any) is only promised to be
- * coercion-compatible with the input datatypes.  Do not use this if
- * you need an exact- or binary-compatible match; see compatible_oper.
+ * 注意：返回的操作符（若有）仅保证与输入类型 
+ * 可强制转换兼容。若需要精确匹配或二进制兼容  
+ * 匹配，请勿使用本函数；参见 compatible_oper。         
  *
- * If no matching operator found, return NULL if noError is true,
- * raise an error if it is false.  pstate and location are used only to report
- * the error position; pass NULL/-1 if not available.
+ * 若未找到匹配操作符，noError 为真则返回 NULL， 
+ * 为假则抛出错误。pstate 与 location 仅用于报告错误          
+ * 位置；不可用时传 NULL/-1。               
  *
- * NOTE: on success, the returned object is a syscache entry.  The caller
- * must ReleaseSysCache() the entry when done with it.
+ * 注意：成功时返回的对象是 syscache 表项。调用者      
+ * 用完须对该表项调用 ReleaseSysCache()。   
  */
 Operator
 oper(ParseState *pstate, List *opname, Oid ltypeId, Oid rtypeId,
@@ -389,7 +389,7 @@ oper(ParseState *pstate, List *opname, Oid ltypeId, Oid rtypeId,
 	HeapTuple	tup = NULL;
 
 	/*
-	 * Try to find the mapping in the lookaside cache.
+	 * 尝试在旁路缓存中查找映射。        
 	 */
 	key_ok = make_oper_cache_key(pstate, &key, opname, ltypeId, rtypeId, location);
 
@@ -405,25 +405,25 @@ oper(ParseState *pstate, List *opname, Oid ltypeId, Oid rtypeId,
 	}
 
 	/*
-	 * First try for an "exact" match.
+	 * 先尝试"精确"匹配。     
 	 */
 	operOid = binary_oper_exact(opname, ltypeId, rtypeId);
 	if (!OidIsValid(operOid))
 	{
 		/*
-		 * Otherwise, search for the most suitable candidate.
+		 * 否则搜索最合适的候选。                 
 		 */
 		FuncCandidateList clist;
 
-		/* Get binary operators of given name */
+		/* 按名称获取二元操作符     */
 		clist = OpernameGetCandidates(opname, 'b', false);
 
-		/* No operators found? Then fail... */
+		/* 未找到操作符？失败...   */
 		if (clist != NULL)
 		{
 			/*
-			 * Unspecified type for one of the arguments? then use the other
-			 * (XXX this is probably dead code?)
+			 * 某参数类型未指定？那就用另一个的类型       
+			 * （XXX这可能是死代码？）
 			 */
 			Oid			inputOids[2];
 
@@ -452,11 +452,11 @@ oper(ParseState *pstate, List *opname, Oid ltypeId, Oid rtypeId,
 }
 
 /* compatible_oper()
- *	given an opname and input datatypes, find a compatible binary operator
+ *	给定操作符名和输入数据类型，查找兼容二元操作符 
  *
- *	This is tighter than oper() because it will not return an operator that
- *	requires coercion of the input datatypes (but binary-compatible operators
- *	are accepted).  Otherwise, the semantics are the same.
+ *	本函数比 oper() 更严格：不会返回需要转换输入数      
+ *	据类型的操作符（但接受二进制兼容的操作符）。       
+ *	除此之外语义相同。                           
  */
 Operator
 compatible_oper(ParseState *pstate, List *op, Oid arg1, Oid arg2,
@@ -465,18 +465,18 @@ compatible_oper(ParseState *pstate, List *op, Oid arg1, Oid arg2,
 	Operator	optup;
 	Form_pg_operator opform;
 
-	/* oper() will find the best available match */
+	/* oper() 会找出最佳可用匹配        */
 	optup = oper(pstate, op, arg1, arg2, noError, location);
 	if (optup == (Operator) NULL)
-		return (Operator) NULL; /* must be noError case */
+		return (Operator) NULL; /* 必为noError情形  */
 
-	/* but is it good enough? */
+	/* 但它足够好吗？  */
 	opform = (Form_pg_operator) GETSTRUCT(optup);
 	if (IsBinaryCoercible(arg1, opform->oprleft) &&
 		IsBinaryCoercible(arg2, opform->oprright))
 		return optup;
 
-	/* nope... */
+	/* 不然  */
 	ReleaseSysCache(optup);
 
 	if (!noError)
@@ -491,9 +491,9 @@ compatible_oper(ParseState *pstate, List *op, Oid arg1, Oid arg2,
 
 /* compatible_oper_opid() -- get OID of a binary operator
  *
- * This is a convenience routine that extracts only the operator OID
- * from the result of compatible_oper().  InvalidOid is returned if the
- * lookup fails and noError is true.
+ * 这是一个便利例程，仅从 compatible_oper() 的结果    
+ * 中提取操作符 OID。若查找失败且 noError 为真，       
+ * 则返回 InvalidOid。          
  */
 Oid
 compatible_oper_opid(List *op, Oid arg1, Oid arg2, bool noError)
@@ -513,18 +513,18 @@ compatible_oper_opid(List *op, Oid arg1, Oid arg2, bool noError)
 
 
 /* left_oper() -- search for a unary left operator (prefix operator)
- * Given operator name and type of arg, return oper struct.
+ * 给定操作符名与参数类型，返回 oper结构。
  *
- * IMPORTANT: the returned operator (if any) is only promised to be
- * coercion-compatible with the input datatype.  Do not use this if
- * you need an exact- or binary-compatible match.
+ * 注意：返回的操作符（若有）仅保证与输入类型 
+ * 可强制转换兼容。若需要精确或二进制兼容       
+ * 匹配，请勿使用本函数。             
  *
- * If no matching operator found, return NULL if noError is true,
- * raise an error if it is false.  pstate and location are used only to report
- * the error position; pass NULL/-1 if not available.
+ * 若未找到匹配操作符，noError 为真则返回 NULL， 
+ * 为假则抛出错误。pstate 与 location 仅用于报告错误          
+ * 位置；不可用时传 NULL/-1。               
  *
- * NOTE: on success, the returned object is a syscache entry.  The caller
- * must ReleaseSysCache() the entry when done with it.
+ * 注意：成功时返回的对象是 syscache 表项。调用者      
+ * 用完须对该表项调用 ReleaseSysCache()。   
  */
 Operator
 left_oper(ParseState *pstate, List *op, Oid arg, bool noError, int location)
@@ -536,7 +536,7 @@ left_oper(ParseState *pstate, List *op, Oid arg, bool noError, int location)
 	HeapTuple	tup = NULL;
 
 	/*
-	 * Try to find the mapping in the lookaside cache.
+	 * 尝试在旁路缓存中查找映射。        
 	 */
 	key_ok = make_oper_cache_key(pstate, &key, op, InvalidOid, arg, location);
 
@@ -552,26 +552,26 @@ left_oper(ParseState *pstate, List *op, Oid arg, bool noError, int location)
 	}
 
 	/*
-	 * First try for an "exact" match.
+	 * 先尝试"精确"匹配。     
 	 */
 	operOid = OpernameGetOprid(op, InvalidOid, arg);
 	if (!OidIsValid(operOid))
 	{
 		/*
-		 * Otherwise, search for the most suitable candidate.
+		 * 否则搜索最合适的候选。                 
 		 */
 		FuncCandidateList clist;
 
-		/* Get prefix operators of given name */
+		/* 按名称获取前缀操作符     */
 		clist = OpernameGetCandidates(op, 'l', false);
 
-		/* No operators found? Then fail... */
+		/* 未找到操作符？失败...   */
 		if (clist != NULL)
 		{
 			/*
-			 * The returned list has args in the form (0, oprright). Move the
-			 * useful data into args[0] to keep oper_select_candidate simple.
-			 * XXX we are assuming here that we may scribble on the list!
+			 * 返回列表的 args 形如 (0, oprright)。为保持         
+			 * oper_select_candidate 简单，把有用数据移入          
+			 * args[0]。XXX 此处假定可随意改写该列表！     
 			 */
 			FuncCandidateList clisti;
 
@@ -581,8 +581,8 @@ left_oper(ParseState *pstate, List *op, Oid arg, bool noError, int location)
 			}
 
 			/*
-			 * We must run oper_select_candidate even if only one candidate,
-			 * otherwise we may falsely return a non-type-compatible operator.
+			 * 即使只有一个候选也要运行 oper_select_candidate，
+			 * 否则可能错误地返回一个类型不兼容的操作符。
 			 */
 			fdresult = oper_select_candidate(1, &arg, clist, &operOid);
 		}
@@ -604,11 +604,11 @@ left_oper(ParseState *pstate, List *op, Oid arg, bool noError, int location)
 
 /*
  * op_signature_string
- *		Build a string representing an operator name, including arg type(s).
- *		The result is something like "integer + integer".
+ *		构建表示操作符名的字符串，包含参数类型。        
+ *		结果形如 "integer + integer"。              
  *
- * This is typically used in the construction of operator-not-found error
- * messages.
+ * 这通常用于构造"未找到操作符"错误消息。              
+ *          
  */
 static const char *
 op_signature_string(List *op, char oprkind, Oid arg1, Oid arg2)
@@ -624,11 +624,11 @@ op_signature_string(List *op, char oprkind, Oid arg1, Oid arg2)
 
 	appendStringInfo(&argbuf, " %s", format_type_be(arg2));
 
-	return argbuf.data;			/* return palloc'd string buffer */
+	return argbuf.data;			/* 返回 palloc 缓冲区       */
 }
 
 /*
- * op_error - utility routine to complain about an unresolvable operator
+ * op_error - 用于报告无法解析的操作符错误的工具例程 
  */
 static void
 op_error(ParseState *pstate, List *op, char oprkind,
@@ -658,15 +658,15 @@ op_error(ParseState *pstate, List *op, char oprkind,
 
 /*
  * make_op()
- *		Operator expression construction.
+ *		构造操作符表达式。      
  *
- * Transform operator expression ensuring type compatibility.
- * This is where some type conversion happens.
+ * 转换操作符表达式并确保类型兼容。          
+ * 部分类型转换就在这里完成。    
  *
- * last_srf should be a copy of pstate->p_last_srf from just before we
- * started transforming the operator's arguments; this is used for nested-SRF
- * detection.  If the caller will throw an error anyway for a set-returning
- * expression, it's okay to cheat and just pass pstate->p_last_srf.
+ * last_srf 应是刚开始转换操作符参数之前的             
+ * pstate->p_last_srf 副本；用于嵌套 SRF 检测。若                 
+ * 调用者反正会因集合返回表达式报错，那么作弊传      
+ * pstate->p_last_srf 也没问题。                              
  */
 Expr *
 make_op(ParseState *pstate, List *opname, Node *ltree, Node *rtree,
@@ -683,23 +683,23 @@ make_op(ParseState *pstate, List *opname, Node *ltree, Node *rtree,
 	Oid			rettype;
 	OpExpr	   *result;
 
-	/* Check it's not a postfix operator */
+	/* 检查它不是后缀操作符    */
 	if (rtree == NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
 				 errmsg("postfix operators are not supported")));
 
-	/* Select the operator */
+	/* 选择操作符     */
 	if (ltree == NULL)
 	{
-		/* prefix operator */
+		/* 前缀操作符 */
 		rtypeId = exprType(rtree);
 		ltypeId = InvalidOid;
 		tup = left_oper(pstate, opname, rtypeId, false, location);
 	}
 	else
 	{
-		/* otherwise, binary operator */
+		/* 否则为二元操作符   */
 		ltypeId = exprType(ltree);
 		rtypeId = exprType(rtree);
 		tup = oper(pstate, opname, ltypeId, rtypeId, false, location);
@@ -707,7 +707,7 @@ make_op(ParseState *pstate, List *opname, Node *ltree, Node *rtree,
 
 	opform = (Form_pg_operator) GETSTRUCT(tup);
 
-	/* Check it's not a shell */
+	/* 检查它不是壳     */
 	if (!RegProcedureIsValid(opform->oprcode))
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_FUNCTION),
@@ -718,10 +718,10 @@ make_op(ParseState *pstate, List *opname, Node *ltree, Node *rtree,
 											opform->oprright)),
 				 parser_errposition(pstate, location)));
 
-	/* Do typecasting and build the expression tree */
+	/* 进行类型转换并构建表达式树      */
 	if (ltree == NULL)
 	{
-		/* prefix operator */
+		/* 前缀操作符 */
 		args = list_make1(rtree);
 		actual_arg_types[0] = rtypeId;
 		declared_arg_types[0] = opform->oprright;
@@ -729,7 +729,7 @@ make_op(ParseState *pstate, List *opname, Node *ltree, Node *rtree,
 	}
 	else
 	{
-		/* otherwise, binary operator */
+		/* 否则为二元操作符   */
 		args = list_make2(ltree, rtree);
 		actual_arg_types[0] = ltypeId;
 		actual_arg_types[1] = rtypeId;
@@ -739,9 +739,9 @@ make_op(ParseState *pstate, List *opname, Node *ltree, Node *rtree,
 	}
 
 	/*
-	 * enforce consistency with polymorphic argument and return types,
-	 * possibly adjusting return type or declared_arg_types (which will be
-	 * used as the cast destination by make_fn_arguments)
+	 * 确保多态参数与返回类型的一致性，可能调整   
+	 * 返回类型或 declared_arg_types（后者将被                  
+	 * make_fn_arguments 用作转换目标）           
 	 */
 	rettype = enforce_generic_type_consistency(actual_arg_types,
 											   declared_arg_types,
@@ -749,24 +749,24 @@ make_op(ParseState *pstate, List *opname, Node *ltree, Node *rtree,
 											   opform->oprresult,
 											   false);
 
-	/* perform the necessary typecasting of arguments */
+	/* 对参数执行必要的类型转换           */
 	make_fn_arguments(pstate, args, actual_arg_types, declared_arg_types);
 
-	/* and build the expression node */
+	/* 并构建表达式节点      */
 	result = makeNode(OpExpr);
 	result->opno = oprid(tup);
 	result->opfuncid = opform->oprcode;
 	result->opresulttype = rettype;
 	result->opretset = get_func_retset(opform->oprcode);
-	/* opcollid and inputcollid will be set by parse_collate.c */
+	/* opcollid 和 inputcollid 由 parse_collate.c 设置     */
 	result->args = args;
 	result->location = location;
 
-	/* if it returns a set, check that's OK */
+	/* 若返回集合，检查是否允许 */
 	if (result->opretset)
 	{
 		check_srf_call_placement(pstate, last_srf, location);
-		/* ... and remember it for error checks at higher levels */
+		/* ...并记住它，供上层做错误检查            */
 		pstate->p_last_srf = (Node *) result;
 	}
 
@@ -777,7 +777,7 @@ make_op(ParseState *pstate, List *opname, Node *ltree, Node *rtree,
 
 /*
  * make_scalar_array_op()
- *		Build expression tree for "scalar op ANY/ALL (array)" construct.
+ *		为 "scalar op ANY/ALL (array)" 结构构建表达式树。     
  */
 Expr *
 make_scalar_array_op(ParseState *pstate, List *opname,
@@ -801,9 +801,9 @@ make_scalar_array_op(ParseState *pstate, List *opname,
 	atypeId = exprType(rtree);
 
 	/*
-	 * The right-hand input of the operator will be the element type of the
-	 * array.  However, if we currently have just an untyped literal on the
-	 * right, stay with that and hope we can resolve the operator.
+	 * 操作符右侧输入将是数组的元素类型。不过，若当  
+	 * 前右侧只是未定型字面量，则保持原样，指望能     
+	 * 解析出该操作符。                                   
 	 */
 	if (atypeId == UNKNOWNOID)
 		rtypeId = UNKNOWNOID;
@@ -817,11 +817,11 @@ make_scalar_array_op(ParseState *pstate, List *opname,
 					 parser_errposition(pstate, location)));
 	}
 
-	/* Now resolve the operator */
+	/* 现在解析该操作符 */
 	tup = oper(pstate, opname, ltypeId, rtypeId, false, location);
 	opform = (Form_pg_operator) GETSTRUCT(tup);
 
-	/* Check it's not a shell */
+	/* 检查它不是壳     */
 	if (!RegProcedureIsValid(opform->oprcode))
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_FUNCTION),
@@ -839,9 +839,9 @@ make_scalar_array_op(ParseState *pstate, List *opname,
 	declared_arg_types[1] = opform->oprright;
 
 	/*
-	 * enforce consistency with polymorphic argument and return types,
-	 * possibly adjusting return type or declared_arg_types (which will be
-	 * used as the cast destination by make_fn_arguments)
+	 * 确保多态参数与返回类型的一致性，可能调整   
+	 * 返回类型或 declared_arg_types（后者将被                  
+	 * make_fn_arguments 用作转换目标）           
 	 */
 	rettype = enforce_generic_type_consistency(actual_arg_types,
 											   declared_arg_types,
@@ -850,7 +850,7 @@ make_scalar_array_op(ParseState *pstate, List *opname,
 											   false);
 
 	/*
-	 * Check that operator result is boolean
+	 * 检查操作符结果为布尔类型 
 	 */
 	if (rettype != BOOLOID)
 		ereport(ERROR,
@@ -864,14 +864,14 @@ make_scalar_array_op(ParseState *pstate, List *opname,
 				 parser_errposition(pstate, location)));
 
 	/*
-	 * Now switch back to the array type on the right, arranging for any
-	 * needed cast to be applied.  Beware of polymorphic operators here;
-	 * enforce_generic_type_consistency may or may not have replaced a
-	 * polymorphic type with a real one.
+	 * 现在换回右侧数组类型，安排施加所需转换。     
+	 * 这里要当心多态操作符；                                
+	 * enforce_generic_type_consistency 是否已把                  
+	 * 多态类型换成真实类型？
 	 */
 	if (IsPolymorphicType(declared_arg_types[1]))
 	{
-		/* assume the actual array type is OK */
+		/* 假定实际数组类型没问题  */
 		res_atypeId = atypeId;
 	}
 	else
@@ -887,17 +887,17 @@ make_scalar_array_op(ParseState *pstate, List *opname,
 	actual_arg_types[1] = atypeId;
 	declared_arg_types[1] = res_atypeId;
 
-	/* perform the necessary typecasting of arguments */
+	/* 对参数执行必要的类型转换           */
 	make_fn_arguments(pstate, args, actual_arg_types, declared_arg_types);
 
-	/* and build the expression node */
+	/* 并构建表达式节点      */
 	result = makeNode(ScalarArrayOpExpr);
 	result->opno = oprid(tup);
 	result->opfuncid = opform->oprcode;
 	result->hashfuncid = InvalidOid;
 	result->negfuncid = InvalidOid;
 	result->useOr = useOr;
-	/* inputcollid will be set by parse_collate.c */
+	/* inputcollid 由 parse_collate.c 设置     */
 	result->args = args;
 	result->location = location;
 
@@ -908,44 +908,44 @@ make_scalar_array_op(ParseState *pstate, List *opname,
 
 
 /*
- * Lookaside cache to speed operator lookup.  Possibly this should be in
- * a separate module under utils/cache/ ?
+ * 用于加速操作符查找的旁路缓存。也许它应该放到   
+ * utils/cache/ 下的独立模块？    
  *
- * The idea here is that the mapping from operator name and given argument
- * types is constant for a given search path (or single specified schema OID)
- * so long as the contents of pg_operator and pg_cast don't change.  And that
- * mapping is pretty expensive to compute, especially for ambiguous operators;
- * this is mainly because there are a *lot* of instances of popular operator
- * names such as "=", and we have to check each one to see which is the
- * best match.  So once we have identified the correct mapping, we save it
- * in a cache that need only be flushed on pg_operator or pg_cast change.
- * (pg_cast must be considered because changes in the set of implicit casts
- * affect the set of applicable operators for any given input datatype.)
+ * 这里的想法是：对给定 search_path（或单独指定的模式  
+ *  OID）而言，只要 pg_operator 和 pg_cast 的内容不变，操作符
+ * 名与给定参数类型到解析结果的映射就保持不变。而该  
+ * 映射的计算代价相当高，尤其是有歧义的操作符；         
+ * 这主要是因为 "=" 等常用操作符名的实例*非常*多，      
+ * 必须逐一检查以确定哪个是最佳匹配。所以一旦     
+ * 确定正确的映射，就把它存入缓存，                       
+ * 该缓存只需在 pg_operator 或 pg_cast 变化时刷新。         
+ * （pg_cast 也必须考虑，因为隐式转换集合的变化会       
+ * 影响任一给定输入类型的可用操作符集合。）         
  *
- * XXX in principle, ALTER TABLE ... INHERIT could affect the mapping as
- * well, but we disregard that since there's no convenient way to find out
- * about it, and it seems a pretty far-fetched corner-case anyway.
+ * XXX 原则上 ALTER TABLE ... INHERIT 也可能影响                
+ * 该映射，但我们不予理会：既无便利办法感知它，     
+ * 而且这看上去也是相当牵强的边角情况。         
  *
- * Note: at some point it might be worth doing a similar cache for function
- * lookups.  However, the potential gain is a lot less since (a) function
- * names are generally not overloaded as heavily as operator names, and
- * (b) we'd have to flush on pg_proc updates, which are probably a good
- * deal more common than pg_operator updates.
+ * 注意：将来或许值得为函数查找做类似的缓存。不过   
+ * 潜在收益要小得多，因为 (a) 函数名通常不像操作符  
+ * 名那样重度重载，而且 (b) pg_proc 更新时也得刷新， 
+ * 而这类更新很可能比 pg_operator 更新常见得多。       
+ *                                           
  */
 
-/* The operator cache hashtable */
+/* 操作符缓存哈希表     */
 static HTAB *OprCacheHash = NULL;
 
 
 /*
  * make_oper_cache_key
- *		Fill the lookup key struct given operator name and arg types.
+ *		根据操作符名和参数类型填充查找键结构。    
  *
- * Returns true if successful, false if the search_path overflowed
- * (hence no caching is possible).
+ * 成功返回 true；若 search_path 溢出则返回 false      
+ * （因此无法缓存）。    
  *
- * pstate/location are used only to report the error position; pass NULL/-1
- * if not available.
+ * pstate/location 仅用于报告错误位置；不可用时传           
+ * NULL/-1。       
  */
 static bool
 make_oper_cache_key(ParseState *pstate, OprCacheKey *key, List *opname,
@@ -954,13 +954,13 @@ make_oper_cache_key(ParseState *pstate, OprCacheKey *key, List *opname,
 	char	   *schemaname;
 	char	   *opername;
 
-	/* deconstruct the name list */
+	/* 分解名称列表        */
 	DeconstructQualifiedName(opname, &schemaname, &opername);
 
-	/* ensure zero-fill for stable hashing */
+	/* 确保零填充以获得稳定哈希*/
 	MemSet(key, 0, sizeof(OprCacheKey));
 
-	/* save operator name and input types into key */
+	/* 把操作符名和输入类型存入键     */
 	strlcpy(key->oprname, opername, NAMEDATALEN);
 	key->left_arg = ltypeId;
 	key->right_arg = rtypeId;
@@ -969,17 +969,17 @@ make_oper_cache_key(ParseState *pstate, OprCacheKey *key, List *opname,
 	{
 		ParseCallbackState pcbstate;
 
-		/* search only in exact schema given */
+		/* 只在给定的确切模式搜索 */
 		setup_parser_errposition_callback(&pcbstate, pstate, location);
 		key->search_path[0] = LookupExplicitNamespace(schemaname, false);
 		cancel_parser_errposition_callback(&pcbstate);
 	}
 	else
 	{
-		/* get the active search path */
+		/* 取得活跃搜索路径   */
 		if (fetch_search_path_array(key->search_path,
 									MAX_CACHED_PATH_LEN) > MAX_CACHED_PATH_LEN)
-			return false;		/* oops, didn't fit */
+			return false;		/* 放不下了     */
 	}
 
 	return true;
@@ -988,8 +988,8 @@ make_oper_cache_key(ParseState *pstate, OprCacheKey *key, List *opname,
 /*
  * find_oper_cache_entry
  *
- * Look for a cache entry matching the given key.  If found, return the
- * contained operator OID, else return InvalidOid.
+ * 查找与给定键匹配的缓存表项。若找到，返回其中  
+ * 的操作符 OID，否则返回 InvalidOid。  
  */
 static Oid
 find_oper_cache_entry(OprCacheKey *key)
@@ -998,7 +998,7 @@ find_oper_cache_entry(OprCacheKey *key)
 
 	if (OprCacheHash == NULL)
 	{
-		/* First time through: initialize the hash table */
+		/* 首次执行时：初始化哈希表          */
 		HASHCTL		ctl;
 
 		ctl.keysize = sizeof(OprCacheKey);
@@ -1006,7 +1006,7 @@ find_oper_cache_entry(OprCacheKey *key)
 		OprCacheHash = hash_create("Operator lookup cache", 256,
 								   &ctl, HASH_ELEM | HASH_BLOBS);
 
-		/* Arrange to flush cache on pg_operator and pg_cast changes */
+		/* 安排在 pg_operator 和 pg_cast 变化时刷新缓存   */
 		CacheRegisterSyscacheCallback(OPERNAMENSP,
 									  InvalidateOprCacheCallBack,
 									  (Datum) 0);
@@ -1015,7 +1015,7 @@ find_oper_cache_entry(OprCacheKey *key)
 									  (Datum) 0);
 	}
 
-	/* Look for an existing entry */
+	/* 查找已有的表项      */
 	oprentry = (OprCacheEntry *) hash_search(OprCacheHash,
 											 key,
 											 HASH_FIND, NULL);
@@ -1028,7 +1028,7 @@ find_oper_cache_entry(OprCacheKey *key)
 /*
  * make_oper_cache_entry
  *
- * Insert a cache entry for the given key.
+ * 为给定键插入一个缓存表项。
  */
 static void
 make_oper_cache_entry(OprCacheKey *key, Oid opr_oid)
@@ -1044,7 +1044,7 @@ make_oper_cache_entry(OprCacheKey *key, Oid opr_oid)
 }
 
 /*
- * Callback for pg_operator and pg_cast inval events
+ * pg_operator 和 pg_cast 失效事件的回调    
  */
 static void
 InvalidateOprCacheCallBack(Datum arg, int cacheid, uint32 hashvalue)
@@ -1054,7 +1054,7 @@ InvalidateOprCacheCallBack(Datum arg, int cacheid, uint32 hashvalue)
 
 	Assert(OprCacheHash != NULL);
 
-	/* Currently we just flush all entries; hard to be smarter ... */
+	/* 目前只是刷新全部表项；想更精细并不容易...*/
 	hash_seq_init(&status, OprCacheHash);
 
 	while ((hentry = (OprCacheEntry *) hash_seq_search(&status)) != NULL)

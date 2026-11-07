@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_agg.c
- *	  handle aggregates and window functions in parser
+ *	  在解析器中处理聚合与窗口函数      
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -10,7 +10,7 @@
  * IDENTIFICATION
  *	  src/backend/parser/parse_agg.c
  *
- *-------------------------------------------------------------------------
+ *---------------------------------------------------------------------    
  */
 #include "postgres.h"
 
@@ -76,28 +76,28 @@ static Node *make_agg_arg(Oid argtype, Oid argcollation);
 
 /*
  * transformAggregateCall -
- *		Finish initial transformation of an aggregate call
+ *		完成聚合调用的初始转换                 
  *
- * parse_func.c has recognized the function as an aggregate, and has set up
- * all the fields of the Aggref except aggargtypes, aggdirectargs, args,
- * aggorder, aggdistinct and agglevelsup.  The passed-in args list has been
- * through standard expression transformation and type coercion to match the
- * agg's declared arg types, while the passed-in aggorder list hasn't been
- * transformed at all.
+ * parse_func.c 已认定该函数为聚合，并已设置好              
+ * Aggref 中除 aggargtypes、aggdirectargs、args、                  
+ * aggorder、aggdistinct 与 agglevelsup 之外的各字段。            
+ * 传入的 args 列表已经过标准表达式转换和类型强转，    
+ * 以匹配聚合声明的参数类型；而传入的 aggorder 列表    
+ * 完全未转换。 
  *
- * Here we separate the args list into direct and aggregated args, storing the
- * former in agg->aggdirectargs and the latter in agg->args.  The regular
- * args, but not the direct args, are converted into a targetlist by inserting
- * TargetEntry nodes.  We then transform the aggorder and agg_distinct
- * specifications to produce lists of SortGroupClause nodes for agg->aggorder
- * and agg->aggdistinct.  (For a regular aggregate, this might result in
- * adding resjunk expressions to the targetlist; but for ordered-set
- * aggregates the aggorder list will always be one-to-one with the aggregated
- * args.)
+ * 这里我们把 args 列表拆分为直接参数与聚合参数，         
+ * 前者存入 agg->aggdirectargs，后者存入 agg->args。           
+ * 普通参数（但不含直接参数）会通过插入 TargetEntry         
+ * 节点而转换为目标列表；随后我们转换 aggorder 与   
+ * agg_distinct 规格，为 agg->aggorder 与 agg->aggdistinct              
+ * 生成 SortGroupClause 节点列表。（对普通聚合，          
+ * 这可能给目标列表添入 resjunk 表达式；有序集     
+ * 聚合的 aggorder 列表则始终与聚合参数一一对应。）       
+ *       
  *
- * We must also determine which query level the aggregate actually belongs to,
- * set agglevelsup accordingly, and mark p_hasAggs true in the corresponding
- * pstate level.
+ * 我们还必须判定该聚合实际属于哪个查询层级，相应      
+ * 设置 agglevelsup，并在相应 pstate 层级把 p_hasAggs             
+ * 置为真。 
  */
 void
 transformAggregateCall(ParseState *pstate, Aggref *agg,
@@ -114,8 +114,8 @@ transformAggregateCall(ParseState *pstate, Aggref *agg,
 	if (AGGKIND_IS_ORDERED_SET(agg->aggkind))
 	{
 		/*
-		 * For an ordered-set agg, the args list includes direct args and
-		 * aggregated args; we must split them apart.
+		 * 对有序集聚合，args 列表同时包含直接参数与   
+		 * 聚合参数；必须拆分开来。      
 		 */
 		int			numDirectArgs = list_length(args) - list_length(aggorder);
 		List	   *aargs;
@@ -127,10 +127,10 @@ transformAggregateCall(ParseState *pstate, Aggref *agg,
 		agg->aggdirectargs = list_truncate(args, numDirectArgs);
 
 		/*
-		 * Build a tlist from the aggregated args, and make a sortlist entry
-		 * for each one.  Note that the expressions in the SortBy nodes are
-		 * ignored (they are the raw versions of the transformed args); we are
-		 * just looking at the sort information in the SortBy nodes.
+		 * 由聚合参数构建一个目标列表，并为每个参数     
+		 * 建一个排序项。注意 SortBy 节点中的表达式        
+		 * 会被忽略（它们是已转换参数的原始版本）；我们 
+		 * 只关注 SortBy 节点中的排序信息。             
 		 */
 		forboth(lc, aargs, lc2, aggorder)
 		{
@@ -138,7 +138,7 @@ transformAggregateCall(ParseState *pstate, Aggref *agg,
 			SortBy	   *sortby = (SortBy *) lfirst(lc2);
 			TargetEntry *tle;
 
-			/* We don't bother to assign column names to the entries */
+			/* 不必为这些条目分配列名                     */
 			tle = makeTargetEntry(arg, attno++, NULL, false);
 			tlist = lappend(tlist, tle);
 
@@ -146,35 +146,35 @@ transformAggregateCall(ParseState *pstate, Aggref *agg,
 										 torder, tlist, sortby);
 		}
 
-		/* Never any DISTINCT in an ordered-set agg */
+		/* 有序集聚合中绝无 DISTINCT        */
 		Assert(!agg_distinct);
 	}
 	else
 	{
-		/* Regular aggregate, so it has no direct args */
+		/* 普通聚合，因此没有直接参数     */
 		agg->aggdirectargs = NIL;
 
 		/*
-		 * Transform the plain list of Exprs into a targetlist.
+		 * 把普通的 Exprs 列表转换成目标列表。   
 		 */
 		foreach(lc, args)
 		{
 			Expr	   *arg = (Expr *) lfirst(lc);
 			TargetEntry *tle;
 
-			/* We don't bother to assign column names to the entries */
+			/* 不必为这些条目分配列名                     */
 			tle = makeTargetEntry(arg, attno++, NULL, false);
 			tlist = lappend(tlist, tle);
 		}
 
 		/*
-		 * If we have an ORDER BY, transform it.  This will add columns to the
-		 * tlist if they appear in ORDER BY but weren't already in the arg
-		 * list.  They will be marked resjunk = true so we can tell them apart
-		 * from regular aggregate arguments later.
+		 * 若有 ORDER BY，就转换它。这会给目标列表添加       
+		 * 出现在 ORDER BY 中但原本不在参数列表里的列；  
+		 * 它们会被标记 resjunk = true，以便日后能与普通       
+		 * 聚合参数区分开来。            
 		 *
-		 * We need to mess with p_next_resno since it will be used to number
-		 * any new targetlist entries.
+		 * 我们需要改动 p_next_resno，因为它将被用来给       
+		 * 新增目标项编号。   
 		 */
 		save_next_resno = pstate->p_next_resno;
 		pstate->p_next_resno = attno;
@@ -183,18 +183,18 @@ transformAggregateCall(ParseState *pstate, Aggref *agg,
 									 aggorder,
 									 &tlist,
 									 EXPR_KIND_ORDER_BY,
-									 true /* force SQL99 rules */ );
+									 true /* 按 SQL99 规则  */ );
 
 		/*
-		 * If we have DISTINCT, transform that to produce a distinctList.
+		 * 若有 DISTINCT，则转换它以生成 distinctList。       
 		 */
 		if (agg_distinct)
 		{
 			tdistinct = transformDistinctClause(pstate, &tlist, torder, true);
 
 			/*
-			 * Remove this check if executor support for hashed distinct for
-			 * aggregates is ever added.
+			 * 若将来为聚合加了哈希去重的执行器支持，    
+			 * 可移除此项检查。 
 			 */
 			foreach(lc, tdistinct)
 			{
@@ -217,17 +217,17 @@ transformAggregateCall(ParseState *pstate, Aggref *agg,
 		pstate->p_next_resno = save_next_resno;
 	}
 
-	/* Update the Aggref with the transformation results */
+	/* 用转换结果更新 Aggref                      */
 	agg->args = tlist;
 	agg->aggorder = torder;
 	agg->aggdistinct = tdistinct;
 
 	/*
-	 * Now build the aggargtypes list with the type OIDs of the direct and
-	 * aggregated args, ignoring any resjunk entries that might have been
-	 * added by ORDER BY/DISTINCT processing.  We can't do this earlier
-	 * because said processing can modify some args' data types, in particular
-	 * by resolving previously-unresolved "unknown" literals.
+	 * 现在用直接参数与聚合参数的类型 OID 来构建        
+	 * aggargtypes 列表，忽略 ORDER BY/DISTINCT 处理              
+	 * 可能加进来的 resjunk 项。这件事无法更早做，    
+	 * 因为前述处理会改动某些参数的数据类型，尤其        
+	 * 是把先前未决的 "unknown" 字面量确定。    
 	 */
 	foreach(lc, agg->aggdirectargs)
 	{
@@ -240,7 +240,7 @@ transformAggregateCall(ParseState *pstate, Aggref *agg,
 		TargetEntry *tle = (TargetEntry *) lfirst(lc);
 
 		if (tle->resjunk)
-			continue;			/* ignore junk */
+			continue;			/* 忽略垃圾*/
 		argtypes = lappend_oid(argtypes, exprType((Node *) tle->expr));
 	}
 	agg->aggargtypes = argtypes;
@@ -250,10 +250,10 @@ transformAggregateCall(ParseState *pstate, Aggref *agg,
 
 /*
  * transformGroupingFunc
- *		Transform a GROUPING expression
+ *		转换 GROUPING 表达式      
  *
- * GROUPING() behaves very like an aggregate.  Processing of levels and nesting
- * is done as for aggregates.  We set p_hasAggs for these expressions too.
+ * GROUPING() 的行为非常类似聚合。层级与嵌套的                 
+ * 处理与聚合相同。对这些表达式同样会设置 p_hasAggs。 
  */
 Node *
 transformGroupingFunc(ParseState *pstate, GroupingFunc *p)
@@ -275,7 +275,7 @@ transformGroupingFunc(ParseState *pstate, GroupingFunc *p)
 
 		current_result = transformExpr(pstate, (Node *) lfirst(lc), pstate->p_expr_kind);
 
-		/* acceptability of expressions is checked later */
+		/* 表达式的可接受性稍后检查          */
 
 		result_list = lappend(result_list, current_result);
 	}
@@ -289,10 +289,10 @@ transformGroupingFunc(ParseState *pstate, GroupingFunc *p)
 }
 
 /*
- * Aggregate functions and grouping operations (which are combined in the spec
- * as <set function specification>) are very similar with regard to level and
- * nesting restrictions (though we allow a lot more things than the spec does).
- * Centralise those restrictions here.
+ * 聚合函数与分组操作（在标准中合称                           
+ * <set function specification>）就层级和嵌套限制而言             
+ * 非常相似（尽管我们允许的东西远多于标准）。             
+ * 这里集中处理这些限制。  
  */
 static void
 check_agglevels_and_constraints(ParseState *pstate, Node *expr)
@@ -327,8 +327,8 @@ check_agglevels_and_constraints(ParseState *pstate, Node *expr)
 	}
 
 	/*
-	 * Check the arguments to compute the aggregate's level and detect
-	 * improper nesting.
+	 * 检查各参数以算出聚合的层级，并检测            
+	 * 不当嵌套。  
 	 */
 	min_varlevel = check_agg_arguments(pstate,
 									   directargs,
@@ -337,33 +337,33 @@ check_agglevels_and_constraints(ParseState *pstate, Node *expr)
 
 	*p_levelsup = min_varlevel;
 
-	/* Mark the correct pstate level as having aggregates */
+	/* 在正确的 pstate 层级标记含有聚合       */
 	while (min_varlevel-- > 0)
 		pstate = pstate->parentParseState;
 	pstate->p_hasAggs = true;
 
 	/*
-	 * Check to see if the aggregate function is in an invalid place within
-	 * its aggregation query.
+	 * 检查聚合函数是否处于其聚合查询内的无效           
+	 * 位置上。          
 	 *
-	 * For brevity we support two schemes for reporting an error here: set
-	 * "err" to a custom message, or set "errkind" true if the error context
-	 * is sufficiently identified by what ParseExprKindName will return, *and*
-	 * what it will return is just a SQL keyword.  (Otherwise, use a custom
-	 * message to avoid creating translation problems.)
+	 * 为简洁起见，这里支持两种报错方式：把 "err"       
+	 * 设为自定义消息；或在错误上下文已能被               
+	 * ParseExprKindName 的返回值充分标识，*且*该                  
+	 * 返回值只是单个 SQL 关键字。（否则就用自定         
+	 * 义消息，以免制造翻译问题。）      
 	 */
 	err = NULL;
 	errkind = false;
 	switch (pstate->p_expr_kind)
 	{
 		case EXPR_KIND_NONE:
-			Assert(false);		/* can't happen */
+			Assert(false);		/* 不会发生 */
 			break;
 		case EXPR_KIND_OTHER:
 
 			/*
-			 * Accept aggregate/grouping here; caller must throw error if
-			 * wanted
+			 * 此处接受聚合/分组；如有需要，调用者须   
+			 * 报错
 			 */
 			break;
 		case EXPR_KIND_JOIN_ON:
@@ -377,8 +377,8 @@ check_agglevels_and_constraints(ParseState *pstate, Node *expr)
 		case EXPR_KIND_FROM_SUBSELECT:
 
 			/*
-			 * Aggregate/grouping scope rules make it worth being explicit
-			 * here
+			 * 聚合/分组的作用域规则值得在此明确指出。 
+			 *     
 			 */
 			if (isAgg)
 				err = _("aggregate functions are not allowed in FROM clause of their own query level");
@@ -404,16 +404,16 @@ check_agglevels_and_constraints(ParseState *pstate, Node *expr)
 
 			break;
 		case EXPR_KIND_HAVING:
-			/* okay */
+			/* 可  */
 			break;
 		case EXPR_KIND_FILTER:
 			errkind = true;
 			break;
 		case EXPR_KIND_WINDOW_PARTITION:
-			/* okay */
+			/* 可  */
 			break;
 		case EXPR_KIND_WINDOW_ORDER:
-			/* okay */
+			/* 可  */
 			break;
 		case EXPR_KIND_WINDOW_FRAME_RANGE:
 			if (isAgg)
@@ -437,7 +437,7 @@ check_agglevels_and_constraints(ParseState *pstate, Node *expr)
 
 			break;
 		case EXPR_KIND_SELECT_TARGET:
-			/* okay */
+			/* 可  */
 			break;
 		case EXPR_KIND_INSERT_TARGET:
 		case EXPR_KIND_UPDATE_SOURCE:
@@ -455,10 +455,10 @@ check_agglevels_and_constraints(ParseState *pstate, Node *expr)
 			errkind = true;
 			break;
 		case EXPR_KIND_ORDER_BY:
-			/* okay */
+			/* 可  */
 			break;
 		case EXPR_KIND_DISTINCT_ON:
-			/* okay */
+			/* 可  */
 			break;
 		case EXPR_KIND_LIMIT:
 		case EXPR_KIND_OFFSET:
@@ -574,11 +574,11 @@ check_agglevels_and_constraints(ParseState *pstate, Node *expr)
 			break;
 
 			/*
-			 * There is intentionally no default: case here, so that the
-			 * compiler will warn if we add a new ParseExprKind without
-			 * extending this switch.  If we do see an unrecognized value at
-			 * runtime, the behavior will be the same as for EXPR_KIND_OTHER,
-			 * which is sane anyway.
+			 * 这里有意不设 default: 分支，这样在新增     
+			 * ParseExprKind 而不扩展此 switch 时，编译器会 
+			 * 发出警告。若运行时遇到无法识别的值，       
+			 * 其行为与 EXPR_KIND_OTHER 相同，                        
+			 * 反正也合理。   
 			 */
 	}
 
@@ -607,28 +607,28 @@ check_agglevels_and_constraints(ParseState *pstate, Node *expr)
 
 /*
  * check_agg_arguments
- *	  Scan the arguments of an aggregate function to determine the
- *	  aggregate's semantic level (zero is the current select's level,
- *	  one is its parent, etc).
+ *	  扫描聚合函数的参数，以判定该聚合的语义   
+ *	  层级（零为当前 select 的层级，一为其父层，    
+ *	  依此类推）。      
  *
- * The aggregate's level is the same as the level of the lowest-level variable
- * or aggregate in its aggregated arguments (including any ORDER BY columns)
- * or filter expression; or if it contains no variables at all, we presume it
- * to be local.
+ * 聚合的层级等同于其聚合参数（含任何 ORDER BY               
+ * 列）或过滤表达式中最低层级变量或聚合的层级；       
+ * 若其中完全不含变量，我们就假定它是局部的。           
+ *             
  *
- * Vars/Aggs in direct arguments are *not* counted towards determining the
- * agg's level, as those arguments aren't evaluated per-row but only
- * per-group, and so in some sense aren't really agg arguments.  However,
- * this can mean that we decide an agg is upper-level even when its direct
- * args contain lower-level Vars/Aggs, and that case has to be disallowed.
- * (This is a little strange, but the SQL standard seems pretty definite that
- * direct args are not to be considered when setting the agg's level.)
+ * 直接参数中的 Var/Agg *不*计入层级的判定，               
+ * 因为那些参数并非逐行求值，而是每组只求        
+ * 值一次，某种意义上并不算真正的聚合参数。          
+ * 不过这可能导致：即便直接参数里含有更低层           
+ * 级的 Var/Agg，我们仍判定聚合为上层，而这种情况      
+ * 必须被禁止。（这有点怪，但 SQL 标准似乎相当            
+ * 明确：设定聚合层级时不应考虑直接参数。）       
  *
- * We also take this opportunity to detect any aggregates or window functions
- * nested within the arguments.  We can throw error immediately if we find
- * a window function.  Aggregates are a bit trickier because it's only an
- * error if the inner aggregate is of the same semantic level as the outer,
- * which we can't know until we finish scanning the arguments.
+ * 我们也借机检测参数中嵌套的聚合或窗口函数。           
+ * 若发现窗口函数可立即报错。聚合则麻烦一些，        
+ * 因为只有当内层聚合与外层处于同一语义层级          
+ * 时才算错误，而这要等参数扫描完毕才能知道。         
+ *                                                            
  */
 static int
 check_agg_arguments(ParseState *pstate,
@@ -640,7 +640,7 @@ check_agg_arguments(ParseState *pstate,
 	check_agg_arguments_context context;
 
 	context.pstate = pstate;
-	context.min_varlevel = -1;	/* signifies nothing found yet */
+	context.min_varlevel = -1;	/* 尚未找到任何内容    */
 	context.min_agglevel = -1;
 	context.sublevels_up = 0;
 
@@ -648,8 +648,8 @@ check_agg_arguments(ParseState *pstate,
 	(void) check_agg_arguments_walker((Node *) filter, &context);
 
 	/*
-	 * If we found no vars nor aggs at all, it's a level-zero aggregate;
-	 * otherwise, its level is the minimum of vars or aggs.
+	 * 若完全没找到变量和聚合，它就是零层聚合；     
+	 * 否则其层级取变量或聚合中的最小值。 
 	 */
 	if (context.min_varlevel < 0)
 	{
@@ -664,7 +664,7 @@ check_agg_arguments(ParseState *pstate,
 		agglevel = Min(context.min_varlevel, context.min_agglevel);
 
 	/*
-	 * If there's a nested aggregate of the same semantic level, complain.
+	 * 若存在同一语义层级的嵌套聚合，则报错。          
 	 */
 	if (agglevel == context.min_agglevel)
 	{
@@ -680,13 +680,13 @@ check_agg_arguments(ParseState *pstate,
 	}
 
 	/*
-	 * Now check for vars/aggs in the direct arguments, and throw error if
-	 * needed.  Note that we allow a Var of the agg's semantic level, but not
-	 * an Agg of that level.  In principle such Aggs could probably be
-	 * supported, but it would create an ordering dependency among the
-	 * aggregates at execution time.  Since the case appears neither to be
-	 * required by spec nor particularly useful, we just treat it as a
-	 * nested-aggregate situation.
+	 * 现在检查直接参数中的变量/聚合，必要时报         
+	 * 错。注意我们允许聚合语义层级的 Var，但不允许      
+	 * 该层级的 Agg。原则上这类 Agg 或许可以支持，   
+	 * 但那会在执行期造成聚合之间的顺序依赖。      
+	 * 既然这一情形看起来既非标准所要求，也不          
+	 * 特别有用，我们就把它当作嵌套聚合情形来      
+	 * 处理。                  
 	 */
 	if (directargs)
 	{
@@ -721,9 +721,9 @@ check_agg_arguments_walker(Node *node,
 	{
 		int			varlevelsup = ((Var *) node)->varlevelsup;
 
-		/* convert levelsup to frame of reference of original query */
+		/* 把 levelsup 换算回最初查询的参照系           */
 		varlevelsup -= context->sublevels_up;
-		/* ignore local vars of subqueries */
+		/* 忽略子查询的局部变量  */
 		if (varlevelsup >= 0)
 		{
 			if (context->min_varlevel < 0 ||
@@ -736,37 +736,37 @@ check_agg_arguments_walker(Node *node,
 	{
 		int			agglevelsup = ((Aggref *) node)->agglevelsup;
 
-		/* convert levelsup to frame of reference of original query */
+		/* 把 levelsup 换算回最初查询的参照系           */
 		agglevelsup -= context->sublevels_up;
-		/* ignore local aggs of subqueries */
+		/* 忽略子查询的局部聚合  */
 		if (agglevelsup >= 0)
 		{
 			if (context->min_agglevel < 0 ||
 				context->min_agglevel > agglevelsup)
 				context->min_agglevel = agglevelsup;
 		}
-		/* Continue and descend into subtree */
+		/* 继续并下探子树             */
 	}
 	if (IsA(node, GroupingFunc))
 	{
 		int			agglevelsup = ((GroupingFunc *) node)->agglevelsup;
 
-		/* convert levelsup to frame of reference of original query */
+		/* 把 levelsup 换算回最初查询的参照系           */
 		agglevelsup -= context->sublevels_up;
-		/* ignore local aggs of subqueries */
+		/* 忽略子查询的局部聚合  */
 		if (agglevelsup >= 0)
 		{
 			if (context->min_agglevel < 0 ||
 				context->min_agglevel > agglevelsup)
 				context->min_agglevel = agglevelsup;
 		}
-		/* Continue and descend into subtree */
+		/* 继续并下探子树             */
 	}
 
 	/*
-	 * SRFs and window functions can be rejected immediately, unless we are
-	 * within a sub-select within the aggregate's arguments; in that case
-	 * they're OK.
+	 * SRF 和窗口函数可立即拒绝，除非我们正处在          
+	 * 聚合参数内部的子选择中；那种情况下它们         
+	 * 可以。  
 	 */
 	if (context->sublevels_up == 0)
 	{
@@ -788,9 +788,9 @@ check_agg_arguments_walker(Node *node,
 	if (IsA(node, RangeTblEntry))
 	{
 		/*
-		 * CTE references act similarly to Vars of the CTE's level.  Without
-		 * this we might conclude that the Agg can be evaluated above the CTE,
-		 * leading to trouble.
+		 * CTE 引用的行为类似 CTE 层级的变量。若无此        
+		 * 处理，我们可能误判 Agg 能在 CTE 之上求值，         
+		 * 进而出问题。 
 		 */
 		RangeTblEntry *rte = (RangeTblEntry *) node;
 
@@ -798,9 +798,9 @@ check_agg_arguments_walker(Node *node,
 		{
 			int			ctelevelsup = rte->ctelevelsup;
 
-			/* convert levelsup to frame of reference of original query */
+			/* 把 levelsup 换算回最初查询的参照系           */
 			ctelevelsup -= context->sublevels_up;
-			/* ignore local CTEs of subqueries */
+			/* 忽略子查询的局部 CTE    */
 			if (ctelevelsup >= 0)
 			{
 				if (context->min_varlevel < 0 ||
@@ -808,11 +808,11 @@ check_agg_arguments_walker(Node *node,
 					context->min_varlevel = ctelevelsup;
 			}
 		}
-		return false;			/* allow range_table_walker to continue */
+		return false;			/* 允许 range_table_walker 继续     */
 	}
 	if (IsA(node, Query))
 	{
-		/* Recurse into subselects */
+		/* 递归进入子选择   */
 		bool		result;
 
 		context->sublevels_up++;
@@ -831,14 +831,14 @@ check_agg_arguments_walker(Node *node,
 
 /*
  * transformWindowFuncCall -
- *		Finish initial transformation of a window function call
+ *		完成窗口函数调用的初始转换                
  *
- * parse_func.c has recognized the function as a window function, and has set
- * up all the fields of the WindowFunc except winref.  Here we must (1) add
- * the WindowDef to the pstate (if not a duplicate of one already present) and
- * set winref to link to it; and (2) mark p_hasWindowFuncs true in the pstate.
- * Unlike aggregates, only the most closely nested pstate level need be
- * considered --- there are no "outer window functions" per SQL spec.
+ * parse_func.c 已认定该函数为窗口函数，并已设置             
+ * 好 WindowFunc 除 winref 外的全部字段。这里必须             
+ * (1) 把 WindowDef 加入 pstate（若非已有窗口的                    
+ * 副本）并设置 winref 链接到它；(2) 在 pstate 里把             
+ * p_hasWindowFuncs 置真。与聚合不同，只需考虑            
+ * 最贴近的 pstate 层级 --- SQL 并无"外层窗口函数"。  
  */
 void
 transformWindowFuncCall(ParseState *pstate, WindowFunc *wfunc,
@@ -848,12 +848,12 @@ transformWindowFuncCall(ParseState *pstate, WindowFunc *wfunc,
 	bool		errkind;
 
 	/*
-	 * A window function call can't contain another one (but aggs are OK). XXX
-	 * is this required by spec, or just an unimplemented feature?
+	 * 窗口函数调用不能再包含窗口函数调用（但聚           
+	 * 合可以）。XXX：这是标准要求，还是未实现  
 	 *
-	 * Note: we don't need to check the filter expression here, because the
-	 * context checks done below and in transformAggregateCall would have
-	 * already rejected any window funcs or aggs within the filter.
+	 * 注：这里无需检查过滤表达式，因为下文与           
+	 * transformAggregateCall 中所做的上下文检查                
+	 * 早已拒绝过滤中的任何窗口函数或聚合。      
 	 */
 	if (pstate->p_hasWindowFuncs &&
 		contain_windowfuncs((Node *) wfunc->args))
@@ -864,31 +864,31 @@ transformWindowFuncCall(ParseState *pstate, WindowFunc *wfunc,
 									locate_windowfunc((Node *) wfunc->args))));
 
 	/*
-	 * Check to see if the window function is in an invalid place within the
-	 * query.
+	 * 检查窗口函数是否处于查询内的无效位置。            
+	 *       
 	 *
-	 * For brevity we support two schemes for reporting an error here: set
-	 * "err" to a custom message, or set "errkind" true if the error context
-	 * is sufficiently identified by what ParseExprKindName will return, *and*
-	 * what it will return is just a SQL keyword.  (Otherwise, use a custom
-	 * message to avoid creating translation problems.)
+	 * 为简洁起见，这里支持两种报错方式：把 "err"       
+	 * 设为自定义消息；或在错误上下文已能被               
+	 * ParseExprKindName 的返回值充分标识，*且*该                  
+	 * 返回值只是单个 SQL 关键字。（否则就用自定         
+	 * 义消息，以免制造翻译问题。）      
 	 */
 	err = NULL;
 	errkind = false;
 	switch (pstate->p_expr_kind)
 	{
 		case EXPR_KIND_NONE:
-			Assert(false);		/* can't happen */
+			Assert(false);		/* 不会发生 */
 			break;
 		case EXPR_KIND_OTHER:
-			/* Accept window func here; caller must throw error if wanted */
+			/* 此处接受窗口函数；调用者须按需报错        */
 			break;
 		case EXPR_KIND_JOIN_ON:
 		case EXPR_KIND_JOIN_USING:
 			err = _("window functions are not allowed in JOIN conditions");
 			break;
 		case EXPR_KIND_FROM_SUBSELECT:
-			/* can't get here, but just in case, throw an error */
+			/* 不会到这里，但保险起见抛出错误    */
 			errkind = true;
 			break;
 		case EXPR_KIND_FROM_FUNCTION:
@@ -914,7 +914,7 @@ transformWindowFuncCall(ParseState *pstate, WindowFunc *wfunc,
 			err = _("window functions are not allowed in window definitions");
 			break;
 		case EXPR_KIND_SELECT_TARGET:
-			/* okay */
+			/* 可  */
 			break;
 		case EXPR_KIND_INSERT_TARGET:
 		case EXPR_KIND_UPDATE_SOURCE:
@@ -928,10 +928,10 @@ transformWindowFuncCall(ParseState *pstate, WindowFunc *wfunc,
 			errkind = true;
 			break;
 		case EXPR_KIND_ORDER_BY:
-			/* okay */
+			/* 可  */
 			break;
 		case EXPR_KIND_DISTINCT_ON:
-			/* okay */
+			/* 可  */
 			break;
 		case EXPR_KIND_LIMIT:
 		case EXPR_KIND_OFFSET:
@@ -990,11 +990,11 @@ transformWindowFuncCall(ParseState *pstate, WindowFunc *wfunc,
 			break;
 
 			/*
-			 * There is intentionally no default: case here, so that the
-			 * compiler will warn if we add a new ParseExprKind without
-			 * extending this switch.  If we do see an unrecognized value at
-			 * runtime, the behavior will be the same as for EXPR_KIND_OTHER,
-			 * which is sane anyway.
+			 * 这里有意不设 default: 分支，这样在新增     
+			 * ParseExprKind 而不扩展此 switch 时，编译器会 
+			 * 发出警告。若运行时遇到无法识别的值，       
+			 * 其行为与 EXPR_KIND_OTHER 相同，                        
+			 * 反正也合理。   
 			 */
 	}
 	if (err)
@@ -1011,10 +1011,10 @@ transformWindowFuncCall(ParseState *pstate, WindowFunc *wfunc,
 				 parser_errposition(pstate, wfunc->location)));
 
 	/*
-	 * If the OVER clause just specifies a window name, find that WINDOW
-	 * clause (which had better be present).  Otherwise, try to match all the
-	 * properties of the OVER clause, and make a new entry in the p_windowdefs
-	 * list if no luck.
+	 * 若 OVER 子句只指定了窗口名，就找出那个           
+	 * WINDOW 子句（最好确实存在）。否则，尝试匹配         
+	 * OVER 子句的全部属性，无匹配则在 p_windowdefs              
+	 * 列表加项。 
 	 */
 	if (windef->name)
 	{
@@ -1037,7 +1037,7 @@ transformWindowFuncCall(ParseState *pstate, WindowFunc *wfunc,
 				break;
 			}
 		}
-		if (lc == NULL)			/* didn't find it? */
+		if (lc == NULL)			/* 没找到？    */
 			ereport(ERROR,
 					(errcode(ERRCODE_UNDEFINED_OBJECT),
 					 errmsg("window \"%s\" does not exist", windef->name),
@@ -1055,14 +1055,14 @@ transformWindowFuncCall(ParseState *pstate, WindowFunc *wfunc,
 			winref++;
 			if (refwin->refname && windef->refname &&
 				strcmp(refwin->refname, windef->refname) == 0)
-				 /* matched on refname */ ;
+				 /* 凭 refname 匹配 */ ;
 			else if (!refwin->refname && !windef->refname)
-				 /* matched, no refname */ ;
+				 /* 匹配，无 refname*/ ;
 			else
 				continue;
 
 			/*
-			 * Also see similar de-duplication code in optimize_window_clauses
+			 * 另见 optimize_window_clauses 中类似的去重代码        
 			 */
 			if (equal(refwin->partitionClause, windef->partitionClause) &&
 				equal(refwin->orderClause, windef->orderClause) &&
@@ -1070,12 +1070,12 @@ transformWindowFuncCall(ParseState *pstate, WindowFunc *wfunc,
 				equal(refwin->startOffset, windef->startOffset) &&
 				equal(refwin->endOffset, windef->endOffset))
 			{
-				/* found a duplicate window specification */
+				/* 发现重复的窗口定义            */
 				wfunc->winref = winref;
 				break;
 			}
 		}
-		if (lc == NULL)			/* didn't find it? */
+		if (lc == NULL)			/* 没找到？    */
 		{
 			pstate->p_windowdefs = lappend(pstate->p_windowdefs, windef);
 			wfunc->winref = list_length(pstate->p_windowdefs);
@@ -1087,15 +1087,15 @@ transformWindowFuncCall(ParseState *pstate, WindowFunc *wfunc,
 
 /*
  * parseCheckAggregates
- *	Check for aggregates where they shouldn't be and improper grouping.
- *	This function should be called after the target list and qualifications
- *	are finalized.
+ *	检查不该出现的聚合以及不当的分组。                
+ *	本函数应在目标列表和限定条件定稿之后再调用。     
+ *	              
  *
- *	Misplaced aggregates are now mostly detected in transformAggregateCall,
- *	but it seems more robust to check for aggregates in recursive queries
- *	only after everything is finalized.  In any case it's hard to detect
- *	improper grouping on-the-fly, so we have to make another pass over the
- *	query for that.
+ *	放错位置的聚合如今大多已在 transformAggregateCall         
+ *	中检测到，但对递归查询里的聚合检查似乎            
+ *	放到一切定稿之后再做更稳妥。无论如何，           
+ *	不当分组很难即时察觉，所以还得对查询再             
+ *	扫一遍。   
  */
 void
 parseCheckAggregates(ParseState *pstate, Query *qry)
@@ -1110,18 +1110,18 @@ parseCheckAggregates(ParseState *pstate, Query *qry)
 	bool		hasSelfRefRTEs;
 	Node	   *clause;
 
-	/* This should only be called if we found aggregates or grouping */
+	/* 仅在发现聚合或分组时才应调用本函数           */
 	Assert(pstate->p_hasAggs || qry->groupClause || qry->havingQual || qry->groupingSets);
 
 	/*
-	 * If we have grouping sets, expand them and find the intersection of all
-	 * sets.
+	 * 若有分组集，则展开它们并求所有集合的交集。       
+	 *      
 	 */
 	if (qry->groupingSets)
 	{
 		/*
-		 * The limit of 4096 is arbitrary and exists simply to avoid resource
-		 * issues from pathological constructs.
+		 * 4096 这一上限是随意选的，只是为了避免             
+		 * 病态构造耗尽资源。         
 		 */
 		List	   *gsets = expand_grouping_sets(qry->groupingSets, qry->groupDistinct, 4096);
 
@@ -1135,8 +1135,8 @@ parseCheckAggregates(ParseState *pstate, Query *qry)
 										: exprLocation((Node *) qry->groupingSets))));
 
 		/*
-		 * The intersection will often be empty, so help things along by
-		 * seeding the intersect with the smallest set.
+		 * 交集常常为空，所以先用最小的集合来播种    
+		 * 交集运算，好让事情顺利些。     
 		 */
 		gset_common = linitial(gsets);
 
@@ -1151,18 +1151,18 @@ parseCheckAggregates(ParseState *pstate, Query *qry)
 		}
 
 		/*
-		 * If there was only one grouping set in the expansion, AND if the
-		 * groupClause is non-empty (meaning that the grouping set is not
-		 * empty either), then we can ditch the grouping set and pretend we
-		 * just had a normal GROUP BY.
+		 * 若展开后只剩一个分组集，并且 groupClause         
+		 * 非空（即该分组集也非空），那我们就可以     
+		 * 丢弃分组集，装作原本只是普通 GROUP BY。          
+		 *                            
 		 */
 		if (list_length(gsets) == 1 && qry->groupClause)
 			qry->groupingSets = NIL;
 	}
 
 	/*
-	 * Scan the range table to see if there are JOIN or self-reference CTE
-	 * entries.  We'll need this info below.
+	 * 扫描范围表，看是否存在 JOIN 或自引用 CTE            
+	 * 项。下文会用到此信息。    
 	 */
 	hasJoinRTEs = hasSelfRefRTEs = false;
 	foreach(l, pstate->p_rtable)
@@ -1176,10 +1176,10 @@ parseCheckAggregates(ParseState *pstate, Query *qry)
 	}
 
 	/*
-	 * Build a list of the acceptable GROUP BY expressions for use by
+	 * 构建一份可接受的 GROUP BY 表达式列表，供       
 	 * check_ungrouped_columns().
 	 *
-	 * We get the TLE, not just the expr, because GROUPING wants to know the
+	 * 我们取的是 TLE 而非仅表达式，因为 GROUPING 要知道   
 	 * sortgroupref.
 	 */
 	foreach(l, qry->groupClause)
@@ -1189,29 +1189,29 @@ parseCheckAggregates(ParseState *pstate, Query *qry)
 
 		expr = get_sortgroupclause_tle(grpcl, qry->targetList);
 		if (expr == NULL)
-			continue;			/* probably cannot happen */
+			continue;			/* 多半不会发生     */
 
 		groupClauses = lappend(groupClauses, expr);
 	}
 
 	/*
-	 * If there are join alias vars involved, we have to flatten them to the
-	 * underlying vars, so that aliased and unaliased vars will be correctly
-	 * taken as equal.  We can skip the expense of doing this if no rangetable
-	 * entries are RTE_JOIN kind.
+	 * 若涉及连接别名变量，就必须把它们展平为            
+	 * 底层变量，这样带别名与不带别名的变量才            
+	 * 会被正确视为相等。若没有 RTE_JOIN 类的范围             
+	 * 表项，可省开销。  
 	 */
 	if (hasJoinRTEs)
 		groupClauses = (List *) flatten_join_alias_vars(NULL, qry,
 														(Node *) groupClauses);
 
 	/*
-	 * Detect whether any of the grouping expressions aren't simple Vars; if
-	 * they're all Vars then we don't have to work so hard in the recursive
-	 * scans.  (Note we have to flatten aliases before this.)
+	 * 检测分组表达式是否都为简单 Var；若全是 Var，       
+	 * 后面的递归扫描就不用那么费力。（注意此前        
+	 * 必须先展平别名。）                           
 	 *
-	 * Track Vars that are included in all grouping sets separately in
-	 * groupClauseCommonVars, since these are the only ones we can use to
-	 * check for functional dependencies.
+	 * 被所有分组集都包含的 Var 单独记录在             
+	 * groupClauseCommonVars 里，因为只有它们能用于           
+	 * 函数依赖检查。             
 	 */
 	have_non_var_grouping = false;
 	foreach(l, groupClauses)
@@ -1230,15 +1230,15 @@ parseCheckAggregates(ParseState *pstate, Query *qry)
 	}
 
 	/*
-	 * Check the targetlist and HAVING clause for ungrouped variables.
+	 * 检查目标列表与 HAVING 子句中的未分组变量。    
 	 *
-	 * Note: because we check resjunk tlist elements as well as regular ones,
-	 * this will also find ungrouped variables that came from ORDER BY and
-	 * WINDOW clauses.  For that matter, it's also going to examine the
-	 * grouping expressions themselves --- but they'll all pass the test ...
+	 * 注：因为我们连 resjunk 目标列表项也一并检查，       
+	 * 这也会找出源自 ORDER BY 与 WINDOW 子句的未分组       
+	 * 变量。而且它还会检查分组表达式本身 --- 不过  
+	 * 它们全都通得过该测试……                                 
 	 *
-	 * We also finalize GROUPING expressions, but for that we need to traverse
-	 * the original (unflattened) clause in order to modify nodes.
+	 * 我们还要定稿 GROUPING 表达式，但为此需要遍历          
+	 * 原始（未展平）子句才能修改节点。           
 	 */
 	clause = (Node *) qry->targetList;
 	finalize_grouping_exprs(clause, pstate, qry,
@@ -1263,7 +1263,7 @@ parseCheckAggregates(ParseState *pstate, Query *qry)
 							&func_grouped_rels);
 
 	/*
-	 * Per spec, aggregates can't appear in a recursive term.
+	 * 按标准，聚合不能出现在递归项中。      
 	 */
 	if (pstate->p_hasAggs && hasSelfRefRTEs)
 		ereport(ERROR,
@@ -1275,24 +1275,24 @@ parseCheckAggregates(ParseState *pstate, Query *qry)
 
 /*
  * check_ungrouped_columns -
- *	  Scan the given expression tree for ungrouped variables (variables
- *	  that are not listed in the groupClauses list and are not within
- *	  the arguments of aggregate functions).  Emit a suitable error message
- *	  if any are found.
+ *	  扫描给定的表达式树，查找未分组变量（即        
+ *	  未列入 groupClauses 列表、也不在聚合函数          
+ *	  参数内的变量）。一经发现，就发出适当的            
+ *	  错误消息。  
  *
- * NOTE: we assume that the given clause has been transformed suitably for
- * parser output.  This means we can use expression_tree_walker.
+ * 注：我们假定给定子句已经过适合解析器输出           
+ * 的转换，故可直接用 expression_tree_walker。        
  *
- * NOTE: we recognize grouping expressions in the main query, but only
- * grouping Vars in subqueries.  For example, this will be rejected,
- * although it could be allowed:
+ * 注：我们在主查询中识别分组表达式，但在子       
+ * 查询中只识别分组 Var。举例来说，下面这条       
+ * 本可放行却遭拒绝：  
  *		SELECT
  *			(SELECT x FROM bar where y = (foo.a + foo.b))
  *		FROM foo
  *		GROUP BY a + b;
- * The difficulty is the need to account for different sublevels_up.
- * This appears to require a whole custom version of equal(), which is
- * way more pain than the feature seems worth.
+ * 难点在于必须考虑不同的 sublevels_up。                
+ * 这看起来需要一个完全定制的 equal() 版本，          
+ * 其痛苦远超该功能的价值。       
  */
 static void
 check_ungrouped_columns(Node *node, ParseState *pstate, Query *qry,
@@ -1304,7 +1304,7 @@ check_ungrouped_columns(Node *node, ParseState *pstate, Query *qry,
 
 	context.pstate = pstate;
 	context.qry = qry;
-	context.hasJoinRTEs = false;	/* assume caller flattened join Vars */
+	context.hasJoinRTEs = false;	/* 调用者应已展平连接变量 */
 	context.groupClauses = groupClauses;
 	context.groupClauseCommonVars = groupClauseCommonVars;
 	context.have_non_var_grouping = have_non_var_grouping;
@@ -1324,7 +1324,7 @@ check_ungrouped_columns_walker(Node *node,
 		return false;
 	if (IsA(node, Const) ||
 		IsA(node, Param))
-		return false;			/* constants are always acceptable */
+		return false;			/* 常量总是可接受           */
 
 	if (IsA(node, Aggref))
 	{
@@ -1333,12 +1333,12 @@ check_ungrouped_columns_walker(Node *node,
 		if ((int) agg->agglevelsup == context->sublevels_up)
 		{
 			/*
-			 * If we find an aggregate call of the original level, do not
-			 * recurse into its normal arguments, ORDER BY arguments, or
-			 * filter; ungrouped vars there are not an error.  But we should
-			 * check direct arguments as though they weren't in an aggregate.
-			 * We set a special flag in the context to help produce a useful
-			 * error message for ungrouped vars in direct arguments.
+			 * 若发现属于原始层级的聚合调用，就不要    
+			 * 再下探其普通参数、ORDER BY 参数或过滤      
+			 * 条件；其中的未分组变量不算错误。但应当    
+			 * 把直接参数当作不在聚合内来检查。              
+			 * 我们会在上下文里设一个特殊标志，以便为    
+			 * 直接参数内未分组变量给出有用报错。  
 			 */
 			bool		result;
 
@@ -1351,10 +1351,10 @@ check_ungrouped_columns_walker(Node *node,
 		}
 
 		/*
-		 * We can skip recursing into aggregates of higher levels altogether,
-		 * since they could not possibly contain Vars of concern to us (see
-		 * transformAggregateCall).  We do need to look at aggregates of lower
-		 * levels, however.
+		 * 更高层级的聚合可以完全跳过不下探，               
+		 * 因为它们绝不可能含有我们关心的 Var（参见      
+		 * transformAggregateCall）。但更低层级的聚合               
+		 * 仍须查看。 
 		 */
 		if ((int) agg->agglevelsup > context->sublevels_up)
 			return false;
@@ -1364,18 +1364,18 @@ check_ungrouped_columns_walker(Node *node,
 	{
 		GroupingFunc *grp = (GroupingFunc *) node;
 
-		/* handled GroupingFunc separately, no need to recheck at this level */
+		/* GroupingFunc 已单独处理，无需在本层复查              */
 
 		if ((int) grp->agglevelsup >= context->sublevels_up)
 			return false;
 	}
 
 	/*
-	 * If we have any GROUP BY items that are not simple Vars, check to see if
-	 * subexpression as a whole matches any GROUP BY item. We need to do this
-	 * at every recursion level so that we recognize GROUPed-BY expressions
-	 * before reaching variables within them. But this only works at the outer
-	 * query level, as noted above.
+	 * 若存在非简单 Var 的 GROUP BY 项，就检查该                 
+	 * 子表达式整体是否匹配任何 GROUP BY 项。这一检查必须
+	 * 在每层递归都做，以便在进入其中的变量之前就     
+	 * 认出按 GROUP BY 分组的表达式；不过仅在外层查询层级 
+	 * 有效。如前所述。    
 	 */
 	if (context->have_non_var_grouping && context->sublevels_up == 0)
 	{
@@ -1384,15 +1384,15 @@ check_ungrouped_columns_walker(Node *node,
 			TargetEntry *tle = lfirst(gl);
 
 			if (equal(node, tle->expr))
-				return false;	/* acceptable, do not descend more */
+				return false;	/* 可接受，不再下探        */
 		}
 	}
 
 	/*
-	 * If we have an ungrouped Var of the original query level, we have a
-	 * failure.  Vars below the original query level are not a problem, and
-	 * neither are Vars from above it.  (If such Vars are ungrouped as far as
-	 * their own query level is concerned, that's someone else's problem...)
+	 * 若发现原始查询层级的未分组 Var，即告失败。     
+	 * 低于原始查询层级的变量不成问题，来自其           
+	 * 上方的变量同样无碍。（若这类变量在其自身          
+	 * 查询层级看来未分组，那是别人的问题……）         
 	 */
 	if (IsA(node, Var))
 	{
@@ -1401,10 +1401,10 @@ check_ungrouped_columns_walker(Node *node,
 		char	   *attname;
 
 		if (var->varlevelsup != context->sublevels_up)
-			return false;		/* it's not local to my query, ignore */
+			return false;		/* 非本查询局部变量，忽略  */
 
 		/*
-		 * Check for a match, if we didn't do it above.
+		 * 若上文未做，则检查匹配。        
 		 */
 		if (!context->have_non_var_grouping || context->sublevels_up != 0)
 		{
@@ -1416,28 +1416,28 @@ check_ungrouped_columns_walker(Node *node,
 					gvar->varno == var->varno &&
 					gvar->varattno == var->varattno &&
 					gvar->varlevelsup == 0)
-					return false;	/* acceptable, we're okay */
+					return false;	/* 可接受，没问题  */
 			}
 		}
 
 		/*
-		 * Check whether the Var is known functionally dependent on the GROUP
-		 * BY columns.  If so, we can allow the Var to be used, because the
-		 * grouping is really a no-op for this table.  However, this deduction
-		 * depends on one or more constraints of the table, so we have to add
-		 * those constraints to the query's constraintDeps list, because it's
-		 * not semantically valid anymore if the constraint(s) get dropped.
-		 * (Therefore, this check must be the last-ditch effort before raising
-		 * error: we don't want to add dependencies unnecessarily.)
+		 * 检查 Var 是否已知函数依赖于 GROUP                      
+		 * BY 列。若是，则允许使用该 Var，因为对该表      
+		 * 的分组实为空操作。不过此推断                         
+		 * 依赖于该表的一个或多个约束，所以必须把这些   
+		 * 约束加入查询的 constraintDeps 列表，因为一旦约束  
+		 * 被删除，查询在语义上便不再有效。                
+		 * （因此该检查必须作为报错前的最后一招：          
+		 * 我们不希望非必要地添加依赖。）           
 		 *
-		 * Because this is a pretty expensive check, and will have the same
-		 * outcome for all columns of a table, we remember which RTEs we've
-		 * already proven functional dependency for in the func_grouped_rels
-		 * list.  This test also prevents us from adding duplicate entries to
-		 * the constraintDeps list.
+		 * 由于此检查开销较大，且对表各列结果相同，    
+		 * 所以我们在 func_grouped_rels 列表中记住哪些 RTE     
+		 * 已证明存在函数依赖。这一测试也防止我们向     
+		 * constraintDeps 列表添加重复条目。                        
+		 *                         
 		 */
 		if (list_member_int(*context->func_grouped_rels, var->varno))
-			return false;		/* previously proven acceptable */
+			return false;		/* 此前已证明可接受     */
 
 		Assert(var->varno > 0 &&
 			   (int) var->varno <= list_length(context->pstate->p_rtable));
@@ -1452,11 +1452,11 @@ check_ungrouped_columns_walker(Node *node,
 			{
 				*context->func_grouped_rels =
 					lappend_int(*context->func_grouped_rels, var->varno);
-				return false;	/* acceptable */
+				return false;	/* 可接受  */
 			}
 		}
 
-		/* Found an ungrouped local variable; generate error message */
+		/* 发现未分组的局部变量；生成错误消息       */
 		attname = get_rte_attribute_name(rte, var->varattno);
 		if (context->sublevels_up == 0)
 			ereport(ERROR,
@@ -1476,7 +1476,7 @@ check_ungrouped_columns_walker(Node *node,
 
 	if (IsA(node, Query))
 	{
-		/* Recurse into subselects */
+		/* 递归处理子查询   */
 		bool		result;
 
 		context->sublevels_up++;
@@ -1493,14 +1493,14 @@ check_ungrouped_columns_walker(Node *node,
 
 /*
  * finalize_grouping_exprs -
- *	  Scan the given expression tree for GROUPING() and related calls,
- *	  and validate and process their arguments.
+ *	  扫描给定表达式树，寻找 GROUPING() 及相关调用， 
+ *	  并对其参数进行验证和处理。  
  *
- * This is split out from check_ungrouped_columns above because it needs
- * to modify the nodes (which it does in-place, not via a mutator) while
- * check_ungrouped_columns may see only a copy of the original thanks to
- * flattening of join alias vars. So here, we flatten each individual
- * GROUPING argument as we see it before comparing it.
+ * 本函数从 check_ungrouped_columns 中拆出，因为它需要     
+ * 就地修改节点（不经由 mutator）；而由于连接别名    
+ * 变量被扁平化，check_ungrouped_columns 可能只见副本，   
+ * 因此这里在比较之前，会先对所见的每个 GROUPING   
+ * 参数逐个扁平化，然后再进行比较。   
  */
 static void
 finalize_grouping_exprs(Node *node, ParseState *pstate, Query *qry,
@@ -1531,7 +1531,7 @@ finalize_grouping_exprs_walker(Node *node,
 		return false;
 	if (IsA(node, Const) ||
 		IsA(node, Param))
-		return false;			/* constants are always acceptable */
+		return false;			/* 常量总是可接受的        */
 
 	if (IsA(node, Aggref))
 	{
@@ -1540,10 +1540,10 @@ finalize_grouping_exprs_walker(Node *node,
 		if ((int) agg->agglevelsup == context->sublevels_up)
 		{
 			/*
-			 * If we find an aggregate call of the original level, do not
-			 * recurse into its normal arguments, ORDER BY arguments, or
-			 * filter; GROUPING exprs of this level are not allowed there. But
-			 * check direct arguments as though they weren't in an aggregate.
+			 * 若遇到本层级的聚合调用，则不要             
+			 * 递归进入其普通参数、ORDER BY 参数或         
+			 * filter；该处不允许本层级的 GROUPING 表达式。但  
+			 * 需检查直接参数，如同其不在聚合内一样。     
 			 */
 			bool		result;
 
@@ -1556,10 +1556,10 @@ finalize_grouping_exprs_walker(Node *node,
 		}
 
 		/*
-		 * We can skip recursing into aggregates of higher levels altogether,
-		 * since they could not possibly contain exprs of concern to us (see
-		 * transformAggregateCall).  We do need to look at aggregates of lower
-		 * levels, however.
+		 * 更高层级的聚合可以完全跳过递归，                  
+		 * 因为其中不可能包含我们所关心的表达式（见     
+		 * transformAggregateCall）。但较低层级的聚合               
+		 * 仍需检查。 
 		 */
 		if ((int) agg->agglevelsup > context->sublevels_up)
 			return false;
@@ -1570,8 +1570,8 @@ finalize_grouping_exprs_walker(Node *node,
 		GroupingFunc *grp = (GroupingFunc *) node;
 
 		/*
-		 * We only need to check GroupingFunc nodes at the exact level to
-		 * which they belong, since they cannot mix levels in arguments.
+		 * 我们只需在 GroupingFunc 节点所属的确切层级      
+		 * 上检查它们，因为其参数无法混合层级。       
 		 */
 
 		if ((int) grp->agglevelsup == context->sublevels_up)
@@ -1588,9 +1588,9 @@ finalize_grouping_exprs_walker(Node *node,
 					expr = flatten_join_alias_vars(NULL, context->qry, expr);
 
 				/*
-				 * Each expression must match a grouping entry at the current
-				 * query level. Unlike the general expression case, we don't
-				 * allow functional dependencies or outer references.
+				 * 每个表达式都必须匹配处于当前查询层级    
+				 * 的某个分组项。与普通表达式不同，这里   
+				 * 不允许函数依赖或外层引用。           
 				 */
 
 				if (IsA(expr, Var))
@@ -1649,7 +1649,7 @@ finalize_grouping_exprs_walker(Node *node,
 
 	if (IsA(node, Query))
 	{
-		/* Recurse into subselects */
+		/* 递归处理子查询   */
 		bool		result;
 
 		context->sublevels_up++;
@@ -1666,15 +1666,15 @@ finalize_grouping_exprs_walker(Node *node,
 
 
 /*
- * Given a GroupingSet node, expand it and return a list of lists.
+ * 给定 GroupingSet 节点，展开并返回一组列表。     
  *
- * For EMPTY nodes, return a list of one empty list.
+ * 对 EMPTY 节点返回只含空列表的列表。
  *
- * For SIMPLE nodes, return a list of one list, which is the node content.
+ * 对 SIMPLE 节点，返回只含该节点内容的列表。            
  *
- * For CUBE and ROLLUP nodes, return a list of the expansions.
+ * 对 CUBE、ROLLUP 节点，返回各展开结果列表。  
  *
- * For SET nodes, recursively expand contained CUBE and ROLLUP.
+ * 对 SET 节点，递归展开所含的 CUBE 和 ROLLUP。   
  */
 static List *
 expand_groupingset_node(GroupingSet *gs)
@@ -1711,7 +1711,7 @@ expand_groupingset_node(GroupingSet *gs)
 						current_result = list_concat(current_result,
 													 gs_current->content);
 
-						/* If we are done with making the current group, break */
+						/* 若当前分组已构造完毕，则跳出循环    */
 						if (--i == 0)
 							break;
 					}
@@ -1731,7 +1731,7 @@ expand_groupingset_node(GroupingSet *gs)
 				uint32		num_sets;
 				uint32		i;
 
-				/* parser should cap this much lower */
+				/* 解析器应将上限设得更低 */
 				Assert(number_bits < 31);
 
 				num_sets = (1U << number_bits);
@@ -1777,7 +1777,7 @@ expand_groupingset_node(GroupingSet *gs)
 	return result;
 }
 
-/* list_sort comparator to sort sub-lists by length */
+/* list_sort 比较函数，按长度排序子列表*/
 static int
 cmp_list_len_asc(const ListCell *a, const ListCell *b)
 {
@@ -1787,7 +1787,7 @@ cmp_list_len_asc(const ListCell *a, const ListCell *b)
 	return (la > lb) ? 1 : (la == lb) ? 0 : -1;
 }
 
-/* list_sort comparator to sort sub-lists by length and contents */
+/* list_sort 比较函数，按长度和内容排序子列表    */
 static int
 cmp_list_len_contents_asc(const ListCell *a, const ListCell *b)
 {
@@ -1816,11 +1816,11 @@ cmp_list_len_contents_asc(const ListCell *a, const ListCell *b)
 }
 
 /*
- * Expand a groupingSets clause to a flat list of grouping sets.
- * The returned list is sorted by length, shortest sets first.
+ * 把 groupingSets 子句展开为扁平的分组集列表。  
+ * 返回列表按长度排序，最短的集在前。        
  *
- * This is mainly for the planner, but we use it here too to do
- * some consistency checks.
+ * 这主要供规划器使用，但这里也会用它做      
+ * 一些一致性检查。
  */
 List *
 expand_grouping_sets(List *groupingSets, bool groupDistinct, int limit)
@@ -1851,9 +1851,9 @@ expand_grouping_sets(List *groupingSets, bool groupDistinct, int limit)
 	}
 
 	/*
-	 * Do cartesian product between sublists of expanded_groups. While at it,
-	 * remove any duplicate elements from individual grouping sets (we must
-	 * NOT change the number of sets though)
+	 * 对 expanded_groups 的各子列表做笛卡尔积。同时，        
+	 * 从各个分组集中移除重复元素（但绝不能              
+	 * 改变分组集的数量）。       
 	 */
 
 	foreach(lc, (List *) linitial(expanded_groups))
@@ -1881,7 +1881,7 @@ expand_grouping_sets(List *groupingSets, bool groupDistinct, int limit)
 		result = new_result;
 	}
 
-	/* Now sort the lists by length and deduplicate if necessary */
+	/* 现在按长度对列表排序，并视需要去重       */
 	if (!groupDistinct || list_length(result) < 2)
 		list_sort(result, cmp_list_len_asc);
 	else
@@ -1889,14 +1889,14 @@ expand_grouping_sets(List *groupingSets, bool groupDistinct, int limit)
 		ListCell   *cell;
 		List	   *prev;
 
-		/* Sort each groupset individually */
+		/* 对每个分组集单独排序  */
 		foreach(cell, result)
 			list_sort(lfirst(cell), list_int_cmp);
 
-		/* Now sort the list of groupsets by length and contents */
+		/* 现在按长度和内容对分组集列表排序      */
 		list_sort(result, cmp_list_len_contents_asc);
 
-		/* Finally, remove duplicates */
+		/* 最后，去除重复项   */
 		prev = linitial(result);
 		for_each_from(cell, result, 1)
 		{
@@ -1912,18 +1912,18 @@ expand_grouping_sets(List *groupingSets, bool groupDistinct, int limit)
 
 /*
  * get_aggregate_argtypes
- *	Identify the specific datatypes passed to an aggregate call.
+ *	确定传递给聚合调用的具体数据类型。         
  *
- * Given an Aggref, extract the actual datatypes of the input arguments.
- * The input datatypes are reported in a way that matches up with the
- * aggregate's declaration, ie, any ORDER BY columns attached to a plain
- * aggregate are ignored, but we report both direct and aggregated args of
- * an ordered-set aggregate.
+ * 给定 Aggref，提取输入参数的实际数据类型。           
+ * 报告输入数据类型的方式需与聚合声明相匹配，   
+ * 即附加在普通聚合上的 ORDER BY 列会被忽略，           
+ * 但有序集聚合的直接参数与聚合参数都会报告。        
+ *                          
  *
- * Datatypes are returned into inputTypes[], which must reference an array
- * of length FUNC_MAX_ARGS.
+ * 数据类型会写入 inputTypes[]，该数组长度必须             
+ * 为 FUNC_MAX_ARGS。    
  *
- * The function result is the number of actual arguments.
+ * 函数返回值为实际参数的个数。            
  */
 int
 get_aggregate_argtypes(Aggref *aggref, Oid *inputTypes)
@@ -1943,13 +1943,13 @@ get_aggregate_argtypes(Aggref *aggref, Oid *inputTypes)
 
 /*
  * resolve_aggregate_transtype
- *	Identify the transition state value's datatype for an aggregate call.
+ *	确定聚合调用的转换状态值的数据类型。               
  *
- * This function resolves a polymorphic aggregate's state datatype.
- * It must be passed the aggtranstype from the aggregate's catalog entry,
- * as well as the actual argument types extracted by get_aggregate_argtypes.
- * (We could fetch pg_aggregate.aggtranstype internally, but all existing
- * callers already have the value at hand, so we make them pass it.)
+ * 此函数解析多态聚合的状态数据类型。             
+ * 调用时必须传入聚合目录项中的 aggtranstype，            
+ * 以及 get_aggregate_argtypes 提取出的实际参数类型。          
+ * （本可以在内部读取 pg_aggregate.aggtranstype，但           
+ * 现有调用者都已持有该值，故要求其传入。）     
  */
 Oid
 resolve_aggregate_transtype(Oid aggfuncid,
@@ -1957,18 +1957,18 @@ resolve_aggregate_transtype(Oid aggfuncid,
 							Oid *inputTypes,
 							int numArguments)
 {
-	/* resolve actual type of transition state, if polymorphic */
+	/* 若为多态，则解析转换状态的实际类型     */
 	if (IsPolymorphicType(aggtranstype))
 	{
-		/* have to fetch the agg's declared input types... */
+		/* 必须获取聚合声明的输入类型……   */
 		Oid		   *declaredArgTypes;
 		int			agg_nargs;
 
 		(void) get_func_signature(aggfuncid, &declaredArgTypes, &agg_nargs);
 
 		/*
-		 * VARIADIC ANY aggs could have more actual than declared args, but
-		 * such extra args can't affect polymorphic type resolution.
+		 * VARIADIC ANY 聚合的实际参数可能多于声明参数，但
+		 * 这些多余参数不会影响多态类型解析。      
 		 */
 		Assert(agg_nargs <= numArguments);
 
@@ -1984,8 +1984,8 @@ resolve_aggregate_transtype(Oid aggfuncid,
 
 /*
  * agg_args_support_sendreceive
- *		Returns true if all non-byval types of aggref's args have send and
- *		receive functions.
+ *		若 aggref 参数的非 byval 类型都有发送和接收函数，
+ *		则返回真。   
  */
 bool
 agg_args_support_sendreceive(Aggref *aggref)
@@ -2000,10 +2000,10 @@ agg_args_support_sendreceive(Aggref *aggref)
 		Oid			type = exprType((Node *) tle->expr);
 
 		/*
-		 * RECORD is a special case: it has typsend/typreceive functions, but
-		 * record_recv only works if passed the correct typmod to identify the
-		 * specific anonymous record type.  array_agg_deserialize cannot do
-		 * that, so we have to disclaim support for the case.
+		 * RECORD 是特例：它有 typsend/typreceive 函数，但         
+		 * record_recv 只有在传入正确 typmod 以标识具体匿名     
+		 * 记录类型时才能工作。array_agg_deserialize 无法      
+		 * 做到，因此必须声明不支持该情形。  
 		 */
 		if (type == RECORDOID)
 			return false;
@@ -2026,33 +2026,33 @@ agg_args_support_sendreceive(Aggref *aggref)
 }
 
 /*
- * Create an expression tree for the transition function of an aggregate.
- * This is needed so that polymorphic functions can be used within an
- * aggregate --- without the expression tree, such functions would not know
- * the datatypes they are supposed to use.  (The trees will never actually
- * be executed, however, so we can skimp a bit on correctness.)
+ * 为聚合的转换函数创建表达式树。                         
+ * 这样做是为了让多态函数可在聚合内使用，         
+ * 因为没有表达式树，这类函数将无从得知其应            
+ * 使用的数据类型。（这些树实际上绝不会                 
+ * 被执行，因此可以在正确性上稍有省略。）   
  *
- * agg_input_types and agg_state_type identifies the input types of the
- * aggregate.  These should be resolved to actual types (ie, none should
- * ever be ANYELEMENT etc).
- * agg_input_collation is the aggregate function's input collation.
+ * agg_input_types 与 agg_state_type 标识聚合的输入            
+ * 类型。这些应被解析为具体类型（不应出现            
+ * ANYELEMENT 等）。    
+ * agg_input_collation 是聚合函数的输入排序规则。     
  *
- * For an ordered-set aggregate, remember that agg_input_types describes
- * the direct arguments followed by the aggregated arguments.
+ * 对有序集聚合，请记住 agg_input_types 描述的是          
+ * 直接参数后跟聚合参数。                         
  *
- * transfn_oid and invtransfn_oid identify the funcs to be called; the
- * latter may be InvalidOid, however if invtransfn_oid is set then
- * transfn_oid must also be set.
+ * transfn_oid 与 invtransfn_oid 标识待调用的函数；         
+ * 后者可为 InvalidOid；但若设置了 invtransfn_oid，    
+ * transfn_oid 也须设置。  
  *
- * transfn_oid may also be passed as the aggcombinefn when the *transfnexpr is
- * to be used for a combine aggregate phase.  We expect invtransfn_oid to be
- * InvalidOid in this case since there is no such thing as an inverse
- * combinefn.
+ * 当 *transfnexpr 用于合并聚合阶段时，transfn_oid 也可          
+ * 作为 aggcombinefn 传入。此时 invtransfn_oid 应为                
+ * InvalidOid，因为不存在逆向合并函数。                 
+ *           
  *
- * Pointers to the constructed trees are returned into *transfnexpr,
- * *invtransfnexpr. If there is no invtransfn, the respective pointer is set
- * to NULL.  Since use of the invtransfn is optional, NULL may be passed for
- * invtransfnexpr.
+ * 构建好的树的指针会返回到 *transfnexpr 与            
+ * *invtransfnexpr。若不存在 invtransfn，则相应指针              
+ * 将被设为 NULL。invtransfn 是可选的，因此也允许            
+ * 传 NULL。    
  */
 void
 build_aggregate_transfn_expr(Oid *agg_input_types,
@@ -2071,7 +2071,7 @@ build_aggregate_transfn_expr(Oid *agg_input_types,
 	int			i;
 
 	/*
-	 * Build arg list to use in the transfn FuncExpr node.
+	 * 为 transfn FuncExpr 节点构建参数列表。   
 	 */
 	args = list_make1(make_agg_arg(agg_state_type, agg_input_collation));
 
@@ -2091,7 +2091,7 @@ build_aggregate_transfn_expr(Oid *agg_input_types,
 	*transfnexpr = (Expr *) fexpr;
 
 	/*
-	 * Build invtransfn expression if requested, with same args as transfn
+	 * 如需则构建 invtransfn 表达式，参数与 transfn 相同。 
 	 */
 	if (invtransfnexpr != NULL)
 	{
@@ -2112,8 +2112,8 @@ build_aggregate_transfn_expr(Oid *agg_input_types,
 }
 
 /*
- * Like build_aggregate_transfn_expr, but creates an expression tree for the
- * serialization function of an aggregate.
+ * 与 build_aggregate_transfn_expr 类似，但为聚合的                
+ * 序列化函数创建表达式树。   
  */
 void
 build_aggregate_serialfn_expr(Oid serialfn_oid,
@@ -2122,7 +2122,7 @@ build_aggregate_serialfn_expr(Oid serialfn_oid,
 	List	   *args;
 	FuncExpr   *fexpr;
 
-	/* serialfn always takes INTERNAL and returns BYTEA */
+	/* serialfn 的参数恒为 INTERNAL，返回 BYTEA */
 	args = list_make1(make_agg_arg(INTERNALOID, InvalidOid));
 
 	fexpr = makeFuncExpr(serialfn_oid,
@@ -2135,8 +2135,8 @@ build_aggregate_serialfn_expr(Oid serialfn_oid,
 }
 
 /*
- * Like build_aggregate_transfn_expr, but creates an expression tree for the
- * deserialization function of an aggregate.
+ * 与 build_aggregate_transfn_expr 类似，但为聚合的                
+ * 反序列化函数创建表达式树。  
  */
 void
 build_aggregate_deserialfn_expr(Oid deserialfn_oid,
@@ -2145,7 +2145,7 @@ build_aggregate_deserialfn_expr(Oid deserialfn_oid,
 	List	   *args;
 	FuncExpr   *fexpr;
 
-	/* deserialfn always takes BYTEA, INTERNAL and returns INTERNAL */
+	/* deserialfn 参数恒为 BYTEA 与 INTERNAL，返回 INTERNAL */
 	args = list_make2(make_agg_arg(BYTEAOID, InvalidOid),
 					  make_agg_arg(INTERNALOID, InvalidOid));
 
@@ -2159,8 +2159,8 @@ build_aggregate_deserialfn_expr(Oid deserialfn_oid,
 }
 
 /*
- * Like build_aggregate_transfn_expr, but creates an expression tree for the
- * final function of an aggregate, rather than the transition function.
+ * 与 build_aggregate_transfn_expr 类似，但为聚合的                
+ * 最终函数（而非转换函数）创建表达式树。           
  */
 void
 build_aggregate_finalfn_expr(Oid *agg_input_types,
@@ -2175,11 +2175,11 @@ build_aggregate_finalfn_expr(Oid *agg_input_types,
 	int			i;
 
 	/*
-	 * Build expr tree for final function
+	 * 为最终函数构建表达式树 
 	 */
 	args = list_make1(make_agg_arg(agg_state_type, agg_input_collation));
 
-	/* finalfn may take additional args, which match agg's input types */
+	/* finalfn 可带额外参数，其与聚合输入类型匹配     */
 	for (i = 0; i < num_finalfn_inputs - 1; i++)
 	{
 		args = lappend(args,
@@ -2192,15 +2192,15 @@ build_aggregate_finalfn_expr(Oid *agg_input_types,
 										 InvalidOid,
 										 agg_input_collation,
 										 COERCE_EXPLICIT_CALL);
-	/* finalfn is currently never treated as variadic */
+	/* 目前从不将 finalfn 按 variadic 处理    */
 }
 
 /*
- * Convenience function to build dummy argument expressions for aggregates.
+ * 为聚合构建虚设参数表达式的便捷函数。                  
  *
- * We really only care that an aggregate support function can discover its
- * actual argument types at runtime using get_fn_expr_argtype(), so it's okay
- * to use Param nodes that don't correspond to any real Param.
+ * 我们真正关心的只是聚合支持函数能在运行时           
+ * 通过 get_fn_expr_argtype() 获知实际参数类型，因此            
+ * 使用不对应任何真实 Param 的 Param 节点。      
  */
 static Node *
 make_agg_arg(Oid argtype, Oid argcollation)

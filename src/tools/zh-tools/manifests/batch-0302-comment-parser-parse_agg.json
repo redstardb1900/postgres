@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "batch_id": "0302-comment-parser-parse_agg",
+  "title": "Translate comments: parser-parse_agg",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "465075fdd6e2795f421eb058c509533be9e69e26",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0302-comment-parser-parse_agg.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/parser/**",
+      "kind": "c_comment",
+      "note": "P2 comment translation campaign"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0302-comment-parser-parse_agg.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [
+        "gettext translator hints R5-protected (3, EN byte-identical twins): blk32 /* translator: %s is name of a SQL construct, eg GROUP BY */, blk33 (same text), blk63 (same text)"
+      ]
+    },
+    {
+      "path": "src/backend/parser/parse_agg.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 138,
+      "translated": 135,
+      "preserved": 3,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), gettext translator hints (R5-protected), and separator-only blocks rebuilt byte-identical"
+      ],
+      "note": "P2 translation campaign wave F25/F26"
+    }
+  ],
+  "notes": "Coordinator pre-review unification in ammo, all zero-byte: P08 invalid family blk21/blk55 (illegal->无效), cross-file twin alignment blk31/blk62 switch-head prose to the committed parse_expr.c blk22/blk110 twin (EN byte-identical; also cleared 2 P09 warnings). Legal leaves disclosed: blk38/blk54/blk120 要求 (required-by-spec passive / no require verb), blk54/blk83 不能 (structural can't), blk114 绝不能 (EN we must NOT). Review round 1: FAIL (3 MED + 6 LOW) -> 15-line SPECMATCH surgery -> round 2: PASS (drift exactly 15 lines, gates green, disclosures upheld; optional R2-P1 block-wide re-split restoring as-noted-above at blk90 adopted post-PASS, 4 lines, zero mid-word cuts). Preserved blk32/33/63 are byte-identical gettext translator hints (R5)."
+}

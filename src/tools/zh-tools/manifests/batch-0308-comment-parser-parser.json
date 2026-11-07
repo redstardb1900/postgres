@@ -1,0 +1,45 @@
+{
+ "schema_version": 1,
+ "batch_id": "0308-comment-parser-parser",
+ "title": "Translate comments: parser-parser",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "d7b8723bd8f47298b87e5484df22460d072f109b",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0308-comment-parser-parser.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/parser/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0308-comment-parser-parser.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/parser/parser.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 52,
+   "translated": 46,
+   "preserved": 6,
+   "preserved_reasons": [
+    "Six /* RAW_PARSE_* */ identifier labels (blk5-10: DEFAULT/TYPE_NAME/PLPGSQL_EXPR/PLPGSQL_ASSIGN1/PLPGSQL_ASSIGN2/PLPGSQL_ASSIGN3) indexing the raw_parser() mode dispatch comment run — identifier-label blocks kept byte-identical"
+   ],
+   "note": "P2 translation campaign wave F35"
+  }
+ ],
+ "notes": "Whole-file batch: 52 blocks (11 multi + 35 ONE + 6 preserved RAW_PARSE_* identifier labels), 46 translated, 6 preserved. No tool change this batch. Pre-flight ammo: two merged-line gaps closed with empty-string keys (blk0 li9, blk15 li11); 22 zero-byte 记号->词元 replacements at spec level (P75 decided rule caught at coordinator pre-gate: lexer token -> 词元 per glossary Token/phrasebook P75, spec ammo predated rule maturity). Gates: verify 0 violations (W7 x5 = the six preserved RAW_PARSE_* labels L60-64; L59 RAW_PARSE_DEFAULT not flagged by tool), term 0 errors 0 parser.c lines (P75 x15 cleared by the 记号->词元 fix), render hard-zero (odd-quote blocks: 2 = blocks 47/50 inheriting EN's unpaired U&\" quote, count parity preserved), audit 46 OK, spec_check OK.  Review round 1: FAIL (1 B-level fidelity + 2 C-level convention).  Both groups coordinator-verified verbatim and applied (fix0308r1.py, 7 spec edits / 7 changed lines): blk15 restored the dropped epistemic hedge \"it's not clear how to...\" with which-clause cost reattributed to the backtrack branch (3-line rendering, L98 72/72 and L99 69/69 exact); blk36 reflowed with digit-spacing 全部 3 个词元 (all three tokens, EN-verified), li3 blank; blk47/50 digit-spacing /* U&\" 3 字 */.  Delta vs the r1 snapshot exactly 7 lines; six gates re-run green.  Round 2 review verdict: PASS (7/7 byte-landed, frame lines untouched, file totals 527/527 LF with per-block parity, three surgeries semantically complete, R10 filings maintained, zero new defects)."
+}

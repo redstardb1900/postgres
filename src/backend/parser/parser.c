@@ -1,13 +1,13 @@
 /*-------------------------------------------------------------------------
  *
  * parser.c
- *		Main entry point/driver for PostgreSQL grammar
+ *		PostgreSQL 语法的主入口/驱动          
  *
- * Note that the grammar is not allowed to perform any table access
- * (since we need to be able to do basic parsing even while inside an
- * aborted transaction).  Therefore, the data structures returned by
- * the grammar are "raw" parsetrees that still need to be analyzed by
- * analyze.c and related files.
+ * 注意：语法不允许执行任何表访问操作，          
+ * 因为即使事务已中止，也须能完成基本解析，      
+ * 因此，语法所返回的数据结构是"原始"解析树，   
+ * 尚需由 analyze.c 及相关文件加以分析。                
+ *                             
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -33,10 +33,10 @@ static char *str_udeescape(const char *str, char escape,
 
 /*
  * raw_parser
- *		Given a query in string form, do lexical and grammatical analysis.
+ *		对字符串形式的查询进行词法和语法分析。         
  *
- * Returns a list of raw (un-analyzed) parse trees.  The contents of the
- * list have the form required by the specified RawParseMode.
+ * 返回原始（未经分析的）解析树的列表。列表内容   
+ * 符合指定 RawParseMode 所要求的形式。           
  */
 List *
 raw_parser(const char *str, RawParseMode mode)
@@ -45,16 +45,16 @@ raw_parser(const char *str, RawParseMode mode)
 	base_yy_extra_type yyextra;
 	int			yyresult;
 
-	/* initialize the flex scanner */
+	/* 初始化 flex 扫描器    */
 	yyscanner = scanner_init(str, &yyextra.core_yy_extra,
 							 &ScanKeywords, ScanKeywordTokens);
 
-	/* base_yylex() only needs us to initialize the lookahead token, if any */
+	/* base_yylex() 只需我们初始化前瞻词元（如有）           */
 	if (mode == RAW_PARSE_DEFAULT)
 		yyextra.have_lookahead = false;
 	else
 	{
-		/* this array is indexed by RawParseMode enum */
+		/* 此数组按 RawParseMode 枚举索引     */
 		static const int mode_token[] = {
 			0,					/* RAW_PARSE_DEFAULT */
 			MODE_TYPE_NAME,		/* RAW_PARSE_TYPE_NAME */
@@ -70,16 +70,16 @@ raw_parser(const char *str, RawParseMode mode)
 		yyextra.lookahead_end = NULL;
 	}
 
-	/* initialize the bison parser */
+	/* 初始化 bison 解析器   */
 	parser_init(&yyextra);
 
-	/* Parse! */
+	/* 解析 */
 	yyresult = base_yyparse(yyscanner);
 
-	/* Clean up (release memory) */
+	/* 清理（释放内存）  */
 	scanner_finish(yyscanner);
 
-	if (yyresult)				/* error */
+	if (yyresult)				/* 出错*/
 		return NIL;
 
 	return yyextra.parsetree;
@@ -87,25 +87,25 @@ raw_parser(const char *str, RawParseMode mode)
 
 
 /*
- * Intermediate filter between parser and core lexer (core_yylex in scan.l).
+ * 解析器与核心 lexer（scan.l 的 core_yylex）之间的过滤器。 
  *
- * This filter is needed because in some cases the standard SQL grammar
- * requires more than one token lookahead.  We reduce these cases to one-token
- * lookahead by replacing tokens here, in order to keep the grammar LALR(1).
+ * 需要此过滤器，因为标准 SQL 语法有时需要            
+ * 前瞻不止一个词元。我们将其归约为单词元前瞻，         
+ * 做法是就地替换词元，以保持语法为 LALR(1)。              
  *
- * Using a filter is simpler than trying to recognize multiword tokens
- * directly in scan.l, because we'd have to allow for comments between the
- * words.  Furthermore it's not clear how to do that without re-introducing
- * scanner backtrack, which would cost more performance than this filter
- * layer does.
+ * 使用过滤器，比设法直接在 scan.l 里识别多词词元  
+ * 要简单得多，因为那样必须允许单词之间存在注释。  
+ * 另外，尚不清楚如何在不重新引入扫描器回退的情况下
+ * 做到这一点，而回退的性能代价将超过此过滤器层。
+ *            
  *
- * We also use this filter to convert UIDENT and USCONST sequences into
- * plain IDENT and SCONST tokens.  While that could be handled by additional
- * productions in the main grammar, it's more efficient to do it like this.
+ * 我们还用此过滤器把 UIDENT 与 USCONST 序列转换为      
+ * 普通 IDENT 与 SCONST 词元。虽然也可以在主语法里          
+ * 增加产生式来处理，但像这样做效率更高。               
  *
- * The filter also provides a convenient place to translate between
- * the core_YYSTYPE and YYSTYPE representations (which are really the
- * same thing anyway, but notationally they're different).
+ * 此过滤器还提供了一处便利的位置，可在          
+ * core_YYSTYPE 与 YYSTYPE 表示之间进行转换（两者实质  
+ * 上是同一事物，只是记法不同）。          
  */
 int
 base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
@@ -116,7 +116,7 @@ base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
 	int			cur_token_length;
 	YYLTYPE		cur_yylloc;
 
-	/* Get next token --- we might already have it */
+	/* 取下一个词元 --- 可能已有缓存   */
 	if (yyextra->have_lookahead)
 	{
 		cur_token = yyextra->lookahead_token;
@@ -130,10 +130,10 @@ base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
 		cur_token = core_yylex(&(lvalp->core_yystype), llocp, yyscanner);
 
 	/*
-	 * If this token isn't one that requires lookahead, just return it.  If it
-	 * does, determine the token length.  (We could get that via strlen(), but
-	 * since we have such a small set of possibilities, hardwiring seems
-	 * feasible and more efficient --- at least for the fixed-length cases.)
+	 * 若此词元无需前瞻，直接返回即可。若需要，           
+	 * 先确定该词元的长度。（本可以用 strlen() 获取，但    
+	 * 由于可选情形很少，硬编码似乎可行且更高效     
+	 * --- 至少对定长情形确实如此）。                          
 	 */
 	switch (cur_token)
 	{
@@ -161,41 +161,41 @@ base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
 	}
 
 	/*
-	 * Identify end+1 of current token.  core_yylex() has temporarily stored a
-	 * '\0' here, and will undo that when we call it again.  We need to redo
-	 * it to fully revert the lookahead call for error reporting purposes.
+	 * 确定当前词元 end+1 的位置。core_yylex() 在此临时存入   
+	 * 一个 '\0'，下次再调用时会撤销。故需重新截断，    
+	 * 以完全撤销前瞻调用，便于错误报告。                
 	 */
 	yyextra->lookahead_end = yyextra->core_yy_extra.scanbuf +
 		*llocp + cur_token_length;
 	Assert(*(yyextra->lookahead_end) == '\0');
 
 	/*
-	 * Save and restore *llocp around the call.  It might look like we could
-	 * avoid this by just passing &lookahead_yylloc to core_yylex(), but that
-	 * does not work because flex actually holds onto the last-passed pointer
-	 * internally, and will use that for error reporting.  We need any error
-	 * reports to point to the current token, not the next one.
+	 * 调用前后保存并恢复 *llocp。看似可以省去此步，     
+	 * 只需把 &lookahead_yylloc 传给 core_yylex() 即可，但这       
+	 * 行不通，因为 flex 会在内部持有上次传入的指针，    
+	 * 并将其用于报错。须让错误指向当前词元，            
+	 * 而非下一个。                                      
 	 */
 	cur_yylloc = *llocp;
 
-	/* Get next token, saving outputs into lookahead variables */
+	/* 取下一个词元，把输出存入前瞻变量        */
 	next_token = core_yylex(&(yyextra->lookahead_yylval), llocp, yyscanner);
 	yyextra->lookahead_token = next_token;
 	yyextra->lookahead_yylloc = *llocp;
 
 	*llocp = cur_yylloc;
 
-	/* Now revert the un-truncation of the current token */
+	/* 现在重新截断当前词元                    */
 	yyextra->lookahead_hold_char = *(yyextra->lookahead_end);
 	*(yyextra->lookahead_end) = '\0';
 
 	yyextra->have_lookahead = true;
 
-	/* Replace cur_token if needed, based on lookahead */
+	/* 根据前瞻词元，必要时替换 cur_token  */
 	switch (cur_token)
 	{
 		case FORMAT:
-			/* Replace FORMAT by FORMAT_LA if it's followed by JSON */
+			/* 若 FORMAT 后跟 JSON，则替换为 FORMAT_LA      */
 			switch (next_token)
 			{
 				case JSON:
@@ -205,7 +205,7 @@ base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
 			break;
 
 		case NOT:
-			/* Replace NOT by NOT_LA if it's followed by BETWEEN, IN, etc */
+			/* 若 NOT 后跟 BETWEEN、IN 等，则替换为 NOT_LA      */
 			switch (next_token)
 			{
 				case BETWEEN:
@@ -219,7 +219,7 @@ base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
 			break;
 
 		case NULLS_P:
-			/* Replace NULLS_P by NULLS_LA if it's followed by FIRST or LAST */
+			/* 若 NULLS_P 后跟 FIRST 或 LAST，则替换为 NULLS_LA     */
 			switch (next_token)
 			{
 				case FIRST_P:
@@ -230,7 +230,7 @@ base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
 			break;
 
 		case WITH:
-			/* Replace WITH by WITH_LA if it's followed by TIME or ORDINALITY */
+			/* 若 WITH 后跟 TIME 或 ORDINALITY，则替换为 WITH_LA     */
 			switch (next_token)
 			{
 				case TIME:
@@ -241,7 +241,7 @@ base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
 			break;
 
 		case WITHOUT:
-			/* Replace WITHOUT by WITHOUT_LA if it's followed by TIME */
+			/* 若 WITHOUT 后跟 TIME，则替换为 WITHOUT_LA      */
 			switch (next_token)
 			{
 				case TIME:
@@ -252,23 +252,23 @@ base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
 
 		case UIDENT:
 		case USCONST:
-			/* Look ahead for UESCAPE */
+			/* 向前查看 UESCAPE   */
 			if (next_token == UESCAPE)
 			{
-				/* Yup, so get third token, which had better be SCONST */
+				/* 没错，故取第三词元，它应是 SCONST      */
 				const char *escstr;
 
-				/* Again save and restore *llocp */
+				/* 再次保存/恢复 *llocp    */
 				cur_yylloc = *llocp;
 
-				/* Un-truncate current token so errors point to third token */
+				/* 解除当前词元截断，让错误指向第三词元   */
 				*(yyextra->lookahead_end) = yyextra->lookahead_hold_char;
 
-				/* Get third token */
+				/* 取第三词元 */
 				next_token = core_yylex(&(yyextra->lookahead_yylval),
 										llocp, yyscanner);
 
-				/* If we throw error here, it will point to third token */
+				/* 若在此报错，将指向第三个词元           */
 				if (next_token != SCONST)
 					scanner_yyerror("UESCAPE must be followed by a simple string literal",
 									yyscanner);
@@ -278,10 +278,10 @@ base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
 					scanner_yyerror("invalid Unicode escape character",
 									yyscanner);
 
-				/* Now restore *llocp; errors will point to first token */
+				/* 现在恢复 *llocp；错误将指向第一个词元 */
 				*llocp = cur_yylloc;
 
-				/* Apply Unicode conversion */
+				/* 执行 Unicode 转换    */
 				lvalp->core_yystype.str =
 					str_udeescape(lvalp->core_yystype.str,
 								  escstr[0],
@@ -289,15 +289,15 @@ base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
 								  yyscanner);
 
 				/*
-				 * We don't need to revert the un-truncation of UESCAPE.  What
-				 * we do want to do is clear have_lookahead, thereby consuming
-				 * all three tokens.
+				 * 无须恢复 UESCAPE 的截断。我们要做的是清除  
+				 * have_lookahead，从而用掉全部 3 个词元            
+				 *                  
 				 */
 				yyextra->have_lookahead = false;
 			}
 			else
 			{
-				/* No UESCAPE, so convert using default escape character */
+				/* 无 UESCAPE，故用默认转义字符转换          */
 				lvalp->core_yystype.str =
 					str_udeescape(lvalp->core_yystype.str,
 								  '\\',
@@ -307,7 +307,7 @@ base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
 
 			if (cur_token == UIDENT)
 			{
-				/* It's an identifier, so truncate as appropriate */
+				/* 它是标识符，故按需截断              */
 				truncate_identifier(lvalp->core_yystype.str,
 									strlen(lvalp->core_yystype.str),
 									true);
@@ -323,7 +323,7 @@ base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
 	return cur_token;
 }
 
-/* convert hex digit (caller should have verified that) to value */
+/* 转换十六进制数字为数值（调用者应已验证）  */
 static unsigned int
 hexval(unsigned char c)
 {
@@ -334,10 +334,10 @@ hexval(unsigned char c)
 	if (c >= 'A' && c <= 'F')
 		return c - 'A' + 0xA;
 	elog(ERROR, "invalid hexadecimal digit");
-	return 0;					/* not reached */
+	return 0;					/* 不应到达*/
 }
 
-/* is Unicode code point acceptable? */
+/* Unicode 码点可否接受？     */
 static void
 check_unicode_value(pg_wchar c)
 {
@@ -347,7 +347,7 @@ check_unicode_value(pg_wchar c)
 				 errmsg("invalid Unicode escape value")));
 }
 
-/* is 'escape' acceptable as Unicode escape character (UESCAPE syntax) ? */
+/* 'escape' 作 Unicode 转义字符可否接受（UESCAPE 语法）？  */
 static bool
 check_uescapechar(unsigned char escape)
 {
@@ -362,11 +362,11 @@ check_uescapechar(unsigned char escape)
 }
 
 /*
- * Process Unicode escapes in "str", producing a palloc'd plain string
+ * 处理 "str" 的 Unicode 转义，产出 palloc 的普通字符串 
  *
- * escape: the escape character to use
- * position: start position of U&'' or U&"" string token
- * yyscanner: context information needed for error reports
+ * escape 为所用的转义字符    
+ * position 为 U&'' 或 U&"" 词元的起始位置     
+ * yyscanner 是报错所需的上下文信息            
  */
 static char *
 str_udeescape(const char *str, char escape,
@@ -380,8 +380,8 @@ str_udeescape(const char *str, char escape,
 	ScannerCallbackState scbstate;
 
 	/*
-	 * Guesstimate that result will be no longer than input, but allow enough
-	 * padding for Unicode conversion.
+	 * 粗略估计结果不会比输入长，但要为 Unicode              
+	 * 转换预留足够空间。    
 	 */
 	new_len = strlen(str) + MAX_UNICODE_EQUIVALENT_STRING + 1;
 	new = palloc(new_len);
@@ -390,7 +390,7 @@ str_udeescape(const char *str, char escape,
 	out = new;
 	while (*in)
 	{
-		/* Enlarge string if needed */
+		/* 必要时扩大字符串 */
 		size_t		out_dist = out - new;
 
 		if (out_dist > new_len - (MAX_UNICODE_EQUIVALENT_STRING + 1))
@@ -403,11 +403,11 @@ str_udeescape(const char *str, char escape,
 		if (in[0] == escape)
 		{
 			/*
-			 * Any errors reported while processing this escape sequence will
-			 * have an error cursor pointing at the escape.
+			 * 处理此转义序列时报告的任何错误，都           
+			 * 会有指向该转义的错误游标。     
 			 */
 			setup_scanner_errposition_callback(&scbstate, yyscanner,
-											   in - str + position + 3);	/* 3 for U&" */
+											   in - str + position + 3);	/* U&" 3 字 */
 			if (in[1] == escape)
 			{
 				if (pair_first)
@@ -505,7 +505,7 @@ str_udeescape(const char *str, char escape,
 		}
 	}
 
-	/* unfinished surrogate pair? */
+	/* 代理对未完成？      */
 	if (pair_first)
 		goto invalid_pair;
 
@@ -513,15 +513,15 @@ str_udeescape(const char *str, char escape,
 	return new;
 
 	/*
-	 * We might get here with the error callback active, or not.  Call
-	 * scanner_errposition to make sure an error cursor appears; if the
-	 * callback is active, this is duplicative but harmless.
+	 * 此处错误回调可能已激活，也可能未激活。      
+	 * 调用 scanner_errposition 以确保出现错误游标；       
+	 * 若回调已激活，此举重复但无害。        
 	 */
 invalid_pair:
 	ereport(ERROR,
 			(errcode(ERRCODE_SYNTAX_ERROR),
 			 errmsg("invalid Unicode surrogate pair"),
-			 scanner_errposition(in - str + position + 3,	/* 3 for U&" */
+			 scanner_errposition(in - str + position + 3,	/* U&" 3 字 */
 								 yyscanner)));
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 使编译器安静  */
 }

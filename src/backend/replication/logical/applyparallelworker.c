@@ -1,157 +1,157 @@
 /*-------------------------------------------------------------------------
  * applyparallelworker.c
- *	   Support routines for applying xact by parallel apply worker
+ *	   并行应用工作进程用于应用事务的支持例程  
  *
  * Copyright (c) 2023, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/backend/replication/logical/applyparallelworker.c
  *
- * This file contains the code to launch, set up, and teardown a parallel apply
- * worker which receives the changes from the leader worker and invokes routines
- * to apply those on the subscriber database. Additionally, this file contains
- * routines that are intended to support setting up, using, and tearing down a
- * ParallelApplyWorkerInfo which is required so the leader worker and parallel
- * apply workers can communicate with each other.
+ * 本文件包含启动、建立和拆除并行应用工作进程的代码， 
+ * 该工作进程从领导者工作进程接收变更，并调用例程将     
+ * 其应用到订阅者数据库上。此外，本文件还包含旨在支   
+ * 持建立、使用和拆除 ParallelApplyWorkerInfo 的例程，领导者  
+ * 工作进程与并行应用工作进程需要它，以便彼此之间能   
+ * 够相互通信。                            
  *
- * The parallel apply workers are assigned (if available) as soon as xact's
- * first stream is received for subscriptions that have set their 'streaming'
- * option as parallel. The leader apply worker will send changes to this new
- * worker via shared memory. We keep this worker assigned till the transaction
- * commit is received and also wait for the worker to finish at commit. This
- * preserves commit ordering and avoid file I/O in most cases, although we
- * still need to spill to a file if there is no worker available. See comments
- * atop logical/worker to know more about streamed xacts whose changes are
- * spilled to disk. It is important to maintain commit order to avoid failures
- * due to: (a) transaction dependencies - say if we insert a row in the first
- * transaction and update it in the second transaction on publisher then
- * allowing the subscriber to apply both in parallel can lead to failure in the
- * update; (b) deadlocks - allowing transactions that update the same set of
- * rows/tables in the opposite order to be applied in parallel can lead to
- * deadlocks.
+ * 对于将 'streaming' 选项设为 parallel 的订阅，只要          
+ * 收到事务的第一个流就会分配并行应用工作进程（若     
+ * 有可用的工作进程）。领导应用工作进程经共享内存    
+ * 向这个新工作进程发送变更。我们会让该工作进程保持分
+ * 配，直到收到事务提交并在提交时等待它完成。这样既 
+ * 能保持提交顺序并避免文件 I/O，尽管在没有可用       
+ * 工作进程时仍需转储到文件。关于变更被转储到磁盘的流
+ * 式事务，参见 logical/worker 顶部的注释。维护提交顺序 
+ * 至关重要，以免：(a) 事务依赖关系 - 比如在第一个事务  
+ * 插入一行，随后第二个事务在发布者上更新它，若允许  
+ * 订阅者并行应用两者，可能导致更新失败；(b) 死锁  
+ * ——允许那些以与提交顺序相反的顺序更新同一组          
+ * 行/表的事务进行并行应用，这可能                           
+ * 会导致                                                              
+ * 死锁。 
  *
- * A worker pool is used to avoid restarting workers for each streaming
- * transaction. We maintain each worker's information (ParallelApplyWorkerInfo)
- * in the ParallelApplyWorkerPool. After successfully launching a new worker,
- * its information is added to the ParallelApplyWorkerPool. Once the worker
- * finishes applying the transaction, it is marked as available for re-use.
- * Now, before starting a new worker to apply the streaming transaction, we
- * check the list for any available worker. Note that we retain a maximum of
- * half the max_parallel_apply_workers_per_subscription workers in the pool and
- * after that, we simply exit the worker after applying the transaction.
+ * 工作进程池避免为每个流式事务重启工作进程。我  
+ * 们会把每个工作进程的信息（ParallelApplyWorkerInfo）维护在  
+ *  ParallelApplyWorkerPool 中。成功启动新工作进程后，其信息 
+ * 会被加入 ParallelApplyWorkerPool。工作进程完成事务应用   
+ * 后，会被标记为可供重用。在启动新的工作进程来应   
+ * 用流式事务之前，我们会检查列表中是否有可用工作进
+ * 程。注意，我们在池中最多保留 max_parallel_apply_workers    
+ * _per_subscription 数量一半的工作进程，超过之后，我们只    
+ * 会在应用完事务后让该工作进程退出。                  
  *
- * XXX This worker pool threshold is arbitrary and we can provide a GUC
- * variable for this in the future if required.
+ * XXX 工作进程池阈值是随意定的，如有需要，将来    
+ * 可为此提供一个 GUC 变量。         
  *
- * The leader apply worker will create a separate dynamic shared memory segment
- * when each parallel apply worker starts. The reason for this design is that
- * we cannot predict how many workers will be needed. It may be possible to
- * allocate enough shared memory in one segment based on the maximum number of
- * parallel apply workers (max_parallel_apply_workers_per_subscription), but
- * this would waste memory if no process is actually started.
+ * 领导应用工作进程会在每个并行应用工作进程启动时创建 
+ * 单独的动态共享内存段。这样设计是因为我们无法预测  
+ * 需要多少工作进程。虽然或许能根据并行应用工作进程
+ * 的最大数量（max_parallel_apply_workers_per_subscription）在一个  
+ * 段中分配足够的共享内存，但如果实际没有启动任何进 
+ * 程，这会浪费内存。                               
  *
- * The dynamic shared memory segment contains: (a) a shm_mq that is used to
- * send changes in the transaction from leader apply worker to parallel apply
- * worker; (b) another shm_mq that is used to send errors (and other messages
- * reported via elog/ereport) from the parallel apply worker to leader apply
- * worker; (c) necessary information to be shared among parallel apply workers
- * and the leader apply worker (i.e. members of ParallelApplyWorkerShared).
+ * 动态共享内存段包含：(a) 一个 shm_mq，用于从事务中把 
+ * 变更从领导应用工作进程发送给并行应用工作进程；     
+ * (b) 另一个 shm_mq，用于从并行应用工作进程向领导应用工
+ * 作进程发送错误及其他经 elog/ereport 报告的消息；        
+ * (c) 并行应用工作进程与领导应用工作进程间需要共享的  
+ * 必要信息（即 ParallelApplyWorkerShared 的成员）。            
  *
- * Locking Considerations
+ * 锁注意事项       
  * ----------------------
- * We have a risk of deadlock due to concurrently applying the transactions in
- * parallel mode that were independent on the publisher side but became
- * dependent on the subscriber side due to the different database structures
- * (like schema of subscription tables, constraints, etc.) on each side. This
- * can happen even without parallel mode when there are concurrent operations
- * on the subscriber. In order to detect the deadlocks among leader (LA) and
- * parallel apply (PA) workers, we used lmgr locks when the PA waits for the
- * next stream (set of changes) and LA waits for PA to finish the transaction.
- * An alternative approach could be to not allow parallelism when the schema of
- * tables is different between the publisher and subscriber but that would be
- * too restrictive and would require the publisher to send much more
- * information than it is currently sending.
+ * 由于两侧数据库的结构（如订阅表模式、约束等）不同，
+ * 发布者侧相互独立的事务，在订阅者侧会相互依     
+ * 赖；并行模式下并发应用这些事务存在死锁风险。即使 
+ * 不使用并行模式，订阅者上有并发操作也可能发生        
+ * 情况。要检测领导者（LA）与并行应用（PA）间死锁，当 
+ *  PA 等待下一流（变更集）且 LA 等 PA 完成事务时，我们 
+ * 就使用了 lmgr 锁。                                                 
+ * 也可以采取另一种做法：当发布者与订阅者两边的表模式
+ * 互不相同时，就不允许使用并行，不过这样的做法会过于 
+ * 严苛，而且会要求发布者                                         
+ * 发送比它目前所发送的多得多的                       
+ * 信息。                                
  *
- * Consider a case where the subscribed table does not have a unique key on the
- * publisher and has a unique key on the subscriber. The deadlock can happen in
- * the following ways:
+ * 考虑这样一种情况：被订阅的表在发布者上没有唯一键    
+ * 而在订阅者上有唯一键。这种情况下，死锁可能按以下    
+ * 方式发生：    
  *
- * 1) Deadlock between the leader apply worker and a parallel apply worker
+ * 1) 领导应用工作进程与并行应用工作进程间的死锁     
  *
- * Consider that the parallel apply worker (PA) is executing TX-1 and the
- * leader apply worker (LA) is executing TX-2 concurrently on the subscriber.
- * Now, LA is waiting for PA because of the unique key constraint of the
- * subscribed table while PA is waiting for LA to send the next stream of
- * changes or transaction finish command message.
+ * 设想并行应用工作进程（PA）正执行 TX-1，领导应用工
+ * 作进程（LA）则在订阅者上并发地执行 TX-2。这时，由于 
+ * 被订阅表的唯一键约束，LA 等待 PA，而 PA 等 LA 发送 
+ * 下一股变更流，或是事务                                     
+ * 结束命令消息。                         
  *
- * In order for lmgr to detect this, we have LA acquire a session lock on the
- * remote transaction (by pa_lock_stream()) and have PA wait on the lock before
- * trying to receive the next stream of changes. Specifically, LA will acquire
- * the lock in AccessExclusive mode before sending the STREAM_STOP and will
- * release it if already acquired after sending the STREAM_START, STREAM_ABORT
- * (for toplevel transaction), STREAM_PREPARE, and STREAM_COMMIT. The PA will
- * acquire the lock in AccessShare mode after processing STREAM_STOP and
- * STREAM_ABORT (for subtransaction) and then release the lock immediately
- * after acquiring it.
+ * 为了让 lmgr 能检测到这一点，我们让 LA 在远程事务上获 
+ * 取会话锁（pa_lock_stream()），让 PA 在尝试接收下一股        
+ * 变更流之前先等待该锁。具体来说，LA 会在发送 STREAM_    
+ * STOP 之前以 AccessExclusive 模式获取锁，并在发送 STREA     
+ * M_START、STREAM_ABORT（针对顶层事务）、STREAM_PREPARE            
+ *  和 STREAM_COMMIT 之后（若已获取）释放锁。PA 会在处理    
+ * 完 STREAM_STOP 和 STREAM_ABORT（针对子事务）后，以       
+ *  AccessShare 模式获取锁，然后在获取之后立即释放       
+ * 该锁。          
  *
- * The lock graph for the above example will look as follows:
- * LA (waiting to acquire the lock on the unique index) -> PA (waiting to
- * acquire the stream lock) -> LA
+ * 上述示例的锁图看起来会如下所示：          
+ * LA（正在等待获取唯一索引上的锁）-> PA（正在等待获
+ * 取流锁）-> LA             
  *
- * This way, when PA is waiting for LA for the next stream of changes, we can
- * have a wait-edge from PA to LA in lmgr, which will make us detect the
- * deadlock between LA and PA.
+ * 这样，当 PA 因为等待 LA 的下一股变更流而等待时，我们
+ * 就能在 lmgr 中得到 PA 到 LA 的等待边，从而可检测出 
+ *  LA 与 PA 间的死锁。 
  *
- * 2) Deadlock between the leader apply worker and parallel apply workers
+ * 2) 领导应用工作进程与多个并行应用工作进程的死锁 
  *
- * This scenario is similar to the first case but TX-1 and TX-2 are executed by
- * two parallel apply workers (PA-1 and PA-2 respectively). In this scenario,
- * PA-2 is waiting for PA-1 to complete its transaction while PA-1 is waiting
- * for subsequent input from LA. Also, LA is waiting for PA-2 to complete its
- * transaction in order to preserve the commit order. There is a deadlock among
- * the three processes.
+ * 这种场景与第一种情况类似，但 TX-1 和 TX-2 这次是由两    
+ * 个并行应用工作进程（PA-1 和 PA-2）执行的。在这个场景 
+ * 中，PA-2 正在等待 PA-1 完成其事务，而 PA-1 正在等待来   
+ * 自 LA 的后续输入。此外，LA 也在等待 PA-2 完成其事务    
+ * ，以保持提交顺序。这三个进程之间                            
+ * 存在死锁。     
  *
- * In order for lmgr to detect this, we have PA acquire a session lock (this is
- * a different lock than referred in the previous case, see
- * pa_lock_transaction()) on the transaction being applied and have LA wait on
- * the lock before proceeding in the transaction finish commands. Specifically,
- * PA will acquire this lock in AccessExclusive mode before executing the first
- * message of the transaction and release it at the xact end. LA will acquire
- * this lock in AccessShare mode at transaction finish commands and release it
- * immediately.
+ * 为了让 lmgr 能检测到这点，我们让 PA 在正被应用的事务   
+ * 上获取会话锁（不同于前例中的锁，参见  
+ * pa_lock_transaction()），并让 LA 在继续处理事务结束命令     
+ * 之前等待该锁。PA 将在执行事务的第一条消息之前以       
+ *  AccessExclusive 模式获取锁，并在事务结束时释放它。LA      
+ * 会在事务结束命令处获取 AccessShare 模式的锁，并          
+ * 立即将                                                                  
+ * 其释放。
  *
- * The lock graph for the above example will look as follows:
- * LA (waiting to acquire the transaction lock) -> PA-2 (waiting to acquire the
- * lock due to unique index constraint) -> PA-1 (waiting to acquire the stream
- * lock) -> LA
+ * 上述示例的锁图看起来会如下所示：          
+ * LA（正在等待获取事务锁）-> PA-2（由于唯一索引约束而    
+ * 正在等待获取锁）-> PA-1（正在等待获取流锁）->            
+ * LA         
  *
- * This way when LA is waiting to finish the transaction end command to preserve
- * the commit order, we will be able to detect deadlock, if any.
+ * 这样，当 LA 为了保持提交顺序而等待执行完事务结束命    
+ * 令时，就能够检测到死锁（若有）。             
  *
- * One might think we can use XactLockTableWait(), but XactLockTableWait()
- * considers PREPARED TRANSACTION as still in progress which means the lock
- * won't be released even after the parallel apply worker has prepared the
- * transaction.
+ * 有人可能认为我们可以使用 XactLockTableWait()，但 XactLo  
+ * ckTableWait() 会将 PREPARED TRANSACTION 视为仍在进行，这      
+ * 意味着即使并行应用工作进程预备该事务，锁也不会  
+ * 被释放。
  *
- * 3) Deadlock when the shm_mq buffer is full
+ * 3) shm_mq 缓冲区已满时的死锁     
  *
- * In the previous scenario (ie. PA-1 and PA-2 are executing transactions
- * concurrently), if the shm_mq buffer between LA and PA-2 is full, LA has to
- * wait to send messages, and this wait doesn't appear in lmgr.
+ * 在前面的场景中（PA-1 与 PA-2 并发执行事务），如果  
+ *  LA 与 PA-2 之间的 shm_mq 缓冲区已满，就必须等待才能发  
+ * 送消息，而这种等待不会出现在 lmgr 中。      
  *
- * To avoid this wait, we use a non-blocking write and wait with a timeout. If
- * the timeout is exceeded, the LA will serialize all the pending messages to
- * a file and indicate PA-2 that it needs to read that file for the remaining
- * messages. Then LA will start waiting for commit as in the previous case
- * which will detect deadlock if any. See pa_send_data() and
- * enum TransApplyAction.
+ * 为了避免这种等待，我们使用非阻塞写入并带超时等待。
+ * 如果超时，LA 会把所有待处理的消息序列化到一个文件  
+ * 中，并告知 PA-2 它需要读取该文件来获取剩余的消息。  
+ * 然后 LA 会像前一情况那样等待提交，进而检测出可能 
+ * 存在的死锁。参见 pa_send_data() 和枚举        
+ *  TransApplyAction。  
  *
- * Lock types
+ * 锁类型 
  * ----------
- * Both the stream lock and the transaction lock mentioned above are
- * session-level locks because both locks could be acquired outside the
- * transaction, and the stream lock in the leader needs to persist across
- * transaction boundaries i.e. until the end of the streaming transaction.
+ * 上述流锁和事务锁都是会话级锁，因为它们可能  
+ * 在事务之外获取，且领导者中的流锁需跨事务边界  
+ * 存在，即直到流式事务                                        
+ * 结束。                                                              
  *-------------------------------------------------------------------------
  */
 
@@ -175,83 +175,83 @@
 #define PG_LOGICAL_APPLY_SHM_MAGIC 0x787ca067
 
 /*
- * DSM keys for parallel apply worker. Unlike other parallel execution code,
- * since we don't need to worry about DSM keys conflicting with plan_node_id we
- * can use small integers.
+ * 并行应用工作进程的 DSM 键。与其他并行代码不同，     
+ * 由于不必担心 DSM 键与 plan_node_id 相冲突，所以我们         
+ * 即可用小整数。  
  */
 #define PARALLEL_APPLY_KEY_SHARED		1
 #define PARALLEL_APPLY_KEY_MQ			2
 #define PARALLEL_APPLY_KEY_ERROR_QUEUE	3
 
-/* Queue size of DSM, 16 MB for now. */
+/* DSM 队列大小暂定为 16 MB。*/
 #define DSM_QUEUE_SIZE	(16 * 1024 * 1024)
 
 /*
- * Error queue size of DSM. It is desirable to make it large enough that a
- * typical ErrorResponse can be sent without blocking. That way, a worker that
- * errors out can write the whole message into the queue and terminate without
- * waiting for the user backend.
+ * DSM 的错误队列大小。它最好足够大，让一条典型的    
+ * ErrorResponse 无需阻塞即可发送。这样，因出错而退出的    
+ * 工作进程可以将整条消息写入队列后终止，不必            
+ * 等待用户后端。        
  */
 #define DSM_ERROR_QUEUE_SIZE			(16 * 1024)
 
 /*
- * There are three fields in each message received by the parallel apply
- * worker: start_lsn, end_lsn and send_time. Because we have updated these
- * statistics in the leader apply worker, we can ignore these fields in the
- * parallel apply worker (see function LogicalRepApplyLoop).
+ * 并行应用工作进程收到的每条消息都包含三个字段：
+ * start_lsn、end_lsn 和 send_time。由于这些统计信息已        
+ * 在领导应用工作进程中更新过，因此并行应用工作进程
+ * 可忽略这些字段（见 LogicalRepApplyLoop）。    
  */
 #define SIZE_STATS_MESSAGE (2 * sizeof(XLogRecPtr) + sizeof(TimestampTz))
 
 /*
- * The type of session-level lock on a transaction being applied on a logical
- * replication subscriber.
+ * 对于在逻辑复制订阅者上正被应用的事务，其会话级锁  
+ * 的类型。           
  */
 #define PARALLEL_APPLY_LOCK_STREAM	0
 #define PARALLEL_APPLY_LOCK_XACT	1
 
 /*
- * Hash table entry to map xid to the parallel apply worker state.
+ * xid 到并行应用工作进程状态的哈希表条目。     
  */
 typedef struct ParallelApplyWorkerEntry
 {
-	TransactionId xid;			/* Hash key -- must be first */
+	TransactionId xid;			/* 哈希键须居首。     */
 	ParallelApplyWorkerInfo *winfo;
 } ParallelApplyWorkerEntry;
 
 /*
- * A hash table used to cache the state of streaming transactions being applied
- * by the parallel apply workers.
+ * 一张哈希表，用于缓存并行应用工作进程正在应用的       
+ * 流式事务的状态。      
  */
 static HTAB *ParallelApplyTxnHash = NULL;
 
 /*
-* A list (pool) of active parallel apply workers. The information for
-* the new worker is added to the list after successfully launching it. The
-* list entry is removed if there are already enough workers in the worker
-* pool at the end of the transaction. For more information about the worker
-* pool, see comments atop this file.
+* 活动并行应用工作进程的列表（池）。新工作进程 
+* 的信息将在成功启动后加入该列表。若在事务结束时工
+* 作进程池中已有足够多的工作进程，则移除对应的列  
+* 表条目。有关工作进程池的更多信息，请参见本文件    
+* 顶部的注释。                
  */
 static List *ParallelApplyWorkerPool = NIL;
 
 /*
- * Information shared between leader apply worker and parallel apply worker.
+ * 领导应用工作进程与并行应用工作进程间共享的信息。 
  */
 ParallelApplyWorkerShared *MyParallelShared = NULL;
 
 /*
- * Is there a message sent by a parallel apply worker that the leader apply
- * worker needs to receive?
+ * 并行应用工作进程是否发送了领导应用工作进程需要接
+ * 收的消息？         
  */
 volatile sig_atomic_t ParallelApplyMessagePending = false;
 
 /*
- * Cache the parallel apply worker information required for applying the
- * current streaming transaction. It is used to save the cost of searching the
- * hash table when applying the changes between STREAM_START and STREAM_STOP.
+ * 缓存并行应用工作进程信息，即应用当前流式事务所
+ * 需的信息。它用于节省在 STREAM_START 与 STREAM_STOP             
+ *  之间应用变更时查找哈希表的开销。                         
  */
 static ParallelApplyWorkerInfo *stream_apply_worker = NULL;
 
-/* A list to maintain subtransactions, if any. */
+/* 用于维护子事务（若有）列表。  */
 static List *subxactlist = NIL;
 
 static void pa_free_worker_info(ParallelApplyWorkerInfo *winfo);
@@ -259,55 +259,55 @@ static ParallelTransState pa_get_xact_state(ParallelApplyWorkerShared *wshared);
 static PartialFileSetState pa_get_fileset_state(void);
 
 /*
- * Returns true if it is OK to start a parallel apply worker, false otherwise.
+ * 若可以启动并行应用工作进程则返回 true，否则为 false。 
  */
 static bool
 pa_can_start(void)
 {
-	/* Only leader apply workers can start parallel apply workers. */
+	/* 只有领导者才能启动并行应用工作进程。      */
 	if (!am_leader_apply_worker())
 		return false;
 
 	/*
-	 * It is good to check for any change in the subscription parameter to
-	 * avoid the case where for a very long time the change doesn't get
-	 * reflected. This can happen when there is a constant flow of streaming
-	 * transactions that are handled by parallel apply workers.
+	 * 最好检查订阅参数有无变更，以免变更长期得       
+	 * 不到反映。当持续不断地出现流式事务、且       
+	 * 它们由并行应用工作进程处理时，就可能发            
+	 * 生这种情况。                                      
 	 *
-	 * It is better to do it before the below checks so that the latest values
-	 * of subscription can be used for the checks.
+	 * 最好在下面的检查之前完成这项检查，以便检查时能  
+	 * 使用订阅的最新值。                
 	 */
 	maybe_reread_subscription();
 
 	/*
-	 * Don't start a new parallel apply worker if the subscription is not
-	 * using parallel streaming mode, or if the publisher does not support
-	 * parallel apply.
+	 * 若订阅未采用并行流式模式，或发布者不支持并   
+	 * 行应用，则不要启动新的并行应用                      
+	 * 工作进程。
 	 */
 	if (!MyLogicalRepWorker->parallel_apply)
 		return false;
 
 	/*
-	 * Don't start a new parallel worker if user has set skiplsn as it's
-	 * possible that they want to skip the streaming transaction. For
-	 * streaming transactions, we need to serialize the transaction to a file
-	 * so that we can get the last LSN of the transaction to judge whether to
-	 * skip before starting to apply the change.
+	 * 若用户设置了 skiplsn，则不要启动并行工作进程，
+	 * 因为用户可能想跳过该流式事务。                 
+	 * 对于流式事务，要将事务序列化到文件，以便在开始 
+	 * 应用变更之前拿到该事务的最后一个 LSN，以判断是否
+	 * 要跳过。                             
 	 *
-	 * One might think that we could allow parallelism if the first lsn of the
-	 * transaction is greater than skiplsn, but we don't send it with the
-	 * STREAM START message, and it doesn't seem worth sending the extra eight
-	 * bytes with the STREAM START to enable parallelism for this case.
+	 * 有人可能认为，若事务的第一个 LSN 大于 skiplsn，就    
+	 * 可以允许并行。但我们并不随 STREAM START 消息一    
+	 * 起发送它，而且为了这种情形而随 STREAM START 额外      
+	 * 发送八个字节来启用并行，似乎并不值得。       
 	 */
 	if (!XLogRecPtrIsInvalid(MySubscription->skiplsn))
 		return false;
 
 	/*
-	 * For streaming transactions that are being applied using a parallel
-	 * apply worker, we cannot decide whether to apply the change for a
-	 * relation that is not in the READY state (see
-	 * should_apply_changes_for_rel) as we won't know remote_final_lsn by that
-	 * time. So, we don't start the new parallel apply worker in this case.
+	 * 对于正在用并行应用工作进程应用的流式事务，我
+	 * 们无法决定是否应用不在 READY 状态的关系的变更
+	 * （见 should_apply_changes_for_rel），   
+	 * 因为到那时我们还不知道 remote_final_lsn。所以在         
+	 * 这种情况下不会启动新的并行应用工作进程。        
 	 */
 	if (!AllTablesyncsReady())
 		return false;
@@ -316,12 +316,12 @@ pa_can_start(void)
 }
 
 /*
- * Set up a dynamic shared memory segment.
+ * 建立一个动态共享内存段。   
  *
- * We set up a control region that contains a fixed-size worker info
- * (ParallelApplyWorkerShared), a message queue, and an error queue.
+ * 建立控制区域，内含固定大小的工作进程信息（  
+ * ParallelApplyWorkerShared）、消息队列和错误队列。    
  *
- * Returns true on success, false on failure.
+ * 成功返回 true，失败返回 false。 
  */
 static bool
 pa_setup_dsm(ParallelApplyWorkerInfo *winfo)
@@ -336,14 +336,14 @@ pa_setup_dsm(ParallelApplyWorkerInfo *winfo)
 	Size		error_queue_size = DSM_ERROR_QUEUE_SIZE;
 
 	/*
-	 * Estimate how much shared memory we need.
+	 * 估算我们需要多少共享内存。 
 	 *
-	 * Because the TOC machinery may choose to insert padding of oddly-sized
-	 * requests, we must estimate each chunk separately.
+	 * 由于 TOC 机制可能为大小古怪的请求插入填充，我们 
+	 * 必须分别估算每个块的大小。          
 	 *
-	 * We need one key to register the location of the header, and two other
-	 * keys to track the locations of the message queue and the error message
-	 * queue.
+	 * 需要一个键来注册头部的位置，另需两个键来跟踪   
+	 * 消息队列与错误消息队列的位                               
+	 * 置。
 	 */
 	shm_toc_initialize_estimator(&e);
 	shm_toc_estimate_chunk(&e, sizeof(ParallelApplyWorkerShared));
@@ -353,7 +353,7 @@ pa_setup_dsm(ParallelApplyWorkerInfo *winfo)
 	shm_toc_estimate_keys(&e, 3);
 	segsize = shm_toc_estimate(&e);
 
-	/* Create the shared memory segment and establish a table of contents. */
+	/* 创建共享内存段并建立目录表。                          */
 	seg = dsm_create(shm_toc_estimate(&e), 0);
 	if (!seg)
 		return false;
@@ -361,7 +361,7 @@ pa_setup_dsm(ParallelApplyWorkerInfo *winfo)
 	toc = shm_toc_create(PG_LOGICAL_APPLY_SHM_MAGIC, dsm_segment_address(seg),
 						 segsize);
 
-	/* Set up the header region. */
+	/* 设置头部区域。     */
 	shared = shm_toc_allocate(toc, sizeof(ParallelApplyWorkerShared));
 	SpinLockInit(&shared->mutex);
 
@@ -372,24 +372,24 @@ pa_setup_dsm(ParallelApplyWorkerInfo *winfo)
 
 	shm_toc_insert(toc, PARALLEL_APPLY_KEY_SHARED, shared);
 
-	/* Set up message queue for the worker. */
+	/* 为工作进程设置消息队列。 */
 	mq = shm_mq_create(shm_toc_allocate(toc, queue_size), queue_size);
 	shm_toc_insert(toc, PARALLEL_APPLY_KEY_MQ, mq);
 	shm_mq_set_sender(mq, MyProc);
 
-	/* Attach the queue. */
+	/* 附加该队列。*/
 	winfo->mq_handle = shm_mq_attach(mq, seg, NULL);
 
-	/* Set up error queue for the worker. */
+	/* 设置工作进程错误队列。  */
 	mq = shm_mq_create(shm_toc_allocate(toc, error_queue_size),
 					   error_queue_size);
 	shm_toc_insert(toc, PARALLEL_APPLY_KEY_ERROR_QUEUE, mq);
 	shm_mq_set_receiver(mq, MyProc);
 
-	/* Attach the queue. */
+	/* 附加该队列。*/
 	winfo->error_mq_handle = shm_mq_attach(mq, seg, NULL);
 
-	/* Return results to caller. */
+	/* 结果返回调用者。  */
 	winfo->dsm_seg = seg;
 	winfo->shared = shared;
 
@@ -397,8 +397,8 @@ pa_setup_dsm(ParallelApplyWorkerInfo *winfo)
 }
 
 /*
- * Try to get a parallel apply worker from the pool. If none is available then
- * start a new one.
+ * 尝试从工作进程池中获取并行应用工作进程，若            
+ * 无则启动。 
  */
 static ParallelApplyWorkerInfo *
 pa_launch_parallel_worker(void)
@@ -408,7 +408,7 @@ pa_launch_parallel_worker(void)
 	ParallelApplyWorkerInfo *winfo;
 	ListCell   *lc;
 
-	/* Try to get an available parallel apply worker from the worker pool. */
+	/* 尝试从工作进程池获取可用的并行应用工作进程。  */
 	foreach(lc, ParallelApplyWorkerPool)
 	{
 		winfo = (ParallelApplyWorkerInfo *) lfirst(lc);
@@ -418,16 +418,16 @@ pa_launch_parallel_worker(void)
 	}
 
 	/*
-	 * Start a new parallel apply worker.
+	 * 新建并行应用工作进程。 
 	 *
-	 * The worker info can be used for the lifetime of the worker process, so
-	 * create it in a permanent context.
+	 * 工作进程信息可在工作进程存续期间使用，因此要    
+	 * 在永久上下文中创建它。
 	 */
 	oldcontext = MemoryContextSwitchTo(ApplyContext);
 
 	winfo = (ParallelApplyWorkerInfo *) palloc0(sizeof(ParallelApplyWorkerInfo));
 
-	/* Setup shared memory. */
+	/* 设置共享内存。*/
 	if (!pa_setup_dsm(winfo))
 	{
 		MemoryContextSwitchTo(oldcontext);
@@ -458,12 +458,12 @@ pa_launch_parallel_worker(void)
 }
 
 /*
- * Allocate a parallel apply worker that will be used for the specified xid.
+ * 为一个指定的 xid 分配将要使用的并行应用工作进程。  
  *
- * We first try to get an available worker from the pool, if any and then try
- * to launch a new worker. On successful allocation, remember the worker
- * information in the hash table so that we can get it later for processing the
- * streaming changes.
+ * 我们首先尝试从池中获取可用的工作进程（若有），然  
+ * 后再尝试启动新的工作进程。成功后，将工作进程   
+ * 信息记入哈希表，以便日后处理流式变更时能够找          
+ * 到它。         
  */
 void
 pa_allocate_worker(TransactionId xid)
@@ -479,7 +479,7 @@ pa_allocate_worker(TransactionId xid)
 	if (!winfo)
 		return;
 
-	/* First time through, initialize parallel apply worker state hashtable. */
+	/* 首次进入时，初始化并行应用工作进程状态哈希表。 */
 	if (!ParallelApplyTxnHash)
 	{
 		HASHCTL		ctl;
@@ -494,12 +494,12 @@ pa_allocate_worker(TransactionId xid)
 										   HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 	}
 
-	/* Create an entry for the requested transaction. */
+	/* 为所请求的事务创建一个条目。     */
 	entry = hash_search(ParallelApplyTxnHash, &xid, HASH_ENTER, &found);
 	if (found)
 		elog(ERROR, "hash table corrupted");
 
-	/* Update the transaction information in shared memory. */
+	/* 更新共享内存中的事务信息。              */
 	SpinLockAcquire(&winfo->shared->mutex);
 	winfo->shared->xact_state = PARALLEL_TRANS_UNKNOWN;
 	winfo->shared->xid = xid;
@@ -512,7 +512,7 @@ pa_allocate_worker(TransactionId xid)
 }
 
 /*
- * Find the assigned worker for the given transaction, if any.
+ * 查找给定事务所分配的工作进程（若有）。  
  */
 ParallelApplyWorkerInfo *
 pa_find_worker(TransactionId xid)
@@ -526,15 +526,15 @@ pa_find_worker(TransactionId xid)
 	if (!ParallelApplyTxnHash)
 		return NULL;
 
-	/* Return the cached parallel apply worker if valid. */
+	/* 有效时返回缓存并行应用工作进程。  */
 	if (stream_apply_worker)
 		return stream_apply_worker;
 
-	/* Find an entry for the requested transaction. */
+	/* 查找所请求事务对应的条目。      */
 	entry = hash_search(ParallelApplyTxnHash, &xid, HASH_FIND, &found);
 	if (found)
 	{
-		/* The worker must not have exited.  */
+		/* 工作进程必须尚未退出。 */
 		Assert(entry->winfo->in_use);
 		return entry->winfo;
 	}
@@ -543,14 +543,14 @@ pa_find_worker(TransactionId xid)
 }
 
 /*
- * Makes the worker available for reuse.
+ * 使工作进程可供重用。       
  *
- * This removes the parallel apply worker entry from the hash table so that it
- * can't be used. If there are enough workers in the pool, it stops the worker
- * and frees the corresponding info. Otherwise it just marks the worker as
- * available for reuse.
+ * 这会把并行应用工作进程条目从哈希表中移除，使其不再
+ * 能被使用。若池中的工作进程已足够多，则会停止该工作
+ * 进程并释放对应信息。否则只将工作进程标记为可     
+ * 供重用。        
  *
- * For more information about the worker pool, see comments atop this file.
+ * 有关工作进程池的更多信息，请参见本文件顶部注释。
  */
 static void
 pa_free_worker(ParallelApplyWorkerInfo *winfo)
@@ -563,15 +563,15 @@ pa_free_worker(ParallelApplyWorkerInfo *winfo)
 		elog(ERROR, "hash table corrupted");
 
 	/*
-	 * Stop the worker if there are enough workers in the pool.
+	 * 若池中有足够多工作进程，则停止它。     
 	 *
-	 * XXX Additionally, we also stop the worker if the leader apply worker
-	 * serialize part of the transaction data due to a send timeout. This is
-	 * because the message could be partially written to the queue and there
-	 * is no way to clean the queue other than resending the message until it
-	 * succeeds. Instead of trying to send the data which anyway would have
-	 * been serialized and then letting the parallel apply worker deal with
-	 * the spurious message, we stop the worker.
+	 * XXX 另外，若领导应用工作进程因发送超时而序列化 
+	 * 了部分事务数据，则也会停止该工作进程。            
+	 * 因为消息可能只写入了一部分到队列中，且除了      
+	 * 反复重发消息直到成功以外，没有其他清理队列的办 
+	 * 法。与其尝试发送终将被序列化的数据，然后让并  
+	 * 行应用工作进程处理这些虚假消息，还不如停止工  
+	 * 作进程。                             
 	 */
 	if (winfo->serialize_changes ||
 		list_length(ParallelApplyWorkerPool) >
@@ -588,8 +588,8 @@ pa_free_worker(ParallelApplyWorkerInfo *winfo)
 }
 
 /*
- * Free the parallel apply worker information and unlink the files with
- * serialized changes if any.
+ * 释放并行应用工作进程信息并删除含有序列化变更  
+ * 的文件（若有）。  
  */
 static void
 pa_free_worker_info(ParallelApplyWorkerInfo *winfo)
@@ -602,21 +602,21 @@ pa_free_worker_info(ParallelApplyWorkerInfo *winfo)
 	if (winfo->error_mq_handle)
 		shm_mq_detach(winfo->error_mq_handle);
 
-	/* Unlink the files with serialized changes. */
+	/* 删除包含序列化变更的文件。   */
 	if (winfo->serialize_changes)
 		stream_cleanup_files(MyLogicalRepWorker->subid, winfo->shared->xid);
 
 	if (winfo->dsm_seg)
 		dsm_detach(winfo->dsm_seg);
 
-	/* Remove from the worker pool. */
+	/* 从工作进程池移除。  */
 	ParallelApplyWorkerPool = list_delete_ptr(ParallelApplyWorkerPool, winfo);
 
 	pfree(winfo);
 }
 
 /*
- * Detach the error queue for all parallel apply workers.
+ * 为所有并行应用工作进程分离错误队列。
  */
 void
 pa_detach_all_error_mq(void)
@@ -636,7 +636,7 @@ pa_detach_all_error_mq(void)
 }
 
 /*
- * Check if there are any pending spooled messages.
+ * 检查是否存在待处理的暂存消息。   
  */
 static bool
 pa_has_spooled_message_pending()
@@ -649,10 +649,10 @@ pa_has_spooled_message_pending()
 }
 
 /*
- * Replay the spooled messages once the leader apply worker has finished
- * serializing changes to the file.
+ * 领导应用工作进程完成变更序列化到文件后，即重放
+ * 这些暂存消息。           
  *
- * Returns false if there aren't any pending spooled messages, true otherwise.
+ * 如果没有待处理的暂存消息则返回 false，否则返回 true。 
  */
 static bool
 pa_process_spooled_messages_if_required(void)
@@ -665,15 +665,15 @@ pa_process_spooled_messages_if_required(void)
 		return false;
 
 	/*
-	 * If the leader apply worker is busy serializing the partial changes then
-	 * acquire the stream lock now and wait for the leader worker to finish
-	 * serializing the changes. Otherwise, the parallel apply worker won't get
-	 * a chance to receive a STREAM_STOP (and acquire the stream lock) until
-	 * the leader had serialized all changes which can lead to undetected
-	 * deadlock.
+	 * 若领导应用工作进程正忙于序列化部分变更，请立即  
+	 * 获取流锁并等待领导工作进程完成序列化变更。     
+	 * 否则，并行应用工作进程将没有机会接收                 
+	 *  STREAM_STOP（也就无法获取流锁），直到领导者序列化
+	 * 完所有变更，这可能导致无法检测到的               
+	 * 死锁。
 	 *
-	 * Note that the fileset state can be FS_SERIALIZE_DONE once the leader
-	 * worker has finished serializing the changes.
+	 * 注意，领导工作进程完成变更序列化后，FileSet 状态
+	 * 就可以是 FS_SERIALIZE_DONE。           
 	 */
 	if (fileset_state == FS_SERIALIZE_IN_PROGRESS)
 	{
@@ -684,11 +684,11 @@ pa_process_spooled_messages_if_required(void)
 	}
 
 	/*
-	 * We cannot read the file immediately after the leader has serialized all
-	 * changes to the file because there may still be messages in the memory
-	 * queue. We will apply all spooled messages the next time we call this
-	 * function and that will ensure there are no messages left in the memory
-	 * queue.
+	 * 在领导者将所有变更序列化到文件后，我们无法立即  
+	 * 读取该文件，因为内存队列中可能还留有消息。而在
+	 * 下次调用该函数时应用所有暂存消息，以确保内存  
+	 * 队列中不再残留任何消                                        
+	 * 息。
 	 */
 	if (fileset_state == FS_SERIALIZE_DONE)
 	{
@@ -706,7 +706,7 @@ pa_process_spooled_messages_if_required(void)
 }
 
 /*
- * Interrupt handler for main loop of parallel apply worker.
+ * 并行应用工作进程主循环的中断处理器。   
  */
 static void
 ProcessParallelApplyInterrupts(void)
@@ -729,7 +729,7 @@ ProcessParallelApplyInterrupts(void)
 	}
 }
 
-/* Parallel apply worker main loop. */
+/* 并行应用 worker 主循环。 */
 static void
 LogicalParallelApplyLoop(shm_mq_handle *mqh)
 {
@@ -738,16 +738,16 @@ LogicalParallelApplyLoop(shm_mq_handle *mqh)
 	MemoryContext oldcxt = CurrentMemoryContext;
 
 	/*
-	 * Init the ApplyMessageContext which we clean up after each replication
-	 * protocol message.
+	 * 初始化 ApplyMessageContext，在每条复制协议消息处理    
+	 * 后清理它。  
 	 */
 	ApplyMessageContext = AllocSetContextCreate(ApplyContext,
 												"ApplyMessageContext",
 												ALLOCSET_DEFAULT_SIZES);
 
 	/*
-	 * Push apply error context callback. Fields will be filled while applying
-	 * a change.
+	 * 注册应用错误上下文回调。字段会在应用变更期间     
+	 * 填写。
 	 */
 	errcallback.callback = apply_error_callback;
 	errcallback.previous = error_context_stack;
@@ -760,7 +760,7 @@ LogicalParallelApplyLoop(shm_mq_handle *mqh)
 
 		ProcessParallelApplyInterrupts();
 
-		/* Ensure we are reading the data into our memory context. */
+		/* 确保我们将数据读入自己的内存上下文。  */
 		MemoryContextSwitchTo(ApplyMessageContext);
 
 		shmq_res = shm_mq_receive(mqh, &len, &data, true);
@@ -779,21 +779,21 @@ LogicalParallelApplyLoop(shm_mq_handle *mqh)
 			s.len = len;
 
 			/*
-			 * The first byte of messages sent from leader apply worker to
-			 * parallel apply workers can only be 'w'.
+			 * 领导应用工作进程发给并行应用工作进程的  
+			 * 消息，其首字节只能是 'w'。  
 			 */
 			c = pq_getmsgbyte(&s);
 			if (c != 'w')
 				elog(ERROR, "unexpected message \"%c\"", c);
 
 			/*
-			 * Ignore statistics fields that have been updated by the leader
-			 * apply worker.
+			 * 忽略由领导应用工作进程更新过的统计信息字 
+			 * 段。       
 			 *
-			 * XXX We can avoid sending the statistics fields from the leader
-			 * apply worker but for that, it needs to rebuild the entire
-			 * message by removing these fields which could be more work than
-			 * simply ignoring these fields in the parallel apply worker.
+			 * XXX 可以不从领导应用工作进程发送统计信息    
+			 * 字段，但为此它需要重建整条                  
+			 * 消息并剔除这些字段，而这可能比在并行应用  
+			 * 工作进程中忽略这些字段更省事。             
 			 */
 			s.cursor += SIZE_STATS_MESSAGE;
 
@@ -801,12 +801,12 @@ LogicalParallelApplyLoop(shm_mq_handle *mqh)
 		}
 		else if (shmq_res == SHM_MQ_WOULD_BLOCK)
 		{
-			/* Replay the changes from the file, if any. */
+			/* 重放文件中的变更（若有）。   */
 			if (!pa_process_spooled_messages_if_required())
 			{
 				int			rc;
 
-				/* Wait for more work. */
+				/* 等更多工作。  */
 				rc = WaitLatch(MyLatch,
 							   WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH,
 							   1000L,
@@ -829,19 +829,19 @@ LogicalParallelApplyLoop(shm_mq_handle *mqh)
 		MemoryContextSwitchTo(oldcxt);
 	}
 
-	/* Pop the error context stack. */
+	/* 弹出错误上下文栈。  */
 	error_context_stack = errcallback.previous;
 
 	MemoryContextSwitchTo(oldcxt);
 }
 
 /*
- * Make sure the leader apply worker tries to read from our error queue one more
- * time. This guards against the case where we exit uncleanly without sending
- * an ErrorResponse, for example because some code calls proc_exit directly.
+ * 确保领导应用工作进程会再尝试从我们的错误队列读取     
+ * 一次。这可以防范这样一种情况：我们未发送              
+ *  ErrorResponse 就非正常退出，例如某些代码直接调用了    
  *
- * Also explicitly detach from dsm segment to invoke on_dsm_detach callbacks,
- * if any. See ParallelWorkerShutdown for details.
+ * 另外，显式地从 dsm 段脱离，以调用 on_dsm_detach 回调      
+ * （若有）。详见 ParallelWorkerShutdown。
  */
 static void
 pa_shutdown(int code, Datum arg)
@@ -854,7 +854,7 @@ pa_shutdown(int code, Datum arg)
 }
 
 /*
- * Parallel apply worker entry point.
+ * 并行应用 worker 入口点。  
  */
 void
 ParallelApplyWorkerMain(Datum main_arg)
@@ -873,12 +873,12 @@ ParallelApplyWorkerMain(Datum main_arg)
 	InitializingApplyWorker = true;
 
 	/*
-	 * Setup signal handling.
+	 * 设置信号处理。 
 	 *
-	 * Note: We intentionally used SIGUSR2 to trigger a graceful shutdown
-	 * initiated by the leader apply worker. This helps to differentiate it
-	 * from the case where we abort the current transaction and exit on
-	 * receiving SIGTERM.
+	 * 注意：我们有意用 SIGUSR2 触发优雅关闭，由领      
+	 * 导应用工作进程发起。这有助于区分它和收到        
+	 *  SIGTERM 时中止当前事务并退出的                      
+	 * 情形。         
 	 */
 	pqsignal(SIGHUP, SignalHandlerForConfigReload);
 	pqsignal(SIGTERM, die);
@@ -886,11 +886,11 @@ ParallelApplyWorkerMain(Datum main_arg)
 	BackgroundWorkerUnblockSignals();
 
 	/*
-	 * Attach to the dynamic shared memory segment for the parallel apply, and
-	 * find its table of contents.
+	 * 附加到并行应用所用的动态共享内存段，并找到其目  
+	 * 录表。                  
 	 *
-	 * Like parallel query, we don't need resource owner by this time. See
-	 * ParallelWorkerMain.
+	 * 和并行查询一样，此时尚不需要资源所有者。参见 
+	 * ParallelWorkerMain 
 	 */
 	memcpy(&handle, MyBgworkerEntry->bgw_extra, sizeof(dsm_handle));
 	seg = dsm_attach(handle);
@@ -905,28 +905,28 @@ ParallelApplyWorkerMain(Datum main_arg)
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("invalid magic number in dynamic shared memory segment")));
 
-	/* Look up the shared information. */
+	/* 查找共享信息。           */
 	shared = shm_toc_lookup(toc, PARALLEL_APPLY_KEY_SHARED, false);
 	MyParallelShared = shared;
 
 	/*
-	 * Attach to the message queue.
+	 * 附加到消息队列。    
 	 */
 	mq = shm_toc_lookup(toc, PARALLEL_APPLY_KEY_MQ, false);
 	shm_mq_set_receiver(mq, MyProc);
 	mqh = shm_mq_attach(mq, seg, NULL);
 
 	/*
-	 * Primary initialization is complete. Now, we can attach to our slot.
-	 * This is to ensure that the leader apply worker does not write data to
-	 * the uninitialized memory queue.
+	 * 主初始化已完成。现在可以附加到自己的槽位了。 
+	 * 这样才能确保领导应用工作进程不会向未初始化的内
+	 * 存队列中写入数据。    
 	 */
 	logicalrep_worker_attach(worker_slot);
 
 	/*
-	 * Register the shutdown callback after we are attached to the worker
-	 * slot. This is to ensure that MyLogicalRepWorker remains valid when this
-	 * callback is invoked.
+	 * 附加到工作进程槽位后再注册关闭回调。这是为了
+	 * 确保当此回调被调用时 MyLogicalRepWorker                      
+	 *  仍然有效。    
 	 */
 	before_shmem_exit(pa_shutdown, PointerGetDatum(seg));
 
@@ -936,7 +936,7 @@ ParallelApplyWorkerMain(Datum main_arg)
 	SpinLockRelease(&MyParallelShared->mutex);
 
 	/*
-	 * Attach to the error queue.
+	 * 附加到错误队列。  
 	 */
 	mq = shm_toc_lookup(toc, PARALLEL_APPLY_KEY_ERROR_QUEUE, false);
 	shm_mq_set_sender(mq, MyProc);
@@ -953,23 +953,23 @@ ParallelApplyWorkerMain(Datum main_arg)
 
 	InitializingApplyWorker = false;
 
-	/* Setup replication origin tracking. */
+	/* 设置复制源跟踪。           */
 	StartTransactionCommand();
 	ReplicationOriginNameForLogicalRep(MySubscription->oid, InvalidOid,
 									   originname, sizeof(originname));
 	originid = replorigin_by_name(originname, false);
 
 	/*
-	 * The parallel apply worker doesn't need to monopolize this replication
-	 * origin which was already acquired by its leader process.
+	 * 并行应用工作进程无需独占这个已由其领导进程      
+	 * 获取的复制源。                                   
 	 */
 	replorigin_session_setup(originid, MyLogicalRepWorker->leader_pid);
 	replorigin_session_origin = originid;
 	CommitTransactionCommand();
 
 	/*
-	 * Setup callback for syscache so that we know when something changes in
-	 * the subscription relation state.
+	 * 为 syscache 设置回调，以便知道订阅关系状态何时发  
+	 * 生变化。                    
 	 */
 	CacheRegisterSyscacheCallback(SUBSCRIPTIONRELMAP,
 								  invalidate_syncing_table_states,
@@ -980,20 +980,20 @@ ParallelApplyWorkerMain(Datum main_arg)
 	LogicalParallelApplyLoop(mqh);
 
 	/*
-	 * The parallel apply worker must not get here because the parallel apply
-	 * worker will only stop when it receives a SIGTERM or SIGUSR2 from the
-	 * leader, or SIGINT from itself, or when there is an error. None of these
-	 * cases will allow the code to reach here.
+	 * 并行应用工作进程无法到达此处，因为它只会          
+	 * 在收到来自领导者的 SIGTERM 或 SIGUSR2、来自自身的   
+	 *  SIGINT，或发生错误时才会停止。任何一种情况都不    
+	 * 会让代码执行到此处。          
 	 */
 	Assert(false);
 }
 
 /*
- * Handle receipt of an interrupt indicating a parallel apply worker message.
+ * 处理所收到的、表示有并行应用工作进程消息的中断。  
  *
- * Note: this is called within a signal handler! All we can do is set a flag
- * that will cause the next CHECK_FOR_INTERRUPTS() to invoke
- * HandleParallelApplyMessages().
+ * 注意：此函数会在信号处理器内被调用！我们只能设置 
+ * 标志，让下一次 CHECK_FOR_INTERRUPTS() 调用      
+ * HandleParallelApplyMessages() 
  */
 void
 HandleParallelApplyMessageInterrupt(void)
@@ -1004,8 +1004,8 @@ HandleParallelApplyMessageInterrupt(void)
 }
 
 /*
- * Handle a single protocol message received from a single parallel apply
- * worker.
+ * 处理从单个并行应用工作进程收到的一条协议消       
+ * 息。 
  */
 static void
 HandleParallelApplyMessage(StringInfo msg)
@@ -1020,14 +1020,14 @@ HandleParallelApplyMessage(StringInfo msg)
 			{
 				ErrorData	edata;
 
-				/* Parse ErrorResponse. */
+				/* 解析 ErrorResponse */
 				pq_parse_errornotice(msg, &edata);
 
 				/*
-				 * If desired, add a context line to show that this is a
-				 * message propagated from a parallel apply worker. Otherwise,
-				 * it can sometimes be confusing to understand what actually
-				 * happened.
+				 * 如需要，可添加一行上下文，表明这是  
+				 * 由并行应用工作进程传来的消息，否则有     
+				 * 时可能很难弄清实际发生了                     
+				 * 什么。
 				 */
 				if (edata.context)
 					edata.context = psprintf("%s\n%s", edata.context,
@@ -1036,14 +1036,14 @@ HandleParallelApplyMessage(StringInfo msg)
 					edata.context = pstrdup(_("logical replication parallel apply worker"));
 
 				/*
-				 * Context beyond that should use the error context callbacks
-				 * that were in effect in LogicalRepApplyLoop().
+				 * 其余上下文应使用错误上下文回调，即       
+				 * LogicalRepApplyLoop() 中生效的那些。  
 				 */
 				error_context_stack = apply_error_context_stack;
 
 				/*
-				 * The actual error must have been reported by the parallel
-				 * apply worker.
+				 * 实际的错误必然是由并行应用工作进程     
+				 * 上报的。 
 				 */
 				ereport(ERROR,
 						(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -1052,9 +1052,9 @@ HandleParallelApplyMessage(StringInfo msg)
 			}
 
 			/*
-			 * Don't need to do anything about NoticeResponse and
-			 * NotifyResponse as the logical replication worker doesn't need
-			 * to send messages to the client.
+			 * NoticeResponse、NotifyResponse 无需处理。   
+			 * 因为逻辑复制工作进程不需要向客户端          
+			 * 发送消息。                
 			 */
 		case 'N':
 		case 'A':
@@ -1067,7 +1067,7 @@ HandleParallelApplyMessage(StringInfo msg)
 }
 
 /*
- * Handle any queued protocol messages received from parallel apply workers.
+ * 处理从并行应用工作进程收到的所有排队协议消息。    
  */
 void
 HandleParallelApplyMessages(void)
@@ -1078,20 +1078,20 @@ HandleParallelApplyMessages(void)
 	static MemoryContext hpam_context = NULL;
 
 	/*
-	 * This is invoked from ProcessInterrupts(), and since some of the
-	 * functions it calls contain CHECK_FOR_INTERRUPTS(), there is a potential
-	 * for recursive calls if more signals are received while this runs. It's
-	 * unclear that recursive entry would be safe, and it doesn't seem useful
-	 * even if it is safe, so let's block interrupts until done.
+	 * 此函数由 ProcessInterrupts() 调用；由于它调用的   
+	 * 函数包含 CHECK_FOR_INTERRUPTS()，因此如果在执行期间      
+	 * 再收到更多信号，就可能递归调用。递归进入是否安 
+	 * 全尚不清楚，且即便安全似乎也无用处，所以在完成 
+	 * 之前将阻塞中断。                                 
 	 */
 	HOLD_INTERRUPTS();
 
 	/*
-	 * Moreover, CurrentMemoryContext might be pointing almost anywhere. We
-	 * don't want to risk leaking data into long-lived contexts, so let's do
-	 * our work here in a private context that we can reset on each use.
+	 * 此外，CurrentMemoryContext 可能几乎指向任何位置。我  
+	 * 们不想冒数据泄漏到长生命周期上下文的风险，因此
+	 * 将在每次使用后重置的私有上下文中完成工作。  
 	 */
-	if (!hpam_context)			/* first time through? */
+	if (!hpam_context)			/* 第一次进入？  */
 		hpam_context = AllocSetContextCreate(TopMemoryContext,
 											 "HandleParallelApplyMessages",
 											 ALLOCSET_DEFAULT_SIZES);
@@ -1110,10 +1110,10 @@ HandleParallelApplyMessages(void)
 		ParallelApplyWorkerInfo *winfo = (ParallelApplyWorkerInfo *) lfirst(lc);
 
 		/*
-		 * The leader will detach from the error queue and set it to NULL
-		 * before preparing to stop all parallel apply workers, so we don't
-		 * need to handle error messages anymore. See
-		 * logicalrep_worker_detach.
+		 * 领导者会脱离错误队列并将其置为 NULL。准备停
+		 * 止所有并行应用工作进程之前就这样做，所以我 
+		 * 们无需再处理错误消息。参见   
+		 * logicalrep_worker_detach 
 		 */
 		if (!winfo->error_mq_handle)
 			continue;
@@ -1139,18 +1139,18 @@ HandleParallelApplyMessages(void)
 
 	MemoryContextSwitchTo(oldcontext);
 
-	/* Might as well clear the context on our way out */
+	/* 退出时不妨顺便清空该上下文。     */
 	MemoryContextReset(hpam_context);
 
 	RESUME_INTERRUPTS();
 }
 
 /*
- * Send the data to the specified parallel apply worker via shared-memory
- * queue.
+ * 经共享内存队列把数据发给指定的并行应用工作进    
+ * 程。
  *
- * Returns false if the attempt to send data via shared memory times out, true
- * otherwise.
+ * 如果经共享内存发送数据的尝试超时，则返回 false，否则
+ * 为true。
  */
 bool
 pa_send_data(ParallelApplyWorkerInfo *winfo, Size nbytes, const void *data)
@@ -1163,17 +1163,17 @@ pa_send_data(ParallelApplyWorkerInfo *winfo, Size nbytes, const void *data)
 	Assert(!winfo->serialize_changes);
 
 	/*
-	 * We don't try to send data to parallel worker for 'immediate' mode. This
-	 * is primarily used for testing purposes.
+	 * 对于 'immediate' 模式，我们不会尝试向并行工作进程发 
+	 * 送数据，这主要用于测试。   
 	 */
 	if (unlikely(debug_logical_replication_streaming == DEBUG_LOGICAL_REP_STREAMING_IMMEDIATE))
 		return false;
 
 /*
- * This timeout is a bit arbitrary but testing revealed that it is sufficient
- * to send the message unless the parallel apply worker is waiting on some
- * lock or there is a serious resource crunch. See the comments atop this file
- * to know why we are using a non-blocking way to send the message.
+ * 超时值定得有些随意，但测试表明，除非并行应用工作  
+ * 程正在等待某个锁，或出现严重的资源紧缺，否则     
+ * 它就足以用来发送消息。至于我们为何使用非阻塞的方   
+ * 式来发送消息，请参见本文件顶部的注释。       
  */
 #define SHM_SEND_RETRY_INTERVAL_MS 1000
 #define SHM_SEND_TIMEOUT_MS		(10000 - SHM_SEND_RETRY_INTERVAL_MS)
@@ -1191,7 +1191,7 @@ pa_send_data(ParallelApplyWorkerInfo *winfo, Size nbytes, const void *data)
 
 		Assert(result == SHM_MQ_WOULD_BLOCK);
 
-		/* Wait before retrying. */
+		/* 重试前先等待。 */
 		rc = WaitLatch(MyLatch,
 					   WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH,
 					   SHM_SEND_RETRY_INTERVAL_MS,
@@ -1212,10 +1212,10 @@ pa_send_data(ParallelApplyWorkerInfo *winfo, Size nbytes, const void *data)
 }
 
 /*
- * Switch to PARTIAL_SERIALIZE mode for the current transaction -- this means
- * that the current data and any subsequent data for this transaction will be
- * serialized to a file. This is done to prevent possible deadlocks with
- * another parallel apply worker (refer to the comments atop this file).
+ * 为当前事务切换到 PARTIAL_SERIALIZE 模式——这意味着       
+ * 该事务当前及后续的所有数据都将被序列化到文件中。  
+ * 这是为了防止与其他并行应用工作进程间可能出现的
+ * 死锁（参见本文件顶部的注释）。                        
  */
 void
 pa_switch_to_partial_serialize(ParallelApplyWorkerInfo *winfo,
@@ -1226,19 +1226,19 @@ pa_switch_to_partial_serialize(ParallelApplyWorkerInfo *winfo,
 					winfo->shared->xid)));
 
 	/*
-	 * The parallel apply worker could be stuck for some reason (say waiting
-	 * on some lock by other backend), so stop trying to send data directly to
-	 * it and start serializing data to the file instead.
+	 * 并行应用工作进程可能因某些原因卡住（例如在等   
+	 * 待某个后端的锁），所以停止直接向它发送数据，     
+	 * 转而把数据序列化到文件中。           
 	 */
 	winfo->serialize_changes = true;
 
-	/* Initialize the stream fileset. */
+	/* 初始化流文件集。       */
 	stream_start_internal(winfo->shared->xid, true);
 
 	/*
-	 * Acquires the stream lock if not already to make sure that the parallel
-	 * apply worker will wait for the leader to release the stream lock until
-	 * the end of the transaction.
+	 * 若尚未持有，则获取流锁，以确保并行应用工作进程 
+	 * 一直等待领导者释放流锁，直到                            
+	 * 事务结束为止。      
 	 */
 	if (!stream_locked)
 		pa_lock_stream(winfo->shared->xid, AccessExclusiveLock);
@@ -1247,8 +1247,8 @@ pa_switch_to_partial_serialize(ParallelApplyWorkerInfo *winfo,
 }
 
 /*
- * Wait until the parallel apply worker's transaction state has reached or
- * exceeded the given xact_state.
+ * 等待直到并行应用工作进程的事务状态达到或超过给  
+ * 定的 xact_state。          
  */
 static void
 pa_wait_for_xact_state(ParallelApplyWorkerInfo *winfo,
@@ -1257,52 +1257,52 @@ pa_wait_for_xact_state(ParallelApplyWorkerInfo *winfo,
 	for (;;)
 	{
 		/*
-		 * Stop if the transaction state has reached or exceeded the given
-		 * xact_state.
+		 * 若事务状态达到或超过给定 xact_state，则停       
+		 * 止。     
 		 */
 		if (pa_get_xact_state(winfo->shared) >= xact_state)
 			break;
 
-		/* Wait to be signalled. */
+		/* 等待信号唤醒。 */
 		(void) WaitLatch(MyLatch,
 						 WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH,
 						 10L,
 						 WAIT_EVENT_LOGICAL_PARALLEL_APPLY_STATE_CHANGE);
 
-		/* Reset the latch so we don't spin. */
+		/* 重置锁存器，以免空转。 */
 		ResetLatch(MyLatch);
 
-		/* An interrupt may have occurred while we were waiting. */
+		/* 等待期间可能已经发生了中断。            */
 		CHECK_FOR_INTERRUPTS();
 	}
 }
 
 /*
- * Wait until the parallel apply worker's transaction finishes.
+ * 等待并行应用工作进程的事务结束。            
  */
 static void
 pa_wait_for_xact_finish(ParallelApplyWorkerInfo *winfo)
 {
 	/*
-	 * Wait until the parallel apply worker set the state to
-	 * PARALLEL_TRANS_STARTED which means it has acquired the transaction
-	 * lock. This is to prevent leader apply worker from acquiring the
-	 * transaction lock earlier than the parallel apply worker.
+	 * 等待并行应用工作进程把状态设置为     
+	 *  PARALLEL_TRANS_STARTED，这意味着它已获取了事务锁。 
+	 * 这样做是为了防止领导应用工作进程比并行应用
+	 * 工作进程更早地获取事务锁。                 
 	 */
 	pa_wait_for_xact_state(winfo, PARALLEL_TRANS_STARTED);
 
 	/*
-	 * Wait for the transaction lock to be released. This is required to
-	 * detect deadlock among leader and parallel apply workers. Refer to the
-	 * comments atop this file.
+	 * 等待事务锁被释放。这样做才能检测出领导者与  
+	 * 并行应用工作进程间的死锁。参见本文件顶部的注   
+	 * 释。                  
 	 */
 	pa_lock_transaction(winfo->shared->xid, AccessShareLock);
 	pa_unlock_transaction(winfo->shared->xid, AccessShareLock);
 
 	/*
-	 * Check if the state becomes PARALLEL_TRANS_FINISHED in case the parallel
-	 * apply worker failed while applying changes causing the lock to be
-	 * released.
+	 * 检查状态是否已变为 PARALLEL_TRANS_FINISHED，以防并行     
+	 * 应用工作进程在应用变更时失败而使锁被释放的  
+	 * 情况。
 	 */
 	if (pa_get_xact_state(winfo->shared) != PARALLEL_TRANS_FINISHED)
 		ereport(ERROR,
@@ -1311,7 +1311,7 @@ pa_wait_for_xact_finish(ParallelApplyWorkerInfo *winfo)
 }
 
 /*
- * Set the transaction state for a given parallel apply worker.
+ * 为给定的并行应用工作进程设置事务状态。   
  */
 void
 pa_set_xact_state(ParallelApplyWorkerShared *wshared,
@@ -1323,7 +1323,7 @@ pa_set_xact_state(ParallelApplyWorkerShared *wshared,
 }
 
 /*
- * Get the transaction state for a given parallel apply worker.
+ * 获取给定的并行应用工作进程的事务状态。   
  */
 static ParallelTransState
 pa_get_xact_state(ParallelApplyWorkerShared *wshared)
@@ -1338,7 +1338,7 @@ pa_get_xact_state(ParallelApplyWorkerShared *wshared)
 }
 
 /*
- * Cache the parallel apply worker information.
+ * 缓存并行应用工作进程信息。     
  */
 void
 pa_set_stream_apply_worker(ParallelApplyWorkerInfo *winfo)
@@ -1347,12 +1347,12 @@ pa_set_stream_apply_worker(ParallelApplyWorkerInfo *winfo)
 }
 
 /*
- * Form a unique savepoint name for the streaming transaction.
+ * 为流式事务构成一个唯一的保存点名称。     
  *
- * Note that different subscriptions for publications on different nodes can
- * receive same remote xid, so we need to use subscription id along with it.
+ * 注意，位于不同节点上的发布所对应的不同订阅可能收 
+ * 到相同的远程 xid，因此还需要加上订阅 id。               
  *
- * Returns the name in the supplied buffer.
+ * 在给定的缓冲区中返回名称。 
  */
 static void
 pa_savepoint_name(Oid suboid, TransactionId xid, char *spname, Size szsp)
@@ -1361,12 +1361,12 @@ pa_savepoint_name(Oid suboid, TransactionId xid, char *spname, Size szsp)
 }
 
 /*
- * Define a savepoint for a subxact in parallel apply worker if needed.
+ * 按需在并行应用工作进程中为子事务定义保存点。  
  *
- * The parallel apply worker can figure out if a new subtransaction was
- * started by checking if the new change arrived with a different xid. In that
- * case define a named savepoint, so that we are able to rollback to it
- * if required.
+ * 并行应用工作进程可检查新变更是否带有不同的     
+ *  xid 来判断是否启动了新的子事务。如果是这样，就应    
+ * 定义一个命名保存点，以便必要时能够回滚           
+ * 到它。   
  */
 void
 pa_start_subtrans(TransactionId current_xid, TransactionId top_xid)
@@ -1382,7 +1382,7 @@ pa_start_subtrans(TransactionId current_xid, TransactionId top_xid)
 
 		elog(DEBUG1, "defining savepoint %s in logical replication parallel apply worker", spname);
 
-		/* We must be in transaction block to define the SAVEPOINT. */
+		/* 我们必须处于事务块中才能定义 SAVEPOINT。  */
 		if (!IsTransactionBlock())
 		{
 			if (!IsTransactionState())
@@ -1395,9 +1395,9 @@ pa_start_subtrans(TransactionId current_xid, TransactionId top_xid)
 		DefineSavepoint(spname);
 
 		/*
-		 * CommitTransactionCommand is needed to start a subtransaction after
-		 * issuing a SAVEPOINT inside a transaction block (see
-		 * StartSubTransaction()).
+		 * 在事务块内发出 SAVEPOINT 后，需要调用                
+		 * CommitTransactionCommand 来启动子事务（见  
+		 *  StartSubTransaction() 
 		 */
 		CommitTransactionCommand();
 
@@ -1407,20 +1407,20 @@ pa_start_subtrans(TransactionId current_xid, TransactionId top_xid)
 	}
 }
 
-/* Reset the list that maintains subtransactions. */
+/* 重置用于维护子事务的列表。        */
 void
 pa_reset_subtrans(void)
 {
 	/*
-	 * We don't need to free this explicitly as the allocated memory will be
-	 * freed at the transaction end.
+	 * 无需显式地释放它，因为已分配的内存会在事务结束
+	 * 时被释放。              
 	 */
 	subxactlist = NIL;
 }
 
 /*
- * Handle STREAM ABORT message when the transaction was applied in a parallel
- * apply worker.
+ * 当事务由并行应用工作进程应用时，处理 STREAM ABORT       
+ *  消息。   
  */
 void
 pa_stream_abort(LogicalRepStreamAbortData *abort_data)
@@ -1429,29 +1429,29 @@ pa_stream_abort(LogicalRepStreamAbortData *abort_data)
 	TransactionId subxid = abort_data->subxid;
 
 	/*
-	 * Update origin state so we can restart streaming from correct position
-	 * in case of crash.
+	 * 更新复制源状态，以便崩溃后能从正确的位置恢复   
+	 * 流式传输。  
 	 */
 	replorigin_session_origin_lsn = abort_data->abort_lsn;
 	replorigin_session_origin_timestamp = abort_data->abort_time;
 
 	/*
-	 * If the two XIDs are the same, it's in fact abort of toplevel xact, so
-	 * just free the subxactlist.
+	 * 若两个 XID 相同，那就等于中止顶层事务，因此       
+	 * 只需释放该列表。  
 	 */
 	if (subxid == xid)
 	{
 		pa_set_xact_state(MyParallelShared, PARALLEL_TRANS_FINISHED);
 
 		/*
-		 * Release the lock as we might be processing an empty streaming
-		 * transaction in which case the lock won't be released during
-		 * transaction rollback.
+		 * 之所以释放锁，是因为我们可能正在处理空的 
+		 * 流式事务，此时锁不会在事务回滚              
+		 * 期间被释放。   
 		 *
-		 * Note that it's ok to release the transaction lock before aborting
-		 * the transaction because even if the parallel apply worker dies due
-		 * to crash or some other reason, such a transaction would still be
-		 * considered aborted.
+		 * 注意，在事务中止前释放事务锁可行，因为即使  
+		 * 应用工作进程因崩溃或其他原因死亡，这样的事务
+		 * 仍会被视为已                                              
+		 * 中止。          
 		 */
 		pa_unlock_transaction(xid, AccessExclusiveLock);
 
@@ -1469,7 +1469,7 @@ pa_stream_abort(LogicalRepStreamAbortData *abort_data)
 	}
 	else
 	{
-		/* OK, so it's a subxact. Rollback to the savepoint. */
+		/* 好吧，这是子事务。回滚到保存点。  */
 		int			i;
 		char		spname[NAMEDATALEN];
 
@@ -1478,11 +1478,11 @@ pa_stream_abort(LogicalRepStreamAbortData *abort_data)
 		elog(DEBUG1, "rolling back to savepoint %s in logical replication parallel apply worker", spname);
 
 		/*
-		 * Search the subxactlist, determine the offset tracked for the
-		 * subxact, and truncate the list.
+		 * 搜索子事务列表，确定其跟踪的偏移量，      
+		 * 然后截断该列表。       
 		 *
-		 * Note that for an empty sub-transaction we won't find the subxid
-		 * here.
+		 * 注意，对于空子事务，在这里找不到 subxid        
+		 * 。  
 		 */
 		for (i = list_length(subxactlist) - 1; i >= 0; i--)
 		{
@@ -1500,9 +1500,9 @@ pa_stream_abort(LogicalRepStreamAbortData *abort_data)
 }
 
 /*
- * Set the fileset state for a particular parallel apply worker. The fileset
- * will be set once the leader worker serialized all changes to the file
- * so that it can be used by parallel apply worker.
+ * 为特定的并行应用工作进程设置文件集状态。一旦领导 
+ * 者进程把所有变更序列化到文件后，文件集就会被设
+ * 置，供并行应用工作进程使用。      
  */
 void
 pa_set_fileset_state(ParallelApplyWorkerShared *wshared,
@@ -1522,7 +1522,7 @@ pa_set_fileset_state(ParallelApplyWorkerShared *wshared,
 }
 
 /*
- * Get the fileset state for the current parallel apply worker.
+ * 获取当前并行应用工作进程的文件集状态。   
  */
 static PartialFileSetState
 pa_get_fileset_state(void)
@@ -1539,12 +1539,12 @@ pa_get_fileset_state(void)
 }
 
 /*
- * Helper functions to acquire and release a lock for each stream block.
+ * 为每个流块获取和释放锁的辅助函数。                  
  *
- * Set locktag_field4 to PARALLEL_APPLY_LOCK_STREAM to indicate that it's a
- * stream lock.
+ * 将 locktag_field4 设置为 PARALLEL_APPLY_LOCK_STREAM 以表明它是 
+ * 流锁。   
  *
- * Refer to the comments atop this file to see how the stream lock is used.
+ * 至于流锁的使用方式，请参见本文件顶部的注释。      
  */
 void
 pa_lock_stream(TransactionId xid, LOCKMODE lockmode)
@@ -1561,23 +1561,23 @@ pa_unlock_stream(TransactionId xid, LOCKMODE lockmode)
 }
 
 /*
- * Helper functions to acquire and release a lock for each local transaction
- * apply.
+ * 这组辅助函数用于为每个本地事务的应用获取与释放    
+ * 锁。
  *
- * Set locktag_field4 to PARALLEL_APPLY_LOCK_XACT to indicate that it's a
- * transaction lock.
+ * 将 locktag_field4 设置为 PARALLEL_APPLY_LOCK_XACT，以表明是  
+ * 事务锁。     
  *
- * Note that all the callers must pass a remote transaction ID instead of a
- * local transaction ID as xid. This is because the local transaction ID will
- * only be assigned while applying the first change in the parallel apply but
- * it's possible that the first change in the parallel apply worker is blocked
- * by a concurrently executing transaction in another parallel apply worker. We
- * can only communicate the local transaction id to the leader after applying
- * the first change so it won't be able to wait after sending the xact finish
- * command using this lock.
+ * 注意，所有调用者必须传远程事务 ID 而非本地事务 ID  
+ *  作为 xid。这是因为本地事务 ID 只有在并行应用期间应  
+ * 用第一个变更时才会被分配，但并行应用工作进程中的  
+ * 第一个变更有可能被另一个并行应用工作进程中并发执   
+ * 行的事务阻塞。我们只有在应用第一个变更之后才能把    
+ * 本地事务 id 告知领导者，因此在发送事务结束             
+ * 命令之后，它将无法使用这把锁                                
+ * 来进行等待。      
  *
- * Refer to the comments atop this file to see how the transaction lock is
- * used.
+ * 至于事务锁的使用方式，请参见本文件顶部的注        
+ * 。  
  */
 void
 pa_lock_transaction(TransactionId xid, LOCKMODE lockmode)
@@ -1594,8 +1594,8 @@ pa_unlock_transaction(TransactionId xid, LOCKMODE lockmode)
 }
 
 /*
- * Decrement the number of pending streaming blocks and wait on the stream lock
- * if there is no pending block available.
+ * 递减待处理的流块数量，如果没有可用的待处理块，则    
+ * 在流锁上等待。                  
  */
 void
 pa_decr_and_wait_stream_block(void)
@@ -1603,8 +1603,8 @@ pa_decr_and_wait_stream_block(void)
 	Assert(am_parallel_apply_worker());
 
 	/*
-	 * It is only possible to not have any pending stream chunks when we are
-	 * applying spooled messages.
+	 * 只有当我们在应用暂存消息时，才可能没有任何待处
+	 * 理的流块。           
 	 */
 	if (pg_atomic_read_u32(&MyParallelShared->pending_stream_count) == 0)
 	{
@@ -1622,7 +1622,7 @@ pa_decr_and_wait_stream_block(void)
 }
 
 /*
- * Finish processing the streaming transaction in the leader apply worker.
+ * 在领导应用工作进程中完成流式事务的处理。           
  */
 void
 pa_xact_finish(ParallelApplyWorkerInfo *winfo, XLogRecPtr remote_lsn)
@@ -1630,15 +1630,15 @@ pa_xact_finish(ParallelApplyWorkerInfo *winfo, XLogRecPtr remote_lsn)
 	Assert(am_leader_apply_worker());
 
 	/*
-	 * Unlock the shared object lock so that parallel apply worker can
-	 * continue to receive and apply changes.
+	 * 解锁共享对象锁，让并行应用工作进程能继续   
+	 * 接收并应用变更。              
 	 */
 	pa_unlock_stream(winfo->shared->xid, AccessExclusiveLock);
 
 	/*
-	 * Wait for that worker to finish. This is necessary to maintain commit
-	 * order which avoids failures due to transaction dependencies and
-	 * deadlocks.
+	 * 等待该工作进程完成。这是维护提交顺序所需，     
+	 * 以便避免因事务依赖和死锁而导致                  
+	 * 失败。 
 	 */
 	pa_wait_for_xact_finish(winfo);
 

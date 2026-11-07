@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  * tablesync.c
- *	  PostgreSQL logical replication: initial table data synchronization
+ *	  PostgreSQL 逻辑复制：初始表数据同步                   
  *
  * Copyright (c) 2012-2023, PostgreSQL Global Development Group
  *
@@ -8,87 +8,87 @@
  *	  src/backend/replication/logical/tablesync.c
  *
  * NOTES
- *	  This file contains code for initial table data synchronization for
- *	  logical replication.
+ *	  本文件包含逻辑复制的初始表数据同步               
+ *	  代码。           
  *
- *	  The initial data synchronization is done separately for each table,
- *	  in a separate apply worker that only fetches the initial snapshot data
- *	  from the publisher and then synchronizes the position in the stream with
- *	  the leader apply worker.
+ *	  初始数据同步是针对每张表单独进行的，             
+ *	  由单独的应用工作进程完成，该进程只从发布者获取 
+ *	  初始快照数据，然后与领导者应用工作进程               
+ *	  同步流中的位置。
  *
- *	  There are several reasons for doing the synchronization this way:
- *	   - It allows us to parallelize the initial data synchronization
- *		 which lowers the time needed for it to happen.
- *	   - The initial synchronization does not have to hold the xid and LSN
- *		 for the time it takes to copy data of all tables, causing less
- *		 bloat and lower disk consumption compared to doing the
- *		 synchronization in a single process for the whole database.
- *	   - It allows us to synchronize any tables added after the initial
- *		 synchronization has finished.
+ *	  以这种方式进行同步有几个原因：                    
+ *	   - 它让我们可以并行化初始数据同步，            
+ *		 从而缩短了所需的时间。             
+ *	   - 初始同步无需在复制所有表数据所需的              
+ *		 时间内持有 xid 和 LSN，与为整个数据库           
+ *		 在单个进程中做全部同步相比，这减少了
+ *		 膨胀并降低了磁盘消耗。                          
+ *	   - 它让我们可以同步任何在初始表同步完成        
+ *		 之后才添加的表。     
  *
- *	  The stream position synchronization works in multiple steps:
- *	   - Apply worker requests a tablesync worker to start, setting the new
- *		 table state to INIT.
- *	   - Tablesync worker starts; changes table state from INIT to DATASYNC while
- *		 copying.
- *	   - Tablesync worker does initial table copy; there is a FINISHEDCOPY (sync
- *		 worker specific) state to indicate when the copy phase has completed, so
- *		 if the worker crashes with this (non-memory) state then the copy will not
- *		 be re-attempted.
- *	   - Tablesync worker then sets table state to SYNCWAIT; waits for state change.
- *	   - Apply worker periodically checks for tables in SYNCWAIT state.  When
- *		 any appear, it sets the table state to CATCHUP and starts loop-waiting
- *		 until either the table state is set to SYNCDONE or the sync worker
- *		 exits.
- *	   - After the sync worker has seen the state change to CATCHUP, it will
- *		 read the stream and apply changes (acting like an apply worker) until
- *		 it catches up to the specified stream position.  Then it sets the
- *		 state to SYNCDONE.  There might be zero changes applied between
- *		 CATCHUP and SYNCDONE, because the sync worker might be ahead of the
- *		 apply worker.
- *	   - Once the state is set to SYNCDONE, the apply will continue tracking
- *		 the table until it reaches the SYNCDONE stream position, at which
- *		 point it sets state to READY and stops tracking.  Again, there might
- *		 be zero changes in between.
+ *	  流位置同步分多个步骤进行：                     
+ *	   - 应用工作进程请求启动表同步工作进程，把新表   
+ *		 状态设为 INIT。
+ *	   - 表同步工作进程启动；表状态从 INIT 改为 DATASYNC，正在
+ *		 复制  
+ *	   - 表同步工作进程执行初始表复制；FINISHEDCOPY（表同步  
+ *		 工作进程专属）状态用于指示复制阶段何时完成，若   
+ *		 工作进程在此（非内存）状态下崩溃，复制将不会       
+ *		 重新尝试。 
+ *	   - 表同步工作进程将表状态设为 SYNCWAIT；等待状态改变。   
+ *	   - 应用工作进程周期性检查处于 SYNCWAIT 状态的表。当 
+ *		 出现表时，它将表状态设为 CATCHUP 并开始循环等待， 
+ *		 直到表状态被设为 SYNCDONE，或者该同步工作进程   
+ *		 退出
+ *	   - 在同步工作进程看到状态变更为 CATCHUP 之后，它将 
+ *		 读取流并应用变更（如同应用工作进程那样），直到
+ *		 追上指定的流位置。然后它将状态设为              
+ *		 SYNCDONE。在 CATCHUP 与 SYNCDONE 之间应用的            
+ *		 变更可能为零，因为同步工作进程可能领先于应用 
+ *		 工作进程 
+ *	   - 一旦状态设为 SYNCDONE，应用将持续跟踪该表，直到 
+ *		 追上 SYNCDONE 流位置，届时它将状态设为             
+ *		 READY 并停止跟踪。同样，中间可能有                    
+ *		 零个变更。            
  *
- *	  So the state progression is always: INIT -> DATASYNC -> FINISHEDCOPY
+ *	  因此状态推进始终是：INIT -> DATASYNC -> FINISHEDCOPY      
  *	  -> SYNCWAIT -> CATCHUP -> SYNCDONE -> READY.
  *
- *	  The catalog pg_subscription_rel is used to keep information about
- *	  subscribed tables and their state.  The catalog holds all states
- *	  except SYNCWAIT and CATCHUP which are only in shared memory.
+ *	  目录 pg_subscription_rel 用于保存关于已订阅           
+ *	  表及其状态的信息。该目录保存除 SYNCWAIT 和      
+ *	  CATCHUP 之外的所有状态，仅存于共享内存中。 
  *
- *	  Example flows look like this:
- *	   - Apply is in front:
+ *	  示例流程如下所示：  
+ *	   - 应用领先时：
  *		  sync:8
- *			-> set in catalog FINISHEDCOPY
- *			-> set in memory SYNCWAIT
+ *			-> 在目录设 FINISHEDCOPY  
+ *			-> 在内存设 SYNCWAIT 
  *		  apply:10
- *			-> set in memory CATCHUP
- *			-> enter wait-loop
+ *			-> 在内存设 CATCHUP 
+ *			-> 入等待循环
  *		  sync:10
- *			-> set in catalog SYNCDONE
+ *			-> 在目录设 SYNCDONE  
  *			-> exit
  *		  apply:10
- *			-> exit wait-loop
- *			-> continue rep
+ *			-> 退出循环  
+ *			-> 继续复制
  *		  apply:11
- *			-> set in catalog READY
+ *			-> 在目录设 READY  
  *
- *	   - Sync is in front:
+ *	   - 同步领先：  
  *		  sync:10
- *			-> set in catalog FINISHEDCOPY
- *			-> set in memory SYNCWAIT
+ *			-> 在目录设 FINISHEDCOPY  
+ *			-> 在内存设 SYNCWAIT 
  *		  apply:8
- *			-> set in memory CATCHUP
- *			-> continue per-table filtering
+ *			-> 在内存设 CATCHUP 
+ *			-> 继续按表过滤          
  *		  sync:10
- *			-> set in catalog SYNCDONE
+ *			-> 在目录设 SYNCDONE  
  *			-> exit
  *		  apply:10
- *			-> set in catalog READY
- *			-> stop per-table filtering
- *			-> continue rep
+ *			-> 在目录设 READY  
+ *			-> 停止按表过滤      
+ *			-> 继续复制
  *-------------------------------------------------------------------------
  */
 
@@ -136,15 +136,15 @@ static bool FetchTableStates(bool *started_tx);
 static StringInfo copybuf = NULL;
 
 /*
- * Exit routine for synchronization worker.
+ * 同步工作进程的退出例程。    
  */
 static void
 pg_attribute_noreturn()
 finish_sync_worker(void)
 {
 	/*
-	 * Commit any outstanding transaction. This is the usual case, unless
-	 * there was nothing to do for the table.
+	 * 提交任何未完成的事务。这是常见情况，除非      
+	 * 对该表无事可做。              
 	 */
 	if (IsTransactionState())
 	{
@@ -152,7 +152,7 @@ finish_sync_worker(void)
 		pgstat_report_stat(true);
 	}
 
-	/* And flush all writes. */
+	/* 刷写所有写入。 */
 	XLogFlush(GetXLogWriteRecPtr());
 
 	StartTransactionCommand();
@@ -162,22 +162,22 @@ finish_sync_worker(void)
 					get_rel_name(MyLogicalRepWorker->relid))));
 	CommitTransactionCommand();
 
-	/* Find the leader apply worker and signal it. */
+	/* 向领导者应用工作进程发信号。  */
 	logicalrep_worker_wakeup(MyLogicalRepWorker->subid, InvalidOid);
 
-	/* Stop gracefully */
+	/* 优雅地停止 */
 	proc_exit(0);
 }
 
 /*
- * Wait until the relation sync state is set in the catalog to the expected
- * one; return true when it happens.
+ * 等待关系的同步状态在目录中被设置为预期               
+ * 值；发生时返回 true。    
  *
- * Returns false if the table sync worker or the table itself have
- * disappeared, or the table state has been reset.
+ * 如果表同步工作进程或表本身已消失，或表状态
+ * 已被重置，则返回 false。              
  *
- * Currently, this is used in the apply worker when transitioning from
- * CATCHUP state to SYNCDONE.
+ * 当前，这用于应用工作进程从 CATCHUP 状态             
+ * 转换到 SYNCDONE 时。 
  */
 static bool
 wait_for_relation_state_change(Oid relid, char expected_state)
@@ -201,7 +201,7 @@ wait_for_relation_state_change(Oid relid, char expected_state)
 		if (state == expected_state)
 			return true;
 
-		/* Check if the sync worker is still running and bail if not. */
+		/* 检查同步工作进程是否仍运行，否则退出。  */
 		LWLockAcquire(LogicalRepWorkerLock, LW_SHARED);
 		worker = logicalrep_worker_find(MyLogicalRepWorker->subid, relid,
 										false);
@@ -220,12 +220,12 @@ wait_for_relation_state_change(Oid relid, char expected_state)
 }
 
 /*
- * Wait until the apply worker changes the state of our synchronization
- * worker to the expected one.
+ * 等待应用工作进程将我们同步工作进程的              
+ * 状态改为预期值。   
  *
- * Used when transitioning from SYNCWAIT state to CATCHUP.
+ * 在从 SYNCWAIT 状态转换到 CATCHUP 时使用。   
  *
- * Returns false if the apply worker has disappeared.
+ * 若应用工作进程已消失则返回 false。  
  */
 static bool
 wait_for_worker_state_change(char expected_state)
@@ -239,15 +239,15 @@ wait_for_worker_state_change(char expected_state)
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * Done if already in correct state.  (We assume this fetch is atomic
-		 * enough to not give a misleading answer if we do it with no lock.)
+		 * 如果已处于正确状态则完成。（我们假定此次      
+		 * 读取足够原子化，即使无锁也不会误导。）        
 		 */
 		if (MyLogicalRepWorker->relstate == expected_state)
 			return true;
 
 		/*
-		 * Bail out if the apply worker has died, else signal it we're
-		 * waiting.
+		 * 应用工作进程死亡则退出，否则告知它我们  
+		 * 等待  
 		 */
 		LWLockAcquire(LogicalRepWorkerLock, LW_SHARED);
 		worker = logicalrep_worker_find(MyLogicalRepWorker->subid,
@@ -259,8 +259,8 @@ wait_for_worker_state_change(char expected_state)
 			break;
 
 		/*
-		 * Wait.  We expect to get a latch signal back from the apply worker,
-		 * but use a timeout in case it dies without sending one.
+		 * 等待。我们预期会从应用工作进程收到锁存器      
+		 * 信号，但设置超时以防它死亡而未发送。
 		 */
 		rc = WaitLatch(MyLatch,
 					   WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH,
@@ -274,7 +274,7 @@ wait_for_worker_state_change(char expected_state)
 }
 
 /*
- * Callback from syscache invalidation.
+ * syscache 失效时的回调。      
  */
 void
 invalidate_syncing_table_states(Datum arg, int cacheid, uint32 hashvalue)
@@ -283,12 +283,12 @@ invalidate_syncing_table_states(Datum arg, int cacheid, uint32 hashvalue)
 }
 
 /*
- * Handle table synchronization cooperation from the synchronization
- * worker.
+ * 从同步工作进程侧处理表同步协                       
+ * 作。 
  *
- * If the sync worker is in CATCHUP state and reached (or passed) the
- * predetermined synchronization point in the WAL stream, mark the table as
- * SYNCDONE and finish.
+ * 如果同步工作进程处于 CATCHUP 状态并且已到达      
+ * （或越过）WAL 流中预定的同步点，则把该表标记为     
+ * SYNCDONE，完成。
  */
 static void
 process_syncing_tables_for_sync(XLogRecPtr current_lsn)
@@ -308,7 +308,7 @@ process_syncing_tables_for_sync(XLogRecPtr current_lsn)
 		SpinLockRelease(&MyLogicalRepWorker->relmutex);
 
 		/*
-		 * UpdateSubscriptionRelState must be called within a transaction.
+		 * UpdateSubscriptionRelState 必须在事务内调用。         
 		 */
 		if (!IsTransactionState())
 			StartTransactionCommand();
@@ -319,17 +319,17 @@ process_syncing_tables_for_sync(XLogRecPtr current_lsn)
 								   MyLogicalRepWorker->relstate_lsn);
 
 		/*
-		 * End streaming so that LogRepWorkerWalRcvConn can be used to drop
-		 * the slot.
+		 * 结束流式传输，以便 LogRepWorkerWalRcvConn 能删除    
+		 * 该槽。
 		 */
 		walrcv_endstreaming(LogRepWorkerWalRcvConn, &tli);
 
 		/*
-		 * Cleanup the tablesync slot.
+		 * 清理表同步槽。      
 		 *
-		 * This has to be done after updating the state because otherwise if
-		 * there is an error while doing the database operations we won't be
-		 * able to rollback dropped slot.
+		 * 必须在更新状态之后执行，因为否则如果在执行  
+		 * 数据库操作期间发生错误，我们将无法回滚已     
+		 * 删除的槽。               
 		 */
 		ReplicationSlotNameForTablesync(MyLogicalRepWorker->subid,
 										MyLogicalRepWorker->relid,
@@ -337,9 +337,9 @@ process_syncing_tables_for_sync(XLogRecPtr current_lsn)
 										sizeof(syncslotname));
 
 		/*
-		 * It is important to give an error if we are unable to drop the slot,
-		 * otherwise, it won't be dropped till the corresponding subscription
-		 * is dropped. So passing missing_ok = false.
+		 * 如果无法删除槽就必须报错，这一点很重要。       
+		 * 否则，在对应的订阅被删除之前它不会被删除。   
+		 * 因此传入 missing_ok = false。        
 		 */
 		ReplicationSlotDropAtPubNode(LogRepWorkerWalRcvConn, syncslotname, false);
 
@@ -347,18 +347,18 @@ process_syncing_tables_for_sync(XLogRecPtr current_lsn)
 		pgstat_report_stat(false);
 
 		/*
-		 * Start a new transaction to clean up the tablesync origin tracking.
-		 * This transaction will be ended within the finish_sync_worker().
-		 * Now, even, if we fail to remove this here, the apply worker will
-		 * ensure to clean it up afterward.
+		 * 启动一个新事务来清理表同步的复制源跟踪。      
+		 * 该事务将在 finish_sync_worker() 内结束。              
+		 * 现在，即使此处移除失败，应用工作进程也会    
+		 * 确保事后将其清理。     
 		 *
-		 * We need to do this after the table state is set to SYNCDONE.
-		 * Otherwise, if an error occurs while performing the database
-		 * operation, the worker will be restarted and the in-memory state of
-		 * replication progress (remote_lsn) won't be rolled-back which would
-		 * have been cleared before restart. So, the restarted worker will use
-		 * invalid replication progress state resulting in replay of
-		 * transactions that have already been applied.
+		 * 我们需要在表状态被设为 SYNCDONE 之后处理。  
+		 * 否则，若在执行数据库                             
+		 * 操作期间发生错误，工作进程会被重启，内存中的
+		 * 复制进度（remote_lsn）将不会被回滚，而这本应在  
+		 * 重启前被清除。因此重启后的工作进程将使用       
+		 * 无效的复制进度状态，导致重放已经         
+		 * 被应用过的事务。                    
 		 */
 		StartTransactionCommand();
 
@@ -368,8 +368,8 @@ process_syncing_tables_for_sync(XLogRecPtr current_lsn)
 										   sizeof(originname));
 
 		/*
-		 * Resetting the origin session removes the ownership of the slot.
-		 * This is needed to allow the origin to be dropped.
+		 * 重置复制源会话会移除该槽的所属关系。         
+		 * 这是允许删除该复制源所必需的。    
 		 */
 		replorigin_session_reset();
 		replorigin_session_origin = InvalidRepOriginId;
@@ -377,12 +377,12 @@ process_syncing_tables_for_sync(XLogRecPtr current_lsn)
 		replorigin_session_origin_timestamp = 0;
 
 		/*
-		 * Drop the tablesync's origin tracking if exists.
+		 * 存在时删除表同步复制源跟踪。     
 		 *
-		 * There is a chance that the user is concurrently performing refresh
-		 * for the subscription where we remove the table state and its origin
-		 * or the apply worker would have removed this origin. So passing
-		 * missing_ok = true.
+		 * 存在这样的可能：用户正在并发地为订阅执行      
+		 * refresh 时我们会移除表状态及其复制源，或者应用  
+		 * 工作进程已删除了此复制源。因此传入 missing_ok
+		 * = true。         
 		 */
 		replorigin_drop_by_name(originname, true, false);
 
@@ -393,25 +393,25 @@ process_syncing_tables_for_sync(XLogRecPtr current_lsn)
 }
 
 /*
- * Handle table synchronization cooperation from the apply worker.
+ * 从应用工作进程侧处理表同步协作。               
  *
- * Walk over all subscription tables that are individually tracked by the
- * apply process (currently, all that have state other than
- * SUBREL_STATE_READY) and manage synchronization for them.
+ * 遍历所有由应用进程单独跟踪的订阅表（当前即所有 
+ * 状态不是 SUBREL_STATE_READY 的表）并管理      
+ * 它们的同步。                                      
  *
- * If there are tables that need synchronizing and are not being synchronized
- * yet, start sync workers for them (if there are free slots for sync
- * workers).  To prevent starting the sync worker for the same relation at a
- * high frequency after a failure, we store its last start time with each sync
- * state info.  We start the sync worker for the same relation after waiting
- * at least wal_retrieve_retry_interval.
+ * 如果有需要同步且尚未被同步的表，则为它们启动同步  
+ * 工作进程（如果有空闲的同步工作进程槽位）。   
+ * 为防止失败后以高频率为同一关系启动同步工作进程， 
+ * 我们把其上次启动时间存储在每条同步状态信息中。      
+ * 在等待至少 wal_retrieve_retry_interval 之后，我们才为同一  
+ * 关系启动同步工作进程。    
  *
- * For tables that are being synchronized already, check if sync workers
- * either need action from the apply worker or have finished.  This is the
- * SYNCWAIT to CATCHUP transition.
+ * 对于已在同步中的表，检查同步工作进程               
+ * 是需要应用工作进程采取行动，还是已经完成。        
+ * SYNCWAIT 到 CATCHUP 转变。 
  *
- * If the synchronization position is reached (SYNCDONE), then the table can
- * be marked as READY and is no longer tracked.
+ * 如果到达了同步位置（SYNCDONE），则该表可以被           
+ * 标记为 READY，且不再被跟踪。     
  */
 static void
 process_syncing_tables_for_apply(XLogRecPtr current_lsn)
@@ -429,13 +429,13 @@ process_syncing_tables_for_apply(XLogRecPtr current_lsn)
 
 	Assert(!IsTransactionState());
 
-	/* We need up-to-date sync state info for subscription tables here. */
+	/* 此处需要订阅表的最新同步状态信息。              */
 	FetchTableStates(&started_tx);
 
 	/*
-	 * Prepare a hash table for tracking last start times of workers, to avoid
-	 * immediate restarts.  We don't need it if there are no tables that need
-	 * syncing.
+	 * 准备哈希表来跟踪工作进程的上次启动时间，以避免  
+	 * 立即重启。若没有需要同步的表则无需                   
+	 * 它。  
 	 */
 	if (table_states_not_ready != NIL && !last_start_times)
 	{
@@ -448,8 +448,8 @@ process_syncing_tables_for_apply(XLogRecPtr current_lsn)
 	}
 
 	/*
-	 * Clean up the hash table when we're done with all tables (just to
-	 * release the bit of memory).
+	 * 处理完所有表后清理该哈希表（只是为了          
+	 * 释放一小块内存）。
 	 */
 	else if (table_states_not_ready == NIL && last_start_times)
 	{
@@ -458,7 +458,7 @@ process_syncing_tables_for_apply(XLogRecPtr current_lsn)
 	}
 
 	/*
-	 * Process all tables that are being synchronized.
+	 * 处理所有正在被同步的表。           
 	 */
 	foreach(lc, table_states_not_ready)
 	{
@@ -467,9 +467,9 @@ process_syncing_tables_for_apply(XLogRecPtr current_lsn)
 		if (rstate->state == SUBREL_STATE_SYNCDONE)
 		{
 			/*
-			 * Apply has caught up to the position where the table sync has
-			 * finished.  Mark the table as ready so that the apply will just
-			 * continue to replicate it normally.
+			 * 应用已追上表同步完成时所处的位置。         
+			 * 将表标记为就绪，应用只需                          
+			 * 继续正常复制该表。       
 			 */
 			if (current_lsn >= rstate->lsn)
 			{
@@ -484,19 +484,19 @@ process_syncing_tables_for_apply(XLogRecPtr current_lsn)
 				}
 
 				/*
-				 * Remove the tablesync origin tracking if exists.
+				 * 存在时删除表同步复制源跟踪。     
 				 *
-				 * There is a chance that the user is concurrently performing
-				 * refresh for the subscription where we remove the table
-				 * state and its origin or the tablesync worker would have
-				 * already removed this origin. We can't rely on tablesync
-				 * worker to remove the origin tracking as if there is any
-				 * error while dropping we won't restart it to drop the
-				 * origin. So passing missing_ok = true.
+				 * 存在这样的可能：用户正在并发地执行       
+				 * refresh，此时会移除表状态及其复制源，  
+				 * 或者表同步工作进程已删除此复制源。    
+				 * 我们无法指望表同步工作进程去删除       
+				 * 复制源跟踪，因为若删除期间发生任何    
+				 * 错误，不会重启它来删除该复制源。    
+				 * 因此传入 missing_ok = true。    
 				 *
-				 * Lock the subscription and origin in the same order as we
-				 * are doing during DDL commands to avoid deadlocks. See
-				 * AlterSubscription_refresh.
+				 * 按照 DDL 命令期间采用的相同顺序锁定订阅
+				 * 和复制源，以避免死锁。参见              
+				 * AlterSubscription_refresh 
 				 */
 				LockSharedObject(SubscriptionRelationId, MyLogicalRepWorker->subid,
 								 0, AccessShareLock);
@@ -510,7 +510,7 @@ process_syncing_tables_for_apply(XLogRecPtr current_lsn)
 				replorigin_drop_by_name(originname, true, false);
 
 				/*
-				 * Update the state to READY only after the origin cleanup.
+				 * 仅在复制源清理后才将状态更新为 READY。  
 				 */
 				UpdateSubscriptionRelStateEx(MyLogicalRepWorker->subid,
 											 rstate->relid, rstate->state,
@@ -522,7 +522,7 @@ process_syncing_tables_for_apply(XLogRecPtr current_lsn)
 			LogicalRepWorker *syncworker;
 
 			/*
-			 * Look for a sync worker for this relation.
+			 * 查找此关系的同步工作进程。  
 			 */
 			LWLockAcquire(LogicalRepWorkerLock, LW_SHARED);
 
@@ -531,15 +531,15 @@ process_syncing_tables_for_apply(XLogRecPtr current_lsn)
 
 			if (syncworker)
 			{
-				/* Found one, update our copy of its state */
+				/* 找到一个，更新其状态副本。 */
 				SpinLockAcquire(&syncworker->relmutex);
 				rstate->state = syncworker->relstate;
 				rstate->lsn = syncworker->relstate_lsn;
 				if (rstate->state == SUBREL_STATE_SYNCWAIT)
 				{
 					/*
-					 * Sync worker is waiting for apply.  Tell sync worker it
-					 * can catchup now.
+					 * 同步工作进程在等待应用。告知它现在   
+					 * 可以追上。 
 					 */
 					syncworker->relstate = SUBREL_STATE_CATCHUP;
 					syncworker->relstate_lsn =
@@ -547,26 +547,26 @@ process_syncing_tables_for_apply(XLogRecPtr current_lsn)
 				}
 				SpinLockRelease(&syncworker->relmutex);
 
-				/* If we told worker to catch up, wait for it. */
+				/* 若已告知其追上，则等待它。     */
 				if (rstate->state == SUBREL_STATE_SYNCWAIT)
 				{
-					/* Signal the sync worker, as it may be waiting for us. */
+					/* 同步工作进程可能在等我们，发信号。  */
 					if (syncworker->proc)
 						logicalrep_worker_wakeup_ptr(syncworker);
 
-					/* Now safe to release the LWLock */
+					/* 现在可安全释放 LWLock   */
 					LWLockRelease(LogicalRepWorkerLock);
 
 					if (started_tx)
 					{
 						/*
-						 * We must commit the existing transaction to release
-						 * the existing locks before entering a busy loop.
-						 * This is required to avoid any undetected deadlocks
-						 * due to any existing lock as deadlock detector won't
-						 * be able to detect the waits on the latch.
+						 * 必须提交现有事务来释放现有锁，     
+						 * 然后再进入忙循环。                    
+						 * 这是为了避免任何未被发现的死锁，  
+						 * 它由现有锁导致，死锁检测器无法      
+						 * 检测到锁存器上的等待。        
 						 *
-						 * Also close any tables prior to the commit.
+						 * 同时在提交之前关闭任何表。   
 						 */
 						if (rel)
 						{
@@ -578,8 +578,8 @@ process_syncing_tables_for_apply(XLogRecPtr current_lsn)
 					}
 
 					/*
-					 * Enter busy loop and wait for synchronization worker to
-					 * reach expected state (or die trying).
+					 * 进入忙循环，等待同步工作进程达到      
+					 * 预期状态（或力尽而亡）。 
 					 */
 					StartTransactionCommand();
 					started_tx = true;
@@ -593,19 +593,19 @@ process_syncing_tables_for_apply(XLogRecPtr current_lsn)
 			else
 			{
 				/*
-				 * If there is no sync worker for this table yet, count
-				 * running sync workers for this subscription, while we have
-				 * the lock.
+				 * 如果此表尚无同步工作进程，则在持有 
+				 * 锁期间统计此订阅正在运行的同步工作进程
+				 * 数量。
 				 */
 				int			nsyncworkers =
 					logicalrep_sync_worker_count(MyLogicalRepWorker->subid);
 
-				/* Now safe to release the LWLock */
+				/* 现在可安全释放 LWLock   */
 				LWLockRelease(LogicalRepWorkerLock);
 
 				/*
-				 * If there are free sync worker slot(s), start a new sync
-				 * worker for the table.
+				 * 若有空闲同步工作进程槽位，为该表启动 
+				 * 同步工作进程。
 				 */
 				if (nsyncworkers < max_sync_workers_per_subscription)
 				{
@@ -621,9 +621,9 @@ process_syncing_tables_for_apply(XLogRecPtr current_lsn)
 												   wal_retrieve_retry_interval))
 					{
 						/*
-						 * Set the last_start_time even if we fail to start
-						 * the worker, so that we won't retry until
-						 * wal_retrieve_retry_interval has elapsed.
+						 * 即使我们未能启动工作进程，也设置
+						 * last_start_time，这样重试会等到 
+						 * wal_retrieve_retry_interval 经过。   
 						 */
 						hentry->last_start_time = now;
 						(void) logicalrep_worker_launch(MyLogicalRepWorker->dbid,
@@ -638,27 +638,27 @@ process_syncing_tables_for_apply(XLogRecPtr current_lsn)
 		}
 	}
 
-	/* Close table if opened */
+	/* 已打开则关闭表 */
 	if (rel)
 		table_close(rel, NoLock);
 
 	if (started_tx)
 	{
 		/*
-		 * Even when the two_phase mode is requested by the user, it remains
-		 * as 'pending' until all tablesyncs have reached READY state.
+		 * 即使用户请求了 two_phase 模式，它也会保持为      
+		 * 'pending'，直到所有表同步都达到 READY 状态。 
 		 *
-		 * When this happens, we restart the apply worker and (if the
-		 * conditions are still ok) then the two_phase tri-state will become
-		 * 'enabled' at that time.
+		 * 发生这种情况时，将重启应用工作进程，    
+		 * 并且（若条件仍满足）届时 two_phase 三态将变为   
+		 * 'enabled'。           
 		 *
-		 * Note: If the subscription has no tables then leave the state as
-		 * PENDING, which allows ALTER SUBSCRIPTION ... REFRESH PUBLICATION to
-		 * work.
+		 * 注意：如果订阅没有表，则将状态保留为         
+		 * PENDING，允许 ALTER SUBSCRIPTION ... REFRESH PUBLICATION 执行 
+		 * 。  
 		 */
 		if (MySubscription->twophasestate == LOGICALREP_TWOPHASE_STATE_PENDING)
 		{
-			CommandCounterIncrement();	/* make updates visible */
+			CommandCounterIncrement();	/* 使更新可见      */
 			if (AllTablesyncsReady())
 			{
 				ereport(LOG,
@@ -675,8 +675,8 @@ process_syncing_tables_for_apply(XLogRecPtr current_lsn)
 	if (should_exit)
 	{
 		/*
-		 * Reset the last-start time for this worker so that the launcher will
-		 * restart it without waiting for wal_retrieve_retry_interval.
+		 * 重置此工作进程的上次启动时间，让启动器          
+		 * 无需等待 wal_retrieve_retry_interval 即可重启它。
 		 */
 		ApplyLauncherForgetWorkerStartTime(MySubscription->oid);
 
@@ -685,15 +685,15 @@ process_syncing_tables_for_apply(XLogRecPtr current_lsn)
 }
 
 /*
- * Process possible state change(s) of tables that are being synchronized.
+ * 处理正在被同步的表可能发生的状态变更。              
  */
 void
 process_syncing_tables(XLogRecPtr current_lsn)
 {
 	/*
-	 * Skip for parallel apply workers because they only operate on tables
-	 * that are in a READY state. See pa_can_start() and
-	 * should_apply_changes_for_rel().
+	 * 对于并行应用工作进程则跳过，因为它们只对处于 
+	 * READY 状态表操作。参见 pa_can_start() 和
+	 * should_apply_changes_for_rel() 
 	 */
 	if (am_parallel_apply_worker())
 		return;
@@ -705,7 +705,7 @@ process_syncing_tables(XLogRecPtr current_lsn)
 }
 
 /*
- * Create list of columns for COPY based on logical relation mapping.
+ * 基于逻辑关系映射为 COPY 创建列的列表。            
  */
 static List *
 make_copy_attnamelist(LogicalRepRelMapEntry *rel)
@@ -724,8 +724,8 @@ make_copy_attnamelist(LogicalRepRelMapEntry *rel)
 }
 
 /*
- * Data source callback for the COPY FROM, which reads from the remote
- * connection and passes the data back to our local COPY.
+ * COPY FROM 的数据源回调，它从远程连接读取数据，   
+ * 并把数据传回给我们本地的 COPY。          
  */
 static int
 copy_read_data(void *outbuf, int minread, int maxread)
@@ -733,7 +733,7 @@ copy_read_data(void *outbuf, int minread, int maxread)
 	int			bytesread = 0;
 	int			avail;
 
-	/* If there are some leftover data from previous read, use it. */
+	/* 若上次读取残留一些数据，则使用它们。      */
 	avail = copybuf->len - copybuf->cursor;
 	if (avail)
 	{
@@ -753,7 +753,7 @@ copy_read_data(void *outbuf, int minread, int maxread)
 
 		for (;;)
 		{
-			/* Try read the data. */
+			/* 尝试读数据。 */
 			len = walrcv_receive(LogRepWorkerWalRcvConn, &buf, &fd);
 
 			CHECK_FOR_INTERRUPTS();
@@ -764,7 +764,7 @@ copy_read_data(void *outbuf, int minread, int maxread)
 				return bytesread;
 			else
 			{
-				/* Process the data */
+				/* 处理数据     */
 				copybuf->data = buf;
 				copybuf->len = len;
 				copybuf->cursor = 0;
@@ -784,7 +784,7 @@ copy_read_data(void *outbuf, int minread, int maxread)
 		}
 
 		/*
-		 * Wait for more data or latch.
+		 * 等更多数据或锁存器 
 		 */
 		(void) WaitLatchOrSocket(MyLatch,
 								 WL_SOCKET_READABLE | WL_LATCH_SET |
@@ -799,9 +799,9 @@ copy_read_data(void *outbuf, int minread, int maxread)
 
 
 /*
- * Get information about remote relation in similar fashion the RELATION
- * message provides during replication. This function also returns the relation
- * qualifications to be used in the COPY command.
+ * 以类似于复制期间 RELATION 消息所提供的方式获取     
+ * 远程关系的信息。此函数还返回要在 COPY 命令中             
+ * 使用的关系限定条件。                
  */
 static void
 fetch_remote_table_info(char *nspname, char *relname,
@@ -821,7 +821,7 @@ fetch_remote_table_info(char *nspname, char *relname,
 	lrel->nspname = nspname;
 	lrel->relname = relname;
 
-	/* First fetch Oid and replica identity. */
+	/* 首先获取 Oid 和复制标识。   */
 	initStringInfo(&cmd);
 	appendStringInfo(&cmd, "SELECT c.oid, c.relreplident, c.relkind"
 					 "  FROM pg_catalog.pg_class c"
@@ -859,10 +859,10 @@ fetch_remote_table_info(char *nspname, char *relname,
 
 
 	/*
-	 * Get column lists for each relation.
+	 * 获取每个关系的列列表。  
 	 *
-	 * We need to do this before fetching info about column names and types,
-	 * so that we can skip columns that should not be replicated.
+	 * 我们需要在获取列名和类型的信息之前做这件事，   
+	 * 以便跳过不应被复制的列。                      
 	 */
 	if (walrcv_server_version(LogRepWorkerWalRcvConn) >= 150000)
 	{
@@ -880,8 +880,8 @@ fetch_remote_table_info(char *nspname, char *relname,
 		}
 
 		/*
-		 * Fetch info about column lists for the relation (from all the
-		 * publications).
+		 * 获取该关系的列列表信息（来自所有            
+		 * 发布）。  
 		 */
 		resetStringInfo(&cmd);
 		appendStringInfo(&cmd,
@@ -906,12 +906,12 @@ fetch_remote_table_info(char *nspname, char *relname,
 							nspname, relname, pubres->err)));
 
 		/*
-		 * We don't support the case where the column list is different for
-		 * the same table when combining publications. See comments atop
-		 * fetch_table_list. So there should be only one row returned.
-		 * Although we already checked this when creating the subscription, we
-		 * still need to check here in case the column list was changed after
-		 * creating the subscription and before the sync worker is started.
+		 * 我们不支持在合并多个发布时同一张表的列列表 
+		 * 不相同的情况。参见 fetch_table_list 顶部的       
+		 * 注释。因此应该只返回一行。                    
+		 * 尽管在创建订阅时我们已经检查过这一点，但       
+		 * 仍需在此处检查，以防列列表在创建订阅之后、   
+		 * 同步工作进程启动之前发生变化。                   
 		 */
 		if (tuplestore_tuple_count(pubres->tuplestore) > 1)
 			ereport(ERROR,
@@ -920,10 +920,10 @@ fetch_remote_table_info(char *nspname, char *relname,
 						   nspname, relname));
 
 		/*
-		 * Get the column list and build a single bitmap with the attnums.
+		 * 获取列列表并用 attnum 构建一个位图。             
 		 *
-		 * If we find a NULL value, it means all the columns should be
-		 * replicated.
+		 * 若发现 NULL 值，则意味着所有列都应被        
+		 * 复制。  
 		 */
 		tslot = MakeSingleTupleTableSlot(pubres->tupledesc, &TTSOpsMinimalTuple);
 		if (tuplestore_gettupleslot(pubres->tuplestore, true, false, tslot))
@@ -954,7 +954,7 @@ fetch_remote_table_info(char *nspname, char *relname,
 	}
 
 	/*
-	 * Now fetch column names and types.
+	 * 现在获取列名和类型。   
 	 */
 	resetStringInfo(&cmd);
 	appendStringInfo(&cmd,
@@ -982,14 +982,14 @@ fetch_remote_table_info(char *nspname, char *relname,
 				 errmsg("could not fetch table info for table \"%s.%s\" from publisher: %s",
 						nspname, relname, res->err)));
 
-	/* We don't know the number of rows coming, so allocate enough space. */
+	/* 不知道会有多少行，所以要分配足够的空间。       */
 	lrel->attnames = palloc0(MaxTupleAttributeNumber * sizeof(char *));
 	lrel->atttyps = palloc0(MaxTupleAttributeNumber * sizeof(Oid));
 	lrel->attkeys = NULL;
 
 	/*
-	 * Store the columns as a list of names.  Ignore those that are not
-	 * present in the column list, if there is one.
+	 * 将这些列存储为名称列表。如果存在列列表，    
+	 * 则忽略不在该列表中的列。        
 	 */
 	natt = 0;
 	slot = MakeSingleTupleTableSlot(res->tupledesc, &TTSOpsMinimalTuple);
@@ -1001,7 +1001,7 @@ fetch_remote_table_info(char *nspname, char *relname,
 		attnum = DatumGetInt16(slot_getattr(slot, 1, &isnull));
 		Assert(!isnull);
 
-		/* If the column is not in the column list, skip it. */
+		/* 如果该列不在列列表中，则跳过它。  */
 		if (included_cols != NULL && !bms_is_member(attnum, included_cols))
 		{
 			ExecClearTuple(slot);
@@ -1018,7 +1018,7 @@ fetch_remote_table_info(char *nspname, char *relname,
 		if (DatumGetBool(slot_getattr(slot, 4, &isnull)))
 			lrel->attkeys = bms_add_member(lrel->attkeys, natt);
 
-		/* Should never happen. */
+		/* 不应发生。      */
 		if (++natt >= MaxTupleAttributeNumber)
 			elog(ERROR, "too many columns in remote table \"%s.%s\"",
 				 nspname, relname);
@@ -1032,29 +1032,29 @@ fetch_remote_table_info(char *nspname, char *relname,
 	walrcv_clear_result(res);
 
 	/*
-	 * Get relation's row filter expressions. DISTINCT avoids the same
-	 * expression of a table in multiple publications from being included
-	 * multiple times in the final expression.
+	 * 获取关系的行过滤表达式。DISTINCT 可避免         
+	 * 同一张表在多个发布中的同一表达式被多次         
+	 * 包含进最终表达式中。         
 	 *
-	 * We need to copy the row even if it matches just one of the
-	 * publications, so we later combine all the quals with OR.
+	 * 即使某行只匹配其中一个发布，也需要复制 
+	 * 该行，因此稍后将所有条件用 OR 组合。    
 	 *
-	 * For initial synchronization, row filtering can be ignored in following
-	 * cases:
+	 * 对于初始表同步，在以下情况下可以忽略行过滤       
+	 * ：   
 	 *
-	 * 1) one of the subscribed publications for the table hasn't specified
-	 * any row filter
+	 * 1) 该表的某个订阅发布未指定任何行过滤              
+	 * 条件。     
 	 *
-	 * 2) one of the subscribed publications has puballtables set to true
+	 * 2) 该表的某个订阅发布将 puballtables 设为 true        
 	 *
-	 * 3) one of the subscribed publications is declared as TABLES IN SCHEMA
-	 * that includes this relation
+	 * 3) 该表的某个订阅发布被声明为 TABLES IN SCHEMA          
+	 * （涵盖此关系）。   
 	 */
 	if (walrcv_server_version(LogRepWorkerWalRcvConn) >= 150000)
 	{
 		StringInfoData pub_names;
 
-		/* Build the pubname list. */
+		/* 构建发布名列表。*/
 		initStringInfo(&pub_names);
 		foreach(lc, MySubscription->publications)
 		{
@@ -1066,7 +1066,7 @@ fetch_remote_table_info(char *nspname, char *relname,
 			appendStringInfoString(&pub_names, quote_literal_cstr(pubname));
 		}
 
-		/* Check for row filters. */
+		/* 检查行过滤。     */
 		resetStringInfo(&cmd);
 		appendStringInfo(&cmd,
 						 "SELECT DISTINCT pg_get_expr(gpt.qual, gpt.relid)"
@@ -1085,11 +1085,11 @@ fetch_remote_table_info(char *nspname, char *relname,
 							nspname, relname, res->err)));
 
 		/*
-		 * Multiple row filter expressions for the same table will be combined
-		 * by COPY using OR. If any of the filter expressions for this table
-		 * are null, it means the whole table will be copied. In this case it
-		 * is not necessary to construct a unified row filter expression at
-		 * all.
+		 * 同一张表的多个行过滤表达式将由 COPY 用             
+		 * OR 组合。如果此表的任何过滤表达式为              
+		 * NULL，则意味着整张表都会被复制。此时              
+		 * 根本无需构建统一的行过滤表达式                   
+		 * 。 
 		 */
 		slot = MakeSingleTupleTableSlot(res->tupledesc, &TTSOpsMinimalTuple);
 		while (tuplestore_gettupleslot(res->tuplestore, true, false, slot))
@@ -1100,7 +1100,7 @@ fetch_remote_table_info(char *nspname, char *relname,
 				*qual = lappend(*qual, makeString(TextDatumGetCString(rf)));
 			else
 			{
-				/* Ignore filters and cleanup as necessary. */
+				/* 按需忽略过滤器并进行清理。  */
 				if (*qual)
 				{
 					list_free_deep(*qual);
@@ -1120,9 +1120,9 @@ fetch_remote_table_info(char *nspname, char *relname,
 }
 
 /*
- * Copy existing data of a table from publisher.
+ * 从发布者复制表的现有数据。      
  *
- * Caller is responsible for locking the local relation.
+ * 调用者负责锁定本地关系。                 
  */
 static void
 copy_table(Relation rel)
@@ -1137,34 +1137,34 @@ copy_table(Relation rel)
 	ParseState *pstate;
 	List	   *options = NIL;
 
-	/* Get the publisher relation info. */
+	/* 获取发布者关系信息。   */
 	fetch_remote_table_info(get_namespace_name(RelationGetNamespace(rel)),
 							RelationGetRelationName(rel), &lrel, &qual);
 
-	/* Put the relation into relmap. */
+	/* 把该关系放入 relmap。  */
 	logicalrep_relmap_update(&lrel);
 
-	/* Map the publisher relation to local one. */
+	/* 映射发布者关系到本地关系。  */
 	relmapentry = logicalrep_rel_open(lrel.remoteid, NoLock);
 	Assert(rel == relmapentry->localrel);
 
-	/* Start copy on the publisher. */
+	/* 在发布者开始复制。  */
 	initStringInfo(&cmd);
 
-	/* Regular table with no row filter */
+	/* 无行过滤的常规表         */
 	if (lrel.relkind == RELKIND_RELATION && qual == NIL)
 	{
 		appendStringInfo(&cmd, "COPY %s",
 						 quote_qualified_identifier(lrel.nspname, lrel.relname));
 
-		/* If the table has columns, then specify the columns */
+		/* 如果表有列，则指定这些列               */
 		if (lrel.natts)
 		{
 			appendStringInfoString(&cmd, " (");
 
 			/*
-			 * XXX Do we need to list the columns in all cases? Maybe we're
-			 * replicating all columns?
+			 * XXX 是否无论如何都需要列出各列？也许我们  
+			 * 正在复制所有列？
 			 */
 			for (int i = 0; i < lrel.natts; i++)
 			{
@@ -1182,10 +1182,10 @@ copy_table(Relation rel)
 	else
 	{
 		/*
-		 * For non-tables and tables with row filters, we need to do COPY
-		 * (SELECT ...), but we can't just do SELECT * because we need to not
-		 * copy generated columns. For tables with any row filters, build a
-		 * SELECT query with OR'ed row filters for COPY.
+		 * 对于非表和带行过滤的表，我们需要执行 COPY   
+		 * (SELECT ...)，但无法只执行 SELECT *，因为需要         
+		 * 不复制生成列。对于带任何行过滤的表，为 COPY  
+		 * 构建 OR 组合行过滤的 SELECT 查询。
 		 */
 		appendStringInfoString(&cmd, "COPY (SELECT ");
 		for (int i = 0; i < lrel.natts; i++)
@@ -1198,14 +1198,14 @@ copy_table(Relation rel)
 		appendStringInfoString(&cmd, " FROM ");
 
 		/*
-		 * For regular tables, make sure we don't copy data from a child that
-		 * inherits the named table as those will be copied separately.
+		 * 对于常规表，确保我们不复制那些继承此命名表的
+		 * 子表的数据，因为它们会被单独复制。         
 		 */
 		if (lrel.relkind == RELKIND_RELATION)
 			appendStringInfoString(&cmd, "ONLY ");
 
 		appendStringInfoString(&cmd, quote_qualified_identifier(lrel.nspname, lrel.relname));
-		/* list of OR'ed filters */
+		/* OR 组合过滤列表 */
 		if (qual != NIL)
 		{
 			ListCell   *lc;
@@ -1224,8 +1224,8 @@ copy_table(Relation rel)
 	}
 
 	/*
-	 * Prior to v16, initial table synchronization will use text format even
-	 * if the binary option is enabled for a subscription.
+	 * 在 v16 之前，即使订阅启用 binary 选项，初始表同步  
+	 * 也会使用文本格式。                        
 	 */
 	if (walrcv_server_version(LogRepWorkerWalRcvConn) >= 160000 &&
 		MySubscription->binary)
@@ -1253,28 +1253,28 @@ copy_table(Relation rel)
 	attnamelist = make_copy_attnamelist(relmapentry);
 	cstate = BeginCopyFrom(pstate, rel, NULL, NULL, false, copy_read_data, attnamelist, options);
 
-	/* Do the copy */
+	/* 执行复制*/
 	(void) CopyFrom(cstate);
 
 	logicalrep_rel_close(relmapentry, NoLock);
 }
 
 /*
- * Determine the tablesync slot name.
+ * 确定表同步槽的名称。    
  *
- * The name must not exceed NAMEDATALEN - 1 because of remote node constraints
- * on slot name length. We append system_identifier to avoid slot_name
- * collision with subscriptions in other clusters. With the current scheme
- * pg_%u_sync_%u_UINT64_FORMAT (3 + 10 + 6 + 10 + 20 + '\0'), the maximum
- * length of slot_name will be 50.
+ * 由于远程节点对槽名称长度的限制，名称必须保持         
+ * 在 NAMEDATALEN - 1 以内。追加 system_identifier 以避免    
+ * slot_name 与其他集簇中订阅的冲突。按照当前方案       
+ * pg_%u_sync_%u_UINT64_FORMAT (3 + 10 + 6 + 10 + 20 + '\0')，          
+ * slot_name 最长将为 50。   
  *
- * The returned slot name is stored in the supplied buffer (syncslotname) with
- * the given size.
+ * 返回的槽名称以给定大小存储在缓冲区（syncslotname）      
+ * 中。         
  *
- * Note: We don't use the subscription slot name as part of tablesync slot name
- * because we are responsible for cleaning up these slots and it could become
- * impossible to recalculate what name to cleanup if the subscription slot name
- * had changed.
+ * 注意：我们不把订阅槽名称作为表同步槽名的组成部分， 
+ * 因为我们要负责清理这些槽，而一旦订阅槽名称           
+ * 发生变更，就可能无法重新算出要清理的                      
+ * 名称。   
  */
 void
 ReplicationSlotNameForTablesync(Oid suboid, Oid relid,
@@ -1285,12 +1285,12 @@ ReplicationSlotNameForTablesync(Oid suboid, Oid relid,
 }
 
 /*
- * Start syncing the table in the sync worker.
+ * 在同步工作进程中开始同步表。 
  *
- * If nothing needs to be done to sync the table, we exit the worker without
- * any further action.
+ * 如果同步该表不需要做任何事，我们将退出工作进程， 
+ * 无其他动作。 
  *
- * The returned slot name is palloc'ed in current memory context.
+ * 返回的槽名称在当前内存上下文中 palloc。       
  */
 char *
 LogicalRepSyncTableStart(XLogRecPtr *origin_startpos)
@@ -1308,17 +1308,17 @@ LogicalRepSyncTableStart(XLogRecPtr *origin_startpos)
 	bool		must_use_password;
 	bool		run_as_owner;
 
-	/* Check the state of the table synchronization. */
+	/* 检查表同步的状态。                   */
 	StartTransactionCommand();
 	relstate = GetSubscriptionRelState(MyLogicalRepWorker->subid,
 									   MyLogicalRepWorker->relid,
 									   &relstate_lsn);
 
-	/* Is the use of a password mandatory? */
+	/* 是否必须使用密码？         */
 	must_use_password = MySubscription->passwordrequired &&
 		!superuser_arg(MySubscription->owner);
 
-	/* Note that the superuser_arg call can access the DB */
+	/* 注意 superuser_arg 调用可以访问 DB         */
 	CommitTransactionCommand();
 
 	SpinLockAcquire(&MyLogicalRepWorker->relmutex);
@@ -1327,18 +1327,18 @@ LogicalRepSyncTableStart(XLogRecPtr *origin_startpos)
 	SpinLockRelease(&MyLogicalRepWorker->relmutex);
 
 	/*
-	 * If synchronization is already done or no longer necessary, exit now
-	 * that we've updated shared memory state.
+	 * 如果同步已经完成或不再需要，既然已更新了共享 
+	 * 内存状态，现在就退出。      
 	 */
 	switch (relstate)
 	{
 		case SUBREL_STATE_SYNCDONE:
 		case SUBREL_STATE_READY:
 		case SUBREL_STATE_UNKNOWN:
-			finish_sync_worker();	/* doesn't return */
+			finish_sync_worker();	/* 不会返回   */
 	}
 
-	/* Calculate the name of the tablesync slot. */
+	/* 计算表同步槽的名称。            */
 	slotname = (char *) palloc(NAMEDATALEN);
 	ReplicationSlotNameForTablesync(MySubscription->oid,
 									MyLogicalRepWorker->relid,
@@ -1346,9 +1346,9 @@ LogicalRepSyncTableStart(XLogRecPtr *origin_startpos)
 									NAMEDATALEN);
 
 	/*
-	 * Here we use the slot name instead of the subscription name as the
-	 * application_name, so that it is different from the leader apply worker,
-	 * so that synchronous replication can distinguish them.
+	 * 此处我们使用槽名称而非订阅名称来作为           
+	 * application_name，使它不同于领导者应用工作进程，       
+	 * 以便同步复制能区分它们。                 
 	 */
 	LogRepWorkerWalRcvConn =
 		walrcv_connect(MySubscription->conninfo, true,
@@ -1363,7 +1363,7 @@ LogicalRepSyncTableStart(XLogRecPtr *origin_startpos)
 		   MyLogicalRepWorker->relstate == SUBREL_STATE_DATASYNC ||
 		   MyLogicalRepWorker->relstate == SUBREL_STATE_FINISHEDCOPY);
 
-	/* Assign the origin tracking record name. */
+	/* 分配复制源跟踪记录的名称。 */
 	ReplicationOriginNameForLogicalRep(MySubscription->oid,
 									   MyLogicalRepWorker->relid,
 									   originname,
@@ -1372,29 +1372,29 @@ LogicalRepSyncTableStart(XLogRecPtr *origin_startpos)
 	if (MyLogicalRepWorker->relstate == SUBREL_STATE_DATASYNC)
 	{
 		/*
-		 * We have previously errored out before finishing the copy so the
-		 * replication slot might exist. We want to remove the slot if it
-		 * already exists and proceed.
+		 * 我们此前在完成复制之前已因出错而退出，因此
+		 * 复制槽可能存在。我们要在该槽已存在时将其  
+		 * 移除并继续。         
 		 *
-		 * XXX We could also instead try to drop the slot, last time we failed
-		 * but for that, we might need to clean up the copy state as it might
-		 * be in the middle of fetching the rows. Also, if there is a network
-		 * breakdown then it wouldn't have succeeded so trying it next time
-		 * seems like a better bet.
+		 * XXX 我们也可以改为尝试删除该槽，上次我们失败，
+		 * 为此我们可能需要清理复制状态，因为它可能正处
+		 * 于获取行的中途。另外，若发生网络中断，它就   
+		 * 不会成功，因此下次尝试                               
+		 * 是更好的选择。   
 		 */
 		ReplicationSlotDropAtPubNode(LogRepWorkerWalRcvConn, slotname, true);
 	}
 	else if (MyLogicalRepWorker->relstate == SUBREL_STATE_FINISHEDCOPY)
 	{
 		/*
-		 * The COPY phase was previously done, but tablesync then crashed
-		 * before it was able to finish normally.
+		 * COPY 阶段之前已经完成，但表同步随后崩溃了，
+		 * 未能正常完成。                 
 		 */
 		StartTransactionCommand();
 
 		/*
-		 * The origin tracking name must already exist. It was created first
-		 * time this tablesync was launched.
+		 * 复制源跟踪名称必须已经存在。它是在首次        
+		 * 启动此表同步时创建的。
 		 */
 		originid = replorigin_by_name(originname, false);
 		replorigin_session_setup(originid, 0);
@@ -1411,7 +1411,7 @@ LogicalRepSyncTableStart(XLogRecPtr *origin_startpos)
 	MyLogicalRepWorker->relstate_lsn = InvalidXLogRecPtr;
 	SpinLockRelease(&MyLogicalRepWorker->relmutex);
 
-	/* Update the state and make it visible to others. */
+	/* 更新状态并使其对其他进程可见。   */
 	StartTransactionCommand();
 	UpdateSubscriptionRelState(MyLogicalRepWorker->subid,
 							   MyLogicalRepWorker->relid,
@@ -1423,17 +1423,17 @@ LogicalRepSyncTableStart(XLogRecPtr *origin_startpos)
 	StartTransactionCommand();
 
 	/*
-	 * Use a standard write lock here. It might be better to disallow access
-	 * to the table while it's being synchronized. But we don't want to block
-	 * the main apply process from working and it has to open the relation in
-	 * RowExclusiveLock when remapping remote relation id to local one.
+	 * 此处使用标准的写锁。也许最好禁止在表正            
+	 * 被同步期间访问该表。但我们不想阻止主应用          
+	 * 进程工作，而且它在把远程关系 id 重映射为本地      
+	 * 关系时必须以 RowExclusiveLock 打开它。                
 	 */
 	rel = table_open(MyLogicalRepWorker->relid, RowExclusiveLock);
 
 	/*
-	 * Start a transaction in the remote node in REPEATABLE READ mode.  This
-	 * ensures that both the replication slot we create (see below) and the
-	 * COPY are consistent with each other.
+	 * 在远程节点上以 REPEATABLE READ 模式启动一个事务。    
+	 * 这确保我们创建的复制槽（见下文）与 COPY            
+	 * 彼此一致。                     
 	 */
 	res = walrcv_exec(LogRepWorkerWalRcvConn,
 					  "BEGIN READ ONLY ISOLATION LEVEL REPEATABLE READ",
@@ -1446,34 +1446,34 @@ LogicalRepSyncTableStart(XLogRecPtr *origin_startpos)
 	walrcv_clear_result(res);
 
 	/*
-	 * Create a new permanent logical decoding slot. This slot will be used
-	 * for the catchup phase after COPY is done, so tell it to use the
-	 * snapshot to make the final data consistent.
+	 * 创建一个新的永久逻辑解码槽。该槽将在 COPY         
+	 * 完成之后的追赶阶段中使用，因此告诉它使用   
+	 * 快照以使最终数据一致。          
 	 */
 	walrcv_create_slot(LogRepWorkerWalRcvConn,
-					   slotname, false /* permanent */ , false /* two_phase */ ,
+					   slotname, false /* 永久    */ , false /* two_phase */ ,
 					   CRS_USE_SNAPSHOT, origin_startpos);
 
 	/*
-	 * Setup replication origin tracking. The purpose of doing this before the
-	 * copy is to avoid doing the copy again due to any error in setting up
-	 * origin tracking.
+	 * 设置复制源跟踪。在复制之前做此事的目的是           
+	 * 避免因设置复制源跟踪时的任何错误而再次           
+	 * 进行复制。 
 	 */
 	originid = replorigin_by_name(originname, true);
 	if (!OidIsValid(originid))
 	{
 		/*
-		 * Origin tracking does not exist, so create it now.
+		 * 复制源跟踪尚不存在，现在创建它。 
 		 *
-		 * Then advance to the LSN got from walrcv_create_slot. This is WAL
-		 * logged for the purpose of recovery. Locks are to prevent the
-		 * replication origin from vanishing while advancing.
+		 * 然后前进到从 walrcv_create_slot 得到的 LSN。这是    
+		 * 为了恢复目的而记录的 WAL 日志。加锁是为了 
+		 * 防止复制源在前进期间消失。           
 		 */
 		originid = replorigin_create(originname);
 
 		LockRelationOid(ReplicationOriginRelationId, RowExclusiveLock);
 		replorigin_advance(originid, *origin_startpos, InvalidXLogRecPtr,
-						   true /* go backward */ , true /* WAL log */ );
+						   true /* 后退      */ , true /* WAL log */ );
 		UnlockRelationOid(ReplicationOriginRelationId, RowExclusiveLock);
 
 		replorigin_session_setup(originid, 0);
@@ -1488,16 +1488,16 @@ LogicalRepSyncTableStart(XLogRecPtr *origin_startpos)
 	}
 
 	/*
-	 * Make sure that the copy command runs as the table owner, unless the
-	 * user has opted out of that behaviour.
+	 * 确保 COPY 命令以表所有者身份运行，除非用户       
+	 * 已选择退出该行为。          
 	 */
 	run_as_owner = MySubscription->runasowner;
 	if (!run_as_owner)
 		SwitchToUntrustedUser(rel->rd_rel->relowner, &ucxt);
 
 	/*
-	 * Check that our table sync worker has permission to insert into the
-	 * target table.
+	 * 检查我们的表同步工作进程是否有权限向目标      
+	 * 表插入。 
 	 */
 	aclresult = pg_class_aclcheck(RelationGetRelid(rel), GetUserId(),
 								  ACL_INSERT);
@@ -1507,11 +1507,11 @@ LogicalRepSyncTableStart(XLogRecPtr *origin_startpos)
 					   RelationGetRelationName(rel));
 
 	/*
-	 * COPY FROM does not honor RLS policies.  That is not a problem for
-	 * subscriptions owned by roles with BYPASSRLS privilege (or superuser,
-	 * who has it implicitly), but other roles should not be able to
-	 * circumvent RLS.  Disallow logical replication into RLS enabled
-	 * relations for such roles.
+	 * COPY FROM 不遵循 RLS 策略。对于拥有                    
+	 * BYPASSRLS 权限的角色（或超级用户，其隐式拥有       
+	 * 该权限）来说这不是问题，但其他角色应无法 
+	 * 绕过 RLS。禁止此类角色对启用 RLS 的关系进行  
+	 * 逻辑复制。          
 	 */
 	if (check_enable_rls(RelationGetRelid(rel), InvalidOid, false) == RLS_ENABLED)
 		ereport(ERROR,
@@ -1520,7 +1520,7 @@ LogicalRepSyncTableStart(XLogRecPtr *origin_startpos)
 						GetUserNameFromId(GetUserId(), true),
 						RelationGetRelationName(rel))));
 
-	/* Now do the initial data copy */
+	/* 现在复制初始数据     */
 	PushActiveSnapshot(GetTransactionSnapshot());
 	copy_table(rel);
 	PopActiveSnapshot();
@@ -1538,12 +1538,12 @@ LogicalRepSyncTableStart(XLogRecPtr *origin_startpos)
 
 	table_close(rel, NoLock);
 
-	/* Make the copy visible. */
+	/* 使复制可见。     */
 	CommandCounterIncrement();
 
 	/*
-	 * Update the persisted state to indicate the COPY phase is done; make it
-	 * visible to others.
+	 * 更新持久化状态以指示 COPY 阶段已完成；使其          
+	 * 对外可见。   
 	 */
 	UpdateSubscriptionRelState(MyLogicalRepWorker->subid,
 							   MyLogicalRepWorker->relid,
@@ -1559,7 +1559,7 @@ copy_table_done:
 		 originname, LSN_FORMAT_ARGS(*origin_startpos));
 
 	/*
-	 * We are done with the initial data synchronization, update the state.
+	 * 我们已完成初始数据同步，更新该状态。              
 	 */
 	SpinLockAcquire(&MyLogicalRepWorker->relmutex);
 	MyLogicalRepWorker->relstate = SUBREL_STATE_SYNCWAIT;
@@ -1567,20 +1567,20 @@ copy_table_done:
 	SpinLockRelease(&MyLogicalRepWorker->relmutex);
 
 	/*
-	 * Finally, wait until the leader apply worker tells us to catch up and
-	 * then return to let LogicalRepApplyLoop do it.
+	 * 最后，等待领导者应用工作进程通知我们追赶，     
+	 * 然后返回让 LogicalRepApplyLoop 处理。
 	 */
 	wait_for_worker_state_change(SUBREL_STATE_CATCHUP);
 	return slotname;
 }
 
 /*
- * Common code to fetch the up-to-date sync state info into the static lists.
+ * 将最新同步状态信息提取到静态列表中的公共代码。     
  *
- * Returns true if subscription has 1 or more tables, else false.
+ * 若订阅至少有 1 张表则返回 true，否则 false。   
  *
- * Note: If this function started the transaction (indicated by the parameter)
- * then it is the caller's responsibility to commit it.
+ * 注意：如果此函数启动了事务（由参数指示），那么      
+ * 提交它是调用者的责任。                   
  */
 static bool
 FetchTableStates(bool *started_tx)
@@ -1598,7 +1598,7 @@ FetchTableStates(bool *started_tx)
 
 		table_states_validity = SYNC_TABLE_STATE_REBUILD_STARTED;
 
-		/* Clean the old lists. */
+		/* 清理旧列表。   */
 		list_free_deep(table_states_not_ready);
 		table_states_not_ready = NIL;
 
@@ -1608,10 +1608,10 @@ FetchTableStates(bool *started_tx)
 			*started_tx = true;
 		}
 
-		/* Fetch all non-ready tables. */
+		/* 获取全部未就绪表。 */
 		rstates = GetSubscriptionRelations(MySubscription->oid, true);
 
-		/* Allocate the tracking info in a permanent memory context. */
+		/* 在永久内存上下文中分配跟踪信息。          */
 		oldctx = MemoryContextSwitchTo(CacheMemoryContext);
 		foreach(lc, rstates)
 		{
@@ -1622,21 +1622,21 @@ FetchTableStates(bool *started_tx)
 		MemoryContextSwitchTo(oldctx);
 
 		/*
-		 * Does the subscription have tables?
+		 * 订阅有表吗？                
 		 *
-		 * If there were not-READY relations found then we know it does. But
-		 * if table_states_not_ready was empty we still need to check again to
-		 * see if there are 0 tables.
+		 * 如果发现了非 READY 的关系，我们就知道它有表。 
+		 * 但如果 table_states_not_ready 为空，我们仍需再次       
+		 * 检查是否有0张表。 
 		 */
 		has_subrels = (table_states_not_ready != NIL) ||
 			HasSubscriptionRelations(MySubscription->oid);
 
 		/*
-		 * If the subscription relation cache has been invalidated since we
-		 * entered this routine, we still use and return the relations we just
-		 * finished constructing, to avoid infinite loops, but we leave the
-		 * table states marked as stale so that we'll rebuild it again on next
-		 * access. Otherwise, we mark the table states as valid.
+		 * 如果在进入此例程之后订阅关系缓存已被失效， 
+		 * 我们仍使用并返回刚刚构建完成的关系，以避免    
+		 * 无限循环，但我们让表状态保持标记为过时，    
+		 * 以便下次访问时重新构建它。否则，我们将表状态 
+		 * 标记为有效。                                   
 		 */
 		if (table_states_validity == SYNC_TABLE_STATE_REBUILD_STARTED)
 			table_states_validity = SYNC_TABLE_STATE_VALID;
@@ -1646,12 +1646,12 @@ FetchTableStates(bool *started_tx)
 }
 
 /*
- * If the subscription has no tables then return false.
+ * 如果订阅没有表则返回 false。             
  *
- * Otherwise, are all tablesyncs READY?
+ * 否则，各表同步是否 READY？
  *
- * Note: This function is not suitable to be called from outside of apply or
- * tablesync workers because MySubscription needs to be already initialized.
+ * 注意：此函数不适合在应用或表同步工作进程之外调用 
+ * 因为 MySubscription 需要已经被初始化。                        
  */
 bool
 AllTablesyncsReady(void)
@@ -1659,7 +1659,7 @@ AllTablesyncsReady(void)
 	bool		started_tx = false;
 	bool		has_subrels = false;
 
-	/* We need up-to-date sync state info for subscription tables here. */
+	/* 此处需要订阅表的最新同步状态信息。              */
 	has_subrels = FetchTableStates(&started_tx);
 
 	if (started_tx)
@@ -1669,14 +1669,14 @@ AllTablesyncsReady(void)
 	}
 
 	/*
-	 * Return false when there are no tables in subscription or not all tables
-	 * are in ready state; true otherwise.
+	 * 当订阅中没有表或并非所有表都处于就绪状态时返回  
+	 * false；否则返回 true。       
 	 */
 	return has_subrels && (table_states_not_ready == NIL);
 }
 
 /*
- * Update the two_phase state of the specified subscription in pg_subscription.
+ * 更新 pg_subscription 中指定订阅的 two_phase 状态。               
  */
 void
 UpdateTwoPhaseState(Oid suboid, char new_state)
@@ -1698,12 +1698,12 @@ UpdateTwoPhaseState(Oid suboid, char new_state)
 			 "cache lookup failed for subscription oid %u",
 			 suboid);
 
-	/* Form a new tuple. */
+	/* 构造新元组。*/
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
 	memset(replaces, false, sizeof(replaces));
 
-	/* And update/set two_phase state */
+	/* 并更新 two_phase 状态     */
 	values[Anum_pg_subscription_subtwophasestate - 1] = CharGetDatum(new_state);
 	replaces[Anum_pg_subscription_subtwophasestate - 1] = true;
 

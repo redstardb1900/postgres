@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * origin.c
- *	  Logical replication progress tracking support.
+ *	  逻辑复制进度跟踪支持。             
  *
  * Copyright (c) 2013-2023, PostgreSQL Global Development Group
  *
@@ -10,57 +10,57 @@
  *
  * NOTES
  *
- * This file provides the following:
- * * An infrastructure to name nodes in a replication setup
- * * A facility to efficiently store and persist replication progress in an
- *	 efficient and durable manner.
+ * 本文件提供以下内容：   
+ * * 用于在复制环境中命名节点的基础设施   
+ * * 一种能以高效且持久的方式存储并持久化复制进度    
+ *	 的设施。                 
  *
- * Replication origin consist out of a descriptive, user defined, external
- * name and a short, thus space efficient, internal 2 byte one. This split
- * exists because replication origin have to be stored in WAL and shared
- * memory and long descriptors would be inefficient.  For now only use 2 bytes
- * for the internal id of a replication origin as it seems unlikely that there
- * soon will be more than 65k nodes in one replication setup; and using only
- * two bytes allow us to be more space efficient.
+ * 复制源由一个描述性的、由用户定义的外部名称以及  
+ * 一个简短（因此省空间）的内部 2 字节名称组成。这  
+ * 种拆分的原因是复制源必须存入 WAL 和共享内存，    
+ * 而长描述符会很低效。目前复制源内部 id 只用 2 字节，  
+ * 因为一个复制环境中很快出现超过 65k 个节点的可能性    
+ * 看起来不大；且只使用两个字节也让我们在空间上       
+ * 更高效。                                  
  *
- * Replication progress is tracked in a shared memory table
- * (ReplicationState) that's dumped to disk every checkpoint. Entries
- * ('slots') in this table are identified by the internal id. That's the case
- * because it allows to increase replication progress during crash
- * recovery. To allow doing so we store the original LSN (from the originating
- * system) of a transaction in the commit record. That allows to recover the
- * precise replayed state after crash recovery; without requiring synchronous
- * commits. Allowing logical replication to use asynchronous commit is
- * generally good for performance, but especially important as it allows a
- * single threaded replay process to keep up with a source that has multiple
- * backends generating changes concurrently.  For efficiency and simplicity
- * reasons a backend can setup one replication origin that's from then used as
- * the source of changes produced by the backend, until reset again.
+ * 复制进度在一个共享内存表（                 
+ * ReplicationState）中跟踪，每次检查点时都会转储到  
+ * 条目（"槽"）由内部 id 标识。这是因为这样允许在崩溃  
+ * 恢复期间推进复制进度。为此，将事务的原始   
+ * LSN（来自源系统）存入提交记录中。从而能在崩溃恢复后
+ * 恢复出精确的重放状态；而无需同步提交。允许逻辑    
+ * 复制使用异步提交通常对性能有好处，                       
+ * 但这尤为重要，因为它允许单线程的重放进程跟上 
+ * 拥有多个后端并发产生变更的源端。出于                 
+ * 效率以及简单性方面的考虑，一个后端可以                
+ * 设置一个复制源，从那时起它就会被用作该               
+ * 后端所产生的变更的来源，直到它再次被重                  
+ * 置为止。                                                     
  *
- * This infrastructure is intended to be used in cooperation with logical
- * decoding. When replaying from a remote system the configured origin is
- * provided to output plugins, allowing prevention of replication loops and
- * other filtering.
+ * 该基础架构旨在与逻辑解码配合使用。从远程系统重 
+ * 放时，所配置的复制源被提供给输出插件，从而允许 
+ * 防止复制循环以及                                                
+ * 其他过滤。 
  *
- * There are several levels of locking at work:
+ * 这里有多个层级的锁在起作用：  
  *
- * * To create and drop replication origins an exclusive lock on
- *	 pg_replication_slot is required for the duration. That allows us to
- *	 safely and conflict free assign new origins using a dirty snapshot.
+ * * 要创建和删除复制源，在整个期间都需要对  
+ *	 pg_replication_slot 持有排他锁。这允许我们用脏快照  
+ *	 安全且无冲突地分配新的复制源。                      
  *
- * * When creating an in-memory replication progress slot the ReplicationOrigin
- *	 LWLock has to be held exclusively; when iterating over the replication
- *	 progress a shared lock has to be held, the same when advancing the
- *	 replication progress of an individual backend that has not setup as the
- *	 session's replication origin.
+ * * 创建内存中的复制进度槽时，必须以独占方式持有        
+ *	 ReplicationOrigin LWLock；遍历复制进度时则必须持有共    
+ *	 享锁；而当推进尚未被设置为会话复制源的         
+ *	 某个单独后端的复制进度时，同样也必须持有           
+ *	 共享锁。                 
  *
- * * When manipulating or looking at the remote_lsn and local_lsn fields of a
- *	 replication progress slot that slot's lwlock has to be held. That's
- *	 primarily because we do not assume 8 byte writes (the LSN) is atomic on
- *	 all our platforms, but it also simplifies memory ordering concerns
- *	 between the remote and local lsn. We use a lwlock instead of a spinlock
- *	 so it's less harmful to hold the lock over a WAL write
- *	 (cf. AdvanceReplicationProgress).
+ * * 当操纵或查看某个复制进度槽的 remote_lsn 和               
+ *	 local_lsn 字段时必须持有该槽的 lwlock。这主要因为  
+ *	 我们不假设 8 字节写入（LSN）在所有平台均为原子，  
+ *	 但这也简化远程与本地 lsn 间的内存序问题。       
+ *	 我们使用 lwlock 而非 spinlock，这样在 WAL 写入             
+ *	 期间持有该锁的危害更小                     
+ *	 见 AdvanceReplicationProgress。
  *
  * ---------------------------------------------------------------------------
  */
@@ -97,45 +97,45 @@
 #include "utils/syscache.h"
 
 /*
- * Replay progress of a single remote node.
+ * 单个远程节点的重放进度。    
  */
 typedef struct ReplicationState
 {
 	/*
-	 * Local identifier for the remote node.
+	 * 远程节点的本地标识符。    
 	 */
 	RepOriginId roident;
 
 	/*
-	 * Location of the latest commit from the remote side.
+	 * 来自远程侧的最新提交的位置。         
 	 */
 	XLogRecPtr	remote_lsn;
 
 	/*
-	 * Remember the local lsn of the commit record so we can XLogFlush() to it
-	 * during a checkpoint so we know the commit record actually is safe on
-	 * disk.
+	 * 记住提交记录的本地 lsn，以便检查点期间能对它执行 
+	 * XLogFlush()，从而知道提交记录确实已安全落盘         
+	 * 。  
 	 */
 	XLogRecPtr	local_lsn;
 
 	/*
-	 * PID of backend that's acquired slot, or 0 if none.
+	 * 持有该槽的后端的 PID，若无则为 0。  
 	 */
 	int			acquired_by;
 
 	/*
-	 * Condition variable that's signaled when acquired_by changes.
+	 * 当 acquired_by 改变时被通知的条件变量。        
 	 */
 	ConditionVariable origin_cv;
 
 	/*
-	 * Lock protecting remote_lsn and local_lsn.
+	 * 保护 remote_lsn 和 local_lsn 的锁。
 	 */
 	LWLock		lock;
 } ReplicationState;
 
 /*
- * On disk version of ReplicationState.
+ * ReplicationState 的磁盘版本。 
  */
 typedef struct ReplicationStateOnDisk
 {
@@ -146,39 +146,39 @@ typedef struct ReplicationStateOnDisk
 
 typedef struct ReplicationStateCtl
 {
-	/* Tranche to use for per-origin LWLocks */
+	/* 用于 per-origin LWLock 的 tranche  */
 	int			tranche_id;
-	/* Array of length max_replication_slots */
+	/* 长度 max_replication_slots 的数组*/
 	ReplicationState states[FLEXIBLE_ARRAY_MEMBER];
 } ReplicationStateCtl;
 
-/* external variables */
-RepOriginId replorigin_session_origin = InvalidRepOriginId; /* assumed identity */
+/* 外部变量       */
+RepOriginId replorigin_session_origin = InvalidRepOriginId; /* 假定的身份  */
 XLogRecPtr	replorigin_session_origin_lsn = InvalidXLogRecPtr;
 TimestampTz replorigin_session_origin_timestamp = 0;
 
 /*
- * Base address into a shared memory array of replication states of size
+ * 指向共享内存中复制状态数组的基址，该数组大小为
  * max_replication_slots.
  *
- * XXX: Should we use a separate variable to size this rather than
+ * XXX: 是否应该用单独的变量来定其大小而非       
  * max_replication_slots?
  */
 static ReplicationState *replication_states;
 
 /*
- * Actual shared memory block (replication_states[] is now part of this).
+ * 实际共享内存块（replication_states[] 现为其一部分）。 
  */
 static ReplicationStateCtl *replication_states_ctl;
 
 /*
- * Backend-local, cached element from ReplicationState for use in a backend
- * replaying remote commits, so we don't have to search ReplicationState for
- * the backends current RepOriginId.
+ * 后端本地的缓存元素，取自 ReplicationState，供正在重放 
+ * 远程提交的后端使用，这样就无需为了查找后端当前的 
+ * RepOriginId 而去搜索它。   
  */
 static ReplicationState *session_replication_state = NULL;
 
-/* Magic for on disk files. */
+/* 磁盘文件的魔数。 */
 #define REPLICATION_STATE_MAGIC ((uint32) 0x1257DADE)
 
 static void
@@ -198,7 +198,7 @@ replorigin_check_prerequisites(bool check_slots, bool recoveryOK)
 
 /*
  * IsReservedOriginName
- *		True iff name is either "none" or "any".
+ *		名称为 "none" 或 "any" 时为真。 
  */
 static bool
 IsReservedOriginName(const char *name)
@@ -208,14 +208,14 @@ IsReservedOriginName(const char *name)
 }
 
 /* ---------------------------------------------------------------------------
- * Functions for working with replication origins themselves.
+ * 用于操作复制源本身的函数。                   
  * ---------------------------------------------------------------------------
  */
 
 /*
- * Check for a persistent replication origin identified by name.
+ * 检查由名称标识的持久化复制源是否存在。    
  *
- * Returns InvalidOid if the node isn't known yet and missing_ok is true.
+ * 若节点尚未知且 missing_ok 为 true 则返回 InvalidOid。     
  */
 RepOriginId
 replorigin_by_name(const char *roname, bool missing_ok)
@@ -244,9 +244,9 @@ replorigin_by_name(const char *roname, bool missing_ok)
 }
 
 /*
- * Create a replication origin.
+ * 创建一个复制源。    
  *
- * Needs to be called in a transaction.
+ * 需要在事务中调用。         
  */
 RepOriginId
 replorigin_create(const char *roname)
@@ -264,19 +264,19 @@ replorigin_create(const char *roname)
 	Assert(IsTransactionState());
 
 	/*
-	 * We need the numeric replication origin to be 16bit wide, so we cannot
-	 * rely on the normal oid allocation. Instead we simply scan
-	 * pg_replication_origin for the first unused id. That's not particularly
-	 * efficient, but this should be a fairly infrequent operation - we can
-	 * easily spend a bit more code on this when it turns out it needs to be
-	 * faster.
+	 * 我们需要数字复制源宽 16 位，因此无法依赖常规的  
+	 * oid 分配方式。作为替代，我们只需扫描     
+	 * pg_replication_origin 来找出第一个未使用的 id。这并不   
+	 * 是十分高效，但这应当是相当少见的操作；当        
+	 * 事实证明它需要更快时，我们大可为此多花一点代   
+	 * 码。 
 	 *
-	 * We handle concurrency by taking an exclusive lock (allowing reads!)
-	 * over the table for the duration of the search. Because we use a "dirty
-	 * snapshot" we can read rows that other in-progress sessions have
-	 * written, even though they would be invisible with normal snapshots. Due
-	 * to the exclusive lock there's no danger that new rows can appear while
-	 * we're checking.
+	 * 我们通过对表持有排他锁（允许读！）处理并发， 
+	 * 即在搜索期间一直持有该锁。由于使用"脏快照"，就  
+	 * 可读其他进行中会话已写的行，即便它们对常规
+	 * 快照不可见。由于有排他锁，因此在我们检查期间     
+	 * 并不会有任何新行出现的                                     
+	 * 危险。      
 	 */
 	InitDirtySnapshot(SnapshotDirty);
 
@@ -307,8 +307,8 @@ replorigin_create(const char *roname)
 		if (!collides)
 		{
 			/*
-			 * Ok, found an unused roident, insert the new row and do a CCI,
-			 * so our callers can look it up if they want to.
+			 * 好，找到未用的 roident，插入新行并做 CCI，    
+			 * 这样调用方若想查找便能查到它。 
 			 */
 			memset(&nulls, 0, sizeof(nulls));
 
@@ -322,7 +322,7 @@ replorigin_create(const char *roname)
 		}
 	}
 
-	/* now release lock again,	*/
+	/* 现在再释放锁。   */
 	table_close(rel, ExclusiveLock);
 
 	if (tuple == NULL)
@@ -335,7 +335,7 @@ replorigin_create(const char *roname)
 }
 
 /*
- * Helper function to drop a replication origin.
+ * 用于删除复制源的辅助函数。      
  */
 static void
 replorigin_state_clear(RepOriginId roident, bool nowait)
@@ -343,7 +343,7 @@ replorigin_state_clear(RepOriginId roident, bool nowait)
 	int			i;
 
 	/*
-	 * Clean up the slot state info, if there is any matching slot.
+	 * 若存在匹配的槽，则清理该槽的状态信息。   
 	 */
 restart:
 	LWLockAcquire(ReplicationOriginLock, LW_EXCLUSIVE);
@@ -354,7 +354,7 @@ restart:
 
 		if (state->roident == roident)
 		{
-			/* found our slot, is it busy? */
+			/* 已找到槽，占用中？ */
 			if (state->acquired_by != 0)
 			{
 				ConditionVariable *cv;
@@ -367,11 +367,11 @@ restart:
 									state->acquired_by)));
 
 				/*
-				 * We must wait and then retry.  Since we don't know which CV
-				 * to wait on until here, we can't readily use
-				 * ConditionVariablePrepareToSleep (calling it here would be
-				 * wrong, since we could miss the signal if we did so); just
-				 * use ConditionVariableSleep directly.
+				 * 必须等待后重试。由于至此才知道该在哪个 
+				 * CV 上等待，因此无法方便地使用 
+				 * ConditionVariablePrepareToSleep（在此调用它会是  
+				 * 错的，因为那样可能错过信号）；直接使用
+				 * ConditionVariableSleep。           
 				 */
 				cv = &state->origin_cv;
 
@@ -381,7 +381,7 @@ restart:
 				goto restart;
 			}
 
-			/* first make a WAL log entry */
+			/* 先写 WAL 日志记录    */
 			{
 				xl_replorigin_drop xlrec;
 
@@ -391,7 +391,7 @@ restart:
 				XLogInsert(RM_REPLORIGIN_ID, XLOG_REPLORIGIN_DROP);
 			}
 
-			/* then clear the in-memory slot */
+			/* 然后清除内存中的槽   */
 			state->roident = InvalidRepOriginId;
 			state->remote_lsn = InvalidXLogRecPtr;
 			state->local_lsn = InvalidXLogRecPtr;
@@ -403,9 +403,9 @@ restart:
 }
 
 /*
- * Drop replication origin (by name).
+ * 删除复制源（按名称）。 
  *
- * Needs to be called in a transaction.
+ * 需要在事务中调用。         
  */
 void
 replorigin_drop_by_name(const char *name, bool missing_ok, bool nowait)
@@ -420,7 +420,7 @@ replorigin_drop_by_name(const char *name, bool missing_ok, bool nowait)
 
 	roident = replorigin_by_name(name, missing_ok);
 
-	/* Lock the origin to prevent concurrent drops. */
+	/* 锁定该复制源以防止并发删除。   */
 	LockSharedObject(ReplicationOriginRelationId, roident, 0,
 					 AccessExclusiveLock);
 
@@ -432,7 +432,7 @@ replorigin_drop_by_name(const char *name, bool missing_ok, bool nowait)
 				 roident);
 
 		/*
-		 * We don't need to retain the locks if the origin is already dropped.
+		 * 若该复制源已被删除，则我们不需要保留这些锁。 
 		 */
 		UnlockSharedObject(ReplicationOriginRelationId, roident, 0,
 						   AccessExclusiveLock);
@@ -443,23 +443,23 @@ replorigin_drop_by_name(const char *name, bool missing_ok, bool nowait)
 	replorigin_state_clear(roident, nowait);
 
 	/*
-	 * Now, we can delete the catalog entry.
+	 * 现在可以删除目录条目了。 
 	 */
 	CatalogTupleDelete(rel, &tuple->t_self);
 	ReleaseSysCache(tuple);
 
 	CommandCounterIncrement();
 
-	/* We keep the lock on pg_replication_origin until commit */
+	/* 提交前一直持有 pg_replication_origin 上的锁  */
 	table_close(rel, NoLock);
 }
 
 /*
- * Lookup replication origin via its oid and return the name.
+ * 通过其 oid 查找复制源并返回名称。           
  *
- * The external name is palloc'd in the calling context.
+ * 外部名称在调用者的上下文中 palloc。    
  *
- * Returns true if the origin is known, false otherwise.
+ * 若复制源已知则返回 true，否则 false。   
  */
 bool
 replorigin_by_oid(RepOriginId roident, bool missing_ok, char **roname)
@@ -498,7 +498,7 @@ replorigin_by_oid(RepOriginId roident, bool missing_ok, char **roname)
 
 
 /* ---------------------------------------------------------------------------
- * Functions for handling replication progress.
+ * 用于处理复制进度的函数。        
  * ---------------------------------------------------------------------------
  */
 
@@ -508,9 +508,9 @@ ReplicationOriginShmemSize(void)
 	Size		size = 0;
 
 	/*
-	 * XXX: max_replication_slots is arguably the wrong thing to use, as here
-	 * we keep the replay state of *remote* transactions. But for now it seems
-	 * sufficient to reuse it, rather than introduce a separate GUC.
+	 * XXX: 使用 max_replication_slots 未必恰当，因为这里保存   
+	 * 的是 *远程* 事务的重放状态。但目前重用它似乎已经 
+	 * 足够，而不是引入一个单独的 GUC。               
 	 */
 	if (max_replication_slots == 0)
 		return size;
@@ -554,19 +554,19 @@ ReplicationOriginShmemInit(void)
 }
 
 /* ---------------------------------------------------------------------------
- * Perform a checkpoint of each replication origin's progress with respect to
- * the replayed remote_lsn. Make sure that all transactions we refer to in the
- * checkpoint (local_lsn) are actually on-disk. This might not yet be the case
- * if the transactions were originally committed asynchronously.
+ * 针对重放到的 remote_lsn，对每个复制源的进度执行一次   
+ * 检查点。务必确保检查点（local_lsn）中引用的所有事务   
+ * 确实都已经写到磁盘上。如果这些事务最初是以异         
+ * 步方式提交，那么情况可能还不是这样。       
  *
- * We store checkpoints in the following format:
+ * 我们以下列格式存储检查点：      
  * +-------+------------------------+------------------+-----+--------+
  * | MAGIC | ReplicationStateOnDisk | struct Replic... | ... | CRC32C | EOF
  * +-------+------------------------+------------------+-----+--------+
  *
- * So its just the magic, followed by the statically sized
- * ReplicationStateOnDisk structs. Note that the maximum number of
- * ReplicationState is determined by max_replication_slots.
+ * 所以它就是 magic 加上后面静态定长的      
+ * ReplicationStateOnDisk 结构。注意 ReplicationState 的    
+ * 最大数量由 max_replication_slots 决定。         
  * ---------------------------------------------------------------------------
  */
 void
@@ -584,7 +584,7 @@ CheckPointReplicationOrigin(void)
 
 	INIT_CRC32C(crc);
 
-	/* make sure no old temp file is remaining */
+	/* 确保没有遗留的旧临时文件    */
 	if (unlink(tmppath) < 0 && errno != ENOENT)
 		ereport(PANIC,
 				(errcode_for_file_access(),
@@ -592,8 +592,8 @@ CheckPointReplicationOrigin(void)
 						tmppath)));
 
 	/*
-	 * no other backend can perform this at the same time; only one checkpoint
-	 * can happen at a time.
+	 * 没有其他后端能在同一时间执行它；一次只能发生一  
+	 * 个检查点。      
 	 */
 	tmpfd = OpenTransientFile(tmppath,
 							  O_CREAT | O_EXCL | O_WRONLY | PG_BINARY);
@@ -603,11 +603,11 @@ CheckPointReplicationOrigin(void)
 				 errmsg("could not create file \"%s\": %m",
 						tmppath)));
 
-	/* write magic */
+	/* 写入魔数*/
 	errno = 0;
 	if ((write(tmpfd, &magic, sizeof(magic))) != sizeof(magic))
 	{
-		/* if write didn't set errno, assume problem is no disk space */
+		/* 若写入未设置 errno，则假定是磁盘空间不足  */
 		if (errno == 0)
 			errno = ENOSPC;
 		ereport(PANIC,
@@ -617,10 +617,10 @@ CheckPointReplicationOrigin(void)
 	}
 	COMP_CRC32C(crc, &magic, sizeof(magic));
 
-	/* prevent concurrent creations/drops */
+	/* 防止并发创建/删除。       */
 	LWLockAcquire(ReplicationOriginLock, LW_SHARED);
 
-	/* write actual data */
+	/* 写实际数据   */
 	for (i = 0; i < max_replication_slots; i++)
 	{
 		ReplicationStateOnDisk disk_state;
@@ -630,7 +630,7 @@ CheckPointReplicationOrigin(void)
 		if (curstate->roident == InvalidRepOriginId)
 			continue;
 
-		/* zero, to avoid uninitialized padding bytes */
+		/* 置零，避免未初始化的填充字节 */
 		memset(&disk_state, 0, sizeof(disk_state));
 
 		LWLockAcquire(&curstate->lock, LW_SHARED);
@@ -642,14 +642,14 @@ CheckPointReplicationOrigin(void)
 
 		LWLockRelease(&curstate->lock);
 
-		/* make sure we only write out a commit that's persistent */
+		/* 确保我们只写出持久化的提交记录          */
 		XLogFlush(local_lsn);
 
 		errno = 0;
 		if ((write(tmpfd, &disk_state, sizeof(disk_state))) !=
 			sizeof(disk_state))
 		{
-			/* if write didn't set errno, assume problem is no disk space */
+			/* 若写入未设置 errno，则假定是磁盘空间不足  */
 			if (errno == 0)
 				errno = ENOSPC;
 			ereport(PANIC,
@@ -663,12 +663,12 @@ CheckPointReplicationOrigin(void)
 
 	LWLockRelease(ReplicationOriginLock);
 
-	/* write out the CRC */
+	/* 写出 CRC        */
 	FIN_CRC32C(crc);
 	errno = 0;
 	if ((write(tmpfd, &crc, sizeof(crc))) != sizeof(crc))
 	{
-		/* if write didn't set errno, assume problem is no disk space */
+		/* 若写入未设置 errno，则假定是磁盘空间不足  */
 		if (errno == 0)
 			errno = ENOSPC;
 		ereport(PANIC,
@@ -683,17 +683,17 @@ CheckPointReplicationOrigin(void)
 				 errmsg("could not close file \"%s\": %m",
 						tmppath)));
 
-	/* fsync, rename to permanent file, fsync file and directory */
+	/* fsync，重命名为永久文件，fsync 文件和目录  */
 	durable_rename(tmppath, path, PANIC);
 }
 
 /*
- * Recover replication replay status from checkpoint data saved earlier by
- * CheckPointReplicationOrigin.
+ * 从早前由 CheckPointReplicationOrigin 保存的检查点数据      
+ * 中恢复重放状态。    
  *
- * This only needs to be called at startup and *not* during every checkpoint
- * read during recovery (e.g. in HS or PITR from a base backup) afterwards. All
- * state thereafter can be recovered by looking at commit records.
+ * 该函数只需要在启动时调用一次，而 *不是* 在其后恢复
+ * 期间的每次检查点读取（例如 HS 或从基础备份进行         
+ * PITR）。此后所有状态都能由提交记录恢复。     
  */
 void
 StartupReplicationOrigin(void)
@@ -706,7 +706,7 @@ StartupReplicationOrigin(void)
 	pg_crc32c	file_crc;
 	pg_crc32c	crc;
 
-	/* don't want to overwrite already existing state */
+	/* 不希望覆盖已经存在的状态           */
 #ifdef USE_ASSERT_CHECKING
 	static bool already_started = false;
 
@@ -724,8 +724,8 @@ StartupReplicationOrigin(void)
 	fd = OpenTransientFile(path, O_RDONLY | PG_BINARY);
 
 	/*
-	 * might have had max_replication_slots == 0 last run, or we just brought
-	 * up a standby.
+	 * 上次运行时 max_replication_slots 可能为 0，或者刚启动一
+	 * 台备库。 
 	 */
 	if (fd < 0 && errno == ENOENT)
 		return;
@@ -735,7 +735,7 @@ StartupReplicationOrigin(void)
 				 errmsg("could not open file \"%s\": %m",
 						path)));
 
-	/* verify magic, that is written even if nothing was active */
+	/* 校验魔数，即使没有任何活动也会写入它   */
 	readBytes = read(fd, &magic, sizeof(magic));
 	if (readBytes != sizeof(magic))
 	{
@@ -757,19 +757,19 @@ StartupReplicationOrigin(void)
 				(errmsg("replication checkpoint has wrong magic %u instead of %u",
 						magic, REPLICATION_STATE_MAGIC)));
 
-	/* we can skip locking here, no other access is possible */
+	/* 这里可以跳过加锁，不可能有其他访问   */
 
-	/* recover individual states, until there are no more to be found */
+	/* 恢复各个单独的状态，直到找不到更多为止      */
 	while (true)
 	{
 		ReplicationStateOnDisk disk_state;
 
 		readBytes = read(fd, &disk_state, sizeof(disk_state));
 
-		/* no further data */
+		/* 无更多数据 */
 		if (readBytes == sizeof(crc))
 		{
-			/* not pretty, but simple ... */
+			/* 不美观，但简单。   */
 			file_crc = *(pg_crc32c *) &disk_state;
 			break;
 		}
@@ -797,7 +797,7 @@ StartupReplicationOrigin(void)
 					(errcode(ERRCODE_CONFIGURATION_LIMIT_EXCEEDED),
 					 errmsg("could not find free replication state, increase max_replication_slots")));
 
-		/* copy data to shared memory */
+		/* 拷贝到共享内存      */
 		replication_states[last_state].roident = disk_state.roident;
 		replication_states[last_state].remote_lsn = disk_state.remote_lsn;
 		last_state++;
@@ -808,7 +808,7 @@ StartupReplicationOrigin(void)
 						LSN_FORMAT_ARGS(disk_state.remote_lsn))));
 	}
 
-	/* now check checksum */
+	/* 再检查校验和 */
 	FIN_CRC32C(crc);
 	if (file_crc != crc)
 		ereport(PANIC,
@@ -837,7 +837,7 @@ replorigin_redo(XLogReaderState *record)
 
 				replorigin_advance(xlrec->node_id,
 								   xlrec->remote_lsn, record->EndRecPtr,
-								   xlrec->force /* backward */ ,
+								   xlrec->force /* 向后   */ ,
 								   false /* WAL log */ );
 				break;
 			}
@@ -852,10 +852,10 @@ replorigin_redo(XLogReaderState *record)
 				{
 					ReplicationState *state = &replication_states[i];
 
-					/* found our slot */
+					/* 已找到槽   */
 					if (state->roident == xlrec->node_id)
 					{
-						/* reset entry */
+						/* 重置条目*/
 						state->roident = InvalidRepOriginId;
 						state->remote_lsn = InvalidXLogRecPtr;
 						state->local_lsn = InvalidXLogRecPtr;
@@ -871,18 +871,18 @@ replorigin_redo(XLogReaderState *record)
 
 
 /*
- * Tell the replication origin progress machinery that a commit from 'node'
- * that originated at the LSN remote_commit on the remote node was replayed
- * successfully and that we don't need to do so again. In combination with
- * setting up replorigin_session_origin_lsn and replorigin_session_origin
- * that ensures we won't lose knowledge about that after a crash if the
- * transaction had a persistent effect (think of asynchronous commits).
+ * 告诉复制源进度机制，来自 'node' 的某个提交已在远程 
+ * 节点上以 remote_commit LSN 产生，并且已被成功重放，     
+ * 我们无需再次对其进行重放。与设置                       
+ * replorigin_session_origin_lsn 和 replorigin_session_origin           
+ * 一起可确保崩溃后我们不会丢失相关信息，前提     
+ * 是该事务产生了持久效果（想想异步提交）。        
  *
- * local_commit needs to be a local LSN of the commit so that we can make sure
- * upon a checkpoint that enough WAL has been persisted to disk.
+ * local_commit 需要是该提交的本地 LSN，以便我们能确保       
+ * 在检查点时有足够的 WAL 已持久化到磁盘。     
  *
- * Needs to be called with a RowExclusiveLock on pg_replication_origin,
- * unless running in recovery.
+ * 调用时需要在 pg_replication_origin 上持有 RowExclusiveLock 
+ * 锁，除非恢复中。   
  */
 void
 replorigin_advance(RepOriginId node,
@@ -895,29 +895,29 @@ replorigin_advance(RepOriginId node,
 
 	Assert(node != InvalidRepOriginId);
 
-	/* we don't track DoNotReplicateId */
+	/* 不跟踪 DoNotReplicateId      */
 	if (node == DoNotReplicateId)
 		return;
 
 	/*
-	 * XXX: For the case where this is called by WAL replay, it'd be more
-	 * efficient to restore into a backend local hashtable and only dump into
-	 * shmem after recovery is finished. Let's wait with implementing that
-	 * till it's shown to be a measurable expense
+	 * XXX: 若由 WAL 重放调用，更高效的做法是先恢复进  
+	 * 后端本地的哈希表，待恢复完成后再转储到共享内存 
+	 * 中。等到能证明这是可测量的开销时，我们再来    
+	 * 实现它。                              
 	 */
 
-	/* Lock exclusively, as we may have to create a new table entry. */
+	/* 独占加锁，因为可能必须创建新的表条目。     */
 	LWLockAcquire(ReplicationOriginLock, LW_EXCLUSIVE);
 
 	/*
-	 * Search for either an existing slot for the origin, or a free one we can
-	 * use.
+	 * 查找该复制源现有的槽，或者一个我们能使用的空闲  
+	 * 槽 
 	 */
 	for (i = 0; i < max_replication_slots; i++)
 	{
 		ReplicationState *curstate = &replication_states[i];
 
-		/* remember where to insert if necessary */
+		/* 记住必要时插入的位置        */
 		if (curstate->roident == InvalidRepOriginId &&
 			free_state == NULL)
 		{
@@ -925,18 +925,18 @@ replorigin_advance(RepOriginId node,
 			continue;
 		}
 
-		/* not our slot */
+		/* 槽不匹配 */
 		if (curstate->roident != node)
 		{
 			continue;
 		}
 
-		/* ok, found slot */
+		/* 找到槽了   */
 		replication_state = curstate;
 
 		LWLockAcquire(&replication_state->lock, LW_EXCLUSIVE);
 
-		/* Make sure it's not used by somebody else */
+		/* 确保它没有被其他任何人使用  */
 		if (replication_state->acquired_by != 0)
 		{
 			ereport(ERROR,
@@ -958,7 +958,7 @@ replorigin_advance(RepOriginId node,
 
 	if (replication_state == NULL)
 	{
-		/* initialize new slot */
+		/* 初始化新槽     */
 		LWLockAcquire(&free_state->lock, LW_EXCLUSIVE);
 		replication_state = free_state;
 		Assert(replication_state->remote_lsn == InvalidXLogRecPtr);
@@ -969,9 +969,9 @@ replorigin_advance(RepOriginId node,
 	Assert(replication_state->roident != InvalidRepOriginId);
 
 	/*
-	 * If somebody "forcefully" sets this slot, WAL log it, so it's durable
-	 * and the standby gets the message. Primarily this will be called during
-	 * WAL replay (of commit records) where no WAL logging is necessary.
+	 * 如果有人"强制"设置此槽，就为其写 WAL 日志，使其 
+	 * 具有持久性且备库能得到消息。这主要会在 WAL 重放  
+	 * （提交记录重放）中调用，此时无需写 WAL 日志。
 	 */
 	if (wal_log)
 	{
@@ -988,12 +988,12 @@ replorigin_advance(RepOriginId node,
 	}
 
 	/*
-	 * Due to - harmless - race conditions during a checkpoint we could see
-	 * values here that are older than the ones we already have in memory. We
-	 * could also see older values for prepared transactions when the prepare
-	 * is sent at a later point of time along with commit prepared and there
-	 * are other transactions commits between prepare and commit prepared. See
-	 * ReorderBufferFinishPrepared. Don't overwrite those.
+	 * 由于检查点期间的无害竞态条件，我们可能在这里  
+	 * 看到比内存中已有的值更旧的值。对已准备事务，当 
+	 * prepare 稍后才连同 commit prepared 一起发送，并且在      
+	 * prepare 与 commit prepared 之间存在其他事务的提交。请  
+	 * 参见 ReorderBufferFinishPrepared。                                  
+	 * 不要覆盖这些值。                           
 	 */
 	if (go_backward || replication_state->remote_lsn < remote_commit)
 		replication_state->remote_lsn = remote_commit;
@@ -1003,8 +1003,8 @@ replorigin_advance(RepOriginId node,
 	LWLockRelease(&replication_state->lock);
 
 	/*
-	 * Release *after* changing the LSNs, slot isn't acquired and thus could
-	 * otherwise be dropped anytime.
+	 * 在更改 LSN *之后*才释放；该槽未被获取，否则随时  
+	 * 可能被删除。           
 	 */
 	LWLockRelease(ReplicationOriginLock);
 }
@@ -1017,7 +1017,7 @@ replorigin_get_progress(RepOriginId node, bool flush)
 	XLogRecPtr	local_lsn = InvalidXLogRecPtr;
 	XLogRecPtr	remote_lsn = InvalidXLogRecPtr;
 
-	/* prevent slots from being concurrently dropped */
+	/* 防止槽被并发地删除。                */
 	LWLockAcquire(ReplicationOriginLock, LW_SHARED);
 
 	for (i = 0; i < max_replication_slots; i++)
@@ -1048,8 +1048,8 @@ replorigin_get_progress(RepOriginId node, bool flush)
 }
 
 /*
- * Tear down a (possibly) configured session replication origin during process
- * exit.
+ * 在进程退出期间拆除一个（可能）已配置的会话复制源   
+ * 。  
  */
 static void
 ReplicationOriginExitCleanup(int code, Datum arg)
@@ -1074,22 +1074,22 @@ ReplicationOriginExitCleanup(int code, Datum arg)
 }
 
 /*
- * Setup a replication origin in the shared memory struct if it doesn't
- * already exist and cache access to the specific ReplicationSlot so the
- * array doesn't have to be searched when calling
- * replorigin_session_advance().
+ * 若共享内存结构中尚无此复制源，在其中设置一个  
+ * 并缓存对特定 ReplicationSlot 的访问，这样调用          
+ * replorigin_session_advance() 时就           
+ * 不必搜索该数组。     
  *
- * Normally only one such cached origin can exist per process so the cached
- * value can only be set again after the previous value is torn down with
- * replorigin_session_reset(). For this normal case pass acquired_by = 0
- * (meaning the slot is not allowed to be already acquired by another process).
+ * 通常每个进程只能存在一个这样被缓存的复制源，因   
+ * 此缓存值只有在前一个值通过                               
+ * replorigin_session_reset() 拆除后才能再次设置。对于这   
+ * 种常规情况，传递 acquired_by = 0（含义是该槽不允许         
  *
- * However, sometimes multiple processes can safely re-use the same origin slot
- * (for example, multiple parallel apply processes can safely use the same
- * origin, provided they maintain commit order by allowing only one process to
- * commit at a time). For this case the first process must pass acquired_by =
- * 0, and then the other processes sharing that same origin can pass
- * acquired_by = PID of the first process.
+ * 已被其他进程获取）。不过，有时多个进程可以安全地    
+ * 重用同一个复制源槽（例如多个并行应用进程可以安  
+ * 全使用同一个复制源，只要它们通过一次只允许一个      
+ * 进程提交来维持提交顺序）。这种情况下第一个进程     
+ * 必须传 acquired_by = 0，随后共享同一源的其他进程 
+ * 能传 acquired_by = 首进程 PID。  
  */
 void
 replorigin_session_setup(RepOriginId node, int acquired_by)
@@ -1111,18 +1111,18 @@ replorigin_session_setup(RepOriginId node, int acquired_by)
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("cannot setup replication origin when one is already setup")));
 
-	/* Lock exclusively, as we may have to create a new table entry. */
+	/* 独占加锁，因为可能必须创建新的表条目。     */
 	LWLockAcquire(ReplicationOriginLock, LW_EXCLUSIVE);
 
 	/*
-	 * Search for either an existing slot for the origin, or a free one we can
-	 * use.
+	 * 查找该复制源现有的槽，或者一个我们能使用的空闲  
+	 * 槽 
 	 */
 	for (i = 0; i < max_replication_slots; i++)
 	{
 		ReplicationState *curstate = &replication_states[i];
 
-		/* remember where to insert if necessary */
+		/* 记住必要时插入的位置        */
 		if (curstate->roident == InvalidRepOriginId &&
 			free_slot == -1)
 		{
@@ -1130,7 +1130,7 @@ replorigin_session_setup(RepOriginId node, int acquired_by)
 			continue;
 		}
 
-		/* not our slot */
+		/* 槽不匹配 */
 		if (curstate->roident != node)
 			continue;
 
@@ -1142,7 +1142,7 @@ replorigin_session_setup(RepOriginId node, int acquired_by)
 							curstate->roident, curstate->acquired_by)));
 		}
 
-		/* ok, found slot */
+		/* 找到槽了   */
 		session_replication_state = curstate;
 	}
 
@@ -1155,7 +1155,7 @@ replorigin_session_setup(RepOriginId node, int acquired_by)
 				 errhint("Increase max_replication_slots and try again.")));
 	else if (session_replication_state == NULL)
 	{
-		/* initialize new slot */
+		/* 初始化新槽     */
 		session_replication_state = &replication_states[free_slot];
 		Assert(session_replication_state->remote_lsn == InvalidXLogRecPtr);
 		Assert(session_replication_state->local_lsn == InvalidXLogRecPtr);
@@ -1173,15 +1173,15 @@ replorigin_session_setup(RepOriginId node, int acquired_by)
 
 	LWLockRelease(ReplicationOriginLock);
 
-	/* probably this one is pointless */
+	/* 可能这一条并无意义    */
 	ConditionVariableBroadcast(&session_replication_state->origin_cv);
 }
 
 /*
- * Reset replay state previously setup in this session.
+ * 重置本会话此前设置的重放状态。       
  *
- * This function may only be called if an origin was setup with
- * replorigin_session_setup().
+ * 仅当已用 replorigin_session_setup() 设置过复制源  
+ * 时才能调用本函数。
  */
 void
 replorigin_session_reset(void)
@@ -1207,10 +1207,10 @@ replorigin_session_reset(void)
 }
 
 /*
- * Do the same work replorigin_advance() does, just on the session's
- * configured origin.
+ * 做 replorigin_advance() 的同一工作，只是作用于会话 
+ * 的复制源。   
  *
- * This is noticeably cheaper than using replorigin_advance().
+ * 这比使用 replorigin_advance() 明显更便宜。       
  */
 void
 replorigin_session_advance(XLogRecPtr remote_commit, XLogRecPtr local_commit)
@@ -1227,8 +1227,8 @@ replorigin_session_advance(XLogRecPtr remote_commit, XLogRecPtr local_commit)
 }
 
 /*
- * Ask the machinery about the point up to which we successfully replayed
- * changes from an already setup replication origin.
+ * 向该机制询问我们已经成功重放了来自某个已设置复 
+ * 制源的变更到哪一点。                   
  */
 XLogRecPtr
 replorigin_session_get_progress(bool flush)
@@ -1252,14 +1252,14 @@ replorigin_session_get_progress(bool flush)
 
 
 /* ---------------------------------------------------------------------------
- * SQL functions for working with replication origin.
+ * 用于操作复制源的 SQL 函数。            
  *
- * These mostly should be fairly short wrappers around more generic functions.
+ * 这些大多应当是围绕更通用函数的相当简短的包装器。   
  * ---------------------------------------------------------------------------
  */
 
 /*
- * Create replication origin for the passed in name, and return the assigned
+ * 为传入的名称创建复制源，并返回所分配的                
  * oid.
  */
 Datum
@@ -1273,8 +1273,8 @@ pg_replication_origin_create(PG_FUNCTION_ARGS)
 	name = text_to_cstring((text *) DatumGetPointer(PG_GETARG_DATUM(0)));
 
 	/*
-	 * Replication origins "any and "none" are reserved for system options.
-	 * The origins "pg_xxx" are reserved for internal use.
+	 * 复制源 "any" 和 "none" 被保留用于系统选项。           
+	 * 复制源 "pg_xxx" 被保留供内部使用。     
 	 */
 	if (IsReservedName(name) || IsReservedOriginName(name))
 		ereport(ERROR,
@@ -1285,8 +1285,8 @@ pg_replication_origin_create(PG_FUNCTION_ARGS)
 						   LOGICALREP_ORIGIN_ANY, LOGICALREP_ORIGIN_NONE)));
 
 	/*
-	 * If built with appropriate switch, whine when regression-testing
-	 * conventions for replication origin names are violated.
+	 * 若以适当开关编译，则当复制源名称违反回归   
+	 * 测试约定时就会抱怨。                        
 	 */
 #ifdef ENFORCE_REGRESSION_TEST_NAME_RESTRICTIONS
 	if (strncmp(name, "regress_", 8) != 0)
@@ -1301,7 +1301,7 @@ pg_replication_origin_create(PG_FUNCTION_ARGS)
 }
 
 /*
- * Drop replication origin.
+ * 删除复制源。      
  */
 Datum
 pg_replication_origin_drop(PG_FUNCTION_ARGS)
@@ -1320,7 +1320,7 @@ pg_replication_origin_drop(PG_FUNCTION_ARGS)
 }
 
 /*
- * Return oid of a replication origin.
+ * 返回复制源的 oid。          
  */
 Datum
 pg_replication_origin_oid(PG_FUNCTION_ARGS)
@@ -1341,7 +1341,7 @@ pg_replication_origin_oid(PG_FUNCTION_ARGS)
 }
 
 /*
- * Setup a replication origin for this session.
+ * 为当前会话设置一个复制源。     
  */
 Datum
 pg_replication_origin_session_setup(PG_FUNCTION_ARGS)
@@ -1363,7 +1363,7 @@ pg_replication_origin_session_setup(PG_FUNCTION_ARGS)
 }
 
 /*
- * Reset previously setup origin in this session
+ * 重置本会话中此前设置的复制源。
  */
 Datum
 pg_replication_origin_session_reset(PG_FUNCTION_ARGS)
@@ -1380,7 +1380,7 @@ pg_replication_origin_session_reset(PG_FUNCTION_ARGS)
 }
 
 /*
- * Has a replication origin been setup for this session.
+ * 是否已为当前会话设置了复制源。        
  */
 Datum
 pg_replication_origin_session_is_setup(PG_FUNCTION_ARGS)
@@ -1392,11 +1392,11 @@ pg_replication_origin_session_is_setup(PG_FUNCTION_ARGS)
 
 
 /*
- * Return the replication progress for origin setup in the current session.
+ * 返回为当前会话设置的复制源的复制进度。               
  *
- * If 'flush' is set to true it is ensured that the returned value corresponds
- * to a local transaction that has been flushed. This is useful if asynchronous
- * commits are used when replaying replicated transactions.
+ * 如果 'flush' 被设置为 true，则能确保返回值对应的本地    
+ * 事务已被刷写。这在重放被复制的事务时使用异步提交    
+ * 的情况下会很有用。                             
  */
 Datum
 pg_replication_origin_session_progress(PG_FUNCTION_ARGS)
@@ -1458,18 +1458,18 @@ pg_replication_origin_advance(PG_FUNCTION_ARGS)
 
 	replorigin_check_prerequisites(true, false);
 
-	/* lock to prevent the replication origin from vanishing */
+	/* 加锁以防止该复制源消失                     */
 	LockRelationOid(ReplicationOriginRelationId, RowExclusiveLock);
 
 	node = replorigin_by_name(text_to_cstring(name), false);
 
 	/*
-	 * Can't sensibly pass a local commit to be flushed at checkpoint - this
-	 * xact hasn't committed yet. This is why this function should be used to
-	 * set up the initial replication state, but not for replay.
+	 * 无法合理地传入要在检查点时刷写的本地提交，因为
+	 * 该事务尚未提交。这正是应当用本函数来设置初始复 
+	 * 制状态的原因，而不是用于重放。            
 	 */
 	replorigin_advance(node, remote_commit, InvalidXLogRecPtr,
-					   true /* go backward */ , true /* WAL log */ );
+					   true /* 向后退   */ , true /* WAL log */ );
 
 	UnlockRelationOid(ReplicationOriginRelationId, RowExclusiveLock);
 
@@ -1478,11 +1478,11 @@ pg_replication_origin_advance(PG_FUNCTION_ARGS)
 
 
 /*
- * Return the replication progress for an individual replication origin.
+ * 返回单个复制源的复制进度。                              
  *
- * If 'flush' is set to true it is ensured that the returned value corresponds
- * to a local transaction that has been flushed. This is useful if asynchronous
- * commits are used when replaying replicated transactions.
+ * 如果 'flush' 被设置为 true，则能确保返回值对应的本地    
+ * 事务已被刷写。这在重放被复制的事务时使用异步提交    
+ * 的情况下会很有用。                             
  */
 Datum
 pg_replication_origin_progress(PG_FUNCTION_ARGS)
@@ -1516,18 +1516,18 @@ pg_show_replication_origin_status(PG_FUNCTION_ARGS)
 	int			i;
 #define REPLICATION_ORIGIN_PROGRESS_COLS 4
 
-	/* we want to return 0 rows if slot is set to zero */
+	/* 若槽被设置为零，我们希望返回 0 行*/
 	replorigin_check_prerequisites(false, true);
 
 	InitMaterializedSRF(fcinfo, 0);
 
-	/* prevent slots from being concurrently dropped */
+	/* 防止槽被并发地删除。                */
 	LWLockAcquire(ReplicationOriginLock, LW_SHARED);
 
 	/*
-	 * Iterate through all possible replication_states, display if they are
-	 * filled. Note that we do not take any locks, so slightly corrupted/out
-	 * of date values are a possibility.
+	 * 遍历全部可能的 replication_states，若已被填充则显示 
+	 * 出来。注意我们不加锁，因此略微损坏/过时的值     
+	 * 是可能出现的。            
 	 */
 	for (i = 0; i < max_replication_slots; i++)
 	{
@@ -1538,7 +1538,7 @@ pg_show_replication_origin_status(PG_FUNCTION_ARGS)
 
 		state = &replication_states[i];
 
-		/* unused slot, nothing to display */
+		/* 槽未使用，无内容显示  */
 		if (state->roident == InvalidRepOriginId)
 			continue;
 
@@ -1549,8 +1549,8 @@ pg_show_replication_origin_status(PG_FUNCTION_ARGS)
 		nulls[0] = false;
 
 		/*
-		 * We're not preventing the origin to be dropped concurrently, so
-		 * silently accept that it might be gone.
+		 * 我们并不阻止该复制源被并发删除，因此        
+		 * 静默地接受它可能已消失。  
 		 */
 		if (replorigin_by_oid(state->roident, true,
 							  &roname))

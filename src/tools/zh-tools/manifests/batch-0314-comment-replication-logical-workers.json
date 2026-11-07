@@ -1,0 +1,81 @@
+{
+ "schema_version": 1,
+ "batch_id": "0314-comment-replication-logical-workers",
+ "title": "Translate comments: replication-logical-workers",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "1d16a58daf80c04f91d54cc4afd57fc32b259233",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0314-comment-replication-logical-workers.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/replication/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0314-comment-replication-logical-workers.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/replication/logical/applyparallelworker.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 129,
+   "translated": 128,
+   "preserved": 1,
+   "preserved_reasons": [
+    "blk76: bare /* ErrorResponse */ protocol-message identifier label kept EN (pure-label exception family: slotfuncs blk28 fast_forward, libpqwalreceiver blk13 expand_dbname precedents)"
+   ],
+   "note": "P2 translation campaign wave G4"
+  },
+  {
+   "path": "src/backend/replication/logical/launcher.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 111,
+   "translated": 111,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "P2 translation campaign wave G4"
+  },
+  {
+   "path": "src/backend/replication/logical/origin.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 112,
+   "translated": 109,
+   "preserved": 3,
+   "preserved_reasons": [
+    "blk22: bare /* indexOK */ identifier label kept EN (pure-label exception family)",
+    "blk63/blk105: bare /* WAL log */ section labels kept EN, budget-forced (WAL 日志=10B > 8B line budget; WAL kept EN per glossary)"
+   ],
+   "note": "P2 translation campaign wave G4"
+  },
+  {
+   "path": "src/backend/replication/logical/tablesync.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 125,
+   "translated": 123,
+   "preserved": 2,
+   "preserved_reasons": [
+    "blk100: bare /* two_phase */ identifier label kept EN (pure-label exception family)",
+    "blk104: bare /* WAL log */ label kept EN, budget-forced (WAL 日志=10B > 8B; origin.c blk63/105 same)"
+   ],
+   "note": "P2 translation campaign wave G4"
+  }
+ ],
+ "notes": "P2 remainder campaign, replication wave G4 (four logical-replication worker-lifecycle files, whole-file batch): launcher.c (apply launcher: worker slot management, subscription wakeups, last-start-times DSH), origin.c (replication origin session bookkeeping), applyparallelworker.c (parallel apply leader/worker shared-memory streaming: file-set spill, locks, transfetch), tablesync.c (initial table synchronization with its transient replication slot and copy loop).  477 blocks: launcher 111 (54 multi + 57 ONE), origin 112 (57 + 55), applyparallelworker 129 (89 + 40), tablesync 125 (76 + 49); 471 translated, 6 preserved (all bare identifier/budget-forced ONE labels: ErrorResponse, indexOK, two_phase, WAL log x3; reasons per file).  Pre-flight: all four agent specs passed the coordinator's independent per-file scans (exec, duplicate keys, edge keys, coverage, byte budgets vs dump-printed values); scanG4a/G4b needed label-line EN-value keys first (launcher blk75/77/78 ApplyLauncherShmemSize/Register/ShmemInit, origin blk17 IsReservedOriginName, per G3c blk0 NOTE: precedent); scanG4c/G4d were first-pass clean.  keyscanG4 full-batch scan: zero line-gaps, zero missing blocks.  Apply: 471 blocks rendered differently from EN (audit key pruned of the 6 EN-identical preserved labels, 471+6=477); exec_audit 471 OK, exec_spec_check OK.  Term triage: 6 new warning rows -> 1 real fix (launcher blk97 P17 缺失 -> 缺少, zero-byte, EN 'missing'; P17 decided form, forbidden 缺失) + 5 legal (applyparallelworker blk0 TL08/P23 'required' correctly rendered 需要; P63 blk0-header block- granularity family; P04 x2 where must-not is rendered as the decided 无法 or the positive-form 必须保持在...以内 rewrite, relation blk61/62 precedent), applied as spec edit + delta re-apply (exactly 1 block).  Gates: verify 614 files 0 violations (610 + the four G4 files entering the tool's counting domain, per the 0313-resolved explanation); term 0 errors, 729 warnings (724 baseline + 5 triaged rows above); render_scan x4 hard-zero (curly/odd-quote/ CJK-adjacent/EN residue); check_scope S2-only (.claude/scheduled_tasks.lock harness noise per 0305-0313 precedent).  Agent filings: origin -> 复制源 throughout (0312 slotfuncs precedent); latch -> 锁存器 (P68/T0272, overrides glossary 闩锁, filed); sync:/apply: flow markers and blk0 template rows kept EN (parse_enr.c precedent); budget-forced compressions filed per file.  Review r1: FAIL(minor), 2 defects (1 MED + 1 LOW), both with byte-exact fixes.py proposals, all coordinator-verified (EN quote verbatim, grep -n line numbers, byte-measured) before surgery.  D1 MED applyparallelworker 956/964/1432: EN 'replication origin' rendered 复制标识 (the REPLICA IDENTITY term) instead of the decided 复制源; the file had exactly 3 复制标识 sites and zero 复制源, while origin.c uses 复制源 throughout and tablesync blk54 keeps 复制标识 legitimately for 'replica identity' (line 824 EN verified) — a collision-type mistranslation.  Fixed as 3 spec edits, delta 3 blocks.  D2 LOW tablesync blk9 L243: closing ） dropped (EN closes the paren; block had open=1 close=0); raw pad 2B cannot admit the 3B fullwidth closer so the line was micro-compressed (不加锁-> 无锁, 造成误导->误导) to fit; delta 1 block.  Post-fix ZH-vs-EN per-block paren-parity scan across all four files: the only remaining difference is apw blk111 (NOTE1, fullwidth ） needs 3B against 2B remaining budget — byte-infeasible, filed); blk0/-3 and tablesync blk64/-3 mirror EN's own imbalance.  Reviewer NOTE filings kept: NOTE1 above; NOTE2 catalog -> 目录 12 sites without same-block mixing (deferred harmonization, per current criteria not a defect); NOTE3 apw blk0 \"in the opposite order\" EN-ambiguous, ZH reading context-consistent; NOTE4 launcher blk4 dropped period with 5B slack (no-period tail tolerance family, committed precedent).  Budget-figure correction: WAL log preserved-label budget is 8B (mid 9B), briefs said 7B; conclusion unchanged (WAL 日志= 10B > 8B).  Worktree byte-matches fixes.py 4/4; reviewer sim OK; six gates re-run green (verify 614/0; term 0 errors / 729 warnings unchanged with the same 5 legal G4 rows; render x4 hard-zero; audit 471 OK; spec_check OK; scope S2-only).  Review r2: PASS, 0 defects. Reviewer verified all 4 fixed lines (EN verbatim, byte-equal-to-EN 41/60/73/70B, worktree byte-equal to fixes.py proposals), delta containment proven stronger than required (side-by-side replay: launcher/origin zero-diff, apw exactly 3 lines, tablesync exactly 1 line), independently re-ran all six gates green (verify 614/0; term 0/729 byte-identical to r1; render x4 zero; audit 471; spec_check OK; scope S2-only), confirmed apw 复制标识=0 / 复制源=3, origin untouched (源=43), tablesync 824 legit 复制标识 in place, paren-parity residue = NOTE1 only, byte model re-run over all 471 blocks OK, and manifest numbers consistent (477=471+6; WAL log budget 8B correction landed).  Verdict: PASS."
+}

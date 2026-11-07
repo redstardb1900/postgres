@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_cte.c
- *	  handle CTEs (common table expressions) in parser
+ *	  解析器中处理 CTE（公共表表达式）  
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -27,18 +27,18 @@
 #include "utils/typcache.h"
 
 
-/* Enumeration of contexts in which a self-reference is disallowed */
+/* 枚举不允许自引用出现的上下文                      */
 typedef enum
 {
 	RECURSION_OK,
-	RECURSION_NONRECURSIVETERM, /* inside the left-hand term */
-	RECURSION_SUBLINK,			/* inside a sublink */
-	RECURSION_OUTERJOIN,		/* inside nullable side of an outer join */
-	RECURSION_INTERSECT,		/* underneath INTERSECT (ALL) */
-	RECURSION_EXCEPT			/* underneath EXCEPT (ALL) */
+	RECURSION_NONRECURSIVETERM, /* 位于左侧项内        */
+	RECURSION_SUBLINK,			/* 子链接内     */
+	RECURSION_OUTERJOIN,		/* 位于外连接的可空一侧        */
+	RECURSION_INTERSECT,		/* 位于 INTERSECT (ALL) 下 */
+	RECURSION_EXCEPT			/* 位于 EXCEPT (ALL) 下 */
 } RecursionContext;
 
-/* Associated error messages --- each must have one %s for CTE name */
+/* 关联的错误消息 --- 每条须含一个 %s 代表 CTE 名   */
 static const char *const recursion_errormsgs[] = {
 	/* RECURSION_OK */
 	NULL,
@@ -55,43 +55,43 @@ static const char *const recursion_errormsgs[] = {
 };
 
 /*
- * For WITH RECURSIVE, we have to find an ordering of the clause members
- * with no forward references, and determine which members are recursive
- * (i.e., self-referential).  It is convenient to do this with an array
- * of CteItems instead of a list of CommonTableExprs.
+ * 对于 WITH RECURSIVE，必须找出子句成员的一种            
+ * 无前向引用的排列顺序，并判定哪些成员是递归的   
+ * （即自引用）。用 CteItem 数组来做这件事，比用     
+ * CommonTableExpr 列表更方便                   
  */
 typedef struct CteItem
 {
-	CommonTableExpr *cte;		/* One CTE to examine */
-	int			id;				/* Its ID number for dependencies */
-	Bitmapset  *depends_on;		/* CTEs depended on (not including self) */
+	CommonTableExpr *cte;		/* 待检查的 CTE   */
+	int			id;				/* 依赖项的 ID 编号         */
+	Bitmapset  *depends_on;		/* 所依赖的 CTE（不含自身）    */
 } CteItem;
 
-/* CteState is what we need to pass around in the tree walkers */
+/* CteState 是树遍历过程中需要传递的状态         */
 typedef struct CteState
 {
-	/* global state: */
-	ParseState *pstate;			/* global parse state */
-	CteItem    *items;			/* array of CTEs and extra data */
-	int			numitems;		/* number of CTEs */
-	/* working state during a tree walk: */
-	int			curitem;		/* index of item currently being examined */
-	List	   *innerwiths;		/* list of lists of CommonTableExpr */
-	/* working state for checkWellFormedRecursion walk only: */
-	int			selfrefcount;	/* number of self-references detected */
-	RecursionContext context;	/* context to allow or disallow self-ref */
+	/* 全局状态  */
+	ParseState *pstate;			/* 全局解析状态 */
+	CteItem    *items;			/* CTE 数组及附加数据    */
+	int			numitems;		/* CTE 的数量  */
+	/* 树遍历期间的工作状态： */
+	int			curitem;		/* 当前正被检查的条目的下标   */
+	List	   *innerwiths;		/* CommonTableExpr 列表的列表  */
+	/* 仅供 checkWellFormedRecursion 遍历用的状态： */
+	int			selfrefcount;	/* 检测到的自引用数量        */
+	RecursionContext context;	/* 允许或禁止自引用的上下文  */
 } CteState;
 
 
 static void analyzeCTE(ParseState *pstate, CommonTableExpr *cte);
 
-/* Dependency processing functions */
+/* 依赖处理函数              */
 static void makeDependencyGraph(CteState *cstate);
 static bool makeDependencyGraphWalker(Node *node, CteState *cstate);
 static void WalkInnerWith(Node *stmt, WithClause *withClause, CteState *cstate);
 static void TopologicalSort(ParseState *pstate, CteItem *items, int numitems);
 
-/* Recursion validity checker functions */
+/* 递归有效性检查函数          */
 static void checkWellFormedRecursion(CteState *cstate);
 static bool checkWellFormedRecursionWalker(Node *node, CteState *cstate);
 static void checkWellFormedSelectStmt(SelectStmt *stmt, CteState *cstate);
@@ -99,35 +99,35 @@ static void checkWellFormedSelectStmt(SelectStmt *stmt, CteState *cstate);
 
 /*
  * transformWithClause -
- *	  Transform the list of WITH clause "common table expressions" into
- *	  Query nodes.
+ *	  把 WITH 子句的"公共表表达式"列表转换为 Query      
+ *	  节点。   
  *
- * The result is the list of transformed CTEs to be put into the output
- * Query.  (This is in fact the same as the ending value of p_ctenamespace,
- * but it seems cleaner to not expose that in the function's API.)
+ * 结果是转换后的 CTE 列表，将被放入输出               
+ * Query 中。（实际上这与 p_ctenamespace 的最终值相同，     
+ * 但不把它暴露在函数 API 中似乎更干净。）       
  */
 List *
 transformWithClause(ParseState *pstate, WithClause *withClause)
 {
 	ListCell   *lc;
 
-	/* Only one WITH clause per query level */
+	/* 每查询层级仅一个 WITH 子句 */
 	Assert(pstate->p_ctenamespace == NIL);
 	Assert(pstate->p_future_ctes == NIL);
 
 	/*
-	 * For either type of WITH, there must not be duplicate CTE names in the
-	 * list.  Check this right away so we needn't worry later.
+	 * 对于两种 WITH，列表中都不允许出现重复的             
+	 * CTE 名称。立刻做此检查，以免日后操心。
 	 *
-	 * Also, tentatively mark each CTE as non-recursive, and initialize its
-	 * reference count to zero, and set pstate->p_hasModifyingCTE if needed.
+	 * 另外，先把每个 CTE 暂标记为非递归，并将其         
+	 * 引用计数置零，并按需设置 pstate->p_hasModifyingCTE。    
 	 */
 	foreach(lc, withClause->ctes)
 	{
 		CommonTableExpr *cte = (CommonTableExpr *) lfirst(lc);
 		ListCell   *rest;
 
-		/* MERGE is allowed by parser, but unimplemented. Reject for now */
+		/* 解析器允许 MERGE，但尚未实现。暂时拒绝        */
 		if (IsA(cte->ctequery, MergeStmt))
 			ereport(ERROR,
 					errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -151,7 +151,7 @@ transformWithClause(ParseState *pstate, WithClause *withClause)
 
 		if (!IsA(cte->ctequery, SelectStmt))
 		{
-			/* must be a data-modifying statement */
+			/* 必须是数据修改语句        */
 			Assert(IsA(cte->ctequery, InsertStmt) ||
 				   IsA(cte->ctequery, UpdateStmt) ||
 				   IsA(cte->ctequery, DeleteStmt));
@@ -163,9 +163,9 @@ transformWithClause(ParseState *pstate, WithClause *withClause)
 	if (withClause->recursive)
 	{
 		/*
-		 * For WITH RECURSIVE, we rearrange the list elements if needed to
-		 * eliminate forward references.  First, build a work array and set up
-		 * the data structure needed by the tree walkers.
+		 * 对 WITH RECURSIVE，必要时会重排列表元素以         
+		 * 消除前向引用。首先构建工作数组，并建立树       
+		 * 遍历器所需的数据结构。             
 		 */
 		CteState	cstate;
 		int			i;
@@ -182,21 +182,21 @@ transformWithClause(ParseState *pstate, WithClause *withClause)
 		}
 
 		/*
-		 * Find all the dependencies and sort the CteItems into a safe
-		 * processing order.  Also, mark CTEs that contain self-references.
+		 * 找出全部依赖，并把 CteItem 排成安全的        
+		 * 处理顺序。同时标记含自引用的 CTE。               
 		 */
 		makeDependencyGraph(&cstate);
 
 		/*
-		 * Check that recursive queries are well-formed.
+		 * 检查递归查询是否形式良好。      
 		 */
 		checkWellFormedRecursion(&cstate);
 
 		/*
-		 * Set up the ctenamespace for parse analysis.  Per spec, all the WITH
-		 * items are visible to all others, so stuff them all in before parse
-		 * analysis.  We build the list in safe processing order so that the
-		 * planner can process the queries in sequence.
+		 * 为解析分析建立 ctenamespace。按标准，所有 WITH       
+		 * 条目彼此互相可见，因此要在解析分析之前全部   
+		 * 放入。我们按安全的处理顺序构建列表，以便     
+		 * 规划器能依次处理这些查询。     
 		 */
 		for (i = 0; i < cstate.numitems; i++)
 		{
@@ -206,7 +206,7 @@ transformWithClause(ParseState *pstate, WithClause *withClause)
 		}
 
 		/*
-		 * Do parse analysis in the order determined by the topological sort.
+		 * 按拓扑排序确定的顺序执行解析分析。               
 		 */
 		for (i = 0; i < cstate.numitems; i++)
 		{
@@ -218,11 +218,11 @@ transformWithClause(ParseState *pstate, WithClause *withClause)
 	else
 	{
 		/*
-		 * For non-recursive WITH, just analyze each CTE in sequence and then
-		 * add it to the ctenamespace.  This corresponds to the spec's
-		 * definition of the scope of each WITH name.  However, to allow error
-		 * reports to be aware of the possibility of an erroneous reference,
-		 * we maintain a list in p_future_ctes of the not-yet-visible CTEs.
+		 * 对于非递归 WITH，只需依次分析每个 CTE，然后      
+		 * 把它加入 ctenamespace。这对应于标准对各       
+		 * 个 WITH 名称作用域的定义。不过，为了让错误       
+		 * 报告能察觉错误引用的可能性，我们在              
+		 * p_future_ctes 中维护尚不可见的 CTE 列表。            
 		 */
 		pstate->p_future_ctes = list_copy(withClause->ctes);
 
@@ -241,9 +241,9 @@ transformWithClause(ParseState *pstate, WithClause *withClause)
 
 
 /*
- * Perform the actual parse analysis transformation of one CTE.  All
- * CTEs it depends on have already been loaded into pstate->p_ctenamespace,
- * and have been marked with the correct output column names/types.
+ * 对一个 CTE 执行实际的解析分析转换。它依赖的   
+ * 全部 CTE 都已装入 pstate->p_ctenamespace，                       
+ * 并且已标记了正确的输出列名/类型。               
  */
 static void
 analyzeCTE(ParseState *pstate, CommonTableExpr *cte)
@@ -252,13 +252,13 @@ analyzeCTE(ParseState *pstate, CommonTableExpr *cte)
 	CTESearchClause *search_clause = cte->search_clause;
 	CTECycleClause *cycle_clause = cte->cycle_clause;
 
-	/* Analysis not done already */
+	/* 尚未做过分析        */
 	Assert(!IsA(cte->ctequery, Query));
 
 	/*
-	 * Before analyzing the CTE's query, we'd better identify the data type of
-	 * the cycle mark column if any, since the query could refer to that.
-	 * Other validity checks on the cycle clause will be done afterwards.
+	 * 在分析 CTE 查询之前，最好先确定循环标记列            
+	 * （若有）的数据类型，因为查询可能引用它。      
+	 * cycle 子句的其他有效性检查随后进行。               
 	 */
 	if (cycle_clause)
 	{
@@ -300,7 +300,7 @@ analyzeCTE(ParseState *pstate, CommonTableExpr *cte)
 											   cycle_clause->cycle_mark_default),
 									true);
 
-		/* Might as well look up the relevant <> operator while we are at it */
+		/* 不妨顺带查找相关的 <> 操作符                          */
 		typentry = lookup_type_cache(cycle_clause->cycle_mark_type,
 									 TYPECACHE_EQ_OPR);
 		if (!OidIsValid(typentry->eq_opr))
@@ -318,13 +318,13 @@ analyzeCTE(ParseState *pstate, CommonTableExpr *cte)
 		cycle_clause->cycle_mark_neop = op;
 	}
 
-	/* Now we can get on with analyzing the CTE's query */
+	/* 现在可以继续分析该 CTE 的查询了     */
 	query = parse_sub_analyze(cte->ctequery, pstate, cte, false, true);
 	cte->ctequery = (Node *) query;
 
 	/*
-	 * Check that we got something reasonable.  These first two cases should
-	 * be prevented by the grammar.
+	 * 检查我们得到的东西是否合理。头两种情况            
+	 * 本应由文法阻止。    
 	 */
 	if (!IsA(query, Query))
 		elog(ERROR, "unexpected non-Query statement in WITH");
@@ -332,8 +332,8 @@ analyzeCTE(ParseState *pstate, CommonTableExpr *cte)
 		elog(ERROR, "unexpected utility statement in WITH");
 
 	/*
-	 * We disallow data-modifying WITH except at the top level of a query,
-	 * because it's not clear when such a modification should be executed.
+	 * 我们禁止数据修改型 WITH 出现在查询顶层以外，    
+	 * 因为这类修改应在何时执行并不明确。                
 	 */
 	if (query->commandType != CMD_SELECT &&
 		pstate->parentParseState != NULL)
@@ -343,24 +343,24 @@ analyzeCTE(ParseState *pstate, CommonTableExpr *cte)
 				 parser_errposition(pstate, cte->location)));
 
 	/*
-	 * CTE queries are always marked not canSetTag.  (Currently this only
-	 * matters for data-modifying statements, for which the flag will be
-	 * propagated to the ModifyTable plan node.)
+	 * CTE 查询总被标记为 canSetTag 为假。（目前这只      
+	 * 对数据修改语句有影响，该标志将被传播到        
+	 * ModifyTable 计划节点。）           
 	 */
 	query->canSetTag = false;
 
 	if (!cte->cterecursive)
 	{
-		/* Compute the output column names/types if not done yet */
+		/* 若尚未完成，则计算输出列名/类型        */
 		analyzeCTETargetList(pstate, cte, GetCTETargetList(cte));
 	}
 	else
 	{
 		/*
-		 * Verify that the previously determined output column types and
-		 * collations match what the query really produced.  We have to check
-		 * this because the recursive term could have overridden the
-		 * non-recursive term, and we don't have any easy way to fix that.
+		 * 校验先前确定的输出列类型和排序规则          
+		 * 是否与查询实际产出相符。必须做这项检查，      
+		 * 因为递归项可能覆盖了非递归项，而我们   
+		 * 没有任何简单的办法来修复。                        
 		 */
 		ListCell   *lctlist,
 				   *lctyp,
@@ -381,7 +381,7 @@ analyzeCTE(ParseState *pstate, CommonTableExpr *cte)
 				continue;
 			varattno++;
 			Assert(varattno == te->resno);
-			if (lctyp == NULL || lctypmod == NULL || lccoll == NULL)	/* shouldn't happen */
+			if (lctyp == NULL || lctypmod == NULL || lccoll == NULL)	/* 不应发生     */
 				elog(ERROR, "wrong number of output columns in WITH");
 			texpr = (Node *) te->expr;
 			if (exprType(texpr) != lfirst_oid(lctyp) ||
@@ -409,12 +409,12 @@ analyzeCTE(ParseState *pstate, CommonTableExpr *cte)
 			lctypmod = lnext(cte->ctecoltypmods, lctypmod);
 			lccoll = lnext(cte->ctecolcollations, lccoll);
 		}
-		if (lctyp != NULL || lctypmod != NULL || lccoll != NULL)	/* shouldn't happen */
+		if (lctyp != NULL || lctypmod != NULL || lccoll != NULL)	/* 不应发生     */
 			elog(ERROR, "wrong number of output columns in WITH");
 	}
 
 	/*
-	 * Now make validity checks on the SEARCH and CYCLE clauses, if present.
+	 * 现在对存在的 SEARCH 和 CYCLE 子句做有效性检查。      
 	 */
 	if (search_clause || cycle_clause)
 	{
@@ -428,19 +428,19 @@ analyzeCTE(ParseState *pstate, CommonTableExpr *cte)
 					 parser_errposition(pstate, cte->location)));
 
 		/*
-		 * SQL requires a WITH list element (CTE) to be "expandable" in order
-		 * to allow a search or cycle clause.  That is a stronger requirement
-		 * than just being recursive.  It basically means the query expression
-		 * looks like
+		 * SQL 需要 WITH 列表元素（CTE）必须是"可展开"的，   
+		 * 才允许带 search 或 cycle 子句。这比仅仅递归是      
+		 * 更强的要求。它基本上意味着查询表达式形如       
+		 *           
 		 *
 		 * non-recursive query UNION [ALL] recursive query
 		 *
-		 * and that the recursive query is not itself a set operation.
+		 * 且递归查询本身不是集合操作。                 
 		 *
-		 * As of this writing, most of these criteria are already satisfied by
-		 * all recursive CTEs allowed by PostgreSQL.  In the future, if
-		 * further variants recursive CTEs are accepted, there might be
-		 * further checks required here to determine what is "expandable".
+		 * 撰写本文时，PostgreSQL 允许的所有递归 CTE 都         
+		 * 已满足这些条件的大部分。将来若接受更多   
+		 * 变体的递归 CTE，此处可能需要进一步检查来  
+		 * 判定什么才算"可展开"。                               
 		 */
 
 		ctequery = castNode(Query, cte->ctequery);
@@ -448,9 +448,9 @@ analyzeCTE(ParseState *pstate, CommonTableExpr *cte)
 		sos = castNode(SetOperationStmt, ctequery->setOperations);
 
 		/*
-		 * This left side check is not required for expandability, but
-		 * rewriteSearchAndCycle() doesn't currently have support for it, so
-		 * we catch it here.
+		 * 这一左侧检查并非可展开性所必需，但        
+		 * rewriteSearchAndCycle() 目前尚不支持它，所以           
+		 * 在此捕获。  
 		 */
 		if (!IsA(sos->larg, RangeTblRef))
 			ereport(ERROR,
@@ -562,16 +562,16 @@ analyzeCTE(ParseState *pstate, CommonTableExpr *cte)
 }
 
 /*
- * Compute derived fields of a CTE, given the transformed output targetlist
+ * 给定转换后的输出目标列表，计算 CTE 的衍生字段       
  *
- * For a nonrecursive CTE, this is called after transforming the CTE's query.
- * For a recursive CTE, we call it after transforming the non-recursive term,
- * and pass the targetlist emitted by the non-recursive term only.
+ * 对非递归 CTE，在转换该 CTE 的查询之后调用。              
+ * 对递归 CTE，在转换非递归项之后调用，并且只             
+ * 传入非递归项产生的目标列表。                     
  *
- * Note: in the recursive case, the passed pstate is actually the one being
- * used to analyze the CTE's query, so it is one level lower down than in
- * the nonrecursive case.  This doesn't matter since we only use it for
- * error message context anyway.
+ * 注意：递归情形下传入的 pstate 实际上是正用于          
+ * 分析该 CTE 查询的那个，因此比非递归情形低           
+ * 一个层级。这无关紧要，因为我们只用它提供        
+ * 错误消息上下文。     
  */
 void
 analyzeCTETargetList(ParseState *pstate, CommonTableExpr *cte, List *tlist)
@@ -580,15 +580,15 @@ analyzeCTETargetList(ParseState *pstate, CommonTableExpr *cte, List *tlist)
 	int			varattno;
 	ListCell   *tlistitem;
 
-	/* Not done already ... */
+	/* 尚未完成……   */
 	Assert(cte->ctecolnames == NIL);
 
 	/*
-	 * We need to determine column names, types, and collations.  The alias
-	 * column names override anything coming from the query itself.  (Note:
-	 * the SQL spec says that the alias list must be empty or exactly as long
-	 * as the output column set; but we allow it to be shorter for consistency
-	 * with Alias handling.)
+	 * 我们需要确定列名、类型和排序规则。别名           
+	 * 列名会覆盖来自查询本身的任何名称。（注意：     
+	 * SQL 标准规定别名列表必须为空，或与输出列            
+	 * 集合完全等长；但为与 Alias 处理保持一致，我们       
+	 * 允许更短。）   
 	 */
 	cte->ctecolnames = copyObject(cte->aliascolnames);
 	cte->ctecoltypes = cte->ctecoltypmods = cte->ctecolcollations = NIL;
@@ -617,19 +617,19 @@ analyzeCTETargetList(ParseState *pstate, CommonTableExpr *cte, List *tlist)
 		colcoll = exprCollation((Node *) te->expr);
 
 		/*
-		 * If the CTE is recursive, force the exposed column type of any
-		 * "unknown" column to "text".  We must deal with this here because
-		 * we're called on the non-recursive term before there's been any
-		 * attempt to force unknown output columns to some other type.  We
-		 * have to resolve unknowns before looking at the recursive term.
+		 * 若 CTE 是递归的，则把任何"unknown"列的暴露     
+		 * 类型强制为"text"。必须在此处理这一点，因为    
+		 * 在对非递归项调用我们时，尚无人尝试过把     
+		 * unknown 输出列强制为其他类型。必须在查看       
+		 * 递归项之前解决 unknown 的问题。                    
 		 *
-		 * The column might contain 'foo' COLLATE "bar", so don't override
-		 * collation if it's already set.
+		 * 该列可能含有 'foo' COLLATE "bar"，若排序规则       
+		 * 已设置则勿覆盖。      
 		 */
 		if (cte->cterecursive && coltype == UNKNOWNOID)
 		{
 			coltype = TEXTOID;
-			coltypmod = -1;		/* should be -1 already, but be sure */
+			coltypmod = -1;		/* 本应为 -1，但需确认       */
 			if (!OidIsValid(colcoll))
 				colcoll = DEFAULT_COLLATION_OID;
 		}
@@ -647,8 +647,8 @@ analyzeCTETargetList(ParseState *pstate, CommonTableExpr *cte, List *tlist)
 
 
 /*
- * Identify the cross-references of a list of WITH RECURSIVE items,
- * and sort into an order that has no forward references.
+ * 识别 WITH RECURSIVE 条目列表的交叉引用，            
+ * 并排序成无前向引用的顺序。               
  */
 static void
 makeDependencyGraph(CteState *cstate)
@@ -669,8 +669,8 @@ makeDependencyGraph(CteState *cstate)
 }
 
 /*
- * Tree walker function to detect cross-references and self-references of the
- * CTEs in a WITH RECURSIVE list.
+ * 树遍历函数，用于检测 WITH RECURSIVE 列表中                   
+ * CTE 的交叉/自引用。    
  */
 static bool
 makeDependencyGraphWalker(Node *node, CteState *cstate)
@@ -681,13 +681,13 @@ makeDependencyGraphWalker(Node *node, CteState *cstate)
 	{
 		RangeVar   *rv = (RangeVar *) node;
 
-		/* If unqualified name, might be a CTE reference */
+		/* 若是非限定名，可能是 CTE 引用     */
 		if (!rv->schemaname)
 		{
 			ListCell   *lc;
 			int			i;
 
-			/* ... but first see if it's captured by an inner WITH */
+			/* ……但先看它是否被内层 WITH 捕获       */
 			foreach(lc, cstate->innerwiths)
 			{
 				List	   *withlist = (List *) lfirst(lc);
@@ -698,11 +698,11 @@ makeDependencyGraphWalker(Node *node, CteState *cstate)
 					CommonTableExpr *cte = (CommonTableExpr *) lfirst(lc2);
 
 					if (strcmp(rv->relname, cte->ctename) == 0)
-						return false;	/* yes, so bail out */
+						return false;	/* 是，故退出  */
 				}
 			}
 
-			/* No, could be a reference to the query level we are working on */
+			/* 否，可能是对我们正在处理的查询层级的引用  */
 			for (i = 0; i < cstate->numitems; i++)
 			{
 				CommonTableExpr *cte = cstate->items[i].cte;
@@ -713,14 +713,14 @@ makeDependencyGraphWalker(Node *node, CteState *cstate)
 
 					if (i != myindex)
 					{
-						/* Add cross-item dependency */
+						/* 添加跨条目依赖     */
 						cstate->items[myindex].depends_on =
 							bms_add_member(cstate->items[myindex].depends_on,
 										   cstate->items[i].id);
 					}
 					else
 					{
-						/* Found out this one is self-referential */
+						/* 发现此条目是自引用的         */
 						cte->cterecursive = true;
 					}
 					break;
@@ -735,12 +735,12 @@ makeDependencyGraphWalker(Node *node, CteState *cstate)
 
 		if (stmt->withClause)
 		{
-			/* Examine the WITH clause and the SelectStmt */
+			/* 检查 WITH 子句和 SelectStmt           */
 			WalkInnerWith(node, stmt->withClause, cstate);
-			/* We're done examining the SelectStmt */
+			/* SelectStmt 检查完毕             */
 			return false;
 		}
-		/* if no WITH clause, just fall through for normal processing */
+		/* 若无 WITH 子句，则直接落入常规处理           */
 	}
 	else if (IsA(node, InsertStmt))
 	{
@@ -748,12 +748,12 @@ makeDependencyGraphWalker(Node *node, CteState *cstate)
 
 		if (stmt->withClause)
 		{
-			/* Examine the WITH clause and the InsertStmt */
+			/* 检查 WITH 子句和 InsertStmt           */
 			WalkInnerWith(node, stmt->withClause, cstate);
-			/* We're done examining the InsertStmt */
+			/* InsertStmt 检查完毕             */
 			return false;
 		}
-		/* if no WITH clause, just fall through for normal processing */
+		/* 若无 WITH 子句，则直接落入常规处理           */
 	}
 	else if (IsA(node, DeleteStmt))
 	{
@@ -761,12 +761,12 @@ makeDependencyGraphWalker(Node *node, CteState *cstate)
 
 		if (stmt->withClause)
 		{
-			/* Examine the WITH clause and the DeleteStmt */
+			/* 检查 WITH 子句和 DeleteStmt           */
 			WalkInnerWith(node, stmt->withClause, cstate);
-			/* We're done examining the DeleteStmt */
+			/* DeleteStmt 检查完毕             */
 			return false;
 		}
-		/* if no WITH clause, just fall through for normal processing */
+		/* 若无 WITH 子句，则直接落入常规处理           */
 	}
 	else if (IsA(node, UpdateStmt))
 	{
@@ -774,12 +774,12 @@ makeDependencyGraphWalker(Node *node, CteState *cstate)
 
 		if (stmt->withClause)
 		{
-			/* Examine the WITH clause and the UpdateStmt */
+			/* 检查 WITH 子句和 UpdateStmt           */
 			WalkInnerWith(node, stmt->withClause, cstate);
-			/* We're done examining the UpdateStmt */
+			/* UpdateStmt 检查完毕             */
 			return false;
 		}
-		/* if no WITH clause, just fall through for normal processing */
+		/* 若无 WITH 子句，则直接落入常规处理           */
 	}
 	else if (IsA(node, MergeStmt))
 	{
@@ -787,19 +787,19 @@ makeDependencyGraphWalker(Node *node, CteState *cstate)
 
 		if (stmt->withClause)
 		{
-			/* Examine the WITH clause and the MergeStmt */
+			/* 检查 WITH 子句和 MergeStmt           */
 			WalkInnerWith(node, stmt->withClause, cstate);
-			/* We're done examining the MergeStmt */
+			/* MergeStmt 检查完毕             */
 			return false;
 		}
-		/* if no WITH clause, just fall through for normal processing */
+		/* 若无 WITH 子句，则直接落入常规处理           */
 	}
 	else if (IsA(node, WithClause))
 	{
 		/*
-		 * Prevent raw_expression_tree_walker from recursing directly into a
-		 * WITH clause.  We need that to happen only under the control of the
-		 * code above.
+		 * 阻止 raw_expression_tree_walker 直接递归进入             
+		 * WITH 子句。我们只希望它在上方代码控制下          
+		 * 发生。  
 		 */
 		return false;
 	}
@@ -809,10 +809,10 @@ makeDependencyGraphWalker(Node *node, CteState *cstate)
 }
 
 /*
- * makeDependencyGraphWalker's recursion into a statement having a WITH clause.
+ * makeDependencyGraphWalker 对带 WITH 子句语句的递归处理。        
  *
- * This subroutine is concerned with updating the innerwiths list correctly
- * based on the visibility rules for CTE names.
+ * 此子程序负责按 CTE 名称的可见性规则正确                
+ * 更新 innerwiths 列表。                 
  */
 static void
 WalkInnerWith(Node *stmt, WithClause *withClause, CteState *cstate)
@@ -822,9 +822,9 @@ WalkInnerWith(Node *stmt, WithClause *withClause, CteState *cstate)
 	if (withClause->recursive)
 	{
 		/*
-		 * In the RECURSIVE case, all query names of the WITH are visible to
-		 * all WITH items as well as the main query.  So push them all on,
-		 * process, pop them all off.
+		 * RECURSIVE 情形下，WITH 的全部查询名称对              
+		 * 所有 WITH 条目和主查询均可见。故全部压入，   
+		 * 处理，随后弹出。  
 		 */
 		cstate->innerwiths = lcons(withClause->ctes, cstate->innerwiths);
 		foreach(lc, withClause->ctes)
@@ -841,8 +841,8 @@ WalkInnerWith(Node *stmt, WithClause *withClause, CteState *cstate)
 	else
 	{
 		/*
-		 * In the non-RECURSIVE case, query names are visible to the WITH
-		 * items after them and to the main query.
+		 * 非 RECURSIVE 情形下，查询名称对其后的 WITH       
+		 * 条目以及主查询可见。         
 		 */
 		cstate->innerwiths = lcons(NIL, cstate->innerwiths);
 		foreach(lc, withClause->ctes)
@@ -851,7 +851,7 @@ WalkInnerWith(Node *stmt, WithClause *withClause, CteState *cstate)
 			ListCell   *cell1;
 
 			(void) makeDependencyGraphWalker(cte->ctequery, cstate);
-			/* note that recursion could mutate innerwiths list */
+			/* 注意递归可能修改 innerwiths 列表       */
 			cell1 = list_head(cstate->innerwiths);
 			lfirst(cell1) = lappend((List *) lfirst(cell1), cte);
 		}
@@ -863,7 +863,7 @@ WalkInnerWith(Node *stmt, WithClause *withClause, CteState *cstate)
 }
 
 /*
- * Sort by dependencies, using a standard topological sort operation
+ * 按依赖关系排序，采用标准拓扑排序操作           
  */
 static void
 TopologicalSort(ParseState *pstate, CteItem *items, int numitems)
@@ -871,17 +871,17 @@ TopologicalSort(ParseState *pstate, CteItem *items, int numitems)
 	int			i,
 				j;
 
-	/* for each position in sequence ... */
+	/* 对序列中的每个位置…… */
 	for (i = 0; i < numitems; i++)
 	{
-		/* ... scan the remaining items to find one that has no dependencies */
+		/* ……扫描其余条目，找出无依赖的一个               */
 		for (j = i; j < numitems; j++)
 		{
 			if (bms_is_empty(items[j].depends_on))
 				break;
 		}
 
-		/* if we didn't find one, the dependency graph has a cycle */
+		/* 若没找到，说明依赖图中存在环              */
 		if (j >= numitems)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -889,8 +889,8 @@ TopologicalSort(ParseState *pstate, CteItem *items, int numitems)
 					 parser_errposition(pstate, items[i].cte->location)));
 
 		/*
-		 * Found one.  Move it to front and remove it from every other item's
-		 * dependencies.
+		 * 找到了。把它移到最前，并从其他条目的依赖      
+		 * 中删除。 
 		 */
 		if (i != j)
 		{
@@ -902,8 +902,8 @@ TopologicalSort(ParseState *pstate, CteItem *items, int numitems)
 		}
 
 		/*
-		 * Items up through i are known to have no dependencies left, so we
-		 * can skip them in this loop.
+		 * 下标 i 及其之前的条目都已确认不再有依赖，    
+		 * 本循环可跳过它们。
 		 */
 		for (j = i + 1; j < numitems; j++)
 		{
@@ -915,7 +915,7 @@ TopologicalSort(ParseState *pstate, CteItem *items, int numitems)
 
 
 /*
- * Check that recursive queries are well-formed.
+ * 检查递归查询是否形式良好。      
  */
 static void
 checkWellFormedRecursion(CteState *cstate)
@@ -927,13 +927,13 @@ checkWellFormedRecursion(CteState *cstate)
 		CommonTableExpr *cte = cstate->items[i].cte;
 		SelectStmt *stmt = (SelectStmt *) cte->ctequery;
 
-		Assert(!IsA(stmt, Query));	/* not analyzed yet */
+		Assert(!IsA(stmt, Query));	/* 尚未分析     */
 
-		/* Ignore items that weren't found to be recursive */
+		/* 忽略未被判定为递归的条目            */
 		if (!cte->cterecursive)
 			continue;
 
-		/* Must be a SELECT statement */
+		/* 必须是 SELECT 语句    */
 		if (!IsA(stmt, SelectStmt))
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_RECURSION),
@@ -941,7 +941,7 @@ checkWellFormedRecursion(CteState *cstate)
 							cte->ctename),
 					 parser_errposition(cstate->pstate, cte->location)));
 
-		/* Must have top-level UNION */
+		/* 必须有顶层 UNION     */
 		if (stmt->op != SETOP_UNION)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_RECURSION),
@@ -950,12 +950,12 @@ checkWellFormedRecursion(CteState *cstate)
 					 parser_errposition(cstate->pstate, cte->location)));
 
 		/*
-		 * Really, we should insist that there not be a top-level WITH, since
-		 * syntactically that would enclose the UNION.  However, we've not
-		 * done so in the past and it's probably too late to change.  Settle
-		 * for insisting that WITH not contain a self-reference.  Test this
-		 * before examining the UNION arms, to avoid issuing confusing errors
-		 * in such cases.
+		 * 严格来说，我们本应坚持不允许出现顶层 WITH，    
+		 * 因为语法上它会包住 UNION。不过，过去我们      
+		 * 一直没有这么做，现在改恐怕已经太迟。退而     
+		 * 求其次：只要求 WITH 内不含自引用。                
+		 * 此项测试应在检查 UNION 各分支之前做，以免发出  
+		 * 含混报错  
 		 */
 		if (stmt->withClause)
 		{
@@ -969,13 +969,13 @@ checkWellFormedRecursion(CteState *cstate)
 		}
 
 		/*
-		 * Disallow ORDER BY and similar decoration atop the UNION. These
-		 * don't make sense because it's impossible to figure out what they
-		 * mean when we have only part of the recursive query's results. (If
-		 * we did allow them, we'd have to check for recursive references
-		 * inside these subtrees.  As for WITH, we have to do this before
-		 * examining the UNION arms, to avoid issuing confusing errors if
-		 * there is a recursive reference here.)
+		 * 禁止在 UNION 之上使用 ORDER BY 等类似修饰。      
+		 * 这类东西毫无意义，因为我们只拿到递归查询    
+		 * 结果的一部分时，根本无从判断其含义。（若     
+		 * 真的允许它们，就必须检查这些子树内部的     
+		 * 递归引用。至于 WITH，同样必须在检查            
+		 * UNION 各分支之前做此事，以免此处存在递归     
+		 * 引用时报出含混错误。）    
 		 */
 		if (stmt->sortClause)
 			ereport(ERROR,
@@ -1003,9 +1003,9 @@ checkWellFormedRecursion(CteState *cstate)
 										exprLocation((Node *) stmt->lockingClause))));
 
 		/*
-		 * Now we can get on with checking the UNION operands themselves.
+		 * 现在可以开始检查 UNION 操作数本身了。          
 		 *
-		 * The left-hand operand mustn't contain a self-reference at all.
+		 * 左操作数绝不能包含任何自引用。                 
 		 */
 		cstate->curitem = i;
 		cstate->innerwiths = NIL;
@@ -1014,20 +1014,20 @@ checkWellFormedRecursion(CteState *cstate)
 		checkWellFormedRecursionWalker((Node *) stmt->larg, cstate);
 		Assert(cstate->innerwiths == NIL);
 
-		/* Right-hand operand should contain one reference in a valid place */
+		/* 右操作数应在合法位置含恰好一个自引用           */
 		cstate->curitem = i;
 		cstate->innerwiths = NIL;
 		cstate->selfrefcount = 0;
 		cstate->context = RECURSION_OK;
 		checkWellFormedRecursionWalker((Node *) stmt->rarg, cstate);
 		Assert(cstate->innerwiths == NIL);
-		if (cstate->selfrefcount != 1)	/* shouldn't happen */
+		if (cstate->selfrefcount != 1)	/* 不应发生     */
 			elog(ERROR, "missing recursive reference");
 	}
 }
 
 /*
- * Tree walker function to detect invalid self-references in a recursive query.
+ * 树遍历函数：检测递归查询中无效的自引用。                
  */
 static bool
 checkWellFormedRecursionWalker(Node *node, CteState *cstate)
@@ -1040,13 +1040,13 @@ checkWellFormedRecursionWalker(Node *node, CteState *cstate)
 	{
 		RangeVar   *rv = (RangeVar *) node;
 
-		/* If unqualified name, might be a CTE reference */
+		/* 若是非限定名，可能是 CTE 引用     */
 		if (!rv->schemaname)
 		{
 			ListCell   *lc;
 			CommonTableExpr *mycte;
 
-			/* ... but first see if it's captured by an inner WITH */
+			/* ……但先看它是否被内层 WITH 捕获       */
 			foreach(lc, cstate->innerwiths)
 			{
 				List	   *withlist = (List *) lfirst(lc);
@@ -1057,15 +1057,15 @@ checkWellFormedRecursionWalker(Node *node, CteState *cstate)
 					CommonTableExpr *cte = (CommonTableExpr *) lfirst(lc2);
 
 					if (strcmp(rv->relname, cte->ctename) == 0)
-						return false;	/* yes, so bail out */
+						return false;	/* 是，故退出  */
 				}
 			}
 
-			/* No, could be a reference to the query level we are working on */
+			/* 否，可能是对我们正在处理的查询层级的引用  */
 			mycte = cstate->items[cstate->curitem].cte;
 			if (strcmp(rv->relname, mycte->ctename) == 0)
 			{
-				/* Found a recursive reference to the active query */
+				/* 发现对当前活动查询的递归引用      */
 				if (cstate->context != RECURSION_OK)
 					ereport(ERROR,
 							(errcode(ERRCODE_INVALID_RECURSION),
@@ -1073,7 +1073,7 @@ checkWellFormedRecursionWalker(Node *node, CteState *cstate)
 									mycte->ctename),
 							 parser_errposition(cstate->pstate,
 												rv->location)));
-				/* Count references */
+				/* 统计引用     */
 				if (++(cstate->selfrefcount) > 1)
 					ereport(ERROR,
 							(errcode(ERRCODE_INVALID_RECURSION),
@@ -1095,9 +1095,9 @@ checkWellFormedRecursionWalker(Node *node, CteState *cstate)
 			if (stmt->withClause->recursive)
 			{
 				/*
-				 * In the RECURSIVE case, all query names of the WITH are
-				 * visible to all WITH items as well as the main query. So
-				 * push them all on, process, pop them all off.
+				 * 在 RECURSIVE 情形下，WITH 的所有查询名     
+				 * 对主查询以及所有 WITH 条目均可见。因此 
+				 * 全部压入，处理，再全部弹出。  
 				 */
 				cstate->innerwiths = lcons(stmt->withClause->ctes,
 										   cstate->innerwiths);
@@ -1113,8 +1113,8 @@ checkWellFormedRecursionWalker(Node *node, CteState *cstate)
 			else
 			{
 				/*
-				 * In the non-RECURSIVE case, query names are visible to the
-				 * WITH items after them and to the main query.
+				 * 在非 RECURSIVE 情形下，查询名称对其后的    
+				 * WITH 条目以及主查询可见。         
 				 */
 				cstate->innerwiths = lcons(NIL, cstate->innerwiths);
 				foreach(lc, stmt->withClause->ctes)
@@ -1123,7 +1123,7 @@ checkWellFormedRecursionWalker(Node *node, CteState *cstate)
 					ListCell   *cell1;
 
 					(void) checkWellFormedRecursionWalker(cte->ctequery, cstate);
-					/* note that recursion could mutate innerwiths list */
+					/* 注意递归可能修改 innerwiths 列表       */
 					cell1 = list_head(cstate->innerwiths);
 					lfirst(cell1) = lappend((List *) lfirst(cell1), cte);
 				}
@@ -1133,15 +1133,15 @@ checkWellFormedRecursionWalker(Node *node, CteState *cstate)
 		}
 		else
 			checkWellFormedSelectStmt(stmt, cstate);
-		/* We're done examining the SelectStmt */
+		/* SelectStmt 检查完毕             */
 		return false;
 	}
 	if (IsA(node, WithClause))
 	{
 		/*
-		 * Prevent raw_expression_tree_walker from recursing directly into a
-		 * WITH clause.  We need that to happen only under the control of the
-		 * code above.
+		 * 阻止 raw_expression_tree_walker 直接递归进入             
+		 * WITH 子句。我们只希望它在上方代码控制下          
+		 * 发生。  
 		 */
 		return false;
 	}
@@ -1191,8 +1191,8 @@ checkWellFormedRecursionWalker(Node *node, CteState *cstate)
 		SubLink    *sl = (SubLink *) node;
 
 		/*
-		 * we intentionally override outer context, since subquery is
-		 * independent
+		 * 有意覆盖外层上下文，因为子查询是          
+		 * 独立的  
 		 */
 		cstate->context = RECURSION_SUBLINK;
 		checkWellFormedRecursionWalker(sl->subselect, cstate);
@@ -1206,8 +1206,8 @@ checkWellFormedRecursionWalker(Node *node, CteState *cstate)
 }
 
 /*
- * subroutine for checkWellFormedRecursionWalker: process a SelectStmt
- * without worrying about its WITH clause
+ * checkWellFormedRecursionWalker 的子例程：处理 SelectStmt， 
+ * 无需理会其 WITH 子句           
  */
 static void
 checkWellFormedSelectStmt(SelectStmt *stmt, CteState *cstate)
@@ -1216,7 +1216,7 @@ checkWellFormedSelectStmt(SelectStmt *stmt, CteState *cstate)
 
 	if (save_context != RECURSION_OK)
 	{
-		/* just recurse without changing state */
+		/* 仅继续递归，不改变状态   */
 		raw_expression_tree_walker((Node *) stmt,
 								   checkWellFormedRecursionWalker,
 								   (void *) cstate);
@@ -1247,7 +1247,7 @@ checkWellFormedSelectStmt(SelectStmt *stmt, CteState *cstate)
 											   cstate);
 				checkWellFormedRecursionWalker((Node *) stmt->lockingClause,
 											   cstate);
-				/* stmt->withClause is intentionally ignored here */
+				/* 此处有意忽略 stmt->withClause            */
 				break;
 			case SETOP_EXCEPT:
 				if (stmt->all)
@@ -1266,7 +1266,7 @@ checkWellFormedSelectStmt(SelectStmt *stmt, CteState *cstate)
 											   cstate);
 				checkWellFormedRecursionWalker((Node *) stmt->lockingClause,
 											   cstate);
-				/* stmt->withClause is intentionally ignored here */
+				/* 此处有意忽略 stmt->withClause            */
 				break;
 			default:
 				elog(ERROR, "unrecognized set op: %d",

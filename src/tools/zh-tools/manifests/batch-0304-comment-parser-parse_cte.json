@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "batch_id": "0304-comment-parse-cte",
+  "title": "Translate comments: parser-parse_cte",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "7df58b83398801710e376a682eff09728b00c4b4",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0304-comment-parser-parse_cte.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/parser/**",
+      "kind": "c_comment",
+      "note": "P2 comment translation campaign"
+    },
+    {
+      "pattern": "src/tools/zh-tools/zhtools/c_verify.py",
+      "kind": "tool",
+      "note": "tool change riding with this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0304-comment-parser-parse_cte.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": []
+    },
+    {
+      "path": "src/tools/zh-tools/zhtools/c_verify.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "tool change riding with this batch"
+    },
+    {
+      "path": "src/backend/parser/parse_cte.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 123,
+      "translated": 117,
+      "preserved": 6,
+      "preserved_reasons": [
+        "Six /* RECURSION_* */ identifier labels (blk8-13: OK/NONRECURSIVETERM/SUBLINK/OUTERJOIN/INTERSECT/EXCEPT) heading the recursion_errormsgs[] gettext_noop strings — identifier-label blocks kept byte-identical"
+      ],
+      "note": "P2 translation campaign wave F29/F30"
+    }
+  ],
+  "notes": "Whole-file batch: 123 blocks, 117 translated, 6 preserved (RECURSION_* identifier labels). Pre-flight: duplicate-key scan zero; phrasebook adjudication with 2 ammo fixes in this file (P41 运算符->操作符 blk45, P08 非法->无效 blk106) and 9 legal leaves EN-verified (requirement-noun, insisting->要求, mustn't->绝不能, says-to-do, insists-on, is-wanted, illegal->非法, required-by passive, if-requested). Tool change riding with this batch: c_verify.py gains _PARSECTE_FALLTHROUGH_PROSE (EN L743-795 five same-prose 'fall through for normal processing' sites). Gates: verify 0 violations, term 0 errors (L430 TL08/P23 advisory on fixed requires->需要), render hard-zero, audit 117, spec_check OK, check_scope PASS. Review round 1: PASS (0 HIGH/MED, 2 LOW, 4 NOTE); post-PASS coordinator adjudication applied 4 line fixes via specs (LOW-1 blk32 每层级->每查询层级 qualifier restored; NOTE-1 blk117 unified to identical-EN twin blk85: 阻止/控制/。, resolving NOTE-2 掌控->控制), delta exactly 4 lines, six gates re-green; LOW-2 (blk101 'in such cases', budget-infeasible) and NOTE-3/NOTE-4 filed."
+}

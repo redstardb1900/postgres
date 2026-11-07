@@ -217,6 +217,13 @@ _PARSEEXPR_FALLTHROUGH_PROSE = re.compile(
 _PARSETARGET_FALLTHROUGH_PROSE = re.compile(
     rb"fall through to inspect the expression|Fall through and fail")
 
+# parse_cte.c transformCTEParse prose (five byte-identical one-line
+# comments): "just fall through for normal processing" describes the
+# no-WITH-clause path continuing by ordinary control flow (no switch).
+# Not a GCC -Wimplicit-fallthrough annotation.
+_PARSECTE_FALLTHROUGH_PROSE = re.compile(
+    rb"fall through for normal processing")
+
 
 def legal_protected_segments(old_text):
     """Return Copyright/IDENTIFICATION/licence line blobs that must survive.
@@ -295,7 +302,8 @@ def protected_reason(old_text):
                     or _PARSECLAUSE_GROUPBY_FALLTHROUGH_PROSE.search(old_text)
                     or _PARSECOERCE_FALLTHROUGH_PROSE.search(old_text)
                     or _PARSEEXPR_FALLTHROUGH_PROSE.search(old_text)
-                    or _PARSETARGET_FALLTHROUGH_PROSE.search(old_text)):
+                    or _PARSETARGET_FALLTHROUGH_PROSE.search(old_text)
+                    or _PARSECTE_FALLTHROUGH_PROSE.search(old_text)):
                 continue
             return name
     return None

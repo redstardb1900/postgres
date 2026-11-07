@@ -1,0 +1,67 @@
+{
+ "schema_version": 1,
+ "batch_id": "0313-comment-replication-decode",
+ "title": "Translate comments: replication-decode",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "757deb5ce95e27206bcca587d733ee98988cd2af",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0313-comment-replication-decode.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/replication/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0313-comment-replication-decode.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/replication/libpqwalreceiver/libpqwalreceiver.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 88,
+   "translated": 87,
+   "preserved": 1,
+   "preserved_reasons": [
+    "blk13: bare /* expand_dbname = */ identifier label kept EN (pure-label exception; R5 family precedent, slotfuncs blk28 /* fast_forward */ same family)"
+   ],
+   "note": "P2 translation campaign wave G3"
+  },
+  {
+   "path": "src/backend/replication/logical/decode.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 88,
+   "translated": 87,
+   "preserved": 1,
+   "preserved_reasons": [
+    "blk39: two-line block whose only prose sits on line0 and the closing edge (/* first part of message is prefix */); byte-exact model keeps both edges EN (两行边行结构类; syncrep blk55, postgres.c 283/436 precedents)"
+   ],
+   "note": "P2 translation campaign wave G3"
+  },
+  {
+   "path": "src/backend/replication/logical/proto.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 154,
+   "translated": 154,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "P2 translation campaign wave G3"
+  }
+ ],
+ "notes": "P2 translation campaign wave G3 (third replication batch: libpq transport, wire protocol, decoding driver). Translation agents (G3a: libpqwalreceiver; G3b: proto; G3c: decode; anti-32k small-step discipline built into prompts from the start — zero output-cap deaths this batch) -> coordinator pre-flight scans (per-file scanG3a/b/c: exec, duplicate-key, edge-key, coverage, budgets vs dump-printed values; scanG3c caught decode blk0 j9 missing despite the agent's zero-missing-keys self-audit claim, fixed with EN-value key NOTE:; blk39 empty-dict entry normalized to preserve-by-omission) -> keyscanG3 full-batch green (only BLOCK-MISSING [13] = intentional) -> exec_apply 328 blocks(zero no-op) -> term triage: 7 real rows fixed as spec edits + delta re-apply (5 blocks): P70/TL10 主服务器 -> 主库 x3 (EN primary server, replication role; 5 主库 sites already in the same file, committed corpus zero 主服务器), P26 放弃 -> 中止 (EN 'we aborted the copy', 放弃 is a forbidden form), P64 再试一次 -> 重试 x2 (decided try-again rendering; forbidden 再试), prepare/commit/abort trio -> 准备/提交/中止 x2 twin blocks (blk44 + blk51 via dict-copy entry, rule-compliant prose form); 8 remaining rows triaged advisory with row-level EN evidence (P24 x2 预期 = decided good form for 'expected'; P26 x2 中止 present in good form, block-granularity reminder family per 0312 syncrep blk16 precedent; P38 x4 记录/元组 correctly mapped per EN record/tuple). Six gates green (verify 610 files 0 violations — count drift 604->607->610 recorded, reviewer-assessed as tool statistics-domain difference, git=find=1237 .c; term 0 errors 724 warnings; render x3 hard-zero; audit 328 OK; spec_check OK; check_scope pending manifest). Notable agent filings: G3b 4 at-budget lines (blk2j4 12/12, blk20j1 66/66, blk119j1 56/56, blk120 28/28), blk110 /* data */ -> 值 (5B, single-char precedent), origin kept EN at parameter-name sites; G3c XLOG_HEAP2_MULTI_INSERT odd name verified at decode.c:1105; G3a 句号独占末行 x4 budget-forced. 328 translated / 2 preserved. Review r1: FAIL(minor), 6 defects (2 MED + 4 LOW), all six gates and the independent byte model green (330=328+2, preserved blocks byte-identical, edge-key专项 clean incl. the G3c dict-copy twin blk51). Defects, each coordinator-verified (EN quote verbatim, grep -n line numbers, byte-measured) before surgery: D1 MED decode blk22 L4/L5 cross-line duplicated 已准备 (L380 tail dropped, 64B=EN); D2 MED decode blk56 L1 dangling sentence — no predicate, tuplebufs lost -> 解析 XLOG_HEAP_INSERT（非 MULTI_INSERT！）进元组缓冲。(69B=EN, sibling blk64 form); D3 LOW decode blk45 L13 dropped hedge seem (agent had filed it budget-forced but slack was 3) -> 似不值得 (78B=EN); D4 LOW libpqwalreceiver blk63 L12 dropped conditional if -> 若服务器已结束 COPY。(36B=EN, restores the Returns-case parallelism); D5 LOW libpqwalreceiver blk87 L1/L2 dropped comma separated (core behavior) -> reflow 单个逗号分隔/字符串 (63/41B=EN); D6 LOW decode blk20 in-block 目录表/系统表 inconsistency (EN catalog tables twice) -> 目录->系统 byte-equal. Reviewer filings verified: G3b blk110 /* data */ -> 值 budget-forced (4B cannot hold 数据); G3c no-period tails x5 slack 1-2B forced; D3 was the only misfiled one. Advisory records: 句号独占末行 house style (committed async.c:818/copy.c:156 precedents, slack actually >=3B at those sites — noted as imprecise manifest wording, kept as-is per precedent); CJK-Latin spacing family deferred (spacing pass); proto blk30 conjunction scope micro-difference; 预备 vs 已准备 one-char difference filed for future unification. All fixes applied as spec edits + delta re-apply (exactly 6 blocks: G3a 2 + G3c 4, G3b 0); worktree lines byte-match fixes.py 7/7; six gates re-run green (verify 610/0; term 0 errors 724 warnings unchanged; render x3 hard-zero; audit 328 OK; spec_check OK; scope S2-only). File-count question resolved: git diff --name-only REL_16_11 has exactly 610 C-family paths = tool counting domain; git ls-files '*.c'=1396 whole-tree vs find src=1237 are different scopes, not drift. Review r2: PASS, 0 defects, no fixes file. Reviewer independently re-ran all six gates (all matching: verify 610/0, term 0 errors / 724 warnings byte-identical to r1 baseline, render x3 hard-zero, audit 328 OK, spec_check OK, scope S2-only), re-verified all 7 fixed lines at grep -n line numbers with byte-equal-to-EN lengths (64/65/69/78/36/63/41B) and semantics in place (D1 cross-line duplication gone, D2 both catalog-tables sites now 系统表, D3 predicate + tuplebufs restored, D4 若 conditional restored with Returns-case parallelism, D5 comma separated restored), cmp-confirmed the worktree is byte-identical to the r1 sim copies so untouched block lines were not affected and the delta is exactly the 7 lines; git status contained to 3 .c + new manifest, proto.c mtime predates the fix moment; r1 advisory dispositions maintained (same 8 warning rows, no additions, no in-situ contradictions); style scans on the 6 fixed blocks all zero. Verdict: PASS."
+}

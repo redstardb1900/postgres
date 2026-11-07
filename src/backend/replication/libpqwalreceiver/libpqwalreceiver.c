@@ -2,9 +2,9 @@
  *
  * libpqwalreceiver.c
  *
- * This file contains the libpq-specific parts of walreceiver. It's
- * loaded as a dynamic module to avoid linking the main server binary with
- * libpq.
+ * 本文件包含 walreceiver 中与 libpq 相关的部分。它  
+ * 以动态模块加载，以免主库二进制链接到此              
+ * 库。
  *
  * Portions Copyright (c) 2010-2023, PostgreSQL Global Development Group
  *
@@ -38,15 +38,15 @@ PG_MODULE_MAGIC;
 
 struct WalReceiverConn
 {
-	/* Current connection to the primary, if any */
+	/* 当前与主库的连接（若有）      */
 	PGconn	   *streamConn;
-	/* Used to remember if the connection is logical or physical */
+	/* 用于记住该连接是逻辑的还是物理的          */
 	bool		logical;
-	/* Buffer for currently read records */
+	/* 当前所读记录的缓冲区    */
 	char	   *recvBuf;
 };
 
-/* Prototypes for interface functions */
+/* 接口函数的原型              */
 static WalReceiverConn *libpqrcv_connect(const char *conninfo,
 										 bool logical, bool must_use_password,
 										 const char *appname, char **err);
@@ -100,13 +100,13 @@ static WalReceiverFunctionsType PQWalReceiverFunctions = {
 	.walrcv_disconnect = libpqrcv_disconnect
 };
 
-/* Prototypes for private functions */
+/* 私有函数的原型            */
 static PGresult *libpqrcv_PQexec(PGconn *streamConn, const char *query);
 static PGresult *libpqrcv_PQgetResult(PGconn *streamConn);
 static char *stringlist_to_identifierstr(PGconn *conn, List *strings);
 
 /*
- * Module initialization function
+ * 模块初始化函数         
  */
 void
 _PG_init(void)
@@ -117,15 +117,15 @@ _PG_init(void)
 }
 
 /*
- * Establish the connection to the primary server for XLOG streaming
+ * 建立到主库的连接以进行 XLOG 流式传输              
  *
- * If an error occurs, this function will normally return NULL and set *err
- * to a palloc'ed error message. However, if must_use_password is true and
- * the connection fails to use the password, this function will ereport(ERROR).
- * We do this because in that case the error includes a detail and a hint for
- * consistency with other parts of the system, and it's not worth adding the
- * machinery to pass all of those back to the caller just to cover this one
- * case.
+ * 如果发生错误，本函数通常将返回 NULL 并把 *err          
+ * 设置为 palloc 分配的错误消息。但如果 must_use_password   
+ * 为真且连接使用密码失败，本函数将 ereport(ERROR)。          
+ * 这样做是因为这种情况下，错误会带有细节和              
+ * 提示，以便与系统的其他部分保持一致；而仅为覆盖这 
+ * 一情况就添加机制把它们传回调用方并不值得            
+ * 。  
  */
 static WalReceiverConn *
 libpqrcv_connect(const char *conninfo, bool logical, bool must_use_password,
@@ -138,17 +138,17 @@ libpqrcv_connect(const char *conninfo, bool logical, bool must_use_password,
 	int			i = 0;
 
 	/*
-	 * Re-validate connection string. The validation already happened at DDL
-	 * time, but the subscription owner may have changed. If we don't recheck
-	 * with the correct must_use_password, it's possible that the connection
-	 * will obtain the password from a different source, such as PGPASSFILE or
-	 * PGPASSWORD.
+	 * 重新验证连接串。验证已经在 DDL 时执行过，但订阅 
+	 * 的所有者可能已经改变。如果我们不使用正确的       
+	 * must_use_password 重新检查，连接有可能从不同            
+	 * 的来源获取密码，例如 PGPASSFILE 或 PGPASSWORD               
+	 * 。        
 	 */
 	libpqrcv_check_conninfo(conninfo, must_use_password);
 
 	/*
-	 * We use the expand_dbname parameter to process the connection string (or
-	 * URI), and pass some extra options.
+	 * 我们使用 expand_dbname 参数来处理连接串（或 URI），    
+	 * 并传递一些额外的选项。 
 	 */
 	keys[i] = "dbname";
 	vals[i] = conninfo;
@@ -157,8 +157,8 @@ libpqrcv_connect(const char *conninfo, bool logical, bool must_use_password,
 	if (!logical)
 	{
 		/*
-		 * The database name is ignored by the server in replication mode, but
-		 * specify "replication" for .pgpass lookup.
+		 * 在复制模式下，服务器会忽略数据库名，但指定    
+		 * "replication" 供 .pgpass 查找。      
 		 */
 		keys[++i] = "dbname";
 		vals[i] = "replication";
@@ -167,17 +167,17 @@ libpqrcv_connect(const char *conninfo, bool logical, bool must_use_password,
 	vals[i] = appname;
 	if (logical)
 	{
-		/* Tell the publisher to translate to our encoding */
+		/* 告知发布者转换为我们的编码         */
 		keys[++i] = "client_encoding";
 		vals[i] = GetDatabaseEncodingName();
 
 		/*
-		 * Force assorted GUC parameters to settings that ensure that the
-		 * publisher will output data values in a form that is unambiguous to
-		 * the subscriber.  (We don't want to modify the subscriber's GUC
-		 * settings, since that might surprise user-defined code running in
-		 * the subscriber, such as triggers.)  This should match what pg_dump
-		 * does.
+		 * 强制将各种 GUC 参数设为能确保发布者            
+		 * 以无歧义的形式输出数据值的设置。                  
+		 * （我们不想修改订阅者的 GUC 设置，               
+		 * 会令在其中运行的用户自定义代码感到             
+		 * 意外，例如触发器。）此处应做到与 pg_dump 一致   
+		 * 。  
 		 */
 		keys[++i] = "options";
 		vals[i] = "-c datestyle=ISO -c intervalstyle=postgres -c extra_float_digits=3";
@@ -194,9 +194,9 @@ libpqrcv_connect(const char *conninfo, bool logical, bool must_use_password,
 		goto bad_connection_errmsg;
 
 	/*
-	 * Poll connection until we have OK or FAILED status.
+	 * 轮询连接直到获得 OK 或 FAILED 状态。  
 	 *
-	 * Per spec for PQconnectPoll, first wait till socket is write-ready.
+	 * 按 PQconnectPoll 规范，首先等待套接字变为可写。   
 	 */
 	status = PGRES_POLLING_WRITING;
 	do
@@ -207,7 +207,7 @@ libpqrcv_connect(const char *conninfo, bool logical, bool must_use_password,
 		if (status == PGRES_POLLING_READING)
 			io_flag = WL_SOCKET_READABLE;
 #ifdef WIN32
-		/* Windows needs a different test while waiting for connection-made */
+		/* 在等待连接建立时 Windows 需要不同的检测           */
 		else if (PQstatus(conn->streamConn) == CONNECTION_STARTED)
 			io_flag = WL_SOCKET_CONNECTED;
 #endif
@@ -220,14 +220,14 @@ libpqrcv_connect(const char *conninfo, bool logical, bool must_use_password,
 							   0,
 							   WAIT_EVENT_LIBPQWALRECEIVER_CONNECT);
 
-		/* Interrupted? */
+		/* 中断？    */
 		if (rc & WL_LATCH_SET)
 		{
 			ResetLatch(MyLatch);
 			ProcessWalRcvInterrupts();
 		}
 
-		/* If socket is ready, advance the libpq state machine */
+		/* 如果套接字就绪，则推进 libpq 状态机   */
 		if (rc & io_flag)
 			status = PQconnectPoll(conn->streamConn);
 	} while (status != PGRES_POLLING_OK && status != PGRES_POLLING_FAILED);
@@ -267,11 +267,11 @@ libpqrcv_connect(const char *conninfo, bool logical, bool must_use_password,
 
 	return conn;
 
-	/* error path, using libpq's error message */
+	/* 错误路径，用 libpq 的错误消息*/
 bad_connection_errmsg:
 	*err = pchomp(PQerrorMessage(conn->streamConn));
 
-	/* error path, error already set */
+	/* 错误路径，错误已设置*/
 bad_connection:
 	PQfinish(conn->streamConn);
 	pfree(conn);
@@ -279,12 +279,12 @@ bad_connection:
 }
 
 /*
- * Validate connection info string, and determine whether it might cause
- * local filesystem access to be attempted.
+ * 验证连接信息串，并判断它是否可能导致尝试访问   
+ * 本地文件系统。                   
  *
- * If the connection string can't be parsed, this function will raise
- * an error and will not return. If it can, it will return true if this
- * connection string specifies a password and false otherwise.
+ * 如果连接串无法被解析，本函数将抛出错误并且   
+ * 不再返回。如果可以解析，则当该连接串指定了     
+ * 密码时返回 true，否则返回 false。               
  */
 static void
 libpqrcv_check_conninfo(const char *conninfo, bool must_use_password)
@@ -296,7 +296,7 @@ libpqrcv_check_conninfo(const char *conninfo, bool must_use_password)
 	opts = PQconninfoParse(conninfo, &err);
 	if (opts == NULL)
 	{
-		/* The error string is malloc'd, so we must free it explicitly */
+		/* 错误串由 malloc 分配，所以必须显式释放它    */
 		char	   *errcopy = err ? pstrdup(err) : "out of memory";
 
 		PQfreemem(err);
@@ -311,7 +311,7 @@ libpqrcv_check_conninfo(const char *conninfo, bool must_use_password)
 
 		for (opt = opts; opt->keyword != NULL; ++opt)
 		{
-			/* Ignore connection options that are not present. */
+			/* 忽略不存在的连接选项。               */
 			if (opt->val == NULL)
 				continue;
 
@@ -324,7 +324,7 @@ libpqrcv_check_conninfo(const char *conninfo, bool must_use_password)
 
 		if (!uses_password)
 		{
-			/* malloc'd, so we must free it explicitly */
+			/* 由 malloc 分配，必须显式释放  */
 			PQconninfoFree(opts);
 
 			ereport(ERROR,
@@ -338,8 +338,8 @@ libpqrcv_check_conninfo(const char *conninfo, bool must_use_password)
 }
 
 /*
- * Return a user-displayable conninfo string.  Any security-sensitive fields
- * are obfuscated.
+ * 返回供用户查看的 conninfo 串。安全敏感字段               
+ * 均被混淆。
  */
 static char *
 libpqrcv_get_conninfo(WalReceiverConn *conn)
@@ -360,18 +360,18 @@ libpqrcv_get_conninfo(WalReceiverConn *conn)
 				 errmsg("could not parse connection string: %s",
 						_("out of memory"))));
 
-	/* build a clean connection string from pieces */
+	/* 由各部分构建干净的连接串        */
 	for (conn_opt = conn_opts; conn_opt->keyword != NULL; conn_opt++)
 	{
 		bool		obfuscate;
 
-		/* Skip debug and empty options */
+		/* 跳过 debug 与空选项    */
 		if (strchr(conn_opt->dispchar, 'D') ||
 			conn_opt->val == NULL ||
 			conn_opt->val[0] == '\0')
 			continue;
 
-		/* Obfuscate security-sensitive options */
+		/* 混淆安全敏感的选项          */
 		obfuscate = strchr(conn_opt->dispchar, '*') != NULL;
 
 		appendPQExpBuffer(&buf, "%s%s=%s",
@@ -388,7 +388,7 @@ libpqrcv_get_conninfo(WalReceiverConn *conn)
 }
 
 /*
- * Provides information of sender this WAL receiver is connected to.
+ * 提供本 WAL 接收进程所连接到的发送方的信息。   
  */
 static void
 libpqrcv_get_senderinfo(WalReceiverConn *conn, char **sender_host,
@@ -411,8 +411,8 @@ libpqrcv_get_senderinfo(WalReceiverConn *conn, char **sender_host,
 }
 
 /*
- * Check that primary's system identifier matches ours, and fetch the current
- * timeline ID of the primary.
+ * 检查主库的系统标识符是否与我们的一致，并获取主库  
+ * 当前的时间线 ID。   
  */
 static char *
 libpqrcv_identify_system(WalReceiverConn *conn, TimeLineID *primary_tli)
@@ -421,8 +421,8 @@ libpqrcv_identify_system(WalReceiverConn *conn, TimeLineID *primary_tli)
 	char	   *primary_sysid;
 
 	/*
-	 * Get the system identifier and timeline ID as a DataRow message from the
-	 * primary server.
+	 * 以 DataRow 消息的形式从主库获取系统标识符与           
+	 * 时间线 ID。
 	 */
 	res = libpqrcv_PQexec(conn->streamConn, "IDENTIFY_SYSTEM");
 	if (PQresultStatus(res) != PGRES_TUPLES_OK)
@@ -435,8 +435,8 @@ libpqrcv_identify_system(WalReceiverConn *conn, TimeLineID *primary_tli)
 						pchomp(PQerrorMessage(conn->streamConn)))));
 	}
 	/*
-	 * IDENTIFY_SYSTEM returns 3 columns in 9.3 and earlier, and 4 columns in
-	 * 9.4 and onwards.
+	 * IDENTIFY_SYSTEM 在 9.3 及更早版本返回 3 列，从 9.4         
+	 * 起为 4 列。 
 	 */
 	if (PQnfields(res) < 3 || PQntuples(res) != 1)
 	{
@@ -458,7 +458,7 @@ libpqrcv_identify_system(WalReceiverConn *conn, TimeLineID *primary_tli)
 }
 
 /*
- * Thin wrapper around libpq to obtain server version.
+ * libpq 的薄封装，用于获取服务器版本。
  */
 static int
 libpqrcv_server_version(WalReceiverConn *conn)
@@ -467,14 +467,14 @@ libpqrcv_server_version(WalReceiverConn *conn)
 }
 
 /*
- * Start streaming WAL data from given streaming options.
+ * 按给定的流选项开始流式传输 WAL 数据。 
  *
- * Returns true if we switched successfully to copy-both mode. False
- * means the server received the command and executed it successfully, but
- * didn't switch to copy-mode.  That means that there was no WAL on the
- * requested timeline and starting point, because the server switched to
- * another timeline at or before the requested starting point. On failure,
- * throws an ERROR.
+ * 如果成功切换到 copy-both 模式则返回 true。False     
+ * 意味着服务器已接收该命令并成功执行，但没有切     
+ * 换到 copy 模式。这意味着在所请求的时间线与起     
+ * 始点上没有 WAL，因为服务器已切换到另一条时间     
+ * 线，切换点在所请求的起始点或其之前。失败时将     
+ * 抛出 ERROR。 
  */
 static bool
 libpqrcv_startstreaming(WalReceiverConn *conn,
@@ -488,7 +488,7 @@ libpqrcv_startstreaming(WalReceiverConn *conn,
 
 	initStringInfo(&cmd);
 
-	/* Build the command. */
+	/* 构建该命令。 */
 	appendStringInfoString(&cmd, "START_REPLICATION");
 	if (options->slotname != NULL)
 		appendStringInfo(&cmd, " SLOT \"%s\"",
@@ -500,8 +500,8 @@ libpqrcv_startstreaming(WalReceiverConn *conn,
 	appendStringInfo(&cmd, " %X/%X", LSN_FORMAT_ARGS(options->startpoint));
 
 	/*
-	 * Additional options are different depending on if we are doing logical
-	 * or physical replication.
+	 * 额外选项会有所不同，取决于我们进行的是逻辑复制
+	 * 还是物理复制。   
 	 */
 	if (options->logical)
 	{
@@ -531,14 +531,14 @@ libpqrcv_startstreaming(WalReceiverConn *conn,
 		pubnames_str = stringlist_to_identifierstr(conn->streamConn, pubnames);
 		if (!pubnames_str)
 			ereport(ERROR,
-					(errcode(ERRCODE_OUT_OF_MEMORY),	/* likely guess */
+					(errcode(ERRCODE_OUT_OF_MEMORY),	/* 可能猜测 */
 					 errmsg("could not start WAL streaming: %s",
 							pchomp(PQerrorMessage(conn->streamConn)))));
 		pubnames_literal = PQescapeLiteral(conn->streamConn, pubnames_str,
 										   strlen(pubnames_str));
 		if (!pubnames_literal)
 			ereport(ERROR,
-					(errcode(ERRCODE_OUT_OF_MEMORY),	/* likely guess */
+					(errcode(ERRCODE_OUT_OF_MEMORY),	/* 可能猜测 */
 					 errmsg("could not start WAL streaming: %s",
 							pchomp(PQerrorMessage(conn->streamConn)))));
 		appendStringInfo(&cmd, ", publication_names %s", pubnames_literal);
@@ -555,7 +555,7 @@ libpqrcv_startstreaming(WalReceiverConn *conn,
 		appendStringInfo(&cmd, " TIMELINE %u",
 						 options->proto.physical.startpointTLI);
 
-	/* Start streaming. */
+	/* 开始流传输  */
 	res = libpqrcv_PQexec(conn->streamConn, cmd.data);
 	pfree(cmd.data);
 
@@ -577,8 +577,8 @@ libpqrcv_startstreaming(WalReceiverConn *conn,
 }
 
 /*
- * Stop streaming WAL data. Returns the next timeline's ID in *next_tli, as
- * reported by the server, or 0 if it did not report it.
+ * 停止流式传输 WAL 数据。将下一条时间线的 ID 放入      
+ * *next_tli 中，按服务器报告；未报则 0。  
  */
 static void
 libpqrcv_endstreaming(WalReceiverConn *conn, TimeLineID *next_tli)
@@ -586,8 +586,8 @@ libpqrcv_endstreaming(WalReceiverConn *conn, TimeLineID *next_tli)
 	PGresult   *res;
 
 	/*
-	 * Send copy-end message.  As in libpqrcv_PQexec, this could theoretically
-	 * block, but the risk seems small.
+	 * 发送 copy-end 消息。如同 libpqrcv_PQexec，理论上            
+	 * 可能阻塞，风险甚小。  
 	 */
 	if (PQputCopyEnd(conn->streamConn, NULL) <= 0 ||
 		PQflush(conn->streamConn))
@@ -599,19 +599,19 @@ libpqrcv_endstreaming(WalReceiverConn *conn, TimeLineID *next_tli)
 	*next_tli = 0;
 
 	/*
-	 * After COPY is finished, we should receive a result set indicating the
-	 * next timeline's ID, or just CommandComplete if the server was shut
-	 * down.
+	 * COPY 结束后，我们应当收到一个结果集，指明下一    
+	 * 条时间线的 ID；服务器关闭时只有 CommandComplete     
+	 * 。  
 	 *
-	 * If we had not yet received CopyDone from the backend, PGRES_COPY_OUT is
-	 * also possible in case we aborted the copy in mid-stream.
+	 * 如果我们尚未从后端收到 CopyDone，则 PGRES_COPY_OUT        
+	 * 也可能出现，即我们在流中途中止复制。  
 	 */
 	res = libpqrcv_PQgetResult(conn->streamConn);
 	if (PQresultStatus(res) == PGRES_TUPLES_OK)
 	{
 		/*
-		 * Read the next timeline's ID. The server also sends the timeline's
-		 * starting point, but it is ignored.
+		 * 读取下一条时间线的 ID。服务器也发送时间线的  
+		 * 起始点，但它被忽略。    
 		 */
 		if (PQnfields(res) < 2 || PQntuples(res) != 1)
 			ereport(ERROR,
@@ -620,21 +620,21 @@ libpqrcv_endstreaming(WalReceiverConn *conn, TimeLineID *next_tli)
 		*next_tli = pg_strtoint32(PQgetvalue(res, 0, 0));
 		PQclear(res);
 
-		/* the result set should be followed by CommandComplete */
+		/* 结果集之后应当跟随 CommandComplete          */
 		res = libpqrcv_PQgetResult(conn->streamConn);
 	}
 	else if (PQresultStatus(res) == PGRES_COPY_OUT)
 	{
 		PQclear(res);
 
-		/* End the copy */
+		/* 结束复制 */
 		if (PQendcopy(conn->streamConn))
 			ereport(ERROR,
 					(errcode(ERRCODE_CONNECTION_FAILURE),
 					 errmsg("error while shutting down streaming COPY: %s",
 							pchomp(PQerrorMessage(conn->streamConn)))));
 
-		/* CommandComplete should follow */
+		/* CommandComplete 紧随其后  */
 		res = libpqrcv_PQgetResult(conn->streamConn);
 	}
 
@@ -645,7 +645,7 @@ libpqrcv_endstreaming(WalReceiverConn *conn, TimeLineID *next_tli)
 						pchomp(PQerrorMessage(conn->streamConn)))));
 	PQclear(res);
 
-	/* Verify that there are no more results */
+	/* 验证没有更多的结果。        */
 	res = libpqrcv_PQgetResult(conn->streamConn);
 	if (res != NULL)
 		ereport(ERROR,
@@ -655,7 +655,7 @@ libpqrcv_endstreaming(WalReceiverConn *conn, TimeLineID *next_tli)
 }
 
 /*
- * Fetch the timeline history file for 'tli' from primary.
+ * 从主库获取 'tli' 的时间线历史文件。      
  */
 static void
 libpqrcv_readtimelinehistoryfile(WalReceiverConn *conn,
@@ -668,7 +668,7 @@ libpqrcv_readtimelinehistoryfile(WalReceiverConn *conn,
 	Assert(!conn->logical);
 
 	/*
-	 * Request the primary to send over the history file for given timeline.
+	 * 请求主库发送给定时间线的历史文件。                  
 	 */
 	snprintf(cmd, sizeof(cmd), "TIMELINE_HISTORY %u", tli);
 	res = libpqrcv_PQexec(conn->streamConn, cmd);
@@ -702,14 +702,14 @@ libpqrcv_readtimelinehistoryfile(WalReceiverConn *conn,
 }
 
 /*
- * Send a query and wait for the results by using the asynchronous libpq
- * functions and socket readiness events.
+ * 发送一个查询，并使用异步的 libpq 函数与套接字     
+ * 就绪事件来等待结果。        
  *
- * The function is modeled on libpqsrv_exec(), with the behavior difference
- * being that it calls ProcessWalRcvInterrupts().  As an optimization, it
- * skips try/catch, since all errors terminate the process.
+ * 本函数仿照 libpqsrv_exec()，行为差异在于它会              
+ * 调用 ProcessWalRcvInterrupts()。作为一项优化，它           
+ * 跳过 try/catch，因错误均会终止进程。       
  *
- * May return NULL, rather than an error result, on failure.
+ * 失败时可能返回 NULL，而非错误结果。       
  */
 static PGresult *
 libpqrcv_PQexec(PGconn *streamConn, const char *query)
@@ -717,32 +717,32 @@ libpqrcv_PQexec(PGconn *streamConn, const char *query)
 	PGresult   *lastResult = NULL;
 
 	/*
-	 * PQexec() silently discards any prior query results on the connection.
-	 * This is not required for this function as it's expected that the caller
-	 * (which is this library in all cases) will behave correctly and we don't
-	 * have to be backwards compatible with old libpq.
+	 * PQexec() 会静默丢弃该连接上任何先前的查询结果。   
+	 * 本函数不需要这一点，因为预期调用者                    
+	 * （在所有情况下都是本库）会正确行事，而我们不必  
+	 * 向后兼容旧的 libpq。                    
 	 */
 
 	/*
-	 * Submit the query.  Since we don't use non-blocking mode, this could
-	 * theoretically block.  In practice, since we don't send very long query
-	 * strings, the risk seems negligible.
+	 * 提交查询。由于我们未使用非阻塞模式，这理论上 
+	 * 可能会阻塞。实际上，由于我们不会发送很长的查询 
+	 * 串，风险看来可以忽略。  
 	 */
 	if (!PQsendQuery(streamConn, query))
 		return NULL;
 
 	for (;;)
 	{
-		/* Wait for, and collect, the next PGresult. */
+		/* 等待并收集下一个 PGresult。      */
 		PGresult   *result;
 
 		result = libpqrcv_PQgetResult(streamConn);
 		if (result == NULL)
-			break;				/* query is complete, or failure */
+			break;				/* 查询已完成，或失败   */
 
 		/*
-		 * Emulate PQexec()'s behavior of returning the last result when there
-		 * are many.  We are fine with returning just last error message.
+		 * 模拟 PQexec() 的行为：当结果有多个时返回最后      
+		 * 一个。我们只返回最后的错误消息即可。        
 		 */
 		PQclear(lastResult);
 		lastResult = result;
@@ -758,23 +758,23 @@ libpqrcv_PQexec(PGconn *streamConn, const char *query)
 }
 
 /*
- * Perform the equivalent of PQgetResult(), but watch for interrupts.
+ * 执行与 PQgetResult() 等价的操作，但会留意中断。   
  */
 static PGresult *
 libpqrcv_PQgetResult(PGconn *streamConn)
 {
 	/*
-	 * Collect data until PQgetResult is ready to get the result without
-	 * blocking.
+	 * 收集数据，直到 PQgetResult 无需阻塞即可获得       
+	 * 结果。
 	 */
 	while (PQisBusy(streamConn))
 	{
 		int			rc;
 
 		/*
-		 * We don't need to break down the sleep into smaller increments,
-		 * since we'll get interrupted by signals and can handle any
-		 * interrupts here.
+		 * 我们不需要把睡眠拆分成更小的增量，           
+		 * 因为信号会中断我们，我们可以在此处处理
+		 * 任何中断。 
 		 */
 		rc = WaitLatchOrSocket(MyLatch,
 							   WL_EXIT_ON_PM_DEATH | WL_SOCKET_READABLE |
@@ -783,27 +783,27 @@ libpqrcv_PQgetResult(PGconn *streamConn)
 							   0,
 							   WAIT_EVENT_LIBPQWALRECEIVER_RECEIVE);
 
-		/* Interrupted? */
+		/* 中断？    */
 		if (rc & WL_LATCH_SET)
 		{
 			ResetLatch(MyLatch);
 			ProcessWalRcvInterrupts();
 		}
 
-		/* Consume whatever data is available from the socket */
+		/* 消费套接字上任何可用的数据            */
 		if (PQconsumeInput(streamConn) == 0)
 		{
-			/* trouble; return NULL */
+			/* 出错；返回 NULL */
 			return NULL;
 		}
 	}
 
-	/* Now we can collect and return the next PGresult */
+	/* 现在可以收集并返回下一个 PGresult   */
 	return PQgetResult(streamConn);
 }
 
 /*
- * Disconnect connection to primary, if any.
+ * 断开与主库的连接（若有）。  
  */
 static void
 libpqrcv_disconnect(WalReceiverConn *conn)
@@ -814,20 +814,20 @@ libpqrcv_disconnect(WalReceiverConn *conn)
 }
 
 /*
- * Receive a message available from XLOG stream.
+ * 从 XLOG 流中接收一条可用的消息。
  *
- * Returns:
+ * 返回  
  *
- *	 If data was received, returns the length of the data. *buffer is set to
- *	 point to a buffer holding the received message. The buffer is only valid
- *	 until the next libpqrcv_* call.
+ *	 如果收到了数据，则返回数据的长度。*buffer 会被设   
+ *	 置为指向一个保存着所收消息的缓冲区。其有效期仅   
+ *	 至下次 libpqrcv_* 调用。 
  *
- *	 If no data was available immediately, returns 0, and *wait_fd is set to a
- *	 socket descriptor which can be waited on before trying again.
+ *	 如果没有数据立即可用，则返回 0，并将 *wait_fd 设       
+ *	 置为一个套接字描述符，重试前可等待它。    
  *
- *	 -1 if the server ended the COPY.
+ *	 -1 若服务器已结束 COPY。
  *
- * ereports on error.
+ * 出错 ereport。 
  */
 static int
 libpqrcv_receive(WalReceiverConn *conn, char **buffer,
@@ -838,27 +838,27 @@ libpqrcv_receive(WalReceiverConn *conn, char **buffer,
 	PQfreemem(conn->recvBuf);
 	conn->recvBuf = NULL;
 
-	/* Try to receive a CopyData message */
+	/* 尝试接收一条 CopyData 消息*/
 	rawlen = PQgetCopyData(conn->streamConn, &conn->recvBuf, 1);
 	if (rawlen == 0)
 	{
-		/* Try consuming some data. */
+		/* 尝试消费一些数据 */
 		if (PQconsumeInput(conn->streamConn) == 0)
 			ereport(ERROR,
 					(errcode(ERRCODE_CONNECTION_FAILURE),
 					 errmsg("could not receive data from WAL stream: %s",
 							pchomp(PQerrorMessage(conn->streamConn)))));
 
-		/* Now that we've consumed some input, try again */
+		/* 已消费了一些输入，重试             */
 		rawlen = PQgetCopyData(conn->streamConn, &conn->recvBuf, 1);
 		if (rawlen == 0)
 		{
-			/* Tell caller to try again when our socket is ready. */
+			/* 套接字就绪时，告知调用方重试。      */
 			*wait_fd = PQsocket(conn->streamConn);
 			return 0;
 		}
 	}
-	if (rawlen == -1)			/* end-of-streaming or error */
+	if (rawlen == -1)			/* 流传输结束或出错  */
 	{
 		PGresult   *res;
 
@@ -867,16 +867,16 @@ libpqrcv_receive(WalReceiverConn *conn, char **buffer,
 		{
 			PQclear(res);
 
-			/* Verify that there are no more results. */
+			/* 验证已没有更多的结果。      */
 			res = libpqrcv_PQgetResult(conn->streamConn);
 			if (res != NULL)
 			{
 				PQclear(res);
 
 				/*
-				 * If the other side closed the connection orderly (otherwise
-				 * we'd seen an error, or PGRES_COPY_IN) don't report an error
-				 * here, but let callers deal with it.
+				 * 若对端以正常方式关闭了连接（否则我们    
+				 * 应已看到错误或 PGRES_COPY_IN）就不必在此      
+				 * 报错，交给调用者处理。  
 				 */
 				if (PQstatus(conn->streamConn) == CONNECTION_BAD)
 					return -1;
@@ -909,15 +909,15 @@ libpqrcv_receive(WalReceiverConn *conn, char **buffer,
 				 errmsg("could not receive data from WAL stream: %s",
 						pchomp(PQerrorMessage(conn->streamConn)))));
 
-	/* Return received messages to caller */
+	/* 返回收到的消息给调用者  */
 	*buffer = conn->recvBuf;
 	return rawlen;
 }
 
 /*
- * Send a message to XLOG stream.
+ * 发送消息到 XLOG 流。   
  *
- * ereports on error.
+ * 出错 ereport。 
  */
 static void
 libpqrcv_send(WalReceiverConn *conn, const char *buffer, int nbytes)
@@ -931,9 +931,9 @@ libpqrcv_send(WalReceiverConn *conn, const char *buffer, int nbytes)
 }
 
 /*
- * Create new replication slot.
- * Returns the name of the exported snapshot for logical slot or NULL for
- * physical slot.
+ * 创建新的复制槽。    
+ * 对于逻辑槽返回所导出快照的名称，对于物理槽则    
+ * 返回 NULL。
  */
 static char *
 libpqrcv_create_slot(WalReceiverConn *conn, const char *slotname,
@@ -1037,7 +1037,7 @@ libpqrcv_create_slot(WalReceiverConn *conn, const char *slotname,
 }
 
 /*
- * Return PID of remote backend process.
+ * 返回远端后端进程的 PID。   
  */
 static pid_t
 libpqrcv_get_backend_pid(WalReceiverConn *conn)
@@ -1046,7 +1046,7 @@ libpqrcv_get_backend_pid(WalReceiverConn *conn)
 }
 
 /*
- * Convert tuple query result to tuplestore.
+ * 元组查询结果转为 tuplestore。   
  */
 static void
 libpqrcv_processTuples(PGresult *pgres, WalRcvExecResult *walres,
@@ -1060,7 +1060,7 @@ libpqrcv_processTuples(PGresult *pgres, WalRcvExecResult *walres,
 	MemoryContext rowcontext;
 	MemoryContext oldcontext;
 
-	/* Make sure we got expected number of fields. */
+	/* 确保得到了预期数量的字段。     */
 	if (nfields != nRetTypes)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROTOCOL_VIOLATION),
@@ -1070,34 +1070,34 @@ libpqrcv_processTuples(PGresult *pgres, WalRcvExecResult *walres,
 
 	walres->tuplestore = tuplestore_begin_heap(true, false, work_mem);
 
-	/* Create tuple descriptor corresponding to expected result. */
+	/* 创建与预期结果相对应的元组描述符。       */
 	walres->tupledesc = CreateTemplateTupleDesc(nRetTypes);
 	for (coln = 0; coln < nRetTypes; coln++)
 		TupleDescInitEntry(walres->tupledesc, (AttrNumber) coln + 1,
 						   PQfname(pgres, coln), retTypes[coln], -1, 0);
 	attinmeta = TupleDescGetAttInMetadata(walres->tupledesc);
 
-	/* No point in doing more here if there were no tuples returned. */
+	/* 若没有元组返回，此处再做更多便无意义。     */
 	if (PQntuples(pgres) == 0)
 		return;
 
-	/* Create temporary context for local allocations. */
+	/* 创建用于本地分配的临时上下文。   */
 	rowcontext = AllocSetContextCreate(CurrentMemoryContext,
 									   "libpqrcv query result context",
 									   ALLOCSET_DEFAULT_SIZES);
 
-	/* Process returned rows. */
+	/* 处理返回的行。  */
 	for (tupn = 0; tupn < PQntuples(pgres); tupn++)
 	{
 		char	   *cstrs[MaxTupleAttributeNumber];
 
 		ProcessWalRcvInterrupts();
 
-		/* Do the allocations in temporary context. */
+		/* 在临时上下文中进行分配。     */
 		oldcontext = MemoryContextSwitchTo(rowcontext);
 
 		/*
-		 * Fill cstrs with null-terminated strings of column values.
+		 * 用各列值的以空值结尾的字符串填充 cstrs。
 		 */
 		for (coln = 0; coln < nfields; coln++)
 		{
@@ -1107,11 +1107,11 @@ libpqrcv_processTuples(PGresult *pgres, WalRcvExecResult *walres,
 				cstrs[coln] = PQgetvalue(pgres, tupn, coln);
 		}
 
-		/* Convert row to a tuple, and add it to the tuplestore */
+		/* 把该行转换为元组，并将其加入 tuplestore*/
 		tuple = BuildTupleFromCStrings(attinmeta, cstrs);
 		tuplestore_puttuple(walres->tuplestore, tuple);
 
-		/* Clean up */
+		/* 清理   */
 		MemoryContextSwitchTo(oldcontext);
 		MemoryContextReset(rowcontext);
 	}
@@ -1120,9 +1120,9 @@ libpqrcv_processTuples(PGresult *pgres, WalRcvExecResult *walres,
 }
 
 /*
- * Public interface for sending generic queries (and commands).
+ * 用于发送通用查询（和命令）的公共接口。   
  *
- * This can only be called from process connected to database.
+ * 本函数只能由已连接到数据库的进程调用。  
  */
 static WalRcvExecResult *
 libpqrcv_exec(WalReceiverConn *conn, const char *query,
@@ -1163,7 +1163,7 @@ libpqrcv_exec(WalReceiverConn *conn, const char *query,
 			walres->status = WALRCV_OK_COMMAND;
 			break;
 
-			/* Empty query is considered error. */
+			/* 空查询被视为错误。      */
 		case PGRES_EMPTY_QUERY:
 			walres->status = WALRCV_ERROR;
 			walres->err = _("empty query");
@@ -1196,12 +1196,12 @@ libpqrcv_exec(WalReceiverConn *conn, const char *query,
 }
 
 /*
- * Given a List of strings, return it as single comma separated
- * string, quoting identifiers as needed.
+ * 给定字符串 List，将其作为单个逗号分隔       
+ * 字符串，按需引用标识符。  
  *
- * This is essentially the reverse of SplitIdentifierString.
+ * 这本质上是 SplitIdentifierString 的逆操作。    
  *
- * The caller should free the result.
+ * 调用者应当释放结果。    
  */
 static char *
 stringlist_to_identifierstr(PGconn *conn, List *strings)

@@ -1,20 +1,20 @@
 /* -------------------------------------------------------------------------
  *
  * decode.c
- *		This module decodes WAL records read using xlogreader.h's APIs for the
- *		purpose of logical decoding by passing information to the
- *		reorderbuffer module (containing the actual changes) and to the
- *		snapbuild module to build a fitting catalog snapshot (to be able to
- *		properly decode the changes in the reorderbuffer).
+ *		本模块用 xlogreader.h 的 API 读取 WAL 记录并将其解码， 
+ *		以便进行逻辑解码：把信息传递给            
+ *		reorderbuffer 模块（包含实际更改），并传递给    
+ *		snapbuild 模块以构建匹配的系统表快照（从而能够   
+ *		正确解码 reorderbuffer 中的更改）。     
  *
  * NOTE:
- *		This basically tries to handle all low level xlog stuff for
- *		reorderbuffer.c and snapbuild.c. There's some minor leakage where a
- *		specific record's struct is used to pass data along, but those just
- *		happen to contain the right amount of data in a convenient
- *		format. There isn't and shouldn't be much intelligence about the
- *		contents of records in here except turning them into a more usable
- *		format.
+ *		本模块基本上负责处理所有低层 xlog 事务，  
+ *		为 reorderbuffer.c 与 snapbuild.c 服务。有少量泄漏，即 
+ *		用特定记录的结构体来传递数据；它们只是恰好    
+ *		以方便的格式包含了数量正合适的数据。    
+ *		此处不存在、也不应存在太多针对记录             
+ *		内容的智能处理，只需将它们转换为更易用的格   
+ *		式。 
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -43,7 +43,7 @@
 #include "replication/snapbuild.h"
 #include "storage/standby.h"
 
-/* individual record(group)'s handlers */
+/* 各条记录（组）的处理函数*/
 static void DecodeInsert(LogicalDecodingContext *ctx, XLogRecordBuffer *buf);
 static void DecodeUpdate(LogicalDecodingContext *ctx, XLogRecordBuffer *buf);
 static void DecodeDelete(LogicalDecodingContext *ctx, XLogRecordBuffer *buf);
@@ -61,10 +61,10 @@ static void DecodePrepare(LogicalDecodingContext *ctx, XLogRecordBuffer *buf,
 						  xl_xact_parsed_prepare *parsed);
 
 
-/* common function to decode tuples */
+/* 解码元组的公共函数      */
 static void DecodeXLogTuple(char *data, Size len, ReorderBufferTupleBuf *tuple);
 
-/* helper functions for decoding transactions */
+/* 用于解码事务的辅助函数          */
 static inline bool FilterPrepare(LogicalDecodingContext *ctx,
 								 TransactionId xid, const char *gid);
 static bool DecodeTXNNeedSkip(LogicalDecodingContext *ctx,
@@ -72,20 +72,20 @@ static bool DecodeTXNNeedSkip(LogicalDecodingContext *ctx,
 							  RepOriginId origin_id);
 
 /*
- * Take every XLogReadRecord()ed record and perform the actions required to
- * decode it using the output plugin already setup in the logical decoding
- * context.
+ * 对 XLogReadRecord() 读出的每条记录，执行所需的动作来   
+ * 解码它，所用的输出插件已设置于逻辑解码上下文     
+ * 中。  
  *
- * NB: Note that every record's xid needs to be processed by reorderbuffer
- * (xids contained in the content of records are not relevant for this rule).
- * That means that for records which'd otherwise not go through the
- * reorderbuffer ReorderBufferProcessXid() has to be called. We don't want to
- * call ReorderBufferProcessXid for each record type by default, because
- * e.g. empty xacts can be handled more efficiently if there's no previous
- * state for them.
+ * NB: 每条记录的 xid 都需要由 reorderbuffer 来处理（记录  
+ * 内容里的 xid 与此规则无关）。这意味着对于原本不会   
+ * 经过 reorderbuffer 的记录，必须调用                   
+ * ReorderBufferProcessXid()。我们并不想默认对每种                
+ * 记录类型都调用它，因为例如空事务                     
+ * 在不存在既有状态时能得到更高效的处理                 
+ * 。            
  *
- * We also support the ability to fast forward thru records, skipping some
- * record types completely - see individual record types for details.
+ * 我们还支持快进掠过记录的能力，可完全跳过某些     
+ * 记录类型——详见各记录类型的细节。               
  */
 void
 LogicalDecodingProcessRecord(LogicalDecodingContext *ctx, XLogReaderState *record)
@@ -101,9 +101,9 @@ LogicalDecodingProcessRecord(LogicalDecodingContext *ctx, XLogReaderState *recor
 	txid = XLogRecGetTopXid(record);
 
 	/*
-	 * If the top-level xid is valid, we need to assign the subxact to the
-	 * top-level xact. We need to do this for all records, hence we do it
-	 * before the switch.
+	 * 若顶层 xid 有效，则需将子事务指派给顶层事务。  
+	 * 所有记录都需这样做，因此我们把该操作放在      
+	 * switch 之前。  
 	 */
 	if (TransactionIdIsValid(txid))
 	{
@@ -119,14 +119,14 @@ LogicalDecodingProcessRecord(LogicalDecodingContext *ctx, XLogReaderState *recor
 		rmgr.rm_decode(ctx, &buf);
 	else
 	{
-		/* just deal with xid, and done */
+		/* 仅处理 xid 即告完成   */
 		ReorderBufferProcessXid(ctx->reorder, XLogRecGetXid(record),
 								buf.origptr);
 	}
 }
 
 /*
- * Handle rmgr XLOG_ID records for LogicalDecodingProcessRecord().
+ * 为 LogicalDecodingProcessRecord() 处理 rmgr XLOG_ID记录。
  */
 void
 xlog_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
@@ -139,7 +139,7 @@ xlog_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 
 	switch (info)
 	{
-			/* this is also used in END_OF_RECOVERY checkpoints */
+			/* 这同样用于 END_OF_RECOVERY 检查点        */
 		case XLOG_CHECKPOINT_SHUTDOWN:
 		case XLOG_END_OF_RECOVERY:
 			SnapBuildSerializationPoint(builder, buf->origptr);
@@ -148,8 +148,8 @@ xlog_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 		case XLOG_CHECKPOINT_ONLINE:
 
 			/*
-			 * a RUNNING_XACTS record will have been logged near to this, we
-			 * can restart from there.
+			 * 此点附近已记录 RUNNING_XACTS 记录，可从那里    
+			 * 重新开始。        
 			 */
 			break;
 		case XLOG_PARAMETER_CHANGE:
@@ -158,21 +158,21 @@ xlog_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 					(xl_parameter_change *) XLogRecGetData(buf->record);
 
 				/*
-				 * If wal_level on the primary is reduced to less than
-				 * logical, we want to prevent existing logical slots from
-				 * being used.  Existing logical slots on the standby get
-				 * invalidated when this WAL record is replayed; and further,
-				 * slot creation fails when wal_level is not sufficient; but
-				 * all these operations are not synchronized, so a logical
-				 * slot may creep in while the wal_level is being reduced.
-				 * Hence this extra check.
+				 * 若主库 wal_level 降到低于 logical，我们  
+				 * 希望防止现有逻辑复制槽被使用。备库上 
+				 * 的既有逻辑复制槽会在本 WAL 记录重放时 
+				 * 失效；此外，wal_level 不够时创建复制槽      
+				 * 也会失败；但所有这些操作并非同步进行，
+				 * 因此在 wal_level 正在降低期间，某个逻辑  
+				 * 复制槽可能乘虚而入。故需要这一额外    
+				 * 检查。              
 				 */
 				if (xlrec->wal_level < WAL_LEVEL_LOGICAL)
 				{
 					/*
-					 * This can occur only on a standby, as a primary would
-					 * not allow to restart after changing wal_level < logical
-					 * if there is pre-existing logical slot.
+					 * 这只可能发生在备库，因为主库在存有 
+					 * 既有逻辑复制槽时不会允许在把 wal_level   
+					 * 改到低于 logical 后重启。     
 					 */
 					Assert(RecoveryInProgress());
 					ereport(ERROR,
@@ -197,7 +197,7 @@ xlog_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 }
 
 /*
- * Handle rmgr XACT_ID records for LogicalDecodingProcessRecord().
+ * 为 LogicalDecodingProcessRecord() 处理 rmgr XACT_ID记录。
  */
 void
 xact_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
@@ -208,8 +208,8 @@ xact_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 	uint8		info = XLogRecGetInfo(r) & XLOG_XACT_OPMASK;
 
 	/*
-	 * If the snapshot isn't yet fully built, we cannot decode anything, so
-	 * bail out.
+	 * 若快照尚未完整构建，就无法解码任何东西，因此  
+	 * 退出。
 	 */
 	if (SnapBuildCurrentState(builder) < SNAPBUILD_FULL_SNAPSHOT)
 		return;
@@ -233,9 +233,9 @@ xact_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 					xid = parsed.twophase_xid;
 
 				/*
-				 * We would like to process the transaction in a two-phase
-				 * manner iff output plugin supports two-phase commits and
-				 * doesn't filter the transaction at prepare time.
+				 * 我们希望以两阶段方式处理事务，条件是 
+				 * 输出插件支持两阶段提交，且不在 prepare  
+				 * 阶段过滤掉该事务。                    
 				 */
 				if (info == XLOG_XACT_COMMIT_PREPARED)
 					two_phase = !(FilterPrepare(ctx, xid,
@@ -261,9 +261,9 @@ xact_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 					xid = parsed.twophase_xid;
 
 				/*
-				 * We would like to process the transaction in a two-phase
-				 * manner iff output plugin supports two-phase commits and
-				 * doesn't filter the transaction at prepare time.
+				 * 我们希望以两阶段方式处理事务，条件是 
+				 * 输出插件支持两阶段提交，且不在 prepare  
+				 * 阶段过滤掉该事务。                    
 				 */
 				if (info == XLOG_XACT_ABORT_PREPARED)
 					two_phase = !(FilterPrepare(ctx, xid,
@@ -275,9 +275,9 @@ xact_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 		case XLOG_XACT_ASSIGNMENT:
 
 			/*
-			 * We assign subxact to the toplevel xact while processing each
-			 * record if required.  So, we don't need to do anything here. See
-			 * LogicalDecodingProcessRecord.
+			 * 处理每条记录时，我们会按需把子事务指派给
+			 * 顶层事务。因此这里无需做任何事情。参见      
+			 * LogicalDecodingProcessRecord 
 			 */
 			break;
 		case XLOG_XACT_INVALIDATIONS:
@@ -289,9 +289,9 @@ xact_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 				invals = (xl_xact_invals *) XLogRecGetData(r);
 
 				/*
-				 * Execute the invalidations for xid-less transactions,
-				 * otherwise, accumulate them so that they can be processed at
-				 * the commit time.
+				 * 为无 xid 事务执行失效处理，否则将其  
+				 * 累积起来，以便可在提交                          
+				 * 时处理。    
 				 */
 				if (TransactionIdIsValid(xid))
 				{
@@ -314,15 +314,15 @@ xact_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 				xl_xact_parsed_prepare parsed;
 				xl_xact_prepare *xlrec;
 
-				/* ok, parse it */
+				/* 好，解析 */
 				xlrec = (xl_xact_prepare *) XLogRecGetData(r);
 				ParsePrepareRecord(XLogRecGetInfo(buf->record),
 								   xlrec, &parsed);
 
 				/*
-				 * We would like to process the transaction in a two-phase
-				 * manner iff output plugin supports two-phase commits and
-				 * doesn't filter the transaction at prepare time.
+				 * 我们希望以两阶段方式处理事务，条件是 
+				 * 输出插件支持两阶段提交，且不在 prepare  
+				 * 阶段过滤掉该事务。                    
 				 */
 				if (FilterPrepare(ctx, parsed.twophase_xid,
 								  parsed.twophase_gid))
@@ -333,17 +333,17 @@ xact_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 				}
 
 				/*
-				 * Note that if the prepared transaction has locked [user]
-				 * catalog tables exclusively then decoding prepare can block
-				 * till the main transaction is committed because it needs to
-				 * lock the catalog tables.
+				 * 注意：若已准备事务独占锁定了 [user] 系  
+				 * 统表，则解码 prepare 可能阻塞直至主事务    
+				 * 提交，因为它需要锁定这些系统                
+				 * 表。                  
 				 *
-				 * XXX Now, this can even lead to a deadlock if the prepare
-				 * transaction is waiting to get it logically replicated for
-				 * distributed 2PC. This can be avoided by disallowing
-				 * preparing transactions that have locked [user] catalog
-				 * tables exclusively but as of now, we ask users not to do
-				 * such an operation.
+				 * XXX 现在，若 prepare 事务正等待其被          
+				 * 逻辑复制用于分布式 2PC，甚至可能死锁。  
+				 * 要避免这点，可禁止预备已独占锁定了
+				 * [user] 系统表事务；但就目前而言，我们  
+				 * 要求用户不要去做                                
+				 * 这种操作。   
 				 */
 				DecodePrepare(ctx, buf, &parsed);
 				break;
@@ -354,7 +354,7 @@ xact_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 }
 
 /*
- * Handle rmgr STANDBY_ID records for LogicalDecodingProcessRecord().
+ * 为 LogicalDecodingProcessRecord() 处理 rmgr STANDBY_ID记录。
  */
 void
 standby_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
@@ -374,13 +374,13 @@ standby_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 				SnapBuildProcessRunningXacts(builder, buf->origptr, running);
 
 				/*
-				 * Abort all transactions that we keep track of, that are
-				 * older than the record's oldestRunningXid. This is the most
-				 * convenient spot for doing so since, in contrast to shutdown
-				 * or end-of-recovery checkpoints, we have information about
-				 * all running transactions which includes prepared ones,
-				 * while shutdown checkpoints just know that no non-prepared
-				 * transactions are in progress.
+				 * 中止我们跟踪的、比记录的 oldestRunningXid 
+				 * 更旧的事务。这里是最合适的位置，因为与 
+				 * 关闭或恢复结束检查点不同，我们拥有关于  
+				 * 所有正在运行事务的信息，其中含            
+				 * 已准备的事务；而关闭检查点仅知道没有
+				 * 非准备的事务                                       
+				 * 正在进行。              
 				 */
 				ReorderBufferAbortOld(ctx->reorder, running->oldestRunningXid);
 			}
@@ -390,8 +390,8 @@ standby_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 		case XLOG_INVALIDATIONS:
 
 			/*
-			 * We are processing the invalidations at the command level via
-			 * XLOG_XACT_INVALIDATIONS.  So we don't need to do anything here.
+			 * 我们已经在命令层级通过 XLOG_XACT_INVALIDATIONS   
+			 * 处理失效消息，所以这里无需做任何事情。      
 			 */
 			break;
 		default:
@@ -400,7 +400,7 @@ standby_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 }
 
 /*
- * Handle rmgr HEAP2_ID records for LogicalDecodingProcessRecord().
+ * 为 LogicalDecodingProcessRecord() 处理 rmgr HEAP2_ID记录。
  */
 void
 heap2_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
@@ -412,12 +412,12 @@ heap2_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 	ReorderBufferProcessXid(ctx->reorder, xid, buf->origptr);
 
 	/*
-	 * If we don't have snapshot or we are just fast-forwarding, there is no
-	 * point in decoding data changes. However, it's crucial to build the base
-	 * snapshot during fast-forward mode (as is done in
-	 * SnapBuildProcessChange()) because we require the snapshot's xmin when
-	 * determining the candidate catalog_xmin for the replication slot. See
-	 * SnapBuildProcessRunningXacts().
+	 * 若我们还没有快照，或者只是在快进，那么解码数据
+	 * 变更就没有意义。但在快进模式下构建基础快照        
+	 * 至关重要（如 SnapBuildProcessChange() 所 
+	 * 做的那样），因为我们需要快照的 xmin 来确定         
+	 * 复制槽的候选 catalog_xmin。参见                            
+	 * SnapBuildProcessRunningXacts() 
 	 */
 	if (SnapBuildCurrentState(builder) < SNAPBUILD_FULL_SNAPSHOT)
 		return;
@@ -442,15 +442,15 @@ heap2_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 		case XLOG_HEAP2_REWRITE:
 
 			/*
-			 * Although these records only exist to serve the needs of logical
-			 * decoding, all the work happens as part of crash or archive
-			 * recovery, so we don't need to do anything here.
+			 * 虽然这些记录的存在只是为了服务逻辑解码，   
+			 * 但所有工作都作为崩溃或归档恢复的一部分 
+			 * 发生，所以这里无需做任何事情。  
 			 */
 			break;
 
 			/*
-			 * Everything else here is just low level physical stuff we're not
-			 * interested in.
+			 * 这里其余的一切都只是我们不感兴趣的底层物理
+			 * 内容。     
 			 */
 		case XLOG_HEAP2_FREEZE_PAGE:
 		case XLOG_HEAP2_PRUNE:
@@ -464,7 +464,7 @@ heap2_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 }
 
 /*
- * Handle rmgr HEAP_ID records for LogicalDecodingProcessRecord().
+ * 为 LogicalDecodingProcessRecord() 处理 rmgr HEAP_ID记录。
  */
 void
 heap_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
@@ -476,12 +476,12 @@ heap_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 	ReorderBufferProcessXid(ctx->reorder, xid, buf->origptr);
 
 	/*
-	 * If we don't have snapshot or we are just fast-forwarding, there is no
-	 * point in decoding data changes. However, it's crucial to build the base
-	 * snapshot during fast-forward mode (as is done in
-	 * SnapBuildProcessChange()) because we require the snapshot's xmin when
-	 * determining the candidate catalog_xmin for the replication slot. See
-	 * SnapBuildProcessRunningXacts().
+	 * 若我们还没有快照，或者只是在快进，那么解码数据
+	 * 变更就没有意义。但在快进模式下构建基础快照        
+	 * 至关重要（如 SnapBuildProcessChange() 所 
+	 * 做的那样），因为我们需要快照的 xmin 来确定         
+	 * 复制槽的候选 catalog_xmin。参见                            
+	 * SnapBuildProcessRunningXacts() 
 	 */
 	if (SnapBuildCurrentState(builder) < SNAPBUILD_FULL_SNAPSHOT)
 		return;
@@ -495,9 +495,9 @@ heap_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 			break;
 
 			/*
-			 * Treat HOT update as normal updates. There is no useful
-			 * information in the fact that we could make it a HOT update
-			 * locally and the WAL layout is compatible.
+			 * 把 HOT 更新当作普通更新来处理。          
+			 * 能否在本地将其做成 HOT 更新这一事实并无  
+			 * 有用信息；且 WAL 布局兼容。   
 			 */
 		case XLOG_HEAP_HOT_UPDATE:
 		case XLOG_HEAP_UPDATE:
@@ -521,18 +521,18 @@ heap_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 		case XLOG_HEAP_INPLACE:
 
 			/*
-			 * Inplace updates are only ever performed on catalog tuples and
-			 * can, per definition, not change tuple visibility.  Since we
-			 * don't decode catalog tuples, we're not interested in the
-			 * record's contents.
+			 * 就地更新只会在系统表元组上执行，且按定义 
+			 * 改变元组可见性。由于不解码系统表元组，  
+			 * 所以对该记录的内容并不                       
+			 * 感兴趣。      
 			 *
-			 * In-place updates can be used either by XID-bearing transactions
-			 * (e.g.  in CREATE INDEX CONCURRENTLY) or by XID-less
-			 * transactions (e.g.  VACUUM).  In the former case, the commit
-			 * record will include cache invalidations, so we mark the
-			 * transaction as catalog modifying here. Currently that's
-			 * redundant because the commit will do that as well, but once we
-			 * support decoding in-progress relations, this will be important.
+			 * 就地更新可由带 XID 的事务（例如在 CREATE         
+			 * INDEX CONCURRENTLY 中）或无 XID 的事务（例
+			 * 如 VACUUM）。在前一种情形，提交记录将包含  
+			 * 缓存失效消息，故在此把该事务标记为    
+			 * 正在修改系统表。目前这是多余的，因为 
+			 * 提交也会做同样的事情，但一旦我们支持解码  
+			 * 进行中的关系，这就会变得重要。                  
 			 */
 			if (!TransactionIdIsValid(xid))
 				break;
@@ -548,7 +548,7 @@ heap_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 			break;
 
 		case XLOG_HEAP_LOCK:
-			/* we don't care about row level locks for now */
+			/* 我们目前不关心行级锁              */
 			break;
 
 		default:
@@ -558,25 +558,25 @@ heap_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 }
 
 /*
- * Ask output plugin whether we want to skip this PREPARE and send
- * this transaction as a regular commit later.
+ * 询问输出插件我们是否想跳过此 PREPARE，而把    
+ * 该事务以后作为普通提交发送。 
  */
 static inline bool
 FilterPrepare(LogicalDecodingContext *ctx, TransactionId xid,
 			  const char *gid)
 {
 	/*
-	 * Skip if decoding of two-phase transactions at PREPARE time is not
-	 * enabled. In that case, all two-phase transactions are considered
-	 * filtered out and will be applied as regular transactions at COMMIT
-	 * PREPARED.
+	 * 若尚未启用在 PREPARE 时解码两阶段事务的功能，  
+	 * 则跳过。此时所有两阶段事务都被视为已过滤， 
+	 * 并会在 COMMIT PREPARED 时作为普通事务                   
+	 * 应用。
 	 */
 	if (!ctx->twophase)
 		return true;
 
 	/*
-	 * The filter_prepare callback is optional. When not supplied, all
-	 * prepared transactions should go through.
+	 * filter_prepare 回调是可选的。若未提供，则所有   
+	 * 已准备的事务都会通过。       
 	 */
 	if (ctx->callbacks.filter_prepare_cb == NULL)
 		return false;
@@ -594,7 +594,7 @@ FilterByOrigin(LogicalDecodingContext *ctx, RepOriginId origin_id)
 }
 
 /*
- * Handle rmgr LOGICALMSG_ID records for LogicalDecodingProcessRecord().
+ * 为 LogicalDecodingProcessRecord() 处理 rmgr LOGICALMSG_ID记录。
  */
 void
 logicalmsg_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
@@ -613,8 +613,8 @@ logicalmsg_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 	ReorderBufferProcessXid(ctx->reorder, XLogRecGetXid(r), buf->origptr);
 
 	/*
-	 * If we don't have snapshot or we are just fast-forwarding, there is no
-	 * point in decoding messages.
+	 * 若我们还没有快照，或者只是在快进，那么解码      
+	 * 消息就没有意义。   
 	 */
 	if (SnapBuildCurrentState(builder) < SNAPBUILD_FULL_SNAPSHOT ||
 		ctx->fast_forward)
@@ -635,12 +635,12 @@ logicalmsg_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 		return;
 
 	/*
-	 * If this is a non-transactional change, get the snapshot we're expected
-	 * to use. We only get here when the snapshot is consistent, and the
-	 * change is not meant to be skipped.
+	 * 若这是非事务性变更，获取我们预期使用的快照。    
+	 * 只有当快照一致且该变更不应被跳过时，我们     
+	 * 才会到达此处。             
 	 *
-	 * For transactional changes we don't need a snapshot, we'll use the
-	 * regular snapshot maintained by ReorderBuffer. We just leave it NULL.
+	 * 对于事务性变更，我们不需要快照，将使用        
+	 * ReorderBuffer 维护的常规快照。我们只需留为 NULL。    
 	 */
 	if (!message->transactional)
 		snapshot = SnapBuildGetOrBuildSnapshot(builder);
@@ -654,12 +654,12 @@ logicalmsg_decode(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 }
 
 /*
- * Consolidated commit record handling between the different form of commit
- * records.
+ * 在多种不同形式的提交记录之间统一处理提交记         
+ * 录。  
  *
- * 'two_phase' indicates that caller wants to process the transaction in two
- * phases, first process prepare if not already done and then process
- * commit_prepared.
+ * 'two_phase' 表示调用方想要分两个阶段处理该事务，       
+ * 即若尚未处理 prepare 则先处理它，然后再处理      
+ * commit_prepared 
  */
 static void
 DecodeCommit(LogicalDecodingContext *ctx, XLogRecordBuffer *buf,
@@ -682,20 +682,20 @@ DecodeCommit(LogicalDecodingContext *ctx, XLogRecordBuffer *buf,
 					   parsed->xinfo);
 
 	/* ----
-	 * Check whether we are interested in this specific transaction, and tell
-	 * the reorderbuffer to forget the content of the (sub-)transactions
-	 * if not.
+	 * 检查我们是否对该特定事务感兴趣，若不感兴趣，    
+	 * 则告诉 reorderbuffer 忘掉这些（子）事务的           
+	 * 内容 
 	 *
-	 * We can't just use ReorderBufferAbort() here, because we need to execute
-	 * the transaction's invalidations.  This currently won't be needed if
-	 * we're just skipping over the transaction because currently we only do
-	 * so during startup, to get to the first transaction the client needs. As
-	 * we have reset the catalog caches before starting to read WAL, and we
-	 * haven't yet touched any catalogs, there can't be anything to invalidate.
-	 * But if we're "forgetting" this commit because it happened in another
-	 * database, the invalidations might be important, because they could be
-	 * for shared catalogs and we might have loaded data into the relevant
-	 * syscaches.
+	 * 我们无法在这里只调用 ReorderBufferAbort()，因为           
+	 * 需要执行该事务的失效处理。若只是跳过该事务， 
+	 * 那么当前并不需要这一步：我们目前只在启动期间   
+	 * 这样做，为的是到达客户端需要的第一条事务。既     
+	 * 然我们在开始读取 WAL 之前就已重置系统表缓存，   
+	 * 且尚未触及任何系统表，所以不存在任何可失效的      
+	 * 东西。但如果这次提交被"遗忘"是因为它发生在另   
+	 * 一个数据库中，那么失效就可能很重要，因为它们   
+	 * 可能涉及共享系统表，且可能向相关 syscaches 载入  
+	 * 数据。 
 	 * ---
 	 */
 	if (DecodeTXNNeedSkip(ctx, buf, parsed->dbId, origin_id))
@@ -709,7 +709,7 @@ DecodeCommit(LogicalDecodingContext *ctx, XLogRecordBuffer *buf,
 		return;
 	}
 
-	/* tell the reorderbuffer about the surviving subtransactions */
+	/* 把存留的子事务告知 reorderbuffer                  */
 	for (i = 0; i < parsed->nsubxacts; i++)
 	{
 		ReorderBufferCommitChild(ctx->reorder, xid, parsed->subxacts[i],
@@ -717,8 +717,8 @@ DecodeCommit(LogicalDecodingContext *ctx, XLogRecordBuffer *buf,
 	}
 
 	/*
-	 * Send the final commit record if the transaction data is already
-	 * decoded, otherwise, process the entire transaction.
+	 * 若事务数据已解码完毕，则发送最终提交记录；
+	 * 否则处理整个事务。                        
 	 */
 	if (two_phase)
 	{
@@ -734,28 +734,28 @@ DecodeCommit(LogicalDecodingContext *ctx, XLogRecordBuffer *buf,
 	}
 
 	/*
-	 * Update the decoding stats at transaction prepare/commit/abort.
-	 * Additionally we send the stats when we spill or stream the changes to
-	 * avoid losing them in case the decoding is interrupted. It is not clear
-	 * that sending more or less frequently than this would be better.
+	 * 在事务准备/提交/中止时更新解码统计。         
+	 * 此外，当把变更溢写到磁盘或流式发送时我们也会   
+	 * 发送这些统计，以免在解码被中断时丢失它们。尚    
+	 * 不清楚比这更频繁或更不频繁地发送是否更好。
 	 */
 	UpdateDecodingStats(ctx);
 }
 
 /*
- * Decode PREPARE record. Similar logic as in DecodeCommit.
+ * 解码 PREPARE 记录。逻辑与 DecodeCommit 类似。
  *
- * Note that we don't skip prepare even if have detected concurrent abort
- * because it is quite possible that we had already sent some changes before we
- * detect abort in which case we need to abort those changes in the subscriber.
- * To abort such changes, we do send the prepare and then the rollback prepared
- * which is what happened on the publisher-side as well. Now, we can invent a
- * new abort API wherein in such cases we send abort and skip sending prepared
- * and rollback prepared but then it is not that straightforward because we
- * might have streamed this transaction by that time in which case it is
- * handled when the rollback is encountered. It is not impossible to optimize
- * the concurrent abort case but it can introduce design complexity w.r.t
- * handling different cases so leaving it for now as it doesn't seem worth it.
+ * 注意：即便已检测到并发中止，我们也不跳过          
+ * prepare，因为我们完全可能在此前已经发送了某些变更，   
+ * 然后才发现中止；那种情况下我们需要在订阅者上中止    
+ * 这些变更。为中止这类变更，我们确实会发送 prepare，     
+ * 然后再发送 rollback prepared，这与发布者一侧实际发        
+ * 生的情况一致。当然，我们可以发明一种新的中止 API，  
+ * 在这类情形下发送 abort 并跳过发送 prepare 和 rollback     
+ * prepared，但那样做并不那么直接，因为到那时我们    
+ * 已经流式发送过该事务，那种情况下会在遇到 rollback     
+ * 时得到处理。并发中止并非无法优化，但会因处理不 
+ * 同情形而引入设计复杂度，故暂且搁置，因其似不值得。
  */
 static void
 DecodePrepare(LogicalDecodingContext *ctx, XLogRecordBuffer *buf,
@@ -772,15 +772,15 @@ DecodePrepare(LogicalDecodingContext *ctx, XLogRecordBuffer *buf,
 		prepare_time = parsed->origin_timestamp;
 
 	/*
-	 * Remember the prepare info for a txn so that it can be used later in
-	 * commit prepared if required. See ReorderBufferFinishPrepared.
+	 * 记住某事务的 prepare 信息，以便日后在需要时用于 
+	 * commit prepared。参见 ReorderBufferFinishPrepared。      
 	 */
 	if (!ReorderBufferRememberPrepareInfo(ctx->reorder, xid, buf->origptr,
 										  buf->endptr, prepare_time, origin_id,
 										  origin_lsn))
 		return;
 
-	/* We can't start streaming unless a consistent state is reached. */
+	/* 在达到一致状态之前，我们无法开始流式发送。*/
 	if (SnapBuildCurrentState(builder) < SNAPBUILD_CONSISTENT)
 	{
 		ReorderBufferSkipPrepare(ctx->reorder, xid);
@@ -788,16 +788,16 @@ DecodePrepare(LogicalDecodingContext *ctx, XLogRecordBuffer *buf,
 	}
 
 	/*
-	 * Check whether we need to process this transaction. See
-	 * DecodeTXNNeedSkip for the reasons why we sometimes want to skip the
-	 * transaction.
+	 * 检查我们是否需要处理该事务。参见      
+	 * DecodeTXNNeedSkip，了解我们有时想跳过该事务的        
+	 * 原因。   
 	 *
-	 * We can't call ReorderBufferForget as we did in DecodeCommit as the txn
-	 * hasn't yet been committed, removing this txn before a commit might
-	 * result in the computation of an incorrect restart_lsn. See
-	 * SnapBuildProcessRunningXacts. But we need to process cache
-	 * invalidations if there are any for the reasons mentioned in
-	 * DecodeCommit.
+	 * 我们无法像在 DecodeCommit 中那样调用                       
+	 * ReorderBufferForget，因为该事务尚未提交；在提交     
+	 * 之前移除它可能导致 restart_lsn 计算错误。   
+	 * 参见 SnapBuildProcessRunningXacts。但若其中存在  
+	 * 缓存失效消息，则需处理，理由见 DecodeCommit 
+	 * 中所述。 
 	 */
 	if (DecodeTXNNeedSkip(ctx, buf, parsed->dbId, origin_id))
 	{
@@ -806,31 +806,31 @@ DecodePrepare(LogicalDecodingContext *ctx, XLogRecordBuffer *buf,
 		return;
 	}
 
-	/* Tell the reorderbuffer about the surviving subtransactions. */
+	/* 把存留的子事务告知 reorderbuffer。                */
 	for (i = 0; i < parsed->nsubxacts; i++)
 	{
 		ReorderBufferCommitChild(ctx->reorder, xid, parsed->subxacts[i],
 								 buf->origptr, buf->endptr);
 	}
 
-	/* replay actions of all transaction + subtransactions in order */
+	/* 按顺序重放所有事务 + 子事务的动作             */
 	ReorderBufferPrepare(ctx->reorder, xid, parsed->twophase_gid);
 
 	/*
-	 * Update the decoding stats at transaction prepare/commit/abort.
-	 * Additionally we send the stats when we spill or stream the changes to
-	 * avoid losing them in case the decoding is interrupted. It is not clear
-	 * that sending more or less frequently than this would be better.
+	 * 在事务准备/提交/中止时更新解码统计。         
+	 * 此外，当把变更溢写到磁盘或流式发送时我们也会   
+	 * 发送这些统计，以免在解码被中断时丢失它们。尚    
+	 * 不清楚比这更频繁或更不频繁地发送是否更好。
 	 */
 	UpdateDecodingStats(ctx);
 }
 
 
 /*
- * Get the data from the various forms of abort records and pass it on to
- * snapbuild.c and reorderbuffer.c.
+ * 从各种形式的中止记录中取出数据，传给 snapbuild.c 与
+ * reorderbuffer.c。              
  *
- * 'two_phase' indicates to finish prepared transaction.
+ * 'two_phase' 表示要完成已准备的事务。     
  */
 static void
 DecodeAbort(LogicalDecodingContext *ctx, XLogRecordBuffer *buf,
@@ -850,15 +850,15 @@ DecodeAbort(LogicalDecodingContext *ctx, XLogRecordBuffer *buf,
 	}
 
 	/*
-	 * Check whether we need to process this transaction. See
-	 * DecodeTXNNeedSkip for the reasons why we sometimes want to skip the
-	 * transaction.
+	 * 检查我们是否需要处理该事务。参见      
+	 * DecodeTXNNeedSkip，了解我们有时想跳过该事务的        
+	 * 原因。   
 	 */
 	skip_xact = DecodeTXNNeedSkip(ctx, buf, parsed->dbId, origin_id);
 
 	/*
-	 * Send the final rollback record for a prepared transaction unless we
-	 * need to skip it. For non-two-phase xacts, simply forget the xact.
+	 * 为已准备的事务发送最终的回滚记录，除非我们需 
+	 * 要跳过它。对非两阶段事务，直接忘掉该事务。  
 	 */
 	if (two_phase && !skip_xact)
 	{
@@ -879,14 +879,14 @@ DecodeAbort(LogicalDecodingContext *ctx, XLogRecordBuffer *buf,
 						   abort_time);
 	}
 
-	/* update the decoding stats */
+	/* 更新解码统计        */
 	UpdateDecodingStats(ctx);
 }
 
 /*
- * Parse XLOG_HEAP_INSERT (not MULTI_INSERT!) records into tuplebufs.
+ * 解析 XLOG_HEAP_INSERT（非 MULTI_INSERT！）进元组缓冲。
  *
- * Deletes can contain the new tuple.
+ * 删除可能包含新元组。    
  */
 static void
 DecodeInsert(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
@@ -902,18 +902,18 @@ DecodeInsert(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 	xlrec = (xl_heap_insert *) XLogRecGetData(r);
 
 	/*
-	 * Ignore insert records without new tuples (this does happen when
-	 * raw_heap_insert marks the TOAST record as HEAP_INSERT_NO_LOGICAL).
+	 * 忽略没有新元组的插入记录（当 raw_heap_insert 将 
+	 * TOAST 记录标为 HEAP_INSERT_NO_LOGICAL 时确实会发生）。
 	 */
 	if (!(xlrec->flags & XLH_INSERT_CONTAINS_NEW_TUPLE))
 		return;
 
-	/* only interested in our database */
+	/* 仅关注我们的数据库     */
 	XLogRecGetBlockTag(r, 0, &target_locator, NULL, NULL);
 	if (target_locator.dbOid != ctx->slot->data.database)
 		return;
 
-	/* output plugin doesn't look for this origin, no need to queue */
+	/* 输出插件不查找该 origin，无需入队               */
 	if (FilterByOrigin(ctx, XLogRecGetOrigin(r)))
 		return;
 
@@ -942,10 +942,10 @@ DecodeInsert(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 }
 
 /*
- * Parse XLOG_HEAP_UPDATE and XLOG_HEAP_HOT_UPDATE, which have the same layout
- * in the record, from wal into proper tuplebufs.
+ * 解析 XLOG_HEAP_UPDATE 与 XLOG_HEAP_HOT_UPDATE（两者在记录中      
+ * 布局相同），从WAL 读入元组缓冲。
  *
- * Updates can possibly contain a new tuple and the old primary key.
+ * 更新操作可能同时包含新元组和旧的主键。        
  */
 static void
 DecodeUpdate(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
@@ -958,12 +958,12 @@ DecodeUpdate(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 
 	xlrec = (xl_heap_update *) XLogRecGetData(r);
 
-	/* only interested in our database */
+	/* 仅关注我们的数据库     */
 	XLogRecGetBlockTag(r, 0, &target_locator, NULL, NULL);
 	if (target_locator.dbOid != ctx->slot->data.database)
 		return;
 
-	/* output plugin doesn't look for this origin, no need to queue */
+	/* 输出插件不查找该 origin，无需入队               */
 	if (FilterByOrigin(ctx, XLogRecGetOrigin(r)))
 		return;
 
@@ -992,7 +992,7 @@ DecodeUpdate(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 		Size		datalen;
 		Size		tuplelen;
 
-		/* caution, remaining data in record is not aligned */
+		/* 注意，记录中剩余的数据未对齐       */
 		data = XLogRecGetData(r) + SizeOfHeapUpdate;
 		datalen = XLogRecGetDataLen(r) - SizeOfHeapUpdate;
 		tuplelen = datalen - SizeOfHeapHeader;
@@ -1010,9 +1010,9 @@ DecodeUpdate(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 }
 
 /*
- * Parse XLOG_HEAP_DELETE from wal into proper tuplebufs.
+ * 从 WAL 解析 XLOG_HEAP_DELETE 进元组缓冲区。 
  *
- * Deletes can possibly contain the old primary key.
+ * 删除操作可能包含旧的主键。          
  */
 static void
 DecodeDelete(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
@@ -1024,12 +1024,12 @@ DecodeDelete(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 
 	xlrec = (xl_heap_delete *) XLogRecGetData(r);
 
-	/* only interested in our database */
+	/* 仅关注我们的数据库     */
 	XLogRecGetBlockTag(r, 0, &target_locator, NULL, NULL);
 	if (target_locator.dbOid != ctx->slot->data.database)
 		return;
 
-	/* output plugin doesn't look for this origin, no need to queue */
+	/* 输出插件不查找该 origin，无需入队               */
 	if (FilterByOrigin(ctx, XLogRecGetOrigin(r)))
 		return;
 
@@ -1044,7 +1044,7 @@ DecodeDelete(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 
 	memcpy(&change->data.tp.rlocator, &target_locator, sizeof(RelFileLocator));
 
-	/* old primary key stored */
+	/* 已存储旧主键     */
 	if (xlrec->flags & XLH_DELETE_CONTAINS_OLD)
 	{
 		Size		datalen = XLogRecGetDataLen(r) - SizeOfHeapDelete;
@@ -1066,7 +1066,7 @@ DecodeDelete(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 }
 
 /*
- * Parse XLOG_HEAP_TRUNCATE from wal
+ * 从 WAL 解析 XLOG_HEAP_TRUNCATE
  */
 static void
 DecodeTruncate(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
@@ -1077,11 +1077,11 @@ DecodeTruncate(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 
 	xlrec = (xl_heap_truncate *) XLogRecGetData(r);
 
-	/* only interested in our database */
+	/* 仅关注我们的数据库     */
 	if (xlrec->dbId != ctx->slot->data.database)
 		return;
 
-	/* output plugin doesn't look for this origin, no need to queue */
+	/* 输出插件不查找该 origin，无需入队               */
 	if (FilterByOrigin(ctx, XLogRecGetOrigin(r)))
 		return;
 
@@ -1102,9 +1102,9 @@ DecodeTruncate(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 }
 
 /*
- * Decode XLOG_HEAP2_MULTI_INSERT_insert record into multiple tuplebufs.
+ * 把 XLOG_HEAP2_MULTI_INSERT_insert 解码进多个元组缓冲区。 
  *
- * Currently MULTI_INSERT will always contain the full tuples.
+ * 目前 MULTI_INSERT 总是包含完整元组。            
  */
 static void
 DecodeMultiInsert(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
@@ -1120,24 +1120,24 @@ DecodeMultiInsert(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 	xlrec = (xl_heap_multi_insert *) XLogRecGetData(r);
 
 	/*
-	 * Ignore insert records without new tuples.  This happens when a
-	 * multi_insert is done on a catalog or on a non-persistent relation.
+	 * 忽略没有新元组的插入记录。multi_insert 针对的 
+	 * 是系统表或非持久关系时就会发生这种情况。      
 	 */
 	if (!(xlrec->flags & XLH_INSERT_CONTAINS_NEW_TUPLE))
 		return;
 
-	/* only interested in our database */
+	/* 仅关注我们的数据库     */
 	XLogRecGetBlockTag(r, 0, &rlocator, NULL, NULL);
 	if (rlocator.dbOid != ctx->slot->data.database)
 		return;
 
-	/* output plugin doesn't look for this origin, no need to queue */
+	/* 输出插件不查找该 origin，无需入队               */
 	if (FilterByOrigin(ctx, XLogRecGetOrigin(r)))
 		return;
 
 	/*
-	 * We know that this multi_insert isn't for a catalog, so the block should
-	 * always have data even if a full-page write of it is taken.
+	 * 我们知道这个 multi_insert 不是针对系统表的，因此即使
+	 * 对它做了整页写入，该块也总会有数据。    
 	 */
 	tupledata = XLogRecGetBlockData(r, 0, &tuplelen);
 	Assert(tupledata != NULL);
@@ -1167,11 +1167,11 @@ DecodeMultiInsert(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 		tuple = change->data.tp.newtuple;
 		header = tuple->tuple.t_data;
 
-		/* not a disk based tuple */
+		/* 非磁盘式元组     */
 		ItemPointerSetInvalid(&tuple->tuple.t_self);
 
 		/*
-		 * We can only figure this out after reassembling the transactions.
+		 * 只有在重组各事务后我们才能弄清这一点。       
 		 */
 		tuple->tuple.t_tableOid = InvalidOid;
 
@@ -1187,9 +1187,9 @@ DecodeMultiInsert(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 		header->t_hoff = xlhdr->t_hoff;
 
 		/*
-		 * Reset toast reassembly state only after the last row in the last
-		 * xl_multi_insert_tuple record emitted by one heap_multi_insert()
-		 * call.
+		 * toast 重组状态的重置要等到 heap_multi_insert() 调用 
+		 * 所发出的最后一条 xl_multi_insert_tuple 记录末行之 
+		 * 后  
 		 */
 		if (xlrec->flags & XLH_INSERT_LAST_IN_MULTI &&
 			(i + 1) == xlrec->ntuples)
@@ -1200,17 +1200,17 @@ DecodeMultiInsert(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 		ReorderBufferQueueChange(ctx->reorder, XLogRecGetXid(r),
 								 buf->origptr, change, false);
 
-		/* move to the next xl_multi_insert_tuple entry */
+		/* 移到下一个 xl_multi_insert_tuple 条目 */
 		data += datalen;
 	}
 	Assert(data == tupledata + tuplelen);
 }
 
 /*
- * Parse XLOG_HEAP_CONFIRM from wal into a confirmation change.
+ * 把 XLOG_HEAP_CONFIRM 从 WAL 解析成一条确认变更。
  *
- * This is pretty trivial, all the state essentially already setup by the
- * speculative insertion.
+ * 这相当简单，全部状态实质上已由推测插入设置       
+ * 完毕。             
  */
 static void
 DecodeSpecConfirm(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
@@ -1219,12 +1219,12 @@ DecodeSpecConfirm(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 	ReorderBufferChange *change;
 	RelFileLocator target_locator;
 
-	/* only interested in our database */
+	/* 仅关注我们的数据库     */
 	XLogRecGetBlockTag(r, 0, &target_locator, NULL, NULL);
 	if (target_locator.dbOid != ctx->slot->data.database)
 		return;
 
-	/* output plugin doesn't look for this origin, no need to queue */
+	/* 输出插件不查找该 origin，无需入队               */
 	if (FilterByOrigin(ctx, XLogRecGetOrigin(r)))
 		return;
 
@@ -1242,11 +1242,11 @@ DecodeSpecConfirm(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)
 
 
 /*
- * Read a HeapTuple as WAL logged by heap_insert, heap_update and heap_delete
- * (but not by heap_multi_insert) into a tuplebuf.
+ * 读取 heap_insert、heap_update 与 heap_delete 写入 WAL 的 HeapTuple 
+ * （不含 heap_multi_insert）进 tuplebuf。  
  *
- * The size 'len' and the pointer 'data' in the record need to be
- * computed outside as they are record specific.
+ * 记录中 'len' 大小与 'data' 指针需在外部计算，  
+ * 因为它们是随记录而异的。         
  */
 static void
 DecodeXLogTuple(char *data, Size len, ReorderBufferTupleBuf *tuple)
@@ -1260,13 +1260,13 @@ DecodeXLogTuple(char *data, Size len, ReorderBufferTupleBuf *tuple)
 	tuple->tuple.t_len = datalen + SizeofHeapTupleHeader;
 	header = tuple->tuple.t_data;
 
-	/* not a disk based tuple */
+	/* 非磁盘式元组     */
 	ItemPointerSetInvalid(&tuple->tuple.t_self);
 
-	/* we can only figure this out after reassembling the transactions */
+	/* 只有在重组各事务后我们才能弄清这一点。       */
 	tuple->tuple.t_tableOid = InvalidOid;
 
-	/* data is not stored aligned, copy to aligned storage */
+	/* 数据存储未对齐，复制到对齐存储中    */
 	memcpy((char *) &xlhdr,
 		   data,
 		   SizeOfHeapHeader);
@@ -1283,16 +1283,16 @@ DecodeXLogTuple(char *data, Size len, ReorderBufferTupleBuf *tuple)
 }
 
 /*
- * Check whether we are interested in this specific transaction.
+ * 检查我们是否对该特定事务感兴趣。             
  *
- * There can be several reasons we might not be interested in this
- * transaction:
- * 1) We might not be interested in decoding transactions up to this
- *	  LSN. This can happen because we previously decoded it and now just
- *	  are restarting or if we haven't assembled a consistent snapshot yet.
- * 2) The transaction happened in another database.
- * 3) The output plugin is not interested in the origin.
- * 4) We are doing fast-forwarding
+ * 我们可能对该事务不感兴趣的原因有               
+ * 如下：   
+ * 1) 我们可能不想解码截至此 LSN 为止的事务。      
+ *	  原因可能是我们之前已经解码过它，现在只是      
+ *	  重新启动；或者是尚未组装出一致的快照。           
+ * 2) 该事务发生在另一个数据库中。   
+ * 3) 输出插件对该 origin 不感兴趣。         
+ * 4) 我们正在执行快进    
  */
 static bool
 DecodeTXNNeedSkip(LogicalDecodingContext *ctx, XLogRecordBuffer *buf,

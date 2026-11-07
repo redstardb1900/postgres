@@ -1,0 +1,43 @@
+{
+ "schema_version": 1,
+ "batch_id": "0309-comment-parser-parse_node",
+ "title": "Translate comments: parser-parse_node",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "267ac506dc42fc6b703fb146e33e396a82ab0f61",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0309-comment-parser-parse_node.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/parser/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0309-comment-parser-parse_node.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/parser/parse_node.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 45,
+   "translated": 45,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "P2 translation campaign wave F36"
+  }
+ ],
+ "notes": "Whole-file batch: 45 blocks (21 multi + 24 ONE), all translated, 0 preserved (blk12 usage-pattern block translated; its two code lines setup/cancel_parser_errposition_callback(&pcbstate, ...) kept EN-identical, the declare/.../call prose lines translated as in-spec values). No tool change this batch. No pre-flight ammo needed (keyscan zero real gaps after closing-edge filtering, duplicate keys zero; spec-level fixes already in: blk6 不能允许->不允许, blk31 过多). Gates: verify 0 violations 0 W7 for parse_node.c, term 0 errors 0 parse_node.c lines, render hard-zero odd-quote 0, audit 45 OK, spec_check OK.  Review round 1: FAIL (3 must-fix, all proposals coordinator-verified verbatim and applied, fix0309r1.py, 6 spec edits / 6 lines): blk7 L108 token->令牌 corrected to 词元 (lexer sense, glossary + 0308 parser.c corpus); blk20 L241 lost EN closing paren restored (51/53); blk19 necessity predicate \"This is needed\" restored via 4-line re-flow (li5 empty key -> content).  Delta vs the reviewer's simulated copy byte-identical; six gates re-run green.  Round 2 review verdict: PASS (6/6 byte-landed, drift exactly the 6 surgery lines, frame lines untouched, 485/485 with 45-block parity, blk20 paren balance 4/4 with 45-block scan zero imbalance, three surgeries semantically complete, R10 filings maintained, zero new defects)."
+}

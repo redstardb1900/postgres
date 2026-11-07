@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_node.c
- *	  various routines that make nodes for querytrees
+ *	  为查询树构造节点的各种例程        
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -36,9 +36,9 @@ static void pcb_error_callback(void *arg);
 
 /*
  * make_parsestate
- *		Allocate and initialize a new ParseState.
+ *		分配并初始化新的 ParseState。   
  *
- * Caller should eventually release the ParseState via free_parsestate().
+ * 调用者最终应通过 free_parsestate() 释放该 ParseState。    
  */
 ParseState *
 make_parsestate(ParseState *parentParseState)
@@ -49,20 +49,20 @@ make_parsestate(ParseState *parentParseState)
 
 	pstate->parentParseState = parentParseState;
 
-	/* Fill in fields that don't start at null/false/zero */
+	/* 填充初值不是 null/false/零的字段。      */
 	pstate->p_next_resno = 1;
 	pstate->p_resolve_unknowns = true;
 
 	if (parentParseState)
 	{
 		pstate->p_sourcetext = parentParseState->p_sourcetext;
-		/* all hooks are copied from parent */
+		/* 钩子全部从父级复制      */
 		pstate->p_pre_columnref_hook = parentParseState->p_pre_columnref_hook;
 		pstate->p_post_columnref_hook = parentParseState->p_post_columnref_hook;
 		pstate->p_paramref_hook = parentParseState->p_paramref_hook;
 		pstate->p_coerce_param_hook = parentParseState->p_coerce_param_hook;
 		pstate->p_ref_hook_state = parentParseState->p_ref_hook_state;
-		/* query environment stays in context for the whole parse analysis */
+		/* 查询环境在整个解析分析期间保留于上下文中。 */
 		pstate->p_queryEnv = parentParseState->p_queryEnv;
 	}
 
@@ -71,15 +71,15 @@ make_parsestate(ParseState *parentParseState)
 
 /*
  * free_parsestate
- *		Release a ParseState and any subsidiary resources.
+ *		释放一个 ParseState 及其附属资源。     
  */
 void
 free_parsestate(ParseState *pstate)
 {
 	/*
-	 * Check that we did not produce too many resnos; at the very least we
-	 * cannot allow more than 2^16, since that would exceed the range of a
-	 * AttrNumber. It seems safest to use MaxTupleAttributeNumber.
+	 * 检查我们没有生成过多的 resno；至少我们             
+	 * 不允许超过 2^16，因为这会超出 AttrNumber 范围。     
+	 * 最稳妥的做法是使用 MaxTupleAttributeNumber。     
 	 */
 	if (pstate->p_next_resno - 1 > MaxTupleAttributeNumber)
 		ereport(ERROR,
@@ -96,56 +96,56 @@ free_parsestate(ParseState *pstate)
 
 /*
  * parser_errposition
- *		Report a parse-analysis-time cursor position, if possible.
+ *		如果可能，报告解析分析时的游标位置。    
  *
- * This is expected to be used within an ereport() call.  The return value
- * is a dummy (always 0, in fact).
+ * 该函数预期在 ereport() 调用内部使用。返回值            
+ * 是虚拟值（总是 0）。  
  *
- * The locations stored in raw parsetrees are byte offsets into the source
- * string.  We have to convert them to 1-based character indexes for reporting
- * to clients.  (We do things this way to avoid unnecessary overhead in the
- * normal non-error case: computing character indexes would be much more
- * expensive than storing token offsets.)
+ * 原始解析树存储的位置是源字符串内的字节偏移，     
+ * 报告给客户端时必须把它们转换为 1 起算的字符序号。   
+ * （我们这样做是为了避免在正常的非出错情形下         
+ * 产生不必要的开销：计算字符序号的开销要比存储   
+ * 词元偏移高得多。）           
  */
 int
 parser_errposition(ParseState *pstate, int location)
 {
 	int			pos;
 
-	/* No-op if location was not provided */
+	/* 未提供位置则为空操作     */
 	if (location < 0)
 		return 0;
-	/* Can't do anything if source text is not available */
+	/* 若源文本不可用则无法做任何处理     */
 	if (pstate == NULL || pstate->p_sourcetext == NULL)
 		return 0;
-	/* Convert offset to character number */
+	/* 将偏移转换为字符序号     */
 	pos = pg_mbstrlen_with_len(pstate->p_sourcetext, location) + 1;
-	/* And pass it to the ereport mechanism */
+	/* 传给 ereport 机制处理。       */
 	return errposition(pos);
 }
 
 
 /*
  * setup_parser_errposition_callback
- *		Arrange for non-parser errors to report an error position
+ *		让非解析器错误也能报告出错位置            
  *
- * Sometimes the parser calls functions that aren't part of the parser
- * subsystem and can't reasonably be passed a ParseState; yet we would
- * like any errors thrown in those functions to be tagged with a parse
- * error location.  Use this function to set up an error context stack
- * entry that will accomplish that.  Usage pattern:
+ * 有时解析器会调用不属于解析器子系统的函数，    
+ * 这些函数无法合理地传入 ParseState；但我们希望     
+ * 其中抛出的任何错误都能带上解析错误位置标记。 
+ * 用本函数建立错误上下文栈条目即可实现该目标。 
+ * 用法模式如下：                           
  *
- *		declare a local variable "ParseCallbackState pcbstate"
- *		...
+ *		声明局部变量 "ParseCallbackState pcbstate"      
+ *		…
  *		setup_parser_errposition_callback(&pcbstate, pstate, location);
- *		call function that might throw error;
+ *		调用可能抛出错误的函数； 
  *		cancel_parser_errposition_callback(&pcbstate);
  */
 void
 setup_parser_errposition_callback(ParseCallbackState *pcbstate,
 								  ParseState *pstate, int location)
 {
-	/* Setup error traceback support for ereport() */
+	/* 为 ereport() 设置错误回溯支持      */
 	pcbstate->pstate = pstate;
 	pcbstate->location = location;
 	pcbstate->errcallback.callback = pcb_error_callback;
@@ -155,21 +155,21 @@ setup_parser_errposition_callback(ParseCallbackState *pcbstate,
 }
 
 /*
- * Cancel a previously-set-up errposition callback.
+ * 取消先前设置的 errposition 回调。     
  */
 void
 cancel_parser_errposition_callback(ParseCallbackState *pcbstate)
 {
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = pcbstate->errcallback.previous;
 }
 
 /*
- * Error context callback for inserting parser error location.
+ * 插入解析器错误位置用的错误上下文回调。  
  *
- * Note that this will be called for *any* error occurring while the
- * callback is installed.  We avoid inserting an irrelevant error location
- * if the error is a query cancel --- are there any other important cases?
+ * 注意回调安装期间发生的任何错误都会调用它，  
+ * 对于查询取消错误我们会避免插入无关的错误位置，  
+ * --- 除此之外还有其他重要情形吗？                         
  */
 static void
 pcb_error_callback(void *arg)
@@ -183,31 +183,31 @@ pcb_error_callback(void *arg)
 
 /*
  * transformContainerType()
- *		Identify the actual container type for a subscripting operation.
+ *		确定下标操作实际使用的容器类型。                
  *
- * containerType/containerTypmod are modified if necessary to identify
- * the actual container type and typmod.  This mainly involves smashing
- * any domain to its base type, but there are some special considerations.
- * Note that caller still needs to check if the result type is a container.
+ * 如有必要将修改 containerType/containerTypmod，以标识    
+ * 出真正的容器类型和 typmod。这主要涉及把域还原为 
+ * 其基类型，但还有一些特殊情形需要考虑。              
+ * 注意调用者仍需检查结果类型是否为容器类型。         
  */
 void
 transformContainerType(Oid *containerType, int32 *containerTypmod)
 {
 	/*
-	 * If the input is a domain, smash to base type, and extract the actual
-	 * typmod to be applied to the base type. Subscripting a domain is an
-	 * operation that necessarily works on the base container type, not the
-	 * domain itself. (Note that we provide no method whereby the creator of a
-	 * domain over a container type could hide its ability to be subscripted.)
+	 * 若输入是域，则还原为基类型，并提取实际应用于  
+	 * 基类型的 typmod。对域做下标操作本质上作用于     
+	 * 基础容器类型而非域本身。                                
+	 * （注意：我们没有提供任何方法，让容器类型之上的  
+	 * 域的创建者能够隐藏其可下标性。）                       
 	 */
 	*containerType = getBaseTypeAndTypmod(*containerType, containerTypmod);
 
 	/*
-	 * We treat int2vector and oidvector as though they were domains over
-	 * int2[] and oid[].  This is needed because array slicing could create an
-	 * array that doesn't satisfy the dimensionality constraints of the
-	 * xxxvector type; so we want the result of a slice operation to be
-	 * considered to be of the more general type.
+	 * 我们将 int2vector 和 oidvector 当作 int2[] 与              
+	 * oid[] 之上的域。这样做是必要的，因为数组切片        
+	 * 可能创建出不满足 xxxvector 类型维度约束的        
+	 * 数组；所以我们希望切片操作的结果                
+	 * 被视为更一般的类型。            
 	 */
 	if (*containerType == INT2VECTOROID)
 		*containerType = INT2ARRAYOID;
@@ -217,32 +217,32 @@ transformContainerType(Oid *containerType, int32 *containerTypmod)
 
 /*
  * transformContainerSubscripts()
- *		Transform container (array, etc) subscripting.  This is used for both
- *		container fetch and container assignment.
+ *		转换容器（数组等）的下标操作。这同时用于容器   
+ *		读取和容器赋值两种场景。     
  *
- * In a container fetch, we are given a source container value and we produce
- * an expression that represents the result of extracting a single container
- * element or a container slice.
+ * 在容器读取中，我们会得到一个源容器值，并生成一个  
+ * 表示提取单个容器元素或容器切片之结果的表达式。    
+ *                              
  *
- * Container assignments are treated basically the same as container fetches
- * here.  The caller will modify the result node to insert the source value
- * that is to be assigned to the element or slice that a fetch would have
- * retrieved.  The execution result will be a new container value with
- * the source value inserted into the right part of the container.
+ * 容器赋值在这里的处理方式与容器读取基本相同。       
+ * 调用者会修改结果节点，将待赋值的源值插入到         
+ * 本应被读取操作取回的元素或切片中。                   
+ * 执行结果将是一个新的容器值，其中源值被插入到 
+ * 容器中的相应部位。                                    
  *
- * For both cases, if the source is of a domain-over-container type, the
- * result is the same as if it had been of the container type; essentially,
- * we must fold a domain to its base type before applying subscripting.
- * (Note that int2vector and oidvector are treated as domains here.)
+ * 对这两种情形，若源值属于域上的容器类型，结果都
+ * 与它属于容器类型时相同；本质上，在应用下标之前   
+ * 必须先把域折叠为它的基类型。                          
+ * （注意 int2vector 和 oidvector 在这里被视为域。）   
  *
- * pstate			Parse state
- * containerBase	Already-transformed expression for the container as a whole
- * containerType	OID of container's datatype (should match type of
- *					containerBase, or be the base type of containerBase's
- *					domain type)
- * containerTypMod	typmod for the container
- * indirection		Untransformed list of subscripts (must not be NIL)
- * isAssignment		True if this will become a container assignment.
+ * pstate		解析状态
+ * containerBase	已对整个容器完成转换的表达式                 
+ * containerType	容器数据类型的 OID（应与 containerBase 
+ *					的类型一致，或是其域类型的基类型）  
+ *					            
+ * containerTypMod	容器的 typmod        
+ * indirection		未转换的下标列表（不得为 NIL）       
+ * isAssignment		若将成为容器赋值则为 true。          
  */
 SubscriptingRef *
 transformContainerSubscripts(ParseState *pstate,
@@ -259,16 +259,16 @@ transformContainerSubscripts(ParseState *pstate,
 	ListCell   *idx;
 
 	/*
-	 * Determine the actual container type, smashing any domain.  In the
-	 * assignment case the caller already did this, since it also needs to
-	 * know the actual container type.
+	 * 确定实际容器类型，还原其中的域。赋值情形下  
+	 * 调用者已经做过这件事，因为它也需要知道          
+	 * 实际的容器类型。       
 	 */
 	if (!isAssignment)
 		transformContainerType(&containerType, &containerTypMod);
 
 	/*
-	 * Verify that the container type is subscriptable, and get its support
-	 * functions and typelem.
+	 * 验证容器类型是否可下标，并取得其支持函数和     
+	 * typelem。            
 	 */
 	sbsroutines = getSubscriptingRoutines(containerType, &elementType);
 	if (!sbsroutines)
@@ -279,11 +279,11 @@ transformContainerSubscripts(ParseState *pstate,
 				 parser_errposition(pstate, exprLocation(containerBase))));
 
 	/*
-	 * Detect whether any of the indirection items are slice specifiers.
+	 * 检测 indirection 各项中是否存在切片指定符。       
 	 *
-	 * A list containing only simple subscripts refers to a single container
-	 * element.  If any of the items are slice specifiers (lower:upper), then
-	 * the subscript expression means a container slice operation.
+	 * 只含简单下标的列表引用的是单个容器元素。         
+	 * 如果其中某些项是切片指定符(lower:upper)，那么         
+	 * 下标表达式就表示容器切片操作。              
 	 */
 	foreach(idx, indirection)
 	{
@@ -297,29 +297,29 @@ transformContainerSubscripts(ParseState *pstate,
 	}
 
 	/*
-	 * Ready to build the SubscriptingRef node.
+	 * 准备构建 SubscriptingRef 节点。  
 	 */
 	sbsref = makeNode(SubscriptingRef);
 
 	sbsref->refcontainertype = containerType;
 	sbsref->refelemtype = elementType;
-	/* refrestype is to be set by container-specific logic */
+	/* refrestype 留待容器专属逻辑来设置。     */
 	sbsref->reftypmod = containerTypMod;
-	/* refcollid will be set by parse_collate.c */
-	/* refupperindexpr, reflowerindexpr are to be set by container logic */
+	/* refcollid 将由 parse_collate.c 设置  */
+	/* refupperindexpr、reflowerindexpr 留待容器逻辑设置        */
 	sbsref->refexpr = (Expr *) containerBase;
-	sbsref->refassgnexpr = NULL;	/* caller will fill if it's an assignment */
+	sbsref->refassgnexpr = NULL;	/* 若是赋值则由调用者填写      */
 
 	/*
-	 * Call the container-type-specific logic to transform the subscripts and
-	 * determine the subscripting result type.
+	 * 调用容器类型专属逻辑来转换各下标，并确定          
+	 * 下标操作的结果类型。         
 	 */
 	sbsroutines->transform(sbsref, indirection, pstate,
 						   isSlice, isAssignment);
 
 	/*
-	 * Verify we got a valid type (this defends, for example, against someone
-	 * using array_subscript_handler as typsubscript without setting typelem).
+	 * 验证我们得到的是有效类型（例如可防止有人把       
+	 * array_subscript_handler 用作 typsubscript 而不设置 typelem）。 
 	 */
 	if (!OidIsValid(sbsref->refrestype))
 		ereport(ERROR,
@@ -333,20 +333,20 @@ transformContainerSubscripts(ParseState *pstate,
 /*
  * make_const
  *
- *	Convert an A_Const node (as returned by the grammar) to a Const node
- *	of the "natural" type for the constant.  Note that this routine is
- *	only used when there is no explicit cast for the constant, so we
- *	have to guess what type is wanted.
+ *	把 A_Const 节点（文法返回的）转换成 Const 节点，    
+ *	其类型为该常量 "自然" 的类型。注意本例程只     
+ *	在常量没有显式转换时才会用到，因此我们必须 
+ *	猜测想要的是什么类型。 
  *
- *	For string literals we produce a constant of type UNKNOWN ---- whose
- *	representation is the same as cstring, but it indicates to later type
- *	resolution that we're not sure yet what type it should be considered.
- *	Explicit "NULL" constants are also typed as UNKNOWN.
+ *	对字符串字面量，我们产生 UNKNOWN 类型的常量 ----   
+ *	其表示形式与 cstring 相同，但它向后继的类型解析   
+ *	表明我们尚不确定它应被视为何种类型。               
+ *	显式的 "NULL" 常量的类型也是 UNKNOWN。   
  *
- *	For integers and floats we produce int4, int8, or numeric depending
- *	on the value of the number.  XXX We should produce int2 as well,
- *	but additional cleanup is needed before we can do that; there are
- *	too many examples that fail if we try.
+ *	对于整数和浮点数，根据数值的取值产生 int4、int8 
+ *	或 numeric。XXX 我们也应产生 int2，                    
+ *	但在那之前还需要额外的清理工作；如果现在就  
+ *	尝试，失败的例子过多。     
  */
 Const *
 make_const(ParseState *pstate, A_Const *aconst)
@@ -360,7 +360,7 @@ make_const(ParseState *pstate, A_Const *aconst)
 
 	if (aconst->isnull)
 	{
-		/* return a null const */
+		/* 返回 null 常量  */
 		con = makeConst(UNKNOWNOID,
 						-1,
 						InvalidOid,
@@ -384,7 +384,7 @@ make_const(ParseState *pstate, A_Const *aconst)
 
 		case T_Float:
 			{
-				/* could be an oversize integer as well as a float ... */
+				/* 既可能是浮点数，也可能是超大整数。 */
 
 				ErrorSaveContext escontext = {T_ErrorSaveContext};
 				int64		val64;
@@ -393,9 +393,9 @@ make_const(ParseState *pstate, A_Const *aconst)
 				if (!escontext.error_occurred)
 				{
 					/*
-					 * It might actually fit in int32. Probably only INT_MIN
-					 * can occur, but we'll code the test generally just to be
-					 * sure.
+					 * 它实际可能放得进 int32。大概只有 INT_MIN
+					 * 会出现，但为稳妥仍把测试写成通用的， 
+					 *      
 					 */
 					int32		val32 = (int32) val64;
 
@@ -413,12 +413,12 @@ make_const(ParseState *pstate, A_Const *aconst)
 
 						typeid = INT8OID;
 						typelen = sizeof(int64);
-						typebyval = FLOAT8PASSBYVAL;	/* int8 and float8 alike */
+						typebyval = FLOAT8PASSBYVAL;	/* int8 和 float8 类似*/
 					}
 				}
 				else
 				{
-					/* arrange to report location if numeric_in() fails */
+					/* 若 numeric_in() 失败则安排报告位置。  */
 					setup_parser_errposition_callback(&pcbstate, pstate, aconst->location);
 					val = DirectFunctionCall3(numeric_in,
 											  CStringGetDatum(aconst->val.fval.fval),
@@ -427,7 +427,7 @@ make_const(ParseState *pstate, A_Const *aconst)
 					cancel_parser_errposition_callback(&pcbstate);
 
 					typeid = NUMERICOID;
-					typelen = -1;	/* variable len */
+					typelen = -1;	/* 变长       */
 					typebyval = false;
 				}
 				break;
@@ -444,18 +444,18 @@ make_const(ParseState *pstate, A_Const *aconst)
 		case T_String:
 
 			/*
-			 * We assume here that UNKNOWN's internal representation is the
-			 * same as CSTRING
+			 * 我们这里假定 UNKNOWN 的内部表示与 CSTRING       
+			 * 相同。      
 			 */
 			val = CStringGetDatum(strVal(&aconst->val));
 
-			typeid = UNKNOWNOID;	/* will be coerced later */
-			typelen = -2;		/* cstring-style varwidth type */
+			typeid = UNKNOWNOID;	/* 稍后强制转换    */
+			typelen = -2;		/* cstring 风格变宽类型  */
 			typebyval = false;
 			break;
 
 		case T_BitString:
-			/* arrange to report location if bit_in() fails */
+			/* 若 bit_in() 失败则安排报告位置。  */
 			setup_parser_errposition_callback(&pcbstate, pstate, aconst->location);
 			val = DirectFunctionCall3(bit_in,
 									  CStringGetDatum(aconst->val.bsval.bsval),
@@ -469,12 +469,12 @@ make_const(ParseState *pstate, A_Const *aconst)
 
 		default:
 			elog(ERROR, "unrecognized node type: %d", (int) nodeTag(&aconst->val));
-			return NULL;		/* keep compiler quiet */
+			return NULL;		/* 让编译器安静  */
 	}
 
 	con = makeConst(typeid,
-					-1,			/* typmod -1 is OK for all cases */
-					InvalidOid, /* all cases are uncollatable types */
+					-1,			/* typmod -1 各情形均合法  */
+					InvalidOid, /* 各情形均为不可排序类型*/
 					typelen,
 					val,
 					false,

@@ -2,8 +2,8 @@
  *
  * logicalfuncs.c
  *
- *	   Support functions for using logical decoding and management of
- *	   logical replication slots via SQL.
+ *	   通过 SQL 使用逻辑解码和管理                        
+ *	   逻辑复制槽的支持函数。 
  *
  *
  * Copyright (c) 2012-2023, PostgreSQL Global Development Group
@@ -40,7 +40,7 @@
 #include "utils/regproc.h"
 #include "utils/resowner.h"
 
-/* Private data for writing out data */
+/* 用于写出数据的私有数据 */
 typedef struct DecodingOutputState
 {
 	Tuplestorestate *tupstore;
@@ -50,7 +50,7 @@ typedef struct DecodingOutputState
 } DecodingOutputState;
 
 /*
- * Prepare for an output plugin write.
+ * 为输出插件写入做准备。  
  */
 static void
 LogicalOutputPrepareWrite(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId xid,
@@ -60,7 +60,7 @@ LogicalOutputPrepareWrite(LogicalDecodingContext *ctx, XLogRecPtr lsn, Transacti
 }
 
 /*
- * Perform output plugin write into tuplestore.
+ * 执行输出插件写入元组存储。     
  */
 static void
 LogicalOutputWrite(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId xid,
@@ -70,7 +70,7 @@ LogicalOutputWrite(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId xi
 	bool		nulls[3];
 	DecodingOutputState *p;
 
-	/* SQL Datums can only be of a limited length... */
+	/* SQL Datum 的长度只能是有限值……   */
 	if (ctx->out->len > MaxAllocSize - VARHDRSZ)
 		elog(ERROR, "too much output for sql interface");
 
@@ -81,15 +81,15 @@ LogicalOutputWrite(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId xi
 	values[1] = TransactionIdGetDatum(xid);
 
 	/*
-	 * Assert ctx->out is in database encoding when we're writing textual
-	 * output.
+	 * 当写出文本输出时，断言 ctx->out 处于数据库编     
+	 * 码。 
 	 */
 	if (!p->binary_output)
 		Assert(pg_verify_mbstr(GetDatabaseEncoding(),
 							   ctx->out->data, ctx->out->len,
 							   false));
 
-	/* ick, but cstring_to_text_with_len works for bytea perfectly fine */
+	/* 有点恶心，但 cstring_to_text_with_len对 bytea 完全适用*/
 	values[2] = PointerGetDatum(cstring_to_text_with_len(ctx->out->data, ctx->out->len));
 
 	tuplestore_putvalues(p->tupstore, p->tupdesc, values, nulls);
@@ -97,7 +97,7 @@ LogicalOutputWrite(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId xi
 }
 
 /*
- * Helper function for the various SQL callable logical decoding functions.
+ * 供各种可由 SQL 调用的逻辑解码函数使用的辅助函数。 
  */
 static Datum
 pg_logical_slot_get_changes_guts(FunctionCallInfo fcinfo, bool confirm, bool binary)
@@ -142,7 +142,7 @@ pg_logical_slot_get_changes_guts(FunctionCallInfo fcinfo, bool confirm, bool bin
 				 errmsg("options array must not be null")));
 	arr = PG_GETARG_ARRAYTYPE_P(3);
 
-	/* state to write output to */
+	/* 输出写往的状态    */
 	p = palloc0(sizeof(DecodingOutputState));
 
 	p->binary_output = binary;
@@ -150,7 +150,7 @@ pg_logical_slot_get_changes_guts(FunctionCallInfo fcinfo, bool confirm, bool bin
 	per_query_ctx = rsinfo->econtext->ecxt_per_query_memory;
 	oldcontext = MemoryContextSwitchTo(per_query_ctx);
 
-	/* Deconstruct options array */
+	/* 解构选项数组        */
 	ndim = ARR_NDIM(arr);
 	if (ndim > 1)
 	{
@@ -193,7 +193,7 @@ pg_logical_slot_get_changes_guts(FunctionCallInfo fcinfo, bool confirm, bool bin
 	p->tupdesc = rsinfo->setDesc;
 
 	/*
-	 * Compute the current end-of-wal.
+	 * 计算当前的 WAL 末尾。  
 	 */
 	if (!RecoveryInProgress())
 		end_of_wal = GetFlushRecPtr(NULL);
@@ -204,7 +204,7 @@ pg_logical_slot_get_changes_guts(FunctionCallInfo fcinfo, bool confirm, bool bin
 
 	PG_TRY();
 	{
-		/* restart at slot's confirmed_flush */
+		/* 从槽 confirmed_flush重新开始*/
 		ctx = CreateDecodingContext(InvalidXLogRecPtr,
 									options,
 									false,
@@ -217,8 +217,8 @@ pg_logical_slot_get_changes_guts(FunctionCallInfo fcinfo, bool confirm, bool bin
 		MemoryContextSwitchTo(oldcontext);
 
 		/*
-		 * Check whether the output plugin writes textual output if that's
-		 * what we need.
+		 * 检查输出插件是否写文本输出，如果正是我们   
+		 * 所需的。 
 		 */
 		if (!binary &&
 			ctx->options.output_type !=OUTPUT_PLUGIN_TEXTUAL_OUTPUT)
@@ -231,16 +231,16 @@ pg_logical_slot_get_changes_guts(FunctionCallInfo fcinfo, bool confirm, bool bin
 		ctx->output_writer_private = p;
 
 		/*
-		 * Decoding of WAL must start at restart_lsn so that the entirety of
-		 * xacts that committed after the slot's confirmed_flush can be
-		 * accumulated into reorder buffers.
+		 * WAL 的解码必须从 restart_lsn 开始，这样在槽的      
+		 * confirmed_flush 之后提交的事务才能全部累积到  
+		 * 重排序缓冲区中。         
 		 */
 		XLogBeginRead(ctx->reader, MyReplicationSlot->data.restart_lsn);
 
-		/* invalidate non-timetravel entries */
+		/* 使非时间旅行条目失效    */
 		InvalidateSystemCaches();
 
-		/* Decode until we run out of records */
+		/* 解码直到记录耗尽           */
 		while (ctx->reader->EndRecPtr < end_of_wal)
 		{
 			XLogRecord *record;
@@ -251,13 +251,13 @@ pg_logical_slot_get_changes_guts(FunctionCallInfo fcinfo, bool confirm, bool bin
 				elog(ERROR, "could not find record for logical decoding: %s", errm);
 
 			/*
-			 * The {begin_txn,change,commit_txn}_wrapper callbacks above will
-			 * store the description into our tuplestore.
+			 * 上面的 {begin_txn,change,commit_txn}_wrapper 回调函     
+			 * 数会把描述信息存入元组存储。
 			 */
 			if (record != NULL)
 				LogicalDecodingProcessRecord(ctx, ctx->reader);
 
-			/* check limits */
+			/* 检查限制 */
 			if (upto_lsn != InvalidXLogRecPtr &&
 				upto_lsn <= ctx->reader->EndRecPtr)
 				break;
@@ -268,37 +268,37 @@ pg_logical_slot_get_changes_guts(FunctionCallInfo fcinfo, bool confirm, bool bin
 		}
 
 		/*
-		 * Logical decoding could have clobbered CurrentResourceOwner during
-		 * transaction management, so restore the executor's value.  (This is
-		 * a kluge, but it's not worth cleaning up right now.)
+		 * 逻辑解码在事务管理期间可能已经破坏了           
+		 * CurrentResourceOwner，因此需要恢复执行器的值。       
+		 * （是权宜之计，但现在不值得清理。）
 		 */
 		CurrentResourceOwner = old_resowner;
 
 		/*
-		 * Next time, start where we left off. (Hunting things, the family
-		 * business..)
+		 * 下次从上次停下的地方开始。（猎魔之事，家族
+		 * 生意..）
 		 */
 		if (ctx->reader->EndRecPtr != InvalidXLogRecPtr && confirm)
 		{
 			LogicalConfirmReceivedLocation(ctx->reader->EndRecPtr);
 
 			/*
-			 * If only the confirmed_flush_lsn has changed the slot won't get
-			 * marked as dirty by the above. Callers on the walsender
-			 * interface are expected to keep track of their own progress and
-			 * don't need it written out. But SQL-interface users cannot
-			 * specify their own start positions and it's harder for them to
-			 * keep track of their progress, so we should make more of an
-			 * effort to save it for them.
+			 * 如果只有 confirmed_flush_lsn 发生变化，槽不会被  
+			 * 上面的代码标记为脏。WAL 发送进程接口  
+			 * 上的调用者应自行跟踪进度，无需将其写出。  
+			 * 但 SQL 接口用户无法指定自己的起始位置， 
+			 * 而且对他们来说进度更难跟踪，所以             
+			 * 我们应当更加努力地为他们保存                
+			 * 进度。                  
 			 *
-			 * Dirty the slot so it's written out at the next checkpoint.
-			 * We'll still lose its position on crash, as documented, but it's
-			 * better than always losing the position even on clean restart.
+			 * 将槽标记为脏，让它在下一个检查点写出。 
+			 * 如文档所述，崩溃时我们仍会丢失它的位置，但
+			 * 这总好过即使在干净重启后也总是丢失位置。 
 			 */
 			ReplicationSlotMarkDirty();
 		}
 
-		/* free context, call shutdown callback */
+		/* 释放上下文，调用关闭回调 */
 		FreeDecodingContext(ctx);
 
 		ReplicationSlotRelease();
@@ -306,7 +306,7 @@ pg_logical_slot_get_changes_guts(FunctionCallInfo fcinfo, bool confirm, bool bin
 	}
 	PG_CATCH();
 	{
-		/* clear all timetravel entries */
+		/* 清空时间旅行条目     */
 		InvalidateSystemCaches();
 
 		PG_RE_THROW();
@@ -317,7 +317,7 @@ pg_logical_slot_get_changes_guts(FunctionCallInfo fcinfo, bool confirm, bool bin
 }
 
 /*
- * SQL function returning the changestream as text, consuming the data.
+ * 以文本形式返回变更流并消费数据的 SQL 函数。      
  */
 Datum
 pg_logical_slot_get_changes(PG_FUNCTION_ARGS)
@@ -326,7 +326,7 @@ pg_logical_slot_get_changes(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL function returning the changestream as text, only peeking ahead.
+ * 以文本形式返回变更流且只向前窥视的 SQL 函数。   
  */
 Datum
 pg_logical_slot_peek_changes(PG_FUNCTION_ARGS)
@@ -335,7 +335,7 @@ pg_logical_slot_peek_changes(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL function returning the changestream in binary, consuming the data.
+ * 以二进制形式返回变更流并消费数据的 SQL 函数。     
  */
 Datum
 pg_logical_slot_get_binary_changes(PG_FUNCTION_ARGS)
@@ -344,7 +344,7 @@ pg_logical_slot_get_binary_changes(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL function returning the changestream in binary, only peeking ahead.
+ * 以二进制形式返回变更流且只向前窥视的 SQL 函数。  
  */
 Datum
 pg_logical_slot_peek_binary_changes(PG_FUNCTION_ARGS)
@@ -354,7 +354,7 @@ pg_logical_slot_peek_binary_changes(PG_FUNCTION_ARGS)
 
 
 /*
- * SQL function for writing logical decoding message into WAL.
+ * 用于将逻辑解码消息写入 WAL 的 SQL 函数。    
  */
 Datum
 pg_logical_emit_message_bytea(PG_FUNCTION_ARGS)
@@ -372,6 +372,6 @@ pg_logical_emit_message_bytea(PG_FUNCTION_ARGS)
 Datum
 pg_logical_emit_message_text(PG_FUNCTION_ARGS)
 {
-	/* bytea and text are compatible */
+	/* bytea 与 text 兼容         */
 	return pg_logical_emit_message_bytea(fcinfo);
 }

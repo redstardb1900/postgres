@@ -1,0 +1,65 @@
+{
+ "schema_version": 1,
+ "batch_id": "0311-comment-replication-small",
+ "title": "Translate comments: replication-small",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "1a0bf91bd0b8ee1289971a539bc473b25665ce11",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0311-comment-replication-small.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/replication/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0311-comment-replication-small.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/replication/logical/logicalfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 29,
+   "translated": 29,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "P2 translation campaign wave G1"
+  },
+  {
+   "path": "src/backend/replication/logical/message.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 7,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "P2 translation campaign wave G1"
+  },
+  {
+   "path": "src/backend/replication/walreceiverfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 24,
+   "translated": 23,
+   "preserved": 1,
+   "preserved_reasons": [
+    "blk11: bare /* fall through */ control-flow marker kept EN (R5-protected; bare-marker precedents nodeTidrangescan.c:83/89, utility.c:2004, postmaster.c:5810/5815/5822, grep-verified)"
+   ],
+   "note": "P2 translation campaign wave G1"
+  }
+ ],
+ "notes": "P2 translation campaign wave G1 (first replication batch: three small files). Translation agents (G1A: walreceiverfuncs; G1B: logicalfuncs + message) -> coordinator pre-flight (fixed 4 ONE budget overruns from the mid_bytes off-by-one; removed blk11 SPEC1 entry to preserve the R5 fall-through marker) -> keyscan -> spec_check -> exec_apply -> block audit -> verify_c_comments + term_lint + render_scan + exec_audit + exec_spec_check + check_scope, all green. 59 translated / 1 preserved. Review round 1 verdict: PASS (blocking 0 / R10 9 / advisory 1; no fixes needed).  Reviewer independently re-ran all six gates green (verify x3 zero warnings, term 0 errors with the disclosed message.c:1 P51 row, render x3 hard-zero, audit 59 OK, spec_check OK mid-1 model, check_scope S2-only) and rebuilt the byte model from scratch: 60 blocks, LF EN=ZH x3, skeletons byte-identical x3, preserved blk11 byte-identical to EN at L204, MULTI line0/closing-edge/prefix/line-length/budget all pass, ONE totals equal mid with mid-1 budget (39<=41 65<=65 34<=34 24<=29; the 4 pre-flight fixG1pre.py overruns independently confirmed real and necessary).  Fidelity: 59 blocks clean (no dangling sentences / dropped qualifiers / polarity flips / lost parentheticals / broken cross-line connectors); identifier conservation zero loss.  R10 filings accepted: WAL 接收器 vs glossary WAL 接收进程 (h, xlogrecovery.c precedent), 2 cross-line break-word wraps (数据库编/码, 回调函/数), pad-0 CJK-before-*/ lines, blk11 的-drop at 34B full, blk22 清空 for 'clear all' (c accepted), '..' faithful EN quote, blk3 light compression.  Disclosure correction (reviewer, coordinator grep-verified): the pre-flight prose's postgres.c 330-339/521 are ordinary prose comments, not bare markers; the accurate R5 bare-marker precedents are nodeTidrangescan.c:83/89, utility.c:2004, postmaster.c:5810/5815/5822 (prose-type: postgres.c 3097/3123/3168); prior 'zero bare markers' reading was a grep missing-space artifact."
+}

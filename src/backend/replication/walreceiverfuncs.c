@@ -2,9 +2,9 @@
  *
  * walreceiverfuncs.c
  *
- * This file contains functions used by the startup process to communicate
- * with the walreceiver process. Functions implementing walreceiver itself
- * are in walreceiver.c.
+ * 本文件包含启动进程用来与 walreceiver                       
+ * 进程通信。实现 walreceiver 本身的函数                      
+ * 见 walreceiver.c。 
  *
  * Portions Copyright (c) 2010-2023, PostgreSQL Global Development Group
  *
@@ -34,12 +34,12 @@
 WalRcvData *WalRcv = NULL;
 
 /*
- * How long to wait for walreceiver to start up after requesting
- * postmaster to launch it. In seconds.
+ * 请求 postmaster 启动 walreceiver 后等待其启动的   
+ * 最长时长。以秒为单位。   
  */
 #define WALRCV_STARTUP_TIMEOUT 10
 
-/* Report shared memory space needed by WalRcvShmemInit */
+/* 报告 WalRcvShmemInit 所需的共享内存空间   */
 Size
 WalRcvShmemSize(void)
 {
@@ -50,7 +50,7 @@ WalRcvShmemSize(void)
 	return size;
 }
 
-/* Allocate and initialize walreceiver-related shared memory */
+/* 分配并初始化 walreceiver 相关的共享内存      */
 void
 WalRcvShmemInit(void)
 {
@@ -61,7 +61,7 @@ WalRcvShmemInit(void)
 
 	if (!found)
 	{
-		/* First time through, so initialize */
+		/* 首次执行到此，故初始化 */
 		MemSet(WalRcv, 0, WalRcvShmemSize());
 		WalRcv->walRcvState = WALRCV_STOPPED;
 		ConditionVariableInit(&WalRcv->walRcvStoppedCV);
@@ -71,7 +71,7 @@ WalRcvShmemInit(void)
 	}
 }
 
-/* Is walreceiver running (or starting up)? */
+/* walreceiver 在运行（或启动）？  */
 bool
 WalRcvRunning(void)
 {
@@ -87,10 +87,10 @@ WalRcvRunning(void)
 	SpinLockRelease(&walrcv->mutex);
 
 	/*
-	 * If it has taken too long for walreceiver to start up, give up. Setting
-	 * the state to STOPPED ensures that if walreceiver later does start up
-	 * after all, it will see that it's not supposed to be running and die
-	 * without doing anything.
+	 * 若 walreceiver 启动耗时过长，则放弃。将状态设为      
+	 * STOPPED 即可确保：若 walreceiver 之后终究启动了，     
+	 * 它会发现自己并不应该运行，于是不做                
+	 * 任何事便终止。  
 	 */
 	if (state == WALRCV_STARTING)
 	{
@@ -120,8 +120,8 @@ WalRcvRunning(void)
 }
 
 /*
- * Is walreceiver running and streaming (or at least attempting to connect,
- * or starting up)?
+ * walreceiver 是否运行并正在流复制（或至少在尝试连接，
+ * 或启动）？ 
  */
 bool
 WalRcvStreaming(void)
@@ -138,10 +138,10 @@ WalRcvStreaming(void)
 	SpinLockRelease(&walrcv->mutex);
 
 	/*
-	 * If it has taken too long for walreceiver to start up, give up. Setting
-	 * the state to STOPPED ensures that if walreceiver later does start up
-	 * after all, it will see that it's not supposed to be running and die
-	 * without doing anything.
+	 * 若 walreceiver 启动耗时过长，则放弃。将状态设为      
+	 * STOPPED 即可确保：若 walreceiver 之后终究启动了，     
+	 * 它会发现自己并不应该运行，于是不做                
+	 * 任何事便终止。  
 	 */
 	if (state == WALRCV_STARTING)
 	{
@@ -172,8 +172,8 @@ WalRcvStreaming(void)
 }
 
 /*
- * Stop walreceiver (if running) and wait for it to die.
- * Executed by the Startup process.
+ * 停止 walreceiver（若运行）并等其终止。  
+ * 由启动进程执行。        
  */
 void
 ShutdownWalRcv(void)
@@ -183,9 +183,9 @@ ShutdownWalRcv(void)
 	bool		stopped = false;
 
 	/*
-	 * Request walreceiver to stop. Walreceiver will switch to WALRCV_STOPPED
-	 * mode once it's finished, and will also request postmaster to not
-	 * restart itself.
+	 * 请求 walreceiver 停止。walreceiver 完成后会切换到         
+	 * WALRCV_STOPPED 模式，同时也会请求 postmaster 不要    
+	 * 重启自身。
 	 */
 	SpinLockAcquire(&walrcv->mutex);
 	switch (walrcv->walRcvState)
@@ -208,19 +208,19 @@ ShutdownWalRcv(void)
 	}
 	SpinLockRelease(&walrcv->mutex);
 
-	/* Unnecessary but consistent. */
+	/* 非必需但保持一致。 */
 	if (stopped)
 		ConditionVariableBroadcast(&walrcv->walRcvStoppedCV);
 
 	/*
-	 * Signal walreceiver process if it was still running.
+	 * 若 walreceiver 进程仍在运行则发信号。  
 	 */
 	if (walrcvpid != 0)
 		kill(walrcvpid, SIGTERM);
 
 	/*
-	 * Wait for walreceiver to acknowledge its death by setting state to
-	 * WALRCV_STOPPED.
+	 * 等待 walreceiver 通过将状态设为 WALRCV_STOPPED 来      
+	 * 确认死亡。
 	 */
 	ConditionVariablePrepareToSleep(&walrcv->walRcvStoppedCV);
 	while (WalRcvRunning())
@@ -230,17 +230,17 @@ ShutdownWalRcv(void)
 }
 
 /*
- * Request postmaster to start walreceiver.
+ * 请求 postmaster 启动 walreceiver。 
  *
- * "recptr" indicates the position where streaming should begin.  "conninfo"
- * is a libpq connection string to use.  "slotname" is, optionally, the name
- * of a replication slot to acquire.  "create_temp_slot" indicates to create
- * a temporary slot when no "slotname" is given.
+ * "recptr" 指示流复制应开始的位置。"conninfo"                  
+ * 是要使用的 libpq 连接串。"slotname"（可选）是要获取     
+ * 的复制槽的名称。"create_temp_slot" 表示在未给定            
+ * "slotname" 时创建临时槽。             
  *
- * WAL receivers do not directly load GUC parameters used for the connection
- * to the primary, and rely on the values passed down by the caller of this
- * routine instead.  Hence, the addition of any new parameters should happen
- * through this code path.
+ * WAL 接收器不直接加载用于连接到主库的 GUC 参数，       
+ * 而是依赖本例程的调用者向下传递的值。因此，任何   
+ * 新参数的添加都应当经由                                        
+ * 此代码路径。     
  */
 void
 RequestXLogStreaming(TimeLineID tli, XLogRecPtr recptr, const char *conninfo,
@@ -252,17 +252,17 @@ RequestXLogStreaming(TimeLineID tli, XLogRecPtr recptr, const char *conninfo,
 	Latch	   *latch;
 
 	/*
-	 * We always start at the beginning of the segment. That prevents a broken
-	 * segment (i.e., with no records in the first half of a segment) from
-	 * being created by XLOG streaming, which might cause trouble later on if
-	 * the segment is e.g archived.
+	 * 我们总是从段的开头开始。这样可以防止 XLOG 流复制  
+	 * 创建出损坏的段（即前半段无记录），日后如果    
+	 * 该段例如被归档，就可能会引起                            
+	 * 麻烦。                   
 	 */
 	if (XLogSegmentOffset(recptr, wal_segment_size) != 0)
 		recptr -= XLogSegmentOffset(recptr, wal_segment_size);
 
 	SpinLockAcquire(&walrcv->mutex);
 
-	/* It better be stopped if we try to restart it */
+	/* 若要重启它，它最好已停止。      */
 	Assert(walrcv->walRcvState == WALRCV_STOPPED ||
 		   walrcv->walRcvState == WALRCV_WAITING);
 
@@ -272,10 +272,10 @@ RequestXLogStreaming(TimeLineID tli, XLogRecPtr recptr, const char *conninfo,
 		walrcv->conninfo[0] = '\0';
 
 	/*
-	 * Use configured replication slot if present, and ignore the value of
-	 * create_temp_slot as the slot name should be persistent.  Otherwise, use
-	 * create_temp_slot to determine whether this WAL receiver should create a
-	 * temporary slot by itself and use it, or not.
+	 * 若存在已配置的复制槽则使用之，并忽略             
+	 * create_temp_slot 的值，因为该槽名应当是持久的。         
+	 * 否则，用 create_temp_slot 决定是否由该 WAL 接收器         
+	 * 自行创建临时槽并使用。           
 	 */
 	if (slotname != NULL && slotname[0] != '\0')
 	{
@@ -298,8 +298,8 @@ RequestXLogStreaming(TimeLineID tli, XLogRecPtr recptr, const char *conninfo,
 	walrcv->startTime = now;
 
 	/*
-	 * If this is the first startup of walreceiver (on this timeline),
-	 * initialize flushedUpto and latestChunkStart to the starting point.
+	 * 如果这是 walreceiver 首次启动（本时间线上），  
+	 * 则把 flushedUpto 和 latestChunkStart 初始化为起始点。  
 	 */
 	if (walrcv->receiveStart == 0 || walrcv->receivedTLI != tli)
 	{
@@ -321,12 +321,12 @@ RequestXLogStreaming(TimeLineID tli, XLogRecPtr recptr, const char *conninfo,
 }
 
 /*
- * Returns the last+1 byte position that walreceiver has flushed.
+ * 返回 walreceiver 已刷写的 last+1 字节位置。        
  *
- * Optionally, returns the previous chunk start, that is the first byte
- * written in the most recent walreceiver flush cycle.  Callers not
- * interested in that value may pass NULL for latestChunkStart. Same for
- * receiveTLI.
+ * 可选地，还返回上一个 chunk 的起始位置，即          
+ * 最近一次 walreceiver 刷写周期中写入的首个字节。
+ * 不关心它的调用者可为 latestChunkStart 传 NULL，receiveTLI
+ * 亦然。  
  */
 XLogRecPtr
 GetWalRcvFlushRecPtr(XLogRecPtr *latestChunkStart, TimeLineID *receiveTLI)
@@ -346,8 +346,8 @@ GetWalRcvFlushRecPtr(XLogRecPtr *latestChunkStart, TimeLineID *receiveTLI)
 }
 
 /*
- * Returns the last+1 byte position that walreceiver has written.
- * This returns a recently written value without taking a lock.
+ * 返回 walreceiver 已写入的 last+1 字节位置。        
+ * 此函数不加锁即返回一个近期写入的值。      
  */
 XLogRecPtr
 GetWalRcvWriteRecPtr(void)
@@ -358,8 +358,8 @@ GetWalRcvWriteRecPtr(void)
 }
 
 /*
- * Returns the replication apply delay in ms or -1
- * if the apply delay info is not available
+ * 返回复制应用延迟的毫秒数或 -1     
+ * （若无应用延迟信息）。       
  */
 int
 GetReplicationApplyDelay(void)
@@ -388,8 +388,8 @@ GetReplicationApplyDelay(void)
 }
 
 /*
- * Returns the network latency in ms, note that this includes any
- * difference in clock settings between the servers, as well as timezone.
+ * 返回以毫秒计的网络延迟，注意其中包含        
+ * 服务器间时钟设置的任何差异，以及时区差异。       
  */
 int
 GetReplicationTransferLatency(void)

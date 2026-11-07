@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * message.c
- *	  Generic logical messages.
+ *	  通用逻辑消息。    
  *
  * Copyright (c) 2013-2023, PostgreSQL Global Development Group
  *
@@ -10,21 +10,21 @@
  *
  * NOTES
  *
- * Generic logical messages allow XLOG logging of arbitrary binary blobs that
- * get passed to the logical decoding plugin. In normal XLOG processing they
- * are same as NOOP.
+ * 通用逻辑消息允许把任意二进制数据块写入 XLOG 日志，  
+ * 它们会被传递给逻辑解码插件。在正常的 XLOG 处理中    
+ * 如同 NOOP。   
  *
- * These messages can be either transactional or non-transactional.
- * Transactional messages are part of current transaction and will be sent to
- * decoding plugin using in a same way as DML operations.
- * Non-transactional messages are sent to the plugin at the time when the
- * logical decoding reads them from XLOG. This also means that transactional
- * messages won't be delivered if the transaction was rolled back but the
- * non-transactional one will always be delivered.
+ * 这些消息可以是事务性或者非事务性的。          
+ * 事务性消息是当前事务的一部分，会以与 DML 操作         
+ * 相同的方式发送给解码插件。               
+ * 非事务性消息则会在逻辑解码从 XLOG 中                   
+ * 读到它们时发送给插件。这也意味着，如果事务回滚， 
+ * 事务性消息不会被送达，但非事务性消息却总是       
+ * 会被送达。                                
  *
- * Every message carries prefix to avoid conflicts between different decoding
- * plugins. The plugin authors must take extra care to use unique prefix,
- * good options seems to be for example to use the name of the extension.
+ * 每条消息都带有前缀，避免不同解码插件之间冲突。     
+ * 插件作者必须格外小心地使用唯一的前缀，             
+ * 例如，使用扩展的名称似乎是个不错的选择。          
  *
  * ---------------------------------------------------------------------------
  */
@@ -40,7 +40,7 @@
 #include "utils/memutils.h"
 
 /*
- * Write logical decoding message into XLog.
+ * 将逻辑解码消息写入 XLog。      
  */
 XLogRecPtr
 LogLogicalMessage(const char *prefix, const char *message, size_t size,
@@ -49,7 +49,7 @@ LogLogicalMessage(const char *prefix, const char *message, size_t size,
 	xl_logical_message xlrec;
 
 	/*
-	 * Force xid to be allocated if we're emitting a transactional message.
+	 * 如果要发出事务性消息，则强制分配 xid。             
 	 */
 	if (transactional)
 	{
@@ -59,7 +59,7 @@ LogLogicalMessage(const char *prefix, const char *message, size_t size,
 
 	xlrec.dbId = MyDatabaseId;
 	xlrec.transactional = transactional;
-	/* trailing zero is critical; see logicalmsg_desc */
+	/* 末尾零至关重要；参见 logicalmsg_desc */
 	xlrec.prefix_size = strlen(prefix) + 1;
 	xlrec.message_size = size;
 
@@ -68,14 +68,14 @@ LogLogicalMessage(const char *prefix, const char *message, size_t size,
 	XLogRegisterData(unconstify(char *, prefix), xlrec.prefix_size);
 	XLogRegisterData(unconstify(char *, message), size);
 
-	/* allow origin filtering */
+	/* 允许按 origin 过滤*/
 	XLogSetRecordFlags(XLOG_INCLUDE_ORIGIN);
 
 	return XLogInsert(RM_LOGICALMSG_ID, XLOG_LOGICAL_MESSAGE);
 }
 
 /*
- * Redo is basically just noop for logical decoding messages.
+ * 重做对逻辑解码消息基本只是空操作。       
  */
 void
 logicalmsg_redo(XLogReaderState *record)
@@ -85,5 +85,5 @@ logicalmsg_redo(XLogReaderState *record)
 	if (info != XLOG_LOGICAL_MESSAGE)
 		elog(PANIC, "logicalmsg_redo: unknown op code %u", info);
 
-	/* This is only interesting for logical decoding, see decode.c. */
+	/* 这只对逻辑解码有意义，参见 decode.c。          */
 }

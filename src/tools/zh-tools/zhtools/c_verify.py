@@ -224,6 +224,14 @@ _PARSETARGET_FALLTHROUGH_PROSE = re.compile(
 _PARSECTE_FALLTHROUGH_PROSE = re.compile(
     rb"fall through for normal processing")
 
+# snapbuild.c SnapBuildXactHasDecodeableProse: "We fall through to the
+# normal processing of records so incremental cleanup can be
+# performed." describes returning true so the record takes its normal
+# decode path (no switch).  Unique in REL_16_11.  Not a GCC
+# -Wimplicit-fallthrough annotation.
+_SNAPBUILD_FALLTHROUGH_PROSE = re.compile(
+    rb"fall through to the normal processing")
+
 
 def legal_protected_segments(old_text):
     """Return Copyright/IDENTIFICATION/licence line blobs that must survive.
@@ -303,7 +311,8 @@ def protected_reason(old_text):
                     or _PARSECOERCE_FALLTHROUGH_PROSE.search(old_text)
                     or _PARSEEXPR_FALLTHROUGH_PROSE.search(old_text)
                     or _PARSETARGET_FALLTHROUGH_PROSE.search(old_text)
-                    or _PARSECTE_FALLTHROUGH_PROSE.search(old_text)):
+                    or _PARSECTE_FALLTHROUGH_PROSE.search(old_text)
+                    or _SNAPBUILD_FALLTHROUGH_PROSE.search(old_text)):
                 continue
             return name
     return None

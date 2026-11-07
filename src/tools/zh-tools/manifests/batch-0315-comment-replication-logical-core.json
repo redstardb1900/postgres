@@ -1,0 +1,68 @@
+{
+ "schema_version": 1,
+ "batch_id": "0315-comment-replication-logical-core",
+ "title": "Translate comments: replication-logical-core",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "e92f8854490b68749ec57614e4cc8c0f7e4d5a08",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0315-comment-replication-logical-core.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/replication/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  },
+  {
+   "pattern": "src/tools/zh-tools/zhtools/c_verify.py",
+   "kind": "tool",
+   "note": "tool change riding with this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0315-comment-replication-logical-core.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/c_verify.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "tool change riding with this batch"
+  },
+  {
+   "path": "src/backend/replication/logical/logical.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 193,
+   "translated": 193,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "P2 translation campaign wave G5"
+  },
+  {
+   "path": "src/backend/replication/logical/snapbuild.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 210,
+   "translated": 210,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "P2 translation campaign wave G5"
+  }
+ ],
+ "notes": "P2 remainder campaign, replication wave G5 (two logical-decoding core files, whole-file batch, four slices): translate the comment blocks of logical/logical.c (CreateInitDecodingContext option and callback plumbing, output-plugin startup, relation/attribute filtering, RelFileNode filtering, stream/ TwoPhase callbacks, slot stats) and logical/snapbuild.c (snapshot builder state machine: STARTUP/BUILDING/FULL_SNAPSHOT/CONSISTENT transitions, running-xacts and heap/record tracking, serialized snapshot on-disk format).  403 blocks: logical.c 193 (58 multi + 135 ONE via slices a/b), snapbuild.c 210 (111 multi + 99 ONE via slices c/d); 403 translated, 0 preserved.  Slice dumps carry global block numbers; per-slice coordinator scans (exec, duplicate keys, edge keys, coverage restricted to the slice range, out-of-range check, byte budgets vs dump-printed values) all first-pass clean after delivery; keyscanG5 cross-slice scan found zero block-key overlap and full union coverage (193/193, 210/210).  Apply: 403 blocks rendered, all differing from EN; audit 403 OK; spec_check OK.  Tool change riding with this batch: c_verify.py adds _SNAPBUILD_FALLTHROUGH_PROSE (site-prose exemption, 18th of its family) — EN 'We fall through to the normal processing of records...' at snapbuild.c:1543 is prose describing the normal decode path (no switch), not a GCC -Wimplicit-fallthrough annotation; the phrase is unique in REL_16_11.  Without it the R5_PROTECTED rule fires on the translated block (verify 615 ok / 1 violation pre-fix -> 616 ok / 0 post-fix).  Term triage: 1 real error fixed (TL11 snapbuild.c:1996 corner brackets 「先进」 -> ASCII \"先进\", R4.1; the agent had used corner brackets to dodge curly quotes) + 3 real warnings fixed (TL08 require-verb 要求 -> 需要: logical.c 'we require start/stop/abort/commit/change callbacks' and 'we require begin_prepare/... callbacks', snapbuild.c 'that requires all, already in-progress,' — all applied as spec edits + delta re-apply, exactly 4 blocks); 3 remaining rows are P38 noise (记录/元组 mapping EN record/tuple, vacuum -> 清理), row-verified.  Gates: verify 616 files 0 violations (614 + the two G5 files entering the tool's counting domain); term 0 errors, 732 warnings (729 baseline + 3 P38 noise rows above); render_scan x2 hard-zero (unchanged post-delta); exec_audit 403 OK; exec_spec_check OK; check_scope S2-only (.claude/ scheduled_tasks.lock harness noise per 0305-0313 precedent; substantive changes exactly the two .c files, the new manifest, and the c_verify.py tool entry).  Agent filings: blk0 ASCII state-diagram rows kept EN (31 lines, byte-identical keys); banner separator and '---'/'----' interior lines keyed EN-identical per G3c blk41 precedent; budget-forced compressions filed per slice (incl. 序 for 顺序 at 23B budget差1, corner-case period-only carryover lines, blk24 out-of-date cross-line split); G5a suffered a mid-flight chained-Edit mishap (21 blocks briefly deleted) and self-restored — coordinator scan confirmed the final spec clean; G5a also died once at the 32k output cap before any spec write and was resumed with a tightened <=4-blocks-per-turn discipline.  术语：快照构建器、视界（xmin horizon）、两阶段、 在途、清理（vacuum）、序列化、备库 standby；已预备事务 joins the deferred 预备/已准备 unification family.    Review: r1 FAIL(minor) — 2 MED (EN residue 'this point.' left as a dangling tail at snapbuild.c:175 after the ZH line already carried the full sentence -> blank-rendered 15B==EN; dropped 崂-of-崩溃 char at the line wrap snapbuild.c:1828, ZH read 此后溃 -> 崩 restored, 63B content + 4B prefix + 6 pad = 73B==EN) + 2 LOW (执行 verb missing in 5 logical.c callback label blocks at lines 1077/1189/1220/1258/1573 -> 执行实际工作：调用回调 40B==EN matching the 7 sibling sites; 还能 -> 可能 at snapbuild.c:238 restoring the EN 'potentially' hedge, byte-equal).  All four coordinator-verified against REL_16_11 (EN verbatim, line numbers at site, byte math) and fixed via root-cause spec surgery (7 keys across G5b/G5c/G5d) + delta re-apply (exactly 8 blocks: G5b 5, G5c 2, G5d 1); six gates re-green post-delta (verify 616/0, term 0/732 unchanged, render x2 zero, audit 403, spec_check OK, scope S2-only).  Manifest notes MULTI/ONE split for logical.c corrected 33/160 -> 58/135 (58M+135O; snapbuild 111M+99O).  R2 verdict: PASS (8 sites byte-verified, six gates independently re-run, byte model replicated 403/403, tool change and origin/ identity spot checks clean)."
+}

@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  * logical.c
- *	   PostgreSQL logical decoding coordination
+ *	   PostgreSQL 逻辑解码协同           
  *
  * Copyright (c) 2012-2023, PostgreSQL Global Development Group
  *
@@ -8,21 +8,21 @@
  *	  src/backend/replication/logical/logical.c
  *
  * NOTES
- *	  This file coordinates interaction between the various modules that
- *	  together provide logical decoding, primarily by providing so
- *	  called LogicalDecodingContexts. The goal is to encapsulate most of the
- *	  internal complexity for consumers of logical decoding, so they can
- *	  create and consume a changestream with a low amount of code. Builtin
- *	  consumers are the walsender and SQL SRF interface, but it's possible to
- *	  add further ones without changing core code, e.g. to consume changes in
- *	  a bgworker.
+ *	  本文件协调逻辑解码的各个组成模块之间的交互，
+ *	  主要是通过提供所谓的                              
+ *	  LogicalDecodingContext。目标是把逻辑解码的大部分         
+ *	  内部复杂性封装起来，使用方只需少量代码即可   
+ *	  创建并消费变更流。内置使用方是 walsender 和 SQL SRF 
+ *	  接口，但也可以在不改动核心代码的情况下增加更     
+ *	  多使用方，例如在                                               
+ *	  bgworker。
  *
- *	  The idea is that a consumer provides three callbacks, one to read WAL,
- *	  one to prepare a data write, and a final one for actually writing since
- *	  their implementation depends on the type of consumer.  Check
- *	  logicalfuncs.c for an example implementation of a fairly simple consumer
- *	  and an implementation of a WAL reading callback that's suitable for
- *	  simple consumers.
+ *	  其思路是：使用方提供三个回调，一个用于读取 WAL，
+ *	  一个用于准备数据写入，最后一个则负责实际写入。  
+ *	  具体实现取决于使用方的类型。参见            
+ *	  logicalfuncs.c，其中有相当简单的使用方示例，以及       
+ *	  一个 WAL 读取回调的示例实现，该回调适用于        
+ *	  简单使用方  
  *-------------------------------------------------------------------------
  */
 
@@ -43,7 +43,7 @@
 #include "utils/builtins.h"
 #include "utils/memutils.h"
 
-/* data for errcontext callback */
+/* errcontext 回调所用数据*/
 typedef struct LogicalErrorCallbackState
 {
 	LogicalDecodingContext *ctx;
@@ -51,7 +51,7 @@ typedef struct LogicalErrorCallbackState
 	XLogRecPtr	report_location;
 } LogicalErrorCallbackState;
 
-/* wrappers around output plugin callbacks */
+/* 输出插件回调的包装器          */
 static void output_plugin_error_callback(void *arg);
 static void startup_cb_wrapper(LogicalDecodingContext *ctx, OutputPluginOptions *opt,
 							   bool is_init);
@@ -74,7 +74,7 @@ static void message_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 							   XLogRecPtr message_lsn, bool transactional,
 							   const char *prefix, Size message_size, const char *message);
 
-/* streaming callbacks */
+/* 流式回调        */
 static void stream_start_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 									XLogRecPtr first_lsn);
 static void stream_stop_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
@@ -93,7 +93,7 @@ static void stream_message_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *tx
 static void stream_truncate_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 									   int nrelations, Relation relations[], ReorderBufferChange *change);
 
-/* callback to update txn's progress */
+/* 更新事务进度的回调       */
 static void update_progress_txn_cb_wrapper(ReorderBuffer *cache,
 										   ReorderBufferTXN *txn,
 										   XLogRecPtr lsn);
@@ -101,8 +101,8 @@ static void update_progress_txn_cb_wrapper(ReorderBuffer *cache,
 static void LoadOutputPlugin(OutputPluginCallbacks *callbacks, const char *plugin);
 
 /*
- * Make sure the current settings & environment are capable of doing logical
- * decoding.
+ * 确保当前设置与环境具备执行逻辑                            
+ * 解码。
  */
 void
 CheckLogicalDecodingRequirements(void)
@@ -110,8 +110,8 @@ CheckLogicalDecodingRequirements(void)
 	CheckSlotRequirements();
 
 	/*
-	 * NB: Adding a new requirement likely means that RestoreSlotFromDisk()
-	 * needs the same check.
+	 * 注意：新增一项要求很可能意味着 RestoreSlotFromDisk() 
+	 * 也需同样检查。
 	 */
 
 	if (wal_level < WAL_LEVEL_LOGICAL)
@@ -127,12 +127,12 @@ CheckLogicalDecodingRequirements(void)
 	if (RecoveryInProgress())
 	{
 		/*
-		 * This check may have race conditions, but whenever
-		 * XLOG_PARAMETER_CHANGE indicates that wal_level has changed, we
-		 * verify that there are no existing logical replication slots. And to
-		 * avoid races around creating a new slot,
-		 * CheckLogicalDecodingRequirements() is called once before creating
-		 * the slot, and once when logical decoding is initially starting up.
+		 * 此检查可能存在竞态条件，但每当    
+		 * XLOG_PARAMETER_CHANGE 表明 wal_level 已改变时，我们  
+		 * 都会验证不存在已有的逻辑复制槽。另外，为避免 
+		 * 创建新复制槽时的竞态，      
+		 * CheckLogicalDecodingRequirements() 在创建复制槽之前      
+		 * 调用一次，并在逻辑解码最初启动时再调用一次。
 		 */
 		if (GetActiveWalLevelOnStandby() < WAL_LEVEL_LOGICAL)
 			ereport(ERROR,
@@ -142,8 +142,8 @@ CheckLogicalDecodingRequirements(void)
 }
 
 /*
- * Helper function for CreateInitDecodingContext() and
- * CreateDecodingContext() performing common tasks.
+ * 辅助函数，供 CreateInitDecodingContext() 与 
+ * CreateDecodingContext() 执行公共任务。   
  */
 static LogicalDecodingContext *
 StartupDecodingContext(List *output_plugin_options,
@@ -162,7 +162,7 @@ StartupDecodingContext(List *output_plugin_options,
 				old_context;
 	LogicalDecodingContext *ctx;
 
-	/* shorter lines... */
+	/* 较短行……  */
 	slot = MyReplicationSlot;
 
 	context = AllocSetContextCreate(CurrentMemoryContext,
@@ -174,23 +174,23 @@ StartupDecodingContext(List *output_plugin_options,
 	ctx->context = context;
 
 	/*
-	 * (re-)load output plugins, so we detect a bad (removed) output plugin
-	 * now.
+	 * （重新）加载输出插件，以发现已移除的失效插件  
+	 * 。 
 	 */
 	if (!fast_forward)
 		LoadOutputPlugin(&ctx->callbacks, NameStr(slot->data.plugin));
 
 	/*
-	 * Now that the slot's xmin has been set, we can announce ourselves as a
-	 * logical decoding backend which doesn't need to be checked individually
-	 * when computing the xmin horizon because the xmin is enforced via
-	 * replication slots.
+	 * 既然复制槽的 xmin 已设置，我们就可以把自己登记为
+	 * 逻辑解码后端，在计算 xmin 视界时无需被逐个检查， 
+	 * 因为 xmin 的强制执行依赖                               
+	 * 复制槽。      
 	 *
-	 * We can only do so if we're outside of a transaction (i.e. the case when
-	 * streaming changes via walsender), otherwise an already setup
-	 * snapshot/xid would end up being ignored. That's not a particularly
-	 * bothersome restriction since the SQL interface can't be used for
-	 * streaming anyway.
+	 * 只有处于事务之外时才能这样做（即通过 walsender 流   
+	 * 式发送变更的场景），否则先前已设置好的   
+	 * 快照/xid 最终会被忽略。这并不是一个特别          
+	 * 麻烦的限制，因为 SQL 接口反正也无法用于流式  
+	 * 发送。        
 	 */
 	if (!IsTransactionOrTransactionBlock())
 	{
@@ -216,7 +216,7 @@ StartupDecodingContext(List *output_plugin_options,
 
 	ctx->reorder->private_data = ctx;
 
-	/* wrap output plugin callbacks, so we can add error context information */
+	/* 包装输出插件回调，以便添加错误上下文信息          */
 	ctx->reorder->begin = begin_cb_wrapper;
 	ctx->reorder->apply_change = change_cb_wrapper;
 	ctx->reorder->apply_truncate = truncate_cb_wrapper;
@@ -224,13 +224,13 @@ StartupDecodingContext(List *output_plugin_options,
 	ctx->reorder->message = message_cb_wrapper;
 
 	/*
-	 * To support streaming, we require start/stop/abort/commit/change
-	 * callbacks. The message and truncate callbacks are optional, similar to
-	 * regular output plugins. We however enable streaming when at least one
-	 * of the methods is enabled so that we can easily identify missing
-	 * methods.
+	 * 为支持流式，我们需要 start/stop/abort/commit/change  
+	 * 回调。message/truncate 回调可选，类似常规输出插件，  
+	 * 一样。但我们会在至少一个方法被启用时启用流式，
+	 * 从而能轻松识别出缺少的                               
+	 * 方法  
 	 *
-	 * We decide it here, but only check it later in the wrappers.
+	 * 我们在此决定，但稍后才在包装器中检查。  
 	 */
 	ctx->streaming = (ctx->callbacks.stream_start_cb != NULL) ||
 		(ctx->callbacks.stream_stop_cb != NULL) ||
@@ -241,12 +241,12 @@ StartupDecodingContext(List *output_plugin_options,
 		(ctx->callbacks.stream_truncate_cb != NULL);
 
 	/*
-	 * streaming callbacks
+	 * 流式回调       
 	 *
-	 * stream_message and stream_truncate callbacks are optional, so we do not
-	 * fail with ERROR when missing, but the wrappers simply do nothing. We
-	 * must set the ReorderBuffer callbacks to something, otherwise the calls
-	 * from there will crash (we don't want to move the checks there).
+	 * stream_message 与 stream_truncate 回调是可选的，缺少时      
+	 * 不会以 ERROR 失败，包装器只会什么都不做。我们    
+	 * 必须为 ReorderBuffer 回调设置某种值，否则来自那里    
+	 * 的调用会崩溃（我们不想把检查挪到那里）。   
 	 */
 	ctx->reorder->stream_start = stream_start_cb_wrapper;
 	ctx->reorder->stream_stop = stream_stop_cb_wrapper;
@@ -259,13 +259,13 @@ StartupDecodingContext(List *output_plugin_options,
 
 
 	/*
-	 * To support two-phase logical decoding, we require
-	 * begin_prepare/prepare/commit-prepare/abort-prepare callbacks. The
-	 * filter_prepare callback is optional. We however enable two-phase
-	 * logical decoding when at least one of the methods is enabled so that we
-	 * can easily identify missing methods.
+	 * 为支持两阶段逻辑解码，我们需要    
+	 * begin_prepare/prepare/commit-prepare/abort-prepare 回调。     
+	 * filter_prepare 回调可选。但只要启用其中一个方法 
+	 * 我们就启用两阶段逻辑解码，以便能轻松识别出缺少  
+	 * 的方法。                        
 	 *
-	 * We decide it here, but only check it later in the wrappers.
+	 * 我们在此决定，但稍后才在包装器中检查。  
 	 */
 	ctx->twophase = (ctx->callbacks.begin_prepare_cb != NULL) ||
 		(ctx->callbacks.prepare_cb != NULL) ||
@@ -275,7 +275,7 @@ StartupDecodingContext(List *output_plugin_options,
 		(ctx->callbacks.filter_prepare_cb != NULL);
 
 	/*
-	 * Callback to support decoding at prepare time.
+	 * 在 PREPARE 阶段支持解码的回调。   
 	 */
 	ctx->reorder->begin_prepare = begin_prepare_cb_wrapper;
 	ctx->reorder->prepare = prepare_cb_wrapper;
@@ -283,8 +283,8 @@ StartupDecodingContext(List *output_plugin_options,
 	ctx->reorder->rollback_prepared = rollback_prepared_cb_wrapper;
 
 	/*
-	 * Callback to support updating progress during sending data of a
-	 * transaction (and its subtransactions) to the output plugin.
+	 * 在向输出插件发送事务（含子事务）数据期间  
+	 * 支持更新进度。                                      
 	 */
 	ctx->reorder->update_progress_txn = update_progress_txn_cb_wrapper;
 
@@ -305,27 +305,27 @@ StartupDecodingContext(List *output_plugin_options,
 }
 
 /*
- * Create a new decoding context, for a new logical slot.
+ * 为新的逻辑复制槽新建解码上下文。      
  *
- * plugin -- contains the name of the output plugin
- * output_plugin_options -- contains options passed to the output plugin
- * need_full_snapshot -- if true, must obtain a snapshot able to read all
- *		tables; if false, one that can read only catalogs is acceptable.
- * restart_lsn -- if given as invalid, it's this routine's responsibility to
- *		mark WAL as reserved by setting a convenient restart_lsn for the slot.
- *		Otherwise, we set for decoding to start from the given LSN without
- *		marking WAL reserved beforehand.  In that scenario, it's up to the
- *		caller to guarantee that WAL remains available.
- * xl_routine -- XLogReaderRoutine for underlying XLogReader
+ * plugin -- 包含输出插件的名称           
+ * output_plugin_options -- 包含传给输出插件的选项           
+ * need_full_snapshot -- 为真时必须获取能读取所有表的      
+ *		快照；为假时，可接受只能读取系统表的快照。 
+ * restart_lsn -- 若传入无效值，本例程有责任为复制槽设    
+ *		置一个合适的 restart_lsn 来把 WAL 标记为已保留。       
+ *		否则，我们把解码设置为从给定 LSN 开始，不预先 
+ *		WAL 标记为保留。在这种场景下，需由调用者保证  
+ *		WAL 依然可用。                            
+ * xl_routine -- 底层 XLogReader 的 XLogReaderRoutine    
  * prepare_write, do_write, update_progress --
- *		callbacks that perform the use-case dependent, actual, work.
+ *		执行与具体用例相关的实际工作的回调。      
  *
- * Needs to be called while in a memory context that's at least as long lived
- * as the decoding context because further memory contexts will be created
- * inside it.
+ * 必须在存活期至少与解码上下文一样长的内存上下        
+ * 文中调用，因为解码上下文内还会创建更多内存上     
+ * 下文。 
  *
- * Returns an initialized decoding context after calling the output plugin's
- * startup function.
+ * 调用输出插件的启动函数后，返回一个已初始化的解    
+ * 码上下文。  
  */
 LogicalDecodingContext *
 CreateInitDecodingContext(const char *plugin,
@@ -344,22 +344,22 @@ CreateInitDecodingContext(const char *plugin,
 	MemoryContext old_context;
 
 	/*
-	 * On a standby, this check is also required while creating the slot.
-	 * Check the comments in the function.
+	 * 在备库上，创建复制槽时也需要此项检查。         
+	 * 请参见该函数内的注释。  
 	 */
 	CheckLogicalDecodingRequirements();
 
-	/* shorter lines... */
+	/* 较短行……  */
 	slot = MyReplicationSlot;
 
-	/* first some sanity checks that are unlikely to be violated */
+	/* 先做一些不太可能被违反的健全性检查       */
 	if (slot == NULL)
 		elog(ERROR, "cannot perform logical decoding without an acquired slot");
 
 	if (plugin == NULL)
 		elog(ERROR, "cannot initialize logical decoding without a specified plugin");
 
-	/* Make sure the passed slot is suitable. These are user facing errors. */
+	/* 确保传入的复制槽合适。这些是面向用户的错误。   */
 	if (SlotIsPhysical(slot))
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -378,9 +378,9 @@ CreateInitDecodingContext(const char *plugin,
 				 errmsg("cannot create logical replication slot in transaction that has performed writes")));
 
 	/*
-	 * Register output plugin name with slot.  We need the mutex to avoid
-	 * concurrent reading of a partially copied string.  But we don't want any
-	 * complicated code while holding a spinlock, so do namestrcpy() outside.
+	 * 将输出插件名登记到槽上。需用互斥锁避免         
+	 * 并发读部分拷贝的字符串。但不想在持有自旋锁期间  
+	 * 出现复杂代码，因此把 namestrcpy() 放到外面执行。     
 	 */
 	namestrcpy(&plugin_name, plugin);
 	SpinLockAcquire(&slot->mutex);
@@ -397,27 +397,27 @@ CreateInitDecodingContext(const char *plugin,
 	}
 
 	/* ----
-	 * This is a bit tricky: We need to determine a safe xmin horizon to start
-	 * decoding from, to avoid starting from a running xacts record referring
-	 * to xids whose rows have been vacuumed or pruned
-	 * already. GetOldestSafeDecodingTransactionId() returns such a value, but
-	 * without further interlock its return value might immediately be out of
-	 * date.
+	 * 这里有点棘手：我们需要确定一个用于开始解码的     
+	 * 安全 xmin 视界，以免从一条引用了已被清理或修剪    
+	 * 过行的运行中事务记录启动解码。  
+	 * GetOldestSafeDecodingTransactionId() 会返回这样的值，          
+	 * 但若无进一步联锁，其返回值可能立即过                
+	 * 期  
 	 *
-	 * So we have to acquire the ProcArrayLock to prevent computation of new
-	 * xmin horizons by other backends, get the safe decoding xid, and inform
-	 * the slot machinery about the new limit. Once that's done the
-	 * ProcArrayLock can be released as the slot machinery now is
-	 * protecting against vacuum.
+	 * 因此我们必须获取 ProcArrayLock 以阻止其他后端计算   
+	 * 出新的 xmin 视界，拿到安全解码 xid，并把新的限制   
+	 * 告知复制槽机制。一旦完成，                     
+	 * 就能释放 ProcArrayLock，因为复制槽机制现在  
+	 * 已在防止清理了。  
 	 *
-	 * Note that, temporarily, the data, not just the catalog, xmin has to be
-	 * reserved if a data snapshot is to be exported.  Otherwise the initial
-	 * data snapshot created here is not guaranteed to be valid. After that
-	 * the data xmin doesn't need to be managed anymore and the global xmin
-	 * should be recomputed. As we are fine with losing the pegged data xmin
-	 * after crash - no chance a snapshot would get exported anymore - we can
-	 * get away with just setting the slot's
-	 * effective_xmin. ReplicationSlotRelease will reset it again.
+	 * 注意，若要导出数据快照，就必须暂时预留数据（而 
+	 * 不仅系统表）的 xmin。否则此处创建的初始数据快照 
+	 * 并不保证有效。此后数据 xmin 就不再需要管理，     
+	 * 而应重新计算全局 xmin。由于我们能够接受在崩溃后
+	 * 损失被钉住的 xmin——反正不会再导出快照——我们 
+	 * 就可以只设置复制槽的                                        
+	 * effective_xmin 即可。             
+	 * ReplicationSlotRelease 之后会再次将其重置。      
 	 *
 	 * ----
 	 */
@@ -444,17 +444,17 @@ CreateInitDecodingContext(const char *plugin,
 								 xl_routine, prepare_write, do_write,
 								 update_progress);
 
-	/* call output plugin initialization callback */
+	/* 调用输出插件初始化回调          */
 	old_context = MemoryContextSwitchTo(ctx->context);
 	if (ctx->callbacks.startup_cb != NULL)
 		startup_cb_wrapper(ctx, &ctx->options, true);
 	MemoryContextSwitchTo(old_context);
 
 	/*
-	 * We allow decoding of prepared transactions when the two_phase is
-	 * enabled at the time of slot creation, or when the two_phase option is
-	 * given at the streaming start, provided the plugin supports all the
-	 * callbacks for two-phase.
+	 * 当 two_phase 在创建槽时启用，或在流式启动时     
+	 * 给出 two_phase 选项时，我们允许解码已准备的事务， 
+	 * 前提是插件支持全部两阶段                              
+	 * 回调。               
 	 */
 	ctx->twophase &= slot->data.two_phase;
 
@@ -464,34 +464,34 @@ CreateInitDecodingContext(const char *plugin,
 }
 
 /*
- * Create a new decoding context, for a logical slot that has previously been
- * used already.
+ * 为先前已被使用过的逻辑复制槽创建一个新的解码上     
+ * 下文。    
  *
  * start_lsn
- *		The LSN at which to start decoding.  If InvalidXLogRecPtr, restart
- *		from the slot's confirmed_flush; otherwise, start from the specified
- *		location (but move it forwards to confirmed_flush if it's older than
- *		that, see below).
+ *		开始解码的 LSN。若为 InvalidXLogRecPtr，则从复制槽  
+ *		的 confirmed_flush 重新开始；否则从指定位置开始（但
+ *		若更旧则前移到 confirmed_flush，参见                      
+ *		下文）。     
  *
  * output_plugin_options
- *		options passed to the output plugin.
+ *		传给输出插件的选项。      
  *
  * fast_forward
- *		bypass the generation of logical changes.
+ *		绕过逻辑变更的生成。           
  *
  * xl_routine
- *		XLogReaderRoutine used by underlying xlogreader
+ *		底层 xlogreader 所用的 XLogReaderRoutine  
  *
  * prepare_write, do_write, update_progress
- *		callbacks that have to be filled to perform the use-case dependent,
- *		actual work.
+ *		必须填充的回调，用于执行与用例相关的实际       
+ *		工作。   
  *
- * Needs to be called while in a memory context that's at least as long lived
- * as the decoding context because further memory contexts will be created
- * inside it.
+ * 必须在存活期至少与解码上下文一样长的内存上下        
+ * 文中调用，因为其中还会创建更多内存上                 
+ * 下文。 
  *
- * Returns an initialized decoding context after calling the output plugin's
- * startup function.
+ * 调用输出插件的启动函数后，返回一个已初始化的解    
+ * 码上下文。  
  */
 LogicalDecodingContext *
 CreateDecodingContext(XLogRecPtr start_lsn,
@@ -506,14 +506,14 @@ CreateDecodingContext(XLogRecPtr start_lsn,
 	ReplicationSlot *slot;
 	MemoryContext old_context;
 
-	/* shorter lines... */
+	/* 较短行……  */
 	slot = MyReplicationSlot;
 
-	/* first some sanity checks that are unlikely to be violated */
+	/* 先做一些不太可能被违反的健全性检查       */
 	if (slot == NULL)
 		elog(ERROR, "cannot perform logical decoding without an acquired slot");
 
-	/* make sure the passed slot is suitable, these are user facing errors */
+	/* 确保传入的复制槽合适，这些是面向用户的错误     */
 	if (SlotIsPhysical(slot))
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -526,10 +526,10 @@ CreateDecodingContext(XLogRecPtr start_lsn,
 						NameStr(slot->data.name))));
 
 	/*
-	 * Check if slot has been invalidated due to max_slot_wal_keep_size. Avoid
-	 * "cannot get changes" wording in this errmsg because that'd be
-	 * confusingly ambiguous about no changes being available when called from
-	 * pg_logical_slot_get_changes_guts().
+	 * 检查复制槽是否已因 max_slot_wal_keep_size 而失效。        
+	 * 避免在此 errmsg 中使用"cannot get changes"措辞，   
+	 * 因为在从 pg_logical_slot_get_changes_guts() 调用时，           
+	 * 会令人困惑地暗示无变更  
 	 */
 	if (MyReplicationSlot->data.invalidated == RS_INVAL_WAL_REMOVED)
 		ereport(ERROR,
@@ -550,22 +550,22 @@ CreateDecodingContext(XLogRecPtr start_lsn,
 
 	if (start_lsn == InvalidXLogRecPtr)
 	{
-		/* continue from last position */
+		/* 从上次位置继续       */
 		start_lsn = slot->data.confirmed_flush;
 	}
 	else if (start_lsn < slot->data.confirmed_flush)
 	{
 		/*
-		 * It might seem like we should error out in this case, but it's
-		 * pretty common for a client to acknowledge a LSN it doesn't have to
-		 * do anything for, and thus didn't store persistently, because the
-		 * xlog records didn't result in anything relevant for logical
-		 * decoding. Clients have to be able to do that to support synchronous
-		 * replication.
+		 * 看似应当报错，但其实客户端确认一个无须为 
+		 * 之做任何事的 LSN 相当常见——相关 xlog 记录没有 
+		 * 产生对逻辑解码有意义的内容，因而没有持久    
+		 * 保存它。客户端必须能够这样做，才           
+		 * 能支持同步复                                                 
+		 * 制。      
 		 *
-		 * Starting at a different LSN than requested might not catch certain
-		 * kinds of client errors; so the client may wish to check that
-		 * confirmed_flush_lsn matches its expectations.
+		 * 从与请求不同的 LSN 开始可能无法捕获某些类型    
+		 * 的客户端错误；因此客户端可能希望检查      
+		 * confirmed_flush_lsn 是否符合其预期。 
 		 */
 		elog(LOG, "%X/%X has been already streamed, forwarding to %X/%X",
 			 LSN_FORMAT_ARGS(start_lsn),
@@ -579,21 +579,21 @@ CreateDecodingContext(XLogRecPtr start_lsn,
 								 fast_forward, false, xl_routine, prepare_write,
 								 do_write, update_progress);
 
-	/* call output plugin initialization callback */
+	/* 调用输出插件初始化回调          */
 	old_context = MemoryContextSwitchTo(ctx->context);
 	if (ctx->callbacks.startup_cb != NULL)
 		startup_cb_wrapper(ctx, &ctx->options, false);
 	MemoryContextSwitchTo(old_context);
 
 	/*
-	 * We allow decoding of prepared transactions when the two_phase is
-	 * enabled at the time of slot creation, or when the two_phase option is
-	 * given at the streaming start, provided the plugin supports all the
-	 * callbacks for two-phase.
+	 * 当 two_phase 在创建槽时启用，或在流式启动时     
+	 * 给出 two_phase 选项时，我们允许解码已准备的事务， 
+	 * 前提是插件支持全部两阶段                              
+	 * 回调。               
 	 */
 	ctx->twophase &= (slot->data.two_phase || ctx->twophase_opt_given);
 
-	/* Mark slot to allow two_phase decoding if not already marked */
+	/* 若未标记则标记复制槽允许 two_phase 解码       */
 	if (ctx->twophase && !slot->data.two_phase)
 	{
 		SpinLockAcquire(&slot->mutex);
@@ -618,7 +618,7 @@ CreateDecodingContext(XLogRecPtr start_lsn,
 }
 
 /*
- * Returns true if a consistent initial decoding snapshot has been built.
+ * 如果已构建出一致的初始解码快照，则返回 true。     
  */
 bool
 DecodingContextReady(LogicalDecodingContext *ctx)
@@ -627,26 +627,26 @@ DecodingContextReady(LogicalDecodingContext *ctx)
 }
 
 /*
- * Read from the decoding slot, until it is ready to start extracting changes.
+ * 从解码槽读取，直到它已就绪可以开始提取变更。         
  */
 void
 DecodingContextFindStartpoint(LogicalDecodingContext *ctx)
 {
 	ReplicationSlot *slot = ctx->slot;
 
-	/* Initialize from where to start reading WAL. */
+	/* 初始化从哪里开始读取 WAL。       */
 	XLogBeginRead(ctx->reader, slot->data.restart_lsn);
 
 	elog(DEBUG1, "searching for logical decoding starting point, starting at %X/%X",
 		 LSN_FORMAT_ARGS(slot->data.restart_lsn));
 
-	/* Wait for a consistent starting point */
+	/* 等待一个一致的起点。       */
 	for (;;)
 	{
 		XLogRecord *record;
 		char	   *err = NULL;
 
-		/* the read_page callback waits for new WAL */
+		/* read_page 回调会等待新 WAL         */
 		record = XLogReadRecord(ctx->reader, &err);
 		if (err)
 			elog(ERROR, "could not find logical decoding starting point: %s", err);
@@ -655,7 +655,7 @@ DecodingContextFindStartpoint(LogicalDecodingContext *ctx)
 
 		LogicalDecodingProcessRecord(ctx, ctx->reader);
 
-		/* only continue till we found a consistent spot */
+		/* 只持续到找到一致的地点为止       */
 		if (DecodingContextReady(ctx))
 			break;
 
@@ -670,8 +670,8 @@ DecodingContextFindStartpoint(LogicalDecodingContext *ctx)
 }
 
 /*
- * Free a previously allocated decoding context, invoking the shutdown
- * callback if necessary.
+ * 释放先前分配的解码上下文，必要时调用             
+ * 关闭回调。       
  */
 void
 FreeDecodingContext(LogicalDecodingContext *ctx)
@@ -686,7 +686,7 @@ FreeDecodingContext(LogicalDecodingContext *ctx)
 }
 
 /*
- * Prepare a write using the context's output routine.
+ * 使用上下文的输出例程准备一次写入。
  */
 void
 OutputPluginPrepareWrite(struct LogicalDecodingContext *ctx, bool last_write)
@@ -699,7 +699,7 @@ OutputPluginPrepareWrite(struct LogicalDecodingContext *ctx, bool last_write)
 }
 
 /*
- * Perform a write using the context's output routine.
+ * 使用上下文的输出例程执行一次写入。
  */
 void
 OutputPluginWrite(struct LogicalDecodingContext *ctx, bool last_write)
@@ -712,7 +712,7 @@ OutputPluginWrite(struct LogicalDecodingContext *ctx, bool last_write)
 }
 
 /*
- * Update progress tracking (if supported).
+ * 更新进度跟踪（若支持）。    
  */
 void
 OutputPluginUpdateProgress(struct LogicalDecodingContext *ctx,
@@ -726,8 +726,8 @@ OutputPluginUpdateProgress(struct LogicalDecodingContext *ctx,
 }
 
 /*
- * Load the output plugin, lookup its output plugin init function, and check
- * that it provides the required callbacks.
+ * 加载输出插件，查找其输出插件初始化函数，并检查    
+ * 它是否提供所需的回调。       
  */
 static void
 LoadOutputPlugin(OutputPluginCallbacks *callbacks, const char *plugin)
@@ -740,7 +740,7 @@ LoadOutputPlugin(OutputPluginCallbacks *callbacks, const char *plugin)
 	if (plugin_init == NULL)
 		elog(ERROR, "output plugins have to declare the _PG_output_plugin_init symbol");
 
-	/* ask the output plugin to fill the callback struct */
+	/* 请输出插件填充回调结构体              */
 	plugin_init(callbacks);
 
 	if (callbacks->begin_cb == NULL)
@@ -756,7 +756,7 @@ output_plugin_error_callback(void *arg)
 {
 	LogicalErrorCallbackState *state = (LogicalErrorCallbackState *) arg;
 
-	/* not all callbacks have an associated LSN  */
+	/* 并非所有回调都有关联的 LSN     */
 	if (state->report_location != InvalidXLogRecPtr)
 		errcontext("slot \"%s\", output plugin \"%s\", in the %s callback, associated LSN %X/%X",
 				   NameStr(state->ctx->slot->data.name),
@@ -778,7 +778,7 @@ startup_cb_wrapper(LogicalDecodingContext *ctx, OutputPluginOptions *opt, bool i
 
 	Assert(!ctx->fast_forward);
 
-	/* Push callback + info on the error context stack */
+	/* 把回调 + 信息压入错误上下文栈      */
 	state.ctx = ctx;
 	state.callback_name = "startup";
 	state.report_location = InvalidXLogRecPtr;
@@ -787,14 +787,14 @@ startup_cb_wrapper(LogicalDecodingContext *ctx, OutputPluginOptions *opt, bool i
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = false;
 	ctx->end_xact = false;
 
-	/* do the actual work: call callback */
+	/* 执行实际工作：调用回调 */
 	ctx->callbacks.startup_cb(ctx, opt, is_init);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 }
 
@@ -806,7 +806,7 @@ shutdown_cb_wrapper(LogicalDecodingContext *ctx)
 
 	Assert(!ctx->fast_forward);
 
-	/* Push callback + info on the error context stack */
+	/* 把回调 + 信息压入错误上下文栈      */
 	state.ctx = ctx;
 	state.callback_name = "shutdown";
 	state.report_location = InvalidXLogRecPtr;
@@ -815,21 +815,21 @@ shutdown_cb_wrapper(LogicalDecodingContext *ctx)
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = false;
 	ctx->end_xact = false;
 
-	/* do the actual work: call callback */
+	/* 执行实际工作：调用回调 */
 	ctx->callbacks.shutdown_cb(ctx);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 }
 
 
 /*
- * Callbacks for ReorderBuffer which add in some more information and then call
- * output_plugin.h plugins.
+ * ReorderBuffer 的回调，补充一些信息后调用                       
+ * output_plugin.h 插件  
  */
 static void
 begin_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn)
@@ -840,7 +840,7 @@ begin_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn)
 
 	Assert(!ctx->fast_forward);
 
-	/* Push callback + info on the error context stack */
+	/* 把回调 + 信息压入错误上下文栈      */
 	state.ctx = ctx;
 	state.callback_name = "begin";
 	state.report_location = txn->first_lsn;
@@ -849,16 +849,16 @@ begin_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn)
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = true;
 	ctx->write_xid = txn->xid;
 	ctx->write_location = txn->first_lsn;
 	ctx->end_xact = false;
 
-	/* do the actual work: call callback */
+	/* 执行实际工作：调用回调 */
 	ctx->callbacks.begin_cb(ctx, txn);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 }
 
@@ -872,34 +872,34 @@ commit_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	Assert(!ctx->fast_forward);
 
-	/* Push callback + info on the error context stack */
+	/* 把回调 + 信息压入错误上下文栈      */
 	state.ctx = ctx;
 	state.callback_name = "commit";
-	state.report_location = txn->final_lsn; /* beginning of commit record */
+	state.report_location = txn->final_lsn; /* 提交记录的开头      */
 	errcallback.callback = output_plugin_error_callback;
 	errcallback.arg = (void *) &state;
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = true;
 	ctx->write_xid = txn->xid;
-	ctx->write_location = txn->end_lsn; /* points to the end of the record */
+	ctx->write_location = txn->end_lsn; /* 指向记录的末尾           */
 	ctx->end_xact = true;
 
-	/* do the actual work: call callback */
+	/* 执行实际工作：调用回调 */
 	ctx->callbacks.commit_cb(ctx, txn, commit_lsn);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 }
 
 /*
- * The functionality of begin_prepare is quite similar to begin with the
- * exception that this will have gid (global transaction id) information which
- * can be used by plugin. Now, we thought about extending the existing begin
- * but that would break the replication protocol and additionally this looks
- * cleaner.
+ * begin_prepare 的功能与 begin 非常相似，区别在于         
+ * 它会带有 gid（全局事务标识符）信息供插件使用。        
+ * 本来我们也考虑过扩展现有的 begin，但那会破坏复制    
+ * 协议，而且这样看起来更                                        
+ * 整洁  
  */
 static void
 begin_prepare_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn)
@@ -910,10 +910,10 @@ begin_prepare_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn)
 
 	Assert(!ctx->fast_forward);
 
-	/* We're only supposed to call this when two-phase commits are supported */
+	/* 只有在支持两阶段提交时才应当调用此函数             */
 	Assert(ctx->twophase);
 
-	/* Push callback + info on the error context stack */
+	/* 把回调 + 信息压入错误上下文栈      */
 	state.ctx = ctx;
 	state.callback_name = "begin_prepare";
 	state.report_location = txn->first_lsn;
@@ -922,15 +922,15 @@ begin_prepare_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn)
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = true;
 	ctx->write_xid = txn->xid;
 	ctx->write_location = txn->first_lsn;
 	ctx->end_xact = false;
 
 	/*
-	 * If the plugin supports two-phase commits then begin prepare callback is
-	 * mandatory
+	 * 如果插件支持两阶段提交，则 begin prepare 回调是        
+	 * 必需的
 	 */
 	if (ctx->callbacks.begin_prepare_cb == NULL)
 		ereport(ERROR,
@@ -938,10 +938,10 @@ begin_prepare_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn)
 				 errmsg("logical replication at prepare time requires a %s callback",
 						"begin_prepare_cb")));
 
-	/* do the actual work: call callback */
+	/* 执行实际工作：调用回调 */
 	ctx->callbacks.begin_prepare_cb(ctx, txn);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 }
 
@@ -955,27 +955,27 @@ prepare_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	Assert(!ctx->fast_forward);
 
-	/* We're only supposed to call this when two-phase commits are supported */
+	/* 只有在支持两阶段提交时才应当调用此函数             */
 	Assert(ctx->twophase);
 
-	/* Push callback + info on the error context stack */
+	/* 把回调 + 信息压入错误上下文栈      */
 	state.ctx = ctx;
 	state.callback_name = "prepare";
-	state.report_location = txn->final_lsn; /* beginning of prepare record */
+	state.report_location = txn->final_lsn; /* prepare 记录的开头     */
 	errcallback.callback = output_plugin_error_callback;
 	errcallback.arg = (void *) &state;
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = true;
 	ctx->write_xid = txn->xid;
-	ctx->write_location = txn->end_lsn; /* points to the end of the record */
+	ctx->write_location = txn->end_lsn; /* 指向记录的末尾           */
 	ctx->end_xact = true;
 
 	/*
-	 * If the plugin supports two-phase commits then prepare callback is
-	 * mandatory
+	 * 如果插件支持两阶段提交，则 prepare 回调是        
+	 * 必需的
 	 */
 	if (ctx->callbacks.prepare_cb == NULL)
 		ereport(ERROR,
@@ -983,10 +983,10 @@ prepare_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 				 errmsg("logical replication at prepare time requires a %s callback",
 						"prepare_cb")));
 
-	/* do the actual work: call callback */
+	/* 执行实际工作：调用回调 */
 	ctx->callbacks.prepare_cb(ctx, txn, prepare_lsn);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 }
 
@@ -1000,27 +1000,27 @@ commit_prepared_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	Assert(!ctx->fast_forward);
 
-	/* We're only supposed to call this when two-phase commits are supported */
+	/* 只有在支持两阶段提交时才应当调用此函数             */
 	Assert(ctx->twophase);
 
-	/* Push callback + info on the error context stack */
+	/* 把回调 + 信息压入错误上下文栈      */
 	state.ctx = ctx;
 	state.callback_name = "commit_prepared";
-	state.report_location = txn->final_lsn; /* beginning of commit record */
+	state.report_location = txn->final_lsn; /* 提交记录的开头      */
 	errcallback.callback = output_plugin_error_callback;
 	errcallback.arg = (void *) &state;
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = true;
 	ctx->write_xid = txn->xid;
-	ctx->write_location = txn->end_lsn; /* points to the end of the record */
+	ctx->write_location = txn->end_lsn; /* 指向记录的末尾           */
 	ctx->end_xact = true;
 
 	/*
-	 * If the plugin support two-phase commits then commit prepared callback
-	 * is mandatory
+	 * 如果插件支持两阶段提交，则 commit prepared 回调       
+	 * 是必需的
 	 */
 	if (ctx->callbacks.commit_prepared_cb == NULL)
 		ereport(ERROR,
@@ -1028,10 +1028,10 @@ commit_prepared_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 				 errmsg("logical replication at prepare time requires a %s callback",
 						"commit_prepared_cb")));
 
-	/* do the actual work: call callback */
+	/* 执行实际工作：调用回调 */
 	ctx->callbacks.commit_prepared_cb(ctx, txn, commit_lsn);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 }
 
@@ -1046,27 +1046,27 @@ rollback_prepared_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	Assert(!ctx->fast_forward);
 
-	/* We're only supposed to call this when two-phase commits are supported */
+	/* 只有在支持两阶段提交时才应当调用此函数             */
 	Assert(ctx->twophase);
 
-	/* Push callback + info on the error context stack */
+	/* 把回调 + 信息压入错误上下文栈      */
 	state.ctx = ctx;
 	state.callback_name = "rollback_prepared";
-	state.report_location = txn->final_lsn; /* beginning of commit record */
+	state.report_location = txn->final_lsn; /* 提交记录的开头      */
 	errcallback.callback = output_plugin_error_callback;
 	errcallback.arg = (void *) &state;
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = true;
 	ctx->write_xid = txn->xid;
-	ctx->write_location = txn->end_lsn; /* points to the end of the record */
+	ctx->write_location = txn->end_lsn; /* 指向记录的末尾           */
 	ctx->end_xact = true;
 
 	/*
-	 * If the plugin support two-phase commits then rollback prepared callback
-	 * is mandatory
+	 * 若插件支持两阶段提交，则回滚已准备事务回调        
+	 * 必需。   
 	 */
 	if (ctx->callbacks.rollback_prepared_cb == NULL)
 		ereport(ERROR,
@@ -1074,11 +1074,11 @@ rollback_prepared_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 				 errmsg("logical replication at prepare time requires a %s callback",
 						"rollback_prepared_cb")));
 
-	/* do the actual work: call callback */
+	/* 执行实际工作：调用回调 */
 	ctx->callbacks.rollback_prepared_cb(ctx, txn, prepare_end_lsn,
 										prepare_time);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 }
 
@@ -1092,7 +1092,7 @@ change_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	Assert(!ctx->fast_forward);
 
-	/* Push callback + info on the error context stack */
+	/* 将回调+信息压入错误上下文栈        */
 	state.ctx = ctx;
 	state.callback_name = "change";
 	state.report_location = change->lsn;
@@ -1101,15 +1101,15 @@ change_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = true;
 	ctx->write_xid = txn->xid;
 
 	/*
-	 * Report this change's lsn so replies from clients can give an up-to-date
-	 * answer. This won't ever be enough (and shouldn't be!) to confirm
-	 * receipt of this transaction, but it might allow another transaction's
-	 * commit to be confirmed with one message.
+	 * 上报本次变更的 lsn，使客户端的应答能够给出最新    
+	 * 结果。这永远不够（也不应够！）确认已收到    
+	 * 该事务，但或许能让另一事务的提交经由一条消息   
+	 * 获得确认。                         
 	 */
 	ctx->write_location = change->lsn;
 
@@ -1117,7 +1117,7 @@ change_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	ctx->callbacks.change_cb(ctx, txn, relation, change);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 }
 
@@ -1134,7 +1134,7 @@ truncate_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 	if (!ctx->callbacks.truncate_cb)
 		return;
 
-	/* Push callback + info on the error context stack */
+	/* 将回调+信息压入错误上下文栈        */
 	state.ctx = ctx;
 	state.callback_name = "truncate";
 	state.report_location = change->lsn;
@@ -1143,15 +1143,15 @@ truncate_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = true;
 	ctx->write_xid = txn->xid;
 
 	/*
-	 * Report this change's lsn so replies from clients can give an up-to-date
-	 * answer. This won't ever be enough (and shouldn't be!) to confirm
-	 * receipt of this transaction, but it might allow another transaction's
-	 * commit to be confirmed with one message.
+	 * 上报本次变更的 lsn，使客户端的应答能够给出最新    
+	 * 结果。这永远不够（也不应够！）确认已收到    
+	 * 该事务，但或许能让另一事务的提交经由一条消息   
+	 * 获得确认。                         
 	 */
 	ctx->write_location = change->lsn;
 
@@ -1159,7 +1159,7 @@ truncate_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	ctx->callbacks.truncate_cb(ctx, txn, nrelations, relations, change);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 }
 
@@ -1173,7 +1173,7 @@ filter_prepare_cb_wrapper(LogicalDecodingContext *ctx, TransactionId xid,
 
 	Assert(!ctx->fast_forward);
 
-	/* Push callback + info on the error context stack */
+	/* 将回调+信息压入错误上下文栈        */
 	state.ctx = ctx;
 	state.callback_name = "filter_prepare";
 	state.report_location = InvalidXLogRecPtr;
@@ -1182,14 +1182,14 @@ filter_prepare_cb_wrapper(LogicalDecodingContext *ctx, TransactionId xid,
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = false;
 	ctx->end_xact = false;
 
-	/* do the actual work: call callback */
+	/* 执行实际工作：调用回调 */
 	ret = ctx->callbacks.filter_prepare_cb(ctx, xid, gid);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 
 	return ret;
@@ -1204,7 +1204,7 @@ filter_by_origin_cb_wrapper(LogicalDecodingContext *ctx, RepOriginId origin_id)
 
 	Assert(!ctx->fast_forward);
 
-	/* Push callback + info on the error context stack */
+	/* 将回调+信息压入错误上下文栈        */
 	state.ctx = ctx;
 	state.callback_name = "filter_by_origin";
 	state.report_location = InvalidXLogRecPtr;
@@ -1213,14 +1213,14 @@ filter_by_origin_cb_wrapper(LogicalDecodingContext *ctx, RepOriginId origin_id)
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = false;
 	ctx->end_xact = false;
 
-	/* do the actual work: call callback */
+	/* 执行实际工作：调用回调 */
 	ret = ctx->callbacks.filter_by_origin_cb(ctx, origin_id);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 
 	return ret;
@@ -1240,7 +1240,7 @@ message_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 	if (ctx->callbacks.message_cb == NULL)
 		return;
 
-	/* Push callback + info on the error context stack */
+	/* 将回调+信息压入错误上下文栈        */
 	state.ctx = ctx;
 	state.callback_name = "message";
 	state.report_location = message_lsn;
@@ -1249,17 +1249,17 @@ message_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = true;
 	ctx->write_xid = txn != NULL ? txn->xid : InvalidTransactionId;
 	ctx->write_location = message_lsn;
 	ctx->end_xact = false;
 
-	/* do the actual work: call callback */
+	/* 执行实际工作：调用回调 */
 	ctx->callbacks.message_cb(ctx, txn, message_lsn, transactional, prefix,
 							  message_size, message);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 }
 
@@ -1273,10 +1273,10 @@ stream_start_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	Assert(!ctx->fast_forward);
 
-	/* We're only supposed to call this when streaming is supported. */
+	/* 仅当支持流式传输时才应当调用此函数。        */
 	Assert(ctx->streaming);
 
-	/* Push callback + info on the error context stack */
+	/* 将回调+信息压入错误上下文栈        */
 	state.ctx = ctx;
 	state.callback_name = "stream_start";
 	state.report_location = first_lsn;
@@ -1285,21 +1285,21 @@ stream_start_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = true;
 	ctx->write_xid = txn->xid;
 
 	/*
-	 * Report this message's lsn so replies from clients can give an
-	 * up-to-date answer. This won't ever be enough (and shouldn't be!) to
-	 * confirm receipt of this transaction, but it might allow another
-	 * transaction's commit to be confirmed with one message.
+	 * 上报本消息的 lsn，使客户端应答能给出最新   
+	 * 结果。这永远不够（也不应够！）确认已收到       
+	 * 该事务，但或许能让另一事务的提交仅需一条   
+	 * 消息即可获得确认。                           
 	 */
 	ctx->write_location = first_lsn;
 
 	ctx->end_xact = false;
 
-	/* in streaming mode, stream_start_cb is required */
+	/* 流式模式下必须提供 stream_start_cb    */
 	if (ctx->callbacks.stream_start_cb == NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -1308,7 +1308,7 @@ stream_start_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	ctx->callbacks.stream_start_cb(ctx, txn);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 }
 
@@ -1322,10 +1322,10 @@ stream_stop_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	Assert(!ctx->fast_forward);
 
-	/* We're only supposed to call this when streaming is supported. */
+	/* 仅当支持流式传输时才应当调用此函数。        */
 	Assert(ctx->streaming);
 
-	/* Push callback + info on the error context stack */
+	/* 将回调+信息压入错误上下文栈        */
 	state.ctx = ctx;
 	state.callback_name = "stream_stop";
 	state.report_location = last_lsn;
@@ -1334,21 +1334,21 @@ stream_stop_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = true;
 	ctx->write_xid = txn->xid;
 
 	/*
-	 * Report this message's lsn so replies from clients can give an
-	 * up-to-date answer. This won't ever be enough (and shouldn't be!) to
-	 * confirm receipt of this transaction, but it might allow another
-	 * transaction's commit to be confirmed with one message.
+	 * 上报本消息的 lsn，使客户端应答能给出最新   
+	 * 结果。这永远不够（也不应够！）确认已收到       
+	 * 该事务，但或许能让另一事务的提交仅需一条   
+	 * 消息即可获得确认。                           
 	 */
 	ctx->write_location = last_lsn;
 
 	ctx->end_xact = false;
 
-	/* in streaming mode, stream_stop_cb is required */
+	/* 流式模式下必须提供 stream_stop_cb    */
 	if (ctx->callbacks.stream_stop_cb == NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -1357,7 +1357,7 @@ stream_stop_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	ctx->callbacks.stream_stop_cb(ctx, txn);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 }
 
@@ -1371,10 +1371,10 @@ stream_abort_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	Assert(!ctx->fast_forward);
 
-	/* We're only supposed to call this when streaming is supported. */
+	/* 仅当支持流式传输时才应当调用此函数。        */
 	Assert(ctx->streaming);
 
-	/* Push callback + info on the error context stack */
+	/* 将回调+信息压入错误上下文栈        */
 	state.ctx = ctx;
 	state.callback_name = "stream_abort";
 	state.report_location = abort_lsn;
@@ -1383,13 +1383,13 @@ stream_abort_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = true;
 	ctx->write_xid = txn->xid;
 	ctx->write_location = abort_lsn;
 	ctx->end_xact = true;
 
-	/* in streaming mode, stream_abort_cb is required */
+	/* 流式模式下必须提供 stream_abort_cb    */
 	if (ctx->callbacks.stream_abort_cb == NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -1398,7 +1398,7 @@ stream_abort_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	ctx->callbacks.stream_abort_cb(ctx, txn, abort_lsn);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 }
 
@@ -1413,13 +1413,13 @@ stream_prepare_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 	Assert(!ctx->fast_forward);
 
 	/*
-	 * We're only supposed to call this when streaming and two-phase commits
-	 * are supported.
+	 * 仅当支持流式传输与两阶段提交时才应当调用此函   
+	 * 数。        
 	 */
 	Assert(ctx->streaming);
 	Assert(ctx->twophase);
 
-	/* Push callback + info on the error context stack */
+	/* 将回调+信息压入错误上下文栈        */
 	state.ctx = ctx;
 	state.callback_name = "stream_prepare";
 	state.report_location = txn->final_lsn;
@@ -1428,13 +1428,13 @@ stream_prepare_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = true;
 	ctx->write_xid = txn->xid;
 	ctx->write_location = txn->end_lsn;
 	ctx->end_xact = true;
 
-	/* in streaming mode with two-phase commits, stream_prepare_cb is required */
+	/* 在流式模式与两阶段提交下必须提供 stream_prepare_cb      */
 	if (ctx->callbacks.stream_prepare_cb == NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -1443,7 +1443,7 @@ stream_prepare_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	ctx->callbacks.stream_prepare_cb(ctx, txn, prepare_lsn);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 }
 
@@ -1457,10 +1457,10 @@ stream_commit_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	Assert(!ctx->fast_forward);
 
-	/* We're only supposed to call this when streaming is supported. */
+	/* 仅当支持流式传输时才应当调用此函数。        */
 	Assert(ctx->streaming);
 
-	/* Push callback + info on the error context stack */
+	/* 将回调+信息压入错误上下文栈        */
 	state.ctx = ctx;
 	state.callback_name = "stream_commit";
 	state.report_location = txn->final_lsn;
@@ -1469,13 +1469,13 @@ stream_commit_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = true;
 	ctx->write_xid = txn->xid;
 	ctx->write_location = txn->end_lsn;
 	ctx->end_xact = true;
 
-	/* in streaming mode, stream_commit_cb is required */
+	/* 流式模式下必须提供 stream_commit_cb    */
 	if (ctx->callbacks.stream_commit_cb == NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -1484,7 +1484,7 @@ stream_commit_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	ctx->callbacks.stream_commit_cb(ctx, txn, commit_lsn);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 }
 
@@ -1498,10 +1498,10 @@ stream_change_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	Assert(!ctx->fast_forward);
 
-	/* We're only supposed to call this when streaming is supported. */
+	/* 仅当支持流式传输时才应当调用此函数。        */
 	Assert(ctx->streaming);
 
-	/* Push callback + info on the error context stack */
+	/* 将回调+信息压入错误上下文栈        */
 	state.ctx = ctx;
 	state.callback_name = "stream_change";
 	state.report_location = change->lsn;
@@ -1510,21 +1510,21 @@ stream_change_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = true;
 	ctx->write_xid = txn->xid;
 
 	/*
-	 * Report this change's lsn so replies from clients can give an up-to-date
-	 * answer. This won't ever be enough (and shouldn't be!) to confirm
-	 * receipt of this transaction, but it might allow another transaction's
-	 * commit to be confirmed with one message.
+	 * 上报本次变更的 lsn，使客户端的应答能够给出最新    
+	 * 结果。这永远不够（也不应够！）确认已收到    
+	 * 该事务，但或许能让另一事务的提交经由一条消息   
+	 * 获得确认。                         
 	 */
 	ctx->write_location = change->lsn;
 
 	ctx->end_xact = false;
 
-	/* in streaming mode, stream_change_cb is required */
+	/* 流式模式下必须提供 stream_change_cb    */
 	if (ctx->callbacks.stream_change_cb == NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -1533,7 +1533,7 @@ stream_change_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	ctx->callbacks.stream_change_cb(ctx, txn, relation, change);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 }
 
@@ -1548,14 +1548,14 @@ stream_message_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	Assert(!ctx->fast_forward);
 
-	/* We're only supposed to call this when streaming is supported. */
+	/* 仅当支持流式传输时才应当调用此函数。        */
 	Assert(ctx->streaming);
 
-	/* this callback is optional */
+	/* 此回调可选           */
 	if (ctx->callbacks.stream_message_cb == NULL)
 		return;
 
-	/* Push callback + info on the error context stack */
+	/* 将回调+信息压入错误上下文栈        */
 	state.ctx = ctx;
 	state.callback_name = "stream_message";
 	state.report_location = message_lsn;
@@ -1564,17 +1564,17 @@ stream_message_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = true;
 	ctx->write_xid = txn != NULL ? txn->xid : InvalidTransactionId;
 	ctx->write_location = message_lsn;
 	ctx->end_xact = false;
 
-	/* do the actual work: call callback */
+	/* 执行实际工作：调用回调 */
 	ctx->callbacks.stream_message_cb(ctx, txn, message_lsn, transactional, prefix,
 									 message_size, message);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 }
 
@@ -1589,14 +1589,14 @@ stream_truncate_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	Assert(!ctx->fast_forward);
 
-	/* We're only supposed to call this when streaming is supported. */
+	/* 仅当支持流式传输时才应当调用此函数。        */
 	Assert(ctx->streaming);
 
-	/* this callback is optional */
+	/* 此回调可选           */
 	if (!ctx->callbacks.stream_truncate_cb)
 		return;
 
-	/* Push callback + info on the error context stack */
+	/* 将回调+信息压入错误上下文栈        */
 	state.ctx = ctx;
 	state.callback_name = "stream_truncate";
 	state.report_location = change->lsn;
@@ -1605,15 +1605,15 @@ stream_truncate_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = true;
 	ctx->write_xid = txn->xid;
 
 	/*
-	 * Report this change's lsn so replies from clients can give an up-to-date
-	 * answer. This won't ever be enough (and shouldn't be!) to confirm
-	 * receipt of this transaction, but it might allow another transaction's
-	 * commit to be confirmed with one message.
+	 * 上报本次变更的 lsn，使客户端的应答能够给出最新    
+	 * 结果。这永远不够（也不应够！）确认已收到    
+	 * 该事务，但或许能让另一事务的提交经由一条消息   
+	 * 获得确认。                         
 	 */
 	ctx->write_location = change->lsn;
 
@@ -1621,7 +1621,7 @@ stream_truncate_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	ctx->callbacks.stream_truncate_cb(ctx, txn, nrelations, relations, change);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 }
 
@@ -1635,7 +1635,7 @@ update_progress_txn_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	Assert(!ctx->fast_forward);
 
-	/* Push callback + info on the error context stack */
+	/* 将回调+信息压入错误上下文栈        */
 	state.ctx = ctx;
 	state.callback_name = "update_progress_txn";
 	state.report_location = lsn;
@@ -1644,15 +1644,15 @@ update_progress_txn_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* set output state */
+	/* 设输出状态  */
 	ctx->accept_writes = false;
 	ctx->write_xid = txn->xid;
 
 	/*
-	 * Report this change's lsn so replies from clients can give an up-to-date
-	 * answer. This won't ever be enough (and shouldn't be!) to confirm
-	 * receipt of this transaction, but it might allow another transaction's
-	 * commit to be confirmed with one message.
+	 * 上报本次变更的 lsn，使客户端的应答能够给出最新    
+	 * 结果。这永远不够（也不应够！）确认已收到    
+	 * 该事务，但或许能让另一事务的提交经由一条消息   
+	 * 获得确认。                         
 	 */
 	ctx->write_location = lsn;
 
@@ -1660,17 +1660,17 @@ update_progress_txn_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 
 	OutputPluginUpdateProgress(ctx, false);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 }
 
 /*
- * Set the required catalog xmin horizon for historic snapshots in the current
- * replication slot.
+ * 为当前复制槽中的历史快照设置所需的系统表 xmin          
+ * 视界。        
  *
- * Note that in the most cases, we won't be able to immediately use the xmin
- * to increase the xmin horizon: we need to wait till the client has confirmed
- * receiving current_lsn with LogicalConfirmReceivedLocation().
+ * 注意：多数情况下我们无法立即用该 xmin 提升 xmin        
+ * 视界：需要等到客户端通过 LogicalConfirmReceivedLocation()      
+ * 确认已接收 current_lsn。                              
  */
 void
 LogicalIncreaseXminForSlot(XLogRecPtr current_lsn, TransactionId xmin)
@@ -1686,30 +1686,30 @@ LogicalIncreaseXminForSlot(XLogRecPtr current_lsn, TransactionId xmin)
 	SpinLockAcquire(&slot->mutex);
 
 	/*
-	 * don't overwrite if we already have a newer xmin. This can happen if we
-	 * restart decoding in a slot.
+	 * 若已有更新的 xmin 则不覆盖，槽中重启解码时就可能 
+	 * 发生这种情况。      
 	 */
 	if (TransactionIdPrecedesOrEquals(xmin, slot->data.catalog_xmin))
 	{
 	}
 
 	/*
-	 * If the client has already confirmed up to this lsn, we directly can
-	 * mark this as accepted. This can happen if we restart decoding in a
-	 * slot.
+	 * 若客户端已确认到此 lsn，则可直接将其标记为      
+	 * 已接受。在槽中重启解码时可能发生这种情况      
+	 * 。  
 	 */
 	else if (current_lsn <= slot->data.confirmed_flush)
 	{
 		slot->candidate_catalog_xmin = xmin;
 		slot->candidate_xmin_lsn = current_lsn;
 
-		/* our candidate can directly be used */
+		/* 候选值可直接使用           */
 		updated_xmin = true;
 	}
 
 	/*
-	 * Only increase if the previous values have been applied, otherwise we
-	 * might never end up updating if the receiver acks too slowly.
+	 * 仅在前一值已被应用时才增加，否则若接收方确认  
+	 * 过慢，就可能永远无法更新。                     
 	 */
 	else if (slot->candidate_xmin_lsn == InvalidXLogRecPtr)
 	{
@@ -1717,8 +1717,8 @@ LogicalIncreaseXminForSlot(XLogRecPtr current_lsn, TransactionId xmin)
 		slot->candidate_xmin_lsn = current_lsn;
 
 		/*
-		 * Log new xmin at an appropriate log level after releasing the
-		 * spinlock.
+		 * 释放自旋锁后，以适当的日志级别记录新      
+		 * xmin。  
 		 */
 		got_new_xmin = true;
 	}
@@ -1728,17 +1728,17 @@ LogicalIncreaseXminForSlot(XLogRecPtr current_lsn, TransactionId xmin)
 		elog(DEBUG1, "got new catalog xmin %u at %X/%X", xmin,
 			 LSN_FORMAT_ARGS(current_lsn));
 
-	/* candidate already valid with the current flush position, apply */
+	/* 候选值相对当前刷写位置已有效，直接应用      */
 	if (updated_xmin)
 		LogicalConfirmReceivedLocation(slot->data.confirmed_flush);
 }
 
 /*
- * Mark the minimal LSN (restart_lsn) we need to read to replay all
- * transactions that have not yet committed at current_lsn.
+ * 标记我们需要读取的最小 LSN（restart_lsn），       
+ * 以便重放 current_lsn 时未提交的全部事务。 
  *
- * Just like LogicalIncreaseXminForSlot this only takes effect when the
- * client has confirmed to have received current_lsn.
+ * 与 LogicalIncreaseXminForSlot 一样，该值仅在客户端       
+ * 确认已接收 current_lsn 后才生效。       
  */
 void
 LogicalIncreaseRestartDecodingForSlot(XLogRecPtr current_lsn, XLogRecPtr restart_lsn)
@@ -1754,15 +1754,15 @@ LogicalIncreaseRestartDecodingForSlot(XLogRecPtr current_lsn, XLogRecPtr restart
 
 	SpinLockAcquire(&slot->mutex);
 
-	/* don't overwrite if have a newer restart lsn */
+	/* 若已有更新的 restart lsn 则不覆盖 */
 	if (restart_lsn <= slot->data.restart_lsn)
 	{
 		SpinLockRelease(&slot->mutex);
 	}
 
 	/*
-	 * We might have already flushed far enough to directly accept this lsn,
-	 * in this case there is no need to check for existing candidate LSNs
+	 * 我们可能已刷写至足够远处，可直接接受此 lsn，     
+	 * 此时无需检查已有的候选 LSN。                          
 	 */
 	else if (current_lsn <= slot->data.confirmed_flush)
 	{
@@ -1770,14 +1770,14 @@ LogicalIncreaseRestartDecodingForSlot(XLogRecPtr current_lsn, XLogRecPtr restart
 		slot->candidate_restart_lsn = restart_lsn;
 		SpinLockRelease(&slot->mutex);
 
-		/* our candidate can directly be used */
+		/* 候选值可直接使用           */
 		updated_lsn = true;
 	}
 
 	/*
-	 * Only increase if the previous values have been applied, otherwise we
-	 * might never end up updating if the receiver acks too slowly. A missed
-	 * value here will just cause some extra effort after reconnecting.
+	 * 仅在前一值已被应用时才增加，否则若接收方确认  
+	 * 过慢，就可能永远无法更新。此处漏掉的值只会在   
+	 * 重连后造成一些额外工作。                            
 	 */
 	else if (slot->candidate_restart_valid == InvalidXLogRecPtr)
 	{
@@ -1808,20 +1808,20 @@ LogicalIncreaseRestartDecodingForSlot(XLogRecPtr current_lsn, XLogRecPtr restart
 			 LSN_FORMAT_ARGS(confirmed_flush));
 	}
 
-	/* candidates are already valid with the current flush position, apply */
+	/* 候选值相对当前刷写位置已全部有效，直接应用     */
 	if (updated_lsn)
 		LogicalConfirmReceivedLocation(slot->data.confirmed_flush);
 }
 
 /*
- * Handle a consumer's confirmation having received all changes up to lsn.
+ * 处理消费者确认已接收直到 lsn 的全部变更。            
  */
 void
 LogicalConfirmReceivedLocation(XLogRecPtr lsn)
 {
 	Assert(lsn != InvalidXLogRecPtr);
 
-	/* Do an unlocked check for candidate_lsn first. */
+	/* 首先对 candidate_lsn 做无锁检查。    */
 	if (MyReplicationSlot->candidate_xmin_lsn != InvalidXLogRecPtr ||
 		MyReplicationSlot->candidate_restart_valid != InvalidXLogRecPtr)
 	{
@@ -1831,31 +1831,31 @@ LogicalConfirmReceivedLocation(XLogRecPtr lsn)
 		SpinLockAcquire(&MyReplicationSlot->mutex);
 
 		/*
-		 * Prevent moving the confirmed_flush backwards, as this could lead to
-		 * data duplication issues caused by replicating already replicated
-		 * changes.
+		 * 防止 confirmed_flush 后移，因为这可能重复复制        
+		 * 已经复制过的变更，从而造成数据重复问题。    
+		 * 。     
 		 *
-		 * This can happen when a client acknowledges an LSN it doesn't have
-		 * to do anything for, and thus didn't store persistently. After a
-		 * restart, the client can send the prior LSN that it stored
-		 * persistently as an acknowledgement, but we need to ignore such an
-		 * LSN. See similar case handling in CreateDecodingContext.
+		 * 当客户端确认一个无需为其做任何事、因而未     
+		 * 存储的 LSN 时就可能发生这种情况。重启后，    
+		 * 客户端可能将先前持久存储的 LSN 作为确认 
+		 * 发来，但我们需要忽略这样的 LSN。类似的情形    
+		 * 处理见 CreateDecodingContext。                      
 		 */
 		if (lsn > MyReplicationSlot->data.confirmed_flush)
 			MyReplicationSlot->data.confirmed_flush = lsn;
 
-		/* if we're past the location required for bumping xmin, do so */
+		/* 若已越过提升 xmin 所需的位置，则进行提升   */
 		if (MyReplicationSlot->candidate_xmin_lsn != InvalidXLogRecPtr &&
 			MyReplicationSlot->candidate_xmin_lsn <= lsn)
 		{
 			/*
-			 * We have to write the changed xmin to disk *before* we change
-			 * the in-memory value, otherwise after a crash we wouldn't know
-			 * that some catalog tuples might have been removed already.
+			 * 我们必须在修改内存值*之前*把变更后的 xmin  
+			 * 写入磁盘，否则崩溃后将不知道某些系统表    
+			 * 元组可能已被移除。                              
 			 *
-			 * Ensure that by first writing to ->xmin and only update
-			 * ->effective_xmin once the new state is synced to disk. After a
-			 * crash ->effective_xmin is set to ->xmin.
+			 * 即先写入 ->xmin，新状态同步到磁盘后才  
+			 * 更新 ->effective_xmin。崩溃后 ->effective_xmin          
+			 * 会被设为 ->xmin。                  
 			 */
 			if (TransactionIdIsValid(MyReplicationSlot->candidate_catalog_xmin) &&
 				MyReplicationSlot->data.catalog_xmin != MyReplicationSlot->candidate_catalog_xmin)
@@ -1881,13 +1881,13 @@ LogicalConfirmReceivedLocation(XLogRecPtr lsn)
 		SpinLockRelease(&MyReplicationSlot->mutex);
 
 		/*
-		 * First, write new xmin and restart_lsn to disk so we know what's up
-		 * after a crash.  Even when we do this, the checkpointer can see the
-		 * updated restart_lsn value in the shared memory; then, a crash can
-		 * happen before we manage to write that value to the disk.  Thus,
-		 * checkpointer still needs to make special efforts to keep WAL
-		 * segments required by the restart_lsn written to the disk.  See
-		 * CreateCheckPoint() and CreateRestartPoint() for details.
+		 * 首先把新的 xmin 和 restart_lsn 写入磁盘，这样崩溃  
+		 * 后我们才知道状况。即使这样做了，检查点进程   
+		 * 仍可能在共享内存中看到更新后的 restart_lsn 值； 
+		 * 随后，还没把该值写入磁盘就可能发生崩溃。   
+		 * 因此检查点进程仍需特别努力，把 restart_lsn   
+		 * 所需的 WAL 段写入磁盘予以保留。详情见         
+		 * CreateCheckPoint() 与 CreateRestartPoint()。          
 		 */
 		if (updated_xmin || updated_restart)
 		{
@@ -1897,10 +1897,10 @@ LogicalConfirmReceivedLocation(XLogRecPtr lsn)
 		}
 
 		/*
-		 * Now the new xmin is safely on disk, we can let the global value
-		 * advance. We do not take ProcArrayLock or similar since we only
-		 * advance xmin here and there's not much harm done by a concurrent
-		 * computation missing that.
+		 * 既然新的 xmin 已安全落盘，就可以让全局值      
+		 * 前进。我们不取 ProcArrayLock 或类似的锁，因为  
+		 * 这里只推进 xmin，即使并发计算漏掉了它，        
+		 * 也无大碍。          
 		 */
 		if (updated_xmin)
 		{
@@ -1917,8 +1917,8 @@ LogicalConfirmReceivedLocation(XLogRecPtr lsn)
 		SpinLockAcquire(&MyReplicationSlot->mutex);
 
 		/*
-		 * Prevent moving the confirmed_flush backwards. See comments above
-		 * for the details.
+		 * 防止 confirmed_flush 后移。详情见                       
+		 * 上文注释。 
 		 */
 		if (lsn > MyReplicationSlot->data.confirmed_flush)
 			MyReplicationSlot->data.confirmed_flush = lsn;
@@ -1928,7 +1928,7 @@ LogicalConfirmReceivedLocation(XLogRecPtr lsn)
 }
 
 /*
- * Clear logical streaming state during (sub)transaction abort.
+ * 在（子）事务中止时清除逻辑流式状态。      
  */
 void
 ResetLogicalStreamingState(void)
@@ -1938,7 +1938,7 @@ ResetLogicalStreamingState(void)
 }
 
 /*
- * Report stats for a slot.
+ * 上报槽统计信息。
  */
 void
 UpdateDecodingStats(LogicalDecodingContext *ctx)
@@ -1946,7 +1946,7 @@ UpdateDecodingStats(LogicalDecodingContext *ctx)
 	ReorderBuffer *rb = ctx->reorder;
 	PgStat_StatReplSlotEntry repSlotStat;
 
-	/* Nothing to do if we don't have any replication stats to be sent. */
+	/* 若没有待发送的复制统计，则无需做任何事。     */
 	if (rb->spillBytes <= 0 && rb->streamBytes <= 0 && rb->totalBytes <= 0)
 		return;
 

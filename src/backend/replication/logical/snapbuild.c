@@ -2,61 +2,61 @@
  *
  * snapbuild.c
  *
- *	  Infrastructure for building historic catalog snapshots based on contents
- *	  of the WAL, for the purpose of decoding heapam.c style values in the
+ *	  基于 WAL 内容构建历史目录快照的基础设施，用于       
+ *	  解码 heapam.c 风格的值。                                     
  *	  WAL.
  *
  * NOTES:
  *
- * We build snapshots which can *only* be used to read catalog contents and we
- * do so by reading and interpreting the WAL stream. The aim is to build a
- * snapshot that behaves the same as a freshly taken MVCC snapshot would have
- * at the time the XLogRecord was generated.
+ * 我们构建的快照*只能*用于读取目录内容，构建方式是    
+ * 读取并解释 WAL 流。目标是构建行为与                     
+ * XLogRecord 生成时新取得的 MVCC                                     
+ * 快照相同的快照。                 
  *
- * To build the snapshots we reuse the infrastructure built for Hot
- * Standby. The in-memory snapshots we build look different than HS' because
- * we have different needs. To successfully decode data from the WAL we only
- * need to access catalog tables and (sys|rel|cat)cache, not the actual user
- * tables since the data we decode is wholly contained in the WAL
- * records. Also, our snapshots need to be different in comparison to normal
- * MVCC ones because in contrast to those we cannot fully rely on the clog and
- * pg_subtrans for information about committed transactions because they might
- * commit in the future from the POV of the WAL entry we're currently
- * decoding. This definition has the advantage that we only need to prevent
- * removal of catalog rows, while normal table's rows can still be
- * removed. This is achieved by using the replication slot mechanism.
+ * 为构建这些快照，我们复用了为 Hot Standby 构建的
+ * 基础设施。我们的内存快照与 HS 的不同，因为            
+ * 需求不同。从 WAL 解码数据只需访问系统表和              
+ *  (sys|rel|cat)cache，无需访问实际的用户表，因为            
+ * 待解码的数据完全包含在 WAL                         
+ * 记录中。此外，我们的快照与普通 MVCC 快照不同，       
+ * 因为与它们不同，我们无法完全依赖 clog 和 pg_subtrans      
+ * 来获取已提交事务的信息，因为在我们当前正在解码的   
+ *  WAL 记录的视角看来，它们可能在将来提交。这一 
+ * 定义的优点是：我们只需阻止移除目录行，普通表的行
+ * 仍可被移除。这一点的实现方式是采用            
+ * 复制槽机制。                                                
  *
- * As the percentage of transactions modifying the catalog normally is fairly
- * small in comparisons to ones only manipulating user data, we keep track of
- * the committed catalog modifying ones inside [xmin, xmax) instead of keeping
- * track of all running transactions like it's done in a normal snapshot. Note
- * that we're generally only looking at transactions that have acquired an
- * xid. That is we keep a list of transactions between snapshot->(xmin, xmax)
- * that we consider committed, everything else is considered aborted/in
- * progress. That also allows us not to care about subtransactions before they
- * have committed which means this module, in contrast to HS, doesn't have to
- * care about suboverflowed subtransactions and similar.
+ * 由于修改目录的事务占比通常远小于只动用户数据的，  
+ * 因此我们在 [xmin, xmax) 内跟踪已提交的目录修改事务，   
+ * 而不是像普通快照那样跟踪所有正在运行的事务。注意   
+ * 我们一般只关注已获取 xid 的事务。也就是说，对          
+ * snapshot->(xmin, xmax) 之间，我们维护一份视为已提交      
+ * 的事务列表，其余视为中止或进行中。这也使我们        
+ * 无需在子事务提交之前关心它们，这意味着           
+ * 与 HS 不同，本模块无需关心                                      
+ * 子事务溢出（suboverflowed）                                        
+ * 等类似问题。                                   
  *
- * One complexity of doing this is that to e.g. handle mixed DDL/DML
- * transactions we need Snapshots that see intermediate versions of the
- * catalog in a transaction. During normal operation this is achieved by using
- * CommandIds/cmin/cmax. The problem with that however is that for space
- * efficiency reasons only one value of that is stored
- * (cf. combocid.c). Since combo CIDs are only available in memory we log
- * additional information which allows us to get the original (cmin, cmax)
- * pair during visibility checks. Check the reorderbuffer.c's comment above
- * ResolveCminCmaxDuringDecoding() for details.
+ * 复杂之处在于：例如处理 DDL/DML 混合事务时，     
+ * 我们需要能看见事务中目录中间版本的快照。这靠  
+ * CommandId/cmin/cmax 实现。但问题是为了节省空间，             
+ * 的问题是只能存一个值（参见 combocid.c）。组合 CID   
+ * 仅存于内存，故我们记录额外信息，   
+ * 从而在可见性检查期间能取得原始的 (cmin, cmax) 对。  
+ * 详情见上文 reorderbuffer.c 内                                    
+ *  ResolveCminCmaxDuringDecoding                                          
+ *  函数的注释。                         
  *
- * To facilitate all this we need our own visibility routine, as the normal
- * ones are optimized for different usecases.
+ * 为支持这一切，我们需要自己的可见性例程，因为常规
+ * 例程为其他场景做了优化。      
  *
- * To replace the normal catalog snapshots with decoding ones use the
- * SetupHistoricSnapshot() and TeardownHistoricSnapshot() functions.
+ * 要将常规目录快照替换为解码快照，请使用         
+ * SetupHistoricSnapshot() 与 TeardownHistoricSnapshot() 函数。 
  *
  *
  *
- * The snapbuild machinery is starting up in several stages, as illustrated
- * by the following graph describing the SnapBuild->state transitions:
+ * snapbuild 机制分多个阶段启动，下图描述了                 
+ *  SnapBuild->state 的状态迁移：                               
  *
  *		   +-------------------------+
  *	  +----|		 START			 |-------------+
@@ -90,22 +90,22 @@
  *	  +--->|SNAPBUILD_CONSISTENT	 |<------------+
  *		   +-------------------------+
  *
- * Initially the machinery is in the START stage. When an xl_running_xacts
- * record is read that is sufficiently new (above the safe xmin horizon),
- * there's a state transition. If there were no running xacts when the
- * xl_running_xacts record was generated, we'll directly go into CONSISTENT
- * state, otherwise we'll switch to the BUILDING_SNAPSHOT state. Having a full
- * snapshot means that all transactions that start henceforth can be decoded
- * in their entirety, but transactions that started previously can't. In
- * FULL_SNAPSHOT we'll switch into CONSISTENT once all those previously
- * running transactions have committed or aborted.
+ * 机制初始处于 START 阶段。读到足够新（高于安全 xmin  
+ *  水平线）的 xl_running_xacts 记录时，发生状态迁移。   
+ * 如果在生成 xl_running_xacts 记录时没有正在运行的    
+ * 事务，我们将直接进入 CONSISTENT 状态，否则切换到      
+ *  BUILDING_SNAPSHOT 状态。拥有完整快照意味着此后开始的     
+ * 所有事务都能被完整解码，但此前开始的则无法解码。 
+ * 在 FULL_SNAPSHOT 中，一旦所有此前正在运行               
+ * 的事务都已提交或中止，我们就会切换到 CONSISTENT   
+ * 状态。                                      
  *
- * Only transactions that commit after CONSISTENT state has been reached will
- * be replayed, even though they might have started while still in
- * FULL_SNAPSHOT. That ensures that we'll reach a point where no previous
- * changes has been exported, but all the following ones will be. That point
- * is a convenient point to initialize replication from, which is why we
- * export a snapshot at that point, which *can* be used to read normal data.
+ * 只有在达到 CONSISTENT 状态之后提交的事务才会被重放，  
+ * 即使它们可能在 FULL_SNAPSHOT 阶段就已开始。      
+ * 这确保到达一个点：之前没有更改被导出，之后的    
+ * 所有更改都会导出。该点是初始化复制的便利起点，    
+ * 因此我们在该点导出快照，它*可以*用于读取普通    
+ * 数据。                                                                
  *
  * Copyright (c) 2012-2023, PostgreSQL Global Development Group
  *
@@ -129,7 +129,7 @@
 #include "replication/logical.h"
 #include "replication/reorderbuffer.h"
 #include "replication/snapbuild.h"
-#include "storage/block.h"		/* debugging output */
+#include "storage/block.h"		/* 调试输出     */
 #include "storage/fd.h"
 #include "storage/lmgr.h"
 #include "storage/proc.h"
@@ -141,147 +141,147 @@
 #include "utils/snapshot.h"
 
 /*
- * This struct contains the current state of the snapshot building
- * machinery. Besides a forward declaration in the header, it is not exposed
- * to the public, so we can easily change its contents.
+ * 此结构体保存快照构建机制的当前状态。         
+ * 除了在头文件中有前向声明外，它并不对外暴露，因此 
+ * 我们可以轻松修改其内容。                
  */
 struct SnapBuild
 {
-	/* how far are we along building our first full snapshot */
+	/* 首个完整快照构建进展到什么程度         */
 	SnapBuildState state;
 
-	/* private memory context used to allocate memory for this module. */
+	/* 本模块用于分配内存的私有内存上下文。          */
 	MemoryContext context;
 
-	/* all transactions < than this have committed/aborted */
+	/* 小于此值的事务均已提交/中止            */
 	TransactionId xmin;
 
-	/* all transactions >= than this are uncommitted */
+	/* 大于等于此值的事务未提交          */
 	TransactionId xmax;
 
 	/*
-	 * Don't replay commits from an LSN < this LSN. This can be set externally
-	 * but it will also be advanced (never retreat) from within snapbuild.c.
+	 * 不重放来自小于此 LSN 的提交。此项可从外部设置，   
+	 * 但 snapbuild.c 内部也会推进它（绝不回退）。           
 	 */
 	XLogRecPtr	start_decoding_at;
 
 	/*
-	 * LSN at which two-phase decoding was enabled or LSN at which we found a
-	 * consistent point at the time of slot creation.
+	 * 启用两阶段解码时的 LSN，或创建复制槽时发现         
+	 * 一致点时的 LSN。                        
 	 *
-	 * The prepared transactions, that were skipped because previously
-	 * two-phase was not enabled or are not covered by initial snapshot, need
-	 * to be sent later along with commit prepared and they must be before
-	 * this point.
+	 * 此前因两阶段未启用或不在初始快照内而跳过   
+	 * 的已预备事务需稍后连同 COMMIT PREPARED 一起发送，     
+	 * 且它们必须位于此点之前。                               
+	 *            
 	 */
 	XLogRecPtr	two_phase_at;
 
 	/*
-	 * Don't start decoding WAL until the "xl_running_xacts" information
-	 * indicates there are no running xids with an xid smaller than this.
+	 * 在 "xl_running_xacts" 信息表明不存在比此值更小的   
+	 * 运行中 xid 之前，不要开始解码 WAL。                  
 	 */
 	TransactionId initial_xmin_horizon;
 
-	/* Indicates if we are building full snapshot or just catalog one. */
+	/* 指示正在构建的是完整快照还是仅目录快照。    */
 	bool		building_full_snapshot;
 
 	/*
-	 * Snapshot that's valid to see the catalog state seen at this moment.
+	 * 可在当前时刻有效查看目录状态的快照。             
 	 */
 	Snapshot	snapshot;
 
 	/*
-	 * LSN of the last location we are sure a snapshot has been serialized to.
+	 * 确知快照已序列化到的最后一个位置对应的 LSN。       
 	 */
 	XLogRecPtr	last_serialized_snapshot;
 
 	/*
-	 * The reorderbuffer we need to update with usable snapshots et al.
+	 * 我们需要用可用快照等加以更新的 reorderbuffer。  
 	 */
 	ReorderBuffer *reorder;
 
 	/*
-	 * TransactionId at which the next phase of initial snapshot building will
-	 * happen. InvalidTransactionId if not known (i.e. SNAPBUILD_START), or
-	 * when no next phase necessary (SNAPBUILD_CONSISTENT).
+	 * 初始快照构建下一阶段发生时的 TransactionId。            
+	 * 未知（SNAPBUILD_START）或无需下一阶段时为              
+	 * InvalidTransactionId。                             
 	 */
 	TransactionId next_phase_at;
 
 	/*
-	 * Array of transactions which could have catalog changes that committed
-	 * between xmin and xmax.
+	 * 可能有目录改动并已提交的事务位于 xmin 与 xmax       
+	 * 之间的数组。    
 	 */
 	struct
 	{
-		/* number of committed transactions */
+		/* 已提交事务的数量         */
 		size_t		xcnt;
 
-		/* available space for committed transactions */
+		/* 已提交事务的可用空间             */
 		size_t		xcnt_space;
 
 		/*
-		 * Until we reach a CONSISTENT state, we record commits of all
-		 * transactions, not just the catalog changing ones. Record when that
-		 * changes so we know we cannot export a snapshot safely anymore.
+		 * 达到 CONSISTENT 前，记录所有事务的提交，     
+		 * 而非仅目录改动事务。记录该转变发生的时点，   
+		 * 以便知道从此再也无法安全导出快照。           
 		 */
 		bool		includes_all_transactions;
 
 		/*
-		 * Array of committed transactions that have modified the catalog.
+		 * 已修改目录的已提交事务所组成的数组。         
 		 *
-		 * As this array is frequently modified we do *not* keep it in
-		 * xidComparator order. Instead we sort the array when building &
-		 * distributing a snapshot.
+		 * 由于该数组频繁修改，我们*不*按 xidComparator 
+		 * 顺序保存，而是在构建与分发                       
+		 * 快照时才排序。   
 		 *
-		 * TODO: It's unclear whether that reasoning has much merit. Every
-		 * time we add something here after becoming consistent will also
-		 * require distributing a snapshot. Storing them sorted would
-		 * potentially also make it easier to purge (but more complicated wrt
-		 * wraparound?). Should be improved if sorting while building the
-		 * snapshot shows up in profiles.
+		 * TODO: 这一理由是否很在理并不清楚。每次在达到
+		 * 一致后再在此添加内容也需分发快照。按有     
+		 * 序保存可能让清理更容易（但回卷处理更复 
+		 * 杂）。如果在构建快照时的排序出现在性能剖析   
+		 * 中，则应加以                                            
+		 * 改进。                     
 		 */
 		TransactionId *xip;
 	}			committed;
 
 	/*
-	 * Array of transactions and subtransactions that had modified catalogs
-	 * and were running when the snapshot was serialized.
+	 * 在快照被序列化时已修改目录且仍在运行的事务与  
+	 * 子事务的数组。                             
 	 *
-	 * We normally rely on some WAL record types such as HEAP2_NEW_CID to know
-	 * if the transaction has changed the catalog. But it could happen that
-	 * the logical decoding decodes only the commit record of the transaction
-	 * after restoring the previously serialized snapshot in which case we
-	 * will miss adding the xid to the snapshot and end up looking at the
-	 * catalogs with the wrong snapshot.
+	 * 我们通常依赖 HEAP2_NEW_CID 等 WAL 记录类型来判断         
+	 * 事务是否改过目录。但可能在恢复先前序列化的     
+	 * 快照后，逻辑解码只见到该事务的提交记录，此时就 
+	 * 会漏掉将该 xid 加进快照，最终在查看目录时用了  
+	 * 错误的快照。                                                
+	 * 为避免上述问题，我们   
 	 *
-	 * Now to avoid the above problem, we serialize the transactions that had
-	 * modified the catalogs and are still running at the time of snapshot
-	 * serialization. We fill this array while restoring the snapshot and then
-	 * refer it while decoding commit to ensure if the xact has modified the
-	 * catalog. We discard this array when all the xids in the list become old
-	 * enough to matter. See SnapBuildPurgeOlderTxn for details.
+	 * 会序列化已修改目录且在快照序列化时仍                
+	 * 在运行的事务。恢复快照时我们填充此数组，然后 
+	 * 解码提交时参照它，确认相关事务是否修改过目        
+	 * 录。当列表中的所有 xid 都老到不再有影响的程度    
+	 * 时，我们便丢弃此数组。                                      
+	 * 详见 SnapBuildPurgeOlderTxn。                         
 	 */
 	struct
 	{
-		/* number of transactions */
+		/* 事务数量           */
 		size_t		xcnt;
 
-		/* This array must be sorted in xidComparator order */
+		/* 此数组必须按 xidComparator 顺序排序    */
 		TransactionId *xip;
 	}			catchange;
 };
 
 /*
- * Starting a transaction -- which we need to do while exporting a snapshot --
- * removes knowledge about the previously used resowner, so we save it here.
+ * 启动事务（这在导出快照时是必需的）会清除关于         
+ * 先前所用 resowner 的记忆，所以我们在此保存它。         
  */
 static ResourceOwner SavedResourceOwnerDuringExport = NULL;
 static bool ExportInProgress = false;
 
-/* ->committed and ->catchange manipulation */
+/* ->committed 与 ->catchange 操作       */
 static void SnapBuildPurgeOlderTxn(SnapBuild *builder);
 
-/* snapshot building/manipulation/distribution functions */
+/* 快照构建/操作/分发函数                      */
 static Snapshot SnapBuildBuildSnapshot(SnapBuild *builder);
 
 static void SnapBuildFreeSnapshot(Snapshot snap);
@@ -293,20 +293,20 @@ static void SnapBuildDistributeSnapshotAndInval(SnapBuild *builder, XLogRecPtr l
 static inline bool SnapBuildXidHasCatalogChanges(SnapBuild *builder, TransactionId xid,
 												 uint32 xinfo);
 
-/* xlog reading helper functions for SnapBuildProcessRunningXacts */
+/* SnapBuildProcessRunningXacts 的 xlog 读取辅助函数       */
 static bool SnapBuildFindSnapshot(SnapBuild *builder, XLogRecPtr lsn, xl_running_xacts *running);
 static void SnapBuildWaitSnapshot(xl_running_xacts *running, TransactionId cutoff);
 
-/* serialization functions */
+/* 序列化函数         */
 static void SnapBuildSerialize(SnapBuild *builder, XLogRecPtr lsn);
 static bool SnapBuildRestore(SnapBuild *builder, XLogRecPtr lsn);
 static void SnapBuildRestoreContents(int fd, char *dest, Size size, const char *path);
 
 /*
- * Allocate a new snapshot builder.
+ * 分配新快照构建器。     
  *
- * xmin_horizon is the xid >= which we can be sure no catalog rows have been
- * removed, start_lsn is the LSN >= we want to replay commits.
+ * xmin_horizon 是这样的 xid：大于等于它即可确保未移除     
+ * 任何目录行；start_lsn 是要重放提交的 LSN。   
  */
 SnapBuild *
 AllocateSnapshotBuilder(ReorderBuffer *reorder,
@@ -319,7 +319,7 @@ AllocateSnapshotBuilder(ReorderBuffer *reorder,
 	MemoryContext oldcontext;
 	SnapBuild  *builder;
 
-	/* allocate memory in own context, to have better accountability */
+	/* 在自有上下文中分配内存，以便更好地核算     */
 	context = AllocSetContextCreate(CurrentMemoryContext,
 									"snapshot builder context",
 									ALLOCSET_DEFAULT_SIZES);
@@ -330,10 +330,10 @@ AllocateSnapshotBuilder(ReorderBuffer *reorder,
 	builder->state = SNAPBUILD_START;
 	builder->context = context;
 	builder->reorder = reorder;
-	/* Other struct members initialized by zeroing via palloc0 above */
+	/* 其余结构体成员由上面的 palloc0 清零初始化     */
 
 	builder->committed.xcnt = 0;
-	builder->committed.xcnt_space = 128;	/* arbitrary number */
+	builder->committed.xcnt_space = 128;	/* 任意数值     */
 	builder->committed.xip =
 		palloc0(builder->committed.xcnt_space * sizeof(TransactionId));
 	builder->committed.includes_all_transactions = true;
@@ -352,40 +352,40 @@ AllocateSnapshotBuilder(ReorderBuffer *reorder,
 }
 
 /*
- * Free a snapshot builder.
+ * 释放快照构建器。
  */
 void
 FreeSnapshotBuilder(SnapBuild *builder)
 {
 	MemoryContext context = builder->context;
 
-	/* free snapshot explicitly, that contains some error checking */
+	/* 显式释放快照，其中包含一些错误检查         */
 	if (builder->snapshot != NULL)
 	{
 		SnapBuildSnapDecRefcount(builder->snapshot);
 		builder->snapshot = NULL;
 	}
 
-	/* other resources are deallocated via memory context reset */
+	/* 其他资源经由内存上下文重置来释放         */
 	MemoryContextDelete(context);
 }
 
 /*
- * Free an unreferenced snapshot that has previously been built by us.
+ * 释放一个先前由我们构建且当前无引用的快照。    
  */
 static void
 SnapBuildFreeSnapshot(Snapshot snap)
 {
-	/* make sure we don't get passed an external snapshot */
+	/* 确保传入的不是外部快照                  */
 	Assert(snap->snapshot_type == SNAPSHOT_HISTORIC_MVCC);
 
-	/* make sure nobody modified our snapshot */
+	/* 确保没人修改过我们的快照   */
 	Assert(snap->curcid == FirstCommandId);
 	Assert(!snap->suboverflowed);
 	Assert(!snap->takenDuringRecovery);
 	Assert(snap->regd_count == 0);
 
-	/* slightly more likely, so it's checked even without c-asserts */
+	/* 可能性略高，因此即便无 c-assert 也会检查      */
 	if (snap->copied)
 		elog(ERROR, "cannot free a copied snapshot");
 
@@ -396,7 +396,7 @@ SnapBuildFreeSnapshot(Snapshot snap)
 }
 
 /*
- * In which state of snapshot building are we?
+ * 我们处于快照构建的哪个阶段？ 
  */
 SnapBuildState
 SnapBuildCurrentState(SnapBuild *builder)
@@ -405,7 +405,7 @@ SnapBuildCurrentState(SnapBuild *builder)
 }
 
 /*
- * Return the LSN at which the two-phase decoding was first enabled.
+ * 返回首次启用两阶段解码时的 LSN。                   
  */
 XLogRecPtr
 SnapBuildGetTwoPhaseAt(SnapBuild *builder)
@@ -414,7 +414,7 @@ SnapBuildGetTwoPhaseAt(SnapBuild *builder)
 }
 
 /*
- * Set the LSN at which two-phase decoding is enabled.
+ * 设置启用两阶段解码时的 LSN。           
  */
 void
 SnapBuildSetTwoPhaseAt(SnapBuild *builder, XLogRecPtr ptr)
@@ -423,7 +423,7 @@ SnapBuildSetTwoPhaseAt(SnapBuild *builder, XLogRecPtr ptr)
 }
 
 /*
- * Should the contents of transaction ending at 'ptr' be decoded?
+ * 结束于 'ptr' 的事务内容是否应当解码？          
  */
 bool
 SnapBuildXactNeedsSkip(SnapBuild *builder, XLogRecPtr ptr)
@@ -432,10 +432,10 @@ SnapBuildXactNeedsSkip(SnapBuild *builder, XLogRecPtr ptr)
 }
 
 /*
- * Increase refcount of a snapshot.
+ * 增加快照的引用计数。  
  *
- * This is used when handing out a snapshot to some external resource or when
- * adding a Snapshot as builder->snapshot.
+ * 在把快照交给某个外部资源时，或在把 Snapshot 设为       
+ * builder->snapshot 时会用到。      
  */
 static void
 SnapBuildSnapIncRefcount(Snapshot snap)
@@ -444,18 +444,18 @@ SnapBuildSnapIncRefcount(Snapshot snap)
 }
 
 /*
- * Decrease refcount of a snapshot and free if the refcount reaches zero.
+ * 减少快照的引用计数，引用计数降到零时释放快照。 
  *
- * Externally visible, so that external resources that have been handed an
- * IncRef'ed Snapshot can adjust its refcount easily.
+ * 对外可见，这样获交了一个已 IncRef 的 Snapshot 的外部  
+ * 资源可以方便地调整其引用计数。     
  */
 void
 SnapBuildSnapDecRefcount(Snapshot snap)
 {
-	/* make sure we don't get passed an external snapshot */
+	/* 确保传入的不是外部快照                  */
 	Assert(snap->snapshot_type == SNAPSHOT_HISTORIC_MVCC);
 
-	/* make sure nobody modified our snapshot */
+	/* 确保没人修改过我们的快照   */
 	Assert(snap->curcid == FirstCommandId);
 	Assert(!snap->suboverflowed);
 	Assert(!snap->takenDuringRecovery);
@@ -464,7 +464,7 @@ SnapBuildSnapDecRefcount(Snapshot snap)
 
 	Assert(snap->active_count > 0);
 
-	/* slightly more likely, so it's checked even without casserts */
+	/* 可能性略高，因此即便无 cassert 也会检查      */
 	if (snap->copied)
 		elog(ERROR, "cannot free a copied snapshot");
 
@@ -474,12 +474,12 @@ SnapBuildSnapDecRefcount(Snapshot snap)
 }
 
 /*
- * Build a new snapshot, based on currently committed catalog-modifying
- * transactions.
+ * 构建一个新快照，其基础是当前已提交的目录修改  
+ * 事务。    
  *
- * In-progress transactions with catalog access are *not* allowed to modify
- * these snapshots; they have to copy them and fill in appropriate ->curcid
- * and ->subxip/subxcnt values.
+ * 进行中且访问过目录的事务*不*允许修改这些快照；    
+ * 它们必须复制快照并填入相应的 ->curcid 与                 
+ * ->subxip/subxcnt 值。     
  */
 static Snapshot
 SnapBuildBuildSnapshot(SnapBuild *builder)
@@ -491,32 +491,32 @@ SnapBuildBuildSnapshot(SnapBuild *builder)
 
 	ssize = sizeof(SnapshotData)
 		+ sizeof(TransactionId) * builder->committed.xcnt
-		+ sizeof(TransactionId) * 1 /* toplevel xid */ ;
+		+ sizeof(TransactionId) * 1 /* 顶层 xid   */ ;
 
 	snapshot = MemoryContextAllocZero(builder->context, ssize);
 
 	snapshot->snapshot_type = SNAPSHOT_HISTORIC_MVCC;
 
 	/*
-	 * We misuse the original meaning of SnapshotData's xip and subxip fields
-	 * to make the more fitting for our needs.
+	 * 我们挪用了 SnapshotData 的 xip 与 subxip 字段的原本       
+	 * 含义，使其更贴合需求。      
 	 *
-	 * In the 'xip' array we store transactions that have to be treated as
-	 * committed. Since we will only ever look at tuples from transactions
-	 * that have modified the catalog it's more efficient to store those few
-	 * that exist between xmin and xmax (frequently there are none).
+	 * 'xip' 数组中保存必须视为已提交的事务。由于我们 
+	 * 只查看来自改过目录的事务的元组，所以只需保存 
+	 *  xmin 与 xmax 之间存在的少数几个事务（常常一个      
+	 * 都没有）。                                              
 	 *
-	 * Snapshots that are used in transactions that have modified the catalog
-	 * also use the 'subxip' array to store their toplevel xid and all the
-	 * subtransaction xids so we can recognize when we need to treat rows as
-	 * visible that are not in xip but still need to be visible. Subxip only
-	 * gets filled when the transaction is copied into the context of a
-	 * catalog modifying transaction since we otherwise share a snapshot
-	 * between transactions. As long as a txn hasn't modified the catalog it
-	 * doesn't need to treat any uncommitted rows as visible, so there is no
-	 * need for those xids.
+	 * 被修改过目录的事务所用的快照还会使用 'subxip' 数组
+	 * 来保存其顶层 xid 及全部子事务 xid，这样当某些行 
+	 * 虽不在 xip 中却仍需可见时，我们能识别出来。       
+	 * subxip 仅在快照被复制进目录修改事务的上下文时     
+	 * 被填充，因为否则我们会                               
+	 * 在事务间共享快照。只要事务尚未修改过目录，  
+	 * 它就无需把任何未提交的行                                 
+	 * 视为可见，因此并不需要                                    
+	 * 这些 xid。       
 	 *
-	 * Both arrays are qsort'ed so that we can use bsearch() on them.
+	 * 两数组均按 qsort 排序，以便用 bsearch() 查找。  
 	 */
 	Assert(TransactionIdIsNormal(builder->xmin));
 	Assert(TransactionIdIsNormal(builder->xmax));
@@ -524,7 +524,7 @@ SnapBuildBuildSnapshot(SnapBuild *builder)
 	snapshot->xmin = builder->xmin;
 	snapshot->xmax = builder->xmax;
 
-	/* store all transactions to be treated as committed by this snapshot */
+	/* 保存此快照要视为已提交的全部事务                   */
 	snapshot->xip =
 		(TransactionId *) ((char *) snapshot + sizeof(SnapshotData));
 	snapshot->xcnt = builder->committed.xcnt;
@@ -532,13 +532,13 @@ SnapBuildBuildSnapshot(SnapBuild *builder)
 		   builder->committed.xip,
 		   builder->committed.xcnt * sizeof(TransactionId));
 
-	/* sort so we can bsearch() */
+	/* 排序以便 bsearch()   */
 	qsort(snapshot->xip, snapshot->xcnt, sizeof(TransactionId), xidComparator);
 
 	/*
-	 * Initially, subxip is empty, i.e. it's a snapshot to be used by
-	 * transactions that don't modify the catalog. Will be filled by
-	 * ReorderBufferCopySnap() if necessary.
+	 * 初始时 subxip 为空，即这是给不修改目录         
+	 * 的事务用的快照。必要时由                         
+	 *  ReorderBufferCopySnap() 填充。   
 	 */
 	snapshot->subxcnt = 0;
 	snapshot->subxip = NULL;
@@ -555,11 +555,11 @@ SnapBuildBuildSnapshot(SnapBuild *builder)
 }
 
 /*
- * Build the initial slot snapshot and convert it to a normal snapshot that
- * is understood by HeapTupleSatisfiesMVCC.
+ * 构建初始槽快照并将其转换为 HeapTupleSatisfiesMVCC 所      
+ * 能理解的普通快照。             
  *
- * The snapshot will be usable directly in current transaction or exported
- * for loading in different transaction.
+ * 该快照既可直接用于当前事务，也可导出后在别的     
+ * 事务中载入使用。             
  */
 Snapshot
 SnapBuildInitialSnapshot(SnapBuild *builder)
@@ -573,8 +573,8 @@ SnapBuildInitialSnapshot(SnapBuild *builder)
 	Assert(XactIsoLevel == XACT_REPEATABLE_READ);
 	Assert(builder->building_full_snapshot);
 
-	/* don't allow older snapshots */
-	InvalidateCatalogSnapshot();	/* about to overwrite MyProc->xmin */
+	/* 不允许更旧的快照    */
+	InvalidateCatalogSnapshot();	/* 即将覆盖 MyProc->xmin       */
 	if (HaveRegisteredOrActiveSnapshot())
 		elog(ERROR, "cannot build an initial slot snapshot when snapshots exist");
 	Assert(!HistoricSnapshotActive());
@@ -585,20 +585,20 @@ SnapBuildInitialSnapshot(SnapBuild *builder)
 	if (!builder->committed.includes_all_transactions)
 		elog(ERROR, "cannot build an initial slot snapshot, not all transactions are monitored anymore");
 
-	/* so we don't overwrite the existing value */
+	/* 以免覆盖已有的值                 */
 	if (TransactionIdIsValid(MyProc->xmin))
 		elog(ERROR, "cannot build an initial slot snapshot when MyProc->xmin already is valid");
 
 	snap = SnapBuildBuildSnapshot(builder);
 
 	/*
-	 * We know that snap->xmin is alive, enforced by the logical xmin
-	 * mechanism. Due to that we can do this without locks, we're only
-	 * changing our own value.
+	 * 我们知道 snap->xmin 存活，这由逻辑 xmin 机制     
+	 * 强制保证。因此能不加锁地这么做，因为只改   
+	 * 我们自己的值。  
 	 *
-	 * Building an initial snapshot is expensive and an unenforced xmin
-	 * horizon would have bad consequences, therefore always double-check that
-	 * the horizon is enforced.
+	 * 构建初始快照很昂贵，未强制执行的 xmin 水平线 
+	 * 会带来糟糕的后果，因此务必反复确认水平线确实被  
+	 * 强制执行了。      
 	 */
 	LWLockAcquire(ProcArrayLock, LW_SHARED);
 	safeXid = GetOldestSafeDecodingTransactionId(false);
@@ -610,23 +610,23 @@ SnapBuildInitialSnapshot(SnapBuild *builder)
 
 	MyProc->xmin = snap->xmin;
 
-	/* allocate in transaction context */
+	/* 在事务上下文中分配     */
 	newxip = (TransactionId *)
 		palloc(sizeof(TransactionId) * GetMaxSnapshotXidCount());
 
 	/*
-	 * snapbuild.c builds transactions in an "inverted" manner, which means it
-	 * stores committed transactions in ->xip, not ones in progress. Build a
-	 * classical snapshot by marking all non-committed transactions as
-	 * in-progress. This can be expensive.
+	 * snapbuild.c 以"倒置"方式构建事务，即它在 ->xip 中保存  
+	 * 的是已提交事务而非进行中的事务。办法是把未提交
+	 * 标记为进行中来构建经典快照。                     
+	 * 开销可能不小。              
 	 */
 	for (xid = snap->xmin; NormalTransactionIdPrecedes(xid, snap->xmax);)
 	{
 		void	   *test;
 
 		/*
-		 * Check whether transaction committed using the decoding snapshot
-		 * meaning of ->xip.
+		 * 按照解码快照的 ->xip 语义检查事务                 
+		 * 是否已提交  
 		 */
 		test = bsearch(&xid, snap->xip, snap->xcnt,
 					   sizeof(TransactionId), xidComparator);
@@ -644,7 +644,7 @@ SnapBuildInitialSnapshot(SnapBuild *builder)
 		TransactionIdAdvance(xid);
 	}
 
-	/* adjust remaining snapshot fields as needed */
+	/* 按需调整其余快照字段             */
 	snap->snapshot_type = SNAPSHOT_MVCC;
 	snap->xcnt = newxcnt;
 	snap->xip = newxip;
@@ -653,12 +653,12 @@ SnapBuildInitialSnapshot(SnapBuild *builder)
 }
 
 /*
- * Export a snapshot so it can be set in another session with SET TRANSACTION
+ * 导出一个快照，使其能在另一个会话中用 SET TRANSACTION    
  * SNAPSHOT.
  *
- * For that we need to start a transaction in the current backend as the
- * importing side checks whether the source transaction is still open to make
- * sure the xmin horizon hasn't advanced since then.
+ * 为此我们需要在当前后端启动一个事务，因为导入方
+ * 会检查源事务是否仍然开启，以确保 xmin 水平线此后     
+ * 没有前进过。                               
  */
 const char *
 SnapBuildExportSnapshot(SnapBuild *builder)
@@ -677,15 +677,15 @@ SnapBuildExportSnapshot(SnapBuild *builder)
 
 	StartTransactionCommand();
 
-	/* There doesn't seem to a nice API to set these */
+	/* 似乎没有设置这些值的优雅 API      */
 	XactIsoLevel = XACT_REPEATABLE_READ;
 	XactReadOnly = true;
 
 	snap = SnapBuildInitialSnapshot(builder);
 
 	/*
-	 * now that we've built a plain snapshot, make it active and use the
-	 * normal mechanisms for exporting it
+	 * 构建出普通快照后，将其激活，并用常规机制     
+	 * 来导出它。                   
 	 */
 	snapname = ExportSnapshot(snap);
 
@@ -698,18 +698,18 @@ SnapBuildExportSnapshot(SnapBuild *builder)
 }
 
 /*
- * Ensure there is a snapshot and if not build one for current transaction.
+ * 确保存在快照，若无则为当前事务构建一个。            
  */
 Snapshot
 SnapBuildGetOrBuildSnapshot(SnapBuild *builder)
 {
 	Assert(builder->state == SNAPBUILD_CONSISTENT);
 
-	/* only build a new snapshot if we don't have a prebuilt one */
+	/* 仅在没有预构建快照时才构建新快照          */
 	if (builder->snapshot == NULL)
 	{
 		builder->snapshot = SnapBuildBuildSnapshot(builder);
-		/* increase refcount for the snapshot builder */
+		/* 为快照构建器增加引用计数       */
 		SnapBuildSnapIncRefcount(builder->snapshot);
 	}
 
@@ -717,16 +717,16 @@ SnapBuildGetOrBuildSnapshot(SnapBuild *builder)
 }
 
 /*
- * Reset a previously SnapBuildExportSnapshot()'ed snapshot if there is
- * any. Aborts the previously started transaction and resets the resource
- * owner back to its original value.
+ * 如果存在先前由 SnapBuildExportSnapshot() 导出的快照，  
+ * 则将其重置。中止先前启动的事务，并把资源所有者 
+ * 恢复为原值。               
  */
 void
 SnapBuildClearExportedSnapshot(void)
 {
 	ResourceOwner tmpResOwner;
 
-	/* nothing exported, that is the usual case */
+	/* 无导出内容，这是常见情形     */
 	if (!ExportInProgress)
 		return;
 
@@ -734,19 +734,19 @@ SnapBuildClearExportedSnapshot(void)
 		elog(ERROR, "clearing exported snapshot in wrong transaction state");
 
 	/*
-	 * AbortCurrentTransaction() takes care of resetting the snapshot state,
-	 * so remember SavedResourceOwnerDuringExport.
+	 * AbortCurrentTransaction() 负责重置快照状态，所以请记住 
+	 *  SavedResourceOwnerDuringExport。         
 	 */
 	tmpResOwner = SavedResourceOwnerDuringExport;
 
-	/* make sure nothing could have ever happened */
+	/* 确保从未发生过任何事情          */
 	AbortCurrentTransaction();
 
 	CurrentResourceOwner = tmpResOwner;
 }
 
 /*
- * Clear snapshot export state during transaction abort.
+ * 在事务中止期间清除快照导出状态。     
  */
 void
 SnapBuildResetExportedSnapshotState(void)
@@ -756,46 +756,46 @@ SnapBuildResetExportedSnapshotState(void)
 }
 
 /*
- * Handle the effects of a single heap change, appropriate to the current state
- * of the snapshot builder and returns whether changes made at (xid, lsn) can
- * be decoded.
+ * 按快照构建器的当前状态处理单个堆更改的效果，          
+ * 并返回在 (xid, lsn) 处所做的更改能否被                       
+ * 解码。  
  */
 bool
 SnapBuildProcessChange(SnapBuild *builder, TransactionId xid, XLogRecPtr lsn)
 {
 	/*
-	 * We can't handle data in transactions if we haven't built a snapshot
-	 * yet, so don't store them.
+	 * 尚未构建快照时我们无法处理事务中的数据，       
+	 * 故不保存它们。    
 	 */
 	if (builder->state < SNAPBUILD_FULL_SNAPSHOT)
 		return false;
 
 	/*
-	 * No point in keeping track of changes in transactions that we don't have
-	 * enough information about to decode. This means that they started before
-	 * we got into the SNAPBUILD_FULL_SNAPSHOT state.
+	 * 跟踪信息不足而无法解码的事务中的更改毫无意义。  
+	 * 这意味着这些事务在我们进入 SNAPBUILD_FULL_SNAPSHOT        
+	 *  状态之前就已经开始了。            
 	 */
 	if (builder->state < SNAPBUILD_CONSISTENT &&
 		TransactionIdPrecedes(xid, builder->next_phase_at))
 		return false;
 
 	/*
-	 * If the reorderbuffer doesn't yet have a snapshot, add one now, it will
-	 * be needed to decode the change we're currently processing.
+	 * 如果 reorderbuffer 还没有快照，现在就添加一个，解码 
+	 * 当前处理的更改时会需要它。                   
 	 */
 	if (!ReorderBufferXidHasBaseSnapshot(builder->reorder, xid))
 	{
-		/* only build a new snapshot if we don't have a prebuilt one */
+		/* 仅在没有预构建快照时才构建新快照          */
 		if (builder->snapshot == NULL)
 		{
 			builder->snapshot = SnapBuildBuildSnapshot(builder);
-			/* increase refcount for the snapshot builder */
+			/* 为快照构建器增加引用计数       */
 			SnapBuildSnapIncRefcount(builder->snapshot);
 		}
 
 		/*
-		 * Increase refcount for the transaction we're handing the snapshot
-		 * out to.
+		 * 为接收此快照的事务增加引用计数。                
+		 * 。    
 		 */
 		SnapBuildSnapIncRefcount(builder->snapshot);
 		ReorderBufferSetBaseSnapshot(builder->reorder, xid, lsn,
@@ -806,9 +806,9 @@ SnapBuildProcessChange(SnapBuild *builder, TransactionId xid, XLogRecPtr lsn)
 }
 
 /*
- * Do CommandId/combo CID handling after reading an xl_heap_new_cid record.
- * This implies that a transaction has done some form of write to system
- * catalogs.
+ * 读取 xl_heap_new_cid 记录后处理 CommandId/组合 CID。          
+ * 这意味着某个事务曾以某种形式写入系统表。         
+ * 。      
  */
 void
 SnapBuildProcessNewCid(SnapBuild *builder, TransactionId xid,
@@ -817,8 +817,8 @@ SnapBuildProcessNewCid(SnapBuild *builder, TransactionId xid,
 	CommandId	cid;
 
 	/*
-	 * we only log new_cid's if a catalog tuple was modified, so mark the
-	 * transaction as containing catalog modifications
+	 * 只有目录元组被修改才记录 new_cid，故把事务标记 
+	 * 为包含目录改动。                       
 	 */
 	ReorderBufferXidSetCatalogChanges(builder->reorder, xid, lsn);
 
@@ -827,7 +827,7 @@ SnapBuildProcessNewCid(SnapBuild *builder, TransactionId xid,
 								 xlrec->cmin, xlrec->cmax,
 								 xlrec->combocid);
 
-	/* figure out new command id */
+	/* 推算新的命令 id     */
 	if (xlrec->cmin != InvalidCommandId &&
 		xlrec->cmax != InvalidCommandId)
 		cid = Max(xlrec->cmin, xlrec->cmax);
@@ -837,7 +837,7 @@ SnapBuildProcessNewCid(SnapBuild *builder, TransactionId xid,
 		cid = xlrec->cmin;
 	else
 	{
-		cid = InvalidCommandId; /* silence compiler */
+		cid = InvalidCommandId; /* 安抚编译器  */
 		elog(ERROR, "xl_heap_new_cid record without a valid CommandId");
 	}
 
@@ -845,12 +845,12 @@ SnapBuildProcessNewCid(SnapBuild *builder, TransactionId xid,
 }
 
 /*
- * Add a new Snapshot and invalidation messages to all transactions we're
- * decoding that currently are in-progress so they can see new catalog contents
- * made by the transaction that just committed. This is necessary because those
- * in-progress transactions will use the new catalog's contents from here on
- * (at the very least everything they do needs to be compatible with newer
- * catalog contents).
+ * 为解码中且进行中的事务添加 Snapshot 与失效消息，   
+ * 使它们能看到刚提交的事务所做的新目录内容。             
+ * 这样做是必需的，因为这些进行中的事务从现在起将使用 
+ * 新目录内容（至少一切操作都需与更新后的目录          
+ * 内容兼容）。                                                     
+ * 。               
  */
 static void
 SnapBuildDistributeSnapshotAndInval(SnapBuild *builder, XLogRecPtr lsn, TransactionId xid)
@@ -859,10 +859,10 @@ SnapBuildDistributeSnapshotAndInval(SnapBuild *builder, XLogRecPtr lsn, Transact
 	ReorderBufferTXN *txn;
 
 	/*
-	 * Iterate through all toplevel transactions. This can include
-	 * subtransactions which we just don't yet know to be that, but that's
-	 * fine, they will just get an unnecessary snapshot and invalidations
-	 * queued.
+	 * 遍历所有顶层事务。其中可能包含              
+	 * 尚不知其为子事务的事务，没关系，它们只会多拿 
+	 * 一个不必要的快照，失效消息入队而已。            
+	 * 。    
 	 */
 	dlist_foreach(txn_i, &builder->reorder->toplevel_by_lsn)
 	{
@@ -871,29 +871,29 @@ SnapBuildDistributeSnapshotAndInval(SnapBuild *builder, XLogRecPtr lsn, Transact
 		Assert(TransactionIdIsValid(txn->xid));
 
 		/*
-		 * If we don't have a base snapshot yet, there are no changes in this
-		 * transaction which in turn implies we don't yet need a snapshot at
-		 * all. We'll add a snapshot when the first change gets queued.
+		 * 若还没有基础快照，说明此事务中没有任何更改，
+		 * 因而也尚不需要任何快照。首个更改入队时我们  
+		 * 会添加快照。                                          
 		 *
-		 * Similarly, we don't need to add invalidations to a transaction whose
-		 * base snapshot is not yet set. Once a base snapshot is built, it will
-		 * include the xids of committed transactions that have modified the
-		 * catalog, thus reflecting the new catalog contents. The existing
-		 * catalog cache will have already been invalidated after processing
-		 * the invalidations in the transaction that modified catalogs,
-		 * ensuring that a fresh cache is constructed during decoding.
+		 * 同样，基础快照未设置的事务无需添加失效消息。  
+		 * 基础快照一旦建好，其中就包含改过目录的已提交  
+		 * 事务的 xid，从而反映新的目录内容。现有的       
+		 * 目录缓存在处理完改动目录事务的失效消息后，
+		 * 其实就已失效。                                            
+		 * 这样能确保在解码期间构建出                     
+		 * 全新的缓存。                                         
 		 *
-		 * NB: This works correctly even for subtransactions because
-		 * ReorderBufferAssignChild() takes care to transfer the base snapshot
-		 * to the top-level transaction, and while iterating the changequeue
-		 * we'll get the change from the subtxn.
+		 * 注意：这对子事务同样正确，因为            
+		 * ReorderBufferAssignChild() 会负责把基础快照转移给顶层 
+		 * 事务；遍历更改队列时，我们会从子事务           
+		 * 处取得更改。                   
 		 */
 		if (!ReorderBufferXidHasBaseSnapshot(builder->reorder, txn->xid))
 			continue;
 
 		/*
-		 * We don't need to add snapshot or invalidations to prepared
-		 * transactions as they should not see the new catalog contents.
+		 * 无需为已预备事务添加快照或失效消息，    
+		 * 因为它们不应看到新的目录内容。                
 		 */
 		if (rbtxn_prepared(txn) || rbtxn_skip_prepared(txn))
 			continue;
@@ -902,29 +902,29 @@ SnapBuildDistributeSnapshotAndInval(SnapBuild *builder, XLogRecPtr lsn, Transact
 			 txn->xid, LSN_FORMAT_ARGS(lsn));
 
 		/*
-		 * increase the snapshot's refcount for the transaction we are handing
-		 * it out to
+		 * 为接收此快照的事务增加其引用计数。                
+		 * 。      
 		 */
 		SnapBuildSnapIncRefcount(builder->snapshot);
 		ReorderBufferAddSnapshot(builder->reorder, txn->xid, lsn,
 								 builder->snapshot);
 
 		/*
-		 * Add invalidation messages to the reorder buffer of in-progress
-		 * transactions except the current committed transaction, for which we
-		 * will execute invalidations at the end.
+		 * 向进行中事务的 reorderbuffer 添加失效消息，     
+		 * 当前已提交的事务除外，其失效消息                   
+		 * 会在最后执行。                 
 		 *
-		 * It is required, otherwise, we will end up using the stale catcache
-		 * contents built by the current transaction even after its decoding,
-		 * which should have been invalidated due to concurrent catalog
-		 * changing transaction.
+		 * 这是必需的，否则最终会用到陈旧的 catcache 内容  
+		 * ——由当前事务构建的内容，即便其解码已完成。
+		 * 本应因并发的目录改动事务                        
+		 * 而失效。         
 		 *
-		 * Distribute only the invalidation messages generated by the current
-		 * committed transaction. Invalidation messages received from other
-		 * transactions would have already been propagated to the relevant
-		 * in-progress transactions. This transaction would have processed
-		 * those invalidations, ensuring that subsequent transactions observe
-		 * a consistent cache state.
+		 * 只分发由当前已提交事务所产生的那批失效消息。
+		 * 从其他事务收到的失效消息已传播给相关的进行 
+		 * 中事务。该事务也已处理过这些失效，            
+		 * 从而确保                                                   
+		 * 后续事务能观察到一致的                                 
+		 * 缓存状态。          
 		 */
 		if (txn->xid != xid)
 		{
@@ -947,7 +947,7 @@ SnapBuildDistributeSnapshotAndInval(SnapBuild *builder, XLogRecPtr lsn, Transact
 }
 
 /*
- * Keep track of a new catalog changing transaction that has committed.
+ * 记录一个新近提交的目录改动事务。                    
  */
 static void
 SnapBuildAddCommittedTxn(SnapBuild *builder, TransactionId xid)
@@ -966,22 +966,22 @@ SnapBuildAddCommittedTxn(SnapBuild *builder, TransactionId xid)
 	}
 
 	/*
-	 * TODO: It might make sense to keep the array sorted here instead of
-	 * doing it every time we build a new snapshot. On the other hand this
-	 * gets called repeatedly when a transaction with subtransactions commits.
+	 * TODO: 与其每次构建快照时才排序，不如让数组      
+	 * 在此处保持有序。另一方面，带子事务的事务提交 
+	 * 时这里会被反复调用。                                         
 	 */
 	builder->committed.xip[builder->committed.xcnt++] = xid;
 }
 
 /*
- * Remove knowledge about transactions we treat as committed or containing catalog
- * changes that are smaller than ->xmin. Those won't ever get checked via
- * the ->committed or ->catchange array, respectively. The committed xids will
- * get checked via the clog machinery.
+ * 清除关于那些被视为已提交或包含目录改动、且小于 ->xmin   
+ * 的事务的信息。这些信息再也不会经 ->committed 或      
+ * ->catchange 数组被检查。已提交的 xid 则由                      
+ *  clog 机制检查。              
  *
- * We can ideally remove the transaction from catchange array once it is
- * finished (committed/aborted) but that could be costly as we need to maintain
- * the xids order in the array.
+ * 理想情况下，事务一结束（提交/中止）就应把它从  
+ *  catchange 数组中移除，但这可能代价高昂，因为需           
+ * 维护 xid 顺序。        
  */
 static void
 SnapBuildPurgeOlderTxn(SnapBuild *builder)
@@ -990,26 +990,26 @@ SnapBuildPurgeOlderTxn(SnapBuild *builder)
 	TransactionId *workspace;
 	int			surviving_xids = 0;
 
-	/* not ready yet */
+	/* 尚未就绪  */
 	if (!TransactionIdIsNormal(builder->xmin))
 		return;
 
-	/* TODO: Neater algorithm than just copying and iterating? */
+	/* TODO: 有无比复制后遍历更优雅的算法？     */
 	workspace =
 		MemoryContextAlloc(builder->context,
 						   builder->committed.xcnt * sizeof(TransactionId));
 
-	/* copy xids that still are interesting to workspace */
+	/* 把仍有关联的 xid 复制到工作区         */
 	for (off = 0; off < builder->committed.xcnt; off++)
 	{
 		if (NormalTransactionIdPrecedes(builder->committed.xip[off],
 										builder->xmin))
-			;					/* remove */
+			;					/* 移除 */
 		else
 			workspace[surviving_xids++] = builder->committed.xip[off];
 	}
 
-	/* copy workspace back to persistent state */
+	/* 把工作区复制回持久状态       */
 	memcpy(builder->committed.xip, workspace,
 		   surviving_xids * sizeof(TransactionId));
 
@@ -1021,14 +1021,14 @@ SnapBuildPurgeOlderTxn(SnapBuild *builder)
 	pfree(workspace);
 
 	/*
-	 * Purge xids in ->catchange as well. The purged array must also be sorted
-	 * in xidComparator order.
+	 * 也要清除 ->catchange 中的 xid。清除后的数组也必须按   
+	 *  xidComparator 序。  
 	 */
 	if (builder->catchange.xcnt > 0)
 	{
 		/*
-		 * Since catchange.xip is sorted, we find the lower bound of xids that
-		 * are still interesting.
+		 * 由于 catchange.xip 已有序，我们可以找出仍有关联的 
+		 *  xid 的下界。     
 		 */
 		for (off = 0; off < builder->catchange.xcnt; off++)
 		{
@@ -1058,7 +1058,7 @@ SnapBuildPurgeOlderTxn(SnapBuild *builder)
 }
 
 /*
- * Handle everything that needs to be done when a transaction commits
+ * 处理事务提交时需要完成的一切事宜                  
  */
 void
 SnapBuildCommitTxn(SnapBuild *builder, XLogRecPtr lsn, TransactionId xid,
@@ -1073,14 +1073,14 @@ SnapBuildCommitTxn(SnapBuild *builder, XLogRecPtr lsn, TransactionId xid,
 	TransactionId xmax = xid;
 
 	/*
-	 * Transactions preceding BUILDING_SNAPSHOT will neither be decoded, nor
-	 * will they be part of a snapshot.  So we don't need to record anything.
+	 * 先于 BUILDING_SNAPSHOT 的事务既不会被解码，也不会     
+	 * 进入任何快照。因此我们无需记录任何内容。          
 	 */
 	if (builder->state == SNAPBUILD_START ||
 		(builder->state == SNAPBUILD_BUILDING_SNAPSHOT &&
 		 TransactionIdPrecedes(xid, builder->next_phase_at)))
 	{
-		/* ensure that only commits after this are getting replayed */
+		/* 确保只重放此点之后的提交                     */
 		if (builder->start_decoding_at <= lsn)
 			builder->start_decoding_at = lsn + 1;
 		return;
@@ -1088,13 +1088,13 @@ SnapBuildCommitTxn(SnapBuild *builder, XLogRecPtr lsn, TransactionId xid,
 
 	if (builder->state < SNAPBUILD_CONSISTENT)
 	{
-		/* ensure that only commits after this are getting replayed */
+		/* 确保只重放此点之后的提交                     */
 		if (builder->start_decoding_at <= lsn)
 			builder->start_decoding_at = lsn + 1;
 
 		/*
-		 * If building an exportable snapshot, force xid to be tracked, even
-		 * if the transaction didn't modify the catalog.
+		 * 若要构建可导出的快照，则强制跟踪 xid，即使该 
+		 * 事务本身并未修改过系统表。      
 		 */
 		if (builder->building_full_snapshot)
 		{
@@ -1107,8 +1107,8 @@ SnapBuildCommitTxn(SnapBuild *builder, XLogRecPtr lsn, TransactionId xid,
 		TransactionId subxid = subxacts[nxact];
 
 		/*
-		 * Add subtransaction to base snapshot if catalog modifying, we don't
-		 * distinguish to toplevel transactions there.
+		 * 子事务若修改系统表，则加入基础快照；我们不   
+		 * 区分它与顶层事务。                
 		 */
 		if (SnapBuildXidHasCatalogChanges(builder, subxid, xinfo))
 		{
@@ -1125,10 +1125,10 @@ SnapBuildCommitTxn(SnapBuild *builder, XLogRecPtr lsn, TransactionId xid,
 		}
 
 		/*
-		 * If we're forcing timetravel we also need visibility information
-		 * about subtransaction, so keep track of subtransaction's state, even
-		 * if not catalog modifying.  Don't need to distribute a snapshot in
-		 * that case.
+		 * 若强制时间旅行，还需子事务可见性信息，所以
+		 * 要跟踪子事务的状态，即使其并未修改系统表。    
+		 * 这种情况下无需分发                                      
+		 * 快照。 
 		 */
 		else if (needs_timetravel)
 		{
@@ -1138,7 +1138,7 @@ SnapBuildCommitTxn(SnapBuild *builder, XLogRecPtr lsn, TransactionId xid,
 		}
 	}
 
-	/* if top-level modified catalog, it'll need a snapshot */
+	/* 顶层事务修改了系统表时需要快照        */
 	if (SnapBuildXidHasCatalogChanges(builder, xid, xinfo))
 	{
 		elog(DEBUG2, "found top level transaction %u, with catalog changes",
@@ -1149,7 +1149,7 @@ SnapBuildCommitTxn(SnapBuild *builder, XLogRecPtr lsn, TransactionId xid,
 	}
 	else if (sub_needs_timetravel)
 	{
-		/* track toplevel txn as well, subxact alone isn't meaningful */
+		/* 顶层事务也要跟踪，仅子事务本身没有意义  */
 		elog(DEBUG2, "forced transaction %u to do timetravel due to one of its subtransactions",
 			 xid);
 		needs_timetravel = true;
@@ -1164,16 +1164,16 @@ SnapBuildCommitTxn(SnapBuild *builder, XLogRecPtr lsn, TransactionId xid,
 
 	if (!needs_timetravel)
 	{
-		/* record that we cannot export a general snapshot anymore */
+		/* 记录下从此无法再导出通用快照              */
 		builder->committed.includes_all_transactions = false;
 	}
 
 	Assert(!needs_snapshot || needs_timetravel);
 
 	/*
-	 * Adjust xmax of the snapshot builder, we only do that for committed,
-	 * catalog modifying, transactions, everything else isn't interesting for
-	 * us since we'll never look at the respective rows.
+	 * 调整快照构建器的 xmax，只针对已提交且修改了     
+	 * 系统表的事务这样做；其余事务与我们无关，因为    
+	 * 我们永远不会查看相应的行。          
 	 */
 	if (needs_timetravel &&
 		(!TransactionIdIsValid(builder->xmax) ||
@@ -1183,27 +1183,27 @@ SnapBuildCommitTxn(SnapBuild *builder, XLogRecPtr lsn, TransactionId xid,
 		TransactionIdAdvance(builder->xmax);
 	}
 
-	/* if there's any reason to build a historic snapshot, do so now */
+	/* 若还有任何理由构建历史快照，就现在进行     */
 	if (needs_snapshot)
 	{
 		/*
-		 * If we haven't built a complete snapshot yet there's no need to hand
-		 * it out, it wouldn't (and couldn't) be used anyway.
+		 * 若尚未构建出完整快照，就没有必要将其分发出    
+		 * 去，反正它不会（也无法）被使用。  
 		 */
 		if (builder->state < SNAPBUILD_FULL_SNAPSHOT)
 			return;
 
 		/*
-		 * Decrease the snapshot builder's refcount of the old snapshot, note
-		 * that it still will be used if it has been handed out to the
-		 * reorderbuffer earlier.
+		 * 递减快照构建器对旧快照的引用计数，注意若它   
+		 * 此前已分发给 reorderbuffer，则该快照仍会被   
+		 * 使用。             
 		 */
 		if (builder->snapshot)
 			SnapBuildSnapDecRefcount(builder->snapshot);
 
 		builder->snapshot = SnapBuildBuildSnapshot(builder);
 
-		/* we might need to execute invalidations, add snapshot */
+		/* 可能需要执行失效处理，加入快照        */
 		if (!ReorderBufferXidHasBaseSnapshot(builder->reorder, xid))
 		{
 			SnapBuildSnapIncRefcount(builder->snapshot);
@@ -1211,20 +1211,20 @@ SnapBuildCommitTxn(SnapBuild *builder, XLogRecPtr lsn, TransactionId xid,
 										 builder->snapshot);
 		}
 
-		/* refcount of the snapshot builder for the new snapshot */
+		/* 快照构建器针对新快照的引用计数         */
 		SnapBuildSnapIncRefcount(builder->snapshot);
 
 		/*
-		 * Add a new catalog snapshot and invalidations messages to all
-		 * currently running transactions.
+		 * 向当前运行中的事务加入新的系统表快照      
+		 * 与失效消息。             
 		 */
 		SnapBuildDistributeSnapshotAndInval(builder, lsn, xid);
 	}
 }
 
 /*
- * Check the reorder buffer and the snapshot to see if the given transaction has
- * modified catalogs.
+ * 检查 reorder buffer 与快照，判断给定事务是否修改             
+ * 了系统表。   
  */
 static inline bool
 SnapBuildXidHasCatalogChanges(SnapBuild *builder, TransactionId xid,
@@ -1234,27 +1234,27 @@ SnapBuildXidHasCatalogChanges(SnapBuild *builder, TransactionId xid,
 		return true;
 
 	/*
-	 * The transactions that have changed catalogs must have invalidation
-	 * info.
+	 * 修改过系统表的事务必须有失效信息                  
+	 * 。  
 	 */
 	if (!(xinfo & XACT_XINFO_HAS_INVALS))
 		return false;
 
-	/* Check the catchange XID array */
+	/* 检查 catchange XID 数组   */
 	return ((builder->catchange.xcnt > 0) &&
 			(bsearch(&xid, builder->catchange.xip, builder->catchange.xcnt,
 					 sizeof(TransactionId), xidComparator) != NULL));
 }
 
 /* -----------------------------------
- * Snapshot building functions dealing with xlog records
+ * 处理 xlog 记录的快照构建函数              
  * -----------------------------------
  */
 
 /*
- * Process a running xacts record, and use its information to first build a
- * historic snapshot and later to release resources that aren't needed
- * anymore.
+ * 处理 running xacts 记录，先用其信息构建历史               
+ * 快照，之后释放不再需要的资                            
+ * 源。  
  */
 void
 SnapBuildProcessRunningXacts(SnapBuild *builder, XLogRecPtr lsn, xl_running_xacts *running)
@@ -1263,13 +1263,13 @@ SnapBuildProcessRunningXacts(SnapBuild *builder, XLogRecPtr lsn, xl_running_xact
 	TransactionId xmin;
 
 	/*
-	 * If we're not consistent yet, inspect the record to see whether it
-	 * allows to get closer to being consistent. If we are consistent, dump
-	 * our snapshot so others or we, after a restart, can use it.
+	 * 若尚未达到一致，则检查记录能否让我们更接近  
+	 * 一致。若已达到一致，则把我们的快照转储出来，  
+	 * 以便其他人或我们在重启后能够使用它。    
 	 */
 	if (builder->state < SNAPBUILD_CONSISTENT)
 	{
-		/* returns false if there's no point in performing cleanup just yet */
+		/* 若此刻执行清理尚无意义，则返回 false              */
 		if (!SnapBuildFindSnapshot(builder, lsn, running))
 			return;
 	}
@@ -1277,30 +1277,30 @@ SnapBuildProcessRunningXacts(SnapBuild *builder, XLogRecPtr lsn, xl_running_xact
 		SnapBuildSerialize(builder, lsn);
 
 	/*
-	 * Update range of interesting xids based on the running xacts
-	 * information. We don't increase ->xmax using it, because once we are in
-	 * a consistent state we can do that ourselves and much more efficiently
-	 * so, because we only need to do it for catalog transactions since we
-	 * only ever look at those.
+	 * 根据 running xacts 信息更新所关注的 xid 范围。
+	 * 我们不通过它来增大 ->xmax，因为一旦进入一致         
+	 * 状态，我们自己就能做到且高效得多，因为只需      
+	 * 对系统表事务这样做，因为我们只查看那些          
+	 * 事务。               
 	 *
-	 * NB: We only increase xmax when a catalog modifying transaction commits
-	 * (see SnapBuildCommitTxn).  Because of this, xmax can be lower than
-	 * xmin, which looks odd but is correct and actually more efficient, since
-	 * we hit fast paths in heapam_visibility.c.
+	 * 注意：只有修改系统表的事务提交时才会增大 xmax     
+	 * （参见 SnapBuildCommitTxn）。正因如此，xmax 可能      
+	 * 小于 xmin，这看起来奇怪，但既正确又实际更高效，   
+	 * 命中 heapam_visibility.c 快速路径  
 	 */
 	builder->xmin = running->oldestRunningXid;
 
-	/* Remove transactions we don't need to keep track off anymore */
+	/* 移除我们不再需要跟踪的事务                     */
 	SnapBuildPurgeOlderTxn(builder);
 
 	/*
-	 * Advance the xmin limit for the current replication slot, to allow
-	 * vacuum to clean up the tuples this slot has been protecting.
+	 * 为当前复制槽推进 xmin 下限，让清理（vacuum）     
+	 * 能够回收该槽一直保护的元组。                  
 	 *
-	 * The reorderbuffer might have an xmin among the currently running
-	 * snapshots; use it if so.  If not, we need only consider the snapshots
-	 * we'll produce later, which can't be less than the oldest running xid in
-	 * the record we're reading now.
+	 * reorderbuffer 当前运行快照中可能带有 xmin；         
+	 * 若有就使用它。若无，则只需考虑我们稍后产生      
+	 * 的快照，它们不可能小于当前所读记录中最老的        
+	 * 运行 xid。                
 	 */
 	xmin = ReorderBufferGetOldestXmin(builder->reorder);
 	if (xmin == InvalidTransactionId)
@@ -1310,20 +1310,20 @@ SnapBuildProcessRunningXacts(SnapBuild *builder, XLogRecPtr lsn, xl_running_xact
 	LogicalIncreaseXminForSlot(lsn, xmin);
 
 	/*
-	 * Also tell the slot where we can restart decoding from. We don't want to
-	 * do that after every commit because changing that implies an fsync of
-	 * the logical slot's state file, so we only do it every time we see a
-	 * running xacts record.
+	 * 还要告知复制槽可以从何处重新开始解码。我们        
+	 * 不想每次提交都这样做，因为改动意味着对逻辑槽  
+	 * 的状态文件做 fsync，因此只在每次看到 running xacts  
+	 * 记录时才做。   
 	 *
-	 * Do so by looking for the oldest in progress transaction (determined by
-	 * the first LSN of any of its relevant records). Every transaction
-	 * remembers the last location we stored the snapshot to disk before its
-	 * beginning. That point is where we can restart from.
+	 * 做法是找出最老的在途事务（以其相关记录的第一    
+	 * 条 LSN 确定）。每个事务都会记住其开始之前我  
+	 * 们最后一次把快照存盘的位置。该点就是我们能够   
+	 * 重新开始的地方。                           
 	 */
 
 	/*
-	 * Can't know about a serialized snapshot's location if we're not
-	 * consistent.
+	 * 若尚未一致，则无法得知序列化快照的           
+	 * 位置。  
 	 */
 	if (builder->state < SNAPBUILD_CONSISTENT)
 		return;
@@ -1331,15 +1331,15 @@ SnapBuildProcessRunningXacts(SnapBuild *builder, XLogRecPtr lsn, xl_running_xact
 	txn = ReorderBufferGetOldestTXN(builder->reorder);
 
 	/*
-	 * oldest ongoing txn might have started when we didn't yet serialize
-	 * anything because we hadn't reached a consistent state yet.
+	 * 最老的在途事务可能始于我们尚未序列化任何内   
+	 * 容之时，因为当时尚未达到一致状态。       
 	 */
 	if (txn != NULL && txn->restart_decoding_lsn != InvalidXLogRecPtr)
 		LogicalIncreaseRestartDecodingForSlot(lsn, txn->restart_decoding_lsn);
 
 	/*
-	 * No in-progress transaction, can reuse the last serialized snapshot if
-	 * we have one.
+	 * 没有在途事务；若有，可复用最后一次序列化的快   
+	 * 照。      
 	 */
 	else if (txn == NULL &&
 			 builder->reorder->current_restart_decoding_lsn != InvalidXLogRecPtr &&
@@ -1350,13 +1350,13 @@ SnapBuildProcessRunningXacts(SnapBuild *builder, XLogRecPtr lsn, xl_running_xact
 
 
 /*
- * Build the start of a snapshot that's capable of decoding the catalog.
+ * 构建一个能够解码系统表的快照的开端。               
  *
- * Helper function for SnapBuildProcessRunningXacts() while we're not yet
- * consistent.
+ * SnapBuildProcessRunningXacts() 的辅助函数，适用于尚未      
+ * 一致时  
  *
- * Returns true if there is a point in performing internal maintenance/cleanup
- * using the xl_running_xacts record.
+ * 若使用 xl_running_xacts 记录做内部维护/清理还有              
+ * 意义，则返回 true。        
  */
 static bool
 SnapBuildFindSnapshot(SnapBuild *builder, XLogRecPtr lsn, xl_running_xacts *running)
@@ -1364,33 +1364,33 @@ SnapBuildFindSnapshot(SnapBuild *builder, XLogRecPtr lsn, xl_running_xacts *runn
 	LogicalDecodingContext *ctx = (LogicalDecodingContext *) builder->reorder->private_data;
 
 	/* ---
-	 * Build catalog decoding snapshot incrementally using information about
-	 * the currently running transactions. There are several ways to do that:
+	 * 利用当前正在运行事务的信息，增量地构建系统表   
+	 * 解码快照。有几种可行的做法：                            
 	 *
-	 * a) There were no running transactions when the xl_running_xacts record
-	 *	  was inserted, jump to CONSISTENT immediately. We might find such a
-	 *	  state while waiting on c)'s sub-states.
+	 * a) 插入 xl_running_xacts 记录时没有正在运行的             
+	 *	  事务，此时立即跳到 CONSISTENT。在等待 c) 的子      
+	 *	  状态时可能遇到这种情形。   
 	 *
-	 * b) This (in a previous run) or another decoding slot serialized a
-	 *	  snapshot to disk that we can use. Can't use this method while finding
-	 *	  the start point for decoding changes as the restart LSN would be an
-	 *	  arbitrary LSN but we need to find the start point to extract changes
-	 *	  where we won't see the data for partial transactions. Also, we cannot
-	 *	  use this method when a slot needs a full snapshot for export or direct
-	 *	  use, as that snapshot will only contain catalog modifying transactions.
+	 * b) 本次（前次运行）或其他解码槽曾把可用的快  
+	 *	  照序列化到了磁盘，我们可以使用它。在寻找变更   
+	 *	  解码起点时无法使用这种方法，因为 restart LSN 会   
+	 *	  成为任意 LSN，而我们需要先找到起点才能提取       
+	 *	  不会看到部分事务数据的变更。另外，当槽需要      
+	 *	  用于导出或直接使用的完整快照时，也无法使用此    
+	 *	  方法，因为该快照只包含修改系统表的事务。           
 	 *
-	 * c) First incrementally build a snapshot for catalog tuples
-	 *	  (BUILDING_SNAPSHOT), that requires all, already in-progress,
-	 *	  transactions to finish.  Every transaction starting after that
-	 *	  (FULL_SNAPSHOT state), has enough information to be decoded.  But
-	 *	  for older running transactions no viable snapshot exists yet, so
-	 *	  CONSISTENT will only be reached once all of those have finished.
+	 * c) 先为系统表元组增量构建快照                
+	 *	  （BUILDING_SNAPSHOT），这需要所有已在途的事务 
+	 *	  完成。此后开始的每个事务（FULL_SNAPSHOT 状态）
+	 *	  都有足够信息可被解码。但对更老的运行事务     
+	 *	  而言尚无可用快照，因此须等它们全部完成才    
+	 *	  会达到 CONSISTENT。                                         
 	 * ---
 	 */
 
 	/*
-	 * xl_running_xacts record is older than what we can use, we might not
-	 * have all necessary catalog rows anymore.
+	 * xl_running_xacts 记录比我们能用的更老，可能已        
+	 * 没有全部所需的系统表行。    
 	 */
 	if (TransactionIdIsNormal(builder->initial_xmin_horizon) &&
 		NormalTransactionIdPrecedes(running->oldestRunningXid,
@@ -1409,26 +1409,26 @@ SnapBuildFindSnapshot(SnapBuild *builder, XLogRecPtr lsn, xl_running_xacts *runn
 	}
 
 	/*
-	 * a) No transaction were running, we can jump to consistent.
+	 * a) 没有事务在运行，可直接跳到一致。       
 	 *
-	 * This is not affected by races around xl_running_xacts, because we can
-	 * miss transaction commits, but currently not transactions starting.
+	 * 这不会受到 xl_running_xacts 周边竞争的影响，因为      
+	 * 我们可能错过事务提交，但目前不会错过事务的   
 	 *
-	 * NB: We might have already started to incrementally assemble a snapshot,
-	 * so we need to be careful to deal with that.
+	 * 注意：我们可能已开始增量地组装快照，因此需要     
+	 * 小心地处理这种情况。             
 	 */
 	if (running->oldestRunningXid == running->nextXid)
 	{
 		if (builder->start_decoding_at == InvalidXLogRecPtr ||
 			builder->start_decoding_at <= lsn)
-			/* can decode everything after this */
+			/* 此后一切均可解码         */
 			builder->start_decoding_at = lsn + 1;
 
-		/* As no transactions were running xmin/xmax can be trivially set. */
-		builder->xmin = running->nextXid;	/* < are finished */
-		builder->xmax = running->nextXid;	/* >= are running */
+		/* 由于没有事务在运行，xmin/xmax 可直接简单设置   */
+		builder->xmin = running->nextXid;	/* < 已完成    */
+		builder->xmax = running->nextXid;	/* >= 在运行   */
 
-		/* so we can safely use the faster comparisons */
+		/* 因此可以安全地使用更快的比较  */
 		Assert(TransactionIdIsNormal(builder->xmin));
 		Assert(TransactionIdIsNormal(builder->xmax));
 
@@ -1444,28 +1444,28 @@ SnapBuildFindSnapshot(SnapBuild *builder, XLogRecPtr lsn, xl_running_xacts *runn
 	}
 
 	/*
-	 * b) valid on disk state and while neither building full snapshot nor
-	 * creating a slot.
+	 * b) 磁盘状态有效，且既不在构建完整快照也未在    
+	 * 创建槽。    
 	 */
 	else if (!builder->building_full_snapshot &&
 			 !ctx->in_create &&
 			 SnapBuildRestore(builder, lsn))
 	{
-		/* there won't be any state to cleanup */
+		/* 不会有任何需要清理的状态*/
 		return false;
 	}
 
 	/*
-	 * c) transition from START to BUILDING_SNAPSHOT.
+	 * c) 从 START 转换到 BUILDING_SNAPSHOT。   
 	 *
-	 * In START state, and a xl_running_xacts record with running xacts is
-	 * encountered.  In that case, switch to BUILDING_SNAPSHOT state, and
-	 * record xl_running_xacts->nextXid.  Once all running xacts have finished
-	 * (i.e. they're all >= nextXid), we have a complete catalog snapshot.  It
-	 * might look that we could use xl_running_xacts's ->xids information to
-	 * get there quicker, but that is problematic because transactions marked
-	 * as running, might already have inserted their commit record - it's
-	 * infeasible to change that with locking.
+	 * 处于 START 状态时，遇到带有在运行事务的            
+	 * xl_running_xacts 记录时，切换到 BUILDING_SNAPSHOT 状态，
+	 * 并记录 xl_running_xacts->nextXid。一旦全部在运行事务      
+	 * 都已完成（即全部 >= nextXid），我们就有了完整         
+	 * 的系统表快照。看起来我们可以利用 xl_running_xacts    
+	 * 的 ->xids 信息更快达成目的，但这是有问题的，因为  
+	 * 被标记为正在运行的事务可能已插入其提交记录   
+	 * ，靠加锁改变这一点不可行。
 	 */
 	else if (builder->state == SNAPBUILD_START)
 	{
@@ -1473,14 +1473,14 @@ SnapBuildFindSnapshot(SnapBuild *builder, XLogRecPtr lsn, xl_running_xacts *runn
 		builder->next_phase_at = running->nextXid;
 
 		/*
-		 * Start with an xmin/xmax that's correct for future, when all the
-		 * currently running transactions have finished. We'll update both
-		 * while waiting for the pending transactions to finish.
+		 * 从一个对将来正确的 xmin/xmax 开始，也就是所    
+		 * 有当前运行的事务都完成时的值。在等待这些   
+		 * 事务完成期间，我们会更新这两者。     
 		 */
-		builder->xmin = running->nextXid;	/* < are finished */
-		builder->xmax = running->nextXid;	/* >= are running */
+		builder->xmin = running->nextXid;	/* < 已完成    */
+		builder->xmax = running->nextXid;	/* >= 在运行   */
 
-		/* so we can safely use the faster comparisons */
+		/* 因此可以安全地使用更快的比较  */
 		Assert(TransactionIdIsNormal(builder->xmin));
 		Assert(TransactionIdIsNormal(builder->xmax));
 
@@ -1494,12 +1494,12 @@ SnapBuildFindSnapshot(SnapBuild *builder, XLogRecPtr lsn, xl_running_xacts *runn
 	}
 
 	/*
-	 * c) transition from BUILDING_SNAPSHOT to FULL_SNAPSHOT.
+	 * c) 从 BUILDING_SNAPSHOT 转换到 FULL_SNAPSHOT。   
 	 *
-	 * In BUILDING_SNAPSHOT state, and this xl_running_xacts' oldestRunningXid
-	 * is >= than nextXid from when we switched to BUILDING_SNAPSHOT.  This
-	 * means all transactions starting afterwards have enough information to
-	 * be decoded.  Switch to FULL_SNAPSHOT.
+	 * 处于 BUILDING_SNAPSHOT 状态，且该 xl_running_xacts 的          
+	 * oldestRunningXid >= 切换到 BUILDING_SNAPSHOT 时的              
+	 * nextXid。这意味着此后开始的事务都有足够信息可     
+	 * 解码。切换到 FULL_SNAPSHOT。  
 	 */
 	else if (builder->state == SNAPBUILD_BUILDING_SNAPSHOT &&
 			 TransactionIdPrecedesOrEquals(builder->next_phase_at,
@@ -1518,12 +1518,12 @@ SnapBuildFindSnapshot(SnapBuild *builder, XLogRecPtr lsn, xl_running_xacts *runn
 	}
 
 	/*
-	 * c) transition from FULL_SNAPSHOT to CONSISTENT.
+	 * c) 从 FULL_SNAPSHOT 转换到 CONSISTENT。   
 	 *
-	 * In FULL_SNAPSHOT state, and this xl_running_xacts' oldestRunningXid is
-	 * >= than nextXid from when we switched to FULL_SNAPSHOT.  This means all
-	 * transactions that are currently in progress have a catalog snapshot,
-	 * and all their changes have been collected.  Switch to CONSISTENT.
+	 * 处于 FULL_SNAPSHOT 状态，且该 xl_running_xacts 的             
+	 * oldestRunningXid >= 我们切换到 FULL_SNAPSHOT 时的 nextXid。这 
+	 * 意味着当前所有在途的事务都有系统表快照，且它  
+	 * 们的全部变更都已被收集。切换到 CONSISTENT。      
 	 */
 	else if (builder->state == SNAPBUILD_FULL_SNAPSHOT &&
 			 TransactionIdPrecedesOrEquals(builder->next_phase_at,
@@ -1539,22 +1539,22 @@ SnapBuildFindSnapshot(SnapBuild *builder, XLogRecPtr lsn, xl_running_xacts *runn
 	}
 
 	/*
-	 * We already started to track running xacts and need to wait for all
-	 * in-progress ones to finish. We fall through to the normal processing of
-	 * records so incremental cleanup can be performed.
+	 * 我们已开始跟踪运行事务，需要等待所有在途的事
+	 * 务完成。我们会落入记录的常规处理流程之中，以     
+	 * 便可以执行增量清理。                  
 	 */
 	return true;
 }
 
 /* ---
- * Iterate through xids in record, wait for all older than the cutoff to
- * finish.  Then, if possible, log a new xl_running_xacts record.
+ * 遍历记录中的 xid，等待所有早于 cutoff 的事务完      
+ * 成。然后若可能，就记录一条新的 xl_running_xacts
  *
- * This isn't required for the correctness of decoding, but to:
- * a) allow isolationtester to notice that we're currently waiting for
- *	  something.
- * b) log a new xl_running_xacts record where it'd be helpful, without having
- *	  to wait for bgwriter or checkpointer.
+ * 这并非解码正确性所必需，但用于：            
+ * a) 让 isolationtester 能够察觉我们正在等待某           
+ *	  物。    
+ * b) 在有帮助之处记录新的 xl_running_xacts 记录，而无需     
+ *	  等待 bgwriter 或检查点进程。
  * ---
  */
 static void
@@ -1567,9 +1567,9 @@ SnapBuildWaitSnapshot(xl_running_xacts *running, TransactionId cutoff)
 		TransactionId xid = running->xids[off];
 
 		/*
-		 * Upper layers should prevent that we ever need to wait on ourselves.
-		 * Check anyway, since failing to do so would either result in an
-		 * endless wait or an Assert() failure.
+		 * 上层应当防止出现我们需要等待自身的情形。无    
+		 * 论如何都检查一下，因为不这样做会导致无尽  
+		 * 等待或 Assert() 失败。        
 		 */
 		if (TransactionIdIsCurrentTransactionId(xid))
 			elog(ERROR, "waiting for ourselves");
@@ -1581,10 +1581,10 @@ SnapBuildWaitSnapshot(xl_running_xacts *running, TransactionId cutoff)
 	}
 
 	/*
-	 * All transactions we needed to finish finished - try to ensure there is
-	 * another xl_running_xacts record in a timely manner, without having to
-	 * wait for bgwriter or checkpointer to log one.  During recovery we can't
-	 * enforce that, so we'll have to wait.
+	 * 我们需要等待的所有事务都已完成——尽力确保及    
+	 * 时出现另一条 xl_running_xacts 记录，而不必等待         
+	 * bgwriter 或检查点进程来记录它。在恢复期间无法        
+	 * 强制它，所以只能等待。   
 	 */
 	if (!RecoveryInProgress())
 	{
@@ -1593,12 +1593,12 @@ SnapBuildWaitSnapshot(xl_running_xacts *running, TransactionId cutoff)
 }
 
 /* -----------------------------------
- * Snapshot serialization support
+ * 快照序列化支持         
  * -----------------------------------
  */
 
 /*
- * We store current state of struct SnapBuild on disk in the following manner:
+ * 我们按以下方式把 struct SnapBuild 的当前状态存入磁盘：   
  *
  * struct SnapBuildOnDisk;
  * TransactionId * committed.xcnt; (*not xcnt_space*)
@@ -1607,23 +1607,23 @@ SnapBuildWaitSnapshot(xl_running_xacts *running, TransactionId cutoff)
  */
 typedef struct SnapBuildOnDisk
 {
-	/* first part of this struct needs to be version independent */
+	/* 该 struct 的第一部分需要与版本无关           */
 
-	/* data not covered by checksum */
+	/* 校验和不覆盖的数据  */
 	uint32		magic;
 	pg_crc32c	checksum;
 
-	/* data covered by checksum */
+	/* 校验和覆盖的数据 */
 
-	/* version, in case we want to support pg_upgrade */
+	/* 版本号，以备将来支持 pg_upgrade      */
 	uint32		version;
-	/* how large is the on disk data, excluding the constant sized part */
+	/* 磁盘数据有多大，不含固定大小的部分              */
 	uint32		length;
 
-	/* version dependent part */
+	/* 版本相关部分     */
 	SnapBuild	builder;
 
-	/* variable amount of TransactionIds follows */
+	/* 后面跟有数量不定的 TransactionId */
 } SnapBuildOnDisk;
 
 #define SnapBuildOnDiskConstantSize \
@@ -1635,10 +1635,10 @@ typedef struct SnapBuildOnDisk
 #define SNAPBUILD_VERSION 5
 
 /*
- * Store/Load a snapshot from disk, depending on the snapshot builder's state.
+ * 根据快照构建器的状态，从磁盘存储/载入快照。           
  *
- * Supposed to be used by external (i.e. not snapbuild.c) code that just read
- * a record that's a potential location for a serialized snapshot.
+ * 供外部（即非 snapbuild.c）代码使用，前提是其刚读        
+ * 取了一条记录，该位置可能存放有序列化快照。
  */
 void
 SnapBuildSerializationPoint(SnapBuild *builder, XLogRecPtr lsn)
@@ -1650,8 +1650,8 @@ SnapBuildSerializationPoint(SnapBuild *builder, XLogRecPtr lsn)
 }
 
 /*
- * Serialize the snapshot 'builder' at the location 'lsn' if it hasn't already
- * been done by another decoding process.
+ * 若尚无其他解码进程做过此事，则在位置 'lsn' 处序        
+ * 列化快照 'builder'。             
  */
 static void
 SnapBuildSerialize(SnapBuild *builder, XLogRecPtr lsn)
@@ -1674,28 +1674,28 @@ SnapBuildSerialize(SnapBuild *builder, XLogRecPtr lsn)
 		   builder->last_serialized_snapshot <= lsn);
 
 	/*
-	 * no point in serializing if we cannot continue to work immediately after
-	 * restoring the snapshot
+	 * 若恢复快照之后无法立即继续工作，那么序列化便     
+	 * 毫无意义。       
 	 */
 	if (builder->state < SNAPBUILD_CONSISTENT)
 		return;
 
-	/* consistent snapshots have no next phase */
+	/* 一致的快照没有下一阶段       */
 	Assert(builder->next_phase_at == InvalidTransactionId);
 
 	/*
-	 * We identify snapshots by the LSN they are valid for. We don't need to
-	 * include timelines in the name as each LSN maps to exactly one timeline
-	 * unless the user used pg_resetwal or similar. If a user did so, there's
-	 * no hope continuing to decode anyway.
+	 * 我们按快照在其上有效的 LSN 来标识快照。名称中    
+	 * 无需包含时间线，因为每个 LSN 恰好映射到一条时     
+	 * 间线，除非用户用过 pg_resetwal 或类似工具。若用户   
+	 * 做过的话，反正解码无望。
 	 */
 	sprintf(path, "pg_logical/snapshots/%X-%X.snap",
 			LSN_FORMAT_ARGS(lsn));
 
 	/*
-	 * first check whether some other backend already has written the snapshot
-	 * for this LSN. It's perfectly fine if there's none, so we accept ENOENT
-	 * as a valid state. Everything else is an unexpected error.
+	 * 首先检查是否已有其他后端为该 LSN 写入了快照。      
+	 * 若没有也完全正常，因此我们接受 ENOENT 作为有效     
+	 * 状态。其他任何情况都是意外错误。         
 	 */
 	ret = stat(path, &stat_buf);
 
@@ -1707,13 +1707,13 @@ SnapBuildSerialize(SnapBuild *builder, XLogRecPtr lsn)
 	else if (ret == 0)
 	{
 		/*
-		 * somebody else has already serialized to this point, don't overwrite
-		 * but remember location, so we don't need to read old data again.
+		 * 他人已序列化到此，不要覆盖，只需记住该位置， 
+		 * 这样就无需再次读取旧数据。                        
 		 *
-		 * To be sure it has been synced to disk after the rename() from the
-		 * tempfile filename to the real filename, we just repeat the fsync.
-		 * That ought to be cheap because in most scenarios it should already
-		 * be safely on disk.
+		 * 为确保在 rename() 把临时文件名改成真实文件名之 
+		 * 后它已同步到磁盘，只需重复一次 fsync。这样做  
+		 * 应当很廉价，因为大多数场景下它应当已经安全地
+		 * 在磁盘上。   
 		 */
 		fsync_fname(path, false);
 		fsync_fname("pg_logical/snapshots", true);
@@ -1723,23 +1723,23 @@ SnapBuildSerialize(SnapBuild *builder, XLogRecPtr lsn)
 	}
 
 	/*
-	 * there is an obvious race condition here between the time we stat(2) the
-	 * file and us writing the file. But we rename the file into place
-	 * atomically and all files created need to contain the same data anyway,
-	 * so this is perfectly fine, although a bit of a resource waste. Locking
-	 * seems like pointless complication.
+	 * 在我们 stat(2) 该文件到写入该文件之间，存在明显     
+	 * 的竞争条件。但我们会以原子方式重命名文件到
+	 * 位，且所有已创建的文件反正都需要包含相同的数    
+	 * 据，所以这完全没有问题，尽管有一点资源浪费。    
+	 * 加锁似乎是无谓的复杂化 
 	 */
 	elog(DEBUG1, "serializing snapshot to %s", path);
 
-	/* to make sure only we will write to this tempfile, include pid */
+	/* 为确保只有我们写入此临时文件，包含 pid       */
 	sprintf(tmppath, "pg_logical/snapshots/%X-%X.snap.%d.tmp",
 			LSN_FORMAT_ARGS(lsn), MyProcPid);
 
 	/*
-	 * Unlink temporary file if it already exists, needs to have been before a
-	 * crash/error since we won't enter this function twice from within a
-	 * single decoding slot/backend and the temporary file contains the pid of
-	 * the current process.
+	 * 若临时文件已存在则将其解除链接；这必然发生        
+	 * 在崩溃/错误之前，因为我们不会在单个解码槽/后 
+	 * 端内两次进入该函数，且临时文件包含当前进程的     
+	 * pid。              
 	 */
 	if (unlink(tmppath) != 0 && errno != ENOENT)
 		ereport(ERROR,
@@ -1748,7 +1748,7 @@ SnapBuildSerialize(SnapBuild *builder, XLogRecPtr lsn)
 
 	old_ctx = MemoryContextSwitchTo(builder->context);
 
-	/* Get the catalog modifying transactions that are yet not committed */
+	/* 获取尚未提交的修改系统表的事务                     */
 	catchange_xip = ReorderBufferGetCatalogChangesXacts(builder->reorder);
 	catchange_xcnt = dclist_count(&builder->reorder->catchange_txns);
 
@@ -1767,20 +1767,20 @@ SnapBuildSerialize(SnapBuild *builder, XLogRecPtr lsn)
 	ondisk_c += sizeof(SnapBuildOnDisk);
 
 	memcpy(&ondisk->builder, builder, sizeof(SnapBuild));
-	/* NULL-ify memory-only data */
+	/* 仅内存数据置 NULL   */
 	ondisk->builder.context = NULL;
 	ondisk->builder.snapshot = NULL;
 	ondisk->builder.reorder = NULL;
 	ondisk->builder.committed.xip = NULL;
 	ondisk->builder.catchange.xip = NULL;
-	/* update catchange only on disk data */
+	/* 仅对磁盘数据更新 catchange */
 	ondisk->builder.catchange.xcnt = catchange_xcnt;
 
 	COMP_CRC32C(ondisk->checksum,
 				&ondisk->builder,
 				sizeof(SnapBuild));
 
-	/* copy committed xacts */
+	/* 复制已提交事务*/
 	if (builder->committed.xcnt > 0)
 	{
 		sz = sizeof(TransactionId) * builder->committed.xcnt;
@@ -1789,7 +1789,7 @@ SnapBuildSerialize(SnapBuild *builder, XLogRecPtr lsn)
 		ondisk_c += sz;
 	}
 
-	/* copy catalog modifying xacts */
+	/* 复制系统表修改事务  */
 	if (catchange_xcnt > 0)
 	{
 		sz = sizeof(TransactionId) * catchange_xcnt;
@@ -1800,7 +1800,7 @@ SnapBuildSerialize(SnapBuild *builder, XLogRecPtr lsn)
 
 	FIN_CRC32C(ondisk->checksum);
 
-	/* we have valid data now, open tempfile and write it there */
+	/* 现在数据有效，打开临时文件并写入其中   */
 	fd = OpenTransientFile(tmppath,
 						   O_CREAT | O_EXCL | O_WRONLY | PG_BINARY);
 	if (fd < 0)
@@ -1816,7 +1816,7 @@ SnapBuildSerialize(SnapBuild *builder, XLogRecPtr lsn)
 
 		CloseTransientFile(fd);
 
-		/* if write didn't set errno, assume problem is no disk space */
+		/* 若 write 未设置 errno，则假定是磁盘空间不足 */
 		errno = save_errno ? save_errno : ENOSPC;
 		ereport(ERROR,
 				(errcode_for_file_access(),
@@ -1825,15 +1825,15 @@ SnapBuildSerialize(SnapBuild *builder, XLogRecPtr lsn)
 	pgstat_report_wait_end();
 
 	/*
-	 * fsync the file before renaming so that even if we crash after this we
-	 * have either a fully valid file or nothing.
+	 * 在重命名之前对文件执行 fsync，这样即使此后崩      
+	 * 溃，要么完全有效，要么为空。
 	 *
-	 * It's safe to just ERROR on fsync() here because we'll retry the whole
-	 * operation including the writes.
+	 * 在这里直接因 fsync() 报 ERROR 是安全的，因为           
+	 * 含写入在内都会重试。 
 	 *
-	 * TODO: Do the fsync() via checkpoints/restartpoints, doing it here has
-	 * some noticeable overhead since it's performed synchronously during
-	 * decoding?
+	 * TODO：改由检查点/重启点执行 fsync()？在这里执行     
+	 * 有一些明显的开销，因为它在解码期间同步执行   
+	 * ？      
 	 */
 	pgstat_report_wait_start(WAIT_EVENT_SNAPBUILD_SYNC);
 	if (pg_fsync(fd) != 0)
@@ -1856,8 +1856,8 @@ SnapBuildSerialize(SnapBuild *builder, XLogRecPtr lsn)
 	fsync_fname("pg_logical/snapshots", true);
 
 	/*
-	 * We may overwrite the work from some other backend, but that's ok, our
-	 * snapshot is valid as well, we'll just have done some superfluous work.
+	 * 我们可能覆盖其他某个后端已完成的工作，但这      
+	 * 没关系，我们的快照同样有效，只是白做了些工作。 
 	 */
 	if (rename(tmppath, path) != 0)
 	{
@@ -1867,13 +1867,13 @@ SnapBuildSerialize(SnapBuild *builder, XLogRecPtr lsn)
 						tmppath, path)));
 	}
 
-	/* make sure we persist */
+	/* 确保已持久化   */
 	fsync_fname(path, false);
 	fsync_fname("pg_logical/snapshots", true);
 
 	/*
-	 * Now there's no way we can lose the dumped state anymore, remember this
-	 * as a serialization point.
+	 * 现在已不可能再丢失已转储的状态了，把这一点       
+	 * 记为序列化点。    
 	 */
 	builder->last_serialized_snapshot = lsn;
 
@@ -1882,7 +1882,7 @@ SnapBuildSerialize(SnapBuild *builder, XLogRecPtr lsn)
 out:
 	ReorderBufferSetRestartPoint(builder->reorder,
 								 builder->last_serialized_snapshot);
-	/* be tidy */
+	/* 清理  */
 	if (ondisk)
 		pfree(ondisk);
 	if (catchange_xip)
@@ -1890,8 +1890,8 @@ out:
 }
 
 /*
- * Restore a snapshot into 'builder' if previously one has been stored at the
- * location indicated by 'lsn'. Returns true if successful, false otherwise.
+ * 若之前在 'lsn' 指示的位置存储过快照，则将其恢          
+ * 复到 'builder' 中。成功时返回 true，否则返回 false。      
  */
 static bool
 SnapBuildRestore(SnapBuild *builder, XLogRecPtr lsn)
@@ -1902,7 +1902,7 @@ SnapBuildRestore(SnapBuild *builder, XLogRecPtr lsn)
 	Size		sz;
 	pg_crc32c	checksum;
 
-	/* no point in loading a snapshot if we're already there */
+	/* 若已处于该状态，则载入快照毫无意义   */
 	if (builder->state == SNAPBUILD_CONSISTENT)
 		return false;
 
@@ -1919,18 +1919,18 @@ SnapBuildRestore(SnapBuild *builder, XLogRecPtr lsn)
 				 errmsg("could not open file \"%s\": %m", path)));
 
 	/* ----
-	 * Make sure the snapshot had been stored safely to disk, that's normally
-	 * cheap.
-	 * Note that we do not need PANIC here, nobody will be able to use the
-	 * slot without fsyncing, and saving it won't succeed without an fsync()
-	 * either...
+	 * 确保快照已安全地存入磁盘，这一步通常很廉价       
+	 * 。   
+	 * 注意我们在此时不需要 PANIC：没有 fsync 就无人      
+	 * 能使用该槽，而且不做 fsync() 保存也不会成功         
+	 * ……   
 	 * ----
 	 */
 	fsync_fname(path, false);
 	fsync_fname("pg_logical/snapshots", true);
 
 
-	/* read statically sized portion of snapshot */
+	/* 读取快照中固定大小的部分      */
 	SnapBuildRestoreContents(fd, (char *) &ondisk, SnapBuildOnDiskConstantSize, path);
 
 	if (ondisk.magic != SNAPBUILD_MAGIC)
@@ -1950,11 +1950,11 @@ SnapBuildRestore(SnapBuild *builder, XLogRecPtr lsn)
 				((char *) &ondisk) + SnapBuildOnDiskNotChecksummedSize,
 				SnapBuildOnDiskConstantSize - SnapBuildOnDiskNotChecksummedSize);
 
-	/* read SnapBuild */
+	/* 读 SnapBuild  */
 	SnapBuildRestoreContents(fd, (char *) &ondisk.builder, sizeof(SnapBuild), path);
 	COMP_CRC32C(checksum, &ondisk.builder, sizeof(SnapBuild));
 
-	/* restore committed xacts information */
+	/* 恢复已提交事务的信息      */
 	if (ondisk.builder.committed.xcnt > 0)
 	{
 		sz = sizeof(TransactionId) * ondisk.builder.committed.xcnt;
@@ -1963,7 +1963,7 @@ SnapBuildRestore(SnapBuild *builder, XLogRecPtr lsn)
 		COMP_CRC32C(checksum, ondisk.builder.committed.xip, sz);
 	}
 
-	/* restore catalog modifying xacts information */
+	/* 恢复修改系统表事务的信息        */
 	if (ondisk.builder.catchange.xcnt > 0)
 	{
 		sz = sizeof(TransactionId) * ondisk.builder.catchange.xcnt;
@@ -1979,7 +1979,7 @@ SnapBuildRestore(SnapBuild *builder, XLogRecPtr lsn)
 
 	FIN_CRC32C(checksum);
 
-	/* verify checksum of what we've read */
+	/* 校验已读内容的校验和     */
 	if (!EQ_CRC32C(checksum, ondisk.checksum))
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_CORRUPTED),
@@ -1987,40 +1987,40 @@ SnapBuildRestore(SnapBuild *builder, XLogRecPtr lsn)
 						path, checksum, ondisk.checksum)));
 
 	/*
-	 * ok, we now have a sensible snapshot here, figure out if it has more
-	 * information than we have.
+	 * 好，我们现在有了一个合理的快照，弄清它的信息 
+	 * 是否比我们更多。 
 	 */
 
 	/*
-	 * We are only interested in consistent snapshots for now, comparing
-	 * whether one incomplete snapshot is more "advanced" seems to be
-	 * unnecessarily complex.
+	 * 我们目前只对一致的快照感兴趣；比较两个不完  
+	 * 整的快照哪个更"先进"似乎不必要地复杂         
+	 * 。                   
 	 */
 	if (ondisk.builder.state < SNAPBUILD_CONSISTENT)
 		goto snapshot_not_interesting;
 
 	/*
-	 * Don't use a snapshot that requires an xmin that we cannot guarantee to
-	 * be available.
+	 * 不要使用需要某个我们无法保证可用的 xmin 的          
+	 * 快照。    
 	 */
 	if (TransactionIdPrecedes(ondisk.builder.xmin, builder->initial_xmin_horizon))
 		goto snapshot_not_interesting;
 
 	/*
-	 * Consistent snapshots have no next phase. Reset next_phase_at as it is
-	 * possible that an old value may remain.
+	 * 一致的快照没有下一阶段。重置 next_phase_at，          
+	 * 因为旧值可能残留下来。     
 	 */
 	Assert(ondisk.builder.next_phase_at == InvalidTransactionId);
 	builder->next_phase_at = InvalidTransactionId;
 
-	/* ok, we think the snapshot is sensible, copy over everything important */
+	/* 好，我们认为该快照是合理的，复制所有重要内容    */
 	builder->xmin = ondisk.builder.xmin;
 	builder->xmax = ondisk.builder.xmax;
 	builder->state = ondisk.builder.state;
 
 	builder->committed.xcnt = ondisk.builder.committed.xcnt;
-	/* We only allocated/stored xcnt, not xcnt_space xids ! */
-	/* don't overwrite preallocated xip, if we don't have anything here */
+	/* 只分配/存储了 xcnt，而非 xcnt_space 个 xid */
+	/* 若此处没有任何内容，则不要覆盖预分配的 xip    */
 	if (builder->committed.xcnt > 0)
 	{
 		pfree(builder->committed.xip);
@@ -2029,14 +2029,14 @@ SnapBuildRestore(SnapBuild *builder, XLogRecPtr lsn)
 	}
 	ondisk.builder.committed.xip = NULL;
 
-	/* set catalog modifying transactions */
+	/* 设置修改系统表的事务     */
 	if (builder->catchange.xip)
 		pfree(builder->catchange.xip);
 	builder->catchange.xcnt = ondisk.builder.catchange.xcnt;
 	builder->catchange.xip = ondisk.builder.catchange.xip;
 	ondisk.builder.catchange.xip = NULL;
 
-	/* our snapshot is not interesting anymore, build a new one */
+	/* 我们的快照已不再有用，构建一个新的      */
 	if (builder->snapshot != NULL)
 	{
 		SnapBuildSnapDecRefcount(builder->snapshot);
@@ -2063,7 +2063,7 @@ snapshot_not_interesting:
 }
 
 /*
- * Read the contents of the serialized snapshot to 'dest'.
+ * 把序列化快照的内容读取到 'dest' 中。     
  */
 static void
 SnapBuildRestoreContents(int fd, char *dest, Size size, const char *path)
@@ -2095,12 +2095,12 @@ SnapBuildRestoreContents(int fd, char *dest, Size size, const char *path)
 }
 
 /*
- * Remove all serialized snapshots that are not required anymore because no
- * slot can need them. This doesn't actually have to run during a checkpoint,
- * but it's a convenient point to schedule this.
+ * 移除所有不再需要的序列化快照，因为没有任何         
+ * 槽会需要它们了。这其实并不一定必须在检查点期        
+ * 间运行，但在此安排很方便。      
  *
- * NB: We run this during checkpoints even if logical decoding is disabled so
- * we cleanup old slots at some point after it got disabled.
+ * NB: 即使逻辑解码被禁用，我们也在检查点期间运行       
+ * 这项工作，以便在禁用后清理旧槽。         
  */
 void
 CheckPointSnapBuild(void)
@@ -2112,16 +2112,16 @@ CheckPointSnapBuild(void)
 	char		path[MAXPGPATH + 21];
 
 	/*
-	 * We start off with a minimum of the last redo pointer. No new
-	 * replication slot will start before that, so that's a safe upper bound
-	 * for removal.
+	 * 我们从最近的重做指针（最小值）起步。新的
+	 * 复制槽不会在它之前启动，因此这是移除的安全      
+	 * 上界。   
 	 */
 	redo = GetRedoRecPtr();
 
-	/* now check for the restart ptrs from existing slots */
+	/* 现在检查现有复制槽的 restart ptrs        */
 	cutoff = ReplicationSlotsComputeLogicalRestartLSN();
 
-	/* don't start earlier than the restart lsn */
+	/* 不要早于 restart lsn 启动          */
 	if (redo < cutoff)
 		cutoff = redo;
 
@@ -2147,13 +2147,13 @@ CheckPointSnapBuild(void)
 		}
 
 		/*
-		 * temporary filenames from SnapBuildSerialize() include the LSN and
-		 * everything but are postfixed by .$pid.tmp. We can just remove them
-		 * the same as other files because there can be none that are
-		 * currently being written that are older than cutoff.
+		 * SnapBuildSerialize() 的临时文件名包含 LSN 以及其      
+		 * 他信息，但以 .$pid.tmp 作为后缀。可以像其他文件 
+		 * 一样直接移除，因为正在写的文件不会早于 
+		 * cutoff。                                          
 		 *
-		 * We just log a message if a file doesn't fit the pattern, it's
-		 * probably some editors lock/state file or similar...
+		 * 若文件不符合该模式，只记录一条消息即可， 
+		 * 可能是编辑器的锁/状态文件之类……  
 		 */
 		if (sscanf(snap_de->d_name, "%X-%X.snap", &hi, &lo) != 2)
 		{
@@ -2164,15 +2164,15 @@ CheckPointSnapBuild(void)
 
 		lsn = ((uint64) hi) << 32 | lo;
 
-		/* check whether we still need it */
+		/* 检查是否仍然需要它    */
 		if (lsn < cutoff || cutoff == InvalidXLogRecPtr)
 		{
 			elog(DEBUG1, "removing snapbuild snapshot %s", path);
 
 			/*
-			 * It's not particularly harmful, though strange, if we can't
-			 * remove the file here. Don't prevent the checkpoint from
-			 * completing, that'd be a cure worse than the disease.
+			 * 无法在此移除该文件虽奇怪，但害处不大。 
+			 * 不要阻止检查点完成，疗法比疾病更糟    
+			 * 。                                                 
 			 */
 			if (unlink(path) < 0)
 			{

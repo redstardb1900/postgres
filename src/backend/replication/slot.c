@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * slot.c
- *	   Replication slot management.
+ *	   复制槽管理。          
  *
  *
  * Copyright (c) 2012-2023, PostgreSQL Global Development Group
@@ -12,24 +12,24 @@
  *
  * NOTES
  *
- * Replication slots are used to keep state about replication streams
- * originating from this cluster.  Their primary purpose is to prevent the
- * premature removal of WAL or of old tuple versions in a manner that would
- * interfere with replication; they are also useful for monitoring purposes.
- * Slots need to be permanent (to allow restarts), crash-safe, and allocatable
- * on standbys (to support cascading setups).  The requirement that slots be
- * usable on standbys precludes storing them in the system catalogs.
+ * 复制槽用于保存源自本集簇的复制流的状态。      
+ * 其主要目的是防止以会干扰复制的方式过早移除 WAL    
+ * 或旧元组版本；它们也可用于监控目的。                  
+ * 槽必须是持久的（以允许重启）、崩溃安全的，并且    
+ * 能在备库上分配（以支持级联设置）。由于槽需要能在   
+ * 备库上使用，因此无法把它们存放在                         
+ * 系统表中。                                                  
  *
- * Each replication slot gets its own directory inside the $PGDATA/pg_replslot
- * directory. Inside that directory the state file will contain the slot's
- * own data. Additional data can be stored alongside that file if required.
- * While the server is running, the state data is also cached in memory for
- * efficiency.
+ * 每个复制槽都在 $PGDATA/pg_replslot 下拥有自己的               
+ * 目录，状态文件就存放在其中，包含槽自身的数据。  
+ * 若有需要，其他数据也可与该文件一同存放。服务器   
+ * 运行期间，状态数据还会同时缓存在内存中以求         
+ * 高效。  
  *
- * ReplicationSlotAllocationLock must be taken in exclusive mode to allocate
- * or free a slot. ReplicationSlotControlLock must be taken in shared mode
- * to iterate over the slots, and in exclusive mode to change the in_use flag
- * of a slot.  The remaining data in each slot is protected by its mutex.
+ * ReplicationSlotAllocationLock 必须以独占模式持有才能          
+ * 分配或释放槽。ReplicationSlotControlLock 须以共享模式     
+ * 持有以遍历各槽，并以独占模式持有才能修改槽的        
+ * in_use 标志。槽中其余数据由其互斥锁保护。            
  *
  *-------------------------------------------------------------------------
  */
@@ -54,51 +54,51 @@
 #include "utils/builtins.h"
 
 /*
- * Replication slot on-disk data structure.
+ * 复制槽的磁盘数据结构。       
  */
 typedef struct ReplicationSlotOnDisk
 {
-	/* first part of this struct needs to be version independent */
+	/* 该结构体的前一部分需要与版本无关          */
 
-	/* data not covered by checksum */
+	/* 校验和未覆盖的数据  */
 	uint32		magic;
 	pg_crc32c	checksum;
 
-	/* data covered by checksum */
+	/* 校验和覆盖的数据 */
 	uint32		version;
 	uint32		length;
 
 	/*
-	 * The actual data in the slot that follows can differ based on the above
-	 * 'version'.
+	 * 槽中紧随其后的实际数据可能不同于上述                
+	 * "版本"  
 	 */
 
 	ReplicationSlotPersistentData slotdata;
 } ReplicationSlotOnDisk;
 
-/* size of version independent data */
+/* 与版本无关数据的大小   */
 #define ReplicationSlotOnDiskConstantSize \
 	offsetof(ReplicationSlotOnDisk, slotdata)
-/* size of the part of the slot not covered by the checksum */
+/* 槽中校验和未覆盖部分的大小                  */
 #define ReplicationSlotOnDiskNotChecksummedSize  \
 	offsetof(ReplicationSlotOnDisk, version)
-/* size of the part covered by the checksum */
+/* 校验和覆盖部分的大小           */
 #define ReplicationSlotOnDiskChecksummedSize \
 	sizeof(ReplicationSlotOnDisk) - ReplicationSlotOnDiskNotChecksummedSize
-/* size of the slot data that is version dependent */
+/* 版本相关的槽数据部分的大小         */
 #define ReplicationSlotOnDiskV2Size \
 	sizeof(ReplicationSlotOnDisk) - ReplicationSlotOnDiskConstantSize
 
-#define SLOT_MAGIC		0x1051CA1	/* format identifier */
-#define SLOT_VERSION	3		/* version for new files */
+#define SLOT_MAGIC		0x1051CA1	/* 格式标识符   */
+#define SLOT_VERSION	3		/* 新文件的版本号 */
 
-/* Control array for replication slot management */
+/* 复制槽管理用的控制数组             */
 ReplicationSlotCtlData *ReplicationSlotCtl = NULL;
 
-/* My backend's replication slot in the shared memory array */
+/* 本后端在共享内存数组中的复制槽            */
 ReplicationSlot *MyReplicationSlot = NULL;
 
-/* GUC variable */
+/* GUC 变量   */
 int			max_replication_slots = 10; /* the maximum number of replication
 										 * slots */
 
@@ -106,13 +106,13 @@ static void ReplicationSlotShmemExit(int code, Datum arg);
 static void ReplicationSlotDropAcquired(void);
 static void ReplicationSlotDropPtr(ReplicationSlot *slot);
 
-/* internal persistency functions */
+/* 内部持久化函数          */
 static void RestoreSlotFromDisk(const char *name);
 static void CreateSlotOnDisk(ReplicationSlot *slot);
 static void SaveSlotToPath(ReplicationSlot *slot, const char *dir, int elevel);
 
 /*
- * Report shared-memory space needed by ReplicationSlotsShmemInit.
+ * 报告 ReplicationSlotsShmemInit 所需共享内存空间。   
  */
 Size
 ReplicationSlotsShmemSize(void)
@@ -130,7 +130,7 @@ ReplicationSlotsShmemSize(void)
 }
 
 /*
- * Allocate and initialize shared memory for replication slots.
+ * 为复制槽分配并初始化共享内存。               
  */
 void
 ReplicationSlotsShmemInit(void)
@@ -148,14 +148,14 @@ ReplicationSlotsShmemInit(void)
 	{
 		int			i;
 
-		/* First time through, so initialize */
+		/* 首次执行，故进行初始化 */
 		MemSet(ReplicationSlotCtl, 0, ReplicationSlotsShmemSize());
 
 		for (i = 0; i < max_replication_slots; i++)
 		{
 			ReplicationSlot *slot = &ReplicationSlotCtl->replication_slots[i];
 
-			/* everything else is zeroed by the memset above */
+			/* 其余内容均由上面的 memset 清零     */
 			SpinLockInit(&slot->mutex);
 			LWLockInitialize(&slot->io_in_progress_lock,
 							 LWTRANCHE_REPLICATION_SLOT_IO);
@@ -165,7 +165,7 @@ ReplicationSlotsShmemInit(void)
 }
 
 /*
- * Register the callback for replication slot cleanup and releasing.
+ * 注册用于复制槽清理与释放的回调。                 
  */
 void
 ReplicationSlotInitialize(void)
@@ -174,23 +174,23 @@ ReplicationSlotInitialize(void)
 }
 
 /*
- * Release and cleanup replication slots.
+ * 释放并清理复制槽。           
  */
 static void
 ReplicationSlotShmemExit(int code, Datum arg)
 {
-	/* Make sure active replication slots are released */
+	/* 确保已激活的复制槽都被释放         */
 	if (MyReplicationSlot != NULL)
 		ReplicationSlotRelease();
 
-	/* Also cleanup all the temporary slots. */
+	/* 同时清理所有临时槽。        */
 	ReplicationSlotCleanup();
 }
 
 /*
- * Check whether the passed slot name is valid and report errors at elevel.
+ * 检查传入的槽名是否有效，并在 elevel 级别报告错误。 
  *
- * See comments for ReplicationSlotValidateNameInternal().
+ * 参见 ReplicationSlotValidateNameInternal() 注释    
  */
 bool
 ReplicationSlotValidateName(const char *name, int elevel)
@@ -217,15 +217,15 @@ ReplicationSlotValidateName(const char *name, int elevel)
 }
 
 /*
- * Check whether the passed slot name is valid.
+ * 检查传入的槽名是否有效。        
  *
- * Slot names may consist out of [a-z0-9_]{1,NAMEDATALEN-1} which should allow
- * the name to be used as a directory name on every supported OS.
+ * 槽名可由 [a-z0-9_]{1,NAMEDATALEN-1} 组成，这应能让              
+ * 使其在所有受支持的 OS 上都可用作目录名。    
  *
- * Returns true if the slot name is valid. Otherwise, returns false and stores
- * the error code, error message, and optional hint in err_code, err_msg, and
- * err_hint, respectively. The caller is responsible for freeing err_msg and
- * err_hint, which are palloc'd.
+ * 若槽名有效则返回 true；否则返回 false，并将错误码、    
+ * 错误消息和可选提示分别存入 err_code、err_msg 和            
+ * err_hint。调用方负责释放 palloc 分配的 err_msg 和            
+ * err_hint。                  
  */
 bool
 ReplicationSlotValidateNameInternal(const char *name, int *err_code,
@@ -265,18 +265,18 @@ ReplicationSlotValidateNameInternal(const char *name, int *err_code,
 }
 
 /*
- * Create a new replication slot and mark it as used by this backend.
+ * 创建新的复制槽，并标记为由本后端使用。         
  *
- * name: Name of the slot
- * db_specific: logical decoding is db specific; if the slot is going to
- *	   be used for that pass true, otherwise false.
- * two_phase: Allows decoding of prepared transactions. We allow this option
- *     to be enabled only at the slot creation time. If we allow this option
- *     to be changed during decoding then it is quite possible that we skip
- *     prepare first time because this option was not enabled. Now next time
- *     during getting changes, if the two_phase option is enabled it can skip
- *     prepare because by that time start decoding point has been moved. So the
- *     user will only get commit prepared.
+ * name: 槽名          
+ * db_specific: 逻辑解码是按数据库区分的；若该槽将用  
+ *	   为此传 true，否则传 false。         
+ * two_phase: 允许解码已准备好的事务。我们只允许在        
+ *     创建槽时启用。若允许它在解码期间被改动，         
+ *     那么很可能首次因该选项未启用而跳过 prepare，      
+ *     而下次获取变更时，若 two_phase 选项已启用，又会因 
+ *     起始解码点届时已移动而再次跳过 prepare。              
+ *     这样用户到时就只会得到                                       
+ *     commit prepared。                 
  */
 void
 ReplicationSlotCreate(const char *name, bool db_specific,
@@ -290,18 +290,18 @@ ReplicationSlotCreate(const char *name, bool db_specific,
 	ReplicationSlotValidateName(name, ERROR);
 
 	/*
-	 * If some other backend ran this code concurrently with us, we'd likely
-	 * both allocate the same slot, and that would be bad.  We'd also be at
-	 * risk of missing a name collision.  Also, we don't want to try to create
-	 * a new slot while somebody's busy cleaning up an old one, because we
-	 * might both be monkeying with the same directory.
+	 * 若其他后端与我们并发执行这段代码，我们很可能   
+	 * 会同时分到同一个槽，那会很糟。还可能漏掉        
+	 * 名称冲突。此外，我们不希望在别人正忙于清理旧槽  
+	 * 时创建新槽，因为那样我们可能都在摆弄同一个    
+	 * 目录。                                       
 	 */
 	LWLockAcquire(ReplicationSlotAllocationLock, LW_EXCLUSIVE);
 
 	/*
-	 * Check for name collision, and identify an allocatable slot.  We need to
-	 * hold ReplicationSlotControlLock in shared mode for this, so that nobody
-	 * else can change the in_use flags while we're looking at them.
+	 * 检查名称冲突，并找出一个可分配的槽。为此我们需  
+	 * 要以共享模式持有 ReplicationSlotControlLock，这样别        
+	 * 人就无法在我们查看期间改动 in_use 标志。     
 	 */
 	LWLockAcquire(ReplicationSlotControlLock, LW_SHARED);
 	for (i = 0; i < max_replication_slots; i++)
@@ -317,7 +317,7 @@ ReplicationSlotCreate(const char *name, bool db_specific,
 	}
 	LWLockRelease(ReplicationSlotControlLock);
 
-	/* If all slots are in use, we're out of luck. */
+	/* 若所有槽都在用，就无法分配。  */
 	if (slot == NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_CONFIGURATION_LIMIT_EXCEEDED),
@@ -325,15 +325,15 @@ ReplicationSlotCreate(const char *name, bool db_specific,
 				 errhint("Free one or increase max_replication_slots.")));
 
 	/*
-	 * Since this slot is not in use, nobody should be looking at any part of
-	 * it other than the in_use field unless they're trying to allocate it.
-	 * And since we hold ReplicationSlotAllocationLock, nobody except us can
-	 * be doing that.  So it's safe to initialize the slot.
+	 * 此槽既然不在使用中，别人就不应查看它除 in_use      
+	 * 字段之外的任何部分，除非对方正试图分配它。而  
+	 * 我们持有 ReplicationSlotAllocationLock，所以除我们之      
+	 * 外无人能这样做。故初始化是安全的。 
 	 */
 	Assert(!slot->in_use);
 	Assert(slot->active_pid == 0);
 
-	/* first initialize persistent data */
+	/* 先初始化持久化数据      */
 	memset(&slot->data, 0, sizeof(ReplicationSlotPersistentData));
 	namestrcpy(&slot->data.name, name);
 	slot->data.database = db_specific ? MyDatabaseId : InvalidOid;
@@ -341,7 +341,7 @@ ReplicationSlotCreate(const char *name, bool db_specific,
 	slot->data.two_phase = two_phase;
 	slot->data.two_phase_at = InvalidXLogRecPtr;
 
-	/* and then data only present in shared memory */
+	/* 再初始化共享内存中才有的数据  */
 	slot->just_dirtied = false;
 	slot->dirty = false;
 	slot->effective_xmin = InvalidTransactionId;
@@ -352,22 +352,22 @@ ReplicationSlotCreate(const char *name, bool db_specific,
 	slot->candidate_restart_lsn = InvalidXLogRecPtr;
 
 	/*
-	 * Create the slot on disk.  We haven't actually marked the slot allocated
-	 * yet, so no special cleanup is required if this errors out.
+	 * 在磁盘上创建槽。此时槽实际上尚未标记为已分配，  
+	 * 因此若此处出错也无需特别的清理。          
 	 */
 	CreateSlotOnDisk(slot);
 
 	/*
-	 * We need to briefly prevent any other backend from iterating over the
-	 * slots while we flip the in_use flag. We also need to set the active
-	 * flag while holding the ControlLock as otherwise a concurrent
-	 * ReplicationSlotAcquire() could acquire the slot as well.
+	 * 翻转 in_use 标志期间，需短暂阻止任何其他后端      
+	 * 遍历各槽。我们还需在持有 ControlLock 时设置 active  
+	 * 标志，否则并发的 ReplicationSlotAcquire() 也可能 
+	 * 获取到该槽。                                      
 	 */
 	LWLockAcquire(ReplicationSlotControlLock, LW_EXCLUSIVE);
 
 	slot->in_use = true;
 
-	/* We can now mark the slot active, and that makes it our slot. */
+	/* 现在可将槽标记为 active，它从此归我们所有。*/
 	SpinLockAcquire(&slot->mutex);
 	Assert(slot->active_pid == 0);
 	slot->active_pid = MyProcPid;
@@ -377,28 +377,28 @@ ReplicationSlotCreate(const char *name, bool db_specific,
 	LWLockRelease(ReplicationSlotControlLock);
 
 	/*
-	 * Create statistics entry for the new logical slot. We don't collect any
-	 * stats for physical slots, so no need to create an entry for the same.
-	 * See ReplicationSlotDropPtr for why we need to do this before releasing
-	 * ReplicationSlotAllocationLock.
+	 * 为新逻辑槽创建统计条目。物理槽不收集统计数据， 
+	 * 因此无需为它们创建条目。至于为何要在释放         
+	 * ReplicationSlotAllocationLock 之前就要这样做，参见          
+	 * ReplicationSlotDropPtr。     
 	 */
 	if (SlotIsLogical(slot))
 		pgstat_create_replslot(slot);
 
 	/*
-	 * Now that the slot has been marked as in_use and active, it's safe to
-	 * let somebody else try to allocate a slot.
+	 * 槽已被标记为 in_use 且 active，现在让别人尝试分配  
+	 * 新槽也是安全的了。              
 	 */
 	LWLockRelease(ReplicationSlotAllocationLock);
 
-	/* Let everybody know we've modified this slot */
+	/* 让所有人都知道我们已修改此槽  */
 	ConditionVariableBroadcast(&slot->active_cv);
 }
 
 /*
- * Search for the named replication slot.
+ * 搜索指定名称的复制槽。     
  *
- * Return the replication slot if found, otherwise NULL.
+ * 找到则返回该复制槽，否则返回 NULL。   
  */
 ReplicationSlot *
 SearchNamedReplicationSlot(const char *name, bool need_lock)
@@ -427,11 +427,11 @@ SearchNamedReplicationSlot(const char *name, bool need_lock)
 }
 
 /*
- * Return the index of the replication slot in
- * ReplicationSlotCtl->replication_slots.
+ * 返回该复制槽在 ReplicationSlotCtl-> 
+ * replication_slots 中的下标。     
  *
- * This is mainly useful to have an efficient key for storing replication slot
- * stats.
+ * 这主要是为了给存储复制槽统计数据提供一个高效键。   
+ *       
  */
 int
 ReplicationSlotIndex(ReplicationSlot *slot)
@@ -443,11 +443,11 @@ ReplicationSlotIndex(ReplicationSlot *slot)
 }
 
 /*
- * If the slot at 'index' is unused, return false. Otherwise 'name' is set to
- * the slot's name and true is returned.
+ * 若 "index" 处的槽未被使用，则返回 false；否则将           
+ * "name" 设为槽名并返回 true。 
  *
- * This likely is only useful for pgstat_replslot.c during shutdown, in other
- * cases there are obvious TOCTOU issues.
+ * 这大概只对关闭时的 pgstat_replslot.c 有用，其他情况       
+ * 下存在明显的 TOCTOU 问题。   
  */
 bool
 ReplicationSlotName(int index, Name name)
@@ -458,8 +458,8 @@ ReplicationSlotName(int index, Name name)
 	slot = &ReplicationSlotCtl->replication_slots[index];
 
 	/*
-	 * Ensure that the slot cannot be dropped while we copy the name. Don't
-	 * need the spinlock as the name of an existing slot cannot change.
+	 * 确保在复制名称期间该槽无法被删除。由于既有槽  
+	 * 的名称不会改变，因此无需自旋锁。                
 	 */
 	LWLockAcquire(ReplicationSlotControlLock, LW_SHARED);
 	found = slot->in_use;
@@ -471,10 +471,10 @@ ReplicationSlotName(int index, Name name)
 }
 
 /*
- * Find a previously created slot and mark it as used by this process.
+ * 查找先前创建的槽，并将其标记为由本进程使用。 
  *
- * An error is raised if nowait is true and the slot is currently in use. If
- * nowait is false, we sleep until the slot is released by the owning process.
+ * 若 nowait 为 true 且该槽当前正在使用，则会报错。若     
+ * nowait 为 false，我们将休眠直到槽被属主进程释放。        
  */
 void
 ReplicationSlotAcquire(const char *name, bool nowait)
@@ -490,8 +490,8 @@ retry:
 	LWLockAcquire(ReplicationSlotControlLock, LW_SHARED);
 
 	/*
-	 * Search for the slot with the specified name if the slot to acquire is
-	 * not given. If the slot is not found, we either return -1 or error out.
+	 * 若未给定要获取的槽，则按指定名称搜索该槽。若   
+	 * 找不到该槽，我们要么返回 -1，要么报错退出。       
 	 */
 	s = SearchNamedReplicationSlot(name, false);
 	if (s == NULL || !s->in_use)
@@ -505,15 +505,15 @@ retry:
 	}
 
 	/*
-	 * This is the slot we want; check if it's active under some other
-	 * process.  In single user mode, we don't need this check.
+	 * 这就是想要的槽；检查它是否被他人激活。      
+	 * 单用户模式下无需此检查。                    
 	 */
 	if (IsUnderPostmaster)
 	{
 		/*
-		 * Get ready to sleep on the slot in case it is active.  (We may end
-		 * up not sleeping, but we don't want to do this while holding the
-		 * spinlock.)
+		 * 准备好在该槽活跃时在其上休眠。（最后可能     
+		 * 并不需要休眠，但不想在持有自旋锁时做这件   
+		 * 事。） 
 		 */
 		if (!nowait)
 			ConditionVariablePrepareToSleep(&s->active_cv);
@@ -529,15 +529,15 @@ retry:
 	LWLockRelease(ReplicationSlotControlLock);
 
 	/*
-	 * If we found the slot but it's already active in another process, we
-	 * wait until the owning process signals us that it's been released, or
-	 * error out.
+	 * 若我们找到了该槽，但它已在另一个进程中处于活 
+	 * 跃状态，则等待属主进程发信号告知已释放，或者  
+	 * 报错。 
 	 */
 	if (active_pid != MyProcPid)
 	{
 		if (!nowait)
 		{
-			/* Wait here until we get signaled, and then restart */
+			/* 在此等待，直到收到信号后重新开始  */
 			ConditionVariableSleep(&s->active_cv,
 								   WAIT_EVENT_REPLICATION_SLOT_DROP);
 			ConditionVariableCancelSleep();
@@ -550,28 +550,28 @@ retry:
 						NameStr(s->data.name), active_pid)));
 	}
 	else if (!nowait)
-		ConditionVariableCancelSleep(); /* no sleep needed after all */
+		ConditionVariableCancelSleep(); /* 结果无需休眠        */
 
-	/* Let everybody know we've modified this slot */
+	/* 让所有人都知道我们已修改此槽  */
 	ConditionVariableBroadcast(&s->active_cv);
 
-	/* We made this slot active, so it's ours now. */
+	/* 此槽由我们激活，归我们所有。  */
 	MyReplicationSlot = s;
 
 	/*
-	 * The call to pgstat_acquire_replslot() protects against stats for a
-	 * different slot, from before a restart or such, being present during
-	 * pgstat_report_replslot().
+	 * 调用 pgstat_acquire_replslot() 是为了防止                  
+	 * pgstat_report_replslot() 期间出现重启前遗留的            
+	 * 其他槽统计数据。 
 	 */
 	if (SlotIsLogical(s))
 		pgstat_acquire_replslot(s);
 }
 
 /*
- * Release the replication slot that this backend considers to own.
+ * 释放本后端当前持有的复制槽。                      
  *
- * This or another backend can re-acquire the slot later.
- * Resources this slot requires will be preserved.
+ * 该槽稍后可被任意后端重新获取。         
+ * 该槽所需的资源将被保留。           
  */
 void
 ReplicationSlotRelease(void)
@@ -583,18 +583,18 @@ ReplicationSlotRelease(void)
 	if (slot->data.persistency == RS_EPHEMERAL)
 	{
 		/*
-		 * Delete the slot. There is no !PANIC case where this is allowed to
-		 * fail, all that may happen is an incomplete cleanup of the on-disk
-		 * data.
+		 * 删除该槽。不存在允许失败的 !PANIC 场景，         
+		 * 可能发生的只是磁盘上数据清理得不完整           
+		 * 。  
 		 */
 		ReplicationSlotDropAcquired();
 	}
 
 	/*
-	 * If slot needed to temporarily restrain both data and catalog xmin to
-	 * create the catalog snapshot, remove that temporary constraint.
-	 * Snapshots can only be exported while the initial snapshot is still
-	 * acquired.
+	 * 若槽为了创建系统表快照而需要临时同时约束数据  
+	 * 和系统表 xmin，请移除该临时约束。               
+	 * 快照只有在初始快照仍被持有时才能被导出         
+	 * 。      
 	 */
 	if (!TransactionIdIsValid(slot->data.xmin) &&
 		TransactionIdIsValid(slot->effective_xmin))
@@ -608,8 +608,8 @@ ReplicationSlotRelease(void)
 	if (slot->data.persistency == RS_PERSISTENT)
 	{
 		/*
-		 * Mark persistent slot inactive.  We're not freeing it, just
-		 * disconnecting, but wake up others that may be waiting for it.
+		 * 把持久槽标记为不活跃。不是释放它，而是 
+		 * 断开连接，但需唤醒可能在等待它的进程。    
 		 */
 		SpinLockAcquire(&slot->mutex);
 		slot->active_pid = 0;
@@ -619,7 +619,7 @@ ReplicationSlotRelease(void)
 
 	MyReplicationSlot = NULL;
 
-	/* might not have been set when we've been a plain slot */
+	/* 作为普通槽时该值可能尚未设置           */
 	LWLockAcquire(ProcArrayLock, LW_EXCLUSIVE);
 	MyProc->statusFlags &= ~PROC_IN_LOGICAL_DECODING;
 	ProcGlobal->statusFlags[MyProc->pgxactoff] = MyProc->statusFlags;
@@ -627,7 +627,7 @@ ReplicationSlotRelease(void)
 }
 
 /*
- * Cleanup all temporary slots created in current session.
+ * 清理当前会话中创建的所有临时槽。       
  */
 void
 ReplicationSlotCleanup(void)
@@ -650,7 +650,7 @@ restart:
 		{
 			Assert(s->data.persistency == RS_TEMPORARY);
 			SpinLockRelease(&s->mutex);
-			LWLockRelease(ReplicationSlotControlLock);	/* avoid deadlock */
+			LWLockRelease(ReplicationSlotControlLock);	/* 避免死锁   */
 
 			ReplicationSlotDropPtr(s);
 
@@ -665,7 +665,7 @@ restart:
 }
 
 /*
- * Permanently drop replication slot identified by the passed in name.
+ * 按传入名称永久删除复制槽。                            
  */
 void
 ReplicationSlotDrop(const char *name, bool nowait)
@@ -678,7 +678,7 @@ ReplicationSlotDrop(const char *name, bool nowait)
 }
 
 /*
- * Permanently drop the currently acquired replication slot.
+ * 永久删除当前已获取的复制槽。               
  */
 static void
 ReplicationSlotDropAcquired(void)
@@ -687,15 +687,15 @@ ReplicationSlotDropAcquired(void)
 
 	Assert(MyReplicationSlot != NULL);
 
-	/* slot isn't acquired anymore */
+	/* 槽已不再被获取       */
 	MyReplicationSlot = NULL;
 
 	ReplicationSlotDropPtr(slot);
 }
 
 /*
- * Permanently drop the replication slot which will be released by the point
- * this function returns.
+ * 永久删除该复制槽；本函数返回之时，该槽就已被       
+ * 释放。             
  */
 static void
 ReplicationSlotDropPtr(ReplicationSlot *slot)
@@ -704,32 +704,32 @@ ReplicationSlotDropPtr(ReplicationSlot *slot)
 	char		tmppath[MAXPGPATH];
 
 	/*
-	 * If some other backend ran this code concurrently with us, we might try
-	 * to delete a slot with a certain name while someone else was trying to
-	 * create a slot with the same name.
+	 * 若其他后端与我们并发执行这段代码，我们可能在    
+	 * 删除某个名称的槽时，别人正试图用同一名称创建   
+	 * 新槽。                        
 	 */
 	LWLockAcquire(ReplicationSlotAllocationLock, LW_EXCLUSIVE);
 
-	/* Generate pathnames. */
+	/* 生成路径名。  */
 	sprintf(path, "pg_replslot/%s", NameStr(slot->data.name));
 	sprintf(tmppath, "pg_replslot/%s.tmp", NameStr(slot->data.name));
 
 	/*
-	 * Rename the slot directory on disk, so that we'll no longer recognize
-	 * this as a valid slot.  Note that if this fails, we've got to mark the
-	 * slot inactive before bailing out.  If we're dropping an ephemeral or a
-	 * temporary slot, we better never fail hard as the caller won't expect
-	 * the slot to survive and this might get called during error handling.
+	 * 重命名磁盘上的槽目录，使我们不再把它识别为     
+	 * 有效槽。注意若此步失败，我们必须先把槽标记为   
+	 * 不活跃然后再退出。若删除的是瞬态或临时槽，       
+	 * 就绝不应硬性失败，因为调用方不会预期槽还能存  
+	 * 活下来，而且此函数可能在错误处理期间被调用。  
 	 */
 	if (rename(path, tmppath) == 0)
 	{
 		/*
-		 * We need to fsync() the directory we just renamed and its parent to
-		 * make sure that our changes are on disk in a crash-safe fashion.  If
-		 * fsync() fails, we can't be sure whether the changes are on disk or
-		 * not.  For now, we handle that by panicking;
-		 * StartupReplicationSlots() will try to straighten it out after
-		 * restart.
+		 * 我们需要对刚重命名的目录及其父目录执行         
+		 * fsync()，以确保改动以崩溃安全的方式落盘。若      
+		 * fsync() 失败，我们无法确定改动是否已落盘。目    
+		 * 前我们以 panic 处理；               
+		 * StartupReplicationSlots() 会在重启后尝试理清        
+		 * 残局  
 		 */
 		START_CRIT_SECTION();
 		fsync_fname(tmppath, true);
@@ -744,7 +744,7 @@ ReplicationSlotDropPtr(ReplicationSlot *slot)
 		slot->active_pid = 0;
 		SpinLockRelease(&slot->mutex);
 
-		/* wake up anyone waiting on this slot */
+		/* 唤醒任何等待此槽的进程   */
 		ConditionVariableBroadcast(&slot->active_cv);
 
 		ereport(fail_softly ? WARNING : ERROR,
@@ -754,13 +754,13 @@ ReplicationSlotDropPtr(ReplicationSlot *slot)
 	}
 
 	/*
-	 * The slot is definitely gone.  Lock out concurrent scans of the array
-	 * long enough to kill it.  It's OK to clear the active PID here without
-	 * grabbing the mutex because nobody else can be scanning the array here,
-	 * and nobody can be attached to this slot and thus access it without
-	 * scanning the array.
+	 * 槽肯定已经消失。要锁定并发数组扫描足够长的     
+	 * 时间以便将其清除。这里无需获取互斥锁即可清      
+	 * 除活跃 PID，因为没有其他人能在此处扫描数组，      
+	 * 也没有人能不扫描数组就附加到该槽并访问         
+	 * 它。             
 	 *
-	 * Also wake up processes waiting for it.
+	 * 同时唤醒等待它的进程。     
 	 */
 	LWLockAcquire(ReplicationSlotControlLock, LW_EXCLUSIVE);
 	slot->active_pid = 0;
@@ -769,40 +769,40 @@ ReplicationSlotDropPtr(ReplicationSlot *slot)
 	ConditionVariableBroadcast(&slot->active_cv);
 
 	/*
-	 * Slot is dead and doesn't prevent resource removal anymore, recompute
-	 * limits.
+	 * 槽已消亡，不再阻止资源移除，需重新计算           
+	 * 限额 
 	 */
 	ReplicationSlotsComputeRequiredXmin(false);
 	ReplicationSlotsComputeRequiredLSN();
 
 	/*
-	 * If removing the directory fails, the worst thing that will happen is
-	 * that the user won't be able to create a new slot with the same name
-	 * until the next server restart.  We warn about it, but that's all.
+	 * 若删除目录失败，最坏的后果不过是用户在下一次  
+	 * 服务器重启之前无法创建同名的新槽。我们会就此 
+	 * 发出警告，仅此而已。                                   
 	 */
 	if (!rmtree(tmppath, true))
 		ereport(WARNING,
 				(errmsg("could not remove directory \"%s\"", tmppath)));
 
 	/*
-	 * Drop the statistics entry for the replication slot.  Do this while
-	 * holding ReplicationSlotAllocationLock so that we don't drop a
-	 * statistics entry for another slot with the same name just created in
-	 * another session.
+	 * 删除该复制槽的统计条目。此操作必须在持有      
+	 * ReplicationSlotAllocationLock 的情况下进行，以免    
+	 * 误删另一个会话刚刚用同名创建的其他槽的统计     
+	 * 条目。       
 	 */
 	if (SlotIsLogical(slot))
 		pgstat_drop_replslot(slot);
 
 	/*
-	 * We release this at the very end, so that nobody starts trying to create
-	 * a slot while we're still cleaning up the detritus of the old one.
+	 * 我们把该锁留到最后才释放，这样在我们还在清理     
+	 * 旧槽残骸时，别人就无法开始尝试创建新槽。     
 	 */
 	LWLockRelease(ReplicationSlotAllocationLock);
 }
 
 /*
- * Serialize the currently acquired slot's state from memory to disk, thereby
- * guaranteeing the current state will survive a crash.
+ * 将当前已获取槽的状态从内存序列化到磁盘，从而        
+ * 保证当前状态能在崩溃后幸存。          
  */
 void
 ReplicationSlotSave(void)
@@ -816,11 +816,11 @@ ReplicationSlotSave(void)
 }
 
 /*
- * Signal that it would be useful if the currently acquired slot would be
- * flushed out to disk.
+ * 发出信号，表明将当前已获取槽刷写到磁盘可能会    
+ * 有益。           
  *
- * Note that the actual flush to disk can be delayed for a long time, if
- * required for correctness explicitly do a ReplicationSlotSave().
+ * 注意，实际刷写到磁盘可能延迟很久；如果正确性   
+ * 要求如此，请显式执行 ReplicationSlotSave()。        
  */
 void
 ReplicationSlotMarkDirty(void)
@@ -836,8 +836,8 @@ ReplicationSlotMarkDirty(void)
 }
 
 /*
- * Convert a slot that's marked as RS_EPHEMERAL to a RS_PERSISTENT slot,
- * guaranteeing it will be there after an eventual crash.
+ * 把标记为 RS_EPHEMERAL 的槽转换为 RS_PERSISTENT 槽，       
+ * 确保它在随后发生的崩溃后仍然存在。   
  */
 void
 ReplicationSlotPersist(void)
@@ -856,10 +856,10 @@ ReplicationSlotPersist(void)
 }
 
 /*
- * Compute the oldest xmin across all slots and store it in the ProcArray.
+ * 计算所有槽中最老的 xmin 并存入 ProcArray。                
  *
- * If already_locked is true, ProcArrayLock has already been acquired
- * exclusively.
+ * 若 already_locked 为 true，ProcArrayLock 已被独占          
+ * 获取。   
  */
 void
 ReplicationSlotsComputeRequiredXmin(bool already_locked)
@@ -888,17 +888,17 @@ ReplicationSlotsComputeRequiredXmin(bool already_locked)
 		invalidated = s->data.invalidated != RS_INVAL_NONE;
 		SpinLockRelease(&s->mutex);
 
-		/* invalidated slots need not apply */
+		/* 已失效的槽无需参与      */
 		if (invalidated)
 			continue;
 
-		/* check the data xmin */
+		/* 检查数据 xmin   */
 		if (TransactionIdIsValid(effective_xmin) &&
 			(!TransactionIdIsValid(agg_xmin) ||
 			 TransactionIdPrecedes(effective_xmin, agg_xmin)))
 			agg_xmin = effective_xmin;
 
-		/* check the catalog xmin */
+		/* 检查系统表 xmin   */
 		if (TransactionIdIsValid(effective_catalog_xmin) &&
 			(!TransactionIdIsValid(agg_catalog_xmin) ||
 			 TransactionIdPrecedes(effective_catalog_xmin, agg_catalog_xmin)))
@@ -911,11 +911,11 @@ ReplicationSlotsComputeRequiredXmin(bool already_locked)
 }
 
 /*
- * Compute the oldest restart LSN across all slots and inform xlog module.
+ * 计算所有槽中最老的 restart LSN，并告知 xlog 模块。     
  *
- * Note: while max_slot_wal_keep_size is theoretically relevant for this
- * purpose, we don't try to account for that, because this module doesn't
- * know what to compare against.
+ * 注：虽然 max_slot_wal_keep_size 理论上与此相关，         
+ * 但我们并不尝试把它计算在内，因为本模块不知道    
+ * 该与什么作比较。     
  */
 void
 ReplicationSlotsComputeRequiredLSN(void)
@@ -940,7 +940,7 @@ ReplicationSlotsComputeRequiredLSN(void)
 		invalidated = s->data.invalidated != RS_INVAL_NONE;
 		SpinLockRelease(&s->mutex);
 
-		/* invalidated slots need not apply */
+		/* 已失效的槽无需参与      */
 		if (invalidated)
 			continue;
 
@@ -955,16 +955,16 @@ ReplicationSlotsComputeRequiredLSN(void)
 }
 
 /*
- * Compute the oldest WAL LSN required by *logical* decoding slots..
+ * 计算*逻辑*解码槽所需的最老 WAL LSN。                
  *
- * Returns InvalidXLogRecPtr if logical decoding is disabled or no logical
- * slots exist.
+ * 若逻辑解码被禁用或无逻辑槽则返回 InvalidXLogRecPtr     
+ *             
  *
- * NB: this returns a value >= ReplicationSlotsComputeRequiredLSN(), since it
- * ignores physical replication slots.
+ * 注意：此函数返回值 >= ReplicationSlotsComputeRequiredLSN()，    
+ * 因其忽略了物理复制槽。  
  *
- * The results aren't required frequently, so we don't maintain a precomputed
- * value like we do for ComputeRequiredLSN() and ComputeRequiredXmin().
+ * 此结果无需频繁获取，所以我们不维护预计算值，        
+ * 不像 ComputeRequiredLSN() 和 ComputeRequiredXmin() 那样。     
  */
 XLogRecPtr
 ReplicationSlotsComputeLogicalRestartLSN(void)
@@ -985,21 +985,21 @@ ReplicationSlotsComputeLogicalRestartLSN(void)
 
 		s = &ReplicationSlotCtl->replication_slots[i];
 
-		/* cannot change while ReplicationSlotCtlLock is held */
+		/* 持有 ReplicationSlotCtlLock 期间无法变更   */
 		if (!s->in_use)
 			continue;
 
-		/* we're only interested in logical slots */
+		/* 我们只关心逻辑槽               */
 		if (!SlotIsLogical(s))
 			continue;
 
-		/* read once, it's ok if it increases while we're checking */
+		/* 只读一次；检查期间它增大也没关系        */
 		SpinLockAcquire(&s->mutex);
 		restart_lsn = s->data.restart_lsn;
 		invalidated = s->data.invalidated != RS_INVAL_NONE;
 		SpinLockRelease(&s->mutex);
 
-		/* invalidated slots need not apply */
+		/* 已失效的槽无需参与      */
 		if (invalidated)
 			continue;
 
@@ -1017,12 +1017,12 @@ ReplicationSlotsComputeLogicalRestartLSN(void)
 }
 
 /*
- * ReplicationSlotsCountDBSlots -- count the number of slots that refer to the
- * passed database oid.
+ * ReplicationSlotsCountDBSlots -- 统计引用所传数据库                
+ * oid 的槽数。    
  *
- * Returns true if there are any slots referencing the database. *nslots will
- * be set to the absolute number of slots in the database, *nactive to ones
- * currently active.
+ * 若存在任何引用该数据库的槽则返回 true。*nslots 将       
+ * 被设为该数据库中槽的总数，*nactive 设为其中当前      
+ * 活跃槽数。  
  */
 bool
 ReplicationSlotsCountDBSlots(Oid dboid, int *nslots, int *nactive)
@@ -1041,21 +1041,21 @@ ReplicationSlotsCountDBSlots(Oid dboid, int *nslots, int *nactive)
 
 		s = &ReplicationSlotCtl->replication_slots[i];
 
-		/* cannot change while ReplicationSlotCtlLock is held */
+		/* 持有 ReplicationSlotCtlLock 期间无法变更   */
 		if (!s->in_use)
 			continue;
 
-		/* only logical slots are database specific, skip */
+		/* 只有逻辑槽是数据库专属的，跳过  */
 		if (!SlotIsLogical(s))
 			continue;
 
-		/* not our database, skip */
+		/* 非本库，跳过     */
 		if (s->data.database != dboid)
 			continue;
 
-		/* NB: intentionally counting invalidated slots */
+		/* 注意：有意计入已失效的槽         */
 
-		/* count slots with spinlock held */
+		/* 持自旋锁期间统计槽    */
 		SpinLockAcquire(&s->mutex);
 		(*nslots)++;
 		if (s->active_pid != 0)
@@ -1070,17 +1070,17 @@ ReplicationSlotsCountDBSlots(Oid dboid, int *nslots, int *nactive)
 }
 
 /*
- * ReplicationSlotsDropDBSlots -- Drop all db-specific slots relating to the
- * passed database oid. The caller should hold an exclusive lock on the
- * pg_database oid for the database to prevent creation of new slots on the db
- * or replay from existing slots.
+ * ReplicationSlotsDropDBSlots -- 删除与传入数据库 oid 相关的    
+ * 全部数据库专属槽。调用者应在 pg_database 上持有    
+ * 该库的排他锁，以防止在该库上创建新槽或                  
+ * 从既有槽重放。         
  *
- * Another session that concurrently acquires an existing slot on the target DB
- * (most likely to drop it) may cause this function to ERROR. If that happens
- * it may have dropped some but not all slots.
+ * 另一会话并发获取目标库上已有槽（多半要删除它）时    
+ * 可能令本函数报错。若发生这种情况                          
+ * 则可能已删掉部分槽。             
  *
- * This routine isn't as efficient as it could be - but we don't drop
- * databases often, especially databases with lots of slots.
+ * 本例程的效率并非最优，但我们并不常删除         
+ * 数据库，尤其是拥有大量槽的数据库。      
  */
 void
 ReplicationSlotsDropDBSlots(Oid dboid)
@@ -1100,23 +1100,23 @@ restart:
 
 		s = &ReplicationSlotCtl->replication_slots[i];
 
-		/* cannot change while ReplicationSlotCtlLock is held */
+		/* 持有 ReplicationSlotCtlLock 期间无法变更   */
 		if (!s->in_use)
 			continue;
 
-		/* only logical slots are database specific, skip */
+		/* 只有逻辑槽是数据库专属的，跳过  */
 		if (!SlotIsLogical(s))
 			continue;
 
-		/* not our database, skip */
+		/* 非本库，跳过     */
 		if (s->data.database != dboid)
 			continue;
 
-		/* NB: intentionally including invalidated slots */
+		/* 注意：有意包含已失效的槽          */
 
-		/* acquire slot, so ReplicationSlotDropAcquired can be reused  */
+		/* 获取槽，以便复用 ReplicationSlotDropAcquired        */
 		SpinLockAcquire(&s->mutex);
-		/* can't change while ReplicationSlotControlLock is held */
+		/* 持有 ReplicationSlotControlLock 期间无法变更  */
 		slotname = NameStr(s->data.name);
 		active_pid = s->active_pid;
 		if (active_pid == 0)
@@ -1127,11 +1127,11 @@ restart:
 		SpinLockRelease(&s->mutex);
 
 		/*
-		 * Even though we hold an exclusive lock on the database object a
-		 * logical slot for that DB can still be active, e.g. if it's
-		 * concurrently being dropped by a backend connected to another DB.
+		 * 即使持有数据库对象的排他锁，该库的           
+		 * 逻辑槽仍可能处于活跃状态，例如若它正    
+		 * 被连接到另一数据库的后端并发删除。             
 		 *
-		 * That's fairly unlikely in practice, so we'll just bail out.
+		 * 实际中这种情况相当少见，直接退出即可。  
 		 */
 		if (active_pid)
 			ereport(ERROR,
@@ -1140,13 +1140,13 @@ restart:
 							slotname, active_pid)));
 
 		/*
-		 * To avoid duplicating ReplicationSlotDropAcquired() and to avoid
-		 * holding ReplicationSlotControlLock over filesystem operations,
-		 * release ReplicationSlotControlLock and use
-		 * ReplicationSlotDropAcquired.
+		 * 为避免重复 ReplicationSlotDropAcquired() 的实现，     
+		 * 并避免在文件系统操作期间持有锁，先释放     
+		 * ReplicationSlotControlLock 并改用      
+		 * ReplicationSlotDropAcquired 
 		 *
-		 * As that means the set of slots could change, restart scan from the
-		 * beginning each time we release the lock.
+		 * 这意味着槽集合可能变化，因此每次释放锁后      
+		 * 都要从头重新开始扫描。       
 		 */
 		LWLockRelease(ReplicationSlotControlLock);
 		ReplicationSlotDropAcquired();
@@ -1157,15 +1157,15 @@ restart:
 
 
 /*
- * Check whether the server's configuration supports using replication
- * slots.
+ * 检查服务器的配置是否支持使用复制                   
+ * 槽   
  */
 void
 CheckSlotRequirements(void)
 {
 	/*
-	 * NB: Adding a new requirement likely means that RestoreSlotFromDisk()
-	 * needs the same check.
+	 * 注意：新增要求很可能意味着 RestoreSlotFromDisk()       
+	 * 同样需检查。   
 	 */
 
 	if (max_replication_slots == 0)
@@ -1180,7 +1180,7 @@ CheckSlotRequirements(void)
 }
 
 /*
- * Check whether the user has privilege to use replication slots.
+ * 检查用户是否具有使用复制槽的权限。           
  */
 void
 CheckSlotPermissions(void)
@@ -1194,10 +1194,10 @@ CheckSlotPermissions(void)
 }
 
 /*
- * Reserve WAL for the currently active slot.
+ * 为当前活跃的槽保留 WAL。        
  *
- * Compute and set restart_lsn in a manner that's appropriate for the type of
- * the slot and concurrency safe.
+ * 以适合该槽类型的方式计算并设置 restart_lsn，              
+ * 且并发安全。            
  */
 void
 ReplicationSlotReserveWal(void)
@@ -1208,11 +1208,11 @@ ReplicationSlotReserveWal(void)
 	Assert(slot->data.restart_lsn == InvalidXLogRecPtr);
 
 	/*
-	 * The replication slot mechanism is used to prevent removal of required
-	 * WAL. As there is no interlock between this routine and checkpoints, WAL
-	 * segments could concurrently be removed when a now stale return value of
-	 * ReplicationSlotsComputeRequiredLSN() is used. In the unlikely case that
-	 * this happens we'll just retry.
+	 * 复制槽机制用于防止所需的 WAL 被移除。                
+	 * 由于本例程与检查点之间不存在互锁，WAL 段             
+	 * 可能在已过期的 ReplicationSlotsComputeRequiredLSN() 返回值   
+	 * 被使用时被并发移除。万一真的发生这种情况，        
+	 * 我们只需重试。         
 	 */
 	while (true)
 	{
@@ -1220,19 +1220,19 @@ ReplicationSlotReserveWal(void)
 		XLogRecPtr	restart_lsn;
 
 		/*
-		 * For logical slots log a standby snapshot and start logical decoding
-		 * at exactly that position. That allows the slot to start up more
-		 * quickly. But on a standby we cannot do WAL writes, so just use the
-		 * replay pointer; effectively, an attempt to create a logical slot on
-		 * standby will cause it to wait for an xl_running_xact record to be
-		 * logged independently on the primary, so that a snapshot can be
-		 * built using the record.
+		 * 对逻辑槽，会记录一份备库快照并在该位置          
+		 * 精确启动逻辑解码。这样能让槽更快地启动。   
+		 * 但在备库上我们无法执行 WAL 写入，因此只能使用 
+		 * 重放指针；实际上，在备库上创建逻辑槽的尝试， 
+		 * 会使其等待主库上独立记录的 xl_running_xact          
+		 * 记录，以便可以                                         
+		 * 据此构建快照。  
 		 *
-		 * None of this is needed (or indeed helpful) for physical slots as
-		 * they'll start replay at the last logged checkpoint anyway. Instead
-		 * return the location of the last redo LSN. While that slightly
-		 * increases the chance that we have to retry, it's where a base
-		 * backup has to start replay at.
+		 * 对物理槽来说这些都不需要（实际上也无益）， 
+		 * 因为它们反正会从最近记录的检查点开始重放。   
+		 * 改为返回最后 redo LSN 的位置。                     
+		 * 虽会略微增加重试几率，但那是基础备份       
+		 * 必须重放的起点。      
 		 */
 		if (SlotIsPhysical(slot))
 			restart_lsn = GetRedoRecPtr();
@@ -1245,15 +1245,15 @@ ReplicationSlotReserveWal(void)
 		slot->data.restart_lsn = restart_lsn;
 		SpinLockRelease(&slot->mutex);
 
-		/* prevent WAL removal as fast as possible */
+		/* 尽快阻止 WAL 被移除              */
 		ReplicationSlotsComputeRequiredLSN();
 
 		/*
-		 * If all required WAL is still there, great, otherwise retry. The
-		 * slot should prevent further removal of WAL, unless there's a
-		 * concurrent ReplicationSlotsComputeRequiredLSN() after we've written
-		 * the new restart_lsn above, so normally we should never need to loop
-		 * more than twice.
+		 * 若所需的 WAL 仍在，很好，否则重试。             
+		 * 该槽应能阻止 WAL 进一步被移除，除非在       
+		 * 我们在上文写入新的 restart_lsn 之后又有并发的      
+		 * ReplicationSlotsComputeRequiredLSN()，故通常无需循环       
+		 * 超过两轮。 
 		 */
 		XLByteToSeg(slot->data.restart_lsn, segno, wal_segment_size);
 		if (XLogGetLastRemovedSegno() < segno)
@@ -1264,16 +1264,16 @@ ReplicationSlotReserveWal(void)
 	{
 		XLogRecPtr	flushptr;
 
-		/* make sure we have enough information to start */
+		/* 确保已拥有足够的信息来启动       */
 		flushptr = LogStandbySnapshot();
 
-		/* and make sure it's fsynced to disk */
+		/* 并确保已将其 fsync 到磁盘 */
 		XLogFlush(flushptr);
 	}
 }
 
 /*
- * Report that replication slot needs to be invalidated
+ * 报告复制槽需要被置为失效                
  */
 static void
 ReportSlotInvalidation(ReplicationSlotInvalidationCause cause,
@@ -1329,17 +1329,17 @@ ReportSlotInvalidation(ReplicationSlotInvalidationCause cause,
 }
 
 /*
- * Helper for InvalidateObsoleteReplicationSlots
+ * InvalidateObsoleteReplicationSlots 的助手 
  *
- * Acquires the given slot and mark it invalid, if necessary and possible.
+ * 在必要且可能时获取给定的槽并将其标记为失效。     
  *
- * Returns whether ReplicationSlotControlLock was released in the interim (and
- * in that case we're not holding the lock at return, otherwise we are).
+ * 返回期间是否释放过 ReplicationSlotControlLock（若释放过，   
+ * 则返回时不再持有该锁，否则仍持有）。               
  *
- * Sets *invalidated true if the slot was invalidated. (Untouched otherwise.)
+ * 槽已失效时将 *invalidated 置为 true（否则不动）。          
  *
- * This is inherently racy, because we release the LWLock
- * for syscalls, so caller must restart if we return true.
+ * 这本质上有竞态：为系统调用会释放      
+ * LWLock，返回 true 时调用者必须重来。       
  */
 static bool
 InvalidatePossiblyObsoleteSlot(ReplicationSlotInvalidationCause cause,
@@ -1368,19 +1368,19 @@ InvalidatePossiblyObsoleteSlot(ReplicationSlotInvalidationCause cause,
 		}
 
 		/*
-		 * Check if the slot needs to be invalidated. If it needs to be
-		 * invalidated, and is not currently acquired, acquire it and mark it
-		 * as having been invalidated.  We do this with the spinlock held to
-		 * avoid race conditions -- for example the restart_lsn could move
-		 * forward, or the slot could be dropped.
+		 * 检查该槽是否需要失效。若需要失效，         
+		 * 且当前未被获取，则获取它并标记为已失效。      
+		 * 这一步在持有自旋锁时进行，以                       
+		 * 避免竞态条件——例如 restart_lsn 可能前移，     
+		 * 或者该槽可能被删除。        
 		 */
 		SpinLockAcquire(&s->mutex);
 
 		restart_lsn = s->data.restart_lsn;
 
 		/*
-		 * If the slot is already invalid or is a non conflicting slot, we
-		 * don't need to do anything.
+		 * 若该槽已失效或是不冲突的槽，我们               
+		 * 无需做任何事。     
 		 */
 		if (s->data.invalidated == RS_INVAL_NONE)
 		{
@@ -1394,7 +1394,7 @@ InvalidatePossiblyObsoleteSlot(ReplicationSlotInvalidationCause cause,
 				case RS_INVAL_HORIZON:
 					if (!SlotIsLogical(s))
 						break;
-					/* invalid DB oid signals a shared relation */
+					/* 无效的 DB oid 表示共享关系      */
 					if (dboid != InvalidOid && dboid != s->data.database)
 						break;
 					if (TransactionIdIsValid(s->effective_xmin) &&
@@ -1415,7 +1415,7 @@ InvalidatePossiblyObsoleteSlot(ReplicationSlotInvalidationCause cause,
 			}
 		}
 
-		/* if there's no conflict, we're done */
+		/* 若无冲突，即告完成        */
 		if (conflict == RS_INVAL_NONE)
 		{
 			SpinLockRelease(&s->mutex);
@@ -1428,9 +1428,9 @@ InvalidatePossiblyObsoleteSlot(ReplicationSlotInvalidationCause cause,
 		active_pid = s->active_pid;
 
 		/*
-		 * If the slot can be acquired, do so and mark it invalidated
-		 * immediately.  Otherwise we'll signal the owning process, below, and
-		 * retry.
+		 * 若能获取该槽，则获取它并立即                
+		 * 标记为已失效。否则将在下文向持有者发信号并重 
+		 * 试   
 		 */
 		if (active_pid == 0)
 		{
@@ -1439,13 +1439,13 @@ InvalidatePossiblyObsoleteSlot(ReplicationSlotInvalidationCause cause,
 			s->data.invalidated = conflict;
 
 			/*
-			 * XXX: We should consider not overwriting restart_lsn and instead
-			 * just rely on .invalidated.
+			 * XXX: 我们应考虑不覆写 restart_lsn，而是改为       
+			 * 仅依赖 .invalidated。 
 			 */
 			if (conflict == RS_INVAL_WAL_REMOVED)
 				s->data.restart_lsn = InvalidXLogRecPtr;
 
-			/* Let caller know */
+			/* 告知调用者 */
 			*invalidated = true;
 		}
 
@@ -1454,9 +1454,9 @@ InvalidatePossiblyObsoleteSlot(ReplicationSlotInvalidationCause cause,
 		if (active_pid != 0)
 		{
 			/*
-			 * Prepare the sleep on the slot's condition variable before
-			 * releasing the lock, to close a possible race condition if the
-			 * slot is released before the sleep below.
+			 * 在释放锁之前先在槽的条件变量上            
+			 * 以关闭一种可能的竞态：若槽在下方睡眠       
+			 * 之前就被释放。                   
 			 */
 			ConditionVariablePrepareToSleep(&s->active_cv);
 
@@ -1464,16 +1464,16 @@ InvalidatePossiblyObsoleteSlot(ReplicationSlotInvalidationCause cause,
 			released_lock = true;
 
 			/*
-			 * Signal to terminate the process that owns the slot, if we
-			 * haven't already signalled it.  (Avoidance of repeated
-			 * signalling is the only reason for there to be a loop in this
-			 * routine; otherwise we could rely on caller's restart loop.)
+			 * 若尚未向拥有该槽的进程发信号，则向它   
+			 * 发信号令其终止。（避免重复发信号     
+			 * 是本例程中存在循环的唯一原因；               
+			 * 否则本可依赖调用者的重启循环。）           
 			 *
-			 * There is the race condition that other process may own the slot
-			 * after its current owner process is terminated and before this
-			 * process owns it. To handle that, we signal only if the PID of
-			 * the owning process has changed from the previous time. (This
-			 * logic assumes that the same PID is not reused very quickly.)
+			 * 存在这样的竞态：其他进程可能在当前            
+			 * 拥有者进程结束后、本进程获得它之前          
+			 * 拥有该槽。为处理这种情况，只有当             
+			 * 拥有者进程的 PID 相对上次发生了变化时       
+			 * 才发信号。（假定 PID 不会很快被复用。）    
 			 */
 			if (last_signaled_pid != active_pid)
 			{
@@ -1491,22 +1491,22 @@ InvalidatePossiblyObsoleteSlot(ReplicationSlotInvalidationCause cause,
 				last_signaled_pid = active_pid;
 			}
 
-			/* Wait until the slot is released. */
+			/* 等待槽被释放。            */
 			ConditionVariableSleep(&s->active_cv,
 								   WAIT_EVENT_REPLICATION_SLOT_DROP);
 
 			/*
-			 * Re-acquire lock and start over; we expect to invalidate the
-			 * slot next time (unless another process acquires the slot in the
-			 * meantime).
+			 * 重新获取锁并从头再来；我们预期下次        
+			 * 就能使该槽失效（除非期间另一进程获取了      
+			 * 该槽） 
 			 *
-			 * Note: It is possible for a slot to advance its restart_lsn or
-			 * xmin values sufficiently between when we release the mutex and
-			 * when we recheck, moving from a conflicting state to a non
-			 * conflicting state.  This is intentional and safe: if the slot
-			 * has caught up while we're busy here, the resources we were
-			 * concerned about (WAL segments or tuples) have not yet been
-			 * removed, and there's no reason to invalidate the slot.
+			 * 注意：槽可能在释放互斥锁与重新检查之间， 
+			 * 将 restart_lsn 或 xmin 值推进到足够程度，          
+			 * 从而从冲突状态变为非冲突状态。            
+			 * 这是有意为之且安全的：如果槽在我们忙于    
+			 * 此处期间已经赶上，那么我们所关心的资源 
+			 * （WAL 段或元组）尚未被移除，                  
+			 * 因此没有理由使该槽失效。                  
 			 */
 			LWLockAcquire(ReplicationSlotControlLock, LW_SHARED);
 			continue;
@@ -1514,17 +1514,17 @@ InvalidatePossiblyObsoleteSlot(ReplicationSlotInvalidationCause cause,
 		else
 		{
 			/*
-			 * We hold the slot now and have already invalidated it; flush it
-			 * to ensure that state persists.
+			 * 我们现在持有该槽且已使其失效；请刷写它     
+			 * 以确保状态持久化。   
 			 *
-			 * Don't want to hold ReplicationSlotControlLock across file
-			 * system operations, so release it now but be sure to tell caller
-			 * to restart from scratch.
+			 * 勿跨文件操作持有 ReplicationSlotControlLock，   
+			 * 因此现在就释放它，但务必告知调用者            
+			 * 从头重来。         
 			 */
 			LWLockRelease(ReplicationSlotControlLock);
 			released_lock = true;
 
-			/* Make sure the invalidated state persists across server restart */
+			/* 确保已失效状态能在服务器重启后持久保留      */
 			ReplicationSlotMarkDirty();
 			ReplicationSlotSave();
 			ReplicationSlotRelease();
@@ -1534,7 +1534,7 @@ InvalidatePossiblyObsoleteSlot(ReplicationSlotInvalidationCause cause,
 								   slotname, restart_lsn,
 								   oldestLSN, snapshotConflictHorizon);
 
-			/* done with this slot for now */
+			/* 此槽暂告一段落       */
 			break;
 		}
 	}
@@ -1545,18 +1545,18 @@ InvalidatePossiblyObsoleteSlot(ReplicationSlotInvalidationCause cause,
 }
 
 /*
- * Invalidate slots that require resources about to be removed.
+ * 使需要即将被移除的资源的槽失效。            
  *
- * Returns true when any slot have got invalidated.
+ * 若有任何槽已失效则返回 true。       
  *
- * Whether a slot needs to be invalidated depends on the cause. A slot is
- * removed if it:
- * - RS_INVAL_WAL_REMOVED: requires a LSN older than the given segment
- * - RS_INVAL_HORIZON: requires a snapshot <= the given horizon in the given
- *   db; dboid may be InvalidOid for shared relations
- * - RS_INVAL_WAL_LEVEL: is logical
+ * 是否需要失效取决于原因。下列情况槽会被             
+ * 删除：     
+ * - RS_INVAL_WAL_REMOVED: 需要比给定段更旧的 LSN            
+ * - RS_INVAL_HORIZON: 在给定库中需要快照 <= 给定视界；       
+ *   dboid 对共享关系可为 InvalidOid          
+ * - RS_INVAL_WAL_LEVEL: 为逻辑 
  *
- * NB - this runs as part of checkpoint, so avoid raising errors if possible.
+ * 注意：这在检查点中运行，尽可能避免报错。              
  */
 bool
 InvalidateObsoleteReplicationSlots(ReplicationSlotInvalidationCause cause,
@@ -1588,14 +1588,14 @@ restart:
 										   snapshotConflictHorizon,
 										   &invalidated))
 		{
-			/* if the lock was released, start from scratch */
+			/* 若锁曾被释放，则从头开始         */
 			goto restart;
 		}
 	}
 	LWLockRelease(ReplicationSlotControlLock);
 
 	/*
-	 * If any slots have been invalidated, recalculate the resource limits.
+	 * 若有槽已失效，则重新计算资源限制。                 
 	 */
 	if (invalidated)
 	{
@@ -1607,10 +1607,10 @@ restart:
 }
 
 /*
- * Flush all replication slots to disk.
+ * 把全部复制槽刷盘。         
  *
- * This needn't actually be part of a checkpoint, but it's a convenient
- * location.
+ * 这其实不必作为检查点的一部分，但此处              
+ * 方便   
  */
 void
 CheckPointReplicationSlots(void)
@@ -1620,11 +1620,11 @@ CheckPointReplicationSlots(void)
 	elog(DEBUG1, "performing replication slot checkpoint");
 
 	/*
-	 * Prevent any slot from being created/dropped while we're active. As we
-	 * explicitly do *not* want to block iterating over replication_slots or
-	 * acquiring a slot we cannot take the control lock - but that's OK,
-	 * because holding ReplicationSlotAllocationLock is strictly stronger, and
-	 * enough to guarantee that nobody can change the in_use bits on us.
+	 * 在我们活跃期间阻止任何槽被创建/删除。由于        
+	 * 明确 *不* 想阻塞对 replication_slots 的遍历或             
+	 * 获取槽，故我们无法拿控制锁——但没关系，     
+	 * 因为持有 ReplicationSlotAllocationLock 严格更强，             
+	 * 足以保证没有人能在我们眼皮下改动 in_use 位。   
 	 */
 	LWLockAcquire(ReplicationSlotAllocationLock, LW_SHARED);
 
@@ -1636,7 +1636,7 @@ CheckPointReplicationSlots(void)
 		if (!s->in_use)
 			continue;
 
-		/* save the slot to disk, locking is handled in SaveSlotToPath() */
+		/* 把槽保存到磁盘，加锁在 SaveSlotToPath() 中处理  */
 		sprintf(path, "pg_replslot/%s", NameStr(s->data.name));
 		SaveSlotToPath(s, path, LOG);
 	}
@@ -1644,8 +1644,8 @@ CheckPointReplicationSlots(void)
 }
 
 /*
- * Load all replication slots from disk into memory at server startup. This
- * needs to be run before we start crash recovery.
+ * 在服务器启动时把所有复制槽从磁盘加载进内存。      
+ * 这需要在开始崩溃恢复之前运行。  
  */
 void
 StartupReplicationSlots(void)
@@ -1655,7 +1655,7 @@ StartupReplicationSlots(void)
 
 	elog(DEBUG1, "starting up replication slots");
 
-	/* restore all slots by iterating over all on-disk entries */
+	/* 通过遍历所有磁盘上的条目来恢复全部槽  */
 	replication_dir = AllocateDir("pg_replslot");
 	while ((replication_de = ReadDir(replication_dir, "pg_replslot")) != NULL)
 	{
@@ -1669,11 +1669,11 @@ StartupReplicationSlots(void)
 		snprintf(path, sizeof(path), "pg_replslot/%s", replication_de->d_name);
 		de_type = get_dirent_type(path, replication_de, false, DEBUG1);
 
-		/* we're only creating directories here, skip if it's not our's */
+		/* 这里只是创建目录，若不是我们的目录则跳过 */
 		if (de_type != PGFILETYPE_ERROR && de_type != PGFILETYPE_DIR)
 			continue;
 
-		/* we crashed while a slot was being setup or deleted, clean up */
+		/* 槽正在建立或删除时发生崩溃，进行清理       */
 		if (pg_str_endswith(replication_de->d_name, ".tmp"))
 		{
 			if (!rmtree(path, true))
@@ -1687,25 +1687,25 @@ StartupReplicationSlots(void)
 			continue;
 		}
 
-		/* looks like a slot in a normal state, restore */
+		/* 看似处于正常状态的槽，予以恢复*/
 		RestoreSlotFromDisk(replication_de->d_name);
 	}
 	FreeDir(replication_dir);
 
-	/* currently no slots exist, we're done. */
+	/* 当前不存在任何槽，完成。  */
 	if (max_replication_slots <= 0)
 		return;
 
-	/* Now that we have recovered all the data, compute replication xmin */
+	/* 现已恢复全部数据，接下来计算复制 xmin             */
 	ReplicationSlotsComputeRequiredXmin(false);
 	ReplicationSlotsComputeRequiredLSN();
 }
 
 /* ----
- * Manipulation of on-disk state of replication slots
+ * 复制槽磁盘状态的操纵                    
  *
- * NB: none of the routines below should take any notice whether a slot is the
- * current one or not, that's all handled a layer above.
+ * 注意：下述例程都不应关心某个槽是否是当前槽，         
+ * 这些都由上一层负责处理。                 
  * ----
  */
 static void
@@ -1716,25 +1716,25 @@ CreateSlotOnDisk(ReplicationSlot *slot)
 	struct stat st;
 
 	/*
-	 * No need to take out the io_in_progress_lock, nobody else can see this
-	 * slot yet, so nobody else will write. We're reusing SaveSlotToPath which
-	 * takes out the lock, if we'd take the lock here, we'd deadlock.
+	 * 无需获取 io_in_progress_lock，还没有别人能看到          
+	 * 该槽，所以别人也不会写。我们复用了 SaveSlotToPath，  
+	 * 而它取锁；若我们在此取锁就会死锁。           
 	 */
 
 	sprintf(path, "pg_replslot/%s", NameStr(slot->data.name));
 	sprintf(tmppath, "pg_replslot/%s.tmp", NameStr(slot->data.name));
 
 	/*
-	 * It's just barely possible that some previous effort to create or drop a
-	 * slot with this name left a temp directory lying around. If that seems
-	 * to be the case, try to remove it.  If the rmtree() fails, we'll error
-	 * out at the MakePGDirectory() below, so we don't bother checking
-	 * success.
+	 * 有一种极小的可能：先前创建或删除同名槽的           
+	 * 尝试遗留了一个临时目录。如果看起来是这样，      
+	 * 就尝试删除它。如果 rmtree() 失败，我们会在           
+	 * 下面的 MakePGDirectory() 处报错，因此无需检查     
+	 * 成败  
 	 */
 	if (stat(tmppath, &st) == 0 && S_ISDIR(st.st_mode))
 		rmtree(tmppath, true);
 
-	/* Create and fsync the temporary slot directory. */
+	/* 创建临时槽目录并将其 fsync。        */
 	if (MakePGDirectory(tmppath) < 0)
 		ereport(ERROR,
 				(errcode_for_file_access(),
@@ -1742,11 +1742,11 @@ CreateSlotOnDisk(ReplicationSlot *slot)
 						tmppath)));
 	fsync_fname(tmppath, true);
 
-	/* Write the actual state file. */
-	slot->dirty = true;			/* signal that we really need to write */
+	/* 写入实际状态文件。  */
+	slot->dirty = true;			/* 表示我们确实需要写         */
 	SaveSlotToPath(slot, tmppath, ERROR);
 
-	/* Rename the directory into place. */
+	/* 把目录重命名到位。      */
 	if (rename(tmppath, path) != 0)
 		ereport(ERROR,
 				(errcode_for_file_access(),
@@ -1754,9 +1754,9 @@ CreateSlotOnDisk(ReplicationSlot *slot)
 						tmppath, path)));
 
 	/*
-	 * If we'd now fail - really unlikely - we wouldn't know whether this slot
-	 * would persist after an OS crash or not - so, force a restart. The
-	 * restart would try to fsync this again till it works.
+	 * 如果此刻失败——可能性极小——我们将无从得知     
+	 * 该槽崩溃后能否存续——所以强制重启。           
+	 * 重启会反复尝试 fsync 直到成功。         
 	 */
 	START_CRIT_SECTION();
 
@@ -1767,7 +1767,7 @@ CreateSlotOnDisk(ReplicationSlot *slot)
 }
 
 /*
- * Shared functionality between saving and creating a replication slot.
+ * 保存与创建复制槽共用的功能。                          
  */
 static void
 SaveSlotToPath(ReplicationSlot *slot, const char *dir, int elevel)
@@ -1778,19 +1778,19 @@ SaveSlotToPath(ReplicationSlot *slot, const char *dir, int elevel)
 	ReplicationSlotOnDisk cp;
 	bool		was_dirty;
 
-	/* first check whether there's something to write out */
+	/* 先检查是否有内容需要写出               */
 	SpinLockAcquire(&slot->mutex);
 	was_dirty = slot->dirty;
 	slot->just_dirtied = false;
 	SpinLockRelease(&slot->mutex);
 
-	/* and don't do anything if there's nothing to write */
+	/* 若无内容可写则什么都不做              */
 	if (!was_dirty)
 		return;
 
 	LWLockAcquire(&slot->io_in_progress_lock, LW_EXCLUSIVE);
 
-	/* silence valgrind :( */
+	/* 安抚 valgrind :(  */
 	memset(&cp, 0, sizeof(ReplicationSlotOnDisk));
 
 	sprintf(tmppath, "%s/state.tmp", dir);
@@ -1800,10 +1800,10 @@ SaveSlotToPath(ReplicationSlot *slot, const char *dir, int elevel)
 	if (fd < 0)
 	{
 		/*
-		 * If not an ERROR, then release the lock before returning.  In case
-		 * of an ERROR, the error recovery path automatically releases the
-		 * lock, but no harm in explicitly releasing even in that case.  Note
-		 * that LWLockRelease() could affect errno.
+		 * 若非 ERROR，则在返回前释放锁。                       
+		 * 若是 ERROR，错误恢复路径会自动释放锁，         
+		 * 但即便在这种情况下显式释放也无妨。注意         
+		 * LWLockRelease() 可能影响 errno。   
 		 */
 		int			save_errno = errno;
 
@@ -1843,7 +1843,7 @@ SaveSlotToPath(ReplicationSlot *slot, const char *dir, int elevel)
 		unlink(tmppath);
 		LWLockRelease(&slot->io_in_progress_lock);
 
-		/* if write didn't set errno, assume problem is no disk space */
+		/* 若写入未设 errno，则假定为磁盘空间不足     */
 		errno = save_errno ? save_errno : ENOSPC;
 		ereport(elevel,
 				(errcode_for_file_access(),
@@ -1853,7 +1853,7 @@ SaveSlotToPath(ReplicationSlot *slot, const char *dir, int elevel)
 	}
 	pgstat_report_wait_end();
 
-	/* fsync the temporary file */
+	/* fsync 临时文件       */
 	pgstat_report_wait_start(WAIT_EVENT_REPLICATION_SLOT_SYNC);
 	if (pg_fsync(fd) != 0)
 	{
@@ -1888,7 +1888,7 @@ SaveSlotToPath(ReplicationSlot *slot, const char *dir, int elevel)
 		return;
 	}
 
-	/* rename to permanent file, fsync file and directory */
+	/* 重命名为永久文件，fsync 文件和目录   */
 	if (rename(tmppath, path) != 0)
 	{
 		int			save_errno = errno;
@@ -1905,7 +1905,7 @@ SaveSlotToPath(ReplicationSlot *slot, const char *dir, int elevel)
 	}
 
 	/*
-	 * Check CreateSlotOnDisk() for the reasoning of using a critical section.
+	 * 使用临界区的理由参见 CreateSlotOnDisk()。                   
 	 */
 	START_CRIT_SECTION();
 
@@ -1916,8 +1916,8 @@ SaveSlotToPath(ReplicationSlot *slot, const char *dir, int elevel)
 	END_CRIT_SECTION();
 
 	/*
-	 * Successfully wrote, unset dirty bit, unless somebody dirtied again
-	 * already.
+	 * 写入成功后清除脏位，除非已有人再次               
+	 * 弄脏  
 	 */
 	SpinLockAcquire(&slot->mutex);
 	if (!slot->just_dirtied)
@@ -1928,7 +1928,7 @@ SaveSlotToPath(ReplicationSlot *slot, const char *dir, int elevel)
 }
 
 /*
- * Load a single slot from disk into memory.
+ * 把单个槽从磁盘加载进内存。  
  */
 static void
 RestoreSlotFromDisk(const char *name)
@@ -1942,9 +1942,9 @@ RestoreSlotFromDisk(const char *name)
 	int			readBytes;
 	pg_crc32c	checksum;
 
-	/* no need to lock here, no concurrent access allowed yet */
+	/* 此处无需加锁，尚不允许并发访问          */
 
-	/* delete temp file if it exists */
+	/* 临时文件存在则删除   */
 	sprintf(slotdir, "pg_replslot/%s", name);
 	sprintf(path, "%s/state.tmp", slotdir);
 	if (unlink(path) < 0 && errno != ENOENT)
@@ -1956,12 +1956,12 @@ RestoreSlotFromDisk(const char *name)
 
 	elog(DEBUG1, "restoring replication slot from \"%s\"", path);
 
-	/* on some operating systems fsyncing a file requires O_RDWR */
+	/* 在某些操作系统上 fsync 文件需要 O_RDWR        */
 	fd = OpenTransientFile(path, O_RDWR | PG_BINARY);
 
 	/*
-	 * We do not need to handle this as we are rename()ing the directory into
-	 * place only after we fsync()ed the state file.
+	 * 我们无需处理这个，因为我们只在状态文件被          
+	 * fsync() 之后才把目录重命名到位。 
 	 */
 	if (fd < 0)
 		ereport(PANIC,
@@ -1969,8 +1969,8 @@ RestoreSlotFromDisk(const char *name)
 				 errmsg("could not open file \"%s\": %m", path)));
 
 	/*
-	 * Sync state file before we're reading from it. We might have crashed
-	 * while it wasn't synced yet and we shouldn't continue on that basis.
+	 * 在读取状态文件之前先同步它。我们可能曾          
+	 * 在它尚未被同步时崩溃，且不应基于该状态继续。 
 	 */
 	pgstat_report_wait_start(WAIT_EVENT_REPLICATION_SLOT_RESTORE_SYNC);
 	if (pg_fsync(fd) != 0)
@@ -1980,12 +1980,12 @@ RestoreSlotFromDisk(const char *name)
 						path)));
 	pgstat_report_wait_end();
 
-	/* Also sync the parent directory */
+	/* 也同步父目录             */
 	START_CRIT_SECTION();
 	fsync_fname(slotdir, true);
 	END_CRIT_SECTION();
 
-	/* read part of statefile that's guaranteed to be version independent */
+	/* 读取状态文件中保证与版本无关的那部分             */
 	pgstat_report_wait_start(WAIT_EVENT_REPLICATION_SLOT_READ);
 	readBytes = read(fd, &cp, ReplicationSlotOnDiskConstantSize);
 	pgstat_report_wait_end();
@@ -2003,28 +2003,28 @@ RestoreSlotFromDisk(const char *name)
 							(Size) ReplicationSlotOnDiskConstantSize)));
 	}
 
-	/* verify magic */
+	/* 校验魔数 */
 	if (cp.magic != SLOT_MAGIC)
 		ereport(PANIC,
 				(errcode(ERRCODE_DATA_CORRUPTED),
 				 errmsg("replication slot file \"%s\" has wrong magic number: %u instead of %u",
 						path, cp.magic, SLOT_MAGIC)));
 
-	/* verify version */
+	/* 校验版本   */
 	if (cp.version != SLOT_VERSION)
 		ereport(PANIC,
 				(errcode(ERRCODE_DATA_CORRUPTED),
 				 errmsg("replication slot file \"%s\" has unsupported version %u",
 						path, cp.version)));
 
-	/* boundary check on length */
+	/* 对长度做边界检查 */
 	if (cp.length != ReplicationSlotOnDiskV2Size)
 		ereport(PANIC,
 				(errcode(ERRCODE_DATA_CORRUPTED),
 				 errmsg("replication slot file \"%s\" has corrupted length %u",
 						path, cp.length)));
 
-	/* Now that we know the size, read the entire file */
+	/* 现已知道大小，读取整个文件         */
 	pgstat_report_wait_start(WAIT_EVENT_REPLICATION_SLOT_READ);
 	readBytes = read(fd,
 					 (char *) &cp + ReplicationSlotOnDiskConstantSize,
@@ -2048,7 +2048,7 @@ RestoreSlotFromDisk(const char *name)
 				(errcode_for_file_access(),
 				 errmsg("could not close file \"%s\": %m", path)));
 
-	/* now verify the CRC */
+	/* 现在校验 CRC   */
 	INIT_CRC32C(checksum);
 	COMP_CRC32C(checksum,
 				(char *) &cp + ReplicationSlotOnDiskNotChecksummedSize,
@@ -2061,8 +2061,8 @@ RestoreSlotFromDisk(const char *name)
 						path, checksum, cp.checksum)));
 
 	/*
-	 * If we crashed with an ephemeral slot active, don't restore but delete
-	 * it.
+	 * 若崩溃时有瞬态槽活跃，不要恢复而是删除它         
+	 * .  
 	 */
 	if (cp.slotdata.persistency != RS_PERSISTENT)
 	{
@@ -2077,16 +2077,16 @@ RestoreSlotFromDisk(const char *name)
 	}
 
 	/*
-	 * Verify that requirements for the specific slot type are met. That's
-	 * important because if these aren't met we're not guaranteed to retain
-	 * all the necessary resources for the slot.
+	 * 校验特定槽类型的前置条件是否满足。                
+	 * 这很重要，因为若不满足，就无法保证为该槽        
+	 * 保留全部所需资源。              
 	 *
-	 * NB: We have to do so *after* the above checks for ephemeral slots,
-	 * because otherwise a slot that shouldn't exist anymore could prevent
-	 * restarts.
+	 * 注意：瞬态槽必须在上述检查 *之后* 做，           
+	 * 否则一个本不应再存在的槽可能会阻碍                
+	 * 重启   
 	 *
-	 * NB: Changing the requirements here also requires adapting
-	 * CheckSlotRequirements() and CheckLogicalDecodingRequirements().
+	 * 注意：在此改动前置条件还需相应调整      
+	 * CheckSlotRequirements() 与 CheckLogicalDecodingRequirements() 
 	 */
 	if (cp.slotdata.database != InvalidOid)
 	{
@@ -2098,11 +2098,11 @@ RestoreSlotFromDisk(const char *name)
 					 errhint("Change wal_level to be logical or higher.")));
 
 		/*
-		 * In standby mode, the hot standby must be enabled. This check is
-		 * necessary to ensure logical slots are invalidated when they become
-		 * incompatible due to insufficient wal_level. Otherwise, if the
-		 * primary reduces wal_level < logical while hot standby is disabled,
-		 * logical slots would remain valid even after promotion.
+		 * 备库模式下必须启用热备。此检查                  
+		 * 旨在确保逻辑槽因 wal_level 不足而变得不兼容时    
+		 * 会失效。否则，若主库在热备禁用时把          
+		 * wal_level 降到 logical 之下，逻辑槽在提升后           
+		 * 仍会保持有效。                                 
 		 */
 		if (StandbyMode && !EnableHotStandby)
 			ereport(FATAL,
@@ -2118,7 +2118,7 @@ RestoreSlotFromDisk(const char *name)
 						NameStr(cp.slotdata.name)),
 				 errhint("Change wal_level to be replica or higher.")));
 
-	/* nothing can be active yet, don't lock anything */
+	/* 尚不可能有活跃对象，无需加锁     */
 	for (i = 0; i < max_replication_slots; i++)
 	{
 		ReplicationSlot *slot;
@@ -2128,11 +2128,11 @@ RestoreSlotFromDisk(const char *name)
 		if (slot->in_use)
 			continue;
 
-		/* restore the entire set of persistent data */
+		/* 恢复整组持久化数据               */
 		memcpy(&slot->data, &cp.slotdata,
 			   sizeof(ReplicationSlotPersistentData));
 
-		/* initialize in memory state */
+		/* 初始化内存中的状态*/
 		slot->effective_xmin = cp.slotdata.xmin;
 		slot->effective_catalog_xmin = cp.slotdata.catalog_xmin;
 

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pgoutput.c
- *		Logical Replication output plugin
+ *		逻辑复制输出插件         
  *
  * Copyright (c) 2012-2023, PostgreSQL Global Development Group
  *
@@ -84,9 +84,9 @@ static bool publications_valid;
 static bool in_streaming;
 
 /*
- * Private memory context for publication data, created in
- * PGOutputData->context when starting pgoutput, and set to NULL when its
- * parent context is reset via a dedicated MemoryContextCallback.
+ * 出版物数据的私有内存上下文，pgoutput     
+ * 启动时创建于 PGOutputData->context；其父上下文被         
+ * 专用 MemoryContextCallback 重置时置为 NULL             
  */
 static MemoryContext pubctx = NULL;
 
@@ -101,8 +101,8 @@ static void send_repl_origin(LogicalDecodingContext *ctx,
 							 bool send_origin);
 
 /*
- * Only 3 publication actions are used for row filtering ("insert", "update",
- * "delete"). See RelationSyncEntry.exprstate[].
+ * 行过滤仅用 3 种出版物动作（"insert"、"update"、             
+ * "delete"）见 RelationSyncEntry.exprstate[] 
  */
 enum RowFilterPubAction
 {
@@ -114,108 +114,108 @@ enum RowFilterPubAction
 #define NUM_ROWFILTER_PUBACTIONS (PUBACTION_DELETE+1)
 
 /*
- * Entry in the map used to remember which relation schemas we sent.
+ * 映射中的条目，记录已发送过哪些关系模式        
  *
- * The schema_sent flag determines if the current schema record for the
- * relation (and for its ancestor if publish_as_relid is set) was already
- * sent to the subscriber (in which case we don't need to send it again).
+ * schema_sent 标志判断该关系（若设置了 publish_as_relid   
+ * 还包括其祖先）的当前模式记录是否已发送给订阅者 
+ * （已发送则无需再次发送）                                  
  *
- * The schema cache on downstream is however updated only at commit time,
- * and with streamed transactions the commit order may be different from
- * the order the transactions are sent in. Also, the (sub) transactions
- * might get aborted so we need to send the schema for each (sub) transaction
- * so that we don't lose the schema information on abort. For handling this,
- * we maintain the list of xids (streamed_txns) for those we have already sent
- * the schema.
+ * 下游只在提交时更新模式缓存，而流式事务的提交顺 
+ * 序可能与事务的发送顺序不同。此外，（子）事务   
+ * 可能中止，所以需为每个（子）事务都发送模式     
+ * ，以免中止时丢失模式信息。为此，我们为已发送过     
+ * 模式的                                                                
+ * 各事务维护相应的 xid 列表（streamed_txns）                     
+ * 。        
  *
- * For partitions, 'pubactions' considers not only the table's own
- * publications, but also those of all of its ancestors.
+ * 分区时，'pubactions'不只考虑表自身出版物，也   
+ * 考虑其所有祖先的出版物。                 
  */
 typedef struct RelationSyncEntry
 {
-	Oid			relid;			/* relation oid */
+	Oid			relid;			/* 关系 OID   */
 
-	bool		replicate_valid;	/* overall validity flag for entry */
+	bool		replicate_valid;	/* 条目的整体有效性标志  */
 
 	bool		schema_sent;
 	List	   *streamed_txns;	/* streamed toplevel transactions with this
 								 * schema */
 
-	/* are we publishing this rel? */
+	/* 是否发布此关系？    */
 	PublicationActions pubactions;
 
 	/*
-	 * ExprState array for row filter. Different publication actions don't
-	 * allow multiple expressions to always be combined into one, because
-	 * updates or deletes restrict the column in expression to be part of the
-	 * replica identity index whereas inserts do not have this restriction, so
-	 * there is one ExprState per publication action.
+	 * 行过滤的 ExprState 数组。不同出版物动作并非总能  
+	 * 把多个表达式合并为一个，因为 update 或 delete 要  
+	 * 求表达式中的列属于复制标识索引，而 insert 没有这  
+	 * 种限制，因此每个出版物动作各有一个                    
+	 * ExprState。                                  
 	 */
 	ExprState  *exprstate[NUM_ROWFILTER_PUBACTIONS];
-	EState	   *estate;			/* executor state used for row filter */
-	TupleTableSlot *new_slot;	/* slot for storing new tuple */
-	TupleTableSlot *old_slot;	/* slot for storing old tuple */
+	EState	   *estate;			/* 行过滤所用的执行器状态  */
+	TupleTableSlot *new_slot;	/* 存放新元组的槽      */
+	TupleTableSlot *old_slot;	/* 存放旧元组的槽      */
 
 	/*
-	 * OID of the relation to publish changes as.  For a partition, this may
-	 * be set to one of its ancestors whose schema will be used when
-	 * replicating changes, if publish_via_partition_root is set for the
-	 * publication.
+	 * 要以哪个关系发布变更的 OID。若该出版物设置了     
+	 * publish_via_partition_root，便可将其设为它的某     
+	 * 个祖先，复制变更时将使用该祖先的模式           
+	 * 。         
 	 */
 	Oid			publish_as_relid;
 
 	/*
-	 * Map used when replicating using an ancestor's schema to convert tuples
-	 * from partition's type to the ancestor's; NULL if publish_as_relid is
-	 * same as 'relid' or if unnecessary due to partition and the ancestor
-	 * having identical TupleDesc.
+	 * 使用祖先模式复制时，用于把元组从分区的类型转换 
+	 * 为祖先的类型；若 publish_as_relid 与 'relid' 相同，     
+	 * 或因分区与祖先的 TupleDesc 完全一致而无须转换，  
+	 * 则为 NULL                
 	 */
 	AttrMap    *attrmap;
 
 	/*
-	 * Columns included in the publication, or NULL if all columns are
-	 * included implicitly.  Note that the attnums in this bitmap are not
-	 * shifted by FirstLowInvalidHeapAttributeNumber.
+	 * 出版物包含的列，若隐式包含全部列则为 NULL    
+	 * 注意此位图中的 attnum 并未按 FirstLowInvalidHeap        
+	 * AttributeNumber 移位                        
 	 */
 	Bitmapset  *columns;
 
 	/*
-	 * Private context to store additional data for this entry - state for the
-	 * row filter expressions, column list, etc.
+	 * 私有上下文，存放此条目的附加数据——行过滤表达  
+	 * 达式的状态、列列表等           
 	 */
 	MemoryContext entry_cxt;
 } RelationSyncEntry;
 
 /*
- * Maintain a per-transaction level variable to track whether the transaction
- * has sent BEGIN. BEGIN is only sent when the first change in a transaction
- * is processed. This makes it possible to skip sending a pair of BEGIN/COMMIT
- * messages for empty transactions which saves network bandwidth.
+ * 维护一个事务级变量，跟踪该事务是否已发送 BEGIN。     
+ * BEGIN 只在处理事务中的第一个变更时才发送。这样       
+ * 可以跳过为空事务发送一对 BEGIN/COMMIT 消息，从             
+ * 而节省网络带宽。                                      
  *
- * This optimization is not used for prepared transactions because if the
- * WALSender restarts after prepare of a transaction and before commit prepared
- * of the same transaction then we won't be able to figure out if we have
- * skipped sending BEGIN/PREPARE of a transaction as it was empty. This is
- * because we would have lost the in-memory txndata information that was
- * present prior to the restart. This will result in sending a spurious
- * COMMIT PREPARED without a corresponding prepared transaction at the
- * downstream which would lead to an error when it tries to process it.
+ * 已准备事务不使用该优化：因为若 WALSender 在某事务  
+ * prepare 之后、同一事务 commit prepared 之前重启，我            
+ * 们将无法判断是否因事务为空而跳过了发送 BEGIN/      
+ * PREPARE。这是因为重启前的内存 txndata 信息已经          
+ * 丢失。这会导致向下游发送一个虚假的                  
+ * COMMIT PREPARED，下游没有对应的已准备事务，处        
+ * 理它时便会出错。                                           
+ * 。                                                                 
  *
- * XXX We could achieve this optimization by changing protocol to send
- * additional information so that downstream can detect that the corresponding
- * prepare has not been sent. However, adding such a check for every
- * transaction in the downstream could be costly so we might want to do it
- * optionally.
+ * XXX 也可修改协议、发送额外信息，让下游能检测   
+ * 到相应 prepare 尚未发送。但为下游中的每个事务都增加   
+ * 这种检查代价可能很高，所以我们或许希望        
+ * 把它做成可选的。                                               
+ * 。        
  *
- * We also don't have this optimization for streamed transactions because
- * they can contain prepared transactions.
+ * 流式事务也无这一优化，因为它们可能包含已准备    
+ * 事务。                              
  */
 typedef struct PGOutputTxnData
 {
-	bool		sent_begin_txn; /* flag indicating whether BEGIN has been sent */
+	bool		sent_begin_txn; /* 指示是否已发送 BEGIN 的标志       */
 } PGOutputTxnData;
 
-/* Map used to remember which relation schemas we sent. */
+/* 记住已发送了哪些关系模式的映射。     */
 static HTAB *RelationSyncCache = NULL;
 
 static void init_rel_sync_cache(MemoryContext cachectx);
@@ -233,7 +233,7 @@ static void init_tuple_slot(PGOutputData *data, Relation relation,
 							RelationSyncEntry *entry);
 static void pgoutput_memory_context_reset(void *arg);
 
-/* row filter routines */
+/* 行过滤例程     */
 static EState *create_estate_for_relation(Relation rel);
 static void pgoutput_row_filter_init(PGOutputData *data,
 									 List *publications,
@@ -245,13 +245,13 @@ static bool pgoutput_row_filter(Relation relation, TupleTableSlot *old_slot,
 								RelationSyncEntry *entry,
 								ReorderBufferChangeType *action);
 
-/* column list routines */
+/* 列列表例程      */
 static void pgoutput_column_list_init(PGOutputData *data,
 									  List *publications,
 									  RelationSyncEntry *entry);
 
 /*
- * Specify output plugin callbacks
+ * 指定输出插件回调       
  */
 void
 _PG_output_plugin_init(OutputPluginCallbacks *cb)
@@ -270,7 +270,7 @@ _PG_output_plugin_init(OutputPluginCallbacks *cb)
 	cb->filter_by_origin_cb = pgoutput_origin_filter;
 	cb->shutdown_cb = pgoutput_shutdown;
 
-	/* transaction streaming */
+	/* 事务流式传输    */
 	cb->stream_start_cb = pgoutput_stream_start;
 	cb->stream_stop_cb = pgoutput_stream_stop;
 	cb->stream_abort_cb = pgoutput_stream_abort;
@@ -278,7 +278,7 @@ _PG_output_plugin_init(OutputPluginCallbacks *cb)
 	cb->stream_change_cb = pgoutput_change;
 	cb->stream_message_cb = pgoutput_message;
 	cb->stream_truncate_cb = pgoutput_truncate;
-	/* transaction streaming - two-phase commit */
+	/* 事务流式传输——两阶段提交  */
 	cb->stream_prepare_cb = pgoutput_stream_prepare_txn;
 }
 
@@ -305,7 +305,7 @@ parse_output_parameters(List *options, PGOutputData *data)
 
 		Assert(defel->arg == NULL || IsA(defel->arg, String));
 
-		/* Check each param, whether or not we recognize it */
+		/* 检查每个参数，无论我们是否认识它 */
 		if (strcmp(defel->defname, "proto_version") == 0)
 		{
 			unsigned long parsed;
@@ -408,7 +408,7 @@ parse_output_parameters(List *options, PGOutputData *data)
 }
 
 /*
- * Memory context reset callback of PGOutputData->context.
+ * PGOutputData->context 的上下文重置回调         
  */
 static void
 pgoutput_memory_context_reset(void *arg)
@@ -419,12 +419,12 @@ pgoutput_memory_context_reset(void *arg)
 		RelationSyncCache = NULL;
 	}
 
-	/* Better safe than sorry */
+	/* 稳妥为上           */
 	pubctx = NULL;
 }
 
 /*
- * Initialize this plugin
+ * 初始化此插件    
  */
 static void
 pgoutput_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt,
@@ -434,7 +434,7 @@ pgoutput_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt,
 	static bool publication_callback_registered = false;
 	MemoryContextCallback *mcallback;
 
-	/* Create our memory context for private allocations. */
+	/* 为私有分配创建自己的内存上下文。   */
 	data->context = AllocSetContextCreate(ctx->context,
 										  "logical replication output context",
 										  ALLOCSET_DEFAULT_SIZES);
@@ -449,8 +449,8 @@ pgoutput_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt,
 								   ALLOCSET_SMALL_SIZES);
 
 	/*
-	 * Ensure to cleanup RelationSyncCache even when logical decoding invoked
-	 * via SQL interface ends up with an error.
+	 * 即使通过 SQL 接口调用的逻辑解码最终出错，也要确  
+	 * 保清理 RelationSyncCache             
 	 */
 	mcallback = palloc0(sizeof(MemoryContextCallback));
 	mcallback->func = pgoutput_memory_context_reset;
@@ -458,20 +458,20 @@ pgoutput_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt,
 
 	ctx->output_plugin_private = data;
 
-	/* This plugin uses binary protocol. */
+	/* 本插件使用二进制协议。 */
 	opt->output_type = OUTPUT_PLUGIN_BINARY_OUTPUT;
 
 	/*
-	 * This is replication start and not slot initialization.
+	 * 这次是复制启动，而不是槽初始化。      
 	 *
-	 * Parse and validate options passed by the client.
+	 * 解析并校验客户端传入的选项。      
 	 */
 	if (!is_init)
 	{
-		/* Parse the params and ERROR if we see any we don't recognize */
+		/* 解析这些参数，若发现不认识的参数则报 ERROR*/
 		parse_output_parameters(ctx->output_plugin_options, data);
 
-		/* Check if we support requested protocol */
+		/* 检查是否支持所请求的协议   */
 		if (data->protocol_version > LOGICALREP_PROTO_MAX_VERSION_NUM)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -490,10 +490,10 @@ pgoutput_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt,
 					 errmsg("publication_names parameter missing")));
 
 		/*
-		 * Decide whether to enable streaming. It is disabled by default, in
-		 * which case we just update the flag in decoding context. Otherwise
-		 * we only allow it with sufficient version of the protocol, and when
-		 * the output plugin supports it.
+		 * 决定是否启用流式传输。默认禁用，仅更新解     
+		 * 码上下文中的标志。否则仅当协议版本足够，且  
+		 * 输出插件支持时，我们才允许启用                     
+		 * 流式传输。               
 		 */
 		if (data->streaming == LOGICALREP_STREAM_OFF)
 			ctx->streaming = false;
@@ -514,15 +514,15 @@ pgoutput_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("streaming requested, but not supported by output plugin")));
 
-		/* Also remember we're currently not streaming any transaction. */
+		/* 另外记住，我们当前未在流式传输任何事务。 */
 		in_streaming = false;
 
 		/*
-		 * Here, we just check whether the two-phase option is passed by
-		 * plugin and decide whether to enable it at later point of time. It
-		 * remains enabled if the previous start-up has done so. But we only
-		 * allow the option to be passed in with sufficient version of the
-		 * protocol, and when the output plugin supports it.
+		 * 这里只检查是否传入 two-phase 选项，稍后再决  
+		 * 定是否启用。若上次已启用，则保持启用。但仅  
+		 * 在协议版本足够、输出插件支持时才允许传入     
+		 * 该选项。                                                   
+		 * 。                                              
 		 */
 		if (!data->two_phase)
 			ctx->twophase_opt_given = false;
@@ -538,13 +538,13 @@ pgoutput_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt,
 		else
 			ctx->twophase_opt_given = true;
 
-		/* Init publication state. */
+		/* 初始化出版物状态*/
 		data->publications = NIL;
 		publications_valid = false;
 
 		/*
-		 * Register callback for pg_publication if we didn't already do that
-		 * during some previous call in this process.
+		 * 若本进程之前某次调用尚未注册过回调，则为     
+		 * pg_publication 注册回调               
 		 */
 		if (!publication_callback_registered)
 		{
@@ -554,14 +554,14 @@ pgoutput_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt,
 			publication_callback_registered = true;
 		}
 
-		/* Initialize relation schema cache. */
+		/* 初始化关系模式缓存。    */
 		init_rel_sync_cache(CacheMemoryContext);
 	}
 	else
 	{
 		/*
-		 * Disable the streaming and prepared transactions during the slot
-		 * initialization mode.
+		 * 槽初始化模式下，禁用流式传输与                  
+		 * 已准备事务。  
 		 */
 		ctx->streaming = false;
 		ctx->twophase = false;
@@ -569,14 +569,14 @@ pgoutput_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt,
 }
 
 /*
- * BEGIN callback.
+ * BEGIN 回调   
  *
- * Don't send the BEGIN message here instead postpone it until the first
- * change. In logical replication, a common scenario is to replicate a set of
- * tables (instead of all tables) and transactions whose changes were on
- * the table(s) that are not published will produce empty transactions. These
- * empty transactions will send BEGIN and COMMIT messages to subscribers,
- * using bandwidth on something with little/no use for logical replication.
+ * 此处不发送 BEGIN 消息，而是推迟到首个变更时再发  
+ * 在逻辑复制中，常见场景是只复制一组表（而非所有     
+ * 表），变更在未发布表上的事务将产生空事务。      
+ * 这些空事务会向订阅者发送 BEGIN 与 COMMIT 消息，把        
+ * 带宽浪费在对逻辑复制几乎/毫无用处的东西            
+ * 上。                                                                  
  */
 static void
 pgoutput_begin_txn(LogicalDecodingContext *ctx, ReorderBufferTXN *txn)
@@ -588,9 +588,9 @@ pgoutput_begin_txn(LogicalDecodingContext *ctx, ReorderBufferTXN *txn)
 }
 
 /*
- * Send BEGIN.
+ * 发 BEGIN  
  *
- * This is called while processing the first change of the transaction.
+ * 在处理事务的第一个变更时调用本函数。              
  */
 static void
 pgoutput_send_begin(LogicalDecodingContext *ctx, ReorderBufferTXN *txn)
@@ -612,7 +612,7 @@ pgoutput_send_begin(LogicalDecodingContext *ctx, ReorderBufferTXN *txn)
 }
 
 /*
- * COMMIT callback
+ * COMMIT 回调  
  */
 static void
 pgoutput_commit_txn(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
@@ -624,8 +624,8 @@ pgoutput_commit_txn(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 	Assert(txndata);
 
 	/*
-	 * We don't need to send the commit message unless some relevant change
-	 * from this transaction has been sent to the downstream.
+	 * 除非该事务的相关变更已发送到下游，否则无须     
+	 * 发送提交消息。                                 
 	 */
 	sent_begin_txn = txndata->sent_begin_txn;
 	OutputPluginUpdateProgress(ctx, !sent_begin_txn);
@@ -644,7 +644,7 @@ pgoutput_commit_txn(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 }
 
 /*
- * BEGIN PREPARE callback
+ * BEGIN PREPARE 回调  
  */
 static void
 pgoutput_begin_prepare_txn(LogicalDecodingContext *ctx, ReorderBufferTXN *txn)
@@ -661,7 +661,7 @@ pgoutput_begin_prepare_txn(LogicalDecodingContext *ctx, ReorderBufferTXN *txn)
 }
 
 /*
- * PREPARE callback
+ * PREPARE 回调  
  */
 static void
 pgoutput_prepare_txn(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
@@ -675,7 +675,7 @@ pgoutput_prepare_txn(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 }
 
 /*
- * COMMIT PREPARED callback
+ * COMMIT PREPARED 回调  
  */
 static void
 pgoutput_commit_prepared_txn(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
@@ -689,7 +689,7 @@ pgoutput_commit_prepared_txn(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 }
 
 /*
- * ROLLBACK PREPARED callback
+ * ROLLBACK PREPARED 回调  
  */
 static void
 pgoutput_rollback_prepared_txn(LogicalDecodingContext *ctx,
@@ -706,8 +706,8 @@ pgoutput_rollback_prepared_txn(LogicalDecodingContext *ctx,
 }
 
 /*
- * Write the current schema of the relation and its ancestor (if any) if not
- * done yet.
+ * 若尚未写过，则写出该关系及其祖先（若有）的当前    
+ * 模式   
  */
 static void
 maybe_send_schema(LogicalDecodingContext *ctx,
@@ -719,12 +719,12 @@ maybe_send_schema(LogicalDecodingContext *ctx,
 	TransactionId topxid = InvalidTransactionId;
 
 	/*
-	 * Remember XID of the (sub)transaction for the change. We don't care if
-	 * it's top-level transaction or not (we have already sent that XID in
-	 * start of the current streaming block).
+	 * 记住该变更所属（子）事务的 XID。无须关心它是不  
+	 * 是顶层事务（该 XID 已在当前                             
+	 * 流式块的开头发送过）。     
 	 *
-	 * If we're not in a streaming block, just use InvalidTransactionId and
-	 * the write methods will not include it.
+	 * 若不在流式块中，则直接使用 InvalidTransactionId，     
+	 * 写入方法不会包含它。        
 	 */
 	if (in_streaming)
 		xid = change->txn->xid;
@@ -735,30 +735,30 @@ maybe_send_schema(LogicalDecodingContext *ctx,
 		topxid = xid;
 
 	/*
-	 * Do we need to send the schema? We do track streamed transactions
-	 * separately, because those may be applied later (and the regular
-	 * transactions won't see their effects until then) and in an order that
-	 * we don't know at this point.
+	 * 要发送模式吗？流式事务需单独跟踪，因为它们 
+	 * 稍后才被应用（常规事务到那时才见效果）且   
+	 * 应用顺序目前无从知晓。XXX 这里有优化空间。        
+	 * 当前，流式事务总是 
 	 *
-	 * XXX There is a scope of optimization here. Currently, we always send
-	 * the schema first time in a streaming transaction but we can probably
-	 * avoid that by checking 'relentry->schema_sent' flag. However, before
-	 * doing that we need to study its impact on the case where we have a mix
-	 * of streaming and non-streaming transactions.
+	 * 在第一次就发送模式，但大概可以通过检查           
+	 * 'relentry->schema_sent' 标志来避免。不过在此之前，     
+	 * 需要先研究其对流式与非流式事务相混合场景        
+	 * 的影响。                                                          
+	 * 。                                         
 	 */
 	if (in_streaming)
 		schema_sent = get_schema_sent_in_streamed_txn(relentry, topxid);
 	else
 		schema_sent = relentry->schema_sent;
 
-	/* Nothing to do if we already sent the schema. */
+	/* 若已发送过模式，则无事可做。   */
 	if (schema_sent)
 		return;
 
 	/*
-	 * Send the schema.  If the changes will be published using an ancestor's
-	 * schema, not the relation's own, send that ancestor's schema before
-	 * sending relation's own (XXX - maybe sending only the former suffices?).
+	 * 发送模式。若变更将以祖先的模式而非关系自身的    
+	 * 模式发布，则先发祖先模式，再发关系自身模式   
+	 * （XXX——也许只发前者就够了？）                          
 	 */
 	if (relentry->publish_as_relid != RelationGetRelid(relation))
 	{
@@ -777,7 +777,7 @@ maybe_send_schema(LogicalDecodingContext *ctx,
 }
 
 /*
- * Sends a relation
+ * 发送关系    
  */
 static void
 send_relation_and_attrs(Relation relation, TransactionId xid,
@@ -788,12 +788,12 @@ send_relation_and_attrs(Relation relation, TransactionId xid,
 	int			i;
 
 	/*
-	 * Write out type info if needed.  We do that only for user-created types.
-	 * We use FirstGenbkiObjectId as the cutoff, so that we only consider
-	 * objects with hand-assigned OIDs to be "built in", not for instance any
-	 * function or type defined in the information_schema. This is important
-	 * because only hand-assigned OIDs can be expected to remain stable across
-	 * major versions.
+	 * 如有需要则写出类型信息。只有用户创建的类型才这  
+	 * 样做。以 FirstGenbkiObjectId 为分界点，从而只把      
+	 * 手工分配 OID 的对象视为"内置"，而不包括例如         
+	 * information_schema 中定义的函数或类型。这一点很重     
+	 * 要，因为只有手工分配的 OID 才有望跨主版本保持      
+	 * 稳定。      
 	 */
 	for (i = 0; i < desc->natts; i++)
 	{
@@ -805,7 +805,7 @@ send_relation_and_attrs(Relation relation, TransactionId xid,
 		if (att->atttypid < FirstGenbkiObjectId)
 			continue;
 
-		/* Skip this attribute if it's not present in the column list */
+		/* 若该属性不在列列表中，则跳过它              */
 		if (columns != NULL && !bms_is_member(att->attnum, columns))
 			continue;
 
@@ -820,8 +820,8 @@ send_relation_and_attrs(Relation relation, TransactionId xid,
 }
 
 /*
- * Executor state preparation for evaluation of row filter expressions for the
- * specified relation.
+ * 为指定关系准备行过滤表达式求值所需的执行器            
+ * 状态。          
  */
 static EState *
 create_estate_for_relation(Relation rel)
@@ -848,10 +848,10 @@ create_estate_for_relation(Relation rel)
 }
 
 /*
- * Evaluates row filter.
+ * 行过滤求值。   
  *
- * If the row filter evaluates to NULL, it is taken as false i.e. the change
- * isn't replicated.
+ * 若行过滤求值结果为 NULL，则视为假，即该变更不会     
+ * 被复制。     
  */
 static bool
 pgoutput_row_filter_exec_expr(ExprState *state, ExprContext *econtext)
@@ -874,14 +874,14 @@ pgoutput_row_filter_exec_expr(ExprState *state, ExprContext *econtext)
 }
 
 /*
- * Make sure the per-entry memory context exists.
+ * 确保每条目的内存上下文存在。    
  */
 static void
 pgoutput_ensure_entry_cxt(PGOutputData *data, RelationSyncEntry *entry)
 {
 	Relation	relation;
 
-	/* The context may already exist, in which case bail out. */
+	/* 该上下文可能已存在，此时直接返回。    */
 	if (entry->entry_cxt)
 		return;
 
@@ -896,34 +896,34 @@ pgoutput_ensure_entry_cxt(PGOutputData *data, RelationSyncEntry *entry)
 }
 
 /*
- * Initialize the row filter.
+ * 初始化行过滤。     
  */
 static void
 pgoutput_row_filter_init(PGOutputData *data, List *publications,
 						 RelationSyncEntry *entry)
 {
 	ListCell   *lc;
-	List	   *rfnodes[] = {NIL, NIL, NIL};	/* One per pubaction */
-	bool		no_filter[] = {false, false, false};	/* One per pubaction */
+	List	   *rfnodes[] = {NIL, NIL, NIL};	/* 每动作一个   */
+	bool		no_filter[] = {false, false, false};	/* 每动作一个   */
 	MemoryContext oldctx;
 	int			idx;
 	bool		has_filter = true;
 	Oid			schemaid = get_rel_namespace(entry->publish_as_relid);
 
 	/*
-	 * Find if there are any row filters for this relation. If there are, then
-	 * prepare the necessary ExprState and cache it in entry->exprstate. To
-	 * build an expression state, we need to ensure the following:
+	 * 查找此关系是否存在行过滤。若有，则准备所需的     
+	 * ExprState 并缓存到 entry->exprstate 中。要构建表达       
+	 * 式状态，需要确保以下几点：                    
 	 *
-	 * All the given publication-table mappings must be checked.
+	 * 必须检查所有给定的出版物-表映射。        
 	 *
-	 * Multiple publications might have multiple row filters for this
-	 * relation. Since row filter usage depends on the DML operation, there
-	 * are multiple lists (one for each operation) to which row filters will
-	 * be appended.
+	 * 多个出版物可能为此关系设多份行过滤。行过  
+	 * 滤取决于 DML 操作，行过滤会追加到多个列表（每   
+	 * 种操作各有一个列表，行过滤会被追加进               
+	 * 去。      
 	 *
-	 * FOR ALL TABLES and FOR TABLES IN SCHEMA implies "don't use row filter
-	 * expression" so it takes precedence.
+	 * FOR ALL TABLES 与 FOR TABLES IN SCHEMA 意味着"不使             
+	 * 用行过滤表达式"，优先。 
 	 */
 	foreach(lc, publications)
 	{
@@ -933,10 +933,10 @@ pgoutput_row_filter_init(PGOutputData *data, List *publications,
 		bool		pub_no_filter = true;
 
 		/*
-		 * If the publication is FOR ALL TABLES, or the publication includes a
-		 * FOR TABLES IN SCHEMA where the table belongs to the referred
-		 * schema, then it is treated the same as if there are no row filters
-		 * (even if other publications have a row filter).
+		 * 若出版物是 FOR ALL TABLES，或出版物包含的 FOR         
+		 * TABLES IN SCHEMA 且表属于所引模式，则视同没有 
+		 * 行过滤（即使其他出版物                                 
+		 * 有行过滤）。                             
 		 */
 		if (!pub->alltables &&
 			!SearchSysCacheExists2(PUBLICATIONNAMESPACEMAP,
@@ -944,7 +944,7 @@ pgoutput_row_filter_init(PGOutputData *data, List *publications,
 								   ObjectIdGetDatum(pub->oid)))
 		{
 			/*
-			 * Check for the presence of a row filter in this publication.
+			 * 检查此出版物中是否存在行过滤。              
 			 */
 			rftuple = SearchSysCache2(PUBLICATIONRELMAP,
 									  ObjectIdGetDatum(entry->publish_as_relid),
@@ -952,7 +952,7 @@ pgoutput_row_filter_init(PGOutputData *data, List *publications,
 
 			if (HeapTupleIsValid(rftuple))
 			{
-				/* Null indicates no filter. */
+				/* NULL 表示无过滤。   */
 				rfdatum = SysCacheGetAttr(PUBLICATIONRELMAP, rftuple,
 										  Anum_pg_publication_rel_prqual,
 										  &pub_no_filter);
@@ -969,8 +969,8 @@ pgoutput_row_filter_init(PGOutputData *data, List *publications,
 			no_filter[PUBACTION_DELETE] |= pub->pubactions.pubdelete;
 
 			/*
-			 * Quick exit if all the DML actions are publicized via this
-			 * publication.
+			 * 若此出版物已发布全部 DML 动作，则快速    
+			 * 退出。   
 			 */
 			if (no_filter[PUBACTION_INSERT] &&
 				no_filter[PUBACTION_UPDATE] &&
@@ -980,11 +980,11 @@ pgoutput_row_filter_init(PGOutputData *data, List *publications,
 				break;
 			}
 
-			/* No additional work for this publication. Next one. */
+			/* 此出版物无需额外工作。看下一个。   */
 			continue;
 		}
 
-		/* Form the per pubaction row filter lists. */
+		/* 构建各动作的行过滤列表。     */
 		if (pub->pubactions.pubinsert && !no_filter[PUBACTION_INSERT])
 			rfnodes[PUBACTION_INSERT] = lappend(rfnodes[PUBACTION_INSERT],
 												TextDatumGetCString(rfdatum));
@@ -996,9 +996,9 @@ pgoutput_row_filter_init(PGOutputData *data, List *publications,
 												TextDatumGetCString(rfdatum));
 
 		ReleaseSysCache(rftuple);
-	}							/* loop all subscribed publications */
+	}							/* 遍历所有订阅的出版物   */
 
-	/* Clean the row filter */
+	/* 清理行过滤      */
 	for (idx = 0; idx < NUM_ROWFILTER_PUBACTIONS; idx++)
 	{
 		if (no_filter[idx])
@@ -1015,8 +1015,8 @@ pgoutput_row_filter_init(PGOutputData *data, List *publications,
 		pgoutput_ensure_entry_cxt(data, entry);
 
 		/*
-		 * Now all the filters for all pubactions are known. Combine them when
-		 * their pubactions are the same.
+		 * 现在所有出版物动作的过滤条件都已明确。当出版 
+		 * 物动作相同即合并。   
 		 */
 		oldctx = MemoryContextSwitchTo(entry->entry_cxt);
 		entry->estate = create_estate_for_relation(relation);
@@ -1031,10 +1031,10 @@ pgoutput_row_filter_init(PGOutputData *data, List *publications,
 			foreach(lc, rfnodes[idx])
 				filters = lappend(filters, stringToNode((char *) lfirst(lc)));
 
-			/* combine the row filter and cache the ExprState */
+			/* 合并行过滤并缓存 ExprState             */
 			rfnode = make_orclause(filters);
 			entry->exprstate[idx] = ExecPrepareExpr(rfnode, entry->estate);
-		}						/* for each pubaction */
+		}						/* 对每个动作    */
 		MemoryContextSwitchTo(oldctx);
 
 		RelationClose(relation);
@@ -1042,7 +1042,7 @@ pgoutput_row_filter_init(PGOutputData *data, List *publications,
 }
 
 /*
- * Initialize the column list.
+ * 初始化列列表。      
  */
 static void
 pgoutput_column_list_init(PGOutputData *data, List *publications,
@@ -1053,19 +1053,19 @@ pgoutput_column_list_init(PGOutputData *data, List *publications,
 	Relation	relation = RelationIdGetRelation(entry->publish_as_relid);
 
 	/*
-	 * Find if there are any column lists for this relation. If there are,
-	 * build a bitmap using the column lists.
+	 * 查找此关系是否存在列列表。若有，则                
+	 * 用列列表构建位图。           
 	 *
-	 * Multiple publications might have multiple column lists for this
-	 * relation.
+	 * 多个出版物可能为此关系提供多份列列表         
+	 * 。      
 	 *
-	 * Note that we don't support the case where the column list is different
-	 * for the same table when combining publications. See comments atop
-	 * fetch_table_list. But one can later change the publication so we still
-	 * need to check all the given publication-table mappings and report an
-	 * error if any publications have a different column list.
+	 * 注意不支持这种情况：合并出版物时同一表的列列    
+	 * 表互不相同。参见 fetch_table_list 顶部注释。但人  
+	 * 们之后可以修改出版物，所以仍需检查所有给定的出 
+	 * 版物-表映射；只要某出版物的列列表不同，          
+	 * 就报错。                                           
 	 *
-	 * FOR ALL TABLES and FOR TABLES IN SCHEMA imply "don't use column list".
+	 * FOR ALL TABLES 与 FOR TABLES IN SCHEMA 意为"不使用列列表"    
 	 */
 	foreach(lc, publications)
 	{
@@ -1075,20 +1075,20 @@ pgoutput_column_list_init(PGOutputData *data, List *publications,
 		Bitmapset  *cols = NULL;
 
 		/*
-		 * If the publication is FOR ALL TABLES then it is treated the same as
-		 * if there are no column lists (even if other publications have a
-		 * list).
+		 * 若出版物是 FOR ALL TABLES，则视同没有列列表（即    
+		 * 使其他出版物有列列表）。                           
+		 * 。   
 		 */
 		if (!pub->alltables)
 		{
 			bool		pub_no_list = true;
 
 			/*
-			 * Check for the presence of a column list in this publication.
+			 * 检查此出版物中是否存在列列表。               
 			 *
-			 * Note: If we find no pg_publication_rel row, it's a publication
-			 * defined for a whole schema, so it can't have a column list,
-			 * just like a FOR ALL TABLES publication.
+			 * 注：无 pg_publication_rel 行，即为整个模式定义   
+			 * 的出版物，因此不能有列列表，正如 FOR ALL   
+			 * TABLES 出版物那样。              
 			 */
 			cftuple = SearchSysCache2(PUBLICATIONRELMAP,
 									  ObjectIdGetDatum(entry->publish_as_relid),
@@ -1096,13 +1096,13 @@ pgoutput_column_list_init(PGOutputData *data, List *publications,
 
 			if (HeapTupleIsValid(cftuple))
 			{
-				/* Lookup the column list attribute. */
+				/* 查找列列表属性。          */
 				cfdatum = SysCacheGetAttr(PUBLICATIONRELMAP, cftuple,
 										  Anum_pg_publication_rel_prattrs,
 										  &pub_no_list);
 
-				/* Build the column list bitmap in the per-entry context. */
-				if (!pub_no_list)	/* when not null */
+				/* 在每条目上下文中构建列列表位图。       */
+				if (!pub_no_list)	/* 非空时     */
 				{
 					int			i;
 					int			nliveatts = 0;
@@ -1113,7 +1113,7 @@ pgoutput_column_list_init(PGOutputData *data, List *publications,
 					cols = pub_collist_to_bitmapset(cols, cfdatum,
 													entry->entry_cxt);
 
-					/* Get the number of live attributes. */
+					/* 获取存活属性的数量。     */
 					for (i = 0; i < desc->natts; i++)
 					{
 						Form_pg_attribute att = TupleDescAttr(desc, i);
@@ -1125,8 +1125,8 @@ pgoutput_column_list_init(PGOutputData *data, List *publications,
 					}
 
 					/*
-					 * If column list includes all the columns of the table,
-					 * set it to NULL.
+					 * 若列列表含表的全部列，则                 
+					 * 设为 NULL    
 					 */
 					if (bms_num_members(cols) == nliveatts)
 					{
@@ -1150,14 +1150,14 @@ pgoutput_column_list_init(PGOutputData *data, List *publications,
 					errmsg("cannot use different column lists for table \"%s.%s\" in different publications",
 						   get_namespace_name(RelationGetNamespace(relation)),
 						   RelationGetRelationName(relation)));
-	}							/* loop all subscribed publications */
+	}							/* 遍历所有订阅的出版物   */
 
 	RelationClose(relation);
 }
 
 /*
- * Initialize the slot for storing new and old tuples, and build the map that
- * will be used to convert the relation's tuples into the ancestor's format.
+ * 初始化用于存放新旧元组的槽，并构建将用于把该关     
+ * 系的元组转换为祖先格式的映射。                            
  */
 static void
 init_tuple_slot(PGOutputData *data, Relation relation,
@@ -1170,8 +1170,8 @@ init_tuple_slot(PGOutputData *data, Relation relation,
 	oldctx = MemoryContextSwitchTo(data->cachectx);
 
 	/*
-	 * Create tuple table slots. Create a copy of the TupleDesc as it needs to
-	 * live as long as the cache remains.
+	 * 创建元组表槽。请创建 TupleDesc 的一份副本，因为它   
+	 * 需与缓存存活一样久。    
 	 */
 	oldtupdesc = CreateTupleDescCopyConstr(RelationGetDescr(relation));
 	newtupdesc = CreateTupleDescCopyConstr(RelationGetDescr(relation));
@@ -1182,8 +1182,8 @@ init_tuple_slot(PGOutputData *data, Relation relation,
 	MemoryContextSwitchTo(oldctx);
 
 	/*
-	 * Cache the map that will be used to convert the relation's tuples into
-	 * the ancestor's format, if needed.
+	 * 缓存将用于把该关系元组转换为祖先格式的映射，   
+	 * 如有需要。                  
 	 */
 	if (entry->publish_as_relid != RelationGetRelid(relation))
 	{
@@ -1191,7 +1191,7 @@ init_tuple_slot(PGOutputData *data, Relation relation,
 		TupleDesc	indesc = RelationGetDescr(relation);
 		TupleDesc	outdesc = RelationGetDescr(ancestor);
 
-		/* Map must live as long as the logical decoding context. */
+		/* 映射必须活得与逻辑解码上下文一样久。 */
 		oldctx = MemoryContextSwitchTo(data->cachectx);
 
 		entry->attrmap = build_attrmap_by_name_if_req(indesc, outdesc, false);
@@ -1202,54 +1202,54 @@ init_tuple_slot(PGOutputData *data, Relation relation,
 }
 
 /*
- * Change is checked against the row filter if any.
+ * 若存在行过滤，则检查变更。         
  *
- * Returns true if the change is to be replicated, else false.
+ * 若该变更将被复制则返回 true，否则 false。   
  *
- * For inserts, evaluate the row filter for new tuple.
- * For deletes, evaluate the row filter for old tuple.
- * For updates, evaluate the row filter for old and new tuple.
+ * 对 insert，评估新元组的行过滤。        
+ * 对 delete，评估旧元组的行过滤。        
+ * 对 update，评估旧、新元组的行过滤。          
  *
- * For updates, if both evaluations are true, we allow sending the UPDATE and
- * if both the evaluations are false, it doesn't replicate the UPDATE. Now, if
- * only one of the tuples matches the row filter expression, we transform
- * UPDATE to DELETE or INSERT to avoid any data inconsistency based on the
- * following rules:
+ * 对 update，若两次评估都为真，则允许发送                   
+ * UPDATE；若两次评估都为假，则不复制该 UPDATE。若           
+ * 只有一个元组匹配行过滤表达式，为避免任何数据不 
+ * 一致，将按以下规则把 UPDATE 转换为 DELETE 或             
+ * INSERT：       
  *
  * Case 1: old-row (no match)    new-row (no match)  -> (drop change)
  * Case 2: old-row (no match)    new row (match)     -> INSERT
  * Case 3: old-row (match)       new-row (no match)  -> DELETE
  * Case 4: old-row (match)       new row (match)     -> UPDATE
  *
- * The new action is updated in the action parameter.
+ * 新的动作在 action 参数中更新。         
  *
- * The new slot could be updated when transforming the UPDATE into INSERT,
- * because the original new tuple might not have column values from the replica
- * identity.
+ * 把 UPDATE 转换为 INSERT 时可能更新 new slot，因为原       
+ * 始的新元组可能没有来自复制标识的列值                      
+ * 。      
  *
- * Examples:
- * Let's say the old tuple satisfies the row filter but the new tuple doesn't.
- * Since the old tuple satisfies, the initial table synchronization copied this
- * row (or another method was used to guarantee that there is data
- * consistency).  However, after the UPDATE the new tuple doesn't satisfy the
- * row filter, so from a data consistency perspective, that row should be
- * removed on the subscriber. The UPDATE should be transformed into a DELETE
- * statement and be sent to the subscriber. Keeping this row on the subscriber
- * is undesirable because it doesn't reflect what was defined in the row filter
- * expression on the publisher. This row on the subscriber would likely not be
- * modified by replication again. If someone inserted a new row with the same
- * old identifier, replication could stop due to a constraint violation.
+ * 示例   
+ * 假设旧元组满足行过滤而新元组不满足。由于旧元组      
+ * 满足，初始表同步已复制此行（或用其他方法保证          
+ * 数据一致性）。但 UPDATE 之后新元组不满足行过 
+ * 滤，从数据一致性角度看，订阅者上应删除该行。应     
+ * 将 UPDATE 转换为 DELETE 语句并发送给订阅者。把这      
+ * 行留在订阅者上并不可取，因为它不反映发布者上行    
+ * 过滤表达式所定义的内容。订阅者上的这一行很可能      
+ * 不会再被复制修改。如果有人                                     
+ * 插入一个使用相同旧标识符的新行，复制可能               
+ * 因违反约束而停止                                                  
+ * 。                                                                  
  *
- * Let's say the old tuple doesn't match the row filter but the new tuple does.
- * Since the old tuple doesn't satisfy, the initial table synchronization
- * probably didn't copy this row. However, after the UPDATE the new tuple does
- * satisfy the row filter, so from a data consistency perspective, that row
- * should be inserted on the subscriber. Otherwise, subsequent UPDATE or DELETE
- * statements have no effect (it matches no row -- see
- * apply_handle_update_internal()). So, the UPDATE should be transformed into a
- * INSERT statement and be sent to the subscriber. However, this might surprise
- * someone who expects the data set to satisfy the row filter expression on the
- * provider.
+ * 假设旧元组不匹配行过滤而新元组匹配。由于旧元组       
+ * 不满足，初始表同步很可能没有复制此行。然而       
+ * UPDATE 之后新元组满足行过滤，从数据一致性角度           
+ * 看，该行应插入到订阅者上。否则，后续的 UPDATE        
+ * 或 DELETE 语句将无效（匹配不到任何行——参见              
+ * apply_handle_update_internal()）。故应把      
+ * UPDATE 转换为 INSERT 语句并发送给订阅者。但这可             
+ * 能让那些期望数据集满足提供方上行过滤表达式             
+ * 的人感到意外。                                                       
+ * 。      
  */
 static bool
 pgoutput_row_filter(Relation relation, TupleTableSlot *old_slot,
@@ -1267,8 +1267,8 @@ pgoutput_row_filter(Relation relation, TupleTableSlot *old_slot,
 	ExprState  *filter_exprstate;
 
 	/*
-	 * We need this map to avoid relying on ReorderBufferChangeType enums
-	 * having specific values.
+	 * 需要此映射，以免依赖 ReorderBufferChangeType 枚举     
+	 * 具有特定值。     
 	 */
 	static const int map_changetype_pubaction[] = {
 		[REORDER_BUFFER_CHANGE_INSERT] = PUBACTION_INSERT,
@@ -1282,10 +1282,10 @@ pgoutput_row_filter(Relation relation, TupleTableSlot *old_slot,
 
 	Assert(new_slot || old_slot);
 
-	/* Get the corresponding row filter */
+	/* 获取对应的行过滤         */
 	filter_exprstate = entry->exprstate[map_changetype_pubaction[*action]];
 
-	/* Bail out if there is no row filter */
+	/* 若无行过滤则直接返回     */
 	if (!filter_exprstate)
 		return true;
 
@@ -1298,19 +1298,19 @@ pgoutput_row_filter(Relation relation, TupleTableSlot *old_slot,
 	ecxt = GetPerTupleExprContext(entry->estate);
 
 	/*
-	 * For the following occasions where there is only one tuple, we can
-	 * evaluate the row filter for that tuple and return.
+	 * 在下列只有一个元组的场合，我们可以对该元组  
+	 * 求值行过滤并返回。                       
 	 *
-	 * For inserts, we only have the new tuple.
+	 * 对于插入，我们只有新元组。 
 	 *
-	 * For updates, we can have only a new tuple when none of the replica
-	 * identity columns changed and none of those columns have external data
-	 * but we still need to evaluate the row filter for the new tuple as the
-	 * existing values of those columns might not match the filter. Also,
-	 * users can use constant expressions in the row filter, so we anyway need
-	 * to evaluate it for the new tuple.
+	 * 对于更新，若无任何复制标识列被修改且这些列   
+	 * 都不含外部数据时，可能只有新元组；但我们仍      
+	 * 需对新元组求值行过滤，因为这些列的现有值         
+	 * 可能与过滤器不符。另外，用户可在行过滤中      
+	 * 使用常量表达式，所以我们无论如何都要对新元组     
+	 * 进行求值。                  
 	 *
-	 * For deletes, we only have the old tuple.
+	 * 对于删除，我们只有旧元组。 
 	 */
 	if (!new_slot || !old_slot)
 	{
@@ -1321,8 +1321,8 @@ pgoutput_row_filter(Relation relation, TupleTableSlot *old_slot,
 	}
 
 	/*
-	 * Both the old and new tuples must be valid only for updates and need to
-	 * be checked against the row filter.
+	 * 仅对更新而言，新旧两个元组才都必须有效，且需    
+	 * 要对照行过滤检查。       
 	 */
 	Assert(map_changetype_pubaction[*action] == PUBACTION_UPDATE);
 
@@ -1333,24 +1333,24 @@ pgoutput_row_filter(Relation relation, TupleTableSlot *old_slot,
 	desc = RelationGetDescr(relation);
 
 	/*
-	 * The new tuple might not have all the replica identity columns, in which
-	 * case it needs to be copied over from the old tuple.
+	 * 新元组可能并不包含全部复制标识列，这种情况下     
+	 * 需要从旧元组复制过来。                  
 	 */
 	for (i = 0; i < desc->natts; i++)
 	{
 		Form_pg_attribute att = TupleDescAttr(desc, i);
 
 		/*
-		 * if the column in the new tuple or old tuple is null, nothing to do
+		 * 若新元组或旧元组中的列为 null，则无需做任何事 
 		 */
 		if (new_slot->tts_isnull[i] || old_slot->tts_isnull[i])
 			continue;
 
 		/*
-		 * Unchanged toasted replica identity columns are only logged in the
-		 * old tuple. Copy this over to the new tuple. The changed (or WAL
-		 * Logged) toast values are always assembled in memory and set as
-		 * VARTAG_INDIRECT. See ReorderBufferToastReplace.
+		 * 未修改的 toasted 复制标识列只记录于旧元组中。  
+		 * 将其复制到新元组。已更改（或记入 WAL）的     
+		 * toast 值总是在内存中组装并设为 VARTAG_INDIRECT。 
+		 * 参见 ReorderBufferToastReplace。            
 		 */
 		if (att->attlen == -1 &&
 			VARATT_IS_EXTERNAL_ONDISK(new_slot->tts_values[i]) &&
@@ -1386,20 +1386,20 @@ pgoutput_row_filter(Relation relation, TupleTableSlot *old_slot,
 	new_matched = pgoutput_row_filter_exec_expr(filter_exprstate, ecxt);
 
 	/*
-	 * Case 1: if both tuples don't match the row filter, bailout. Send
-	 * nothing.
+	 * 情况 1：两元组均不匹配行过滤，则退出且不     
+	 * 发送  
 	 */
 	if (!old_matched && !new_matched)
 		return false;
 
 	/*
-	 * Case 2: if the old tuple doesn't satisfy the row filter but the new
-	 * tuple does, transform the UPDATE into INSERT.
+	 * 情况 2：若旧元组不满足行过滤而新元组满足，     
+	 * 则将 UPDATE 转换为 INSERT。            
 	 *
-	 * Use the newly transformed tuple that must contain the column values for
-	 * all the replica identity columns. This is required to ensure that the
-	 * while inserting the tuple in the downstream node, we have all the
-	 * required column values.
+	 * 此时应使用新转换出的元组，其中必须包含全部        
+	 * 复制标识列的列值。这一点是必需的，以保证在      
+	 * 向下游节点插入该元组时，我们拥有全部所需的  
+	 * 列值。              
 	 */
 	if (!old_matched && new_matched)
 	{
@@ -1410,27 +1410,27 @@ pgoutput_row_filter(Relation relation, TupleTableSlot *old_slot,
 	}
 
 	/*
-	 * Case 3: if the old tuple satisfies the row filter but the new tuple
-	 * doesn't, transform the UPDATE into DELETE.
+	 * 情况 3：若旧元组满足行过滤而新元组不满足，     
+	 * 则将 UPDATE 转换为 DELETE。         
 	 *
-	 * This transformation does not require another tuple. The Old tuple will
-	 * be used for DELETE.
+	 * 这种转换不需要另一个元组。将使用旧元组来执行    
+	 * DELETE。          
 	 */
 	else if (old_matched && !new_matched)
 		*action = REORDER_BUFFER_CHANGE_DELETE;
 
 	/*
-	 * Case 4: if both tuples match the row filter, transformation isn't
-	 * required. (*action is default UPDATE).
+	 * 情况 4：两元组均匹配行过滤时无需做转换。      
+	 * （*action 默认为 UPDATE）。     
 	 */
 
 	return true;
 }
 
 /*
- * Sends the decoded DML over wire.
+ * 经网络发送解码 DML。    
  *
- * This is called both in streaming and non-streaming modes.
+ * 流式与非流式模式下都会调用此函数。      
  */
 static void
 pgoutput_change(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
@@ -1451,17 +1451,17 @@ pgoutput_change(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 		return;
 
 	/*
-	 * Remember the xid for the change in streaming mode. We need to send xid
-	 * with each change in the streaming mode so that subscriber can make
-	 * their association and on aborts, it can discard the corresponding
-	 * changes.
+	 * 在流式模式下记住该变更的 xid。流式模式下需要      
+	 * 随每个变更发送 xid，让订阅者能建立关联，以便  
+	 * 在中止时丢弃相应的变更                                
+	 * 。     
 	 */
 	if (in_streaming)
 		xid = change->txn->xid;
 
 	relentry = get_rel_sync_entry(data, relation);
 
-	/* First check the table filter */
+	/* 首先检查表过滤器     */
 	switch (action)
 	{
 		case REORDER_BUFFER_CHANGE_INSERT:
@@ -1477,9 +1477,9 @@ pgoutput_change(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 				return;
 
 			/*
-			 * This is only possible if deletes are allowed even when replica
-			 * identity is not defined for a table. Since the DELETE action
-			 * can't be published, we simply return.
+			 * 只有表未定义复制标识也允许删除时才有可能  
+			 * 出现这种情况。DELETE 动作无法被发布，因此  
+			 * 我们直接返回。                
 			 */
 			if (!change->data.tp.oldtuple)
 			{
@@ -1491,10 +1491,10 @@ pgoutput_change(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 			Assert(false);
 	}
 
-	/* Avoid leaking memory by using and resetting our own context */
+	/* 使用并重置自己的上下文，以免内存泄漏      */
 	old = MemoryContextSwitchTo(data->context);
 
-	/* Switch relation if publishing via root. */
+	/* 若经根发布，则切换关系。    */
 	if (relentry->publish_as_relid != RelationGetRelid(relation))
 	{
 		Assert(relation->rd_rel->relispartition);
@@ -1507,7 +1507,7 @@ pgoutput_change(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 		old_slot = relentry->old_slot;
 		ExecStoreHeapTuple(&change->data.tp.oldtuple->tuple, old_slot, false);
 
-		/* Convert tuple if needed. */
+		/* 按需转换元组。    */
 		if (relentry->attrmap)
 		{
 			TupleTableSlot *slot = MakeTupleTableSlot(RelationGetDescr(targetrel),
@@ -1522,7 +1522,7 @@ pgoutput_change(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 		new_slot = relentry->new_slot;
 		ExecStoreHeapTuple(&change->data.tp.newtuple->tuple, new_slot, false);
 
-		/* Convert tuple if needed. */
+		/* 按需转换元组。    */
 		if (relentry->attrmap)
 		{
 			TupleTableSlot *slot = MakeTupleTableSlot(RelationGetDescr(targetrel),
@@ -1533,33 +1533,33 @@ pgoutput_change(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 	}
 
 	/*
-	 * Check row filter.
+	 * 行过滤检查  
 	 *
-	 * Updates could be transformed to inserts or deletes based on the results
-	 * of the row filter for old and new tuple.
+	 * 根据对旧元组与新元组的行过滤结果，更新可能被     
+	 * 转换为插入或删除。             
 	 */
 	if (!pgoutput_row_filter(targetrel, old_slot, &new_slot, relentry, &action))
 		goto cleanup;
 
 	/*
-	 * Send BEGIN if we haven't yet.
+	 * 先发 BEGIN（若未发）  
 	 *
-	 * We send the BEGIN message after ensuring that we will actually send the
-	 * change. This avoids sending a pair of BEGIN/COMMIT messages for empty
-	 * transactions.
+	 * 我们在确保确实会发送该变更之后，才发送 BEGIN        
+	 * 消息。这可避免为空事务发送一对 BEGIN/COMMIT           
+	 * 消息。    
 	 */
 	if (txndata && !txndata->sent_begin_txn)
 		pgoutput_send_begin(ctx, txn);
 
 	/*
-	 * Schema should be sent using the original relation because it also sends
-	 * the ancestor's relation.
+	 * 模式应当用原始关系来发送，因为它同时也会发送     
+	 * 祖先的关系。      
 	 */
 	maybe_send_schema(ctx, change, relation, relentry);
 
 	OutputPluginPrepareWrite(ctx, true);
 
-	/* Send the data */
+	/* 发送数据  */
 	switch (action)
 	{
 		case REORDER_BUFFER_CHANGE_INSERT:
@@ -1587,7 +1587,7 @@ cleanup:
 		ancestor = NULL;
 	}
 
-	/* Drop the new slots that were used to store the converted tuples. */
+	/* 丢弃用于存放已转换元组的新槽位。                 */
 	if (relentry->attrmap)
 	{
 		if (old_slot)
@@ -1614,7 +1614,7 @@ pgoutput_truncate(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 	Oid		   *relids;
 	TransactionId xid = InvalidTransactionId;
 
-	/* Remember the xid for the change in streaming mode. See pgoutput_change. */
+	/* 在流式模式下记住该变更的 xid。参见 pgoutput_change。    */
 	if (in_streaming)
 		xid = change->txn->xid;
 
@@ -1637,8 +1637,8 @@ pgoutput_truncate(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 			continue;
 
 		/*
-		 * Don't send partitions if the publication wants to send only the
-		 * root tables through it.
+		 * 若出版物只想经由它来发送根表，则不发送      
+		 * 分区。              
 		 */
 		if (relation->rd_rel->relispartition &&
 			relentry->publish_as_relid != relid)
@@ -1646,7 +1646,7 @@ pgoutput_truncate(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 
 		relids[nrelids++] = relid;
 
-		/* Send BEGIN if we haven't yet */
+		/* 若尚未发送则发 BEGIN  */
 		if (txndata && !txndata->sent_begin_txn)
 			pgoutput_send_begin(ctx, txn);
 
@@ -1681,20 +1681,20 @@ pgoutput_message(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 		return;
 
 	/*
-	 * Remember the xid for the message in streaming mode. See
-	 * pgoutput_change.
+	 * 在流式模式下记住该消息的 xid。参见      
+	 * pgoutput_change 
 	 */
 	if (in_streaming)
 		xid = txn->xid;
 
 	/*
-	 * Output BEGIN if we haven't yet. Avoid for non-transactional messages.
+	 * 若尚未输出则输出 BEGIN。非事务性消息则跳过。      
 	 */
 	if (transactional)
 	{
 		PGOutputTxnData *txndata = (PGOutputTxnData *) txn->output_plugin_private;
 
-		/* Send BEGIN if we haven't yet */
+		/* 若尚未发送则发 BEGIN  */
 		if (txndata && !txndata->sent_begin_txn)
 			pgoutput_send_begin(ctx, txn);
 	}
@@ -1711,8 +1711,8 @@ pgoutput_message(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 }
 
 /*
- * Return true if the data is associated with an origin and the user has
- * requested the changes that don't have an origin, false otherwise.
+ * 若数据与某个复制源相关联，而用户请求的是不带   
+ * 复制源的变更，则返回 true，否则返回 false。      
  */
 static bool
 pgoutput_origin_filter(LogicalDecodingContext *ctx,
@@ -1728,11 +1728,11 @@ pgoutput_origin_filter(LogicalDecodingContext *ctx,
 }
 
 /*
- * Shutdown the output plugin.
+ * 关闭输出插件。      
  *
- * Note, we don't need to clean the data->context, data->cachectx and pubctx
- * as they are child contexts of the ctx->context so they will be cleaned up
- * by logical decoding machinery.
+ * 注意，无需清理 data->context、data->cachectx 与 pubctx，       
+ * 因为它们都是 ctx->context 的子上下文，逻辑解码机制     
+ * 会负责清理它们。      
  */
 static void
 pgoutput_shutdown(LogicalDecodingContext *ctx)
@@ -1741,7 +1741,7 @@ pgoutput_shutdown(LogicalDecodingContext *ctx)
 }
 
 /*
- * Load publications from the list of publication names.
+ * 从出版物名称列表加载各出版物。        
  */
 static List *
 LoadPublications(List *pubnames)
@@ -1761,9 +1761,9 @@ LoadPublications(List *pubnames)
 }
 
 /*
- * Publication syscache invalidation callback.
+ * 出版物 syscache 失效回调函数。   
  *
- * Called for invalidations on pg_publication.
+ * 在 pg_publication 失效时被调用。   
  */
 static void
 publication_invalidation_cb(Datum arg, int cacheid, uint32 hashvalue)
@@ -1771,14 +1771,14 @@ publication_invalidation_cb(Datum arg, int cacheid, uint32 hashvalue)
 	publications_valid = false;
 
 	/*
-	 * Also invalidate per-relation cache so that next time the filtering info
-	 * is checked it will be updated with the new publication settings.
+	 * 同时使按关系缓存失效，以便下次检查过滤信息时，  
+	 * 它会依据新的出版物设置完成更新。                
 	 */
 	rel_sync_cache_publication_cb(arg, cacheid, hashvalue);
 }
 
 /*
- * START STREAM callback
+ * START STREAM 回调  
  */
 static void
 pgoutput_stream_start(struct LogicalDecodingContext *ctx,
@@ -1786,12 +1786,12 @@ pgoutput_stream_start(struct LogicalDecodingContext *ctx,
 {
 	bool		send_replication_origin = txn->origin_id != InvalidRepOriginId;
 
-	/* we can't nest streaming of transactions */
+	/* 无法嵌套事务的流式处理       */
 	Assert(!in_streaming);
 
 	/*
-	 * If we already sent the first stream for this transaction then don't
-	 * send the origin id in the subsequent streams.
+	 * 若我们已为本事务发送过第一个流，那么后续的    
+	 * 流中就不再发送复制源 id。         
 	 */
 	if (rbtxn_is_streamed(txn))
 		send_replication_origin = false;
@@ -1804,31 +1804,31 @@ pgoutput_stream_start(struct LogicalDecodingContext *ctx,
 
 	OutputPluginWrite(ctx, true);
 
-	/* we're streaming a chunk of transaction now */
+	/* 现在正流式传输事务的一个分块 */
 	in_streaming = true;
 }
 
 /*
- * STOP STREAM callback
+ * STOP STREAM 回调  
  */
 static void
 pgoutput_stream_stop(struct LogicalDecodingContext *ctx,
 					 ReorderBufferTXN *txn)
 {
-	/* we should be streaming a transaction */
+	/* 此时应正在流式传输事务    */
 	Assert(in_streaming);
 
 	OutputPluginPrepareWrite(ctx, true);
 	logicalrep_write_stream_stop(ctx->out);
 	OutputPluginWrite(ctx, true);
 
-	/* we've stopped streaming a transaction */
+	/* 此时已停止流式传输事务     */
 	in_streaming = false;
 }
 
 /*
- * Notify downstream to discard the streamed transaction (along with all
- * it's subtransactions, if it's a toplevel transaction).
+ * 通知下游丢弃该流式事务（若其为顶层事务，则连   
+ * 同其全部子事务一并丢弃）。               
  */
 static void
 pgoutput_stream_abort(struct LogicalDecodingContext *ctx,
@@ -1840,12 +1840,12 @@ pgoutput_stream_abort(struct LogicalDecodingContext *ctx,
 	bool		write_abort_info = (data->streaming == LOGICALREP_STREAM_PARALLEL);
 
 	/*
-	 * The abort should happen outside streaming block, even for streamed
-	 * transactions. The transaction has to be marked as streamed, though.
+	 * 中止应发生在流式代码块之外，即使是流式事务   
+	 * 也是如此。不过该事务仍必须被标记为流式的。    
 	 */
 	Assert(!in_streaming);
 
-	/* determine the toplevel transaction */
+	/* 确定顶层事务                 */
 	toptxn = rbtxn_get_toptxn(txn);
 
 	Assert(rbtxn_is_streamed(toptxn));
@@ -1860,8 +1860,8 @@ pgoutput_stream_abort(struct LogicalDecodingContext *ctx,
 }
 
 /*
- * Notify downstream to apply the streamed transaction (along with all
- * it's subtransactions).
+ * 通知下游应用该流式事务（连同其所有子事务       
+ * 一并应用）。    
  */
 static void
 pgoutput_stream_commit(struct LogicalDecodingContext *ctx,
@@ -1869,8 +1869,8 @@ pgoutput_stream_commit(struct LogicalDecodingContext *ctx,
 					   XLogRecPtr commit_lsn)
 {
 	/*
-	 * The commit should happen outside streaming block, even for streamed
-	 * transactions. The transaction has to be marked as streamed, though.
+	 * 提交应发生在流式代码块之外，即使是流式事务    
+	 * 也是如此。不过该事务仍必须被标记为流式的。    
 	 */
 	Assert(!in_streaming);
 	Assert(rbtxn_is_streamed(txn));
@@ -1885,9 +1885,9 @@ pgoutput_stream_commit(struct LogicalDecodingContext *ctx,
 }
 
 /*
- * PREPARE callback (for streaming two-phase commit).
+ * PREPARE 回调（流式两阶段提交用）。   
  *
- * Notify the downstream to prepare the transaction.
+ * 通知下游准备该事务。                   
  */
 static void
 pgoutput_stream_prepare_txn(LogicalDecodingContext *ctx,
@@ -1903,11 +1903,11 @@ pgoutput_stream_prepare_txn(LogicalDecodingContext *ctx,
 }
 
 /*
- * Initialize the relation schema sync cache for a decoding session.
+ * 为解码会话初始化关系模式同步缓存。              
  *
- * The hash table is destroyed at the end of a decoding session. While
- * relcache invalidations still exist and will still be invoked, they
- * will just see the null hash table global and take no action.
+ * 哈希表在解码会话结束时销毁。虽然 relcache 失效   
+ * 仍会存在且仍被调用，但它们只会看到该全局哈   
+ * 希表变量为空，因而不采取任何行动。         
  */
 static void
 init_rel_sync_cache(MemoryContext cachectx)
@@ -1915,11 +1915,11 @@ init_rel_sync_cache(MemoryContext cachectx)
 	HASHCTL		ctl;
 	static bool relation_callbacks_registered = false;
 
-	/* Nothing to do if hash table already exists */
+	/* 若哈希表已存在则无需做任何事 */
 	if (RelationSyncCache != NULL)
 		return;
 
-	/* Make a new hash table for the cache */
+	/* 为缓存新建一个哈希表      */
 	ctl.keysize = sizeof(Oid);
 	ctl.entrysize = sizeof(RelationSyncEntry);
 	ctl.hcxt = cachectx;
@@ -1930,25 +1930,25 @@ init_rel_sync_cache(MemoryContext cachectx)
 
 	Assert(RelationSyncCache != NULL);
 
-	/* No more to do if we already registered callbacks */
+	/* 若已注册回调，则无需再做任何事    */
 	if (relation_callbacks_registered)
 		return;
 
-	/* We must update the cache entry for a relation after a relcache flush */
+	/* relcache 刷写后，我们必须更新该关系的缓存条目。   */
 	CacheRegisterRelcacheCallback(rel_sync_cache_relation_cb, (Datum) 0);
 
 	/*
-	 * Flush all cache entries after a pg_namespace change, in case it was a
-	 * schema rename affecting a relation being replicated.
+	 * pg_namespace 变更后刷写全部缓存条目，以防它是        
+	 * 影响正被复制关系的模式重命名。       
 	 */
 	CacheRegisterSyscacheCallback(NAMESPACEOID,
 								  rel_sync_cache_publication_cb,
 								  (Datum) 0);
 
 	/*
-	 * Flush all cache entries after any publication changes.  (We need no
-	 * callback entry for pg_publication, because publication_invalidation_cb
-	 * will take care of it.)
+	 * 出版物变更后一律刷写全部缓存条目。（无需为    
+	 * pg_publication 注册回调条目——publication_invalidation_cb    
+	 * 会处理它。）    
 	 */
 	CacheRegisterSyscacheCallback(PUBLICATIONRELMAP,
 								  rel_sync_cache_publication_cb,
@@ -1961,7 +1961,7 @@ init_rel_sync_cache(MemoryContext cachectx)
 }
 
 /*
- * We expect relatively small number of streamed transactions.
+ * 我们预计流式事务的数量相对较少。           
  */
 static bool
 get_schema_sent_in_streamed_txn(RelationSyncEntry *entry, TransactionId xid)
@@ -1970,8 +1970,8 @@ get_schema_sent_in_streamed_txn(RelationSyncEntry *entry, TransactionId xid)
 }
 
 /*
- * Add the xid in the rel sync entry for which we have already sent the schema
- * of the relation.
+ * 将已为其发送过该关系模式的 xid 记入 rel sync                
+ * 条目。       
  */
 static void
 set_schema_sent_in_streamed_txn(RelationSyncEntry *entry, TransactionId xid)
@@ -1986,13 +1986,13 @@ set_schema_sent_in_streamed_txn(RelationSyncEntry *entry, TransactionId xid)
 }
 
 /*
- * Find or create entry in the relation schema cache.
+ * 在关系模式缓存中查找或创建条目。  
  *
- * This looks up publications that the given relation is directly or
- * indirectly part of (the latter if it's really the relation's ancestor that
- * is part of a publication) and fills up the found entry with the information
- * about which operations to publish and whether to use an ancestor's schema
- * when publishing.
+ * 此函数会查找给定关系直接或间接所属的出版物  
+ * （间接所属指真正在出版物中的是该关系的祖先），     
+ * 并利用下列信息填充找到的条目：要发布哪些操作、      
+ * 以及发布时是否要使用祖先的模式                            
+ * 来发布。    
  */
 static RelationSyncEntry *
 get_rel_sync_entry(PGOutputData *data, Relation relation)
@@ -2004,13 +2004,13 @@ get_rel_sync_entry(PGOutputData *data, Relation relation)
 
 	Assert(RelationSyncCache != NULL);
 
-	/* Find cached relation info, creating if not found */
+	/* 查找已缓存的关系信息，若无则创建 */
 	entry = (RelationSyncEntry *) hash_search(RelationSyncCache,
 											  &relid,
 											  HASH_ENTER, &found);
 	Assert(entry != NULL);
 
-	/* initialize entry, if it's new */
+	/* 若是新条目则初始化   */
 	if (!found)
 	{
 		entry->replicate_valid = false;
@@ -2027,16 +2027,16 @@ get_rel_sync_entry(PGOutputData *data, Relation relation)
 		entry->attrmap = NULL;
 	}
 
-	/* Validate the entry */
+	/* 校验该条目    */
 	if (!entry->replicate_valid)
 	{
 		Oid			schemaId = get_rel_namespace(relid);
 		List	   *pubids = GetRelationPublications(relid);
 
 		/*
-		 * We don't acquire a lock on the namespace system table as we build
-		 * the cache entry using a historic snapshot and all the later changes
-		 * are absorbed while decoding WAL.
+		 * 构建缓存条目时不对命名空间系统表加锁，因为  
+		 * 我们用历史快照构建，而此后的所有变更都会在    
+		 * 解码 WAL 时被吸收。      
 		 */
 		List	   *schemaPubids = GetSchemaPublications(schemaId);
 		ListCell   *lc;
@@ -2046,7 +2046,7 @@ get_rel_sync_entry(PGOutputData *data, Relation relation)
 		char		relkind = get_rel_relkind(relid);
 		List	   *rel_publications = NIL;
 
-		/* Reload publications if needed before use. */
+		/* 使用前按需重新加载出版物。   */
 		if (!publications_valid)
 		{
 			Assert(pubctx);
@@ -2060,10 +2060,10 @@ get_rel_sync_entry(PGOutputData *data, Relation relation)
 		}
 
 		/*
-		 * Reset schema_sent status as the relation definition may have
-		 * changed.  Also reset pubactions to empty in case rel was dropped
-		 * from a publication.  Also free any objects that depended on the
-		 * earlier definition.
+		 * 重置 schema_sent 状态，因为关系定义可能已     
+		 * 改变。另外，若关系已从出版物中移除，则把    
+		 * pubactions 重置为空。同时释放全部依赖先前定    
+		 * 义的对象。    
 		 */
 		entry->schema_sent = false;
 		list_free(entry->streamed_txns);
@@ -2076,7 +2076,7 @@ get_rel_sync_entry(PGOutputData *data, Relation relation)
 		entry->pubactions.pubtruncate = false;
 
 		/*
-		 * Tuple slots cleanups. (Will be rebuilt later if needed).
+		 * 清理元组槽。（必要时会重新构建。）     
 		 */
 		if (entry->old_slot)
 		{
@@ -2087,8 +2087,8 @@ get_rel_sync_entry(PGOutputData *data, Relation relation)
 			ExecDropSingleTupleTableSlot(entry->old_slot);
 
 			/*
-			 * ExecDropSingleTupleTableSlot() would not free the TupleDesc, so
-			 * do it now to avoid any leaks.
+			 * ExecDropSingleTupleTableSlot() 不会释放 TupleDesc，       
+			 * 现在释放以免泄漏。  
 			 */
 			FreeTupleDesc(desc);
 		}
@@ -2101,8 +2101,8 @@ get_rel_sync_entry(PGOutputData *data, Relation relation)
 			ExecDropSingleTupleTableSlot(entry->new_slot);
 
 			/*
-			 * ExecDropSingleTupleTableSlot() would not free the TupleDesc, so
-			 * do it now to avoid any leaks.
+			 * ExecDropSingleTupleTableSlot() 不会释放 TupleDesc，       
+			 * 现在释放以免泄漏。  
 			 */
 			FreeTupleDesc(desc);
 		}
@@ -2115,7 +2115,7 @@ get_rel_sync_entry(PGOutputData *data, Relation relation)
 		entry->attrmap = NULL;
 
 		/*
-		 * Row filter cache cleanups.
+		 * 行过滤缓存清理     
 		 */
 		if (entry->entry_cxt)
 			MemoryContextDelete(entry->entry_cxt);
@@ -2125,10 +2125,10 @@ get_rel_sync_entry(PGOutputData *data, Relation relation)
 		memset(entry->exprstate, 0, sizeof(entry->exprstate));
 
 		/*
-		 * Build publication cache. We can't use one provided by relcache as
-		 * relcache considers all publications that the given relation is in,
-		 * but here we only need to consider ones that the subscriber
-		 * requested.
+		 * 构建出版物缓存。无法使用 relcache 提供的，       
+		 * 因为 relcache 考虑给定关系所在的全部出版物，     
+		 * 而这里只需考虑订阅者请求的那些出版物    
+		 * 。       
 		 */
 		foreach(lc, data->publications)
 		{
@@ -2136,16 +2136,16 @@ get_rel_sync_entry(PGOutputData *data, Relation relation)
 			bool		publish = false;
 
 			/*
-			 * Under what relid should we publish changes in this publication?
-			 * We'll use the top-most relid across all publications. Also
-			 * track the ancestor level for this publication.
+			 * 此出版物中应以哪个 relid 来发布变更？           
+			 * 将用所有出版物中最顶层的 relid。还记录    
+			 * 此出版物的祖先层级。                
 			 */
 			Oid			pub_relid = relid;
 			int			ancestor_level = 0;
 
 			/*
-			 * If this is a FOR ALL TABLES publication, pick the partition
-			 * root and set the ancestor level accordingly.
+			 * 若这是 FOR ALL TABLES 出版物，则选取分区根    
+			 * 并相应地设置祖先层级。           
 			 */
 			if (pub->alltables)
 			{
@@ -2164,10 +2164,10 @@ get_rel_sync_entry(PGOutputData *data, Relation relation)
 				bool		ancestor_published = false;
 
 				/*
-				 * For a partition, check if any of the ancestors are
-				 * published.  If so, note down the topmost ancestor that is
-				 * published via this publication, which will be used as the
-				 * relation via which to publish the partition's changes.
+				 * 对分区，检查其祖先是否被发布。     
+				 * 若是，则记下经该出版物发布的最顶层祖   
+				 * 先，它将作为发布该分区变更所用的关系   
+				 * 。                                                   
 				 */
 				if (am_partition)
 				{
@@ -2197,12 +2197,12 @@ get_rel_sync_entry(PGOutputData *data, Relation relation)
 			}
 
 			/*
-			 * If the relation is to be published, determine actions to
-			 * publish, and list of columns, if appropriate.
+			 * 若要发布该关系，则确定要发布的动作，  
+			 * 以及（若适用）列的列表。         
 			 *
-			 * Don't publish changes for partitioned tables, because
-			 * publishing those of its partitions suffices, unless partition
-			 * changes won't be published due to pubviaroot being set.
+			 * 不要为分区表发布变更，因为发布其     
+			 * 分区的变更已足够，除非因设置 pubviaroot 而    
+			 * 不发布分区变更。                               
 			 */
 			if (publish &&
 				(relkind != RELKIND_PARTITIONED_TABLE || pub->pubviaroot))
@@ -2213,35 +2213,35 @@ get_rel_sync_entry(PGOutputData *data, Relation relation)
 				entry->pubactions.pubtruncate |= pub->pubactions.pubtruncate;
 
 				/*
-				 * We want to publish the changes as the top-most ancestor
-				 * across all publications. So we need to check if the already
-				 * calculated level is higher than the new one. If yes, we can
-				 * ignore the new value (as it's a child). Otherwise the new
-				 * value is an ancestor, so we keep it.
+				 * 我们要以所有出版物中最顶层的祖先发    
+				 * 布变更。因此需检查已算得的层级是否高于  
+				 * 新层级。若高于，则可忽略新值（因其为子  
+				 * 级）。否则新值就是祖先，故保留            
+				 * 它。                              
 				 */
 				if (publish_ancestor_level > ancestor_level)
 					continue;
 
 				/*
-				 * If we found an ancestor higher up in the tree, discard the
-				 * list of publications through which we replicate it, and use
-				 * the new ancestor.
+				 * 若在树中找到了更高处的祖先，则丢弃       
+				 * 复制它所用的出版物列表，并改用新的        
+				 * 祖先。        
 				 */
 				if (publish_ancestor_level < ancestor_level)
 				{
 					publish_as_relid = pub_relid;
 					publish_ancestor_level = ancestor_level;
 
-					/* reset the publication list for this relation */
+					/* 重置该关系的出版物列表            */
 					rel_publications = NIL;
 				}
 				else
 				{
-					/* Same ancestor level, has to be the same OID. */
+					/* 祖先层级相同，OID 必须相同。     */
 					Assert(publish_as_relid == pub_relid);
 				}
 
-				/* Track publications for this ancestor. */
+				/* 跟踪该祖先的出版物。        */
 				rel_publications = lappend(rel_publications, pub);
 			}
 		}
@@ -2249,19 +2249,19 @@ get_rel_sync_entry(PGOutputData *data, Relation relation)
 		entry->publish_as_relid = publish_as_relid;
 
 		/*
-		 * Initialize the tuple slot, map, and row filter. These are only used
-		 * when publishing inserts, updates, or deletes.
+		 * 初始化元组槽、映射和行过滤。它们仅在发布       
+		 * 插入、更新或删除时才会用到。   
 		 */
 		if (entry->pubactions.pubinsert || entry->pubactions.pubupdate ||
 			entry->pubactions.pubdelete)
 		{
-			/* Initialize the tuple slot and map */
+			/* 初始化元组槽与映射       */
 			init_tuple_slot(data, relation, entry);
 
-			/* Initialize the row filter */
+			/* 初始化行过滤        */
 			pgoutput_row_filter_init(data, rel_publications, entry);
 
-			/* Initialize the column list */
+			/* 初始化列列表         */
 			pgoutput_column_list_init(data, rel_publications, entry);
 		}
 
@@ -2276,15 +2276,15 @@ get_rel_sync_entry(PGOutputData *data, Relation relation)
 }
 
 /*
- * Cleanup list of streamed transactions and update the schema_sent flag.
+ * 清理流式事务列表并更新 schema_sent 标志。               
  *
- * When a streamed transaction commits or aborts, we need to remove the
- * toplevel XID from the schema cache. If the transaction aborted, the
- * subscriber will simply throw away the schema records we streamed, so
- * we don't need to do anything else.
+ * 当流式事务提交或中止时，我们需要从模式缓存中  
+ * 移除顶层 XID。若事务已中止，订阅者会直接丢弃   
+ * 我们流式发送的模式记录，因此不需要                 
+ * 再做别的事情。             
  *
- * If the transaction is committed, the subscriber will update the relation
- * cache - so tweak the schema_sent flag accordingly.
+ * 若事务已提交，订阅者会自行更新关系缓存——因此   
+ * 相应地调整 schema_sent 标志。             
  */
 static void
 cleanup_rel_sync_cache(TransactionId xid, bool is_commit)
@@ -2299,10 +2299,10 @@ cleanup_rel_sync_cache(TransactionId xid, bool is_commit)
 	while ((entry = hash_seq_search(&hash_seq)) != NULL)
 	{
 		/*
-		 * We can set the schema_sent flag for an entry that has committed xid
-		 * in the list as that ensures that the subscriber would have the
-		 * corresponding schema and we don't need to send it unless there is
-		 * any invalidation for that relation.
+		 * 对于列表中已有已提交 xid 的条目，我们可以设置  
+		 * schema_sent 标志，因为这确保订阅者已有对应     
+		 * 的模式，无需再发送，除非该关系有任何           
+		 * 失效。                          
 		 */
 		foreach(lc, entry->streamed_txns)
 		{
@@ -2320,7 +2320,7 @@ cleanup_rel_sync_cache(TransactionId xid, bool is_commit)
 }
 
 /*
- * Relcache invalidation callback
+ * relcache 失效回调         
  */
 static void
 rel_sync_cache_relation_cb(Datum arg, Oid relid)
@@ -2328,26 +2328,26 @@ rel_sync_cache_relation_cb(Datum arg, Oid relid)
 	RelationSyncEntry *entry;
 
 	/*
-	 * We can get here if the plugin was used in SQL interface as the
-	 * RelSchemaSyncCache is destroyed when the decoding finishes, but there
-	 * is no way to unregister the relcache invalidation callback.
+	 * 若插件曾用于 SQL 接口，就会到达此处，因为   
+	 * 解码结束时 RelSchemaSyncCache 已被销毁，而                
+	 * 没有办法注销 relcache 失效回调。                
 	 */
 	if (RelationSyncCache == NULL)
 		return;
 
 	/*
-	 * Nobody keeps pointers to entries in this hash table around outside
-	 * logical decoding callback calls - but invalidation events can come in
-	 * *during* a callback if we do any syscache access in the callback.
-	 * Because of that we must mark the cache entry as invalid but not damage
-	 * any of its substructure here.  The next get_rel_sync_entry() call will
-	 * rebuild it all.
+	 * 在逻辑解码回调调用之外，没人会保留指向该哈   
+	 * 希表条目的指针——但失效事件可能在回调期间      
+	 * *到来，如果我们在回调中做任何 syscache 访问。   
+	 * 因此我们必须将缓存条目标记为无效，且在此处       
+	 * 不损坏其任何子结构。下次 get_rel_sync_entry() 调用会   
+	 * 重建它。   
 	 */
 	if (OidIsValid(relid))
 	{
 		/*
-		 * Getting invalidations for relations that aren't in the table is
-		 * entirely normal.  So we don't care if it's found or not.
+		 * 收到不属于该表的关系的失效消息很正常。      
+		 * 因此是否找得到我们都无所谓。              
 		 */
 		entry = (RelationSyncEntry *) hash_search(RelationSyncCache, &relid,
 												  HASH_FIND, NULL);
@@ -2356,7 +2356,7 @@ rel_sync_cache_relation_cb(Datum arg, Oid relid)
 	}
 	else
 	{
-		/* Whole cache must be flushed. */
+		/* 整个缓存必须刷写。  */
 		HASH_SEQ_STATUS status;
 
 		hash_seq_init(&status, RelationSyncCache);
@@ -2368,10 +2368,10 @@ rel_sync_cache_relation_cb(Datum arg, Oid relid)
 }
 
 /*
- * Publication relation/schema map syscache invalidation callback
+ * 出版物关系/模式映射 syscache 失效回调            
  *
- * Called for invalidations on pg_publication, pg_publication_rel,
- * pg_publication_namespace, and pg_namespace.
+ * 本回调在 pg_publication、pg_publication_rel、            
+ * pg_publication_namespace 与 pg_namespace  
  */
 static void
 rel_sync_cache_publication_cb(Datum arg, int cacheid, uint32 hashvalue)
@@ -2380,16 +2380,16 @@ rel_sync_cache_publication_cb(Datum arg, int cacheid, uint32 hashvalue)
 	RelationSyncEntry *entry;
 
 	/*
-	 * We can get here if the plugin was used in SQL interface as the
-	 * RelSchemaSyncCache is destroyed when the decoding finishes, but there
-	 * is no way to unregister the invalidation callbacks.
+	 * 若插件曾用于 SQL 接口，就会到达此处，因为   
+	 * 解码结束时 RelSchemaSyncCache 已被销毁，而                
+	 * 没有办法注销失效回调。                  
 	 */
 	if (RelationSyncCache == NULL)
 		return;
 
 	/*
-	 * We have no easy way to identify which cache entries this invalidation
-	 * event might have affected, so just mark them all invalid.
+	 * 我们无法简便地确定这次失效事件可能影响了哪些   
+	 * 缓存条目，所以干脆统统标记为无效。      
 	 */
 	hash_seq_init(&status, RelationSyncCache);
 	while ((entry = (RelationSyncEntry *) hash_seq_search(&status)) != NULL)
@@ -2398,7 +2398,7 @@ rel_sync_cache_publication_cb(Datum arg, int cacheid, uint32 hashvalue)
 	}
 }
 
-/* Send Replication origin */
+/* 发送复制源         */
 static void
 send_repl_origin(LogicalDecodingContext *ctx, RepOriginId origin_id,
 				 XLogRecPtr origin_lsn, bool send_origin)
@@ -2408,18 +2408,18 @@ send_repl_origin(LogicalDecodingContext *ctx, RepOriginId origin_id,
 		char	   *origin;
 
 		/*----------
-		 * XXX: which behaviour do we want here?
+		 * XXX: 这里想要哪种行为？     
 		 *
-		 * Alternatives:
-		 *  - don't send origin message if origin name not found
-		 *    (that's what we do now)
-		 *  - throw error - that will break replication, not good
-		 *  - send some special "unknown" origin
+		 * 备选：    
+		 *  - 若找不到复制源名称，则不发送消息  
+		 *    （即现行做法）  
+		 *  - 抛出错误——这会破坏复制，不好      
+		 *  - 发送特殊"unknown"复制源    
 		 *----------
 		 */
 		if (replorigin_by_oid(origin_id, true, &origin))
 		{
-			/* Message boundary */
+			/* 消息边界     */
 			OutputPluginWrite(ctx, false);
 			OutputPluginPrepareWrite(ctx, true);
 

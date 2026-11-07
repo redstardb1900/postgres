@@ -1,0 +1,63 @@
+{
+ "schema_version": 1,
+ "batch_id": "0316-comment-replication-slot-pgoutput",
+ "title": "Translate comments: replication-slot-pgoutput",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "15dba30d1db2099fe28b36c7d49379c390aa41ea",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0316-comment-replication-slot-pgoutput.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/replication/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0316-comment-replication-slot-pgoutput.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/replication/pgoutput/pgoutput.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 187,
+   "translated": 186,
+   "preserved": 1,
+   "preserved_reasons": [
+    {
+     "block": 6,
+     "reason": "streamed_txns field comment: two lines both structural edges (j0 '/*' + inline closing 'schema */'); zero interior content lines, kept byte-identical EN (G3c blk39 structural precedent)"
+    }
+   ],
+   "note": "P2 translation campaign wave G6"
+  },
+  {
+   "path": "src/backend/replication/slot.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 180,
+   "translated": 179,
+   "preserved": 1,
+   "preserved_reasons": [
+    {
+     "block": 15,
+     "reason": "two-line block whose both lines are structural edges (line0 '/* the maximum number of replication' + closing 'slots */'); zero interior content lines to key, kept byte-identical EN (G3c blk39 structural precedent)"
+    }
+   ],
+   "note": "P2 translation campaign wave G6"
+  }
+ ],
+ "notes": "P2 remainder campaign, replication wave G6 (replication slot machinery + logical-decoding output plugin, whole-file batch, four slices): translate the comment blocks of replication/slot.c (ReplicationSlotCtl shmem, slot allocation/free/persist, acquire and invalidate paths, wal_level invalidation causes RS_INVAL_WAL_REMOVED/HORIZON/WAL_LEVEL, standby slot syncing, slot stats) and replication/pgoutput/pgoutput.c (output plugin: publication relation/schema mapping caches, row filtering per publication action, relation sync streaming, UPDATE/DELETE key extraction vs REPLICA IDENTITY, streaming and two-phase transaction protocol messages, origin messages).  367 blocks: slot.c 180 (51 multi + 39 ONE via slice a; 39 multi + 51 ONE via slice b; 179 translated + blk15 structural keep), pgoutput.c 187 (52 multi + 41 ONE + blk6 zero-interior keep via slice c; 61 multi + 32 ONE via slice d; 186 translated).  Slice dumps carry global block numbers; per-slice coordinator scans (exec, duplicate keys, edge keys, slice-range coverage, out-of-range check, byte budgets) all first-pass clean; keyscanG6 cross-slice scan: zero block-key overlap, union coverage 180/180 and 186/187+blk6.  Coordinator term alignment pre-apply (tree-precedent enforced): G6b 备机->备库 x4 (TL03/rule 522), G6b 失效化 family -> 已失效/ 失效 x8 (xlog.c/slotfuncs.c/G6a precedent), G6b 短暂槽->瞬态槽 x2 (unify with G6a blk67 瞬态或临时槽; EN distinguishes ephemeral/temporary which slot.c architecture comments rely on), G6d 行过滤器->行过滤 x11 (unify with G6c and the committed tablesync.c rendering from 0314; bare 过滤器 for EN 'the filter' kept once).  Deferred ledger: ephemeral rendering divergence (committed slotfuncs.c 临时槽 vs slot.c 瞬态槽 — slotfuncs EN context allowed the merge, slot.c needs the distinction).  Origin/identity collision check (0314 lesson): all 复制标识 sites verified against EN replica identity (G6d blk94/96/98/100/ 106 + G6c blk8/blk90); all 复制源 sites verified against EN origin (6 occurrences / 4 blocks in G6d); zero collisions.  Apply: slot.c bank-applied after slice a/b delivery, pgoutput.c slices c/d applied on delivery (exec_apply idempotent delta); audit 365 blocks OK (179 + 186, keeps excluded); spec_check G6a-d OK.  Gates: verify 618 files 0 violations (616 + the two G6 files entering the tool's counting domain); term 0 errors, 737 warnings (732 baseline + 5 batch rows triaged advisory: P24 有望 modal for 'can be expected to' at pgoutput.c:790, P38 记录/元组 noise at pgoutput.c:1349, P66/P70 header-block granularity at slot.c:1 with 集簇/主库+主要 correctly in place, P53 verb-拥有 at slot.c:1466); render_scan x2 hard-zero plus manual EN-residue grep zero (0315 lesson: short-residue form blind spot); no tool change this batch.  Agent filings: G6c self-caught 10 budget overruns + 4 key misalignments fixed before delivery (coordinator scan clean); G6d self-caught blk178 overrun; budget-forced compressions per slice filed (稳妥为上 23B, 发 BEGIN 10B, Case 1-4 ASCII table rows kept EN byte-identical, period-only carryover tail lines family, blk119 identifier ate the budget).    Review: r1 FAIL(LOW x1) — sole defect D1 sibling-block rendering inconsistency: slot.c:988 (blk85, slice a) rendered 无法改动 while the two byte-identical EN siblings at L1044/L1103 (blk90/96, slice b) render 无法变更 (EN \"cannot change while ReplicationSlotCtlLock is held\" x3 verbatim); coordinator-verified (EN verbatim, on-site sed, 58B==58B) and fixed via root-cause G6a spec key surgery + delta re-apply (exactly 1 block); six gates re-green post-delta.  Manifest notes N1 count fixed (复制源 x7 -> 6 occurrences / 4 blocks).  r1 otherwise clean: independent byte-model replication (365 blocks LF/ bytes/skeleton/edges/budgets/changeset), full fidelity sweep (0 EN residue / 0 dropped-char at wraps / 0 paren-balance drift / 0 lost predicates), four aligned term families verified in tree, 复制标识 7 + 复制源 6 vs EN zero collision, kept blocks blk15/blk6 confirmed structural.  r2 verdict: PASS (full re-render from specs proves delta zero-overflow: both files byte-equal to spec render, 367 = 365 + 2)."
+}

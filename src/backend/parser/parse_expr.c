@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_expr.c
- *	  handle expressions in parser
+ *	  解析器中处理表达式 
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -41,7 +41,7 @@
 #include "utils/timestamp.h"
 #include "utils/xml.h"
 
-/* GUC parameters */
+/* GUC 参数     */
 bool		Transform_null_equals = false;
 
 
@@ -98,9 +98,9 @@ static Node *make_nulltest_from_distinct(ParseState *pstate,
 
 /*
  * transformExpr -
- *	  Analyze and transform expressions. Type checking and type casting is
- *	  done here.  This processing converts the raw grammar output into
- *	  expression trees with fully determined semantics.
+ *	  分析并转换表达式。类型检查与类型                    
+ *	  转换都在这里完成。此处理把语法的原始          
+ *	  输出转成语义完全确定的表达式树    
  */
 Node *
 transformExpr(ParseState *pstate, Node *expr, ParseExprKind exprKind)
@@ -108,7 +108,7 @@ transformExpr(ParseState *pstate, Node *expr, ParseExprKind exprKind)
 	Node	   *result;
 	ParseExprKind sv_expr_kind;
 
-	/* Save and restore identity of expression type we're parsing */
+	/* 保存并恢复所解析表达式类型的标识           */
 	Assert(exprKind != EXPR_KIND_NONE);
 	sv_expr_kind = pstate->p_expr_kind;
 	pstate->p_expr_kind = exprKind;
@@ -128,7 +128,7 @@ transformExprRecurse(ParseState *pstate, Node *expr)
 	if (expr == NULL)
 		return NULL;
 
-	/* Guard against stack overflow due to overly complex expressions */
+	/* 防止过于复杂的表达式导致栈溢出                  */
 	check_stack_depth();
 
 	switch (nodeTag(expr))
@@ -190,7 +190,7 @@ transformExprRecurse(ParseState *pstate, Node *expr)
 					case AEXPR_LIKE:
 					case AEXPR_ILIKE:
 					case AEXPR_SIMILAR:
-						/* we can transform these just like AEXPR_OP */
+						/* 这些可像 AEXPR_OP 一样转换        */
 						result = transformAExprOp(pstate, a);
 						break;
 					case AEXPR_BETWEEN:
@@ -201,7 +201,7 @@ transformExprRecurse(ParseState *pstate, Node *expr)
 						break;
 					default:
 						elog(ERROR, "unrecognized A_Expr kind: %d", a->kind);
-						result = NULL;	/* keep compiler quiet */
+						result = NULL;	/* 让编译器安静  */
 						break;
 				}
 				break;
@@ -270,7 +270,7 @@ transformExprRecurse(ParseState *pstate, Node *expr)
 				NullTest   *n = (NullTest *) expr;
 
 				n->arg = (Expr *) transformExprRecurse(pstate, (Node *) n->arg);
-				/* the argument can be any type, so don't coerce it */
+				/* 实参可为任意类型，故不强制转换    */
 				n->argisrow = type_is_rowtype(exprType((Node *) n->arg));
 				result = expr;
 				break;
@@ -285,8 +285,8 @@ transformExprRecurse(ParseState *pstate, Node *expr)
 			break;
 
 			/*
-			 * In all places where DEFAULT is legal, the caller should have
-			 * processed it rather than passing it to transformExpr().
+			 * 凡 DEFAULT 合法之处，调用方都应已               
+			 * 处理好它，而不是把它传给 transformExpr()。
 			 */
 		case T_SetToDefault:
 			ereport(ERROR,
@@ -297,14 +297,14 @@ transformExprRecurse(ParseState *pstate, Node *expr)
 			break;
 
 			/*
-			 * CaseTestExpr doesn't require any processing; it is only
-			 * injected into parse trees in a fully-formed state.
+			 * CaseTestExpr 无需任何处理；它只会            
+			 * 以完全成形的形态注入解析树。        
 			 *
-			 * Ordinarily we should not see a Var here, but it is convenient
-			 * for transformJoinUsingClause() to create untransformed operator
-			 * trees containing already-transformed Vars.  The best
-			 * alternative would be to deconstruct and reconstruct column
-			 * references, which seems expensively pointless.  So allow it.
+			 * 通常我们不应在这里看到 Var，但对               
+			 * transformJoinUsingClause() 直接创建这种未转换         
+			 * 操作符树（Var 已转换）很方便。最好的
+			 * 替代方案是先把列引用拆解再重建，          
+			 * 这似乎是代价高昂的无谓之举。所以允许它。
 			 */
 		case T_CaseTestExpr:
 		case T_Var:
@@ -338,9 +338,9 @@ transformExprRecurse(ParseState *pstate, Node *expr)
 			break;
 
 		default:
-			/* should not reach here */
+			/* 不应到达此处    */
 			elog(ERROR, "unrecognized node type: %d", (int) nodeTag(expr));
-			result = NULL;		/* keep compiler quiet */
+			result = NULL;		/* 让编译器安静  */
 			break;
 	}
 
@@ -348,10 +348,10 @@ transformExprRecurse(ParseState *pstate, Node *expr)
 }
 
 /*
- * helper routine for delivering "column does not exist" error message
+ * 用于报告"列不存在"错误消息的辅助例程              
  *
- * (Usually we don't have to work this hard, but the general case of field
- * selection from an arbitrary node needs it.)
+ * （通常我们不必如此费事，但从任意节点进行字段     
+ * 选择的一般情况则需要它。）    
  */
 static void
 unknown_attribute(ParseState *pstate, Node *relref, const char *attname,
@@ -362,7 +362,7 @@ unknown_attribute(ParseState *pstate, Node *relref, const char *attname,
 	if (IsA(relref, Var) &&
 		((Var *) relref)->varattno == InvalidAttrNumber)
 	{
-		/* Reference the RTE by alias not by actual table name */
+		/* 用别名而非实际表名来引用 RTE            */
 		rte = GetRTEByRangeTablePosn(pstate,
 									 ((Var *) relref)->varno,
 									 ((Var *) relref)->varlevelsup);
@@ -374,7 +374,7 @@ unknown_attribute(ParseState *pstate, Node *relref, const char *attname,
 	}
 	else
 	{
-		/* Have to do it by reference to the type of the expression */
+		/* 只能通过表达式的类型来引用                  */
 		Oid			relTypeId = exprType(relref);
 
 		if (ISCOMPLEX(relTypeId))
@@ -409,9 +409,9 @@ transformIndirection(ParseState *pstate, A_Indirection *ind)
 	ListCell   *i;
 
 	/*
-	 * We have to split any field-selection operations apart from
-	 * subscripting.  Adjacent A_Indices nodes have to be treated as a single
-	 * multidimensional subscript operation.
+	 * 必须把字段选择操作从下标操作中             
+	 * 拆分出来。相邻的 A_Indices 节点必须当作单个           
+	 * 多维下标操作来对待。       
 	 */
 	foreach(i, ind->indirection)
 	{
@@ -432,7 +432,7 @@ transformIndirection(ParseState *pstate, A_Indirection *ind)
 
 			Assert(IsA(n, String));
 
-			/* process subscripts before this field selection */
+			/* 在本字段选择之前先处理下标        */
 			if (subscripts)
 				result = (Node *) transformContainerSubscripts(pstate,
 															   result,
@@ -454,7 +454,7 @@ transformIndirection(ParseState *pstate, A_Indirection *ind)
 			result = newresult;
 		}
 	}
-	/* process trailing subscripts, if any */
+	/* 处理尾部下标（若有）      */
 	if (subscripts)
 		result = (Node *) transformContainerSubscripts(pstate,
 													   result,
@@ -467,9 +467,9 @@ transformIndirection(ParseState *pstate, A_Indirection *ind)
 }
 
 /*
- * Transform a ColumnRef.
+ * 转换 ColumnRef。   
  *
- * If you find yourself changing this code, see also ExpandColumnRefStar.
+ * 如果你要修改这段代码，另请参见 ExpandColumnRefStar。  
  */
 static Node *
 transformColumnRef(ParseState *pstate, ColumnRef *cref)
@@ -490,15 +490,15 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 	const char *err;
 
 	/*
-	 * Check to see if the column reference is in an invalid place within the
-	 * query.  We allow column references in most places, except in default
-	 * expressions and partition bound expressions.
+	 * 检查列引用是否处于查询内的无效位置。我们允许    
+	 * 大多数位置的列引用，但默认值表达式与              
+	 * 分区边界表达式中除外。           
 	 */
 	err = NULL;
 	switch (pstate->p_expr_kind)
 	{
 		case EXPR_KIND_NONE:
-			Assert(false);		/* can't happen */
+			Assert(false);		/* 不会发生 */
 			break;
 		case EXPR_KIND_OTHER:
 		case EXPR_KIND_JOIN_ON:
@@ -541,7 +541,7 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 		case EXPR_KIND_COPY_WHERE:
 		case EXPR_KIND_GENERATED_COLUMN:
 		case EXPR_KIND_CYCLE_MARK:
-			/* okay */
+			/* 好  */
 			break;
 
 		case EXPR_KIND_COLUMN_DEFAULT:
@@ -552,11 +552,11 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 			break;
 
 			/*
-			 * There is intentionally no default: case here, so that the
-			 * compiler will warn if we add a new ParseExprKind without
-			 * extending this switch.  If we do see an unrecognized value at
-			 * runtime, the behavior will be the same as for EXPR_KIND_OTHER,
-			 * which is sane anyway.
+			 * 这里有意不设 default: 分支，这样在新增     
+			 * ParseExprKind 而不扩展此 switch 时，编译器会 
+			 * 发出警告。若运行时遇到无法识别的值，       
+			 * 其行为与 EXPR_KIND_OTHER 相同，                        
+			 * 反正也合理。   
 			 */
 	}
 	if (err)
@@ -566,8 +566,8 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 				 parser_errposition(pstate, cref->location)));
 
 	/*
-	 * Give the PreParseColumnRefHook, if any, first shot.  If it returns
-	 * non-null then that's all, folks.
+	 * 若存在 PreParseColumnRefHook，先让它处理。若其返回  
+	 * 非 NULL 则就此了结。     
 	 */
 	if (pstate->p_pre_columnref_hook != NULL)
 	{
@@ -577,7 +577,7 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 	}
 
 	/*----------
-	 * The allowed syntaxes are:
+	 * 允许的语法有：    
 	 *
 	 * A		First try to resolve as unqualified column name;
 	 *			if no luck, try to resolve as unqualified table name (A.*).
@@ -589,14 +589,14 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 	 * A.B.*	whole-row value of table B in schema A.
 	 * A.B.C.*	whole-row value of table C in schema B in catalog A.
 	 *
-	 * We do not need to cope with bare "*"; that will only be accepted by
-	 * the grammar at the top level of a SELECT list, and transformTargetList
-	 * will take care of it before it ever gets here.  Also, "A.*" etc will
-	 * be expanded by transformTargetList if they appear at SELECT top level,
-	 * so here we are only going to see them as function or operator inputs.
+	 * 我们无需处理单独的"*"；只有 SELECT 列表              
+	 * 顶层语法接受它，而且 transformTargetList                    
+	 * 会在到达此处之前处理它。另外，"A.*" 等              
+	 * 若出现在 SELECT 顶层，会被 transformTargetList 展开，     
+	 * 所以这里只会把它们视为函数或操作符的输入。      
 	 *
-	 * Currently, if a catalog name is given then it must equal the current
-	 * database name; we check it here and then discard it.
+	 * 目前若给出了目录名，则它必须等于当前              
+	 * 数据库名；在此检查后即予丢弃。       
 	 *----------
 	 */
 	switch (list_length(cref->fields))
@@ -607,21 +607,21 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 
 				colname = strVal(field1);
 
-				/* Try to identify as an unqualified column */
+				/* 尝试识别为非限定列名           */
 				node = colNameToVar(pstate, colname, false, cref->location);
 
 				if (node == NULL)
 				{
 					/*
-					 * Not known as a column of any range-table entry.
+					 * 它不是任何范围表条目的列。        
 					 *
-					 * Try to find the name as a relation.  Note that only
-					 * relations already entered into the rangetable will be
-					 * recognized.
+					 * 尝试把该名称当作关系查找。注意只有
+					 * 已加入范围表的关系才会被识别。        
+					 *            
 					 *
-					 * This is a hack for backwards compatibility with
-					 * PostQUEL-inspired syntax.  The preferred form now is
-					 * "rel.*".
+					 * 这是为兼容 PostQUEL 风格语法的       
+					 * 权宜做法。现在首选形式是"rel.*"。      
+					 *         
 					 */
 					nsitem = refnameNamespaceItem(pstate, NULL, colname,
 												  cref->location,
@@ -639,7 +639,7 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 
 				relname = strVal(field1);
 
-				/* Locate the referenced nsitem */
+				/* 定位被引用的 nsitem    */
 				nsitem = refnameNamespaceItem(pstate, nspname, relname,
 											  cref->location,
 											  &levels_up);
@@ -649,7 +649,7 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 					break;
 				}
 
-				/* Whole-row reference? */
+				/* 整行引用？      */
 				if (IsA(field2, A_Star))
 				{
 					node = transformWholeRowRef(pstate, nsitem, levels_up,
@@ -659,12 +659,12 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 
 				colname = strVal(field2);
 
-				/* Try to identify as a column of the nsitem */
+				/* 尝试识别为该 nsitem 的列          */
 				node = scanNSItemForColumn(pstate, nsitem, levels_up, colname,
 										   cref->location);
 				if (node == NULL)
 				{
-					/* Try it as a function call on the whole row */
+					/* 尝试将其作为对整行的函数调用 */
 					node = transformWholeRowRef(pstate, nsitem, levels_up,
 												cref->location);
 					node = ParseFuncOrColumn(pstate,
@@ -686,7 +686,7 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 				nspname = strVal(field1);
 				relname = strVal(field2);
 
-				/* Locate the referenced nsitem */
+				/* 定位被引用的 nsitem    */
 				nsitem = refnameNamespaceItem(pstate, nspname, relname,
 											  cref->location,
 											  &levels_up);
@@ -696,7 +696,7 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 					break;
 				}
 
-				/* Whole-row reference? */
+				/* 整行引用？      */
 				if (IsA(field3, A_Star))
 				{
 					node = transformWholeRowRef(pstate, nsitem, levels_up,
@@ -706,12 +706,12 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 
 				colname = strVal(field3);
 
-				/* Try to identify as a column of the nsitem */
+				/* 尝试识别为该 nsitem 的列          */
 				node = scanNSItemForColumn(pstate, nsitem, levels_up, colname,
 										   cref->location);
 				if (node == NULL)
 				{
-					/* Try it as a function call on the whole row */
+					/* 尝试将其作为对整行的函数调用 */
 					node = transformWholeRowRef(pstate, nsitem, levels_up,
 												cref->location);
 					node = ParseFuncOrColumn(pstate,
@@ -737,7 +737,7 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 				relname = strVal(field3);
 
 				/*
-				 * We check the catalog name and then ignore it.
+				 * 我们检查目录名，然后将其忽略。
 				 */
 				if (strcmp(catname, get_database_name(MyDatabaseId)) != 0)
 				{
@@ -745,7 +745,7 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 					break;
 				}
 
-				/* Locate the referenced nsitem */
+				/* 定位被引用的 nsitem    */
 				nsitem = refnameNamespaceItem(pstate, nspname, relname,
 											  cref->location,
 											  &levels_up);
@@ -755,7 +755,7 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 					break;
 				}
 
-				/* Whole-row reference? */
+				/* 整行引用？      */
 				if (IsA(field4, A_Star))
 				{
 					node = transformWholeRowRef(pstate, nsitem, levels_up,
@@ -765,12 +765,12 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 
 				colname = strVal(field4);
 
-				/* Try to identify as a column of the nsitem */
+				/* 尝试识别为该 nsitem 的列          */
 				node = scanNSItemForColumn(pstate, nsitem, levels_up, colname,
 										   cref->location);
 				if (node == NULL)
 				{
-					/* Try it as a function call on the whole row */
+					/* 尝试将其作为对整行的函数调用 */
 					node = transformWholeRowRef(pstate, nsitem, levels_up,
 												cref->location);
 					node = ParseFuncOrColumn(pstate,
@@ -784,18 +784,18 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 				break;
 			}
 		default:
-			crerr = CRERR_TOO_MANY; /* too many dotted names */
+			crerr = CRERR_TOO_MANY; /* 带点名称过多    */
 			break;
 	}
 
 	/*
-	 * Now give the PostParseColumnRefHook, if any, a chance.  We pass the
-	 * translation-so-far so that it can throw an error if it wishes in the
-	 * case that it has a conflicting interpretation of the ColumnRef. (If it
-	 * just translates anyway, we'll throw an error, because we can't undo
-	 * whatever effects the preceding steps may have had on the pstate.) If it
-	 * returns NULL, use the standard translation, or throw a suitable error
-	 * if there is none.
+	 * 若存在 PostParseColumnRefHook，现在轮到它。我们把     
+	 * 目前为止的转换结果传给它，以便它在认为对        
+	 * ColumnRef 有冲突解读时抛出错误。（若它                  
+	 * 无论如何都强行翻译，我们会抛错，因为无法撤销 
+	 * 前面步骤可能已对 pstate 产生的影响。）若它返回      
+	 * NULL，就用标准转换结果，若没有则抛出                 
+	 * 合适错误。  
 	 */
 	if (pstate->p_post_columnref_hook != NULL)
 	{
@@ -813,7 +813,7 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 	}
 
 	/*
-	 * Throw error if no translation found.
+	 * 若无转换结果则抛错。      
 	 */
 	if (node == NULL)
 	{
@@ -852,8 +852,8 @@ transformParamRef(ParseState *pstate, ParamRef *pref)
 	Node	   *result;
 
 	/*
-	 * The core parser knows nothing about Params.  If a hook is supplied,
-	 * call it.  If not, or if the hook returns NULL, throw a generic error.
+	 * 核心解析器对 Param 一无所知。若提供了钩子，      
+	 * 就调用它。若无钩子或返回 NULL，则抛通用错误。    
 	 */
 	if (pstate->p_paramref_hook != NULL)
 		result = pstate->p_paramref_hook(pstate, pref);
@@ -869,7 +869,7 @@ transformParamRef(ParseState *pstate, ParamRef *pref)
 	return result;
 }
 
-/* Test whether an a_expr is a plain NULL constant or not */
+/* 检测 a_expr 是否为普通 NULL 常量              */
 static bool
 exprIsNullConstant(Node *arg)
 {
@@ -891,11 +891,11 @@ transformAExprOp(ParseState *pstate, A_Expr *a)
 	Node	   *result;
 
 	/*
-	 * Special-case "foo = NULL" and "NULL = foo" for compatibility with
-	 * standards-broken products (like Microsoft's).  Turn these into IS NULL
-	 * exprs. (If either side is a CaseTestExpr, then the expression was
-	 * generated internally from a CASE-WHEN expression, and
-	 * transform_null_equals does not apply.)
+	 * 为兼容破坏标准的产品（如微软的），特判        
+	 * "foo = NULL" 与 "NULL = foo"，把它们变成 IS NULL               
+	 * 表达式。（若任一侧是 CaseTestExpr，则该表达式是 
+	 * 由 CASE-WHEN 表达式在内部生成的，此时   
+	 * transform_null_equals 不适用。） 
 	 */
 	if (Transform_null_equals &&
 		list_length(a->name) == 1 &&
@@ -920,9 +920,9 @@ transformAExprOp(ParseState *pstate, A_Expr *a)
 			 ((SubLink *) rexpr)->subLinkType == EXPR_SUBLINK)
 	{
 		/*
-		 * Convert "row op subselect" into a ROWCOMPARE sublink. Formerly the
-		 * grammar did this, but now that a row construct is allowed anywhere
-		 * in expressions, it's easier to do it here.
+		 * 把"行 op 子查询"转换为 ROWCOMPARE 子链接。以前      
+		 * 由语法完成此事，但现在行构造可出现在表达式   
+		 * 的任何位置，在这里做更容易。
 		 */
 		SubLink    *s = (SubLink *) rexpr;
 
@@ -935,7 +935,7 @@ transformAExprOp(ParseState *pstate, A_Expr *a)
 	else if (lexpr && IsA(lexpr, RowExpr) &&
 			 rexpr && IsA(rexpr, RowExpr))
 	{
-		/* ROW() op ROW() is handled specially */
+		/* ROW() op ROW() 被特殊处理      */
 		lexpr = transformExprRecurse(pstate, lexpr);
 		rexpr = transformExprRecurse(pstate, rexpr);
 
@@ -947,7 +947,7 @@ transformAExprOp(ParseState *pstate, A_Expr *a)
 	}
 	else
 	{
-		/* Ordinary scalar operator */
+		/* 普通标量操作符    */
 		Node	   *last_srf = pstate->p_last_srf;
 
 		lexpr = transformExprRecurse(pstate, lexpr);
@@ -1000,9 +1000,9 @@ transformAExprDistinct(ParseState *pstate, A_Expr *a)
 	Node	   *result;
 
 	/*
-	 * If either input is an undecorated NULL literal, transform to a NullTest
-	 * on the other input. That's simpler to process than a full DistinctExpr,
-	 * and it avoids needing to require that the datatype have an = operator.
+	 * 若任一输入是未修饰的 NULL 字面量，则转换为对另     
+	 * 一输入的 NullTest。这比完整的 DistinctExpr 更易处理，   
+	 * 且无需要求该数据类型必须有 = 操作符。                
 	 */
 	if (exprIsNullConstant(rexpr))
 		return make_nulltest_from_distinct(pstate, a, lexpr);
@@ -1015,7 +1015,7 @@ transformAExprDistinct(ParseState *pstate, A_Expr *a)
 	if (lexpr && IsA(lexpr, RowExpr) &&
 		rexpr && IsA(rexpr, RowExpr))
 	{
-		/* ROW() op ROW() is handled specially */
+		/* ROW() op ROW() 被特殊处理      */
 		result = make_row_distinct_op(pstate, a->name,
 									  (RowExpr *) lexpr,
 									  (RowExpr *) rexpr,
@@ -1023,7 +1023,7 @@ transformAExprDistinct(ParseState *pstate, A_Expr *a)
 	}
 	else
 	{
-		/* Ordinary scalar operator */
+		/* 普通标量操作符    */
 		result = (Node *) make_distinct_op(pstate,
 										   a->name,
 										   lexpr,
@@ -1032,8 +1032,8 @@ transformAExprDistinct(ParseState *pstate, A_Expr *a)
 	}
 
 	/*
-	 * If it's NOT DISTINCT, we first build a DistinctExpr and then stick a
-	 * NOT on top.
+	 * 若是 NOT DISTINCT，则先构建 DistinctExpr，然后            
+	 * 再套 NOT 
 	 */
 	if (a->kind == AEXPR_NOT_DISTINCT)
 		result = (Node *) makeBoolExpr(NOT_EXPR,
@@ -1058,7 +1058,7 @@ transformAExprNullIf(ParseState *pstate, A_Expr *a)
 								a->location);
 
 	/*
-	 * The comparison operator itself should yield boolean ...
+	 * 比较操作符本身应产生布尔结果 ...         
 	 */
 	if (result->opresulttype != BOOLOID)
 		ereport(ERROR,
@@ -1073,12 +1073,12 @@ transformAExprNullIf(ParseState *pstate, A_Expr *a)
 				 parser_errposition(pstate, a->location)));
 
 	/*
-	 * ... but the NullIfExpr will yield the first operand's type.
+	 * ... 但 NullIfExpr 将产生第一个操作数的类型。 
 	 */
 	result->opresulttype = exprType((Node *) linitial(result->args));
 
 	/*
-	 * We rely on NullIfExpr and OpExpr being the same struct
+	 * 依赖 NullIfExpr 与 OpExpr 共用同一结构体    
 	 */
 	NodeSetTag(result, T_NullIfExpr);
 
@@ -1097,7 +1097,7 @@ transformAExprIn(ParseState *pstate, A_Expr *a)
 	ListCell   *l;
 
 	/*
-	 * If the operator is <>, combine with AND not OR.
+	 * 若操作符为 <>，用 AND 而非 OR。      
 	 */
 	if (strcmp(strVal(linitial(a->name)), "<>") == 0)
 		useOr = false;
@@ -1105,15 +1105,15 @@ transformAExprIn(ParseState *pstate, A_Expr *a)
 		useOr = true;
 
 	/*
-	 * We try to generate a ScalarArrayOpExpr from IN/NOT IN, but this is only
-	 * possible if there is a suitable array type available.  If not, we fall
-	 * back to a boolean condition tree with multiple copies of the lefthand
-	 * expression.  Also, any IN-list items that contain Vars are handled as
-	 * separate boolean conditions, because that gives the planner more scope
-	 * for optimization on such clauses.
+	 * 我们尝试从 IN/NOT IN 生成 ScalarArrayOpExpr，但这只有      
+	 * 在存在合适的数组类型时才可行。若没有，就回退到 
+	 * 用多个左表达式副本构成的布尔条件树。此外，      
+	 * 任何含 Var 的 IN 列表项都作为独立的布尔条件处理，
+	 * 因为这样给规划器对此类子句提供了更大                
+	 * 的优化空间。               
 	 *
-	 * First step: transform all the inputs, and detect whether any contain
-	 * Vars.
+	 * 第一步：转换所有输入，并检测其中是否含 Var。    
+	 *      
 	 */
 	lexpr = transformExprRecurse(pstate, a->lexpr);
 	rexprs = rvars = rnonvars = NIL;
@@ -1129,8 +1129,8 @@ transformAExprIn(ParseState *pstate, A_Expr *a)
 	}
 
 	/*
-	 * ScalarArrayOpExpr is only going to be useful if there's more than one
-	 * non-Var righthand item.
+	 * ScalarArrayOpExpr 只有在非 Var 的右端项多于                
+	 * 一个时才有用。  
 	 */
 	if (list_length(rnonvars) > 1)
 	{
@@ -1139,25 +1139,25 @@ transformAExprIn(ParseState *pstate, A_Expr *a)
 		Oid			array_type;
 
 		/*
-		 * Try to select a common type for the array elements.  Note that
-		 * since the LHS' type is first in the list, it will be preferred when
-		 * there is doubt (eg, when all the RHS items are unknown literals).
+		 * 尝试为数组元素选择一个公共类型。注意        
+		 * 由于左侧类型在列表中排在首位，在有疑问时       
+		 * （例如右端项全为未知字面量时）优先选它。     
 		 *
-		 * Note: use list_concat here not lcons, to avoid damaging rnonvars.
+		 * 注意：用 list_concat 而非 lcons，以免破坏 rnonvars。 
 		 */
 		allexprs = list_concat(list_make1(lexpr), rnonvars);
 		scalar_type = select_common_type(pstate, allexprs, NULL, NULL);
 
-		/* We have to verify that the selected type actually works */
+		/* 必须验证所选类型确实可用                    */
 		if (OidIsValid(scalar_type) &&
 			!verify_common_type(scalar_type, allexprs))
 			scalar_type = InvalidOid;
 
 		/*
-		 * Do we have an array type to use?  Aside from the case where there
-		 * isn't one, we don't risk using ScalarArrayOpExpr when the common
-		 * type is RECORD, because the RowExpr comparison logic below can cope
-		 * with some cases of non-identical row types.
+		 * 有可用数组类型吗？除了不存在该类型的情形     
+		 * 外，当公共类型是 RECORD 时我们也不会冒险使用  
+		 * ScalarArrayOpExpr，因为下方的 RowExpr 比较逻辑           
+		 * 可应对部分行类型不同的情况。 
 		 */
 		if (OidIsValid(scalar_type) && scalar_type != RECORDOID)
 			array_type = get_array_type(scalar_type);
@@ -1166,8 +1166,8 @@ transformAExprIn(ParseState *pstate, A_Expr *a)
 		if (array_type != InvalidOid)
 		{
 			/*
-			 * OK: coerce all the right-hand non-Var inputs to the common type
-			 * and build an ArrayExpr for them.
+			 * 好：把右端全部非 Var 输入强制转换为公共类型 
+			 * 并为它们构建 ArrayExpr。 
 			 */
 			List	   *aexprs;
 			ArrayExpr  *newa;
@@ -1184,7 +1184,7 @@ transformAExprIn(ParseState *pstate, A_Expr *a)
 			}
 			newa = makeNode(ArrayExpr);
 			newa->array_typeid = array_type;
-			/* array_collid will be set by parse_collate.c */
+			/* array_collid 由 parse_collate.c 设置     */
 			newa->element_typeid = scalar_type;
 			newa->elements = aexprs;
 			newa->multidims = false;
@@ -1197,13 +1197,13 @@ transformAExprIn(ParseState *pstate, A_Expr *a)
 												   (Node *) newa,
 												   a->location);
 
-			/* Consider only the Vars (if any) in the loop below */
+			/* 在下面的循环中只考虑 Var（如有）    */
 			rexprs = rvars;
 		}
 	}
 
 	/*
-	 * Must do it the hard way, ie, with a boolean expression tree.
+	 * 必须用笨办法，即布尔表达式树来做。         
 	 */
 	foreach(l, rexprs)
 	{
@@ -1213,7 +1213,7 @@ transformAExprIn(ParseState *pstate, A_Expr *a)
 		if (IsA(lexpr, RowExpr) &&
 			IsA(rexpr, RowExpr))
 		{
-			/* ROW() op ROW() is handled specially */
+			/* ROW() op ROW() 被特殊处理      */
 			cmp = make_row_comparison_op(pstate,
 										 a->name,
 										 copyObject(((RowExpr *) lexpr)->args),
@@ -1222,7 +1222,7 @@ transformAExprIn(ParseState *pstate, A_Expr *a)
 		}
 		else
 		{
-			/* Ordinary scalar operator */
+			/* 普通标量操作符    */
 			cmp = (Node *) make_op(pstate,
 								   a->name,
 								   copyObject(lexpr),
@@ -1254,7 +1254,7 @@ transformAExprBetween(ParseState *pstate, A_Expr *a)
 	Node	   *sub2;
 	List	   *args;
 
-	/* Deconstruct A_Expr into three subexprs */
+	/* 把 A_Expr 分解为三个子表达式 */
 	aexpr = a->lexpr;
 	args = castNode(List, a->rexpr);
 	Assert(list_length(args) == 2);
@@ -1262,14 +1262,14 @@ transformAExprBetween(ParseState *pstate, A_Expr *a)
 	cexpr = (Node *) lsecond(args);
 
 	/*
-	 * Build the equivalent comparison expression.  Make copies of
-	 * multiply-referenced subexpressions for safety.  (XXX this is really
-	 * wrong since it results in multiple runtime evaluations of what may be
-	 * volatile expressions ...)
+	 * 构建等价的比较表达式。为安全起见，对被  
+	 * 多次引用的子表达式制作副本。（XXX 这实在         
+	 * 有问题，因为这会对可能是易变的表达式               
+	 * 求值多次 ...）      
 	 *
-	 * Ideally we would not use hard-wired operators here but instead use
-	 * opclasses.  However, mixed data types and other issues make this
-	 * difficult:
+	 * 理想情况下此处不应使用硬编码的操作符，而应   
+	 * 使用操作符类。但混合数据类型等问题使这一点 
+	 * 很难： 
 	 * http://archives.postgresql.org/pgsql-hackers/2008-08/msg01142.php
 	 */
 	switch (a->kind)
@@ -1330,7 +1330,7 @@ transformAExprBetween(ParseState *pstate, A_Expr *a)
 			break;
 		default:
 			elog(ERROR, "unrecognized A_Expr kind: %d", a->kind);
-			result = NULL;		/* keep compiler quiet */
+			result = NULL;		/* 让编译器安静  */
 			break;
 	}
 
@@ -1357,7 +1357,7 @@ transformBoolExpr(ParseState *pstate, BoolExpr *a)
 			break;
 		default:
 			elog(ERROR, "unrecognized boolop: %d", (int) a->boolop);
-			opname = NULL;		/* keep compiler quiet */
+			opname = NULL;		/* 让编译器安静  */
 			break;
 	}
 
@@ -1380,7 +1380,7 @@ transformFuncCall(ParseState *pstate, FuncCall *fn)
 	List	   *targs;
 	ListCell   *args;
 
-	/* Transform the list of arguments ... */
+	/* 转换实参列表 ...              */
 	targs = NIL;
 	foreach(args, fn->args)
 	{
@@ -1389,12 +1389,12 @@ transformFuncCall(ParseState *pstate, FuncCall *fn)
 	}
 
 	/*
-	 * When WITHIN GROUP is used, we treat its ORDER BY expressions as
-	 * additional arguments to the function, for purposes of function lookup
-	 * and argument type coercion.  So, transform each such expression and add
-	 * them to the targs list.  We don't explicitly mark where each argument
-	 * came from, but ParseFuncOrColumn can tell what's what by reference to
-	 * list_length(fn->agg_order).
+	 * 使用 WITHIN GROUP 时，我们把其 ORDER BY 表达式      
+	 * 当作函数的附加实参，用于函数查找与实参类型      
+	 * 强制转换。因此，转换每个这类表达式并把它们        
+	 * 加入 targs 列表。我们不会显式标记每个实参的        
+	 * 来源，但 ParseFuncOrColumn 能借助下列表达式分辨：     
+	 * list_length(fn->agg_order) 
 	 */
 	if (fn->agg_within_group)
 	{
@@ -1408,7 +1408,7 @@ transformFuncCall(ParseState *pstate, FuncCall *fn)
 		}
 	}
 
-	/* ... and hand off to ParseFuncOrColumn */
+	/* ... 交给 ParseFuncOrColumn          */
 	return ParseFuncOrColumn(pstate,
 							 fn->funcname,
 							 targs,
@@ -1426,31 +1426,31 @@ transformMultiAssignRef(ParseState *pstate, MultiAssignRef *maref)
 	Query	   *qtree;
 	TargetEntry *tle;
 
-	/* We should only see this in first-stage processing of UPDATE tlists */
+	/* 只应出现在 UPDATE 目标列表的第一阶段处理中        */
 	Assert(pstate->p_expr_kind == EXPR_KIND_UPDATE_SOURCE);
 
-	/* We only need to transform the source if this is the first column */
+	/* 仅当这是第一列时才需要转换源表达式              */
 	if (maref->colno == 1)
 	{
 		/*
-		 * For now, we only allow EXPR SubLinks and RowExprs as the source of
-		 * an UPDATE multiassignment.  This is sufficient to cover interesting
-		 * cases; at worst, someone would have to write (SELECT * FROM expr)
-		 * to expand a composite-returning expression of another form.
+		 * 目前我们只允许 EXPR 子链接与 RowExpr 作为            
+		 * UPDATE 多重赋值的来源。这足以覆盖各种有意义      
+		 * 的情形；最坏情况下，得写 (SELECT * FROM expr)        
+		 * 来展开其他形式的复合返回表达式。           
 		 */
 		if (IsA(maref->source, SubLink) &&
 			((SubLink *) maref->source)->subLinkType == EXPR_SUBLINK)
 		{
-			/* Relabel it as a MULTIEXPR_SUBLINK */
+			/* 将其重标为 MULTIEXPR_SUBLINK */
 			sublink = (SubLink *) maref->source;
 			sublink->subLinkType = MULTIEXPR_SUBLINK;
-			/* And transform it */
+			/* 然后转换它  */
 			sublink = (SubLink *) transformExprRecurse(pstate,
 													   (Node *) sublink);
 
 			qtree = castNode(Query, sublink->subselect);
 
-			/* Check subquery returns required number of columns */
+			/* 检查子查询是否返回了所需列数        */
 			if (count_nonjunk_tlist_entries(qtree->targetList) != maref->ncolumns)
 				ereport(ERROR,
 						(errcode(ERRCODE_SYNTAX_ERROR),
@@ -1458,31 +1458,31 @@ transformMultiAssignRef(ParseState *pstate, MultiAssignRef *maref)
 						 parser_errposition(pstate, sublink->location)));
 
 			/*
-			 * Build a resjunk tlist item containing the MULTIEXPR SubLink,
-			 * and add it to pstate->p_multiassign_exprs, whence it will later
-			 * get appended to the completed targetlist.  We needn't worry
-			 * about selecting a resno for it; transformUpdateStmt will do
-			 * that.
+			 * 构建含 MULTIEXPR SubLink 的 resjunk 目标列表项，  
+			 * 并将其加入 pstate->p_multiassign_exprs，它稍后        
+			 * 会追加到完成的目标列表。无需为它操心     
+			 * resno 的选择；transformUpdateStmt 会完成            
+			 *      
 			 */
 			tle = makeTargetEntry((Expr *) sublink, 0, NULL, true);
 			pstate->p_multiassign_exprs = lappend(pstate->p_multiassign_exprs,
 												  tle);
 
 			/*
-			 * Assign a unique-within-this-targetlist ID to the MULTIEXPR
-			 * SubLink.  We can just use its position in the
-			 * p_multiassign_exprs list.
+			 * 给 MULTIEXPR SubLink 分配一个此目标列表内      
+			 * 唯一的 ID。用其在 p_multiassign_exprs 
+			 * 中的位置即可。    
 			 */
 			sublink->subLinkId = list_length(pstate->p_multiassign_exprs);
 		}
 		else if (IsA(maref->source, RowExpr))
 		{
-			/* Transform the RowExpr, allowing SetToDefault items */
+			/* 转换 RowExpr，允许 SetToDefault 项           */
 			rexpr = (RowExpr *) transformRowExpr(pstate,
 												 (RowExpr *) maref->source,
 												 true);
 
-			/* Check it returns required number of columns */
+			/* 检查其是否返回所需列数           */
 			if (list_length(rexpr->args) != maref->ncolumns)
 				ereport(ERROR,
 						(errcode(ERRCODE_SYNTAX_ERROR),
@@ -1490,8 +1490,8 @@ transformMultiAssignRef(ParseState *pstate, MultiAssignRef *maref)
 						 parser_errposition(pstate, rexpr->location)));
 
 			/*
-			 * Temporarily append it to p_multiassign_exprs, so we can get it
-			 * back when we come back here for additional columns.
+			 * 临时把它追加到 p_multiassign_exprs，之后处理      
+			 * 后续列时好取回它。                        
 			 */
 			tle = makeTargetEntry((Expr *) rexpr, 0, NULL, true);
 			pstate->p_multiassign_exprs = lappend(pstate->p_multiassign_exprs,
@@ -1506,16 +1506,16 @@ transformMultiAssignRef(ParseState *pstate, MultiAssignRef *maref)
 	else
 	{
 		/*
-		 * Second or later column in a multiassignment.  Re-fetch the
-		 * transformed SubLink or RowExpr, which we assume is still the last
-		 * entry in p_multiassign_exprs.
+		 * 多重赋值的第二列或更后面的列。重新取回 
+		 * 已转换的 SubLink 或 RowExpr，假定它仍是               
+		 * p_multiassign_exprs 末项   
 		 */
 		Assert(pstate->p_multiassign_exprs != NIL);
 		tle = (TargetEntry *) llast(pstate->p_multiassign_exprs);
 	}
 
 	/*
-	 * Emit the appropriate output expression for the current column
+	 * 为当前列发出适当的输出表达式                   
 	 */
 	if (IsA(tle->expr, SubLink))
 	{
@@ -1525,7 +1525,7 @@ transformMultiAssignRef(ParseState *pstate, MultiAssignRef *maref)
 		Assert(sublink->subLinkType == MULTIEXPR_SUBLINK);
 		qtree = castNode(Query, sublink->subselect);
 
-		/* Build a Param representing the current subquery output column */
+		/* 构建代表当前子查询输出列的 Param                 */
 		tle = (TargetEntry *) list_nth(qtree->targetList, maref->colno - 1);
 		Assert(!tle->resjunk);
 
@@ -1546,14 +1546,14 @@ transformMultiAssignRef(ParseState *pstate, MultiAssignRef *maref)
 
 		rexpr = (RowExpr *) tle->expr;
 
-		/* Just extract and return the next element of the RowExpr */
+		/* 只需提取并返回 RowExpr 的下一个元素        */
 		result = (Node *) list_nth(rexpr->args, maref->colno - 1);
 
 		/*
-		 * If we're at the last column, delete the RowExpr from
-		 * p_multiassign_exprs; we don't need it anymore, and don't want it in
-		 * the finished UPDATE tlist.  We assume this is still the last entry
-		 * in p_multiassign_exprs.
+		 * 如果处于最后一列，就从                   
+		 * p_multiassign_exprs 中删除该 RowExpr；不再需要它，      
+		 * 也不希望它出现在完成的 UPDATE 目标列表中。假定 
+		 * 它仍是末项        
 		 */
 		if (maref->colno == maref->ncolumns)
 			pstate->p_multiassign_exprs =
@@ -1563,7 +1563,7 @@ transformMultiAssignRef(ParseState *pstate, MultiAssignRef *maref)
 	}
 
 	elog(ERROR, "unexpected expr type in multiassign list");
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 让编译器安静  */
 }
 
 static Node *
@@ -1579,27 +1579,27 @@ transformCaseExpr(ParseState *pstate, CaseExpr *c)
 	Node	   *defresult;
 	Oid			ptype;
 
-	/* transform the test expression, if any */
+	/* 转换测试表达式（如有）     */
 	arg = transformExprRecurse(pstate, (Node *) c->arg);
 
-	/* generate placeholder for test expression */
+	/* 为测试表达式生成占位符        */
 	if (arg)
 	{
 		/*
-		 * If test expression is an untyped literal, force it to text. We have
-		 * to do something now because we won't be able to do this coercion on
-		 * the placeholder.  This is not as flexible as what was done in 7.4
-		 * and before, but it's good enough to handle the sort of silly coding
-		 * commonly seen.
+		 * 若测试表达式是未定类型字面量，则强制为 text。  
+		 * 必须现在就处理，因为到占位符上就无法再做       
+		 * 这种强制转换了。这不如 7.4 及之前版本的做法   
+		 * 灵活，但足以处理常见的那种糟糕写法。             
+		 *               
 		 */
 		if (exprType(arg) == UNKNOWNOID)
 			arg = coerce_to_common_type(pstate, arg, TEXTOID, "CASE");
 
 		/*
-		 * Run collation assignment on the test expression so that we know
-		 * what collation to mark the placeholder with.  In principle we could
-		 * leave it to parse_collate.c to do that later, but propagating the
-		 * result to the CaseTestExpr would be unnecessarily complicated.
+		 * 对测试表达式执行排序规则分配，以便知道      
+		 * 该用哪种排序规则标记占位符。原则上可以          
+		 * 把这件事留给 parse_collate.c 以后处理，但把结果   
+		 * 传播给 CaseTestExpr 会不必要地复杂。               
 		 */
 		assign_expr_collations(pstate, arg);
 
@@ -1613,7 +1613,7 @@ transformCaseExpr(ParseState *pstate, CaseExpr *c)
 
 	newc->arg = (Expr *) arg;
 
-	/* transform the list of arguments */
+	/* 转换参数列表              */
 	newargs = NIL;
 	resultexprs = NIL;
 	foreach(l, c->args)
@@ -1625,7 +1625,7 @@ transformCaseExpr(ParseState *pstate, CaseExpr *c)
 		warg = (Node *) w->expr;
 		if (placeholder)
 		{
-			/* shorthand form was specified, so expand... */
+			/* 已指定简写形式，故进行展开... */
 			warg = (Node *) makeSimpleA_Expr(AEXPR_OP, "=",
 											 (Node *) placeholder,
 											 warg,
@@ -1647,7 +1647,7 @@ transformCaseExpr(ParseState *pstate, CaseExpr *c)
 
 	newc->args = newargs;
 
-	/* transform the default clause */
+	/* 转换 DEFAULT 子句        */
 	defresult = (Node *) c->defresult;
 	if (defresult == NULL)
 	{
@@ -1660,25 +1660,25 @@ transformCaseExpr(ParseState *pstate, CaseExpr *c)
 	newc->defresult = (Expr *) transformExprRecurse(pstate, defresult);
 
 	/*
-	 * Note: default result is considered the most significant type in
-	 * determining preferred type. This is how the code worked before, but it
-	 * seems a little bogus to me --- tgl
+	 * 注意：默认结果被视为决定首选类型时            
+	 * 权重最高的类型。此前的代码就是这样处理的，       
+	 * 但我觉得有点不妥 --- tgl  
 	 */
 	resultexprs = lcons(newc->defresult, resultexprs);
 
 	ptype = select_common_type(pstate, resultexprs, "CASE", NULL);
 	Assert(OidIsValid(ptype));
 	newc->casetype = ptype;
-	/* casecollid will be set by parse_collate.c */
+	/* casecollid 由 parse_collate.c 设置     */
 
-	/* Convert default result clause, if necessary */
+	/* 如有必要，转换默认结果子句     */
 	newc->defresult = (Expr *)
 		coerce_to_common_type(pstate,
 							  (Node *) newc->defresult,
 							  ptype,
 							  "CASE/ELSE");
 
-	/* Convert when-clause results, if necessary */
+	/* 如有必要，转换 WHEN 子句结果   */
 	foreach(l, newc->args)
 	{
 		CaseWhen   *w = (CaseWhen *) lfirst(l);
@@ -1690,7 +1690,7 @@ transformCaseExpr(ParseState *pstate, CaseExpr *c)
 								  "CASE/WHEN");
 	}
 
-	/* if any subexpression contained a SRF, complain */
+	/* 若任一子表达式包含 SRF，则报错    */
 	if (pstate->p_last_srf != last_srf)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -1714,18 +1714,18 @@ transformSubLink(ParseState *pstate, SubLink *sublink)
 	const char *err;
 
 	/*
-	 * Check to see if the sublink is in an invalid place within the query. We
-	 * allow sublinks everywhere in SELECT/INSERT/UPDATE/DELETE/MERGE, but
-	 * generally not in utility statements.
+	 * 检查 sublink 是否位于查询中的无效位置。                 
+	 * 在 SELECT/INSERT/UPDATE/DELETE/MERGE 中随处允许 sublink，   
+	 * 工具命令一般不允许。      
 	 */
 	err = NULL;
 	switch (pstate->p_expr_kind)
 	{
 		case EXPR_KIND_NONE:
-			Assert(false);		/* can't happen */
+			Assert(false);		/* 不可能    */
 			break;
 		case EXPR_KIND_OTHER:
-			/* Accept sublink here; caller must throw error if wanted */
+			/* 在此接受 sublink；如需报错由调用者负责  */
 			break;
 		case EXPR_KIND_JOIN_ON:
 		case EXPR_KIND_JOIN_USING:
@@ -1754,7 +1754,7 @@ transformSubLink(ParseState *pstate, SubLink *sublink)
 		case EXPR_KIND_VALUES:
 		case EXPR_KIND_VALUES_SINGLE:
 		case EXPR_KIND_CYCLE_MARK:
-			/* okay */
+			/* 可  */
 			break;
 		case EXPR_KIND_CHECK_CONSTRAINT:
 		case EXPR_KIND_DOMAIN_CHECK:
@@ -1799,11 +1799,11 @@ transformSubLink(ParseState *pstate, SubLink *sublink)
 			break;
 
 			/*
-			 * There is intentionally no default: case here, so that the
-			 * compiler will warn if we add a new ParseExprKind without
-			 * extending this switch.  If we do see an unrecognized value at
-			 * runtime, the behavior will be the same as for EXPR_KIND_OTHER,
-			 * which is sane anyway.
+			 * 这里有意不设 default: 分支，这样在新增     
+			 * ParseExprKind 而不扩展此 switch 时，编译器会 
+			 * 发出警告。若运行时遇到无法识别的值，       
+			 * 其行为与 EXPR_KIND_OTHER 相同，                        
+			 * 反正也合理。   
 			 */
 	}
 	if (err)
@@ -1815,13 +1815,13 @@ transformSubLink(ParseState *pstate, SubLink *sublink)
 	pstate->p_hasSubLinks = true;
 
 	/*
-	 * OK, let's transform the sub-SELECT.
+	 * 好，下面转换子 SELECT。    
 	 */
 	qtree = parse_sub_analyze(sublink->subselect, pstate, NULL, false, true);
 
 	/*
-	 * Check that we got a SELECT.  Anything else should be impossible given
-	 * restrictions of the grammar, but check anyway.
+	 * 检查我们得到的是否为 SELECT。给定语法的限制，     
+	 * 其余本不该出现，但仍检查。       
 	 */
 	if (!IsA(qtree, Query) ||
 		qtree->commandType != CMD_SELECT)
@@ -1832,8 +1832,8 @@ transformSubLink(ParseState *pstate, SubLink *sublink)
 	if (sublink->subLinkType == EXISTS_SUBLINK)
 	{
 		/*
-		 * EXISTS needs no test expression or combining operator. These fields
-		 * should be null already, but make sure.
+		 * EXISTS 不需要测试表达式或组合操作符。这些字段   
+		 * 本应为空，但请确认。        
 		 */
 		sublink->testexpr = NULL;
 		sublink->operName = NIL;
@@ -1842,8 +1842,8 @@ transformSubLink(ParseState *pstate, SubLink *sublink)
 			 sublink->subLinkType == ARRAY_SUBLINK)
 	{
 		/*
-		 * Make sure the subselect delivers a single column (ignoring resjunk
-		 * targets).
+		 * 确保子选择只输出单列（忽略 resjunk 目标列）。   
+		 *          
 		 */
 		if (count_nonjunk_tlist_entries(qtree->targetList) != 1)
 			ereport(ERROR,
@@ -1852,34 +1852,34 @@ transformSubLink(ParseState *pstate, SubLink *sublink)
 					 parser_errposition(pstate, sublink->location)));
 
 		/*
-		 * EXPR and ARRAY need no test expression or combining operator. These
-		 * fields should be null already, but make sure.
+		 * EXPR 与 ARRAY 不需要测试表达式或组合操作符。       
+		 * 这些字段本应为空，但请确认。   
 		 */
 		sublink->testexpr = NULL;
 		sublink->operName = NIL;
 	}
 	else if (sublink->subLinkType == MULTIEXPR_SUBLINK)
 	{
-		/* Same as EXPR case, except no restriction on number of columns */
+		/* 与 EXPR 情形相同，只是对列数没有限制           */
 		sublink->testexpr = NULL;
 		sublink->operName = NIL;
 	}
 	else
 	{
-		/* ALL, ANY, or ROWCOMPARE: generate row-comparing expression */
+		/* ALL、ANY 或 ROWCOMPARE：生成行比较表达式        */
 		Node	   *lefthand;
 		List	   *left_list;
 		List	   *right_list;
 		ListCell   *l;
 
 		/*
-		 * If the source was "x IN (select)", convert to "x = ANY (select)".
+		 * 若源为 "x IN (select)"，则转换为 "x = ANY (select)"。   
 		 */
 		if (sublink->operName == NIL)
 			sublink->operName = list_make1(makeString("="));
 
 		/*
-		 * Transform lefthand expression, and convert to a list
+		 * 转换左侧表达式，并转换为列表          
 		 */
 		lefthand = transformExprRecurse(pstate, sublink->testexpr);
 		if (lefthand && IsA(lefthand, RowExpr))
@@ -1888,8 +1888,8 @@ transformSubLink(ParseState *pstate, SubLink *sublink)
 			left_list = list_make1(lefthand);
 
 		/*
-		 * Build a list of PARAM_SUBLINK nodes representing the output columns
-		 * of the subquery.
+		 * 构建 PARAM_SUBLINK 节点列表，表示子查询的输出列。 
+		 *                 
 		 */
 		right_list = NIL;
 		foreach(l, qtree->targetList)
@@ -1912,9 +1912,9 @@ transformSubLink(ParseState *pstate, SubLink *sublink)
 		}
 
 		/*
-		 * We could rely on make_row_comparison_op to complain if the list
-		 * lengths differ, but we prefer to generate a more specific error
-		 * message.
+		 * 若列表长度不同，其实可以让 make_row_comparison_op 
+		 * 去报错，但我们更希望生成更具体的错误消息。
+		 *         
 		 */
 		if (list_length(left_list) < list_length(right_list))
 			ereport(ERROR,
@@ -1928,8 +1928,8 @@ transformSubLink(ParseState *pstate, SubLink *sublink)
 					 parser_errposition(pstate, sublink->location)));
 
 		/*
-		 * Identify the combining operator(s) and generate a suitable
-		 * row-comparison expression.
+		 * 确定组合操作符，并生成合适的                
+		 * 行比较表达式。     
 		 */
 		sublink->testexpr = make_row_comparison_op(pstate,
 												   sublink->operName,
@@ -1944,9 +1944,9 @@ transformSubLink(ParseState *pstate, SubLink *sublink)
 /*
  * transformArrayExpr
  *
- * If the caller specifies the target type, the resulting array will
- * be of exactly that type.  Otherwise we try to infer a common type
- * for the elements using select_common_type().
+ * 若调用者指定了目标类型，则结果数组的类型     
+ * 将与该类型完全一致。否则会用 select_common_type()  
+ * 为元素推断公共类型。              
  */
 static Node *
 transformArrayExpr(ParseState *pstate, A_ArrayExpr *a,
@@ -1960,10 +1960,10 @@ transformArrayExpr(ParseState *pstate, A_ArrayExpr *a,
 	bool		coerce_hard;
 
 	/*
-	 * Transform the element expressions
+	 * 转换各元素表达式         
 	 *
-	 * Assume that the array is one-dimensional unless we find an array-type
-	 * element expression.
+	 * 除非找到数组类型的元素表达式，否则将假定         
+	 * 数组为一维。 
 	 */
 	newa->multidims = false;
 	foreach(element, a->elements)
@@ -1972,8 +1972,8 @@ transformArrayExpr(ParseState *pstate, A_ArrayExpr *a,
 		Node	   *newe;
 
 		/*
-		 * If an element is itself an A_ArrayExpr, recurse directly so that we
-		 * can pass down any target type we were given.
+		 * 若某元素本身是 A_ArrayExpr，则直接递归，以下传    
+		 * 给定的任何目标类型。              
 		 */
 		if (IsA(e, A_ArrayExpr))
 		{
@@ -1982,7 +1982,7 @@ transformArrayExpr(ParseState *pstate, A_ArrayExpr *a,
 									  array_type,
 									  element_type,
 									  typmod);
-			/* we certainly have an array here */
+			/* 此处必然为数组           */
 			Assert(array_type == InvalidOid || array_type == exprType(newe));
 			newa->multidims = true;
 		}
@@ -1991,10 +1991,10 @@ transformArrayExpr(ParseState *pstate, A_ArrayExpr *a,
 			newe = transformExprRecurse(pstate, e);
 
 			/*
-			 * Check for sub-array expressions, if we haven't already found
-			 * one.  Note we don't accept domain-over-array as a sub-array,
-			 * nor int2vector nor oidvector; those have constraints that don't
-			 * map well to being treated as a sub-array.
+			 * 若尚未找到子数组表达式，则继续检查。      
+			 * 注意，数组上的域不被接受为子数组；         
+			 * int2vector 与 oidvector 亦不可；它们自有约束，     
+			 * 难以良好地映射为子数组。     
 			 */
 			if (!newa->multidims)
 			{
@@ -2010,21 +2010,21 @@ transformArrayExpr(ParseState *pstate, A_ArrayExpr *a,
 	}
 
 	/*
-	 * Select a target type for the elements.
+	 * 为元素选定一个目标类型。  
 	 *
-	 * If we haven't been given a target array type, we must try to deduce a
-	 * common type based on the types of the individual elements present.
+	 * 若未给定目标数组类型，就必须设法根据               
+	 * 现有各元素的类型推断出公共类型。                  
 	 */
 	if (OidIsValid(array_type))
 	{
-		/* Caller must ensure array_type matches element_type */
+		/* 调用者须确保 array_type 匹配 element_type  */
 		Assert(OidIsValid(element_type));
 		coerce_type = (newa->multidims ? array_type : element_type);
 		coerce_hard = true;
 	}
 	else
 	{
-		/* Can't handle an empty array without a target type */
+		/* 没有目标类型时无法处理空数组        */
 		if (newelems == NIL)
 			ereport(ERROR,
 					(errcode(ERRCODE_INDETERMINATE_DATATYPE),
@@ -2033,7 +2033,7 @@ transformArrayExpr(ParseState *pstate, A_ArrayExpr *a,
 							 "for example ARRAY[]::integer[]."),
 					 parser_errposition(pstate, a->location)));
 
-		/* Select a common type for the elements */
+		/* 为元素选定公共类型           */
 		coerce_type = select_common_type(pstate, newelems, "ARRAY", NULL);
 
 		if (newa->multidims)
@@ -2062,14 +2062,14 @@ transformArrayExpr(ParseState *pstate, A_ArrayExpr *a,
 	}
 
 	/*
-	 * Coerce elements to target type
+	 * 强制转换至目标类型   
 	 *
-	 * If the array has been explicitly cast, then the elements are in turn
-	 * explicitly coerced.
+	 * 若数组经过显式 cast，则元素同样被显式强制转换。
+	 *                    
 	 *
-	 * If the array's type was merely derived from the common type of its
-	 * elements, then the elements are implicitly coerced to the common type.
-	 * This is consistent with other uses of select_common_type().
+	 * 若数组类型只是从其元素的公共类型推导而来，   
+	 * 则元素会被隐式强制转换为该公共类型。                
+	 * 这与 select_common_type() 的其他用法保持一致。 
 	 */
 	foreach(element, newelems)
 	{
@@ -2101,7 +2101,7 @@ transformArrayExpr(ParseState *pstate, A_ArrayExpr *a,
 	}
 
 	newa->array_typeid = array_type;
-	/* array_collid will be set by parse_collate.c */
+	/* array_collid 由 parse_collate.c 设置     */
 	newa->element_typeid = element_type;
 	newa->elements = newcoercedelems;
 	newa->location = a->location;
@@ -2118,11 +2118,11 @@ transformRowExpr(ParseState *pstate, RowExpr *r, bool allowDefault)
 
 	newr = makeNode(RowExpr);
 
-	/* Transform the field expressions */
+	/* 转换各字段表达式        */
 	newr->args = transformExpressionList(pstate, r->args,
 										 pstate->p_expr_kind, allowDefault);
 
-	/* Disallow more columns than will fit in a tuple */
+	/* 不允许列数超出元组容量              */
 	if (list_length(newr->args) > MaxTupleAttributeNumber)
 		ereport(ERROR,
 				(errcode(ERRCODE_TOO_MANY_COLUMNS),
@@ -2130,11 +2130,11 @@ transformRowExpr(ParseState *pstate, RowExpr *r, bool allowDefault)
 						MaxTupleAttributeNumber),
 				 parser_errposition(pstate, r->location)));
 
-	/* Barring later casting, we consider the type RECORD */
+	/* 若无后续 cast，类型视为 RECORD            */
 	newr->row_typeid = RECORDOID;
 	newr->row_format = COERCE_IMPLICIT_CAST;
 
-	/* ROW() has anonymous columns, so invent some field names */
+	/* ROW() 的列是匿名的，因此虚构一些字段名  */
 	newr->colnames = NIL;
 	for (fnum = 1; fnum <= list_length(newr->args); fnum++)
 	{
@@ -2166,9 +2166,9 @@ transformCoalesceExpr(ParseState *pstate, CoalesceExpr *c)
 	}
 
 	newc->coalescetype = select_common_type(pstate, newargs, "COALESCE", NULL);
-	/* coalescecollid will be set by parse_collate.c */
+	/* coalescecollid 由 parse_collate.c 设置     */
 
-	/* Convert arguments if necessary */
+	/* 如有必要则转换参数    */
 	foreach(args, newargs)
 	{
 		Node	   *e = (Node *) lfirst(args);
@@ -2180,7 +2180,7 @@ transformCoalesceExpr(ParseState *pstate, CoalesceExpr *c)
 		newcoercedargs = lappend(newcoercedargs, newe);
 	}
 
-	/* if any subexpression contained a SRF, complain */
+	/* 若任一子表达式包含 SRF，则报错    */
 	if (pstate->p_last_srf != last_srf)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -2216,9 +2216,9 @@ transformMinMaxExpr(ParseState *pstate, MinMaxExpr *m)
 	}
 
 	newm->minmaxtype = select_common_type(pstate, newargs, funcname, NULL);
-	/* minmaxcollid and inputcollid will be set by parse_collate.c */
+	/* minmaxcollid 与 inputcollid 由 parse_collate.c 设置     */
 
-	/* Convert arguments if necessary */
+	/* 如有必要则转换参数    */
 	foreach(args, newargs)
 	{
 		Node	   *e = (Node *) lfirst(args);
@@ -2239,8 +2239,8 @@ static Node *
 transformSQLValueFunction(ParseState *pstate, SQLValueFunction *svf)
 {
 	/*
-	 * All we need to do is insert the correct result type and (where needed)
-	 * validate the typmod, so we just modify the node in-place.
+	 * 我们所需做的只是插入正确的结果类型，并在需要时 
+	 * 校验 typmod，因此直接就地修改该节点。     
 	 */
 	switch (svf->op)
 	{
@@ -2302,13 +2302,13 @@ transformXmlExpr(ParseState *pstate, XmlExpr *x)
 	else
 		newx->name = NULL;
 	newx->xmloption = x->xmloption;
-	newx->type = XMLOID;		/* this just marks the node as transformed */
+	newx->type = XMLOID;		/* 这只是标记该节点已完成转换 */
 	newx->typmod = -1;
 	newx->location = x->location;
 
 	/*
-	 * gram.y built the named args as a list of ResTarget.  Transform each,
-	 * and break the names out as a separate list.
+	 * gram.y 将命名参数构建为 ResTarget 列表。逐个转换，  
+	 * 并将名字拆出为单独的列表。    
 	 */
 	newx->named_args = NIL;
 	newx->arg_names = NIL;
@@ -2334,10 +2334,10 @@ transformXmlExpr(ParseState *pstate, XmlExpr *x)
 					 ? errmsg("unnamed XML attribute value must be a column reference")
 					 : errmsg("unnamed XML element value must be a column reference"),
 					 parser_errposition(pstate, r->location)));
-			argname = NULL;		/* keep compiler quiet */
+			argname = NULL;		/* 让编译器安静  */
 		}
 
-		/* reject duplicate argnames in XMLELEMENT only */
+		/* 仅在 XMLELEMENT 中拒绝重复参数名   */
 		if (x->op == IS_XMLELEMENT)
 		{
 			ListCell   *lc2;
@@ -2357,7 +2357,7 @@ transformXmlExpr(ParseState *pstate, XmlExpr *x)
 		newx->arg_names = lappend(newx->arg_names, makeString(argname));
 	}
 
-	/* The other arguments are of varying types depending on the function */
+	/* 其余参数的类型视具体函数而定，各不相同。       */
 	newx->args = NIL;
 	i = 0;
 	foreach(lc, x->args)
@@ -2373,7 +2373,7 @@ transformXmlExpr(ParseState *pstate, XmlExpr *x)
 											   "XMLCONCAT");
 				break;
 			case IS_XMLELEMENT:
-				/* no coercion necessary */
+				/* 无需强制转换    */
 				break;
 			case IS_XMLFOREST:
 				newe = coerce_to_specific_type(pstate, newe, XMLOID,
@@ -2402,7 +2402,7 @@ transformXmlExpr(ParseState *pstate, XmlExpr *x)
 												   "XMLROOT");
 				break;
 			case IS_XMLSERIALIZE:
-				/* not handled here */
+				/* 此处不处理  */
 				Assert(false);
 				break;
 			case IS_DOCUMENT:
@@ -2437,15 +2437,15 @@ transformXmlSerialize(ParseState *pstate, XmlSerialize *xs)
 	xexpr->xmloption = xs->xmloption;
 	xexpr->indent = xs->indent;
 	xexpr->location = xs->location;
-	/* We actually only need these to be able to parse back the expression. */
+	/* 实际上，我们只是需要有办法把表达式解析回来。   */
 	xexpr->type = targetType;
 	xexpr->typmod = targetTypmod;
 
 	/*
-	 * The actual target type is determined this way.  SQL allows char and
-	 * varchar as target types.  We allow anything that can be cast implicitly
-	 * from text.  This way, user-defined text-like data types automatically
-	 * fit in.
+	 * 实际目标类型按如下方式确定。SQL 允许 char 与      
+	 * varchar 作为目标类型。凡能从 text 隐式 cast 的类型，   
+	 * 我们都允许。用户定义的类文本类型即自动适用。   
+	 *        
 	 */
 	result = coerce_to_target_type(pstate, (Node *) xexpr,
 								   TEXTOID, targetType, targetTypmod,
@@ -2489,7 +2489,7 @@ transformBooleanTest(ParseState *pstate, BooleanTest *b)
 		default:
 			elog(ERROR, "unrecognized booltesttype: %d",
 				 (int) b->booltesttype);
-			clausename = NULL;	/* keep compiler quiet */
+			clausename = NULL;	/* 让编译器安静  */
 	}
 
 	b->arg = (Expr *) transformExprRecurse(pstate, (Node *) b->arg);
@@ -2504,34 +2504,34 @@ transformBooleanTest(ParseState *pstate, BooleanTest *b)
 static Node *
 transformCurrentOfExpr(ParseState *pstate, CurrentOfExpr *cexpr)
 {
-	/* CURRENT OF can only appear at top level of UPDATE/DELETE */
+	/* CURRENT OF 只能出现在 UPDATE/DELETE 的最顶层    */
 	Assert(pstate->p_target_nsitem != NULL);
 	cexpr->cvarno = pstate->p_target_nsitem->p_rtindex;
 
 	/*
-	 * Check to see if the cursor name matches a parameter of type REFCURSOR.
-	 * If so, replace the raw name reference with a parameter reference. (This
-	 * is a hack for the convenience of plpgsql.)
+	 * 检查游标名是否匹配某个 REFCURSOR 类型的参数。        
+	 * 若匹配，则把原始名字引用替换为参数引用。（这是  
+	 * 专为方便 plpgsql 而设。）         
 	 */
-	if (cexpr->cursor_name != NULL) /* in case already transformed */
+	if (cexpr->cursor_name != NULL) /* 以防已经转换过       */
 	{
 		ColumnRef  *cref = makeNode(ColumnRef);
 		Node	   *node = NULL;
 
-		/* Build an unqualified ColumnRef with the given name */
+		/* 用给定名字构建一个非限定的 ColumnRef  */
 		cref->fields = list_make1(makeString(cexpr->cursor_name));
 		cref->location = -1;
 
-		/* See if there is a translation available from a parser hook */
+		/* 看看解析器钩子是否提供了转换结果           */
 		if (pstate->p_pre_columnref_hook != NULL)
 			node = pstate->p_pre_columnref_hook(pstate, cref);
 		if (node == NULL && pstate->p_post_columnref_hook != NULL)
 			node = pstate->p_post_columnref_hook(pstate, cref, NULL);
 
 		/*
-		 * XXX Should we throw an error if we get a translation that isn't a
-		 * refcursor Param?  For now it seems best to silently ignore false
-		 * matches.
+		 * XXX 若得到的转换不是 refcursor Param，是否该报错？
+		 * 目前最好还是默默忽略误匹配。                      
+		 *         
 		 */
 		if (node != NULL && IsA(node, Param))
 		{
@@ -2540,7 +2540,7 @@ transformCurrentOfExpr(ParseState *pstate, CurrentOfExpr *cexpr)
 			if (p->paramkind == PARAM_EXTERN &&
 				p->paramtype == REFCURSOROID)
 			{
-				/* Matches, so convert CURRENT OF to a param reference */
+				/* 匹配，故将 CURRENT OF 转为参数引用       */
 				cexpr->cursor_name = NULL;
 				cexpr->cursor_param = p->paramid;
 			}
@@ -2551,27 +2551,27 @@ transformCurrentOfExpr(ParseState *pstate, CurrentOfExpr *cexpr)
 }
 
 /*
- * Construct a whole-row reference to represent the notation "relation.*".
+ * 构建一个整行引用来表示 "relation.*" 这种记法。         
  */
 static Node *
 transformWholeRowRef(ParseState *pstate, ParseNamespaceItem *nsitem,
 					 int sublevels_up, int location)
 {
 	/*
-	 * Build the appropriate referencing node.  Normally this can be a
-	 * whole-row Var, but if the nsitem is a JOIN USING alias then it contains
-	 * only a subset of the columns of the underlying join RTE, so that will
-	 * not work.  Instead we immediately expand the reference into a RowExpr.
-	 * Since the JOIN USING's common columns are fully determined at this
-	 * point, there seems no harm in expanding it now rather than during
-	 * planning.
+	 * 构建合适的引用节点。通常这可以是一个         
+	 * 整行 Var，但如果 nsitem 是 JOIN USING 别名，则它只包含  
+	 * 底层 join RTE 各列的子集，那样行不通。于是我们     
+	 * 立即将该引用展开为 RowExpr。                                
+	 * 由于 JOIN USING 的公共列在此时已完全确定，         
+	 * 所以现在就展开而不留到规划期，似无妨害。     
+	 *          
 	 *
-	 * Note that if the RTE is a function returning scalar, we create just a
-	 * plain reference to the function value, not a composite containing a
-	 * single column.  This is pretty inconsistent at first sight, but it's
-	 * what we've done historically.  One argument for it is that "rel" and
-	 * "rel.*" mean the same thing for composite relations, so why not for
-	 * scalar functions...
+	 * 注意，若 RTE 是返回标量的函数，我们只创建一个    
+	 * 对函数值的普通引用，而非包含单列的复合类型。 
+	 * 这乍看之下相当不一致，但这是我们一贯的做法。  
+	 * 一个理由是：对复合关系而言，"rel" 和                 
+	 * "rel.*" 含义相同，那么对标量函数为何不行呢...     
+	 *                    
 	 */
 	if (nsitem->p_names == nsitem->p_rte->eref)
 	{
@@ -2580,13 +2580,13 @@ transformWholeRowRef(ParseState *pstate, ParseNamespaceItem *nsitem,
 		result = makeWholeRowVar(nsitem->p_rte, nsitem->p_rtindex,
 								 sublevels_up, true);
 
-		/* location is not filled in by makeWholeRowVar */
+		/* makeWholeRowVar 不会填 location           */
 		result->location = location;
 
-		/* mark Var if it's nulled by any outer joins */
+		/* 若 Var 被任意外连接置空则标记  */
 		markNullableIfNeeded(pstate, result);
 
-		/* mark relation as requiring whole-row SELECT access */
+		/* 将关系标记为需要整行 SELECT 权限       */
 		markVarForSelectPriv(pstate, result);
 
 		return (Node *) result;
@@ -2597,10 +2597,10 @@ transformWholeRowRef(ParseState *pstate, ParseNamespaceItem *nsitem,
 		List	   *fields;
 
 		/*
-		 * We want only as many columns as are listed in p_names->colnames,
-		 * and we should use those names not whatever possibly-aliased names
-		 * are in the RTE.  We needn't worry about marking the RTE for SELECT
-		 * access, as the common columns are surely so marked already.
+		 * 我们只想要 p_names->colnames 中列出的那些列，      
+		 * 并且应使用那些名字，而非 RTE 中可能的别名。   
+		 * 无须担心为 RTE 标记 SELECT 权限，                       
+		 * 因为公共列肯定已被如此标记。                 
 		 */
 		expandRTE(nsitem->p_rte, nsitem->p_rtindex,
 				  sublevels_up, location, false,
@@ -2613,17 +2613,17 @@ transformWholeRowRef(ParseState *pstate, ParseNamespaceItem *nsitem,
 		rowexpr->colnames = copyObject(nsitem->p_names->colnames);
 		rowexpr->location = location;
 
-		/* XXX we ought to mark the row as possibly nullable */
+		/* XXX 我们应把该行标记为可能为 NULL     */
 
 		return (Node *) rowexpr;
 	}
 }
 
 /*
- * Handle an explicit CAST construct.
+ * 处理显式的 CAST 构造。    
  *
- * Transform the argument, look up the type name, and apply any necessary
- * coercion function(s).
+ * 转换参数，查找类型名，并应用任何必要的             
+ * 强制转换函数。
  */
 static Node *
 transformTypeCast(ParseState *pstate, TypeCast *tc)
@@ -2636,15 +2636,15 @@ transformTypeCast(ParseState *pstate, TypeCast *tc)
 	int32		targetTypmod;
 	int			location;
 
-	/* Look up the type name first */
+	/* 先查找类型名          */
 	typenameTypeIdAndMod(pstate, tc->typeName, &targetType, &targetTypmod);
 
 	/*
-	 * If the subject of the typecast is an ARRAY[] construct and the target
-	 * type is an array type, we invoke transformArrayExpr() directly so that
-	 * we can pass down the type information.  This avoids some cases where
-	 * transformArrayExpr() might not infer the correct type.  Otherwise, just
-	 * transform the argument normally.
+	 * 若类型转换的对象是 ARRAY[] 构造且目标类型为         
+	 * 数组类型，则直接调用 transformArrayExpr()，以便传递    
+	 * 类型信息。这可避免某些 transformArrayExpr() 可能       
+	 * 推断不出正确类型的情况。否则照常转换参数。        
+	 *                                 
 	 */
 	if (IsA(arg, A_ArrayExpr))
 	{
@@ -2653,10 +2653,10 @@ transformTypeCast(ParseState *pstate, TypeCast *tc)
 		Oid			elementType;
 
 		/*
-		 * If target is a domain over array, work with the base array type
-		 * here.  Below, we'll cast the array type to the domain.  In the
-		 * usual case that the target is not a domain, the remaining steps
-		 * will be a no-op.
+		 * 若目标为数组上的域，则先改用基础数组类型，
+		 * 之后再 cast 为该域。若目标并非域，              
+		 * 那么余下的步骤将不做任何事。                     
+		 *                 
 		 */
 		targetBaseTypmod = targetTypmod;
 		targetBaseType = getBaseTypeAndTypmod(targetType, &targetBaseTypmod);
@@ -2677,12 +2677,12 @@ transformTypeCast(ParseState *pstate, TypeCast *tc)
 
 	inputType = exprType(expr);
 	if (inputType == InvalidOid)
-		return expr;			/* do nothing if NULL input */
+		return expr;			/* NULL 输入则不处理  */
 
 	/*
-	 * Location of the coercion is preferentially the location of the :: or
-	 * CAST symbol, but if there is none then use the location of the type
-	 * name (this can happen in TypeName 'string' syntax, for instance).
+	 * 强制转换的位置优先取 :: 或 CAST 符号的位置，       
+	 * 但若没有，则使用类型名的位置                         
+	 * （例如 TypeName 'string' 语法中就可能出现）。       
 	 */
 	location = tc->location;
 	if (location < 0)
@@ -2705,9 +2705,9 @@ transformTypeCast(ParseState *pstate, TypeCast *tc)
 }
 
 /*
- * Handle an explicit COLLATE clause.
+ * 处理显式 COLLATE 子句。    
  *
- * Transform the argument, and look up the collation name.
+ * 转换参数，并查找排序规则名。             
  */
 static Node *
 transformCollateClause(ParseState *pstate, CollateClause *c)
@@ -2721,8 +2721,8 @@ transformCollateClause(ParseState *pstate, CollateClause *c)
 	argtype = exprType((Node *) newc->arg);
 
 	/*
-	 * The unknown type is not collatable, but coerce_type() takes care of it
-	 * separately, so we'll let it go here.
+	 * 未知类型不可用于排序，但 coerce_type() 会另行处理， 
+	 * 所以这里放行即可。         
 	 */
 	if (!type_is_collatable(argtype) && argtype != UNKNOWNOID)
 		ereport(ERROR,
@@ -2738,16 +2738,16 @@ transformCollateClause(ParseState *pstate, CollateClause *c)
 }
 
 /*
- * Transform a "row compare-op row" construct
+ * 转换 "row compare-op row" 构造        
  *
- * The inputs are lists of already-transformed expressions.
- * As with coerce_type, pstate may be NULL if no special unknown-Param
- * processing is wanted.
+ * 输入是已经转换好的表达式列表。           
+ * 和 coerce_type 一样，若不需要未知参数特殊处理，   
+ * pstate 可为 NULL   
  *
- * The output may be a single OpExpr, an AND or OR combination of OpExprs,
- * or a RowCompareExpr.  In all cases it is guaranteed to return boolean.
- * The AND, OR, and RowCompareExpr cases further imply things about the
- * behavior of the operators (ie, they behave as =, <>, or < <= > >=).
+ * 输出可能是单个 OpExpr、多个 OpExpr 的 AND 或 OR 组合，  
+ * 也可能是 RowCompareExpr。任何情况下都保证返回布尔。 
+ * AND、OR 与 RowCompareExpr 这几种情况还进一步蕴含       
+ * 了操作符的行为（如同 =、<> 或 < <= > >=）。          
  */
 static Node *
 make_row_comparison_op(ParseState *pstate, List *opname,
@@ -2773,8 +2773,8 @@ make_row_comparison_op(ParseState *pstate, List *opname,
 				 parser_errposition(pstate, location)));
 
 	/*
-	 * We can't compare zero-length rows because there is no principled basis
-	 * for figuring out what the operator is.
+	 * 我们无法比较零长度行，因为没有原则性的依据来    
+	 * 确定该用什么操作符。        
 	 */
 	if (nopers == 0)
 		ereport(ERROR,
@@ -2783,8 +2783,8 @@ make_row_comparison_op(ParseState *pstate, List *opname,
 				 parser_errposition(pstate, location)));
 
 	/*
-	 * Identify all the pairwise operators, using make_op so that behavior is
-	 * the same as in the simple scalar case.
+	 * 找出全部成对操作符，使用 make_op 以使行为与          
+	 * 简单标量情形一致。           
 	 */
 	opexprs = NIL;
 	forboth(l, largs, r, rargs)
@@ -2797,9 +2797,9 @@ make_row_comparison_op(ParseState *pstate, List *opname,
 									   pstate->p_last_srf, location));
 
 		/*
-		 * We don't use coerce_to_boolean here because we insist on the
-		 * operator yielding boolean directly, not via coercion.  If it
-		 * doesn't yield bool it won't be in any index opfamilies...
+		 * 我们不用 coerce_to_boolean，因为坚持要求         
+		 * 操作符直接产生布尔而非经强制转换。若其   
+		 * 非布尔，就不会属于任何索引操作符族...   
 		 */
 		if (cmp->opresulttype != BOOLOID)
 			ereport(ERROR,
@@ -2817,18 +2817,18 @@ make_row_comparison_op(ParseState *pstate, List *opname,
 	}
 
 	/*
-	 * If rows are length 1, just return the single operator.  In this case we
-	 * don't insist on identifying btree semantics for the operator (but we
-	 * still require it to return boolean).
+	 * 若行长为 1，就直接返回单个操作符。此时我们         
+	 * 并不坚持要为该操作符确定 btree 语义（但仍需要其 
+	 * 返回布尔值）。               
 	 */
 	if (nopers == 1)
 		return (Node *) linitial(opexprs);
 
 	/*
-	 * Now we must determine which row comparison semantics (= <> < <= > >=)
-	 * apply to this set of operators.  We look for btree opfamilies
-	 * containing the operators, and see which interpretations (strategy
-	 * numbers) exist for each operator.
+	 * 现在我们必须确定这组操作符适用哪种行比较语义   
+	 * （= <> < <= > >=）。接着查找包含这些操作符的  
+	 * btree 操作符族，并查看每个操作符存在哪些解释  
+	 * （策略号）。               
 	 */
 	opinfo_lists = (List **) palloc(nopers * sizeof(List *));
 	strats = NULL;
@@ -2842,8 +2842,8 @@ make_row_comparison_op(ParseState *pstate, List *opname,
 		opinfo_lists[i] = get_op_btree_interpretation(opno);
 
 		/*
-		 * convert strategy numbers into a Bitmapset to make the intersection
-		 * calculation easy.
+		 * 把策略号转换成 Bitmapset，使交集计算变得容易。  
+		 *                  
 		 */
 		this_strats = NULL;
 		foreach(j, opinfo_lists[i])
@@ -2860,14 +2860,14 @@ make_row_comparison_op(ParseState *pstate, List *opname,
 	}
 
 	/*
-	 * If there are multiple common interpretations, we may use any one of
-	 * them ... this coding arbitrarily picks the lowest btree strategy
-	 * number.
+	 * 若存在多种公共解释，可以任选其一...                
+	 * 此代码随意地选择最小的 btree 策略号。            
+	 *        
 	 */
 	i = bms_next_member(strats, -1);
 	if (i < 0)
 	{
-		/* No common interpretation, so fail */
+		/* 无公共解释，因此失败    */
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("could not determine interpretation of row comparison operator %s",
@@ -2878,8 +2878,8 @@ make_row_comparison_op(ParseState *pstate, List *opname,
 	rctype = (RowCompareType) i;
 
 	/*
-	 * For = and <> cases, we just combine the pairwise operators with AND or
-	 * OR respectively.
+	 * 对于 = 和 <> 情形，我们只是用 AND 或 OR 分别组合      
+	 * 各操作符。 
 	 */
 	if (rctype == ROWCOMPARE_EQ)
 		return (Node *) makeBoolExpr(AND_EXPR, opexprs, location);
@@ -2887,8 +2887,8 @@ make_row_comparison_op(ParseState *pstate, List *opname,
 		return (Node *) makeBoolExpr(OR_EXPR, opexprs, location);
 
 	/*
-	 * Otherwise we need to choose exactly which opfamily to associate with
-	 * each operator.
+	 * 否则我们需要精确选择每个操作符关联的操作符族  
+	 *               
 	 */
 	opfamilies = NIL;
 	for (i = 0; i < nopers; i++)
@@ -2908,7 +2908,7 @@ make_row_comparison_op(ParseState *pstate, List *opname,
 		}
 		if (OidIsValid(opfamily))
 			opfamilies = lappend_oid(opfamilies, opfamily);
-		else					/* should not happen */
+		else					/* 不应发生      */
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("could not determine interpretation of row comparison operator %s",
@@ -2918,10 +2918,10 @@ make_row_comparison_op(ParseState *pstate, List *opname,
 	}
 
 	/*
-	 * Now deconstruct the OpExprs and create a RowCompareExpr.
+	 * 现在拆解各 OpExpr 并创建 RowCompareExpr。      
 	 *
-	 * Note: can't just reuse the passed largs/rargs lists, because of
-	 * possibility that make_op inserted coercion operations.
+	 * 注意：无法复用传入的 largs/rargs 列表，因为     
+	 * make_op 可能插入了强制转换操作。          
 	 */
 	opnos = NIL;
 	largs = NIL;
@@ -2939,7 +2939,7 @@ make_row_comparison_op(ParseState *pstate, List *opname,
 	rcexpr->rctype = rctype;
 	rcexpr->opnos = opnos;
 	rcexpr->opfamilies = opfamilies;
-	rcexpr->inputcollids = NIL; /* assign_expr_collations will fix this */
+	rcexpr->inputcollids = NIL; /* assign_expr_collations 自会修正  */
 	rcexpr->largs = largs;
 	rcexpr->rargs = rargs;
 
@@ -2947,9 +2947,9 @@ make_row_comparison_op(ParseState *pstate, List *opname,
 }
 
 /*
- * Transform a "row IS DISTINCT FROM row" construct
+ * 转换 "row IS DISTINCT FROM row" 构造        
  *
- * The input RowExprs are already transformed
+ * 输入的 RowExpr 已经过转换         
  */
 static Node *
 make_row_distinct_op(ParseState *pstate, List *opname,
@@ -2985,7 +2985,7 @@ make_row_distinct_op(ParseState *pstate, List *opname,
 
 	if (result == NULL)
 	{
-		/* zero-length rows?  Generate constant FALSE */
+		/* 零长度行？生成常量 FALSE          */
 		result = makeBoolConst(false, false);
 	}
 
@@ -2993,7 +2993,7 @@ make_row_distinct_op(ParseState *pstate, List *opname,
 }
 
 /*
- * make the node for an IS DISTINCT FROM operator
+ * 为 IS DISTINCT FROM 操作符构建节点    
  */
 static Expr *
 make_distinct_op(ParseState *pstate, List *opname, Node *ltree, Node *rtree,
@@ -3016,7 +3016,7 @@ make_distinct_op(ParseState *pstate, List *opname, Node *ltree, Node *rtree,
 				 parser_errposition(pstate, location)));
 
 	/*
-	 * We rely on DistinctExpr and OpExpr being same struct
+	 * 我们依赖DistinctExpr与OpExpr为同一结构体 
 	 */
 	NodeSetTag(result, T_DistinctExpr);
 
@@ -3024,9 +3024,9 @@ make_distinct_op(ParseState *pstate, List *opname, Node *ltree, Node *rtree,
 }
 
 /*
- * Produce a NullTest node from an IS [NOT] DISTINCT FROM NULL construct
+ * 由IS [NOT] DISTINCT FROM NULL构造生成NullTest节点             
  *
- * "arg" is the untransformed other argument
+ * "arg"是未经转换的另一参数      
  */
 static Node *
 make_nulltest_from_distinct(ParseState *pstate, A_Expr *distincta, Node *arg)
@@ -3034,23 +3034,23 @@ make_nulltest_from_distinct(ParseState *pstate, A_Expr *distincta, Node *arg)
 	NullTest   *nt = makeNode(NullTest);
 
 	nt->arg = (Expr *) transformExprRecurse(pstate, arg);
-	/* the argument can be any type, so don't coerce it */
+	/* 参数可为任意类型，故不做强制转换 */
 	if (distincta->kind == AEXPR_NOT_DISTINCT)
 		nt->nulltesttype = IS_NULL;
 	else
 		nt->nulltesttype = IS_NOT_NULL;
-	/* argisrow = false is correct whether or not arg is composite */
+	/* 无论arg是否为复合类型，argisrow=false 都正确   */
 	nt->argisrow = false;
 	nt->location = distincta->location;
 	return (Node *) nt;
 }
 
 /*
- * Produce a string identifying an expression by kind.
+ * 生成按类别标识表达式的字符串。      
  *
- * Note: when practical, use a simple SQL keyword for the result.  If that
- * doesn't work well, check call sites to see whether custom error message
- * strings are required.
+ * 注：可行时结果应使用简单 SQL 关键字。若此法         
+ * 不奏效，则检查调用点，看是否需要自定义的错误     
+ * 消息字符串。   
  */
 const char *
 ParseExprKindName(ParseExprKind exprKind)
@@ -3143,19 +3143,19 @@ ParseExprKindName(ParseExprKind exprKind)
 			return "CYCLE";
 
 			/*
-			 * There is intentionally no default: case here, so that the
-			 * compiler will warn if we add a new ParseExprKind without
-			 * extending this switch.  If we do see an unrecognized value at
-			 * runtime, we'll fall through to the "unrecognized" return.
+			 * 这里有意不设 default: 分支，这样新增        
+			 * ParseExprKind 而不扩展此 switch 时，编译器会 
+			 * 发出警告。若运行时遇到无法识别的值，落到 
+			 * "unrecognized" 返回。                                 
 			 */
 	}
 	return "unrecognized expression kind";
 }
 
 /*
- * Make string Const node from JSON encoding name.
+ * 按JSON编码名构造字符串Const节点。  
  *
- * UTF8 is default encoding.
+ * UTF8为默认编码。   
  */
 static Const *
 getJsonEncodingConst(JsonFormat *format)
@@ -3194,7 +3194,7 @@ getJsonEncodingConst(JsonFormat *format)
 }
 
 /*
- * Make bytea => text conversion using specified JSON format encoding.
+ * 用指定的JSON格式编码进行bytea => text转换。           
  */
 static Node *
 makeJsonByteaToTextConversion(Node *expr, JsonFormat *format, int location)
@@ -3211,12 +3211,12 @@ makeJsonByteaToTextConversion(Node *expr, JsonFormat *format, int location)
 }
 
 /*
- * Transform JSON value expression using specified input JSON format or
- * default format otherwise.
+ * 用指定的输入JSON格式转换JSON值表达式，若未指定   
+ * 则用默认格式。    
  *
- * Returned expression is either ve->raw_expr coerced to text (if needed) or
- * a JsonValueExpr with formatted_expr set to the coerced copy of raw_expr
- * if the specified format requires it.
+ * 返回的表达式要么是ve->raw_expr强制转换为text（若         
+ * 需要）；要么是JsonValueExpr，若格式需要，formatted_expr  
+ * 被置为raw_expr的转换副本。 
  */
 static Node *
 transformJsonValueExpr(ParseState *pstate, const char *constructName,
@@ -3248,12 +3248,12 @@ transformJsonValueExpr(ParseState *pstate, const char *constructName,
 					parser_errposition(pstate, ve->format->location));
 
 		if (exprtype == JSONOID || exprtype == JSONBOID)
-			format = JS_FORMAT_DEFAULT; /* do not format json[b] types */
+			format = JS_FORMAT_DEFAULT; /* json[b]类型不做格式化*/
 		else
 			format = ve->format->format_type;
 	}
 	else if (exprtype == JSONOID || exprtype == JSONBOID)
-		format = JS_FORMAT_DEFAULT; /* do not format json[b] types */
+		format = JS_FORMAT_DEFAULT; /* json[b]类型不做格式化*/
 	else
 		format = default_format;
 
@@ -3271,14 +3271,14 @@ transformJsonValueExpr(ParseState *pstate, const char *constructName,
 					parser_errposition(pstate, ve->format->location >= 0 ?
 									   ve->format->location : location));
 
-		/* Convert encoded JSON text from bytea. */
+		/* 从bytea转换已编码JSON文本。  */
 		if (format == JS_FORMAT_JSON && exprtype == BYTEAOID)
 		{
 			expr = makeJsonByteaToTextConversion(expr, ve->format, location);
 			exprtype = TEXTOID;
 		}
 
-		/* Try to coerce to the target type. */
+		/* 尝试强制转换为目标类型 */
 		coerced = coerce_to_target_type(pstate, expr, exprtype,
 										targettype, -1,
 										COERCION_EXPLICIT,
@@ -3287,7 +3287,7 @@ transformJsonValueExpr(ParseState *pstate, const char *constructName,
 
 		if (!coerced)
 		{
-			/* If coercion failed, use to_json()/to_jsonb() functions. */
+			/* 若强制转换失败，用to_json()/to_jsonb()函数   */
 			Oid			fnoid = targettype == JSONOID ? F_TO_JSON : F_TO_JSONB;
 			FuncExpr   *fexpr = makeFuncExpr(fnoid, targettype,
 											 list_make1(expr),
@@ -3311,7 +3311,7 @@ transformJsonValueExpr(ParseState *pstate, const char *constructName,
 		}
 	}
 
-	/* If returning a JsonValueExpr, formatted_expr must have been set. */
+	/* 若返回JsonValueExpr，则formatted_expr必须已被设置。  */
 	Assert(!IsA(expr, JsonValueExpr) ||
 		   ((JsonValueExpr *) expr)->formatted_expr != NULL);
 
@@ -3319,7 +3319,7 @@ transformJsonValueExpr(ParseState *pstate, const char *constructName,
 }
 
 /*
- * Checks specified output format for its applicability to the target type.
+ * 检查指定输出格式是否适用于目标类型。                  
  */
 static void
 checkJsonOutputFormat(ParseState *pstate, const JsonFormat *format,
@@ -3365,11 +3365,11 @@ checkJsonOutputFormat(ParseState *pstate, const JsonFormat *format,
 }
 
 /*
- * Transform JSON output clause.
+ * 转换JSON输出子句。    
  *
- * Assigns target type oid and modifier.
- * Assigns default format or checks specified format for its applicability to
- * the target type.
+ * 设置目标类型OID与修饰符。 
+ * 设置默认格式，或检查指定格式是否适用于目标           
+ * 类型。       
  */
 static JsonReturning *
 transformJsonOutput(ParseState *pstate, const JsonOutput *output,
@@ -3377,7 +3377,7 @@ transformJsonOutput(ParseState *pstate, const JsonOutput *output,
 {
 	JsonReturning *ret;
 
-	/* if output clause is not specified, make default clause value */
+	/* 若未指定输出子句，则构造默认子句值。       */
 	if (!output)
 	{
 		ret = makeNode(JsonReturning);
@@ -3399,7 +3399,7 @@ transformJsonOutput(ParseState *pstate, const JsonOutput *output,
 				errmsg("returning SETOF types is not supported in SQL/JSON functions"));
 
 	if (ret->format->format_type == JS_FORMAT_DEFAULT)
-		/* assign JSONB format when returning jsonb, or JSON format otherwise */
+		/* 返回jsonb时设置JSONB格式，否则设置JSON格式           */
 		ret->format->format_type =
 			ret->typid == JSONBOID ? JS_FORMAT_JSONB : JS_FORMAT_JSON;
 	else
@@ -3409,9 +3409,9 @@ transformJsonOutput(ParseState *pstate, const JsonOutput *output,
 }
 
 /*
- * Transform JSON output clause of JSON constructor functions.
+ * 转换JSON构造函数的JSON输出子句。               
  *
- * Derive RETURNING type, if not specified, from argument types.
+ * 若未指定RETURNING类型，则从参数类型推导。    
  */
 static JsonReturning *
 transformJsonConstructorOutput(ParseState *pstate, JsonOutput *output,
@@ -3442,7 +3442,7 @@ transformJsonConstructorOutput(ParseState *pstate, JsonOutput *output,
 		}
 		else
 		{
-			/* XXX TEXT is default by the standard, but we return JSON */
+			/* XXX标准默认是TEXT，但我们返回JSON            */
 			returning->typid = JSONOID;
 			returning->format->format_type = JS_FORMAT_JSON;
 		}
@@ -3454,7 +3454,7 @@ transformJsonConstructorOutput(ParseState *pstate, JsonOutput *output,
 }
 
 /*
- * Coerce json[b]-valued function expression to the output type.
+ * 将json[b]值的函数表达式转换为输出类型。      
  */
 static Node *
 coerceJsonFuncExpr(ParseState *pstate, Node *expr,
@@ -3464,7 +3464,7 @@ coerceJsonFuncExpr(ParseState *pstate, Node *expr,
 	int			location;
 	Oid			exprtype = exprType(expr);
 
-	/* if output type is not specified or equals to function type, return */
+	/* 若输出类型未指定或等于函数类型，则直接返回。 */
 	if (!OidIsValid(returning->typid) || returning->typid == exprtype)
 		return expr;
 
@@ -3473,11 +3473,11 @@ coerceJsonFuncExpr(ParseState *pstate, Node *expr,
 	if (location < 0)
 		location = returning->format->location;
 
-	/* special case for RETURNING bytea FORMAT json */
+	/* RETURNING bytea FORMAT json 的特例        */
 	if (returning->format->format_type == JS_FORMAT_JSON &&
 		returning->typid == BYTEAOID)
 	{
-		/* encode json text into bytea using pg_convert_to() */
+		/* 用pg_convert_to()将json文本编码为bytea     */
 		Node	   *texpr = coerce_to_specific_type(pstate, expr, TEXTOID,
 													"JSON_FUNCTION");
 		Const	   *enc = getJsonEncodingConst(returning->format);
@@ -3491,10 +3491,10 @@ coerceJsonFuncExpr(ParseState *pstate, Node *expr,
 		return (Node *) fexpr;
 	}
 
-	/* try to coerce expression to the output type */
+	/* 尝试将表达式转换为输出类型     */
 	res = coerce_to_target_type(pstate, expr, exprtype,
 								returning->typid, returning->typmod,
-	/* XXX throwing errors when casting to char(N) */
+	/* XXX转换为char(N)时抛出错误          */
 								COERCION_EXPLICIT,
 								COERCE_EXPLICIT_CAST,
 								location);
@@ -3511,7 +3511,7 @@ coerceJsonFuncExpr(ParseState *pstate, Node *expr,
 }
 
 /*
- * Make a JsonConstructorExpr node.
+ * 生成JsonConstructorExpr节点 
  */
 static Node *
 makeJsonConstructorExpr(ParseState *pstate, JsonConstructorType type,
@@ -3531,10 +3531,10 @@ makeJsonConstructorExpr(ParseState *pstate, JsonConstructorType type,
 	jsctor->location = location;
 
 	/*
-	 * Coerce to the RETURNING type and format, if needed.  We abuse
-	 * CaseTestExpr here as placeholder to pass the result of either
-	 * evaluating 'fexpr' or whatever is produced by ExecEvalJsonConstructor()
-	 * that is of type JSON or JSONB to the coercion function.
+	 * 若需要，强制转换为RETURNING类型和格式。       
+	 * 我们在此把CaseTestExpr当作占位符，用来传递    
+	 * 'fexpr'的求值结果，或ExecEvalJsonConstructor()产生的、类型
+	 * 为JSON或JSONB的结果，传给强制转换函数。 
 	 */
 	if (fexpr)
 	{
@@ -3567,11 +3567,11 @@ makeJsonConstructorExpr(ParseState *pstate, JsonConstructorType type,
 }
 
 /*
- * Transform JSON_OBJECT() constructor.
+ * 转换JSON_OBJECT()构造函数。  
  *
- * JSON_OBJECT() is transformed into a JsonConstructorExpr node of type
- * JSCTOR_JSON_OBJECT.  The result is coerced to the target type given
- * by ctor->output.
+ * JSON_OBJECT()被转换成类型为JSCTOR_JSON_OBJECT的             
+ * JsonConstructorExpr节点。结果强制转换为由ctor->output   
+ * 指定类型。 
  */
 static Node *
 transformJsonObjectConstructor(ParseState *pstate, JsonObjectConstructor *ctor)
@@ -3579,12 +3579,12 @@ transformJsonObjectConstructor(ParseState *pstate, JsonObjectConstructor *ctor)
 	JsonReturning *returning;
 	List	   *args = NIL;
 
-	/* transform key-value pairs, if any */
+	/* 如有键值对则进行转换    */
 	if (ctor->exprs)
 	{
 		ListCell   *lc;
 
-		/* transform and append key-value arguments */
+		/* 转换并追加键值参数              */
 		foreach(lc, ctor->exprs)
 		{
 			JsonKeyValue *kv = castNode(JsonKeyValue, lfirst(lc));
@@ -3606,7 +3606,7 @@ transformJsonObjectConstructor(ParseState *pstate, JsonObjectConstructor *ctor)
 }
 
 /*
- * Transform JSON_ARRAY(query [FORMAT] [RETURNING] [ON NULL]) into
+ * 把JSON_ARRAY(query [FORMAT] [RETURNING] [ON NULL])转换成   
  *  (SELECT  JSON_ARRAYAGG(a  [FORMAT] [RETURNING] [ON NULL]) FROM (query) q(a))
  */
 static Node *
@@ -3623,7 +3623,7 @@ transformJsonArrayQueryConstructor(ParseState *pstate,
 	Query	   *query;
 	ParseState *qpstate;
 
-	/* Transform query only for counting target list entries. */
+	/* 转换查询仅为统计目标列表条目数。       */
 	qpstate = make_parsestate(pstate);
 
 	query = transformStmt(qpstate, copyObject(ctor->query));
@@ -3641,8 +3641,8 @@ transformJsonArrayQueryConstructor(ParseState *pstate,
 	colref->location = ctor->location;
 
 	/*
-	 * No formatting necessary, so set formatted_expr to be the same as
-	 * raw_expr.
+	 * 无需格式化，故将formatted_expr设为与raw_expr相同。
+	 *          
 	 */
 	agg->arg = makeJsonValueExpr((Expr *) colref, (Expr *) colref,
 								 ctor->format);
@@ -3678,7 +3678,7 @@ transformJsonArrayQueryConstructor(ParseState *pstate,
 }
 
 /*
- * Common code for JSON_OBJECTAGG and JSON_ARRAYAGG transformation.
+ * JSON_OBJECTAGG与JSON_ARRAYAGG转换的公共代码。          
  */
 static Node *
 transformJsonAggConstructor(ParseState *pstate, JsonAggConstructor *agg_ctor,
@@ -3696,21 +3696,21 @@ transformJsonAggConstructor(ParseState *pstate, JsonAggConstructor *agg_ctor,
 
 	if (agg_ctor->over)
 	{
-		/* window function */
+		/* 窗口函数    */
 		WindowFunc *wfunc = makeNode(WindowFunc);
 
 		wfunc->winfnoid = aggfnoid;
 		wfunc->wintype = aggtype;
-		/* wincollid and inputcollid will be set by parse_collate.c */
+		/* wincollid与inputcollid由parse_collate.c设置          */
 		wfunc->args = args;
 		wfunc->aggfilter = aggfilter;
-		/* winref will be set by transformWindowFuncCall */
+		/* winref由transformWindowFuncCall设置        */
 		wfunc->winstar = false;
 		wfunc->winagg = true;
 		wfunc->location = agg_ctor->location;
 
 		/*
-		 * ordered aggs not allowed in windows yet
+		 * 窗口中尚不允许有序聚合。   
 		 */
 		if (agg_ctor->agg_order != NIL)
 			ereport(ERROR,
@@ -3718,7 +3718,7 @@ transformJsonAggConstructor(ParseState *pstate, JsonAggConstructor *agg_ctor,
 					errmsg("aggregate ORDER BY is not implemented for window functions"),
 					parser_errposition(pstate, agg_ctor->location));
 
-		/* parse_agg.c does additional window-func-specific processing */
+		/* parse_agg.c做额外的窗口函数专用处理             */
 		transformWindowFuncCall(pstate, wfunc, agg_ctor->over);
 
 		node = (Node *) wfunc;
@@ -3730,19 +3730,19 @@ transformJsonAggConstructor(ParseState *pstate, JsonAggConstructor *agg_ctor,
 		aggref->aggfnoid = aggfnoid;
 		aggref->aggtype = aggtype;
 
-		/* aggcollid and inputcollid will be set by parse_collate.c */
-		/* aggtranstype will be set by planner */
-		/* aggargtypes will be set by transformAggregateCall */
-		/* aggdirectargs and args will be set by transformAggregateCall */
-		/* aggorder and aggdistinct will be set by transformAggregateCall */
+		/* aggcollid与inputcollid由parse_collate.c设置          */
+		/* aggtranstype由规划器设置      */
+		/* aggargtypes由transformAggregateCall设置        */
+		/* aggdirectargs与args由transformAggregateCall设置          */
+		/* aggorder与aggdistinct由transformAggregateCall设置          */
 		aggref->aggfilter = aggfilter;
 		aggref->aggstar = false;
 		aggref->aggvariadic = false;
 		aggref->aggkind = AGGKIND_NORMAL;
 		aggref->aggpresorted = false;
-		/* agglevelsup will be set by transformAggregateCall */
-		aggref->aggsplit = AGGSPLIT_SIMPLE; /* planner might change this */
-		aggref->aggno = -1;		/* planner will set aggno and aggtransno */
+		/* agglevelsup由transformAggregateCall设置        */
+		aggref->aggsplit = AGGSPLIT_SIMPLE; /* 规划器可能改动     */
+		aggref->aggno = -1;		/* aggno与aggtransno由规划器设置  */
 		aggref->aggtransno = -1;
 		aggref->location = agg_ctor->location;
 
@@ -3757,13 +3757,13 @@ transformJsonAggConstructor(ParseState *pstate, JsonAggConstructor *agg_ctor,
 }
 
 /*
- * Transform JSON_OBJECTAGG() aggregate function.
+ * 转换JSON_OBJECTAGG()聚合函数。         
  *
- * JSON_OBJECTAGG() is transformed into a JsonConstructorExpr node of type
- * JSCTOR_JSON_OBJECTAGG, which at runtime becomes a
- * json[b]_object_agg[_unique][_strict](agg->arg->key, agg->arg->value) call
- * depending on the output JSON format.  The result is coerced to the target
- * type given by agg->constructor->output.
+ * JSON_OBJECTAGG()被转换成类型为JSCTOR_JSON_OBJECTAGG的          
+ * JsonConstructorExpr节点，它在运行时变成
+ * json[b]_object_agg[_unique][_strict](agg->arg->key, agg->arg->value)     
+ * 调用，取决于输出JSON格式。结果被强制转换为目标      
+ * 类型，见agg->constructor->output。
  */
 static Node *
 transformJsonObjectAgg(ParseState *pstate, JsonObjectAgg *agg)
@@ -3820,13 +3820,13 @@ transformJsonObjectAgg(ParseState *pstate, JsonObjectAgg *agg)
 }
 
 /*
- * Transform JSON_ARRAYAGG() aggregate function.
+ * 转换JSON_ARRAYAGG()聚合函数。         
  *
- * JSON_ARRAYAGG() is transformed into a JsonConstructorExpr node of type
- * JSCTOR_JSON_ARRAYAGG, which at runtime becomes a
- * json[b]_object_agg[_unique][_strict](agg->arg) call depending on the output
- * JSON format.  The result is coerced to the target type given by
- * agg->constructor->output.
+ * JSON_ARRAYAGG()被转换成类型为JSCTOR_JSON_ARRAYAGG的           
+ * JsonConstructorExpr节点，运行时变成     
+ * json[b]_object_agg[_unique][_strict](agg->arg)调用，取决于输出     
+ * JSON格式。结果强制转换为由agg->constructor->output  
+ * 给定的类型。       
  */
 static Node *
 transformJsonArrayAgg(ParseState *pstate, JsonArrayAgg *agg)
@@ -3861,11 +3861,11 @@ transformJsonArrayAgg(ParseState *pstate, JsonArrayAgg *agg)
 }
 
 /*
- * Transform JSON_ARRAY() constructor.
+ * 转换JSON_ARRAY()构造函数。  
  *
- * JSON_ARRAY() is transformed into a JsonConstructorExpr node of type
- * JSCTOR_JSON_ARRAY.  The result is coerced to the target type given
- * by ctor->output.
+ * JSON_ARRAY()被转换成类型为JSCTOR_JSON_ARRAY的              
+ * JsonConstructorExpr节点。结果强制转换为由ctor->output  
+ * 指定类型。 
  */
 static Node *
 transformJsonArrayConstructor(ParseState *pstate, JsonArrayConstructor *ctor)
@@ -3873,12 +3873,12 @@ transformJsonArrayConstructor(ParseState *pstate, JsonArrayConstructor *ctor)
 	JsonReturning *returning;
 	List	   *args = NIL;
 
-	/* transform element expressions, if any */
+	/* 如有元素表达式则进行转换  */
 	if (ctor->exprs)
 	{
 		ListCell   *lc;
 
-		/* transform and append element arguments */
+		/* 转换并追加元素参数            */
 		foreach(lc, ctor->exprs)
 		{
 			JsonValueExpr *jsval = castNode(JsonValueExpr, lfirst(lc));
@@ -3906,7 +3906,7 @@ transformJsonParseArg(ParseState *pstate, Node *jsexpr, JsonFormat *format,
 
 	*exprtype = exprType(expr);
 
-	/* prepare input document */
+	/* 准备输入文档     */
 	if (*exprtype == BYTEAOID)
 	{
 		JsonValueExpr *jve;
@@ -3945,7 +3945,7 @@ transformJsonParseArg(ParseState *pstate, Node *jsexpr, JsonFormat *format,
 }
 
 /*
- * Transform IS JSON predicate.
+ * 转换IS JSON谓词。      
  */
 static Node *
 transformJsonIsPredicate(ParseState *pstate, JsonIsPredicate *pred)
@@ -3954,14 +3954,14 @@ transformJsonIsPredicate(ParseState *pstate, JsonIsPredicate *pred)
 	Node	   *expr = transformJsonParseArg(pstate, pred->expr, pred->format,
 											 &exprtype);
 
-	/* make resulting expression */
+	/* 生成结果表达式     */
 	if (exprtype != TEXTOID && exprtype != JSONOID && exprtype != JSONBOID)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATATYPE_MISMATCH),
 				 errmsg("cannot use type %s in IS JSON predicate",
 						format_type_be(exprtype))));
 
-	/* This intentionally(?) drops the format clause. */
+	/* 此处有意(?)地丢弃格式子句。        */
 	return makeJsonIsPredicate(expr, NULL, pred->item_type,
 							   pred->unique_keys, pred->location);
 }

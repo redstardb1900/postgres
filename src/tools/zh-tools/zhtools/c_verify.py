@@ -202,6 +202,13 @@ _PARSECLAUSE_GROUPBY_FALLTHROUGH_PROSE = re.compile(
 # Not a GCC -Wimplicit-fallthrough annotation.
 _PARSECOERCE_FALLTHROUGH_PROSE = re.compile(rb"we just fall through; below")
 
+# parse_expr.c exprKindName() switch-head prose: "we'll fall through to the
+# "unrecognized" return" describes control leaving a switch with no default
+# to the error return after it; each case returns, so no case-to-case
+# fallthrough exists.  Not a GCC -Wimplicit-fallthrough annotation.
+_PARSEEXPR_FALLTHROUGH_PROSE = re.compile(
+    rb'fall through to the "unrecognized" return')
+
 
 def legal_protected_segments(old_text):
     """Return Copyright/IDENTIFICATION/licence line blobs that must survive.
@@ -278,7 +285,8 @@ def protected_reason(old_text):
                     or _LIMIT_FALLTHROUGH_PROSE.search(old_text)
                     or _PARSECLAUSE_SQL99_FALLTHROUGH_PROSE.search(old_text)
                     or _PARSECLAUSE_GROUPBY_FALLTHROUGH_PROSE.search(old_text)
-                    or _PARSECOERCE_FALLTHROUGH_PROSE.search(old_text)):
+                    or _PARSECOERCE_FALLTHROUGH_PROSE.search(old_text)
+                    or _PARSEEXPR_FALLTHROUGH_PROSE.search(old_text)):
                 continue
             return name
     return None

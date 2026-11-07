@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_merge.c
- *	  handle merge-statement in parser
+ *	  解析器处理 MERGE 语句    
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -40,16 +40,16 @@ static void setNamespaceVisibilityForRTE(List *namespace, RangeTblEntry *rte,
 										 bool cols_visible);
 
 /*
- * Make appropriate changes to the namespace visibility while transforming
- * individual action's quals and targetlist expressions. In particular, for
- * INSERT actions we must only see the source relation (since INSERT action is
- * invoked for NOT MATCHED tuples and hence there is no target tuple to deal
- * with). On the other hand, UPDATE and DELETE actions can see both source and
- * target relations.
+ * 在转换各动作的限定条件和目标列表表达式时，需要  
+ * 相应调整命名空间的可见性。特别地，INSERT 动作        
+ * 只能看到源关系（因为 INSERT 动作只针对 NOT MATCHED          
+ * 元组调用，因此没有目标元组需要处理）。另一方面， 
+ * UPDATE 和 DELETE 动作可以同时看到源关系和                     
+ * 目标关系。  
  *
- * Also, since the internal join node can hide the source and target
- * relations, we must explicitly make the respective relation as visible so
- * that columns can be referenced unqualified from these relations.
+ * 另外，由于内部连接节点会把源关系和目标关系  
+ * 隐藏起来，我们必须显式地将相应关系设为可见，      
+ * 以便这些关系的列可以被不带限定地引用。       
  */
 static void
 setNamespaceForMergeWhen(ParseState *pstate, MergeWhenClause *mergeWhenClause,
@@ -67,7 +67,7 @@ setNamespaceForMergeWhen(ParseState *pstate, MergeWhenClause *mergeWhenClause,
 			   mergeWhenClause->commandType == CMD_DELETE ||
 			   mergeWhenClause->commandType == CMD_NOTHING);
 
-		/* MATCHED actions can see both target and source relations. */
+		/* MATCHED 动作可同时看到目标与源关系。        */
 		setNamespaceVisibilityForRTE(pstate->p_namespace,
 									 targetRelRTE, true, true);
 		setNamespaceVisibilityForRTE(pstate->p_namespace,
@@ -76,8 +76,8 @@ setNamespaceForMergeWhen(ParseState *pstate, MergeWhenClause *mergeWhenClause,
 	else
 	{
 		/*
-		 * NOT MATCHED actions can't see target relation, but they can see
-		 * source relation.
+		 * NOT MATCHED 动作看不到目标关系，但可以看到      
+		 * 源关系。    
 		 */
 		Assert(mergeWhenClause->commandType == CMD_INSERT ||
 			   mergeWhenClause->commandType == CMD_NOTHING);
@@ -90,7 +90,7 @@ setNamespaceForMergeWhen(ParseState *pstate, MergeWhenClause *mergeWhenClause,
 
 /*
  * transformMergeStmt -
- *	  transforms a MERGE statement
+ *	  转换 MERGE 语句         
  */
 Query *
 transformMergeStmt(ParseState *pstate, MergeStmt *stmt)
@@ -104,13 +104,13 @@ transformMergeStmt(ParseState *pstate, MergeStmt *stmt)
 	Node	   *joinExpr;
 	ParseNamespaceItem *nsitem;
 
-	/* There can't be any outer WITH to worry about */
+	/* 不需要担心任何外层的 WITH 子句   */
 	Assert(pstate->p_ctenamespace == NIL);
 
 	qry->commandType = CMD_MERGE;
 	qry->hasRecursive = false;
 
-	/* process the WITH clause independently of all else */
+	/* 独立于其他一切单独处理 WITH 子句     */
 	if (stmt->withClause)
 	{
 		if (stmt->withClause->recursive)
@@ -123,7 +123,7 @@ transformMergeStmt(ParseState *pstate, MergeStmt *stmt)
 	}
 
 	/*
-	 * Check WHEN clauses for permissions and sanity
+	 * 检查 WHEN 子句的权限和合理性      
 	 */
 	is_terminal[0] = false;
 	is_terminal[1] = false;
@@ -133,11 +133,11 @@ transformMergeStmt(ParseState *pstate, MergeStmt *stmt)
 		int			when_type = (mergeWhenClause->matched ? 0 : 1);
 
 		/*
-		 * Collect permissions to check, according to action types. We require
-		 * SELECT privileges for DO NOTHING because it'd be irregular to have
-		 * a target relation with zero privileges checked, in case DO NOTHING
-		 * is the only action.  There's no damage from that: any meaningful
-		 * MERGE command requires at least some access to the table anyway.
+		 * 根据动作类型收集需要检查的权限。对于 DO NOTHING  
+		 * 我们需要 SELECT 权限，因为如果 DO NOTHING 是唯一的 
+		 * 动作，目标关系却无权限被检查会不合常规。      
+		 * 这样并无损害：有意义的 MERGE 命令反正都需要   
+		 * 对表有至少某种访问。                                  
 		 */
 		switch (mergeWhenClause->commandType)
 		{
@@ -158,7 +158,7 @@ transformMergeStmt(ParseState *pstate, MergeStmt *stmt)
 		}
 
 		/*
-		 * Check for unreachable WHEN clauses
+		 * 检查不可达的 WHEN 子句    
 		 */
 		if (is_terminal[when_type])
 			ereport(ERROR,
@@ -169,16 +169,16 @@ transformMergeStmt(ParseState *pstate, MergeStmt *stmt)
 	}
 
 	/*
-	 * Set up the MERGE target table.  The target table is added to the
-	 * namespace below and to joinlist in transform_MERGE_to_join, so don't do
-	 * it here.
+	 * 设置 MERGE 目标表。该表在下方加入命名空间，   
+	 * 并由 transform_MERGE_to_join 加入连接列表，不在此处理。 
+	 *         
 	 */
 	qry->resultRelation = setTargetTable(pstate, stmt->relation,
 										 stmt->relation->inh,
 										 false, targetPerms);
 
 	/*
-	 * MERGE is unsupported in various cases
+	 * 多种情形下不支持 MERGE       
 	 */
 	if (pstate->p_target_relation->rd_rel->relkind != RELKIND_RELATION &&
 		pstate->p_target_relation->rd_rel->relkind != RELKIND_PARTITIONED_TABLE)
@@ -195,16 +195,16 @@ transformMergeStmt(ParseState *pstate, MergeStmt *stmt)
 						RelationGetRelationName(pstate->p_target_relation)),
 				 errdetail("MERGE is not supported for relations with rules.")));
 
-	/* Now transform the source relation to produce the source RTE. */
+	/* 现在转换源关系以生成源 RTE。                     */
 	transformFromClause(pstate,
 						list_make1(stmt->sourceRelation));
 	sourceRTI = list_length(pstate->p_rtable);
 	nsitem = GetNSItemByRangeTablePosn(pstate, sourceRTI, 0);
 
 	/*
-	 * Check that the target table doesn't conflict with the source table.
-	 * This would typically be a checkNameSpaceConflicts call, but we want a
-	 * more specific error message.
+	 * 检查目标表与源表是否冲突。这通常应当用          
+	 * checkNameSpaceConflicts 来检查，但我们想要更               
+	 * 具体的错误消息。    
 	 */
 	if (strcmp(pstate->p_target_nsitem->p_names->aliasname,
 			   nsitem->p_names->aliasname) == 0)
@@ -215,42 +215,42 @@ transformMergeStmt(ParseState *pstate, MergeStmt *stmt)
 				errdetail("The name is used both as MERGE target table and data source."));
 
 	/*
-	 * There's no need for a targetlist here; it'll be set up by
-	 * preprocess_targetlist later.
+	 * 此处无需目标列表；由 preprocess_targetlist     
+	 * 稍后设置。             
 	 */
 	qry->targetList = NIL;
 	qry->rtable = pstate->p_rtable;
 	qry->rteperminfos = pstate->p_rteperminfos;
 
 	/*
-	 * Transform the join condition.  This includes references to the target
-	 * side, so add that to the namespace.
+	 * 转换连接条件。这包括对目标侧的引用，               
+	 * 故需将其加入命名空间。  
 	 */
 	addNSItemToQuery(pstate, pstate->p_target_nsitem, false, true, true);
 	joinExpr = transformExpr(pstate, stmt->joinCondition,
 							 EXPR_KIND_JOIN_ON);
 
 	/*
-	 * Create the temporary query's jointree using the joinlist we built using
-	 * just the source relation; the target relation is not included.  The
-	 * quals we use are the join conditions to the merge target.  The join
-	 * will be constructed fully by transform_MERGE_to_join.
+	 * 使用仅由源关系构建的连接列表来创建                    
+	 * 临时查询的连接树；其中不包含目标关系。我们    
+	 * 使用的限定条件是到合并目标的连接条件。连接    
+	 * 将完全由 transform_MERGE_to_join 构建。       
 	 */
 	qry->jointree = makeFromExpr(pstate->p_joinlist, joinExpr);
 
 	/*
-	 * We now have a good query shape, so now look at the WHEN conditions and
-	 * action targetlists.
+	 * 现在查询形状已确定，接着查看 WHEN 条件与动作的    
+	 * 目标列表。    
 	 *
-	 * Overall, the MERGE Query's targetlist is NIL.
+	 * 总体上 MERGE 查询目标列表为 NIL。 
 	 *
-	 * Each individual action has its own targetlist that needs separate
-	 * transformation. These transforms don't do anything to the overall
-	 * targetlist, since that is only used for resjunk columns.
+	 * 每个动作都有各自的目标列表，需要单独           
+	 * 进行转换。这些转换不会对整体目标列表           
+	 * 产生任何影响，因为它只用于 resjunk 列。  
 	 *
-	 * We can reference any column in Target or Source, which is OK because
-	 * both of those already have RTEs. There is nothing like the EXCLUDED
-	 * pseudo-relation for INSERT ON CONFLICT.
+	 * Target 或 Source 中的任何列都可以引用，因为二者     
+	 * 都已有各自的 RTE。这里没有 INSERT ON CONFLICT           
+	 * 那样的 EXCLUDED 伪关系。        
 	 */
 	mergeActionList = NIL;
 	foreach(l, stmt->mergeWhenClauses)
@@ -262,30 +262,30 @@ transformMergeStmt(ParseState *pstate, MergeStmt *stmt)
 		action->commandType = mergeWhenClause->commandType;
 		action->matched = mergeWhenClause->matched;
 
-		/* Use an outer join if any INSERT actions exist in the command. */
+		/* 若命令中存在任何 INSERT 动作，则使用外连接。*/
 		if (action->commandType == CMD_INSERT)
 			qry->mergeUseOuterJoin = true;
 
 		/*
-		 * Set namespace for the specific action. This must be done before
-		 * analyzing the WHEN quals and the action targetlist.
+		 * 为特定动作设置命名空间。此步必须在            
+		 * 分析 WHEN 条件与动作目标列表之前。   
 		 */
 		setNamespaceForMergeWhen(pstate, mergeWhenClause,
 								 qry->resultRelation,
 								 sourceRTI);
 
 		/*
-		 * Transform the WHEN condition.
+		 * 转换 WHEN 条件。        
 		 *
-		 * Note that these quals are NOT added to the join quals; instead they
-		 * are evaluated separately during execution to decide which of the
-		 * WHEN MATCHED or WHEN NOT MATCHED actions to execute.
+		 * 注意这些限定条件不会加入连接条件；它们在       
+		 * 执行期单独求值，以决定执行哪个                   
+		 * WHEN MATCHED 或 WHEN NOT MATCHED 动作。         
 		 */
 		action->qual = transformWhereClause(pstate, mergeWhenClause->condition,
 											EXPR_KIND_MERGE_WHEN, "WHEN");
 
 		/*
-		 * Transform target lists for each INSERT and UPDATE action stmt
+		 * 为每个 INSERT 和 UPDATE 动作语句转换目标列表   
 		 */
 		switch (action->commandType)
 		{
@@ -309,38 +309,38 @@ transformMergeStmt(ParseState *pstate, MergeStmt *stmt)
 					action->override = mergeWhenClause->override;
 
 					/*
-					 * Handle INSERT much like in transformInsertStmt
+					 * INSERT 的处理类似 transformInsertStmt    
 					 */
 					if (mergeWhenClause->values == NIL)
 					{
 						/*
-						 * We have INSERT ... DEFAULT VALUES.  We can handle
-						 * this case by emitting an empty targetlist --- all
-						 * columns will be defaulted when the planner expands
-						 * the targetlist.
+						 * 我们有 INSERT ... DEFAULT VALUES。           
+						 * 处理办法是发出空目标列表 ---         
+						 * 规划器展开目标列表时，所有列        
+						 * 取默认值。
 						 */
 						exprList = NIL;
 					}
 					else
 					{
 						/*
-						 * Process INSERT ... VALUES with a single VALUES
-						 * sublist.  We treat this case separately for
-						 * efficiency.  The sublist is just computed directly
-						 * as the Query's targetlist, with no VALUES RTE.  So
-						 * it works just like a SELECT without any FROM.
+						 * 处理带单个 VALUES 子列表的           
+						 * INSERT ... VALUES。为提高效率，     
+						 * 这种情形被单独处理。子列表直接     
+						 * 作为查询的目标列表来计算，没有     
+						 * VALUES RTE。如同无 FROM 的 SELECT。    
 						 */
 
 						/*
-						 * Do basic expression transformation (same as a ROW()
-						 * expr, but allow SetToDefault at top level)
+						 * 基本表达式转换（同 ROW() 表达式        
+						 * 相同，但顶层允许 SetToDefault）  
 						 */
 						exprList = transformExpressionList(pstate,
 														   mergeWhenClause->values,
 														   EXPR_KIND_VALUES_SINGLE,
 														   true);
 
-						/* Prepare row for assignment to target table */
+						/* 准备好行以便赋给目标表          */
 						exprList = transformInsertRow(pstate, exprList,
 													  mergeWhenClause->targetList,
 													  icolumns, attrnos,
@@ -348,9 +348,9 @@ transformMergeStmt(ParseState *pstate, MergeStmt *stmt)
 					}
 
 					/*
-					 * Generate action's target list using the computed list
-					 * of expressions. Also, mark all the target columns as
-					 * needing insert permissions.
+					 * 使用已算出的表达式列表生成动作的     
+					 * 目标列表。同时把所有目标列标记为    
+					 * 需要插入权限。      
 					 */
 					perminfo = pstate->p_target_nsitem->p_perminfo;
 					forthree(lc, exprList, icols, icolumns, attnos, attrnos)
@@ -395,7 +395,7 @@ transformMergeStmt(ParseState *pstate, MergeStmt *stmt)
 
 	qry->mergeActionList = mergeActionList;
 
-	/* RETURNING could potentially be added in the future, but not in SQL std */
+	/* 将来有可能加入 RETURNING，但 SQL 标准中没有              */
 	qry->returningList = NULL;
 
 	qry->hasTargetSRFs = false;

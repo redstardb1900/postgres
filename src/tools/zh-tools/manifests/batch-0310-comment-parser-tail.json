@@ -1,0 +1,73 @@
+{
+ "schema_version": 1,
+ "batch_id": "0310-comment-parser-tail",
+ "title": "Translate comments: parser-tail",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "42c39e75b9f18790b93838d605571523bc8c76ee",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0310-comment-parser-tail.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/parser/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0310-comment-parser-tail.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/parser/parse_enr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "P2 translation campaign wave F37"
+  },
+  {
+   "path": "src/backend/parser/parse_merge.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 29,
+   "translated": 29,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "P2 translation campaign wave F37"
+  },
+  {
+   "path": "src/backend/parser/parse_param.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 34,
+   "translated": 34,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "P2 translation campaign wave F37"
+  },
+  {
+   "path": "src/backend/parser/scansup.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 7,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "P2 translation campaign wave F37"
+  }
+ ],
+ "notes": "Four-file tail batch closing the parser wave: parse_merge.c 29 blocks (22 multi + 7 ONE), parse_param.c 34 (14 multi + 20 ONE), scansup.c 7 (6 multi + 1 ONE), parse_enr.c 1 (1 multi); 71 translated, 0 preserved. No tool change this batch. Pre-flight: keyscan zero real gaps / duplicate keys zero across all four files; phrasebook fixes already at spec level (parse_merge blk8 + scansup blk4 require->需要, parse_merge if-requested legal). Coordinator pre-gate W7 verification caught and fixed one real spec defect (scansup blk4 li1 dropped NAMEDATALEN-1 bytes tail; restored, 71/74). Gates: verify 0 violations (W7 x3 = OIDs->OID singular x2 parse_param L38/L50, RTEs->RTE singular parse_merge L241, R10 class), term 0 errors (3 warning lines row-verified noise: P29 fires on the IDENTIFICATION path's parser token, TL08/P23 on scansup blk4 require->需要 already compliant), render hard-zero odd-quote 0 on all four files, audit 71 OK, spec_check OK. Review round 1: FAIL (3 HIGH + 2 LOW; 68/71 blocks passed; all 13 proposal lines coordinator-verified verbatim against REL_16_11 and site-checked; fix0310r1.py + fix0310r1b.py, 13 spec edits / 13 file lines across 5 blocks: parse_param blk27, scansup blk1/blk3/blk5, parse_merge blk14). D1 parse_param blk27 L264-265: final sentence 'Caller of parser should enforce that if it's important.' untranslated; re-flowed, li5 absorbs the UNKNOWN clause, li6 carries the restored sentence (modal 应 restored after a first amendment measured 39B>38 and caught by the surgery post-verify pre-apply). D2 scansup blk1 L24/25/27/29: three dangling sentences completed (发出截断警告 / object 标识符 / 未以空字符结尾, the latter replacing the proposal's 非空字符结尾 to kill the 非空字符|结尾 garden path). D3 scansup blk5 L108-114: block sentences had shifted down one paragraph (P1 hung into P2, P2 into P3, clause 'moment only isspace seems needed.' lost); all three paragraph boundaries restored. D4 parse_merge blk14 L219 'later' restored; D5 scansup blk3 L60 'current' restored. Disclosure correction: pre-flight zero real gaps meant structural keyscan gaps only; D1-D3 were intra-line losses keyscan cannot see. Six gates re-run green after surgery. Round 2 verdict: PASS (13/13 byte-landed with independently derived budgets; drift proven = exactly the 13 surgery lines via independent pre-surgery baseline reconstruction, frame/blank lines untouched, EN=ZH totals 428/428 360/360 128/128 30/30; EN quotes verbatim 11/11 with cross-line connectors; both filed amendments verified, AssertionError (39,38) reproduced pre-apply; paragraph integrity P1/P2/P3 aligned 1:1 with EN blanks; touched-block bad-term forms zero, identifiers conserved; six gates green with S2-only lock (sessionId evidence chain); independent full re-render 4/4 byte-identical, skeletons identical to REL_16_11)."
+}

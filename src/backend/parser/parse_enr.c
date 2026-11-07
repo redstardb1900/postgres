@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_enr.c
- *	  parser support routines dealing with ephemeral named relations
+ *	  处理 ENR（临时命名关系）的解析器支持例程    
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

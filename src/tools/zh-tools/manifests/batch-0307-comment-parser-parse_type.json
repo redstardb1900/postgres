@@ -1,0 +1,43 @@
+{
+ "schema_version": 1,
+ "batch_id": "0307-comment-parser-parse_type",
+ "title": "Translate comments: parser-parse_type",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "f321f840c936ba23001492ae9f3806f61a659c3e",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0307-comment-parser-parse_type.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/parser/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0307-comment-parser-parse_type.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/parser/parse_type.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 60,
+   "translated": 60,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "P2 translation campaign wave F34"
+  }
+ ],
+ "notes": "Whole-file batch: 60 blocks (24 multi + 36 ONE), all translated, 0 preserved. No tool change this batch. No pre-flight ammo needed (keyscan zero gaps, duplicate keys zero; legal leaf EN-verified: blk19 illegal->非法). Gates: verify 0 violations (4 W7 filings R10 class: L430/L470/L487 TypeNames->TypeName singular + name(s)->名称, L648 NULLs->NULL singular), term 0 errors 0 parse_type warning lines, render hard-zero, audit 60 OK, spec_check OK. Review round 1: FAIL (2 MED).  Both proposals verified verbatim and applied (fix0307r1.py, 3 lines into F34): MED-1 blk29 considered-by relation restored (L460 按需加修饰，但仅限以下函数考虑的字段：, LookupTypeName frame line untouched), MED-2 blk33 given-input relation restored with misattached 即 appositive removed (L534-535 reflow, L534 66/66 exact).  Delta vs pre-surgery snapshot exactly 3 lines; six gates re-run green.  Round 2 review verdict: PASS (drift exactly 3 lines, 3/3 byte-landed, frame lines untouched, filings maintained, zero new defects)."
+}

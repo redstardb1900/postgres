@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_type.c
- *		handle type operations for parser
+ *		解析器的类型操作处理   
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -32,7 +32,7 @@ static int32 typenameTypeMod(ParseState *pstate, const TypeName *typeName,
 
 /*
  * LookupTypeName
- *		Wrapper for typical case.
+ *		典型情况包装器。 
  */
 Type
 LookupTypeName(ParseState *pstate, const TypeName *typeName,
@@ -44,30 +44,30 @@ LookupTypeName(ParseState *pstate, const TypeName *typeName,
 
 /*
  * LookupTypeNameExtended
- *		Given a TypeName object, lookup the pg_type syscache entry of the type.
- *		Returns NULL if no such type can be found.  If the type is found,
- *		the typmod value represented in the TypeName struct is computed and
- *		stored into *typmod_p.
+ *		给定 TypeName，查找其类型的 pg_type 系统缓存条目。     
+ *		找不到该类型则返回 NULL；若找到，                  
+ *		则计算 TypeName 结构体中表示的 typmod 值，             
+ *		并存入 *typmod_p。
  *
- * NB: on success, the caller must ReleaseSysCache the type tuple when done
- * with it.
+ * 注意：成功时调用者用完类型元组后必须 ReleaseSysCache  
+ *         
  *
- * NB: direct callers of this function MUST check typisdefined before assuming
- * that the type is fully valid.  Most code should go through typenameType
- * or typenameTypeId instead.
+ * 注意：直接调用者必须先检查 typisdefined，才能假定        
+ * 该类型完全有效。多数代码应经由 typenameType             
+ * 或 typenameTypeId。     
  *
- * typmod_p can be passed as NULL if the caller does not care to know the
- * typmod value, but the typmod decoration (if any) will be validated anyway,
- * except in the case where the type is not found.  Note that if the type is
- * found but is a shell, and there is typmod decoration, an error will be
- * thrown --- this is intentional.
+ * 若调用者不关心 typmod 值，可将 typmod_p 传为 NULL，     
+ * 但 typmod 修饰（若有）仍会被校验，                           
+ * 但类型未找到的情形除外。注意若类型                      
+ * 已找到但只是 shell 且带有 typmod 修饰，则会抛出错误 
+ * --- 这是有意为之。      
  *
- * If temp_ok is false, ignore types in the temporary namespace.  Pass false
- * when the caller will decide, using goodness of fit criteria, whether the
- * typeName is actually a type or something else.  If typeName always denotes
- * a type (or denotes nothing), pass true.
+ * temp_ok 为 false 时忽略临时命名空间中的类型。调用者将 
+ * 需按拟合优度标准自行判断 typeName 是类型还是别的     
+ * 东西时传 false。若 typeName 总是表示类型                      
+ * （或无所指）则传 true。       
  *
- * pstate is only used for error location info, and may be NULL.
+ * pstate 仅用于错误位置信息，可为 NULL。          
  */
 Type
 LookupTypeNameExtended(ParseState *pstate,
@@ -80,18 +80,18 @@ LookupTypeNameExtended(ParseState *pstate,
 
 	if (typeName->names == NIL)
 	{
-		/* We have the OID already if it's an internally generated TypeName */
+		/* 若为内部生成的 TypeName 则已有其 OID                  */
 		typoid = typeName->typeOid;
 	}
 	else if (typeName->pct_type)
 	{
-		/* Handle %TYPE reference to type of an existing field */
+		/* 处理对既有字段类型的 %TYPE 引用。      */
 		RangeVar   *rel = makeRangeVar(NULL, NULL, typeName->location);
 		char	   *field = NULL;
 		Oid			relid;
 		AttrNumber	attnum;
 
-		/* deconstruct the name list */
+		/* 分解名称列表。     */
 		switch (list_length(typeName->names))
 		{
 			case 1:
@@ -126,11 +126,11 @@ LookupTypeNameExtended(ParseState *pstate,
 		}
 
 		/*
-		 * Look up the field.
+		 * 查找该字段。
 		 *
-		 * XXX: As no lock is taken here, this might fail in the presence of
-		 * concurrent DDL.  But taking a lock would carry a performance
-		 * penalty and would also require a permissions check.
+		 * XXX：此处未加锁，存在并发 DDL 时可能失败。      
+		 * 但加锁会带来性能开销，                           
+		 * 且还需要进行权限检查。                  
 		 */
 		relid = RangeVarGetRelid(rel, NoLock, missing_ok);
 		attnum = get_attnum(relid, field);
@@ -149,10 +149,10 @@ LookupTypeNameExtended(ParseState *pstate,
 		{
 			typoid = get_atttype(relid, attnum);
 
-			/* this construct should never have an array indicator */
+			/* 此构造绝不应带有数组指示符。          */
 			Assert(typeName->arrayBounds == NIL);
 
-			/* emit nuisance notice (intentionally not errposition'd) */
+			/* 发出提示性通知（有意不设置 errposition） */
 			ereport(NOTICE,
 					(errmsg("type reference %s converted to %s",
 							TypeNameToString(typeName),
@@ -161,16 +161,16 @@ LookupTypeNameExtended(ParseState *pstate,
 	}
 	else
 	{
-		/* Normal reference to a type name */
+		/* 对类型名的普通引用。  */
 		char	   *schemaname;
 		char	   *typname;
 
-		/* deconstruct the name list */
+		/* 分解名称列表。     */
 		DeconstructQualifiedName(typeName->names, &schemaname, &typname);
 
 		if (schemaname)
 		{
-			/* Look in specific schema only */
+			/* 仅在特定模式中查找  */
 			Oid			namespaceId;
 			ParseCallbackState pcbstate;
 
@@ -188,11 +188,11 @@ LookupTypeNameExtended(ParseState *pstate,
 		}
 		else
 		{
-			/* Unqualified type name, so search the search path */
+			/* 非限定类型名，故沿搜索路径查找。 */
 			typoid = TypenameGetTypidExtended(typname, temp_ok);
 		}
 
-		/* If an array reference, return the array type instead */
+		/* 若为数组引用，则改为返回数组类型。  */
 		if (typeName->arrayBounds != NIL)
 			typoid = get_array_type(typoid);
 	}
@@ -205,7 +205,7 @@ LookupTypeNameExtended(ParseState *pstate,
 	}
 
 	tup = SearchSysCache1(TYPEOID, ObjectIdGetDatum(typoid));
-	if (!HeapTupleIsValid(tup)) /* should not happen */
+	if (!HeapTupleIsValid(tup)) /* 不应发生。   */
 		elog(ERROR, "cache lookup failed for type %u", typoid);
 
 	typmod = typenameTypeMod(pstate, typeName, (Type) tup);
@@ -218,15 +218,15 @@ LookupTypeNameExtended(ParseState *pstate,
 
 /*
  * LookupTypeNameOid
- *		Given a TypeName object, lookup the pg_type syscache entry of the type.
- *		Returns InvalidOid if no such type can be found.  If the type is found,
- *		return its Oid.
+ *		给定 TypeName，查找其类型的 pg_type 系统缓存条目。     
+ *		找不到该类型则返回 InvalidOid；若找到则返回其 OID。  
+ *		               
  *
- * NB: direct callers of this function need to be aware that the type OID
- * returned may correspond to a shell type.  Most code should go through
- * typenameTypeId instead.
+ * 注意：本函数的直接调用者需了解所返回的类型 OID   
+ * 可能对应 shell 类型。多数代码应经由                    
+ * typenameTypeId。      
  *
- * pstate is only used for error location info, and may be NULL.
+ * pstate 仅用于错误位置信息，可为 NULL。          
  */
 Oid
 LookupTypeNameOid(ParseState *pstate, const TypeName *typeName, bool missing_ok)
@@ -254,11 +254,11 @@ LookupTypeNameOid(ParseState *pstate, const TypeName *typeName, bool missing_ok)
 }
 
 /*
- * typenameType - given a TypeName, return a Type structure and typmod
+ * typenameType - 给定 TypeName，返回 Type 结构与 typmod      
  *
- * This is equivalent to LookupTypeName, except that this will report
- * a suitable error message if the type cannot be found or is not defined.
- * Callers of this can therefore assume the result is a fully valid type.
+ * 本函数等效于 LookupTypeName，区别在于找不到类型   
+ * 或未定义时会报告合适的错误消息。                       
+ * 因此调用者可假定结果是完全有效的类型。             
  */
 Type
 typenameType(ParseState *pstate, const TypeName *typeName, int32 *typmod_p)
@@ -282,10 +282,10 @@ typenameType(ParseState *pstate, const TypeName *typeName, int32 *typmod_p)
 }
 
 /*
- * typenameTypeId - given a TypeName, return the type's OID
+ * typenameTypeId - 给定 TypeName，返回类型 OID     
  *
- * This is similar to typenameType, but we only hand back the type OID
- * not the syscache entry.
+ * 这与 typenameType 类似，但只交回类型 OID，             
+ * 而非缓存条目。  
  */
 Oid
 typenameTypeId(ParseState *pstate, const TypeName *typeName)
@@ -301,10 +301,10 @@ typenameTypeId(ParseState *pstate, const TypeName *typeName)
 }
 
 /*
- * typenameTypeIdAndMod - given a TypeName, return the type's OID and typmod
+ * typenameTypeIdAndMod - 给定 TypeName，返回类型 OID 与 typmod     
  *
- * This is equivalent to typenameType, but we only hand back the type OID
- * and typmod, not the syscache entry.
+ * 这与 typenameType 等效，但只交回类型 OID 与 typmod，     
+ * 而非系统缓存条目。        
  */
 void
 typenameTypeIdAndMod(ParseState *pstate, const TypeName *typeName,
@@ -318,15 +318,15 @@ typenameTypeIdAndMod(ParseState *pstate, const TypeName *typeName,
 }
 
 /*
- * typenameTypeMod - given a TypeName, return the internal typmod value
+ * typenameTypeMod - 给定 TypeName，返回内部 typmod 值         
  *
- * This will throw an error if the TypeName includes type modifiers that are
- * illegal for the data type.
+ * 若 TypeName 含有对该数据类型非法的类型                     
+ * 修饰符则抛错。     
  *
- * The actual type OID represented by the TypeName must already have been
- * looked up, and is passed as "typ".
+ * TypeName 所表示的实际类型 OID 必须已被查出来，        
+ * 并以 "typ" 传入。            
  *
- * pstate is only used for error location info, and may be NULL.
+ * pstate 仅用于错误位置信息，可为 NULL。          
  */
 static int32
 typenameTypeMod(ParseState *pstate, const TypeName *typeName, Type typ)
@@ -339,14 +339,14 @@ typenameTypeMod(ParseState *pstate, const TypeName *typeName, Type typ)
 	ArrayType  *arrtypmod;
 	ParseCallbackState pcbstate;
 
-	/* Return prespecified typmod if no typmod expressions */
+	/* 无 typmod 表达式时返回预指定的 typmod。 */
 	if (typeName->typmods == NIL)
 		return typeName->typemod;
 
 	/*
-	 * Else, type had better accept typmods.  We give a special error message
-	 * for the shell-type case, since a shell couldn't possibly have a
-	 * typmodin function.
+	 * 否则该类型最好应接受 typmod。对 shell 类型情形我们  
+	 * 会给出专门的错误消息，因为 shell 不可能有     
+	 * typmodin 函数。
 	 */
 	if (!((Form_pg_type) GETSTRUCT(typ))->typisdefined)
 		ereport(ERROR,
@@ -365,9 +365,9 @@ typenameTypeMod(ParseState *pstate, const TypeName *typeName, Type typ)
 				 parser_errposition(pstate, typeName->location)));
 
 	/*
-	 * Convert the list of raw-grammar-output expressions to a cstring array.
-	 * Currently, we allow simple numeric constants, string literals, and
-	 * identifiers; possibly this list could be extended.
+	 * 把原始文法输出表达式列表转换为 cstring 数组。       
+	 * 目前允许简单数值常量、字符串字面量和            
+	 * 标识符；此列表将来或可扩展。        
 	 */
 	datums = (Datum *) palloc(list_length(typeName->typmods) * sizeof(Datum));
 	n = 0;
@@ -386,12 +386,12 @@ typenameTypeMod(ParseState *pstate, const TypeName *typeName, Type typ)
 			}
 			else if (IsA(&ac->val, Float))
 			{
-				/* we can just use the string representation directly. */
+				/* 我们可以直接使用其字符串表示。       */
 				cstr = ac->val.fval.fval;
 			}
 			else if (IsA(&ac->val, String))
 			{
-				/* we can just use the string representation directly. */
+				/* 我们可以直接使用其字符串表示。       */
 				cstr = strVal(&ac->val);
 			}
 		}
@@ -413,7 +413,7 @@ typenameTypeMod(ParseState *pstate, const TypeName *typeName, Type typ)
 
 	arrtypmod = construct_array_builtin(datums, n, CSTRINGOID);
 
-	/* arrange to report location if type's typmodin function fails */
+	/* 若类型的 typmodin 函数失败则安排报告位置。   */
 	setup_parser_errposition_callback(&pcbstate, pstate, typeName->location);
 
 	result = DatumGetInt32(OidFunctionCall1(typmodin,
@@ -429,18 +429,18 @@ typenameTypeMod(ParseState *pstate, const TypeName *typeName, Type typ)
 
 /*
  * appendTypeNameToBuffer
- *		Append a string representing the name of a TypeName to a StringInfo.
- *		This is the shared guts of TypeNameToString and TypeNameListToString.
+ *		把表示 TypeName 名称的字符串附加到 StringInfo。        
+ *		是 TypeNameToString 与 TypeNameListToString 的共享主体。     
  *
- * NB: this must work on TypeNames that do not describe any actual type;
- * it is mostly used for reporting lookup errors.
+ * 注意：必须能处理不描述任何实际类型的 TypeName，   
+ * 其主要用于报告查找错误。          
  */
 static void
 appendTypeNameToBuffer(const TypeName *typeName, StringInfo string)
 {
 	if (typeName->names != NIL)
 	{
-		/* Emit possibly-qualified name as-is */
+		/* 输出可能带限定的名称。  */
 		ListCell   *l;
 
 		foreach(l, typeName->names)
@@ -452,12 +452,12 @@ appendTypeNameToBuffer(const TypeName *typeName, StringInfo string)
 	}
 	else
 	{
-		/* Look up internally-specified type */
+		/* 查找内部指定的类型。    */
 		appendStringInfoString(string, format_type_be(typeName->typeOid));
 	}
 
 	/*
-	 * Add decoration as needed, but only for fields considered by
+	 * 按需加修饰，但仅限以下函数考虑的字段：  
 	 * LookupTypeName
 	 */
 	if (typeName->pct_type)
@@ -469,10 +469,10 @@ appendTypeNameToBuffer(const TypeName *typeName, StringInfo string)
 
 /*
  * TypeNameToString
- *		Produce a string representing the name of a TypeName.
+ *		产出一个表示 TypeName 名称的字符串。    
  *
- * NB: this must work on TypeNames that do not describe any actual type;
- * it is mostly used for reporting lookup errors.
+ * 注意：必须能处理不描述任何实际类型的 TypeName，   
+ * 其主要用于报告查找错误。          
  */
 char *
 TypeNameToString(const TypeName *typeName)
@@ -486,7 +486,7 @@ TypeNameToString(const TypeName *typeName)
 
 /*
  * TypeNameListToString
- *		Produce a string representing the name(s) of a List of TypeNames
+ *		产出一个表示 TypeName 列表各名称的字符串。      
  */
 char *
 TypeNameListToString(List *typenames)
@@ -509,7 +509,7 @@ TypeNameListToString(List *typenames)
 /*
  * LookupCollation
  *
- * Look up collation by name, return OID, with support for error location.
+ * 按名称查找排序规则并返回 OID，支持错误定位。       
  */
 Oid
 LookupCollation(ParseState *pstate, List *collnames, int location)
@@ -531,10 +531,10 @@ LookupCollation(ParseState *pstate, List *collnames, int location)
 /*
  * GetColumnDefCollation
  *
- * Get the collation to be used for a column being defined, given the
- * ColumnDef node and the previously-determined column type OID.
+ * 给定 ColumnDef 节点和先前确定的列类型 OID，取正在
+ * 定义的列要用的排序规则。                         
  *
- * pstate is only used for error location purposes, and can be NULL.
+ * pstate 仅用于错误定位目的，可为 NULL。              
  */
 Oid
 GetColumnDefCollation(ParseState *pstate, ColumnDef *coldef, Oid typeOid)
@@ -545,23 +545,23 @@ GetColumnDefCollation(ParseState *pstate, ColumnDef *coldef, Oid typeOid)
 
 	if (coldef->collClause)
 	{
-		/* We have a raw COLLATE clause, so look up the collation */
+		/* 有原始 COLLATE 子句，故查找排序规则。    */
 		location = coldef->collClause->location;
 		result = LookupCollation(pstate, coldef->collClause->collname,
 								 location);
 	}
 	else if (OidIsValid(coldef->collOid))
 	{
-		/* Precooked collation spec, use that */
+		/* 用预定的排序规则。        */
 		result = coldef->collOid;
 	}
 	else
 	{
-		/* Use the type's default collation if any */
+		/* 有则使用类型默认排序规则。 */
 		result = typcollation;
 	}
 
-	/* Complain if COLLATE is applied to an uncollatable type */
+	/* 若 COLLATE 用在不可排序类型上则报错。    */
 	if (OidIsValid(result) && !OidIsValid(typcollation))
 		ereport(ERROR,
 				(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -572,8 +572,8 @@ GetColumnDefCollation(ParseState *pstate, ColumnDef *coldef, Oid typeOid)
 	return result;
 }
 
-/* return a Type structure, given a type id */
-/* NB: caller must ReleaseSysCache the type tuple when done with it */
+/* 给定类型 OID，返回 Type 结构。 */
+/* 注意：调用者用完类型元组后必须 ReleaseSysCache。 */
 Type
 typeidType(Oid id)
 {
@@ -585,16 +585,16 @@ typeidType(Oid id)
 	return (Type) tup;
 }
 
-/* given type (as type struct), return the type OID */
+/* 给定类型（Type 结构），返回其 OID。 */
 Oid
 typeTypeId(Type tp)
 {
-	if (tp == NULL)				/* probably useless */
+	if (tp == NULL)				/* 可能无用。  */
 		elog(ERROR, "typeTypeId() called with NULL type struct");
 	return ((Form_pg_type) GETSTRUCT(tp))->oid;
 }
 
-/* given type (as type struct), return the length of type */
+/* 给定类型（Type 结构），返回类型长度。  */
 int16
 typeLen(Type t)
 {
@@ -604,7 +604,7 @@ typeLen(Type t)
 	return typ->typlen;
 }
 
-/* given type (as type struct), return its 'byval' attribute */
+/* 给定类型（Type 结构），返回其 'byval' 属性  */
 bool
 typeByVal(Type t)
 {
@@ -614,18 +614,18 @@ typeByVal(Type t)
 	return typ->typbyval;
 }
 
-/* given type (as type struct), return the type's name */
+/* 给定类型（Type 结构），返回类型名。  */
 char *
 typeTypeName(Type t)
 {
 	Form_pg_type typ;
 
 	typ = (Form_pg_type) GETSTRUCT(t);
-	/* pstrdup here because result may need to outlive the syscache entry */
+	/* 此处 pstrdup，因结果可能要比缓存条目存活更久。  */
 	return pstrdup(NameStr(typ->typname));
 }
 
-/* given type (as type struct), return its 'typrelid' attribute */
+/* 给定类型（Type 结构），返回其 'typrelid' 属性  */
 Oid
 typeTypeRelid(Type typ)
 {
@@ -635,7 +635,7 @@ typeTypeRelid(Type typ)
 	return typtup->typrelid;
 }
 
-/* given type (as type struct), return its 'typcollation' attribute */
+/* 给定类型（Type 结构），返回其 'typcollation' 属性  */
 Oid
 typeTypeCollation(Type typ)
 {
@@ -646,9 +646,9 @@ typeTypeCollation(Type typ)
 }
 
 /*
- * Given a type structure and a string, returns the internal representation
- * of that string.  The "string" can be NULL to perform conversion of a NULL
- * (which might result in failure, if the input function rejects NULLs).
+ * 给定类型结构和字符串，返回其内部表示形式。         
+ * 其中 "string" 可为 NULL，表示要转换 NULL 值                   
+ * 此时若输入函数拒绝 NULL 则会失败。                     
  */
 Datum
 stringTypeDatum(Type tp, char *string, int32 atttypmod)
@@ -661,8 +661,8 @@ stringTypeDatum(Type tp, char *string, int32 atttypmod)
 }
 
 /*
- * Given a typeid, return the type's typrelid (associated relation), if any.
- * Returns InvalidOid if type is not a composite type.
+ * 给定类型 OID，返回其 typrelid（关联关系），若有。      
+ * 若类型不是组合类型则返回 InvalidOid。 
  */
 Oid
 typeidTypeRelid(Oid type_id)
@@ -681,9 +681,9 @@ typeidTypeRelid(Oid type_id)
 }
 
 /*
- * Given a typeid, return the type's typrelid (associated relation), if any.
- * Returns InvalidOid if type is not a composite type or a domain over one.
- * This is the same as typeidTypeRelid(getBaseType(type_id)), but faster.
+ * 给定类型 OID，返回其 typrelid（关联关系），若有。      
+ * 若类型不是组合类型或其上的域则返回 InvalidOid。       
+ * 这与 typeidTypeRelid(getBaseType(type_id)) 相同，但更快。    
  */
 Oid
 typeOrDomainTypeRelid(Oid type_id)
@@ -700,10 +700,10 @@ typeOrDomainTypeRelid(Oid type_id)
 		type = (Form_pg_type) GETSTRUCT(typeTuple);
 		if (type->typtype != TYPTYPE_DOMAIN)
 		{
-			/* Not a domain, so done looking through domains */
+			/* 不是域，域的穿透查找到此为止。 */
 			break;
 		}
-		/* It is a domain, so examine the base type instead */
+		/* 是域，因此改为检查其基类型。       */
 		type_id = type->typbasetype;
 		ReleaseSysCache(typeTuple);
 	}
@@ -713,7 +713,7 @@ typeOrDomainTypeRelid(Oid type_id)
 }
 
 /*
- * error context callback for parse failure during parseTypeString()
+ * parseTypeString() 解析失败时的错误上下文回调        
  */
 static void
 pts_error_callback(void *arg)
@@ -724,15 +724,15 @@ pts_error_callback(void *arg)
 }
 
 /*
- * Given a string that is supposed to be a SQL-compatible type declaration,
- * such as "int4" or "integer" or "character varying(32)", parse
- * the string and return the result as a TypeName.
+ * 给定一个应为 SQL 兼容类型声明的字符串，                
+ * 例如 "int4"、"integer" 或 "character varying(32)"，     
+ * 解析字符串并返回 TypeName 结果。    
  *
- * If the string cannot be parsed as a type, an error is raised,
- * unless escontext is an ErrorSaveContext node, in which case we may
- * fill that and return NULL.  But note that the ErrorSaveContext option
- * is mostly aspirational at present: errors detected by the main
- * grammar, rather than here, will still be thrown.
+ * 若字符串无法解析为类型，则抛出错误；       
+ * 除非 escontext 是 ErrorSaveContext 节点，此时我们可    
+ * 填充它并返回 NULL。但注意 ErrorSaveContext 选项          
+ * 目前多半只是愿景：由主文法而非此处           
+ * 检测到的错误仍会被抛出。            
  */
 TypeName *
 typeStringToTypeName(const char *str, Node *escontext)
@@ -741,12 +741,12 @@ typeStringToTypeName(const char *str, Node *escontext)
 	TypeName   *typeName;
 	ErrorContextCallback ptserrcontext;
 
-	/* make sure we give useful error for empty input */
+	/* 确保对空输入给出有用的错误。     */
 	if (strspn(str, " \t\n\r\f") == strlen(str))
 		goto fail;
 
 	/*
-	 * Setup error traceback support in case of ereport() during parse
+	 * 为解析期间的 ereport() 设置错误回溯支持。       
 	 */
 	ptserrcontext.callback = pts_error_callback;
 	ptserrcontext.arg = unconstify(char *, str);
@@ -757,11 +757,11 @@ typeStringToTypeName(const char *str, Node *escontext)
 
 	error_context_stack = ptserrcontext.previous;
 
-	/* We should get back exactly one TypeName node. */
+	/* 我们应正好取回一个 TypeName 节点。*/
 	Assert(list_length(raw_parsetree_list) == 1);
 	typeName = linitial_node(TypeName, raw_parsetree_list);
 
-	/* The grammar allows SETOF in TypeName, but we don't want that here. */
+	/* 文法允许 TypeName 中有 SETOF，但此处不接受。         */
 	if (typeName->setof)
 		goto fail;
 
@@ -774,12 +774,12 @@ fail:
 }
 
 /*
- * Given a string that is supposed to be a SQL-compatible type declaration,
- * such as "int4" or "integer" or "character varying(32)", parse
- * the string and convert it to a type OID and type modifier.
+ * 给定一个应为 SQL 兼容类型声明的字符串，                
+ * 例如 "int4"、"integer" 或 "character varying(32)"，     
+ * 把字符串转换为类型 OID 和类型修饰符。     
  *
- * If escontext is an ErrorSaveContext node, then errors are reported by
- * filling escontext and returning false, instead of throwing them.
+ * 若 escontext 是 ErrorSaveContext 节点，则错误通过          
+ * 填充 escontext 并返回 false 来报告，而非抛出。    
  */
 bool
 parseTypeString(const char *str, Oid *typeid_p, int32 *typmod_p,

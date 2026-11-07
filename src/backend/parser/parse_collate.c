@@ -1,33 +1,33 @@
 /*-------------------------------------------------------------------------
  *
  * parse_collate.c
- *		Routines for assigning collation information.
+ *		用于分配排序规则信息的例程。   
  *
- * We choose to handle collation analysis in a post-pass over the output
- * of expression parse analysis.  This is because we need more state to
- * perform this processing than is needed in the finished tree.  If we
- * did it on-the-fly while building the tree, all that state would have
- * to be kept in expression node trees permanently.  This way, the extra
- * storage is just local variables in this recursive routine.
+ * 我们选择把排序规则分析作为表达式解析分析之后的
+ * 一个后处理阶段来进行。这是因为这一处理所需的  
+ * 状态多于最终树中所需。如果在                         
+ * 构建树时即时完成，所有这些状态都将不得           
+ * 不永久保存在表达式节点树中。这样一来，            
+ * 额外存储只是这个递归例程中的局部变量。 
  *
- * The info that is actually saved in the finished tree is:
- * 1. The output collation of each expression node, or InvalidOid if it
- * returns a noncollatable data type.  This can also be InvalidOid if the
- * result type is collatable but the collation is indeterminate.
- * 2. The collation to be used in executing each function.  InvalidOid means
- * that there are no collatable inputs or their collation is indeterminate.
- * This value is only stored in node types that might call collation-using
- * functions.
+ * 实际保存在最终树中的信息是：              
+ * 1. 每个表达式节点的输出排序规则；若节点返回的  
+ * 是非可排序数据类型，则其为 InvalidOid。若结果        
+ * 类型可排序但排序规则不确定，为 InvalidOid。  
+ * 2. 执行每个函数时所用的排序规则。InvalidOid 表示        
+ * 不存在可排序输入，或其排序规则不确定。该值仅      
+ * 保存在可能调用使用排序规则函数的节点类型中。     
+ *           
  *
- * You might think we could get away with storing only one collation per
- * node, but the two concepts really need to be kept distinct.  Otherwise
- * it's too confusing when a function produces a collatable output type but
- * has no collatable inputs or produces noncollatable output from collatable
- * inputs.
+ * 你也许认为每个节点只存一个排序规则即可，但这两
+ * 个概念确实必须区分开。否则，当一个函数产出的    
+ * 是可排序的输出类型却没有可排序输入，或者从可排   
+ * 序输入得到不可排序输出时，情况就太令人困惑了。    
+ *        
  *
- * Cases with indeterminate collation might result in an error being thrown
- * at runtime.  If we knew exactly which functions require collation
- * information, we could throw those errors at parse time instead.
+ * 排序规则不确定的情形可能会导致在运行时抛出错误。
+ * 若确切知道哪些函数需要排序规则信息，就可以  
+ * 改为在解析阶段抛出这些错误。                     
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -49,27 +49,27 @@
 
 
 /*
- * Collation strength (the SQL standard calls this "derivation").  Order is
- * chosen to allow comparisons to work usefully.  Note: the standard doesn't
- * seem to distinguish between NONE and CONFLICT.
+ * 排序规则强度（SQL 标准称之为"派生性"）。该顺序      
+ * 的选取是为了让比较能有效地工作。注意：标准          
+ * 似乎并未区分 NONE 与 CONFLICT。       
  */
 typedef enum
 {
-	COLLATE_NONE,				/* expression is of a noncollatable datatype */
-	COLLATE_IMPLICIT,			/* collation was derived implicitly */
-	COLLATE_CONFLICT,			/* we had a conflict of implicit collations */
-	COLLATE_EXPLICIT			/* collation was derived explicitly */
+	COLLATE_NONE,				/* 表达式属于不可排序数据类型   */
+	COLLATE_IMPLICIT,			/* 排序规则为隐式派生      */
+	COLLATE_CONFLICT,			/* 隐式排序规则之间发生了冲突  */
+	COLLATE_EXPLICIT			/* 排序规则为显式派生      */
 } CollateStrength;
 
 typedef struct
 {
-	ParseState *pstate;			/* parse state (for error reporting) */
-	Oid			collation;		/* OID of current collation, if any */
-	CollateStrength strength;	/* strength of current collation choice */
-	int			location;		/* location of expr that set collation */
-	/* Remaining fields are only valid when strength == COLLATE_CONFLICT */
-	Oid			collation2;		/* OID of conflicting collation */
-	int			location2;		/* location of expr that set collation2 */
+	ParseState *pstate;			/* 解析状态（用于报错）    */
+	Oid			collation;		/* 当前排序规则的 OID        */
+	CollateStrength strength;	/* 当前排序规则选择的强度    */
+	int			location;		/* 设置排序规则的表达式位置*/
+	/* 以下字段仅在 strength == COLLATE_CONFLICT 时有效         */
+	Oid			collation2;		/* 冲突排序规则的 OID    */
+	int			location2;		/* 设置 collation2 的表达式位置 */
 } assign_collations_context;
 
 static bool assign_query_collations_walker(Node *node, ParseState *pstate);
@@ -91,20 +91,20 @@ static void assign_hypothetical_collations(Aggref *aggref,
 
 /*
  * assign_query_collations()
- *		Mark all expressions in the given Query with collation information.
+ *		为给定 Query 中的所有表达式标记排序规则信息。   
  *
- * This should be applied to each Query after completion of parse analysis
- * for expressions.  Note that we do not recurse into sub-Queries, since
- * those should have been processed when built.
+ * 应在表达式解析分析完成后对每个 Query 应用本函数。 
+ * 注意我们不会递归进入子 Query，因为它们               
+ * 在构建时就应已处理完毕。        
  */
 void
 assign_query_collations(ParseState *pstate, Query *query)
 {
 	/*
-	 * We just use query_tree_walker() to visit all the contained expressions.
-	 * We can skip the rangetable and CTE subqueries, though, since RTEs and
-	 * subqueries had better have been processed already (else Vars referring
-	 * to them would not get created with the right collation).
+	 * 我们只用 query_tree_walker() 来访问所有内含的表达式。  
+	 * 不过我们可以跳过范围表和 CTE 子查询，因为 RTE 和  
+	 * 子查询最好都已经处理完毕（否则引用它们的 Var      
+	 * 将无法以正确的排序规则创建）。           
 	 */
 	(void) query_tree_walker(query,
 							 assign_query_collations_walker,
@@ -114,24 +114,24 @@ assign_query_collations(ParseState *pstate, Query *query)
 }
 
 /*
- * Walker for assign_query_collations
+ * assign_query_collations 遍历器 
  *
- * Each expression found by query_tree_walker is processed independently.
- * Note that query_tree_walker may pass us a whole List, such as the
- * targetlist, in which case each subexpression must be processed
- * independently --- we don't want to bleat if two different targetentries
- * have different collations.
+ * query_tree_walker 找到的每个表达式都被独立处理。       
+ * 注意 query_tree_walker 可能传给我们整个 List，比如  
+ * 目标列表，此时每个子表达式都必须被           
+ * 独立处理 --- 我们不希望因两个不同目标项的排序规   
+ * 则不同而抱怨。     
  */
 static bool
 assign_query_collations_walker(Node *node, ParseState *pstate)
 {
-	/* Need do nothing for empty subexpressions */
+	/* 对空子表达式无需做任何处理  */
 	if (node == NULL)
 		return false;
 
 	/*
-	 * We don't want to recurse into a set-operations tree; it's already been
-	 * fully processed in transformSetOperationStmt.
+	 * 我们不想递归进入集合操作树；它已经在                
+	 * transformSetOperationStmt 中处理完毕。 
 	 */
 	if (IsA(node, SetOperationStmt))
 		return false;
@@ -146,10 +146,10 @@ assign_query_collations_walker(Node *node, ParseState *pstate)
 
 /*
  * assign_list_collations()
- *		Mark all nodes in the list of expressions with collation information.
+ *		为表达式列表中的所有节点标记排序规则信息。      
  *
- * The list member expressions are processed independently; they do not have
- * to share a common collation.
+ * 列表成员表达式被独立处理；它们不必                      
+ * 共享同一排序规则。 
  */
 void
 assign_list_collations(ParseState *pstate, List *exprs)
@@ -166,11 +166,11 @@ assign_list_collations(ParseState *pstate, List *exprs)
 
 /*
  * assign_expr_collations()
- *		Mark all nodes in the given expression tree with collation information.
+ *		为给定表达式树中的所有节点标记排序规则信息。     
  *
- * This is exported for the benefit of various utility commands that process
- * expressions without building a complete Query.  It should be applied after
- * calling transformExpr() plus any expression-modifying operations such as
+ * 导出本函数是为了帮助那些处理表达式但不构建          
+ * 完整 Query 的实用命令。应当在调用 transformExpr()            
+ * 之后进行，外加任何修改表达式的操作，例如            
  * coerce_to_boolean().
  */
 void
@@ -178,47 +178,47 @@ assign_expr_collations(ParseState *pstate, Node *expr)
 {
 	assign_collations_context context;
 
-	/* initialize context for tree walk */
+	/* 为树遍历初始化上下文   */
 	context.pstate = pstate;
 	context.collation = InvalidOid;
 	context.strength = COLLATE_NONE;
 	context.location = -1;
 
-	/* and away we go */
+	/* 开始遍历   */
 	(void) assign_collations_walker(expr, &context);
 }
 
 /*
  * select_common_collation()
- *		Identify a common collation for a list of expressions.
+ *		为一个表达式列表确定共同排序规则。   
  *
- * The expressions should all return the same datatype, else this is not
- * terribly meaningful.
+ * 这些表达式应当都返回相同数据类型，否则这一操作
+ * 意义不大。     
  *
- * none_ok means that it is permitted to return InvalidOid, indicating that
- * no common collation could be identified, even for collatable datatypes.
- * Otherwise, an error is thrown for conflict of implicit collations.
+ * none_ok 表示允许返回 InvalidOid，即表示无法                 
+ * 确定出共同排序规则，即使对可排序类型亦然。        
+ * 否则，遇到隐式排序规则冲突时将抛出错误。      
  *
- * In theory, none_ok = true reflects the rules of SQL standard clause "Result
- * of data type combinations", none_ok = false reflects the rules of clause
- * "Collation determination" (in some cases invoked via "Grouping
- * operations").
+ * 理论上，none_ok = true 反映 SQL 标准中"数据类型组合         
+ * 的结果"条款，none_ok = false 反映"排序规则确定"条款     
+ * （某些情况下经由"分组操作"条款调用）。      
+ *              
  */
 Oid
 select_common_collation(ParseState *pstate, List *exprs, bool none_ok)
 {
 	assign_collations_context context;
 
-	/* initialize context for tree walk */
+	/* 为树遍历初始化上下文   */
 	context.pstate = pstate;
 	context.collation = InvalidOid;
 	context.strength = COLLATE_NONE;
 	context.location = -1;
 
-	/* and away we go */
+	/* 开始遍历   */
 	(void) assign_collations_walker((Node *) exprs, &context);
 
-	/* deal with collation conflict */
+	/* 处理排序规则冲突     */
 	if (context.strength == COLLATE_CONFLICT)
 	{
 		if (none_ok)
@@ -233,23 +233,23 @@ select_common_collation(ParseState *pstate, List *exprs, bool none_ok)
 	}
 
 	/*
-	 * Note: if strength is still COLLATE_NONE, we'll return InvalidOid, but
-	 * that's okay because it must mean none of the expressions returned
-	 * collatable datatypes.
+	 * 注意：若 strength 仍为 COLLATE_NONE，我们将返回          
+	 * InvalidOid，但这无妨：这必然意味着所有表达式都 
+	 * 非可排序类型。
 	 */
 	return context.collation;
 }
 
 /*
  * assign_collations_walker()
- *		Recursive guts of collation processing.
+ *		排序规则处理的递归内核。   
  *
- * Nodes with no children (eg, Vars, Consts, Params) must have been marked
- * when built.  All upper-level nodes are marked here.
+ * 无子节点的节点（如 Vars、Consts、Params）在构建时      
+ * 就必须已被标记；上层节点在此标记。
  *
- * Note: if this is invoked directly on a List, it will attempt to infer a
- * common collation for all the list members.  In particular, it will throw
- * error if there are conflicting explicit collations for different members.
+ * 注意：若直接以一个 List 调用本函数，它将尝试推断  
+ * 所有列表成员的共同排序规则。特别是，若不同成员   
+ * 的显式排序规则相互冲突，将抛出错误。                   
  */
 static bool
 assign_collations_walker(Node *node, assign_collations_context *context)
@@ -259,37 +259,37 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 	CollateStrength strength;
 	int			location;
 
-	/* Need do nothing for empty subexpressions */
+	/* 对空子表达式无需做任何处理  */
 	if (node == NULL)
 		return false;
 
 	/*
-	 * Prepare for recursion.  For most node types, though not all, the first
-	 * thing we do is recurse to process all nodes below this one. Each level
-	 * of the tree has its own local context.
+	 * 准备递归。对多数（虽非全部）节点类型而言，第一 
+	 * 件事就是递归处理本节点之下的所有节点。树的每    
+	 * 层都各有局部上下文。        
 	 */
 	loccontext.pstate = context->pstate;
 	loccontext.collation = InvalidOid;
 	loccontext.strength = COLLATE_NONE;
 	loccontext.location = -1;
-	/* Set these fields just to suppress uninitialized-value warnings: */
+	/* 设置这些字段只是为了消除未初始化值警告：    */
 	loccontext.collation2 = InvalidOid;
 	loccontext.location2 = -1;
 
 	/*
-	 * Recurse if appropriate, then determine the collation for this node.
+	 * 视情况递归，然后确定本节点的排序规则。          
 	 *
-	 * Note: the general cases are at the bottom of the switch, after various
-	 * special cases.
+	 * 注意：一般情形位于 switch 的底部，在若干特例        
+	 * 之后。     
 	 */
 	switch (nodeTag(node))
 	{
 		case T_CollateExpr:
 			{
 				/*
-				 * COLLATE sets an explicitly derived collation, regardless of
-				 * what the child state is.  But we must recurse to set up
-				 * collation info below here.
+				 * COLLATE 会设置一个显式派生的排序规则，无论
+				 * 子节点状态如何。但必须递归，以设置    
+				 * 此处的排序规则。  
 				 */
 				CollateExpr *expr = (CollateExpr *) node;
 
@@ -306,61 +306,61 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 		case T_FieldSelect:
 			{
 				/*
-				 * For FieldSelect, the result has the field's declared
-				 * collation, independently of what happened in the arguments.
-				 * (The immediate argument must be composite and thus not
-				 * collatable, anyhow.)  The field's collation was already
-				 * looked up and saved in the node.
+				 * 对 FieldSelect 而言，结果的排序规则就是
+				 * 该字段声明的排序规则，与参数中发生的     
+				 * 情况无关。（直接参数必为复合类型，故
+				 * 必然不可排序。）字段的排序规则早已    
+				 * 查询并保存在节点中。  
 				 */
 				FieldSelect *expr = (FieldSelect *) node;
 
-				/* ... but first, recurse */
+				/* ... 但先递归       */
 				(void) expression_tree_walker(node,
 											  assign_collations_walker,
 											  (void *) &loccontext);
 
 				if (OidIsValid(expr->resultcollid))
 				{
-					/* Node's result type is collatable. */
-					/* Pass up field's collation as an implicit choice. */
+					/* 节点的结果类型可排序。 */
+					/* 向上传递字段排序规则作隐式选择。 */
 					collation = expr->resultcollid;
 					strength = COLLATE_IMPLICIT;
 					location = exprLocation(node);
 				}
 				else
 				{
-					/* Node's result type isn't collatable. */
+					/* 节点的结果类型不可排序。 */
 					collation = InvalidOid;
 					strength = COLLATE_NONE;
-					location = -1;	/* won't be used */
+					location = -1;	/* 不会用到  */
 				}
 			}
 			break;
 		case T_RowExpr:
 			{
 				/*
-				 * RowExpr is a special case because the subexpressions are
-				 * independent: we don't want to complain if some of them have
-				 * incompatible explicit collations.
+				 * RowExpr 是一种特例，因为其子表达式         
+				 * 相互独立：即便其中一些具有互不兼容的     
+				 * 显式排序规则也不报错。
 				 */
 				RowExpr    *expr = (RowExpr *) node;
 
 				assign_list_collations(context->pstate, expr->args);
 
 				/*
-				 * Since the result is always composite and therefore never
-				 * has a collation, we can just stop here: this node has no
-				 * impact on the collation of its parent.
+				 * 由于结果总是复合类型，因而永远没有     
+				 * 排序规则，我们可以就此停止：本节点对  
+				 * 父节点的排序规则无影响。  
 				 */
-				return false;	/* done */
+				return false;	/* 毕  */
 			}
 		case T_RowCompareExpr:
 			{
 				/*
-				 * For RowCompare, we have to find the common collation of
-				 * each pair of input columns and build a list.  If we can't
-				 * find a common collation, we just put InvalidOid into the
-				 * list, which may or may not cause an error at runtime.
+				 * 对 RowCompare，必须求出每一对输入列        
+				 * 的共同排序规则并构建一个列表。若找      
+				 * 不到共同排序规则，就把 InvalidOid 放入     
+				 * 列表，运行时可能报错，也可能不报。  
 				 */
 				RowCompareExpr *expr = (RowCompareExpr *) node;
 				List	   *colls = NIL;
@@ -381,43 +381,43 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 				expr->inputcollids = colls;
 
 				/*
-				 * Since the result is always boolean and therefore never has
-				 * a collation, we can just stop here: this node has no impact
-				 * on the collation of its parent.
+				 * 由于结果总是布尔类型，因而永远没有       
+				 * 排序规则，我们可以就此停止：本节点对其  
+				 * 父节点排序规则无碍。 
 				 */
-				return false;	/* done */
+				return false;	/* 毕  */
 			}
 		case T_CoerceToDomain:
 			{
 				/*
-				 * If the domain declaration included a non-default COLLATE
-				 * spec, then use that collation as the output collation of
-				 * the coercion.  Otherwise allow the input collation to
-				 * bubble up.  (The input should be of the domain's base type,
-				 * therefore we don't need to worry about it not being
-				 * collatable when the domain is.)
+				 * 若域声明里含非默认 COLLATE 指定，就用该  
+				 * 排序规则作为强制转换的输出排序规则。  
+				 * 否则就让输入排序规则继续                 
+				 * 向上冒泡。（输入应当属于域的基础类型，  
+				 * 因此不必担心输入在域可排序时         
+				 * 自身不可排序。）       
 				 */
 				CoerceToDomain *expr = (CoerceToDomain *) node;
 				Oid			typcollation = get_typcollation(expr->resulttype);
 
-				/* ... but first, recurse */
+				/* ... 但先递归       */
 				(void) expression_tree_walker(node,
 											  assign_collations_walker,
 											  (void *) &loccontext);
 
 				if (OidIsValid(typcollation))
 				{
-					/* Node's result type is collatable. */
+					/* 节点的结果类型可排序。 */
 					if (typcollation == DEFAULT_COLLATION_OID)
 					{
-						/* Collation state bubbles up from child. */
+						/* 排序规则状态由子节点冒泡。*/
 						collation = loccontext.collation;
 						strength = loccontext.strength;
 						location = loccontext.location;
 					}
 					else
 					{
-						/* Use domain's collation as an implicit choice. */
+						/* 将域的排序规则作为隐式选择。    */
 						collation = typcollation;
 						strength = COLLATE_IMPLICIT;
 						location = exprLocation(node);
@@ -425,15 +425,15 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 				}
 				else
 				{
-					/* Node's result type isn't collatable. */
+					/* 节点的结果类型不可排序。 */
 					collation = InvalidOid;
 					strength = COLLATE_NONE;
-					location = -1;	/* won't be used */
+					location = -1;	/* 不会用到  */
 				}
 
 				/*
-				 * Save the state into the expression node.  We know it
-				 * doesn't care about input collation.
+				 * 将状态保存进表达式节点。我们知道它 
+				 * 不关心输入排序规则。     
 				 */
 				if (strength == COLLATE_CONFLICT)
 					exprSetCollation(node, InvalidOid);
@@ -447,26 +447,26 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 										  (void *) &loccontext);
 
 			/*
-			 * TargetEntry can have only one child, and should bubble that
-			 * state up to its parent.  We can't use the general-case code
-			 * below because exprType and friends don't work on TargetEntry.
+			 * TargetEntry 只能有一个子节点，并且应将该     
+			 * 状态向上冒泡给父节点。下方通用情形代码  
+			 * 因 exprType 等对 TargetEntry 不适用而无法使用。  
 			 */
 			collation = loccontext.collation;
 			strength = loccontext.strength;
 			location = loccontext.location;
 
 			/*
-			 * Throw error if the collation is indeterminate for a TargetEntry
-			 * that is a sort/group target.  We prefer to do this now, instead
-			 * of leaving the comparison functions to fail at runtime, because
-			 * we can give a syntax error pointer to help locate the problem.
-			 * There are some cases where there might not be a failure, for
-			 * example if the planner chooses to use hash aggregation instead
-			 * of sorting for grouping; but it seems better to predictably
-			 * throw an error.  (Compare transformSetOperationTree, which will
-			 * throw error for indeterminate collation of set-op columns, even
-			 * though the planner might be able to implement the set-op
-			 * without sorting.)
+			 * 若作为排序/分组目标的 TargetEntry 排序规则不    
+			 * 确定就抛出错误。我们更愿意现在就做这一      
+			 * 检查，而不是让比较函数在运行时失败，因为   
+			 * 我们可以给出语法错误指针以帮助定位问题。  
+			 * 有些情形下可能不会失败，例如规划器         
+			 * 选择使用哈希聚合而非排序来完成分组；        
+			 * 但似乎最好还是可预期地抛出错误。           
+			 * （对比 transformSetOperationTree，它会对集合操作    
+			 * 列的排序规则不确定的情况抛出错误，即使      
+			 * 规划器也许能够不用排序就实现该集合     
+			 * 操作。）     
 			 */
 			if (strength == COLLATE_CONFLICT &&
 				((TargetEntry *) node)->ressortgroupref != 0)
@@ -491,24 +491,24 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 										  (void *) &loccontext);
 
 			/*
-			 * When we're invoked on a query's jointree, we don't need to do
-			 * anything with join nodes except recurse through them to process
-			 * WHERE/ON expressions.  So just stop here.  Likewise, we don't
-			 * need to do anything when invoked on sort/group lists.
+			 * 当我们在查询的连接树上被调用时，除了       
+			 * 递归穿过连接节点以处理 WHERE/ON 表达式           
+			 * 之外，无需对连接节点做任何事，就此停止。 
+			 * 排序/分组列表被调用时也无需做事。    
 			 */
 			return false;
 		case T_Query:
 			{
 				/*
-				 * We get here when we're invoked on the Query belonging to a
-				 * SubLink.  Act as though the Query returns its first output
-				 * column, which indeed is what it does for EXPR_SUBLINK and
-				 * ARRAY_SUBLINK cases.  In the cases where the SubLink
-				 * returns boolean, this info will be ignored.  Special case:
-				 * in EXISTS, the Query might return no columns, in which case
-				 * we need do nothing.
+				 * 当我们被调用于一个 SubLink 所属的 Query 时，
+				 * 我们假装该 Query 返回其第一个输出列，对   
+				 * EXPR_SUBLINK 和 ARRAY_SUBLINK 情形确实如此。     
+				 * SubLink 返回布尔时，这条信息将被        
+				 * 忽略。特例：在 EXISTS 中，Query 可能不        
+				 * 返回任何列，这种情况下我们无需              
+				 * 做任何事情。 
 				 *
-				 * We needn't recurse, since the Query is already processed.
+				 * 无需递归，因为该 Query 已被处理过。        
 				 */
 				Query	   *qtree = (Query *) node;
 				TargetEntry *tent;
@@ -520,7 +520,7 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 					return false;
 
 				collation = exprCollation((Node *) tent->expr);
-				/* collation doesn't change if it's converted to array */
+				/* 转换为数组后排序规则不变                */
 				strength = COLLATE_IMPLICIT;
 				location = exprLocation((Node *) tent->expr);
 			}
@@ -531,8 +531,8 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 										  (void *) &loccontext);
 
 			/*
-			 * When processing a list, collation state just bubbles up from
-			 * the list elements.
+			 * 处理列表时，排序规则状态直接从列表         
+			 * 元素冒泡。   
 			 */
 			collation = loccontext.collation;
 			strength = loccontext.strength;
@@ -548,20 +548,20 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 		case T_CurrentOfExpr:
 
 			/*
-			 * General case for childless expression nodes.  These should
-			 * already have a collation assigned; it is not this function's
-			 * responsibility to look into the catalogs for base-case
-			 * information.
+			 * 无子节点表达式节点的一般情形。这些       
+			 * 节点应当已被赋予排序规则；到系统表         
+			 * 中查找基础情形信息并非本函数的职责。
+			 *             
 			 */
 			collation = exprCollation(node);
 
 			/*
-			 * Note: in most cases, there will be an assigned collation
-			 * whenever type_is_collatable(exprType(node)); but an exception
-			 * occurs for a Var referencing a subquery output column for which
-			 * a unique collation was not determinable.  That may lead to a
-			 * runtime failure if a collation-sensitive function is applied to
-			 * the Var.
+			 * 注意：多数情况下，只要                       
+			 * type_is_collatable(exprType(node)) 为真就会有           
+			 * 已赋的排序规则；但有一种例外，即 Var 引用    
+			 * 某个无法确定唯一排序规则的子查询输出列。
+			 * 若对该 Var 应用排序规则敏感函数，就会失败。 
+			 *         
 			 */
 
 			if (OidIsValid(collation))
@@ -574,26 +574,26 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 		default:
 			{
 				/*
-				 * General case for most expression nodes with children. First
-				 * recurse, then figure out what to assign to this node.
+				 * 多数带子节点的表达式节点的一般情形。先  
+				 * 递归，然后再确定给本节点赋予什么。  
 				 */
 				Oid			typcollation;
 
 				/*
-				 * For most node types, we want to treat all the child
-				 * expressions alike; but there are a few exceptions, hence
-				 * this inner switch.
+				 * 对多数节点类型，我们想一视同仁地   
+				 * 对待所有子表达式；但有少数例外，因此  
+				 * 设内层分支。
 				 */
 				switch (nodeTag(node))
 				{
 					case T_Aggref:
 						{
 							/*
-							 * Aggref is messy enough that we give it its own
-							 * function, in fact three of them.  The FILTER
-							 * clause is independent of the rest of the
-							 * aggregate, however, so it can be processed
-							 * separately.
+							 * Aggref 太过繁杂，以至于我们为它   
+							 * 单独提供了函数，实际有三个。  
+							 * FILTER 子句独立于聚合其余      
+							 * 部分，因此可以单独处理。      
+							 *            
 							 */
 							Aggref	   *aggref = (Aggref *) node;
 
@@ -623,8 +623,8 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 					case T_WindowFunc:
 						{
 							/*
-							 * WindowFunc requires special processing only for
-							 * its aggfilter clause, as for aggregates.
+							 * WindowFunc 只需对它的 aggfilter 子句    
+							 * 做特殊处理，与聚合时相同。 
 							 */
 							WindowFunc *wfunc = (WindowFunc *) node;
 
@@ -638,12 +638,12 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 					case T_CaseExpr:
 						{
 							/*
-							 * CaseExpr is a special case because we do not
-							 * want to recurse into the test expression (if
-							 * any).  It was already marked with collations
-							 * during transformCaseExpr, and furthermore its
-							 * collation is not relevant to the result of the
-							 * CASE --- only the output expressions are.
+							 * CaseExpr 是特例，因为我们不想     
+							 * 递归进入测试表达式（若有），  
+							 * 它已由 transformCaseExpr 标记过       
+							 * 排序规则；而且其排序规则与 CASE 
+							 * 的结果无关 --- 只有输出表达式     
+							 * 才与结果相关。                    
 							 */
 							CaseExpr   *expr = (CaseExpr *) node;
 							ListCell   *lc;
@@ -653,11 +653,11 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 								CaseWhen   *when = lfirst_node(CaseWhen, lc);
 
 								/*
-								 * The condition expressions mustn't affect
-								 * the CASE's result collation either; but
-								 * since they are known to yield boolean, it's
-								 * safe to recurse directly on them --- they
-								 * won't change loccontext.
+								 * 条件表达式也不得影响 CASE 的 
+								 * 结果排序规则；但已知它们   
+								 * 产生布尔值，因此直接对它们    
+								 * 递归是安全的 --- 它们不会改变
+								 * loccontext。           
 								 */
 								(void) assign_collations_walker((Node *) when->expr,
 																&loccontext);
@@ -671,13 +671,13 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 					case T_SubscriptingRef:
 						{
 							/*
-							 * The subscripts are treated as independent
-							 * expressions not contributing to the node's
-							 * collation.  Only the container, and the source
-							 * expression if any, contribute.  (This models
-							 * the old behavior, in which the subscripts could
-							 * be counted on to be integers and thus not
-							 * contribute anything.)
+							 * 下标被视为独立的表达式，不  
+							 * 会影响节点的排序规则。只有   
+							 * 容器本身，以及源表达式（如有） 
+							 * 参与其中。（这模拟了旧行为：  
+							 * 那时下标必定为整数，因此           
+							 * 不会贡献任何东西。）           
+							 *                      
 							 */
 							SubscriptingRef *sbsref = (SubscriptingRef *) node;
 
@@ -694,8 +694,8 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 					default:
 
 						/*
-						 * Normal case: all child expressions contribute
-						 * equally to loccontext.
+						 * 一般情形：所有子表达式同等      
+						 * 影响 loccontext。  
 						 */
 						(void) expression_tree_walker(node,
 													  assign_collations_walker,
@@ -704,15 +704,15 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 				}
 
 				/*
-				 * Now figure out what collation to assign to this node.
+				 * 现在确定要赋予本节点什么排序规则。  
 				 */
 				typcollation = get_typcollation(exprType(node));
 				if (OidIsValid(typcollation))
 				{
-					/* Node's result is collatable; what about its input? */
+					/* 节点结果可排序；其输入呢？            */
 					if (loccontext.strength > COLLATE_NONE)
 					{
-						/* Collation state bubbles up from children. */
+						/* 排序规则状态从子节点冒泡。   */
 						collation = loccontext.collation;
 						strength = loccontext.strength;
 						location = loccontext.location;
@@ -720,10 +720,10 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 					else
 					{
 						/*
-						 * Collatable output produced without any collatable
-						 * input.  Use the type's collation (which is usually
-						 * DEFAULT_COLLATION_OID, but might be different for a
-						 * domain).
+						 * 没有可排序输入却产出可排序输出。 
+						 * 采用类型的排序规则（通常              
+						 * 为 DEFAULT_COLLATION_OID，域可能不同）。  
+						 *         
 						 */
 						collation = typcollation;
 						strength = COLLATE_IMPLICIT;
@@ -732,16 +732,16 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 				}
 				else
 				{
-					/* Node's result type isn't collatable. */
+					/* 节点的结果类型不可排序。 */
 					collation = InvalidOid;
 					strength = COLLATE_NONE;
-					location = -1;	/* won't be used */
+					location = -1;	/* 不会用到  */
 				}
 
 				/*
-				 * Save the result collation into the expression node. If the
-				 * state is COLLATE_CONFLICT, we'll set the collation to
-				 * InvalidOid, which might result in an error at runtime.
+				 * 把结果排序规则保存进表达式节点。若       
+				 * 状态为 COLLATE_CONFLICT，我们会把排序      
+				 * 规则设为 InvalidOid，运行时可能报错。    
 				 */
 				if (strength == COLLATE_CONFLICT)
 					exprSetCollation(node, InvalidOid);
@@ -749,8 +749,8 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 					exprSetCollation(node, collation);
 
 				/*
-				 * Likewise save the input collation, which is the one that
-				 * any function called by this node should use.
+				 * 同样保存输入排序规则，即本节点所        
+				 * 调用函数应使用的那一个。        
 				 */
 				if (loccontext.strength == COLLATE_CONFLICT)
 					exprSetInputCollation(node, InvalidOid);
@@ -761,7 +761,7 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 	}
 
 	/*
-	 * Now, merge my information into my parent's state.
+	 * 现在把自身信息并入父节点状态。    
 	 */
 	merge_collation_state(collation,
 						  strength,
@@ -774,7 +774,7 @@ assign_collations_walker(Node *node, assign_collations_context *context)
 }
 
 /*
- * Merge collation state of a subexpression into the context for its parent.
+ * 把子表达式的排序规则状态合并进其父节点的上下文。 
  */
 static void
 merge_collation_state(Oid collation,
@@ -785,17 +785,17 @@ merge_collation_state(Oid collation,
 					  assign_collations_context *context)
 {
 	/*
-	 * If the collation strength for this node is different from what's
-	 * already in *context, then this node either dominates or is dominated by
-	 * earlier siblings.
+	 * 若本节点的排序规则强度不同于                      
+	 * *context 中已有者，则本节点与早先兄弟必分高下。     
+	 *                  
 	 */
 	if (strength > context->strength)
 	{
-		/* Override previous parent state */
+		/* 覆盖先前的父状态       */
 		context->collation = collation;
 		context->strength = strength;
 		context->location = location;
-		/* Bubble up error info if applicable */
+		/* 适用时向上冒泡错误信息  */
 		if (strength == COLLATE_CONFLICT)
 		{
 			context->collation2 = collation2;
@@ -804,21 +804,21 @@ merge_collation_state(Oid collation,
 	}
 	else if (strength == context->strength)
 	{
-		/* Merge, or detect error if there's a collation conflict */
+		/* 合并，或在排序规则冲突时检测错误       */
 		switch (strength)
 		{
 			case COLLATE_NONE:
-				/* Nothing + nothing is still nothing */
+				/* 无 + 无仍是无                 */
 				break;
 			case COLLATE_IMPLICIT:
 				if (collation != context->collation)
 				{
 					/*
-					 * Non-default implicit collation always beats default.
+					 * 非默认的隐式排序规则总是胜过默认。 
 					 */
 					if (context->collation == DEFAULT_COLLATION_OID)
 					{
-						/* Override previous parent state */
+						/* 覆盖先前的父状态       */
 						context->collation = collation;
 						context->strength = strength;
 						context->location = location;
@@ -826,11 +826,11 @@ merge_collation_state(Oid collation,
 					else if (collation != DEFAULT_COLLATION_OID)
 					{
 						/*
-						 * Oops, we have a conflict.  We cannot throw error
-						 * here, since the conflict could be resolved by a
-						 * later sibling CollateExpr, or the parent might not
-						 * care about collation anyway.  Return enough info to
-						 * throw the error later, if needed.
+						 * 糟糕，出现了冲突。这里无法抛出   
+						 * 错误，因为冲突可能被后面的兄弟  
+						 * CollateExpr 化解，或者父节点反正        
+						 * 不在乎排序规则。返回足够的信息，   
+						 * 以便日后需要时抛错。   
 						 */
 						context->strength = COLLATE_CONFLICT;
 						context->collation2 = collation;
@@ -839,16 +839,16 @@ merge_collation_state(Oid collation,
 				}
 				break;
 			case COLLATE_CONFLICT:
-				/* We're still conflicted ... */
+				/* 仍处于冲突状态 ...  */
 				break;
 			case COLLATE_EXPLICIT:
 				if (collation != context->collation)
 				{
 					/*
-					 * Oops, we have a conflict of explicit COLLATE clauses.
-					 * Here we choose to throw error immediately; that is what
-					 * the SQL standard says to do, and there's no good reason
-					 * to be less strict.
+					 * 糟糕，显式 COLLATE 子句间出现了冲突。  
+					 * 这里我们选择立即抛出错误；这正是       
+					 * SQL 标准要求的做法，也没有充分理由      
+					 * 放宽要求。   
 					 */
 					ereport(ERROR,
 							(errcode(ERRCODE_COLLATION_MISMATCH),
@@ -863,19 +863,19 @@ merge_collation_state(Oid collation,
 }
 
 /*
- * Aggref is a special case because expressions used only for ordering
- * shouldn't be taken to conflict with each other or with regular args,
- * indeed shouldn't affect the aggregate's result collation at all.
- * We handle this by applying assign_expr_collations() to them rather than
- * passing down our loccontext.
+ * Aggref 是一种特例，因为仅用于排序的表达式         
+ * 不应被视为彼此冲突或与常规参数冲突，              
+ * 实际上完全不影响聚合的结果排序规则。          
+ * 我们对此的办法是应用 assign_expr_collations()                
+ * 而非下传 loccontext。  
  *
- * Note that we recurse to each TargetEntry, not directly to its contained
- * expression, so that the case above for T_TargetEntry will complain if we
- * can't resolve a collation for an ORDER BY item (whether or not it is also
- * a normal aggregate arg).
+ * 注意我们递归到每个 TargetEntry，而不是直接递归到其  
+ * 内含表达式，这样上述 T_TargetEntry 情形就会在我们无法
+ * 为某个 ORDER BY 项确定排序规则时抱怨（无论是否也是普
+ * 通聚合参数）。   
  *
- * We need not recurse into the aggorder or aggdistinct lists, because those
- * contain only SortGroupClause nodes which we need not process.
+ * 我们无需递归进入 aggorder 或 aggdistinct 列表，              
+ * 因为其中只含 SortGroupClause 节点，无需处理。  
  */
 static void
 assign_aggregate_collations(Aggref *aggref,
@@ -883,10 +883,10 @@ assign_aggregate_collations(Aggref *aggref,
 {
 	ListCell   *lc;
 
-	/* Plain aggregates have no direct args */
+	/* 普通聚合没有直接参数       */
 	Assert(aggref->aggdirectargs == NIL);
 
-	/* Process aggregated args, holding resjunk ones at arm's length */
+	/* 处理聚合参数，但把 resjunk 参数区别对待        */
 	foreach(lc, aggref->args)
 	{
 		TargetEntry *tle = lfirst_node(TargetEntry, lc);
@@ -899,21 +899,21 @@ assign_aggregate_collations(Aggref *aggref,
 }
 
 /*
- * For ordered-set aggregates, it's somewhat unclear how best to proceed.
- * The spec-defined inverse distribution functions have only one sort column
- * and don't return collatable types, but this is clearly too restrictive in
- * the general case.  Our solution is to consider that the aggregate's direct
- * arguments contribute normally to determination of the aggregate's own
- * collation, while aggregated arguments contribute only when the aggregate
- * is designed to have exactly one aggregated argument (i.e., it has a single
- * aggregated argument and is non-variadic).  If it can have more than one
- * aggregated argument, we process the aggregated arguments as independent
- * sort columns.  This avoids throwing error for something like
+ * 对于有序集聚合，最佳处理方式有些不明确。          
+ * 规范定义的逆分布函数只有一个排序列，                   
+ * 且不返回可排序类型，但这在一般情形下                   
+ * 显然过于受限。我们的方案是：认为聚合的直接           
+ * 参数正常参与确定聚合自身的排序规则，               
+ * 而聚合的参数仅当聚合被设计为                              
+ * 恰好只有一个聚合参数（即仅有一个                          
+ * 聚合参数且非变参）时才参与。若它可能有              
+ * 多个聚合参数，我们就把聚合参数当作独立              
+ * 的排序列来处理。这避免了为类似               
  *		agg(...) within group (order by x collate "foo", y collate "bar")
- * while also guaranteeing that variadic aggregates don't change in behavior
- * depending on how many sort columns a particular call happens to have.
+ * 的情形抛错，同时又保证变参聚合的行为不会             
+ * 随特定调用实际拥有的排序列数量而改变。            
  *
- * Otherwise this is much like the plain-aggregate case.
+ * 其余部分与普通聚合情形非常相似。     
  */
 static void
 assign_ordered_set_collations(Aggref *aggref,
@@ -922,15 +922,15 @@ assign_ordered_set_collations(Aggref *aggref,
 	bool		merge_sort_collations;
 	ListCell   *lc;
 
-	/* Merge sort collations to parent only if there can be only one */
+	/* 仅当只可能有一个排序规则时才向父合并        */
 	merge_sort_collations = (list_length(aggref->args) == 1 &&
 							 get_func_variadictype(aggref->aggfnoid) == InvalidOid);
 
-	/* Direct args, if any, are normal children of the Aggref node */
+	/* 直接参数（如有）是 Aggref 节点的普通子节点 */
 	(void) assign_collations_walker((Node *) aggref->aggdirectargs,
 									loccontext);
 
-	/* Process aggregated args appropriately */
+	/* 以适当方式处理聚合参数     */
 	foreach(lc, aggref->args)
 	{
 		TargetEntry *tle = lfirst_node(TargetEntry, lc);
@@ -943,13 +943,13 @@ assign_ordered_set_collations(Aggref *aggref,
 }
 
 /*
- * Hypothetical-set aggregates are even more special: per spec, we need to
- * unify the collations of each pair of hypothetical and aggregated args.
- * And we need to force the choice of collation down into the sort column
- * to ensure that the sort happens with the chosen collation.  Other than
- * that, the behavior is like regular ordered-set aggregates.  Note that
- * hypothetical direct arguments contribute to the aggregate collation
- * only when their partner aggregated arguments do.
+ * 假想集聚合甚至更为特殊：按照规范，我们需要        
+ * 统一每一对假设参数与聚合参数的排序规则，          
+ * 并且要把排序规则的选择强制下沉到排序列，          
+ * 以确保排序确实按照所选定的排序规则进行。          
+ * 除此之外，其行为与普通有序集聚合类似。            
+ * 请注意，假设性直接参数仅当配对聚合参数参与时 
+ * 才计入聚合的排序规则。               
  */
 static void
 assign_hypothetical_collations(Aggref *aggref,
@@ -960,11 +960,11 @@ assign_hypothetical_collations(Aggref *aggref,
 	bool		merge_sort_collations;
 	int			extra_args;
 
-	/* Merge sort collations to parent only if there can be only one */
+	/* 仅在只可能有一个排序规则时才向父级合并。  */
 	merge_sort_collations = (list_length(aggref->args) == 1 &&
 							 get_func_variadictype(aggref->aggfnoid) == InvalidOid);
 
-	/* Process any non-hypothetical direct args */
+	/* 处理所有非假设性直接参数     */
 	extra_args = list_length(aggref->aggdirectargs) - list_length(aggref->args);
 	Assert(extra_args >= 0);
 	while (extra_args-- > 0)
@@ -973,7 +973,7 @@ assign_hypothetical_collations(Aggref *aggref,
 		h_cell = lnext(aggref->aggdirectargs, h_cell);
 	}
 
-	/* Scan hypothetical args and aggregated args in parallel */
+	/* 并行扫描假设性参数与聚合参数             */
 	while (h_cell && s_cell)
 	{
 		Node	   *h_arg = (Node *) lfirst(h_cell);
@@ -981,24 +981,24 @@ assign_hypothetical_collations(Aggref *aggref,
 		assign_collations_context paircontext;
 
 		/*
-		 * Assign collations internally in this pair of expressions, then
-		 * choose a common collation for them.  This should match
-		 * select_common_collation(), but we can't use that function as-is
-		 * because we need access to the whole collation state so we can
-		 * bubble it up to the aggregate function's level.
+		 * 先在这对表达式内部为其各自赋予排序规则，  
+		 * 然后再为这两者选定共同排序规则。      
+		 * 此逻辑应当与 select_common_collation() 一致，         
+		 * 但无法原样使用该函数，因为需要访问整个    
+		 * 排序规则状态以便冒泡到聚合层。  
 		 */
 		paircontext.pstate = loccontext->pstate;
 		paircontext.collation = InvalidOid;
 		paircontext.strength = COLLATE_NONE;
 		paircontext.location = -1;
-		/* Set these fields just to suppress uninitialized-value warnings: */
+		/* 设置这些字段只是为了消除未初始化值警告：    */
 		paircontext.collation2 = InvalidOid;
 		paircontext.location2 = -1;
 
 		(void) assign_collations_walker(h_arg, &paircontext);
 		(void) assign_collations_walker((Node *) s_tle->expr, &paircontext);
 
-		/* deal with collation conflict */
+		/* 处理排序规则冲突     */
 		if (paircontext.strength == COLLATE_CONFLICT)
 			ereport(ERROR,
 					(errcode(ERRCODE_COLLATION_MISMATCH),
@@ -1010,23 +1010,23 @@ assign_hypothetical_collations(Aggref *aggref,
 										paircontext.location2)));
 
 		/*
-		 * At this point paircontext.collation can be InvalidOid only if the
-		 * type is not collatable; no need to do anything in that case.  If we
-		 * do have to change the sort column's collation, do it by inserting a
-		 * RelabelType node into the sort column TLE.
+		 * 此时 paircontext.collation 只可能在类型不可排序时   
+		 * 才为 InvalidOid；这种情况下无需做任何事。           
+		 * 如果确实需要更改排序列的排序规则，                
+		 * 即向排序列 TLE 插入 RelabelType。 
 		 *
-		 * XXX This is pretty grotty for a couple of reasons:
-		 * assign_collations_walker isn't supposed to be changing the
-		 * expression structure like this, and a parse-time change of
-		 * collation ought to be signaled by a CollateExpr not a RelabelType
-		 * (the use of RelabelType for collation marking is supposed to be a
-		 * planner/executor thing only).  But we have no better alternative.
-		 * In particular, injecting a CollateExpr could result in the
-		 * expression being interpreted differently after dump/reload, since
-		 * we might be effectively promoting an implicit collation to
-		 * explicit.  This kluge is relying on ruleutils.c not printing a
-		 * COLLATE clause for a RelabelType, and probably on some other
-		 * fragile behaviors.
+		 * XXX 这段代码相当粗糙，原因有二：    
+		 * assign_collations_walker 本不该像这样修改         
+		 * 表达式结构，而且解析期的排序规则变更    
+		 * 应当用 CollateExpr 而非 RelabelType 表示（               
+		 * 用 RelabelType 标记排序规则本应只是                   
+		 * 规划器/执行器阶段的事）。但我们没有             
+		 * 更好的替代方案。特别是，注入 CollateExpr    
+		 * 可能导致表达式在 dump/reload 之后被                   
+		 * 以不同方式解读，因为我们可能实际上       
+		 * 把隐式排序规则提升成了显式。此做法依赖     
+		 * ruleutils.c 不为 RelabelType 打印 COLLATE 子句，     
+		 * 等脆弱行为。
 		 */
 		if (OidIsValid(paircontext.collation) &&
 			paircontext.collation != exprCollation((Node *) s_tle->expr))
@@ -1040,8 +1040,8 @@ assign_hypothetical_collations(Aggref *aggref,
 		}
 
 		/*
-		 * If appropriate, merge this column's collation state up to the
-		 * aggregate function.
+		 * 如适用，就把该列的排序规则状态向上合并到 
+		 * 聚合函数。    
 		 */
 		if (merge_sort_collations)
 			merge_collation_state(paircontext.collation,

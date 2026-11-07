@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "batch_id": "0305-comment-parser-parse_collate",
+  "title": "Translate comments: parser-parse_collate",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "60e39b6829aa2fb7366564591f9cf439d737db28",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0305-comment-parser-parse_collate.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/parser/**",
+      "kind": "c_comment",
+      "note": "P2 comment translation campaign"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0305-comment-parser-parse_collate.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": []
+    },
+    {
+      "path": "src/backend/parser/parse_collate.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 105,
+      "translated": 105,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "P2 translation campaign wave F31/F32"
+    }
+  ],
+  "notes": "Whole-file batch: 105 blocks, all translated, 0 preserved. No tool change this batch. Pre-flight: duplicate-key scan zero; coordinator ammo fix applied at spec level (glossary hypothetical-set aggregate 假设集合聚合->假想集聚合, blk96; corpus 5:0); legal leaves EN-verified: blk53 can't->无法 fixed (P02), blk88 says-to-do->要求. Gates: verify 0 violations (1 W7 RTEs echo, R10 filing class), term 0 errors 0 parse_collate warnings, render hard-zero, audit 105, spec_check OK, check_scope PASS. Review round 1: FAIL (2 MED + 3 LOW + 9 NOTE); coordinator surgery fix0305r1.py applied all 5 adopted proposals + zero-byte NOTE-6 unification (上抛->冒泡) = 12 lines into F31/F32 (M1 blk92 悬句 restored 的情形抛错; M2 blk89 dropped parenthetical restored 无论是否也是普通聚合参数, L874 73/73 exact; L1 blk1 dangling 顺序的 reflow; L2 blk36 上传->向上传递; L3 blk53 下方通用情形代码 restored; N6 blk100 上抛->冒泡); delta vs pre-surgery snapshot exactly 12 lines; six gates re-run green. Round 2 review verdict: PASS (drift exactly 12 lines, 12/12 byte-landed, six gates green; gate-6 S2 on harness scheduler lock filed as environment noise with real-path evidence)."
+}

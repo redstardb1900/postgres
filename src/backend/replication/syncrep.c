@@ -2,66 +2,66 @@
  *
  * syncrep.c
  *
- * Synchronous replication is new as of PostgreSQL 9.1.
+ * 同步复制自 PostgreSQL 9.1 起新增。         
  *
- * If requested, transaction commits wait until their commit LSN are
- * acknowledged by the synchronous standbys.
+ * 若有请求，事务提交会一直等待，直到其提交 LSN 
+ * 得到同步备库的确认。           
  *
- * This module contains the code for waiting and release of backends.
- * All code in this module executes on the primary. The core streaming
- * replication transport remains within WALreceiver/WALsender modules.
+ * 本模块包含后端等待与释放的相关代码。            
+ * 本模块的所有代码都在主库上执行。核心的流复制 
+ * 传输仍保留在 WALreceiver/WALsender 模块之内。           
  *
- * The essence of this design is that it isolates all logic about
- * waiting/releasing onto the primary. The primary defines which standbys
- * it wishes to wait for. The standbys are completely unaware of the
- * durability requirements of transactions on the primary, reducing the
- * complexity of the code and streamlining both standby operations and
- * network bandwidth because there is no requirement to ship
- * per-transaction state information.
+ * 该设计的精髓在于把所有关于                       
+ * 等待/释放的逻辑隔离到主库上。主库定义它希望      
+ * 等待哪些备库。备库完全无法感知主库上事务的  
+ * 持久性要求，这降低了代码的复杂度，                 
+ * 简化了备库操作，并节省了网络带宽，                
+ * 因为不再需要传送                                 
+ * 每事务的状态信息。       
  *
- * Replication is either synchronous or not synchronous (async). If it is
- * async, we just fastpath out of here. If it is sync, then we wait for
- * the write, flush or apply location on the standby before releasing
- * the waiting backend. Further complexity in that interaction is
- * expected in later releases.
+ * 复制要么是同步的，要么是非同步的（异步）。若为 
+ * 异步的话，我们直接快速离开。若为同步，           
+ * 则要先等待备库上的写、刷写或应用位置，随后才
+ * 释放等待中的后端。这种交互更多的复杂度     
+ * 预计在后续版本中。
  *
- * The best performing way to manage the waiting backends is to have a
- * single ordered queue of waiting backends, so that we can avoid
- * searching the through all waiters each time we receive a reply.
+ * 管理等待后端的最佳性能方式是维护                   
+ * 一条有序的等待后端队列，这样每次收到应答  
+ * 就无需遍历所有等待者。                              
  *
- * In 9.5 or before only a single standby could be considered as
- * synchronous. In 9.6 we support a priority-based multiple synchronous
- * standbys. In 10.0 a quorum-based multiple synchronous standbys is also
- * supported. The number of synchronous standbys that transactions
- * must wait for replies from is specified in synchronous_standby_names.
- * This parameter also specifies a list of standby names and the method
- * (FIRST and ANY) to choose synchronous standbys from the listed ones.
+ * 在 9.5 或更早版本中，只有一个备库可被视为  
+ * 同步备库。9.6 支持基于优先级的多个同步             
+ * 备库。10.0 还支持基于法定人数的多个同步              
+ * 备库。事务必须等待其应答的同步备库            
+ * 数量由 synchronous_standby_names 指定。                        
+ * 该参数还指定了备库名称的列表，以及                 
+ * 从所列备库中选择同步备库的方法（FIRST 和 ANY）。 
  *
- * The method FIRST specifies a priority-based synchronous replication
- * and makes transaction commits wait until their WAL records are
- * replicated to the requested number of synchronous standbys chosen based
- * on their priorities. The standbys whose names appear earlier in the list
- * are given higher priority and will be considered as synchronous.
- * Other standby servers appearing later in this list represent potential
- * synchronous standbys. If any of the current synchronous standbys
- * disconnects for whatever reason, it will be replaced immediately with
- * the next-highest-priority standby.
+ * 方法 FIRST 指定基于优先级的同步复制，               
+ * 并使事务提交等待，直到其 WAL 记录被复制到   
+ * 按优先级选出、数量符合要求的同步备库为止。        
+ * 名称在列表中较早出现的备库                                 
+ * 被赋予更高的优先级，将被视为同步备库。       
+ * 列表中较后的其他备库服务器代表潜在的                
+ * 同步备库。若当前的任一同步备库                   
+ * 因任何原因断开连接，将立即由下一                     
+ * 最高优先级的备库接替。 
  *
- * The method ANY specifies a quorum-based synchronous replication
- * and makes transaction commits wait until their WAL records are
- * replicated to at least the requested number of synchronous standbys
- * in the list. All the standbys appearing in the list are considered as
- * candidates for quorum synchronous standbys.
+ * 方法 ANY 指定基于法定人数的同步复制，          
+ * 并使事务提交等待，直到其 WAL 记录被复制到   
+ * 列表中至少达到所需数量的同步备库                   
+ * 为止。列表中出现的所有备库都被视为                  
+ * 法定人数同步备库的候选者。    
  *
- * If neither FIRST nor ANY is specified, FIRST is used as the method.
- * This is for backward compatibility with 9.6 or before where only a
- * priority-based sync replication was supported.
+ * 若 FIRST 与 ANY 均未指定，则使用 FIRST 作为方法。   
+ * 这是为了向后兼容 9.6 或更早版本——当时仅支持 
+ * 基于优先级的同步复制。             
  *
- * Before the standbys chosen from synchronous_standby_names can
- * become the synchronous standbys they must have caught up with
- * the primary; that may take some time. Once caught up,
- * the standbys which are considered as synchronous at that moment
- * will release waiters from the queue.
+ * 从 synchronous_standby_names 中选出的备库在          
+ * 能成为同步备库之前，必须已经追上             
+ * 主库；这可能需要些时间。一旦追上，  
+ * 彼时被视为同步备库的那些备库                     
+ * 就会从队列中释放等待者。
  *
  * Portions Copyright (c) 2010-2023, PostgreSQL Global Development Group
  *
@@ -87,7 +87,7 @@
 #include "utils/guc_hooks.h"
 #include "utils/ps_status.h"
 
-/* User-settable parameters for sync rep */
+/* 同步复制的用户可设置参数  */
 char	   *SyncRepStandbyNames;
 
 #define SyncStandbysDefined() \
@@ -127,23 +127,23 @@ static bool SyncRepQueueIsOrderedByLSN(int mode);
 
 /*
  * ===========================================================
- * Synchronous Replication functions for normal user backends
+ * 面向普通用户后端的同步复制函数             
  * ===========================================================
  */
 
 /*
- * Wait for synchronous replication, if requested by user.
+ * 若用户有请求，则等待同步复制。          
  *
- * Initially backends start in state SYNC_REP_NOT_WAITING and then
- * change that state to SYNC_REP_WAITING before adding ourselves
- * to the wait queue. During SyncRepWakeQueue() a WALSender changes
- * the state to SYNC_REP_WAIT_COMPLETE once replication is confirmed.
- * This backend then resets its state to SYNC_REP_NOT_WAITING.
+ * 最初后端处于 SYNC_REP_NOT_WAITING 状态，然后        
+ * 将自己加入等待队列之前，先把该状态改为    
+ * SYNC_REP_WAITING。在 SyncRepWakeQueue() 期间，WALSender    
+ * 在复制得到确认时把状态改为 SYNC_REP_WAIT_COMPLETE。 
+ * 该后端随后将状态重置为 SYNC_REP_NOT_WAITING。  
  *
- * 'lsn' represents the LSN to wait for.  'commit' indicates whether this LSN
- * represents a commit record.  If it doesn't, then we wait only for the WAL
- * to be flushed if synchronous_commit is set to the higher level of
- * remote_apply, because only commit records provide apply feedback.
+ * 'lsn' 表示要等待的 LSN。'commit' 表明该 LSN                     
+ * 是否代表一条提交记录。若不是，则当 synchronous_commit   
+ * 被设为更高级别的 remote_apply 时，我们只等待 WAL  
+ * 被刷写，因为只有提交记录才会提供应用反馈。  
  */
 void
 SyncRepWaitForLSN(XLogRecPtr lsn, bool commit)
@@ -151,37 +151,37 @@ SyncRepWaitForLSN(XLogRecPtr lsn, bool commit)
 	int			mode;
 
 	/*
-	 * This should be called while holding interrupts during a transaction
-	 * commit to prevent the follow-up shared memory queue cleanups to be
-	 * influenced by external interruptions.
+	 * 在事务提交期间持有中断时应调用本函数，          
+	 * 以防后续的共享内存队列清理                           
+	 * 受到外部中断的影响。       
 	 */
 	Assert(InterruptHoldoffCount > 0);
 
 	/*
-	 * Fast exit if user has not requested sync replication, or there are no
-	 * sync replication standby names defined.
+	 * 若用户未请求同步复制，或未定义任何同步复制      
+	 * 备库名称，则快速退出。      
 	 *
-	 * Since this routine gets called every commit time, it's important to
-	 * exit quickly if sync replication is not requested.
+	 * 由于本例程在每次提交时都会被调用，因此在未    
+	 * 请求同步复制时快速退出很重要。     
 	 *
-	 * We check WalSndCtl->sync_standbys_status flag without the lock and exit
-	 * immediately if SYNC_STANDBY_INIT is set (the checkpointer has
-	 * initialized this data) but SYNC_STANDBY_DEFINED is missing (no sync
-	 * replication requested).
+	 * 我们在不加锁的情况下检查 WalSndCtl->sync_standbys_status   
+	 * 标志后立即退出。若 SYNC_STANDBY_INIT 被设置（   
+	 * 检查点进程已初始化它），但缺少 SYNC_STANDBY_DEFINED 
+	 * （未请求）。     
 	 *
-	 * If SYNC_STANDBY_DEFINED is set, we need to check the status again later
-	 * while holding the lock, to check the flag and operate the sync rep
-	 * queue atomically.  This is necessary to avoid the race condition
-	 * described in SyncRepUpdateSyncStandbysDefined().  On the other hand, if
-	 * SYNC_STANDBY_DEFINED is not set, the lock is not necessary because we
-	 * don't touch the queue.
+	 * 若 SYNC_STANDBY_DEFINED 已设置，稍后还需要在持锁          
+	 * 的情况下再次检查状态，以原子方式检查标志并   
+	 * 操作同步复制队列。这样做是为了避免             
+	 * SyncRepUpdateSyncStandbysDefined() 中描述的竞态条件。         
+	 * 另一方面，若 SYNC_STANDBY_DEFINED 未设置，我们           
+	 * 则无需加锁。    
 	 */
 	if (!SyncRepRequested() ||
 		((((volatile WalSndCtlData *) WalSndCtl)->sync_standbys_status) &
 		 (SYNC_STANDBY_INIT | SYNC_STANDBY_DEFINED)) == SYNC_STANDBY_INIT)
 		return;
 
-	/* Cap the level for anything other than commit to remote flush only. */
+	/* 提交以外的情况一律将级别封顶为仅远程刷写。    */
 	if (commit)
 		mode = SyncRepWaitMode;
 	else
@@ -194,16 +194,16 @@ SyncRepWaitForLSN(XLogRecPtr lsn, bool commit)
 	Assert(MyProc->syncRepState == SYNC_REP_NOT_WAITING);
 
 	/*
-	 * We don't wait for sync rep if SYNC_STANDBY_DEFINED is not set.  See
-	 * SyncRepUpdateSyncStandbysDefined().
+	 * SYNC_STANDBY_DEFINED 未设置时不等待同步复制，参见    
+	 * SyncRepUpdateSyncStandbysDefined() 
 	 *
-	 * Also check that the standby hasn't already replied. Unlikely race
-	 * condition but we'll be fetching that cache line anyway so it's likely
-	 * to be a low cost check.
+	 * 另外检查备库是否已应答。虽是不太可能的竞态  
+	 * 条件，但反正都要获取那个缓存行，所以这种检查   
+	 * 多半代价很低。  
 	 *
-	 * If the sync standby data has not been initialized yet
-	 * (SYNC_STANDBY_INIT is not set), fall back to a check based on the LSN,
-	 * then do a direct GUC check.
+	 * 若同步备库数据尚未被初始化              
+	 * （SYNC_STANDBY_INIT 未设置），则退回基于 LSN 的检查，  
+	 * 再直接检查 GUC。     
 	 */
 	if (WalSndCtl->sync_standbys_status & SYNC_STANDBY_INIT)
 	{
@@ -217,9 +217,9 @@ SyncRepWaitForLSN(XLogRecPtr lsn, bool commit)
 	else if (lsn <= WalSndCtl->lsn[mode])
 	{
 		/*
-		 * The LSN is older than what we need to wait for.  The sync standby
-		 * data has not been initialized yet, but we are OK to not wait
-		 * because we know that there is no point in doing so based on the
+		 * 该 LSN 早于我们需要等待的位置。同步备库数据   
+		 * 尚未初始化，但我们可以不等待，               
+		 * 因为我们已经知道这样等待毫无意义，依据是   
 		 * LSN.
 		 */
 		LWLockRelease(SyncRepLock);
@@ -228,25 +228,25 @@ SyncRepWaitForLSN(XLogRecPtr lsn, bool commit)
 	else if (!SyncStandbysDefined())
 	{
 		/*
-		 * If we are here, the sync standby data has not been initialized yet,
-		 * and the LSN is newer than what need to wait for, so we have fallen
-		 * back to the best thing we could do in this case: a check on
-		 * SyncStandbysDefined() to see if the GUC is set or not.
+		 * 若走到这里，说明同步备库数据尚未被初始化，    
+		 * 且该 LSN 比需要等待的位置更新，所以已经落入了 
+		 * 这种情形下我们所能采取的最佳方案：检查  
+		 * SyncStandbysDefined()，看 GUC 是否被设置。    
 		 *
-		 * When the GUC has a value, we wait until the checkpointer updates
-		 * the status data because we cannot be sure yet if we should wait or
-		 * not. Here, the GUC has *no* value, we are sure that there is no
-		 * point to wait; this matters for example when initializing a
-		 * cluster, where we should never wait, and no sync standbys is the
-		 * default behavior.
+		 * 当 GUC 有值时，我们会一直等到检查点进程更新  
+		 * 状态数据，因为还无法确定我们是否应该等待。   
+		 * 这里 GUC *没有*值，我们可确定等待毫无意义；  
+		 * 例如初始化集簇时这一点很重要，因为那时  
+		 * 我们绝不应等待，没有同步备库是                   
+		 * 默认行为。  
 		 */
 		LWLockRelease(SyncRepLock);
 		return;
 	}
 
 	/*
-	 * Set our waitLSN so WALSender will know when to wake us, and add
-	 * ourselves to the queue.
+	 * 设置好 waitLSN 让 WALSender 知道何时唤醒我们，    
+	 * 自行加入队列。  
 	 */
 	MyProc->waitLSN = lsn;
 	MyProc->syncRepState = SYNC_REP_WAITING;
@@ -254,7 +254,7 @@ SyncRepWaitForLSN(XLogRecPtr lsn, bool commit)
 	Assert(SyncRepQueueIsOrderedByLSN(mode));
 	LWLockRelease(SyncRepLock);
 
-	/* Alter ps display to show waiting for sync rep. */
+	/* 改 ps 显示来表明在等待同步复制。 */
 	if (update_process_title)
 	{
 		char		buffer[32];
@@ -264,39 +264,39 @@ SyncRepWaitForLSN(XLogRecPtr lsn, bool commit)
 	}
 
 	/*
-	 * Wait for specified LSN to be confirmed.
+	 * 等待指定的 LSN 得到确认。    
 	 *
-	 * Each proc has its own wait latch, so we perform a normal latch
-	 * check/wait loop here.
+	 * 每个 proc 都有自己的等待锁存器，故按常规     
+	 * 检查等待循环。
 	 */
 	for (;;)
 	{
 		int			rc;
 
-		/* Must reset the latch before testing state. */
+		/* 测试状态前必须先重置锁存器。 */
 		ResetLatch(MyLatch);
 
 		/*
-		 * Acquiring the lock is not needed, the latch ensures proper
-		 * barriers. If it looks like we're done, we must really be done,
-		 * because once walsender changes the state to SYNC_REP_WAIT_COMPLETE,
-		 * it will never update it again, so we can't be seeing a stale value
-		 * in that case.
+		 * 无需获取锁，锁存器能确保正确的内存       
+		 * 屏障。若看似已完成，那就必然真的完成了，  
+		 * 一旦 walsender 把状态改为 SYNC_REP_WAIT_COMPLETE，         
+		 * 它就不会再更新该状态，所以我们不可能看到过期
+		 * 值。       
 		 */
 		if (MyProc->syncRepState == SYNC_REP_WAIT_COMPLETE)
 			break;
 
 		/*
-		 * If a wait for synchronous replication is pending, we can neither
-		 * acknowledge the commit nor raise ERROR or FATAL.  The latter would
-		 * lead the client to believe that the transaction aborted, which is
-		 * not true: it's already committed locally. The former is no good
-		 * either: the client has requested synchronous replication, and is
-		 * entitled to assume that an acknowledged commit is also replicated,
-		 * which might not be true. So in this case we issue a WARNING (which
-		 * some clients may be able to interpret) and shut off further output.
-		 * We do NOT reset ProcDiePending, so that the process will die after
-		 * the commit is cleaned up.
+		 * 若同步复制等待仍在进行，我们既无法             
+		 * 确认提交，也无法报 ERROR 或 FATAL 错误。后者会让 
+		 * 客户端误以为事务已中止，但事实并非如此：     
+		 * 它已经在本地提交。前者也不行：                  
+		 * 客户端已经请求了同步复制，因而有权认定       
+		 * 得到确认的提交同时也已被复制，                     
+		 * 但实际情况可能并非如此。此时我们会发出一条   
+		 * WARNING（某些客户端或可理解），并停止后续输出。
+		 * 我们绝不重置 ProcDiePending，以便该进程在            
+		 * 提交清理后终止。 
 		 */
 		if (ProcDiePending)
 		{
@@ -310,10 +310,10 @@ SyncRepWaitForLSN(XLogRecPtr lsn, bool commit)
 		}
 
 		/*
-		 * It's unclear what to do if a query cancel interrupt arrives.  We
-		 * can't actually abort at this point, but ignoring the interrupt
-		 * altogether is not helpful, so we just terminate the wait with a
-		 * suitable warning.
+		 * 若查询取消中断到来，该怎么做尚不明晰。我们 
+		 * 此时实际上无法中止，但完全无视该中断        
+		 * 并无助益，所以我们只用一条恰当的警告来      
+		 * 终止等待。  
 		 */
 		if (QueryCancelPending)
 		{
@@ -326,15 +326,15 @@ SyncRepWaitForLSN(XLogRecPtr lsn, bool commit)
 		}
 
 		/*
-		 * Wait on latch.  Any condition that should wake us up will set the
-		 * latch, so no need for timeout.
+		 * 在锁存器上等待。凡应唤醒我们的条件都会设置  
+		 * 锁存器，故无需超时。
 		 */
 		rc = WaitLatch(MyLatch, WL_LATCH_SET | WL_POSTMASTER_DEATH, -1,
 					   WAIT_EVENT_SYNC_REP);
 
 		/*
-		 * If the postmaster dies, we'll probably never get an acknowledgment,
-		 * because all the wal sender processes will exit. So just bail out.
+		 * 若 postmaster 死亡，我们多半永远得不到确认应答， 
+		 * 因为所有 WAL 发送进程都会退出。所以干脆离开。
 		 */
 		if (rc & WL_POSTMASTER_DEATH)
 		{
@@ -346,28 +346,28 @@ SyncRepWaitForLSN(XLogRecPtr lsn, bool commit)
 	}
 
 	/*
-	 * WalSender has checked our LSN and has removed us from queue. Clean up
-	 * state and leave.  It's OK to reset these shared memory fields without
-	 * holding SyncRepLock, because any walsenders will ignore us anyway when
-	 * we're not on the queue.  We need a read barrier to make sure we see the
-	 * changes to the queue link (this might be unnecessary without
-	 * assertions, but better safe than sorry).
+	 * WAL 发送进程已检查我们的 LSN 并把我们从队列移除。
+	 * 清理好状态然后离开。在不持有 SyncRepLock 的情况下  
+	 * 重置这些共享内存字段没有问题，因为当我们不在    
+	 * 队列上时，任何 WAL 发送进程反正都会忽略我们。我们
+	 * 需要一个读屏障以确保看见队列链接的变更（
+	 * 无断言非必需，稳妥为上）。 
 	 */
 	pg_read_barrier();
 	Assert(dlist_node_is_detached(&MyProc->syncRepLinks));
 	MyProc->syncRepState = SYNC_REP_NOT_WAITING;
 	MyProc->waitLSN = 0;
 
-	/* reset ps display to remove the suffix */
+	/* 重置 ps 显示以移除后缀       */
 	if (update_process_title)
 		set_ps_display_remove_suffix();
 }
 
 /*
- * Insert MyProc into the specified SyncRepQueue, maintaining sorted invariant.
+ * 把 MyProc 插入指定的 SyncRepQueue，并维持有序不变式。       
  *
- * Usually we will go at tail of queue, though it's possible that we arrive
- * here out of order, so start at tail and work back to insertion point.
+ * 通常我们会插入到队列尾部，但有可能我们到达此处   
+ * 时顺序不对，所以从尾部开始向前回溯到插入点。   
  */
 static void
 SyncRepQueueInsert(int mode)
@@ -383,8 +383,8 @@ SyncRepQueueInsert(int mode)
 		PGPROC	   *proc = dlist_container(PGPROC, syncRepLinks, iter.cur);
 
 		/*
-		 * Stop at the queue element that we should insert after to ensure the
-		 * queue is ordered by LSN.
+		 * 在我们应插入其后的队列元素处停下，以确保       
+		 * 队列按 LSN 排序。 
 		 */
 		if (proc->waitLSN < MyProc->waitLSN)
 		{
@@ -394,14 +394,14 @@ SyncRepQueueInsert(int mode)
 	}
 
 	/*
-	 * If we get here, the list was either empty, or this process needs to be
-	 * at the head.
+	 * 若走到这里，说明列表原本为空，或者该进程需要    
+	 * 在队首。
 	 */
 	dlist_push_head(queue, &MyProc->syncRepLinks);
 }
 
 /*
- * Acquire SyncRepLock and cancel any wait currently in progress.
+ * 获取 SyncRepLock 并取消当前进行中的任何等待。 
  */
 static void
 SyncRepCancelWait(void)
@@ -417,14 +417,14 @@ void
 SyncRepCleanupAtProcExit(void)
 {
 	/*
-	 * First check if we are removed from the queue without the lock to not
-	 * slow down backend exit.
+	 * 首先在不持锁的情况下检查我们是否从队列移除，  
+	 * 以免拖慢退出。  
 	 */
 	if (!dlist_node_is_detached(&MyProc->syncRepLinks))
 	{
 		LWLockAcquire(SyncRepLock, LW_EXCLUSIVE);
 
-		/* maybe we have just been removed, so recheck */
+		/* 我们或许刚被移除，故再次检查  */
 		if (!dlist_node_is_detached(&MyProc->syncRepLinks))
 			dlist_delete_thoroughly(&MyProc->syncRepLinks);
 
@@ -434,13 +434,13 @@ SyncRepCleanupAtProcExit(void)
 
 /*
  * ===========================================================
- * Synchronous Replication functions for wal sender processes
+ * WAL 发送进程专用的同步复制函数               
  * ===========================================================
  */
 
 /*
- * Take any action required to initialise sync rep state from config
- * data. Called at WALSender startup and after each SIGHUP.
+ * 采取所需行动从配置数据初始化同步复制状态。  
+ * 在 WALSender 启动时及每次 SIGHUP 之后调用。 
  */
 void
 SyncRepInitConfig(void)
@@ -448,8 +448,8 @@ SyncRepInitConfig(void)
 	int			priority;
 
 	/*
-	 * Determine if we are a potential sync standby and remember the result
-	 * for handling replies from standby.
+	 * 判断我们是否是潜在同步备库，并记住该结果        
+	 * 以便处理备库的应答。    
 	 */
 	priority = SyncRepGetStandbyPriority();
 	if (MyWalSnd->sync_standby_priority != priority)
@@ -465,11 +465,11 @@ SyncRepInitConfig(void)
 }
 
 /*
- * Update the LSNs on each queue based upon our latest state. This
- * implements a simple policy of first-valid-sync-standby-releases-waiter.
+ * 根据我们的最新状态更新各队列的 LSN。这样     
+ * 实现"首个有效同步备库释放等待者"的简单策略。      
  *
- * Other policies are possible, which would change what we do here and
- * perhaps also which information we store as well.
+ * 其他策略也是可能的，它们会改变我们在这里的    
+ * 做法，或许还有我们所存储的信息。
  */
 void
 SyncRepReleaseWaiters(void)
@@ -485,11 +485,11 @@ SyncRepReleaseWaiters(void)
 	int			numapply = 0;
 
 	/*
-	 * If this WALSender is serving a standby that is not on the list of
-	 * potential sync standbys then we have nothing to do. If we are still
-	 * starting up, still running base backup or the current flush position is
-	 * still invalid, then leave quickly also.  Streaming or stopping WAL
-	 * senders are allowed to release waiters.
+	 * 若该 WALSender 正在服务的备库不在潜在同步备库   
+	 * 列表上则无事可做。如果我们仍在启动中，          
+	 * 仍在运行基础备份，或当前刷写位置无效，那么也     
+	 * 快速离开。正在流式传输或停止中的 WAL 发送进程 
+	 * 允许释放等待者。               
 	 */
 	if (MyWalSnd->sync_standby_priority == 0 ||
 		(MyWalSnd->state != WALSNDSTATE_STREAMING &&
@@ -501,24 +501,24 @@ SyncRepReleaseWaiters(void)
 	}
 
 	/*
-	 * We're a potential sync standby. Release waiters if there are enough
-	 * sync standbys and we are considered as sync.
+	 * 我们是潜在同步备库。若有足够多的同步备库       
+	 * 且被视为同步，则释放等待者。  
 	 */
 	LWLockAcquire(SyncRepLock, LW_EXCLUSIVE);
 
 	/*
-	 * Check whether we are a sync standby or not, and calculate the synced
-	 * positions among all sync standbys.  (Note: although this step does not
-	 * of itself require holding SyncRepLock, it seems like a good idea to do
-	 * it after acquiring the lock.  This ensures that the WAL pointers we use
-	 * to release waiters are newer than any previous execution of this
-	 * routine used.)
+	 * 检查我们是否是同步备库，并计算所有同步备库     
+	 * 的已同步位置。（注意：虽然这一步本身并不          
+	 * 需要持有 SyncRepLock，但这样做似乎是                      
+	 * 好主意，即在获取锁之后再做。这能确保我们用来     
+	 * 释放等待者的 WAL 指针比本例程之前所用的要新  
+	 * 。）        
 	 */
 	got_recptr = SyncRepGetSyncRecPtr(&writePtr, &flushPtr, &applyPtr, &am_sync);
 
 	/*
-	 * If we are managing a sync standby, though we weren't prior to this,
-	 * then announce we are now a sync standby.
+	 * 若我们正在管理一个同步备库，虽然此前并不是， 
+	 * 则宣布现在已是同步备库。    
 	 */
 	if (announce_next_takeover && am_sync)
 	{
@@ -535,8 +535,8 @@ SyncRepReleaseWaiters(void)
 	}
 
 	/*
-	 * If the number of sync standbys is less than requested or we aren't
-	 * managing a sync standby then just leave.
+	 * 若同步备库数量少于所需数量，或者我们并未      
+	 * 在管理同步备库则直接离开。 
 	 */
 	if (!got_recptr || !am_sync)
 	{
@@ -546,8 +546,8 @@ SyncRepReleaseWaiters(void)
 	}
 
 	/*
-	 * Set the lsn first so that when we wake backends they will release up to
-	 * this location.
+	 * 先设置好 lsn，这样唤醒后端时它们会一直释放到       
+	 * 该位置。  
 	 */
 	if (walsndctl->lsn[SYNC_REP_WAIT_WRITE] < writePtr)
 	{
@@ -574,14 +574,14 @@ SyncRepReleaseWaiters(void)
 }
 
 /*
- * Calculate the synced Write, Flush and Apply positions among sync standbys.
+ * 计算各同步备库之间已同步的写、刷写和应用位置。     
  *
- * Return false if the number of sync standbys is less than
- * synchronous_standby_names specifies. Otherwise return true and
- * store the positions into *writePtr, *flushPtr and *applyPtr.
+ * 若同步备库数量少于                             
+ * synchronous_standby_names 指定的数量，否则返回 true 
+ * 并把位置存入 *writePtr、*flushPtr 和 *applyPtr。   
  *
- * On return, *am_sync is set to true if this walsender is connecting to
- * sync standby. Otherwise it's set to false.
+ * 返回时，若该 walsender 正连接到同步备库，则 *am_sync 
+ * 会被设为 true，否则设为 false。 
  */
 static bool
 SyncRepGetSyncRecPtr(XLogRecPtr *writePtr, XLogRecPtr *flushPtr,
@@ -591,20 +591,20 @@ SyncRepGetSyncRecPtr(XLogRecPtr *writePtr, XLogRecPtr *flushPtr,
 	int			num_standbys;
 	int			i;
 
-	/* Initialize default results */
+	/* 初始化默认结果      */
 	*writePtr = InvalidXLogRecPtr;
 	*flushPtr = InvalidXLogRecPtr;
 	*applyPtr = InvalidXLogRecPtr;
 	*am_sync = false;
 
-	/* Quick out if not even configured to be synchronous */
+	/* 若根本未配置为同步，则快速退出      */
 	if (SyncRepConfig == NULL)
 		return false;
 
-	/* Get standbys that are considered as synchronous at this moment */
+	/* 获取此刻被视为同步的备库                           */
 	num_standbys = SyncRepGetCandidateStandbys(&sync_standbys);
 
-	/* Am I among the candidate sync standbys? */
+	/* 我在候选同步备库之列吗？    */
 	for (i = 0; i < num_standbys; i++)
 	{
 		if (sync_standbys[i].is_me)
@@ -615,8 +615,8 @@ SyncRepGetSyncRecPtr(XLogRecPtr *writePtr, XLogRecPtr *flushPtr,
 	}
 
 	/*
-	 * Nothing more to do if we are not managing a sync standby or there are
-	 * not enough synchronous standbys.
+	 * 如果我们没有在管理同步备库，或者同步备库         
+	 * 不足，则无事可做。     
 	 */
 	if (!(*am_sync) ||
 		num_standbys < SyncRepConfig->num_sync)
@@ -626,17 +626,17 @@ SyncRepGetSyncRecPtr(XLogRecPtr *writePtr, XLogRecPtr *flushPtr,
 	}
 
 	/*
-	 * In a priority-based sync replication, the synced positions are the
-	 * oldest ones among sync standbys. In a quorum-based, they are the Nth
-	 * latest ones.
+	 * 在基于优先级的同步复制中，已同步位置取         
+	 * 同步备库中最旧值。在基于法定人数的复制中则是  
+	 * 第N新。  
 	 *
-	 * SyncRepGetNthLatestSyncRecPtr() also can calculate the oldest
-	 * positions. But we use SyncRepGetOldestSyncRecPtr() for that calculation
-	 * because it's a bit more efficient.
+	 * SyncRepGetNthLatestSyncRecPtr() 也能计算最旧的        
+	 * 位置。但我们使用 SyncRepGetOldestSyncRecPtr() 来做该        
+	 * 计算，因为它效率略高。 
 	 *
-	 * XXX If the numbers of current and requested sync standbys are the same,
-	 * we can use SyncRepGetOldestSyncRecPtr() to calculate the synced
-	 * positions even in a quorum-based sync replication.
+	 * XXX 若当前同步备库数量与所需同步备库数量相同，    
+	 * 那么也可以用 SyncRepGetOldestSyncRecPtr() 计算已同步
+	 * 位置，即便在法定人数复制中。        
 	 */
 	if (SyncRepConfig->syncrep_method == SYNC_REP_PRIORITY)
 	{
@@ -655,7 +655,7 @@ SyncRepGetSyncRecPtr(XLogRecPtr *writePtr, XLogRecPtr *flushPtr,
 }
 
 /*
- * Calculate the oldest Write, Flush and Apply positions among sync standbys.
+ * 计算各同步备库之间最旧的写、刷写和应用位置。        
  */
 static void
 SyncRepGetOldestSyncRecPtr(XLogRecPtr *writePtr,
@@ -667,8 +667,8 @@ SyncRepGetOldestSyncRecPtr(XLogRecPtr *writePtr,
 	int			i;
 
 	/*
-	 * Scan through all sync standbys and calculate the oldest Write, Flush
-	 * and Apply positions.  We assume *writePtr et al were initialized to
+	 * 遍历全部同步备库，计算最旧的写、刷写和应用     
+	 * 位置。我们假定 *writePtr 等参数已被初始化为        
 	 * InvalidXLogRecPtr.
 	 */
 	for (i = 0; i < num_standbys; i++)
@@ -687,8 +687,8 @@ SyncRepGetOldestSyncRecPtr(XLogRecPtr *writePtr,
 }
 
 /*
- * Calculate the Nth latest Write, Flush and Apply positions among sync
- * standbys.
+ * 计算各同步备库中第 N 新的写、刷写和应用           
+ * 位置。
  */
 static void
 SyncRepGetNthLatestSyncRecPtr(XLogRecPtr *writePtr,
@@ -703,7 +703,7 @@ SyncRepGetNthLatestSyncRecPtr(XLogRecPtr *writePtr,
 	XLogRecPtr *apply_array;
 	int			i;
 
-	/* Should have enough candidates, or somebody messed up */
+	/* 应有足够候选者，否则就是有人搞错了  */
 	Assert(nth > 0 && nth <= num_standbys);
 
 	write_array = (XLogRecPtr *) palloc(sizeof(XLogRecPtr) * num_standbys);
@@ -717,12 +717,12 @@ SyncRepGetNthLatestSyncRecPtr(XLogRecPtr *writePtr,
 		apply_array[i] = sync_standbys[i].apply;
 	}
 
-	/* Sort each array in descending order */
+	/* 按降序对每个数组排序      */
 	qsort(write_array, num_standbys, sizeof(XLogRecPtr), cmp_lsn);
 	qsort(flush_array, num_standbys, sizeof(XLogRecPtr), cmp_lsn);
 	qsort(apply_array, num_standbys, sizeof(XLogRecPtr), cmp_lsn);
 
-	/* Get Nth latest Write, Flush, Apply positions */
+	/* 获取第 N 新的写、刷写、应用位置*/
 	*writePtr = write_array[nth - 1];
 	*flushPtr = flush_array[nth - 1];
 	*applyPtr = apply_array[nth - 1];
@@ -733,7 +733,7 @@ SyncRepGetNthLatestSyncRecPtr(XLogRecPtr *writePtr,
 }
 
 /*
- * Compare lsn in order to sort array in descending order.
+ * 比较 lsn，以便按降序对数组排序。         
  */
 static int
 cmp_lsn(const void *a, const void *b)
@@ -750,11 +750,11 @@ cmp_lsn(const void *a, const void *b)
 }
 
 /*
- * Return data about walsenders that are candidates to be sync standbys.
+ * 返回可作为同步备库候选者的 WAL 发送进程的数据。 
  *
- * *standbys is set to a palloc'd array of structs of per-walsender data,
- * and the number of valid entries (candidate sync senders) is returned.
- * (This might be more or fewer than num_sync; caller must check.)
+ * *standbys 被设置成一个 palloc 出的数组，元素为          
+ * 每个 walsender 的数据结构；返回有效条目（即候选    
+ * 同步发送进程）数，可能异于 num_sync，须检查。
  */
 int
 SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys)
@@ -762,22 +762,22 @@ SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys)
 	int			i;
 	int			n;
 
-	/* Create result array */
+	/* 创建结果数组  */
 	*standbys = (SyncRepStandbyData *)
 		palloc(max_wal_senders * sizeof(SyncRepStandbyData));
 
-	/* Quick exit if sync replication is not requested */
+	/* 若未请求同步复制则快速退出         */
 	if (SyncRepConfig == NULL)
 		return 0;
 
-	/* Collect raw data from shared memory */
+	/* 从共享内存收集原始数据   */
 	n = 0;
 	for (i = 0; i < max_wal_senders; i++)
 	{
 		volatile WalSnd *walsnd;	/* Use volatile pointer to prevent code
 									 * rearrangement */
 		SyncRepStandbyData *stby;
-		WalSndState state;		/* not included in SyncRepStandbyData */
+		WalSndState state;		/* 未包含在 SyncRepStandbyData 中*/
 
 		walsnd = &WalSndCtl->walsnds[i];
 		stby = *standbys + n;
@@ -791,41 +791,41 @@ SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys)
 		stby->sync_standby_priority = walsnd->sync_standby_priority;
 		SpinLockRelease(&walsnd->mutex);
 
-		/* Must be active */
+		/* 必须活动   */
 		if (stby->pid == 0)
 			continue;
 
-		/* Must be streaming or stopping */
+		/* 须为流式或停止状态   */
 		if (state != WALSNDSTATE_STREAMING &&
 			state != WALSNDSTATE_STOPPING)
 			continue;
 
-		/* Must be synchronous */
+		/* 必须是同步的  */
 		if (stby->sync_standby_priority == 0)
 			continue;
 
-		/* Must have a valid flush position */
+		/* 必须有有效的刷写位置   */
 		if (XLogRecPtrIsInvalid(stby->flush))
 			continue;
 
-		/* OK, it's a candidate */
+		/* 好，它是候选。*/
 		stby->walsnd_index = i;
 		stby->is_me = (walsnd == MyWalSnd);
 		n++;
 	}
 
 	/*
-	 * In quorum mode, we return all the candidates.  In priority mode, if we
-	 * have too many candidates then return only the num_sync ones of highest
-	 * priority.
+	 * 在法定人数模式下，我们返回所有候选者。在优先级 
+	 * 模式下，若候选者过多，则只返回优先级最高的       
+	 * num_sync 
 	 */
 	if (SyncRepConfig->syncrep_method == SYNC_REP_PRIORITY &&
 		n > SyncRepConfig->num_sync)
 	{
-		/* Sort by priority ... */
+		/* 按优先级排序…*/
 		qsort(*standbys, n, sizeof(SyncRepStandbyData),
 			  standby_priority_comparator);
-		/* ... then report just the first num_sync ones */
+		/* ……然后只报告前 num_sync 个        */
 		n = SyncRepConfig->num_sync;
 	}
 
@@ -833,7 +833,7 @@ SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys)
 }
 
 /*
- * qsort comparator to sort SyncRepStandbyData entries by priority
+ * 按优先级排序 SyncRepStandbyData 条目的 qsort 比较器
  */
 static int
 standby_priority_comparator(const void *a, const void *b)
@@ -841,26 +841,26 @@ standby_priority_comparator(const void *a, const void *b)
 	const SyncRepStandbyData *sa = (const SyncRepStandbyData *) a;
 	const SyncRepStandbyData *sb = (const SyncRepStandbyData *) b;
 
-	/* First, sort by increasing priority value */
+	/* 首先按优先级值递增排序        */
 	if (sa->sync_standby_priority != sb->sync_standby_priority)
 		return sa->sync_standby_priority - sb->sync_standby_priority;
 
 	/*
-	 * We might have equal priority values; arbitrarily break ties by position
-	 * in the WalSnd array.  (This is utterly bogus, since that is arrival
-	 * order dependent, but there are regression tests that rely on it.)
+	 * 可能出现优先级值相等的情况；此时按其在 WalSnd       
+	 * 数组中的位置任意打破平局。（这实在毫无道理， 
+	 * 因为那取决于到达顺序，但有回归测试依赖。）  
 	 */
 	return sa->walsnd_index - sb->walsnd_index;
 }
 
 
 /*
- * Check if we are in the list of sync standbys, and if so, determine
- * priority sequence. Return priority if set, or zero to indicate that
- * we are not a potential sync standby.
+ * 检查我们是否在同步备库列表中，若是，则确定   
+ * 优先级次序。已设置则返回优先级，否则返回零以 
+ * 表明我们非潜在同步备库。
  *
- * Compare the parameter SyncRepStandbyNames against the application_name
- * for this WALSender, or allow any name if we find a wildcard "*".
+ * 把参数 SyncRepStandbyNames 与该 WALSender 的 application_name   
+ * 比较，或若发现通配符 "*" 则允许任意名称。     
  */
 static int
 SyncRepGetStandbyPriority(void)
@@ -870,8 +870,8 @@ SyncRepGetStandbyPriority(void)
 	bool		found = false;
 
 	/*
-	 * Since synchronous cascade replication is not allowed, we always set the
-	 * priority of cascading walsender to zero.
+	 * 由于不允许同步级联复制，我们总是把级联              
+	 * walsender 的优先级设为零。      
 	 */
 	if (am_cascading_walsender)
 		return 0;
@@ -895,19 +895,19 @@ SyncRepGetStandbyPriority(void)
 		return 0;
 
 	/*
-	 * In quorum-based sync replication, all the standbys in the list have the
-	 * same priority, one.
+	 * 在基于法定人数的同步复制中，列表中的所有备库     
+	 * 优先级均一。 
 	 */
 	return (SyncRepConfig->syncrep_method == SYNC_REP_PRIORITY) ? priority : 1;
 }
 
 /*
- * Walk the specified queue from head.  Set the state of any backends that
- * need to be woken, remove them from the queue, and then wake them.
- * Pass all = true to wake whole queue; otherwise, just wake up to
- * the walsender's LSN.
+ * 从队头开始遍历指定队列。把任何需要被唤醒的        
+ * 后端状态设好，将其移出队列，再唤醒它们。     
+ * 传入 all = true 以唤醒整个队列；否则只唤醒到   
+ * walsender 的 LSN。
  *
- * The caller must hold SyncRepLock in exclusive mode.
+ * 调用者必须以独占模式持有 SyncRepLock。
  */
 static int
 SyncRepWakeQueue(bool all, int mode)
@@ -925,31 +925,31 @@ SyncRepWakeQueue(bool all, int mode)
 		PGPROC	   *proc = dlist_container(PGPROC, syncRepLinks, iter.cur);
 
 		/*
-		 * Assume the queue is ordered by LSN
+		 * 假定队列按 LSN 排序        
 		 */
 		if (!all && walsndctl->lsn[mode] < proc->waitLSN)
 			return numprocs;
 
 		/*
-		 * Remove from queue.
+		 * 从队列移除。
 		 */
 		dlist_delete_thoroughly(&proc->syncRepLinks);
 
 		/*
-		 * SyncRepWaitForLSN() reads syncRepState without holding the lock, so
-		 * make sure that it sees the queue link being removed before the
-		 * syncRepState change.
+		 * SyncRepWaitForLSN() 会在不持锁的情况下读取              
+		 * syncRepState，所以须确保队列链接的移除先于     
+		 * syncRepState 变更 
 		 */
 		pg_write_barrier();
 
 		/*
-		 * Set state to complete; see SyncRepWaitForLSN() for discussion of
-		 * the various states.
+		 * 把状态设为 complete；SyncRepWaitForLSN() 中              
+		 * 讨论各状态。 
 		 */
 		proc->syncRepState = SYNC_REP_WAIT_COMPLETE;
 
 		/*
-		 * Wake only when we have set state and removed from queue.
+		 * 只在已设置状态并从队列移除后才唤醒。  
 		 */
 		SetLatch(&(proc->procLatch));
 
@@ -960,11 +960,11 @@ SyncRepWakeQueue(bool all, int mode)
 }
 
 /*
- * The checkpointer calls this as needed to update the shared
- * sync_standbys_status flag, so that backends don't remain permanently wedged
- * if synchronous_standby_names is unset.  It's safe to check the current value
- * without the lock, because it's only ever updated by one process.  But we
- * must take the lock to change it.
+ * 检查点进程按需调用本函数来更新共享的    
+ * sync_standbys_status 标志，以免后端在                              
+ * synchronous_standby_names 未设置时被永久卡住。不加              
+ * 锁检查当前值是安全的，因为只有一个进程会更新它。
+ * 但必须持锁才能改它。  
  */
 void
 SyncRepUpdateSyncStandbysDefined(void)
@@ -977,9 +977,9 @@ SyncRepUpdateSyncStandbysDefined(void)
 		LWLockAcquire(SyncRepLock, LW_EXCLUSIVE);
 
 		/*
-		 * If synchronous_standby_names has been reset to empty, it's futile
-		 * for backends to continue waiting.  Since the user no longer wants
-		 * synchronous replication, we'd better wake them up.
+		 * 若 synchronous_standby_names 已被重置为空，后端        
+		 * 继续等待徒劳无益。用户已不再想要同步复制，  
+		 * 我们最好把它们唤醒。                    
 		 */
 		if (!sync_standbys_defined)
 		{
@@ -990,11 +990,11 @@ SyncRepUpdateSyncStandbysDefined(void)
 		}
 
 		/*
-		 * Only allow people to join the queue when there are synchronous
-		 * standbys defined.  Without this interlock, there's a race
-		 * condition: we might wake up all the current waiters; then, some
-		 * backend that hasn't yet reloaded its config might go to sleep on
-		 * the queue (and never wake up).  This prevents that.
+		 * 只在定义了同步备库时才允许大家加入队列。  
+		 * 若无此互锁，会有竞态条件：                  
+		 * 我们可能唤醒所有当前等待者；随后，某个尚未
+		 * 重新加载配置的后端可能在队列上睡眠（并且    
+		 * 不会醒来）。这样即可防止该情况。   
 		 */
 		WalSndCtl->sync_standbys_status = SYNC_STANDBY_INIT |
 			(sync_standbys_defined ? SYNC_STANDBY_DEFINED : 0);
@@ -1006,18 +1006,18 @@ SyncRepUpdateSyncStandbysDefined(void)
 		LWLockAcquire(SyncRepLock, LW_EXCLUSIVE);
 
 		/*
-		 * Note that there is no need to wake up the queues here.  We would
-		 * reach this path only if SyncStandbysDefined() returns false, or it
-		 * would mean that some backends are waiting with the GUC set.  See
-		 * SyncRepWaitForLSN().
+		 * 注意此处无需唤醒这些队列。只有当                
+		 * SyncStandbysDefined() 返回 false 时才会走到这条路       
+		 * 径，否则就是有后端在 GUC 已设置时等待。见     
+		 * SyncRepWaitForLSN() 
 		 */
 		Assert(!SyncStandbysDefined());
 
 		/*
-		 * Even if there is no sync standby defined, let the readers of this
-		 * information know that the sync standby data has been initialized.
-		 * This can just be done once, hence the previous check on
-		 * SYNC_STANDBY_INIT to avoid useless work.
+		 * 即使没有定义同步备库，也要让本信息的读者     
+		 * 知道同步备库数据已被初始化。                       
+		 * 这只需做一次，因此此前要检查             
+		 * SYNC_STANDBY_INIT 以免无谓工作。 
 		 */
 		WalSndCtl->sync_standbys_status |= SYNC_STANDBY_INIT;
 
@@ -1041,8 +1041,8 @@ SyncRepQueueIsOrderedByLSN(int mode)
 		PGPROC	   *proc = dlist_container(PGPROC, syncRepLinks, iter.cur);
 
 		/*
-		 * Check the queue is ordered by LSN and that multiple procs don't
-		 * have matching LSNs
+		 * 检查队列按 LSN 排序，且多个 proc 没有             
+		 * 相同的 LSN     
 		 */
 		if (proc->waitLSN <= lastLSN)
 			return false;
@@ -1056,7 +1056,7 @@ SyncRepQueueIsOrderedByLSN(int mode)
 
 /*
  * ===========================================================
- * Synchronous Replication functions executed by any process
+ * 由任意进程执行的同步复制函数               
  * ===========================================================
  */
 
@@ -1068,11 +1068,11 @@ check_synchronous_standby_names(char **newval, void **extra, GucSource source)
 		int			parse_rc;
 		SyncRepConfigData *pconf;
 
-		/* Reset communication variables to ensure a fresh start */
+		/* 重置通信变量以确保全新的开始            */
 		syncrep_parse_result = NULL;
 		syncrep_parse_error_msg = NULL;
 
-		/* Parse the synchronous_standby_names string */
+		/* 解析 synchronous_standby_names 字符串 */
 		syncrep_scanner_init(*newval);
 		parse_rc = syncrep_yyparse();
 		syncrep_scanner_finish();
@@ -1094,7 +1094,7 @@ check_synchronous_standby_names(char **newval, void **extra, GucSource source)
 			return false;
 		}
 
-		/* GUC extra value must be guc_malloc'd, not palloc'd */
+		/* GUC 额外值须由 guc_malloc 分配而非 palloc */
 		pconf = (SyncRepConfigData *)
 			guc_malloc(LOG, syncrep_parse_result->config_size);
 		if (pconf == NULL)
@@ -1104,11 +1104,11 @@ check_synchronous_standby_names(char **newval, void **extra, GucSource source)
 		*extra = (void *) pconf;
 
 		/*
-		 * We need not explicitly clean up syncrep_parse_result.  It, and any
-		 * other cruft generated during parsing, will be freed when the
-		 * current memory context is deleted.  (This code is generally run in
-		 * a short-lived context used for config file processing, so that will
-		 * not be very long.)
+		 * 我们无需显式清理 syncrep_parse_result。它以及         
+		 * 解析期间产生的其他无用内存将在当前内存   
+		 * 上下文被删除时被释放。（这段代码通常运行于   
+		 * 处理配置文件所用的短生命周期上下文中，因此它 
+		 * 存活不长。）
 		 */
 	}
 	else

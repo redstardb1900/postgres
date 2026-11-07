@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  * relation.c
- *	   PostgreSQL logical replication relation mapping cache
+ *	   PostgreSQL 逻辑复制关系映射缓存            
  *
  * Copyright (c) 2016-2023, PostgreSQL Global Development Group
  *
@@ -8,9 +8,9 @@
  *	  src/backend/replication/logical/relation.c
  *
  * NOTES
- *	  Routines in this file mainly have to do with mapping the properties
- *	  of local replication target relations to the properties of their
- *	  remote counterpart.
+ *	  本文件的例程主要处理                                     
+ *	  将本地复制目标关系的属性映射到其远端对应物 
+ *	  的属性。       
  *
  *-------------------------------------------------------------------------
  */
@@ -34,21 +34,21 @@ static MemoryContext LogicalRepRelMapContext = NULL;
 static HTAB *LogicalRepRelMap = NULL;
 
 /*
- * Partition map (LogicalRepPartMap)
+ * 分区映射(LogicalRepPartMap)  
  *
- * When a partitioned table is used as replication target, replicated
- * operations are actually performed on its leaf partitions, which requires
- * the partitions to also be mapped to the remote relation.  Parent's entry
- * (LogicalRepRelMapEntry) cannot be used as-is for all partitions, because
- * individual partitions may have different attribute numbers, which means
- * attribute mappings to remote relation's attributes must be maintained
- * separately for each partition.
+ * 当分区表作为复制目标时，被复制的操作实际是在
+ * 其叶子分区上执行的，这需要这些分区也要映射到远端
+ * 关系上。父条目（LogicalRepRelMapEntry）无法原样用于      
+ * 所有分区，因为各分区的属性编号可能不同，这意味着
+ * 与远端关系属性的属性映射必须                             
+ * 为每个分区单独                                                
+ * 维护。                     
  */
 static MemoryContext LogicalRepPartMapContext = NULL;
 static HTAB *LogicalRepPartMap = NULL;
 typedef struct LogicalRepPartMapEntry
 {
-	Oid			partoid;		/* LogicalRepPartMap's key */
+	Oid			partoid;		/* LogicalRepPartMap 的键*/
 	LogicalRepRelMapEntry relmapentry;
 } LogicalRepPartMapEntry;
 
@@ -56,14 +56,14 @@ static Oid	FindLogicalRepLocalIndex(Relation localrel, LogicalRepRelation *remot
 									 AttrMap *attrMap);
 
 /*
- * Relcache invalidation callback for our relation map cache.
+ * 我们的关系映射缓存的 relcache 失效回调。   
  */
 static void
 logicalrep_relmap_invalidate_cb(Datum arg, Oid reloid)
 {
 	LogicalRepRelMapEntry *entry;
 
-	/* Just to be sure. */
+	/* 以防万一。  */
 	if (LogicalRepRelMap == NULL)
 		return;
 
@@ -73,7 +73,7 @@ logicalrep_relmap_invalidate_cb(Datum arg, Oid reloid)
 
 		hash_seq_init(&status, LogicalRepRelMap);
 
-		/* TODO, use inverse lookup hashtable? */
+		/* TODO，用反向查找哈希表？  */
 		while ((entry = (LogicalRepRelMapEntry *) hash_seq_search(&status)) != NULL)
 		{
 			if (entry->localreloid == reloid)
@@ -86,7 +86,7 @@ logicalrep_relmap_invalidate_cb(Datum arg, Oid reloid)
 	}
 	else
 	{
-		/* invalidate all cache entries */
+		/* 使所有缓存条目失效  */
 		HASH_SEQ_STATUS status;
 
 		hash_seq_init(&status, LogicalRepRelMap);
@@ -97,7 +97,7 @@ logicalrep_relmap_invalidate_cb(Datum arg, Oid reloid)
 }
 
 /*
- * Initialize the relation map cache.
+ * 初始化关系映射缓存。    
  */
 static void
 logicalrep_relmap_init(void)
@@ -110,7 +110,7 @@ logicalrep_relmap_init(void)
 								  "LogicalRepRelMapContext",
 								  ALLOCSET_DEFAULT_SIZES);
 
-	/* Initialize the relation hash table. */
+	/* 初始化关系哈希表。         */
 	ctl.keysize = sizeof(LogicalRepRelId);
 	ctl.entrysize = sizeof(LogicalRepRelMapEntry);
 	ctl.hcxt = LogicalRepRelMapContext;
@@ -118,13 +118,13 @@ logicalrep_relmap_init(void)
 	LogicalRepRelMap = hash_create("logicalrep relation map cache", 128, &ctl,
 								   HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 
-	/* Watch for invalidation events. */
+	/* 留意失效事件。          */
 	CacheRegisterRelcacheCallback(logicalrep_relmap_invalidate_cb,
 								  (Datum) 0);
 }
 
 /*
- * Free the entry of a relation map cache.
+ * 释放关系映射缓存的条目。   
  */
 static void
 logicalrep_relmap_free_entry(LogicalRepRelMapEntry *entry)
@@ -153,10 +153,10 @@ logicalrep_relmap_free_entry(LogicalRepRelMapEntry *entry)
 }
 
 /*
- * Add new entry or update existing entry in the relation map cache.
+ * 在关系映射缓存中添加新条目或更新现有条目。  
  *
- * Called when new relation mapping is sent by the publisher to update
- * our expected view of incoming data from said publisher.
+ * 当发布者发送新的关系映射时调用，以更新我们对 
+ * 来自该发布者数据的预期视图。             
  */
 void
 logicalrep_relmap_update(LogicalRepRelation *remoterel)
@@ -170,7 +170,7 @@ logicalrep_relmap_update(LogicalRepRelation *remoterel)
 		logicalrep_relmap_init();
 
 	/*
-	 * HASH_ENTER returns the existing entry if present or creates a new one.
+	 * HASH_ENTER 若条目存在则返回它，否则新建条目。        
 	 */
 	entry = hash_search(LogicalRepRelMap, &remoterel->remoteid,
 						HASH_ENTER, &found);
@@ -180,7 +180,7 @@ logicalrep_relmap_update(LogicalRepRelation *remoterel)
 
 	memset(entry, 0, sizeof(LogicalRepRelMapEntry));
 
-	/* Make cached copy of the data */
+	/* 为数据建立缓存副本  */
 	oldctx = MemoryContextSwitchTo(LogicalRepRelMapContext);
 	entry->remoterel.remoteid = remoterel->remoteid;
 	entry->remoterel.nspname = pstrdup(remoterel->nspname);
@@ -199,9 +199,9 @@ logicalrep_relmap_update(LogicalRepRelation *remoterel)
 }
 
 /*
- * Find attribute index in TupleDesc struct by attribute name.
+ * 在 TupleDesc 结构中按属性名查找属性下标。   
  *
- * Returns -1 if not found.
+ * 未找到时返回 -1。
  */
 static int
 logicalrep_rel_att_by_name(LogicalRepRelation *remoterel, const char *attname)
@@ -218,7 +218,7 @@ logicalrep_rel_att_by_name(LogicalRepRelation *remoterel, const char *attname)
 }
 
 /*
- * Report error with names of the missing local relation column(s), if any.
+ * 如存在缺少的本地关系列，则以这些列名报错。         
  */
 static void
 logicalrep_report_missing_attrs(LogicalRepRelation *remoterel,
@@ -256,17 +256,17 @@ logicalrep_report_missing_attrs(LogicalRepRelation *remoterel,
 }
 
 /*
- * Check if replica identity matches and mark the updatable flag.
+ * 检查复制标识是否匹配，并标记 updatable 标志。
  *
- * We allow for stricter replica identity (fewer columns) on subscriber as
- * that will not stop us from finding unique tuple. IE, if publisher has
- * identity (id,timestamp) and subscriber just (id) this will not be a
- * problem, but in the opposite scenario it will.
+ * 订阅者的复制标识可以更严格（列更少），因为这不  
+ * 会妨碍我们找到唯一元组。即，若发布者的复制标识
+ * 为 (id,timestamp) 而订阅者只有 (id)，这不成问题，但 
+ * 反过来则会出问题。                   
  *
- * We just mark the relation entry as not updatable here if the local
- * replica identity is found to be insufficient for applying
- * updates/deletes (inserts don't care!) and leave it to
- * check_relation_updatable() to throw the actual error if needed.
+ * 若发现本地复制标识不足以应用更新/删除（插     
+ * 入不在乎！），只将关系条目标记为不可更
+ * 新，若需要则留给                             
+ * check_relation_updatable() 去抛出实际错误。            
  */
 static void
 logicalrep_rel_mark_updatable(LogicalRepRelMapEntry *entry)
@@ -279,15 +279,15 @@ logicalrep_rel_mark_updatable(LogicalRepRelMapEntry *entry)
 
 	idkey = RelationGetIndexAttrBitmap(entry->localrel,
 									   INDEX_ATTR_BITMAP_IDENTITY_KEY);
-	/* fallback to PK if no replica identity */
+	/* 无复制标识时回退到主键     */
 	if (idkey == NULL)
 	{
 		idkey = RelationGetIndexAttrBitmap(entry->localrel,
 										   INDEX_ATTR_BITMAP_PRIMARY_KEY);
 
 		/*
-		 * If no replica identity index and no PK, the published table must
-		 * have replica identity FULL.
+		 * 若无复制标识索引和主键，则发布表必须具有    
+		 * REPLICA IDENTITY FULL。   
 		 */
 		if (idkey == NULL && remoterel->replident != REPLICA_IDENTITY_FULL)
 			entry->updatable = false;
@@ -317,9 +317,9 @@ logicalrep_rel_mark_updatable(LogicalRepRelMapEntry *entry)
 }
 
 /*
- * Open the local relation associated with the remote one.
+ * 打开与远端关系相关联的本地关系。       
  *
- * Rebuilds the Relcache mapping if it was invalidated by local DDL.
+ * 若 Relcache 映射因本地 DDL 而失效，则将其重建。  
  */
 LogicalRepRelMapEntry *
 logicalrep_rel_open(LogicalRepRelId remoteid, LOCKMODE lockmode)
@@ -331,7 +331,7 @@ logicalrep_rel_open(LogicalRepRelId remoteid, LOCKMODE lockmode)
 	if (LogicalRepRelMap == NULL)
 		logicalrep_relmap_init();
 
-	/* Search for existing entry. */
+	/* 搜索现有条目。      */
 	entry = hash_search(LogicalRepRelMap, &remoteid,
 						HASH_FIND, &found);
 
@@ -341,35 +341,35 @@ logicalrep_rel_open(LogicalRepRelId remoteid, LOCKMODE lockmode)
 
 	remoterel = &entry->remoterel;
 
-	/* Ensure we don't leak a relcache refcount. */
+	/* 确保不泄漏 relcache 引用计数。  */
 	if (entry->localrel)
 		elog(ERROR, "remote relation ID %u is already open", remoteid);
 
 	/*
-	 * When opening and locking a relation, pending invalidation messages are
-	 * processed which can invalidate the relation.  Hence, if the entry is
-	 * currently considered valid, try to open the local relation by OID and
-	 * see if invalidation ensues.
+	 * 打开并锁定关系时，待处理失效消息会被处理，这    
+	 * 可能使关系失效。因此，如果条目被视为有效，     
+	 * 那就尝试通过 OID 打开本地关系，看看是否随之       
+	 * 发生失效。            
 	 */
 	if (entry->localrelvalid)
 	{
 		entry->localrel = try_table_open(entry->localreloid, lockmode);
 		if (!entry->localrel)
 		{
-			/* Table was renamed or dropped. */
+			/* 表被重命名或已删除。*/
 			entry->localrelvalid = false;
 		}
 		else if (!entry->localrelvalid)
 		{
-			/* Note we release the no-longer-useful lock here. */
+			/* 注意此处释放已不再有用的锁。      */
 			table_close(entry->localrel, lockmode);
 			entry->localrel = NULL;
 		}
 	}
 
 	/*
-	 * If the entry has been marked invalid since we last had lock on it,
-	 * re-open the local relation by name and rebuild all derived data.
+	 * 若条目自我们上次持锁之后已被标记为失效，      
+	 * 按名称重新打开本地关系并重建所有派生数据。 
 	 */
 	if (!entry->localrelvalid)
 	{
@@ -379,14 +379,14 @@ logicalrep_rel_open(LogicalRepRelId remoteid, LOCKMODE lockmode)
 		int			i;
 		Bitmapset  *missingatts;
 
-		/* Release the no-longer-useful attrmap, if any. */
+		/* 释放已不再有用的 attrmap（如有）  */
 		if (entry->attrmap)
 		{
 			free_attrmap(entry->attrmap);
 			entry->attrmap = NULL;
 		}
 
-		/* Try to find and lock the relation by name. */
+		/* 尝试按名称查找并锁定关系。    */
 		relid = RangeVarGetRelid(makeRangeVar(remoterel->nspname,
 											  remoterel->relname, -1),
 								 lockmode, true);
@@ -398,21 +398,21 @@ logicalrep_rel_open(LogicalRepRelId remoteid, LOCKMODE lockmode)
 		entry->localrel = table_open(relid, NoLock);
 		entry->localreloid = relid;
 
-		/* Check for supported relkind. */
+		/* 检查受支持的 relkind。*/
 		CheckSubscriptionRelkind(entry->localrel->rd_rel->relkind,
 								 remoterel->nspname, remoterel->relname);
 
 		/*
-		 * Build the mapping of local attribute numbers to remote attribute
-		 * numbers and validate that we don't miss any replicated columns as
-		 * that would result in potentially unwanted data loss.
+		 * 构建本地属性编号到远端属性                         
+		 * 编号的映射，并校验没有遗漏任何被复制的列，  
+		 * 否则可能导致不必要的数据丢失。       
 		 */
 		desc = RelationGetDescr(entry->localrel);
 		oldctx = MemoryContextSwitchTo(LogicalRepRelMapContext);
 		entry->attrmap = make_attrmap(desc->natts);
 		MemoryContextSwitchTo(oldctx);
 
-		/* check and report missing attrs, if any */
+		/* 检查并报告缺少属性，若有   */
 		missingatts = bms_add_range(NULL, 0, remoterel->natts - 1);
 		for (i = 0; i < desc->natts; i++)
 		{
@@ -435,20 +435,20 @@ logicalrep_rel_open(LogicalRepRelId remoteid, LOCKMODE lockmode)
 
 		logicalrep_report_missing_attrs(remoterel, missingatts);
 
-		/* be tidy */
+		/* 清理  */
 		bms_free(missingatts);
 
 		/*
-		 * Set if the table's replica identity is enough to apply
-		 * update/delete.
+		 * 设置表的复制标识是否足以应用            
+		 * 更新/删除 
 		 */
 		logicalrep_rel_mark_updatable(entry);
 
 		/*
-		 * Finding a usable index is an infrequent task. It occurs when an
-		 * operation is first performed on the relation, or after invalidation
-		 * of the relation cache entry (such as ANALYZE or CREATE/DROP index
-		 * on the relation).
+		 * 寻找可用索引并不常见。它在首次对关系执行   
+		 * 操作时，或在此关系的缓存条目失效                   
+		 * 之后进行，如 ANALYZE 或在关系上 CREATE/DROP 索引    
+		 * 时发生。     
 		 */
 		entry->localindexoid = FindLogicalRepLocalIndex(entry->localrel, remoterel,
 														entry->attrmap);
@@ -465,7 +465,7 @@ logicalrep_rel_open(LogicalRepRelId remoteid, LOCKMODE lockmode)
 }
 
 /*
- * Close the previously opened logical relation.
+ * 关闭先前打开的逻辑关系。         
  */
 void
 logicalrep_rel_close(LogicalRepRelMapEntry *rel, LOCKMODE lockmode)
@@ -475,23 +475,23 @@ logicalrep_rel_close(LogicalRepRelMapEntry *rel, LOCKMODE lockmode)
 }
 
 /*
- * Partition cache: look up partition LogicalRepRelMapEntry's
+ * 分区缓存：查找分区 LogicalRepRelMapEntry 条目  
  *
- * Unlike relation map cache, this is keyed by partition OID, not remote
- * relation OID, because we only have to use this cache in the case where
- * partitions are not directly mapped to any remote relation, such as when
- * replication is occurring with one of their ancestors as target.
+ * 与关系映射缓存不同，此缓存以分区 OID 而非远端    
+ * 关系 OID 为键，因为只有当分区未直接映射到任何远  
+ * 端关系时才需使用此缓存，如复制以其某个祖先作     
+ * 为目标时。                                                
  */
 
 /*
- * Relcache invalidation callback
+ * relcache 失效回调         
  */
 static void
 logicalrep_partmap_invalidate_cb(Datum arg, Oid reloid)
 {
 	LogicalRepPartMapEntry *entry;
 
-	/* Just to be sure. */
+	/* 以防万一。  */
 	if (LogicalRepPartMap == NULL)
 		return;
 
@@ -501,7 +501,7 @@ logicalrep_partmap_invalidate_cb(Datum arg, Oid reloid)
 
 		hash_seq_init(&status, LogicalRepPartMap);
 
-		/* TODO, use inverse lookup hashtable? */
+		/* TODO，用反向查找哈希表？  */
 		while ((entry = (LogicalRepPartMapEntry *) hash_seq_search(&status)) != NULL)
 		{
 			if (entry->relmapentry.localreloid == reloid)
@@ -514,7 +514,7 @@ logicalrep_partmap_invalidate_cb(Datum arg, Oid reloid)
 	}
 	else
 	{
-		/* invalidate all cache entries */
+		/* 使所有缓存条目失效  */
 		HASH_SEQ_STATUS status;
 
 		hash_seq_init(&status, LogicalRepPartMap);
@@ -525,14 +525,14 @@ logicalrep_partmap_invalidate_cb(Datum arg, Oid reloid)
 }
 
 /*
- * Reset the entries in the partition map that refer to remoterel.
+ * 重置分区映射中引用 remoterel 的条目。             
  *
- * Called when new relation mapping is sent by the publisher to update our
- * expected view of incoming data from said publisher.
+ * 当发布者发送新的关系映射时调用，以更新我们对来  
+ * 自该发布者的传入数据的预期视图。   
  *
- * Note that we don't update the remoterel information in the entry here,
- * we will update the information in logicalrep_partition_open to avoid
- * unnecessary work.
+ * 注意我们不会在此更新条目中的 remoterel 信息，        
+ * 而是会在 logicalrep_partition_open 中更新该信息，以免  
+ * 做无用功。  
  */
 void
 logicalrep_partmap_reset_relmap(LogicalRepRelation *remoterel)
@@ -559,7 +559,7 @@ logicalrep_partmap_reset_relmap(LogicalRepRelation *remoterel)
 }
 
 /*
- * Initialize the partition map cache.
+ * 初始化分区映射缓存。     
  */
 static void
 logicalrep_partmap_init(void)
@@ -572,15 +572,15 @@ logicalrep_partmap_init(void)
 								  "LogicalRepPartMapContext",
 								  ALLOCSET_DEFAULT_SIZES);
 
-	/* Initialize the relation hash table. */
-	ctl.keysize = sizeof(Oid);	/* partition OID */
+	/* 初始化关系哈希表。         */
+	ctl.keysize = sizeof(Oid);	/* 分区 OID    */
 	ctl.entrysize = sizeof(LogicalRepPartMapEntry);
 	ctl.hcxt = LogicalRepPartMapContext;
 
 	LogicalRepPartMap = hash_create("logicalrep partition map cache", 64, &ctl,
 									HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 
-	/* Watch for invalidation events. */
+	/* 留意失效事件。          */
 	CacheRegisterRelcacheCallback(logicalrep_partmap_invalidate_cb,
 								  (Datum) 0);
 }
@@ -588,13 +588,13 @@ logicalrep_partmap_init(void)
 /*
  * logicalrep_partition_open
  *
- * Returned entry reuses most of the values of the root table's entry, save
- * the attribute map, which can be different for the partition.  However,
- * we must physically copy all the data, in case the root table's entry
- * gets freed/rebuilt.
+ * 返回的条目复用根表条目的大部分值，但属性映射除   
+ * 外——它对分区可能不同。不过，我们必须实际复制 
+ * 所有数据，以防根表的条目被释放                       
+ * /重建。         
  *
- * Note there's no logicalrep_partition_close, because the caller closes the
- * component relation.
+ * 注意不存在 logicalrep_partition_close，因为组件关系由调用 
+ * 者关闭。       
  */
 LogicalRepRelMapEntry *
 logicalrep_partition_open(LogicalRepRelMapEntry *root,
@@ -611,7 +611,7 @@ logicalrep_partition_open(LogicalRepRelMapEntry *root,
 	if (LogicalRepPartMap == NULL)
 		logicalrep_partmap_init();
 
-	/* Search for existing entry. */
+	/* 搜索现有条目。      */
 	part_entry = (LogicalRepPartMapEntry *) hash_search(LogicalRepPartMap,
 														&partOid,
 														HASH_ENTER, &found);
@@ -619,13 +619,13 @@ logicalrep_partition_open(LogicalRepRelMapEntry *root,
 	entry = &part_entry->relmapentry;
 
 	/*
-	 * We must always overwrite entry->localrel with the latest partition
-	 * Relation pointer, because the Relation pointed to by the old value may
-	 * have been cleared after the caller would have closed the partition
-	 * relation after the last use of this entry.  Note that localrelvalid is
-	 * only updated by the relcache invalidation callback, so it may still be
-	 * true irrespective of whether the Relation pointed to by localrel has
-	 * been cleared or not.
+	 * 我们必须始终用最新的分区 Relation 指针覆盖        
+	 * entry->localrel，因为旧值所指向的 Relation 可能在调      
+	 * 用者上次使用此条目之后关闭分区关系时已被清   
+	 * 除。注意 localrelvalid 仅由 relcache 失效回调更新，      
+	 * 因此无论 localrel 所指向的 Relation 是否                    
+	 * 已被清除，该值仍可能                                      
+	 * 为真。           
 	 */
 	if (found && entry->localrelvalid)
 	{
@@ -633,7 +633,7 @@ logicalrep_partition_open(LogicalRepRelMapEntry *root,
 		return entry;
 	}
 
-	/* Switch to longer-lived context. */
+	/* 切换到长寿命上下文。  */
 	oldctx = MemoryContextSwitchTo(LogicalRepPartMapContext);
 
 	if (!found)
@@ -642,7 +642,7 @@ logicalrep_partition_open(LogicalRepRelMapEntry *root,
 		part_entry->partoid = partOid;
 	}
 
-	/* Release the no-longer-useful attrmap, if any. */
+	/* 释放已不再有用的 attrmap（如有）  */
 	if (entry->attrmap)
 	{
 		free_attrmap(entry->attrmap);
@@ -653,7 +653,7 @@ logicalrep_partition_open(LogicalRepRelMapEntry *root,
 	{
 		int			i;
 
-		/* Remote relation is copied as-is from the root entry. */
+		/* 远端关系自根条目原样复制而来。        */
 		entry = &part_entry->relmapentry;
 		entry->remoterel.remoteid = remoterel->remoteid;
 		entry->remoterel.nspname = pstrdup(remoterel->nspname);
@@ -674,15 +674,15 @@ logicalrep_partition_open(LogicalRepRelMapEntry *root,
 	entry->localreloid = partOid;
 
 	/*
-	 * If the partition's attributes don't match the root relation's, we'll
-	 * need to make a new attrmap which maps partition attribute numbers to
-	 * remoterel's, instead of the original which maps root relation's
-	 * attribute numbers to remoterel's.
+	 * 如果分区的属性与根关系的不匹配，就需要新建一  
+	 * 个 attrmap，把分区属性编号映射到 remoterel 属          
+	 * 性，而非原来那个把根关系属性编号映射到      
+	 * remoterel 的映射。           
 	 *
-	 * Note that 'map' which comes from the tuple routing data structure
-	 * contains 1-based attribute numbers (of the parent relation).  However,
-	 * the map in 'entry', a logical replication data structure, contains
-	 * 0-based attribute numbers (of the remote relation).
+	 * 注意来自元组路由数据结构的 'map'                    
+	 * 包含从 1 开始的属性编号（父关系的）。不过，       
+	 * 而 'entry'（逻辑复制数据结构）中的映射则包含    
+	 * 从 0 开始的属性编号（远端关系的）。
 	 */
 	if (map)
 	{
@@ -693,7 +693,7 @@ logicalrep_partition_open(LogicalRepRelMapEntry *root,
 		{
 			AttrNumber	root_attno = map->attnums[attno];
 
-			/* 0 means it's a dropped attribute.  See comments atop AttrMap. */
+			/* 0 表示该属性已删除。参见 AttrMap 顶部注释。   */
 			if (root_attno == 0)
 				entry->attrmap->attnums[attno] = -1;
 			else
@@ -702,26 +702,26 @@ logicalrep_partition_open(LogicalRepRelMapEntry *root,
 	}
 	else
 	{
-		/* Lacking copy_attmap, do this the hard way. */
+		/* 缺少 copy_attmap，只能用笨办法。 */
 		entry->attrmap = make_attrmap(attrmap->maplen);
 		memcpy(entry->attrmap->attnums, attrmap->attnums,
 			   attrmap->maplen * sizeof(AttrNumber));
 	}
 
-	/* Set if the table's replica identity is enough to apply update/delete. */
+	/* 设置表的复制标识是否足以应用更新/删除。            */
 	logicalrep_rel_mark_updatable(entry);
 
-	/* state and statelsn are left set to 0. */
+	/* state 和 statelsn 保持为 0。     */
 	MemoryContextSwitchTo(oldctx);
 
 	/*
-	 * Finding a usable index is an infrequent task. It occurs when an
-	 * operation is first performed on the relation, or after invalidation of
-	 * the relation cache entry (such as ANALYZE or CREATE/DROP index on the
-	 * relation).
+	 * 寻找可用索引并不常见。它在首次对关系执行   
+	 * 操作时，或在此关系的缓存条目失效之                   
+	 * 后进行，如 ANALYZE 或在该关系上 CREATE/DROP 索引        
+	 * 时。    
 	 *
-	 * We also prefer to run this code on the oldctx so that we do not leak
-	 * anything in the LogicalRepPartMapContext (hence CacheMemoryContext).
+	 * 我们还倾向于在 oldctx 上运行此代码，以免任何内容
+	 * 泄漏到 LogicalRepPartMapContext（故 CacheMemoryContext）。   
 	 */
 	entry->localindexoid = FindLogicalRepLocalIndex(partrel, remoterel,
 													entry->attrmap);
@@ -732,13 +732,13 @@ logicalrep_partition_open(LogicalRepRelMapEntry *root,
 }
 
 /*
- * Returns the oid of an index that can be used by the apply worker to scan
- * the relation.
+ * 返回应用工作进程可用于扫描关系的索引                  
+ * 的 oid。   
  *
- * We expect to call this function when REPLICA IDENTITY FULL is defined for
- * the remote relation.
+ * 我们期望在远端关系定义了 REPLICA IDENTITY FULL 时调用     
+ * 此函数。        
  *
- * If no suitable index is found, returns InvalidOid.
+ * 若找不到合适的索引，返回 InvalidOid。
  */
 static Oid
 FindUsableIndexForReplicaIdentityFull(Relation localrel, AttrMap *attrmap)
@@ -758,7 +758,7 @@ FindUsableIndexForReplicaIdentityFull(Relation localrel, AttrMap *attrmap)
 		isUsableIdx = IsIndexUsableForReplicaIdentityFull(idxInfo, attrmap);
 		index_close(idxRel, AccessShareLock);
 
-		/* Return the first eligible index found */
+		/* 返回找到的第一个合格索引  */
 		if (isUsableIdx)
 			return idxoid;
 	}
@@ -767,54 +767,54 @@ FindUsableIndexForReplicaIdentityFull(Relation localrel, AttrMap *attrmap)
 }
 
 /*
- * Returns true if the index is usable for replica identity full.
+ * 若索引可用于复制标识 FULL，则返回真。         
  *
- * The index must be btree, non-partial, and the leftmost field must be a
- * column (not an expression) that references the remote relation column.
- * These limitations help to keep the index scan similar to PK/RI index
- * scans.
+ * 该索引必须是 btree、非部分索引，且最左字段必须是 
+ * 引用远端关系列的列（而非表达式）。                   
+ * 这些限制有助于让索引扫描近似于 PK/RI 索引扫       
+ * 描。
  *
- * attrmap is a map of local attributes to remote ones. We can consult this
- * map to check whether the local index attribute has a corresponding remote
- * attribute.
+ * attrmap 是本地属性到远端属性的映射。我们可以查       
+ * 阅该映射，以检查本地索引属性是否有对应的远端       
+ * 属性。 
  *
- * Note that the limitations of index scans for replica identity full only
- * adheres to a subset of the limitations of PK/RI. For example, we support
- * columns that are marked as [NULL] or we are not interested in the [NOT
- * DEFERRABLE] aspect of constraints here. It works for us because we always
- * compare the tuples for non-PK/RI index scans. See
- * RelationFindReplTupleByIndex().
+ * 注意，复制标识 FULL 的索引扫描限制只是                 
+ * PK/RI 各项限制的一个子集。例如，我们支持标记为      
+ * [NULL] 的列，或者我们不关心此处约束的 [NOT             
+ * DEFERRABLE] 方面。这对我们可行，因为我们总是在          
+ * 对非 PK/RI 索引扫描比较元组。参见   
+ * RelationFindReplTupleByIndex() 
  *
- * XXX: There are no fundamental problems for supporting non-btree indexes.
- * We mostly need to relax the limitations in RelationFindReplTupleByIndex().
- * For partial indexes, the required changes are likely to be larger. If
- * none of the tuples satisfy the expression for the index scan, we fall-back
- * to sequential execution, which might not be a good idea in some cases.
+ * XXX：支持非 btree 索引不存在根本性的问题。              
+ * 我们主要需要放宽 RelationFindReplTupleByIndex() 中的限         
+ * 制。而对于部分索引，所需的改动可能更大。如果   
+ * 没有任何元组满足索引扫描的表达式，我们会回退        
+ * 到顺序执行，这在某些情况下可能不是个好主意。    
  */
 bool
 IsIndexUsableForReplicaIdentityFull(IndexInfo *indexInfo, AttrMap *attrmap)
 {
 	AttrNumber	keycol;
 
-	/* The index must be a Btree index */
+	/* 该索引必须是 Btree 索引 */
 	if (indexInfo->ii_Am != BTREE_AM_OID)
 		return false;
 
-	/* The index must not be a partial index */
+	/* 该索引必须是非部分索引     */
 	if (indexInfo->ii_Predicate != NIL)
 		return false;
 
 	Assert(indexInfo->ii_NumIndexAttrs >= 1);
 
-	/* The leftmost index field must not be an expression */
+	/* 最左侧索引字段必须为列（非表达式）*/
 	keycol = indexInfo->ii_IndexAttrNumbers[0];
 	if (!AttributeNumberIsValid(keycol))
 		return false;
 
 	/*
-	 * And the leftmost index field must reference the remote relation column.
-	 * This is because if it doesn't, the sequential scan is favorable over
-	 * index scan in most cases.
+	 * 此外，最左侧的索引字段必须引用远端关系的列。     
+	 * 这是因为如果不这样，顺序扫描在大多数情况下都  
+	 * 优于索引扫描。    
 	 */
 	if (attrmap->maplen <= AttrNumberGetAttrOffset(keycol) ||
 		attrmap->attnums[AttrNumberGetAttrOffset(keycol)] < 0)
@@ -824,9 +824,9 @@ IsIndexUsableForReplicaIdentityFull(IndexInfo *indexInfo, AttrMap *attrmap)
 }
 
 /*
- * Get replica identity index or if it is not defined a primary key.
+ * 获取复制标识索引；若未定义则获取主键。        
  *
- * If neither is defined, returns InvalidOid
+ * 若均未定义，则返回 InvalidOid   
  */
 Oid
 GetRelationIdentityOrPK(Relation rel)
@@ -842,8 +842,8 @@ GetRelationIdentityOrPK(Relation rel)
 }
 
 /*
- * Returns the index oid if we can use an index for subscriber. Otherwise,
- * returns InvalidOid.
+ * 若我们能为订阅者使用索引，则返回索引的 oid。否则 
+ * 为 InvalidOid。  
  */
 static Oid
 FindLogicalRepLocalIndex(Relation localrel, LogicalRepRelation *remoterel,
@@ -852,14 +852,14 @@ FindLogicalRepLocalIndex(Relation localrel, LogicalRepRelation *remoterel,
 	Oid			idxoid;
 
 	/*
-	 * We never need index oid for partitioned tables, always rely on leaf
-	 * partition's index.
+	 * 分区表永远不需要索引 oid，始终依赖叶子分区的   
+	 * 索引。         
 	 */
 	if (localrel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
 		return InvalidOid;
 
 	/*
-	 * Simple case, we already have a primary key or a replica identity index.
+	 * 简单情形：我们已经有了主键或复制标识索引。        
 	 */
 	idxoid = GetRelationIdentityOrPK(localrel);
 	if (OidIsValid(idxoid))
@@ -868,19 +868,19 @@ FindLogicalRepLocalIndex(Relation localrel, LogicalRepRelation *remoterel,
 	if (remoterel->replident == REPLICA_IDENTITY_FULL)
 	{
 		/*
-		 * We are looking for one more opportunity for using an index. If
-		 * there are any indexes defined on the local relation, try to pick a
-		 * suitable index.
+		 * 我们仍在寻找使用索引的又一机会。如果本地  
+		 * 关系上定义了任何索引，则尝试挑选一个合适的   
+		 * 索引。      
 		 *
-		 * The index selection safely assumes that all the columns are going
-		 * to be available for the index scan given that remote relation has
-		 * replica identity full.
+		 * 索引选择可以放心地假定，鉴于远端关系具有复  
+		 * 制标识 FULL，索引扫描所需的全部列都将            
+		 * 可用。             
 		 *
-		 * Note that we are not using the planner to find the cheapest method
-		 * to scan the relation as that would require us to either use lower
-		 * level planner functions which would be a maintenance burden in the
-		 * long run or use the full-fledged planner which could cause
-		 * overhead.
+		 * 注意，我们不使用规划器来寻找扫描关系的最廉价
+		 * 方法，因为那需要我们要么使用更低层的规划器  
+		 * 函数——长远来看那会成为维护负担——要么使用
+		 * 功能完备的规划器，那可能造成                
+		 * 开销。
 		 */
 		return FindUsableIndexForReplicaIdentityFull(localrel, attrMap);
 	}

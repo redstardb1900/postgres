@@ -1,0 +1,67 @@
+{
+ "schema_version": 1,
+ "batch_id": "0312-comment-replication-core",
+ "title": "Translate comments: replication-core",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "07d1482fbbcdf274bf8a737f9726adcfc731ff02",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0312-comment-replication-core.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/replication/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0312-comment-replication-core.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/replication/logical/relation.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 69,
+   "translated": 69,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "P2 translation campaign wave G2"
+  },
+  {
+   "path": "src/backend/replication/slotfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 68,
+   "translated": 67,
+   "preserved": 1,
+   "preserved_reasons": [
+    "blk28: bare /* fast_forward */ identifier label kept EN (pure-label exception; R5 family precedent)"
+   ],
+   "note": "P2 translation campaign wave G2"
+  },
+  {
+   "path": "src/backend/replication/syncrep.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 88,
+   "translated": 87,
+   "preserved": 1,
+   "preserved_reasons": [
+    "blk55: two-line block whose only prose sits on line0 and the closing edge (/* Use volatile pointer to prevent code rearrangement */); byte-exact model keeps both edges EN (两行边行结构类; postgres.c 283/436, pgarch blk2/3 precedents)"
+   ],
+   "note": "P2 translation campaign wave G2"
+  }
+ ],
+ "notes": "P2 translation campaign wave G2 (second replication batch: three core files). Translation agents (G2a: slotfuncs; G2b: relation; G2c: syncrep; G2b/G2c resumed once each after 32k output-cap deaths, with small-step discipline) -> coordinator pre-flight (keyscan full coverage, zero dup keys; edge-key scan caught and fixed syncrep blk55 j=0/j=1 silent no-op keys and relation blk11 off-by-one chain pre-apply; 5 real lint fixes as zero-byte spec edits: P02 banned 不能 x2 -> 无法 in the syncrep wait-loop, P17 缺失 x2 -> 缺少, P23 verb requires 这要求 -> 这需要) -> exec_apply (223 blocks, zero no-op) -> six gates green. Review r1: FAIL(minor), 1 LOW defect — syncrep blk3 L143/L144 cross-line duplicated 是否 (EN \"'commit' indicates whether this LSN / represents a commit record.\"); coordinator byte-verified (EN/WT/fix lines all 77B, new body 53B <= 74B budget; reviewer bookkeeping said 54B/pad-20 vs measured 53B/pad-21 — rendered line bytes identical), surgically fixed the G2c spec (blk3 j9 drops the trailing 是否) and delta re-applied exactly 1 block (G2a/G2b 0 blocks). Review r2: PASS — fix byte-verified (L143 77B = EN, body 74B incl. prefix <= 74B budget, 是否 now appears once, cross-line reading 表明该 LSN / 是否代表一条提交记录; worktree vs r1 sim byte-identical across all 1145 lines), six gates independently re-run green (607 files 0 violations; term 0 errors / 716 warnings identical to r1; render x3 hard-zero; audit 223 OK; spec_check OK; scope S2-only known lock noise), delta contained (3 .c + new manifest), r1 triage spots 4/4 confirmed. 223 translated / 2 preserved (slotfuncs blk28 bare /* fast_forward */ label; syncrep blk55 two-line edge-only block). Verdict: PASS."
+}

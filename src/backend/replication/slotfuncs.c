@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * slotfuncs.c
- *	   Support functions for replication slots
+ *	   复制槽的支持函数               
  *
  * Copyright (c) 2012-2023, PostgreSQL Global Development Group
  *
@@ -27,12 +27,12 @@
 #include "utils/resowner.h"
 
 /*
- * Helper function for creating a new physical replication slot with
- * given arguments. Note that this function doesn't release the created
- * slot.
+ * 用于以给定参数创建新物理复制槽的辅助函数。  
+ * 注意该函数不会释放所创建的槽。                       
+ *      
  *
- * If restart_lsn is a valid value, we use it without WAL reservation
- * routine. So the caller must guarantee that WAL is available.
+ * 如果 restart_lsn 是有效值，我们不经 WAL 保留例程   
+ * 就直接使用。调用者必须保证 WAL 可用。       
  */
 static void
 create_physical_replication_slot(char *name, bool immediately_reserve,
@@ -40,27 +40,27 @@ create_physical_replication_slot(char *name, bool immediately_reserve,
 {
 	Assert(!MyReplicationSlot);
 
-	/* acquire replication slot, this will check for conflicting names */
+	/* 获取复制槽，此操作会检查是否存在名称冲突    */
 	ReplicationSlotCreate(name, false,
 						  temporary ? RS_TEMPORARY : RS_PERSISTENT, false);
 
 	if (immediately_reserve)
 	{
-		/* Reserve WAL as the user asked for it */
+		/* 按用户的要求保留 WAL         */
 		if (XLogRecPtrIsInvalid(restart_lsn))
 			ReplicationSlotReserveWal();
 		else
 			MyReplicationSlot->data.restart_lsn = restart_lsn;
 
-		/* Write this slot to disk */
+		/* 把该槽写入磁盘   */
 		ReplicationSlotMarkDirty();
 		ReplicationSlotSave();
 	}
 }
 
 /*
- * SQL function for creating a new physical (streaming replication)
- * replication slot.
+ * 创建新的物理（流复制）复制槽的                   
+ * SQL 函数。    
  */
 Datum
 pg_create_physical_replication_slot(PG_FUNCTION_ARGS)
@@ -107,12 +107,12 @@ pg_create_physical_replication_slot(PG_FUNCTION_ARGS)
 
 
 /*
- * Helper function for creating a new logical replication slot with
- * given arguments. Note that this function doesn't release the created
- * slot.
+ * 用于以给定参数创建新逻辑复制槽的辅助函数。 
+ * 注意该函数不会释放所创建的槽。                       
+ *      
  *
- * When find_startpoint is false, the slot's confirmed_flush is not set; it's
- * caller's responsibility to ensure it's set to something sensible.
+ * 当 find_startpoint 为假时，不会设置槽的 confirmed_flush；     
+ * 确保它被设为合理的值是调用者的责任。           
  */
 static void
 create_logical_replication_slot(char *name, char *plugin,
@@ -125,25 +125,25 @@ create_logical_replication_slot(char *name, char *plugin,
 	Assert(!MyReplicationSlot);
 
 	/*
-	 * Acquire a logical decoding slot, this will check for conflicting names.
-	 * Initially create persistent slot as ephemeral - that allows us to
-	 * nicely handle errors during initialization because it'll get dropped if
-	 * this transaction fails. We'll make it persistent at the end. Temporary
-	 * slots can be created as temporary from beginning as they get dropped on
-	 * error as well.
+	 * 获取逻辑解码槽，这一操作会检查名称冲突。           
+	 * 初始将持久槽作为临时槽创建——这样我们能     
+	 * 漂亮地处理初始化期间的错误，因为事务失败时它会  
+	 * 被删除。最后我们会使其变为持久。临时槽则可以    
+	 * 从一开始就作为临时槽创建，因为它们出错时同样     
+	 * 会删除。  
 	 */
 	ReplicationSlotCreate(name, true,
 						  temporary ? RS_TEMPORARY : RS_EPHEMERAL, two_phase);
 
 	/*
-	 * Create logical decoding context to find start point or, if we don't
-	 * need it, to 1) bump slot's restart_lsn and xmin 2) check plugin sanity.
+	 * 创建逻辑解码上下文来寻找起点，或若我们不需要 
+	 * 它，1) 提升槽的 restart_lsn 与 xmin 2) 检查插件健全性。 
 	 *
-	 * Note: when !find_startpoint this is still important, because it's at
-	 * this point that the output plugin is validated.
+	 * 注意：当 !find_startpoint 时这仍然重要，因为正是在  
+	 * 此处，输出插件得到验证。           
 	 */
 	ctx = CreateInitDecodingContext(plugin, NIL,
-									false,	/* just catalogs is OK */
+									false,	/* 仅需目录即可  */
 									restart_lsn,
 									XL_ROUTINE(.page_read = read_local_xlog_page,
 											   .segment_open = wal_segment_open,
@@ -151,18 +151,18 @@ create_logical_replication_slot(char *name, char *plugin,
 									NULL, NULL, NULL);
 
 	/*
-	 * If caller needs us to determine the decoding start point, do so now.
-	 * This might take a while.
+	 * 如果调用者需要我们确定解码起点，现在就来做。  
+	 * 这可能耗时较久。
 	 */
 	if (find_startpoint)
 		DecodingContextFindStartpoint(ctx);
 
-	/* don't need the decoding context anymore */
+	/* 不再需要解码上下文             */
 	FreeDecodingContext(ctx);
 }
 
 /*
- * SQL function for creating a new logical replication slot.
+ * 创建新的逻辑复制槽的 SQL 函数。             
  */
 Datum
 pg_create_logical_replication_slot(PG_FUNCTION_ARGS)
@@ -199,7 +199,7 @@ pg_create_logical_replication_slot(PG_FUNCTION_ARGS)
 	tuple = heap_form_tuple(tupdesc, values, nulls);
 	result = HeapTupleGetDatum(tuple);
 
-	/* ok, slot is now fully created, mark it as persistent if needed */
+	/* 好，槽现已完全创建，必要时将其标记为持久槽*/
 	if (!temporary)
 		ReplicationSlotPersist();
 	ReplicationSlotRelease();
@@ -209,7 +209,7 @@ pg_create_logical_replication_slot(PG_FUNCTION_ARGS)
 
 
 /*
- * SQL function for dropping a replication slot.
+ * 用于删除复制槽的 SQL 函数。       
  */
 Datum
 pg_drop_replication_slot(PG_FUNCTION_ARGS)
@@ -226,8 +226,8 @@ pg_drop_replication_slot(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_get_replication_slots - SQL SRF showing all replication slots
- * that currently exist on the database cluster.
+ * pg_get_replication_slots —— 显示数据库集簇上当前  
+ * 存在的所有复制槽的 SQL SRF。       
  */
 Datum
 pg_get_replication_slots(PG_FUNCTION_ARGS)
@@ -238,9 +238,9 @@ pg_get_replication_slots(PG_FUNCTION_ARGS)
 	int			slotno;
 
 	/*
-	 * We don't require any special permission to see this function's data
-	 * because nothing should be sensitive. The most critical being the slot
-	 * name, which shouldn't contain anything particularly sensitive.
+	 * 查看该函数的数据不需要任何特殊权限，因为其中 
+	 * 不应有敏感信息。其中最关键的当属槽的名称，它   
+	 * 不应包含任何特别敏感的内容。                    
 	 */
 
 	InitMaterializedSRF(fcinfo, 0);
@@ -260,7 +260,7 @@ pg_get_replication_slots(PG_FUNCTION_ARGS)
 		if (!slot->in_use)
 			continue;
 
-		/* Copy slot contents while holding spinlock, then examine at leisure */
+		/* 持有自旋锁时复制槽内容，之后再从容检查          */
 		SpinLockAcquire(&slot->mutex);
 		slot_contents = *slot;
 		SpinLockRelease(&slot->mutex);
@@ -315,8 +315,8 @@ pg_get_replication_slots(PG_FUNCTION_ARGS)
 			nulls[i++] = true;
 
 		/*
-		 * If the slot has not been invalidated, test availability from
-		 * restart_lsn.
+		 * 若该槽未失效，则从 restart_lsn 测试可用性。  
+		 *             
 		 */
 		if (slot_contents.data.invalidated != RS_INVAL_NONE)
 			walstate = WALAVAIL_REMOVED;
@@ -344,14 +344,14 @@ pg_get_replication_slots(PG_FUNCTION_ARGS)
 			case WALAVAIL_REMOVED:
 
 				/*
-				 * If we read the restart_lsn long enough ago, maybe that file
-				 * has been removed by now.  However, the walsender could have
-				 * moved forward enough that it jumped to another file after
-				 * we looked.  If checkpointer signalled the process to
-				 * termination, then it's definitely lost; but if a process is
-				 * still alive, then "unreserved" seems more appropriate.
+				 * 若 restart_lsn 读取于很久前，该文件可能已    
+				 * 被删了。不过 WAL 发送进程可能前进很远，   
+				 * 以致在我们查看后跳到了另一文件。如果   
+				 * checkpointer 已发信号令其终止，那肯定   
+				 * 已丢失；但若进程仍存活，"unreserved"           
+				 * 似乎更贴切。                                    
 				 *
-				 * If we do change it, save the state for safe_wal_size below.
+				 * 若改动，则为下方的 safe_wal_size 保存状态。  
 				 */
 				if (!XLogRecPtrIsInvalid(slot_contents.data.restart_lsn))
 				{
@@ -373,8 +373,8 @@ pg_get_replication_slots(PG_FUNCTION_ARGS)
 		}
 
 		/*
-		 * safe_wal_size is only computed for slots that have not been lost,
-		 * and only if there's a configured maximum size.
+		 * safe_wal_size 只为尚未丢失的槽计算，并且仅当      
+		 * 存在配置的最大尺寸时才会计算。 
 		 */
 		if (walstate == WALAVAIL_REMOVED || max_slot_wal_keep_size_mb < 0)
 			nulls[i++] = true;
@@ -388,12 +388,12 @@ pg_get_replication_slots(PG_FUNCTION_ARGS)
 
 			XLByteToSeg(slot_contents.data.restart_lsn, targetSeg, wal_segment_size);
 
-			/* determine how many segments can be kept by slots */
+			/* 确定各槽合计能保留多少个段          */
 			slotKeepSegs = XLogMBVarToSegs(max_slot_wal_keep_size_mb, wal_segment_size);
-			/* ditto for wal_keep_size */
+			/* wal_keep_size 同理    */
 			keepSegs = XLogMBVarToSegs(wal_keep_size_mb, wal_segment_size);
 
-			/* if currpos reaches failLSN, we lose our segment */
+			/* 若 currpos 到达 failLSN 就会丢失该段   */
 			failSeg = targetSeg + Max(slotKeepSegs, keepSegs) + 1;
 			XLogSegNoOffsetToRecPtr(failSeg, 0, wal_segment_size, failLSN);
 
@@ -424,11 +424,11 @@ pg_get_replication_slots(PG_FUNCTION_ARGS)
 }
 
 /*
- * Helper function for advancing our physical replication slot forward.
+ * 将我们的物理复制槽向前推进的辅助函数。           
  *
- * The LSN position to move to is compared simply to the slot's restart_lsn,
- * knowing that any position older than that would be removed by successive
- * checkpoints.
+ * 要移到的 LSN 位置仅与槽的 restart_lsn 简单比较，          
+ * 因为我们知道任何比它更旧的位置都会被后续的检查点
+ * 所删除。
  */
 static XLogRecPtr
 pg_physical_replication_slot_advance(XLogRecPtr moveto)
@@ -446,9 +446,9 @@ pg_physical_replication_slot_advance(XLogRecPtr moveto)
 		retlsn = moveto;
 
 		/*
-		 * Dirty the slot so as it is written out at the next checkpoint. Note
-		 * that the LSN position advanced may still be lost in the event of a
-		 * crash, but this makes the data consistent after a clean shutdown.
+		 * 弄脏该槽使其在下次检查点时被写出。注意，       
+		 * 已推进的 LSN 位置在发生崩溃时仍可能丢失，       
+		 * 但这样能使数据在干净关闭后保持一致。           
 		 */
 		ReplicationSlotMarkDirty();
 	}
@@ -457,15 +457,15 @@ pg_physical_replication_slot_advance(XLogRecPtr moveto)
 }
 
 /*
- * Helper function for advancing our logical replication slot forward.
+ * 将我们的逻辑复制槽向前推进的辅助函数。          
  *
- * The slot's restart_lsn is used as start point for reading records, while
- * confirmed_flush is used as base point for the decoding context.
+ * 槽的 restart_lsn 被用作读取记录的起点，而                 
+ * confirmed_flush 则被用作解码上下文的基点。        
  *
- * We cannot just do LogicalConfirmReceivedLocation to update confirmed_flush,
- * because we need to digest WAL to advance restart_lsn allowing to recycle
- * WAL and removal of old catalog tuples.  As decoding is done in fast_forward
- * mode, no changes are generated anyway.
+ * 我们无法只用 LogicalConfirmReceivedLocation 更新 confirmed_flush，
+ * 因为我们需要消化 WAL 来推进 restart_lsn，从而允许回收 
+ * WAL 并移除旧的目录元组。由于解码以 fast_forward 模式      
+ * 进行，反正不会生成变更。  
  */
 static XLogRecPtr
 pg_logical_replication_slot_advance(XLogRecPtr moveto)
@@ -479,9 +479,9 @@ pg_logical_replication_slot_advance(XLogRecPtr moveto)
 	PG_TRY();
 	{
 		/*
-		 * Create our decoding context in fast_forward mode, passing start_lsn
-		 * as InvalidXLogRecPtr, so that we start processing from my slot's
-		 * confirmed_flush.
+		 * 以 fast_forward 模式创建解码上下文，传入 start_lsn    
+		 * 作为 InvalidXLogRecPtr，这样我们就从本槽的          
+		 * confirmed_flush 
 		 */
 		ctx = CreateDecodingContext(InvalidXLogRecPtr,
 									NIL,
@@ -492,23 +492,23 @@ pg_logical_replication_slot_advance(XLogRecPtr moveto)
 									NULL, NULL, NULL);
 
 		/*
-		 * Start reading at the slot's restart_lsn, which we know to point to
-		 * a valid record.
+		 * 从槽的 restart_lsn 处开始读取，已知它指向           
+		 * 有效记录。
 		 */
 		XLogBeginRead(ctx->reader, MyReplicationSlot->data.restart_lsn);
 
-		/* invalidate non-timetravel entries */
+		/* 使非时间旅行条目失效    */
 		InvalidateSystemCaches();
 
-		/* Decode at least one record, until we run out of records */
+		/* 至少解码一条记录，直到记录用尽为止     */
 		while (ctx->reader->EndRecPtr < moveto)
 		{
 			char	   *errm = NULL;
 			XLogRecord *record;
 
 			/*
-			 * Read records.  No changes are generated in fast_forward mode,
-			 * but snapbuilder/slot statuses are updated properly.
+			 * 读取记录。fast_forward 模式下不生成变更，      
+			 * 但 snapbuilder/槽状态仍会正确更新。     
 			 */
 			record = XLogReadRecord(ctx->reader, &errm);
 			if (errm)
@@ -516,14 +516,14 @@ pg_logical_replication_slot_advance(XLogRecPtr moveto)
 					 errm);
 
 			/*
-			 * Process the record.  Storage-level changes are ignored in
-			 * fast_forward mode, but other modules (such as snapbuilder)
-			 * might still have critical updates to do.
+			 * 处理该记录。存储层级的变更在               
+			 * fast_forward 模式下被忽略，但其他模块（如   
+			 * snapbuilder）可能有紧要更新。  
 			 */
 			if (record)
 				LogicalDecodingProcessRecord(ctx, ctx->reader);
 
-			/* Stop once the requested target has been reached */
+			/* 到达所请求的目标后即停止            */
 			if (moveto <= ctx->reader->EndRecPtr)
 				break;
 
@@ -531,9 +531,9 @@ pg_logical_replication_slot_advance(XLogRecPtr moveto)
 		}
 
 		/*
-		 * Logical decoding could have clobbered CurrentResourceOwner during
-		 * transaction management, so restore the executor's value.  (This is
-		 * a kluge, but it's not worth cleaning up right now.)
+		 * 逻辑解码可能在事务管理期间破坏了                 
+		 * CurrentResourceOwner，所以请恢复执行器的值。（这是 
+		 * 一种蹩脚做法，但现在不值得清理。）
 		 */
 		CurrentResourceOwner = old_resowner;
 
@@ -542,31 +542,31 @@ pg_logical_replication_slot_advance(XLogRecPtr moveto)
 			LogicalConfirmReceivedLocation(moveto);
 
 			/*
-			 * If only the confirmed_flush LSN has changed the slot won't get
-			 * marked as dirty by the above. Callers on the walsender
-			 * interface are expected to keep track of their own progress and
-			 * don't need it written out. But SQL-interface users cannot
-			 * specify their own start positions and it's harder for them to
-			 * keep track of their progress, so we should make more of an
-			 * effort to save it for them.
+			 * 若只有 confirmed_flush LSN 发生变化，上面的代码  
+			 * 不会将槽标脏。WAL 发送进程接口           
+			 * 上的调用者应当跟踪进度，无需写出。但 SQL    
+			 * 接口用户无法指定自己的起点，对他们来说
+			 * 跟踪自身进度更困难，因此我们应付出更多    
+			 * 努力为他们保存进度。                            
+			 *                            
 			 *
-			 * Dirty the slot so it is written out at the next checkpoint. The
-			 * LSN position advanced to may still be lost on a crash but this
-			 * makes the data consistent after a clean shutdown.
+			 * 弄脏该槽，使其在下次检查点时被写出。推进到
+			 * 的 LSN 位置崩溃时仍可能丢失，但这能让数据在
+			 * 干净关闭后保持一致。                   
 			 */
 			ReplicationSlotMarkDirty();
 		}
 
 		retlsn = MyReplicationSlot->data.confirmed_flush;
 
-		/* free context, call shutdown callback */
+		/* 释放上下文，调用关闭回调 */
 		FreeDecodingContext(ctx);
 
 		InvalidateSystemCaches();
 	}
 	PG_CATCH();
 	{
-		/* clear all timetravel entries */
+		/* 清空时间旅行条目     */
 		InvalidateSystemCaches();
 
 		PG_RE_THROW();
@@ -577,7 +577,7 @@ pg_logical_replication_slot_advance(XLogRecPtr moveto)
 }
 
 /*
- * SQL function for moving the position in a replication slot.
+ * 用于移动复制槽中位置的 SQL 函数。            
  */
 Datum
 pg_replication_slot_advance(PG_FUNCTION_ARGS)
@@ -600,23 +600,23 @@ pg_replication_slot_advance(PG_FUNCTION_ARGS)
 		ereport(ERROR,
 				(errmsg("invalid target WAL LSN")));
 
-	/* Build a tuple descriptor for our result type */
+	/* 为我们的结果类型构建元组描述符*/
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
 	/*
-	 * We can't move slot past what's been flushed/replayed so clamp the
-	 * target position accordingly.
+	 * 无法把槽移过已刷写/已重放的位置，因此需将    
+	 * 目标位置相应收紧。 
 	 */
 	if (!RecoveryInProgress())
 		moveto = Min(moveto, GetFlushRecPtr(NULL));
 	else
 		moveto = Min(moveto, GetXLogReplayRecPtr(NULL));
 
-	/* Acquire the slot so we "own" it */
+	/* 获取槽，使我们"拥有"它*/
 	ReplicationSlotAcquire(NameStr(*slotname), true);
 
-	/* A slot whose restart_lsn has never been reserved cannot be advanced */
+	/* restart_lsn 从未被保留过的槽无法被推进                 */
 	if (XLogRecPtrIsInvalid(MyReplicationSlot->data.restart_lsn))
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -625,10 +625,10 @@ pg_replication_slot_advance(PG_FUNCTION_ARGS)
 				 errdetail("This slot has never previously reserved WAL, or it has been invalidated.")));
 
 	/*
-	 * Check if the slot is not moving backwards.  Physical slots rely simply
-	 * on restart_lsn as a minimum point, while logical slots have confirmed
-	 * consumption up to confirmed_flush, meaning that in both cases data
-	 * older than that is not available anymore.
+	 * 检查该槽是否没有向后移动。物理槽简单地只依赖    
+	 * restart_lsn 作为最小点，而逻辑槽已确认消费到         
+	 * confirmed_flush，这意味着两种情况下比该位置更旧   
+	 * 的数据都已不再可用。           
 	 */
 	if (OidIsValid(MyReplicationSlot->data.database))
 		minlsn = MyReplicationSlot->data.confirmed_flush;
@@ -641,7 +641,7 @@ pg_replication_slot_advance(PG_FUNCTION_ARGS)
 				 errmsg("cannot advance replication slot to %X/%X, minimum is %X/%X",
 						LSN_FORMAT_ARGS(moveto), LSN_FORMAT_ARGS(minlsn))));
 
-	/* Do the actual slot update, depending on the slot type */
+	/* 根据槽类型执行实际的槽更新               */
 	if (OidIsValid(MyReplicationSlot->data.database))
 		endlsn = pg_logical_replication_slot_advance(moveto);
 	else
@@ -651,15 +651,15 @@ pg_replication_slot_advance(PG_FUNCTION_ARGS)
 	nulls[0] = false;
 
 	/*
-	 * Recompute the minimum LSN and xmin across all slots to adjust with the
-	 * advancing potentially done.
+	 * 重新计算所有槽中的最小 LSN 与 xmin，以针对可能已   
+	 * 发生的推进。         
 	 */
 	ReplicationSlotsComputeRequiredXmin(false);
 	ReplicationSlotsComputeRequiredLSN();
 
 	ReplicationSlotRelease();
 
-	/* Return the reached position. */
+	/* 返回已到达的位置。  */
 	values[1] = LSNGetDatum(endlsn);
 	nulls[1] = false;
 
@@ -670,7 +670,7 @@ pg_replication_slot_advance(PG_FUNCTION_ARGS)
 }
 
 /*
- * Helper function of copying a replication slot.
+ * 对复制槽执行复制的辅助函数。    
  */
 static Datum
 copy_replication_slot(FunctionCallInfo fcinfo, bool logical_slot)
@@ -703,15 +703,15 @@ copy_replication_slot(FunctionCallInfo fcinfo, bool logical_slot)
 	LWLockAcquire(ReplicationSlotControlLock, LW_SHARED);
 
 	/*
-	 * We need to prevent the source slot's reserved WAL from being removed,
-	 * but we don't want to lock that slot for very long, and it can advance
-	 * in the meantime.  So obtain the source slot's data, and create a new
-	 * slot using its restart_lsn.  Afterwards we lock the source slot again
-	 * and verify that the data we copied (name, type) has not changed
-	 * incompatibly.  No inconvenient WAL removal can occur once the new slot
-	 * is created -- but since WAL removal could have occurred before we
-	 * managed to create the new slot, we advance the new slot's restart_lsn
-	 * to the source slot's updated restart_lsn the second time we lock it.
+	 * 我们需要防止源槽已保留的 WAL 被移除，                
+	 * 但我们又不想把那个槽锁定太久，而且在此期间它   
+	 * 可能会前进。因此先取得源槽的数据，并用其        
+	 * restart_lsn 创建一个新槽。随后我们再次锁定源槽，   
+	 * 并验证我们复制的数据（名称、类型）没有发生
+	 * 不兼容的变化。一旦新槽被创建，就不会再发生       
+	 * 讨厌的 WAL 移除——但在我们设法创建新槽之前，
+	 * WAL 移除可能已经发生，所以我们在第二次锁定它     
+	 * 时将新槽 restart_lsn 前进到源槽更新后的 restart_lsn。 
 	 */
 	for (int i = 0; i < max_replication_slots; i++)
 	{
@@ -719,7 +719,7 @@ copy_replication_slot(FunctionCallInfo fcinfo, bool logical_slot)
 
 		if (s->in_use && strcmp(NameStr(s->data.name), NameStr(*src_name)) == 0)
 		{
-			/* Copy the slot contents while holding spinlock */
+			/* 在持有自旋锁时复制槽内容          */
 			SpinLockAcquire(&s->mutex);
 			first_slot_contents = *s;
 			SpinLockRelease(&s->mutex);
@@ -740,7 +740,7 @@ copy_replication_slot(FunctionCallInfo fcinfo, bool logical_slot)
 	temporary = (first_slot_contents.data.persistency == RS_TEMPORARY);
 	plugin = logical_slot ? NameStr(first_slot_contents.data.plugin) : NULL;
 
-	/* Check type of replication slot */
+	/* 检查复制槽的类型       */
 	if (src_islogical != logical_slot)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -750,20 +750,20 @@ copy_replication_slot(FunctionCallInfo fcinfo, bool logical_slot)
 				 errmsg("cannot copy logical replication slot \"%s\" as a physical replication slot",
 						NameStr(*src_name))));
 
-	/* Copying non-reserved slot doesn't make sense */
+	/* 复制非保留槽并无意义               */
 	if (XLogRecPtrIsInvalid(src_restart_lsn))
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("cannot copy a replication slot that doesn't reserve WAL")));
 
-	/* Cannot copy an invalidated replication slot */
+	/* 无法复制已失效的复制槽           */
 	if (first_slot_contents.data.invalidated != RS_INVAL_NONE)
 		ereport(ERROR,
 				errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				errmsg("cannot copy invalidated replication slot \"%s\"",
 					   NameStr(*src_name)));
 
-	/* Overwrite params from optional arguments */
+	/* 用可选参数覆盖这些参数        */
 	if (PG_NARGS() >= 3)
 		temporary = PG_GETARG_BOOL(2);
 	if (PG_NARGS() >= 4)
@@ -772,13 +772,13 @@ copy_replication_slot(FunctionCallInfo fcinfo, bool logical_slot)
 		plugin = NameStr(*(PG_GETARG_NAME(3)));
 	}
 
-	/* Create new slot and acquire it */
+	/* 创建新槽并获取它       */
 	if (logical_slot)
 	{
 		/*
-		 * We must not try to read WAL, since we haven't reserved it yet --
-		 * hence pass find_startpoint false.  confirmed_flush will be set
-		 * below, by copying from the source slot.
+		 * 我们无法尝试读取 WAL，因为尚未保留它 ——     
+		 * 因此给 find_startpoint 传入假值。confirmed_flush 将  
+		 * 在下方通过复制源槽设置。   
 		 */
 		create_logical_replication_slot(NameStr(*dst_name),
 										plugin,
@@ -794,8 +794,8 @@ copy_replication_slot(FunctionCallInfo fcinfo, bool logical_slot)
 										 src_restart_lsn);
 
 	/*
-	 * Update the destination slot to current values of the source slot;
-	 * recheck that the source slot is still the one we saw previously.
+	 * 将目标槽更新为源槽的当前值；                       
+	 * 再次检查源槽是否仍是我们先前看到的那个。    
 	 */
 	{
 		TransactionId copy_effective_xmin;
@@ -807,7 +807,7 @@ copy_replication_slot(FunctionCallInfo fcinfo, bool logical_slot)
 		bool		copy_islogical;
 		char	   *copy_name;
 
-		/* Copy data of source slot again */
+		/* 再次复制源槽的数据    */
 		SpinLockAcquire(&src->mutex);
 		second_slot_contents = *src;
 		SpinLockRelease(&src->mutex);
@@ -820,19 +820,19 @@ copy_replication_slot(FunctionCallInfo fcinfo, bool logical_slot)
 		copy_restart_lsn = second_slot_contents.data.restart_lsn;
 		copy_confirmed_flush = second_slot_contents.data.confirmed_flush;
 
-		/* for existence check */
+		/* 供存在性检查  */
 		copy_name = NameStr(second_slot_contents.data.name);
 		copy_islogical = SlotIsLogical(&second_slot_contents);
 
 		/*
-		 * Check if the source slot still exists and is valid. We regard it as
-		 * invalid if the type of replication slot or name has been changed,
-		 * or the restart_lsn either is invalid or has gone backward. (The
-		 * restart_lsn could go backwards if the source slot is dropped and
-		 * copied from an older slot during installation.)
+		 * 检查源槽是否仍存在且有效。若发生以下情况，    
+		 * 则视为无效：复制槽类型或名称已被改变，        
+		 * 或者 restart_lsn 无效或已倒退。（                    
+		 * 若源槽被删除并在安装期间从更旧的槽复制，    
+		 * 则 restart_lsn 就可能倒退。）          
 		 *
-		 * Since erroring out will release and drop the destination slot we
-		 * don't need to release it here.
+		 * 由于报错退出时会释放并删除目标槽，我们无需 
+		 * 在此处释放它。         
 		 */
 		if (copy_restart_lsn < src_restart_lsn ||
 			src_islogical != copy_islogical ||
@@ -842,7 +842,7 @@ copy_replication_slot(FunctionCallInfo fcinfo, bool logical_slot)
 							NameStr(*src_name)),
 					 errdetail("The source replication slot was modified incompatibly during the copy operation.")));
 
-		/* The source slot must have a consistent snapshot */
+		/* 源槽必须具有一致的快照               */
 		if (src_islogical && XLogRecPtrIsInvalid(copy_confirmed_flush))
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -851,12 +851,12 @@ copy_replication_slot(FunctionCallInfo fcinfo, bool logical_slot)
 					 errhint("Retry when the source replication slot's confirmed_flush_lsn is valid.")));
 
 		/*
-		 * Copying an invalid slot doesn't make sense. Note that the source
-		 * slot can become invalid after we creat the new slot and copy the
-		 * data of source slot. This is possible because the operations in
-		 * InvalidateObsoleteReplicationSlots() are not serialized with this
-		 * function. Even though we can't detect such a case here, the copied
-		 * slot will become invalid in the next checkpoint cycle.
+		 * 复制无效的槽并无意义。请注意，源槽有可能在 
+		 * 我们创建新槽并复制源槽数据之后变得无效。    
+		 * 这是因为 InvalidateObsoleteReplicationSlots()              
+		 * 中的操作未与本函数串行化。尽管我们无法在     
+		 * 此处检测到这种情况，被复制的槽也会在下一个   
+		 * 检查点周期中变为无效。                     
 		 */
 		if (second_slot_contents.data.invalidated != RS_INVAL_NONE)
 			ereport(ERROR,
@@ -864,7 +864,7 @@ copy_replication_slot(FunctionCallInfo fcinfo, bool logical_slot)
 						   NameStr(*src_name)),
 					errdetail("The source replication slot was invalidated during the copy operation."));
 
-		/* Install copied values again */
+		/* 再次装回所复制的值 */
 		SpinLockAcquire(&MyReplicationSlot->mutex);
 		MyReplicationSlot->effective_xmin = copy_effective_xmin;
 		MyReplicationSlot->effective_catalog_xmin = copy_effective_catalog_xmin;
@@ -881,7 +881,7 @@ copy_replication_slot(FunctionCallInfo fcinfo, bool logical_slot)
 		ReplicationSlotSave();
 
 #ifdef USE_ASSERT_CHECKING
-		/* Check that the restart_lsn is available */
+		/* 检查 restart_lsn 是否可用         */
 		{
 			XLogSegNo	segno;
 
@@ -891,11 +891,11 @@ copy_replication_slot(FunctionCallInfo fcinfo, bool logical_slot)
 #endif
 	}
 
-	/* target slot fully created, mark as persistent if needed */
+	/* 目标槽已完全创建，必要时标记为持久槽  */
 	if (logical_slot && !temporary)
 		ReplicationSlotPersist();
 
-	/* All done.  Set up the return values */
+	/* 全部完成。设置返回值。   */
 	values[0] = NameGetDatum(dst_name);
 	nulls[0] = false;
 	if (!XLogRecPtrIsInvalid(MyReplicationSlot->data.confirmed_flush))
@@ -914,7 +914,7 @@ copy_replication_slot(FunctionCallInfo fcinfo, bool logical_slot)
 	PG_RETURN_DATUM(result);
 }
 
-/* The wrappers below are all to appease opr_sanity */
+/* 下面的包装都是为了安抚 opr_sanity     */
 Datum
 pg_copy_logical_replication_slot_a(PG_FUNCTION_ARGS)
 {

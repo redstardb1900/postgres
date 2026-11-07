@@ -1,0 +1,63 @@
+{
+ "schema_version": 1,
+ "batch_id": "0299-comment-parser-parse_coerce",
+ "title": "Translate comments: parser-parse_coerce",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "1fcfbd62bab5d02a5787455d3299c7b20e789ac0",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0299-comment-parser-parse_coerce.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/parser/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  },
+  {
+   "pattern": "src/tools/zh-tools/zhtools/c_verify.py",
+   "kind": "tool",
+   "note": "tool change riding with this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0299-comment-parser-parse_coerce.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/c_verify.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "tool change riding with this batch"
+  },
+  {
+   "path": "src/backend/parser/parse_coerce.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 290,
+   "translated": 281,
+   "preserved": 9,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION lines kept EN within the translated file-header block",
+    "gettext translator hints, R5-protected (6 blocks: five \"translator: %s is name of a SQL construct\" one-liners and one banner-form)",
+    "Assert() argument code comments kept EN (2 blocks)",
+    "identifier label /* isnull */ (1 block)"
+   ],
+   "note": "P2 translation campaign wave F16/F17/F18"
+  }
+ ],
+ "notes": "Translation agents (F16/F17/F18) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message. 9 preserved = 6 gettext translator-hint labels (R5) + 2 Assert argument code comments + 1 /* isnull */ identifier label. Tool change riding with batch: c_verify.py gains a prose fallthrough exemption (parse_coerce \"we just fall through; below\", same pattern as the 13 existing site-specific exemptions) and a licence-verb skip (\"license us to\" in prose is not a legal line)."
+}

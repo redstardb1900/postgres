@@ -59,6 +59,11 @@ _LEGAL_LINE_RE = re.compile(
     re.I | re.M,
 )
 
+# "license" used as a verb ("That doesn't license us to use X") is ordinary
+# prose, not a licence term.  Genuine licence lines never read "license us
+# to", so such lines are excluded from the protected segments.
+_LICENSE_VERB_PROSE = re.compile(rb"licen[cs]e us to\b")
+
 _IDENT_RE = re.compile(rb"[A-Za-z_][A-Za-z0-9_]*")
 _HAS_LETTERS = re.compile(rb"[A-Za-z]{3,}")
 
@@ -191,6 +196,12 @@ _PARSECLAUSE_SQL99_FALLTHROUGH_PROSE = re.compile(
 _PARSECLAUSE_GROUPBY_FALLTHROUGH_PROSE = re.compile(
     rb"fall through to use SQL99 rules")
 
+# parse_coerce.c can_coerce_type prose: "we just fall through; below, we'll
+# call the pseudotype's input function" describes ordinary control flow for
+# UNKNOWN constants inside an if-block (no switch anywhere in the function).
+# Not a GCC -Wimplicit-fallthrough annotation.
+_PARSECOERCE_FALLTHROUGH_PROSE = re.compile(rb"we just fall through; below")
+
 
 def legal_protected_segments(old_text):
     """Return Copyright/IDENTIFICATION/licence line blobs that must survive.
@@ -207,7 +218,7 @@ def legal_protected_segments(old_text):
     n = len(lines)
     while i < n:
         line = lines[i]
-        if not _LEGAL_LINE_RE.search(line):
+        if not _LEGAL_LINE_RE.search(line) or _LICENSE_VERB_PROSE.search(line):
             i += 1
             continue
         chunk = [line]
@@ -266,7 +277,8 @@ def protected_reason(old_text):
                     or _TABLESPACE_FALLTHROUGH_PROSE.search(old_text)
                     or _LIMIT_FALLTHROUGH_PROSE.search(old_text)
                     or _PARSECLAUSE_SQL99_FALLTHROUGH_PROSE.search(old_text)
-                    or _PARSECLAUSE_GROUPBY_FALLTHROUGH_PROSE.search(old_text)):
+                    or _PARSECLAUSE_GROUPBY_FALLTHROUGH_PROSE.search(old_text)
+                    or _PARSECOERCE_FALLTHROUGH_PROSE.search(old_text)):
                 continue
             return name
     return None

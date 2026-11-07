@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "batch_id": "0303-comment-parser-parse_target",
+  "title": "Translate comments: parser-parse_target",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "700d103bc28ceedf2833c37462a0dfa561c3f834",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0303-comment-parser-parse_target.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/parser/**",
+      "kind": "c_comment",
+      "note": "P2 comment translation campaign"
+    },
+    {
+      "pattern": "src/tools/zh-tools/zhtools/c_verify.py",
+      "kind": "tool",
+      "note": "tool change riding with this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0303-comment-parser-parse_target.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": []
+    },
+    {
+      "path": "src/tools/zh-tools/zhtools/c_verify.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "tool change riding with this batch"
+    },
+    {
+      "path": "src/backend/parser/parse_target.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 142,
+      "translated": 142,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "P2 translation campaign wave F27/F28"
+    }
+  ],
+  "notes": "Whole-file batch: 142 blocks, all translated, 0 preserved. Tool change riding with this batch: c_verify.py gains _PARSETARGET_FALLTHROUGH_PROSE (2-site regex 'fall through to inspect the expression|Fall through and fail'; EN sites L1586/1622/1633/1682 are ordinary control-flow prose, ruleutils.c carries 4 same-prose twins). P53 fix at blk21 li7 (owner rendered 拥有者 -> decided 所有者, zero-byte) found by line-level adjudication of the 7 P39 warnings (all others verified noise: field/subfield->字段/子字段 legal, column->列/表列 legal). 4 W7 identifier echoes disclosed: L99 ColumnName, L1282 JOINs, L1320 zero_column, L1451 FieldSelects. Review round 1: PASS (0 HIGH/MED, 5 LOW, 8 NOTE); post-PASS coordinator adjudication applied 9 line fixes via specs (Z01 blk27 列名 qualifier restored with budget-forced 在-drop; Z02 blk103/104 子选择->子查询 x5 zero-byte; Z04 blk81 零列表->零列的表; Z05 blk129 类操作符节点->形似操作符的节点; N06 blk88 不会->无法 P02), delta exactly 9 lines, six gates re-green; Z03 变换/转换 unification (14 lines file-wide) deferred to consistency batch; N01-N05/N07/N08 filed without action."
+}

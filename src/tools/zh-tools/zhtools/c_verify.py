@@ -209,6 +209,14 @@ _PARSECOERCE_FALLTHROUGH_PROSE = re.compile(rb"we just fall through; below")
 _PARSEEXPR_FALLTHROUGH_PROSE = re.compile(
     rb'fall through to the "unrecognized" return')
 
+# parse_target.c transformExprRecurse/FigureColnameInternal prose: "Fall
+# through and fail" and "else fall through to inspect the expression"
+# describe ordinary control flow in if/else chains (branches return or
+# share the failure path below; no switch case-to-case drop).  Not a GCC
+# -Wimplicit-fallthrough annotation.
+_PARSETARGET_FALLTHROUGH_PROSE = re.compile(
+    rb"fall through to inspect the expression|Fall through and fail")
+
 
 def legal_protected_segments(old_text):
     """Return Copyright/IDENTIFICATION/licence line blobs that must survive.
@@ -286,7 +294,8 @@ def protected_reason(old_text):
                     or _PARSECLAUSE_SQL99_FALLTHROUGH_PROSE.search(old_text)
                     or _PARSECLAUSE_GROUPBY_FALLTHROUGH_PROSE.search(old_text)
                     or _PARSECOERCE_FALLTHROUGH_PROSE.search(old_text)
-                    or _PARSEEXPR_FALLTHROUGH_PROSE.search(old_text)):
+                    or _PARSEEXPR_FALLTHROUGH_PROSE.search(old_text)
+                    or _PARSETARGET_FALLTHROUGH_PROSE.search(old_text)):
                 continue
             return name
     return None

@@ -232,6 +232,18 @@ _PARSECTE_FALLTHROUGH_PROSE = re.compile(
 _SNAPBUILD_FALLTHROUGH_PROSE = re.compile(
     rb"fall through to the normal processing")
 
+# reorderbuffer.c control-flow prose (not switch annotations): the
+# "otherwise fall through to create it" comment describes an if-branch
+# continuing into cache-entry creation (no switch), and the three "fall
+# through these, they're all similar enough" comments describe case-label
+# groups that share one body ending in break -- case stacking, not a
+# statement-level fallthrough past a case boundary.  GCC
+# -Wimplicit-fallthrough only consults exact "fall through" spellings and
+# does not match either form.  Unique to reorderbuffer.c in REL_16_11.
+_REORDERBUFFER_FALLTHROUGH_PROSE = re.compile(
+    rb"otherwise fall through to create it|"
+    rb"fall through these, they're all similar enough")
+
 
 def legal_protected_segments(old_text):
     """Return Copyright/IDENTIFICATION/licence line blobs that must survive.
@@ -312,7 +324,8 @@ def protected_reason(old_text):
                     or _PARSEEXPR_FALLTHROUGH_PROSE.search(old_text)
                     or _PARSETARGET_FALLTHROUGH_PROSE.search(old_text)
                     or _PARSECTE_FALLTHROUGH_PROSE.search(old_text)
-                    or _SNAPBUILD_FALLTHROUGH_PROSE.search(old_text)):
+                    or _SNAPBUILD_FALLTHROUGH_PROSE.search(old_text)
+                    or _REORDERBUFFER_FALLTHROUGH_PROSE.search(old_text)):
                 continue
             return name
     return None

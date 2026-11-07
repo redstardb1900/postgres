@@ -2,42 +2,42 @@
  *
  * walreceiver.c
  *
- * The WAL receiver process (walreceiver) is new as of Postgres 9.0. It
- * is the process in the standby server that takes charge of receiving
- * XLOG records from a primary server during streaming replication.
+ * WAL 接收进程（walreceiver）自 Postgres 9.0 起               
+ * 才出现。它是备库中负责在流复制期间从主库       
+ * 接收 XLOG 记录的进程。                                  
  *
- * When the startup process determines that it's time to start streaming,
- * it instructs postmaster to start walreceiver. Walreceiver first connects
- * to the primary server (it will be served by a walsender process
- * in the primary server), and then keeps receiving XLOG records and
- * writing them to the disk as long as the connection is alive. As XLOG
- * records are received and flushed to disk, it updates the
- * WalRcv->flushedUpto variable in shared memory, to inform the startup
- * process of how far it can proceed with XLOG replay.
+ * 当启动进程判定该开始流复制时，它会指示             
+ * postmaster 启动 walreceiver。walreceiver 首先连接到             
+ * 主库（将由主库中的一个 walsender 进程为其       
+ * 服务），然后只要连接存活，就持续接收 XLOG      
+ * 记录并将其写入磁盘。随着 XLOG 记录被接收           
+ * 并刷写到磁盘，它会更新共享内存中的     
+ * WalRcv->flushedUpto 变量，以告知启动进程                  
+ * XLOG 重放可以进行到多远。                
  *
- * A WAL receiver cannot directly load GUC parameters used when establishing
- * its connection to the primary. Instead it relies on parameter values
- * that are passed down by the startup process when streaming is requested.
- * This applies, for example, to the replication slot and the connection
- * string to be used for the connection with the primary.
+ * WAL 接收进程无法直接加载在建立与主库的连接            
+ * 时所用的 GUC 参数。它转而依赖于在请求流复制      
+ * 时由启动进程传递下来的参数值。例如，用于与         
+ * 主库建立连接的复制槽和连接串就适用                  
+ * 此规则。                                          
  *
- * If the primary server ends streaming, but doesn't disconnect, walreceiver
- * goes into "waiting" mode, and waits for the startup process to give new
- * instructions. The startup process will treat that the same as
- * disconnection, and will rescan the archive/pg_wal directory. But when the
- * startup process wants to try streaming replication again, it will just
- * nudge the existing walreceiver process that's waiting, instead of launching
- * a new one.
+ * 如果主库结束流式发送但不断开连接，walreceiver           
+ * 会进入"等待"模式，等待启动进程给出新的指令。      
+ * 启动进程会把这种情况等同于断开连接来       
+ * 处理，并重新扫描 archive/pg_wal 目录。但当                  
+ * 启动进程想再次尝试流复制时，它只会轻推一下       
+ * 正在等待的既有 walreceiver 进程，而不是启动一个           
+ * 新的。 
  *
- * Normal termination is by SIGTERM, which instructs the walreceiver to
- * exit(0). Emergency termination is by SIGQUIT; like any postmaster child
- * process, the walreceiver will simply abort and exit on SIGQUIT. A close
- * of the connection and a FATAL error are treated not as a crash but as
- * normal operation.
+ * 正常终止由 SIGTERM 完成，它会指示 walreceiver           
+ * 调用 exit(0)。紧急终止由 SIGQUIT 完成；与任何            
+ * postmaster 子进程一样，walreceiver 在收到 SIGQUIT 时         
+ * 会中止退出。连接关闭和 FATAL 错误视为正常操作，  
+ * 而非崩溃。  
  *
- * This file contains the server-facing parts of walreceiver. The libpq-
- * specific parts are in the libpqwalreceiver module. It's loaded
- * dynamically to avoid linking the server with libpq.
+ * 本文件包含 walreceiver 中面向服务器的部分。libpq      
+ * 相关部分在 libpqwalreceiver 模块中。它被动态     
+ * 加载，以避免服务器与 libpq 链接。     
  *
  * Portions Copyright (c) 2010-2023, PostgreSQL Global Development Group
  *
@@ -83,39 +83,39 @@
 
 
 /*
- * GUC variables.  (Other variables that affect walreceiver are in xlog.c
- * because they're passed down from the startup process, for better
- * synchronization.)
+ * GUC 变量。（其他影响 walreceiver 的变量位于 xlog.c       
+ * 中，因为它们由启动进程传递下来，以求更好    
+ * 的同步。）  
  */
 int			wal_receiver_status_interval;
 int			wal_receiver_timeout;
 bool		hot_standby_feedback;
 
-/* libpqwalreceiver connection */
+/* libpqwalreceiver 连接     */
 static WalReceiverConn *wrconn = NULL;
 WalReceiverFunctionsType *WalReceiverFunctions = NULL;
 
 /*
- * These variables are used similarly to openLogFile/SegNo,
- * but for walreceiver to write the XLOG. recvFileTLI is the TimeLineID
- * corresponding the filename of recvFile.
+ * 这些变量用法与 openLogFile/SegNo 类似，但    
+ * 用于 walreceiver 写入 XLOG。recvFileTLI 是与 recvFile        
+ * 文件名对应的时间线 ID。      
  */
 static int	recvFile = -1;
 static TimeLineID recvFileTLI = 0;
 static XLogSegNo recvSegNo = 0;
 
 /*
- * LogstreamResult indicates the byte positions that we have already
- * written/fsynced.
+ * LogstreamResult 指示我们已经写出或 fsync 过的         
+ * 字节位置。 
  */
 static struct
 {
-	XLogRecPtr	Write;			/* last byte + 1 written out in the standby */
-	XLogRecPtr	Flush;			/* last byte + 1 flushed in the standby */
+	XLogRecPtr	Write;			/* 备库中已写出的最后字节 + 1    */
+	XLogRecPtr	Flush;			/* 备库中已刷写的最后字节 + 1*/
 }			LogstreamResult;
 
 /*
- * Reasons to wake up and perform periodic tasks.
+ * 唤醒并执行周期性任务的原因。    
  */
 typedef enum WalRcvWakeupReason
 {
@@ -127,14 +127,14 @@ typedef enum WalRcvWakeupReason
 } WalRcvWakeupReason;
 
 /*
- * Wake up times for periodic tasks.
+ * 周期任务的唤醒时刻。   
  */
 static TimestampTz wakeup[NUM_WALRCV_WAKEUPS];
 
 static StringInfoData reply_message;
 static StringInfoData incoming_message;
 
-/* Prototypes for private functions */
+/* 私有函数的原型            */
 static void WalRcvFetchTimeLineHistoryFiles(TimeLineID first, TimeLineID last);
 static void WalRcvWaitForStartPosition(XLogRecPtr *startpoint, TimeLineID *startpointTLI);
 static void WalRcvDie(int code, Datum arg);
@@ -150,26 +150,26 @@ static void ProcessWalSndrMessage(XLogRecPtr walEnd, TimestampTz sendTime);
 static void WalRcvComputeNextWakeup(WalRcvWakeupReason reason, TimestampTz now);
 
 /*
- * Process any interrupts the walreceiver process may have received.
- * This should be called any time the process's latch has become set.
+ * 处理 walreceiver 进程可能已收到的任何中断。只要 
+ * 进程的锁存器已被置位，就应当调用本函数。      
  *
- * Currently, only SIGTERM is of interest.  We can't just exit(1) within the
- * SIGTERM signal handler, because the signal might arrive in the middle of
- * some critical operation, like while we're holding a spinlock.  Instead, the
- * signal handler sets a flag variable as well as setting the process's latch.
- * We must check the flag (by calling ProcessWalRcvInterrupts) anytime the
- * latch has become set.  Operations that could block for a long time, such as
- * reading from a remote server, must pay attention to the latch too; see
- * libpqrcv_PQgetResult for example.
+ * 目前只有 SIGTERM 值得关注。我们无法直接在                
+ * SIGTERM 信号处理函数中调用 exit(1)，因为信号              
+ * 可能出现在某个关键操作的进行途中，比如我们正         
+ * 持有自旋锁时。因此信号处理函数除了设置进程的         
+ * 锁存器之外，还会设置一个标志变量。只要锁存器     
+ * 已置位，就必须调用 ProcessWalRcvInterrupts 检查该标志。     
+ * 可能长时间阻塞操作（如远端读取）须留意锁存器； 
+ * 见 libpqrcv_PQgetResult。      
  */
 void
 ProcessWalRcvInterrupts(void)
 {
 	/*
-	 * Although walreceiver interrupt handling doesn't use the same scheme as
-	 * regular backends, call CHECK_FOR_INTERRUPTS() to make sure we receive
-	 * any incoming signals on Win32, and also to make sure we process any
-	 * barrier events.
+	 * 虽然 walreceiver 的中断处理与常规后端不同，但仍      
+	 * 要调用 CHECK_FOR_INTERRUPTS()，以确保我们在                
+	 * Win32 上能收到任何到达的信号，并处理任何屏障    
+	 * 事件。      
 	 */
 	CHECK_FOR_INTERRUPTS();
 
@@ -182,7 +182,7 @@ ProcessWalRcvInterrupts(void)
 }
 
 
-/* Main entry point for walreceiver process */
+/* walreceiver 进程的主入口点        */
 void
 WalReceiverMain(void)
 {
@@ -201,24 +201,24 @@ WalReceiverMain(void)
 	int			sender_port = 0;
 
 	/*
-	 * WalRcv should be set up already (if we are a backend, we inherit this
-	 * by fork() or EXEC_BACKEND mechanism from the postmaster).
+	 * WalRcv 应当已经设置好（如果我们是后端，则通过     
+	 * fork() 或 EXEC_BACKEND 从 postmaster 继承它）。   
 	 */
 	Assert(walrcv != NULL);
 
 	/*
-	 * Mark walreceiver as running in shared memory.
+	 * 标记 walreceiver 在共享内存运行。  
 	 *
-	 * Do this as early as possible, so that if we fail later on, we'll set
-	 * state to STOPPED. If we die before this, the startup process will keep
-	 * waiting for us to start up, until it times out.
+	 * 应尽早执行此操作，这样即便稍后失败，我们也会  
+	 * 将状态置为 STOPPED。若在此之前死掉，启动进程        
+	 * 会一直等待我们启动，直到超时。  
 	 */
 	SpinLockAcquire(&walrcv->mutex);
 	Assert(walrcv->pid == 0);
 	switch (walrcv->walRcvState)
 	{
 		case WALRCV_STOPPING:
-			/* If we've already been requested to stop, don't start up. */
+			/* 如果已被要求停止，就不要启动。            */
 			walrcv->walRcvState = WALRCV_STOPPED;
 			/* fall through */
 
@@ -229,22 +229,22 @@ WalReceiverMain(void)
 			break;
 
 		case WALRCV_STARTING:
-			/* The usual case */
+			/* 常见情形   */
 			break;
 
 		case WALRCV_WAITING:
 		case WALRCV_STREAMING:
 		case WALRCV_RESTARTING:
 		default:
-			/* Shouldn't happen */
+			/* 不应发生     */
 			SpinLockRelease(&walrcv->mutex);
 			elog(PANIC, "walreceiver still running according to shared memory state");
 	}
-	/* Advertise our PID so that the startup process can kill us */
+	/* 通告我们的 PID，以便启动进程能终止我们   */
 	walrcv->pid = MyProcPid;
 	walrcv->walRcvState = WALRCV_STREAMING;
 
-	/* Fetch information required to start streaming */
+	/* 获取开始流复制所需的信息          */
 	walrcv->ready_to_display = false;
 	strlcpy(conninfo, (char *) walrcv->conninfo, MAXCONNINFO);
 	strlcpy(slotname, (char *) walrcv->slotname, NAMEDATALEN);
@@ -253,49 +253,49 @@ WalReceiverMain(void)
 	startpointTLI = walrcv->receiveStartTLI;
 
 	/*
-	 * At most one of is_temp_slot and slotname can be set; otherwise,
-	 * RequestXLogStreaming messed up.
+	 * is_temp_slot 与 slotname 至多只能设置其一；否则    
+	 * RequestXLogStreaming 出错。 
 	 */
 	Assert(!is_temp_slot || (slotname[0] == '\0'));
 
-	/* Initialise to a sanish value */
+	/* 初始化为一个合理值  */
 	now = GetCurrentTimestamp();
 	walrcv->lastMsgSendTime =
 		walrcv->lastMsgReceiptTime = walrcv->latestWalEndTime = now;
 
-	/* Report the latch to use to awaken this process */
+	/* 报告用于唤醒本进程的锁存器        */
 	walrcv->latch = &MyProc->procLatch;
 
 	SpinLockRelease(&walrcv->mutex);
 
 	pg_atomic_write_u64(&WalRcv->writtenUpto, 0);
 
-	/* Arrange to clean up at walreceiver exit */
+	/* 安排在 walreceiver 退出时清理   */
 	on_shmem_exit(WalRcvDie, PointerGetDatum(&startpointTLI));
 
-	/* Properly accept or ignore signals the postmaster might send us */
+	/* 恰当接受或忽略 postmaster 可能发给我们的信号   */
 	pqsignal(SIGHUP, SignalHandlerForConfigReload); /* set flag to read config
 													 * file */
 	pqsignal(SIGINT, SIG_IGN);
-	pqsignal(SIGTERM, SignalHandlerForShutdownRequest); /* request shutdown */
-	/* SIGQUIT handler was already set up by InitPostmasterChild */
+	pqsignal(SIGTERM, SignalHandlerForShutdownRequest); /* 请求关闭     */
+	/* SIGQUIT 处理函数已由 InitPostmasterChild 设置好  */
 	pqsignal(SIGALRM, SIG_IGN);
 	pqsignal(SIGPIPE, SIG_IGN);
 	pqsignal(SIGUSR1, procsignal_sigusr1_handler);
 	pqsignal(SIGUSR2, SIG_IGN);
 
-	/* Reset some signals that are accepted by postmaster but not here */
+	/* 重置一些由 postmaster 接受但这里不接受的信号    */
 	pqsignal(SIGCHLD, SIG_DFL);
 
-	/* Load the libpq-specific functions */
+	/* 加载 libpq 专有的函数      */
 	load_file("libpqwalreceiver", false);
 	if (WalReceiverFunctions == NULL)
 		elog(ERROR, "libpqwalreceiver didn't initialize correctly");
 
-	/* Unblock signals (they were blocked when the postmaster forked us) */
+	/* 解除信号阻塞（postmaster fork 我们时它们被阻塞）  */
 	sigprocmask(SIG_SETMASK, &UnBlockSig, NULL);
 
-	/* Establish the connection to the primary for XLOG streaming */
+	/* 建立与主库的连接以进行 XLOG 流复制           */
 	wrconn = walrcv_connect(conninfo, false, false,
 							cluster_name[0] ? cluster_name : "walreceiver",
 							&err);
@@ -305,9 +305,9 @@ WalReceiverMain(void)
 				 errmsg("could not connect to the primary server: %s", err)));
 
 	/*
-	 * Save user-visible connection string.  This clobbers the original
-	 * conninfo, for security. Also save host and port of the sender server
-	 * this walreceiver is connected to.
+	 * 保存用户可见的连接串。出于安全考虑，这       
+	 * 会覆盖原始 conninfo。也保存 walreceiver 所连接发送端 
+	 * 服务器的主机与端口。   
 	 */
 	tmp_conninfo = walrcv_get_conninfo(wrconn);
 	walrcv_get_senderinfo(wrconn, &sender_host, &sender_port);
@@ -338,8 +338,8 @@ WalReceiverMain(void)
 		WalRcvStreamOptions options;
 
 		/*
-		 * Check that we're connected to a valid server using the
-		 * IDENTIFY_SYSTEM replication command.
+		 * 检查所连接的服务器有效，使用的是      
+		 * IDENTIFY_SYSTEM 复制命令。     
 		 */
 		primary_sysid = walrcv_identify_system(wrconn, &primaryTLI);
 
@@ -355,8 +355,8 @@ WalReceiverMain(void)
 		}
 
 		/*
-		 * Confirm that the current timeline of the primary is the same or
-		 * ahead of ours.
+		 * 确认主库的当前时间线与我们的一致，或在其   
+		 * 之前。     
 		 */
 		if (primaryTLI < startpointTLI)
 			ereport(ERROR,
@@ -365,21 +365,21 @@ WalReceiverMain(void)
 							primaryTLI, startpointTLI)));
 
 		/*
-		 * Get any missing history files. We do this always, even when we're
-		 * not interested in that timeline, so that if we're promoted to
-		 * become the primary later on, we don't select the same timeline that
-		 * was already used in the current primary. This isn't bullet-proof -
-		 * you'll need some external software to manage your cluster if you
-		 * need to ensure that a unique timeline id is chosen in every case,
-		 * but let's avoid the confusion of timeline id collisions where we
-		 * can.
+		 * 获取任何缺少的历史文件。我们总是执行此        
+		 * 操作，即使我们对那条时间线不感兴趣，这样 
+		 * 当我们稍后被提升为主库时，就不会选择当前       
+		 * 主库已经用过的时间线。这并非万无一失            
+		 *  - 如果需要确保每种情况下都选择唯一的          
+		 * 时间线 ID，就需要一些外部软件来管理集簇，     
+		 * 但让我们在能做到的范围内避免时间线 ID 冲突   
+		 * 。 
 		 */
 		WalRcvFetchTimeLineHistoryFiles(startpointTLI, primaryTLI);
 
 		/*
-		 * Create temporary replication slot if requested, and update slot
-		 * name in shared memory.  (Note the slot name cannot already be set
-		 * in this case.)
+		 * 如果被要求则创建临时复制槽，并更新共享内   
+		 * 存中的槽名。（注意：此时槽名不可能已被设置  
+		 * 。）        
 		 */
 		if (is_temp_slot)
 		{
@@ -395,16 +395,16 @@ WalReceiverMain(void)
 		}
 
 		/*
-		 * Start streaming.
+		 * 开始流复制 
 		 *
-		 * We'll try to start at the requested starting point and timeline,
-		 * even if it's different from the server's latest timeline. In case
-		 * we've already reached the end of the old timeline, the server will
-		 * finish the streaming immediately, and we will go back to await
-		 * orders from the startup process. If recovery_target_timeline is
-		 * 'latest', the startup process will scan pg_wal and find the new
-		 * history file, bump recovery target timeline, and ask us to restart
-		 * on the new timeline.
+		 * 我们会尝试从所请求的起始点和时间线开始，即 
+		 * 使它不同于服务器最新的时间线。如果我们已经  
+		 * 到达旧时间线的末尾，服务器会立即结束流式发   
+		 * 送，我们将返回去等待启动进程的指令。如果  
+		 * recovery_target_timeline 为'latest'，启动进程会扫描   
+		 * pg_wal 并找到新的历史文件，调高恢复目标时间  
+		 * 线，并要求我们在新的时间线上                        
+		 * 重新开始。     
 		 */
 		options.logical = false;
 		options.startpoint = startpoint;
@@ -422,21 +422,21 @@ WalReceiverMain(void)
 								LSN_FORMAT_ARGS(startpoint), startpointTLI)));
 			first_stream = false;
 
-			/* Initialize LogstreamResult and buffers for processing messages */
+			/* 初始化 LogstreamResult 与缓冲区以处理消息          */
 			LogstreamResult.Write = LogstreamResult.Flush = GetXLogReplayRecPtr(NULL);
 			initStringInfo(&reply_message);
 			initStringInfo(&incoming_message);
 
-			/* Initialize nap wakeup times. */
+			/* 初始化打盹唤醒时间  */
 			now = GetCurrentTimestamp();
 			for (int i = 0; i < NUM_WALRCV_WAKEUPS; ++i)
 				WalRcvComputeNextWakeup(i, now);
 
-			/* Send initial reply/feedback messages. */
+			/* 发送初始的应答/反馈消息    */
 			XLogWalRcvSendReply(true, false);
 			XLogWalRcvSendHSFeedback(true);
 
-			/* Loop until end-of-streaming or error */
+			/* 循环直到流复制结束或出错 */
 			for (;;)
 			{
 				char	   *buf;
@@ -448,43 +448,43 @@ WalReceiverMain(void)
 				long		nap;
 
 				/*
-				 * Exit walreceiver if we're not in recovery. This should not
-				 * happen, but cross-check the status here.
+				 * 如果不在恢复中，则退出 walreceiver。本不应 
+				 * 发生，但仍交叉检查状态。    
 				 */
 				if (!RecoveryInProgress())
 					ereport(FATAL,
 							(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 							 errmsg("cannot continue WAL streaming, recovery has already ended")));
 
-				/* Process any requests or signals received recently */
+				/* 处理最近收到的任何请求或信号        */
 				ProcessWalRcvInterrupts();
 
 				if (ConfigReloadPending)
 				{
 					ConfigReloadPending = false;
 					ProcessConfigFile(PGC_SIGHUP);
-					/* recompute wakeup times */
+					/* 重算唤醒时刻     */
 					now = GetCurrentTimestamp();
 					for (int i = 0; i < NUM_WALRCV_WAKEUPS; ++i)
 						WalRcvComputeNextWakeup(i, now);
 					XLogWalRcvSendHSFeedback(true);
 				}
 
-				/* See if we can read data immediately */
+				/* 看看能否立即读到数据      */
 				len = walrcv_receive(wrconn, &buf, &wait_fd);
 				if (len != 0)
 				{
 					/*
-					 * Process the received data, and any subsequent data we
-					 * can read without blocking.
+					 * 处理收到的数据，以及无需阻塞即可     
+					 * 读取的后续数据。  
 					 */
 					for (;;)
 					{
 						if (len > 0)
 						{
 							/*
-							 * Something was received from primary, so adjust
-							 * the ping and terminate wakeup times.
+							 * 已从主库收到数据，因此调整 ping  
+							 * 与终止唤醒时刻。            
 							 */
 							now = GetCurrentTimestamp();
 							WalRcvComputeNextWakeup(WALRCV_WAKEUP_TERMINATE,
@@ -508,40 +508,40 @@ WalReceiverMain(void)
 						len = walrcv_receive(wrconn, &buf, &wait_fd);
 					}
 
-					/* Let the primary know that we received some data. */
+					/* 让主库知道我们收到了一些数据。    */
 					XLogWalRcvSendReply(false, false);
 
 					/*
-					 * If we've written some records, flush them to disk and
-					 * let the startup process and primary server know about
-					 * them.
+					 * 若写入一些记录，则将其刷写到磁盘，  
+					 * 并让启动进程与主库得知这些记录        
+					 * 。  
 					 */
 					XLogWalRcvFlush(false, startpointTLI);
 				}
 
-				/* Check if we need to exit the streaming loop. */
+				/* 检查是否需要退出流复制循环。   */
 				if (endofwal)
 					break;
 
-				/* Find the soonest wakeup time, to limit our nap. */
+				/* 找出最早的唤醒时刻，以限制打盹。*/
 				nextWakeup = TIMESTAMP_INFINITY;
 				for (int i = 0; i < NUM_WALRCV_WAKEUPS; ++i)
 					nextWakeup = Min(wakeup[i], nextWakeup);
 
-				/* Calculate the nap time, clamping as necessary. */
+				/* 计算打盹时长，必要时进行钳制。  */
 				now = GetCurrentTimestamp();
 				nap = TimestampDifferenceMilliseconds(now, nextWakeup);
 
 				/*
-				 * Ideally we would reuse a WaitEventSet object repeatedly
-				 * here to avoid the overheads of WaitLatchOrSocket on epoll
-				 * systems, but we can't be sure that libpq (or any other
-				 * walreceiver implementation) has the same socket (even if
-				 * the fd is the same number, it may have been closed and
-				 * reopened since the last time).  In future, if there is a
-				 * function for removing sockets from WaitEventSet, then we
-				 * could add and remove just the socket each time, potentially
-				 * avoiding some system calls.
+				 * 理想情况下，我们希望在此反复使用同一 
+				 * WaitEventSet 对象，以避免在 epoll 系统上       
+				 * WaitLatchOrSocket 的开销，但无法确定 libpq   
+				 * （或任何其他 walreceiver 实现）的套接字    
+				 * 是否相同（即使 fd 编号相同，也可能自  
+				 * 上次被关闭又重新打开）。将来若有        
+				 * 从 WaitEventSet 移除套接字的函数，那么我   
+				 * 们每次就只添加与移除该套接字，从而可     
+				 * 省一些系统调用。   
 				 */
 				Assert(wait_fd != PGINVALID_SOCKET);
 				rc = WaitLatchOrSocket(MyLatch,
@@ -558,10 +558,10 @@ WalReceiverMain(void)
 					if (walrcv->force_reply)
 					{
 						/*
-						 * The recovery process has asked us to send apply
-						 * feedback now.  Make sure the flag is really set to
-						 * false in shared memory before sending the reply, so
-						 * we don't miss a new request for a reply.
+						 * 恢复进程要求我们发送 apply 反馈。 
+						 * 发送应答前，务必确保共享内存中的  
+						 * 标志确实置为 false，以免错过新的应   
+						 * 答请求。                            
 						 */
 						walrcv->force_reply = false;
 						pg_memory_barrier();
@@ -571,19 +571,19 @@ WalReceiverMain(void)
 				if (rc & WL_TIMEOUT)
 				{
 					/*
-					 * We didn't receive anything new. If we haven't heard
-					 * anything from the server for more than
-					 * wal_receiver_timeout / 2, ping the server. Also, if
-					 * it's been longer than wal_receiver_status_interval
-					 * since the last update we sent, send a status update to
-					 * the primary anyway, to report any progress in applying
-					 * WAL.
+					 * 未收到任何新内容。若已超过            
+					 * wal_receiver_timeout / 2 的时间    
+					 * 未收到服务器消息，就 ping 服务器。   
+					 * 此外，若距离上次发送更新已超过     
+					 * wal_receiver_status_interval，也要向主库发送  
+					 * 状态更新，以报告 WAL 应用方面的进展    
+					 * 。 
 					 */
 					bool		requestReply = false;
 
 					/*
-					 * Check if time since last receive from primary has
-					 * reached the configured limit.
+					 * 检查距上次从主库接收是否已达       
+					 * 到配置的限制。        
 					 */
 					now = GetCurrentTimestamp();
 					if (now >= wakeup[WALRCV_WAKEUP_TERMINATE])
@@ -592,8 +592,8 @@ WalReceiverMain(void)
 								 errmsg("terminating walreceiver due to timeout")));
 
 					/*
-					 * If we didn't receive anything new for half of receiver
-					 * replication timeout, then ping the server.
+					 * 若在接收端复制超时的一半时间内没有   
+					 * 收到新内容，就 ping 服务器。   
 					 */
 					if (now >= wakeup[WALRCV_WAKEUP_PING])
 					{
@@ -607,15 +607,15 @@ WalReceiverMain(void)
 			}
 
 			/*
-			 * The backend finished streaming. Exit streaming COPY-mode from
-			 * our side, too.
+			 * 后端已结束流复制。我们也从己方退出流式    
+			 * COPY 模式   
 			 */
 			walrcv_endstreaming(wrconn, &primaryTLI);
 
 			/*
-			 * If the server had switched to a new timeline that we didn't
-			 * know about when we began streaming, fetch its timeline history
-			 * file now.
+			 * 如果服务器已切换到我们开始流复制时尚不  
+			 * 知道的新时间线，现在就获取其时间线历史     
+			 * 文件   
 			 */
 			WalRcvFetchTimeLineHistoryFiles(startpointTLI, primaryTLI);
 		}
@@ -625,8 +625,8 @@ WalReceiverMain(void)
 							startpointTLI)));
 
 		/*
-		 * End of WAL reached on the requested timeline. Close the last
-		 * segment, and await for new orders from the startup process.
+		 * 在所请求的时间线上已到达 WAL 末尾。关闭    
+		 * 最后一个段，然后等待启动进程的新指令。  
 		 */
 		if (recvFile >= 0)
 		{
@@ -641,8 +641,8 @@ WalReceiverMain(void)
 								xlogfname)));
 
 			/*
-			 * Create .done file forcibly to prevent the streamed segment from
-			 * being archived later.
+			 * 强制创建 .done 文件，以防流式接收的段稍后     
+			 * 被归档。         
 			 */
 			if (XLogArchiveMode != ARCHIVE_MODE_ALWAYS)
 				XLogArchiveForceDone(xlogfname);
@@ -658,7 +658,7 @@ WalReceiverMain(void)
 }
 
 /*
- * Wait for startup process to set receiveStart and receiveStartTLI.
+ * 等待启动进程设置 receiveStart 与 receiveStartTLI。     
  */
 static void
 WalRcvWaitForStartPosition(XLogRecPtr *startpoint, TimeLineID *startpointTLI)
@@ -684,8 +684,8 @@ WalRcvWaitForStartPosition(XLogRecPtr *startpoint, TimeLineID *startpointTLI)
 	set_ps_display("idle");
 
 	/*
-	 * nudge startup process to notice that we've stopped streaming and are
-	 * now waiting for instructions.
+	 * 轻推启动进程，让其注意到我们已停止流复制，     
+	 * 现在正在等待指令。  
 	 */
 	WakeupRecovery();
 	for (;;)
@@ -701,9 +701,9 @@ WalRcvWaitForStartPosition(XLogRecPtr *startpoint, TimeLineID *startpointTLI)
 		if (walrcv->walRcvState == WALRCV_RESTARTING)
 		{
 			/*
-			 * No need to handle changes in primary_conninfo or
-			 * primary_slot_name here. Startup process will signal us to
-			 * terminate in case those change.
+			 * 无需在这里处理 primary_conninfo 或      
+			 * primary_slot_name 变化。若这些发生改变，启   
+			 * 动进程会发信号终止。 
 			 */
 			*startpoint = walrcv->receiveStart;
 			*startpointTLI = walrcv->receiveStartTLI;
@@ -714,8 +714,8 @@ WalRcvWaitForStartPosition(XLogRecPtr *startpoint, TimeLineID *startpointTLI)
 		if (walrcv->walRcvState == WALRCV_STOPPING)
 		{
 			/*
-			 * We should've received SIGTERM if the startup process wants us
-			 * to die, but might as well check it here too.
+			 * 如果启动进程想让我们终止，就应该已收到    
+			 * SIGTERM，但在这里再检查一下。    
 			 */
 			SpinLockRelease(&walrcv->mutex);
 			exit(1);
@@ -737,8 +737,8 @@ WalRcvWaitForStartPosition(XLogRecPtr *startpoint, TimeLineID *startpointTLI)
 }
 
 /*
- * Fetch any missing timeline history files between 'first' and 'last'
- * (inclusive) from the server.
+ * 从服务器获取 'first' 与 'last' 之间（含两端）缺     
+ * 失时间线历史文件。 
  */
 static void
 WalRcvFetchTimeLineHistoryFiles(TimeLineID first, TimeLineID last)
@@ -747,7 +747,7 @@ WalRcvFetchTimeLineHistoryFiles(TimeLineID first, TimeLineID last)
 
 	for (tli = first; tli <= last; tli++)
 	{
-		/* there's no history file for timeline 1 */
+		/* 时间线 1 没有历史文件         */
 		if (tli != 1 && !existsTimeLineHistory(tli))
 		{
 			char	   *fname;
@@ -762,9 +762,9 @@ WalRcvFetchTimeLineHistoryFiles(TimeLineID first, TimeLineID last)
 			walrcv_readtimelinehistoryfile(wrconn, tli, &fname, &content, &len);
 
 			/*
-			 * Check that the filename on the primary matches what we
-			 * calculated ourselves. This is just a sanity check, it should
-			 * always match.
+			 * 检查主库上的文件名与自己计算的是否   
+			 * 一致。这只是合理性检查，应当总是            
+			 * 匹配。    
 			 */
 			TLHistoryFileName(expectedfname, tli);
 			if (strcmp(fname, expectedfname) != 0)
@@ -774,13 +774,13 @@ WalRcvFetchTimeLineHistoryFiles(TimeLineID first, TimeLineID last)
 										 tli)));
 
 			/*
-			 * Write the file to pg_wal.
+			 * 文件写入 pg_wal。   
 			 */
 			writeTimeLineHistoryFile(tli, content, len);
 
 			/*
-			 * Mark the streamed history file as ready for archiving if
-			 * archive_mode is always.
+			 * archive_mode 为 always 时把流式接收历史文件  
+			 * 标记为待归档。  
 			 */
 			if (XLogArchiveMode != ARCHIVE_MODE_ALWAYS)
 				XLogArchiveForceDone(fname);
@@ -794,7 +794,7 @@ WalRcvFetchTimeLineHistoryFiles(TimeLineID first, TimeLineID last)
 }
 
 /*
- * Mark us as STOPPED in shared memory at exit.
+ * 退出时置共享内存状态为 STOPPED   
  */
 static void
 WalRcvDie(int code, Datum arg)
@@ -804,10 +804,10 @@ WalRcvDie(int code, Datum arg)
 
 	Assert(*startpointTLI_p != 0);
 
-	/* Ensure that all WAL records received are flushed to disk */
+	/* 确保已收到的所有 WAL 记录都刷写到磁盘    */
 	XLogWalRcvFlush(true, *startpointTLI_p);
 
-	/* Mark ourselves inactive in shared memory */
+	/* 共享内存中标记自身为非活动  */
 	SpinLockAcquire(&walrcv->mutex);
 	Assert(walrcv->walRcvState == WALRCV_STREAMING ||
 		   walrcv->walRcvState == WALRCV_RESTARTING ||
@@ -823,16 +823,16 @@ WalRcvDie(int code, Datum arg)
 
 	ConditionVariableBroadcast(&walrcv->walRcvStoppedCV);
 
-	/* Terminate the connection gracefully. */
+	/* 以优雅的方式终止连接。    */
 	if (wrconn != NULL)
 		walrcv_disconnect(wrconn);
 
-	/* Wake up the startup process to notice promptly that we're gone */
+	/* 唤醒启动进程，让其及时察觉我们已离开         */
 	WakeupRecovery();
 }
 
 /*
- * Accept the message from XLOG stream, and process it.
+ * 接受来自 XLOG 流的消息并进行处理。    
  */
 static void
 XLogWalRcvProcessMsg(unsigned char type, char *buf, Size len, TimeLineID tli)
@@ -847,9 +847,9 @@ XLogWalRcvProcessMsg(unsigned char type, char *buf, Size len, TimeLineID tli)
 
 	switch (type)
 	{
-		case 'w':				/* WAL records */
+		case 'w':				/* WAL 记录  */
 			{
-				/* copy message to StringInfo */
+				/* 消息复制到 StringInfo */
 				hdrlen = sizeof(int64) + sizeof(int64) + sizeof(int64);
 				if (len < hdrlen)
 					ereport(ERROR,
@@ -857,7 +857,7 @@ XLogWalRcvProcessMsg(unsigned char type, char *buf, Size len, TimeLineID tli)
 							 errmsg_internal("invalid WAL message received from primary")));
 				appendBinaryStringInfo(&incoming_message, buf, hdrlen);
 
-				/* read the fields */
+				/* 读取各域    */
 				dataStart = pq_getmsgint64(&incoming_message);
 				walEnd = pq_getmsgint64(&incoming_message);
 				sendTime = pq_getmsgint64(&incoming_message);
@@ -868,9 +868,9 @@ XLogWalRcvProcessMsg(unsigned char type, char *buf, Size len, TimeLineID tli)
 				XLogWalRcvWrite(buf, len, dataStart, tli);
 				break;
 			}
-		case 'k':				/* Keepalive */
+		case 'k':				/* keepalive */
 			{
-				/* copy message to StringInfo */
+				/* 消息复制到 StringInfo */
 				hdrlen = sizeof(int64) + sizeof(int64) + sizeof(char);
 				if (len != hdrlen)
 					ereport(ERROR,
@@ -878,14 +878,14 @@ XLogWalRcvProcessMsg(unsigned char type, char *buf, Size len, TimeLineID tli)
 							 errmsg_internal("invalid keepalive message received from primary")));
 				appendBinaryStringInfo(&incoming_message, buf, hdrlen);
 
-				/* read the fields */
+				/* 读取各域    */
 				walEnd = pq_getmsgint64(&incoming_message);
 				sendTime = pq_getmsgint64(&incoming_message);
 				replyRequested = pq_getmsgbyte(&incoming_message);
 
 				ProcessWalSndrMessage(walEnd, sendTime);
 
-				/* If the primary requested a reply, send one immediately */
+				/* 如果主库要求应答，则立即发送一份       */
 				if (replyRequested)
 					XLogWalRcvSendReply(true, false);
 				break;
@@ -899,7 +899,7 @@ XLogWalRcvProcessMsg(unsigned char type, char *buf, Size len, TimeLineID tli)
 }
 
 /*
- * Write XLOG data to disk.
+ * XLOG 数据写入磁盘 
  */
 static void
 XLogWalRcvWrite(char *buf, Size nbytes, XLogRecPtr recptr, TimeLineID tli)
@@ -913,19 +913,19 @@ XLogWalRcvWrite(char *buf, Size nbytes, XLogRecPtr recptr, TimeLineID tli)
 	{
 		int			segbytes;
 
-		/* Close the current segment if it's completed */
+		/* 如果当前段已完成，则将其关闭  */
 		if (recvFile >= 0 && !XLByteInSeg(recptr, recvSegNo, wal_segment_size))
 			XLogWalRcvClose(recptr, tli);
 
 		if (recvFile < 0)
 		{
-			/* Create/use new log file */
+			/* 建/用新日志文件  */
 			XLByteToSeg(recptr, recvSegNo, wal_segment_size);
 			recvFile = XLogFileInit(recvSegNo, tli);
 			recvFileTLI = tli;
 		}
 
-		/* Calculate the start offset of the received logs */
+		/* 计算已接收日志的起始偏移量         */
 		startoff = XLogSegmentOffset(recptr, wal_segment_size);
 
 		if (startoff + nbytes > wal_segment_size)
@@ -933,7 +933,7 @@ XLogWalRcvWrite(char *buf, Size nbytes, XLogRecPtr recptr, TimeLineID tli)
 		else
 			segbytes = nbytes;
 
-		/* OK to write the logs */
+		/* 可以写入日志了*/
 		errno = 0;
 
 		byteswritten = pg_pwrite(recvFile, buf, segbytes, (off_t) startoff);
@@ -942,7 +942,7 @@ XLogWalRcvWrite(char *buf, Size nbytes, XLogRecPtr recptr, TimeLineID tli)
 			char		xlogfname[MAXFNAMELEN];
 			int			save_errno;
 
-			/* if write didn't set errno, assume no disk space */
+			/* 若 write 未设置 errno，假定空间不足  */
 			if (errno == 0)
 				errno = ENOSPC;
 
@@ -956,7 +956,7 @@ XLogWalRcvWrite(char *buf, Size nbytes, XLogRecPtr recptr, TimeLineID tli)
 							xlogfname, startoff, (unsigned long) segbytes)));
 		}
 
-		/* Update state for write */
+		/* 更新写入状态     */
 		recptr += byteswritten;
 
 		nbytes -= byteswritten;
@@ -965,24 +965,24 @@ XLogWalRcvWrite(char *buf, Size nbytes, XLogRecPtr recptr, TimeLineID tli)
 		LogstreamResult.Write = recptr;
 	}
 
-	/* Update shared-memory status */
+	/* 更新共享内存状态    */
 	pg_atomic_write_u64(&WalRcv->writtenUpto, LogstreamResult.Write);
 
 	/*
-	 * Close the current segment if it's fully written up in the last cycle of
-	 * the loop, to create its archive notification file soon. Otherwise WAL
-	 * archiving of the segment will be delayed until any data in the next
-	 * segment is received and written.
+	 * 如果在循环的上一轮中当前段已完整写完，则将        
+	 * 其关闭，以便尽快创建其归档通知文件。否则，      
+	 * 该段的 WAL 归档将被推迟，直到下一段中的数        
+	 * 据被接收并写出为止。  
 	 */
 	if (recvFile >= 0 && !XLByteInSeg(recptr, recvSegNo, wal_segment_size))
 		XLogWalRcvClose(recptr, tli);
 }
 
 /*
- * Flush the log to disk.
+ * 刷写日志至磁盘 
  *
- * If we're in the midst of dying, it's unwise to do anything that might throw
- * an error, so we skip sending a reply in that case.
+ * 如果我们正处于消亡过程中，做任何可能抛出               
+ * 的事都不明智，所以此时跳过应答。  
  */
 static void
 XLogWalRcvFlush(bool dying, TimeLineID tli)
@@ -997,7 +997,7 @@ XLogWalRcvFlush(bool dying, TimeLineID tli)
 
 		LogstreamResult.Flush = LogstreamResult.Write;
 
-		/* Update shared-memory status */
+		/* 更新共享内存状态    */
 		SpinLockAcquire(&walrcv->mutex);
 		if (walrcv->flushedUpto < LogstreamResult.Flush)
 		{
@@ -1007,12 +1007,12 @@ XLogWalRcvFlush(bool dying, TimeLineID tli)
 		}
 		SpinLockRelease(&walrcv->mutex);
 
-		/* Signal the startup process and walsender that new WAL has arrived */
+		/* 通知启动进程与 walsender 新的 WAL 已到达              */
 		WakeupRecovery();
 		if (AllowCascadeReplication())
 			WalSndWakeup(true, false);
 
-		/* Report XLOG streaming progress in PS display */
+		/* 在 PS 显示中报告 XLOG 流式进度     */
 		if (update_process_title)
 		{
 			char		activitymsg[50];
@@ -1022,7 +1022,7 @@ XLogWalRcvFlush(bool dying, TimeLineID tli)
 			set_ps_display(activitymsg);
 		}
 
-		/* Also let the primary know that we made some progress */
+		/* 同时让主库知道我们取得了一些进展     */
 		if (!dying)
 		{
 			XLogWalRcvSendReply(false, false);
@@ -1032,12 +1032,12 @@ XLogWalRcvFlush(bool dying, TimeLineID tli)
 }
 
 /*
- * Close the current segment.
+ * 关闭当前段。        
  *
- * Flush the segment to disk before closing it. Otherwise we have to
- * reopen and fsync it later.
+ * 在关闭段之前先将其刷写到磁盘。否则，稍后     
+ * 须重开并 fsync。     
  *
- * Create an archive notification file since the segment is known completed.
+ * 由于段已知完整，因此创建一个归档通知文件。          
  */
 static void
 XLogWalRcvClose(XLogRecPtr recptr, TimeLineID tli)
@@ -1048,17 +1048,17 @@ XLogWalRcvClose(XLogRecPtr recptr, TimeLineID tli)
 	Assert(tli != 0);
 
 	/*
-	 * fsync() and close current file before we switch to next one. We would
-	 * otherwise have to reopen this file to fsync it later
+	 * 在切换到下一个文件之前，先 fsync() 并关闭当前      
+	 * 文件。否则稍后必须重新打开以 fsync。 
 	 */
 	XLogWalRcvFlush(false, tli);
 
 	XLogFileName(xlogfname, recvFileTLI, recvSegNo, wal_segment_size);
 
 	/*
-	 * XLOG segment files will be re-read by recovery in startup process soon,
-	 * so we don't advise the OS to release cache pages associated with the
-	 * file like XLogFileClose() does.
+	 * XLOG 段文件很快就会被启动进程中的恢复再次            
+	 * 读取，因此不像 XLogFileClose() 那样建议操作系统      
+	 * 释放其关联的缓存页。 
 	 */
 	if (close(recvFile) != 0)
 		ereport(PANIC,
@@ -1067,8 +1067,8 @@ XLogWalRcvClose(XLogRecPtr recptr, TimeLineID tli)
 						xlogfname)));
 
 	/*
-	 * Create .done file forcibly to prevent the streamed segment from being
-	 * archived later.
+	 * 强制创建 .done 文件，以防流式接收的段稍后           
+	 * 被归档。   
 	 */
 	if (XLogArchiveMode != ARCHIVE_MODE_ALWAYS)
 		XLogArchiveForceDone(xlogfname);
@@ -1079,17 +1079,17 @@ XLogWalRcvClose(XLogRecPtr recptr, TimeLineID tli)
 }
 
 /*
- * Send reply message to primary, indicating our current WAL locations, oldest
- * xmin and the current time.
+ * 向主库发送应答消息，指明当前的 WAL 位置、                
+ * 最老 xmin 与时间。  
  *
- * If 'force' is not set, the message is only sent if enough time has
- * passed since last status update to reach wal_receiver_status_interval.
- * If wal_receiver_status_interval is disabled altogether and 'force' is
- * false, this is a no-op.
+ * 如果未设置 'force'，则仅在距离上次状态更新       
+ * 已过去足够时间、达到 wal_receiver_status_interval           
+ * 时才发送该消息。若整个参数被禁用且 'force' 为      
+ * false，则无操作   
  *
- * If 'requestReply' is true, requests the server to reply immediately upon
- * receiving this message. This is used for heartbeats, when approaching
- * wal_receiver_timeout.
+ * 如果 'requestReply' 为 true，则请求服务器在收到            
+ * 此消息后立即应答。这用于心跳，即接近               
+ * wal_receiver_timeout 
  */
 static void
 XLogWalRcvSendReply(bool force, bool requestReply)
@@ -1100,23 +1100,23 @@ XLogWalRcvSendReply(bool force, bool requestReply)
 	TimestampTz now;
 
 	/*
-	 * If the user doesn't want status to be reported to the primary, be sure
-	 * to exit before doing anything at all.
+	 * 如果用户不想让状态被报告给主库，务必在             
+	 * 做任何事之前就退出。       
 	 */
 	if (!force && wal_receiver_status_interval <= 0)
 		return;
 
-	/* Get current timestamp. */
+	/* 获取当前时间戳  */
 	now = GetCurrentTimestamp();
 
 	/*
-	 * We can compare the write and flush positions to the last message we
-	 * sent without taking any lock, but the apply position requires a spin
-	 * lock, so we don't check that unless something else has changed or 10
-	 * seconds have passed.  This means that the apply WAL location will
-	 * appear, from the primary's point of view, to lag slightly, but since
-	 * this is only for reporting purposes and only on idle systems, that's
-	 * probably OK.
+	 * 我们无需持有任何锁，就能将写出与刷写位置       
+	 * 同我们发送的上一条消息进行比较，但应用位        
+	 * 置需要自旋锁，因此除非有其他内容发生变           
+	 * 化，或已经过去 10 秒，否则我们不检查它。这    
+	 * 意味着从主库的角度看，应用的 WAL 位置会显得      
+	 * 略微滞后，但仅用于报告且只在空闲系统，应无碍  
+	 * 。         
 	 */
 	if (!force
 		&& writePtr == LogstreamResult.Write
@@ -1124,10 +1124,10 @@ XLogWalRcvSendReply(bool force, bool requestReply)
 		&& now < wakeup[WALRCV_WAKEUP_REPLY])
 		return;
 
-	/* Make sure we wake up when it's time to send another reply. */
+	/* 确保到了该发送下一条应答的时刻会醒来     */
 	WalRcvComputeNextWakeup(WALRCV_WAKEUP_REPLY, now);
 
-	/* Construct a new message */
+	/* 构造一条新消息   */
 	writePtr = LogstreamResult.Write;
 	flushPtr = LogstreamResult.Flush;
 	applyPtr = GetXLogReplayRecPtr(NULL);
@@ -1140,7 +1140,7 @@ XLogWalRcvSendReply(bool force, bool requestReply)
 	pq_sendint64(&reply_message, GetCurrentTimestamp());
 	pq_sendbyte(&reply_message, requestReply ? 1 : 0);
 
-	/* Send it */
+	/* 发送  */
 	elog(DEBUG2, "sending write %X/%X flush %X/%X apply %X/%X%s",
 		 LSN_FORMAT_ARGS(writePtr),
 		 LSN_FORMAT_ARGS(flushPtr),
@@ -1151,14 +1151,14 @@ XLogWalRcvSendReply(bool force, bool requestReply)
 }
 
 /*
- * Send hot standby feedback message to primary, plus the current time,
- * in case they don't have a watch.
+ * 向主库发送热备反馈消息，外加当前时间，           
+ * 以防对端没有监控。     
  *
- * If the user disables feedback, send one final message to tell sender
- * to forget about the xmin on this standby. We also send this message
- * on first connect because a previous connection might have set xmin
- * on a replication slot. (If we're not using a slot it's harmless to
- * send a feedback message explicitly setting InvalidTransactionId).
+ * 如果用户禁用了反馈，则发送最后一条消息，告     
+ * 诉发送端忘掉本备库上的 xmin。在首次连接时我     
+ * 们也会发送此消息，因为之前的连接可能已在      
+ * 某个复制槽上设置了 xmin。（如果我们没有用槽， 
+ * 发送显式设置 InvalidTransactionId 的反馈是无害的） 
  */
 static void
 XLogWalRcvSendHSFeedback(bool immed)
@@ -1171,43 +1171,43 @@ XLogWalRcvSendHSFeedback(bool immed)
 	TransactionId xmin,
 				catalog_xmin;
 
-	/* initially true so we always send at least one feedback message */
+	/* 初始为真，以确保我们总是至少发送反馈消息   */
 	static bool primary_has_standby_xmin = true;
 
 	/*
-	 * If the user doesn't want status to be reported to the primary, be sure
-	 * to exit before doing anything at all.
+	 * 如果用户不想让状态被报告给主库，务必在             
+	 * 做任何事之前就退出。       
 	 */
 	if ((wal_receiver_status_interval <= 0 || !hot_standby_feedback) &&
 		!primary_has_standby_xmin)
 		return;
 
-	/* Get current timestamp. */
+	/* 获取当前时间戳  */
 	now = GetCurrentTimestamp();
 
-	/* Send feedback at most once per wal_receiver_status_interval. */
+	/* 每个 wal_receiver_status_interval 至多发送一次反馈 */
 	if (!immed && now < wakeup[WALRCV_WAKEUP_HSFEEDBACK])
 		return;
 
-	/* Make sure we wake up when it's time to send feedback again. */
+	/* 确保到了该再次发送反馈的时刻会醒来         */
 	WalRcvComputeNextWakeup(WALRCV_WAKEUP_HSFEEDBACK, now);
 
 	/*
-	 * If Hot Standby is not yet accepting connections there is nothing to
-	 * send. Check this after the interval has expired to reduce number of
-	 * calls.
+	 * 如果热备尚未接受连接，则没有可发送的内          
+	 * 容。在间隔到期之后再检查此项，以减少调用次数 
+	 * 。   
 	 *
-	 * Bailing out here also ensures that we don't send feedback until we've
-	 * read our own replication slot state, so we don't tell the primary to
-	 * discard needed xmin or catalog_xmin from any slots that may exist on
-	 * this replica.
+	 * 在此处退出还确保了在我们读取自身复制槽状         
+	 * 态之前不会发送反馈，因此我们不会告诉主库        
+	 * 丢弃本副本上可能存在的槽所需的 xmin 或              
+	 * catalog_xmin 
 	 */
 	if (!HotStandbyActive())
 		return;
 
 	/*
-	 * Make the expensive call to get the oldest xmin once we are certain
-	 * everything else has been checked.
+	 * 等确定所有其他项都已检查之后，再执行获取      
+	 * 最老 xmin 的昂贵调用。   
 	 */
 	if (hot_standby_feedback)
 	{
@@ -1220,8 +1220,8 @@ XLogWalRcvSendHSFeedback(bool immed)
 	}
 
 	/*
-	 * Get epoch and adjust if nextXid and oldestXmin are different sides of
-	 * the epoch boundary.
+	 * 获取纪元，若 nextXid 与 oldestXmin 分居纪元边界         
+	 * 两侧则调整。 
 	 */
 	nextFullXid = ReadNextFullTransactionId();
 	nextXid = XidFromFullTransactionId(nextFullXid);
@@ -1235,7 +1235,7 @@ XLogWalRcvSendHSFeedback(bool immed)
 	elog(DEBUG2, "sending hot standby feedback xmin %u epoch %u catalog_xmin %u catalog_xmin_epoch %u",
 		 xmin, xmin_epoch, catalog_xmin, catalog_xmin_epoch);
 
-	/* Construct the message and send it. */
+	/* 构造该消息并发送。        */
 	resetStringInfo(&reply_message);
 	pq_sendbyte(&reply_message, 'h');
 	pq_sendint64(&reply_message, GetCurrentTimestamp());
@@ -1251,10 +1251,10 @@ XLogWalRcvSendHSFeedback(bool immed)
 }
 
 /*
- * Update shared memory status upon receiving a message from primary.
+ * 从主库收到消息时更新共享内存状态。               
  *
- * 'walEnd' and 'sendTime' are the end-of-WAL and timestamp of the latest
- * message, reported by primary.
+ * 'walEnd' 与 'sendTime' 是最新消息的 WAL 末尾位置和        
+ * 时间戳，主库报告。  
  */
 static void
 ProcessWalSndrMessage(XLogRecPtr walEnd, TimestampTz sendTime)
@@ -1262,7 +1262,7 @@ ProcessWalSndrMessage(XLogRecPtr walEnd, TimestampTz sendTime)
 	WalRcvData *walrcv = WalRcv;
 	TimestampTz lastMsgReceiptTime = GetCurrentTimestamp();
 
-	/* Update shared-memory status */
+	/* 更新共享内存状态    */
 	SpinLockAcquire(&walrcv->mutex);
 	if (walrcv->latestWalEnd < walEnd)
 		walrcv->latestWalEndTime = sendTime;
@@ -1277,12 +1277,12 @@ ProcessWalSndrMessage(XLogRecPtr walEnd, TimestampTz sendTime)
 		char	   *receipttime;
 		int			applyDelay;
 
-		/* Copy because timestamptz_to_str returns a static buffer */
+		/* 复制，因 timestamptz_to_str 返回静态缓冲区   */
 		sendtime = pstrdup(timestamptz_to_str(sendTime));
 		receipttime = pstrdup(timestamptz_to_str(lastMsgReceiptTime));
 		applyDelay = GetReplicationApplyDelay();
 
-		/* apply delay is not available */
+		/* 应用延迟不可用        */
 		if (applyDelay == -1)
 			elog(DEBUG2, "sendtime %s receipttime %s replication apply delay (N/A) transfer latency %d ms",
 				 sendtime,
@@ -1301,12 +1301,12 @@ ProcessWalSndrMessage(XLogRecPtr walEnd, TimestampTz sendTime)
 }
 
 /*
- * Compute the next wakeup time for a given wakeup reason.  Can be called to
- * initialize a wakeup time, to adjust it for the next wakeup, or to
- * reinitialize it when GUCs have changed.  We ask the caller to pass in the
- * value of "now" because this frequently avoids multiple calls of
- * GetCurrentTimestamp().  It had better be a reasonably up-to-date value
- * though.
+ * 针对给定的唤醒原因计算下一次唤醒时刻。可             
+ * 以被调用来初始化某个唤醒时刻、为下一次唤     
+ * 醒调整它，或者在 GUC 发生变化时重新初始化              
+ * 它。我们要求调用者传入 "now" 值，这经常        
+ * 能避免多次调用 GetCurrentTimestamp()。该值最好足够      
+ * 新。 
  */
 static void
 WalRcvComputeNextWakeup(WalRcvWakeupReason reason, TimestampTz now)
@@ -1337,16 +1337,16 @@ WalRcvComputeNextWakeup(WalRcvWakeupReason reason, TimestampTz now)
 			else
 				wakeup[reason] = TimestampTzPlusSeconds(now, wal_receiver_status_interval);
 			break;
-			/* there's intentionally no default: here */
+			/* 此处有意不写 default: 分支     */
 	}
 }
 
 /*
- * Wake up the walreceiver main loop.
+ * 唤醒 walreceiver 主循环。   
  *
- * This is called by the startup process whenever interesting xlog records
- * are applied, so that walreceiver can check if it needs to send an apply
- * notification back to the primary which may be waiting in a COMMIT with
+ * 每当启动进程应用了值得关注的 xlog 记录时，           
+ * 都会调用本函数，使 walreceiver 能检查是否需要          
+ * 向主库发回应用通知；主库可能正在 COMMIT 中等待     
  * synchronous_commit = remote_apply.
  */
 void
@@ -1355,7 +1355,7 @@ WalRcvForceReply(void)
 	Latch	   *latch;
 
 	WalRcv->force_reply = true;
-	/* fetching the latch pointer might not be atomic, so use spinlock */
+	/* 锁存器指针的读取可能非原子，须用自旋锁       */
 	SpinLockAcquire(&WalRcv->mutex);
 	latch = WalRcv->latch;
 	SpinLockRelease(&WalRcv->mutex);
@@ -1364,8 +1364,8 @@ WalRcvForceReply(void)
 }
 
 /*
- * Return a string constant representing the state. This is used
- * in system functions and views, and should *not* be translated.
+ * 返回表示状态的字符串常量。它用于系统函数 
+ * 和视图，*不应*被翻译。                              
  */
 static const char *
 WalRcvGetStateString(WalRcvState state)
@@ -1389,8 +1389,8 @@ WalRcvGetStateString(WalRcvState state)
 }
 
 /*
- * Returns activity of WAL receiver, including pid, state and xlog locations
- * received from the WAL sender of another server.
+ * 返回 WAL 接收进程的活动，包括 pid、状态，以及          
+ * 来自对端 WAL 发送进程的 xlog 位置   
  */
 Datum
 pg_stat_get_wal_receiver(PG_FUNCTION_ARGS)
@@ -1415,7 +1415,7 @@ pg_stat_get_wal_receiver(PG_FUNCTION_ARGS)
 	char		slotname[NAMEDATALEN];
 	char		conninfo[MAXCONNINFO];
 
-	/* Take a lock to ensure value consistency */
+	/* 持锁以确保值的一致性          */
 	SpinLockAcquire(&WalRcv->mutex);
 	pid = (int) WalRcv->pid;
 	ready_to_display = WalRcv->ready_to_display;
@@ -1435,36 +1435,36 @@ pg_stat_get_wal_receiver(PG_FUNCTION_ARGS)
 	SpinLockRelease(&WalRcv->mutex);
 
 	/*
-	 * No WAL receiver (or not ready yet), just return a tuple with NULL
-	 * values
+	 * 没有 WAL 接收进程（或尚未就绪），返回 NULL       
+	 * 值   
 	 */
 	if (pid == 0 || !ready_to_display)
 		PG_RETURN_NULL();
 
 	/*
-	 * Read "writtenUpto" without holding a spinlock.  Note that it may not be
-	 * consistent with the other shared variables of the WAL receiver
-	 * protected by a spinlock, but this should not be used for data integrity
-	 * checks.
+	 * 无需持有自旋锁即可读取 "writtenUpto"。注意               
+	 * 它与 WAL 接收进程的其他由自旋锁保护的共享   
+	 * 变量可能不一致，但不应将其用于数据完整性检        
+	 * 查。 
 	 */
 	written_lsn = pg_atomic_read_u64(&WalRcv->writtenUpto);
 
-	/* determine result type */
+	/* 确定结果类型    */
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
 	values = palloc0(sizeof(Datum) * tupdesc->natts);
 	nulls = palloc0(sizeof(bool) * tupdesc->natts);
 
-	/* Fetch values */
+	/* 获取值    */
 	values[0] = Int32GetDatum(pid);
 
 	if (!has_privs_of_role(GetUserId(), ROLE_PG_READ_ALL_STATS))
 	{
 		/*
-		 * Only superusers and roles with privileges of pg_read_all_stats can
-		 * see details. Other users only get the pid value to know whether it
-		 * is a WAL receiver, but no details.
+		 * 仅超级用户和拥有 pg_read_all_stats 权限的角色        
+		 * 才能看到详情。其他用户仅得 pid 值，得知其是    
+		 * WAL 接收进程，无详情。   
 		 */
 		memset(&nulls[1], true, sizeof(bool) * (tupdesc->natts - 1));
 	}
@@ -1520,6 +1520,6 @@ pg_stat_get_wal_receiver(PG_FUNCTION_ARGS)
 			values[14] = CStringGetTextDatum(conninfo);
 	}
 
-	/* Returns the record as Datum */
+	/* 返回 Datum 形式的记录*/
 	PG_RETURN_DATUM(HeapTupleGetDatum(heap_form_tuple(tupdesc, values, nulls)));
 }

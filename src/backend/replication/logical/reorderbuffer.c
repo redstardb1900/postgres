@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * reorderbuffer.c
- *	  PostgreSQL logical replay/reorder buffer management
+ *	  PostgreSQL 逻辑重放/重排序缓冲区管理   
  *
  *
  * Copyright (c) 2012-2023, PostgreSQL Global Development Group
@@ -11,71 +11,71 @@
  *	  src/backend/replication/logical/reorderbuffer.c
  *
  * NOTES
- *	  This module gets handed individual pieces of transactions in the order
- *	  they are written to the WAL and is responsible to reassemble them into
- *	  toplevel transaction sized pieces. When a transaction is completely
- *	  reassembled - signaled by reading the transaction commit record - it
- *	  will then call the output plugin (cf. ReorderBufferCommit()) with the
- *	  individual changes. The output plugins rely on snapshots built by
- *	  snapbuild.c which hands them to us.
+ *	  本模块按事务写入 WAL 的顺序接收事务分片，并负责  
+ *	  将其重新拼装为顶层事务大小的分片。当某个事务    
+ *	  被完全拼装好（即读到提交记录）后就会带着变更 
+ *	  调用输出插件（参见 ReorderBufferCommit()），并传给它 
+ *	  各个变更。输出插件依赖于由 snapbuild.c 构建并        
+ *	  由其交给我们的                                            
+ *	  快照。                          
  *
- *	  Transactions and subtransactions/savepoints in postgres are not
- *	  immediately linked to each other from outside the performing
- *	  backend. Only at commit/abort (or special xact_assignment records) they
- *	  are linked together. Which means that we will have to splice together a
- *	  toplevel transaction from its subtransactions. To do that efficiently we
- *	  build a binary heap indexed by the smallest current lsn of the individual
- *	  subtransactions' changestreams. As the individual streams are inherently
- *	  ordered by LSN - since that is where we build them from - the transaction
- *	  can easily be reassembled by always using the subtransaction with the
- *	  smallest current LSN from the heap.
+ *	  postgres 中事务与子事务/保存点在执行后端之外  
+ *	  并不立即相互关联。只有在提交/中止（或     
+ *	  xact_assignment 记录）时才链接到一起。这意味着我们    
+ *	  必须从其子事务中拼接出顶层事务。为了高效做到     
+ *	  这一点，我们构建一个二叉堆，以各个子事务            
+ *	  变更流的当前最小 LSN 为索引。由于各个流本身           
+ *	  就按 LSN 有序——毕竟我们就是依据它来构建的——    
+ *	  所以事务很容易通过始终选用堆中当前 LSN 最小           
+ *	  的子事务来重新拼装                                          
+ *	  完成。                          
  *
- *	  In order to cope with large transactions - which can be several times as
- *	  big as the available memory - this module supports spooling the contents
- *	  of a large transactions to disk. When the transaction is replayed the
- *	  contents of individual (sub-)transactions will be read from disk in
- *	  chunks.
+ *	  为了应对可能数倍于可用内存大小的大事务——         
+ *	  本模块支持将大事务内容溢写到磁盘。重放时，         
+ *	  各个（子）事务的内容将                                    
+ *	  以块为单位从磁盘读回。                                  
+ *	         
  *
- *	  This module also has to deal with reassembling toast records from the
- *	  individual chunks stored in WAL. When a new (or initial) version of a
- *	  tuple is stored in WAL it will always be preceded by the toast chunks
- *	  emitted for the columns stored out of line. Within a single toplevel
- *	  transaction there will be no other data carrying records between a row's
- *	  toast chunks and the row data itself. See ReorderBufferToast* for
- *	  details.
+ *	  本模块还必须重新拼装 TOAST 记录，它由 WAL 中         
+ *	  存储的各个块组成。当元组的新（或初始）版本被   
+ *	  存入 WAL 时，其前面总会先有针对行外存储的列所    
+ *	  发出的 TOAST 块。在单个顶层事务中，某行的 TOAST    
+ *	  块与该行数据本身之间不会有其他承载数据的记录。   
+ *	  详情参见 ReorderBufferToast*。                              
+ *	          
  *
- *	  ReorderBuffer uses two special memory context types - SlabContext for
- *	  allocations of fixed-length structures (changes and transactions), and
- *	  GenerationContext for the variable-length transaction data (allocated
- *	  and freed in groups with similar lifespans).
+ *	  ReorderBuffer 使用两种特殊的内存上下文类型——       
+ *	  SlabContext 用于分配固定长度结构（变更与事务），    
+ *	  GenerationContext 用于可变长度的事务数据（按生命周   
+ *	  期相近的组进行分配与释放）。  
  *
- *	  To limit the amount of memory used by decoded changes, we track memory
- *	  used at the reorder buffer level (i.e. total amount of memory), and for
- *	  each transaction. When the total amount of used memory exceeds the
- *	  limit, the transaction consuming the most memory is then serialized to
- *	  disk.
+ *	  为限制已解码变更占用的内存量，我们在重排序缓冲 
+ *	  区层级（即总内存）与每个事务上跟踪内存使用量。  
+ *	  当已用内存总量超上限时，消耗最多的事务         
+ *	  将被序列化到磁盘上。                                        
+ *	       
  *
- *	  Only decoded changes are evicted from memory (spilled to disk), not the
- *	  transaction records. The number of toplevel transactions is limited,
- *	  but a transaction with many subtransactions may still consume significant
- *	  amounts of memory. However, the transaction records are fairly small and
- *	  are not included in the memory limit.
+ *	  内存中只逐出已解码变更（溢写到磁盘），而不逐出  
+ *	  事务记录。顶层事务数量虽有限，                       
+ *	  但拥有大量子事务的单个事务仍可能占用可观的内存。 
+ *	  不过，事务记录相当小，并不计入内存上限之内。      
+ *	                                       
  *
- *	  The current eviction algorithm is very simple - the transaction is
- *	  picked merely by size, while it might be useful to also consider age
- *	  (LSN) of the changes for example. With the new Generational memory
- *	  allocator, evicting the oldest changes would make it more likely the
- *	  memory gets actually freed.
+ *	  当前逐出算法很简单：仅按大小挑选事务，而      
+ *	  例如或许也值得考虑变更的年龄（LSN）。借助        
+ *	  Generational 内存分配器，逐出最旧变更更有可能     
+ *	  让内存真正得到释放。                                      
+ *	                             
  *
- *	  We still rely on max_changes_in_memory when loading serialized changes
- *	  back into memory. At that point we can't use the memory limit directly
- *	  as we load the subxacts independently. One option to deal with this
- *	  would be to count the subxacts, and allow each to allocate 1/N of the
- *	  memory limit. That however does not seem very appealing, because with
- *	  many subtransactions it may easily cause thrashing (short cycles of
- *	  deserializing and applying very few changes). We probably should give
- *	  a bit more memory to the oldest subtransactions, because it's likely
- *	  they are the source for the next sequence of changes.
+ *	  在把已序列化的变更载回内存时，我们仍依赖          
+ *	  max_changes_in_memory。此时我们无法直接使用内存上       
+ *	  限，因为子事务是独立载入的。                         
+ *	  一种做法是统计子事务数量，并让各自分配 1/N 的    
+ *	  内存上限。但这似乎不太有吸引力，子事务多时极   
+ *	  易颠簸（反序列化并应用极少变更的循环）。我们 
+ *	  或许应给最旧的子事务多一些内存，因为它们很可   
+ *	  能是下一批变更的来源。                                   
+ *	                                                       
  *
  * -------------------------------------------------------------------------
  */
@@ -97,7 +97,7 @@
 #include "replication/logical.h"
 #include "replication/reorderbuffer.h"
 #include "replication/slot.h"
-#include "replication/snapbuild.h"	/* just for SnapBuildSnapDecRefcount */
+#include "replication/snapbuild.h"	/* 仅供 SnapBuildSnapDecRefcount   */
 #include "storage/bufmgr.h"
 #include "storage/fd.h"
 #include "storage/sinval.h"
@@ -110,24 +110,24 @@
 #include "utils/relfilenumbermap.h"
 
 /*
- * Each transaction has an 8MB limit for invalidation messages distributed from
- * other transactions. This limit is set considering scenarios with many
- * concurrent logical decoding operations. When the distributed invalidation
- * messages reach this threshold, the transaction is marked as
- * RBTXN_DISTR_INVAL_OVERFLOWED to invalidate the complete cache as we have lost
- * some inval messages and hence don't know what needs to be invalidated.
+ * 每个事务对由其他事务分发来的失效消息有 8MB 的上限。  
+ * 此上限是考虑到大量并发逻辑解码场景而设定的。   
+ * 当分发的失效消息达到这一阈值时，该事务将被标记    
+ * 记为 RBTXN_DISTR_INVAL_OVERFLOWED，以便使整         
+ * 个缓存失效——因为我们已经丢失了一些失效消息，        
+ * 从而不知道需要失效哪些内容。                            
  */
 #define MAX_DISTR_INVAL_MSG_PER_TXN \
 	((8 * 1024 * 1024) / sizeof(SharedInvalidationMessage))
 
-/* entry for a hash table we use to map from xid to our transaction state */
+/* 哈希表条目，用于从 xid 映射到我们的事务状态         */
 typedef struct ReorderBufferTXNByIdEnt
 {
 	TransactionId xid;
 	ReorderBufferTXN *txn;
 } ReorderBufferTXNByIdEnt;
 
-/* data structures for (relfilelocator, ctid) => (cmin, cmax) mapping */
+/* (relfilelocator, ctid) => (cmin, cmax) 映射的数据结构       */
 typedef struct ReorderBufferTupleCidKey
 {
 	RelFileLocator rlocator;
@@ -139,18 +139,18 @@ typedef struct ReorderBufferTupleCidEnt
 	ReorderBufferTupleCidKey key;
 	CommandId	cmin;
 	CommandId	cmax;
-	CommandId	combocid;		/* just for debugging */
+	CommandId	combocid;		/* 仅用于调试    */
 } ReorderBufferTupleCidEnt;
 
-/* Virtual file descriptor with file offset tracking */
+/* 带文件偏移量跟踪的虚拟文件描述符  */
 typedef struct TXNEntryFile
 {
-	File		vfd;			/* -1 when the file is closed */
+	File		vfd;			/* 文件关闭时为 -1      */
 	off_t		curOffset;		/* offset for next write or read. Reset to 0
 								 * when vfd is opened. */
 } TXNEntryFile;
 
-/* k-way in-order change iteration support structures */
+/* k 路按序变更迭代的支持结构             */
 typedef struct ReorderBufferIterTXNEntry
 {
 	XLogRecPtr	lsn;
@@ -168,25 +168,25 @@ typedef struct ReorderBufferIterTXNState
 	ReorderBufferIterTXNEntry entries[FLEXIBLE_ARRAY_MEMBER];
 } ReorderBufferIterTXNState;
 
-/* toast datastructures */
+/* TOAST 数据结构   */
 typedef struct ReorderBufferToastEnt
 {
 	Oid			chunk_id;		/* toast_table.chunk_id */
 	int32		last_chunk_seq; /* toast_table.chunk_seq of the last chunk we
 								 * have seen */
-	Size		num_chunks;		/* number of chunks we've already seen */
-	Size		size;			/* combined size of chunks seen */
-	dlist_head	chunks;			/* linked list of chunks */
+	Size		num_chunks;		/* 我们已见过的块的数量      */
+	Size		size;			/* 已见块的合计大小     */
+	dlist_head	chunks;			/* 块的链表          */
 	struct varlena *reconstructed;	/* reconstructed varlena now pointed to in
 									 * main tup */
 } ReorderBufferToastEnt;
 
-/* Disk serialization support datastructures */
+/* 磁盘序列化支持数据结构         */
 typedef struct ReorderBufferDiskChange
 {
 	Size		size;
 	ReorderBufferChange change;
-	/* data follows */
+	/* 数据如下 */
 } ReorderBufferDiskChange;
 
 #define IsSpecInsert(action) \
@@ -206,25 +206,25 @@ typedef struct ReorderBufferDiskChange
 )
 
 /*
- * Maximum number of changes kept in memory, per transaction. After that,
- * changes are spooled to disk.
+ * 每个事务在内存中保留的最大变更数量。超过后，变 
+ * 更将溢写到磁盘。    
  *
- * The current value should be sufficient to decode the entire transaction
- * without hitting disk in OLTP workloads, while starting to spool to disk in
- * other workloads reasonably fast.
+ * 当前值应足以在 OLTP 负载下解码整个事务而不触及磁  
+ * 盘，同时在其他负载下也较快开始溢写到磁盘。           
+ *                                 
  *
- * At some point in the future it probably makes sense to have a more elaborate
- * resource management here, but it's not entirely clear what that would look
- * like.
+ * 将来某个时候，这里或许应该有更精细的资源管理机制， 
+ * 但目前并不完全清楚那会是什么样子。                       
+ *      
  */
 int			logical_decoding_work_mem;
-static const Size max_changes_in_memory = 4096; /* XXX for restore only */
+static const Size max_changes_in_memory = 4096; /* XXX 仅用于恢复  */
 
-/* GUC variable */
+/* GUC 变量   */
 int			debug_logical_replication_streaming = DEBUG_LOGICAL_REP_STREAMING_BUFFERED;
 
 /* ---------------------------------------
- * primary reorderbuffer support routines
+ * 重排序缓冲区主支持例程     
  * ---------------------------------------
  */
 static ReorderBufferTXN *ReorderBufferGetTXN(ReorderBuffer *rb);
@@ -238,11 +238,11 @@ static void ReorderBufferTransferSnapToParent(ReorderBufferTXN *txn,
 static void AssertTXNLsnOrder(ReorderBuffer *rb);
 
 /* ---------------------------------------
- * support functions for lsn-order iterating over the ->changes of a
- * transaction and its subtransactions
+ * 按 LSN 顺序遍历某个事务及其子事务的 ->changes 的 
+ * 支持函数                       
  *
- * used for iteration over the k-way heap merge of a transaction and its
- * subtransactions
+ * 用于对一个事务及其子事务的 k 路堆合并               
+ * 进行遍历   
  * ---------------------------------------
  */
 static void ReorderBufferIterTXNInit(ReorderBuffer *rb, ReorderBufferTXN *txn,
@@ -254,7 +254,7 @@ static void ReorderBufferExecuteInvalidations(uint32 nmsgs, SharedInvalidationMe
 
 /*
  * ---------------------------------------
- * Disk serialization support functions
+ * 磁盘序列化支持函数         
  * ---------------------------------------
  */
 static void ReorderBufferCheckMemoryLimit(ReorderBuffer *rb);
@@ -278,7 +278,7 @@ static Snapshot ReorderBufferCopySnap(ReorderBuffer *rb, Snapshot orig_snap,
 
 /*
  * ---------------------------------------
- * Streaming support functions
+ * 流式支持函数         
  * ---------------------------------------
  */
 static inline bool ReorderBufferCanStream(ReorderBuffer *rb);
@@ -287,7 +287,7 @@ static void ReorderBufferStreamTXN(ReorderBuffer *rb, ReorderBufferTXN *txn);
 static void ReorderBufferStreamCommit(ReorderBuffer *rb, ReorderBufferTXN *txn);
 
 /* ---------------------------------------
- * toast reassembly support
+ * TOAST 重组支持      
  * ---------------------------------------
  */
 static void ReorderBufferToastInitHash(ReorderBuffer *rb, ReorderBufferTXN *txn);
@@ -299,7 +299,7 @@ static void ReorderBufferToastAppendChunk(ReorderBuffer *rb, ReorderBufferTXN *t
 
 /*
  * ---------------------------------------
- * memory accounting
+ * 内存统计     
  * ---------------------------------------
  */
 static Size ReorderBufferChangeSize(ReorderBufferChange *change);
@@ -308,8 +308,8 @@ static void ReorderBufferChangeMemoryUpdate(ReorderBuffer *rb,
 											bool addition, Size sz);
 
 /*
- * Allocate a new ReorderBuffer and clean out any old serialized state from
- * prior ReorderBuffer instances for the same slot.
+ * 分配一个新的 ReorderBuffer，并清除同一槽上前几个       
+ * ReorderBuffer 的旧序列化状态。          
  */
 ReorderBuffer *
 ReorderBufferAllocate(void)
@@ -320,7 +320,7 @@ ReorderBufferAllocate(void)
 
 	Assert(MyReplicationSlot != NULL);
 
-	/* allocate memory in own context, to have better accountability */
+	/* 在自己的上下文中分配内存，便于更好地追踪  */
 	new_ctx = AllocSetContextCreate(CurrentMemoryContext,
 									"ReorderBuffer",
 									ALLOCSET_DEFAULT_SIZES);
@@ -343,14 +343,14 @@ ReorderBufferAllocate(void)
 											sizeof(ReorderBufferTXN));
 
 	/*
-	 * To minimize memory fragmentation caused by long-running transactions
-	 * with changes spanning multiple memory blocks, we use a single
-	 * fixed-size memory block for decoded tuple storage. The performance
-	 * testing showed that the default memory block size maintains logical
-	 * decoding performance without causing fragmentation due to concurrent
-	 * transactions. One might think that we can use the max size as
-	 * SLAB_LARGE_BLOCK_SIZE but the test also showed it doesn't help resolve
-	 * the memory fragmentation.
+	 * 为了减少变更跨越多个内存块的长事务导致的内存  
+	 * 碎片，我们为已解码元组使用单一固定大小的 
+	 * 内存块。测试表明，默认的内存块大小可维持      
+	 * 逻辑解码性能，也不会因并发事务产生碎片。可能 
+	 * 会认为可以把最大尺寸用作                                
+	 * SLAB_LARGE_BLOCK_SIZE，但测试同样表明它无助于解 
+	 * 决内存碎片。                                                    
+	 *                          
 	 */
 	buffer->tup_context = GenerationContextCreate(new_ctx,
 												  "Tuples",
@@ -388,9 +388,9 @@ ReorderBufferAllocate(void)
 	dclist_init(&buffer->catchange_txns);
 
 	/*
-	 * Ensure there's no stale data from prior uses of this slot, in case some
-	 * prior exit avoided calling ReorderBufferFree. Failure to do this can
-	 * produce duplicated txns, and it's very cheap if there's nothing there.
+	 * 确保此槽没有上次使用遗留的陈旧数据，以免上一次  
+	 * 退出路径未调用 ReorderBufferFree。不这样做会产生重  
+	 * 复的事务；如果槽中没有内容，其代价也非常低。    
 	 */
 	ReorderBufferCleanupSerializedTXNs(NameStr(MyReplicationSlot->data.name));
 
@@ -398,7 +398,7 @@ ReorderBufferAllocate(void)
 }
 
 /*
- * Free a ReorderBuffer
+ * 释放ReorderBuffer 
  */
 void
 ReorderBufferFree(ReorderBuffer *rb)
@@ -406,17 +406,17 @@ ReorderBufferFree(ReorderBuffer *rb)
 	MemoryContext context = rb->context;
 
 	/*
-	 * We free separately allocated data by entirely scrapping reorderbuffer's
-	 * memory context.
+	 * 废弃重排序缓冲区内存上下文即可释放单独分配的     
+	 * 数据。      
 	 */
 	MemoryContextDelete(context);
 
-	/* Free disk space used by unconsumed reorder buffers */
+	/* 释放未消费重排序缓冲区的磁盘空间   */
 	ReorderBufferCleanupSerializedTXNs(NameStr(MyReplicationSlot->data.name));
 }
 
 /*
- * Get an unused, possibly preallocated, ReorderBufferTXN.
+ * 取得空闲（或预分配）的 ReorderBufferTXN。  
  */
 static ReorderBufferTXN *
 ReorderBufferGetTXN(ReorderBuffer *rb)
@@ -432,7 +432,7 @@ ReorderBufferGetTXN(ReorderBuffer *rb)
 	dlist_init(&txn->tuplecids);
 	dlist_init(&txn->subtxns);
 
-	/* InvalidCommandId is not zero, so set it explicitly */
+	/* InvalidCommandId 不为零，因此要显式设置 */
 	txn->command_id = InvalidCommandId;
 	txn->output_plugin_private = NULL;
 
@@ -440,19 +440,19 @@ ReorderBufferGetTXN(ReorderBuffer *rb)
 }
 
 /*
- * Free a ReorderBufferTXN.
+ * 释放 ReorderBufferTXN 
  */
 static void
 ReorderBufferReturnTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 {
-	/* clean the lookup cache if we were cached (quite likely) */
+	/* 若被缓存（很可能），则清理查找缓存     */
 	if (rb->by_txn_last_xid == txn->xid)
 	{
 		rb->by_txn_last_xid = InvalidTransactionId;
 		rb->by_txn_last_txn = NULL;
 	}
 
-	/* free data that's contained */
+	/* 释放所包含的数据   */
 
 	if (txn->gid != NULL)
 	{
@@ -478,14 +478,14 @@ ReorderBufferReturnTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 		txn->invalidations_distributed = NULL;
 	}
 
-	/* Reset the toast hash */
+	/* 重置 TOAST 哈希  */
 	ReorderBufferToastReset(rb, txn);
 
 	pfree(txn);
 }
 
 /*
- * Get a fresh ReorderBufferChange.
+ * 获得 ReorderBufferChange。   
  */
 ReorderBufferChange *
 ReorderBufferGetChange(ReorderBuffer *rb)
@@ -500,18 +500,18 @@ ReorderBufferGetChange(ReorderBuffer *rb)
 }
 
 /*
- * Free a ReorderBufferChange and update memory accounting, if requested.
+ * 释放一个 ReorderBufferChange，并按需更新内存统计。     
  */
 void
 ReorderBufferReturnChange(ReorderBuffer *rb, ReorderBufferChange *change,
 						  bool upd_mem)
 {
-	/* update memory accounting info */
+	/* 更新内存统计信息      */
 	if (upd_mem)
 		ReorderBufferChangeMemoryUpdate(rb, change, false,
 										ReorderBufferChangeSize(change));
 
-	/* free contained data */
+	/* 释放所含数据  */
 	switch (change->action)
 	{
 		case REORDER_BUFFER_CHANGE_INSERT:
@@ -550,7 +550,7 @@ ReorderBufferReturnChange(ReorderBuffer *rb, ReorderBufferChange *change,
 				change->data.snapshot = NULL;
 			}
 			break;
-			/* no data in addition to the struct itself */
+			/* 除结构体本身外没有其他数据  */
 		case REORDER_BUFFER_CHANGE_TRUNCATE:
 			if (change->data.truncate.relids != NULL)
 			{
@@ -569,8 +569,8 @@ ReorderBufferReturnChange(ReorderBuffer *rb, ReorderBufferChange *change,
 }
 
 /*
- * Get a fresh ReorderBufferTupleBuf fitting at least a tuple of size
- * tuple_len (excluding header overhead).
+ * 获取一个新的 ReorderBufferTupleBuf，至少能装下大小  
+ * 为 tuple_len（不含头部）。    
  */
 ReorderBufferTupleBuf *
 ReorderBufferGetTupleBuf(ReorderBuffer *rb, Size tuple_len)
@@ -591,7 +591,7 @@ ReorderBufferGetTupleBuf(ReorderBuffer *rb, Size tuple_len)
 }
 
 /*
- * Free a ReorderBufferTupleBuf.
+ * 释放 ReorderBufferTupleBuf 
  */
 void
 ReorderBufferReturnTupleBuf(ReorderBuffer *rb, ReorderBufferTupleBuf *tuple)
@@ -600,13 +600,13 @@ ReorderBufferReturnTupleBuf(ReorderBuffer *rb, ReorderBufferTupleBuf *tuple)
 }
 
 /*
- * Get an array for relids of truncated relations.
+ * 获取已清截关系的 relid 数组。       
  *
- * We use the global memory context (for the whole reorder buffer), because
- * none of the existing ones seems like a good match (some are SLAB, so we
- * can't use those, and tup_context is meant for tuple data, not relids). We
- * could add yet another context, but it seems like an overkill - TRUNCATE is
- * not particularly common operation, so it does not seem worth it.
+ * 我们使用全局内存上下文（整个重排序缓冲区的），   
+ * 因为现有上下文看起来都不合适（有些是 SLAB，所以   
+ * 无法使用；tup_context 则用于元组数据，而非                
+ * relid）。我们本可以再加一个上下文，但那似乎有点      
+ * 大材小用——TRUNCATE 并不常见，似乎不值得。    
  */
 Oid *
 ReorderBufferGetRelids(ReorderBuffer *rb, int nrelids)
@@ -622,7 +622,7 @@ ReorderBufferGetRelids(ReorderBuffer *rb, int nrelids)
 }
 
 /*
- * Free an array of relids.
+ * 释放 relid 数组。  
  */
 void
 ReorderBufferReturnRelids(ReorderBuffer *rb, Oid *relids)
@@ -631,10 +631,10 @@ ReorderBufferReturnRelids(ReorderBuffer *rb, Oid *relids)
 }
 
 /*
- * Return the ReorderBufferTXN from the given buffer, specified by Xid.
- * If create is true, and a transaction doesn't already exist, create it
- * (with the given LSN, and as top transaction if that's specified);
- * when this happens, is_new is set to true.
+ * 从给定缓冲区中返回由 Xid 指定的 ReorderBufferTXN。    
+ * 若 create 为真且事务尚不存在，则创建它（以给定的 
+ * LSN，如指定则作为顶层事务）；此时，is_new 会被 
+ * 设置为 true。                        
  */
 static ReorderBufferTXN *
 ReorderBufferTXNByXid(ReorderBuffer *rb, TransactionId xid, bool create,
@@ -647,7 +647,7 @@ ReorderBufferTXNByXid(ReorderBuffer *rb, TransactionId xid, bool create,
 	Assert(TransactionIdIsValid(xid));
 
 	/*
-	 * Check the one-entry lookup cache first
+	 * 首先检查单条目查找缓存     
 	 */
 	if (TransactionIdIsValid(rb->by_txn_last_xid) &&
 		rb->by_txn_last_xid == xid)
@@ -656,27 +656,27 @@ ReorderBufferTXNByXid(ReorderBuffer *rb, TransactionId xid, bool create,
 
 		if (txn != NULL)
 		{
-			/* found it, and it's valid */
+			/* 找到了且其有效    */
 			if (is_new)
 				*is_new = false;
 			return txn;
 		}
 
 		/*
-		 * cached as non-existent, and asked not to create? Then nothing else
-		 * to do.
+		 * 已缓存为不存在且被要求不创建？那就无事可做   
+		 *       
 		 */
 		if (!create)
 			return NULL;
-		/* otherwise fall through to create it */
+		/* 否则继续往下执行以创建它*/
 	}
 
 	/*
-	 * If the cache wasn't hit or it yielded a "does-not-exist" and we want to
-	 * create an entry.
+	 * 如果缓存未命中，或者命中结果为不存在且我们想     
+	 * 创建条目。 
 	 */
 
-	/* search the lookup table */
+	/* 搜索查找表         */
 	ent = (ReorderBufferTXNByIdEnt *)
 		hash_search(rb->by_txn,
 					&xid,
@@ -686,7 +686,7 @@ ReorderBufferTXNByXid(ReorderBuffer *rb, TransactionId xid, bool create,
 		txn = ent->txn;
 	else if (create)
 	{
-		/* initialize the new entry, if creation was requested */
+		/* 如果请求了创建，则初始化新条目       */
 		Assert(ent != NULL);
 		Assert(lsn != InvalidXLogRecPtr);
 
@@ -703,9 +703,9 @@ ReorderBufferTXNByXid(ReorderBuffer *rb, TransactionId xid, bool create,
 		}
 	}
 	else
-		txn = NULL;				/* not found and not asked to create */
+		txn = NULL;				/* 未找到且未被要求创建    */
 
-	/* update cache */
+	/* 更新缓存 */
 	rb->by_txn_last_xid = xid;
 	rb->by_txn_last_txn = txn;
 
@@ -717,12 +717,12 @@ ReorderBufferTXNByXid(ReorderBuffer *rb, TransactionId xid, bool create,
 }
 
 /*
- * Record the partial change for the streaming of in-progress transactions.  We
- * can stream only complete changes so if we have a partial change like toast
- * table insert or speculative insert then we mark such a 'txn' so that it
- * can't be streamed.  We also ensure that if the changes in such a 'txn' can
- * be streamed and are above logical_decoding_work_mem threshold then we stream
- * them as soon as we have a complete change.
+ * 我们会为进行中事务的流式发送记录部分变更。我们       
+ * 只能流式发送完整的变更，因此若存在部分变更（例如  
+ * TOAST 表插入或推测性插入），则标记该事务，使其     
+ * 无法被流式发送。我们还确保，若该事务中的变更可以  
+ * 被流式发送且其大小超过 logical_decoding_work_mem 阈值，       
+ * 则一有完整变更即流式发送。   
  */
 static void
 ReorderBufferProcessPartialChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
@@ -732,28 +732,28 @@ ReorderBufferProcessPartialChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 	ReorderBufferTXN *toptxn;
 
 	/*
-	 * The partial changes need to be processed only while streaming
-	 * in-progress transactions.
+	 * 只在流式发送进行中事务时，才需要处理这些 
+	 * 部分变更。          
 	 */
 	if (!ReorderBufferCanStream(rb))
 		return;
 
-	/* Get the top transaction. */
+	/* 获取顶层事务。    */
 	toptxn = rbtxn_get_toptxn(txn);
 
 	/*
-	 * Indicate a partial change for toast inserts.  The change will be
-	 * considered as complete once we get the insert or update on the main
-	 * table and we are sure that the pending toast chunks are not required
-	 * anymore.
+	 * 为 TOAST 插入指示一个部分变更。该变更会在      
+	 * 我们获得主表上的插入或更新、且确定待处理的    
+	 * TOAST 块不再需要之后被认定为完整。                    
+	 *         
 	 *
-	 * If we allow streaming when there are pending toast chunks then such
-	 * chunks won't be released till the insert (multi_insert) is complete and
-	 * we expect the txn to have streamed all changes after streaming.  This
-	 * restriction is mainly to ensure the correctness of streamed
-	 * transactions and it doesn't seem worth uplifting such a restriction
-	 * just to allow this case because anyway we will stream the transaction
-	 * once such an insert is complete.
+	 * 若存在待处理的 TOAST 块时仍允许流式发送，那么   
+	 * 这些块要等到插入（multi_insert）完成后才会释放，     
+	 * 并预期该事务在流式发送后已流式发送全部变更。   
+	 * 该限制主要为确保流式事务的正确性，        
+	 * 似乎不值得仅为支持该情况而放开这一限制，       
+	 * 因为反正该事务都会在插入完成后被流式发送。      
+	 *                                 
 	 */
 	if (toast_insert)
 		toptxn->txn_flags |= RBTXN_HAS_PARTIAL_CHANGE;
@@ -763,9 +763,9 @@ ReorderBufferProcessPartialChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		toptxn->txn_flags &= ~RBTXN_HAS_PARTIAL_CHANGE;
 
 	/*
-	 * Indicate a partial change for speculative inserts.  The change will be
-	 * considered as complete once we get the speculative confirm or abort
-	 * token.
+	 * 为推测性插入指示一个部分变更。该变更会在我们    
+	 * 获得推测确认或中止词元后被认定为完整。          
+	 *       
 	 */
 	if (IsSpecInsert(change->action))
 		toptxn->txn_flags |= RBTXN_HAS_PARTIAL_CHANGE;
@@ -774,13 +774,13 @@ ReorderBufferProcessPartialChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		toptxn->txn_flags &= ~RBTXN_HAS_PARTIAL_CHANGE;
 
 	/*
-	 * Stream the transaction if it is serialized before and the changes are
-	 * now complete in the top-level transaction.
+	 * 如果事务之前已被序列化，且变更现在已在顶层事   
+	 * 务中已完整，则流式发送它。   
 	 *
-	 * The reason for doing the streaming of such a transaction as soon as we
-	 * get the complete change for it is that previously it would have reached
-	 * the memory threshold and wouldn't get streamed because of incomplete
-	 * changes.  Delaying such transactions would increase apply lag for them.
+	 * 之所以一拿到该事务的完整变更就立即对其进行流式 
+	 * 发送，原因在于此前它会达到内存阈值，但因存在     
+	 * 不完整变更而无法流式发送。推迟这类事务的流式  
+	 * 发送会加大它们的应用滞后。                                
 	 */
 	if (ReorderBufferCanStartStreaming(rb) &&
 		!(rbtxn_has_partial_change(toptxn)) &&
@@ -790,8 +790,8 @@ ReorderBufferProcessPartialChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 }
 
 /*
- * Queue a change into a transaction so it can be replayed upon commit or will be
- * streamed when we reach logical_decoding_work_mem threshold.
+ * 把一个变更排入某个事务的队列，使其在提交时被重放，   
+ * 或在 logical_decoding_work_mem 阈值时流式发送。  
  */
 void
 ReorderBufferQueueChange(ReorderBuffer *rb, TransactionId xid, XLogRecPtr lsn,
@@ -802,24 +802,24 @@ ReorderBufferQueueChange(ReorderBuffer *rb, TransactionId xid, XLogRecPtr lsn,
 	txn = ReorderBufferTXNByXid(rb, xid, true, NULL, lsn, true);
 
 	/*
-	 * While streaming the previous changes we have detected that the
-	 * transaction is aborted.  So there is no point in collecting further
-	 * changes for it.
+	 * 在流式发送先前变更时已检测到该事务中止。  
+	 * 因此再为它收集更多变更已没有意义。                
+	 *                
 	 */
 	if (txn->concurrent_abort)
 	{
 		/*
-		 * We don't need to update memory accounting for this change as we
-		 * have not added it to the queue yet.
+		 * 我们无需为该变更更新内存统计，因为            
+		 * 尚未将其加入队列。        
 		 */
 		ReorderBufferReturnChange(rb, change, false);
 		return;
 	}
 
 	/*
-	 * The changes that are sent downstream are considered streamable.  We
-	 * remember such transactions so that only those will later be considered
-	 * for streaming.
+	 * 已发送到下游的变更被视为可流式发送的变更。    
+	 * 我们会记住这些事务，之后仅将它们纳入流式发送    
+	 * 的考虑。  
 	 */
 	if (change->action == REORDER_BUFFER_CHANGE_INSERT ||
 		change->action == REORDER_BUFFER_CHANGE_UPDATE ||
@@ -841,20 +841,20 @@ ReorderBufferQueueChange(ReorderBuffer *rb, TransactionId xid, XLogRecPtr lsn,
 	txn->nentries++;
 	txn->nentries_mem++;
 
-	/* update memory accounting information */
+	/* 更新内存统计信息             */
 	ReorderBufferChangeMemoryUpdate(rb, change, true,
 									ReorderBufferChangeSize(change));
 
-	/* process partial change */
+	/* 处理部分变更     */
 	ReorderBufferProcessPartialChange(rb, txn, change, toast_insert);
 
-	/* check the memory limits and evict something if needed */
+	/* 检查内存上限，必要时逐出一些内容      */
 	ReorderBufferCheckMemoryLimit(rb);
 }
 
 /*
- * A transactional message is queued to be processed upon commit and a
- * non-transactional message gets processed immediately.
+ * 事务性消息会进入队列，等提交时再处理；          
+ * 非事务性消息则立即处理。                 
  */
 void
 ReorderBufferQueueMessage(ReorderBuffer *rb, TransactionId xid,
@@ -870,9 +870,9 @@ ReorderBufferQueueMessage(ReorderBuffer *rb, TransactionId xid,
 		Assert(xid != InvalidTransactionId);
 
 		/*
-		 * We don't expect snapshots for transactional changes - we'll use the
-		 * snapshot derived later during apply (unless the change gets
-		 * skipped).
+		 * 我们不预期事务性变更会带快照——将使用稍后    
+		 * 应用时推导的快照（除非该变更被跳过）。  
+		 *          
 		 */
 		Assert(!snap);
 
@@ -894,13 +894,13 @@ ReorderBufferQueueMessage(ReorderBuffer *rb, TransactionId xid,
 		ReorderBufferTXN *txn = NULL;
 		volatile Snapshot snapshot_now = snap;
 
-		/* Non-transactional changes require a valid snapshot. */
+		/* 非事务性变更需要有效的快照。          */
 		Assert(snapshot_now);
 
 		if (xid != InvalidTransactionId)
 			txn = ReorderBufferTXNByXid(rb, xid, true, NULL, lsn, true);
 
-		/* setup snapshot to allow catalog access */
+		/* 设置快照以允许访问系统表   */
 		SetupHistoricSnapshot(snapshot_now, NULL);
 		PG_TRY();
 		{
@@ -919,11 +919,11 @@ ReorderBufferQueueMessage(ReorderBuffer *rb, TransactionId xid,
 
 /*
  * AssertTXNLsnOrder
- *		Verify LSN ordering of transaction lists in the reorderbuffer
+ *		校验重排序缓冲区中事务列表的 LSN 顺序        
  *
- * Other LSN-related invariants are checked too.
+ * 同时检查其他 LSN 相关的不变式。 
  *
- * No-op if assertions are not in use.
+ * 未启用断言时为空操作。  
  */
 static void
 AssertTXNLsnOrder(ReorderBuffer *rb)
@@ -935,14 +935,14 @@ AssertTXNLsnOrder(ReorderBuffer *rb)
 	XLogRecPtr	prev_base_snap_lsn = InvalidXLogRecPtr;
 
 	/*
-	 * Skip the verification if we don't reach the LSN at which we start
-	 * decoding the contents of transactions yet because until we reach the
-	 * LSN, we could have transactions that don't have the association between
-	 * the top-level transaction and subtransaction yet and consequently have
-	 * the same LSN.  We don't guarantee this association until we try to
-	 * decode the actual contents of transaction. The ordering of the records
-	 * prior to the start_decoding_at LSN should have been checked before the
-	 * restart.
+	 * 若尚未到达开始解码事务内容的 LSN，则跳过该    
+	 * 校验，因为在到达该 LSN 之前，可能存在顶层事务   
+	 * 与子事务之间尚未建立关联、因而具有相同 LSN 的      
+	 * 事务。只有在尝试解码事务的实际内容时，我们才    
+	 * 能保证这种关联。                                          
+	 * start_decoding_at LSN 之前的记录顺序应当在重启之         
+	 * 前就已检查过。                                                 
+	 *         
 	 */
 	if (SnapBuildXactNeedsSkip(ctx->snapshot_builder, ctx->reader->EndRecPtr))
 		return;
@@ -952,18 +952,18 @@ AssertTXNLsnOrder(ReorderBuffer *rb)
 		ReorderBufferTXN *cur_txn = dlist_container(ReorderBufferTXN, node,
 													iter.cur);
 
-		/* start LSN must be set */
+		/* 必须设置起始 LSN*/
 		Assert(cur_txn->first_lsn != InvalidXLogRecPtr);
 
-		/* If there is an end LSN, it must be higher than start LSN */
+		/* 如果有结束 LSN，它必须高于起始 LSN          */
 		if (cur_txn->end_lsn != InvalidXLogRecPtr)
 			Assert(cur_txn->first_lsn <= cur_txn->end_lsn);
 
-		/* Current initial LSN must be strictly higher than previous */
+		/* 当前初始 LSN 必须严格高于前一个              */
 		if (prev_first_lsn != InvalidXLogRecPtr)
 			Assert(prev_first_lsn < cur_txn->first_lsn);
 
-		/* known-as-subtxn txns must not be listed */
+		/* 已知为子事务的事务不许列出 */
 		Assert(!rbtxn_is_known_subxact(cur_txn));
 
 		prev_first_lsn = cur_txn->first_lsn;
@@ -975,15 +975,15 @@ AssertTXNLsnOrder(ReorderBuffer *rb)
 													base_snapshot_node,
 													iter.cur);
 
-		/* base snapshot (and its LSN) must be set */
+		/* 基础快照（及其 LSN）必须设置*/
 		Assert(cur_txn->base_snapshot != NULL);
 		Assert(cur_txn->base_snapshot_lsn != InvalidXLogRecPtr);
 
-		/* current LSN must be strictly higher than previous */
+		/* 当前 LSN 必须严格高于前一个            */
 		if (prev_base_snap_lsn != InvalidXLogRecPtr)
 			Assert(prev_base_snap_lsn < cur_txn->base_snapshot_lsn);
 
-		/* known-as-subtxn txns must not be listed */
+		/* 已知为子事务的事务不许列出 */
 		Assert(!rbtxn_is_known_subxact(cur_txn));
 
 		prev_base_snap_lsn = cur_txn->base_snapshot_lsn;
@@ -994,7 +994,7 @@ AssertTXNLsnOrder(ReorderBuffer *rb)
 /*
  * AssertChangeLsnOrder
  *
- * Check ordering of changes in the (sub)transaction.
+ * 检查（子）事务中变更的顺序。        
  */
 static void
 AssertChangeLsnOrder(ReorderBufferTXN *txn)
@@ -1025,7 +1025,7 @@ AssertChangeLsnOrder(ReorderBufferTXN *txn)
 
 /*
  * ReorderBufferGetOldestTXN
- *		Return oldest transaction in reorderbuffer
+ *		返回重排序缓冲区最旧的事务   
  */
 ReorderBufferTXN *
 ReorderBufferGetOldestTXN(ReorderBuffer *rb)
@@ -1046,14 +1046,14 @@ ReorderBufferGetOldestTXN(ReorderBuffer *rb)
 
 /*
  * ReorderBufferGetOldestXmin
- *		Return oldest Xmin in reorderbuffer
+ *		返回最旧的 Xmin               
  *
- * Returns oldest possibly running Xid from the point of view of snapshots
- * used in the transactions kept by reorderbuffer, or InvalidTransactionId if
- * there are none.
+ * 返回从重排序缓冲区所保留事务使用的快照角度来看  
+ * 可能仍在运行的 Xid，若无则返回 InvalidTransactionId          
+ *                
  *
- * Since snapshots are assigned monotonically, this equals the Xmin of the
- * base snapshot with minimal base_snapshot_lsn.
+ * 由于快照按单调顺序分配，这等于 base_snapshot_lsn        
+ * 最小的那个基础快照的 Xmin。       
  */
 TransactionId
 ReorderBufferGetOldestXmin(ReorderBuffer *rb)
@@ -1079,8 +1079,8 @@ ReorderBufferSetRestartPoint(ReorderBuffer *rb, XLogRecPtr ptr)
 /*
  * ReorderBufferAssignChild
  *
- * Make note that we know that subxid is a subtransaction of xid, seen as of
- * the given lsn.
+ * 记下我们知道 subxid 是 xid 的子事务，见于                  
+ * 该 lsn。    
  */
 void
 ReorderBufferAssignChild(ReorderBuffer *rb, TransactionId xid,
@@ -1098,15 +1098,15 @@ ReorderBufferAssignChild(ReorderBuffer *rb, TransactionId xid,
 	{
 		if (rbtxn_is_known_subxact(subtxn))
 		{
-			/* already associated, nothing to do */
+			/* 已关联，无事可做          */
 			return;
 		}
 		else
 		{
 			/*
-			 * We already saw this transaction, but initially added it to the
-			 * list of top-level txns.  Now that we know it's not top-level,
-			 * remove it from there.
+			 * 我们之前见过它，但最初加入了顶层事务列表  
+			 * 中。现在知道它非顶层，就把它从那里移除。 
+			 *                      
 			 */
 			dlist_delete(&subtxn->node);
 		}
@@ -1116,37 +1116,37 @@ ReorderBufferAssignChild(ReorderBuffer *rb, TransactionId xid,
 	subtxn->toplevel_xid = xid;
 	Assert(subtxn->nsubtxns == 0);
 
-	/* set the reference to top-level transaction */
+	/* 设置对顶层事务的引用             */
 	subtxn->toptxn = txn;
 
-	/* add to subtransaction list */
+	/* 加入子事务列表      */
 	dlist_push_tail(&txn->subtxns, &subtxn->node);
 	txn->nsubtxns++;
 
-	/* Possibly transfer the subtxn's snapshot to its top-level txn. */
+	/* 可能需要将子事务的快照转移给其顶层事务。  */
 	ReorderBufferTransferSnapToParent(txn, subtxn);
 
-	/* Verify LSN-ordering invariant */
+	/* 验证 LSN 顺序不变量    */
 	AssertTXNLsnOrder(rb);
 }
 
 /*
  * ReorderBufferTransferSnapToParent
- *		Transfer base snapshot from subtxn to top-level txn, if needed
+ *		若需要，将基础快照从子事务转移到顶层事务  
  *
- * This is done if the top-level txn doesn't have a base snapshot, or if the
- * subtxn's base snapshot has an earlier LSN than the top-level txn's base
- * snapshot's LSN.  This can happen if there are no changes in the toplevel
- * txn but there are some in the subtxn, or the first change in subtxn has
- * earlier LSN than first change in the top-level txn and we learned about
- * their kinship only now.
+ * 若顶层事务没有基础快照，或者子事务的基础快          
+ * 照的 LSN 早于顶层事务的基础快照 LSN，就需要执        
+ * 行转移。若顶层事务无变更而子事务有变更，            
+ * 或子事务首个变更的 LSN 早于顶层事务首个变更的      
+ * LSN，且我们直到现在才得知二者的亲缘关系              
+ * 时才会发生。     
  *
- * The subtransaction's snapshot is cleared regardless of the transfer
- * happening, since it's not needed anymore in either case.
+ * 无论是否发生转移，子事务的快照都会被清除，    
+ * 因为在这两种情况下它都不再被需要。     
  *
- * We do this as soon as we become aware of their kinship, to avoid queueing
- * extra snapshots to txns known-as-subtxns -- only top-level txns will
- * receive further snapshots.
+ * 我们在得知二者的亲缘关系后立即执行该操作，          
+ * 以避免向已知为子事务的事务排入额外快照，只     
+ * 有顶层事务接收。  
  */
 static void
 ReorderBufferTransferSnapToParent(ReorderBufferTXN *txn,
@@ -1160,8 +1160,8 @@ ReorderBufferTransferSnapToParent(ReorderBufferTXN *txn,
 			subtxn->base_snapshot_lsn < txn->base_snapshot_lsn)
 		{
 			/*
-			 * If the toplevel transaction already has a base snapshot but
-			 * it's newer than the subxact's, purge it.
+			 * 若顶层事务已有基础快照但比子事务新，则  
+			 * 将其清除。                         
 			 */
 			if (txn->base_snapshot != NULL)
 			{
@@ -1170,9 +1170,9 @@ ReorderBufferTransferSnapToParent(ReorderBufferTXN *txn,
 			}
 
 			/*
-			 * The snapshot is now the top transaction's; transfer it, and
-			 * adjust the list position of the top transaction in the list by
-			 * moving it to where the subtransaction is.
+			 * 该快照现在属于顶层事务；将其转移，并     
+			 * 通过把它移动到子事务所在的位置，来调整     
+			 * 顶层事务在列表中的位置。     
 			 */
 			txn->base_snapshot = subtxn->base_snapshot;
 			txn->base_snapshot_lsn = subtxn->base_snapshot_lsn;
@@ -1180,8 +1180,8 @@ ReorderBufferTransferSnapToParent(ReorderBufferTXN *txn,
 								&txn->base_snapshot_node);
 
 			/*
-			 * The subtransaction doesn't have a snapshot anymore (so it
-			 * mustn't be in the list.)
+			 * 子事务不再拥有快照（因此不允许            
+			 * 留在列表中。）   
 			 */
 			subtxn->base_snapshot = NULL;
 			subtxn->base_snapshot_lsn = InvalidXLogRecPtr;
@@ -1189,7 +1189,7 @@ ReorderBufferTransferSnapToParent(ReorderBufferTXN *txn,
 		}
 		else
 		{
-			/* Base snap of toplevel is fine, so subxact's is not needed */
+			/* 顶层基础快照可用，无需保留子事务的快照 */
 			SnapBuildSnapDecRefcount(subtxn->base_snapshot);
 			dlist_delete(&subtxn->base_snapshot_node);
 			subtxn->base_snapshot = NULL;
@@ -1199,8 +1199,8 @@ ReorderBufferTransferSnapToParent(ReorderBufferTXN *txn,
 }
 
 /*
- * Associate a subtransaction with its toplevel transaction at commit
- * time. There may be no further changes added after this.
+ * 在提交时将子事务与其顶层事务关联起来。此后   
+ * 此后无法再向其添加任何变更。             
  */
 void
 ReorderBufferCommitChild(ReorderBuffer *rb, TransactionId xid,
@@ -1213,7 +1213,7 @@ ReorderBufferCommitChild(ReorderBuffer *rb, TransactionId xid,
 								   InvalidXLogRecPtr, false);
 
 	/*
-	 * No need to do anything if that subtxn didn't contain any changes
+	 * 若该子事务不含任何变更，则无需做任何事       
 	 */
 	if (!subtxn)
 		return;
@@ -1222,27 +1222,27 @@ ReorderBufferCommitChild(ReorderBuffer *rb, TransactionId xid,
 	subtxn->end_lsn = end_lsn;
 
 	/*
-	 * Assign this subxact as a child of the toplevel xact (no-op if already
-	 * done.)
+	 * 将此子事务指派为顶层事务子项（已完成则无操作   
+	 * ）   
 	 */
 	ReorderBufferAssignChild(rb, xid, subxid, InvalidXLogRecPtr);
 }
 
 
 /*
- * Support for efficiently iterating over a transaction's and its
- * subtransactions' changes.
+ * 支持高效地遍历一个事务及其各子事务的        
+ * 变更。                
  *
- * We do by doing a k-way merge between transactions/subtransactions. For that
- * we model the current heads of the different transactions as a binary heap
- * so we easily know which (sub-)transaction has the change with the smallest
- * lsn next.
+ * 具体做法是在各个事务/子事务之间做 k 路归并。为此，  
+ * 我们将各事务当前的头部建模为一个二叉堆，这样       
+ * 就能轻易知道接下来哪个（子）事务的变更 lsn 最小      
+ * 。      
  *
- * We assume the changes in individual transactions are already sorted by LSN.
+ * 我们假定各事务内部的变更已按 LSN 排序。                   
  */
 
 /*
- * Binary heap comparison function.
+ * 二叉堆比较函数。        
  */
 static int
 ReorderBufferIterCompare(Datum a, Datum b, void *arg)
@@ -1259,13 +1259,13 @@ ReorderBufferIterCompare(Datum a, Datum b, void *arg)
 }
 
 /*
- * Allocate & initialize an iterator which iterates in lsn order over a
- * transaction and all its subtransactions.
+ * 分配并初始化迭代器，它按 lsn 顺序遍历一个事务   
+ * 及其所有子事务。                
  *
- * Note: The iterator state is returned through iter_state parameter rather
- * than the function's return value.  This is because the state gets cleaned up
- * in a PG_CATCH block in the caller, so we want to make sure the caller gets
- * back the state even if this function throws an exception.
+ * 注意：迭代器状态通过 iter_state 参数返回，而不是      
+ * 通过函数返回值。这是因为该状态会在调用者的             
+ * PG_CATCH 块中被清理，因此我们要确保即使此函数抛        
+ * 出异常，调用者也能取回该状态。            
  */
 static void
 ReorderBufferIterTXNInit(ReorderBuffer *rb, ReorderBufferTXN *txn,
@@ -1278,13 +1278,13 @@ ReorderBufferIterTXNInit(ReorderBuffer *rb, ReorderBufferTXN *txn,
 
 	*iter_state = NULL;
 
-	/* Check ordering of changes in the toplevel transaction. */
+	/* 检查顶层事务中变更的顺序。                */
 	AssertChangeLsnOrder(txn);
 
 	/*
-	 * Calculate the size of our heap: one element for every transaction that
-	 * contains changes.  (Besides the transactions already in the reorder
-	 * buffer, we count the one we were directly passed.)
+	 * 计算堆的大小：每个包含变更的事务对应一个元素。 
+	 * （除了重排序缓冲区中已有的事务之外，我们还    
+	 * 会统计直接传给我们的那个事务。）  
 	 */
 	if (txn->nentries > 0)
 		nr_txns++;
@@ -1295,14 +1295,14 @@ ReorderBufferIterTXNInit(ReorderBuffer *rb, ReorderBufferTXN *txn,
 
 		cur_txn = dlist_container(ReorderBufferTXN, node, cur_txn_i.cur);
 
-		/* Check ordering of changes in this subtransaction. */
+		/* 检查此子事务中变更的顺序。           */
 		AssertChangeLsnOrder(cur_txn);
 
 		if (cur_txn->nentries > 0)
 			nr_txns++;
 	}
 
-	/* allocate iteration state */
+	/* 分配迭代状态       */
 	state = (ReorderBufferIterTXNState *)
 		MemoryContextAllocZero(rb->context,
 							   sizeof(ReorderBufferIterTXNState) +
@@ -1317,29 +1317,29 @@ ReorderBufferIterTXNInit(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		state->entries[off].segno = 0;
 	}
 
-	/* allocate heap */
+	/* 分配堆     */
 	state->heap = binaryheap_allocate(state->nr_txns,
 									  ReorderBufferIterCompare,
 									  state);
 
-	/* Now that the state fields are initialized, it is safe to return it. */
+	/* 现在状态成员均已初始化，可以安全地将其返回。  */
 	*iter_state = state;
 
 	/*
-	 * Now insert items into the binary heap, in an unordered fashion.  (We
-	 * will run a heap assembly step at the end; this is more efficient.)
+	 * 现在以无序的方式将各条目插入二叉堆。（我们     
+	 * 会在最后运行一次堆组装步骤；这样效率更高）   
 	 */
 
 	off = 0;
 
-	/* add toplevel transaction if it contains changes */
+	/* 若顶层事务包含变更则将其加入      */
 	if (txn->nentries > 0)
 	{
 		ReorderBufferChange *cur_change;
 
 		if (rbtxn_is_serialized(txn))
 		{
-			/* serialize remaining changes */
+			/* 溢写剩余变更          */
 			ReorderBufferSerializeTXN(rb, txn);
 			ReorderBufferRestoreChanges(rb, txn, &state->entries[off].file,
 										&state->entries[off].segno);
@@ -1355,7 +1355,7 @@ ReorderBufferIterTXNInit(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		binaryheap_add_unordered(state->heap, Int32GetDatum(off++));
 	}
 
-	/* add subtransactions if they contain changes */
+	/* 若子事务包含变更则将其加入     */
 	dlist_foreach(cur_txn_i, &txn->subtxns)
 	{
 		ReorderBufferTXN *cur_txn;
@@ -1368,7 +1368,7 @@ ReorderBufferIterTXNInit(ReorderBuffer *rb, ReorderBufferTXN *txn,
 
 			if (rbtxn_is_serialized(cur_txn))
 			{
-				/* serialize remaining changes */
+				/* 溢写剩余变更          */
 				ReorderBufferSerializeTXN(rb, cur_txn);
 				ReorderBufferRestoreChanges(rb, cur_txn,
 											&state->entries[off].file,
@@ -1385,15 +1385,15 @@ ReorderBufferIterTXNInit(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		}
 	}
 
-	/* assemble a valid binary heap */
+	/* 组装出有效的二叉堆  */
 	binaryheap_build(state->heap);
 }
 
 /*
- * Return the next change when iterating over a transaction and its
- * subtransactions.
+ * 遍历一个事务及其子事务时返回下一个             
+ * 变更。       
  *
- * Returns NULL when no further changes exist.
+ * 若无更多变更则返回 NULL。        
  */
 static ReorderBufferChange *
 ReorderBufferIterTXNNext(ReorderBuffer *rb, ReorderBufferIterTXNState *state)
@@ -1402,14 +1402,14 @@ ReorderBufferIterTXNNext(ReorderBuffer *rb, ReorderBufferIterTXNState *state)
 	ReorderBufferIterTXNEntry *entry;
 	int32		off;
 
-	/* nothing there anymore */
+	/* 已没有任何内容 */
 	if (state->heap->bh_size == 0)
 		return NULL;
 
 	off = DatumGetInt32(binaryheap_first(state->heap));
 	entry = &state->entries[off];
 
-	/* free memory we might have "leaked" in the previous *Next call */
+	/* 释放在上一次 *Next 调用中可能"泄漏"的内存     */
 	if (!dlist_is_empty(&state->old_change))
 	{
 		change = dlist_container(ReorderBufferChange, node,
@@ -1421,18 +1421,18 @@ ReorderBufferIterTXNNext(ReorderBuffer *rb, ReorderBufferIterTXNState *state)
 	change = entry->change;
 
 	/*
-	 * update heap with information about which transaction has the next
-	 * relevant change in LSN order
+	 * 更新堆，记录 LSN 顺序上下一个相关变更属于      
+	 * 哪个事务。             
 	 */
 
-	/* there are in-memory changes */
+	/* 内存中还有变更       */
 	if (dlist_has_next(&entry->txn->changes, &entry->change->node))
 	{
 		dlist_node *next = dlist_next_node(&entry->txn->changes, &change->node);
 		ReorderBufferChange *next_change =
 			dlist_container(ReorderBufferChange, node, next);
 
-		/* txn stays the same */
+		/* 事务保持不变 */
 		state->entries[off].lsn = next_change->lsn;
 		state->entries[off].change = next_change;
 
@@ -1440,26 +1440,26 @@ ReorderBufferIterTXNNext(ReorderBuffer *rb, ReorderBufferIterTXNState *state)
 		return change;
 	}
 
-	/* try to load changes from disk */
+	/* 尝试从磁盘加载变更   */
 	if (entry->txn->nentries != entry->txn->nentries_mem)
 	{
 		/*
-		 * Ugly: restoring changes will reuse *Change records, thus delete the
-		 * current one from the per-tx list and only free in the next call.
+		 * 丑陋之处：恢复变更会复用 *Change 记录，因此需要 
+		 * 将其从每事务列表删除，下次调用才释放          
 		 */
 		dlist_delete(&change->node);
 		dlist_push_tail(&state->old_change, &change->node);
 
 		/*
-		 * Update the total bytes processed by the txn for which we are
-		 * releasing the current set of changes and restoring the new set of
-		 * changes.
+		 * 对于我们正为其释放当前变更集并恢复新变   
+		 * 更集的那个事务，更新它所处理的总字节           
+		 * 数。  
 		 */
 		rb->totalBytes += entry->txn->size;
 		if (ReorderBufferRestoreChanges(rb, entry->txn, &entry->file,
 										&state->entries[off].segno))
 		{
-			/* successfully restored changes from disk */
+			/* 已成功从磁盘恢复变更          */
 			ReorderBufferChange *next_change =
 				dlist_head_element(ReorderBufferChange, node,
 								   &entry->txn->changes);
@@ -1469,7 +1469,7 @@ ReorderBufferIterTXNNext(ReorderBuffer *rb, ReorderBufferIterTXNState *state)
 				 (uint32) entry->txn->nentries);
 
 			Assert(entry->txn->nentries_mem);
-			/* txn stays the same */
+			/* 事务保持不变 */
 			state->entries[off].lsn = next_change->lsn;
 			state->entries[off].change = next_change;
 			binaryheap_replace_first(state->heap, Int32GetDatum(off));
@@ -1478,14 +1478,14 @@ ReorderBufferIterTXNNext(ReorderBuffer *rb, ReorderBufferIterTXNState *state)
 		}
 	}
 
-	/* ok, no changes there anymore, remove */
+	/* 已无变更，将其移除          */
 	binaryheap_remove_first(state->heap);
 
 	return change;
 }
 
 /*
- * Deallocate the iterator
+ * 释放迭代器        
  */
 static void
 ReorderBufferIterTXNFinish(ReorderBuffer *rb,
@@ -1499,7 +1499,7 @@ ReorderBufferIterTXNFinish(ReorderBuffer *rb,
 			FileClose(state->entries[off].file.vfd);
 	}
 
-	/* free memory we might have "leaked" in the last *Next call */
+	/* 释放在上次 *Next 调用中可能"泄漏"的内存    */
 	if (!dlist_is_empty(&state->old_change))
 	{
 		ReorderBufferChange *change;
@@ -1515,8 +1515,8 @@ ReorderBufferIterTXNFinish(ReorderBuffer *rb,
 }
 
 /*
- * Cleanup the contents of a transaction, usually after the transaction
- * committed or aborted.
+ * 清理一个事务的内容，通常在该事务提交或中止     
+ * 之后。            
  */
 static void
 ReorderBufferCleanupTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
@@ -1524,7 +1524,7 @@ ReorderBufferCleanupTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 	bool		found;
 	dlist_mutable_iter iter;
 
-	/* cleanup subtransactions & their changes */
+	/* 清理子事务及其变更             */
 	dlist_foreach_modify(iter, &txn->subtxns)
 	{
 		ReorderBufferTXN *subtxn;
@@ -1532,9 +1532,9 @@ ReorderBufferCleanupTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 		subtxn = dlist_container(ReorderBufferTXN, node, iter.cur);
 
 		/*
-		 * Subtransactions are always associated to the toplevel TXN, even if
-		 * they originally were happening inside another subtxn, so we won't
-		 * ever recurse more than one level deep here.
+		 * 子事务总是与顶层 TXN 相关联，即便它最初          
+		 * 发生在另一个子事务中，因此这里                    
+		 * 递归不会超过一层。                
 		 */
 		Assert(rbtxn_is_known_subxact(subtxn));
 		Assert(subtxn->nsubtxns == 0);
@@ -1542,22 +1542,22 @@ ReorderBufferCleanupTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 		ReorderBufferCleanupTXN(rb, subtxn);
 	}
 
-	/* cleanup changes in the txn */
+	/* 清理该事务中的变更*/
 	dlist_foreach_modify(iter, &txn->changes)
 	{
 		ReorderBufferChange *change;
 
 		change = dlist_container(ReorderBufferChange, node, iter.cur);
 
-		/* Check we're not mixing changes from different transactions. */
+		/* 检查未混入来自不同事务的变更。               */
 		Assert(change->txn == txn);
 
 		ReorderBufferReturnChange(rb, change, true);
 	}
 
 	/*
-	 * Cleanup the tuplecids we stored for decoding catalog snapshot access.
-	 * They are always stored in the toplevel transaction.
+	 * 清理我们为解码系统表快照访问而存储的 tuplecids。  
+	 * 它们总是存储在顶层事务中。            
 	 */
 	dlist_foreach_modify(iter, &txn->tuplecids)
 	{
@@ -1565,7 +1565,7 @@ ReorderBufferCleanupTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 
 		change = dlist_container(ReorderBufferChange, node, iter.cur);
 
-		/* Check we're not mixing changes from different transactions. */
+		/* 检查未混入来自不同事务的变更。               */
 		Assert(change->txn == txn);
 		Assert(change->action == REORDER_BUFFER_CHANGE_INTERNAL_TUPLECID);
 
@@ -1573,7 +1573,7 @@ ReorderBufferCleanupTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 	}
 
 	/*
-	 * Cleanup the base snapshot, if set.
+	 * 已设置则清理基础快照。 
 	 */
 	if (txn->base_snapshot != NULL)
 	{
@@ -1582,7 +1582,7 @@ ReorderBufferCleanupTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 	}
 
 	/*
-	 * Cleanup the snapshot for the last streamed run.
+	 * 清理最后一次流式运行的快照。     
 	 */
 	if (txn->snapshot_now != NULL)
 	{
@@ -1591,47 +1591,47 @@ ReorderBufferCleanupTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 	}
 
 	/*
-	 * Remove TXN from its containing lists.
+	 * 将 TXN 从所在列表中移除。  
 	 *
-	 * Note: if txn is known as subxact, we are deleting the TXN from its
-	 * parent's list of known subxacts; this leaves the parent's nsubxacts
-	 * count too high, but we don't care.  Otherwise, we are deleting the TXN
-	 * from the LSN-ordered list of toplevel TXNs. We remove the TXN from the
-	 * list of catalog modifying transactions as well.
+	 * 注意：若 txn 为子事务，我们会把它从父事务的已 
+	 * 知子事务列表中删除该 TXN；这会让父事务的         
+	 * nsubxacts 计数偏高，但我们并不在意。否则，我们会   
+	 * 把该 TXN 从按 LSN 排序的顶层 TXN 列表中删除。同时    
+	 * 将其移出系统表修改事务列表。     
 	 */
 	dlist_delete(&txn->node);
 	if (rbtxn_has_catalog_changes(txn))
 		dclist_delete_from(&rb->catchange_txns, &txn->catchange_node);
 
-	/* now remove reference from buffer */
+	/* 现在从缓冲区中移除引用*/
 	hash_search(rb->by_txn, &txn->xid, HASH_REMOVE, &found);
 	Assert(found);
 
-	/* remove entries spilled to disk */
+	/* 移除溢写到磁盘的条目 */
 	if (rbtxn_is_serialized(txn))
 		ReorderBufferRestoreCleanup(rb, txn);
 
-	/* deallocate */
+	/* 释放     */
 	ReorderBufferReturnTXN(rb, txn);
 }
 
 /*
- * Discard changes from a transaction (and subtransactions), either after
- * streaming or decoding them at PREPARE. Keep the remaining info -
- * transactions, tuplecids, invalidations and snapshots.
+ * 丢弃一个事务（及其子事务）的变更，时机可以是    
+ * 在流式发送后，或 PREPARE 时解码后。保留其余    
+ * 信息——事务、tuplecid、失效与快照。   
  *
- * We additionally remove tuplecids after decoding the transaction at prepare
- * time as we only need to perform invalidation at rollback or commit prepared.
+ * 另外，在 prepare 时解码完该事务后，我们还会移除        
+ * tuplecid，因为回滚或提交已准备事务时只需执行失效        
  *
- * 'txn_prepared' indicates that we have decoded the transaction at prepare
- * time.
+ * 'txn_prepared' 表示我们已经解码了 prepare 时的事务。      
+ *      
  */
 static void
 ReorderBufferTruncateTXN(ReorderBuffer *rb, ReorderBufferTXN *txn, bool txn_prepared)
 {
 	dlist_mutable_iter iter;
 
-	/* cleanup subtransactions & their changes */
+	/* 清理子事务及其变更             */
 	dlist_foreach_modify(iter, &txn->subtxns)
 	{
 		ReorderBufferTXN *subtxn;
@@ -1639,9 +1639,9 @@ ReorderBufferTruncateTXN(ReorderBuffer *rb, ReorderBufferTXN *txn, bool txn_prep
 		subtxn = dlist_container(ReorderBufferTXN, node, iter.cur);
 
 		/*
-		 * Subtransactions are always associated to the toplevel TXN, even if
-		 * they originally were happening inside another subtxn, so we won't
-		 * ever recurse more than one level deep here.
+		 * 子事务总是与顶层 TXN 相关联，即便它最初          
+		 * 发生在另一个子事务中，因此这里                    
+		 * 递归不会超过一层。                
 		 */
 		Assert(rbtxn_is_known_subxact(subtxn));
 		Assert(subtxn->nsubtxns == 0);
@@ -1649,36 +1649,36 @@ ReorderBufferTruncateTXN(ReorderBuffer *rb, ReorderBufferTXN *txn, bool txn_prep
 		ReorderBufferTruncateTXN(rb, subtxn, txn_prepared);
 	}
 
-	/* cleanup changes in the txn */
+	/* 清理该事务中的变更*/
 	dlist_foreach_modify(iter, &txn->changes)
 	{
 		ReorderBufferChange *change;
 
 		change = dlist_container(ReorderBufferChange, node, iter.cur);
 
-		/* Check we're not mixing changes from different transactions. */
+		/* 检查未混入来自不同事务的变更。               */
 		Assert(change->txn == txn);
 
-		/* remove the change from it's containing list */
+		/* 将该变更从其所在列表中移除     */
 		dlist_delete(&change->node);
 
 		ReorderBufferReturnChange(rb, change, true);
 	}
 
 	/*
-	 * Mark the transaction as streamed.
+	 * 将事务标记为已流式。   
 	 *
-	 * The top-level transaction, is marked as streamed always, even if it
-	 * does not contain any changes (that is, when all the changes are in
-	 * subtransactions).
+	 * 顶层事务总是会被标记为已流式，即使它不包含    
+	 * 任何变更（也就是说，当所有变更都在子事务      
+	 * 中时）。     
 	 *
-	 * For subtransactions, we only mark them as streamed when there are
-	 * changes in them.
+	 * 对于子事务，只有当其中有变更时才标记为        
+	 * 已流式。    
 	 *
-	 * We do it this way because of aborts - we don't want to send aborts for
-	 * XIDs the downstream is not aware of. And of course, it always knows
-	 * about the toplevel xact (we send the XID in all messages), but we never
-	 * stream XIDs of empty subxacts.
+	 * 我们这样做是因为中止的存在 —— 我们不想向下游  
+	 * 发送其不知道的 XID 的中止。下游当然总是知道     
+	 * 顶层事务（所有消息中我们都会发送 XID），但从不    
+	 * 流式空子事务的 XID。  
 	 */
 	if ((!txn_prepared) && (rbtxn_is_toptxn(txn) || (txn->nentries_mem != 0)))
 		txn->txn_flags |= RBTXN_IS_STREAMED;
@@ -1686,9 +1686,9 @@ ReorderBufferTruncateTXN(ReorderBuffer *rb, ReorderBufferTXN *txn, bool txn_prep
 	if (txn_prepared)
 	{
 		/*
-		 * If this is a prepared txn, cleanup the tuplecids we stored for
-		 * decoding catalog snapshot access. They are always stored in the
-		 * toplevel transaction.
+		 * 若为已准备事务，清理我们为解码系统表快照  
+		 * 访问而存储的 tuplecid，它们总存于顶层事务中   
+		 * 。                  
 		 */
 		dlist_foreach_modify(iter, &txn->tuplecids)
 		{
@@ -1696,11 +1696,11 @@ ReorderBufferTruncateTXN(ReorderBuffer *rb, ReorderBufferTXN *txn, bool txn_prep
 
 			change = dlist_container(ReorderBufferChange, node, iter.cur);
 
-			/* Check we're not mixing changes from different transactions. */
+			/* 检查未混入来自不同事务的变更。               */
 			Assert(change->txn == txn);
 			Assert(change->action == REORDER_BUFFER_CHANGE_INTERNAL_TUPLECID);
 
-			/* Remove the change from its containing list. */
+			/* 将该变更从其所在列表中移除。  */
 			dlist_delete(&change->node);
 
 			ReorderBufferReturnChange(rb, change, true);
@@ -1708,9 +1708,9 @@ ReorderBufferTruncateTXN(ReorderBuffer *rb, ReorderBufferTXN *txn, bool txn_prep
 	}
 
 	/*
-	 * Destroy the (relfilelocator, ctid) hashtable, so that we don't leak any
-	 * memory. We could also keep the hash table and update it with new ctid
-	 * values, but this seems simpler and good enough for now.
+	 * 销毁 (relfilelocator, ctid) 哈希表以免泄漏内存。           
+	 * 我们也可以保留哈希表并用新的 ctid 值去更新它，   
+	 * 但目前这样更简单且已足够。                
 	 */
 	if (txn->tuplecid_hash != NULL)
 	{
@@ -1718,27 +1718,27 @@ ReorderBufferTruncateTXN(ReorderBuffer *rb, ReorderBufferTXN *txn, bool txn_prep
 		txn->tuplecid_hash = NULL;
 	}
 
-	/* If this txn is serialized then clean the disk space. */
+	/* 若此事务已序列化，则清理磁盘空间。  */
 	if (rbtxn_is_serialized(txn))
 	{
 		ReorderBufferRestoreCleanup(rb, txn);
 		txn->txn_flags &= ~RBTXN_IS_SERIALIZED;
 
 		/*
-		 * We set this flag to indicate if the transaction is ever serialized.
-		 * We need this to accurately update the stats as otherwise the same
-		 * transaction can be counted as serialized multiple times.
+		 * 我们设置此标志以表明该事务是否曾被序列化。    
+		 * 我们需要它来准确更新统计信息，否则同一事务  
+		 * 可能会被多次计为已序列化。                 
 		 */
 		txn->txn_flags |= RBTXN_IS_SERIALIZED_CLEAR;
 	}
 
-	/* also reset the number of entries in the transaction */
+	/* 同时重置事务中的条目数                   */
 	txn->nentries_mem = 0;
 	txn->nentries = 0;
 }
 
 /*
- * Build a hash with a (relfilelocator, ctid) -> (cmin, cmax) mapping for use by
+ * 构建 (relfilelocator, ctid) -> (cmin, cmax) 映射的哈希表，供       
  * HeapTupleSatisfiesHistoricMVCC.
  */
 static void
@@ -1755,8 +1755,8 @@ ReorderBufferBuildTupleCidHash(ReorderBuffer *rb, ReorderBufferTXN *txn)
 	hash_ctl.hcxt = rb->context;
 
 	/*
-	 * create the hash with the exact number of to-be-stored tuplecids from
-	 * the start
+	 * 从一开始就按将要存储的 tuplecid 的确切数量创建    
+	 * 哈希   
 	 */
 	txn->tuplecid_hash =
 		hash_create("ReorderBufferTupleCid", txn->ntuplecids, &hash_ctl,
@@ -1773,7 +1773,7 @@ ReorderBufferBuildTupleCidHash(ReorderBuffer *rb, ReorderBufferTXN *txn)
 
 		Assert(change->action == REORDER_BUFFER_CHANGE_INTERNAL_TUPLECID);
 
-		/* be careful about padding */
+		/* 注意填充问题       */
 		memset(&key, 0, sizeof(ReorderBufferTupleCidKey));
 
 		key.rlocator = change->data.tuplecid.locator;
@@ -1792,14 +1792,14 @@ ReorderBufferBuildTupleCidHash(ReorderBuffer *rb, ReorderBufferTXN *txn)
 		else
 		{
 			/*
-			 * Maybe we already saw this tuple before in this transaction, but
-			 * if so it must have the same cmin.
+			 * 也许我们在此事务中已见过该元组，但若是      
+			 * 这样，其 cmin 必相同。   
 			 */
 			Assert(ent->cmin == change->data.tuplecid.cmin);
 
 			/*
-			 * cmax may be initially invalid, but once set it can only grow,
-			 * and never become invalid again.
+			 * cmax 起初可能无效，但一旦设置就只能增长，  
+			 * 绝不会再变为无效。    
 			 */
 			Assert((ent->cmax == InvalidCommandId) ||
 				   ((change->data.tuplecid.cmax != InvalidCommandId) &&
@@ -1810,9 +1810,9 @@ ReorderBufferBuildTupleCidHash(ReorderBuffer *rb, ReorderBufferTXN *txn)
 }
 
 /*
- * Copy a provided snapshot so we can modify it privately. This is needed so
- * that catalog modifying transactions can look into intermediate catalog
- * states.
+ * 复制提供的快照，以便我们能私自修改它。这是          
+ * 必需的，这样修改系统表的事务能查看中间状态       
+ * 。    
  */
 static Snapshot
 ReorderBufferCopySnap(ReorderBuffer *rb, Snapshot orig_snap,
@@ -1831,24 +1831,24 @@ ReorderBufferCopySnap(ReorderBuffer *rb, Snapshot orig_snap,
 	memcpy(snap, orig_snap, sizeof(SnapshotData));
 
 	snap->copied = true;
-	snap->active_count = 1;		/* mark as active so nobody frees it */
+	snap->active_count = 1;		/* 标记为活跃以免被释放    */
 	snap->regd_count = 0;
 	snap->xip = (TransactionId *) (snap + 1);
 
 	memcpy(snap->xip, orig_snap->xip, sizeof(TransactionId) * snap->xcnt);
 
 	/*
-	 * snap->subxip contains all txids that belong to our transaction which we
-	 * need to check via cmin/cmax. That's why we store the toplevel
-	 * transaction in there as well.
+	 * snap->subxip 包含属于我们事务、需要通过 cmin/cmax         
+	 * 检查的 txid，所以也把顶层事务一并存入其中  
+	 * 。                          
 	 */
 	snap->subxip = snap->xip + snap->xcnt;
 	snap->subxip[i++] = txn->xid;
 
 	/*
-	 * subxcnt isn't decreased when subtransactions abort, so count manually.
-	 * Since it's an upper boundary it is safe to use it for the allocation
-	 * above.
+	 * 子事务中止时 subxcnt 并不会减少，因此要手动计数。 
+	 * 由于它是一个上界，所以将其用于上面的分配        
+	 * 。   
 	 */
 	snap->subxcnt = 1;
 
@@ -1861,17 +1861,17 @@ ReorderBufferCopySnap(ReorderBuffer *rb, Snapshot orig_snap,
 		snap->subxcnt++;
 	}
 
-	/* sort so we can bsearch() later */
+	/* 排序以便之后 bsearch()   */
 	qsort(snap->subxip, snap->subxcnt, sizeof(TransactionId), xidComparator);
 
-	/* store the specified current CommandId */
+	/* 存储指定的当前 CommandId       */
 	snap->curcid = cid;
 
 	return snap;
 }
 
 /*
- * Free a previously ReorderBufferCopySnap'ed snapshot
+ * 释放之前 ReorderBufferCopySnap 过的快照    
  */
 static void
 ReorderBufferFreeSnap(ReorderBuffer *rb, Snapshot snap)
@@ -1883,15 +1883,15 @@ ReorderBufferFreeSnap(ReorderBuffer *rb, Snapshot snap)
 }
 
 /*
- * If the transaction was (partially) streamed, we need to prepare or commit
- * it in a 'streamed' way.  That is, we first stream the remaining part of the
- * transaction, and then invoke stream_prepare or stream_commit message as per
- * the case.
+ * 如果事务被（部分）流式发送过，就需要以"流式"方     
+ * 式对它 prepare 或提交。即先流式发送事务的剩余部         
+ * 分，然后根据情况调用 stream_prepare 或 stream_commit            
+ * 消息   
  */
 static void
 ReorderBufferStreamCommit(ReorderBuffer *rb, ReorderBufferTXN *txn)
 {
-	/* we should only call this for previously streamed transactions */
+	/* 只应为之前已流式发送过的事务调用此函数     */
 	Assert(rbtxn_is_streamed(txn));
 
 	ReorderBufferStreamTXN(rb, txn);
@@ -1899,18 +1899,18 @@ ReorderBufferStreamCommit(ReorderBuffer *rb, ReorderBufferTXN *txn)
 	if (rbtxn_prepared(txn))
 	{
 		/*
-		 * Note, we send stream prepare even if a concurrent abort is
-		 * detected. See DecodePrepare for more information.
+		 * 注意：即使检测到并发中止也会发送 stream   
+		 *  prepare。更多信息参见 DecodePrepare。   
 		 */
 		rb->stream_prepare(rb, txn, txn->final_lsn);
 
 		/*
-		 * This is a PREPARED transaction, part of a two-phase commit. The
-		 * full cleanup will happen as part of the COMMIT PREPAREDs, so now
-		 * just truncate txn by removing changes and tuplecids.
+		 * 这是 PREPARED 事务，属于两阶段提交。完整清理  
+		 * 将在 COMMIT PREPARED 时进行，现在只需通过移除变  
+		 * 更和 tuplecid 来截断事务。                  
 		 */
 		ReorderBufferTruncateTXN(rb, txn, true);
-		/* Reset the CheckXidAlive */
+		/* 重置 CheckXidAlive    */
 		CheckXidAlive = InvalidTransactionId;
 	}
 	else
@@ -1921,50 +1921,50 @@ ReorderBufferStreamCommit(ReorderBuffer *rb, ReorderBufferTXN *txn)
 }
 
 /*
- * Set xid to detect concurrent aborts.
+ * 设置 xid 以检测并发中止。 
  *
- * While streaming an in-progress transaction or decoding a prepared
- * transaction there is a possibility that the (sub)transaction might get
- * aborted concurrently.  In such case if the (sub)transaction has catalog
- * update then we might decode the tuple using wrong catalog version.  For
- * example, suppose there is one catalog tuple with (xmin: 500, xmax: 0).  Now,
- * the transaction 501 updates the catalog tuple and after that we will have
- * two tuples (xmin: 500, xmax: 501) and (xmin: 501, xmax: 0).  Now, if 501 is
- * aborted and some other transaction say 502 updates the same catalog tuple
- * then the first tuple will be changed to (xmin: 500, xmax: 502).  So, the
- * problem is that when we try to decode the tuple inserted/updated in 501
- * after the catalog update, we will see the catalog tuple with (xmin: 500,
- * xmax: 502) as visible because it will consider that the tuple is deleted by
- * xid 502 which is not visible to our snapshot.  And when we will try to
- * decode with that catalog tuple, it can lead to a wrong result or a crash.
- * So, it is necessary to detect concurrent aborts to allow streaming of
- * in-progress transactions or decoding of prepared transactions.
+ * 在流式发送进行中的事务或解码已准备的事务     
+ * 时，该（子）事务有可能被并发中止。在这种情况下 
+ * 如果该（子）事务有系统表更新，我们就可能用错误  
+ * 的系统表版本解码元组。例如假设有一个系统表元组  
+ *  (xmin: 500, xmax: 0)。现在事务 501 更新了该系统表元           
+ * 组，之后我们会得到两个元组 (xmin: 500, xmax: 501)           
+ *  和 (xmin: 501, xmax: 0)。此时，如果 501 中止，而另            
+ * 一个事务（比如 502）更新了同一系统表元组，那么第   
+ * 一个元组会变为 (xmin: 500, xmax: 502)。问题在于：          
+ * 当我们尝试解码 501 在系统表更新之后插入/更新的     
+ * 元组时，我们会看到 (xmin: 500, xmax: 502) 这一系统表      
+ * 元组是可见的，因为它会认为该元组已被 xid 502             
+ * 删除，而 502 对我们的快照不可见。而当我们尝试     
+ * 用该系统表元组进行解码时，就可能导致错误的结       
+ * 果或崩溃。因此，必须检测并发中止，才能允许流   
+ * 式发送进行中的事务或解码已准备的事务。     
  *
- * For detecting the concurrent abort we set CheckXidAlive to the current
- * (sub)transaction's xid for which this change belongs to.  And, during
- * catalog scan we can check the status of the xid and if it is aborted we will
- * report a specific error so that we can stop streaming current transaction
- * and discard the already streamed changes on such an error.  We might have
- * already streamed some of the changes for the aborted (sub)transaction, but
- * that is fine because when we decode the abort we will stream abort message
- * to truncate the changes in the subscriber. Similarly, for prepared
- * transactions, we stop decoding if concurrent abort is detected and then
- * rollback the changes when rollback prepared is encountered. See
- * DecodePrepare.
+ * 为了检测并发中止，我们把 CheckXidAlive 设为当前       
+ * （子）事务的 xid，即此变更所属的事务。另外，在  
+ * 系统表扫描期间我们可以检查该 xid 的状态，如果它已     
+ * 中止，我们就会报告特定错误，以便在此类错误上       
+ * 停止流式发送当前事务并丢弃已流式发送的变更。       
+ * 我们可能已经流式发送了已中止（子）事务的部分        
+ * 变更，但这无妨，因为解码中止时我们会流式发送        
+ * 中止消息截断订阅端的变更。类似地，对已准备   
+ * 事务，如果检测到并发中止，我们就停止解码，并     
+ * 在遇到 rollback prepared 时回滚这些变更。参见     
+ * DecodePrepare 
  */
 static inline void
 SetupCheckXidLive(TransactionId xid)
 {
 	/*
-	 * If the input transaction id is already set as a CheckXidAlive then
-	 * nothing to do.
+	 * 如果输入的事务 ID 已被设置为 CheckXidAlive，则      
+	 * 无事可做  
 	 */
 	if (TransactionIdEquals(CheckXidAlive, xid))
 		return;
 
 	/*
-	 * setup CheckXidAlive if it's not committed yet.  We don't check if the
-	 * xid is aborted.  That will happen during catalog access.
+	 * 若尚未提交，则设置 CheckXidAlive。我们不检查 xid      
+	 * 是否已中止。那会在访问系统表时进行。  
 	 */
 	if (!TransactionIdDidCommit(xid))
 		CheckXidAlive = xid;
@@ -1973,7 +1973,7 @@ SetupCheckXidLive(TransactionId xid)
 }
 
 /*
- * Helper function for ReorderBufferProcessTXN for applying change.
+ * ReorderBufferProcessTXN 用于应用变更的辅助函数。    
  */
 static inline void
 ReorderBufferApplyChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
@@ -1987,7 +1987,7 @@ ReorderBufferApplyChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 }
 
 /*
- * Helper function for ReorderBufferProcessTXN for applying the truncate.
+ * ReorderBufferProcessTXN 用于应用 truncate 的辅助函数。      
  */
 static inline void
 ReorderBufferApplyTruncate(ReorderBuffer *rb, ReorderBufferTXN *txn,
@@ -2001,7 +2001,7 @@ ReorderBufferApplyTruncate(ReorderBuffer *rb, ReorderBufferTXN *txn,
 }
 
 /*
- * Helper function for ReorderBufferProcessTXN for applying the message.
+ * ReorderBufferProcessTXN 用于应用消息的辅助函数。         
  */
 static inline void
 ReorderBufferApplyMessage(ReorderBuffer *rb, ReorderBufferTXN *txn,
@@ -2020,8 +2020,8 @@ ReorderBufferApplyMessage(ReorderBuffer *rb, ReorderBufferTXN *txn,
 }
 
 /*
- * Function to store the command id and snapshot at the end of the current
- * stream so that we can reuse the same while sending the next stream.
+ * 该函数在当前流结束时存储命令 ID 与快照，使我       
+ * 们可以在发送下一个流时复用它们。                   
  */
 static inline void
 ReorderBufferSaveTXNSnapshot(ReorderBuffer *rb, ReorderBufferTXN *txn,
@@ -2029,7 +2029,7 @@ ReorderBufferSaveTXNSnapshot(ReorderBuffer *rb, ReorderBufferTXN *txn,
 {
 	txn->command_id = command_id;
 
-	/* Avoid copying if it's already copied. */
+	/* 已复制过则避免再次复制。  */
 	if (snapshot_now->copied)
 		txn->snapshot_now = snapshot_now;
 	else
@@ -2038,11 +2038,11 @@ ReorderBufferSaveTXNSnapshot(ReorderBuffer *rb, ReorderBufferTXN *txn,
 }
 
 /*
- * Helper function for ReorderBufferProcessTXN to handle the concurrent
- * abort of the streaming transaction.  This resets the TXN such that it
- * can be used to stream the remaining data of transaction being processed.
- * This can happen when the subtransaction is aborted and we still want to
- * continue processing the main or other subtransactions data.
+ * ReorderBufferProcessTXN 的辅助函数，用于处理              
+ * 流式事务的并发中止。它重置 TXN，使之可用于继     
+ * 续流式发送正在处理的事务的剩余数据。当子事务      
+ * 被中止而我们仍想继续处理主事务或其他子事务        
+ * 的数据时发生。                                      
  */
 static void
 ReorderBufferResetTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
@@ -2051,13 +2051,13 @@ ReorderBufferResetTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 					  XLogRecPtr last_lsn,
 					  ReorderBufferChange *specinsert)
 {
-	/* Discard the changes that we just streamed */
+	/* 丢弃我们刚刚流式发送的变更   */
 	ReorderBufferTruncateTXN(rb, txn, rbtxn_prepared(txn));
 
-	/* Free all resources allocated for toast reconstruction */
+	/* 释放为 TOAST 重建分配的所有资源           */
 	ReorderBufferToastReset(rb, txn);
 
-	/* Return the spec insert change if it is not NULL */
+	/* 若 spec 插入变更不为 NULL 则将其返回*/
 	if (specinsert != NULL)
 	{
 		ReorderBufferReturnChange(rb, specinsert, true);
@@ -2065,8 +2065,8 @@ ReorderBufferResetTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 	}
 
 	/*
-	 * For the streaming case, stop the stream and remember the command ID and
-	 * snapshot for the streaming run.
+	 * 对于流式情况，停止流并记住命令 ID 与本次             
+	 * 流式运行使用的快照。 
 	 */
 	if (rbtxn_is_streamed(txn))
 	{
@@ -2076,16 +2076,16 @@ ReorderBufferResetTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 }
 
 /*
- * Helper function for ReorderBufferReplay and ReorderBufferStreamTXN.
+ * ReorderBufferReplay 与 ReorderBufferStreamTXN 的辅助函数。  
  *
- * Send data of a transaction (and its subtransactions) to the
- * output plugin. We iterate over the top and subtransactions (using a k-way
- * merge) and replay the changes in lsn order.
+ * 将一个事务（及其子事务）的数据发送给     
+ * 输出插件。我们遍历顶层事务与子事务（以 k 路          
+ * 归并）按 lsn 顺序重放变更。     
  *
- * If streaming is true then data will be sent using stream API.
+ * 若 streaming 为真，则数据以 stream API 发送。     
  *
- * Note: "volatile" markers on some parameters are to avoid trouble with
- * PG_TRY inside the function.
+ * 注意：某些参数上的 "volatile" 标记用于避免函数      
+ * 内的 PG_TRY 问题。    
  */
 static void
 ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
@@ -2102,21 +2102,21 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 	volatile bool stream_started = false;
 	ReorderBufferTXN *volatile curtxn = NULL;
 
-	/* build data to be able to lookup the CommandIds of catalog tuples */
+	/* 构建数据以便查找系统表元组的 CommandId             */
 	ReorderBufferBuildTupleCidHash(rb, txn);
 
-	/* setup the initial snapshot */
+	/* 设置初始快照         */
 	SetupHistoricSnapshot(snapshot_now, txn->tuplecid_hash);
 
 	/*
-	 * Decoding needs access to syscaches et al., which in turn use
-	 * heavyweight locks and such. Thus we need to have enough state around to
-	 * keep track of those.  The easiest way is to simply use a transaction
-	 * internally.  That also allows us to easily enforce that nothing writes
-	 * to the database by checking for xid assignments.
+	 * 解码需要访问 syscache 等，其内又使用重量级  
+	 * 锁等资源。因此我们需要维护足够的状态来跟踪        
+	 * 它们。最简单的办法就是直接在内部使用一个事     
+	 * 务。这也让我们能方便地通过检查 XID 分配来           
+	 * 强制确保无任何内容写入数据库。   
 	 *
-	 * When we're called via the SQL SRF there's already a transaction
-	 * started, so start an explicit subtransaction there.
+	 * 当我们经 SQL SRF 被调用时，事务已经启动，      
+	 * 因此在那里启动一个显式子事务。      
 	 */
 	using_subtxn = IsTransactionOrTransactionBlock();
 
@@ -2132,8 +2132,8 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 			StartTransactionCommand();
 
 		/*
-		 * We only need to send begin/begin-prepare for non-streamed
-		 * transactions.
+		 * 只需为非流式事务发送 begin/begin-prepare。    
+		 *              
 		 */
 		if (!streaming)
 		{
@@ -2152,8 +2152,8 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 			CHECK_FOR_INTERRUPTS();
 
 			/*
-			 * We can't call start stream callback before processing first
-			 * change.
+			 * 在处理首个变更前，无法调用流开始回调。  
+			 *        
 			 */
 			if (prev_lsn == InvalidXLogRecPtr)
 			{
@@ -2166,18 +2166,18 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 			}
 
 			/*
-			 * Enforce correct ordering of changes, merged from multiple
-			 * subtransactions. The changes may have the same LSN due to
-			 * MULTI_INSERT xlog records.
+			 * 对合并自多个子事务的变更，强制实施      
+			 * 正确的顺序。MULTI_INSERT xlog 记录可能使变   
+			 * 更具有相同的 LSN。 
 			 */
 			Assert(prev_lsn == InvalidXLogRecPtr || prev_lsn <= change->lsn);
 
 			prev_lsn = change->lsn;
 
 			/*
-			 * Set the current xid to detect concurrent aborts. This is
-			 * required for the cases when we decode the changes before the
-			 * COMMIT record is processed.
+			 * 设置当前 XID 以检测并发中止。对于在      
+			 * COMMIT 记录被处理之前解码变更的情形，这是  
+			 * 必需的。               
 			 */
 			if (streaming || rbtxn_prepared(change->txn))
 			{
@@ -2190,9 +2190,9 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 				case REORDER_BUFFER_CHANGE_INTERNAL_SPEC_CONFIRM:
 
 					/*
-					 * Confirmation for speculative insertion arrived. Simply
-					 * use as a normal record. It'll be cleaned up at the end
-					 * of INSERT processing.
+					 * 推测插入的确认已到达。只需将其当作   
+					 * 普通记录使用。它会在 INSERT 处理结尾    
+					 * 被清理掉。      
 					 */
 					if (specinsert == NULL)
 						elog(ERROR, "invalid ordering of speculative insertion changes");
@@ -2210,16 +2210,16 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 												  change->data.tp.rlocator.relNumber);
 
 					/*
-					 * Mapped catalog tuple without data, emitted while
-					 * catalog table was in the process of being rewritten. We
-					 * can fail to look up the relfilenumber, because the
-					 * relmapper has no "historic" view, in contrast to the
-					 * normal catalog during decoding. Thus repeated rewrites
-					 * can cause a lookup failure. That's OK because we do not
-					 * decode catalog changes anyway. Normally such tuples
-					 * would be skipped over below, but we can't identify
-					 * whether the table should be logically logged without
-					 * mapping the relfilenumber to the oid.
+					 * 已映射但无数据的元组，产生于      
+					 * 系统表正被重写期间。我们可能无法查找 
+					 * relfilenumber，因为 relmapper 没有历史     
+					 * 视图，这与解码时的正常系统表不同。 
+					 * 因此反复重写可能导致查找失败。这没   
+					 * 关系，反正我们不解码系统表变更。这类 
+					 * 元组本会在下方被跳过，但若不将      
+					 * relfilenumber 映射到 oid，则无法判定     
+					 * 该表是否应当被逻辑记录。                
+					 *                                      
 					 */
 					if (reloid == InvalidOid &&
 						change->data.tp.newtuple == NULL &&
@@ -2242,22 +2242,22 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 						goto change_done;
 
 					/*
-					 * Ignore temporary heaps created during DDL unless the
-					 * plugin has asked for them.
+					 * 忽略 DDL 期间创建的临时堆，除非插件  
+					 * 要求提供它们。     
 					 */
 					if (relation->rd_rel->relrewrite && !rb->output_rewrites)
 						goto change_done;
 
 					/*
-					 * For now ignore sequence changes entirely. Most of the
-					 * time they don't log changes using records we
-					 * understand, so it doesn't make sense to handle the few
-					 * cases we do.
+					 * 目前完全忽略序列变更。多数时候它们  
+					 * 并不以我们理解的记录记录变更  
+					 * 因此处理我们所能处理的少数情况并无   
+					 * 意义。   
 					 */
 					if (relation->rd_rel->relkind == RELKIND_SEQUENCE)
 						goto change_done;
 
-					/* user-triggered change */
+					/* 用户触发的变更 */
 					if (!IsToastRelation(relation))
 					{
 						ReorderBufferToastReplace(rb, txn, relation, change);
@@ -2265,23 +2265,23 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 												 streaming);
 
 						/*
-						 * Only clear reassembled toast chunks if we're sure
-						 * they're not required anymore. The creator of the
-						 * tuple tells us.
+						 * 只在确定其不再需要时才清除重新组 
+						 * 装的 TOAST 块。元组的创建者会告诉  
+						 * 我们。      
 						 */
 						if (change->data.tp.clear_toast_afterwards)
 							ReorderBufferToastReset(rb, txn);
 					}
-					/* we're not interested in toast deletions */
+					/* 我们不关心 TOAST 删除操作      */
 					else if (change->action == REORDER_BUFFER_CHANGE_INSERT)
 					{
 						/*
-						 * Need to reassemble the full toasted Datum in
-						 * memory, to ensure the chunks don't get reused till
-						 * we're done remove it from the list of this
-						 * transaction's changes. Otherwise it will get
-						 * freed/reused while restoring spooled data from
-						 * disk.
+						 * 需在内存中重组完整的已 TOAST     
+						 * Datum，确保这些块在我们完成前不会   
+						 * 被重用，并将其移出该事务      
+						 * 变更列表，否则恢复磁盘上的溢  
+						 * 写数据时，它会被释放或重用。    
+						 *      
 						 */
 						Assert(change->data.tp.newtuple != NULL);
 
@@ -2293,8 +2293,8 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 			change_done:
 
 					/*
-					 * If speculative insertion was confirmed, the record
-					 * isn't needed anymore.
+					 * 如果推测插入已获确认，该记录就不  
+					 * 再需要了。      
 					 */
 					if (specinsert != NULL)
 					{
@@ -2312,26 +2312,26 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 				case REORDER_BUFFER_CHANGE_INTERNAL_SPEC_INSERT:
 
 					/*
-					 * Speculative insertions are dealt with by delaying the
-					 * processing of the insert until the confirmation record
-					 * arrives. For that we simply unlink the record from the
-					 * chain, so it does not get freed/reused while restoring
-					 * spooled data from disk.
+					 * 推测插入的处理方式是将其延迟到确认  
+					 * 记录到达时。为此我们直接把该记录从   
+					 * 链上摘除，这样在从磁盘恢复已溢写的   
+					 * 数据期间不会被释放或重用。               
+					 *                        
 					 *
-					 * This is safe in the face of concurrent catalog changes
-					 * because the relevant relation can't be changed between
-					 * speculative insertion and confirmation due to
-					 * CheckTableNotInUse() and locking.
+					 * 在并发系统表变更下这样做是安全的，   
+					 * 因为在推测插入与确认之间相关的关系   
+					 * 无法改动，由于 CheckTableNotInUse()   
+					 * 与锁机制。                  
 					 */
 
-					/* clear out a pending (and thus failed) speculation */
+					/* 清除一个未决（因而已失败）的推测  */
 					if (specinsert != NULL)
 					{
 						ReorderBufferReturnChange(rb, specinsert, true);
 						specinsert = NULL;
 					}
 
-					/* and memorize the pending insertion */
+					/* 并记住这个待处理的插入  */
 					dlist_delete(&change->node);
 					specinsert = change;
 					break;
@@ -2339,24 +2339,24 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 				case REORDER_BUFFER_CHANGE_INTERNAL_SPEC_ABORT:
 
 					/*
-					 * Abort for speculative insertion arrived. So cleanup the
-					 * specinsert tuple and toast hash.
+					 * 推测插入的中止已到达。所以要清理       
+					 * specinsert 元组和哈希。   
 					 *
-					 * Note that we get the spec abort change for each toast
-					 * entry but we need to perform the cleanup only the first
-					 * time we get it for the main table.
+					 * 注意，每个 toast 条目都会收到一条 spec  
+					 * 中止变更，但只需在主表首次收到它时执 
+					 * 行清理。                      
 					 */
 					if (specinsert != NULL)
 					{
 						/*
-						 * We must clean the toast hash before processing a
-						 * completely new tuple to avoid confusion about the
-						 * previous tuple's toast chunks.
+						 * 在处理一个全新元组前必须清理      
+						 * TOAST 哈希，以免与前一元组的 TOAST    
+						 * 块混淆。                  
 						 */
 						Assert(change->data.tp.clear_toast_afterwards);
 						ReorderBufferToastReset(rb, txn);
 
-						/* We don't need this record anymore. */
+						/* 这条记录不再需要了。     */
 						ReorderBufferReturnChange(rb, specinsert, true);
 						specinsert = NULL;
 					}
@@ -2386,7 +2386,7 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 							relations[nrelations++] = rel;
 						}
 
-						/* Apply the truncate. */
+						/* 执行截断。     */
 						ReorderBufferApplyTruncate(rb, txn, nrelations,
 												   relations, change,
 												   streaming);
@@ -2402,13 +2402,13 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 					break;
 
 				case REORDER_BUFFER_CHANGE_INVALIDATION:
-					/* Execute the invalidation messages locally */
+					/* 在本地执行这些失效消息         */
 					ReorderBufferExecuteInvalidations(change->data.inval.ninvalidations,
 													  change->data.inval.invalidations);
 					break;
 
 				case REORDER_BUFFER_CHANGE_INTERNAL_SNAPSHOT:
-					/* get rid of the old */
+					/* 丢掉旧的       */
 					TeardownHistoricSnapshot(false);
 
 					if (snapshot_now->copied)
@@ -2420,9 +2420,9 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 					}
 
 					/*
-					 * Restored from disk, need to be careful not to double
-					 * free. We could introduce refcounting for that, but for
-					 * now this seems infrequent enough not to care.
+					 * 从磁盘恢复，需小心避免二次释放，    
+					 * 为此可引入引用计数来解决，但就目前   
+					 * 来看它已足够罕见，无须在意。   
 					 */
 					else if (change->data.snapshot->copied)
 					{
@@ -2435,7 +2435,7 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 						snapshot_now = change->data.snapshot;
 					}
 
-					/* and continue with the new one */
+					/* 然后继续用新的那个   */
 					SetupHistoricSnapshot(snapshot_now, txn->tuplecid_hash);
 					break;
 
@@ -2448,7 +2448,7 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 
 						if (!snapshot_now->copied)
 						{
-							/* we don't use the global one anymore */
+							/* 我们不再使用全局的那个了*/
 							snapshot_now = ReorderBufferCopySnap(rb, snapshot_now,
 																 txn, command_id);
 						}
@@ -2467,14 +2467,14 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 			}
 
 			/*
-			 * It is possible that the data is not sent to downstream for a
-			 * long time either because the output plugin filtered it or there
-			 * is a DDL that generates a lot of data that is not processed by
-			 * the plugin. So, in such cases, the downstream can timeout. To
-			 * avoid that we try to send a keepalive message if required.
-			 * Trying to send a keepalive message after every change has some
-			 * overhead, but testing showed there is no noticeable overhead if
-			 * we do it after every ~100 changes.
+			 * 数据可能长时间未发送到下游，原因要么是   
+			 * 输出插件将其过滤，要么是某条 DDL 产生了       
+			 * 大量插件未处理的数据。在这种情况下，下游  
+			 * 可能超时。为避免这一点，会在必要时尝试发 
+			 * 送保活消息。每条变更后都尝试发送会有一 
+			 * 定开销，但测试表明，如果每处理约 100 条变   
+			 * 更才发送一次，并不会带来明显的开销。         
+			 *                                   
 			 */
 #define CHANGES_THRESHOLD 100
 
@@ -2485,21 +2485,21 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 			}
 		}
 
-		/* speculative insertion record must be freed by now */
+		/* 推测插入记录此刻必定已被释放        */
 		Assert(!specinsert);
 
-		/* clean up the iterator */
+		/* 清理迭代器       */
 		ReorderBufferIterTXNFinish(rb, iterstate);
 		iterstate = NULL;
 
 		/*
-		 * Update total transaction count and total bytes processed by the
-		 * transaction and its subtransactions. Ensure to not count the
-		 * streamed transaction multiple times.
+		 * 更新事务总数，以及此事务及其子事务已         
+		 * 处理的总字节数。注意不要把已流式的事务   
+		 * 重复计入多次。               
 		 *
-		 * Note that the statistics computation has to be done after
-		 * ReorderBufferIterTXNFinish as it releases the serialized change
-		 * which we have already accounted in ReorderBufferIterTXNNext.
+		 * 统计计算必须在 ReorderBufferIterTXNFinish         
+		 * 之后进行，因为它释放的已序列化变更已在      
+		 * ReorderBufferIterTXNNext 中计入过。                    
 		 */
 		if (!rbtxn_is_streamed(txn))
 			rb->totalTxns++;
@@ -2507,8 +2507,8 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		rb->totalBytes += txn->total_size;
 
 		/*
-		 * Done with current changes, send the last message for this set of
-		 * changes depending upon streaming mode.
+		 * 当前变更已处理完毕，根据流式模式为这          
+		 * 组变更发送最后一条消息。  
 		 */
 		if (streaming)
 		{
@@ -2521,8 +2521,8 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		else
 		{
 			/*
-			 * Call either PREPARE (for two-phase transactions) or COMMIT (for
-			 * regular ones).
+			 * 两阶段事务调用 PREPARE，普通事务则调用          
+			 * COMMIT。     
 			 */
 			if (rbtxn_prepared(txn))
 				rb->prepare(rb, txn, commit_lsn);
@@ -2530,32 +2530,32 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 				rb->commit(rb, txn, commit_lsn);
 		}
 
-		/* this is just a sanity check against bad output plugin behaviour */
+		/* 这只是针对输出插件不良行为的一次健全性检查 */
 		if (GetCurrentTransactionIdIfAny() != InvalidTransactionId)
 			elog(ERROR, "output plugin used XID %u",
 				 GetCurrentTransactionId());
 
 		/*
-		 * Remember the command ID and snapshot for the next set of changes in
-		 * streaming mode.
+		 * 流式模式下为下一组变更记住命令 ID 和快照。      
+		 *                
 		 */
 		if (streaming)
 			ReorderBufferSaveTXNSnapshot(rb, txn, snapshot_now, command_id);
 		else if (snapshot_now->copied)
 			ReorderBufferFreeSnap(rb, snapshot_now);
 
-		/* cleanup */
+		/* 清理  */
 		TeardownHistoricSnapshot(false);
 
 		/*
-		 * Aborting the current (sub-)transaction as a whole has the right
-		 * semantics. We want all locks acquired in here to be released, not
-		 * reassigned to the parent and we do not want any database access
-		 * have persistent effects.
+		 * 将当前（子）事务作为一个整体中止有着正确   
+		 * 的语义。我们希望在此获取的所有锁都被释放     
+		 * 而非重新分配给父事务，也不希望数据库访问   
+		 * 产生持久影响。   
 		 */
 		AbortCurrentTransaction();
 
-		/* make sure there's no cache pollution */
+		/* 确保没有缓存污染             */
 		if (rbtxn_distr_inval_overflowed(txn))
 		{
 			Assert(txn->ninvalidations_distributed == 0);
@@ -2572,23 +2572,23 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 			RollbackAndReleaseCurrentSubTransaction();
 
 		/*
-		 * We are here due to one of the four reasons: 1. Decoding an
-		 * in-progress txn. 2. Decoding a prepared txn. 3. Decoding of a
-		 * prepared txn that was (partially) streamed. 4. Decoding a committed
-		 * txn.
+		 * 我们到此的原因有四种：1. 解码进行中的    
+		 * 事务。2. 解码已预备事务。3. 解码（部分）流 
+		 * 式发送过的已预备事务。4. 解码已提交事务。       
+		 *     
 		 *
-		 * For 1, we allow truncation of txn data by removing the changes
-		 * already streamed but still keeping other things like invalidations,
-		 * snapshot, and tuplecids. For 2 and 3, we indicate
-		 * ReorderBufferTruncateTXN to do more elaborate truncation of txn
-		 * data as the entire transaction has been decoded except for commit.
-		 * For 4, as the entire txn has been decoded, we can fully clean up
-		 * the TXN reorder buffer.
+		 * 对于 1，我们允许截断事务数据，即移除已      
+		 * 流式发送的变更，但仍保留失效消息、快照          
+		 * 和 tuplecids。对于 2 和 3，我们指示    
+		 * ReorderBufferTruncateTXN 对事务数据做更精细           
+		 * 的截断，因为除提交之外整个事务已被解码。      
+		 * 对于 4，整个事务既已解码，可完全清理 TXN       
+		 * 重排序缓冲区。  
 		 */
 		if (streaming || rbtxn_prepared(txn))
 		{
 			ReorderBufferTruncateTXN(rb, txn, rbtxn_prepared(txn));
-			/* Reset the CheckXidAlive */
+			/* 重置 CheckXidAlive    */
 			CheckXidAlive = InvalidTransactionId;
 		}
 		else
@@ -2599,19 +2599,19 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		MemoryContext ecxt = MemoryContextSwitchTo(ccxt);
 		ErrorData  *errdata = CopyErrorData();
 
-		/* TODO: Encapsulate cleanup from the PG_TRY and PG_CATCH blocks */
+		/* TODO: 将 PG_TRY 与 PG_CATCH 块中的清理封装起来     */
 		if (iterstate)
 			ReorderBufferIterTXNFinish(rb, iterstate);
 
 		TeardownHistoricSnapshot(true);
 
 		/*
-		 * Force cache invalidation to happen outside of a valid transaction
-		 * to prevent catalog access as we just caught an error.
+		 * 强制在有效事务之外执行缓存失效，以阻止对     
+		 * 系统表的访问，因为刚刚捕获了错误。  
 		 */
 		AbortCurrentTransaction();
 
-		/* make sure there's no cache pollution */
+		/* 确保没有缓存污染             */
 		if (rbtxn_distr_inval_overflowed(txn))
 		{
 			Assert(txn->ninvalidations_distributed == 0);
@@ -2628,30 +2628,30 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 			RollbackAndReleaseCurrentSubTransaction();
 
 		/*
-		 * The error code ERRCODE_TRANSACTION_ROLLBACK indicates a concurrent
-		 * abort of the (sub)transaction we are streaming or preparing. We
-		 * need to do the cleanup and return gracefully on this error, see
-		 * SetupCheckXidLive.
+		 * 错误代码 ERRCODE_TRANSACTION_ROLLBACK 表示我们正在流   
+		 * 式发送或预备的（子）事务被并发中止。我      
+		 * 们需要完成清理并就此错误优雅地返回，参见   
+		 * SetupCheckXidLive 
 		 *
-		 * This error code can be thrown by one of the callbacks we call
-		 * during decoding so we need to ensure that we return gracefully only
-		 * when we are sending the data in streaming mode and the streaming is
-		 * not finished yet or when we are sending the data out on a PREPARE
-		 * during a two-phase commit.
+		 * 解码期间调用的回调之一可能抛出此错误代    
+		 * 码，因此我们需要确保只有当我们在流式模式       
+		 * 下发送数据且流式发送尚未结束，或者当我          
+		 * 们在两阶段提交期间通过 PREPARE 发送数据时        
+		 *                           
 		 */
 		if (errdata->sqlerrcode == ERRCODE_TRANSACTION_ROLLBACK &&
 			(stream_started || rbtxn_prepared(txn)))
 		{
-			/* curtxn must be set for streaming or prepared transactions */
+			/* 对于流式或已预备事务，curtxn 必须已设置   */
 			Assert(curtxn);
 
-			/* Cleanup the temporary error state. */
+			/* 清理临时错误状态。        */
 			FlushErrorState();
 			FreeErrorData(errdata);
 			errdata = NULL;
 			curtxn->concurrent_abort = true;
 
-			/* Reset the TXN so that it is allowed to stream remaining data. */
+			/* 重置 TXN，使其允许流式发送剩余数据。          */
 			ReorderBufferResetTXN(rb, txn, snapshot_now,
 								  command_id, prev_lsn,
 								  specinsert);
@@ -2667,14 +2667,14 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 }
 
 /*
- * Perform the replay of a transaction and its non-aborted subtransactions.
+ * 执行一个事务及其未中止子事务的重放。                  
  *
- * Subtransactions previously have to be processed by
- * ReorderBufferCommitChild(), even if previously assigned to the toplevel
- * transaction with ReorderBufferAssignChild.
+ * 子事务此前必须已经由                    
+ * ReorderBufferCommitChild() 处理过，即便之前已通过           
+ * ReorderBufferAssignChild 分给顶层。  
  *
- * This interface is called once a prepare or toplevel commit is read for both
- * streamed as well as non-streamed transactions.
+ * 一旦读取到预备或顶层提交记录，对流式与                  
+ * 非流式事务都会调用此接口。       
  */
 static void
 ReorderBufferReplay(ReorderBufferTXN *txn,
@@ -2693,12 +2693,12 @@ ReorderBufferReplay(ReorderBufferTXN *txn,
 	txn->origin_lsn = origin_lsn;
 
 	/*
-	 * If the transaction was (partially) streamed, we need to commit it in a
-	 * 'streamed' way. That is, we first stream the remaining part of the
-	 * transaction, and then invoke stream_commit message.
+	 * 如果该事务曾经（部分）流式发送过，我们就需要    
+	 * 以"流式"的方式提交它。也就是说，我们先流式    
+	 * 发完剩余部分再调用 stream_commit。       
 	 *
-	 * Called after everything (origin ID, LSN, ...) is stored in the
-	 * transaction to avoid passing that information directly.
+	 * 在所有内容（origin ID、LSN 等）都存入该事务    
+	 * 之后再调用，以免直接传递这些信息。    
 	 */
 	if (rbtxn_is_streamed(txn))
 	{
@@ -2707,18 +2707,18 @@ ReorderBufferReplay(ReorderBufferTXN *txn,
 	}
 
 	/*
-	 * If this transaction has no snapshot, it didn't make any changes to the
-	 * database, so there's nothing to decode.  Note that
-	 * ReorderBufferCommitChild will have transferred any snapshots from
-	 * subtransactions if there were any.
+	 * 如果该事务没有快照，说明它没有对数据库做过       
+	 * 任何变更，故无内容可解码。注意     
+	 * ReorderBufferCommitChild 将已把子事务中的快照          
+	 * 都转移过来（若有）。    
 	 */
 	if (txn->base_snapshot == NULL)
 	{
 		Assert(txn->ninvalidations == 0);
 
 		/*
-		 * Removing this txn before a commit might result in the computation
-		 * of an incorrect restart_lsn. See SnapBuildProcessRunningXacts.
+		 * 在提交之前移除此事务，可能导致计算出错误     
+		 * 的 restart_lsn。参见 SnapBuildProcessRunningXacts。      
 		 */
 		if (!rbtxn_prepared(txn))
 			ReorderBufferCleanupTXN(rb, txn);
@@ -2727,15 +2727,15 @@ ReorderBufferReplay(ReorderBufferTXN *txn,
 
 	snapshot_now = txn->base_snapshot;
 
-	/* Process and send the changes to output plugin. */
+	/* 处理变更并将其发送给输出插件。  */
 	ReorderBufferProcessTXN(rb, txn, commit_lsn, snapshot_now,
 							command_id, false);
 }
 
 /*
- * Commit a transaction.
+ * 提交事务。      
  *
- * See comments for ReorderBufferReplay().
+ * 参见 ReorderBufferReplay()。        
  */
 void
 ReorderBufferCommit(ReorderBuffer *rb, TransactionId xid,
@@ -2748,7 +2748,7 @@ ReorderBufferCommit(ReorderBuffer *rb, TransactionId xid,
 	txn = ReorderBufferTXNByXid(rb, xid, false, NULL, InvalidXLogRecPtr,
 								false);
 
-	/* unknown transaction, nothing to replay */
+	/* 未知事务，没有可重放的内容*/
 	if (txn == NULL)
 		return;
 
@@ -2757,7 +2757,7 @@ ReorderBufferCommit(ReorderBuffer *rb, TransactionId xid,
 }
 
 /*
- * Record the prepare information for a transaction.
+ * 记录一个事务的预备信息。             
  */
 bool
 ReorderBufferRememberPrepareInfo(ReorderBuffer *rb, TransactionId xid,
@@ -2769,13 +2769,13 @@ ReorderBufferRememberPrepareInfo(ReorderBuffer *rb, TransactionId xid,
 
 	txn = ReorderBufferTXNByXid(rb, xid, false, NULL, InvalidXLogRecPtr, false);
 
-	/* unknown transaction, nothing to do */
+	/* 未知事务，无事可做        */
 	if (txn == NULL)
 		return false;
 
 	/*
-	 * Remember the prepare information to be later used by commit prepared in
-	 * case we skip doing prepare.
+	 * 记住预备信息，以便在我们跳过执行预备后供           
+	 * 提交预备时使用。   
 	 */
 	txn->final_lsn = prepare_lsn;
 	txn->end_lsn = end_lsn;
@@ -2786,7 +2786,7 @@ ReorderBufferRememberPrepareInfo(ReorderBuffer *rb, TransactionId xid,
 	return true;
 }
 
-/* Remember that we have skipped prepare */
+/* 记住我们已经跳过了预备     */
 void
 ReorderBufferSkipPrepare(ReorderBuffer *rb, TransactionId xid)
 {
@@ -2794,7 +2794,7 @@ ReorderBufferSkipPrepare(ReorderBuffer *rb, TransactionId xid)
 
 	txn = ReorderBufferTXNByXid(rb, xid, false, NULL, InvalidXLogRecPtr, false);
 
-	/* unknown transaction, nothing to do */
+	/* 未知事务，无事可做        */
 	if (txn == NULL)
 		return;
 
@@ -2802,9 +2802,9 @@ ReorderBufferSkipPrepare(ReorderBuffer *rb, TransactionId xid)
 }
 
 /*
- * Prepare a two-phase transaction.
+ * 预备一个两阶段事务。  
  *
- * See comments for ReorderBufferReplay().
+ * 参见 ReorderBufferReplay()。        
  */
 void
 ReorderBufferPrepare(ReorderBuffer *rb, TransactionId xid,
@@ -2815,33 +2815,33 @@ ReorderBufferPrepare(ReorderBuffer *rb, TransactionId xid,
 	txn = ReorderBufferTXNByXid(rb, xid, false, NULL, InvalidXLogRecPtr,
 								false);
 
-	/* unknown transaction, nothing to replay */
+	/* 未知事务，没有可重放的内容*/
 	if (txn == NULL)
 		return;
 
 	txn->txn_flags |= RBTXN_PREPARE;
 	txn->gid = pstrdup(gid);
 
-	/* The prepare info must have been updated in txn by now. */
+	/* 此时预备信息必定已在 txn 中完成更新。  */
 	Assert(txn->final_lsn != InvalidXLogRecPtr);
 
 	ReorderBufferReplay(txn, rb, xid, txn->final_lsn, txn->end_lsn,
 						txn->xact_time.prepare_time, txn->origin_id, txn->origin_lsn);
 
 	/*
-	 * We send the prepare for the concurrently aborted xacts so that later
-	 * when rollback prepared is decoded and sent, the downstream should be
-	 * able to rollback such a xact. See comments atop DecodePrepare.
+	 * 我们会为并发中止的事务发送预备，以便之后当     
+	 * 解码并发送回滚预备时，下游能够回滚这样的        
+	 * 事务。参见 DecodePrepare 顶部的注释。              
 	 *
-	 * Note, for the concurrent_abort + streaming case a stream_prepare was
-	 * already sent within the ReorderBufferReplay call above.
+	 * 注意，对于 concurrent_abort + streaming 情况，一条        
+	 * 已随上面 ReorderBufferReplay 调用发出。       
 	 */
 	if (txn->concurrent_abort && !rbtxn_is_streamed(txn))
 		rb->prepare(rb, txn, txn->final_lsn);
 }
 
 /*
- * This is used to handle COMMIT/ROLLBACK PREPARED.
+ * 这用于处理 COMMIT/ROLLBACK PREPARED。     
  */
 void
 ReorderBufferFinishPrepared(ReorderBuffer *rb, TransactionId xid,
@@ -2856,44 +2856,44 @@ ReorderBufferFinishPrepared(ReorderBuffer *rb, TransactionId xid,
 
 	txn = ReorderBufferTXNByXid(rb, xid, false, NULL, commit_lsn, false);
 
-	/* unknown transaction, nothing to do */
+	/* 未知事务，无事可做        */
 	if (txn == NULL)
 		return;
 
 	/*
-	 * By this time the txn has the prepare record information, remember it to
-	 * be later used for rollback.
+	 * 此时该事务已拥有预备记录的信息，记住它以供        
+	 * 之后回滚时使用。   
 	 */
 	prepare_end_lsn = txn->end_lsn;
 	prepare_time = txn->xact_time.prepare_time;
 
-	/* add the gid in the txn */
+	/* 把 gid 加入事务   */
 	txn->gid = pstrdup(gid);
 
 	/*
-	 * It is possible that this transaction is not decoded at prepare time
-	 * either because by that time we didn't have a consistent snapshot, or
-	 * two_phase was not enabled, or it was decoded earlier but we have
-	 * restarted. We only need to send the prepare if it was not decoded
-	 * earlier. We don't need to decode the xact for aborts if it is not done
-	 * already.
+	 * 该事务有可能在预备时未被解码，原因可能是那    
+	 * 时还没有一致的快照，或者 two_phase 尚未启用，      
+	 * 又或者它先前已被解码但我们已经重启过。只    
+	 * 有当它先前未被解码时才需要发送预备。如果     
+	 * 尚未解码，那么对于中止我们无需再解码该事          
+	 * 务。  
 	 */
 	if ((txn->final_lsn < two_phase_at) && is_commit)
 	{
 		txn->txn_flags |= RBTXN_PREPARE;
 
 		/*
-		 * The prepare info must have been updated in txn even if we skip
-		 * prepare.
+		 * 即便跳过 prepare，txn 中的 prepare 信息也必须     
+		 * 更新  
 		 */
 		Assert(txn->final_lsn != InvalidXLogRecPtr);
 
 		/*
-		 * By this time the txn has the prepare record information and it is
-		 * important to use that so that downstream gets the accurate
-		 * information. If instead, we have passed commit information here
-		 * then downstream can behave as it has already replayed commit
-		 * prepared after the restart.
+		 * 此时该 txn 已拥有预备记录的信息，重要的是      
+		 * 用它，让下游获得准确的信息。如果改为    
+		 * 此处传入提交信息，下游可能会表现得就像      
+		 * 自己在重启后已重放过 commit prepared 一样。    
+		 *                            
 		 */
 		ReorderBufferReplay(txn, rb, xid, txn->final_lsn, txn->end_lsn,
 							txn->xact_time.prepare_time, txn->origin_id, txn->origin_lsn);
@@ -2910,23 +2910,23 @@ ReorderBufferFinishPrepared(ReorderBuffer *rb, TransactionId xid,
 	else
 		rb->rollback_prepared(rb, txn, prepare_end_lsn, prepare_time);
 
-	/* cleanup: make sure there's no cache pollution */
+	/* 清理：确保没有缓存污染             */
 	ReorderBufferExecuteInvalidations(txn->ninvalidations,
 									  txn->invalidations);
 	ReorderBufferCleanupTXN(rb, txn);
 }
 
 /*
- * Abort a transaction that possibly has previous changes. Needs to be first
- * called for subtransactions and then for the toplevel xid.
+ * 中止一个可能已有先前变更的事务。需要先对子          
+ * 事务调用，然后再对顶层 XID 调用。          
  *
- * NB: Transactions handled here have to have actively aborted (i.e. have
- * produced an abort record). Implicitly aborted transactions are handled via
- * ReorderBufferAbortOld(); transactions we're just not interested in, but
- * which have committed are handled in ReorderBufferForget().
+ * 注意：这里处理的事务必须已经主动中止（即产       
+ * 生过中止记录）。隐式中止的事务经由                       
+ * ReorderBufferAbortOld() 处理；我们不感兴趣但已              
+ * 提交的事务由 ReorderBufferForget() 处理。        
  *
- * This function purges this transaction and its contents from memory and
- * disk.
+ * 此函数会将该事务及其内容从内存和磁盘中清除。    
+ *      
  */
 void
 ReorderBufferAbort(ReorderBuffer *rb, TransactionId xid, XLogRecPtr lsn,
@@ -2937,42 +2937,42 @@ ReorderBufferAbort(ReorderBuffer *rb, TransactionId xid, XLogRecPtr lsn,
 	txn = ReorderBufferTXNByXid(rb, xid, false, NULL, InvalidXLogRecPtr,
 								false);
 
-	/* unknown, nothing to remove */
+	/* 未知，无需移除      */
 	if (txn == NULL)
 		return;
 
 	txn->xact_time.abort_time = abort_time;
 
-	/* For streamed transactions notify the remote node about the abort. */
+	/* 对于流式事务，向远程节点通知此次中止。         */
 	if (rbtxn_is_streamed(txn))
 	{
 		rb->stream_abort(rb, txn, lsn);
 
 		/*
-		 * We might have decoded changes for this transaction that could load
-		 * the cache as per the current transaction's view (consider DDL's
-		 * happened in this transaction). We don't want the decoding of future
-		 * transactions to use those cache entries so execute only the inval
-		 * messages in this transaction.
+		 * 我们可能已经为该事务解码了一些变更，它们会   
+		 * 按当前事务的视图加载缓存（设想该事务中      
+		 * 发生过的 DDL）。我们不希望未来事务的解码使用   
+		 * 那些缓存条目，因此只执行该事务中的失效消息  
+		 *                              
 		 */
 		if (txn->ninvalidations > 0)
 			ReorderBufferImmediateInvalidation(rb, txn->ninvalidations,
 											   txn->invalidations);
 	}
 
-	/* cosmetic... */
+	/* 仅为美化*/
 	txn->final_lsn = lsn;
 
-	/* remove potential on-disk data, and deallocate */
+	/* 移除可能的磁盘数据并释放内存    */
 	ReorderBufferCleanupTXN(rb, txn);
 }
 
 /*
- * Abort all transactions that aren't actually running anymore because the
- * server restarted.
+ * 中止所有因服务器重启而实际上已不再运行的事        
+ * 务。           
  *
- * NB: These really have to be transactions that have aborted due to a server
- * crash/immediate restart, as we don't deal with invalidations here.
+ * 注意：这些必须确实是因服务器崩溃/立即重启             
+ * 而中止的事务，因为我们在此不处理失效消息。   
  */
 void
 ReorderBufferAbortOld(ReorderBuffer *rb, TransactionId oldestRunningXid)
@@ -2980,11 +2980,11 @@ ReorderBufferAbortOld(ReorderBuffer *rb, TransactionId oldestRunningXid)
 	dlist_mutable_iter it;
 
 	/*
-	 * Iterate through all (potential) toplevel TXNs and abort all that are
-	 * older than what possibly can be running. Once we've found the first
-	 * that is alive we stop, there might be some that acquired an xid earlier
-	 * but started writing later, but it's unlikely and they will be cleaned
-	 * up in a later call to this function.
+	 * 遍历所有（可能的）顶层 TXN，并中止所有那些       
+	 * 比可能仍在运行的更早的事务。一旦发现第一个    
+	 * 仍然存活的事务就会停止，可能有些事务更早获        
+	 * 得了 XID 却较晚才开始写入，但这不太可能，会       
+	 * 在后续调用中被清理掉。   
 	 */
 	dlist_foreach_modify(it, &rb->toplevel_by_lsn)
 	{
@@ -2996,11 +2996,11 @@ ReorderBufferAbortOld(ReorderBuffer *rb, TransactionId oldestRunningXid)
 		{
 			elog(DEBUG2, "aborting old transaction %u", txn->xid);
 
-			/* Notify the remote node about the crash/immediate restart. */
+			/* 就崩溃/立即重启通知远程节点。               */
 			if (rbtxn_is_streamed(txn))
 				rb->stream_abort(rb, txn, InvalidXLogRecPtr);
 
-			/* remove potential on-disk data, and deallocate this tx */
+			/* 移除可能的磁盘数据并释放此事务         */
 			ReorderBufferCleanupTXN(rb, txn);
 		}
 		else
@@ -3009,17 +3009,17 @@ ReorderBufferAbortOld(ReorderBuffer *rb, TransactionId oldestRunningXid)
 }
 
 /*
- * Forget the contents of a transaction if we aren't interested in its
- * contents. Needs to be first called for subtransactions and then for the
- * toplevel xid.
+ * 如果我们对某事务的内容不感兴趣，则忘记其       
+ * 内容。需要先对子事务调用，然后再对顶层 XID          
+ * 调用。    
  *
- * This is significantly different to ReorderBufferAbort() because
- * transactions that have committed need to be treated differently from aborted
- * ones since they may have modified the catalog.
+ * 这与 ReorderBufferAbort() 有显著的不同，因为        
+ * 已提交的事务需要与已中止的事务区别对待，因             
+ * 为它们可能已经修改过系统表。    
  *
- * Note that this is only allowed to be called in the moment a transaction
- * commit has just been read, not earlier; otherwise later records referring
- * to this xid might re-create the transaction incompletely.
+ * 注意，只允许在刚刚读取到事务提交记录的那一刻     
+ * 调用此函数，而无法更早；否则，之后引用此             
+ * XID 的记录可能会将该事务重建得不完整。  
  */
 void
 ReorderBufferForget(ReorderBuffer *rb, TransactionId xid, XLogRecPtr lsn)
@@ -3029,21 +3029,21 @@ ReorderBufferForget(ReorderBuffer *rb, TransactionId xid, XLogRecPtr lsn)
 	txn = ReorderBufferTXNByXid(rb, xid, false, NULL, InvalidXLogRecPtr,
 								false);
 
-	/* unknown, nothing to forget */
+	/* 未知，无需忘记      */
 	if (txn == NULL)
 		return;
 
-	/* this transaction mustn't be streamed */
+	/* 此事务不允许被流式发送    */
 	Assert(!rbtxn_is_streamed(txn));
 
-	/* cosmetic... */
+	/* 仅为美化*/
 	txn->final_lsn = lsn;
 
 	/*
-	 * Process only cache invalidation messages in this transaction if there
-	 * are any. Even if we're not interested in the transaction's contents, it
-	 * could have manipulated the catalog and we need to update the caches
-	 * according to that.
+	 * 此事务中若有缓存失效消息，则只处理它们。         
+	 * 即使我们对事务的内容不感兴趣，它也可能              
+	 * 修改过系统表，我们需要据此                            
+	 * 更新缓存。   
 	 */
 	if (txn->base_snapshot != NULL && txn->ninvalidations > 0)
 		ReorderBufferImmediateInvalidation(rb, txn->ninvalidations,
@@ -3051,17 +3051,17 @@ ReorderBufferForget(ReorderBuffer *rb, TransactionId xid, XLogRecPtr lsn)
 	else
 		Assert(txn->ninvalidations == 0);
 
-	/* remove potential on-disk data, and deallocate */
+	/* 删除可能存在的磁盘数据并释放    */
 	ReorderBufferCleanupTXN(rb, txn);
 }
 
 /*
- * Invalidate cache for those transactions that need to be skipped just in case
- * catalogs were manipulated as part of the transaction.
+ * 对需要跳过的那些事务也使缓存失效，以防系统表作为    
+ * 事务的一部分而被修改过。                 
  *
- * Note that this is a special-purpose function for prepared transactions where
- * we don't want to clean up the TXN even when we decide to skip it. See
- * DecodePrepare.
+ * 注意，这是一个针对已准备事务的专用函数，即使我们    
+ * 决定跳过它，也不希望清理 TXN。参见 DecodePrepare。   
+ *               
  */
 void
 ReorderBufferInvalidate(ReorderBuffer *rb, TransactionId xid, XLogRecPtr lsn)
@@ -3071,14 +3071,14 @@ ReorderBufferInvalidate(ReorderBuffer *rb, TransactionId xid, XLogRecPtr lsn)
 	txn = ReorderBufferTXNByXid(rb, xid, false, NULL, InvalidXLogRecPtr,
 								false);
 
-	/* unknown, nothing to do */
+	/* 未知，无需处理  */
 	if (txn == NULL)
 		return;
 
 	/*
-	 * Process cache invalidation messages if there are any. Even if we're not
-	 * interested in the transaction's contents, it could have manipulated the
-	 * catalog and we need to update the caches according to that.
+	 * 若存在缓存失效消息，则处理它们。即使我们对事务  
+	 * 的内容不感兴趣，它也可能修改过系统表，我们需要  
+	 * 据此更新缓存。                                      
 	 */
 	if (txn->base_snapshot != NULL && txn->ninvalidations > 0)
 		ReorderBufferImmediateInvalidation(rb, txn->ninvalidations,
@@ -3089,10 +3089,10 @@ ReorderBufferInvalidate(ReorderBuffer *rb, TransactionId xid, XLogRecPtr lsn)
 
 
 /*
- * Execute invalidations happening outside the context of a decoded
- * transaction. That currently happens either for xid-less commits
- * (cf. RecordTransactionCommit()) or for invalidations in uninteresting
- * transactions (via ReorderBufferForget()).
+ * 执行已解码事务上下文之外发生的失效。          
+ * 目前这只发生在两类情形：无 XID 的提交（参见 
+ * RecordTransactionCommit()），以及不感兴趣事务中的失效  
+ * （经由 ReorderBufferForget()）。    
  */
 void
 ReorderBufferImmediateInvalidation(ReorderBuffer *rb, uint32 ninvalidations,
@@ -3105,10 +3105,10 @@ ReorderBufferImmediateInvalidation(ReorderBuffer *rb, uint32 ninvalidations,
 		BeginInternalSubTransaction("replay");
 
 	/*
-	 * Force invalidations to happen outside of a valid transaction - that way
-	 * entries will just be marked as invalid without accessing the catalog.
-	 * That's advantageous because we don't need to setup the full state
-	 * necessary for catalog access.
+	 * 强制使失效发生在有效事务之外——这样条目只会     
+	 * 被标记为失效，无需访问系统表。这样做的好处      
+	 * 是我们无需设置访问系统表所需的                    
+	 * 完整状态。              
 	 */
 	if (use_subtxn)
 		AbortCurrentTransaction();
@@ -3121,27 +3121,27 @@ ReorderBufferImmediateInvalidation(ReorderBuffer *rb, uint32 ninvalidations,
 }
 
 /*
- * Tell reorderbuffer about an xid seen in the WAL stream. Has to be called at
- * least once for every xid in XLogRecord->xl_xid (other places in records
- * may, but do not have to be passed through here).
+ * 将 WAL 流中看到的 xid 告知重排序缓冲区。对于              
+ * XLogRecord->xl_xid 中的每个 xid 都必须至少调用一次（     
+ * 其他位置也可能经过，非必须）。   
  *
- * Reorderbuffer keeps some datastructures about transactions in LSN order,
- * for efficiency. To do that it has to know about when transactions are seen
- * first in the WAL. As many types of records are not actually interesting for
- * logical decoding, they do not necessarily pass though here.
+ * 出于效率考虑，重排序缓冲区按 LSN 顺序保存事务       
+ * 的相关数据结构。为此它必须知道事务在 WAL 中            
+ * 首次出现的时间。由于许多类型的记录对逻辑解码来说   
+ * 不真正重要，因此不一定会经过这里。        
  */
 void
 ReorderBufferProcessXid(ReorderBuffer *rb, TransactionId xid, XLogRecPtr lsn)
 {
-	/* many records won't have an xid assigned, centralize check here */
+	/* 许多记录没有分配 xid，把该检查集中到这里     */
 	if (xid != InvalidTransactionId)
 		ReorderBufferTXNByXid(rb, xid, true, NULL, lsn, true);
 }
 
 /*
- * Add a new snapshot to this transaction that may only used after lsn 'lsn'
- * because the previous snapshot doesn't describe the catalog correctly for
- * following rows.
+ * 向此事务添加一个新快照，仅在 lsn 'lsn' 后方可           
+ * 使用，因为上个快照无法为后续行正确描述系统表。   
+ *                
  */
 void
 ReorderBufferAddSnapshot(ReorderBuffer *rb, TransactionId xid,
@@ -3156,10 +3156,10 @@ ReorderBufferAddSnapshot(ReorderBuffer *rb, TransactionId xid,
 }
 
 /*
- * Set up the transaction's base snapshot.
+ * 设置事务的基础快照。         
  *
- * If we know that xid is a subtransaction, set the base snapshot on the
- * top-level transaction instead.
+ * 若已知 xid 是子事务，则改为在顶层事务上             
+ * 设置基础快照。         
  */
 void
 ReorderBufferSetBaseSnapshot(ReorderBuffer *rb, TransactionId xid,
@@ -3171,8 +3171,8 @@ ReorderBufferSetBaseSnapshot(ReorderBuffer *rb, TransactionId xid,
 	Assert(snap != NULL);
 
 	/*
-	 * Fetch the transaction to operate on.  If we know it's a subtransaction,
-	 * operate on its top-level transaction instead.
+	 * 获取要操作的事务。如果我们知道它是一个子事务，  
+	 * 则改为操作其顶层事务。            
 	 */
 	txn = ReorderBufferTXNByXid(rb, xid, true, &is_new, lsn, true);
 	if (rbtxn_is_known_subxact(txn))
@@ -3188,9 +3188,9 @@ ReorderBufferSetBaseSnapshot(ReorderBuffer *rb, TransactionId xid,
 }
 
 /*
- * Access the catalog with this CommandId at this point in the changestream.
+ * 在变更流的这个位置以该 CommandId 访问系统表。           
  *
- * May only be called for command ids > 1
+ * 只能为 > 1 的命令 ID 调用     
  */
 void
 ReorderBufferAddNewCommandId(ReorderBuffer *rb, TransactionId xid,
@@ -3205,17 +3205,17 @@ ReorderBufferAddNewCommandId(ReorderBuffer *rb, TransactionId xid,
 }
 
 /*
- * Update memory counters to account for the new or removed change.
+ * 更新内存计数器以计入新增或移除的变更。       
  *
- * We update two counters - in the reorder buffer, and in the transaction
- * containing the change. The reorder buffer counter allows us to quickly
- * decide if we reached the memory limit, the transaction counter allows
- * us to quickly pick the largest transaction for eviction.
+ * 我们更新两个计数器：重排序缓冲区中的计数器和    
+ * 包含该变更的事务中的计数器。重排序缓冲区计数器 
+ * 我们快速判断是否达到内存限制；事务计数器则让   
+ * 我们能快速挑选出最大的事务以供逐出。  
  *
- * When streaming is enabled, we need to update the toplevel transaction
- * counters instead - we don't really care about subtransactions as we
- * can't stream them individually anyway, and we only pick toplevel
- * transactions for eviction. So only toplevel transactions matter.
+ * 启用流式时，需要改为更新顶层事务的计数器：      
+ * 我们并不真正关心子事务，反正无法单独进行流式 
+ * 处理，而且我们只会挑选顶层事务进行逐出。    
+ * 所以只有顶层事务才重要。                            
  */
 static void
 ReorderBufferChangeMemoryUpdate(ReorderBuffer *rb,
@@ -3228,9 +3228,9 @@ ReorderBufferChangeMemoryUpdate(ReorderBuffer *rb,
 	Assert(change->txn);
 
 	/*
-	 * Ignore tuple CID changes, because those are not evicted when reaching
-	 * memory limit. So we just don't count them, because it might easily
-	 * trigger a pointless attempt to spill.
+	 * 忽略元组 CID 变更，因为达到内存限制时它们不会    
+	 * 被逐出。所以干脆不对它们计数，因为这            
+	 * 容易触发无谓的溢写尝试。 
 	 */
 	if (change->action == REORDER_BUFFER_CHANGE_INTERNAL_TUPLECID)
 		return;
@@ -3238,8 +3238,8 @@ ReorderBufferChangeMemoryUpdate(ReorderBuffer *rb,
 	txn = change->txn;
 
 	/*
-	 * Update the total size in top level as well. This is later used to
-	 * compute the decoding stats.
+	 * 同时更新顶层中的总大小。此值之后将用于        
+	 * 计算解码统计。      
 	 */
 	toptxn = rbtxn_get_toptxn(txn);
 
@@ -3248,7 +3248,7 @@ ReorderBufferChangeMemoryUpdate(ReorderBuffer *rb,
 		txn->size += sz;
 		rb->size += sz;
 
-		/* Update the total size in the top transaction. */
+		/* 更新顶层事务中的总大小。          */
 		toptxn->total_size += sz;
 	}
 	else
@@ -3257,7 +3257,7 @@ ReorderBufferChangeMemoryUpdate(ReorderBuffer *rb,
 		txn->size -= sz;
 		rb->size -= sz;
 
-		/* Update the total size in the top transaction. */
+		/* 更新顶层事务中的总大小。          */
 		toptxn->total_size -= sz;
 	}
 
@@ -3265,11 +3265,11 @@ ReorderBufferChangeMemoryUpdate(ReorderBuffer *rb,
 }
 
 /*
- * Add new (relfilelocator, tid) -> (cmin, cmax) mappings.
+ * 新增 (relfilelocator, tid) -> (cmin, cmax) 映射    
  *
- * We do not include this change type in memory accounting, because we
- * keep CIDs in a separate list and do not evict them when reaching
- * the memory limit.
+ * 此变更类型不计入内存核算，因为 CID 保存在单独  
+ * 的列表中，达到内存限制时不会逐出它们。       
+ *                  
  */
 void
 ReorderBufferAddNewTupleCids(ReorderBuffer *rb, TransactionId xid,
@@ -3296,7 +3296,7 @@ ReorderBufferAddNewTupleCids(ReorderBuffer *rb, TransactionId xid,
 }
 
 /*
- * Add new invalidation messages to the reorder buffer queue.
+ * 向重排序缓冲区队列添加新的失效消息。    
  */
 static void
 ReorderBufferQueueInvalidations(ReorderBuffer *rb, TransactionId xid,
@@ -3317,9 +3317,9 @@ ReorderBufferQueueInvalidations(ReorderBuffer *rb, TransactionId xid,
 }
 
 /*
- * A helper function for ReorderBufferAddInvalidations() and
- * ReorderBufferAddDistributedInvalidations() to accumulate the invalidation
- * messages to the **invals_out.
+ * 辅助函数：供 ReorderBufferAddInvalidations() 和   
+ * ReorderBufferAddDistributedInvalidations() 将失效消息累积到      
+ * **invals_out。              
  */
 static void
 ReorderBufferAccumulateInvalidations(SharedInvalidationMessage **invals_out,
@@ -3336,7 +3336,7 @@ ReorderBufferAccumulateInvalidations(SharedInvalidationMessage **invals_out,
 	}
 	else
 	{
-		/* Enlarge the array of inval messages */
+		/* 扩大失效消息数组            */
 		*invals_out = (SharedInvalidationMessage *)
 			repalloc(*invals_out, sizeof(SharedInvalidationMessage) *
 					 (*ninvals_out + nmsgs_new));
@@ -3347,17 +3347,17 @@ ReorderBufferAccumulateInvalidations(SharedInvalidationMessage **invals_out,
 }
 
 /*
- * Accumulate the invalidations for executing them later.
+ * 累积这些失效消息以便稍后执行。         
  *
- * This needs to be called for each XLOG_XACT_INVALIDATIONS message and
- * accumulates all the invalidation messages in the toplevel transaction, if
- * available, otherwise in the current transaction, as well as in the form of
- * change in reorder buffer.  We require to record it in form of the change
- * so that we can execute only the required invalidations instead of executing
- * all the invalidations on each CommandId increment.  We also need to
- * accumulate these in the txn buffer because in some cases where we skip
- * processing the transaction (see ReorderBufferForget), we need to execute
- * all the invalidations together.
+ * 需要针对每条 XLOG_XACT_INVALIDATIONS 消息调用本函数， 
+ * 它会把所有失效消息累积到顶层事务（若有），否则    
+ * 累积到当前事务中，同时也以变更形式累积到重排序     
+ * 缓冲区中。需要以变更的形式记录它，是为了在每次   
+ * CommandId 递增时只执行所需的失效，而不是执行全部        
+ * 失效。还需把这些累积到事务缓冲区，因为在某些 
+ * 情况下跳过对事务的处理（参见 ReorderBufferForget），  
+ * 此时需要把所有失效一起执行。                              
+ *                                
  */
 void
 ReorderBufferAddInvalidations(ReorderBuffer *rb, TransactionId xid,
@@ -3372,9 +3372,9 @@ ReorderBufferAddInvalidations(ReorderBuffer *rb, TransactionId xid,
 	oldcontext = MemoryContextSwitchTo(rb->context);
 
 	/*
-	 * Collect all the invalidations under the top transaction, if available,
-	 * so that we can execute them all together.  See comments atop this
-	 * function.
+	 * 将所有失效收集到顶层事务（若有）下，以便一起    
+	 * 执行它们。参见本函数顶部的注释。                 
+	 *          
 	 */
 	txn = rbtxn_get_toptxn(txn);
 
@@ -3390,15 +3390,15 @@ ReorderBufferAddInvalidations(ReorderBuffer *rb, TransactionId xid,
 }
 
 /*
- * Accumulate the invalidations distributed by other committed transactions
- * for executing them later.
+ * 累积其他已提交事务分发的失效，以便稍后执行。      
+ *                          
  *
- * This function is similar to ReorderBufferAddInvalidations() but stores
- * the given inval messages to the txn->invalidations_distributed with the
- * overflow check.
+ * 本函数与 ReorderBufferAddInvalidations() 类似，但会把给定 
+ * 的失效消息存储到 txn->invalidations_distributed，并会检查 
+ * 溢出。      
  *
- * This needs to be called by committed transactions to distribute their
- * inval messages to in-progress transactions.
+ * 已提交的事务需调用它，以便把自身失效消息分发   
+ * 给正在进行的事务。                
  */
 void
 ReorderBufferAddDistributedInvalidations(ReorderBuffer *rb, TransactionId xid,
@@ -3413,9 +3413,9 @@ ReorderBufferAddDistributedInvalidations(ReorderBuffer *rb, TransactionId xid,
 	oldcontext = MemoryContextSwitchTo(rb->context);
 
 	/*
-	 * Collect all the invalidations under the top transaction, if available,
-	 * so that we can execute them all together.  See comments
-	 * ReorderBufferAddInvalidations.
+	 * 将所有失效收集到顶层事务（若有），以便一起执行 
+	 * 它们。参见 ReorderBufferAddInvalidations。       
+	 *                               
 	 */
 	txn = rbtxn_get_toptxn(txn);
 
@@ -3424,14 +3424,14 @@ ReorderBufferAddDistributedInvalidations(ReorderBuffer *rb, TransactionId xid,
 	if (!rbtxn_distr_inval_overflowed(txn))
 	{
 		/*
-		 * Check the transaction has enough space for storing distributed
-		 * invalidation messages.
+		 * 检查事务是否有足够空间存储分发的失效消息  
+		 *                       
 		 */
 		if (txn->ninvalidations_distributed + nmsgs >= MAX_DISTR_INVAL_MSG_PER_TXN)
 		{
 			/*
-			 * Mark the invalidation message as overflowed and free up the
-			 * messages accumulated so far.
+			 * 将失效消息标记为已溢出，并释放已累积的  
+			 * 全部消息。             
 			 */
 			txn->txn_flags |= RBTXN_DISTR_INVAL_OVERFLOWED;
 
@@ -3448,15 +3448,15 @@ ReorderBufferAddDistributedInvalidations(ReorderBuffer *rb, TransactionId xid,
 												 msgs, nmsgs);
 	}
 
-	/* Queue the invalidation messages into the transaction */
+	/* 将失效消息排入该事务的队列              */
 	ReorderBufferQueueInvalidations(rb, xid, lsn, nmsgs, msgs);
 
 	MemoryContextSwitchTo(oldcontext);
 }
 
 /*
- * Apply all invalidations we know. Possibly we only need parts at this point
- * in the changestream but we don't know which those are.
+ * 应用我们已知的全部失效。在变更流的此处可能只需     
+ * 其中一部分，但我们并不知道是哪些。   
  */
 static void
 ReorderBufferExecuteInvalidations(uint32 nmsgs, SharedInvalidationMessage *msgs)
@@ -3468,7 +3468,7 @@ ReorderBufferExecuteInvalidations(uint32 nmsgs, SharedInvalidationMessage *msgs)
 }
 
 /*
- * Mark a transaction as containing catalog changes
+ * 将事务标记为包含系统表变更         
  */
 void
 ReorderBufferXidSetCatalogChanges(ReorderBuffer *rb, TransactionId xid,
@@ -3485,10 +3485,10 @@ ReorderBufferXidSetCatalogChanges(ReorderBuffer *rb, TransactionId xid,
 	}
 
 	/*
-	 * Mark top-level transaction as having catalog changes too if one of its
-	 * children has so that the ReorderBufferBuildTupleCidHash can
-	 * conveniently check just top-level transaction and decide whether to
-	 * build the hash table or not.
+	 * 若某个子事务有系统表变更，也把顶层事务标记为有 
+	 * 系统表变更，这样 ReorderBufferBuildTupleCidHash    
+	 * 就能方便地只检查顶层事务，并决定是否构建       
+	 * 哈希表。                
 	 */
 	if (rbtxn_is_subtxn(txn))
 	{
@@ -3503,10 +3503,10 @@ ReorderBufferXidSetCatalogChanges(ReorderBuffer *rb, TransactionId xid,
 }
 
 /*
- * Return palloc'ed array of the transactions that have changed catalogs.
- * The returned array is sorted in xidComparator order.
+ * 返回已更改系统表的事务的 palloc 数组，该数组按     
+ * xidComparator 顺序排序。                       
  *
- * The caller must free the returned array when done with it.
+ * 用完后调用者必须释放返回的数组。          
  */
 TransactionId *
 ReorderBufferGetCatalogChangesXacts(ReorderBuffer *rb)
@@ -3515,11 +3515,11 @@ ReorderBufferGetCatalogChangesXacts(ReorderBuffer *rb)
 	TransactionId *xids = NULL;
 	size_t		xcnt = 0;
 
-	/* Quick return if the list is empty */
+	/* 若列表为空则快速返回    */
 	if (dclist_count(&rb->catchange_txns) == 0)
 		return NULL;
 
-	/* Initialize XID array */
+	/* 初始化 XID 数组 */
 	xids = (TransactionId *) palloc(sizeof(TransactionId) *
 									dclist_count(&rb->catchange_txns));
 	dclist_foreach(iter, &rb->catchange_txns)
@@ -3540,8 +3540,8 @@ ReorderBufferGetCatalogChangesXacts(ReorderBuffer *rb)
 }
 
 /*
- * Query whether a transaction is already *known* to contain catalog
- * changes. This can be wrong until directly before the commit!
+ * 查询某事务是否已*已知*包含系统表变更。         
+ * 在紧邻提交之前，它都可能是错的！            
  */
 bool
 ReorderBufferXidHasCatalogChanges(ReorderBuffer *rb, TransactionId xid)
@@ -3558,7 +3558,7 @@ ReorderBufferXidHasCatalogChanges(ReorderBuffer *rb, TransactionId xid)
 
 /*
  * ReorderBufferXidHasBaseSnapshot
- *		Have we already set the base snapshot for the given txn/subtxn?
+ *		是否已为给定的 txn/子事务设置基础快照？       
  */
 bool
 ReorderBufferXidHasBaseSnapshot(ReorderBuffer *rb, TransactionId xid)
@@ -3568,11 +3568,11 @@ ReorderBufferXidHasBaseSnapshot(ReorderBuffer *rb, TransactionId xid)
 	txn = ReorderBufferTXNByXid(rb, xid, false,
 								NULL, InvalidXLogRecPtr, false);
 
-	/* transaction isn't known yet, ergo no snapshot */
+	/* 事务尚未知，因此没有快照          */
 	if (txn == NULL)
 		return false;
 
-	/* a known subtxn? operate on top-level txn instead */
+	/* 已知的子事务？改为操作顶层事务    */
 	if (rbtxn_is_known_subxact(txn))
 		txn = ReorderBufferTXNByXid(rb, txn->toplevel_xid, false,
 									NULL, InvalidXLogRecPtr, false);
@@ -3583,12 +3583,12 @@ ReorderBufferXidHasBaseSnapshot(ReorderBuffer *rb, TransactionId xid)
 
 /*
  * ---------------------------------------
- * Disk serialization support
+ * 磁盘序列化支持     
  * ---------------------------------------
  */
 
 /*
- * Ensure the IO buffer is >= sz.
+ * 确保 IO 缓冲区 >= sz。  
  */
 static void
 ReorderBufferSerializeReserve(ReorderBuffer *rb, Size sz)
@@ -3606,15 +3606,15 @@ ReorderBufferSerializeReserve(ReorderBuffer *rb, Size sz)
 }
 
 /*
- * Find the largest transaction (toplevel or subxact) to evict (spill to disk).
+ * 找出要溢写到磁盘来逐出的最大事务（顶层/子事务）。   
  *
- * XXX With many subtransactions this might be quite slow, because we'll have
- * to walk through all of them. There are some options how we could improve
- * that: (a) maintain some secondary structure with transactions sorted by
- * amount of changes, (b) not looking for the entirely largest transaction,
- * but e.g. for transaction using at least some fraction of the memory limit,
- * and (c) evicting multiple transactions at once, e.g. to free a given portion
- * of the memory limit (e.g. 50%).
+ * XXX 子事务很多时该过程可能相当慢，因为必须遍历它们 
+ * 。改进思路：(a) 维护按变更数量排序的辅助结构，     
+ * (b) 不寻找完全最大的事务，而是寻找至少占用了       
+ * 内存限制一定比例的事务；以及 (c) 一次逐出多个事务 
+ * ，例如释放内存限制的给定比例（例如 50%）。             
+ *                                                                             
+ *                                
  */
 static ReorderBufferTXN *
 ReorderBufferLargestTXN(ReorderBuffer *rb)
@@ -3628,7 +3628,7 @@ ReorderBufferLargestTXN(ReorderBuffer *rb)
 	{
 		ReorderBufferTXN *txn = ent->txn;
 
-		/* if the current transaction is larger, remember it */
+		/* 若当前事务更大，则记住它              */
 		if ((!largest) || (txn->size > largest->size))
 			largest = txn;
 	}
@@ -3641,28 +3641,28 @@ ReorderBufferLargestTXN(ReorderBuffer *rb)
 }
 
 /*
- * Find the largest streamable toplevel transaction to evict (by streaming).
+ * 找出要以流式方式逐出的最大可流式顶层事务。          
  *
- * This can be seen as an optimized version of ReorderBufferLargestTXN, which
- * should give us the same transaction (because we don't update memory account
- * for subtransaction with streaming, so it's always 0). But we can simply
- * iterate over the limited number of toplevel transactions that have a base
- * snapshot. There is no use of selecting a transaction that doesn't have base
- * snapshot because we don't decode such transactions.  Also, we do not select
- * the transaction which doesn't have any streamable change.
+ * 这可以看作 ReorderBufferLargestTXN 的优化版本，后者应该会 
+ * 给出相同的事务（因为流式下不更新子事务的内存         
+ * 账目，其值总是 0）。但我们只需遍历有限的、拥      
+ * 有基础快照的顶层事务即可。挑选没有基础快照的事务 
+ * 毫无意义，因为我们不会解码这类事务。此外，我们也   
+ * 不会选择没有任何可流式变更的事务。                        
+ *                                                          
  *
- * Note that, we skip transactions that contains incomplete changes. There
- * is a scope of optimization here such that we can select the largest
- * transaction which has incomplete changes.  But that will make the code and
- * design quite complex and that might not be worth the benefit.  If we plan to
- * stream the transactions that contains incomplete changes then we need to
- * find a way to partially stream/truncate the transaction changes in-memory
- * and build a mechanism to partially truncate the spilled files.
- * Additionally, whenever we partially stream the transaction we need to
- * maintain the last streamed lsn and next time we need to restore from that
- * segment and the offset in WAL.  As we stream the changes from the top
- * transaction and restore them subtransaction wise, we need to even remember
- * the subxact from where we streamed the last change.
+ * 注意，我们会跳过含有不完整变更的事务。这里存在  
+ * 优化空间：可选出含不完整变更的最大事务。但    
+ * 这会让代码和设计变得相当复杂，可能不值得。若我们  
+ * 计划对包含不完整变更的事务进行流式处理，就需要找    
+ * 到在内存中部分流式/截断事务变更的办法，并构建     
+ * 部分截断溢写文件的机制。此外，每当对事务进行部分 
+ * 流式处理时需维护上次流式传输的 lsn，下次    
+ * 需要从该段以及 WAL 中的偏移量恢复。                   
+ * 由于我们从顶层事务流式传输变更、并按子事务逐一    
+ * 恢复，甚至还要记住我们流式传输最后一个变更时   
+ * 所在的那个子事务。                                               
+ *                                                    
  */
 static ReorderBufferTXN *
 ReorderBufferLargestStreamableTopTXN(ReorderBuffer *rb)
@@ -3671,16 +3671,16 @@ ReorderBufferLargestStreamableTopTXN(ReorderBuffer *rb)
 	Size		largest_size = 0;
 	ReorderBufferTXN *largest = NULL;
 
-	/* Find the largest top-level transaction having a base snapshot. */
+	/* 找出拥有基础快照的最大顶层事务。               */
 	dlist_foreach(iter, &rb->txns_by_base_snapshot_lsn)
 	{
 		ReorderBufferTXN *txn;
 
 		txn = dlist_container(ReorderBufferTXN, base_snapshot_node, iter.cur);
 
-		/* must not be a subtxn */
+		/* 不允许为子事务*/
 		Assert(!rbtxn_is_known_subxact(txn));
-		/* base_snapshot must be set */
+		/* 已设置 base_snapshot   */
 		Assert(txn->base_snapshot != NULL);
 
 		if ((largest == NULL || txn->total_size > largest_size) &&
@@ -3696,17 +3696,17 @@ ReorderBufferLargestStreamableTopTXN(ReorderBuffer *rb)
 }
 
 /*
- * Check whether the logical_decoding_work_mem limit was reached, and if yes
- * pick the largest (sub)transaction at-a-time to evict and spill its changes to
- * disk or send to the output plugin until we reach under the memory limit.
+ * 检查是否达到 logical_decoding_work_mem 限制，若达到，就    
+ * 每次选出一个最大的（子）事务来逐出，将其变更溢写到  
+ * 磁盘或发送给输出插件，直到降到内存限制以下。      
  *
- * If debug_logical_replication_streaming is set to "immediate", stream or
- * serialize the changes immediately.
+ * 如果 debug_logical_replication_streaming 设置为 "immediate"，    
+ * 立即流式或序列化变更。 
  *
- * XXX At this point we select the transactions until we reach under the memory
- * limit, but we might also adapt a more elaborate eviction strategy - for example
- * evicting enough transactions to free certain fraction (e.g. 50%) of the memory
- * limit.
+ * XXX 在这里我们会持续选出事务，直到降到内存限制         
+ * 以下，但我们也可以采用一种更精细的逐出策略——例如    
+ * 逐出足够多的事务，释放内存限制的某比例（例如 50%）。  
+ *       
  */
 static void
 ReorderBufferCheckMemoryLimit(ReorderBuffer *rb)
@@ -3714,35 +3714,35 @@ ReorderBufferCheckMemoryLimit(ReorderBuffer *rb)
 	ReorderBufferTXN *txn;
 
 	/*
-	 * Bail out if debug_logical_replication_streaming is buffered and we
-	 * haven't exceeded the memory limit.
+	 * 如果 debug_logical_replication_streaming 为 buffered 且尚未 
+	 * 超过内存限制即返回。    
 	 */
 	if (debug_logical_replication_streaming == DEBUG_LOGICAL_REP_STREAMING_BUFFERED &&
 		rb->size < logical_decoding_work_mem * 1024L)
 		return;
 
 	/*
-	 * If debug_logical_replication_streaming is immediate, loop until there's
-	 * no change. Otherwise, loop until we reach under the memory limit. One
-	 * might think that just by evicting the largest (sub)transaction we will
-	 * come under the memory limit based on assumption that the selected
-	 * transaction is at least as large as the most recent change (which
-	 * caused us to go over the memory limit). However, that is not true
-	 * because a user can reduce the logical_decoding_work_mem to a smaller
-	 * value before the most recent change.
+	 * 如果 debug_logical_replication_streaming 为 "immediate"，则循环 
+	 * 到没有变更为止。否则，就循环到内存限制以下。   
+	 * 有人或许认为，只逐出最大的（子）事务就能降到    
+	 * 内存限制以下，假设是所选事务至少与最近变更  
+	 * （正是它使我们超限）一样大。事实并非如此，  
+	 * 因为用户可能在最近的变更之前，就已把           
+	 * logical_decoding_work_mem 调小。                                 
+	 *                                     
 	 */
 	while (rb->size >= logical_decoding_work_mem * 1024L ||
 		   (debug_logical_replication_streaming == DEBUG_LOGICAL_REP_STREAMING_IMMEDIATE &&
 			rb->size > 0))
 	{
 		/*
-		 * Pick the largest transaction and evict it from memory by streaming,
-		 * if possible.  Otherwise, spill to disk.
+		 * 选出最大的事务，若可行则以流式从内存中逐出， 
+		 * 否则将其溢写到磁盘。         
 		 */
 		if (ReorderBufferCanStartStreaming(rb) &&
 			(txn = ReorderBufferLargestStreamableTopTXN(rb)) != NULL)
 		{
-			/* we know there has to be one, because the size is not zero */
+			/* 我们知道一定存在一个，因为大小不为零    */
 			Assert(txn && rbtxn_is_toptxn(txn));
 			Assert(txn->total_size > 0);
 			Assert(rb->size >= txn->total_size);
@@ -3752,12 +3752,12 @@ ReorderBufferCheckMemoryLimit(ReorderBuffer *rb)
 		else
 		{
 			/*
-			 * Pick the largest transaction (or subtransaction) and evict it
-			 * from memory by serializing it to disk.
+			 * 选出最大事务（或子事务），序列化到磁盘以 
+			 * 将其从内存中逐出。           
 			 */
 			txn = ReorderBufferLargestTXN(rb);
 
-			/* we know there has to be one, because the size is not zero */
+			/* 我们知道一定存在一个，因为大小不为零    */
 			Assert(txn);
 			Assert(txn->size > 0);
 			Assert(rb->size >= txn->size);
@@ -3766,19 +3766,19 @@ ReorderBufferCheckMemoryLimit(ReorderBuffer *rb)
 		}
 
 		/*
-		 * After eviction, the transaction should have no entries in memory,
-		 * and should use 0 bytes for changes.
+		 * 逐出后，该事务在内存中应没有任何条目，且所  
+		 * 用 0 字节存储变更。        
 		 */
 		Assert(txn->size == 0);
 		Assert(txn->nentries_mem == 0);
 	}
 
-	/* We must be under the memory limit now. */
+	/* 现在必须低于内存限制。      */
 	Assert(rb->size < logical_decoding_work_mem * 1024L);
 }
 
 /*
- * Spill data of a large transaction (and its subtransactions) to disk.
+ * 把大事务（及其子事务）的数据溢写到磁盘。        
  */
 static void
 ReorderBufferSerializeTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
@@ -3793,7 +3793,7 @@ ReorderBufferSerializeTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 	elog(DEBUG2, "spill %u changes in XID %u to disk",
 		 (uint32) txn->nentries_mem, txn->xid);
 
-	/* do the same to all child TXs */
+	/* 对子事务做同样处理  */
 	dlist_foreach(subtxn_i, &txn->subtxns)
 	{
 		ReorderBufferTXN *subtxn;
@@ -3802,7 +3802,7 @@ ReorderBufferSerializeTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 		ReorderBufferSerializeTXN(rb, subtxn);
 	}
 
-	/* serialize changestream */
+	/* 序列化变更流     */
 	dlist_foreach_modify(change_i, &txn->changes)
 	{
 		ReorderBufferChange *change;
@@ -3810,8 +3810,8 @@ ReorderBufferSerializeTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 		change = dlist_container(ReorderBufferChange, node, change_i.cur);
 
 		/*
-		 * store in segment in which it belongs by start lsn, don't split over
-		 * multiple segments tho
+		 * 按起始 lsn 存入所属的段，不过不要跨多个           
+		 * 段拆分它。      
 		 */
 		if (fd == -1 ||
 			!XLByteInSeg(change->lsn, curOpenSegNo, wal_segment_size))
@@ -3824,13 +3824,13 @@ ReorderBufferSerializeTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 			XLByteToSeg(change->lsn, curOpenSegNo, wal_segment_size);
 
 			/*
-			 * No need to care about TLIs here, only used during a single run,
-			 * so each LSN only maps to a specific WAL record.
+			 * 无需关心 TLI，仅用于单次运行，每个 LSN 只      
+			 * 映射到特定 WAL 记录。                  
 			 */
 			ReorderBufferSerializedPath(path, MyReplicationSlot, txn->xid,
 										curOpenSegNo);
 
-			/* open segment, create it if necessary */
+			/* 打开段，必要时创建          */
 			fd = OpenTransientFile(path,
 								   O_CREAT | O_WRONLY | O_APPEND | PG_BINARY);
 
@@ -3847,16 +3847,16 @@ ReorderBufferSerializeTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 		spilled++;
 	}
 
-	/* update the statistics iff we have spilled anything */
+	/* 若溢写过任何内容则更新统计信息      */
 	if (spilled)
 	{
 		rb->spillCount += 1;
 		rb->spillBytes += size;
 
-		/* don't consider already serialized transactions */
+		/* 不考虑已序列化的事务                 */
 		rb->spillTxns += (rbtxn_is_serialized(txn) || rbtxn_is_serialized_clear(txn)) ? 0 : 1;
 
-		/* update the decoding stats */
+		/* 更新解码统计信息  */
 		UpdateDecodingStats((LogicalDecodingContext *) rb->private_data);
 	}
 
@@ -3870,7 +3870,7 @@ ReorderBufferSerializeTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 }
 
 /*
- * Serialize individual change to disk.
+ * 将单个变更序列化到磁盘   
  */
 static void
 ReorderBufferSerializeChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
@@ -3886,7 +3886,7 @@ ReorderBufferSerializeChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 
 	switch (change->action)
 	{
-			/* fall through these, they're all similar enough */
+			/* 这些分支直接贯穿，彼此足够相似  */
 		case REORDER_BUFFER_CHANGE_INSERT:
 		case REORDER_BUFFER_CHANGE_UPDATE:
 		case REORDER_BUFFER_CHANGE_DELETE:
@@ -3915,11 +3915,11 @@ ReorderBufferSerializeChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 					sz += newlen;
 				}
 
-				/* make sure we have enough space */
+				/* 确保有足够的空间       */
 				ReorderBufferSerializeReserve(rb, sz);
 
 				data = ((char *) rb->outbuf) + sizeof(ReorderBufferDiskChange);
-				/* might have been reallocated above */
+				/* 可能已在上文重新分配    */
 				ondisk = (ReorderBufferDiskChange *) rb->outbuf;
 
 				if (oldlen)
@@ -3952,17 +3952,17 @@ ReorderBufferSerializeChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 
 				data = ((char *) rb->outbuf) + sizeof(ReorderBufferDiskChange);
 
-				/* might have been reallocated above */
+				/* 可能已在上文重新分配    */
 				ondisk = (ReorderBufferDiskChange *) rb->outbuf;
 
-				/* write the prefix including the size */
+				/* 写入前缀及其大小            */
 				memcpy(data, &prefix_size, sizeof(Size));
 				data += sizeof(Size);
 				memcpy(data, change->data.msg.prefix,
 					   prefix_size);
 				data += prefix_size;
 
-				/* write the message including the size */
+				/* 写入消息及其大小             */
 				memcpy(data, &change->data.msg.message_size, sizeof(Size));
 				data += sizeof(Size);
 				memcpy(data, change->data.msg.message,
@@ -3982,7 +3982,7 @@ ReorderBufferSerializeChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 				ReorderBufferSerializeReserve(rb, sz);
 				data = ((char *) rb->outbuf) + sizeof(ReorderBufferDiskChange);
 
-				/* might have been reallocated above */
+				/* 可能已在上文重新分配    */
 				ondisk = (ReorderBufferDiskChange *) rb->outbuf;
 				memcpy(data, change->data.inval.invalidations, inval_size);
 				data += inval_size;
@@ -4000,10 +4000,10 @@ ReorderBufferSerializeChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 					sizeof(TransactionId) * snap->xcnt +
 					sizeof(TransactionId) * snap->subxcnt;
 
-				/* make sure we have enough space */
+				/* 确保有足够的空间       */
 				ReorderBufferSerializeReserve(rb, sz);
 				data = ((char *) rb->outbuf) + sizeof(ReorderBufferDiskChange);
-				/* might have been reallocated above */
+				/* 可能已在上文重新分配    */
 				ondisk = (ReorderBufferDiskChange *) rb->outbuf;
 
 				memcpy(data, snap, sizeof(SnapshotData));
@@ -4029,15 +4029,15 @@ ReorderBufferSerializeChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 				Size		size;
 				char	   *data;
 
-				/* account for the OIDs of truncated relations */
+				/* 计入被截断关系的 OID                */
 				size = sizeof(Oid) * change->data.truncate.nrelids;
 				sz += size;
 
-				/* make sure we have enough space */
+				/* 确保有足够的空间       */
 				ReorderBufferSerializeReserve(rb, sz);
 
 				data = ((char *) rb->outbuf) + sizeof(ReorderBufferDiskChange);
-				/* might have been reallocated above */
+				/* 可能已在上文重新分配    */
 				ondisk = (ReorderBufferDiskChange *) rb->outbuf;
 
 				memcpy(data, change->data.truncate.relids, size);
@@ -4049,7 +4049,7 @@ ReorderBufferSerializeChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		case REORDER_BUFFER_CHANGE_INTERNAL_SPEC_ABORT:
 		case REORDER_BUFFER_CHANGE_INTERNAL_COMMAND_ID:
 		case REORDER_BUFFER_CHANGE_INTERNAL_TUPLECID:
-			/* ReorderBufferChange contains everything important */
+			/* ReorderBufferChange 包含了所有重要信息   */
 			break;
 	}
 
@@ -4063,7 +4063,7 @@ ReorderBufferSerializeChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 
 		CloseTransientFile(fd);
 
-		/* if write didn't set errno, assume problem is no disk space */
+		/* 若写入未设置 errno，则假定磁盘空间不足     */
 		errno = save_errno ? save_errno : ENOSPC;
 		ereport(ERROR,
 				(errcode_for_file_access(),
@@ -4073,12 +4073,12 @@ ReorderBufferSerializeChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 	pgstat_report_wait_end();
 
 	/*
-	 * Keep the transaction's final_lsn up to date with each change we send to
-	 * disk, so that ReorderBufferRestoreCleanup works correctly.  (We used to
-	 * only do this on commit and abort records, but that doesn't work if a
-	 * system crash leaves a transaction without its abort record).
+	 * 把每条变更发送到磁盘时，要让事务的 final_lsn 保持   
+	 * 最新，这样 ReorderBufferRestoreCleanup 才能正常工作。（   
+	 * 去我们只在提交和中止记录上这么做，但如果系统  
+	 * 崩溃使事务无其中止记录，就行不通了）。   
 	 *
-	 * Make sure not to move it backwards.
+	 * 务必不要把它往回移。     
 	 */
 	if (txn->final_lsn < change->lsn)
 		txn->final_lsn = change->lsn;
@@ -4086,7 +4086,7 @@ ReorderBufferSerializeChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 	Assert(ondisk->change.action == change->action);
 }
 
-/* Returns true, if the output plugin supports streaming, false, otherwise. */
+/* 若输出插件支持流式则返回 true，否则返回 false。        */
 static inline bool
 ReorderBufferCanStream(ReorderBuffer *rb)
 {
@@ -4095,21 +4095,21 @@ ReorderBufferCanStream(ReorderBuffer *rb)
 	return ctx->streaming;
 }
 
-/* Returns true, if the streaming can be started now, false, otherwise. */
+/* 若现在可以开始流式则返回 true，否则返回 false。    */
 static inline bool
 ReorderBufferCanStartStreaming(ReorderBuffer *rb)
 {
 	LogicalDecodingContext *ctx = rb->private_data;
 	SnapBuild  *builder = ctx->snapshot_builder;
 
-	/* We can't start streaming unless a consistent state is reached. */
+	/* 在到达一致状态之前无法开始流式。               */
 	if (SnapBuildCurrentState(builder) < SNAPBUILD_CONSISTENT)
 		return false;
 
 	/*
-	 * We can't start streaming immediately even if the streaming is enabled
-	 * because we previously decoded this transaction and now just are
-	 * restarting.
+	 * 即使已启用流式，也无法立即开始流式，因为此前   
+	 * 已经解码过该事务，而现在只是重新开始。      
+	 *            
 	 */
 	if (ReorderBufferCanStream(rb) &&
 		!SnapBuildXactNeedsSkip(builder, ctx->reader->ReadRecPtr))
@@ -4119,8 +4119,8 @@ ReorderBufferCanStartStreaming(ReorderBuffer *rb)
 }
 
 /*
- * Send data of a large transaction (and its subtransactions) to the
- * output plugin, but using the stream API.
+ * 把大事务（及其子事务）数据发送给输出插件，  
+ * 但要使用流式 API。               
  */
 static void
 ReorderBufferStreamTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
@@ -4130,33 +4130,33 @@ ReorderBufferStreamTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 	Size		stream_bytes;
 	bool		txn_is_streamed;
 
-	/* We can never reach here for a subtransaction. */
+	/* 子事务永远不可能走到这里。       */
 	Assert(rbtxn_is_toptxn(txn));
 
 	/*
-	 * We can't make any assumptions about base snapshot here, similar to what
-	 * ReorderBufferCommit() does. That relies on base_snapshot getting
-	 * transferred from subxact in ReorderBufferCommitChild(), but that was
-	 * not yet called as the transaction is in-progress.
+	 * 在这里我们无法对基础快照做任何假设，这与           
+	 * ReorderBufferCommit() 的做法类似。后者依赖于在      
+	 * ReorderBufferCommitChild() 中把 base_snapshot 从子事务转移  
+	 * 过来，但事务进行中，尚未调用它。 
 	 *
-	 * So just walk the subxacts and use the same logic here. But we only need
-	 * to do that once, when the transaction is streamed for the first time.
-	 * After that we need to reuse the snapshot from the previous run.
+	 * 所以这里只需遍历各子事务并沿用相同逻辑。但我们  
+	 * 只需在事务首次被流式时执行一次，之后需要复用   
+	 * 上一轮运行时的快照。                                 
 	 *
-	 * Unlike DecodeCommit which adds xids of all the subtransactions in
-	 * snapshot's xip array via SnapBuildCommitTxn, we can't do that here but
-	 * we do add them to subxip array instead via ReorderBufferCopySnap. This
-	 * allows the catalog changes made in subtransactions decoded till now to
-	 * be visible.
+	 * 与 DecodeCommit 不同——它用 SnapBuildCommitTxn 将所    
+	 * 有子事务的 xid 加入快照的 xip 数组，这里无法这样   
+	 * 做，而是通过 ReorderBufferCopySnap 把它们加入 subxip       
+	 * 数组。这样，迄今已解码的子事务所做的系统表变更 
+	 * 可见。  
 	 */
 	if (txn->snapshot_now == NULL)
 	{
 		dlist_iter	subxact_i;
 
-		/* make sure this transaction is streamed for the first time */
+		/* 确保该事务是第一次被流式                      */
 		Assert(!rbtxn_is_streamed(txn));
 
-		/* at the beginning we should have invalid command ID */
+		/* 一开始应当是无效的命令 ID               */
 		Assert(txn->command_id == InvalidCommandId);
 
 		dlist_foreach(subxact_i, &txn->subtxns)
@@ -4168,8 +4168,8 @@ ReorderBufferStreamTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 		}
 
 		/*
-		 * If this transaction has no snapshot, it didn't make any changes to
-		 * the database till now, so there's nothing to decode.
+		 * 若该事务没有快照，说明它至今未对数据库进行   
+		 * 过任何修改，所以没有内容可解码。    
 		 */
 		if (txn->base_snapshot == NULL)
 		{
@@ -4183,52 +4183,52 @@ ReorderBufferStreamTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 	}
 	else
 	{
-		/* the transaction must have been already streamed */
+		/* 该事务必然已被流式过                  */
 		Assert(rbtxn_is_streamed(txn));
 
 		/*
-		 * Nah, we already have snapshot from the previous streaming run. We
-		 * assume new subxacts can't move the LSN backwards, and so can't beat
-		 * the LSN condition in the previous branch (so no need to walk
-		 * through subxacts again). In fact, we must not do that as we may be
-		 * using snapshot half-way through the subxact.
+		 * 不必，我们已有上一轮流式运行时的快照。我们  
+		 * 假定新子事务无法把 LSN 往回移，因此也无法满足  
+		 * 上一分支的 LSN 条件（无需再遍历子事务）    
+		 * 。事实上，我们根本不允许这样做，因为            
+		 * 可能正在子事务中途使用快照。  
 		 */
 		command_id = txn->command_id;
 
 		/*
-		 * We can't use txn->snapshot_now directly because after the last
-		 * streaming run, we might have got some new sub-transactions. So we
-		 * need to add them to the snapshot.
+		 * 我们无法直接使用 txn->snapshot_now，因为           
+		 * 在上次流式运行后，可能得到新的子事务，因此  
+		 * 需要将它们加入快照。   
 		 */
 		snapshot_now = ReorderBufferCopySnap(rb, txn->snapshot_now,
 											 txn, command_id);
 
-		/* Free the previously copied snapshot. */
+		/* 释放之前复制的快照。       */
 		Assert(txn->snapshot_now->copied);
 		ReorderBufferFreeSnap(rb, txn->snapshot_now);
 		txn->snapshot_now = NULL;
 	}
 
 	/*
-	 * Remember this information to be used later to update stats. We can't
-	 * update the stats here as an error while processing the changes would
-	 * lead to the accumulation of stats even though we haven't streamed all
-	 * the changes.
+	 * 记住这些信息，稍后用于更新统计信息。我们无法  
+	 * 在此更新统计信息，因为处理变更时发生错误会导  
+	 * 致统计信息累积，尽管我们尚未流式发送全部         
+	 * 变更。   
 	 */
 	txn_is_streamed = rbtxn_is_streamed(txn);
 	stream_bytes = txn->total_size;
 
-	/* Process and send the changes to output plugin. */
+	/* 处理变更并将其发送给输出插件。  */
 	ReorderBufferProcessTXN(rb, txn, InvalidXLogRecPtr, snapshot_now,
 							command_id, true);
 
 	rb->streamCount += 1;
 	rb->streamBytes += stream_bytes;
 
-	/* Don't consider already streamed transaction. */
+	/* 不考虑已流式发送的事务。         */
 	rb->streamTxns += (txn_is_streamed) ? 0 : 1;
 
-	/* update the decoding stats */
+	/* 更新解码统计信息  */
 	UpdateDecodingStats((LogicalDecodingContext *) rb->private_data);
 
 	Assert(dlist_is_empty(&txn->changes));
@@ -4237,7 +4237,7 @@ ReorderBufferStreamTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 }
 
 /*
- * Size of a change in memory.
+ * 变更的内存大小。   
  */
 static Size
 ReorderBufferChangeSize(ReorderBufferChange *change)
@@ -4246,7 +4246,7 @@ ReorderBufferChangeSize(ReorderBufferChange *change)
 
 	switch (change->action)
 	{
-			/* fall through these, they're all similar enough */
+			/* 这些分支直接贯穿，彼此足够相似  */
 		case REORDER_BUFFER_CHANGE_INSERT:
 		case REORDER_BUFFER_CHANGE_UPDATE:
 		case REORDER_BUFFER_CHANGE_DELETE:
@@ -4313,7 +4313,7 @@ ReorderBufferChangeSize(ReorderBufferChange *change)
 		case REORDER_BUFFER_CHANGE_INTERNAL_SPEC_ABORT:
 		case REORDER_BUFFER_CHANGE_INTERNAL_COMMAND_ID:
 		case REORDER_BUFFER_CHANGE_INTERNAL_TUPLECID:
-			/* ReorderBufferChange contains everything important */
+			/* ReorderBufferChange 包含了所有重要信息   */
 			break;
 	}
 
@@ -4322,7 +4322,7 @@ ReorderBufferChangeSize(ReorderBufferChange *change)
 
 
 /*
- * Restore a number of changes spilled to disk back into memory.
+ * 将一批已溢写到磁盘的变更恢复到内存中。    
  */
 static Size
 ReorderBufferRestoreChanges(ReorderBuffer *rb, ReorderBufferTXN *txn,
@@ -4336,7 +4336,7 @@ ReorderBufferRestoreChanges(ReorderBuffer *rb, ReorderBufferTXN *txn,
 	Assert(txn->first_lsn != InvalidXLogRecPtr);
 	Assert(txn->final_lsn != InvalidXLogRecPtr);
 
-	/* free current entries, so we have memory for more */
+	/* 释放当前条目，为后续腾出内存       */
 	dlist_foreach_modify(cleanup_iter, &txn->changes)
 	{
 		ReorderBufferChange *cleanup =
@@ -4361,22 +4361,22 @@ ReorderBufferRestoreChanges(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		{
 			char		path[MAXPGPATH];
 
-			/* first time in */
+			/* 首次进入  */
 			if (*segno == 0)
 				XLByteToSeg(txn->first_lsn, *segno, wal_segment_size);
 
 			Assert(*segno != 0 || dlist_is_empty(&txn->changes));
 
 			/*
-			 * No need to care about TLIs here, only used during a single run,
-			 * so each LSN only maps to a specific WAL record.
+			 * 无需关心 TLI，仅用于单次运行，因此每个 LSN    
+			 * 只会映射到一条特定的 WAL 记录。   
 			 */
 			ReorderBufferSerializedPath(path, MyReplicationSlot, txn->xid,
 										*segno);
 
 			*fd = PathNameOpenFile(path, O_RDONLY | PG_BINARY);
 
-			/* No harm in resetting the offset even in case of failure */
+			/* 即使失败，重置该偏移量也无妨              */
 			file->curOffset = 0;
 
 			if (*fd < 0 && errno == ENOENT)
@@ -4393,9 +4393,9 @@ ReorderBufferRestoreChanges(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		}
 
 		/*
-		 * Read the statically sized part of a change which has information
-		 * about the total size. If we couldn't read a record, we're at the
-		 * end of this file.
+		 * 读取变更的静态定长部分，其含总大小信息。    
+		 * 如果无法读到一条记录，我们已到达该文件的    
+		 * 末尾。        
 		 */
 		ReorderBufferSerializeReserve(rb, sizeof(ReorderBufferDiskChange));
 		readBytes = FileRead(file->vfd, rb->outbuf,
@@ -4449,8 +4449,8 @@ ReorderBufferRestoreChanges(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		file->curOffset += readBytes;
 
 		/*
-		 * ok, read a full change from disk, now restore it into proper
-		 * in-memory format
+		 * 好，已从磁盘读出完整变更，现在将其恢复   
+		 * 为内存格式 
 		 */
 		ReorderBufferRestoreChange(rb, txn, rb->outbuf);
 		restored++;
@@ -4460,12 +4460,12 @@ ReorderBufferRestoreChanges(ReorderBuffer *rb, ReorderBufferTXN *txn,
 }
 
 /*
- * Convert change from its on-disk format to in-memory format and queue it onto
- * the TXN's ->changes list.
+ * 将变更从磁盘格式转换为内存格式，并把它加入该事务的 
+ * ->changes 链表。      
  *
- * Note: although "data" is declared char*, at entry it points to a
- * maxalign'd buffer, making it safe in most of this function to assume
- * that the pointed-to data is suitably aligned for direct access.
+ * 注意：data 虽声明为 char*，入口处却指向一个     
+ * 经过 maxalign 的缓冲区，因此在该函数的大部分地方 
+ * 均可安全假定数据已适当对齐，可直接访问。   
  */
 static void
 ReorderBufferRestoreChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
@@ -4478,15 +4478,15 @@ ReorderBufferRestoreChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 
 	change = ReorderBufferGetChange(rb);
 
-	/* copy static part */
+	/* 复制静态段  */
 	memcpy(change, &ondisk->change, sizeof(ReorderBufferChange));
 
 	data += sizeof(ReorderBufferDiskChange);
 
-	/* restore individual stuff */
+	/* 逐项恢复其余内容 */
 	switch (change->action)
 	{
-			/* fall through these, they're all similar enough */
+			/* 这些分支直接贯穿，彼此足够相似  */
 		case REORDER_BUFFER_CHANGE_INSERT:
 		case REORDER_BUFFER_CHANGE_UPDATE:
 		case REORDER_BUFFER_CHANGE_DELETE:
@@ -4498,23 +4498,23 @@ ReorderBufferRestoreChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 				change->data.tp.oldtuple =
 					ReorderBufferGetTupleBuf(rb, tuplelen - SizeofHeapTupleHeader);
 
-				/* restore ->tuple */
+				/* 恢复 ->tuple  */
 				memcpy(&change->data.tp.oldtuple->tuple, data,
 					   sizeof(HeapTupleData));
 				data += sizeof(HeapTupleData);
 
-				/* reset t_data pointer into the new tuplebuf */
+				/* 把 t_data 指针重置到新 tuplebuf     */
 				change->data.tp.oldtuple->tuple.t_data =
 					ReorderBufferTupleBufData(change->data.tp.oldtuple);
 
-				/* restore tuple data itself */
+				/* 恢复元组数据本身  */
 				memcpy(change->data.tp.oldtuple->tuple.t_data, data, tuplelen);
 				data += tuplelen;
 			}
 
 			if (change->data.tp.newtuple)
 			{
-				/* here, data might not be suitably aligned! */
+				/* 此处 data 可能未适当对齐！      */
 				uint32		tuplelen;
 
 				memcpy(&tuplelen, data + offsetof(HeapTupleData, t_len),
@@ -4523,16 +4523,16 @@ ReorderBufferRestoreChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 				change->data.tp.newtuple =
 					ReorderBufferGetTupleBuf(rb, tuplelen - SizeofHeapTupleHeader);
 
-				/* restore ->tuple */
+				/* 恢复 ->tuple  */
 				memcpy(&change->data.tp.newtuple->tuple, data,
 					   sizeof(HeapTupleData));
 				data += sizeof(HeapTupleData);
 
-				/* reset t_data pointer into the new tuplebuf */
+				/* 把 t_data 指针重置到新 tuplebuf     */
 				change->data.tp.newtuple->tuple.t_data =
 					ReorderBufferTupleBufData(change->data.tp.newtuple);
 
-				/* restore tuple data itself */
+				/* 恢复元组数据本身  */
 				memcpy(change->data.tp.newtuple->tuple.t_data, data, tuplelen);
 				data += tuplelen;
 			}
@@ -4542,7 +4542,7 @@ ReorderBufferRestoreChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 			{
 				Size		prefix_size;
 
-				/* read prefix */
+				/* 读取前缀*/
 				memcpy(&prefix_size, data, sizeof(Size));
 				data += sizeof(Size);
 				change->data.msg.prefix = MemoryContextAlloc(rb->context,
@@ -4551,7 +4551,7 @@ ReorderBufferRestoreChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 				Assert(change->data.msg.prefix[prefix_size - 1] == '\0');
 				data += prefix_size;
 
-				/* read the message */
+				/* 读取该消息  */
 				memcpy(&change->data.msg.message_size, data, sizeof(Size));
 				data += sizeof(Size);
 				change->data.msg.message = MemoryContextAlloc(rb->context,
@@ -4570,7 +4570,7 @@ ReorderBufferRestoreChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 				change->data.inval.invalidations =
 					MemoryContextAlloc(rb->context, inval_size);
 
-				/* read the message */
+				/* 读取该消息  */
 				memcpy(change->data.inval.invalidations, data, inval_size);
 
 				break;
@@ -4598,7 +4598,7 @@ ReorderBufferRestoreChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 				newsnap->copied = true;
 				break;
 			}
-			/* the base struct contains all the data, easy peasy */
+			/* 基础结构体包含全部数据，轻而易举  */
 		case REORDER_BUFFER_CHANGE_TRUNCATE:
 			{
 				Oid		   *relids;
@@ -4621,19 +4621,19 @@ ReorderBufferRestoreChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 	txn->nentries_mem++;
 
 	/*
-	 * Update memory accounting for the restored change.  We need to do this
-	 * although we don't check the memory limit when restoring the changes in
-	 * this branch (we only do that when initially queueing the changes after
-	 * decoding), because we will release the changes later, and that will
-	 * update the accounting too (subtracting the size from the counters). And
-	 * we don't want to underflow there.
+	 * 为恢复的变更更新内存记账。尽管在该分支中         
+	 * 恢复变更时并不检查内存限制（该检查仅在解码后    
+	 * 初始将变更入队时进行），因为稍后会释放这些       
+	 * 变更，                                                          
+	 * 那也会更新记账（从计数器扣除大小）。我们不希望  
+	 * 在那里出现下溢。         
 	 */
 	ReorderBufferChangeMemoryUpdate(rb, change, true,
 									ReorderBufferChangeSize(change));
 }
 
 /*
- * Remove all on-disk stored for the passed in transaction.
+ * 删除传入事务所有已存储到磁盘的数据。  
  */
 static void
 ReorderBufferRestoreCleanup(ReorderBuffer *rb, ReorderBufferTXN *txn)
@@ -4648,7 +4648,7 @@ ReorderBufferRestoreCleanup(ReorderBuffer *rb, ReorderBufferTXN *txn)
 	XLByteToSeg(txn->first_lsn, first, wal_segment_size);
 	XLByteToSeg(txn->final_lsn, last, wal_segment_size);
 
-	/* iterate over all possible filenames, and delete them */
+	/* 遍历所有可能的文件名并删除它们        */
 	for (cur = first; cur <= last; cur++)
 	{
 		char		path[MAXPGPATH];
@@ -4662,8 +4662,8 @@ ReorderBufferRestoreCleanup(ReorderBuffer *rb, ReorderBufferTXN *txn)
 }
 
 /*
- * Remove any leftover serialized reorder buffers from a slot directory after a
- * prior crash or decoding session exit.
+ * 在先前的崩溃或解码会话退出之后，移除槽目录中遗留的 
+ * 已序列化重排序缓冲区。    
  */
 static void
 ReorderBufferCleanupSerializedTXNs(const char *slotname)
@@ -4675,14 +4675,14 @@ ReorderBufferCleanupSerializedTXNs(const char *slotname)
 
 	sprintf(path, "pg_replslot/%s", slotname);
 
-	/* we're only handling directories here, skip if it's not ours */
+	/* 这里只处理目录，如果不是我们的就跳过      */
 	if (lstat(path, &statbuf) == 0 && !S_ISDIR(statbuf.st_mode))
 		return;
 
 	spill_dir = AllocateDir(path);
 	while ((spill_de = ReadDirExtended(spill_dir, path, INFO)) != NULL)
 	{
-		/* only look at names that can be ours */
+		/* 只查看可能属于我们的名称*/
 		if (strncmp(spill_de->d_name, "xid", 3) == 0)
 		{
 			snprintf(path, sizeof(path),
@@ -4700,9 +4700,9 @@ ReorderBufferCleanupSerializedTXNs(const char *slotname)
 }
 
 /*
- * Given a replication slot, transaction ID and segment number, fill in the
- * corresponding spill file into 'path', which is a caller-owned buffer of size
- * at least MAXPGPATH.
+ * 给定复制槽、事务 ID 与段号，将对应溢写文件填入     
+ * 'path'，这是一个属于调用者的缓冲区，大小至少为          
+ * MAXPGPATH。       
  */
 static void
 ReorderBufferSerializedPath(char *path, ReplicationSlot *slot, TransactionId xid,
@@ -4718,8 +4718,8 @@ ReorderBufferSerializedPath(char *path, ReplicationSlot *slot, TransactionId xid
 }
 
 /*
- * Delete all data spilled to disk after we've restarted/crashed. It will be
- * recreated when the respective slots are reused.
+ * 删除我们在重启/崩溃之后溢写到磁盘的所有数据。它   
+ * 会在相应的槽被重用时重新创建。  
  */
 void
 StartupReorderBuffer(void)
@@ -4734,13 +4734,13 @@ StartupReorderBuffer(void)
 			strcmp(logical_de->d_name, "..") == 0)
 			continue;
 
-		/* if it cannot be a slot, skip the directory */
+		/* 若它无法成为槽，则跳过该目录 */
 		if (!ReplicationSlotValidateName(logical_de->d_name, DEBUG2))
 			continue;
 
 		/*
-		 * ok, has to be a surviving logical slot, iterate and delete
-		 * everything starting with xid-*
+		 * 好，必是存留的逻辑槽，遍历并删除以       
+		 * xid-* 开头的一切         
 		 */
 		ReorderBufferCleanupSerializedTXNs(logical_de->d_name);
 	}
@@ -4748,12 +4748,12 @@ StartupReorderBuffer(void)
 }
 
 /* ---------------------------------------
- * toast reassembly support
- * ---------------------------------------
+ * TOAST 重组支持      
+ * -------------------------------------- 
  */
 
 /*
- * Initialize per tuple toast reconstruction support.
+ * 初始化每元组的 TOAST 重建支持。       
  */
 static void
 ReorderBufferToastInitHash(ReorderBuffer *rb, ReorderBufferTXN *txn)
@@ -4770,10 +4770,10 @@ ReorderBufferToastInitHash(ReorderBuffer *rb, ReorderBufferTXN *txn)
 }
 
 /*
- * Per toast-chunk handling for toast reconstruction
+ * 用于 TOAST 重建的逐个 TOAST 块处理     
  *
- * Appends a toast chunk so we can reconstruct it when the tuple "owning" the
- * toasted Datum comes along.
+ * 追加一个 TOAST 块，以便当拥有该被 TOAST 化 Datum 的元组  
+ * 到来时重建它。     
  */
 static void
 ReorderBufferToastAppendChunk(ReorderBuffer *rb, ReorderBufferTXN *txn,
@@ -4823,11 +4823,11 @@ ReorderBufferToastAppendChunk(ReorderBuffer *rb, ReorderBufferTXN *txn,
 	chunk = DatumGetPointer(fastgetattr(&newtup->tuple, 3, desc, &isnull));
 	Assert(!isnull);
 
-	/* calculate size so we can allocate the right size at once later */
+	/* 先计算大小，以便稍后能一次性分配正确的大小*/
 	if (!VARATT_IS_EXTENDED(chunk))
 		chunksize = VARSIZE(chunk) - VARHDRSZ;
 	else if (VARATT_IS_SHORT(chunk))
-		/* could happen due to heap_form_tuple doing its thing */
+		/* 这可能由 heap_form_tuple 的正常操作引起  */
 		chunksize = VARSIZE_SHORT(chunk) - VARHDRSZ_SHORT;
 	else
 		elog(ERROR, "unexpected type of toast chunk");
@@ -4839,24 +4839,24 @@ ReorderBufferToastAppendChunk(ReorderBuffer *rb, ReorderBufferTXN *txn,
 }
 
 /*
- * Rejigger change->newtuple to point to in-memory toast tuples instead to
- * on-disk toast tuples that may not longer exist (think DROP TABLE or VACUUM).
+ * 调整 change->newtuple，使其指向内存中的 TOAST 元组而非  
+ * 可能已不存在的磁盘 TOAST 元组（如 DROP TABLE、VACUUM）。    
  *
- * We cannot replace unchanged toast tuples though, so those will still point
- * to on-disk toast data.
+ * 但未变更的 TOAST 元组无法替换，它们仍将指向磁盘上的 
+ * TOAST 数据。       
  *
- * While updating the existing change with detoasted tuple data, we need to
- * update the memory accounting info, because the change size will differ.
- * Otherwise the accounting may get out of sync, triggering serialization
- * at unexpected times.
+ * 在用解 TOAST 后的元组数据更新既有变更时，我们需要  
+ * 更新内存记账信息，因为变更大小会不同。              
+ * 否则记账可能失去同步，在意外的时刻触发             
+ * 序列化。        
  *
- * We simply subtract size of the change before rejiggering the tuple, and
- * then adding the new size. This makes it look like the change was removed
- * and then added back, except it only tweaks the accounting info.
+ * 我们只需在重新调整元组前减去该变更的大小，再     
+ * 加上新的大小。这让变更看起来像是先被移除然后加   
+ * 回，只不过它只是调整记账信息。                  
  *
- * In particular it can't trigger serialization, which would be pointless
- * anyway as it happens during commit processing right before handing
- * the change to the output plugin.
+ * 尤其它无法触发序列化，反正无意义，因为该操作    
+ * 发生在提交处理中，恰在把变更交给输出插件的   
+ * 时候。                       
  */
 static void
 ReorderBufferToastReplace(ReorderBuffer *rb, ReorderBufferTXN *txn,
@@ -4874,25 +4874,25 @@ ReorderBufferToastReplace(ReorderBuffer *rb, ReorderBufferTXN *txn,
 	ReorderBufferTupleBuf *newtup;
 	Size		old_size;
 
-	/* no toast tuples changed */
+	/* 无 TOAST 元组变更  */
 	if (txn->toast_hash == NULL)
 		return;
 
 	/*
-	 * We're going to modify the size of the change. So, to make sure the
-	 * accounting is correct we record the current change size and then after
-	 * re-computing the change we'll subtract the recorded size and then
-	 * re-add the new change size at the end. We don't immediately subtract
-	 * the old size because if there is any error before we add the new size,
-	 * we will release the changes and that will update the accounting info
-	 * (subtracting the size from the counters). And we don't want to
-	 * underflow there.
+	 * 我们将要修改变更的大小。为确保记账正确，      
+	 * 我们记录当前变更的大小，然后在重新计算变更后    
+	 * ，减去记录的大小，最后再重新加上新的大小。  
+	 * 我们不会立即减去旧大小，因为若在加上新大小前  
+	 * 发生错误，我们会释放这些变更，                         
+	 * 而那会更新记账信息（从计数器中扣除大小）。     
+	 * 我们不希望在那里出现                                
+	 * 下溢。       
 	 */
 	old_size = ReorderBufferChangeSize(change);
 
 	oldcontext = MemoryContextSwitchTo(rb->context);
 
-	/* we should only have toast tuples in an INSERT or UPDATE */
+	/* INSERT 或 UPDATE 中应该只有 TOAST 元组          */
 	Assert(change->data.tp.newtuple);
 
 	desc = RelationGetDescr(relation);
@@ -4904,7 +4904,7 @@ ReorderBufferToastReplace(ReorderBuffer *rb, ReorderBufferTXN *txn,
 
 	toast_desc = RelationGetDescr(toast_rel);
 
-	/* should we allocate from stack instead? */
+	/* 是否应该改从栈上分配？      */
 	attrs = palloc0(sizeof(Datum) * desc->natts);
 	isnull = palloc0(sizeof(bool) * desc->natts);
 	free = palloc0(sizeof(bool) * desc->natts);
@@ -4919,7 +4919,7 @@ ReorderBufferToastReplace(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		ReorderBufferToastEnt *ent;
 		struct varlena *varlena;
 
-		/* va_rawsize is the size of the original datum -- including header */
+		/* va_rawsize 是原始 Datum 的大小 -- 包括头部在内       */
 		struct varatt_external toast_pointer;
 		struct varatt_indirect redirect_pointer;
 		struct varlena *new_datum = NULL;
@@ -4927,14 +4927,14 @@ ReorderBufferToastReplace(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		dlist_iter	it;
 		Size		data_done = 0;
 
-		/* system columns aren't toasted */
+		/* 系统列不会被 TOAST 化  */
 		if (attr->attnum < 0)
 			continue;
 
 		if (attr->attisdropped)
 			continue;
 
-		/* not a varlena datatype */
+		/* 非 varlena 类型     */
 		if (attr->attlen != -1)
 			continue;
 
@@ -4942,17 +4942,17 @@ ReorderBufferToastReplace(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		if (isnull[natt])
 			continue;
 
-		/* ok, we know we have a toast datum */
+		/* 好，可知持有 TOAST Datum    */
 		varlena = (struct varlena *) DatumGetPointer(attrs[natt]);
 
-		/* no need to do anything if the tuple isn't external */
+		/* 若元组非外部存储，则无需任何操作   */
 		if (!VARATT_IS_EXTERNAL(varlena))
 			continue;
 
 		VARATT_EXTERNAL_GET_POINTER(toast_pointer, varlena);
 
 		/*
-		 * Check whether the toast tuple changed, replace if so.
+		 * 检查 TOAST 元组有无变更，如有则替换。 
 		 */
 		ent = (ReorderBufferToastEnt *)
 			hash_search(txn->toast_hash,
@@ -4971,7 +4971,7 @@ ReorderBufferToastReplace(ReorderBuffer *rb, ReorderBufferTXN *txn,
 
 		ent->reconstructed = reconstructed;
 
-		/* stitch toast tuple back together from its parts */
+		/* 把 TOAST 元组从各部分重新拼接起来  */
 		dlist_foreach(it, &ent->chunks)
 		{
 			bool		isnull;
@@ -4994,7 +4994,7 @@ ReorderBufferToastReplace(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		}
 		Assert(data_done == VARATT_EXTERNAL_GET_EXTSIZE(toast_pointer));
 
-		/* make sure its marked as compressed or not */
+		/* 确保其被标记为已压缩或未压缩*/
 		if (VARATT_EXTERNAL_IS_COMPRESSED(toast_pointer))
 			SET_VARSIZE_COMPRESSED(reconstructed, data_done + VARHDRSZ);
 		else
@@ -5011,9 +5011,9 @@ ReorderBufferToastReplace(ReorderBuffer *rb, ReorderBufferTXN *txn,
 	}
 
 	/*
-	 * Build tuple in separate memory & copy tuple back into the tuplebuf
-	 * passed to the output plugin. We can't directly heap_fill_tuple() into
-	 * the tuplebuf because attrs[] will point back into the current content.
+	 * 在单独的内存中构建元组，再把元组复制回传给   
+	 * 输出插件的 tuplebuf。我们无法直接对它调用            
+	 * heap_fill_tuple()，因为 attrs[] 会指回当前的内容。        
 	 */
 	tmphtup = heap_form_tuple(desc, attrs, isnull);
 	Assert(newtup->tuple.t_len <= MaxHeapTupleSize);
@@ -5023,8 +5023,8 @@ ReorderBufferToastReplace(ReorderBuffer *rb, ReorderBufferTXN *txn,
 	newtup->tuple.t_len = tmphtup->t_len;
 
 	/*
-	 * free resources we won't further need, more persistent stuff will be
-	 * free'd in ReorderBufferToastReset().
+	 * 释放之后不再需要的资源，更持久内容的释放在    
+	 * ReorderBufferToastReset() 中。    
 	 */
 	RelationClose(toast_rel);
 	pfree(tmphtup);
@@ -5039,15 +5039,15 @@ ReorderBufferToastReplace(ReorderBuffer *rb, ReorderBufferTXN *txn,
 
 	MemoryContextSwitchTo(oldcontext);
 
-	/* subtract the old change size */
+	/* 减去旧的变更大小     */
 	ReorderBufferChangeMemoryUpdate(rb, change, false, old_size);
-	/* now add the change back, with the correct size */
+	/* 现在把变更加回，使用正确的大小  */
 	ReorderBufferChangeMemoryUpdate(rb, change, true,
 									ReorderBufferChangeSize(change));
 }
 
 /*
- * Free all resources allocated for toast reconstruction.
+ * 释放为 TOAST 重建分配的所有资源。        
  */
 static void
 ReorderBufferToastReset(ReorderBuffer *rb, ReorderBufferTXN *txn)
@@ -5058,7 +5058,7 @@ ReorderBufferToastReset(ReorderBuffer *rb, ReorderBufferTXN *txn)
 	if (txn->toast_hash == NULL)
 		return;
 
-	/* sequentially walk over the hash and free everything */
+	/* 按顺序遍历哈希表并释放所有内容       */
 	hash_seq_init(&hstat, txn->toast_hash);
 	while ((ent = (ReorderBufferToastEnt *) hash_seq_search(&hstat)) != NULL)
 	{
@@ -5083,36 +5083,36 @@ ReorderBufferToastReset(ReorderBuffer *rb, ReorderBufferTXN *txn)
 
 
 /* ---------------------------------------
- * Visibility support for logical decoding
+ * 逻辑解码的可见性支持         
  *
  *
- * Lookup actual cmin/cmax values when using decoding snapshot. We can't
- * always rely on stored cmin/cmax values because of two scenarios:
+ * 在使用解码快照时查找实际的 cmin/cmax 值。我们无法 
+ * 始终依赖已存储的 cmin/cmax 值，原因有二：        
  *
- * * A tuple got changed multiple times during a single transaction and thus
- *	 has got a combo CID. Combo CIDs are only valid for the duration of a
- *	 single transaction.
- * * A tuple with a cmin but no cmax (and thus no combo CID) got
- *	 deleted/updated in another transaction than the one which created it
- *	 which we are looking at right now. As only one of cmin, cmax or combo CID
- *	 is actually stored in the heap we don't have access to the value we
- *	 need anymore.
+ * * 元组在单个事务内被多次修改，因而获得一个组合     
+ *	 CID。组合 CID 只在单个事务的持续期间内               
+ *	 有效。          
+ * * 有 cmin 无 cmax 的元组被另一事务删除/更新    
+ *	 ，而该事务并非创建它且我们正在查看的事务。     
+ *	 由于 cmin、cmax、组合 CID 中只会有一个实际存              
+ *	 入堆，因此我们已无法再访问所需的                   
+ *	 值。       
  *
- * To resolve those problems we have a per-transaction hash of (cmin,
- * cmax) tuples keyed by (relfilelocator, ctid) which contains the actual
- * (cmin, cmax) values. That also takes care of combo CIDs by simply
- * not caring about them at all. As we have the real cmin/cmax values
- * combo CIDs aren't interesting.
+ * 为解决这些问题，我们按事务用哈希表存放 (cmin,  
+ * cmax) 元组，其键为 (relfilelocator, ctid)，其中保存着     
+ * (cmin, cmax) 值。由于完全不理会组合 CID，便顺带   
+ * 处理了组合 CID 的问题。既然已有 cmin/cmax 值，     
+ * 组合 CID 便无意义了。 
  *
- * As we only care about catalog tuples here the overhead of this
- * hashtable should be acceptable.
+ * 由于这里只关心系统表元组，开销应当           
+ * 是可以接受的。          
  *
- * Heap rewrites complicate this a bit, check rewriteheap.c for
- * details.
- * -------------------------------------------------------------------------
+ * 堆重写会增加复杂度，详情见 rewriteheap.c       
+ * 。     
+ * ------------------------------------------------------------------------ 
  */
 
-/* struct for sorting mapping files by LSN efficiently */
+/* 用于按 LSN 高效排序映射文件的结构体  */
 typedef struct RewriteMappingFile
 {
 	XLogRecPtr	lsn;
@@ -5143,10 +5143,10 @@ DisplayMapping(HTAB *tuplecid_data)
 #endif
 
 /*
- * Apply a single mapping file to tuplecid_data.
+ * 把一个映射文件用于 tuplecid_data。 
  *
- * The mapping file has to have been verified to be a) committed b) for our
- * transaction c) applied in LSN order.
+ * 该映射文件必须已经过验证：a) 已提交 b) 属于我们的  
+ * 事务 c) 按 LSN 顺序应用。   
  */
 static void
 ApplyLogicalMappingFile(HTAB *tuplecid_data, Oid relid, const char *fname)
@@ -5170,10 +5170,10 @@ ApplyLogicalMappingFile(HTAB *tuplecid_data, Oid relid, const char *fname)
 		ReorderBufferTupleCidEnt *new_ent;
 		bool		found;
 
-		/* be careful about padding */
+		/* 注意填充问题       */
 		memset(&key, 0, sizeof(ReorderBufferTupleCidKey));
 
-		/* read all mappings till the end of the file */
+		/* 读取映射直至文件末尾             */
 		pgstat_report_wait_start(WAIT_EVENT_REORDER_LOGICAL_MAPPING_READ);
 		readBytes = read(fd, &map, sizeof(LogicalRewriteMappingData));
 		pgstat_report_wait_end();
@@ -5200,7 +5200,7 @@ ApplyLogicalMappingFile(HTAB *tuplecid_data, Oid relid, const char *fname)
 		ent = (ReorderBufferTupleCidEnt *)
 			hash_search(tuplecid_data, &key, HASH_FIND, NULL);
 
-		/* no existing mapping, no need to update */
+		/* 没有既有映射，无需更新      */
 		if (!ent)
 			continue;
 
@@ -5214,16 +5214,16 @@ ApplyLogicalMappingFile(HTAB *tuplecid_data, Oid relid, const char *fname)
 		if (found)
 		{
 			/*
-			 * Make sure the existing mapping makes sense. We sometime update
-			 * old records that did not yet have a cmax (e.g. pg_class' own
-			 * entry while rewriting it) during rewrites, so allow that.
+			 * 确保既有映射合理。重写期间有时会更新尚无  
+			 * cmax 的旧记录（如 pg_class 自身条目）            
+			 * ，这发生在重写期间，因此允许。            
 			 */
 			Assert(ent->cmin == InvalidCommandId || ent->cmin == new_ent->cmin);
 			Assert(ent->cmax == InvalidCommandId || ent->cmax == new_ent->cmax);
 		}
 		else
 		{
-			/* update mapping */
+			/* 更新映射   */
 			new_ent->cmin = ent->cmin;
 			new_ent->cmax = ent->cmax;
 			new_ent->combocid = ent->combocid;
@@ -5238,7 +5238,7 @@ ApplyLogicalMappingFile(HTAB *tuplecid_data, Oid relid, const char *fname)
 
 
 /*
- * Check whether the TransactionId 'xid' is in the pre-sorted array 'xip'.
+ * 检查 TransactionId 'xid' 是否位于预排序数组 'xip' 中。    
  */
 static bool
 TransactionIdInArray(TransactionId xid, TransactionId *xip, Size num)
@@ -5248,7 +5248,7 @@ TransactionIdInArray(TransactionId xid, TransactionId *xip, Size num)
 }
 
 /*
- * list_sort() comparator for sorting RewriteMappingFiles in LSN order.
+ * list_sort() 比较器：按 LSN 排序 RewriteMappingFiles。       
  */
 static int
 file_sort_by_lsn(const ListCell *a_p, const ListCell *b_p)
@@ -5264,8 +5264,8 @@ file_sort_by_lsn(const ListCell *a_p, const ListCell *b_p)
 }
 
 /*
- * Apply any existing logical remapping files if there are any targeted at our
- * transaction for relid.
+ * 如果存在针对我们的 relid 事务的逻辑重映射文件，则     
+ * 应用这些文件。 
  */
 static void
 UpdateLogicalMappings(HTAB *tuplecid_data, Oid relid, Snapshot snapshot)
@@ -5292,7 +5292,7 @@ UpdateLogicalMappings(HTAB *tuplecid_data, Oid relid, Snapshot snapshot)
 			strcmp(mapping_de->d_name, "..") == 0)
 			continue;
 
-		/* Ignore files that aren't ours */
+		/* 忽略不属于我们的文件*/
 		if (strncmp(mapping_de->d_name, "map-", 4) != 0)
 			continue;
 
@@ -5303,23 +5303,23 @@ UpdateLogicalMappings(HTAB *tuplecid_data, Oid relid, Snapshot snapshot)
 
 		f_lsn = ((uint64) f_hi) << 32 | f_lo;
 
-		/* mapping for another database */
+		/* 另一数据库的映射     */
 		if (f_dboid != dboid)
 			continue;
 
-		/* mapping for another relation */
+		/* 另一关系的映射        */
 		if (f_relid != relid)
 			continue;
 
-		/* did the creating transaction abort? */
+		/* 创建事务是否已中止？      */
 		if (!TransactionIdDidCommit(f_create_xid))
 			continue;
 
-		/* not for our transaction */
+		/* 不属于我们的事务*/
 		if (!TransactionIdInArray(f_mapped_xid, snapshot->subxip, snapshot->subxcnt))
 			continue;
 
-		/* ok, relevant, queue for apply */
+		/* 相关，加入应用队列   */
 		f = palloc(sizeof(RewriteMappingFile));
 		f->lsn = f_lsn;
 		strcpy(f->fname, mapping_de->d_name);
@@ -5327,7 +5327,7 @@ UpdateLogicalMappings(HTAB *tuplecid_data, Oid relid, Snapshot snapshot)
 	}
 	FreeDir(mapping_dir);
 
-	/* sort files so we apply them in LSN order */
+	/* 排序文件以便按 LSN 顺序应用   */
 	list_sort(files, file_sort_by_lsn);
 
 	foreach(file, files)
@@ -5342,8 +5342,8 @@ UpdateLogicalMappings(HTAB *tuplecid_data, Oid relid, Snapshot snapshot)
 }
 
 /*
- * Lookup cmin/cmax of a tuple, during logical decoding where we can't rely on
- * combo CIDs.
+ * 在逻辑解码中查找元组的 cmin/cmax，此时无法依赖组合 CID 
+ * 。        
  */
 bool
 ResolveCminCmaxDuringDecoding(HTAB *tuplecid_data,
@@ -5358,28 +5358,28 @@ ResolveCminCmaxDuringDecoding(HTAB *tuplecid_data,
 	bool		updated_mapping = false;
 
 	/*
-	 * Return unresolved if tuplecid_data is not valid.  That's because when
-	 * streaming in-progress transactions we may run into tuples with the CID
-	 * before actually decoding them.  Think e.g. about INSERT followed by
-	 * TRUNCATE, where the TRUNCATE may not be decoded yet when applying the
-	 * INSERT.  So in such cases, we assume the CID is from the future
-	 * command.
+	 * 如果 tuplecid_data 无效，返回未解析状态。这是因为   
+	 * 流式传输进行中的事务时，可能在实际解码前就遇到 
+	 * 该 CID 的元组。设想先 INSERT 后 TRUNCATE，当应用      
+	 * INSERT 时 TRUNCATE 可能尚未解码。因此在这类情况下， 
+	 * 我们假定该 CID 来自未来的命令                      
+	 * 。     
 	 */
 	if (tuplecid_data == NULL)
 		return false;
 
-	/* be careful about padding */
+	/* 注意填充问题       */
 	memset(&key, 0, sizeof(key));
 
 	Assert(!BufferIsLocal(buffer));
 
 	/*
-	 * get relfilelocator from the buffer, no convenient way to access it
-	 * other than that.
+	 * 从缓冲区获取 relfilelocator，没有更方便的办法      
+	 * 来访问它。 
 	 */
 	BufferGetTag(buffer, &key.rlocator, &forkno, &blockno);
 
-	/* tuples can only be in the main fork */
+	/* 元组只可能位于主分支中   */
 	Assert(forkno == MAIN_FORKNUM);
 	Assert(blockno == ItemPointerGetBlockNumber(&htup->t_self));
 
@@ -5391,15 +5391,15 @@ restart:
 		hash_search(tuplecid_data, &key, HASH_FIND, NULL);
 
 	/*
-	 * failed to find a mapping, check whether the table was rewritten and
-	 * apply mapping if so, but only do that once - there can be no new
-	 * mappings while we are in here since we have to hold a lock on the
-	 * relation.
+	 * 查找映射失败，需检查表是否曾被重写，若          
+	 * 是则应用映射，但只应用一次：在此执行期间    
+	 * 不可能有新映射，因为必须持有该关系的           
+	 * 锁。   
 	 */
 	if (ent == NULL && !updated_mapping)
 	{
 		UpdateLogicalMappings(tuplecid_data, htup->t_tableOid, snapshot);
-		/* now check but don't update for a mapping again */
+		/* 再次检查映射，但此次不进行更新  */
 		updated_mapping = true;
 		goto restart;
 	}
@@ -5414,10 +5414,10 @@ restart:
 }
 
 /*
- * Count invalidation messages of specified transaction.
+ * 统计指定事务的失效消息数量。           
  *
- * Returns number of messages, and msgs is set to the pointer of the linked
- * list for the messages.
+ * 返回消息数量，并将 msgs 设置为这些消息的链表         
+ * 指针。             
  */
 uint32
 ReorderBufferGetInvalidations(ReorderBuffer *rb, TransactionId xid,

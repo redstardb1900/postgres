@@ -1,0 +1,76 @@
+{
+ "schema_version": 1,
+ "batch_id": "0319-comment-replication-reorderbuffer-walreceiver",
+ "title": "Translate comments: replication-reorderbuffer-walreceiver",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "1418b7481874c0fa389bc974308e01127af56903",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0319-comment-replication-reorderbuffer-walreceiver.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/replication/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  },
+  {
+   "pattern": "src/tools/zh-tools/zhtools/c_verify.py",
+   "kind": "tool",
+   "note": "tool change riding with this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0319-comment-replication-reorderbuffer-walreceiver.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/c_verify.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "tool change riding with this batch"
+  },
+  {
+   "path": "src/backend/replication/logical/reorderbuffer.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 466,
+   "translated": 457,
+   "preserved": 9,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "two-line all-edge structural keeps blk8/12/16/194 (kept by omission)",
+    "keyed-EN one-line labels rendered byte-identical and auto-pruned: blk11 toast_table.chunk_id, blk200 intentionally-fall-through GCC annotation family, blk387 eof, blk427 no data, blk444 EOF"
+   ],
+   "note": "P2 translation campaign wave G9"
+  },
+  {
+   "path": "src/backend/replication/walreceiver.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 138,
+   "translated": 135,
+   "preserved": 3,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "two-line all-edge structural keep blk26 (kept by omission)",
+    "keyed-EN labels rendered byte-identical and auto-pruned: blk16 bare fall through, blk63 not reached"
+   ],
+   "note": "P2 translation campaign wave G9"
+  }
+ ],
+ "notes": "P2 remainder campaign, replication wave G9 (reorder buffer + WAL receiver, whole-file batch, six slices): translate the comment blocks of logical/reorderbuffer.c (466 blocks: change accumulation, serialization to disk, streaming of large transactions, toast reassembly, prepare/two-phase tracking, logical-decoding visibility support with rewrite-mapping files) and walreceiver.c (138 blocks: main loop lifecycle, WAL file writing with timeline history files, hot standby feedback, wakeups, libpqwalreceiver connection).  Slices (dump block numbers per file): a blk0-92 (93), b blk93-185 (93), c blk186-278 (93), d blk279-371 (93), e blk372-465 (94), f walreceiver blk0-137 (138).  604 blocks = 592 translated + 12 preserved: 5 two-line all-edge structural keeps (RB blk8/12/16/194, WR blk26, kept by omission) + 7 keyed-EN labels auto-pruned at prep (flagged-unchanged family, batch 0314 precedent; RB blk11/200/387/427/444, WR blk16/63 — all bare markers or identifier labels, ONE budgets 4-27 bytes; WR blk63 kept by the control-flow-marker family precedent).  457 + 135 = 592; 9 + 3 = 12; 592 + 12 = 604 exact.  Byte-exact rewrite discipline (same as batches 0280-0318): per-block LF count and block length identical to REL_16_11; multi-line blocks keep line0 and the closing edge byte-identical to EN; interior content lines are prefix + Chinese + space padding to the EN line budget; one-line blocks rebuilt to the same total line length.  Pre-flight: per-slice coordinator scans x6 clean (missing=[] beyond the intentional keeps, line-issues=[], oor=[]); keyscanG9 cross-slice: zero block-key overlap, sibling contract unified blk345 = blk379 = blk392 (EN 'fall through these, they're all similar enough' x3, identical budgets) rendered 这些分支直接贯穿，彼此足够相似; catalog -> 系统表 6 spec patches aligned to the committed decode.c family (系统表快照/系统表事务/ 系统表元组/修改系统表; glossary 系统目录 not followed), byte-forced function-word drops at 4 sites to hold budgets; term vet pre-apply caught 集群 -> 集簇 at WR blk36 (EN 'manage your cluster', P66 guard, byte-equal).  G9d 溢出 x2 verified legal (EN overflow/overflowed — distinct from campaign 溢写 = spool); G9e blk408/412 目录 legal (EN 'directories', filesystem sense).  Gates: verify 622 files 0 violations (620 + reorderbuffer.c + walreceiver.c entering the tool's counting domain).  R5 fall-through prose misfire x4 — :671 otherwise-fall-through-to-create-it + the blk345/379/392 sibling trio — fixed by adding the _REORDERBUFFER_FALLTHROUGH_PROSE site-prose exemption to c_verify.py (unique-in-REL_16_11 verified; both forms describe case-label stacking ending in break / an if-branch, not GCC annotations; 0298 precedent; tool change rides with this batch, kind=tool).  term 0 errors, 749 warnings (742 baseline + 7 new-file advisories triaged on-site — 8 raised initially, 1 cleared by the P17 fix below; 6 block-granularity noise P38/P26/P63 families; P04 rendered 无法 x2 + 不允许, compliant; P66 集簇 per the batch-0312 ruling; 1 real fix — P17 缺失 -> 缺少 at WR blk36, EN 'missing history files', byte-equal).  render_scan x2 hard-zero; manual EN-residue grep sole hit = structural keep blk8 tail line (verified).  audit 592 OK; spec_check x6 OK.  Gate-stage faithfulness surgery: WR blk127 (wake-up doc block) restored the dropped qualifier 'in a COMMIT with' -> 主库可能正在 COMMIT 中等待 (li5 65B <= 70) and restored the EN sentence period on li6 (synchronous_commit = remote_apply. = 34B == budget 34, zero-pad render, exec_apply-legal); delta re-apply exactly 1 block, then the full-wave manifest rebuilt; scan re-green.  WR blk125 GUC advisory verified legal (GUC 发生变化).  Review r1: FAIL(minor) — 2 defects.  D1 catalog term-family split (11 sites, RB blk177 x8 lines / blk179 li2 / blk439 li22): residual 目录/系统目录 in decode-sense against the committed decode.c 系统表 family; coordinator verified every EN quote verbatim via git show and re-derived every budget from dumps — all 11 confirmed (11 spec-line patches, blk177 li6 needed a -3B comma-drop compensation: 例如，假设有一个 -> 例如假设有一个; blk439 li22 is -3B); delta exactly 4 blocks; scans x3 re-green; six gates re-green (verify 622/0, term 0 err/749 warn, render hard-zero, audit 592, spec_check x6); catalog residue zero (the 3 remaining 目录 sites in RB are EN 'slot directory', the 1 in WR is EN 'pg_wal directory' — filesystem sense, legal).  D2 dropped character (WR blk117 li2): 次数 truncated to 次 + line-start period; restored 数 -> 以减少调用次数 (66B <= budget 67; reviewer cited budget 71, actual dump budget 67 — reviewer byte-slip corrected, fix fits either way).  N1 notes-number corrections applied (749 not 750; ONE budgets are 4-27 bytes, not 5-22 — r2 N4 pinned the exact top: blk200 mid_bytes=28 -> budget 27).  N3: WR blk63 not reached kept by the control-flow-marker family precedent (G7 NOT REACHED; 不可达 9B would fit but the family keeps these EN, harmless).  N2 line-start punctuation: committed family precedent, unchanged.  R2 verdict: PASS (independent full re-render of all 604 blocks byte-identical to the tree, zero violations; 592 changed != EN / 12 kept == EN exactly; all 11 surgery sites + neighbor blocks byte-exact with triple-checked budgets; six gates independently re-run green; N4 advisory accepted)."
+}

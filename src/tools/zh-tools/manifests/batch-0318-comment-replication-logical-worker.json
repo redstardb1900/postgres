@@ -1,0 +1,72 @@
+{
+ "schema_version": 1,
+ "batch_id": "0318-comment-replication-logical-worker",
+ "title": "Translate comments: replication-logical-worker",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "09e12aeef6ee12eeae6e4f03f588458d73b24f3d",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0318-comment-replication-logical-worker.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/replication/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0318-comment-replication-logical-worker.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/replication/logical/worker.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 465,
+   "translated": 458,
+   "preserved": 7,
+   "preserved_reasons": [
+    {
+     "block": 50,
+     "reason": "bare '/* fall through */' marker kept by omission (R5 policy; nodeTidrangescan.c:83/89, utility.c:2004, postmaster.c:5810/5815/5822 precedent)"
+    },
+    {
+     "block": 120,
+     "reason": "bare '/* fall through */' marker kept by omission (R5 policy; nodeTidrangescan.c:83/89, utility.c:2004, postmaster.c:5810/5815/5822 precedent)"
+    },
+    {
+     "block": 144,
+     "reason": "bare '/* fall through */' marker kept by omission (R5 policy; nodeTidrangescan.c:83/89, utility.c:2004, postmaster.c:5810/5815/5822 precedent)"
+    },
+    {
+     "block": 157,
+     "reason": "bare '/* fall through */' marker kept by omission (R5 policy; nodeTidrangescan.c:83/89, utility.c:2004, postmaster.c:5810/5815/5822 precedent)"
+    },
+    {
+     "block": 176,
+     "reason": "bare '/* fall through */' marker kept by omission (R5 policy; nodeTidrangescan.c:83/89, utility.c:2004, postmaster.c:5810/5815/5822 precedent)"
+    },
+    {
+     "block": 202,
+     "reason": "bare '/* fall through */' marker kept by omission (R5 policy; nodeTidrangescan.c:83/89, utility.c:2004, postmaster.c:5810/5815/5822 precedent)"
+    },
+    {
+     "block": 338,
+     "reason": "protocol field label '/* sendTime */' kept EN (keyed-EN value renders byte-identical; batch 0314 protocol-label precedent; auto-pruned from wave key at prep)"
+    }
+   ],
+   "note": "P2 translation campaign wave G8"
+  }
+ ],
+ "notes": "P2 remainder campaign, replication wave G8 (logical replication apply worker, whole-file batch, five slices): translate the comment blocks of logical/worker.c (apply worker lifecycle and TRANS_* state machine, streaming large transactions (TO_STREAM/SEND/SEND_FINISHED), parallel apply leadership and pa_* helpers, two-phase transaction handling, sequence relations, partitioned-table relation mapping, tuple update/delete not-found and conflict paths).  465 blocks in five slices (dump block numbers global): a blk0-92 (93), b blk93-185 (93), c blk186-278 (93), d blk279-371 (93), e blk372-464 (93).  458 translated + 7 preserved (see preserved_reasons: 6 bare fall-through markers blk50/120/144/157/176/202 kept by omission, protocol label blk338 sendTime).  Byte-exact rewrite discipline (same as batches 0280-0317): per-block LF count and block length identical to REL_16_11; multi-line blocks keep line0 and the closing edge byte-identical to EN; interior content lines are prefix + Chinese + space padding to the EN line budget; one-line blocks rebuilt to the same total line length.  Pre-flight: per-slice coordinator scans (exec, duplicate keys, edge keys, slice-range coverage, out-of-range check, byte budgets) clean; keyscanG8 cross-slice: zero block-key overlap, union 459/465 keyed, missing exactly the 6 R5 keeps (content-verified bare markers); blk338 keyed-EN auto-pruned at prep (flagged-unchanged family, batch 0314 precedent); 458 changed = wave key; 458 + 7 = 465 exact.  Coordinator term alignment (tree-precedent enforced): leader apply worker -> 领导者应用工作进程 (glossary + tablesync/launcher majority; x7 pre-apply, two stragglers blk48/blk42 caught by r1 review and unified in surgery; EN literal 'leader worker' at blk12 rendered 领导工作进程 verbatim, legal; bare EN 'leader' -> 领导者 at ~10 sites, legal).  spool/spooled -> 溢写 (campaign ruling): x3 unified pre-apply, straggler blk298 (EN 'spooled changes') rendered 已序列化变更, caught by r1 review and fixed in surgery; remaining 已序列化变更 sites are EN 'serialized changes' (legal).  P02: 绝不能->不允许 (blk134, EN 'must not'); all 11 EN can't sites (blk12/20/38/63/162/219/236/253/291/301/407) render 无法, zero 不能/未能 in the final tree.  cross-slice sibling alignment 若我们跳过->若正在跳过 x3 (blk218/235/252, aligns G8d blk290) and G8d blk348 dropped extra 中 (aligns G8e majority); G8b blk148 added keyed-EN line keep \"us.\"; G8e 7 keyed-EN line keeps (function banners, subxact_info_read., work.).  Pre-review gate surgery: term triage caught P39 blk63 字段->列 (decided column rule, EN 'columns ... remote relation columns'); P01 blk249/264/278 未能找到->无法找到 x3 (byte-equal, decided could-not rule); blk174 P71 工作者->工作进程信息 term restored (see r1 story); delta re-apply; scan_slice re-green (line-issues/oor all zero).  Gates: verify 620 files 0 violations (619 + worker.c entering the tool's counting domain); term 0 errors, 742 warnings (741 baseline + 1 advisory: P63 at :1 header-block granularity noise — the true exit renders 退出 at :73, the trigger 结束 is EN 'stream start and end', legal); render_scan x2 hard-zero plus manual EN-residue grep zero (sole grep hit = literal option value 'streaming = on', legal); audit 458 OK; spec_check x5 OK; no tool change in this batch.  Review r1: FAIL(minor) — 20 defects D1-D20 (dropped qualifiers blk0 worker-launcher/blk20 by-the-user/blk341 anyway+reporting-errors/blk298 spool-term+garble; predicate drop blk0 not-permitted; term misses blk48/blk42 leader-apply-worker, blk407 防->无法 can't rule, blk114 Tablesync kept EN, blk49/blk201 serialize-mode EN-word + 若/则 sibling variants; sibling misalignments blk134/blk198/blk210/blk194/blk197/blk199/blk200/ blk203/blk99/blk105/blk111/blk124/blk206; punctuation/notation blk74 EN-paren residue, blk42 j10 stray period, blk462 literal *winfo star eaten by dump decor-strip — git show authoritative, flagged to campaign) + notes account N1-N3 (P02 miscite blk240, leader/spool unification claims incomplete).  Coordinator verification: every EN quote confirmed verbatim against REL_16_11; every budget re-derived from dumps (authoritative); reviewer byte-math carried a systematic +5 offset — 4 proposal values rebased to fit real caps (blk42 j10 应用）9B>cap8 -> 两者应用 + ）。; blk341 j1 因为-leader-反正-稍后 66B>cap65 -> 因- variant 63B; blk407 设置…永远安全 69B>cap68 -> 设…始终安全 66B; blk407 j2 space dropped 30B>cap29 -> 29B exact); reviewer overturn of the pre-review blk174 该进程 filing ACCEPTED after dump re-derivation (j5 budget 59; 工作进程信息 value 59B == budget, zero-pad render, exec_apply-legal) — term restored; sibling majorities verified on-site before adopting (serialize- mode j1 无法把变更发送给并行应用工作进程时， x4; 表同步 20:1; 序列化模式 6:2 incl blk42 parallel->并行 pairing; 正确位置 x3; D13 2-2 tie -> terser no-对 form).  Surgery: 32 assert-guarded spec patches across 27 blocks (round-1 28 patches/25 blocks + round-2 4 patches/3 blocks, blk49+blk201 overlap); delta re-apply exactly; scan_slice re-green (missing = the 6 R5 keeps only, line-issues/oor all zero); six gates re-green x2 (verify 620/0, term 0 err/742 warn, render hard-zero, audit 458, spec_check x5, scope noise-only).  R2 verdict: PASS (full re-render byte-identical, 0 mismatches; 465 blocks LF/bytes == EN; 458 != EN / 7 == EN exactly; all 27 surgery blocks exact vs r1 state, neighbor regression clean; gates independently re-run green; D1-D20 + N1-N3 eliminated; rebases accepted)."
+}

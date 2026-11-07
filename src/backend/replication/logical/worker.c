@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  * worker.c
- *	   PostgreSQL logical replication worker (apply)
+ *	   PostgreSQL 逻辑复制应用工作进程    
  *
  * Copyright (c) 2016-2023, PostgreSQL Global Development Group
  *
@@ -8,130 +8,130 @@
  *	  src/backend/replication/logical/worker.c
  *
  * NOTES
- *	  This file contains the worker which applies logical changes as they come
- *	  from remote logical replication stream.
+ *	  本文件包含将到达的逻辑变更付诸应用的工作进程。   
+ *	  变更来自远端逻辑复制流。   
  *
- *	  The main worker (apply) is started by logical replication worker
- *	  launcher for every enabled subscription in a database. It uses
- *	  walsender protocol to communicate with publisher.
+ *	  主工作进程（apply）由逻辑复制工作进程启动器  
+ *	  为数据库中每个启用的订阅所启动。它使用     
+ *	  walsender 协议与发布者通信。            
  *
- *	  This module includes server facing code and shares libpqwalreceiver
- *	  module with walreceiver for providing the libpq specific functionality.
+ *	  本模块包含面向服务器的代码，与 libpqwalreceiver     
+ *	  模块共享，由其提供 libpq 相关功能。                      
  *
  *
- * STREAMED TRANSACTIONS
+ * 流式事务         
  * ---------------------
- * Streamed transactions (large transactions exceeding a memory limit on the
- * upstream) are applied using one of two approaches:
+ * 流式事务（在上游超出内存限制的大事务）的应用采用 
+ * 以下两种方式之一：                       
  *
- * 1) Write to temporary files and apply when the final commit arrives
+ * 1) 先写入临时文件，待最终提交到达后再应用       
  *
- * This approach is used when the user has set the subscription's streaming
- * option as on.
+ * 当用户将订阅的 streaming 选项设为                            
+ * on 时。    
  *
- * Unlike the regular (non-streamed) case, handling streamed transactions has
- * to handle aborts of both the toplevel transaction and subtransactions. This
- * is achieved by tracking offsets for subtransactions, which is then used
- * to truncate the file with serialized changes.
+ * 与常规（非流式）情形不同，流式事务的处理还必须     
+ * 同时处理顶层事务与子事务的中止。这一点                  
+ * 通过跟踪子事务的偏移量来实现，该偏移量随后用于  
+ * 截断存放已序列化变更的文件。   
  *
- * The files are placed in tmp file directory by default, and the filenames
- * include both the XID of the toplevel transaction and OID of the
- * subscription. This is necessary so that different workers processing a
- * remote transaction with the same XID doesn't interfere.
+ * 这些文件默认放在临时文件目录中，文件名同时包含   
+ * 顶层事务的 XID 与订阅的 OID。                        
+ * 之所以必须这样，是为了让处理同一 XID 远程事务的  
+ * 不同工作进程互不干扰。                      
  *
- * We use BufFiles instead of using normal temporary files because (a) the
- * BufFile infrastructure supports temporary files that exceed the OS file size
- * limit, (b) provides a way for automatic clean up on the error and (c) provides
- * a way to survive these files across local transactions and allow to open and
- * close at stream start and close. We decided to use FileSet
- * infrastructure as without that it deletes the files on the closure of the
- * file and if we decide to keep stream files open across the start/stop stream
- * then it will consume a lot of memory (more than 8K for each BufFile and
- * there could be multiple such BufFiles as the subscriber could receive
- * multiple start/stop streams for different transactions before getting the
- * commit). Moreover, if we don't use FileSet then we also need to invent
- * a new way to pass filenames to BufFile APIs so that we are allowed to open
- * the file we desired across multiple stream-open calls for the same
- * transaction.
+ * 我们用 BufFile 而非普通临时文件，因为 (a)                
+ * BufFile 支持超过 OS 文件大小上限的临时文件，                
+ * (b) 提供出错时自动清理的途径，且 (c) 允许这些               
+ * 文件跨本地事务存续，并允许在流开始与结束时打开和    
+ * 关闭。我们决定使用 FileSet                       
+ * 基础设施，因为没有它，文件会在关闭时被删除；       
+ * 而如果让流文件在 start/stop stream 期间保持打开，            
+ * 就会消耗大量内存（每个 BufFile 超过 8K，而且           
+ * 可能存在多个这样的 BufFile，因为订阅者可能在       
+ * 得到提交之前收到针对不同事务的多轮 start/stop stream， 
+ * commit）。此外，若不使用 FileSet，还需要另行设计     
+ * 一种把文件名传给 BufFile API 的新方法，以便能在针对    
+ * 同一事务的多次流打开调用中，打开想要的那个   
+ * 文件。   
  *
- * 2) Parallel apply workers.
+ * 2) 并行应用进程。  
  *
- * This approach is used when the user has set the subscription's streaming
- * option as parallel. See logical/applyparallelworker.c for information about
- * this approach.
+ * 当用户将订阅的 streaming 选项设为                            
+ * parallel。详情参见 logical/applyparallelworker.c。                   
+ * 此方式。  
  *
- * TWO_PHASE TRANSACTIONS
+ * 两阶段事务       
  * ----------------------
- * Two phase transactions are replayed at prepare and then committed or
- * rolled back at commit prepared and rollback prepared respectively. It is
- * possible to have a prepared transaction that arrives at the apply worker
- * when the tablesync is busy doing the initial copy. In this case, the apply
- * worker skips all the prepared operations [e.g. inserts] while the tablesync
- * is still busy (see the condition of should_apply_changes_for_rel). The
- * tablesync worker might not get such a prepared transaction because say it
- * was prior to the initial consistent point but might have got some later
- * commits. Now, the tablesync worker will exit without doing anything for the
- * prepared transaction skipped by the apply worker as the sync location for it
- * will be already ahead of the apply worker's current location. This would lead
- * to an "empty prepare", because later when the apply worker does the commit
- * prepare, there is nothing in it (the inserts were skipped earlier).
+ * 两阶段事务在 prepare 时重放，随后在 commit prepared    
+ * 时提交或在 rollback prepared 时回滚。可能出现这样        
+ * 的情况：已 prepare 的事务在应用工作进程正忙于         
+ * 初始复制时到达。这种情况下，应用工作进程会在        
+ * 表同步尚忙时跳过所有已 prepare 的操作（例如插入）。   
+ * （条件见 should_apply_changes_for_rel）。表同步              
+ * 工作进程可能收不到这样的已 prepare 事务，比如说它    
+ * 在初始一致点之前，但可能已收到一些更晚的提交。  
+ * 此时，表同步工作进程将直接退出，对被应用工作进程   
+ * 跳过的 prepare 事务不做处理，因其同步位置早已             
+ * 领先于应用工作进程的当前位置。这会导致一次              
+ * "空 prepare"：因为之后当应用工作进程执行 commit            
+ * prepare 时，其中已空无一物（插入早已被跳过）。  
  *
- * To avoid this, and similar prepare confusions the subscription's two_phase
- * commit is enabled only after the initial sync is over. The two_phase option
- * has been implemented as a tri-state with values DISABLED, PENDING, and
+ * 为避免此类以及类似的 prepare 混乱，订阅的 two_phase       
+ * 提交只在初始同步结束之后才启用。two_phase 选项           
+ * 以三态实现，取值为 DISABLED、PENDING 和                    
  * ENABLED.
  *
- * Even if the user specifies they want a subscription with two_phase = on,
- * internally it will start with a tri-state of PENDING which only becomes
- * ENABLED after all tablesync initializations are completed - i.e. when all
- * tablesync workers have reached their READY state. In other words, the value
- * PENDING is only a temporary state for subscription start-up.
+ * 即使用户指定想要 two_phase = on 的订阅，                    
+ * 内部也会从三态 PENDING 开始，它只有在所有表同步     
+ * 初始化都完成后才会变为 ENABLED —— 也就是当所有      
+ * 表同步工作进程都达到 READY 状态时。换言之，值           
+ * PENDING 只是订阅启动期间的临时状态。          
  *
- * Until the two_phase is properly available (ENABLED) the subscription will
- * behave as if two_phase = off. When the apply worker detects that all
- * tablesyncs have become READY (while the tri-state was PENDING) it will
- * restart the apply worker process. This happens in
+ * 在 two_phase 真正可用（ENABLED）之前，订阅的                
+ * 行为就如同 two_phase = off。当应用工作进程检测到    
+ * 所有表同步都已变为 READY（三态仍为 PENDING）时，     
+ * 就会重启应用工作进程。这发生在    
  * process_syncing_tables_for_apply.
  *
- * When the (re-started) apply worker finds that all tablesyncs are READY for a
- * two_phase tri-state of PENDING it start streaming messages with the
- * two_phase option which in turn enables the decoding of two-phase commits at
- * the publisher. Then, it updates the tri-state value from PENDING to ENABLED.
- * Now, it is possible that during the time we have not enabled two_phase, the
- * publisher (replication server) would have skipped some prepares but we
- * ensure that such prepares are sent along with commit prepare, see
+ * 当（重启后的）应用工作进程发现所有表同步对于          
+ * PENDING 的 two_phase 三态均为 READY，就会开始以         
+ * two_phase 选项流式发送消息，这进而让发布者能够解码     
+ * 两阶段提交。随后它把三态值从 PENDING 更新为                
+ * ENABLED。现在，在我们尚未启用 two_phase 期间，               
+ * 发布者（复制服务器）可能已跳过某些 prepare，但     
+ * 我们确保这类 prepare 会随 commit prepare 一起发送， 
  * ReorderBufferFinishPrepared.
  *
- * If the subscription has no tables then a two_phase tri-state PENDING is
- * left unchanged. This lets the user still do an ALTER SUBSCRIPTION REFRESH
- * PUBLICATION which might otherwise be disallowed (see below).
+ * 若订阅没有表，则 two_phase 三态 PENDING 保持               
+ * 不变。这让用户仍然能够执行 ALTER SUBSCRIPTION               
+ * REFRESH PUBLICATION（否则会被禁止，见下文）。  
  *
- * If ever a user needs to be aware of the tri-state value, they can fetch it
- * from the pg_subscription catalog (see column subtwophasestate).
+ * 如果用户需要了解三态值，可以从 pg_subscription             
+ * 系统表中获取（参见列 subtwophasestate）。          
  *
- * We don't allow to toggle two_phase option of a subscription because it can
- * lead to an inconsistent replica. Consider, initially, it was on and we have
- * received some prepare then we turn it off, now at commit time the server
- * will send the entire transaction data along with the commit. With some more
- * analysis, we can allow changing this option from off to on but not sure if
- * that alone would be useful.
+ * 我们不允许切换订阅的 two_phase 选项，因为这会            
+ * 导致副本不一致。设想最初它为 on，且我们已经收到      
+ * 一些 prepare，然后将其关闭，那么提交时服务器会随    
+ * 提交一起发送整个事务的数据。经过更多分析后，         
+ * 我们可以允许把该选项从 off 改为 on，但不确定            
+ * 仅此是否有用。      
  *
- * Finally, to avoid problems mentioned in previous paragraphs from any
- * subsequent (not READY) tablesyncs (need to toggle two_phase option from 'on'
- * to 'off' and then again back to 'on') there is a restriction for
- * ALTER SUBSCRIPTION REFRESH PUBLICATION. This command is not permitted when
- * the two_phase tri-state is ENABLED, except when copy_data = false.
+ * 最后，为避免前述问题因后续（尚未 READY）的表     
+ * 同步再次出现，需要把 two_phase 选项从 'on' 切换              
+ * 到 'off' 再改回 'on'），因此对以下命令有约束： 
+ * ALTER SUBSCRIPTION REFRESH PUBLICATION。当 two_phase 三态             
+ * 为 ENABLED 时不允许，除非 copy_data = false。            
  *
- * We can get prepare of the same GID more than once for the genuine cases
- * where we have defined multiple subscriptions for publications on the same
- * server and prepared transaction has operations on tables subscribed to those
- * subscriptions. For such cases, if we use the GID sent by publisher one of
- * the prepares will be successful and others will fail, in which case the
- * server will send them again. Now, this can lead to a deadlock if user has
- * set synchronous_standby_names for all the subscriptions on subscriber. To
- * avoid such deadlocks, we generate a unique GID (consisting of the
- * subscription oid and the xid of the prepared transaction) for each prepare
- * transaction on the subscriber.
+ * 对于确实存在的场景，同一 GID 的 prepare 可能不止      
+ * 一次出现：在同一服务器上为发布定义了多个订阅，且 
+ * 已 prepare 的事务对被这些订阅的表有操作。对于这类       
+ * 情况，如果我们使用发布者发来的 GID，则只有一个      
+ * prepare 会成功，其余会失败；此时服务器会把它们      
+ * 再次发送。而如果用户为订阅者上的所有订阅都设置了 
+ * synchronous_standby_names，为避免这种死锁，我们会            
+ * 为每个 prepare 事务生成唯一的 GID（由订阅 oid      
+ * 与该 prepare 事务的 xid 组成），对订阅者上的每个         
+ * prepare 事务生成。       
  *-------------------------------------------------------------------------
  */
 
@@ -210,7 +210,7 @@
 #include "utils/timeout.h"
 #include "utils/usercontext.h"
 
-#define NAPTIME_PER_CYCLE 1000	/* max sleep time between cycles (1s) */
+#define NAPTIME_PER_CYCLE 1000	/* 两轮循环间的最大休眠 (1s)*/
 
 typedef struct FlushPosition
 {
@@ -223,76 +223,76 @@ static dlist_head lsn_mapping = DLIST_STATIC_INIT(lsn_mapping);
 
 typedef struct ApplyExecutionData
 {
-	EState	   *estate;			/* executor state, used to track resources */
+	EState	   *estate;			/* 执行器状态，用于跟踪资源    */
 
-	LogicalRepRelMapEntry *targetRel;	/* replication target rel */
-	ResultRelInfo *targetRelInfo;	/* ResultRelInfo for same */
+	LogicalRepRelMapEntry *targetRel;	/* 复制目标关系     */
+	ResultRelInfo *targetRelInfo;	/* 对应的 ResultRelInfo*/
 
-	/* These fields are used when the target relation is partitioned: */
-	ModifyTableState *mtstate;	/* dummy ModifyTable state */
-	PartitionTupleRouting *proute;	/* partition routing info */
+	/* 目标关系已分区时使用以下字段：                  */
+	ModifyTableState *mtstate;	/* 哑 ModifyTable 状态  */
+	PartitionTupleRouting *proute;	/* 分区路由信息     */
 } ApplyExecutionData;
 
-/* Struct for saving and restoring apply errcontext information */
+/* 用于保存和恢复应用错误上下文信息的结构体 */
 typedef struct ApplyErrorCallbackArg
 {
-	LogicalRepMsgType command;	/* 0 if invalid */
+	LogicalRepMsgType command;	/* 无效为 0  */
 	LogicalRepRelMapEntry *rel;
 
-	/* Remote node information */
-	int			remote_attnum;	/* -1 if invalid */
+	/* 远端节点信息      */
+	int			remote_attnum;	/* 无效为 -1  */
 	TransactionId remote_xid;
 	XLogRecPtr	finish_lsn;
 	char	   *origin_name;
 } ApplyErrorCallbackArg;
 
 /*
- * The action to be taken for the changes in the transaction.
+ * 对事务中的变更要采取的行动。                
  *
  * TRANS_LEADER_APPLY:
- * This action means that we are in the leader apply worker or table sync
- * worker. The changes of the transaction are either directly applied or
- * are read from temporary files (for streaming transactions) and then
- * applied by the worker.
+ * 该行动表示我们处于领导者应用工作进程或表同步    
+ * 工作进程。事务变更要么被直接应用，要么从临时   
+ * 文件读出（流式事务情形），随后再由工作进程    
+ * 应用。             
  *
  * TRANS_LEADER_SERIALIZE:
- * This action means that we are in the leader apply worker or table sync
- * worker. Changes are written to temporary files and then applied when the
- * final commit arrives.
+ * 该行动表示我们处于领导者应用工作进程或表同步    
+ * 工作进程。变更写入临时文件，然后在最终提交到达   
+ * 时才应用。      
  *
  * TRANS_LEADER_SEND_TO_PARALLEL:
- * This action means that we are in the leader apply worker and need to send
- * the changes to the parallel apply worker.
+ * 该行动表示我们处于领导者应用工作进程，需要把变更 
+ * 发送给并行应用工作进程。     
  *
  * TRANS_LEADER_PARTIAL_SERIALIZE:
- * This action means that we are in the leader apply worker and have sent some
- * changes directly to the parallel apply worker and the remaining changes are
- * serialized to a file, due to timeout while sending data. The parallel apply
- * worker will apply these serialized changes when the final commit arrives.
+ * 该行动表示我们处于领导者应用工作进程，且已把部分   
+ * 变更直接发送给并行应用工作进程，其余变更则因         
+ * 发送数据超时而被序列化到文件。并行应用工作进程      
+ * 会在最终提交到达时应用这些已序列化的变更。          
  *
- * We can't use TRANS_LEADER_SERIALIZE for this case because, in addition to
- * serializing changes, the leader worker also needs to serialize the
- * STREAM_XXX message to a file, and wait for the parallel apply worker to
- * finish the transaction when processing the transaction finish command. So
- * this new action was introduced to keep the code and logic clear.
+ * 这种情形无法使用 TRANS_LEADER_SERIALIZE，因为除              
+ * 了序列化变更之外，领导工作进程还需要把         
+ * STREAM_XXX 消息序列化到文件，并在处理事务结束         
+ * 命令时等待并行应用工作进程完成事务。因此引入       
+ * 这一新行动，以保持代码和逻辑清晰。             
  *
  * TRANS_PARALLEL_APPLY:
- * This action means that we are in the parallel apply worker and changes of
- * the transaction are applied directly by the worker.
+ * 该行动表示我们处于并行应用工作进程，事务的变更    
+ * 由该工作进程直接应用。                  
  */
 typedef enum
 {
-	/* The action for non-streaming transactions. */
+	/* 非流式事务的行动。                */
 	TRANS_LEADER_APPLY,
 
-	/* Actions for streaming transactions. */
+	/* 流式事务的行动。            */
 	TRANS_LEADER_SERIALIZE,
 	TRANS_LEADER_SEND_TO_PARALLEL,
 	TRANS_LEADER_PARTIAL_SERIALIZE,
 	TRANS_PARALLEL_APPLY
 } TransApplyAction;
 
-/* errcontext tracker */
+/* 错误上下文    */
 ApplyErrorCallbackArg apply_error_callback_arg =
 {
 	.command = 0,
@@ -308,7 +308,7 @@ ErrorContextCallback *apply_error_context_stack = NULL;
 MemoryContext ApplyMessageContext = NULL;
 MemoryContext ApplyContext = NULL;
 
-/* per stream context for streaming transactions */
+/* 流式事务的每个流上下文             */
 static MemoryContext LogicalStreamingContext = NULL;
 
 WalReceiverConn *LogRepWorkerWalRcvConn = NULL;
@@ -321,55 +321,55 @@ static List *on_commit_wakeup_workers_subids = NIL;
 bool		in_remote_transaction = false;
 static XLogRecPtr remote_final_lsn = InvalidXLogRecPtr;
 
-/* fields valid only when processing streamed transaction */
+/* 仅在处理流式事务时有效的字段             */
 static bool in_streamed_transaction = false;
 
 static TransactionId stream_xid = InvalidTransactionId;
 
 /*
- * The number of changes applied by parallel apply worker during one streaming
- * block.
+ * 并行应用工作进程在一个流式块期间应用的变更数量      
+ * 。   
  */
 static uint32 parallel_stream_nchanges = 0;
 
-/* Are we initializing a apply worker? */
+/* 初始化应用工作进程中？   */
 bool		InitializingApplyWorker = false;
 
 /*
- * We enable skipping all data modification changes (INSERT, UPDATE, etc.) for
- * the subscription if the remote transaction's finish LSN matches the subskiplsn.
- * Once we start skipping changes, we don't stop it until we skip all changes of
- * the transaction even if pg_subscription is updated and MySubscription->skiplsn
- * gets changed or reset during that. Also, in streaming transaction cases (streaming = on),
- * we don't skip receiving and spooling the changes since we decide whether or not
- * to skip applying the changes when starting to apply changes. The subskiplsn is
- * cleared after successfully skipping the transaction or applying non-empty
- * transaction. The latter prevents the mistakenly specified subskiplsn from
- * being left. Note that we cannot skip the streaming transactions when using
- * parallel apply workers because we cannot get the finish LSN before applying
- * the changes. So, we don't start parallel apply worker when finish LSN is set
- * by the user.
+ * 如果远程事务的结束 LSN 与 subskiplsn 相匹配，我们          
+ * 就为该订阅启用跳过所有数据修改变更（INSERT、UPDATE等）。 
+ * 一旦开始跳过变更，在跳过该事务的全部变更之前           
+ * 我们不会停止，即使 pg_subscription 被更新且                      
+ * MySubscription->skiplsn 在此期间被修改或重置。                                
+ * 此外，在流式事务情形（streaming = on）下，我们不              
+ * 跳过接收与溢写变更，因为要等到开始应用变更时            
+ * 才决定是否跳过应用变更。subskiplsn 会在成功跳过        
+ * 该事务或应用了非空事务后被清除。后者可防止          
+ * 误设的 subskiplsn 残留。注意：使用并行应用工作进程     
+ * 时无法跳过流式事务，因为在应用变更之前拿不到         
+ * 结束 LSN；用户设置它时便不会启动并行应用工作进程      
+ * 。         
  */
 static XLogRecPtr skip_xact_finish_lsn = InvalidXLogRecPtr;
 #define is_skipping_changes() (unlikely(!XLogRecPtrIsInvalid(skip_xact_finish_lsn)))
 
-/* BufFile handle of the current streaming file */
+/* 当前流式文件的 BufFile 句柄         */
 static BufFile *stream_fd = NULL;
 
 typedef struct SubXactInfo
 {
-	TransactionId xid;			/* XID of the subxact */
-	int			fileno;			/* file number in the buffile */
-	off_t		offset;			/* offset in the file */
+	TransactionId xid;			/* 子事务的 XID   */
+	int			fileno;			/* buffile 中的文件编号 */
+	off_t		offset;			/* 文件内偏移量 */
 } SubXactInfo;
 
-/* Sub-transaction data for the current streaming transaction */
+/* 当前流式事务的子事务数据                       */
 typedef struct ApplySubXactData
 {
-	uint32		nsubxacts;		/* number of sub-transactions */
-	uint32		nsubxacts_max;	/* current capacity of subxacts */
-	TransactionId subxact_last; /* xid of the last sub-transaction */
-	SubXactInfo *subxacts;		/* sub-xact offset in changes file */
+	uint32		nsubxacts;		/* 子事务的数量         */
+	uint32		nsubxacts_max;	/* 子事务的当前容量     */
+	TransactionId subxact_last; /* 最后一个子事务的 xid    */
+	SubXactInfo *subxacts;		/* 子事务变更文件偏移量  */
 } ApplySubXactData;
 
 static ApplySubXactData subxact_data = {0, 0, InvalidTransactionId, NULL};
@@ -378,7 +378,7 @@ static inline void subxact_filename(char *path, Oid subid, TransactionId xid);
 static inline void changes_filename(char *path, Oid subid, TransactionId xid);
 
 /*
- * Information about subtransactions of a given toplevel transaction.
+ * 给定顶层事务的各子事务的信息。                     
  */
 static void subxact_info_write(Oid subid, TransactionId xid);
 static void subxact_info_read(Oid subid, TransactionId xid);
@@ -386,7 +386,7 @@ static void subxact_info_add(TransactionId xid);
 static inline void cleanup_subxact_info(void);
 
 /*
- * Serialize and deserialize changes for a toplevel transaction.
+ * 对顶层事务的变更进行序列化与反序列化。    
  */
 static void stream_open_file(Oid subid, TransactionId xid,
 							 bool first_segment);
@@ -421,15 +421,15 @@ static void apply_handle_tuple_routing(ApplyExecutionData *edata,
 									   LogicalRepTupleData *newtup,
 									   CmdType operation);
 
-/* Compute GID for two_phase transactions */
+/* 为两阶段事务计算 GID           */
 static void TwoPhaseTransactionGid(Oid subid, TransactionId xid, char *gid, int szgid);
 
-/* Functions for skipping changes */
+/* 用于跳过变更的函数    */
 static void maybe_start_skipping_changes(XLogRecPtr finish_lsn);
 static void stop_skipping_changes(void);
 static void clear_subscription_skip_lsn(XLogRecPtr finish_lsn);
 
-/* Functions for apply error callback */
+/* 应用错误回调用的函数     */
 static inline void set_apply_error_context_xact(TransactionId xid, XLogRecPtr lsn);
 static inline void reset_apply_error_context_info(void);
 
@@ -439,12 +439,12 @@ static TransApplyAction get_transaction_apply_action(TransactionId xid,
 static void replorigin_reset(int code, Datum arg);
 
 /*
- * Form the origin name for the subscription.
+ * 构成该订阅的复制源名称。      
  *
- * This is a common function for tablesync and other workers. Tablesync workers
- * must pass a valid relid. Other callers must pass relid = InvalidOid.
+ * 这是表同步工作进程与其他工作进程的共用函数。表同步 
+ * 工作进程必须传入有效的 relid。其他调用者必须传  
  *
- * Return the name in the supplied buffer.
+ * 在给定缓冲区中返回名称。   
  */
 void
 ReplicationOriginNameForLogicalRep(Oid suboid, Oid relid,
@@ -452,39 +452,39 @@ ReplicationOriginNameForLogicalRep(Oid suboid, Oid relid,
 {
 	if (OidIsValid(relid))
 	{
-		/* Replication origin name for tablesync workers. */
+		/* 表同步工作进程的复制源名称。     */
 		snprintf(originname, szoriginname, "pg_%u_%u", suboid, relid);
 	}
 	else
 	{
-		/* Replication origin name for non-tablesync workers. */
+		/* 非表同步工作进程的复制源名称。      */
 		snprintf(originname, szoriginname, "pg_%u", suboid);
 	}
 }
 
 /*
- * Should this worker apply changes for given relation.
+ * 此工作进程是否应用给定关系的变更。 
  *
- * This is mainly needed for initial relation data sync as that runs in
- * separate worker process running in parallel and we need some way to skip
- * changes coming to the leader apply worker during the sync of a table.
+ * 这主要是初始关系数据同步所需，因为同步运行在  
+ * 单独的并行工作进程中，我们需要某种办法来跳过      
+ * 表同步期间到达领导者应用工作进程的变更。         
  *
- * Note we need to do smaller or equals comparison for SYNCDONE state because
- * it might hold position of end of initial slot consistent point WAL
- * record + 1 (ie start of next record) and next record can be COMMIT of
- * transaction we are now processing (which is what we set remote_final_lsn
- * to in apply_handle_begin).
+ * 注意：对 SYNCDONE 状态必须用小于等于比较，因为          
+ * 它持有的位置可能是初始槽一致点 WAL 记录末尾    
+ * +1（即下一条记录的起点），而下一条记录可能       
+ * 正是当前正在处理的事务的 COMMIT；remote_final_lsn 设于   
+ * apply_handle_begin。     
  *
- * Note that for streaming transactions that are being applied in the parallel
- * apply worker, we disallow applying changes if the target table in the
- * subscription is not in the READY state, because we cannot decide whether to
- * apply the change as we won't know remote_final_lsn by that time.
+ * 注意：对于正由并行应用工作进程应用的流式事务，      
+ * 如果订阅中的目标表未处于 READY 状态，则不允许     
+ * 应用变更，因为届时还不知道 remote_final_lsn，                
+ * 因此无法决定是否应用该变更。                      
  *
- * We already checked this in pa_can_start() before assigning the
- * streaming transaction to the parallel worker, but it also needs to be
- * checked here because if the user executes ALTER SUBSCRIPTION ... REFRESH
- * PUBLICATION in parallel, the new table can be added to pg_subscription_rel
- * while applying this transaction.
+ * 分配流式事务给并行工作进程前，我们已在     
+ * pa_can_start() 中检查过这一点，但这里也需要再次      
+ * 检查：因为如果用户同时执行 ALTER SUBSCRIPTION ...          
+ * REFRESH PUBLICATION，在应用该事务期间，新表就可能          
+ * 加入 pg_subscription_rel。   
  */
 static bool
 should_apply_changes_for_rel(LogicalRepRelMapEntry *rel)
@@ -493,7 +493,7 @@ should_apply_changes_for_rel(LogicalRepRelMapEntry *rel)
 		return MyLogicalRepWorker->relid == rel->localreloid;
 	else if (am_parallel_apply_worker())
 	{
-		/* We don't synchronize rel's that are in unknown state. */
+		/* 我们不同步处于未知状态的关系。         */
 		if (rel->state != SUBREL_STATE_READY &&
 			rel->state != SUBREL_STATE_UNKNOWN)
 			ereport(ERROR,
@@ -511,11 +511,11 @@ should_apply_changes_for_rel(LogicalRepRelMapEntry *rel)
 }
 
 /*
- * Begin one step (one INSERT, UPDATE, etc) of a replication transaction.
+ * 开始复制事务的一步（一条 INSERT、UPDATE 等）。        
  *
- * Start a transaction, if this is the first step (else we keep using the
- * existing transaction).
- * Also provide a global snapshot and ensure we run in ApplyMessageContext.
+ * 若这是第一步则开启一个事务（否则继续沿用现有    
+ * 的事务）。       
+ * 同时提供全局快照，并确保运行于 ApplyMessageContext。    
  */
 static void
 begin_replication_step(void)
@@ -534,11 +534,11 @@ begin_replication_step(void)
 }
 
 /*
- * Finish up one step of a replication transaction.
- * Callers of begin_replication_step() must also call this.
+ * 完成复制事务的一步。                  
+ * begin_replication_step() 的调用者也须调用。    
  *
- * We don't close out the transaction here, but we should increment
- * the command counter to make the effects of this step visible.
+ * 这里并不结束事务，但应递增命令计数器，       
+ * 以使本步骤的效果可见。                            
  */
 static void
 end_replication_step(void)
@@ -549,24 +549,24 @@ end_replication_step(void)
 }
 
 /*
- * Handle streamed transactions for both the leader apply worker and the
- * parallel apply workers.
+ * 为领导者应用工作进程与并行应用工作进程两者处理
+ * 流式事务。        
  *
- * In the streaming case (receiving a block of the streamed transaction), for
- * serialize mode, simply redirect it to a file for the proper toplevel
- * transaction, and for parallel mode, the leader apply worker will send the
- * changes to parallel apply workers and the parallel apply worker will define
- * savepoints if needed. (LOGICAL_REP_MSG_RELATION or LOGICAL_REP_MSG_TYPE
- * messages will be applied by both leader apply worker and parallel apply
- * workers).
+ * 流式情形（收到流式事务的一个块）下：序列化模式     
+ * 将其重定向到对应顶层事务的文件；并行模式        
+ * 下，领导者应用工作进程会把变更发送给并行应用工作 
+ * 进程，并行应用工作进程会按需定义保存点。               
+ * （LOGICAL_REP_MSG_RELATION 或 LOGICAL_REP_MSG_TYPE                   
+ * 消息由领导者应用工作进程与并行应用工作进程应用  
+ * ）。   
  *
- * Returns true for streamed transactions (when the change is either serialized
- * to file or sent to parallel apply worker), false otherwise (regular mode or
- * needs to be processed by parallel apply worker).
+ * 对流式事务返回 true（变更要么已序列化到文件，           
+ * 要么已发送给并行应用工作进程），否则返回 false         
+ * （常规模式或需并行应用处理）。   
  *
- * Exception: If the message being processed is LOGICAL_REP_MSG_RELATION
- * or LOGICAL_REP_MSG_TYPE, return false even if the message needs to be sent
- * to a parallel apply worker.
+ * 例外：若正在处理的消息是 LOGICAL_REP_MSG_RELATION        
+ * 或 LOGICAL_REP_MSG_TYPE，即使消息要发给并行应用工作进程  
+ * ，也返回 false。      
  */
 static bool
 handle_streamed_transaction(LogicalRepMsgType action, StringInfo s)
@@ -578,23 +578,23 @@ handle_streamed_transaction(LogicalRepMsgType action, StringInfo s)
 
 	apply_action = get_transaction_apply_action(stream_xid, &winfo);
 
-	/* not in streaming mode */
+	/* 非流式模式       */
 	if (apply_action == TRANS_LEADER_APPLY)
 		return false;
 
 	Assert(TransactionIdIsValid(stream_xid));
 
 	/*
-	 * The parallel apply worker needs the xid in this message to decide
-	 * whether to define a savepoint, so save the original message that has
-	 * not moved the cursor after the xid. We will serialize this message to a
-	 * file in PARTIAL_SERIALIZE mode.
+	 * 并行应用工作进程需要本消息中的 xid 来决定      
+	 * 是否定义保存点，因此要保存一份游标尚未越过     
+	 * xid 的原始消息。在 PARTIAL_SERIALIZE 模式下，               
+	 * 它将被序列化到文件。 
 	 */
 	original_msg = *s;
 
 	/*
-	 * We should have received XID of the subxact as the first part of the
-	 * message, so extract it.
+	 * 子事务的 XID 应已作为消息的第一部分收到，        
+	 * 将其提取出来。  
 	 */
 	current_xid = pq_getmsgint(s, 4);
 
@@ -608,10 +608,10 @@ handle_streamed_transaction(LogicalRepMsgType action, StringInfo s)
 		case TRANS_LEADER_SERIALIZE:
 			Assert(stream_fd);
 
-			/* Add the new subxact to the array (unless already there). */
+			/* 把新子事务加入数组（除非已存在）。      */
 			subxact_info_add(current_xid);
 
-			/* Write the change to the current file */
+			/* 把该变更写入当前文件       */
 			stream_write_change(action, s);
 			return true;
 
@@ -619,9 +619,9 @@ handle_streamed_transaction(LogicalRepMsgType action, StringInfo s)
 			Assert(winfo);
 
 			/*
-			 * XXX The publisher side doesn't always send relation/type update
-			 * messages after the streaming transaction, so also update the
-			 * relation/type in leader apply worker. See function
+			 * XXX 发布者不一定在流式事务后发送关系/类型    
+			 * 更新消息；领导者应用工作进程的关系/类型  
+			 * 亦要更新。参见函数                       
 			 * cleanup_rel_sync_cache.
 			 */
 			if (pa_send_data(winfo, s->len, s->data))
@@ -629,8 +629,8 @@ handle_streamed_transaction(LogicalRepMsgType action, StringInfo s)
 						action != LOGICAL_REP_MSG_TYPE);
 
 			/*
-			 * Switch to serialize mode when we are not able to send the
-			 * change to parallel apply worker.
+			 * 无法把变更发送给并行应用工作进程时，   
+			 * 切换到序列化模式。     
 			 */
 			pa_switch_to_partial_serialize(winfo, false);
 
@@ -638,28 +638,28 @@ handle_streamed_transaction(LogicalRepMsgType action, StringInfo s)
 		case TRANS_LEADER_PARTIAL_SERIALIZE:
 			stream_write_change(action, &original_msg);
 
-			/* Same reason as TRANS_LEADER_SEND_TO_PARALLEL case. */
+			/* 理由同 TRANS_LEADER_SEND_TO_PARALLEL 情形。  */
 			return (action != LOGICAL_REP_MSG_RELATION &&
 					action != LOGICAL_REP_MSG_TYPE);
 
 		case TRANS_PARALLEL_APPLY:
 			parallel_stream_nchanges += 1;
 
-			/* Define a savepoint for a subxact if needed. */
+			/* 按需为子事务定义保存点。        */
 			pa_start_subtrans(current_xid, stream_xid);
 			return false;
 
 		default:
 			elog(ERROR, "unexpected apply action: %d", (int) apply_action);
-			return false;		/* silence compiler warning */
+			return false;		/* 消除编译器警告    */
 	}
 }
 
 /*
- * Executor state preparation for evaluation of constraint expressions,
- * indexes and triggers for the specified relation.
+ * 为求值约束表达式、索引和触发器准备指定关系的  
+ * 执行器状态。                              
  *
- * Note that the caller must open and close any indexes to be updated.
+ * 注意调用者必须自行打开并关闭所有待更新索引。 
  */
 static ApplyExecutionData *
 create_edata_for_relation(LogicalRepRelMapEntry *rel)
@@ -688,34 +688,34 @@ create_edata_for_relation(LogicalRepRelMapEntry *rel)
 	edata->targetRelInfo = resultRelInfo = makeNode(ResultRelInfo);
 
 	/*
-	 * Use Relation opened by logicalrep_rel_open() instead of opening it
-	 * again.
+	 * 用 logicalrep_rel_open() 打开过的 Relation，而非再打开 
+	 * 。   
 	 */
 	InitResultRelInfo(resultRelInfo, rel->localrel, 1, NULL, 0);
 
 	/*
-	 * We put the ResultRelInfo in the es_opened_result_relations list, even
-	 * though we don't populate the es_result_relations array.  That's a bit
-	 * bogus, but it's enough to make ExecGetTriggerResultRel() find them.
+	 * 我们把 ResultRelInfo 放入 es_opened_result_relations 列表，  
+	 * 尽管并不填充 es_result_relations 数组。这                  
+	 * 有点不合常规，但足以让 ExecGetTriggerResultRel() 找到 
 	 *
-	 * ExecOpenIndices() is not called here either, each execution path doing
-	 * an apply operation being responsible for that.
+	 * 这里同样不调用 ExecOpenIndices()，由各执行应用操作    
+	 * 的路径自己负责此事。                
 	 */
 	estate->es_opened_result_relations =
 		lappend(estate->es_opened_result_relations, resultRelInfo);
 
 	estate->es_output_cid = GetCurrentCommandId(true);
 
-	/* Prepare to catch AFTER triggers. */
+	/* 准备捕获 AFTER 触发器。  */
 	AfterTriggerBeginQuery();
 
-	/* other fields of edata remain NULL for now */
+	/* edata 的其余字段暂为 NULL          */
 
 	return edata;
 }
 
 /*
- * Finish any operations related to the executor state created by
+ * 完成与下列函数创建的执行器状态相关操作：  
  * create_edata_for_relation().
  */
 static void
@@ -723,19 +723,19 @@ finish_edata(ApplyExecutionData *edata)
 {
 	EState	   *estate = edata->estate;
 
-	/* Handle any queued AFTER triggers. */
+	/* 处理排队的 AFTER 触发器。*/
 	AfterTriggerEndQuery(estate);
 
-	/* Shut down tuple routing, if any was done. */
+	/* 若做过元组路由则将其关闭。   */
 	if (edata->proute)
 		ExecCleanupTupleRouting(edata->mtstate, edata->proute);
 
 	/*
-	 * Cleanup.  It might seem that we should call ExecCloseResultRelations()
-	 * here, but we intentionally don't.  It would close the rel we added to
-	 * es_opened_result_relations above, which is wrong because we took no
-	 * corresponding refcount.  We rely on ExecCleanupTupleRouting() to close
-	 * any other relations opened during execution.
+	 * 清理。看起来我们似乎应该调用 ExecCloseResultRelations() 
+	 * ，但我们有意不这么做。那会关闭我们先前加入      
+	 * es_opened_result_relations 的关系，这不对，因为我们    
+	 * 没有持有相应的引用计数。其余执行期间打开的关系 
+	 * 靠 ExecCleanupTupleRouting() 关闭。     
 	 */
 	ExecResetTupleTable(estate->es_tupleTable, false);
 	FreeExecutorState(estate);
@@ -743,11 +743,11 @@ finish_edata(ApplyExecutionData *edata)
 }
 
 /*
- * Executes default values for columns for which we can't map to remote
- * relation columns.
+ * 对于那些无法映射到远端关系列的列，执行           
+ * 默认值。     
  *
- * This allows us to support tables which have more columns on the downstream
- * than on the upstream.
+ * 这让我们能够支持那些下游列数多于上游列数              
+ * 的表。            
  */
 static void
 slot_fill_defaults(LogicalRepRelMapEntry *rel, EState *estate,
@@ -764,7 +764,7 @@ slot_fill_defaults(LogicalRepRelMapEntry *rel, EState *estate,
 
 	econtext = GetPerTupleExprContext(estate);
 
-	/* We got all the data via replication, no need to evaluate anything. */
+	/* 所有数据都已通过复制获得，无需再求任何值。    */
 	if (num_phys_attrs == rel->remoterel.natts)
 		return;
 
@@ -786,10 +786,10 @@ slot_fill_defaults(LogicalRepRelMapEntry *rel, EState *estate,
 
 		if (defexpr != NULL)
 		{
-			/* Run the expression through planner */
+			/* 用规划器处理该表达式     */
 			defexpr = expression_planner(defexpr);
 
-			/* Initialize executable expression in copycontext */
+			/* 在 copycontext 中初始化可执行表达式  */
 			defexprs[num_defaults] = ExecInitExpr(defexpr, NULL);
 			defmap[num_defaults] = attnum;
 			num_defaults++;
@@ -802,9 +802,9 @@ slot_fill_defaults(LogicalRepRelMapEntry *rel, EState *estate,
 }
 
 /*
- * Store tuple data into slot.
+ * 把元组数据存入 slot 
  *
- * Incoming data can be either text or binary format.
+ * 传入数据可以是文本或二进制格式。  
  */
 static void
 slot_store_data(TupleTableSlot *slot, LogicalRepRelMapEntry *rel,
@@ -815,7 +815,7 @@ slot_store_data(TupleTableSlot *slot, LogicalRepRelMapEntry *rel,
 
 	ExecClearTuple(slot);
 
-	/* Call the "in" function for each non-dropped, non-null attribute */
+	/* 对每个未删除且非空的属性调用 "in" 函数          */
 	Assert(natts == rel->attrmap->maplen);
 	for (i = 0; i < natts; i++)
 	{
@@ -828,7 +828,7 @@ slot_store_data(TupleTableSlot *slot, LogicalRepRelMapEntry *rel,
 
 			Assert(remoteattnum < tupleData->ncols);
 
-			/* Set attnum for error callback */
+			/* 为错误回调设置 attnum  */
 			apply_error_callback_arg.remote_attnum = remoteattnum;
 
 			if (tupleData->colstatus[remoteattnum] == LOGICALREP_COLUMN_TEXT)
@@ -848,8 +848,8 @@ slot_store_data(TupleTableSlot *slot, LogicalRepRelMapEntry *rel,
 				Oid			typioparam;
 
 				/*
-				 * In some code paths we may be asked to re-parse the same
-				 * tuple data.  Reset the StringInfo's cursor so that works.
+				 * 有的代码路径可能要求重新解析同一       
+				 * 元组数据。为此要重置 StringInfo 的游标。   
 				 */
 				colvalue->cursor = 0;
 
@@ -858,7 +858,7 @@ slot_store_data(TupleTableSlot *slot, LogicalRepRelMapEntry *rel,
 					OidReceiveFunctionCall(typreceive, colvalue,
 										   typioparam, att->atttypmod);
 
-				/* Trouble if it didn't eat the whole buffer */
+				/* 若未吃掉整个缓冲区则有麻烦   */
 				if (colvalue->cursor != colvalue->len)
 					ereport(ERROR,
 							(errcode(ERRCODE_INVALID_BINARY_REPRESENTATION),
@@ -869,23 +869,23 @@ slot_store_data(TupleTableSlot *slot, LogicalRepRelMapEntry *rel,
 			else
 			{
 				/*
-				 * NULL value from remote.  (We don't expect to see
-				 * LOGICALREP_COLUMN_UNCHANGED here, but if we do, treat it as
-				 * NULL.)
+				 * 远端 NULL 值。（按理不会见到         
+				 * LOGICALREP_COLUMN_UNCHANGED，若见到就视为 NULL）   
+				 * 。   
 				 */
 				slot->tts_values[i] = (Datum) 0;
 				slot->tts_isnull[i] = true;
 			}
 
-			/* Reset attnum for error callback */
+			/* 为错误回调重置 attnum    */
 			apply_error_callback_arg.remote_attnum = -1;
 		}
 		else
 		{
 			/*
-			 * We assign NULL to dropped attributes and missing values
-			 * (missing values should be later filled using
-			 * slot_fill_defaults).
+			 * 我们给已删除的属性和缺少的值赋 NULL     
+			 * （缺少的值稍后由 slot_fill_defaults 
+			 * 填充）。        
 			 */
 			slot->tts_values[i] = (Datum) 0;
 			slot->tts_isnull[i] = true;
@@ -896,16 +896,16 @@ slot_store_data(TupleTableSlot *slot, LogicalRepRelMapEntry *rel,
 }
 
 /*
- * Replace updated columns with data from the LogicalRepTupleData struct.
- * This is somewhat similar to heap_modify_tuple but also calls the type
- * input functions on the user data.
+ * 用 LogicalRepTupleData 结构体中的数据替换已更新列。    
+ * 这有点类似于 heap_modify_tuple，但还会对用户数据      
+ * 调用类型输入函数。      
  *
- * "slot" is filled with a copy of the tuple in "srcslot", replacing
- * columns provided in "tupleData" and leaving others as-is.
+ * "slot" 会被填充为 "srcslot" 中元组的副本，替换掉  
+ * "tupleData" 中给出的列，其余列保持不变。   
  *
- * Caution: unreplaced pass-by-ref columns in "slot" will point into the
- * storage for "srcslot".  This is OK for current usage, but someday we may
- * need to materialize "slot" at the end to make it independent of "srcslot".
+ * 注意："slot" 中未被替换的按引用传递列将指向        
+ * "srcslot" 的存储。现有用法没问题，但将来可能需要     
+ * 在最后物化 "slot"，使其独立于 "srcslot"。                     
  */
 static void
 slot_modify_data(TupleTableSlot *slot, TupleTableSlot *srcslot,
@@ -915,19 +915,19 @@ slot_modify_data(TupleTableSlot *slot, TupleTableSlot *srcslot,
 	int			natts = slot->tts_tupleDescriptor->natts;
 	int			i;
 
-	/* We'll fill "slot" with a virtual tuple, so we must start with ... */
+	/* 将用虚拟元组填充 "slot"，所以必须先 ...             */
 	ExecClearTuple(slot);
 
 	/*
-	 * Copy all the column data from srcslot, so that we'll have valid values
-	 * for unreplaced columns.
+	 * 从 srcslot 复制所有列数据，这样未替换的列就有了    
+	 * 有效值。           
 	 */
 	Assert(natts == srcslot->tts_tupleDescriptor->natts);
 	slot_getallattrs(srcslot);
 	memcpy(slot->tts_values, srcslot->tts_values, natts * sizeof(Datum));
 	memcpy(slot->tts_isnull, srcslot->tts_isnull, natts * sizeof(bool));
 
-	/* Call the "in" function for each replaced attribute */
+	/* 对每个被替换的属性调用 "in" 函数      */
 	Assert(natts == rel->attrmap->maplen);
 	for (i = 0; i < natts; i++)
 	{
@@ -943,7 +943,7 @@ slot_modify_data(TupleTableSlot *slot, TupleTableSlot *srcslot,
 		{
 			StringInfo	colvalue = &tupleData->colvalues[remoteattnum];
 
-			/* Set attnum for error callback */
+			/* 为错误回调设置 attnum  */
 			apply_error_callback_arg.remote_attnum = remoteattnum;
 
 			if (tupleData->colstatus[remoteattnum] == LOGICALREP_COLUMN_TEXT)
@@ -963,8 +963,8 @@ slot_modify_data(TupleTableSlot *slot, TupleTableSlot *srcslot,
 				Oid			typioparam;
 
 				/*
-				 * In some code paths we may be asked to re-parse the same
-				 * tuple data.  Reset the StringInfo's cursor so that works.
+				 * 有的代码路径可能要求重新解析同一       
+				 * 元组数据。为此要重置 StringInfo 的游标。   
 				 */
 				colvalue->cursor = 0;
 
@@ -973,7 +973,7 @@ slot_modify_data(TupleTableSlot *slot, TupleTableSlot *srcslot,
 					OidReceiveFunctionCall(typreceive, colvalue,
 										   typioparam, att->atttypmod);
 
-				/* Trouble if it didn't eat the whole buffer */
+				/* 若未吃掉整个缓冲区则有麻烦   */
 				if (colvalue->cursor != colvalue->len)
 					ereport(ERROR,
 							(errcode(ERRCODE_INVALID_BINARY_REPRESENTATION),
@@ -983,29 +983,29 @@ slot_modify_data(TupleTableSlot *slot, TupleTableSlot *srcslot,
 			}
 			else
 			{
-				/* must be LOGICALREP_COLUMN_NULL */
+				/* 应为 LOGICALREP_COLUMN_NULL  */
 				slot->tts_values[i] = (Datum) 0;
 				slot->tts_isnull[i] = true;
 			}
 
-			/* Reset attnum for error callback */
+			/* 为错误回调重置 attnum    */
 			apply_error_callback_arg.remote_attnum = -1;
 		}
 	}
 
-	/* And finally, declare that "slot" contains a valid virtual tuple */
+	/* 最后，声明 "slot" 包含一个有效的虚拟元组        */
 	ExecStoreVirtualTuple(slot);
 }
 
 /*
- * Handle BEGIN message.
+ * 处理 BEGIN 消息  
  */
 static void
 apply_handle_begin(StringInfo s)
 {
 	LogicalRepBeginData begin_data;
 
-	/* There must not be an active streaming transaction. */
+	/* 此处不允许存在活动中的流式事务。   */
 	Assert(!TransactionIdIsValid(stream_xid));
 
 	logicalrep_read_begin(s, &begin_data);
@@ -1021,9 +1021,9 @@ apply_handle_begin(StringInfo s)
 }
 
 /*
- * Handle COMMIT message.
+ * 处理 COMMIT 消息  
  *
- * TODO, support tracking of multiple origins
+ * TODO：支持跟踪多个复制源        
  */
 static void
 apply_handle_commit(StringInfo s)
@@ -1041,7 +1041,7 @@ apply_handle_commit(StringInfo s)
 
 	apply_handle_commit_internal(&commit_data);
 
-	/* Process any tables that are being synchronized in parallel. */
+	/* 处理所有正在并行同步的表。                     */
 	process_syncing_tables(commit_data.end_lsn);
 
 	pgstat_report_activity(STATE_IDLE, NULL);
@@ -1049,20 +1049,20 @@ apply_handle_commit(StringInfo s)
 }
 
 /*
- * Handle BEGIN PREPARE message.
+ * 处理 BEGIN PREPARE 消息  
  */
 static void
 apply_handle_begin_prepare(StringInfo s)
 {
 	LogicalRepPreparedTxnData begin_data;
 
-	/* Tablesync should never receive prepare. */
+	/* 表同步绝不应收到 prepare。     */
 	if (am_tablesync_worker())
 		ereport(ERROR,
 				(errcode(ERRCODE_PROTOCOL_VIOLATION),
 				 errmsg_internal("tablesync worker received a BEGIN PREPARE message")));
 
-	/* There must not be an active streaming transaction. */
+	/* 此处不允许存在活动中的流式事务。   */
 	Assert(!TransactionIdIsValid(stream_xid));
 
 	logicalrep_read_begin_prepare(s, &begin_data);
@@ -1078,7 +1078,7 @@ apply_handle_begin_prepare(StringInfo s)
 }
 
 /*
- * Common function to prepare the GID.
+ * 构成 GID 的共用函数。      
  */
 static void
 apply_handle_prepare_internal(LogicalRepPreparedTxnData *prepare_data)
@@ -1086,27 +1086,27 @@ apply_handle_prepare_internal(LogicalRepPreparedTxnData *prepare_data)
 	char		gid[GIDSIZE];
 
 	/*
-	 * Compute unique GID for two_phase transactions. We don't use GID of
-	 * prepared transaction sent by server as that can lead to deadlock when
-	 * we have multiple subscriptions from same node point to publications on
-	 * the same node. See comments atop worker.c
+	 * 为两阶段事务计算唯一的 GID。我们不使用服务器  
+	 * 发送的已准备事务的 GID，因为当同一节点上的多个  
+	 * 订阅指向同一节点的发布时，就可能导致死锁。       
+	 * 参见 worker.c 顶部的注释          
 	 */
 	TwoPhaseTransactionGid(MySubscription->oid, prepare_data->xid,
 						   gid, sizeof(gid));
 
 	/*
-	 * BeginTransactionBlock is necessary to balance the EndTransactionBlock
-	 * called within the PrepareTransactionBlock below.
+	 * BeginTransactionBlock 必须与下方 PrepareTransactionBlock        
+	 * 内调用的 EndTransactionBlock 相配对。   
 	 */
 	if (!IsTransactionBlock())
 	{
 		BeginTransactionBlock();
-		CommitTransactionCommand(); /* Completes the preceding Begin command. */
+		CommitTransactionCommand(); /* 完成前一个 Begin 命令。        */
 	}
 
 	/*
-	 * Update origin state so we can restart streaming from correct position
-	 * in case of crash.
+	 * 更新复制源状态，以便崩溃后能从正确位置重启      
+	 * 流式传输。  
 	 */
 	replorigin_session_origin_lsn = prepare_data->end_lsn;
 	replorigin_session_origin_timestamp = prepare_data->prepare_time;
@@ -1115,7 +1115,7 @@ apply_handle_prepare_internal(LogicalRepPreparedTxnData *prepare_data)
 }
 
 /*
- * Handle PREPARE message.
+ * 处理 PREPARE 消息  
  */
 static void
 apply_handle_prepare(StringInfo s)
@@ -1132,14 +1132,14 @@ apply_handle_prepare(StringInfo s)
 								 LSN_FORMAT_ARGS(remote_final_lsn))));
 
 	/*
-	 * Unlike commit, here, we always prepare the transaction even though no
-	 * change has happened in this transaction or all changes are skipped. It
-	 * is done this way because at commit prepared time, we won't know whether
-	 * we have skipped preparing a transaction because of those reasons.
+	 * 与提交不同，这里我们总是准备事务，即使该事务   
+	 * 没有发生变更或变更全部被跳过。这样做是因为在    
+	 * 提交已准备事务时，我们无法知道是否因上述原因而  
+	 * 跳过了对某个事务的准备。                             
 	 *
-	 * XXX, We can optimize such that at commit prepared time, we first check
-	 * whether we have prepared the transaction or not but that doesn't seem
-	 * worthwhile because such cases shouldn't be common.
+	 * XXX，可以优化为在提交已准备事务时先检查是否已    
+	 * 准备过该事务，但这似乎不值得，因为这种情况      
+	 * 不应该很常见。                             
 	 */
 	begin_replication_step();
 
@@ -1153,14 +1153,14 @@ apply_handle_prepare(StringInfo s)
 
 	in_remote_transaction = false;
 
-	/* Process any tables that are being synchronized in parallel. */
+	/* 处理所有正在并行同步的表。                     */
 	process_syncing_tables(prepare_data.end_lsn);
 
 	/*
-	 * Since we have already prepared the transaction, in a case where the
-	 * server crashes before clearing the subskiplsn, it will be left but the
-	 * transaction won't be resent. But that's okay because it's a rare case
-	 * and the subskiplsn will be cleared when finishing the next transaction.
+	 * 由于已准备好该事务，如果在清除 subskiplsn 之前    
+	 * 服务器崩溃，subskiplsn 会残留，但该事务不会被重新  
+	 * 发送。不过没关系，因为这种情况很罕见，而且      
+	 * subskiplsn 会在结束下一个事务时被清除。                  
 	 */
 	stop_skipping_changes();
 	clear_subscription_skip_lsn(prepare_data.prepare_lsn);
@@ -1170,13 +1170,13 @@ apply_handle_prepare(StringInfo s)
 }
 
 /*
- * Handle a COMMIT PREPARED of a previously PREPARED transaction.
+ * 处理先前已准备事务的 COMMIT PREPARED。             
  *
- * Note that we don't need to wait here if the transaction was prepared in a
- * parallel apply worker. In that case, we have already waited for the prepare
- * to finish in apply_handle_stream_prepare() which will ensure all the
- * operations in that transaction have happened in the subscriber, so no
- * concurrent transaction can cause deadlock or transaction dependency issues.
+ * 注意，如果该事务是在并行应用工作进程中准备的，    
+ * 这里就无需等待。因为那种情况下，我们已经在            
+ * apply_handle_stream_prepare() 中等待过准备完成，这会     
+ * 确保该事务的所有操作已在订阅者发生，因此不会   
+ * 有并发事务导致死锁或事务依赖问题。                        
  */
 static void
 apply_handle_commit_prepared(StringInfo s)
@@ -1187,16 +1187,16 @@ apply_handle_commit_prepared(StringInfo s)
 	logicalrep_read_commit_prepared(s, &prepare_data);
 	set_apply_error_context_xact(prepare_data.xid, prepare_data.commit_lsn);
 
-	/* Compute GID for two_phase transactions. */
+	/* 为两阶段事务计算 GID。         */
 	TwoPhaseTransactionGid(MySubscription->oid, prepare_data.xid,
 						   gid, sizeof(gid));
 
-	/* There is no transaction when COMMIT PREPARED is called */
+	/* 调用 COMMIT PREPARED 时没有事务                 */
 	begin_replication_step();
 
 	/*
-	 * Update origin state so we can restart streaming from correct position
-	 * in case of crash.
+	 * 更新复制源状态，以便崩溃后能从正确位置重启      
+	 * 流式传输。  
 	 */
 	replorigin_session_origin_lsn = prepare_data.end_lsn;
 	replorigin_session_origin_timestamp = prepare_data.commit_time;
@@ -1209,7 +1209,7 @@ apply_handle_commit_prepared(StringInfo s)
 	store_flush_position(prepare_data.end_lsn, XactLastCommitEnd);
 	in_remote_transaction = false;
 
-	/* Process any tables that are being synchronized in parallel. */
+	/* 处理所有正在并行同步的表。                     */
 	process_syncing_tables(prepare_data.end_lsn);
 
 	clear_subscription_skip_lsn(prepare_data.end_lsn);
@@ -1219,13 +1219,13 @@ apply_handle_commit_prepared(StringInfo s)
 }
 
 /*
- * Handle a ROLLBACK PREPARED of a previously PREPARED TRANSACTION.
+ * 处理先前已准备事务的 ROLLBACK PREPARED。             
  *
- * Note that we don't need to wait here if the transaction was prepared in a
- * parallel apply worker. In that case, we have already waited for the prepare
- * to finish in apply_handle_stream_prepare() which will ensure all the
- * operations in that transaction have happened in the subscriber, so no
- * concurrent transaction can cause deadlock or transaction dependency issues.
+ * 注意，如果该事务是在并行应用工作进程中准备的，    
+ * 这里就无需等待。因为那种情况下，我们已经在            
+ * apply_handle_stream_prepare() 中等待过准备完成，这会     
+ * 确保该事务的所有操作已在订阅者发生，因此不会   
+ * 有并发事务导致死锁或事务依赖问题。                        
  */
 static void
 apply_handle_rollback_prepared(StringInfo s)
@@ -1236,27 +1236,27 @@ apply_handle_rollback_prepared(StringInfo s)
 	logicalrep_read_rollback_prepared(s, &rollback_data);
 	set_apply_error_context_xact(rollback_data.xid, rollback_data.rollback_end_lsn);
 
-	/* Compute GID for two_phase transactions. */
+	/* 为两阶段事务计算 GID。         */
 	TwoPhaseTransactionGid(MySubscription->oid, rollback_data.xid,
 						   gid, sizeof(gid));
 
 	/*
-	 * It is possible that we haven't received prepare because it occurred
-	 * before walsender reached a consistent point or the two_phase was still
-	 * not enabled by that time, so in such cases, we need to skip rollback
-	 * prepared.
+	 * 有可能我们尚未收到 prepare，因为它发生在 walsender 
+	 * 到达一致性点之前，或当时 two_phase 尚未启用，因此  
+	 * 在这种情况下，我们需要跳过已准备事务的回滚     
+	 * 操作   
 	 */
 	if (LookupGXact(gid, rollback_data.prepare_end_lsn,
 					rollback_data.prepare_time))
 	{
 		/*
-		 * Update origin state so we can restart streaming from correct
-		 * position in case of crash.
+		 * 更新复制源状态，以便崩溃后能从正确位置   
+		 * 重启流式传输。     
 		 */
 		replorigin_session_origin_lsn = rollback_data.rollback_end_lsn;
 		replorigin_session_origin_timestamp = rollback_data.rollback_time;
 
-		/* There is no transaction when ABORT/ROLLBACK PREPARED is called */
+		/* 调用 ABORT/ROLLBACK PREPARED 时没有事务                 */
 		begin_replication_step();
 		FinishPreparedTransaction(gid, false);
 		end_replication_step();
@@ -1270,7 +1270,7 @@ apply_handle_rollback_prepared(StringInfo s)
 	store_flush_position(rollback_data.rollback_end_lsn, XactLastCommitEnd);
 	in_remote_transaction = false;
 
-	/* Process any tables that are being synchronized in parallel. */
+	/* 处理所有正在并行同步的表。                     */
 	process_syncing_tables(rollback_data.rollback_end_lsn);
 
 	pgstat_report_activity(STATE_IDLE, NULL);
@@ -1278,7 +1278,7 @@ apply_handle_rollback_prepared(StringInfo s)
 }
 
 /*
- * Handle STREAM PREPARE.
+ * 处理 STREAM PREPARE 
  */
 static void
 apply_handle_stream_prepare(StringInfo s)
@@ -1287,7 +1287,7 @@ apply_handle_stream_prepare(StringInfo s)
 	ParallelApplyWorkerInfo *winfo;
 	TransApplyAction apply_action;
 
-	/* Save the message before it is consumed. */
+	/* 在消息被消费前保存它。       */
 	StringInfoData original_msg = *s;
 
 	if (in_streamed_transaction)
@@ -1295,7 +1295,7 @@ apply_handle_stream_prepare(StringInfo s)
 				(errcode(ERRCODE_PROTOCOL_VIOLATION),
 				 errmsg_internal("STREAM PREPARE message without STREAM STOP")));
 
-	/* Tablesync should never receive prepare. */
+	/* 表同步绝不应收到 prepare。     */
 	if (am_tablesync_worker())
 		ereport(ERROR,
 				(errcode(ERRCODE_PROTOCOL_VIOLATION),
@@ -1311,13 +1311,13 @@ apply_handle_stream_prepare(StringInfo s)
 		case TRANS_LEADER_APPLY:
 
 			/*
-			 * The transaction has been serialized to file, so replay all the
-			 * spooled operations.
+			 * 该事务已被序列化到文件，因此需要重放所有  
+			 * 溢写的操作。 
 			 */
 			apply_spooled_messages(MyLogicalRepWorker->stream_fileset,
 								   prepare_data.xid, prepare_data.prepare_lsn);
 
-			/* Mark the transaction as prepared. */
+			/* 将该事务标记为已准备。 */
 			apply_handle_prepare_internal(&prepare_data);
 
 			CommitTransactionCommand();
@@ -1326,7 +1326,7 @@ apply_handle_stream_prepare(StringInfo s)
 
 			in_remote_transaction = false;
 
-			/* Unlink the files with serialized changes and subxact info. */
+			/* 取消链接已序列化变更与子事务信息文件。  */
 			stream_cleanup_files(MyLogicalRepWorker->subid, prepare_data.xid);
 
 			elog(DEBUG1, "finished processing the STREAM PREPARE command");
@@ -1337,14 +1337,14 @@ apply_handle_stream_prepare(StringInfo s)
 
 			if (pa_send_data(winfo, s->len, s->data))
 			{
-				/* Finish processing the streaming transaction. */
+				/* 完成流式事务的处理。               */
 				pa_xact_finish(winfo, prepare_data.end_lsn);
 				break;
 			}
 
 			/*
-			 * Switch to serialize mode when we are not able to send the
-			 * change to parallel apply worker.
+			 * 无法把变更发送给并行应用工作进程时，   
+			 * 切换到序列化模式。     
 			 */
 			pa_switch_to_partial_serialize(winfo, true);
 
@@ -1358,22 +1358,22 @@ apply_handle_stream_prepare(StringInfo s)
 
 			pa_set_fileset_state(winfo->shared, FS_SERIALIZE_DONE);
 
-			/* Finish processing the streaming transaction. */
+			/* 完成流式事务的处理。               */
 			pa_xact_finish(winfo, prepare_data.end_lsn);
 			break;
 
 		case TRANS_PARALLEL_APPLY:
 
 			/*
-			 * If the parallel apply worker is applying spooled messages then
-			 * close the file before preparing.
+			 * 如果并行应用工作进程正在应用溢写的消息，  
+			 * 则在准备前关闭文件。  
 			 */
 			if (stream_fd)
 				stream_close_file();
 
 			begin_replication_step();
 
-			/* Mark the transaction as prepared. */
+			/* 将该事务标记为已准备。 */
 			apply_handle_prepare_internal(&prepare_data);
 
 			end_replication_step();
@@ -1397,12 +1397,12 @@ apply_handle_stream_prepare(StringInfo s)
 
 	pgstat_report_stat(false);
 
-	/* Process any tables that are being synchronized in parallel. */
+	/* 处理所有正在并行同步的表。                     */
 	process_syncing_tables(prepare_data.end_lsn);
 
 	/*
-	 * Similar to prepare case, the subskiplsn could be left in a case of
-	 * server crash but it's okay. See the comments in apply_handle_prepare().
+	 * 与 prepare 的情况类似，在服务器崩溃时 subskiplsn    
+	 * 可能残留，不过没关系，注释见 apply_handle_prepare()      
 	 */
 	stop_skipping_changes();
 	clear_subscription_skip_lsn(prepare_data.prepare_lsn);
@@ -1413,16 +1413,16 @@ apply_handle_stream_prepare(StringInfo s)
 }
 
 /*
- * Handle ORIGIN message.
+ * 处理 ORIGIN 消息  
  *
- * TODO, support tracking of multiple origins
+ * TODO，支持跟踪多个复制源        
  */
 static void
 apply_handle_origin(StringInfo s)
 {
 	/*
-	 * ORIGIN message can only come inside streaming transaction or inside
-	 * remote transaction and before any actual writes.
+	 * ORIGIN 消息只会出现在流式事务内部，或者出现在   
+	 * 远程事务中，且在实际写入之前。   
 	 */
 	if (!in_streamed_transaction &&
 		(!in_remote_transaction ||
@@ -1433,10 +1433,10 @@ apply_handle_origin(StringInfo s)
 }
 
 /*
- * Initialize fileset (if not already done).
+ * 初始化 fileset（如未初始化）   
  *
- * Create a new file when first_segment is true, otherwise open the existing
- * file.
+ * first_segment 为真时创建新文件，否则打开已有的文        
+ * 件  
  */
 void
 stream_start_internal(TransactionId xid, bool first_segment)
@@ -1444,12 +1444,12 @@ stream_start_internal(TransactionId xid, bool first_segment)
 	begin_replication_step();
 
 	/*
-	 * Initialize the worker's stream_fileset if we haven't yet. This will be
-	 * used for the entire duration of the worker so create it in a permanent
-	 * context. We create this on the very first streaming message from any
-	 * transaction and then use it for this and other streaming transactions.
-	 * Now, we could create a fileset at the start of the worker as well but
-	 * then we won't be sure that it will ever be used.
+	 * 如果尚未初始化，则初始化工作进程的 stream_fileset。 
+	 * 它在工作进程的整个生命周期都会用到，因此要       
+	 * 在永久上下文中创建它。我们在来自任意事务的     
+	 * 第一条流式消息上创建它，然后将它用于这个及       
+	 * 其他流式事务。其实也可以在工作进程启动时创      
+	 * 建 fileset，但不确定它是否被用到。 
 	 */
 	if (!MyLogicalRepWorker->stream_fileset)
 	{
@@ -1463,10 +1463,10 @@ stream_start_internal(TransactionId xid, bool first_segment)
 		MemoryContextSwitchTo(oldctx);
 	}
 
-	/* Open the spool file for this transaction. */
+	/* 为该事务打开溢写文件。         */
 	stream_open_file(MyLogicalRepWorker->subid, xid, first_segment);
 
-	/* If this is not the first segment, open existing subxact file. */
+	/* 若非第一个分段，则打开已有的子事务文件。  */
 	if (!first_segment)
 		subxact_info_read(MyLogicalRepWorker->subid, xid);
 
@@ -1474,7 +1474,7 @@ stream_start_internal(TransactionId xid, bool first_segment)
 }
 
 /*
- * Handle STREAM START message.
+ * 处理 STREAM START 消息  
  */
 static void
 apply_handle_stream_start(StringInfo s)
@@ -1483,7 +1483,7 @@ apply_handle_stream_start(StringInfo s)
 	ParallelApplyWorkerInfo *winfo;
 	TransApplyAction apply_action;
 
-	/* Save the message before it is consumed. */
+	/* 在消息被消费前保存它。       */
 	StringInfoData original_msg = *s;
 
 	if (in_streamed_transaction)
@@ -1491,13 +1491,13 @@ apply_handle_stream_start(StringInfo s)
 				(errcode(ERRCODE_PROTOCOL_VIOLATION),
 				 errmsg_internal("duplicate STREAM START message")));
 
-	/* There must not be an active streaming transaction. */
+	/* 此处不允许存在活动中的流式事务。   */
 	Assert(!TransactionIdIsValid(stream_xid));
 
-	/* notify handle methods we're processing a remote transaction */
+	/* 通知各处理方法：我们正在处理远程事务      */
 	in_streamed_transaction = true;
 
-	/* extract XID of the top-level transaction */
+	/* 提取顶层事务的 XID                */
 	stream_xid = logicalrep_read_stream_start(s, &first_segment);
 
 	if (!TransactionIdIsValid(stream_xid))
@@ -1507,7 +1507,7 @@ apply_handle_stream_start(StringInfo s)
 
 	set_apply_error_context_xact(stream_xid, InvalidXLogRecPtr);
 
-	/* Try to allocate a worker for the streaming transaction. */
+	/* 尝试为该流式事务分配一个工作进程。     */
 	if (first_segment)
 		pa_allocate_worker(stream_xid);
 
@@ -1518,12 +1518,12 @@ apply_handle_stream_start(StringInfo s)
 		case TRANS_LEADER_SERIALIZE:
 
 			/*
-			 * Function stream_start_internal starts a transaction. This
-			 * transaction will be committed on the stream stop unless it is a
-			 * tablesync worker in which case it will be committed after
-			 * processing all the messages. We need this transaction for
-			 * handling the BufFile, used for serializing the streaming data
-			 * and subxact info.
+			 * 函数 stream_start_internal 会启动一个事务。这 
+			 * 个事务会在流停止时提交；但如果这是 tablesync  
+			 * 工作进程，则在处理完所有消息后提交。   
+			 * 需要它来处理 BufFile，用于序列化流式数据 
+			 * 和子事务                                                 
+			 * 信息。        
 			 */
 			stream_start_internal(stream_xid, first_segment);
 			break;
@@ -1532,34 +1532,34 @@ apply_handle_stream_start(StringInfo s)
 			Assert(winfo);
 
 			/*
-			 * Once we start serializing the changes, the parallel apply
-			 * worker will wait for the leader to release the stream lock
-			 * until the end of the transaction. So, we don't need to release
-			 * the lock or increment the stream count in that case.
+			 * 一旦开始序列化变更，并行应用工作进程   
+			 * 会等待领导者释放流锁直到事务结束。因此 
+			 * 这种情况下无需释放锁或递增流计                 
+			 * 数。                                              
 			 */
 			if (pa_send_data(winfo, s->len, s->data))
 			{
 				/*
-				 * Unlock the shared object lock so that the parallel apply
-				 * worker can continue to receive changes.
+				 * 解锁共享对象锁，让并行应用工作进程继  
+				 * 续接收变更。                     
 				 */
 				if (!first_segment)
 					pa_unlock_stream(winfo->shared->xid, AccessExclusiveLock);
 
 				/*
-				 * Increment the number of streaming blocks waiting to be
-				 * processed by parallel apply worker.
+				 * 递增等待并行应用工作进程处理的流式   
+				 * 块的数量。                    
 				 */
 				pg_atomic_add_fetch_u32(&winfo->shared->pending_stream_count, 1);
 
-				/* Cache the parallel apply worker for this transaction. */
+				/* 为该事务缓存并行应用工作进程。         */
 				pa_set_stream_apply_worker(winfo);
 				break;
 			}
 
 			/*
-			 * Switch to serialize mode when we are not able to send the
-			 * change to parallel apply worker.
+			 * 无法把变更发送给并行应用工作进程时，   
+			 * 切换到序列化模式。     
 			 */
 			pa_switch_to_partial_serialize(winfo, !first_segment);
 
@@ -1568,28 +1568,28 @@ apply_handle_stream_start(StringInfo s)
 			Assert(winfo);
 
 			/*
-			 * Open the spool file unless it was already opened when switching
-			 * to serialize mode. The transaction started in
-			 * stream_start_internal will be committed on the stream stop.
+			 * 打开溢写文件，除非在切换到序列化模式时已   
+			 * 经将其打开。stream_start_internal 中  
+			 * 启动的事务会在流停止时提交。                 
 			 */
 			if (apply_action != TRANS_LEADER_SEND_TO_PARALLEL)
 				stream_start_internal(stream_xid, first_segment);
 
 			stream_write_change(LOGICAL_REP_MSG_STREAM_START, &original_msg);
 
-			/* Cache the parallel apply worker for this transaction. */
+			/* 为该事务缓存并行应用工作进程。         */
 			pa_set_stream_apply_worker(winfo);
 			break;
 
 		case TRANS_PARALLEL_APPLY:
 			if (first_segment)
 			{
-				/* Hold the lock until the end of the transaction. */
+				/* 持有该锁直到事务结束。               */
 				pa_lock_transaction(MyParallelShared->xid, AccessExclusiveLock);
 				pa_set_xact_state(MyParallelShared, PARALLEL_TRANS_STARTED);
 
 				/*
-				 * Signal the leader apply worker, as it may be waiting for
+				 * 向领导者应用工作进程发信号，它正等待  
 				 * us.
 				 */
 				logicalrep_worker_wakeup(MyLogicalRepWorker->subid, InvalidOid);
@@ -1607,33 +1607,33 @@ apply_handle_stream_start(StringInfo s)
 }
 
 /*
- * Update the information about subxacts and close the file.
+ * 更新子事务信息并关闭文件。                  
  *
- * This function should be called when the stream_start_internal function has
- * been called.
+ * 该函数应当在 stream_start_internal 函数已被调用               
+ * 之后。   
  */
 void
 stream_stop_internal(TransactionId xid)
 {
 	/*
-	 * Serialize information about subxacts for the toplevel transaction, then
-	 * close the stream messages spool file.
+	 * 序列化顶层事务的子事务信息，然后关闭流消息        
+	 * 溢写文件。                      
 	 */
 	subxact_info_write(MyLogicalRepWorker->subid, xid);
 	stream_close_file();
 
-	/* We must be in a valid transaction state */
+	/* 我们必须处于有效的事务状态 */
 	Assert(IsTransactionState());
 
-	/* Commit the per-stream transaction */
+	/* 提交每个流的事务          */
 	CommitTransactionCommand();
 
-	/* Reset per-stream context */
+	/* 重置每流上下文    */
 	MemoryContextReset(LogicalStreamingContext);
 }
 
 /*
- * Handle STREAM STOP message.
+ * 处理 STREAM STOP 消息  
  */
 static void
 apply_handle_stream_stop(StringInfo s)
@@ -1658,10 +1658,10 @@ apply_handle_stream_stop(StringInfo s)
 			Assert(winfo);
 
 			/*
-			 * Lock before sending the STREAM_STOP message so that the leader
-			 * can hold the lock first and the parallel apply worker will wait
-			 * for leader to release the lock. See Locking Considerations atop
-			 * applyparallelworker.c.
+			 * 在发送 STREAM_STOP 消息之前先加锁，这样领导者 
+			 * 能先持有锁，并行应用工作进程则会等待领导   
+			 * 者释放锁。参见 applyparallelworker.c 顶部的          
+			 * 加锁注意事项    
 			 */
 			pa_lock_stream(winfo->shared->xid, AccessExclusiveLock);
 
@@ -1672,8 +1672,8 @@ apply_handle_stream_stop(StringInfo s)
 			}
 
 			/*
-			 * Switch to serialize mode when we are not able to send the
-			 * change to parallel apply worker.
+			 * 无法把变更发送给并行应用工作进程时，   
+			 * 切换到序列化模式。     
 			 */
 			pa_switch_to_partial_serialize(winfo, true);
 
@@ -1689,27 +1689,27 @@ apply_handle_stream_stop(StringInfo s)
 				 parallel_stream_nchanges);
 
 			/*
-			 * By the time parallel apply worker is processing the changes in
-			 * the current streaming block, the leader apply worker may have
-			 * sent multiple streaming blocks. This can lead to parallel apply
-			 * worker start waiting even when there are more chunk of streams
-			 * in the queue. So, try to lock only if there is no message left
-			 * in the queue. See Locking Considerations atop
-			 * applyparallelworker.c.
+			 * 当并行应用工作进程处理当前流式块变更时，  
+			 * 领导者应用工作进程可能已经发送了多个流式 
+			 * 块。这会使并行应用工作进程在队列中还有更   
+			 * 更多流数据块时就开始等待。因此只有当队列  
+			 * 中没有剩余消息时才尝试加锁。参见              
+			 * applyparallelworker.c 顶部加锁注意     
+			 * 事项。             
 			 *
-			 * Note that here we have a race condition where we can start
-			 * waiting even when there are pending streaming chunks. This can
-			 * happen if the leader sends another streaming block and acquires
-			 * the stream lock again after the parallel apply worker checks
-			 * that there is no pending streaming block and before it actually
-			 * starts waiting on a lock. We can handle this case by not
-			 * allowing the leader to increment the stream block count during
-			 * the time parallel apply worker acquires the lock but it is not
-			 * clear whether that is worth the complexity.
+			 * 注意，这里存在竞态条件，即使队列中仍有 
+			 * 待处理的流数据块，我们也可能开始等待。这  
+			 * 种情况可能发生在：领导者又发送了一个流      
+			 * 新获取流锁之后，并且在并行应用工作进程   
+			 * 确认没有待处理的流块之后、真正开始在锁上   
+			 * 等待之前。我们可以禁止领导者在此期间  
+			 * 内递增流块计数来处理，但尚不清楚这是否     
+			 * 值得引入这样的复杂度                                
+			 * 。                                        
 			 *
-			 * Now, if this missed chunk contains rollback to savepoint, then
-			 * there is a risk of deadlock which probably shouldn't happen
-			 * after restart.
+			 * 另外，如果错过的这个块含有回滚到保存点，  
+			 * 就有死锁风险，不过重启之后应该不会再发  
+			 * 生。        
 			 */
 			pa_decr_and_wait_stream_block();
 			break;
@@ -1723,8 +1723,8 @@ apply_handle_stream_stop(StringInfo s)
 	stream_xid = InvalidTransactionId;
 
 	/*
-	 * The parallel apply worker could be in a transaction in which case we
-	 * need to report the state as STATE_IDLEINTRANSACTION.
+	 * 并行应用工作进程可能正处于事务中，这种情况下  
+	 * 须将状态报告为 STATE_IDLEINTRANSACTION。    
 	 */
 	if (IsTransactionOrTransactionBlock())
 		pgstat_report_activity(STATE_IDLEINTRANSACTION, NULL);
@@ -1735,34 +1735,34 @@ apply_handle_stream_stop(StringInfo s)
 }
 
 /*
- * Helper function to handle STREAM ABORT message when the transaction was
- * serialized to file.
+ * 辅助函数：当事务已被序列化到文件时处理              
+ * STREAM ABORT       
  */
 static void
 stream_abort_internal(TransactionId xid, TransactionId subxid)
 {
 	/*
-	 * If the two XIDs are the same, it's in fact abort of toplevel xact, so
-	 * just delete the files with serialized info.
+	 * 如果两个 XID 相同，那实际上就是顶层事务的中止， 
+	 * 只需删除已序列化信息的文件。 
 	 */
 	if (xid == subxid)
 		stream_cleanup_files(MyLogicalRepWorker->subid, xid);
 	else
 	{
 		/*
-		 * OK, so it's a subxact. We need to read the subxact file for the
-		 * toplevel transaction, determine the offset tracked for the subxact,
-		 * and truncate the file with changes. We also remove the subxacts
-		 * with higher offsets (or rather higher XIDs).
+		 * 好，这说明是子事务。我们需要读取顶层事务   
+		 * 的子事务文件，确定为该子事务跟踪的偏移量，    
+		 * 并截断含变更的文件。还要移除具有更高偏移   
+		 * 量的子事务（或者说更高 XID）。 
 		 *
-		 * We intentionally scan the array from the tail, because we're likely
-		 * aborting a change for the most recent subtransactions.
+		 * 我们特意从数组尾部开始扫描，因为我们中止的    
+		 * 很可能就是最近那些子事务的变更。      
 		 *
-		 * We can't use the binary search here as subxact XIDs won't
-		 * necessarily arrive in sorted order, consider the case where we have
-		 * released the savepoint for multiple subtransactions and then
-		 * performed rollback to savepoint for one of the earlier
-		 * sub-transaction.
+		 * 这里无法用二分查找，因为子事务 XID 未必 
+		 * 会按排序后的顺序到达，设想这样一种情况：我    
+		 * 们曾为多个子事务释放保存点，再对早前的   
+		 * 一个子事务执行回滚到保存点的操         
+		 * 作。          
 		 */
 		int64		i;
 		int64		subidx;
@@ -1785,32 +1785,32 @@ stream_abort_internal(TransactionId xid, TransactionId subxid)
 		}
 
 		/*
-		 * If it's an empty sub-transaction then we will not find the subxid
-		 * here so just cleanup the subxact info and return.
+		 * 如果这是一个空子事务，那么在这里找不到该     
+		 * 子 XID，只需清理子事务信息并返回   
 		 */
 		if (!found)
 		{
-			/* Cleanup the subxact info */
+			/* 清理子事务信息    */
 			cleanup_subxact_info();
 			end_replication_step();
 			CommitTransactionCommand();
 			return;
 		}
 
-		/* open the changes file */
+		/* 打开变更文件    */
 		changes_filename(path, MyLogicalRepWorker->subid, xid);
 		fd = BufFileOpenFileSet(MyLogicalRepWorker->stream_fileset, path,
 								O_RDWR, false);
 
-		/* OK, truncate the file at the right offset */
+		/* 好，在正确偏移量处截断文件   */
 		BufFileTruncateFileSet(fd, subxact_data.subxacts[subidx].fileno,
 							   subxact_data.subxacts[subidx].offset);
 		BufFileClose(fd);
 
-		/* discard the subxacts added later */
+		/* 丢弃之后添加的子事务   */
 		subxact_data.nsubxacts = subidx;
 
-		/* write the updated subxact list */
+		/* 写入更新后子事务列表 */
 		subxact_info_write(MyLogicalRepWorker->subid, xid);
 
 		end_replication_step();
@@ -1819,7 +1819,7 @@ stream_abort_internal(TransactionId xid, TransactionId subxid)
 }
 
 /*
- * Handle STREAM ABORT message.
+ * 处理 STREAM ABORT 消息  
  */
 static void
 apply_handle_stream_abort(StringInfo s)
@@ -1830,7 +1830,7 @@ apply_handle_stream_abort(StringInfo s)
 	ParallelApplyWorkerInfo *winfo;
 	TransApplyAction apply_action;
 
-	/* Save the message before it is consumed. */
+	/* 在消息被消费前保存它。       */
 	StringInfoData original_msg = *s;
 	bool		toplevel_xact;
 
@@ -1839,7 +1839,7 @@ apply_handle_stream_abort(StringInfo s)
 				(errcode(ERRCODE_PROTOCOL_VIOLATION),
 				 errmsg_internal("STREAM ABORT message without STREAM STOP")));
 
-	/* We receive abort information only when we can apply in parallel. */
+	/* 只有能够并行应用时，我们才会收到中止信息。  */
 	logicalrep_read_stream_abort(s, &abort_data,
 								 MyLogicalRepWorker->parallel_apply);
 
@@ -1856,8 +1856,8 @@ apply_handle_stream_abort(StringInfo s)
 		case TRANS_LEADER_APPLY:
 
 			/*
-			 * We are in the leader apply worker and the transaction has been
-			 * serialized to file.
+			 * 我们在领导者应用工作进程中，该事务已被序  
+			 * 列化到文件。 
 			 */
 			stream_abort_internal(xid, subxid);
 
@@ -1868,19 +1868,19 @@ apply_handle_stream_abort(StringInfo s)
 			Assert(winfo);
 
 			/*
-			 * For the case of aborting the subtransaction, we increment the
-			 * number of streaming blocks and take the lock again before
-			 * sending the STREAM_ABORT to ensure that the parallel apply
-			 * worker will wait on the lock for the next set of changes after
-			 * processing the STREAM_ABORT message if it is not already
-			 * waiting for STREAM_STOP message.
+			 * 对于中止子事务的情况，我们会在发送          
+			 * STREAM_ABORT 前递增流式块数并重新取锁，     
+			 * 以确保并行应用工作进程在处理 STREAM_ABORT   
+			 * 消息之后，会为下一批变更在锁上等待，只要  
+			 * 它尚未在等待 STREAM_STOP                          
+			 * 消息。                       
 			 *
-			 * It is important to perform this locking before sending the
-			 * STREAM_ABORT message so that the leader can hold the lock first
-			 * and the parallel apply worker will wait for the leader to
-			 * release the lock. This is the same as what we do in
-			 * apply_handle_stream_stop. See Locking Considerations atop
-			 * applyparallelworker.c.
+			 * 务必在发送 STREAM_ABORT 消息之前执行这个加  
+			 * 锁，这样领导者能先持有锁，并行应用工作进   
+			 * 程将等待领导者释放锁。这与我们在         
+			 * apply_handle_stream_stop 中的做法相同。     
+			 * 参见 applyparallelworker.c 顶部的                   
+			 * 加锁注意事项。 
 			 */
 			if (!toplevel_xact)
 			{
@@ -1892,24 +1892,24 @@ apply_handle_stream_abort(StringInfo s)
 			if (pa_send_data(winfo, s->len, s->data))
 			{
 				/*
-				 * Unlike STREAM_COMMIT and STREAM_PREPARE, we don't need to
-				 * wait here for the parallel apply worker to finish as that
-				 * is not required to maintain the commit order and won't have
-				 * the risk of failures due to transaction dependencies and
-				 * deadlocks. However, it is possible that before the parallel
-				 * worker finishes and we clear the worker info, the xid
-				 * wraparound happens on the upstream and a new transaction
-				 * with the same xid can appear and that can lead to duplicate
-				 * entries in ParallelApplyTxnHash. Yet another problem could
-				 * be that we may have serialized the changes in partial
-				 * serialize mode and the file containing xact changes may
-				 * already exist, and after xid wraparound trying to create
-				 * the file for the same xid can lead to an error. To avoid
-				 * these problems, we decide to wait for the aborts to finish.
+				 * 与 STREAM_COMMIT 和 STREAM_PREPARE 不同，这里     
+				 * 无需等待并行应用工作进程完成，因为      
+				 * 维护提交顺序并不需要它，也不会有因事务  
+				 * 赖和死锁而失败的风险。但可能在它完成  
+				 * 并清除工作进程信息之前，上游就发生 XID 回
+				 * 卷，从而出现相同 XID 的新事务，导致   
+				 * ParallelApplyTxnHash 中产生重复条目。           
+				 * 另一个可能的问题是：我们可能已用部分序  
+				 * 列化模式来序列化变更，包含事务变更的文 
+				 * 件可能已经存在，XID 回卷后再次尝试    
+				 * 为同一个 XID 创建该文件，就可能导        
+				 * 致错误。为了避免这些问                       
+				 * 题，我们决定等待中止完                       
+				 * 成。                                                     
 				 *
-				 * Note, it is okay to not update the flush location position
-				 * for aborts as in worst case that means such a transaction
-				 * won't be sent again after restart.
+				 * 注意，中止时可不更新刷写位置，最坏情况 
+				 * 意味着这类事务重启后不会再被               
+				 * 发送。                         
 				 */
 				if (toplevel_xact)
 					pa_xact_finish(winfo, InvalidXLogRecPtr);
@@ -1918,8 +1918,8 @@ apply_handle_stream_abort(StringInfo s)
 			}
 
 			/*
-			 * Switch to serialize mode when we are not able to send the
-			 * change to parallel apply worker.
+			 * 无法把变更发送给并行应用工作进程时，   
+			 * 切换到序列化模式。     
 			 */
 			pa_switch_to_partial_serialize(winfo, true);
 
@@ -1928,9 +1928,9 @@ apply_handle_stream_abort(StringInfo s)
 			Assert(winfo);
 
 			/*
-			 * Parallel apply worker might have applied some changes, so write
-			 * the STREAM_ABORT message so that it can rollback the
-			 * subtransaction if needed.
+			 * 并行应用工作进程可能已应用了变更，因此要   
+			 * 写入 STREAM_ABORT 消息，以便需要时回滚  
+			 * 该子事务。          
 			 */
 			stream_open_and_write_change(xid, LOGICAL_REP_MSG_STREAM_ABORT,
 										 &original_msg);
@@ -1945,8 +1945,8 @@ apply_handle_stream_abort(StringInfo s)
 		case TRANS_PARALLEL_APPLY:
 
 			/*
-			 * If the parallel apply worker is applying spooled messages then
-			 * close the file before aborting.
+			 * 如果并行应用工作进程正在应用溢写的消息，  
+			 * 则在中止前关闭文件。 
 			 */
 			if (toplevel_xact && stream_fd)
 				stream_close_file();
@@ -1954,12 +1954,12 @@ apply_handle_stream_abort(StringInfo s)
 			pa_stream_abort(&abort_data);
 
 			/*
-			 * We need to wait after processing rollback to savepoint for the
-			 * next set of changes.
+			 * 在处理回滚到保存点之后，我们需要等待下一  
+			 * 批变更。        
 			 *
-			 * We have a race condition here due to which we can start waiting
-			 * here when there are more chunk of streams in the queue. See
-			 * apply_handle_stream_stop.
+			 * 这里存在竞态条件，导致我们在队列中还有更   
+			 * 多流数据块时就开始等待。参见                 
+			 * apply_handle_stream_stop 
 			 */
 			if (!toplevel_xact)
 				pa_decr_and_wait_stream_block();
@@ -1976,7 +1976,7 @@ apply_handle_stream_abort(StringInfo s)
 }
 
 /*
- * Ensure that the passed location is fileset's end.
+ * 确保传入的位置是 fileset 的末尾。    
  */
 static void
 ensure_last_message(FileSet *stream_fileset, TransactionId xid, int fileno,
@@ -2008,7 +2008,7 @@ ensure_last_message(FileSet *stream_fileset, TransactionId xid, int fileno,
 }
 
 /*
- * Common spoolfile processing.
+ * 通用溢写文件处理。 
  */
 void
 apply_spooled_messages(FileSet *stream_fileset, TransactionId xid,
@@ -2026,23 +2026,23 @@ apply_spooled_messages(FileSet *stream_fileset, TransactionId xid,
 	if (!am_parallel_apply_worker())
 		maybe_start_skipping_changes(lsn);
 
-	/* Make sure we have an open transaction */
+	/* 确保我们已有打开的事务     */
 	begin_replication_step();
 
 	/*
-	 * Allocate file handle and memory required to process all the messages in
-	 * TopTransactionContext to avoid them getting reset after each message is
-	 * processed.
+	 * 在 TopTransactionContext 中分配处理所有消息所需            
+	 * 的文件句柄和内存，以免它们在每条消息被处理后     
+	 * 被重置 
 	 */
 	oldcxt = MemoryContextSwitchTo(TopTransactionContext);
 
-	/* Open the spool file for the committed/prepared transaction */
+	/* 为已提交/已准备的事务打开溢写文件          */
 	changes_filename(path, MyLogicalRepWorker->subid, xid);
 	elog(DEBUG1, "replaying changes from file \"%s\"", path);
 
 	/*
-	 * Make sure the file is owned by the toplevel transaction so that the
-	 * file will not be accidentally closed when aborting a subtransaction.
+	 * 确保该文件归顶层事务所有，这样在中止子事务    
+	 * 时，文件不会被意外关闭。                                
 	 */
 	oldowner = CurrentResourceOwner;
 	CurrentResourceOwner = TopTransactionResourceOwner;
@@ -2059,8 +2059,8 @@ apply_spooled_messages(FileSet *stream_fileset, TransactionId xid,
 	remote_final_lsn = lsn;
 
 	/*
-	 * Make sure the handle apply_dispatch methods are aware we're in a remote
-	 * transaction.
+	 * 确保 apply_dispatch 的各个处理方法知晓我们正处于远程 
+	 * 事务中。
 	 */
 	in_remote_transaction = true;
 	pgstat_report_activity(STATE_RUNNING, NULL);
@@ -2068,8 +2068,8 @@ apply_spooled_messages(FileSet *stream_fileset, TransactionId xid,
 	end_replication_step();
 
 	/*
-	 * Read the entries one by one and pass them through the same logic as in
-	 * apply_dispatch.
+	 * 逐个读取条目，并按与 apply_dispatch 相同的逻辑         
+	 * 进行处理。
 	 */
 	nchanges = 0;
 	while (true)
@@ -2079,31 +2079,31 @@ apply_spooled_messages(FileSet *stream_fileset, TransactionId xid,
 
 		CHECK_FOR_INTERRUPTS();
 
-		/* read length of the on-disk record */
+		/* 读取磁盘上记录的长度    */
 		nbytes = BufFileReadMaybeEOF(stream_fd, &len, sizeof(len), true);
 
-		/* have we reached end of the file? */
+		/* 是否已到达文件末尾？   */
 		if (nbytes == 0)
 			break;
 
-		/* do we have a correct length? */
+		/* 长度是否正确？        */
 		if (len <= 0)
 			elog(ERROR, "incorrect length %d in streaming transaction's changes file \"%s\"",
 				 len, path);
 
-		/* make sure we have sufficiently large buffer */
+		/* 确保我们拥有足够大的缓冲区     */
 		buffer = repalloc(buffer, len);
 
-		/* and finally read the data into the buffer */
+		/* 最后将数据读入缓冲区            */
 		BufFileReadExact(stream_fd, buffer, len);
 
 		BufFileTell(stream_fd, &fileno, &offset);
 
-		/* copy the buffer to the stringinfo and call apply_dispatch */
+		/* 把缓冲区复制到 stringinfo 并调用 apply_dispatch */
 		resetStringInfo(&s2);
 		appendBinaryStringInfo(&s2, buffer, len);
 
-		/* Ensure we are reading the data into our memory context. */
+		/* 确保将数据读入我们的内存上下文中。     */
 		oldcxt = MemoryContextSwitchTo(ApplyMessageContext);
 
 		apply_dispatch(&s2);
@@ -2115,9 +2115,9 @@ apply_spooled_messages(FileSet *stream_fileset, TransactionId xid,
 		nchanges++;
 
 		/*
-		 * It is possible the file has been closed because we have processed
-		 * the transaction end message like stream_commit in which case that
-		 * must be the last message.
+		 * 有可能文件已被关闭，因为我们处理了              
+		 * stream_commit 之类的事务结束消息，此时它必然是   
+		 * 最后一条消息。    
 		 */
 		if (!stream_fd)
 		{
@@ -2140,7 +2140,7 @@ apply_spooled_messages(FileSet *stream_fileset, TransactionId xid,
 }
 
 /*
- * Handle STREAM COMMIT message.
+ * STREAM COMMIT 消息处理。
  */
 static void
 apply_handle_stream_commit(StringInfo s)
@@ -2150,7 +2150,7 @@ apply_handle_stream_commit(StringInfo s)
 	ParallelApplyWorkerInfo *winfo;
 	TransApplyAction apply_action;
 
-	/* Save the message before it is consumed. */
+	/* 在消息被消费前保存它。       */
 	StringInfoData original_msg = *s;
 
 	if (in_streamed_transaction)
@@ -2168,15 +2168,15 @@ apply_handle_stream_commit(StringInfo s)
 		case TRANS_LEADER_APPLY:
 
 			/*
-			 * The transaction has been serialized to file, so replay all the
-			 * spooled operations.
+			 * 该事务已被序列化到文件，因此需要重放所有  
+			 * 溢写的操作。 
 			 */
 			apply_spooled_messages(MyLogicalRepWorker->stream_fileset, xid,
 								   commit_data.commit_lsn);
 
 			apply_handle_commit_internal(&commit_data);
 
-			/* Unlink the files with serialized changes and subxact info. */
+			/* 取消链接已序列化变更与子事务信息文件。  */
 			stream_cleanup_files(MyLogicalRepWorker->subid, xid);
 
 			elog(DEBUG1, "finished processing the STREAM COMMIT command");
@@ -2187,14 +2187,14 @@ apply_handle_stream_commit(StringInfo s)
 
 			if (pa_send_data(winfo, s->len, s->data))
 			{
-				/* Finish processing the streaming transaction. */
+				/* 完成流式事务的处理。               */
 				pa_xact_finish(winfo, commit_data.end_lsn);
 				break;
 			}
 
 			/*
-			 * Switch to serialize mode when we are not able to send the
-			 * change to parallel apply worker.
+			 * 无法把变更发送给并行应用工作进程时，   
+			 * 切换到序列化模式。     
 			 */
 			pa_switch_to_partial_serialize(winfo, true);
 
@@ -2207,15 +2207,15 @@ apply_handle_stream_commit(StringInfo s)
 
 			pa_set_fileset_state(winfo->shared, FS_SERIALIZE_DONE);
 
-			/* Finish processing the streaming transaction. */
+			/* 完成流式事务的处理。               */
 			pa_xact_finish(winfo, commit_data.end_lsn);
 			break;
 
 		case TRANS_PARALLEL_APPLY:
 
 			/*
-			 * If the parallel apply worker is applying spooled messages then
-			 * close the file before committing.
+			 * 若并行应用工作进程正在应用溢写的消息，     
+			 * 则在提交之前关闭文件。
 			 */
 			if (stream_fd)
 				stream_close_file();
@@ -2225,8 +2225,8 @@ apply_handle_stream_commit(StringInfo s)
 			MyParallelShared->last_commit_end = XactLastCommitEnd;
 
 			/*
-			 * It is important to set the transaction state as finished before
-			 * releasing the lock. See pa_wait_for_xact_finish.
+			 * 在释放锁之前务必将事务状态设置为已完成。   
+			 * 参见 pa_wait_for_xact_finish。               
 			 */
 			pa_set_xact_state(MyParallelShared, PARALLEL_TRANS_FINISHED);
 			pa_unlock_transaction(xid, AccessExclusiveLock);
@@ -2241,7 +2241,7 @@ apply_handle_stream_commit(StringInfo s)
 			break;
 	}
 
-	/* Process any tables that are being synchronized in parallel. */
+	/* 处理所有正在并行同步的表。                     */
 	process_syncing_tables(commit_data.end_lsn);
 
 	pgstat_report_activity(STATE_IDLE, NULL);
@@ -2250,7 +2250,7 @@ apply_handle_stream_commit(StringInfo s)
 }
 
 /*
- * Helper function for apply_handle_commit and apply_handle_stream_commit.
+ * apply_handle_commit 与 apply_handle_stream_commit 的辅助函数。  
  */
 static void
 apply_handle_commit_internal(LogicalRepCommitData *commit_data)
@@ -2260,8 +2260,8 @@ apply_handle_commit_internal(LogicalRepCommitData *commit_data)
 		stop_skipping_changes();
 
 		/*
-		 * Start a new transaction to clear the subskiplsn, if not started
-		 * yet.
+		 * 若事务尚未开始，则启动新事务清除 subskiplsn。 
+		 *     
 		 */
 		if (!IsTransactionState())
 			StartTransactionCommand();
@@ -2270,14 +2270,14 @@ apply_handle_commit_internal(LogicalRepCommitData *commit_data)
 	if (IsTransactionState())
 	{
 		/*
-		 * The transaction is either non-empty or skipped, so we clear the
-		 * subskiplsn.
+		 * 该事务非空或已跳过，故清除其 subskiplsn。       
+		 *            
 		 */
 		clear_subscription_skip_lsn(commit_data->commit_lsn);
 
 		/*
-		 * Update origin state so we can restart streaming from correct
-		 * position in case of crash.
+		 * 更新复制源状态，以便崩溃后能从正确位置   
+		 * 重启流式传输。     
 		 */
 		replorigin_session_origin_lsn = commit_data->end_lsn;
 		replorigin_session_origin_timestamp = commit_data->committime;
@@ -2296,7 +2296,7 @@ apply_handle_commit_internal(LogicalRepCommitData *commit_data)
 	}
 	else
 	{
-		/* Process any invalidation messages that might have accumulated. */
+		/* 处理任何可能已积累的失效消息。                  */
 		AcceptInvalidationMessages();
 		maybe_reread_subscription();
 	}
@@ -2305,12 +2305,12 @@ apply_handle_commit_internal(LogicalRepCommitData *commit_data)
 }
 
 /*
- * Handle RELATION message.
+ * RELATION 消息处理。
  *
- * Note we don't do validation against local schema here. The validation
- * against local schema is postponed until first change for given relation
- * comes as we only care about it when applying changes for it anyway and we
- * do less locking this way.
+ * 注意此处不做针对本地模式的验证。该验证将推迟到
+ * 给定关系的首个变更到来为止；反正只有在为它应用  
+ * 变更时才会关心它，且这样做加锁更少。                   
+ *                          
  */
 static void
 apply_handle_relation(StringInfo s)
@@ -2323,17 +2323,17 @@ apply_handle_relation(StringInfo s)
 	rel = logicalrep_read_rel(s);
 	logicalrep_relmap_update(rel);
 
-	/* Also reset all entries in the partition map that refer to remoterel. */
+	/* 同时重置分区映射中所有引用 remoterel 的条目。       */
 	logicalrep_partmap_reset_relmap(rel);
 }
 
 /*
- * Handle TYPE message.
+ * TYPE 消息处理。
  *
- * This implementation pays no attention to TYPE messages; we expect the user
- * to have set things up so that the incoming data is acceptable to the input
- * functions for the locally subscribed tables.  Hence, we just read and
- * discard the message.
+ * 本实现不理会 TYPE 消息；我们预期用户已做好设置，     
+ * 使传入的数据能被本地订阅表的输入函数所接受。        
+ * 因此，我们只需读取并丢弃该消息。                     
+ *                     
  */
 static void
 apply_handle_type(StringInfo s)
@@ -2347,8 +2347,8 @@ apply_handle_type(StringInfo s)
 }
 
 /*
- * Check that we (the subscription owner) have sufficient privileges on the
- * target relation to perform the given operation.
+ * 检查我们（订阅所有者）是否拥有对目标关系执行给定
+ * 操作所需的足够权限。                 
  */
 static void
 TargetPrivilegesCheck(Relation rel, AclMode mode)
@@ -2364,11 +2364,11 @@ TargetPrivilegesCheck(Relation rel, AclMode mode)
 					   get_rel_name(relid));
 
 	/*
-	 * We lack the infrastructure to honor RLS policies.  It might be possible
-	 * to add such infrastructure here, but tablesync workers lack it, too, so
-	 * we don't bother.  RLS does not ordinarily apply to TRUNCATE commands,
-	 * but it seems dangerous to replicate a TRUNCATE and then refuse to
-	 * replicate subsequent INSERTs, so we forbid all commands the same.
+	 * 我们缺少遵循 RLS 策略的基础设施。或许可在此添加   
+	 * 此类基础设施，但表同步工作进程同样缺少，故我们  
+	 * 并不为此费心。RLS 通常并不适用于 TRUNCATE 命令，    
+	 * 但先复制 TRUNCATE 然后拒绝复制后续 INSERT，似乎   
+	 * 很危险，因此我们对所有命令同样禁止。           
 	 */
 	if (check_enable_rls(relid, InvalidOid, false) == RLS_ENABLED)
 		ereport(ERROR,
@@ -2379,7 +2379,7 @@ TargetPrivilegesCheck(Relation rel, AclMode mode)
 }
 
 /*
- * Handle INSERT message.
+ * INSERT 消息处理。
  */
 
 static void
@@ -2396,8 +2396,8 @@ apply_handle_insert(StringInfo s)
 	bool		run_as_owner;
 
 	/*
-	 * Quick return if we are skipping data modification changes or handling
-	 * streamed transactions.
+	 * 若正在跳过数据修改变更或正在处理流式事务，则   
+	 * 快速返回。       
 	 */
 	if (is_skipping_changes() ||
 		handle_streamed_transaction(LOGICAL_REP_MSG_INSERT, s))
@@ -2410,8 +2410,8 @@ apply_handle_insert(StringInfo s)
 	if (!should_apply_changes_for_rel(rel))
 	{
 		/*
-		 * The relation can't become interesting in the middle of the
-		 * transaction so it's safe to unlock it.
+		 * 该关系无法在事务中途变得值得关注，因此 
+		 * 解锁它是安全的。              
 		 */
 		logicalrep_rel_close(rel, RowExclusiveLock);
 		end_replication_step();
@@ -2419,30 +2419,30 @@ apply_handle_insert(StringInfo s)
 	}
 
 	/*
-	 * Make sure that any user-supplied code runs as the table owner, unless
-	 * the user has opted out of that behavior.
+	 * 确保任何用户提供的代码以表所有者身份运行，除非
+	 * 用户已选择退出该行为。       
 	 */
 	run_as_owner = MySubscription->runasowner;
 	if (!run_as_owner)
 		SwitchToUntrustedUser(rel->localrel->rd_rel->relowner, &ucxt);
 
-	/* Set relation for error callback */
+	/* 为错误回调设置关系     */
 	apply_error_callback_arg.rel = rel;
 
-	/* Initialize the executor state. */
+	/* 初始化执行器状态。    */
 	edata = create_edata_for_relation(rel);
 	estate = edata->estate;
 	remoteslot = ExecInitExtraTupleSlot(estate,
 										RelationGetDescr(rel->localrel),
 										&TTSOpsVirtual);
 
-	/* Process and store remote tuple in the slot */
+	/* 处理远端元组并将其存储到槽中 */
 	oldctx = MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
 	slot_store_data(remoteslot, rel, &newtup);
 	slot_fill_defaults(rel, estate, remoteslot);
 	MemoryContextSwitchTo(oldctx);
 
-	/* For a partitioned table, insert the tuple into a partition. */
+	/* 对于分区表，将元组插入到某个分区中。      */
 	if (rel->localrel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
 		apply_handle_tuple_routing(edata,
 								   remoteslot, NULL, CMD_INSERT);
@@ -2452,7 +2452,7 @@ apply_handle_insert(StringInfo s)
 
 	finish_edata(edata);
 
-	/* Reset relation for error callback */
+	/* 为错误回调重置关系       */
 	apply_error_callback_arg.rel = NULL;
 
 	if (!run_as_owner)
@@ -2464,9 +2464,9 @@ apply_handle_insert(StringInfo s)
 }
 
 /*
- * Workhorse for apply_handle_insert()
- * relinfo is for the relation we're actually inserting into
- * (could be a child partition of edata->targetRelInfo)
+ * apply_handle_insert() 主力函数 
+ * relinfo 是我们实际要插入到的关系             
+ * （可能是 edata->targetRelInfo 的子分区）   
  */
 static void
 apply_handle_insert_internal(ApplyExecutionData *edata,
@@ -2475,38 +2475,38 @@ apply_handle_insert_internal(ApplyExecutionData *edata,
 {
 	EState	   *estate = edata->estate;
 
-	/* We must open indexes here. */
+	/* 必须在此打开索引。*/
 	ExecOpenIndices(relinfo, false);
 
-	/* Do the insert. */
+	/* 执行插入。*/
 	TargetPrivilegesCheck(relinfo->ri_RelationDesc, ACL_INSERT);
 	ExecSimpleRelationInsert(relinfo, estate, remoteslot);
 
-	/* Cleanup. */
+	/* 清理。*/
 	ExecCloseIndices(relinfo);
 }
 
 /*
- * Check if the logical replication relation is updatable and throw
- * appropriate error if it isn't.
+ * 检查逻辑复制关系是否可更新，若不可则抛出    
+ * 相应的错误。            
  */
 static void
 check_relation_updatable(LogicalRepRelMapEntry *rel)
 {
 	/*
-	 * For partitioned tables, we only need to care if the target partition is
-	 * updatable (aka has PK or RI defined for it).
+	 * 对于分区表，我们只需关心目标分区是否可更新（即  
+	 * 为它定义了 PK 或 RI）。             
 	 */
 	if (rel->localrel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
 		return;
 
-	/* Updatable, no error. */
+	/* 可更新无错误。*/
 	if (rel->updatable)
 		return;
 
 	/*
-	 * We are in error mode so it's fine this is somewhat slow. It's better to
-	 * give user correct error.
+	 * 我们处于错误模式，因此这里慢一点也无妨。给用户  
+	 * 提供正确的错误。
 	 */
 	if (OidIsValid(GetRelationIdentityOrPK(rel->localrel)))
 	{
@@ -2527,9 +2527,9 @@ check_relation_updatable(LogicalRepRelMapEntry *rel)
 }
 
 /*
- * Handle UPDATE message.
+ * UPDATE 消息处理。
  *
- * TODO: FDW support
+ * TODO: FDW 支持 
  */
 static void
 apply_handle_update(StringInfo s)
@@ -2548,8 +2548,8 @@ apply_handle_update(StringInfo s)
 	bool		run_as_owner;
 
 	/*
-	 * Quick return if we are skipping data modification changes or handling
-	 * streamed transactions.
+	 * 若正在跳过数据修改变更或正在处理流式事务，则   
+	 * 快速返回。       
 	 */
 	if (is_skipping_changes() ||
 		handle_streamed_transaction(LOGICAL_REP_MSG_UPDATE, s))
@@ -2563,29 +2563,29 @@ apply_handle_update(StringInfo s)
 	if (!should_apply_changes_for_rel(rel))
 	{
 		/*
-		 * The relation can't become interesting in the middle of the
-		 * transaction so it's safe to unlock it.
+		 * 该关系无法在事务中途变得值得关注，因此 
+		 * 解锁它是安全的。              
 		 */
 		logicalrep_rel_close(rel, RowExclusiveLock);
 		end_replication_step();
 		return;
 	}
 
-	/* Set relation for error callback */
+	/* 为错误回调设置关系     */
 	apply_error_callback_arg.rel = rel;
 
-	/* Check if we can do the update. */
+	/* 检查能否执行更新。    */
 	check_relation_updatable(rel);
 
 	/*
-	 * Make sure that any user-supplied code runs as the table owner, unless
-	 * the user has opted out of that behavior.
+	 * 确保任何用户提供的代码以表所有者身份运行，除非
+	 * 用户已选择退出该行为。       
 	 */
 	run_as_owner = MySubscription->runasowner;
 	if (!run_as_owner)
 		SwitchToUntrustedUser(rel->localrel->rd_rel->relowner, &ucxt);
 
-	/* Initialize the executor state. */
+	/* 初始化执行器状态。    */
 	edata = create_edata_for_relation(rel);
 	estate = edata->estate;
 	remoteslot = ExecInitExtraTupleSlot(estate,
@@ -2593,12 +2593,12 @@ apply_handle_update(StringInfo s)
 										&TTSOpsVirtual);
 
 	/*
-	 * Populate updatedCols so that per-column triggers can fire, and so
-	 * executor can correctly pass down indexUnchanged hint.  This could
-	 * include more columns than were actually changed on the publisher
-	 * because the logical replication protocol doesn't contain that
-	 * information.  But it would for example exclude columns that only exist
-	 * on the subscriber, since we are not touching those.
+	 * 填充 updatedCols 以便每列触发器能够触发，且便于 
+	 * 执行器正确地向下传递 indexUnchanged 提示。它       
+	 * 包含的列可能多于发布者上实际更改的列，因为 
+	 * 逻辑复制协议不含该信息。但例如会排除仅在 
+	 * 订阅者上存在的列，因为我们不会触碰那些列。       
+	 *                                                    
 	 */
 	target_perminfo = list_nth(estate->es_rteperminfos, 0);
 	for (int i = 0; i < remoteslot->tts_tupleDescriptor->natts; i++)
@@ -2616,13 +2616,13 @@ apply_handle_update(StringInfo s)
 		}
 	}
 
-	/* Build the search tuple. */
+	/* 构建搜索元组。   */
 	oldctx = MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
 	slot_store_data(remoteslot, rel,
 					has_oldtup ? &oldtup : &newtup);
 	MemoryContextSwitchTo(oldctx);
 
-	/* For a partitioned table, apply update to correct partition. */
+	/* 对于分区表，将更新应用到正确的分区。      */
 	if (rel->localrel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
 		apply_handle_tuple_routing(edata,
 								   remoteslot, &newtup, CMD_UPDATE);
@@ -2632,7 +2632,7 @@ apply_handle_update(StringInfo s)
 
 	finish_edata(edata);
 
-	/* Reset relation for error callback */
+	/* 为错误回调重置关系       */
 	apply_error_callback_arg.rel = NULL;
 
 	if (!run_as_owner)
@@ -2644,9 +2644,9 @@ apply_handle_update(StringInfo s)
 }
 
 /*
- * Workhorse for apply_handle_update()
- * relinfo is for the relation we're actually updating in
- * (could be a child partition of edata->targetRelInfo)
+ * apply_handle_update() 主力函数 
+ * relinfo 是我们实际要在其中更新的关系    
+ * （可能是 edata->targetRelInfo 的子分区）   
  */
 static void
 apply_handle_update_internal(ApplyExecutionData *edata,
@@ -2673,20 +2673,20 @@ apply_handle_update_internal(ApplyExecutionData *edata,
 	ExecClearTuple(remoteslot);
 
 	/*
-	 * Tuple found.
+	 * 已找到。
 	 *
-	 * Note this will fail if there are other conflicting unique indexes.
+	 * 注意若存在其他冲突的唯一索引，这将会失败。   
 	 */
 	if (found)
 	{
-		/* Process and store remote tuple in the slot */
+		/* 处理远端元组并将其存储到槽中 */
 		oldctx = MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
 		slot_modify_data(remoteslot, localslot, relmapentry, newtup);
 		MemoryContextSwitchTo(oldctx);
 
 		EvalPlanQualSetSlot(&epqstate, remoteslot);
 
-		/* Do the actual update. */
+		/* 实际执行更新。 */
 		TargetPrivilegesCheck(relinfo->ri_RelationDesc, ACL_UPDATE);
 		ExecSimpleRelationUpdate(relinfo, estate, &epqstate, localslot,
 								 remoteslot);
@@ -2694,10 +2694,10 @@ apply_handle_update_internal(ApplyExecutionData *edata,
 	else
 	{
 		/*
-		 * The tuple to be updated could not be found.  Do nothing except for
-		 * emitting a log message.
+		 * 要更新的元组无法找到。除发出一条日志消息外   
+		 * 别无其他操作。  
 		 *
-		 * XXX should this be promoted to ereport(LOG) perhaps?
+		 * XXX 是否应将其提升为 ereport(LOG)？        
 		 */
 		elog(DEBUG1,
 			 "logical replication did not find row to be updated "
@@ -2705,15 +2705,15 @@ apply_handle_update_internal(ApplyExecutionData *edata,
 			 RelationGetRelationName(localrel));
 	}
 
-	/* Cleanup. */
+	/* 清理。*/
 	ExecCloseIndices(relinfo);
 	EvalPlanQualEnd(&epqstate);
 }
 
 /*
- * Handle DELETE message.
+ * DELETE 消息处理。
  *
- * TODO: FDW support
+ * TODO: FDW 支持 
  */
 static void
 apply_handle_delete(StringInfo s)
@@ -2729,8 +2729,8 @@ apply_handle_delete(StringInfo s)
 	bool		run_as_owner;
 
 	/*
-	 * Quick return if we are skipping data modification changes or handling
-	 * streamed transactions.
+	 * 若正在跳过数据修改变更或正在处理流式事务，则   
+	 * 快速返回。       
 	 */
 	if (is_skipping_changes() ||
 		handle_streamed_transaction(LOGICAL_REP_MSG_DELETE, s))
@@ -2743,41 +2743,41 @@ apply_handle_delete(StringInfo s)
 	if (!should_apply_changes_for_rel(rel))
 	{
 		/*
-		 * The relation can't become interesting in the middle of the
-		 * transaction so it's safe to unlock it.
+		 * 该关系无法在事务中途变得值得关注，因此 
+		 * 解锁它是安全的。              
 		 */
 		logicalrep_rel_close(rel, RowExclusiveLock);
 		end_replication_step();
 		return;
 	}
 
-	/* Set relation for error callback */
+	/* 为错误回调设置关系     */
 	apply_error_callback_arg.rel = rel;
 
-	/* Check if we can do the delete. */
+	/* 检查能否执行删除。    */
 	check_relation_updatable(rel);
 
 	/*
-	 * Make sure that any user-supplied code runs as the table owner, unless
-	 * the user has opted out of that behavior.
+	 * 确保任何用户提供的代码以表所有者身份运行，除非
+	 * 用户已选择退出该行为。       
 	 */
 	run_as_owner = MySubscription->runasowner;
 	if (!run_as_owner)
 		SwitchToUntrustedUser(rel->localrel->rd_rel->relowner, &ucxt);
 
-	/* Initialize the executor state. */
+	/* 初始化执行器状态。    */
 	edata = create_edata_for_relation(rel);
 	estate = edata->estate;
 	remoteslot = ExecInitExtraTupleSlot(estate,
 										RelationGetDescr(rel->localrel),
 										&TTSOpsVirtual);
 
-	/* Build the search tuple. */
+	/* 构建搜索元组。   */
 	oldctx = MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
 	slot_store_data(remoteslot, rel, &oldtup);
 	MemoryContextSwitchTo(oldctx);
 
-	/* For a partitioned table, apply delete to correct partition. */
+	/* 对于分区表，将删除应用到正确的分区。      */
 	if (rel->localrel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
 		apply_handle_tuple_routing(edata,
 								   remoteslot, NULL, CMD_DELETE);
@@ -2787,7 +2787,7 @@ apply_handle_delete(StringInfo s)
 
 	finish_edata(edata);
 
-	/* Reset relation for error callback */
+	/* 为错误回调重置关系       */
 	apply_error_callback_arg.rel = NULL;
 
 	if (!run_as_owner)
@@ -2799,9 +2799,9 @@ apply_handle_delete(StringInfo s)
 }
 
 /*
- * Workhorse for apply_handle_delete()
- * relinfo is for the relation we're actually deleting from
- * (could be a child partition of edata->targetRelInfo)
+ * apply_handle_delete() 主力函数 
+ * relinfo 是我们实际要从中删除的关系         
+ * （可能是 edata->targetRelInfo 的子分区）   
  */
 static void
 apply_handle_delete_internal(ApplyExecutionData *edata,
@@ -2822,22 +2822,22 @@ apply_handle_delete_internal(ApplyExecutionData *edata,
 	found = FindReplTupleInLocalRel(edata, localrel, remoterel, localindexoid,
 									remoteslot, &localslot);
 
-	/* If found delete it. */
+	/* 找到则删除。  */
 	if (found)
 	{
 		EvalPlanQualSetSlot(&epqstate, localslot);
 
-		/* Do the actual delete. */
+		/* 实际执行删除。 */
 		TargetPrivilegesCheck(relinfo->ri_RelationDesc, ACL_DELETE);
 		ExecSimpleRelationDelete(relinfo, estate, &epqstate, localslot);
 	}
 	else
 	{
 		/*
-		 * The tuple to be deleted could not be found.  Do nothing except for
-		 * emitting a log message.
+		 * 要删除的元组无法找到。除发出一条日志消息外   
+		 * 别无其他操作。  
 		 *
-		 * XXX should this be promoted to ereport(LOG) perhaps?
+		 * XXX 是否应将其提升为 ereport(LOG)？        
 		 */
 		elog(DEBUG1,
 			 "logical replication did not find row to be deleted "
@@ -2845,17 +2845,17 @@ apply_handle_delete_internal(ApplyExecutionData *edata,
 			 RelationGetRelationName(localrel));
 	}
 
-	/* Cleanup. */
+	/* 清理。*/
 	ExecCloseIndices(relinfo);
 	EvalPlanQualEnd(&epqstate);
 }
 
 /*
- * Try to find a tuple received from the publication side (in 'remoteslot') in
- * the corresponding local relation using either replica identity index,
- * primary key, index or if needed, sequential scan.
+ * 尝试在对应的本地关系中查找从发布者侧接收的            
+ * 元组（在 'remoteslot' 中），可使用复制标识索引、    
+ * 主键、索引或必要时进行顺序扫描。 
  *
- * Local tuple, if found, is returned in '*localslot'.
+ * 若找到，本地元组将放入 '*localslot'。  
  */
 static bool
 FindReplTupleInLocalRel(ApplyExecutionData *edata, Relation localrel,
@@ -2868,8 +2868,8 @@ FindReplTupleInLocalRel(ApplyExecutionData *edata, Relation localrel,
 	bool		found;
 
 	/*
-	 * Regardless of the top-level operation, we're performing a read here, so
-	 * check for SELECT privileges.
+	 * 无论顶层操作为何，我们在此执行的都是读取，故     
+	 * 需检查 SELECT 权限。  
 	 */
 	TargetPrivilegesCheck(localrel, ACL_SELECT);
 
@@ -2883,7 +2883,7 @@ FindReplTupleInLocalRel(ApplyExecutionData *edata, Relation localrel,
 #ifdef USE_ASSERT_CHECKING
 		Relation	idxrel = index_open(localidxoid, AccessShareLock);
 
-		/* Index must be PK, RI, or usable for REPLICA IDENTITY FULL tables */
+		/* 索引必须是 PK、RI 或可用于 REPLICA IDENTITY FULL 表   */
 		Assert(GetRelationIdentityOrPK(idxrel) == localidxoid ||
 			   IsIndexUsableForReplicaIdentityFull(BuildIndexInfo(idxrel),
 												   edata->targetRel->attrmap));
@@ -2902,7 +2902,7 @@ FindReplTupleInLocalRel(ApplyExecutionData *edata, Relation localrel,
 }
 
 /*
- * This handles insert, update, delete on a partitioned table.
+ * 此处处理分区表的插入、更新和删除操作。  
  */
 static void
 apply_handle_tuple_routing(ApplyExecutionData *edata,
@@ -2924,18 +2924,18 @@ apply_handle_tuple_routing(ApplyExecutionData *edata,
 	LogicalRepRelMapEntry *part_entry = NULL;
 	AttrMap    *attrmap = NULL;
 
-	/* ModifyTableState is needed for ExecFindPartition(). */
+	/* ExecFindPartition() 需要 ModifyTableState。      */
 	edata->mtstate = mtstate = makeNode(ModifyTableState);
 	mtstate->ps.plan = NULL;
 	mtstate->ps.state = estate;
 	mtstate->operation = operation;
 	mtstate->resultRelInfo = relinfo;
 
-	/* ... as is PartitionTupleRouting. */
+	/* PartitionTupleRouting 亦然。  */
 	edata->proute = proute = ExecSetupPartitionTupleRouting(estate, parentrel);
 
 	/*
-	 * Find the partition to which the "search tuple" belongs.
+	 * 找到该"搜索元组"所属的分区。              
 	 */
 	Assert(remoteslot != NULL);
 	oldctx = MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
@@ -2945,18 +2945,18 @@ apply_handle_tuple_routing(ApplyExecutionData *edata,
 	partrel = partrelinfo->ri_RelationDesc;
 
 	/*
-	 * Check for supported relkind.  We need this since partitions might be of
-	 * unsupported relkinds; and the set of partitions can change, so checking
-	 * at CREATE/ALTER SUBSCRIPTION would be insufficient.
+	 * 检查受支持的 relkind。我们需要这项检查，因为分区   
+	 * 的 relkind 可能不受支持；且分区集合可能变化，因此  
+	 * CREATE/ALTER SUBSCRIPTION 时检查并不足够。 
 	 */
 	CheckSubscriptionRelkind(partrel->rd_rel->relkind,
 							 get_namespace_name(RelationGetNamespace(partrel)),
 							 RelationGetRelationName(partrel));
 
 	/*
-	 * To perform any of the operations below, the tuple must match the
-	 * partition's rowtype. Convert if needed or just copy, using a dedicated
-	 * slot to store the tuple in any case.
+	 * 为执行下述任一操作，元组必须匹配分区的行类 
+	 * 型。如有需要则进行转换，或直接复制，且无论如何 
+	 * 都使用专用槽来存储元组。
 	 */
 	remoteslot_part = partrelinfo->ri_PartitionTupleSlot;
 	if (remoteslot_part == NULL)
@@ -2975,7 +2975,7 @@ apply_handle_tuple_routing(ApplyExecutionData *edata,
 	}
 	MemoryContextSwitchTo(oldctx);
 
-	/* Check if we can do the update or delete on the leaf partition. */
+	/* 检查能否对叶子分区执行更新或删除。            */
 	if (operation == CMD_UPDATE || operation == CMD_DELETE)
 	{
 		part_entry = logicalrep_partition_open(relmapentry, partrel,
@@ -2999,10 +2999,10 @@ apply_handle_tuple_routing(ApplyExecutionData *edata,
 		case CMD_UPDATE:
 
 			/*
-			 * For UPDATE, depending on whether or not the updated tuple
-			 * satisfies the partition's constraint, perform a simple UPDATE
-			 * of the partition or move the updated tuple into a different
-			 * suitable partition.
+			 * 对 UPDATE，若更新后元组满足分区的约束，  
+			 * 则对该分区执行简单的 UPDATE，否则将更新后   
+			 * 的元组移动到另一个合适的分区。              
+			 *                    
 			 */
 			{
 				TupleTableSlot *localslot;
@@ -3010,7 +3010,7 @@ apply_handle_tuple_routing(ApplyExecutionData *edata,
 				Relation	partrel_new;
 				bool		found;
 
-				/* Get the matching local tuple from the partition. */
+				/* 从分区中获取匹配的本地元组。       */
 				found = FindReplTupleInLocalRel(edata, partrel,
 												&part_entry->remoterel,
 												part_entry->localindexoid,
@@ -3018,10 +3018,10 @@ apply_handle_tuple_routing(ApplyExecutionData *edata,
 				if (!found)
 				{
 					/*
-					 * The tuple to be updated could not be found.  Do nothing
-					 * except for emitting a log message.
+					 * 要更新的元组无法找到。不做其他事情， 
+					 * 仅发出一条日志消息。    
 					 *
-					 * XXX should this be promoted to ereport(LOG) perhaps?
+					 * XXX 是否应将其提升为 ereport(LOG)？        
 					 */
 					elog(DEBUG1,
 						 "logical replication did not find row to be updated "
@@ -3031,8 +3031,8 @@ apply_handle_tuple_routing(ApplyExecutionData *edata,
 				}
 
 				/*
-				 * Apply the update to the local tuple, putting the result in
-				 * remoteslot_part.
+				 * 把更新应用到本地元组，并将结果放入       
+				 * remoteslot_part 
 				 */
 				oldctx = MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
 				slot_modify_data(remoteslot_part, localslot, part_entry,
@@ -3040,19 +3040,19 @@ apply_handle_tuple_routing(ApplyExecutionData *edata,
 				MemoryContextSwitchTo(oldctx);
 
 				/*
-				 * Does the updated tuple still satisfy the current
-				 * partition's constraint?
+				 * 更新后的元组是否仍满足当前         
+				 * 分区的约束？     
 				 */
 				if (!partrel->rd_rel->relispartition ||
 					ExecPartitionCheck(partrelinfo, remoteslot_part, estate,
 									   false))
 				{
 					/*
-					 * Yes, so simply UPDATE the partition.  We don't call
-					 * apply_handle_update_internal() here, which would
-					 * normally do the following work, to avoid repeating some
-					 * work already done above to find the local tuple in the
-					 * partition.
+					 * 是的，因此直接 UPDATE 该分区，不调用 
+					 * apply_handle_update_internal()，它会执行   
+					 * 以下工作，为避免重复上面已完成的       
+					 * 在分区中查找本地元组的那部分            
+					 * 工作。 
 					 */
 					EPQState	epqstate;
 
@@ -3069,14 +3069,14 @@ apply_handle_tuple_routing(ApplyExecutionData *edata,
 				}
 				else
 				{
-					/* Move the tuple into the new partition. */
+					/* 将元组移动到新分区中。      */
 
 					/*
-					 * New partition will be found using tuple routing, which
-					 * can only occur via the parent table.  We might need to
-					 * convert the tuple to the parent's rowtype.  Note that
-					 * this is the tuple found in the partition, not the
-					 * original search tuple received by this function.
+					 * 新分区将通过元组路由查找，该过程      
+					 * 只能经由父表发生。可能需要把该元组   
+					 * 转换为父表的行类型。注意，这是        
+					 * 在该分区中找到的元组，而不是       
+					 * 本函数收到的原始搜索元组。         
 					 */
 					if (map)
 					{
@@ -3094,7 +3094,7 @@ apply_handle_tuple_routing(ApplyExecutionData *edata,
 						slot_getallattrs(remoteslot);
 					}
 
-					/* Find the new partition. */
+					/* 查找新分区。      */
 					oldctx = MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
 					partrelinfo_new = ExecFindPartition(mtstate, relinfo,
 														proute, remoteslot,
@@ -3103,21 +3103,21 @@ apply_handle_tuple_routing(ApplyExecutionData *edata,
 					Assert(partrelinfo_new != partrelinfo);
 					partrel_new = partrelinfo_new->ri_RelationDesc;
 
-					/* Check that new partition also has supported relkind. */
+					/* 检查新分区是否也具有受支持的 relkind。*/
 					CheckSubscriptionRelkind(partrel_new->rd_rel->relkind,
 											 get_namespace_name(RelationGetNamespace(partrel_new)),
 											 RelationGetRelationName(partrel_new));
 
-					/* DELETE old tuple found in the old partition. */
+					/* DELETE 旧分区中找到的旧元组。     */
 					apply_handle_delete_internal(edata, partrelinfo,
 												 localslot,
 												 part_entry->localindexoid);
 
-					/* INSERT new tuple into the new partition. */
+					/* INSERT 新元组到新分区中。       */
 
 					/*
-					 * Convert the replacement tuple to match the destination
-					 * partition rowtype.
+					 * 把替换元组转换为匹配目标分区的         
+					 * 行类型。      
 					 */
 					oldctx = MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
 					remoteslot_part = partrelinfo_new->ri_PartitionTupleSlot;
@@ -3151,9 +3151,9 @@ apply_handle_tuple_routing(ApplyExecutionData *edata,
 }
 
 /*
- * Handle TRUNCATE message.
+ * 处理 TRUNCATE 消息  
  *
- * TODO: FDW support
+ * TODO: FDW 支持 
  */
 static void
 apply_handle_truncate(StringInfo s)
@@ -3170,8 +3170,8 @@ apply_handle_truncate(StringInfo s)
 	LOCKMODE	lockmode = AccessExclusiveLock;
 
 	/*
-	 * Quick return if we are skipping data modification changes or handling
-	 * streamed transactions.
+	 * 若正在跳过数据修改变更或正在处理流式事务，      
+	 * 则快速返回。    
 	 */
 	if (is_skipping_changes() ||
 		handle_streamed_transaction(LOGICAL_REP_MSG_TRUNCATE, s))
@@ -3190,8 +3190,8 @@ apply_handle_truncate(StringInfo s)
 		if (!should_apply_changes_for_rel(rel))
 		{
 			/*
-			 * The relation can't become interesting in the middle of the
-			 * transaction so it's safe to unlock it.
+			 * 该关系无法在事务中途变得值得关注，因此 
+			 * 解锁它是安全的。              
 			 */
 			logicalrep_rel_close(rel, lockmode);
 			continue;
@@ -3205,8 +3205,8 @@ apply_handle_truncate(StringInfo s)
 			relids_logged = lappend_oid(relids_logged, rel->localreloid);
 
 		/*
-		 * Truncate partitions if we got a message to truncate a partitioned
-		 * table.
+		 * 若收到的消息指示截断分区表，则截断其分区     
+		 * 。   
 		 */
 		if (rel->localrel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
 		{
@@ -3223,12 +3223,12 @@ apply_handle_truncate(StringInfo s)
 				if (list_member_oid(relids, childrelid))
 					continue;
 
-				/* find_all_inheritors already got lock */
+				/* find_all_inheritors 已持有锁     */
 				childrel = table_open(childrelid, NoLock);
 
 				/*
-				 * Ignore temp tables of other backends.  See similar code in
-				 * ExecuteTruncate().
+				 * 忽略其他后端的临时表。类似代码参见       
+				 * ExecuteTruncate() 
 				 */
 				if (RELATION_IS_OTHER_TEMP(childrel))
 				{
@@ -3240,7 +3240,7 @@ apply_handle_truncate(StringInfo s)
 				rels = lappend(rels, childrel);
 				part_rels = lappend(part_rels, childrel);
 				relids = lappend_oid(relids, childrelid);
-				/* Log this relation only if needed for logical decoding */
+				/* 仅在逻辑解码需要时才记录该关系。      */
 				if (RelationIsLogicallyLogged(childrel))
 					relids_logged = lappend_oid(relids_logged, childrelid);
 			}
@@ -3248,14 +3248,14 @@ apply_handle_truncate(StringInfo s)
 	}
 
 	/*
-	 * Even if we used CASCADE on the upstream primary we explicitly default
-	 * to replaying changes without further cascading. This might be later
-	 * changeable with a user specified option.
+	 * 即使我们在上游主库上使用了 CASCADE，也明确默认    
+	 * 回放变更时不再进行级联。这一点日后也许可以    
+	 * 通过用户指定的选项来改变。 
 	 *
-	 * MySubscription->runasowner tells us whether we want to execute
-	 * replication actions as the subscription owner; the last argument to
-	 * TruncateGuts tells it whether we want to switch to the table owner.
-	 * Those are exactly opposite conditions.
+	 * MySubscription->runasowner 告诉我们是否要以           
+	 * 订阅所有者的身份执行复制操作；TruncateGuts 的      
+	 * 最后一个参数则告诉它是否要切换为表所有者。    
+	 * 这两个条件恰好相反。        
 	 */
 	ExecuteTruncateGuts(rels,
 						relids,
@@ -3281,7 +3281,7 @@ apply_handle_truncate(StringInfo s)
 
 
 /*
- * Logical replication protocol message dispatcher.
+ * 逻辑复制协议消息分发器。            
  */
 void
 apply_dispatch(StringInfo s)
@@ -3290,9 +3290,9 @@ apply_dispatch(StringInfo s)
 	LogicalRepMsgType saved_command;
 
 	/*
-	 * Set the current command being applied. Since this function can be
-	 * called recursively when applying spooled changes, save the current
-	 * command.
+	 * 设置正在应用的命令。在应用溢写的变更时，     
+	 * 此函数可能被递归调用，因此要保存当前命令      
+	 * 。     
 	 */
 	saved_command = apply_error_callback_arg.command;
 	apply_error_callback_arg.command = action;
@@ -3338,9 +3338,9 @@ apply_dispatch(StringInfo s)
 		case LOGICAL_REP_MSG_MESSAGE:
 
 			/*
-			 * Logical replication does not use generic logical messages yet.
-			 * Although, it could be used by other applications that use this
-			 * output plugin.
+			 * 逻辑复制尚未使用通用逻辑消息。不过，使用  
+			 * 此输出插件的其他应用可能也会用到              
+			 * 它。        
 			 */
 			break;
 
@@ -3386,22 +3386,22 @@ apply_dispatch(StringInfo s)
 					 errmsg("invalid logical replication message type \"??? (%d)\"", action)));
 	}
 
-	/* Reset the current command */
+	/* 重置当前命令        */
 	apply_error_callback_arg.command = saved_command;
 }
 
 /*
- * Figure out which write/flush positions to report to the walsender process.
+ * 计算出应当向 walsender 进程报告哪些写入/刷写位置。     
  *
- * We can't simply report back the last LSN the walsender sent us because the
- * local transaction might not yet be flushed to disk locally. Instead we
- * build a list that associates local with remote LSNs for every commit. When
- * reporting back the flush position to the sender we iterate that list and
- * check which entries on it are already locally flushed. Those we can report
- * as having been flushed.
+ * 我们无法简单地回报 walsender 发送给我们的最后            
+ * LSN，因为本地事务可能尚未在本地刷写到磁盘。       
+ * 作为替代，我们为每次提交构建一个将本地 LSN 与远程   
+ * LSN 关联起来的列表。在向发送者回报刷写位置时，     
+ * 我们会遍历该列表，检查哪些条目已在本地刷写。        
+ * 这些即可报告。  
  *
- * The have_pending_txes is true if there are outstanding transactions that
- * need to be flushed.
+ * 若存在尚未刷写完的未决事务，则 have_pending_txes         
+ * 为真。          
  */
 static void
 get_flush_position(XLogRecPtr *write, XLogRecPtr *flush,
@@ -3429,9 +3429,9 @@ get_flush_position(XLogRecPtr *write, XLogRecPtr *flush,
 		else
 		{
 			/*
-			 * Don't want to uselessly iterate over the rest of the list which
-			 * could potentially be long. Instead get the last element and
-			 * grab the write position from there.
+			 * 不想无谓地遍历列表其余部分，它可能很长。   
+			 * 作为替代，直接取最后一个元素并从           
+			 * 那里获取写入位置。        
 			 */
 			pos = dlist_tail_element(FlushPosition, node,
 									 &lsn_mapping);
@@ -3445,7 +3445,7 @@ get_flush_position(XLogRecPtr *write, XLogRecPtr *flush,
 }
 
 /*
- * Store current remote/local lsn pair in the tracking list.
+ * 把当前的远程/本地 LSN 对存入跟踪列表。   
  */
 void
 store_flush_position(XLogRecPtr remote_lsn, XLogRecPtr local_lsn)
@@ -3453,16 +3453,16 @@ store_flush_position(XLogRecPtr remote_lsn, XLogRecPtr local_lsn)
 	FlushPosition *flushpos;
 
 	/*
-	 * Skip for parallel apply workers, because the lsn_mapping is maintained
-	 * by the leader apply worker.
+	 * 并行应用工作进程要跳过这一步，因为 lsn_mapping       
+	 * 由领导者维护。      
 	 */
 	if (am_parallel_apply_worker())
 		return;
 
-	/* Need to do this in permanent context */
+	/* 需在永久上下文中进行。    */
 	MemoryContextSwitchTo(ApplyContext);
 
-	/* Track commit lsn  */
+	/* 跟踪提交 LSN  */
 	flushpos = (FlushPosition *) palloc(sizeof(FlushPosition));
 	flushpos->local_end = local_lsn;
 	flushpos->remote_end = remote_lsn;
@@ -3472,7 +3472,7 @@ store_flush_position(XLogRecPtr remote_lsn, XLogRecPtr local_lsn)
 }
 
 
-/* Update statistics of the worker. */
+/* 更新工作进程的统计。   */
 static void
 UpdateWorkerStats(XLogRecPtr last_lsn, TimestampTz send_time, bool reply)
 {
@@ -3487,7 +3487,7 @@ UpdateWorkerStats(XLogRecPtr last_lsn, TimestampTz send_time, bool reply)
 }
 
 /*
- * Apply main loop.
+ * 应用主循环 
  */
 static void
 LogicalRepApplyLoop(XLogRecPtr last_received)
@@ -3498,34 +3498,34 @@ LogicalRepApplyLoop(XLogRecPtr last_received)
 	ErrorContextCallback errcallback;
 
 	/*
-	 * Init the ApplyMessageContext which we clean up after each replication
-	 * protocol message.
+	 * 初始化 ApplyMessageContext，它会在每条复制协议          
+	 * 消息后清理  
 	 */
 	ApplyMessageContext = AllocSetContextCreate(ApplyContext,
 												"ApplyMessageContext",
 												ALLOCSET_DEFAULT_SIZES);
 
 	/*
-	 * This memory context is used for per-stream data when the streaming mode
-	 * is enabled. This context is reset on each stream stop.
+	 * 流式模式启用时，该内存上下文用于每个流的数据。  
+	 * 此上下文在每次流停止时重置。            
 	 */
 	LogicalStreamingContext = AllocSetContextCreate(ApplyContext,
 													"LogicalStreamingContext",
 													ALLOCSET_DEFAULT_SIZES);
 
-	/* mark as idle, before starting to loop */
+	/* 在开始循环之前标记为空闲  */
 	pgstat_report_activity(STATE_IDLE, NULL);
 
 	/*
-	 * Push apply error context callback. Fields will be filled while applying
-	 * a change.
+	 * 压入应用错误上下文回调。应用变更时将填写各        
+	 * 字段   
 	 */
 	errcallback.callback = apply_error_callback;
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 	apply_error_context_stack = error_context_stack;
 
-	/* This outer loop iterates once per wait. */
+	/* 外层循环每轮等待迭代一次。 */
 	for (;;)
 	{
 		pgsocket	fd = PGINVALID_SOCKET;
@@ -3543,7 +3543,7 @@ LogicalRepApplyLoop(XLogRecPtr last_received)
 
 		if (len != 0)
 		{
-			/* Loop to process all available data (without blocking). */
+			/* 循环处理所有可用数据（不阻塞）。       */
 			for (;;)
 			{
 				CHECK_FOR_INTERRUPTS();
@@ -3570,11 +3570,11 @@ LogicalRepApplyLoop(XLogRecPtr last_received)
 						ProcessConfigFile(PGC_SIGHUP);
 					}
 
-					/* Reset timeout. */
+					/* 重置超时。*/
 					last_recv_timestamp = GetCurrentTimestamp();
 					ping_sent = false;
 
-					/* Ensure we are reading the data into our memory context. */
+					/* 确保将数据读入我们的内存上下文中。     */
 					MemoryContextSwitchTo(ApplyMessageContext);
 
 					s.data = buf;
@@ -3620,7 +3620,7 @@ LogicalRepApplyLoop(XLogRecPtr last_received)
 						send_feedback(last_received, reply_requested, false);
 						UpdateWorkerStats(last_received, timestamp, true);
 					}
-					/* other message types are purposefully ignored */
+					/* 其他消息类型被有意忽略            */
 
 					MemoryContextReset(ApplyMessageContext);
 				}
@@ -3629,37 +3629,37 @@ LogicalRepApplyLoop(XLogRecPtr last_received)
 			}
 		}
 
-		/* confirm all writes so far */
+		/* 确认目前所有写入  */
 		send_feedback(last_received, false, false);
 
 		if (!in_remote_transaction && !in_streamed_transaction)
 		{
 			/*
-			 * If we didn't get any transactions for a while there might be
-			 * unconsumed invalidation messages in the queue, consume them
-			 * now.
+			 * 若一段时间未收到事务，队列中可能还有      
+			 * 未消费的失效消息，现在就将其消费掉        
+			 * 。 
 			 */
 			AcceptInvalidationMessages();
 			maybe_reread_subscription();
 
-			/* Process any table synchronization changes. */
+			/* 处理任何表同步变更。             */
 			process_syncing_tables(last_received);
 		}
 
-		/* Cleanup the memory. */
+		/* 清理内存。     */
 		MemoryContextResetAndDeleteChildren(ApplyMessageContext);
 		MemoryContextSwitchTo(TopMemoryContext);
 
-		/* Check if we need to exit the streaming loop. */
+		/* 检查我们是否需要退出流式循环。*/
 		if (endofstream)
 			break;
 
 		/*
-		 * Wait for more data or latch.  If we have unflushed transactions,
-		 * wake up after WalWriterDelay to see if they've been flushed yet (in
-		 * which case we should send a feedback message).  Otherwise, there's
-		 * no particular urgency about waking up unless we get data or a
-		 * signal.
+		 * 等待更多数据或锁存器。若有未刷写完的事务， 
+		 * 则会在 WalWriterDelay 后唤醒，看看它们是否已被      
+		 * 刷写（那样就应发送一条反馈消息）。否则，      
+		 * 除非得到数据或信号，否则唤醒并不紧迫       
+		 * 。    
 		 */
 		if (!dlist_is_empty(&lsn_mapping))
 			wait_time = WalWriterDelay;
@@ -3687,18 +3687,18 @@ LogicalRepApplyLoop(XLogRecPtr last_received)
 		if (rc & WL_TIMEOUT)
 		{
 			/*
-			 * We didn't receive anything new. If we haven't heard anything
-			 * from the server for more than wal_receiver_timeout / 2, ping
-			 * the server. Also, if it's been longer than
-			 * wal_receiver_status_interval since the last update we sent,
-			 * send a status update to the primary anyway, to report any
-			 * progress in applying WAL.
+			 * 我们没有收到任何新内容。若超过               
+			 * wal_receiver_timeout / 2 仍无服务器的消息，则向  
+			 * 服务器发送 ping。此外，若自上 
+			 * 次发送更新已超过 wal_receiver_status_interval，   
+			 * 则也要向主库发送状态更新，以报告         
+			 * 应用 WAL 的进展。  
 			 */
 			bool		requestReply = false;
 
 			/*
-			 * Check if time since last receive from primary has reached the
-			 * configured limit.
+			 * 检查距上次从主库接收是否已达到配置的上限 
+			 * 。              
 			 */
 			if (wal_receiver_timeout > 0)
 			{
@@ -3714,7 +3714,7 @@ LogicalRepApplyLoop(XLogRecPtr last_received)
 							(errcode(ERRCODE_CONNECTION_FAILURE),
 							 errmsg("terminating logical replication worker due to timeout")));
 
-				/* Check to see if it's time for a ping. */
+				/* 检查是否该发送 ping 了。     */
 				if (!ping_sent)
 				{
 					timeout = TimestampTzPlusMilliseconds(last_recv_timestamp,
@@ -3730,31 +3730,31 @@ LogicalRepApplyLoop(XLogRecPtr last_received)
 			send_feedback(last_received, requestReply, requestReply);
 
 			/*
-			 * Force reporting to ensure long idle periods don't lead to
-			 * arbitrarily delayed stats. Stats can only be reported outside
-			 * of (implicit or explicit) transactions. That shouldn't lead to
-			 * stats being delayed for long, because transactions are either
-			 * sent as a whole on commit or streamed. Streamed transactions
-			 * are spilled to disk and applied on commit.
+			 * 强制报告，以免长时空闲导致统计信息被   
+			 * 任意推迟。统计信息只能在（隐式或显式）    
+			 * 事务之外报告。这不应导致统计信息被长        
+			 * 时间推迟，因为事务要么在提交时整体发送， 
+			 * 要么以流式方式发送。流式事务会被溢写到   
+			 * 磁盘并在提交时应用。            
 			 */
 			if (!IsTransactionState())
 				pgstat_report_stat(true);
 		}
 	}
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈    */
 	error_context_stack = errcallback.previous;
 	apply_error_context_stack = error_context_stack;
 
-	/* All done */
+	/* 完成   */
 	walrcv_endstreaming(LogRepWorkerWalRcvConn, &tli);
 }
 
 /*
- * Send a Standby Status Update message to server.
+ * 向服务器发送备库状态更新消息。  
  *
- * 'recvpos' is the latest LSN we've received data to, force is set if we need
- * to send a response to avoid timeouts.
+ * 'recvpos' 是我们已接收到数据的最新 LSN；若需要发送响应 
+ * 以避免超时，则设置 force。 
  */
 static void
 send_feedback(XLogRecPtr recvpos, bool force, bool requestReply)
@@ -3772,21 +3772,21 @@ send_feedback(XLogRecPtr recvpos, bool force, bool requestReply)
 	bool		have_pending_txes;
 
 	/*
-	 * If the user doesn't want status to be reported to the publisher, be
-	 * sure to exit before doing anything at all.
+	 * 如果用户不希望向发布者报告状态，请务必在       
+	 * 做任何事情之前先退出。         
 	 */
 	if (!force && wal_receiver_status_interval <= 0)
 		return;
 
-	/* It's legal to not pass a recvpos */
+	/* 不传 recvpos 也是合法的   */
 	if (recvpos < last_recvpos)
 		recvpos = last_recvpos;
 
 	get_flush_position(&writepos, &flushpos, &have_pending_txes);
 
 	/*
-	 * No outstanding transactions to flush, we can report the latest received
-	 * position. This is important for synchronous replication.
+	 * 没有待刷写的未决事务，我们可以报告最新              
+	 * 的接收位置。这对同步复制很重要。        
 	 */
 	if (!have_pending_txes)
 		flushpos = writepos = recvpos;
@@ -3799,7 +3799,7 @@ send_feedback(XLogRecPtr recvpos, bool force, bool requestReply)
 
 	now = GetCurrentTimestamp();
 
-	/* if we've already reported everything we're good */
+	/* 若已报告完所有内容就没问题了。   */
 	if (!force &&
 		writepos == last_writepos &&
 		flushpos == last_flushpos &&
@@ -3819,11 +3819,11 @@ send_feedback(XLogRecPtr recvpos, bool force, bool requestReply)
 		resetStringInfo(reply_message);
 
 	pq_sendbyte(reply_message, 'r');
-	pq_sendint64(reply_message, recvpos);	/* write */
-	pq_sendint64(reply_message, flushpos);	/* flush */
-	pq_sendint64(reply_message, writepos);	/* apply */
+	pq_sendint64(reply_message, recvpos);	/* 写入*/
+	pq_sendint64(reply_message, flushpos);	/* 刷写*/
+	pq_sendint64(reply_message, writepos);	/* 应用*/
 	pq_sendint64(reply_message, now);	/* sendTime */
-	pq_sendbyte(reply_message, requestReply);	/* replyRequested */
+	pq_sendbyte(reply_message, requestReply);	/* 请求回复   */
 
 	elog(DEBUG2, "sending feedback (force %d) to recv %X/%X, write %X/%X, flush %X/%X",
 		 force,
@@ -3843,7 +3843,7 @@ send_feedback(XLogRecPtr recvpos, bool force, bool requestReply)
 }
 
 /*
- * Exit routine for apply workers due to subscription parameter changes.
+ * 因订阅参数变更而退出应用工作进程的例程。         
  */
 static void
 apply_worker_exit(void)
@@ -3851,21 +3851,21 @@ apply_worker_exit(void)
 	if (am_parallel_apply_worker())
 	{
 		/*
-		 * Don't stop the parallel apply worker as the leader will detect the
-		 * subscription parameter change and restart logical replication later
-		 * anyway. This also prevents the leader from reporting errors when
-		 * trying to communicate with a stopped parallel apply worker, which
-		 * would accidentally disable subscriptions if disable_on_error was
-		 * set.
+		 * 不要停止并行应用工作进程，因领导者反正稍后   
+		 * 会检测到订阅参数变更并重启逻辑复制。这也       
+		 * 避免了领导者在尝试与已停止的并行应用工作    
+		 * 进程通信时报错；当 disable_on_error 被设置时，这  
+		 * 会意外禁用订阅                                           
+		 * 。 
 		 */
 		return;
 	}
 
 	/*
-	 * Reset the last-start time for this apply worker so that the launcher
-	 * will restart it without waiting for wal_retrieve_retry_interval if the
-	 * subscription is still active, and so that we won't leak that hash table
-	 * entry if it isn't.
+	 * 重置此应用工作进程的上次启动时间，以便启动器  
+	 * 在订阅仍活动时无需等待 wal_retrieve_retry_interval         
+	 * 就会重启它；这也确保在订阅不活动时不会泄漏        
+	 * 哈希表条目   
 	 */
 	if (!am_tablesync_worker())
 		ApplyLauncherForgetWorkerStartTime(MyLogicalRepWorker->subid);
@@ -3874,7 +3874,7 @@ apply_worker_exit(void)
 }
 
 /*
- * Reread subscription info if needed. Most changes will be exit.
+ * 若有需要则重读订阅信息。多数变更即退出。  
  */
 void
 maybe_reread_subscription(void)
@@ -3883,25 +3883,25 @@ maybe_reread_subscription(void)
 	Subscription *newsub;
 	bool		started_tx = false;
 
-	/* When cache state is valid there is nothing to do here. */
+	/* 当缓存状态有效时，此处无需做任何事。 */
 	if (MySubscriptionValid)
 		return;
 
-	/* This function might be called inside or outside of transaction. */
+	/* 此函数可能在事务内部或事务外部被调用。       */
 	if (!IsTransactionState())
 	{
 		StartTransactionCommand();
 		started_tx = true;
 	}
 
-	/* Ensure allocations in permanent context. */
+	/* 确保在永久上下文中分配。     */
 	oldctx = MemoryContextSwitchTo(ApplyContext);
 
 	newsub = GetSubscription(MyLogicalRepWorker->subid, true);
 
 	/*
-	 * Exit if the subscription was removed. This normally should not happen
-	 * as the worker gets killed during DROP SUBSCRIPTION.
+	 * 若订阅已被移除则退出。这通常不应发生，            
+	 * 因为 DROP SUBSCRIPTION 会终止工作进程。  
 	 */
 	if (!newsub)
 	{
@@ -3909,13 +3909,13 @@ maybe_reread_subscription(void)
 				(errmsg("logical replication worker for subscription \"%s\" will stop because the subscription was removed",
 						MySubscription->name)));
 
-		/* Ensure we remove no-longer-useful entry for worker's start time */
+		/* 确保移除工作进程启动时间不再有用的条目       */
 		if (!am_tablesync_worker() && !am_parallel_apply_worker())
 			ApplyLauncherForgetWorkerStartTime(MyLogicalRepWorker->subid);
 		proc_exit(0);
 	}
 
-	/* Exit if the subscription was disabled. */
+	/* 若订阅已被禁用则退出。      */
 	if (!newsub->enabled)
 	{
 		ereport(LOG,
@@ -3925,18 +3925,18 @@ maybe_reread_subscription(void)
 		apply_worker_exit();
 	}
 
-	/* !slotname should never happen when enabled is true. */
+	/* enabled 为真时绝不应出现 !slotname。       */
 	Assert(newsub->slotname);
 
-	/* two-phase should not be altered */
+	/* two-phase 不应被更改       */
 	Assert(newsub->twophasestate == MySubscription->twophasestate);
 
 	/*
-	 * Exit if any parameter that affects the remote connection was changed.
-	 * The launcher will start a new worker but note that the parallel apply
-	 * worker won't restart if the streaming option's value is changed from
-	 * 'parallel' to any other value or the server decides not to stream the
-	 * in-progress transaction.
+	 * 若任何影响远程连接的参数发生了变更则退出。      
+	 * 启动器会启动一个新的工作进程，但注意并行应      
+	 * 用工作进程在 streaming 选项的值从 'parallel' 改为      
+	 * 其他值，或服务器决定不流式传输正在进行的         
+	 * 事务则不会重启   
 	 */
 	if (strcmp(newsub->conninfo, MySubscription->conninfo) != 0 ||
 		strcmp(newsub->name, MySubscription->name) != 0 ||
@@ -3960,20 +3960,20 @@ maybe_reread_subscription(void)
 		apply_worker_exit();
 	}
 
-	/* Check for other changes that should never happen too. */
+	/* 同时检查其他也绝不该发生的变更。      */
 	if (newsub->dbid != MySubscription->dbid)
 	{
 		elog(ERROR, "subscription %u changed unexpectedly",
 			 MyLogicalRepWorker->subid);
 	}
 
-	/* Clean old subscription info and switch to new one. */
+	/* 清理旧的订阅信息并切换到新的信息。*/
 	FreeSubscription(MySubscription);
 	MySubscription = newsub;
 
 	MemoryContextSwitchTo(oldctx);
 
-	/* Change synchronous commit according to the user's wishes */
+	/* 根据用户的意愿更改同步提交设置。         */
 	SetConfigOption("synchronous_commit", MySubscription->synccommit,
 					PGC_BACKEND, PGC_S_OVERRIDE);
 
@@ -3984,7 +3984,7 @@ maybe_reread_subscription(void)
 }
 
 /*
- * Callback from subscription syscache invalidation.
+ * 订阅 syscache 失效时的回调。            
  */
 static void
 subscription_change_cb(Datum arg, int cacheid, uint32 hashvalue)
@@ -3994,12 +3994,12 @@ subscription_change_cb(Datum arg, int cacheid, uint32 hashvalue)
 
 /*
  * subxact_info_write
- *	  Store information about subxacts for a toplevel transaction.
+ *	  存储顶层事务的子事务相关信息。               
  *
- * For each subxact we store offset of it's first change in the main file.
- * The file is always over-written as a whole.
+ * 对每个子事务，我们存储其首个变更在主文件中的     
+ * 偏移量。文件总是被整体覆写。 
  *
- * XXX We should only store subxacts that were not aborted yet.
+ * XXX 我们应当只存储尚未中止的子事务。        
  */
 static void
 subxact_info_write(Oid subid, TransactionId xid)
@@ -4010,10 +4010,10 @@ subxact_info_write(Oid subid, TransactionId xid)
 
 	Assert(TransactionIdIsValid(xid));
 
-	/* construct the subxact filename */
+	/* 构造该子事务的文件名 */
 	subxact_filename(path, subid, xid);
 
-	/* Delete the subxacts file, if exists. */
+	/* 若存在则删除子事务文件。 */
 	if (subxact_data.nsubxacts == 0)
 	{
 		cleanup_subxact_info();
@@ -4023,8 +4023,8 @@ subxact_info_write(Oid subid, TransactionId xid)
 	}
 
 	/*
-	 * Create the subxact file if it not already created, otherwise open the
-	 * existing file.
+	 * 若子事务文件尚未创建则创建它，否则打开已有的   
+	 * 文件。     
 	 */
 	fd = BufFileOpenFileSet(MyLogicalRepWorker->stream_fileset, path, O_RDWR,
 							true);
@@ -4033,22 +4033,22 @@ subxact_info_write(Oid subid, TransactionId xid)
 
 	len = sizeof(SubXactInfo) * subxact_data.nsubxacts;
 
-	/* Write the subxact count and subxact info */
+	/* 写入子事务计数与子事务信息  */
 	BufFileWrite(fd, &subxact_data.nsubxacts, sizeof(subxact_data.nsubxacts));
 	BufFileWrite(fd, subxact_data.subxacts, len);
 
 	BufFileClose(fd);
 
-	/* free the memory allocated for subxact info */
+	/* 释放为子事务信息分配的内存    */
 	cleanup_subxact_info();
 }
 
 /*
  * subxact_info_read
- *	  Restore information about subxacts of a streamed transaction.
+ *	  恢复流式事务的子事务相关信息。                
  *
- * Read information about subxacts into the structure subxact_data that can be
- * used later.
+ * 把子事务信息读入 subxact_data 结构中供稍后                   
+ * 使用。  
  */
 static void
 subxact_info_read(Oid subid, TransactionId xid)
@@ -4063,8 +4063,8 @@ subxact_info_read(Oid subid, TransactionId xid)
 	Assert(subxact_data.nsubxacts_max == 0);
 
 	/*
-	 * If the subxact file doesn't exist that means we don't have any subxact
-	 * info.
+	 * 若子事务文件不存在，则意味着没有任何子事务信息 
+	 * 。  
 	 */
 	subxact_filename(path, subid, xid);
 	fd = BufFileOpenFileSet(MyLogicalRepWorker->stream_fileset, path, O_RDONLY,
@@ -4072,19 +4072,19 @@ subxact_info_read(Oid subid, TransactionId xid)
 	if (fd == NULL)
 		return;
 
-	/* read number of subxact items */
+	/* 读取子事务条目数量  */
 	BufFileReadExact(fd, &subxact_data.nsubxacts, sizeof(subxact_data.nsubxacts));
 
 	len = sizeof(SubXactInfo) * subxact_data.nsubxacts;
 
-	/* we keep the maximum as a power of 2 */
+	/* 我们将最大值保持为 2 的幂*/
 	subxact_data.nsubxacts_max = 1 << my_log2(subxact_data.nsubxacts);
 
 	/*
-	 * Allocate subxact information in the logical streaming context. We need
-	 * this information during the complete stream so that we can add the sub
-	 * transaction info to this. On stream stop we will flush this information
-	 * to the subxact file and reset the logical streaming context.
+	 * 在逻辑流式上下文中分配子事务信息。在整个流       
+	 * 期间都需要这些信息，以便能向其中添加子事务       
+	 * 信息。在流停止时，我们会将这些信息刷写到子        
+	 * 事务文件中，并重置逻辑流式上下文。         
 	 */
 	oldctx = MemoryContextSwitchTo(LogicalStreamingContext);
 	subxact_data.subxacts = palloc(subxact_data.nsubxacts_max *
@@ -4099,7 +4099,7 @@ subxact_info_read(Oid subid, TransactionId xid)
 
 /*
  * subxact_info_add
- *	  Add information about a subxact (offset in the main file).
+ *	  添加子事务的信息（主文件中的偏移量）。 
  */
 static void
 subxact_info_add(TransactionId xid)
@@ -4107,42 +4107,42 @@ subxact_info_add(TransactionId xid)
 	SubXactInfo *subxacts = subxact_data.subxacts;
 	int64		i;
 
-	/* We must have a valid top level stream xid and a stream fd. */
+	/* 我们必须拥有有效的顶层流 xid 和流 fd。      */
 	Assert(TransactionIdIsValid(stream_xid));
 	Assert(stream_fd != NULL);
 
 	/*
-	 * If the XID matches the toplevel transaction, we don't want to add it.
+	 * 若该 XID 与顶层事务匹配，我们就不想添加它。       
 	 */
 	if (stream_xid == xid)
 		return;
 
 	/*
-	 * In most cases we're checking the same subxact as we've already seen in
-	 * the last call, so make sure to ignore it (this change comes later).
+	 * 多数情况下，我们检查的子事务与上次调用中已       
+	 * 经见过，故务必忽略它（该变更稍后到来）。       
 	 */
 	if (subxact_data.subxact_last == xid)
 		return;
 
-	/* OK, remember we're processing this XID. */
+	/* 好，记住我们正在处理该 XID。*/
 	subxact_data.subxact_last = xid;
 
 	/*
-	 * Check if the transaction is already present in the array of subxact. We
-	 * intentionally scan the array from the tail, because we're likely adding
-	 * a change for the most recent subtransactions.
+	 * 检查该事务是否已存在于子事务数组中。我们           
+	 * 有意从尾部开始扫描数组，因为我们最有可能           
+	 * 是在为最近的子事务添加变更。   
 	 *
-	 * XXX Can we rely on the subxact XIDs arriving in sorted order? That
-	 * would allow us to use binary search here.
+	 * XXX 我们能否依赖子事务的 XID 按序到达？这样      
+	 * 便可以在此使用二分查找。     
 	 */
 	for (i = subxact_data.nsubxacts; i > 0; i--)
 	{
-		/* found, so we're done */
+		/* 已找到，故完成*/
 		if (subxacts[i - 1].xid == xid)
 			return;
 	}
 
-	/* This is a new subxact, so we need to add it to the array. */
+	/* 此为新子事务，需将其加入数组。             */
 	if (subxact_data.nsubxacts == 0)
 	{
 		MemoryContext oldctx;
@@ -4150,7 +4150,7 @@ subxact_info_add(TransactionId xid)
 		subxact_data.nsubxacts_max = 128;
 
 		/*
-		 * Allocate this memory for subxacts in per-stream context, see
+		 * 在每流上下文中为子事务分配此内存，参见   
 		 * subxact_info_read.
 		 */
 		oldctx = MemoryContextSwitchTo(LogicalStreamingContext);
@@ -4167,8 +4167,8 @@ subxact_info_add(TransactionId xid)
 	subxacts[subxact_data.nsubxacts].xid = xid;
 
 	/*
-	 * Get the current offset of the stream file and store it as offset of
-	 * this subxact.
+	 * 获取流文件的当前偏移量，将其存为该子事务的    
+	 * 偏移量。 
 	 */
 	BufFileTell(stream_fd,
 				&subxacts[subxact_data.nsubxacts].fileno,
@@ -4178,14 +4178,14 @@ subxact_info_add(TransactionId xid)
 	subxact_data.subxacts = subxacts;
 }
 
-/* format filename for file containing the info about subxacts */
+/* 为包含子事务信息的文件构造文件名            */
 static inline void
 subxact_filename(char *path, Oid subid, TransactionId xid)
 {
 	snprintf(path, MAXPGPATH, "%u-%u.subxacts", subid, xid);
 }
 
-/* format filename for file containing serialized changes */
+/* 为包含已序列化变更的文件构造文件名    */
 static inline void
 changes_filename(char *path, Oid subid, TransactionId xid)
 {
@@ -4194,35 +4194,35 @@ changes_filename(char *path, Oid subid, TransactionId xid)
 
 /*
  * stream_cleanup_files
- *	  Cleanup files for a subscription / toplevel transaction.
+ *	  清理订阅 / 顶层事务的文件。                 
  *
- * Remove files with serialized changes and subxact info for a particular
- * toplevel transaction. Each subscription has a separate set of files
- * for any toplevel transaction.
+ * 移除特定顶层事务的已序列化变更与子事务             
+ * 信息文件。每个订阅对任一顶层事务都有一组       
+ * 单独的文件。           
  */
 void
 stream_cleanup_files(Oid subid, TransactionId xid)
 {
 	char		path[MAXPGPATH];
 
-	/* Delete the changes file. */
+	/* 删除变更文件。    */
 	changes_filename(path, subid, xid);
 	BufFileDeleteFileSet(MyLogicalRepWorker->stream_fileset, path, false);
 
-	/* Delete the subxact file, if it exists. */
+	/* 删除子事务文件（若存在）。*/
 	subxact_filename(path, subid, xid);
 	BufFileDeleteFileSet(MyLogicalRepWorker->stream_fileset, path, true);
 }
 
 /*
  * stream_open_file
- *	  Open a file that we'll use to serialize changes for a toplevel
- * transaction.
+ *	  打开一个文件，我们将用它为顶层事务序列化  
+ * 变更。   
  *
- * Open a file for streamed changes from a toplevel transaction identified
- * by stream_xid (global variable). If it's the first chunk of streamed
- * changes for this transaction, create the buffile, otherwise open the
- * previously created file.
+ * 为某顶层事务的流式变更打开文件，该事务由           
+ * stream_xid（全局变量）标识。若这是该事务的          
+ * 第一批流式变更，则创建 BufFile，否则打开            
+ * 已创建的文件。   
  */
 static void
 stream_open_file(Oid subid, TransactionId xid, bool first_segment)
@@ -4239,14 +4239,14 @@ stream_open_file(Oid subid, TransactionId xid, bool first_segment)
 	elog(DEBUG1, "opening file \"%s\" for streamed changes", path);
 
 	/*
-	 * Create/open the buffiles under the logical streaming context so that we
-	 * have those files until stream stop.
+	 * 在逻辑流式上下文下创建或打开这些 BufFile，以便      
+	 * 这些文件保留至流停止。  
 	 */
 	oldcxt = MemoryContextSwitchTo(LogicalStreamingContext);
 
 	/*
-	 * If this is the first streamed segment, create the changes file.
-	 * Otherwise, just open the file for writing, in append mode.
+	 * 若这是首个流式段，则创建变更文件。            
+	 * 否则，仅以追加模式打开文件写入。          
 	 */
 	if (first_segment)
 		stream_fd = BufFileCreateFileSet(MyLogicalRepWorker->stream_fileset,
@@ -4254,8 +4254,8 @@ stream_open_file(Oid subid, TransactionId xid, bool first_segment)
 	else
 	{
 		/*
-		 * Open the file and seek to the end of the file because we always
-		 * append the changes file.
+		 * 打开文件并定位到文件末尾，因为我们总是      
+		 * 追加变更文件。   
 		 */
 		stream_fd = BufFileOpenFileSet(MyLogicalRepWorker->stream_fileset,
 									   path, O_RDWR, false);
@@ -4267,7 +4267,7 @@ stream_open_file(Oid subid, TransactionId xid, bool first_segment)
 
 /*
  * stream_close_file
- *	  Close the currently open file with streamed changes.
+ *	  关闭当前打开的流式变更文件。          
  */
 static void
 stream_close_file(void)
@@ -4281,11 +4281,11 @@ stream_close_file(void)
 
 /*
  * stream_write_change
- *	  Serialize a change to a file for the current toplevel transaction.
+ *	  将当前顶层事务的一条变更序列化到文件。         
  *
- * The change is serialized in a simple format, with length (not including
- * the length), action code (identifying the message type) and message
- * contents (without the subxact TransactionId value).
+ * 变更以简单格式序列化：长度（不含其自身）、        
+ * 动作代码（标识消息类型）以及消息内容（不含    
+ * 子事务的 TransactionId 值）。               
  */
 static void
 stream_write_change(char action, StringInfo s)
@@ -4294,16 +4294,16 @@ stream_write_change(char action, StringInfo s)
 
 	Assert(stream_fd != NULL);
 
-	/* total on-disk size, including the action type character */
+	/* 磁盘总大小，含动作类型字符在内           */
 	len = (s->len - s->cursor) + sizeof(char);
 
-	/* first write the size */
+	/* 先写入大小      */
 	BufFileWrite(stream_fd, &len, sizeof(len));
 
-	/* then the action */
+	/* 然后写动作 */
 	BufFileWrite(stream_fd, &action, sizeof(action));
 
-	/* and finally the remaining part of the buffer (after the XID) */
+	/* 最后写入缓冲区的剩余部分（XID 之后）         */
 	len = (s->len - s->cursor);
 
 	BufFileWrite(stream_fd, &s->data[s->cursor], len);
@@ -4311,11 +4311,11 @@ stream_write_change(char action, StringInfo s)
 
 /*
  * stream_open_and_write_change
- *	  Serialize a message to a file for the given transaction.
+ *	  将给定事务的一条消息序列化到文件。     
  *
- * This function is similar to stream_write_change except that it will open the
- * target file if not already before writing the message and close the file at
- * the end.
+ * 此函数与 stream_write_change 类似，但它会在写入                
+ * 消息前打开目标文件（若尚未打开），最后将其关闭。   
+ *         
  */
 static void
 stream_open_and_write_change(TransactionId xid, char action, StringInfo s)
@@ -4330,7 +4330,7 @@ stream_open_and_write_change(TransactionId xid, char action, StringInfo s)
 }
 
 /*
- * Cleanup the memory for subxacts and reset the related variables.
+ * 清理子事务的内存并重置相关变量。                
  */
 static inline void
 cleanup_subxact_info()
@@ -4345,9 +4345,9 @@ cleanup_subxact_info()
 }
 
 /*
- * Form the prepared transaction GID for two_phase transactions.
+ * 为 two_phase 事务构造已准备事务的 GID。          
  *
- * Return the GID in the supplied buffer.
+ * 在给定缓冲区中返回 GID。    
  */
 static void
 TwoPhaseTransactionGid(Oid subid, TransactionId xid, char *gid, int szgid)
@@ -4363,12 +4363,12 @@ TwoPhaseTransactionGid(Oid subid, TransactionId xid, char *gid, int szgid)
 }
 
 /*
- * Execute the initial sync with error handling. Disable the subscription,
- * if it's required.
+ * 执行带错误处理的初始同步。如需要，则禁用           
+ * 订阅。        
  *
- * Allocate the slot name in long-lived context on return. Note that we don't
- * handle FATAL errors which are probably because of system resource error and
- * are not repeatable.
+ * 返回时在长生命周期上下文中分配槽名。注意，我们     
+ * 不处理 FATAL 错误，这类错误多半源于系统资源问题且     
+ * 不会重复。    
  */
 static void
 start_table_sync(XLogRecPtr *origin_startpos, char **myslotname)
@@ -4379,7 +4379,7 @@ start_table_sync(XLogRecPtr *origin_startpos, char **myslotname)
 
 	PG_TRY();
 	{
-		/* Call initial sync. */
+		/* 调用初始同步 */
 		syncslotname = LogicalRepSyncTableStart(origin_startpos);
 	}
 	PG_CATCH();
@@ -4389,9 +4389,9 @@ start_table_sync(XLogRecPtr *origin_startpos, char **myslotname)
 		else
 		{
 			/*
-			 * Report the worker failed during table synchronization. Abort
-			 * the current transaction so that the stats message is sent in an
-			 * idle state.
+			 * 报告工作进程在表同步期间失败。中止当前   
+			 * 事务，以便统计消息在空闲状态下                  
+			 * 发送。  
 			 */
 			AbortOutOfAnyTransaction();
 			pgstat_report_subscription_error(MySubscription->oid, false);
@@ -4401,13 +4401,13 @@ start_table_sync(XLogRecPtr *origin_startpos, char **myslotname)
 	}
 	PG_END_TRY();
 
-	/* allocate slot name in long-lived context */
+	/* 长生命周期上下文中分配槽名  */
 	*myslotname = MemoryContextStrdup(ApplyContext, syncslotname);
 	pfree(syncslotname);
 }
 
 /*
- * Reset the origin state.
+ * 重置复制源状态  
  */
 static void
 replorigin_reset(int code, Datum arg)
@@ -4418,11 +4418,11 @@ replorigin_reset(int code, Datum arg)
 }
 
 /*
- * Run the apply loop with error handling. Disable the subscription,
- * if necessary.
+ * 运行带错误处理的应用循环。必要时禁用           
+ * 订阅。    
  *
- * Note that we don't handle FATAL errors which are probably because
- * of system resource error and are not repeatable.
+ * 注意，我们不处理 FATAL 错误，这类错误多半源    
+ * 于系统资源问题且不会重复。         
  */
 static void
 start_apply(XLogRecPtr origin_startpos)
@@ -4434,10 +4434,10 @@ start_apply(XLogRecPtr origin_startpos)
 	PG_CATCH();
 	{
 		/*
-		 * Reset the origin state to prevent the advancement of origin
-		 * progress if we fail to apply. Otherwise, this will result in
-		 * transaction loss as that transaction won't be sent again by the
-		 * server.
+		 * 重置复制源状态，以免在应用失败时           
+		 * 推进复制源进度。否则，应用失败的后果是   
+		 * 事务丢失，因为服务器不会再次发送该事务。   
+		 *        
 		 */
 		replorigin_reset(0, (Datum) 0);
 
@@ -4446,9 +4446,9 @@ start_apply(XLogRecPtr origin_startpos)
 		else
 		{
 			/*
-			 * Report the worker failed while applying changes. Abort the
-			 * current transaction so that the stats message is sent in an
-			 * idle state.
+			 * 报告工作进程在应用变更期间失败。中止    
+			 * 当前事务，以便统计消息在空闲状态下        
+			 * 发送。  
 			 */
 			AbortOutOfAnyTransaction();
 			pgstat_report_subscription_error(MySubscription->oid, !am_tablesync_worker());
@@ -4460,32 +4460,32 @@ start_apply(XLogRecPtr origin_startpos)
 }
 
 /*
- * Common initialization for leader apply worker and parallel apply worker.
+ * 领导者应用工作进程与并行应用工作进程共用初始化   
  *
- * Initialize the database connection, in-memory subscription and necessary
- * config options.
+ * 初始化数据库连接、内存中订阅与必要的配置            
+ * 选项。      
  */
 void
 InitializeApplyWorker(void)
 {
 	MemoryContext oldctx;
 
-	/* Run as replica session replication role. */
+	/* 以 replica 会话复制角色运行。  */
 	SetConfigOption("session_replication_role", "replica",
 					PGC_SUSET, PGC_S_OVERRIDE);
 
-	/* Connect to our database. */
+	/* 连接到本数据库。 */
 	BackgroundWorkerInitializeConnectionByOid(MyLogicalRepWorker->dbid,
 											  MyLogicalRepWorker->userid,
 											  0);
 
 	/*
-	 * Set always-secure search path, so malicious users can't redirect user
-	 * code (e.g. pg_index.indexprs).
+	 * 设始终安全搜索路径，使恶意用户无法重定向代码   
+	 * （如pg_index.indexprs）。 
 	 */
 	SetConfigOption("search_path", "", PGC_SUSET, PGC_S_OVERRIDE);
 
-	/* Load the subscription into persistent memory context. */
+	/* 将订阅装载进永久内存上下文中。         */
 	ApplyContext = AllocSetContextCreate(TopMemoryContext,
 										 "ApplyContext",
 										 ALLOCSET_DEFAULT_SIZES);
@@ -4493,9 +4493,9 @@ InitializeApplyWorker(void)
 	oldctx = MemoryContextSwitchTo(ApplyContext);
 
 	/*
-	 * Lock the subscription to prevent it from being concurrently dropped,
-	 * then re-verify its existence. After the initialization, the worker will
-	 * be terminated gracefully if the subscription is dropped.
+	 * 锁定订阅以防其被并发删除，随后重新核实           
+	 * 其是否存在。初始化完成后，若订阅被删除，则工作  
+	 * 进程将被平稳终止。                             
 	 */
 	LockSharedObject(SubscriptionRelationId, MyLogicalRepWorker->subid, 0,
 					 AccessShareLock);
@@ -4506,7 +4506,7 @@ InitializeApplyWorker(void)
 				(errmsg("logical replication worker for subscription %u will not start because the subscription was removed during startup",
 						MyLogicalRepWorker->subid)));
 
-		/* Ensure we remove no-longer-useful entry for worker's start time */
+		/* 确保移除工作进程启动时间不再有用的条目       */
 		if (!am_tablesync_worker() && !am_parallel_apply_worker())
 			ApplyLauncherForgetWorkerStartTime(MyLogicalRepWorker->subid);
 		proc_exit(0);
@@ -4524,11 +4524,11 @@ InitializeApplyWorker(void)
 		apply_worker_exit();
 	}
 
-	/* Setup synchronous commit according to the user's wishes */
+	/* 按用户的意愿设置同步提交。                 */
 	SetConfigOption("synchronous_commit", MySubscription->synccommit,
 					PGC_BACKEND, PGC_S_OVERRIDE);
 
-	/* Keep us informed about subscription changes. */
+	/* 让我们及时获知订阅变更。         */
 	CacheRegisterSyscacheCallback(SUBSCRIPTIONOID,
 								  subscription_change_cb,
 								  (Datum) 0);
@@ -4546,7 +4546,7 @@ InitializeApplyWorker(void)
 	CommitTransactionCommand();
 }
 
-/* Logical Replication Apply worker entry point */
+/* 逻辑复制应用工作进程入口点      */
 void
 ApplyWorkerMain(Datum main_arg)
 {
@@ -4559,44 +4559,44 @@ ApplyWorkerMain(Datum main_arg)
 
 	InitializingApplyWorker = true;
 
-	/* Attach to slot */
+	/* 附着到槽   */
 	logicalrep_worker_attach(worker_slot);
 
-	/* Setup signal handling */
+	/* 设置信号处理    */
 	pqsignal(SIGHUP, SignalHandlerForConfigReload);
 	pqsignal(SIGTERM, die);
 	BackgroundWorkerUnblockSignals();
 
 	/*
-	 * We don't currently need any ResourceOwner in a walreceiver process, but
-	 * if we did, we could call CreateAuxProcessResourceOwner here.
+	 * 目前 walreceiver 进程不需要任何 ResourceOwner，但如果     
+	 * 需要，可在此调用 CreateAuxProcessResourceOwner。   
 	 */
 
-	/* Initialise stats to a sanish value */
+	/* 统计信息初始化为合理值  */
 	MyLogicalRepWorker->last_send_time = MyLogicalRepWorker->last_recv_time =
 		MyLogicalRepWorker->reply_time = GetCurrentTimestamp();
 
-	/* Load the libpq-specific functions */
+	/* 装载 libpq 专用函数         */
 	load_file("libpqwalreceiver", false);
 
 	InitializeApplyWorker();
 
 	/*
-	 * Register a callback to reset the origin state before aborting any
-	 * pending transaction during shutdown (see ShutdownPostgres()). This will
-	 * avoid origin advancement for an in-complete transaction which could
-	 * otherwise lead to its loss as such a transaction won't be sent by the
-	 * server again.
+	 * 注册一个回调，在关闭期间中止任何未完成        
+	 * 事务前重置复制源状态（参见 ShutdownPostgres()）。这    
+	 * 可以避免对未完成事务推进复制源，否则该事务    
+	 * 可能因此丢失，因为这样的事务不会被服务器再次   
+	 * 发送。    
 	 *
-	 * Note that even a LOG or DEBUG statement placed after setting the origin
-	 * state may process a shutdown signal before committing the current apply
-	 * operation. So, it is important to register such a callback here.
+	 * 注意，即便是在设置复制源状态之后放置的 LOG 或      
+	 * DEBUG 语句，也可能在提交当前应用操作之前就处理     
+	 * 关闭信号。因此在此注册这样的回调很重要。    
 	 */
 	before_shmem_exit(replorigin_reset, (Datum) 0);
 
 	InitializingApplyWorker = false;
 
-	/* Connect to the origin and start the replication. */
+	/* 连接到复制源并开始复制。             */
 	elog(DEBUG1, "connecting to publisher using connection string \"%s\"",
 		 MySubscription->conninfo);
 
@@ -4612,7 +4612,7 @@ ApplyWorkerMain(Datum main_arg)
 	}
 	else
 	{
-		/* This is the leader apply worker */
+		/* 即领导者应用工作进程  */
 		RepOriginId originid;
 		TimeLineID	startpointTLI;
 		char	   *err;
@@ -4621,16 +4621,16 @@ ApplyWorkerMain(Datum main_arg)
 		myslotname = MySubscription->slotname;
 
 		/*
-		 * This shouldn't happen if the subscription is enabled, but guard
-		 * against DDL bugs or manual catalog changes.  (libpqwalreceiver will
-		 * crash if slot is NULL.)
+		 * 若订阅已启用则本不应发生，但仍需防范         
+		 * DDL 缺陷或手工改动系统表。（libpqwalreceiver 在槽为 
+		 * NULL 会崩溃。）   
 		 */
 		if (!myslotname)
 			ereport(ERROR,
 					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 					 errmsg("subscription has no replication slot set")));
 
-		/* Setup replication origin tracking. */
+		/* 设置复制源跟踪。           */
 		StartTransactionCommand();
 		ReplicationOriginNameForLogicalRep(MySubscription->oid, InvalidOid,
 										   originname, sizeof(originname));
@@ -4641,11 +4641,11 @@ ApplyWorkerMain(Datum main_arg)
 		replorigin_session_origin = originid;
 		origin_startpos = replorigin_session_get_progress(false);
 
-		/* Is the use of a password mandatory? */
+		/* 是否必须使用密码？         */
 		must_use_password = MySubscription->passwordrequired &&
 			!superuser_arg(MySubscription->owner);
 
-		/* Note that the superuser_arg call can access the DB */
+		/* 注意 superuser_arg 调用可以访问 DB         */
 		CommitTransactionCommand();
 
 		LogRepWorkerWalRcvConn = walrcv_connect(MySubscription->conninfo, true,
@@ -4657,8 +4657,8 @@ ApplyWorkerMain(Datum main_arg)
 					 errmsg("could not connect to the publisher: %s", err)));
 
 		/*
-		 * We don't really use the output identify_system for anything but it
-		 * does some initializations on the upstream so let's still call it.
+		 * 我们其实并不使用 identify_system 的输出，但它会在 
+		 * 上游做一些初始化，所以我们仍然调用它。        
 		 */
 		(void) walrcv_identify_system(LogRepWorkerWalRcvConn, &startpointTLI);
 
@@ -4666,14 +4666,14 @@ ApplyWorkerMain(Datum main_arg)
 	}
 
 	/*
-	 * Setup callback for syscache so that we know when something changes in
-	 * the subscription relation state.
+	 * 为 syscache 设置回调，以便知道订阅关系状态何时发  
+	 * 生变化。                    
 	 */
 	CacheRegisterSyscacheCallback(SUBSCRIPTIONRELMAP,
 								  invalidate_syncing_table_states,
 								  (Datum) 0);
 
-	/* Build logical replication streaming options. */
+	/* 构建逻辑复制流式选项。            */
 	options.logical = true;
 	options.startpoint = origin_startpos;
 	options.slotname = myslotname;
@@ -4689,8 +4689,8 @@ ApplyWorkerMain(Datum main_arg)
 	options.proto.logical.binary = MySubscription->binary;
 
 	/*
-	 * Assign the appropriate option value for streaming option according to
-	 * the 'streaming' mode and the publisher's ability to support that mode.
+	 * 为 streaming 选项分配合适的选项值：依据                
+	 * 'streaming' 模式以及发布者对该模式的支持能力。       
 	 */
 	if (server_version >= 160000 &&
 		MySubscription->stream == LOGICALREP_STREAM_PARALLEL)
@@ -4716,26 +4716,26 @@ ApplyWorkerMain(Datum main_arg)
 	if (!am_tablesync_worker())
 	{
 		/*
-		 * Even when the two_phase mode is requested by the user, it remains
-		 * as the tri-state PENDING until all tablesyncs have reached READY
-		 * state. Only then, can it become ENABLED.
+		 * 即使用户已要求 two_phase 模式，它仍会保持三态   
+		 * PENDING，直到所有表同步都到达 READY 状态。        
+		 * 此后才能变为 ENABLED。           
 		 *
-		 * Note: If the subscription has no tables then leave the state as
-		 * PENDING, which allows ALTER SUBSCRIPTION ... REFRESH PUBLICATION to
+		 * 注意：若订阅没有表，则将状态保留为            
+		 * PENDING，这样 ALTER SUBSCRIPTION ... REFRESH PUBLICATION        
 		 * work.
 		 */
 		if (MySubscription->twophasestate == LOGICALREP_TWOPHASE_STATE_PENDING &&
 			AllTablesyncsReady())
 		{
-			/* Start streaming with two_phase enabled */
+			/* 启用 two_phase 开始流式传输。 */
 			options.proto.logical.twophase = true;
 			walrcv_startstreaming(LogRepWorkerWalRcvConn, &options);
 
 			StartTransactionCommand();
 
 			/*
-			 * Updating pg_subscription might involve TOAST table access, so
-			 * ensure we have a valid snapshot.
+			 * 更新 pg_subscription 可能涉及 TOAST 表访问，因此 
+			 * 确保拥有有效快照。     
 			 */
 			PushActiveSnapshot(GetTransactionSnapshot());
 
@@ -4759,26 +4759,26 @@ ApplyWorkerMain(Datum main_arg)
 	}
 	else
 	{
-		/* Start normal logical streaming replication. */
+		/* 开始常规逻辑流式复制。           */
 		walrcv_startstreaming(LogRepWorkerWalRcvConn, &options);
 	}
 
-	/* Run the main loop. */
+	/* 运行主循环。 */
 	start_apply(origin_startpos);
 
 	proc_exit(0);
 }
 
 /*
- * After error recovery, disable the subscription in a new transaction
- * and exit cleanly.
+ * 从错误中恢复后，在新事务中禁用订阅，然后       
+ * 干净退出。  
  */
 static void
 DisableSubscriptionAndExit(void)
 {
 	/*
-	 * Emit the error message, and recover from the error state to an idle
-	 * state
+	 * 发出错误消息，并从错误状态恢复到空闲状态       
+	 *      
 	 */
 	HOLD_INTERRUPTS();
 
@@ -4788,16 +4788,16 @@ DisableSubscriptionAndExit(void)
 
 	RESUME_INTERRUPTS();
 
-	/* Report the worker failed during either table synchronization or apply */
+	/* 报告工作进程在表同步或应用期间失败                   */
 	pgstat_report_subscription_error(MyLogicalRepWorker->subid,
 									 !am_tablesync_worker());
 
-	/* Disable the subscription */
+	/* 禁用订阅             */
 	StartTransactionCommand();
 
 	/*
-	 * Updating pg_subscription might involve TOAST table access, so ensure we
-	 * have a valid snapshot.
+	 * 更新 pg_subscription 可能涉及 TOAST 表访问，因此确保     
+	 * 拥有有效快照。 
 	 */
 	PushActiveSnapshot(GetTransactionSnapshot());
 
@@ -4805,11 +4805,11 @@ DisableSubscriptionAndExit(void)
 	PopActiveSnapshot();
 	CommitTransactionCommand();
 
-	/* Ensure we remove no-longer-useful entry for worker's start time */
+	/* 确保移除工作进程启动时间不再有用的条目       */
 	if (!am_tablesync_worker() && !am_parallel_apply_worker())
 		ApplyLauncherForgetWorkerStartTime(MyLogicalRepWorker->subid);
 
-	/* Notify the subscription has been disabled and exit */
+	/* 通知订阅已被禁用并退出                  */
 	ereport(LOG,
 			errmsg("subscription \"%s\" has been disabled because of an error",
 				   MySubscription->name));
@@ -4818,7 +4818,7 @@ DisableSubscriptionAndExit(void)
 }
 
 /*
- * Is current process a logical replication worker?
+ * 本进程是否为逻辑复制工作进程？   
  */
 bool
 IsLogicalWorker(void)
@@ -4827,7 +4827,7 @@ IsLogicalWorker(void)
 }
 
 /*
- * Is current process a logical replication parallel apply worker?
+ * 本进程是否为逻辑复制并行应用工作进程？      
  */
 bool
 IsLogicalParallelApplyWorker(void)
@@ -4836,8 +4836,8 @@ IsLogicalParallelApplyWorker(void)
 }
 
 /*
- * Start skipping changes of the transaction if the given LSN matches the
- * LSN specified by subscription's skiplsn.
+ * 若给定 LSN 与订阅的 skiplsn 所指定的 LSN 匹配，则开   
+ * 始跳过该事务的变更。          
  */
 static void
 maybe_start_skipping_changes(XLogRecPtr finish_lsn)
@@ -4847,15 +4847,15 @@ maybe_start_skipping_changes(XLogRecPtr finish_lsn)
 	Assert(!in_streamed_transaction);
 
 	/*
-	 * Quick return if it's not requested to skip this transaction. This
-	 * function is called for every remote transaction and we assume that
-	 * skipping the transaction is not used often.
+	 * 若未要求跳过该事务，则快速返回。本函数会     
+	 * 为每个远端事务调用，我们假定跳过事务并         
+	 * 不常用。                               
 	 */
 	if (likely(XLogRecPtrIsInvalid(MySubscription->skiplsn) ||
 			   MySubscription->skiplsn != finish_lsn))
 		return;
 
-	/* Start skipping all changes of this transaction */
+	/* 开始跳过该事务的全部变更           */
 	skip_xact_finish_lsn = finish_lsn;
 
 	ereport(LOG,
@@ -4864,7 +4864,7 @@ maybe_start_skipping_changes(XLogRecPtr finish_lsn)
 }
 
 /*
- * Stop skipping changes by resetting skip_xact_finish_lsn if enabled.
+ * 若启用，重置 skip_xact_finish_lsn 以停止跳过变更。   
  */
 static void
 stop_skipping_changes(void)
@@ -4876,17 +4876,17 @@ stop_skipping_changes(void)
 			(errmsg("logical replication completed skipping transaction at LSN %X/%X",
 					LSN_FORMAT_ARGS(skip_xact_finish_lsn))));
 
-	/* Stop skipping changes */
+	/* 停止跳过变更    */
 	skip_xact_finish_lsn = InvalidXLogRecPtr;
 }
 
 /*
- * Clear subskiplsn of pg_subscription catalog.
+ * 清除 pg_subscription 的 subskiplsn。    
  *
- * finish_lsn is the transaction's finish LSN that is used to check if the
- * subskiplsn matches it. If not matched, we raise a warning when clearing the
- * subskiplsn in order to inform users for cases e.g., where the user mistakenly
- * specified the wrong subskiplsn.
+ * finish_lsn 是事务的结束 LSN，用于检查 subskiplsn 是否     
+ * 与其匹配。若不匹配，我们在清除 subskiplsn 时会发出      
+ * 警告，以便用户知悉诸如用户误设了错误的                    
+ * subskiplsn 这类情形。     
  */
 static void
 clear_subscription_skip_lsn(XLogRecPtr finish_lsn)
@@ -4907,21 +4907,21 @@ clear_subscription_skip_lsn(XLogRecPtr finish_lsn)
 	}
 
 	/*
-	 * Updating pg_subscription might involve TOAST table access, so ensure we
-	 * have a valid snapshot.
+	 * 更新 pg_subscription 可能涉及 TOAST 表访问，因此确保     
+	 * 拥有有效快照。 
 	 */
 	PushActiveSnapshot(GetTransactionSnapshot());
 
 	/*
-	 * Protect subskiplsn of pg_subscription from being concurrently updated
-	 * while clearing it.
+	 * 防止 pg_subscription 的 subskiplsn 在清除期间被             
+	 * 并发更新。   
 	 */
 	LockSharedObject(SubscriptionRelationId, MySubscription->oid, 0,
 					 AccessShareLock);
 
 	rel = table_open(SubscriptionRelationId, RowExclusiveLock);
 
-	/* Fetch the existing tuple. */
+	/* 获取既有元组。     */
 	tup = SearchSysCacheCopy1(SUBSCRIPTIONOID,
 							  ObjectIdGetDatum(MySubscription->oid));
 
@@ -4931,15 +4931,15 @@ clear_subscription_skip_lsn(XLogRecPtr finish_lsn)
 	subform = (Form_pg_subscription) GETSTRUCT(tup);
 
 	/*
-	 * Clear the subskiplsn. If the user has already changed subskiplsn before
-	 * clearing it we don't update the catalog and the replication origin
-	 * state won't get advanced. So in the worst case, if the server crashes
-	 * before sending an acknowledgment of the flush position the transaction
-	 * will be sent again and the user needs to set subskiplsn again. We can
-	 * reduce the possibility by logging a replication origin WAL record to
-	 * advance the origin LSN instead but there is no way to advance the
-	 * origin timestamp and it doesn't seem to be worth doing anything about
-	 * it since it's a very rare case.
+	 * 清除 subskiplsn。若用户在清除之前已改过 subskiplsn，    
+	 * 则不会更新系统表，复制源状态也不会推进。      
+	 * 因此最坏情况下，若服务器在发送刷盘位置的确认   
+	 * 之前崩溃，事务会被再次发送，用户需要重新设置    
+	 * subskiplsn。我们可以通过记录一条复制源 WAL 记录来   
+	 * 推进复制源 LSN 来降低这种可能性，但无法推进      
+	 * 复制源时间戳，为此做些什么似乎并不值得，     
+	 * 因为这是一种非常罕见的                                    
+	 * 情况。                      
 	 */
 	if (subform->subskiplsn == myskiplsn)
 	{
@@ -4951,7 +4951,7 @@ clear_subscription_skip_lsn(XLogRecPtr finish_lsn)
 		memset(nulls, false, sizeof(nulls));
 		memset(replaces, false, sizeof(replaces));
 
-		/* reset subskiplsn */
+		/* 重置 subskiplsn*/
 		values[Anum_pg_subscription_subskiplsn - 1] = LSNGetDatum(InvalidXLogRecPtr);
 		replaces[Anum_pg_subscription_subskiplsn - 1] = true;
 
@@ -4976,7 +4976,7 @@ clear_subscription_skip_lsn(XLogRecPtr finish_lsn)
 		CommitTransactionCommand();
 }
 
-/* Error callback to give more context info about the change being applied */
+/* 错误回调，提供有关正在应用的变更的更多上下文信息*/
 void
 apply_error_callback(void *arg)
 {
@@ -5048,7 +5048,7 @@ apply_error_callback(void *arg)
 	}
 }
 
-/* Set transaction information of apply error callback */
+/* 设置应用错误回调的事务信息             */
 static inline void
 set_apply_error_context_xact(TransactionId xid, XLogRecPtr lsn)
 {
@@ -5056,7 +5056,7 @@ set_apply_error_context_xact(TransactionId xid, XLogRecPtr lsn)
 	apply_error_callback_arg.finish_lsn = lsn;
 }
 
-/* Reset all information of apply error callback */
+/* 重置应用错误回调的全部信息       */
 static inline void
 reset_apply_error_context_info(void)
 {
@@ -5067,11 +5067,11 @@ reset_apply_error_context_info(void)
 }
 
 /*
- * Request wakeup of the workers for the given subscription OID
- * at commit of the current transaction.
+ * 请求在当前事务提交时唤醒给定订阅 OID 的    
+ * 各工作进程。                   
  *
- * This is used to ensure that the workers process assorted changes
- * as soon as possible.
+ * 此举用于确保各工作进程尽快处理各类             
+ * 变更。           
  */
 void
 LogicalRepWorkersWakeupAtCommit(Oid subid)
@@ -5085,7 +5085,7 @@ LogicalRepWorkersWakeupAtCommit(Oid subid)
 }
 
 /*
- * Wake up the workers of any subscriptions that were changed in this xact.
+ * 唤醒本事务中发生过变更的任何订阅的工作进程。      
  */
 void
 AtEOXact_LogicalRepWorkers(bool isCommit)
@@ -5112,12 +5112,12 @@ AtEOXact_LogicalRepWorkers(bool isCommit)
 		LWLockRelease(LogicalRepWorkerLock);
 	}
 
-	/* The List storage will be reclaimed automatically in xact cleanup. */
+	/* List 存储会在事务清理时被自动回收。                */
 	on_commit_wakeup_workers_subids = NIL;
 }
 
 /*
- * Allocate the origin name in long-lived context for error context message.
+ * 为错误上下文消息，在长生命周期上下文分配复制源名 
  */
 void
 set_apply_error_context_origin(char *originname)
@@ -5127,12 +5127,12 @@ set_apply_error_context_origin(char *originname)
 }
 
 /*
- * Return the action to be taken for the given transaction. See
- * TransApplyAction for information on each of the actions.
+ * 返回给定事务要采取的行动。各项行动的      
+ * 信息参见 TransApplyAction。                        
  *
- * *winfo is assigned to the destination parallel worker info when the leader
- * apply worker has to pass all the transaction's changes to the parallel
- * apply worker.
+ * *当领导者应用工作进程需要把事务的全部变更交给并行 
+ * 应用工作进程时，*winfo 会被设为目标并行工作进程   
+ * 信息。    
  */
 static TransApplyAction
 get_transaction_apply_action(TransactionId xid, ParallelApplyWorkerInfo **winfo)
@@ -5145,10 +5145,10 @@ get_transaction_apply_action(TransactionId xid, ParallelApplyWorkerInfo **winfo)
 	}
 
 	/*
-	 * If we are processing this transaction using a parallel apply worker
-	 * then either we send the changes to the parallel worker or if the worker
-	 * is busy then serialize the changes to the file which will later be
-	 * processed by the parallel worker.
+	 * 若我们用并行应用工作进程处理该事务，则要么    
+	 * 把变更发送给并行工作进程，若该工作进程繁忙，     
+	 * 则把变更序列化到文件，稍后再由并行工作进程   
+	 * 加以处理。                  
 	 */
 	*winfo = pa_find_worker(xid);
 
@@ -5162,10 +5162,10 @@ get_transaction_apply_action(TransactionId xid, ParallelApplyWorkerInfo **winfo)
 	}
 
 	/*
-	 * If there is no parallel worker involved to process this transaction
-	 * then we either directly apply the change or serialize it to a file
-	 * which will later be applied when the transaction finish message is
-	 * processed.
+	 * 若没有并行工作进程参与处理此事务，则要么直接 
+	 * 应用该变更，要么将其序列化到文件，稍后         
+	 * 会在事务结束消息得到处理时再                        
+	 * 应用。 
 	 */
 	else if (in_streamed_transaction)
 	{

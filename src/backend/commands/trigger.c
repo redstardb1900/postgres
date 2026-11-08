@@ -5341,7 +5341,7 @@ AfterTriggerBeginSubXact(void)
 	/*
 	 * 如有需要，在 trans_stack 中分配更多空间。（注意，  
 	 * 由于子事务的最小嵌套级别为 2，我们会浪费数组     
-	 * 的前几个条目；不值得费记号功夫去避免它。       
+	 * 的前几个条目；不值得费记法功夫去避免它。       
 	 */
 	while (my_level >= afterTriggers.maxtransdepth)
 	{

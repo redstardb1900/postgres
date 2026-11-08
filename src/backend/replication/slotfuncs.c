@@ -126,7 +126,7 @@ create_logical_replication_slot(char *name, char *plugin,
 
 	/*
 	 * 获取逻辑解码槽，这一操作会检查名称冲突。           
-	 * 初始将持久槽作为临时槽创建——这样我们能     
+	 * 初始将持久槽作为瞬态槽创建——这样我们能     
 	 * 漂亮地处理初始化期间的错误，因为事务失败时它会  
 	 * 被删除。最后我们会使其变为持久。临时槽则可以    
 	 * 从一开始就作为临时槽创建，因为它们出错时同样     
@@ -143,7 +143,7 @@ create_logical_replication_slot(char *name, char *plugin,
 	 * 此处，输出插件得到验证。           
 	 */
 	ctx = CreateInitDecodingContext(plugin, NIL,
-									false,	/* 仅需目录即可  */
+									false,	/* 仅系统表即可  */
 									restart_lsn,
 									XL_ROUTINE(.page_read = read_local_xlog_page,
 											   .segment_open = wal_segment_open,
@@ -464,7 +464,7 @@ pg_physical_replication_slot_advance(XLogRecPtr moveto)
  *
  * 我们无法只用 LogicalConfirmReceivedLocation 更新 confirmed_flush，
  * 因为我们需要消化 WAL 来推进 restart_lsn，从而允许回收 
- * WAL 并移除旧的目录元组。由于解码以 fast_forward 模式      
+ * WAL 并移除旧的系统表元组。由于解码以 fast_forward 模式   
  * 进行，反正不会生成变更。  
  */
 static XLogRecPtr

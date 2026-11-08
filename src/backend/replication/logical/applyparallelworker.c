@@ -16,7 +16,7 @@
  *
  * 对于将 'streaming' 选项设为 parallel 的订阅，只要          
  * 收到事务的第一个流就会分配并行应用工作进程（若     
- * 有可用的工作进程）。领导应用工作进程经共享内存    
+ * 有可用的工作进程）。领导者应用工作进程经共享内存 
  * 向这个新工作进程发送变更。我们会让该工作进程保持分
  * 配，直到收到事务提交并在提交时等待它完成。这样既 
  * 能保持提交顺序并避免文件 I/O，尽管在没有可用       
@@ -43,7 +43,7 @@
  * XXX 工作进程池阈值是随意定的，如有需要，将来    
  * 可为此提供一个 GUC 变量。         
  *
- * 领导应用工作进程会在每个并行应用工作进程启动时创建 
+ * 领导者应用工作进程在每个并行应用工作进程启动时创建 
  * 单独的动态共享内存段。这样设计是因为我们无法预测  
  * 需要多少工作进程。虽然或许能根据并行应用工作进程
  * 的最大数量（max_parallel_apply_workers_per_subscription）在一个  
@@ -51,10 +51,10 @@
  * 程，这会浪费内存。                               
  *
  * 动态共享内存段包含：(a) 一个 shm_mq，用于从事务中把 
- * 变更从领导应用工作进程发送给并行应用工作进程；     
+ * 变更从领导者应用工作进程发送给并行应用工作进程；  
  * (b) 另一个 shm_mq，用于从并行应用工作进程向领导应用工
  * 作进程发送错误及其他经 elog/ereport 报告的消息；        
- * (c) 并行应用工作进程与领导应用工作进程间需要共享的  
+ * (c) 并行应用工作进程与领导者应用工作进程间需要共享  
  * 必要信息（即 ParallelApplyWorkerShared 的成员）。            
  *
  * 锁注意事项       
@@ -76,7 +76,7 @@
  * 而在订阅者上有唯一键。这种情况下，死锁可能按以下    
  * 方式发生：    
  *
- * 1) 领导应用工作进程与并行应用工作进程间的死锁     
+ * 1) 领导者应用工作进程与并行应用工作进程间的死锁  
  *
  * 设想并行应用工作进程（PA）正执行 TX-1，领导应用工
  * 作进程（LA）则在订阅者上并发地执行 TX-2。这时，由于 
@@ -102,7 +102,7 @@
  * 就能在 lmgr 中得到 PA 到 LA 的等待边，从而可检测出 
  *  LA 与 PA 间的死锁。 
  *
- * 2) 领导应用工作进程与多个并行应用工作进程的死锁 
+ * 2) 领导者应用工作进程与多个并行应用工作进程死锁 
  *
  * 这种场景与第一种情况类似，但 TX-1 和 TX-2 这次是由两    
  * 个并行应用工作进程（PA-1 和 PA-2）执行的。在这个场景 
@@ -197,7 +197,7 @@
 /*
  * 并行应用工作进程收到的每条消息都包含三个字段：
  * start_lsn、end_lsn 和 send_time。由于这些统计信息已        
- * 在领导应用工作进程中更新过，因此并行应用工作进程
+ * 在领导者应用工作进程中更新，因此并行应用工作进程
  * 可忽略这些字段（见 LogicalRepApplyLoop）。    
  */
 #define SIZE_STATS_MESSAGE (2 * sizeof(XLogRecPtr) + sizeof(TimestampTz))
@@ -234,13 +234,13 @@ static HTAB *ParallelApplyTxnHash = NULL;
 static List *ParallelApplyWorkerPool = NIL;
 
 /*
- * 领导应用工作进程与并行应用工作进程间共享的信息。 
+ * 领导者应用工作进程与并行应用工作进程间共享信息。 
  */
 ParallelApplyWorkerShared *MyParallelShared = NULL;
 
 /*
- * 并行应用工作进程是否发送了领导应用工作进程需要接
- * 收的消息？         
+ * 并行应用工作进程是否发送了领导者应用工作进程需要
+ * 接收的消息？      
  */
 volatile sig_atomic_t ParallelApplyMessagePending = false;
 
@@ -565,7 +565,7 @@ pa_free_worker(ParallelApplyWorkerInfo *winfo)
 	/*
 	 * 若池中有足够多工作进程，则停止它。     
 	 *
-	 * XXX 另外，若领导应用工作进程因发送超时而序列化 
+	 * XXX 另外，若领导者应用工作进程因发送超时序列化 
 	 * 了部分事务数据，则也会停止该工作进程。            
 	 * 因为消息可能只写入了一部分到队列中，且除了      
 	 * 反复重发消息直到成功以外，没有其他清理队列的办 
@@ -649,7 +649,7 @@ pa_has_spooled_message_pending()
 }
 
 /*
- * 领导应用工作进程完成变更序列化到文件后，即重放
+ * 领导者应用工作进程完成变更序列化到文件后，重放
  * 这些暂存消息。           
  *
  * 如果没有待处理的暂存消息则返回 false，否则返回 true。 
@@ -665,7 +665,7 @@ pa_process_spooled_messages_if_required(void)
 		return false;
 
 	/*
-	 * 若领导应用工作进程正忙于序列化部分变更，请立即  
+	 * 若领导者应用工作进程正忙于序列化部分变更，立即  
 	 * 获取流锁并等待领导工作进程完成序列化变更。     
 	 * 否则，并行应用工作进程将没有机会接收                 
 	 *  STREAM_STOP（也就无法获取流锁），直到领导者序列化
@@ -779,7 +779,7 @@ LogicalParallelApplyLoop(shm_mq_handle *mqh)
 			s.len = len;
 
 			/*
-			 * 领导应用工作进程发给并行应用工作进程的  
+			 * 领导者应用工作进程发给并行应用工作进程  
 			 * 消息，其首字节只能是 'w'。  
 			 */
 			c = pq_getmsgbyte(&s);
@@ -787,10 +787,10 @@ LogicalParallelApplyLoop(shm_mq_handle *mqh)
 				elog(ERROR, "unexpected message \"%c\"", c);
 
 			/*
-			 * 忽略由领导应用工作进程更新过的统计信息字 
+			 * 忽略领导者应用工作进程更新过的统计信息字 
 			 * 段。       
 			 *
-			 * XXX 可以不从领导应用工作进程发送统计信息    
+			 * XXX 可以不从领导者应用工作进程发送统计信息 
 			 * 字段，但为此它需要重建整条                  
 			 * 消息并剔除这些字段，而这可能比在并行应用  
 			 * 工作进程中忽略这些字段更省事。             
@@ -836,7 +836,7 @@ LogicalParallelApplyLoop(shm_mq_handle *mqh)
 }
 
 /*
- * 确保领导应用工作进程会再尝试从我们的错误队列读取     
+ * 确保领导者应用工作进程会再尝试从我们的错误队列读取  
  * 一次。这可以防范这样一种情况：我们未发送              
  *  ErrorResponse 就非正常退出，例如某些代码直接调用了    
  *
@@ -918,7 +918,7 @@ ParallelApplyWorkerMain(Datum main_arg)
 
 	/*
 	 * 主初始化已完成。现在可以附加到自己的槽位了。 
-	 * 这样才能确保领导应用工作进程不会向未初始化的内
+	 * 这样能确保领导者应用工作进程不会向未初始化的内
 	 * 存队列中写入数据。    
 	 */
 	logicalrep_worker_attach(worker_slot);
@@ -1286,7 +1286,7 @@ pa_wait_for_xact_finish(ParallelApplyWorkerInfo *winfo)
 	/*
 	 * 等待并行应用工作进程把状态设置为     
 	 *  PARALLEL_TRANS_STARTED，这意味着它已获取了事务锁。 
-	 * 这样做是为了防止领导应用工作进程比并行应用
+	 * 这样是为了防止领导者应用工作进程比并行应用
 	 * 工作进程更早地获取事务锁。                 
 	 */
 	pa_wait_for_xact_state(winfo, PARALLEL_TRANS_STARTED);
@@ -1622,7 +1622,7 @@ pa_decr_and_wait_stream_block(void)
 }
 
 /*
- * 在领导应用工作进程中完成流式事务的处理。           
+ * 在领导者应用工作进程中完成流式事务的处理。        
  */
 void
 pa_xact_finish(ParallelApplyWorkerInfo *winfo, XLogRecPtr remote_lsn)

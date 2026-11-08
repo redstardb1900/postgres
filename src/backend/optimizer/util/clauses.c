@@ -857,7 +857,7 @@ max_parallel_hazard_walker(Node *node, max_parallel_hazard_context *context)
 	}
 
 	/*
-	 * 作为对调用方的记号便利，看穿 RestrictInfo。
+	 * 作为对调用方的记法便利，看穿 RestrictInfo。
 	 */
 	else if (IsA(node, RestrictInfo))
 	{

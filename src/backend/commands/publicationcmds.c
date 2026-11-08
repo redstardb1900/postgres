@@ -61,7 +61,7 @@
  */
 typedef struct rf_context
 {
-	Bitmapset  *bms_replident;	/* 副本标识列的位集 */
+	Bitmapset  *bms_replident;	/* 复制标识列的位集 */
 	bool		pubviaroot;		/* 验证父关系的行过滤器
 								  * 则为 true */
 	Oid			relid;			/* 关系的 relid */
@@ -235,7 +235,7 @@ contain_invalid_rfcolumn_walker(Node *node, rf_context *context)
 
 		/*
 		  * 若 pubviaroot 为 true，在验证父表的行过滤器，
-		  * 但位图含子表的副本标识信息。
+		  * 但位图含子表的复制标识信息。
 		  * 需获取子表列号，
 		  * 因父表和子表列顺序可能不同。
 		 */
@@ -335,7 +335,7 @@ pub_rf_contains_invalid_column(Oid pubid, Relation relation, List *ancestors,
   * 检查 REPLICA IDENTITY 中引用的所有列是否被
   * 列列表覆盖。
   *
-  * 若有副本标识列未被列列表覆盖则返回 true。
+  * 若有复制标识列未被列列表覆盖则返回 true。
  */
 bool
 pub_collist_contains_invalid_column(Oid pubid, Relation relation, List *ancestors,
@@ -406,7 +406,7 @@ pub_collist_contains_invalid_column(Oid pubid, Relation relation, List *ancestor
 
 			/*
 			  * 若 pubviaroot 为 true，在验证父表的列列表，
-			  * 但位图含子表的副本标识信息。
+			  * 但位图含子表的复制标识信息。
 			  * 父/子 attnum 可能不匹配，需转换到父表——
 			  * 从子表获取 attname，在父表查找。
 			  *

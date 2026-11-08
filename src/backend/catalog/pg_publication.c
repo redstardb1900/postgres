@@ -496,7 +496,7 @@ compare_int16(const void *a, const void *b)
  * 把列名列表翻译为属性编号数组
  * 以及含有它们的 Bitmapset；验证每个属性适合出现在
  * 发布列列表中（无系统或生成属性，
- * 无重复）。与副本标识相关的额外检查稍后进行；
+ * 无重复）。与复制标识相关的额外检查稍后进行；
  * 见 pub_collist_contains_invalid_column。
  *
  * 注意属性编号*不*由

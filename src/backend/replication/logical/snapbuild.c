@@ -2,13 +2,13 @@
  *
  * snapbuild.c
  *
- *	  基于 WAL 内容构建历史目录快照的基础设施，用于       
+ *	  基于 WAL 内容构建历史系统表快照的基础设施，用于    
  *	  解码 heapam.c 风格的值。                                     
  *	  WAL.
  *
  * NOTES:
  *
- * 我们构建的快照*只能*用于读取目录内容，构建方式是    
+ * 我们构建的快照*只能*用于读取系统表内容，构建方式是 
  * 读取并解释 WAL 流。目标是构建行为与                     
  * XLogRecord 生成时新取得的 MVCC                                     
  * 快照相同的快照。                 
@@ -22,12 +22,12 @@
  * 因为与它们不同，我们无法完全依赖 clog 和 pg_subtrans      
  * 来获取已提交事务的信息，因为在我们当前正在解码的   
  *  WAL 记录的视角看来，它们可能在将来提交。这一 
- * 定义的优点是：我们只需阻止移除目录行，普通表的行
+ * 定义的优点：我们只需阻止移除系统表行，普通表的行
  * 仍可被移除。这一点的实现方式是采用            
  * 复制槽机制。                                                
  *
- * 由于修改目录的事务占比通常远小于只动用户数据的，  
- * 因此我们在 [xmin, xmax) 内跟踪已提交的目录修改事务，   
+ * 修改系统表的事务占比通常远小于只动用户数据的，     
+ * 因此我们在 [xmin, xmax) 内跟踪已提交的系统表修改事务，
  * 而不是像普通快照那样跟踪所有正在运行的事务。注意   
  * 我们一般只关注已获取 xid 的事务。也就是说，对          
  * snapshot->(xmin, xmax) 之间，我们维护一份视为已提交      
@@ -38,7 +38,7 @@
  * 等类似问题。                                   
  *
  * 复杂之处在于：例如处理 DDL/DML 混合事务时，     
- * 我们需要能看见事务中目录中间版本的快照。这靠  
+ * 需要能看见事务中系统表中间版本的快照。这靠     
  * CommandId/cmin/cmax 实现。但问题是为了节省空间，             
  * 的问题是只能存一个值（参见 combocid.c）。组合 CID   
  * 仅存于内存，故我们记录额外信息，   
@@ -50,7 +50,7 @@
  * 为支持这一切，我们需要自己的可见性例程，因为常规
  * 例程为其他场景做了优化。      
  *
- * 要将常规目录快照替换为解码快照，请使用         
+ * 要将常规系统表快照替换为解码快照，请使用      
  * SetupHistoricSnapshot() 与 TeardownHistoricSnapshot() 函数。 
  *
  *
@@ -182,11 +182,11 @@ struct SnapBuild
 	 */
 	TransactionId initial_xmin_horizon;
 
-	/* 指示正在构建的是完整快照还是仅目录快照。    */
+	/* 指示构建的是完整快照还是仅系统表快照。       */
 	bool		building_full_snapshot;
 
 	/*
-	 * 可在当前时刻有效查看目录状态的快照。             
+	 * 可在当前时刻有效查看系统表状态的快照。          
 	 */
 	Snapshot	snapshot;
 
@@ -208,7 +208,7 @@ struct SnapBuild
 	TransactionId next_phase_at;
 
 	/*
-	 * 可能有目录改动并已提交的事务位于 xmin 与 xmax       
+	 * 可能有系统表改动并已提交的事务位于 xmin 与 xmax    
 	 * 之间的数组。    
 	 */
 	struct
@@ -221,13 +221,13 @@ struct SnapBuild
 
 		/*
 		 * 达到 CONSISTENT 前，记录所有事务的提交，     
-		 * 而非仅目录改动事务。记录该转变发生的时点，   
+		 * 而非仅系统表改动事务。记录该转变发生的时点，
 		 * 以便知道从此再也无法安全导出快照。           
 		 */
 		bool		includes_all_transactions;
 
 		/*
-		 * 已修改目录的已提交事务所组成的数组。         
+		 * 已修改系统表的已提交事务所组成的数组。      
 		 *
 		 * 由于该数组频繁修改，我们*不*按 xidComparator 
 		 * 顺序保存，而是在构建与分发                       
@@ -244,17 +244,17 @@ struct SnapBuild
 	}			committed;
 
 	/*
-	 * 在快照被序列化时已修改目录且仍在运行的事务与  
+	 * 在快照序列化时已修改系统表且仍在运行的事务与  
 	 * 子事务的数组。                             
 	 *
 	 * 我们通常依赖 HEAP2_NEW_CID 等 WAL 记录类型来判断         
-	 * 事务是否改过目录。但可能在恢复先前序列化的     
+	 * 事务是否改过系统表。但可能在恢复先前序列化的  
 	 * 快照后，逻辑解码只见到该事务的提交记录，此时就 
-	 * 会漏掉将该 xid 加进快照，最终在查看目录时用了  
+	 * 会漏掉将 xid 加进快照，最终在查看系统表时用了  
 	 * 错误的快照。                                                
 	 * 为避免上述问题，我们   
 	 *
-	 * 会序列化已修改目录且在快照序列化时仍                
+	 * 会序列化已修改系统表且在快照序列化时仍             
 	 * 在运行的事务。恢复快照时我们填充此数组，然后 
 	 * 解码提交时参照它，确认相关事务是否修改过目        
 	 * 录。当列表中的所有 xid 都老到不再有影响的程度    
@@ -306,7 +306,7 @@ static void SnapBuildRestoreContents(int fd, char *dest, Size size, const char *
  * 分配新快照构建器。     
  *
  * xmin_horizon 是这样的 xid：大于等于它即可确保未移除     
- * 任何目录行；start_lsn 是要重放提交的 LSN。   
+ * 任何系统表行；start_lsn 是要重放提交的 LSN。
  */
 SnapBuild *
 AllocateSnapshotBuilder(ReorderBuffer *reorder,
@@ -474,10 +474,10 @@ SnapBuildSnapDecRefcount(Snapshot snap)
 }
 
 /*
- * 构建一个新快照，其基础是当前已提交的目录修改  
+ * 构建新快照，其基础是当前已提交的系统表修改     
  * 事务。    
  *
- * 进行中且访问过目录的事务*不*允许修改这些快照；    
+ * 进行中且访问过系统表的事务*不*允许修改这些快照； 
  * 它们必须复制快照并填入相应的 ->curcid 与                 
  * ->subxip/subxcnt 值。     
  */
@@ -502,16 +502,16 @@ SnapBuildBuildSnapshot(SnapBuild *builder)
 	 * 含义，使其更贴合需求。      
 	 *
 	 * 'xip' 数组中保存必须视为已提交的事务。由于我们 
-	 * 只查看来自改过目录的事务的元组，所以只需保存 
+	 * 只查看来自改过系统表的事务的元组，只需保存    
 	 *  xmin 与 xmax 之间存在的少数几个事务（常常一个      
 	 * 都没有）。                                              
 	 *
-	 * 被修改过目录的事务所用的快照还会使用 'subxip' 数组
+	 * 被修改过系统表的事务用的快照还会使用 'subxip' 数组
 	 * 来保存其顶层 xid 及全部子事务 xid，这样当某些行 
 	 * 虽不在 xip 中却仍需可见时，我们能识别出来。       
-	 * subxip 仅在快照被复制进目录修改事务的上下文时     
+	 * subxip 仅在快照被复制进系统表修改事务的上下文时  
 	 * 被填充，因为否则我们会                               
-	 * 在事务间共享快照。只要事务尚未修改过目录，  
+	 * 在事务间共享快照。只要事务未修改过系统表，  
 	 * 它就无需把任何未提交的行                                 
 	 * 视为可见，因此并不需要                                    
 	 * 这些 xid。       
@@ -536,7 +536,7 @@ SnapBuildBuildSnapshot(SnapBuild *builder)
 	qsort(snapshot->xip, snapshot->xcnt, sizeof(TransactionId), xidComparator);
 
 	/*
-	 * 初始时 subxip 为空，即这是给不修改目录         
+	 * 初始时 subxip 为空，即这是给不修改系统表      
 	 * 的事务用的快照。必要时由                         
 	 *  ReorderBufferCopySnap() 填充。   
 	 */
@@ -817,8 +817,8 @@ SnapBuildProcessNewCid(SnapBuild *builder, TransactionId xid,
 	CommandId	cid;
 
 	/*
-	 * 只有目录元组被修改才记录 new_cid，故把事务标记 
-	 * 为包含目录改动。                       
+	 * 仅系统表元组被修改时记录 new_cid，故把事务标记 
+	 * 为包含系统表改动。                    
 	 */
 	ReorderBufferXidSetCatalogChanges(builder->reorder, xid, lsn);
 
@@ -846,9 +846,9 @@ SnapBuildProcessNewCid(SnapBuild *builder, TransactionId xid,
 
 /*
  * 为解码中且进行中的事务添加 Snapshot 与失效消息，   
- * 使它们能看到刚提交的事务所做的新目录内容。             
+ * 使它们能看到刚提交的事务所做的新系统表内容。          
  * 这样做是必需的，因为这些进行中的事务从现在起将使用 
- * 新目录内容（至少一切操作都需与更新后的目录          
+ * 新系统表内容（至少一切操作都需与更新后的系统表    
  * 内容兼容）。                                                     
  * 。               
  */
@@ -876,10 +876,10 @@ SnapBuildDistributeSnapshotAndInval(SnapBuild *builder, XLogRecPtr lsn, Transact
 		 * 会添加快照。                                          
 		 *
 		 * 同样，基础快照未设置的事务无需添加失效消息。  
-		 * 基础快照一旦建好，其中就包含改过目录的已提交  
-		 * 事务的 xid，从而反映新的目录内容。现有的       
-		 * 目录缓存在处理完改动目录事务的失效消息后，
-		 * 其实就已失效。                                            
+		 * 基础快照一旦建好，其中包含改过系统表的已提交  
+		 * 事务的 xid，从而反映新的系统表内容。现有的    
+		 * 系统表缓存在处理完改动系统表事务的失效消息
+		 * 后，其实就已失效。                                      
 		 * 这样能确保在解码期间构建出                     
 		 * 全新的缓存。                                         
 		 *
@@ -893,7 +893,7 @@ SnapBuildDistributeSnapshotAndInval(SnapBuild *builder, XLogRecPtr lsn, Transact
 
 		/*
 		 * 无需为已预备事务添加快照或失效消息，    
-		 * 因为它们不应看到新的目录内容。                
+		 * 因为它们不应看到新的系统表内容。             
 		 */
 		if (rbtxn_prepared(txn) || rbtxn_skip_prepared(txn))
 			continue;
@@ -916,7 +916,7 @@ SnapBuildDistributeSnapshotAndInval(SnapBuild *builder, XLogRecPtr lsn, Transact
 		 *
 		 * 这是必需的，否则最终会用到陈旧的 catcache 内容  
 		 * ——由当前事务构建的内容，即便其解码已完成。
-		 * 本应因并发的目录改动事务                        
+		 * 本应因并发的系统表改动事务                     
 		 * 而失效。         
 		 *
 		 * 只分发由当前已提交事务所产生的那批失效消息。
@@ -947,7 +947,7 @@ SnapBuildDistributeSnapshotAndInval(SnapBuild *builder, XLogRecPtr lsn, Transact
 }
 
 /*
- * 记录一个新近提交的目录改动事务。                    
+ * 记录一个新近提交的系统表改动事务。                 
  */
 static void
 SnapBuildAddCommittedTxn(SnapBuild *builder, TransactionId xid)
@@ -974,7 +974,7 @@ SnapBuildAddCommittedTxn(SnapBuild *builder, TransactionId xid)
 }
 
 /*
- * 清除关于那些被视为已提交或包含目录改动、且小于 ->xmin   
+ * 清除关于那些被视为已提交或包含系统表改动、且小于 ->xmin
  * 的事务的信息。这些信息再也不会经 ->committed 或      
  * ->catchange 数组被检查。已提交的 xid 则由                      
  *  clog 机制检查。              

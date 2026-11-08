@@ -443,7 +443,7 @@ replorigin_drop_by_name(const char *name, bool missing_ok, bool nowait)
 	replorigin_state_clear(roident, nowait);
 
 	/*
-	 * 现在可以删除目录条目了。 
+	 * 现在可删除系统表条目了。 
 	 */
 	CatalogTupleDelete(rel, &tuple->t_self);
 	ReleaseSysCache(tuple);

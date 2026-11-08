@@ -1,0 +1,254 @@
+{
+ "schema_version": 1,
+ "batch_id": "0320-comment-term-consistency",
+ "title": "zh: term consistency sweep (catalog/leader/token/replica-identity/ephemeral/notation)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "7807d84d32586006086f9b136218be65c2cc92a2",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/catalog/pg_publication.c",
+   "kind": "c_comment",
+   "note": "term consistency sweep"
+  },
+  {
+   "pattern": "src/backend/commands/publicationcmds.c",
+   "kind": "c_comment",
+   "note": "term consistency sweep"
+  },
+  {
+   "pattern": "src/backend/commands/tablecmds.c",
+   "kind": "c_comment",
+   "note": "term consistency sweep"
+  },
+  {
+   "pattern": "src/backend/commands/trigger.c",
+   "kind": "c_comment",
+   "note": "term consistency sweep"
+  },
+  {
+   "pattern": "src/backend/commands/tsearchcmds.c",
+   "kind": "c_comment",
+   "note": "term consistency sweep"
+  },
+  {
+   "pattern": "src/backend/executor/execUtils.c",
+   "kind": "c_comment",
+   "note": "term consistency sweep"
+  },
+  {
+   "pattern": "src/backend/optimizer/plan/initsplan.c",
+   "kind": "c_comment",
+   "note": "term consistency sweep"
+  },
+  {
+   "pattern": "src/backend/optimizer/util/clauses.c",
+   "kind": "c_comment",
+   "note": "term consistency sweep"
+  },
+  {
+   "pattern": "src/backend/utils/mmgr/README",
+   "kind": "readme",
+   "note": "term consistency sweep"
+  },
+  {
+   "pattern": "src/backend/replication/logical/snapbuild.c",
+   "kind": "c_comment",
+   "note": "term consistency sweep"
+  },
+  {
+   "pattern": "src/backend/replication/logical/tablesync.c",
+   "kind": "c_comment",
+   "note": "term consistency sweep"
+  },
+  {
+   "pattern": "src/backend/replication/logical/launcher.c",
+   "kind": "c_comment",
+   "note": "term consistency sweep"
+  },
+  {
+   "pattern": "src/backend/replication/logical/origin.c",
+   "kind": "c_comment",
+   "note": "term consistency sweep"
+  },
+  {
+   "pattern": "src/backend/replication/slotfuncs.c",
+   "kind": "c_comment",
+   "note": "term consistency sweep"
+  },
+  {
+   "pattern": "src/backend/replication/logical/applyparallelworker.c",
+   "kind": "c_comment",
+   "note": "term consistency sweep"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0320-comment-term-consistency.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/catalog/pg_publication.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 86,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "副本标识->复制标识 x1 (phrasebook P67, byte-neutral; batch 0142b precedent)"
+  },
+  {
+   "path": "src/backend/commands/publicationcmds.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 139,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "副本标识->复制标识 x4, byte-neutral"
+  },
+  {
+   "path": "src/backend/commands/tablecmds.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1664,
+   "translated": 9,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "副本标识->复制标识 x9, byte-neutral; the half-EN mixed-prose lines :7463/:7485/:13376/:13431 got ONLY the term swap -- their faithfulness defect is a separate filed batch, not touched here"
+  },
+  {
+   "path": "src/backend/commands/trigger.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 478,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "记号->记法 x1 (:5344 EN 'notational effort' -- notation sense, NOT token; glossary 函数记法 precedent)"
+  },
+  {
+   "path": "src/backend/commands/tsearchcmds.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 132,
+   "translated": 8,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "记号->词元 x8, EN 'token' verified per site (glossary Token; clears the file's 8 P75 advisories)"
+  },
+  {
+   "path": "src/backend/executor/execUtils.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 121,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "记号->词元 x1 (:898 EN 'token offsets'; clears 1 P75)"
+  },
+  {
+   "path": "src/backend/optimizer/plan/initsplan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 339,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "记号->记法 x1 (:2007 EN 'the notation used by optimizer/README')"
+  },
+  {
+   "path": "src/backend/optimizer/util/clauses.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 452,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "记号->记法 x1 (:860 EN 'notational convenience' -- the ledger guess 'token convenience' was wrong; notation sense)"
+  },
+  {
+   "path": "src/backend/utils/mmgr/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "记号->记法 x1 (:65 EN 'too much notational overhead'; 4th notation site, found by post-surgery tree-wide sweep, outside the original 5-file ledger scope; README reflow-legal, 的 added to kill a misparse)"
+  },
+  {
+   "path": "src/backend/replication/logical/snapbuild.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 210,
+   "translated": 35,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "catalog 目录->系统表 x35 lines / x37 occurrences: the intra-file split (23 pre-existing 系统表 + 35 目录, all EN catalog) inherited from batch 0315; all 35 verified catalog-sense via EN same/next-line cross-check (11 wrap false-negatives confirmed); 12 lines need compensation function-word drops, 881/882 reflow pair (后， moves down; 882 pad 24); :820 只有..才 -> 仅..时 (only-if preserved); :185 spaces moved inside the */ closer after a first-pass R1_SKELETON catch"
+  },
+  {
+   "path": "src/backend/replication/logical/tablesync.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 125,
+   "translated": 9,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "catalog 目录->系统表 x9 (0314 NOTE2 deferred harmonization): :57/:58/:173 direct + the 6-line state ladder 在目录设 X -> 系统表设 X (在 dropped: byte-legal, ladder-terse style precedent 入等待循环/继续复制; CJK-Latin spacing preserved)"
+  },
+  {
+   "path": "src/backend/replication/logical/launcher.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 111,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "catalog 目录->系统表 x2 (:1092, :1128 建立[到]固定系统表的连接, 到-drop compensation) + leader unification x4 (:259 direct; :646 可以->可; :752 可-drop; :1250 reflow pair with :1249 -- 领导者 split across lines, in-word line-split precedent apw:242/243)"
+  },
+  {
+   "path": "src/backend/replication/logical/origin.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 112,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "catalog 目录->系统表 x1 (:446 现在可以->现在可 compensation; :686 EN 'file and directory' fs-sense kept)"
+  },
+  {
+   "path": "src/backend/replication/slotfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 68,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "ephemeral defect :129 临时槽->瞬态槽 (0316/0317 slot.c ruling; EN 'persistent slot as ephemeral'; byte-neutral) + catalog 目录->系统表 x2 (:146 仅需->仅 drop; :467 direct)"
+  },
+  {
+   "path": "src/backend/replication/logical/applyparallelworker.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 129,
+   "translated": 19,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "leader unification x19: 领导应用工作进程->领导者应用工作进程 (glossary L278 leader->领导者; 有者 form = committed worker.c/tablesync.c family; apw/launcher 无者 forms were the outliers). Compensation drops: :46 会, :57/:105/:237/:782 的, :200 过 (:199 已 carries the perfective), :568 而, :652 即, :668 请, :790 由, :921 才, :1289 做; direct pad>=3: :19/:54/:79/:793/:839/:1625; reflow pair :242/:243 (接 down to make 接收).  KEPT: :669/:675 领导工作进程 = EN 'leader worker' literal (0318 worker.c:274 verbatim precedent)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0320-comment-term-consistency.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  }
+ ],
+ "notes": "Consistency batch executing the deferred P2 ledger and campaign term rulings (user-selected direction at campaign completion): 100 sites, 103 edited lines (3 reflow partner lines included), 15 files.  NOT a spec/apply batch -- two-phase assert-guarded line surgery (phase 1: per-fragment count==1 asserts + byte-length preservation with trailing-pad balancing, nothing written on any assert failure; phase 2: write; phase 3: residue greps), with verify_c_comments as the byte-model authority.  Families: (A-token) 记号->词元 x9 (tsearchcmds x8, execUtils x1; EN token verified per site; glossary Token).  (A-notation) 记号->记法 x4 (trigger :5344 'notational effort', initsplan :2007 'the notation used by', clauses :860 'notational convenience' -- the ledger's 'token convenience' guess was wrong; mmgr/README :65 'notational overhead' found by the post-surgery tree sweep; glossary functional-notation 函数记法 precedent; 词元 would be wrong-sense).  (B) 副本标识->复制标识 x14 (phrasebook P67, byte-neutral, 0142b precedent; the tablecmds half-EN mixed-prose lines :7463/:7485/:13376/:13431 got ONLY the term swap -- their faithfulness defect is filed separately).  (C) ephemeral defect slotfuncs :129 临时槽->瞬态槽 (0316/0317 slot.c ruling; every other 临时槽 site EN-verified 'temporary' legal; slot.c :720 false positive already correct).  (D) catalog 目录->系统表 x35 snapbuild + x9 tablesync + x2 launcher + x1 origin + x2 slotfuncs = 49 lines / 51 occurrences (decode.c family anchor; the 0314 NOTE2 '12 sites' estimate was stale -- the census found 38 lines / 51 occurrences, the hidden bulk being snapbuild's intra-file split: 23 pre-existing 系统表 vs 35 目录, all EN catalog, inherited from batch 0315; all verified via EN same/next-line cross-check including 11 wrap false-negatives; fs-sense keeps enumerated and kept: slot.c x13, reorderbuffer x3 slot-directory, walreceiver :27 pg_wal, worker :37 tmp dir, apw :356 table-of-contents, origin :686 fsync-file-and-directory).  (E) 领导应用工作进程->领导者应用工作进程 x23 (apw 19 + launcher 4; glossary L278 leader->领导者; the 有者 form is the committed worker.c/tablesync.c family, apw/launcher were the outliers; 12 pad<3 sites need compensation function-word drops, 3 reflow pairs; 领导工作进程 x3 kept = EN 'leader worker' literal, 0318 verbatim precedent).  Post-surgery residue invariants: 记号 tree-wide zero except the historical 0308 manifest note; 副本标识 zero in src code; 领导应用工作进程 zero; replication catalog-目录 zero (census re-run); 领导者应用工作进程 42 sites (41 grep-visible lines, launcher :1249/:1250 splits the word across lines, in-word line-split precedent).  Two surgery-script bugs caught and fixed en route: the pad-strip branch misplaced 3 spaces outside the */ closer at snapbuild :185 (first verify run caught R1_SKELETON -- spaces moved inside the comment, total bytes preserved) and an off-by-one character slice in the fix itself.  Gates: verify 622 files 622 ok 0 violations; term 0 errors, 740 warnings = 749 baseline - 9 (exactly the 9 P75 token advisories cleared by the 词元 fixes, set-diff vs the 0319 baseline log; zero new rows); EN-residue check = full-diff manual review of all 103 lines (clean; render_scan N/A -- no dumps/specs for a surgical batch); audit = 103/103 line parity, sum(sites) 15 entries = 100; spec_check N/A (no specs); scope = this manifest only (checked after creation).  Out of scope, filed: tablecmds half-EN faithfulness batch, ENR-domain ephemeral unification, rendering-rule batch (spacing/emphasis/D2b labels), non-replication glossary-目录/系统目录 sites (757, glossary-conformant, campaign-level question)."
+}

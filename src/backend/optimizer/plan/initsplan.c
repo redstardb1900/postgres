@@ -2004,7 +2004,7 @@ deconstruct_distribute_oj_quals(PlannerInfo *root,
 			 * 形式变成第一种形式，其中关系 B 的 Var 会在
 			 * Pbc 子句里表现为被语法上更上层的 OJ
 			 * 置空，而关系 C 的则不会。（用
-			 * optimizer/README 的记号，就是把形如
+			 * optimizer/README 的记法，就是把形如
 			 * Pbc 的限定条件转换成 Pb*c。）当然，也必须从
 			 * incompatible_joins 的值里去掉该
 			 * 位，否则会做出一条哪里都放不了的限定条件。

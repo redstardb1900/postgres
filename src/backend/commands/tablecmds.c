@@ -7460,7 +7460,7 @@ ATExecDropNotNull(Relation rel, const char *colName, LOCKMODE lockmode)
 						colName, RelationGetRelationName(rel))));
 
 	/*
-	 * 检查 the 属性 is not in a 主键 or in an 索引 used as a 副本标识. Note: we'll throw
+	 * 检查 the 属性 is not in a 主键 or in an 索引 used as a 复制标识. Note: we'll throw
 	 * error even if the pkey 索引 is not valid.
 	 *
 	 *
@@ -7482,13 +7482,13 @@ ATExecDropNotNull(Relation rel, const char *colName, LOCKMODE lockmode)
 		indexStruct = (Form_pg_index) GETSTRUCT(indexTuple);
 
 		/*
-		 * If the 索引 is not a 主键 or an 索引 used as 副本标识, skip the check.
+		 * If the 索引 is not a 主键 or an 索引 used as 复制标识, skip the check.
 		 *
 		 */
 		if (indexStruct->indisprimary || indexStruct->indisreplident)
 		{
 			/*
-			 * 遍历主键或用作副本标识的索引中的每个属    
+			 * 遍历主键或用作复制标识的索引中的每个属    
 			 * 性，看看它是否与被修改的属性相              
 			 * 匹配。 
 			 */
@@ -13317,7 +13317,7 @@ ATExecAlterColumnType(AlteredTableInfo *tab, Relation rel,
 }
 
 /*
- * Subroutine for ATExecAlterColumnType: remember that a 副本标识 需要被 reset.
+ * Subroutine for ATExecAlterColumnType: remember that a 复制标识 需要被 reset.
  *
  */
 static void
@@ -13373,7 +13373,7 @@ RememberConstraintForRebuilding(Oid conoid, AlteredTableInfo *tab)
 											 defstring);
 
 		/*
-		 * For the 索引 of a 约束, 如有, remember if it 被使用 for the table's 副本标识 or if it
+		 * For the 索引 of a 约束, 如有, remember if it 被使用 for the table's 复制标识 or if it
 		 * is a clustered 索引, 从而 ATPostAlterTypeCleanup() can queue up commands
 		 * necessary to restore those properties.
 		 *
@@ -13428,7 +13428,7 @@ RememberIndexForRebuilding(Oid indoid, AlteredTableInfo *tab)
 											defstring);
 
 			/*
-			 * Remember if this 索引 被使用 for the table's 副本标识 or if it is a clustered 索引,
+			 * Remember if this 索引 被使用 for the table's 复制标识 or if it is a clustered 索引,
 			 * 从而 ATPostAlterTypeCleanup() can queue up commands necessary to restore
 			 * those properties.
 			 */
@@ -13608,7 +13608,7 @@ ATPostAlterTypeCleanup(List **wqueue, AlteredTableInfo *tab, LOCKMODE lockmode)
 	}
 
 	/*
-	 * Queue up command to restore 副本标识 索引 marking
+	 * Queue up command to restore 复制标识 索引 marking
 	 */
 	if (tab->replicaIdentityIndex)
 	{
@@ -16207,7 +16207,7 @@ ATExecDropOf(Relation rel, LOCKMODE lockmode)
 }
 
 /*
- * relation_mark_replica_identity：更新表的副本标识        
+ * relation_mark_replica_identity：更新表的复制标识        
  *
  * 仅当 ri_type = REPLICA_IDENTITY_INDEX 时，indexOid 必须是            
  * 适用索引 OID，否则 InvalidOid。 
@@ -16287,7 +16287,7 @@ relation_mark_replica_identity(Relation rel, char ri_type, Oid indexOid,
 
 			/*
 			 * Invalidate the relcache for the table, 从而 之后 we 提交 all 会话 will refresh
-			 * the table's 副本标识 索引 之前 attempting any UPDATE or DELETE on the table. (If
+			 * the table's 复制标识 索引 之前 attempting any UPDATE or DELETE on the table. (If
 			 * we changed the table's pg_class row 以上, then a relcache inval is 已经
 			 * queued due to that; but we might not have.)
 			 *

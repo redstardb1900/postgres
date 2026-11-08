@@ -895,7 +895,7 @@ UpdateChangedParamSet(PlanState *node, Bitmapset *newchg)
  * 我们必须把它们转换成从 1 开始的字符编号，以便   
  * 报告给客户端。（我们这样做是为了避免在正常      
  * 的非出错情形下付出不必要的开销：计算字符编号   
- * 比存记号偏移量贵得多。）  
+ * 比存词元偏移量贵得多。）  
  */
 int
 executor_errposition(EState *estate, int location)

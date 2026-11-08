@@ -51,8 +51,8 @@
 /* getTokenTypes() 返回的列表的单个条目   */
 typedef struct
 {
-	int			num;			/* 记号类型编号 */
-	char	   *name;			/* 记号类型名称 */
+	int			num;			/* 词元类型编号 */
+	char	   *name;			/* 词元类型名称 */
 } TSTokenTypeItem;
 
 static void MakeConfigurationMapping(AlterTSConfigurationStmt *stmt,
@@ -1005,7 +1005,7 @@ DefineTSConfiguration(List *names, List *parameters, ObjectAddress *copied)
 	if (OidIsValid(sourceOid))
 	{
 		/*
-		 * 从源配置复制记号-词典映射
+		 * 从源配置复制词元-词典映射
 		   */
 		ScanKeyData skey;
 		SysScanDesc scan;
@@ -1198,7 +1198,7 @@ AlterTSConfiguration(AlterTSConfigurationStmt *stmt)
 }
 
 /*
- * 检查记号类型名称是否是 TSTokenTypeItem 列表的成员。
+ * 检查词元类型名称是否是 TSTokenTypeItem 列表的成员。
    */
 static bool
 tstoken_list_member(char *token_name, List *tokens)
@@ -1221,7 +1221,7 @@ tstoken_list_member(char *token_name, List *tokens)
 }
 
 /*
- * 将记号类型名称列表转换为唯一的 TSTokenTypeItem 列表。
+ * 将词元类型名称列表转换为唯一的 TSTokenTypeItem 列表。
  *
  * 重复的条目列表将从 tokennames 中删除。
     */
@@ -1252,7 +1252,7 @@ getTokenTypes(Oid prsId, List *tokennames)
 		bool		found = false;
 		int			j;
 
-		/* 如果此记号已在结果中，则跳过  */
+		/* 如果此词元已在结果中，则跳过  */
 		if (tstoken_list_member(strVal(val), result))
 			continue;
 
@@ -1313,7 +1313,7 @@ MakeConfigurationMapping(AlterTSConfigurationStmt *stmt,
 	if (stmt->override)
 	{
 		/*
-		 * 如果存在且命令是 ALTER，则删除记号的映射
+		 * 如果存在且命令是 ALTER，则删除词元的映射
 		  */
 		foreach(c, tokens)
 		{
@@ -1377,7 +1377,7 @@ MakeConfigurationMapping(AlterTSConfigurationStmt *stmt,
 			Form_pg_ts_config_map cfgmap = (Form_pg_ts_config_map) GETSTRUCT(maptup);
 
 			/*
-			 * 检查它是否是目标记号类型之一
+			 * 检查它是否是目标词元类型之一
 			 */
 			if (tokens)
 			{

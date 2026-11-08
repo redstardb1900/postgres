@@ -54,39 +54,39 @@
  *	  因此状态推进始终是：INIT -> DATASYNC -> FINISHEDCOPY      
  *	  -> SYNCWAIT -> CATCHUP -> SYNCDONE -> READY.
  *
- *	  目录 pg_subscription_rel 用于保存关于已订阅           
- *	  表及其状态的信息。该目录保存除 SYNCWAIT 和      
+ *	  系统表 pg_subscription_rel 用于保存关于已订阅        
+ *	  表及其状态的信息。该系统表保存除 SYNCWAIT 和   
  *	  CATCHUP 之外的所有状态，仅存于共享内存中。 
  *
  *	  示例流程如下所示：  
  *	   - 应用领先时：
  *		  sync:8
- *			-> 在目录设 FINISHEDCOPY  
+ *			-> 系统表设 FINISHEDCOPY  
  *			-> 在内存设 SYNCWAIT 
  *		  apply:10
  *			-> 在内存设 CATCHUP 
  *			-> 入等待循环
  *		  sync:10
- *			-> 在目录设 SYNCDONE  
+ *			-> 系统表设 SYNCDONE  
  *			-> exit
  *		  apply:10
  *			-> 退出循环  
  *			-> 继续复制
  *		  apply:11
- *			-> 在目录设 READY  
+ *			-> 系统表设 READY  
  *
  *	   - 同步领先：  
  *		  sync:10
- *			-> 在目录设 FINISHEDCOPY  
+ *			-> 系统表设 FINISHEDCOPY  
  *			-> 在内存设 SYNCWAIT 
  *		  apply:8
  *			-> 在内存设 CATCHUP 
  *			-> 继续按表过滤          
  *		  sync:10
- *			-> 在目录设 SYNCDONE  
+ *			-> 系统表设 SYNCDONE  
  *			-> exit
  *		  apply:10
- *			-> 在目录设 READY  
+ *			-> 系统表设 READY  
  *			-> 停止按表过滤      
  *			-> 继续复制
  *-------------------------------------------------------------------------
@@ -170,7 +170,7 @@ finish_sync_worker(void)
 }
 
 /*
- * 等待关系的同步状态在目录中被设置为预期               
+ * 等待关系的同步状态在系统表中被设置为预期            
  * 值；发生时返回 true。    
  *
  * 如果表同步工作进程或表本身已消失，或表状态

@@ -256,7 +256,7 @@ WaitForReplicationWorkerAttach(LogicalRepWorker *worker,
  * 遍历工作进程数组，搜索匹配给定订阅 id 与     
  * relid 的工作进程。  
  *
- * 我们只关心领导应用工作进程或表同步工作进程。     
+ * 我们只关心领导者应用工作进程或表同步工作进程。  
  */
 LogicalRepWorker *
 logicalrep_worker_find(Oid subid, Oid relid, bool only_running)
@@ -643,7 +643,7 @@ logicalrep_pa_worker_stop(ParallelApplyWorkerInfo *winfo)
 
 	/*
 	 * 在停止它之前，先脱离并行应用工作进程的           
-	 * error_mq_handle。这可以防止领导应用工作进程尝试  
+	 * error_mq_handle。这可防止领导者应用工作进程尝试  
 	 * 从可能已被并行应用工作进程脱离的错误队列           
 	 * 接收消息。              
 	 */
@@ -749,7 +749,7 @@ logicalrep_worker_detach(void)
 
 		/*
 		 * 在终止所有并行应用工作进程之前，先从        
-		 * error_mq_handle 脱离。这可避免领导应用工作进程再次
+		 * error_mq_handle 脱离。这避免领导者应用工作进程再次
 		 * 接收进程终止消息并写日志（若并行工作进程已
 		 * 这样做）。                                      
 		 */
@@ -1089,7 +1089,7 @@ AtEOXact_ApplyLauncher(bool isCommit)
  *
  * 本函数用于在当前事务提交时向启动器发送信号，   
  * 使其停止休眠并处理订阅。当新的元组被加入           
- * pg_subscription 目录时应当使用。       
+ * pg_subscription 系统表时应当使用。    
 */
 void
 ApplyLauncherWakeupAtCommit(void)
@@ -1125,7 +1125,7 @@ ApplyLauncherMain(Datum main_arg)
 	BackgroundWorkerUnblockSignals();
 
 	/*
-	 * 建立到固定目录的连接（仅访问 pg_subscription  
+	 * 建立固定系统表的连接（仅访问 pg_subscription  
 	 * ）。           
 	 */
 	BackgroundWorkerInitializeConnection(NULL, NULL, 0);
@@ -1246,8 +1246,8 @@ IsLogicalLauncher(void)
 }
 
 /*
- * 如果给定的 pid 是并行应用工作进程的 pid，则返回        
- * 领导应用工作进程 pid，否则 InvalidPid。 
+ * 如果给定的 pid 是并行应用工作进程的 pid，则返回领导  
+ * 者应用工作进程 pid，否则 InvalidPid。    
  */
 pid_t
 GetLeaderApplyWorkerPid(pid_t pid)

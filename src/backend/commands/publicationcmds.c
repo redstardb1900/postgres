@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * publicationcmds.c
- *		publication manipulation
+ *		发布操作            
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -131,7 +131,7 @@ parse_publication_options(ParseState *pstate,
 						 errmsg("invalid list syntax in parameter \"%s\"",
 								"publish")));
 
-			/* Process the option list. */
+			/* 处理选项列表。    */
 			foreach(lc2, publish_list)
 			{
 				char	   *publish_opt = (char *) lfirst(lc2);
@@ -194,7 +194,7 @@ ObjectsInPublicationToOids(List *pubobjspec_list, ParseState *pstate,
 			case PUBLICATIONOBJ_TABLES_IN_SCHEMA:
 				schemaid = get_namespace_oid(pubobj->name, false);
 
-				/* Filter out duplicates if user specifies "sch1, sch1" */
+				/* 若用户指定 "sch1, sch1" 则过滤掉重复项   */
 				*schemas = list_append_unique_oid(*schemas, schemaid);
 				break;
 			case PUBLICATIONOBJ_TABLES_IN_CUR_SCHEMA:
@@ -207,7 +207,7 @@ ObjectsInPublicationToOids(List *pubobjspec_list, ParseState *pstate,
 				schemaid = linitial_oid(search_path);
 				list_free(search_path);
 
-				/* Filter out duplicates if user specifies "sch1, sch1" */
+				/* 若用户指定 "sch1, sch1" 则过滤掉重复项   */
 				*schemas = list_append_unique_oid(*schemas, schemaid);
 				break;
 			default:
@@ -317,7 +317,7 @@ pub_rf_contains_invalid_column(Oid pubid, Relation relation, List *ancestors,
 		context.parentid = publish_as_relid;
 		context.relid = relid;
 
-		/* Remember columns that are part of the REPLICA IDENTITY */
+		/* 记住属于 REPLICA IDENTITY 的列                   */
 		bms = RelationGetIndexAttrBitmap(relation,
 										 INDEX_ATTR_BITMAP_IDENTITY_KEY);
 
@@ -381,14 +381,14 @@ pub_collist_contains_invalid_column(Oid pubid, Relation relation, List *ancestor
 		Bitmapset  *idattrs;
 		Bitmapset  *columns = NULL;
 
-		/* With REPLICA IDENTITY FULL, no column list is allowed. */
+		/* REPLICA IDENTITY FULL 下不允许列列表。         */
 		if (relation->rd_rel->relreplident == REPLICA_IDENTITY_FULL)
 			result = true;
 
-		/* Transform the column list datum to a bitmapset. */
+		/* 把列列表 datum 转换为位图集。        */
 		columns = pub_collist_to_bitmapset(NULL, datum, NULL);
 
-		/* Remember columns that are part of the REPLICA IDENTITY */
+		/* 记住属于 REPLICA IDENTITY 的列                   */
 		idattrs = RelationGetIndexAttrBitmap(relation,
 											 INDEX_ATTR_BITMAP_IDENTITY_KEY);
 
@@ -413,7 +413,7 @@ pub_collist_contains_invalid_column(Oid pubid, Relation relation, List *ancestor
 			 */
 			if (pubviaroot)
 			{
-				/* attribute name in the child table */
+				/* 子表中的属性名             */
 				char	   *colname = get_attname(relid, attnum, false);
 
 				/*
@@ -423,7 +423,7 @@ pub_collist_contains_invalid_column(Oid pubid, Relation relation, List *ancestor
 				attnum = get_attnum(publish_as_relid, colname);
 			}
 
-			/* replica identity column, not covered by the column list */
+			/* 复制标识列，未被列列表覆盖                 */
 			if (!bms_is_member(attnum, columns))
 			{
 				result = true;
@@ -460,31 +460,31 @@ contain_mutable_or_user_functions_checker(Oid func_id, void *context)
  * （其中 Var 是该过滤器所属表的列）            
  *
  * 简单表达式有以下一些限制：              
- * - 不允许用户自定义的算子；   
- * - 不允许用户自定义的函数；   
- * - 不允许用户定义类型；     
+ * - 不允许用户自定义操作符；   
+ * - 不允许用户自定义函数；      
+ * - 不允许用户自定义类型；  
  * - 不允许用户自定义排序规则； 
  * - 不允许非 IMMUTABLE 的内置函数；        
  * - 不允许系统列。          
  *
  * 注  
  *
- * 我们不允许用户自定义的函数/算子/类型/排序规则，   
- * 因为（a）如果用户删除了行过滤器表达式中使用的某      
- * 个用户自定义对象，或使用它时发生任何其他错 
- * 误，逻辑解码基础设施无法从这种错误中恢复，即    
- * 使该对象后来被重新创建也一样，因为求值行过滤器用 
- * 历史快照；
- * （b）用户自定义函数可以被用来访问一些表，这可能  
- * 产生令人不快的结果，因为其中使用了历史快照。这  
- * 因此，行过滤器表达式中只允许不可变内置函数。 
+ * 不允许用户自定义函数/操作符/类型/排序规则，因为   
+ * (a) 用户删除了行过滤表达式中使用的用户自定义对象，   
+ * 或在使用它时发生任何其他错误，逻辑解码       
+ * 基础设施将无法从此类错误中恢复，即使                
+ * 该对象被重新创建也一样，因为历史快照被用于求值    
+ * 行过滤器；
+ * (b) 用户自定义函数可被用于访问某些表，而这样可能  
+ * 带来不良结果，因为使用了历史快照。这正是为何在  
+ * 行过滤表达式中只允许不可变内置函数。             
  *
- * 我们不允许系统列，因为目前传给下游的元组中没 
- * 有那些信息。此外，由于我们不会把这些列复制给订     
- * 阅者，所以似乎没有必要针对这些列设过滤器。            
- *         
+ * 我们不允许系统列，因为目前我们还没有             
+ * 下游所传递元组中的该信息。另外，由于我们并不把     
+ * 它们复制给订阅者，所以似乎没必要过滤这些               
+ * 列。  
  *
- * 更多分析测试后，可允许其他节点类型。        
+ * 经更多分析与测试后，可允许其他节点类型。  
  */
 static bool
 check_simple_rowfilter_expr_walker(Node *node, ParseState *pstate)
@@ -497,19 +497,19 @@ check_simple_rowfilter_expr_walker(Node *node, ParseState *pstate)
 	switch (nodeTag(node))
 	{
 		case T_Var:
-			/* System columns are not allowed. */
+			/* 不允许系统列。           */
 			if (((Var *) node)->varattno < InvalidAttrNumber)
 				errdetail_msg = _("System columns are not allowed.");
 			break;
 		case T_OpExpr:
 		case T_DistinctExpr:
 		case T_NullIfExpr:
-			/* OK, except user-defined operators are not allowed. */
+			/* 可以，但用户自定义操作符不允许。   */
 			if (((OpExpr *) node)->opno >= FirstNormalObjectId)
 				errdetail_msg = _("User-defined operators are not allowed.");
 			break;
 		case T_ScalarArrayOpExpr:
-			/* OK, except user-defined operators are not allowed. */
+			/* 可以，但用户自定义操作符不允许。   */
 			if (((ScalarArrayOpExpr *) node)->opno >= FirstNormalObjectId)
 				errdetail_msg = _("User-defined operators are not allowed.");
 
@@ -523,7 +523,7 @@ check_simple_rowfilter_expr_walker(Node *node, ParseState *pstate)
 			{
 				ListCell   *opid;
 
-				/* OK, except user-defined operators are not allowed. */
+				/* 可以，但用户自定义操作符不允许。   */
 				foreach(opid, ((RowCompareExpr *) node)->opnos)
 				{
 					if (lfirst_oid(opid) >= FirstNormalObjectId)
@@ -654,7 +654,7 @@ TransformPubWhereClauses(List *tables, const char *queryString,
 										   EXPR_KIND_WHERE,
 										   "PUBLICATION WHERE");
 
-		/* Fix up collation information */
+		/* 修正排序规则信息     */
 		assign_expr_collations(pstate, whereclause);
 
 		/*
@@ -817,7 +817,7 @@ CreatePublication(ParseState *pstate, CreatePublicationStmt *stmt)
 	/* 将对象与发布关联。 */
 	if (stmt->for_all_tables)
 	{
-		/* Invalidate relcache so that publication info is rebuilt. */
+		/* 使 relcache 失效，以便重建发布信息。        */
 		CacheInvalidateRelcacheAll();
 	}
 	else
@@ -1140,7 +1140,7 @@ AlterPublicationTables(AlterPublicationStmt *stmt, HeapTuple tup,
 			Node	   *oldrelwhereclause = NULL;
 			Bitmapset  *oldcolumns = NULL;
 
-			/* look up the cache for the old relmap */
+			/* 在缓存中查找旧 relmap 条目  */
 			rftuple = SearchSysCache2(PUBLICATIONRELMAP,
 									  ObjectIdGetDatum(oldrelid),
 									  ObjectIdGetDatum(pubid));
@@ -1155,14 +1155,14 @@ AlterPublicationTables(AlterPublicationStmt *stmt, HeapTuple tup,
 				Datum		whereClauseDatum;
 				Datum		columnListDatum;
 
-				/* Load the WHERE clause for this table. */
+				/* 加载此表的 WHERE 子句。       */
 				whereClauseDatum = SysCacheGetAttr(PUBLICATIONRELMAP, rftuple,
 												   Anum_pg_publication_rel_prqual,
 												   &isnull);
 				if (!isnull)
 					oldrelwhereclause = stringToNode(TextDatumGetCString(whereClauseDatum));
 
-				/* Transform the int2vector column list to a bitmap. */
+				/* 把 int2vector 列列表转换为位图。        */
 				columnListDatum = SysCacheGetAttr(PUBLICATIONRELMAP, rftuple,
 												  Anum_pg_publication_rel_prattrs,
 												  &isnull);
@@ -1312,7 +1312,7 @@ AlterPublicationSchemas(AlterPublicationStmt *stmt,
 		List	   *oldschemaids = GetPublicationSchemas(pubform->oid);
 		List	   *delschemas = NIL;
 
-		/* Identify which schemas should be dropped */
+		/* 确定应删除哪些模式              */
 		delschemas = list_difference_oid(oldschemaids, schemaidlist);
 
 		/*
@@ -1414,7 +1414,7 @@ AlterPublication(ParseState *pstate, AlterPublicationStmt *stmt)
 
 		heap_freetuple(tup);
 
-		/* Lock the publication so nobody else can do anything with it. */
+		/* 锁定发布，使其他人无法对其做任何操作。    */
 		LockDatabaseObject(PublicationRelationId, pubid, 0,
 						   AccessExclusiveLock);
 
@@ -1572,7 +1572,7 @@ OpenTableList(List *tables)
 		Oid			myrelid;
 		PublicationRelInfo *pub_rel;
 
-		/* Allow query cancel in case this takes a long time */
+		/* 允许查询取消，以防此操作耗时过长  */
 		CHECK_FOR_INTERRUPTS();
 
 		rel = table_openrv(t->relation, ShareUpdateExclusiveLock);
@@ -1587,14 +1587,14 @@ OpenTableList(List *tables)
 		 */
 		if (list_member_oid(relids, myrelid))
 		{
-			/* Disallow duplicate tables if there are any with row filters. */
+			/* 若存在带行过滤器的重复表，则不允许。       */
 			if (t->whereClause || list_member_oid(relids_with_rf, myrelid))
 				ereport(ERROR,
 						(errcode(ERRCODE_DUPLICATE_OBJECT),
 						 errmsg("conflicting or redundant WHERE clauses for table \"%s\"",
 								RelationGetRelationName(rel))));
 
-			/* Disallow duplicate tables if there are any with column lists. */
+			/* 若存在带列列表的重复表，则不允许。           */
 			if (t->columns || list_member_oid(relids_with_collist, myrelid))
 				ereport(ERROR,
 						(errcode(ERRCODE_DUPLICATE_OBJECT),
@@ -1636,7 +1636,7 @@ OpenTableList(List *tables)
 			{
 				Oid			childrelid = lfirst_oid(child);
 
-				/* Allow query cancel in case this takes a long time */
+				/* 允许查询取消，以防此操作耗时过长  */
 				CHECK_FOR_INTERRUPTS();
 
 				/*
@@ -1676,10 +1676,10 @@ OpenTableList(List *tables)
 				rel = table_open(childrelid, NoLock);
 				pub_rel = palloc(sizeof(PublicationRelInfo));
 				pub_rel->relation = rel;
-				/* child inherits WHERE clause from parent */
+				/* 子表继承父表的 WHERE 子句      */
 				pub_rel->whereClause = t->whereClause;
 
-				/* child inherits column list from parent */
+				/* 子表继承父表的列列表         */
 				pub_rel->columns = t->columns;
 				rels = lappend(rels, pub_rel);
 				relids = lappend_oid(relids, childrelid);
@@ -1731,7 +1731,7 @@ LockSchemaList(List *schemalist)
 	{
 		Oid			schemaid = lfirst_oid(lc);
 
-		/* Allow query cancel in case this takes a long time */
+		/* 允许查询取消，以防此操作耗时过长  */
 		CHECK_FOR_INTERRUPTS();
 		LockDatabaseObject(NamespaceRelationId, schemaid, 0, AccessShareLock);
 
@@ -1764,7 +1764,7 @@ PublicationAddTables(Oid pubid, List *rels, bool if_not_exists,
 		Relation	rel = pub_rel->relation;
 		ObjectAddress obj;
 
-		/* Must be owner of the table or superuser. */
+		/* 必须是表所有者或超级用户。  */
 		if (!object_ownercheck(RelationRelationId, RelationGetRelid(rel), GetUserId()))
 			aclcheck_error(ACLCHECK_NOT_OWNER, get_relkind_objtype(rel->rd_rel->relkind),
 						   RelationGetRelationName(rel));
@@ -1910,10 +1910,10 @@ AlterPublicationOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 			aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_PUBLICATION,
 						   NameStr(form->pubname));
 
-		/* Must be able to become new owner */
+		/* 必须能够成为新所有者   */
 		check_can_set_role(GetUserId(), newOwnerId);
 
-		/* New owner must have CREATE privilege on database */
+		/* 新所有者须有数据库的 CREATE 权限     */
 		aclresult = object_aclcheck(DatabaseRelationId, MyDatabaseId, newOwnerId, ACL_CREATE);
 		if (aclresult != ACLCHECK_OK)
 			aclcheck_error(aclresult, OBJECT_DATABASE,

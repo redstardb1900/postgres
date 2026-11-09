@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * subscriptioncmds.c
- *		subscription catalog manipulation functions
+ *		订阅目录操作函数                   
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -72,7 +72,7 @@
 #define SUBOPT_LSN					0x00002000
 #define SUBOPT_ORIGIN				0x00004000
 
-/* check if the 'val' has 'bits' set */
+/* 检查 'val' 是否设置 'bits'  */
 #define IsSet(val, bits)  (((val) & (bits)) == (bits))
 
 /*
@@ -199,7 +199,7 @@ parse_subscription_options(ParseState *pstate, List *stmt_options,
 			opts->specified_opts |= SUBOPT_SLOT_NAME;
 			opts->slot_name = defGetString(defel);
 
-			/* Setting slot_name = NONE is treated as no slot name. */
+			/* slot_name = NONE 视为未指定槽名称。         */
 			if (strcmp(opts->slot_name, "none") == 0)
 				opts->slot_name = NULL;
 			else
@@ -223,7 +223,7 @@ parse_subscription_options(ParseState *pstate, List *stmt_options,
 			opts->specified_opts |= SUBOPT_SYNCHRONOUS_COMMIT;
 			opts->synchronous_commit = defGetString(defel);
 
-			/* Test if the given value is valid for synchronous_commit GUC. */
+			/* 测试给定值对 synchronous_commit GUC 是否有效。    */
 			(void) set_config_option("synchronous_commit", opts->synchronous_commit,
 									 PGC_BACKEND, PGC_S_TEST, GUC_ACTION_SET,
 									 false, 0, false);
@@ -258,12 +258,12 @@ parse_subscription_options(ParseState *pstate, List *stmt_options,
 		else if (strcmp(defel->defname, "two_phase") == 0)
 		{
 			/*
-			  * 不允许切换 two_phase 选项。这可能导致
-			  * 事务丢失并造成副本不一致。
-			  * 参见 worker.c 顶部的注释。
-			  *
-			  * 注意：unsupported twophase 表明此调用来自
-			  * AlterSubscription。
+			 * 不允许切换 two_phase 选项。这样做可能导致       
+			 * 事务丢失并造成副本不一致。                     
+			 * 见 worker.c 开头注释 
+			 *
+			 * 注: 不支持的 twophase 表示此调用源自              
+			 * AlterSubscription。   
 			 */
 			if (!IsSet(supported_opts, SUBOPT_TWOPHASE_COMMIT))
 				ereport(ERROR,
@@ -335,12 +335,12 @@ parse_subscription_options(ParseState *pstate, List *stmt_options,
 			if (IsSet(opts->specified_opts, SUBOPT_LSN))
 				errorConflictingDefElem(defel, pstate);
 
-			/* Setting lsn = NONE is treated as resetting LSN */
+			/* lsn = NONE 视为重置 LSN                    */
 			if (strcmp(lsn_str, "none") == 0)
 				lsn = InvalidXLogRecPtr;
 			else
 			{
-				/* Parse the argument as LSN */
+				/* 将参数解析为 LSN    */
 				lsn = DatumGetLSN(DirectFunctionCall1(pg_lsn_in,
 													  CStringGetDatum(lsn_str)));
 
@@ -365,7 +365,7 @@ parse_subscription_options(ParseState *pstate, List *stmt_options,
 	 */
 	if (!opts->connect && IsSet(supported_opts, SUBOPT_CONNECT))
 	{
-		/* Check for incompatible options from the user. */
+		/* 检查用户指定的不兼容选项。       */
 		if (opts->enabled &&
 			IsSet(opts->specified_opts, SUBOPT_ENABLED))
 			ereport(ERROR,
@@ -388,7 +388,7 @@ parse_subscription_options(ParseState *pstate, List *stmt_options,
 					 errmsg("%s and %s are mutually exclusive options",
 							"connect = false", "copy_data = true")));
 
-		/* Change the defaults of other options. */
+		/* 更改其他选项的默认值。     */
 		opts->enabled = false;
 		opts->create_slot = false;
 		opts->copy_data = false;
@@ -506,7 +506,7 @@ check_publications(WalReceiverConn *wrconn, List *publications)
 		pubname = TextDatumGetCString(slot_getattr(slot, 1, &isnull));
 		Assert(!isnull);
 
-		/* Delete the publication present in publisher from the list. */
+		/* 从列表中删除发布者上存在的发布。           */
 		publicationsCopy = list_delete(publicationsCopy, makeString(pubname));
 		ExecClearTuple(slot);
 	}
@@ -517,7 +517,7 @@ check_publications(WalReceiverConn *wrconn, List *publications)
 
 	if (list_length(publicationsCopy))
 	{
-		/* Prepare the list of non-existent publication(s) for error message. */
+		/* 为错误消息准备不存在的发布列表。                   */
 		StringInfo	pubnames = makeStringInfo();
 
 		get_publications_str(publicationsCopy, pubnames, false);
@@ -735,7 +735,7 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 		char		table_state;
 		bool		must_use_password;
 
-		/* Try to connect to the publisher. */
+		/* 尝试连接到发布者。      */
 		must_use_password = !superuser_arg(owner) && opts.passwordrequired;
 		wrconn = walrcv_connect(conninfo, true, must_use_password,
 								stmt->subname, &err);
@@ -768,7 +768,7 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 
 				relid = RangeVarGetRelid(rv, AccessShareLock, false);
 
-				/* Check for supported relkind. */
+				/* 检查受支持的 relkind。*/
 				CheckSubscriptionRelkind(get_rel_relkind(relid),
 										 rv->schemaname, rv->relname);
 
@@ -882,10 +882,10 @@ AlterSubscription_refresh(Subscription *sub, bool copy_data,
 		if (validate_publications)
 			check_publications(wrconn, validate_publications);
 
-		/* Get the table list from publisher. */
+		/* 从发布者获取表列表。     */
 		pubrel_names = fetch_table_list(wrconn, sub->publications);
 
-		/* Get local table list. */
+		/* 取本地表列表。 */
 		subrel_states = GetSubscriptionRelations(sub->oid, false);
 		subrel_count = list_length(subrel_states);
 
@@ -932,7 +932,7 @@ AlterSubscription_refresh(Subscription *sub, bool copy_data,
 
 			relid = RangeVarGetRelid(rv, AccessShareLock, false);
 
-			/* Check for supported relkind. */
+			/* 检查受支持的 relkind。*/
 			CheckSubscriptionRelkind(get_rel_relkind(relid),
 									 rv->schemaname, rv->relname);
 
@@ -985,7 +985,7 @@ AlterSubscription_refresh(Subscription *sub, bool copy_data,
 				if (!rel)
 					rel = table_open(SubscriptionRelRelationId, AccessExclusiveLock);
 
-				/* Last known rel state. */
+				/* 最近 rel 状态。  */
 				state = GetSubscriptionRelState(sub->oid, relid, &statelsn);
 
 				sub_remove_rels[remove_rel_len].relid = relid;
@@ -1140,11 +1140,11 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 				if (IsSet(opts.specified_opts, SUBOPT_SLOT_NAME))
 				{
 					/*
-					  * 订阅必须处于禁用状态才能将 slot_name
-					  * 设置为 'none'，否则 apply worker 将重复尝试
-					  * 使用该 slot_name 流式传输数据，而该槽在
-					  * 发布者上不存在，用户也不被允许创建它。
-					  *
+					 * 必须禁用订阅才能允许将 slot_name 设为     
+					 * 'none'，否则应用工作进程将不断尝试       
+					 * 使用该 slot_name 流式传输数据，该槽在   
+					 * 发布者上并不存在，用户不被允许创建它 
+					 * 。       
 					 */
 					if (sub->enabled && !opts.slot_name)
 						ereport(ERROR,
@@ -1191,7 +1191,7 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 
 				if (IsSet(opts.specified_opts, SUBOPT_PASSWORD_REQUIRED))
 				{
-					/* Non-superuser may not disable password_required. */
+					/* 非超级用户不允许禁用 password_required */
 					if (!opts.passwordrequired && !superuser())
 						ereport(ERROR,
 								(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -1245,9 +1245,9 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 			}
 
 		case ALTER_SUBSCRIPTION_CONNECTION:
-			/* Load the library providing us libpq calls. */
+			/* 加载为我们提供 libpq 调用的库。*/
 			load_file("libpqwalreceiver", false);
-			/* Check the connection info string. */
+			/* 检查连接信息字符串。    */
 			walrcv_check_conninfo(stmt->conninfo,
 								  sub->passwordrequired && !superuser_arg(sub->owner));
 
@@ -1269,7 +1269,7 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 
 				update_tuple = true;
 
-				/* Refresh if user asked us to. */
+				/* 用户要求则刷新。     */
 				if (opts.refresh)
 				{
 					if (!sub->enabled)
@@ -1290,7 +1290,7 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 
 					PreventInTransactionBlock(isTopLevel, "ALTER SUBSCRIPTION with refresh");
 
-					/* Make sure refresh sees the new list of publications. */
+					/* 确保刷新看到新的发布列表。              */
 					sub->publications = stmt->publication;
 
 					AlterSubscription_refresh(sub, opts.copy_data,
@@ -1317,10 +1317,10 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 
 				update_tuple = true;
 
-				/* Refresh if user asked us to. */
+				/* 用户要求则刷新。     */
 				if (opts.refresh)
 				{
-					/* We only need to validate user specified publications. */
+					/* 我们只需验证用户指定的发布。            */
 					List	   *validate_publications = (isadd) ? stmt->publication : NULL;
 
 					if (!sub->enabled)
@@ -1349,7 +1349,7 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 
 					PreventInTransactionBlock(isTopLevel, "ALTER SUBSCRIPTION with refresh");
 
-					/* Refresh the new list of publications. */
+					/* 刷新新的发布列表。           */
 					sub->publications = publist;
 
 					AlterSubscription_refresh(sub, opts.copy_data,
@@ -1421,7 +1421,7 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 					originid = replorigin_by_name(originname, false);
 					remote_lsn = replorigin_get_progress(originid, false);
 
-					/* Check the given LSN is at least a future LSN */
+					/* 检查给定 LSN 至少是一个未来 LSN   */
 					if (!XLogRecPtrIsInvalid(remote_lsn) && opts.lsn < remote_lsn)
 						ereport(ERROR,
 								(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -1556,15 +1556,15 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 		slotname = NULL;
 
 	/*
-	  * 由于删除复制槽是非事务性的，即使回滚事务
-	  * 复制槽也保持删除。因此若需删除复制槽，
-	  * 不能在事务块内运行 DROP SUBSCRIPTION。
-	  * 同时在此情况下我们向累积统计系统报告
-	  * 删除订阅的消息。
-	  *
-	  * XXX 命令名实际上应类似 "DROP SUBSCRIPTION of a
-	  * subscription that is associated with a replication slot"，
-	  * 但我们没有适当的设施支持。
+	 * 由于删除复制槽并非事务性，即使事务回滚，复制槽  
+	 * 仍保持已删除状态。因此若删除复制槽，我们无法  
+	 * 在事务块中运行 DROP SUBSCRIPTION。                      
+	 * 另外，这时我们会向累积统计系统报告删除              
+	 * 订阅的消息。                              
+	 *
+	 * XXX 该命令名其实应该类似 "DROP SUBSCRIPTION                  
+	 * 与复制槽相关联的订阅"之类，但我们                    
+	 * 没有实现这一点的适当设施。   
 	 */
 	if (slotname)
 		PreventInTransactionBlock(isTopLevel, "DROP SUBSCRIPTION");
@@ -1605,12 +1605,12 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 	list_free(subworkers);
 
 	/*
-	  * 删除启动器 apply worker 启动时间表中
-	  * 不再有用的条目。
-	  *
-	  * 若此事务回滚，启动器可能在
-	  * wal_retrieve_retry_interval 毫秒之前重启
-	  * 失败的 apply worker，但这无害。
+	 * 移除启动器的应用工作进程启动时间表中不再      
+	 * 有用的条目。 
+	 *
+	 * 如果此事务回滚，启动器可能会重启失败的          
+	 * 应用工作进程，wal_retrieve_retry_interval 毫秒尚未    
+	 * 过去，但这基本无害。      
 	 */
 	ApplyLauncherForgetWorkerStartTime(subid);
 
@@ -1629,7 +1629,7 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 		SubscriptionRelState *rstate = (SubscriptionRelState *) lfirst(lc);
 		Oid			relid = rstate->relid;
 
-		/* Only cleanup resources of tablesync workers */
+		/* 仅清理表同步工作进程的资源     */
 		if (!OidIsValid(relid))
 			continue;
 
@@ -1674,12 +1674,12 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 	/*
 	 * 尝试获取删除槽所需的连接。                    
 	 *
-	 * 注意：如果 slotname 为 NONE/NULL，那么我们允许命令完  
-	 * 成，用户之后需要手动清理 apply 和 tablesync worker 槽    
+	 * 注: 如果 slotname 为 NONE/NULL，则我们允许命令完成，   
+	 * 用户需稍后手动清理应用与表同步工作进程槽           
 	 * 。   
 	 *
-	 * 这一步必须在最后进行，否则如果在执行数据库操作 
-	 * 期间发生错误，我们将无法回滚已删除的槽         
+	 * 这必须放在最后，否则在执行数据库操作期间发生    
+	 * 错误时我们将无法回滚已删除的槽                     
 	 * 。  
 	 */
 	load_file("libpqwalreceiver", false);
@@ -1708,7 +1708,7 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 			SubscriptionRelState *rstate = (SubscriptionRelState *) lfirst(lc);
 			Oid			relid = rstate->relid;
 
-			/* Only cleanup resources of tablesync workers */
+			/* 仅清理表同步工作进程的资源     */
 			if (!OidIsValid(relid))
 				continue;
 
@@ -2029,7 +2029,7 @@ check_publications_origin(WalReceiverConn *wrconn, List *publications,
 	{
 		StringInfo	pubnames = makeStringInfo();
 
-		/* Prepare the list of publication(s) for warning message. */
+		/* 为警告消息准备发布列表。                    */
 		get_publications_str(publist, pubnames, false);
 		ereport(WARNING,
 				errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -2106,7 +2106,7 @@ fetch_table_list(WalReceiverConn *wrconn, List *publications)
 		tableRow[2] = NAMEARRAYOID;
 		appendStringInfoString(&cmd, "SELECT DISTINCT t.schemaname, t.tablename \n");
 
-		/* Get column lists for each relation if the publisher supports it */
+		/* 如果发布者支持，获取每个关系的列列表          */
 		if (check_columnlist)
 			appendStringInfoString(&cmd, ", t.attnames\n");
 
@@ -2173,7 +2173,7 @@ ReportSlotConnectionError(List *rstates, Oid subid, char *slotname, char *err)
 		SubscriptionRelState *rstate = (SubscriptionRelState *) lfirst(lc);
 		Oid			relid = rstate->relid;
 
-		/* Only cleanup resources of tablesync workers */
+		/* 仅清理表同步工作进程的资源     */
 		if (!OidIsValid(relid))
 			continue;
 
@@ -2328,7 +2328,7 @@ defGetStreamingMode(DefElem *def)
 				case 1:
 					return LOGICALREP_STREAM_ON;
 				default:
-					/* otherwise, error out below */
+					/* 否则在下方报错      */
 					break;
 			}
 			break;

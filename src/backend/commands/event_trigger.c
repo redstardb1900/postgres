@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * event_trigger.c
- *	  PostgreSQL EVENT TRIGGER support code.
+ *	  PostgreSQL 事件触发器支持代码
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -75,7 +75,7 @@ typedef struct EventTriggerQueryState
 
 static EventTriggerQueryState *currentEventTriggerState = NULL;
 
-/* Support for dropped objects */
+/* 对已删除对象的支持 */
 typedef struct SQLDropObject
 {
 	ObjectAddress address;
@@ -621,7 +621,7 @@ EventTriggerCommonSetup(Node *parsetree,
 
 		if (filter_event_trigger(tag, item))
 		{
-			/* We must plan to fire this trigger. */
+			/* 必须计划触发此触发器。  */
 			runlist = lappend_oid(runlist, item->fnoid);
 		}
 	}
@@ -914,10 +914,10 @@ EventTriggerInvoke(List *fn_oid_list, EventTriggerData *trigdata)
 		else
 			CommandCounterIncrement();
 
-		/* Look up the function */
+		/* 查找该函数      */
 		fmgr_info(fnoid, &flinfo);
 
-		/* Call the function, passing no arguments but setting a context. */
+		/* 调用该函数，不传参数但设置一个上下文。      */
 		InitFunctionCallInfoData(*fcinfo, &flinfo, 0,
 								 InvalidOid, (Node *) trigdata, NULL);
 		pgstat_init_function_usage(fcinfo, &fcusage);
@@ -945,10 +945,10 @@ EventTriggerSupportsObjectType(ObjectType obtype)
 		case OBJECT_TABLESPACE:
 		case OBJECT_ROLE:
 		case OBJECT_PARAMETER_ACL:
-			/* no support for global objects */
+			/* 不支持全局对象         */
 			return false;
 		case OBJECT_EVENT_TRIGGER:
-			/* no support for event triggers on event triggers */
+			/* 不支持事件触发器上的事件触发器   */
 			return false;
 		case OBJECT_ACCESS_METHOD:
 		case OBJECT_AGGREGATE:
@@ -1022,10 +1022,10 @@ EventTriggerSupportsObjectClass(ObjectClass objclass)
 		case OCLASS_ROLE:
 		case OCLASS_ROLE_MEMBERSHIP:
 		case OCLASS_PARAMETER_ACL:
-			/* no support for global objects */
+			/* 不支持全局对象         */
 			return false;
 		case OCLASS_EVENT_TRIGGER:
-			/* no support for event triggers on event triggers */
+			/* 不支持事件触发器上的事件触发器   */
 			return false;
 		case OCLASS_CLASS:
 		case OCLASS_PROC:
@@ -1194,12 +1194,12 @@ EventTriggerSQLDropAddObject(const ObjectAddress *object, bool original, bool no
 
 	if (object->classId == NamespaceRelationId)
 	{
-		/* Special handling is needed for temp namespaces */
+		/* 临时命名空间需要特殊处理           */
 		if (isTempNamespace(object->objectId))
 			obj->istemp = true;
 		else if (isAnyTempNamespace(object->objectId))
 		{
-			/* don't report temp schemas except my own */
+			/* 除自身外不报告临时模式       */
 			pfree(obj);
 			MemoryContextSwitchTo(oldcxt);
 			return;
@@ -1208,7 +1208,7 @@ EventTriggerSQLDropAddObject(const ObjectAddress *object, bool original, bool no
 	}
 	else if (object->classId == AttrDefaultRelationId)
 	{
-		/* We treat a column default as temp if its table is temp */
+		/* 如果其表为临时表，则列默认值视为临时 */
 		ObjectAddress colobject;
 
 		colobject = GetAttrDefaultColumnAddress(object->objectId);
@@ -1224,15 +1224,15 @@ EventTriggerSQLDropAddObject(const ObjectAddress *object, bool original, bool no
 	}
 	else if (object->classId == TriggerRelationId)
 	{
-		/* Similarly, a trigger is temp if its table is temp */
-		/* Sadly, there's no lsyscache.c support for trigger objects */
+		/* 同样，若表为临时表则触发器为临时  */
+		/* 遗憾的是，lsyscache.c 不支持触发器对象       */
 		Relation	pg_trigger_rel;
 		ScanKeyData skey[1];
 		SysScanDesc sscan;
 		HeapTuple	tuple;
 		Oid			relid;
 
-		/* Fetch the trigger's table OID the hard way */
+		/* 用笨办法获取触发器的表 OID      */
 		pg_trigger_rel = table_open(TriggerRelationId, AccessShareLock);
 		ScanKeyInit(&skey[0],
 					Anum_pg_trigger_oid,
@@ -1247,14 +1247,14 @@ EventTriggerSQLDropAddObject(const ObjectAddress *object, bool original, bool no
 			relid = InvalidOid; /* shouldn't happen */
 		systable_endscan(sscan);
 		table_close(pg_trigger_rel, AccessShareLock);
-		/* Do nothing if we didn't find the trigger */
+		/* 未找到触发器则不做任何事     */
 		if (OidIsValid(relid))
 		{
 			ObjectAddress relobject;
 
 			relobject.classId = RelationRelationId;
 			relobject.objectId = relid;
-			/* Arbitrarily set objectSubId nonzero so as not to fill objname */
+			/* 任意地将 objectSubId 设为非零，以免填充 objname  */
 			relobject.objectSubId = 1;
 			if (!obtain_object_name_namespace(&relobject, obj))
 			{
@@ -1266,15 +1266,15 @@ EventTriggerSQLDropAddObject(const ObjectAddress *object, bool original, bool no
 	}
 	else if (object->classId == PolicyRelationId)
 	{
-		/* Similarly, a policy is temp if its table is temp */
-		/* Sadly, there's no lsyscache.c support for policy objects */
+		/* 同样，若表为临时表则策略为临时    */
+		/* 遗憾的是，lsyscache.c 不支持策略对象         */
 		Relation	pg_policy_rel;
 		ScanKeyData skey[1];
 		SysScanDesc sscan;
 		HeapTuple	tuple;
 		Oid			relid;
 
-		/* Fetch the policy's table OID the hard way */
+		/* 用笨办法获取策略的表 OID        */
 		pg_policy_rel = table_open(PolicyRelationId, AccessShareLock);
 		ScanKeyInit(&skey[0],
 					Anum_pg_policy_oid,
@@ -1289,14 +1289,14 @@ EventTriggerSQLDropAddObject(const ObjectAddress *object, bool original, bool no
 			relid = InvalidOid; /* shouldn't happen */
 		systable_endscan(sscan);
 		table_close(pg_policy_rel, AccessShareLock);
-		/* Do nothing if we didn't find the policy */
+		/* 未找到策略则不做任何事       */
 		if (OidIsValid(relid))
 		{
 			ObjectAddress relobject;
 
 			relobject.classId = RelationRelationId;
 			relobject.objectId = relid;
-			/* Arbitrarily set objectSubId nonzero so as not to fill objname */
+			/* 任意地将 objectSubId 设为非零，以免填充 objname  */
 			relobject.objectSubId = 1;
 			if (!obtain_object_name_namespace(&relobject, obj))
 			{
@@ -1308,10 +1308,10 @@ EventTriggerSQLDropAddObject(const ObjectAddress *object, bool original, bool no
 	}
 	else
 	{
-		/* Generic handling for all other object classes */
+		/* 对所有其他对象类的通用处理       */
 		if (!obtain_object_name_namespace(object, obj))
 		{
-			/* don't report temp objects except my own */
+			/* 除自身外不报告临时对象       */
 			pfree(obj);
 			MemoryContextSwitchTo(oldcxt);
 			return;
@@ -1375,7 +1375,7 @@ obtain_object_name_namespace(const ObjectAddress *object, SQLDropObject *obj)
 					Oid			namespaceId;
 
 					namespaceId = DatumGetObjectId(datum);
-					/* temp objects are only reported if they are my own */
+					/* 临时对象仅在其属于自己时才被报告  */
 					if (isTempNamespace(namespaceId))
 					{
 						obj->schemaname = "pg_temp";
@@ -1383,7 +1383,7 @@ obtain_object_name_namespace(const ObjectAddress *object, SQLDropObject *obj)
 					}
 					else if (isAnyTempNamespace(namespaceId))
 					{
-						/* no need to fill any fields of *obj */
+						/* 无须填充 *obj 的任何字段  */
 						table_close(catalog, AccessShareLock);
 						return false;
 					}
@@ -1600,17 +1600,17 @@ EventTriggerUndoInhibitCommandCollection(void)
 }
 
 /*
-  * EventTriggerCollectSimpleCommand
- *		Save data about a simple DDL command that was just executed
-  * address 标识被操作的对象。secondaryObject 是
-  * 以某种方式与执行的命令相关的对象地址；其
-  * 含义因命令而异。
-  *
-  * 例如，对于 ALTER obj SET SCHEMA 命令，objtype 是被移动对象
-  * 的类型，objectId 是其 OID，secondaryOid 是旧模式的 OID。
-  * （目标模式 OID 可通过对象的目录查找获得。）
-  *
-  *
+ * EventTriggerCollectSimpleCommand
+ *		保存刚执行的简单 DDL 命令的数据               
+ *
+ * address 标识正被操作的对象。secondaryObject 是一个        
+ * 与所执行命令以某种方式相关联的对象地址；其         
+ * 含义因命令而异。    
+ *
+ * 例如，对于 ALTER obj SET SCHEMA 命令，objtype 是                
+ * 被移动对象的类型，objectId 是其 OID，而 secondaryOid 是      
+ * 旧模式的 OID。（目标模式的 OID 可由该对象的系统表     
+ * 查得。）   
  */
 void
 EventTriggerCollectSimpleCommand(ObjectAddress address,
@@ -1695,12 +1695,12 @@ EventTriggerAlterTableRelid(Oid objectId)
 }
 
 /*
-  * EventTriggerCollectAlterTableSubcmd
- *		Save data about a single part of an ALTER TABLE.
-  * 多个不同命令经过此路径，但除 ALTER TABLE 本身外
-  * 都涉及内部生成的 AlterTableCmd 节点，
-  * 因此此代码当前只需处理这些内容。
-  *
+ * EventTriggerCollectAlterTableSubcmd
+ *		保存 ALTER TABLE 单个部分的数据。     
+ *
+ * 有几种不同的命令经过此路径，但除 ALTER TABLE               
+ * 本身之外，其余都涉及内部生成的 AlterTableCmd 节点，     
+ * 因此目前此代码只需处理这些即可。                       
  */
 void
 EventTriggerCollectAlterTableSubcmd(Node *subcmd, ObjectAddress address)
@@ -1769,11 +1769,11 @@ EventTriggerAlterTableEnd(void)
 }
 
 /*
-  * EventTriggerCollectGrant
- *		Save data about a GRANT/REVOKE command being executed
-  * 此函数创建 InternalGrant 的副本，因原始对象
-  * 可能没有正确的生命周期。
-  *
+ * EventTriggerCollectGrant
+ *		保存正在执行的 GRANT/REVOKE 命令的数据   
+ *
+ * 此函数创建 InternalGrant 的一个副本，因为原件可能      
+ * 没有正确生命周期。 
  */
 void
 EventTriggerCollectGrant(InternalGrant *istmt)
@@ -1815,9 +1815,9 @@ EventTriggerCollectGrant(InternalGrant *istmt)
 }
 
 /*
-  * EventTriggerCollectAlterOpFam
- *		Save data about an ALTER OPERATOR FAMILY ADD/DROP command being
- *		executed
+ * EventTriggerCollectAlterOpFam
+ *		保存有关 ALTER OPERATOR FAMILY ADD/DROP 命令执行的    
+ *		数据  
  */
 void
 EventTriggerCollectAlterOpFam(AlterOpFamilyStmt *stmt, Oid opfamoid,
@@ -1849,8 +1849,8 @@ EventTriggerCollectAlterOpFam(AlterOpFamilyStmt *stmt, Oid opfamoid,
 }
 
 /*
-  * EventTriggerCollectCreateOpClass
- *		Save data about a CREATE OPERATOR CLASS command being executed
+ * EventTriggerCollectCreateOpClass
+ *		保存正在执行的 CREATE OPERATOR CLASS 命令的数据   
  */
 void
 EventTriggerCollectCreateOpClass(CreateOpClassStmt *stmt, Oid opcoid,
@@ -1882,9 +1882,9 @@ EventTriggerCollectCreateOpClass(CreateOpClassStmt *stmt, Oid opcoid,
 }
 
 /*
-  * EventTriggerCollectAlterTSConfig
- *		Save data about an ALTER TEXT SEARCH CONFIGURATION command being
- *		executed
+ * EventTriggerCollectAlterTSConfig
+ *		保存有关 ALTER TEXT SEARCH CONFIGURATION 命令执行的    
+ *		数据  
  */
 void
 EventTriggerCollectAlterTSConfig(AlterTSConfigurationStmt *stmt, Oid cfgId,
@@ -1917,9 +1917,9 @@ EventTriggerCollectAlterTSConfig(AlterTSConfigurationStmt *stmt, Oid cfgId,
 }
 
 /*
-  * EventTriggerCollectAlterDefPrivs
- *		Save data about an ALTER DEFAULT PRIVILEGES command being
- *		executed
+ * EventTriggerCollectAlterDefPrivs
+ *		保存有关 ALTER DEFAULT PRIVILEGES 命令执行的    
+ *		数据  
  */
 void
 EventTriggerCollectAlterDefPrivs(AlterDefaultPrivilegesStmt *stmt)
@@ -2025,7 +2025,7 @@ pg_event_trigger_ddl_commands(PG_FUNCTION_ARGS)
 					if (identity == NULL)
 						continue;
 
-					/* The type can never be NULL. */
+					/* 该类型永不为 NULL。  */
 					type = getObjectTypeDescription(&addr, true);
 
 					/*
@@ -2182,7 +2182,7 @@ stringify_grant_objtype(ObjectType objtype)
 			return "TABLESPACE";
 		case OBJECT_TYPE:
 			return "TYPE";
-			/* these currently aren't used */
+			/* 这些目前未被使用    */
 		case OBJECT_ACCESS_METHOD:
 		case OBJECT_AGGREGATE:
 		case OBJECT_AMOP:
@@ -2265,7 +2265,7 @@ stringify_adefprivs_objtype(ObjectType objtype)
 			return "TABLESPACES";
 		case OBJECT_TYPE:
 			return "TYPES";
-			/* these currently aren't used */
+			/* 这些目前未被使用    */
 		case OBJECT_ACCESS_METHOD:
 		case OBJECT_AGGREGATE:
 		case OBJECT_AMOP:

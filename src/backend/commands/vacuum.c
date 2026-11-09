@@ -1,15 +1,15 @@
 /*-------------------------------------------------------------------------
  *
  * vacuum.c
- *	  The postgres vacuum cleaner.
+ *	  postgres 清理工具。    
  *
- * This file includes (a) control and dispatch code for VACUUM and ANALYZE
- * commands, (b) code to compute various vacuum thresholds, and (c) index
- * vacuum code.
+ * 本文件包括 (a) VACUUM 和 ANALYZE 命令的控制与分发        
+ * 代码、(b) 计算各种清理阈值的代码，及 (c) 索引清理 
+ * 代码。   
  *
- * VACUUM for heap AM is implemented in vacuumlazy.c, parallel vacuum in
- * vacuumparallel.c, ANALYZE in analyze.c, and VACUUM FULL is a variant of
- * CLUSTER, handled in cluster.c.
+ * 堆 AM 的 VACUUM 在 vacuumlazy.c 中实现，并行清理在       
+ * vacuumparallel.c，ANALYZE 在 analyze.c，VACUUM FULL 则是 CLUSTER  
+ * 的变体，见 cluster.c。  
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -197,8 +197,8 @@ ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel)
 			vac_buffer_size = defGetString(opt);
 
 			/*
-			 * 检查指定值是否有效，如果大小不为 0，则应在硬上下限范围内。
-			 * within the hard upper and lower limits if it is not 0.
+			 * 检查指定值是否有效，若非 0 则大小须处于 
+			 * 硬性上下限范围内。                           
 			 */
 			if (!parse_int(vac_buffer_size, &result, GUC_UNIT_KB, &hintmsg) ||
 				(result != 0 &&
@@ -489,12 +489,12 @@ vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
 	stmttype = (params->options & VACOPT_VACUUM) ? "VACUUM" : "ANALYZE";
 
 	/*
-	 * 我们不能在用户事务块内运行 VACUUM；如果我们在事务内部，那么我们的
-	 * 提交和启动事务命令调用将不会产生预期效果！还有很多其他微妙的依赖
-	 * 关系也与此相关。
-	 * 
-	 *ANALYZE（不带 VACUUM）可以按任意方式运行。
-	 * ANALYZE (without VACUUM) can run either way.
+	 * 无法在用户事务块内运行 VACUUM；若在事务内，我们的 
+	 * 提交与启动事务命令的调用就不会有预期效果！    
+	 * 此外，对此还存在许多其他微妙的                      
+	 * 依赖关系。           
+	 *
+	 * ANALYZE（不带 VACUUM）则两者皆可。
 	 */
 	if (params->options & VACOPT_VACUUM)
 	{
@@ -546,18 +546,18 @@ vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
 		relations = get_all_vacuum_rels(vac_context, params->options);
 
 	/*
-	 * 决定是否需要启动/提交我们自己的事务。
+	 * 决定我们是否需要启动/提交自己的事务。     
 	 *
-	 * 对于 VACUUM（带或不带 ANALYZE）：始终如此，以便尽快释放锁。
-	 * （对于单表 VACUUM，我们可能可以使用外部事务，但处理 TOAST 表
-	 * 会有问题。）
-	 * 
-	 *对于 ANALYZE（不带 VACUUM）：如果在事务块内，我们不能启动/提交
-	 * 自己的事务。此外，如果只处理一个关系则无需这样做。当不在事务块内
-	 * 且处理多个关系时，以及在自动清理工作进程中，使用自己的事务以便
-	 * 更早释放锁。
-	 * transaction block, and also in an autovacuum worker, use own
-	 * transactions so we can release locks sooner.
+	 * 对于 VACUUM（带或不带 ANALYZE）：总是这么做，以便
+	 * 尽早释放锁。（单表 VACUUM 或可用外层事务，但      
+	 * 处理 TOAST 表就会有问题。                                    
+	 * ）          
+	 *
+	 * 对于 ANALYZE（无 VACUUM）：若处于事务块内，无法  
+	 * 启动/提交自己的事务。若只处理一个关系，则无需  
+	 * 这样做。处理多个关系且不在事务块内时，以及        
+	 * 自动清理 worker 中，均用自身事务，以便更    
+	 * 早地释放锁。                          
 	 */
 	if (params->options & VACOPT_VACUUM)
 		use_own_xacts = true;
@@ -575,12 +575,12 @@ vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
 	}
 
 	/*
-	 * vacuum_rel 期望在没有活动事务的情况下进入；它将启动并提交自己的
-	 * 事务。但我们是由 SQL 命令调用的，因此我们已经在事务内部执行。
-	 * 我们在此提交在 PostgresMain() 中启动的事务，并在退出前启动另一个
-	 * 事务，以匹配在 PostgresMain() 中等待我们的提交。
-	 * another one before exiting to match the commit waiting for us back in
-	 * PostgresMain().
+	 * vacuum_rel 预期进入时无活动的事务；它将自行         
+	 * 启动并提交自身的事务。但因 SQL 命令调用，已在 
+	 * 事务内执行。我们在此提交 PostgresMain() 中启动的 
+	 * 事务，并在退出前启动另一个事务，以配合       
+	 * PostgresMain() 中等待我们的那次提交                        
+	 * 。            
 	 */
 	if (use_own_xacts)
 	{
@@ -622,8 +622,8 @@ vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
 				VacuumParams params_copy;
 
 				/*
-				 * vacuum_rel() 会在参数上涂写，因此给它一份副本以避免影响其他关系。
-				 * to avoid affecting other relations.
+				 * vacuum_rel() 会涂改参数，故传入一份副本以免 
+				 * 影响其他关系。              
 				 */
 				memcpy(&params_copy, params, sizeof(VacuumParams));
 
@@ -707,11 +707,11 @@ vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
 }
 
 /*
- * 检查给定关系是否可以安全地清理或分析。如果用户不是关系所有者，
- * 则发出 WARNING 日志消息并返回 false，让调用方决定如何处理此关系。
- * 此例程用于决定关系是否可以被处理以执行 VACUUM 或 ANALYZE。
- * routine is used to decide if a relation can be processed for VACUUM or
- * ANALYZE.
+ * 检查给定关系能否安全清理或分析。如果用户不是该
+ * 关系的所有者，发出 WARNING 日志消息并返回 false，    
+ * 让调用方决定如何处置。本例程判定某关系能否作 
+ * VACUUM 或 ANALYZE 处理                                             
+ * 。     
  */
 bool
 vacuum_is_relation_owner(Oid relid, Form_pg_class reltuple, bits32 options)
@@ -721,15 +721,15 @@ vacuum_is_relation_owner(Oid relid, Form_pg_class reltuple, bits32 options)
 	Assert((options & (VACOPT_VACUUM | VACOPT_ANALYZE)) != 0);
 
 	/*
-	 * 检查权限。
+	 * 检查权限。   
 	 *
-	 * 如果用户是超级用户、表所有者或数据库所有者（但在后一种情况下，
-	 * 仅当不是共享关系时），允许用户清理或分析表。
-	 * object_ownercheck 包含超级用户的情况。
-	 * 
-	 *注意，我们选择将权限失败视为 WARNING 并继续尝试清理或分析数据库
-	 * 的其余部分 --- 这合适吗？
-	 * trying to vacuum or analyze the rest of the DB --- is this appropriate?
+	 * 若用户为超级用户、表所有者或数据库所有者，允许 
+	 * 清理或分析表（但最后一种情况仅限非共享关系    
+	 * 时）。object_ownercheck 已涵盖超级用户情况                
+	 * 。  
+	 *
+	 * 注意，我们选择将权限失败按 WARNING 处理并继续  
+	 * 清理或分析数据库的其余部分 —— 这样做合适吗？   
 	 */
 	if (object_ownercheck(RelationRelationId, relid, GetUserId()) ||
 		(object_ownercheck(DatabaseRelationId, MyDatabaseId, GetUserId()) && !reltuple->relisshared))
@@ -763,9 +763,9 @@ vacuum_is_relation_owner(Oid relid, Form_pg_class reltuple, bits32 options)
 /*
  * vacuum_open_relation
  *
- * 此例程用于尝试打开并锁定即将被清理或分析的关系。如果无法打开或
- * 锁定关系，则在可能的情况下发出日志。
- * or locked, a log is emitted if possible.
+ * 本例程用于尝试打开并锁定将要清理或分析的关系   
+ * 。若无法打开或锁定该关系，则在可能时发出日志    
+ * 。                                     
  */
 Relation
 vacuum_open_relation(Oid relid, RangeVar *relation, bits32 options,
@@ -801,13 +801,13 @@ vacuum_open_relation(Oid relid, RangeVar *relation, bits32 options,
 		return rel;
 
 	/*
-	 * 无法打开关系，因此尽可能生成一条记录情况的日志。
-	 * 
-	 *如果未定义 RangeVar，则我们没有足够的信息来提供有意义的日志语句。
-	 * 很可能调用方有意不提供此信息，以便无论如何都跳过此日志记录。
-	 * provide a meaningful log statement.  Chances are that the caller has
-	 * intentionally not provided this information so that this logging is
-	 * skipped, anyway.
+	 * 关系无法打开，故若可能则生成日志说明情况  
+	 * 。                        
+	 *
+	 * 如果未定义 RangeVar，则没有足够的信息可提供        
+	 * 有意义的日志语句。多半是调用方有意不提供信息  
+	 * ，从而使这条日志被跳过，反正                         
+	 * 也一样。    
 	 */
 	if (relation == NULL)
 		return NULL;
@@ -866,18 +866,18 @@ vacuum_open_relation(Oid relid, RangeVar *relation, bits32 options,
 
 
 /*
- * 给定一个 VacuumRelation，如果未指定表 OID 则填充它，并可选择为表
- * 的分区添加 VacuumRelation。
+ * 给定一个 VacuumRelation，若未指定则填入表 OID，        
+ * 并可选择为该表的各个分区添加 VacuumRelation。   
  *
- * 如果 VacuumRelation 未提供 OID 且是分区表，则将为每个分区在输出中
- * 添加一个额外的条目。目前，只有自动清理在调用 vacuum() 时提供 OID，
- * 且它不希望我们展开分区表。
- * 
- *我们注意不修改输入数据结构，而是构建新的 VacuumRelation 以返回。
- * （但请注意，它们将引用输入的未修改部分，例如列列表。）新的数据
- * 结构在 vac_context 中创建。
- * unmodified parts of the input, eg column lists.)  New data structures
- * are made in vac_context.
+ * 如果一个 VacuumRelation 未提供 OID 且是分区表，则将    
+ * 为每个分区在输出中添加额外条目。目前只有自动   
+ * 清理在调用 vacuum() 时提供 OID，且不希望我们展开  
+ * 分区表。                                     
+ *
+ * 我们注意不修改输入的数据结构，而是构建新的       
+ * VacuumRelation 返回。（但注意它们将引用输入未修     
+ * 改的部分，如列列表。）新数据结构在 vac_context 中  
+ * 创建。               
  */
 static List *
 expand_vacuum_rel(VacuumRelation *vrel, MemoryContext vac_context,
@@ -909,9 +909,9 @@ expand_vacuum_rel(VacuumRelation *vrel, MemoryContext vac_context,
 		Assert(!IsAutoVacuumWorkerProcess());
 
 		/*
-		 * 我们暂时获取 AccessShareLock 以保护下面的 syscache 查找，以及
-		 * find_all_inheritors 的期望，即调用方在起始关系上持有某个锁。
-		 * holds some lock on the starting relation.
+		 * 我们暂时取得 AccessShareLock 保护下面的 syscache 查   
+		 * 找，也满足 find_all_inheritors 对调用方持有起始关    
+		 * 系上某种锁的期望。              
 		 */
 		rvr_opts = (options & VACOPT_SKIP_LOCKED) ? RVR_SKIP_LOCKED : 0;
 		relid = RangeVarGetRelidExtended(vrel->relation,
@@ -939,8 +939,8 @@ expand_vacuum_rel(VacuumRelation *vrel, MemoryContext vac_context,
 		}
 
 		/*
-		 * 要检查关系是否为分区表及其所有权，获取其 syscache 条目。
-		 * ownership, fetch its syscache entry.
+		 * 要检查关系是否为分区表及其所有权，需获取
+		 * syscache 条目。                  
 		 */
 		tuple = SearchSysCache1(RELOID, ObjectIdGetDatum(relid));
 		if (!HeapTupleIsValid(tuple))
@@ -965,13 +965,13 @@ expand_vacuum_rel(VacuumRelation *vrel, MemoryContext vac_context,
 		ReleaseSysCache(tuple);
 
 		/*
-		 * 如果是，为其分区创建关系列表条目。注意 find_all_inheritors() 返回
-		 * 的列表包含传入的 OID，因此我们必须跳过它。目前对各个分区加锁没有
-		 * 意义，这样做只会增加不必要的死锁风险。出于最后这个原因，我们尚未
-		 * 检查分区的所有权，它们被添加到要处理的列表中。所有权将在稍后检查。
-		 * unnecessary deadlock risk.  For this last reason we do not check
-		 * yet the ownership of the partitions, which get added to the list to
-		 * process.  Ownership will be checked later on anyway.
+		 * 如果是，就为其分区建立关系列表条目。注意       
+		 * find_all_inheritors() 返回的列表含传入 OID，故我      
+		 * 们必须跳过它。目前无需对单个分区取得锁，      
+		 * 这样做只会徒增不必要的死锁风险。          
+		 * 出于后一原因，我们暂不检查分区所有权，它们 
+		 * 会被加入待处理列表；反正所有权稍后                
+		 * 还会被检查。                                  
 		 */
 		if (include_parts)
 		{
@@ -986,9 +986,9 @@ expand_vacuum_rel(VacuumRelation *vrel, MemoryContext vac_context,
 					continue;	/* 忽略原始表 */
 
 				/*
-				 * 我们省略了 RangeVar，因为稍后抱怨打开这些关系中某个失败是不合适的。
-				 * complain about failure to open one of these relations
-				 * later.
+				 * 我们省去 RangeVar，因为稍后报错说打开   
+				 * 这些关系之一失败并不合适                 
+				 * 。   
 				 */
 				oldcontext = MemoryContextSwitchTo(vac_context);
 				vacrels = lappend(vacrels, makeVacuumRelation(NULL,
@@ -999,15 +999,15 @@ expand_vacuum_rel(VacuumRelation *vrel, MemoryContext vac_context,
 		}
 
 		/*
-		 * 再次释放锁。这意味着当我们实际尝试处理该表时，它可能已经消失或
-		 * 重命名。在前一种情况下，我们将静默地忽略它；在后一种情况下，我们
-		 * 仍将处理它，但必须注意 RangeVar 不再必然标识它。这可能不是理想的，
-		 * 但几乎没有实际替代方案，因为我们通常会在现在和那时之间提交此事务
-		 * 并开始一个新事务。此外，在多个关系上持有锁会产生显著的死锁风险。
-		 * practical alternative, since we're typically going to commit this
-		 * transaction and begin a new one between now and then.  Moreover,
-		 * holding locks on multiple relations would create significant risk
-		 * of deadlock.
+		 * 再次释放锁。这意味着，等真正尝试处理该表时， 
+		 * 它可能已消失或已被改名。前者我们将静默忽略； 
+		 * 后者仍会处理它，但必须当心 RangeVar 已未必   
+		 * 仍能标识它。这或许不理想，但几乎没什么可行 
+		 * 的替代方案，因为我们通常会在此时与彼时之间    
+		 * 提交该事务并再开一个新事务。此外，              
+		 * 在多个关系上持有锁还会带来相当大的             
+		 * 死锁风险                                                     
+		 * 。         
 		 */
 		UnlockRelationOid(relid, AccessShareLock);
 	}
@@ -1052,9 +1052,9 @@ get_all_vacuum_rels(MemoryContext vac_context, int options)
 			continue;
 
 		/*
-		 * 构建指定要处理的表 OID 的 VacuumRelation。我们省略了 RangeVar，
-		 * 因为稍后抱怨打开这些关系中某个失败是不合适的。
-		 * about failure to open one of these relations later.
+		 * 构建 VacuumRelation，指定要处理的表 OID。我们省去  
+		 * RangeVar，因为稍后报错说打开某个关系失败并    
+		 * 不合适。                                       
 		 */
 		oldcontext = MemoryContextSwitchTo(vac_context);
 		vacrels = lappend(vacrels, makeVacuumRelation(NULL,
@@ -1108,15 +1108,15 @@ vacuum_get_cutoffs(Relation rel, const VacuumParams *params,
 	cutoffs->relminmxid = rel->rd_rel->relminmxid;
 
 	/*
-	 * 获取 OldestXmin。
+	 * 获取OldestXmin。
 	 *
-	 * 我们始终可以忽略运行惰性清理的进程。这是因为我们仅使用这些值来
-	 * 决定必须保留在表中的元组。由于惰性清理通常不会将其 XID 写在任何
-	 * 地方（通常不会分配 XID），因此可以安全地忽略它。理论上，在完整
-	 * 清理中忽略惰性清理可能会有问题，但请记住，任何时候只有一个清理
-	 * 进程可以在特定表上工作，且每个清理始终是独立的事务。
-	 * that only one vacuum process can be working on a particular table at
-	 * any time, and that each vacuum is always an independent transaction.
+	 * 我们总可忽略运行惰性清理的进程。这是因为我们     
+	 * 仅用这些值决定哪些元组必须留在表中。惰性清理 
+	 * 不会在任何地方写其 XID（通常未分配 XID），故忽略 
+	 * 它是安全的。理论上 VACUUM FULL 中忽略惰性清   
+	 * 理可能有问题，但记住：任一时刻只能有一个清理   
+	 * 进程在处理某一特定表，且每次清理总是一个独立  
+	 * 事务。                                                           
 	 */
 	cutoffs->OldestXmin = GetOldestNonRemovableTransactionId(rel);
 
@@ -1129,10 +1129,10 @@ vacuum_get_cutoffs(Relation rel, const VacuumParams *params,
 												&limit_xmin, &limit_ts))
 		{
 			/*
-			 * TODO: 我们应仅在基于增加的阈值进行修剪时才设置阈值。这里不如
-			 * 机会性修剪（通常以更高的频率发生）那么关键，但仍将是显著的改进。
-			 * for opportunistic pruning (which often happens at a much higher
-			 * frequency), but would still be a significant improvement.
+			 * TODO: 仅当依据提高后的界限剪枝时才应设阈值   
+			 * 。这里不如机会主义剪枝（频率更高）时重要
+			 * ，但仍然会是一项显著的                              
+			 * 改进。                                                
 			 */
 			SetOldSnapshotThresholdTimestamp(limit_ts, limit_xmin);
 			cutoffs->OldestXmin = limit_xmin;
@@ -1217,13 +1217,13 @@ vacuum_get_cutoffs(Relation rel, const VacuumParams *params,
 		cutoffs->MultiXactCutoff = cutoffs->OldestMxact;
 
 	/*
-	 * 最后，确定调用方是否需要执行激进的 VACUUM。
+	 * 最后，判断调用方是否需要进行激进的 VACUUM。         
 	 *
-	 * 确定要使用的表冻结年龄：由调用方指定，或使用
-	 * vacuum_freeze_table_age GUC 的值，但无论如何不应超过
-	 * autovacuum_freeze_max_age * 0.95，这样如果你有例如每晚 VACUUM
-	 * 调度，每晚 VACUUM 就有机会在防回卷自动清理启动之前冻结 XID。
-	 * anti-wraparound autovacuum is launched.
+	 * 确定要使用的表冻结年龄：由调用方指定，或使用   
+	 * vacuum_freeze_table_age GUC 的值，但任何情况下都不         
+	 * 超过 autovacuum_freeze_max_age * 0.95，这样如果你设有       
+	 * 每夜 VACUUM 计划，每晚的 VACUUM 就有机会在防回卷       
+	 * 自动清理启动前冻结 XID。     
 	 */
 	if (freeze_table_age < 0)
 		freeze_table_age = vacuum_freeze_table_age;
@@ -1237,12 +1237,12 @@ vacuum_get_cutoffs(Relation rel, const VacuumParams *params,
 		return true;
 
 	/*
-	 * 与上述类似，确定用于多事务的表冻结年龄：由调用方指定，或使用
-	 * vacuum_multixact_freeze_table_age GUC 的值，但无论如何不应超过
-	 * effective_multixact_freeze_max_age * 0.95，这样如果你有例如每晚
-	 * VACUUM 调度，每晚 VACUUM 就有机会在防回卷自动清理启动之前冻结
-	 * 多事务。
-	 * multixacts before anti-wraparound autovacuum is launched.
+	 * 与上述类似，确定用于多事务的表冻结年龄：由
+	 * 调用方指定，或 vacuum_multixact_freeze_table_age    
+	 * GUC 的值，但任何情况下都不超过 effective_              
+	 * multixact_freeze_max_age * 0.95，这样如果你设有每夜      
+	 * VACUUM 计划，每晚的 VACUUM 就有机会在防回卷自动清 
+	 * 理启动前冻结多事务。                           
 	 */
 	if (multixact_freeze_table_age < 0)
 		multixact_freeze_table_age = vacuum_multixact_freeze_table_age;
@@ -1262,11 +1262,11 @@ vacuum_get_cutoffs(Relation rel, const VacuumParams *params,
 }
 
 /*
- * vacuum_xid_failsafe_check() -- 由 VACUUM 的回卷故障安全机制使用，
- * 用于确定表的 relfrozenxid 和 relminmxid 是否已危险地滞后。
- * 
- *当返回 true 时，VACUUM 调用方触发故障安全模式。
- * When we return true, VACUUM caller triggers the failsafe.
+ * vacuum_xid_failsafe_check() -- 由 VACUUM 的回卷故障安全    
+ * 机制用来判定其表的 relfrozenxid 和 relminmxid 现在是否     
+ * 已危险地过于久远。 
+ *
+ * 返回 true 时，VACUUM 调用方触发故障安全。  
  */
 bool
 vacuum_xid_failsafe_check(const struct VacuumCutoffs *cutoffs)
@@ -1374,10 +1374,10 @@ vac_estimate_reltuples(Relation relation,
 		return floor((scanned_tuples / scanned_pages) * total_pages + 0.5);
 
 	/*
-	 * 好了，我们已经处理了边界情况。正常计算是将旧测量值转换为密度
-	 * （每页元组数），然后使用该值估计未扫描页面中的元组数，最后加上
-	 * 扫描页面中的元组数。
-	 * and finally add on the number of tuples in the scanned pages.
+	 * 好了，边界情况已覆盖。通常计算是先把旧测量值 
+	 * 转为密度（每页元组数），再据此估计未扫描页 
+	 * 中的元组数，最后再加上                                      
+	 * 已扫描页中的元组数。                               
 	 */
 	old_density = old_rel_tuples / old_rel_pages;
 	unscanned_pages = (double) total_pages - (double) scanned_pages;
@@ -1507,14 +1507,14 @@ vac_update_relstats(Relation relation,
 	}
 
 	/*
-	 * 更新 relfrozenxid，除非调用方传入 InvalidTransactionId 表示没有
-	 * 新数据。
+	 * 更新 relfrozenxid，除非调用方传 InvalidTransactionId 
+	 * 表示其无新数据。      
 	 *
-	 * 通常，我们不允许 relfrozenxid 倒退。但是，如果存储的 relfrozenxid
-	 * 处于"将来"，最好假定它已损坏，并用表中剩余的最旧 XID 覆盖。这应
-	 * 与 vac_update_datfrozenxid() 关于什么被视为"将来"的处理一致。
-	 * This should match vac_update_datfrozenxid() concerning what we consider
-	 * to be "in the future".
+	 * 通常我们不让 relfrozenxid 倒退。然而，若存储的      
+	 * relfrozenxid "处于未来"，则最好假定其损坏，并用    
+	 * 表中剩余的最旧 XID 覆盖。关于什么算"处于未来"，这 
+	 * 应与 vac_update_datfrozenxid() 所用标准保持                    
+	 * 一致。             
 	 */
 	oldfrozenxid = pgcform->relfrozenxid;
 	futurexid = false;
@@ -1585,22 +1585,22 @@ vac_update_relstats(Relation relation,
 
 
 /*
- *vac_update_datfrozenxid() -- 更新本数据库的 pg_database.datfrozenxid
+ *	vac_update_datfrozenxid() -- 更新本库 pg_database.datfrozenxid     
  *
- *将 pg_database 中本数据库的 datfrozenxid 条目更新为
- *pg_class.relfrozenxid 值的最小值。
+ *		把 pg_database 的 datfrozenxid 条目更新为本数据库中   
+ *		pg_class.relfrozenxid 值的最小值。    
  *
- *类似地，将 datminmxid 更新为 pg_class.relminmxid 值的最小值。
+ *		类似地，把 datminmxid 更新为各 pg_class.        
+ *		relminmxid 的最小值。 
  *
- *如果能够推进任一 pg_database 值，也尝试截断 pg_xact 和
- *pg_multixact。
+ *		若能推进任一 pg_database 值，则还应尝试截断     
+ *		pg_xact 与 pg_multixact。       
  *
- *我们在此违反事务语义，用新值覆盖数据库的现有 pg_database 元组。
- *这是合理安全的，因为新值无论本事务是否提交都是正确的。与
- *vac_update_relstats 一样，这避免了在 VACUUM 后留下死元组。
- *		safe since the new values are correct whether or not this transaction
- *		commits.  As with vac_update_relstats, this avoids leaving dead tuples
- *		behind after a VACUUM.
+ *		我们在此违反事务语义：用新值覆盖数据库现有    
+ *		pg_database 元组。这相当安全，因为无论本事务是否 
+ *		提交，新值都正确。与 vac_update_relstats 一样，这      
+ *		避免了 VACUUM 之后留下死元组                                
+ *		。                   
  */
 void
 vac_update_datfrozenxid(void)
@@ -1628,11 +1628,11 @@ vac_update_datfrozenxid(void)
 	LockDatabaseFrozenIds(ExclusiveLock);
 
 	/*
-	 * 用 GetOldestNonRemovableTransactionId() 初始化 "min" 计算，
-	 * 这是对尚未提交的新表 pg_class 条目最小 relfrozenxid 的合理近似；
-	 * 参见 AddNewRelationTuple()。因此，以此开始计算不会产生错误的最小值。
-	 * pg_class entries for new tables; see AddNewRelationTuple().  So we
-	 * cannot produce a wrong minimum by starting with this.
+	 * "min" 计算的初始化采用       
+	 * GetOldestNonRemovableTransactionId()，对新建表的     
+	 * 未提交 pg_class 条目而言，是最小 relfrozenxid 的一
+	 * 个合理近似；参见 AddNewRelationTuple()。因此从它出  
+	 * 发不会得出错误的最小值。                 
 	 */
 	newFrozenXid = GetOldestNonRemovableTransactionId(NULL);
 
@@ -1643,18 +1643,18 @@ vac_update_datfrozenxid(void)
 	newMinMulti = GetOldestMultiXactId();
 
 	/*
-	 * 识别我们在扫描期间能有效看到的最新 relfrozenxid 和 relminmxid 值。
-	 * 这些是保守值，但尝试更精确并不值得。
-	 * not really worth trying to be more exact.
+	 * 找出扫描期间我们能有效见到的最新 relfrozenxid 与   
+	 * relminmxid 值。这些都是保守值，但追求更精确并不值 
+	 * 得。                                   
 	 */
 	lastSaneFrozenXid = ReadNextTransactionId();
 	lastSaneMinMulti = ReadNextMultiXactId();
 
 	/*
-	 * 我们必须顺序扫描 pg_class 以找到最小 Xid，因为没有索引可以帮助我们。
-	 * 
-	 *参见 vac_truncate_clog() 了解要防止的竞态条件。
-	 * See vac_truncate_clog() for the race condition to prevent.
+	 * 我们必须顺序扫描 pg_class 来找出最小的 Xid，因为    
+	 * 没有索引可帮上忙。 
+	 *
+	 * 要防范的竞态条件参见 vac_truncate_clog()。     
 	 */
 	relation = table_open(RelationRelationId, AccessShareLock);
 
@@ -1741,10 +1741,10 @@ vac_update_datfrozenxid(void)
 	relation = table_open(DatabaseRelationId, RowExclusiveLock);
 
 	/*
-	 * 获取元组副本以供涂写。我们可以先检查 syscache 元组。如果得出
-	 * !dirty 的结论，我们将避免等待并发的 heap_update() 并避免对缓冲区
-	 * 加排他锁。现在暂不优化此点。
-	 * For now, don't optimize that.
+	 * 获取待涂改元组的副本。我们可以先检查 syscache 元   
+	 * 组。若其结论为 !dirty，便可避免等待并发的   
+	 * heap_update()，也无需以独占方式锁定缓冲区。眼下不   
+	 * 要做这种优化。        
 	 */
 	ScanKeyInit(&key[0],
 				Anum_pg_database_oid,
@@ -1760,9 +1760,9 @@ vac_update_datfrozenxid(void)
 	dbform = (Form_pg_database) GETSTRUCT(tuple);
 
 	/*
-	 * 与 vac_update_relstats() 中一样，我们通常不希望 datfrozenxid 倒退；
-	 * 但如果它处于"将来"，则它一定是损坏的，最好覆盖它。
-	 * corrupt and it seems best to overwrite it.
+	 * 与 vac_update_relstats() 一样，我们通常不愿让    
+	 * datfrozenxid 倒退；但如果它"处于未来"，那它必定已   
+	 * 损坏，覆盖它似乎最好。         
 	 */
 	if (dbform->datfrozenxid != newFrozenXid &&
 		(TransactionIdPrecedes(dbform->datfrozenxid, newFrozenXid) ||
@@ -1807,19 +1807,19 @@ vac_update_datfrozenxid(void)
 /*
  *	vac_truncate_clog() -- 尝试截断提交日志          
  *
- *		扫描 pg_database 来确定全系统最旧的 datfrozenxid，    
- *		并用它截断事务提交日志（pg_xact）。还更新  
- *		varsup.c 维护的 XID 回卷限制信息。对 datminmxid 
- *		同理处理。         
+ *		扫描 pg_database 以确定全系统最旧的 datfrozenxid，    
+ *		并用它截断事务提交日志（pg_xact）。也更新  
+ *		varsup.c 维护的 XID 回卷限制信息。               
+ *		datminmxid 亦然。    
  *
- *		传入的 frozenXID 和 minMulti 是本库 pg_database 条目      
- *		的更新值。它们用于初始化"min"计算。调用方还传入 
- *		"last sane" XID 和 MXID，因为调用方已有这              
- *		些值。             
+ *		传入的 frozenXID 和 minMulti 是本库自身 pg_database 条   
+ *		目的更新后取值。它们用于初始化"最小值"计算。调 
+ *		用方还传入"最后健全"的 XID 和 MXID，因其手头已  
+ *		有这些值。       
  *
- *		本例程仅在我们成功修改了本库的 datfrozenxid   
- *		/datminmxid 值，或者发现共享 XID 回卷限制信息     
- *		已陈旧时才被调用。  
+ *		本例程只在我们成功改变了本库的 datfrozenxid/  
+ *		datminmxid 值时才会调用，或在我们发现共享的     
+ *		XID 回卷限制已过时。 
  */
 static void
 vac_truncate_clog(TransactionId frozenXID,
@@ -1844,22 +1844,22 @@ vac_truncate_clog(TransactionId frozenXID,
 	minmulti_datoid = MyDatabaseId;
 
 	/*
-	 * 扫描 pg_database 以计算最小 datfrozenxid / datminmxid
+	 * 扫描 pg_database 以计算最小的 datfrozenxid/datminmxid  
 	 *
-	 * 由于 vac_update_datfrozenxid 会就地更新 datfrozenxid / datminmxid，
-	 * 值可能在我们查看时改变。获取每个值一次以确保比较逻辑的健全行为。
-	 * （在此处及许多其他地方，我们假设获取或更新共享存储中的 XID 是
-	 * 原子的。）
-	 * 
-	 *注意：无需担心 CREATE DATABASE 插入新条目的竞态条件。任何此类
-	 * 条目都将拥有某个现有数据库 datfrozenxid 的副本，而该源数据库由于
-	 * 不能复制包含活动后端的数据库的互锁机制，不可能是我们自己的。因此
-	 * 新条目不会降低最小值。此外，如果两个 VACUUM 并发修改不同数据库的
-	 * datfrozenxid，最坏的结果是 pg_xact 未被尽可能积极截断。
-	 * Hence the new entry will not reduce the minimum.  Also, if two VACUUMs
-	 * concurrently modify the datfrozenxid's of different databases, the
-	 * worst possible outcome is that pg_xact is not truncated as aggressively
-	 * as it could be.
+	 * 由于 vac_update_datfrozenxid 是就地更新 datfrozenxid/           
+	 * datminmxid，故我们查看时值可能变化。每个值只      
+	 * 获取一次，以确保比较逻辑行为正常。（此处和其 
+	 * 他许多地方一样，我们假定共享存储中读取或更新     
+	 * XID 为原子的。
+	 *
+	 * 注意：我们无需担心 CREATE DATABASE 插入新条目带来的 
+	 * 竞态条件。这种条目都会带有某现有库的               
+	 * datfrozenxid 副本，且该源库不可能是我们的库，因为  
+	 * 有禁止复制含活动后端的库的互锁。因此新条目    
+	 * 不会降低最小值。此外，若两个 VACUUM 并发修改        
+	 * 不同库的 datfrozenxid，最坏结果也只是 pg_xact         
+	 * 未被尽可能地积极截断而已                                   
+	 * 。            
 	 */
 	relation = table_open(DatabaseRelationId, AccessShareLock);
 
@@ -1875,10 +1875,10 @@ vac_truncate_clog(TransactionId frozenXID,
 		Assert(MultiXactIdIsValid(datminmxid));
 
 		/*
-		 * 如果数据库正在被删除过程中，或已被中断，则无法再连接到它。因此
-		 * 无需在此考虑它。这很好，因为它也无法被自动清理处理。
-		 * anymore. Therefore we don't need to take it into account here.
-		 * Which is good, because it can't be processed by autovacuum either.
+		 * 若数据库正在被删除或删除中被中断则不可能 
+		 * 再有连接到它，因此此处无需考虑它。这一点 
+		 * 是有利的，因为它也无法被                          
+		 * 自动清理处理。                                             
 		 */
 		if (database_is_invalid_form((Form_pg_database) dbform))
 		{
@@ -1889,13 +1889,13 @@ vac_truncate_clog(TransactionId frozenXID,
 		}
 
 		/*
-		 * 如果工作正常，任何数据库都不应有"将来"的 datfrozenxid 或
-		 * datminmxid。但是，已知由于 pg_upgrade 中的 bug 会出现这种情况。
-		 * 如果我们看到任何"将来"的条目，我们退出并不做任何操作。这确保我们
-		 * 不会在这些数据库被扫描和清理之前截断 clog。（但如果合适，我们仍会
-		 * 发出 "already wrapped" 警告。）
-		 * databases have been scanned and cleaned up.  (We will issue the
-		 * "already wrapped" warning if appropriate, though.)
+		 * 若一切正常，数据库都不应有"处于未来"的 
+		 * datfrozenxid 或 datminmxid。然而，pg_upgrade 的缺陷曾    
+		 * 导致过这种情况。若见任何"处于未来"的条目，  
+		 * 我们就退缩而什么都不做。这确保那些数据库      
+		 * 被扫描并清理前不会截断 clog。（不过，仍会
+		 * 在合适时发出"已回卷"警告。                         
+		 * ）                                               
 		 */
 		if (TransactionIdPrecedes(lastSaneFrozenXid, datfrozenxid) ||
 			MultiXactIdPrecedes(lastSaneMinMulti, datminmxid))
@@ -1943,11 +1943,11 @@ vac_truncate_clog(TransactionId frozenXID,
 	}
 
 	/*
-	 * 在截断之前推进提交时间戳的最旧值，这样如果用户在此之后立即请求
-	 * 我们正在截断的事务的时间戳，他们将得到 NULL，而不是 slru.c 发出的
-	 * 难看的 "file not found" 错误。这对 xact / multixact 不重要，因为
-	 * 它们不会受到来自用户的任意查找。
-	 * because they are not subject to arbitrary lookups from users.
+	 * 在截断前先推进提交时间戳的最旧值，这样若用户  
+	 * 在此点后立即请求我们正截断掉的事务的时间戳，    
+	 * 他将得到 NULL，而不是 slru.c 的难看的"文件未            
+	 * 找到"错误。对 xact/multixact 无关紧要，因其不受   
+	 * 用户任意查找的影响。                               
 	 */
 	AdvanceOldestCommitTsXid(frozenXID);
 
@@ -2080,12 +2080,12 @@ vacuum_rel(Oid relid, RangeVar *relation, VacuumParams *params,
 	}
 
 	/*
-	 * 检查是否需要根据所有权跳过该关系。此检查在手动操作构建要清理的
-	 * 关系列表时也会发生，并且需要在此额外进行，因为 VACUUM 可能跨越
-	 * 多个事务，在期间关系所有权可能已更改。确保仅在这种情况下为 VACUUM
-	 * 生成日志。
-	 * changed in-between.  Make sure to only generate logs for VACUUM in this
-	 * case.
+	 * 检查是否需基于所有权跳过关系。为手动操作构建   
+	 * 待清理关系列表时也会进行此检查；但 VACUUM 可能  
+	 * 跨多个事务发生，其间所有权可能已变，故此处  
+	 * 还需额外做此检查。这种情况下请确保只为 VACUUM 生   
+	 * 成日志                                                              
+	 * 。  
 	 */
 	if (!vacuum_is_relation_owner(RelationGetRelid(rel),
 								  rel->rd_rel,
@@ -2115,11 +2115,11 @@ vacuum_rel(Oid relid, RangeVar *relation, VacuumParams *params,
 	}
 
 	/*
-	 * 静默忽略属于其他后端的临时表 --- 尝试清理这些表将导致重大不愉快，
-	 * 因为它们的内容可能不会在磁盘上保持最新。（我们不在此处发出警告；
-	 * 那样只会在数据库范围的 VACUUM 期间带来噪声。）
-	 * warning here; it would just lead to chatter during a database-wide
-	 * VACUUM.)
+	 * 静默忽略属于其他后端的临时表 —— 尝试清      
+	 * 理它们会招致大麻烦，因为其内容在磁盘上可能   
+	 * 不是最新的。（这里不发出警告；那只会造成    
+	 * 全库 VACUUM 期间的喋喋不休。                            
+	 * ）     
 	 */
 	if (RELATION_IS_OTHER_TEMP(rel))
 	{
@@ -2209,10 +2209,10 @@ vacuum_rel(Oid relid, RangeVar *relation, VacuumParams *params,
 		toast_relid = InvalidOid;
 
 	/*
-	 * 切换到表所有者的 userid，以便任何索引函数都以该用户身份运行。同时
-	 * 锁定安全受限操作，并安排使 GUC 变量更改仅发生于此命令的本地。
-	 * （这对于惰性 VACUUM 是不必要的，但无害。）
-	 * unnecessary, but harmless, for lazy VACUUM.)
+	 * 切换为表所有者的 userid，使各索引函数均以该用户    
+	 * 运行。同时锁定安全受限操作，并安排 GUC 变更  
+	 * 仅对本命令局部生效。（惰性清理无需此操作，但  
+	 * 无害。）                                
 	 */
 	GetUserIdAndSecContext(&save_userid, &save_sec_context);
 	SetUserIdAndSecContext(rel->rd_rel->relowner,
@@ -2220,10 +2220,10 @@ vacuum_rel(Oid relid, RangeVar *relation, VacuumParams *params,
 	save_nestlevel = NewGUCNestLevel();
 
 	/*
-	 * 如果 PROCESS_MAIN 已设置（默认值），则是清理主关系的时候了。否则，
-	 * 我们可以跳过此部分。如果需要处理 TOAST 表（例如 PROCESS_TOAST 已设
-	 * 置），则在递归到 TOAST 表时强制设置 PROCESS_MAIN。
-	 * to be set when we recurse to the TOAST table.
+	 * 如果设置了 PROCESS_MAIN（默认），则是清理主关系  
+	 * 的时候。否则可跳过这一部分。如果需要处理         
+	 * TOAST 表（例如设置了 PROCESS_TOAST），那么在递归到    
+	 * TOAST 表时会强制设置 PROCESS_MAIN。  
 	 */
 	if (params->options & VACOPT_PROCESS_MAIN)
 	{
@@ -2265,11 +2265,11 @@ vacuum_rel(Oid relid, RangeVar *relation, VacuumParams *params,
 	CommitTransactionCommand();
 
 	/*
-	 * 如果关系有辅助 TOAST 关系，同样在持有主表的会话锁期间清理它。
-	 * 但注意，不会对 TOAST 表执行 "analyze"。这很好，因为 TOAST 处理
-	 * 始终使用硬编码的索引访问，统计信息对 TOAST 关系完全不重要。
-	 * the toaster always uses hardcoded index access and statistics are
-	 * totally unimportant for toast relations.
+	 * 如果该关系有次级 TOAST 表，那么趁我们仍持有主表
+	 * 会话锁时，把 TOAST 表也一并清理。不过要注意， 
+	 * "analyze" 不会在 toast 表上执行。这很好，因为 toaster   
+	 * 总是用硬编码索引访问，而统计信息对 toast 关系 
+	 * 完全不重要。                      
 	 */
 	if (toast_relid != InvalidOid)
 	{
@@ -2290,16 +2290,16 @@ vacuum_rel(Oid relid, RangeVar *relation, VacuumParams *params,
 
 
 /*
- * 打开给定关系的所有可清理索引，对每个索引获取指定类型的锁。将索引
- * 的 Relation 指针数组返回到 *Irel，索引数量返回到 *nindexes。
- * 
- *如果索引被标记为可插入（indisready），我们将其视为可清理的。如果
- * 不是，可能是 CREATE INDEX CONCURRENTLY 命令在执行早期失败，我们
- * 拥有的内容过于损坏无法处理。即使索引不是 indisvalid，我们也会清理；
- * 这很重要，因为在唯一索引中，唯一性检查仍会被执行，最好不要命中
- * 悬垂的索引指针。
- * unique index, uniqueness checks will be performed anyway and had better not
- * hit dangling index pointers.
+ * 打开给定关系全部可清理的索引，并对每个索引取  
+ * 得指定类型的锁。把索引的 Relation 指针数组返回到      
+ * *Irel 中，索引数目返回到 *nindexes 中。               
+ *
+ * 若一个索引被标记为可插入（indisready），我们就认     
+ * 为它是可清理的。如果不是，很可能是 CREATE INDEX         
+ * CONCURRENTLY 命令在执行早期失败，而我们手中的东      
+ * 西已损坏到无法处理的地步。即使索引非 indisvalid，     
+ * 我们也会清理；这很重要，因唯一索引必查唯一性，勿   
+ * 撞悬空索引指针。    
  */
 void
 vac_open_indexes(Relation relation, LOCKMODE lockmode,
@@ -2360,10 +2360,10 @@ vac_close_indexes(int nindexes, Relation *Irel, LOCKMODE lockmode)
 }
 
 /*
- * vacuum_delay_point --- 检查中断和基于成本的延迟。
+ * vacuum_delay_point --- 检查中断和基于代价的延迟。   
  *
- * 应在 VACUUM 处理的每个主循环中调用，通常是每处理一页调用一次。
- * typically once per page processed.
+ * VACUUM 处理的每个主循环均应调用，通常每处理 
+ * 一个页调用一次。          
  */
 void
 vacuum_delay_point(void)
@@ -2428,12 +2428,12 @@ vacuum_delay_point(void)
 		VacuumCostBalance = 0;
 
 		/*
-		 * 平衡并更新自动清理工作进程的 limit 值。我们必须定期执行此操作，
-		 * 因为工作进程的数量可能已更改。
-		 * 
-		 *TODO: 理想情况下，我们应该在中间重新读取工作进程数量，但暂时
-		 * 跳过。
-		 * besides "check after napping".
+		 * 为自动清理 worker 平衡并更新限制值。必须定期这 
+		 * 样做，因参与分摊限制的 worker 数目可能已改变 
+		 * 。                                  
+		 *
+		 * TODO: 除"睡醒后检查"外，何时这样做的判定标准    
+		 * 也许还有更优者。      
 		 */
 		AutoVacuumUpdateCostLimit();
 

@@ -1,20 +1,20 @@
 /*-------------------------------------------------------------------------
  *
  * vacuumparallel.c
- *	  Support routines for parallel vacuum execution.
+ *	  并行清理执行的支持例程。           
  *
- * This file contains routines that are intended to support setting up, using,
- * and tearing down a ParallelVacuumState.
+ * 本文件包含旨在支持建立、使用与拆卸 ParallelVacuumState    
+ * 的各类例程。                     
  *
- * In a parallel vacuum, we perform both index bulk deletion and index cleanup
- * with parallel worker processes.  Individual indexes are processed by one
- * vacuum process.  ParallelVacuumState contains shared information as well as
- * the memory space for storing dead items allocated in the DSM segment.  We
- * launch parallel worker processes at the start of parallel index
- * bulk-deletion and index cleanup and once all indexes are processed, the
- * parallel worker processes exit.  Each time we process indexes in parallel,
- * the parallel context is re-initialized so that the same DSM can be used for
- * multiple passes of index bulk-deletion and index cleanup.
+ * 在并行清理中，我们通过并行工作进程同时执行            
+ * 索引批量删除与索引善后。每个索引都由单个清理      
+ * 进程处理。ParallelVacuumState 含共享信息，以及 DSM 段中     
+ * 分配的存储死元组的内存空间。我们会在并行             
+ * 索引批量删除与善后开始时启动并行工作进程，
+ * 待所有索引处理完毕后，这些并行工作进程即退出。  
+ * 每当并行处理索引时，都会重新初始化并行上下文，     
+ * 以便同一 DSM 能用于多轮索引批量删除与                      
+ * 索引善后。                                          
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -65,25 +65,25 @@ typedef struct PVShared
 	int			elevel;
 
 	/*
-	 * 索引清理和清除的共同字段。
+	 * 索引清理与善后共用的字段。  
 	 *
-	 * reltuples 是输入堆元组的总数。在索引清理情况下，我们设置为旧的活跃
-	 * 元组数，在索引清除情况下设置为新的活跃元组数。
-	 * 
-	 *如果 reltuples 是估计值，则 estimated_count 为 true。
-	 * （请注意，在此情况下 reltuples 可能为 -1，表示我们不知道。）
-	 * reltuples could be -1 in this case, indicating we have no idea.)
+	 * reltuples 是输入堆元组的总数。索引清理场景下设为   
+	 * 旧的存活元组数，索引善后场景下设为新的存活   
+	 * 元组数。       
+	 *
+	 * estimated_count 为真表示 reltuples 是估计值。（注意此时  
+	 * reltuples 可能是 -1，表示我们对此一无所知。）   
 	 */
 	double		reltuples;
 	bool		estimated_count;
 
 	/*
-	 * 在单进程清理中，除了堆扫描的内存之外，索引清理或清除期间可能会
-	 * 消耗更多内存。在并行清理中，由于单个清理工作进程可以消耗相当于
-	 * maintenance_work_mem 的内存，因此为每个工作进程设置的新的
-	 * maintenance_work_mem 要确保并行操作不会比单进程清理消耗更多内存。
-	 * worker is set such that the parallel operation doesn't consume more
-	 * memory than single process vacuum.
+	 * 在单进程清理中，索引清理或善后期间在堆扫      
+	 * 描所需内存之外还可能消耗更多内存。在并行     
+	 * 清理中，由于每个清理工作进程消耗的内存可达    
+	 * maintenance_work_mem，因此每个工作进程的新               
+	 * maintenance_work_mem 会被设为使并行操作消耗的内       
+	 * 存不超过单进程清理。    
 	 */
 	int			maintenance_work_mem_worker;
 
@@ -94,9 +94,9 @@ typedef struct PVShared
 	int			ring_nbuffers;
 
 	/*
-	 * 共享清理成本余额。在并行清理期间，VacuumSharedCostBalance 指向此值，
-	 * 它累积每个并行清理工作进程的余额。
-	 * balance of each parallel vacuum worker.
+	 * 共享的清理成本余额。并行清理期间， 
+	 * VacuumSharedCostBalance 指向本值并累积各并行清理       
+	 * 工作进程的余额。               
 	 */
 	pg_atomic_uint32 cost_balance;
 
@@ -127,13 +127,13 @@ typedef enum PVIndVacStatus
 typedef struct PVIndStats
 {
 	/*
-	 * 以下两个字段由 leader 进程在执行并行索引清理或并行索引清除之前设置。
-	 * 这些字段并不是在整个 VACUUM 操作期间保持不变，它们仅在单个并行索引
-	 * 清理和清除期间固定。
-	 * 
-	 *如果 leader 和工作进程都可以处理索引，则 parallel_workers_can_process
-	 * 为 true，否则只有 leader 可以处理。
-	 * process the index, otherwise only leader can process it.
+	 * 以下两字段由领导进程在执行并行索引清理或善后 
+	 * 之前设置。它们在整个 VACUUM 操作期间并不固定，     
+	 * 而是仅对单个并行索引清理与善后过程才是固      
+	 * 定的。                                    
+	 *
+	 * parallel_workers_can_process 表示领导进程和工作进程    
+	 * 都能处理该索引，否则仅领导进程处理。  
 	 */
 	PVIndVacStatus status;
 	bool		parallel_workers_can_process;
@@ -165,12 +165,12 @@ struct ParallelVacuumState
 	PVShared   *shared;
 
 	/*
-	 * 并行清理工作进程间的共享索引统计信息。数组元素为每个索引分配，
-	 * 即使那些并行索引清理不安全或不值得的索引（例如
-	 * will_parallel_vacuum[] 为 false）。在并行清理期间，每个索引的
-	 * IndexBulkDeleteResult 保存在 DSM 中，并在并行清理结束时复制到本地内存。
-	 * IndexBulkDeleteResult of each index is kept in DSM and is copied into
-	 * local memory at the end of parallel vacuum.
+	 * 并行清理工作进程共享的索引统计。数组为每    
+	 * 个索引分配元素，即便是那些并行索引清理不安        
+	 * 全或不值得做的索引（例如，           
+	 * will_parallel_vacuum[] 为假）。并行清理期间，  
+	 * 各索引的 IndexBulkDeleteResult 存于 DSM，在并行清         
+	 * 理结束时复制进本地内存。       
 	 */
 	PVIndStats *indstats;
 
@@ -191,8 +191,8 @@ struct ParallelVacuumState
 	bool	   *will_parallel_vacuum;
 
 	/*
-	 * 分别支持并行索引批量删除和并行索引清除的索引数量。
-	 * parallel index cleanup respectively.
+	 * 分别支持并行索引批量删除和并行                      
+	 * 索引善后的索引数量。      
 	 */
 	int			nindexes_parallel_bulkdel;
 	int			nindexes_parallel_cleanup;
@@ -202,8 +202,8 @@ struct ParallelVacuumState
 	BufferAccessStrategy bstrategy;
 
 	/*
-	 * 错误报告状态。错误回调仅在并行索引清理期间为工作进程设置。
-	 * processes during parallel index vacuum.
+	 * 错误报告状态。错误回调仅在并行索                  
+	 * 引清理期间为工作进程设置。
 	 */
 	char	   *relnamespace;
 	char	   *relname;
@@ -224,10 +224,10 @@ static bool parallel_vacuum_index_is_parallel_safe(Relation indrel, int num_inde
 static void parallel_vacuum_error_callback(void *arg);
 
 /*
- * 尝试进入并行模式并创建并行上下文。然后初始化共享内存状态。
- * 
- *成功时返回并行清理状态。否则返回 NULL。
- * On success, return parallel vacuum state.  Otherwise return NULL.
+ * 尝试进入并行模式并创建并行上下文。然后初始化共     
+ * 享内存状态。  
+ *
+ * 成功时返回并行清理状态，否则返回 NULL。         
  */
 ParallelVacuumState *
 parallel_vacuum_init(Relation rel, Relation *indrels, int nindexes,
@@ -299,12 +299,12 @@ parallel_vacuum_init(Relation rel, Relation *indrels, int nindexes,
 	shm_toc_estimate_keys(&pcxt->estimator, 1);
 
 	/*
-	 * 估算 BufferUsage 和 WalUsage 的空间 --
-	 * PARALLEL_VACUUM_KEY_BUFFER_USAGE 和 PARALLEL_VACUUM_KEY_WAL_USAGE。
+	 * 为 BufferUsage 与 WalUsage 估算空间 --  
+	 * PARALLEL_VACUUM_KEY_BUFFER_USAGE 与 PARALLEL_VACUUM_KEY_WAL_USAGE.
 	 *
-	 * 如果没有加载关心这些的扩展，我们可以跳过。但我们无法知道是否有
-	 * 人在查看 pgBufferUsage 或 pgWalUsage，因此无条件执行。
-	 * pgWalUsage, so do it unconditionally.
+	 * 若没有加载关心此事的扩展，本可跳过此步。我们  
+	 * 无从得知是否有人在查看 pgBufferUsage 或                
+	 * pgWalUsage，故无条件执行。   
 	 */
 	shm_toc_estimate_chunk(&pcxt->estimator,
 						   mul_size(sizeof(BufferUsage), pcxt->nworkers));
@@ -334,8 +334,8 @@ parallel_vacuum_init(Relation rel, Relation *indrels, int nindexes,
 		uint8		vacoptions = indrel->rd_indam->amparallelvacuumoptions;
 
 		/*
-		 * Cleanup 选项应该是禁用、始终并行执行或条件并行执行。
-		 * parallel or conditionally performing in parallel.
+		 * 善后选项应为禁用、总是并行执行或条件并行  
+		 * 执行。                                        
 		 */
 		Assert(((vacoptions & VACUUM_OPTION_PARALLEL_CLEANUP) == 0) ||
 			   ((vacoptions & VACUUM_OPTION_PARALLEL_COND_CLEANUP) == 0));
@@ -420,13 +420,13 @@ parallel_vacuum_init(Relation rel, Relation *indrels, int nindexes,
 }
 
 /*
- * 销毁并行上下文，并结束并行模式。
+ * 销毁并行上下文，并结束并行模式。    
  *
- * 由于并行模式下不允许写入，因此将更新后的索引统计信息从 DSM 复制到
- * 本地内存，然后使用它来更新索引统计信息。有人可能认为我们可以退出并行
- * 模式，更新索引统计信息，然后销毁并行上下文，但那样不安全
- * （参见 ExitParallelMode）。
- * context, but that won't be safe (see ExitParallelMode).
+ * 由于并行模式下不允许写入，先将更新后的  
+ * 统计信息从 DSM 复制到本地内存，之后再用它来             
+ * 更新索引统计信息。有人可能认为我们可以先退出    
+ * 并行模式，更新索引统计信息，然后销毁并行上下  
+ * 文，但这并不安全（见 ExitParallelMode）。  
  */
 void
 parallel_vacuum_end(ParallelVacuumState *pvs, IndexBulkDeleteResult **istats)
@@ -523,8 +523,8 @@ parallel_vacuum_compute_workers(Relation *indrels, int nindexes, int nrequested,
 	int			parallel_workers;
 
 	/*
-	 * 我们不允许在独立后端中执行并行操作，也不允许在禁用并行时执行。
-	 * when parallelism is disabled.
+	 * 我们不允许在独立后端中或并行被禁用时执行并      
+	 * 行操作。                 
 	 */
 	if (!IsUnderPostmaster || max_parallel_maintenance_workers == 0)
 		return 0;
@@ -642,10 +642,10 @@ parallel_vacuum_process_all_indexes(ParallelVacuumState *pvs, int num_index_scan
 			ReinitializeParallelDSM(pvs->pcxt);
 
 		/*
-		 * 为清理延迟设置共享成本余额和活跃工作进程数。我们需要在启动工作
-		 * 进程之前完成此操作，否则它们可能看不到这些参数的最新值。
-		 * otherwise, they might not see the updated values for these
-		 * parameters.
+		 * 设置共享成本余额与用于清理延迟的活跃工      
+		 * 作进程数。这必须在启动工作进程之前完成， 
+		 * 否则它们可能看不到这些参数更新后          
+		 * 的值。  
 		 */
 		pg_atomic_write_u32(&(pvs->shared->cost_balance), VacuumCostBalance);
 		pg_atomic_write_u32(&(pvs->shared->active_nworkers), 0);
@@ -661,8 +661,8 @@ parallel_vacuum_process_all_indexes(ParallelVacuumState *pvs, int num_index_scan
 		if (pvs->pcxt->nworkers_launched > 0)
 		{
 			/*
-			 * 重置 leader 后端的本地成本值，因为我们已经累计了堆的剩余余额。
-			 * already accumulated the remaining balance of heap.
+			 * 重置领导后端的本地成本值，我们已累积了
+			 * 堆的剩余余额。                             
 			 */
 			VacuumCostBalance = 0;
 			VacuumCostBalanceLocal = 0;
@@ -838,8 +838,8 @@ parallel_vacuum_process_one_index(ParallelVacuumState *pvs, Relation indrel,
 	IndexVacuumInfo ivinfo;
 
 	/*
-	 * 如果已有人更新了相应的批量删除结果，则更新指向它的指针。
-	 * has already updated it
+	 * 如果有人已经更新了相应批量删除结果，则更新        
+	 * 指向它的指针。 
 	 */
 	if (indstats->istat_updated)
 		istat = &(indstats->istat);
@@ -926,12 +926,12 @@ parallel_vacuum_index_is_parallel_safe(Relation indrel, int num_index_scans,
 		return false;
 
 	/*
-	 * 如果索引有条件地支持并行清除，但我们已经处理了该索引（批量删除），
-	 * 则不安全。我们这样做是为了避免在并行索引清除不需要扫描索引时调用
-	 * 工作进程。请参阅选项 VACUUM_OPTION_PARALLEL_COND_CLEANUP 的注释以
-	 * 了解索引何时有条件地支持并行清除。
-	 * VACUUM_OPTION_PARALLEL_COND_CLEANUP to know when indexes support
-	 * parallel cleanup conditionally.
+	 * 不安全：若索引有条件地支持并行善后，但我们已    
+	 * 处理过该索引（bulkdelete 阶段）。这样做是为了避免   
+	 * 在并行索引善后无需扫描索引时调用工作进程。       
+	 * 参见 VACUUM_OPTION_PARALLEL_COND_CLEANUP  
+	 * 选项的注释可知索引何时会有条件地支持并行善 
+	 * 后。                         
 	 */
 	if (num_index_scans > 0 &&
 		((vacoptions & VACUUM_OPTION_PARALLEL_COND_CLEANUP) != 0))
@@ -984,8 +984,8 @@ parallel_vacuum_main(dsm_segment *seg, shm_toc *toc)
 	rel = table_open(shared->relid, ShareUpdateExclusiveLock);
 
 	/*
-	 * 打开所有索引。indrels 按 OID 顺序排序，这应与 leader 的排序相匹配。
-	 * matched to the leader's one.
+	 * 打开所有索引。indrels 已按 OID 排序，应与领导进     
+	 * 程的排序一致。       
 	 */
 	vac_open_indexes(rel, RowExclusiveLock, &nindexes, &indrels);
 	Assert(nindexes > 0);

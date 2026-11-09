@@ -205,18 +205,18 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 		ExecCheckPermissions(pstate->p_rtable, list_make1(perminfo), true);
 
 		/*
-		 * Permission check for row security policies.
+		 * 行级安全的权限检查。             
 		 *
-		 * check_enable_rls will ereport(ERROR) if the user has requested
-		 * something invalid and will otherwise indicate if we should enable
-		 * RLS (returns RLS_ENABLED) or not for this COPY statement.
+		 * 用户请求无效时 check_enable_rls 将 ereport(ERROR)，  
+		 * 否则会指明对此 COPY 语句是否应启用 RLS（返回    
+		 * RLS_ENABLED）或不启用。                            
 		 *
-		 * If the relation has a row security policy and we are to apply it
-		 * then perform a "query" copy and allow the normal query processing
-		 * to handle the policies.
+		 * 如果该关系具有行级安全且我们要应用它，       
+		 * 则执行 "query" 形式的 COPY，并让普通的查询处理   
+		 * 来处理策略。     
 		 *
-		 * If RLS is not enabled for this, then just fall through to the
-		 * normal non-filtering relation handling.
+		 * 如果未对此启用 RLS，则直接落到                  
+		 * 普通的无过滤关系处理。      
 		 */
 		if (check_enable_rls(relid, InvalidOid, false) == RLS_ENABLED)
 		{

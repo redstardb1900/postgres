@@ -98,21 +98,21 @@ static bool destroy_tablespace_directories(Oid tablespaceoid, bool redo);
 
 
 /*
- * Each database using a table space is isolated into its own name space
- * by a subdirectory named for the database OID.  On first creation of an
- * object in the tablespace, create the subdirectory.  If the subdirectory
- * already exists, fall through quietly.
+ * 每个使用表空间的数据库都隔离在自己的命名空间，
+ * 由以数据库 OID 命名的子目录实现。首次在该           
+ * 表空间中创建对象时，创建该子目录。如果子目录     
+ * 已存在，则不作处理继续。 
  *
- * isRedo indicates that we are creating an object during WAL replay.
- * In this case we will cope with the possibility of the tablespace
- * directory not being there either --- this could happen if we are
- * replaying an operation on a table in a subsequently-dropped tablespace.
- * We handle this by making a directory in the place where the tablespace
- * symlink would normally be.  This isn't an exact replay of course, but
- * it's the best we can do given the available information.
+ * isRedo 表示我们正在 WAL 重放期间创建对象。         
+ * 这种情况下，我们还要应对表空间目录也不存在 
+ * 的可能性 --- 如果我们正在重放对某表的操作，  
+ * 而该表所在的表空间随后被删除，就可能发生。        
+ * 我们的处理办法是在表空间符号链接通常所在的       
+ * 位置上创建一个目录。这当然不是精确的重放，      
+ * 但就现有信息而言这已是最佳做法。        
  *
- * If tablespaces are not supported, we still need it in case we have to
- * re-create a database subdirectory (of $PGDATA/base) during WAL replay.
+ * 如果不支持表空间，我们仍需要它，以防必须         
+ * 在 WAL 重放期间重建数据库子目录（$PGDATA/base 下）。 
  */
 void
 TablespaceCreateDbspace(Oid spcOid, Oid dbOid, bool isRedo)

@@ -141,10 +141,10 @@ check_vacuum_buffer_usage_limit(int *newval, void **extra,
 }
 
 /*
- * 手动 VACUUM 和 ANALYZE 命令的主要入口点
+ * 手动 VACUUM 和 ANALYZE 命令的主要入口点。     
  *
- * 这主要是为 vacuum() 中将发生的实际操作做准备的包装器。
- * happen in vacuum().
+ * 这主要是一个准备性包装器，实际操作将由             
+ * vacuum() 完成。 
  */
 void
 ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel)

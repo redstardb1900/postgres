@@ -2,7 +2,7 @@
  *
  * opclasscmds.c
  *
- *	  Routines for opclass (and opfamily) manipulation commands
+ *	  操作符类（和操作符族）操纵命令的例程   
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

@@ -1253,16 +1253,16 @@ acquire_sample_rows(Relation onerel, int elevel,
 		while (table_scan_analyze_next_tuple(scan, OldestXmin, &liverows, &deadrows, slot))
 		{
 			/*
-			 * 前 targrows 个采样行直接复制到
-			 * 水库中。然后我们开始替换采样中的元组，直到
-			 * 到达关系的末尾。此算法来自 Jeff
-			 * Vitter 的论文（完整引用见 utils/misc/采样.c）。它
-			 * 通过重复计算在选取一个元组之前需要跳过的
-			 * 元组数来工作，该元组替换水库（当前元组集）中
-			 * 随机选取的一个元素。在任何时候，
-			 * 水库都是我们迄今遍历过的元组的真正随机采样，
-			 * 因此当我们到达关系末尾时，
-			 * 就完成了。
+			 * 前 targrows 个采样行直接复制到                 
+			 * 水库中。然后我们开始替换采样中的元组       
+			 * 直到到达关系的末尾。此算法来自 Jeff            
+			 * Vitter 的论文（完整引用见 utils/misc/sampling.c）。 
+			 * 它通过重复计算在选取元组前需要跳过的    
+			 * 元组数来工作；该元组会替换水库（当前    
+			 * 元组集）中随机选取的一个元素。在任何时候，
+			 * 水库是我们迄今遍历元组的真正随机采样，
+			 * 因此在越过关系末尾时，我们就完成了            
+			 * 。        
 			 */
 			if (numrows < targrows)
 				rows[numrows++] = ExecCopySlotHeapTuple(slot);

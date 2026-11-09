@@ -2,8 +2,8 @@
  *
  * functioncmds.c
  *
- *	  Routines for CREATE and DROP FUNCTION commands and CREATE and DROP
- *	  CAST commands.
+ *	  CREATE 与 DROP FUNCTION 命令以及 CREATE 与 DROP CAST 命令 
+ *	  的例程。  
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,20 +13,20 @@
  *	  src/backend/commands/functioncmds.c
  *
  * DESCRIPTION
- *	  These routines take the parse tree and pick out the
- *	  appropriate arguments/flags, and pass the results to the
- *	  corresponding "FooDefine" routines (in src/catalog) that do
- *	  the actual catalog-munging.  These routines also verify permission
- *	  of the user to execute the command.
+ *	  这些例程取出解析树并挑选出适当的   
+ *	  参数/标志，把结果传给相应的 "FooDefine"    
+ *	  例程（位于 src/catalog），                          
+ *	  由后者完成真正的目录修改。这些例程还会验证   
+ *	  用户执行该命令的权限。  
  *
  * NOTES
- *	  These things must be defined and committed in the following order:
+ *	  这些东西必须按如下顺序定义和提交：               
  *		"create function":
- *				input/output, recv/send procedures
+ *				输入/输出、recv/send 过程  
  *		"create type":
  *				type
  *		"create operator":
- *				operators
+ *				操作符
  *
  *-------------------------------------------------------------------------
  */

@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "batch_id": "0329-comment-commands-longtail",
+  "title": "Translate comments: commands-longtail",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "248fef1e3ea70784cbe129fe33a84b8738e0d0a8",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0329-comment-commands-longtail.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/commands/**",
+      "kind": "c_comment",
+      "note": "P2 comment translation campaign"
+    },
+    {
+      "pattern": "src/tools/zh-tools/zhtools/c_verify.py",
+      "kind": "tool",
+      "note": "tool change riding with this batch: copy.c RLS prose fall-through exemption (19th of family)"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0329-comment-commands-longtail.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": []
+    },
+    {
+      "path": "src/backend/commands/analyze.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 262,
+      "translated": 1,
+      "preserved": 261,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), gettext translator hints (R5-protected), and separator-only blocks rebuilt byte-identical"
+      ],
+      "note": "P2 translation campaign wave T3"
+    },
+    {
+      "path": "src/backend/commands/copy.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 55,
+      "translated": 1,
+      "preserved": 54,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), gettext translator hints (R5-protected), and separator-only blocks rebuilt byte-identical"
+      ],
+      "note": "P2 translation campaign wave T3"
+    },
+    {
+      "path": "src/backend/commands/functioncmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 135,
+      "translated": 1,
+      "preserved": 134,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), gettext translator hints (R5-protected), and separator-only blocks rebuilt byte-identical"
+      ],
+      "note": "P2 translation campaign wave T3"
+    },
+    {
+      "path": "src/backend/commands/indexcmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 352,
+      "translated": 1,
+      "preserved": 351,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), gettext translator hints (R5-protected), and separator-only blocks rebuilt byte-identical"
+      ],
+      "note": "P2 translation campaign wave T3"
+    },
+    {
+      "path": "src/backend/commands/opclasscmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 174,
+      "translated": 1,
+      "preserved": 173,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), gettext translator hints (R5-protected), and separator-only blocks rebuilt byte-identical"
+      ],
+      "note": "P2 translation campaign wave T3"
+    },
+    {
+      "path": "src/backend/commands/tablespace.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 136,
+      "translated": 1,
+      "preserved": 135,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), gettext translator hints (R5-protected), and separator-only blocks rebuilt byte-identical"
+      ],
+      "note": "P2 translation campaign wave T3"
+    },
+    {
+      "path": "src/backend/commands/tsearchcmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 132,
+      "translated": 1,
+      "preserved": 131,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), gettext translator hints (R5-protected), and separator-only blocks rebuilt byte-identical"
+      ],
+      "note": "P2 translation campaign wave T3"
+    },
+    {
+      "path": "src/backend/commands/typecmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 803,
+      "translated": 1,
+      "preserved": 802,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), gettext translator hints (R5-protected), and separator-only blocks rebuilt byte-identical"
+      ],
+      "note": "P2 translation campaign wave T3"
+    },
+    {
+      "path": "src/backend/commands/vacuum.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 208,
+      "translated": 1,
+      "preserved": 207,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), gettext translator hints (R5-protected), and separator-only blocks rebuilt byte-identical"
+      ],
+      "note": "P2 translation campaign wave T3"
+    },
+    {
+      "path": "src/tools/zh-tools/zhtools/c_verify.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "tool change riding with this batch: copy.c RLS prose fall-through exemption (19th of family)"
+    }
+  ],
+  "notes": "Translation agents (T3A/T3B/T3C) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message.\nTool change: c_verify.py adds _COPY_RLS_FALLTHROUGH_PROSE (19th of family) — copy.c:207-220 blk10 EN 'just fall through to the / normal non-filtering relation handling' is RLS-path prose (no switch), unique in REL_16_11; without it R5_PROTECTED fires on the translated block (verify 621 ok / 1 violation pre-fix -> 622 ok / 0 post-fix)."
+}

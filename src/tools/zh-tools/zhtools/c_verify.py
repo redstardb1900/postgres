@@ -244,6 +244,14 @@ _REORDERBUFFER_FALLTHROUGH_PROSE = re.compile(
     rb"otherwise fall through to create it|"
     rb"fall through these, they're all similar enough")
 
+# copy.c CopyFrom post-"query"-copy prose: "just fall through to the
+# normal non-filtering relation handling" describes the RLS-disabled path
+# continuing into ordinary COPY processing (no switch in
+# check_enable_rls callers around the block).  Unique in REL_16_11.  Not a
+# GCC -Wimplicit-fallthrough annotation.
+_COPY_RLS_FALLTHROUGH_PROSE = re.compile(
+    rb"fall through to the\s*\n\s*\*\s*normal non-filtering relation handling")
+
 
 def legal_protected_segments(old_text):
     """Return Copyright/IDENTIFICATION/licence line blobs that must survive.
@@ -325,7 +333,8 @@ def protected_reason(old_text):
                     or _PARSETARGET_FALLTHROUGH_PROSE.search(old_text)
                     or _PARSECTE_FALLTHROUGH_PROSE.search(old_text)
                     or _SNAPBUILD_FALLTHROUGH_PROSE.search(old_text)
-                    or _REORDERBUFFER_FALLTHROUGH_PROSE.search(old_text)):
+                    or _REORDERBUFFER_FALLTHROUGH_PROSE.search(old_text)
+                    or _COPY_RLS_FALLTHROUGH_PROSE.search(old_text)):
                 continue
             return name
     return None

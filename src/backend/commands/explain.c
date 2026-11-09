@@ -41,14 +41,14 @@
 #include "utils/xml.h"
 
 
-/* Hook for plugins to get control in ExplainOneQuery() */
+/* 插件获取 ExplainOneQuery() 控制权的钩子    */
 ExplainOneQuery_hook_type ExplainOneQuery_hook = NULL;
 
-/* Hook for plugins to get control in explain_get_index_name() */
+/* 插件获取 explain_get_index_name() 控制权的钩子    */
 explain_get_index_name_hook_type explain_get_index_name_hook = NULL;
 
 
-/* OR-able flags for ExplainXMLTag() */
+/* ExplainXMLTag() OR 组合标志   */
 #define X_OPENING 0
 #define X_CLOSING 1
 #define X_CLOSE_IMMEDIATE 2
@@ -157,8 +157,8 @@ static void escape_yaml(StringInfo buf, const char *str);
 
 
 /*
- * ExplainQuery ——
- *	  执行 EXPLAIN 命令
+ * ExplainQuery  
+ *	  执行 EXPLAIN 命令     
  */
 void
 ExplainQuery(ParseState *pstate, ExplainStmt *stmt,
@@ -173,7 +173,7 @@ ExplainQuery(ParseState *pstate, ExplainStmt *stmt,
 	bool		timing_set = false;
 	bool		summary_set = false;
 
-	/* 解析选项列表。 */
+	/* 解析选项列表  */
 	foreach(lc, stmt->options)
 	{
 		DefElem    *opt = (DefElem *) lfirst(lc);
@@ -229,28 +229,28 @@ ExplainQuery(ParseState *pstate, ExplainStmt *stmt,
 					 parser_errposition(pstate, opt->location)));
 	}
 
-	/* 检查 WAL 是否与 EXPLAIN ANALYZE 一起使用 */
+	/* 检查 WAL 是否与 EXPLAIN ANALYZE 同用 */
 	if (es->wal && !es->analyze)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("EXPLAIN option WAL requires ANALYZE")));
 
-	/* 如果未显式设置计时，则设置默认值 */
+	/* 如果计时未被显式设置，则设置默认值     */
 	es->timing = (timing_set) ? es->timing : es->analyze;
 
-	/* 检查计时是否与 EXPLAIN ANALYZE 一起使用 */
+	/* 检查计时是否与 EXPLAIN ANALYZE 同用   */
 	if (es->timing && !es->analyze)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("EXPLAIN option TIMING requires ANALYZE")));
 
-	/* 检查 GENERIC_PLAN 是否未与 EXPLAIN ANALYZE 一起使用 */
+	/* 检查 GENERIC_PLAN 未与 EXPLAIN ANALYZE 同用        */
 	if (es->generic && es->analyze)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("EXPLAIN options ANALYZE and GENERIC_PLAN cannot be used together")));
 
-	/* 如果未显式设置摘要，则设置默认值 */
+	/* 如果摘要未被显式设置，则设置默认值      */
 	es->summary = (summary_set) ? es->summary : es->analyze;
 
 	query = castNode(Query, stmt->query);
@@ -261,10 +261,10 @@ ExplainQuery(ParseState *pstate, ExplainStmt *stmt,
 		(*post_parse_analyze_hook) (pstate, query, jstate);
 
 	/*
-	 * 解析分析已经完成，但我们仍需运行规则
-	 * 重写器。我们不执行 AcquireRewriteLocks：假设查询要么
-	 * 直接来自解析器，要么由
-	 * plancache.c 获取了合适的锁。
+	 * 解析分析已经完成，但仍需运行规则重写器。      
+	 * 我们不执行 AcquireRewriteLocks：假定查询要么               
+	 * 直接来自解析器，要么合适的锁由 plancache.c        
+	 * 获取。   
 	 */
 	rewritten = QueryRewrite(castNode(Query, stmt->query));
 
@@ -274,8 +274,8 @@ ExplainQuery(ParseState *pstate, ExplainStmt *stmt,
 	if (rewritten == NIL)
 	{
 		/*
-		 * 在 INSTEAD NOTHING 情况下，至少要告知这一点。但在
-		 * 非文本格式中，输出有分隔符，故不必要。
+		 * 在 INSTEAD NOTHING 情况下，至少要告知这一点。   
+		 * 但在非文本格式中输出有分隔符，故无必要。      
 		 */
 		if (es->format == EXPLAIN_FORMAT_TEXT)
 			appendStringInfoString(es->str, "Query rewrites to nothing\n");
@@ -284,14 +284,14 @@ ExplainQuery(ParseState *pstate, ExplainStmt *stmt,
 	{
 		ListCell   *l;
 
-		/* 解释每一个计划 */
+		/* 解释每个计划 */
 		foreach(l, rewritten)
 		{
 			ExplainOneQuery(lfirst_node(Query, l),
 							CURSOR_OPT_PARALLEL_OK, NULL, es,
 							pstate->p_sourcetext, params, pstate->p_queryEnv);
 
-			/* 使用适当的分隔符分隔计划 */
+			/* 使用适当的分隔符分隔各计划      */
 			if (lnext(rewritten, l) != NULL)
 				ExplainSeparatePlans(es);
 		}
@@ -301,7 +301,7 @@ ExplainQuery(ParseState *pstate, ExplainStmt *stmt,
 	ExplainEndOutput(es);
 	Assert(es->indent == 0);
 
-	/* 输出元组 */
+	/* 输出元组  */
 	tstate = begin_tup_output_tupdesc(dest, ExplainResultDesc(stmt),
 									  &TTSOpsVirtual);
 	if (es->format == EXPLAIN_FORMAT_TEXT)
@@ -314,24 +314,24 @@ ExplainQuery(ParseState *pstate, ExplainStmt *stmt,
 }
 
 /*
- * Create a 新 ExplainState 结构体 initialized 带有 default options.
+ * 创建一个以默认选项初始化的新 ExplainState 结构体 
  */
 ExplainState *
 NewExplainState(void)
 {
 	ExplainState *es = (ExplainState *) palloc0(sizeof(ExplainState));
 
-	/* 设置默认选项（大多数字段可保持为零）。 */
+	/* 设置默认选项（大多数字段可保持为零）。*/
 	es->costs = true;
-	/* 准备输出缓冲区。 */
+	/* 准备输出缓冲区  */
 	es->str = makeStringInfo();
 
 	return es;
 }
 
 /*
- * ExplainResultDesc ——
- *	  construct the result tupledesc 对于 an EXPLAIN
+ * ExplainResultDesc  
+ *	  为 EXPLAIN 构造结果元组描述符      
  */
 TupleDesc
 ExplainResultDesc(ExplainStmt *stmt)
@@ -340,7 +340,7 @@ ExplainResultDesc(ExplainStmt *stmt)
 	ListCell   *lc;
 	Oid			result_type = TEXTOID;
 
-	/* 检查 XML 格式选项 */
+	/* 检查 XML 格式选项     */
 	foreach(lc, stmt->options)
 	{
 		DefElem    *opt = (DefElem *) lfirst(lc);
@@ -355,11 +355,11 @@ ExplainResultDesc(ExplainStmt *stmt)
 				result_type = JSONOID;
 			else
 				result_type = TEXTOID;
-			/* 不要 "中断"，因为 ExplainQuery 将使用最后一个值 */
+			/* 不要 "break"，因为 ExplainQuery 将用最后的值*/
 		}
 	}
 
-	/* 需要一个表示单个 TEXT 或 XML 列的元组描述符 */
+	/* 需要一个表示单个 TEXT 或 XML 列的元组描述符      */
 	tupdesc = CreateTemplateTupleDesc(1);
 	TupleDescInitEntry(tupdesc, (AttrNumber) 1, "QUERY PLAN",
 					   result_type, -1, 0);
@@ -367,10 +367,10 @@ ExplainResultDesc(ExplainStmt *stmt)
 }
 
 /*
- * ExplainOneQuery ——
- *	  输出 the 执行计划对于一 Query
+ * ExplainOneQuery  
+ *	  输出一个 Query 的执行计划        
  *
- * "进入" is NULL 除非 we are explaining the contents of a CreateTableAsStmt.
+ * "into" 为 NULL，除非我们正在解释 CreateTableAsStmt 的内容。   
  */
 static void
 ExplainOneQuery(Query *query, int cursorOptions,
@@ -378,7 +378,7 @@ ExplainOneQuery(Query *query, int cursorOptions,
 				const char *queryString, ParamListInfo params,
 				QueryEnvironment *queryEnv)
 {
-	/* 规划器无法处理工具语句 */
+	/* 规划器无法处理实用语句             */
 	if (query->commandType == CMD_UTILITY)
 	{
 		ExplainOneUtility(query->utilityStmt, into, es, queryString, params,
@@ -386,7 +386,7 @@ ExplainOneQuery(Query *query, int cursorOptions,
 		return;
 	}
 
-	/* 如果存在顾问插件，让它来管理事务 */
+	/* 如果存在顾问插件，则交由它处理         */
 	if (ExplainOneQuery_hook)
 		(*ExplainOneQuery_hook) (query, cursorOptions, into, es,
 								 queryString, params, queryEnv);
@@ -402,7 +402,7 @@ ExplainOneQuery(Query *query, int cursorOptions,
 			bufusage_start = pgBufferUsage;
 		INSTR_TIME_SET_CURRENT(planstart);
 
-		/* 规划查询 */
+		/* 规划查询   */
 		plan = pg_plan_query(query, queryString, cursorOptions, params);
 
 		INSTR_TIME_SET_CURRENT(planduration);
@@ -415,23 +415,23 @@ ExplainOneQuery(Query *query, int cursorOptions,
 			BufferUsageAccumDiff(&bufusage, &pgBufferUsage, &bufusage_start);
 		}
 
-		/* 运行它（如需要）并生成输出 */
+		/* 按需运行并生成输出           */
 		ExplainOnePlan(plan, into, es, queryString, params, queryEnv,
 					   &planduration, (es->buffers ? &bufusage : NULL));
 	}
 }
 
 /*
- * ExplainOneUtility ——
- *	  输出 the 执行计划对于一工具语句
- *	  (In general, 工具语句s don't have plans, 但 there are 一些
- *	  we treat 作为 special cases)
+ * ExplainOneUtility  
+ *	  输出一个实用语句的执行计划               
+ *	  （一般而言，实用语句没有计划，但有一些           
+ *	  被当作特例处理）  
  *
- * "进入" is NULL 除非 we are explaining the contents of a CreateTableAsStmt.
+ * "into" 为 NULL，除非我们正在解释 CreateTableAsStmt 的内容。   
  *
- * 此函数被导出是因为 prepare.c 在
- * EXPLAIN EXECUTE case.  In 那个 case, we'll be dealing 带有 a statement
- * 那个's in the 计划缓存, so we have 到 ensure we don't modify it.
+ * 此函数被导出是因为 prepare.c 会在                   
+ * EXPLAIN EXECUTE 情况下回调它。那时我们要处理的是      
+ * 计划缓存中的语句，因此必须确保不修改它。      
  */
 void
 ExplainOneUtility(Node *utilityStmt, IntoClause *into, ExplainState *es,
@@ -444,15 +444,15 @@ ExplainOneUtility(Node *utilityStmt, IntoClause *into, ExplainState *es,
 	if (IsA(utilityStmt, CreateTableAsStmt))
 	{
 		/*
-		 * 我们必须重写包含的 SELECT，然后将其传回给
-		 * ExplainOneQuery。在 EXPLAIN EXECUTE 情况下复制以确保安全。
+		 * 我们必须重写其中包含的 SELECT，然后传回给      
+		 * ExplainOneQuery。在 EXPLAIN EXECUTE 时复制以防万一。
 		 */
 		CreateTableAsStmt *ctas = (CreateTableAsStmt *) utilityStmt;
 		List	   *rewritten;
 
 		/*
-		 * 检查关系是否存在。在此阶段执行此操作是为了
-		 * 避免查询规划或执行。
+		 * 检查该关系是否存在。在此阶段做此检查是          
+		 * 以免规划或执行查询。    
 		 */
 		if (CreateTableAsRelExists(ctas))
 		{
@@ -475,12 +475,12 @@ ExplainOneUtility(Node *utilityStmt, IntoClause *into, ExplainState *es,
 	else if (IsA(utilityStmt, DeclareCursorStmt))
 	{
 		/*
-		 * DECLARE CURSOR 同理。
+		 * DECLARE CURSOR 同理。    
 		 *
-		 * 注意，如果使用 EXPLAIN ANALYZE DECLARE CURSOR，我们将会
-		 * 实际运行该查询。这与 8.3 之前的行为不同，
-		 * 但似乎比不运行查询更有用。不过，不会创建
-		 * 游标。
+		 * 注意，如果使用 EXPLAIN ANALYZE DECLARE CURSOR，我们   
+		 * 将实际运行该查询。这与 8.3 之前的行为不同，  
+		 * 但看起来比不运行查询更有用。不过，不会创建  
+		 * 任何游标。     
 		 */
 		DeclareCursorStmt *dcs = (DeclareCursorStmt *) utilityStmt;
 		List	   *rewritten;
@@ -512,16 +512,16 @@ ExplainOneUtility(Node *utilityStmt, IntoClause *into, ExplainState *es,
 }
 
 /*
- * ExplainOnePlan ——
- *		给定一个已规划的查询，按需执行，然后输出
- *		EXPLAIN 输出
+ * ExplainOnePlan  
+ *		给定已规划查询，按需执行然后打印 EXPLAIN   
+ *		输出        
  *
- * "进入" is NULL 除非 we are explaining the contents of a CreateTableAsStmt,
- * 在这种情况下，执行查询应导致创建该表。
+ * "into" 为 NULL，除非我们正在解释 CreateTableAsStmt 的内容，   
+ * 此时执行该查询应导致创建那个表。                       
  *
- * 此函数被导出是因为 prepare.c 在
- * EXPLAIN EXECUTE 情况下回调它，且索引顾问插件
- * 需要调用它。
+ * 此函数被导出是因为它会被 prepare.c 在             
+ * EXPLAIN EXECUTE 情况下回调，且索引顾问插件需要       
+ * 调用它  
  */
 void
 ExplainOnePlan(PlannedStmt *plannedstmt, IntoClause *into, ExplainState *es,
@@ -549,36 +549,36 @@ ExplainOnePlan(PlannedStmt *plannedstmt, IntoClause *into, ExplainState *es,
 		instrument_option |= INSTRUMENT_WAL;
 
 	/*
-	 * 我们始终收集整个语句的计时信息，即使节点级别的
-	 * 计时已关闭，故不在此检查 es->计时。（如果
-	 * !es->摘要也可跳过，但为此增加复杂性不值。）
+	 * 我们始终收集整个语句的计时信息，即使节点级别的  
+	 * 计时已关闭，所以此处不检查 es->timing。（即使     
+	 * !es->summary 则可跳过，但增加复杂度不值。）    
 	 */
 	INSTR_TIME_SET_CURRENT(starttime);
 
 	/*
-	 * 使用带有更新命令 ID 的快照，确保此查询能
-	 * 看到之前执行的任何查询的结果。
+	 * 使用命令 ID 已更新的快照，确保此查询能看到      
+	 * 之前执行的任何查询的结果。    
 	 */
 	PushCopiedSnapshot(GetActiveSnapshot());
 	UpdateActiveSnapshotCommandId();
 
 	/*
-	 * 通常我们丢弃查询的输出，但若在解释 CREATE TABLE
-	 * AS，最好使用适当的元组接收器。
+	 * 通常我们丢弃查询的输出，但如果正在解释 CREATE TABLE
+	 * AS，最好使用适当的元组接收器。       
 	 */
 	if (into)
 		dest = CreateIntoRelDestReceiver(into);
 	else
 		dest = None_Receiver;
 
-	/* 为查询创建 QueryDesc */
+	/* 为该查询创建 QueryDesc     */
 	queryDesc = CreateQueryDesc(plannedstmt, queryString,
 								GetActiveSnapshot(), InvalidSnapshot,
 								dest, params, queryEnv, instrument_option);
 
-	/* 选择执行选项 */
+	/* 选择执行选项       */
 	if (es->analyze)
-		eflags = 0;				/* 默认的运行至完成标志 */
+		eflags = 0;				/* 默认的运行至完成标志  */
 	else
 		eflags = EXEC_FLAG_EXPLAIN_ONLY;
 	if (es->generic)
@@ -586,15 +586,15 @@ ExplainOnePlan(PlannedStmt *plannedstmt, IntoClause *into, ExplainState *es,
 	if (into)
 		eflags |= GetIntoRelEFlags(into);
 
-	/* 调用 ExecutorStart 准备要执行的计划 */
+	/* 调用 ExecutorStart 准备要执行的计划        */
 	ExecutorStart(queryDesc, eflags);
 
-	/* 如果需要，执行计划以收集统计信息 */
+	/* 如需要则执行计划收集统计信息   */
 	if (es->analyze)
 	{
 		ScanDirection dir;
 
-		/* EXPLAIN ANALYZE CREATE TABLE AS WITH NO DATA 比较特殊 */
+		/* EXPLAIN ANALYZE CREATE TABLE AS WITH NO DATA 很怪异*/
 		if (into && into->skipData)
 			dir = NoMovementScanDirection;
 		else
@@ -606,16 +606,16 @@ ExplainOnePlan(PlannedStmt *plannedstmt, IntoClause *into, ExplainState *es,
 		/* 也运行清理 */
 		ExecutorFinish(queryDesc);
 
-		/* We 可以't run ExecutorEnd 'till we're done printing the 统计信息... */
+		/* 在打印完统计信息之前无法运行 ExecutorEnd……    */
 		totaltime += elapsed_time(&starttime);
 	}
 
 	ExplainOpenGroup("Query", NULL, true, es);
 
-	/* 创建计划树的文本转储 */
+	/* 创建计划树的文本转储   */
 	ExplainPrintPlan(es, queryDesc);
 
-	/* 显示规划阶段的缓冲区使用情况 */
+	/* 显示规划的缓冲区用量*/
 	if (bufusage)
 	{
 		ExplainOpenGroup("Planning", "Planning", true, es);
@@ -630,22 +630,22 @@ ExplainOnePlan(PlannedStmt *plannedstmt, IntoClause *into, ExplainState *es,
 		ExplainPropertyFloat("Planning Time", "ms", 1000.0 * plantime, 3, es);
 	}
 
-	/* 输出触发器运行时信息 */
+	/* 输出触发器运行时信息       */
 	if (es->analyze)
 		ExplainPrintTriggers(es, queryDesc);
 
 	/*
-	 * 输出 JIT 编译信息。与 es->成本绑定是因为我们不想
-	 * 在回归测试中显示此信息，否则会因构建选项不同
-	 * 导致输出差异。可能要在后续阶段将其从 COSTS
-	 * 中分离出来。
+	 * 输出 JIT 编译信息。此项与 es->costs 绑定，因为我们
+	 * 不想在回归测试中显示它，因为不同构建选项会   
+	 * 导致输出差异。后续阶段可能要将其从 COSTS 中          
+	 * 分离出来。  
 	 */
 	if (es->costs)
 		ExplainPrintJITSummary(es, queryDesc);
 
 	/*
-	 * 关闭查询并释放资源。将此项时间计入
-	 * 总执行时间（尽管应非常短）。
+	 * 关闭查询并释放资源。这部分耗时也要计入             
+	 * 总执行时间（尽管它应当非常短）。            
 	 */
 	INSTR_TIME_SET_CURRENT(starttime);
 
@@ -655,17 +655,17 @@ ExplainOnePlan(PlannedStmt *plannedstmt, IntoClause *into, ExplainState *es,
 
 	PopActiveSnapshot();
 
-	/* 我们需要一个 CCI，以防查询扩展为多个计划 */
+	/* 我们需要一个 CCI，以防查询扩展为多个计划  */
 	if (es->analyze)
 		CommandCounterIncrement();
 
 	totaltime += elapsed_time(&starttime);
 
 	/*
-	 * 仅当我们确实运行了查询（即用户指定了 ANALYZE）
-	 * 且摘要报告已启用（用户可设置 SUMMARY OFF
-	 * 以使计时信息不包含在输出中）时，
-	 * 才报告执行时间。默认情况下 ANALYZE 设 SUMMARY 为 true。
+	 * 只有当我们确实运行查询（即用户指定了 ANALYZE），
+	 * 并且摘要报告已启用（用户可设置 SUMMARY OFF 使        
+	 * 输出中不包含计时信息）时，才报告执行时间。默认  
+	 * 情况下 ANALYZE 会将 SUMMARY 设为 true。        
 	 */
 	if (es->summary && es->analyze)
 		ExplainPropertyFloat("Execution Time", "ms", 1000.0 * totaltime, 3,
@@ -675,8 +675,8 @@ ExplainOnePlan(PlannedStmt *plannedstmt, IntoClause *into, ExplainState *es,
 }
 
 /*
- * ExplainPrintSettings ——
- *    输出影响查询规划的已修改设置摘要。
+ * ExplainPrintSettings  
+ *    输出影响查询规划的已修改设置摘要。         
  */
 static void
 ExplainPrintSettings(ExplainState *es)
@@ -684,11 +684,11 @@ ExplainPrintSettings(ExplainState *es)
 	int			num;
 	struct config_generic **gucs;
 
-	/* 如果未请求设置信息，则退出 */
+	/* 如果未请求设置信息则退出                 */
 	if (!es->settings)
 		return;
 
-	/* 请求相关设置的数组 */
+	/* 请求相关设置的数组           */
 	gucs = get_explain_guc_options(&num);
 
 	if (es->format != EXPLAIN_FORMAT_TEXT)
@@ -711,7 +711,7 @@ ExplainPrintSettings(ExplainState *es)
 	{
 		StringInfoData str;
 
-		/* 在 TEXT 模式下，如果没有选项则不输出任何内容 */
+		/* TEXT 模式下无选项则不输出任何内容     */
 		if (num <= 0)
 			return;
 
@@ -738,15 +738,15 @@ ExplainPrintSettings(ExplainState *es)
 }
 
 /*
- * ExplainPrintPlan ——
- *	  将 QueryDesc 的计划树转换为文本并追加到 es->str
+ * ExplainPrintPlan  
+ *	  将 QueryDesc 的计划树转换为文本并追加到 es->str   
  *
- * 调用者应已设置 *es 的选项字段，以及
- * 初始化输出缓冲区 es->str。此外，输出格式状态
- * 如缩进级别假定为有效。计划树专用字段
- * 在 *es 中在此处初始化。
+ * 调用者应已设置 *es 的选项字段，并已初始化输出  
+ * 缓冲区 es->str。此外，输出格式化状态（例如缩进     
+ * 级别）假定有效。*es 中计划树专用的字段在此        
+ * 初始化。                
  *
- * 注意：不适用于工具语句
+ * NB：不适用于实用语句          
  */
 void
 ExplainPrintPlan(ExplainState *es, QueryDesc *queryDesc)
@@ -754,7 +754,7 @@ ExplainPrintPlan(ExplainState *es, QueryDesc *queryDesc)
 	Bitmapset  *rels_used = NULL;
 	PlanState  *ps;
 
-	/* 设置与此计划树关联的 ExplainState 字段 */
+	/* 设置与此计划树关联的 ExplainState 字段        */
 	Assert(queryDesc->plannedstmt != NULL);
 	es->pstmt = queryDesc->plannedstmt;
 	es->rtable = queryDesc->plannedstmt->rtable;
@@ -765,13 +765,13 @@ ExplainPrintPlan(ExplainState *es, QueryDesc *queryDesc)
 	es->printed_subplans = NULL;
 
 	/*
-	 * 有时我们将 Gather 节点标记为 "invisible"，这意味着它
-	 * 不在 EXPLAIN 输出中显示。这样做的目的是让
-	 * 使用 debug_parallel_query=regress 运行回归测试时能获得
-	 * 与使用 debug_parallel_query=off 运行相同测试时相同的结果。
-	 * 此类标记目前仅支持在计划树顶层的
-	 * Gather 节点上。我们跳过该节点，还必须隐藏计划树
-	 * 下层的逐工作进程详细数据。
+	 * 有时我们将 Gather 节点标记为 "invisible"，这意味着它 
+	 * 不应显示在 EXPLAIN 输出中。这样做的目的是让           
+	 * 使用 debug_parallel_query=regress 运行回归测试时所得      
+	 * 与用 debug_parallel_query=off 运行时结果相同。             
+	 * 此类标记目前仅支持位于计划顶层的 Gather 节点。     
+	 * 我们跳过该节点，并且还必须隐藏计划树更下层的    
+	 * 工作进程详细数据。   
 	 */
 	ps = queryDesc->planstate;
 	if (IsA(ps, GatherState) && ((Gather *) ps->plan)->invisible)
@@ -782,22 +782,22 @@ ExplainPrintPlan(ExplainState *es, QueryDesc *queryDesc)
 	ExplainNode(ps, NIL, NULL, NULL, es);
 
 	/*
-	 * 如果请求，则包含值与内置默认值
-	 * 不匹配的 GUC 参数信息。
+	 * 如果被请求，则包含值与内置默认值不匹配的           
+	 * GUC 参数的相关信息。      
 	 */
 	ExplainPrintSettings(es);
 
 	/*
-	 * COMPUTE_QUERY_ID_REGRESS 表示 COMPUTE_QUERY_ID_AUTO，但我们不显示
-	 * 任何 EXPLAIN 计划中的 queryid，以保持回归测试套件
-	 * 生成的结果稳定。
+	 * COMPUTE_QUERY_ID_REGRESS 意味着 COMPUTE_QUERY_ID_AUTO，但         
+	 * 我们不在任何 EXPLAIN 计划中显示 queryid，以保持    
+	 * 回归测试套件结果稳定。   
 	 */
 	if (es->verbose && queryDesc->plannedstmt->queryId != UINT64CONST(0) &&
 		compute_query_id != COMPUTE_QUERY_ID_REGRESS)
 	{
 		/*
-		 * 以 int64 而非 uint64 输出 queryid，以匹配
-		 * BIGINT 类型的 pg_stat_statements.queryid 列中看到的内容。
+		 * 以 int64 而非 uint64 输出 queryid，以匹配             
+		 * 在 BIGINT 类型的 pg_stat_statements.queryid 列中所见。    
 		 */
 		ExplainPropertyInteger("Query Identifier", NULL, (int64)
 							   queryDesc->plannedstmt->queryId, es);
@@ -805,13 +805,13 @@ ExplainPrintPlan(ExplainState *es, QueryDesc *queryDesc)
 }
 
 /*
- * ExplainPrintTriggers ——
+ * ExplainPrintTriggers  
  *	  将 QueryDesc 的触发器统计信息转换为文本并追加到
  *	  es->str
  *
- * 调用者应已设置 *es 的选项字段，以及
- * initializing the 输出缓冲区 es->str.  Other fields in *es are
- * initialized here.
+ * 调用者应已设置 *es 的选项字段，并已初始化输出  
+ * 缓冲区 es->str。*es 中的其他字段                      
+ * 在此初始化  
  */
 void
 ExplainPrintTriggers(ExplainState *es, QueryDesc *queryDesc)
@@ -853,8 +853,8 @@ ExplainPrintTriggers(ExplainState *es, QueryDesc *queryDesc)
 }
 
 /*
- * ExplainPrintJITSummary ——
- *    输出来自 leader 和工作进程的汇总 JIT 仪表信息
+ * ExplainPrintJITSummary  
+ *    输出 leader 与工作进程的汇总 JIT 仪表信息     
  */
 void
 ExplainPrintJITSummary(ExplainState *es, QueryDesc *queryDesc)
@@ -865,13 +865,13 @@ ExplainPrintJITSummary(ExplainState *es, QueryDesc *queryDesc)
 		return;
 
 	/*
-	 * 使用副本而不是修改 leader 状态，因为此
-	 * 函数可能被调用两次
+	 * 使用副本而不是修改 leader 状态，因为此函数可能 
+	 * 被调用两次。          
 	 */
 	if (queryDesc->estate->es_jit)
 		InstrJitAgg(&ji, &queryDesc->estate->es_jit->instr);
 
-	/* 如果此进程在并行工作进程中执行过 JIT，则合并统计信息 */
+	/* 如果曾在并行工作进程做过 JIT 则合并统计      */
 	if (queryDesc->estate->es_jit_worker_instr)
 		InstrJitAgg(&ji, queryDesc->estate->es_jit_worker_instr);
 
@@ -879,19 +879,19 @@ ExplainPrintJITSummary(ExplainState *es, QueryDesc *queryDesc)
 }
 
 /*
- * ExplainPrintJIT ——
- *	  将 JIT 编译信息追加到 es->str。
+ * ExplainPrintJIT  
+ *	  将 JIT 编译信息追加到 es->str。   
  */
 static void
 ExplainPrintJIT(ExplainState *es, int jit_flags, JitInstrumentation *ji)
 {
 	instr_time	total_time;
 
-	/* 如果没有发生 JIT 编译，则不输出信息 */
+	/* 无 JIT 编译则不输出信息              */
 	if (!ji || ji->created_functions == 0)
 		return;
 
-	/* 计算总时间 */
+	/* 计算总时间      */
 	INSTR_TIME_SET_ZERO(total_time);
 	INSTR_TIME_ADD(total_time, ji->generation_counter);
 	INSTR_TIME_ADD(total_time, ji->inlining_counter);
@@ -900,7 +900,7 @@ ExplainPrintJIT(ExplainState *es, int jit_flags, JitInstrumentation *ji)
 
 	ExplainOpenGroup("JIT", "JIT", true, es);
 
-	/* 为提高密度，直接编码文本输出格式 */
+	/* 为提高密度，直接编码文本输出格式     */
 	if (es->format == EXPLAIN_FORMAT_TEXT)
 	{
 		ExplainIndentText(es);
@@ -969,11 +969,11 @@ ExplainPrintJIT(ExplainState *es, int jit_flags, JitInstrumentation *ji)
 }
 
 /*
- * ExplainQueryText ——
- *	  添加一个 "Query Text" 节点，包含查询的实际文本
+ * ExplainQueryText  
+ *	  添加一个包含查询实际文本的 "Query Text" 节点       
  *
- * 调用者应已设置 *es 的选项字段，以及
- * initializing the 输出缓冲区 es->str.
+ * 调用者应已设置 *es 的选项字段，并已初始化输出  
+ * 缓冲区 es->str。                   
  *
  */
 void
@@ -984,11 +984,11 @@ ExplainQueryText(ExplainState *es, QueryDesc *queryDesc)
 }
 
 /*
- * ExplainQueryParameters ——
- *	  添加一个 "Query Parameters" 节点，描述查询的参数
+ * ExplainQueryParameters  
+ *	  添加一个描述查询参数的 "Query Parameters" 节点             
  *
- * 调用者应已设置 *es 的选项字段，以及
- * initializing the 输出缓冲区 es->str.
+ * 调用者应已设置 *es 的选项字段，并已初始化输出  
+ * 缓冲区 es->str。                   
  *
  */
 void
@@ -996,7 +996,7 @@ ExplainQueryParameters(ExplainState *es, ParamListInfo params, int maxlen)
 {
 	char	   *str;
 
-	/* 此检查与 errdetail_params() 保持一致 */
+	/* 此检查与 errdetail_params() 保持一致     */
 	if (params == NULL || params->numParams <= 0 || maxlen == 0)
 		return;
 
@@ -1006,8 +1006,8 @@ ExplainQueryParameters(ExplainState *es, ParamListInfo params, int maxlen)
 }
 
 /*
- * report_triggers -
- *		报告单个关系的触发器执行统计信息
+ * report_triggers  
+ *		报告单个关系的触发器执行统计信息       
  */
 static void
 report_triggers(ResultRelInfo *rInfo, bool show_relname, ExplainState *es)
@@ -1023,12 +1023,12 @@ report_triggers(ResultRelInfo *rInfo, bool show_relname, ExplainState *es)
 		char	   *relname;
 		char	   *conname = NULL;
 
-		/* 必须清理仪表状态 */
+		/* 必须清理仪表状态            */
 		InstrEndLoop(instr);
 
 		/*
-		 * 我们忽略从未被调用的触发器；它们很可能
-		 * 与当前查询类型无关。
+		 * 我们忽略从未被调用的触发器；它们很可能     
+		 * 与当前查询类型无关。     
 		 */
 		if (instr->ntuples == 0)
 			continue;
@@ -1040,9 +1040,9 @@ report_triggers(ResultRelInfo *rInfo, bool show_relname, ExplainState *es)
 			conname = get_constraint_name(trig->tgconstraint);
 
 		/*
-		 * 在文本格式中，我们避免同时输出触发器名称和
-		 * 约束名称，除非指定了 VERBOSE。在非文本格式中
-		 * 我们直接输出所有内容。
+		 * 在文本格式中，除非指定 VERBOSE，否则我们避免 
+		 * 同时输出触发器名称与约束名称；非文本格式中  
+		 * 则全部输出。       
 		 */
 		if (es->format == EXPLAIN_FORMAT_TEXT)
 		{
@@ -1079,7 +1079,7 @@ report_triggers(ResultRelInfo *rInfo, bool show_relname, ExplainState *es)
 	}
 }
 
-/* 根据给定时间戳计算已用秒数 */
+/* 根据给定时间戳计算已流逝的秒数         */
 static double
 elapsed_time(instr_time *starttime)
 {
@@ -1091,13 +1091,13 @@ elapsed_time(instr_time *starttime)
 }
 
 /*
- * ExplainPreScanNode ——
- *	  预扫描 planstate 树以识别引用了哪些 RTE
+ * ExplainPreScanNode  
+ *	  预扫描 planstate 树，以识别引用了哪些 RTE          
  *
- * 将每个被引用 RTE 的 relid 添加到 *rels_used。结果控制
- * select_rtable_names_for_explain 为哪些 RTE 分配别名。
- * 这确保我们不会将无后缀的别名混淆地分配给
- * 从未出现在 EXPLAIN 输出中的 RTE（如继承父表）。
+ * 将每个被引用 RTE 的 relid 加入 *rels_used。其结果决定     
+ * select_rtable_names_for_explain 为哪些 RTE 分配别名。      
+ * 这确保我们不会令人困惑地把无后缀别名分配给          
+ * 从未出现在 EXPLAIN 输出中的 RTE（例如继承父表）。   
  */
 static bool
 ExplainPreScanNode(PlanState *planstate, Bitmapset **rels_used)
@@ -1154,25 +1154,25 @@ ExplainPreScanNode(PlanState *planstate, Bitmapset **rels_used)
 }
 
 /*
- * ExplainNode ——
- *	  将计划树的描述追加到 es->str
+ * ExplainNode  
+ *	  将计划树的描述追加到 es->str         
  *
- * planstate 指向当前计划节点的执行器状态节点。
- * 我们需要从 PlanState 节点而非仅仅是 Plan 节点入手，
- * 以便获取仪表数据（如果有的话）以及子计划列表。
+ * planstate 指向当前计划节点的执行器状态节点。         
+ * 我们需要从 PlanState 节点入手，而不只是 Plan 节点，    
+ * 以便获取仪表数据（如果有）以及子计划列表。          
  *
- * ancestors 是父 Plan 和 SubPlan 节点的列表，最内层优先。
- * 这些是为了解释 PARAM_EXEC 参数所必需的。
+ * ancestors 是父 Plan 与 SubPlan 节点的列表，最内层            
+ * 优先。这些是解释 PARAM_EXEC 参数所必需的。        
  *
- * relationship 描述此计划节点与其父节点的关系
- * （如 "Outer"、"Inner"）；顶层可为 NULL。plan_name 是
- * 附加到节点的可选名称。
+ * relationship 描述此计划节点与其父节点的                   
+ * 关系（例如 "Outer"、"Inner"）；在顶层可以为 NULL。    
+ * plan_name 是节点的可选名称。    
  *
- * 在文本格式中，es->indent 在此函数中控制，因为我们只
- * 希望在计划节点边界处更改它（但一些子函数会
- * 暂时递增它）。在非文本格式中，es->indent 对应于
- * 逻辑输出组的嵌套深度，因此由
- * ExplainOpenGroup/ExplainCloseGroup 控制。
+ * 在文本格式中，es->indent 由本函数控制，因为我们      
+ * 只希望它在计划节点边界处改变（但少数子例程      
+ * 会暂时递增它）。在非文本格式中，es->indent 对应      
+ * 逻辑输出组的嵌套深度，因此由 ExplainOpenGroup/              
+ * ExplainCloseGroup 控制。           
  */
 static void
 ExplainNode(PlanState *planstate, List *ancestors,
@@ -1180,8 +1180,8 @@ ExplainNode(PlanState *planstate, List *ancestors,
 			ExplainState *es)
 {
 	Plan	   *plan = planstate->plan;
-	const char *pname;			/* 文本输出的节点类型名称 */
-	const char *sname;			/* 非文本输出的节点类型名称 */
+	const char *pname;			/* 文本输出节点类型名称 */
+	const char *sname;			/* 非文本输出节点类型名称  */
 	const char *strategy = NULL;
 	const char *partialmode = NULL;
 	const char *operation = NULL;
@@ -1191,15 +1191,15 @@ ExplainNode(PlanState *planstate, List *ancestors,
 	bool		haschildren;
 
 	/*
-	 * 根据需要准备每个工作进程的输出缓冲区。之后将把这些
-	 * 数据追加到主输出字符串中。
+	 * 如果需要，准备每个工作进程的输出缓冲区。           
+	 * 稍后将其追加到主输出字符串。   
 	 */
 	if (planstate->worker_instrument && es->analyze && !es->hide_workers)
 		es->workers_state = ExplainCreateWorkersState(planstate->worker_instrument->num_workers);
 	else
 		es->workers_state = NULL;
 
-	/* 识别计划节点类型，并输出通用详细信息 */
+	/* 识别计划节点类型并输出通用细节      */
 	switch (nodeTag(plan))
 	{
 		case T_Result:
@@ -1248,11 +1248,11 @@ ExplainNode(PlanState *planstate, List *ancestors,
 			pname = sname = "Nested Loop";
 			break;
 		case T_MergeJoin:
-			pname = "Merge";	/* 通过 jointype switch 添加 "Join" */
+			pname = "Merge";	/* "Join" 由 jointype switch 添加    */
 			sname = "Merge Join";
 			break;
 		case T_HashJoin:
-			pname = "Hash";		/* 通过 jointype switch 添加 "Join" */
+			pname = "Hash";		/* "Join" 由 jointype switch 添加    */
 			sname = "Hash Join";
 			break;
 		case T_SeqScan:
@@ -1571,8 +1571,8 @@ ExplainNode(PlanState *planstate, List *ancestors,
 				if (es->format == EXPLAIN_FORMAT_TEXT)
 				{
 					/*
-					 * 出于历史原因，连接类型被插入
-					 * 到节点类型名称中...
+					 * 出于历史原因，连接类型被内插到节点  
+					 * 类型名称中……     
 					 */
 					if (((Join *) plan)->jointype != JOIN_INNER)
 						appendStringInfo(es->str, " %s Join", jointype);
@@ -1637,14 +1637,14 @@ ExplainNode(PlanState *planstate, List *ancestors,
 	}
 
 	/*
-	 * 我们必须强制清理仪表状态，因为
-	 * 尚未执行 ExecutorEnd。这有点粗暴...
+	 * 我们必须强制清理仪表状态，因为尚未执行        
+	 * ExecutorEnd。这种做法相当丑陋……            
 	 *
-	 * Note: contrib/auto_explain 可以 cause instrumentation 到 be 设置
-	 * even though we didn't ask 对于 it here.  Be careful 不到输出任何
-	 * instrumentation results the user didn't ask 对于.  But we do the
-	 * InstrEndLoop call anyway, 如果 possible, 到 reduce the 数字 of cases
-	 * auto_explain has 到 contend 带有.
+	 * 注意：contrib/auto_explain 可能导致设置仪表，          
+	 * 即使我们在此并未要求这样做。当心不要输出       
+	 * 任何用户未要求的仪表结果。但我们仍会         
+	 * 尽可能执行 InstrEndLoop 调用，以减少 auto_explain        
+	 * 需要应付的情况数量。   
 	 */
 	if (planstate->instrument)
 		InstrEndLoop(planstate->instrument);
@@ -1697,11 +1697,11 @@ ExplainNode(PlanState *planstate, List *ancestors,
 		}
 	}
 
-	/* 在文本格式中，第一行在此结束 */
+	/* 文本格式中第一行在此结束 */
 	if (es->format == EXPLAIN_FORMAT_TEXT)
 		appendStringInfoChar(es->str, '\n');
 
-	/* 准备每个工作进程的通用执行详细信息 */
+	/* 准备各工作进程的通用执行细节   */
 	if (es->workers_state && es->verbose)
 	{
 		WorkerInstrumentation *w = planstate->worker_instrument;
@@ -1751,17 +1751,17 @@ ExplainNode(PlanState *planstate, List *ancestors,
 		}
 	}
 
-	/* 目标列表 */
+	/* 目标列表*/
 	if (es->verbose)
 		show_plan_tlist(planstate, ancestors, es);
 
-	/* 唯一连接 */
+	/* 唯一连接*/
 	switch (nodeTag(plan))
 	{
 		case T_NestLoop:
 		case T_MergeJoin:
 		case T_HashJoin:
-			/* 在文本模式下尽量减少此处的输出 */
+			/* 在文本模式下尽量少输出这方面内容 */
 			if (es->format != EXPLAIN_FORMAT_TEXT ||
 				(es->verbose && ((Join *) plan)->inner_unique))
 				ExplainPropertyBool("Inner Unique",
@@ -1772,7 +1772,7 @@ ExplainNode(PlanState *planstate, List *ancestors,
 			break;
 	}
 
-	/* 条件、排序键等 */
+	/* quals、排序键等  */
 	switch (nodeTag(plan))
 	{
 		case T_IndexScan:
@@ -1848,7 +1848,7 @@ ExplainNode(PlanState *planstate, List *ancestors,
 				ExplainPropertyInteger("Workers Planned", NULL,
 									   gather->num_workers, es);
 
-				/* 显示在 Gather 节点处求值的参数 */
+				/* 显示 Gather 节点求值的参数  */
 				if (gather->initParam)
 					show_eval_params(gather->initParam, es);
 
@@ -1876,7 +1876,7 @@ ExplainNode(PlanState *planstate, List *ancestors,
 				ExplainPropertyInteger("Workers Planned", NULL,
 									   gm->num_workers, es);
 
-				/* Show params evaluated at gather-合并节点 */
+				/* 显示 Gather Merge 节点求值的参数  */
 				if (gm->initParam)
 					show_eval_params(gm->initParam, es);
 
@@ -1902,7 +1902,7 @@ ExplainNode(PlanState *planstate, List *ancestors,
 
 					fexprs = lappend(fexprs, rtfunc->funcexpr);
 				}
-				/* We rely on show_expression 到插入 commas 作为 needed */
+				/* 我们依赖 show_expression 按需插入逗号       */
 				show_expression((Node *) fexprs,
 								"Function Call", planstate, ancestors,
 								es->verbose, es);
@@ -1929,8 +1929,8 @@ ExplainNode(PlanState *planstate, List *ancestors,
 		case T_TidScan:
 			{
 				/*
-				 * The tidquals 列表 has OR semantics, so be sure 到显示 it
-				 * 作为 an OR condition.
+				 * tidquals 列表具有 OR 语义，因此务必以        
+				 * OR 条件显示    
 				 */
 				List	   *tidquals = ((TidScan *) plan)->tidquals;
 
@@ -1946,8 +1946,8 @@ ExplainNode(PlanState *planstate, List *ancestors,
 		case T_TidRangeScan:
 			{
 				/*
-				 * The tidrangequals 列表 has AND semantics, so be sure 到
-				 * 显示 it 作为 an AND condition.
+				 * tidrangequals 列表为 AND 语义，故务必将其   
+				 * 显示为 AND 条件。     
 				 */
 				List	   *tidquals = ((TidRangeScan *) plan)->tidrangequals;
 
@@ -2077,8 +2077,8 @@ ExplainNode(PlanState *planstate, List *ancestors,
 	}
 
 	/*
-	 * Prepare per-worker JIT instrumentation.  As 带有 the overall JIT
-	 * 摘要, 此 is printed 仅如果 printing 成本 is enabled.
+	 * 准备各工作进程的 JIT 仪表。与整体 JIT 摘要      
+	 * 一样，仅当启用了代价打印时才打印。        
 	 */
 	if (es->workers_state && es->costs && es->verbose)
 	{
@@ -2096,13 +2096,13 @@ ExplainNode(PlanState *planstate, List *ancestors,
 		}
 	}
 
-	/* Show 缓冲区/WAL usage */
+	/* 缓冲区/WAL 用量  */
 	if (es->buffers && planstate->instrument)
 		show_buffer_usage(es, &planstate->instrument->bufusage, false);
 	if (es->wal && planstate->instrument)
 		show_wal_usage(es, &planstate->instrument->walusage);
 
-	/* Prepare per-worker 缓冲区/WAL usage */
+	/* 准备工作进程缓冲区/WAL     */
 	if (es->workers_state && (es->buffers || es->wal) && es->verbose)
 	{
 		WorkerInstrumentation *w = planstate->worker_instrument;
@@ -2124,18 +2124,18 @@ ExplainNode(PlanState *planstate, List *ancestors,
 		}
 	}
 
-	/* Show per-worker details 对于此计划节点, 然后 pop 那个栈 */
+	/* 显示此节点的工作进程详细信息，然后弹出该栈 */
 	if (es->workers_state)
 		ExplainFlushWorkersState(es);
 	es->workers_state = save_workers_state;
 
 	/*
-	 * If partition pruning was done 期间执行器 initialization, the
-	 * 数字 of child plans we'll 显示以下将 be 更少 than the 数字
-	 * of 子计划s 那个 was specified in the 计划.  To make 此 a bit 更少
-	 * mysterious, 输出 an indication 那个此 happened.  Note 那个此
-	 * 字段 is emitted 现在因为 we want it 到 be a property of the parent
-	 * 节点; it *不能* be emitted 在...内 the Plans sub-节点 we'll 打开下一个.
+	 * 如果分区裁剪在执行器初始化期间完成，则下面  
+	 * 显示的子计划数量将少于计划中指定的                   
+	 * 子计划数量。为了让这一点不那么费解，我们将     
+	 * 输出一个标记说明发生了这种情况。注意，此      
+	 * 字段现在输出是因为我们希望它成为父节点的          
+	 * 属性；它*无法*在下面要打开的 Plans 子节点中输出。  
 	 */
 	switch (nodeTag(plan))
 	{
@@ -2153,7 +2153,7 @@ ExplainNode(PlanState *planstate, List *ancestors,
 			break;
 	}
 
-	/* Get ready 到显示 the child plans */
+	/* 准备显示各子计划             */
 	haschildren = planstate->initPlan ||
 		outerPlanState(planstate) ||
 		innerPlanState(planstate) ||
@@ -2168,7 +2168,7 @@ ExplainNode(PlanState *planstate, List *ancestors,
 	if (haschildren)
 	{
 		ExplainOpenGroup("Plans", "Plans", false, es);
-		/* Pass 当前 Plan 作为 head of ancestors 列表对于 children */
+		/* 把当前 Plan 传为子节点 ancestors 列表的表头 */
 		ancestors = lcons(plan, ancestors);
 	}
 
@@ -2186,7 +2186,7 @@ ExplainNode(PlanState *planstate, List *ancestors,
 		ExplainNode(innerPlanState(planstate), ancestors,
 					"Inner", NULL, es);
 
-	/* 特殊的子计划 */
+	/* 特殊的子计划  */
 	switch (nodeTag(plan))
 	{
 		case T_Append:
@@ -2225,14 +2225,14 @@ ExplainNode(PlanState *planstate, List *ancestors,
 	if (planstate->subPlan)
 		ExplainSubPlans(planstate->subPlan, ancestors, "SubPlan", es);
 
-	/* 结束 of child plans */
+	/* 子计划结束    */
 	if (haschildren)
 	{
 		ancestors = list_delete_first(ancestors);
 		ExplainCloseGroup("Plans", "Plans", false, es);
 	}
 
-	/* in 文本格式, undo whatever indentation we added */
+	/* 文本格式中撤销我们添加的所有缩进   */
 	if (es->format == EXPLAIN_FORMAT_TEXT)
 		es->indent = save_indent;
 
@@ -2242,7 +2242,7 @@ ExplainNode(PlanState *planstate, List *ancestors,
 }
 
 /*
- * Show the targetlist of a 计划节点
+ * 显示计划节点的目标列表 
  */
 static void
 show_plan_tlist(PlanState *planstate, List *ancestors, ExplainState *es)
@@ -2253,39 +2253,39 @@ show_plan_tlist(PlanState *planstate, List *ancestors, ExplainState *es)
 	bool		useprefix;
 	ListCell   *lc;
 
-	/* No work 如果 empty tlist (此 occurs eg in bitmap indexscans) */
+	/* tlist 为空则无事可做（如位图索引扫描）       */
 	if (plan->targetlist == NIL)
 		return;
-	/* Append 的 tlist 没什么实际用处，所以隐藏它 */
+	/* Append 的 tlist 没什么实际用处，所以隐藏它  */
 	if (IsA(plan, Append))
 		return;
-	/* Likewise 对于 MergeAppend 和 RecursiveUnion */
+	/* MergeAppend 和 RecursiveUnion 同理       */
 	if (IsA(plan, MergeAppend))
 		return;
 	if (IsA(plan, RecursiveUnion))
 		return;
 
 	/*
-	 * Likewise 对于 ForeignScan 那个 executes a direct INSERT/UPDATE/DELETE
+	 * 对于执行直接 INSERT/UPDATE/DELETE 的 ForeignScan 同理      
 	 *
-	 * Note: the tlist 对于 a ForeignScan 那个 executes a direct INSERT/UPDATE
-	 * 可能 contain 子计划输出 expressions 那个 are confusing in 此
-	 * 上下文.  The tlist 对于 a ForeignScan 那个 executes a direct UPDATE/
-	 * DELETE 始终 contains "junk" target columns 到 identify the exact 行
-	 * 到更新或删除, which 会 be confusing in 此上下文.  So, we
-	 * suppress it in 所有 the cases.
+	 * 注意：执行直接 INSERT/UPDATE 的 ForeignScan，其 tlist       
+	 * 可能含有在此上下文中混淆的子计划输出表达式。 
+	 * 而执行直接 UPDATE/DELETE 的 ForeignScan，其 tlist           
+	 * 总是包含用于确定待更新或删除的确切行的 "junk"      
+	 * 目标列，这在此上下文中会造成混淆。因此我们在    
+	 * 所有情况都隐藏它。  
 	 */
 	if (IsA(plan, ForeignScan) &&
 		((ForeignScan *) plan)->operation != CMD_SELECT)
 		return;
 
-	/* Set up deparsing 上下文 */
+	/* 设置反解析上下文 */
 	context = set_deparse_context_plan(es->deparse_cxt,
 									   plan,
 									   ancestors);
 	useprefix = list_length(es->rtable) > 1;
 
-	/* Deparse 每个 result 列 (we 现在 include resjunk ones) */
+	/* 反解析每个结果列（现在也包括 resjunk 列）*/
 	foreach(lc, plan->targetlist)
 	{
 		TargetEntry *tle = (TargetEntry *) lfirst(lc);
@@ -2295,12 +2295,12 @@ show_plan_tlist(PlanState *planstate, List *ancestors, ExplainState *es)
 											useprefix, false));
 	}
 
-	/* Print results */
+	/* 输出结果  */
 	ExplainPropertyList("Output", result, es);
 }
 
 /*
- * Show a generic 表达式
+ * 显示通用表达式    
  */
 static void
 show_expression(Node *node, const char *qlabel,
@@ -2310,20 +2310,20 @@ show_expression(Node *node, const char *qlabel,
 	List	   *context;
 	char	   *exprstr;
 
-	/* Set up deparsing 上下文 */
+	/* 设置反解析上下文 */
 	context = set_deparse_context_plan(es->deparse_cxt,
 									   planstate->plan,
 									   ancestors);
 
-	/* Deparse the 表达式 */
+	/* 反解析该表达式  */
 	exprstr = deparse_expression(node, context, useprefix, false);
 
-	/* And add 到 es->str */
+	/* 再加入 es->str  */
 	ExplainPropertyText(qlabel, exprstr, es);
 }
 
 /*
- * Show a qualifier 表达式 (which is a List 带有 implicit AND semantics)
+ * 显示限定条件表达式（它是具有隐式 AND 语义的列表）  
  */
 static void
 show_qual(List *qual, const char *qlabel,
@@ -2332,19 +2332,19 @@ show_qual(List *qual, const char *qlabel,
 {
 	Node	   *node;
 
-	/* No work 如果 empty qual */
+	/* qual 为空则跳过  */
 	if (qual == NIL)
 		return;
 
-	/* Convert AND 列表到 explicit AND */
+	/* 把 AND 列表转换为显式 AND*/
 	node = (Node *) make_ands_explicit(qual);
 
-	/* And 显示 it */
+	/* 显示它   */
 	show_expression(node, qlabel, planstate, ancestors, useprefix, es);
 }
 
 /*
- * Show a qualifier 表达式对于 a 扫描计划节点
+ * 显示扫描计划节点的限定条件表达式
  */
 static void
 show_scan_qual(List *qual, const char *qlabel,
@@ -2358,7 +2358,7 @@ show_scan_qual(List *qual, const char *qlabel,
 }
 
 /*
- * Show a qualifier 表达式对于 an upper-level 计划节点
+ * 显示上层计划节点的限定条件表达式        
  */
 static void
 show_upper_qual(List *qual, const char *qlabel,
@@ -2372,7 +2372,7 @@ show_upper_qual(List *qual, const char *qlabel,
 }
 
 /*
- * Show the 排序 keys 对于 a Sort 节点.
+ * 显示 Sort 节点的排序键。  
  */
 static void
 show_sort_keys(SortState *sortstate, List *ancestors, ExplainState *es)
@@ -2387,7 +2387,7 @@ show_sort_keys(SortState *sortstate, List *ancestors, ExplainState *es)
 }
 
 /*
- * Show the 排序 keys 对于 a IncrementalSort 节点.
+ * 显示 IncrementalSort 节点的排序键。  
  */
 static void
 show_incremental_sort_keys(IncrementalSortState *incrsortstate,
@@ -2404,7 +2404,7 @@ show_incremental_sort_keys(IncrementalSortState *incrsortstate,
 }
 
 /*
- * Likewise, 对于 a MergeAppend 节点.
+ * MergeAppend 节点同理。      
  */
 static void
 show_merge_append_keys(MergeAppendState *mstate, List *ancestors,
@@ -2420,7 +2420,7 @@ show_merge_append_keys(MergeAppendState *mstate, List *ancestors,
 }
 
 /*
- * Show the grouping keys 对于 an Agg 节点.
+ * 显示 Agg 节点的分组键。       
  */
 static void
 show_agg_keys(AggState *astate, List *ancestors,
@@ -2430,7 +2430,7 @@ show_agg_keys(AggState *astate, List *ancestors,
 
 	if (plan->numCols > 0 || plan->groupingSets)
 	{
-		/* The key columns refer 到 the tlist of the child 计划 */
+		/* 键列引用的是子计划 tlist 中的列          */
 		ancestors = lcons(plan, ancestors);
 
 		if (plan->groupingSets)
@@ -2453,7 +2453,7 @@ show_grouping_sets(PlanState *planstate, Agg *agg,
 	bool		useprefix;
 	ListCell   *lc;
 
-	/* Set up deparsing 上下文 */
+	/* 设置反解析上下文 */
 	context = set_deparse_context_plan(es->deparse_cxt,
 									   planstate->plan,
 									   ancestors);
@@ -2530,7 +2530,7 @@ show_grouping_set_keys(PlanState *planstate,
 
 			if (!target)
 				elog(ERROR, "no tlist entry for key %d", keyresno);
-			/* Deparse the 表达式, showing 任何 top-level cast */
+			/* 反解析表达式，并显示任何顶层 cast    */
 			exprstr = deparse_expression((Node *) target->expr, context,
 										 useprefix, true);
 
@@ -2552,7 +2552,7 @@ show_grouping_set_keys(PlanState *planstate,
 }
 
 /*
- * Show the grouping keys 对于 a Group 节点.
+ * 显示 Group 节点的分组键。      
  */
 static void
 show_group_keys(GroupState *gstate, List *ancestors,
@@ -2560,7 +2560,7 @@ show_group_keys(GroupState *gstate, List *ancestors,
 {
 	Group	   *plan = (Group *) gstate->ss.ps.plan;
 
-	/* The key columns refer 到 the tlist of the child 计划 */
+	/* 这些键列引用子计划的 tlist                 */
 	ancestors = lcons(plan, ancestors);
 	show_sort_group_keys(outerPlanState(gstate), "Group Key",
 						 plan->numCols, 0, plan->grpColIdx,
@@ -2570,9 +2570,9 @@ show_group_keys(GroupState *gstate, List *ancestors,
 }
 
 /*
- * Common code 到显示排序/group keys, which are represented in 计划节点s
- * 作为 arrays of targetlist indexes.  If it's a 排序 key 而非 a group
- * key, 还 pass 排序 operators/collations/nullsFirst arrays.
+ * 显示排序/分组键的公共代码，它们在计划节点中表示  
+ * 为目标列表索引的数组。若为排序键而非分组键，还   
+ * 需传递排序操作符/collation/nullsFirst 数组。    
  */
 static void
 show_sort_group_keys(PlanState *planstate, const char *qlabel,
@@ -2593,7 +2593,7 @@ show_sort_group_keys(PlanState *planstate, const char *qlabel,
 
 	initStringInfo(&sortkeybuf);
 
-	/* Set up deparsing 上下文 */
+	/* 设置反解析上下文 */
 	context = set_deparse_context_plan(es->deparse_cxt,
 									   plan,
 									   ancestors);
@@ -2601,7 +2601,7 @@ show_sort_group_keys(PlanState *planstate, const char *qlabel,
 
 	for (keyno = 0; keyno < nkeys; keyno++)
 	{
-		/* find key 表达式 in tlist */
+		/* 在 tlist 中找键表达式 */
 		AttrNumber	keyresno = keycols[keyno];
 		TargetEntry *target = get_tle_by_resno(plan->targetlist,
 											   keyresno);
@@ -2609,19 +2609,19 @@ show_sort_group_keys(PlanState *planstate, const char *qlabel,
 
 		if (!target)
 			elog(ERROR, "no tlist entry for key %d", keyresno);
-		/* Deparse the 表达式, showing 任何 top-level cast */
+		/* 反解析表达式，并显示任何顶层 cast    */
 		exprstr = deparse_expression((Node *) target->expr, context,
 									 useprefix, true);
 		resetStringInfo(&sortkeybuf);
 		appendStringInfoString(&sortkeybuf, exprstr);
-		/* Append 排序 order information, 如果 relevant */
+		/* 如相关，则追加排序顺序信息    */
 		if (sortOperators != NULL)
 			show_sortorder_options(&sortkeybuf,
 								   (Node *) target->expr,
 								   sortOperators[keyno],
 								   collations[keyno],
 								   nullsFirst[keyno]);
-		/* Emit 一 property-列表 item per 排序 key */
+		/* 每个排序键输出一属性列表项  */
 		result = lappend(result, pstrdup(sortkeybuf.data));
 		if (keyno < nPresortedKeys)
 			resultPresorted = lappend(resultPresorted, exprstr);
@@ -2633,8 +2633,8 @@ show_sort_group_keys(PlanState *planstate, const char *qlabel,
 }
 
 /*
- * Append nondefault characteristics of the 排序 ordering of a 列到 buf
- * (collation, direction, NULLS FIRST/LAST)
+ * 把某列排序顺序的非默认特性（collation、方向、          
+ * NULLS FIRST/LAST）追加到 buf 中    
  */
 static void
 show_sortorder_options(StringInfo buf, Node *sortexpr,
@@ -2648,11 +2648,11 @@ show_sortorder_options(StringInfo buf, Node *sortexpr,
 								 TYPECACHE_LT_OPR | TYPECACHE_GT_OPR);
 
 	/*
-	 * Print COLLATE 如果 it's 不 default 对于 the 列's 类型.  There are
-	 * 一些 cases where 此 is redundant, eg 如果表达式 is a 列 whose
-	 * declared collation is 那个 collation, 但 it's hard 到 distinguish 那个
-	 * here (和 arguably, printing COLLATE explicitly is a 好 idea anyway
-	 * in such cases).
+	 * 若 COLLATE 不是该列类型的默认值，则打印它。有一 
+	 * 些情形下这是冗余的：表达式为某列且其声明排序规 
+	 * 则就是该排序规则，但此处很难区分（况且在这些情  
+	 * 形下，显式打印 COLLATE 反正也是个好主意               
+	 * ）。         
 	 */
 	if (OidIsValid(collation) && collation != get_typcollation(sortcoltype))
 	{
@@ -2663,7 +2663,7 @@ show_sortorder_options(StringInfo buf, Node *sortexpr,
 		appendStringInfo(buf, " COLLATE %s", quote_identifier(collname));
 	}
 
-	/* Print direction 如果不 ASC, 或 USING 如果 non-default 排序 operator */
+	/* 打印方向（若非 ASC）或 USING（若非默认操作符）  */
 	if (sortOperator == typentry->gt_opr)
 	{
 		appendStringInfoString(buf, " DESC");
@@ -2676,11 +2676,11 @@ show_sortorder_options(StringInfo buf, Node *sortexpr,
 		if (opname == NULL)
 			elog(ERROR, "cache lookup failed for operator %u", sortOperator);
 		appendStringInfo(buf, " USING %s", opname);
-		/* Determine whether operator 会 be considered ASC 或 DESC */
+		/* 判断该操作符会被视为 ASC 还是 DESC             */
 		(void) get_equality_op_for_ordering_op(sortOperator, &reverse);
 	}
 
-	/* Add NULLS FIRST/LAST 仅如果 it wouldn't be default */
+	/* 仅当非默认时才加 NULLS FIRST/LAST           */
 	if (nullsFirst && !reverse)
 	{
 		appendStringInfoString(buf, " NULLS FIRST");
@@ -2692,7 +2692,7 @@ show_sortorder_options(StringInfo buf, Node *sortexpr,
 }
 
 /*
- * 显示 TABLESAMPLE 属性
+ * TABLESAMPLE 属性显示   
  */
 static void
 show_tablesample(TableSampleClause *tsc, PlanState *planstate,
@@ -2705,16 +2705,16 @@ show_tablesample(TableSampleClause *tsc, PlanState *planstate,
 	char	   *repeatable;
 	ListCell   *lc;
 
-	/* Set up deparsing 上下文 */
+	/* 设置反解析上下文 */
 	context = set_deparse_context_plan(es->deparse_cxt,
 									   planstate->plan,
 									   ancestors);
 	useprefix = list_length(es->rtable) > 1;
 
-	/* 获取表采样方法名称 */
+	/* 获取表采样方法名称     */
 	method_name = get_func_name(tsc->tsmhandler);
 
-	/* Deparse 参数 expressions */
+	/* 反解析参数表达式      */
 	foreach(lc, tsc->args)
 	{
 		Node	   *arg = (Node *) lfirst(lc);
@@ -2729,7 +2729,7 @@ show_tablesample(TableSampleClause *tsc, PlanState *planstate,
 	else
 		repeatable = NULL;
 
-	/* Print results */
+	/* 输出结果  */
 	if (es->format == EXPLAIN_FORMAT_TEXT)
 	{
 		bool		first = true;
@@ -2758,7 +2758,7 @@ show_tablesample(TableSampleClause *tsc, PlanState *planstate,
 }
 
 /*
- * If it's EXPLAIN ANALYZE, 显示 tuplesort 统计信息对于 a 排序节点
+ * 若 EXPLAIN ANALYZE，显示该排序节点 tuplesort 统计 
  */
 static void
 show_sort_info(SortState *sortstate, ExplainState *es)
@@ -2794,13 +2794,13 @@ show_sort_info(SortState *sortstate, ExplainState *es)
 	}
 
 	/*
-	 * You 可能 think we 应该只是跳过此 stanza 完全当
-	 * es->hide_workers is true, 但然后 we'd get no 排序-method 输出 at
-	 * 所有.  We have 到 make it look 如 worker 0's 数据 is top-level 数据.
-	 * This is easily done 通过只是 skipping the OpenWorker/CloseWorker calls.
-	 * Currently, we don't worry about the possibility 那个 there are 多个
-	 * workers in such a case; 如果 there are, duplicate 输出 fields 将 be
-	 * emitted.
+	 * 你可能认为当 es->hide_workers 为真时可以完全    
+	 * 跳过这一段，但那样会得不到任何排序方法输出。  
+	 * 我们得让它看起来像 worker 0 的数据就是顶层数据。  
+	 * 这很容易做到：只需跳过 OpenWorker/CloseWorker 调用。    
+	 * 目前我们不担心这种情况下存在多个 worker 的可能      
+	 * 性；若果真有，就会发出重复的输出字段               
+	 * 。     
 	 */
 	if (sortstate->shared_info != NULL)
 	{
@@ -2815,7 +2815,7 @@ show_sort_info(SortState *sortstate, ExplainState *es)
 
 			sinstrument = &sortstate->shared_info->sinstrument[n];
 			if (sinstrument->sortMethod == SORT_TYPE_STILL_IN_PROGRESS)
-				continue;		/* 忽略任何 unfilled slots */
+				continue;		/* 忽略未填满的槽位  */
 			sortMethod = tuplesort_method_name(sinstrument->sortMethod);
 			spaceType = tuplesort_space_type_name(sinstrument->spaceType);
 			spaceUsed = sinstrument->spaceUsed;
@@ -2844,12 +2844,12 @@ show_sort_info(SortState *sortstate, ExplainState *es)
 }
 
 /*
- * Incremental 排序 nodes 排序 in (a potentially 非常大数字 of) batches,
- * so EXPLAIN ANALYZE needs 到 roll up the tuplesort 统计信息从每个 batch 进入
- * an intelligible 摘要.
+ * 增量排序节点分（可能极为庞大的）批次进行排序，       
+ * 故 EXPLAIN ANALYZE 须把每个批次的 tuplesort 统计信息归并为   
+ * 易懂的摘要。      
  *
- * This 函数 is used 对于 both a non-parallel 节点和每个 worker in a
- * parallel incremental 排序节点.
+ * 此函数用于非并行节点和并行增量排序节点里的        
+ * 每个 worker。               
  */
 static void
 show_incremental_sort_group_info(IncrementalSortGroupInfo *groupInfo,
@@ -2858,7 +2858,7 @@ show_incremental_sort_group_info(IncrementalSortGroupInfo *groupInfo,
 	ListCell   *methodCell;
 	List	   *methodNames = NIL;
 
-	/* Generate a 列表 of 排序 methods used across 所有 groups. */
+	/* 生成所有组共用的排序方法列表。           */
 	for (int bit = 0; bit < NUM_TUPLESORTMETHODS; bit++)
 	{
 		TuplesortMethod sortMethod = (1 << bit);
@@ -2877,7 +2877,7 @@ show_incremental_sort_group_info(IncrementalSortGroupInfo *groupInfo,
 			appendStringInfoSpaces(es->str, es->indent * 2);
 		appendStringInfo(es->str, "%s Groups: " INT64_FORMAT "  Sort Method", groupLabel,
 						 groupInfo->groupCount);
-		/* plural/singular 基于 methodNames size */
+		/* 按 methodNames 的大小定单复数     */
 		if (list_length(methodNames) > 1)
 			appendStringInfoString(es->str, "s: ");
 		else
@@ -2963,7 +2963,7 @@ show_incremental_sort_group_info(IncrementalSortGroupInfo *groupInfo,
 }
 
 /*
- * If it's EXPLAIN ANALYZE, 显示 tuplesort 统计信息对于 an incremental 排序节点
+ * 若 EXPLAIN ANALYZE，显示该增量排序节点 tuplesort 统计        
  */
 static void
 show_incremental_sort_info(IncrementalSortState *incrsortstate,
@@ -2978,13 +2978,13 @@ show_incremental_sort_info(IncrementalSortState *incrsortstate,
 		return;
 
 	/*
-	 * Since we 从不 have 任何 prefix groups 除非 we've 首先 sorted a full
-	 * groups 和 transitioned modes (copying the tuples 进入 a prefix group),
-	 * we don't 需要到 do anything 如果 there were 0 full groups.
+	 * 除非先排过完整组并切换模式（元组拷入前缀组）， 
+	 * 否则不会有任何前缀组，故完整组数为 0 时无需做任  
+	 * 何事。                                                
 	 *
-	 * We 仍然 have 到继续之后此块如果 there are no full groups,
-	 * though, 由于 it's possible 那个 we have workers 那个 did real work
-	 * even 如果 the leader didn't participate.
+	 * 但没有完整组时仍要继续此块之后的代码，因为        
+	 * 可能有确实干过活的 worker，即使                        
+	 * leader 并未参与。                
 	 */
 	if (fullsortGroupInfo->groupCount > 0)
 	{
@@ -3011,17 +3011,17 @@ show_incremental_sort_info(IncrementalSortState *incrsortstate,
 				&incrsortstate->shared_info->sinfo[n];
 
 			/*
-			 * If a worker hasn't processed 任何排序 groups at 所有, 然后
-			 * exclude it 从输出由于 it either didn't launch 或 didn't
-			 * contribute anything meaningful.
+			 * 若某 worker 完全没处理过排序组，             
+			 * 就把它从输出排除：它没启动，或没有实质     
+			 * 贡献。                      
 			 */
 			fullsortGroupInfo = &incsort_info->fullsortGroupInfo;
 
 			/*
-			 * Since we 从不 have 任何 prefix groups 除非 we've 首先 sorted
-			 * a full groups 和 transitioned modes (copying the tuples 进入 a
-			 * prefix group), we don't 需要到 do anything 如果 there were 0
-			 * full groups.
+			 * 除非先排过完整组并切换模式，否则无前缀组   
+			 * （把元组拷入前缀组），所以完整组数为 0 时   
+			 * 无需做任何事                                         
+			 * 。         
 			 */
 			if (fullsortGroupInfo->groupCount == 0)
 				continue;
@@ -3049,7 +3049,7 @@ show_incremental_sort_info(IncrementalSortState *incrsortstate,
 }
 
 /*
- * Show information on 哈希 buckets/batches.
+ * 显示哈希桶/批次的信息。       
  */
 static void
 show_hash_info(HashState *hashstate, ExplainState *es)
@@ -3057,25 +3057,25 @@ show_hash_info(HashState *hashstate, ExplainState *es)
 	HashInstrumentation hinstrument = {0};
 
 	/*
-	 * Collect 统计信息从 the local 处理, even 当 it's a parallel 查询.
-	 * In a parallel 查询, the leader 处理可以或可以不 have run the
-	 * 哈希连接, 和 even 如果 it did it 可以不 have built a 哈希表由于
-	 * 计时 (如果 it started 晚 it 可能 have seen no tuples in the outer
-	 * 关系和 skipped building the 哈希表).  Therefore we have 到 be
-	 * prepared 到 get 仪表数据从所有 participants.
+	 * 即使这是并行查询，也要收集本地进程的统计信息。 
+	 * 并行查询中 leader 进程可能跑过哈希连接，也可能  
+	 * 没跑过；即使跑了，也可能因时机问题没建哈希表     
+	 * （若启动较晚，可能在外关系没见元组，因而跳过  
+	 * 了哈希表的构建）。因此必须准备从所有参与者获取  
+	 * instrumentation 数据。                                  
 	 */
 	if (hashstate->hinstrument)
 		memcpy(&hinstrument, hashstate->hinstrument,
 			   sizeof(HashInstrumentation));
 
 	/*
-	 * Merge results 从 workers.  In the parallel-oblivious case, the
-	 * results 从所有 participants 应该 be identical, except where
-	 * participants didn't run the 连接 at 所有 so have no 数据.  In the
-	 * parallel-aware case, we 需要到 consider 所有 the results.  Each worker
-	 * 可以 have seen a 不同 subset of batches 和 we want 到报告 the
-	 * highest 内存 usage across 所有 batches.  We take the maxima of other
-	 * values too, 对于 the 相同 reasons 作为 in ExecHashAccumInstrumentation.
+	 * 合并来自 worker 的结果。在 parallel-oblivious 的      
+	 * 情形下，所有参与者结果都相同，除非其根本   
+	 * 没跑连接而无数据。parallel-aware 情形下，我们    
+	 * 须考虑所有结果。每个 worker 可能见到不同的批次子  
+	 * 集，我们要报告所有批次中最高的内存使用量。      
+	 * 对其他值同样取最大值，理由与                           
+	 * ExecHashAccumInstrumentation 中相同。                           
 	 */
 	if (hashstate->shared_info)
 	{
@@ -3140,7 +3140,7 @@ show_hash_info(HashState *hashstate, ExplainState *es)
 }
 
 /*
- * Show information on memoize hits/misses/evictions 和内存 usage.
+ * 显示 memoize 命中/未命中/逐出与内存用量信息。     
  */
 static void
 show_memoize_info(MemoizeState *mstate, List *ancestors, ExplainState *es)
@@ -3156,12 +3156,12 @@ show_memoize_info(MemoizeState *mstate, List *ancestors, ExplainState *es)
 	initStringInfo(&keystr);
 
 	/*
-	 * It's hard 到 imagine having a memoize 节点带有 fewer than 2 RTEs, 但
-	 * let's 只是 keep the 相同 useprefix logic 作为 elsewhere in 此文件.
+	 * 很难想象会有 RTE 少于 2 个的 memoize 节点，但           
+	 * 我们还是沿用本文件其他处的 useprefix 逻辑。        
 	 */
 	useprefix = list_length(es->rtable) > 1 || es->verbose;
 
-	/* Set up deparsing 上下文 */
+	/* 设置反解析上下文 */
 	context = set_deparse_context_plan(es->deparse_cxt,
 									   plan,
 									   ancestors);
@@ -3198,8 +3198,8 @@ show_memoize_info(MemoizeState *mstate, List *ancestors, ExplainState *es)
 	if (mstate->stats.cache_misses > 0)
 	{
 		/*
-		 * mem_peak is 仅集合当 we freed 内存, so we 必须 use mem_used
-		 * 当 mem_peak is 0.
+		 * mem_peak 仅在释放内存时设置，为 0 时须用            
+		 * mem_used。        
 		 */
 		if (mstate->stats.mem_peak > 0)
 			memPeakKb = (mstate->stats.mem_peak + 1023) / 1024;
@@ -3230,7 +3230,7 @@ show_memoize_info(MemoizeState *mstate, List *ancestors, ExplainState *es)
 	if (mstate->shared_info == NULL)
 		return;
 
-	/* Show details 从 parallel workers */
+	/* 显示来自并行 worker 的细节*/
 	for (int n = 0; n < mstate->shared_info->num_workers; n++)
 	{
 		MemoizeInstrumentation *si;
@@ -3238,8 +3238,8 @@ show_memoize_info(MemoizeState *mstate, List *ancestors, ExplainState *es)
 		si = &mstate->shared_info->sinstrument[n];
 
 		/*
-		 * Skip workers 那个 didn't do 任何 work.  We needn't bother checking
-		 * 对于缓存 hits 作为 a miss 将始终 occur 之前 a 缓存 hit.
+		 * 跳过没干活的 worker。无需费心检查缓存命中       
+		 * 情况，因为未命中总是先于命中发生。           
 		 */
 		if (si->cache_misses == 0)
 			continue;
@@ -3248,10 +3248,10 @@ show_memoize_info(MemoizeState *mstate, List *ancestors, ExplainState *es)
 			ExplainOpenWorker(n, es);
 
 		/*
-		 * Since the worker's MemoizeState.mem_used 字段 is unavailable 到
-		 * us, ExecEndMemoize 将 have 集合 the
-		 * MemoizeInstrumentation.mem_peak 字段对于 us.  No 需要到 do the
-		 * zero checks 如 we did 对于 the serial case 以上.
+		 * 由于我们拿不到 worker 的 MemoizeState.mem_used          
+		 * 字段，ExecEndMemoize 已设好   
+		 * MemoizeInstrumentation.mem_peak 字段。无需像上面串行  
+		 * 情形那样做零值检查了。                 
 		 */
 		memPeakKb = (si->mem_peak + 1023) / 1024;
 
@@ -3284,7 +3284,7 @@ show_memoize_info(MemoizeState *mstate, List *ancestors, ExplainState *es)
 }
 
 /*
- * Show information on 哈希聚合内存 usage 和 batches.
+ * 显示哈希聚合的内存使用与批次信息。         
  */
 static void
 show_hashagg_info(AggState *aggstate, ExplainState *es)
@@ -3303,9 +3303,9 @@ show_hashagg_info(AggState *aggstate, ExplainState *es)
 								   aggstate->hash_planned_partitions, es);
 
 		/*
-		 * During parallel 查询 the leader 可以 have 不 helped out.  We
-		 * detect 此通过 checking how much 内存 it used.  If we find it
-		 * didn't do 任何 work 然后 we don't 显示 its properties.
+		 * 并行查询中 leader 可能没出过力，                 
+		 * 可通过检查其内存用量发现。若它没干过活，   
+		 * 就不显示其属性。                             
 		 */
 		if (es->analyze && aggstate->hash_mem_peak > 0)
 		{
@@ -3329,9 +3329,9 @@ show_hashagg_info(AggState *aggstate, ExplainState *es)
 		}
 
 		/*
-		 * During parallel 查询 the leader 可以 have 不 helped out.  We
-		 * detect 此通过 checking how much 内存 it used.  If we find it
-		 * didn't do 任何 work 然后 we don't 显示 its properties.
+		 * 并行查询中 leader 可能没出过力，                 
+		 * 可通过检查其内存用量发现。若它没干过活，   
+		 * 就不显示其属性。                             
 		 */
 		if (es->analyze && aggstate->hash_mem_peak > 0)
 		{
@@ -3344,7 +3344,7 @@ show_hashagg_info(AggState *aggstate, ExplainState *es)
 							 aggstate->hash_batches_used, memPeakKb);
 			gotone = true;
 
-			/* Only 显示磁盘 usage 如果 we spilled 到磁盘 */
+			/* 只在溢出到磁盘时才显示磁盘用量 */
 			if (aggstate->hash_batches_used > 1)
 			{
 				appendStringInfo(es->str, "  Disk Usage: " UINT64_FORMAT "kB",
@@ -3356,7 +3356,7 @@ show_hashagg_info(AggState *aggstate, ExplainState *es)
 			appendStringInfoChar(es->str, '\n');
 	}
 
-	/* Display 统计信息对于每个 parallel worker */
+	/* 显示各并行 worker 的统计信息 */
 	if (es->analyze && aggstate->shared_info != NULL)
 	{
 		for (int n = 0; n < aggstate->shared_info->num_workers; n++)
@@ -3366,7 +3366,7 @@ show_hashagg_info(AggState *aggstate, ExplainState *es)
 			int			hash_batches_used;
 
 			sinstrument = &aggstate->shared_info->sinstrument[n];
-			/* Skip workers 那个 didn't do anything */
+			/* 跳过没做任何事的 worker      */
 			if (sinstrument->hash_mem_peak == 0)
 				continue;
 			hash_disk_used = sinstrument->hash_disk_used;
@@ -3383,7 +3383,7 @@ show_hashagg_info(AggState *aggstate, ExplainState *es)
 				appendStringInfo(es->str, "Batches: %d  Memory Usage: " INT64_FORMAT "kB",
 								 hash_batches_used, memPeakKb);
 
-				/* Only 显示磁盘 usage 如果 we spilled 到磁盘 */
+				/* 只在溢出到磁盘时才显示磁盘用量 */
 				if (hash_batches_used > 1)
 					appendStringInfo(es->str, "  Disk Usage: " UINT64_FORMAT "kB",
 									 hash_disk_used);
@@ -3405,7 +3405,7 @@ show_hashagg_info(AggState *aggstate, ExplainState *es)
 }
 
 /*
- * If it's EXPLAIN ANALYZE, 显示 exact/lossy pages 对于 a BitmapHeapScan 节点
+ * 若 EXPLAIN ANALYZE，显示 BitmapHeapScan 节点精确/有损页数    
  */
 static void
 show_tidbitmap_info(BitmapHeapScanState *planstate, ExplainState *es)
@@ -3433,9 +3433,9 @@ show_tidbitmap_info(BitmapHeapScanState *planstate, ExplainState *es)
 }
 
 /*
- * If it's EXPLAIN ANALYZE, 显示 instrumentation information 对于 a 计划节点
+ * 若是 EXPLAIN ANALYZE，则显示计划节点的 instrumentation 信息 
  *
- * "which" identifies which instrumentation counter 到输出
+ * "which" 标识要输出哪个 instrumentation 计数器  
  */
 static void
 show_instrumentation_count(const char *qlabel, int which,
@@ -3453,7 +3453,7 @@ show_instrumentation_count(const char *qlabel, int which,
 		nfiltered = planstate->instrument->nfiltered1;
 	nloops = planstate->instrument->nloops;
 
-	/* In 文本模式, suppress zero counts; they're 不 interesting enough */
+	/* 文本模式下抑制零计数；它们没多大意思。          */
 	if (nfiltered > 0 || es->format != EXPLAIN_FORMAT_TEXT)
 	{
 		if (nloops > 0)
@@ -3464,14 +3464,14 @@ show_instrumentation_count(const char *qlabel, int which,
 }
 
 /*
- * Show extra information 对于 a ForeignScan 节点.
+ * 显示 ForeignScan 节点的额外信息。   
  */
 static void
 show_foreignscan_info(ForeignScanState *fsstate, ExplainState *es)
 {
 	FdwRoutine *fdwroutine = fsstate->fdwroutine;
 
-	/* Let the FDW 输出 whatever fields it wants */
+	/* 让 FDW 输出它想要的任何字段    */
 	if (((ForeignScan *) fsstate->ss.ps.plan)->operation != CMD_SELECT)
 	{
 		if (fdwroutine->ExplainDirectModify != NULL)
@@ -3485,7 +3485,7 @@ show_foreignscan_info(ForeignScanState *fsstate, ExplainState *es)
 }
 
 /*
- * Show initplan params evaluated at Gather 或 Gather Merge 节点.
+ * 显示在 Gather/Gather Merge 处求值的 initplan 参数。 
  */
 static void
 show_eval_params(Bitmapset *bms_params, ExplainState *es)
@@ -3508,14 +3508,14 @@ show_eval_params(Bitmapset *bms_params, ExplainState *es)
 }
 
 /*
- * Fetch the name of an 索引 in an EXPLAIN
+ * 获取 EXPLAIN 中某个索引的名称 
  *
- * We 允许 plugins 到 get control here 以便 plans involving hypothetical
- * indexes 可以 be explained.
+ * 我们允许插件在此取得控制，使含假想索引的计划得以 
+ * 被解释。             
  *
- * Note: names returned 通过此函数应该 be "raw"; the caller 将
- * apply quoting 如果 needed.  Formerly the convention was 到 do quoting here,
- * 但 we don't want 那个 in non-文本输出格式s.
+ * 注意：返回的名称应是"原始"的；调用方将按需        
+ * 施加引号。以前惯例是在此做引号处理，但我们不希望 
+ * 在非文本输出格式中这样做。           
  */
 static const char *
 explain_get_index_name(Oid indexId)
@@ -3528,7 +3528,7 @@ explain_get_index_name(Oid indexId)
 		result = NULL;
 	if (result == NULL)
 	{
-		/* 默认行为：在系统表中查找 */
+		/* 默认行为：查系统目录               */
 		result = get_rel_name(indexId);
 		if (result == NULL)
 			elog(ERROR, "cache lookup failed for index %u", indexId);
@@ -3537,7 +3537,7 @@ explain_get_index_name(Oid indexId)
 }
 
 /*
- * Show 缓冲区使用情况 details.
+ * 显示缓冲区详情。  
  */
 static void
 show_buffer_usage(ExplainState *es, const BufferUsage *usage, bool planning)
@@ -3569,7 +3569,7 @@ show_buffer_usage(ExplainState *es, const BufferUsage *usage, bool planning)
 			es->indent++;
 		}
 
-		/* Show 仅 positive counter values. */
+		/* 只显示正的计数器值。     */
 		if (has_shared || has_local || has_temp)
 		{
 			ExplainIndentText(es);
@@ -3624,7 +3624,7 @@ show_buffer_usage(ExplainState *es, const BufferUsage *usage, bool planning)
 			appendStringInfoChar(es->str, '\n');
 		}
 
-		/* As 以上, 显示仅 positive counter values. */
+		/* 如上，只显示正的计数器值。      */
 		if (has_timing || has_temp_timing)
 		{
 			ExplainIndentText(es);
@@ -3699,14 +3699,14 @@ show_buffer_usage(ExplainState *es, const BufferUsage *usage, bool planning)
 }
 
 /*
- * 显示 WAL 使用详情。
+ * 显示 WAL 用量。   
  */
 static void
 show_wal_usage(ExplainState *es, const WalUsage *usage)
 {
 	if (es->format == EXPLAIN_FORMAT_TEXT)
 	{
-		/* Show 仅 positive counter values. */
+		/* 只显示正的计数器值。     */
 		if ((usage->wal_records > 0) || (usage->wal_fpi > 0) ||
 			(usage->wal_bytes > 0))
 		{
@@ -3737,7 +3737,7 @@ show_wal_usage(ExplainState *es, const WalUsage *usage)
 }
 
 /*
- * Add 一些 additional details about an IndexScan 或 IndexOnlyScan
+ * 为 IndexScan 或 IndexOnlyScan 追加一些额外细节。    
  */
 static void
 ExplainIndexScanDetails(Oid indexid, ScanDirection indexorderdir,
@@ -3773,7 +3773,7 @@ ExplainIndexScanDetails(Oid indexid, ScanDirection indexorderdir,
 }
 
 /*
- * Show the target of a Scan 节点
+ * 显示 Scan 节点目标。   
  */
 static void
 ExplainScanTarget(Scan *plan, ExplainState *es)
@@ -3782,11 +3782,11 @@ ExplainScanTarget(Scan *plan, ExplainState *es)
 }
 
 /*
- * Show the target of a ModifyTable 节点
+ * 显示 ModifyTable 节点的目标   
  *
- * Here we 显示 the nominal target (ie, the 关系那个 was named in the
- * original 查询).  If the actual target(s) is/are 不同, we'll 显示 them
- * in show_modifytable_info().
+ * 此处显示名义目标（即原始查询中被指名的关系）。  
+ * 若实际目标与名义目标不同，则由 show_modifytable_info()      
+ * 来显示它们。         
  */
 static void
 ExplainModifyTarget(ModifyTable *plan, ExplainState *es)
@@ -3795,7 +3795,7 @@ ExplainModifyTarget(ModifyTable *plan, ExplainState *es)
 }
 
 /*
- * Show the target 关系 of a 扫描或 modify 节点
+ * 显示扫描或修改节点的目标关系。    
  */
 static void
 ExplainTargetRel(Plan *plan, Index rti, ExplainState *es)
@@ -3823,7 +3823,7 @@ ExplainTargetRel(Plan *plan, Index rti, ExplainState *es)
 		case T_ForeignScan:
 		case T_CustomScan:
 		case T_ModifyTable:
-			/* Assert it's on a real 关系 */
+			/* 断言在真实关系上       */
 			Assert(rte->rtekind == RTE_RELATION);
 			objectname = get_rel_name(rte->relid);
 			if (es->verbose)
@@ -3834,14 +3834,14 @@ ExplainTargetRel(Plan *plan, Index rti, ExplainState *es)
 			{
 				FunctionScan *fscan = (FunctionScan *) plan;
 
-				/* 断言它位于 RangeFunction 上 */
+				/* 断言在 RangeFunction 上    */
 				Assert(rte->rtekind == RTE_FUNCTION);
 
 				/*
-				 * If the 表达式 is 仍然 a 函数 call of a 单个
-				 * 函数, we 可以 get the real name of the 函数.
-				 * Otherwise, punt.  (Even 如果 it was a 单个函数 call
-				 * originally, the 优化器可以 have simplified it away.)
+				 * 若表达式仍是单个函数的调用，            
+				 * 我们就能取得该函数的真实名称。      
+				 * 否则就作罢。（即使原是单函数调用，     
+				 * 也可能已把它化简掉了。）                     
 				 */
 				if (list_length(fscan->functions) == 1)
 				{
@@ -3869,7 +3869,7 @@ ExplainTargetRel(Plan *plan, Index rti, ExplainState *es)
 			Assert(rte->rtekind == RTE_VALUES);
 			break;
 		case T_CteScan:
-			/* Assert it's on a non-self-引用 CTE */
+			/* 断言其位于非自引用 CTE 上     */
 			Assert(rte->rtekind == RTE_CTE);
 			Assert(!rte->self_reference);
 			objectname = rte->ctename;
@@ -3881,7 +3881,7 @@ ExplainTargetRel(Plan *plan, Index rti, ExplainState *es)
 			objecttag = "Tuplestore Name";
 			break;
 		case T_WorkTableScan:
-			/* Assert it's on a self-引用 CTE */
+			/* 断言其位于自引用 CTE 上    */
 			Assert(rte->rtekind == RTE_CTE);
 			Assert(rte->self_reference);
 			objectname = rte->ctename;
@@ -3913,12 +3913,12 @@ ExplainTargetRel(Plan *plan, Index rti, ExplainState *es)
 }
 
 /*
- * Show extra information 对于 a ModifyTable 节点
+ * 显示 ModifyTable 节点的额外信息     
  *
- * We have 三 objectives here.  First, 如果 there's 更多 than 一 target
- * 表或 it's 不同从 the nominal target, identify the actual
- * target(s).  Second, give FDWs a chance 到显示 extra 信息 about foreign
- * targets.  Third, 显示 information about ON CONFLICT.
+ * 此处有三个目标。其一，若目标表不止一个，或与    
+ * 名义目标不同，就标出实际目标。其二，给 FDW       
+ * 有机会显示外部目标的额外信息。其三，显示 ON           
+ * CONFLICT 的相关信息。                         
  */
 static void
 show_modifytable_info(ModifyTableState *mtstate, List *ancestors,
@@ -3948,7 +3948,7 @@ show_modifytable_info(ModifyTableState *mtstate, List *ancestors,
 			break;
 		case CMD_MERGE:
 			operation = "Merge";
-			/* XXX unsupported 目前, 但 avoid compiler noise */
+			/* XXX 目前不支持，但避免编译器噪声    */
 			foperation = "Foreign Merge";
 			break;
 		default:
@@ -3957,7 +3957,7 @@ show_modifytable_info(ModifyTableState *mtstate, List *ancestors,
 			break;
 	}
 
-	/* 是否应显式标记目标关系？ */
+	/* 是否应显式标记目标关系？         */
 	labeltargets = (mtstate->mt_nrels > 1 ||
 					(mtstate->mt_nrels == 1 &&
 					 mtstate->resultRelInfo[0].ri_RangeTableIndex != node->nominalRelation));
@@ -3972,12 +3972,12 @@ show_modifytable_info(ModifyTableState *mtstate, List *ancestors,
 
 		if (labeltargets)
 		{
-			/* Open a group 对于此 target */
+			/* 为此目标开一个组     */
 			ExplainOpenGroup("Target Table", NULL, true, es);
 
 			/*
-			 * In 文本模式, decorate 每个 target 带有 operation 类型, 以便
-			 * ExplainTargetRel's 输出 of " on foo" 将读取 nicely.
+			 * 文本模式下给每个目标加操作类型修饰，以便   
+			 * ExplainTargetRel 输出的 " on foo" 会更顺口。    
 			 */
 			if (es->format == EXPLAIN_FORMAT_TEXT)
 			{
@@ -3986,7 +3986,7 @@ show_modifytable_info(ModifyTableState *mtstate, List *ancestors,
 									   fdwroutine ? foperation : operation);
 			}
 
-			/* Identify target */
+			/* 标识目标    */
 			ExplainTargetRel((Plan *) node,
 							 resultRelInfo->ri_RangeTableIndex,
 							 es);
@@ -3998,7 +3998,7 @@ show_modifytable_info(ModifyTableState *mtstate, List *ancestors,
 			}
 		}
 
-		/* Give FDW a chance 如果 needed */
+		/* 需要时给 FDW 机会     */
 		if (!resultRelInfo->ri_usesFdwDirectModify &&
 			fdwroutine != NULL &&
 			fdwroutine->ExplainForeignModify != NULL)
@@ -4014,16 +4014,16 @@ show_modifytable_info(ModifyTableState *mtstate, List *ancestors,
 
 		if (labeltargets)
 		{
-			/* Undo the indentation we added in 文本格式 */
+			/* 撤销我们在文本格式中添加的缩进*/
 			if (es->format == EXPLAIN_FORMAT_TEXT)
 				es->indent--;
 
-			/* Close the group */
+			/* 关闭该组    */
 			ExplainCloseGroup("Target Table", NULL, true, es);
 		}
 	}
 
-	/* 收集 ON CONFLICT 仲裁索引的名称 */
+	/* 收集 ON CONFLICT 仲裁索引的名称    */
 	foreach(lst, node->arbiterIndexes)
 	{
 		char	   *indexname = get_rel_name(lfirst_oid(lst));
@@ -4039,13 +4039,13 @@ show_modifytable_info(ModifyTableState *mtstate, List *ancestors,
 							es);
 
 		/*
-		 * Don't 显示 arbiter indexes at 所有当 DO NOTHING variant
-		 * implicitly ignores 所有 conflicts
+		 * 当 DO NOTHING 变体隐式忽略所有冲突时，         
+		 * 就完全不显示仲裁索引  
 		 */
 		if (idxNames)
 			ExplainPropertyList("Conflict Arbiter Indexes", idxNames, es);
 
-		/* ON CONFLICT DO UPDATE WHERE 条件被特殊显示 */
+		/* ON CONFLICT DO UPDATE WHERE 条件被特殊显示       */
 		if (node->onConflictWhere)
 		{
 			show_upper_qual((List *) node->onConflictWhere, "Conflict Filter",
@@ -4053,7 +4053,7 @@ show_modifytable_info(ModifyTableState *mtstate, List *ancestors,
 			show_instrumentation_count("Rows Removed by Conflict Filter", 1, &mtstate->ps, es);
 		}
 
-		/* EXPLAIN ANALYZE 显示 of actual outcome 对于每个元组 proposed */
+		/* EXPLAIN ANALYZE 显示每个拟插入元组的实际结果        */
 		if (es->analyze && mtstate->ps.instrument)
 		{
 			double		total;
@@ -4062,7 +4062,7 @@ show_modifytable_info(ModifyTableState *mtstate, List *ancestors,
 
 			InstrEndLoop(outerPlanState(mtstate)->instrument);
 
-			/* count the 数字 of source rows */
+			/* 统计源行数                 */
 			total = outerPlanState(mtstate)->instrument->ntuples;
 			other_path = mtstate->ps.instrument->ntuples2;
 			insert_path = total - other_path;
@@ -4075,7 +4075,7 @@ show_modifytable_info(ModifyTableState *mtstate, List *ancestors,
 	}
 	else if (node->operation == CMD_MERGE)
 	{
-		/* EXPLAIN ANALYZE 显示 of tuples processed */
+		/* EXPLAIN ANALYZE 显示已处理的元组数 */
 		if (es->analyze && mtstate->ps.instrument)
 		{
 			double		total;
@@ -4086,7 +4086,7 @@ show_modifytable_info(ModifyTableState *mtstate, List *ancestors,
 
 			InstrEndLoop(outerPlanState(mtstate)->instrument);
 
-			/* count the 数字 of source rows */
+			/* 统计源行数                 */
 			total = outerPlanState(mtstate)->instrument->ntuples;
 			insert_path = mtstate->mt_merge_inserted;
 			update_path = mtstate->mt_merge_updated;
@@ -4126,11 +4126,11 @@ show_modifytable_info(ModifyTableState *mtstate, List *ancestors,
 }
 
 /*
- * Explain the constituent plans of an Append, MergeAppend,
- * BitmapAnd, 或 BitmapOr 节点.
+ * 解释 Append、MergeAppend、BitmapAnd 或 BitmapOr    
+ * 节点的组成计划。    
  *
- * The ancestors 列表应该已经 contain the immediate parent of 这些
- * plans.
+ * ancestors 列表应当已包含这些计划的直接父节点          
+ * 。   
  */
 static void
 ExplainMemberNodes(PlanState **planstates, int nplans,
@@ -4144,11 +4144,11 @@ ExplainMemberNodes(PlanState **planstates, int nplans,
 }
 
 /*
- * Report about 任何 pruned subnodes of an Append 或 MergeAppend 节点.
+ * 报告 Append 或 MergeAppend 节点被剪枝的子节点。      
  *
- * nplans indicates the 数字 of live 子计划s.
- * nchildren indicates the original 数字 of subnodes in the Plan;
- * 一些 of 这些可以 have been pruned 通过 the run-time pruning code.
+ * nplans 表示存活子计划的数量。     
+ * nchildren 表示 Plan 中子节点的原始数量；            
+ * 其中一些可能已被运行期剪枝代码剪掉。          
  */
 static void
 ExplainMissingMembers(int nplans, int nchildren, ExplainState *es)
@@ -4159,10 +4159,10 @@ ExplainMissingMembers(int nplans, int nchildren, ExplainState *es)
 }
 
 /*
- * Explain a 列表 of SubPlans (或 initPlans, which 还 use SubPlan nodes).
+ * 解释一组 SubPlan（或 initPlan，其也用 SubPlan 节点）。    
  *
- * The ancestors 列表应该已经 contain the immediate parent of 这些
- * SubPlans.
+ * ancestors 列表应当已包含这些 SubPlan 的直接父节点       
+ * 。      
  */
 static void
 ExplainSubPlans(List *plans, List *ancestors,
@@ -4176,14 +4176,14 @@ ExplainSubPlans(List *plans, List *ancestors,
 		SubPlan    *sp = sps->subplan;
 
 		/*
-		 * There 可以 be 多个 SubPlan nodes referencing the 相同 physical
-		 * 子计划 (相同 plan_id, which is its 索引 in PlannedStmt.子计划s).
-		 * We 应该输出 a 子计划仅一次, so track which ones we 已经
-		 * printed.  This 状态必须 be global across the 计划树, 由于 the
-		 * duplicate nodes 可以 be in 不同计划节点s, eg both a bitmap
-		 * indexscan's indexqual 和 its parent heapscan's recheck qual.  (We
-		 * do 不 worry too much about which 计划节点 we 显示 the 子计划作为
-		 * attached 到 in such cases.)
+		 * 多个 SubPlan 节点可引用同一物理子计划（相同     
+		 * 的 plan_id，即它在 PlannedStmt.subplans 中的下标）。    
+		 * 子计划只应打印一次，所以要记录哪些已打印过。 
+		 * 此状态必须跨整棵计划树全局有效，因为重复节点 
+		 * 或位于不同的计划节点中，例如位图索引扫描的   
+		 * indexqual 与父堆扫描的 recheck qual 都可能引用它。   
+		 * （这种情形下我们不介意把子计划显示为挂在哪   
+		 * 个计划节点上。）   
 		 */
 		if (bms_is_member(sp->plan_id, es->printed_subplans))
 			continue;
@@ -4191,9 +4191,9 @@ ExplainSubPlans(List *plans, List *ancestors,
 											  sp->plan_id);
 
 		/*
-		 * Treat the SubPlan 节点作为 an ancestor of the 计划节点(s) 在...内
-		 * it, 以便 ruleutils.c 可以 find the referents of 子计划
-		 * parameters.
+		 * 把 SubPlan 节点当作其内部计划节点的祖先，这样 
+		 * ruleutils.c 才能找到子计划参数的引用对象   
+		 * 。        
 		 */
 		ancestors = lcons(sp, ancestors);
 
@@ -4205,7 +4205,7 @@ ExplainSubPlans(List *plans, List *ancestors,
 }
 
 /*
- * Explain a 列表 of children of a CustomScan.
+ * 解释 CustomScan 的一组子节点。    
  */
 static void
 ExplainCustomChildren(CustomScanState *css, List *ancestors, ExplainState *es)
@@ -4219,15 +4219,15 @@ ExplainCustomChildren(CustomScanState *css, List *ancestors, ExplainState *es)
 }
 
 /*
- * Create a per-计划-节点 workspace 对于 collecting per-worker 数据.
+ * 创建收集各 worker 数据的按计划节点工作区。     
  *
- * Output related 到每个 worker 将 be temporarily "集合 aside" 进入 a
- * separate 缓冲区, which we'll 合并进入 the main 输出 stream 一次
- * we've processed 所有数据对于 the 计划节点.  This makes it feasible 到
- * generate a coherent sub-group of fields 对于每个 worker, even though the
- * code 那个 produces the fields is in several 不同 places in 此文件.
- * Formatting of such a 集合-aside 字段 group is managed 通过
- * ExplainOpenSetAsideGroup 和 ExplainSaveGroup/ExplainRestoreGroup.
+ * 与各 worker 相关的输出先被临时"搁置"进一个单独    
+ * 缓冲区；处理完该节点所有数据后，再把它合并    
+ * 进主输出流。这样就能为每个 worker 生成一个内聚     
+ * 的字段子组，即使产生这些字段的代码散落在本文件   
+ * 的不同位置。这类被搁置的字段组，其格式化由           
+ * ExplainOpenSetAsideGroup 和                            
+ * ExplainSaveGroup/ExplainRestoreGroup 管理。                    
  */
 static ExplainWorkersState *
 ExplainCreateWorkersState(int num_workers)
@@ -4244,7 +4244,7 @@ ExplainCreateWorkersState(int num_workers)
 }
 
 /*
- * Begin 或 resume 输出进入 the 集合-aside group 对于 worker N.
+ * 开始或恢复向 worker N 的搁置组输出。            
  */
 static void
 ExplainOpenWorker(int n, ExplainState *es)
@@ -4254,25 +4254,25 @@ ExplainOpenWorker(int n, ExplainState *es)
 	Assert(wstate);
 	Assert(n >= 0 && n < wstate->num_workers);
 
-	/* Save prior 输出缓冲区指针 */
+	/* 保存原输出缓冲区指针   */
 	wstate->prev_str = es->str;
 
 	if (!wstate->worker_inited[n])
 	{
-		/* First time 通过, so 创建 the 缓冲区对于此 worker */
+		/* 第一次经过，因此为该 worker 创建缓冲区    */
 		initStringInfo(&wstate->worker_str[n]);
 		es->str = &wstate->worker_str[n];
 
 		/*
-		 * Push suitable initial formatting 状态对于此 worker's 字段
-		 * group.  We 允许一 extra logical nesting level, 由于此 group
-		 * 将 eventually be wrapped in an outer "Workers" group.
+		 * 为该 worker 字段组压入合适的初始格式状态。   
+		 * 我们允许额外一层逻辑嵌套，因为该组最终会被   
+		 * 包进外层的 "Workers" 组。                       
 		 */
 		ExplainOpenSetAsideGroup("Worker", NULL, true, 2, es);
 
 		/*
-		 * In non-TEXT formats we 始终输出 a "Worker Number" 字段, even 如果
-		 * there's no other 数据对于此 worker.
+		 * 在非 TEXT 格式下总会输出一个 "Worker Number" 字段，  
+		 * 即使该 worker 没别的数据。   
 		 */
 		if (es->format != EXPLAIN_FORMAT_TEXT)
 			ExplainPropertyInteger("Worker Number", NULL, n, es);
@@ -4281,17 +4281,17 @@ ExplainOpenWorker(int n, ExplainState *es)
 	}
 	else
 	{
-		/* Resuming 输出对于 a worker we've 已经 emitted 一些数据对于 */
+		/* 恢复对已为其输出过一些数据的 worker 的输出      */
 		es->str = &wstate->worker_str[n];
 
-		/* Restore formatting 状态 saved 通过最后 ExplainCloseWorker() */
+		/* 恢复上次 ExplainCloseWorker() 保存的格式化状态  */
 		ExplainRestoreGroup(es, 2, &wstate->worker_state_save[n]);
 	}
 
 	/*
-	 * In TEXT 格式, prefix the 首先输出 line 对于此 worker 带有
-	 * "Worker N:".  Then, 任何 additional lines 应该 be indented 一更多
-	 * 停止 than the "Worker N" line is.
+	 * 在 TEXT 格式下，给该 worker 的第一行输出加上      
+	 * "Worker N:" 前缀。此后所有额外的行都应比 "Worker N"   
+	 * 行多缩进一级。            
 	 */
 	if (es->format == EXPLAIN_FORMAT_TEXT)
 	{
@@ -4306,7 +4306,7 @@ ExplainOpenWorker(int n, ExplainState *es)
 }
 
 /*
- * End 输出对于 worker N --- 必须 pair 带有前一个 ExplainOpenWorker call
+ * 结束 worker N 的输出；须与之前 ExplainOpenWorker 调用配对   
  */
 static void
 ExplainCloseWorker(int n, ExplainState *es)
@@ -4318,16 +4318,16 @@ ExplainCloseWorker(int n, ExplainState *es)
 	Assert(wstate->worker_inited[n]);
 
 	/*
-	 * Save formatting 状态以防 we do another ExplainOpenWorker(), 然后
-	 * pop the formatting 栈.
+	 * 为再次调用 ExplainOpenWorker() 保存格式化状态，然后   
+	 * 弹出格式化栈。    
 	 */
 	ExplainSaveGroup(es, 2, &wstate->worker_state_save[n]);
 
 	/*
-	 * In TEXT 格式, 如果 we didn't actually produce 任何输出 line(s) 然后
-	 * truncate off the partial line emitted 通过 ExplainOpenWorker.  (This is
-	 * 到 avoid bogus 输出如果, say, show_buffer_usage chooses 不到输出
-	 * anything 对于 the worker.)  Also fix up the 缩进级别.
+	 * 在 TEXT 格式下，如果我们没有产生任何输出行，      
+	 * 那就把 ExplainOpenWorker 发的半截行截掉。（这是为了  
+	 * 避免虚假输出，如 show_buffer_usage 选择不输出时）     
+	 * 同时还要修正缩进级别。                       
 	 */
 	if (es->format == EXPLAIN_FORMAT_TEXT)
 	{
@@ -4337,12 +4337,12 @@ ExplainCloseWorker(int n, ExplainState *es)
 		es->indent--;
 	}
 
-	/* Restore prior 输出缓冲区指针 */
+	/* 恢复先前的输出缓冲区指针*/
 	es->str = wstate->prev_str;
 }
 
 /*
- * Print per-worker 信息对于当前节点, 然后释放 the ExplainWorkersState.
+ * 打印当前节点各 worker 的信息，然后释放 ExplainWorkersState 
  */
 static void
 ExplainFlushWorkersState(ExplainState *es)
@@ -4354,7 +4354,7 @@ ExplainFlushWorkersState(ExplainState *es)
 	{
 		if (wstate->worker_inited[i])
 		{
-			/* This 必须 match 前一个 ExplainOpenSetAsideGroup call */
+			/* 须与之前的 ExplainOpenSetAsideGroup 调用匹配  */
 			ExplainOpenGroup("Worker", NULL, true, es);
 			appendStringInfoString(es->str, wstate->worker_str[i].data);
 			ExplainCloseGroup("Worker", NULL, true, es);
@@ -4371,8 +4371,8 @@ ExplainFlushWorkersState(ExplainState *es)
 }
 
 /*
- * Explain a property, 如排序 keys 或 targets, 那个 takes the form of
- * a 列表 of unlabeled items.  "数据" is a 列表 of C strings.
+ * 解释形如未标注项列表的属性，例如排序键或目标。   
+ * "data" 是一个 C 字符串列表。                     
  */
 void
 ExplainPropertyList(const char *qlabel, List *data, ExplainState *es)
@@ -4441,8 +4441,8 @@ ExplainPropertyList(const char *qlabel, List *data, ExplainState *es)
 }
 
 /*
- * Explain a property 那个 takes the form of a 列表 of unlabeled items 在...内
- * another 列表.  "数据" is a 列表 of C strings.
+ * 解释一个形如另一个列表内未标注项列表的属性。        
+ * "data" 是一个 C 字符串列表。        
  */
 void
 ExplainPropertyListNested(const char *qlabel, List *data, ExplainState *es)
@@ -4487,15 +4487,15 @@ ExplainPropertyListNested(const char *qlabel, List *data, ExplainState *es)
 }
 
 /*
- * Explain a simple property.
+ * 解释简单属性。     
  *
- * If "numeric" is true, the 值 is a 数字 (或 other 值那个
- * doesn't 需要 quoting in JSON).
+ * 若 "numeric" 为真，值就是一个数字（或其他在     
+ * JSON 中免引号的值）。 
  *
- * If unit is non-NULL the 文本格式将显示 it 之后 the 值.
+ * 若 unit 非 NULL，文本格式会在该值之后显示它。      
  *
- * This 通常应该不 be invoked directly, 但 via 一 of the datatype
- * specific routines ExplainPropertyText, ExplainPropertyInteger, etc.
+ * 通常不直接调用它，而应经由某个数据类型专用         
+ * 例程 ExplainPropertyText、ExplainPropertyInteger 等。         
  */
 static void
 ExplainProperty(const char *qlabel, const char *unit, const char *value,
@@ -4548,7 +4548,7 @@ ExplainProperty(const char *qlabel, const char *unit, const char *value,
 }
 
 /*
- * Explain a 字符串-valued property.
+ * 解释字符串值属性。      
  */
 void
 ExplainPropertyText(const char *qlabel, const char *value, ExplainState *es)
@@ -4557,7 +4557,7 @@ ExplainPropertyText(const char *qlabel, const char *value, ExplainState *es)
 }
 
 /*
- * Explain an 整数-valued property.
+ * 解释一个整数值属性。     
  */
 void
 ExplainPropertyInteger(const char *qlabel, const char *unit, int64 value,
@@ -4570,7 +4570,7 @@ ExplainPropertyInteger(const char *qlabel, const char *unit, int64 value,
 }
 
 /*
- * Explain an unsigned 整数-valued property.
+ * 解释一个无符号整数值属性。     
  */
 void
 ExplainPropertyUInteger(const char *qlabel, const char *unit, uint64 value,
@@ -4583,8 +4583,8 @@ ExplainPropertyUInteger(const char *qlabel, const char *unit, uint64 value,
 }
 
 /*
- * Explain a 浮点-valued property, using the specified 数字 of
- * fractional digits.
+ * 解释一个浮点值属性，使用指定个数的           
+ * 小数位。      
  */
 void
 ExplainPropertyFloat(const char *qlabel, const char *unit, double value,
@@ -4598,7 +4598,7 @@ ExplainPropertyFloat(const char *qlabel, const char *unit, double value,
 }
 
 /*
- * 解释一个布尔值属性。
+ * 解释布尔值属性。       
  */
 void
 ExplainPropertyBool(const char *qlabel, bool value, ExplainState *es)
@@ -4607,13 +4607,13 @@ ExplainPropertyBool(const char *qlabel, bool value, ExplainState *es)
 }
 
 /*
- * Open a group of related objects.
+ * 打开一组相关对象。     
  *
- * objtype is the 类型 of the group object, labelname is its label 在...内
- * a containing object (如果任何).
+ * objtype 是组对象的类型，labelname 是它在外层对象       
+ * 中的标签（如有）。  
  *
- * If labeled is true, the group members 将 be labeled properties,
- * 当如果 it's false, they'll be unlabeled objects.
+ * 若 labeled 为真，成员是带标签的属性；若为假，  
+ * 则成员是不带标签的对象。              
  */
 void
 ExplainOpenGroup(const char *objtype, const char *labelname,
@@ -4622,7 +4622,7 @@ ExplainOpenGroup(const char *objtype, const char *labelname,
 	switch (es->format)
 	{
 		case EXPLAIN_FORMAT_TEXT:
-			/* nothing 到 do */
+			/* 无事可做  */
 			break;
 
 		case EXPLAIN_FORMAT_XML:
@@ -4641,10 +4641,10 @@ ExplainOpenGroup(const char *objtype, const char *labelname,
 			appendStringInfoChar(es->str, labeled ? '{' : '[');
 
 			/*
-			 * In JSON 格式, the grouping_stack is an 整数列表.  0 means
-			 * we've emitted nothing at 此 grouping level, 1 means we've
-			 * emitted something (和 so the 下一个 item needs a comma). See
-			 * ExplainJSONLineEnding().
+			 * 在 JSON 格式下，grouping_stack 是一个整数列表。0  
+			 * 表示此层无输出，1 表示有输出（所以下一   
+			 * 一项需要逗号）。参见                             
+			 * ExplainJSONLineEnding() 
 			 */
 			es->grouping_stack = lcons_int(0, es->grouping_stack);
 			es->indent++;
@@ -4653,10 +4653,10 @@ ExplainOpenGroup(const char *objtype, const char *labelname,
 		case EXPLAIN_FORMAT_YAML:
 
 			/*
-			 * In YAML 格式, the grouping 栈 is an 整数列表.  0 means
-			 * we've emitted nothing at 此 grouping level AND 此 grouping
-			 * level is unlabeled 和必须 be marked 带有 "- ".  See
-			 * ExplainYAMLLineStarting().
+			 * 在 YAML 格式下，grouping 栈是一个整数列表。0     
+			 * 表示此层无输出，且该层无标签、必须带 "- "   
+			 * 标记。参见                                      
+			 * ExplainYAMLLineStarting() 
 			 */
 			ExplainYAMLLineStarting(es);
 			if (labelname)
@@ -4675,8 +4675,8 @@ ExplainOpenGroup(const char *objtype, const char *labelname,
 }
 
 /*
- * Close a group of related objects.
- * Parameters 必须 match the corresponding ExplainOpenGroup call.
+ * 关闭一组相关对象。      
+ * 参数必须与对应的 ExplainOpenGroup 调用匹配。     
  */
 void
 ExplainCloseGroup(const char *objtype, const char *labelname,
@@ -4685,7 +4685,7 @@ ExplainCloseGroup(const char *objtype, const char *labelname,
 	switch (es->format)
 	{
 		case EXPLAIN_FORMAT_TEXT:
-			/* nothing 到 do */
+			/* 无事可做  */
 			break;
 
 		case EXPLAIN_FORMAT_XML:
@@ -4709,21 +4709,21 @@ ExplainCloseGroup(const char *objtype, const char *labelname,
 }
 
 /*
- * Open a group of related objects, 没有 emitting actual 数据.
+ * 打开一组相关对象，但不实际输出任何数据。  
  *
- * Prepare the formatting 状态作为 though we were beginning a group 带有
- * the identified properties, 但 don't actually 输出 anything.  Output
- * subsequent 到此 call 可以 be redirected 进入 a separate 输出缓冲区,
- * 和然后 eventually appended 到 the main 输出缓冲区之后 doing a
- * regular ExplainOpenGroup call (带有 the 相同 parameters).
+ * 准备格式化状态，就像我们即将开始一个具有指定   
+ * 属性的组，但并不实际输出。此调用之后的输出     
+ * 可被重定向到单独的输出缓冲区，最终执行一次常规   
+ * 的 ExplainOpenGroup 调用（同参数）之后附加到           
+ * 主输出缓冲区。                                    
  *
- * The extra "depth" 参数 is the 新 group's depth compared 到当前.
- * It 可以 be 更多 than 一, 以防 the eventual 输出将 be enclosed
- * in additional nesting group levels.  We assume we don't 需要到 track
- * formatting 状态对于那些 levels 当 preparing 此 group's 输出.
+ * 额外的 "depth" 参数是新组比当前更深的层数。它可       
+ * 能大于一，以防最终输出还会包在更多嵌套组层中。  
+ * 假定准备该组输出时，无需跟踪这些层级的格式      
+ * 化状态。                                                          
  *
- * There is no ExplainCloseSetAsideGroup --- in 当前 usage, we 始终
- * pop 此状态带有 ExplainSaveGroup.
+ * 不存在 ExplainCloseSetAsideGroup —— 当前用法下总是由  
+ * ExplainSaveGroup 弹出此状态。  
  */
 static void
 ExplainOpenSetAsideGroup(const char *objtype, const char *labelname,
@@ -4732,7 +4732,7 @@ ExplainOpenSetAsideGroup(const char *objtype, const char *labelname,
 	switch (es->format)
 	{
 		case EXPLAIN_FORMAT_TEXT:
-			/* nothing 到 do */
+			/* 无事可做  */
 			break;
 
 		case EXPLAIN_FORMAT_XML:
@@ -4755,14 +4755,14 @@ ExplainOpenSetAsideGroup(const char *objtype, const char *labelname,
 }
 
 /*
- * Pop 一 level of grouping 状态, allowing 对于 a re-push 稍后.
+ * 弹出一层分组状态，允许稍后重新压入。        
  *
- * This is 通常 used 之后 ExplainOpenSetAsideGroup; pass the
- * 相同 "depth" used 对于那个.
+ * 通常在 ExplainOpenSetAsideGroup 之后使用；传入与    
+ * 其相同的 "depth"。    
  *
- * This 应该不输出任何输出.  If 状态 needs 到 be saved,
- * save it at *state_save.  Currently, an 整数 save area is sufficient
- * 对于所有 formats, 但 we 可能需要到 revisit 那个 someday.
+ * 它不应产生任何输出。若需保存状态就存到    
+ * *state_save。目前一个整数保存区对所有格式都够用，  
+ * 但将来可能需要重新审视这一点。              
  */
 static void
 ExplainSaveGroup(ExplainState *es, int depth, int *state_save)
@@ -4770,7 +4770,7 @@ ExplainSaveGroup(ExplainState *es, int depth, int *state_save)
 	switch (es->format)
 	{
 		case EXPLAIN_FORMAT_TEXT:
-			/* nothing 到 do */
+			/* 无事可做  */
 			break;
 
 		case EXPLAIN_FORMAT_XML:
@@ -4792,7 +4792,7 @@ ExplainSaveGroup(ExplainState *es, int depth, int *state_save)
 }
 
 /*
- * Re —— push 一 level of grouping 状态, undoing the effects of ExplainSaveGroup.
+ * 重新压入一层分组状态，撤销 ExplainSaveGroup 产生的效果。  
  */
 static void
 ExplainRestoreGroup(ExplainState *es, int depth, int *state_save)
@@ -4800,7 +4800,7 @@ ExplainRestoreGroup(ExplainState *es, int depth, int *state_save)
 	switch (es->format)
 	{
 		case EXPLAIN_FORMAT_TEXT:
-			/* nothing 到 do */
+			/* 无事可做  */
 			break;
 
 		case EXPLAIN_FORMAT_XML:
@@ -4820,10 +4820,10 @@ ExplainRestoreGroup(ExplainState *es, int depth, int *state_save)
 }
 
 /*
- * Emit a "dummy" group 那个从不 has 任何 members.
+ * 发出一个永远不会有成员的"哑"组。 
  *
- * objtype is the 类型 of the group object, labelname is its label 在...内
- * a containing object (如果任何).
+ * objtype 是组对象的类型，labelname 是它在外层对象       
+ * 中的标签（如有）。  
  */
 static void
 ExplainDummyGroup(const char *objtype, const char *labelname, ExplainState *es)
@@ -4831,7 +4831,7 @@ ExplainDummyGroup(const char *objtype, const char *labelname, ExplainState *es)
 	switch (es->format)
 	{
 		case EXPLAIN_FORMAT_TEXT:
-			/* nothing 到 do */
+			/* 无事可做  */
 			break;
 
 		case EXPLAIN_FORMAT_XML:
@@ -4866,10 +4866,10 @@ ExplainDummyGroup(const char *objtype, const char *labelname, ExplainState *es)
 }
 
 /*
- * Emit the 启动-of-输出样板内容.
+ * 发出输出起始的样板内容。 
  *
- * This is 只是 enough 不同从 processing a subgroup 那个 we 需要
- * a separate pair of subroutines.
+ * 这与处理一个子组足够不同，故需一对单独的         
+ * 子例程。                   
  */
 void
 ExplainBeginOutput(ExplainState *es)
@@ -4877,7 +4877,7 @@ ExplainBeginOutput(ExplainState *es)
 	switch (es->format)
 	{
 		case EXPLAIN_FORMAT_TEXT:
-			/* nothing 到 do */
+			/* 无事可做  */
 			break;
 
 		case EXPLAIN_FORMAT_XML:
@@ -4887,7 +4887,7 @@ ExplainBeginOutput(ExplainState *es)
 			break;
 
 		case EXPLAIN_FORMAT_JSON:
-			/* top-level structure is an 数组 of plans */
+			/* 顶层结构是一个计划数组        */
 			appendStringInfoChar(es->str, '[');
 			es->grouping_stack = lcons_int(0, es->grouping_stack);
 			es->indent++;
@@ -4900,7 +4900,7 @@ ExplainBeginOutput(ExplainState *es)
 }
 
 /*
- * Emit the 结束-of-输出样板内容.
+ * 发出输出结尾样板内容。  
  */
 void
 ExplainEndOutput(ExplainState *es)
@@ -4908,7 +4908,7 @@ ExplainEndOutput(ExplainState *es)
 	switch (es->format)
 	{
 		case EXPLAIN_FORMAT_TEXT:
-			/* nothing 到 do */
+			/* 无事可做  */
 			break;
 
 		case EXPLAIN_FORMAT_XML:
@@ -4929,7 +4929,7 @@ ExplainEndOutput(ExplainState *es)
 }
 
 /*
- * Put an appropriate separator 之间多个 plans
+ * 在多个计划之间放置合适的分隔符      
  */
 void
 ExplainSeparatePlans(ExplainState *es)
@@ -4937,28 +4937,28 @@ ExplainSeparatePlans(ExplainState *es)
 	switch (es->format)
 	{
 		case EXPLAIN_FORMAT_TEXT:
-			/* add a blank line */
+			/* 加一个空行  */
 			appendStringInfoChar(es->str, '\n');
 			break;
 
 		case EXPLAIN_FORMAT_XML:
 		case EXPLAIN_FORMAT_JSON:
 		case EXPLAIN_FORMAT_YAML:
-			/* nothing 到 do */
+			/* 无事可做  */
 			break;
 	}
 }
 
 /*
- * Emit opening 或 closing XML tag.
+ * 输出开/闭 XML 标签。     
  *
- * "flags" 必须 contain X_OPENING, X_CLOSING, 或 X_CLOSE_IMMEDIATE.
- * Optionally, OR in X_NOWHITESPACE 到 suppress the whitespace we'd 通常
- * add.
+ * "flags" 须含 X_OPENING、X_CLOSING 或 X_CLOSE_IMMEDIATE。   
+ * 可选地，按位或上 X_NOWHITESPACE 以抑制通常加               
+ * 的 
  *
- * XML restricts tag names 更多 than our other 输出 formats, eg they 可以't
- * contain white space 或 slashes.  Replace invalid characters 带有 dashes,
- * 以便例如 "I/O Read Time" becomes "I-O-Read-Time".
+ * 空白。XML 对标签名的限制比其他输出格式更严，例如   
+ * 其中不得含空白或斜杠。将无效字符替换为短横线，   
+ * "I/O Read Time" 就变成 "I-O-Read-Time"。                
  */
 static void
 ExplainXMLTag(const char *tagname, int flags, ExplainState *es)
@@ -4981,11 +4981,11 @@ ExplainXMLTag(const char *tagname, int flags, ExplainState *es)
 }
 
 /*
- * Indent a 文本-格式 line.
+ * 缩进文本格式行。  
  *
- * We indent 通过二 spaces per indentation level.  However, 当 emitting
- * 数据对于 a parallel worker there 可能已经 be 数据 on the 当前 line
- * (cf. ExplainOpenWorker); in 那个 case, don't indent 任何更多.
+ * 每级缩进两个空格。但为并行 worker 输出数据时当前  
+ * 行上可能已有数据（参见 ExplainOpenWorker）；此时就不要  
+ * 再缩进。                                                 
  */
 static void
 ExplainIndentText(ExplainState *es)
@@ -4996,11 +4996,11 @@ ExplainIndentText(ExplainState *es)
 }
 
 /*
- * Emit a JSON line ending.
+ * 发出 JSON 行尾。   
  *
- * JSON requires a comma 之后每个 property 但 the 最后.  To facilitate 此,
- * in JSON 格式, the 文本 emitted 对于每个 property begins 只是 prior 到 the
- * preceding line-中断 (和 comma, 如果 applicable).
+ * JSON 要求每个属性后有逗号，但最后一个除外。              
+ * 为此，JSON 格式下每个属性输出的文本都恰好起始于上一 
+ * 换行符之前（如适用包括逗号）。   
  */
 static void
 ExplainJSONLineEnding(ExplainState *es)
@@ -5014,13 +5014,13 @@ ExplainJSONLineEnding(ExplainState *es)
 }
 
 /*
- * Indent a YAML line.
+ * 缩进 YAML 行。 
  *
- * YAML lines are ordinarily indented 通过二 spaces per indentation level.
- * The 文本 emitted 对于每个 property begins 只是 prior 到 the preceding
- * line-中断, except 对于 the 首先 property in an unlabeled group, 对于 which
- * it begins immediately 之后 the "- " 那个 introduces the group.  The 首先
- * property of the group appears on the 相同 line 作为 the opening "- ".
+ * YAML 行通常按每个缩进级别两个空格缩进。               
+ * 属性输出的文本起始于上一换行符之前，但未标注   
+ * 组的第一个属性例外：它起始于引入组的 "- " 之后。组  
+ * 的第一个属性与开头的 "- " 出现在同一行                    
+ * 上。                                                             
  */
 static void
 ExplainYAMLLineStarting(ExplainState *es)
@@ -5038,14 +5038,14 @@ ExplainYAMLLineStarting(ExplainState *es)
 }
 
 /*
- * YAML is a superset of JSON; unfortunately, the YAML quoting rules are
- * ridiculously complicated -- 作为 documented in sections 5.3 和 7.3.3 of
- * http://yaml.org/spec/1.2/spec.html -- so we chose 到只是 quote everything.
- * Empty strings, strings 带有 leading 或 trailing whitespace, 和 strings
- * containing a variety of special characters 必须 certainly be quoted 或 the
- * 输出 is invalid; 和 other seemingly harmless strings 如 "0xa" 或
- * "true" 必须 be quoted, lest they be interpreted 作为 a hexadecimal 或 Boolean
- * 常量而非 a 字符串.
+ * YAML 是 JSON 的超集；可惜 YAML 的引号规则复杂得离谱 
+ * （见 http://yaml.org/spec/1.2/spec.html 的 5.3 与 7.3.3 节）， 
+ * 所以我们索性把一切都加引号。空字符串、带前导         
+ * 或尾随空白的字符串、含种种特殊字符的串都须加引  
+ * 号，否则输出就是无效的；其他看似无害的串（如 "0xa"  
+ * 或 "true"）也须加引号，免得被当成十六进制数        
+ * 或布尔值，而不是字符串                                          
+ * 。                           
  */
 static void
 escape_yaml(StringInfo buf, const char *str)

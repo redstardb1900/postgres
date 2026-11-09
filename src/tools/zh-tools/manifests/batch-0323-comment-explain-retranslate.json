@@ -1,0 +1,46 @@
+{
+ "schema_version": 1,
+ "batch_id": "0323-comment-explain-retranslate",
+ "title": "Translate comments: explain-retranslate",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "a48a1e14b31e8ef33e68b2bdc53aa38392e44b8e",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0323-comment-explain-retranslate.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/commands/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0323-comment-explain-retranslate.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/commands/explain.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 282,
+   "translated": 270,
+   "preserved": 12,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), gettext translator hints (R5-protected), and separator-only blocks rebuilt byte-identical"
+   ],
+   "note": "P2 translation campaign wave X1"
+  }
+ ],
+ "notes": "Translation agents (X1a/X1b) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

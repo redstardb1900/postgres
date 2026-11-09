@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * user.c
- *    用于操作角色的命令（早期称为用户）。
+ *	  操作角色（以前称为用户）的命令。        
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -42,21 +42,21 @@
 #include "utils/varlena.h"
 
 /*
- * 移除角色授权（或其上的 admin option）时可能递归到 
- * 依赖的授权。我们用这些值来推断在此类情况下需要   
- * 执行什么操作。 
+ * 移除角色授权（或其上的 admin option）可能递归到    
+ * 依赖的授权。我们用这些值来推断此类情况下需要      
+ * 做什么。          
  *
- * RRG_NOOP 表示不会被该操作修改的授权。                
- * 。       
+ * RRG_NOOP 表示无需被该操作改变的                         
+ * 授权。 
  *
- * RRG_REMOVE_ADMIN_OPTION 表示需要被该操作把 admin_option 
- *  设置为 false 的授权。              
+ * RRG_REMOVE_ADMIN_OPTION 表示需要该操作将其              
+ * admin_option 置为 false 的授权。     
  *
- * 类似地，RRG_REMOVE_INHERIT_OPTION 和 RRG_REMOVE_SET_OPTION        
- * 表示需要把相应选项设置为 false 的授权。               
+ * 类似地，RRG_REMOVE_INHERIT_OPTION 与 RRG_REMOVE_SET_OPTION 表示 
+ * 需要把相应选项置为 false 的授权。                        
  *
- * RRG_DELETE_GRANT 表示需要被该操作完全删除的授权。        
- * 。              
+ * RRG_DELETE_GRANT 表示一个需要被该操作完全移除              
+ * 的授权。     
  */
 typedef enum
 {
@@ -612,9 +612,9 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 /*
  * ALTER ROLE
  *
- * 注意：此处接受的 rolemembers 选项旨在支持向后兼容的
- * ALTER GROUP 语法。虽然使用 "ALTER ROLE role ROLE rolenames" 也能
- * 正常工作，但我们不对此进行文档化。
+ * 注：这里接受的 rolemembers 选项旨在支持向后兼容的  
+ * ALTER GROUP 语法。虽然写 "ALTER ROLE role ROLE rolenames"       
+ * 也能工作，但我们不将其写入文档。       
  */
 Oid
 AlterRole(ParseState *pstate, AlterRoleStmt *stmt)
@@ -1192,22 +1192,22 @@ DropRole(DropRoleStmt *stmt)
 		LockSharedObject(AuthIdRelationId, roleid, 0, AccessExclusiveLock);
 
 		/*
-         * 如果 pg_auth_members 中存在以要删除角色之一作为
-         * roleid 或 member 的条目，则应静默删除；但如果
-         * pg_auth_members 中存在以要删除角色之一作为 grantor
-         * 的条目，则操作应失败。
-         *
-         * 但是，单个 pg_auth_members 条目可能属于多个类别 —
-         * 例如，用户可能执行 "GRANT foo TO bar GRANTED BY baz"
-         * 然后再 "DROP ROLE baz, bar"。我们希望这样的操作成功，
-         * 而不管 DROP ROLE 中传入待删除角色的顺序如何。
-         *
-         * 为了实现这一点，我们在此循环中删除所有可以静默删除的
-         * pg_auth_members 条目，然后在下面第二次遍历要删除的角色
-         * 列表时，检查任何剩余的依赖关系。
- *
- *
-         */
+		 * 如果存在 pg_auth_members 条目，其 roleid 或 member 是    
+		 * 待删除角色之一，则应静默移除该条目；但若存在 
+		 * pg_auth_members 条目且其 grantor 是待删除角色之一，   
+		 * 则该操作应失败。                          
+		 *
+		 * 然而，单个 pg_auth_members 条目可能落入多个类别：
+		 * 例如用户可以先执行 "GRANT foo TO bar GRANTED BY baz"， 
+		 * 然后执行 "DROP ROLE baz, bar"。我们希望这类操作      
+		 * 无论待删除角色以何种顺序传给                  
+		 * DROP ROLE 都能成功。                   
+		 *
+		 * 为此，我们在本循环中移除所有可被静默移除的  
+		 * pg_auth_members 条目，然后下面再对待移除的      
+		 * 角色列表做第二轮遍历，检查是否还有任何         
+		 * 剩余依赖。        
+		 */
 		ScanKeyInit(&scankey,
 					Anum_pg_auth_members_roleid,
 					BTEqualStrategyNumber, F_OIDEQ,

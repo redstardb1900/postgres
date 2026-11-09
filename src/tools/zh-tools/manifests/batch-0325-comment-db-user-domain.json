@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "batch_id": "0325-comment-db-user-domain",
+  "title": "Translate comments: db-user-domain",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "56e31672f1d487913791fdfb44bc6db2bed77540",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0325-comment-db-user-domain.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/commands/**",
+      "kind": "c_comment",
+      "note": "P2 comment translation campaign"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0325-comment-db-user-domain.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": []
+    },
+    {
+      "path": "src/backend/commands/dbcommands.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 254,
+      "translated": 62,
+      "preserved": 192,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), gettext translator hints (R5-protected), and separator-only blocks rebuilt byte-identical"
+      ],
+      "note": "P2 translation campaign wave W1"
+    },
+    {
+      "path": "src/backend/commands/user.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 176,
+      "translated": 4,
+      "preserved": 172,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), gettext translator hints (R5-protected), and separator-only blocks rebuilt byte-identical"
+      ],
+      "note": "P2 translation campaign wave W1"
+    },
+    {
+      "path": "src/backend/commands/variable.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 112,
+      "translated": 3,
+      "preserved": 109,
+      "preserved_reasons": [
+        "Copyright header and IDENTIFICATION",
+        "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), gettext translator hints (R5-protected), and separator-only blocks rebuilt byte-identical"
+      ],
+      "note": "P2 translation campaign wave W1"
+    }
+  ],
+  "notes": "Translation agents (W1a/W1bc) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

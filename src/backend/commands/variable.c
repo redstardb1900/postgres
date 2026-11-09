@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * variable.c
- *	  处理专用 SET 变量的例程。
+ *		处理专用 SET 变量的例程。             
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -1146,7 +1146,7 @@ assign_maintenance_io_concurrency(int newval, void *extra)
 
 
 /*
- * 这些 show hook 存在的原因是我们要以八进制显示值。
+ * 这些 show hook 存在只是因为要以八进制显示这些值。    
  */
 
 /*
@@ -1187,8 +1187,8 @@ show_unix_socket_permissions(void)
 
 
 /*
- * 这些 check hook 在不支持相关功能的构建中
- * 仅拒绝非默认设置。
+ * 这些 check hook 只是在不支持它们的构建中            
+ * 拒绝非默认设置而已。    
  */
 
 bool

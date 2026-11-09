@@ -3,9 +3,10 @@
  * dbcommands.c
  *		数据库管理命令（创建/删除数据库）。
  *
- * 注意：数据库创建/删除命令使用数据库对象上的排他锁
- * （通过 LockSharedObject() 表达）来避免互相干扰。
- * 以前我们对 pg_database 使用表级锁，但那粒度过粗。
+ * 注意：数据库创建/销毁命令会对数据库对象         
+ * 施加排他锁（通过 LockSharedObject() 实现），以免    
+ * 互相干扰。以前我们在 pg_database 上用的是           
+ * 表级锁，但那太粗粒度了。          
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -15,7 +16,6 @@
  *	  src/backend/commands/dbcommands.c
  *
  *-------------------------------------------------------------------------
- 
  */
 #include "postgres.h"
 
@@ -726,7 +726,7 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 	CreateDBStrategy dbstrategy = CREATEDB_WAL_LOG;
 	createdb_failure_params fparms;
 
-	/* Extract options from the statement node tree */
+	/* 从语句节点树中提取选项            */
 	foreach(option, stmt->options)
 	{
 		DefElem    *defel = (DefElem *) lfirst(option);
@@ -934,7 +934,7 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 	if (dcollversion)
 		dbcollversion = defGetString(dcollversion);
 
-	/* obtain OID of proposed owner */
+	/* 获取拟议所有者的 OID */
 	if (dbowner)
 		datdba = get_role_oid(dbowner, false);
 	else
@@ -1000,7 +1000,7 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 							dbtemplate)));
 	}
 
-	/* Validate the database creation strategy. */
+	/* 验证数据库创建策略。           */
 	if (dstrategy && dstrategy->arg)
 	{
 		char	   *strategy;
@@ -1017,7 +1017,7 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 					 errhint("Valid strategies are \"wal_log\" and \"file_copy\".")));
 	}
 
-	/* If encoding or locales are defaulted, use source's setting */
+	/* 编码或语言环境默认时，沿用源数据库设置  */
 	if (encoding < 0)
 		encoding = src_encoding;
 	if (dbcollate == NULL)
@@ -1036,13 +1036,13 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 	if (dbicurules == NULL && dblocprovider == COLLPROVIDER_ICU)
 		dbicurules = src_icurules;
 
-	/* Some encodings are client only */
+	/* 某些编码仅用于客户端 */
 	if (!PG_VALID_BE_ENCODING(encoding))
 		ereport(ERROR,
 				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
 				 errmsg("invalid server encoding %d", encoding)));
 
-	/* Check that the chosen locales are valid, and get canonical spellings */
+	/* 检查所选语言环境是否有效，并取得其规范拼写形式*/
 	if (!check_locale(LC_COLLATE, dbcollate, &canonname))
 		ereport(ERROR,
 				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
@@ -1226,7 +1226,7 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 	if (dbcollversion == NULL)
 		dbcollversion = get_collation_actual_version(dblocprovider, dblocprovider == COLLPROVIDER_ICU ? dbiculocale : dbcollate);
 
-	/* Resolve default tablespace for new database */
+	/* 确定新数据库的默认表空间        */
 	if (dtablespacename && dtablespacename->arg)
 	{
 		char	   *tablespacename;
@@ -1241,7 +1241,7 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 			aclcheck_error(aclresult, OBJECT_TABLESPACE,
 						   tablespacename);
 
-		/* pg_global must never be the default tablespace */
+		/* pg_global 绝不可作为默认表空间       */
 		if (dst_deftablespace == GLOBALTABLESPACE_OID)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -1280,9 +1280,9 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 	}
 	else
 	{
-		/* Use template database's default tablespace */
+		/* 使用模板数据库的默认表空间    */
 		dst_deftablespace = src_deftablespace;
-		/* Note there is no additional permission check in this path */
+		/* 注意此路径中没有额外的权限检查             */
 	}
 
 	/*
@@ -1349,7 +1349,7 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 	}
 	else
 	{
-		/* Select an OID for the new database if is not explicitly configured. */
+		/* 若未显式配置，则为新数据库选择一个 OID。          */
 		do
 		{
 			dboid = GetNewOidWithIndex(pg_database_rel, DatabaseOidIndexId,
@@ -1413,10 +1413,10 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 	/* Register owner dependency */
 	recordDependencyOnOwner(DatabaseRelationId, dboid, datdba);
 
-	/* Create pg_shdepend entries for objects within database */
+	/* 为数据库内的对象创建 pg_shdepend 条目      */
 	copyTemplateDependencies(src_dboid, dboid);
 
-	/* Post creation hook for new database */
+	/* 新数据库的创建后钩子      */
 	InvokeObjectPostCreateHook(DatabaseRelationId, dboid, 0);
 
 	/*
@@ -1539,7 +1539,7 @@ check_encoding_locale_matches(int encoding, const char *collate, const char *cty
 						   pg_encoding_to_char(collate_encoding))));
 }
 
-/* Error cleanup callback for createdb */
+/* createdb 的错误清理回调      */
 static void
 createdb_failure_callback(int code, Datum arg)
 {
@@ -1559,7 +1559,7 @@ createdb_failure_callback(int code, Datum arg)
 		DropDatabaseBuffers(fparms->dest_dboid);
 		ForgetDatabaseSyncRequests(fparms->dest_dboid);
 
-		/* Release lock on the target database. */
+		/* 释放目标数据库上的锁。    */
 		UnlockSharedObject(DatabaseRelationId, fparms->dest_dboid, 0,
 						   AccessShareLock);
 	}
@@ -1571,7 +1571,7 @@ createdb_failure_callback(int code, Datum arg)
  */
 	UnlockSharedObject(DatabaseRelationId, fparms->src_dboid, 0, ShareLock);
 
-	/* Throw away any successfully copied subdirectories */
+	/* 丢弃任何已成功复制的子目录           */
 	remove_dbtablespaces(fparms->dest_dboid);
 }
 
@@ -1615,7 +1615,7 @@ dropdb(const char *dbname, bool missing_ok, bool force)
 		}
 		else
 		{
-			/* Close pg_database, release the lock, since we changed nothing */
+			/* 关闭 pg_database 并释放锁，因为我们什么都没改 */
 			table_close(pgdbrel, RowExclusiveLock);
 			ereport(NOTICE,
 					(errmsg("database \"%s\" does not exist, skipping",
@@ -1631,7 +1631,7 @@ dropdb(const char *dbname, bool missing_ok, bool force)
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_DATABASE,
 					   dbname);
 
-	/* DROP hook for the database being removed */
+	/* 对被删除数据库的 DROP 钩子     */
 	InvokeObjectDropHook(DatabaseRelationId, db_id, 0);
 
 	/*
@@ -1644,7 +1644,7 @@ dropdb(const char *dbname, bool missing_ok, bool force)
 				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
 				 errmsg("cannot drop a template database")));
 
-	/* Obviously can't drop my own database */
+	/* 显然无法删除自己的数据库 */
 	if (db_id == MyDatabaseId)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_IN_USE),
@@ -1782,7 +1782,7 @@ dropdb(const char *dbname, bool missing_ok, bool force)
 	 */
 	RequestCheckpoint(CHECKPOINT_IMMEDIATE | CHECKPOINT_FORCE | CHECKPOINT_WAIT);
 
-	/* Close all smgr fds in all backends. */
+	/* 在各后端关闭所有 smgr fd。 */
 	WaitForProcSignalBarrier(EmitProcSignalBarrier(PROCSIGNAL_BARRIER_SMGRRELEASE));
 
 	/*
@@ -1836,7 +1836,7 @@ RenameDatabase(const char *oldname, const char *newname)
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_DATABASE,
 					   oldname);
 
-	/* must have createdb rights */
+	/* 必须有 createdb 权限 */
 	if (!have_createdb_privilege())
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -2033,7 +2033,7 @@ movedb(const char *dbname, const char *tblspcname)
 	RequestCheckpoint(CHECKPOINT_IMMEDIATE | CHECKPOINT_FORCE | CHECKPOINT_WAIT
 					  | CHECKPOINT_FLUSH_ALL);
 
-	/* Close all smgr fds in all backends. */
+	/* 在各后端关闭所有 smgr fd。 */
 	WaitForProcSignalBarrier(EmitProcSignalBarrier(PROCSIGNAL_BARRIER_SMGRRELEASE));
 
 	/*
@@ -2194,7 +2194,7 @@ movedb(const char *dbname, const char *tblspcname)
 	PopActiveSnapshot();
 	CommitTransactionCommand();
 
-	/* Start new transaction for the remaining work; don't need a snapshot */
+	/* 为剩余工作启动新事务；不需要快照                    */
 	StartTransactionCommand();
 
 	/*
@@ -2222,7 +2222,7 @@ movedb(const char *dbname, const char *tblspcname)
 						  XLOG_DBASE_DROP | XLR_SPECIAL_REL_UPDATE);
 	}
 
-	/* Now it's safe to release the database lock */
+	/* 现在可以安全地释放数据库锁了 */
 	UnlockSharedObjectForSession(DatabaseRelationId, db_id, 0,
 								 AccessExclusiveLock);
 
@@ -2230,14 +2230,14 @@ movedb(const char *dbname, const char *tblspcname)
 	pfree(dst_dbpath);
 }
 
-/* Error cleanup callback for movedb */
+/* movedb 的错误清理回调      */
 static void
 movedb_failure_callback(int code, Datum arg)
 {
 	movedb_failure_params *fparms = (movedb_failure_params *) DatumGetPointer(arg);
 	char	   *dstpath;
 
-	/* Get rid of anything we managed to copy to the target directory */
+	/* 清除我们设法复制到目标目录的任何内容         */
 	dstpath = GetDatabasePath(fparms->dest_dboid, fparms->dest_tsoid);
 
 	(void) rmtree(dstpath, true);
@@ -2295,7 +2295,7 @@ AlterDatabase(ParseState *pstate, AlterDatabaseStmt *stmt, bool isTopLevel)
 	bool		new_record_nulls[Natts_pg_database] = {0};
 	bool		new_record_repl[Natts_pg_database] = {0};
 
-	/* Extract options from the statement node tree */
+	/* 从语句节点树中提取选项            */
 	foreach(option, stmt->options)
 	{
 		DefElem    *defel = (DefElem *) lfirst(option);
@@ -2344,7 +2344,7 @@ AlterDatabase(ParseState *pstate, AlterDatabaseStmt *stmt, bool isTopLevel)
 					 errmsg("option \"%s\" cannot be specified with other options",
 							dtablespace->defname),
 					 parser_errposition(pstate, dtablespace->location)));
-		/* this case isn't allowed within a transaction block */
+		/* 在事务块内不允许这种情况               */
 		PreventInTransactionBlock(isTopLevel, "ALTER DATABASE SET TABLESPACE");
 		movedb(stmt->dbname, defGetString(dtablespace));
 		return InvalidOid;
@@ -2436,7 +2436,7 @@ AlterDatabase(ParseState *pstate, AlterDatabaseStmt *stmt, bool isTopLevel)
 
 	systable_endscan(scan);
 
-	/* Close pg_database, but keep lock till commit */
+	/* 关闭 pg_database，但保留锁直至提交*/
 	table_close(rel, NoLock);
 
 	return dboid;
@@ -2490,7 +2490,7 @@ AlterDatabaseRefreshColl(AlterDatabaseRefreshCollStmt *stmt)
 		elog(ERROR, "unexpected null in pg_database");
 	newversion = get_collation_actual_version(datForm->datlocprovider, TextDatumGetCString(datum));
 
-	/* cannot change from NULL to non-NULL or vice versa */
+	/* 无法从 NULL 变为非 NULL，反之亦然      */
 	if ((!oldversion && newversion) || (oldversion && !newversion))
 		elog(ERROR, "invalid collation version change");
 	else if (oldversion && newversion && strcmp(newversion, oldversion) != 0)
@@ -2605,12 +2605,12 @@ AlterDatabaseOwner(const char *dbname, Oid newOwnerId)
 		bool		isNull;
 		HeapTuple	newtuple;
 
-		/* Otherwise, must be owner of the existing object */
+		/* 否则必须是现有对象的所有者         */
 		if (!object_ownercheck(DatabaseRelationId, db_id, GetUserId()))
 			aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_DATABASE,
 						   dbname);
 
-		/* Must be able to become new owner */
+		/* 必须能够成为新所有者   */
 		check_can_set_role(GetUserId(), newOwnerId);
 
 		/*
@@ -2654,7 +2654,7 @@ AlterDatabaseOwner(const char *dbname, Oid newOwnerId)
 
 		heap_freetuple(newtuple);
 
-		/* Update owner dependency reference */
+		/* 更新所有者依赖引用       */
 		changeDependencyOnOwner(DatabaseRelationId, db_id, newOwnerId);
 	}
 
@@ -2664,7 +2664,7 @@ AlterDatabaseOwner(const char *dbname, Oid newOwnerId)
 
 	systable_endscan(scan);
 
-	/* Close pg_database, but keep lock till commit */
+	/* 关闭 pg_database，但保留锁直至提交*/
 	table_close(rel, NoLock);
 
 	return address;
@@ -2725,7 +2725,7 @@ get_db_info(const char *name, LOCKMODE lockmode,
 
 	Assert(name);
 
-	/* Caller may wish to grab a better lock on pg_database beforehand... */
+	/* 调用方可能想预先在 pg_database 上获取更好的锁...   */
 	relation = table_open(DatabaseRelationId, AccessShareLock);
 
 	/*
@@ -2756,7 +2756,7 @@ get_db_info(const char *name, LOCKMODE lockmode,
 
 		if (!HeapTupleIsValid(tuple))
 		{
-			/* definitely no database of that name */
+			/* 肯定没有该名称的数据库   */
 			systable_endscan(scan);
 			break;
 		}
@@ -2786,10 +2786,10 @@ get_db_info(const char *name, LOCKMODE lockmode,
 				Datum		datum;
 				bool		isnull;
 
-				/* oid of the database */
+				/* 数据库的 oid    */
 				if (dbIdP)
 					*dbIdP = dbOid;
-				/* oid of the owner */
+				/* 所有者的 oid */
 				if (ownerIdP)
 					*ownerIdP = dbform->datdba;
 				/* character encoding */
@@ -2807,10 +2807,10 @@ get_db_info(const char *name, LOCKMODE lockmode,
 				/* minimum MultiXactId */
 				if (dbMinMultiP)
 					*dbMinMultiP = dbform->datminmxid;
-				/* default tablespace for this database */
+				/* 此数据库的默认表空间       */
 				if (dbTablespace)
 					*dbTablespace = dbform->dattablespace;
-				/* default locale settings for this database */
+				/* 此数据库的默认语言环境设置   */
 				if (dbLocProvider)
 					*dbLocProvider = dbform->datlocprovider;
 				if (dbCollate)
@@ -2851,7 +2851,7 @@ get_db_info(const char *name, LOCKMODE lockmode,
 				result = true;
 				break;
 			}
-			/* can only get here if it was just renamed */
+			/* 仅当刚被重命名时才会到这里  */
 			ReleaseSysCache(tuple);
 		}
 
@@ -2864,14 +2864,14 @@ get_db_info(const char *name, LOCKMODE lockmode,
 	return result;
 }
 
-/* Check if current user has createdb privileges */
+/* 检查当前用户是否具有 createdb 权限*/
 bool
 have_createdb_privilege(void)
 {
 	bool		result = false;
 	HeapTuple	utup;
 
-	/* Superusers can always do everything */
+	/* 超级用户总能做任何事      */
 	if (superuser())
 		return true;
 
@@ -2911,7 +2911,7 @@ remove_dbtablespaces(Oid db_id)
 		char	   *dstpath;
 		struct stat st;
 
-		/* Don't mess with the global tablespace */
+		/* 不要动全局表空间              */
 		if (dsttablespace == GLOBALTABLESPACE_OID)
 			continue;
 
@@ -2919,7 +2919,7 @@ remove_dbtablespaces(Oid db_id)
 
 		if (lstat(dstpath, &st) < 0 || !S_ISDIR(st.st_mode))
 		{
-			/* Assume we can ignore it */
+			/* 假定可以忽略它   */
 			pfree(dstpath);
 			continue;
 		}
@@ -2946,7 +2946,7 @@ remove_dbtablespaces(Oid db_id)
 	foreach(cell, ltblspc)
 		tablespace_ids[i++] = lfirst_oid(cell);
 
-	/* Record the filesystem change in XLOG */
+	/* 在 XLOG 中记录文件系统变更 */
 	{
 		xl_dbase_drop_rec xlrec;
 
@@ -2997,7 +2997,7 @@ check_db_file_conflict(Oid db_id)
 		char	   *dstpath;
 		struct stat st;
 
-		/* Don't mess with the global tablespace */
+		/* 不要动全局表空间              */
 		if (dsttablespace == GLOBALTABLESPACE_OID)
 			continue;
 
@@ -3005,7 +3005,7 @@ check_db_file_conflict(Oid db_id)
 
 		if (lstat(dstpath, &st) == 0)
 		{
-			/* Found a conflicting file (or directory, whatever) */
+			/* 发现冲突的文件（或目录，无所谓）  */
 			pfree(dstpath);
 			result = true;
 			break;
@@ -3076,7 +3076,7 @@ get_database_oid(const char *dbname, bool missing_ok)
 
 	dbtuple = systable_getnext(scan);
 
-	/* We assume that there can be at most one matching tuple */
+	/* 我们假定最多只能有一个匹配的元组       */
 	if (HeapTupleIsValid(dbtuple))
 		oid = ((Form_pg_database) GETSTRUCT(dbtuple))->oid;
 	else
@@ -3201,7 +3201,7 @@ dbase_redo(XLogReaderState *record)
 {
 	uint8		info = XLogRecGetInfo(record) & ~XLR_INFO_MASK;
 
-	/* Backup blocks are not used in dbase records */
+	/* dbase 记录中不使用备份块           */
 	Assert(!XLogRecHasAnyBlockRefs(record));
 
 	if (info == XLOG_DBASE_CREATE_FILE_COPY)
@@ -3224,7 +3224,7 @@ dbase_redo(XLogReaderState *record)
 		if (stat(dst_path, &st) == 0 && S_ISDIR(st.st_mode))
 		{
 			if (!rmtree(dst_path, true))
-				/* If this failed, copydir() below is going to error. */
+				/* 若此处失败，下面的 copydir() 将报错。 */
 				ereport(WARNING,
 						(errmsg("some useless files may be left behind in old database directory \"%s\"",
 								dst_path)));
@@ -3243,7 +3243,7 @@ dbase_redo(XLogReaderState *record)
 						errmsg("could not stat directory \"%s\": %m",
 							   dst_path));
 
-			/* create the parent directory if needed and valid */
+			/* 在需要且有效时创建父目录            */
 			recovery_create_dbdir(parent_path, true);
 		}
 		pfree(parent_path);
@@ -3263,7 +3263,7 @@ dbase_redo(XLogReaderState *record)
 		 */
 		FlushDatabaseBuffers(xlrec->src_db_id);
 
-		/* Close all sgmr fds in all backends. */
+		/* 在各后端关闭所有 sgmr fd。 */
 		WaitForProcSignalBarrier(EmitProcSignalBarrier(PROCSIGNAL_BARRIER_SMGRRELEASE));
 
 		/*
@@ -3285,13 +3285,13 @@ dbase_redo(XLogReaderState *record)
 
 		dbpath = GetDatabasePath(xlrec->db_id, xlrec->tablespace_id);
 
-		/* create the parent directory if needed and valid */
+		/* 在需要且有效时创建父目录            */
 		parent_path = pstrdup(dbpath);
 		get_parent_directory(parent_path);
 		recovery_create_dbdir(parent_path, true);
 		pfree(parent_path);
 
-		/* Create the database directory with the version file. */
+		/* 创建带有版本文件的数据库目录。        */
 		CreateDirAndVersionFile(dbpath, xlrec->db_id, xlrec->tablespace_id,
 								true);
 		pfree(dbpath);
@@ -3318,26 +3318,26 @@ dbase_redo(XLogReaderState *record)
 			ResolveRecoveryConflictWithDatabase(xlrec->db_id);
 		}
 
-		/* Drop any database-specific replication slots */
+		/* 删除任何数据库特定的复制槽      */
 		ReplicationSlotsDropDBSlots(xlrec->db_id);
 
-		/* Drop pages for this database that are in the shared buffer cache */
+		/* 丢弃共享缓冲区中属于此数据库的页面              */
 		DropDatabaseBuffers(xlrec->db_id);
 
-		/* Also, clean out any fsync requests that might be pending in md.c */
+		/* 同时清理 md.c 中可能挂起的任何 fsync 请求          */
 		ForgetDatabaseSyncRequests(xlrec->db_id);
 
-		/* Clean out the xlog relcache too */
+		/* 同时清理 xlog relcache      */
 		XLogDropDatabase(xlrec->db_id);
 
-		/* Close all sgmr fds in all backends. */
+		/* 在各后端关闭所有 sgmr fd。 */
 		WaitForProcSignalBarrier(EmitProcSignalBarrier(PROCSIGNAL_BARRIER_SMGRRELEASE));
 
 		for (i = 0; i < xlrec->ntablespaces; i++)
 		{
 			dst_path = GetDatabasePath(xlrec->db_id, xlrec->tablespace_ids[i]);
 
-			/* And remove the physical files */
+			/* 然后删除物理文件      */
 			if (!rmtree(dst_path, true))
 				ereport(WARNING,
 						(errmsg("some useless files may be left behind in old database directory \"%s\"",

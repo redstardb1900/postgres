@@ -1,13 +1,13 @@
 /*-------------------------------------------------------------------------
  *
  * copyfrom.c
- *		COPY <table> FROM file/program/client
+ *		COPY 表 FROM 文件/程序/客户端
  *
- * This file contains routines needed to efficiently load tuples into a
- * table.  That includes looking up the correct partition, firing triggers,
- * calling the table AM function to insert the data, and updating indexes.
- * Reading data from the input file or client and parsing it into Datums
- * is handled in copyfromparse.c.
+ * 本文件包含高效装载元组进表所需的例程。这包括  
+ * 查找正确的分区、触发触发器、调用表 AM 函数来        
+ * 插入数据并更新索引。从输入文件或客户端读取        
+ * 数据并将其解析为 Datum 的工作由 copyfromparse.c          
+ * 负责处理。               
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -860,11 +860,11 @@ CopyFrom(CopyFromState cstate)
 			 resultRelInfo->ri_TrigDesc->trig_insert_new_table)
 	{
 		/*
-		 * 对于分区表，当存在任何语句级插入触发器时，
-		 * 无法支持多重插入。未来可能允许带有此类触发器的
-		 * 分区表，但目前 CopyMultiInsertInfoFlush 期望
-		 * after row insert 和语句级 insert 触发器在同一关系上。
-		 *
+		 * 对于分区表，当存在任何语句级插入触发器时， 
+		 * 我们无法支持多重插入。未来或许可以允许带    
+		 * 有这类触发器的分区表，但目前                        
+		 * CopyMultiInsertInfoFlush 期望任何 after row insert 与         
+		 * 语句级 insert 触发器在同一关系上。          
 		 */
 		insertMethod = CIM_SINGLE;
 	}
@@ -896,17 +896,17 @@ CopyFrom(CopyFromState cstate)
 	else
 	{
 		/*
-		 * 对于分区表，我们可能仍然能够执行批量
-		 * 插入。但是，这种可能性取决于分区上存在哪些类型
-		 * 的触发器。如果分区是不能使用批处理的外部表，
-		 * 或者具有任何 before row insert 或 insert instead 触发器
-		 * （与我们上面对父表的检查相同），我们必须禁用批量插入。
-		 * 由于分区的 resultRelInfos 仅在我们实际需要向其插入第一个
-		 * 元组时才初始化，我们必须使用中间插入方法
-		 * CIM_MULTI_CONDITIONAL 来标记我们必须在之后确定是否可以对
-		 * 正在插入的分区使用批量插入。
-		 *
-		 *
+		 * 对于分区表，我们可能仍能执行批量插入。   
+		 * 不过其可能性取决于分区上有哪些触发器类型。  
+		 * 如果分区是无法使用批处理的外部表，或者它     
+		 * 拥有任何 before row insert 或 insert instead 触发器      
+		 * （与我们上面对父表的检查相同），就必须       
+		 * 禁用批量插入。由于分区的                       
+		 * resultRelInfos 仅在我们实际需要向其中插入             
+		 * 第一个元组时才会初始化，因此必须使用         
+		 * 中间插入方法 CIM_MULTI_CONDITIONAL，以标记我们
+		 * 必须在之后确定能否对正在插入的分区使用批
+		 * 量插入。  
 		 */
 		if (proute)
 			insertMethod = CIM_MULTI_CONDITIONAL;
@@ -1000,7 +1000,7 @@ CopyFrom(CopyFromState cstate)
 		 */
 		myslot->tts_tableOid = RelationGetRelid(target_resultRelInfo->ri_RelationDesc);
 
-		/* Triggers and stuff need to be invoked in query context. */
+		/* 触发器等需要在查询上下文中调用。        */
 		MemoryContextSwitchTo(oldcontext);
 
 		if (cstate->whereClause)

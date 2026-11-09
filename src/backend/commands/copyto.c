@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * copyto.c
- *		COPY <table> TO file/program/client
+ *		COPY 表 TO 文件/程序/客户端
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -158,7 +158,7 @@ SendCopyEnd(CopyToState cstate)
 {
 	/* 不应有任何未发送的数据 */
 	Assert(cstate->fe_msgbuf->len == 0);
-	/* 发送 Copy Done 消息 */
+	/* 发送 Copy Done 消息*/
 	pq_putemptymessage('c');
 }
 
@@ -217,11 +217,11 @@ CopySendEndOfRow(CopyToState cstate)
 					if (errno == EPIPE)
 					{
 						/*
-							 * 管道将在事务结束时自动关闭，但我们可能
-							 * 从子进程的退出码中获得比简单的
-							 * "Broken Pipe" 更好的错误消息
-							 *
-							 */
+						 * 出错时管道会在事务结束自动关闭， 
+						 * 但我们或许能从子进程退出码得到比 
+						 * 单纯 "Broken Pipe" 更好的错误             
+						 * 消息。         
+						 */
 						ClosePipeToProgram(cstate);
 
 						/*
@@ -470,7 +470,7 @@ BeginCopyTo(ParseState *pstate,
 		{
 			ListCell   *lc;
 
-			/* examine queries to determine which error message to issue */
+			/* 检查各个查询，以确定应发出哪条错误消息 */
 			foreach(lc, rewritten)
 			{
 				Query	   *q = lfirst_node(Query, lc);
@@ -492,14 +492,14 @@ BeginCopyTo(ParseState *pstate,
 
 		query = linitial_node(Query, rewritten);
 
-		/* The grammar allows SELECT INTO, but we don't support that */
+		/* 语法允许 SELECT INTO，但我们不支持这样       */
 		if (query->utilityStmt != NULL &&
 			IsA(query->utilityStmt, CreateTableAsStmt))
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("COPY (SELECT INTO) is not supported")));
 
-		/* The only other utility command we could see is NOTIFY */
+		/* 我们能见到的唯一其他实用命令是 NOTIFY  */
 		if (query->utilityStmt != NULL)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),

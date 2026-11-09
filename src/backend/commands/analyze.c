@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * analyze.c
- *	  Postgres 统计信息生成器
+ *	  Postgres 统计信息生成器   
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -281,11 +281,11 @@ analyze_rel(Oid relid, RangeVar *relation,
 }
 
 /*
- *	do_analyze_rel() —— 分析一个关系，递归或不递归
+ *	do_analyze_rel() -- 分析一个关系，递归或不递归 
  *
- * Note 那个 "acquirefunc" is 仅 relevant 对于 the non-inherited case.
- * For the inherited case, acquire_inherited_sample_rows() determines the
- * appropriate acquirefunc 对于每个子表.
+ * 注意 "acquirefunc" 仅对于非继承情况有意义。           
+ * 而对于继承情况，acquire_inherited_sample_rows() 会确定     
+ * 适合每个子表的 acquirefunc。         
  */
 static void
 do_analyze_rel(Relation onerel, VacuumParams *params,
@@ -1101,37 +1101,37 @@ examine_attribute(Relation onerel, int attnum, Node *index_expr)
 }
 
 /*
- * acquire_sample_rows —— 从表中获取随机行采样
+ * acquire_sample_rows -- 从表中获取一个随机行采样          
  *
- * 选中的行返回在调用者分配的数组 rows[] 中，
- * 该数组必须至少有 targrows 个条目。
- * The actual 数字 of rows selected is returned 作为 the 函数 result.
- * 我们还估计表中的活行和死行总数，
- * 并将它们分别返回到 *totalrows 和 *totaldeadrows 中。
+ * 选中的行返回到调用者分配的数组 rows[] 中，该数组  
+ * 至少要有 targrows 个条目。  
+ * 实际选中的行数作为函数结果返回。                      
+ * 我们还估算表中活元组和死元组的总数，                
+ * 并分别返回到 *totalrows 和 *totaldeadrows 中。          
  *
- * 返回的元组列表按表中物理位置排序。
- * （我们稍后将依赖此排序来推导相关度估计。）
+ * 返回的元组列表按其在表中的物理位置排序。              
+ * （后面推导相关度估计时将依赖这一点。）    
  *
- * 自 2004 年 5 月起我们使用新的两阶段方法：第一阶段选择最多
- * targrows 个随机块（如果没有那么多，则选择所有块）。
- * 第二阶段扫描这些块并使用 Vitter 算法创建
- * targrows 行的随机采样（如果块采样中行数较少则更少）。
- * 两个阶段同时执行：每个块
- * 在阶段一返回其编号后立即处理，同时
- * 在读取行时阶段二控制哪些行被插入
- * 到采样中。
+ * 2004 年 5 月起改用新的两阶段方法：阶段一至多选  
+ * 取 targrows 个随机块（若块数不足则取全部块）。   
+ * 阶段二扫描这些块，并使用 Vitter 算法来构造         
+ * 由 targrows 行组成的随机采样（若块采样中行数不足
+ * 则取更少的行）。两个阶段同时执行：每一个        
+ * 块都会在阶段一返回其编号后立即被处理，并且当  
+ * 读取行时由阶段二控制哪些行将被插入               
+ * 到采样中。 
  *
- * 尽管每行有均等的机会出现在最终
- * 采样中，此采样方法并不完美：并非每个可能的
- * 采样都有均等的被选中机会。对于大关系，
- * 采样所代表的不同块的数量往往
- * 太少。目前我们能接受。欢迎改进。
+ * 虽然每一行进入最终采样的机会都相等，          
+ * 但这种采样方法并不完美：并非每种可能的采样
+ * 被选中的机会都相等。对于大型关系，               
+ * 采样所代表的不同块的数量往往会偏少。              
+ * 我们能暂时接受这一点。欢迎改进。                     
  *
- * 此采样方法的一个重要特性是，因为我们确实
- * 查看了统计无偏的块集，我们应当获得
- * 每个块平均活行和死行数的无偏估计。
- * 之前的采样方法过于相信表起始处附近的
- * 行密度。
+ * 这种采样方法的一个重要性质是：因为我们确实    
+ * 查看的是统计上无偏的块集合，应能得到       
+ * 每块平均活元组数和死元组数的无偏                   
+ * 估计。以前的采样方法过于相信                           
+ * 靠近表开头的行密度。      
  */
 static int
 acquire_sample_rows(Relation onerel, int elevel,
@@ -1188,11 +1188,11 @@ acquire_sample_rows(Relation onerel, int elevel,
 #ifdef USE_PREFETCH
 
 	/*
-	 * If we are doing prefetching, 然后 go ahead 和 tell the kernel about
-	 * the 首先集合 of pages we are going 到 want.  This 还 moves our
-	 * iterator out ahead of the main 一 being used, where we 将 keep it so
-	 * 那个 we're 始终 pre-fetching out prefetch_maximum 数字 of blocks
-	 * ahead.
+	 * 如果我们正在做预取，那么就提前告诉内核我们     
+	 * 将要使用的第一批页。这也会把我们的              
+	 * 迭代器移到正在使用的主迭代器之前，我们将让它     
+	 * 留在那里，使我们始终超前 prefetch_maximum 个块进行  
+	 * 预取
 	 */
 	if (prefetch_maximum)
 	{
@@ -1602,7 +1602,7 @@ acquire_inherited_sample_rows(Relation onerel, int elevel,
 					}
 				}
 
-				/* And add 到 counts */
+				/* 加入计数      */
 				numrows += childrows;
 				*totalrows += trows;
 				*totaldeadrows += tdrows;
@@ -1610,8 +1610,8 @@ acquire_inherited_sample_rows(Relation onerel, int elevel,
 		}
 
 		/*
-		 * Note: we 不能释放 the child-表 locks, 由于 we 可以 have
-		 * pointers 到 their TOAST tables in the sampled rows.
+		 * 注意：我们无法释放子表锁，因为我们可能持有 
+		 * 采样行中指向其 TOAST 表的指针。        
 		 */
 		table_close(childrel, NoLock);
 		pgstat_progress_update_param(PROGRESS_ANALYZE_CHILD_TABLES_DONE,
@@ -1623,26 +1623,26 @@ acquire_inherited_sample_rows(Relation onerel, int elevel,
 
 
 /*
- *	update_attstats() —— 更新一个关系的属性统计信息
+ *	update_attstats() -- 更新一个关系的属性统计信息     
  *
- *		Statistics are stored in several places: the pg_class 行对于 the
- *		关系 has 统计信息 about the whole 关系, 和 there is a
- *		pg_statistic 行对于每个 (non-system) attribute 那个 has 曾经
- *		been analyzed.  The pg_class values are updated 通过 VACUUM, 不 here.
+ *		统计信息存于多处：该关系的 pg_class 行含有整    
+ *		个关系统计信息，且每个（非系统）属性曾  
+ *		被分析过，就有一个对应的 pg_statistic 行。      
+ *		pg_class 的值由 VACUUM 更新，而非在此处更新。         
  *
- *		pg_statistic rows are 只是 added 或 updated 通常.  This means
- *		那个 pg_statistic 将 probably contain 一些 deleted rows at the
- *		completion of a 清理 cycle, 除非 it happens 到 get vacuumed 最后.
+ *		pg_statistic 行只是被正常地插入或更新。这意味    
+ *		着在 vacuum 周期结束时 pg_statistic 很可能包含      
+ *		一些已删除的行，除非它碰巧最后被 vacuum。           
  *
- *		To keep things simple, we punt 对于 pg_statistic, 和 don't try
- *		到计算或 store rows 对于 pg_statistic itself in pg_statistic.
- *		This 可以 possibly be made 到 work, 但 it's 不 worth the trouble.
- *		Note analyze_rel() has seen 到 it 那个 we won't come here 当
- *		vacuuming pg_statistic itself.
+ *		为简单起见，我们对 pg_statistic 采取回避，不   
+ *		尝试在 pg_statistic 中存储 pg_statistic 本身的行。    
+ *		这或许可以设法做到，但不值得麻烦。                 
+ *		注意 analyze_rel() 已确保对 pg_statistic 本身         
+ *		做 vacuum 时不会来此。 
  *
- *		Note: there 会 be a race condition here 如果二 backends 可以
- *		ANALYZE the 相同表 concurrently.  Presently, we 锁那个 out
- *		通过 taking a self-ExclusiveLock on the 关系 in analyze_rel().
+ *		注意：如果两个后端进程能够并发地 ANALYZE 同    
+ *		一张表，就会有竞态条件。目前我们通过在        
+ *		analyze_rel() 中对该关系取自斥锁来防止这一点。   
  */
 static void
 update_attstats(Oid relid, bool inh, int natts, VacAttrStats **vacattrstats)
@@ -1668,7 +1668,7 @@ update_attstats(Oid relid, bool inh, int natts, VacAttrStats **vacattrstats)
 		bool		nulls[Natts_pg_statistic];
 		bool		replaces[Natts_pg_statistic];
 
-		/* Ignore attr 如果 we weren't able 到 collect 统计信息 */
+		/* 无法收集统计信息时忽略该属性      */
 		if (!stats->stats_valid)
 			continue;
 
@@ -1745,13 +1745,13 @@ update_attstats(Oid relid, bool inh, int natts, VacAttrStats **vacattrstats)
 			}
 		}
 
-		/* Is there 已经 a pg_statistic 元组对于此 attribute? */
+		/* 该属性是否已有一个 pg_statistic 元组？        */
 		oldtup = SearchSysCache3(STATRELATTINH,
 								 ObjectIdGetDatum(relid),
 								 Int16GetDatum(stats->attr->attnum),
 								 BoolGetDatum(inh));
 
-		/* Open 索引 information 当 we know we 需要 it */
+		/* 在确知需要时才打开索引信息        */
 		if (indstate == NULL)
 			indstate = CatalogOpenIndexes(sd);
 
@@ -1782,10 +1782,10 @@ update_attstats(Oid relid, bool inh, int natts, VacAttrStats **vacattrstats)
 }
 
 /*
- * Standard fetch 函数对于 use 通过计算统计信息 subroutines.
+ * 供 compute_stats 子例程使用的标准获取函数。    
  *
- * This exists 到 provide 一些 insulation 之间计算统计信息 routines
- * 和 the actual 存储 of the 采样数据.
+ * 它的存在是为了在 compute_stats 例程与采样数据的      
+ * 实际存储之间提供一些隔离。   
  */
 static Datum
 std_fetch_func(VacAttrStatsP stats, int rownum, bool *isNull)
@@ -1798,17 +1798,17 @@ std_fetch_func(VacAttrStatsP stats, int rownum, bool *isNull)
 }
 
 /*
- * Fetch 函数对于 analyzing 索引表达式s.
+ * 用于分析索引表达式的获取函数。  
  *
- * We have 不 bothered 到 construct 索引 tuples, instead the 数据 is
- * 只是 in Datum arrays.
+ * 我们没有费心构造索引元组，数据只是存于          
+ * Datum 数组。      
  */
 static Datum
 ind_fetch_func(VacAttrStatsP stats, int rownum, bool *isNull)
 {
 	int			i;
 
-	/* exprvals 和 exprnulls are 已经 offset 对于 proper 列 */
+	/* exprvals 与 exprnulls 已按正确列做好偏移          */
 	i = rownum * stats->rowstride;
 	*isNull = stats->exprnulls[i];
 	return stats->exprvals[i];
@@ -1817,22 +1817,22 @@ ind_fetch_func(VacAttrStatsP stats, int rownum, bool *isNull)
 
 /*==========================================================================
  *
- * Code 以下此 point represents the "standard" 类型-specific 统计信息
- * 分析 algorithms.  This code 可以 be replaced on a per-数据-类型 basis
- * 通过设置 a nonzero 值 in pg_type.typanalyze.
+ * 此点以下的代码代表"标准"的类型特定统计信息          
+ * 分析算法。通过对 pg_type.typanalyze 设置非零值，          
+ * 即可按数据类型逐一替换这些代码。 
  *
  *==========================================================================
  */
 
 
 /*
- * To avoid consuming too much 内存期间分析和/或 too much space
- * in the resulting pg_statistic rows, we 忽略 varlena datums 那个 are wider
- * than WIDTH_THRESHOLD (之后 detoasting!).  This is legitimate 对于 MCV
- * 和 distinct-值 calculations 由于 a 宽值 is unlikely 到 be
- * duplicated at 所有, much 更少 be a 最多-common 值.  For the 相同 reason,
- * ignoring 宽 values 将不 affect our estimates of 直方图 bin
- * boundaries 非常 much.
+ * 为避免分析期间消耗过多内存，以及/或在得到的        
+ * pg_statistic 行里占用过多空间，我们忽略去 toast              
+ * 之后宽于 WIDTH_THRESHOLD 的 varlena datum。对                 
+ * MCV 和不同值计算这是合理的，因为很宽的值不太    
+ * 可能被重复，更不太会是最常见值。出于同样的理由，  
+ * 忽略很宽的值不会太影响我们对直方图桶             
+ * 边界的估计。   
  */
 #define WIDTH_THRESHOLD  1024
 
@@ -1840,7 +1840,7 @@ ind_fetch_func(VacAttrStatsP stats, int rownum, bool *isNull)
 #define swapDatum(a,b)	do {Datum _tmp; _tmp=a; a=b; b=_tmp;} while(0)
 
 /*
- * Extra information used 通过 the default 分析 routines
+ * 默认分析例程所使用的额外信息             
  */
 typedef struct
 {
@@ -1878,7 +1878,7 @@ static int	analyze_mcv_list(int *mcv_counts,
 
 
 /*
- * std_typanalyze -- the default 类型-specific typanalyze 函数
+ * std_typanalyze -- 默认的类型特定 typanalyze 函数      
  */
 bool
 std_typanalyze(VacAttrStats *stats)
@@ -1888,8 +1888,8 @@ std_typanalyze(VacAttrStats *stats)
 	Oid			eqopr;
 	StdAnalyzeData *mystats;
 
-	/* If the attstattarget 列 is negative, use the default 值 */
-	/* NB: it is okay 到 scribble on 统计信息->attr 由于 it's a copy */
+	/* 若 attstattarget 列为负值，则使用默认值            */
+	/* 注意：stats->attr 是副本，可随意改写            */
 	if (attr->attstattarget < 0)
 		attr->attstattarget = default_statistics_target;
 
@@ -1907,45 +1907,45 @@ std_typanalyze(VacAttrStats *stats)
 	stats->extra_data = mystats;
 
 	/*
-	 * Determine which standard 统计信息 algorithm 到 use
+	 * 确定要使用哪种标准统计信息算法       
 	 */
 	if (OidIsValid(eqopr) && OidIsValid(ltopr))
 	{
-		/* Seems 到 be a scalar datatype */
+		/* 应是标量数据类型      */
 		stats->compute_stats = compute_scalar_stats;
 		/*--------------------
-		 * The following choice of minrows is 基于 the paper
-		 * "Random 采样对于直方图 construction: how much is enough?"
-		 * 通过 Surajit Chaudhuri, Rajeev Motwani 和 Vivek Narasayya, in
-		 * Proceedings of ACM SIGMOD International Conference on Management
-		 * of Data, 1998, Pages 436-447.  Their Corollary 1 到 Theorem 5
-		 * says 那个对于表 size n, 直方图 size k, maximum relative
-		 * 错误 in bin size f, 和错误 probability gamma, the minimum
-		 * 随机采样 size is
+		 * minrows 的如下选择基于论文                  
+		 * "Random sampling for histogram construction: how much is enough?"
+		 * by Surajit Chaudhuri, Rajeev Motwani and Vivek Narasayya, in
+		 * 载于 ACM SIGMOD 数据管理国际会议论文集，1998      
+		 * 年，第 436-447 页。他们由定理 5 得到的推论 1  
+		 * 指出：对表大小 n、直方图大小 k、桶大小最大 
+		 * 相对误差 f、错误概率 gamma，最小随机采样     
+		 * 规模为            
 		 *		r = 4 * k * ln(2*n/gamma) / f^2
-		 * Taking f = 0.5, gamma = 0.01, n = 10^6 rows, we obtain
+		 * 取 f = 0.5、gamma = 0.01、n = 10^6 行，可得    
 		 *		r = 305.82 * k
-		 * Note 那个因为 the 日志函数, the dependence on n is
-		 * 相当 weak; even at n = 10^12, a 300*k 采样 gives <= 0.66
-		 * bin size 错误带有 probability 0.99.  So there's no real 需要到
-		 * scale 对于 n, which is a 好 thing 因为 we don't necessarily
-		 * know it at 此 point.
+		 * 注意由于对数函数，对 n 的依赖很弱；即使在 
+		 * n = 10^12 时，300*k 的采样给出的桶大小误差    
+		 * 概率为 0.99。因此没有必要针对 n 进行缩放，这   
+		 * 是件好事，因为在此阶段我们未必                  
+		 * 知道 n 的值。    
 		 *--------------------
 		 */
 		stats->minrows = 300 * attr->attstattarget;
 	}
 	else if (OidIsValid(eqopr))
 	{
-		/* We 可以仍然 recognize distinct values */
+		/* 我们仍可识别不同值            */
 		stats->compute_stats = compute_distinct_stats;
-		/* Might 作为 well use the 相同 minrows 作为以上 */
+		/* 不妨使用与上面相同的 minrows      */
 		stats->minrows = 300 * attr->attstattarget;
 	}
 	else
 	{
-		/* Can't do much 但 the trivial stuff */
+		/* 只能做些平凡处理            */
 		stats->compute_stats = compute_trivial_stats;
-		/* Might 作为 well use the 相同 minrows 作为以上 */
+		/* 不妨使用与上面相同的 minrows      */
 		stats->minrows = 300 * attr->attstattarget;
 	}
 
@@ -1954,11 +1954,11 @@ std_typanalyze(VacAttrStats *stats)
 
 
 /*
- *	compute_trivial_stats() -- 计算非常 basic 列统计信息
+ *	compute_trivial_stats() -- 计算很基本的列统计信息   
  *
- *	We use 此当 we 不能 find a 哈希 "=" operator 对于 the datatype.
+ *	当无法为该数据类型找到哈希 "=" 操作符时使用。    
  *
- *	We determine the fraction of non-NULL rows 和 the average datum width.
+ *	我们确定非空行的比例以及平均 datum 宽度。             
  */
 static void
 compute_trivial_stats(VacAttrStatsP stats,
@@ -1993,10 +1993,10 @@ compute_trivial_stats(VacAttrStatsP stats,
 		nonnull_cnt++;
 
 		/*
-		 * If it's a 变量-width 字段, add up widths 对于 average width
-		 * calculation.  Note 那个如果 the 值 is toasted, we use the toasted
-		 * width.  We don't bother 带有此 calculation 如果 it's a fixed-width
-		 * 类型.
+		 * 如果它是变宽字段，则把宽度累加起来用于平均
+		 * 宽度计算。注意若值已被 TOAST，则我们使用 TOAST    
+		 * 后的宽度。若它是固定宽度类                            
+		 * 型  
 		 */
 		if (is_varlena)
 		{
@@ -2004,16 +2004,16 @@ compute_trivial_stats(VacAttrStatsP stats,
 		}
 		else if (is_varwidth)
 		{
-			/* 必须 be cstring */
+			/* 必为 cstring  */
 			total_width += strlen(DatumGetCString(value)) + 1;
 		}
 	}
 
-	/* We 可以仅计算 average width 如果 we found 一些 non-NULL values. */
+	/* 只有找到一些非空值才能计算平均宽度                 */
 	if (nonnull_cnt > 0)
 	{
 		stats->stats_valid = true;
-		/* Do the simple NULL-frac 和 width 统计信息 */
+		/* 做简单的空值比例与宽度统计 */
 		stats->stanullfrac = (double) null_cnt / (double) samplerows;
 		if (is_varwidth)
 			stats->stawidth = total_width / (double) nonnull_cnt;
@@ -2023,7 +2023,7 @@ compute_trivial_stats(VacAttrStatsP stats,
 	}
 	else if (null_cnt > 0)
 	{
-		/* We found 仅 nulls; assume the 列 is 完全 NULL */
+		/* 只发现空值；假定该列整个为空              */
 		stats->stats_valid = true;
 		stats->stanullfrac = 1.0;
 		if (is_varwidth)
@@ -2036,19 +2036,19 @@ compute_trivial_stats(VacAttrStatsP stats,
 
 
 /*
- *	compute_distinct_stats() -- 计算列统计信息 including ndistinct
+ *	compute_distinct_stats() -- 计算包括 ndistinct 的列统计信息    
  *
- *	We use 此当 we 可以 find 仅 an "=" operator 对于 the datatype.
+ *	当对该数据类型只能找到 "=" 操作符时使用。        
  *
- *	We determine the fraction of non-NULL rows, the average width, the
- *	最多 common values, 和 the (estimated) 数字 of distinct values.
+ *	我们确定非空行的比例、平均宽度、最常见值      
+ *	以及（估计的）不同值数量。                           
  *
- *	The 最多 common values are determined 通过 brute force: we keep a 列表
- *	of previously seen values, ordered 通过数字 of times seen, 作为 we 扫描
- *	the 采样.  A newly seen 值 is inserted 只是之后 the 最后
- *	multiply-seen 值, causing the bottommost (oldest) singly-seen 值
- *	到删除 off the 列表.  The accuracy of 此 method, 和还 its 成本,
- *	depend mainly on the length of the 列表 we are willing 到 keep.
+ *	最常见值通过蛮力方式确定：我们维护一个列表，  
+ *	其中存放之前见过的值，并按见到的次数排序，       
+ *	在扫描采样时。新见到的值被插到最后一个       
+ *	多次见到的值之后，这使得最底部（最旧）的仅见    
+ *	过一次的值掉出列表。这一方法的精度及其成本       
+ *	主要取决于我们愿意保留的列表长度。            
  */
 static void
 compute_distinct_stats(VacAttrStatsP stats,
@@ -2078,7 +2078,7 @@ compute_distinct_stats(VacAttrStatsP stats,
 	StdAnalyzeData *mystats = (StdAnalyzeData *) stats->extra_data;
 
 	/*
-	 * We track up 到 2*n values 对于 an n-element MCV 列表; 但至少 10
+	 * 对 n 元素的 MCV 列表最多跟踪 2*n 个值；但至少 10    
 	 */
 	track_max = 2 * num_mcv;
 	if (track_max < 10)
@@ -2109,21 +2109,21 @@ compute_distinct_stats(VacAttrStatsP stats,
 		nonnull_cnt++;
 
 		/*
-		 * If it's a 变量-width 字段, add up widths 对于 average width
-		 * calculation.  Note 那个如果 the 值 is toasted, we use the toasted
-		 * width.  We don't bother 带有此 calculation 如果 it's a fixed-width
-		 * 类型.
+		 * 若为变宽字段，则累加宽度以计算平均宽度。   
+		 * 注意：若值已被 TOAST，我们采用 TOAST 后的宽度。   
+		 * 若为定宽类型则无需费心做此计算                      
+		 * 。  
 		 */
 		if (is_varlena)
 		{
 			total_width += VARSIZE_ANY(DatumGetPointer(value));
 
 			/*
-			 * If the 值 is toasted, we want 到 detoast it 只是一次到
-			 * avoid repeated detoastings 和 resultant excess 内存 usage
-			 * 期间 the comparisons.  Also, 检查到 see 如果 the 值 is
-			 * excessively 宽, 和如果 so don't detoast at 所有 --- 只是
-			 * 忽略 the 值.
+			 * 若值已被 TOAST，我们希望只解 TOAST 一次以免 
+			 * 在比较期间反复解 TOAST 及其带来的过量内存  
+			 * 占用。另外检查值是否过宽，若是则完全不  
+			 * 做解 TOAST --- 直接                                  
+			 * 忽略该值。  
 			 */
 			if (toast_raw_datum_size(value) > WIDTH_THRESHOLD)
 			{
@@ -2134,12 +2134,12 @@ compute_distinct_stats(VacAttrStatsP stats,
 		}
 		else if (is_varwidth)
 		{
-			/* 必须 be cstring */
+			/* 必为 cstring  */
 			total_width += strlen(DatumGetCString(value)) + 1;
 		}
 
 		/*
-		 * See 如果 the 值 matches anything we're 已经 tracking.
+		 * 看看该值是否与我们已跟踪的某个值匹配。
 		 */
 		match = false;
 		firstcount1 = track_cnt;
@@ -2160,7 +2160,7 @@ compute_distinct_stats(VacAttrStatsP stats,
 		{
 			/* Found a match */
 			track[j].count++;
-			/* This 值可以现在需要到 "bubble up" in the track 列表 */
+			/* 此值现在可能需要在跟踪列表中"冒泡"了    */
 			while (j > 0 && track[j].count > track[j - 1].count)
 			{
 				swapDatum(track[j].value, track[j - 1].value);
@@ -2170,7 +2170,7 @@ compute_distinct_stats(VacAttrStatsP stats,
 		}
 		else
 		{
-			/* No match.  Insert at head of count-1 列表 */
+			/* 无匹配。插入 count-1 列表头部   */
 			if (track_cnt < track_max)
 				track_cnt++;
 			for (j = track_cnt - 1; j > firstcount1; j--)
@@ -2186,21 +2186,21 @@ compute_distinct_stats(VacAttrStatsP stats,
 		}
 	}
 
-	/* We 可以仅计算 real 统计信息如果 we found 一些 non-NULL values. */
+	/* 只有找到非空值，我们才能算出真正的统计信息  */
 	if (nonnull_cnt > 0)
 	{
 		int			nmultiple,
 					summultiple;
 
 		stats->stats_valid = true;
-		/* Do the simple NULL-frac 和 width 统计信息 */
+		/* 做简单的空值比例与宽度统计 */
 		stats->stanullfrac = (double) null_cnt / (double) samplerows;
 		if (is_varwidth)
 			stats->stawidth = total_width / (double) nonnull_cnt;
 		else
 			stats->stawidth = stats->attrtype->typlen;
 
-		/* Count the 数字 of values we found 多个 times */
+		/* 统计多次出现的值的数目                  */
 		summultiple = 0;
 		for (nmultiple = 0; nmultiple < track_cnt; nmultiple++)
 		{
@@ -2212,8 +2212,8 @@ compute_distinct_stats(VacAttrStatsP stats,
 		if (nmultiple == 0)
 		{
 			/*
-			 * If we found no repeated non-NULL values, assume it's a unique
-			 * 列; 但 be sure 到 discount 对于任何 nulls we found.
+			 * 若未发现重复的非空值，则假定它是唯一列； 
+			 * 但务必对我们发现的任何空值打折扣。    
 			 */
 			stats->stadistinct = -1.0 * (1.0 - stats->stanullfrac);
 		}
@@ -2221,40 +2221,40 @@ compute_distinct_stats(VacAttrStatsP stats,
 				 nmultiple == track_cnt)
 		{
 			/*
-			 * Our track 列表 includes 每个值 in the 采样, 和每个
-			 * 值 appeared 更多 than 一次.  Assume the 列 has 只是
-			 * 这些 values.  (This case is meant 到 address columns 带有
-			 * 小, fixed sets of possible values, 如布尔或 enum
-			 * columns.  If there are 任何 values 那个 appear 只是一次 in the
-			 * 采样, including too-宽 values, we 应该 assume 那个那个's
-			 * 不 what we're dealing 带有.)
+			 * 我们的跟踪列表包含采样中的每一个值，且每
+			 * 个值都不止出现一次。假定该列只有这       
+			 * 些值。（本情况旨在处理取值为小型固定    
+			 * 集合的列，例如 boolean 或 enum 列。若采样中    
+			 * 有任何值只出现一次（包括过宽的值），我们  
+			 * 就应假定我们要处理的                                 
+			 * 并非这种情况。）     
 			 */
 			stats->stadistinct = track_cnt;
 		}
 		else
 		{
 			/*----------
-			 * Estimate the 数字 of distinct values using the estimator
-			 * proposed 通过 Haas 和 Stokes in IBM Research Report RJ 10025:
+			 * 使用 Haas 与 Stokes 提出的估计器来估计        
+			 * 不同值的个数，见 IBM 研究报告 RJ 10025：       
 			 *		n*d / (n - f1 + f1*n/N)
-			 * where f1 is the 数字 of distinct values 那个 occurred
-			 * 恰好一次 in our 采样 of n rows (从 a total of N),
-			 * 和 d is the total 数字 of distinct values in the 采样.
-			 * This is their Duj1 estimator; the other estimators they
-			 * recommend are considerably 更复杂, 和 are numerically
-			 * 非常 unstable 当 n is much smaller than N.
+			 * 其中 f1 是 n 行样本（取自共 N 行）中恰好
+			 * 出现一次的不同值的个数，而 d 是            
+			 * 样本中不同值的总数。                             
+			 * 这是他们的 Duj1 估计器；他们推荐的其他 
+			 * 估计器要复杂得多，且在 n 远小于 N 时数值   
+			 * 上非常不稳定。                       
 			 *
-			 * In 此 calculation, we consider 仅 non-nulls.  We used 到
-			 * include rows 带有 NULL values in the n 和 N counts, 但那个
-			 * leads 到 inaccurate answers in columns 带有许多 nulls, 和
-			 * it's intuitively bogus anyway considering the desired result is
-			 * the 数字 of distinct non-NULL values.
+			 * 本计算中我们只考虑非空值。过去我们曾把   
+			 * 含空值的行计入 n 与 N 的计数，但这会在空    
+			 * 值很多的列中导致不准确的结果；而且考虑  
+			 * 到期望结果是不同非空值的个数，这本来就不   
+			 * 合常理。                           
 			 *
-			 * We assume (不非常 reliably!) 那个所有 the multiply-occurring
-			 * values are reflected in the final track[] 列表, 和 the other
-			 * nonnull values 所有 appeared 但一次.  (XXX 此通常
-			 * results in a drastic overestimate of ndistinct.  Can we do
-			 * 任何更好?)
+			 * 我们（不太可靠地！）假定所有多次出现的     
+			 * 值都体现在最终的 track[] 列表中，而其他非空 
+			 * 值则都只出现过一次。（XXX 这通常          
+			 * 会大幅高估 ndistinct。我们能否做得更         
+			 * 好？)     
 			 *----------
 			 */
 			int			f1 = nonnull_cnt - summultiple;
@@ -2269,52 +2269,52 @@ compute_distinct_stats(VacAttrStatsP stats,
 			else
 				stadistinct = 0;
 
-			/* Clamp 到 sane range 以防 of 舍入误差 */
+			/* 若有舍入误差，则钳制到合理范围 */
 			if (stadistinct < d)
 				stadistinct = d;
 			if (stadistinct > N)
 				stadistinct = N;
-			/* And round 到整数 */
+			/* 再舍入为整数   */
 			stats->stadistinct = floor(stadistinct + 0.5);
 		}
 
 		/*
-		 * If we estimated the 数字 of distinct values at 更多 than 10% of
-		 * the total 行 count (a 非常 arbitrary limit), 然后 assume 那个
-		 * stadistinct 应该 scale 带有 the 行 count 而非 be a fixed
-		 * 值.
+		 * 若我们估计的不同值个数超过总行数的 10%（       
+		 * 相当随意的界限），则假定 stadistinct 应随行数 
+		 * 缩放而不是取固定值                                       
+		 * 。   
 		 */
 		if (stats->stadistinct > 0.1 * totalrows)
 			stats->stadistinct = -(stats->stadistinct / totalrows);
 
 		/*
-		 * Decide how 许多 values are worth storing 作为最多-common values. If
-		 * we are able 到 generate a complete MCV 列表 (所有 the values in the
-		 * 采样将 fit, 和 we think 这些 are 所有 the ones in the 表),
-		 * 然后 do so.  Otherwise, store 仅那些 values 那个 are
-		 * significantly 更多 common than the values 不 in the 列表.
+		 * 决定多少值值得存为最常见值。如果我们能够生成
+		 * 一个完整的 MCV 列表（采样中的所有值都放得下， 
+		 * 且我们认为这些就是表中的全部值），那就这样    
+		 * 做。否则只存储那些比不在列表中的值     
+		 * 明显更常见的值。                                  
 		 *
-		 * Note: the 首先 of 这些 cases is meant 到 address columns 带有
-		 * 小, fixed sets of possible values, 如布尔或 enum
-		 * columns.  If we 可以 *完全* represent the 列 population 通过
-		 * an MCV 列表那个将 fit 进入 the 统计信息 target, 然后 we 应该 do
-		 * so 和 thus provide the 规划器带有 complete information.  But 如果
-		 * the MCV 列表 is 不 complete, it's generally worth being 更多
-		 * selective, 和不只是 filling it 所有 the way up 到 the 统计信息
-		 * target.
+		 * 注：第一种情况旨在处理可能取值为小型固定集
+		 * 合的列，例如 boolean 或 enum 列。若我们能用一 
+		 * 个能放进统计信息目标的 MCV 列表*完全*表示该      
+		 * 列的全体取值，那我们就应当这么做，从而为      
+		 * 规划器提供完整的信息。但如果 MCV 列表不完       
+		 * 整，通常更值得有所取舍，而不是把它一路    
+		 * 填满直至统计信息目标                                
+		 * 。    
 		 */
 		if (track_cnt < track_max && toowide_cnt == 0 &&
 			stats->stadistinct > 0 &&
 			track_cnt <= num_mcv)
 		{
-			/* Track 列表 includes 所有 values seen, 和所有将 fit */
+			/* 跟踪列表含所有已见值，且全部放得下   */
 			num_mcv = track_cnt;
 		}
 		else
 		{
 			int		   *mcv_counts;
 
-			/* Incomplete 列表; decide how 许多 values are worth keeping */
+			/* 列表不完整；决定有多少值值得保留          */
 			if (num_mcv > track_cnt)
 				num_mcv = track_cnt;
 
@@ -2331,14 +2331,14 @@ compute_distinct_stats(VacAttrStatsP stats,
 			}
 		}
 
-		/* Generate MCV slot 条目 */
+		/* 生成 MCV 槽位条目 */
 		if (num_mcv > 0)
 		{
 			MemoryContext old_context;
 			Datum	   *mcv_values;
 			float4	   *mcv_freqs;
 
-			/* Must copy the target values 进入 anl_context */
+			/* 必须把目标值复制到 anl_context 中  */
 			old_context = MemoryContextSwitchTo(stats->anl_context);
 			mcv_values = (Datum *) palloc(num_mcv * sizeof(Datum));
 			mcv_freqs = (float4 *) palloc(num_mcv * sizeof(float4));
@@ -2360,14 +2360,14 @@ compute_distinct_stats(VacAttrStatsP stats,
 			stats->numvalues[0] = num_mcv;
 
 			/*
-			 * Accept the defaults 对于统计信息->statypid 和 others. They have
-			 * been 集合之前 we were called (see 清理.h)
+			 * 接受 stats->statypid 等字段的默认值。              
+			 * 在调用前已设置好（见 vacuum.h）   
 			 */
 		}
 	}
 	else if (null_cnt > 0)
 	{
-		/* We found 仅 nulls; assume the 列 is 完全 NULL */
+		/* 我们只发现了空值；假定该列完全为空     */
 		stats->stats_valid = true;
 		stats->stanullfrac = 1.0;
 		if (is_varwidth)
@@ -2377,21 +2377,21 @@ compute_distinct_stats(VacAttrStatsP stats,
 		stats->stadistinct = 0.0;	/* "unknown" */
 	}
 
-	/* We don't 需要到 bother cleaning up 任何 of our temporary palloc's */
+	/* 我们无需费心清理我们的任何临时 palloc 分配       */
 }
 
 
 /*
- *	compute_scalar_stats() -- 计算列统计信息
+ *	compute_scalar_stats() -- 计算列统计信息    
  *
- *	We use 此当 we 可以 find "=" 和 "<" operators 对于 the datatype.
+ *	当能为该数据类型找到 "=" 与 "<" 操作符时使用。    
  *
- *	We determine the fraction of non-NULL rows, the average width, the
- *	最多 common values, the (estimated) 数字 of distinct values, the
- *	distribution 直方图, 和 the 相关度 of physical 到 logical order.
+ *	我们确定非空行比例、平均宽度、最常见值、      
+ *	（估计的）不同值个数、分布直方图，以及物理   
+ *	顺序与逻辑顺序的相关度。                                     
  *
- *	The desired 统计信息可以 be determined fairly easily 之后 sorting the
- *	数据 values 进入 order.
+ *	将数据值排序后，所需的统计信息便可相当容易    
+ *	地确定。           
  */
 static void
 compute_scalar_stats(VacAttrStatsP stats,
@@ -2429,15 +2429,15 @@ compute_scalar_stats(VacAttrStatsP stats,
 	ssup.ssup_nulls_first = false;
 
 	/*
-	 * For 现在, don't perform abbreviated key conversion, 因为 full values
-	 * are required 对于 MCV slot generation.  Supporting 那个 optimization
-	 * 会 necessitate teaching compare_scalars() 到 call a tie-breaker.
+	 * 目前不执行缩写键转换，因为 MCV 槽的生成需要        
+	 * 完整值。要支持该优化，就得教会 compare_scalars() 调
+	 * 用平局决胜函数。                                           
 	 */
 	ssup.abbreviate = false;
 
 	PrepareSortSupportFromOrderingOp(mystats->ltopr, &ssup);
 
-	/* Initial 扫描到 find sortable values */
+	/* 初次扫描以找出可排序的值 */
 	for (i = 0; i < samplerows; i++)
 	{
 		Datum		value;
@@ -2456,21 +2456,21 @@ compute_scalar_stats(VacAttrStatsP stats,
 		nonnull_cnt++;
 
 		/*
-		 * If it's a 变量-width 字段, add up widths 对于 average width
-		 * calculation.  Note 那个如果 the 值 is toasted, we use the toasted
-		 * width.  We don't bother 带有此 calculation 如果 it's a fixed-width
-		 * 类型.
+		 * 若为变宽字段，则累加宽度以计算平均宽度。   
+		 * 注意：若值已被 TOAST，我们采用 TOAST 后的宽度。   
+		 * 若为定宽类型则无需费心做此计算                      
+		 * 。  
 		 */
 		if (is_varlena)
 		{
 			total_width += VARSIZE_ANY(DatumGetPointer(value));
 
 			/*
-			 * If the 值 is toasted, we want 到 detoast it 只是一次到
-			 * avoid repeated detoastings 和 resultant excess 内存 usage
-			 * 期间 the comparisons.  Also, 检查到 see 如果 the 值 is
-			 * excessively 宽, 和如果 so don't detoast at 所有 --- 只是
-			 * 忽略 the 值.
+			 * 若值已被 TOAST，我们希望只解 TOAST 一次以免 
+			 * 在比较期间反复解 TOAST 及其带来的过量内存  
+			 * 占用。另外检查值是否过宽，若是则完全不  
+			 * 做解 TOAST --- 直接                                  
+			 * 忽略该值。  
 			 */
 			if (toast_raw_datum_size(value) > WIDTH_THRESHOLD)
 			{
@@ -2481,18 +2481,18 @@ compute_scalar_stats(VacAttrStatsP stats,
 		}
 		else if (is_varwidth)
 		{
-			/* 必须 be cstring */
+			/* 必为 cstring  */
 			total_width += strlen(DatumGetCString(value)) + 1;
 		}
 
-		/* Add it 到 the 列表到 be sorted */
+		/* 将其加入待排序列表     */
 		values[values_cnt].value = value;
 		values[values_cnt].tupno = values_cnt;
 		tupnoLink[values_cnt] = values_cnt;
 		values_cnt++;
 	}
 
-	/* We 可以仅计算 real 统计信息如果 we found 一些 sortable values. */
+	/* 只有找到可排序值，才能算出真正的统计信息     */
 	if (values_cnt > 0)
 	{
 		int			ndistinct,	/* # distinct values in 采样 */
@@ -2509,23 +2509,23 @@ compute_scalar_stats(VacAttrStatsP stats,
 							compare_scalars, &cxt);
 
 		/*
-		 * Now 扫描 the values in order, find the 最多 common ones, 和还
-		 * accumulate ordering-相关度统计信息.
+		 * 现在按顺序扫描各值，找出最常见者，同时还     
+		 * 累积顺序相关度统计信息。       
 		 *
-		 * To determine which are 最多 common, we 首先 have 到 count the
-		 * 数字 of duplicates of 每个值.  The duplicates are adjacent in
-		 * the sorted 列表, so a brute-force approach is 到 compare successive
-		 * datum values 直到 we find 二那个 are 不 equal. However, 那个
-		 * requires N-1 invocations of the datum comparison routine, which are
-		 * 完全 redundant 带有 work 那个 was done 期间 the 排序.  (The
-		 * 排序 algorithm 必须 at 一些 point have compared 每个 pair of items
-		 * 那个 are adjacent in the sorted order; otherwise it 可以不 know
-		 * 那个 it's ordered the pair correctly.) We exploit 此通过 having
-		 * compare_scalars remember the highest tupno 索引那个每个
-		 * ScalarItem has been found equal 到.  At the 结束 of the 排序, a
-		 * ScalarItem's tupnoLink 将仍然 point 到 itself 如果和仅如果 it
-		 * is the 最后 item of its group of duplicates (由于 the group 将
-		 * be ordered 通过 tupno).
+		 * 为确定哪些值最常见，首先必须统计每个值的  
+		 * 重复数目。各重复值在已排序列表中是相邻          
+		 * 的，所以暴力做法是连续比较各 datum 值，直到      
+		 * 发现两个不相等的值为止。然而，这需要          
+		 * 调用 N-1 次 datum 比较例程，这与排序期间已做       
+		 * 工作完全重复。（排序算法在某个时刻必定比       
+		 * 较过已排序顺序中相邻的每一对元素；否则它      
+		 * 不可能知道该顺序是否正确。）我们利用这一      
+		 * 点：让 compare_scalars 记住每个 ScalarItem 被发现等  
+		 * 于的最高 tupno 索引。排序结束时，一个      
+		 * ScalarItem 的 tupnoLink 若仍指向自身，当且仅当它 
+		 * 是其重复组中的最后一个元素                            
+		 * （因为该组将按 tupno 排序）                            
+		 * 。                  
 		 */
 		corr_xysum = 0;
 		ndistinct = 0;
@@ -2539,7 +2539,7 @@ compute_scalar_stats(VacAttrStatsP stats,
 			dups_cnt++;
 			if (tupnoLink[tupno] == tupno)
 			{
-				/* Reached 结束 of duplicates of 此值 */
+				/* 已到达该值重复项的末尾       */
 				ndistinct++;
 				if (dups_cnt > 1)
 				{
@@ -2548,10 +2548,10 @@ compute_scalar_stats(VacAttrStatsP stats,
 						dups_cnt > track[track_cnt - 1].count)
 					{
 						/*
-						 * Found a 新 item 对于 the mcv 列表; find its
-						 * position, bubbling down 旧 items 如果 needed. Loop
-						 * invariant is 那个 j points at an empty/ replaceable
-						 * slot.
+						 * 为 mcv 列表找到一个新条目；     
+						 * 确定其位置，必要时将旧条目下移。 
+						 * 循环不变式是 j 指向空/可替换槽位     
+						 * 。  
 						 */
 						int			j;
 
@@ -2573,7 +2573,7 @@ compute_scalar_stats(VacAttrStatsP stats,
 		}
 
 		stats->stats_valid = true;
-		/* Do the simple NULL-frac 和 width 统计信息 */
+		/* 做简单的空值比例与宽度统计 */
 		stats->stanullfrac = (double) null_cnt / (double) samplerows;
 		if (is_varwidth)
 			stats->stawidth = total_width / (double) nonnull_cnt;
@@ -2583,43 +2583,43 @@ compute_scalar_stats(VacAttrStatsP stats,
 		if (nmultiple == 0)
 		{
 			/*
-			 * If we found no repeated non-NULL values, assume it's a unique
-			 * 列; 但 be sure 到 discount 对于任何 nulls we found.
+			 * 若未发现重复的非空值，则假定它是唯一列； 
+			 * 但务必对我们发现的任何空值打折扣。    
 			 */
 			stats->stadistinct = -1.0 * (1.0 - stats->stanullfrac);
 		}
 		else if (toowide_cnt == 0 && nmultiple == ndistinct)
 		{
 			/*
-			 * Every 值 in the 采样 appeared 更多 than 一次.  Assume the
-			 * 列 has 只是这些 values.  (This case is meant 到 address
-			 * columns 带有小, fixed sets of possible values, 如
-			 * 布尔或 enum columns.  If there are 任何 values 那个 appear
-			 * 只是一次 in the 采样, including too-宽 values, we 应该
-			 * assume 那个那个's 不 what we're dealing 带有.)
+			 * 采样中的每个值都出现了不止一次。该列只     
+			 * 有这些值。（本情况旨在处理可能取值为小型 
+			 * 固定集合的列，例如 boolean 或 enum 列。若    
+			 * 有任何值只在采样中出现一次（包括过宽的    
+			 * 值），我们就应假定我们要处理的并非这种    
+			 * 情况。）                                    
 			 */
 			stats->stadistinct = ndistinct;
 		}
 		else
 		{
 			/*----------
-			 * Estimate the 数字 of distinct values using the estimator
-			 * proposed 通过 Haas 和 Stokes in IBM Research Report RJ 10025:
+			 * 用估计器估算不同值的数量，该估计器由    
+			 * Haas 与 Stokes 提出，见 IBM 研究报告 RJ 10025：   
 			 *		n*d / (n - f1 + f1*n/N)
-			 * where f1 is the 数字 of distinct values 那个 occurred
-			 * 恰好一次 in our 采样 of n rows (从 a total of N),
-			 * 和 d is the total 数字 of distinct values in the 采样.
-			 * This is their Duj1 estimator; the other estimators they
-			 * recommend are considerably 更复杂, 和 are numerically
-			 * 非常 unstable 当 n is much smaller than N.
+			 * 其中 f1 为在 n 行样本（取自总共 N 行）   
+			 * 中恰好只出现一次的不同值个数；d 则为    
+			 * 样本中的不同值总数。                             
+			 * 这是他们的 Duj1 估计器；                      
+			 * 他们推荐的其余估计器复杂得多，且数值上   
+			 * 极不稳定，当 n 远小于 N 时。     
 			 *
-			 * In 此 calculation, we consider 仅 non-nulls.  We used 到
-			 * include rows 带有 NULL values in the n 和 N counts, 但那个
-			 * leads 到 inaccurate answers in columns 带有许多 nulls, 和
-			 * it's intuitively bogus anyway considering the desired result is
-			 * the 数字 of distinct non-NULL values.
+			 * 在该计算中我们只考虑非空值。我们曾         
+			 * 把空值行计入 n 与 N 的计数，但这在空值多    
+			 * 的列上导致不准确的结果；且无论怎么说，  
+			 * 既然想要的结果是非空不同值的数量，这种      
+			 * 做法在直觉上就是错的。      
 			 *
-			 * Overwidth values are assumed 到 have been distinct.
+			 * 超宽值均被假定原本就互不相同。      
 			 *----------
 			 */
 			int			f1 = ndistinct - nmultiple + toowide_cnt;
@@ -2634,52 +2634,52 @@ compute_scalar_stats(VacAttrStatsP stats,
 			else
 				stadistinct = 0;
 
-			/* Clamp 到 sane range 以防 of 舍入误差 */
+			/* 以防舍入误差，钳制到合理范围    */
 			if (stadistinct < d)
 				stadistinct = d;
 			if (stadistinct > N)
 				stadistinct = N;
-			/* And round 到整数 */
+			/* 接着舍入为整数*/
 			stats->stadistinct = floor(stadistinct + 0.5);
 		}
 
 		/*
-		 * If we estimated the 数字 of distinct values at 更多 than 10% of
-		 * the total 行 count (a 非常 arbitrary limit), 然后 assume 那个
-		 * stadistinct 应该 scale 带有 the 行 count 而非 be a fixed
-		 * 值.
+		 * 如果我们估算出的不同值数量超过总行数的        
+		 * 10%（一个非常任意的界限），那么就假定        
+		 * stadistinct 应随行数伸缩，而不是一个固定            
+		 * 值。
 		 */
 		if (stats->stadistinct > 0.1 * totalrows)
 			stats->stadistinct = -(stats->stadistinct / totalrows);
 
 		/*
-		 * Decide how 许多 values are worth storing 作为最多-common values. If
-		 * we are able 到 generate a complete MCV 列表 (所有 the values in the
-		 * 采样将 fit, 和 we think 这些 are 所有 the ones in the 表),
-		 * 然后 do so.  Otherwise, store 仅那些 values 那个 are
-		 * significantly 更多 common than the values 不 in the 列表.
+		 * 决定有多少个值值得存为最常见值。如果我们      
+		 * 能够生成一个完整的 MCV 列表（样本中的所有值    
+		 * 都放得下，且我们认为这些就是表里的全部值）， 
+		 * 那就这么做。否则只存储那些比不在列表  
+		 * 中的值明显更常见的那些值。                   
 		 *
-		 * Note: the 首先 of 这些 cases is meant 到 address columns 带有
-		 * 小, fixed sets of possible values, 如布尔或 enum
-		 * columns.  If we 可以 *完全* represent the 列 population 通过
-		 * an MCV 列表那个将 fit 进入 the 统计信息 target, 然后 we 应该 do
-		 * so 和 thus provide the 规划器带有 complete information.  But 如果
-		 * the MCV 列表 is 不 complete, it's generally worth being 更多
-		 * selective, 和不只是 filling it 所有 the way up 到 the 统计信息
-		 * target.
+		 * 注意：第一种情况旨在应对具有少量、固定的   
+		 * 可能值集合的列，比如 boolean 或 enum              
+		 * 列。如果放得进统计信息目标的一个 MCV 列表就能  
+		 * *完整地* 表示列的取值总体，那我们就应当这么   
+		 * 做，从而向规划器提供完整的信息。但如果 MCV     
+		 * 列表不完整，那么通常值得更有选择性，而    
+		 * 不是一味把它一路填满到统计信息目              
+		 * 标。 
 		 */
 		if (track_cnt == ndistinct && toowide_cnt == 0 &&
 			stats->stadistinct > 0 &&
 			track_cnt <= num_mcv)
 		{
-			/* Track 列表 includes 所有 values seen, 和所有将 fit */
+			/* 跟踪列表含全部所见值，且全部放得下   */
 			num_mcv = track_cnt;
 		}
 		else
 		{
 			int		   *mcv_counts;
 
-			/* Incomplete 列表; decide how 许多 values are worth keeping */
+			/* 列表不完整；决定有多少个值值得保留       */
 			if (num_mcv > track_cnt)
 				num_mcv = track_cnt;
 
@@ -2696,14 +2696,14 @@ compute_scalar_stats(VacAttrStatsP stats,
 			}
 		}
 
-		/* Generate MCV slot 条目 */
+		/* 生成 MCV 槽位条目 */
 		if (num_mcv > 0)
 		{
 			MemoryContext old_context;
 			Datum	   *mcv_values;
 			float4	   *mcv_freqs;
 
-			/* Must copy the target values 进入 anl_context */
+			/* 必须把目标值复制进 anl_context      */
 			old_context = MemoryContextSwitchTo(stats->anl_context);
 			mcv_values = (Datum *) palloc(num_mcv * sizeof(Datum));
 			mcv_freqs = (float4 *) palloc(num_mcv * sizeof(float4));
@@ -2725,16 +2725,16 @@ compute_scalar_stats(VacAttrStatsP stats,
 			stats->numvalues[slot_idx] = num_mcv;
 
 			/*
-			 * Accept the defaults 对于统计信息->statypid 和 others. They have
-			 * been 集合之前 we were called (see 清理.h)
+			 * 接受 stats->statypid 等字段的默认值。它们在     
+			 * 我们被调用前已设置（见 vacuum.h）
 			 */
 			slot_idx++;
 		}
 
 		/*
-		 * Generate a 直方图 slot 条目如果 there are 至少二 distinct
-		 * values 不 accounted 对于 in the MCV 列表.  (This ensures the
-		 * 直方图 won't collapse 到 empty 或 a singleton.)
+		 * 如果有至少两个未被 MCV 列表涵盖的不同值，       
+		 * 则生成直方图槽位条目。（这确保直方图不会
+		 * 塌缩为空或只剩单个值。）              
 		 */
 		num_hist = ndistinct - num_mcv;
 		if (num_hist > num_bins)
@@ -2749,16 +2749,16 @@ compute_scalar_stats(VacAttrStatsP stats,
 						delta,
 						deltafrac;
 
-			/* Sort the MCV items 进入 position order 到 speed 下一个循环 */
+			/* 把 MCV 项按位置排序，以加速下一个循环     */
 			qsort_interruptible(track, num_mcv, sizeof(ScalarMCVItem),
 								compare_mcvs, NULL);
 
 			/*
-			 * Collapse out the MCV items 从 the values[] 数组.
+			 * 从 values[] 数组中剔除 MCV 项。            
 			 *
-			 * Note we destroy the values[] 数组 here... 但 we don't 需要 it
-			 * 对于 anything 更多.  We do, 但是, 仍然需要 values_cnt.
-			 * nvals 将 be the 数字 of remaining entries in values[].
+			 * 注意此处我们破坏了 values[] 数组……但不再     
+			 * 用它做任何事。不过我们仍需要 values_cnt。  
+			 * nvals 将是 values[] 中剩余条目的数量。         
 			 */
 			if (num_mcv > 0)
 			{
@@ -2778,7 +2778,7 @@ compute_scalar_stats(VacAttrStatsP stats,
 
 						if (src >= first)
 						{
-							/* advance past 此 MCV item */
+							/* 越过此 MCV 项          */
 							src = first + track[j].count;
 							j++;
 							continue;
@@ -2798,18 +2798,18 @@ compute_scalar_stats(VacAttrStatsP stats,
 				nvals = values_cnt;
 			Assert(nvals >= num_hist);
 
-			/* Must copy the target values 进入 anl_context */
+			/* 必须把目标值复制进 anl_context      */
 			old_context = MemoryContextSwitchTo(stats->anl_context);
 			hist_values = (Datum *) palloc(num_hist * sizeof(Datum));
 
 			/*
-			 * The object of 此循环 is 到 copy the 首先和最后 values[]
-			 * entries along 带有 evenly-spaced values in 之间.  So the
-			 * i'th 值 is values[(i * (nvals - 1)) / (num_hist - 1)].  But
-			 * computing 那个 subscript directly risks 整数 overflow 当
-			 * the 统计信息 target is 更多 than a couple thousand.  Instead we
-			 * add (nvals - 1) / (num_hist - 1) 到 pos at 每个 step, tracking
-			 * the integral 和 fractional parts of the sum separately.
+			 * 本循环的目的是复制 values[] 的第一个和最后一 
+			 * 个条目以及其间等距的值。因此第 i 个值是  
+			 * values[(i * (nvals - 1)) / (num_hist - 1)]。但              
+			 * 直接计算该下标在统计信息目标超过几千时有 
+			 * 整数溢出风险。于是我们改为每步给 pos 加上 
+			 * (nvals - 1) / (num_hist - 1)，并分别跟踪                
+			 * 和的整数部分与小数部分。                    
 			 */
 			delta = (nvals - 1) / (num_hist - 1);
 			deltafrac = (nvals - 1) % (num_hist - 1);
@@ -2824,7 +2824,7 @@ compute_scalar_stats(VacAttrStatsP stats,
 				posfrac += deltafrac;
 				if (posfrac >= (num_hist - 1))
 				{
-					/* fractional part exceeds 1, carry 到整数 part */
+					/* 小数部分超过 1，进位到整数部分     */
 					pos++;
 					posfrac -= (num_hist - 1);
 				}
@@ -2839,13 +2839,13 @@ compute_scalar_stats(VacAttrStatsP stats,
 			stats->numvalues[slot_idx] = num_hist;
 
 			/*
-			 * Accept the defaults 对于统计信息->statypid 和 others. They have
-			 * been 集合之前 we were called (see 清理.h)
+			 * 接受 stats->statypid 等字段的默认值。它们在     
+			 * 我们被调用前已设置（见 vacuum.h）
 			 */
 			slot_idx++;
 		}
 
-		/* Generate a 相关度条目如果 there are 多个 values */
+		/* 如果有多个值，则生成一个相关度条目       */
 		if (values_cnt > 1)
 		{
 			MemoryContext old_context;
@@ -2853,17 +2853,17 @@ compute_scalar_stats(VacAttrStatsP stats,
 			double		corr_xsum,
 						corr_x2sum;
 
-			/* Must copy the target values 进入 anl_context */
+			/* 必须把目标值复制进 anl_context      */
 			old_context = MemoryContextSwitchTo(stats->anl_context);
 			corrs = (float4 *) palloc(sizeof(float4));
 			MemoryContextSwitchTo(old_context);
 
 			/*----------
-			 * Since we know the x 和 y 值 sets are both
+			 * 既然已知 x 与 y 的取值集合均为   
 			 *		0, 1, ..., values_cnt-1
-			 * we have sum(x) = sum(y) =
+			 * 可得 sum(x) = sum(y) = 
 			 *		(values_cnt-1)*values_cnt / 2
-			 * 和 sum(x^2) = sum(y^2) =
+			 * 且 sum(x^2) = sum(y^2) =
 			 *		(values_cnt-1)*values_cnt*(2*values_cnt-1) / 6.
 			 *----------
 			 */
@@ -2872,7 +2872,7 @@ compute_scalar_stats(VacAttrStatsP stats,
 			corr_x2sum = ((double) (values_cnt - 1)) *
 				((double) values_cnt) * (double) (2 * values_cnt - 1) / 6.0;
 
-			/* And the 相关度 coefficient reduces 到 */
+			/* 于是相关度系数就简化为          */
 			corrs[0] = (values_cnt * corr_xysum - corr_xsum * corr_xsum) /
 				(values_cnt * corr_x2sum - corr_xsum * corr_xsum);
 
@@ -2886,21 +2886,21 @@ compute_scalar_stats(VacAttrStatsP stats,
 	}
 	else if (nonnull_cnt > 0)
 	{
-		/* We found 一些 non-NULL values, 但 they were 所有 too 宽 */
+		/* 我们找到了一些非空值，但它们全都太宽    */
 		Assert(nonnull_cnt == toowide_cnt);
 		stats->stats_valid = true;
-		/* Do the simple NULL-frac 和 width 统计信息 */
+		/* 做简单的空值比例与宽度统计 */
 		stats->stanullfrac = (double) null_cnt / (double) samplerows;
 		if (is_varwidth)
 			stats->stawidth = total_width / (double) nonnull_cnt;
 		else
 			stats->stawidth = stats->attrtype->typlen;
-		/* Assume 所有 too-宽 values are distinct, so it's a unique 列 */
+		/* 假定所有过宽值互不相同，因此这是一个唯一列  */
 		stats->stadistinct = -1.0 * (1.0 - stats->stanullfrac);
 	}
 	else if (null_cnt > 0)
 	{
-		/* We found 仅 nulls; assume the 列 is 完全 NULL */
+		/* 我们只找到了空值；假定该列全为空值     */
 		stats->stats_valid = true;
 		stats->stanullfrac = 1.0;
 		if (is_varwidth)
@@ -2910,17 +2910,17 @@ compute_scalar_stats(VacAttrStatsP stats,
 		stats->stadistinct = 0.0;	/* "unknown" */
 	}
 
-	/* We don't 需要到 bother cleaning up 任何 of our temporary palloc's */
+	/* 我们无需费心清理任何用 palloc 分配的临时内存    */
 }
 
 /*
- * Comparator 对于 sorting ScalarItems
+ * 排序 ScalarItems 的比较器   
  *
- * Aside 从 sorting the items, we 更新 the tupnoLink[] 数组
- * whenever 二 ScalarItems are found 到 contain equal datums.  The 数组
- * is indexed 通过 tupno; 对于每个 ScalarItem, it contains the highest
- * tupno 那个那个 item's datum has been found 到 be equal 到.  This allows
- * us 到 avoid additional comparisons in compute_scalar_stats().
+ * 除了对条目排序外，我们还更新 tupnoLink[] 数   
+ * 组——每当发现两个 ScalarItems 含有相等 datum 时。该  
+ * 组以 tupno 索引；对每个 ScalarItem，它存有该        
+ * datum 被发现与之相等的最大 tupno。这让我们能            
+ * 避免在 compute_scalar_stats() 中做额外的比较。    
  */
 static int
 compare_scalars(const void *a, const void *b, void *arg)
@@ -2937,7 +2937,7 @@ compare_scalars(const void *a, const void *b, void *arg)
 		return compare;
 
 	/*
-	 * The 二 datums are equal, so 更新 cxt->tupnoLink[].
+	 * 两个 datum 相等，故更新 cxt->tupnoLink[]。  
 	 */
 	if (cxt->tupnoLink[ta] < tb)
 		cxt->tupnoLink[ta] = tb;
@@ -2945,7 +2945,7 @@ compare_scalars(const void *a, const void *b, void *arg)
 		cxt->tupnoLink[tb] = ta;
 
 	/*
-	 * For equal datums, 排序通过 tupno
+	 * 相等 datum 按 tupno 排序  
 	 */
 	return ta - tb;
 }
@@ -2963,13 +2963,13 @@ compare_mcvs(const void *a, const void *b, void *arg)
 }
 
 /*
- * Analyze the 列表 of common values in the 采样和 decide how 许多 are
- * worth storing in the 表's MCV 列表.
+ * 分析采样中常见值的列表，并决定其中有多少个        
+ * 值得存入表的 MCV 列表。      
  *
- * mcv_counts is assumed 到 be a 列表 of the counts of the 最多 common values
- * seen in the 采样, starting 带有 the 最多 common.  The 返回值 is the
- * 数字那个 are significantly 更多 common than the values 不 in the 列表,
- * 和 which are therefore deemed worth storing in the 表's MCV 列表.
+ * mcv_counts 被假定为最常见值的出现次数组成的列表，      
+ * 按从最常见开始排列。返回值是其中比不在列表            
+ * 中的值明显更常见、且因此被认为值得存入                 
+ * 表的 MCV 列表的那些值的数量。                            
  */
 static int
 analyze_mcv_list(int *mcv_counts,
@@ -2984,35 +2984,35 @@ analyze_mcv_list(int *mcv_counts,
 	int			i;
 
 	/*
-	 * If the entire 表 was sampled, keep the whole 列表.  This 还
-	 * protects us against division 通过 zero in the code 以下.
+	 * 如果整张表都被采样，则保留整个列表。这也    
+	 * 保护我们免于在下面代码中出现除零。    
 	 */
 	if (samplerows == totalrows || totalrows <= 1.0)
 		return num_mcv;
 
-	/* Re-extract the estimated 数字 of distinct nonnull values in 表 */
+	/* 重新提取表中非空不同值数量的估算值                 */
 	ndistinct_table = stadistinct;
 	if (ndistinct_table < 0)
 		ndistinct_table = -ndistinct_table * totalrows;
 
 	/*
-	 * Exclude the least common values 从 the MCV 列表, 如果 they are 不
-	 * significantly 更多 common than the estimated selectivity they 会
-	 * have 如果 they weren't in the 列表.  All non-MCV values are assumed 到 be
-	 * equally common, 之后 taking 进入 account the frequencies of 所有 the
-	 * values in the MCV 列表和 the 数字 of nulls (c.f. eqsel()).
+	 * 从 MCV 列表中剔除最不常见的值，如果它们并不    
+	 * 明显比它们不在列表中时的估计选择率更常见。    
+	 * 所有非 MCV 值都被假定为同等常见，这是在考虑了      
+	 * MCV 列表中所有值的频率以及空值数量之后得出       
+	 * 的（参见 eqsel()）。                                    
 	 *
-	 * Here sumcount tracks the total count of 所有但 the 最后 (least common)
-	 * 值 in the MCV 列表, allowing us 到 determine the effect of excluding
-	 * 那个值从 the 列表.
+	 * 这里 sumcount 跟踪 MCV 列表中除最后一个（最不           
+	 * 常见）值之外所有值的总计数，让我们能确定剔除     
+	 * 该值的影响。       
 	 *
-	 * Note 那个 we deliberately do 此通过 removing values 从 the full
-	 * 列表, 而非 starting 带有 an empty 列表和 adding values,
-	 * 因为 the latter approach 可以 fail 到 add 任何 values 如果所有 the 最多
-	 * common values have around the 相同 frequency 和 make up the majority
-	 * of the 表, 以便 the overall average frequency of 所有 values is
-	 * 大致 the 相同作为那个 of the common values.  This 会 lead 到任何
-	 * uncommon values being significantly overestimated.
+	 * 注意我们有意通过从完整列表中移除值来完成，   
+	 * 而不是从一个空列表开始逐个加入值，因为后者 
+	 * 这种做法在所有最常见值的频率彼此接近并且构       
+	 * 成表的多数时，可能一个值也加不进去，               
+	 * 以至于所有值的总体平均频率与常见值的频率        
+	 * 大致相同。这会导致任何不常见值                         
+	 * 被显著高估。                                
 	 */
 	sumcount = 0.0;
 	for (i = 0; i < num_mcv - 1; i++)
@@ -3029,8 +3029,8 @@ analyze_mcv_list(int *mcv_counts,
 					stddev;
 
 		/*
-		 * Estimated selectivity the least common 值会 have 如果 it
-		 * wasn't in the MCV 列表 (c.f. eqsel()).
+		 * 最不常见的值如果不在 MCV 列表中时应有的估  
+		 * 计选择率（参见 eqsel()）。   
 		 */
 		selec = 1.0 - sumcount / samplerows - stanullfrac;
 		if (selec < 0.0)
@@ -3042,20 +3042,20 @@ analyze_mcv_list(int *mcv_counts,
 			selec /= otherdistinct;
 
 		/*
-		 * If the 值 is kept in the MCV 列表, its population frequency is
-		 * assumed 到 equal its 采样 frequency.  We use the lower 结束 of a
-		 * textbook continuity-corrected Wald-类型 confidence interval 到
-		 * determine 如果那个 is significantly 更多 common than the non-MCV
-		 * frequency --- specifically we assume the population frequency is
-		 * 高度 likely 到 be 在...内 around 2 standard errors of the 采样
-		 * frequency, which equates 到 an interval of 2 standard deviations
-		 * either side of the 采样 count, plus an additional 0.5 对于 the
-		 * continuity correction.  Since we are 采样没有 replacement,
-		 * 此 is a hypergeometric distribution.
+		 * 如果该值保留在 MCV 列表中，则假定其总体频率   
+		 * 等于其采样频率。我们使用一个教科书式的经过  
+		 * 连续性校正的 Wald 型置信区间的下端来确定     
+		 * 它是否明显比非 MCV 频率更常见——具体而       
+		 * 言，我们假定总体频率极有可能落在采样频率    
+		 * 附近约 2 个标准误差的范围内——这等同于采样  
+		 * 计数两侧各 2 个标准差的区间，外加为连续性    
+		 * 校正而额外加上的 0.5。由于我们的采样是不     
+		 * 放回的，所以这是一个                                    
+		 * 超几何分布。                    
 		 *
-		 * XXX: Empirically, 此 approach seems 到 work 相当 well, 但 it
-		 * 可以 be worth considering 更多 advanced techniques 对于 estimating
-		 * the confidence interval of the hypergeometric distribution.
+		 * XXX: 从经验上看，这种方法效果相当好，但        
+		 * 或许值得考虑用更先进的技术来估计超几何       
+		 * 分布的置信区间。                                   
 		 */
 		N = totalrows;
 		n = samplerows;
@@ -3066,15 +3066,15 @@ analyze_mcv_list(int *mcv_counts,
 		if (mcv_counts[num_mcv - 1] > selec * samplerows + 2 * stddev + 0.5)
 		{
 			/*
-			 * The 值 is significantly 更多 common than the non-MCV
-			 * selectivity 会 suggest.  Keep it, 和所有 the other 更多
-			 * common values in the 列表.
+			 * 该值明显比非 MCV 选择率暗示的更常见。  
+			 * 保留它，以及列表中所有其他                    
+			 * 更常见的值。        
 			 */
 			break;
 		}
 		else
 		{
-			/* Discard 此值和 consider the 下一个 least common 值 */
+			/* 丢弃该值，然后考虑下一个最不常见的值      */
 			num_mcv--;
 			if (num_mcv == 0)
 				break;

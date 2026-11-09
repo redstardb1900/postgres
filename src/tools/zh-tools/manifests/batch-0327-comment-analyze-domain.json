@@ -1,0 +1,46 @@
+{
+ "schema_version": 1,
+ "batch_id": "0327-comment-analyze-domain",
+ "title": "Translate comments: analyze-domain",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "6a1f8fcc7c5d3b18176e8842a3c31ef10052c21b",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0327-comment-analyze-domain.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/commands/**",
+   "kind": "c_comment",
+   "note": "P2 comment translation campaign"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0327-comment-analyze-domain.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/commands/analyze.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 262,
+   "translated": 109,
+   "preserved": 153,
+   "preserved_reasons": [
+    "Copyright header and IDENTIFICATION",
+    "ASCII diagrams/tables, keep-EN labels (macro condition tags, identifier labels, fall-through), gettext translator hints (R5-protected), and separator-only blocks rebuilt byte-identical"
+   ],
+   "note": "P2 translation campaign wave Z1"
+  }
+ ],
+ "notes": "Translation agents (Z1a/Z1b/Z1c) -> spec_check -> apply -> block audit -> verify_c_comments + term_lint + check_scope -> read-only review agent PASS. Gates and tool hashes recorded in the commit message."
+}

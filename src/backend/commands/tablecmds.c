@@ -143,7 +143,7 @@ static List *on_commits = NIL;
 
 #define AT_PASS_UNSET			-1	/* UNSET 将导致 ERROR  */
 #define AT_PASS_DROP			0	/* DROP (所有变体)*/
-#define AT_PASS_ALTER_TYPE		1	/* ALTER COLUMN TYPE */
+#define AT_PASS_ALTER_TYPE		1	/* 更改列类型   */
 #define AT_PASS_OLD_INDEX		2	/* 重建已存在的索引*/
 #define AT_PASS_OLD_CONSTR		3	/* 重建已存在的约束    */
 /* 此处本可支持一个 RENAME COLUMN 趟，但目前未使用    */
@@ -4823,7 +4823,7 @@ ATPrepCmd(List **wqueue, Relation rel, AlterTableCmd *cmd,
 			pass = AT_PASS_MISC;
 			break;
 		case AT_ClusterOn:		/* CLUSTER ON */
-		case AT_DropCluster:	/* SET WITHOUT CLUSTER */
+		case AT_DropCluster:	/* 设置无聚簇     */
 			ATSimplePermissions(cmd->subtype, rel, ATT_TABLE | ATT_MATVIEW);
 			/* 这些命令不会递归     */
 			/* 无需特定命令的准备     */
@@ -4859,11 +4859,11 @@ ATPrepCmd(List **wqueue, Relation rel, AlterTableCmd *cmd,
 			}
 			pass = AT_PASS_MISC;
 			break;
-		case AT_DropOids:		/* SET WITHOUT OIDS */
+		case AT_DropOids:		/* 设置无 OIDS   */
 			ATSimplePermissions(cmd->subtype, rel, ATT_TABLE | ATT_FOREIGN_TABLE);
 			pass = AT_PASS_DROP;
 			break;
-		case AT_SetAccessMethod:	/* SET ACCESS METHOD */
+		case AT_SetAccessMethod:	/* 设置访问方法*/
 			ATSimplePermissions(cmd->subtype, rel, ATT_TABLE | ATT_MATVIEW);
 
 			/* 分区表没有访问方法                    */
@@ -4881,7 +4881,7 @@ ATPrepCmd(List **wqueue, Relation rel, AlterTableCmd *cmd,
 			ATPrepSetAccessMethod(tab, rel, cmd->name);
 			pass = AT_PASS_MISC;	/* 无关紧要；Phase 2 无需操作 */
 			break;
-		case AT_SetTableSpace:	/* SET TABLESPACE */
+		case AT_SetTableSpace:	/* 设置表空间*/
 			ATSimplePermissions(cmd->subtype, rel, ATT_TABLE | ATT_MATVIEW | ATT_INDEX |
 								ATT_PARTITIONED_INDEX);
 			/* 此命令不会递归       */
@@ -4889,31 +4889,31 @@ ATPrepCmd(List **wqueue, Relation rel, AlterTableCmd *cmd,
 			pass = AT_PASS_MISC;	/* 其实并无影响      */
 			break;
 		case AT_SetRelOptions:	/* SET (...) */
-		case AT_ResetRelOptions:	/* RESET (...) */
+		case AT_ResetRelOptions:	/* 重置 (...)*/
 		case AT_ReplaceRelOptions:	/* 全部重置后，仅设置这些   */
 			ATSimplePermissions(cmd->subtype, rel, ATT_TABLE | ATT_VIEW | ATT_MATVIEW | ATT_INDEX);
 			/* 此命令不会递归       */
 			/* 无需特定命令的准备     */
 			pass = AT_PASS_MISC;
 			break;
-		case AT_AddInherit:		/* INHERIT */
+		case AT_AddInherit:		/* 继承  */
 			ATSimplePermissions(cmd->subtype, rel, ATT_TABLE | ATT_FOREIGN_TABLE);
 			/* 此命令不会递归       */
 			ATPrepAddInherit(rel);
 			pass = AT_PASS_MISC;
 			break;
-		case AT_DropInherit:	/* NO INHERIT */
+		case AT_DropInherit:	/* 无继承  */
 			ATSimplePermissions(cmd->subtype, rel, ATT_TABLE | ATT_FOREIGN_TABLE);
 			/* 此命令不会递归       */
 			/* 无需特定命令的准备     */
 			pass = AT_PASS_MISC;
 			break;
-		case AT_AlterConstraint:	/* ALTER CONSTRAINT */
+		case AT_AlterConstraint:	/* 更改约束     */
 			ATSimplePermissions(cmd->subtype, rel, ATT_TABLE);
 			/* 递归发生在执行阶段             */
 			pass = AT_PASS_MISC;
 			break;
-		case AT_ValidateConstraint: /* VALIDATE CONSTRAINT */
+		case AT_ValidateConstraint: /* 验证约束        */
 			ATSimplePermissions(cmd->subtype, rel, ATT_TABLE | ATT_FOREIGN_TABLE);
 			/* 递归发生在执行阶段             */
 			/* 除了保存递归标志外，无需特定命令的准备  */
@@ -4921,7 +4921,7 @@ ATPrepCmd(List **wqueue, Relation rel, AlterTableCmd *cmd,
 				cmd->recurse = true;
 			pass = AT_PASS_MISC;
 			break;
-		case AT_ReplicaIdentity:	/* REPLICA IDENTITY ... */
+		case AT_ReplicaIdentity:	/* 复制标识 ...     */
 			ATSimplePermissions(cmd->subtype, rel, ATT_TABLE | ATT_MATVIEW);
 			pass = AT_PASS_MISC;
 			/* 此命令不会递归       */
@@ -5185,10 +5185,10 @@ ATExecCmd(List **wqueue, AlteredTableInfo *tab,
 			address = ATExecAddIndexConstraint(tab, rel, (IndexStmt *) cmd->def,
 											   lockmode);
 			break;
-		case AT_AlterConstraint:	/* ALTER CONSTRAINT */
+		case AT_AlterConstraint:	/* 更改约束     */
 			address = ATExecAlterConstraint(rel, cmd, false, false, lockmode);
 			break;
-		case AT_ValidateConstraint: /* VALIDATE CONSTRAINT */
+		case AT_ValidateConstraint: /* 验证约束        */
 			address = ATExecValidateConstraint(wqueue, rel, cmd->name, cmd->recurse,
 											   false, lockmode);
 			break;
@@ -5214,19 +5214,19 @@ ATExecCmd(List **wqueue, AlteredTableInfo *tab,
 		case AT_ClusterOn:		/* CLUSTER ON */
 			address = ATExecClusterOn(rel, cmd->name, lockmode);
 			break;
-		case AT_DropCluster:	/* SET WITHOUT CLUSTER */
+		case AT_DropCluster:	/* 设置无聚簇     */
 			ATExecDropCluster(rel, lockmode);
 			break;
 		case AT_SetLogged:		/* SET LOGGED */
 		case AT_SetUnLogged:	/* SET UNLOGGED */
 			break;
-		case AT_DropOids:		/* SET WITHOUT OIDS */
+		case AT_DropOids:		/* 设置无 OIDS   */
 			/* 此处无需处理，OID 列已不复存在         */
 			break;
-		case AT_SetAccessMethod:	/* SET ACCESS METHOD */
+		case AT_SetAccessMethod:	/* 设置访问方法*/
 			/* 在 Phase 3 中专门处理  */
 			break;
-		case AT_SetTableSpace:	/* SET TABLESPACE */
+		case AT_SetTableSpace:	/* 设置表空间*/
 
 			/*
 			 * 只处理分区表和分区索引：对它们而言这只是   
@@ -5239,7 +5239,7 @@ ATExecCmd(List **wqueue, AlteredTableInfo *tab,
 
 			break;
 		case AT_SetRelOptions:	/* SET (...) */
-		case AT_ResetRelOptions:	/* RESET (...) */
+		case AT_ResetRelOptions:	/* 重置 (...)*/
 		case AT_ReplaceRelOptions:	/* 替换整个选项列表   */
 			ATExecSetRelOptions(rel, (List *) cmd->def, cmd->subtype, lockmode);
 			break;
@@ -13824,7 +13824,7 @@ ATPostAlterTypeParse(Oid oldId, Oid oldRelId, Oid refRelId, char *cmd,
 		{
 			AlterDomainStmt *stmt = (AlterDomainStmt *) stm;
 
-			if (stmt->subtype == 'C')	/* ADD CONSTRAINT */
+			if (stmt->subtype == 'C')	/* 添加约束   */
 			{
 				Constraint *con = castNode(Constraint, stmt->def);
 				AlterTableCmd *cmd = makeNode(AlterTableCmd);

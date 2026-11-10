@@ -87,10 +87,10 @@ execTuplesMatchPrepare(TupleDesc desc,
  *		查找 TupleHashTable 所需的相等与哈希函数。                
  *
  * 本函数与 execTuplesMatchPrepare 类似，但我们还需           
- * 要找出与相等操作符关联的哈希函数。*eqFunctions 与     
+ * 要找出与相等算子关联的哈希函数。*eqFunctions 与        
  * *hashFunctions 接收 palloc 出的结果数组。
  *
- * 注意：我们假定给定的操作符不是跨类型比较。         
+ * 注意：我们假定给定的算子不是跨类型比较。            
  */
 void
 execTuplesHashPrepare(int numCols,

@@ -71,6 +71,9 @@ class RuleLoading(unittest.TestCase):
         with self.assertRaises(ValueError):
             termlint.load_term_rules({"rules": [{"id": "X", "en": "a", "zh_forbidden": "b",
                                                  "severity": "warning", "path": 3}]})
+        with self.assertRaises(ValueError):
+            termlint.load_term_rules({"rules": [{"id": "X", "en": "a", "zh_forbidden": "b",
+                                                 "severity": "warning", "path": [3]}]})
         rules, _ = termlint.load_term_rules({"rules": [{"id": "X", "en": "a", "zh_forbidden": "b",
                                                         "severity": "warning",
                                                         "path": ["src/a/**", "src/b/**"]}]})
@@ -144,13 +147,14 @@ class PairLinting(unittest.TestCase):
         self.assertEqual(ids(termlint.lint_pair(self.rules, "take WALInsertLock", "获取 WALInsertLock")), [])
 
     def test_path_scoped_rule(self):
-        # TL16: the executor-domain rule fires only under the executor paths
+        # TL16: the executor-domain rule (error since batch-0332) fires only
+        # under the executor paths
         en = "the slot ops for the inner tuple"
         zh = "内层元组的 slot 操作符"
-        self.assertEqual(warnings(termlint.lint_pair(self.rules, en, zh,
-                                                     path="src/backend/executor/execExpr.c")), ["TL16"])
-        self.assertEqual(warnings(termlint.lint_pair(self.rules, en, zh,
-                                                     path="src/include/executor/tuptable.h")), ["TL16"])
+        self.assertEqual(errors(termlint.lint_pair(self.rules, en, zh,
+                                                   path="src/backend/executor/execExpr.c")), ["TL16"])
+        self.assertEqual(errors(termlint.lint_pair(self.rules, en, zh,
+                                                   path="src/include/executor/tuptable.h")), ["TL16"])
         # outside the executor the glossary rendering 操作符 is correct
         self.assertEqual(ids(termlint.lint_pair(self.rules, en, zh, path="src/backend/commands/copy.c")), [])
         # 算子 is the sanctioned executor rendering: no hit

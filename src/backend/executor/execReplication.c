@@ -88,8 +88,8 @@ build_replindex_scan_key(ScanKey skey, Relation rel, Relation idxrel,
 		}
 
 		/*
-		 * 加载操作符信息。我们需要它来获取扫描键的      
-		 * 相等操作符函数。  
+		 * 加载算子信息。我们需要它来获取扫描键的         
+		 * 相等算子函数。     
 		 */
 		optype = get_opclass_input_type(opclass->values[index_attoff]);
 		opfamily = get_opclass_family(opclass->values[index_attoff]);

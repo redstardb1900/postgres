@@ -31,9 +31,9 @@
    "note": "collation → 排序规则"},
   {"id": "TL15", "severity": "error", "en": "\\bforeign data wrapper\\b", "zh_forbidden": "外部数据封装器|外部数据包装程序",
    "note": "foreign data wrapper → 外部数据包装器"},
-  {"id": "TL16", "severity": "warning", "en": "\\boperators?\\b|\\bops\\b", "zh_forbidden": "操作符",
+  {"id": "TL16", "severity": "error", "en": "\\boperators?\\b|\\bops\\b", "zh_forbidden": "操作符",
    "path": ["src/backend/executor/**", "src/include/executor/**"],
-   "note": "executor-domain exception (user rule 2026-11-10): in src/backend/executor and src/include/executor (.c/.h) ops/operator/operators stay 算子, never 操作符; warning while the pre-rule 操作符 backlog from older executor batches awaits instructions, promote to error once resolved"}
+   "note": "executor-domain exception (user rule 2026-11-10): in src/backend/executor and src/include/executor (.c/.h) ops/operator/operators stay 算子, never 操作符; promoted to error in batch-0332 after the pre-rule 操作符 backlog (28 segments) was fully converted to 算子"}
  ],
  "preserve_terms": ["WAL", "OID", "LSN", "TID", "TOAST", "XID", "FDW", "LWLock", "MVCC", "SLRU", "CLOG"]
 }

@@ -715,7 +715,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		 * 到 fcinfo->args 中。              
 		 *
 		 * STRICT 检查和函数用法有明显性能影响，而且         
-		 * 函数调用是极热路径（操作符也靠它），所以
+		 * 函数调用是极热路径（算子也靠它），所以   
 		 * 值得设置这么多独立的操作码。              
 		 *
 		 * 注：此处及其他地方用临时变量 "d" 的原因是，  
@@ -1211,7 +1211,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			 * IS DISTINCT FROM 必须求值参数（已求值到         
 			 * fcinfo->args）以判断它们是否为 NULL；若任一为   
 			 * NULL 则结果已定。若两者均非 NULL，则继续求值
-			 * 比较函数，即该类型标准的相等操作符。我们  
+			 * 比较函数，即该类型标准的相等算子。我们     
 			 * 无需关心函数是否严格；由于 null 处理不同，
 			 * 不能直接复用                                        
 			 * EEOP_FUNCEXPR。                             
@@ -3349,7 +3349,7 @@ ExecEvalConvertRowtype(ExprState *state, ExprEvalStep *op, ExprContext *econtext
  * 源数组在我们的结果区中，标量参数已被求值到         
  * fcinfo->args[0] 
  *
- * 该操作符总是返回布尔值，我们用 OR 和 AND（分别        
+ * 该算子总是返回布尔值，我们用 OR 和 AND（分别           
  * 对应 ANY 和 ALL）组合所有数组元素上的结果。当然        
  * 一旦结果可知就立即短路。            
  */
@@ -3372,7 +3372,7 @@ ExecEvalScalarArrayOp(ExprState *state, ExprEvalStep *op)
 
 	/*
 	 * 若数组为 NULL，则我们返回 NULL ---                         
-	 * 即便操作符非严格，做其他事也无意义。 
+	 * 即便算子非严格，做其他事也无意义。    
 	 */
 	if (*op->resnull)
 		return;
@@ -3383,7 +3383,7 @@ ExecEvalScalarArrayOp(ExprState *state, ExprEvalStep *op)
 	/*
 	 * 若数组为空，则依据 useOr 标志返回 FALSE 或 TRUE。   
 	 * 即使标量为 NULL，这也是正确的；因为我们会      
-	 * 对操作符求值零次，故它是否想返回 NULL 都             
+	 * 对算子求值零次，故它是否想返回 NULL 都                
 	 * 无关紧要。
 	 */
 	nitems = ArrayGetNItems(ARR_NDIM(arr), ARR_DIMS(arr));
@@ -3554,7 +3554,7 @@ saop_hash_element_match(struct saophash_hash *tb, Datum key1, Datum key2)
  * 源数组位于我们的结果区中，标量参数已求值到         
  * fcinfo->args[0].
  *
- * 操作符总是产生布尔值。  
+ * 算子总是产生布尔值。     
  */
 void
 ExecEvalHashedScalarArrayOp(ExprState *state, ExprEvalStep *op, ExprContext *econtext)

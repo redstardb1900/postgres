@@ -718,7 +718,7 @@ check_exclusion_or_unique_constraint(Relation heap, Relation index,
 	/*
 	 * 如果任一输入值为 NULL，且该索引使用默认的        
 	 * nulls-are-distinct 模式，则假定约束检查通过（即          
-	 * 我们假定操作符是严格的）。否则，我们会把     
+	 * 我们假定算子是严格的）。否则，我们会把        
 	 * 约束解释为对每个输入值为 NULL 的列指定 IS            
 	 * NULL 
 	 */
@@ -889,7 +889,7 @@ retry:
 	 * 通常，此时搜索应当已经找到了最初插入的那个      
 	 * 元组（如果有的话），除非我们因冲突而提前退    
 	 * 出了循环。不过，也可能定义出使这一点不成立       
-	 * 的排除约束 --- 比如操作符是 <>。所以如果               
+	 * 的排除约束 --- 比如算子是 <>。所以如果                  
 	 * found_self 仍为假，我们也不再抱怨。    
 	 */
 
@@ -933,7 +933,7 @@ index_recheck_constraint(Relation index, Oid *constr_procs,
 
 	for (i = 0; i < indnkeyatts; i++)
 	{
-		/* 假定排除操作符是严格的         */
+		/* 假定排除算子是严格的            */
 		if (existing_isnull[i])
 			return false;
 

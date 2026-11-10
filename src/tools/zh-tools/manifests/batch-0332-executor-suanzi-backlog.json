@@ -1,0 +1,224 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0332",
+  "title": "executor 算子 rule completion: backlog 操作符 -> 算子 (45 lines / 46 occ / 9 files) + TL16 promoted to error",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "725a29859af3a794f4d17322b91707eea70fc1fb",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0332-executor-suanzi-backlog.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/executor/execExpr.c",
+      "kind": "c_comment",
+      "note": "lines 1156/1186 操作符->算子 (0330 运算符 sites, last backlog members)"
+    },
+    {
+      "pattern": "src/backend/executor/execExprInterp.c",
+      "kind": "c_comment",
+      "note": "lines 718/1214/3352/3375/3386/3557 操作符->算子"
+    },
+    {
+      "pattern": "src/backend/executor/execGrouping.c",
+      "kind": "c_comment",
+      "note": "lines 90/93 操作符->算子"
+    },
+    {
+      "pattern": "src/backend/executor/execIndexing.c",
+      "kind": "c_comment",
+      "note": "lines 721/892/936 操作符->算子"
+    },
+    {
+      "pattern": "src/backend/executor/execReplication.c",
+      "kind": "c_comment",
+      "note": "lines 91/92 操作符->算子"
+    },
+    {
+      "pattern": "src/backend/executor/nodeHash.c",
+      "kind": "c_comment",
+      "note": "lines 1878/1883/1884/1886 操作符->算子"
+    },
+    {
+      "pattern": "src/backend/executor/nodeIndexscan.c",
+      "kind": "c_comment",
+      "note": "17 lines incl. struct-field one-line comments 1196-1202 (opclause/opfamily blocks)"
+    },
+    {
+      "pattern": "src/backend/executor/nodeMergejoin.c",
+      "kind": "c_comment",
+      "note": "8 lines incl. line 169 (操作符 x2 on one line) and line 47 (EN opfamilies)"
+    },
+    {
+      "pattern": "src/backend/executor/nodeTidrangescan.c",
+      "kind": "c_comment",
+      "note": "line 55 操作符->算子 (operand 操作数 untouched)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/term_rules.json",
+      "kind": "tool",
+      "note": "TL16 severity warning -> error (backlog cleared); note updated"
+    },
+    {
+      "pattern": "src/tools/zh-tools/zhtools/termlint.py",
+      "kind": "tool",
+      "note": "F1 hardening: 'path' list elements must be glob strings (ValueError), was TypeError via glob_to_regex"
+    },
+    {
+      "pattern": "src/tools/zh-tools/tests/test_term_lint.py",
+      "kind": "tool",
+      "note": "test_path_scoped_rule asserts TL16 as error; path-must-be test adds [3] case"
+    },
+    {
+      "pattern": "src/tools/zh-tools/README.md",
+      "kind": "tool",
+      "note": "workflow bullet updated: TL16 now error, backlog cleared by batch-0332"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0332-executor-suanzi-backlog.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/backend/executor/execExpr.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "2 lines: 操作符->算子 +3B pad absorbed, byte-neutral per line"
+    },
+    {
+      "path": "src/backend/executor/execExprInterp.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "6 lines: 操作符->算子 +3B pad absorbed, byte-neutral per line"
+    },
+    {
+      "path": "src/backend/executor/execGrouping.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "2 lines: 操作符->算子 +3B pad absorbed, byte-neutral per line"
+    },
+    {
+      "path": "src/backend/executor/execIndexing.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "3 lines: 操作符->算子 +3B pad absorbed, byte-neutral per line"
+    },
+    {
+      "path": "src/backend/executor/execReplication.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "2 lines: 操作符->算子 +3B pad absorbed, byte-neutral per line"
+    },
+    {
+      "path": "src/backend/executor/nodeHash.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "4 lines: 操作符->算子 +3B pad absorbed, byte-neutral per line"
+    },
+    {
+      "path": "src/backend/executor/nodeIndexscan.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "17 lines: 操作符->算子 +3B pad absorbed (gap before */ on one-line struct comments), byte-neutral per line"
+    },
+    {
+      "path": "src/backend/executor/nodeMergejoin.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "8 lines / 9 occurrences (line 169 has x2): 操作符->算子 +3B per occurrence pad absorbed, byte-neutral per line"
+    },
+    {
+      "path": "src/backend/executor/nodeTidrangescan.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "1 line: 操作符->算子 +3B pad absorbed, byte-neutral per line"
+    },
+    {
+      "path": "src/tools/zh-tools/term_rules.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "TL16 severity error; en/zh_forbidden/path unchanged; note records batch-0332 promotion"
+    },
+    {
+      "path": "src/tools/zh-tools/zhtools/termlint.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "F1 hardening (r1/r2-0331 finding): path list elements validated as strings -> ValueError"
+    },
+    {
+      "path": "src/tools/zh-tools/tests/test_term_lint.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "TL16 assertions moved warnings() -> errors(); [3] element case added"
+    },
+    {
+      "path": "src/tools/zh-tools/README.md",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "bullet: TL16 now error, backlog cleared by batch-0332"
+    }
+  ],
+  "notes": "batch-0332 (user instruction 2026-11-10): complete the executor-domain rule by converting the entire pre-rule 操作符 backlog to 算子, then promote TL16 to error. Survey (/tmp/s0332_survey.py, c_lexer pairing REL_16_11 blob vs worktree): exactly 45 lines / 9 .c files / 46 occurrences (44 single-occ lines + nodeMergejoin:169 x2; count corrected per dual review, was mistyped 47); src/include/executor/*.h zero; total matches independent line grep exactly. EN evidence adjudicated per segment: operator/operators/op/ops plus compounds opfamily/opfamilies (nodeMergejoin blk15 line 47, nodeIndexscan blk1198) and opclause (nodeIndexscan blk1187) - weak-evidence segments eyeballed against REL_16_11; nodeTidrangescan:55 operand context keeps 操作数 untouched. Conversion: 操作符(9B)->算子(6B), +3B pad absorbed per occurrence (gap before closing */ widened, else trailing run extended/created); line 169 nodeMergejoin carries x2 (+6B). Invariants asserted by /tmp/s0332_apply.py: per-line byte conservation, file byte totals and LF vs HEAD unchanged, diff exactly 45+/45- symmetric, worktree==HEAD per file pre-write, post-state grep 操作符 across executor .c/.h = 0 (executor/README:97 out of rule scope, not a .c/.h, left as-is). executor/README and domain-external sites (opclasscmds.c:408, parse_clause.c:3619) untouched. Tool: TL16 promoted warning->error (fires ZERO post-batch: 0 error hits), rule profile 87 rules = 21 error/66 warning; F1 hardening from 0331 dual-review findings (path list element type validation, +1 test case). Gates: verify 622 files 0 violations; term 0 errors / 706 warnings, site-level diff vs HEAD snapshot (734 = 706+28 TL16) exactly -28 all TL16 / 0 added; halfen 9 files pre==post (8/74/5/4/4/3/10/13/3); unittest 206 tests OK. No spec/wave pipeline (term-domain batch, 0320/0330/0331 precedent)."
+}

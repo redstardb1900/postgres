@@ -136,6 +136,8 @@ def load_term_rules(obj):
         if isinstance(paths, str):
             paths = [glob_to_regex(paths)]
         elif isinstance(paths, list):
+            if not all(isinstance(p, str) for p in paths):
+                raise ValueError("term rule %s: 'path' list elements must be glob strings" % r.get("id"))
             paths = [glob_to_regex(p) for p in paths]
         elif paths is not None:
             raise ValueError("term rule %s: 'path' must be a glob string or list of globs" % r.get("id"))

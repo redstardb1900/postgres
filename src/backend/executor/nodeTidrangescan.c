@@ -52,7 +52,7 @@ typedef struct TidOpExpr
 
 /*
  * 对于给定的表达式 expr，构建并返回合适的 TidOpExpr，      
- * 需考虑其操作符与操作数顺序。    
+ * 需考虑其算子与操作数顺序。       
  */
 static TidOpExpr *
 MakeTidOpExpr(OpExpr *expr, TidRangeScanState *tidstate)

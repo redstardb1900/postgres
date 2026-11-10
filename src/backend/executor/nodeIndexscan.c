@@ -1098,10 +1098,10 @@ ExecInitIndexScan(IndexScan *node, EState *estate, int eflags)
  * 并为具有非常量比较值的键准备相关信息。我们         
  * 把索引条件表达式分为五类：                              
  *
- * 1. 带常量比较值的简单操作符（"indexkey op constant"）。     
+ * 1. 带常量比较值的简单算子（"indexkey op constant"）。        
  * 对这类，我们只需填入一个含该常量值的 ScanKey。  
  *
- * 2. 带非常量值的简单操作符（"indexkey op expression"）。 
+ * 2. 带非常量值的简单算子（"indexkey op expression"）。    
  * 对这类，我们创建的 ScanKey 除表达式值外其余       
  * 字段均已填好，并建立 IndexRuntimeKeyInfo 结构来       
  * 在恰当时机驱动表达式的求值。      
@@ -1113,7 +1113,7 @@ ExecInitIndexScan(IndexScan *node, EState *estate, int eflags)
  *
  * 4. ScalarArrayOpExpr（"indexkey op ANY (array-expression)"）。若      
  * 索引支持 amsearcharray，我们对它们的处理方式          
- * 与简单操作符相同，即设置 SK_SEARCHARRAY 标志                
+ * 与简单算子相同，即设置 SK_SEARCHARRAY 标志                   
  * 让索引 AM 自行处理。否则，我们创建的 ScanKey 除          
  * 比较值外均已填好，并建立 IndexArrayKeyInfo 结构          
  * 来驱动该条件的处理。（注意：若使用该结构，则       
@@ -1124,7 +1124,7 @@ ExecInitIndexScan(IndexScan *node, EState *estate, int eflags)
  *
  * 此代码也用于为 amcanorderbyop 索引准备 ORDER BY               
  * 表达式。行为完全相同，只是必须以不同的方式           
- * 查找操作符。注意目前仅情况 1 与 2 可                  
+ * 查找算子。注意目前仅情况 1 与 2 可                     
  * 用于 ORDER BY。    
  *
  * 输入参数：  
@@ -1185,7 +1185,7 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 	n_array_keys = 0;
 
 	/*
-	 * 把给定条件中的每个操作符子句转换为一个              
+	 * 把给定条件中的每个算子子句转换为一个                 
 	 * scan key
 	 */
 	j = 0;
@@ -1193,13 +1193,13 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 	{
 		Expr	   *clause = (Expr *) lfirst(qual_cell);
 		ScanKey		this_scan_key = &scan_keys[j++];
-		Oid			opno;		/* 操作符 OID  */
-		RegProcedure opfuncid;	/* 扫描用的操作符过程号*/
-		Oid			opfamily;	/* 索引列的操作符族 */
-		int			op_strategy;	/* 操作符的策略号      */
-		Oid			op_lefttype;	/* 操作符声明的输入类型  */
+		Oid			opno;		/* 算子 OID     */
+		RegProcedure opfuncid;	/* 扫描用的算子过程号   */
+		Oid			opfamily;	/* 索引列的算子族    */
+		int			op_strategy;	/* 算子的策略号         */
+		Oid			op_lefttype;	/* 算子声明的输入类型     */
 		Oid			op_righttype;
-		Expr	   *leftop;		/* 操作符左部表达式*/
+		Expr	   *leftop;		/* 算子左部表达式   */
 		Expr	   *rightop;	/* 右部表达式 */
 		AttrNumber	varattno;	/* 扫描所用属性号   */
 		int			indnkeyatts;
@@ -1233,8 +1233,8 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 				elog(ERROR, "bogus index qualification");
 
 			/*
-			 * 我们须查找操作符的策略号。这样可以     
-			 * 交叉验证该操作符确实与索引匹配。              
+			 * 我们须查找算子的策略号。这样可以        
+			 * 交叉验证该算子确实与索引匹配。                 
 			 */
 			opfamily = index->rd_opfamily[varattno - 1];
 
@@ -1348,7 +1348,7 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 				varattno = ((Var *) leftop)->varattno;
 
 				/*
-				 * 我们必须查找操作符关联的 btree 支持         
+				 * 我们必须查找算子关联的 btree 支持            
 				 * 函数  
 				 */
 				if (index->rd_rel->relam != BTREE_AM_OID ||
@@ -1474,8 +1474,8 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 				elog(ERROR, "bogus index qualification");
 
 			/*
-			 * 我们须查找操作符的策略号。这样可以     
-			 * 交叉验证该操作符确实与索引匹配。              
+			 * 我们须查找算子的策略号。这样可以        
+			 * 交叉验证该算子确实与索引匹配。                 
 			 */
 			opfamily = index->rd_opfamily[varattno - 1];
 
@@ -1496,7 +1496,7 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 
 			if (index->rd_indam->amsearcharray)
 			{
-				/* 索引 AM 会像简单操作符一样处理它   */
+				/* 索引 AM 会像简单算子一样处理它      */
 				flags |= SK_SEARCHARRAY;
 				if (IsA(rightop, Const))
 				{

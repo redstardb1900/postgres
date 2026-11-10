@@ -44,7 +44,7 @@
  *		（见 MJCompare）。规划器会向我们传入足够的     
  *		信息，来说明输入的排序顺序，使我们能够确定   
  *		如何比较。我们可以用合适的 btree 比较函数，       
- *		因为 Postgres 排序的唯一概念由 btree 操作符族所    
+ *		因为 Postgres 排序的唯一概念由 btree 算子族所       
  *		定义。                                    
  *
  *
@@ -164,12 +164,12 @@ typedef enum
  * 原始子句中的两个表达式。         
  *
  * 除了表达式本身，规划器还会传入用于标识每个        
- * 合并键的 btree 操作符族 OID、排序规则 OID、btree 策略号   
+ * 合并键的 btree 算子族 OID、排序规则 OID、btree 策略号      
  * （BTLessStrategyNumber 或 BTGreaterStrategyNumber）以及             
- * 空值置前标志。可合并连接的操作符是操作符族    
- * 中的一个等值操作符，这两个输入被保证按升序           
- * 或降序（各对应）排列，依据是操作符族与排序规则， 
- * 空值位于范围中指示的一端。这让我们能够从操作符族    
+ * 空值置前标志。可合并连接的算子是算子族          
+ * 中的一个等值算子，这两个输入被保证按升序              
+ * 或降序（各对应）排列，依据是算子族与排序规则，    
+ * 空值位于范围中指示的一端。这让我们能够从算子族       
  * 中获得所需的比较函数。                                         
  */
 static MergeJoinClause
@@ -221,7 +221,7 @@ MJExamineQuals(List *mergeclauses,
 			elog(ERROR, "unsupported mergejoin strategy %d", opstrategy);
 		clause->ssup.ssup_nulls_first = nulls_first;
 
-		/* 提取该操作符声明的左右数据类型        */
+		/* 提取该算子声明的左右数据类型           */
 		get_op_opfamily_properties(qual->opno, opfamily, false,
 								   &op_strategy,
 								   &op_lefttype,
@@ -275,7 +275,7 @@ MJExamineQuals(List *mergeclauses,
  * 为当前外侧元组求合并连接表达式的值。我们还  
  * 会检测当前外侧元组是否不可能与任何元组匹配     
  * --- 若它产出 NULL 输入即如此，我们假设合并连接  
- * 操作符是严格的。如果该 NULL 在第一个连接列，    
+ * 算子是严格的。如果该 NULL 在第一个连接列，       
  * 且该列将空值排在末尾，那么我们可以进一步断定 
  * 后续任何元组也不可能匹配，因为它们的第一列   
  * 必然都是空值。不过，只有当不在 FillOuter 模式时    

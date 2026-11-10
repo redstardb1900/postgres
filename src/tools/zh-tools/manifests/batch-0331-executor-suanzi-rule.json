@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0331",
+  "title": "executor-domain rule registration + revert of 0330 算子->操作符 in executor (15 sites / 5 files / 4 tool files)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "abaff0f537d97fea2fd148f9c875c1c89d57548f",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0331-executor-suanzi-rule.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/executor/execExpr.c",
+      "kind": "c_comment",
+      "note": "revert 0330 lines 4035/4036 to HEAD~1 bytes (lops/rops slot 算子); 1156/1186 untouched"
+    },
+    {
+      "pattern": "src/backend/executor/nodeHash.c",
+      "kind": "c_comment",
+      "note": "whole file restored to 0329-final bytes (0330 touched only line 551 连接算子)"
+    },
+    {
+      "pattern": "src/backend/executor/nodeIndexscan.c",
+      "kind": "c_comment",
+      "note": "whole file restored to 0329-final bytes (0330 touched only line 48 incl. micro-reword)"
+    },
+    {
+      "pattern": "src/backend/executor/nodeMemoize.c",
+      "kind": "c_comment",
+      "note": "whole file restored to 0329-final bytes (0330 touched only lines 30/35/1045/1054)"
+    },
+    {
+      "pattern": "src/backend/executor/nodeSubplan.c",
+      "kind": "c_comment",
+      "note": "whole file restored to 0329-final bytes (0330 touched only lines 144/167/256/260/918/923/928)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/term_rules.json",
+      "kind": "tool",
+      "note": "TL16: executor-domain rule, path-scoped, warning"
+    },
+    {
+      "pattern": "src/tools/zh-tools/zhtools/termlint.py",
+      "kind": "tool",
+      "note": "path-scoped rule support: Rule.paths + load_term_rules path field + lint_pair skip"
+    },
+    {
+      "pattern": "src/tools/zh-tools/tests/test_term_lint.py",
+      "kind": "tool",
+      "note": "tests for path-scoped rules (TL16) and path-field validation"
+    },
+    {
+      "pattern": "src/tools/zh-tools/README.md",
+      "kind": "tool",
+      "note": "workflow-conventions bullet documenting the executor-domain term exception"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0331-executor-suanzi-rule.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/backend/executor/execExpr.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "revert: lines 4035/4036 restored to exact HEAD~1 (5670ef73ab5) bytes (slot 操作符 -> slot 算子); lines 1156/1186 (0330 运算符->操作符) intentionally kept - part of the pre-rule backlog, not a 0330 算子 change"
+    },
+    {
+      "path": "src/backend/executor/nodeHash.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "revert: file byte-identical to 0329-final 5670ef73ab5 (line 551 连接操作符 -> 连接算子)"
+    },
+    {
+      "path": "src/backend/executor/nodeIndexscan.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "revert: file byte-identical to 0329-final 5670ef73ab5 (line 48 incl. disclosed micro-reword undone: 需重排序的元组 -> 需要重排序的元组)"
+    },
+    {
+      "path": "src/backend/executor/nodeMemoize.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "revert: file byte-identical to 0329-final 5670ef73ab5 (lines 30/35/1045/1054 连接/相等操作符 -> 算子)"
+    },
+    {
+      "path": "src/backend/executor/nodeSubplan.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "revert: file byte-identical to 0329-final 5670ef73ab5 (lines 144/167/256/260/918/923/928 组合操作符 -> 组合算子, 0330 micro-rewords undone)"
+    },
+    {
+      "path": "src/tools/zh-tools/term_rules.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "TL16 warning: en \\boperators?\\b|\\bops\\b + zh 操作符 under src/backend/executor/** and src/include/executor/**; promote to error after backlog resolved"
+    },
+    {
+      "path": "src/tools/zh-tools/zhtools/termlint.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "Rule.paths (compiled glob list, None = global) + load_term_rules optional path field (string or list, ValueError on other types) + lint_pair skips rules whose paths do not match; inert for all existing rules"
+    },
+    {
+      "path": "src/tools/zh-tools/tests/test_term_lint.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "test_path_scoped_rule (TL16 fires only under executor paths; 算子 clean; word boundaries) + test_term_rules_path_must_be_string_or_list"
+    },
+    {
+      "path": "src/tools/zh-tools/README.md",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "workflow-conventions bullet: executor-domain exception registered 2026-11-10"
+    }
+  ],
+  "notes": "batch-0331 (user instruction 2026-11-10): register the domain-scoped rule 'src/backend/executor + src/include/executor (.c/.h): ops/operator/operators stay 算子, never 操作符' and revert batch-0330's 算子->操作符 changes in the executor domain. Revert scope = exactly the 15 executor sites 0330 rewrote from 算子: nodeHash 551, nodeIndexscan 48 (incl. disclosed micro-reword undone), nodeMemoize 30/35/1045/1054, nodeSubplan 144/167/256/260/918/923/928, execExpr 4035/4036 (lops/rops). Applied by /tmp/s0331_apply.py with full pre-assertions (worktree==HEAD per file, diff line sets == expected, every head line contains 操作符 / prev line contains 算子) and post-assertions (4 files byte-identical to parent 5670ef73ab5 blobs; execExpr diff vs HEAD == {4035,4036}, vs parent == {1156,1186}). NOT touched (pre-rule backlog, awaiting instructions): 0330's 运算符->操作符 in executor (execExpr 1156/1186, execExprInterp 718/1214) and the older P2-era 操作符 renderings elsewhere in executor (nodeMergejoin, nodeIndexscan 1101-1499, nodeHash 1878-1886, execGrouping, execIndexing, execReplication, nodeTidrangescan, execExprInterp 3352-3557, executor/README); opclasscmds.c:408 and parse_clause.c:3619 算子 sites are outside the executor scope and correctly keep 操作符. Tool change: term_rules.json TL16 (path-scoped warning, exactly the user's three words with word boundaries) + termlint.py Rule.paths/load_term_rules path field/lint_pair skip, inert for existing rules; tests added. Gates: verify 622 files 0 violations; term 0 errors, 706 -> 734 = 706 + 28 TL16 backlog flags (site-level diff old-tools-vs-new-tools empty after removing TL16, old-old==old-new: revert lines carry no term sites, zero regression); halfen 5 files pre==post (execExpr 8, nodeHash 3, nodeIndexscan 10, nodeMemoize 7, nodeSubplan 3); unittest suite 206 tests OK. No spec/wave pipeline (term-domain batch, 0320/0330 precedent)."
+}

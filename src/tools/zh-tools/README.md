@@ -195,6 +195,10 @@ pgnls phrasebook 为单条 NLS 消息设计：`--po` 模式下为 `error`，注�
   `term_lint.py` 后才提交。提交信息记录父 SHA、pgnls SHA、工具 hash、schema
   版本、命令和报告摘要。最终验收用累计 manifest 做不带 `--incremental` 的全量检查。
 - 分支上不运行 pgindent。
+- 域作用域术语例外（2026-11-10 用户指令）：`src/backend/executor/` 与
+  `src/include/executor/` 的 `.c/.h` 中 `ops`/`operator`/`operators` 一律译
+  「算子」，不译「操作符」（term_rules.json TL16，`path` 作用域 warning，
+  backlog 清偿后升 error）；其余目录仍译「操作符」，「运算符」全树禁用。
 
 ## 首提交启动例外
 

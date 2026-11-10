@@ -67,6 +67,18 @@ class RuleLoading(unittest.TestCase):
         with self.assertRaises(ValueError):
             termlint.load_term_rules({"rules": [{"id": "X", "en": "a", "zh_forbidden": "b", "severity": "fatal"}]})
 
+    def test_term_rules_path_must_be_string_or_list(self):
+        with self.assertRaises(ValueError):
+            termlint.load_term_rules({"rules": [{"id": "X", "en": "a", "zh_forbidden": "b",
+                                                 "severity": "warning", "path": 3}]})
+        rules, _ = termlint.load_term_rules({"rules": [{"id": "X", "en": "a", "zh_forbidden": "b",
+                                                        "severity": "warning",
+                                                        "path": ["src/a/**", "src/b/**"]}]})
+        self.assertEqual(len(rules[0].paths), 2)
+        rules, _ = termlint.load_term_rules({"rules": [{"id": "X", "en": "a", "zh_forbidden": "b",
+                                                        "severity": "warning"}]})
+        self.assertIsNone(rules[0].paths)
+
     def test_phrasebook_severity_parameter(self):
         self.assertEqual({r.severity for r in termlint.load_phrasebook(PHRASEBOOK)}, {termlint.ERROR})
         self.assertEqual({r.severity for r in termlint.load_phrasebook(PHRASEBOOK, severity=termlint.WARNING)},
@@ -130,6 +142,25 @@ class PairLinting(unittest.TestCase):
         self.assertEqual(ids(termlint.lint_pair(self.rules, "LSN pointer", "日志序列号指针")), ["PT_LSN"])
         # WALInsertLock is not the term WAL
         self.assertEqual(ids(termlint.lint_pair(self.rules, "take WALInsertLock", "获取 WALInsertLock")), [])
+
+    def test_path_scoped_rule(self):
+        # TL16: the executor-domain rule fires only under the executor paths
+        en = "the slot ops for the inner tuple"
+        zh = "内层元组的 slot 操作符"
+        self.assertEqual(warnings(termlint.lint_pair(self.rules, en, zh,
+                                                     path="src/backend/executor/execExpr.c")), ["TL16"])
+        self.assertEqual(warnings(termlint.lint_pair(self.rules, en, zh,
+                                                     path="src/include/executor/tuptable.h")), ["TL16"])
+        # outside the executor the glossary rendering 操作符 is correct
+        self.assertEqual(ids(termlint.lint_pair(self.rules, en, zh, path="src/backend/commands/copy.c")), [])
+        # 算子 is the sanctioned executor rendering: no hit
+        self.assertEqual(ids(termlint.lint_pair(self.rules, en, zh.replace("操作符", "算子"),
+                                                path="src/backend/executor/execExpr.c")), [])
+        # word boundaries: operate/operand/OperState never trigger the rule
+        self.assertEqual(ids(termlint.lint_pair(self.rules, "operands to operate on", "操作的操作数",
+                                                path="src/backend/executor/x.c")), [])
+        self.assertEqual(ids(termlint.lint_pair(self.rules, "initialize the OperState flag", "初始化 OperState 标志",
+                                                path="src/backend/executor/x.c")), [])
 
     def test_allowlist(self):
         hits = termlint.lint_pair(self.rules, "a cluster of nodes", "多节点集群", path="src/x.c")

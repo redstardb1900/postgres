@@ -10,8 +10,9 @@ Rule sources:
   * pgnls ``ref/phrasebook.tsv`` rows with ``status=decided`` and a
     non-empty ``zh_forbidden`` column (ids P01..).
   * ``term_rules.json`` next to the tools: style-guide derived rules
-    (ids TL..) and the list of English terms that must be preserved
-    verbatim (ids PT_<term>).
+    (ids TL..; a rule may be scoped to path globs via ``path`` for
+    domain-scoped terminology exceptions) and the list of English terms
+    that must be preserved verbatim (ids PT_<term>).
   * pgnls ``ref/glossary.tsv`` rows whose Chinese equals the English are
     added to the preserved terms.
 """
@@ -40,11 +41,16 @@ class Rule(object):
     legitimately -- e.g. ``requires`` -> 需要 next to ``requirement`` -> 要求
     -- so only rules whose forbidden rendering is wrong in *every* context
     may be errors.
+
+    A rule may carry ``paths``: a list of compiled path regexes restricting
+    where it applies (domain-scoped terminology exceptions).  ``None`` means
+    the rule applies everywhere.
     """
 
-    __slots__ = ("id", "en", "zh_forbidden", "note", "source", "kind", "term", "severity")
+    __slots__ = ("id", "en", "zh_forbidden", "note", "source", "kind", "term", "severity", "paths")
 
-    def __init__(self, id_, en, zh_forbidden, note, source, kind="pair", term=None, severity=ERROR):
+    def __init__(self, id_, en, zh_forbidden, note, source, kind="pair", term=None, severity=ERROR,
+                 paths=None):
         if severity not in SEVERITIES:
             raise ValueError("rule %s: bad severity %r" % (id_, severity))
         self.id = id_
@@ -55,6 +61,7 @@ class Rule(object):
         self.kind = kind
         self.term = term
         self.severity = severity
+        self.paths = paths
 
 
 class Hit(object):
@@ -125,8 +132,15 @@ def load_term_rules(obj):
     for r in obj.get("rules", []):
         if "severity" not in r:
             raise ValueError("term rule %s: 'severity' is required (error|warning)" % r.get("id"))
+        paths = r.get("path")
+        if isinstance(paths, str):
+            paths = [glob_to_regex(paths)]
+        elif isinstance(paths, list):
+            paths = [glob_to_regex(p) for p in paths]
+        elif paths is not None:
+            raise ValueError("term rule %s: 'path' must be a glob string or list of globs" % r.get("id"))
         rules.append(Rule(r["id"], re.compile(r["en"], re.I), re.compile(r["zh_forbidden"]),
-                          r.get("note", ""), "term_rules", severity=r["severity"]))
+                          r.get("note", ""), "term_rules", severity=r["severity"], paths=paths))
     return rules, list(obj.get("preserve_terms", []))
 
 
@@ -165,6 +179,8 @@ def lint_pair(rules, en, zh, path="", line=None):
     if en == zh:
         return hits  # untouched text: nothing to judge
     for r in rules:
+        if r.paths is not None and not any(p.match(path or "") for p in r.paths):
+            continue  # domain-scoped rule: does not apply to this path
         if r.kind == "preserve":
             if r.en.search(en) and not r.en.search(zh):
                 hits.append(Hit(r.id, path, line, en, zh, r.note, r.severity))

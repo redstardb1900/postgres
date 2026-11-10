@@ -4032,8 +4032,8 @@ ExecBuildGroupingEqual(TupleDesc ldesc, TupleDesc rdesc,
  * 和数量。NULL 被视为相等。                      
  *
  * desc: 待比较元组的元组描述符            
- * lops: 内层元组 slot 的 slot 操作符  
- * rops: 外层元组 slot 的 slot 操作符  
+ * lops: 内层元组 slot 的 slot 算子     
+ * rops: 外层元组 slot 的 slot 算子     
  * eqFunctions: 待使用的相等函数的函数 OID 数组           
  * 其长度必须与 'param_exprs' 列表相同。       
  * collations: 用于相等比较的排序规则 OID。长度必须      

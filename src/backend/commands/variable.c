@@ -1146,7 +1146,7 @@ assign_maintenance_io_concurrency(int newval, void *extra)
 
 
 /*
- * 这些 show hook 存在只是因为要以八进制显示这些值。    
+ * 这些显示钩子存在只是因为要以八进制显示这些值。   
  */
 
 /*
@@ -1187,7 +1187,7 @@ show_unix_socket_permissions(void)
 
 
 /*
- * 这些 check hook 只是在不支持它们的构建中            
+ * 这些检查钩子只是在不支持它们的构建中            
  * 拒绝非默认设置而已。    
  */
 

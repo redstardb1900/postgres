@@ -343,7 +343,7 @@ ResetSequence(Oid seq_relid)
 /*
  * 用指定的元组初始化序列的关系
  *
- * 此函数通过根据需要写入主 fork 和 init fork
+ * 此函数通过按需写入主分支和 init 分支    
  * 来处理未记录日志的序列。
  */
 static void
@@ -365,7 +365,7 @@ fill_seq_with_data(Relation rel, HeapTuple tuple)
 }
 
 /*
- * 用指定的元组初始化序列的关系 fork
+ * 用指定元组初始化序列的关系分支  
  */
 static void
 fill_seq_fork_with_data(Relation rel, HeapTuple tuple, ForkNumber forkNum)
@@ -1753,7 +1753,7 @@ sequence_options(Oid relid)
 }
 
 /*
- * 返回序列参数（以前供 information schema 使用）
+ * 返回序列参数（以前供信息模式使用）        
  */
 Datum
 pg_sequence_parameters(PG_FUNCTION_ARGS)

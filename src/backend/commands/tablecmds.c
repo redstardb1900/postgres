@@ -5575,7 +5575,7 @@ ATRewriteTables(AlterTableStmt *parsetree, List **wqueue, LOCKMODE lockmode,
 		 * 我们要确保两个关系各自的缓冲区都正确地   
 		 * 标记为带或不带 BM_PERMANENT；另一方面，由于       
 		 * 重写会创建并分配新的 relfilenumber，我们会自动    
-		 * 为该关系创建或删除合适的 init fork。                  
+		 * 为该关系创建或删除合适的 init 分支。                
 		 *                                           
 		 */
 		if (tab->rewrite > 0 && tab->relkind != RELKIND_SEQUENCE)

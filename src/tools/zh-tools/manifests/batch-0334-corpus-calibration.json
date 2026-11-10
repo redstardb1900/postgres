@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0334",
+  "title": "commands ledger item-3 corpus calibration: fork->分支 x3 / information schema->信息模式 x1 / GUC hook prose->钩子族 x2 (6 lines / 4 files)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "48929aae22304bfd25f76132d72d3fc05f4ba48e",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0334-corpus-calibration.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/commands/sequence.c",
+      "kind": "c_comment",
+      "note": "lines 346/368 fork->分支 (line 346 x2 主分支+init 分支, micro-reword 根据需要->按需); line 1756 information schema->信息模式"
+    },
+    {
+      "pattern": "src/backend/commands/tablecmds.c",
+      "kind": "c_comment",
+      "note": "line 5578 init fork->init 分支"
+    },
+    {
+      "pattern": "src/backend/commands/variable.c",
+      "kind": "c_comment",
+      "note": "lines 1149/1190 GUC hook prose: show hook->显示钩子, check hook->检查钩子"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0334-corpus-calibration.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/backend/commands/sequence.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "3 lines: 346 主 fork+init fork->主分支+init 分支 with micro-reword 根据需要->按需 (-6B), 368 关系 fork->关系分支 with micro-reword 指定的->指定 (-3B), 1756 information schema->信息模式 (-8B); per-line byte conserved via trailing-pad rebalance"
+    },
+    {
+      "path": "src/backend/commands/tablecmds.c",
+      "kind": "c_comment",
+      "note": "1 line: 5578 init fork->init 分支 (+2B absorbed from 18-space trailing run)",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": []
+    },
+    {
+      "path": "src/backend/commands/variable.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "2 lines: 1149 ' show hook '->显示钩子 (+1B), 1190 ' check hook '->检查钩子 (0B); surrounding CJK-EN separator spaces consumed by the substitution"
+    }
+  ],
+  "notes": "batch-0334 (user instruction 2026-11-10): clear commands campaign ledger item 3 - hook/fork/lock-mode/info-schema corpus checks (term classes flagged as legal-identifier candidates by the batch-0329 final debt survey). Class verdicts from corpus evidence: (1) relation fork -> 分支 (pgnls glossary decided fork=分支, 'Files and Forks'->文件和分支; tree: init 分支 x7 (5 files) / 主分支 x13 (src/backend) / 关系分支 x2 sites, incl. tablecmds.c:15100/15114 from the 0321 full retranslation - which contradicted tablecmds own 5578 'init fork'; heap.c:382 carries the exact construction 主分支和 init 分支; counts corrected per r1-0334, were mistyped x8/x8 from a truncated grep). Converted sequence.c:346 (主 fork+init fork, EN 'the main and the init fork'), sequence.c:368 (关系 fork, EN 'a sequence's relation fork'), tablecmds.c:5578 (init fork, EN 'an init fork for the relation'). Micro-rewords disclosed for byte conservation: 346 根据需要->按需, 368 指定的->指定. Line 343 '初始化序列的关系' stays: EN block says 'relation' not 'relation fork'. (2) information schema -> 信息模式 (tree initdb.c:1914/1942 信息模式 precedent x2; glossary schema->模式; po corpus zero). Converted sequence.c:1756 (EN 'formerly for use by information schema'). (3) GUC hook prose -> 钩子族: check hook prose precedent 检查钩子 x6 (postgres.c x4, user.c 密码检查钩子 x2), assign hook 赋值钩子 x4 (postgres.c x2, psql startup.c, varsup.c); 显示钩子 coined by family analogy, sanctioned by line 1149's own rendering of 'show' as 显示; converted variable.c:1149 (EN 'These show hooks just exist because we want to show the values in octal') and 1190 (EN 'These check hooks do nothing more than reject non-default settings'). Substitutions consume the surrounding CJK-EN separator spaces (' show hook ' -> 显示钩子). (4) NO-ACTION classes disclosed: lock-mode names stay EN - prose EN-kept 8 sites (pg_dump/parallel.c x5, lockcmds.c:289/293 uppercase keyword forms faithful to EN, statscmds.c:805 lowercase prose faithful to EN) vs zh prose name only tablecmds.c:19365 访问共享锁; lock.c 访问共享锁/行排他锁 sites are the 'XxxLock（注记）' annotation pattern, not prose; no glossary/po per-mode entry. post-alter spellings (cluster.c:1288 'Post alter 钩子' / tablecmds.c:15964 'post alter 钩子' / alter.c:1104 'post-alter 钩子') each faithfully mirror their own EN spelling - untouched. typecmds.c:3772 访问对象钩子 vs alter.c:754 对象访问钩子: EN differs ('access object hooks' vs 'object access hook') - both faithful, untouched. Byte model: per-line conservation via trailing-run rebalance (script /tmp/s0334_apply.py: worktree==HEAD pre-write, exact-substring assertions, post file-byte/LF identity, diff 6+/6-, commands-domain residue grep zero for 主 fork/init fork/关系 fork/information schema/show hook/check hook). Gates: verify 622 files 0 violations; term 0 errors / 706 warnings with site-set diff vs HEAD snapshot EMPTY; check_scope PASS 4 paths 0 violations; halfen: mixed legally drops by converted-line count (seq 2->0, tablecmds 9->8, variable 2->0) with pureen unchanged in all three files (no new EN-only lines; corrections per r1-0334: gate summary and tree counts fixed pre-commit); unittest 206 OK. No spec/wave pipeline (term-domain batch, 0320/0330/0331/0332/0333 precedent)."
+}

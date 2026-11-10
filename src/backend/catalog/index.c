@@ -786,9 +786,9 @@ index_create(Relation heapRelation,
 				 errmsg("user-defined indexes on system catalog tables are not supported")));
 
 	/*
-	 * Btree 的 text_pattern_ops 使用 text_eq 作为相等运算符，只要
+	 * Btree 的 text_pattern_ops 使用 text_eq 作为相等操作符，只要
 	 * 排序规则是确定性的就没有问题；此时 text_eq 归结为按位相等，
-	 * 因此它与该操作符类中的其他运算符和函数在语义上兼容。
+	 * 因此它与该操作符类中的其他操作符和函数在语义上兼容。
 	 * 但在非确定性排序规则下，text_eq 可能产生
 	 * 与索引实际行为（由操作符类的比较函数决定）
 	 * 不兼容的结果。
@@ -800,7 +800,7 @@ index_create(Relation heapRelation,
 	 * 把操作符类标记为与非确定性不兼容；但目前这个小 hack
 	 * 已经足够。
 	 *
-	 * 另一种解决方案是使用一个特殊运算符（而非 text_eq）
+	 * 另一种解决方案是使用一个特殊操作符（而非 text_eq）
 	 * 作为相等操作符类成员；但这并不可取，因为那会
 	 * 阻止许多如今工作正常的查询使用索引。
 	 */
@@ -2689,8 +2689,8 @@ BuildSpeculativeIndexInfo(Relation index, IndexInfo *ii)
 	ii->ii_UniqueStrats = (uint16 *) palloc(sizeof(uint16) * indnkeyatts);
 
 	/*
-	 * 我们必须查找运算符的策略号。这也对
-	 * 该运算符确实与该索引匹配进行了交叉检查。
+	 * 我们必须查找操作符的策略号。这也对
+	 * 该操作符确实与该索引匹配进行了交叉检查。
 	 */
 	/* 我们还需要函数 OID 和策略号 */
 	for (i = 0; i < indnkeyatts; i++)

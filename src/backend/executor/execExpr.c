@@ -1153,7 +1153,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				 *
 				 * XXX：历史上我们从未调用函数用量统计  
 				 * pgstat 基础设施；鉴于我们对普通函数*和*    
-				 * 运算符求值都会调用它，这显得不一致。若  
+				 * 操作符求值都会调用它，这显得不一致。若  
 				 * 决定在此也这样做，可能需要单独的       
 				 * 操作码区分 FUSAGE。 
 				 */
@@ -1183,7 +1183,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				 *
 				 * XXX：历史上我们从未调用函数用量统计  
 				 * pgstat 基础设施；鉴于我们对普通函数*和*    
-				 * 运算符求值都会调用它，这显得不一致。若  
+				 * 操作符求值都会调用它，这显得不一致。若  
 				 * 决定在此也这样做，可能需要单独的       
 				 * 操作码区分 FUSAGE。 
 				 */
@@ -4032,8 +4032,8 @@ ExecBuildGroupingEqual(TupleDesc ldesc, TupleDesc rdesc,
  * 和数量。NULL 被视为相等。                      
  *
  * desc: 待比较元组的元组描述符            
- * lops: 内层元组 slot 的 slot 算子     
- * rops: 外层元组 slot 的 slot 算子     
+ * lops: 内层元组 slot 的 slot 操作符  
+ * rops: 外层元组 slot 的 slot 操作符  
  * eqFunctions: 待使用的相等函数的函数 OID 数组           
  * 其长度必须与 'param_exprs' 列表相同。       
  * collations: 用于相等比较的排序规则 OID。长度必须      

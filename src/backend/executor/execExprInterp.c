@@ -715,7 +715,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		 * 到 fcinfo->args 中。              
 		 *
 		 * STRICT 检查和函数用法有明显性能影响，而且         
-		 * 函数调用是极热路径（运算符也靠它），所以
+		 * 函数调用是极热路径（操作符也靠它），所以
 		 * 值得设置这么多独立的操作码。              
 		 *
 		 * 注：此处及其他地方用临时变量 "d" 的原因是，  
@@ -1211,7 +1211,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			 * IS DISTINCT FROM 必须求值参数（已求值到         
 			 * fcinfo->args）以判断它们是否为 NULL；若任一为   
 			 * NULL 则结果已定。若两者均非 NULL，则继续求值
-			 * 比较函数，即该类型标准的相等运算符。我们  
+			 * 比较函数，即该类型标准的相等操作符。我们  
 			 * 无需关心函数是否严格；由于 null 处理不同，
 			 * 不能直接复用                                        
 			 * EEOP_FUNCEXPR。                             

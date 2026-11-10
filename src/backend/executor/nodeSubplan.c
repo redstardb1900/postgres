@@ -141,7 +141,7 @@ ExecHashSubPlan(SubPlanState *node,
 	 * UNKNOWN，则可跳过这一步。）否则，结果为 FALSE。
 	 *
 	 * 注：我们之所以能避免对主哈希表做全表扫描，    
-	 * 是因为假定组合算子在两个输入均为非空时             
+	 * 是因为假定组合操作符在两个输入均为非空时          
 	 * 绝不会返回 NULL。如果它们会这样，我们可能          
 	 * 就需要产生 UNKNOWN 而非 FALSE，因为在将 LHS               
 	 * 与主表某项比较时出现了 UNKNOWN 结果 --- 除非哈         
@@ -164,7 +164,7 @@ ExecHashSubPlan(SubPlanState *node,
 	 * 当 LHS 部分或全部为 NULL 时，绝不可能返回 TRUE。      
 	 * 如果不关心 UNKNOWN，就直接返回 FALSE。否则，           
 	 * 若 LHS 全为 NULL，则立即返回 UNKNOWN。（由于     
-	 * 组合算子是严格的，结果只有在子选择为空时          
+	 * 组合操作符是严格的，结果只有在子选择为空时       
 	 * 才可能是 FALSE，但我们已经处理过该情况。）否则    
 	 * 我们必须扫描主表和部分为 NULL 的表，看看是否有行 
 	 * 无法被证明与 LHS 不相等；若有，结果为 UNKNOWN。 
@@ -253,11 +253,11 @@ ExecScanSubPlan(SubPlanState *node,
 
 	/*
 	 * 对于除 EXPR_SUBLINK 和 ARRAY_SUBLINK 之外的所有               
-	 * sublink 类型，结果为布尔值，组合算子的结果亦然。
+	 * sublink 类型，结果为布尔值，组合操作符结果亦然。
 	 * 我们在多个元组间组合结果（如果子计划产出多于    
 	 * 一个）时，对 ANY_SUBLINK 使用 OR 语义，对      
 	 * ALL_SUBLINK 则使用 AND 语义。（ROWCOMPARE_SUBLINK            
-	 * 不允许子计划返回多个元组。）来自组合算子的       
+	 * 不允许子计划返回多个元组。）来自组合操作符的    
 	 * NULL 结果按 OR 和 AND 的常规 SQL 语义处理。无输入元组
 	 * ANY_SUBLINK 为 FALSE, ALL_SUBLINK 为 TRUE, NULL： 
 	 * ROWCOMPARE_SUBLINK 
@@ -915,17 +915,17 @@ ExecInitSubPlan(SubPlan *subplan, PlanState *parent)
 		 * 右侧构建对应的                                     
 		 * tlist。        
 		 *
-		 * 我们还提取组合算子本身，用来初始化哈希表的 
+		 * 我们还提取组合操作符本身用来初始化哈希表的 
 		 * 相等函数和哈希函数。                         
 		 */
 		if (IsA(subplan->testexpr, OpExpr))
 		{
-			/* 单一组合算子        */
+			/* 单一组合操作符     */
 			oplist = list_make1(subplan->testexpr);
 		}
 		else if (is_andclause(subplan->testexpr))
 		{
-			/* 多个组合算子           */
+			/* 多个组合操作符        */
 			oplist = castNode(BoolExpr, subplan->testexpr)->args;
 		}
 		else

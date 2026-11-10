@@ -140,7 +140,7 @@ typedef struct ReindexErrorInfo
  * 'accessMethodName': 所用 AM 的名称   
  * 'attributeList': IndexElem 列表，指定要建立索引的列与     
  *		表达式。
- * 'exclusionOpNames': 排除约束运算符名称的列表，         
+ * 'exclusionOpNames': 排除约束操作符名称的列表，         
  *		若不是排除约束则为 NIL。    
  *
  * 这是为 ALTER TABLE ALTER TYPE 的需要而定制的，它            
@@ -151,15 +151,15 @@ typedef struct ReindexErrorInfo
  * 两者都有。属性列表的错误仍然适用。
  *
  * 大多数可以跳过表重写的列类型变更并不会使索引      
- * 失效。当所有运算符类、排序规则和排除运算符都     
+ * 失效。当所有操作符类、排序规则和排除操作符都     
  * 匹配时，我们认可这一点。虽然我们可以进一步允许    
  * btree 和 hash 索引的 opfamily 内变更，但这会带来          
  * 微妙的复杂性，对核心类型并无实际好处。注意，
  * 本函数不检查 INCLUDE 列；对它们来说，只需跳过表  
  * 重写  
  *
- * 当比较或排除运算符具有多态输入类型时，实际的       
- * 输入类型也必须匹配。这可以防范运算符响应             
+ * 当比较或排除操作符具有多态输入类型时，实际的       
+ * 输入类型也必须匹配。这可以防范操作符响应             
  *  get_fn_expr_argtype() 而改变行为的可能性。目前，          
  * 这一风险只是理论上的：check_exclusion_constraint()           
  * 以及所有核心索引访问方法都不会为此类调用设置  
@@ -225,7 +225,7 @@ CheckIndexCompatible(Oid oldId,
 	amsummarizing = amRoutine->amsummarizing;
 
 	/*
-	 * 计算新索引的操作符类、排序规则和排除运算符，   
+	 * 计算新索引的操作符类、排序规则和排除操作符，   
 	 * 以便我们能够测试它与现有索引是否兼容。注意        
 	 * ComputeIndexAttrs 可能在此处失败，但没关系：        
 	 * DefineIndex 稍后也会失败。我们的 attributeList 仅包含   
@@ -309,7 +309,7 @@ CheckIndexCompatible(Oid oldId,
 			pfree(opclassOptions);
 	}
 
-	/* 排除运算符选择的任何更改都会破坏兼容性。 */
+	/* 排除操作符选择的任何更改都会破坏兼容性。 */
 	if (ret && indexInfo->ii_ExclusionOps != NULL)
 	{
 		Oid		   *old_operators,
@@ -320,7 +320,7 @@ CheckIndexCompatible(Oid oldId,
 		ret = memcmp(old_operators, indexInfo->ii_ExclusionOps,
 					 old_natts * sizeof(Oid)) == 0;
 
-		/* 对于多态运算符，要求输入类型完全匹配。 */
+		/* 对于多态操作符，要求输入类型完全匹配。 */
 		if (ret)
 		{
 			for (i = 0; i < old_natts && ret; i++)
@@ -968,9 +968,9 @@ DefineIndex(Oid relationId,
 			int			j;
 
 			/*
-			 * 识别与此 partkey 列关联的相等运算符。        
+			 * 识别与此 partkey 列关联的相等操作符。        
 			 * 对于列表和范围分区，partkeys 使用 btree         
-			 * 运算符类；哈希分区使用哈希运算符类。         
+			 * 操作符类；哈希分区使用哈希操作符类。         
 			 * （保持与 ComputePartitionAttrs 同步！）
 			 */
 			if (key->strategy == PARTITION_STRATEGY_HASH)
@@ -989,7 +989,7 @@ DefineIndex(Oid relationId,
 
 			/*
 			 * 我们还需要能够识别与索引列关联的        
-			 * 相等运算符。btree opclasses 我们知道如何处理  
+			 * 相等操作符。btree opclasses 我们知道如何处理  
 			 * ；若将来出现其他支持唯一索引的类型，       
 			 * 此逻辑就需要扩展。                            
 			 */
@@ -1018,7 +1018,7 @@ DefineIndex(Oid relationId,
 			{
 				if (key->partattrs[i] == indexInfo->ii_IndexAttrNumbers[j])
 				{
-					/* 匹配了列，现在排序规则和相等运算符呢？ */
+					/* 匹配了列，现在排序规则和相等操作符呢？ */
 					Oid			idx_opfamily;
 					Oid			idx_opcintype;
 
@@ -1843,7 +1843,7 @@ ComputeIndexAttrs(IndexInfo *indexInfo,
 	Oid			save_userid;
 	int			save_sec_context;
 
-	/* 如果需要，为排除运算符信息分配空间 */
+	/* 如果需要，为排除操作符信息分配空间 */
 	if (exclusionOpNames)
 	{
 		Assert(list_length(exclusionOpNames) == nkeycols);
@@ -2054,7 +2054,7 @@ ComputeIndexAttrs(IndexInfo *indexInfo,
 		}
 
 		/*
-		 * 识别排除运算符（如果有）。 
+		 * 识别排除操作符（如果有）。 
 		 */
 		if (nextExclOp)
 		{
@@ -2064,9 +2064,9 @@ ComputeIndexAttrs(IndexInfo *indexInfo,
 			int			strat;
 
 			/*
-			 * 查找运算符——它必须无需运行时强制     
+			 * 查找操作符——它必须无需运行时强制     
 			 * 即可接受列数据类型（但二进制兼容是可以 
-			 * 的）。运算符包含不透明表达式（具体来说是   
+			 * 的）。操作符包含不透明表达式（具体来说是   
 			 * 函数）。compatible_oper_opid() 即 oper()  
 			 * 和 IsBinaryCoercible()。如果 oper() 开始调用不      
 			 * 透明表达式，PostgreSQL 就会有安全问题。  
@@ -2084,7 +2084,7 @@ ComputeIndexAttrs(IndexInfo *indexInfo,
 			}
 
 			/*
-			 * 只允许在排除约束中使用交换运算符。     
+			 * 只允许在排除约束中使用交换操作符。     
 			 * 如果 X 与 Y 冲突，但 Y 不与 X 冲突，           
 			 * 会发生坏事。             
 			 */
@@ -2096,7 +2096,7 @@ ComputeIndexAttrs(IndexInfo *indexInfo,
 						 errdetail("Only commutative operators can be used in exclusion constraints.")));
 
 			/*
-			 * 运算符也必须是正确的 opfamily 的成员   
+			 * 操作符也必须是正确的 opfamily 的成员   
 			 */
 			opfamily = get_opclass_family(classOidP[attn]);
 			strat = get_op_opfamily_strategy(opid, opfamily);

@@ -1513,12 +1513,12 @@ FunctionIsVisible(Oid funcid)
 
 /*
  * OpernameGetOprid
- *		给定一个可能限定的运算符名和精确的输入数据类型，
- *		查找该运算符。如果未找到则返回 InvalidOid。
+ *		给定一个可能限定的操作符名和精确的输入数据类型，
+ *		查找该操作符。如果未找到则返回 InvalidOid。
  *
- * 对于前缀运算符，传入 oprleft = InvalidOid。
+ * 对于前缀操作符，传入 oprleft = InvalidOid。
  *
- * 如果运算符名未用模式限定，则在当前命名空间
+ * 如果操作符名未用模式限定，则在当前命名空间
  * 搜索路径中查找它。如果名称用模式限定，且给定的
  * 模式不存在，则返回 InvalidOid。
  */
@@ -1610,13 +1610,13 @@ OpernameGetOprid(List *names, Oid oprleft, Oid oprright)
 
 /*
  * OpernameGetCandidates
- *		给定一个可能限定的运算符名和运算符种类，
+ *		给定一个可能限定的操作符名和操作符种类，
  *		检索可能匹配项的列表。
  *
- * 如果 oprkind 为 '\0'，我们返回与给定名称匹配的所有运算符，
+ * 如果 oprkind 为 '\0'，我们返回与给定名称匹配的所有操作符，
  * 而不论参数如何。
  *
- * 如果运算符名是限定的，我们只搜索单个命名空间，否则
+ * 如果操作符名是限定的，我们只搜索单个命名空间，否则
  * 搜索搜索路径中的所有命名空间。返回列表永远不会包含
  * 参数列表相同的多个条目 --- 在多命名空间
  * 情况下，我们安排较早命名空间中的条目掩盖
@@ -1658,12 +1658,12 @@ OpernameGetCandidates(List *names, char oprkind, bool missing_schema_ok)
 	catlist = SearchSysCacheList1(OPERNAMENSP, CStringGetDatum(opername));
 
 	/*
-	 * 在典型场景下，catcache 搜索找到的运算符
+	 * 在典型场景下，catcache 搜索找到的操作符
 	 * 大多（即使不是全部）最终都会被返回；而对于诸如
-	 * '=' 或 '+' 这样的常见运算符名，可能会有相当多。为减少
+	 * '=' 或 '+' 这样的常见操作符名，可能会有相当多。为减少
 	 * 在 palloc 上花费的时间，我们将结果空间分配为一个
-	 * 足以容纳所有运算符的数组。此例程最初的实现为每个
-	 * 运算符单独做一次 palloc，但性能分析揭示这些 palloc
+	 * 足以容纳所有操作符的数组。此例程最初的实现为每个
+	 * 操作符单独做一次 palloc，但性能分析揭示这些 palloc
 	 * 占用了不成比例的解析时间。
 	 */
 #define SPACE_PER_OP MAXALIGN(offsetof(struct _FuncCandidateList, args) + \
@@ -1679,13 +1679,13 @@ OpernameGetCandidates(List *names, char oprkind, bool missing_schema_ok)
 		int			pathpos = 0;
 		FuncCandidateList newResult;
 
-		/* 如果请求了特定种类，则忽略种类错误的运算符 */
+		/* 如果请求了特定种类，则忽略种类错误的操作符 */
 		if (oprkind && operform->oprkind != oprkind)
 			continue;
 
 		if (OidIsValid(namespaceId))
 		{
-			/* 仅考虑指定命名空间中的运算符 */
+			/* 仅考虑指定命名空间中的操作符 */
 			if (operform->oprnamespace != namespaceId)
 				continue;
 			/* 无需检查参数，它们必定都不同 */
@@ -1694,7 +1694,7 @@ OpernameGetCandidates(List *names, char oprkind, bool missing_schema_ok)
 		{
 			/*
 			 * 仅考虑位于搜索路径中且不在
-			 * temp 命名空间中的运算符。
+			 * temp 命名空间中的操作符。
 			 */
 			ListCell   *nsp;
 
@@ -1706,7 +1706,7 @@ OpernameGetCandidates(List *names, char oprkind, bool missing_schema_ok)
 				pathpos++;
 			}
 			if (nsp == NULL)
-				continue;		/* 运算符不在搜索路径中 */
+				continue;		/* 操作符不在搜索路径中 */
 
 			/*
 			 * 好，它在搜索路径中，但它的参数是否与我们已接受的
@@ -1714,7 +1714,7 @@ OpernameGetCandidates(List *names, char oprkind, bool missing_schema_ok)
 			 * 更靠前的那个。
 			 *
 			 * 如果我们从 SearchSysCacheList 得到的是有序列表（通常
-			 * 情况），那么任何冲突的运算符必然紧邻此条目，
+			 * 情况），那么任何冲突的操作符必然紧邻此条目，
 			 * 所以我们只需查看最新的结果
 			 * 项。如果得到的是无序列表，则必须扫描整个
 			 * 结果列表。
@@ -1782,9 +1782,9 @@ OpernameGetCandidates(List *names, char oprkind, bool missing_schema_ok)
 
 /*
  * OperatorIsVisible
- *		确定一个（由 OID 标识的）运算符在当前
+ *		确定一个（由 OID 标识的）操作符在当前
  *		搜索路径中是否可见。可见意味着 "通过搜索
- *		非限定运算符名并精确匹配参数可以找到它"。
+ *		非限定操作符名并精确匹配参数可以找到它"。
  */
 bool
 OperatorIsVisible(Oid oprid)
@@ -1814,9 +1814,9 @@ OperatorIsVisible(Oid oprid)
 	{
 		/*
 		 * 如果它在路径中，它可能仍然不可见；它可能被
-		 * 路径中更靠前的同名同参数运算符
+		 * 路径中更靠前的同名同参数操作符
 		 * 所隐藏。因此我们必须进行一次慢速检查，看这是否
-		 * 与 OpernameGetOprid 会找到的是同一个运算符。
+		 * 与 OpernameGetOprid 会找到的是同一个操作符。
 		 */
 		char	   *oprname = NameStr(oprform->oprname);
 

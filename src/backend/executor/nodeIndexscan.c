@@ -45,7 +45,7 @@
 #include "utils/rel.h"
 
 /*
- * 使用排序算子时，从索引中取出且需要重排序的元组
+ * 使用排序操作符时，从索引中取出且需重排序的元组
  * 会作为 ReorderTuples 排入配对堆中。                       
  */
 typedef struct

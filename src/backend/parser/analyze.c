@@ -2280,7 +2280,7 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 
 			/*
 			 * 除 UNION ALL 之外的情形，找出将用于消除重复的 
-			 * 分组运算符（及排序运算符，若有）。        
+			 * 分组操作符（及排序操作符，若有）。        
 			 *                      
 			 */
 			if (op->op != SETOP_UNION || !op->all)

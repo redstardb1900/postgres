@@ -548,7 +548,7 @@ ExecHashTableCreate(HashState *state, List *hashOperators, List *hashCollations,
 
 	/*
 	 * 获取每个哈希键要使用的哈希函数的信息。另外     
-	 * 还需记住连接算子是否严格。        
+	 * 还需记住连接操作符是否严格。     
 	 */
 	nkeys = list_length(hashOperators);
 	hashtable->outer_hashfunctions = palloc_array(FmgrInfo, nkeys);

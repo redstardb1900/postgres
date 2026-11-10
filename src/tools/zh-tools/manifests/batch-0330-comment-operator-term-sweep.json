@@ -1,0 +1,254 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0330",
+  "title": "operator term sweep: 运算符/算子 -> 操作符 (75 lines / 80 sites / 15 files)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "5670ef73ab5317cfd34c028b0009ff52e7be79ff",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0330-comment-operator-term-sweep.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/access/transam/xact.c",
+      "kind": "c_comment",
+      "note": "operator term sweep"
+    },
+    {
+      "pattern": "src/backend/catalog/index.c",
+      "kind": "c_comment",
+      "note": "operator term sweep"
+    },
+    {
+      "pattern": "src/backend/catalog/namespace.c",
+      "kind": "c_comment",
+      "note": "operator term sweep"
+    },
+    {
+      "pattern": "src/backend/catalog/pg_constraint.c",
+      "kind": "c_comment",
+      "note": "operator term sweep"
+    },
+    {
+      "pattern": "src/backend/commands/indexcmds.c",
+      "kind": "c_comment",
+      "note": "operator term sweep"
+    },
+    {
+      "pattern": "src/backend/commands/opclasscmds.c",
+      "kind": "c_comment",
+      "note": "operator term sweep"
+    },
+    {
+      "pattern": "src/backend/executor/execExpr.c",
+      "kind": "c_comment",
+      "note": "operator term sweep"
+    },
+    {
+      "pattern": "src/backend/executor/execExprInterp.c",
+      "kind": "c_comment",
+      "note": "operator term sweep"
+    },
+    {
+      "pattern": "src/backend/executor/nodeHash.c",
+      "kind": "c_comment",
+      "note": "operator term sweep"
+    },
+    {
+      "pattern": "src/backend/executor/nodeIndexscan.c",
+      "kind": "c_comment",
+      "note": "operator term sweep"
+    },
+    {
+      "pattern": "src/backend/executor/nodeMemoize.c",
+      "kind": "c_comment",
+      "note": "operator term sweep"
+    },
+    {
+      "pattern": "src/backend/executor/nodeSubplan.c",
+      "kind": "c_comment",
+      "note": "operator term sweep"
+    },
+    {
+      "pattern": "src/backend/parser/analyze.c",
+      "kind": "c_comment",
+      "note": "operator term sweep"
+    },
+    {
+      "pattern": "src/backend/parser/parse_clause.c",
+      "kind": "c_comment",
+      "note": "operator term sweep"
+    },
+    {
+      "pattern": "src/bin/pg_upgrade/check.c",
+      "kind": "c_comment",
+      "note": "operator term sweep"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0330-comment-operator-term-sweep.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/backend/access/transam/xact.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "term sweep: 运算符/算子 -> 操作符, byte-neutral per line (pad-absorbed or disclosed micro-reword)"
+    },
+    {
+      "path": "src/backend/catalog/index.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "term sweep: 运算符/算子 -> 操作符, byte-neutral per line (pad-absorbed or disclosed micro-reword)"
+    },
+    {
+      "path": "src/backend/catalog/namespace.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "term sweep: 运算符/算子 -> 操作符, byte-neutral per line (pad-absorbed or disclosed micro-reword)"
+    },
+    {
+      "path": "src/backend/catalog/pg_constraint.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "term sweep: 运算符/算子 -> 操作符, byte-neutral per line (pad-absorbed or disclosed micro-reword)"
+    },
+    {
+      "path": "src/backend/commands/indexcmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "term sweep: 运算符/算子 -> 操作符, byte-neutral per line (pad-absorbed or disclosed micro-reword)"
+    },
+    {
+      "path": "src/backend/commands/opclasscmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "term sweep: 运算符/算子 -> 操作符, byte-neutral per line (pad-absorbed or disclosed micro-reword)"
+    },
+    {
+      "path": "src/backend/executor/execExpr.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "term sweep: 运算符/算子 -> 操作符, byte-neutral per line (pad-absorbed or disclosed micro-reword)"
+    },
+    {
+      "path": "src/backend/executor/execExprInterp.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "term sweep: 运算符/算子 -> 操作符, byte-neutral per line (pad-absorbed or disclosed micro-reword)"
+    },
+    {
+      "path": "src/backend/executor/nodeHash.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "term sweep: 运算符/算子 -> 操作符, byte-neutral per line (pad-absorbed or disclosed micro-reword)"
+    },
+    {
+      "path": "src/backend/executor/nodeIndexscan.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "term sweep: 运算符/算子 -> 操作符, byte-neutral per line (pad-absorbed or disclosed micro-reword)"
+    },
+    {
+      "path": "src/backend/executor/nodeMemoize.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "term sweep: 运算符/算子 -> 操作符, byte-neutral per line (pad-absorbed or disclosed micro-reword)"
+    },
+    {
+      "path": "src/backend/executor/nodeSubplan.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "term sweep: 运算符/算子 -> 操作符, byte-neutral per line (pad-absorbed or disclosed micro-reword)"
+    },
+    {
+      "path": "src/backend/parser/analyze.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "term sweep: 运算符/算子 -> 操作符, byte-neutral per line (pad-absorbed or disclosed micro-reword)"
+    },
+    {
+      "path": "src/backend/parser/parse_clause.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "term sweep: 运算符/算子 -> 操作符, byte-neutral per line (pad-absorbed or disclosed micro-reword)"
+    },
+    {
+      "path": "src/bin/pg_upgrade/check.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "term sweep: 运算符/算子 -> 操作符, byte-neutral per line (pad-absorbed or disclosed micro-reword)"
+    }
+  ],
+  "notes": "batch-0330 term-consistency sweep (user instruction 2026-11-10, ledger item 1 of commands-halfen-campaign sweep). Tree survey: 运算符 x63 + 算子 x19 in .c comments (po/ other-locale lines and 1 historical manifest line excluded). Two substring false-positives excluded untouched: clausesel.c:4 计算子句, relnode.c:875 计算子连接. 80 real sites on 75 lines in 15 files: 运算符->操作符 byte-identical (63); 算子->操作符 +3B absorbed from trailing pad on 14 sites; 3 pad-insufficient sites carry disclosed -3B micro-rewords: nodeIndexscan.c:48 需要重排序的元组->需重排序的元组, nodeSubplan.c:256 组合操作符的结果->组合操作符结果 (的 dropped), nodeSubplan.c:918 操作符本身，用来->操作符本身用来 (comma dropped). Invariants asserted by /tmp/s0330_apply.py: per-line byte conservation, file byte totals vs HEAD unchanged, LF unchanged, 75-line diff exactly symmetric. All 77 survey lines verified against REL_16_11 EN (same-line 'operat' 59 + block-level opers/ops/op/commutator 16, FP 2). Gates: verify 622 files 0 violations; term 725 -> 706 (net -19, all P41 operator-rule cleared at swept blocks, 0 added; P41 now zero tree-wide); halfen 15 files pre==post net zero; 0258 boundary-dup scan clean. po/ files (other locales) out of scope; no spec/wave pipeline (term sweep, 0320 precedent)."
+}

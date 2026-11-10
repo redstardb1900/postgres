@@ -135,8 +135,8 @@ check_and_dump_old_cluster(bool live_check)
 		check_for_user_defined_encoding_conversions(&old_cluster);
 
 	/*
-	 * PG 14 之前允许用户定义后缀运算符，现已不再   
-	 * 支持。若适用，请验证不存在此类运算符。 
+	 * PG 14 之前允许用户定义后缀操作符，现已不再   
+	 * 支持。若适用，请验证不存在此类操作符。 
 	 */
 	if (GET_MAJOR_VERSION(old_cluster.major_version) <= 1300)
 		check_for_user_defined_postfix_ops(&old_cluster);
@@ -807,7 +807,7 @@ check_for_isn_and_int8_passing_mismatch(ClusterInfo *cluster)
 }
 
 /*
- * 验证不存在用户定义的后缀运算符。    
+ * 验证不存在用户定义的后缀操作符。    
  */
 static void
 check_for_user_defined_postfix_ops(ClusterInfo *cluster)
@@ -822,7 +822,7 @@ check_for_user_defined_postfix_ops(ClusterInfo *cluster)
 			 log_opts.basedir,
 			 "postfix_ops.txt");
 
-	/* 查找用户定义的后缀运算符    */
+	/* 查找用户定义的后缀操作符    */
 	for (dbnum = 0; dbnum < cluster->dbarr.ndbs; dbnum++)
 	{
 		PGresult   *res;
@@ -977,7 +977,7 @@ check_for_incompatible_polymorphics(ClusterInfo *cluster)
 								"AND a.aggfinalfn = ANY(ARRAY[%s]::regprocedure[]) "
 								"AND a.aggtranstype = ANY(ARRAY['anyarray', 'anyelement']::regtype[]) "
 
-		/* 运算符 */
+		/* 操作符 */
 								"UNION ALL "
 								"SELECT 'operator' AS objkind, op.oid::regoperator::text AS objname "
 								"FROM pg_operator AS op "

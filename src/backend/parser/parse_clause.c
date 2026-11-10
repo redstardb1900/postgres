@@ -2343,7 +2343,7 @@ flatten_grouping_sets(Node *expr, bool toplevel, bool *hasGroupingSets)
  *
  * 若目标列表中尚无该表达式，则把它加入目标列表；       
  * 若 flatresult 列表（将变成 groupClause）中也没有，           
- * 则加入其中。sortClause 提供运算符与排序次序提示。  
+ * 则加入其中。sortClause 提供操作符与排序次序提示。  
  *
  * 返回该表达式的 ressortgroupref。      
  *
@@ -3616,7 +3616,7 @@ assignSortGroupRef(TargetEntry *tle, List *tlist)
  * < 视为相等的值。不过无需检查 nulls_first，     
  * 因为 sortop 相同而 null 方向相反的更低阶列      
  * 是冗余的。另外，ORDER BY foo ASC 与 foo             
- * DESC 也算冗余，所以要检查交换算子匹配。              
+ * DESC 也算冗余，所以要检查交换操作符匹配。           
  *
  * 它对排序和分组列表都适用（考虑分组时 sortop       
  * 通常应为 InvalidOid）。注意我们需要此例程的主要        

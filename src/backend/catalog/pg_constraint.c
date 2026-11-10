@@ -328,9 +328,9 @@ CreateConstraintEntry(const char *constraintName,
 	if (foreignNKeys > 0)
 	{
 		/*
-		 * 注册对支持外键约束的相等运算符的
+		 * 注册对支持外键约束的相等操作符的
 		 * 普通依赖。若 PK 与 FK 类型相同，则
-		 * 一列的三个运算符相同；否则它们
+		 * 一列的三个操作符相同；否则它们
 		 * 不同。
 		 */
 		ObjectAddress oprobject;
@@ -360,10 +360,10 @@ CreateConstraintEntry(const char *constraintName,
 	free_object_addresses(addrs_normal);
 
 	/*
-	 * 我们懒得注册对排他约束的排他运算符的
+	 * 我们懒得注册对排他约束的排他操作符的
 	 * 依赖。我们假定它们是支持该索引的操作符类的
 	 * 成员，因此通过索引已有间接依赖。（对
-	 * 跨类型运算符这会相当冒险，但排他运算符
+	 * 跨类型操作符这会相当冒险，但排他操作符
 	 * 绝不会是跨类型的。）
 	 */
 

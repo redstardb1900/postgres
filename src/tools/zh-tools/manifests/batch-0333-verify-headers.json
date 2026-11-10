@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0333",
+  "title": "commands ledger item-2: old-header verify 校验 -> 验证 (3 lines / 3 files, sentence-aligned with batch-0329 sibling headers)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "288a542187aa32031f1b01fa2e0872c10cfde0a7",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0333-verify-headers.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/commands/define.c",
+      "kind": "c_comment",
+      "note": "line 19 header: 校验->验证 (EN 'These routines also verify permission')"
+    },
+    {
+      "pattern": "src/backend/commands/operatorcmds.c",
+      "kind": "c_comment",
+      "note": "line 19 header: 校验->验证 (same EN sentence)"
+    },
+    {
+      "pattern": "src/backend/commands/aggregatecmds.c",
+      "kind": "c_comment",
+      "note": "line 19 header: 校验->验证 (same EN sentence)"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0333-verify-headers.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/backend/commands/define.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "1 line: header 还会校验 -> 还会验证, byte-identical 6B swap, no pad needed"
+    },
+    {
+      "path": "src/backend/commands/operatorcmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "1 line: same sentence, byte-identical 6B swap"
+    },
+    {
+      "path": "src/backend/commands/aggregatecmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "1 line: same sentence, byte-identical 6B swap"
+    }
+  ],
+  "notes": "batch-0333 (user instruction 2026-11-10): clear commands campaign ledger item 2 - verify/校验 old-header 异名 (define/operatorcmds/aggregate headers). All three headers carry the identical EN sentence 'These routines also verify permission' (REL_16_11 line 18), rendered 还会校验用户执行该命令的权限。 at line 19; two batch-0329 sibling headers carrying the identical EN sentence (functioncmds REL:19 / typecmds REL:17) render it with 验证 per the verify->验证 iron rule (tsearchcmds/indexcmds/opclasscmds blk0 headers are short-form without this sentence), disclosing the old-header variant for later clearance. Each file has exactly one 校验 site (verified by grep), at header line 19, no other occurrence. Conversion: 校验(6B)->验证(6B) byte-identical permutation, per-line/file byte totals and LF unchanged, diff exactly 3+/3- (asserted by /tmp/s0333_apply.py: worktree==HEAD pre-write, single-site-per-file, line-19 sentence anchor, post-file 校验==0). Scope adjudication: validate/validation/check/validator sites elsewhere in commands (createas.c:126, user.c:91, trigger.c:6197/6200, vacuum.c:124, functioncmds.c:90 校验器, tablecmds.c x5) NOT touched - they are different EN classes without a decided pgnls rule (validator tree ratio 验证器 20 vs 校验器 14 is not decisive), several sit in dual-review-signed blocks (tablecmds 0321 full retranslation), and none belongs to ledger item 2 as recorded; disclosed for possible future instruction. Gates: verify 622 files 0 violations; term 0 errors / 706 warnings with site-set diff vs HEAD snapshot EMPTY (校验/验证 not rule-covered); check_scope PASS 4 paths 0 violations; halfen 3 files pre==post; unittest 206 OK (no tool changes). No spec/wave pipeline (term-domain batch, 0320/0330/0331/0332 precedent)."
+}

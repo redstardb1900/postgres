@@ -154,8 +154,12 @@ class FixedCases(unittest.TestCase):
         res = c_verify.compare_files(old, new, path="filezero-prose")
         self.assertEqual(res.violations, [],
                          [f.to_dict() for f in res.violations])
-        marker = b"/* NB: need to fall through to munmap()! */\n"
-        self.assertEqual(c_verify.protected_reason(marker), "fallthrough")
+        # prose with a target is not a GCC annotation (GCC -Wimplicit-fallthrough=3
+        # only accepts whole-body marker forms); bare markers stay protected.
+        self.assertIsNone(c_verify.protected_reason(
+            b"/* NB: need to fall through to munmap()! */\n"))
+        self.assertEqual(c_verify.protected_reason(b"/* FALLTHROUGH */\n"),
+                         "fallthrough")
 
     def test_toast_rewrite_fallthrough_prose_is_translatable(self):
         old = (
@@ -263,6 +267,90 @@ class FixedCases(unittest.TestCase):
         v = [f for f in res.violations if f.rule == "R1_SKELETON"][0]
         self.assertEqual(v.line, 2)
         self.assertIn("old:", v.context)
+
+
+class GccFallthroughForms(unittest.TestCase):
+    """GCC -Wimplicit-fallthrough=3 whole-body recognition matrix.
+
+    Per the GCC manual the whole comment body must match one of the level-3
+    expressions; every recognized form is single-line.  Protection must
+    track exactly that set: real markers (whose translation would silence a
+    warning) stay protected, prose mentioning falling through stays
+    translatable.
+    """
+
+    PROTECTED = (
+        b"/* fall through */\n",
+        b"/* FALL THROUGH */\n",
+        b"/* Fall through */\n",
+        b"/* falls through */\n",
+        b"/* Falls through */\n",
+        b"/* FALLS THROUGH */\n",
+        b"/* FALLTHRU */\n",
+        b"/* FALLTHROUGH */\n",
+        b"/* fallthru */\n",
+        b"/* fallthrough */\n",
+        b"/* fall through. */\n",
+        b"/*fall through*/\n",
+        b"/* fall-through */\n",
+        b"/* FALL-THROUGH */\n",
+        b"/* fall thru */\n",
+        b"/* intentional fall through */\n",
+        b"/* Intentional fall through */\n",
+        b"/* INTENTIONAL FALL THROUGH */\n",
+        b"/* else fall through */\n",
+        b"/* else fall through. */\n",
+        b"/* Else fall through */\n",
+        b"/* fall through - x is 0 here */\n",
+        ("/* fall through - 因为 x 为 0 */\n").encode("utf-8"),
+        b"/*-fallthrough*/\n",                              # body exactly -fallthrough
+        b"/*lint -fallthrough*/\n",
+        b"/*lint -fallthrough */\n",
+        b"// fall through\n",
+        b"// fall through.\n",
+    )
+
+    NOT_PROTECTED = (
+        b"/*\n * fall through\n */\n",                      # multi-line body
+        b"/* fall through\n */\n",                          # multi-line body
+        b"/** fall through */\n",                           # leading * in body
+        b"/// fall through\n",                              # leading / in body
+        b"/* fall through: x is 0 */\n",                    # colon explanation
+        b"/* fall through; x is 0 */\n",                    # semicolon tail
+        b"/* fall through x */\n",                          # trailing words
+        b"/* x fall through */\n",                          # leading words
+        b"/* we just fall through; below */\n",
+        b"/* not a fallthrough */\n",
+        b"/* fall through if x == 0 */\n",
+        b"/* fall through to examine arguments */\n",
+        b"/* NB: need to fall through to munmap()! */\n",
+        b"/* Fall back on write() if anything fails. */\n",
+        b"/*\n * WaitIO will fall through and we'll\n * be busy-looping here.\n */\n",
+        b"/*-\n * Header banner mentioning fall-through is prose.\n */\n",
+    )
+
+    def test_protected_forms(self):
+        for text in self.PROTECTED:
+            with self.subTest(text=text):
+                self.assertEqual(c_verify.protected_reason(text), "fallthrough")
+
+    def test_prose_stays_translatable(self):
+        for text in self.NOT_PROTECTED:
+            with self.subTest(text=text):
+                self.assertIsNone(c_verify.protected_reason(text))
+
+    def test_line_comment_marker(self):
+        old = b"switch (x) {\ncase 1:\n\tf();\n// fall through\ncase 2:\n\tbreak;\n}\n"
+        new = old.replace(b"// fall through", "// 穿透".encode("utf-8"))
+        self.assertEqual(c_verify.protected_reason(b"// fall through\n"), "fallthrough")
+        res = c_verify.compare_files(old, new, path="line-marker")
+        self.assertIn("R5_PROTECTED", {f.rule for f in res.violations})
+
+    def test_multiline_marker_translatable(self):
+        old = b"switch (x) {\ncase 1:\n\tf();\n/*\n * fall through\n */\ncase 2:\n\tbreak;\n}\n"
+        new = old.replace(b" * fall through\n", " * 穿透\n".encode("utf-8"))
+        res = c_verify.compare_files(old, new, path="multiline-marker")
+        self.assertEqual(res.violations, [], [f.to_dict() for f in res.violations])
 
 
 class MutationTests(unittest.TestCase):

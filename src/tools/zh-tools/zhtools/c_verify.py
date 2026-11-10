@@ -41,10 +41,50 @@ from . import c_lexer  # noqa: E402
 # --- fully protected comments (any edit is R5; checked on OLD text) -------
 _PROTECT_RULES = (
     ("translator", re.compile(rb"translator\s*:", re.I)),
-    # GCC -Wimplicit-fallthrough=3 accepts many spellings; be generous.
-    ("fallthrough", re.compile(rb"fall[\s\-_]*s?[\s\-_]*thr(ough|u)", re.I)),
     ("pg_attribute", re.compile(rb"pg_attribute_")),
 )
+
+# GCC -Wimplicit-fallthrough=3 annotation recognition.
+#
+# R5 additionally protects comments that GCC -Wimplicit-fallthrough=3 (the
+# level enabled by -Wextra) accepts as fall-through annotations: translating
+# such a comment would silence a warning the English source deliberately
+# placed, so the comment must stay as-is.  Per the GCC manual, "the whole
+# body of the C or C++ style comment should match" one of the level-3
+# expressions below; the body is the verbatim text between the comment
+# delimiters.  Comments that merely mention falling through in prose
+# ("we just fall through to ...") do not match and remain freely
+# translatable; GCC does not consult them either.  Every recognized form is
+# single-line (the expressions cannot match newlines), so multi-line
+# comments and /*- banners are never protected by this rule.  This replaces
+# the former loose substring rule plus its ~20 per-site prose exemptions.
+_GCC_FALLTHROUGH_FORMS = (
+    re.compile(rb"-fallthrough"),
+    re.compile(rb"@fallthrough@"),
+    re.compile(rb"lint -fallthrough[ \t]*"),
+    re.compile(rb"[ \t.!]*(ELSE,? |INTENTIONAL(LY)? )?"
+               rb"FALL(S | |-)?THR(OUGH|U)[ \t.!]*(-[^\n\r]*)?"),
+    re.compile(rb"[ \t.!]*(Else,? |Intentional(ly)? )?"
+               rb"Fall((s | |-)[Tt]|t)hr(ough|u)[ \t.!]*(-[^\n\r]*)?"),
+    re.compile(rb"[ \t.!]*([Ee]lse,? |[Ii]ntentional(ly)? )?"
+               rb"fall(s | |-)?thr(ough|u)[ \t.!]*(-[^\n\r]*)?"),
+)
+
+# A comment whose whole text is the comment plus (optionally) one trailing
+# newline; the body is the verbatim text between the delimiters.
+_BLOCK_COMMENT_RE = re.compile(rb"\A/\*(.*)\*/[ \t]*\r?\n?\Z", re.S)
+_LINE_COMMENT_RE = re.compile(rb"\A//(.*)\r?\n?\Z")
+
+
+def is_fallthrough_annotation(old_text):
+    """True iff old_text is a comment GCC -Wimplicit-fallthrough=3 accepts."""
+    m = _BLOCK_COMMENT_RE.match(old_text)
+    if m is None:
+        m = _LINE_COMMENT_RE.match(old_text)
+        if m is None:
+            return False
+    body = m.group(1)
+    return any(rx.fullmatch(body) for rx in _GCC_FALLTHROUGH_FORMS)
 
 # Legal/meta *lines* inside a comment must remain byte-identical substrings
 # of the new comment.  Module description and NOTES — including text that
@@ -125,134 +165,6 @@ class FileResult(object):
         }
 
 
-# WaitIO "will fall through" is prose: the waiter returns immediately because
-# StartBufferIO has not begun.  It is not a switch annotation, and GCC
-# -Wimplicit-fallthrough does not consult it.  Real fall-through comments stay
-# protected.
-_WAITIO_FALLTHROUGH_PROSE = re.compile(rb"WaitIO will fall through")
-
-# fsm_readbuf "possible to fall through and return the buffer" is prose: the
-# unlocked PageIsNew check can skip PageInit and hand back a buffer another
-# backend is still initializing.  Not a switch annotation.
-_FSM_FALLTHROUGH_PROSE = re.compile(
-    rb"possible to fall through and return the buffer")
-
-# FileFallocate "fall through to the FileZero() backed implementation" is
-# prose: a real posix_fallocate failure returns immediately, and EINVAL /
-# EOPNOTSUPP continues into FileZero().  Not a switch annotation, and GCC
-# -Wimplicit-fallthrough does not consult it.
-_FILEZERO_FALLTHROUGH_PROSE = re.compile(
-    rb"fall through to the FileZero\(\) backed implementation")
-
-# toast_internals "fall through without writing the data again" is prose
-# about skipping a second write when reusing a toast OID during rewrite,
-# not a switch fall-through annotation.
-_TOAST_REWRITE_FALLTHROUGH_PROSE = re.compile(
-    rb"fall through without writing the data again")
-
-# heapam_visibility HeapTupleSatisfiesDirty: rhetorical XXX about whether
-# control should continue to inspect xmax; the next statement is return true,
-# so this is not a GCC -Wimplicit-fallthrough annotation.
-_DIRTY_XMAX_FALLTHROUGH_PROSE = re.compile(
-    rb"shouldn't we fall through to look at xmax")
-
-# heapam.c control-flow prose (not switch annotations):
-# compute_new_xmax_infomask restarts via goto; the "fall through" branch
-# continues into MultiXactIdExpand below.
-_HEAPAM_MULTI_FALLTHROUGH_PROSE = re.compile(
-    rb"fall through to\s*\n\s*\*\s*create a new multi below")
-# test_lockmode_for_conflict: lock modes do not conflict, proceed to lock.
-_HEAPAM_LOCK_NOWAIT_FALLTHROUGH_PROSE = re.compile(
-    rb"fall through to lock this tuple\s*\n\s*\*\s*version without waiting")
-# same function: committed locker/updater with non-conflicting modes.
-_HEAPAM_LOCK_ALLOW_FALLTHROUGH_PROSE = re.compile(
-    rb"fall through to allow the current\s*\n\s*\*\s*transaction to lock the tuple")
-
-# tablespace.c TablespaceCreateDbspace "fall through quietly" is prose:
-# the subdirectory already exists so we continue without action; not a
-# switch annotation, and GCC -Wimplicit-fallthrough does not consult it.
-_TABLESPACE_FALLTHROUGH_PROSE = re.compile(rb"fall through quietly")
-
-# nodeLimit.c ExecLimit header prose: "fall through to the code for that
-# case" describes the state machine moving to WINDOWEND_TIES and entering
-# the shared scan code below.  The real switch annotations in this function
-# are separate one-line comments.  Not a GCC -Wimplicit-fallthrough
-# annotation.
-_LIMIT_FALLTHROUGH_PROSE = re.compile(
-    rb"fall through to the code for\s*\n\s*\*\s*that case")
-
-# parse_clause.c findTargetlistEntrySQL92 header prose: "we fall through to
-# the SQL99 rules" describes the SQL92 matching strategy handing over to the
-# SQL99 interpretation when no column-name/number match is found.  There is
-# no switch statement here; the SQL99 path is reached by ordinary control
-# flow.  Not a GCC -Wimplicit-fallthrough annotation.
-_PARSECLAUSE_SQL99_FALLTHROUGH_PROSE = re.compile(
-    rb"we fall through to the SQL99 rules")
-
-# parse_clause.c transformSortClause GROUP BY prose: "fall through to use
-# SQL99 rules" describes preferring a column match and otherwise continuing
-# with the SQL99 interpretation below.  Prose about which matching rules
-# apply next, not a switch annotation.
-_PARSECLAUSE_GROUPBY_FALLTHROUGH_PROSE = re.compile(
-    rb"fall through to use SQL99 rules")
-
-# parse_coerce.c can_coerce_type prose: "we just fall through; below, we'll
-# call the pseudotype's input function" describes ordinary control flow for
-# UNKNOWN constants inside an if-block (no switch anywhere in the function).
-# Not a GCC -Wimplicit-fallthrough annotation.
-_PARSECOERCE_FALLTHROUGH_PROSE = re.compile(rb"we just fall through; below")
-
-# parse_expr.c exprKindName() switch-head prose: "we'll fall through to the
-# "unrecognized" return" describes control leaving a switch with no default
-# to the error return after it; each case returns, so no case-to-case
-# fallthrough exists.  Not a GCC -Wimplicit-fallthrough annotation.
-_PARSEEXPR_FALLTHROUGH_PROSE = re.compile(
-    rb'fall through to the "unrecognized" return')
-
-# parse_target.c transformExprRecurse/FigureColnameInternal prose: "Fall
-# through and fail" and "else fall through to inspect the expression"
-# describe ordinary control flow in if/else chains (branches return or
-# share the failure path below; no switch case-to-case drop).  Not a GCC
-# -Wimplicit-fallthrough annotation.
-_PARSETARGET_FALLTHROUGH_PROSE = re.compile(
-    rb"fall through to inspect the expression|Fall through and fail")
-
-# parse_cte.c transformCTEParse prose (five byte-identical one-line
-# comments): "just fall through for normal processing" describes the
-# no-WITH-clause path continuing by ordinary control flow (no switch).
-# Not a GCC -Wimplicit-fallthrough annotation.
-_PARSECTE_FALLTHROUGH_PROSE = re.compile(
-    rb"fall through for normal processing")
-
-# snapbuild.c SnapBuildXactHasDecodeableProse: "We fall through to the
-# normal processing of records so incremental cleanup can be
-# performed." describes returning true so the record takes its normal
-# decode path (no switch).  Unique in REL_16_11.  Not a GCC
-# -Wimplicit-fallthrough annotation.
-_SNAPBUILD_FALLTHROUGH_PROSE = re.compile(
-    rb"fall through to the normal processing")
-
-# reorderbuffer.c control-flow prose (not switch annotations): the
-# "otherwise fall through to create it" comment describes an if-branch
-# continuing into cache-entry creation (no switch), and the three "fall
-# through these, they're all similar enough" comments describe case-label
-# groups that share one body ending in break -- case stacking, not a
-# statement-level fallthrough past a case boundary.  GCC
-# -Wimplicit-fallthrough only consults exact "fall through" spellings and
-# does not match either form.  Unique to reorderbuffer.c in REL_16_11.
-_REORDERBUFFER_FALLTHROUGH_PROSE = re.compile(
-    rb"otherwise fall through to create it|"
-    rb"fall through these, they're all similar enough")
-
-# copy.c CopyFrom post-"query"-copy prose: "just fall through to the
-# normal non-filtering relation handling" describes the RLS-disabled path
-# continuing into ordinary COPY processing (no switch in
-# check_enable_rls callers around the block).  Unique in REL_16_11.  Not a
-# GCC -Wimplicit-fallthrough annotation.
-_COPY_RLS_FALLTHROUGH_PROSE = re.compile(
-    rb"fall through to the\s*\n\s*\*\s*normal non-filtering relation handling")
-
-
 def legal_protected_segments(old_text):
     """Return Copyright/IDENTIFICATION/licence line blobs that must survive.
 
@@ -309,34 +221,15 @@ def protected_reason(old_text):
 
     Copyright/IDENTIFICATION lines are *not* reported here; use
     ``legal_protected_segments`` and require each segment to survive.
-    File-banner comments (``/*-``) may mention fall-through in prose; that
-    is not a GCC -Wimplicit-fallthrough annotation, so it is not full-protect.
+    File-banner comments (``/*-``) and prose that merely mentions falling
+    through are not GCC -Wimplicit-fallthrough annotations, so they are
+    translatable; see ``is_fallthrough_annotation``.
     """
     for name, rx in _PROTECT_RULES:
         if rx.search(old_text):
-            if name == "fallthrough" and (
-                    old_text.startswith(b"/*-")
-                    or _WAITIO_FALLTHROUGH_PROSE.search(old_text)
-                    or _FSM_FALLTHROUGH_PROSE.search(old_text)
-                    or _FILEZERO_FALLTHROUGH_PROSE.search(old_text)
-                    or _TOAST_REWRITE_FALLTHROUGH_PROSE.search(old_text)
-                    or _DIRTY_XMAX_FALLTHROUGH_PROSE.search(old_text)
-                    or _HEAPAM_MULTI_FALLTHROUGH_PROSE.search(old_text)
-                    or _HEAPAM_LOCK_NOWAIT_FALLTHROUGH_PROSE.search(old_text)
-                    or _HEAPAM_LOCK_ALLOW_FALLTHROUGH_PROSE.search(old_text)
-                    or _TABLESPACE_FALLTHROUGH_PROSE.search(old_text)
-                    or _LIMIT_FALLTHROUGH_PROSE.search(old_text)
-                    or _PARSECLAUSE_SQL99_FALLTHROUGH_PROSE.search(old_text)
-                    or _PARSECLAUSE_GROUPBY_FALLTHROUGH_PROSE.search(old_text)
-                    or _PARSECOERCE_FALLTHROUGH_PROSE.search(old_text)
-                    or _PARSEEXPR_FALLTHROUGH_PROSE.search(old_text)
-                    or _PARSETARGET_FALLTHROUGH_PROSE.search(old_text)
-                    or _PARSECTE_FALLTHROUGH_PROSE.search(old_text)
-                    or _SNAPBUILD_FALLTHROUGH_PROSE.search(old_text)
-                    or _REORDERBUFFER_FALLTHROUGH_PROSE.search(old_text)
-                    or _COPY_RLS_FALLTHROUGH_PROSE.search(old_text)):
-                continue
             return name
+    if is_fallthrough_annotation(old_text):
+        return "fallthrough"
     return None
 
 

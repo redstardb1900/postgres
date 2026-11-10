@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0335",
+  "title": "commands ledger item-5 D20 tooling remainder: fallthrough regex aligned to GCC -Wimplicit-fallthrough=3 whole-body match + halfen3 lexer-based scanner killing the *ptr = code-line false-positive family (tools-only batch, 9 files)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "4e8bdb5b084f22506da787ccbab83fb4b13b9adf",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0335-d20-tools.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/zhtools/c_verify.py",
+      "kind": "tool",
+      "note": "fallthrough: loose search regex + 20 site-exemption prose regexes replaced by is_fallthrough_annotation() = whole-comment-body fullmatch against the six documented GCC =3 forms"
+    },
+    {
+      "pattern": "src/tools/zh-tools/zhtools/halfen.py",
+      "kind": "tool",
+      "note": "new halfen3 classification library (c_lexer comment extraction, halfen2 token rules + CJK-token rule, MIXED/PUREEN, HALFEN_OK_PATTERNS + site ledger)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/zhtools/__init__.py",
+      "kind": "tool",
+      "note": "TOOLS_VERSION 0.2.3 -> 0.2.4"
+    },
+    {
+      "pattern": "src/tools/zh-tools/scan_halfen.py",
+      "kind": "tool",
+      "note": "new CLI: --git / --git-diff / --worktree modes, --paths, --pureen, --exemptions/--no-exemptions, --json; exit 0/1/2"
+    },
+    {
+      "pattern": "src/tools/zh-tools/halfen_exemptions.json",
+      "kind": "tool",
+      "note": "new curated site-exemption ledger, starts empty"
+    },
+    {
+      "pattern": "src/tools/zh-tools/tests/test_verify_c_comments.py",
+      "kind": "tool",
+      "note": "filezero fall-through expectation flipped; new GccFallthroughForms matrix + line-comment and multiline end-to-end tests"
+    },
+    {
+      "pattern": "src/tools/zh-tools/tests/fixtures/negative_cases.json",
+      "kind": "tool",
+      "note": "neg-falls-through-prose flipped R5_PROTECTED -> ok; 5 GCC-alignment fixtures appended (67 cases)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/tests/test_scan_halfen.py",
+      "kind": "tool",
+      "note": "new: 16 tests over token rules, classify, code-line immunity (recorded *ptr = sites), exemption layers, CLI git modes"
+    },
+    {
+      "pattern": "src/tools/zh-tools/README.md",
+      "kind": "tool",
+      "note": "verify row fall-through wording (GCC =3 whole-body match); scan_halfen.py + halfen rows; 4 halfen commands in 常用命令"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0335-d20-tools.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/zhtools/c_verify.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "-126 lines: _PROTECT_RULES fallthrough entry removed, 20 _XXX_FALLTHROUGH_PROSE exemption regexes deleted; +is_fallthrough_annotation()/_GCC_FALLTHROUGH_FORMS (six documented =3 regexes, body fullmatch, single-line only so multiline bodies and /*- banners never match). Snapshot ledger HEAD+REL_16_11: 36099 comments, protected 378 -> 252, exactly 126 prose comments freed (target-suffix/multiline/prefix-word forms GCC does not recognize), 0 gained / 0 other changed; the 252 true bare markers all keep protection"
+    },
+    {
+      "path": "src/tools/zh-tools/zhtools/halfen.py",
+      "kind": "tool",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "halfen3 core: comments extracted via c_lexer (code lines never examined - kills the halfen/halfen2 line-heuristic *ptr = false-positive family recorded at analyze:1326/1327, functioncmds:402/442/467, opclasscmds:1421, vacuum:2320 et al.); halfen2 prose-token rules verbatim + new rule: any token bearing CJK is never an English prose token; MIXED = CJK + >=2 consecutive pure-ASCII prose tokens, PUREEN = no CJK + >=4 prose tokens (--pureen only); exemptions layered: c_verify protection / legal segments, HALFEN_OK_PATTERNS (WAL running xacts|known assigned xid campaign verdict), halfen_exemptions.json site ledger (entries require reason)"
+    },
+    {
+      "path": "src/tools/zh-tools/zhtools/__init__.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "TOOLS_VERSION 0.2.3 -> 0.2.4"
+    },
+    {
+      "path": "src/tools/zh-tools/scan_halfen.py",
+      "kind": "tool",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "CLI over gitutil; mutually exclusive --git REF / --git-diff OLD NEW / --worktree BASE ROOT; report-only, exit 1 on findings"
+    },
+    {
+      "path": "src/tools/zh-tools/halfen_exemptions.json",
+      "kind": "tool",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "empty ledger [] - no future campaign verdicts pre-adopted"
+    },
+    {
+      "path": "src/tools/zh-tools/tests/test_verify_c_comments.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "filezero 'fall through to munmap' now expected unprotected; GccFallthroughForms PROTECTED 26 forms / NOT_PROTECTED multiline, /**, ///, colon/semicolon tails, prefix/suffix words, /*- banner; +2 compare_files end-to-end"
+    },
+    {
+      "path": "src/tools/zh-tools/tests/fixtures/negative_cases.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "neg-falls-through-prose expect R5_PROTECTED -> ok; +neg-fallthrough-dash-explain, neg-fall-thru-upper, ok-multiline-fallthrough-marker, ok-doublestar-fallthrough, ok-fallthrough-to-target (67 cases)"
+    },
+    {
+      "path": "src/tools/zh-tools/tests/test_scan_halfen.py",
+      "kind": "tool",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "16 tests: TokenRules / Classify (CJK-token immunity) / ScanBytes (code-line immunity with the exact recorded false-positive patterns, protected+copyright+WAL exemptions, site ledger, unterminated comment) / SiteLedger / Cli (--git and --git-diff on the real repo)"
+    },
+    {
+      "path": "src/tools/zh-tools/README.md",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "fall-through = GCC =3 整体匹配; scan_halfen.py 职责 row; halfen in zhtools/ row; 4 commands in 常用命令"
+    }
+  ],
+  "notes": "batch-0335 (user instruction 2026-11-10: commands campaign ledger item 5 'D20 tooling remainder'; user constraint mid-batch: no gcc compile-based verification - implementation and acceptance derived from the documented GCC manual =3 regexes). (1) fallthrough: whole-body fullmatch against the six documented forms (-fallthrough, @fallthrough@, lint -fallthrough[ \\t]*, and the three FALL(S | |-)?THR(OUGH|U) case variants); all single-line, so multiline bodies and /*- banners never match. Acceptance by pre/post per-comment protected_reason snapshot over HEAD+REL_16_11 (union-of-keys diff): 36099 comments, 378 -> 252 protected, LOST=126 all eyeballed prose (fall through to X target suffixes, multiline bodies, prefix words, Intentional fall through to X, Fall back on write()), GAINED=0 CHANGED=0. verify_c_comments --git REL_16_11 HEAD full-tree gate: 622 files, 0 violations, 0 parse errors. (2) halfen3: scanner is report-only, not a gate. Recorded *ptr = sites re-scan zero flags (grep :1326/:1327/:402/:442/:467/:1421/:2320 empty over the four files). First full-tree debt map (--git HEAD, 2026-11-10): 557 MIXED / 407 unique run classes (access 80, commands 75, optimizer 67, executor 56, bin/psql 51 ...), mostly kept-EN legitimate classes (person names, protocol message names, pseudocode) plus a few real-debt candidates - regenerable via scan_halfen.py --git HEAD --json, deliberately not committed; whole-tree clearing deferred to a future campaign. (3) Tests and docs per files[].note; TOOLS_VERSION 0.2.4. Suite green except 7 pre-existing environmental check_scope e2e failures (test-created temp trees x umask 0002 group-write drift in this WSL env; identical failures on pristine HEAD, out of batch scope). No spec/wave pipeline (tools-only batch, 0329/0331/0332 precedent)."
+}

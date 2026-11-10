@@ -6800,7 +6800,7 @@ check_of_type(HeapTuple typetuple)
 
 
 /*
- * ALTER TABLE ADD COLUMN
+ * 更改表添加列    
  *
  * 向关系添加一个附加属性，其假设 CHECK、NOT NULL       
  * 和 FOREIGN KEY 约束将被 parse_utilcmd.c 从                     
@@ -7394,7 +7394,7 @@ add_column_collation_dependency(Oid relid, int32 attnum, Oid collid)
 }
 
 /*
- * ALTER TABLE ALTER COLUMN DROP NOT NULL
+ * 更改表更改列移除 NOT NULL     
  */
 
 static void
@@ -7556,7 +7556,7 @@ ATExecDropNotNull(Relation rel, const char *colName, LOCKMODE lockmode)
 }
 
 /*
- * ALTER TABLE ALTER COLUMN SET NOT NULL
+ * 更改表更改列设置 NOT NULL    
  */
 
 static void
@@ -7696,7 +7696,7 @@ ATExecSetNotNull(AlteredTableInfo *tab, Relation rel,
 }
 
 /*
- * ALTER TABLE ALTER COLUMN CHECK NOT NULL
+ * 更改表更改列检查 NOT NULL      
  *
  * 这在语法中并不存在，但如果用户在分区表上      
  * 写入 ALTER TABLE ONLY ... SET NOT NULL，或者                 
@@ -7772,7 +7772,7 @@ NotNullImpliedByRelConstraints(Relation rel, Form_pg_attribute attr)
 }
 
 /*
- * ALTER TABLE ALTER COLUMN SET/DROP DEFAULT
+ * 更改表更改列设置/移除默认值 
  *
  * 返回受影响列的地址。            
  */
@@ -7886,7 +7886,7 @@ ATExecCookedColumnDefault(Relation rel, AttrNumber attnum,
 }
 
 /*
- * ALTER TABLE ALTER COLUMN ADD IDENTITY
+ * 更改表更改列添加标识       
  *
  * 返回受影响列的地址。            
  */
@@ -8040,7 +8040,7 @@ ATExecSetIdentity(Relation rel, const char *colName, Node *def, LOCKMODE lockmod
 }
 
 /*
- * ALTER TABLE ALTER COLUMN DROP IDENTITY
+ * 更改表更改列移除标识        
  *
  * 返回受影响列的地址。            
  */
@@ -8116,7 +8116,7 @@ ATExecDropIdentity(Relation rel, const char *colName, bool missing_ok, LOCKMODE 
 }
 
 /*
- * ALTER TABLE ALTER COLUMN DROP EXPRESSION
+ * 更改表更改列移除表达式       
  */
 static void
 ATPrepDropExpression(Relation rel, AlterTableCmd *cmd, bool recurse, bool recursing, LOCKMODE lockmode)
@@ -8251,7 +8251,7 @@ ATExecDropExpression(Relation rel, const char *colName, bool missing_ok, LOCKMOD
 }
 
 /*
- * ALTER TABLE ALTER COLUMN SET STATISTICS
+ * 更改表更改列设置统计目标   
  *
  * 返回值是被修改列的地址。              
  */
@@ -8503,7 +8503,7 @@ SetIndexStorageProperties(Relation rel, Relation attrelation,
 }
 
 /*
- * ALTER TABLE ALTER COLUMN SET STORAGE
+ * 更改表更改列设置存储策略
  *
  * 返回值是被修改列的地址。              
  */
@@ -8562,7 +8562,7 @@ ATExecSetStorage(Relation rel, const char *colName, Node *newValue, LOCKMODE loc
 
 
 /*
- * ALTER TABLE DROP COLUMN
+ * 更改表删除列     
  *
  * DROP COLUMN 无法使用普通的 ALTER TABLE 递归              
  * 机制，因为我们必须在运行时决定是否递归，            
@@ -8791,7 +8791,7 @@ ATExecDropColumn(List **wqueue, Relation rel, const char *colName,
 }
 
 /*
- * ALTER TABLE ADD INDEX
+ * 更改表加索引   
  *
  * 语法中没有这样的命令，但 parse_utilcmd.c 会             
  * 把 UNIQUE 和 PRIMARY KEY 约束转换成 AT_AddIndex 子命令。        
@@ -8856,7 +8856,7 @@ ATExecAddIndex(AlteredTableInfo *tab, Relation rel,
 }
 
 /*
- * ALTER TABLE ADD STATISTICS
+ * 更改表添加统计     
  *
  * 语法中没有这样的命令，但我们在内部使用它来          
  * 添加 AT_ReAddStatistics 子命令，在表列类型变更后             
@@ -8879,7 +8879,7 @@ ATExecAddStatistics(AlteredTableInfo *tab, Relation rel,
 }
 
 /*
- * ALTER TABLE ADD CONSTRAINT USING INDEX
+ * 更改表添加约束 USING INDEX     
  *
  * 返回新约束的地址。               
  */
@@ -8970,7 +8970,7 @@ ATExecAddIndexConstraint(AlteredTableInfo *tab, Relation rel,
 }
 
 /*
- * ALTER TABLE ADD CONSTRAINT
+ * 更改表添加约束     
  *
  * 返回值是新约束的地址；如果没有添加任何约束，     
  * 则返回 InvalidObjectAddress。       
@@ -11027,7 +11027,7 @@ GetForeignKeyCheckTriggers(Relation trigrel,
 }
 
 /*
- * ALTER TABLE ALTER CONSTRAINT
+ * 更改表更改约束       
  *
  * 更新约束的属性。              
  *
@@ -11314,7 +11314,7 @@ ATExecAlterConstrRecurse(Constraint *cmdcon, Relation conrel, Relation tgrel,
 }
 
 /*
- * ALTER TABLE VALIDATE CONSTRAINT
+ * 更改表验证约束          
  *
  * XXX 我们在 这里而非第 1 阶段处理递归，原因是           
  * 处理外键时没有办法跳过递归：那种情况下无              
@@ -12172,7 +12172,7 @@ createForeignKeyCheckTriggers(Oid myRelOid, Oid refRelOid,
 }
 
 /*
- * ALTER TABLE DROP CONSTRAINT
+ * 更改表删除约束      
  *
  * 同 DROP COLUMN，这里无法使用常规的 ALTER TABLE 递归机制。 
  */
@@ -12416,7 +12416,7 @@ ATExecDropConstraint(Relation rel, const char *constrName,
 }
 
 /*
- * ALTER COLUMN TYPE
+ * 更改列类型  
  *
  * 与其他子命令类型不同，我们在阶段 1 就对 ALTER COLUMN    
  * TYPE 做解析变换 --- 传入的 AlterTableCmd 已被变         
@@ -12767,7 +12767,7 @@ ATColumnChangeRequiresRewrite(Node *expr, AttrNumber varattno)
 }
 
 /*
- * ALTER COLUMN .. SET DATA TYPE
+ * 更改列..更改数据类型
  *
  * 返回被修改列的地址。            
  */
@@ -13986,7 +13986,7 @@ TryReuseForeignKey(Oid oldId, Constraint *con)
 }
 
 /*
- * ALTER COLUMN .. OPTIONS ( ... )
+ * 更改列..选项 ( ... )      
  *
  * 返回被修改列的地址               
  */
@@ -14509,7 +14509,7 @@ ATExecClusterOn(Relation rel, const char *indexName, LOCKMODE lockmode)
 }
 
 /*
- * ALTER TABLE SET WITHOUT CLUSTER
+ * 更改表设置无聚簇       
  *
  * 需要找出表上设置了 indisclustered 位的所有索引并关  
  * 闭该位。        
@@ -14543,7 +14543,7 @@ ATPrepSetAccessMethod(AlteredTableInfo *tab, Relation rel, const char *amname)
 }
 
 /*
- * ALTER TABLE SET TABLESPACE
+ * 更改表设置表空间  
  */
 static void
 ATPrepSetTableSpace(AlteredTableInfo *tab, Relation rel, const char *tablespacename, LOCKMODE lockmode)
@@ -15128,7 +15128,7 @@ index_copy_data(Relation rel, RelFileLocator newrlocator)
 }
 
 /*
- * ALTER TABLE ENABLE/DISABLE TRIGGER
+ * 更改表启用/禁用触发器   
  *
  * 只是转交给 trigger.c。       
  */
@@ -15143,7 +15143,7 @@ ATExecEnableDisableTrigger(Relation rel, const char *trigname,
 }
 
 /*
- * ALTER TABLE ENABLE/DISABLE RULE
+ * 更改表启用/禁用规则   
  *
  * 只是转交给 rewriteDefine.c。       
  */
@@ -15155,7 +15155,7 @@ ATExecEnableDisableRule(Relation rel, const char *rulename,
 }
 
 /*
- * ALTER TABLE INHERIT
+ * 更改表继承    
  *
  * 向子关系的父列表添加一个父关系。这会验证父关系的   
  * 所有列和检查约束都出现在子关系中，并具有相同的     
@@ -15677,7 +15677,7 @@ MergeConstraintsIntoExisting(Relation child_rel, Relation parent_rel)
 }
 
 /*
- * ALTER TABLE NO INHERIT
+ * 更改表无继承    
  *
  * 返回值是不再作为父表的关系的地址。                  
  */
@@ -16409,7 +16409,7 @@ ATExecReplicaIdentity(Relation rel, ReplicaIdentityStmt *stmt, LOCKMODE lockmode
 }
 
 /*
- * ALTER TABLE ENABLE/DISABLE ROW LEVEL SECURITY
+ * 更改表启用/禁用行级安全           
  */
 static void
 ATExecSetRowSecurity(Relation rel, bool rls)
@@ -16436,7 +16436,7 @@ ATExecSetRowSecurity(Relation rel, bool rls)
 }
 
 /*
- * ALTER TABLE FORCE/NO FORCE ROW LEVEL SECURITY
+ * 更改表强制/不强制行级安全        
  */
 static void
 ATExecForceNoForceRowSecurity(Relation rel, bool force_rls)
@@ -16540,7 +16540,7 @@ ATExecGenericOptions(Relation rel, List *options)
 }
 
 /*
- * ALTER TABLE ALTER COLUMN SET COMPRESSION
+ * 更改表更改列设置压缩方法    
  *
  * 返回值是被修改列的地址                 
  */
@@ -18651,7 +18651,7 @@ CloneRowTriggersToPartition(Relation parent, Relation partition)
 }
 
 /*
- * ALTER TABLE DETACH PARTITION
+ * 更改表分离分区       
  *
  *  返回不再是 rel 分区的那个关系的地址。                  
  *
@@ -19164,7 +19164,7 @@ DetachPartitionFinalize(Relation rel, Relation partRel, bool concurrent,
 }
 
 /*
- * ALTER TABLE ... DETACH PARTITION ... FINALIZE
+ * 更改表 ... 分离分区 ... FINALIZE      
  *
  *  用于先前未运行完毕的 DETACH PARTITION 命令；      
  *  它会完成分离过程。                     

@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0336",
+  "title": "tablecmds banner label batch (R2-0322 ledger item 4): translate 32 EN function-header banner label lines to zh following dispatch-tail vocabulary; keeps re-adjudicated (single file, 32 line pairs, 0 net bytes)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "b753c35bc90759903481ec7d480e97397d33065c",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0336-tablecmds-banner-labels.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/commands/tablecmds.c",
+      "kind": "c_comment",
+      "note": "32 banner label lines (blk686..1614), each replaced in place with zh + trailing-space pad to the EN line byte count; 0 net bytes, LF identity"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0336-tablecmds-banner-labels.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/backend/commands/tablecmds.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1664,
+      "translated": 32,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "32 banner label lines translated (blocks 686,735,746,757,760,771,776,778,786,795,797,819,831,833,841,978,994,1046,1068,1092,1183,1230,1234,1290,1291,1292,1333,1385,1387,1393,1574,1614); keeps re-adjudicated see notes"
+    }
+  ],
+  "notes": "batch-0336 (user instruction 2026-11-10: commands campaign ledger item 4 'tablecmds blk523 label batch (R2-0322)'). Site-of-truth first: R2-0322's cited example 'ADD STATISTICS 523' proved already translated by batch-0321 (dispatch tail L5152 /* 添加统计 */ and the L8859 banner prose) - the ledger quote was stale; the real remainder found by an EN-identity line-level scan is 37 EN banner label lines (+ 12 tail ENABLE/DISABLE family sites), none of which 0322 touched (0322 scope was ONE tail labels only). Criterion carried from R2-0322: translate verb/noun phrases with corpus support; keep pure syntax keyword pairs and grammar particles. Rendering rule (single house style, mirrors 0321/0322 dispatch-tail vocabulary; CJK segments concatenate without spaces, spaces only at CJK<->EN boundaries; ALTER TABLE->更改表 / ALTER COLUMN->更改列 absorbed following the 0322-sanctioned 更改列类 precedent): 更改表添加列(686) 更改表更改列移除/设置/检查 NOT NULL(735/746/757, dispatch 移除列上的 NOT NULL anchor) 更改表更改列设置/移除默认值(760) 更改表更改列添加/移除标识(771/776, glossary identity column=标识列) 更改表更改列移除表达式(778) 更改表更改列设置统计目标(786, tree 21:8 over 统计信息目标; dispatch 设置列统计信息目标 too long for budget) 更改表更改列设置存储策略(795, dispatch 设置列的存储策略) 更改表删除列(797, dispatch anchor) 更改表加索引(819, dispatch anchor) 更改表添加统计(831, dispatch anchor L5152) 更改表添加约束 USING INDEX(833)/更改表添加约束(841, dispatch anchor) 更改表更改约束(978) 更改表验证约束(994, typecmds precedent) 更改表删除约束(1046, dispatch anchor, tree 删除约束 4:0) 更改列类型(1068, 0322 tail-exact) 更改列..更改数据类型(1092) 更改列..选项 ( ... )(1183, pgnls P62 Options->选项) 更改表设置无聚簇(1230, 0322 tail anchor + P66 advisory see below) 更改表设置表空间(1234, dispatch anchor) 更改表启用/禁用触发器(1290)/更改表启用/禁用规则(1291, dispatch 4944 启用/禁用规则变体 anchor) 更改表继承(1292)/更改表无继承(1333, 0322 tail anchors) 更改表启用/禁用行级安全(1385, 行级安全 0328 adjudication) 更改表强制/不强制行级安全(1387, allpaths 强制行级安全 precedent) 更改表更改列设置压缩方法(1393, dispatch 设置列的压缩方法 anchor, tree 压缩方法 18) 更改表分离分区(1574, tree 分离分区 13:0) 更改表 ... 分离分区 ... FINALIZE(1614, DETACH PARTITION translated as verb phrase, FINALIZE kept as bare syntax keyword member per CLUSTER ON ruling). Byte model: budgets derived from actual REL_16_11 lines by generator (not hand math); per-line parity zh+trailing-space pad = EN line bytes; 0 net bytes, LF identity; apply asserted worktree==HEAD pre-write, exact EN label match per station, diff==32 pairs. Keeps (re-adjudicated, do-not-touch ledger): blk327 RENAME (重命名 9B > budget 6B, byte-fail); blk1190 ALTER TABLE OWNER (0322 tail-signed keep, 防误改台账: 属主/所有者 tension - banner must not diverge from tail); blk1227 CLUSTER ON (verbless keyword pair per 0322); blk1353/1365 OF/NOT OF (grammar particles per 0322); tail ENABLE/DISABLE TRIGGER/RULE family 566-577 keep wholesale (only 4-6 of 12 fit byte-wise; uniform translation impossible without shattering the ENABLE/DISABLE family parallel - 0321 reverted them at +1B, 0322 challenge (b) found no superior renderings; zh banner compound 启用/禁用触发器 covers the sense). Gates: verify_c_comments 622 files 0 violations 0 parse errors (4 pre-existing W7_IDENT_LOST advisories at :4866 设置访问方法 / :4884 设置表空间 / :4892 重置 (...) / :4899 继承 - all 0321/0322-era dispatch-tail labels, byte-identical to HEAD, lines outside this batch's diff; count corrected from the brief's 2 per the review's live gate run); term_lint 0 errors, 707 warnings = baseline 706 + 1 new P66 at :14511 更改表设置无聚簇 - same sense-disambiguation false-positive class 0322 adjudicated on tail sites blk467/554 (rule targets database-cluster 集簇, station is the SQL CLUSTER command sense 聚簇, cluster.c corpus); halfen3 tablecmds.c 9=9 findings set-identical pre/post (translated labels are CJK-bearing tokens + all-caps keywords, scanner-immune by construction); check_scope incremental PASS 2 paths. Tool version 0.2.4; spec generator and apply script under /tmp (worktree==HEAD assertion, per-line byte parity, LF identity, no */ intro)."
+}

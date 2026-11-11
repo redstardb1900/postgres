@@ -1,0 +1,66 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0344",
+ "title": "0258 residual settlement: block re-layout to exact per-line EN byte parity, 10 lines / 2 files (index.c + variables.c)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "8802322d7ac1f7848a07f020c6f438973a7d8da6",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0344-0258-residual-settlement.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/catalog/index.c",
+   "kind": "c_comment",
+   "note": "ledger L3047/3048 debt: block re-layout 3047-3050 (4 lines) to per-line EN parity"
+  },
+  {
+   "pattern": "src/bin/psql/variables.c",
+   "kind": "c_comment",
+   "note": "ledger L301/303/304/309/310/311 debt: block re-layout in two segments (6 ledger lines; L302/305-308 untouched)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0344-0258-residual-settlement.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/backend/catalog/index.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 comment block (L3045-3051) re-laid-out: 4 lines rewritten (3047-3050), pure reflow of the original wording, every line == EN byte length (70/70/67/66); settles 0258 ledger +12B x2"
+  },
+  {
+   "path": "src/bin/psql/variables.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 comment block (L297-312) re-laid-out: 6 ledger lines rewritten (301/303/304/309/310/311), L302 and 305-308 untouched; two word trims (301 drops 一个, 309 drops 它 and 的), rest pure reflow; every rewritten line == EN byte length; settles 0258 ledger +2/+7/-34/+4/+4/-35B"
+  }
+ ],
+ "notes": "batch-0344 (0258 residual settlement, 2026-11-11, parent batch-0343=8802322d7ac). Settles the 0258-campaign residual byte-parity ledger recorded in batch-0338/0339 notes: index.c L3047/3048 (+12B each) and variables.c L301/303/304/309/310/311 (+2/+7/-34/+4/+4/-35B). Root cause: P2-era block reflow left over-budget lines paired with under-budget lines inside the same comment block. Fix = block-unit re-layout to exact per-line EN byte parity (batch-0339 block-unit precedent), original wording preserved; only two wordings trimmed to fit fixed neighbors (variables.c L301 drops 一个 so the untouched L302 keeps its parity; L309 drops 它 and 的; all other lines are pure re-splits with no wording change). index.c 3047-3050 reflow: 如果一个|非日志关系…或在|随后的事务中被截断两次，|relfilenumber|不会改变 (no mid-word breaks); variables.c 301-304 segment reflows against fixed L302; 309-311 reflows 这应该在|分配. Every rewritten line asserts len(zh bytes)==len(EN bytes) via trailing pads (generator /tmp/gen_spec0344.py, spec /tmp/spec0344.json). Gates (all pre-commit, batch scope): verify_c_comments --worktree HEAD . = 2 files, changed=2 comment blocks (index.c 1 + variables.c 1; 10 lines), 0 violations, 0 parse errors (W7_UNTRANSLATED advisories index.c:496 / index.c:514 / variables.c:1 are pre-existing untouched comments); term_lint dual-state bare 0 error/0 warning and --pgnls 0 error/0 warning (batch scope); halfen3 full-worktree regression: default scan 0 findings, raw (--no-exemptions, empty-tree worktree baseline) 421 findings with finding set byte-identical to batch-0343 post-commit raw (0 added / 0 removed; the reflow creates no new MIXED runs), 0 lex errors; check_scope --worktree . --incremental --base HEAD PASS 3 changed paths (manifest itself + index.c + variables.c); test suite unchanged (no tool change this batch): 228 tests = 221 green + 7 documented environmental ScopeEndToEnd umask failures. Ledger status: 0258 residual ledger fully settled (index.c 3047/3048 + variables.c 301/303/304/309/310/311); no entries remain. Out-of-scope ledgers unchanged: rendering-rules batch, non-replication glossary catalog 757 sites, ENR ephemeral unification.",
+ "post_review": {
+  "r1": "PASS, 1 minor D (notes fidelity, non-blocking): D1 notes listed 2 W7 advisories (index.c:514 / variables.c:1) but verify emits 3 - index.c:496 (InitializeAttributeOids frame comment) also pre-existing untouched; 0-violations conclusion unaffected. ADOPTED in delta. A1 fold into next manifest touch - satisfied by this delta. A2 reflow-style memo (future reflows prefer moving prepositional phrases like 或在 wholesale) NOTED no-change. Reviewer independently re-derived: 10/10 per-line byte parity three-way (worktree/HEAD/REL_16_11 EN), ledger debt values +12/+12 and +2/+7/-34/+4/+4/-35 exact, flow boundaries word-clean (如果一个|非日志关系、或在|随后的事务、这应该在|分配、只是为了有|地方、在外部|看来、relfilenumber|不会改变), both trims meaning-preserving (L301 measure-word drop idiomatic; L309 subject-carryover from L308 condition clause valid), no new MIXED, numstat 4/4+6/6, halfen raw set identical 421 (0 added/0 removed), gates reproduced",
+  "r2": "PASS, 3 D-findings all manifest-notes fidelity (non-blocking), all ADOPTED in delta: D-1 L309 trim description incomplete (drops 它 AND 的 = 6B; '2-byte' wording wrong - 一个=6B=2 chars), D-2 advisory list missing index.c:496 (converges with R1 D1), D-3 check_scope path count typo 2->3. Reviewer independently re-derived: SCHEMA compliance all fields; verify 2 files/2 ok/changed=2/0 violations/0 parse errors; term_lint dual 0/0 (bare 27 rules, pgnls 87 rules); halfen default 0 (2319 files) / raw 421 vs batch-0343 set 0 added/0 removed; check_scope PASS 3 paths; unittest 228=221+7 (all ScopeEndToEnd umask); spec-tree consistency 10/10 vs /tmp/spec0344.json; 14 untouched lines byte-identical to HEAD; no tool change (zh-tools tracked diff 0, exemptions table 341 unchanged)",
+  "delta_applied": true,
+  "delta_script": "manifest-only notes fidelity delta (4 edits, +65B, differing lines [55,58] only per R2 whole-file byte-diff): (1) files[variables.c].note 'two 2-byte trims (301 drop 一个, 309 drop 它)' -> 'two word trims (301 drops 一个, 309 drops 它 and 的)'; (2) notes 'only two 2-byte wordings trimmed' -> 'only two wordings trimmed' and 'L309 drops 它' -> 'L309 drops 它 and 的'; (3) W7 advisory list gains index.c:496; (4) check_scope 'PASS 2 changed paths' -> 'PASS 3 changed paths (manifest itself + index.c + variables.c)'. No .c/.py changes - .c files untouched since first review (both reviewers re-verified zero-drift)",
+  "re_ack": "R1 CONFIRMED (4 edits byte-exact, all other lines identical to first-review version, .c zero-drift re-proven: git status 3 paths, numstat 4/4+6/6, parity 10/10 re-run with same per-line deltas; check_scope PASS 3 paths re-derived; tests 228=221+7 confirmed). R2 CONFIRMED (byte-level whole-file diff vs review-time snapshot: exactly lines [55,58] changed, +65B; all 4 old strings absent / new strings present; verify re-run = 3 W7 496/514/variables.c:1; check_scope PASS 3 paths re-derived; .c zero-change confirmed). Both reviewers: 批可进入提交."
+ }
+}

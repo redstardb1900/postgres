@@ -3044,10 +3044,10 @@ index_build(Relation heapRelation,
 
 	/*
 	 * 如果这是非日志索引，可能需要为它写出 init 分支     
-	 * ——但必须先检查是否已存在。例如，如果一个非日志关系
-	 * 在创建它的事务中被截断，或在随后的事务中被截断两次，
-	 * relfilenumber 不会改变，
-	 * 这里就无需做任何事情。
+	 * ——但必须先检查是否已存在。例如，如果一个   
+	 * 非日志关系在创建它的事务中被截断，或在         
+	 * 随后的事务中被截断两次， relfilenumber             
+	 * 不会改变，这里就无需做任何事情。              
 	 */
 	if (indexRelation->rd_rel->relpersistence == RELPERSISTENCE_UNLOGGED &&
 		!smgrexists(RelationGetSmgr(indexRelation), INIT_FORKNUM))

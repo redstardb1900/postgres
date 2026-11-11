@@ -381,7 +381,7 @@ ExecReScanIndexOnlyScan(IndexOnlyScanState *node)
 	}
 	node->ioss_RuntimeKeysReady = true;
 
-	/* 重置 index scan*/
+	/*重置索引扫描*/
 	if (node->ioss_ScanDesc)
 		index_rescan(node->ioss_ScanDesc,
 					 node->ioss_ScanKeys, node->ioss_NumScanKeys,

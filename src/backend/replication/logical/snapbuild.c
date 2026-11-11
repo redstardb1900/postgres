@@ -2118,7 +2118,7 @@ CheckPointSnapBuild(void)
 	 */
 	redo = GetRedoRecPtr();
 
-	/* 现在检查现有复制槽的 restart ptrs        */
+	/* 现在检查现有复制槽的重启点            */
 	cutoff = ReplicationSlotsComputeLogicalRestartLSN();
 
 	/* 不要早于 restart_lsn 启动          */

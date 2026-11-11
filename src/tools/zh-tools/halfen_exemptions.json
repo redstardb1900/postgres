@@ -53,5 +53,1655 @@
   "path": "src/bin/psql/input.c",
   "pattern": "const char",
   "reason": "C type name const char * kept verbatim in HIST_ENTRY.line / save-history fname comments (identifier class, genam param-name precedent)"
+ },
+ {
+  "path": "src/backend/nodes/outfuncs.c",
+  "pattern": "\"\\(item\\s+item",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/nodes/readfuncs.c",
+  "pattern": "\"\\(item\\s+item",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/nodes/readfuncs.c",
+  "pattern": "\":fldname\\s+%ld\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/commands/copyto.c",
+  "pattern": "\"Broken\\s+Pipe\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/libpq/auth-scram.c",
+  "pattern": "\"Initial\\s+Client",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/catalog/catalog.c",
+  "pattern": "\"Locking\\s+to\\s+write\\s+inplace\\-updated",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/catalog/objectaddress.c",
+  "pattern": "\"Locking\\s+to\\s+write\\s+inplace\\-updated",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/index/genam.c",
+  "pattern": "\"Locking\\s+to\\s+write\\s+inplace\\-updated\\s+tables\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/libpq/auth.c",
+  "pattern": "\"Port\\s+\\*port\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/commands/explain.c",
+  "pattern": "\"Query\\s+Parameters\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/commands/explain.c",
+  "pattern": "\"Query\\s+Text\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/storage/ipc/shmem.c",
+  "pattern": "\"Shmem\\s+Index\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/common/reloptions.c",
+  "pattern": "\"Valid\\s+values\\s+are\\s+\\\\\"foo\\\\\",\\s+\\\\\"bar\\\\\",\\s+and\\s+\\\\\"bar\\\\\"\\.\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/commands/explain.c",
+  "pattern": "\"Worker\\s+Number\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/libpq/pqcomm.c",
+  "pattern": "\"address\\s+already\\s+in\\s+use\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/brin/brin_tuple.c",
+  "pattern": "\"all\\s+nulls\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/brin/brin.c",
+  "pattern": "\"any\\s+visible\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/transam/xlog.c",
+  "pattern": "\"before\\s+any\\s+valid",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/transam/xlogarchive.c",
+  "pattern": "\"command\\s+not\\s+found\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/tcop/postgres.c",
+  "pattern": "\"command\\s+unknown\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/include/libpq/libpq-be.h",
+  "pattern": "\"connection\\s+authorized\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/interfaces/libpq/fe-connect.c",
+  "pattern": "\"connection\\s+to\\s+server",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/catalog/pg_inherits.c",
+  "pattern": "\"detach\\s+pending\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/commands/copyfromparse.c",
+  "pattern": "\"else\\s+\\(\\(void\\)",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/commands/subscriptioncmds.c",
+  "pattern": "\"false\",\\s+\"true\",\\s+\"off\",\\s+\"on\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/bin/psql/variables.c",
+  "pattern": "\"fee,\\s+fi,\\s+fo,",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/optimizer/prep/prepjointree.c",
+  "pattern": "\"foo\\s+op",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/parser/parse_func.c",
+  "pattern": "\"foo\\[\\]\\s+\\(something\\)\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/brin/brin_tuple.c",
+  "pattern": "\"has\\s+nulls\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/common/indextuple.c",
+  "pattern": "\"has\\s+variable\\s+attributes\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/bin/pg_dump/pg_backup_archiver.c",
+  "pattern": "\"if\\s+exists\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/spgist/spgvacuum.c",
+  "pattern": "\"in\\s+flight\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/optimizer/path/indxpath.c",
+  "pattern": "\"indexedcol\\s+operator",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/optimizer/plan/initsplan.c",
+  "pattern": "\"item1\\s+op\\s+item2\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/index/indexam.c",
+  "pattern": "\"left\\s+type\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/nbtree/nbtutils.c",
+  "pattern": "\"leftarg\\s+op",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/bin/pg_dump/pg_backup_archiver.c",
+  "pattern": "\"load\\s+via\\s+partition",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/bin/pg_dump/pg_backup_archiver.c",
+  "pattern": "\"load\\s+via\\s+partition\\s+root\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/heap/heapam.c",
+  "pattern": "\"no\\s+freeze\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/heap/vacuumlazy.c",
+  "pattern": "\"no\\s+freeze\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/catalog/heap.c",
+  "pattern": "\"no\\s+inherit\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/transam/xlog.c",
+  "pattern": "\"no\\s+pallocs\\s+in\\s+critical\\s+section\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/executor/execPartition.c",
+  "pattern": "\"no\\s+partition\\s+for\\s+tuple\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/parser/parse_relation.c",
+  "pattern": "\"no\\s+permissions\\s+for",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/catalog/aclchk.c",
+  "pattern": "\"no\\s+privileges\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/catalog/heap.c",
+  "pattern": "\"not\\s+valid\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/optimizer/plan/initsplan.c",
+  "pattern": "\"other\\s+rels\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/optimizer/util/orclauses.c",
+  "pattern": "\"other\\s+rels\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/interfaces/libpq/fe-exec.c",
+  "pattern": "\"out\\s+of\\s+memory\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/optimizer/path/joinpath.c",
+  "pattern": "\"outer\\s+op\\s+inner\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/optimizer/plan/analyzejoins.c",
+  "pattern": "\"outer\\s+op\\s+inner\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/catalog/aclchk.c",
+  "pattern": "\"permission\\s+denied\\s+for\\s+schema",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/interfaces/libpq/fe-exec.c",
+  "pattern": "\"real\\s+idle\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/parser/parse_expr.c",
+  "pattern": "\"row\\s+compare\\-op\\s+row\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/executor/execExprInterp.c",
+  "pattern": "\"scalar\\s+op",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/parser/parse_oper.c",
+  "pattern": "\"scalar\\s+op",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/commands/publicationcmds.c",
+  "pattern": "\"sch1,\\s+sch1\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/tcop/pquery.c",
+  "pattern": "\"simple\\s+Query\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/commands/tablecmds.c",
+  "pattern": "\"tuple\\s+concurrently\\s+updated\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/executor/tqueue.c",
+  "pattern": "\"typedef\\s+struct",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/storage/ipc/pmsignal.c",
+  "pattern": "\"typedef\\s+struct",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/catalog/heap.c",
+  "pattern": "\"unknown\\s+var\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/libpq/pqcomm.c",
+  "pattern": "\"unsupported\\s+protocol\\s+version\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/rmgrdesc/nbtdesc.c",
+  "pattern": "\"update\\s+objects\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/commands/copyfrom.c",
+  "pattern": "'attnamelist':\\s+char",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/commands/copyto.c",
+  "pattern": "'attnamelist':\\s+char",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/brin/brin_bloom.c",
+  "pattern": "'can\\s+union'",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/include/lib/pairingheap.h",
+  "pattern": "'const\\s+ptr'",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/parser/parse_utilcmd.c",
+  "pattern": "'instead\\s+nothing'",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/transam/xlogfuncs.c",
+  "pattern": "'not\\s+paused'",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/gin/ginget.c",
+  "pattern": "'return\\s+false'",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/commands/explain.c",
+  "pattern": "Read\\s+Time\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/transam/xact.c",
+  "pattern": "already\\s+committed\\s+or",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/heap/heapam_visibility.c",
+  "pattern": "id\\s+'xid'",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/heap/heapam.c",
+  "pattern": "key\\s+value\\s+violates",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/commands/collationcmds.c",
+  "pattern": "locale\\s+'locale'",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/replication/logical/reorderbuffer.c",
+  "pattern": "lsn\\s+'lsn'",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/catalog/aclchk.c",
+  "pattern": "missing\\s+relation",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/tcop/utility.c",
+  "pattern": "not\\s+available\\)\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/access/heap/heapam.c",
+  "pattern": "old\\s+key\\s+required",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/commands/explain.c",
+  "pattern": "on\\s+foo\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/catalog/namespace.c",
+  "pattern": "permission\\s+denied\"",
+  "reason": "quoted literal/message kept verbatim (option value/GUC/error message/pseudocode fragment)"
+ },
+ {
+  "path": "src/backend/optimizer/geqo/geqo_copy.c",
+  "pattern": "Martin\\s+Utesch",
+  "reason": "person name in geqo contributor credit banner (proper noun)"
+ },
+ {
+  "path": "src/backend/optimizer/geqo/geqo_cx.c",
+  "pattern": "Martin\\s+Utesch",
+  "reason": "person name in geqo contributor credit banner (proper noun)"
+ },
+ {
+  "path": "src/backend/optimizer/geqo/geqo_erx.c",
+  "pattern": "Martin\\s+Utesch",
+  "reason": "person name in geqo contributor credit banner (proper noun)"
+ },
+ {
+  "path": "src/backend/optimizer/geqo/geqo_eval.c",
+  "pattern": "Martin\\s+Utesch",
+  "reason": "person name in geqo contributor credit banner (proper noun)"
+ },
+ {
+  "path": "src/backend/optimizer/geqo/geqo_main.c",
+  "pattern": "Martin\\s+Utesch",
+  "reason": "person name in geqo contributor credit banner (proper noun)"
+ },
+ {
+  "path": "src/backend/optimizer/geqo/geqo_misc.c",
+  "pattern": "Martin\\s+Utesch",
+  "reason": "person name in geqo contributor credit banner (proper noun)"
+ },
+ {
+  "path": "src/backend/optimizer/geqo/geqo_mutation.c",
+  "pattern": "Martin\\s+Utesch",
+  "reason": "person name in geqo contributor credit banner (proper noun)"
+ },
+ {
+  "path": "src/backend/optimizer/geqo/geqo_ox1.c",
+  "pattern": "Martin\\s+Utesch",
+  "reason": "person name in geqo contributor credit banner (proper noun)"
+ },
+ {
+  "path": "src/backend/optimizer/geqo/geqo_ox2.c",
+  "pattern": "Martin\\s+Utesch",
+  "reason": "person name in geqo contributor credit banner (proper noun)"
+ },
+ {
+  "path": "src/backend/optimizer/geqo/geqo_pmx.c",
+  "pattern": "Martin\\s+Utesch",
+  "reason": "person name in geqo contributor credit banner (proper noun)"
+ },
+ {
+  "path": "src/backend/optimizer/geqo/geqo_pool.c",
+  "pattern": "Martin\\s+Utesch",
+  "reason": "person name in geqo contributor credit banner (proper noun)"
+ },
+ {
+  "path": "src/backend/optimizer/geqo/geqo_px.c",
+  "pattern": "Martin\\s+Utesch",
+  "reason": "person name in geqo contributor credit banner (proper noun)"
+ },
+ {
+  "path": "src/backend/optimizer/geqo/geqo_recombination.c",
+  "pattern": "Martin\\s+Utesch",
+  "reason": "person name in geqo contributor credit banner (proper noun)"
+ },
+ {
+  "path": "src/backend/optimizer/geqo/geqo_selection.c",
+  "pattern": "Martin\\s+Utesch",
+  "reason": "person name in geqo contributor credit banner (proper noun)"
+ },
+ {
+  "path": "src/interfaces/libpq/fe-secure-openssl.c",
+  "pattern": "Common\\s+Name",
+  "reason": "protocol message/command name kept EN per corpus"
+ },
+ {
+  "path": "src/interfaces/libpq/fe-protocol3.c",
+  "pattern": "Copy\\s+Both",
+  "reason": "protocol message/command name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/commands/copyto.c",
+  "pattern": "Copy\\s+Done",
+  "reason": "protocol message/command name kept EN per corpus"
+ },
+ {
+  "path": "src/interfaces/libpq/fe-protocol3.c",
+  "pattern": "Copy\\s+In",
+  "reason": "protocol message/command name kept EN per corpus"
+ },
+ {
+  "path": "src/interfaces/libpq/fe-protocol3.c",
+  "pattern": "Copy\\s+Out",
+  "reason": "protocol message/command name kept EN per corpus"
+ },
+ {
+  "path": "src/interfaces/libpq/fe-exec.c",
+  "pattern": "Describe\\s+Portal",
+  "reason": "protocol message/command name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/commands/prepare.c",
+  "pattern": "Describe\\s+Statement",
+  "reason": "protocol message/command name kept EN per corpus"
+ },
+ {
+  "path": "src/interfaces/libpq/fe-exec.c",
+  "pattern": "Describe\\s+Statement",
+  "reason": "protocol message/command name kept EN per corpus"
+ },
+ {
+  "path": "src/interfaces/libpq/fe-secure-gssapi.c",
+  "pattern": "Init\\s+Sec\\s+Context",
+  "reason": "protocol message/command name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/libpq/auth-sasl.c",
+  "pattern": "Initial\\s+Client",
+  "reason": "protocol message/command name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/libpq/auth-scram.c",
+  "pattern": "Initial\\s+Client\\s+Response",
+  "reason": "protocol message/command name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/libpq/auth.c",
+  "pattern": "Request\\s+Authenticator",
+  "reason": "protocol message/command name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/libpq/auth-scram.c",
+  "pattern": "Server\\s+Key",
+  "reason": "protocol message/command name kept EN per corpus"
+ },
+ {
+  "path": "src/bin/pg_basebackup/pg_recvlogical.c",
+  "pattern": "Standby\\s+Status\\s+Update",
+  "reason": "protocol message/command name kept EN per corpus"
+ },
+ {
+  "path": "src/interfaces/libpq/fe-secure-openssl.c",
+  "pattern": "Subject\\s+Alternative\\s+Names",
+  "reason": "protocol message/command name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/tcop/postgres.c",
+  "pattern": "simple\\s+Query",
+  "reason": "protocol message/command name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/replication/logical/proto.c",
+  "pattern": "start\\s+stream",
+  "reason": "protocol message/command name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/replication/logical/proto.c",
+  "pattern": "stop\\s+stream",
+  "reason": "protocol message/command name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/postmaster/autovacuum.c",
+  "pattern": "autovac\\s+launcher",
+  "reason": "process-role name kept EN per corpus tie adjudication"
+ },
+ {
+  "path": "src/backend/postmaster/postmaster.c",
+  "pattern": "autovac\\s+launcher",
+  "reason": "process-role name kept EN per corpus tie adjudication"
+ },
+ {
+  "path": "src/backend/postmaster/postmaster.c",
+  "pattern": "autovac\\s+worker",
+  "reason": "process-role name kept EN per corpus tie adjudication"
+ },
+ {
+  "path": "src/backend/postmaster/postmaster.c",
+  "pattern": "autovacuum\\s+launcher",
+  "reason": "process-role name kept EN per corpus tie adjudication"
+ },
+ {
+  "path": "src/backend/postmaster/autovacuum.c",
+  "pattern": "autovacuum\\s+worker",
+  "reason": "process-role name kept EN per corpus tie adjudication"
+ },
+ {
+  "path": "src/backend/postmaster/postmaster.c",
+  "pattern": "autovacuum\\s+worker",
+  "reason": "process-role name kept EN per corpus tie adjudication"
+ },
+ {
+  "path": "src/backend/commands/explain.c",
+  "pattern": "Gather\\s+Merge",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/executor/execProcnode.c",
+  "pattern": "Gather\\s+Merge",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/executor/nodeGatherMerge.c",
+  "pattern": "Gather\\s+Merge",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/optimizer/path/allpaths.c",
+  "pattern": "Gather\\s+Merge",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/optimizer/plan/createplan.c",
+  "pattern": "Gather\\s+Merge",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/optimizer/plan/planner.c",
+  "pattern": "Gather\\s+Merge",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/optimizer/util/clauses.c",
+  "pattern": "Gather\\s+Merge",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/executor/nodeGatherMerge.c",
+  "pattern": "Gather\\s+merge",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/optimizer/plan/setrefs.c",
+  "pattern": "Gather\\s+merge",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/optimizer/plan/planner.c",
+  "pattern": "Hash\\s+Aggregate",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/executor/nodeHashjoin.c",
+  "pattern": "Hybrid\\s+Hashjoin",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/optimizer/plan/planner.c",
+  "pattern": "Parallel\\s+Append",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/executor/nodeHashjoin.c",
+  "pattern": "Parallel\\s+Hash",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/executor/execProcnode.c",
+  "pattern": "Seq\\s+Scan\\s+Seq\\s+Scan",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/executor/nodeGatherMerge.c",
+  "pattern": "gather\\s+merge",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/optimizer/path/allpaths.c",
+  "pattern": "gather\\s+merge",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/optimizer/path/costsize.c",
+  "pattern": "gather\\s+merge",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/optimizer/plan/createplan.c",
+  "pattern": "gather\\s+merge",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/optimizer/plan/planner.c",
+  "pattern": "gather\\s+merge",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/executor/nodeGatherMerge.c",
+  "pattern": "gather\\s+merge\\s+slot",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/executor/nodeMergeAppend.c",
+  "pattern": "nil\\s+nil",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/executor/nodeAppend.c",
+  "pattern": "nil\\s+nil\\s+Scan\\s+Scan\\s+Scan\\s+Scan",
+  "reason": "plan/executor node name kept EN per corpus"
+ },
+ {
+  "path": "src/backend/partitioning/partbounds.c",
+  "pattern": "boundinfo\\s+datum",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/optimizer/plan/createplan.c",
+  "pattern": "btree\\s+opfamily",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/optimizer/plan/initsplan.c",
+  "pattern": "btree\\s+opfamily",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/parser/parse_relation.c",
+  "pattern": "eref\\s+Alias",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/executor/execExprInterp.c",
+  "pattern": "inner\\s+Var",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/access/spgist/spgtextproc.c",
+  "pattern": "int16\\s+datum",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/optimizer/plan/setrefs.c",
+  "pattern": "junk\\s+tlist",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/optimizer/path/joinpath.c",
+  "pattern": "lateral\\s+Vars",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/parser/parse_target.c",
+  "pattern": "multiassign\\s+resjunk",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/executor/nodeIndexonlyscan.c",
+  "pattern": "name\\s+Datum",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/commands/extension.c",
+  "pattern": "name\\[\\]\\s+Datum",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/catalog/heap.c",
+  "pattern": "null\\s+Const",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/executor/execExprInterp.c",
+  "pattern": "outer\\s+Var",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/access/transam/parallel.c",
+  "pattern": "record\\s+typemod",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/optimizer/plan/setrefs.c",
+  "pattern": "regclass\\s+Const",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/access/spgist/spgutils.c",
+  "pattern": "relcache\\s+tupdesc",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/catalog/heap.c",
+  "pattern": "reloptions:\\s+Datum",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/executor/execExprInterp.c",
+  "pattern": "rowtype\\s+tupdesc",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/executor/execExprInterp.c",
+  "pattern": "scan\\s+Var",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/catalog/heap.c",
+  "pattern": "text\\s+datum",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/commands/extension.c",
+  "pattern": "text\\s+datum",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/commands/statscmds.c",
+  "pattern": "text\\s+datum",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/access/common/reloptions.c",
+  "pattern": "text\\[\\]\\s+datum",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/commands/indexcmds.c",
+  "pattern": "text\\[\\]\\s+datum",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/commands/foreigncmds.c",
+  "pattern": "text\\[\\],\\s+oid",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/commands/user.c",
+  "pattern": "timestamptz\\s+Datum",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/access/common/detoast.c",
+  "pattern": "varlena\\s+datum",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/access/common/toast_internals.c",
+  "pattern": "varlena\\s+datum",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/parser/analyze.c",
+  "pattern": "whole\\-row\\s+Var",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/executor/execExprInterp.c",
+  "pattern": "wholerow\\s+Var",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/executor/nodeModifyTable.c",
+  "pattern": "wholerow\\s+junk",
+  "reason": "parser/executor type-and-noun term (Var/Const/Datum/junk family) kept EN per corpus"
+ },
+ {
+  "path": "src/backend/commands/event_trigger.c",
+  "pattern": "\\('cmd1',\\s+'cmd2'\\)",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/partitioning/partbounds.c",
+  "pattern": "\\(al,\\s+bl,\\s+cl\\)",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/access/gin/ginget.c",
+  "pattern": "\\(attnum,\\s+Datum\\)",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/access/heap/rewriteheap.c",
+  "pattern": "\\(cmin,\\s+cmax\\)",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/replication/logical/reorderbuffer.c",
+  "pattern": "\\(cmin,\\s+cmax\\)",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/commands/opclasscmds.c",
+  "pattern": "\\(lefttype,\\s+righttype\\)",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/commands/prepare.c",
+  "pattern": "\\(name,\\s+statement,",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/bin/pg_dump/pg_dump_sort.c",
+  "pattern": "\\(namespace,\\s+name\\)",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/bin/pg_dump/pg_dump_sort.c",
+  "pattern": "\\(nspname,\\s+collname\\)",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/bin/pg_dump/pg_dump_sort.c",
+  "pattern": "\\(nspname,\\s+typname\\)",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/commands/policy.c",
+  "pattern": "\\(polrelid,\\s+polname\\)",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/access/common/syncscan.c",
+  "pattern": "\\(relfilelocator,\\s+blocknumber\\)",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/replication/logical/reorderbuffer.c",
+  "pattern": "\\(relfilelocator,\\s+ctid\\)",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/replication/logical/reorderbuffer.c",
+  "pattern": "\\(relfilelocator,\\s+tid\\)",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/partitioning/partbounds.c",
+  "pattern": "\\(spec\\->modulus,\\s+spec\\->remainder\\)",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/access/heap/heaptoast.c",
+  "pattern": "\\(valueid,\\s+chunkidx\\)",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/replication/logical/snapbuild.c",
+  "pattern": "\\(xid,\\s+lsn\\)",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/libpq/be-fsstubs.c",
+  "pattern": "\\[offset,\\s+offset\\+nbytes\\)",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/access/transam/multixact.c",
+  "pattern": "\\[oldest,\\s+newOldest\\)",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/storage/ipc/procarray.c",
+  "pattern": "\\[oldestXid,\\s+nextXid\\)",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/access/transam/varsup.c",
+  "pattern": "\\[oldestXid,\\s+nextXid\\]",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/access/transam/xlogreader.c",
+  "pattern": "\\[pageptr,\\s+reqLen\\]",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/access/heap/heapam_visibility.c",
+  "pattern": "\\[xmin,\\s+xmax\\)",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/executor/execExpr.c",
+  "pattern": "\\{single,\\s+multi\\}",
+  "reason": "tuple/interval notation in pseudocode kept EN"
+ },
+ {
+  "path": "src/backend/parser/parse_clause.c",
+  "pattern": "\\(\\(c,d\\),\\(e\\)\\),\\s+\\(f,g\\)\\)",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/statistics/extended_stats.c",
+  "pattern": "\\(Expr\\s+op\\s+Const\\)",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/commands/publicationcmds.c",
+  "pattern": "\\(Var\\s+Op\\s+Const\\)",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/statistics/extended_stats.c",
+  "pattern": "\\(Var\\s+op\\s+Const\\)",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/optimizer/path/indxpath.c",
+  "pattern": "\\(indexkey\\s+op\\s+const\\)",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/optimizer/path/indxpath.c",
+  "pattern": "\\(indexkey\\s+operator\\s+constant\\)",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/parser/parse_expr.c",
+  "pattern": "\\(query\\)\\s+q\\(a\\)\\)",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/parser/parse_func.c",
+  "pattern": "<refsect1\\s+id=\"sql\\-createfunction\\-security\">",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/interfaces/libpq/fe-exec.c",
+  "pattern": "<rel>\\s+to\\s+stdout\"",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/parser/parse_agg.c",
+  "pattern": "<set\\s+function",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/bin/psql/tab-complete.c",
+  "pattern": "<table>\\s+\\(attribs\\)",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/optimizer/path/allpaths.c",
+  "pattern": "<wfunc>\\s+op\\s+<pseudoconst>",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/optimizer/plan/planner.c",
+  "pattern": "<window\\s+clause>",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/parser/parse_clause.c",
+  "pattern": "<window\\s+clause>",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/commands/tablecmds.c",
+  "pattern": "Alter\\s+Table",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/catalog/pg_depend.c",
+  "pattern": "Note:\\s+isReplace",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/catalog/dependency.c",
+  "pattern": "Var\\s+\"relation\\.\\*\"",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/optimizer/util/tlist.c",
+  "pattern": "Var1,\\s+srf1\\(Var2\\)",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/access/heap/heapam_visibility.c",
+  "pattern": "Xmax\\s+is\\s+not\\s+committed\\)\\)\\)",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/bin/pg_dump/pg_dump.c",
+  "pattern": "acldefault\\('c',\\s+relowner\\)",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/access/brin/brin_inclusion.c",
+  "pattern": "add\\s+value",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/parser/parse_collate.c",
+  "pattern": "agg\\(\\.\\.\\.\\)\\s+within\\s+group\\s+\\(order\\s+by",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/optimizer/path/equivclass.c",
+  "pattern": "b\\.y\\s+and\\s+a\\.x",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/parser/parse_agg.c",
+  "pattern": "bar\\s+where",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/access/gin/ginget.c",
+  "pattern": "case\\s+cmp",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/commands/tablecmds.c",
+  "pattern": "create\\s+table\\s+person\\s+\\(name\\s+text,\\s+age\\s+int4,\\s+location\\s+point\\);",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/catalog/pg_aggregate.c",
+  "pattern": "deserialize\\(bytea,\\s+internal\\)\\s+returns\\s+internal",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/parser/parse_target.c",
+  "pattern": "emp,\\s+dept\\)",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/parser/parse_target.c",
+  "pattern": "emp\\.\\*,\\s+dname",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/parser/parse_target.c",
+  "pattern": "foo\\s+\\(col\\.subcol1,\\s+col\\.subcol2\\)",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/catalog/namespace.c",
+  "pattern": "foo\\s+\\(int,\\s+int\\s+default",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/optimizer/util/clauses.c",
+  "pattern": "foo\\s+op",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/optimizer/util/predtest.c",
+  "pattern": "foo\\s+op1\\s+bar",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/commands/tablecmds.c",
+  "pattern": "foo,\\s+foo\"",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/optimizer/plan/planner.c",
+  "pattern": "if\\s+\\(setOperations\\)",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/executor/nodeIndexscan.c",
+  "pattern": "indexkey\\s+op",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/commands/explain.c",
+  "pattern": "jointype\\s+switch",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/access/brin/brin_minmax_multi.c",
+  "pattern": "minmax\\s+multi",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/parser/parse_cte.c",
+  "pattern": "non\\-recursive\\s+query",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/replication/pgoutput/pgoutput.c",
+  "pattern": "old\\-row\\s+\\(no\\s+match\\)\\s+new\\-row\\s+\\(no\\s+match\\)",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/optimizer/util/paramassign.c",
+  "pattern": "on\\s+\\(Pbc\\)\\)\\s+on\\s+\\(Pab\\)",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/optimizer/util/relnode.c",
+  "pattern": "on\\s+\\(Pbc\\)\\)\\s+on\\s+\\(Pab\\)",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/executor/nodeIndexscan.c",
+  "pattern": "op\\s+\\(expr,\\s+expr,",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/statistics/extended_stats.c",
+  "pattern": "op\\s+Const\\)",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/access/gist/gistproc.c",
+  "pattern": "op\\s+query",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/parser/parse_clause.c",
+  "pattern": "operator\\s+unknown\"",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/commands/tablecmds.c",
+  "pattern": "or\\s+sequence\\s+options",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/optimizer/util/inherit.c",
+  "pattern": "other\\s+rel",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/optimizer/path/allpaths.c",
+  "pattern": "over\\s+\\(order\\s+by",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/commands/async.c",
+  "pattern": "position\\s+current",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/parser/parse_node.c",
+  "pattern": "pstate,\\s+location\\);",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/commands/explain.c",
+  "pattern": "recheck\\s+qual",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/catalog/pg_aggregate.c",
+  "pattern": "serialize\\(internal\\)\\s+returns\\s+bytea",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/parser/parse_target.c",
+  "pattern": "table\\s+\\(col\\.something\\)",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/bin/pg_upgrade/util.c",
+  "pattern": "to\\s+flarb\\s+the\\s+next",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/access/spgist/spgtextproc.c",
+  "pattern": "tuple\\s+size\\s+exceeds",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/storage/file/fd.c",
+  "pattern": "while\\s+\\(\\(dirent",
+  "reason": "SQL/grammar pseudocode or usage-example skeleton kept EN"
+ },
+ {
+  "path": "src/backend/nodes/nodeFuncs.c",
+  "pattern": "\\(Node\\s+\\*node,",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/bin/pg_rewind/filemap.c",
+  "pattern": "base/<db\\s+oid>/",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/postmaster/postmaster.c",
+  "pattern": "bootstrap/bootstrap\\.c,\\s+postmaster/bgwriter\\.c,\\s+postmaster/walwriter\\.c,",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/catalog/pg_shdepend.c",
+  "pattern": "classId,\\s+objectId,",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/replication/logical/snapbuild.c",
+  "pattern": "committed\\.xcnt;\\s+\\(\\*not",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/interfaces/libpq/fe-connect.c",
+  "pattern": "conn\\s+struct",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/interfaces/libpq/fe-connect.c",
+  "pattern": "const\\s+char\\s+\\*params\\[\\]",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/storage/ipc/standby.c",
+  "pattern": "dbOid,\\s+relOid",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/nodes/outfuncs.c",
+  "pattern": "int\\s+int",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/access/nbtree/nbtpage.c",
+  "pattern": "itup\\s+deltids",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/interfaces/libpq/fe-connect.c",
+  "pattern": "keyword=pkey,\\s+value=pvalue",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/access/nbtree/nbtsort.c",
+  "pattern": "linp0\\s+linp1\\s+linp2",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/access/spgist/spgvacuum.c",
+  "pattern": "moveDest\\[\\]:\\s+moveSrc",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/catalog/heap.c",
+  "pattern": "newConstraints:\\s+Constraint",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/access/index/genam.c",
+  "pattern": "nkeys,\\s+key:",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/catalog/dependency.c",
+  "pattern": "palloc'd\\s+array",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/bin/pg_rewind/libpq_source.c",
+  "pattern": "path\\s+text",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/access/spgist/spgscan.c",
+  "pattern": "pfree\\s+distances",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/commands/tablecmds.c",
+  "pattern": "rel\\s+attno",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/include/lib/simplehash.h",
+  "pattern": "return\\s+false;",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/executor/nodeSubplan.c",
+  "pattern": "slot1,\\s+slot2:",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/include/lib/simplehash.h",
+  "pattern": "static\\s+inline",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/replication/logical/origin.c",
+  "pattern": "struct\\s+Replic\\.\\.\\.",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/postmaster/postmaster.c",
+  "pattern": "struct\\s+bkend",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/libpq/ifaddr.c",
+  "pattern": "struct\\s+ifreq",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/bin/initdb/findtimezone.c",
+  "pattern": "struct\\s+tm",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/commands/trigger.c",
+  "pattern": "trigdesc:\\s+rel",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/executor/nodeMaterial.c",
+  "pattern": "tuplestore\\s+eflags",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/nodes/tidbitmap.c",
+  "pattern": "typedef\\s+bitmapword",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/access/transam/twophase.c",
+  "pattern": "typedef\\s+struct",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/backend/storage/lmgr/predicate.c",
+  "pattern": "void\\s+\\*recdata,\\s+uint32\\s+len\\);",
+  "reason": "C declaration/identifier/param-list fragment kept EN"
+ },
+ {
+  "path": "src/bin/pg_basebackup/walmethods.c",
+  "pattern": "\\.tar\\.gz\\s+zlib",
+  "reason": "ASCII diagram/format sketch labels kept EN"
+ },
+ {
+  "path": "src/backend/lib/integerset.c",
+  "pattern": "20\\-bit\\s+integer\\s+20\\-bit\\s+integer\\s+20\\-bit\\s+integer",
+  "reason": "ASCII diagram/format sketch labels kept EN"
+ },
+ {
+  "path": "src/backend/storage/file/fd.c",
+  "pattern": "\\\\more\\-\\-\\-/\\s+\\\\\\-\\-less\\-\\-/",
+  "reason": "ASCII diagram/format sketch labels kept EN"
+ },
+ {
+  "path": "src/backend/storage/file/buffile.c",
+  "pattern": "current\\s+pos",
+  "reason": "ASCII diagram/format sketch labels kept EN"
+ },
+ {
+  "path": "src/backend/access/gist/gistproc.c",
+  "pattern": "eeeeeeee\\s+mmmmmmmmmmmmmmmmmmmmmmm",
+  "reason": "ASCII diagram/format sketch labels kept EN"
+ },
+ {
+  "path": "src/backend/executor/nodeMergejoin.c",
+  "pattern": "get\\s+initial\\s+outer\\s+and\\s+inner\\s+tuples",
+  "reason": "ASCII diagram/format sketch labels kept EN"
+ },
+ {
+  "path": "src/backend/executor/nodeMergejoin.c",
+  "pattern": "new\\s+outer\\s+tuple",
+  "reason": "ASCII diagram/format sketch labels kept EN"
+ },
+ {
+  "path": "src/backend/access/transam/multixact.c",
+  "pattern": "not\\s+wrapped\\s+past",
+  "reason": "ASCII diagram/format sketch labels kept EN"
+ },
+ {
+  "path": "src/backend/executor/nodeMergejoin.c",
+  "pattern": "outer\\s+inner",
+  "reason": "ASCII diagram/format sketch labels kept EN"
+ },
+ {
+  "path": "src/backend/executor/nodeAgg.c",
+  "pattern": "outer\\s+slot",
+  "reason": "ASCII diagram/format sketch labels kept EN"
+ },
+ {
+  "path": "src/backend/executor/nodeAgg.c",
+  "pattern": "peak\\s+mem",
+  "reason": "ASCII diagram/format sketch labels kept EN"
+ },
+ {
+  "path": "src/backend/storage/lmgr/predicate.c",
+  "pattern": "rw\\s+rw",
+  "reason": "ASCII diagram/format sketch labels kept EN"
+ },
+ {
+  "path": "src/backend/access/gist/gist.c",
+  "pattern": "state\\.stack\\->\\(page,\\s+buffer\\s+and\\s+blkno\\)",
+  "reason": "ASCII diagram/format sketch labels kept EN"
+ },
+ {
+  "path": "src/backend/lib/bloomfilter.c",
+  "pattern": "\"Bloom\\s+Filters\\s+in",
+  "reason": "paper title kept EN (citation)"
+ },
+ {
+  "path": "src/backend/commands/analyze.c",
+  "pattern": "\"Random\\s+sampling\\s+for\\s+histogram\\s+construction:\\s+how\\s+much\\s+is\\s+enough\\?\"",
+  "reason": "paper title kept EN (citation)"
+ },
+ {
+  "path": "src/backend/lib/hyperloglog.c",
+  "pattern": "\"The\\s+binary\\s+address\\s+determined\\s+by\\s+the\\s+first",
+  "reason": "paper title kept EN (citation)"
+ },
+ {
+  "path": "src/backend/access/gist/gistproc.c",
+  "pattern": "new\\s+double\\s+sorting\\-based\\s+node\\s+splitting\\s+algorithm\\s+for\\s+R\\-tree\",",
+  "reason": "paper title kept EN (citation)"
+ },
+ {
+  "path": "src/backend/optimizer/path/costsize.c",
+  "pattern": "on\\s+Database",
+  "reason": "paper title kept EN (citation)"
+ },
+ {
+  "path": "src/include/lib/sort_template.h",
+  "pattern": "sort\\s+function\",",
+  "reason": "paper title kept EN (citation)"
+ },
+ {
+  "path": "src/include/lib/hyperloglog.h",
+  "pattern": "the\\s+analysis\\s+of",
+  "reason": "paper title kept EN (citation)"
+ },
+ {
+  "path": "src/backend/commands/cluster.c",
+  "pattern": "Post\\s+alter",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/bin/initdb/findtimezone.c",
+  "pattern": "Windows\\s+Server",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/backend/commands/copyfrom.c",
+  "pattern": "before\\s+row\\s+insert",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/backend/access/transam/commit_ts.c",
+  "pattern": "bootstrap\\s+xid",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/backend/postmaster/postmaster.c",
+  "pattern": "fork\\s+checkpointer",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/interfaces/libpq/fe-connect.c",
+  "pattern": "gssencmode\\s+prefer",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/bin/pg_upgrade/option.c",
+  "pattern": "initdb\\s+\\-\\-sync\\-only",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/backend/access/transam/subtrans.c",
+  "pattern": "initdb\\s+shell",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/backend/commands/tablespace.c",
+  "pattern": "junction\\s+point",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/backend/commands/collationcmds.c",
+  "pattern": "libc\\s+locale",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/bin/pg_upgrade/pg_upgrade.c",
+  "pattern": "next\\s+multi",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/backend/commands/tablecmds.c",
+  "pattern": "post\\s+alter",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/bin/pg_upgrade/controldata.c",
+  "pattern": "postgresql\\s+bin",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/backend/storage/ipc/ipci.c",
+  "pattern": "postmaster\\s+fork",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/backend/replication/walsender.c",
+  "pattern": "ps\\s+display",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/bin/initdb/initdb.c",
+  "pattern": "public\\s+create\\-schema",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/backend/main/main.c",
+  "pattern": "root\\s+shell",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/backend/postmaster/fork_process.c",
+  "pattern": "score\\s+adjustment",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/backend/commands/statscmds.c",
+  "pattern": "share\\s+update\\s+exclusive",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/interfaces/libpq/fe-connect.c",
+  "pattern": "sslmode\\s+allow",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/interfaces/libpq/fe-connect.c",
+  "pattern": "sslmode\\s+prefer",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/backend/executor/execMain.c",
+  "pattern": "traffic\\s+cop",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/interfaces/libpq/win32.c",
+  "pattern": "winsock\\s+dll",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/backend/commands/dbcommands.c",
+  "pattern": "xlog\\s+relcache",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/bin/pg_dump/pg_dump.c",
+  "pattern": "zstd\\s+workers",
+  "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
  }
 ]

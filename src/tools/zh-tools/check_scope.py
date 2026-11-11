@@ -100,9 +100,18 @@ def collect_changes_worktree(root, base):
     changes = []
     for status, path in gitutil.diff_names(base, None, cwd=root):
         changes.append((status[0], path, "tracked"))
+    # Harness runtime artifacts (e.g. .claude/scheduled_tasks.lock) appear
+    # transiently under .claude/ during a session; they are agent-session
+    # state, never batch scope, so untracked/ignored .claude/** is skipped.
+    # Tracked .claude/** changes are still governed: the loop above is
+    # untouched and always reports them.
     for path in gitutil.ls_files(root, ["--others", "--exclude-standard"]):
+        if path.startswith(".claude/"):
+            continue
         changes.append(("U", path, "untracked"))
     for path in gitutil.ls_files(root, ["--others", "--ignored", "--exclude-standard"]):
+        if path.startswith(".claude/"):
+            continue
         changes.append(("I", path, "ignored"))
     return changes
 

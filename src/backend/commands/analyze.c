@@ -2495,8 +2495,8 @@ compute_scalar_stats(VacAttrStatsP stats,
 	/* 只有找到可排序值，才能算出真正的统计信息     */
 	if (values_cnt > 0)
 	{
-		int			ndistinct,	/* # distinct values in 采样 */
-					nmultiple,	/* # 那个 appear 多个 times */
+		int			ndistinct,	/* # 采样中不同值个数  */
+					nmultiple,	/* # 出现多次的个数      */
 					num_hist,
 					dups_cnt;
 		int			slot_idx = 0;

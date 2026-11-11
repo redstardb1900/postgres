@@ -194,6 +194,50 @@ class ProtectionUnit(unittest.TestCase):
             self.assertTrue(any(x.startswith("changed: doc/sub/b.txt mode") for x in diffs))
 
 
+class CollectChangesUnit(unittest.TestCase):
+    """collect_changes_worktree skips untracked/ignored .claude/** harness
+    runtime artifacts (e.g. scheduled_tasks.lock); tracked changes under
+    .claude/ stay governed."""
+
+    def _init_repo(self, d):
+        git(d, "init", "-q", "--initial-branch=main")
+        write(d, "a.c", "int x;\n")
+        git(d, "add", "a.c")
+        git(d, "commit", "-q", "-m", "init")
+
+    def test_untracked_and_ignored_claude_skipped(self):
+        from check_scope import collect_changes_worktree
+        with tempfile.TemporaryDirectory() as d:
+            self._init_repo(d)
+            write(d, "a.c", "int y;\n")                    # tracked change
+            write(d, ".claude/scheduled_tasks.lock", "t")  # harness artifact (untracked)
+            write(d, "stray.txt", "s")                     # ordinary untracked
+            with open(os.path.join(d, ".git", "info", "exclude"), "a") as f:
+                f.write("*.tmp\n")
+            write(d, ".claude/junk.tmp", "j")              # harness artifact (ignored)
+            write(d, "other.tmp", "o")                     # ordinary ignored
+            got = {path: (st, origin)
+                   for st, path, origin in collect_changes_worktree(d, "HEAD")}
+            self.assertNotIn(".claude/scheduled_tasks.lock", got)
+            self.assertNotIn(".claude/junk.tmp", got)
+            self.assertEqual(got["a.c"], ("M", "tracked"))
+            self.assertEqual(got["stray.txt"], ("U", "untracked"))
+            self.assertEqual(got["other.tmp"], ("I", "ignored"))
+
+    def test_tracked_claude_still_governed(self):
+        from check_scope import collect_changes_worktree
+        with tempfile.TemporaryDirectory() as d:
+            self._init_repo(d)
+            write(d, ".claude/settings.json", "{}\n")
+            git(d, "add", ".claude/settings.json")
+            git(d, "commit", "-q", "-m", "claude cfg")
+            write(d, ".claude/settings.json", "{\"x\": 1}\n")
+            got = {path: (st, origin)
+                   for st, path, origin in collect_changes_worktree(d, "HEAD")}
+            self.assertEqual(got[".claude/settings.json"][1], "tracked")
+            self.assertIn(got[".claude/settings.json"][0], "AMRT")
+
+
 class ScopeEndToEnd(unittest.TestCase):
     """Build a miniature repository that mimics the protected layout."""
 

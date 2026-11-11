@@ -285,7 +285,7 @@ tfuncFetchRows(TableFuncScanState *tstate, ExprContext *econtext)
 	tstate->tupstore = tuplestore_begin_heap(false, false, work_mem);
 
 	/*
-	 * 每次取一组新行的调用——若在 lateral join 中使用     
+	 * 每次取一组新行的调用——若在 LATERAL 连接中使用    
 	 * XMLTABLE 则可能有很多组——都可能分配相当多的       
 	 * 内存，因此我们无法在这里使用每查询上下文。     
 	 * perTableCxt 现在起着与 FunctionScan 中"argcontext"              

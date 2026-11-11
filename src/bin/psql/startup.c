@@ -977,7 +977,7 @@ echo_substitute_hook(char *newval)
 static bool
 echo_hook(const char *newval)
 {
-	Assert(newval != NULL);		/* 否则 substitute hook 出错了 */
+	Assert(newval != NULL);		/* 否则替换钩子出错了    */
 	if (pg_strcasecmp(newval, "queries") == 0)
 		pset.echo = PSQL_ECHO_QUERIES;
 	else if (pg_strcasecmp(newval, "errors") == 0)
@@ -997,7 +997,7 @@ echo_hook(const char *newval)
 static bool
 echo_hidden_hook(const char *newval)
 {
-	Assert(newval != NULL);		/* 否则 substitute hook 出错了 */
+	Assert(newval != NULL);		/* 否则替换钩子出错了    */
 	if (pg_strcasecmp(newval, "noexec") == 0)
 		pset.echo_hidden = PSQL_ECHO_HIDDEN_NOEXEC;
 	else
@@ -1018,7 +1018,7 @@ echo_hidden_hook(const char *newval)
 static bool
 on_error_rollback_hook(const char *newval)
 {
-	Assert(newval != NULL);		/* 否则 substitute hook 出错了 */
+	Assert(newval != NULL);		/* 否则替换钩子出错了    */
 	if (pg_strcasecmp(newval, "interactive") == 0)
 		pset.on_error_rollback = PSQL_ERROR_ROLLBACK_INTERACTIVE;
 	else
@@ -1047,7 +1047,7 @@ comp_keyword_case_substitute_hook(char *newval)
 static bool
 comp_keyword_case_hook(const char *newval)
 {
-	Assert(newval != NULL);		/* 否则 substitute hook 出错了 */
+	Assert(newval != NULL);		/* 否则替换钩子出错了    */
 	if (pg_strcasecmp(newval, "preserve-upper") == 0)
 		pset.comp_case = PSQL_COMP_CASE_PRESERVE_UPPER;
 	else if (pg_strcasecmp(newval, "preserve-lower") == 0)
@@ -1076,7 +1076,7 @@ histcontrol_substitute_hook(char *newval)
 static bool
 histcontrol_hook(const char *newval)
 {
-	Assert(newval != NULL);		/* 否则 substitute hook 出错了 */
+	Assert(newval != NULL);		/* 否则替换钩子出错了    */
 	if (pg_strcasecmp(newval, "ignorespace") == 0)
 		pset.histcontrol = hctl_ignorespace;
 	else if (pg_strcasecmp(newval, "ignoredups") == 0)
@@ -1126,7 +1126,7 @@ verbosity_substitute_hook(char *newval)
 static bool
 verbosity_hook(const char *newval)
 {
-	Assert(newval != NULL);		/* 否则 substitute hook 出错了 */
+	Assert(newval != NULL);		/* 否则替换钩子出错了    */
 	if (pg_strcasecmp(newval, "default") == 0)
 		pset.verbosity = PQERRORS_DEFAULT;
 	else if (pg_strcasecmp(newval, "verbose") == 0)
@@ -1163,7 +1163,7 @@ show_context_substitute_hook(char *newval)
 static bool
 show_context_hook(const char *newval)
 {
-	Assert(newval != NULL);		/* 否则 substitute hook 出错了 */
+	Assert(newval != NULL);		/* 否则替换钩子出错了    */
 	if (pg_strcasecmp(newval, "never") == 0)
 		pset.show_context = PQSHOW_CONTEXT_NEVER;
 	else if (pg_strcasecmp(newval, "errors") == 0)

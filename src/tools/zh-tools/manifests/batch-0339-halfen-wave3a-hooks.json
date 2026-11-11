@@ -1,0 +1,66 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0339",
+ "title": "halfen3 campaign wave 3a: psql hook family - startup.c substitute-hook Assert comments x7 + variables.c three hook blocks (21 lines / 2 files, per-line EN byte parity, LF identity)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "0e5436acd8ea8ca7b4fd92d87d08ea196ec82468",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0339-halfen-wave3a-hooks.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/bin/psql/startup.c",
+   "kind": "c_comment",
+   "note": "L980/1000/1021/1050/1079/1129/1166 MIDR: substitute hook -> 替换钩子 in Assert comments (also repairs pre-existing +2B over each)"
+  },
+  {
+   "pattern": "src/bin/psql/variables.c",
+   "kind": "c_comment",
+   "note": "L237/239/240/241/242/243 block A + L298/299/302/306/307/308 block B + L363/364 block C: assign/substitute hook -> 赋值钩子/替换钩子 (block rewrites, repairs pre-existing over-budget lines)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0339-halfen-wave3a-hooks.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/bin/psql/startup.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 7,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "L980/1000/1021/1050/1079/1129/1166 identical Assert lines: '/* 否则 substitute hook 出错了 */' -> '/* 否则替换钩子出错了 */' (pure-CJK term consumes flanking separator spaces, A2/0338 lesson), pad inside comment, */ at EN end position 62B exact; repairs +2B pre-existing over on each"
+  },
+  {
+   "path": "src/bin/psql/variables.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 14,
+   "translated": 14,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "block A 237-243 (in-function, decor 6B): reassigned zh to EN line grid, all lines exact parity (L237 63=63 keeps 返回 false per psql convention - crosstabview.c:282, common.c x7 (count corrected 4->7 per R2)); block B 298-311 (file-scope, decor 3B): in-line term fixes, untouched pure-zh lines L301/303/309/310 are pre-existing +2/+7/+4/+4 over-budget and L304/311 are pre-existing under-budget line-merges (24 vs 58, 42 vs 77) - all five+two ledgered for 0258-residual sweep, NOT fixed; block C 363-364: iff rendering 当且仅当...函数/为真。 (L364 was +7 over at 20B vs EN 13B - now 13B exact; EN-L364 13B cap forces 为真。 over 返回 true。/返回真。 - nuance disclosed, backend 返回真 corpus subselect.c:1542 exists, psql 返回 true convention unreachable within budget)"
+  }
+ ],
+ "notes": "batch-0339 (halfen3 campaign wave 3a, 2026-11-11, parent batch-0338=0e5436acd8e (full SHA in parent_commit field)). Scope: 10 halfen MIXED findings cleared (startup.c x7 substitute-hook runs + variables.c 236/297/362 assign-hook runs), 520->510 expected; variables.c:409-414 '\"fee, fi, fo,' is an adjudicated KEEP (format literal 'fee, fi, fo, fum' from EN, scanner-flagged but legitimate). Hook-term corpus (0334 precedent + fresh sweep): 替换钩子 parse_param.c:243, 赋值钩子 postgres.c:3598/3710, 检查钩子 postgres.c x4 + user.c x2, 显示钩子 variable.c:1149. Byte accounting: variables.c in-function decor is '\\t\\t\\t * ' = 6B; L364 13B budget is the batch's tightest constraint (content cap 10B). Gate criteria: verify full-tree summary identical (0 violations, changed=61831); halfen 520->510 exact, 0 new; term dual-state 0/0 on 2 files; check_scope --incremental PASS; add==del==21 numstat, LF identity. Pre-batch repairs disclosed: startup.c x7 lines were +2B over EN each; variables.c L237 +7, L239 +9, L240 +2, L241 +9, L364 +7 - all repaired to exact parity in this batch. Ledger (out of scope, unchanged): variables.c L301/303/309/310 pre-existing over-budget pure-CJK (invisible to scanner) - future 0258-residual sweep with index.c L3047/3048. Post-review delta applied (dual convergence): L363 gains 时 per R1-A1=R2-A2 -> ' * 当且仅当指定变量具有替换和/或赋值钩子函数时' + 4 pad = 71B exact, L364 unchanged 13B (reassembled 当且仅当…函数时为真。 fully grammatical); sweep ledger extended per R1-A2 with pre-existing UNDER-budget line-merge lines variables.c L304 (24 vs 58) and L311 (42 vs 77). All four gates re-run green post-delta (verify summary identical, halfen 510 with 0 delta, term 0/0, check_scope PASS).",
+ "post_review": {
+  "r1": "PASS, no D1; advisories A1 (L363 时 polish, ADOPTED) + A2 (L304/311 under-budget line-merges -> sweep ledger, ADOPTED); pre-batch repair claims all re-derived exact",
+  "r2": "PASS, no D-findings; advisories A1 (manifest common.c count 4->7, ADOPTED) + A2 (L363 时 polish identical to R1-A1, ADOPTED); 为真 well-attested (pathkeys.c:740, indxpath.c:54/676), 当且仅当 house iff style (tablecmds.c x2, indexcmds.c, analyze.c)",
+  "delta_applied": true,
+  "delta_script": "/tmp/delta0339_r.py",
+  "re_ack": "R1 received (positional verification, freeze may lift); R2 received (21-line post-delta sweep all exact; manifest x4->x7 residue fixed in files note this round)"
+ }
+}

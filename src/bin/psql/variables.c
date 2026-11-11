@@ -234,13 +234,13 @@ SetVariable(VariableSpace space, const char *name, const char *value)
 		if (cmp == 0)
 		{
 			/*
-			 * 找到条目，因此更新，除非 assign hook 返回 false。
+			 * 找到条目则更新，除非赋值钩子返回 false。
 			 *
-			 * 我们必须先复制传入的值。这简化了 substitute hook
-			 * 的 API。此外，某些 assign hook 假设传入的值与变量
-			 * 具有相同的生命周期。在失败时需要再次释放字符串，
-			 * 这是保持这些 API 简洁的小代价。
-			 *
+			 * 我们必须先复制传入的值。这简化了       
+			 * 替换钩子的 API。此外，某些赋值钩子              
+			 * 假设传入的值与变量具有相同的生命周期。      
+			 * 在失败时需要再次释放字符串，                
+			 * 这是保持这些 API 简洁的小代价。     
 			 */
 			char	   *new_value = value ? pg_strdup(value) : NULL;
 			bool		confirmed;
@@ -295,17 +295,17 @@ SetVariable(VariableSpace space, const char *name, const char *value)
 }
 
 /*
- * 将 substitute 和/或 assign hook 函数附加到指定的变量。
- * 如果只需要一个 hook，则为另一个传入 NULL。
+ * 将替换钩子和/或赋值钩子函数附加到指定的变量。  
+ * 如果只需一个钩子，另一个传 NULL。    
  *
  * 如果变量尚不存在，则以 NULL 值创建它，只是为了有一个
- * 地方存储 hook 函数。（substitute hook 可能会立即将 NULL
+ * 地方存储钩子函数。（替换钩子可能会立即将 NULL         
  * 更改为其他值；如果不更改，则此状态在外部看来与变量
  * 未定义相同。）
  *
- * 如果提供了 substitute hook，则立即对变量的值调用它。
- * 然后如果提供了 assign hook，则对变量的值调用它。
- * 这旨在让它更新任何派生的 psql 状态。如果 assign hook
+ * 如果提供了替换钩子，则立即对变量的值调用它。    
+ * 然后如果提供了赋值钩子，则对变量的值调用它。        
+ * 这旨在让它更新任何派生的 psql 状态。如果赋值钩子     
  * 不喜欢当前值，它会打印相应的消息，但我们会忽略它。
  * 通常我们不期望在此处发生此类失败，因为这应该在分配
  * 任何用户提供的值之前调用。
@@ -360,8 +360,8 @@ SetVariableHooks(VariableSpace space, const char *name,
 }
 
 /*
- * 如果指定变量具有 substitute 和/或 assign hook 函数，
- * 则返回 true。
+ * 当且仅当指定变量具有替换和/或赋值钩子函数时    
+ * 为真。 
  */
 bool
 VariableHasHook(VariableSpace space, const char *name)

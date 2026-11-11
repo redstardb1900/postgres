@@ -1949,7 +1949,7 @@ ReorderBufferStreamCommit(ReorderBuffer *rb, ReorderBufferTXN *txn)
  * 变更，但这无妨，因为解码中止时我们会流式发送        
  * 中止消息截断订阅端的变更。类似地，对已准备   
  * 事务，如果检测到并发中止，我们就停止解码，并     
- * 在遇到 rollback prepared 时回滚这些变更。参见     
+ * 在遇到 rollback_prepared 时回滚这些变更。参见     
  * DecodePrepare 
  */
 static inline void
@@ -2892,7 +2892,7 @@ ReorderBufferFinishPrepared(ReorderBuffer *rb, TransactionId xid,
 		 * 此时该 txn 已拥有预备记录的信息，重要的是      
 		 * 用它，让下游获得准确的信息。如果改为    
 		 * 此处传入提交信息，下游可能会表现得就像      
-		 * 自己在重启后已重放过 commit prepared 一样。    
+		 * 自己在重启后已重放过 commit_prepared 一样。    
 		 *                            
 		 */
 		ReorderBufferReplay(txn, rb, xid, txn->final_lsn, txn->end_lsn,

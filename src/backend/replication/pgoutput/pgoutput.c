@@ -193,7 +193,7 @@ typedef struct RelationSyncEntry
  * 而节省网络带宽。                                      
  *
  * 已准备事务不使用该优化：因为若 WALSender 在某事务  
- * prepare 之后、同一事务 commit prepared 之前重启，我            
+ * prepare 之后、同一事务 commit_prepared 之前重启，我            
  * 们将无法判断是否因事务为空而跳过了发送 BEGIN/      
  * PREPARE。这是因为重启前的内存 txndata 信息已经          
  * 丢失。这会导致向下游发送一个虚假的                  
@@ -1970,8 +1970,8 @@ get_schema_sent_in_streamed_txn(RelationSyncEntry *entry, TransactionId xid)
 }
 
 /*
- * 将已为其发送过该关系模式的 xid 记入 rel sync                
- * 条目。       
+ * 将已为其发送过该关系模式的 xid 记入 RelationSyncEntry       
+ *                 
  */
 static void
 set_schema_sent_in_streamed_txn(RelationSyncEntry *entry, TransactionId xid)

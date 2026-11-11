@@ -812,7 +812,7 @@ ExecPrepareExprList(List *nodes, EState *estate)
 	MemoryContext oldcontext;
 	ListCell   *lc;
 
-	/* 确保 list cell 节点也处于正确的上下文中        */
+	/* 确保 ListCell 节点也处于正确的上下文中         */
 	oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
 
 	foreach(lc, nodes)

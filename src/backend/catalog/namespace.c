@@ -4016,7 +4016,7 @@ InitTempTableNamespace(void)
 						get_database_name(MyDatabaseId))));
 
 	/*
-	 * 不允许 Hot Standby 会话创建临时表。除了
+	 * 不允许热备会话创建临时表。除了                      
 	 * 修改系统目录的问题外，还有一个命名
 	 * 冲突：pg_temp_N 属于主库上 BackendId 为 N 的会话，
 	 * 而不属于具有相同 BackendId 的热备会话。由于

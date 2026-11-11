@@ -15749,7 +15749,7 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 									 !tbinfo->attrdefs[j]->separate);
 
 					/*
-					 * Not Null 约束 —— 如果是继承的则抑制，
+					 * NOT NULL 约束 —— 如果是继承的则抑制，
 					 * 除非是分区，或在不起作用的二进制升级情况下。
 					 *
 					 */

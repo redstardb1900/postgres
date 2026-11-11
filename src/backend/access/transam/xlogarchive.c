@@ -144,7 +144,7 @@ RestoreArchivedFile(char *path, const char *xlogfname,
 		XLByteToSeg(restartRedoPtr, restartSegNo, wal_segment_size);
 		XLogFileName(lastRestartPointFname, restartTli, restartSegNo,
 					 wal_segment_size);
-		/* 我们不应需要早于上次 restart point 的任何内容 */
+		/* 我们不应需要早于上次重启点的任何内容     */
 		Assert(strcmp(lastRestartPointFname, xlogfname) <= 0);
 	}
 	else

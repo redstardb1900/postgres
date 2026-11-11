@@ -990,8 +990,8 @@ replorigin_advance(RepOriginId node,
 	/*
 	 * 由于检查点期间的无害竞态条件，我们可能在这里  
 	 * 看到比内存中已有的值更旧的值。对已准备事务，当 
-	 * prepare 稍后才连同 commit prepared 一起发送，并且在      
-	 * prepare 与 commit prepared 之间存在其他事务的提交。请  
+	 * prepare 稍后才连同 commit_prepared 一起发送，并且在      
+	 * prepare 与 commit_prepared 之间存在其他事务的提交。请  
 	 * 参见 ReorderBufferFinishPrepared。                                  
 	 * 不要覆盖这些值。                           
 	 */

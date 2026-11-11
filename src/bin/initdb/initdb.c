@@ -3402,7 +3402,7 @@ main(int argc, char *argv[])
 		/* 检查参数是否为数字         */
 		wal_segment_size_mb = strtol(str_wal_segment_size_mb, &endptr, 10);
 
-		/* 验证 wal segment size 是否有效  */
+		/* 验证 WAL 段大小是否有效      */
 		if (endptr == str_wal_segment_size_mb || *endptr != '\0')
 			pg_fatal("argument of --wal-segsize must be a number");
 		if (!IsValidWalSegSize(wal_segment_size_mb * 1024 * 1024))

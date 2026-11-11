@@ -740,7 +740,7 @@ init_sql_fcache(FunctionCallInfo fcinfo, Oid collation, bool lazyEvalOK)
 	 * 来设置 fcache->returnsTuple。对后一种情形我们会清除    
 	 * returnsTuple，因为无需在标量结果情形之外表现不同  
 	 * 行为，即使它是行类型列。（不过该情形下必须强     
-	 * 制 lazy eval 模式；否则需额外代码把行类型列展开    
+	 * 制惰性求值模式；否则需额外代码把行类型列展开   
 	 * 成多列，因为我们没有办法通知调用者自行        
 	 * 展开。）                              
 	 */

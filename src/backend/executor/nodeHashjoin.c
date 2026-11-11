@@ -250,7 +250,7 @@ ExecHashJoinImpl(PlanState *pstate, bool parallel)
 	ResetExprContext(econtext);
 
 	/*
-	 * 运行 hash join 状态机     
+	 * 运行哈希连接状态机    
 	 */
 	for (;;)
 	{
@@ -807,7 +807,7 @@ ExecInitHashJoin(HashJoin *node, EState *estate, int eflags)
 	 * 接下来来点魔法。我们的临时元组槽实际是            
 	 * Hash 节点的结果元组槽（即我们的内层计划）。        
 	 * 可以这样做，因为 Hash 节点不通过 ExecProcNode() 返    
-	 * 回元组 -- 而是 hash join 节点用 ExecScanHashBucket() 来      
+	 * 回元组 -- 而是哈希连接节点用 ExecScanHashBucket() 来     
 	 * 访问哈希表 -cim 6/9/91 
 	 */
 	{
@@ -1584,7 +1584,7 @@ ExecHashJoinInitializeDSM(HashJoinState *state, ParallelContext *pcxt)
 	shm_toc_insert(pcxt->toc, plan_node_id, pstate);
 
 	/*
-	 * 建立共享 hash join 状态，初始无任何批次。    
+	 * 建立共享哈希连接状态，初始无任何批次。   
 	 * ExecHashTableCreate() 会准备至少一个批次并设置 nbatch   
 	 * 和 space_allowed 
 	 */

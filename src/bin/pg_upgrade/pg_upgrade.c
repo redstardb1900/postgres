@@ -12,8 +12,8 @@
  *	一致：                              
  *
  *	我们控制 pg_class.oid（含 relfilenode）的全部赋值，使  
- *	toast oid 在新旧集簇间保持一致。这很重要，因为  
- *	toast oid 以 toast 指针的形式存储在用户表中。    
+ *	toast OID 在新旧集簇间保持一致。这很重要，因为  
+ *	toast OID 以 toast 指针的形式存储在用户表中。    
  *
  *	虽然 pg_class.oid 和 pg_class.relfilenode 在一个集簇中最初  
  *	相同，但可能因 CLUSTER、REINDEX 或 VACUUM FULL 而          

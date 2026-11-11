@@ -1327,7 +1327,7 @@ AbsorbSyncRequests(void)
 static void
 UpdateSharedMemoryConfig(void)
 {
-	/* 更新 sync rep 全局 shmem 状态    */
+	/* 更新同步复制全局 shmem 状态  */
 	SyncRepUpdateSyncStandbysDefined();
 
 	/*

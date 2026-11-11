@@ -721,9 +721,9 @@ pg_prepared_statement(PG_FUNCTION_ARGS)
 }
 
 /*
- * 此实用函数接收 C 的 Oid 数组，返回指向一维
- * regtype Postgres 数组的 Datum。空数组以零元素
- * 数组返回，而不是 NULL。
+ * 此实用函数接收 C 的 Oid 数组，返回一个 Datum，    
+ * 指向元素为 regtype 的一维 Postgres 数组。空数组     
+ * 以零元素数组返回，而不是 NULL。        
  */
 static Datum
 build_regtype_array(Oid *param_types, int num_params)

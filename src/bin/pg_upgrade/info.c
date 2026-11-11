@@ -191,7 +191,7 @@ create_rel_filename_map(const char *old_data, const char *new_data,
 		map->new_tablespace_suffix = new_cluster.tablespace_suffix;
 	}
 
-	/* db oid 和 relfilenumber 在新旧集簇间不变                   */
+	/* DB OID 和 relfilenumber 在新旧集簇间不变                   */
 	map->db_oid = old_db->db_oid;
 	map->relfilenumber = old_rel->relfilenumber;
 
@@ -589,7 +589,7 @@ get_rel_infos(ClusterInfo *cluster, DbInfo *dbinfo)
 			}
 		}
 		else
-			/* reltablespace oid 为零表示数据库表空间。         */
+			/* reltablespace OID 为零表示数据库表空间。         */
 			curr->tablespace = dbinfo->db_tablespace;
 	}
 	PQclear(res);

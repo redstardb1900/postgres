@@ -4080,8 +4080,8 @@ restore_toc_entries_parallel(ArchiveHandle *AH, ParallelState *pstate,
 	/*
 	 * pending_list 包含我们需要恢复的所有项目。
 	 * 将所有可立即处理的项目移到 ready_list。
-	 * 在此设置之后，pending list 是所有需要完成但
-	 * 被一个或多个依赖阻塞的内容，而 ready list
+	 * 在此设置之后，pending_list 是所有需要完成但            
+	 * 被一个或多个依赖阻塞的内容，而 ready_list        
 	 * 包含没有剩余依赖且可以在当前恢复遍历中
 	 * 处理的项目。
 	 */
@@ -4780,7 +4780,7 @@ reduce_dependencies(ArchiveHandle *AH, TocEntry *te,
 			otherte->pending_prev != NULL &&
 			ready_list != NULL)
 		{
-			/* 从 pending list 中移除 ... */
+			/* 从 pending_list 中移除 ...  */
 			pending_list_remove(otherte);
 			/* ... 并添加到 ready_list */
 			ready_list_insert(ready_list, otherte);

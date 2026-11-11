@@ -419,7 +419,7 @@ switchToPresortedPrefixMode(PlanState *pstate)
 		node->execution_status = INCSORT_LOADPREFIXSORT;
 
 		/*
-		 * 务必清空 transfer tuple 槽，这样下次遇到大        
+		 * 务必清空结转元组槽，这样下次遇到大            
 		 * 前缀键组时，不会误认为我们有从上一组结转     
 		 * 而来的元组。                                
 		 */

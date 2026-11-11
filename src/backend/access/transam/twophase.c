@@ -151,7 +151,7 @@ typedef struct GlobalTransactionData
 {
 	GlobalTransaction next;		/* 空闲列表的链表链接 */
 	int			pgprocno;		/* 关联哑元 PGPROC 的 ID */
-	BackendId	dummyBackendId; /* 类似于后端的 backend id */
+	BackendId	dummyBackendId; /* 类似于后端的 BackendId       */
 	TimestampTz prepared_at;	/* 预备时间 */
 
 	/*
@@ -167,7 +167,7 @@ typedef struct GlobalTransactionData
 
 	Oid			owner;			/* 执行该事务的用户 ID */
 	BackendId	locking_backend;	/* 当前正在处理该事务的后端 */
-	bool		valid;			/* 为 true 表示 PGPROC 项已在 proc array 中 */
+	bool		valid;			/* 为 true 表示 PGPROC 项已在 ProcArray 中 */
 	bool		ondisk;			/* 为 true 表示预备状态文件已在磁盘上 */
 	bool		inredo;			/* 为 true 表示该项经由 xlog_redo 加入 */
 	char		gid[GIDSIZE];	/* 赋给该预备事务的 GID */

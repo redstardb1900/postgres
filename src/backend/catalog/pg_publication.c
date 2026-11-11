@@ -769,7 +769,7 @@ GetAllTablesPublications(void)
 	SysScanDesc scan;
 	HeapTuple	tup;
 
-	/* 查找所有标记为 for all tables 的发布。 */
+	/* 查找所有标记为 FOR ALL TABLES 的发布。        */
 	rel = table_open(PublicationRelationId, AccessShareLock);
 
 	ScanKeyInit(&scankey,

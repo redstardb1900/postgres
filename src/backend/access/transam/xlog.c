@@ -5807,7 +5807,7 @@ StartupXLOG(void)
 
 	/*
 	 * 若曾有级联备库连接到我们，
-	 * 则轻推任何 wal sender 进程，使其注意到我们已被提升。
+	 * 则轻推任何 walsender 进程，使其注意到我们已被提升。
 	 */
 	WalSndWakeup(true, true);
 

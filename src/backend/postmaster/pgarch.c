@@ -67,7 +67,7 @@
 #define NUM_ARCHIVE_RETRIES 3
 
 /*
- * 尝试删除孤儿 archive status 文件时允许的          
+ * 尝试删除孤儿 archive_status 文件时允许的          
  * 最大重试次数。      
  */
 #define NUM_ORPHAN_CLEANUP_RETRIES 3
@@ -418,7 +418,7 @@ pgarch_ArchiverCopyLoop(void)
 			}
 
 			/*
-			 * 由于 archive status 文件的删除不保证持久，        
+			 * 由于 archive_status 文件的删除不保证持久，        
 			 * 系统崩溃可能为已回收或已删除的 WAL 段留下    
 			 * .ready 文件。这种情况直接删除孤儿状态文件
 			 * 并继续即可。这里用 unlink() 是因为，即便后续 
@@ -594,7 +594,7 @@ pgarch_readyXlog(char *xlog)
 	binaryheap_reset(arch_files->arch_heap);
 
 	/*
-	 * 打开 archive status 目录并遍历其中的文件列表，       
+	 * 打开 archive_status 目录并遍历其中的文件列表，       
 	 * 找出带 .ready 后缀的最旧文件。              
 	 */
 	snprintf(XLogArchiveStatusDir, MAXPGPATH, XLOGDIR "/archive_status");

@@ -4028,7 +4028,7 @@ afterTriggerCheckState(AfterTriggerShared evtshared)
  * afterTriggerCopyBitmap()
  *
  * 将位图复制到 AfterTriggerEvents 内存上下文中，
- * 这是 after trigger 事件保留的地方。
+ * 这是 AFTER 触发器 事件保留的地方。
  * ----------
  */
 static Bitmapset *

@@ -968,7 +968,7 @@ index_store_float8_orderby_distances(IndexScanDesc scan, Oid *orderByTypes,
 			 * 若排序操作符的返回值是其他类型，我们
 			 * 不知道如何把距离函数算出的 float8 界限
 			 * 转换成那个类型。若没有有损结果，执行器实际上
-			 * 并不需要我们这里返回的 order by 值，因此
+			 * 并不需要我们这里返回的 ORDER BY 值，因此  
 			 * 只在设置了 *recheck 标志时
 			 * 才坚持转换。
 			 */

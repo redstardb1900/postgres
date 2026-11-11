@@ -2061,7 +2061,7 @@ StoreAttrMissingVal(Relation rel, AttrNumber attnum, Datum missingval)
  * SetAttrMissing
  *
  * 设置单个属性的缺失值。这只应由
- * binary upgrade 使用。对拥有该属性的关系取
+ * 二进制升级使用。对拥有该属性的关系取                  
  * AccessExclusive 锁。
  */
 void

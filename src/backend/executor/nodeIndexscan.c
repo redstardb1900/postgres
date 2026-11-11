@@ -1185,8 +1185,8 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 	n_array_keys = 0;
 
 	/*
-	 * 把给定条件中的每个算子子句转换为一个                 
-	 * scan key
+	 * 把给定条件中的每个算子子句转换为一个扫描键        
+	 *         
 	 */
 	j = 0;
 	foreach(qual_cell, quals)
@@ -1299,7 +1299,7 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 								   op_strategy, /* op 的策略  */
 								   op_righttype,	/* 策略子类型  */
 								   ((OpExpr *) clause)->inputcollid,	/* collation */
-								   opfuncid,	/* 所用 reg proc */
+								   opfuncid,	/* 所用 regproc  */
 								   scanvalue);	/* 常量   */
 		}
 		else if (IsA(clause, RowCompareExpr))
@@ -1423,7 +1423,7 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 									   op_strategy, /* op 的策略  */
 									   op_righttype,	/* 策略子类型  */
 									   inputcollation,	/* collation */
-									   opfuncid,	/* 所用 reg proc */
+									   opfuncid,	/* 所用 regproc  */
 									   scanvalue);	/* 常量   */
 				n_sub_key++;
 			}
@@ -1558,7 +1558,7 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 								   op_strategy, /* op 的策略  */
 								   op_righttype,	/* 策略子类型  */
 								   saop->inputcollid,	/* collation */
-								   opfuncid,	/* 所用 reg proc */
+								   opfuncid,	/* 所用 regproc  */
 								   scanvalue);	/* 常量   */
 		}
 		else if (IsA(clause, NullTest))
@@ -1609,7 +1609,7 @@ ExecIndexBuildScanKeys(PlanState *planstate, Relation index,
 								   InvalidStrategy, /* 无策略   */
 								   InvalidOid,	/* 无策略子类型  */
 								   InvalidOid,	/* 无 collation*/
-								   InvalidOid,	/* 此项无 reg proc   */
+								   InvalidOid,	/* 此项无 regproc    */
 								   (Datum) 0);	/* 常量   */
 		}
 		else

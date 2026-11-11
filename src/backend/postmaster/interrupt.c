@@ -98,7 +98,7 @@ SignalHandlerForCrashExit(SIGNAL_ARGS)
  * 信号处理器。 
  *
  * 通常此处理器用于 SIGTERM，但有些进程使用其他信号。  
- * 其中 checkpointer 与 parallel apply worker 于 SIGUSR2 退出，     
+ * 其中 checkpointer 与并行应用工作进程于 SIGUSR2 退出，    
  * 而 WAL writer 则在 SIGINT 或 SIGTERM 之一到达时退出。     
  *
  * 应在主循环中的便利位置检查 ShutdownRequestPending，        

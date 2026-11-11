@@ -1223,7 +1223,7 @@ SnapBuildCommitTxn(SnapBuild *builder, XLogRecPtr lsn, TransactionId xid,
 }
 
 /*
- * 检查 reorder buffer 与快照，判断给定事务是否修改             
+ * 检查 ReorderBuffer 与快照，判断给定事务是否修改              
  * 了系统表。   
  */
 static inline bool
@@ -2121,7 +2121,7 @@ CheckPointSnapBuild(void)
 	/* 现在检查现有复制槽的 restart ptrs        */
 	cutoff = ReplicationSlotsComputeLogicalRestartLSN();
 
-	/* 不要早于 restart lsn 启动          */
+	/* 不要早于 restart_lsn 启动          */
 	if (redo < cutoff)
 		cutoff = redo;
 

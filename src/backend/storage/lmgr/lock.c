@@ -974,7 +974,7 @@ LockAcquireExtended(const LOCKTAG *locktag,
 
 	/*
 	 * 若其他后端有可能已经经由快速路径取得了这把锁，
-	 * 我们就必须（暂时）禁止对此 lock tag 继续使用
+	 * 我们就必须（暂时）禁止对此 LOCKTAG 继续使用        
 	 * 快速路径，并把已经用此方法取得的锁迁移到
 	 * 主锁表。
 	 */

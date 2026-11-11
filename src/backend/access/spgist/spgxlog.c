@@ -871,7 +871,7 @@ spgRedoVacuumRedirect(XLogReaderState *record)
 
 	/*
 	 * 若有任何重定向元组将被移除，确保没有仍存活的
-	 * Hot Standby 事务可能需要看到它们。
+	 * 热备事务可能需要看到它们。                   
 	 */
 	if (InHotStandby)
 	{

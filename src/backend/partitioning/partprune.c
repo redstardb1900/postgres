@@ -3650,8 +3650,8 @@ perform_pruning_combine_step(PartitionPruneContext *context,
  *
  * 若我们能把该子句作为特殊形状的
  * 布尔子句匹配到分区键，就把 *outconst 设为含真值或假值的 Const，
- * 按子句是否为否定形式（即 is not
- * true 或 is not false）设置 *noteq，并返回 PARTCLAUSE_MATCH_CLAUSE。若子句不是布尔子句，或该
+ * 按子句是否为否定形式（即 IS NOT                              
+ * TRUE 或 IS NOT FALSE）设置 *noteq，并返回 PARTCLAUSE_MATCH_CLAUSE。若子句不是布尔子句，或该
  * 布尔子句不适合分区剪枝，则返回
  * PARTCLAUSE_UNSUPPORTED。若它是布尔限定条件但就是不匹配该
  * 分区键，则返回 PARTCLAUSE_NOMATCH。后两种情形把

@@ -929,7 +929,7 @@ begin_prepare_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn)
 	ctx->end_xact = false;
 
 	/*
-	 * 如果插件支持两阶段提交，则 begin prepare 回调是        
+	 * 如果插件支持两阶段提交，则 begin_prepare 回调是        
 	 * 必需的
 	 */
 	if (ctx->callbacks.begin_prepare_cb == NULL)
@@ -1019,7 +1019,7 @@ commit_prepared_cb_wrapper(ReorderBuffer *cache, ReorderBufferTXN *txn,
 	ctx->end_xact = true;
 
 	/*
-	 * 如果插件支持两阶段提交，则 commit prepared 回调       
+	 * 如果插件支持两阶段提交，则 commit_prepared 回调       
 	 * 是必需的
 	 */
 	if (ctx->callbacks.commit_prepared_cb == NULL)
@@ -1754,7 +1754,7 @@ LogicalIncreaseRestartDecodingForSlot(XLogRecPtr current_lsn, XLogRecPtr restart
 
 	SpinLockAcquire(&slot->mutex);
 
-	/* 若已有更新的 restart lsn 则不覆盖 */
+	/* 若已有更新的 restart_lsn 则不覆盖 */
 	if (restart_lsn <= slot->data.restart_lsn)
 	{
 		SpinLockRelease(&slot->mutex);

@@ -348,7 +348,7 @@ btbeginscan(Relation rel, int nkeys, int norderbys)
 	IndexScanDesc scan;
 	BTScanOpaque so;
 
-	/* 不允许 order by 操作符 */
+	/* 不允许 ORDER BY 操作符  */
 	Assert(norderbys == 0);
 
 	/* 取得这次扫描 */

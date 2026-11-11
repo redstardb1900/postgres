@@ -225,7 +225,7 @@ ExecNestLoop(PlanState *pstate)
 			/*
 			 * 如果我们只需连接到第一个匹配的内层元组，   
 			 * 那么考虑返回这一个，但之后继续处理下一个  
-			 * outer tuple.
+			 * 外层元组
 			 */
 			if (node->js.single_match)
 				node->nl_NeedNewOuter = true;

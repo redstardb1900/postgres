@@ -1,0 +1,681 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0342",
+ "title": "halfen3 close-out term-debt repair sweep: 62 flagged comments cleared across 43 files (scanner 473->411), corpus-adjudicated term forms + parse_expr syntax-list block translation",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "018645946bfe9a6ed98b01b5f0f23f5636eb2120",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/gin/ginscan.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/access/gist/gistxlog.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/access/hash/hash.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/access/index/indexam.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/access/nbtree/nbtree.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/access/spgist/spgxlog.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/access/transam/twophase.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/access/transam/xlog.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/access/transam/xlogarchive.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/access/transam/xlogfuncs.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/catalog/heap.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/catalog/index.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/catalog/namespace.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/catalog/pg_publication.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/commands/copyfrom.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/commands/prepare.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/commands/tablecmds.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/commands/trigger.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/executor/execExpr.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/executor/functions.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/executor/nodeHashjoin.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/executor/nodeIncrementalSort.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/executor/nodeIndexscan.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/executor/nodeNestloop.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/executor/nodeRecursiveunion.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/parser/parse_expr.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/partitioning/partprune.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/postmaster/checkpointer.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/postmaster/interrupt.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/postmaster/pgarch.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/postmaster/postmaster.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/replication/logical/logical.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/replication/logical/origin.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/replication/logical/reorderbuffer.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/replication/logical/snapbuild.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/replication/pgoutput/pgoutput.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/backend/storage/lmgr/lock.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/bin/initdb/initdb.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/bin/pg_dump/pg_backup_archiver.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/bin/pg_dump/pg_dump.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/bin/pg_rewind/pg_rewind.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/bin/pg_upgrade/info.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/bin/pg_upgrade/pg_upgrade.c",
+   "kind": "c_comment",
+   "note": "term-debt repair"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0342-halfen-termdebt-repair.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0342-halfen-termdebt-repair.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/backend/access/gin/ginscan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/access/gist/gistxlog.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/access/hash/hash.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/access/index/indexam.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/access/nbtree/nbtree.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/access/spgist/spgxlog.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/access/transam/twophase.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 flagged comments repaired; L170 inherited positive deviation (+9EN/-1HEAD) disclosed"
+  },
+  {
+   "path": "src/backend/access/transam/xlog.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comment repaired; L5810 inherited positive deviation (EN +19B over HEAD) disclosed, batch delta -1B"
+  },
+  {
+   "path": "src/backend/access/transam/xlogarchive.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/access/transam/xlogfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/catalog/heap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/catalog/index.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/catalog/namespace.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/catalog/pg_publication.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/commands/copyfrom.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/commands/prepare.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/commands/tablecmds.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/commands/trigger.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comment repaired; L4031 inherited positive deviation (+23EN/+2HEAD) disclosed"
+  },
+  {
+   "path": "src/backend/executor/execExpr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/executor/functions.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/executor/nodeHashjoin.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "3 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/executor/nodeIncrementalSort.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/executor/nodeIndexscan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "5 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/executor/nodeNestloop.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/executor/nodeRecursiveunion.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/parser/parse_expr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comment (L581-590 block) retranslated: unqualified-name lookup legend; L586-587 half-width comma enumeration style (attested x8), budget-decided"
+  },
+  {
+   "path": "src/backend/partitioning/partprune.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comment repaired; L3654 inherited positive deviation (+43EN/+0HEAD) disclosed"
+  },
+  {
+   "path": "src/backend/postmaster/checkpointer.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/postmaster/interrupt.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comment repaired; L101 post-review delta: corpus-majority 并行应用工作进程 applied (tree 122:3 form restored) - the generator's budget-forced minority claim (majority = 76B > 75B EN line) was refuted on-site by byte re-derivation: the line carried 10 trailing pads of uncounted slack and the majority form fits byte-exactly at 75B (R1 finding, adopted); L102 walwriter fix reverted to HEAD bytes (PT_WAL preserved term)"
+  },
+  {
+   "path": "src/backend/postmaster/pgarch.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "3 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/postmaster/postmaster.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/replication/logical/logical.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "3 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/replication/logical/origin.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/replication/logical/reorderbuffer.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/replication/logical/snapbuild.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/replication/pgoutput/pgoutput.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/backend/storage/lmgr/lock.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/bin/initdb/initdb.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/bin/pg_dump/pg_backup_archiver.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/bin/pg_dump/pg_dump.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/bin/pg_rewind/pg_rewind.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/bin/pg_upgrade/info.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  },
+  {
+   "path": "src/bin/pg_upgrade/pg_upgrade.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 flagged comments repaired (corpus-adjudicated term forms); exact per-line EN byte parity"
+  }
+ ],
+ "notes": "batch-0342 (halfen3 campaign close-out term-debt repair sweep, 2026-11-11, parent batch-0341=018645946bf). 62 flagged comments cleared across 43 files: 68 corpus-adjudicated single-site term swaps + 5 multi-line block retranslations (parse_expr.c L582-590 unqualified-name lookup legend; nodeIndexscan.c L1188-1189; pgoutput.c L1973-1974; prepare.c L723-726). Every touched line restored to exact per-line EN byte parity (pad before trailing */ for closer lines, trailing spaces for content lines, '* ' decoration preserved on block pad lines); 4 inherited positive-deviation lines cannot reach parity and are disclosed per-line: xlog.c L5810 (EN +19B over HEAD, batch delta -1B), twophase.c L170 (+9EN/-1HEAD), partprune.c L3654 (+43EN/+0HEAD), trigger.c L4031 (+23EN/+2HEAD). Term forms are corpus-adjudicated by CJK-line variant counting (majority wins): 热备 (Hot Standby debt), 哈希连接 45:21, 索引扫描 240:1, 扫描键 297:0, 重启点 53:1, WAL 文件 59:2, 同步复制 45:1, 提示位 65:2, 惰性求值 10:1, ListCell 9:1, LOCKTAG 21:1, ReorderBuffer 60:1, IS NOT 41:3, 二进制升级 62:2, NOT NULL 139:1, restart_lsn 33:2, regproc 9:4, 非限定 33:0, 整行 110:0, 哈希表 573:0; snake/identifier forms kept per corpus: BackendId, ProcArray, walsender, walreceiver, archive_status, pending_list, ready_list. Budget-forced disclosure (superseded item removed post-review): parse_expr.c L586-587 use half-width comma enumeration 'A, B' style (attested x8 in-tree tuple family) to fit the tab-legend budget; 列/函数 squeeze on L586 likewise budget-decided. Reverts/collisions caught by gates: interrupt.c L102 walwriter fix REVERTED to HEAD bytes verbatim (term_lint PT_WAL preserved-term rule fires on 'WAL writer'); index.c L2194 carried two same-line swaps (Create->CREATE won, Drop->DROP silently dropped by edits-dict last-wins) - removal proof caught it (61 vs 62) and DROP was applied manually; first block apply wrote 15 block lines without '* ' decoration (generator deco bug) - fixed with corrected deco, per-line parity re-asserted, no other content change. Latent same-class unflagged sites disclosed, out of scope, batch-0343 candidates: heap.c L1282 binary upgrade, spgxlog.c L590 + snapbuild.c L16 Hot Standby, nodeHashjoin.c file-header hash join runs (x20 lines), worker.c L65-66 + decode.c L752/776 commit/rollback prepared, execMain.c L789 热备（Hot Standby） paren-gloss convention. Gates (post block-fix): verify_c_comments --worktree HEAD . = 0 violations, 43 files, changed=62; term_lint dual-state 0 errors (bare: 0 hits; --pgnls: 0 errors + 1 inherited P66 warning pg_upgrade.c L10, 0336-baseline advisory, disclosed); halfen removal proof: head∩changed=132, post=70, removed=62 == the 62 cleared stations exactly, gained=0, 0 lex errors, full-tree projection 411 = 473-62 (post-commit confirmation via --git HEAD planned in batch-0343); check_scope --incremental PASS 44 paths; unittest 226 = 219 green + 7 documented environmental ScopeEndToEnd failures (umask 0002 group-write drift, pristine-HEAD reproducible, non-regression). Remaining 411 keeps = batch-0343 exemption close-out input (HALFEN_OK_PATTERNS class additions + halfen_exemptions.json site entries + final full-tree rescan). Dual-review record (R1 FAIL-FIX, R2 PASS; two divergence points adjudicated on-site by byte re-derivation per campaign rule): D1 spgxlog.c L874 glued '*热备' bullet decoration - R1 restore '* ' (sole *CJK line in corpus grep) adopted over R2's separator-consumption acceptance, byte-neutral (pads 20->19); D2 interrupt.c L101 - R1 corpus-majority 并行应用工作进程 (122:3) adopted over R2's budget-forced acceptance, byte-neutral (pads 10->4). Post-fix gates re-run all green, both scopes (numerals scope-labeled after author-session cross-check): verify_c_comments --worktree REL_16_11 . (full tree vs EN baseline) = 622 ok, 0 violations, changed=61831; --worktree HEAD . (this batch) = 43 ok, 0 violations, changed=62; term_lint full-tree dual-state 0 errors (707 warnings with --pgnls / 83 bare, standing 0336/0341 baselines); term_lint per-batch dual-state (--worktree HEAD) 0 errors (bare 0 warnings; --pgnls 1 inherited P66 advisory pg_upgrade.c L10, 0336-baseline, disclosed); halfen 411 with 0 new flags, cleared set still exactly 62 stations / 43 files. Tooling incident: Edit-tool trailing-space trimming stripped the pad spaces off both fix lines (43B/71B) - caught by a post-fix per-line parity script, restored by python byte surgery with hard ==EN-length assertions. Final mechanical parity audit vs REL_16_11: 78/82 changed lines exact per-line EN byte parity; the 4 inherited deviations disclosed above; net vs parent +178B (parity-up of legacy under-length lines).",
+ "post_review": {
+  "R1": "FAIL-FIX, both findings adopted: D1 spgxlog.c L874 restore '* ' bullet decoration (glued *CJK line unique in corpus); D2 interrupt.c L101 corpus-majority 并行应用工作进程 (122:3) fits within 10-pad slack. All other scrutiny points judged acceptable; gates re-run by R1 green",
+  "R2": "PASS, zero defects; adjudicated D1/D2 as acceptable (separator-consumption precedent / budget-forced minority). R2's D2 byte premise (majority form 76B > 75B EN line) refuted by on-site re-derivation: 10 trailing pads of slack uncounted (prose-window arithmetic, known campaign pitfall). RE-ACK round: byte-level acceptance of both fixes and manifest revisions, no objection; own 76B claim conceded; process audit ruled out any repo write by R2 (all output to /tmp only)",
+  "author_session": "postgres-3f confirmed ownership of the 13:34:55 manifest enrichment (notes + 6 per-file notes), stood down, granted clear field; independently verified both post-review fixes on-site (75B/62B parity, +178B net and 78/82 parity re-derived exact) and supplied the generator bug root cause: WORKERFORM fallback compared the PRE-repad line (76B > 75B) instead of the repadded line; its pre-commit flag on scope-mixed gate numerals in the dual-review record was confirmed on-site and patched (both-scope labeling above)",
+  "delta": "D1+D2 applied byte-neutrally and re-gated: all four gates green post-fix; halfen subset proof re-run (411, 0 new, cleared=62/43 files); mechanical per-line parity audit 78/82 EN-parity + 4 disclosed inherited deviations",
+  "re_ack": "closed: R1 CONFIRMED (byte-level, no objection; own cat -A misread self-corrected via python repr; 4 inherited-deviation measurements match disclosures exactly) + R2 no objection (byte-level, 76B claim conceded). Process audits clean both sides: no reviewer wrote any repo file; the 13:34:55 manifest write owned by author session postgres-3f. Operational notes recorded: re-run check_scope immediately before commit (harness .claude/ runtime lock can transiently trip S2); future tool batch should S2-ignore .claude/ runtime artifacts (R1 report-only suggestion)"
+ }
+}

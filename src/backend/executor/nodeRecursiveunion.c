@@ -248,7 +248,7 @@ ExecInitRecursiveUnion(RecursiveUnion *node, EState *estate, int eflags)
 
 	/*
 	 * 如果使用哈希，则为内层循环预计算 fmgr 数据并创建 
-	 * hash table.
+	 * 哈希表  
 	 */
 	if (node->numCols > 0)
 	{

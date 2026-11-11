@@ -579,15 +579,15 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 	/*----------
 	 * 允许的语法有：    
 	 *
-	 * A		First try to resolve as unqualified column name;
-	 *			if no luck, try to resolve as unqualified table name (A.*).
-	 * A.B		A is an unqualified table name; B is either a
-	 *			column or function name (trying column name first).
-	 * A.B.C	schema A, table B, col or func name C.
-	 * A.B.C.D	catalog A, schema B, table C, col or func D.
-	 * A.*		A is an unqualified table name; means whole-row value.
-	 * A.B.*	whole-row value of table B in schema A.
-	 * A.B.C.*	whole-row value of table C in schema B in catalog A.
+	 * A		先尝试解析为非限定列名；            
+	 * 			若失败，再尝试解析为非限定表名（A.*）。 
+	 * A.B		A 是非限定表名；B 可以是           
+	 * 			列名或函数名（优先尝试列名）。     
+	 * A.B.C	模式 A, 表 B, 列/函数 C。      
+	 * A.B.C.D	目录 A, 模式 B, 表 C, 列/函数 D。  
+	 * A.*		A 是非限定表名；表示整行。                
+	 * A.B.*	模式 A 中表 B 的整行。         
+	 * A.B.C.*	目录 A 中模式 B 下表 C 的整行。          
 	 *
 	 * 我们无需处理单独的"*"；只有 SELECT 列表              
 	 * 顶层语法接受它，而且 transformTargetList                    

@@ -3185,7 +3185,7 @@ process_pm_child_exit(void)
 		}
 
 		/*
-		 * 是 wal writer 吗？正常退出可以忽略；必要时会在  
+		 * 是 walwriter 吗？正常退出可以忽略；必要时会在   
 		 * postmaster 主循环的下一轮迭代中启动新的。       
 		 * 其他任何退出情形均视为崩溃。                 
 		 */
@@ -3199,9 +3199,9 @@ process_pm_child_exit(void)
 		}
 
 		/*
-		 * 是 wal receiver 吗？若退出状态为 0（正常）或 1（ 
+		 * 是 walreceiver 吗？若退出状态为 0（正常）或 1（  
 		 * FATAL 退出），我们像对待普通后端一样，认定    
-		 * 一切正常。（若需要新的 wal receiver，会在          
+		 * 一切正常。（若需要新的 walreceiver，会在           
 		 * postmaster 主循环下轮迭代启动。）  
 		 */
 		if (pid == WalReceiverPID)

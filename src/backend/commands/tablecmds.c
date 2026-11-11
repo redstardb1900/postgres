@@ -4180,7 +4180,7 @@ CheckAlterTableIsSafe(Relation rel)
 
 /*
  * AlterTableLookupRelation
- *		查找并锁定 alter table 语句所命名关系的 OID。        
+ *		查找并锁定 ALTER TABLE 语句所命名关系的 OID。        
  *		          
  */
 Oid
@@ -4305,7 +4305,7 @@ AlterTableInternal(Oid relid, List *cmds, bool recurse)
  * T_RenameStmt，不经过这段代码，也无法与此处给                
  * 出的任何子命令组合。    
  *
- * 注意 Hot Standby 只知道主库上的 AccessExclusiveLock              
+ * 注意热备只知道主库上的 AccessExclusiveLock                     
  * 因此任何可能影响备库上 SELECT 运行的变更都             
  * 需要使用 AccessExclusiveLock，即使你认为更低的              
  * 锁即可，除非有解。   

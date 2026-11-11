@@ -2191,7 +2191,7 @@ index_drop(Oid indexId, bool concurrent, bool concurrent_lock_mode)
 	CheckTableNotInUse(userIndexRelation, "DROP INDEX");
 
 	/*
-	 * Drop Index Concurrently 大体上是 Create Index Concurrently 的
+	 * DROP INDEX CONCURRENTLY 大体上是 CREATE INDEX CONCURRENTLY 的   
 	 * 逆过程。
 	 *
 	 * 首先我们取消 indisvalid，使之后开始的查询不再使用该索引

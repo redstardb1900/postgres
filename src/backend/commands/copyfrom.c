@@ -863,8 +863,8 @@ CopyFrom(CopyFromState cstate)
 		 * 对于分区表，当存在任何语句级插入触发器时， 
 		 * 我们无法支持多重插入。未来或许可以允许带    
 		 * 有这类触发器的分区表，但目前                        
-		 * CopyMultiInsertInfoFlush 期望任何 after row insert 与         
-		 * 语句级 insert 触发器在同一关系上。          
+		 * CopyMultiInsertInfoFlush 期望任何 AFTER ROW INSERT 与         
+		 * 语句级 INSERT 触发器在同一关系上。          
 		 */
 		insertMethod = CIM_SINGLE;
 	}

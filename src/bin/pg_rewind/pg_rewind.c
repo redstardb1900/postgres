@@ -739,8 +739,8 @@ sanityChecks(void)
 	}
 
 	/*
-	 * 目标集簇需启用 checksum 或 hint bit WAL 记录，以         
-	 * 防 hint bit 导致数据损坏。                                 
+	 * 目标集簇需启用 checksum 或提示位WAL 记录，以          
+	 * 防提示位导致数据损坏。                                  
 	 */
 	if (ControlFile_target.data_checksum_version != PG_DATA_CHECKSUM_VERSION &&
 		!ControlFile_target.wal_log_hints)

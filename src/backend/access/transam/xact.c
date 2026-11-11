@@ -87,7 +87,7 @@ bool		XactDeferrable;
 int			synchronous_commit = SYNCHRONOUS_COMMIT_ON;
 
 /*
- * CheckXidAlive 是一个指向可能正在进行中的（子）事务的XID值。
+ * CheckXidAlive 是一个指向可能正在进行中的（子）事务的 XID 值。
  * 目前，它在逻辑解码中使用。此类事务有可能在解码进行过程中被中止，
  * 在这种情况下我们会跳过对该特定事务的解码。为确保这一点，
  * 我们在从系统表中获取元组后检查 CheckXidAlive 是否已被中止。
@@ -245,7 +245,7 @@ static TransactionStateData TopTransactionStateData = {
 };
 
 /*
- * unreportedXids 包含尚未在 XLOG_XACT_ASSIGNMENT 记录中报告的所有子事务的XIDs。
+ * unreportedXids 包含尚未在 XLOG_XACT_ASSIGNMENT 记录中报告的所有子事务的 XIDs。
  *
  */
 static int	nUnreportedXids;
@@ -264,7 +264,7 @@ static bool currentCommandIdUsed;
 /*
  * xactStartTimestamp 是 transaction_timestamp() 的值。
  * stmtStartTimestamp 是 statement_timestamp() 的值。
- * xactStopTimestamp 是我们记录提交/中止WAL记录的时间，
+ * xactStopTimestamp 是我们记录提交/中止 WAL 记录的时间，     
  * 或者如果跳过了该记录，则是在此之后第一次调用
  * GetCurrentTransactionStopTimestamp() 的时间。
  *
@@ -371,7 +371,7 @@ static const char *TransStateAsString(TransState state);
 /*
  *	IsTransactionState
  *
- *	如果我们在一个有效的事务内部，这将返回true；也就是说，
+ *	如果我们在一个有效的事务内部，这将返回 true；也就是说，
  *	启动数据库访问、获取重量级锁等操作是安全的。
  */
 bool
@@ -392,7 +392,7 @@ IsTransactionState(void)
 /*
  *	IsAbortedTransactionBlockState
  *
- *	如果我们在一个已中止的事务块中，这将返回true。
+ *	如果我们在一个已中止的事务块中，这将返回 true。
  */
 bool
 IsAbortedTransactionBlockState(void)
@@ -410,7 +410,7 @@ IsAbortedTransactionBlockState(void)
 /*
  *	GetTopTransactionId
  *
- * 这将返回主事务的XID，如果尚未设置则分配一个。请注意只在有效事务内部调用此函数。
+ * 这将返回主事务的 XID，如果尚未设置则分配一个。请注意只在有效事务内部调用此函数。
  *
  */
 TransactionId
@@ -424,8 +424,8 @@ GetTopTransactionId(void)
 /*
  *	GetTopTransactionIdIfAny
  *
- * 如果已分配，这将返回主事务的XID。
- * 如果我们当前不在事务中，或在尚未分配XID的事务中，它将返回 InvalidTransactionId。
+ * 如果已分配，这将返回主事务的 XID。                    
+ * 如果我们当前不在事务中，或在尚未分配 XID 的事务中，它将返回 InvalidTransactionId。
  *
  */
 TransactionId
@@ -437,7 +437,7 @@ GetTopTransactionIdIfAny(void)
 /*
  *	GetCurrentTransactionId
  *
- * 这将返回当前事务（主事务或子事务）的XID，如果尚未设置则分配一个。
+ * 这将返回当前事务（主事务或子事务）的 XID，如果尚未设置则分配一个。
  * 请注意只在有效事务内部调用此函数。
  *
  */
@@ -454,8 +454,8 @@ GetCurrentTransactionId(void)
 /*
  *	GetCurrentTransactionIdIfAny
  *
- * 如果已分配，这将返回当前子事务的XID。
- * 如果我们当前不在事务中，或在尚未分配XID的事务中，它将返回 InvalidTransactionId。
+ * 如果已分配，这将返回当前子事务的 XID。              
+ * 如果我们当前不在事务中，或在尚未分配 XID 的事务中，它将返回 InvalidTransactionId。
  *
  */
 TransactionId
@@ -467,7 +467,7 @@ GetCurrentTransactionIdIfAny(void)
 /*
  *	GetTopFullTransactionId
  *
- * 这将返回主事务的FullTransactionId，如果尚未设置则分配一个。
+ * 这将返回主事务的 FullTransactionId，如果尚未设置则分配一个。
  * 请注意只在有效事务内部调用此函数。
  */
 FullTransactionId
@@ -481,8 +481,8 @@ GetTopFullTransactionId(void)
 /*
  *	GetTopFullTransactionIdIfAny
  *
- * 如果已分配，这将返回主事务的FullTransactionId。
- * 如果我们当前不在事务中，或在尚未分配FullTransactionId的事务中，
+ * 如果已分配，这将返回主事务的 FullTransactionId。          
+ * 如果我们当前不在事务中，或在尚未分配 FullTransactionId 的事务中，
  * 它将返回 InvalidFullTransactionId。
  *
  */
@@ -495,7 +495,7 @@ GetTopFullTransactionIdIfAny(void)
 /*
  *	GetCurrentFullTransactionId
  *
- * 这将返回当前事务（主事务或子事务）的FullTransactionId，如果尚未设置则分配一个。
+ * 这将返回当前事务（主事务或子事务）的 FullTransactionId，如果尚未设置则分配一个。
  * 请注意只在有效事务内部调用此函数。
  *
  */
@@ -512,8 +512,8 @@ GetCurrentFullTransactionId(void)
 /*
  *	GetCurrentFullTransactionIdIfAny
  *
- * 如果已分配，这将返回当前子事务的FullTransactionId。
- * 如果我们当前不在事务中，或在尚未分配FullTransactionId的事务中，
+ * 如果已分配，这将返回当前子事务的 FullTransactionId。    
+ * 如果我们当前不在事务中，或在尚未分配 FullTransactionId 的事务中，
  * 它将返回 InvalidFullTransactionId。
  *
  */
@@ -538,12 +538,12 @@ MarkCurrentTransactionIdLoggedIfAny(void)
 /*
  * IsSubxactTopXidLogPending
  *
- * 这用于决定我们是否需要为子事务中的操作写入顶层XID的WAL日志，
+ * 这用于决定我们是否需要为子事务中的操作写入顶层 XID 的 WAL 日志，
  * 如果尚未写入的话。我们需要为逻辑解码执行此操作，参见
  * LogicalDecodingProcessRecord。
  *
- * 如果wal_level >= logical且我们在有效的子事务中，
- * 但对于该子事务的赋值尚未写入任何WAL记录，则返回true。
+ * 如果 wal_level >= logical 且我们在有效的子事务中，   
+ * 但对于该子事务的赋值尚未写入任何 WAL 记录，则返回 true。
  *
  */
 bool
@@ -575,7 +575,7 @@ IsSubxactTopXidLogPending(void)
 /*
  * MarkSubxactTopXidLogged
  *
- * 记住当前子事务的顶层事务ID现在已被WAL日志记录。
+ * 记住当前子事务的顶层事务 ID 现在已被 WAL 日志记录。  
  *
  */
 void
@@ -589,9 +589,9 @@ MarkSubxactTopXidLogged(void)
 /*
  *	GetStableLatestTransactionId
  *
- * 获取事务的XID（如果有的话），否则读取下一个待分配的XID。
+ * 获取事务的 XID（如果有的话），否则读取下一个待分配的 XID。
  * 一旦我们有了一个值，在当前事务的剩余时间内返回相同的值。
- * 这是为了为age(xid)函数提供参考点，但也可能对其他维护任务有用。
+ * 这是为了为 age(xid)函数提供参考点，但也可能对其他维护任务有用。
  *
  */
 TransactionId
@@ -616,10 +616,10 @@ GetStableLatestTransactionId(void)
 /*
  * AssignTransactionId
  *
- * 为给定的TransactionStates分配一个新的永久FullTransactionId。
- * 在调用此函数之前/除非调用此函数，否则我们不会为事务分配XIDs。
- * 此外，任何尚无XID的父TransactionState也将被分配一个XID；
- * 这维持了一个不变量：子事务具有紧随其父事务之后的XID。
+ * 为给定的 TransactionStates 分配一个新的永久 FullTransactionId。
+ * 在调用此函数之前/除非调用此函数，否则我们不会为事务分配 XIDs。
+ * 此外，任何尚无 XID 的父 TransactionState 也将被分配一个 XID；
+ * 这维持了一个不变量：子事务具有紧随其父事务之后的 XID。
  *
  */
 static void
@@ -670,11 +670,11 @@ AssignTransactionId(TransactionState s)
 	}
 
 	/*
-	 * 当wal_level=logical时，保证子事务的xid只有在其顶层xid之前已经被记录的情况下
-	 * 才能在WAL流中被看到。如果必要，我们会用少于PGPROC_MAX_CACHED_SUBXIDS个数
-	 * 记录一条xact_assignment记录。注意，即使一个xid出现在WAL记录中而没有设置didLogXid，
-	 * 这也是可以的，我们只是可能多余地记录了一些东西。当xid包含在WAL记录内部
-	 * 而不是在XLogRecord->xl_xid中时就会发生这种情况，例如在xl_standby_locks中。
+	 * 当 wal_level=logical 时，保证子事务的 xid 只有在其顶层 xid 之前已经被记录的情况下
+	 * 才能在 WAL 流中被看到。如果必要，我们会用少于 PGPROC_MAX_CACHED_SUBXIDS 个数
+	 * 记录一条 xact_assignment 记录。注意，即使一个 xid 出现在 WAL 记录中而没有设置 didLogXid，
+	 * 这也是可以的，我们只是可能多余地记录了一些东西。当 xid 包含在 WAL 记录内部
+	 * 而不是在 XLogRecord->xl_xid 中时就会发生这种情况，例如在 xl_standby_locks 中。
  *
  *
  *
@@ -708,8 +708,8 @@ AssignTransactionId(TransactionState s)
 		RegisterPredicateLockingXid(XidFromFullTransactionId(s->fullTransactionId));
 
 	/*
-	 * 获取对事务XID的锁。（我们假设这不会阻塞。）我们必须确保
-	 * 锁被分配给事务自己的ResourceOwner。
+	 * 获取对事务 XID 的锁。（我们假设这不会阻塞。）我们必须确保
+	 * 锁被分配给事务自己的 ResourceOwner。                  
  *
  */
 	currentOwner = CurrentResourceOwner;
@@ -743,7 +743,7 @@ AssignTransactionId(TransactionState s)
 		nUnreportedXids++;
 
 		/*
-		 * 确保此测试与RecoverPreparedTransactions()中的类似测试相匹配
+		 * 确保此测试与 RecoverPreparedTransactions()中的类似测试相匹配
  *
  */
 		if (nUnreportedXids >= PGPROC_MAX_CACHED_SUBXIDS ||
@@ -752,8 +752,8 @@ AssignTransactionId(TransactionState s)
 			xl_xact_assignment xlrec;
 
 			/*
-			 * xtop总是现在设置的，因为我们递归遍历事务栈
-			 * 到最高未分配的xid，然后再往下回来
+			 * xtop 总是现在设置的，因为我们递归遍历事务栈
+			 * 到最高未分配的 xid，然后再往下回来          
 			 */
 			xlrec.xtop = GetTopTransactionId();
 			Assert(TransactionIdIsValid(xlrec.xtop));
@@ -787,8 +787,8 @@ GetCurrentSubTransactionId(void)
 /*
  *	SubTransactionIsActive
  *
- * 测试指定的子事务ID是否仍然活跃。注意，调用者负责检查
- * 此ID是否与当前事务相关。
+ * 测试指定的子事务 ID 是否仍然活跃。注意，调用者负责检查
+ * 此 ID 是否与当前事务相关。                                    
  */
 bool
 SubTransactionIsActive(SubTransactionId subxid)
@@ -809,8 +809,8 @@ SubTransactionIsActive(SubTransactionId subxid)
 /*
  *	GetCurrentCommandId
  *
- * "used"必须为true，如果调用者打算使用命令ID来标记
- * 插入/更新/删除的元组。false表示ID被获取
+ * "used"必须为 true，如果调用者打算使用命令 ID 来标记  
+ * 插入/更新/删除的元组。false 表示 ID 被获取            
  * 用于只读目的（即，作为快照有效性截止点）。参见
  * CommandCounterIncrement() 了解讨论。
  */
@@ -837,7 +837,7 @@ GetCurrentCommandId(bool used)
  *
  * 在并行工作进程中，我们应该继承父事务的时间戳
  * 而不是设置自己的时间戳。并行工作进程
- * 基础设施必须在调用StartTransaction()或
+ * 基础设施必须在调用 StartTransaction()或           
  * SetCurrentStatementStartTimestamp()之前调用此函数来提供这些值。
  */
 void
@@ -870,7 +870,7 @@ GetCurrentStatementStartTimestamp(void)
  *	GetCurrentTransactionStopTimestamp
  *
  * 如果事务停止时间还没有被设置，这可能会发生在
- * 我们决定不需要记录XLOG记录的情况下，设置xactStopTimestamp。
+ * 我们决定不需要记录 XLOG 记录的情况下，设置 xactStopTimestamp。
  */
 TimestampTz
 GetCurrentTransactionStopTimestamp(void)

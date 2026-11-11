@@ -14864,7 +14864,7 @@ dumpDefaultACL(Archive *fout, const DefaultACLInfo *daclinfo)
  * 'objDumpId' 是底层对象的导出 ID。          
  * 'altDumpId' 可以是 ACL 条目还必须依赖的第二个 dumpId，     
  *		如果不需要第二个依赖则为 InvalidDumpId。        
- * 'type' 必须是:    
+ * 'type' 必须是：  
  *		TABLE, SEQUENCE, FUNCTION, LANGUAGE, SCHEMA, DATABASE, TABLESPACE,
  *		FOREIGN DATA WRAPPER, SERVER/LARGE OBJECT。  
  * 'name' 是对象的格式化名称。必须已加引号等。            

@@ -1,0 +1,608 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0345",
+ "title": "mechanical rendering batch: CJK-Latin spacing / glue / half-width punct / escape mirror, 503 lines / 37 files",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "0056bb1edb35b6d522a485201f9b772eb93182a4",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0345-mechanical-rendering.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/access/heap/heaptoast.c",
+   "kind": "c_comment",
+   "note": "11 comment lines rendered: FC x11 (closer glue); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/access/heap/hio.c",
+   "kind": "c_comment",
+   "note": "19 comment lines rendered: FC x19 (closer glue); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/access/heap/visibilitymap.c",
+   "kind": "c_comment",
+   "note": "11 comment lines rendered: FC x11 (closer glue); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/access/transam/commit_ts.c",
+   "kind": "c_comment",
+   "note": "4 comment lines rendered: D x4 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/access/transam/varsup.c",
+   "kind": "c_comment",
+   "note": "8 comment lines rendered: D x8 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/access/transam/xact.c",
+   "kind": "c_comment",
+   "note": "43 comment lines rendered: D x43 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/access/transam/xlog.c",
+   "kind": "c_comment",
+   "note": "39 comment lines rendered: D x39 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/access/transam/xlogfuncs.c",
+   "kind": "c_comment",
+   "note": "2 comment lines rendered: D x2 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/access/transam/xlogrecovery.c",
+   "kind": "c_comment",
+   "note": "19 comment lines rendered: D x19 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/commands/analyze.c",
+   "kind": "c_comment",
+   "note": "2 comment lines rendered: HW x2 (half-width punct); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/commands/cluster.c",
+   "kind": "c_comment",
+   "note": "1 comment lines rendered: D x1 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/commands/subscriptioncmds.c",
+   "kind": "c_comment",
+   "note": "2 comment lines rendered: HW x2 (half-width punct); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/commands/tablecmds.c",
+   "kind": "c_comment",
+   "note": "3 comment lines rendered: D x2 (CJK-Latin spacing), HW x1 (half-width punct); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/commands/tsearchcmds.c",
+   "kind": "c_comment",
+   "note": "1 comment lines rendered: D x1 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/commands/typecmds.c",
+   "kind": "c_comment",
+   "note": "1 comment lines rendered: D x1 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/commands/vacuum.c",
+   "kind": "c_comment",
+   "note": "5 comment lines rendered: FB x5 (decor bullet glue); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/commands/vacuumparallel.c",
+   "kind": "c_comment",
+   "note": "1 comment lines rendered: FB x1 (decor bullet glue); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/executor/execPartition.c",
+   "kind": "c_comment",
+   "note": "1 comment lines rendered: D x1 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/executor/spi.c",
+   "kind": "c_comment",
+   "note": "28 comment lines rendered: HW x28 (half-width punct), custom x4 (hand-adjudicated); every parity-regime line == EN byte "
+  },
+  {
+   "pattern": "src/backend/parser/parse_clause.c",
+   "kind": "c_comment",
+   "note": "3 comment lines rendered: D x3 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/parser/parse_expr.c",
+   "kind": "c_comment",
+   "note": "27 comment lines rendered: D x27 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/parser/parse_oper.c",
+   "kind": "c_comment",
+   "note": "1 comment lines rendered: D x1 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/parser/parse_relation.c",
+   "kind": "c_comment",
+   "note": "3 comment lines rendered: D x3 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/partitioning/partbounds.c",
+   "kind": "c_comment",
+   "note": "6 lines pad-only change at exact EN byte parity: the HW fullwidth-comma conversion was REVERTED in delta-2 (technical-no"
+  },
+  {
+   "pattern": "src/backend/replication/logical/reorderbuffer.c",
+   "kind": "c_comment",
+   "note": "1 comment lines rendered: D x1 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/replication/logical/worker.c",
+   "kind": "c_comment",
+   "note": "2 comment lines rendered: D x2 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/replication/syncrep.c",
+   "kind": "c_comment",
+   "note": "1 comment lines rendered: D x1 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/backend/storage/lmgr/lock.c",
+   "kind": "c_comment",
+   "note": "1 comment lines rendered: D x1 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/bin/initdb/initdb.c",
+   "kind": "c_comment",
+   "note": "86 comment lines rendered: D x85 (CJK-Latin spacing), FB x1 (decor bullet glue); every parity-regime line == EN byte len"
+  },
+  {
+   "pattern": "src/bin/pg_dump/pg_dump.c",
+   "kind": "c_comment",
+   "note": "1 comment lines rendered: HW x1 (half-width punct); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/bin/pg_rewind/pg_rewind.c",
+   "kind": "c_comment",
+   "note": "2 comment lines rendered: D x2 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/bin/psql/command.c",
+   "kind": "c_comment",
+   "note": "152 comment lines rendered: ES x148 (escape mirror: 139 auto + 5 escape/tab customs + 4 literal-tab-prefix removals, han"
+  },
+  {
+   "pattern": "src/bin/psql/copy.c",
+   "kind": "c_comment",
+   "note": "1 comment lines rendered: D x1 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/bin/psql/describe.c",
+   "kind": "c_comment",
+   "note": "1 comment lines rendered: FB x1 (decor bullet glue); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/bin/psql/stringutils.c",
+   "kind": "c_comment",
+   "note": "2 comment lines rendered: D x2 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/bin/psql/tab-complete.c",
+   "kind": "c_comment",
+   "note": "5 comment lines rendered: D x5 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "pattern": "src/interfaces/libpq/fe-connect.c",
+   "kind": "c_comment",
+   "note": "15 comment lines rendered: D x1 (CJK-Latin spacing), FB x14 (decor bullet glue); every parity-regime line == EN byte len"
+  },
+  {
+   "pattern": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "note": "ledger pattern normalization, same-commit with the .c edits that changed the pinned bytes"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0345-mechanical-rendering.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/backend/access/heap/heaptoast.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 11,
+   "translated": 11,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "11 comment lines rendered: FC x11 (closer glue); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/access/heap/hio.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 19,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "19 comment lines rendered: FC x19 (closer glue); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/access/heap/visibilitymap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 11,
+   "translated": 11,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "11 comment lines rendered: FC x11 (closer glue); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/access/transam/commit_ts.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "4 comment lines rendered: D x4 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/access/transam/varsup.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 8,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "8 comment lines rendered: D x8 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/access/transam/xact.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 43,
+   "translated": 43,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "43 comment lines rendered: D x43 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/access/transam/xlog.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 39,
+   "translated": 39,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "39 comment lines rendered: D x39 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/access/transam/xlogfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 comment lines rendered: D x2 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/access/transam/xlogrecovery.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 19,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "19 comment lines rendered: D x19 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/commands/analyze.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 comment lines rendered: HW x2 (half-width punct); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/commands/cluster.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 comment lines rendered: D x1 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/commands/subscriptioncmds.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 comment lines rendered: HW x2 (half-width punct); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/commands/tablecmds.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "3 comment lines rendered: D x2 (CJK-Latin spacing), HW x1 (half-width punct); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/commands/tsearchcmds.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 comment lines rendered: D x1 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/commands/typecmds.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 comment lines rendered: D x1 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/commands/vacuum.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "5 comment lines rendered: FB x5 (decor bullet glue); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/commands/vacuumparallel.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 comment lines rendered: FB x1 (decor bullet glue); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/executor/execPartition.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 comment lines rendered: D x1 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/executor/spi.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 28,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "28 comment lines rendered: HW x28 (half-width punct), custom x4 (hand-adjudicated); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/parser/parse_clause.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "3 comment lines rendered: D x3 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/parser/parse_expr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 27,
+   "translated": 27,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "27 comment lines rendered: D x27 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/parser/parse_oper.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 comment lines rendered: D x1 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/parser/parse_relation.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "3 comment lines rendered: D x3 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/partitioning/partbounds.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "6 lines pad-only change at exact EN byte parity: the HW fullwidth-comma conversion was REVERTED in delta-2 (technical-notation carve-out '(模数, 余数)' mirrors EN '(modulus, remainder)', disclosed in notes)"
+  },
+  {
+   "path": "src/backend/replication/logical/reorderbuffer.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 comment lines rendered: D x1 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/replication/logical/worker.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 comment lines rendered: D x2 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/replication/syncrep.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 comment lines rendered: D x1 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/backend/storage/lmgr/lock.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 comment lines rendered: D x1 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/bin/initdb/initdb.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 86,
+   "translated": 86,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "86 comment lines rendered: D x85 (CJK-Latin spacing), FB x1 (decor bullet glue); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/bin/pg_dump/pg_dump.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 comment lines rendered: HW x1 (half-width punct); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/bin/pg_rewind/pg_rewind.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 comment lines rendered: D x2 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/bin/psql/command.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 152,
+   "translated": 152,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "152 comment lines rendered: ES x148 (escape mirror: 139 auto + 5 escape/tab customs + 4 literal-tab-prefix removals, hand-adjudicated), FB x4 (decor bullet glue); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/bin/psql/copy.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 comment lines rendered: D x1 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/bin/psql/describe.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 comment lines rendered: FB x1 (decor bullet glue); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/bin/psql/stringutils.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 comment lines rendered: D x2 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/bin/psql/tab-complete.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "5 comment lines rendered: D x5 (CJK-Latin spacing); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/interfaces/libpq/fe-connect.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 15,
+   "translated": 15,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "15 comment lines rendered: D x1 (CJK-Latin spacing), FB x14 (decor bullet glue); every parity-regime line == EN byte length"
+  },
+  {
+   "path": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 0,
+   "preserved": 5,
+   "preserved_reasons": [
+    "5 command.c entries re-pinned from doubled- to single-backslash patterns to track the ES escape normalization of their pinned comments (\\c / \\gset / \\help / \\if / \\pset pager); reasons unchanged; each new pattern re-verified to match its normalized comment; all other 336 entries byte-untouched"
+   ],
+   "note": "ledger pattern normalization, same-commit with the .c edits that changed the pinned bytes"
+  }
+ ],
+ "notes": "batch-0345 (mechanical rendering batch, 2026-11-11, parent batch-0344=0056bb1edb3). Uniform mechanical fixes for four rendering-defect families via one generator (/tmp/gen0345.py, spec /tmp/spec0345.json, overrides /tmp/override0345.json): 511 edited comment lines / 37 files (503 by the generator + 8 post-review delta customs); every parity-regime line asserted to per-line EN byte parity in LINE space (full line incl indent vs REL_16_11 full line), 167 legacy lines (already over EN before the batch, e.g. P1-era xact.c/xlog.c) edited transformation-only with no parity assert, disclosed. Families: D tight CJK<->Latin/digit adjacency -> insert one ASCII space (718 sites detected; rule per corpus majority 119k spaced vs 0.7k tight adjacencies); FC closer glue CJK*/ -> insert one space before */ (507 sites; corpus 15351 spaced vs 505 glued one-liner closers, EN side spaced in all 505); FO opener glue /*CJK (30); FB decor-bullet glue (27); HW half-width punctuation after CJK at clause end -> fullwidth (46 sites detected: 27 ASCII periods all in spi.c, 19 ,;: elsewhere; 40 applied as fullwidth, 6 REVERTED to EN half-width form in the post-review delta-2 - the partbounds.c '(模数, 余数)' ordered-pair notation mirrors EN '(modulus, remainder)' and keeps ASCII parens+comma as technical notation, a carved-out exception to the HW rule, disclosed); ES escape mirror -> zh backslash runs and literal tab text re-pinned to EN same-line bytes (real-tab conversion where the EN line carries real tabs, backslash-run shortening where EN has the single form; 212 auto sites plus the customs below). 13 hand-adjudicated custom line edits (0344 word-trim precedent): spi.c 1593 返回一个元组集.->返回元组集。, 1750 快照.   */->快照。 */, 2053/2072 太多地方->太多处 with fullwidth dot; 5 escape/tab customs on cross-line sites the spec's same-line rule cannot see (command.c 314 literal tab-text indent -> real tab, 1732 \\\\if..\\\\endif -> \\if..\\endif, 3264 \\\\if -> \\if, 5397/5405 \\\\watch -> \\watch); 4 invented literal-tab-prefix removals (command.c 260-263, EN has clean prose there). One authored custom (fe-exec.c 2737 \\\\n -> \\n) was dropped on site: its target was already single-backslash. The command.c customs were applied in a post-R1/R2-review delta (/tmp/gen0345b.py) because the customs mechanism only fires on lines that also carried spec rows. Budget rule: fix where the line budget allows; budget-exhausted sites KEEP tight and are disclosed: 627 keep lines (599 at exact EN parity pad=0, 28 at pad 1-3; 482 of them with op-sets exclusively within {FC,FO} glue (subset counting rule; 5 mixed D+glue keeps: fe-exec.c 141, logicalfuncs.c 92/207, utility.c 1354, pg_upgrade.c 852; first-op counting gives 484, any-op 487 - both reviewers' figures reconcile under their rules) + 6 HW carve-out keeps from delta-2 (partbounds tuple commas) = 633 entries in the override keep ledger, all spec-row-backed - the keep set is reproducible from the spec+override files and is a candidate for a future block-reflow batch; no reflow was attempted here. Ledger interaction: 5 halfen_exemptions.json command.c entries (\\c / \\gset / \\help / \\if / \\pset pager) re-pinned from doubled- to single-backslash patterns because the ES normalization changed the pinned bytes; each new pattern re-verified against its normalized comment; other 336 entries byte-untouched. Gates (pre-commit, batch scope): verify_c_comments --worktree HEAD . = 37 files, 37 ok, changed=345 comment blocks, 0 violations, 0 parse errors; the 163 W7_UNTRANSLATED advisories are pre-existing untouched comments inside the changed files; term_lint dual-state bare 0 error/0 warning and --pgnls /home/redstar/pg/pgsty/pgnls 0 error/0 warning (37 pairs; 27 vs 87 rules); halfen full-worktree (empty-tree baseline --worktree 4b825dc642cb .) default scan 0 findings (2319 files) after the 5 ledger re-pins; raw --no-exemptions finding set (path,line,end_line) 421 == HEAD 421 (0 added / 0 removed; 6 command.c sites' run text changed only by backslash normalization); generator residual re-scan of all edited non-keep lines 0 findings; check_scope --worktree . --incremental --base HEAD PASS 39 changed paths (manifest + halfen_exemptions.json + 37 c files); test suite 228 = 221 green + 7 documented environmental ScopeEndToEnd umask failures (non-regression; no tool-code change this batch, ledger data edit only). Deferred out of this batch: emphasis-star restoration (161 dropped EN emphasis pairs vs 220 mirrored corpus majority) and 3 orphan-star sites - single dedicated batch next per ledger constraint; block-reflow pass for the 627 keeps. Post-review delta accounting: R2 findings D1 (keep-bucket figure corrected above), D2 (customs accounting corrected above; 5 of the customs had already been applied by the generator - spi.c x4 + command.c 314 - the other 8 land in this delta), D3 (halfen_exemptions.json EOF newline restored after json.dump dropped it; the first restore attempt was lost to a failed && chain and was re-applied and byte-verified after R1 re-ack review) are all adopted. Post-delta gates re-run (batch scope): verify changed=345, 0 violations; term dual 0/0; halfen default 0; raw 421 == HEAD 421 (0 added / 0 removed); residual 0; check_scope PASS 39 changed paths; tests 228 = 221 + 7 environmental. Post-review delta-2 accounting (R1 findings, /tmp/gen0345c.py): D1 fixed - the generator's es-op splice order corrupted zh2 on the 3 doubled-\\c lines and derived garbage D ops, landing two spurious mid-word spaces (command.c 545 连接到当前 主机上 / 547 连接到当前主 机上); both removed, lines re-padded to exact EN parity; A2 fixed - command.c 543 was 1 byte under EN (the garbage D op never landed), +1 pad to 61==61; A1 adopted - the 6 partbounds tuple commas reverted (see HW carve-out above). All other R1 findings (D2 command.c 314 literal tab, D3 dead customs, D4 ledger EOF newline) were already resolved in the first post-review delta. Post-delta-2 gates re-run (batch scope): verify changed=345, 0 violations; term dual 0/0; halfen default 0; raw 421 == HEAD 421; residual 0; check_scope PASS 39; tests 228 = 221 + 7 environmental.",
+ "post_review": {
+  "r1": "FAIL (narrow) -> fixes adopted -> CONFIRMED. Initial findings: D1 generator es-op splice-order corruption landed 2 spurious mid-word spaces (command.c 545 连接到当前 主机上 / 547 当前主 机上) plus garbage D ops (543 never landed, line 1 byte under EN); D2 command.c 314 half-fixed (custom clobbered the correct auto real-tab op); D3 9 prepared customs never executed (customs fire only on spec rows; fe-exec.c 2737 target verified already single-backslash, dropped); D4 ledger EOF newline. Advisory A1 adopted: partbounds 6 tuple commas reverted to EN half-width as disclosed technical-notation carve-out. Re-ack round caught the false newline claim (restore lost to a failed && chain), keep-counting-rule ambiguity (subset 482 / first-op 484 / any-op 487 over the same population), and 2 stale per-file notes; conditional string (5 mixed D+glue keeps incl fe-exec.c 141) verified on site and applied. Reviewer re-derived every byte on site across three rounds; ~140 sampled lines found no other wording damage; all 627+6 keeps verified budget-exhausted.",
+  "r2": "PASS -> CONFIRMED -> MICRO-ACK CONFIRMED. Independent audit (own checker, no generator reuse): 503-line edit set exactly equals spec-minus-keeps, ops replay canon-matches all lines, 336 parity lines == EN bytes exactly, 167 legacy none newly over, keeps untouched, 4 spi customs parity. D1 keep-bucket figure irreproducible -> corrected (599 pad0 / 28 pad1-3; 482 subset-rule; 484/487 alternates stated). D2 customs accounting (5 applied then, 13 after delta; fe-exec 2737 authored-and-dropped) -> corrected. D3 EOF newline -> restored. Post delta-1/delta-2: 18 special lines byte-verified vs REL_16_11, drift check clean, all gates re-reproduced verbatim (verify 37/37/0 changed=345 W7=163; term dual 0/0; halfen default 0 / raw 421==421; residual 0; check_scope PASS 39; tests 228=221+7 ScopeEndToEnd). Micro-ack on final 5-mixed string: independent recount agrees (482 subset / 5 mixed), ledger diff now exactly 5 pattern lines, no other drift.",
+  "delta_applied": true,
+  "delta_script": "/tmp/gen0345b.py delta-1: 9 command.c customs the generator could not reach (260/261/262/263 invented literal-tab-prefix removals, 314 literal-tab -> real tab, 1732 \\\\if..\\\\endif -> \\if..\\endif, 3264 \\\\if -> \\if, 5397/5405 \\\\watch -> \\watch; regime derived from git, count==1 and parity asserts). /tmp/gen0345c.py delta-2: command.c 545/547 spurious mid-word spaces removed + re-padded (75==75, 69==69), 543 +1 pad byte (61==61), partbounds 932/2955/2984/3003/3734/3735 tuple commas reverted (模数， 余数) -> (模数, 余数). Ledger EOF newline restored (re-applied after first attempt lost to failed && chain; byte-verified ]\\n). Manifest corrections: keep buckets + counting rules + 5-mixed enumeration, customs 13-applied/1-dropped accounting, ES 212-auto split, changed=345, honest EOF note, command.c/partbounds per-file notes.",
+  "re_ack": "R1 CONFIRMED (three rounds: initial FAIL findings all adopted; final round N1 byte-verified ]\\n, N2 reconciled with stated subset rule, N3 corrected; conditional 5-mixed string applied and re-verified by R1). R2 CONFIRMED (byte audit 0 errors, 18 special lines re-verified vs REL_16_11, drift check clean, all gate numbers reproduced) + MICRO-ACK CONFIRMED (5-mixed string independently recounted: 482 subset / 5 mixed; ledger diff exactly 5 pattern lines; check_scope PASS 39). Both reviewers: 批可进入提交."
+ }
+}

@@ -2515,7 +2515,7 @@ get_vacoptval_from_boolean(DefElem *def)
 }
 
 /*
- *vac_bulkdel_one_index() -- 索引关系的批量删除。
+ * vac_bulkdel_one_index() -- 索引关系的批量删除。   
  *
  * 返回从输入统计信息派生的批量删除统计信息
  */
@@ -2536,7 +2536,7 @@ vac_bulkdel_one_index(IndexVacuumInfo *ivinfo, IndexBulkDeleteResult *istat,
 }
 
 /*
- *vac_cleanup_one_index() -- 对索引关系执行清理后的清除。
+ * vac_cleanup_one_index() -- 对索引关系执行清理后的清除。
  *
  * 返回从输入统计信息派生的批量删除统计信息
  */
@@ -2574,11 +2574,11 @@ vac_max_items_to_alloc_size(int max_items)
 }
 
 /*
- *vac_tid_reaped() -- 特定 tid 是否可删除？
+ * vac_tid_reaped() -- 特定 tid 是否可删除？ 
  *
- *具有作为 IndexBulkDeleteCallback 的正确签名。
+ * 具有作为 IndexBulkDeleteCallback 的正确签名。        
  *
- *假定 dead_items 数组已排序（按 TID 升序）。
+ * 假定 dead_items 数组已排序（按 TID 升序）。     
  */
 static bool
 vac_tid_reaped(ItemPointer itemptr, void *state)

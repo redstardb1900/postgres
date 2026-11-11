@@ -168,12 +168,12 @@ heap_toast_insert_or_update(Relation rel, HeapTuple newtup, HeapTuple oldtup,
 	 * ----------
 	 */
 
-	/* 计算头部开销——这应当与 heap_form_tuple() 一致*/
+	/* 计算头部开销——这应当与 heap_form_tuple() 一致   */
 	hoff = SizeofHeapTupleHeader;
 	if ((ttc.ttc_flags & TOAST_HAS_NULLS) != 0)
 		hoff += BITMAPLEN(numAttrs);
 	hoff = MAXALIGN(hoff);
-	/* 接着换成对元组数据大小的限制*/
+	/* 接着换成对元组数据大小的限制    */
 	maxDataLen = RelationGetToastTupleTarget(rel, TOAST_TUPLE_TARGET) - hoff;
 
 	/*
@@ -317,7 +317,7 @@ heap_toast_insert_or_update(Relation rel, HeapTuple newtup, HeapTuple oldtup,
 		HeapTupleHeaderSetNatts(new_data, numAttrs);
 		new_data->t_hoff = new_header_len;
 
-		/* 复制数据，并在需要时填空值位图*/
+		/* 复制数据，并在需要时填空值位图          */
 		heap_fill_tuple(tupleDesc,
 						toast_values,
 						toast_isnull,
@@ -462,7 +462,7 @@ toast_flatten_tuple_to_datum(HeapTupleHeader tup,
 	bool		toast_isnull[MaxTupleAttributeNumber];
 	bool		toast_free[MaxTupleAttributeNumber];
 
-	/* 建立一个临时的 HeapTuple 控制结构*/
+	/* 建立一个临时的 HeapTuple 控制结构  */
 	tmptup.t_len = tup_len;
 	ItemPointerSetInvalid(&(tmptup.t_self));
 	tmptup.t_tableOid = InvalidOid;
@@ -521,12 +521,12 @@ toast_flatten_tuple_to_datum(HeapTupleHeader tup,
 	HeapTupleHeaderSetNatts(new_data, numAttrs);
 	new_data->t_hoff = new_header_len;
 
-	/* 正确设置组合 Datum 的头部字段*/
+	/* 正确设置组合 Datum 的头部字段        */
 	HeapTupleHeaderSetDatumLength(new_data, new_tuple_len);
 	HeapTupleHeaderSetTypeId(new_data, tupleDesc->tdtypeid);
 	HeapTupleHeaderSetTypMod(new_data, tupleDesc->tdtypmod);
 
-	/* 复制数据，并在需要时填空值位图*/
+	/* 复制数据，并在需要时填空值位图          */
 	heap_fill_tuple(tupleDesc,
 					toast_values,
 					toast_isnull,
@@ -641,7 +641,7 @@ heap_fetch_toast_slice(Relation toastrel, Oid valueid, int32 attrsize,
 	int			validIndex;
 	SnapshotData SnapshotToast;
 
-	/* 寻找 TOAST 关系的有效索引*/
+	/* 寻找 TOAST 关系的有效索引         */
 	validIndex = toast_open_indexes(toastrel,
 									AccessShareLock,
 									&toastidxs,
@@ -684,7 +684,7 @@ heap_fetch_toast_slice(Relation toastrel, Oid valueid, int32 attrsize,
 		nscankeys = 3;
 	}
 
-	/* 准备扫描*/
+	/* 准备扫描     */
 	init_toast_snapshot(&SnapshotToast);
 	toastscan = systable_beginscan_ordered(toastrel, toastidxs[validIndex],
 										   &SnapshotToast, nscankeys, toastkey);
@@ -720,16 +720,16 @@ heap_fetch_toast_slice(Relation toastrel, Oid valueid, int32 attrsize,
 		}
 		else if (VARATT_IS_SHORT(chunk))
 		{
-			/* 可能是 heap_form_tuple 自己造成的*/
+			/* 可能是 heap_form_tuple 自己造成的           */
 			chunksize = VARSIZE_SHORT(chunk) - VARHDRSZ_SHORT;
 			chunkdata = VARDATA_SHORT(chunk);
 		}
 		else
 		{
-			/* 应当永远不会发生*/
+			/* 应当永远不会发生 */
 			elog(ERROR, "found toasted toast chunk for toast value %u in %s",
 				 valueid, RelationGetRelationName(toastrel));
-			chunksize = 0;		/* 让编译器安静*/
+			chunksize = 0;		/* 让编译器安静  */
 			chunkdata = NULL;
 		}
 

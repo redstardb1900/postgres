@@ -233,11 +233,11 @@ HandleSlashCmds(PsqlScanState scan_state,
 	cmd = psql_scan_slash_command(scan_state);
 
 	/*
-\t * 然后尝试执行它。
-\t *
-\t * 如果我们处于"受限"模式，唯一允许的反斜杠命令是
-\t * \\unrestrict（用于退出受限模式）。
-\t */
+	 * 然后尝试执行它。
+	 *
+	 * 如果我们处于"受限"模式，唯一允许的反斜杠命令是   
+	 * \unrestrict（用于退出受限模式）。
+	 */
 	if (restricted && strcmp(cmd, "unrestrict") != 0)
 	{
 		pg_log_error("backslash commands are restricted; only \\unrestrict is allowed");
@@ -257,10 +257,10 @@ HandleSlashCmds(PsqlScanState scan_state,
 	if (status != PSQL_CMD_ERROR)
 	{
 		/*
-\t\t\t * 消费有效命令后的所有剩余参数。我们想要
-\t\t\t * 在这种情况下抑制反引号的求值，因此临时
-\t\t\t * 压入一个非活动的条件栈条目。
-\t\t\t */
+ * 消费有效命令后的所有剩余参数。我们想要       
+ * 在这种情况下抑制反引号的求值，因此临时           
+ * 压入一个非活动的条件栈条目。 
+   */
 		bool		active_branch = conditional_active(cstack);
 
 		conditional_stack_push(cstack, IFSTATE_IGNORED);
@@ -311,12 +311,12 @@ exec_command(const char *cmd,
 	bool		active_branch = conditional_active(cstack);
 
 	/*
-\t * 在交互模式下，当我们在假的 \\if 分支中忽略命令时发出警告。
-\t * 但我们继续执行，以便解析并丢弃正确数量的参数文本。
-\t * 各个反斜杠命令子例程负责在 !active_branch 时，
-\t * 在丢弃适当的参数后不做任何事。
+	 * 在交互模式下，当我们在假的 \if 分支中忽略命令时发出警告。
+	 * 但我们继续执行，以便解析并丢弃正确数量的参数文本。
+	 * 各个反斜杠命令子例程负责在 !active_branch 时，          
+	 * 在丢弃适当的参数后不做任何事。                
 	  *
-\t */
+	 */
 	if (pset.cur_cmd_interactive && !active_branch &&
 		!is_branching_command(cmd))
 	{
@@ -445,10 +445,10 @@ exec_command(const char *cmd,
 		status = PSQL_CMD_UNKNOWN;
 
 	/*
-\t * 所有返回 PSQL_CMD_SEND 的命令都希望在 query_buf 为空时
-\t * 执行 previous_buf。为方便起见，我们在此处实现它，
-\t * 而不是在各个命令子例程中实现。
-\t */
+	 * 所有返回 PSQL_CMD_SEND 的命令都希望在 query_buf 为空时   
+	 * 执行 previous_buf。为方便起见，我们在此处实现它，   
+	 * 而不是在各个命令子例程中实现。
+	 */
 	if (status == PSQL_CMD_SEND)
 		(void) copy_previous_query(query_buf, previous_buf);
 
@@ -457,7 +457,7 @@ exec_command(const char *cmd,
 
 
 /*
- * \\a —— 切换字段对齐
+ * \a —— 切换字段对齐
  *
  * 这没什么意义，但我们保留它。
  */
@@ -478,7 +478,7 @@ exec_command_a(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\bind —— 设置查询参数
+ * \bind —— 设置查询参数
  */
 static backslashResult
 exec_command_bind(PsqlScanState scan_state, bool active_branch)
@@ -512,7 +512,7 @@ exec_command_bind(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\C —— 覆盖表标题（以前是修改 HTML 标题）
+ * \C —— 覆盖表标题（以前是修改 HTML 标题）
  */
 static backslashResult
 exec_command_C(PsqlScanState scan_state, bool active_branch)
@@ -534,18 +534,18 @@ exec_command_C(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\c 或 \\connect —— 使用指定参数连接到数据库。
+ * \c 或 \connect —— 使用指定参数连接到数据库。       
  *
- * \\c [-reuse-previous=BOOL] dbname user host port
+ * \c [-reuse-previous=BOOL] dbname user host port
  *
  * 将参数指定为 '-' 等同于省略它。示例：
  *
- * \\c - - hst\t\t以当前用户身份连接到当前端口上
- *\t\t\t\t\t主机 "hst" 的当前数据库。
- * \\c - usr - prt\t以用户 "usr" 身份连接到当前主机上
- *\t\t\t\t\t端口 "prt" 的当前数据库。
- * \\c dbs\t\t\t以当前用户身份连接到当前主机上
- *\t\t\t\t\t当前端口的数据库 "dbs"。
+ * \c - - hst		以当前用户身份连接到当前端口上 
+ *					主机 "hst" 的当前数据库。
+ * \c - usr - prt	以用户 "usr" 身份连接到当前主机上           
+ *					端口 "prt" 的当前数据库。
+ * \c dbs			以当前用户身份连接到当前主机上            
+ *					当前端口的数据库 "dbs"。
  */
 static backslashResult
 exec_command_connect(PsqlScanState scan_state, bool active_branch)
@@ -598,7 +598,7 @@ exec_command_connect(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\cd —— 更改目录
+ * \cd —— 更改目录
  */
 static backslashResult
 exec_command_cd(PsqlScanState scan_state, bool active_branch, const char *cmd)
@@ -638,9 +638,9 @@ exec_command_cd(PsqlScanState scan_state, bool active_branch, const char *cmd)
 #else							/* WIN32 */
 
 			/*
-\t\t\t * 在 Windows 上，不带参数执行 'cd' 会打印当前
-\t\t\t * 目录，如果有人想在这里也实现这个功能的话…
-\t\t\t */
+			 * 在 Windows 上，不带参数执行 'cd' 会打印当前
+			 * 目录，如果有人想在这里也实现这个功能的话…
+			 */
 			dir = "/";
 #endif							/* WIN32 */
 		}
@@ -662,7 +662,7 @@ exec_command_cd(PsqlScanState scan_state, bool active_branch, const char *cmd)
 }
 
 /*
- * \\conninfo —— 显示当前连接的信息
+ * \conninfo —— 显示当前连接的信息                 
  */
 static backslashResult
 exec_command_conninfo(PsqlScanState scan_state, bool active_branch)
@@ -706,7 +706,7 @@ exec_command_conninfo(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\copy —— 运行 COPY 命令
+ * \copy —— 运行 COPY 命令
  */
 static backslashResult
 exec_command_copy(PsqlScanState scan_state, bool active_branch)
@@ -740,7 +740,7 @@ exec_command_copyright(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\crosstabview —— 执行查询并以交叉表形式显示结果
+ * \crosstabview —— 执行查询并以交叉表形式显示结果
  */
 static backslashResult
 exec_command_crosstabview(PsqlScanState scan_state, bool active_branch)
@@ -764,7 +764,7 @@ exec_command_crosstabview(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\d* 命令
+ * \d* 命令  
  */
 static backslashResult
 exec_command_d(PsqlScanState scan_state, bool active_branch, const char *cmd)
@@ -877,7 +877,7 @@ exec_command_d(PsqlScanState scan_state, bool active_branch, const char *cmd)
 				}
 				break;
 			case 'g':
-				/* 不再与 \\du 区分 */
+				/* 不再与 \du 区分        */
 				success = describeRoles(pattern, show_verbose, show_system);
 				break;
 			case 'l':
@@ -1031,7 +1031,7 @@ exec_command_d(PsqlScanState scan_state, bool active_branch, const char *cmd)
 	return status;
 }
 
-/* \\df 和 \\do；足够复杂，从 exec_command_d 中分离出来 */
+/* \df 和 \do；足够复杂，从 exec_command_d 中分离出来 */
 static bool
 exec_command_dfo(PsqlScanState scan_state, const char *cmd,
 				 const char *pattern,
@@ -1042,7 +1042,7 @@ exec_command_dfo(PsqlScanState scan_state, const char *cmd,
 	int			num_arg_patterns = 0;
 
 	/* 同时收集参数类型模式 */
-	if (pattern)				/* 否则它只是 \\df 或 \\do */
+	if (pattern)				/* 否则它只是 \df 或 \do      */
 	{
 		char	   *ap;
 
@@ -1071,7 +1071,7 @@ exec_command_dfo(PsqlScanState scan_state, const char *cmd,
 }
 
 /*
- * \\e 或 \\edit —— 编辑当前查询缓冲区，或编辑文件并
+ * \e 或 \edit —— 编辑当前查询缓冲区，或编辑文件并
  * 将其设为查询缓冲区
  */
 static backslashResult
@@ -1159,7 +1159,7 @@ exec_command_edit(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \\ef/\\ev —— 编辑命名的函数或视图，或
+ * \ef/\ev —— 编辑命名的函数或视图，或
  * 在未提供参数时显示空白的 CREATE FUNCTION/VIEW 模板
  */
 static backslashResult
@@ -1222,14 +1222,14 @@ exec_command_ef_ev(PsqlScanState scan_state, bool active_branch,
 			else if (is_func && lineno > 0)
 			{
 				/*
-\t\t\t\t * 行号 "1" 应对应于函数体的第一行。
-\t\t\t\t * 我们期望 pg_get_functiondef() 将其输出在以
-\t\t\t\t * "AS "、"BEGIN " 或 "RETURN " 开头的行上，
-\t\t\t\t * 且在函数体的真正开始之前不会有这样的行。
-\t\t\t\t * 将 lineno 递增该行之前的行数，使其相对于
-\t\t\t\t * 函数定义的第一行。
+				 * 行号 "1" 应对应于函数体的第一行。      
+				 * 我们期望 pg_get_functiondef() 将其输出在以    
+				 * "AS "、"BEGIN " 或 "RETURN " 开头的行上，     
+				 * 且在函数体的真正开始之前不会有这样的行。
+				 * 将 lineno 递增该行之前的行数，使其相对于
+				 * 函数定义的第一行。                         
 				  *
-\t\t\t\t */
+				 */
 				const char *lines = query_buf->data;
 
 				while (*lines != '\0')
@@ -1269,7 +1269,7 @@ exec_command_ef_ev(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \\echo、\\qecho 和 \\warn —— 将参数回显到 stdout、查询输出或 stderr
+ * \echo、\qecho 和 \warn —— 将参数回显到 stdout、查询输出或 stderr
  */
 static backslashResult
 exec_command_echo(PsqlScanState scan_state, bool active_branch, const char *cmd)
@@ -1314,7 +1314,7 @@ exec_command_echo(PsqlScanState scan_state, bool active_branch, const char *cmd)
 }
 
 /*
- * \\encoding —— 设置或显示客户端编码
+ * \encoding —— 设置或显示客户端编码
  */
 static backslashResult
 exec_command_encoding(PsqlScanState scan_state, bool active_branch)
@@ -1353,7 +1353,7 @@ exec_command_encoding(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\errverbose —— 显示上次失败查询的详细消息
+ * \errverbose —— 显示上次失败查询的详细消息   
  */
 static backslashResult
 exec_command_errverbose(PsqlScanState scan_state, bool active_branch)
@@ -1383,7 +1383,7 @@ exec_command_errverbose(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\f —— 更改字段分隔符
+ * \f —— 更改字段分隔符
  */
 static backslashResult
 exec_command_f(PsqlScanState scan_state, bool active_branch)
@@ -1405,12 +1405,12 @@ exec_command_f(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\g  [(pset-option[=pset-value] ...)] [filename/shell-command]
- * \\gx [(pset-option[=pset-value] ...)] [filename/shell-command]
+ * \g  [(pset-option[=pset-value] ...)] [filename/shell-command]
+ * \gx [(pset-option[=pset-value] ...)] [filename/shell-command]
  *
  * 发送当前查询。如果指定了 pset 选项，它们仅在此查询中生效。
  * 如果给出了文件名或管道命令，查询输出将重定向到那里。
- * \\gx 隐式设置 "expanded=on" 以及任何其他指定的 pset 选项。
+ * \gx 隐式设置 "expanded=on" 以及任何其他指定的 pset 选项。
   *
  */
 static backslashResult
@@ -1462,7 +1462,7 @@ exec_command_g(PsqlScanState scan_state, bool active_branch, const char *cmd)
 }
 
 /*
- * 处理 \\g 的括号内 pset 选项
+ * 处理 \g 的括号内 pset 选项       
  *
  * 注意：可以修改 first_option，但不能释放它；由调用者执行。
  */
@@ -1539,7 +1539,7 @@ process_command_g_options(char *first_option, PsqlScanState scan_state,
 }
 
 /*
- * \\gdesc —— 描述查询结果
+ * \gdesc —— 描述查询结果
  */
 static backslashResult
 exec_command_gdesc(PsqlScanState scan_state, bool active_branch)
@@ -1556,7 +1556,7 @@ exec_command_gdesc(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\getenv —— 从环境变量设置变量
+ * \getenv —— 从环境变量设置变量       
  */
 static backslashResult
 exec_command_getenv(PsqlScanState scan_state, bool active_branch,
@@ -1593,7 +1593,7 @@ exec_command_getenv(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \\gexec —— 发送查询并执行结果的每个字段
+ * \gexec —— 发送查询并执行结果的每个字段
  */
 static backslashResult
 exec_command_gexec(PsqlScanState scan_state, bool active_branch)
@@ -1610,7 +1610,7 @@ exec_command_gexec(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\gset [prefix] —— 发送查询并将结果存储到变量中
+ * \gset [prefix] —— 发送查询并将结果存储到变量中
  */
 static backslashResult
 exec_command_gset(PsqlScanState scan_state, bool active_branch)
@@ -1639,7 +1639,7 @@ exec_command_gset(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\help [topic] —— 打印 SQL 命令的帮助信息
+ * \help [topic] —— 打印 SQL 命令的帮助信息
  */
 static backslashResult
 exec_command_help(PsqlScanState scan_state, bool active_branch)
@@ -1670,7 +1670,7 @@ exec_command_help(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\H 和 \\html —— 切换 HTML 格式化
+ * \H 和 \html —— 切换 HTML 格式化
  */
 static backslashResult
 exec_command_html(PsqlScanState scan_state, bool active_branch)
@@ -1689,7 +1689,7 @@ exec_command_html(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\i 和 \\ir —— 包含一个文件
+ * \i 和 \ir —— 包含一个文件
  */
 static backslashResult
 exec_command_include(PsqlScanState scan_state, bool active_branch, const char *cmd)
@@ -1724,12 +1724,12 @@ exec_command_include(PsqlScanState scan_state, bool active_branch, const char *c
 }
 
 /*
- * \\if <expr> —— 一个 \\if..\\endif 块的开始
+ * \if <expr> —— 一个 \if..\endif 块的开始
  *
  * <expr> 被解析为布尔表达式。无效的表达式将发出
  * 警告并被视为 false。跟在 false 表达式后面的语句
- * 将被解析但被忽略。请注意，如果 \\if 语句本身位于
- * 块的非活动部分中，则整个内部 \\if..\\endif 块
+ * 将被解析但被忽略。请注意，如果 \if 语句本身位于     
+ * 块的非活动部分中，则整个内部 \if..\endif 块            
  * 将被解析但被忽略。
  */
 static backslashResult
@@ -1741,7 +1741,7 @@ exec_command_if(PsqlScanState scan_state, ConditionalStack cstack,
 		/*
  * 首先，压入一个新的活动栈条目；这确保词法分析器
  * 在扫描表达式时执行变量替换和反引号求值。
- *（无论如何都应该发生，因为我们知道我们在活动的
+ * （无论如何都应该发生，因为我们知道我们在活动的
  * 外部分支中，但为了确保万无一失。）
  */
 		conditional_stack_push(cstack, IFSTATE_TRUE);
@@ -1758,7 +1758,7 @@ exec_command_if(PsqlScanState scan_state, ConditionalStack cstack,
 	else
 	{
 		/*
- * 我们在一个非活动的外部分支中，因此整个 \\if 块
+ * 我们在一个非活动的外部分支中，因此整个 \if 块
  * 将被忽略。我们不想求值表达式，因此在扫描之前
  * 压入 "ignored" 栈状态。
  */
@@ -1774,9 +1774,9 @@ exec_command_if(PsqlScanState scan_state, ConditionalStack cstack,
 }
 
 /*
- * \\elif <expr> —— \\if..\\endif 块中的备选分支
+ * \elif <expr> —— \if..\endif 块中的备选分支     
  *
- * <expr> 的求值方式与 \\if <expr> 相同。
+ * <expr> 的求值方式与 \if <expr> 相同。
  */
 static backslashResult
 exec_command_elif(PsqlScanState scan_state, ConditionalStack cstack,
@@ -1789,14 +1789,14 @@ exec_command_elif(PsqlScanState scan_state, ConditionalStack cstack,
 		case IFSTATE_TRUE:
 
 			/*
- * 刚刚完成此 \\if 块的活动分支。更新保存的
+ * 刚刚完成此 \if 块的活动分支。更新保存的       
  * 状态，以便保留活动分支放入 query_buf 的
  * 任何数据。
  */
 			save_query_text_state(scan_state, cstack, query_buf);
 
 			/*
- * 丢弃 \\elif 表达式并忽略直到 \\endif 的内容。
+ * 丢弃 \elif 表达式并忽略直到 \endif 的内容。    
  * 在读取表达式之前切换状态以确保正确的词法分析器行为。
 			  *
  */
@@ -1811,7 +1811,7 @@ exec_command_elif(PsqlScanState scan_state, ConditionalStack cstack,
 			discard_query_text(scan_state, cstack, query_buf);
 
 			/*
- * 尚未在此 \\if 块中找到 true 表达式，因此这
+ * 尚未在此 \if 块中找到 true 表达式，因此这          
  * 可能是第一个。我们必须在检查表达式之前更改状态，
  * 否则词法分析器不会做正确的事。
  */
@@ -1827,7 +1827,7 @@ exec_command_elif(PsqlScanState scan_state, ConditionalStack cstack,
 			discard_query_text(scan_state, cstack, query_buf);
 
 			/*
- * 跳过表达式继续。\\if 块要么已经有一个活动部分，
+ * 跳过表达式继续。\if 块要么已经有一个活动部分，
  * 要么整个块正在被跳过。
  */
 			ignore_boolean_expression(scan_state);
@@ -1838,7 +1838,7 @@ exec_command_elif(PsqlScanState scan_state, ConditionalStack cstack,
 			success = false;
 			break;
 		case IFSTATE_NONE:
-			/* 没有 \\if 来从中 elif */
+			/* 没有 \if 来从中 elif */
 			pg_log_error("\\elif: no matching \\if");
 			success = false;
 			break;
@@ -1848,10 +1848,10 @@ exec_command_elif(PsqlScanState scan_state, ConditionalStack cstack,
 }
 
 /*
- * \\else —— \\if..\\endif 块中的最终备选分支
+ * \else —— \if..\endif 块中的最终备选分支
  *
- * \\else 分支中的语句仅在所有先前的
- * \\if 和 \\elif 表达式都求值为 false
+ * \else 分支中的语句仅在所有先前的             
+ * \if 和 \elif 表达式都求值为 false                
  * 且该块本身未被忽略时才执行。
  */
 static backslashResult
@@ -1865,13 +1865,13 @@ exec_command_else(PsqlScanState scan_state, ConditionalStack cstack,
 		case IFSTATE_TRUE:
 
 			/*
- * 刚刚完成此 \\if 块的活动分支。更新保存的
+ * 刚刚完成此 \if 块的活动分支。更新保存的       
  * 状态，以便保留活动分支放入 query_buf 的
  * 任何数据。
  */
 			save_query_text_state(scan_state, cstack, query_buf);
 
-			/* 现在跳过 \\else 分支 */
+			/* 现在跳过 \else 分支 */
 			conditional_stack_poke(cstack, IFSTATE_ELSE_FALSE);
 			break;
 		case IFSTATE_FALSE:
@@ -1882,8 +1882,8 @@ exec_command_else(PsqlScanState scan_state, ConditionalStack cstack,
 			discard_query_text(scan_state, cstack, query_buf);
 
 			/*
- * 我们尚未找到任何 true 的 \\if 或 \\elif 表达式，
- * 因此执行 \\else 分支。
+ * 我们尚未找到任何 true 的 \if 或 \elif 表达式，   
+ * 因此执行 \else 分支。
  */
 			conditional_stack_poke(cstack, IFSTATE_ELSE_TRUE);
 			break;
@@ -1895,9 +1895,9 @@ exec_command_else(PsqlScanState scan_state, ConditionalStack cstack,
 			discard_query_text(scan_state, cstack, query_buf);
 
 			/*
- * 我们要么之前处理过此 \\if 块的活动分支，
- * 要么整个 \\if 块正在被跳过。无论哪种情况，
- * 都跳过 \\else 分支。
+ * 我们要么之前处理过此 \if 块的活动分支，        
+ * 要么整个 \if 块正在被跳过。无论哪种情况，      
+ * 都跳过 \else 分支。
  */
 			conditional_stack_poke(cstack, IFSTATE_ELSE_FALSE);
 			break;
@@ -1907,7 +1907,7 @@ exec_command_else(PsqlScanState scan_state, ConditionalStack cstack,
 			success = false;
 			break;
 		case IFSTATE_NONE:
-			/* 没有 \\if 来从中 else */
+			/* 没有 \if 来从中 else */
 			pg_log_error("\\else: no matching \\if");
 			success = false;
 			break;
@@ -1917,7 +1917,7 @@ exec_command_else(PsqlScanState scan_state, ConditionalStack cstack,
 }
 
 /*
- * \\endif —— 结束 \\if...\\endif 块
+ * \endif —— 结束 \if...\endif 块
  */
 static backslashResult
 exec_command_endif(PsqlScanState scan_state, ConditionalStack cstack,
@@ -1929,7 +1929,7 @@ exec_command_endif(PsqlScanState scan_state, ConditionalStack cstack,
 	{
 		case IFSTATE_TRUE:
 		case IFSTATE_ELSE_TRUE:
-			/* 关闭 \\if 块，保留查询文本 */
+			/* 关闭 \if 块，保留查询文本         */
 			success = conditional_stack_pop(cstack);
 			Assert(success);
 			break;
@@ -1942,12 +1942,12 @@ exec_command_endif(PsqlScanState scan_state, ConditionalStack cstack,
  */
 			discard_query_text(scan_state, cstack, query_buf);
 
-			/* 关闭 \\if 块 */
+			/* 关闭 \if 块      */
 			success = conditional_stack_pop(cstack);
 			Assert(success);
 			break;
 		case IFSTATE_NONE:
-			/* 没有 \\if 来结束 */
+			/* 没有 \if 来结束 */
 			pg_log_error("\\endif: no matching \\if");
 			success = false;
 			break;
@@ -1957,7 +1957,7 @@ exec_command_endif(PsqlScanState scan_state, ConditionalStack cstack,
 }
 
 /*
- * \\l —— 列出数据库
+ * \l —— 列出数据库
  */
 static backslashResult
 exec_command_list(PsqlScanState scan_state, bool active_branch, const char *cmd)
@@ -1985,7 +1985,7 @@ exec_command_list(PsqlScanState scan_state, bool active_branch, const char *cmd)
 }
 
 /*
- * \\lo_* —— 大对象操作
+ * \lo_* —— 大对象操作    
  */
 static backslashResult
 exec_command_lo(PsqlScanState scan_state, bool active_branch, const char *cmd)
@@ -2063,7 +2063,7 @@ exec_command_lo(PsqlScanState scan_state, bool active_branch, const char *cmd)
 }
 
 /*
- * \\o —— 设置查询输出
+ * \o —— 设置查询输出
  */
 static backslashResult
 exec_command_out(PsqlScanState scan_state, bool active_branch)
@@ -2086,7 +2086,7 @@ exec_command_out(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\p —— 打印当前查询缓冲区
+ * \p —— 打印当前查询缓冲区
  */
 static backslashResult
 exec_command_print(PsqlScanState scan_state, bool active_branch,
@@ -2095,7 +2095,7 @@ exec_command_print(PsqlScanState scan_state, bool active_branch,
 	if (active_branch)
 	{
 		/*
- * 我们想要打印 \\g 将会执行的相同内容，但不改变
+ * 我们想要打印 \g 将会执行的相同内容，但不改变     
  * 查询缓冲区的状态；因此我们不能使用
  * copy_previous_query()。另外，注意缓冲区指针可能为 NULL。
  */
@@ -2112,7 +2112,7 @@ exec_command_print(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \\password —— 设置用户密码
+ * \password —— 设置用户密码
  */
 static backslashResult
 exec_command_password(PsqlScanState scan_state, bool active_branch)
@@ -2202,7 +2202,7 @@ exec_command_password(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\prompt —— 提示并设置变量
+ * \prompt —— 提示并设置变量
  */
 static backslashResult
 exec_command_prompt(PsqlScanState scan_state, bool active_branch,
@@ -2279,7 +2279,7 @@ exec_command_prompt(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \\pset —— 设置打印参数
+ * \pset —— 设置打印参数 
  */
 static backslashResult
 exec_command_pset(PsqlScanState scan_state, bool active_branch)
@@ -2334,7 +2334,7 @@ exec_command_pset(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\q 或 \\quit —— 退出 psql
+ * \q 或 \quit —— 退出 psql
  */
 static backslashResult
 exec_command_quit(PsqlScanState scan_state, bool active_branch)
@@ -2348,7 +2348,7 @@ exec_command_quit(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\r —— 重置（清空）查询缓冲区
+ * \r —— 重置（清空）查询缓冲区
  */
 static backslashResult
 exec_command_reset(PsqlScanState scan_state, bool active_branch,
@@ -2366,7 +2366,7 @@ exec_command_reset(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \\restrict —— 使用提供的密钥进入"受限模式"
+ * \restrict —— 使用提供的密钥进入"受限模式"
  */
 static backslashResult
 exec_command_restrict(PsqlScanState scan_state, bool active_branch,
@@ -2395,7 +2395,7 @@ exec_command_restrict(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \\s —— 将历史保存到文件或在屏幕上显示
+ * \s —— 将历史保存到文件或在屏幕上显示
  */
 static backslashResult
 exec_command_s(PsqlScanState scan_state, bool active_branch)
@@ -2422,7 +2422,7 @@ exec_command_s(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\set —— 设置变量
+ * \set —— 设置变量
  */
 static backslashResult
 exec_command_set(PsqlScanState scan_state, bool active_branch)
@@ -2475,7 +2475,7 @@ exec_command_set(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\setenv —— 设置环境变量
+ * \setenv —— 设置环境变量  
  */
 static backslashResult
 exec_command_setenv(PsqlScanState scan_state, bool active_branch,
@@ -2523,7 +2523,7 @@ exec_command_setenv(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \\sf/\\sv —— 显示函数或视图的源代码
+ * \sf/\sv —— 显示函数或视图的源代码
  */
 static backslashResult
 exec_command_sf_sv(PsqlScanState scan_state, bool active_branch,
@@ -2606,7 +2606,7 @@ exec_command_sf_sv(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \\t —— 关闭表头和行计数
+ * \t —— 关闭表头和行计数        
  */
 static backslashResult
 exec_command_t(PsqlScanState scan_state, bool active_branch)
@@ -2628,7 +2628,7 @@ exec_command_t(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\T —— 定义 html <table ...> 属性
+ * \T —— 定义 html <table ...> 属性
  */
 static backslashResult
 exec_command_T(PsqlScanState scan_state, bool active_branch)
@@ -2650,7 +2650,7 @@ exec_command_T(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\timing —— 启用或禁用查询计时
+ * \timing —— 启用或禁用查询计时 
  */
 static backslashResult
 exec_command_timing(PsqlScanState scan_state, bool active_branch)
@@ -2682,7 +2682,7 @@ exec_command_timing(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\unrestrict —— 如果提供的密钥匹配，则退出"受限模式"
+ * \unrestrict —— 如果提供的密钥匹配，则退出"受限模式"
  */
 static backslashResult
 exec_command_unrestrict(PsqlScanState scan_state, bool active_branch,
@@ -2722,7 +2722,7 @@ exec_command_unrestrict(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \\unset —— 取消设置变量
+ * \unset —— 取消设置变量
  */
 static backslashResult
 exec_command_unset(PsqlScanState scan_state, bool active_branch,
@@ -2752,7 +2752,7 @@ exec_command_unset(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \\w —— 将查询缓冲区写入文件
+ * \w —— 将查询缓冲区写入文件
  */
 static backslashResult
 exec_command_write(PsqlScanState scan_state, bool active_branch,
@@ -2808,7 +2808,7 @@ exec_command_write(PsqlScanState scan_state, bool active_branch,
 			int			result;
 
 			/*
- * 我们想要打印 \\g 将会执行的相同内容，但不改变
+ * 我们想要打印 \g 将会执行的相同内容，但不改变
  * 查询缓冲区的状态；因此我们不能使用
  * copy_previous_query()。另外，注意缓冲区指针
  * 可能为 NULL。
@@ -2853,7 +2853,7 @@ exec_command_write(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \\watch —— 每 N 秒执行一次查询。
+ * \watch —— 每 N 秒执行一次查询。
  * 可选地，在 M 次迭代后停止。
  */
 static backslashResult
@@ -2968,7 +2968,7 @@ exec_command_watch(PsqlScanState scan_state, bool active_branch,
 			success = do_watch(query_buf, sleep, iter);
 		}
 
-		/* 像 \\r 一样重置查询缓冲区 */
+		/* 像 \r 一样重置查询缓冲区      */
 		resetPQExpBuffer(query_buf);
 		psql_scan_reset(scan_state);
 	}
@@ -2979,7 +2979,7 @@ exec_command_watch(PsqlScanState scan_state, bool active_branch,
 }
 
 /*
- * \\x —— 设置或切换展开表表示
+ * \x —— 设置或切换展开表表示         
  */
 static backslashResult
 exec_command_x(PsqlScanState scan_state, bool active_branch)
@@ -3001,7 +3001,7 @@ exec_command_x(PsqlScanState scan_state, bool active_branch)
 }
 
 /*
- * \\z —— 列出表权限（等同于 \\dp）
+ * \z —— 列出表权限（等同于 \dp）   
  */
 static backslashResult
 exec_command_z(PsqlScanState scan_state, bool active_branch, const char *cmd)
@@ -3080,7 +3080,7 @@ exec_command_slash_command_help(PsqlScanState scan_state, bool active_branch)
 
 
 /*
- * 读取并解释 \\connect 反斜杠命令的参数。
+ * 读取并解释 \connect 反斜杠命令的参数。         
  *
  * 返回一个 malloc 分配的字符串，如果没有参数或参数为空则返回 NULL。
  */
@@ -3096,7 +3096,7 @@ read_connect_arg(PsqlScanState scan_state)
  * 原样接受未引用的参数（不进行小写转换）。目前，
  * 双引号参数可能会被去除双引号（好像 SQL
  * 标识符一样）。到 7.4 左右，可以期望 pg_dump 文件
- * 对所有混合大小写的 \\connect 参数使用双引号，
+ * 对所有混合大小写的 \connect 参数使用双引号，           
  * 届时我们可以去掉 OT_SQLIDHACK。
  */
 	result = psql_scan_slash_option(scan_state, OT_SQLIDHACK, &quote, true);
@@ -3122,7 +3122,7 @@ read_connect_arg(PsqlScanState scan_state)
  * 注意：多于或少于一个标记的任何内容肯定无法被
  * ParseVariableBool 解析，因此我们不必担心在此处抱怨。
  * 此例程的返回数据结构无论如何都需要重新考虑，
- * 以支持未来的扩展，例如 "\\if defined VARNAME"。
+ * 以支持未来的扩展，例如 "\if defined VARNAME"。        
  */
 static PQExpBuffer
 gather_boolean_expression(PsqlScanState scan_state)
@@ -3243,7 +3243,7 @@ is_branching_command(const char *cmd)
 
 /*
  * 准备以在可能的情况下将查询缓冲区恢复到当前状态
- *（参见 discard_query_text）。
+ * （参见 discard_query_text）。
  *
  * 我们需要记住查询缓冲区的长度，以及词法分析器
  * 对括号嵌套深度的记录。
@@ -3261,11 +3261,11 @@ save_query_text_state(PsqlScanState scan_state, ConditionalStack cstack,
 /*
  * 丢弃在非活动条件分支期间吸收的任何查询文本。
  *
- * 我们必须丢弃在非活动 \\if 分支期间追加到 query_buf 的数据。
+ * 我们必须丢弃在非活动 \if 分支期间追加到 query_buf 的数据。
  * 如果没有 query_buf，则无需在此做任何事。
  *
  * 另外，将词法分析器状态重置为此前的相同括号深度。
- *（其余状态不需要关注，因为我们不可能在
+ * （其余状态不需要关注，因为我们不可能在           
  * 注释、字面量或部分标记内部。）
  */
 static void
@@ -3353,7 +3353,7 @@ param_is_newly_set(const char *old_val, const char *new_val)
 }
 
 /*
- * do_connect —— \\connect 的处理程序
+ * do_connect —— \connect 的处理程序
  *
  * 使用给定参数连接到数据库。如果要求我们重用参数，
  * 则使用来自先前连接的参数，其中命令自身的选项
@@ -3419,7 +3419,7 @@ do_connect(enum trivalue reuse_previous_specification,
 			cinfo = PQconninfo(pset.dead_conn);
 		else
 		{
-			/* 这在非交互式 \\connect 失败后可到达 */
+			/* 这在非交互式 \connect 失败后可到达             */
 			pg_log_error("No database connection exists to re-use parameters from");
 			return false;
 		}
@@ -4079,14 +4079,14 @@ editFile(const char *fname, int lineno)
 
 
 /*
- * do_edit —— \\e 的处理程序
+ * do_edit —— \e 的处理程序
  *
  * 如果不指定文件名，当前查询缓冲区将被复制
  * 到一个临时文件中。
  *
  * 此函数完成后，结果文件将被复制回
  * 查询缓冲区。例外：如果文件未被修改
- *（或编辑器失败）且调用者传递
+ * （或编辑器失败）且调用者传递                               
  * "discard_on_quit" = true，则查询缓冲区将被清空。
  *
  * 如果 "edited" 不为 NULL，当查询缓冲区
@@ -4281,7 +4281,7 @@ do_edit(const char *filename_arg, PQExpBuffer query_buf,
  * process_file
  *
  * 从 filename 读取命令并将其传递给主处理循环。
- * \\i 和 \\ir 的处理程序，但也可用于其他目的。
+ * \i 和 \ir 的处理程序，但也可用于其他目的。               
  * 返回 MainLoop() 错误码。
  *
  * 如果 use_relative_path 为 true 且 filename 不是
@@ -5094,11 +5094,11 @@ pset_quoted_string(const char *str)
 
 
 /*
- * 为 \\pset 值返回一个 malloc 分配的字符串。
+ * 为 \pset 值返回一个 malloc 分配的字符串。
  *
  * 注意，对于某些字符串参数，print.c 区分未设置
  * 和空字符串，但对于其他参数则不区分。此函数应产生
- * 在反馈给 \\pset 时产生正确设置的输出。
+ * 在反馈给 \pset 时产生正确设置的输出。              
  */
 static char *
 pset_value_string(const char *param, printQueryOpt *popt)
@@ -5231,7 +5231,7 @@ do_shell(const char *command)
 }
 
 /*
- * do_watch —— \\watch 的处理程序
+ * do_watch —— \watch 的处理程序
  *
  * 我们将其从 exec_command 中分离出来，以避免在
  * exec_command 的许多变量上贴上 "volatile" 以安抚更愚蠢的编译器。
@@ -5280,9 +5280,9 @@ do_watch(PQExpBuffer query_buf, double sleep, int iter)
 	sigaddset(&sigint, SIGINT);
 
 	/*
-\t * 在启动定时器和分页器（如果已配置）之前阻塞
-\t * SIGALRM 和 SIGCHLD，以避免竞态条件。sigwait() 将接收它们。
-\t */
+	 * 在启动定时器和分页器（如果已配置）之前阻塞      
+	 * SIGALRM 和 SIGCHLD，以避免竞态条件。sigwait() 将接收它们。
+	 */
 	sigprocmask(SIG_BLOCK, &sigalrm_sigchld, NULL);
 
 	/*
@@ -5300,8 +5300,8 @@ do_watch(PQExpBuffer query_buf, double sleep, int iter)
 #endif
 
 	/*
- * 对于 \\watch，我们忽略结果的大小，只要我们在与终端
- * 通信且 "\\pset pager" 已启用，就始终使用分页器。
+ * 对于 \watch，我们忽略结果的大小，只要我们在与终端
+ * 通信且 "\pset pager" 已启用，就始终使用分页器。      
  * 但是，我们只使用 PSQL_WATCH_PAGER 标识的分页器。
  * 我们忽略常规的 PSQL_PAGER 或 PAGER 环境变量，
  * 因为传统的分页器对于显示结果流
@@ -5326,10 +5326,10 @@ do_watch(PQExpBuffer query_buf, double sleep, int iter)
 	}
 
 	/*
-\t * 选择时间戳的格式。我们可能最终会将其作为 \\pset
-\t * 选项。在此期间，使用变量来存储格式可以抑制
-\t * 过于挑剔的 gcc 关于 %c 对 Y2K 敏感的警告。
-\t */
+	 * 选择时间戳的格式。我们可能最终会将其作为 \pset  
+	 * 选项。在此期间，使用变量来存储格式可以抑制     
+	 * 过于挑剔的 gcc 关于 %c 对 Y2K 敏感的警告。        
+	 */
 	strftime_fmt = "%c";
 
 	/*
@@ -5394,7 +5394,7 @@ do_watch(PQExpBuffer query_buf, double sleep, int iter)
 #ifdef WIN32
 
 		/*
- * 通过 SIGINT 设置 \\watch 的取消。每次循环都重做
+ * 通过 SIGINT 设置 \watch 的取消。每次循环都重做       
  * 此操作，因为可以想象 PSQLexecWatch 内部
  * 可能会更改 sigint_interrupt_jmp。
  */
@@ -5402,7 +5402,7 @@ do_watch(PQExpBuffer query_buf, double sleep, int iter)
 			break;
 
 		/*
- * 启用 \\watch 取消并等待一段时间，然后再次运行
+ * 启用 \watch 取消并等待一段时间，然后再次运行    
  * 查询。将睡眠分成短间隔（最多 1 秒）。
  */
 		sigint_interrupt_enabled = true;
@@ -5732,9 +5732,9 @@ get_create_object_cmd(EditableObjectType obj_type, Oid oid,
 }
 
 /*
- * 如果 \\ef 或 \\ev 的给定参数以行号结尾，则从参数
+ * 如果 \ef 或 \ev 的给定参数以行号结尾，则从参数            
  * 字符串中删除行号并将其作为整数返回。（我们需要
- * 这种 hack，因为我们太懒于仔细解析 \\ef 的函数或 \\ev 的视图
+ * 这种 hack，因为我们太懒于仔细解析 \ef 的函数或 \ev 的视图
  * 参数——我们只是用 OT_WHOLE_LINE 模式吞掉它。）
  *
  * 如果没有行号则返回 -1，出错时返回 0，或成功时
@@ -5752,14 +5752,14 @@ strip_lineno_from_objdesc(char *obj)
 	c = obj + strlen(obj) - 1;
 
 	/*
-\t * 在多字节环境中向后解析是非常危险的：
-\t * 我们没有理由相信我们正在查看字符的第一个字节，
-\t * 也不一定在"安全"编码中工作。幸运的是，我们正在
-\t * 查找的位模式不太可能作为非首字节出现，但要小心
-\t * 尝试扩展可识别的情况集。我们也必须
-\t * 先使用 isascii() 来保护 <ctype.h> 宏。
-\t *
-\t */
+	 * 在多字节环境中向后解析是非常危险的：        
+	 * 我们没有理由相信我们正在查看字符的第一个字节，
+	 * 也不一定在"安全"编码中工作。幸运的是，我们正在
+	 * 查找的位模式不太可能作为非首字节出现，但要小心
+	 * 尝试扩展可识别的情况集。我们也必须                
+	 * 先使用 isascii() 来保护 <ctype.h> 宏。                    
+	 *                                                          
+	 */
 
 	/* 跳过尾随空白 */
 	while (c > obj && isascii((unsigned char) *c) && isspace((unsigned char) *c))

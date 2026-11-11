@@ -262,7 +262,7 @@ parse_subscription_options(ParseState *pstate, List *stmt_options,
 			 * 事务丢失并造成副本不一致。                     
 			 * 见 worker.c 开头注释 
 			 *
-			 * 注: 不支持的 twophase 表示此调用源自              
+			 * 注： 不支持的 twophase 表示此调用源自            
 			 * AlterSubscription。   
 			 */
 			if (!IsSet(supported_opts, SUBOPT_TWOPHASE_COMMIT))
@@ -1674,7 +1674,7 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 	/*
 	 * 尝试获取删除槽所需的连接。                    
 	 *
-	 * 注: 如果 slotname 为 NONE/NULL，则我们允许命令完成，   
+	 * 注： 如果 slotname 为 NONE/NULL，则我们允许命令完成， 
 	 * 用户需稍后手动清理应用与表同步工作进程槽           
 	 * 。   
 	 *

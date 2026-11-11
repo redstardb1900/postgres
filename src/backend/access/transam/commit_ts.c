@@ -259,7 +259,7 @@ TransactionIdSetCommitTs(TransactionId xid, TimestampTz ts,
  *
  * 返回值表示是否为给定 xid 找到了提交时间戳
  * 记录。时间戳值返回在 *ts 中（不得为
- * null），若 *nodeid 非null，则把
+ * null），若 *nodeid 非 null，则把                                   
  * 该 Xid 的源节点返回在 *nodeid 中。
  */
 bool
@@ -346,7 +346,7 @@ TransactionIdGetCommitTsData(TransactionId xid, TimestampTz *ts,
  * 者确保该值对其用途有用。）
  *
  * ts 与 nodeid 填入对
- * 应数据；若不需要可传NULL。
+ * 应数据；若不需要可传 NULL。
  */
 TransactionId
 GetLatestCommitTsData(TimestampTz *ts, RepOriginId *nodeid)
@@ -623,7 +623,7 @@ CommitTsParameterChange(bool newvalue, bool oldvalue)
 	/*
 	 * 若本服务器上 commit_ts 模块已禁
 	 * 用，而我们从主库得知那里已启用，则激活它以
-	 * 便能重放将来涉及它的WAL 记录；同时在
+	 * 便能重放将来涉及它的 WAL 记录；同时在            
 	 * pg_control 上标记为活动。若旧值
 	 * 已经设置，我们已做过此事，故不再做任何事。
 	 *
@@ -797,7 +797,7 @@ CheckPointCommitTs(void)
  * 腾出共享内存空间，否则也不需要实际 I/O。
  *
  * NB：当前实现依赖
- * track_commit_timestamp 为PGC_POSTMASTER。
+ * track_commit_timestamp 为 PGC_POSTMASTER。
  */
 void
 ExtendCommitTs(TransactionId newestXact)

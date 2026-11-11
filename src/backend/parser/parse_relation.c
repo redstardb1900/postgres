@@ -44,7 +44,7 @@
  * 用于构建诊断消息，其中涉及多个                        
  * 或非精确匹配的属性。      
  *
- * "distance"在rfirst非NULL时为当前最佳模糊匹配距离，        
+ * "distance"在 rfirst 非 NULL 时为当前最佳模糊匹配距离，    
  * 否则为可接受的最大距离加 1。              
  *
  * rfirst/first 记录迄今最接近的非精确匹配，distance     
@@ -3017,7 +3017,7 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
 }
 
 /*
- * expandRelation：expandRTE子程序   
+ * expandRelation：expandRTE 子程序  
  */
 static void
 expandRelation(Oid relid, Alias *eref, int rtindex, int sublevels_up,
@@ -3036,7 +3036,7 @@ expandRelation(Oid relid, Alias *eref, int rtindex, int sublevels_up,
 }
 
 /*
- * expandTupleDesc：expandRTE子程序   
+ * expandTupleDesc：expandRTE 子程序  
  *
  * 为 tupdesc 的前 count 个属性生成名称和/或 Var，               
  * 并把它们追加到 colnames/colvars。offset 会加到              

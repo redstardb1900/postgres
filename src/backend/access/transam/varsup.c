@@ -43,7 +43,7 @@ VariableCache ShmemVariableCache = NULL;
  *
  * 注意：调用本函数时，其实已处于有效事
  * 务中，因为现在要等到事务真正做事后才
- * 分配 XID。因此若要就XID 回卷
+ * 分配 XID。因此若要就 XID 回卷                             
  * 发出警告，做一次数据库查找是安全的。
  */
 FullTransactionId
@@ -298,7 +298,7 @@ AdvanceNextFullTransactionIdPastXid(TransactionId xid)
 	 * ，但检测何时已回卷进入新纪元。这是必要的，因为
 	 * WAL 记录与 2PC 状态目前包含 32 位
 	 * xid。在这些情况下回卷逻辑是安全的，因为在 WAL
-	 * 流的任意给定点，活动xid 的跨度都无法超过一个纪元。
+	 * 流的任意给定点，活动 xid 的跨度都无法超过一个纪元。
 	 */
 	TransactionIdAdvance(xid);
 	epoch = EpochFromFullTransactionId(ShmemVariableCache->nextXid);
@@ -319,7 +319,7 @@ AdvanceNextFullTransactionIdPastXid(TransactionId xid)
  * 推进集簇范围内最老有效 clog 项的值。
  *
  * 推进 oldestClogXid 必须获取
- * XactTruncationLock。实际执行clog 截
+ * XactTruncationLock。实际执行 clog 截                                
  * 断时不必持锁，只有推进该界限时才需要，因为查找任意
  * xid 的代码须从测试 oldestClogXid 起持有
  * XactTruncationLock，直到完成 clog 查找。
@@ -354,7 +354,7 @@ SetTransactionIdLimit(TransactionId oldest_datfrozenxid, Oid oldest_datoid)
 
 	/*
 	 * 真正陷入严重麻烦的位置，是从可能仍
-	 * 存在的最老 XIDs起绕环一半处。
+	 * 存在的最老 XIDs 起绕环一半处。                     
 	 * （此计算可能差一两个计数，因为特殊
 	 * XID 会略微缩小环的大小。但下
 	 * 面留了充足余量，因此无关紧要。）
@@ -395,7 +395,7 @@ SetTransactionIdLimit(TransactionId oldest_datfrozenxid, Oid oldest_datoid)
 
 	/*
 	 * 一旦 oldest_datfrozenxid 超过
-	 * autovacuum_freeze_max_age个事务那么老，我们就开始设法强制自动清理。
+	 * autovacuum_freeze_max_age 个事务那么老，我们就开始设法强制自动清理。
 	 *
 	 * 注意：guc.c 确保 autovacuum_freeze_max_age 处于
 	 * 合理范围，从而使 xidVacLimit 远在 xidWarnLimit 之前。
@@ -547,7 +547,7 @@ GetNewObjectId(void)
 	 * postmaster 启动后第一次进入本例程时，计数器会被强制提升到
 	 * FirstNormalObjectId。此机制使
 	 * FirstGenbkiObjectId 与
-	 * FirstNormalObjectId 之间的 OID可在 initdb 期间自动分配，同时确保它们永不与用户分配的 OID 冲突。
+	 * FirstNormalObjectId 之间的 OID 可在 initdb 期间自动分配，同时确保它们永不与用户分配的 OID 冲突。
 	 */
 	if (ShmemVariableCache->nextOid < ((Oid) FirstNormalObjectId))
 	{
@@ -658,13 +658,13 @@ AssertTransactionIdInAllowableRange(TransactionId xid)
 	 * 不能获取 XidGenLock，因为本函数可能在已持有
 	 * XidGenLock 时被调用（或持有不允许嵌套
 	 * XidGenLock 的其他锁）。但对我们的目的来说没问题
-	 * ，因为我们已经依赖32 位读取是原子的。虽然
+	 * ，因为我们已经依赖 32 位读取是原子的。虽然         
 	 * nextXid 是 64 位，我们只看低 32 位，因此偏斜读取无妨。
 	 *
 	 * 不持锁访问它们，并不会增加落到 [oldest,
 	 * next] 之外的危险。xid 须已在发起会话中由
 	 * GetNewTransactionId()创建，那里的锁
-	 * 与下方内存屏障配对。不过我们接受 xid可以 <=
+	 * 与下方内存屏障配对。不过我们接受 xid 可以 <=        
 	 * next_xid，而不只是 <，因为 xid 可能来自
 	 * procarray，早于我们看到更新后的 nextXid 值。
 	 */

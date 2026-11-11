@@ -1341,7 +1341,7 @@ MakeConfigurationMapping(AlterTSConfigurationStmt *stmt,
 	}
 
 	/*
-	 * 将词典名称列表转换为词典 OIDs数组
+	 * 将词典名称列表转换为词典 OIDs 数组      
 	        */
 	ndict = list_length(stmt->dicts);
 	dictIds = (Oid *) palloc(sizeof(Oid) * ndict);

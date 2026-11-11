@@ -56,7 +56,7 @@ RelationPutHeapTuple(Relation relation,
 	Assert(!((tuple->t_data->t_infomask & HEAP_XMAX_COMMITTED) &&
 			 (tuple->t_data->t_infomask & HEAP_XMAX_IS_MULTI)));
 
-	/* 把元组加入该页面*/
+	/* 把元组加入该页面  */
 	pageHeader = BufferGetPage(buffer);
 
 	offnum = PageAddItem(pageHeader, (Item) tuple->t_data,
@@ -65,7 +65,7 @@ RelationPutHeapTuple(Relation relation,
 	if (offnum == InvalidOffsetNumber)
 		elog(PANIC, "failed to add tuple to page");
 
-	/* 把 tuple->t_self 更新为它实际存放的位置*/
+	/* 把 tuple->t_self 更新为它实际存放的位置             */
 	ItemPointerSet(&(tuple->t_self), BufferGetBlockNumber(buffer), offnum);
 
 	/*
@@ -91,12 +91,12 @@ ReadBufferBI(Relation relation, BlockNumber targetBlock,
 {
 	Buffer		buffer;
 
-	/* 若不是批量插入，就与 ReadBuffer 完全一样*/
+	/* 若不是批量插入，就与 ReadBuffer 完全一样 */
 	if (!bistate)
 		return ReadBufferExtended(relation, MAIN_FORKNUM, targetBlock,
 								  mode, NULL);
 
-	/* 若期望的块已经钉住，则重新钉住并返回它*/
+	/* 若期望的块已经钉住，则重新钉住并返回它         */
 	if (bistate->current_buf != InvalidBuffer)
 	{
 		if (BufferGetBlockNumber(bistate->current_buf) == targetBlock)
@@ -111,16 +111,16 @@ ReadBufferBI(Relation relation, BlockNumber targetBlock,
 			IncrBufferRefCount(bistate->current_buf);
 			return bistate->current_buf;
 		}
-		/* ... 否则丢掉旧缓冲区*/
+		/* ... 否则丢掉旧缓冲区 */
 		ReleaseBuffer(bistate->current_buf);
 		bistate->current_buf = InvalidBuffer;
 	}
 
-	/* 用缓冲区策略执行一次读取*/
+	/* 用缓冲区策略执行一次读取     */
 	buffer = ReadBufferExtended(relation, MAIN_FORKNUM, targetBlock,
 								mode, bistate->strategy);
 
-	/* 把选中的块保存为以后插入的目标*/
+	/* 把选中的块保存为以后插入的目标        */
 	IncrBufferRefCount(buffer);
 	bistate->current_buf = buffer;
 
@@ -345,7 +345,7 @@ RelationAddBlocks(Relation relation, BulkInsertState bistate,
 									  extend_by_pages,
 									  victim_buffers,
 									  &extend_by_pages);
-	buffer = victim_buffers[0]; /* 本函数将要返回的缓冲区*/
+	buffer = victim_buffers[0]; /* 本函数将要返回的缓冲区   */
 	last_block = first_block + (extend_by_pages - 1);
 	Assert(first_block == BufferGetBlockNumber(buffer));
 
@@ -518,9 +518,9 @@ RelationGetBufferForTuple(Relation relation, Size len,
 	bool		unlockedTargetBuffer;
 	bool		recheckVmPins;
 
-	len = MAXALIGN(len);		/* 偏保守*/
+	len = MAXALIGN(len);		/* 偏保守       */
 
-	/* 若调用方不知道要扩展多少页，就扩展 1 页*/
+	/* 若调用方不知道要扩展多少页，就扩展 1 页           */
 	if (num_pages <= 0)
 		num_pages = 1;
 
@@ -536,7 +536,7 @@ RelationGetBufferForTuple(Relation relation, Size len,
 				 errmsg("row is too big: size %zu, maximum size %zu",
 						len, MaxHeapTupleSize)));
 
-	/* 按 fillfactor 选项计算期望的额外空闲空间*/
+	/* 按 fillfactor 选项计算期望的额外空闲空间   */
 	saveFreeSpace = RelationGetTargetPageFreeSpace(relation,
 												   HEAP_DEFAULT_FILLFACTOR);
 
@@ -556,7 +556,7 @@ RelationGetBufferForTuple(Relation relation, Size len,
 	if (otherBuffer != InvalidBuffer)
 		otherBlock = BufferGetBlockNumber(otherBuffer);
 	else
-		otherBlock = InvalidBlockNumber;	/* 只是为了让编译器安静*/
+		otherBlock = InvalidBlockNumber;	/* 只是为了让编译器安静 */
 
 	/*
 	 * 我们先尝试把元组放到上次插入元组的同一页上，
@@ -616,7 +616,7 @@ loop:
 		 */
 		if (otherBuffer == InvalidBuffer)
 		{
-			/* 简单情形*/
+			/* 简单情形 */
 			buffer = ReadBufferBI(relation, targetBlock, RBM_NORMAL, bistate);
 			if (PageIsAllVisible(BufferGetPage(buffer)))
 				visibilitymap_pin(relation, targetBlock, vmbuffer);
@@ -632,7 +632,7 @@ loop:
 		}
 		else if (otherBlock == targetBlock)
 		{
-			/* 同样是简单情形*/
+			/* 同样是简单情形 */
 			buffer = otherBuffer;
 			if (PageIsAllVisible(BufferGetPage(buffer)))
 				visibilitymap_pin(relation, targetBlock, vmbuffer);
@@ -649,7 +649,7 @@ loop:
 		}
 		else
 		{
-			/* 先锁目标缓冲区*/
+			/* 先锁目标缓冲区    */
 			buffer = ReadBuffer(relation, targetBlock);
 			if (PageIsAllVisible(BufferGetPage(buffer)))
 				visibilitymap_pin(relation, targetBlock, vmbuffer);
@@ -703,7 +703,7 @@ loop:
 		pageFreeSpace = PageGetHeapFreeSpace(page);
 		if (targetFreeSpace <= pageFreeSpace)
 		{
-			/* 也把这一页用作以后的插入目标*/
+			/* 也把这一页用作以后的插入目标 */
 			RelationSetTargetBlock(relation, targetBlock);
 			return buffer;
 		}
@@ -748,7 +748,7 @@ loop:
 		}
 		else if (!use_fsm)
 		{
-			/* 没有 FSM 时，总是跳出循环并扩展*/
+			/* 没有 FSM 时，总是跳出循环并扩展        */
 			break;
 		}
 		else
@@ -764,7 +764,7 @@ loop:
 		}
 	}
 
-	/* 必须扩展该关系*/
+	/* 必须扩展该关系       */
 	buffer = RelationAddBlocks(relation, bistate, num_pages, use_fsm,
 							   &unlockedTargetBuffer);
 
@@ -800,7 +800,7 @@ loop:
 	recheckVmPins = false;
 	if (unlockedTargetBuffer)
 	{
-		/* 上面已经释放了目标缓冲区上的锁*/
+		/* 上面已经释放了目标缓冲区上的锁 */
 		if (otherBuffer != InvalidBuffer)
 			LockBuffer(otherBuffer, BUFFER_LOCK_EXCLUSIVE);
 		LockBuffer(buffer, BUFFER_LOCK_EXCLUSIVE);

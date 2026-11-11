@@ -337,7 +337,7 @@ bool		InitializingApplyWorker = false;
 
 /*
  * 如果远程事务的结束 LSN 与 subskiplsn 相匹配，我们          
- * 就为该订阅启用跳过所有数据修改变更（INSERT、UPDATE等）。 
+ * 就为该订阅启用跳过所有数据修改变更（INSERT、UPDATE 等）。
  * 一旦开始跳过变更，在跳过该事务的全部变更之前           
  * 我们不会停止，即使 pg_subscription 被更新且                      
  * MySubscription->skiplsn 在此期间被修改或重置。                                
@@ -4481,7 +4481,7 @@ InitializeApplyWorker(void)
 
 	/*
 	 * 设始终安全搜索路径，使恶意用户无法重定向代码   
-	 * （如pg_index.indexprs）。 
+	 * （如 pg_index.indexprs）。
 	 */
 	SetConfigOption("search_path", "", PGC_SUSET, PGC_S_OVERRIDE);
 

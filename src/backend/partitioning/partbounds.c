@@ -929,7 +929,7 @@ partition_bounds_equal(int partnatts, int16 *parttyplen, bool *parttypbyval,
 		 * 而且每个模数都是下一个更大
 		 * 模数的因子。因此可以安全地把给定分区的下标
 		 * 存在 indexes 数组里该分区余数的位置。并且对任何分区的
-		 * (模数, 余数) 说明，indexes 数组里
+		 * (模数, 余数) 说明，indexes 数组里                      
 		 * (余数 + N * 模数) 位置的项全都相同。因此给定边界的
 		 * datums 数组相同，当且仅当
 		 * 它们的 indexes 数组相同。所以比较
@@ -2952,7 +2952,7 @@ check_new_partition_bound(char *relname, Relation parent,
 					/*
 					 * 取得 boundinfo->datums 里小于等于
 					 * (spec->modulus, spec->remainder) 对的、最大的
-					 * (模数, 余数) 对。
+					 * (模数, 余数) 对。               
 					 */
 					offset = partition_hash_bsearch(boundinfo,
 													spec->modulus,
@@ -2981,7 +2981,7 @@ check_new_partition_bound(char *relname, Relation parent,
 
 						/*
 						 * 我们找到了小于等于新对的最大
-						 * (模数, 余数) 对。该模数必须能整除
+						 * (模数, 余数) 对。该模数必须能整除    
 						 * 新模数，或与它相等。
 						 */
 						prev_modulus = DatumGetInt32(boundinfo->datums[offset][0]);
@@ -3000,7 +3000,7 @@ check_new_partition_bound(char *relname, Relation parent,
 							int			next_modulus;
 
 							/*
-							 * 看下一个更高的 (模数, 余数)
+							 * 看下一个更高的 (模数, 余数)      
 							 * 对。它可能模数相同而余数
 							 * 比新对更大，那种情况下就没问题。
 							 * 若它的模数更大，新模数必须能
@@ -3731,8 +3731,8 @@ partition_range_datum_bsearch(FmgrInfo *partsupfunc, Oid *partcollation,
 
 /*
  * partition_hash_bsearch
- *		返回小于或等于给定 (模数, 余数) 对的
- *		最大 (模数, 余数) 对的下标，若全部都更大
+ *		返回小于或等于给定 (模数, 余数) 对的                
+ *		最大 (模数, 余数) 对的下标，若全部都更大         
  *		则返回 -1。
  */
 int

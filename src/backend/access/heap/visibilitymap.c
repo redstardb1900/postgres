@@ -107,13 +107,13 @@
  */
 #define MAPSIZE (BLCKSZ - MAXALIGN(SizeOfPageHeaderData))
 
-/* 一个字节所能表示的堆块数*/
+/* 一个字节所能表示的堆块数               */
 #define HEAPBLOCKS_PER_BYTE (BITS_PER_BYTE / BITS_PER_HEAPBLOCK)
 
 /* 一张可见性映射页所能表示的堆块数。*/
 #define HEAPBLOCKS_PER_PAGE (MAPSIZE * HEAPBLOCKS_PER_BYTE)
 
-/* 从堆块号映射到可见性映射中对应位*/
+/* 从堆块号映射到可见性映射中对应位                      */
 #define HEAPBLK_TO_MAPBLOCK(x) ((x) / HEAPBLOCKS_PER_PAGE)
 #define HEAPBLK_TO_MAPBYTE(x) (((x) % HEAPBLOCKS_PER_PAGE) / HEAPBLOCKS_PER_BYTE)
 #define HEAPBLK_TO_OFFSET(x) (((x) % HEAPBLOCKS_PER_BYTE) * BITS_PER_HEAPBLOCK)
@@ -124,7 +124,7 @@
 #define FROZEN_MASK64	UINT64CONST(0xaaaaaaaaaaaaaaaa) /* 每一对中较高的
 														 * 那一位 */
 
-/* 内部例程的原型*/
+/* 内部例程的原型            */
 static Buffer vm_readbuf(Relation rel, BlockNumber blkno, bool extend);
 static Buffer vm_extend(Relation rel, BlockNumber vm_nblocks);
 
@@ -146,7 +146,7 @@ visibilitymap_clear(Relation rel, BlockNumber heapBlk, Buffer vmbuf, uint8 flags
 	char	   *map;
 	bool		cleared = false;
 
-	/* 绝不能在 all_frozen 位仍置位时清除 all_visible 位*/
+	/* 绝不能在 all_frozen 位仍置位时清除 all_visible 位     */
 	Assert(flags & VISIBILITYMAP_VALID_BITS);
 	Assert(flags != VISIBILITYMAP_ALL_VISIBLE);
 
@@ -194,7 +194,7 @@ visibilitymap_pin(Relation rel, BlockNumber heapBlk, Buffer *vmbuf)
 {
 	BlockNumber mapBlock = HEAPBLK_TO_MAPBLOCK(heapBlk);
 
-	/* 若可能，复用原先钉住的缓冲区*/
+	/* 若可能，复用原先钉住的缓冲区 */
 	if (BufferIsValid(*vmbuf))
 	{
 		if (BufferGetBlockNumber(*vmbuf) == mapBlock)
@@ -264,11 +264,11 @@ visibilitymap_set(Relation rel, BlockNumber heapBlk, Buffer heapBuf,
 	/* 绝不能在未同时设置 all_visible 位时设置 all_frozen 位*/
 	Assert(flags != VISIBILITYMAP_ALL_FROZEN);
 
-	/* 若提供了堆页面，则检查钉住的是否为正确的那一页*/
+	/* 若提供了堆页面，则检查钉住的是否为正确的那一页 */
 	if (BufferIsValid(heapBuf) && BufferGetBlockNumber(heapBuf) != heapBlk)
 		elog(ERROR, "wrong heap buffer passed to visibilitymap_set");
 
-	/* 检查钉住的是否为正确的可见性映射页*/
+	/* 检查钉住的是否为正确的可见性映射页 */
 	if (!BufferIsValid(vmBuf) || BufferGetBlockNumber(vmBuf) != mapBlock)
 		elog(ERROR, "wrong VM buffer passed to visibilitymap_set");
 
@@ -347,7 +347,7 @@ visibilitymap_get_status(Relation rel, BlockNumber heapBlk, Buffer *vmbuf)
 	elog(DEBUG1, "vm_get_status %s %d", RelationGetRelationName(rel), heapBlk);
 #endif
 
-	/* 若可能，复用原先钉住的缓冲区*/
+	/* 若可能，复用原先钉住的缓冲区 */
 	if (BufferIsValid(*vmbuf))
 	{
 		if (BufferGetBlockNumber(*vmbuf) != mapBlock)
@@ -454,7 +454,7 @@ visibilitymap_prepare_truncate(Relation rel, BlockNumber nheapblocks)
 {
 	BlockNumber newnblocks;
 
-	/* 所剩的最后一个块、字节与位*/
+	/* 所剩的最后一个块、字节与位 */
 	BlockNumber truncBlock = HEAPBLK_TO_MAPBLOCK(nheapblocks);
 	uint32		truncByte = HEAPBLK_TO_MAPBYTE(nheapblocks);
 	uint8		truncOffset = HEAPBLK_TO_OFFSET(nheapblocks);
@@ -488,7 +488,7 @@ visibilitymap_prepare_truncate(Relation rel, BlockNumber nheapblocks)
 		mapBuffer = vm_readbuf(rel, truncBlock, false);
 		if (!BufferIsValid(mapBuffer))
 		{
-			/* 无事可做，文件本来就已经更小*/
+			/* 无事可做，文件本来就已经更小  */
 			return InvalidBlockNumber;
 		}
 
@@ -536,7 +536,7 @@ visibilitymap_prepare_truncate(Relation rel, BlockNumber nheapblocks)
 
 	if (smgrnblocks(RelationGetSmgr(rel), VISIBILITYMAP_FORKNUM) <= newnblocks)
 	{
-		/* 无事可做，文件本来就已经小于所要求的大小*/
+		/* 无事可做，文件本来就已经小于所要求的大小    */
 		return InvalidBlockNumber;
 	}
 

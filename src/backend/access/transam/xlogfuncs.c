@@ -372,12 +372,12 @@ pg_last_wal_replay_lsn(PG_FUNCTION_ARGS)
 }
 
 /*
- * 根据 WAL 位置计算WAL 文件名与十进制字节偏移，        
+ * 根据 WAL 位置计算 WAL 文件名与十进制字节偏移，       
  * 该位置例如由 pg_backup_stop() 或 pg_switch_wal() 返回。
  *
  * 注意恰好位于段边界的位置被视为属于
  * 前一个段。这通常是正确做法，因为
- * 预期用途是确定哪些WAL 文件已可归档。                   
+ * 预期用途是确定哪些 WAL 文件已可归档。                  
  */
 Datum
 pg_walfile_name_offset(PG_FUNCTION_ARGS)

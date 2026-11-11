@@ -648,7 +648,7 @@ perform_rewind(filemap_t *filemap, rewind_source *source,
 		pg_log_info("creating backup label and updating control file");
 
 	/*
-	 * 创建备份标签，告知WAL重放起点。通常为源            
+	 * 创建备份标签，告知 WAL 重放起点。通常为源          
 	 * 与目标的最后公共检查点。若源为备机，可能最后  
 	 * 检查点在备机重启点之后。即源已应用检查点但未  
 	 * 重启点。务必从重启点的 redo 点开始。                   
@@ -739,7 +739,7 @@ sanityChecks(void)
 	}
 
 	/*
-	 * 目标集簇需启用 checksum 或提示位WAL 记录，以          
+	 * 目标集簇需启用 checksum 或提示位 WAL 记录，以         
 	 * 防提示位导致数据损坏。                                  
 	 */
 	if (ControlFile_target.data_checksum_version != PG_DATA_CHECKSUM_VERSION &&

@@ -628,7 +628,7 @@ SyncRepGetSyncRecPtr(XLogRecPtr *writePtr, XLogRecPtr *flushPtr,
 	/*
 	 * 在基于优先级的同步复制中，已同步位置取         
 	 * 同步备库中最旧值。在基于法定人数的复制中则是  
-	 * 第N新。  
+	 * 第 N 新。
 	 *
 	 * SyncRepGetNthLatestSyncRecPtr() 也能计算最旧的        
 	 * 位置。但我们使用 SyncRepGetOldestSyncRecPtr() 来做该        

@@ -788,7 +788,7 @@ parallel_vacuum_process_safe_indexes(ParallelVacuumState *pvs)
  * 处理非并行安全的索引的索引清理（或索引清除）。对于特定索引，这可能
  * 因为诸如当前是否正在执行索引清除等细节而有所不同。
  * 
- *还清理那些低于 parallel_vacuum_compute_workers() 强制的大小截断值的
+ * 还清理那些低于 parallel_vacuum_compute_workers() 强制的大小截断值的
  * 较小索引。
  *                                               
  */

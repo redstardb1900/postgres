@@ -1590,7 +1590,7 @@ SPI_cursor_open_internal(const char *name, SPIPlanPtr plan,
 
 	/*
 	 * 检查该计划是否是 Portal 代码会特判为                   
-	 * 返回一个元组集. 
+	 * 返回元组集。     
 	 */
 	if (!SPI_is_cursor_plan(plan))
 	{
@@ -1644,7 +1644,7 @@ SPI_cursor_open_internal(const char *name, SPIPlanPtr plan,
 
 	/*
 	 * 为 ereport() 设置错误回溯支持，以防 GetCachedPlan     
-	 * 抛出错误.   
+	 * 抛出错误。 
 	 */
 	spicallbackarg.query = plansource->query_string;
 	spicallbackarg.mode = plan->parse_mode;
@@ -1690,7 +1690,7 @@ SPI_cursor_open_internal(const char *name, SPIPlanPtr plan,
 
 	/*
 	 * 为 portal 设置选项。默认 SCROLL 类型的选择方式与      
-	 * PerformCursorOpen 相同.    
+	 * PerformCursorOpen 相同。  
 	 */
 	portal->cursorOptions = plan->cursor_options;
 	if (!(portal->cursorOptions & (CURSOR_OPT_SCROLL | CURSOR_OPT_NO_SCROLL)))
@@ -1707,7 +1707,7 @@ SPI_cursor_open_internal(const char *name, SPIPlanPtr plan,
 	/*
 	 * 禁止在 SELECT FOR UPDATE 上使用 SCROLL。这与                  
 	 * transformDeclareCursorStmt 检查并不重复，因为游标选项  
-	 * 可能未经该处传来.   
+	 * 可能未经该处传来。 
 	 */
 	if (portal->cursorOptions & CURSOR_OPT_SCROLL)
 	{
@@ -1747,7 +1747,7 @@ SPI_cursor_open_internal(const char *name, SPIPlanPtr plan,
 		}
 	}
 
-	/* 设置要使用的快照.   */
+	/* 设置要使用的快照。 */
 	if (read_only)
 		snapshot = GetActiveSnapshot();
 	else
@@ -1769,7 +1769,7 @@ SPI_cursor_open_internal(const char *name, SPIPlanPtr plan,
 	}
 
 	/*
-	 * 启动 portal 执行.  
+	 * 启动 portal 执行。
 	 */
 	PortalStart(portal, paramLI, 0, snapshot);
 
@@ -1870,7 +1870,7 @@ SPI_cursor_close(Portal portal)
 
 /*
  * 返回表示 argIndex 处参数类型 id 的 Oid。第一个            
- * 参数位于索引 0 处.  
+ * 参数位于索引 0 处。
  */
 Oid
 SPI_getargtypeid(SPIPlanPtr plan, int argIndex)
@@ -1885,7 +1885,7 @@ SPI_getargtypeid(SPIPlanPtr plan, int argIndex)
 }
 
 /*
- * 返回已准备计划的参数个数.                 
+ * 返回已准备计划的参数个数。               
  */
 int
 SPI_getargcount(SPIPlanPtr plan)
@@ -1928,7 +1928,7 @@ SPI_is_cursor_plan(SPIPlanPtr plan)
 	/*
 	 * 过去在此强制重新验证缓存计划，但似乎不必要：   
 	 * 失效可能意味着计划返回元组的 rowtype 发生变化， 
-	 * 而不在于它是否返回元组.                                  
+	 * 而不在于它是否返回元组。                                
 	 */
 	SPI_result = 0;
 
@@ -1943,7 +1943,7 @@ SPI_is_cursor_plan(SPIPlanPtr plan)
  * SPI_plan_is_valid --- 测试 SPI 计划当前是否有效       
  * （即未被标记为需要重新验证）。          
  *
- * 使用前请参阅 CachedPlanIsValid 的说明.   
+ * 使用前请参阅 CachedPlanIsValid 的说明。 
  */
 bool
 SPI_plan_is_valid(SPIPlanPtr plan)
@@ -2046,11 +2046,11 @@ SPI_result_code_string(int code)
  * SPI_plan_get_plan_sources --- 获取 SPI 计划底层的         
  * CachedPlanSources.
  *
- * CAUTION: 对于 CachedPlanSource 是否为最新，没有任何检查.     
+ * CAUTION: 对于 CachedPlanSource 是否为最新，没有任何检查。   
  *
  * 导出此函数是为了供 PL/pgSQL 使用（这好过让 PL/pgSQL      
  * 自行直接窥探 SPIPlan）。它未在                          
- * spi.sgml 中文档化，因为我们并不希望太多地方使用它. 
+ * spi.sgml 中文档化，因为我们并不希望太多处使用它。  
  */
 List *
 SPI_plan_get_plan_sources(SPIPlanPtr plan)
@@ -2069,7 +2069,7 @@ SPI_plan_get_plan_sources(SPIPlanPtr plan)
  *
  * 导出此函数是为了供 PL/pgSQL 使用（这好过让 PL/pgSQL      
  * 自行直接窥探 SPIPlan）。它未在                          
- * spi.sgml 中文档化，因为我们并不希望太多地方使用它. 
+ * spi.sgml 中文档化，因为我们并不希望太多处使用它。  
  */
 CachedPlan *
 SPI_plan_get_cached_plan(SPIPlanPtr plan)
@@ -2214,7 +2214,7 @@ spi_printtup(TupleTableSlot *slot, DestReceiver *self)
  * 注意结果数据全部位于 CurrentMemoryContext 或其子上下文； 
  * 实际即数据在 SPI 执行器上下文，我们创建的           
  * 是一个"temporary" SPIPlan。解析期间产生的垃圾也会留在
- * CurrentMemoryContext 中.                    
+ * CurrentMemoryContext 中。                  
  */
 static void
 _SPI_prepare_plan(const char *src, SPIPlanPtr plan)
@@ -2236,13 +2236,13 @@ _SPI_prepare_plan(const char *src, SPIPlanPtr plan)
 	error_context_stack = &spierrcontext;
 
 	/*
-	 * 把请求字符串解析为原始解析树的列表.    
+	 * 把请求字符串解析为原始解析树的列表。  
 	 */
 	raw_parsetree_list = raw_parser(src, plan->parse_mode);
 
 	/*
 	 * 对每个原始解析树做解析分析与规则重写，结果存入 
-	 * 未保存的 plancache 条目.         
+	 * 未保存的 plancache 条目。       
 	 */
 	plancache_list = NIL;
 
@@ -2254,7 +2254,7 @@ _SPI_prepare_plan(const char *src, SPIPlanPtr plan)
 
 		/*
 		 * 在做解析分析之前先创建 CachedPlanSource，因为它   
-		 * 需要看到未修改的原始解析树.   
+		 * 需要看到未修改的原始解析树。 
 		 */
 		plansource = CreateCachedPlan(parsetree,
 									  src,
@@ -2262,7 +2262,7 @@ _SPI_prepare_plan(const char *src, SPIPlanPtr plan)
 
 		/*
 		 * 若提供 parserSetup 钩子，由它驱动参数数据类型  
-		 * 否则我们使用固定的参数列表.  
+		 * 否则我们使用固定的参数列表。
 		 */
 		if (plan->parserSetup != NULL)
 		{
@@ -2306,23 +2306,23 @@ _SPI_prepare_plan(const char *src, SPIPlanPtr plan)
 }
 
 /*
- * 解析但不分析查询字符串.      
+ * 解析但不分析查询字符串。    
  *
  * 这是 _SPI_prepare_plan 的精简版本，只做最初的             
  * 原始解析。它创建"one shot" CachedPlanSources，      
- * 在执行可行之前仍需做解析分析.                    
+ * 在执行可行之前仍需做解析分析。                  
  *
  * 使用"one shot"形式 CachedPlanSource 的好处是                  
  * 消除了数据复制与失效处理开销。推迟解析分析还能 
  * 避免某些原始解析树是 DDL 命令、影响后续解析树  
  * 有效性时产生的问题。这两个特性对                 
- * SPI_execute() 及类似场景都是好事.                     
+ * SPI_execute() 及类似场景都是好事。                   
  *
  * 结果存入 *plan（具体说是 plan->plancache_list）。       
  * 注意结果数据全部位于 CurrentMemoryContext 或其子上下文； 
  * 实际即数据在 SPI 执行器上下文，我们创建的           
  * 是一个"temporary" SPIPlan。解析期间产生的垃圾也会留在
- * CurrentMemoryContext 中.                    
+ * CurrentMemoryContext 中。                  
  */
 static void
 _SPI_prepare_oneshot_plan(const char *src, SPIPlanPtr plan)
@@ -2344,12 +2344,12 @@ _SPI_prepare_oneshot_plan(const char *src, SPIPlanPtr plan)
 	error_context_stack = &spierrcontext;
 
 	/*
-	 * 把请求字符串解析为原始解析树的列表.    
+	 * 把请求字符串解析为原始解析树的列表。  
 	 */
 	raw_parsetree_list = raw_parser(src, plan->parse_mode);
 
 	/*
-	 * 构建 plancache 条目，但先不做解析分析.          
+	 * 构建 plancache 条目，但先不做解析分析。        
 	 */
 	plancache_list = NIL;
 
@@ -2377,7 +2377,7 @@ _SPI_prepare_oneshot_plan(const char *src, SPIPlanPtr plan)
 /*
  * _SPI_execute_plan: 以给定选项执行给定计划            
  *
- * options 包含可从 SPI 外部访问的选项:      
+ * options 包含可从 SPI 外部访问的选项：    
  * params: 传给查询的参数值         
  * read_only: true 表示只读执行（无 CommandCounterIncrement） 
  * allow_nonatomic: true 表示允许非原子 CALL/DO 执行
@@ -2387,9 +2387,9 @@ _SPI_prepare_oneshot_plan(const char *src, SPIPlanPtr plan)
  * owner: 用于持有计划引用计数的 ResourceOwner；       
  *		NULL 则用 CurrentResourceOwner（未保存计划则忽略）    
  *
- * 其他仅限内部访问的选项:             
+ * 其他仅限内部访问的选项：           
  * snapshot: 使用的查询快照，InvalidSnapshot 表示          
- *		对每条查询取新快照的常规行为.      
+ *		对每条查询取新快照的常规行为。    
  * crosscheck_snapshot: 供 RI 用，其他均传 InvalidSnapshot  
  * fire_triggers: true 表示查询结束时触发 AFTER 触发器，       
  *		常规情形；false 表示 AFTER 触发器推迟到外层末尾  
@@ -2415,7 +2415,7 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 	 * 仅当 options->allow_nonatomic 已设置，且连接时给定了  
 	 * *SPI_OPT_NONATOMIC 标志，且我们不处于子事务，则允许  
 	 * 非原子行为，才允许。后两项测试与 _SPI_commit()  
-	 * 是否允许提交相一致；更多说明见该处.              
+	 * 是否允许提交相一致；更多说明见该处。            
 	 */
 	allow_nonatomic = options->allow_nonatomic &&
 		!_SPI_current->atomic && !IsSubTransaction();

@@ -1853,7 +1853,7 @@ makeMultirangeConstructors(const char *name, Oid namespace,
 	pfree(argtypes);
 
 	/*
-	 * 1参构造函数用于转换 
+	 * 1 参构造函数用于转换
 	 *
 	 * 理论上，这个和可变参数（n 参数）构造函数 
 	 * 不应该都要。但单独的 1 参函数使我们能对它定义    

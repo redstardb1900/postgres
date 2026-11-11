@@ -2844,7 +2844,7 @@ psql_completion(const char *text, int start, int end)
 	/* Complete COPY <sth> */
 	else if (Matches("COPY|\\copy", MatchAny))
 		COMPLETE_WITH("FROM", "TO");
-	/* 补全 COPY <sth> FROM|TO为 filename */
+	/* 补全 COPY <sth> FROM|TO 为 filename    */
 	else if (Matches("COPY", MatchAny, "FROM|TO"))
 	{
 		completion_charp = "";
@@ -3533,7 +3533,7 @@ psql_completion(const char *text, int start, int end)
 	/* 补全 CREATE EVENT TRIGGER <name>为 ON */
 	else if (Matches("CREATE", "EVENT", "TRIGGER", MatchAny))
 		COMPLETE_WITH("ON");
-	/* 补全 CREATE EVENT TRIGGER <name> ON为 event_type */
+	/* 补全 CREATE EVENT TRIGGER <name> ON 为 event_type    */
 	else if (Matches("CREATE", "EVENT", "TRIGGER", MatchAny, "ON"))
 		COMPLETE_WITH("ddl_command_start", "ddl_command_end", "sql_drop",
 					  "table_rewrite");
@@ -3590,7 +3590,7 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("SCROLL", "NO SCROLL", "CURSOR");
 	else if (HeadMatches("DECLARE") && TailMatches("SCROLL"))
 		COMPLETE_WITH("CURSOR");
-	/* 补全 DECLARE ... [options] NO为 SCROLL */
+	/* 补全 DECLARE ... [options] NO 为 SCROLL    */
 	else if (HeadMatches("DECLARE") && TailMatches("NO"))
 		COMPLETE_WITH("SCROLL");
 
@@ -3600,10 +3600,10 @@ psql_completion(const char *text, int start, int end)
 	 */
 	else if (HeadMatches("DECLARE") && TailMatches("CURSOR"))
 		COMPLETE_WITH("WITH HOLD", "WITHOUT HOLD", "FOR");
-	/* 补全 DECLARE ... CURSOR WITH|WITHOUT为 HOLD */
+	/* 补全 DECLARE ... CURSOR WITH|WITHOUT 为 HOLD    */
 	else if (HeadMatches("DECLARE") && TailMatches("CURSOR", "WITH|WITHOUT"))
 		COMPLETE_WITH("HOLD");
-	/* 补全 DECLARE ... CURSOR WITH|WITHOUT HOLD为 FOR */
+	/* 补全 DECLARE ... CURSOR WITH|WITHOUT HOLD 为 FOR    */
 	else if (HeadMatches("DECLARE") && TailMatches("CURSOR", "WITH|WITHOUT", "HOLD"))
 		COMPLETE_WITH("FOR");
 

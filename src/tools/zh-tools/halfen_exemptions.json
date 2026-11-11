@@ -1,7 +1,7 @@
 [
  {
   "path": "src/bin/psql/command.c",
-  "pattern": "\\\\\\\\c \\[-reuse-previous=BOOL\\]",
+  "pattern": "\\\\c \\[-reuse-previous=BOOL\\]",
   "reason": "psql \\c usage example block: syntax skeleton line + example literals hst/usr/prt/dbs (placeholders, pseudocode params), zh prose complete around them"
  },
  {
@@ -11,17 +11,17 @@
  },
  {
   "path": "src/bin/psql/command.c",
-  "pattern": "\\\\\\\\gset \\[prefix\\]",
+  "pattern": "\\\\gset \\[prefix\\]",
   "reason": "psql \\gset usage-line syntax skeleton [prefix]"
  },
  {
   "path": "src/bin/psql/command.c",
-  "pattern": "\\\\\\\\help \\[topic\\]",
+  "pattern": "\\\\help \\[topic\\]",
   "reason": "psql \\help usage-line syntax skeleton [topic]"
  },
  {
   "path": "src/bin/psql/command.c",
-  "pattern": "\\\\\\\\if <expr>",
+  "pattern": "\\\\if <expr>",
   "reason": "psql \\if/\\elif usage-line syntax skeleton <expr> (the \\if block header comment and the \\elif comment referencing it)"
  },
  {
@@ -36,7 +36,7 @@
  },
  {
   "path": "src/bin/psql/command.c",
-  "pattern": "\\\\\\\\pset pager",
+  "pattern": "\\\\pset pager",
   "reason": "quoted literal \"\\pset pager\" kept verbatim (fe-connect GUC-literal family)"
  },
  {

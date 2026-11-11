@@ -10,7 +10,7 @@
 #include <signal.h>
 #include <sys/stat.h>
 #ifndef WIN32
-#include <unistd.h>				/* 用于isatty */
+#include <unistd.h>				/* 用于 isatty */
 #else
 #include <io.h>					/* 我认为 */
 #endif

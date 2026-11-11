@@ -3905,7 +3905,7 @@ describeRoleGrants(const char *pattern, bool showSystem)
  * m - 物化视图
  * s - 序列
  * E - 外部表（注意：与 'f' 不同，后者是 relkind 值）
- *（以上任意顺序均可）
+ * （以上任意顺序均可）  
  */
 bool
 listTables(const char *tabtypes, const char *pattern, bool verbose, bool showSystem)

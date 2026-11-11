@@ -126,7 +126,7 @@ struct PartitionTupleRouting
  * tupslot
  *		以该表元组描述符初始化的独立                     
  *		TupleTableSlot；与父表间无需转换时                    
- *		为NULL  
+ *		为 NULL 
  *
  * tupmap
  *		TupleConversionMap，用于把父表的行类型转换为该表的     

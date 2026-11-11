@@ -105,7 +105,7 @@ static Node *transformFrameOffset(ParseState *pstate, int frameOptions,
 /*
  * transformFromClause -
  *	  处理 FROM 子句，把各项加入查询的范围表、        
- *	  joinlist与命名空间 
+ *	  joinlist 与命名空间
  *
  * 注意：我们假定 pstate 的 p_rtable、p_joinlist、              
  * 和 p_namespace 列表在创建时已初始化为 NIL。  
@@ -174,7 +174,7 @@ transformFromClause(ParseState *pstate, List *frmList)
  *	  命名空间初始为空。）  
  *
  *	  最后，我们将该关系标记为需要指定的权限，        
- *	  即requiredPerms 
+ *	  即 requiredPerms
  *
  *	  返回目标关系在范围表中的下标。       
  */
@@ -1180,7 +1180,7 @@ transformFromClauseItem(ParseState *pstate, Node *n,
 		 * 若连接类型非 INNER 或 LEFT，左侧名字仍须             
 		 * 暴露，但引用它们则报错（设计很蠢，但规  
 		 * 范就是如此。）因此我们总会把它们压入命名      
-		 * 空间，jointype不对时就标为非                      
+		 * 空间，jointype 不对时就标为非                     
 		 *  lateral_ok。                      
 		 *
 		 * 注意，我们并不需要合并后的命名空间列表   

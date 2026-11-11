@@ -161,7 +161,7 @@ static int	ldapServiceLookup(const char *purl, PQconninfoOption *options,
  * 用于初始化动态工作副本。所有 "val"
  * *须*为 NULL。工作副本中非 NULL "val"
  * 指向 malloc 串，释放数组时一并释放
- *（见 PQconninfoFree）。
+ * （见 PQconninfoFree）。         
  *
  * 各 struct 前半与 libpq-fe.h 相同，
  * 因两者间需 memcpy() 复制。
@@ -637,7 +637,7 @@ pqDropServerData(PGconn *conn)
  * 本 API 有六种连接方式。两种不推荐
  * 新代码用（缺选项传递扩展性）：
  * PQsetdb 和 PQsetdbLogin
- *（前者是后者的宏）。
+ * （前者是后者的宏）。                                            
  *
  * 同步（阻塞）用 PQconnectdb 或
  * PQconnectdbParams。前者接受
@@ -769,7 +769,7 @@ PQping(const char *conninfo)
  * 返回 PGconn*。NULL 即 malloc 错，
  * 不应继续。status 为 CONNECTION_BAD
  * 表示出错，应对结果调 PQfinish
- *（可先检查错误消息）。其他字段
+ * （可先检查错误消息）。其他字段                          
  * 可能无效。status 非 BAD 则此阶段
  * 成功 - 调 PQconnectPoll 用 select(2)
  * 判断何时需调。
@@ -850,7 +850,7 @@ PQconnectStartParams(const char *const *keywords,
  * 返回 PGconn*。NULL 即 malloc 错，
  * 不应继续。status 为 CONNECTION_BAD
  * 表示出错，应对结果调 PQfinish
- *（可先检查错误消息）。其他字段
+ * （可先检查错误消息）。其他字段                          
  * 可能无效。status 非 BAD 则此阶段
  * 成功 - 调 PQconnectPoll 用 select(2)
  * 判断何时需调。
@@ -942,7 +942,7 @@ fillPGconn(PGconn *conn, PQconninfoOption *connOptions)
  * 覆盖默认值。）
  *
  * 成功返 true，出错返 false
- *（errorMessage 和 status 已设）。
+ * （errorMessage 和 status 已设）。
                                                                                                                       */
 static bool
 connectOptions1(PGconn *conn, const char *conninfo)
@@ -1065,7 +1065,7 @@ libpq_prng_init(PGconn *conn)
  * 吸收所有用户信息后计派生连接选项。
  *
  * 成功返 true，出错返 false
- *（errorMessage 和 status 已设）。
+ * （errorMessage 和 status 已设）。
                                                  */
 static bool
 connectOptions2(PGconn *conn)
@@ -1773,7 +1773,7 @@ oom_error:
  *
  * 注意：PG 7.0 起数组动态分配，
  * 不再需时用 PQconninfoFree() 释放。
- *（此前静态但非线程安全。）旧应用
+ * （此前静态但非线程安全。）旧应用                     
  * 有少量内存泄漏直到更新。
                                                                                                                                                                                                                                                                                                                  
 */
@@ -2362,7 +2362,7 @@ connectDBStart(PGconn *conn)
 
 	/*
 	 * 设尝试连第一主机。
-	 *（whichhost=-1 不妥但
+	 * （whichhost=-1 不妥但                                      
 	 * PQconnectPoll 会推到 0。）
 	                                                                                */
 	conn->whichhost = -1;
@@ -2388,7 +2388,7 @@ connect_errReturn:
 
 	/*
 	 * 若开套接字立关不等 PQfinish。
-	 *（应用未通过 PQsocket 获取
+	 * （应用未通过 PQsocket 获取                                    
 	 * 故不破坏。）
 	                                                                                                        */
 	pqDropConnection(conn, true);
@@ -2907,7 +2907,7 @@ keep_going:						/* 回此处直到无事可做
 					/*
 					 * 识别目标地址后除 socket()
 					 * 失败外均加主机身份前缀。
-					 *（连成则 errorMessage 内容
+					 * （连成则 errorMessage 内容                 
 					 * 不重要，故无害。）
 					                                                                                                                           
 */
@@ -3207,9 +3207,9 @@ keep_going:						/* 回此处直到无事可做
 					 * GSSAPI 加密启用则调
 					 * pg_GSS_have_cred_cache()
 					 * 若能获凭据返回 true
-					 *（给 conn->gcred 句柄），
+					 * （给 conn->gcred 句柄），                         
 					 * 然后发 GSSAPI 加密请求
-					 *（跳过 SSL 协商和常规启动）
+					 * （跳过 SSL 协商和常规启动）
 					                                                                                                             */
 				if (conn->try_gss && !conn->gctx)
 					conn->try_gss = pg_GSS_have_cred_cache(&conn->gcred);
@@ -3241,7 +3241,7 @@ keep_going:						/* 回此处直到无事可做
 				/*
 					 * 检查 SSL 前启 libcrypto 回调。
 					 * 发启动包前做因某些认证
-					 *（如 MD5/SCRAM）即使无 SSL
+					 * （如 MD5/SCRAM）即使无 SSL                        
 					 * 也需这些回调
 					                                                                                                                                                       
 */
@@ -4551,7 +4551,7 @@ sendTerminateConn(PGconn *conn)
  *
  * 重置/释放所有瞬态，保留连接
  * 参数。退出时应处于可重连态
- *（若参数仍有效）。
+ * （若参数仍有效）。                         
                                                                                                                  */
 static void
 closePGconn(PGconn *conn)
@@ -5288,7 +5288,7 @@ ldapServiceLookup(const char *purl, PQconninfoOption *options,
 	 *
 	 * LDAP 并不要求必须显式地执行匿名绑定，但我们       
 	 * 想区分以下两种情况：其一是 LDAP 绑定在              
-	 * PGLDAP_TIMEOUT 秒内未成功（返回2，继续解析                
+	 * PGLDAP_TIMEOUT 秒内未成功（返回 2，继续解析               
 	 * 服务控制文件）；其二是查询 LDAP 服务器失败           
 	 * （返回1则终止）。 
 	 *

@@ -3024,7 +3024,7 @@ make_distinct_op(ParseState *pstate, List *opname, Node *ltree, Node *rtree,
 }
 
 /*
- * 由IS [NOT] DISTINCT FROM NULL构造生成NullTest节点             
+ * 由 IS [NOT] DISTINCT FROM NULL 构造生成 NullTest 节点         
  *
  * "arg"是未经转换的另一参数      
  */
@@ -3155,7 +3155,7 @@ ParseExprKindName(ParseExprKind exprKind)
 /*
  * 按JSON编码名构造字符串Const节点。  
  *
- * UTF8为默认编码。   
+ * UTF8 为默认编码。  
  */
 static Const *
 getJsonEncodingConst(JsonFormat *format)
@@ -3194,7 +3194,7 @@ getJsonEncodingConst(JsonFormat *format)
 }
 
 /*
- * 用指定的JSON格式编码进行bytea => text转换。           
+ * 用指定的 JSON 格式编码进行 bytea => text 转换。       
  */
 static Node *
 makeJsonByteaToTextConversion(Node *expr, JsonFormat *format, int location)
@@ -3214,8 +3214,8 @@ makeJsonByteaToTextConversion(Node *expr, JsonFormat *format, int location)
  * 用指定的输入JSON格式转换JSON值表达式，若未指定   
  * 则用默认格式。    
  *
- * 返回的表达式要么是ve->raw_expr强制转换为text（若         
- * 需要）；要么是JsonValueExpr，若格式需要，formatted_expr  
+ * 返回的表达式要么是 ve->raw_expr 强制转换为 text（若      
+ * 需要）；要么是 JsonValueExpr，若格式需要，formatted_expr 
  * 被置为raw_expr的转换副本。 
  */
 static Node *
@@ -3365,7 +3365,7 @@ checkJsonOutputFormat(ParseState *pstate, const JsonFormat *format,
 }
 
 /*
- * 转换JSON输出子句。    
+ * 转换 JSON 输出子句。  
  *
  * 设置目标类型OID与修饰符。 
  * 设置默认格式，或检查指定格式是否适用于目标           
@@ -3409,9 +3409,9 @@ transformJsonOutput(ParseState *pstate, const JsonOutput *output,
 }
 
 /*
- * 转换JSON构造函数的JSON输出子句。               
+ * 转换 JSON 构造函数的 JSON 输出子句。           
  *
- * 若未指定RETURNING类型，则从参数类型推导。    
+ * 若未指定 RETURNING 类型，则从参数类型推导。  
  */
 static JsonReturning *
 transformJsonConstructorOutput(ParseState *pstate, JsonOutput *output,
@@ -3454,7 +3454,7 @@ transformJsonConstructorOutput(ParseState *pstate, JsonOutput *output,
 }
 
 /*
- * 将json[b]值的函数表达式转换为输出类型。      
+ * 将 json[b]值的函数表达式转换为输出类型。     
  */
 static Node *
 coerceJsonFuncExpr(ParseState *pstate, Node *expr,
@@ -3531,8 +3531,8 @@ makeJsonConstructorExpr(ParseState *pstate, JsonConstructorType type,
 	jsctor->location = location;
 
 	/*
-	 * 若需要，强制转换为RETURNING类型和格式。       
-	 * 我们在此把CaseTestExpr当作占位符，用来传递    
+	 * 若需要，强制转换为 RETURNING 类型和格式。     
+	 * 我们在此把 CaseTestExpr 当作占位符，用来传递  
 	 * 'fexpr'的求值结果，或ExecEvalJsonConstructor()产生的、类型
 	 * 为JSON或JSONB的结果，传给强制转换函数。 
 	 */
@@ -3567,10 +3567,10 @@ makeJsonConstructorExpr(ParseState *pstate, JsonConstructorType type,
 }
 
 /*
- * 转换JSON_OBJECT()构造函数。  
+ * 转换 JSON_OBJECT()构造函数。 
  *
- * JSON_OBJECT()被转换成类型为JSCTOR_JSON_OBJECT的             
- * JsonConstructorExpr节点。结果强制转换为由ctor->output   
+ * JSON_OBJECT()被转换成类型为 JSCTOR_JSON_OBJECT 的           
+ * JsonConstructorExpr 节点。结果强制转换为由 ctor->output 
  * 指定类型。 
  */
 static Node *
@@ -3606,7 +3606,7 @@ transformJsonObjectConstructor(ParseState *pstate, JsonObjectConstructor *ctor)
 }
 
 /*
- * 把JSON_ARRAY(query [FORMAT] [RETURNING] [ON NULL])转换成   
+ * 把 JSON_ARRAY(query [FORMAT] [RETURNING] [ON NULL])转换成  
  *  (SELECT  JSON_ARRAYAGG(a  [FORMAT] [RETURNING] [ON NULL]) FROM (query) q(a))
  */
 static Node *
@@ -3678,7 +3678,7 @@ transformJsonArrayQueryConstructor(ParseState *pstate,
 }
 
 /*
- * JSON_OBJECTAGG与JSON_ARRAYAGG转换的公共代码。          
+ * JSON_OBJECTAGG 与 JSON_ARRAYAGG 转换的公共代码。       
  */
 static Node *
 transformJsonAggConstructor(ParseState *pstate, JsonAggConstructor *agg_ctor,
@@ -3757,12 +3757,12 @@ transformJsonAggConstructor(ParseState *pstate, JsonAggConstructor *agg_ctor,
 }
 
 /*
- * 转换JSON_OBJECTAGG()聚合函数。         
+ * 转换 JSON_OBJECTAGG()聚合函数。        
  *
- * JSON_OBJECTAGG()被转换成类型为JSCTOR_JSON_OBJECTAGG的          
+ * JSON_OBJECTAGG()被转换成类型为 JSCTOR_JSON_OBJECTAGG 的        
  * JsonConstructorExpr节点，它在运行时变成
  * json[b]_object_agg[_unique][_strict](agg->arg->key, agg->arg->value)     
- * 调用，取决于输出JSON格式。结果被强制转换为目标      
+ * 调用，取决于输出 JSON 格式。结果被强制转换为目标    
  * 类型，见agg->constructor->output。
  */
 static Node *
@@ -3820,12 +3820,12 @@ transformJsonObjectAgg(ParseState *pstate, JsonObjectAgg *agg)
 }
 
 /*
- * 转换JSON_ARRAYAGG()聚合函数。         
+ * 转换 JSON_ARRAYAGG()聚合函数。        
  *
- * JSON_ARRAYAGG()被转换成类型为JSCTOR_JSON_ARRAYAGG的           
- * JsonConstructorExpr节点，运行时变成     
+ * JSON_ARRAYAGG()被转换成类型为 JSCTOR_JSON_ARRAYAGG 的         
+ * JsonConstructorExpr 节点，运行时变成    
  * json[b]_object_agg[_unique][_strict](agg->arg)调用，取决于输出     
- * JSON格式。结果强制转换为由agg->constructor->output  
+ * JSON 格式。结果强制转换为由 agg->constructor->output
  * 给定的类型。       
  */
 static Node *
@@ -3861,10 +3861,10 @@ transformJsonArrayAgg(ParseState *pstate, JsonArrayAgg *agg)
 }
 
 /*
- * 转换JSON_ARRAY()构造函数。  
+ * 转换 JSON_ARRAY()构造函数。 
  *
- * JSON_ARRAY()被转换成类型为JSCTOR_JSON_ARRAY的              
- * JsonConstructorExpr节点。结果强制转换为由ctor->output  
+ * JSON_ARRAY()被转换成类型为 JSCTOR_JSON_ARRAY 的            
+ * JsonConstructorExpr 节点。结果强制转换为由 ctor->output
  * 指定类型。 
  */
 static Node *
@@ -3945,7 +3945,7 @@ transformJsonParseArg(ParseState *pstate, Node *jsexpr, JsonFormat *format,
 }
 
 /*
- * 转换IS JSON谓词。      
+ * 转换 IS JSON 谓词。    
  */
 static Node *
 transformJsonIsPredicate(ParseState *pstate, JsonIsPredicate *pred)

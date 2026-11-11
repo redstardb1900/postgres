@@ -2316,7 +2316,7 @@ storage_name(char c)
  * 返回值： 
  * 完成模式列表。 
  *
- * 注:  
+ * 注：
  *	  属性被继承的顺序非常重要。                           
  *	  直观上，被继承的属性应该排在前面。如果一张表 
  *	  继承自多个父表，那么这些属性的顺序就按照     
@@ -4173,7 +4173,7 @@ CheckAlterTableIsSafe(Relation rel)
 
 	/*
 	 * 同时检查该关系在当前事务内的活跃使用，包括       
-	 * 打开的扫描与待处理AFTER触发器事件。    
+	 * 打开的扫描与待处理 AFTER 触发器事件。  
 	 */
 	CheckTableNotInUse(rel, "ALTER TABLE");
 }
@@ -4265,7 +4265,7 @@ AlterTable(AlterTableStmt *stmt, LOCKMODE lockmode,
  * 因为很可能某一层或几层调用方都打开着它。         
  * 这意味着对可能破坏现有查询计划的修改而言，   
  * 使用此入口是不安全的。假定它不用于此类目       
- * 的，待处理AFTER触发器亦无需拒绝。     
+ * 的，待处理 AFTER 触发器亦无需拒绝。   
  *
  * 此外，由于没有 AlterTableUtilityContext，它无法           
  * 用于任何需要解析转换的子命令类型，或者         

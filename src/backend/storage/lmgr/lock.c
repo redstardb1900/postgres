@@ -1606,7 +1606,7 @@ UnGrantLock(LOCK *lock, LOCKMODE lockmode,
 	LOCK_PRINT("UnGrantLock: updated", lock, lockmode);
 
 	/*
-	 * 只有当被释放的锁与waiter 所请求的至少一种
+	 * 只有当被释放的锁与 waiter 所请求的至少一种           
 	 * 锁类型冲突时，才需要运行 ProcLockWakeup。否则，当初让他们
 	 * 等待的冲突必然仍然存在。注意：在 MVCC 之前，若
 	 * lock->granted[lockmode] 仍为正，就可以跳过唤醒。但现在

@@ -2263,7 +2263,7 @@ compute_distinct_stats(VacAttrStatsP stats,
 			double		N = totalrows * (1.0 - stats->stanullfrac);
 			double		stadistinct;
 
-			/* N == 0 不应发生, 但以防 ... */
+			/* N == 0 不应发生， 但以防 ...          */
 			if (N > 0)
 				stadistinct = (n * d) / ((n - f1) + f1 * n / N);
 			else
@@ -2628,7 +2628,7 @@ compute_scalar_stats(VacAttrStatsP stats,
 			double		N = totalrows * (1.0 - stats->stanullfrac);
 			double		stadistinct;
 
-			/* N == 0 不应发生, 但以防 ... */
+			/* N == 0 不应发生， 但以防 ...          */
 			if (N > 0)
 				stadistinct = (n * d) / ((n - f1) + f1 * n / N);
 			else

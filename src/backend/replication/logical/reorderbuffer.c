@@ -398,7 +398,7 @@ ReorderBufferAllocate(void)
 }
 
 /*
- * 释放ReorderBuffer 
+ * 释放 ReorderBuffer
  */
 void
 ReorderBufferFree(ReorderBuffer *rb)

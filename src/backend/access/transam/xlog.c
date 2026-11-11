@@ -148,13 +148,13 @@ int			wal_segment_size = DEFAULT_XLOG_SEG_SIZE;
 
 /*
  * WAL 插入锁的数量。较高的值允许更多的插入操作
- * 并发发生，但会增加刷盘WAL时的CPU开销，
+ * 并发发生，但会增加刷盘 WAL 时的 CPU 开销，             
  * 因为需要迭代所有锁。
  */
 #define NUM_XLOGINSERT_LOCKS  8
 
 /*
- * 与上次检查点的最大距离，在触发新的基于xlog的
+ * 与上次检查点的最大距离，在触发新的基于 xlog 的   
  * 检查点之前。
  */
 int			CheckPointSegments;
@@ -215,8 +215,8 @@ CheckpointStatsData CheckpointStats;
 /*
  * 在恢复期间，
  * lastFullPageWrites跟踪重放的WAL记录所指示的full_page_writes。
- * 它使用恢复开始时检查点记录所指示的full_page_writes初始化，
- * 然后在每次重放XLOG_FPW_CHANGE记录时进行更新。
+ * 它使用恢复开始时检查点记录所指示的 full_page_writes 初始化，
+ * 然后在每次重放 XLOG_FPW_CHANGE 记录时进行更新。
  */
 static bool lastFullPageWrites;
 
@@ -229,10 +229,10 @@ static bool LocalRecoveryInProgress = true;
 
 /*
  * XLogInsertAllowed() 的本地状态：
- *		1: 无条件允许插入XLOG
- *		0: 无条件不允许插入XLOG
+ *		1: 无条件允许插入 XLOG            
+ *		0: 无条件不允许插入 XLOG             
  *		-1: 必须检查 RecoveryInProgress(); 在其为假之前不允许
- * 大多数进程以-1开始，在看到恢复未进行后转换为1。
+ * 大多数进程以-1 开始，在看到恢复未进行后转换为 1。    
  * 但对于特殊情况我们也可以强制设定该值。
  * XLogInsertAllowed() 中的编码取决于前两种状态
  * 在数值上与布尔型的 true 和 false 相同。
@@ -259,7 +259,7 @@ XLogRecPtr	XactLastRecEnd = InvalidXLogRecPtr;
 XLogRecPtr	XactLastCommitEnd = InvalidXLogRecPtr;
 
 /*
- * RedoRecPtr 是此后端的 REDO 记录指针的本地副本（它几乎但不完全等同于指向最新CHECKPOINT 记录的指针）。
+ * RedoRecPtr 是此后端的 REDO 记录指针的本地副本（它几乎但不完全等同于指向最新 CHECKPOINT 记录的指针）。
  * 我们在能够安全地执行此操作时从共享内存副本更新它，
  * XLogCtl->Insert.RedoRecPtr（即当我们持有插入锁时）。
  * 有关详细信息，
@@ -299,7 +299,7 @@ static bool doPageWrites;
  * 但被分别声明以表明它们略有不同的功能。
  *
  * 要读取 XLogCtl->LogwrtResult，
- * 您必须持有 info_lck 或WALWriteLock。
+ * 您必须持有 info_lck 或 WALWriteLock。                           
  * 要更新它，您需要同时持有两个锁。
  * 这种安排的要点是已经持有 WALWriteLock 的代码可以在不需要同时获取 info_lck 的情况下检查该值。
  * 此外除了共享变量，
@@ -349,13 +349,13 @@ typedef struct XLogwrtResult
  * 会读取 insertingAt 值，
  * 以检查所有插入到该进程即将写出的区域的操作是否已完成。
  * 您可以简单地等待所有当前正在进行的插入完成，
- * 但 insertingAt指示器允许您忽略
+ * 但 insertingAt 指示器允许您忽略                                  
  * WAL 后续位置的插入，
  * 这样您只需等待那些正在修改您即将写出的缓冲区的插入。
  *
  * 这不仅仅是优化。
  * 如果所有 WAL 缓冲区都是脏的，
- * 持有 WAL 插入锁的插入器可能需要驱逐旧的 WAL缓冲区，
+ * 持有 WAL 插入锁的插入器可能需要驱逐旧的 WAL 缓冲区，
  * 这需要刷盘 WAL。
  * 如果插入器可能不必要地阻塞在另一个插入器上，
  * 当两个持有 WAL 插入锁的插入器相互等待完成插入时，可能会发生死锁。
@@ -366,7 +366,7 @@ typedef struct XLogwrtResult
  * 持有插入锁时休眠之前更新。
  *
  * lastImportantAt 包含使用给定锁插入的最后一个重要 WAL
- * 记录的 LSN此值用于检测自上次某些操作（如检查点）执行以来是否有重要
+ * 记录的 LSN 此值用于检测自上次某些操作（如检查点）执行以来是否有重要
  * WAL 活动 - 如果没有则不重复执行操作。
  * LSN 是为所有插入更新的，
  * 除非设置了 XLOG_MARK_UNIMPORTANT 标志。
@@ -488,11 +488,11 @@ typedef struct XLogCtlData
 	 * 缓存中最新初始化的页面（最后一个字节位置 + 1）。
 	 *
 	 * 要更改缓冲区的标识（以及 InitializedUpTo），
-	 * 需要持有WALBufMappingLock。
+	 * 需要持有 WALBufMappingLock。                                 
 	 * 要更改仍为脏的缓冲区的标识，
 	 * 需要先写出旧页面，
 	 * 这需要 WALWriteLock，
-	 * 并且需要通过调用WaitXLogInsertionsToFinish() 确保没有正在进行的插入到该页面。
+	 * 并且需要通过调用 WaitXLogInsertionsToFinish() 确保没有正在进行的插入到该页面。
 	 */
 	XLogRecPtr	InitializedUpTo;
 
@@ -715,17 +715,17 @@ static void WALInsertLockUpdateInsertingAt(XLogRecPtr insertingAt);
  * 'flags' 对正在插入的记录提供更深入的控制。
  * 详见 XLogSetRecordFlags()。
  *
- * 'topxid_included' 告诉顶级事务ID是否与
+ * 'topxid_included' 告诉顶级事务 ID 是否与                          
  * 当前子事务一起记录。参见 XLogRecordAssemble()。
  *
  * 链中的第一个 XLogRecData 必须用于记录头，
  * 其数据必须是 MAXALIGNed。
- * XLogInsertRecord 填充头中的 xl_prev 和xl_crc 字段，
+ * XLogInsertRecord 填充头中的 xl_prev 和 xl_crc 字段，             
  * 头的其余部分必须已由调用者填充。
  *
  * 返回记录末尾的 XLOG 指针（下一条记录的开始）。
  * 这可以用作受日志记录操作影响的数据页面的 LSN。
- * （LSN 是在数据页面可以写出之前必须将 XLOG 刷盘到磁盘的XLOG 点。
+ * （LSN 是在数据页面可以写出之前必须将 XLOG 刷盘到磁盘的 XLOG 点。
  * 这实现了基本的 WAL 规则"先写日志再写数据"。
  * ）
  */
@@ -1282,7 +1282,7 @@ CopyXLogRecordToWAL(int write_len, bool isLogSwitch, XLogRecData *rdata,
 			 *
 			 * 与其使 AdvanceXLInsertBuffer 
 			 * 本身复杂化（它在高负载情况下以及这种轻负载情况下都会被调用），
-			 * 我们只需使用GetXLogBuffer（
+			 * 我们只需使用 GetXLogBuffer（                         
 			 * 它本身调用我们需要的两个方法）来获取指针并将大部分页面清零。
 			 * 然后我们只需将页面头清零。
 			 */
@@ -1491,13 +1491,13 @@ WaitXLogInsertionsToFinish(XLogRecPtr upto)
 			/*
 			 * 查看此插入是否正在进行。
 			 * LWLockWaitForVar 将等待锁被释放，
-			 * 或等待 'value' 由LWLockUpdateVar 调用设置。
+			 * 或等待 'value' 由 LWLockUpdateVar 调用设置。         
 			 * 当锁最初被获取时，
 			 * 其值为 0 (InvalidXLogRecPtr)，这意味着我们不知道它在哪里插入。
 			 * 我们必须等待。
 			 * 如果它是一个小插入，
 			 * 记录很可能会适应同一页，
-			 * 插入者将在不调用LWLockUpdateVar 的情况下释放锁。
+			 * 插入者将在不调用 LWLockUpdateVar 的情况下释放锁。
 			 * 但如果它需要休眠，它将在休眠前用 LWLockUpdateVar 广告插入点。
 			 */
 			if (LWLockWaitForVar(&WALInsertLocks[i].l.lock,
@@ -1601,7 +1601,7 @@ GetXLogBuffer(XLogRecPtr ptr, TimeLineID tli)
 		 * 如果我们广播的是页面头之后的位置，
 		 * 有人可能会尝试刷盘页面头，
 		 * 即使页面实际上可能尚未初始化。
-		 * 作为页面上的第一个插入者，我们有责任确保在让insertingAt 越过页面头之前它已被初始化。
+		 * 作为页面上的第一个插入者，我们有责任确保在让 insertingAt 越过页面头之前它已被初始化。
 		 */
 		if (ptr % XLOG_BLCKSZ == SizeOfXLogShortPHD &&
 			XLogSegmentOffset(ptr, wal_segment_size) > XLOG_BLCKSZ)
@@ -1772,7 +1772,7 @@ XLogRecPtrToBytePos(XLogRecPtr ptr)
  * 初始化 XLOG 缓冲区，
  * 如果旧缓冲区仍包含未写入数据，则写出旧缓冲区，
  * 直到包含 'upto' 的页面。
- * 或者如果 'opportunistic' 为true，则在不写出未写入数据的情况下初始化尽可能多的页面。
+ * 或者如果 'opportunistic' 为 true，则在不写出未写入数据的情况下初始化尽可能多的页面。
  * 任何新页面都初始化为零，页面头正确初始化。
  */
 static void
@@ -2034,7 +2034,7 @@ XLOGfileslop(XLogRecPtr lastredoptr)
 }
 
 /*
- * 检查我们是否消耗了足够的xlog空间以至于需要检查点。
+ * 检查我们是否消耗了足够的 xlog 空间以至于需要检查点。
  *
  * new_segno 表示刚刚填满的日志文件（或在恢复
  * 期间读取）。我们测量从 RedoRecPtr 到 new_segno
@@ -2445,9 +2445,9 @@ UpdateMinRecoveryPoint(XLogRecPtr lsn, bool force)
 	 * 即我们正在进行崩溃恢复。
 	 * 在这种情况下我们从不修改控制文件的值，
 	 * 所以我们也可以在此处短路未来的检查。
-	 * minRecoveryPoint 和minRecoveryPointTLI 的本地值在崩溃恢复完成之前不应更新。
+	 * minRecoveryPoint 和 minRecoveryPointTLI 的本地值在崩溃恢复完成之前不应更新。
 	 * 我们只对启动进程这样做，
-	 * 因为它在完成崩溃恢复之前不应更新自己的minRecoveryPoint 引用，
+	 * 因为它在完成崩溃恢复之前不应更新自己的 minRecoveryPoint 引用，
 	 * 以确保在这种情况下重放所有可用的 WAL。
 	 * 这也避免了启动进程对控制文件进行额外的锁定。
 	 */
@@ -2624,7 +2624,7 @@ XLogFlush(XLogRecPtr record)
 
 			/*
 			 * 重新检查我们现在可以刷盘 WAL 到多远。
-			 * 通常在持有WALWriteLock 时调用 WaitXLogInsertionsToFinish
+			 * 通常在持有 WALWriteLock 时调用 WaitXLogInsertionsToFinish
 			 * 是不安全的，
 			 * 因为正在进行的插入可能也需要获取 WALWriteLock 才能继续。
 			 * 但我们知道到 insertpos 的所有插入已经完成，
@@ -2663,7 +2663,7 @@ XLogFlush(XLogRecPtr record)
 	 * 如果在恢复期间再次遇到坏页面，
 	 * 我们将完全无法重新启动数据库！（这种情况实际上在 7.1 版本的现场发生过几次。
 	 * ）从 8.4 开始，
-	 * 恢复期间遇到的坏 LSN 是UpdateMinRecoveryPoint 的问题；
+	 * 恢复期间遇到的坏 LSN 是 UpdateMinRecoveryPoint 的问题； 
 	 * 我们在恢复期间能到达这里的唯一时间是刷盘恢复结束检查点记录时，
 	 * 我们不期望它有坏的 LSN。
 	 *
@@ -3055,7 +3055,7 @@ XLogFileInitInternal(XLogSegNo logsegno, TimeLineID logtli,
 	 * 通常，在检查点时，
 	 * XLOGfileslop 是从检查点记录开始的偏移量，
 	 * 但在这里，它是从插入位置开始的偏移量。
-	 * 我们不能在这里做正常的XLOGfileslop 计算，因为我们要无法访问前一个检查点的重做位置。
+	 * 我们不能在这里做正常的 XLOGfileslop 计算，因为我们要无法访问前一个检查点的重做位置。
 	 * 所以有些随意地，直接使用 CheckPointSegments。
 	 */
 	max_segno = logsegno + CheckPointSegments;
@@ -3388,17 +3388,17 @@ XLogFileClose(void)
  * XXX 这目前极其保守，
  * 因为它只强制存在一个未来的日志段，
  * 而且只有在当前段完成 75% 时才这样做。
- * 这只适用于非常低WAL 量的系统。
+ * 这只适用于非常低 WAL 量的系统。                            
  * 高流量系统一旦建立了足够的回收日志段集就会正常工作，
  * 但启动过渡期可能包括大量由前台进程创建的段，这不太好。
  *
  * XLogFileInitInternal() 可以 ereport(ERROR)。
  * 所有已知原因都表明有重大问题；例如，
  * 文件系统满是原因之一。
- * 检查点 WAL和/或 ControlFile 更新已经完成。如果 RequestCheckpoint()发起了当前检查点，
- * 而 ERROR 结束了此函数，则调用RequestCheckpoint() 的命令失败。
+ * 检查点 WAL 和/或 ControlFile 更新已经完成。如果 RequestCheckpoint()发起了当前检查点，
+ * 而 ERROR 结束了此函数，则调用 RequestCheckpoint() 的命令失败。
  * 这不理想，
- * 但不值得为了使用调用者指定的 elevel 值而扭曲更多函数。（无论是否有RequestCheckpoint()，
+ * 但不值得为了使用调用者指定的 elevel 值而扭曲更多函数。（无论是否有 RequestCheckpoint()，
  * ERROR 都会阻止一些非必要的报告和资源回收。）
  */
 static void
@@ -3808,7 +3808,7 @@ ValidateXLOGDirectoryStructure(void)
 
 /*
  * 删除以前的备份历史文件。
- * 这也会重试为之前XLogArchiveNotify
+ * 这也会重试为之前 XLogArchiveNotify                           
  * 失败的任何备份历史文件创建 .ready 文件。
  */
 static void
@@ -3926,8 +3926,8 @@ WriteControlFile(void)
 
 	/*
 	 * 我们将 PG_CONTROL_FILE_SIZE 字节写入 pg_control，
-	 * 对超过sizeof(ControlFileData) 的部分进行零填充。
-	 * 这减少了读取pg_control 时过早 EOF 错误的可能性。
+	 * 对超过 sizeof(ControlFileData) 的部分进行零填充。     
+	 * 这减少了读取 pg_control 时过早 EOF 错误的可能性。      
 	 * 当我们检查文件内容时仍会失败，
 	 * 但希望有比"无法读取 pg_control"更具体的错误。
 	 */
@@ -4386,7 +4386,7 @@ assign_wal_consistency_checking(const char *newval, void *extra)
 	 * postmaster 无论如何都会退出，所以继续分配是安全的。
 	 *
 	 * 任何指定的内置资源管理器会立即分配，
-	 * 这会影响在shared_preload_libraries 处理之前创建的 WAL。
+	 * 这会影响在 shared_preload_libraries 处理之前创建的 WAL。
 	 * 任何指定的自定义资源管理器将在 shared_preload_libraries
 	 * 处理之后才分配，
 	 * 但这没问题，
@@ -4400,7 +4400,7 @@ assign_wal_consistency_checking(const char *newval, void *extra)
  *
  * 如果在 wal_consistency_checking GUC 中指定了任何未知的资源管理器，
  * 处理被推迟。
- * 现在 shared_preload_libraries已经加载，
+ * 现在 shared_preload_libraries 已经加载，                            
  * 再次处理 wal_consistency_checking。
  */
 void
@@ -6924,7 +6924,7 @@ CreateCheckPoint(int flags)
 }
 
 /*
- * 在WAL中标记恢复的结束，但不运行完整检查点。
+ * 在 WAL 中标记恢复的结束，但不运行完整检查点。        
  * 我们可以预料到，当
  * 执行此操作时，重启点可能正在进行中，尽管我们不愿意等待它完成。
  *
@@ -7268,7 +7268,7 @@ CreateRestartPoint(int flags)
 	/*
 	 * 使用当前时间更新 pg_control。
 	 * 检查它是否仍显示较旧的检查点，否则什么也不做；
-	 * 这是一个快速hack，
+	 * 这是一个快速 hack，                                 
 	 * 确保若我们在恢复结束检查点之后不知何故到达这里，不会发生真正糟糕的事。
 	 */
 	LWLockAcquire(ControlFileLock, LW_EXCLUSIVE);

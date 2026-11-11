@@ -112,7 +112,7 @@ bool		wal_receiver_create_temp_slot = false;
  *
  * curFileTLI:
  *  当前输入 WAL 文件名称中显示的时间线。
- * (这不一定与我们正在重放WAL 的时间线相同，StartupXLOG 称之为 replayTLI，
+ * (这不一定与我们正在重放 WAL 的时间线相同，StartupXLOG 称之为 replayTLI，
  * 因为当我们创建当前文件时，
  * 可能会扫描从祖先时间线复制的数据。
  * ) 在顺序扫描期间，我们不允许此值减少。
@@ -324,11 +324,11 @@ typedef struct XLogRecoveryCtlData
 	 * 启动进程还使用另一个锁存器，
 	 * 即其 procLatch，
 	 * 用于等待恢复冲突。
-	 * 如果我们取消 recoveryWakeupLatch 而使用procLatch 来通知启动进程，
+	 * 如果我们取消 recoveryWakeupLatch 而使用 procLatch 来通知启动进程，
 	 * 这会与使用该锁存器的可能的通用信号处理程序更加一致。
 	 * 但我们不应该这样做，
 	 * 因为启动进程不假设在等待恢复冲突时会被 walreceiver 进程或 SIGHUP 信号处理程序唤醒。
-	 * 应该分别使用独立的锁存器 recoveryWakeupLatch 和 procLatch进行 WAL 重放和恢复冲突的进程间通信。
+	 * 应该分别使用独立的锁存器 recoveryWakeupLatch 和 procLatch 进行 WAL 重放和恢复冲突的进程间通信。
 	 */
 	Latch		recoveryWakeupLatch;
 
@@ -948,12 +948,12 @@ InitWalRecovery(ControlFileData *ControlFile, bool *wasShutdown_ptr,
 		 * 如果我们正在从基础备份开始恢复，则设置 backupStartPoint。
 		 *
 		 * 如果我们正在从备库获取的基础备份开始恢复，
-		 * 还要设置backupEndPoint 并使用 minRecoveryPoint 作为备份结束位置。
+		 * 还要设置 backupEndPoint 并使用 minRecoveryPoint 作为备份结束位置。
 		 * 在这种情况下，
 		 * pg_control 中的数据库系统状态必须指示数据库已经处于恢复中。
 		 * 通常是 DB_IN_ARCHIVE_RECOVERY，
 		 * 但如果恢复之前在此点之前被中断（例如因为 restore_command
-		 * 或primary_conninfo 有问题），
+		 * 或 primary_conninfo 有问题），                       
 		 * 也可能是 DB_SHUTDOWNED_IN_RECOVERY。
 		 *
 		 * 任何其他状态都表明备份某种程度已损坏，
@@ -1421,7 +1421,7 @@ read_tablespace_map(List **tablespaces)
  * 完成 WAL 恢复。
  *
  * 此函数尚未关闭 'xlogreader'，
- * 因为在某些情况下调用者仍想通过调用ReadCheckpointRecord()
+ * 因为在某些情况下调用者仍想通过调用 ReadCheckpointRecord()
  * 重新读取最后一个检查点记录。
  *
  * 返回最后一个有效或已应用记录的位置（新 WAL 应在此之后追加）、
@@ -1446,7 +1446,7 @@ FinishWalRecovery(void)
 
 	/*
 	 * 我们现在已经完成从流中读取 xlog。
-	 * 关闭流式恢复以强制从归档或 pg_wal获取文件（这在恢复结束时可能需要，
+	 * 关闭流式恢复以强制从归档或 pg_wal 获取文件（这在恢复结束时可能需要，
 	 * 例如时间线历史文件）。
 	 *
 	 * 注意，必须在终止 WAL 接收器之后关闭备库模式，
@@ -1459,11 +1459,11 @@ FinishWalRecovery(void)
 	 * 确定接下来从何处开始写入 WAL。
 	 *
 	 * 重新获取最后一个有效或最后应用的记录，
-	 * 以便我们能够识别我们认为 WAL有效部分的确切终点。
+	 * 以便我们能够识别我们认为 WAL 有效部分的确切终点。
 	 * 之后可能有一个不完整的延续记录，
 	 * 在这种情况下，
 	 * 'abortedRecPtr' 和 'missingContrecPtr' 被设置，
-	 * 调用者将写入一个特殊的OVERWRITE_CONTRECORD 消息来标记其余部分是有意缺失的。参见 CreateOverwriteContrecordRecord()。
+	 * 调用者将写入一个特殊的 OVERWRITE_CONTRECORD 消息来标记其余部分是有意缺失的。参见 CreateOverwriteContrecordRecord()。
 	 *
 	 * 这的一个重要副作用是将最后一页加载到 xlogreader 中。调用者使用它来
 	 * 初始化 WAL 以进行写入。
@@ -2172,7 +2172,7 @@ CheckRecoveryConsistency(void)
 	/*
 	 * 我们是否已通过安全起始点？注意，
 	 * 如果从备份恢复，
-	 * minRecoveryPoint在 XLOG_BACKUP_END 到达并告知我们正确的 minRecoveryPoint 之前，
+	 * minRecoveryPoint 在 XLOG_BACKUP_END 到达并告知我们正确的 minRecoveryPoint 之前，
 	 * 已知是错误设置的。在此之前我们只知道我们还没一致。
 	 */
 	if (!reachedConsistency && !backupEndRequired &&
@@ -3239,7 +3239,7 @@ ReadRecord(XLogPrefetcher *xlogprefetcher, int emode,
  * 在备库模式下，
  * 如果在 XLogPageRead() 成功返回后，
  * 调用者发现它感兴趣的记录已损坏，
- * 它应该使用 emode_for_corrupt_record() 确定的级别 ereport该错误，
+ * 它应该使用 emode_for_corrupt_record() 确定的级别 ereport 该错误，
  * 然后设置 lastSourceFailed 并使用相同的参数再次调用 XLogPageRead()。
  * 这让 XLogPageRead() 尝试从其他源获取记录，
  * 或休眠并重试。
@@ -3384,7 +3384,7 @@ retry:
 	 * 立即检查页面头，
 	 * 这样如果无效我们可以立即重试。
 	 * 这可能看起来不必要，因为 ReadPageInternal() 无论如何都会验证页面头，
-	 * 并将失败传播到ReadRecord()，
+	 * 并将失败传播到 ReadRecord()，                               
 	 * 后者会重试。但是，
 	 * 存在一个关于延续记录的边界情况，
 	 * 如果一个记录跨越两个页面，我们需要从两个不同 WAL 段的不同源读取这两个页面。
@@ -3517,7 +3517,7 @@ WaitForWALToBecomeAvailable(XLogRecPtr RecPtr, bool randAccess,
 	 * 作为前进到下一个状态的一部分。
 	 *
 	 * 如果在从流读取 WAL 时关闭备库模式，
-	 * 我们移动到 XLOG_FROM_ARCHIVE并重置 lastSourceFailed，
+	 * 我们移动到 XLOG_FROM_ARCHIVE 并重置 lastSourceFailed，   
 	 * 以强制从归档或 pg_wal 获取文件（这在恢复结束时需要，
 	 * 例如时间线历史文件）。
 	 * 我们不需要在这里终止 WAL 接收器，
@@ -3611,7 +3611,7 @@ WaitForWALToBecomeAvailable(XLogRecPtr RecPtr, bool randAccess,
 
 					/*
 					 * 在我们离开 XLOG_FROM_STREAM 状态之前，
-					 * 确保 walreceiver不活动，
+					 * 确保 walreceiver 不活动，                      
 					 * 这样它就不会覆盖我们从归档恢复的 WAL。
 					 *
 					 * 如果 walreceiver 
@@ -3828,7 +3828,7 @@ WaitForWALToBecomeAvailable(XLogRecPtr RecPtr, bool randAccess,
 					 * Walreceiver 是活动的，所以看看是否有新数据到达。
 					 *
 					 * 只有当我们从 walreceiver 获得新的 WAL 并且观察到我们已经处理了它刷新到磁盘的最新"块"之前的所有内容时，
-					 * 我们才更新XLogReceiptTime。
+					 * 我们才更新 XLogReceiptTime。                  
 					 * 在稳定状态下，
 					 * 我们跟上传入数据，
 					 * XLogReceiptTime 会在每个周期更新。
@@ -3864,13 +3864,13 @@ WaitForWALToBecomeAvailable(XLogRecPtr RecPtr, bool randAccess,
 						 * 如果我们还没有初始化时间线历史，
 						 * 也要读取时间线历史文件；
 						 * 它应该已经被流式传输并存在于 pg_wal 中。
-						 * 使用 XLOG_FROM_STREAM 以便正确设置源信息且不改变XLogReceiptTime。
+						 * 使用 XLOG_FROM_STREAM 以便正确设置源信息且不改变 XLogReceiptTime。
 						 *
 						 * 注意：
-						 * 我们必须基于 recoveryTargetTLI 而不是 receiveTLI设置
+						 * 我们必须基于 recoveryTargetTLI 而不是 receiveTLI 设置
 						 * readTimeLineHistory。
 						 * 通常它们相同，
-						 * 但如果recovery_target_timeline 是 'latest' 且配置了归档，
+						 * 但如果 recovery_target_timeline 是 'latest' 且配置了归档，
 						 * 那么我们可能已从归档检索到一个或多个新时间线历史文件，
 						 * 更新 recoveryTargetTLI。
 						 */
@@ -4252,7 +4252,7 @@ XLogFileReadAnyTLI(XLogSegNo segno, int emode, XLogSource source)
 	 * 如果我们还没有读取时间线历史文件，
 	 * 现在就读取它，以便我们知道要扫描哪些 TLIs。
 	 * 但是，
-	 * 除非我们实际找到有效段，否则我们不将列表保存在expectedTLEs 中。
+	 * 除非我们实际找到有效段，否则我们不将列表保存在 expectedTLEs 中。
 	 * 这样，
 	 * 如果归档中既没有时间线历史文件也没有 WAL 段，并且设置了流式复制，
 	 * 我们将在开始流式传输时读取从主库流式传输的时间线历史文件，而不是用这里生成的虚拟历史恢复。

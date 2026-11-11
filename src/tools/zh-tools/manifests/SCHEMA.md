@@ -51,7 +51,11 @@ Field rules (enforced by `zhtools/manifest.py`):
 What a "segment" is depends on `kind`: a comment for `c_comment`,
 `yl_comment`, `makefile_comment`, `meson_comment`, `shell_comment`; a
 paragraph for `readme`; a message for `po`.  For `tool`, `manifest` and
-`baseline` files use `0/0/0`.
+`baseline` files use `0/0/0` — unless the batch's work product is a
+preservation adjudication over scanner findings, in which case
+`segments_total = preserved` with one `preserved_reasons[]` entry per
+preserved finding (batch-0341 precedent: 14 keep verdicts entered into
+`halfen_exemptions.json`).
 
 Hard exclusions are not expressible in a manifest: `doc/**`, the Perl
 protected set (`baseline/perl_protected.json`), and every source-tree

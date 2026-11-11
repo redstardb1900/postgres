@@ -1,0 +1,81 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0341",
+ "title": "halfen3 campaign wave 4 residue: 14-station adjudication (all KEEP) entered into halfen_exemptions.json - 11 curated site entries, scanner 487->473 exact, no .c changes",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "68ba3ca3bbd7eb4580e3d83428372304fc55422e",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0341-halfen-wave4-residue-exemptions.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "note": "site ledger 0 -> 11 entries covering the 14 wave4-residue findings (command.c x9, describe.c x2, input.c x3), each with a keep-class reason"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/SCHEMA.md",
+   "kind": "tool",
+   "note": "documents the non-zero tool-segment option (preservation-adjudication batches: segments_total = preserved with per-finding preserved_reasons; batch-0341 precedent)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0341-halfen-wave4-residue-exemptions.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 14,
+   "translated": 0,
+   "preserved": 14,
+   "preserved_reasons": [
+    "command.c L536-549: psql \\c usage example block - syntax skeleton line + example literals hst/usr/prt/dbs (placeholders/pseudocode params), zh prose complete around them",
+    "command.c L1407-1415: psql \\g/\\gx usage-line syntax skeleton [(pset-option[=pset-value] ...)] [filename/shell-command]",
+    "command.c L1612-1614: psql \\gset usage-line syntax skeleton [prefix]",
+    "command.c L1641-1643: psql \\help usage-line syntax skeleton [topic]",
+    "command.c L1726-1734: psql \\if usage-line syntax skeleton <expr>, block header comment, zh prose complete",
+    "command.c L1776-1780: psql \\elif usage-line syntax skeleton <expr>, references \\if <expr>",
+    "command.c L2630-2632: HTML tag literal html <table ...> inside translated \\T usage comment",
+    "command.c L3119-3126: quoted example literal \"\\if defined VARNAME\" kept verbatim",
+    "command.c L5302-5309: quoted literal \"\\pset pager\" kept verbatim (fe-connect GUC-literal family)",
+    "describe.c L1240-1250: psql \\dd usage-line syntax skeleton [foo] (single backslash in this file)",
+    "describe.c L4815-4819: quoted literals '(binary coercible)'/'(with inout)' deliberately kept EN - the translated comment itself documents the gettext-mismatch risk (self-documenting keep)",
+    "input.c L306: C type name const char * kept verbatim (HIST_ENTRY.line platform-declaration comment)",
+    "input.c L326: same as L306 (identical twin comment)",
+    "input.c L404-411: quoted \"const char *\" in save-history fname param doc (C type name, identifier class)"
+   ],
+   "note": "ledger [] -> 11 entries: each entry is {path, body regex, reason}; regexes are tight per site (\\\\x2 command.c patterns for double-backslash psql literals, \\x1 describe.c \\dd, bare 'const char' scoped to input.c); all 14 findings exempted, proven removed-set == 14-target-set exactly with 0 new findings (scan --no-exemptions 487 vs default 473 on --git HEAD), 0 lex errors"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/SCHEMA.md",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "one amendment to the segments-field paragraph: tool/manifest/baseline default 0/0/0, with the documented exception for preservation-adjudication batches (segments_total = preserved, one preserved_reasons[] entry per finding, batch-0341 precedent); resolves review advisory A1 (dual-convergence R1+R2)"
+  }
+ ],
+ "notes": "batch-0341 (halfen3 campaign wave 4 residue, 2026-11-11, parent batch-0340=68ba3ca3bbd). Wave4 residue adjudication: all 14 remaining campaign findings (command.c x9, describe.c x2, input.c x3) verified on site and adjudicated KEEP - zero real EN prose tails found. Keep classes: psql backslash-command syntax skeletons x7 (\\c/\\g/\\gx/\\gset/\\help/\\if/\\elif/\\dd usage lines; parse_expr syntax-list precedent), quoted literals x2 (\"\\if defined VARNAME\", \"\\pset pager\"; xact/fe-connect quoted-literal family), HTML tag literal x1 (<table ...>), self-documenting non-localized literal x1 ('(binary coercible)' - zh text explains the gettext risk), C type names x3 (const char *; identifier class, genam param-name precedent). Mechanism: curated site ledger halfen_exemptions.json 0 -> 11 entries (11 entries cover 14 findings: \\if <expr> pattern covers both \\if and \\elif comments; input.c 'const char' pattern covers all three input.c sites). Proof: scan_halfen --git HEAD with --no-exemptions = 487 (== batch-0340 baseline, 0 lex errors), with default ledger = 473; removed set identical to the 14 target findings exactly, 0 new findings. No .c files touched: verify summary unchanged by construction (worktree .c tree identical to HEAD), term_lint state unchanged by construction (no C comments changed). Test suite 226 tests: 219 green + 7 documented environmental ScopeEndToEnd failures (umask 0002 group-write drift, pristine-HEAD reproducible, non-regression). Campaign status after this batch: 557 initial -> 473 flagged, of which the campaign census adjudicated the remainder as keeps pending close-out mechanics (HALFEN_OK_PATTERNS class additions / further ledger entries); translation waves 1-3b complete. Out-of-scope ledgers unchanged: 0258-residual sweep (index.c L3047/3048, variables.c L301/303/309/310/304/311), rendering-rules batch, non-replication glossary catalog 757 sites, ENR ephemeral unification. Review delta (A1 dual-convergence R1+R2): the tool-kind files[] entry for halfen_exemptions.json intentionally uses segments_total=14/preserved=14 with 14 preserved_reasons - the adjudication IS the batch's work product; SCHEMA.md amended to document this preservation-adjudication exception (segments_total = preserved, one preserved_reasons[] entry per finding) rather than flipping to 0/0/0, adopting R1's remedy (R2 offered either). A2 (latent scope of content-based patterns: defined VARNAME / binary coercible / file-scoped const char) noted with zero collateral matches today, independently re-derived by both reviewers (per-pattern hits 1x9, 2x1, 3x1; 0 matching-but-unflagged comments; comment counts 371/219/49) - no change; report-only scanner with a reason-bearing curated ledger permits future per-reason re-audit if scope creep is observed.",
+ "post_review": {
+  "r1": "PASS, no D-findings; advisories A1 (tool-segment convention deviation, first in surveyed 0334-0340 range - ADOPTED via SCHEMA.md documentation keeping semantic 14/0/14) + A2 (latent scope of content patterns, zero collateral today, NOTED no-change); reviewer independently re-derived: raw 487/led 473/removed 14/gained 0, backslash counts vs git blobs, comment census 371/219/49, gates and 219-green test set",
+  "r2": "PASS, no D-findings; advisories A1 (same finding, independent - ADOPTED same way) + A2 (blast radius 1x9/2x1/3x1, 0 matching-but-unflagged comments, re-derived on site, NOTED); backslash facts confirmed via scanner run_text (command.c double, describe.c single)",
+  "delta_applied": true,
+  "delta_script": "inline edits: SCHEMA.md segments-paragraph amendment + manifest allowed_paths/files/notes/post_review; no code delta",
+  "re_ack": "R1 CONFIRMED (delta matches findings exactly, numstat 5/1 SCHEMA.md, gates re-run, worktree may unfreeze); R2 CONFIRMED (positional verification of all three files, A2 numbers verbatim, no discrepancies)"
+ }
+}

@@ -2670,9 +2670,9 @@ psql_completion(const char *text, int start, int end)
 			 !HeadMatches("ANALYZE", "(*)"))
 	{
 		/*
-		 * This fires if we're in an unfinished parenthesized option list.
-		 * get_previous_words treats a completed parenthesized option list as
-		 * one word, so the above test is correct.
+		 * 若处于未完成的括号选项列表中，
+		 * get_previous_words 把已完成的括号选项列表视为一
+		 * 个词，故此测试正确。
 		 */
 		if (ends_with(prev_wd, '(') || ends_with(prev_wd, ','))
 			COMPLETE_WITH("VERBOSE", "SKIP_LOCKED", "BUFFER_USAGE_LIMIT");
@@ -2735,9 +2735,9 @@ psql_completion(const char *text, int start, int end)
 			 !HeadMatches("CLUSTER", "(*)"))
 	{
 		/*
-		 * This fires if we're in an unfinished parenthesized option list.
-		 * get_previous_words treats a completed parenthesized option list as
-		 * one word, so the above test is correct.
+		 * 若处于未完成的括号选项列表中，
+		 * get_previous_words 把已完成的括号选项列表视为一
+		 * 个词，故此测试正确。
 		 */
 		if (ends_with(prev_wd, '(') || ends_with(prev_wd, ','))
 			COMPLETE_WITH("VERBOSE");
@@ -3763,9 +3763,9 @@ psql_completion(const char *text, int start, int end)
 			 !HeadMatches("EXPLAIN", "(*)"))
 	{
 		/*
-		 * This fires if we're in an unfinished parenthesized option list.
-		 * get_previous_words treats a completed parenthesized option list as
-		 * one word, so the above test is correct.
+		 * 若处于未完成的括号选项列表中，
+		 * get_previous_words 把已完成的括号选项列表视为一
+		 * 个词，故此测试正确。
 		 */
 		if (ends_with(prev_wd, '(') || ends_with(prev_wd, ','))
 			COMPLETE_WITH("ANALYZE", "VERBOSE", "COSTS", "SETTINGS", "GENERIC_PLAN",
@@ -4367,9 +4367,9 @@ psql_completion(const char *text, int start, int end)
 			 !HeadMatches("REINDEX", "(*)"))
 	{
 		/*
-		 * This fires if we're in an unfinished parenthesized option list.
-		 * get_previous_words treats a completed parenthesized option list as
-		 * one word, so the above test is correct.
+		 * 若处于未完成的括号选项列表中，
+		 * get_previous_words 把已完成的括号选项列表视为一
+		 * 个词，故此测试正确。
 		 */
 		if (ends_with(prev_wd, '(') || ends_with(prev_wd, ','))
 			COMPLETE_WITH("CONCURRENTLY", "TABLESPACE", "VERBOSE");
@@ -4623,9 +4623,9 @@ psql_completion(const char *text, int start, int end)
 			 !HeadMatches("VACUUM", "(*)"))
 	{
 		/*
-		 * This fires if we're in an unfinished parenthesized option list.
-		 * get_previous_words treats a completed parenthesized option list as
-		 * one word, so the above test is correct.
+		 * 若处于未完成的括号选项列表中，
+		 * get_previous_words 把已完成的括号选项列表视为一
+		 * 个词，故此测试正确。
 		 */
 		if (ends_with(prev_wd, '(') || ends_with(prev_wd, ','))
 			COMPLETE_WITH("FULL", "FREEZE", "ANALYZE", "VERBOSE",

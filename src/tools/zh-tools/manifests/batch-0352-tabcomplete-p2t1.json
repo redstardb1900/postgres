@@ -1,0 +1,65 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0352",
+ "title": "tab-complete part 2 tranche 1: five identical fires-if blocks translated",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "7eb306c94aafde5a3dfd9965fc2f099a104b8aed",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0352-tabcomplete-p2t1.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0352 manifest path (S6 registration)"
+  },
+  {
+   "pattern": "src/bin/psql/tab-complete.c",
+   "kind": "c_comment",
+   "note": "part 2 tranche 1: five identical 'This fires if...' 4-line prose blocks (L2672/2737/3765/4369/4625) translated with one shared wording, all lines within EN budgets"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0352-tabcomplete-p2t1.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0352 manifest path (S6 registration)"
+  },
+  {
+   "path": "src/bin/psql/tab-complete.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "part 2 tranche 1: five identical 'This fires if...' 4-line prose blocks (L2672/2737/3765/4369/4625) translated with one shared wording, all lines within EN budgets"
+  }
+ ],
+ "notes": "batch-0352 tranche 1 (2026-11-12, parent batch-0351=7eb306c94aa). Part 2 of the tab-complete prose campaign opens with the highest-leverage family: the five identical 4-line 'This fires if we're in an unfinished parenthesized option list...' blocks (L2672/2737/3765/4369/4625) translated with one shared wording (若处于未完成的括号选项列表中，get_previous_words 把已完成的括号选项列表视为一个词，故此测试正确。), all lines within EN byte budgets (char-space greedy wrapper v4, /tmp/tcwrap.py). Part 2 continues in the next batch: 67 remaining prose blocks (minus the 5 here; syntax-listing blocks ANALYZE/VACUUM/EXPLAIN/POLICY-grammar are KEEP per the 0336 syntax-listing precedent) + ~50 prose one-liners (Complete X / If we have X style). Copyright header and skeleton labels remain KEEP. Gates (pre-commit, batch scope --paths tab-complete.c): verify_c_comments --worktree REL_16_11 . --paths = 1 ok, 0 violations, changed=302; term_lint --paths dual-state bare 0/0 and --pgnls 0 errors + 1 pre-existing P17 warning (L4294, untouched region); scan_halfen full-worktree default 0; raw --no-exemptions 422 == HEAD 422, sets byte-identical (0 new / 0 gone; the raw baseline is 422 since batch-0351's disclosed +1 tab-complete.c:9 exempted MIXED; 4127 is a pre-existing EN residue line, untouched) (zh lines carry only the get_previous_words identifier token, no new MIXED); check_scope incremental PASS 3 paths (S6 green: batch manifest registered in cumulative.json) + default cumulative mode PASS; tests 229 = 222 + 7 documented ScopeEndToEnd umask failures (no tool change). Post-review fixes (R2): cumulative.json EOF newline restored (json.dump drop, 4th occurrence of this pitfall - a standing wrapper fix is warranted in a future tools batch); batch manifest allowed_paths note completed; raw baseline corrected to 422.",
+ "post_review": {
+  "r2_combined": "FAIL -> fixes -> verified: D1-class blocker (cumulative.json EOF newline lost in the registration json.dump - 4th occurrence of this pitfall) fixed and xxd-checked; minors adopted (allowed_paths note completed, raw baseline corrected 421->422 - the 422 figure is the post-0351 baseline including the disclosed tab-complete.c:9 exempted MIXED, sets byte-identical 0 new/0 gone). Content PASS: shared wording faithful (conditional + get_previous_words one-word semantics + above-test-correct conclusion), all 5 blocks byte-identical to each other, diff isolation exact (15 intended line indices only). Mechanics PASS: frames/closers/decor byte-identical, budgets all under, boundaries ，|g and 一|个 CJK-CJK permitted (0 ASCII token splits). Gates all reproduced (verify 1 ok 0 violations changed=302; term 0/0 dual with P17 pre-existing caveat; halfen default 0; raw 422==422; check_scope incremental PASS 3 / cumulative PASS 1217; tests 229=222+7). Post-fix check_scope re-run PASS 3/0. CONFIRMED: proceed to commit.",
+  "delta_applied": true,
+  "delta_script": "post-R2 deltas: cumulative.json EOF newline restored (1 byte); batch manifest allowed_paths[2].note completed; notes raw baseline corrected 421->422 with post-0351 explanation; process-note added (json.dump EOF pitfall 4th occurrence - standing wrapper fix warranted in a future tools batch).",
+  "re_ack": "R2 CONFIRMED (content PASS + mechanics PASS; blocker and minors fixed and acknowledged per its proceed statement: 'this batch is clear to commit - the tab-complete.c content and all substantive gates are fully green and need no re-review'). 单代理合并审查制（0348 先例，同构 5 块小批）。批可进入提交."
+ }
+}

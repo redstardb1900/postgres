@@ -1,0 +1,66 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0350",
+ "title": "findtimezone whole-file batch: 135 comment lines (134 UTC table + 1 P09 term fix)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "62b1a841bd0ee1463985298967e3e74352607524",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0350-findtimezone.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0350 manifest path (S6 registration)"
+  },
+  {
+   "pattern": "src/bin/initdb/findtimezone.c",
+   "kind": "c_comment",
+   "note": "whole-file UTC-table translation: 134 one-liner city-list comments translated at natural length (133 over EN byte budget, disclosed); +1 P09 fix; copyright header line 1 KEEP"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0350-findtimezone.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0350 manifest path (S6 registration)"
+  },
+  {
+   "path": "src/bin/initdb/findtimezone.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 135,
+   "translated": 135,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file UTC-table translation: 134 one-liner city-list comments translated at natural length (133 over EN byte budget, disclosed); +1 P09 fix; copyright header line 1 KEEP"
+  }
+ ],
+ "notes": "batch-0350 (findtimezone whole-file, 2026-11-12, parent batch-0349=62b1a841bd0). Translates the Windows-timezone mapping table comments in src/bin/initdb/findtimezone.c: 134 one-liner '/* (UTC±HH:MM) city list */' comments translated (zh exonyms, 、 list separator, fullwidth parens; the (UTC±HH:MM) prefix and the /* */ frame kept byte-verbatim; code bytes untouched). The W7 census undercounted this file at 50: verify's W7 filter requires len(comment) > 24 bytes, hiding 84 short city comments - the true untranslated count was 134 (161 UTC one-liners minus 27 translated in batch-0257; those 27 all fit EN budgets, zero overflow). Budget convention decision for this data table: city lists are atomic content with no lossless zh compression (CJK exonyms are typically longer than EN city lists), so lines translate at natural length - 133 of 134 exceed the EN byte budget (disclosed, per the P1-era negative-pad precedent for data tables), 1 fits at exact parity; plus 1 over-budget P09 fix. The 0321-style whole-file parity discipline is therefore intentionally not met on this file; reviewers should verify instead that (a) code bytes are untouched, (b) the (UTC±HH:MM) prefixes are verbatim, (c) fit lines reach exact parity, (d) every overflow line is a genuine atomic-content case. +1 pre-existing term fix surfaced by the whole-file change: line 246 unrecognized -> 无法识别 (P09 mandates it, bans 未识别; was 0257-era at exact parity, now +3B over budget, disclosed). Copyright header (line 1) KEEP per house convention - one W7 advisory remains on it, disclosed. Gates (pre-commit, batch scope --paths findtimezone.c): verify_c_comments --worktree REL_16_11 . --paths = 1 file, 1 ok, 0 violations, 0 parse errors, changed=246 comments, W7 = 1 (copyright KEEP); term_lint --paths dual-state bare 0/0 and --pgnls 0/0 after the P09 fix; scan_halfen full-worktree default 0 findings (2319 files); raw --no-exemptions set 421 == HEAD 421 identical (these lines were EN-only PUREEN-class before, never MIXED findings; zh lines carry only the UTC/RTZ single tokens, no new MIXED); check_scope --worktree . --incremental --base HEAD PASS (S6 satisfied: batch-0350 manifest path registered in cumulative.json, 1214 -> 1215 entries) and default cumulative mode PASS. Tests 229 = 222 green + 7 documented ScopeEndToEnd umask failures (no tool change).",
+ "post_review": {
+  "r1": "PASS: structural fidelity 134/134 (frame/prefix/city-counts byte-verified via purpose-built script; code bytes 1643/1778 untouched; 135 changed = 134 spec + L246), geography all correct per standard zh cartographic usage (incl. 库亚巴/乔库尔达赫/克孜洛达/斯里贾亚瓦德纳普拉/努库阿洛法/基里蒂马蒂岛 spot audits; A1-A5 advisories all accepted-as-correct: Cabo/Cape Verde collapse, 索非亚 atlas standard, 比勒陀利亚 pre-Tshwane EN, 萨哈林 faithful to bare EN, L1050 pad spaces are the parity mechanism); P09 direction verified against phrasebook.tsv line 10 (P10 confirms the reverse ban); copyright KEEP disclosed. MICRO-ACK CONFIRMED (A1/R2-cosmetics adopted; re-verified post-edit).",
+  "r2": "PASS, zero D: diff shape exact (3 paths; 135/135 in-place; 1777 lines), changed set == SPEC(134) ∪ {246}, prefixes byte-verbatim, overflow profile min +1B max +32B with exactly one space before */ (L1050 the disclosed single-pad parity exception at 57B==57B), P09 +3B with code bytes untouched; hygiene UTF-8/no-BOM/no-CRLF/trailing-newline; all gates reproduced verbatim (verify 1 ok 0 violations changed=246 W7=line1; term 0/0 dual; halfen default 0; raw 421==421 identical; check_scope incremental PASS 3 S6-green; cumulative PASS 1215; tests 229=222+7 ScopeEndToEnd); manifest fields and notes numbers verified incl. the 161/27/134 census. A1 (count phrasing) and A2 (unbalanced paren) adopted. MICRO-ACK CONFIRMED with byte evidence (L1050 worktree = 拼法; its own report's 拼写 was a prose slip; diff unchanged 135 lines).",
+  "delta_applied": true,
+  "delta_script": "manifest-only (no .c changes since first review; both reviewers verified immutability): notes S6 count phrasing aligned to '1214 -> 1215 entries' (R2 A1); findtimezone allowed_paths note paren balanced (R2 A2; full text lives in files[].note).",
+  "re_ack": "R1 MICRO-ACK CONFIRMED (structural verifier re-run post-edit: identical results; manifest edits verified on site). R2 MICRO-ACK CONFIRMED (byte evidence re-derived; L1050 worktree = 拼法, its report's 拼写 was prose-only; A1/A2 adoption consistent with frozen .c). Both reviewers: 批可进入提交."
+ }
+}

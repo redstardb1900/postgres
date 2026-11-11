@@ -243,7 +243,7 @@ score_timezone(const char *tzname, struct tztry *tt)
 	/* 加载时区定义       */
 	tz = pg_load_tz(tzname);
 	if (!tz)
-		return -1;				/* 未识别的时区名  */
+		return -1;				/* 无法识别的时区名  */
 
 	/* 如果涉及闰秒则拒绝     */
 	if (!pg_tz_acceptable(tz))
@@ -745,12 +745,12 @@ static const struct
 	 * IANA 时区匹配。
 	 */
 	{
-		/* (UTC+04:30) Kabul */
+		/* (UTC+04:30) 喀布尔 */
 		"Afghanistan Standard Time", "Afghanistan Daylight Time",
 		"Asia/Kabul"
 	},
 	{
-		/* (UTC-09:00) Alaska */
+		/* (UTC-09:00) 阿拉斯加 */
 		"Alaskan Standard Time", "Alaskan Daylight Time",
 		"America/Anchorage"
 	},
@@ -760,82 +760,82 @@ static const struct
 		"America/Adak"
 	},
 	{
-		/* (UTC+07:00) Barnaul, Gorno-Altaysk */
+		/* (UTC+07:00) 巴尔瑙尔、戈尔诺-阿尔泰斯克 */
 		"Altai Standard Time", "Altai Daylight Time",
 		"Asia/Barnaul"
 	},
 	{
-		/* (UTC+03:00) Kuwait, Riyadh */
+		/* (UTC+03:00) 科威特、利雅得 */
 		"Arab Standard Time", "Arab Daylight Time",
 		"Asia/Riyadh"
 	},
 	{
-		/* (UTC+04:00) Abu Dhabi, Muscat */
+		/* (UTC+04:00) 阿布扎比、马斯喀特 */
 		"Arabian Standard Time", "Arabian Daylight Time",
 		"Asia/Dubai"
 	},
 	{
-		/* (UTC+03:00) Baghdad */
+		/* (UTC+03:00) 巴格达 */
 		"Arabic Standard Time", "Arabic Daylight Time",
 		"Asia/Baghdad"
 	},
 	{
-		/* (UTC-03:00) City of Buenos Aires */
+		/* (UTC-03:00) 布宜诺斯艾利斯市 */
 		"Argentina Standard Time", "Argentina Daylight Time",
 		"America/Buenos_Aires"
 	},
 	{
-		/* (UTC+04:00) Baku, Tbilisi, Yerevan */
+		/* (UTC+04:00) 巴库、第比利斯、埃里温 */
 		"Armenian Standard Time", "Armenian Daylight Time",
 		"Asia/Yerevan"
 	},
 	{
-		/* (UTC+04:00) Astrakhan, Ulyanovsk */
+		/* (UTC+04:00) 阿斯特拉罕、乌里扬诺夫斯克 */
 		"Astrakhan Standard Time", "Astrakhan Daylight Time",
 		"Europe/Astrakhan"
 	},
 	{
-		/* (UTC-04:00) Atlantic Time (Canada) */
+		/* (UTC-04:00) 大西洋时间（加拿大） */
 		"Atlantic Standard Time", "Atlantic Daylight Time",
 		"America/Halifax"
 	},
 	{
-		/* (UTC+09:30) Darwin */
+		/* (UTC+09:30) 达尔文 */
 		"AUS Central Standard Time", "AUS Central Daylight Time",
 		"Australia/Darwin"
 	},
 	{
-		/* (UTC+08:45) Eucla */
+		/* (UTC+08:45) 尤克拉 */
 		"Aus Central W. Standard Time", "Aus Central W. Daylight Time",
 		"Australia/Eucla"
 	},
 	{
-		/* (UTC+10:00) Canberra, Melbourne, Sydney */
+		/* (UTC+10:00) 堪培拉、墨尔本、悉尼 */
 		"AUS Eastern Standard Time", "AUS Eastern Daylight Time",
 		"Australia/Sydney"
 	},
 	{
-		/* (UTC+04:00) Baku */
+		/* (UTC+04:00) 巴库 */
 		"Azerbaijan Standard Time", "Azerbaijan Daylight Time",
 		"Asia/Baku"
 	},
 	{
-		/* (UTC-01:00) Azores */
+		/* (UTC-01:00) 亚速尔群岛 */
 		"Azores Standard Time", "Azores Daylight Time",
 		"Atlantic/Azores"
 	},
 	{
-		/* (UTC-03:00) Salvador */
+		/* (UTC-03:00) 萨尔瓦多 */
 		"Bahia Standard Time", "Bahia Daylight Time",
 		"America/Bahia"
 	},
 	{
-		/* (UTC+06:00) Dhaka */
+		/* (UTC+06:00) 达卡 */
 		"Bangladesh Standard Time", "Bangladesh Daylight Time",
 		"Asia/Dhaka"
 	},
 	{
-		/* (UTC+03:00) Minsk */
+		/* (UTC+03:00) 明斯克 */
 		"Belarus Standard Time", "Belarus Daylight Time",
 		"Europe/Minsk"
 	},
@@ -845,27 +845,27 @@ static const struct
 		"Pacific/Bougainville"
 	},
 	{
-		/* (UTC-01:00) Cabo Verde Is. */
+		/* (UTC-01:00) 佛得角群岛 */
 		"Cabo Verde Standard Time", "Cabo Verde Daylight Time",
 		"Atlantic/Cape_Verde"
 	},
 	{
-		/* (UTC-06:00) Saskatchewan */
+		/* (UTC-06:00) 萨斯喀彻温 */
 		"Canada Central Standard Time", "Canada Central Daylight Time",
 		"America/Regina"
 	},
 	{
-		/* (UTC-01:00) Cape Verde Is. */
+		/* (UTC-01:00) 佛得角群岛 */
 		"Cape Verde Standard Time", "Cape Verde Daylight Time",
 		"Atlantic/Cape_Verde"
 	},
 	{
-		/* (UTC+04:00) Yerevan */
+		/* (UTC+04:00) 埃里温 */
 		"Caucasus Standard Time", "Caucasus Daylight Time",
 		"Asia/Yerevan"
 	},
 	{
-		/* (UTC+09:30) Adelaide */
+		/* (UTC+09:30) 阿德莱德 */
 		"Cen. Australia Standard Time", "Cen. Australia Daylight Time",
 		"Australia/Adelaide"
 	},
@@ -875,37 +875,37 @@ static const struct
 		"America/Guatemala"
 	},
 	{
-		/* (UTC+06:00) Astana */
+		/* (UTC+06:00) 阿斯塔纳 */
 		"Central Asia Standard Time", "Central Asia Daylight Time",
 		"Asia/Almaty"
 	},
 	{
-		/* (UTC-04:00) Cuiaba */
+		/* (UTC-04:00) 库亚巴 */
 		"Central Brazilian Standard Time", "Central Brazilian Daylight Time",
 		"America/Cuiaba"
 	},
 	{
-		/* (UTC+01:00) Belgrade, Bratislava, Budapest, Ljubljana, Prague */
+		/* (UTC+01:00) 贝尔格莱德、布拉迪斯拉发、布达佩斯、卢布尔雅那、布拉格 */
 		"Central Europe Standard Time", "Central Europe Daylight Time",
 		"Europe/Budapest"
 	},
 	{
-		/* (UTC+01:00) Sarajevo, Skopje, Warsaw, Zagreb */
+		/* (UTC+01:00) 萨拉热窝、斯科普里、华沙、萨格勒布 */
 		"Central European Standard Time", "Central European Daylight Time",
 		"Europe/Warsaw"
 	},
 	{
-		/* (UTC+11:00) Solomon Is., New Caledonia */
+		/* (UTC+11:00) 所罗门群岛、新喀里多尼亚 */
 		"Central Pacific Standard Time", "Central Pacific Daylight Time",
 		"Pacific/Guadalcanal"
 	},
 	{
-		/* (UTC-06:00) Central Time (US & Canada) */
+		/* (UTC-06:00) 中部时间（美国和加拿大） */
 		"Central Standard Time", "Central Daylight Time",
 		"America/Chicago"
 	},
 	{
-		/* (UTC-06:00) Guadalajara, Mexico City, Monterrey */
+		/* (UTC-06:00) 瓜达拉哈拉、墨西哥城、蒙特雷 */
 		"Central Standard Time (Mexico)", "Central Daylight Time (Mexico)",
 		"America/Mexico_City"
 	},
@@ -915,7 +915,7 @@ static const struct
 		"Pacific/Chatham"
 	},
 	{
-		/* (UTC+08:00) Beijing, Chongqing, Hong Kong, Urumqi */
+		/* (UTC+08:00) 北京、重庆、香港、乌鲁木齐 */
 		"China Standard Time", "China Daylight Time",
 		"Asia/Shanghai"
 	},
@@ -925,7 +925,7 @@ static const struct
 		"UTC"
 	},
 	{
-		/* (UTC-05:00) Havana */
+		/* (UTC-05:00) 哈瓦那 */
 		"Cuba Standard Time", "Cuba Daylight Time",
 		"America/Havana"
 	},
@@ -935,22 +935,22 @@ static const struct
 		"Etc/GMT+12"
 	},
 	{
-		/* (UTC+03:00) Nairobi */
+		/* (UTC+03:00) 内罗毕 */
 		"E. Africa Standard Time", "E. Africa Daylight Time",
 		"Africa/Nairobi"
 	},
 	{
-		/* (UTC+10:00) Brisbane */
+		/* (UTC+10:00) 布里斯班 */
 		"E. Australia Standard Time", "E. Australia Daylight Time",
 		"Australia/Brisbane"
 	},
 	{
-		/* (UTC+02:00) Chisinau */
+		/* (UTC+02:00) 基希讷乌 */
 		"E. Europe Standard Time", "E. Europe Daylight Time",
 		"Europe/Chisinau"
 	},
 	{
-		/* (UTC-03:00) Brasilia */
+		/* (UTC-03:00) 巴西利亚 */
 		"E. South America Standard Time", "E. South America Daylight Time",
 		"America/Sao_Paulo"
 	},
@@ -960,42 +960,42 @@ static const struct
 		"Pacific/Easter"
 	},
 	{
-		/* (UTC-05:00) Eastern Time (US & Canada) */
+		/* (UTC-05:00) 东部时间（美国和加拿大） */
 		"Eastern Standard Time", "Eastern Daylight Time",
 		"America/New_York"
 	},
 	{
-		/* (UTC-05:00) Chetumal */
+		/* (UTC-05:00) 切图马尔 */
 		"Eastern Standard Time (Mexico)", "Eastern Daylight Time (Mexico)",
 		"America/Cancun"
 	},
 	{
-		/* (UTC+02:00) Cairo */
+		/* (UTC+02:00) 开罗 */
 		"Egypt Standard Time", "Egypt Daylight Time",
 		"Africa/Cairo"
 	},
 	{
-		/* (UTC+05:00) Ekaterinburg */
+		/* (UTC+05:00) 叶卡捷琳堡 */
 		"Ekaterinburg Standard Time", "Ekaterinburg Daylight Time",
 		"Asia/Yekaterinburg"
 	},
 	{
-		/* (UTC+12:00) Fiji */
+		/* (UTC+12:00) 斐济 */
 		"Fiji Standard Time", "Fiji Daylight Time",
 		"Pacific/Fiji"
 	},
 	{
-		/* (UTC+02:00) Helsinki, Kyiv, Riga, Sofia, Tallinn, Vilnius */
+		/* (UTC+02:00) 赫尔辛基、基辅、里加、索非亚、塔林、维尔纽斯 */
 		"FLE Standard Time", "FLE Daylight Time",
 		"Europe/Kiev"
 	},
 	{
-		/* (UTC+04:00) Tbilisi */
+		/* (UTC+04:00) 第比利斯 */
 		"Georgian Standard Time", "Georgian Daylight Time",
 		"Asia/Tbilisi"
 	},
 	{
-		/* (UTC+00:00) Dublin, Edinburgh, Lisbon, London */
+		/* (UTC+00:00) 都柏林、爱丁堡、里斯本、伦敦 */
 		"GMT Standard Time", "GMT Daylight Time",
 		"Europe/London"
 	},
@@ -1012,72 +1012,72 @@ static const struct
 		 * UTC。Atlantic/Reykjavik 相当符合这种理解，           
 		 * 因为冰岛自 1968 年起就未实行夏令时。           
 		 */
-		/* (UTC+00:00) Monrovia, Reykjavik */
+		/* (UTC+00:00) 蒙罗维亚、雷克雅未克 */
 		"Greenwich Standard Time", "Greenwich Daylight Time",
 		"Atlantic/Reykjavik"
 	},
 	{
-		/* (UTC+02:00) Athens, Bucharest */
+		/* (UTC+02:00) 雅典、布加勒斯特 */
 		"GTB Standard Time", "GTB Daylight Time",
 		"Europe/Bucharest"
 	},
 	{
-		/* (UTC-05:00) Haiti */
+		/* (UTC-05:00) 海地 */
 		"Haiti Standard Time", "Haiti Daylight Time",
 		"America/Port-au-Prince"
 	},
 	{
-		/* (UTC-10:00) Hawaii */
+		/* (UTC-10:00) 夏威夷 */
 		"Hawaiian Standard Time", "Hawaiian Daylight Time",
 		"Pacific/Honolulu"
 	},
 	{
-		/* (UTC+05:30) Chennai, Kolkata, Mumbai, New Delhi */
+		/* (UTC+05:30) 金奈、加尔各答、孟买、新德里 */
 		"India Standard Time", "India Daylight Time",
 		"Asia/Calcutta"
 	},
 	{
-		/* (UTC+03:30) Tehran */
+		/* (UTC+03:30) 德黑兰 */
 		"Iran Standard Time", "Iran Daylight Time",
 		"Asia/Tehran"
 	},
 	{
-		/* (UTC+02:00) Jerusalem */
+		/* (UTC+02:00) 耶路撒冷 */
 		"Israel Standard Time", "Israel Daylight Time",
 		"Asia/Jerusalem"
 	},
 	{
-		/* (UTC+02:00) Jerusalem (old spelling of zone name) */
+		/* (UTC+02:00) 耶路撒冷（旧区域名拼法）  */
 		"Jerusalem Standard Time", "Jerusalem Daylight Time",
 		"Asia/Jerusalem"
 	},
 	{
-		/* (UTC+02:00) Amman */
+		/* (UTC+02:00) 安曼 */
 		"Jordan Standard Time", "Jordan Daylight Time",
 		"Asia/Amman"
 	},
 	{
-		/* (UTC+02:00) Kaliningrad */
+		/* (UTC+02:00) 加里宁格勒 */
 		"Kaliningrad Standard Time", "Kaliningrad Daylight Time",
 		"Europe/Kaliningrad"
 	},
 	{
-		/* (UTC+12:00) Petropavlovsk-Kamchatsky - Old */
+		/* (UTC+12:00) 堪察加彼得罗巴甫洛夫斯克 - 旧 */
 		"Kamchatka Standard Time", "Kamchatka Daylight Time",
 		"Asia/Kamchatka"
 	},
 	{
-		/* (UTC+09:00) Seoul */
+		/* (UTC+09:00) 首尔 */
 		"Korea Standard Time", "Korea Daylight Time",
 		"Asia/Seoul"
 	},
 	{
-		/* (UTC+02:00) Tripoli */
+		/* (UTC+02:00) 的黎波里 */
 		"Libya Standard Time", "Libya Daylight Time",
 		"Africa/Tripoli"
 	},
 	{
-		/* (UTC+14:00) Kiritimati Island */
+		/* (UTC+14:00) 基里蒂马蒂岛 */
 		"Line Islands Standard Time", "Line Islands Daylight Time",
 		"Pacific/Kiritimati"
 	},
@@ -1087,12 +1087,12 @@ static const struct
 		"Australia/Lord_Howe"
 	},
 	{
-		/* (UTC+11:00) Magadan */
+		/* (UTC+11:00) 马加丹 */
 		"Magadan Standard Time", "Magadan Daylight Time",
 		"Asia/Magadan"
 	},
 	{
-		/* (UTC-03:00) Punta Arenas */
+		/* (UTC-03:00) 蓬塔阿雷纳斯 */
 		"Magallanes Standard Time", "Magallanes Daylight Time",
 		"America/Punta_Arenas"
 	},
@@ -1102,7 +1102,7 @@ static const struct
 		"Asia/Kuala_Lumpur"
 	},
 	{
-		/* (UTC-09:30) Marquesas Islands */
+		/* (UTC-09:30) 马克萨斯群岛 */
 		"Marquesas Standard Time", "Marquesas Daylight Time",
 		"Pacific/Marquesas"
 	},
@@ -1112,12 +1112,12 @@ static const struct
 		"Indian/Mauritius"
 	},
 	{
-		/* (UTC-06:00) Guadalajara, Mexico City, Monterrey */
+		/* (UTC-06:00) 瓜达拉哈拉、墨西哥城、蒙特雷 */
 		"Mexico Standard Time", "Mexico Daylight Time",
 		"America/Mexico_City"
 	},
 	{
-		/* (UTC-07:00) Chihuahua, La Paz, Mazatlan */
+		/* (UTC-07:00) 奇瓦瓦、拉巴斯、马萨特兰 */
 		"Mexico Standard Time 2", "Mexico Daylight Time 2",
 		"America/Chihuahua"
 	},
@@ -1127,27 +1127,27 @@ static const struct
 		"Atlantic/South_Georgia"
 	},
 	{
-		/* (UTC+02:00) Beirut */
+		/* (UTC+02:00) 贝鲁特 */
 		"Middle East Standard Time", "Middle East Daylight Time",
 		"Asia/Beirut"
 	},
 	{
-		/* (UTC-03:00) Montevideo */
+		/* (UTC-03:00) 蒙得维的亚 */
 		"Montevideo Standard Time", "Montevideo Daylight Time",
 		"America/Montevideo"
 	},
 	{
-		/* (UTC+01:00) Casablanca */
+		/* (UTC+01:00) 卡萨布兰卡 */
 		"Morocco Standard Time", "Morocco Daylight Time",
 		"Africa/Casablanca"
 	},
 	{
-		/* (UTC-07:00) Mountain Time (US & Canada) */
+		/* (UTC-07:00) 山地时间（美国和加拿大） */
 		"Mountain Standard Time", "Mountain Daylight Time",
 		"America/Denver"
 	},
 	{
-		/* (UTC-07:00) Chihuahua, La Paz, Mazatlan */
+		/* (UTC-07:00) 奇瓦瓦、拉巴斯、马萨特兰 */
 		"Mountain Standard Time (Mexico)", "Mountain Daylight Time (Mexico)",
 		"America/Chihuahua"
 	},
@@ -1157,22 +1157,22 @@ static const struct
 		"Asia/Rangoon"
 	},
 	{
-		/* (UTC+07:00) Novosibirsk */
+		/* (UTC+07:00) 新西伯利亚 */
 		"N. Central Asia Standard Time", "N. Central Asia Daylight Time",
 		"Asia/Novosibirsk"
 	},
 	{
-		/* (UTC+02:00) Windhoek */
+		/* (UTC+02:00) 温得和克 */
 		"Namibia Standard Time", "Namibia Daylight Time",
 		"Africa/Windhoek"
 	},
 	{
-		/* (UTC+05:45) Kathmandu */
+		/* (UTC+05:45) 加德满都 */
 		"Nepal Standard Time", "Nepal Daylight Time",
 		"Asia/Katmandu"
 	},
 	{
-		/* (UTC+12:00) Auckland, Wellington */
+		/* (UTC+12:00) 奥克兰、惠灵顿 */
 		"New Zealand Standard Time", "New Zealand Daylight Time",
 		"Pacific/Auckland"
 	},
@@ -1187,12 +1187,12 @@ static const struct
 		"Pacific/Norfolk"
 	},
 	{
-		/* (UTC+08:00) Irkutsk */
+		/* (UTC+08:00) 伊尔库茨克 */
 		"North Asia East Standard Time", "North Asia East Daylight Time",
 		"Asia/Irkutsk"
 	},
 	{
-		/* (UTC+07:00) Krasnoyarsk */
+		/* (UTC+07:00) 克拉斯诺亚尔斯克 */
 		"North Asia Standard Time", "North Asia Daylight Time",
 		"Asia/Krasnoyarsk"
 	},
@@ -1202,137 +1202,137 @@ static const struct
 		"Asia/Pyongyang"
 	},
 	{
-		/* (UTC+07:00) Novosibirsk */
+		/* (UTC+07:00) 新西伯利亚 */
 		"Novosibirsk Standard Time", "Novosibirsk Daylight Time",
 		"Asia/Novosibirsk"
 	},
 	{
-		/* (UTC+06:00) Omsk */
+		/* (UTC+06:00) 鄂木斯克 */
 		"Omsk Standard Time", "Omsk Daylight Time",
 		"Asia/Omsk"
 	},
 	{
-		/* (UTC-04:00) Santiago */
+		/* (UTC-04:00) 圣地亚哥 */
 		"Pacific SA Standard Time", "Pacific SA Daylight Time",
 		"America/Santiago"
 	},
 	{
-		/* (UTC-08:00) Pacific Time (US & Canada) */
+		/* (UTC-08:00) 太平洋时间（美国和加拿大） */
 		"Pacific Standard Time", "Pacific Daylight Time",
 		"America/Los_Angeles"
 	},
 	{
-		/* (UTC-08:00) Baja California */
+		/* (UTC-08:00) 下加利福尼亚 */
 		"Pacific Standard Time (Mexico)", "Pacific Daylight Time (Mexico)",
 		"America/Tijuana"
 	},
 	{
-		/* (UTC+05:00) Islamabad, Karachi */
+		/* (UTC+05:00) 伊斯兰堡、卡拉奇 */
 		"Pakistan Standard Time", "Pakistan Daylight Time",
 		"Asia/Karachi"
 	},
 	{
-		/* (UTC-04:00) Asuncion */
+		/* (UTC-04:00) 亚松森 */
 		"Paraguay Standard Time", "Paraguay Daylight Time",
 		"America/Asuncion"
 	},
 	{
-		/* (UTC+05:00) Qyzylorda */
+		/* (UTC+05:00) 克孜洛达 */
 		"Qyzylorda Standard Time", "Qyzylorda Daylight Time",
 		"Asia/Qyzylorda"
 	},
 	{
-		/* (UTC+01:00) Brussels, Copenhagen, Madrid, Paris */
+		/* (UTC+01:00) 布鲁塞尔、哥本哈根、马德里、巴黎 */
 		"Romance Standard Time", "Romance Daylight Time",
 		"Europe/Paris"
 	},
 	{
-		/* (UTC+04:00) Izhevsk, Samara */
+		/* (UTC+04:00) 伊热夫斯克、萨马拉 */
 		"Russia Time Zone 3", "Russia Time Zone 3",
 		"Europe/Samara"
 	},
 	{
-		/* (UTC+11:00) Chokurdakh */
+		/* (UTC+11:00) 乔库尔达赫 */
 		"Russia Time Zone 10", "Russia Time Zone 10",
 		"Asia/Srednekolymsk"
 	},
 	{
-		/* (UTC+12:00) Anadyr, Petropavlovsk-Kamchatsky */
+		/* (UTC+12:00) 阿纳德尔、堪察加彼得罗巴甫洛夫斯克 */
 		"Russia Time Zone 11", "Russia Time Zone 11",
 		"Asia/Kamchatka"
 	},
 	{
-		/* (UTC+02:00) Kaliningrad */
+		/* (UTC+02:00) 加里宁格勒 */
 		"Russia TZ 1 Standard Time", "Russia TZ 1 Daylight Time",
 		"Europe/Kaliningrad"
 	},
 	{
-		/* (UTC+03:00) Moscow, St. Petersburg */
+		/* (UTC+03:00) 莫斯科、圣彼得堡 */
 		"Russia TZ 2 Standard Time", "Russia TZ 2 Daylight Time",
 		"Europe/Moscow"
 	},
 	{
-		/* (UTC+04:00) Izhevsk, Samara */
+		/* (UTC+04:00) 伊热夫斯克、萨马拉 */
 		"Russia TZ 3 Standard Time", "Russia TZ 3 Daylight Time",
 		"Europe/Samara"
 	},
 	{
-		/* (UTC+05:00) Ekaterinburg */
+		/* (UTC+05:00) 叶卡捷琳堡 */
 		"Russia TZ 4 Standard Time", "Russia TZ 4 Daylight Time",
 		"Asia/Yekaterinburg"
 	},
 	{
-		/* (UTC+06:00) Novosibirsk (RTZ 5) */
+		/* (UTC+06:00) 新西伯利亚（RTZ 5） */
 		"Russia TZ 5 Standard Time", "Russia TZ 5 Daylight Time",
 		"Asia/Novosibirsk"
 	},
 	{
-		/* (UTC+07:00) Krasnoyarsk */
+		/* (UTC+07:00) 克拉斯诺亚尔斯克 */
 		"Russia TZ 6 Standard Time", "Russia TZ 6 Daylight Time",
 		"Asia/Krasnoyarsk"
 	},
 	{
-		/* (UTC+08:00) Irkutsk */
+		/* (UTC+08:00) 伊尔库茨克 */
 		"Russia TZ 7 Standard Time", "Russia TZ 7 Daylight Time",
 		"Asia/Irkutsk"
 	},
 	{
-		/* (UTC+09:00) Yakutsk */
+		/* (UTC+09:00) 雅库茨克 */
 		"Russia TZ 8 Standard Time", "Russia TZ 8 Daylight Time",
 		"Asia/Yakutsk"
 	},
 	{
-		/* (UTC+10:00) Vladivostok */
+		/* (UTC+10:00) 符拉迪沃斯托克 */
 		"Russia TZ 9 Standard Time", "Russia TZ 9 Daylight Time",
 		"Asia/Vladivostok"
 	},
 	{
-		/* (UTC+11:00) Chokurdakh */
+		/* (UTC+11:00) 乔库尔达赫 */
 		"Russia TZ 10 Standard Time", "Russia TZ 10 Daylight Time",
 		"Asia/Magadan"
 	},
 	{
-		/* (UTC+12:00) Anadyr, Petropavlovsk-Kamchatsky */
+		/* (UTC+12:00) 阿纳德尔、堪察加彼得罗巴甫洛夫斯克 */
 		"Russia TZ 11 Standard Time", "Russia TZ 11 Daylight Time",
 		"Asia/Anadyr"
 	},
 	{
-		/* (UTC+03:00) Moscow, St. Petersburg */
+		/* (UTC+03:00) 莫斯科、圣彼得堡 */
 		"Russian Standard Time", "Russian Daylight Time",
 		"Europe/Moscow"
 	},
 	{
-		/* (UTC-03:00) Cayenne, Fortaleza */
+		/* (UTC-03:00) 卡宴、福塔莱萨 */
 		"SA Eastern Standard Time", "SA Eastern Daylight Time",
 		"America/Cayenne"
 	},
 	{
-		/* (UTC-05:00) Bogota, Lima, Quito, Rio Branco */
+		/* (UTC-05:00) 波哥大、利马、基多、里奥布朗库 */
 		"SA Pacific Standard Time", "SA Pacific Daylight Time",
 		"America/Bogota"
 	},
 	{
-		/* (UTC-04:00) Georgetown, La Paz, Manaus, San Juan */
+		/* (UTC-04:00) 乔治敦、拉巴斯、玛瑙斯、圣胡安 */
 		"SA Western Standard Time", "SA Western Daylight Time",
 		"America/La_Paz"
 	},
@@ -1342,27 +1342,27 @@ static const struct
 		"America/Miquelon"
 	},
 	{
-		/* (UTC+11:00) Sakhalin */
+		/* (UTC+11:00) 萨哈林 */
 		"Sakhalin Standard Time", "Sakhalin Daylight Time",
 		"Asia/Sakhalin"
 	},
 	{
-		/* (UTC+13:00) Samoa */
+		/* (UTC+13:00) 萨摩亚 */
 		"Samoa Standard Time", "Samoa Daylight Time",
 		"Pacific/Apia"
 	},
 	{
-		/* (UTC+00:00) Sao Tome */
+		/* (UTC+00:00) 圣多美 */
 		"Sao Tome Standard Time", "Sao Tome Daylight Time",
 		"Africa/Sao_Tome"
 	},
 	{
-		/* (UTC+04:00) Saratov */
+		/* (UTC+04:00) 萨拉托夫 */
 		"Saratov Standard Time", "Saratov Daylight Time",
 		"Europe/Saratov"
 	},
 	{
-		/* (UTC+07:00) Bangkok, Hanoi, Jakarta */
+		/* (UTC+07:00) 曼谷、河内、雅加达 */
 		"SE Asia Standard Time", "SE Asia Daylight Time",
 		"Asia/Bangkok"
 	},
@@ -1372,27 +1372,27 @@ static const struct
 		"Asia/Singapore"
 	},
 	{
-		/* (UTC+02:00) Harare, Pretoria */
+		/* (UTC+02:00) 哈拉雷、比勒陀利亚 */
 		"South Africa Standard Time", "South Africa Daylight Time",
 		"Africa/Johannesburg"
 	},
 	{
-		/* (UTC+02:00) Juba */
+		/* (UTC+02:00) 朱巴 */
 		"South Sudan Standard Time", "South Sudan Daylight Time",
 		"Africa/Juba"
 	},
 	{
-		/* (UTC+05:30) Sri Jayawardenepura */
+		/* (UTC+05:30) 斯里贾亚瓦德纳普拉 */
 		"Sri Lanka Standard Time", "Sri Lanka Daylight Time",
 		"Asia/Colombo"
 	},
 	{
-		/* (UTC+02:00) Khartoum */
+		/* (UTC+02:00) 喀土穆 */
 		"Sudan Standard Time", "Sudan Daylight Time",
 		"Africa/Khartoum"
 	},
 	{
-		/* (UTC+02:00) Damascus */
+		/* (UTC+02:00) 大马士革 */
 		"Syria Standard Time", "Syria Daylight Time",
 		"Asia/Damascus"
 	},
@@ -1402,57 +1402,57 @@ static const struct
 		"Asia/Taipei"
 	},
 	{
-		/* (UTC+10:00) Hobart */
+		/* (UTC+10:00) 霍巴特 */
 		"Tasmania Standard Time", "Tasmania Daylight Time",
 		"Australia/Hobart"
 	},
 	{
-		/* (UTC-03:00) Araguaina */
+		/* (UTC-03:00) 阿拉瓜伊纳 */
 		"Tocantins Standard Time", "Tocantins Daylight Time",
 		"America/Araguaina"
 	},
 	{
-		/* (UTC+09:00) Osaka, Sapporo, Tokyo */
+		/* (UTC+09:00) 大阪、札幌、东京 */
 		"Tokyo Standard Time", "Tokyo Daylight Time",
 		"Asia/Tokyo"
 	},
 	{
-		/* (UTC+07:00) Tomsk */
+		/* (UTC+07:00) 托木斯克 */
 		"Tomsk Standard Time", "Tomsk Daylight Time",
 		"Asia/Tomsk"
 	},
 	{
-		/* (UTC+13:00) Nuku'alofa */
+		/* (UTC+13:00) 努库阿洛法 */
 		"Tonga Standard Time", "Tonga Daylight Time",
 		"Pacific/Tongatapu"
 	},
 	{
-		/* (UTC+09:00) Chita */
+		/* (UTC+09:00) 赤塔 */
 		"Transbaikal Standard Time", "Transbaikal Daylight Time",
 		"Asia/Chita"
 	},
 	{
-		/* (UTC+03:00) Istanbul */
+		/* (UTC+03:00) 伊斯坦布尔 */
 		"Turkey Standard Time", "Turkey Daylight Time",
 		"Europe/Istanbul"
 	},
 	{
-		/* (UTC-05:00) Turks and Caicos */
+		/* (UTC-05:00) 特克斯和凯科斯群岛 */
 		"Turks And Caicos Standard Time", "Turks And Caicos Daylight Time",
 		"America/Grand_Turk"
 	},
 	{
-		/* (UTC+08:00) Ulaanbaatar */
+		/* (UTC+08:00) 乌兰巴托 */
 		"Ulaanbaatar Standard Time", "Ulaanbaatar Daylight Time",
 		"Asia/Ulaanbaatar"
 	},
 	{
-		/* (UTC-05:00) Indiana (East) */
+		/* (UTC-05:00) 印第安纳（东部） */
 		"US Eastern Standard Time", "US Eastern Daylight Time",
 		"America/Indianapolis"
 	},
 	{
-		/* (UTC-07:00) Arizona */
+		/* (UTC-07:00) 亚利桑那 */
 		"US Mountain Standard Time", "US Mountain Daylight Time",
 		"America/Phoenix"
 	},
@@ -1492,22 +1492,22 @@ static const struct
 		"Etc/GMT+11"
 	},
 	{
-		/* (UTC-04:00) Caracas */
+		/* (UTC-04:00) 加拉加斯 */
 		"Venezuela Standard Time", "Venezuela Daylight Time",
 		"America/Caracas"
 	},
 	{
-		/* (UTC+10:00) Vladivostok */
+		/* (UTC+10:00) 符拉迪沃斯托克 */
 		"Vladivostok Standard Time", "Vladivostok Daylight Time",
 		"Asia/Vladivostok"
 	},
 	{
-		/* (UTC+04:00) Volgograd */
+		/* (UTC+04:00) 伏尔加格勒 */
 		"Volgograd Standard Time", "Volgograd Daylight Time",
 		"Europe/Volgograd"
 	},
 	{
-		/* (UTC+08:00) Perth */
+		/* (UTC+08:00) 珀斯 */
 		"W. Australia Standard Time", "W. Australia Daylight Time",
 		"Australia/Perth"
 	},
@@ -1517,42 +1517,42 @@ static const struct
 		"Africa/Lagos"
 	},
 	{
-		/* (UTC+01:00) Amsterdam, Berlin, Bern, Rome, Stockholm, Vienna */
+		/* (UTC+01:00) 阿姆斯特丹、柏林、伯尔尼、罗马、斯德哥尔摩、维也纳 */
 		"W. Europe Standard Time", "W. Europe Daylight Time",
 		"Europe/Berlin"
 	},
 	{
-		/* (UTC+07:00) Hovd */
+		/* (UTC+07:00) 科布多 */
 		"W. Mongolia Standard Time", "W. Mongolia Daylight Time",
 		"Asia/Hovd"
 	},
 	{
-		/* (UTC+05:00) Ashgabat, Tashkent */
+		/* (UTC+05:00) 阿什哈巴德、塔什干 */
 		"West Asia Standard Time", "West Asia Daylight Time",
 		"Asia/Tashkent"
 	},
 	{
-		/* (UTC+02:00) Gaza, Hebron */
+		/* (UTC+02:00) 加沙、希伯伦 */
 		"West Bank Gaza Standard Time", "West Bank Gaza Daylight Time",
 		"Asia/Gaza"
 	},
 	{
-		/* (UTC+02:00) Gaza, Hebron */
+		/* (UTC+02:00) 加沙、希伯伦 */
 		"West Bank Standard Time", "West Bank Daylight Time",
 		"Asia/Hebron"
 	},
 	{
-		/* (UTC+10:00) Guam, Port Moresby */
+		/* (UTC+10:00) 关岛、莫尔兹比港 */
 		"West Pacific Standard Time", "West Pacific Daylight Time",
 		"Pacific/Port_Moresby"
 	},
 	{
-		/* (UTC+09:00) Yakutsk */
+		/* (UTC+09:00) 雅库茨克 */
 		"Yakutsk Standard Time", "Yakutsk Daylight Time",
 		"Asia/Yakutsk"
 	},
 	{
-		/* (UTC-07:00) Yukon */
+		/* (UTC-07:00) 育空 */
 		"Yukon Standard Time", "Yukon Daylight Time",
 		"America/Whitehorse"
 	},

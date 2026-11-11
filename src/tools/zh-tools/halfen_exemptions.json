@@ -1703,5 +1703,10 @@
   "path": "src/bin/pg_dump/pg_dump.c",
   "pattern": "zstd\\s+workers",
   "reason": "postmaster/ops term adjudicated keep (batch-0342 ledger family)"
+ },
+ {
+  "path": "src/bin/psql/tab-complete.c",
+  "pattern": "本文件在\\ psql\\ 中实现了一套稍复杂些的",
+  "reason": "psql file-header block translated in batch-0351: identifier names (psql, readline, TAB, SQL, ~/.inputrc, disable-completion) kept EN inside the zh prose per house identifier-keep convention; header describes the psql TAB-completion feature"
  }
 ]

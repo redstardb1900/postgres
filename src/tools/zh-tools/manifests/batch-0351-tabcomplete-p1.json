@@ -1,0 +1,83 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0351",
+ "title": "tab-complete part 1: 12 comment sites (file head + readline region)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "cf2fbd8bc0ca1febe31db9e61043b05ee2c054bd",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0351-tabcomplete-p1.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "note": "ledger 341 -> 342: +1 entry for the translated file-header MIXED finding (tab-complete.c:9, identifiers kept EN in zh pr"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0351 manifest path (S6 registration)"
+  },
+  {
+   "pattern": "src/bin/psql/tab-complete.c",
+   "kind": "c_comment",
+   "note": "prose-block translation part 1 (file head + readline setup region): file header block, 4 keyword-table tails (for CREATE"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0351-tabcomplete-p1.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 0,
+   "preserved": 1,
+   "preserved_reasons": [
+    "tab-complete.c:9 MIXED finding: translated psql file-header keeps identifier names (psql/readline/TAB/SQL) in zh prose per the identifier-keep convention"
+   ],
+   "note": "ledger 341 -> 342: +1 entry for the translated file-header MIXED finding (tab-complete.c:9, identifiers kept EN in zh prose)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0351 manifest path (S6 registration)"
+  },
+  {
+   "path": "src/bin/psql/tab-complete.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 12,
+   "translated": 12,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "prose-block translation part 1 (file head + readline setup region): file header block, 4 keyword-table tails (for CREATE ... -> 为 CREATE ...), 8 prose blocks (rl_completer_quote_characters, rl_filename_quote_characters, MatchAny/word-match docs, TailMatches impl, completion function, previous_words macros, libedit workaround); all lines within REL_16_11 EN byte budgets (0321 parity discipline, achievable for prose)"
+  }
+ ],
+ "notes": "batch-0351 (tab-complete part 1, 2026-11-12, parent batch-0350=cf2fbd8bc0c). First tab-complete.c prose-batch: 12 comments (1 header block + 4 keyword-table tails + 7 prose blocks) (file header block L9-33, 8 readline/prose comment blocks L1403-1751, 4 keyword-table tails L1278-1289) translated with the 0321 per-line EN byte parity discipline (achievable for prose, unlike 0350's atomic city lists; all changed lines within EN budgets, 0 over). Block re-layout used a char-space greedy wrapper with byte budgets (0344 method: word-clean breaks, no mid-token, no line-initial closing punct; code-example lines $if psql/set disable-completion on/$endif kept verbatim). Census note: verify W7 undercounts this file (len>24 filter); the true untranslated inventory is 413 comments = 283 SQL-skeleton one-liner labels (/* CREATE */, /* ALTER TABLE,INDEX,... <name> */ etc., KEEP per the 0336/0341 syntax-skeleton precedent, ledger deferred to the closing tab-complete batch) + ~50 prose one-liners (Complete X / If we have X / add Y style, planned batch-0352) + 80 prose blocks (this batch covers the 13 in L9-1751; later batches cover L2632-6375). Gates (pre-commit, batch scope --paths tab-complete.c): verify_c_comments --worktree REL_16_11 . --paths = 0 violations (W7 count on this file drops accordingly); term_lint --paths dual-state bare 0/0 and --pgnls 0 errors + 1 pre-existing warning (P17 at L4294, untouched region) (TL11 quote fix applied in-batch: corner quotes on \"TAB 补全\" replaced with ASCII double quotes per style R4.1); scan_halfen full-worktree default 0; raw --no-exemptions 421 -> 422: exactly +1 new finding, tab-complete.c:9 MIXED - the translated file-header block keeps identifier names (psql/readline/TAB/SQL) inside zh prose; disclosed and exempted via a new halfen_exemptions.json entry (341 -> 342, reason documented; default scan stays 0 via the ledger). Going-forward batches translating identifier-dense prose should expect the same raw+ledger pattern.; check_scope incremental PASS 4 paths (S6 green: batch manifest registered in cumulative.json 1216 entries) + default cumulative mode PASS; tests 229 = 222 + 7 ScopeEndToEnd umask failures (no tool change). Post-review fixes (R1 D1/R2 D1-D3): EOF newlines restored on both JSON files; BUGS-block decor re-wrap (L30/31 decor ` * - ` / ` *\\t` preserved, 优雅 no longer split, whole sentence on L30 at 65/68 bytes); L1652-1658 re-balanced to 5 content lines via EN-reference budgets; manifest counts 13->12 comments (R2 D2) and path-count/title/wording aligned (A1/A2). All spec/engine lessons recorded in campaign memory.",
+ "post_review": {
+  "r1": "PASS on content: all 13 regions faithful (header block with verbatim readline example, '\"' and \"text\" literals preserved, *不*/*最后* mirrors correct, MatchAny semantics intact, 4 tails 为+keywords), TL11 quote fix verified (zero corner quotes remain), halfen ledger entry pattern re.test=True, 283-skeleton KEEP ruling sampled 15+ sound, deferral verified (19 U0 hunks confined to declared regions). D1 (EOF newlines on the two modified JSONs) fixed -> CONFIRMED on site.",
+  "r2": "FAIL -> fixes -> CONFIRMED: D1 EOF newline (fixed, xxd-verified), D2 manifest counts 13->12 comments (segments_total/translated/title/notes aligned per lexer 1:1 diff), D3 decor re-wrap (L30 ` * - ` decor preserved with whole sentence 65/69B, L31 bare ` *\\t` decor, L1652-1658 re-balanced to 5 content lines via REL_16_11-reference budgets). Byte audit clean (0 over-budget, 0 decor mismatch, 0 mid-token, UTF-8, line count 6375 invariant); ledger 342 with pattern match; raw 421->422 +1 exactly tab-complete.c:9 MIXED disclosed; all gates reproduced (verify 1 ok 0 violations; term 0/0 dual; halfen default 0; check_scope incremental PASS 4 S6-green; cumulative PASS 1216; tests 229=222+7 ScopeEndToEnd). Residual advisory: batch manifest itself lacked EOF newline (fixed in final touch), L31 bare filler + header CJK compound splits noted for a later polish pass. MICRO-ACK CONFIRMED after the one-byte manifest newline fix.",
+  "delta_applied": true,
+  "delta_script": "post-review deltas: (D1/R1+R2) EOF trailing newlines restored on halfen_exemptions.json, cumulative.json, and the batch-0351 manifest itself; (D2/R2) manifest counts 13->12 comments, title/notes wording aligned; (D3/R2) BUGS-block L30/31 decor re-wrap (whole sentence on L30 at 65/69B, L31 bare decor), L1652-1658 re-balanced to 5 content lines; (A1/R2) notes path-count aligned to PASS 4; (A2/R2) pgnls caveat recorded (P17@4294 pre-existing); (in-batch TL11) corner quotes -> ASCII on TAB 补全. Spec/engine lessons in campaign memory.",
+  "re_ack": "R1 CONFIRMED (D1 xxd-verified, A1 re-wrap verified, scope intact). R2 CONFIRMED (D2/D3 verified, byte audit clean, gates re-reproduced; residual one-char manifest newline flagged, then fixed and acknowledged: proceed to post_review and commit). Both reviewers: 批可进入提交."
+ }
+}

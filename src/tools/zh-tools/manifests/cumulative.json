@@ -5858,6 +5858,11 @@
    "note": "this batch manifest"
   },
   {
+   "pattern": "src/tools/zh-tools/manifests/batch-0351-tabcomplete-p1.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
    "pattern": "src/tools/zh-tools/manifests/cumulative.json",
    "kind": "tool",
    "note": "cumulative manifest since REL_16_11 for check_scope.py (non-incremental)"
@@ -19450,6 +19455,16 @@
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0350-findtimezone.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0351-tabcomplete-p1.json",
    "kind": "manifest",
    "action": "add",
    "segments_total": 0,

@@ -7,28 +7,28 @@
  */
 
 /*----------------------------------------------------------------------
- * This file implements a somewhat more sophisticated readline "TAB
- * completion" in psql. It is not intended to be AI, to replace
- * learning SQL, or to relieve you from thinking about what you're
- * doing. Also it does not always give you all the syntactically legal
- * completions, only those that are the most common or the ones that
- * the programmer felt most like implementing.
+ * 本文件在 psql 中实现了一套稍复杂些的
+ * readline"TAB 补全"。它并非意在成为 AI、取代
+ * SQL 学习，也无意让你免去思考自己正在做什
+ * 么。此外它并不总能给出所有语法上合法的补
+ * 全，只给出最常见的、或实现者最想做的那一
+ * 些。
  *
- * CAVEAT: Tab completion causes queries to be sent to the backend.
- * The number of tuples returned gets limited, in most default
- * installations to 1000, but if you still don't like this prospect,
- * you can turn off tab completion in your ~/.inputrc (or else
- * ${INPUTRC}) file so:
+ * 注意：TAB 补全会导致查询被发送到后端。返回
+ * 的元组数在大多数默认安装中被限制为
+ * 1000，但如果你仍不喜欢这一前景，可以在你的
+ * ~/.inputrc（或 ${INPUTRC}）文件中这样关闭 TAB
+ * 补全：
  *
  *	 $if psql
  *	 set disable-completion on
  *	 $endif
  *
- * See `man 3 readline' or `info readline' for the full details.
+ * 完整细节见 `man 3 readline' 或 `info readline'。
  *
  * BUGS:
- * - Quotes, parentheses, and other funny characters are not handled
- *	 all that gracefully.
+ * - 引号、括号和其他特殊字符的处理不那么优雅。
+ *	
  *----------------------------------------------------------------------
  */
 
@@ -1275,18 +1275,18 @@ static const pgsql_thing_t words_after_create[] = {
 	{"SYSTEM", NULL, NULL, NULL, NULL, THING_NO_CREATE | THING_NO_DROP},
 	{"TABLE", NULL, NULL, &Query_for_list_of_tables},
 	{"TABLESPACE", Query_for_list_of_tablespaces},
-	{"TEMP", NULL, NULL, NULL, NULL, THING_NO_DROP | THING_NO_ALTER},	/* for CREATE TEMP TABLE
+	{"TEMP", NULL, NULL, NULL, NULL, THING_NO_DROP | THING_NO_ALTER},	/* 为 CREATE TEMP TABLE
 																		 * ... */
 	{"TEMPLATE", NULL, NULL, &Query_for_list_of_ts_templates, NULL, THING_NO_SHOW},
-	{"TEMPORARY", NULL, NULL, NULL, NULL, THING_NO_DROP | THING_NO_ALTER},	/* for CREATE TEMPORARY
+	{"TEMPORARY", NULL, NULL, NULL, NULL, THING_NO_DROP | THING_NO_ALTER},	/* 为 CREATE TEMPORARY
 																			 * TABLE ... */
 	{"TEXT SEARCH", NULL, NULL, NULL},
 	{"TRANSFORM", NULL, NULL, NULL, NULL, THING_NO_ALTER},
 	{"TRIGGER", "SELECT tgname FROM pg_catalog.pg_trigger WHERE tgname LIKE '%s' AND NOT tgisinternal"},
 	{"TYPE", NULL, NULL, &Query_for_list_of_datatypes},
-	{"UNIQUE", NULL, NULL, NULL, NULL, THING_NO_DROP | THING_NO_ALTER}, /* for CREATE UNIQUE
+	{"UNIQUE", NULL, NULL, NULL, NULL, THING_NO_DROP | THING_NO_ALTER}, /* 为 CREATE UNIQUE
 																		 * INDEX ... */
-	{"UNLOGGED", NULL, NULL, NULL, NULL, THING_NO_DROP | THING_NO_ALTER},	/* for CREATE UNLOGGED
+	{"UNLOGGED", NULL, NULL, NULL, NULL, THING_NO_DROP | THING_NO_ALTER},	/* 为 CREATE UNLOGGED
 																			 * TABLE ... */
 	{"USER", Query_for_list_of_roles, NULL, NULL, Keywords_for_user_thing},
 	{"USER MAPPING FOR", NULL, NULL, NULL},
@@ -1401,19 +1401,19 @@ initialize_readline(void)
 	rl_basic_word_break_characters = WORD_BREAKS;
 
 	/*
-	 * Ideally we'd include '"' in rl_completer_quote_characters too, which
-	 * should allow us to complete quoted identifiers that include spaces.
-	 * However, the library support for rl_completer_quote_characters is
-	 * presently too inconsistent to want to mess with that.  (Note in
-	 * particular that libedit has this variable but completely ignores it.)
+	 * 理想情况下，'"' 也应包含进
+	 * rl_completer_quote_characters，这样就能补全含空格的
+	 * 加引号标识符。但该库对此变量的支持目前太
+	 * 不一致，不值得费心。（注意 libedit 有此变
+	 * 量却完全忽略它。）
 	 */
 	rl_completer_quote_characters = "'";
 
 	/*
-	 * Set rl_filename_quote_characters to "all possible characters",
-	 * otherwise Readline will skip filename quoting if it thinks a filename
-	 * doesn't need quoting.  Readline actually interprets this as bytes, so
-	 * there are no encoding considerations here.
+	 * 将 rl_filename_quote_characters 设为"所有可能的字
+	 * 符"，否则当 Readline 认为文件名不需要引号处理时
+	 * 会跳过文件名加引号。Readline 实际按字节解释
+	 * 它，因此不涉及编码考量。
 	 */
 #ifdef HAVE_RL_FILENAME_QUOTE_CHARACTERS
 	{
@@ -1435,18 +1435,18 @@ initialize_readline(void)
 }
 
 /*
- * Check if 'word' matches any of the '|'-separated strings in 'pattern',
- * using case-insensitive or case-sensitive comparisons.
+ * 检查 'word' 是否匹配 'pattern' 中以'|'分隔的任一字符
+ * 串，比较时不区分或区分大小写。
  *
- * If pattern is NULL, it's a wild card that matches any word.
- * If pattern begins with '!', the result is negated, ie we check that 'word'
- * does *not* match any alternative appearing in the rest of 'pattern'.
- * Any alternative can contain '*' which is a wild card, i.e., it can match
- * any substring; however, we allow at most one '*' per alternative.
+ * 若 pattern 为 NULL，它是匹配任何单词的通配
+ * 符。若 pattern 以'!'开头，则结果取反，即我们检查
+ *  'word' *不*匹配 'pattern' 其余部分中的任何备选
+ * 项。备选项可包含'*'通配符，即匹配任何子串；但每
+ * 项最多一个'*'。
  *
- * For readability, callers should use the macros MatchAny and MatchAnyExcept
- * to invoke those two special cases for 'pattern'.  (But '|' and '*' must
- * just be written directly in patterns.)
+ * 为了可读性，调用方应使用宏 MatchAny 与 MatchAnyExcept 来
+ * 表达 'pattern' 的这两种特殊情形。（但'|'和'*'必须直
+ * 接写在模式里。）
  */
 #define MatchAny  NULL
 #define MatchAnyExcept(pattern)  ("!" pattern)
@@ -1514,11 +1514,11 @@ word_matches(const char *pattern,
 }
 
 /*
- * Implementation of TailMatches and TailMatchesCS macros: do the last N words
- * in previous_words match the variadic arguments?
+ * TailMatches 与 TailMatchesCS 宏的实现：previous_words 中最后 N
+ * 个词是否匹配可变参数？
  *
- * The array indexing might look backwards, but remember that
- * previous_words[0] contains the *last* word on the line, not the first.
+ * 下标看似相反，但记住 previous_words[0] 存的
+ * 是行上*最后*一个词，而非首个。
  */
 static bool
 TailMatchesImpl(bool case_sensitive,
@@ -1627,12 +1627,12 @@ ends_with(const char *s, char c)
 }
 
 /*
- * The completion function.
+ * 补全函数。
  *
- * According to readline spec this gets passed the text entered so far and its
- * start and end positions in the readline buffer. The return value is some
- * partially obscure list format that can be generated by readline's
- * rl_completion_matches() function, so we don't have to worry about it.
+ * 按照 readline 规范，它会收到至今已输入的文本及其在
+ * readline 缓冲区中的起止位置。返回值是某种晦涩的列
+ * 表格式，可由 readline 的 rl_completion_matches() 函数
+ * 生成，所以我们不必为此操心。
  */
 static char **
 psql_completion(const char *text, int start, int end)
@@ -1650,11 +1650,11 @@ psql_completion(const char *text, int start, int end)
 	int			previous_words_count;
 
 	/*
-	 * For compactness, we use these macros to reference previous_words[].
-	 * Caution: do not access a previous_words[] entry without having checked
-	 * previous_words_count to be sure it's valid.  In most cases below, that
-	 * check is implicit in a TailMatches() or similar macro, but in some
-	 * places we have to check it explicitly.
+	 * 为了紧凑，我们用这些宏来引用 previous_words[]。
+	 * 注意：在未经检查 previous_words_count 确认其有效之
+	 * 前，不要访问 previous_words[] 条目。下文多数情形
+	 * 中，该检查隐含在 TailMatches() 之类的宏内，但
+	 * 有些地方必须显式检查。
 	 */
 #define prev_wd   (previous_words[0])
 #define prev2_wd  (previous_words[1])
@@ -1745,9 +1745,9 @@ psql_completion(const char *text, int start, int end)
 	};
 
 	/*
-	 * Temporary workaround for a bug in recent (2019) libedit: it incorrectly
-	 * de-escapes the input "text", causing us to fail to recognize backslash
-	 * commands.  So get the string to look at from rl_line_buffer instead.
+	 * 针对近期（2019）libedit 缺陷的临时办法：它错误地
+	 * 反转义输入的"text"，使我们无法识别反斜杠命令。
+	 * 因此改为从 rl_line_buffer 取字符串查看。
 	 */
 	char	   *text_copy = pnstrdup(rl_line_buffer + start, end - start);
 	text = text_copy;

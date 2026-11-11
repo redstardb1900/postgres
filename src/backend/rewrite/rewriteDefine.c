@@ -455,7 +455,7 @@ DefineQueryRewrite(const char *rulename,
 		}
 
 		/*
-		 * 最后，若它不是 ON SELECT 规则，则它不得
+		 * 最后，若它不是 ON SELECT 规则，则它*不得*         
 		 * 被命名为 _RETURN。这可以防止意外或恶意地用
 		 * 其他种类的规则替换视图的 ON SELECT 规则。
 		 */

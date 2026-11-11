@@ -2051,7 +2051,7 @@ function_selectivity(PlannerInfo *root,
 /*
  * add_function_cost
  *
- * 估计一个函数的执行代价，并把它加到
+ * 估计一个函数的执行代价，并把它*加*到               
  * *cost 的内容上。估计可以同时包含一次性的和
  * 按元组的部分，因为 QualCost 就是这样。
  *
@@ -2191,7 +2191,7 @@ has_unique_index(RelOptInfo *rel, AttrNumber attno)
 
 		/*
 		 * 注意：忽略部分索引，因为它们不能让我们断定
-		 * 所有属性值都不同，除非它们标了 predOK，
+		 * 所有属性值都不同，*除非*它们标了 predOK，         
 		 * 那表示我们知道该索引的谓词被
 		 * 查询满足。我们也不关心表达式索引。
 		 * 另外，多列唯一索引也不能让我们断定

@@ -1948,7 +1948,7 @@ find_forced_null_vars(Node *node)
 /*
  * find_forced_null_var
  *		返回被给定子句强制为 null 的 Var，若它
- *		不是 IS NULL 类子句则返回 NULL。要成功，该子句必须只强制
+ *		不是 IS NULL 类子句则返回 NULL。要成功，该子句必须*只*强制
  *		这个特定 Var 为空，不能有任何其他条件。
  *
  * 这只是 find_forced_null_vars() 的单子句情形，
@@ -2000,7 +2000,7 @@ find_forced_null_var(Node *node)
  * 若 falseOK 为真，则 false 结果可以视为严格，
  * 否则必须保证 NULL 输入得出真正的 NULL 结果。
  *
- * foo op ALL array 在操作符严格且能证明
+ * foo op ALL array 在操作符严格*且*能证明                  
  * 数组输入不是空数组时是严格的。对数组常量
  * 和 ARRAY[] 构造这两种情形可以做这个检查。
  *

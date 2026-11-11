@@ -4050,7 +4050,7 @@ create_worktablescan_plan(PlannerInfo *root, Path *best_path,
 	/*
 	 * 需要找到工作表参数 ID，它在处理递归 UNION 的
 	 * 那个计划层次里，比 CTE 的来源
-	 * 低一层。
+	 * *低*一层。     
 	 */
 	levelsup = rte->ctelevelsup;
 	if (levelsup == 0)			/* 不应当发生 */

@@ -201,7 +201,7 @@ coerce_type(ParseState *pstate, Node *node,
 		 *
 		 * 这些情形不同于上文，因为参数暴露在外的类型  
 		 * 必须是实际的数组、枚举、范围或多范围类型。 
-		 * 尤其参数绝不能是 UNKNOWN 常量。                
+		 * 尤其参数*绝不能*是 UNKNOWN 常量。              
 		 * 若是，就直接落到下文；稍后会调用伪类型的    
 		 * 输入函数，它将报错。另外，若得到的是             
 		 * 数组、枚举、范围或多范围上的域，则须重标记为 
@@ -246,7 +246,7 @@ coerce_type(ParseState *pstate, Node *node,
 		 * 应当把该函数调用的求值推迟到运行时。但        
 		 * 无法把 typinput 函数调用表示为表达式树，         
 		 * 因为 C 字符串值不是 Datum。（XXX 自 7.3 起      
-		 * 这确实已可行，要做吗？）     
+		 * 这*确实*已可行，要做吗？）   
 		 */
 		Const	   *con = (Const *) node;
 		Const	   *newcon = makeNode(Const);
@@ -272,7 +272,7 @@ coerce_type(ParseState *pstate, Node *node,
 		 * 现有输入例程对长度检查遵循隐式强制转换     
 		 * 语义，这并不总是此处想要的。任何长度约束     
 		 * 将由调用者稍后实施。例外是 INTERVAL 类型，   
-		 * 因为我们必须为它传 typmod，否则它无法遵从       
+		 * 因为我们*必须*为它传 typmod，否则它无法遵从     
 		 * 古怪的 SQL 规范输入规则。（丑陋之极，              
 		 * 不过规范这部分同样如此……） 
 		 */

@@ -2182,7 +2182,7 @@ GetSnapshotDataReuse(Snapshot snapshot)
  * 我们也尽量包含正在运行的子事务 XIDs，
  * 但 PGPROC 只有有限的子事务 XID 缓存区，完整
  * 信息可能不可得。若发现任何溢出的 subxid 数组，
- * 就必须把快照的 subxid 数据标为溢出，并且可能
+ * 就必须把快照的 subxid 数据标为溢出，并且*可能*        
  * 需要额外工作来判断什么在运行（见 XidInMVCCSnapshot()）。
  *
  * 我们也更新下列后端全局变量：
@@ -2844,7 +2844,7 @@ GetRunningTransactionData(void)
 	}
 
 	/*
-	 * 重要的是不要把槽所设的限制包含进来，因为
+	 * 重要的是*不要*把槽所设的限制包含进来，因为      
 	 * snapbuild.c 用 oldestRunningXid 来管理它的 xmin 视界。若把那些
 	 * 包含进来，初值就永远无法增加，因为
 	 * 存在循环依赖：槽只在
@@ -2995,7 +2995,7 @@ GetOldestSafeDecodingTransactionId(bool catalogOnly)
 	 * ProcArrayLock 时清除。
 	 *
 	 * 恢复中我们不能把安全值降到上面算出的结果以下，
-	 * 所以那里得再等一会儿。可惜不能
+	 * 所以那里得再等一会儿。可惜*不能*                      
 	 * 使用 KnownAssignedXidsGetOldestXmin()，因为 KnownAssignedXids
 	 * 机制可能漏掉一些值，返回比安全值更旧的值。
 	 */
@@ -3262,7 +3262,7 @@ IsBackendPid(int pid)
  * 我们已有的某份快照更旧的后端。因为我们只持共享
  * 锁来检查 procarray，存在竞争：后端可能在我们
  * 查看之后才设置 xmin。的确，在内存序较弱的多处理器上，
- * 另一个后端可能在我们查看之前就已经设置了 xmin。不过我们知道
+ * 另一个后端可能在我们查看*之前*就已经设置了 xmin。不过我们知道
  * 这样的后端必须持有与我们自己持有的 ProcArrayLock 重叠的共享 ProcArrayLock，
  * 否则我们会看到它的 xmin 更新。因此，
  * 另一个后端与我们的扫描并发取得的任何快照，都无法把
@@ -3359,7 +3359,7 @@ GetCurrentVirtualXIDs(TransactionId limitXmin, bool excludeXmin0,
  *
  * 若 dbOid 有效，就跳过挂到其他数据库的后端。
  *
- * 小心不要 pfree 这个函数的结果。我们足够频繁地复用
+ * 小心*不要* pfree 这个函数的结果。我们足够频繁地复用
  * 这个数组，所以结果用 malloc。
  */
 VirtualTransactionId *
@@ -4335,7 +4335,7 @@ FullXidRelativeTo(FullTransactionId rel, TransactionId xid)
  * 在后端里，这被复制进 GetSnapshotData() 的快照，
  * 利用了 XidInMVCCSnapshot()
  * 同样不在乎这个区别的事实。子事务 XIDs 实际上被当作
- * 顶层 XIDs，典型情况下不维护 pg_subtrans
+ * 顶层 XIDs，典型情况下*不*维护 pg_subtrans                     
  * 链接（这不影响可见性）。
  *
  * KnownAssignedXids 和快照里有空间装下 maxProcs *
@@ -4372,7 +4372,7 @@ FullXidRelativeTo(FullTransactionId rel, TransactionId xid)
  *		把给定 XID 以及任何在它之前、
  *		尚未观察到的 XIDs 记入 KnownAssignedXids。
  *
- * 应当对与事务关联的每一条 WAL 记录都运行 RecordKnownAssignedTransactionIds()。
+ * 应当对与事务关联的*每一条* WAL 记录都运行 RecordKnownAssignedTransactionIds()。
  * 必须在执行了 StartupCLOG() 等之后对每条记录调用，因为我们必须
  * ExtendCLOG() 等等。
  *
@@ -4390,7 +4390,7 @@ RecordKnownAssignedTransactionIds(TransactionId xid)
 
 	/*
 	 * 新观察到的 xid 到达时，经常出现它
-	 * 并不是序列中的下一个 xid。发生这种情况时，必须把
+	 * *并不是*序列中的下一个 xid。发生这种情况时，必须把
 	 * 中间的那些 xid 也当作正在运行。
 	 */
 	if (TransactionIdFollows(xid, latestObservedXid))
@@ -4575,7 +4575,7 @@ KnownAssignedTransactionIdsIdleMaintenance(void)
  * 为了让单次删除保持便宜，需要允许数组里有空隙。
  * 这通过并行布尔数组 KnownAssignedXidsValid[] 来实现，
  * 用它把数组元素标为有效或无效。删除时把
- * KnownAssignedXidsValid[i] 设为假，而不清除
+ * KnownAssignedXidsValid[i] 设为假，而*不*清除                 
  * XID 项本身。这保留 XID 项有序的性质，
  * 所以可以轻松做二分查找。我们定期压缩掉
  * 未使用的项；这比每次删除都立刻压缩
@@ -5020,7 +5020,7 @@ KnownAssignedXidsRemoveTree(TransactionId xid, int nsubxids,
 }
 
 /*
- * 把 KnownAssignedXids 裁剪到 xid，但不包括 xid。若 xid 无效，
+ * 把 KnownAssignedXids 裁剪到 xid，但*不*包括 xid。若 xid 无效，
  * 就清空整张表。
  *
  * 调用方必须以排他模式持有 ProcArrayLock。

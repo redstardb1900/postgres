@@ -1151,7 +1151,7 @@ HeapTupleSatisfiesMVCC(HeapTuple htup, Snapshot snapshot,
  * HeapTupleSatisfiesVacuum
  *
  *	为 VACUUM 判定元组状态。这里我们
- *	主要想知道元组是否可能对任一
+ *	主要想知道元组是否可能对*任一*                        
  *	正在运行的事务可见。若是，VACUUM 还不能移除它。
  *
  * OldestXmin 是一个截止 XID（取自

@@ -764,7 +764,7 @@ init_sql_fcache(FunctionCallInfo fcinfo, Oid collation, bool lazyEvalOK)
 														&TTSOpsMinimalTuple);
 
 		/*
-		 * 若结果为复合类型且我们返回整个元组结果，      
+		 * 若结果为复合类型*且*我们返回整个元组结果，    
 		 * 就需要为已删除的列插入空值。在单列结果       
 		 * 情形中，复合列值内部可能也有已删除的列，但 
 		 * 不是我们此处要关心的问题。另外 resulttlist        

@@ -48,7 +48,7 @@
  *		'max_dispatch' 个元素的数组，包含指向          
  *		元组路由所触及的每个分区表的                           
  *		PartitionDispatch 对象的指针。目标                      
- *		分区表的表项总是存在于该数组的             
+ *		分区表的表项*总是*存在于该数组的           
  *		第 0 个元素。索引详见 PartitionDispatchData->indexes  
  *		注释  
  *

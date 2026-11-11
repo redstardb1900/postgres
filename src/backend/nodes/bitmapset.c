@@ -981,7 +981,7 @@ bms_del_members(Bitmapset *a, const Bitmapset *b)
 }
 
 /*
- * bms_join - 类似 bms_union，但两个输入都会被回收
+ * bms_join - 类似 bms_union，但*两个*输入都会被回收
  */
 Bitmapset *
 bms_join(Bitmapset *a, Bitmapset *b)

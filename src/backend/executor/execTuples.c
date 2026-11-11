@@ -2189,7 +2189,7 @@ BuildTupleFromCStrings(AttInMetadata *attinmeta, char **values)
 /*
  * HeapTupleHeaderGetDatum - 把 HeapTupleHeader 指针转换为 Datum。 
  *
- * 它绝对不能被用于磁盘上的元组；元组                 
+ * 它*绝对不能*被用于磁盘上的元组；元组               
  * 应当是由 heap_form_tuple 或它的某个包装例程（例         
  * 如 BuildTupleFromCStrings）新近构建的。还要确保            
  * 其 tupledesc 行类型已"定型"。      

@@ -240,7 +240,7 @@ startup_hacks(const char *progname)
 		}
 
 		/*
-		 * 默认情况下，abort() 只在非调试
+		 * 默认情况下，abort() 只在*非*调试                  
 		 * 构建中生成崩溃转储。由于我们的 Assert() / ExceptionalCondition() 使用 abort()，
 		 * 保留默认设置会让调试更难。
 		 *

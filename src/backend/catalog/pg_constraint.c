@@ -391,7 +391,7 @@ CreateConstraintEntry(const char *constraintName,
  *
  * 这用于决定是否接受用户指定的约束名。
  * 它故意不同于 ChooseConstraintName 用于决定自动生成名是否
- * 可用的测试：这里，除非同一对象上已有相同约束名在用，
+ * 可用的测试：这里，除非*同一对象*上已有相同约束名在用，
  * 否则我们都允许。
  *
  * 注意：调用方应对给定对象持有排他锁，否则

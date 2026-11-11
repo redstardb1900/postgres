@@ -214,7 +214,7 @@ old_9_3_check_for_line_data_type_usage(ClusterInfo *cluster)
  *	会失败，因此我们应当预先检测到它，而不是在   
  *	升级中途失败。而若存在带这类列的物化视图，  
  *	那么 DDL 重载将静默地把它改为 "text"，而这将与   
- *	磁盘存储不匹配（类似 "cstring"）。所以必须拒绝它  
+ *	磁盘存储不匹配（类似 "cstring"）。所以*必须*拒绝它
  */
 void
 old_9_6_check_for_unknown_data_type_usage(ClusterInfo *cluster)

@@ -509,7 +509,7 @@ rewriteRuleAction(Query *parsetree,
 
 	/*
 	 * 每个规则动作的 jointree 应当是主语法分析树的 jointree
-	 * 加上该规则的 jointree，但通常不含我们正在替换的
+	 * 加上该规则的 jointree，但通常*不含*我们正在替换的 
 	 * 原始 rtindex（若存在；INSERT 时不会有）。注意
 	 * 若规则动作引用 OLD，它的 jointree 会加入一条
 	 * 对 rt_index 的引用。若规则动作不引用 OLD，但
@@ -3361,7 +3361,7 @@ rewriteTargetView(Query *parsetree, Relation view)
 	 * 发现其中一些可以在查询变换期间丢弃。
 	 * 我们在这里做的展平也是一种可选优化。（若
 	 * 你不信服并想改变这一点，请注意对 view_perminfo->selectedCols
-	 * 应用 adjust_view_column_set 显然不是
+	 * 应用 adjust_view_column_set 显然*不是*                          
 	 * 正确答案，因为那会忽略视图 WHERE 限定条件里使用的
 	 * 基关系列。）
 	 *

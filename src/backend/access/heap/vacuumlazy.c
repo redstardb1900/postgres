@@ -2916,7 +2916,7 @@ lazy_truncate_heap(LVRelState *vacrel)
 
 		/*
 		 * 从末尾反向扫描，以核实末尾的页实际上
-		 * 不含元组。这是必要的，不是可选的，因为
+		 * 不含元组。这是*必要*的，不是可选的，因为   
 		 * 其他后端可能在我们
 		 * 清理期间向这些页添加了元组。
 		 */
@@ -2946,7 +2946,7 @@ lazy_truncate_heap(LVRelState *vacrel)
 
 		/*
 		 * 更新统计信息。这里只调整 rel_pages
-		 * 而不动 reltuples 是正确的，因为元组数
+		 * 而不动 reltuples *是*正确的，因为元组数         
 		 * 没有因截断而改变。
 		 */
 		vacrel->removed_pages += orig_rel_pages - new_rel_pages;

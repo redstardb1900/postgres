@@ -103,7 +103,7 @@ static void page_verify_redirects(Page page);
  * 注意：此函数调用很频繁。若剪枝并无用处，它必须迅速返回，
  * 这一点很重要。
  *
- * 调用方必须已钉住该缓冲区，并且不得持有其上的锁。
+ * 调用方必须已钉住该缓冲区，并且*不得*持有其上的锁。
  */
 void
 heap_page_prune_opt(Relation relation, Buffer buffer)

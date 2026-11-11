@@ -1267,7 +1267,7 @@ read_seq_tuple(Relation rel, Buffer *buf, HeapTuple seqdatatuple)
  * 我们就会强制重写序列，即使 seqdataform 本身未被更改。
  * 这允许 ALTER SEQUENCE 以事务方式行为。目前，
  * 不会触发重写的唯一选项是 OWNED BY。
- * ALTER SEQUENCE OWNED BY 不重写序列是必要的，
+ * ALTER SEQUENCE OWNED BY 不重写序列是*必要*的，               
  * 因为这会导致序列 relfilenumber 的不必要更改，
  * 从而破坏 pg_upgrade。
  */

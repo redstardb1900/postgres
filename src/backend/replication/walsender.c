@@ -3539,7 +3539,7 @@ WalSndSetState(WalSndState state)
 
 /*
  * 返回表示该状态的字符串常量。它用于          
- * 系统视图，绝不应进行翻译。         
+ * 系统视图，*绝不应*进行翻译。       
  */
 static const char *
 WalSndGetStateString(WalSndState state)

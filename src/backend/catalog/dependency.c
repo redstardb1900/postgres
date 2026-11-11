@@ -1323,7 +1323,7 @@ deleteOneObject(const ObjectAddress *object, Relation *depRel, int flags)
 	 *
 	 * 我们以前在移除向外的依赖链接之后才做这件事，但
 	 * 事先做似乎同样合理。在并发情形下
-	 * 我们必须按此顺序，因为在调用 doDeletion() 之前不能做任何事务性
+	 * 我们*必须*按此顺序，因为在调用 doDeletion() 之前不能做任何事务性
 	 * 更新 --- 它们会马上被提交，
 	 * 若随后删除失败就不合适。
 	 */

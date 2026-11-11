@@ -433,7 +433,7 @@ restriction_is_securely_promotable(RestrictInfo *restrictinfo,
 {
 	/*
 	 * 若该关系没有必须排在这条之前的 baserestrictinfo 子句，
-	 * 或者这一条是防泄漏的，就可以。
+	 * *或者*这一条是防泄漏的，就可以。                 
 	 */
 	if (restrictinfo->security_level <= rel->baserestrict_min_security ||
 		restrictinfo->leakproof)

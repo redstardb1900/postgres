@@ -49,7 +49,7 @@ ConditionVariableInit(ConditionVariable *cv)
  * 省去 ConditionVariablePrepareToSleep 调用会更高效。
  * 详见 ConditionVariableSleep 中的注释。
  *
- * 注意："进入循环之前" 意味着你必须在调用
+ * 注意："进入循环之前" 意味着你*必须*在调用       
  * ConditionVariablePrepareToSleep 与调用
  * ConditionVariableSleep 之间测试退出条件。若不方便，就不要调用
  * ConditionVariablePrepareToSleep。

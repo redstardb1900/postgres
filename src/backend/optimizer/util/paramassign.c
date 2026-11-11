@@ -405,7 +405,7 @@ replace_nestloop_param_placeholdervar(PlannerInfo *root, PlaceHolderVar *phv)
 /*
  * process_subquery_nestloop_params
  *	  处理参数化子查询中需要由外层嵌套循环提供的参数。
- *	  目前，那就是 FROM 中的子查询向当前查询层索取的全部参数，
+ *	  目前，那就是 FROM 中的子查询向当前查询层索取的*全部*参数，
  *
  * 因为它们必须是 LATERAL 引用。
  * subplan_params 是我们打算传给

@@ -771,7 +771,7 @@ build_join_rel(PlannerInfo *root,
 	 * PlaceHolderVars 的 ph_lateral 集合加进 direct_lateral_relids，因此
 	 * 现在可以把那一项算完。这很像在 min_join_parameterization 里
 	 * 计算传递闭包的 lateral_relids，
-	 * 只不过这里必须考虑新增的 PHVs。
+	 * 只不过这里*确实*必须考虑新增的 PHVs。     
 	 */
 	joinrel->direct_lateral_relids =
 		bms_del_members(joinrel->direct_lateral_relids, joinrel->relids);

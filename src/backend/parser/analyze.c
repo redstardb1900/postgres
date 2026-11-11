@@ -811,7 +811,7 @@ transformInsertStmt(ParseState *pstate, InsertStmt *stmt)
 
 			/*
 			 * 所有子列表必须在完成变换             
-			 * 之后才相同（变换可能把 '*' 展开成多项）    
+			 * *之后*才相同（变换可能把 '*' 展开成多项）  
 			 * VALUES RTE 不能处理任何差异。         
 			 */
 			if (sublist_length < 0)
@@ -1019,7 +1019,7 @@ transformInsertRow(ParseState *pstate, List *exprlist,
 	 * 检查表达式列表的长度。它的表达式不能多于      
 	 * 目标列的数目。可以更少，但前提是未给出显式   
 	 * 列清单（其余列隐式取默认值）。注意要      
-	 * 必须在变换之后检查这一点，因为变换可能          
+	 * 必须在变换*之后*检查这一点，因为变换可能        
 	 * 把 '*' 展开成多个条目。          
 	 */
 	if (list_length(exprlist) > list_length(icolumns))
@@ -3399,7 +3399,7 @@ transformLockingClause(ParseState *pstate, Query *qry, LockingClause *lc,
 				 * 不带别名的连接 RTE 不会作为关系名可见，
 				 * 需要跳过（否则会遮蔽同名基础关系）， 
 				 * 除非它带有 USING 子句别名，此时该别名       
-				 * 是可见的。           
+				 * *是*可见的。         
 				 *
 				 * 不带别名的子查询和 values RTE 从不作为       
 				 * 关系名可见，必须始终跳过。      

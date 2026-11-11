@@ -1,0 +1,996 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0346",
+ "title": "emphasis-star restoration batch: 120 star ops + 10-line pg_rewind re-translation + 2 zero-byte term fixes, 132 lines / 64 files",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "16a41660bb4f2648c0446ed4cb18091d6607602d",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0346-emphasis-stars.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/access/gist/gist.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/access/heap/heapam.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/access/heap/heapam_handler.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/access/heap/heapam_visibility.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/access/heap/pruneheap.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/access/heap/vacuumlazy.c",
+   "kind": "c_comment",
+   "note": "2 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/access/heap/visibilitymap.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/access/nbtree/nbtpage.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/access/transam/xact.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/access/transam/xlog.c",
+   "kind": "c_comment",
+   "note": "3 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/catalog/dependency.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/catalog/pg_constraint.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/catalog/pg_enum.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/commands/sequence.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/commands/trigger.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/executor/execExprInterp.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/executor/execMain.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/executor/execPartition.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/executor/execReplication.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/executor/execTuples.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/executor/functions.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/executor/nodeAgg.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/executor/nodeBitmapIndexscan.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/executor/nodeLockRows.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/executor/spi.c",
+   "kind": "c_comment",
+   "note": "3 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/lib/rbtree.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/libpq/auth.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/libpq/pqformat.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/main/main.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/nodes/bitmapset.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/nodes/list.c",
+   "kind": "c_comment",
+   "note": "2 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/optimizer/path/equivclass.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/optimizer/plan/createplan.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/optimizer/plan/initsplan.c",
+   "kind": "c_comment",
+   "note": "3 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/optimizer/prep/prepjointree.c",
+   "kind": "c_comment",
+   "note": "6 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/optimizer/util/clauses.c",
+   "kind": "c_comment",
+   "note": "2 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/optimizer/util/paramassign.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/optimizer/util/plancat.c",
+   "kind": "c_comment",
+   "note": "2 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/optimizer/util/relnode.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/optimizer/util/restrictinfo.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/parser/analyze.c",
+   "kind": "c_comment",
+   "note": "3 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/parser/parse_coerce.c",
+   "kind": "c_comment",
+   "note": "3 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/parser/parse_node.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/partitioning/partprune.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/postmaster/bgworker.c",
+   "kind": "c_comment",
+   "note": "2 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/postmaster/checkpointer.c",
+   "kind": "c_comment",
+   "note": "5 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/postmaster/postmaster.c",
+   "kind": "c_comment",
+   "note": "3 lines: emphasis mirror + 2 zero-byte P65 term fixes (shutdown -> 关闭) inside the changed comment block"
+  },
+  {
+   "pattern": "src/backend/replication/pgoutput/pgoutput.c",
+   "kind": "c_comment",
+   "note": "2 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/replication/walsender.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/rewrite/rewriteDefine.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/rewrite/rewriteHandler.c",
+   "kind": "c_comment",
+   "note": "2 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/storage/buffer/bufmgr.c",
+   "kind": "c_comment",
+   "note": "6 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/storage/file/fd.c",
+   "kind": "c_comment",
+   "note": "10 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/procarray.c",
+   "kind": "c_comment",
+   "note": "10 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/storage/lmgr/condition_variable.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/storage/lmgr/lock.c",
+   "kind": "c_comment",
+   "note": "2 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/storage/lmgr/proc.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/tcop/fastpath.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/backend/tcop/postgres.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/bin/pg_dump/pg_backup_archiver.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/bin/pg_rewind/pg_rewind.c",
+   "kind": "c_comment",
+   "note": "10-line block re-translation (duplicated-fragment corruption, EN 651-657/659-661), incl *after* mirror"
+  },
+  {
+   "pattern": "src/bin/pg_upgrade/version.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/bin/psql/large_obj.c",
+   "kind": "c_comment",
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "pattern": "src/include/lib/ilist.h",
+   "kind": "c_comment",
+   "note": "7 emphasis-star line(s)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0346-emphasis-stars.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/backend/access/gist/gist.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/access/heap/heapam.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/access/heap/heapam_handler.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/access/heap/heapam_visibility.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/access/heap/pruneheap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/access/heap/vacuumlazy.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/access/heap/visibilitymap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/access/nbtree/nbtpage.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/access/transam/xact.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/access/transam/xlog.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "3 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/catalog/dependency.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/catalog/pg_constraint.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/catalog/pg_enum.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/commands/sequence.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/commands/trigger.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/executor/execExprInterp.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/executor/execMain.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/executor/execPartition.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/executor/execReplication.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/executor/execTuples.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/executor/functions.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/executor/nodeAgg.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/executor/nodeBitmapIndexscan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/executor/nodeLockRows.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/executor/spi.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "3 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/lib/rbtree.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/libpq/auth.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/libpq/pqformat.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/main/main.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/nodes/bitmapset.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/nodes/list.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/optimizer/path/equivclass.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/optimizer/plan/createplan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/optimizer/plan/initsplan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "3 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/optimizer/prep/prepjointree.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "6 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/optimizer/util/clauses.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/optimizer/util/paramassign.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/optimizer/util/plancat.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/optimizer/util/relnode.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/optimizer/util/restrictinfo.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/parser/analyze.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "3 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/parser/parse_coerce.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "3 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/parser/parse_node.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/partitioning/partprune.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/postmaster/bgworker.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/postmaster/checkpointer.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "5 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/postmaster/postmaster.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "3 lines: emphasis mirror + 2 zero-byte P65 term fixes (shutdown -> 关闭) inside the changed comment block"
+  },
+  {
+   "path": "src/backend/replication/pgoutput/pgoutput.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/replication/walsender.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/rewrite/rewriteDefine.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/rewrite/rewriteHandler.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/storage/buffer/bufmgr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "6 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/storage/file/fd.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 10,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "10 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/storage/ipc/procarray.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 10,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "10 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/storage/lmgr/condition_variable.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/storage/lmgr/lock.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/storage/lmgr/proc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/tcop/fastpath.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/backend/tcop/postgres.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/bin/pg_dump/pg_backup_archiver.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/bin/pg_rewind/pg_rewind.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 10,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "10-line block re-translation (duplicated-fragment corruption, EN 651-657/659-661), incl *after* mirror"
+  },
+  {
+   "path": "src/bin/pg_upgrade/version.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/bin/psql/large_obj.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 emphasis-star line(s)"
+  },
+  {
+   "path": "src/include/lib/ilist.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 7,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "7 emphasis-star line(s)"
+  }
+ ],
+ "notes": "batch-0346 (emphasis-star restoration, 2026-11-11, parent batch-0345=16a41660bb4). Restores the zh mirrors of EN rhetorical emphasis pairs, per the 220-site mirror corpus majority. Survey: the strict star classifier (tab-bullet-safe, alphabetic-pair filter) found 163 EN-pair/zh-content-starless sites; block-level cross-line reclassification (zh block pair count >= EN block pair count -> the pair moved with its word to a neighbor line, legitimate) removed 36; 2 known pointer false-pairs excluded (mcv.c:133 math, indxpath.c:2119 '*clauseset. (*') -> 126 true drops + 3 orphan sites from the earlier survey. Applied 132 changed lines / 64 files (120 spec op lines + 10 pg_rewind block + 2 postmaster term fixes): 119 mirror ops (insert *词* +2 bytes around the zh counterpart of the emphasized EN word; find count==1 asserted per line; special-wording ops: relnode.c 774 also inserts 确实 (op +8B; line 48 -> 61 bytes net, pad absorbed) mirroring EN emphatic '*do*', fd.c 3120 also drops 我们 (-6B) to fund the mirror, bufmgr.c 3684 pairs (R2 D1 note: this line carries TWO applied pairs, *变成* funded from pad and *离开* from the spec op; the spec file records only the *离开* op - the *变成* insert was applied by the superseded combined-op entry's first half and is recorded here instead of in the spec; parity 70==70 byte-exact) *变成*/*离开* mirroring EN '*to*/*away*'); 3 orphan sites (stray closing star removed on spi.c 2416 / checkpointer.c 1201 / pgoutput.c 2341, mirror restored on the word line: spi.c 2415 *且* for EN '*and*', checkpointer.c 1200 *前面* for '*preceded*', pgoutput.c 2340 *期间* for '*during*'); and a 10-line block re-translation of pg_rewind.c 651-661 whose zh had duplicated-fragment corruption (0258-class), per-line EN byte parity, including the '*after*' -> '*之后*' mirror. 2 zero-byte term fixes in a changed block: postmaster.c 280/281 shutdown -> 关闭 (P65 phrasebook mandates 关闭, bans 关机; surfaced because the L314 mirror edit pulled the whole 279-319 comment into the changed set; pre-existing violations, fixed in-batch, disclosed). 10 keeps disclosed (spec /tmp/spec0346.json): 6 budget-exhausted lines (pad<2, no clean trim: functions.c 1801, list.c 149, orclauses.c 194, rewriteHandler.c 3028, bufmgr.c 2003, fd.c 1379); pruneheap.c 238 (EN '*this*' -> zh 本页 already lexicalizes the demonstrative); nodeWindowAgg.c 3407 (EN phrase '*if there is no exclusion clause*' split across zh reflow lines 3406/3407 - needs block reflow, deferred); indxpath.c 2119 (pointer false-pair, not rhetorical); proc.c 1097 (EN '*on* the wait queue' -> zh locative 上, single-char mirror unnatural). Line regimes: parity lines asserted to exact REL_16_11 EN byte length after edit (closer-aware pad), legacy (already over EN) transformation-only, per gen0345 practice; applier /tmp/gen0346.py + block script /tmp/gen0346b.py, spec /tmp/spec0346.json (ops + keeps). Gates (pre-commit, batch scope): verify_c_comments --worktree HEAD . = 64 files, 64 ok, 0 violations, 0 parse errors, changed=115 comment blocks; 168 W7 advisories pre-existing untouched comments; term_lint dual-state bare 0/0 and --pgnls 0/0 after the two P65 fixes; halfen full-worktree default 0 findings (2319 files); raw --no-exemptions set (path,line,end_line) 421 == HEAD 421 (0 added / 0 removed; no halfen ledger change this batch); check_scope --worktree . --incremental --base HEAD PASS 65 changed paths; tests 228 = 221 green + 7 documented ScopeEndToEnd umask failures. Deferred: wording-funded mirror pass for 3 budget keeps (bufmgr.c 2003, rewriteHandler.c 3028, functions.c 1801 - drop the unemphasized subject 我们, same device as fd.c 3120, per R1 A1); block-reflow for the phrase-split keep (nodeWindowAgg 3407) and the 0345 keeps ledger.",
+ "post_review": {
+  "r1": "PASS (full-corpus, not sampled): 120/120 ops have an EN emphasis counterpart within ±3 lines, 0 misses; all 132 diff lines mapped to spec, 0 unexplained; copula mirrors and wording additions/drops (relnode 确实, fd 我们-drop) approved; 3 orphan fixes correct; pg_rewind re-translation faithful with *之后* on the counterpart word; 10 keeps verified incl recomputed pads; P65 fixes verified against phrasebook.tsv line 66; collateral sweep clean (single hit = literal SQL '*' at analyze.c 814, false positive). Advisories adopted: A1 3 wording-funded keeps deferred (drop-我们 device), A3 title arithmetic fixed. A4 pg_rewind 657 blank filler noted cosmetic. MICRO-ACK CONFIRMED on the note edits.",
+  "r2": "PASS: independent byte audit - 132 changed lines, 120 spec ops map 1:1, all 87 parity lines == EN bytes exactly, 33 legacy transformation-only verified, closer-aware pad confirmed, orphan fixes exactly -1B each, 10 keeps untouched; replay idempotent (git diff sha256 identical pre/post); pg_rewind block 10 lines parity-exact with exactly one pair on 654; postmaster term fixes zero-byte verified; all 7 gates reproduced verbatim (verify 64/64/0 changed=115 W7=168; term 27 rules 0/0 + 87 rules 0/0 with pgnls HEAD == manifest pgnls_commit; halfen default 0; raw 421==421; check_scope PASS 65; tests 228=221+7 all ScopeEndToEnd). D1 spec/diff divergence (bufmgr 3684 dual pair, single spec op) mechanics-clean and now recorded verbatim in notes; A1 line-count figure corrected to 132; A2 relnode byte figure corrected. MICRO-ACK CONFIRMED after re-verification (diff sha256 unchanged, notes edits accurate, check_scope PASS 65 reproduced).",
+  "delta_applied": true,
+  "delta_script": "manifest-notes/title only (no .c or ledger changes since first review; both reviewers verified diff immutability): title corrected to '120 star ops + 10-line pg_rewind re-translation + 2 zero-byte term fixes, 132 lines / 64 files'; notes: 130->132 changed-line accounting, relnode 774 byte figure (op +8B, line 48->61), bufmgr.c 3684 dual-pair spec/diff divergence recorded verbatim (R2 D1), deferred wording-funded keep ledger added (R1 A1: bufmgr 2003 / rewriteHandler 3028 / functions 1801, drop-我们 device).",
+  "re_ack": "R1 MICRO-ACK CONFIRMED (diff byte-identical to PASS state; title/ledger/divergence/figures all verified in place). R2 MICRO-ACK CONFIRMED (diff sha256 a35c86aa009d79ff unchanged from PASS audit snapshot; D1/A1/A2 edits verified accurate; check_scope PASS 65 re-reproduced). Both reviewers: 批可进入提交."
+ }
+}

@@ -210,7 +210,7 @@ gistinsert(Relation r, Datum *values, bool *isnull,
  * 插入下行指针。但若 'buffer' 是根页且需要分裂，
  * gistplacetopage() 把分裂作为一次原子操作完成，
  * 并把 *splitinfo 设为 NIL。此时我们继续持有根页锁，
- * 并释放子页；注意新元组并不在根页上，
+ * 并释放子页；注意新元组*并不*在根页上，             
  * 而在某个新的子页中。
  *
  * 若 'newblkno' 非 NULL，返回第一个新/更新元组被插入到的

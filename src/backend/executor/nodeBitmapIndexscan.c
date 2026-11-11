@@ -136,7 +136,7 @@ ExecReScanBitmapIndexScan(BitmapIndexScanState *node)
 	/*
 	 * 重置运行时键上下文，以免每扫描一条外层          
 	 * 元组就泄漏一次内存。注意这里假定每次调用       
-	 * 都重算运行时键。  
+	 * *都*重算运行时键。
 	 */
 	if (econtext)
 		ResetExprContext(econtext);

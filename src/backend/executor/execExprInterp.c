@@ -3001,7 +3001,7 @@ ExecEvalRow(ExprState *state, ExprEvalStep *op)
 }
 
 /*
- * 求值 GREATEST()/LEAST() 表达式（注意并非 MIN()/MAX()）。       
+ * 求值 GREATEST()/LEAST() 表达式（注意*并非* MIN()/MAX()）。     
  *
  * 所有待比较的表达式都已经被求值到                      
  * op->d.minmax.values[]/nulls[] 

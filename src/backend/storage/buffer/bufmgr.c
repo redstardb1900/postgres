@@ -432,7 +432,7 @@ ForgetPrivateRefCountEntry(PrivateRefCountEntry *ref)
  * BufferIsPinned
  *		当且仅当该缓冲区被钉住时为真（也检查缓冲区号是否有效）。
  *
- *		注意：这里检查的是本后端持有对该
+ *		注意：这里检查的是*本*后端持有对该            
  *		缓冲区的钉住。我们不关心其他后端是否持有。
  */
 #define BufferIsPinned(bufnum) \
@@ -559,7 +559,7 @@ PrefetchSharedBuffer(SMgrRelation smgr_reln,
 	}
 
 	/*
-	 * 若该块已经在缓冲区里，我们什么也不做。这并不理想：
+	 * 若该块*已经*在缓冲区里，我们什么也不做。这并不理想：
 	 * 该块可能正要被逐出，而我们知道很快就要用它，
 	 * 那样做就很蠢。但唯一容易的办法
 	 * 是增加 usage_count，这看来不是好办法：
@@ -3071,7 +3071,7 @@ SyncOneBuffer(int buf_id, bool skip_recently_used, WritebackContext *wb_context)
 	 * 检查缓冲区是否需要写出。
 	 *
 	 * 只要我们在访问方法里把页标为脏页是在用
-	 * XLogInsert() 记录变更之前，就可以不拿缓冲区内容锁做这项检查：
+	 * XLogInsert() 记录变更*之前*，就可以不拿缓冲区内容锁做这项检查：
 	 * 若有人刚好在我们检查之后把缓冲区弄脏，我们
 	 * 不担心，因为我们的 checkpoint.redo 指向即将到来的变更的日志记录之前，
 	 * 因此我们不必写出这样的脏页。
@@ -3681,7 +3681,7 @@ DropRelationBuffers(SMgrRelation smgr_reln, ForkNumber *forkNum,
 		 * 理由确信没有人在把该关系的新页装入
 		 * 缓冲池。（否则我们很可能完全错过这样的页。）
 		 * 因此，我们看它时标签可能正在变，但它不能
-		 * 变成我们关心的值，只能离开这样的值。
+		 * *变成*我们关心的值，只能*离开*这样的值。       
 		 * 因此假阴性不可能，而假阳性是安全的，
 		 * 因为取得缓冲区锁之后
 		 * 我们会重新检查。
@@ -4503,7 +4503,7 @@ UnlockReleaseBuffer(Buffer buffer)
 
 /*
  * IncrBufferRefCount
- *		增加我们已经至少钉住
+ *		增加我们*已经*至少钉住                                 
  *		过一次的缓冲区上的钉住计数。
  *
  *		本函数无法用于我们没有钉住的缓冲区，
@@ -4756,7 +4756,7 @@ ConditionalLockBuffer(Buffer buffer)
 /*
  * 验证本后端恰好钉住该缓冲区一次。
  *
- * 注意：与 BufferIsPinned() 一样，这里检查的是本后端
+ * 注意：与 BufferIsPinned() 一样，这里检查的是*本*后端     
  * 持有对该缓冲区的钉住。我们不关心其他后端是否持有。
  */
 void

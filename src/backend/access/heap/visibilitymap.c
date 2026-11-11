@@ -294,7 +294,7 @@ visibilitymap_set(Relation rel, BlockNumber heapBlk, Buffer heapBuf,
 				 * 若启用了数据校验和（或 wal_log_hints=on），
 				 * 就需要保护堆页面不被撕裂。
 				 *
-				 * 否则就绝不能更新堆页面的 LSN。在
+				 * 否则就*绝不能*更新堆页面的 LSN。在         
 				 * 这种情况下，上面插入的 WAL 记录省略了该堆页面的 FPI，
 				 * 因此更新堆页面的 LSN
 				 * 是不正确的。

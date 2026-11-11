@@ -515,7 +515,7 @@ RestoreArchive(Archive *AHX)
 			AH->currentTE = te;
 
 			/*
-				 * 在 createDB 模式下，仅对数据库整体发出 DROP。
+				 * 在 createDB 模式下，*仅*对数据库整体发出 DROP。
 				 * 对其他任何对象发出 DROP 都是错误的，
 				 * 因为此时我们连接的是错误的数据库。
 				 * （DATABASE PROPERTIES 条目（如果有）应被视为

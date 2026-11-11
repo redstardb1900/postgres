@@ -784,7 +784,7 @@ list_delete_nth_cell(List *list, int n)
 	 * 否则，通常只是把去掉的元素折叠掉。但为了
 	 * 调试，把整个列表内容移到别处。
 	 *
-	 * （注意我们必须把内容保持在同一内存上下文中。）
+	 * （注意我们*必须*把内容保持在同一内存上下文中。）
 	 */
 #ifndef DEBUG_LIST_MEMORY_USAGE
 	memmove(&list->elements[n], &list->elements[n + 1],
@@ -998,7 +998,7 @@ list_delete_first_n(List *list, int n)
 	 * 否则，通常只是把去掉的元素折叠掉。但为了
 	 * 调试，把整个列表内容移到别处。
 	 *
-	 * （注意我们必须把内容保持在同一内存上下文中。）
+	 * （注意我们*必须*把内容保持在同一内存上下文中。）
 	 */
 #ifndef DEBUG_LIST_MEMORY_USAGE
 	memmove(&list->elements[0], &list->elements[n],

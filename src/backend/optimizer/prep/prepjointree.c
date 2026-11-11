@@ -284,7 +284,7 @@ replace_empty_jointree(Query *parse)
  *
  * 子句 "foo op ANY (sub-SELECT)" 可以把
  * sub-SELECT 上拉成范围表项，并把隐含的
- * 比较当作半连接的限定条件。不过这种处理只在
+ * 比较当作半连接的限定条件。不过这种处理*只在*     
  * WHERE 或 JOIN/ON 子句的顶层有效，因为我们无法
  * 区分在涉及 NULL 输入时 ANY 应当返回 FALSE 还是 NULL。
  * 另外，在外连接的 ON 子句中，只有当子链接退化
@@ -458,7 +458,7 @@ pull_up_sublinks_jointree_recurse(PlannerInfo *root, Node *jtnode,
 		/*
 		 * 虽然可以把上拉的子查询放进返回的
 		 * relid，但没有必要，因为上层限定条件反正无法引用它们的
-		 * 输出。但我们确实需要纳入该连接自身的 rtindex，
+		 * 输出。但我们*确实*需要纳入该连接自身的 rtindex，
 		 * 因为还没有折叠连接别名变量，否则上层
 		 * 会误以为无法使用对本连接的
 		 * 引用。
@@ -1393,7 +1393,7 @@ pull_up_simple_union_all(PlannerInfo *root, Node *jtnode, RangeTblEntry *rte)
  *
  * 注意 setOpQuery 是包含 setOp 节点的 Query，其 tlist
  * 含有对全部集合运算输出列的引用。当从
- * pull_up_simple_union_all 调用时，它并不是 root->parse，后者才是
+ * pull_up_simple_union_all 调用时，它*并不是* root->parse，后者才是
  * 我们正在上拉进入的父 Query。
  *
  * parentRTindex 是 appendrel 父项在 root->parse->rtable 中的下标。
@@ -3129,7 +3129,7 @@ reduce_outer_joins_pass2(Node *jtnode,
 			 * 不可空一侧的任何行。另外，把上层
 			 * 约束传进可空一侧没有意义，因为若有的话
 			 * 我们已经能简化该连接。（对于上层的
-			 * 强制为 null 的约束，不得把它们传进
+			 * 强制为 null 的约束，*不得*把它们传进       
 			 * 可空一侧——它们要么已在这里起作用，要么没有。）结论
 			 * 是我们把局部约束或上层约束之一传给外连接的子节点，
 			 * 绝不同时传两者。
@@ -3250,7 +3250,7 @@ report_reduced_full_join(reduce_outer_joins_pass2_state *state2,
  * 为了正确判断这两个外连接能否交换，
  * deconstruct_jointree() 必须把这种 FromExpr 的任何限定条件当作
  * 上层外连接的退化限定条件。最好的办法是
- * 让它们真的成为上层连接的限定条件：丢掉 FromExpr，
+ * 让它们真的*成为*上层连接的限定条件：丢掉 FromExpr，  
  * 并把限定条件提升到上层连接的限定条件中。（注意，
  * 中间的 FromExpr 有多个子节点时没有危险，因为那时
  * 它表示一个没法与上层外连接交换的内连接。）
@@ -3271,7 +3271,7 @@ report_reduced_full_join(reduce_outer_joins_pass2_state *state2,
  * 不得把 phrels 集合减成空。若会发生这种情况，并且
  * 该 RTE_RESULT 是外连接的直接子节点，就只好放弃
  * 并且不去掉该 RTE_RESULT：没有别的地方可求值这个
- * PlaceHolderVar。（也就是说，在这类情况下 RTE_RESULT 确实有输出
+ * PlaceHolderVar。（也就是说，在这类情况下 RTE_RESULT *确实*有输出
  * 列。）但若 RTE_RESULT 是内连接的直接子节点，
  * 通常可以改 PlaceHolderVar 的 phrels，改为在
  * 内连接处求值它。这是可以的，因为我们真正在乎的只是 PHVs

@@ -1119,7 +1119,7 @@ GetBackgroundWorkerPid(BackgroundWorkerHandle *handle, pid_t *pidp)
  * 放弃并返回 BGWH_POSTMASTER_DIED，因为知道启动不会       
  * 发生。  
  *
- * 调用者必须已把我们的 PID 设为该 worker 的           
+ * 调用者*必须*已把我们的 PID 设为该 worker 的         
  * bgw_notify_pid，否则状态变化时不会被及时唤醒。      
  */
 BgwHandleStatus
@@ -1164,7 +1164,7 @@ WaitForBackgroundWorkerStartup(BackgroundWorkerHandle *handle, pid_t *pidp)
  * 放弃并返回 BGWH_POSTMASTER_DIED，因为 worker 状态变化   
  * 时是由 postmaster 通知我们的。   
  *
- * 调用者必须已把我们的 PID 设为该 worker 的           
+ * 调用者*必须*已把我们的 PID 设为该 worker 的         
  * bgw_notify_pid，否则状态变化时不会被及时唤醒。      
  */
 BgwHandleStatus

@@ -217,7 +217,7 @@ SPI_finish(void)
 
 /*
  * SPI_start_transaction 是空操作，保留是为了向后兼容。
- * SPI 调用者总是处于事务之中。      
+ * SPI 调用者*总是*处于事务之中。    
  */
 void
 SPI_start_transaction(void)
@@ -2412,8 +2412,8 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 	ListCell   *lc1;
 
 	/*
-	 * 仅当 options->allow_nonatomic 已设置，且连接时给定了  
-	 * *SPI_OPT_NONATOMIC 标志，且我们不处于子事务，则允许  
+	 * 仅当 options->allow_nonatomic 已设置，*且*连接时给定了
+	 * SPI_OPT_NONATOMIC 标志，且我们不处于子事务，则允许   
 	 * 非原子行为，才允许。后两项测试与 _SPI_commit()  
 	 * 是否允许提交相一致；更多说明见该处。            
 	 */

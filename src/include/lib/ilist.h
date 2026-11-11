@@ -189,7 +189,7 @@ typedef struct dlist_iter
  * 要取得迭代的当前元素，使用成员 'cur'。
  *
  * 使用本迭代器时，只允许在当前迭代点改动链表。删除当前
- * 节点没问题，但插入或删除相邻节点则不行。
+ * 节点没问题，但插入或删除相邻节点则*不行*。            
  *
  * 注意：可变迭代需要单独的类型，以便在当前节点被删除或
  * 修改时保存它的 'next' 节点。
@@ -375,7 +375,7 @@ dlist_push_tail(dlist_head *head, dlist_node *node)
 }
 
 /*
- * 在同一链表中的另一个节点之后插入节点。
+ * 在*同一链表*中的另一个节点之后插入节点。
  */
 static inline void
 dlist_insert_after(dlist_node *after, dlist_node *node)
@@ -387,7 +387,7 @@ dlist_insert_after(dlist_node *after, dlist_node *node)
 }
 
 /*
- * 在同一链表中的另一个节点之前插入节点。
+ * 在*同一链表*中的另一个节点之前插入节点。
  */
 static inline void
 dlist_insert_before(dlist_node *before, dlist_node *node)
@@ -634,7 +634,7 @@ dlist_tail_node(dlist_head *head)
  * 用 iter.cur 访问当前元素。
  *
  * 使用本迭代时，只允许在当前迭代点改动链表。删除当前
- * 节点没问题，但插入或删除相邻节点则不行。
+ * 节点没问题，但插入或删除相邻节点则*不行*。            
  *
  */
 #define dlist_foreach_modify(iter, lhead)									\
@@ -719,7 +719,7 @@ dclist_push_tail(dclist_head *head, dlist_node *node)
 
 /*
  * dclist_insert_after
- *		在同一链表中的另一个节点之后插入节点。
+ *		在*同一链表*中的另一个节点之后插入节点。
  *
  * 注意：'after' 必须是 'head' 的成员。
  */
@@ -737,7 +737,7 @@ dclist_insert_after(dclist_head *head, dlist_node *after, dlist_node *node)
 
 /*
  * dclist_insert_before
- *		在同一链表中的另一个节点之前插入节点。
+ *		在*同一链表*中的另一个节点之前插入节点。
  *
  * 注意：'before' 必须是 'head' 的成员。
  */
@@ -1012,7 +1012,7 @@ slist_push_head(slist_head *head, slist_node *node)
 }
 
 /*
- * 在同一链表中的另一个节点之后插入节点。
+ * 在*同一链表*中的另一个节点之后插入节点。
  */
 static inline void
 slist_insert_after(slist_node *after, slist_node *node)

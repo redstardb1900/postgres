@@ -1906,7 +1906,7 @@ heapam_index_validate_scan(Relation heapRelation,
 		}
 
 		/*
-		 * 若 tuplesort 已经越过，并且我们先前没有见过匹配，
+		 * 若 tuplesort 已经越过，*并且*我们先前没有见过匹配，
 		 * 则索引中缺少该元组，因此插入它。
 		 */
 		if ((tuplesort_empty ||

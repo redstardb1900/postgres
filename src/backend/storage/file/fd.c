@@ -139,7 +139,7 @@
 
 /*
  * 不少平台允许单个进程打开的文件数，远多于
- * 许多进程同时这么做时真正能支撑的数量。
+ * *许多*进程同时这么做时真正能支撑的数量。          
  * 这个 GUC 参数让数据库管理员把 max_safe_fds 限制到
  * 低于 postmaster 初始探测所建议的值。
  */
@@ -845,7 +845,7 @@ durable_unlink(const char *fname, int elevel)
  * InitFileAccess --- 在后端启动期间初始化本模块。
  *
  * 这在正常后端或独立后端启动时调用。
- * postmaster 里不会调用它。
+ * postmaster 里*不会*调用它。   
  *
  * 注意，这并不初始化临时文件访问，那是
  * 经由 InitTemporaryFileAccess() 单独初始化的。
@@ -872,7 +872,7 @@ InitFileAccess(void)
  * InitTemporaryFileAccess --- 在启动期间初始化临时文件访问。
  *
  * 这在正常后端或独立后端启动时调用。
- * postmaster 里不会调用它。
+ * postmaster 里*不会*调用它。   
  *
  * 它与 InitFileAccess() 分开，因为临时文件清理会
  * 引起 pgstat 报告。pgstat 在 before_shmem_exit() 期间关闭，
@@ -1046,12 +1046,12 @@ BasicOpenFile(const char *fileName, int fileFlags)
  * 这是导出给那些确实想要普通内核文件描述符、
  * 但又必须能抵御文件描述符耗尽的地方使用的。一旦成功
  * 返回一个文件描述符，调用者就有责任确保
- * 它不会在 ereport() 时泄漏！多数用户不应当直接
+ * 它不会在 ereport() 时泄漏！多数用户*不应当*直接     
  * 调用本例程，而应使用 VFD 抽象层，它
  * 既能防止描述符泄漏，也能管理
  * 需要打开超过一小段时间的文件。
  *
- * 理想情况下，这应当是后端里对 open() 的唯一直接调用。
+ * 理想情况下，这应当是后端里对 open() 的*唯一*直接调用。
  * 实践中，postmaster 会直接调用 open()，而且后端启动早期
  * 也有一些直接的 open() 调用。那些是可以的，因为
  * 那时本模块本来也没有任何已打开的文件可以关闭。
@@ -2521,7 +2521,7 @@ reserveAllocatedDesc(void)
  * 打开的文件；这样，若调用 AllocateFile 的例程
  * 被 ereport(ERROR) 提前打断，就不会泄漏文件描述符。
  *
- * 理想情况下，这应当是后端里对 fopen() 的唯一直接调用。
+ * 理想情况下，这应当是后端里对 fopen() 的*唯一*直接调用。
  */
 FILE *
 AllocateFile(const char *name, const char *mode)
@@ -2680,7 +2680,7 @@ TryAgain:
 /*
  * 释放任意类型的 AllocateDesc。
  *
- * 参数必须指向 allocatedDescs[] 数组内部。
+ * 参数*必须*指向 allocatedDescs[] 数组内部。     
  */
 static int
 FreeDesc(AllocateDesc *desc)
@@ -2781,7 +2781,7 @@ CloseTransientFile(int fd)
  * 通常留给随后的 ReadDir 或 ReadDirExtended 调用；
  * 见 ReadDir 的注释。
  *
- * 理想情况下，这应当是后端里对 opendir() 的唯一直接调用。
+ * 理想情况下，这应当是后端里对 opendir() 的*唯一*直接调用。
  */
 DIR *
 AllocateDir(const char *dirname)
@@ -3117,7 +3117,7 @@ AtEOXact_Files(bool isCommit)
  * BeforeShmemExit_Files
  *
  * before_shmem_exit 钩子，在后端关闭期间清理临时文件。
- * 这里我们要清理包括 interXact 在内的全部临时文件。
+ * 这里要清理包括 interXact 在内的*全部*临时文件。    
  */
 static void
 BeforeShmemExit_Files(int code, Datum arg)
@@ -3252,7 +3252,7 @@ RemovePgTempFiles(void)
 
 	/*
 	 * 在 EXEC_BACKEND 情形下，DataDir 顶层也有一个 pgsql_tmp 目录。
-	 * 不过这里不清理它，因为那样做
+	 * 不过这里*不*清理它，因为那样做                          
 	 * 会造成竞争。它在 postmaster 启动更早的时候
 	 * 单独完成。
 	 */

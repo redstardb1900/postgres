@@ -3476,7 +3476,7 @@ TriggerEnabled(EState *estate, ResultRelInfo *relinfo,
 
 	/*
 	 * 检查列特定触发器（仅对 UPDATE 可能，实际上我们  
-	 * 必须忽略其他事件类型的 tgattr）        
+	 * *必须*忽略其他事件类型的 tgattr）      
 	 */
 	if (trigger->tgnattr > 0 && TRIGGER_FIRED_BY_UPDATE(event))
 	{

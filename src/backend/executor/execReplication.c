@@ -43,7 +43,7 @@ static bool tuples_equal(TupleTableSlot *slot1, TupleTableSlot *slot2,
 
 /*
  * 为在关系 'rel' 中搜索元组 'key' 设置一个 ScanKey，         
- * 元组需匹配 'rel' 而非 idxrel！  
+ * 元组需匹配 'rel' *而非* idxrel！
  *
  * 返回索引扫描要使用的列数。            
  *

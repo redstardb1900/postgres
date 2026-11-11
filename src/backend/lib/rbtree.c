@@ -687,7 +687,7 @@ rbt_delete_node(RBTree *rbt, RBTNode *z)
  *
  * "node" 必须先前已通过 rbt_find 或 rbt_leftmost 找到。
  * 调用者有责任在调用 rbt_delete 之前释放附着到该
- * 节点的任何附属数据。（不要试图把那责任推给
+ * 节点的任何附属数据。（*不要*试图把那责任推给 
  * freefunc，因为实际被释放的可能是另一个物理节点！）
  *
  */

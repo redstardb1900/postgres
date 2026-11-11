@@ -750,7 +750,7 @@ advance_transition_function(AggState *aggstate,
 		{
 			/*
 			 * 不得用NULL输入调用 strict 函数。注意，即便 
-			 * 通过了上述测试，当 transfn 为 strict 且上一轮    
+			 * 通过了上述测试，当 transfn 为 strict *且*上一轮  
 			 * 返回了 NULL，仍可能到达此处。若发生这种      
 			 * 情况，NULL 会被一路传递到最后。      
 			 */

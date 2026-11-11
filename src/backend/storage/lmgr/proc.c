@@ -533,7 +533,7 @@ InitAuxiliaryProcess(void)
 	set_spins_per_delay(ProcGlobal->spins_per_delay);
 
 	/*
-	 * 找一个空闲的 auxproc……如果没有就非常麻烦……
+	 * 找一个空闲的 auxproc……如果没有就*非常*麻烦……
 	 */
 	for (proctype = 0; proctype < NUM_AUXILIARY_PROCS; proctype++)
 	{

@@ -77,7 +77,7 @@
  *	   持有 ckpt_lck 时设置请求标志。  
  *	2. 发信号请求检查点。       
  *	3. 休眠直到 ckpt_started 变化。此时你知道自           
- *	   你启动本算法以来已有检查点开始（尽管未必      
+ *	   你启动本算法以来已有检查点开始（尽管*未必*    
  *	   正是你的信号触发），且该检查点正使用你的标志。   
  *	4. 记录 ckpt_started 的新值。 
  *	5. 休眠直到 ckpt_done >= ckpt_started 的保存值               
@@ -625,7 +625,7 @@ CheckArchiveTimeout(void)
 
 	/*
 	 * 更新本地状态……注意 last_xlog_switch_time 是               
-	 * 切换执行或被请求的时间。  
+	 * 切换执行或*被请求*的时间。
 	 */
 	last_time = GetLastSegSwitchData(&last_switch_lsn);
 
@@ -665,7 +665,7 @@ CheckArchiveTimeout(void)
 
 /*
  * 如果有立即检查点请求处于挂起状态则返回真。        
- * （注意：这检查的不是当前检查点的 IMMEDIATE 标志，      
+ * （注意：这检查的不是*当前*检查点的 IMMEDIATE 标志，    
  * 而是后面还有请求。）  
  */
 static bool
@@ -1197,8 +1197,8 @@ CompactCheckpointerRequestQueue(void)
 	/*
 	 * 这里的基本想法是：若某请求之后跟着相同的         
 	 * 更晚请求，即可跳过该请求。从队尾倒着检查       
-	 * 某请求前面是否有更早的相同请求看似更明智，   
-	 * *可减少拷贝。但若中间夹有 SYNC_FORGET_REQUEST 或          
+	 * 某请求*前面*是否有更早的相同请求看似更明智， 
+	 * 可减少拷贝。但若中间夹有 SYNC_FORGET_REQUEST 或           
 	 * SYNC_FILTER_REQUEST，语义就可能改变，故我们     
 	 * 采用这种做法。若让下面的代码理解这类请求       
 	 * 的特定语义，本可做得更聪明（可清除反正             

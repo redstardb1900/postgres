@@ -5410,7 +5410,7 @@ test_lockmode_for_conflict(MultiXactStatus status, TransactionId xid,
 	wantedstatus = get_mxact_status_for_lock(mode, false);
 
 	/*
-	 * 注意：我们必须先检查 TransactionIdIsInProgress，再检查
+	 * 注意：我们*必须*先检查 TransactionIdIsInProgress，再检查
 	 * TransactionIdDidAbort/Commit；解释见 heapam_visibility.c
 	 * 顶部的注释。
 	 */

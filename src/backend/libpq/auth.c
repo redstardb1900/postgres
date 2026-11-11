@@ -407,7 +407,7 @@ ClientAuthentication(Port *port)
 	/*
 	 * 这是我们第一次能访问当前连接的 hba 记录的地方，
 	 * 因此在这里、在认证之前，执行任何基于 hba
-	 * 选项字段、应当事先完成的校验。
+	 * 选项字段、应当*事先*完成的校验。                    
 	 */
 	if (port->hba->clientcert != clientCertOff)
 	{

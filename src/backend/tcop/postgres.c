@@ -1043,7 +1043,7 @@ exec_simple_query(const char *query_string)
 
 	/*
 	 * 启动一个事务命令。查询字符串产生的各查询 
-	 * 默认处于同一命令块，除非遇到 BEGIN/COMMIT/ABORT；   
+	 * 默认处于同一命令块，*除非*遇到 BEGIN/COMMIT/ABORT； 
 	 * 此后必须强制新开事务命令，否则 xact.c 会出乱子。   
 	 * （注意：这通常会改变当前内存上下文。）           
 	 *                                              

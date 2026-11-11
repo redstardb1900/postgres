@@ -648,17 +648,17 @@ perform_rewind(filemap_t *filemap, rewind_source *source,
 		pg_log_info("creating backup label and updating control file");
 
 	/*
-	 * 创建备份标签，告知 WAL 重放起点。通常为源          
-	 * 与目标的最后公共检查点。若源为备机，可能最后  
-	 * 检查点在备机重启点之后。即源已应用检查点但未  
-	 * 重启点。务必从重启点的 redo 点开始。                   
-	 * 重启点。务必从重启点的 redo 点开始。                   
-	 * 重启点。务必从重启点的 redo 点开始。                
-	 * redo 点开始。                                   
+	 * 创建备份标签文件，告知目标从何处开始 WAL 重放。 
+	 * 通常来自源与目标二者的最后公共检查点。           
+	 * 但若源是备机，最后公共检查点有可能在备机重启  
+	 * 点*之后*。这意味着源服务器已应用检查点记录，     
+	 * 但尚未执行对应的重启点。这种情况下务必从重启    
+	 * 点的 redo 点开始。                                           
+	 *                                                     
 	 *
-	 * 用旧源控制文件。服务器可能已在复制期间完成      
-	 * 重启点，但须从复制开始时的 redo 点出发。           
-	 * 重启点，但须从复制开始时的 redo 点出发。              
+	 * 此处使用旧版本的源控制文件。服务器可能在我们   
+	 * 开始复制文件之后才完成重启点，但我们必须从     
+	 * 开始复制时的 redo 点出发。                                   
 	 */
 	if (ControlFile_source.checkPointCopy.redo < chkptredo)
 	{

@@ -2628,7 +2628,7 @@ EvalPlanQualInit(EPQState *epqstate, EState *parentestate,
 	/*
 	 * 为每个潜在的 rti 分配引用槽的空间 - 现在就做，    
 	 * 而非像其他动态资源那样在 EvalPlanQualBegin() 中     
-	 * 分配，这样 EvalPlanQualSlot() 就能用于保存以后可       
+	 * 分配，这样 EvalPlanQualSlot() 就能用于保存以后*可*     
 	 * 需要 EPQ 的元组，免去 EvalPlanQualBegin()         
 	 * 的开销。        
 	 */

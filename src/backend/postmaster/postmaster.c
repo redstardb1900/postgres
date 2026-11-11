@@ -277,8 +277,8 @@ static int	Shutdown = NoShutdown;
 static bool FatalError = false; /* 从后端崩溃中恢复时为真  */
 
 /*
- * 用简单的状态机来控制启动、关机以及崩溃恢复
- * （崩溃恢复颇像先关机再启动）。                      
+ * 用简单的状态机来控制启动、关闭以及崩溃恢复
+ * （崩溃恢复颇像先关闭再启动）。                      
  *
  * 完成 postmaster 的全部初始化工作后，我们进入           
  * PM_STARTUP 状态并启动 startup 进程。startup 进程              
@@ -311,7 +311,7 @@ static bool FatalError = false; /* 从后端崩溃中恢复时为真  */
  * 太久）。           
  *
  * 注意，该状态变量并不区分我们进入 PM_RUN 之后       
- * 各状态的原因；须结合 Shutdown 与 FatalError 才能         
+ * 各状态的*原因*；须结合 Shutdown 与 FatalError 才能       
  * 判断。FatalError 在 PM_RECOVERY、PM_HOT_STANDBY、                    
  * PM_RUN 状态下均不为真，PM_SHUTDOWN 状态下也是               
  * （因为从崩溃恢复期间不会进入这些状态）。              
@@ -6469,7 +6469,7 @@ waitpid(pid_t pid, int *exitstatus, int options)
 
 /*
  * 注意！以下代码运行于线程池之上！所有操作   
- * 都必须线程安全！切勿使用 elog() 等函数。        
+ * 都必须线程安全！*切勿*使用 elog() 等函数。      
  */
 static void WINAPI
 pgwin32_deadchild_callback(PVOID lpParameter, BOOLEAN TimerOrWaitFired)

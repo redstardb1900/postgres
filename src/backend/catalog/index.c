@@ -3043,7 +3043,7 @@ index_build(Relation heapRelation,
 	Assert(PointerIsValid(stats));
 
 	/*
-	 * 如果这是一个非日志索引，我们可能需要为它写出一个 init fork
+	 * 如果这是非日志索引，可能需要为它写出 init 分支     
 	 * ——但必须先检查是否已存在。例如，如果一个非日志关系
 	 * 在创建它的事务中被截断，或在随后的事务中被截断两次，
 	 * relfilenumber 不会改变，

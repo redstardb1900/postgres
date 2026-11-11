@@ -364,7 +364,7 @@ oper_select_candidate(int nargs,
 }
 
 
-/* oper() -- search for a binary operator
+/* oper() -- 查找二元操作符       
  * 给定操作符名与 arg1、arg2 类型，返回 oper结构。 
  *
  * 注意：返回的操作符（若有）仅保证与输入类型 
@@ -489,7 +489,7 @@ compatible_oper(ParseState *pstate, List *op, Oid arg1, Oid arg2,
 	return (Operator) NULL;
 }
 
-/* compatible_oper_opid() -- get OID of a binary operator
+/* compatible_oper_opid() -- 获取二元操作符的 OID
  *
  * 这是一个便利例程，仅从 compatible_oper() 的结果    
  * 中提取操作符 OID。若查找失败且 noError 为真，       
@@ -512,7 +512,7 @@ compatible_oper_opid(List *op, Oid arg1, Oid arg2, bool noError)
 }
 
 
-/* left_oper() -- search for a unary left operator (prefix operator)
+/* left_oper() -- 查找一元左操作符（前缀操作符）     
  * 给定操作符名与参数类型，返回 oper结构。
  *
  * 注意：返回的操作符（若有）仅保证与输入类型 

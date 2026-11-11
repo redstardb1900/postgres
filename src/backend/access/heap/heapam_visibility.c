@@ -134,7 +134,7 @@ SetHintBits(HeapTupleHeader tuple, Buffer buffer,
 }
 
 /*
- * HeapTupleSetHintBits --- exported version of SetHintBits()
+ * HeapTupleSetHintBits --- SetHintBits() 的导出版本    
  *
  * 它必须单独存在，因为 C99 对如何
  * 实现内联函数有一套拙劣的规定。

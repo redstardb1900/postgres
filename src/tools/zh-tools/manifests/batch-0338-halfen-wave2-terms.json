@@ -1,0 +1,111 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0338",
+ "title": "halfen3 campaign wave 2+4 merge: half-EN function-header tails (parse_oper x3, heapam_visibility) + term debts (replica identity, init fork) + O1 walsender 新 completion (8 lines / 6 stations+O1, per-line EN byte parity, LF identity)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "627c5e6618abc72534ee132e60ebdc82b98db929",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0338-halfen-wave2-terms.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/access/heap/heapam_visibility.c",
+   "kind": "c_comment",
+   "note": "L137 CMT exported version of SetHintBits() -> SetHintBits() 的导出版本"
+  },
+  {
+   "pattern": "src/backend/catalog/index.c",
+   "kind": "c_comment",
+   "note": "L3046 MID2 rebuild: init fork -> init 分支 (also repairs pre-existing +11B over-budget, 0258-class)"
+  },
+  {
+   "pattern": "src/backend/executor/execReplication.c",
+   "kind": "c_comment",
+   "note": "L172 MID replica identity -> 复制标识 (P67, 20+ tree precedents)"
+  },
+  {
+   "pattern": "src/backend/parser/parse_oper.c",
+   "kind": "c_comment",
+   "note": "L367/L492/L515 COPEN function-header tails (查找二元操作符 / 获取二元操作符的 OID / 查找一元左操作符（前缀操作符）); function names kept EN"
+  },
+  {
+   "pattern": "src/backend/replication/walsender.c",
+   "kind": "c_comment",
+   "note": "L969 MID drop ' TLI' + L970 MCLO 新 TLI。 - resolves O1 (missing 新) byte-legally via line rebalance, wording consistent with sibling L3022"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0338-halfen-wave2-terms.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/backend/access/heap/heapam_visibility.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "L137 CMT->COPEN: subject restored per R1/R2 convergence -> ' * HeapTupleSetHintBits --- SetHintBits() 的导出版本' + 4 pad, 61B EN parity (precedents scansup.c:24, async.c:1735, heapam_visibility.c:957)"
+  },
+  {
+   "path": "src/backend/catalog/index.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "L3046 MID2 rebuild to 75B EN parity (old zh 86B = +11B over, 0258-class repair); L3047/3048 also +12B over, out of scope, recorded for future sweep"
+  },
+  {
+   "path": "src/backend/executor/execReplication.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "L172 MID: replica identity -> 复制标识 without flanking spaces (pure-CJK term, 6 same-file siblings; A2 lesson) -> '\\t\\t * 如果索引是主键或复制标识索引，则避免' + 7 pad, 66B EN parity"
+  },
+  {
+   "path": "src/backend/parser/parse_oper.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "L367/492/515 COPEN: func() -- prefix kept, zh tail (二元操作符 corpus 6 hits incl. L418; 前缀操作符 4 hits same file); L515 missed by preview, caught on-station"
+  },
+  {
+   "path": "src/backend/replication/walsender.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "L969 MID drop ' TLI' + L970 MCLO 新 TLI。 (24B exact, pad inside comment) - O1 repair, wording matches sibling L3022"
+  }
+ ],
+ "notes": "batch-0338 (halfen3 campaign wave 2+4 merged, 2026-11-11, parent batch-0337=627c5e6618a). Stations: wave-2 half-EN function-header tails are only parse_oper.c:367/492/515 + heapam_visibility.c:137 (the feared 'half-EN header family' is mostly keeps: param-name lists, quoted README sections, pseudocode); wave-4 term debts: replica identity -> 复制标识 (execReplication.c:172, P67 + 20+ precedents: tablecmds x10, publicationcmds x5), init fork -> init 分支 (catalog/index.c:3046, 0334 precedent, 9 sibling sites (init 分支 correction: 8 was an undercount, R1/R2 both derive 9+this=10)); O1 from 0337 dual-review ledger resolved in-batch. Models: COPEN (comment-opener line, keep func() -- prefix), CMT (decor + zh + pad), MID (rstrip + unique substring + pad), MID2 (full prose rebuild with decor prefix, for over-budget repair), MCLO (translated closer line, pad inside comment, */ at EN end position). Byte accounting: WHOLE LINE including decor prefix (L3046 prefix is '\\t * ' = 4B not 3B - caught by generator assert; L3046 rebuild needed 一个 dropped to fit 75B). Gates: verify full-tree summary identical to 0337 final state (0 violations, 0 parse errors, changed=61831 - all 8 lines sit inside already-changed comment blocks so comment-level count is unchanged), term_lint dual-state on 5 batch files identical (0 error hits / 0 warnings both states), halfen 526 -> 520 exactly (cleared: parse_oper 367/492/515, heapam_visibility 136, index 3045, execReplication 171 runs; 0 new findings), LF identity + add==del==8 numstat. Keeps adjudicated in-file (do-not-touch): parse_oper.c:778 run '\"scalar op' = grammar construction literal \"scalar op ANY/ALL (array)\"; heapam_visibility.c:150-170 Xmax formula skeleton, 1564 id 'xid', 1664/1670/1750/1753 [xmin, xmax) intervals. Wave-3 next: psql tab-complete completion descriptions + substitute/assign hook families (0334 hook precedent). Post-review delta applied (dual-reviewer independent convergence on both findings): R1 D1 = R2 advisory-2 heapam_visibility.c:137 restore subject function name -> ' * HeapTupleSetHintBits --- SetHintBits() 的导出版本' + 4 pad = 61B exact (precedents scansup.c:24, async.c:1735, heapam_visibility.c:957 all keep FuncName --- zh); R1 advisory-2 = R2 advisory-1 execReplication.c:172 drop flanking spaces around pure-CJK term -> '\\t\\t * 如果索引是主键或复制标识索引，则避免' + 7 pad = 66B exact (6 same-file siblings embed 复制标识 without separators). Both proposals byte-re-derived on site by coordinator before applying; final-state gates re-run all green (verify summary identical, halfen 520 with 0 delta, term dual-state 0/0, check_scope PASS).",
+ "post_review": {
+  "r1": "FAIL->resolved: D1 heapam 137 subject restore (ADOPTED), advisory execRep 172 spacing (ADOPTED), advisory index 3047/3048 ledger confirmation (no action); all byte/structure/semantics/terminology checks passed",
+  "r2": "PASS with 2 advisories identical to R1's findings (independent convergence), both ADOPTED; index 3047/3048 deferral endorsed",
+  "delta_applied": true,
+  "delta_script": "/tmp/delta0338_r1.py",
+  "re_ack": "R1 received (byte-exact on-site verification, full pass, freeze may lift); R2 received (byte-identical to counter-proposals incl. pad counts, clear to commit)"
+ }
+}

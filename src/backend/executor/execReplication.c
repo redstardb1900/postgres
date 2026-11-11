@@ -169,7 +169,7 @@ retry:
 	while (index_getnext_slot(scan, ForwardScanDirection, outslot))
 	{
 		/*
-		 * 如果索引是主键或 replica identity 索引，则避免 
+		 * 如果索引是主键或复制标识索引，则避免       
 		 * 昂贵的相等检查  
 		 */
 		if (!isIdxSafeToSkipDuplicates)

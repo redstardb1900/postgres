@@ -148,7 +148,7 @@ relation_openrv(const RangeVar *relation, LOCKMODE lockmode)
 	 * 因此我们应当已经相当新了。（XXX 这一切都值得
 	 * 重新设计，但目前我们仍按历来的做法
 	 * 继续做。）
-	 * done historically.)
+	 *                    
 	 */
 	if (lockmode != NoLock)
 		AcceptInvalidationMessages();

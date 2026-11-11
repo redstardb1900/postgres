@@ -174,11 +174,11 @@ typedef struct _internalPQconninfoOption
 	char	   *compiled;		/* 编译时内置的后备默认值  */
 	char	   *val;			/* 选项的当前值，或 NULL    */
 	char	   *label;			/* 连接对话框中字段的标签 */
-	char	   *dispchar;		/* Indicates how to display this field in a
+	char	   *dispchar;		/* 说明在                               
 								 * 连接对话框中该字段的显示  
 								 * 方式。取值："" 原样显示，    
-								 * "*" 密码隐藏，"D" 调试不显示   
-								 * by default */
+								 * "*" 密码隐藏，"D" 调试默认隐藏
+								 *            */
 	int			dispsize;		/* 对话框中字段的字符大小   */
 	/* ---
 		 * 此注释以上须与 libpq-fe.h 的

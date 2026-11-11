@@ -965,9 +965,9 @@ logical_read_xlog_page(XLogReaderState *state, XLogRecPtr targetPagePtr, int req
 				 cur_page,
 				 targetPagePtr,
 				 XLOG_BLCKSZ,
-				 currTLI,		/* Pass the current TLI because only
+				 currTLI,		/* 传递当前 TLI，因为只有  
 								 * WalSndSegmentOpen 控制是否需要 TLI  
-								 * is needed. */
+								 *            */
 				 &errinfo))
 		WALReadRaiseError(&errinfo);
 
@@ -3017,9 +3017,9 @@ retry:
 				 &output_message.data[output_message.len],
 				 startptr,
 				 nbytes,
-				 xlogreader->seg.ws_tli,	/* Pass the current TLI because
+				 xlogreader->seg.ws_tli,	/* 传递当前 TLI，因为   
 											 * 仅 WalSndSegmentOpen 控制   
-											 * whether new TLI is needed. */
+											 * 是否需要新 TLI。     */
 				 &errinfo))
 		WALReadRaiseError(&errinfo);
 

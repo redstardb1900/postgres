@@ -58,8 +58,8 @@ strtokx(const char *s,
 		bool del_quotes,
 		int encoding)
 {
-	static char *storage = NULL;	/* store the local copy of the users
-									 * 字符串本地副本 */
+	static char *storage = NULL;	/* 保存用户字符串的         
+									 * 本地副本*/
 	static char *string = NULL; /* pointer into storage where to continue on
 								 * next call */
 

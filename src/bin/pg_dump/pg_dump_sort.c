@@ -655,7 +655,7 @@ TopoSort(DumpableObject **objs,
 	}
 
 	/*
-	* 现在通过填入那些 already have beforeConstraints[id] == 0 的项的
+	* 现在通过填入那些已满足 beforeConstraints[id] == 0 的项的  
 	* 索引来初始化就绪输出项的堆。
 	*
 	* 堆的基本属性是 heap[(j-1)/2] >= heap[j] 对 j 在 1..heapLength-1

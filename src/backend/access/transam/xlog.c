@@ -5947,8 +5947,8 @@ PerformRecoveryXLogAction(void)
 /*
  * 系统仍在恢复中吗？
  *
- * Unlike testing InRecovery, this works in any process that's connected to
- * shared memory.
+ * 与测试 InRecovery 不同，这对任何连接到共享内存的进程
+ * 有效。     
  */
 bool
 RecoveryInProgress(void)

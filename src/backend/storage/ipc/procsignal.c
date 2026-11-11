@@ -482,7 +482,7 @@ ProcessProcSignalBarrier(void)
 	 * 在所有屏障的信号都到达之前，一次处理多个屏障
 	 * 并不少见。为避免响应后续信号时做不必要的工作，
 	 * 若我们已经处理完所有屏障，就提前退出。
-	 * all of them.
+	 *             
 	 */
 	local_gen = pg_atomic_read_u64(&MyProcSignalSlot->pss_barrierGeneration);
 	shared_gen = pg_atomic_read_u64(&ProcSignal->psh_barrierGeneration);

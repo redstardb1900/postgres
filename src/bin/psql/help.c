@@ -665,7 +665,7 @@ helpSQL(const char *topic, unsigned short int pager)
 
 		for (pass = 1; pass <= 3; pass++)
 		{
-			if (pass > 1)		/* Nothing on first pass - try the opening
+			if (pass > 1)		/* 首轮无结果 - 尝试开头的      
 								 * 单词 */
 			{
 				wordlen = j = 1;

@@ -41,7 +41,7 @@
 /*
  * 并行清理的 DSM 键。与其他并行执行代码不同，由于我们无需担心
  * DSM 键与 plan_node_id 冲突，因此可以使用小整数。
- * use small integers.
+ *                    
  */
 #define PARALLEL_VACUUM_KEY_SHARED			1
 #define PARALLEL_VACUUM_KEY_DEAD_ITEMS		2
@@ -59,7 +59,7 @@ typedef struct PVShared
 	/*
 	 * 目标表 relid 和日志级别（用于 VACUUM VERBOSE 期间启动并行
 	 * 工作进程的消息）。这些字段在并行清理期间不会被修改。
-	 * the parallel vacuum.
+	 *                     
 	 */
 	Oid			relid;
 	int			elevel;
@@ -103,7 +103,7 @@ typedef struct PVShared
 	/*
 	 * 活跃并行工作进程的数量。此值用于计算工作进程在进入基于成本的延迟
 	 * 睡眠前所需的清理成本余额最低阈值。
-	 * cost-based delay.
+	 *                  
 	 */
 	pg_atomic_uint32 active_nworkers;
 
@@ -349,7 +349,7 @@ parallel_vacuum_init(Relation rel, Relation *indrels, int nindexes,
 
 		/*
 		 * 记录每个阶段支持并行操作的索引数量。
-		 * each phase.
+		 *            
 		 */
 		if ((vacoptions & VACUUM_OPTION_PARALLEL_BULKDEL) != 0)
 			pvs->nindexes_parallel_bulkdel++;
@@ -472,7 +472,7 @@ parallel_vacuum_bulkdel_all_indexes(ParallelVacuumState *pvs, long num_table_tup
 
 	/*
 	 * 我们只能提供 num_heap_tuples 的近似值，至少目前如此。
-	 * for now.
+	 *         
 	 */
 	pvs->shared->reltuples = num_table_tuples;
 	pvs->shared->estimated_count = true;
@@ -492,7 +492,7 @@ parallel_vacuum_cleanup_all_indexes(ParallelVacuumState *pvs, long num_table_tup
 	/*
 	 * 我们可以提供更好的存活元组总数估计
 	 * （我们假设索引对此比名义上的活跃元组数更感兴趣）。
-	 * nominally live tuples).
+	 *                        
 	 */
 	pvs->shared->reltuples = num_table_tuples;
 	pvs->shared->estimated_count = estimated_count;
@@ -616,7 +616,7 @@ parallel_vacuum_process_all_indexes(ParallelVacuumState *pvs, int num_index_scan
 
 	/*
 	 * 设置索引清理状态并标记并行清理工作进程是否可以处理它。
-	 * process it.
+	 *            
 	 */
 	for (int i = 0; i < pvs->nindexes; i++)
 	{
@@ -710,7 +710,7 @@ parallel_vacuum_process_all_indexes(ParallelVacuumState *pvs, int num_index_scan
 
 	/*
 	 * 将所有索引状态重置为初始状态（同时检查我们已清理了所有索引）。
-	 * vacuumed all indexes).
+	 *                       
 	 */
 	for (int i = 0; i < pvs->nindexes; i++)
 	{
@@ -790,7 +790,7 @@ parallel_vacuum_process_safe_indexes(ParallelVacuumState *pvs)
  * 
  *还清理那些低于 parallel_vacuum_compute_workers() 强制的大小截断值的
  * 较小索引。
- * enforced by parallel_vacuum_compute_workers().
+ *                                               
  */
 static void
 parallel_vacuum_process_unsafe_indexes(ParallelVacuumState *pvs)
@@ -894,7 +894,7 @@ parallel_vacuum_process_one_index(ParallelVacuumState *pvs, Relation indrel,
 
 	/*
 	 * 将状态更新为已完成。无需在此锁定，因为每个工作进程处理不同的索引。
-	 * touches different indexes.
+	 *                           
 	 */
 	indstats->status = PARALLEL_INDVAC_STATUS_COMPLETED;
 
@@ -1061,7 +1061,7 @@ parallel_vacuum_main(dsm_segment *seg, shm_toc *toc)
  * 并行索引清理期间发生错误时的错误上下文回调。错误上下文消息应与
  * lazy 清理错误上下文中设置的消息匹配。如果更改此函数，请同时更改
  * vacuum_error_callback()。
- * as well.
+ *         
  */
 static void
 parallel_vacuum_error_callback(void *arg)

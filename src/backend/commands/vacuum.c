@@ -274,7 +274,7 @@ ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel)
 
 				/*
 				 * 如果用户指定并行度为 0，则禁用并行清理。
-				 * degree as zero.
+				 *                
 				 */
 				if (nworkers == 0)
 					params.nworkers = -1;
@@ -420,7 +420,7 @@ ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel)
 	 * VACUUM (ONLY_DATABASE_STATS)，无需创建，因为它们不会使用它。
 	 * VACUUM (FULL, ANALYZE) 是可能的，因此当看到 ANALYZE 时，最好确保
 	 * 创建策略。
-	 * when we see ANALYZE.
+	 *                     
 	 */
 	if ((params.options & (VACOPT_ONLY_DATABASE_STATS |
 						   VACOPT_FULL)) == 0 ||
@@ -517,7 +517,7 @@ vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
 
 	/*
 	 * 构建要处理的关系列表，将任何新数据放入 vac_context 以安全保存。
-	 * vac_context for safekeeping.
+	 *                             
 	 */
 	if (params->options & VACOPT_ONLY_DATABASE_STATS)
 	{
@@ -667,7 +667,7 @@ vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
 
 			/*
 			 * 确保在清理下一个关系之前重置 VacuumFailsafeActive。
-			 * next relation.
+			 *               
 			 */
 			VacuumFailsafeActive = false;
 		}
@@ -817,7 +817,7 @@ vacuum_open_relation(Oid relid, RangeVar *relation, bits32 options,
 	 *
 	 * 对于手动 VACUUM 或 ANALYZE，我们发出 WARNING 以匹配权限检查中的
 	 * 日志语句；否则，仅在调用方请求时才记录。
-	 * so requested.
+	 *              
 	 */
 	if (!IsAutoVacuumWorkerProcess())
 		elevel = WARNING;
@@ -1924,7 +1924,7 @@ vac_truncate_clog(TransactionId frozenXID,
 	 * 如果我们似乎已遭遇回卷，则不截断 CLOG；计算出的最小 XID 可能是伪造
 	 * 的。由于 GetNewTransactionId 中的防御措施，这种情况现在应不可能，
 	 * 但我们仍保留此测试。
-	 * test anyway.
+	 *             
 	 */
 	if (frozenAlreadyWrapped)
 	{
@@ -1962,7 +1962,7 @@ vac_truncate_clog(TransactionId frozenXID,
 	 * 更新 GetNewTransactionId 的包装限制和新 MultiXactId 的创建限制。
 	 * 注意：这些函数也会在需要时向 postmaster 发送信号以进行另一个
 	 * 自动清理周期。XXX 我们是否应避免可能发出两次信号？
-	 * signaling twice?
+	 *                 
 	 */
 	SetTransactionIdLimit(frozenXID, oldestxid_datoid);
 	SetMultiXactIdLimit(minMulti, minmulti_datoid, false);
@@ -2132,7 +2132,7 @@ vacuum_rel(Oid relid, RangeVar *relation, VacuumParams *params,
 	/*
 	 * 静默忽略分区表，因为没有工作要做。有用的工作在其子分区上，它们已
 	 * 被单独排队。
-	 * us separately.
+	 *               
 	 */
 	if (rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
 	{
@@ -2199,7 +2199,7 @@ vacuum_rel(Oid relid, RangeVar *relation, VacuumParams *params,
 	 * 如果调用方要求处理 TOAST 表，则记住关系的 TOAST 关系以备后用。
 	 * 但在 VACUUM FULL 中，TOAST 表由 cluster_rel 自动重建，因此我们
 	 * 不应递归到它，除非 PROCESS_MAIN 被禁用。
-	 * unless PROCESS_MAIN is disabled.
+	 *                                 
 	 */
 	if ((params->options & VACOPT_PROCESS_TOAST) != 0 &&
 		((params->options & VACOPT_FULL) == 0 ||
@@ -2381,7 +2381,7 @@ vacuum_delay_point(void)
 	 * 自动清理工作进程应在请求时重新加载配置文件。这允许在表被清理或
 	 * 分析时使 [autovacuum_]vacuum_cost_limit 和
 	 * [autovacuum_]vacuum_cost_delay 的更改生效。
-	 * vacuumed or analyzed.
+	 *                      
 	 */
 	if (ConfigReloadPending && IsAutoVacuumWorkerProcess())
 	{
@@ -2420,7 +2420,7 @@ vacuum_delay_point(void)
 		 * 我们不想在配置了 vacuum_cost_delay 的非常漫长的清理期间忽略
 		 * postmaster 死亡。我们不能在此处使用通常的 WaitLatch() 方法，
 		 * 因为我们需要基于微秒的睡眠时长。
-		 * durations above.
+		 *                 
 		 */
 		if (IsUnderPostmaster && !PostmasterIsAlive())
 			exit(1);

@@ -191,7 +191,7 @@ extract_or_clause(RestrictInfo *or_rinfo, RelOptInfo *rel)
 				if (restriction_is_or_clause(rinfo))
 				{
 					/*
-					 * 递归处理嵌套的 OR。注意这里必须递归，
+					 * 递归处理嵌套的 OR。注意*必须*递归，     
 					 * 这不是过分紧张的优化：我们必须
 					 * 下降到足够深，找出并剥掉表达式中的全部
 					 * RestrictInfos。

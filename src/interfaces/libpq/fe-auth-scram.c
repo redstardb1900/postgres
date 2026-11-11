@@ -545,10 +545,10 @@ build_client_final_message(fe_scram_state *state)
 #ifdef HAVE_PGTLS_GET_PEER_CERTIFICATE_HASH
 	else if (conn->channel_binding[0] != 'd' && /* 禁用  */
 			 conn->ssl_in_use)
-		appendPQExpBufferStr(&buf, "c=eSws");	/* "y,," 的base64 */
+		appendPQExpBufferStr(&buf, "c=eSws");	/* "y,," 的 base64*/
 #endif
 	else
-		appendPQExpBufferStr(&buf, "c=biws");	/* "n,," 的base64 */
+		appendPQExpBufferStr(&buf, "c=biws");	/* "n,," 的 base64*/
 
 	if (PQExpBufferDataBroken(buf))
 		goto oom_error;

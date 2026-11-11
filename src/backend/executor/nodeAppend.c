@@ -786,8 +786,8 @@ choose_next_subplan_for_worker(AppendState *node)
 										   pstate->pa_next_plan);
 
 	/*
-	 * 如果没有更多有效计划了，则尝试把下一个置为       
-	 * 首个有效partial计划
+	 * 如果没有更多有效计划了，则尝试把下一个置为首个 
+	 * 有效 partial 计划    
 	 */
 	if (pstate->pa_next_plan < 0)
 	{

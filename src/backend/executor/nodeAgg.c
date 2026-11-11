@@ -22,8 +22,8 @@
  *	  原始输入行。（下文关于 transfunc 的说明同样        
  *	  适用于 combinefunc，当选中它时。）                       
  *	  * 对输出值应用 serializefunc（这只在跳过 finalfunc       
- *	  时才有意义，因为 serializefunc 只作用于              
- *	  transvalue类型。）
+ *	  时才有意义，因为 serializefunc 只作用于 transvalue   
+ *	  类型。）          
  *	  * 对输入值应用 deserializefunc（这只在使用                
  *	  combinefunc 时才有意义，理由类似）。 
  *	  规划器负责把这些采用替代行为的 Agg 节点以合理的  
@@ -715,8 +715,8 @@ advance_transition_function(AggState *aggstate,
 	if (pertrans->transfn.fn_strict)
 	{
 		/*
-		 * 对于 strict 的 transfn，NULL 输入时不会有任何          
-		 * 动静；保留旧transValue。
+		 * 对于 strict 的 transfn，NULL 输入时不会有任何动静； 
+		 * 保留旧 transValue。        
 		 */
 		int			numTransInputs = pertrans->numTransInputs;
 		int			i;

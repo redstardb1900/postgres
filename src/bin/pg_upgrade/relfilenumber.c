@@ -66,7 +66,7 @@ transfer_all_new_tablespaces(DbInfoArr *old_db_arr, DbInfoArr *new_db_arr,
 										  old_pgdata,
 										  new_pgdata,
 										  os_info.old_tablespaces[tblnum]);
-		/*收全部子进程 */
+		/* 收全部子进程*/
 		while (reap_child(true) == true)
 			;
 	}

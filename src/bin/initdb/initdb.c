@@ -82,7 +82,7 @@
 #include "miscadmin.h"
 
 
-/* 理想情况下它本应放在.h文件中，但这几乎不值得麻烦   */
+/* 理想情况下它本应放在.h 文件中，但这几乎不值得麻烦  */
 extern const char *select_default_timezone(const char *share_path);
 
 /* 简单字符串列表  */
@@ -579,7 +579,7 @@ replace_guc_value(char **lines, const char *guc_name, const char *guc_value,
 				else
 					oldindent++;
 			}
-			/* 不考虑guc_value中含制表符的情况  */
+			/* 不考虑 guc_value 中含制表符的情况*/
 			newindent = newline->len;
 			/* 追加适当的制表符和空格，至少强制一个   */
 			oldindent = Max(oldindent, newindent + 1);
@@ -623,7 +623,7 @@ replace_guc_value(char **lines, const char *guc_name, const char *guc_value,
 		lines[i] = NULL;		/* 保持数组以 null 结尾    */
 	}
 
-	free(newline);				/* 但不释放newline->data    */
+	free(newline);				/* 但不释放 newline->data   */
 
 	return lines;
 }
@@ -709,7 +709,7 @@ readfile(const char *path)
  * "lines"必须是 malloc'd 数组，元素各自单独 malloc'd。 
  * 数据均在此释放。    
  *
- * 此处仅用于写文本文件。使用fopen "w"而非PG_BINARY_W， 
+ * 此处仅用于写文本文件。用 fopen "w" 而非 PG_BINARY_W， 
  * 这样生成的配置文件在 Windows 上可以方便地编辑。       
  */
 static void
@@ -1070,7 +1070,7 @@ choose_dsm_implementation(void)
 	int			ntries = 10;
 	pg_prng_state prng_state;
 
-	/* 初始化prng；本程序中只有此函数使用它。          */
+	/* 初始化 prng；本程序中只有此函数使用它。         */
 	pg_prng_seed(&prng_state, (uint64) (getpid() ^ time(NULL)));
 
 	while (ntries > 0)
@@ -1110,7 +1110,7 @@ test_config_settings(void)
 {
 	/*
 	 * 该宏定义了给定 max_connections 值下我们所需的      
-	 * 最小shared_buffers。数组给出了可尝试的设置。
+	 * 最小 shared_buffers。数组给出可尝试的设置。  
 	 */
 #define MIN_BUFS_FOR_CONNS(nconns)	((nconns) * 10)
 
@@ -1327,7 +1327,7 @@ setup_config(void)
 	conflines = replace_guc_value(conflines, "dynamic_shared_memory_type",
 								  dynamic_shared_memory_type, false);
 
-	/* 注意：这些值依赖于wal_segment_size_mb，并非常量       */
+	/* 注意：这些值依赖于 wal_segment_size_mb，并非常量      */
 	conflines = replace_guc_value(conflines, "min_wal_size",
 								  pretty_wal_size(DEFAULT_MIN_WAL_SEGS), false);
 
@@ -1453,13 +1453,13 @@ setup_config(void)
 		int			err = 0;
 
 #ifdef WIN32
-		/* 调用getaddrinfo之前需先调用WSAStartup      */
+		/* 调用 getaddrinfo 之前需先调用 WSAStartup   */
 		WSADATA		wsaData;
 
 		err = WSAStartup(MAKEWORD(2, 2), &wsaData);
 #endif
 
-		/* 为最佳效果，此代码应与parse_hba_line()一致   */
+		/* 为最佳效果，此代码应与 parse_hba_line()一致  */
 		hints.ai_flags = AI_NUMERICHOST;
 		hints.ai_family = AF_UNSPEC;
 		hints.ai_socktype = 0;
@@ -1973,7 +1973,7 @@ load_plpgsql(FILE *cmdfd)
 static void
 vacuum_db(FILE *cmdfd)
 {
-	/* 先运行analyze再VACUUM，以冻结统计信息。    */
+	/* 先运行 analyze 再 VACUUM，以冻结统计信息。 */
 	PG_CMD_PUTS("ANALYZE;\n\nVACUUM FREEZE;\n\n");
 }
 
@@ -2186,11 +2186,11 @@ check_locale_name(int category, const char *locale, char **canonname)
 
 	save = save_global_locale(category);
 
-	/* 供setlocale()调用 */
+	/* 供 setlocale()调用*/
 	if (!locale)
 		locale = "";
 
-	/* 以setlocale设置区域设置，看其是否接受。  */
+	/* 以 setlocale 设置区域设置，看其是否接受。*/
 	res = setlocale(category, locale);
 
 	/* 若请求则保存规范名称。 */
@@ -2241,7 +2241,7 @@ check_locale_encoding(const char *locale, int user_enc)
 
 	locale_enc = pg_get_encoding_from_locale(locale, true);
 
-	/* 参见createdb()中的说明以理解这些测试 */
+	/* 参见 createdb()中的说明以理解这些测试*/
 	if (!(locale_enc == user_enc ||
 		  locale_enc == PG_SQL_ASCII ||
 		  locale_enc == -1 ||
@@ -2574,7 +2574,7 @@ setup_pgdata(void)
 		pgdata_get_env = getenv("PGDATA");
 		if (pgdata_get_env && strlen(pgdata_get_env))
 		{
-			/* 找到PGDATA */
+			/* 找到 PGDATA*/
 			pg_data = pg_strdup(pgdata_get_env);
 		}
 		else
@@ -2831,12 +2831,12 @@ setup_signals(void)
 	pqsignal(SIGTERM, trapsig);
 #endif
 
-	/* 写入后端时忽略SIGPIPE，以便我们能进行清理 */
+	/* 写入后端时忽略 SIGPIPE，以便我们能进行清理*/
 #ifdef SIGPIPE
 	pqsignal(SIGPIPE, SIG_IGN);
 #endif
 
-	/* 屏蔽SIGSYS，以便探测可能无法工作的内核调用        */
+	/* 屏蔽 SIGSYS，以便探测可能无法工作的内核调用       */
 #ifdef SIGSYS
 	pqsignal(SIGSYS, SIG_IGN);
 #endif
@@ -2851,7 +2851,7 @@ create_data_directory(void)
 	switch ((ret = pg_check_dir(pg_data)))
 	{
 		case 0:
-			/* PGDATA不存在，必须创建   */
+			/* PGDATA 不存在，必须创建  */
 			printf(_("creating directory %s ... "),
 				   pg_data);
 			fflush(stdout);
@@ -3392,7 +3392,7 @@ main(int argc, char *argv[])
 
 	check_need_password(authmethodlocal, authmethodhost);
 
-	/* 设置wal段大小   */
+	/* 设置 wal 段大小 */
 	if (str_wal_segment_size_mb == NULL)
 		wal_segment_size_mb = (DEFAULT_XLOG_SEG_SIZE) / (1024 * 1024);
 	else
@@ -3484,7 +3484,7 @@ main(int argc, char *argv[])
 		/* 将路径转换为使用本地分隔符   */
 		make_native_path(pg_ctl_path);
 
-		/* 已正确引用的pg_ctl路径  */
+		/* 已正确引用的 pg_ctl 路径*/
 		appendShellString(start_db_cmd, pg_ctl_path);
 
 		/* 添加 -D 开关，数据目录适当加引号     */

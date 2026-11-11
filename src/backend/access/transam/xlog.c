@@ -213,8 +213,8 @@ const struct config_enum_entry archive_mode_options[] = {
 CheckpointStatsData CheckpointStats;
 
 /*
- * 在恢复期间，
- * lastFullPageWrites跟踪重放的WAL记录所指示的full_page_writes。
+ * 在恢复期间，lastFullPageWrites                                    
+ * 跟踪重放的 WAL 记录所指示的 full_page_writes。               
  * 它使用恢复开始时检查点记录所指示的 full_page_writes 初始化，
  * 然后在每次重放 XLOG_FPW_CHANGE 记录时进行更新。
  */

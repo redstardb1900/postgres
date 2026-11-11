@@ -237,7 +237,7 @@ make_outputdirs(char *pgdata)
 	if (len >= MAXPGPATH)
 		pg_fatal("directory path for new cluster is too long");
 
-	/*输出目录/$timestamp/    */
+	/* 输出目录/$timestamp/   */
 	gettimeofday(&time, NULL);
 	tt = (time_t) time.tv_sec;
 	strftime(timebuf, sizeof(timebuf), "%Y%m%dT%H%M%S", localtime(&tt));
@@ -250,14 +250,14 @@ make_outputdirs(char *pgdata)
 	if (len >= MAXPGPATH)
 		pg_fatal("directory path for new cluster is too long");
 
-	/*输出目录/$timestamp/导出/  */
+	/* 输出目录/$timestamp/导出/ */
 	log_opts.dumpdir = (char *) pg_malloc0(MAXPGPATH);
 	len = snprintf(log_opts.dumpdir, MAXPGPATH, "%s/%s/%s", log_opts.rootdir,
 				   timebuf, DUMP_OUTPUTDIR);
 	if (len >= MAXPGPATH)
 		pg_fatal("directory path for new cluster is too long");
 
-	/*输出目录/$timestamp/日志/ */
+	/* 输出目录/$timestamp/日志/*/
 	log_opts.logdir = (char *) pg_malloc0(MAXPGPATH);
 	len = snprintf(log_opts.logdir, MAXPGPATH, "%s/%s/%s", log_opts.rootdir,
 				   timebuf, LOG_OUTPUTDIR);

@@ -3039,7 +3039,7 @@ make_nulltest_from_distinct(ParseState *pstate, A_Expr *distincta, Node *arg)
 		nt->nulltesttype = IS_NULL;
 	else
 		nt->nulltesttype = IS_NOT_NULL;
-	/* 无论arg是否为复合类型，argisrow=false 都正确   */
+	/* 无论 arg 是否为复合类型，argisrow=false 都正确 */
 	nt->argisrow = false;
 	nt->location = distincta->location;
 	return (Node *) nt;
@@ -3287,7 +3287,7 @@ transformJsonValueExpr(ParseState *pstate, const char *constructName,
 
 		if (!coerced)
 		{
-			/* 若强制转换失败，用to_json()/to_jsonb()函数   */
+			/* 若强制转换失败，用 to_json()/to_jsonb()函数  */
 			Oid			fnoid = targettype == JSONOID ? F_TO_JSON : F_TO_JSONB;
 			FuncExpr   *fexpr = makeFuncExpr(fnoid, targettype,
 											 list_make1(expr),
@@ -3399,7 +3399,7 @@ transformJsonOutput(ParseState *pstate, const JsonOutput *output,
 				errmsg("returning SETOF types is not supported in SQL/JSON functions"));
 
 	if (ret->format->format_type == JS_FORMAT_DEFAULT)
-		/* 返回jsonb时设置JSONB格式，否则设置JSON格式           */
+		/* 返回 jsonb 时设置 JSONB 格式，否则设置 JSON 格式     */
 		ret->format->format_type =
 			ret->typid == JSONBOID ? JS_FORMAT_JSONB : JS_FORMAT_JSON;
 	else
@@ -3442,7 +3442,7 @@ transformJsonConstructorOutput(ParseState *pstate, JsonOutput *output,
 		}
 		else
 		{
-			/* XXX标准默认是TEXT，但我们返回JSON            */
+			/* XXX 标准默认是 TEXT，但我们返回 JSON         */
 			returning->typid = JSONOID;
 			returning->format->format_type = JS_FORMAT_JSON;
 		}
@@ -3477,7 +3477,7 @@ coerceJsonFuncExpr(ParseState *pstate, Node *expr,
 	if (returning->format->format_type == JS_FORMAT_JSON &&
 		returning->typid == BYTEAOID)
 	{
-		/* 用pg_convert_to()将json文本编码为bytea     */
+		/* 用 pg_convert_to()将 json 文本编码为 bytea */
 		Node	   *texpr = coerce_to_specific_type(pstate, expr, TEXTOID,
 													"JSON_FUNCTION");
 		Const	   *enc = getJsonEncodingConst(returning->format);
@@ -3494,7 +3494,7 @@ coerceJsonFuncExpr(ParseState *pstate, Node *expr,
 	/* 尝试将表达式转换为输出类型     */
 	res = coerce_to_target_type(pstate, expr, exprtype,
 								returning->typid, returning->typmod,
-	/* XXX转换为char(N)时抛出错误          */
+	/* XXX 转换为 char(N)时抛出错误        */
 								COERCION_EXPLICIT,
 								COERCE_EXPLICIT_CAST,
 								location);
@@ -3701,10 +3701,10 @@ transformJsonAggConstructor(ParseState *pstate, JsonAggConstructor *agg_ctor,
 
 		wfunc->winfnoid = aggfnoid;
 		wfunc->wintype = aggtype;
-		/* wincollid与inputcollid由parse_collate.c设置          */
+		/* wincollid 与 inputcollid 由 parse_collate.c 设置     */
 		wfunc->args = args;
 		wfunc->aggfilter = aggfilter;
-		/* winref由transformWindowFuncCall设置        */
+		/* winref 由 transformWindowFuncCall 设置     */
 		wfunc->winstar = false;
 		wfunc->winagg = true;
 		wfunc->location = agg_ctor->location;
@@ -3718,7 +3718,7 @@ transformJsonAggConstructor(ParseState *pstate, JsonAggConstructor *agg_ctor,
 					errmsg("aggregate ORDER BY is not implemented for window functions"),
 					parser_errposition(pstate, agg_ctor->location));
 
-		/* parse_agg.c做额外的窗口函数专用处理             */
+		/* parse_agg.c 做额外的窗口函数专用处理            */
 		transformWindowFuncCall(pstate, wfunc, agg_ctor->over);
 
 		node = (Node *) wfunc;
@@ -3730,17 +3730,17 @@ transformJsonAggConstructor(ParseState *pstate, JsonAggConstructor *agg_ctor,
 		aggref->aggfnoid = aggfnoid;
 		aggref->aggtype = aggtype;
 
-		/* aggcollid与inputcollid由parse_collate.c设置          */
-		/* aggtranstype由规划器设置      */
-		/* aggargtypes由transformAggregateCall设置        */
-		/* aggdirectargs与args由transformAggregateCall设置          */
-		/* aggorder与aggdistinct由transformAggregateCall设置          */
+		/* aggcollid 与 inputcollid 由 parse_collate.c 设置     */
+		/* aggtranstype 由规划器设置     */
+		/* aggargtypes 由 transformAggregateCall 设置     */
+		/* aggdirectargs 与 args 由 transformAggregateCall 设置     */
+		/* aggorder 与 aggdistinct 由 transformAggregateCall 设置     */
 		aggref->aggfilter = aggfilter;
 		aggref->aggstar = false;
 		aggref->aggvariadic = false;
 		aggref->aggkind = AGGKIND_NORMAL;
 		aggref->aggpresorted = false;
-		/* agglevelsup由transformAggregateCall设置        */
+		/* agglevelsup 由 transformAggregateCall 设置     */
 		aggref->aggsplit = AGGSPLIT_SIMPLE; /* 规划器可能改动     */
 		aggref->aggno = -1;		/* aggno与aggtransno由规划器设置  */
 		aggref->aggtransno = -1;

@@ -186,7 +186,7 @@ set_output_count(SetOpState *setopstate, SetOpStatePerGroup pergroup)
  *		ExecSetOp
  * ----------------------------------------------------------------
  */
-static TupleTableSlot *			/* 返回: 元组或 NULL  */
+static TupleTableSlot *			/* 返回： 元组或 NULL*/
 ExecSetOp(PlanState *pstate)
 {
 	SetOpState *node = castNode(SetOpState, pstate);

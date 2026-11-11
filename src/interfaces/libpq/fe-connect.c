@@ -469,7 +469,7 @@ pgthreadlock_t pg_g_threadlock = default_threadlock;
 void
 pqDropConnection(PGconn *conn, bool flushInput)
 {
-	/* 丢弃SSL状态    */
+	/* 丢弃 SSL 状态  */
 	pqsecure_close(conn);
 
 	/* 关闭套接字本身   */
@@ -2243,7 +2243,7 @@ setKeepalivesWin32(pgsocket sock, int idle, int interval)
 	DWORD		retsize;
 
 	if (idle <= 0)
-		idle = 2 * 60 * 60;		/* 2小时=默认值 */
+		idle = 2 * 60 * 60;		/* 2 小时=默认值*/
 	if (interval <= 0)
 		interval = 1;			/* 1 秒 = 默认值  */
 

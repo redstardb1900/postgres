@@ -254,8 +254,8 @@ static TransactionId unreportedXids[PGPROC_MAX_CACHED_SUBXIDS];
 static TransactionState CurrentTransactionState = &TopTransactionStateData;
 
 /*
- * 子事务ID和命令ID分配计数器是整个事务全局的，
- * 因此我们不会将它们保存在状态栈中。
+ * 子事务 ID 和命令 ID 分配计数器是整个事务           
+ * 全局的，因此我们不会将它们保存在状态栈中。   
  */
 static SubTransactionId currentSubTransactionId;
 static CommandId currentCommandId;

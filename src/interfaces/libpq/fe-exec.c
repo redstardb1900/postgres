@@ -138,7 +138,7 @@ static int	pqPipelineFlush(PGconn *conn);
  */
 
 #define PGRESULT_DATA_BLOCKSIZE		2048
-#define PGRESULT_ALIGN_BOUNDARY		MAXIMUM_ALIGNOF /*来自configure */
+#define PGRESULT_ALIGN_BOUNDARY		MAXIMUM_ALIGNOF /*来自 configure*/
 #define PGRESULT_BLOCK_OVERHEAD		Max(sizeof(PGresult_data), PGRESULT_ALIGN_BOUNDARY)
 #define PGRESULT_SEP_ALLOC_THRESHOLD	(PGRESULT_DATA_BLOCKSIZE / 2)
 
@@ -255,7 +255,7 @@ PQsetResultAttrs(PGresult *res, int numAttributes, PGresAttDesc *attDescs)
 	if (res->numAttributes > 0)
 		return false;
 
-	/*忽略无操作请求 */
+	/* 忽略无操作请求*/
 	if (numAttributes <= 0 || !attDescs)
 		return true;
 
@@ -455,7 +455,7 @@ PQsetvalue(PGresult *res, int tup_num, int field_num, char *value, int len)
 	if (!res || (const PGresult *) res == &OOM_result)
 		return false;
 
-	/*无效 field_num？ */
+	/* 无效 field_num？*/
 	if (!check_field_number(res, field_num))
 		return false;
 

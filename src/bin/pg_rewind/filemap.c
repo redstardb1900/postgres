@@ -749,7 +749,7 @@ decide_file_action(file_entry_t *entry)
 	else if (entry->target_exists && !entry->source_exists)
 	{
 		/*
-		 * 对于目标存在而源不存在的文件，查keepwal哈希 
+		 * 对目标存在而源不存在的文件，查 keepwal 哈希  
 		 * 表；其中列出的任何文件都不得移除。              
 		 */
 		if (keepwal_entry_exists(path))

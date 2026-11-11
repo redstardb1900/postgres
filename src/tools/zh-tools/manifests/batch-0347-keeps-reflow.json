@@ -1,0 +1,411 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0347",
+ "title": "keeps reflow batch: 84 fixes on 83 lines (18 hand-pair ops + 66 re-detection fixes), keeps ledger 643 -> 548",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "798a70976ebc3e020a0fbe214e383f8a97ee51f7",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0347-keeps-reflow.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/access/transam/xact.c",
+   "kind": "c_comment",
+   "note": "2 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/backend/access/transam/xlog.c",
+   "kind": "c_comment",
+   "note": "2 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/backend/executor/functions.c",
+   "kind": "c_comment",
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/backend/executor/nodeAgg.c",
+   "kind": "c_comment",
+   "note": "4 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/backend/executor/nodeAppend.c",
+   "kind": "c_comment",
+   "note": "2 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/backend/executor/nodeLimit.c",
+   "kind": "c_comment",
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/backend/executor/nodeLockRows.c",
+   "kind": "c_comment",
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/backend/executor/nodeSetOp.c",
+   "kind": "c_comment",
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/backend/optimizer/util/orclauses.c",
+   "kind": "c_comment",
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/backend/parser/parse_expr.c",
+   "kind": "c_comment",
+   "note": "15 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/backend/parser/parse_oper.c",
+   "kind": "c_comment",
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/backend/partitioning/partbounds.c",
+   "kind": "c_comment",
+   "note": "6 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/backend/rewrite/rewriteHandler.c",
+   "kind": "c_comment",
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/backend/storage/buffer/bufmgr.c",
+   "kind": "c_comment",
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/backend/storage/file/fd.c",
+   "kind": "c_comment",
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/bin/initdb/initdb.c",
+   "kind": "c_comment",
+   "note": "19 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/bin/pg_rewind/filemap.c",
+   "kind": "c_comment",
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/bin/pg_upgrade/pg_upgrade.c",
+   "kind": "c_comment",
+   "note": "3 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/bin/pg_upgrade/relfilenumber.c",
+   "kind": "c_comment",
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/bin/pg_upgrade/util.c",
+   "kind": "c_comment",
+   "note": "2 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/bin/psql/tab-complete.c",
+   "kind": "c_comment",
+   "note": "9 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/interfaces/libpq/fe-auth-scram.c",
+   "kind": "c_comment",
+   "note": "2 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/interfaces/libpq/fe-connect.c",
+   "kind": "c_comment",
+   "note": "2 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/interfaces/libpq/fe-exec.c",
+   "kind": "c_comment",
+   "note": "3 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "pattern": "src/interfaces/libpq/fe-secure.c",
+   "kind": "c_comment",
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0347-keeps-reflow.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/backend/access/transam/xact.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/backend/access/transam/xlog.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/backend/executor/functions.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/backend/executor/nodeAgg.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "4 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/backend/executor/nodeAppend.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/backend/executor/nodeLimit.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/backend/executor/nodeLockRows.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/backend/executor/nodeSetOp.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/backend/optimizer/util/orclauses.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/backend/parser/parse_expr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 15,
+   "translated": 15,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "15 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/backend/parser/parse_oper.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/backend/partitioning/partbounds.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "6 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/backend/rewrite/rewriteHandler.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/backend/storage/buffer/bufmgr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/backend/storage/file/fd.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/bin/initdb/initdb.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 19,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "19 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/bin/pg_rewind/filemap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/bin/pg_upgrade/pg_upgrade.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "3 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/bin/pg_upgrade/relfilenumber.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/bin/pg_upgrade/util.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/bin/psql/tab-complete.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 9,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "9 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/interfaces/libpq/fe-auth-scram.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/interfaces/libpq/fe-connect.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/interfaces/libpq/fe-exec.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "3 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  },
+  {
+   "path": "src/interfaces/libpq/fe-secure.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 keep-line(s) fixed: inner-space harvest / neighbor word migration / wording-funded trim"
+  }
+ ],
+ "notes": "batch-0347 (keeps reflow, 2026-11-11, parent batch-0346=798a70976eb). Closes the rendering campaign's keep ledgers: 633 keeps from batch-0345 + 10 from batch-0346 classified by fixability channel and fixed where the line/block budget genuinely allows; the rest closed as a final disclosed ledger of 548 permanent keeps (/tmp/final_keeps0347.json; overwhelmingly FC/FO glue one-liners sitting at exact EN byte parity, short by exactly the one closer/opener space byte, plus no-slack mid lines). 83 changed lines / 25 files. Channels: (a) inner-space harvest - one-liner closers carrying decorative spaces before */ consume them to fund the defect inserts (50 planned, those with inner >= cost applied); (b) neighbor word migration - donor/receiver line pairs inside one comment block, word-clean breaks only (xact.c 257/258 move 全局的，; xlog.c 216/217 move lastFullPageWrites; nodeAgg.c 25/26 move transvalue; 718/719 move 动静；; nodeAppend.c 789/790 move 首个); (c) wording-funded - drop or shorten an unemphasized word to fund the mirror/spacing (functions.c 1801 and bufmgr.c 2003 drop 我们; rewriteHandler.c 3028 drops 我们; orclauses.c 194 drops 这里; fd.c 1379 drops 也; initdb.c 712 使用->用; initdb.c 1113 drops 了; pg_rewind filemap.c 752 对于->对). Applied 18 hand ops (9 of 14 planned pairs; pair-atomic validation: any failing side sends the whole pair to the keep ledger - failed: nodeModifyTable.c 4467/4468 receiver EN line too small, tablesync.c 1628/1629 same, stringutils.c 62 single) plus 66 direct/harvest fixes from a fresh re-detection of all 643 keep lines on the post-hand state (mid lines whose current pad now covers the cost, e.g. the six partbounds tuple lines and stringutils-class misclassifications from the 0345 body-space pad era, and one-liner harvests). Development incidents, fully disclosed: applier v1 had (i) the TIGHT_LC op written as a replacement instead of a pure insertion - Latin characters were replaced by spaces (ID->D, WAL->AL, aggref->ggref), caught by term_lint 6 errors immediately, worktree reset, engine fixed to pure insertion; (ii) non-atomic pair handling produced orphan donor lines whose receivers failed (nodeModifyTable, tablesync) - worktree reset again, v2 rewritten with pair-atomic pre-validation and stale-worktree asserts; final apply was a single clean pass from a pristine checkout. Gates (pre-commit, batch scope): verify_c_comments --worktree HEAD . = 25 files, 25 ok, 0 violations, 0 parse errors, changed=77 comment blocks; term_lint dual-state bare 0/0 and --pgnls /home/redstar/pg/pgsty/pgnls 0/0; halfen full-worktree default 0 findings (2319 files); raw --no-exemptions set 421 == HEAD 421 (0 added / 0 removed; no ledger change); check_scope --worktree . --incremental --base HEAD PASS 26 changed paths; tests 228 = 221 green + 7 documented ScopeEndToEnd umask failures (no tool change). R1 A2 ledger note: a mid-line /*内 opener-glue class (~9 sites: fe-exec.c 1072/1674/4363, fe-protocol3.c 360/387/392/398/1756/1870/1872/2018 area) exists outside all defect models (phase-2 matches line-initial openers only) - untracked by any ledger; recorded here for any future rule widening. Campaign status after this batch: rendering-rules campaign closes; remaining deferred ledgers await instruction (non-replication glossary catalog 757 sites; ENR ephemeral unification).",
+ "post_review": {
+  "r1": "PASS: 9 applied pairs line-by-line (word-clean breaks: 事务|全局的, lastFullPageWrites|跟踪, transvalue|类型, 动静；|保留旧, 首个|有效), 6 wording-funded trims meaning-exact, 83 lines byte-parity programmatically 0 mismatches, 20+ phase-2 samples all genuine defect positions, failed pairs untouched with budget verified byte-exact, zero Latin-character damage (v1 incident fully cleaned), 548-final-keeps full re-audit 0 misclassifications; ledger arithmetic reconciles (643 = 78 fixed + 548 keeps + 17 clean-noops). Advisories A1 (title arithmetic) resolved by disambiguation per R2 decomposition, A2 (mid-line /*内 glue class untracked) recorded in notes, A3 (HW conversion keeps following space) rule-consistent. MICRO-ACK CONFIRMED.",
+  "r2": "PASS, zero findings: independent checker - 83 lines/25 files decomposition exact (18 hand + 65 phase-2-only; xact.c 257 dual-hit explains 84 ops on 83 lines), 18/18 hand ops byte-exact reconstruction, 87 parity lines == EN bytes, 65/65 phase-2 lines match independent re-detector, 38 one-liner closer invariant check (inner spaces shrank by exactly prose growth), Latin multiset preservation 0 violations outside whitelist, pair atomicity verified (failed pairs 0 diff lines), ledger 643 = 78+548+17, all 7 gates reproduced verbatim (verify 25/25/0 changed=77; term 0/0 dual; halfen default 0; raw 421==421 full-tuple identical; check_scope PASS 26; tests 228=221+7 ScopeEndToEnd only). MICRO-ACK CONFIRMED (title matches its decomposition verbatim, A2 note informational, check_scope re-reproduced).",
+  "delta_applied": true,
+  "delta_script": "manifest title/notes only (no .c or ledger changes since first review; R2 verified diff immutability): title disambiguated to '84 fixes on 83 lines (18 hand-pair ops + 66 re-detection fixes)' per R2 decomposition; R1 A2 ledger note added (mid-line /*内 opener-glue class ~9 sites fe-exec/fe-protocol3, outside current defect models, recorded for future rule widening).",
+  "re_ack": "R1 MICRO-ACK CONFIRMED (title decomposition reconciles with its audit numbers, A2 note verbatim, diff unchanged 25 files 83/83). R2 MICRO-ACK CONFIRMED (title matches its decomposition verbatim, A2 informational only, check_scope PASS 26 re-reproduced). Both reviewers: 批可进入提交."
+ }
+}

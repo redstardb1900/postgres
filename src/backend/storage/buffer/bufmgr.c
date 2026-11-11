@@ -2000,7 +2000,7 @@ ExtendBufferedRelShared(BufferManagerRelation bmr,
 						 errhint("This has been seen to occur with buggy kernels; consider updating your system.")));
 
 			/*
-			 * 我们必须在成功之前做 smgr[zero]extend，否则该页
+			 * *必须*在成功之前做 smgr[zero]extend，否则该页    
 			 * 不会被内核保留，下一次 P_NEW 调用
 			 * 会决定返回同一页。清除 BM_VALID 位，
 			 * 做 StartBufferIO() 并继续。

@@ -1376,7 +1376,7 @@ AllocateVfd(void)
 		/*
 		 * 空闲链表是空的，因此该增大
 		 * 数组了。每次发生时我们选择把它加倍。不过，
-		 * 从特别小的规模开始也没什么意义。
+		 * 从*特别*小的规模开始没什么意义。 
 		 */
 		Size		newCacheSize = SizeVfdCache * 2;
 		Vfd		   *newVfdCache;

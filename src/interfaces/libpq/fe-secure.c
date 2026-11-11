@@ -413,7 +413,7 @@ retry_masked:
 				break;
 
 			case EPIPE:
-				/* 设置EPIPE标志  */
+				/* 设置 EPIPE 标志*/
 				REMEMBER_EPIPE(spinfo, true);
 
 				/* FALL THRU */

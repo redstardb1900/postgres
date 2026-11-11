@@ -468,7 +468,7 @@ compatible_oper(ParseState *pstate, List *op, Oid arg1, Oid arg2,
 	/* oper() 会找出最佳可用匹配        */
 	optup = oper(pstate, op, arg1, arg2, noError, location);
 	if (optup == (Operator) NULL)
-		return (Operator) NULL; /* 必为noError情形  */
+		return (Operator) NULL; /* 必为 noError 情形*/
 
 	/* 但它足够好吗？  */
 	opform = (Form_pg_operator) GETSTRUCT(optup);

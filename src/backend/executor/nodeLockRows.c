@@ -34,7 +34,7 @@
  *		ExecLockRows
  * ----------------------------------------------------------------
  */
-static TupleTableSlot *			/* 返回: 元组或 NULL  */
+static TupleTableSlot *			/* 返回： 元组或 NULL*/
 ExecLockRows(PlanState *pstate)
 {
 	LockRowsState *node = castNode(LockRowsState, pstate);

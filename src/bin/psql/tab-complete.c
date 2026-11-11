@@ -3215,7 +3215,7 @@ psql_completion(const char *text, int start, int end)
 	else if (TailMatches("CREATE", "TABLE", MatchAny) ||
 			 TailMatches("CREATE", "TEMP|TEMPORARY|UNLOGGED", "TABLE", MatchAny))
 		COMPLETE_WITH("(", "OF", "PARTITION OF");
-	/* 补全 CREATE TABLE <name> OF为复合类型清单           */
+	/* 补全 CREATE TABLE <name> OF 为复合类型清单          */
 	else if (TailMatches("CREATE", "TABLE", MatchAny, "OF") ||
 			 TailMatches("CREATE", "TEMP|TEMPORARY|UNLOGGED", "TABLE", MatchAny, "OF"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_composite_datatypes);
@@ -3226,11 +3226,11 @@ psql_completion(const char *text, int start, int end)
 	else if (TailMatches("CREATE", "TEMP|TEMPORARY", "TABLE", MatchAny, "(*)"))
 		COMPLETE_WITH("INHERITS (", "ON COMMIT", "PARTITION BY",
 					  "TABLESPACE", "WITH (");
-	/* 补全 CREATE TABLE (...) USING为表访问方法           */
+	/* 补全 CREATE TABLE (...) USING 为表访问方法          */
 	else if (TailMatches("CREATE", "TABLE", MatchAny, "(*)", "USING") ||
 			 TailMatches("CREATE", "TEMP|TEMPORARY|UNLOGGED", "TABLE", MatchAny, "(*)", "USING"))
 		COMPLETE_WITH_QUERY(Query_for_list_of_table_access_methods);
-	/* 补全 CREATE TABLE (...) WITH为存储参数            */
+	/* 补全 CREATE TABLE (...) WITH 为存储参数           */
 	else if (TailMatches("CREATE", "TABLE", MatchAny, "(*)", "WITH", "(") ||
 			 TailMatches("CREATE", "TEMP|TEMPORARY|UNLOGGED", "TABLE", MatchAny, "(*)", "WITH", "("))
 		COMPLETE_WITH_LIST(table_storage_parameters);
@@ -3304,7 +3304,7 @@ psql_completion(const char *text, int start, int end)
 	else if (TailMatches("CREATE", "TRIGGER", MatchAny, "BEFORE|AFTER") ||
 			 TailMatches("CREATE", "OR", "REPLACE", "TRIGGER", MatchAny, "BEFORE|AFTER"))
 		COMPLETE_WITH("INSERT", "DELETE", "UPDATE", "TRUNCATE");
-	/* 补全 CREATE [ OR REPLACE ] TRIGGER <name> INSTEAD OF为事件        */
+	/* 补全 CREATE [ OR REPLACE ] TRIGGER <name> INSTEAD OF 为事件       */
 	else if (TailMatches("CREATE", "TRIGGER", MatchAny, "INSTEAD", "OF") ||
 			 TailMatches("CREATE", "OR", "REPLACE", "TRIGGER", MatchAny, "INSTEAD", "OF"))
 		COMPLETE_WITH("INSERT", "DELETE", "UPDATE");
@@ -3853,7 +3853,7 @@ psql_completion(const char *text, int start, int end)
  * GRANT 和 REVOKE 允许出现在 CREATE SCHEMA 和
  * ALTER DEFAULT PRIVILEGES 内部，因此使用 TailMatches
  */
-	/* 补全 GRANT/REVOKE为角色和权限清单               */
+	/* 补全 GRANT/REVOKE 为角色和权限清单              */
 	else if (TailMatches("GRANT|REVOKE") ||
 			 TailMatches("REVOKE", "ADMIN|GRANT|INHERIT|SET", "OPTION", "FOR"))
 	{
@@ -4163,7 +4163,7 @@ psql_completion(const char *text, int start, int end)
 			 Matches("LOCK", "TABLE", "ONLY", MatchAny))
 		COMPLETE_WITH("IN", "NOWAIT");
 
-	/* 补全 LOCK [TABLE] [ONLY] <table> IN为锁模式        */
+	/* 补全 LOCK [TABLE] [ONLY] <table> IN 为锁模式       */
 	else if (HeadMatches("LOCK") && TailMatches("IN"))
 		COMPLETE_WITH("ACCESS SHARE MODE",
 					  "ROW SHARE MODE", "ROW EXCLUSIVE MODE",
@@ -4178,7 +4178,7 @@ psql_completion(const char *text, int start, int end)
 	else if (HeadMatches("LOCK") && TailMatches("IN", "ACCESS|ROW"))
 		COMPLETE_WITH("EXCLUSIVE MODE", "SHARE MODE");
 
-	/* 补全 LOCK [TABLE] [ONLY] <table> IN SHARE为其余的锁模式     */
+	/* 补全 LOCK [TABLE] [ONLY] <table> IN SHARE 为其余的锁模式    */
 	else if (HeadMatches("LOCK") && TailMatches("IN", "SHARE"))
 		COMPLETE_WITH("MODE", "ROW EXCLUSIVE MODE",
 					  "UPDATE EXCLUSIVE MODE");
@@ -4225,7 +4225,7 @@ psql_completion(const char *text, int start, int end)
 			 TailMatches("MERGE", "INTO", MatchAny, MatchAny, "USING", MatchAny, MatchAnyExcept("ON|AS")))
 		COMPLETE_WITH("ON");
 
-	/* 补全 MERGE INTO ... ON为目标表属性              */
+	/* 补全 MERGE INTO ... ON 为目标表属性             */
 	else if (TailMatches("INTO", MatchAny, "USING", MatchAny, "ON"))
 		COMPLETE_WITH_ATTR(prev4_wd);
 	else if (TailMatches("INTO", MatchAny, "AS", MatchAny, "USING", MatchAny, "AS", MatchAny, "ON"))
@@ -4571,7 +4571,7 @@ psql_completion(const char *text, int start, int end)
 	/* 补全 UPDATE <table> 为 "SET" */
 	else if (TailMatches("UPDATE", MatchAny))
 		COMPLETE_WITH("SET");
-	/* 补全 UPDATE <table> SET为属性清单            */
+	/* 补全 UPDATE <table> SET 为属性清单           */
 	else if (TailMatches("UPDATE", MatchAny, "SET"))
 		COMPLETE_WITH_ATTR(prev2_wd);
 	/* UPDATE <table> SET <attr> = */

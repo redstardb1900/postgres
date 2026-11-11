@@ -135,7 +135,7 @@ prep_status(const char *fmt,...)
 	vsnprintf(message, sizeof(message), fmt, args);
 	va_end(args);
 
-	/*修剪串     */
+	/* 修剪串    */
 	pg_log(PG_REPORT_NONL, "%-*s", MESSAGE_WIDTH, message);
 }
 
@@ -336,7 +336,7 @@ get_user_info(char **user_name_p)
 	if (!user_name)
 		pg_fatal("%s", errstr);
 
-	/*复制一份 */
+	/* 复制一份*/
 	*user_name_p = pg_strdup(user_name);
 
 	return user_id;

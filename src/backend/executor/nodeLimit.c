@@ -37,7 +37,7 @@ static int64 compute_tuples_needed(LimitState *node);
  *		过滤，作用于子计划返回的元组流上。     
  * ----------------------------------------------------------------
  */
-static TupleTableSlot *			/* 返回: 元组或 NULL  */
+static TupleTableSlot *			/* 返回： 元组或 NULL*/
 ExecLimit(PlanState *pstate)
 {
 	LimitState *node = castNode(LimitState, pstate);

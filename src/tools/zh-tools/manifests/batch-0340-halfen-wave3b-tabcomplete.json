@@ -1,0 +1,49 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0340",
+ "title": "halfen3 campaign wave 3b: tab-complete.c completion-description tails - 23 single-line comments translated to zh (23 lines / 1 file, per-line EN byte parity, LF identity)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "80170dad1e517364c0657c66cd6df85601ce66c6",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0340-halfen-wave3b-tabcomplete.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/bin/psql/tab-complete.c",
+   "kind": "c_comment",
+   "note": "23 lines: EN completion-description tails -> zh (列清单/表名/索引方法/锁模式 etc.), pad inside comment, */ at EN end position"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0340-halfen-wave3b-tabcomplete.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/bin/psql/tab-complete.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 23,
+   "translated": 23,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "L2451/2527/2841/3008/3167/3199/3208/3218/3222/3229/3233/3307/3614/3828/3856/4113/4116/4148/4166/4181/4228/4568/4574: half-zh comment lines (补全/提供/建议 + EN tail) get EN tail translated; L4568 drops 则 for 53B exact; L4181 tail 其余的锁模式 (18B, budget-forced over 锁模式的其余部分 24B); KEEP adjudicated: L4127-4130 block has only <table> (attribs) placeholder + SQL literals left - pseudocode-keep family, scanner still flags it"
+  }
+ ],
+ "notes": "batch-0340 (halfen3 campaign wave 3b, 2026-11-11, parent batch-0339=80170dad1e5). 23 halfen findings cleared 510->487, 0 new; variables <sth>/<name>/<table>/<direction> placeholders and SQL keywords/paren-literals kept EN throughout (identifier/grammar-literal family). Corpus: 列清单 x4 (analyze.c etc.), 锁模式 x3 lmgr, 存储参数 x3, 表访问方法 x3, 复合类型 x3, 分区表 multi-file, 临时对象 x2 extension.c/view.c, 目标表 x3 execCurrent.c:91/101/356 (count corrected per R2-A3); 合法查询命令/角色和权限清单/游标清单 natural compounds without direct corpus - disclosed. Gates: verify summary identical (0 violations, changed=61831); term dual-state 0/0; check_scope --incremental PASS expected; add==del==23, LF identity.",
+ "post_review": {
+  "r1": "PASS, no D findings; A1 (L2527 quote style ( -> \"\" self-consistent, record-only) + A2 (L4568 pad=0 budget-exact, no change proposed) - both no-action",
+  "r2": "PASS, no D1; A1 quote-glyph record-only + A2 pad=0 cosmetic + A3 corpus cite x2->x3 (ADOPTED); byte table 23/23 re-derived, fidelity/terminology/keeps all pass",
+  "delta_applied": false
+ }
+}

@@ -2448,7 +2448,7 @@ psql_completion(const char *text, int start, int end)
 	/* 如果检测到 ALTER TABLE <sth> DROP，提供 COLUMN or CONSTRAINT */
 	else if (Matches("ALTER", "TABLE", MatchAny, "DROP"))
 		COMPLETE_WITH("COLUMN", "CONSTRAINT");
-	/* 如果检测到 ALTER TABLE <sth> DROP COLUMN，提供 list of columns */
+	/* 如果检测到 ALTER TABLE <sth> DROP COLUMN，提供列清单   */
 	else if (Matches("ALTER", "TABLE", MatchAny, "DROP", "COLUMN"))
 		COMPLETE_WITH_ATTR(prev3_wd);
 	/* ALTER TABLE <sth> ALTER|DROP|RENAME CONSTRAINT <constraint> */
@@ -2524,7 +2524,7 @@ psql_completion(const char *text, int start, int end)
 		set_completion_reference(prev3_wd);
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_index_of_table);
 	}
-	/* 如果检测到 ALTER TABLE <sth> SET，提供 list of attributes and '(' */
+	/* 如果检测到 ALTER TABLE <sth> SET，提供属性清单和 "("    */
 	else if (Matches("ALTER", "TABLE", MatchAny, "SET"))
 		COMPLETE_WITH("(", "ACCESS METHOD", "LOGGED", "SCHEMA",
 					  "TABLESPACE", "UNLOGGED", "WITH", "WITHOUT");
@@ -2838,7 +2838,7 @@ psql_completion(const char *text, int start, int end)
 	 */
 	else if (Matches("COPY|\\copy"))
 		COMPLETE_WITH_SCHEMA_QUERY_PLUS(Query_for_list_of_tables, "(");
-	/* 补全 COPY (为 legal query commands */
+	/* 补全 COPY (为合法查询命令        */
 	else if (Matches("COPY|\\copy", "("))
 		COMPLETE_WITH("SELECT", "TABLE", "VALUES", "INSERT INTO", "UPDATE", "DELETE FROM", "WITH");
 	/* Complete COPY <sth> */
@@ -3005,7 +3005,7 @@ psql_completion(const char *text, int start, int end)
 	/* same if you put in USING */
 	else if (TailMatches("ON", MatchAny, "USING", MatchAny, "("))
 		COMPLETE_WITH_ATTR(prev4_wd);
-	/* 补全 USING 为 an index method */
+	/* 补全 USING 为索引方法        */
 	else if (TailMatches("INDEX", MatchAny, MatchAny, "ON", MatchAny, "USING") ||
 			 TailMatches("INDEX", MatchAny, "ON", MatchAny, "USING") ||
 			 TailMatches("INDEX", "ON", MatchAny, "USING"))
@@ -3164,7 +3164,7 @@ psql_completion(const char *text, int start, int end)
 	/* Complete "AS ON SELECT|UPDATE|INSERT|DELETE" with a "TO" */
 	else if (TailMatches("AS", "ON", "SELECT|UPDATE|INSERT|DELETE"))
 		COMPLETE_WITH("TO");
-	/* 补全 "AS ON <sth> TO" 为 a table name */
+	/* 补全 "AS ON <sth> TO" 为表名           */
 	else if (TailMatches("AS", "ON", "SELECT|UPDATE|INSERT|DELETE", "TO"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_tables);
 
@@ -3196,7 +3196,7 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_tables);
 
 /* CREATE TABLE --- is allowed inside CREATE SCHEMA, so use TailMatches */
-	/* 补全 "CREATE TEMP/TEMPORARY" 为 the possible temp objects */
+	/* 补全 "CREATE TEMP/TEMPORARY" 为可能的临时对象         */
 	else if (TailMatches("CREATE", "TEMP|TEMPORARY"))
 		COMPLETE_WITH("SEQUENCE", "TABLE", "VIEW");
 	/* 补全 "CREATE UNLOGGED" 为 TABLE or MATVIEW */
@@ -3205,7 +3205,7 @@ psql_completion(const char *text, int start, int end)
 	/* 补全 PARTITION BY 为 RANGE ( or LIST ( or ... */
 	else if (TailMatches("PARTITION", "BY"))
 		COMPLETE_WITH("RANGE (", "LIST (", "HASH (");
-	/* 如果检测到 xxx PARTITION OF，提供 a list of partitioned tables */
+	/* 如果检测到 xxx PARTITION OF，提供分区表清单          */
 	else if (TailMatches("PARTITION", "OF"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_partitioned_tables);
 	/* Limited completion support for partition bound specification */
@@ -3215,22 +3215,22 @@ psql_completion(const char *text, int start, int end)
 	else if (TailMatches("CREATE", "TABLE", MatchAny) ||
 			 TailMatches("CREATE", "TEMP|TEMPORARY|UNLOGGED", "TABLE", MatchAny))
 		COMPLETE_WITH("(", "OF", "PARTITION OF");
-	/* 补全 CREATE TABLE <name> OF为 list of composite types */
+	/* 补全 CREATE TABLE <name> OF为复合类型清单           */
 	else if (TailMatches("CREATE", "TABLE", MatchAny, "OF") ||
 			 TailMatches("CREATE", "TEMP|TEMPORARY|UNLOGGED", "TABLE", MatchAny, "OF"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_composite_datatypes);
-	/* 补全 CREATE TABLE name (...)为 supported options */
+	/* 补全 CREATE TABLE name (...)为支持的选项        */
 	else if (TailMatches("CREATE", "TABLE", MatchAny, "(*)") ||
 			 TailMatches("CREATE", "UNLOGGED", "TABLE", MatchAny, "(*)"))
 		COMPLETE_WITH("INHERITS (", "PARTITION BY", "USING", "TABLESPACE", "WITH (");
 	else if (TailMatches("CREATE", "TEMP|TEMPORARY", "TABLE", MatchAny, "(*)"))
 		COMPLETE_WITH("INHERITS (", "ON COMMIT", "PARTITION BY",
 					  "TABLESPACE", "WITH (");
-	/* 补全 CREATE TABLE (...) USING为 table access methods */
+	/* 补全 CREATE TABLE (...) USING为表访问方法           */
 	else if (TailMatches("CREATE", "TABLE", MatchAny, "(*)", "USING") ||
 			 TailMatches("CREATE", "TEMP|TEMPORARY|UNLOGGED", "TABLE", MatchAny, "(*)", "USING"))
 		COMPLETE_WITH_QUERY(Query_for_list_of_table_access_methods);
-	/* 补全 CREATE TABLE (...) WITH为 storage parameters */
+	/* 补全 CREATE TABLE (...) WITH为存储参数            */
 	else if (TailMatches("CREATE", "TABLE", MatchAny, "(*)", "WITH", "(") ||
 			 TailMatches("CREATE", "TEMP|TEMPORARY|UNLOGGED", "TABLE", MatchAny, "(*)", "WITH", "("))
 		COMPLETE_WITH_LIST(table_storage_parameters);
@@ -3304,7 +3304,7 @@ psql_completion(const char *text, int start, int end)
 	else if (TailMatches("CREATE", "TRIGGER", MatchAny, "BEFORE|AFTER") ||
 			 TailMatches("CREATE", "OR", "REPLACE", "TRIGGER", MatchAny, "BEFORE|AFTER"))
 		COMPLETE_WITH("INSERT", "DELETE", "UPDATE", "TRUNCATE");
-	/* 补全 CREATE [ OR REPLACE ] TRIGGER <name> INSTEAD OF为 an event */
+	/* 补全 CREATE [ OR REPLACE ] TRIGGER <name> INSTEAD OF为事件        */
 	else if (TailMatches("CREATE", "TRIGGER", MatchAny, "INSTEAD", "OF") ||
 			 TailMatches("CREATE", "OR", "REPLACE", "TRIGGER", MatchAny, "INSTEAD", "OF"))
 		COMPLETE_WITH("INSERT", "DELETE", "UPDATE");
@@ -3611,7 +3611,7 @@ psql_completion(const char *text, int start, int end)
 	/* 补全 DELETE 为 "FROM" */
 	else if (Matches("DELETE"))
 		COMPLETE_WITH("FROM");
-	/* 补全 DELETE FROM 为 a list of tables */
+	/* 补全 DELETE FROM 为表清单            */
 	else if (TailMatches("DELETE", "FROM"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_updatables);
 	/* Complete DELETE FROM <table> */
@@ -3825,7 +3825,7 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH_QUERY_PLUS(Query_for_list_of_cursors,
 								 "FROM",
 								 "IN");
-	/* 补全 FETCH <direction> "FROM" or "IN"为 a list of cursors */
+	/* 补全 FETCH <direction> "FROM" or "IN"为游标清单           */
 	else if (HeadMatches("FETCH|MOVE") &&
 			 TailMatches("FROM|IN"))
 		COMPLETE_WITH_QUERY(Query_for_list_of_cursors);
@@ -3853,7 +3853,7 @@ psql_completion(const char *text, int start, int end)
  * GRANT 和 REVOKE 允许出现在 CREATE SCHEMA 和
  * ALTER DEFAULT PRIVILEGES 内部，因此使用 TailMatches
  */
-	/* 补全 GRANT/REVOKE为 a list of roles and privileges */
+	/* 补全 GRANT/REVOKE为角色和权限清单               */
 	else if (TailMatches("GRANT|REVOKE") ||
 			 TailMatches("REVOKE", "ADMIN|GRANT|INHERIT|SET", "OPTION", "FOR"))
 	{
@@ -4110,10 +4110,10 @@ psql_completion(const char *text, int start, int end)
 	/* 补全 INSERT 为 "INTO" */
 	else if (TailMatches("INSERT"))
 		COMPLETE_WITH("INTO");
-	/* 补全 INSERT INTO 为 table names */
+	/* 补全 INSERT INTO 为表名          */
 	else if (TailMatches("INSERT", "INTO"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_updatables);
-	/* 补全 "INSERT INTO <table> (" 为 attribute names */
+	/* 补全 "INSERT INTO <table> (" 为属性名           */
 	else if (TailMatches("INSERT", "INTO", MatchAny, "("))
 		COMPLETE_WITH_ATTR(prev2_wd);
 
@@ -4145,7 +4145,7 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("(");
 
 /* LOCK */
-	/* 补全 LOCK [TABLE] [ONLY]为 a list of tables */
+	/* 补全 LOCK [TABLE] [ONLY]为表清单             */
 	else if (Matches("LOCK"))
 		COMPLETE_WITH_SCHEMA_QUERY_PLUS(Query_for_list_of_tables,
 										"TABLE", "ONLY");
@@ -4163,7 +4163,7 @@ psql_completion(const char *text, int start, int end)
 			 Matches("LOCK", "TABLE", "ONLY", MatchAny))
 		COMPLETE_WITH("IN", "NOWAIT");
 
-	/* 补全 LOCK [TABLE] [ONLY] <table> IN为 a lock mode */
+	/* 补全 LOCK [TABLE] [ONLY] <table> IN为锁模式        */
 	else if (HeadMatches("LOCK") && TailMatches("IN"))
 		COMPLETE_WITH("ACCESS SHARE MODE",
 					  "ROW SHARE MODE", "ROW EXCLUSIVE MODE",
@@ -4178,7 +4178,7 @@ psql_completion(const char *text, int start, int end)
 	else if (HeadMatches("LOCK") && TailMatches("IN", "ACCESS|ROW"))
 		COMPLETE_WITH("EXCLUSIVE MODE", "SHARE MODE");
 
-	/* 补全 LOCK [TABLE] [ONLY] <table> IN SHARE为 rest of lock mode */
+	/* 补全 LOCK [TABLE] [ONLY] <table> IN SHARE为其余的锁模式     */
 	else if (HeadMatches("LOCK") && TailMatches("IN", "SHARE"))
 		COMPLETE_WITH("MODE", "ROW EXCLUSIVE MODE",
 					  "UPDATE EXCLUSIVE MODE");
@@ -4225,7 +4225,7 @@ psql_completion(const char *text, int start, int end)
 			 TailMatches("MERGE", "INTO", MatchAny, MatchAny, "USING", MatchAny, MatchAnyExcept("ON|AS")))
 		COMPLETE_WITH("ON");
 
-	/* 补全 MERGE INTO ... ON为 target table attributes */
+	/* 补全 MERGE INTO ... ON为目标表属性              */
 	else if (TailMatches("INTO", MatchAny, "USING", MatchAny, "ON"))
 		COMPLETE_WITH_ATTR(prev4_wd);
 	else if (TailMatches("INTO", MatchAny, "AS", MatchAny, "USING", MatchAny, "AS", MatchAny, "ON"))
@@ -4565,13 +4565,13 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH_QUERY_PLUS(Query_for_list_of_channels, "*");
 
 /* UPDATE --- 可以出现在 EXPLAIN, RULE, etc 中 */
-	/* 如果前一个单词是 UPDATE，则建议 a list of tables */
+	/* 如果前一个单词是 UPDATE，建议表清单*/
 	else if (TailMatches("UPDATE"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_updatables);
 	/* 补全 UPDATE <table> 为 "SET" */
 	else if (TailMatches("UPDATE", MatchAny))
 		COMPLETE_WITH("SET");
-	/* 补全 UPDATE <table> SET为 list of attributes */
+	/* 补全 UPDATE <table> SET为属性清单            */
 	else if (TailMatches("UPDATE", MatchAny, "SET"))
 		COMPLETE_WITH_ATTR(prev2_wd);
 	/* UPDATE <table> SET <attr> = */

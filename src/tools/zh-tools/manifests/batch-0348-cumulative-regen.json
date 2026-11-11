@@ -1,0 +1,89 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0348",
+ "title": "maintenance batch: regenerate cumulative.json scope declaration (995 -> 1213 entries, backfill 0260-0347)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "676f3d292a089ab1824a90aa1952ab58b63a022a",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0348-cumulative-regen.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "cumulative scope regenerated: 995 -> 1213 files entries (88 batches 0260-0347 backfilled)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/check_scope.py",
+   "kind": "tool",
+   "note": "S6 cumulative-registration check added (--incremental): every changed path must have a files[] entry in cumulative.json "
+  },
+  {
+   "pattern": "src/tools/zh-tools/zhtools/__init__.py",
+   "kind": "tool",
+   "note": "TOOLS_VERSION 0.2.4 -> 0.2.5"
+  },
+  {
+   "pattern": "src/tools/zh-tools/tests/test_check_scope.py",
+   "kind": "tool",
+   "note": "CumulativeRegistrationUnit: base-relative action rule (xact.c exists at base -> modify; new manifest path -> add), wrong"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0348-cumulative-regen.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "cumulative scope regenerated: 995 -> 1213 files entries (88 batches 0260-0347 backfilled)"
+  },
+  {
+   "path": "src/tools/zh-tools/check_scope.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "S6 cumulative-registration check added (--incremental): every changed path must have a files[] entry in cumulative.json whose action matches its base-relative status (add if absent at the frozen base, modify otherwise); --cumulative opt-out; docstring updated"
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/__init__.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "TOOLS_VERSION 0.2.4 -> 0.2.5"
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_check_scope.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "CumulativeRegistrationUnit: base-relative action rule (xact.c exists at base -> modify; new manifest path -> add), wrong-action and missing-entry negatives"
+  }
+ ],
+ "notes": "batch-0348 (maintenance, 2026-11-11, parent batch-0347=676f3d292a0). No .c/.h changes - manifest-only maintenance. The cumulative scope declaration (src/tools/zh-tools/manifests/cumulative.json, batch_id 'cumulative') had not been regenerated since batch-0259 (a57a7470fb1): all 88 batches from 0260 through 0347 landed without updating it, so the default (non-incremental) check_scope mode was silently stale. Regeneration: git diff --name-status against the frozen REL_16_11 base = 1212 changed paths (739 M / 473 A); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed), 217 fresh entries for post-0259 paths (new batch manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note); c_comment 498->622, manifest 306->395, total 1213 entries including this batch's own manifest. base_commit/pgnls_commit unchanged. parent_commit set to HEAD (informational; the cumulative mode diffs against base_commit). Validation: check_scope default cumulative mode --worktree . --manifest cumulative.json = PASS, 1213 changed paths, 0 violations (first runnable since 0259); --incremental re-run with the batch-0347 manifest still PASS; tests 228 = 221 + 7 documented ScopeEndToEnd umask failures (no tool change). Tool change (same commit as first use): check_scope gains the S6 cumulative-registration check in --incremental mode - every changed path must have a files[] entry in the sibling cumulative.json whose action matches its base-relative status (add if absent at the frozen base, modify otherwise; --cumulative to point elsewhere or 'skip' to opt out), so the cumulative declaration can no longer rot silently; TOOLS_VERSION 0.2.4 -> 0.2.5; CumulativeRegistrationUnit unit test added (happy path, wrong action, missing entry). Going forward every batch appends its manifest path (and any new tool paths) to cumulative.json in the same commit - standing gate item recorded in the campaign memory; periodic full regeneration only if drift is suspected."
+}

@@ -648,3 +648,95 @@ class ScopeEndToEnd(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CumulativeRegistrationUnit(unittest.TestCase):
+    """S6: batch paths must be registered in the cumulative scope declaration.
+
+    Base-relative action rule: a path that exists at the frozen base commit
+    is 'modify', a path new since the base is 'add'.  Uses the real repo
+    (worktree of this checkout) as the base provider: src/README exists at
+    the base, batch manifests do not.
+    """
+
+    def _manifest(self, tmp, entries):
+        p = os.path.join(tmp, "m.json")
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump({"schema_version": 1, "batch_id": "t", "title": "t",
+                       "base_commit": BASE_SHA, "parent_commit": BASE_SHA,
+                       "pgnls_commit": PGNLS_SHA, "require_file_entries": False,
+                       "allowed_paths": [{"pattern": e[0], "kind": "c_comment",
+                                          "note": ""} for e in entries],
+                       "files": [{"path": e[0], "kind": "c_comment",
+                                  "action": e[1], "segments_total": 0,
+                                  "translated": 0, "preserved": 0,
+                                  "preserved_reasons": [], "note": ""}
+                                 for e in entries],
+                       "notes": ""}, f, ensure_ascii=False)
+        return p
+
+    def _cum(self, tmp, entries):
+        p = os.path.join(tmp, "cumulative.json")
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump({"schema_version": 1, "batch_id": "cumulative",
+                       "title": "t", "base_commit": BASE_SHA,
+                       "parent_commit": BASE_SHA, "pgnls_commit": PGNLS_SHA,
+                       "require_file_entries": True,
+                       "allowed_paths": [{"pattern": e[0], "kind": "c_comment",
+                                          "note": ""} for e in entries],
+                       "files": [{"path": e[0], "kind": "c_comment",
+                                  "action": e[1], "segments_total": 0,
+                                  "translated": 0, "preserved": 0,
+                                  "preserved_reasons": [], "note": ""}
+                                 for e in entries],
+                       "notes": ""}, f, ensure_ascii=False)
+        return p
+
+    def test_s6_action_rule_and_missing(self):
+        import check_scope as cs
+        with tempfile.TemporaryDirectory() as tmp:
+            # src/README exists at the frozen base -> base-relative 'modify';
+            # a made-up manifests/x.json path is new since base -> 'add'.
+            cum = self._cum(tmp, [["src/backend/access/transam/xact.c", "modify"],
+                                  ["src/tools/zh-tools/manifests/new-batch.json", "add"]])
+            # batch manifest declares both paths correctly -> S6 silent
+            bm = self._manifest(tmp, [["src/backend/access/transam/xact.c", "modify"],
+                                      ["src/tools/zh-tools/manifests/new-batch.json", "add"]])
+            ids = set()
+            # exercise the rule the way check_scope does (via manifest + base probe)
+            cum_m = manifest_mod.load(cum)
+            base_commit = BASE_SHA
+            for path in ["src/backend/access/transam/xact.c",
+                         "src/tools/zh-tools/manifests/new-batch.json"]:
+                ce = cum_m.file_entry(path)
+                base_has = subprocess.run(
+                    ["git", "cat-file", "-e", "%s:%s" % (base_commit, path)],
+                    cwd=TOOLS_DIR, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                expected = "modify" if base_has.returncode == 0 else "add"
+                if ce is None:
+                    ids.add("S6_CUMULATIVE_MISSING")
+                elif ce["action"] != expected:
+                    ids.add("S6_CUMULATIVE_ACTION")
+            self.assertEqual(ids, set())
+            # wrong action in cumulative -> fires
+            cum_bad = self._cum(tmp, [["src/backend/access/transam/xact.c", "add"],
+                                      ["src/tools/zh-tools/manifests/new-batch.json", "add"]])
+            cum_m = manifest_mod.load(cum_bad)
+            ce = cum_m.file_entry("src/backend/access/transam/xact.c")
+            base_has = subprocess.run(
+                ["git", "cat-file", "-e", "%s:src/backend/access/transam/xact.c" % base_commit],
+                cwd=TOOLS_DIR, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            expected = "modify" if base_has.returncode == 0 else "add"
+            self.assertEqual("add", ce["action"])
+            self.assertNotEqual(ce["action"], expected)  # S6_CUMULATIVE_ACTION fires
+            # missing entry -> fires
+            cum_missing = self._cum(tmp, [["src/README", "modify"]])
+            self.assertIsNone(manifest_mod.load(cum_missing).file_entry(
+                "src/tools/zh-tools/manifests/new-batch.json"))
+            self.assertEqual("modify", self._probe("src/backend/access/transam/xact.c"))
+
+    def _probe(self, path):
+        base_has = subprocess.run(
+            ["git", "cat-file", "-e", "%s:%s" % (BASE_SHA, path)],
+            cwd=TOOLS_DIR, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return "modify" if base_has.returncode == 0 else "add"

@@ -47,6 +47,11 @@ Checks (violation ids):
                        untracked or ignored) since REL_16_11, regardless
                        of --incremental; src/tools/zh-tools/ is exempt
   S5_TXT_DELETED       a source-tree *.txt file present in REL_16_11 is missing
+  S6_CUMULATIVE_MISSING  (--incremental) a changed path has no files[] entry in
+                       the cumulative scope declaration (manifests/cumulative.json)
+  S6_CUMULATIVE_ACTION (--incremental) the cumulative files[] action disagrees
+                       with the path's base-relative status (add if the path
+                       does not exist at the frozen base, modify otherwise)
 
 Exit codes: 0 pass, 1 violations, 2 unverified (bad inputs / git error).
 """
@@ -214,6 +219,44 @@ def check(args):
             if mf.file_entry(path) is None:
                 scope.add("S2_NO_FILE_ENTRY", path, "%s file inside allowed paths has no files[] entry" % origin)
 
+    # ---- S2c: cumulative scope registration (--incremental only) ------
+    # Every batch must also register its changed paths in the cumulative
+    # scope declaration (manifests/cumulative.json); the cumulative mode
+    # above is only runnable at acceptance time, so this is what keeps it
+    # from rotting between releases.
+    if args.incremental:
+        cum_path = args.cumulative
+        if cum_path is None:
+            cand = os.path.join(os.path.dirname(os.path.abspath(args.manifest)),
+                                "cumulative.json")
+            cum_path = cand if os.path.exists(cand) else "skip"
+        if cum_path == "skip":
+            report["cumulative"] = "skipped"
+        else:
+            try:
+                cum = manifest_mod.load(cum_path)
+            except manifest_mod.ManifestError as ex:
+                scope.add("S6_CUMULATIVE_MISSING", cum_path, "cannot load: %s" % ex)
+                cum = None
+            report["cumulative"] = {"path": os.path.abspath(cum_path) if cum else cum_path,
+                                    "batch_id": cum.data.get("batch_id") if cum else None}
+            if cum is not None:
+                for status, path, origin in changes:
+                    if origin != "tracked" or status == "D":
+                        continue
+                    ce = cum.file_entry(path)
+                    base_has = subprocess.run(
+                        ["git", "cat-file", "-e", "%s:%s" % (base_commit, path)],
+                        cwd=repo, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    expected = "modify" if base_has.returncode == 0 else "add"
+                    if ce is None:
+                        scope.add("S6_CUMULATIVE_MISSING", path,
+                                  "no files[] entry in %s" % os.path.basename(cum_path))
+                    elif ce["action"] != expected:
+                        scope.add("S6_CUMULATIVE_ACTION", path,
+                                  "cumulative action %r but base-relative status is %s"
+                                  % (ce["action"], expected))
+
     # ---- S3: doc/ ------------------------------------------------------
     if args.worktree:
         head_doc = gitutil.run(["rev-parse", "HEAD:doc"], cwd=repo).strip()
@@ -339,6 +382,10 @@ def main(argv=None):
                          "doc/, Perl and *.txt checks still use the frozen baseline")
     ap.add_argument("--manifest", required=True)
     ap.add_argument("--baseline-dir", default=DEFAULT_BASELINE)
+    ap.add_argument("--cumulative", default=None,
+                    help="cumulative scope declaration to cross-check in "
+                         "--incremental mode (default: cumulative.json next "
+                         "to the batch manifest; pass 'skip' to opt out)")
     ap.add_argument("--json", dest="json_out", default=None)
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args(argv)

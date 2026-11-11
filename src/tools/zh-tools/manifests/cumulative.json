@@ -5848,6 +5848,11 @@
    "note": "batch-0348 manifest (this regeneration's own batch)"
   },
   {
+   "pattern": "src/tools/zh-tools/manifests/batch-0349-notes-integrity.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
    "pattern": "src/tools/zh-tools/manifests/cumulative.json",
    "kind": "tool",
    "note": "cumulative manifest since REL_16_11 for check_scope.py (non-incremental)"
@@ -19427,6 +19432,16 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0348 manifest (this regeneration's own batch)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0349-notes-integrity.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
   },
   {
    "path": "src/tools/zh-tools/manifests/cumulative.json",

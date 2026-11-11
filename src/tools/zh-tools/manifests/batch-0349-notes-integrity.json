@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0349",
+ "title": "integrity batch: batch-0348 notes single-story correction + EOF newline + first S6 live enforcement",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "aed0321a7785d63e8348417e006ebcb81639b624",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0349-notes-integrity.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0349 manifest path (S6 registration)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0348-cumulative-regen.json",
+   "kind": "manifest",
+   "note": "notes integrity correction: single consistent story (manifest+tool batch, 229=222+7), process-breach disclosure, EOF new"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0349-notes-integrity.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0349 manifest path (S6 registration)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0348-cumulative-regen.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "notes integrity correction: single consistent story (manifest+tool batch, 229=222+7), process-breach disclosure, EOF newline restored"
+  }
+ ],
+ "notes": "batch-0349 (integrity, 2026-11-12, parent batch-0348=aed0321a778). Manifest-only integrity correction, no .c/.h/tool changes. Background: batch-0348's payload grew mid-review (manifest-only regeneration grew into the S6 cumulative-registration gate) and the commit landed before the R1R2 review returned its FAIL on the mutated state - a frozen-review protocol breach by the author session, disclosed here and in the campaign memory. The shipped S6 change has since passed a dedicated post-commit content review (verdict PASS: base-relative probe semantics correct; negatives exercised through the real code path; disclosed limitations: silent auto-skip without a sibling cumulative.json, deleted-then-re-added-identical edge, no S1-style base check on the declaration; optional unit-test helper refactor deferred). This batch: (1) batch-0348-cumulative-regen.json notes corrected to a single consistent story - title now names the S6 gate and TOOLS_VERSION 0.2.5; the stale 'manifest-only'/'no tool change'/'tests 228' claims replaced by the 229=222+7 reality (old claims quoted inside the process-note disclosure only); trailing newline restored (R1R2 A4); (2) cumulative.json gains this batch's manifest path (action add, new since base) - the first live enforcement of the S6 check, which passed. Gates: check_scope --worktree . --incremental --base HEAD --manifest batch-0349 = PASS 3 changed paths (S6 silent, registration present); default cumulative mode = PASS 1214 changed paths; tests 229 = 222 green + 7 documented ScopeEndToEnd umask failures (no tool change this batch)."
+}

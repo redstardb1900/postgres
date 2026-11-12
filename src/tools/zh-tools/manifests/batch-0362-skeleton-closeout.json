@@ -1,0 +1,29 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0362",
+ "title": "tab-complete skeleton label closeout: 265 KEEP registered, campaign complete",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "994b22a22e11bd6fa29327f6083b675370c11923",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": false,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0362-skeleton-closeout.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0362-skeleton-closeout.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  }
+ ],
+ "notes": "batch-0362 (tab-complete skeleton closeout, 2026-11-12, parent batch-0361=994b22a22e1). Manifest-only: formally documents the KEEP decision for 265 SQL-skeleton one-liner comment labels in src/bin/psql/tab-complete.c per the 0336/0341 syntax-skeleton precedent. These labels are pure ASCII SQL grammar signposts (/* CREATE */, /* ALTER TABLE <name> SET */, etc.) marking TailMatches/Matches branch structure in the completion code. They produce W7_UNTRANSLATED advisories (informational only, not violations) and do NOT fire as halfen MIXED findings (no CJK component). No code changes. With this batch, the tab-complete.c campaign is formally closed: 413 original untranslated comments fully accounted for (143 translated in 0351-0355 + 265 skeleton labels KEEP + 5 fires-if done in 0352). This census reconciles with R1's 0354 review (402 remaining post-0354 = 265 skeletons + 137 already translated in 0351-0354)."
+}

@@ -1,0 +1,74 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0364",
+ "title": "hash dir whole-file batch: dynahash.c 213 blocks + pg_crc.c 2 blocks translated",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "147699a7e1b202ec1f72097ab431405106645c01",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0364-hash-dir.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0364 manifest path and hash file entries (S6 registration)"
+  },
+  {
+   "pattern": "src/backend/utils/hash/dynahash.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation: 213 blocks / 520 content lines translated, EN keeps for copyright/IDENTIFICATION/function names"
+  },
+  {
+   "pattern": "src/backend/utils/hash/pg_crc.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation: 2 blocks; CRC polynomial formula line kept EN"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0364-hash-dir.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0364 manifest path and hash file entries (S6 registration)"
+  },
+  {
+   "path": "src/backend/utils/hash/dynahash.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 213,
+   "translated": 213,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "dump-driven apply script; 520/537 content lines translated, 17 EN keeps (2 copyright, dynahash.c name, IDENTIFICATION, path, file-header border, hash_freeze/hash_seq_init names, function headers, CRC-independent); zero byte overruns"
+  },
+  {
+   "path": "src/backend/utils/hash/pg_crc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "header block + Sarwate CRC-32 table block; polynomial formula line kept EN"
+  }
+ ],
+ "notes": "batch-0364 (hash dir whole-file, 2026-11-13, parent batch-0363-review-fix=147699a7e1b). All 215 untranslated comment blocks in src/backend/utils/hash/ translated: dynahash.c 213 blocks (537 content lines: 520 translated, 17 EN keeps = copyright, filename, IDENTIFICATION, path, file-header border, hash_freeze/hash_seq_init/_search/_term function-name lines, CRC polynomial formula) + pg_crc.c 2 blocks. Zero byte-budget overruns (no disclosures needed). Five one-line banners (CREATE/DESTROY/SEARCH ROUTINES, UTILITIES, SEQ SCAN TRACKING) translated in place with decorative star runs preserved; tail-line banner-star alignment per 0336. Seven W7_IDENT_LOST advisories expected (banner labels, HASHELEMENTs, UNDEFINED translated to zh). term_lint adds 7 advisory warnings on this dir (P02/P07/P22/P24), same classes as tree-wide baseline. Gates: verify_c_comments 0 violations (comments=215 changed=215); term_lint 0 errors; scan_halfen 0 findings; cross-line repeated-character self-scan 0 hits. No code changes (apply script preserves code prefixes verbatim; line counts 1926/97 unchanged)."
+}

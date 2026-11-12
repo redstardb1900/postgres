@@ -1,56 +1,56 @@
 /*-------------------------------------------------------------------------
  *
  * dynahash.c
- *	  dynamic chained hash tables
+ *	  动态链接哈希表
  *
- * dynahash.c supports both local-to-a-backend hash tables and hash tables in
- * shared memory.  For shared hash tables, it is the caller's responsibility
- * to provide appropriate access interlocking.  The simplest convention is
- * that a single LWLock protects the whole hash table.  Searches (HASH_FIND or
- * hash_seq_search) need only shared lock, but any update requires exclusive
- * lock.  For heavily-used shared tables, the single-lock approach creates a
- * concurrency bottleneck, so we also support "partitioned" locking wherein
- * there are multiple LWLocks guarding distinct subsets of the table.  To use
- * a hash table in partitioned mode, the HASH_PARTITION flag must be given
- * to hash_create.  This prevents any attempt to split buckets on-the-fly.
- * Therefore, each hash bucket chain operates independently, and no fields
- * of the hash header change after init except nentries and freeList.
- * (A partitioned table uses multiple copies of those fields, guarded by
- * spinlocks, for additional concurrency.)
- * This lets any subset of the hash buckets be treated as a separately
- * lockable partition.  We expect callers to use the low-order bits of a
- * lookup key's hash value as a partition number --- this will work because
- * of the way calc_bucket() maps hash values to bucket numbers.
+ * dynahash.c 支持后端本地哈希表，也支持共享内存哈希表。
+ * 对于共享哈希表，访问互锁由调用者负责提供。
+ * 最简单的约定是由单个 LWLock 保护整个哈希表。
+ * 查找（HASH_FIND 或 hash_seq_search）只需要共享锁，
+ * 但任何更新都需要排他锁。对于高频使用的共享表，
+ * 单锁方式会造成并发瓶颈，因此我们还支持"分区"锁
+ * 模式，即由多个 LWLock 守护表中不同的子集。要使用
+ * 分区模式的哈希表，必须向 hash_create 传入
+ * HASH_PARTITION 标志。这能防止任何运行中拆分桶的
+ * 尝试。因此每个哈希桶链独立运作，且初始化后哈希
+ * 尝试。因此每个哈希桶链独立运作，且初始化后哈
+ * 头除了 nentries 和 freeList 之外没有字段会变化。
+ * （分区表用这些字段的多份副本由自旋锁保护，以
+ * 获得额外的并发性。）
+ * 这使哈希桶的任一子集都能被当作可独立加锁的
+ * 分区。我们期望调用者用键哈希值低位作分区号，
+ * —— 由于 calc_bucket() 把哈希值映射到桶号的方式，
+ * 这样做是可行的。
  *
- * For hash tables in shared memory, the memory allocator function should
- * match malloc's semantics of returning NULL on failure.  For hash tables
- * in local memory, we typically use palloc() which will throw error on
- * failure.  The code in this file has to cope with both cases.
+ * 共享内存中分配的哈希表，目录不能扩展，因为它
+ * malloc 失败时返回 NULL 的语义。对于本地内存中的
+ * 哈希表则通常用 palloc()，失败时会抛出错误。
+ * 本文件中的代码必须同时应对这两种情况。
  *
- * dynahash.c provides support for these types of lookup keys:
+ * dynahash.c 支持以下几类查找键：
  *
- * 1. Null-terminated C strings (truncated if necessary to fit in keysize),
- * compared as though by strcmp().  This is selected by specifying the
- * HASH_STRINGS flag to hash_create.
+ * 1. NUL 结尾的 C 字符串（必要时截断以适应 keysize），
+ * 比较如同 strcmp()。通过向 hash_create 指定
+ * HASH_STRINGS 标志来选用。
  *
- * 2. Arbitrary binary data of size keysize, compared as though by memcmp().
- * (Caller must ensure there are no undefined padding bits in the keys!)
- * This is selected by specifying the HASH_BLOBS flag to hash_create.
+ * 2. 大小为 keysize 的任意二进制数据，如同 memcmp()
+ * 那样比较。（调用者必须确保键中没有未定义的填充
+ * 位！）通过向 hash_create 指定 HASH_BLOBS 标志
  *
- * 3. More complex key behavior can be selected by specifying user-supplied
- * hashing, comparison, and/or key-copying functions.  At least a hashing
- * function must be supplied; comparison defaults to memcmp() and key copying
- * to memcpy() when a user-defined hashing function is selected.
+ * 3. 更复杂的键行为可以通过指定用户提供的哈希、
+ * 比较和/或键复制函数来选用。至少必须提供哈希
+ * 函数；比较默认用 memcmp()，键复制默认用 memcpy()，
+ * 前提是选用了用户定义的哈希函数。
  *
- * Compared to simplehash, dynahash has the following benefits:
+ * 与 simplehash 相比，dynahash 有以下优点：
  *
- * - It supports partitioning, which is useful for shared memory access using
- *   locks.
- * - Shared memory hashes are allocated in a fixed size area at startup and
- *   are discoverable by name from other processes.
- * - Because entries don't need to be moved in the case of hash conflicts,
- *   dynahash has better performance for large entries.
- * - Guarantees stable pointers to entries.
+ * - 它支持分区，这对使用锁进行的共享内存访问很有用。
+ *   锁。
+ * - 共享内存哈希表在启动时分配在固定大小的区域中，
+ *   并且可被其他进程按名字找到。
+ * - 因为哈希冲突时条目无需移动，dynahash 对大条目
+ *   有更好的性能。
+ * - 保证条目指针稳定。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -63,33 +63,33 @@
  */
 
 /*
- * Original comments:
+ * 原始注释：
  *
- * Dynamic hashing, after CACM April 1988 pp 446-457, by Per-Ake Larson.
- * Coded into C, with minor code improvements, and with hsearch(3) interface,
- * by ejp@ausmelb.oz, Jul 26, 1988: 13:16;
- * also, hcreate/hdestroy routines added to simulate hsearch(3).
+ * 动态哈希算法，见 CACM 1988 年 4 月号 pp 446-457，
+ * 由 Per-Ake Larson 撰写；ejp@ausmelb.oz 于 1988 年 7 月
+ * 26 日 13:16 移植为 C。
+ * 完成；并加入模拟 hsearch(3) 的 hcreate/hdestroy。
  *
- * These routines simulate hsearch(3) and family, with the important
- * difference that the hash table is dynamic - can grow indefinitely
- * beyond its original size (as supplied to hcreate()).
+ * 这些例程模拟 hsearch(3) 家族，重要差别是哈希表
+ * 是动态的——可无限增长，超出初始大小（即
+ * 传给 hcreate() 的大小）。
  *
- * Performance appears to be comparable to that of hsearch(3).
- * The 'source-code' options referred to in hsearch(3)'s 'man' page
- * are not implemented; otherwise functionality is identical.
+ * 性能看起来与 hsearch(3) 相当。
+ * hsearch(3) 手册页中提到的 'source-code' 选项
+ * 未实现；其余功能完全相同。
  *
- * Compilation controls:
- * HASH_DEBUG controls some informative traces, mainly for debugging.
- * HASH_STATISTICS causes HashAccesses and HashCollisions to be maintained;
- * when combined with HASH_DEBUG, these are displayed by hdestroy().
+ * 编译控制：
+ * HASH_DEBUG 控制一些信息性跟踪，主要用于调试。
+ * HASH_STATISTICS 使 HashAccesses 和 HashCollisions
+ * 得以维护；与 HASH_DEBUG 组合时由 hdestroy() 显示。
  *
- * Problems & fixes to ejp@ausmelb.oz. WARNING: relies on pre-processor
- * concatenation property, in probably unnecessary code 'optimization'.
+ * 问题与修复请发 ejp@ausmelb.oz。警告：依赖预处理器
+ * 的连接特性，存在于可能不必要的代码"优化"中。
  *
  * Modified margo@postgres.berkeley.edu February 1990
- *		added multiple table interface
+ *		增加多表接口。
  * Modified by sullivan@postgres.berkeley.edu April 1990
- *		changed ctl structure for shared memory
+ *		为共享内存更改 ctl 结构。
  */
 
 #include "postgres.h"
@@ -106,101 +106,101 @@
 
 
 /*
- * Constants
+ * 常量
  *
- * A hash table has a top-level "directory", each of whose entries points
- * to a "segment" of ssize bucket headers.  The maximum number of hash
- * buckets is thus dsize * ssize (but dsize may be expansible).  Of course,
- * the number of records in the table can be larger, but we don't want a
- * whole lot of records per bucket or performance goes down.
+ * 哈希表有一个顶层"目录"，其中每个条目都指向一个
+ * 包含 ssize 个桶头的"段"。哈希桶的最大数量因此为
+ * dsize * ssize（但 dsize 可扩展）。当然，表中的记录
+ * 数可以更多，但每个桶的记录太多时
+ * 性能就会下降。
  *
- * In a hash table allocated in shared memory, the directory cannot be
- * expanded because it must stay at a fixed address.  The directory size
- * should be selected using hash_select_dirsize (and you'd better have
- * a good idea of the maximum number of entries!).  For non-shared hash
- * tables, the initial directory size can be left at the default.
+ * 共享内存中分配的哈希表，目录不能扩展，因为它
+ * 必须保持在固定地址上。目录大小应当用
+ * hash_select_dirsize 来选择（你最好对最大条目数心
+ * 中有数！）。非共享哈希表的初始目录大小可留
+ * 在默认值。
  */
 #define DEF_SEGSIZE			   256
-#define DEF_SEGSIZE_SHIFT	   8	/* must be log2(DEF_SEGSIZE) */
+#define DEF_SEGSIZE_SHIFT	   8	/* log2(DEF_SEGSIZE) */
 #define DEF_DIRSIZE			   256
 
-/* Number of freelists to be used for a partitioned hash table. */
+/* 分区哈希表使用的空闲列表数量。 */
 #define NUM_FREELISTS			32
 
-/* A hash bucket is a linked list of HASHELEMENTs */
+/* 哈希桶是 HASHELEMENT 的链表 */
 typedef HASHELEMENT *HASHBUCKET;
 
-/* A hash segment is an array of bucket headers */
+/* 哈希段是桶头的数组 */
 typedef HASHBUCKET *HASHSEGMENT;
 
 /*
- * Per-freelist data.
+ * 空闲列表数据
  *
- * In a partitioned hash table, each freelist is associated with a specific
- * set of hashcodes, as determined by the FREELIST_IDX() macro below.
- * nentries tracks the number of live hashtable entries having those hashcodes
- * (NOT the number of entries in the freelist, as you might expect).
+ * 在分区哈希表中，每个空闲列表都关联着一组特定的
+ * 哈希码（由下面的 FREELIST_IDX() 宏决定）。
+ * nentries 跟踪具有这些哈希码的活动条目数（并不
+ * 是空闲列表中的条目数）。
  *
- * The coverage of a freelist might be more or less than one partition, so it
- * needs its own lock rather than relying on caller locking.  Relying on that
- * wouldn't work even if the coverage was the same, because of the occasional
- * need to "borrow" entries from another freelist; see get_hash_entry().
+ * 一个空闲列表的覆盖范围可能大于或小于一个分区，
+ * 所以它需要自己的锁而不能依赖调用者的锁。即使覆
+ * 盖范围相同也不行，因为偶尔要从其他空闲列表
+ * "借用"条目；参见 get_hash_entry()。
  *
- * Using an array of FreeListData instead of separate arrays of mutexes,
- * nentries and freeLists helps to reduce sharing of cache lines between
- * different mutexes.
+ * 使用 FreeListData 数组而非互斥锁、nentries 和
+ * freeList 的独立数组，有助于减少不同互斥锁之间的
+ * 缓存行共享。
  */
 typedef struct
 {
-	slock_t		mutex;			/* spinlock for this freelist */
-	long		nentries;		/* number of entries in associated buckets */
-	HASHELEMENT *freeList;		/* chain of free elements */
+	slock_t		mutex;			/* 此空闲列表自旋锁 */
+	long		nentries;		/* 关联桶中的条目数 */
+	HASHELEMENT *freeList;		/* 空闲元素链 */
 } FreeListData;
 
 /*
- * Header structure for a hash table --- contains all changeable info
+ * 哈希表的头结构 —— 包含所有可变信息
  *
- * In a shared-memory hash table, the HASHHDR is in shared memory, while
- * each backend has a local HTAB struct.  For a non-shared table, there isn't
- * any functional difference between HASHHDR and HTAB, but we separate them
- * anyway to share code between shared and non-shared tables.
+ * 在共享内存哈希表中，HASHHDR 位于共享内存，而每
+ * 个后端都有一个本地 HTAB 结构。对于非共享表，
+ * HASHHDR 和 HTAB 之间没有功能差异，但我们还是把
+ * 分开以便在共享与非共享表间共用代码。
  */
 struct HASHHDR
 {
 	/*
-	 * The freelist can become a point of contention in high-concurrency hash
-	 * tables, so we use an array of freelists, each with its own mutex and
-	 * nentries count, instead of just a single one.  Although the freelists
-	 * normally operate independently, we will scavenge entries from freelists
-	 * other than a hashcode's default freelist when necessary.
+	 * 空闲列表在高并发哈希表中可能成为争用点，因此
+	 * 们使用一组空闲列表，各自带有互斥锁和 nentries
+	 * 计数，而非只用单个。尽管各空闲列表通常独立
+	 * 运作，必要时会从哈希码默认空闲列表之外拣
+	 * 选条目。
 	 *
-	 * If the hash table is not partitioned, only freeList[0] is used and its
-	 * spinlock is not used at all; callers' locking is assumed sufficient.
+	 * 如果哈希表未分区，则只使用 freeList[0] 且完全
+	 * 不使用其自旋锁；假定调用者的锁已足够。
 	 */
 	FreeListData freeList[NUM_FREELISTS];
 
-	/* These fields can change, but not in a partitioned table */
-	/* Also, dsize can't change in a shared table, even if unpartitioned */
-	long		dsize;			/* directory size */
-	long		nsegs;			/* number of allocated segments (<= dsize) */
-	uint32		max_bucket;		/* ID of maximum bucket in use */
-	uint32		high_mask;		/* mask to modulo into entire table */
-	uint32		low_mask;		/* mask to modulo into lower half of table */
+	/* 这些字段可变，但在分区表中不行 */
+	/* 且共享表中 dsize 不可变，即使未分区 */
+	long		dsize;			/* 目录大小 */
+	long		nsegs;			/* 已分配段数（<= dsize） */
+	uint32		max_bucket;		/* 使用中的最大桶号 */
+	uint32		high_mask;		/* 对整表取模的掩码 */
+	uint32		low_mask;		/* 对表下半部分取模的掩码 */
 
-	/* These fields are fixed at hashtable creation */
-	Size		keysize;		/* hash key length in bytes */
-	Size		entrysize;		/* total user element size in bytes */
-	long		num_partitions; /* # partitions (must be power of 2), or 0 */
-	long		max_dsize;		/* 'dsize' limit if directory is fixed size */
-	long		ssize;			/* segment size --- must be power of 2 */
-	int			sshift;			/* segment shift = log2(ssize) */
-	int			nelem_alloc;	/* number of entries to allocate at once */
+	/* 这些字段在哈希表创建时固定 */
+	Size		keysize;		/* 哈希键字节长度 */
+	Size		entrysize;		/* 用户元素总字节大小 */
+	long		num_partitions; /* 分区数（须为 2 的幂）或 0 */
+	long		max_dsize;		/* 目录固定大小时的 'dsize' 上限 */
+	long		ssize;			/* 段大小 —— 必须为 2 的幂 */
+	int			sshift;			/* 段移位 = log2(ssize) */
+	int			nelem_alloc;	/* 一次分配的条目数 */
 
 #ifdef HASH_STATISTICS
 
 	/*
-	 * Count statistics here.  NB: stats code doesn't bother with mutex, so
-	 * counts could be corrupted a bit in a partitioned table.
+	 * 在此统计。注意：统计代码不碰互斥锁，分区表中
+	 * 的计数值可能稍有损坏。
 	 */
 	long		accesses;
 	long		collisions;
@@ -213,44 +213,44 @@ struct HASHHDR
 	(IS_PARTITIONED(hctl) ? (hashcode) % NUM_FREELISTS : 0)
 
 /*
- * Top control structure for a hashtable --- in a shared table, each backend
- * has its own copy (OK since no fields change at runtime)
+ * 哈希表的顶层控制结构 —— 共享表中每个后端都有
+ * 自己的副本（因运行时无字段变化）
  */
 struct HTAB
 {
-	HASHHDR    *hctl;			/* => shared control information */
-	HASHSEGMENT *dir;			/* directory of segment starts */
-	HashValueFunc hash;			/* hash function */
-	HashCompareFunc match;		/* key comparison function */
-	HashCopyFunc keycopy;		/* key copying function */
-	HashAllocFunc alloc;		/* memory allocator */
-	MemoryContext hcxt;			/* memory context if default allocator used */
-	char	   *tabname;		/* table name (for error messages) */
-	bool		isshared;		/* true if table is in shared memory */
-	bool		isfixed;		/* if true, don't enlarge */
+	HASHHDR    *hctl;			/* => 共享控制信息 */
+	HASHSEGMENT *dir;			/* 段起始的目录 */
+	HashValueFunc hash;			/* 哈希函数 */
+	HashCompareFunc match;		/* 键比较函数 */
+	HashCopyFunc keycopy;		/* 键复制函数 */
+	HashAllocFunc alloc;		/* 内存分配器 */
+	MemoryContext hcxt;			/* 用默认分配器时的内存上下文 */
+	char	   *tabname;		/* 表名（用于错误消息） */
+	bool		isshared;		/* 表在共享内存中则为真 */
+	bool		isfixed;		/* 为真则不扩大 */
 
-	/* freezing a shared table isn't allowed, so we can keep state here */
-	bool		frozen;			/* true = no more inserts allowed */
+	/* 共享表不允许冻结，所以可以在此保存状态 */
+	bool		frozen;			/* 真 = 不再允许插入 */
 
-	/* We keep local copies of these fixed values to reduce contention */
-	Size		keysize;		/* hash key length in bytes */
-	long		ssize;			/* segment size --- must be power of 2 */
-	int			sshift;			/* segment shift = log2(ssize) */
+	/* 保存这些固定值的本地副本以减少争用 */
+	Size		keysize;		/* 哈希键字节长度 */
+	long		ssize;			/* 段大小 —— 必须为 2 的幂 */
+	int			sshift;			/* 段移位 = log2(ssize) */
 };
 
 /*
- * Key (also entry) part of a HASHELEMENT
+ * HASHELEMENT 键/条目部分
  */
 #define ELEMENTKEY(helem)  (((char *)(helem)) + MAXALIGN(sizeof(HASHELEMENT)))
 
 /*
- * Obtain element pointer given pointer to key
+ * 由键指针求取元素指针
  */
 #define ELEMENT_FROM_KEY(key)  \
 	((HASHELEMENT *) (((char *) (key)) - MAXALIGN(sizeof(HASHELEMENT))))
 
 /*
- * Fast MOD arithmetic, assuming that y is a power of 2 !
+ * 快速取模运算，假定 y 为 2 的幂！
  */
 #define MOD(x,y)			   ((x) & ((y)-1))
 
@@ -261,7 +261,7 @@ static long hash_accesses,
 #endif
 
 /*
- * Private function prototypes
+ * 私有函数原型
  */
 static void *DynaHashAlloc(Size size);
 static HASHSEGMENT seg_alloc(HTAB *hashp);
@@ -281,7 +281,7 @@ static bool has_seq_scans(HTAB *hashp);
 
 
 /*
- * memory allocation support
+ * 内存分配支持
  */
 static MemoryContext CurrentDynaHashCxt = NULL;
 
@@ -295,11 +295,11 @@ DynaHashAlloc(Size size)
 
 
 /*
- * HashCompareFunc for string keys
+ * 字符串键的 HashCompareFunc
  *
- * Because we copy keys with strlcpy(), they will be truncated at keysize-1
- * bytes, so we can only compare that many ... hence strncmp is almost but
- * not quite the right thing.
+ * 因为我们用 strlcpy() 复制键，键会在 keysize-1 字节
+ * 处被截断，所以只能比较那么多 …… 因此 strncmp 差
+ * 并非完全合适。
  */
 static int
 string_compare(const char *key1, const char *key2, Size keysize)
@@ -308,43 +308,43 @@ string_compare(const char *key1, const char *key2, Size keysize)
 }
 
 
-/************************** CREATE ROUTINES **********************/
+/************************** 创建例程 **********************/
 
 /*
- * hash_create -- create a new dynamic hash table
+ * hash_create -- 创建新动态哈希表
  *
- *	tabname: a name for the table (for debugging purposes)
- *	nelem: maximum number of elements expected
- *	*info: additional table parameters, as indicated by flags
- *	flags: bitmask indicating which parameters to take from *info
+ *	tabname: 表名（用于调试）
+ *	nelem: 预期的最大元素数
+ *	*info: 附加表参数，由 flags 指示
+ *	flags: 位掩码，指示从 *info 取哪些参数
  *
- * The flags value *must* include HASH_ELEM.  (Formerly, this was nominally
- * optional, but the default keysize and entrysize values were useless.)
- * The flags value must also include exactly one of HASH_STRINGS, HASH_BLOBS,
- * or HASH_FUNCTION, to define the key hashing semantics (C strings,
- * binary blobs, or custom, respectively).  Callers specifying a custom
- * hash function will likely also want to use HASH_COMPARE, and perhaps
- * also HASH_KEYCOPY, to control key comparison and copying.
- * Another often-used flag is HASH_CONTEXT, to allocate the hash table
- * under info->hcxt rather than under TopMemoryContext; the default
- * behavior is only suitable for session-lifespan hash tables.
- * Other flags bits are special-purpose and seldom used, except for those
- * associated with shared-memory hash tables, for which see ShmemInitHash().
+ * flags 值*必须*包含 HASH_ELEM。（以前名义上可选，
+ * 但默认的 keysize 和 entrysize 值毫无用处。）
+ * flags 值还必须恰好包含 HASH_STRINGS、HASH_BLOBS、
+ * 或 HASH_FUNCTION 之一，以定义键哈希语义（分别对
+ * 应 C 字符串、二进制块或自定义）。指定自定义
+ * 哈希函数的调用者多半还想用 HASH_COMPARE，或许还
+ * 要用 HASH_KEYCOPY，以控制键比较与复制。
+ * 另一个常用标志是 HASH_CONTEXT，用于把哈希表分配
+ * 在 info->hcxt 之下而非 TopMemoryContext 之下；默认
+ * 行为只适合会话生命周期的哈希表。
+ * 其他标志位是特殊用途且很少使用，除了那些与共享
+ * 内存哈希表相关的标志，参见 ShmemInitHash()。
  *
- * Fields in *info are read only when the associated flags bit is set.
- * It is not necessary to initialize other fields of *info.
- * Neither tabname nor *info need persist after the hash_create() call.
+ * 只有在相关 flags 位被设置时才会读取 *info 中的字
+ * 段。无需初始化 *info 的其他字段。
+ * tabname 和 *info 都无需在 hash_create() 调用后继续
  *
- * Note: It is deprecated for callers of hash_create() to explicitly specify
- * string_hash, tag_hash, uint32_hash, or oid_hash.  Just set HASH_STRINGS or
- * HASH_BLOBS.  Use HASH_FUNCTION only when you want something other than
- * one of these.
+ * 注意：不推荐 hash_create() 的调用者显式指定
+ * string_hash、tag_hash、uint32_hash 或 oid_hash。仅
+ * 当需要的键哈希行为不同时才用 HASH_FUNCTION。平时设
+ * 置即可。
  *
- * Note: for a shared-memory hashtable, nelem needs to be a pretty good
- * estimate, since we can't expand the table on the fly.  But an unshared
- * hashtable can be expanded on-the-fly, so it's better for nelem to be
- * on the small side and let the table grow if it's exceeded.  An overly
- * large nelem will penalize hash_seq_search speed without buying much.
+ * 注意：共享内存哈希表的 nelem 必须相当准确，
+ * 估计值，因为我们无法动态扩展表。但非共享哈希表
+ * 可以动态扩展，所以 nelem 宁小勿大，超出时让表自
+ * 行增长即可。过大的 nelem 会拖慢 hash_seq_search 而
+ * 收益甚微。
  */
 HTAB *
 hash_create(const char *tabname, long nelem, const HASHCTL *info, int flags)
@@ -353,31 +353,31 @@ hash_create(const char *tabname, long nelem, const HASHCTL *info, int flags)
 	HASHHDR    *hctl;
 
 	/*
-	 * Hash tables now allocate space for key and data, but you have to say
-	 * how much space to allocate.
+	 * 哈希表会为键和数据分配空间，但需指明数量。
+	 * 分配多少空间。
 	 */
 	Assert(flags & HASH_ELEM);
 	Assert(info->keysize > 0);
 	Assert(info->entrysize >= info->keysize);
 
 	/*
-	 * For shared hash tables, we have a local hash header (HTAB struct) that
-	 * we allocate in TopMemoryContext; all else is in shared memory.
+	 * 对于共享哈希表，本地哈希头（HTAB 结构）分配在
+	 * TopMemoryContext 中；其余都在共享内存中。
 	 *
-	 * For non-shared hash tables, everything including the hash header is in
-	 * a memory context created specially for the hash table --- this makes
-	 * hash_destroy very simple.  The memory context is made a child of either
-	 * a context specified by the caller, or TopMemoryContext if nothing is
-	 * specified.
+	 * 非共享哈希表的一切（包括哈希头）都位于专门为哈
+	 * 希表创建的内存上下文中 —— 这使 hash_destroy 非常
+	 * 简单。其内存上下文的父上下文为调用者指定的，
+	 * 如果没有指定则是 TopMemoryContext
+	 * 。
 	 */
 	if (flags & HASH_SHARED_MEM)
 	{
-		/* Set up to allocate the hash header */
+		/* 准备分配哈希头 */
 		CurrentDynaHashCxt = TopMemoryContext;
 	}
 	else
 	{
-		/* Create the hash table's private memory context */
+		/* 创建哈希表私有的内存上下文 */
 		if (flags & HASH_CONTEXT)
 			CurrentDynaHashCxt = info->hcxt;
 		else
@@ -387,7 +387,7 @@ hash_create(const char *tabname, long nelem, const HASHCTL *info, int flags)
 												   ALLOCSET_DEFAULT_SIZES);
 	}
 
-	/* Initialize the hash header, plus a copy of the table name */
+	/* 初始化哈希头，外加表名的一份副本 */
 	hashp = (HTAB *) MemoryContextAlloc(CurrentDynaHashCxt,
 										sizeof(HTAB) + strlen(tabname) + 1);
 	MemSet(hashp, 0, sizeof(HTAB));
@@ -395,12 +395,12 @@ hash_create(const char *tabname, long nelem, const HASHCTL *info, int flags)
 	hashp->tabname = (char *) (hashp + 1);
 	strcpy(hashp->tabname, tabname);
 
-	/* If we have a private context, label it with hashtable's name */
+	/* 若有私有上下文，用哈希表名给它打标签 */
 	if (!(flags & HASH_SHARED_MEM))
 		MemoryContextSetIdentifier(CurrentDynaHashCxt, hashp->tabname);
 
 	/*
-	 * Select the appropriate hash function (see comments at head of file).
+	 * 选择合适的哈希函数（参见文件头部的注释）。
 	 */
 	if (flags & HASH_FUNCTION)
 	{
@@ -410,7 +410,7 @@ hash_create(const char *tabname, long nelem, const HASHCTL *info, int flags)
 	else if (flags & HASH_BLOBS)
 	{
 		Assert(!(flags & HASH_STRINGS));
-		/* We can optimize hashing for common key sizes */
+		/* 可以对常见键大小优化哈希 */
 		if (info->keysize == sizeof(uint32))
 			hashp->hash = uint32_hash;
 		else
@@ -419,12 +419,12 @@ hash_create(const char *tabname, long nelem, const HASHCTL *info, int flags)
 	else
 	{
 		/*
-		 * string_hash used to be considered the default hash method, and in a
-		 * non-assert build it effectively still is.  But we now consider it
-		 * an assertion error to not say HASH_STRINGS explicitly.  To help
-		 * catch mistaken usage of HASH_STRINGS, we also insist on a
-		 * reasonably long string length: if the keysize is only 4 or 8 bytes,
-		 * it's almost certainly an integer or pointer not a string.
+		 * string_hash 曾被视为默认哈希法，非断言构建中
+		 * 它实际仍是。但现在不显式给出 HASH_STRINGS 会
+		 * 被视作断言错误。为防 HASH_STRINGS 误用，我们
+		 * 求较长字符串：keysize 仅 4/8 时几乎必
+		 * 是整数或指针而非字符串
+		 * 。
 		 */
 		Assert(flags & HASH_STRINGS);
 		Assert(info->keysize > 8);
@@ -433,13 +433,13 @@ hash_create(const char *tabname, long nelem, const HASHCTL *info, int flags)
 	}
 
 	/*
-	 * If you don't specify a match function, it defaults to string_compare if
-	 * you used string_hash, and to memcmp otherwise.
+	 * 如果不指定匹配函数，默认在 string_hash 时为
+	 * string_compare，否则为 memcmp。
 	 *
-	 * Note: explicitly specifying string_hash is deprecated, because this
-	 * might not work for callers in loadable modules on some platforms due to
-	 * referencing a trampoline instead of the string_hash function proper.
-	 * Specify HASH_STRINGS instead.
+	 * 注意：显式指定 string_hash 已不推荐，因为在某些
+	 * 平台上，这对可加载模块中的调用者可能无效，因为
+	 * 它引用的是蹦床函数而非 string_hash 函数本体。请改
+	 * 用 HASH_STRINGS。
 	 */
 	if (flags & HASH_COMPARE)
 		hashp->match = info->match;
@@ -449,25 +449,25 @@ hash_create(const char *tabname, long nelem, const HASHCTL *info, int flags)
 		hashp->match = memcmp;
 
 	/*
-	 * Similarly, the key-copying function defaults to strlcpy or memcpy.
+	 * 类似地，键复制函数默认为 strlcpy 或 memcpy。
 	 */
 	if (flags & HASH_KEYCOPY)
 		hashp->keycopy = info->keycopy;
 	else if (hashp->hash == string_hash)
 	{
 		/*
-		 * The signature of keycopy is meant for memcpy(), which returns
-		 * void*, but strlcpy() returns size_t.  Since we never use the return
-		 * value of keycopy, and size_t is pretty much always the same size as
-		 * void *, this should be safe.  The extra cast in the middle is to
-		 * avoid warnings from -Wcast-function-type.
+		 * keycopy 的签名源自 memcpy()（返回 void*），而
+		 * strlcpy() 返回 size_t。由于我们从不使用 keycopy 的
+		 * 返回值，且 size_t 几乎总是与 void * 大小相同，所以
+		 * 这应该安全。中间的额外强转是为避免
+		 * -Wcast-function-type 的警告。
 		 */
 		hashp->keycopy = (HashCopyFunc) (pg_funcptr_t) strlcpy;
 	}
 	else
 		hashp->keycopy = memcpy;
 
-	/* And select the entry allocation function, too. */
+	/* 同时选择条目分配函数。 */
 	if (flags & HASH_ALLOC)
 		hashp->alloc = info->alloc;
 	else
@@ -476,19 +476,19 @@ hash_create(const char *tabname, long nelem, const HASHCTL *info, int flags)
 	if (flags & HASH_SHARED_MEM)
 	{
 		/*
-		 * ctl structure and directory are preallocated for shared memory
-		 * tables.  Note that HASH_DIRSIZE and HASH_ALLOC had better be set as
-		 * well.
+		 * 共享表的 ctl 结构和目录已预分配。最好把
+		 * HASH_DIRSIZE 和 HASH_ALLOC 也一并设置好
+		 * 。
 		 */
 		hashp->hctl = info->hctl;
 		hashp->dir = (HASHSEGMENT *) (((char *) info->hctl) + sizeof(HASHHDR));
 		hashp->hcxt = NULL;
 		hashp->isshared = true;
 
-		/* hash table already exists, we're just attaching to it */
+		/* 哈希表已存在，我们只是附加上去 */
 		if (flags & HASH_ATTACH)
 		{
-			/* make local copies of some heavily-used values */
+			/* 复制一些高频使用的值到本地 */
 			hctl = hashp->hctl;
 			hashp->keysize = hctl->keysize;
 			hashp->ssize = hctl->ssize;
@@ -499,7 +499,7 @@ hash_create(const char *tabname, long nelem, const HASHCTL *info, int flags)
 	}
 	else
 	{
-		/* setup hash table defaults */
+		/* 设置哈希表默认值 */
 		hashp->hctl = NULL;
 		hashp->dir = NULL;
 		hashp->hcxt = CurrentDynaHashCxt;
@@ -523,13 +523,13 @@ hash_create(const char *tabname, long nelem, const HASHCTL *info, int flags)
 
 	if (flags & HASH_PARTITION)
 	{
-		/* Doesn't make sense to partition a local hash table */
+		/* 对本地哈希表分区没有意义 */
 		Assert(flags & HASH_SHARED_MEM);
 
 		/*
-		 * The number of partitions had better be a power of 2. Also, it must
-		 * be less than INT_MAX (see init_htab()), so call the int version of
-		 * next_pow2.
+		 * 分区数最好是 2 的幂，且必须小于 INT_MAX（见
+		 * init_htab()），所以要调用 int 版的 next_pow2
+		 * 。
 		 */
 		Assert(info->num_partitions == next_pow2_int(info->num_partitions));
 
@@ -540,12 +540,12 @@ hash_create(const char *tabname, long nelem, const HASHCTL *info, int flags)
 	{
 		hctl->ssize = info->ssize;
 		hctl->sshift = my_log2(info->ssize);
-		/* ssize had better be a power of 2 */
+		/* ssize 最好是 2 的幂 */
 		Assert(hctl->ssize == (1L << hctl->sshift));
 	}
 
 	/*
-	 * SHM hash tables have fixed directory size passed by the caller.
+	 * 共享表的目录大小固定，由调用者传入。
 	 */
 	if (flags & HASH_DIRSIZE)
 	{
@@ -553,26 +553,26 @@ hash_create(const char *tabname, long nelem, const HASHCTL *info, int flags)
 		hctl->dsize = info->dsize;
 	}
 
-	/* remember the entry sizes, too */
+	/* 也记住条目大小 */
 	hctl->keysize = info->keysize;
 	hctl->entrysize = info->entrysize;
 
-	/* make local copies of heavily-used constant fields */
+	/* 复制高频使用的固定字段到本地 */
 	hashp->keysize = hctl->keysize;
 	hashp->ssize = hctl->ssize;
 	hashp->sshift = hctl->sshift;
 
-	/* Build the hash directory structure */
+	/* 构建哈希目录结构 */
 	if (!init_htab(hashp, nelem))
 		elog(ERROR, "failed to initialize hash table \"%s\"", hashp->tabname);
 
 	/*
-	 * For a shared hash table, preallocate the requested number of elements.
-	 * This reduces problems with run-time out-of-shared-memory conditions.
+	 * 共享哈希表要预分配所请求数量的元素，这能减少
+	 * 共享内存运行时耗尽带来的问题。
 	 *
-	 * For a non-shared hash table, preallocate the requested number of
-	 * elements if it's less than our chosen nelem_alloc.  This avoids wasting
-	 * space if the caller correctly estimates a small table size.
+	 * 对于非共享哈希表，若请求数量小于我们选定的
+	 * nelem_alloc，则也预分配。这样调用者正确估计较小
+	 * 表大小时就不会浪费空间。
 	 */
 	if ((flags & HASH_SHARED_MEM) ||
 		nelem < hctl->nelem_alloc)
@@ -583,8 +583,8 @@ hash_create(const char *tabname, long nelem, const HASHCTL *info, int flags)
 					nelem_alloc_first;
 
 		/*
-		 * If hash table is partitioned, give each freelist an equal share of
-		 * the initial allocation.  Otherwise only freeList[0] is used.
+		 * 若分区，每个空闲列表均分初始分配额。
+		 * 否则只使用 freeList[0]。
 		 */
 		if (IS_PARTITIONED(hashp->hctl))
 			freelist_partitions = NUM_FREELISTS;
@@ -596,8 +596,8 @@ hash_create(const char *tabname, long nelem, const HASHCTL *info, int flags)
 			nelem_alloc = 1;
 
 		/*
-		 * Make sure we'll allocate all the requested elements; freeList[0]
-		 * gets the excess if the request isn't divisible by NUM_FREELISTS.
+		 * 确保会分配所有请求的元素；如果请求不能被
+		 * NUM_FREELISTS 整除，多余部分归 freeList[0]。
 		 */
 		if (nelem_alloc * freelist_partitions < nelem)
 			nelem_alloc_first =
@@ -622,7 +622,7 @@ hash_create(const char *tabname, long nelem, const HASHCTL *info, int flags)
 }
 
 /*
- * Set default HASHHDR parameters.
+ * 设置默认 HASHHDR 参数。
  */
 static void
 hdefault(HTAB *hashp)
@@ -634,9 +634,9 @@ hdefault(HTAB *hashp)
 	hctl->dsize = DEF_DIRSIZE;
 	hctl->nsegs = 0;
 
-	hctl->num_partitions = 0;	/* not partitioned */
+	hctl->num_partitions = 0;	/* 未分区 */
 
-	/* table has no fixed maximum size */
+	/* 表无固定最大大小 */
 	hctl->max_dsize = NO_MAX_DSIZE;
 
 	hctl->ssize = DEF_SEGSIZE;
@@ -648,8 +648,8 @@ hdefault(HTAB *hashp)
 }
 
 /*
- * Given the user-specified entry size, choose nelem_alloc, ie, how many
- * elements to add to the hash table when we need more.
+ * 根据用户指定的条目大小选择 nelem_alloc，即当我
+ * 们需要更多时向哈希表添加的元素数。
  */
 static int
 choose_nelem_alloc(Size entrysize)
@@ -658,19 +658,19 @@ choose_nelem_alloc(Size entrysize)
 	Size		elementSize;
 	Size		allocSize;
 
-	/* Each element has a HASHELEMENT header plus user data. */
-	/* NB: this had better match element_alloc() */
+	/* 每个元素有 HASHELEMENT 头外加用户数据。 */
+	/* 注意：最好与 element_alloc() 一致 */
 	elementSize = MAXALIGN(sizeof(HASHELEMENT)) + MAXALIGN(entrysize);
 
 	/*
-	 * The idea here is to choose nelem_alloc at least 32, but round up so
-	 * that the allocation request will be a power of 2 or just less. This
-	 * makes little difference for hash tables in shared memory, but for hash
-	 * tables managed by palloc, the allocation request will be rounded up to
-	 * a power of 2 anyway.  If we fail to take this into account, we'll waste
-	 * as much as half the allocated space.
+	 * 这里的思路是选择至少 32 的 nelem_alloc，但向上取
+	 * 整使分配请求恰为 2 的幂或略小。这对共享内存
+	 * 中的哈希表影响甚微；但 palloc 管理的表，请求
+	 * 反正会被取整到 2 的幂。若不考虑这点，我们将浪
+	 * 费多达一半的分配空间
+	 * 。
 	 */
-	allocSize = 32 * 4;			/* assume elementSize at least 8 */
+	allocSize = 32 * 4;			/* 假定 elementSize ≥ 8 */
 	do
 	{
 		allocSize <<= 1;
@@ -681,8 +681,8 @@ choose_nelem_alloc(Size entrysize)
 }
 
 /*
- * Compute derived fields of hctl and build the initial directory/segment
- * arrays
+ * 计算 hctl 的派生字段并构建初始的目录/段
+ * 数组
  */
 static bool
 init_htab(HTAB *hashp, long nelem)
@@ -694,23 +694,23 @@ init_htab(HTAB *hashp, long nelem)
 	int			i;
 
 	/*
-	 * initialize mutexes if it's a partitioned table
+	 * 如果是分区表则初始化互斥锁
 	 */
 	if (IS_PARTITIONED(hctl))
 		for (i = 0; i < NUM_FREELISTS; i++)
 			SpinLockInit(&(hctl->freeList[i].mutex));
 
 	/*
-	 * Allocate space for the next greater power of two number of buckets,
-	 * assuming a desired maximum load factor of 1.
+	 * 为下一个更大 2 幂的桶数分配空间，假定最大装载
+	 * 因子为 1。
 	 */
 	nbuckets = next_pow2_int(nelem);
 
 	/*
-	 * In a partitioned table, nbuckets must be at least equal to
-	 * num_partitions; were it less, keys with apparently different partition
-	 * numbers would map to the same bucket, breaking partition independence.
-	 * (Normally nbuckets will be much bigger; this is just a safety check.)
+	 * 在分区表中，nbuckets 必须至少等于
+	 * num_partitions；否则，表面哈希分区号不同的键会映
+	 * 射到同一个桶，破坏分区独立性。（通常 nbuckets 会
+	 * 大得多；这只是个安全检查。）
 	 */
 	while (nbuckets < hctl->num_partitions)
 		nbuckets <<= 1;
@@ -719,14 +719,14 @@ init_htab(HTAB *hashp, long nelem)
 	hctl->high_mask = (nbuckets << 1) - 1;
 
 	/*
-	 * Figure number of directory segments needed, round up to a power of 2
+	 * 算出所需目录段数，并向上取整到 2 的幂
 	 */
 	nsegs = (nbuckets - 1) / hctl->ssize + 1;
 	nsegs = next_pow2_int(nsegs);
 
 	/*
-	 * Make sure directory is big enough. If pre-allocated directory is too
-	 * small, choke (caller screwed up).
+	 * 确保目录足够大。预分配的目录太小则中止（说明
+	 * 调用者搞错了）。
 	 */
 	if (nsegs > hctl->dsize)
 	{
@@ -736,7 +736,7 @@ init_htab(HTAB *hashp, long nelem)
 			return false;
 	}
 
-	/* Allocate a directory */
+	/* 分配一个目录 */
 	if (!(hashp->dir))
 	{
 		CurrentDynaHashCxt = hashp->hcxt;
@@ -746,7 +746,7 @@ init_htab(HTAB *hashp, long nelem)
 			return false;
 	}
 
-	/* Allocate initial segments */
+	/* 分配初始段 */
 	for (segp = hashp->dir; hctl->nsegs < nsegs; hctl->nsegs++, segp++)
 	{
 		*segp = seg_alloc(hashp);
@@ -754,7 +754,7 @@ init_htab(HTAB *hashp, long nelem)
 			return false;
 	}
 
-	/* Choose number of entries to allocate at a time */
+	/* 选择一次分配的条目数 */
 	hctl->nelem_alloc = choose_nelem_alloc(hctl->entrysize);
 
 #ifdef HASH_DEBUG
@@ -772,11 +772,11 @@ init_htab(HTAB *hashp, long nelem)
 }
 
 /*
- * Estimate the space needed for a hashtable containing the given number
- * of entries of given size.
- * NOTE: this is used to estimate the footprint of hashtables in shared
- * memory; therefore it does not count HTAB which is in local memory.
- * NB: assumes that all hash structure parameters have default values!
+ * 估算包含给定数量、给定大小条目的哈希表所需的
+ * 空间。
+ * 注意：用于估算共享内存哈希表的占用；因此未
+ * 把本地内存中的 HTAB 计入。
+ * 注意：假定所有哈希结构参数均为默认值！
  */
 Size
 hash_estimate_size(long num_entries, Size entrysize)
@@ -789,23 +789,23 @@ hash_estimate_size(long num_entries, Size entrysize)
 				elementSize,
 				elementAllocCnt;
 
-	/* estimate number of buckets wanted */
+	/* 估算所需桶数 */
 	nBuckets = next_pow2_long(num_entries);
-	/* # of segments needed for nBuckets */
+	/* nBuckets 所需的段数 */
 	nSegments = next_pow2_long((nBuckets - 1) / DEF_SEGSIZE + 1);
-	/* directory entries */
+	/* 目录条目 */
 	nDirEntries = DEF_DIRSIZE;
 	while (nDirEntries < nSegments)
-		nDirEntries <<= 1;		/* dir_alloc doubles dsize at each call */
+		nDirEntries <<= 1;		/* dir_alloc 每次调用 dsize 翻倍 */
 
-	/* fixed control info */
-	size = MAXALIGN(sizeof(HASHHDR));	/* but not HTAB, per above */
-	/* directory */
+	/* 固定控制信息 */
+	size = MAXALIGN(sizeof(HASHHDR));	/* HTAB 除外，见上 */
+	/* 目录 */
 	size = add_size(size, mul_size(nDirEntries, sizeof(HASHSEGMENT)));
-	/* segments */
+	/* 段 */
 	size = add_size(size, mul_size(nSegments,
 								   MAXALIGN(DEF_SEGSIZE * sizeof(HASHBUCKET))));
-	/* elements --- allocated in groups of choose_nelem_alloc() entries */
+	/* 元素 —— 按 choose_nelem_alloc() 条目为一组分配 */
 	elementAllocCnt = choose_nelem_alloc(entrysize);
 	nElementAllocs = (num_entries - 1) / elementAllocCnt + 1;
 	elementSize = MAXALIGN(sizeof(HASHELEMENT)) + MAXALIGN(entrysize);
@@ -817,13 +817,13 @@ hash_estimate_size(long num_entries, Size entrysize)
 }
 
 /*
- * Select an appropriate directory size for a hashtable with the given
- * maximum number of entries.
- * This is only needed for hashtables in shared memory, whose directories
- * cannot be expanded dynamically.
- * NB: assumes that all hash structure parameters have default values!
+ * 为给定最大条目数的哈希表选择合适的目录大小
+ * 。
+ * 仅共享内存哈希表需要：其目录无法动态扩展
+ * 。
+ * 注意：假定所有哈希结构参数均为默认值！
  *
- * XXX this had better agree with the behavior of init_htab()...
+ * XXX 这最好与 init_htab() 的行为一致……
  */
 long
 hash_select_dirsize(long num_entries)
@@ -832,22 +832,22 @@ hash_select_dirsize(long num_entries)
 				nSegments,
 				nDirEntries;
 
-	/* estimate number of buckets wanted */
+	/* 估算所需桶数 */
 	nBuckets = next_pow2_long(num_entries);
-	/* # of segments needed for nBuckets */
+	/* nBuckets 所需的段数 */
 	nSegments = next_pow2_long((nBuckets - 1) / DEF_SEGSIZE + 1);
-	/* directory entries */
+	/* 目录条目 */
 	nDirEntries = DEF_DIRSIZE;
 	while (nDirEntries < nSegments)
-		nDirEntries <<= 1;		/* dir_alloc doubles dsize at each call */
+		nDirEntries <<= 1;		/* dir_alloc 每次调用 dsize 翻倍 */
 
 	return nDirEntries;
 }
 
 /*
- * Compute the required initial memory allocation for a shared-memory
- * hashtable with the given parameters.  We need space for the HASHHDR
- * and for the (non expansible) directory.
+ * 为给定参数的共享内存哈希表计算所需的初始内存
+ * 分配。需要为 HASHHDR 和（不可扩展的）目录留出
+ * 空间。
  */
 Size
 hash_get_shared_size(HASHCTL *info, int flags)
@@ -858,22 +858,22 @@ hash_get_shared_size(HASHCTL *info, int flags)
 }
 
 
-/********************** DESTROY ROUTINES ************************/
+/********************** 销毁例程 ************************/
 
 void
 hash_destroy(HTAB *hashp)
 {
 	if (hashp != NULL)
 	{
-		/* allocation method must be one we know how to free, too */
+		/* 分配方法必须也是我们知道如何释放的 */
 		Assert(hashp->alloc == DynaHashAlloc);
-		/* so this hashtable must have its own context */
+		/* 所以该哈希表得有自己的上下文 */
 		Assert(hashp->hcxt != NULL);
 
 		hash_stats("destroy", hashp);
 
 		/*
-		 * Free everything by destroying the hash table's memory context.
+		 * 通过销毁哈希表的内存上下文来释放一切。
 		 */
 		MemoryContextDelete(hashp->hcxt);
 	}
@@ -896,15 +896,15 @@ hash_stats(const char *where, HTAB *hashp)
 #endif
 }
 
-/*******************************SEARCH ROUTINES *****************************/
+/*******************************搜索例程 *****************************/
 
 
 /*
- * get_hash_value -- exported routine to calculate a key's hash value
+ * get_hash_value -- 导出例程，计算键的哈希值
  *
- * We export this because for partitioned tables, callers need to compute
- * the partition number (from the low-order bits of the hash value) before
- * searching.
+ * 导出原因：分区表的调用者需要在查找之前，先
+ * 由哈希值的低位算出分区号，然后才能查找
+ * 。
  */
 uint32
 get_hash_value(HTAB *hashp, const void *keyPtr)
@@ -912,7 +912,7 @@ get_hash_value(HTAB *hashp, const void *keyPtr)
 	return hashp->hash(keyPtr, hashp->keysize);
 }
 
-/* Convert a hash value to a bucket number */
+/* 把哈希值转换为桶号 */
 static inline uint32
 calc_bucket(HASHHDR *hctl, uint32 hash_val)
 {
@@ -926,29 +926,29 @@ calc_bucket(HASHHDR *hctl, uint32 hash_val)
 }
 
 /*
- * hash_search -- look up key in table and perform action
- * hash_search_with_hash_value -- same, with key's hash value already computed
+ * hash_search -- 在表中查找键并执行动作
+ * hash_search_with_hash_value -- 同上，但键的哈希值已
  *
- * action is one of:
- *		HASH_FIND: look up key in table
- *		HASH_ENTER: look up key in table, creating entry if not present
- *		HASH_ENTER_NULL: same, but return NULL if out of memory
- *		HASH_REMOVE: look up key in table, remove entry if present
+ * action 为：
+ *		HASH_FIND: 在表中查找键
+ *		HASH_ENTER: 查找键，不存在则创建条目
+ *		HASH_ENTER_NULL: 同上，但内存耗尽时返回 NULL
+ *		HASH_REMOVE: 查找键，存在则移除条目
  *
- * Return value is a pointer to the element found/entered/removed if any,
- * or NULL if no match was found.  (NB: in the case of the REMOVE action,
- * the result is a dangling pointer that shouldn't be dereferenced!)
+ * 返回值是指向所找到/进入/移除元素的指针，若无匹
+ * 配则返回 NULL。（REMOVE 动作的结果是悬空指针，
+ * 不应被解引用！）
  *
- * HASH_ENTER will normally ereport a generic "out of memory" error if
- * it is unable to create a new entry.  The HASH_ENTER_NULL operation is
- * the same except it will return NULL if out of memory.
+ * HASH_ENTER 通常在无法创建新条目时报通用的"内存不
+ * 足"错误。HASH_ENTER_NULL 操作相同，但内存耗尽时
+ * 返回 NULL。
  *
- * If foundPtr isn't NULL, then *foundPtr is set true if we found an
- * existing entry in the table, false otherwise.  This is needed in the
- * HASH_ENTER case, but is redundant with the return value otherwise.
+ * 如果 foundPtr 非 NULL，则找到表中现有条目时
+ * *foundPtr 置真，否则置假。HASH_ENTER 时需要，其余
+ * 情况下它与返回值冗余。
  *
- * For hash_search_with_hash_value, the hashvalue parameter must have been
- * calculated with get_hash_value().
+ * 对于 hash_search_with_hash_value，其 hashvalue 参数
+ * 须经 get_hash_value() 算出
  */
 void *
 hash_search(HTAB *hashp,
@@ -987,18 +987,18 @@ hash_search_with_hash_value(HTAB *hashp,
 #endif
 
 	/*
-	 * If inserting, check if it is time to split a bucket.
+	 * 插入时检查是否该拆分桶。
 	 *
-	 * NOTE: failure to expand table is not a fatal error, it just means we
-	 * have to run at higher fill factor than we wanted.  However, if we're
-	 * using the palloc allocator then it will throw error anyway on
-	 * out-of-memory, so we must do this before modifying the table.
+	 * 注意：扩展失败并非致命，只是意味着必须以更高
+	 * 的装载因子运行。但用 palloc 分配器时内存耗尽反
+	 * 正会抛错，所以必须在修改表之前做这一步
+	 * 。
 	 */
 	if (action == HASH_ENTER || action == HASH_ENTER_NULL)
 	{
 		/*
-		 * Can't split if running in partitioned mode, nor if frozen, nor if
-		 * table is the subject of any active hash_seq_search scans.
+		 * 分区模式下不能拆分，冻结时也不能，表正被
+		 * 活动的 hash_seq_search 扫描时同样不能。
 		 */
 		if (hctl->freeList[0].nentries > (long) hctl->max_bucket &&
 			!IS_PARTITIONED(hctl) && !hashp->frozen &&
@@ -1007,7 +1007,7 @@ hash_search_with_hash_value(HTAB *hashp,
 	}
 
 	/*
-	 * Do the initial lookup
+	 * 进行初始查找
 	 */
 	bucket = calc_bucket(hctl, hashvalue);
 
@@ -1023,10 +1023,10 @@ hash_search_with_hash_value(HTAB *hashp,
 	currBucket = *prevBucketPtr;
 
 	/*
-	 * Follow collision chain looking for matching key
+	 * 沿冲突链查找匹配的键
 	 */
-	match = hashp->match;		/* save one fetch in inner loop */
-	keysize = hashp->keysize;	/* ditto */
+	match = hashp->match;		/* 内循环省一次取值 */
+	keysize = hashp->keysize;	/* 同 */
 
 	while (currBucket != NULL)
 	{
@@ -1045,7 +1045,7 @@ hash_search_with_hash_value(HTAB *hashp,
 		*foundPtr = (bool) (currBucket != NULL);
 
 	/*
-	 * OK, now what?
+	 * 现在呢
 	 */
 	switch (action)
 	{
@@ -1057,18 +1057,18 @@ hash_search_with_hash_value(HTAB *hashp,
 		case HASH_REMOVE:
 			if (currBucket != NULL)
 			{
-				/* if partitioned, must lock to touch nentries and freeList */
+				/* 分区时必须加锁才能动 nentries 和 freeList */
 				if (IS_PARTITIONED(hctl))
 					SpinLockAcquire(&(hctl->freeList[freelist_idx].mutex));
 
-				/* delete the record from the appropriate nentries counter. */
+				/* 从相应的 nentries 计数器中删除该记录。 */
 				Assert(hctl->freeList[freelist_idx].nentries > 0);
 				hctl->freeList[freelist_idx].nentries--;
 
-				/* remove record from hash bucket's chain. */
+				/* 从哈希桶链中移除该记录。 */
 				*prevBucketPtr = currBucket->link;
 
-				/* add the record to the appropriate freelist. */
+				/* 把该记录加入相应的空闲列表。 */
 				currBucket->link = hctl->freeList[freelist_idx].freeList;
 				hctl->freeList[freelist_idx].freeList = currBucket;
 
@@ -1076,9 +1076,9 @@ hash_search_with_hash_value(HTAB *hashp,
 					SpinLockRelease(&hctl->freeList[freelist_idx].mutex);
 
 				/*
-				 * better hope the caller is synchronizing access to this
-				 * element, because someone else is going to reuse it the next
-				 * time something is added to the table
+				 * 最好盼调用者正同步对该元素的访问，
+				 * 因为下次有人向表中添加内容时就会复用它
+				 * 。
 				 */
 				return (void *) ELEMENTKEY(currBucket);
 			}
@@ -1086,11 +1086,11 @@ hash_search_with_hash_value(HTAB *hashp,
 
 		case HASH_ENTER:
 		case HASH_ENTER_NULL:
-			/* Return existing element if found, else create one */
+			/* 找到则返回现有元素，否则创建 */
 			if (currBucket != NULL)
 				return (void *) ELEMENTKEY(currBucket);
 
-			/* disallow inserts if frozen */
+			/* 冻结时禁止插入 */
 			if (hashp->frozen)
 				elog(ERROR, "cannot insert into frozen hashtable \"%s\"",
 					 hashp->tabname);
@@ -1098,10 +1098,10 @@ hash_search_with_hash_value(HTAB *hashp,
 			currBucket = get_hash_entry(hashp, freelist_idx);
 			if (currBucket == NULL)
 			{
-				/* out of memory */
+				/* 内存不足 */
 				if (action == HASH_ENTER_NULL)
 					return NULL;
-				/* report a generic message */
+				/* 报告通用消息 */
 				if (hashp->isshared)
 					ereport(ERROR,
 							(errcode(ERRCODE_OUT_OF_MEMORY),
@@ -1112,19 +1112,19 @@ hash_search_with_hash_value(HTAB *hashp,
 							 errmsg("out of memory")));
 			}
 
-			/* link into hashbucket chain */
+			/* 链入哈希桶链 */
 			*prevBucketPtr = currBucket;
 			currBucket->link = NULL;
 
-			/* copy key into record */
+			/* 复制键到记录 */
 			currBucket->hashvalue = hashvalue;
 			hashp->keycopy(ELEMENTKEY(currBucket), keyPtr, keysize);
 
 			/*
-			 * Caller is expected to fill the data field on return.  DO NOT
-			 * insert any code that could possibly throw error here, as doing
-			 * so would leave the table entry incomplete and hence corrupt the
-			 * caller's data structure.
+			 * 调用者返回时应填充数据；切勿在此插入任何
+			 * 可能抛错的代码，否则表条目不完整而损坏调
+			 * 用者的数据结构
+			 * 。
 			 */
 
 			return (void *) ELEMENTKEY(currBucket);
@@ -1132,27 +1132,27 @@ hash_search_with_hash_value(HTAB *hashp,
 
 	elog(ERROR, "unrecognized hash action code: %d", (int) action);
 
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 安抚编译器 */
 }
 
 /*
- * hash_update_hash_key -- change the hash key of an existing table entry
+ * hash_update_hash_key -- 更改现有表条目的哈希键
  *
- * This is equivalent to removing the entry, making a new entry, and copying
- * over its data, except that the entry never goes to the table's freelist.
- * Therefore this cannot suffer an out-of-memory failure, even if there are
- * other processes operating in other partitions of the hashtable.
+ * 这等价于移除条目、创建新条目并复制其数据，只是
+ * 该条目从不进入表的空闲列表。因此即使有其他进程
+ * 在哈希表的其他分区中操作，这也不会遭遇内存耗尽
+ * 失败。
  *
- * Returns true if successful, false if the requested new hash key is already
- * present.  Throws error if the specified entry pointer isn't actually a
- * table member.
+ * 成功则返回真；所请求的新哈希键已存在则返回假。
+ * 如果指定的条目指针并非表成员则抛出错误
+ * 。
  *
- * NB: currently, there is no special case for old and new hash keys being
- * identical, which means we'll report false for that situation.  This is
- * preferable for existing uses.
+ * 注意：目前对旧新哈希键相同的情况没有特殊处理，
+ * 这意味着这种情况会报告假。对现有用途而言这是
+ * 更好的。
  *
- * NB: for a partitioned hashtable, caller must hold lock on both relevant
- * partitions, if the new hash key would belong to a different partition.
+ * 注意：分区哈希表中，若新哈希键将属于另一分区，
+ * 则调用者必须持有两个相关分区上的锁。
  */
 bool
 hash_update_hash_key(HTAB *hashp,
@@ -1178,15 +1178,15 @@ hash_update_hash_key(HTAB *hashp,
 	hctl->accesses++;
 #endif
 
-	/* disallow updates if frozen */
+	/* 冻结时禁止更新 */
 	if (hashp->frozen)
 		elog(ERROR, "cannot update in frozen hashtable \"%s\"",
 			 hashp->tabname);
 
 	/*
-	 * Lookup the existing element using its saved hash value.  We need to do
-	 * this to be able to unlink it from its hash chain, but as a side benefit
-	 * we can verify the validity of the passed existingEntry pointer.
+	 * 以保存的哈希值查找现有元素：这是为了能将它从
+	 * 哈希链上摘下，但附带的好处是可以验证传入的
+	 * 现有条目指针是否有效。
 	 */
 	bucket = calc_bucket(hctl, existingElement->hashvalue);
 
@@ -1216,8 +1216,8 @@ hash_update_hash_key(HTAB *hashp,
 	oldPrevPtr = prevBucketPtr;
 
 	/*
-	 * Now perform the equivalent of a HASH_ENTER operation to locate the hash
-	 * chain we want to put the entry into.
+	 * 现在执行与 HASH_ENTER 等价的操作，以定位我们要放
+	 * 入该条目的哈希链。
 	 */
 	newhashvalue = hashp->hash(newKeyPtr, hashp->keysize);
 
@@ -1235,10 +1235,10 @@ hash_update_hash_key(HTAB *hashp,
 	currBucket = *prevBucketPtr;
 
 	/*
-	 * Follow collision chain looking for matching key
+	 * 沿冲突链查找匹配的键
 	 */
-	match = hashp->match;		/* save one fetch in inner loop */
-	keysize = hashp->keysize;	/* ditto */
+	match = hashp->match;		/* 内循环省一次取值 */
+	keysize = hashp->keysize;	/* 同 */
 
 	while (currBucket != NULL)
 	{
@@ -1254,40 +1254,40 @@ hash_update_hash_key(HTAB *hashp,
 	}
 
 	if (currBucket != NULL)
-		return false;			/* collision with an existing entry */
+		return false;			/* 与现有条目冲突 */
 
 	currBucket = existingElement;
 
 	/*
-	 * If old and new hash values belong to the same bucket, we need not
-	 * change any chain links, and indeed should not since this simplistic
-	 * update will corrupt the list if currBucket is the last element.  (We
-	 * cannot fall out earlier, however, since we need to scan the bucket to
-	 * check for duplicate keys.)
+	 * 若新旧哈希值同桶，链链接不必改也不应改，
+	 * 因为 currBucket 是最后一个元素时这种简单更新会
+	 * 损坏链表。（但不能提前退出：还需要扫描该桶
+	 * 来检查是否有重复键。
+	 * ）
 	 */
 	if (bucket != newbucket)
 	{
-		/* OK to remove record from old hash bucket's chain. */
+		/* 可以从旧哈希桶链中移除该记录了。 */
 		*oldPrevPtr = currBucket->link;
 
-		/* link into new hashbucket chain */
+		/* 链入新哈希桶链 */
 		*prevBucketPtr = currBucket;
 		currBucket->link = NULL;
 	}
 
-	/* copy new key into record */
+	/* 把新键复制进记录 */
 	currBucket->hashvalue = newhashvalue;
 	hashp->keycopy(ELEMENTKEY(currBucket), newKeyPtr, keysize);
 
-	/* rest of record is untouched */
+	/* 记录其余部分不动 */
 
 	return true;
 }
 
 /*
- * Allocate a new hashtable entry if possible; return NULL if out of memory.
- * (Or, if the underlying space allocator throws error for out-of-memory,
- * we won't return at all.)
+ * 如可能则分配新的哈希表条目；内存耗尽则返回 NULL。
+ * （若底层空间分配器对内存耗尽抛错，则根本不会
+ * 返回。）
  */
 static HASHBUCKET
 get_hash_entry(HTAB *hashp, int freelist_idx)
@@ -1297,11 +1297,11 @@ get_hash_entry(HTAB *hashp, int freelist_idx)
 
 	for (;;)
 	{
-		/* if partitioned, must lock to touch nentries and freeList */
+		/* 分区时必须加锁才能动 nentries 和 freeList */
 		if (IS_PARTITIONED(hctl))
 			SpinLockAcquire(&hctl->freeList[freelist_idx].mutex);
 
-		/* try to get an entry from the freelist */
+		/* 尝试从空闲列表取条目 */
 		newElement = hctl->freeList[freelist_idx].freeList;
 
 		if (newElement != NULL)
@@ -1311,31 +1311,31 @@ get_hash_entry(HTAB *hashp, int freelist_idx)
 			SpinLockRelease(&hctl->freeList[freelist_idx].mutex);
 
 		/*
-		 * No free elements in this freelist.  In a partitioned table, there
-		 * might be entries in other freelists, but to reduce contention we
-		 * prefer to first try to get another chunk of buckets from the main
-		 * shmem allocator.  If that fails, though, we *MUST* root through all
-		 * the other freelists before giving up.  There are multiple callers
-		 * that assume that they can allocate every element in the initially
-		 * requested table size, or that deleting an element guarantees they
-		 * can insert a new element, even if shared memory is entirely full.
-		 * Failing because the needed element is in a different freelist is
-		 * not acceptable.
+		 * 此空闲列表无空闲元素。分区表的其他空闲列表
+		 * 可能还有条目，但为减少争用我们先向主共享
+		 * 内存分配器再要一块桶。但如果失败，我们*必
+		 * 须*先翻遍所有其他空闲列表才能放弃。有多个
+		 * 调用者假定：初始请求的表大小中的每个元素都
+		 * 能分配到，或删除一个元素就能保证插入新元素
+		 * ，哪怕共享内存完全占满
+		 * 。因为所需元素在别的空闲列表里而失败，这种
+		 * 情形是不能接受的
+		 * 。
 		 */
 		if (!element_alloc(hashp, hctl->nelem_alloc, freelist_idx))
 		{
 			int			borrow_from_idx;
 
 			if (!IS_PARTITIONED(hctl))
-				return NULL;	/* out of memory */
+				return NULL;	/* 内存不足 */
 
-			/* try to borrow element from another freelist */
+			/* 尝试从其他空闲列表借元素 */
 			borrow_from_idx = freelist_idx;
 			for (;;)
 			{
 				borrow_from_idx = (borrow_from_idx + 1) % NUM_FREELISTS;
 				if (borrow_from_idx == freelist_idx)
-					break;		/* examined all freelists, fail */
+					break;		/* 空闲列表查遍，失败 */
 
 				SpinLockAcquire(&(hctl->freeList[borrow_from_idx].mutex));
 				newElement = hctl->freeList[borrow_from_idx].freeList;
@@ -1345,7 +1345,7 @@ get_hash_entry(HTAB *hashp, int freelist_idx)
 					hctl->freeList[borrow_from_idx].freeList = newElement->link;
 					SpinLockRelease(&(hctl->freeList[borrow_from_idx].mutex));
 
-					/* careful: count the new element in its proper freelist */
+					/* 注意：把新元素计入其所属的空闲列表 */
 					SpinLockAcquire(&hctl->freeList[freelist_idx].mutex);
 					hctl->freeList[freelist_idx].nentries++;
 					SpinLockRelease(&hctl->freeList[freelist_idx].mutex);
@@ -1356,12 +1356,12 @@ get_hash_entry(HTAB *hashp, int freelist_idx)
 				SpinLockRelease(&(hctl->freeList[borrow_from_idx].mutex));
 			}
 
-			/* no elements available to borrow either, so out of memory */
+			/* 也没有可借的元素了，所以内存不足 */
 			return NULL;
 		}
 	}
 
-	/* remove entry from freelist, bump nentries */
+	/* 移除空闲列表条目，增 nentries */
 	hctl->freeList[freelist_idx].freeList = newElement->link;
 	hctl->freeList[freelist_idx].nentries++;
 
@@ -1372,7 +1372,7 @@ get_hash_entry(HTAB *hashp, int freelist_idx)
 }
 
 /*
- * hash_get_num_entries -- get the number of entries in a hashtable
+ * hash_get_num_entries -- 获取哈希表中的条目数
  */
 long
 hash_get_num_entries(HTAB *hashp)
@@ -1381,9 +1381,9 @@ hash_get_num_entries(HTAB *hashp)
 	long		sum = hashp->hctl->freeList[0].nentries;
 
 	/*
-	 * We currently don't bother with acquiring the mutexes; it's only
-	 * sensible to call this function if you've got lock on all partitions of
-	 * the table.
+	 * 目前不获取互斥锁；只有持有全部分区锁时
+	 * 调用此函数才有意义
+	 * 。
 	 */
 	if (IS_PARTITIONED(hashp->hctl))
 	{
@@ -1396,27 +1396,27 @@ hash_get_num_entries(HTAB *hashp)
 
 /*
  * hash_seq_init/_search/_term
- *			Sequentially search through hash table and return
- *			all the elements one by one, return NULL when no more.
+ *			顺序扫描哈希表，逐个返回元素，
+ *			没有更多时返回 NULL。
  *
- * hash_seq_term should be called if and only if the scan is abandoned before
- * completion; if hash_seq_search returns NULL then it has already done the
- * end-of-scan cleanup.
+ * 只有当扫描在中途被放弃时才应调用 hash_seq_term；如果
+ * hash_seq_search 返回了 NULL，则结束扫描的清理工作已
+ * 经完成。
  *
- * NOTE: caller may delete the returned element before continuing the scan.
- * However, deleting any other element while the scan is in progress is
- * UNDEFINED (it might be the one that curIndex is pointing at!).  Also,
- * if elements are added to the table while the scan is in progress, it is
- * unspecified whether they will be visited by the scan or not.
+ * 注意：调用者可以在继续扫描之前删除返回的元素。
+ * 但在扫描进行期间删除任何其他元素是未定义行为
+ * （它可能正是 curIndex 所指！）。此外，如果扫
+ * 描进行期间有元素加入表中，扫描是否会访问它们并
+ * 没有定论。
  *
- * NOTE: it is possible to use hash_seq_init/hash_seq_search without any
- * worry about hash_seq_term cleanup, if the hashtable is first locked against
- * further insertions by calling hash_freeze.
+ * 注意：若先用 hash_freeze 锁表禁止再插入，则可放心
+ * 使用 hash_seq_init/hash_seq_search 而无需担心
+ * hash_seq_term 的清理。
  *
- * NOTE: to use this with a partitioned hashtable, caller had better hold
- * at least shared lock on all partitions of the table throughout the scan!
- * We can cope with insertions or deletions by our own backend, but *not*
- * with concurrent insertions or deletions by another.
+ * 注意：在分区表上使用时，调用者最好全程持有该表
+ * 的全部分区至少持有共享锁！本后端自己的插入或删
+ * 除，但*不能*应付其他后端的并
+ * 发插入或删除。
  */
 void
 hash_seq_init(HASH_SEQ_STATUS *status, HTAB *hashp)
@@ -1443,15 +1443,15 @@ hash_seq_search(HASH_SEQ_STATUS *status)
 
 	if ((curElem = status->curEntry) != NULL)
 	{
-		/* Continuing scan of curBucket... */
+		/* 继续扫描 curBucket…… */
 		status->curEntry = curElem->link;
-		if (status->curEntry == NULL)	/* end of this bucket */
+		if (status->curEntry == NULL)	/* 本桶结束 */
 			++status->curBucket;
 		return (void *) ELEMENTKEY(curElem);
 	}
 
 	/*
-	 * Search for next nonempty bucket starting at curBucket.
+	 * 从 curBucket 开始搜索下一个非空桶
 	 */
 	curBucket = status->curBucket;
 	hashp = status->hashp;
@@ -1462,11 +1462,11 @@ hash_seq_search(HASH_SEQ_STATUS *status)
 	if (curBucket > max_bucket)
 	{
 		hash_seq_term(status);
-		return NULL;			/* search is done */
+		return NULL;			/* 搜索完成 */
 	}
 
 	/*
-	 * first find the right segment in the table directory.
+	 * 先在表目录中找到正确的段
 	 */
 	segment_num = curBucket >> hashp->sshift;
 	segment_ndx = MOD(curBucket, ssize);
@@ -1474,19 +1474,19 @@ hash_seq_search(HASH_SEQ_STATUS *status)
 	segp = hashp->dir[segment_num];
 
 	/*
-	 * Pick up the first item in this bucket's chain.  If chain is not empty
-	 * we can begin searching it.  Otherwise we have to advance to find the
-	 * next nonempty bucket.  We try to optimize that case since searching a
-	 * near-empty hashtable has to iterate this loop a lot.
+	 * 取桶链首项。非空即搜索，否则继续前进
+	 * 下一个非空桶。由于搜索近空表要大量迭代
+	 * 此循环，我们尝试对该情形做些优化，以便
+	 * 加速这一过程。
 	 */
 	while ((curElem = segp[segment_ndx]) == NULL)
 	{
-		/* empty bucket, advance to next */
+		/* 空桶，前进到下一个 */
 		if (++curBucket > max_bucket)
 		{
 			status->curBucket = curBucket;
 			hash_seq_term(status);
-			return NULL;		/* search is done */
+			return NULL;		/* 搜索完成 */
 		}
 		if (++segment_ndx >= ssize)
 		{
@@ -1496,9 +1496,9 @@ hash_seq_search(HASH_SEQ_STATUS *status)
 		}
 	}
 
-	/* Begin scan of curBucket... */
+	/* 开始扫描 curBucket… */
 	status->curEntry = curElem->link;
-	if (status->curEntry == NULL)	/* end of this bucket */
+	if (status->curEntry == NULL)	/* 本桶结束 */
 		++curBucket;
 	status->curBucket = curBucket;
 	return (void *) ELEMENTKEY(curElem);
@@ -1513,16 +1513,16 @@ hash_seq_term(HASH_SEQ_STATUS *status)
 
 /*
  * hash_freeze
- *			Freeze a hashtable against future insertions (deletions are
- *			still allowed)
+ *			冻结哈希表使其不能再插入（删除仍允
+ *			许）。
  *
- * The reason for doing this is that by preventing any more bucket splits,
- * we no longer need to worry about registering hash_seq_search scans,
- * and thus caller need not be careful about ensuring hash_seq_term gets
- * called at the right times.
+ * 原因：阻止后续桶分裂后，就不再需要登记
+ * hash_seq_search 扫描，调用者也无须小心确保
+ * hash_seq_term 的调用时机
+ * 。
  *
- * Multiple calls to hash_freeze() are allowed, but you can't freeze a table
- * with active scans (since hash_seq_term would then do the wrong thing).
+ * hash_freeze() 可重复调用，但有活动扫描的表不能冻
+ * 结（因为那样 hash_seq_term 会做错事）。
  */
 void
 hash_freeze(HTAB *hashp)
@@ -1536,10 +1536,10 @@ hash_freeze(HTAB *hashp)
 }
 
 
-/********************************* UTILITIES ************************/
+/********************************* 工具 ************************/
 
 /*
- * Expand the table by adding one more hash bucket.
+ * 通过增加一个哈希桶来扩展表。
  */
 static bool
 expand_table(HTAB *hashp)
@@ -1570,7 +1570,7 @@ expand_table(HTAB *hashp)
 
 	if (new_segnum >= hctl->nsegs)
 	{
-		/* Allocate new segment if necessary -- could fail if dir full */
+		/* 必要时分配新段 —— 目录满则可能失败 */
 		if (new_segnum >= hctl->dsize)
 			if (!dir_realloc(hashp))
 				return false;
@@ -1579,19 +1579,19 @@ expand_table(HTAB *hashp)
 		hctl->nsegs++;
 	}
 
-	/* OK, we created a new bucket */
+	/* 已创建新桶 */
 	hctl->max_bucket++;
 
 	/*
-	 * *Before* changing masks, find old bucket corresponding to same hash
-	 * values; values in that bucket may need to be relocated to new bucket.
-	 * Note that new_bucket is certainly larger than low_mask at this point,
-	 * so we can skip the first step of the regular hash mask calc.
+	 * 改掩码前，先找到同哈希值的旧桶，值或须迁往
+	 * 新桶。注意此时 new_bucket 必然大于 low_mask，
+	 * 所以可以跳过常规哈希掩码计算的第一步
+	 * 。
 	 */
 	old_bucket = (new_bucket & hctl->low_mask);
 
 	/*
-	 * If we crossed a power of 2, readjust masks.
+	 * 跨过 2 的幂时重新调整掩码
 	 */
 	if ((uint32) new_bucket > hctl->high_mask)
 	{
@@ -1600,10 +1600,10 @@ expand_table(HTAB *hashp)
 	}
 
 	/*
-	 * Relocate records to the new bucket.  NOTE: because of the way the hash
-	 * masking is done in calc_bucket, only one old bucket can need to be
-	 * split at this point.  With a different way of reducing the hash value,
-	 * that might not be true!
+	 * 把记录迁往新桶。注意：由于 calc_bucket 掩码
+	 * 的做法此刻只有一个旧桶需要分裂。换别的
+	 * 哈希值归约方法，那可能就不成立
+	 * ！
 	 */
 	old_segnum = old_bucket >> hashp->sshift;
 	old_segndx = MOD(old_bucket, hashp->ssize);
@@ -1630,7 +1630,7 @@ expand_table(HTAB *hashp)
 			newlink = &currElement->link;
 		}
 	}
-	/* don't forget to terminate the rebuilt hash chains... */
+	/* 别忘了终止重建的哈希链…… */
 	*oldlink = NULL;
 	*newlink = NULL;
 
@@ -1650,7 +1650,7 @@ dir_realloc(HTAB *hashp)
 	if (hashp->hctl->max_dsize != NO_MAX_DSIZE)
 		return false;
 
-	/* Reallocate directory */
+	/* 重新分配目录 */
 	new_dsize = hashp->hctl->dsize << 1;
 	old_dirsize = hashp->hctl->dsize * sizeof(HASHSEGMENT);
 	new_dirsize = new_dsize * sizeof(HASHSEGMENT);
@@ -1666,7 +1666,7 @@ dir_realloc(HTAB *hashp)
 		hashp->dir = p;
 		hashp->hctl->dsize = new_dsize;
 
-		/* XXX assume the allocator is palloc, so we know how to free */
+		/* XXX 假定分配器是 palloc，故知如何释放 */
 		Assert(hashp->alloc == DynaHashAlloc);
 		pfree(old_p);
 
@@ -1694,7 +1694,7 @@ seg_alloc(HTAB *hashp)
 }
 
 /*
- * allocate some new elements and link them into the indicated free list
+ * 分配一些新元素并把它们链入指定的空闲列表
  */
 static bool
 element_alloc(HTAB *hashp, int nelem, int freelist_idx)
@@ -1709,7 +1709,7 @@ element_alloc(HTAB *hashp, int nelem, int freelist_idx)
 	if (hashp->isfixed)
 		return false;
 
-	/* Each element has a HASHELEMENT header plus user data. */
+	/* 每个元素有 HASHELEMENT 头外加用户数据。 */
 	elementSize = MAXALIGN(sizeof(HASHELEMENT)) + MAXALIGN(hctl->entrysize);
 
 	CurrentDynaHashCxt = hashp->hcxt;
@@ -1718,7 +1718,7 @@ element_alloc(HTAB *hashp, int nelem, int freelist_idx)
 	if (!firstElement)
 		return false;
 
-	/* prepare to link all the new entries into the freelist */
+	/* 准备把所有新条目链入空闲列表 */
 	prevElement = NULL;
 	tmpElement = firstElement;
 	for (i = 0; i < nelem; i++)
@@ -1728,11 +1728,11 @@ element_alloc(HTAB *hashp, int nelem, int freelist_idx)
 		tmpElement = (HASHELEMENT *) (((char *) tmpElement) + elementSize);
 	}
 
-	/* if partitioned, must lock to touch freeList */
+	/* 分区时必须加锁才能动 freeList */
 	if (IS_PARTITIONED(hctl))
 		SpinLockAcquire(&hctl->freeList[freelist_idx].mutex);
 
-	/* freelist could be nonempty if two backends did this concurrently */
+	/* 若两个后端并发执行，空闲列表可能非空 */
 	firstElement->link = hctl->freeList[freelist_idx].freeList;
 	hctl->freeList[freelist_idx].freeList = prevElement;
 
@@ -1742,13 +1742,13 @@ element_alloc(HTAB *hashp, int nelem, int freelist_idx)
 	return true;
 }
 
-/* complain when we have detected a corrupted hashtable */
+/* 检测到哈希表损坏时报错 */
 static void
 hash_corrupted(HTAB *hashp)
 {
 	/*
-	 * If the corruption is in a shared hashtable, we'd better force a
-	 * systemwide restart.  Otherwise, just shut down this one backend.
+	 * 共享表损坏，就须强制全系统重启；否则
+	 * 只需关闭这一个后端。
 	 */
 	if (hashp->isshared)
 		elog(PANIC, "hash table \"%s\" corrupted", hashp->tabname);
@@ -1756,13 +1756,13 @@ hash_corrupted(HTAB *hashp)
 		elog(FATAL, "hash table \"%s\" corrupted", hashp->tabname);
 }
 
-/* calculate ceil(log base 2) of num */
+/* 计算 num 的 ceil(log2) */
 int
 my_log2(long num)
 {
 	/*
-	 * guard against too-large input, which would be invalid for
-	 * pg_ceil_log2_*()
+	 * 防范过大输入，否则 pg_ceil_log2_*() 会
+	 * 无效
 	 */
 	if (num > LONG_MAX / 2)
 		num = LONG_MAX / 2;
@@ -1774,15 +1774,15 @@ my_log2(long num)
 #endif
 }
 
-/* calculate first power of 2 >= num, bounded to what will fit in a long */
+/* 计算 >= num 的第一个 2 的幂，限 long 可容纳范围 */
 static long
 next_pow2_long(long num)
 {
-	/* my_log2's internal range check is sufficient */
+	/* my_log2 内部的范围检查已足够 */
 	return 1L << my_log2(num);
 }
 
-/* calculate first power of 2 >= num, bounded to what will fit in an int */
+/* 计算 >= num 的第一个 2 的幂，限 int 可容纳范围 */
 static int
 next_pow2_int(long num)
 {
@@ -1792,42 +1792,42 @@ next_pow2_int(long num)
 }
 
 
-/************************* SEQ SCAN TRACKING ************************/
+/************************* 扫描跟踪 ************************/
 
 /*
- * We track active hash_seq_search scans here.  The need for this mechanism
- * comes from the fact that a scan will get confused if a bucket split occurs
- * while it's in progress: it might visit entries twice, or even miss some
- * entirely (if it's partway through the same bucket that splits).  Hence
- * we want to inhibit bucket splits if there are any active scans on the
- * table being inserted into.  This is a fairly rare case in current usage,
- * so just postponing the split until the next insertion seems sufficient.
+ * 我们在这里跟踪活动的 hash_seq_search 扫描。需要
+ * 这一机制的原因是：扫描进行中发生桶分裂会让扫
+ * 描混乱：可能重访两次，或漏掉一些（若正扫到
+ * 分裂桶中间）。故表上有活动扫描时要阻止对正
+ * 在插入的表进行桶分裂。
+ * 这在当前用法中相当罕见，因此只需把分裂推迟
+ * 到下次插入时似乎就够了。
  *
- * Given present usages of the function, only a few scans are likely to be
- * open concurrently; so a finite-size stack of open scans seems sufficient,
- * and we don't worry that linear search is too slow.  Note that we do
- * allow multiple scans of the same hashtable to be open concurrently.
+ * 就现有用法而言，并发打开的扫描不会多，固
+ * 定大小的打开扫描栈就够用了；也不担心线性搜
+ * 索太慢。注意我们确实允许对同一哈希表并发打开
+ * 多个扫描。
  *
- * This mechanism can support concurrent scan and insertion in a shared
- * hashtable if it's the same backend doing both.  It would fail otherwise,
- * but locking reasons seem to preclude any such scenario anyway, so we don't
- * worry.
+ * 该机制可支持同一后端对共享表并发扫描和插入
+ * ；别的后端会失败，但锁的原因本来就排除了这
+ * 类情形，所以我们不担心
+ * 。
  *
- * This arrangement is reasonably robust if a transient hashtable is deleted
- * without notifying us.  The absolute worst case is we might inhibit splits
- * in another table created later at exactly the same address.  We will give
- * a warning at transaction end for reference leaks, so any bugs leading to
- * lack of notification should be easy to catch.
+ * 若临时哈希表未通知我们即被删除，这种安排也相
+ * 当健壮。最坏的情况是我们可能阻止了另一张后来
+ * 恰在同一地址创建的表阻止分裂。事务结束时我
+ * 们会就引用泄漏告警，故导致漏通知的缺陷应该很
+ * 容易抓住。
  */
 
 #define MAX_SEQ_SCANS 100
 
-static HTAB *seq_scan_tables[MAX_SEQ_SCANS];	/* tables being scanned */
-static int	seq_scan_level[MAX_SEQ_SCANS];	/* subtransaction nest level */
+static HTAB *seq_scan_tables[MAX_SEQ_SCANS];	/* 正被扫描的表 */
+static int	seq_scan_level[MAX_SEQ_SCANS];	/* 子事务嵌套层级 */
 static int	num_seq_scans = 0;
 
 
-/* Register a table as having an active hash_seq_search scan */
+/* 把表登记为有活动的 hash_seq_search 扫描 */
 static void
 register_seq_scan(HTAB *hashp)
 {
@@ -1839,13 +1839,13 @@ register_seq_scan(HTAB *hashp)
 	num_seq_scans++;
 }
 
-/* Deregister an active scan */
+/* 注销一个活动扫描 */
 static void
 deregister_seq_scan(HTAB *hashp)
 {
 	int			i;
 
-	/* Search backward since it's most likely at the stack top */
+	/* 向后搜索，因为它最可能在栈顶 */
 	for (i = num_seq_scans - 1; i >= 0; i--)
 	{
 		if (seq_scan_tables[i] == hashp)
@@ -1860,7 +1860,7 @@ deregister_seq_scan(HTAB *hashp)
 		 hashp->tabname);
 }
 
-/* Check if a table has any active scan */
+/* 检查某表是否有活动扫描 */
 static bool
 has_seq_scans(HTAB *hashp)
 {
@@ -1874,18 +1874,18 @@ has_seq_scans(HTAB *hashp)
 	return false;
 }
 
-/* Clean up any open scans at end of transaction */
+/* 事务结束时清理所有打开的扫描 */
 void
 AtEOXact_HashTables(bool isCommit)
 {
 	/*
-	 * During abort cleanup, open scans are expected; just silently clean 'em
-	 * out.  An open scan at commit means someone forgot a hash_seq_term()
-	 * call, so complain.
+	 * 中止清理时开着的扫描属正常，静默清理即可
+	 * 提交时有开着的扫描说明有人漏了 hash_seq_term()
+	 * ，故要抱怨。
 	 *
-	 * Note: it's tempting to try to print the tabname here, but refrain for
-	 * fear of touching deallocated memory.  This isn't a user-facing message
-	 * anyway, so it needn't be pretty.
+	 * 注意：想打印 tabname，但怕碰到已释放内存，反
+	 * 正不是面向用户的消息，所以
+	 * 无需好看。
 	 */
 	if (isCommit)
 	{
@@ -1900,16 +1900,16 @@ AtEOXact_HashTables(bool isCommit)
 	num_seq_scans = 0;
 }
 
-/* Clean up any open scans at end of subtransaction */
+/* 子事务结束时清理所有打开的扫描 */
 void
 AtEOSubXact_HashTables(bool isCommit, int nestDepth)
 {
 	int			i;
 
 	/*
-	 * Search backward to make cleanup easy.  Note we must check all entries,
-	 * not only those at the end of the array, because deletion technique
-	 * doesn't keep them in order.
+	 * 向后搜以便清理；须查所有条目，不只尾部，因
+	 * 删除手法不保证条目保持有序，所以
+	 * 如此。
 	 */
 	for (i = num_seq_scans - 1; i >= 0; i--)
 	{

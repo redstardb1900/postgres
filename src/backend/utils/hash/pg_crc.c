@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * pg_crc.c
- *	  PostgreSQL CRC support
+ *	  PostgreSQL CRC 支持
  *
- * See Ross Williams' excellent introduction
- * A PAINLESS GUIDE TO CRC ERROR DETECTION ALGORITHMS, available from
- * http://ross.net/crc/download/crc_v3.txt or several other net sites.
+ * 参见 Ross Williams 的精彩介绍
+ * 《A PAINLESS GUIDE TO CRC ERROR DETECTION ALGORITHMS》
+ * 可从 http://ross.net/crc/download/crc_v3.txt 获取
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -22,12 +22,12 @@
 #include "utils/pg_crc.h"
 
 /*
- * Lookup table for calculating CRC-32 using Sarwate's algorithm.
+ * 用 Sarwate 算法计算 CRC-32 的查找表。
  *
- * This table is based on the polynomial
+ * 本表基于多项式
  *	x^32+x^26+x^23+x^22+x^16+x^12+x^11+x^10+x^8+x^7+x^5+x^4+x^2+x+1.
- * (This is the same polynomial used in Ethernet checksums, for instance.)
- * Using Williams' terms, this is the "normal", not "reflected" version.
+ * （例如以太网校验和用的就是同一个多项式。）
+ * 用 Williams 的术语，这是"正常"版本而非"反射"版本
  */
 const uint32 pg_crc32_table[256] = {
 	0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA,

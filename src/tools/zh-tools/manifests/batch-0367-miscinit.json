@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0367",
+ "title": "init dir part 2: miscinit.c whole-file translation (148 blocks)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "12bdbb81514a69b7fb69201120e29ff9786db726",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0367-miscinit.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0367 manifest path and miscinit entry (S6 registration)"
+  },
+  {
+   "pattern": "src/backend/utils/init/miscinit.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation: 148 blocks"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0367-miscinit.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0367 manifest path and miscinit entry (S6 registration)"
+  },
+  {
+   "path": "src/backend/utils/init/miscinit.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 148,
+   "translated": 148,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "line-number-keyed apply + run-level budget redistribution; zero per-line overruns"
+  }
+ ],
+ "notes": "batch-0367 (init dir part 2, 2026-11-13, parent batch-0366=12bdbb81514). miscinit.c 148 blocks fully translated (637 content lines: 418 translated, 219 EN keeps = copyright/IDENTIFICATION/path/function names/section banners/empty separator lines). Strategy note: line-number-keyed apply (absolute line -> zh) replaced the error-prone block+offset mapping; plus run-level greedy budget redistribution for fold-site overruns. Advisories: term_lint 5 warning hits (P65 x2, P02, P64, P17), 0 errors; W7_IDENT_LOST warnings for EN identifiers absorbed into zh phrasing (NOTES, active_count, etc. per 0363-0365 precedent). Gates: verify_c_comments 0 violations (170 blocks/168 changed, 2 section banners translated); scan_halfen --worktree 0 findings; near-duplicate line scan 0 hits; code bytes unchanged (1948 lines, stripped-comment normalization identical to REL_16_11)."
+}

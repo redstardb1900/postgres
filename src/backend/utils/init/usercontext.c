@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * usercontext.c
- *	  Convenience functions for running code as a different database user.
+ *	  以其他数据库用户身份运行代码的便捷函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -20,23 +20,23 @@
 #include "utils/usercontext.h"
 
 /*
- * Temporarily switch to a new user ID.
+ * 临时切换到新的用户 ID。
  *
- * If the current user doesn't have permission to SET ROLE to the new user,
- * an ERROR occurs.
+ * 如果当前用户无权对目标用户 SET ROLE，
+ * 即 ERROR。
  *
- * If the new user doesn't have permission to SET ROLE to the current user,
- * SECURITY_RESTRICTED_OPERATION is imposed and a new GUC nest level is
- * created so that any settings changes can be rolled back.
+ * 如果目标用户无权 SET ROLE 回当前用户，则会强制施加
+ * SECURITY_RESTRICTED_OPERATION，并创建新的 GUC 嵌套
+ * 层级，使任何设置变更都可以回滚。
  */
 void
 SwitchToUntrustedUser(Oid userid, UserContext *context)
 {
-	/* Get the current user ID and security context. */
+	/* 获取当前用户 ID 与安全上下文。 */
 	GetUserIdAndSecContext(&context->save_userid,
 						   &context->save_sec_context);
 
-	/* Check that we have sufficient privileges to assume the target role. */
+	/* 检查我们是否有足够的权限来接用目标角色。 */
 	if (!member_can_set_role(context->save_userid, userid))
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -45,16 +45,16 @@ SwitchToUntrustedUser(Oid userid, UserContext *context)
 						GetUserNameFromId(userid, false))));
 
 	/*
-	 * Try to prevent the user to which we're switching from assuming the
-	 * privileges of the current user, unless they can SET ROLE to that user
-	 * anyway.
+	 * 尽力防止我们要切换到的用户冒用当前用户权限，
+	 * 除非该用户本来就能对当前用户 SET ROLE。
+	 * 
 	 */
 	if (member_can_set_role(userid, context->save_userid))
 	{
 		/*
-		 * Each user can SET ROLE to the other, so there's no point in
-		 * imposing any security restrictions. Just let the user do whatever
-		 * they want.
+		 * 两个用户彼此都能 SET ROLE，
+		 * 施加安全限制没有意义。就让用户随心所欲吧
+		 * 。
 		 */
 		SetUserIdAndSecContext(userid, context->save_sec_context);
 		context->save_nestlevel = -1;
@@ -64,12 +64,12 @@ SwitchToUntrustedUser(Oid userid, UserContext *context)
 		int			sec_context = context->save_sec_context;
 
 		/*
-		 * This user can SET ROLE to the target user, but not the other way
-		 * around, so protect ourselves against the target user by setting
-		 * SECURITY_RESTRICTED_OPERATION to prevent certain changes to the
-		 * session state. Also set up a new GUC nest level, so that we can
-		 * roll back any GUC changes that may be made by code running as the
-		 * target user, inasmuch as they could be malicious.
+		 * 本用户能对目标用户 SET ROLE，反之不行，所以
+		 * 要通过设置 SECURITY_RESTRICTED_OPERATION 来防范目
+		 * 标用户，阻止会话状态的某些更改。并建立新的
+		 * GUC 嵌套层级，可回滚目标用户身份运行的代码
+		 * 可能做出的 GUC 更改——万一它们带有恶意。
+		 * 
 		 */
 		sec_context |= SECURITY_RESTRICTED_OPERATION;
 		SetUserIdAndSecContext(userid, sec_context);
@@ -78,10 +78,10 @@ SwitchToUntrustedUser(Oid userid, UserContext *context)
 }
 
 /*
- * Switch back to the original user ID.
+ * 切换回原来的用户 ID。
  *
- * If we created a new GUC nest level, also roll back any changes that were
- * made within it.
+ * 如果我们创建了新的 GUC 嵌套层级，还要回滚
+ * 变更。
  */
 void
 RestoreUserContext(UserContext *context)

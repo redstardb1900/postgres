@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * globals.c
- *	  global variable declarations
+ *	  全局变量声明
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -10,9 +10,9 @@
  * IDENTIFICATION
  *	  src/backend/utils/init/globals.c
  *
- * NOTES
- *	  Globals used all over the place should be declared here and not
- *	  in other modules.
+ * 注
+ *	  到处使用的全局变量应在此声明，
+ *	  而非别处。
  *
  *-------------------------------------------------------------------------
  */
@@ -49,37 +49,37 @@ int32		MyCancelKey;
 int			MyPMChildSlot;
 
 /*
- * MyLatch points to the latch that should be used for signal handling by the
- * current process. It will either point to a process local latch if the
- * current process does not have a PGPROC entry in that moment, or to
- * PGPROC->procLatch if it has. Thus it can always be used in signal handlers,
- * without checking for its existence.
+ * MyLatch 指向当前进程应使用的信号处理锁存器。若当
+ * 时进程没有 PGPROC 条目，它就指向进程本地锁存器，
+ * 否则指向 PGPROC->procLatch。因此它总能在信号处理
+ * 处理函数中使用，
+ * 无需检查其是否存在。
  */
 struct Latch *MyLatch;
 
 /*
- * DataDir is the absolute path to the top level of the PGDATA directory tree.
- * Except during early startup, this is also the server's working directory;
- * most code therefore can simply use relative paths and not reference DataDir
- * explicitly.
+ * DataDir 是 PGDATA 目录树顶层的绝对路径。除早期启
+ * 动外，这也是服务器的工作目录；因此多数代码可以
+ * 直接使用相对路径而不显式引用 DataDir。
+ * 
  */
 char	   *DataDir = NULL;
 
 /*
- * Mode of the data directory.  The default is 0700 but it may be changed in
- * checkDataDir() to 0750 if the data directory actually has that mode.
+ * 数据目录的权限模式。默认为 0700，但如果数据目录
+ * 的实际模式如此，checkDataDir() 可将其改为 0750。
  */
 int			data_directory_mode = PG_DIR_MODE_OWNER;
 
-char		OutputFileName[MAXPGPATH];	/* debugging output file */
+char		OutputFileName[MAXPGPATH];	/* 调试输出文件 */
 
-char		my_exec_path[MAXPGPATH];	/* full path to my executable */
-char		pkglib_path[MAXPGPATH]; /* full path to lib directory */
+char		my_exec_path[MAXPGPATH];	/* 本可执行文件路径 */
+char		pkglib_path[MAXPGPATH]; /* lib 目录的完整路径 */
 
 #ifdef EXEC_BACKEND
-char		postgres_exec_path[MAXPGPATH];	/* full path to backend */
+char		postgres_exec_path[MAXPGPATH];	/* backend 路径 */
 
-/* note: currently this is not valid in backend processes */
+/* 注意：目前在 backend 进程中此值无效 */
 #endif
 
 BackendId	MyBackendId = InvalidBackendId;
@@ -91,23 +91,23 @@ Oid			MyDatabaseId = InvalidOid;
 Oid			MyDatabaseTableSpace = InvalidOid;
 
 /*
- * DatabasePath is the path (relative to DataDir) of my database's
- * primary directory, ie, its directory in the default tablespace.
+ * DatabasePath 是我数据库主目录的路径（相对于
+ * DataDir），即它在默认表空间中的目录。
  */
 char	   *DatabasePath = NULL;
 
 pid_t		PostmasterPid = 0;
 
 /*
- * IsPostmasterEnvironment is true in a postmaster process and any postmaster
- * child process; it is false in a standalone process (bootstrap or
- * standalone backend).  IsUnderPostmaster is true in postmaster child
- * processes.  Note that "child process" includes all children, not only
- * regular backends.  These should be set correctly as early as possible
- * in the execution of a process, so that error handling will do the right
- * things if an error should occur during process initialization.
+ * IsPostmasterEnvironment 在 postmaster 进程及任何
+ * postmaster 子进程中为真；在独立进程（bootstrap 或
+ * 独立 backend）中为假。IsUnderPostmaster 在 postmaster
+ * 子进程中为真。注意"子进程"包括所有子进程，而不
+ * 只是常规 backend。这些标志应尽早正确设置，
+ * 以便初始化期间万一出错，错误处理能做对的事
+ * 。
  *
- * These are initialized for the bootstrap/standalone case.
+ * bootstrap/独立运行情形下它们按此初始化。
  */
 bool		IsPostmasterEnvironment = false;
 bool		IsUnderPostmaster = false;
@@ -128,10 +128,10 @@ int			maintenance_work_mem = 65536;
 int			max_parallel_maintenance_workers = 2;
 
 /*
- * Primary determinants of sizes of shared-memory structures.
+ * 共享内存结构大小的主要决定因素。
  *
- * MaxBackends is computed by PostmasterMain after modules have had a chance to
- * register background workers.
+ * MaxBackends 由 PostmasterMain 在各模块注册后台
+ * 工作者之后计算。
  */
 int			NBuffers = 16384;
 int			MaxConnections = 100;
@@ -139,7 +139,7 @@ int			max_worker_processes = 8;
 int			max_parallel_workers = 8;
 int			MaxBackends = 0;
 
-/* GUC parameters for vacuum */
+/* vacuum 的 GUC 参数 */
 int			VacuumBufferUsageLimit = 256;
 
 int			VacuumCostPageHit = 1;
@@ -152,5 +152,5 @@ int64		VacuumPageHit = 0;
 int64		VacuumPageMiss = 0;
 int64		VacuumPageDirty = 0;
 
-int			VacuumCostBalance = 0;	/* working state for vacuum */
+int			VacuumCostBalance = 0;	/* vacuum 的工作状态 */
 bool		VacuumCostActive = false;

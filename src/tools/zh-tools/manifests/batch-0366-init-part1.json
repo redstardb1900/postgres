@@ -1,0 +1,74 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0366",
+ "title": "init dir part 1: globals.c + usercontext.c whole-file translation (22 blocks)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "42e60d95510f3dd9ac2bf14e92b7845c64c05990",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0366-init-part1.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0366 manifest path and init file entries (S6 registration)"
+  },
+  {
+   "pattern": "src/backend/utils/init/globals.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation: 14 blocks"
+  },
+  {
+   "pattern": "src/backend/utils/init/usercontext.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation: 8 blocks"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0366-init-part1.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0366 manifest path and init file entries (S6 registration)"
+  },
+  {
+   "path": "src/backend/utils/init/globals.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 14,
+   "translated": 14,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "dump-driven apply; zero byte overruns; copyright/IDENTIFICATION/path lines kept EN"
+  },
+  {
+   "path": "src/backend/utils/init/usercontext.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 8,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "dump-driven apply; zero byte overruns; copyright/IDENTIFICATION/path lines kept EN"
+  }
+ ],
+ "notes": "batch-0366 (init dir part 1, 2026-11-13, parent batch-0365-review-fix2=42e60d95510). Init dir is split into two batches due to size (298 blocks total): this batch covers globals.c (14 blocks) + usercontext.c (8 blocks), 71 content lines (59 translated, 12 EN keeps = copyright/filename/IDENTIFICATION/path). miscinit.c (148 blocks) and postinit.c (128 blocks) follow in separate batches with a line-number-keyed apply strategy (block+offset mapping proved error-prone on multi-paragraph blocks in 0364/0365). Advisories: W7_IDENT_LOST x1 (NOTES label translated at globals L13); term_lint 2 warning hits (P70/P71 at globals L130), 0 errors; scan_halfen --worktree 0 findings. Gates: verify_c_comments 0 violations (22/22); no code changes."
+}

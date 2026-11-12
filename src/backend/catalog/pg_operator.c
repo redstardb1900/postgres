@@ -314,11 +314,11 @@ OperatorShellMake(const char *operatorName,
  * 定义操作符 "op"，否定操作符 "negop" 与
  * 交换操作符 "commop" 也可以在只给出
  * 名称的情况下一并定义。由于要把 "op"
- * 加入 PG_OPERATOR 目录，这些操作符的全部
+ * 加入 PG_OPERATOR 系统目录，这些操作符的全部
  * Oid 都必须放入 "op" 的字段中，因此会对
  * 交换与否定操作符做前向声明。
  * 这称为创建 shell，其主要效果是在
- * PG_OPERATOR 目录中创建一条仅含操作符
+ * PG_OPERATOR 系统目录中创建一条仅含操作符
  * 最少信息（仅名称与类型）的元组。
  * 前向声明仅用于此目的，不像类型定义
  * 那样向用户开放。
@@ -599,7 +599,7 @@ get_other_operator(List *otherOp, Oid otherLeftTypeId, Oid otherRightTypeId,
 
 	if (OidIsValid(other_oid))
 	{
-		/* 另一操作符已在目录中 */
+		/* 另一操作符已在系统目录中 */
 		return other_oid;
 	}
 
@@ -622,7 +622,7 @@ get_other_operator(List *otherOp, Oid otherLeftTypeId, Oid otherRightTypeId,
 		return InvalidOid;
 	}
 
-	/* 不在目录中，且不同于本操作符，因此制作 shell */
+	/* 不在系统目录中，且不同于本操作符，因此制作 shell */
 
 	aclresult = object_aclcheck(NamespaceRelationId, otherNamespace, GetUserId(),
 								ACL_CREATE);
@@ -757,7 +757,7 @@ OperatorUpd(Oid baseId, Oid commId, Oid negId, bool isDelete)
 		}
 	}
 
-	/* 关闭关系并释放目录锁。 */
+	/* 关闭关系并释放系统目录锁。 */
 	table_close(pg_operator_desc, RowExclusiveLock);
 }
 

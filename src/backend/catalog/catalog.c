@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * catalog.c
- *		与目录命名约定及其他硬编码知识
+ *		与系统目录命名约定及其他硬编码知识
  *		相关的例程
  *
  *
@@ -68,7 +68,7 @@
  *		若用于其他目的，请考虑是否应改用
  *		IsCatalogRelation。
  *
- *		本函数不做任何目录访问。
+ *		本函数不做任何系统目录访问。
  *		有些调用方依赖这一点！
  */
 bool
@@ -95,10 +95,10 @@ IsSystemClass(Oid relid, Form_pg_class reltuple)
  *		当且仅当关系是系统目录时为真。
  *
  *		所谓系统目录，指在 initdb 引导阶段创建的
- *		那些关系。不仅包括目录本身，还包括
+ *		那些关系。不仅包括系统目录本身，还包括
  *		其索引，以及若有的 TOAST 表与索引。
  *
- *		本函数不做任何目录访问。
+ *		本函数不做任何系统目录访问。
  *		有些调用方依赖这一点！
  */
 bool
@@ -112,10 +112,10 @@ IsCatalogRelation(Relation relation)
  *		当且仅当此 OID 标识的关系是系统目录时为真。
  *
  *		所谓系统目录，指在 initdb 引导阶段创建的
- *		那些关系。不仅包括目录本身，还包括
+ *		那些关系。不仅包括系统目录本身，还包括
  *		其索引，以及若有的 TOAST 表与索引。
  *
- *		本函数不做任何目录访问。
+ *		本函数不做任何系统目录访问。
  *		有些调用方依赖这一点！
  */
 bool
@@ -123,7 +123,7 @@ IsCatalogRelationOid(Oid relid)
 {
 	/*
 	 * 若关系拥有钉住的 OID，我们就视其为系统目录。
-	 * 这涵盖所有已定义的目录、其索引，以及它们的 TOAST
+	 * 这涵盖所有已定义的系统目录、其索引，以及它们的 TOAST
 	 * 表与索引。
 	 *
 	 * 该规则排除 information_schema 中的关系，它们并非
@@ -171,7 +171,7 @@ IsInplaceUpdateOid(Oid relid)
  * IsToastRelation
  *		当且仅当关系是 TOAST 支撑关系（或索引）时为真。
  *
- *		不做任何目录访问。
+ *		不做任何系统目录访问。
  */
 bool
 IsToastRelation(Relation relation)
@@ -205,7 +205,7 @@ IsToastClass(Form_pg_class reltuple)
  * IsCatalogNamespace
  *		当且仅当命名空间是 pg_catalog 时为真。
  *
- *		不做任何目录访问。
+ *		不做任何系统目录访问。
  *
  * NOTE: 不做成宏的原因是避免在许多地方
  * 包含 catalog/pg_namespace.h。
@@ -220,13 +220,13 @@ IsCatalogNamespace(Oid namespaceId)
  * IsToastNamespace
  *		当且仅当命名空间是 pg_toast 或我的临时 toast 表命名空间时为真。
  *
- *		不做任何目录访问。
+ *		不做任何系统目录访问。
  *
  * Note: 对属于其他后端的临时 toast 表命名空间，本函数返回
  * false。它们与其他后端的普通临时表命名空间同等对待，
  * 并在适当处阻止访问。
  * 若需要检查那些命名空间，或许可用 isAnyTempNamespace，
- * 但请注意那会涉及目录访问。
+ * 但请注意那会涉及系统目录访问。
  */
 bool
 IsToastNamespace(Oid namespaceId)
@@ -261,8 +261,8 @@ IsReservedName(const char *name)
  *		数据库集簇中共享。
  *
  * 在较旧的发行版中，这必须硬编码，以便我们能在检查
- * 其目录条目之前计算关系的 locktag 并加锁。
- * 现在已有 MVCC 目录访问，使那成为硬性要求的竞态
+ * 其系统目录条目之前计算关系的 locktag 并加锁。
+ * 现在已有 MVCC 系统目录访问，使那成为硬性要求的竞态
  * 条件已不存在，因此可考虑放宽这一限制。
  * 然而，若我们先扫描 pg_class 条目以查找 relisshared，再
  * 锁定关系，期间 pg_class 可能被更新，
@@ -274,7 +274,7 @@ IsReservedName(const char *name)
 bool
 IsSharedRelation(Oid relationId)
 {
-	/* 这些是共享目录（查找 BKI_SHARED_RELATION） */
+	/* 这些是共享系统目录（查找 BKI_SHARED_RELATION） */
 	if (relationId == AuthIdRelationId ||
 		relationId == AuthMemRelationId ||
 		relationId == DatabaseRelationId ||
@@ -360,7 +360,7 @@ IsPinnedObject(Oid classId, Oid objectId)
 		return false;
 
 	/*
-	 * 目录 .dat 文件中定义的少数对象，作为策略
+	 * 系统目录 .dat 文件中定义的少数对象，作为策略
 	 * 我们宁愿不把它们当作钉住。我们曾通过把它们
 	 * 排除在 pg_depend 外来处理，但在这里硬编码其
 	 * OIDs 同样容易。（若用户确实删除并重建它们，
@@ -518,7 +518,7 @@ GetNewOidWithIndex(Relation relation, Oid indexId, AttrNumber oidcolumn)
  *		新 relfilenumber。
  *
  * 若该 relfilenumber 也将用作关系的 OID，则传入已打开的
- * pg_class 目录，本例程将保证结果在 pg_class 中
+ * pg_class 系统目录，本例程将保证结果在 pg_class 中
  * 也是未使用的 OID。若结果仅用作已有关系的
  * relfilenumber，则对 pg_class 传 NULL。
  *
@@ -609,7 +609,7 @@ GetNewRelFileNumber(Oid reltablespace, Relation pg_class, char relpersistence)
 
 /*
  * GetNewOidWithIndex() 的 SQL 可调用接口。除 initdb 直接
- * 插入目录表，以及从损坏中恢复外，
+ * 插入系统目录表，以及从损坏中恢复外，
  * 很少需要。
  *
  * 有意不在面向用户的文档中记载本函数。

@@ -419,9 +419,9 @@ needs_toast_table(Relation rel)
 		return false;
 
 	/*
-	 * 忽略在 initdb 之后对目录表创建 toast 表的尝试。
-	 * 哪些目录有 toast 表在 catalog/pg_*.h 中显式选定。
-	 * （若目录没有 toast 表，我们可能经由某条 ALTER TABLE
+	 * 忽略在 initdb 之后对系统目录表创建 toast 表的尝试。
+	 * 哪些系统目录有 toast 表在 catalog/pg_*.h 中显式选定。
+	 * （若系统目录没有 toast 表，我们可能经由某条 ALTER TABLE
 	 * 命令到达这里。）
 	 */
 	if (IsCatalogRelation(rel) && !IsBootstrapProcessingMode())

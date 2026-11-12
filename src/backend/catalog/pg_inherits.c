@@ -72,7 +72,7 @@ find_inheritance_children(Oid parentrelId, LOCKMODE lockmode)
  * 则将 *detached_exist（若非 null）置为 true。
  *
  * 若 omit_detached 为 true，且存在活动快照（与扫描
- * pg_inherits 所用的目录快照不同！），并且该快照可见某条标为
+ * pg_inherits 所用的系统目录快照不同！），并且该快照可见某条标为
  * "detach pending" 的 pg_inherits 元组，则将该分区
  * 从输出列表中省略。这使分区是否可见取决于
  * 将那些分区标为已分离的事务对活动快照而言是否
@@ -158,7 +158,7 @@ find_inheritance_children_extended(Oid parentrelId, bool omit_detached,
 						 * MarkInheritDetached 中的检查），但若出现，
 						 * 则跟踪两者中较新的那个。务必警告
 						 * 用户，以便其清理。由于这只是对可能
-						 * 已损坏目录的交叉检查，我们不把它做成
+						 * 已损坏系统目录的交叉检查，我们不把它做成
 						 * 完整的
 						 * 错误消息。
 						 */
@@ -542,7 +542,7 @@ StoreSingleInheritance(Oid relationId, Oid parentOid, int32 seqNumber)
  * 否则仅删除具有指定 inhparent 的元组。
  *
  * expect_detach_pending 是 inhdetachpending 标志的期望状态。
- * 若目录行与该状态不匹配，则报错。
+ * 若系统目录行与该状态不匹配，则报错。
  *
  * childname 是分区名（若为表）；对普通继承或处理
  * 其他关系种类时传 NULL。

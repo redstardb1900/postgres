@@ -145,7 +145,7 @@ typedef struct
 } find_expr_references_context;
 
 /*
- * 本常量表把 ObjectClasses 映射到对应的目录 OIDs。
+ * 本常量表把 ObjectClasses 映射到对应的系统目录 OIDs。
  * 另见 getObjectClass()。
  */
 static const Oid object_classes[] = {
@@ -1238,7 +1238,7 @@ reportDependentObjects(const ObjectAddresses *targetObjects,
 }
 
 /*
- * 按 OID 删除对象。对大多数目录有效，若不需要特殊处理
+ * 按 OID 删除对象。对大多数系统目录有效，若不需要特殊处理
  * 的话。
  */
 static void
@@ -2514,8 +2514,8 @@ object_address_comparator(const void *a, const void *b)
 		return 1;
 
 	/*
-	 * 其次按目录 ID 排序，以防相同 OIDs 出现在不同
-	 * 目录中。这里的排序方向相当任意。
+	 * 其次按系统目录 ID 排序，以防相同 OIDs 出现在不同
+	 * 系统目录中。这里的排序方向相当任意。
 	 */
 	if (obja->classId < objb->classId)
 		return -1;
@@ -2560,7 +2560,7 @@ new_object_addresses(void)
 /*
  * 向 ObjectAddresses 数组添加一条条目。
  *
- * 用 ObjectClass 指定类比直接用目录 OID
+ * 用 ObjectClass 指定类比直接用系统目录 OID
  * 方便。
  */
 static void

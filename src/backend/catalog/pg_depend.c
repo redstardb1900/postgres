@@ -205,7 +205,7 @@ recordDependencyOnCurrentExtension(const ObjectAddress *object,
 			Oid			oldext;
 
 			/*
-			 * 旁注：这些目录查找仅因对象是已存在的
+			 * 旁注：这些系统目录查找仅因对象是已存在的
 			 * 对象才安全。在非 isReplace 情形下，调用方
 			 * 多半尚未做 CommandCounterIncrement，
 			 * 因而新对象尚不可见。

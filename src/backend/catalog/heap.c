@@ -14,7 +14,7 @@
  * INTERFACE ROUTINES
  *		heap_create()			- 创建未编目的堆关系
  *		heap_create_with_catalog() - 创建已编目的关系
- *		heap_drop_with_catalog() - 从目录中移除指定名称的关系
+ *		heap_drop_with_catalog() - 从系统目录中移除指定名称的关系
  *
  * NOTES
  *	  本代码取自 access/heap/create.c，其中包含
@@ -520,7 +520,7 @@ CheckAttributeNamesTypes(TupleDesc tupdesc, char relkind,
  *		CheckAttributeType
  *
  *		验证提议的属性数据类型是否合法。
- *		这主要是因为目录中有些类型（以及伪类型）
+ *		这主要是因为系统目录中有些类型（以及伪类型）
  *		我们不支持作为真实元组的元素。
  *		我们也检查表列所需的其他一些性质。
  *
@@ -951,7 +951,7 @@ InsertPgClassTuple(Relation pg_class_desc,
 /* --------------------------------
  *		AddNewRelationTuple
  *
- *		通过向 pg_class 添加元组，在目录中
+ *		通过向 pg_class 添加元组，在系统目录中
  *		登记新关系。
  * --------------------------------
  */
@@ -1082,7 +1082,7 @@ AddNewRelationType(const char *typeName,
  *	use_user_acl: 若应查找用户定义的默认权限则为 true；
  *		若为 false，relacl 总是设为 NULL
  *	allow_system_table_mods: true 表示允许在系统命名空间中创建
- *	is_internal: 这是否是系统生成的目录？
+ *	is_internal: 这是否是系统生成的系统目录？
  *
  * 输出参数：
  *	typaddress: 若非空，取得新 pg_type 条目的对象地址
@@ -1241,7 +1241,7 @@ heap_create_with_catalog(const char *relname,
 	}
 
 	/*
-	 * 其他会话的目录扫描在我们提交前找不到它。因此，
+	 * 其他会话的系统目录扫描在我们提交前找不到它。因此，
 	 * 持有 AccessExclusiveLock 无妨。在此获取，以免调用方
 	 * 无意中在锁模式或获取时机上不一致。
 	 */
@@ -1754,7 +1754,7 @@ RemoveAttributeById(Oid relid, AttrNumber attnum)
 }
 
 /*
- * heap_drop_with_catalog	- 从目录中移除指定关系
+ * heap_drop_with_catalog	- 从系统目录中移除指定关系
  *
  * 注意本例程不负责删除通过依赖链接到
  * pg_class 条目的对象（例如索引和
@@ -1885,7 +1885,7 @@ heap_drop_with_catalog(Oid relid)
 
 	/*
 	 * 从关系缓存中刷掉该关系。我们想在开始
-	 * 移除目录条目之前做这件事，以确保不会在中途
+	 * 移除系统目录条目之前做这件事，以确保不会在中途
 	 * 发生关系缓存条目重建。（这其实不该
 	 * 要紧，因为这里不做 CommandCounterIncrement，但还是
 	 * 求个稳。）
@@ -2228,7 +2228,7 @@ StoreRelCheck(Relation rel, const char *ccname, Node *expr,
 /*
  * 存储默认值和约束（作为 CookedConstraint 列表传入）。
  *
- * 每个 CookedConstraint 结构被修改以存储新目录元组 OID。
+ * 每个 CookedConstraint 结构被修改以存储新系统目录元组 OID。
  *
  * 注意：只有预先烹调的表达式会以这种方式传入，也就是
  * 从已有关系继承的表达式。新解析的
@@ -2305,7 +2305,7 @@ StoreConstraints(Relation rel, List *cooked_constraints, bool is_internal)
  * 是 AccessExclusiveLock，但若调用方知道该约束已由
  * 其他方式强制执行，可以是 ShareUpdateExclusiveLock。另外，我们
  * 假定调用方已在必要时做了 CommandCounterIncrement，使
- * 该关系的目录元组可见。
+ * 该关系的系统目录元组可见。
  */
 List *
 AddRelationNewConstraints(Relation rel,
@@ -3370,7 +3370,7 @@ restart:
 
 /*
  * StorePartitionKey
- *		把分区键 rel 的信息存入目录
+ *		把分区键 rel 的信息存入系统目录
  */
 void
 StorePartitionKey(Relation rel,
@@ -3487,7 +3487,7 @@ StorePartitionKey(Relation rel,
 
 	/*
 	 * 我们必须使关系缓存失效，以便下一次
-	 * CommandCounterIncrement() 会使用刚创建的目录条目中的
+	 * CommandCounterIncrement() 会使用刚创建的系统目录条目中的
 	 * 信息重建它。
 	 */
 	CacheInvalidateRelcache(rel);

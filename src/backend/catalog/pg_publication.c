@@ -161,7 +161,7 @@ is_publishable_relation(Relation rel)
  * 上述函数的 SQL 可调用变体
  *
  * 当关系不存在时返回 null。这旨在用于例如
- * psql，以避免在有并发目录更改时出现
+ * psql，以避免在有并发系统目录更改时出现
  * 无谓错误。
  */
 Datum
@@ -382,7 +382,7 @@ publication_add_relation(Oid pubid, PublicationRelInfo *pri,
 	/*
 	 * 检查重复。注意这并不能真正防止
 	 * 重复，它只是为常见情形提供更友好的错误消息。
-	 * 真正的保护是目录上的唯一键。
+	 * 真正的保护是系统目录上的唯一键。
 	 */
 	if (SearchSysCacheExists2(PUBLICATIONRELMAP, ObjectIdGetDatum(relid),
 							  ObjectIdGetDatum(pubid)))
@@ -403,7 +403,7 @@ publication_add_relation(Oid pubid, PublicationRelInfo *pri,
 	/*
 	 * 把列名翻译为 attnum，并确保列列表
 	 * 只包含允许的元素（无系统列或生成列等）。
-	 * 同时构建 attnum 数组，以便存入目录。
+	 * 同时构建 attnum 数组，以便存入系统目录。
 	 */
 	publication_translate_columns(pri->relation, pri->columns,
 								  &natts, &attarray);
@@ -434,7 +434,7 @@ publication_add_relation(Oid pubid, PublicationRelInfo *pri,
 
 	tup = heap_form_tuple(RelationGetDescr(rel), values, nulls);
 
-	/* 把元组插入目录。 */
+	/* 把元组插入系统目录。 */
 	CatalogTupleInsert(rel, tup);
 	heap_freetuple(tup);
 
@@ -555,7 +555,7 @@ publication_translate_columns(Relation targetrel, List *columns,
 		attarray[n++] = attnum;
 	}
 
-	/* 保持整洁，使目录表示始终有序 */
+	/* 保持整洁，使系统目录表示始终有序 */
 	qsort(attarray, n, sizeof(AttrNumber), compare_int16);
 
 	*natts = n;
@@ -625,7 +625,7 @@ publication_add_schema(Oid pubid, Oid schemaid, bool if_not_exists)
 	/*
 	 * 检查重复。注意这并不能真正防止
 	 * 重复，它只是为常见情形提供更友好的错误消息。
-	 * 真正的保护是目录上的唯一键。
+	 * 真正的保护是系统目录上的唯一键。
 	 */
 	if (SearchSysCacheExists2(PUBLICATIONNAMESPACEMAP,
 							  ObjectIdGetDatum(schemaid),
@@ -658,7 +658,7 @@ publication_add_schema(Oid pubid, Oid schemaid, bool if_not_exists)
 
 	tup = heap_form_tuple(RelationGetDescr(rel), values, nulls);
 
-	/* 把元组插入目录 */
+	/* 把元组插入系统目录 */
 	CatalogTupleInsert(rel, tup);
 	heap_freetuple(tup);
 

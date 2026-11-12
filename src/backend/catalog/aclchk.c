@@ -1267,7 +1267,7 @@ SetDefaultACL(InternalDefaultACL *iacls)
 			break;
 	}
 
-	/* 在目录中查找该对象类型的现有行 */
+	/* 在系统目录中查找该对象类型的现有行 */
 	tuple = SearchSysCache3(DEFACLROLENSPOBJ,
 							ObjectIdGetDatum(iacls->roleid),
 							ObjectIdGetDatum(iacls->nspid),
@@ -1306,7 +1306,7 @@ SetDefaultACL(InternalDefaultACL *iacls)
 	{
 		/* 若无条目或条目为 null，则以默认 ACL 值开始 */
 		old_acl = aclcopy(def_acl);
-		/* 根据目录，没有旧的成员角色 */
+		/* 根据系统目录，没有旧的成员角色 */
 		noldmembers = 0;
 		oldmembers = NULL;
 	}
@@ -1696,7 +1696,7 @@ ExecGrant_Attribute(InternalGrant *istmt, Oid relOid, const char *relname,
 	if (isNull)
 	{
 		old_acl = acldefault(OBJECT_COLUMN, ownerId);
-		/* 根据目录，没有旧的成员角色 */
+		/* 根据系统目录，没有旧的成员角色 */
 		noldmembers = 0;
 		oldmembers = NULL;
 	}
@@ -1958,7 +1958,7 @@ ExecGrant_Relation(InternalGrant *istmt)
 					old_acl = acldefault(OBJECT_TABLE, ownerId);
 					break;
 			}
-			/* 根据目录，没有旧的成员角色 */
+			/* 根据系统目录，没有旧的成员角色 */
 			noldmembers = 0;
 			oldmembers = NULL;
 		}
@@ -2192,7 +2192,7 @@ ExecGrant_common(InternalGrant *istmt, Oid classid, AclMode default_privs,
 		if (isNull)
 		{
 			old_acl = acldefault(get_object_type(classid, objectid), ownerId);
-			/* 根据目录，没有旧的成员角色 */
+			/* 根据系统目录，没有旧的成员角色 */
 			noldmembers = 0;
 			oldmembers = NULL;
 		}
@@ -2347,7 +2347,7 @@ ExecGrant_Largeobject(InternalGrant *istmt)
 		if (isNull)
 		{
 			old_acl = acldefault(OBJECT_LARGEOBJECT, ownerId);
-			/* 根据目录，没有旧的成员角色 */
+			/* 根据系统目录，没有旧的成员角色 */
 			noldmembers = 0;
 			oldmembers = NULL;
 		}
@@ -2495,7 +2495,7 @@ ExecGrant_Parameter(InternalGrant *istmt)
 		if (isNull)
 		{
 			old_acl = acldefault(istmt->objtype, ownerId);
-			/* 根据目录，没有旧的成员角色 */
+			/* 根据系统目录，没有旧的成员角色 */
 			noldmembers = 0;
 			oldmembers = NULL;
 		}
@@ -2538,7 +2538,7 @@ ExecGrant_Parameter(InternalGrant *istmt)
 		nnewmembers = aclmembers(new_acl, &newmembers);
 
 		/*
-		 * 若新 ACL 等于默认值，我们就不再需要该目录
+		 * 若新 ACL 等于默认值，我们就不再需要该系统目录
 		 * 条目。应删除它而不是更新它，以避免
 		 * 留下退化的条目。
 		 */
@@ -3097,7 +3097,7 @@ object_aclmask(Oid classid, Oid objectid, Oid roleid,
 		return mask;
 
 	/*
-	 * 从对象的目录中获取其 ACL
+	 * 从对象的系统目录中获取其 ACL
 	 */
 
 	cacheid = get_object_catcache_oid(classid);
@@ -3972,7 +3972,7 @@ object_ownercheck(Oid classid, Oid objectid, Oid roleid)
 	if (superuser_arg(roleid))
 		return true;
 
-	/* 对大对象，要查阅的目录是 pg_largeobject_metadata */
+	/* 对大对象，要查阅的系统目录是 pg_largeobject_metadata */
 	if (classid == LargeObjectRelationId)
 		classid = LargeObjectMetadataRelationId;
 
@@ -3995,7 +3995,7 @@ object_ownercheck(Oid classid, Oid objectid, Oid roleid)
 	}
 	else
 	{
-		/* 用于没有合适系统缓存的目录 */
+		/* 用于没有合适系统缓存的系统目录 */
 		Relation	rel;
 		ScanKeyData entry[1];
 		SysScanDesc scan;

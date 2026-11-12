@@ -13,7 +13,7 @@
  *
  * INTERFACE ROUTINES
  *		index_create()			- 创建已编目的索引关系
- *		index_drop()			- 从目录中移除索引关系
+ *		index_drop()			- 从系统目录中移除索引关系
  *		BuildIndexInfo()		- 准备插入索引元组
  *		FormIndexDatum()		- 为一个索引元组构造数据值向量
  *
@@ -544,7 +544,7 @@ AppendAttributeTuples(Relation indexRelation, Datum *attopts)
 /* ----------------------------------------------------------------
  *		UpdateIndexRelation
  *
- * 构造并在 pg_index 目录中插入一个新条目
+ * 构造并在 pg_index 系统目录中插入一个新条目
  * ----------------------------------------------------------------
  */
 static void
@@ -651,7 +651,7 @@ UpdateIndexRelation(Oid indexoid,
 	tuple = heap_form_tuple(RelationGetDescr(pg_index), values, nulls);
 
 	/*
-	 * 把该元组插入 pg_index 目录。
+	 * 把该元组插入 pg_index 系统目录。
 	 */
 	CatalogTupleInsert(pg_index, tuple);
 
@@ -831,7 +831,7 @@ index_create(Relation heapRelation,
 	}
 
 	/*
-	 * 在系统目录上并发建立索引是不安全的，因为我们在目录中
+	 * 在系统目录上并发建立索引是不安全的，因为我们在系统目录中
 	 * 往往在提交之前就释放了锁。
 	 */
 	if (concurrent &&
@@ -867,7 +867,7 @@ index_create(Relation heapRelation,
 	/*
 	 * 检查名称是否重复（既针对索引本身，
 	 * 也针对其关联的约束（如果有））。
-	 * 这类情况反正会在相关目录的唯一索引上失败，
+	 * 这类情况反正会在相关系统目录的唯一索引上失败，
 	 * 但我们更愿意给出更友好的错误消息。
 	 */
 	if (get_relname_relid(indexRelationName, namespaceId))
@@ -1211,12 +1211,12 @@ index_create(Relation heapRelation,
 
 	/*
 	 * 推进命令计数器，以便我们能够看到该索引新录入的
-	 * 目录元组。
+	 * 系统目录元组。
 	 */
 	CommandCounterIncrement();
 
 	/*
-	 * 在引导模式下，我们必须用来自目录的信息
+	 * 在引导模式下，我们必须用来自系统目录的信息
 	 * 填写索引策略结构。如果我们不在引导过程中，
 	 * 那么由于 CommandCounterIncrement 期间的 sinval 更新，
 	 * 关系缓存条目已经重建。
@@ -1279,7 +1279,7 @@ index_create(Relation heapRelation,
  * index_concurrently_create_copy
  *
  * 根据调用方提供的索引定义，并发地创建一个基于它的索引。
- * 该索引被插入目录中，稍后还需要进行构建。本函数在并发
+ * 该索引被插入系统目录中，稍后还需要进行构建。本函数在并发
  * 重建索引处理期间被调用。
  *
  * "tablespaceOid" 是该索引要使用的表空间。
@@ -1338,7 +1338,7 @@ index_concurrently_create_copy(Relation heapRelation, Oid oldIndexId,
 								  Anum_pg_class_reloptions, &isnull);
 
 	/*
-	 * 直接从目录获取表达式和谓词的列表。
+	 * 直接从系统目录获取表达式和谓词的列表。
 	 * 这不能依赖旧索引的 IndexInfo 中的信息，
 	 * 因为它们已经为规划器被展平。
 	 */
@@ -1482,7 +1482,7 @@ index_concurrently_build(Oid heapRelationId,
 
 	/*
 	 * 我们必须重新构建 IndexInfo 结构，
-	 * 因为它在该并发索引于目录层创建的
+	 * 因为它在该并发索引于系统目录层创建的
 	 * 事务提交时丢失了。
 	 */
 	indexInfo = BuildIndexInfo(indexRelation);
@@ -2229,7 +2229,7 @@ index_drop(Oid indexId, bool concurrent, bool concurrent_lock_mode)
 		 * 任何其他操作（删除其他对象、pg_depend 条目等），
 		 * 提交将使那些操作成为永久性的，
 		 * 这将使我们在后续序列中途失败时
-		 * 留下不一致的目录状态。
+		 * 留下不一致的系统目录状态。
 		 * 由于 DROP INDEX CONCURRENTLY 限制为只能删除一个
 		 * 没有任何依赖的索引，我们应当在任何操作被执行之前
 		 * 到达这里——但让我们检查一下以确认。我们可以通过检查
@@ -2342,7 +2342,7 @@ index_drop(Oid indexId, bool concurrent, bool concurrent_lock_mode)
 
 	/*
 	 * 关闭并刷新索引的关系缓存条目，
-	 * 以确保在我们删除目录条目时关系缓存不会试图重建它。
+	 * 以确保在我们删除系统目录条目时关系缓存不会试图重建它。
 	 * 不过我们保留该锁。
 	 */
 	index_close(userIndexRelation, NoLock);
@@ -2949,7 +2949,7 @@ index_update_stats(Relation rel,
 /*
  * index_build - 调用访问方法特定的索引构建例程
  *
- * 进入时，索引的目录条目有效，
+ * 进入时，索引的系统目录条目有效，
  * 其物理磁盘文件已创建但为空。
  * 我们调用 AM 特定的构建例程来填写索引内容。然后我们使用
  * ambuild 返回的统计数据以及调用方传递的数据，按需更新索引
@@ -3124,7 +3124,7 @@ index_build(Relation heapRelation,
 					   false,
 					   stats->index_tuples);
 
-	/* 使更新后的目录行版本可见 */
+	/* 使更新后的系统目录行版本可见 */
 	CommandCounterIncrement();
 
 	/*
@@ -3252,7 +3252,7 @@ IndexCheckExclusion(Relation heapRelation,
  * validate_index - 并发索引构建的支持代码
  *
  * 我们通过以下方式做并发索引构建：先经由 index_create() 插入索引的
- * 目录条目，并把它标记为非 indisready 且非 indisvalid。
+ * 系统目录条目，并把它标记为非 indisready 且非 indisvalid。
  * 然后提交我们的事务并开始一个新的，
  * 接着等待所有可能修改过该表的事务终止。
  * 现在我们知道，任何随后启动的事务都会看到该索引并
@@ -3792,7 +3792,7 @@ reindex_index(Oid indexId, bool skip_constraint_checks, char persistence,
 	 * 则每次构建或重建都必须把
 	 * 可用性视野推进到当前事务。
 	 * pg_index 在这方面没问题，因为
-	 * 目录表不受早期清理的影响。
+	 * 系统目录表不受早期清理的影响。
 	 */
 	if (!skipped_constraint)
 	{
@@ -3877,7 +3877,7 @@ reindex_index(Oid indexId, bool skip_constraint_checks, char persistence,
  * 在重建之前不会被信任。调用方必须在*没有*通过           
  * 执行 CommandCounterIncrement 使重建后的表可见的             
  * 情况下调用我们；我们会在收集完索引列表之后再执      
- * 行 CCI，此时仍能用目录索引。       
+ * 行 CCI，此时仍能用系统目录索引。       
  *
  * REINDEX_REL_CHECK_CONSTRAINTS：若为 true，重新检查          
  * 唯一与排他约束条件，否则不检查。为避免死锁，对 
@@ -4041,7 +4041,7 @@ reindex_relation(Oid relid, int flags, ReindexParams *params)
  *		系统索引重建支持
  *
  * 当我们忙于重建系统目录索引时，这段代码提供支持，
- * 防止目录查找使用该索引。
+ * 防止系统目录查找使用该索引。
  * 我们还用它来捕捉重建这些索引期间
  * 对用户索引的使用企图。该信息被传播给并行工作进程；
  * 在并行操作期间试图更改它是不被允许的。

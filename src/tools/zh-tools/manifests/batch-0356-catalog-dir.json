@@ -1,0 +1,299 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0356",
+ "title": "glossary campaign: catalog/ 目录->系统目录 114 occurrences in 17 files",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "318e442c1b85ab573574e63ed766a28d31475c4a",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/catalog/aclchk.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "pattern": "src/backend/catalog/catalog.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "pattern": "src/backend/catalog/dependency.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "pattern": "src/backend/catalog/heap.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "pattern": "src/backend/catalog/index.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "pattern": "src/backend/catalog/indexing.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "pattern": "src/backend/catalog/namespace.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "pattern": "src/backend/catalog/objectaddress.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "pattern": "src/backend/catalog/pg_cast.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "pattern": "src/backend/catalog/pg_constraint.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "pattern": "src/backend/catalog/pg_db_role_setting.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "pattern": "src/backend/catalog/pg_depend.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "pattern": "src/backend/catalog/pg_inherits.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "pattern": "src/backend/catalog/pg_operator.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "pattern": "src/backend/catalog/pg_publication.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "pattern": "src/backend/catalog/pg_subscription.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "pattern": "src/backend/catalog/toasting.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0356-catalog-dir.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0356 manifest path (S6 registration)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/catalog/aclchk.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 13,
+   "translated": 13,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "path": "src/backend/catalog/catalog.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 26,
+   "translated": 26,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "path": "src/backend/catalog/dependency.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "path": "src/backend/catalog/heap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 11,
+   "translated": 11,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "path": "src/backend/catalog/index.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 29,
+   "translated": 29,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "path": "src/backend/catalog/indexing.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 20,
+   "translated": 20,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "path": "src/backend/catalog/namespace.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 11,
+   "translated": 11,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "path": "src/backend/catalog/objectaddress.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "path": "src/backend/catalog/pg_cast.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "path": "src/backend/catalog/pg_constraint.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "path": "src/backend/catalog/pg_db_role_setting.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "path": "src/backend/catalog/pg_depend.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "path": "src/backend/catalog/pg_inherits.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "path": "src/backend/catalog/pg_operator.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "path": "src/backend/catalog/pg_publication.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 7,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "path": "src/backend/catalog/pg_subscription.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "path": "src/backend/catalog/toasting.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (114 occurrences, 17 files); over-budget lines disclosed per 0350 precedent (zh 系统目录 12B"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0356-catalog-dir.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0356 manifest path (S6 registration)"
+  }
+ ],
+ "notes": "batch-0356 (glossary campaign, 2026-11-12, parent batch-0355=318e442c1b8). Terminology unification: catalog-sense 目录 -> 系统目录 per glossary.tsv (System Catalog -> 系统目录, decided). 114 occurrences across 17 files in src/backend/catalog/. The EN 'catalog' sense is verified per site (EN same-comment contains 'catalog'); filesystem-sense 目录 untouched. 27 pgnls warnings are all pre-existing (P66/P24/P17/P02/P39 etc., 0 introduced). Over-budget lines disclosed per 0350 (系统目录 12B > 目录 6B). Gates: verify 33 ok 0 violations changed=3019; term bare 0/0 + pgnls 0 errors/27 pre-existing warnings; halfen default 0; raw 422 == HEAD 422 identical; check_scope incremental + cumulative PASS; tests 229=222+7. Campaign next: commands/ (139), access/ (69), pg_dump/ (53), rest (89)."
+}

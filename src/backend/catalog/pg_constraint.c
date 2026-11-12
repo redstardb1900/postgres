@@ -486,7 +486,7 @@ ConstraintNameExists(const char *conname, Oid namespaceid)
  * 生成唯一名，会在 label 后追加数字。
  *
  * 'others' 可以是当前命令内已选定（但尚未
- * 反映到目录中）的字符串名列表；我们也不会选择
+ * 反映到系统目录中）的字符串名列表；我们也不会选择
  * 与其中之一重复的名称。
  *
  * 注意：理论上仍可能发生冲突，若有人

@@ -172,7 +172,7 @@ DisableSubscription(Oid subid)
 	Datum		values[Natts_pg_subscription];
 	HeapTuple	tup;
 
-	/* 在目录中查找该订阅 */
+	/* 在系统目录中查找该订阅 */
 	rel = table_open(SubscriptionRelationId, RowExclusiveLock);
 	tup = SearchSysCacheCopy1(SUBSCRIPTIONOID, ObjectIdGetDatum(subid));
 
@@ -190,7 +190,7 @@ DisableSubscription(Oid subid)
 	values[Anum_pg_subscription_subenabled - 1] = BoolGetDatum(false);
 	replaces[Anum_pg_subscription_subenabled - 1] = true;
 
-	/* 更新目录 */
+	/* 更新系统目录 */
 	tup = heap_modify_tuple(tup, RelationGetDescr(rel), values, nulls,
 							replaces);
 	CatalogTupleUpdate(rel, &tup->t_self, tup);
@@ -260,7 +260,7 @@ AddSubscriptionRelState(Oid subid, Oid relid, char state,
 
 	tup = heap_form_tuple(RelationGetDescr(rel), values, nulls);
 
-	/* 将元组插入目录。 */
+	/* 将元组插入系统目录。 */
 	CatalogTupleInsert(rel, tup);
 
 	heap_freetuple(tup);
@@ -326,7 +326,7 @@ UpdateSubscriptionRelStateEx(Oid subid, Oid relid, char state,
 	tup = heap_modify_tuple(tup, RelationGetDescr(rel), values, nulls,
 							replaces);
 
-	/* 更新目录。 */
+	/* 更新系统目录。 */
 	CatalogTupleUpdate(rel, &tup->t_self, tup);
 
 	/* 清理。 */

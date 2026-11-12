@@ -50,7 +50,7 @@ AlterSetting(Oid databaseid, Oid roleid, VariableSetStmt *setstmt)
 	 * 有三种情形：
 	 *
 	 * - 在 RESET ALL 中，请求 GUC 重置设置数组，若还有剩余则更新
-	 * 目录，否则删除它
+	 * 系统目录，否则删除它
 	 *
 	 * - 在其他命令中，若 pg_db_role_setting 中有元组则更新
 	 * 它；若最终为空则删除它
@@ -162,7 +162,7 @@ AlterSetting(Oid databaseid, Oid roleid, VariableSetStmt *setstmt)
 }
 
 /*
- * 从目录删除一些设置。这些可以针对特定
+ * 从系统目录删除一些设置。这些可以针对特定
  * 数据库，或针对特定角色。（当然也可以两者都做，
  * 但对当前用途没有意义。）
  */

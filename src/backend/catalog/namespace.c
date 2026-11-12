@@ -250,7 +250,7 @@ RangeVarGetRelidExtended(const RangeVar *relation, LOCKMODE lockmode,
 	Assert(!((flags & RVR_NOWAIT) && (flags & RVR_SKIP_LOCKED)));
 
 	/*
-	 * 我们检查目录名，然后忽略它。
+	 * 我们检查系统目录名，然后忽略它。
 	 */
 	if (relation->catalogname)
 	{
@@ -454,7 +454,7 @@ RangeVarGetCreationNamespace(const RangeVar *newRelation)
 	Oid			namespaceId;
 
 	/*
-	 * 我们检查目录名，然后忽略它。
+	 * 我们检查系统目录名，然后忽略它。
 	 */
 	if (newRelation->catalogname)
 	{
@@ -546,7 +546,7 @@ RangeVarGetAndCheckCreationNamespace(RangeVar *relation,
 	bool		retry = false;
 
 	/*
-	 * 我们检查目录名，然后忽略它。
+	 * 我们检查系统目录名，然后忽略它。
 	 */
 	if (relation->catalogname)
 	{
@@ -919,7 +919,7 @@ TypeIsVisible(Oid typid)
  * 按函数声明排序的，而是按调用排序：
  * 先是任何位置参数，然后是命名参数，接着是默认
  * 参数（如果需要且 expand_defaults 允许）。argnumbers[]
- * 数组可用于将其映射回目录信息。
+ * 数组可用于将其映射回系统目录信息。
  * argnumbers[k] 被设置为第 k 个调用参数在
  * proargtypes 或 proallargtypes 中的索引。
  *
@@ -2875,7 +2875,7 @@ DeconstructQualifiedName(List *names,
 			objname = strVal(lthird(names));
 
 			/*
-			 * 我们检查目录名，然后忽略它。
+			 * 我们检查系统目录名，然后忽略它。
 			 */
 			if (strcmp(catalogname, get_database_name(MyDatabaseId)) != 0)
 				ereport(ERROR,
@@ -4370,7 +4370,7 @@ assign_search_path(const char *newval, void *extra)
 /*
  * InitializeSearchPath：在 InitPostgres 期间初始化模块。
  *
- * 这在我们已经启动到足以进行目录查找之后调用。
+ * 这在我们已经启动到足以进行系统目录查找之后调用。
  */
 void
 InitializeSearchPath(void)
@@ -4504,7 +4504,7 @@ fetch_search_path_array(Oid *sarray, int sarray_len)
  *
  * 注意：从 Postgres 8.4 起，如果对不存在的对象 OID
  * 调用，这些函数会静默返回 NULL，而不是报错。这是为了
- * 避免当使用 MVCC 快照扫描目录的查询
+ * 避免当使用 MVCC 快照扫描系统目录的查询
  * 使用这些函数之一时出现竞态条件错误。底层的 IsVisible 函数
  * 总是使用最新的快照，因此当对象对事务快照仍然可见
  * 时，它可能已经看到该对象不存在。（在当前的实现中

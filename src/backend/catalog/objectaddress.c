@@ -99,9 +99,9 @@
  */
 typedef struct
 {
-	const char *class_descr;	/* 目录描述字符串，用于
+	const char *class_descr;	/* 系统目录描述字符串，用于
 								 * 内部错误消息 */
-	Oid			class_oid;		/* 目录的 OID */
+	Oid			class_oid;		/* 系统目录的 OID */
 	Oid			oid_index_oid;	/* 系统 OID 列上的索引的 OID */
 	int			oid_catcache_id;	/* 系统 OID 列上的 catcache ID */
 	int			name_catcache_id;	/* （name,namespace）对应的 catcache ID，
@@ -2809,7 +2809,7 @@ get_object_property_data(Oid class_id)
 }
 
 /*
- * 从给定目录（必须由调用方打开并适当锁定）中返回具有给定对象 OID
+ * 从给定系统目录（必须由调用方打开并适当锁定）中返回具有给定对象 OID
  * 的元组副本。
  * 如果未找到该 OID，则返回 NULL。
  *
@@ -3296,7 +3296,7 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 				/*
 				 * 此处使用 FORMAT_TYPE_ALLOW_INVALID，以免
 				 * 在类型链接悬空时完全失败，这是一种
-				 * 可能因旧缺陷而出现的目录损坏形式。
+				 * 可能因旧缺陷而出现的系统目录损坏形式。
 				 */
 
 				/*------
@@ -3361,7 +3361,7 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 				/*
 				 * 此处使用 FORMAT_TYPE_ALLOW_INVALID，以免
 				 * 在类型链接悬空时完全失败，这是一种
-				 * 可能因旧缺陷而出现的目录损坏形式。
+				 * 可能因旧缺陷而出现的系统目录损坏形式。
 				 */
 
 				/*------

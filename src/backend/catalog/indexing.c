@@ -2,7 +2,7 @@
  *
  * indexing.c
  *	  本文件包含支持定义在系统
- *	  目录上的索引的例程。
+ *	  系统目录上的索引的例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -29,7 +29,7 @@
  * CatalogOpenIndexes - 打开系统目录上的索引。
  *
  * 在系统目录中插入或更新元组时，调用本函数
- * 以准备更新该目录的索引。
+ * 以准备更新该系统目录的索引。
  *
  * 在当前实现中，打开/关闭索引的代码与
  * execUtils.c 共用。但我们不使用 ExecInsertIndexTuples，
@@ -65,9 +65,9 @@ CatalogCloseIndexes(CatalogIndexState indstate)
 }
 
 /*
- * CatalogIndexInsert - 为一个目录元组插入索引项
+ * CatalogIndexInsert - 为一个系统目录元组插入索引项
  *
- * 每插入或更新一个目录元组都应调用本函数。
+ * 每插入或更新一个系统目录元组都应调用本函数。
  *
  * 这实际上是 ExecInsertIndexTuples 的精简版。
  */
@@ -182,7 +182,7 @@ CatalogIndexInsert(CatalogIndexState indstate, HeapTuple heapTuple,
 }
 
 /*
- * 用于验证目录约束是否得到遵守的子例程。
+ * 用于验证系统目录约束是否得到遵守的子例程。
  *
  * 经 CatalogTupleInsert/CatalogTupleUpdate 插入的元组通常是
  * "手工构造"的，因此可能不满足若由执行器插入时
@@ -219,9 +219,9 @@ CatalogTupleCheckConstraints(Relation heapRel, HeapTuple tup)
 #endif							/* USE_ASSERT_CHECKING */
 
 /*
- * CatalogTupleInsert - 为新目录元组完成堆和索引工作
+ * CatalogTupleInsert - 为新系统目录元组完成堆和索引工作
  *
- * 将 "tup" 中的元组数据插入指定目录关系。
+ * 将 "tup" 中的元组数据插入指定系统目录关系。
  *
  * 这是在系统目录中插入单个元组这一常见情形的
  * 便捷例程；它插入新的堆元组并保持索引
@@ -266,7 +266,7 @@ CatalogTupleInsertWithInfo(Relation heapRel, HeapTuple tup,
 /*
  * CatalogTuplesMultiInsertWithInfo - 同上，但用于多个元组
  *
- * 一次向给定目录关系插入多个元组，
+ * 一次向给定系统目录关系插入多个元组，
  * CatalogOpenIndexes 的成本被摊销。
  */
 void
@@ -281,7 +281,7 @@ CatalogTuplesMultiInsertWithInfo(Relation heapRel, TupleTableSlot **slot,
 					  GetCurrentCommandId(true), 0, NULL);
 
 	/*
-	 * 目录索引没有与 heap_multi_insert 对等的接口，因此
+	 * 系统目录索引没有与 heap_multi_insert 对等的接口，因此
 	 * 我们必须循环并逐个插入。
 	 */
 	for (int i = 0; i < ntuples; i++)
@@ -299,7 +299,7 @@ CatalogTuplesMultiInsertWithInfo(Relation heapRel, TupleTableSlot **slot,
 }
 
 /*
- * CatalogTupleUpdate - 为更新目录元组完成堆和索引工作
+ * CatalogTupleUpdate - 为更新系统目录元组完成堆和索引工作
  *
  * 更新由 "otid" 标识的元组，用 "tup" 中的数据替换它。
  *
@@ -347,14 +347,14 @@ CatalogTupleUpdateWithInfo(Relation heapRel, ItemPointer otid, HeapTuple tup,
 }
 
 /*
- * CatalogTupleDelete - 为删除目录元组完成堆和索引工作
+ * CatalogTupleDelete - 为删除系统目录元组完成堆和索引工作
  *
- * 删除指定目录中由 "tid" 标识的元组。
+ * 删除指定系统目录中由 "tid" 标识的元组。
  *
  * 对于 Postgres 堆，删除时没有索引工作要做；
  * 清理将稍后由 VACUUM 完成。不过，本函数的调用方
  * 不必知道这一点；我们希望对所有
- * 目录元组变更提供统一抽象。因此提供这个目前很简单的包装。
+ * 系统目录元组变更提供统一抽象。因此提供这个目前很简单的包装。
  *
  * 该抽象略有泄漏：我们没有提供优化的
  * CatalogTupleDeleteWithInfo 版本，因为目前没有什么可

@@ -92,8 +92,8 @@ typedef struct ResourceArray
 	((capacity) <= RESARRAY_MAX_ARRAY ? (capacity) : (capacity)/4 * 3)
 
 /*
- * 为了加速从资源所有者向其父所有者批量释放或重新
- * 新分配，每个资源所有者都有一个所持锁的小缓存。
+ * 为了加速从资源所有者向其父所有者批量释放或
+ * 重新分配，每个资源所有者都有所持锁的小缓存。
  * 锁管理器在其本地锁哈希表中也有同样的信息，如果
  * 缓存溢出时退回它，但哈希表中有很多属于其他资源
  * 所有者的锁时，遍历会更慢。
@@ -123,7 +123,7 @@ typedef struct ResourceOwnerData
 	ResourceArray bufferarr;	/* 缓冲区 */
 	ResourceArray bufferioarr;	/* 缓冲区 IO */
 	ResourceArray catrefarr;	/* catcache 引用 */
-	ResourceArray catlistrefarr;	/* catcache 列表pin */
+	ResourceArray catlistrefarr;	/* catcache 列表 pin */
 	ResourceArray relrefarr;	/* relcache 引用 */
 	ResourceArray planrefarr;	/* plancache 引用 */
 	ResourceArray tupdescarr;	/* tupdesc 引用 */
@@ -610,7 +610,7 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 		{
 			/*
 			 * 顶层事务将释放所有锁（或至少所有非会话
-			 * 话锁），因此只需在递归的顶部做一次 lmgr
+			 * 锁），因此只需在递归的顶部做一次 lmgr
 			 * 调用。
 			 */
 			if (owner == TopTransactionResourceOwner)
@@ -927,8 +927,8 @@ CreateAuxProcessResourceOwner(void)
 
 /*
  * 便捷例程：释放 AuxProcessResourceOwner 跟踪的
- * 全部资源（但此处不销毁该 resowner）。如果
- * 为 true 则对泄漏资源发警告。
+ * 全部资源（但此处不销毁该 resowner）。
+ * 若 isCommit 为 true 则警告泄漏资源。
  */
 void
 ReleaseAuxProcessResources(bool isCommit)

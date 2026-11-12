@@ -1,0 +1,74 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0363-review-fix",
+ "title": "resowner.c review-round fixes: 2 cross-line repeated chars, isCommit restored, L126 spacing",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "55201029294a236f225ab74d329b59cdfcc3863f",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0363-review-fix.json",
+   "kind": "manifest",
+   "note": "this fixup manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0363-resowner.json",
+   "kind": "manifest",
+   "note": "disclose L126 +1B overrun and record review round in notes"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "register fixup manifest path (S6)"
+  },
+  {
+   "pattern": "src/backend/utils/resowner/resowner.c",
+   "kind": "c_comment",
+   "note": "7 comment lines fixed per reviewer findings; no code changes"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0363-review-fix.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this fixup manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0363-resowner.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "notes: L126 disclosure + review-round record"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "register fixup manifest path (S6)"
+  },
+  {
+   "path": "src/backend/utils/resowner/resowner.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 7,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "L95-96 重新新分配->重新分配; L612-613 非会话话锁->非会话锁; L930-931 restore isCommit; L126 catcache 列表pin->列表 pin (+1B, disclosed)"
+  }
+ ],
+ "notes": "batch-0363-review-fix (2026-11-12, parent batch-0363=55201029294). Reviewer findings from the dual-agent read-only review: BLOCKER A L95-96 cross-line repeated-char re-re-new-assign (重新新分配, EN 'reassigning'); BLOCKER B L612-613 非会话话锁 (EN 'non-session locks'). ADVISORY C L930-931 dropped parameter name isCommit restored. ADVISORY D L126 CJK-EN spacing '列表pin' -> '列表 pin' (+1B whole-line overrun, disclosed; atomic glossary rendering, 0350 precedent). L96 also trimmed 一个 to stay in budget. Gates re-run: verify_c_comments 0 violations, term_lint 0 errors / 0 resowner hits, scan_halfen 0 findings. No code changes."
+}

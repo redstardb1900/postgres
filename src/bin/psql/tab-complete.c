@@ -2883,13 +2883,13 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("WHERE");
 
 	/* CREATE ACCESS METHOD */
-	/* Complete "CREATE ACCESS METHOD <name>" */
+	/* 补全 "CREATE ACCESS METHOD <name>" */
 	else if (Matches("CREATE", "ACCESS", "METHOD", MatchAny))
 		COMPLETE_WITH("TYPE");
-	/* Complete "CREATE ACCESS METHOD <name> TYPE" */
+	/* 补全 "CREATE ACCESS METHOD <name> TYPE" */
 	else if (Matches("CREATE", "ACCESS", "METHOD", MatchAny, "TYPE"))
 		COMPLETE_WITH("INDEX", "TABLE");
-	/* Complete "CREATE ACCESS METHOD <name> TYPE <type>" */
+	/* 补全 "CREATE ACCESS METHOD <name> TYPE <type>" */
 	else if (Matches("CREATE", "ACCESS", "METHOD", MatchAny, "TYPE", MatchAny))
 		COMPLETE_WITH("HANDLER");
 
@@ -2987,7 +2987,7 @@ psql_completion(const char *text, int start, int end)
 	else if (TailMatches("CREATE|UNIQUE", "INDEX", "CONCURRENTLY"))
 		COMPLETE_WITH_SCHEMA_QUERY_PLUS(Query_for_list_of_indexes,
 										"ON");
-	/* Complete CREATE|UNIQUE INDEX [CONCURRENTLY] <sth> with "ON" */
+	/* 补全 CREATE|UNIQUE INDEX [CONCURRENTLY] <sth> 为 "ON" */
 	else if (TailMatches("CREATE|UNIQUE", "INDEX", MatchAny) ||
 			 TailMatches("CREATE|UNIQUE", "INDEX", "CONCURRENTLY", MatchAny))
 		COMPLETE_WITH("ON");
@@ -3020,13 +3020,13 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("REPLACE");
 
 	/* CREATE POLICY */
-	/* Complete "CREATE POLICY <name> ON" */
+	/* 补全 "CREATE POLICY <name> ON" */
 	else if (Matches("CREATE", "POLICY", MatchAny))
 		COMPLETE_WITH("ON");
-	/* Complete "CREATE POLICY <name> ON <table>" */
+	/* 补全 "CREATE POLICY <name> ON <table>" */
 	else if (Matches("CREATE", "POLICY", MatchAny, "ON"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_tables);
-	/* Complete "CREATE POLICY <name> ON <table> AS|FOR|TO|USING|WITH CHECK" */
+	/* 补全 "CREATE POLICY <name> ON <table> AS|FOR|TO|USING|WITH CHECK" */
 	else if (Matches("CREATE", "POLICY", MatchAny, "ON", MatchAny))
 		COMPLETE_WITH("AS", "FOR", "TO", "USING (", "WITH CHECK (");
 	/* CREATE POLICY <name> ON <table> AS PERMISSIVE|RESTRICTIVE */
@@ -3042,20 +3042,20 @@ psql_completion(const char *text, int start, int end)
 	/* CREATE POLICY <name> ON <table> FOR ALL|SELECT|INSERT|UPDATE|DELETE */
 	else if (Matches("CREATE", "POLICY", MatchAny, "ON", MatchAny, "FOR"))
 		COMPLETE_WITH("ALL", "SELECT", "INSERT", "UPDATE", "DELETE");
-	/* Complete "CREATE POLICY <name> ON <table> FOR INSERT TO|WITH CHECK" */
+	/* 补全 "CREATE POLICY <name> ON <table> FOR INSERT TO|WITH CHECK" */
 	else if (Matches("CREATE", "POLICY", MatchAny, "ON", MatchAny, "FOR", "INSERT"))
 		COMPLETE_WITH("TO", "WITH CHECK (");
-	/* Complete "CREATE POLICY <name> ON <table> FOR SELECT|DELETE TO|USING" */
+	/* 补全 "CREATE POLICY <name> ON <table> FOR SELECT|DELETE TO|USING" */
 	else if (Matches("CREATE", "POLICY", MatchAny, "ON", MatchAny, "FOR", "SELECT|DELETE"))
 		COMPLETE_WITH("TO", "USING (");
 	/* CREATE POLICY <name> ON <table> FOR ALL|UPDATE TO|USING|WITH CHECK */
 	else if (Matches("CREATE", "POLICY", MatchAny, "ON", MatchAny, "FOR", "ALL|UPDATE"))
 		COMPLETE_WITH("TO", "USING (", "WITH CHECK (");
-	/* Complete "CREATE POLICY <name> ON <table> TO <role>" */
+	/* 补全 "CREATE POLICY <name> ON <table> TO <role>" */
 	else if (Matches("CREATE", "POLICY", MatchAny, "ON", MatchAny, "TO"))
 		COMPLETE_WITH_QUERY_PLUS(Query_for_list_of_roles,
 								 Keywords_for_list_of_grant_roles);
-	/* Complete "CREATE POLICY <name> ON <table> USING (" */
+	/* 补全 "CREATE POLICY <name> ON <table> USING (" */
 	else if (Matches("CREATE", "POLICY", MatchAny, "ON", MatchAny, "USING"))
 		COMPLETE_WITH("(");
 
@@ -3140,16 +3140,16 @@ psql_completion(const char *text, int start, int end)
 								 "CURRENT_SCHEMA");
 	else if (Matches("CREATE", "PUBLICATION", MatchAny, "FOR", "TABLES", "IN", "SCHEMA", MatchAny) && (!ends_with(prev_wd, ',')))
 		COMPLETE_WITH("WITH (");
-	/* Complete "CREATE PUBLICATION <name> [...] WITH" */
+	/* 补全 "CREATE PUBLICATION <name> [...] WITH" */
 	else if (HeadMatches("CREATE", "PUBLICATION") && TailMatches("WITH", "("))
 		COMPLETE_WITH("publish", "publish_via_partition_root");
 
 /* CREATE RULE */
-	/* Complete "CREATE [ OR REPLACE ] RULE <sth>" with "AS ON" */
+	/* 补全 "CREATE [ OR REPLACE ] RULE <sth>" 为 "AS ON" */
 	else if (Matches("CREATE", "RULE", MatchAny) ||
 			 Matches("CREATE", "OR", "REPLACE", "RULE", MatchAny))
 		COMPLETE_WITH("AS ON");
-	/* Complete "CREATE [ OR REPLACE ] RULE <sth> AS" with "ON" */
+	/* 补全 "CREATE [ OR REPLACE ] RULE <sth> AS" 为 "ON" */
 	else if (Matches("CREATE", "RULE", MatchAny, "AS") ||
 			 Matches("CREATE", "OR", "REPLACE", "RULE", MatchAny, "AS"))
 		COMPLETE_WITH("ON");
@@ -3280,7 +3280,7 @@ psql_completion(const char *text, int start, int end)
 	}
 	else if (HeadMatches("CREATE", "SUBSCRIPTION") && TailMatches("PUBLICATION", MatchAny))
 		COMPLETE_WITH("WITH (");
-	/* Complete "CREATE SUBSCRIPTION <name> ...  WITH ( <opt>" */
+	/* 补全 "CREATE SUBSCRIPTION <name> ...  WITH ( <opt>" */
 	else if (HeadMatches("CREATE", "SUBSCRIPTION") && TailMatches("WITH", "("))
 		COMPLETE_WITH("binary", "connect", "copy_data", "create_slot",
 					  "disable_on_error", "enabled", "origin",
@@ -4183,7 +4183,7 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("MODE", "ROW EXCLUSIVE MODE",
 					  "UPDATE EXCLUSIVE MODE");
 
-	/* Complete LOCK [TABLE] [ONLY] <table> [IN lockmode MODE] with "NOWAIT" */
+	/* 补全 LOCK [TABLE] [ONLY] <table> [IN lockmode MODE] 为 "NOWAIT" */
 	else if (HeadMatches("LOCK") && TailMatches("MODE"))
 		COMPLETE_WITH("NOWAIT");
 
@@ -4413,7 +4413,7 @@ psql_completion(const char *text, int start, int end)
 										  "ALL");
 	else if (Matches("SHOW", "SESSION"))
 		COMPLETE_WITH("AUTHORIZATION");
-	/* Complete "SET TRANSACTION" */
+	/* 补全 "SET TRANSACTION" */
 	else if (Matches("SET", "TRANSACTION"))
 		COMPLETE_WITH("SNAPSHOT", "ISOLATION LEVEL", "READ", "DEFERRABLE", "NOT DEFERRABLE");
 	else if (Matches("BEGIN|START", "TRANSACTION") ||
@@ -4465,7 +4465,7 @@ psql_completion(const char *text, int start, int end)
 	/* 补全 RESET SESSION 为 AUTHORIZATION */
 	else if (Matches("RESET", "SESSION"))
 		COMPLETE_WITH("AUTHORIZATION");
-	/* Complete SET <var> with "TO" */
+	/* 补全 SET <var> 为 "TO" */
 	else if (Matches("SET", MatchAny))
 		COMPLETE_WITH("TO");
 

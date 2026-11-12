@@ -1,0 +1,65 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0353",
+ "title": "tab-complete part 2 tranche 2: 18 formulaic Complete-X one-liners translated",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "e0b540b11b6bb3692ecabd22a551b5b1b24ff111",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0353-tabcomplete-p2t2.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0353 manifest path (S6 registration)"
+  },
+  {
+   "pattern": "src/bin/psql/tab-complete.c",
+   "kind": "c_comment",
+   "note": "part 2 tranche 2: 18 'Complete X [with Y]' one-liner comments translated via 3 exact regex rules (Complete \"X\" -> 补全 \"X\""
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0353-tabcomplete-p2t2.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0353 manifest path (S6 registration)"
+  },
+  {
+   "path": "src/bin/psql/tab-complete.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 18,
+   "translated": 18,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "part 2 tranche 2: 18 'Complete X [with Y]' one-liner comments translated via 3 exact regex rules (Complete \"X\" -> 补全 \"X\"; ...with \"Y\" -> ...为 \"Y\"; keywords/quotes kept EN), all lines shrinking (byte budgets trivially held)"
+  }
+ ],
+ "notes": "batch-0353 tranche 2 (2026-11-12, parent batch-0352=e0b540b11b6). 18 'Complete X [with Y]' one-liner comments in tab-complete.c translated via three exact regex rules following the committed house form (L2984/3119/3158/3167/3199/3202 precedent): Complete \"X\" -> 补全 \"X\"; Complete \"X\" with \"Y\" -> 补全 \"X\" 为 \"Y\"; Complete X with \"Y\" -> 补全 X 为 \"Y\" (keywords, quotes, placeholders kept EN). All 18 lines shrink (补全 6B < Complete 8B, 为 3B < with 4B) so byte budgets trivially hold; indent preserved per line. Sites: L2886/2889/2892 (ACCESS METHOD), L2990 (INDEX ON), L3023-3058 (POLICY x7), L3143 (PUBLICATION), L3148/3152 (RULE), L3283 (SUBSCRIPTION), L4186 (LOCK NOWAIT), L4416 (SET TRANSACTION), L4468 (SET TO). Gates (pre-commit, batch scope --paths tab-complete.c): verify_c_comments --worktree REL_16_11 . --paths = 1 ok 0 violations changed=320; term_lint --paths dual-state bare 0/0 and --pgnls 0 errors + 1 pre-existing P17 warning (L4294); scan_halfen full-worktree default 0; raw --no-exemptions 422 == HEAD 422 identical (SQL-keyword-only zh lines, no new MIXED); check_scope incremental PASS (S6: batch-0353 registered in cumulative.json) + default cumulative PASS. Tests 229 = 222 + 7 ScopeEndToEnd umask failures (no tool change). Part 2 remaining: prose one-liners with real prose (If we have X / add Y style, ~50) + prose blocks (~60 after the KEEP-syntax-listing exclusions) - later tranches.",
+ "post_review": {
+  "combined": "PASS, zero findings: all 18 diffs byte-exact applications of the three house rules (CJK-stripped residue + exact rule reconstruction verified programmatically); quotes/keywords/placeholders untouched; the five with-form sites (L2990/3148/3152/4186/4468) correctly use 为 matching committed precedents L2984/3158/3167/3199/3202 (no 按 case); L3283 WITH-in-pattern is uppercase inside the quoted EN pattern so rule 1 applies with EN double space preserved. Mechanics: exactly 18 changed lines, indent byte-identical per line, strictly shrinking, file line count unchanged, changed set = 3 manifest paths. Gates: verify 1 ok 0 violations changed=320; term bare 0/0 + pgnls 0 errors + exactly 1 pre-existing P17@L4294 (committed untouched line); halfen default 0; raw 422==422 byte-identical sets; check_scope incremental PASS 3 + cumulative PASS 1218; tests 229=222+7. Manifest: parent==HEAD, cumulative registers batch-0353 with trailing newline. PROCEED: commit as staged.",
+  "delta_applied": false,
+  "delta_script": "none - zero findings on first review.",
+  "re_ack": "单代理合并审查制（0348 先例，18 站规则同构批）。PASS 零发现，批可进入提交."
+ }
+}

@@ -2778,6 +2778,11 @@
    "note": "ResourceOwner"
   },
   {
+   "pattern": "src/backend/utils/resowner/resowner.c",
+   "kind": "c_comment",
+   "note": "resowner.c whole-file comment translation (batch-0363)"
+  },
+  {
    "pattern": "src/bin/initdb/findtimezone.c",
    "kind": "c_comment",
    "note": ""
@@ -5921,6 +5926,11 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0362-skeleton-closeout.json",
    "kind": "manifest",
    "note": "batch-0362 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0363-resowner.json",
+   "kind": "manifest",
+   "note": "batch-0363 manifest"
   },
   {
    "pattern": "src/tools/zh-tools/manifests/cumulative.json",
@@ -12583,6 +12593,16 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "ResourceOwner"
+  },
+  {
+   "path": "src/backend/utils/resowner/resowner.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 153,
+   "translated": 153,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "resowner.c whole-file comment translation (batch-0363)"
   },
   {
    "path": "src/bin/initdb/findtimezone.c",
@@ -19652,6 +19672,16 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0362 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0363-resowner.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0363 manifest"
   },
   {
    "path": "src/tools/zh-tools/manifests/cumulative.json",

@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * resowner.c
- *	  POSTGRES resource owner management code.
+ *	  POSTGRES 资源所有者管理代码。
  *
- * Query-lifespan resources are tracked by associating them with
- * ResourceOwner objects.  This provides a simple mechanism for ensuring
- * that such resources are freed at the right time.
- * See utils/resowner/README for more info.
+ * 查询生命周期资源会通过与 ResourceOwner 对象
+ * 关联来跟踪。这提供了一种简单机制，可确保此类
+ * 资源在恰当时机被释放。
+ * 详情参见 utils/resowner/README。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -35,11 +35,11 @@
 
 
 /*
- * All resource IDs managed by this code are required to fit into a Datum,
- * which is fine since they are generally pointers or integers.
+ * 本代码管理的所有资源 ID 都必须能放入一个 Datum 中，
+ * 由于它们通常是指针或整数，这不成问题。
  *
- * Provide Datum conversion macros for a couple of things that are really
- * just "int".
+ * 为几样实际上就是 "int" 类型的东西提供 Datum 转换
+ * 宏。
  */
 #define FileGetDatum(file) Int32GetDatum(file)
 #define DatumGetFile(datum) ((File) DatumGetInt32(datum))
@@ -47,101 +47,101 @@
 #define DatumGetBuffer(datum) ((Buffer) DatumGetInt32(datum))
 
 /*
- * ResourceArray is a common structure for storing all types of resource IDs.
+ * ResourceArray 是存储所有类型资源 ID 的通用结构。
  *
- * We manage small sets of resource IDs by keeping them in a simple array:
- * itemsarr[k] holds an ID, for 0 <= k < nitems <= maxitems = capacity.
+ * 我们用简单数组来管理较小的资源 ID 集合：
+ * itemsarr[k] 保存 ID，0 <= k < nitems <= maxitems = capacity。
  *
- * If a set grows large, we switch over to using open-addressing hashing.
- * Then, itemsarr[] is a hash table of "capacity" slots, with each
- * slot holding either an ID or "invalidval".  nitems is the number of valid
- * items present; if it would exceed maxitems, we enlarge the array and
- * re-hash.  In this mode, maxitems should be rather less than capacity so
- * that we don't waste too much time searching for empty slots.
+ * 如果集合变大，我们就切换到使用开放寻址哈希。
+ * 此时 itemsarr[] 成为含 "capacity" 个槽的哈希表，
+ * 每个槽要么持有 ID，要么持有 "invalidval"。nitems 为有效
+ * 条目数；若将超过 maxitems，则扩大数组并
+ * 重新哈希。此模式下 maxitems 应明显小于 capacity，
+ * 以免浪费太多时间寻找空槽。
  *
- * In either mode, lastidx remembers the location of the last item inserted
- * or returned by GetAny; this speeds up searches in ResourceArrayRemove.
+ * 在这两种模式下，lastidx 都记住最后插入或由 GetAny
+ * 返回条目位置；让 ResourceArrayRemove 中搜索更快。
  */
 typedef struct ResourceArray
 {
-	Datum	   *itemsarr;		/* buffer for storing values */
-	Datum		invalidval;		/* value that is considered invalid */
-	uint32		capacity;		/* allocated length of itemsarr[] */
-	uint32		nitems;			/* how many items are stored in items array */
-	uint32		maxitems;		/* current limit on nitems before enlarging */
-	uint32		lastidx;		/* index of last item returned by GetAny */
+	Datum	   *itemsarr;		/* 存储值的缓冲区 */
+	Datum		invalidval;		/* 被视为无效的值 */
+	uint32		capacity;		/* itemsarr[] 的已分配长度 */
+	uint32		nitems;			/* items 数组中存储的条目数 */
+	uint32		maxitems;		/* 扩容前对 nitems 的当前限制 */
+	uint32		lastidx;		/* GetAny 最后返回条目的索引 */
 } ResourceArray;
 
 /*
- * Initially allocated size of a ResourceArray.  Must be power of two since
- * we'll use (arraysize - 1) as mask for hashing.
+ * ResourceArray 初始分配的大小。必须是 2 的幂，因为
+ * 要用 (arraysize - 1) 作为哈希掩码。
  */
 #define RESARRAY_INIT_SIZE 16
 
 /*
- * When to switch to hashing vs. simple array logic in a ResourceArray.
+ * ResourceArray 中何时切换到哈希，而非简单数组逻辑。
  */
 #define RESARRAY_MAX_ARRAY 64
 #define RESARRAY_IS_ARRAY(resarr) ((resarr)->capacity <= RESARRAY_MAX_ARRAY)
 
 /*
- * How many items may be stored in a resource array of given capacity.
- * When this number is reached, we must resize.
+ * 给定 capacity 的资源数组中可存储多少条目。
+ * 达到该数目时就必须调整大小。
  */
 #define RESARRAY_MAX_ITEMS(capacity) \
 	((capacity) <= RESARRAY_MAX_ARRAY ? (capacity) : (capacity)/4 * 3)
 
 /*
- * To speed up bulk releasing or reassigning locks from a resource owner to
- * its parent, each resource owner has a small cache of locks it owns. The
- * lock manager has the same information in its local lock hash table, and
- * we fall back on that if cache overflows, but traversing the hash table
- * is slower when there are a lot of locks belonging to other resource owners.
+ * 为了加速从资源所有者向其父所有者批量释放或重新
+ * 新分配，每个资源所有者都有一个所持锁的小缓存。
+ * 锁管理器在其本地锁哈希表中也有同样的信息，如果
+ * 缓存溢出时退回它，但哈希表中有很多属于其他资源
+ * 所有者的锁时，遍历会更慢。
  *
- * MAX_RESOWNER_LOCKS is the size of the per-resource owner cache. It's
- * chosen based on some testing with pg_dump with a large schema. When the
- * tests were done (on 9.2), resource owners in a pg_dump run contained up
- * to 9 locks, regardless of the schema size, except for the top resource
- * owner which contained much more (overflowing the cache). 15 seems like a
- * nice round number that's somewhat higher than what pg_dump needs. Note that
- * making this number larger is not free - the bigger the cache, the slower
- * it is to release locks (in retail), when a resource owner holds many locks.
+ * MAX_RESOWNER_LOCKS 是每个资源所有者缓存的大小。它
+ * 是根据对 pg_dump 大型 schema 的测试选定的。进行测试
+ * 时（在 9.2 上），一次 pg_dump 运行中的资源所有者最多
+ * 持有 9 把锁，与 schema 大小无关，但顶层资源所有者
+ * 持有的锁要多得多（缓存溢出）。15 是个不错的整数，
+ * 比 pg_dump 所需的稍高一些。注意，把这个数调大并非
+ * 没有代价——缓存越大，逐个释放锁（资源所有者持有
+ * 很多锁时）会更慢。
  */
 #define MAX_RESOWNER_LOCKS 15
 
 /*
- * ResourceOwner objects look like this
+ * ResourceOwner 对象结构如下
  */
 typedef struct ResourceOwnerData
 {
-	ResourceOwner parent;		/* NULL if no parent (toplevel owner) */
-	ResourceOwner firstchild;	/* head of linked list of children */
-	ResourceOwner nextchild;	/* next child of same parent */
-	const char *name;			/* name (just for debugging) */
+	ResourceOwner parent;		/* 无父时为 NULL（顶层） */
+	ResourceOwner firstchild;	/* 子所有者链表的头 */
+	ResourceOwner nextchild;	/* 同一父的下一个子 */
+	const char *name;			/* 名称（调试用） */
 
-	/* We have built-in support for remembering: */
-	ResourceArray bufferarr;	/* owned buffers */
-	ResourceArray bufferioarr;	/* in-progress buffer IO */
-	ResourceArray catrefarr;	/* catcache references */
-	ResourceArray catlistrefarr;	/* catcache-list pins */
-	ResourceArray relrefarr;	/* relcache references */
-	ResourceArray planrefarr;	/* plancache references */
-	ResourceArray tupdescarr;	/* tupdesc references */
-	ResourceArray snapshotarr;	/* snapshot references */
-	ResourceArray filearr;		/* open temporary files */
-	ResourceArray dsmarr;		/* dynamic shmem segments */
-	ResourceArray jitarr;		/* JIT contexts */
-	ResourceArray cryptohasharr;	/* cryptohash contexts */
-	ResourceArray hmacarr;		/* HMAC contexts */
+	/* 我们内建支持记住以下内容： */
+	ResourceArray bufferarr;	/* 缓冲区 */
+	ResourceArray bufferioarr;	/* 缓冲区 IO */
+	ResourceArray catrefarr;	/* catcache 引用 */
+	ResourceArray catlistrefarr;	/* catcache 列表pin */
+	ResourceArray relrefarr;	/* relcache 引用 */
+	ResourceArray planrefarr;	/* plancache 引用 */
+	ResourceArray tupdescarr;	/* tupdesc 引用 */
+	ResourceArray snapshotarr;	/* 快照引用 */
+	ResourceArray filearr;		/* 打开临时文件 */
+	ResourceArray dsmarr;		/* 动态共享内存段 */
+	ResourceArray jitarr;		/* JIT 上下文 */
+	ResourceArray cryptohasharr;	/* 加密哈希上下文 */
+	ResourceArray hmacarr;		/* HMAC 上下文 */
 
-	/* We can remember up to MAX_RESOWNER_LOCKS references to local locks. */
-	int			nlocks;			/* number of owned locks */
-	LOCALLOCK  *locks[MAX_RESOWNER_LOCKS];	/* list of owned locks */
+	/* 最多可记住 MAX_RESOWNER_LOCKS 个本地锁引用 */
+	int			nlocks;			/* 持有的锁数量 */
+	LOCALLOCK  *locks[MAX_RESOWNER_LOCKS];	/* 持有锁列表 */
 }			ResourceOwnerData;
 
 
 /*****************************************************************************
- *	  GLOBAL MEMORY															 *
+ *	  全局内存                 *
  *****************************************************************************/
 
 ResourceOwner CurrentResourceOwner = NULL;
@@ -150,7 +150,7 @@ ResourceOwner TopTransactionResourceOwner = NULL;
 ResourceOwner AuxProcessResourceOwner = NULL;
 
 /*
- * List of add-on callbacks for resource releasing
+ * 用于资源释放的附加回调列表
  */
 typedef struct ResourceReleaseCallbackItem
 {
@@ -162,7 +162,7 @@ typedef struct ResourceReleaseCallbackItem
 static ResourceReleaseCallbackItem *ResourceRelease_callbacks = NULL;
 
 
-/* Internal routines */
+/* 内部例程 */
 static void ResourceArrayInit(ResourceArray *resarr, Datum invalidval);
 static void ResourceArrayEnlarge(ResourceArray *resarr);
 static void ResourceArrayAdd(ResourceArray *resarr, Datum value);
@@ -185,31 +185,31 @@ static void PrintHMACLeakWarning(Datum handle);
 
 
 /*****************************************************************************
- *	  INTERNAL ROUTINES														 *
+ *	  内部例程                    *
  *****************************************************************************/
 
 
 /*
- * Initialize a ResourceArray
+ * 初始化 ResourceArray
  */
 static void
 ResourceArrayInit(ResourceArray *resarr, Datum invalidval)
 {
-	/* Assert it's empty */
+	/* 断言为空 */
 	Assert(resarr->itemsarr == NULL);
 	Assert(resarr->capacity == 0);
 	Assert(resarr->nitems == 0);
 	Assert(resarr->maxitems == 0);
-	/* Remember the appropriate "invalid" value */
+	/* 记住相应的 "invalid" 值 */
 	resarr->invalidval = invalidval;
-	/* We don't allocate any storage until needed */
+	/* 在需要之前我们不分配任何存储 */
 }
 
 /*
- * Make sure there is room for at least one more resource in an array.
+ * 确保数组中至少还有一个资源的空间。
  *
- * This is separate from actually inserting a resource because if we run out
- * of memory, it's critical to do so *before* acquiring the resource.
+ * 这一步与实际插入资源是分开的，因为如果我们耗尽
+ * 了内存，在获取资源*之前*这样做是至关重要的。
  */
 static void
 ResourceArrayEnlarge(ResourceArray *resarr)
@@ -221,19 +221,19 @@ ResourceArrayEnlarge(ResourceArray *resarr)
 	Datum	   *newitemsarr;
 
 	if (resarr->nitems < resarr->maxitems)
-		return;					/* no work needed */
+		return;					/* 无需操作 */
 
 	olditemsarr = resarr->itemsarr;
 	oldcap = resarr->capacity;
 
-	/* Double the capacity of the array (capacity must stay a power of 2!) */
+	/* 将数组容量翻倍（capacity 必须保持为 2 的幂！） */
 	newcap = (oldcap > 0) ? oldcap * 2 : RESARRAY_INIT_SIZE;
 	newitemsarr = (Datum *) MemoryContextAlloc(TopMemoryContext,
 											   newcap * sizeof(Datum));
 	for (i = 0; i < newcap; i++)
 		newitemsarr[i] = resarr->invalidval;
 
-	/* We assume we can't fail below this point, so OK to scribble on resarr */
+	/* 假设从此处往后不会失败，故可随意改写 resarr */
 	resarr->itemsarr = newitemsarr;
 	resarr->capacity = newcap;
 	resarr->maxitems = RESARRAY_MAX_ITEMS(newcap);
@@ -242,11 +242,11 @@ ResourceArrayEnlarge(ResourceArray *resarr)
 	if (olditemsarr != NULL)
 	{
 		/*
-		 * Transfer any pre-existing entries into the new array; they don't
-		 * necessarily go where they were before, so this simple logic is the
-		 * best way.  Note that if we were managing the set as a simple array,
-		 * the entries after nitems are garbage, but that shouldn't matter
-		 * because we won't get here unless nitems was equal to oldcap.
+		 * 把已有条目转移到新数组；它们不一定在原处，
+		 * 所以这种简单逻辑是最好的办法。注意，如果我们
+		 * 之前是把该集合作为简单数组管理，那么 nitems 之
+		 * 后条目就是垃圾，但这应无关紧要，因为只有
+		 * 当 nitems 等于 oldcap 时我们才会到这里。
 		 */
 		for (i = 0; i < oldcap; i++)
 		{
@@ -254,7 +254,7 @@ ResourceArrayEnlarge(ResourceArray *resarr)
 				ResourceArrayAdd(resarr, olditemsarr[i]);
 		}
 
-		/* And release old array. */
+		/* 然后释放旧数组 */
 		pfree(olditemsarr);
 	}
 
@@ -262,9 +262,9 @@ ResourceArrayEnlarge(ResourceArray *resarr)
 }
 
 /*
- * Add a resource to ResourceArray
+ * 向 ResourceArray 添加资源
  *
- * Caller must have previously done ResourceArrayEnlarge()
+ * 调用者必须已经执行过 ResourceArrayEnlarge()
  */
 static void
 ResourceArrayAdd(ResourceArray *resarr, Datum value)
@@ -276,12 +276,12 @@ ResourceArrayAdd(ResourceArray *resarr, Datum value)
 
 	if (RESARRAY_IS_ARRAY(resarr))
 	{
-		/* Append to linear array. */
+		/* 追加到线性数组 */
 		idx = resarr->nitems;
 	}
 	else
 	{
-		/* Insert into first free slot at or after hash location. */
+		/* 插入到哈希位置或其后首个空闲槽。 */
 		uint32		mask = resarr->capacity - 1;
 
 		idx = DatumGetUInt32(hash_any((void *) &value, sizeof(value))) & mask;
@@ -298,11 +298,11 @@ ResourceArrayAdd(ResourceArray *resarr, Datum value)
 }
 
 /*
- * Remove a resource from ResourceArray
+ * 从 ResourceArray 移除资源
  *
- * Returns true on success, false if resource was not found.
+ * 成功返回 true，未找到资源则返回 false。
  *
- * Note: if same resource ID appears more than once, one instance is removed.
+ * 注意：若同一资源 ID 出现多次，则移除其中一个。
  */
 static bool
 ResourceArrayRemove(ResourceArray *resarr, Datum value)
@@ -313,7 +313,7 @@ ResourceArrayRemove(ResourceArray *resarr, Datum value)
 
 	Assert(value != resarr->invalidval);
 
-	/* Search through all items, but try lastidx first. */
+	/* 遍历所有条目，但先尝试 lastidx。 */
 	if (RESARRAY_IS_ARRAY(resarr))
 	{
 		if (lastidx < resarr->nitems &&
@@ -321,7 +321,7 @@ ResourceArrayRemove(ResourceArray *resarr, Datum value)
 		{
 			resarr->itemsarr[lastidx] = resarr->itemsarr[resarr->nitems - 1];
 			resarr->nitems--;
-			/* Update lastidx to make reverse-order removals fast. */
+			/* 更新 lastidx 以使逆序移除更快。 */
 			resarr->lastidx = resarr->nitems - 1;
 			return true;
 		}
@@ -331,7 +331,7 @@ ResourceArrayRemove(ResourceArray *resarr, Datum value)
 			{
 				resarr->itemsarr[i] = resarr->itemsarr[resarr->nitems - 1];
 				resarr->nitems--;
-				/* Update lastidx to make reverse-order removals fast. */
+				/* 更新 lastidx 以使逆序移除更快。 */
 				resarr->lastidx = resarr->nitems - 1;
 				return true;
 			}
@@ -365,13 +365,13 @@ ResourceArrayRemove(ResourceArray *resarr, Datum value)
 }
 
 /*
- * Get any convenient entry in a ResourceArray.
+ * 获取 ResourceArray 中任一条目。
  *
- * "Convenient" is defined as "easy for ResourceArrayRemove to remove";
- * we help that along by setting lastidx to match.  This avoids O(N^2) cost
- * when removing all ResourceArray items during ResourceOwner destruction.
+ * "便利"的定义是"便于 ResourceArrayRemove 移除"；
+ * 我们通过相应设置 lastidx 来促成，从而避免在销毁
+ * ResourceOwner 时移除全部 ResourceArray 条目的 O(N^2) 开销。
  *
- * Returns true if we found an element, or false if the array is empty.
+ * 如果找到元素则返回 true，数组为空则返回 false。
  */
 static bool
 ResourceArrayGetAny(ResourceArray *resarr, Datum *value)
@@ -381,12 +381,12 @@ ResourceArrayGetAny(ResourceArray *resarr, Datum *value)
 
 	if (RESARRAY_IS_ARRAY(resarr))
 	{
-		/* Linear array: just return the first element. */
+		/* 线性数组：直接返回第一个元素 */
 		resarr->lastidx = 0;
 	}
 	else
 	{
-		/* Hash: search forward from wherever we were last. */
+		/* 哈希：从上次所在位置向后搜索。 */
 		uint32		mask = resarr->capacity - 1;
 
 		for (;;)
@@ -403,7 +403,7 @@ ResourceArrayGetAny(ResourceArray *resarr, Datum *value)
 }
 
 /*
- * Trash a ResourceArray (we don't care about its state after this)
+ * 废弃一个 ResourceArray（之后不关心其状态）
  */
 static void
 ResourceArrayFree(ResourceArray *resarr)
@@ -414,16 +414,16 @@ ResourceArrayFree(ResourceArray *resarr)
 
 
 /*****************************************************************************
- *	  EXPORTED ROUTINES														 *
+ *	  导出例程                    *
  *****************************************************************************/
 
 
 /*
  * ResourceOwnerCreate
- *		Create an empty ResourceOwner.
+ *		创建空的 ResourceOwner。
  *
- * All ResourceOwner objects are kept in TopMemoryContext, since they should
- * only be freed explicitly.
+ * 所有 ResourceOwner 对象都保存在 TopMemoryContext 中，因为
+ * 只能被显式释放。
  */
 ResourceOwner
 ResourceOwnerCreate(ResourceOwner parent, const char *name)
@@ -460,29 +460,29 @@ ResourceOwnerCreate(ResourceOwner parent, const char *name)
 
 /*
  * ResourceOwnerRelease
- *		Release all resources owned by a ResourceOwner and its descendants,
- *		but don't delete the owner objects themselves.
+ *		释放一个 ResourceOwner 及其后代所拥有的全部资源，
+ *		但不删除所有者对象本身。
  *
- * Note that this executes just one phase of release, and so typically
- * must be called three times.  We do it this way because (a) we want to
- * do all the recursion separately for each phase, thereby preserving
- * the needed order of operations; and (b) xact.c may have other operations
- * to do between the phases.
+ * 注意，这仅执行释放的一个阶段，因此通常必须调
+ * 用三次。这是因为：(a) 我们想对每个阶段
+ * 分别进行递归，从而保持所需的操作顺序；以及
+ * (b) xact.c 在各阶段之间可能还有其他操作
+ * 要执行。
  *
- * phase: release phase to execute
- * isCommit: true for successful completion of a query or transaction,
- *			false for unsuccessful
- * isTopLevel: true if completing a main transaction, else false
+ * phase: 要执行的释放阶段
+ * isCommit: 查询或事务成功完成时为 true，
+ *			否则为 false
+ * isTopLevel: 完成主事务时为 true，否则为 false
  *
- * isCommit is passed because some modules may expect that their resources
- * were all released already if the transaction or portal finished normally.
- * If so it is reasonable to give a warning (NOT an error) should any
- * unreleased resources be present.  When isCommit is false, such warnings
- * are generally inappropriate.
+ * 传递 isCommit 是因为某些模块可能期望：如果事务或
+ * portal 正常结束，其资源就都已被释放。若是这样，
+ * 存在未释放资源时给警告（而非错误）是合理的。
+ * 当 isCommit 为 false 时，此类警告
+ * 通常是不合适的。
  *
- * isTopLevel is passed when we are releasing TopTransactionResourceOwner
- * at completion of a main transaction.  This generally means that *all*
- * resources will be released, and so we can optimize things a bit.
+ * 传递 isTopLevel 是在我们于主事务结束时释放
+ * TopTransactionResourceOwner 时传入。这通常意味着*所有*
+ * 资源都将被释放，因此我们可以稍微优化一下。
  */
 void
 ResourceOwnerRelease(ResourceOwner owner,
@@ -490,7 +490,7 @@ ResourceOwnerRelease(ResourceOwner owner,
 					 bool isCommit,
 					 bool isTopLevel)
 {
-	/* There's not currently any setup needed before recursing */
+	/* 目前递归之前不需要任何设置 */
 	ResourceOwnerReleaseInternal(owner, phase, isCommit, isTopLevel);
 }
 
@@ -506,13 +506,13 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 	ResourceReleaseCallbackItem *next;
 	Datum		foundres;
 
-	/* Recurse to handle descendants */
+	/* 递归以处理后代 */
 	for (child = owner->firstchild; child != NULL; child = child->nextchild)
 		ResourceOwnerReleaseInternal(child, phase, isCommit, isTopLevel);
 
 	/*
-	 * Make CurrentResourceOwner point to me, so that ReleaseBuffer etc don't
-	 * get confused.
+	 * 让 CurrentResourceOwner 指向我，使 ReleaseBuffer 等函数
+	 * 不致混淆
 	 */
 	save = CurrentResourceOwner;
 	CurrentResourceOwner = owner;
@@ -520,13 +520,13 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 	if (phase == RESOURCE_RELEASE_BEFORE_LOCKS)
 	{
 		/*
-		 * Abort failed buffer IO. AbortBufferIO()->TerminateBufferIO() calls
-		 * ResourceOwnerForgetBufferIO(), so we just have to iterate till
-		 * there are none.
+		 * 中止失败的缓冲区 IO。AbortBufferIO()->TerminateBufferIO()
+		 * 调用 ResourceOwnerForgetBufferIO()，只需迭代到没有
+		 * 为止。
 		 *
-		 * Needs to be before we release buffer pins.
+		 * 必须放在释放缓冲区 pin 之前。
 		 *
-		 * During a commit, there shouldn't be any in-progress IO.
+		 * 提交期间不应有任何进行中的 IO。
 		 */
 		while (ResourceArrayGetAny(&(owner->bufferioarr), &foundres))
 		{
@@ -538,13 +538,13 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 		}
 
 		/*
-		 * Release buffer pins.  Note that ReleaseBuffer will remove the
-		 * buffer entry from our array, so we just have to iterate till there
-		 * are none.
+		 * 释放缓冲区 pin。注意 ReleaseBuffer 会把缓冲区从
+		 * 数组中移除，因此我们只需迭代到没有
+		 * 为止。
 		 *
-		 * During a commit, there shouldn't be any remaining pins --- that
-		 * would indicate failure to clean up the executor correctly --- so
-		 * issue warnings.  In the abort case, just clean up quietly.
+		 * 提交期间不应留有任何 pin —— 那将意味着
+		 * 执行器未被正确清理 —— 因此要发出警告。
+		 * 中止的情况下只需安静地清理。
 		 */
 		while (ResourceArrayGetAny(&(owner->bufferarr), &foundres))
 		{
@@ -555,7 +555,7 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 			ReleaseBuffer(res);
 		}
 
-		/* Ditto for relcache references */
+		/* relcache 引用同理 */
 		while (ResourceArrayGetAny(&(owner->relrefarr), &foundres))
 		{
 			Relation	res = (Relation) DatumGetPointer(foundres);
@@ -565,7 +565,7 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 			RelationClose(res);
 		}
 
-		/* Ditto for dynamic shared memory segments */
+		/* 动态共享内存段同理 */
 		while (ResourceArrayGetAny(&(owner->dsmarr), &foundres))
 		{
 			dsm_segment *res = (dsm_segment *) DatumGetPointer(foundres);
@@ -575,7 +575,7 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 			dsm_detach(res);
 		}
 
-		/* Ditto for JIT contexts */
+		/* JIT 上下文同理 */
 		while (ResourceArrayGetAny(&(owner->jitarr), &foundres))
 		{
 			JitContext *context = (JitContext *) DatumGetPointer(foundres);
@@ -583,7 +583,7 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 			jit_release_context(context);
 		}
 
-		/* Ditto for cryptohash contexts */
+		/* 加密哈希上下文同理 */
 		while (ResourceArrayGetAny(&(owner->cryptohasharr), &foundres))
 		{
 			pg_cryptohash_ctx *context =
@@ -594,7 +594,7 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 			pg_cryptohash_free(context);
 		}
 
-		/* Ditto for HMAC contexts */
+		/* HMAC 上下文同理 */
 		while (ResourceArrayGetAny(&(owner->hmacarr), &foundres))
 		{
 			pg_hmac_ctx *context = (pg_hmac_ctx *) DatumGetPointer(foundres);
@@ -609,9 +609,9 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 		if (isTopLevel)
 		{
 			/*
-			 * For a top-level xact we are going to release all locks (or at
-			 * least all non-session locks), so just do a single lmgr call at
-			 * the top of the recursion.
+			 * 顶层事务将释放所有锁（或至少所有非会话
+			 * 话锁），因此只需在递归的顶部做一次 lmgr
+			 * 调用。
 			 */
 			if (owner == TopTransactionResourceOwner)
 			{
@@ -622,9 +622,9 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 		else
 		{
 			/*
-			 * Release locks retail.  Note that if we are committing a
-			 * subtransaction, we do NOT release its locks yet, but transfer
-			 * them to the parent.
+			 * 逐个释放锁。注意，若提交的是子事务，
+			 * 我们还不会释放其锁，而是把它们转移到
+			 * 父所有者。
 			 */
 			LOCALLOCK **locks;
 			int			nlocks;
@@ -632,8 +632,8 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 			Assert(owner->parent != NULL);
 
 			/*
-			 * Pass the list of locks owned by this resource owner to the lock
-			 * manager, unless it has overflowed.
+			 * 把此资源所有者的锁列表传给锁管理器，除非
+			 * 其缓存已溢出。
 			 */
 			if (owner->nlocks > MAX_RESOWNER_LOCKS)
 			{
@@ -655,11 +655,11 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 	else if (phase == RESOURCE_RELEASE_AFTER_LOCKS)
 	{
 		/*
-		 * Release catcache references.  Note that ReleaseCatCache will remove
-		 * the catref entry from our array, so we just have to iterate till
-		 * there are none.
+		 * 释放 catcache 引用。ReleaseCatCache 会把 catref 条目
+		 * 从我们的数组中移除，所以我们只需迭代到没有
+		 * 为止。
 		 *
-		 * As with buffer pins, warn if any are left at commit time.
+		 * 与缓冲区 pin 一样，提交时有残留则警告。
 		 */
 		while (ResourceArrayGetAny(&(owner->catrefarr), &foundres))
 		{
@@ -670,7 +670,7 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 			ReleaseCatCache(res);
 		}
 
-		/* Ditto for catcache lists */
+		/* catcache 列表同理 */
 		while (ResourceArrayGetAny(&(owner->catlistrefarr), &foundres))
 		{
 			CatCList   *res = (CatCList *) DatumGetPointer(foundres);
@@ -680,7 +680,7 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 			ReleaseCatCacheList(res);
 		}
 
-		/* Ditto for plancache references */
+		/* plancache 引用同理 */
 		while (ResourceArrayGetAny(&(owner->planrefarr), &foundres))
 		{
 			CachedPlan *res = (CachedPlan *) DatumGetPointer(foundres);
@@ -690,7 +690,7 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 			ReleaseCachedPlan(res, owner);
 		}
 
-		/* Ditto for tupdesc references */
+		/* tupdesc 引用同理 */
 		while (ResourceArrayGetAny(&(owner->tupdescarr), &foundres))
 		{
 			TupleDesc	res = (TupleDesc) DatumGetPointer(foundres);
@@ -700,7 +700,7 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 			DecrTupleDescRefCount(res);
 		}
 
-		/* Ditto for snapshot references */
+		/* 快照引用同理 */
 		while (ResourceArrayGetAny(&(owner->snapshotarr), &foundres))
 		{
 			Snapshot	res = (Snapshot) DatumGetPointer(foundres);
@@ -710,7 +710,7 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 			UnregisterSnapshot(res);
 		}
 
-		/* Ditto for temporary files */
+		/* 临时文件同理 */
 		while (ResourceArrayGetAny(&(owner->filearr), &foundres))
 		{
 			File		res = DatumGetFile(foundres);
@@ -721,10 +721,10 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 		}
 	}
 
-	/* Let add-on modules get a chance too */
+	/* 让附加模块也有机会 */
 	for (item = ResourceRelease_callbacks; item; item = next)
 	{
-		/* allow callbacks to unregister themselves when called */
+		/* 允许回调在被调用时注销自身 */
 		next = item->next;
 		item->callback(phase, isCommit, isTopLevel, item->arg);
 	}
@@ -734,10 +734,10 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 
 /*
  * ResourceOwnerReleaseAllPlanCacheRefs
- *		Release the plancache references (only) held by this owner.
+ *		释放此所有者持有的 plancache 引用（仅此）。
  *
- * We might eventually add similar functions for other resource types,
- * but for now, only this is needed.
+ * 我们最终可能会为其他资源类型添加类似的函数，
+ * 但目前只需要这一个。
  */
 void
 ResourceOwnerReleaseAllPlanCacheRefs(ResourceOwner owner)
@@ -754,17 +754,17 @@ ResourceOwnerReleaseAllPlanCacheRefs(ResourceOwner owner)
 
 /*
  * ResourceOwnerDelete
- *		Delete an owner object and its descendants.
+ *		删除一个所有者对象及其后代。
  *
- * The caller must have already released all resources in the object tree.
+ * 调用者必须已经释放了对象树中的所有资源。
  */
 void
 ResourceOwnerDelete(ResourceOwner owner)
 {
-	/* We had better not be deleting CurrentResourceOwner ... */
+	/* 我们最好不要删除 CurrentResourceOwner... */
 	Assert(owner != CurrentResourceOwner);
 
-	/* And it better not own any resources, either */
+	/* 而且它最好也不拥有任何资源 */
 	Assert(owner->bufferarr.nitems == 0);
 	Assert(owner->bufferioarr.nitems == 0);
 	Assert(owner->catrefarr.nitems == 0);
@@ -781,20 +781,20 @@ ResourceOwnerDelete(ResourceOwner owner)
 	Assert(owner->nlocks == 0 || owner->nlocks == MAX_RESOWNER_LOCKS + 1);
 
 	/*
-	 * Delete children.  The recursive call will delink the child from me, so
-	 * just iterate as long as there is a child.
+	 * 删除子所有者。递归调用会把子所有者与我解除链
+	 * 接，尚有子所有者则迭代。
 	 */
 	while (owner->firstchild != NULL)
 		ResourceOwnerDelete(owner->firstchild);
 
 	/*
-	 * We delink the owner from its parent before deleting it, so that if
-	 * there's an error we won't have deleted/busted owners still attached to
-	 * the owner tree.  Better a leak than a crash.
+	 * 在删除所有者之前先将其与父所有者解除链接，
+	 * 这样出错时就不会有已删除/损坏的所有者仍
+	 * 挂在树上。泄漏总比崩溃好。
 	 */
 	ResourceOwnerNewParent(owner, NULL);
 
-	/* And free the object. */
+	/* 然后释放对象 */
 	ResourceArrayFree(&(owner->bufferarr));
 	ResourceArrayFree(&(owner->bufferioarr));
 	ResourceArrayFree(&(owner->catrefarr));
@@ -813,7 +813,7 @@ ResourceOwnerDelete(ResourceOwner owner)
 }
 
 /*
- * Fetch parent of a ResourceOwner (returns NULL if top-level owner)
+ * 获取 ResourceOwner 的父（顶层所有者则返回 NULL）
  */
 ResourceOwner
 ResourceOwnerGetParent(ResourceOwner owner)
@@ -822,7 +822,7 @@ ResourceOwnerGetParent(ResourceOwner owner)
 }
 
 /*
- * Reassign a ResourceOwner to have a new parent
+ * 重新指定 ResourceOwner 的父所有者
  */
 void
 ResourceOwnerNewParent(ResourceOwner owner,
@@ -864,13 +864,13 @@ ResourceOwnerNewParent(ResourceOwner owner,
 }
 
 /*
- * Register or deregister callback functions for resource cleanup
+ * 注册或注销用于资源清理的回调函数
  *
- * These functions are intended for use by dynamically loaded modules.
- * For built-in modules we generally just hardwire the appropriate calls.
+ * 这些函数供动态加载的模块使用。
+ * 对于内建模块，我们通常直接硬编码相应的调用。
  *
- * Note that the callback occurs post-commit or post-abort, so the callback
- * functions can only do noncritical cleanup.
+ * 注意回调发生在提交后或中止后，因此回调函数只
+ * 能执行非关键的清理。
  */
 void
 RegisterResourceReleaseCallback(ResourceReleaseCallback callback, void *arg)
@@ -908,7 +908,7 @@ UnregisterResourceReleaseCallback(ResourceReleaseCallback callback, void *arg)
 }
 
 /*
- * Establish an AuxProcessResourceOwner for the current process.
+ * 为当前进程建立一个 AuxProcessResourceOwner。
  */
 void
 CreateAuxProcessResourceOwner(void)
@@ -919,23 +919,23 @@ CreateAuxProcessResourceOwner(void)
 	CurrentResourceOwner = AuxProcessResourceOwner;
 
 	/*
-	 * Register a shmem-exit callback for cleanup of aux-process resource
-	 * owner.  (This needs to run after, e.g., ShutdownXLOG.)
+	 * 注册一个 shmem-exit 回调来清理辅助进程的资源所
+	 * 有者（需在例如 ShutdownXLOG 之后运行）。
 	 */
 	on_shmem_exit(ReleaseAuxProcessResourcesCallback, 0);
 }
 
 /*
- * Convenience routine to release all resources tracked in
- * AuxProcessResourceOwner (but that resowner is not destroyed here).
- * Warn about leaked resources if isCommit is true.
+ * 便捷例程：释放 AuxProcessResourceOwner 跟踪的
+ * 全部资源（但此处不销毁该 resowner）。如果
+ * 为 true 则对泄漏资源发警告。
  */
 void
 ReleaseAuxProcessResources(bool isCommit)
 {
 	/*
-	 * At this writing, the only thing that could actually get released is
-	 * buffer pins; but we may as well do the full release protocol.
+	 * 就目前而言，真正可能被释放的只有缓冲区 pin；
+	 * 但我们不妨还是执行完整的释放协议。
 	 */
 	ResourceOwnerRelease(AuxProcessResourceOwner,
 						 RESOURCE_RELEASE_BEFORE_LOCKS,
@@ -949,8 +949,8 @@ ReleaseAuxProcessResources(bool isCommit)
 }
 
 /*
- * Shmem-exit callback for the same.
- * Warn about leaked resources if process exit code is zero (ie normal).
+ * 同用途的 shmem-exit 回调。
+ * 进程退出码为零（即正常）时对泄漏资源发出警告。
  */
 static void
 ReleaseAuxProcessResourcesCallback(int code, Datum arg)
@@ -962,24 +962,24 @@ ReleaseAuxProcessResourcesCallback(int code, Datum arg)
 
 
 /*
- * Make sure there is room for at least one more entry in a ResourceOwner's
- * buffer array.
+ * 确保 ResourceOwner 的缓冲区数组中还有至少一个
+ * 空位。
  *
- * This is separate from actually inserting an entry because if we run out
- * of memory, it's critical to do so *before* acquiring the resource.
+ * 这一步与实际插入条目是分开的，因为如果我们耗尽
+ * 了内存，在获取资源*之前*这样做是至关重要的。
  */
 void
 ResourceOwnerEnlargeBuffers(ResourceOwner owner)
 {
-	/* We used to allow pinning buffers without a resowner, but no more */
+	/* 以前允许无 resowner 时 pin 缓冲区，现在不行 */
 	Assert(owner != NULL);
 	ResourceArrayEnlarge(&(owner->bufferarr));
 }
 
 /*
- * Remember that a buffer pin is owned by a ResourceOwner
+ * 记住缓冲区 pin 由 ResourceOwner 拥有
  *
- * Caller must have previously done ResourceOwnerEnlargeBuffers()
+ * 调用者必须已经执行过 ResourceOwnerEnlargeBuffers()
  */
 void
 ResourceOwnerRememberBuffer(ResourceOwner owner, Buffer buffer)
@@ -988,7 +988,7 @@ ResourceOwnerRememberBuffer(ResourceOwner owner, Buffer buffer)
 }
 
 /*
- * Forget that a buffer pin is owned by a ResourceOwner
+ * 忘掉缓冲区 pin 由 ResourceOwner 拥有
  */
 void
 ResourceOwnerForgetBuffer(ResourceOwner owner, Buffer buffer)
@@ -1000,24 +1000,24 @@ ResourceOwnerForgetBuffer(ResourceOwner owner, Buffer buffer)
 
 
 /*
- * Make sure there is room for at least one more entry in a ResourceOwner's
- * buffer array.
+ * 确保 ResourceOwner 的缓冲区数组中还有至少一个
+ * 空位。
  *
- * This is separate from actually inserting an entry because if we run out
- * of memory, it's critical to do so *before* acquiring the resource.
+ * 这一步与实际插入条目是分开的，因为如果我们耗尽
+ * 了内存，在获取资源*之前*这样做是至关重要的。
  */
 void
 ResourceOwnerEnlargeBufferIOs(ResourceOwner owner)
 {
-	/* We used to allow pinning buffers without a resowner, but no more */
+	/* 以前允许无 resowner 时 pin 缓冲区，现在不行 */
 	Assert(owner != NULL);
 	ResourceArrayEnlarge(&(owner->bufferioarr));
 }
 
 /*
- * Remember that a buffer IO is owned by a ResourceOwner
+ * 记住缓冲区 IO 由 ResourceOwner 拥有
  *
- * Caller must have previously done ResourceOwnerEnlargeBufferIOs()
+ * 调用者必须已经执行过 ResourceOwnerEnlargeBufferIOs()
  */
 void
 ResourceOwnerRememberBufferIO(ResourceOwner owner, Buffer buffer)
@@ -1026,7 +1026,7 @@ ResourceOwnerRememberBufferIO(ResourceOwner owner, Buffer buffer)
 }
 
 /*
- * Forget that a buffer IO is owned by a ResourceOwner
+ * 忘掉缓冲区 IO 由 ResourceOwner 拥有
  */
 void
 ResourceOwnerForgetBufferIO(ResourceOwner owner, Buffer buffer)
@@ -1037,14 +1037,14 @@ ResourceOwnerForgetBufferIO(ResourceOwner owner, Buffer buffer)
 }
 
 /*
- * Remember that a Local Lock is owned by a ResourceOwner
+ * 记住本地锁由 ResourceOwner 拥有
  *
- * This is different from the other Remember functions in that the list of
- * locks is only a lossy cache. It can hold up to MAX_RESOWNER_LOCKS entries,
- * and when it overflows, we stop tracking locks. The point of only remembering
- * only up to MAX_RESOWNER_LOCKS entries is that if a lot of locks are held,
- * ResourceOwnerForgetLock doesn't need to scan through a large array to find
- * the entry.
+ * 这与其他 Remember 函数不同：锁列表只是一个有损
+ * 缓存。它最多可容纳 MAX_RESOWNER_LOCKS 个条目，当溢出
+ * 时我们就停止跟踪锁。只记住最多 MAX_RESOWNER_LOCKS 个
+ * 条目的意义在于：当持有大量锁时，
+ * ResourceOwnerForgetLock 无需扫描大数组来找到该
+ * 条目。
  */
 void
 ResourceOwnerRememberLock(ResourceOwner owner, LOCALLOCK *locallock)
@@ -1052,19 +1052,19 @@ ResourceOwnerRememberLock(ResourceOwner owner, LOCALLOCK *locallock)
 	Assert(locallock != NULL);
 
 	if (owner->nlocks > MAX_RESOWNER_LOCKS)
-		return;					/* we have already overflowed */
+		return;					/* 我们已经溢出了 */
 
 	if (owner->nlocks < MAX_RESOWNER_LOCKS)
 		owner->locks[owner->nlocks] = locallock;
 	else
 	{
-		/* overflowed */
+		/* 已溢出 */
 	}
 	owner->nlocks++;
 }
 
 /*
- * Forget that a Local Lock is owned by a ResourceOwner
+ * 忘掉本地锁由 ResourceOwner 拥有
  */
 void
 ResourceOwnerForgetLock(ResourceOwner owner, LOCALLOCK *locallock)
@@ -1072,7 +1072,7 @@ ResourceOwnerForgetLock(ResourceOwner owner, LOCALLOCK *locallock)
 	int			i;
 
 	if (owner->nlocks > MAX_RESOWNER_LOCKS)
-		return;					/* we have overflowed */
+		return;					/* 我们已溢出 */
 
 	Assert(owner->nlocks > 0);
 	for (i = owner->nlocks - 1; i >= 0; i--)
@@ -1089,11 +1089,11 @@ ResourceOwnerForgetLock(ResourceOwner owner, LOCALLOCK *locallock)
 }
 
 /*
- * Make sure there is room for at least one more entry in a ResourceOwner's
- * catcache reference array.
+ * 确保 ResourceOwner 的 catcache 引用数组中还有至少一个
+ * 空位。
  *
- * This is separate from actually inserting an entry because if we run out
- * of memory, it's critical to do so *before* acquiring the resource.
+ * 这一步与实际插入条目是分开的，因为如果我们耗尽
+ * 了内存，在获取资源*之前*这样做是至关重要的。
  */
 void
 ResourceOwnerEnlargeCatCacheRefs(ResourceOwner owner)
@@ -1102,9 +1102,9 @@ ResourceOwnerEnlargeCatCacheRefs(ResourceOwner owner)
 }
 
 /*
- * Remember that a catcache reference is owned by a ResourceOwner
+ * 记住 catcache 引用由 ResourceOwner 拥有
  *
- * Caller must have previously done ResourceOwnerEnlargeCatCacheRefs()
+ * 调用者必须已经执行过 ResourceOwnerEnlargeCatCacheRefs()
  */
 void
 ResourceOwnerRememberCatCacheRef(ResourceOwner owner, HeapTuple tuple)
@@ -1113,7 +1113,7 @@ ResourceOwnerRememberCatCacheRef(ResourceOwner owner, HeapTuple tuple)
 }
 
 /*
- * Forget that a catcache reference is owned by a ResourceOwner
+ * 忘掉 catcache 引用由 ResourceOwner 拥有
  */
 void
 ResourceOwnerForgetCatCacheRef(ResourceOwner owner, HeapTuple tuple)
@@ -1124,11 +1124,11 @@ ResourceOwnerForgetCatCacheRef(ResourceOwner owner, HeapTuple tuple)
 }
 
 /*
- * Make sure there is room for at least one more entry in a ResourceOwner's
- * catcache-list reference array.
+ * 确保 ResourceOwner 的 catcache 列表引用数组中还有
+ * 至少一个空位。
  *
- * This is separate from actually inserting an entry because if we run out
- * of memory, it's critical to do so *before* acquiring the resource.
+ * 这一步与实际插入条目是分开的，因为如果我们耗尽
+ * 了内存，在获取资源*之前*这样做是至关重要的。
  */
 void
 ResourceOwnerEnlargeCatCacheListRefs(ResourceOwner owner)
@@ -1137,9 +1137,9 @@ ResourceOwnerEnlargeCatCacheListRefs(ResourceOwner owner)
 }
 
 /*
- * Remember that a catcache-list reference is owned by a ResourceOwner
+ * 记住 catcache 列表引用由 ResourceOwner 拥有
  *
- * Caller must have previously done ResourceOwnerEnlargeCatCacheListRefs()
+ * 调用者必须已经执行过 ResourceOwnerEnlargeCatCacheListRefs()
  */
 void
 ResourceOwnerRememberCatCacheListRef(ResourceOwner owner, CatCList *list)
@@ -1148,7 +1148,7 @@ ResourceOwnerRememberCatCacheListRef(ResourceOwner owner, CatCList *list)
 }
 
 /*
- * Forget that a catcache-list reference is owned by a ResourceOwner
+ * 忘掉 catcache 列表引用由 ResourceOwner 拥有
  */
 void
 ResourceOwnerForgetCatCacheListRef(ResourceOwner owner, CatCList *list)
@@ -1159,11 +1159,11 @@ ResourceOwnerForgetCatCacheListRef(ResourceOwner owner, CatCList *list)
 }
 
 /*
- * Make sure there is room for at least one more entry in a ResourceOwner's
- * relcache reference array.
+ * 确保 ResourceOwner 的 relcache 引用数组中还有至少一个
+ * 空位。
  *
- * This is separate from actually inserting an entry because if we run out
- * of memory, it's critical to do so *before* acquiring the resource.
+ * 这一步与实际插入条目是分开的，因为如果我们耗尽
+ * 了内存，在获取资源*之前*这样做是至关重要的。
  */
 void
 ResourceOwnerEnlargeRelationRefs(ResourceOwner owner)
@@ -1172,9 +1172,9 @@ ResourceOwnerEnlargeRelationRefs(ResourceOwner owner)
 }
 
 /*
- * Remember that a relcache reference is owned by a ResourceOwner
+ * 记住 relcache 引用由 ResourceOwner 拥有
  *
- * Caller must have previously done ResourceOwnerEnlargeRelationRefs()
+ * 调用者必须已经执行过 ResourceOwnerEnlargeRelationRefs()
  */
 void
 ResourceOwnerRememberRelationRef(ResourceOwner owner, Relation rel)
@@ -1183,7 +1183,7 @@ ResourceOwnerRememberRelationRef(ResourceOwner owner, Relation rel)
 }
 
 /*
- * Forget that a relcache reference is owned by a ResourceOwner
+ * 忘掉 relcache 引用由 ResourceOwner 拥有
  */
 void
 ResourceOwnerForgetRelationRef(ResourceOwner owner, Relation rel)
@@ -1194,7 +1194,7 @@ ResourceOwnerForgetRelationRef(ResourceOwner owner, Relation rel)
 }
 
 /*
- * Debugging subroutine
+ * 调试子例程
  */
 static void
 PrintRelCacheLeakWarning(Relation rel)
@@ -1204,11 +1204,11 @@ PrintRelCacheLeakWarning(Relation rel)
 }
 
 /*
- * Make sure there is room for at least one more entry in a ResourceOwner's
- * plancache reference array.
+ * 确保 ResourceOwner 的 plancache 引用数组中还有
+ * 至少一个空位。
  *
- * This is separate from actually inserting an entry because if we run out
- * of memory, it's critical to do so *before* acquiring the resource.
+ * 这一步与实际插入条目是分开的，因为如果我们耗尽
+ * 了内存，在获取资源*之前*这样做是至关重要的。
  */
 void
 ResourceOwnerEnlargePlanCacheRefs(ResourceOwner owner)
@@ -1217,9 +1217,9 @@ ResourceOwnerEnlargePlanCacheRefs(ResourceOwner owner)
 }
 
 /*
- * Remember that a plancache reference is owned by a ResourceOwner
+ * 记住 plancache 引用由 ResourceOwner 拥有
  *
- * Caller must have previously done ResourceOwnerEnlargePlanCacheRefs()
+ * 调用者必须已经执行过 ResourceOwnerEnlargePlanCacheRefs()
  */
 void
 ResourceOwnerRememberPlanCacheRef(ResourceOwner owner, CachedPlan *plan)
@@ -1228,7 +1228,7 @@ ResourceOwnerRememberPlanCacheRef(ResourceOwner owner, CachedPlan *plan)
 }
 
 /*
- * Forget that a plancache reference is owned by a ResourceOwner
+ * 忘掉 plancache 引用由 ResourceOwner 拥有
  */
 void
 ResourceOwnerForgetPlanCacheRef(ResourceOwner owner, CachedPlan *plan)
@@ -1239,7 +1239,7 @@ ResourceOwnerForgetPlanCacheRef(ResourceOwner owner, CachedPlan *plan)
 }
 
 /*
- * Debugging subroutine
+ * 调试子例程
  */
 static void
 PrintPlanCacheLeakWarning(CachedPlan *plan)
@@ -1248,11 +1248,11 @@ PrintPlanCacheLeakWarning(CachedPlan *plan)
 }
 
 /*
- * Make sure there is room for at least one more entry in a ResourceOwner's
- * tupdesc reference array.
+ * 确保 ResourceOwner 的 tupdesc 引用数组中还有
+ * 至少一个空位。
  *
- * This is separate from actually inserting an entry because if we run out
- * of memory, it's critical to do so *before* acquiring the resource.
+ * 这一步与实际插入条目是分开的，因为如果我们耗尽
+ * 了内存，在获取资源*之前*这样做是至关重要的。
  */
 void
 ResourceOwnerEnlargeTupleDescs(ResourceOwner owner)
@@ -1261,9 +1261,9 @@ ResourceOwnerEnlargeTupleDescs(ResourceOwner owner)
 }
 
 /*
- * Remember that a tupdesc reference is owned by a ResourceOwner
+ * 记住 tupdesc 引用由 ResourceOwner 拥有
  *
- * Caller must have previously done ResourceOwnerEnlargeTupleDescs()
+ * 调用者必须已经执行过 ResourceOwnerEnlargeTupleDescs()
  */
 void
 ResourceOwnerRememberTupleDesc(ResourceOwner owner, TupleDesc tupdesc)
@@ -1272,7 +1272,7 @@ ResourceOwnerRememberTupleDesc(ResourceOwner owner, TupleDesc tupdesc)
 }
 
 /*
- * Forget that a tupdesc reference is owned by a ResourceOwner
+ * 忘掉 tupdesc 引用由 ResourceOwner 拥有
  */
 void
 ResourceOwnerForgetTupleDesc(ResourceOwner owner, TupleDesc tupdesc)
@@ -1283,7 +1283,7 @@ ResourceOwnerForgetTupleDesc(ResourceOwner owner, TupleDesc tupdesc)
 }
 
 /*
- * Debugging subroutine
+ * 调试子例程
  */
 static void
 PrintTupleDescLeakWarning(TupleDesc tupdesc)
@@ -1294,11 +1294,11 @@ PrintTupleDescLeakWarning(TupleDesc tupdesc)
 }
 
 /*
- * Make sure there is room for at least one more entry in a ResourceOwner's
- * snapshot reference array.
+ * 确保 ResourceOwner 的快照引用数组中还有
+ * 至少一个空位。
  *
- * This is separate from actually inserting an entry because if we run out
- * of memory, it's critical to do so *before* acquiring the resource.
+ * 这一步与实际插入条目是分开的，因为如果我们耗尽
+ * 了内存，在获取资源*之前*这样做是至关重要的。
  */
 void
 ResourceOwnerEnlargeSnapshots(ResourceOwner owner)
@@ -1307,9 +1307,9 @@ ResourceOwnerEnlargeSnapshots(ResourceOwner owner)
 }
 
 /*
- * Remember that a snapshot reference is owned by a ResourceOwner
+ * 记住快照引用由 ResourceOwner 拥有
  *
- * Caller must have previously done ResourceOwnerEnlargeSnapshots()
+ * 调用者必须已经执行过 ResourceOwnerEnlargeSnapshots()
  */
 void
 ResourceOwnerRememberSnapshot(ResourceOwner owner, Snapshot snapshot)
@@ -1318,7 +1318,7 @@ ResourceOwnerRememberSnapshot(ResourceOwner owner, Snapshot snapshot)
 }
 
 /*
- * Forget that a snapshot reference is owned by a ResourceOwner
+ * 忘掉快照引用由 ResourceOwner 拥有
  */
 void
 ResourceOwnerForgetSnapshot(ResourceOwner owner, Snapshot snapshot)
@@ -1329,7 +1329,7 @@ ResourceOwnerForgetSnapshot(ResourceOwner owner, Snapshot snapshot)
 }
 
 /*
- * Debugging subroutine
+ * 调试子例程
  */
 static void
 PrintSnapshotLeakWarning(Snapshot snapshot)
@@ -1340,11 +1340,11 @@ PrintSnapshotLeakWarning(Snapshot snapshot)
 
 
 /*
- * Make sure there is room for at least one more entry in a ResourceOwner's
- * files reference array.
+ * 确保 ResourceOwner 的文件引用数组中还有
+ * 一个空位。
  *
- * This is separate from actually inserting an entry because if we run out
- * of memory, it's critical to do so *before* acquiring the resource.
+ * 这一步与实际插入条目是分开的，因为如果我们耗尽
+ * 了内存，在获取资源*之前*这样做是至关重要的。
  */
 void
 ResourceOwnerEnlargeFiles(ResourceOwner owner)
@@ -1353,9 +1353,9 @@ ResourceOwnerEnlargeFiles(ResourceOwner owner)
 }
 
 /*
- * Remember that a temporary file is owned by a ResourceOwner
+ * 记住临时文件由 ResourceOwner 拥有
  *
- * Caller must have previously done ResourceOwnerEnlargeFiles()
+ * 调用者必须已经执行过 ResourceOwnerEnlargeFiles()
  */
 void
 ResourceOwnerRememberFile(ResourceOwner owner, File file)
@@ -1364,7 +1364,7 @@ ResourceOwnerRememberFile(ResourceOwner owner, File file)
 }
 
 /*
- * Forget that a temporary file is owned by a ResourceOwner
+ * 忘掉临时文件由 ResourceOwner 拥有
  */
 void
 ResourceOwnerForgetFile(ResourceOwner owner, File file)
@@ -1375,7 +1375,7 @@ ResourceOwnerForgetFile(ResourceOwner owner, File file)
 }
 
 /*
- * Debugging subroutine
+ * 调试子例程
  */
 static void
 PrintFileLeakWarning(File file)
@@ -1385,11 +1385,11 @@ PrintFileLeakWarning(File file)
 }
 
 /*
- * Make sure there is room for at least one more entry in a ResourceOwner's
- * dynamic shmem segment reference array.
+ * 确保 ResourceOwner 的动态共享内存段引用数组中还有
+ * 至少一个空位。
  *
- * This is separate from actually inserting an entry because if we run out
- * of memory, it's critical to do so *before* acquiring the resource.
+ * 这一步与实际插入条目是分开的，因为如果我们耗尽
+ * 了内存，在获取资源*之前*这样做是至关重要的。
  */
 void
 ResourceOwnerEnlargeDSMs(ResourceOwner owner)
@@ -1398,9 +1398,9 @@ ResourceOwnerEnlargeDSMs(ResourceOwner owner)
 }
 
 /*
- * Remember that a dynamic shmem segment is owned by a ResourceOwner
+ * 记住动态共享内存段由 ResourceOwner 拥有
  *
- * Caller must have previously done ResourceOwnerEnlargeDSMs()
+ * 调用者必须已经执行过 ResourceOwnerEnlargeDSMs()
  */
 void
 ResourceOwnerRememberDSM(ResourceOwner owner, dsm_segment *seg)
@@ -1409,7 +1409,7 @@ ResourceOwnerRememberDSM(ResourceOwner owner, dsm_segment *seg)
 }
 
 /*
- * Forget that a dynamic shmem segment is owned by a ResourceOwner
+ * 忘掉动态共享内存段由 ResourceOwner 拥有
  */
 void
 ResourceOwnerForgetDSM(ResourceOwner owner, dsm_segment *seg)
@@ -1420,7 +1420,7 @@ ResourceOwnerForgetDSM(ResourceOwner owner, dsm_segment *seg)
 }
 
 /*
- * Debugging subroutine
+ * 调试子例程
  */
 static void
 PrintDSMLeakWarning(dsm_segment *seg)
@@ -1430,11 +1430,11 @@ PrintDSMLeakWarning(dsm_segment *seg)
 }
 
 /*
- * Make sure there is room for at least one more entry in a ResourceOwner's
- * JIT context reference array.
+ * 确保 ResourceOwner 的 JIT 上下文引用数组中还有
+ * 至少一个空位。
  *
- * This is separate from actually inserting an entry because if we run out of
- * memory, it's critical to do so *before* acquiring the resource.
+ * 这一步与实际插入条目是分开的，因为如果我们耗尽了
+ * 内存，在获取资源*之前*这样做是至关重要的。
  */
 void
 ResourceOwnerEnlargeJIT(ResourceOwner owner)
@@ -1443,9 +1443,9 @@ ResourceOwnerEnlargeJIT(ResourceOwner owner)
 }
 
 /*
- * Remember that a JIT context is owned by a ResourceOwner
+ * 记住 JIT 上下文由 ResourceOwner 拥有
  *
- * Caller must have previously done ResourceOwnerEnlargeJIT()
+ * 调用者必须已经执行过 ResourceOwnerEnlargeJIT()
  */
 void
 ResourceOwnerRememberJIT(ResourceOwner owner, Datum handle)
@@ -1454,7 +1454,7 @@ ResourceOwnerRememberJIT(ResourceOwner owner, Datum handle)
 }
 
 /*
- * Forget that a JIT context is owned by a ResourceOwner
+ * 忘掉 JIT 上下文由 ResourceOwner 拥有
  */
 void
 ResourceOwnerForgetJIT(ResourceOwner owner, Datum handle)
@@ -1465,11 +1465,11 @@ ResourceOwnerForgetJIT(ResourceOwner owner, Datum handle)
 }
 
 /*
- * Make sure there is room for at least one more entry in a ResourceOwner's
- * cryptohash context reference array.
+ * 确保 ResourceOwner 的加密哈希上下文引用数组中还有
+ * 至少一个空位。
  *
- * This is separate from actually inserting an entry because if we run out of
- * memory, it's critical to do so *before* acquiring the resource.
+ * 这一步与实际插入条目是分开的，因为如果我们耗尽了
+ * 内存，在获取资源*之前*这样做是至关重要的。
  */
 void
 ResourceOwnerEnlargeCryptoHash(ResourceOwner owner)
@@ -1478,9 +1478,9 @@ ResourceOwnerEnlargeCryptoHash(ResourceOwner owner)
 }
 
 /*
- * Remember that a cryptohash context is owned by a ResourceOwner
+ * 记住加密哈希上下文由 ResourceOwner 拥有
  *
- * Caller must have previously done ResourceOwnerEnlargeCryptoHash()
+ * 调用者必须已经执行过 ResourceOwnerEnlargeCryptoHash()
  */
 void
 ResourceOwnerRememberCryptoHash(ResourceOwner owner, Datum handle)
@@ -1489,7 +1489,7 @@ ResourceOwnerRememberCryptoHash(ResourceOwner owner, Datum handle)
 }
 
 /*
- * Forget that a cryptohash context is owned by a ResourceOwner
+ * 忘掉加密哈希上下文由 ResourceOwner 拥有
  */
 void
 ResourceOwnerForgetCryptoHash(ResourceOwner owner, Datum handle)
@@ -1500,7 +1500,7 @@ ResourceOwnerForgetCryptoHash(ResourceOwner owner, Datum handle)
 }
 
 /*
- * Debugging subroutine
+ * 调试子例程
  */
 static void
 PrintCryptoHashLeakWarning(Datum handle)
@@ -1510,11 +1510,11 @@ PrintCryptoHashLeakWarning(Datum handle)
 }
 
 /*
- * Make sure there is room for at least one more entry in a ResourceOwner's
- * hmac context reference array.
+ * 确保 ResourceOwner 的 HMAC 上下文引用数组中还有
+ * 至少一个空位。
  *
- * This is separate from actually inserting an entry because if we run out of
- * memory, it's critical to do so *before* acquiring the resource.
+ * 这一步与实际插入条目是分开的，因为如果我们耗尽了
+ * 内存，在获取资源*之前*这样做是至关重要的。
  */
 void
 ResourceOwnerEnlargeHMAC(ResourceOwner owner)
@@ -1523,9 +1523,9 @@ ResourceOwnerEnlargeHMAC(ResourceOwner owner)
 }
 
 /*
- * Remember that a HMAC context is owned by a ResourceOwner
+ * 记住 HMAC 上下文由 ResourceOwner 拥有
  *
- * Caller must have previously done ResourceOwnerEnlargeHMAC()
+ * 调用者必须已经执行过 ResourceOwnerEnlargeHMAC()
  */
 void
 ResourceOwnerRememberHMAC(ResourceOwner owner, Datum handle)
@@ -1534,7 +1534,7 @@ ResourceOwnerRememberHMAC(ResourceOwner owner, Datum handle)
 }
 
 /*
- * Forget that a HMAC context is owned by a ResourceOwner
+ * 忘掉 HMAC 上下文由 ResourceOwner 拥有
  */
 void
 ResourceOwnerForgetHMAC(ResourceOwner owner, Datum handle)
@@ -1545,7 +1545,7 @@ ResourceOwnerForgetHMAC(ResourceOwner owner, Datum handle)
 }
 
 /*
- * Debugging subroutine
+ * 调试子例程
  */
 static void
 PrintHMACLeakWarning(Datum handle)

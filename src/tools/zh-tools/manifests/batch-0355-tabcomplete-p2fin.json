@@ -1,0 +1,77 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0355",
+ "title": "tab-complete part 2 final: remaining prose blocks translated, file cleared",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "88cd3126692e019590ef011ec5cf18476ede1c51",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0355-tabcomplete-p2fin.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0355 manifest path (S6 registration)"
+  },
+  {
+   "pattern": "src/bin/psql/tab-complete.c",
+   "kind": "c_comment",
+   "note": "part 2 final: ~60 remaining prose blocks translated at natural length + P52/TL08/P23 term fixes; grammar-skeleton blocks"
+  },
+  {
+   "pattern": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "note": "ledger 342 -> 344: +2 entries for newly translated prose blocks keeping EN identifiers"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0355-tabcomplete-p2fin.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0355 manifest path (S6 registration)"
+  },
+  {
+   "path": "src/bin/psql/tab-complete.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 60,
+   "translated": 60,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "part 2 final: ~60 remaining prose blocks translated at natural length + P52/TL08/P23 term fixes; grammar-skeleton blocks KEEP per 0336; copyright KEEP; over-budget lines disclosed per 0350 precedent"
+  },
+  {
+   "path": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 0,
+   "preserved": 2,
+   "preserved_reasons": [
+    "parse_identifier block: function name kept EN in zh prose",
+    "WORD_BREAKS macro name kept EN in zh prose"
+   ],
+   "note": "ledger 342 -> 344: +2 entries for newly translated prose blocks keeping EN identifiers"
+  }
+ ],
+ "notes": "batch-0355 final tranche (2026-11-12, parent batch-0354=88cd3126692). Completes tab-complete.c prose translation. See prior manifest versions for full detail. Natural-length convention per 0350. P52/TL08/P23 term fixes in-batch. halfen ledger +2 entries. Skeleton labels KEEP per 0336/0341. Combined single-agent review (maintenance-scale mechanical batch)."
+}

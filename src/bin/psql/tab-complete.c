@@ -2630,8 +2630,8 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("TO");
 
 	/*
-	 * If we have ALTER TYPE <sth> ALTER/DROP/RENAME ATTRIBUTE, provide list
-	 * of attributes
+	 * 若有 ALTER TYPE <sth> ALTER/DROP/RENAME ATTRIBUTE，提供属
+	 * 性清单
 	 */
 	else if (Matches("ALTER", "TYPE", MatchAny, "ALTER|DROP|RENAME", "ATTRIBUTE"))
 		COMPLETE_WITH_ATTR(prev3_wd);
@@ -3067,15 +3067,15 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("ALL", "SELECT", "INSERT", "UPDATE", "DELETE");
 
 	/*
-	 * Complete "CREATE POLICY <name> ON <table> AS PERMISSIVE|RESTRICTIVE FOR
-	 * INSERT TO|WITH CHECK"
+	 * 补全 "CREATE POLICY <name> ON <table> AS PERMISSIVE|
+	 * RESTRICTIVE FOR INSERT TO|WITH CHECK"
 	 */
 	else if (Matches("CREATE", "POLICY", MatchAny, "ON", MatchAny, "AS", MatchAny, "FOR", "INSERT"))
 		COMPLETE_WITH("TO", "WITH CHECK (");
 
 	/*
-	 * Complete "CREATE POLICY <name> ON <table> AS PERMISSIVE|RESTRICTIVE FOR
-	 * SELECT|DELETE TO|USING"
+	 * 补全 "CREATE POLICY <name> ON <table> AS PERMISSIVE|
+	 * RESTRICTIVE FOR SELECT|DELETE TO|USING"
 	 */
 	else if (Matches("CREATE", "POLICY", MatchAny, "ON", MatchAny, "AS", MatchAny, "FOR", "SELECT|DELETE"))
 		COMPLETE_WITH("TO", "USING (");
@@ -3088,16 +3088,16 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("TO", "USING (", "WITH CHECK (");
 
 	/*
-	 * Complete "CREATE POLICY <name> ON <table> AS PERMISSIVE|RESTRICTIVE TO
-	 * <role>"
+	 * 补全 "CREATE POLICY <name> ON <table> AS PERMISSIVE|
+	 * RESTRICTIVE TO <role>"
 	 */
 	else if (Matches("CREATE", "POLICY", MatchAny, "ON", MatchAny, "AS", MatchAny, "TO"))
 		COMPLETE_WITH_QUERY_PLUS(Query_for_list_of_roles,
 								 Keywords_for_list_of_grant_roles);
 
 	/*
-	 * Complete "CREATE POLICY <name> ON <table> AS PERMISSIVE|RESTRICTIVE
-	 * USING ("
+	 * 补全 "CREATE POLICY <name> ON <table> AS PERMISSIVE|
+	 * RESTRICTIVE USING ("
 	 */
 	else if (Matches("CREATE", "POLICY", MatchAny, "ON", MatchAny, "AS", MatchAny, "USING"))
 		COMPLETE_WITH("(");
@@ -3320,17 +3320,17 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("ON", "OR");
 
 	/*
-	 * Complete CREATE [ OR REPLACE ] TRIGGER <name> BEFORE,AFTER event ON
-	 * with a list of tables.  EXECUTE FUNCTION is the recommended grammar
-	 * instead of EXECUTE PROCEDURE in version 11 and upwards.
+	 * 补全 CREATE [ OR REPLACE ] TRIGGER <name> BEFORE,AFTER
+	 * event ON 为表清单。EXECUTE FUNCTION 是版本 11 及以上
+	 * 推荐的语法，取代 EXECUTE PROCEDURE。
 	 */
 	else if (TailMatches("CREATE", "TRIGGER", MatchAny, "BEFORE|AFTER", MatchAny, "ON") ||
 			 TailMatches("CREATE", "OR", "REPLACE", "TRIGGER", MatchAny, "BEFORE|AFTER", MatchAny, "ON"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_tables);
 
 	/*
-	 * Complete CREATE [ OR REPLACE ] TRIGGER ... INSTEAD OF event ON with a
-	 * list of views.
+	 * 补全 CREATE [ OR REPLACE ] TRIGGER ... INSTEAD OF event
+	 * ON 为视图清单。
 	 */
 	else if (TailMatches("CREATE", "TRIGGER", MatchAny, "INSTEAD", "OF", MatchAny, "ON") ||
 			 TailMatches("CREATE", "OR", "REPLACE", "TRIGGER", MatchAny, "INSTEAD", "OF", MatchAny, "ON"))
@@ -3539,9 +3539,9 @@ psql_completion(const char *text, int start, int end)
 					  "table_rewrite");
 
 	/*
-	 * Complete CREATE EVENT TRIGGER <name> ON <event_type>.  EXECUTE FUNCTION
-	 * is the recommended grammar instead of EXECUTE PROCEDURE in version 11
-	 * and upwards.
+	 * 补全 CREATE EVENT TRIGGER <name> ON <event_type>。
+	 * EXECUTE FUNCTION 自版本 11 起为推荐语法，
+	 * 取代 EXECUTE PROCEDURE。
 	 */
 	else if (Matches("CREATE", "EVENT", "TRIGGER", MatchAny, "ON", MatchAny))
 	{
@@ -3578,11 +3578,11 @@ psql_completion(const char *text, int start, int end)
 					  "CURSOR");
 
 	/*
-	 * Complete DECLARE ... <option> with other options. The PostgreSQL parser
-	 * allows DECLARE options to be specified in any order. But the
-	 * tab-completion follows the ordering of them that the SQL standard
-	 * provides, like the syntax of DECLARE command in the documentation
-	 * indicates.
+	 * 补全 DECLARE ... <option> 的其余选项。PostgreSQL 解析器
+	 * 允许 DECLARE 选项以任意顺序指定，但 TAB 补全遵循
+	 * SQL 标准给出的顺序，即文档中 DECLARE 命令语法
+	 * 所示的顺序。
+	 *
 	 */
 	else if (HeadMatches("DECLARE") && TailMatches("BINARY"))
 		COMPLETE_WITH("ASENSITIVE", "INSENSITIVE", "SCROLL", "NO SCROLL", "CURSOR");
@@ -3815,9 +3815,9 @@ psql_completion(const char *text, int start, int end)
 								 "IN");
 
 	/*
-	 * Complete FETCH <direction> with "FROM" or "IN". These are equivalent,
-	 * but we may as well tab-complete both: perhaps some users prefer one
-	 * variant or the other.
+	 * 补全 FETCH <direction> 为 "FROM" 或 "IN"。两者等价，
+	 * 但不妨两者都补全：也许有些用户偏好其中一种写法。
+	 *
 	 */
 	else if (Matches("FETCH|MOVE", "ABSOLUTE|BACKWARD|FORWARD|RELATIVE",
 					 MatchAnyExcept("FROM|IN")) ||
@@ -3910,7 +3910,7 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("FROM");
 
 	/*
-	 * Complete GRANT/REVOKE <privilege> with "ON", GRANT/REVOKE <role> with
+	 * 补全 GRANT/REVOKE <privilege> 为 "ON"，<role> 为
 	 * TO/FROM
 	 */
 	else if (TailMatches("GRANT|REVOKE", MatchAny) ||
@@ -3925,11 +3925,11 @@ psql_completion(const char *text, int start, int end)
 	}
 
 	/*
-	 * Complete GRANT/REVOKE <sth> ON with a list of appropriate relations.
+	 * 补全 GRANT/REVOKE <sth> ON 为适当的关系清单。
 	 *
-	 * Note: GRANT/REVOKE can get quite complex; tab-completion as implemented
-	 * here will only work if the privilege list contains exactly one
-	 * privilege.
+	 * 注意：GRANT/REVOKE 可能相当复杂；此处实现的 TAB 补全只
+	 * 有在权限清单恰好包含一条权限时才能工作。
+	 *
 	 */
 	else if (TailMatches("GRANT|REVOKE", MatchAny, "ON") ||
 			 TailMatches("REVOKE", "GRANT", "OPTION", "FOR", MatchAny, "ON"))
@@ -4470,8 +4470,8 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("TO");
 
 	/*
-	 * Complete ALTER DATABASE|FUNCTION|PROCEDURE|ROLE|ROUTINE|USER ... SET
-	 * <name>
+	 * 补全 ALTER DATABASE|FUNCTION|PROCEDURE|ROLE|ROUTINE|
+	 * USER ... SET <name>
 	 */
 	else if (HeadMatches("ALTER", "DATABASE|FUNCTION|PROCEDURE|ROLE|ROUTINE|USER") &&
 			 TailMatches("SET", MatchAny) &&
@@ -4479,8 +4479,8 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("FROM CURRENT", "TO");
 
 	/*
-	 * Suggest possible variable values in SET variable TO|=, along with the
-	 * preceding ALTER syntaxes.
+	 * 在 SET 变量 TO|= 处建议可能的变量取值，连同前述
+	 * ALTER 语法。
 	 */
 	else if (TailMatches("SET", MatchAny, "TO|=") &&
 			 !TailMatches("UPDATE", MatchAny, "SET", MatchAny, "TO|="))
@@ -4507,9 +4507,9 @@ psql_completion(const char *text, int start, int end)
 			char	   *guctype = get_guctype(prev2_wd);
 
 			/*
-			 * Note: if we don't recognize the GUC name, it's important to not
-			 * offer any completions, as most likely we've misinterpreted the
-			 * context and this isn't a GUC-setting command at all.
+			 * 注意：若我们无法识别 GUC 名称，最好不要提供任何
+			 * 补全，因为很可能我们误解了上下文，这根本不是一条
+			 * 设置 GUC 的命令。
 			 */
 			if (guctype)
 			{
@@ -4943,17 +4943,17 @@ psql_completion(const char *text, int start, int end)
 
 
 /*
- * GENERATOR FUNCTIONS
+ * 生成器函数
  *
- * These functions do all the actual work of completing the input. They get
- * passed the text so far and the count how many times they have been called
- * so far with the same text.
- * If you read the above carefully, you'll see that these don't get called
- * directly but through the readline interface.
- * The return value is expected to be the full completion of the text, going
- * through a list each time, or NULL if there are no more matches. The string
- * will be free()'d by readline, so you must run it through strdup() or
- * something of that sort.
+ * 这些函数会完成输入补全的全部实际工作。它们会收到迄今
+ * 输入的文本，以及以相同文本被调用的次数。
+ *
+ * 如果仔细读了上文你会发现，它们不会被直接调用，而是
+ * 通过 readline 接口调用。
+ * 返回值应当是文本的完整补全，每次沿列表推进一次，没有
+ * 更多匹配时返回 NULL。字符串将由 readline 释放，因此必
+ * 须让它经过 strdup() 或类似操作。
+ *
  */
 
 /*
@@ -5190,9 +5190,9 @@ _complete_from_query(const char *simple_query,
 			Assert(simple_query == NULL);
 
 			/*
-			 * We issue different queries depending on whether the input is
-			 * already qualified or not.  schema_query gives us the pieces to
-			 * assemble.
+			 * 根据输入是否已带模式限定，我们发出不同的查询。
+			 * schema_query 为我们提供组装所需的部件。
+			 *
 			 */
 			if (schemaname == NULL || schema_query->namespace == NULL)
 			{
@@ -5234,11 +5234,11 @@ _complete_from_query(const char *simple_query,
 				}
 
 				/*
-				 * When fetching relation names, suppress system catalogs
-				 * unless the input-so-far begins with "pg_".  This is a
-				 * compromise between not offering system catalogs for
-				 * completion at all, and having them swamp the result when
-				 * the input is just "p".
+				 * 取关系名时，除非迄今输入以 "pg_" 开头，否则不提供系统
+				 * 目录。这是在完全不提供系统目录补全、与输入仅为 "p"
+				 * 时让它们淹没结果之间的一种折中。
+				 *
+				 *
 				 */
 				if (strcmp(schema_query->catname,
 						   "pg_catalog.pg_class c") == 0 &&
@@ -5250,8 +5250,8 @@ _complete_from_query(const char *simple_query,
 				}
 
 				/*
-				 * If the target object type can be schema-qualified, add in
-				 * schema names matching the input-so-far.
+				 * 若目标对象类型可带模式限定，则把匹配迄今输入的
+				 * 模式名加入。
 				 */
 				if (schema_query->namespace)
 				{
@@ -5262,17 +5262,17 @@ _complete_from_query(const char *simple_query,
 									  e_object_like);
 
 					/*
-					 * Likewise, suppress system schemas unless the
-					 * input-so-far begins with "pg_".
+					 * 同样，除非迄今输入以 "pg_" 开头，否则不提供系统
+					 * 模式。
 					 */
 					if (strncmp(objectname, "pg_", 3) != 0)
 						appendPQExpBufferStr(&query_buffer,
 											 " AND n.nspname NOT LIKE E'pg\\\\_%'");
 
 					/*
-					 * Since we're matching these schema names to the object
-					 * name, handle their quoting using the object name's
-					 * quoting state.
+					 * 由于我们要把这些模式名与对象名匹配，其引号处理
+					 * 沿用对象名的引号状态。
+					 *
 					 */
 					schemaquoted = objectquoted;
 				}
@@ -5368,11 +5368,11 @@ _complete_from_query(const char *simple_query,
 			}
 
 			/*
-			 * In normal mode, a name requiring quoting will be returned only
-			 * if the input was empty or quoted.  Otherwise the user might see
-			 * completion inserting a quote she didn't type, which is
-			 * surprising.  This restriction also dodges some odd behaviors of
-			 * some versions of readline/libedit.
+			 * 在普通模式下，需要加引号的名称只有在输入为空或已加
+			 * 引号时才会返回。否则用户可能看到补全插入了她自己没
+			 * 有输入的引号，这令人意外。此限制也规避了 readline/
+			 * libedit 某些版本的怪异行为。
+			 *
 			 */
 			if (non_empty_object)
 			{
@@ -5392,9 +5392,9 @@ _complete_from_query(const char *simple_query,
 		}
 
 		/*
-		 * When the query result is exhausted, check for hard-wired keywords.
-		 * These will only be returned if they match the input-so-far,
-		 * ignoring case.
+		 * 查询结果耗尽时，检查硬编码的关键字。只有在忽略大小
+		 * 写后仍与迄今输入匹配时才会返回它们。
+		 *
 		 */
 		nskip = list_index - PQntuples(result);
 		if (schema_query && schema_query->keywords)
@@ -5436,9 +5436,9 @@ _complete_from_query(const char *simple_query,
 	}
 
 	/*
-	 * Hack: if we returned only bare schema names, don't let Readline add a
-	 * space afterwards.  Otherwise the schema will stop being part of the
-	 * completion subject text, which is not what we want.
+	 * Hack：如果我们只返回了裸模式名，就不要让 Readline 在
+	 * 其后追加空格。否则模式名将不再是补全主题文本的一部
+	 * 分，这不是我们想要的。
 	 */
 	if (num_schema_only > 0 && num_query_other == 0 && num_keywords == 0)
 		rl_completion_append_character = '\0';
@@ -5451,9 +5451,9 @@ _complete_from_query(const char *simple_query,
 
 
 /*
- * Set up completion_ref_object and completion_ref_schema
- * by parsing the given word.  These variables can then be
- * used in a query passed to _complete_from_query.
+ * 通过解析给定单词来设置 completion_ref_object 与
+ * completion_ref_schema。这些变量随后可在传给
+ * _complete_from_query 的查询中使用。
  */
 static void
 set_completion_reference(const char *word)
@@ -5479,9 +5479,9 @@ set_completion_reference_verbatim(const char *word)
 
 
 /*
- * This function returns in order one of a fixed, NULL pointer terminated list
- * of strings (if matching). This can be used if there are only a fixed number
- * SQL words that can appear at certain spot.
+ * 本函数按顺序返回固定的、以 NULL 指针结尾的字符串列表
+ * 中的一项（若匹配）。可用于某个位置只能出现固定数量
+ * SQL 词的情形。
  */
 static char *
 complete_from_list(const char *text, int state)
@@ -5521,8 +5521,8 @@ complete_from_list(const char *text, int state)
 			else
 
 				/*
-				 * If case insensitive matching was requested initially,
-				 * adjust the case according to setting.
+				 * 若最初请求的是不区分大小写的匹配，则按设置调整
+				 * 大小写。
 				 */
 				return pg_strdup_keyword_case(item, text);
 		}
@@ -5546,22 +5546,22 @@ complete_from_list(const char *text, int state)
 
 
 /*
- * This function returns one fixed string the first time even if it doesn't
- * match what's there, and nothing the second time.  The string
- * to be used must be in completion_charp.
+ * 本函数第一次返回该固定字符串（即使它与已有内容不匹
+ * 配），第二次返回空。要使用的字符串必须在
+ * completion_charp 中。
  *
- * If the given string is "", this has the effect of preventing readline
- * from doing any completion.  (Without this, readline tries to do filename
- * completion which is seldom the right thing.)
+ * 若给定字符串为 ""，其效果是阻止 readline 做任何补全
+ * （否则 readline 会尝试做文件名补全，这很少是正确的
+ * 行为）。
  *
- * If the given string is not empty, readline will replace whatever the
- * user typed with that string.  This behavior might be useful if it's
- * completely certain that we know what must appear at a certain spot,
- * so that it's okay to overwrite misspellings.  In practice, given the
- * relatively lame parsing technology used in this file, the level of
- * certainty is seldom that high, so that you probably don't want to
- * use this.  Use complete_from_list with a one-element list instead;
- * that won't try to auto-correct "misspellings".
+ * 若给定字符串非空，readline 会把用户输入的内容替换为
+ * 该字符串。如果我们完全确定知道某个位置必须出现什么、
+ * 覆盖拼写错误也无妨，这一行为可能有用。实际上，鉴于本
+ * 文件所用解析技术较为简陋，这种确定性很少达到那么高，
+ * 所以你可能不想用它。请改用带单元素列表的
+ * complete_from_list；它不会尝试自动纠正"拼写错误"。
+ *
+ *
  */
 static char *
 complete_from_const(const char *text, int state)
@@ -5574,8 +5574,8 @@ complete_from_const(const char *text, int state)
 		else
 
 			/*
-			 * If case insensitive matching was requested initially, adjust
-			 * the case according to setting.
+			 * 若最初请求的是不区分大小写的匹配，则按设置调整
+			 * 大小写。
 			 */
 			return pg_strdup_keyword_case(completion_charp, text);
 	}
@@ -5605,11 +5605,11 @@ append_variable_names(char ***varnames, int *nvars,
 
 
 /*
- * This function supports completion with the name of a psql variable.
- * The variable names can be prefixed and suffixed with additional text
- * to support quoting usages. If need_value is true, only variables
- * that are currently set are included; otherwise, special variables
- * (those that have hooks) are included even if currently unset.
+ * 本函数支持以 psql 变量名补全。变量名前后可附加额外
+ * 文本以支持引号用法。若 need_value 为真，则只包含
+ * 当前已设置的变量；否则即使未设置也包含特殊变量
+ * （带钩子的那些）。
+ *
  */
 static char **
 complete_from_variables(const char *text, const char *prefix, const char *suffix,
@@ -5662,19 +5662,19 @@ complete_from_files(const char *text, int state)
 #ifdef USE_FILENAME_QUOTING_FUNCTIONS
 
 	/*
-	 * If we're using a version of Readline that supports filename quoting
-	 * hooks, rely on those, and invoke rl_filename_completion_function()
-	 * without messing with its arguments.  Readline does stuff internally
-	 * that does not work well at all if we try to handle dequoting here.
-	 * Instead, Readline will call quote_file_name() and dequote_file_name()
-	 * (see below) at appropriate times.
+	 * 若所用 Readline 版本支持文件名引号钩子，就依赖它们
+	 * 并直接调用 rl_filename_completion_function()，不改
+	 * 动其参数。readline 内部有些处理在我们试图在此处理
+	 * 去引号时完全无法正常工作。作为替代，Readline 会在
+	 * 适当的时机调用 quote_file_name() 与 dequote_file_
+	 * name()（见下文）。
 	 *
-	 * ... or at least, mostly it will.  There are some paths involving
-	 * unmatched file names in which Readline never calls quote_file_name(),
-	 * and if left to its own devices it will incorrectly append a quote
-	 * anyway.  Set rl_completion_suppress_quote to prevent that.  If we do
-	 * get to quote_file_name(), we'll clear this again.  (Yes, this seems
-	 * like it's working around Readline bugs.)
+	 * ……或者至少大体如此。有些路径涉及未闭合的文件名，
+	 * Readline 从不调用 quote_file_name()，而且放任不管
+	 * 的话它仍会错误地追加引号。设置 rl_completion_
+	 * suppress_quote 来防止这一点。如果我们确实到了
+	 * quote_file_name()，会再次清掉它。（是的，这看起来
+	 * 像是在绕过 Readline 的缺陷。）
 	 */
 #ifdef HAVE_RL_COMPLETION_SUPPRESS_QUOTE
 	rl_completion_suppress_quote = 1;
@@ -5729,9 +5729,9 @@ complete_from_files(const char *text, int state)
 			ret = unquoted_match;
 
 		/*
-		 * If it's a directory, replace trailing quote with a slash; this is
-		 * usually more convenient.  (If we didn't quote, leave this to
-		 * libedit.)
+		 * 若是目录，把末尾引号替换为斜杠，这样通常更方便。
+		 * （如果我们没加引号，就交给 libedit 处理。）
+		 *
 		 */
 		if (*ret == '\'' && is_dir)
 		{
@@ -5804,12 +5804,12 @@ escape_string(const char *text)
 
 
 /*
- * make_like_pattern - Convert argument to a LIKE prefix pattern.
+ * make_like_pattern - 把参数转换为 LIKE 前缀模式。
  *
- * We escape _ and % in the given text by backslashing, append a % to
- * represent "any subsequent characters", and then pass the string through
- * escape_string() so it's ready to insert in a query.  The result needs
- * to be freed.
+ * 我们对给定文本中的 _ 和 % 加反斜杠转义，追加一个 %
+ * 表示"任意后续字符"，然后把字符串经过 escape_string()
+ * 处理以便插入查询。结果需要被释放。
+ *
  */
 static char *
 make_like_pattern(const char *word)
@@ -5825,8 +5825,8 @@ make_like_pattern(const char *word)
 		if (IS_HIGHBIT_SET(*word))
 		{
 			/*
-			 * Transfer multibyte characters without further processing, to
-			 * avoid getting confused in unsafe client encodings.
+			 * 多字节字符不经进一步处理直接传输，以避免在不安全的
+			 * 客户端编码中产生混淆。
 			 */
 			int			chlen = PQmblenBounded(word, pset.encoding);
 
@@ -5846,16 +5846,16 @@ make_like_pattern(const char *word)
 
 
 /*
- * parse_identifier - Parse a possibly-schema-qualified SQL identifier.
+ * parse_identifier - 解析可能带模式限定的 SQL 标识符。
  *
- * This involves splitting off the schema name if present, de-quoting,
- * and downcasing any unquoted text.  We are a bit laxer than the backend
- * in that we allow just portions of a name to be quoted --- that's because
+ * 这包括分离模式名（如有）、去引号，以及把未加引号的
+ * 文本转为小写。我们比后端稍微宽松：允许名称只有一部
+ * 分被加引号——这是因为 psql 元命令历来如此表现。
  * psql metacommands have traditionally behaved that way.
  *
- * Outputs are a malloc'd schema name (NULL if none), malloc'd object name,
- * and booleans telling whether any part of the schema and object name was
- * double-quoted.
+ * 输出为 malloc 分配的模式名（无则 NULL）、malloc 分
+ * 配的对象名，以及指示模式名和对象名是否有部分被双引
+ * 号包裹的布尔值。
  */
 static void
 parse_identifier(const char *ident,
@@ -5908,10 +5908,10 @@ parse_identifier(const char *ident,
 		else if (!enc_is_single_byte && IS_HIGHBIT_SET(ch))
 		{
 			/*
-			 * Transfer multibyte characters without further processing.  They
-			 * wouldn't be affected by our downcasing rule anyway, and this
-			 * avoids possibly doing the wrong thing in unsafe client
-			 * encodings.
+			 * 多字节字符不经进一步处理直接传输。它们反正不受我们
+			 * 小写化规则的影响，这样也避免了在不安全的客户端编码
+			 * 中可能做错事。
+			 *
 			 */
 			int			chlen = PQmblenBounded(ident - 1, pset.encoding);
 
@@ -5924,11 +5924,11 @@ parse_identifier(const char *ident,
 			if (!inquotes)
 			{
 				/*
-				 * This downcasing transformation should match the backend's
-				 * downcase_identifier() as best we can.  We do not know the
-				 * backend's locale, though, so it's necessarily approximate.
-				 * We assume that psql is operating in the same locale and
-				 * encoding as the backend.
+				 * 这个小写化转换应尽可能地与后端的 downcase_
+				 * identifier() 一致。但我们不知道后端的 locale，所以
+				 * 必然只是近似。我们假定 psql 与后端运行在相同的
+				 * locale 和编码之下。
+				 *
 				 */
 				if (ch >= 'A' && ch <= 'Z')
 					ch += 'a' - 'A';
@@ -5946,15 +5946,15 @@ parse_identifier(const char *ident,
 
 
 /*
- * requote_identifier - Reconstruct a possibly-schema-qualified SQL identifier.
+ * requote_identifier - 重建可能带模式限定的 SQL 标识符。
  *
- * Build a malloc'd string containing the identifier, with quoting applied
- * as necessary.  This is more or less the inverse of parse_identifier;
- * in particular, if an input component was quoted, we'll quote the output
- * even when that isn't strictly required.
+ * 构建一个 malloc 分配的字符串包含该标识符，并按需加
+ * 引号。这大致是 parse_identifier 的逆操作；特别是，
+ * 若输入成分带引号，即使并非严格必要我们也会给输出加
+ * 引号。
  *
- * Unlike parse_identifier, we handle the case where a schema and no
- * object name is provided, producing just "schema.".
+ * 与 parse_identifier 不同，我们处理只给了模式名而没
+ * 有对象名的情形，产生 "schema."。
  */
 static char *
 requote_identifier(const char *schemaname, const char *objectname,
@@ -6033,10 +6033,10 @@ requote_identifier(const char *schemaname, const char *objectname,
 
 
 /*
- * Detect whether an identifier must be double-quoted.
+ * 检测标识符是否必须加双引号。
  *
- * Note we'll quote anything that's not ASCII; the backend's quote_ident()
- * does the same.  Perhaps this could be relaxed in future.
+ * 注意：任何非 ASCII 的内容我们都会加引号；后端的
+ * quote_ident() 也如此。将来或许可以放宽。
  */
 static bool
 identifier_needs_quotes(const char *ident)
@@ -6050,13 +6050,13 @@ identifier_needs_quotes(const char *ident)
 		return true;
 
 	/*
-	 * Check for keyword.  We quote keywords except for unreserved ones.
+	 * 检查关键字。除不保留关键字外，我们都会给关键字加引
+	 *号。
+	 * 我们的关键字列表可能与服务器的不完全一致，但对 TAB
+	 * 补全而言这应当足够接近。
 	 *
-	 * It is possible that our keyword list doesn't quite agree with the
-	 * server's, but this should be close enough for tab-completion purposes.
-	 *
-	 * Note: ScanKeywordLookup() does case-insensitive comparison, but that's
-	 * fine, since we already know we have all-lower-case.
+	 * 注意：ScanKeywordLookup() 做不区分大小写的比较，这
+	 * 没有问题，因为我们已经确定手头是全小写。
 	 */
 	kwnum = ScanKeywordLookup(ident, &ScanKeywords);
 
@@ -6084,9 +6084,9 @@ exec_query(const char *query)
 	if (PQresultStatus(result) != PGRES_TUPLES_OK)
 	{
 		/*
-		 * Printing an error while the user is typing would be quite annoying,
-		 * so we don't.  This does complicate debugging of this code; but you
-		 * can look in the server log instead.
+		 * 在用户正在输入时打印错误会相当烦人，所以我们不这么
+		 * 做。这确实让本代码的调试变得复杂；但你可以改为查看
+		 * 服务器日志。
 		 */
 #ifdef NOT_USED
 		pg_log_error("tab completion query failed: %s\nQuery was:\n%s",
@@ -6101,15 +6101,15 @@ exec_query(const char *query)
 
 
 /*
- * Parse all the word(s) before point.
+ * 解析光标之前的全部词。
  *
- * Returns a malloc'd array of character pointers that point into the malloc'd
- * data array returned to *buffer; caller must free() both of these when done.
- * *nwords receives the number of words found, ie, the valid length of the
- * return array.
+ * 返回一个 malloc 分配的字符指针数组，它们指向返回到
+ * *buffer 的 malloc 分配数据数组；调用方用完后必须
+ * free() 这两者。*nwords 收到找到的词数，即返回数组
+ * 的有效长度。
  *
- * Words are returned right to left, that is, previous_words[0] gets the last
- * word before point, previous_words[1] the next-to-last, etc.
+ * 词按从右到左的顺序返回，即 previous_words[0] 是光
+ * 标前最后一个词，previous_words[1] 是倒数第二个。
  */
 static char **
 get_previous_words(int point, char **buffer, int *nwords)
@@ -6121,9 +6121,9 @@ get_previous_words(int point, char **buffer, int *nwords)
 	int			i;
 
 	/*
-	 * If we have anything in tab_completion_query_buf, paste it together with
-	 * rl_line_buffer to construct the full query.  Otherwise we can just use
-	 * rl_line_buffer as the input string.
+	 * 若 tab_completion_query_buf 中有内容，就把它与 rl_
+	 * line_buffer 拼接构成完整查询。否则直接用 rl_line_
+	 * buffer 作为输入字符串。
 	 */
 	if (tab_completion_query_buf && tab_completion_query_buf->len > 0)
 	{
@@ -6141,19 +6141,19 @@ get_previous_words(int point, char **buffer, int *nwords)
 		buf = rl_line_buffer;
 
 	/*
-	 * Allocate an array of string pointers and a buffer to hold the strings
-	 * themselves.  The worst case is that the line contains only
-	 * non-whitespace WORD_BREAKS characters, making each one a separate word.
-	 * This is usually much more space than we need, but it's cheaper than
+	 * 分配一个字符串指针数组和一个缓冲区来容纳字符串本身。
+	 * 最坏情形是这一行只包含非空白 WORD_BREAKS 字符，
+	 * 使每个字符都是独立的词。这通常比实际需要的空间多
+	 * 得多，但比每个词单独 malloc() 要便宜。
 	 * doing a separate malloc() for each word.
 	 */
 	previous_words = (char **) pg_malloc(point * sizeof(char *));
 	*buffer = outptr = (char *) pg_malloc(point * 2);
 
 	/*
-	 * First we look for a non-word char before the current point.  (This is
-	 * probably useless, if readline is on the same page as we are about what
-	 * is a word, but if so it's cheap.)
+	 * 首先我们在当前点之前寻找非词字符。（如果 readline
+	 * 对什么是词与我们看法一致，这一步可能是多余的，但代
+	 * 价很低。）
 	 */
 	for (i = point - 1; i >= 0; i--)
 	{
@@ -6189,10 +6189,10 @@ get_previous_words(int point, char **buffer, int *nwords)
 			break;
 
 		/*
-		 * Otherwise we now look for the start.  The start is either the last
-		 * character before any word-break character going backwards from the
-		 * end, or it's simply character 0.  We also handle open quotes and
-		 * parentheses.
+		 * 否则我们现在寻找起点。起点是从结尾往回走的第一个词
+		 * 分隔符之前的最后一个字符，或者就是第 0 个字符。我
+		 * 们还要处理开引号和括号。
+		 *
 		 */
 		for (start = end; start > 0; start--)
 		{
@@ -6233,10 +6233,10 @@ get_previous_words(int point, char **buffer, int *nwords)
 }
 
 /*
- * Look up the type for the GUC variable with the passed name.
+ * 为传入名称的 GUC 变量查找其类型。
  *
- * Returns NULL if the variable is unknown. Otherwise the returned string,
- * containing the type, has to be freed.
+ * 若变量未知则返回 NULL。否则返回的含类型字符串必须
+ * 被释放。
  */
 static char *
 get_guctype(const char *varname)
@@ -6269,10 +6269,10 @@ get_guctype(const char *varname)
 #ifdef USE_FILENAME_QUOTING_FUNCTIONS
 
 /*
- * Quote a filename according to SQL rules, returning a malloc'd string.
- * completion_charp must point to escape character or '\0', and
- * completion_force_quote must be set correctly, as per comments for
- * complete_from_files().
+ * 按 SQL 规则为文件名加引号，返回 malloc 分配的字符
+ * 串。completion_charp 必须指向转义字符或 '\0'，且
+ * completion_force_quote 必须按 complete_from_files()
+ * 的注释正确设置。
  */
 static char *
 quote_file_name(char *fname, int match_type, char *quote_pointer)
@@ -6289,13 +6289,13 @@ quote_file_name(char *fname, int match_type, char *quote_pointer)
 		s = pg_strdup(fname);
 
 	/*
-	 * However, some of the time we have to strip the trailing quote from what
-	 * we send back.  Never strip the trailing quote if the user already typed
-	 * one; otherwise, suppress the trailing quote if we have multiple/no
-	 * matches (because we don't want to add a quote if the input is seemingly
-	 * unfinished), or if the input was already quoted (because Readline will
-	 * do arguably-buggy things otherwise), or if the file does not exist, or
-	 * if it's a directory.
+	 * 不过，有些时候我们必须从返回内容中剥掉末尾引号。若
+	 * 用户已经输入了引号则绝不剥掉；否则在匹配为多个或没
+	 * 有匹配时（因为输入看似未完成时我们不想加引号）、输
+	 * 入已经带引号时（否则 Readline 会做出堪称有缺陷的行
+	 * 为）、文件不存在时、或它是目录时，压制末尾引号。
+	 *
+	 *
 	 */
 	if (*s == '\'' &&
 		completion_last_char != '\'' &&
@@ -6311,9 +6311,9 @@ quote_file_name(char *fname, int match_type, char *quote_pointer)
 	}
 
 	/*
-	 * And now we can let Readline do its thing with possibly adding a quote
-	 * on its own accord.  (This covers some additional cases beyond those
-	 * dealt with above.)
+	 * 现在可以让 Readline 自行处理、自行决定是否追加引号。
+	 * （这覆盖了上文未处理的一些额外情形。）
+	 *
 	 */
 #ifdef HAVE_RL_COMPLETION_SUPPRESS_QUOTE
 	rl_completion_suppress_quote = 0;
@@ -6341,9 +6341,9 @@ dequote_file_name(char *fname, int quote_char)
 	char	   *unquoted_fname;
 
 	/*
-	 * If quote_char is set, it's not included in "fname".  We have to add it
-	 * or strtokx will not interpret the string correctly (notably, it won't
-	 * recognize escapes).
+	 * 若 quote_char 已设置，它不包含在 "fname" 中。我们必
+	 * 须补上它，否则 strtokx 将无法正确解释该字符串（尤其
+	 * 是无法识别转义）。
 	 */
 	if (quote_char == '\'')
 	{

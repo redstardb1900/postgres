@@ -1708,5 +1708,15 @@
   "path": "src/bin/psql/tab-complete.c",
   "pattern": "本文件在\\ psql\\ 中实现了一套稍复杂些的",
   "reason": "psql file-header block translated in batch-0351: identifier names (psql, readline, TAB, SQL, ~/.inputrc, disable-completion) kept EN inside the zh prose per house identifier-keep convention; header describes the psql TAB-completion feature"
+ },
+ {
+  "path": "src/bin/psql/tab-complete.c",
+  "pattern": "parse_identifier",
+  "reason": "parse_identifier function-header block translated in batch-0355: function name parse_identifier kept EN per identifier-keep convention"
+ },
+ {
+  "path": "src/bin/psql/tab-complete.c",
+  "pattern": "WORD_BREAKS",
+  "reason": "WORD_BREAKS macro name kept EN in batch-0355 translated prose per identifier-keep convention"
  }
 ]

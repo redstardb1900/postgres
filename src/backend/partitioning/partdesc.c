@@ -444,7 +444,7 @@ CreatePartitionDirectory(MemoryContext mcxt, bool omit_detached)
 
 /*
  * PartitionDirectoryLookup
- *		在分区目录里查找关系的分区描述符。
+ *		在分区系统目录里查找关系的分区描述符。
  *
  * 本函数的目的是保证每次查找时，同一关系都得到同一个
  * PartitionDesc。面对并发 DDL，不同的 PartitionDescs 可能

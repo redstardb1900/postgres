@@ -431,7 +431,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 				 * 若为 variadic，有两种情形，视聚合是        
 				 * "... ORDER BY VARIADIC" 还是 "..., VARIADIC              
 				 * ORDER BY VARIADIC"。若 catDirectArgs 等于         
-				 * pronargs 则是后者；为省一次目录查找，从 
+				 * pronargs 则是后者；为省一次系统目录查找，从 
 				 * func_get_detail 信息反推 pronargs。           
 				 */
 				int			pronargs;

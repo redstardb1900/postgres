@@ -3303,7 +3303,7 @@ get_rte_attribute_is_dropped(RangeTblEntry *rte, AttrNumber attnum)
 		case RTE_RELATION:
 			{
 				/*
-				 * 普通关系 RTE —— 取得该属性的目录条目  
+				 * 普通关系 RTE —— 取得该属性的系统目录条目  
 				 */
 				HeapTuple	tp;
 				Form_pg_attribute att_tup;

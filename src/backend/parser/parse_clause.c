@@ -3319,7 +3319,7 @@ transformOnConflictArbiter(ParseState *pstate,
 				 parser_errposition(pstate,
 									exprLocation((Node *) onConflictClause))));
 
-	/* 被逻辑解码用作目录表的表同样适用此限制       */
+	/* 被逻辑解码用作系统目录表的表同样适用此限制       */
 	if (RelationIsUsedAsCatalogTable(pstate->p_target_relation))
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),

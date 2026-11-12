@@ -1,0 +1,269 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0361",
+ "title": "glossary campaign: remaining dirs 目录->系统目录 36 occurrences in 15 files",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "28fe1c7e2aa0f9a9006412b693f59c8e6e641995",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/executor/nodeIndexonlyscan.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "pattern": "src/backend/optimizer/util/plancat.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "pattern": "src/backend/parser/parse_agg.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "pattern": "src/backend/parser/parse_clause.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "pattern": "src/backend/parser/parse_coerce.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "pattern": "src/backend/parser/parse_expr.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "pattern": "src/backend/parser/parse_func.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "pattern": "src/backend/parser/parse_relation.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "pattern": "src/backend/partitioning/partdesc.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "pattern": "src/backend/postmaster/autovacuum.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "pattern": "src/backend/storage/lmgr/lock.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "pattern": "src/backend/tcop/postgres.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "pattern": "src/bin/initdb/initdb.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "pattern": "src/bin/pg_upgrade/controldata.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "pattern": "src/bin/psql/tab-complete.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0361-remaining.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0361 manifest path (S6 registration)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/executor/nodeIndexonlyscan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "path": "src/backend/optimizer/util/plancat.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 10,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "path": "src/backend/parser/parse_agg.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "path": "src/backend/parser/parse_clause.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "path": "src/backend/parser/parse_coerce.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "path": "src/backend/parser/parse_expr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "path": "src/backend/parser/parse_func.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "path": "src/backend/parser/parse_relation.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "path": "src/backend/partitioning/partdesc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "path": "src/backend/postmaster/autovacuum.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "path": "src/backend/storage/lmgr/lock.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "path": "src/backend/tcop/postgres.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "path": "src/bin/initdb/initdb.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "path": "src/bin/pg_upgrade/controldata.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "path": "src/bin/psql/tab-complete.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (36 occurrences, 15 files, remaining dirs)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0361-remaining.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0361 manifest path (S6 registration)"
+  }
+ ],
+ "notes": "batch-0361 (glossary final tranche, 2026-11-12, parent batch-0360=28fe1c7e2aa). catalog-sense 目录->系统目录 across all remaining directories (%d occurrences, %d files). Gates: verify 622 ok 0 violations changed=62103; term bare 0/0 + pgnls 0/705 pre-existing; halfen default 0; raw 422==422; check_scope incremental + cumulative PASS; tests 229=222+7. Campaign: glossary 目录->系统目录 COMPLETE (512+ sites across 0356-0361)."
+}

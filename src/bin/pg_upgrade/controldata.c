@@ -278,7 +278,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 
 			/*
 			 * 9.6 中分隔符从 '/' 改为 ':'。我们不检测        
-			 * 目录版本的变更，因为目录版本同样             
+			 * 系统目录版本的变更，因为系统目录版本同样             
 			 * 取自 pg_controldata，为此添加顺序                     
 			 * 依赖并不值得 --- 我们仅检查字符串。     
 			 */

@@ -129,7 +129,7 @@ typedef struct SchemaQuery
 	int			min_server_version;
 
 	/*
-	 * 要查询的目录名称，带别名，例如
+	 * 要查询的系统目录名称，带别名，例如
 	 * "pg_catalog.pg_class c"。注意 "pg_namespace n" 和/或
 	 * "pg_namespace nr" 将在需要时自动添加。
 	 */
@@ -180,8 +180,8 @@ typedef struct SchemaQuery
 	/*
 	 * 若此查询使用 completion_ref_object/completion_ref_schema，
 	 * 则填充其余字段，否则保留为 NULL。使用此
-	 * 功能时，catname 必须包含定义 completion_ref_object 的目录，
-	 * selcondition 必须包含将其连接到结果目录的
+	 * 功能时，catname 必须包含定义 completion_ref_object 的系统目录，
+	 * selcondition 必须包含将其连接到结果系统目录的
 	 * 连接条件。
 	 *
 	 * refname 是应与 completion_ref_object 相等的字段，
@@ -5235,7 +5235,7 @@ _complete_from_query(const char *simple_query,
 
 				/*
 				 * 取关系名时，除非迄今输入以 "pg_" 开头，否则不提供系统
-				 * 目录。这是在完全不提供系统目录补全、与输入仅为 "p"
+				 * 系统目录。这是在完全不提供系统目录补全、与输入仅为 "p"
 				 * 时让它们淹没结果之间的一种折中。
 				 *
 				 *
@@ -5898,7 +5898,7 @@ parse_identifier(const char *ident,
 		{
 			/* 找到模式名，将其转移到 sname / *schemaquoted */
 			*optr = '\0';
-			free(sname);		/* 丢弃任何目录名 */
+			free(sname);		/* 丢弃任何系统目录名 */
 			sname = oname;
 			oname = pg_malloc(buflen);
 			optr = oname;

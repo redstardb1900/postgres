@@ -4534,7 +4534,7 @@ PostgresMain(const char *dbname, const char *username)
 		initStringInfo(&input_message);
 
 		/*
-		 * 如有目录快照也考虑释放，这样等待客户端期间  
+		 * 如有系统目录快照也考虑释放，这样等待客户端期间  
 		 * 它不会阻碍全局 xmin 前进。                               
 		 */
 		InvalidateCatalogSnapshotConditionally();

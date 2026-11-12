@@ -584,10 +584,10 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 	 * A.B		A 是非限定表名；B 可以是           
 	 * 			列名或函数名（优先尝试列名）。     
 	 * A.B.C	模式 A, 表 B, 列/函数 C。      
-	 * A.B.C.D	目录 A, 模式 B, 表 C, 列/函数 D。  
+	 * A.B.C.D	系统目录 A, 模式 B, 表 C, 列/函数 D。  
 	 * A.*		A 是非限定表名；表示整行。                
 	 * A.B.*	模式 A 中表 B 的整行。         
-	 * A.B.C.*	目录 A 中模式 B 下表 C 的整行。          
+	 * A.B.C.*	系统目录 A 中模式 B 下表 C 的整行。          
 	 *
 	 * 我们无需处理单独的"*"；只有 SELECT 列表              
 	 * 顶层语法接受它，而且 transformTargetList                    
@@ -595,7 +595,7 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 	 * 若出现在 SELECT 顶层，会被 transformTargetList 展开，     
 	 * 所以这里只会把它们视为函数或操作符的输入。      
 	 *
-	 * 目前若给出了目录名，则它必须等于当前              
+	 * 目前若给出了系统目录名，则它必须等于当前              
 	 * 数据库名；在此检查后即予丢弃。       
 	 *----------
 	 */
@@ -737,7 +737,7 @@ transformColumnRef(ParseState *pstate, ColumnRef *cref)
 				relname = strVal(field3);
 
 				/*
-				 * 我们检查目录名，然后将其忽略。
+				 * 我们检查系统目录名，然后将其忽略。
 				 */
 				if (strcmp(catname, get_database_name(MyDatabaseId)) != 0)
 				{

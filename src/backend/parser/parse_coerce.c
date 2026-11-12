@@ -2111,14 +2111,14 @@ check_generic_type_consistency(const Oid *actual_arg_types,
  *
  * 特殊情形：即使 allow_poly 为假，actual_arg_types             
  * 中也可能出现 ANYARRAY（这仅因 pg_statistic 的某些          
- * 列在目录中显示为 anyarray）。我们允许它匹配         
+ * 列在系统目录中显示为 anyarray）。我们允许它匹配         
  * 声明的 ANYARRAY 参数，但前提是没有其他需要与        
  * 之匹配的多态参数，也无需再确定元素类型来          
  * 推断结果类型。注意这意味着接受 ANYARRAY 的函数          
  * 在作用于 pg_statistic 列时最好行为正常；它们            
  * 无法径直假定相继的输入具有相同的实际元素          
  * 类型。ANYCOMPATIBLEARRAY 没有类似逻辑；                      
- * 因为不存在该类型的目录列，所以也无需这类逻辑，     
+ * 因为不存在该类型的系统目录列，所以也无需这类逻辑，     
  * 不会看到它作为输入。我们可以考虑把实际 ANYARRAY         
  * 输入匹配到 ANYCOMPATIBLEARRAY 参数，但目前看来               
  * 并无用处，因为使用 ANYCOMPATIBLEARRAY 本身没有               

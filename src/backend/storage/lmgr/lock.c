@@ -1798,7 +1798,7 @@ GrantAwaitedLock(void)
  *
  * 这意味着我们知道自己已经吸收了其他会话在我们取得
  * 这把锁之前产生的全部 sinval 消息，因此可以有把握地
- * 认为自己已经知道这把锁所保护的任何目录变更。
+ * 认为自己已经知道这把锁所保护的任何系统目录变更。
  */
 void
 MarkLockClear(LOCALLOCK *locallock)

@@ -1946,7 +1946,7 @@ get_aggregate_argtypes(Aggref *aggref, Oid *inputTypes)
  *	确定聚合调用的转换状态值的数据类型。               
  *
  * 此函数解析多态聚合的状态数据类型。             
- * 调用时必须传入聚合目录项中的 aggtranstype，            
+ * 调用时必须传入聚合系统目录项中的 aggtranstype，            
  * 以及 get_aggregate_argtypes 提取出的实际参数类型。          
  * （本可以在内部读取 pg_aggregate.aggtranstype，但           
  * 现有调用者都已持有该值，故要求其传入。）     

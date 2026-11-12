@@ -285,7 +285,7 @@ StoreIndexTuple(IndexOnlyScanState *node, TupleTableSlot *slot,
 	 * 把所有以 cstring 形式存储的 name 列拷回一个            
 	 * NAMEDATALEN 字节大小的分配中。我们将此分支标记       
 	 * 为不太可能发生，因为 "name" 通常只用于系统目录， 
-	 * 这只会是运行在这些目录或其他带 name 列索引的        
+	 * 这只会是运行在这些系统目录或其他带 name 列索引的        
 	 * 查询 
 	 */
 	if (unlikely(node->ioss_NameCStringAttNums != NULL))

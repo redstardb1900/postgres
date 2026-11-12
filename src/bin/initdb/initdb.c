@@ -1766,7 +1766,7 @@ setup_collation(FILE *cmdfd)
  *                
  *
  * 同时填充 pg_init_privs 以保存初始化时的权限状态。 
- * pg_dump 会使用它，让用户能够修改目录对象上的    
+ * pg_dump 会使用它，让用户能够修改系统目录对象上的    
  * 权限，并让这些权限修改在 dump/reload 和            
  * pg_upgrade 之后得以保留。  
  *

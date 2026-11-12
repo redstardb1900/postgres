@@ -1,0 +1,74 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0365-review-fix",
+ "title": "time dir review fixes: untranslated header line, polarity flip, fold word-loss x4, @241 remap",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "70a54b7c1a0f95e9d086864239d398c805cbd46c",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0365-review-fix.json",
+   "kind": "manifest",
+   "note": "this fixup manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0365-time-dir.json",
+   "kind": "manifest",
+   "note": "notes corrections per review (term_lint warning count, scan_halfen record)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "register fixup manifest path (S6)"
+  },
+  {
+   "pattern": "src/backend/utils/time/snapmgr.c",
+   "kind": "c_comment",
+   "note": "13 comment lines fixed per review; no code changes"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0365-review-fix.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this fixup manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0365-time-dir.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "notes corrections (A4)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "register fixup manifest path (S6)"
+  },
+  {
+   "path": "src/backend/utils/time/snapmgr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "B1 L1412 untranslated EN header line translated (4-line LF count preserved via trailing separator); B2 L2184 polarity 不 restored; A1 fold word-loss x4 (L122 active_count, L642 那种, L562 何况, L2349 大得多); A2 @241 tail remapped"
+  }
+ ],
+ "notes": "batch-0365-review-fix (2026-11-13, parent batch-0365=153bf93af02+70a54b7c1a0). Review round: BLOCKER B1 - snapmgr L1412 (EN 'Must be at top level of a fresh transaction...' ) had been left untranslated; now translated with comment line count preserved (R6). BLOCKER B2 - L2184 polarity flip (Don't bother to copy... NOT used) fixed by restoring 不. A1 fold word-loss x4 fixed (L122 active_count restored as object; L642-643 那种; L562 何况; L2349 大得多). A2 @241 tail remapped (Callers should call RegisterSnapshot or PushActiveSnapshot... properly attributed, duplicate 后续调用 removed). Notes corrections: term_lint advisory counts cited from JSON hits of the documented command (verify: 6 warning hits on this dir, 0 errors, with --pgnls /home/redstar/pg/pgsty/pgnls); scan_halfen 0 findings in --worktree REL_16_11 . mode (the --git HEAD finding at L1411 was B1 itself and disappears with this fix). Gates re-run: verify_c_comments 0 violations; term_lint 0 errors; scan_halfen --worktree 0 findings. No code changes."
+}

@@ -119,7 +119,7 @@ static HTAB *tuplecid_data = NULL;
 /*
  * 活动快照栈的元素。
  *
- * 这里的每个元素恰好对应 SnapshotData 上的一个
+ * 这里的每个元素对应 SnapshotData 上的一个 active_count
  *
  * 注意：代码假定此列表中的元素按 as_level 非递增顺
  * 序排列；且列表必须以 NULL 结尾。
@@ -242,10 +242,10 @@ SnapMgrInit(void)
  * GetTransactionSnapshot
  *		为事务中的新查询取得合适的快照。
  *
- * 注意返回值可能指向静态存储，会被后续调用和
- * 由后续调用及 CommandCounterIncrement() 修改。若返
- * 回的快照上调用 RegisterSnapshot 或 PushActiveSnapshot
- * 若久用。
+ * 注意返回值可能指向静态存储，会被后续调用及
+ * CommandCounterIncrement() 修改。调用者若要长期
+ * 使用返回的快照，应调 RegisterSnapshot 或 PushActiveSnapshot
+ * 。
  */
 Snapshot
 GetTransactionSnapshot(void)
@@ -559,7 +559,7 @@ SetTransactionSnapshot(Snapshot sourcesnap, VirtualTransactionId *sourcevxid,
 	 * 。
 	 *
 	 * 注意：可串行化模式下 predicate.c 会再做一次。
-	 * 为省掉两次调用而扭曲这里的逻辑不值得，何
+	 * 为省掉两次调用而扭曲这里的逻辑不值得，何况
 	 * 也不清楚 predicate.c 是否*必须*这么做。
 	 */
 	if (sourceproc != NULL)
@@ -639,7 +639,7 @@ CopySnapshot(Snapshot snapshot)
 		newsnap->xip = NULL;
 
 	/*
-	 * 设置 subXID 数组。溢出时无需复制，因为
+	 * 设置 subXID 数组。溢出时无需复制，因为那种
 	 * 情况下它不会被用到。但若是在恢复期间取得的快
 	 * 照，所有顶层 XID 也都在 subxip 里，所以不能丢掉
 	 * 它们。
@@ -1409,10 +1409,10 @@ ImportSnapshot(const char *idstr)
 	SnapshotData snapshot;
 
 	/*
-	 * Must be at top level of a fresh transaction.  Note in particular that
 	 * 必须在全新事务的顶层。特别要注意我们会检查自
-	 * 己尚未取得 XID —— 若已取得，快照可能显示错乱
-	 * 状态。
+	 * 己尚未取得的 XID —— 若已取得，快照可能把
+	 * 它显示为未在运行，造成诡异的状态。
+	 *
 	 */
 	if (FirstSnapshotSet ||
 		GetTopTransactionIdIfAny() != InvalidTransactionId ||
@@ -2181,7 +2181,7 @@ SerializeSnapshot(Snapshot snapshot, char *start_address)
 
 	/*
 	 * 复制 SubXID 数组。溢出时无需复制它，因为那时
-	 * 会被用到。但若是在恢复期间取得的快照，所有顶层
+	 * 不会被用到。但若是在恢复期间取得的快照，所有顶层
 	 * XID 也都在 subxip 里，所以不能丢掉它们。
 	 * 。
 	 */
@@ -2346,7 +2346,7 @@ XidInMVCCSnapshot(TransactionId xid, Snapshot snapshot)
 	{
 		/*
 		 * 恢复期我们把所有 xid 存进 subxip 数组，因为它
-		 * 得多，且多半不知道哪些 xid 是顶层哪些是子
+		 * 大得多，且多半不知道哪些 xid 是顶层哪些是子
 		 * 事务。xip 数组为空。
 		 *
 		 * 如果溢出了，我们先搜索 subtrans。

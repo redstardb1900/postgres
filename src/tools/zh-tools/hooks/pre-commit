@@ -1,0 +1,37 @@
+#!/bin/bash
+# Pre-commit hook: enforce check_scope for zh translation batches
+# Blocks commits that stage .c/.h changes without a passing batch manifest.
+
+# Only fire if .c/.h files are staged
+C_FILES=$(git diff --cached --name-only --diff-filter=ACM -- '*.c' '*.h' 2>/dev/null)
+if [ -z "$C_FILES" ]; then
+    exit 0  # no .c/.h staged, allow
+fi
+
+# Find the newest staged manifest
+MANIFEST=$(git diff --cached --name-only --diff-filter=A -- 'src/tools/zh-tools/manifests/batch-*.json' 2>/dev/null | sort -r | head -1)
+if [ -z "$MANIFEST" ]; then
+    # Check for modified (not just added) manifests too
+    MANIFEST=$(git diff --cached --name-only --diff-filter=M -- 'src/tools/zh-tools/manifests/batch-*.json' 2>/dev/null | grep -v cumulative | sort -r | head -1)
+fi
+
+if [ -z "$MANIFEST" ]; then
+    echo "BLOCKED: .c/.h files staged but no batch manifest found."
+    echo "Create a batch manifest in src/tools/zh-tools/manifests/ first."
+    exit 1
+fi
+
+echo "pre-commit: running check_scope with $MANIFEST"
+PYTHONDONTWRITEBYTECODE=1 python3 src/tools/zh-tools/check_scope.py \
+    --worktree . \
+    --incremental \
+    --base HEAD \
+    --manifest "$MANIFEST" \
+    --quiet
+RC=$?
+if [ $RC -ne 0 ]; then
+    echo "BLOCKED: check_scope FAILED (exit $RC). Fix violations before committing."
+    exit 1
+fi
+echo "pre-commit: check_scope PASS"
+exit 0

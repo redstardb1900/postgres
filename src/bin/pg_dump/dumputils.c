@@ -665,7 +665,7 @@ AddAcl(PQExpBuffer aclbuf, const char *keyword, const char *subname)
  * buildShSecLabelQuery
  *
  * 构建用于检索共享对象安全标签的查询。
- * 对象通过其 OID 加上所在目录的名称来标识
+ * 对象通过其 OID 加上所在系统目录的名称来标识
  * （例如，"pg_database" 用于数据库名称）。
  * 查询被追加到 "sql"。（我们不在此执行查询，以便
  * 保持此文件不依赖任何处理 SQL 错误的假设。）

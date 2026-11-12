@@ -77,7 +77,7 @@ typedef struct
 typedef struct
 {
 	const char *descr;			/* 对象的注释 */
-	Oid			classoid;		/* 对象类别（目录 OID） */
+	Oid			classoid;		/* 对象类别（系统目录 OID） */
 	Oid			objoid;			/* 对象 OID */
 	int			objsubid;		/* 子对象（表列编号） */
 } CommentItem;
@@ -86,7 +86,7 @@ typedef struct
 {
 	const char *provider;		/* 此安全标签的标签提供者 */
 	const char *label;			/* 对象的安全标签 */
-	Oid			classoid;		/* 对象类别（目录 OID） */
+	Oid			classoid;		/* 对象类别（系统目录 OID） */
 	Oid			objoid;			/* 对象 OID */
 	int			objsubid;		/* 子对象（表列编号） */
 } SecLabelItem;
@@ -2736,7 +2736,7 @@ refreshMatViewData(Archive *fout, const TableDataInfo *tdinfo)
 
 	if (tdinfo->dobj.dump & DUMP_COMPONENT_DATA)
 		ArchiveEntry(fout,
-					 tdinfo->dobj.catId,	/* 目录 ID */
+					 tdinfo->dobj.catId,	/* 系统目录 ID */
 					 tdinfo->dobj.dumpId,	/* 导出 ID */
 					 ARCHIVE_OPTS(.tag = tbinfo->dobj.name,
 								  .namespace = tbinfo->dobj.namespace->dobj.name,
@@ -3221,7 +3221,7 @@ dumpDatabase(Archive *fout)
 	dbDumpId = createDumpId();
 
 	ArchiveEntry(fout,
-				 dbCatId,		/* 目录 ID */
+				 dbCatId,		/* 系统目录 ID */
 				 dbDumpId,		/* 导出 ID */
 				 ARCHIVE_OPTS(.tag = datname,
 							  .owner = dba,
@@ -7110,7 +7110,7 @@ getIndexes(Archive *fout, TableInfo tblinfo[], int numTables)
 
 	/*
 	 * 我们希望只对 pg_index 执行一次查询。但是，我们不能尝试选择
-	 * 目录的每一行然后在客户端进行排序，因为某些我们需要的服务器端函数
+	 * 系统目录的每一行然后在客户端进行排序，因为某些我们需要的服务器端函数
 	 * 应用于我们未加锁的表上是不安全的。因此，我们构建一个包含我们关心
 	 * （现已加锁）的表的 OID 数组，并使用 WHERE 子句来限制选择哪些行。
 	 *
@@ -7481,7 +7481,7 @@ getConstraints(Archive *fout, TableInfo tblinfo[], int numTables)
 
 	/*
 	 * 我们希望只对 pg_constraint 执行一次查询。但是，我们不能尝试选择
-	 * 目录的每一行然后在客户端进行排序，因为某些我们需要的服务器端函数
+	 * 系统目录的每一行然后在客户端进行排序，因为某些我们需要的服务器端函数
 	 * 应用于我们未加锁的表上是不安全的。因此，我们构建一个包含我们关心
 	 * （现已加锁）的表的 OID 数组，并使用 WHERE 子句来限制选择哪些行。
 	 *
@@ -7871,7 +7871,7 @@ getTriggers(Archive *fout, TableInfo tblinfo[], int numTables)
 
 	/*
 	 * 我们希望只对 pg_trigger 执行一次查询。但是，我们不能尝试选择
-	 * 目录的每一行然后在客户端进行排序，因为某些我们需要的服务器端函数
+	 * 系统目录的每一行然后在客户端进行排序，因为某些我们需要的服务器端函数
 	 * 应用于我们未加锁的表上是不安全的。因此，我们构建一个包含我们关心
 	 * （现已加锁）的表的 OID 数组，并使用 WHERE 子句来限制选择哪些行。
 	 *
@@ -8530,7 +8530,7 @@ getTableAttrs(Archive *fout, TableInfo *tblinfo, int numTables)
 	/*
 	 * 我们希望只对 pg_attribute 执行一次查询，然后只对
 	 * pg_attrdef（用于 DEFAULT）和 pg_constraint（用于 CHECK 约束）
-	 * 各执行一次查询。但是，我们不能尝试选择这些目录的每一行然后
+	 * 各执行一次查询。但是，我们不能尝试选择这些系统目录的每一行然后
 	 * 在客户端进行排序，因为某些我们需要的服务器端函数应用于
 	 * 我们未加锁的表上是不安全的。因此，我们构建一个包含我们关心
 	 * （现已加锁）的表的 OID 数组，并使用 WHERE 子句来限制选择哪些行。
@@ -9698,11 +9698,11 @@ collectRoleNames(Archive *fout)
  * getAdditionalACLs
  * 
  * 我们现在已经创建了所有 DumpableObject，并收集了出现在
- * 直接关联的目录条目中的 ACL 数据。但是，还有更多与 ACL
+ * 直接关联的系统目录条目中的 ACL 数据。但是，还有更多与 ACL
  * 相关的信息需要收集。如果表的任何列有 ACL，我们必须设置
  * TableInfo 的 DUMP_COMPONENT_ACL 组件标志以及其
  * hascolumnACLs 标志（但我们不会在此存储 ACL 本身）。
- * 此外，在具有 pg_init_privs 目录的版本中，读取该目录并
+ * 此外，在具有 pg_init_privs 系统目录的版本中，读取该系统目录并
  * 将信息加载到相关的 DumpableObject 中。
  */
 static void
@@ -9817,7 +9817,7 @@ getAdditionalACLs(Archive *fout)
  * 此例程用于导出与传递给此例程的对象关联的任何注释。
  * 该例程接受对象类型和对象名称（可直接输出，
  * 仅需要装饰模式名），加上对象的命名空间和所有者
- * （用于标记 ArchiveEntry），加上目录 ID 和 subid
+ * （用于标记 ArchiveEntry），加上系统目录 ID 和 subid
  * （作为 pg_description 的查找键），加上对象的导出 ID
  * （用于设置依赖）。如果找到匹配的 pg_description 条目，
  * 则导出。
@@ -11542,7 +11542,7 @@ dumpCompositeType(Archive *fout, const TypeInfo *tyinfo)
 			/*
 			 * 这是一个已删除的属性并且我们处于二进制升级模式。
 			 * 在 CREATE TYPE 命令中为其插入一个占位符，
-			 * 然后在之后通过直接 UPDATE 到目录来设置长度和对齐。
+			 * 然后在之后通过直接 UPDATE 到系统目录来设置长度和对齐。
 			 * 参见 dumpTableSchema() 中的类似代码。
 			 */
 			appendPQExpBuffer(q, "%s INTEGER /* dummy */", fmtId(attname));
@@ -14913,7 +14913,7 @@ dumpACL(Archive *fout, DumpId objDumpId, DumpId altDumpId,
 	 * 在恢复时，我们在调用
 	 * binary_upgrade_set_record_init_privs(true) 之后应用
 	 * 这些命令。这告诉后端将结果复制到 pg_init_privs 中。
-	 * 这就是我们跨二进制升级保留该目录内容的方式。
+	 * 这就是我们跨二进制升级保留该系统目录内容的方式。
 	 *
 	 */
 	if (dopt->binary_upgrade && privtype == 'e' &&
@@ -14992,7 +14992,7 @@ dumpACL(Archive *fout, DumpId objDumpId, DumpId altDumpId,
  * 此例程用于导出与传递给此例程的对象关联的任何
  * 安全标签。该例程接受对象类型和对象名称（可直接输出，
  * 仅需要装饰模式名），加上对象的命名空间和所有者
- * （用于标记 ArchiveEntry），加上目录 ID 和 subid
+ * （用于标记 ArchiveEntry），加上系统目录 ID 和 subid
  * （作为 pg_seclabel 的查找键），加上对象的导出 ID
  * （用于设置依赖）。如果找到匹配的 pg_seclabel 条目，
  * 则导出。
@@ -15368,7 +15368,7 @@ dumpTable(Archive *fout, const TableInfo *tbinfo)
 	 * 处理列 ACL（如果有）。注意：我们通过单独的查询拉取
 	 * 这些，而不是在 getTableAttrs 期间获取它们，以便不会
 	 * 遗漏系统列上的 ACL。这种方式还允许我们为在 getTables
-	 * 中没有标记为"感兴趣"的目录导出 ACL。
+	 * 中没有标记为"感兴趣"的系统目录导出 ACL。
 	 */
 	if ((tbinfo->dobj.dump & DUMP_COMPONENT_ACL) && tbinfo->hascolumnACLs)
 	{
@@ -15943,7 +15943,7 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
 
 		/*
 		 * 在二进制升级模式下，使用可能存在的任何缺失值
-		 * 更新目录。
+		 * 更新系统目录。
 		 */
 		if (dopt->binary_upgrade)
 		{

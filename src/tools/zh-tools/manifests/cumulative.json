@@ -5908,6 +5908,11 @@
    "note": "batch-0359 manifest"
   },
   {
+   "pattern": "src/tools/zh-tools/manifests/batch-0360-pgdump-dir.json",
+   "kind": "manifest",
+   "note": "batch-0360 manifest"
+  },
+  {
    "pattern": "src/tools/zh-tools/manifests/cumulative.json",
    "kind": "tool",
    "note": "cumulative manifest since REL_16_11 for check_scope.py (non-incremental)"
@@ -19607,6 +19612,16 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0359 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0360-pgdump-dir.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0360 manifest"
   },
   {
    "path": "src/tools/zh-tools/manifests/cumulative.json",

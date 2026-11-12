@@ -728,7 +728,7 @@ findObjectByDumpId(DumpId dumpId)
 }
 
 /*
- * 通过目录 ID 查找 DumpableObject
+ * 通过系统目录 ID 查找 DumpableObject
  *
  * 对于未知 ID 返回 NULL
  */
@@ -996,7 +996,7 @@ findPublicationByOid(Oid oid)
 
 /*
  * recordExtensionMembership
- *	  记录由给定目录 ID 标识的对象属于给定扩展
+ *	  记录由给定系统目录 ID 标识的对象属于给定扩展
  *
  */
 void
@@ -1021,7 +1021,7 @@ recordExtensionMembership(CatalogId catId, ExtensionInfo *ext)
 
 /*
  * findOwningExtension
- *	  返回指定目录 ID 的所属扩展，无则返回 NULL
+ *	  返回指定系统目录 ID 的所属扩展，无则返回 NULL
  */
 ExtensionInfo *
 findOwningExtension(CatalogId catalogId)

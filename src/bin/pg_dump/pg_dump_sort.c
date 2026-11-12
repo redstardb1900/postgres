@@ -227,7 +227,7 @@ DOTypeNameCompare(const void *p1, const void *p2)
 		return 1;
 
 	/*
-	* 按名称排序。除少数例外，这里的名称是单个目录列。
+	* 按名称排序。除少数例外，这里的名称是单个系统目录列。
 	* 要获取更完整的图景，请在 pg_dump.c 中搜索 "dobj.name = "。
 	* 这里的名称与纯文本格式输出中的 "Name:" 不匹配，
 	* 后者是 _tocEntry.tag。例如，约束的 DumpableObject.name 是
@@ -248,13 +248,13 @@ DOTypeNameCompare(const void *p1, const void *p2)
 
 	/*
 	 * 为获得稳定排序，某些对象类型需要打破平局。     
-	 * 大多数目录有自然键，例如 pg_proc_proname_args_nsp_index。 
+	 * 大多数系统目录有自然键，例如 pg_proc_proname_args_nsp_index。 
 	 * 当上述"模式"和"名称"比较未涵盖自然键的所有列    
 	 * 时，在此比较其余的列。  
 	 *
-	 * 自然键通常通过代理键引用其他目录。                
+	 * 自然键通常通过代理键引用其他系统目录。                
 	 * 因此，这里将每个这样的引用转换为被引用            
-	 * 目录的自然键。这可能沿目录引用下溯多层。        
+	 * 系统目录的自然键。这可能沿系统目录引用下溯多层。        
 	 * 例如，要按 pg_proc.proargtypes 排序，需下溯到每个  
 	 * pg_type，再进一步下溯到其 pg_namespace，以便整体      
 	 * 按 (nspname, typname) 排序。   
@@ -452,7 +452,7 @@ DOTypeNameCompare(const void *p1, const void *p2)
 	}
 
 	/*
-	* 正常情况下不会执行到这里，除非目录损坏，但如果真的到了这里，则按 OID 排序。
+	* 正常情况下不会执行到这里，除非系统目录损坏，但如果真的到了这里，则按 OID 排序。
 	* 这可能使逻辑上完全相同的数据库在导出输出中的对象顺序不同。
 	* 用户将看到虚假的模式差异。如果回归数据库包含允许测试到达此处的对象，
 	* 002_pg_upgrade.pl 测试的 "原始和恢复的回归数据库的导出输出匹配"
@@ -481,7 +481,7 @@ pgTypeNameCompare(Oid typid1, Oid typid2)
 	if (!typobj1 || !typobj2)
 	{
 		/*
-		* getTypes() 未找到某个 OID。假定目录损坏，例如 oprright 值
+		* getTypes() 未找到某个 OID。假定系统目录损坏，例如 oprright 值
 		* 在 pg_type 行中没有对应的 OID。报告为"相等"，
 		* 以便调用者使用下一个可用的比较依据，例如下一个函数参数。
 		*
@@ -497,7 +497,7 @@ pgTypeNameCompare(Oid typid1, Oid typid2)
 	}
 
 	if (!typobj1->dobj.namespace || !typobj2->dobj.namespace)
-		Assert(false);			/* 目录损坏 */
+		Assert(false);			/* 系统目录损坏 */
 	else
 	{
 		cmpval = strcmp(typobj1->dobj.namespace->dobj.name,
@@ -523,7 +523,7 @@ accessMethodNameCompare(Oid am1, Oid am2)
 
 	if (!amobj1 || !amobj2)
 	{
-		/* 目录损坏：以与 pgTypeNameCompare() 相同的方式处理 */
+		/* 系统目录损坏：以与 pgTypeNameCompare() 相同的方式处理 */
 		Assert(false);
 		return 0;
 	}

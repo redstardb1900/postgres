@@ -1,0 +1,76 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0365",
+ "title": "time dir whole-file batch: combocid.c 36 + snapmgr.c 189 blocks translated",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "39996ed43cccd62cb5b4342dbce7fe031a8265bb",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0365-time-dir.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0365 manifest path and time file entries (S6 registration)"
+  },
+  {
+   "pattern": "src/backend/utils/time/combocid.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation: 36 blocks"
+  },
+  {
+   "pattern": "src/backend/utils/time/snapmgr.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation: 189 blocks; @964 AtSubCommit_Snapshot function-name-only block KEEP"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0365-time-dir.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0365 manifest path and time file entries (S6 registration)"
+  },
+  {
+   "path": "src/backend/utils/time/combocid.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 36,
+   "translated": 36,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "dump-driven apply; zero byte overruns"
+  },
+  {
+   "path": "src/backend/utils/time/snapmgr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 189,
+   "translated": 188,
+   "preserved": 1,
+   "preserved_reasons": [
+    "function-name-only comment block (AtSubCommit_Snapshot, no prose to translate)"
+   ],
+   "note": "dump-driven apply; zero byte overruns; @964 KEEP"
+  }
+ ],
+ "notes": "batch-0365 (time dir whole-file, 2026-11-13, parent batch-0364-review-fix=39996ed43cc). All 225 untranslated comment blocks in src/backend/utils/time/ translated: combocid.c 36 blocks, snapmgr.c 189 blocks (637 content lines: 586 translated, 51 EN keeps = copyright/IDENTIFICATION/path/function names/formulas/attributions). Zero byte-budget overruns. One KEEP: snapmgr @964 AtSubCommit_Snapshot function-name-only block (nothing translatable; verify reports it as the one unchanged comment). Advisories: W7_IDENT_LOST x5 (XIDs x4 at L2289/2310/2327/2356, SubXIDs at L2247 - EN plural identifiers absorbed into zh 子事务 XID phrasing); W7_UNTRANSLATED x1 = the @964 KEEP; term_lint 6 warning hits on this dir (P63 x1, P02 x3, P70 x1, P24 x1), 0 errors. Lone-period continuation lines (EN short tail sentences folded) present as in 0364 review precedent. Gates: verify_c_comments 0 violations (comments=225 changed=224); term_lint 0 errors; scan_halfen 0 findings. No code changes (line counts 364/2381 unchanged)."
+}

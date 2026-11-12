@@ -1,0 +1,119 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0359",
+ "title": "glossary campaign: access/ 目录->系统目录 22 occurrences in 5 files",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "c2f8a1cc00279c4df20bf95463b1c9e6559e4a8d",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/common/heaptuple.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (22 occurrences, 5 files)"
+  },
+  {
+   "pattern": "src/backend/access/heap/heapam_visibility.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (22 occurrences, 5 files)"
+  },
+  {
+   "pattern": "src/backend/access/index/genam.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (22 occurrences, 5 files)"
+  },
+  {
+   "pattern": "src/backend/access/spgist/spgutils.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (22 occurrences, 5 files)"
+  },
+  {
+   "pattern": "src/backend/access/transam/xact.c",
+   "kind": "c_comment",
+   "note": "glossary catalog-sense 目录->系统目录 (22 occurrences, 5 files)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0359-access-dir.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0359 manifest path (S6 registration)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/common/heaptuple.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (22 occurrences, 5 files)"
+  },
+  {
+   "path": "src/backend/access/heap/heapam_visibility.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (22 occurrences, 5 files)"
+  },
+  {
+   "path": "src/backend/access/index/genam.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 11,
+   "translated": 11,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (22 occurrences, 5 files)"
+  },
+  {
+   "path": "src/backend/access/spgist/spgutils.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (22 occurrences, 5 files)"
+  },
+  {
+   "path": "src/backend/access/transam/xact.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "glossary catalog-sense 目录->系统目录 (22 occurrences, 5 files)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0359-access-dir.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0359 manifest path (S6 registration)"
+  }
+ ],
+ "notes": "batch-0359 (glossary tranche 3, 2026-11-12, parent batch-0358b=96313440862). catalog-sense 目录->系统目录 across src/backend/access/ (22 occurrences, 5 files). Gates: verify 150 ok 0 violations; term bare 0/0 + pgnls 0 errors/92 pre-existing warnings; halfen default 0; raw 422==422; check_scope incremental + cumulative PASS; tests 229=222+7. Campaign: 512 total, 243 done (114+107+22), remaining 269."
+}

@@ -301,7 +301,7 @@ spgGetCache(Relation index)
  * 本函数返回指向 relcache tupdesc 的指针（若合适），
  * 或返回经调整以匹配指定键列类型的 palloc 拷贝。通过
  * 要求调用方传入 SpGistTypeDesc 而非仅 OID，此处可避免
- * 任何目录查找。
+ * 任何系统目录查找。
  */
 TupleDesc
 getSpGistTupleDesc(Relation index, SpGistTypeDesc *keyType)

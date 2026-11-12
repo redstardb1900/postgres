@@ -367,10 +367,10 @@ index_compute_xid_horizon_for_tuples(Relation irel,
 /*
  * systable_beginscan --- 为堆扫描或索引扫描做准备
  *
- *	rel: 要扫描的目录，已打开并适当加锁
+ *	rel: 要扫描的系统目录，已打开并适当加锁
  *	indexId: 有条件使用的索引 OID
  *	indexOK: 若为假，则强制堆扫描（见下面的说明）
- *	snapshot: 使用的时间限定（NULL 表示最近的目录快照）
+ *	snapshot: 使用的时间限定（NULL 表示最近的系统目录快照）
  *	nkeys, key: 扫描键
  *
  * 扫描键中的属性号应按堆的情形设置。
@@ -448,7 +448,7 @@ systable_beginscan(Relation heapRelation,
 	else
 	{
 		/*
-		 * 被迫对目录做堆扫描时，不允许同步扫描。
+		 * 被迫对系统目录做堆扫描时，不允许同步扫描。
 		 * 多数情况下想要的行靠近前面，因此
 		 * 同步扫描不可预测的起点是严重缺点；
 		 * 也没有补偿性的好处，因为这类扫描
@@ -540,7 +540,7 @@ systable_getnext(SysScanDesc sysscan)
 	}
 
 	/*
-	 * 在事务的逻辑流式传输期间取出目录元组时，
+	 * 在事务的逻辑流式传输期间取出系统目录元组时，
 	 * 处理并发中止。
 	 */
 	HandleConcurrentAbort();
@@ -551,7 +551,7 @@ systable_getnext(SysScanDesc sysscan)
 /*
  * systable_recheck_tuple --- 复查最近取出的元组的可见性
  *
- * 具体而言，判断该元组对此刻开始的目录扫描
+ * 具体而言，判断该元组对此刻开始的系统目录扫描
  * 是否可见。我们不处理非 MVCC 扫描快照的情形，
  * 因为还没有调用方需要。
  *
@@ -582,7 +582,7 @@ systable_recheck_tuple(SysScanDesc sysscan, HeapTuple tup)
 											freshsnap);
 
 	/*
-	 * 在事务的逻辑流式传输期间取出目录元组时，
+	 * 在事务的逻辑流式传输期间取出系统目录元组时，
 	 * 处理并发中止。
 	 */
 	HandleConcurrentAbort();
@@ -627,7 +627,7 @@ systable_endscan(SysScanDesc sysscan)
 
 
 /*
- * systable_beginscan_ordered --- 为有序目录扫描做准备
+ * systable_beginscan_ordered --- 为有序系统目录扫描做准备
  *
  * 这些例程的 API 与 systable_beginscan 等基本相同，
  * 只是保证按索引顺序返回多个匹配元组。
@@ -636,10 +636,10 @@ systable_endscan(SysScanDesc sysscan)
  *
  * 目前这里不支持非基于索引的扫描。（原则上
  * 可以做堆扫描再排序，但使用处大概不需要
- * 在目录索引损坏时仍能工作。）
+ * 在系统目录索引损坏时仍能工作。）
  * 因此眼下这些函数只是
  * index_beginscan/index_getnext_slot
- * 最薄的包装。它们存在的主要原因，是把目录扫描中
+ * 最薄的包装。它们存在的主要原因，是把系统目录扫描中
  * 将来可能对有损操作符的支持集中起来。
  */
 SysScanDesc
@@ -715,7 +715,7 @@ systable_beginscan_ordered(Relation heapRelation,
 }
 
 /*
- * systable_getnext_ordered --- 在有序目录扫描中取下一个元组
+ * systable_getnext_ordered --- 在有序系统目录扫描中取下一个元组
  */
 HeapTuple
 systable_getnext_ordered(SysScanDesc sysscan, ScanDirection direction)
@@ -731,7 +731,7 @@ systable_getnext_ordered(SysScanDesc sysscan, ScanDirection direction)
 		elog(ERROR, "system catalog scans with lossy index conditions are not implemented");
 
 	/*
-	 * 在事务的逻辑流式传输期间取出目录元组时，
+	 * 在事务的逻辑流式传输期间取出系统目录元组时，
 	 * 处理并发中止。
 	 */
 	HandleConcurrentAbort();

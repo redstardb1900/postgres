@@ -1107,7 +1107,7 @@ CommandCounterIncrement(void)
 		SnapshotSetCommandId(currentCommandId);
 
 		/*
-		 * 使刚完成的命令所做的任何目录更改在本地系统缓存中可见。
+		 * 使刚完成的命令所做的任何系统目录更改在本地系统缓存中可见。
 		 * 显然，我们在只读命令后不需要这样做。（但请参阅 inval.c 中的技巧，
 		 * 以确保我们不会认为排队了无效消息的命令是只读的。）
  *
@@ -1322,7 +1322,7 @@ RecordTransactionCommit(void)
 	if (!markXidCommitted)
 	{
 		/*
-		 * 我们期望每个 RelationDropStorage 后面都有一个目录更新，
+		 * 我们期望每个 RelationDropStorage 后面都有一个系统目录更新，
 		 * 因此会有 XID 分配，所以我们不应该在有任何待删除的情况下到达这里。
 		 * 删除统计信息也是如此。
 		 *
@@ -1544,7 +1544,7 @@ AtCCI_LocalCache(void)
 	AtCCI_RelationMap();
 
 	/*
-	 * 使目录更改对下一个命令可见。
+	 * 使系统目录更改对下一个命令可见。
 	 */
 	CommandEndInvalidationMessages();
 }
@@ -2320,10 +2320,10 @@ CommitTransaction(void)
 	AtEOXact_RelationCache(true);
 
 	/*
-	 * 使目录更改对所有后端可见。这必须在删除 relcache 引用之后发生
+	 * 使系统目录更改对所有后端可见。这必须在删除 relcache 引用之后发生
 	 * （参见 AtEOXact_RelationCache 的注释），但在释放锁之前
 	 * （如果有人正在等待我们修改的关系上的锁，我们希望他们在开始使用该关系之前
-	 * 知道目录更改）。
+	 * 知道系统目录更改）。
  *
  */
 	AtEOXact_Inval(true);
@@ -2341,7 +2341,7 @@ CommitTransaction(void)
 	 * 同样，删除事务期间删除的文件最好在释放 relcache 和缓冲区固定之后进行。
 	 * （这在提交期间不是严格必要的，因为这样的固定应该已经被释放了，
 	 * 但这种顺序在中止期间绝对是关键的。）由于这可能需要很多秒，
-	 * 也延迟到释放锁之后。其他后端将观察到相应的目录更改，
+	 * 也延迟到释放锁之后。其他后端将观察到相应的系统目录更改，
 	 * 并且不会尝试访问受影响的文件。
  *
  *

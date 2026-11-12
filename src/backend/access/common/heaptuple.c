@@ -35,7 +35,7 @@
  * 1 字节头变长值的起始。
  *
  * 注意，以前可以信赖系统目录中第一个变长列就在
- * 该目录 C 结构体所给出的偏移处，现在这样做有风险：
+ * 该系统目录 C 结构体所给出的偏移处，现在这样做有风险：
  * 只有当前一个成员按字对齐、从而绝不会出现任何填充时，
  * 才是安全的。
  *
@@ -457,7 +457,7 @@ heap_attisnull(HeapTuple tup, int attnum, TupleDesc tupleDesc)
 {
 	/*
 	 * 对于预期不会有缺少值的关系，允许 tupledesc 为 NULL，
-	 * 例如目录关系与索引。
+	 * 例如系统目录关系与索引。
 	 */
 	Assert(!tupleDesc || attnum <= tupleDesc->natts);
 	if (attnum > (int) HeapTupleHeaderGetNatts(tup->t_data))

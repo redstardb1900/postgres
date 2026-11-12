@@ -1575,10 +1575,10 @@ TransactionIdInArray(TransactionId xid, TransactionId *xip, Size num)
  * 本函数所遵守的语义，见 HeapTupleSatisfiesMVCC 的
  * 注释。
  *
- * 只适用于目录表中的元组！
+ * 只适用于系统目录表中的元组！
  *
  * 目前不需要支持 HEAP_MOVED_(IN|OFF)，因为我们只支持
- * 读取不可能由更老版本创建的目录页。
+ * 读取不可能由更老版本创建的系统目录页。
  *
  * 这里不设置任何提示位，因为那样做似乎没什么好处，
  * 正常访问应当已经把它们设好了，而且这样做似乎过于

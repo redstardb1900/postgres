@@ -3873,6 +3873,11 @@
    "note": "changed since REL_16_11; cumulative regeneration 2026-11-11 (no per-batch manifest on file)"
   },
   {
+   "pattern": "src/tools/zh-tools/hooks/pre-commit",
+   "kind": "tool",
+   "note": "git pre-commit hook: enforces check_scope for .c/.h commits"
+  },
+  {
    "pattern": "src/tools/zh-tools/make_evidence.py",
    "kind": "tool",
    "note": "freeze gains --verify (read-only) and --json; prints problems, mismatches and the candidates summary"
@@ -5886,6 +5891,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0356-catalog-dir.json",
    "kind": "manifest",
    "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0357-commands-dir.json",
+   "kind": "manifest",
+   "note": "batch-0357 manifest (commands/ glossary 目录->系统目录)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0358-followup.json",
+   "kind": "manifest",
+   "note": "batch-0358 follow-up manifest"
   },
   {
    "pattern": "src/tools/zh-tools/manifests/cumulative.json",
@@ -15542,6 +15557,16 @@
    "note": "changed since REL_16_11; cumulative regeneration 2026-11-11 (no per-batch manifest on file)"
   },
   {
+   "path": "src/tools/zh-tools/hooks/pre-commit",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "git pre-commit hook: enforces check_scope for .c/.h commits"
+  },
+  {
    "path": "src/tools/zh-tools/make_evidence.py",
    "kind": "tool",
    "action": "add",
@@ -19547,6 +19572,26 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0357-commands-dir.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0357 manifest (commands/ glossary 目录->系统目录)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0358-followup.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0358 follow-up manifest"
   },
   {
    "path": "src/tools/zh-tools/manifests/cumulative.json",

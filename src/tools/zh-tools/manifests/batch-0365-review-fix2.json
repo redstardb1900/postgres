@@ -1,0 +1,89 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0365-review-fix2",
+ "title": "time dir review-fix2: clear 2 fold-site byte overruns (L2184 +3, L2349 +1)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "021363e987cf1e271b747bf33ccac53b173553b5",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0365-review-fix2.json",
+   "kind": "manifest",
+   "note": "this fixup manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0365-time-dir.json",
+   "kind": "manifest",
+   "note": "budget-claim corrections"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0365-review-fix.json",
+   "kind": "manifest",
+   "note": "notes: disclose initial overruns"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "register fixup2 manifest (S6)"
+  },
+  {
+   "pattern": "src/backend/utils/time/snapmgr.c",
+   "kind": "c_comment",
+   "note": "L2184/L2349 rebalanced into L2185/L2350; budgets re-verified 0 overrun"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0365-review-fix2.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this fixup manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0365-time-dir.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "budget-claim corrections"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0365-review-fix.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "notes: disclose initial overruns"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "register fixup2 manifest (S6)"
+  },
+  {
+   "path": "src/backend/utils/time/snapmgr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "L2184 76->64 (所有顶层 moved to L2185), L2349 67->64 (子 moved to L2350)"
+  }
+ ],
+ "notes": "batch-0365-review-fix2 (2026-11-13, parent batch-0365-review-fix=021363e987c). Clears the two per-line overruns introduced by round-1 fixes (L2184 +3B, L2349 +1B) by rebalancing tail words into the following lines, per reviewer instruction. Both manifests' byte-budget claims corrected. Gates: verify_c_comments 0 violations; per-line budgets at all touched lines <= EN. No code changes."
+}

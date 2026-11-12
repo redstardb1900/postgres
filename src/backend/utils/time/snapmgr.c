@@ -2181,8 +2181,8 @@ SerializeSnapshot(Snapshot snapshot, char *start_address)
 
 	/*
 	 * 复制 SubXID 数组。溢出时无需复制它，因为那时
-	 * 不会被用到。但若是在恢复期间取得的快照，所有顶层
-	 * XID 也都在 subxip 里，所以不能丢掉它们。
+	 * 不会被用到。但若是在恢复期间取得的快照，
+	 * 所有顶层 XID 也都在 subxip 里，所以不能丢掉它们。
 	 * 。
 	 */
 	if (serialized_snapshot.subxcnt > 0)
@@ -2346,8 +2346,8 @@ XidInMVCCSnapshot(TransactionId xid, Snapshot snapshot)
 	{
 		/*
 		 * 恢复期我们把所有 xid 存进 subxip 数组，因为它
-		 * 大得多，且多半不知道哪些 xid 是顶层哪些是子
-		 * 事务。xip 数组为空。
+		 * 大得多，且多半不知道哪些 xid 是顶层哪些是
+		 * 子事务。xip 数组为空。
 		 *
 		 * 如果溢出了，我们先搜索 subtrans。
 		 */

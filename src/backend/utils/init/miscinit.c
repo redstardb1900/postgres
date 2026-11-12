@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * miscinit.c
- *	  杂项初始化支持例程
+ *	  miscellaneous initialization support stuff
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -63,18 +63,18 @@ ProcessingMode Mode = InitProcessing;
 
 BackendType MyBackendType;
 
-/* 进程退出时要移除的锁文件列表 */
+/* List of lock files to be removed at proc exit */
 static List *lock_files = NIL;
 
 static Latch LocalLatchData;
 
 /* ----------------------------------------------------------------
- *		忽略系统索引支持例程
+ *		ignoring system indexes support stuff
  *
- * 注意："忽略系统索引"意味着我们在查找时（无论硬
- * 编码目录访问还是计划器生成的计划）不使用系统
- * 索引。但目录被修改时我们仍会更新索引。
- * 
+ * NOTE: "ignoring system indexes" means we do not use the system indexes
+ * for lookups (either in hardwired catalog accesses or in planner-generated
+ * plans).  We do, however, still update the indexes when a catalog
+ * modification is made.
  * ----------------------------------------------------------------
  */
 
@@ -87,62 +87,62 @@ bool		IgnoreSystemIndexes = false;
  */
 
 /*
- * 为 postmaster 子进程初始化基本环境。
+ * Initialize the basic environment for a postmaster child
  *
- * 应在子进程启动后尽早调用。但在 EXEC_BACKEND 构建
- * 上确实需要放在 read_backend_variables() 之后。
+ * Should be called as early as possible after the child's startup. However,
+ * on EXEC_BACKEND builds it does need to be after read_backend_variables().
  */
 void
 InitPostmasterChild(void)
 {
-	IsUnderPostmaster = true;	/* 现为 postmaster 子进程 */
+	IsUnderPostmaster = true;	/* we are a postmaster subprocess now */
 
 	/*
-	 * 启动我们的 win32 信号实现。这必须在读取完 backend
-	 * 变量之后进行，因为我们需要从父进程拿到信号管
-道。	 * 。
+	 * Start our win32 signal implementation. This has to be done after we
+	 * read the backend variables, because we need to pick up the signal pipe
+	 * from the parent process.
 	 */
 #ifdef WIN32
 	pgwin32_signal_initialize();
 #endif
 
 	/*
-	 * 为栈深度检查设基准点。在 !EXEC_BACKEND 构建
-	 * 看似多余，但无论是否使用该构建选项，深度逻
-辑都保持	 * 一致会更好。
+	 * Set reference point for stack-depth checking.  This might seem
+	 * redundant in !EXEC_BACKEND builds, but it's better to keep the depth
+	 * logic the same with and without that build option.
 	 */
 	(void) set_stack_base();
 
 	InitProcessGlobals();
 
 	/*
-	 * 在可能写入 stderr 之前先设为二进制模式，
-	 * 以防它其实是 syslogger 管道，这样管道分块
-	 * 协议不会被打乱。非 logpipe 数据在重定向时
-	 * （如 pg_ctl -l）反正会转换。
+	 * make sure stderr is in binary mode before anything can possibly be
+	 * written to it, in case it's actually the syslogger pipe, so the pipe
+	 * chunking protocol isn't disturbed. Non-logpipe data gets translated on
+	 * redirection (e.g. via pg_ctl -l) anyway.
 	 */
 #ifdef WIN32
 	_setmode(fileno(stderr), _O_BINARY);
 #endif
 
-	/* 不要 postmaster 的 proc_exit() 处理器 */
+	/* We don't want the postmaster's proc_exit() handlers */
 	on_exit_reset();
 
-	/* 在 EXEC_BACKEND 情况下我们不会继承 BlockSig 等值 */
+	/* In EXEC_BACKEND case we will not have inherited BlockSig etc values */
 #ifdef EXEC_BACKEND
 	pqinitmask();
 #endif
 
-	/* 初始化进程本地锁存器支持 */
+	/* Initialize process-local latch support */
 	InitializeLatchSupport();
 	InitProcessLocalLatch();
 	InitializeLatchWaitSet();
 
 	/*
-	 * 如有可能，让本进程成为组长，这样 postmaster 也能向
-	 * 任意子进程发信号。并非所有进程都有子进程，
-	 * 但为一致性，所有 postmaster 子进程都这么做。
-	 * 
+	 * If possible, make this process a group leader, so that the postmaster
+	 * can signal any child processes too. Not all processes will have
+	 * children, but for consistency we make all postmaster child processes do
+	 * this.
 	 */
 #ifdef HAVE_SETSID
 	if (setsid() < 0)
@@ -150,21 +150,21 @@ InitPostmasterChild(void)
 #endif
 
 	/*
-	 * 每个 postmaster 子进程都应随时迅速响应 SIGQUIT。
-	 * 因此我们集中地把 SIGQUIT 移出 BlockSig，并
-	 * 装上合适的信号处理器。（面向客户端的进程可
-	 * 把它换成 quickdie()。）其余可阻塞信号暂保持
-	 * 暂时保持阻塞。
+	 * Every postmaster child process is expected to respond promptly to
+	 * SIGQUIT at all times.  Therefore we centrally remove SIGQUIT from
+	 * BlockSig and install a suitable signal handler.  (Client-facing
+	 * processes may choose to replace this default choice of handler with
+	 * quickdie().)  All other blockable signals remain blocked for now.
 	 */
 	pqsignal(SIGQUIT, SignalHandlerForCrashExit);
 
 	sigdelset(&BlockSig, SIGQUIT);
 	sigprocmask(SIG_SETMASK, &BlockSig, NULL);
 
-	/* 如可能，postmaster 死亡时请求一个信号 */
+	/* Request a signal if the postmaster dies, if possible. */
 	PostmasterDeathSignalInit();
 
-	/* 不要把管道交给被执行的子程序 */
+	/* Don't give the pipe to subprograms that we execute. */
 #ifndef WIN32
 	if (fcntl(postmaster_alive_fds[POSTMASTER_FD_WATCH], F_SETFD, FD_CLOEXEC) < 0)
 		ereport(FATAL,
@@ -174,9 +174,9 @@ InitPostmasterChild(void)
 }
 
 /*
- * 为独立进程初始化基本环境。
+ * Initialize the basic environment for a standalone process.
  *
- * argv0 须适合用于找到程序的可执行文件。
+ * argv0 has to be suitable to find the program's executable.
  */
 void
 InitStandaloneProcess(const char *argv0)
@@ -186,7 +186,7 @@ InitStandaloneProcess(const char *argv0)
 	MyBackendType = B_STANDALONE_BACKEND;
 
 	/*
-	 * 启动我们的 win32 信号实现
+	 * Start our win32 signal implementation
 	 */
 #ifdef WIN32
 	pgwin32_signal_initialize();
@@ -194,19 +194,19 @@ InitStandaloneProcess(const char *argv0)
 
 	InitProcessGlobals();
 
-	/* 初始化进程本地锁存器支持 */
+	/* Initialize process-local latch support */
 	InitializeLatchSupport();
 	InitProcessLocalLatch();
 	InitializeLatchWaitSet();
 
 	/*
-	 * 为了与 InitPostmasterChild 一致，在此初始化信号掩码。
-	 * 但我们不解除 SIGQUIT 阻塞，也不给它配默认处
+	 * For consistency with InitPostmasterChild, initialize signal mask here.
+	 * But we don't unblock SIGQUIT or provide a default handler for it.
 	 */
 	pqinitmask();
 	sigprocmask(SIG_SETMASK, &BlockSig, NULL);
 
-	/* 计算路径；没有可继承的 postmaster */
+	/* Compute paths, no postmaster to inherit from */
 	if (my_exec_path[0] == '\0')
 	{
 		if (find_my_exec(argv0, my_exec_path) < 0)
@@ -231,9 +231,9 @@ SwitchToSharedLatch(void)
 						MyLatch);
 
 	/*
-	 * 设置共享锁存器，本地那个可能已被设置。通常
-	 * 无需如此，代码本该在等待前先查条件，但小心
-	 * 一点总没坏处。
+	 * Set the shared latch as the local one might have been set. This
+	 * shouldn't normally be necessary as code is supposed to check the
+	 * condition before waiting for the latch, but a bit care can't hurt.
 	 */
 	SetLatch(MyLatch);
 }
@@ -322,15 +322,15 @@ GetBackendTypeDesc(BackendType backendType)
 void
 SetDatabasePath(const char *path)
 {
-	/* 每个进程只应发生一次 */
+	/* This should happen only once per process */
 	Assert(!DatabasePath);
 	DatabasePath = MemoryContextStrdup(TopMemoryContext, path);
 }
 
 /*
- * 校验所提议的数据目录。
+ * Validate the proposed data directory.
  *
- * 同时初始化文件与目录的创建模式和掩码。
+ * Also initialize file and directory create modes and mode mask.
  */
 void
 checkDataDir(void)
@@ -353,7 +353,7 @@ checkDataDir(void)
 							DataDir)));
 	}
 
-	/* 稍后 chdir 会失败，但仍测一下 ... */
+	/* eventual chdir would fail anyway, but let's test ... */
 	if (!S_ISDIR(stat_buf.st_mode))
 		ereport(FATAL,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -361,13 +361,13 @@ checkDataDir(void)
 						DataDir)));
 
 	/*
-	 * 检查该目录是否属于我的用户 ID；否则拒绝。
+	 * Check that the directory belongs to my userid; if not, reject.
 	 *
-	 * 这一检查是防止两个 postmaster 在同一目录中启动的
-	 * 互锁机制的重要部分（见 CreateLockFile()）。不要
-	 * 移除或削弱它。
+	 * This check is an essential part of the interlock that prevents two
+	 * postmasters from starting in the same directory (see CreateLockFile()).
+	 * Do not remove or weaken it.
 	 *
-	 * XXX Windows 上能安全启用吗？
+	 * XXX can we safely enable this check on Windows?
 	 */
 #if !defined(WIN32) && !defined(__CYGWIN__)
 	if (stat_buf.st_uid != geteuid())
@@ -379,15 +379,15 @@ checkDataDir(void)
 #endif
 
 	/*
-	 * 检查目录权限是否正确。若不正确则拒绝。
+	 * Check if the directory has correct permissions.  If not, reject.
 	 *
-	 * 只允许两种模式：0700 和 0750。后者表示应允许对
-	 * 所有新建文件和目录进行组读/执行。
-	 * 。
+	 * Only two possible modes are allowed, 0700 and 0750.  The latter mode
+	 * indicates that group read/execute should be allowed on all newly
+	 * created files and directories.
 	 *
-	 * XXX 在 Windows 上暂时跳过该检查，因为可能缺少对
-	 * Unix 风格文件权限的适当支持。需要想出在 Windows
-	 * 上适用的合理检查。
+	 * XXX temporarily suppress check when on Windows, because there may not
+	 * be proper support for Unix-y file permissions.  Need to think of a
+	 * reasonable check to apply on Windows.
 	 */
 #if !defined(WIN32) && !defined(__CYGWIN__)
 	if (stat_buf.st_mode & PG_MODE_MASK_GROUP)
@@ -399,16 +399,16 @@ checkDataDir(void)
 #endif
 
 	/*
-	 * 根据数据目录的模式重置创建模式与掩码。
+	 * Reset creation modes and mask based on the mode of the data directory.
 	 *
-	 * 掩码在启动早期设为不许组权限作用于新建文件
-	 * 和目录。但若数据目录有组读/执行权限，则修改
-	 * 创建模式与掩码，以允许对新建文件和目录的组读/
-执行，	 * 并设置 data_directory_mode GUC。
-	 * 。
+	 * The mask was set earlier in startup to disallow group permissions on
+	 * newly created files and directories.  However, if group read/execute
+	 * are present on the data directory then modify the create modes and mask
+	 * to allow group read/execute on newly created files and directories and
+	 * set the data_directory_mode GUC.
 	 *
-	 * 在 Windows 上跳过，因为可能缺少对 Unix 风格文件权
-	 * 限的适当支持。
+	 * Suppress when on Windows, because there may not be proper support for
+	 * Unix-y file permissions.
 	 */
 #if !defined(WIN32) && !defined(__CYGWIN__)
 	SetDataDirectoryCreatePerm(stat_buf.st_mode);
@@ -417,13 +417,13 @@ checkDataDir(void)
 	data_directory_mode = pg_dir_create_mode;
 #endif
 
-	/* 检查 PG_VERSION */
+	/* Check for PG_VERSION */
 	ValidatePgVersion(DataDir);
 }
 
 /*
- * 设置数据目录，但须确保是绝对路径。用本函数，
- * 勿直接设置 DataDir。
+ * Set data directory, but make sure it's an absolute path.  Use this,
+ * never set DataDir directly.
  */
 void
 SetDataDir(const char *dir)
@@ -432,7 +432,7 @@ SetDataDir(const char *dir)
 
 	Assert(dir);
 
-	/* 若路径是相对路径则转为绝对路径 */
+	/* If presented path is relative, convert to absolute */
 	new = make_absolute_path(dir);
 
 	free(DataDir);
@@ -440,10 +440,10 @@ SetDataDir(const char *dir)
 }
 
 /*
- * 把工作目录切换到 DataDir。postmaster 和 backend 的
- * 大部分代码都假定我们位于 DataDir，以便用相对路径访
- * 问数据目录内及之下的内容。不过在路径设置阶
- * 了方便，我们不在 SetDataDir 中强制执行 chdir。
+ * Change working directory to DataDir.  Most of the postmaster and backend
+ * code assumes that we are in DataDir so it can use relative paths to access
+ * stuff in and under the data directory.  For convenience during path
+ * setup, however, we don't force the chdir to occur during SetDataDir.
  */
 void
 ChangeToDataDir(void)
@@ -459,31 +459,31 @@ ChangeToDataDir(void)
 
 
 /* ----------------------------------------------------------------
- *	用户状态
+ *	User ID state
  *
- * 我们必须跟踪与"用户 ID"概念相关的若干不同值。
- * "用户 ID"
+ * We have to track several different values associated with the concept
+ * of "user ID".
  *
- * AuthenticatedUserId 在连接开始时确定，永不改变。
+ * AuthenticatedUserId is determined at connection start and never changes.
  *
- * SessionUserId 初始时与 AuthenticatedUserId 相同，但
- * 可由 SET SESSION AUTHORIZATION 改变（若
- * AuthenticatedUserIsSuperuser）。这就是 SESSION_USER
+ * SessionUserId is initially the same as AuthenticatedUserId, but can be
+ * changed by SET SESSION AUTHORIZATION (if AuthenticatedUserIsSuperuser).
+ * This is the ID reported by the SESSION_USER SQL function.
  *
- * OuterUserId 是"外层"（任何事务或函数之外）生效的
- * 当前用户 ID。它初始时与 SessionUserId 相同，但可以
- * 通过 SET ROLE 改为 SessionUserId 所属的任何角色。
- * （XXX 改名为 CurrentRoleId 之类？）
+ * OuterUserId is the current user ID in effect at the "outer level" (outside
+ * any transaction or function).  This is initially the same as SessionUserId,
+ * but can be changed by SET ROLE to any role that SessionUserId is a
+ * member of.  (XXX rename to something like CurrentRoleId?)
  *
- * CurrentUserId 是当前生效的用户 ID；所有常规权限检查
- * 用的都是它。在外层它与 OuterUserId 相同，但在调用
- * SECURITY DEFINER 函数期间会改变，某些特殊命令中
- * 也会局部改变。
+ * CurrentUserId is the current effective user ID; this is the one to use
+ * for all normal permissions-checking purposes.  At outer level this will
+ * be the same as OuterUserId, but it changes during calls to SECURITY
+ * DEFINER functions, as well as locally in some specialized commands.
  *
- * SecurityRestrictionContext 保存标志，指明更改
- * CurrentUserId 的原因。某些情况下我们需要锁死一些
- * 不直接受权限设置控制的操作，这提供了一种便
-捷方式。 * 。
+ * SecurityRestrictionContext holds flags indicating reason(s) for changing
+ * CurrentUserId.  In some cases we need to lock down operations that are
+ * not directly controlled by privilege settings, and this provides a
+ * convenient way to do it.
  * ----------------------------------------------------------------
  */
 static Oid	AuthenticatedUserId = InvalidOid;
@@ -492,19 +492,19 @@ static Oid	OuterUserId = InvalidOid;
 static Oid	CurrentUserId = InvalidOid;
 static const char *SystemUser = NULL;
 
-/* 我们还要记住其中某些层级的超级用户状态 */
+/* We also have to remember the superuser state of some of these levels */
 static bool AuthenticatedUserIsSuperuser = false;
 static bool SessionUserIsSuperuser = false;
 
 static int	SecurityRestrictionContext = 0;
 
-/* 还要记住当前是否有 SET ROLE 在活动 */
+/* We also remember if a SET ROLE is currently active */
 static bool SetRoleIsActive = false;
 
 /*
- * GetUserId - 获取当前生效的用户 ID。
+ * GetUserId - get the current effective user ID.
  *
- * 已无 SetUserId()；请用 SetUserIdAndSecContext()
+ * Note: there's no SetUserId() anymore; use SetUserIdAndSecContext().
  */
 Oid
 GetUserId(void)
@@ -515,7 +515,7 @@ GetUserId(void)
 
 
 /*
- * GetOuterUserId/SetOuterUserId - 获取/设置外层用户 ID。
+ * GetOuterUserId/SetOuterUserId - get/set the outer-level user ID.
  */
 Oid
 GetOuterUserId(void)
@@ -532,10 +532,10 @@ SetOuterUserId(Oid userid, bool is_superuser)
 	Assert(OidIsValid(userid));
 	OuterUserId = userid;
 
-	/* 我们也强制生效用户 ID 与之匹配 */
+	/* We force the effective user ID to match, too */
 	CurrentUserId = userid;
 
-	/* 同时更新 is_superuser GUC 以匹配 OuterUserId 的属性 */
+	/* Also update the is_superuser GUC to match OuterUserId's property */
 	SetConfigOption("is_superuser",
 					is_superuser ? "on" : "off",
 					PGC_INTERNAL, PGC_S_DYNAMIC_DEFAULT);
@@ -543,7 +543,7 @@ SetOuterUserId(Oid userid, bool is_superuser)
 
 
 /*
- * GetSessionUserId/SetSessionUserId - 读/写会话用户 ID
+ * GetSessionUserId/SetSessionUserId - get/set the session user ID.
  */
 Oid
 GetSessionUserId(void)
@@ -569,8 +569,8 @@ SetSessionUserId(Oid userid, bool is_superuser)
 }
 
 /*
- * 返回代表已认证身份的系统用户。
- * 在 InitializeSystemUser() 中定义为 auth_method
+ * Return the system user representing the authenticated identity.
+ * It is defined in InitializeSystemUser() as auth_method:authn_id.
  */
 const char *
 GetSystemUser(void)
@@ -579,8 +579,8 @@ GetSystemUser(void)
 }
 
 /*
- * GetAuthenticatedUserId/SetAuthenticatedUserId - 获取/设置
- * 的 ID
+ * GetAuthenticatedUserId/SetAuthenticatedUserId - get/set the authenticated
+ * user ID
  */
 Oid
 GetAuthenticatedUserId(void)
@@ -590,7 +590,7 @@ GetAuthenticatedUserId(void)
 }
 
 /*
- * 返回已认证用户在连接开始时是否为超级用户。
+ * Return whether the authenticated user was superuser at connection start.
  */
 bool
 GetAuthenticatedUserIsSuperuser(void)
@@ -604,61 +604,61 @@ SetAuthenticatedUserId(Oid userid, bool is_superuser)
 {
 	Assert(OidIsValid(userid));
 
-	/* 仅调一次 */
+	/* call only once */
 	Assert(!OidIsValid(AuthenticatedUserId));
 
 	AuthenticatedUserId = userid;
 	AuthenticatedUserIsSuperuser = is_superuser;
 
-	/* 用已认证用户 ID 标记 PGPROC 条目 */
-	/* （假定原子存储，无需锁） */
+	/* Also mark our PGPROC entry with the authenticated user id */
+	/* (We assume this is an atomic store so no lock is needed) */
 	MyProc->roleId = userid;
 }
 
 
 /*
- * GetUserIdAndSecContext/SetUserIdAndSecContext - 获取/设置
- * 和 SecurityRestrictionContext 标志
+ * GetUserIdAndSecContext/SetUserIdAndSecContext - get/set the current user ID
+ * and the SecurityRestrictionContext flags.
  *
- * 目前 SecurityRestrictionContext 中有三个有效位：
+ * Currently there are three valid bits in SecurityRestrictionContext:
  *
- * SECURITY_LOCAL_USERID_CHANGE 表示我们正处于通过
- * 这些函数临时更改 CurrentUserId 的操作中。需要它来
- * 表明 CurrentUserId 的实际值与 guc.c 的内部状态不同
- * 步，因此必须禁止 SET ROLE。
+ * SECURITY_LOCAL_USERID_CHANGE indicates that we are inside an operation
+ * that is temporarily changing CurrentUserId via these functions.  This is
+ * needed to indicate that the actual value of CurrentUserId is not in sync
+ * with guc.c's internal state, so SET ROLE has to be disallowed.
  *
- * SECURITY_RESTRICTED_OPERATION 表示我们正处于完全
- * 不信任被调用的用户自定义函数的操作中。策略是
-在诸如 * autovacuum 和 REINDEX 这类会枚举数据库或 schema 的
- * 关系并对每个关系运行相关函数，操作前使用它，
- * 关系所有者就是新的用户 ID。应在锁定关系之后尽快
- * 设置它；并在关闭关系之前尽可能晚地恢复旧用户 ID；
- * 在关闭后不久恢复也可以容忍。如果某条命令同时具有
- * 枚举与非枚举两种模式（如 ANALYZE），两种模式
- * 都要设置此位。此位不仅禁止 SET ROLE，还禁止对会话
- * 状态的其他更改——它们通常不受保护，但可能被用来
- * 在日后颠覆调用方会话。一个例子是用新代码替换现有
- * 预备语句，下次使用该预备语句时就会以外层会话的
- * 权限执行新代码。这些限制相当严苛，但枚举关系操
-作中 * 被调用的函数本来就应该没有副作用。
- * SECURITY_NOFORCE_RLS 表示我们正处于应忽略每表
- * FORCE RLS 指示的操作。用它来
+ * SECURITY_RESTRICTED_OPERATION indicates that we are inside an operation
+ * that does not wish to trust called user-defined functions at all.  The
+ * policy is to use this before operations, e.g. autovacuum and REINDEX, that
+ * enumerate relations of a database or schema and run functions associated
+ * with each found relation.  The relation owner is the new user ID.  Set this
+ * as soon as possible after locking the relation.  Restore the old user ID as
+ * late as possible before closing the relation; restoring it shortly after
+ * close is also tolerable.  If a command has both relation-enumerating and
+ * non-enumerating modes, e.g. ANALYZE, both modes set this bit.  This bit
+ * prevents not only SET ROLE, but various other changes of session state that
+ * normally is unprotected but might possibly be used to subvert the calling
+ * session later.  An example is replacing an existing prepared statement with
+ * new code, which will then be executed with the outer session's permissions
+ * when the prepared statement is next used.  These restrictions are fairly
+ * draconian, but the functions called in relation-enumerating operations are
+ * really supposed to be side-effect-free anyway.
  *
- * 确保 FORCE RLS 不会错误地破坏引用完整性检查。注意
- * 它只在以表所有者身份运行时才会被检查（引用完整性
- * 检查本应总是如此）。
- * 与 GetUserId 不同，GetUserIdAndSecContext *不会*
- * 断言 CurrentUserId 的当前值有效；SetUserIdAndSecContext
- * 本应如此。
+ * SECURITY_NOFORCE_RLS indicates that we are inside an operation which should
+ * ignore the FORCE ROW LEVEL SECURITY per-table indication.  This is used to
+ * ensure that FORCE RLS does not mistakenly break referential integrity
+ * checks.  Note that this is intentionally only checked when running as the
+ * owner of the table (which should always be the case for referential
+ * integrity checks).
  *
- * 错误。因为 StartTransaction 和 AbortTransaction 用
- * 它们保存/恢复设置；backend 首事务中该值
- * 确实无效，或许还要恢复。即便 InitPostgres 失败，
- * 也必须能不触发断言地走完
- * AbortTransaction。
- * 
- * 
- * 
+ * Unlike GetUserId, GetUserIdAndSecContext does *not* Assert that the current
+ * value of CurrentUserId is valid; nor does SetUserIdAndSecContext require
+ * the new value to be valid.  In fact, these routines had better not
+ * ever throw any kind of error.  This is because they are used by
+ * StartTransaction and AbortTransaction to save/restore the settings,
+ * and during the first transaction within a backend, the value to be saved
+ * and perhaps restored is indeed invalid.  We have to be able to get
+ * through AbortTransaction without asserting in case InitPostgres fails.
  */
 void
 GetUserIdAndSecContext(Oid *userid, int *sec_context)
@@ -676,7 +676,7 @@ SetUserIdAndSecContext(Oid userid, int sec_context)
 
 
 /*
- * InLocalUserIdChange - 正局部改 UID？
+ * InLocalUserIdChange - are we inside a local change of CurrentUserId?
  */
 bool
 InLocalUserIdChange(void)
@@ -685,7 +685,7 @@ InLocalUserIdChange(void)
 }
 
 /*
- * InSecurityRestrictedOperation - 我们正处于安全受限命令中吗？
+ * InSecurityRestrictedOperation - are we inside a security-restricted command?
  */
 bool
 InSecurityRestrictedOperation(void)
@@ -694,7 +694,7 @@ InSecurityRestrictedOperation(void)
 }
 
 /*
- * InNoForceRLSOperation - 忽略 FORCE RLS？
+ * InNoForceRLSOperation - are we ignoring FORCE ROW LEVEL SECURITY ?
  */
 bool
 InNoForceRLSOperation(void)
@@ -704,10 +704,10 @@ InNoForceRLSOperation(void)
 
 
 /*
- * 这些是 Get/SetUserIdAndSecContext 的过时版本，仅用于
- * 与 pljava 中可疑代码保持缺陷兼容。允许设置
- * 设置 userid，但仅限于不在安全限制上下文内时。
- * 
+ * These are obsolete versions of Get/SetUserIdAndSecContext that are
+ * only provided for bug-compatibility with some rather dubious code in
+ * pljava.  We allow the userid to be set, but only when not inside a
+ * security restriction context.
  */
 void
 GetUserIdAndContext(Oid *userid, bool *sec_def_context)
@@ -719,7 +719,7 @@ GetUserIdAndContext(Oid *userid, bool *sec_def_context)
 void
 SetUserIdAndContext(Oid userid, bool sec_def_context)
 {
-	/* 抛出与 SET ROLE 相同的错误。 */
+	/* We throw the same error SET ROLE would. */
 	if (InSecurityRestrictedOperation())
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -734,7 +734,7 @@ SetUserIdAndContext(Oid userid, bool sec_def_context)
 
 
 /*
- * 检查指定角色是否具有显式 REPLICATION 权限
+ * Check whether specified role has explicit REPLICATION privilege
  */
 bool
 has_rolreplication(Oid roleid)
@@ -742,7 +742,7 @@ has_rolreplication(Oid roleid)
 	bool		result = false;
 	HeapTuple	utup;
 
-	/* 超级用户绕过所有权限检查。 */
+	/* Superusers bypass all permission checking. */
 	if (superuser_arg(roleid))
 		return true;
 
@@ -756,7 +756,7 @@ has_rolreplication(Oid roleid)
 }
 
 /*
- * 在常规 backend 启动期间初始化用户身份
+ * Initialize user identity during normal backend startup
  */
 void
 InitializeSessionUserId(const char *rolename, Oid roleid)
@@ -767,30 +767,30 @@ InitializeSessionUserId(const char *rolename, Oid roleid)
 	bool		is_superuser;
 
 	/*
-	 * 并行 worker 不需要在这里做任何事。
-	 * ParallelWorkerMain 已设置好我们的输出变量，而且
-我们	 * 不打算强制 rolcanlogin 或 rolconnlimit。此外，我们
-	 * 并不真想为该角色做目录查找：若它已被删除，
-	 * 我们不想因此失败。
+	 * In a parallel worker, we don't have to do anything here.
+	 * ParallelWorkerMain already set our output variables, and we aren't
+	 * going to enforce either rolcanlogin or rolconnlimit.  Furthermore, we
+	 * don't really want to perform a catalog lookup for the role: we don't
+	 * want to fail if it's been dropped.
 	 */
 	if (InitializingParallelWorker)
 		return;
 
 	/*
-	 * 引导期间不做扫描：系统目录还不存在，而且它
-们本来	 * 也应归 postgres 所有。
+	 * Don't do scans if we're bootstrapping, none of the system catalogs
+	 * exist yet, and they should be owned by postgres anyway.
 	 */
 	Assert(!IsBootstrapProcessingMode());
 
 	/*
-	 * 确保 syscache 条目因最近的目录更改而被清空。这使我
-	 * 们能找到在认证期间即时创建的角色。
-	 * 
+	 * Make sure syscache entries are flushed for recent catalog changes. This
+	 * allows us to find roles that were created on-the-fly during
+	 * authentication.
 	 */
 	AcceptInvalidationMessages();
 
 	/*
-	 * 查该角色：给名按名查，否则按 OID 查。
+	 * Look up the role, either by name if that's given or by OID if not.
 	 */
 	if (rolename != NULL)
 	{
@@ -817,36 +817,36 @@ InitializeSessionUserId(const char *rolename, Oid roleid)
 	SetAuthenticatedUserId(roleid, is_superuser);
 
 	/*
-	 * 通过 GUC 机制设置 SessionUserId 及相关变量，包括
-	 * "role"。
+	 * Set SessionUserId and related variables, including "role", via the GUC
+	 * mechanisms.
 	 *
-	 * 注意：理想上这里应用 PGC_S_DYNAMIC_DEFAULT，
-	 * 以便 session_authorization 之后仍可被
-	 * 条目更改。但实际上 pg_db_role_setting 中的
-	 * session_authorization 不生效。要改变这一点需要解决
-	 * 个问题：
+	 * Note: ideally we would use PGC_S_DYNAMIC_DEFAULT here, so that
+	 * session_authorization could subsequently be changed from
+	 * pg_db_role_setting entries.  Instead, session_authorization in
+	 * pg_db_role_setting has no effect.  Changing that would require solving
+	 * two problems:
 	 *
-	 * 1. 如果 pg_db_role_setting 同时含 session_authorization
-	 * 和 role 的值，我们无法确定二者的应用顺序，而顺序
-	 * 又有影响。
+	 * 1. If pg_db_role_setting has values for both session_authorization and
+	 * role, we could not be sure which order those would be applied in, and
+	 * it would matter.
 	 *
-	 * 2. 一些站点可能有多年前的 session_authorization 条
-	 * 目。没有特别理由要删它们。让这些条目
-	 * 重新生效可能大改应用行为，只有大版本发布
-	 * 才应该那么做。
+	 * 2. Sites may have years-old session_authorization entries.  There's not
+	 * been any particular reason to remove them.  Ending the dormancy of
+	 * those entries could seriously change application behavior, so only a
+	 * major release should do that.
 	 */
 	SetConfigOption("session_authorization", rname,
 					PGC_BACKEND, PGC_S_OVERRIDE);
 
 	/*
-	 * 以下检查在独立模式下不强制执行，这样才有办
-法从	 * 诸如 "UPDATE pg_authid SET rolcanlogin = false;" 这类
-	 * 糊涂操作的恢复
+	 * These next checks are not enforced when in standalone mode, so that
+	 * there is a way to recover from sillinesses like "UPDATE pg_authid SET
+	 * rolcanlogin = false;".
 	 */
 	if (IsUnderPostmaster)
 	{
 		/*
-		 * 该角色允许登录吗。
+		 * Is role allowed to login at all?
 		 */
 		if (!rform->rolcanlogin)
 			ereport(FATAL,
@@ -855,16 +855,16 @@ InitializeSessionUserId(const char *rolename, Oid roleid)
 							rname)));
 
 		/*
-		 * 检查此角色连接上限。只对常规 backend 强制，
-		 * 限制，因为其他进程类型有各自的 PGPROC 池。
-		 * 有竞态：
+		 * Check connection limit for this role.  We enforce the limit only
+		 * for regular backends, since other process types have their own
+		 * PGPROC pools.
 		 *
-		 * 自己的 PGPROC。若两个 backend 几乎同时这样，
-		 * 它们可能都自以为超限，而理想应一个成功一个
-		 * 失败。做得恰如其分似得不偿失；故我们只在
-		 * 干脆在文档中说明连接上限是近似的。
-		 * 。
-		 * 。
+		 * There is a race condition here --- we create our PGPROC before
+		 * checking for other PGPROCs.  If two backends did this at about the
+		 * same time, they might both think they were over the limit, while
+		 * ideally one should succeed and one fail.  Getting that to work
+		 * exactly seems more trouble than it is worth, however; instead we
+		 * just document that the connection limit is approximate.
 		 */
 		if (rform->rolconnlimit >= 0 &&
 			AmRegularBackendProcess() &&
@@ -881,65 +881,65 @@ InitializeSessionUserId(const char *rolename, Oid roleid)
 
 
 /*
- * 在特殊 backend 启动期间初始化用户身份
+ * Initialize user identity during special backend startup
  */
 void
 InitializeSessionUserIdStandalone(void)
 {
 	/*
-	 * 本函数只应在单用户模式、autovacuum worker 和后台工
-	 * 作者中被调用。
+	 * This function should only be called in single-user mode, in autovacuum
+	 * workers, and in background workers.
 	 */
 	Assert(!IsUnderPostmaster || IsAutoVacuumWorkerProcess() || IsBackgroundWorker);
 
-	/* 仅调一次 */
+	/* call only once */
 	Assert(!OidIsValid(AuthenticatedUserId));
 
 	AuthenticatedUserId = BOOTSTRAP_SUPERUSERID;
 	AuthenticatedUserIsSuperuser = true;
 
 	/*
-	 * XXX 理想情况下应通过 SetConfigOption("session_authorization")
-	 * 来做，但我们缺少所需的角色名，而且也没法取
-到它，	 * 因为这个特例的存在理由之一就是即便 BOOTSTRAP_
-	 * SUPERUSERID 的 pg_authid 行出了问题也能启动。由于
-	 * 我们不亲自设置该 GUC，C 代码看到的值是 NULL，
-	 * current_setting() 在本会话中将报告空串。
+	 * XXX Ideally we'd do this via SetConfigOption("session_authorization"),
+	 * but we lack the role name needed to do that, and we can't fetch it
+	 * because one reason for this special case is to be able to start up even
+	 * if something's happened to the BOOTSTRAP_SUPERUSERID's pg_authid row.
+	 * Since we don't set the GUC itself, C code will see the value as NULL,
+	 * and current_setting() will report an empty string within this session.
 	 */
 	SetSessionAuthorization(BOOTSTRAP_SUPERUSERID, true);
 
-	/* 可用 SetConfigOption("role")，但求一致 */
+	/* We could do SetConfigOption("role"), but let's be consistent */
 	SetCurrentRoleId(InvalidOid, false);
 }
 
 /*
- * 初始化系统用户。
+ * Initialize the system user.
  *
- * 它构造成 auth_method:authn_id。
+ * This is built as auth_method:authn_id.
  */
 void
 InitializeSystemUser(const char *authn_id, const char *auth_method)
 {
 	char	   *system_user;
 
-	/* 仅调一次 */
+	/* call only once */
 	Assert(SystemUser == NULL);
 
 	/*
-	 * InitializeSystemUser 只应在 authn_id 非 NULL 时调用，
-	 * 这意味着 auth_method 有效。
+	 * InitializeSystemUser should be called only when authn_id is not NULL,
+	 * meaning that auth_method is valid.
 	 */
 	Assert(authn_id != NULL);
 
 	system_user = psprintf("%s:%s", auth_method, authn_id);
 
-	/* 把 SystemUser 存入长寿命存储 */
+	/* Store SystemUser in long-lived storage */
 	SystemUser = MemoryContextStrdup(TopMemoryContext, system_user);
 	pfree(system_user);
 }
 
 /*
- * SQL 函数 SYSTEM_USER
+ * SQL-function SYSTEM_USER
  */
 Datum
 system_user(PG_FUNCTION_ARGS)
@@ -953,15 +953,15 @@ system_user(PG_FUNCTION_ARGS)
 }
 
 /*
- * 运行期间更改会话认证 ID。
+ * Change session auth ID while running
  *
- * SQL 标准说 SET SESSION AUTHORIZATION 蕴含 SET ROLE
- *  NONE。我们在更高层面实现这一点，而不是在这
-里，因 * 为它是 "session_authorization" 的 GUC 赋值钩子，必须
- * 与 SetCurrentRoleId（"role" 的钩子）可交换，因为
- * guc.c 不保证在事务回滚等情况下谁先运行。因此，只有
- * 在 !SetRoleIsActive 时我们才更新派生状态
- * （见上）
+ * The SQL standard says that SET SESSION AUTHORIZATION implies SET ROLE NONE.
+ * We mechanize that at higher levels not here, because this is the GUC
+ * assign hook for "session_authorization", and it must be commutative with
+ * SetCurrentRoleId (the hook for "role") because guc.c provides no guarantees
+ * which will run first during cases such as transaction rollback.  Therefore,
+ * we update derived state (OuterUserId/CurrentUserId/is_superuser) only if
+ * !SetRoleIsActive.
  */
 void
 SetSessionAuthorization(Oid userid, bool is_superuser)
@@ -973,10 +973,10 @@ SetSessionAuthorization(Oid userid, bool is_superuser)
 }
 
 /*
- * 报告当前角色 ID
- *		 遵循 SET ROLE 的语义，即返回外层 ID 而非当前
- *		生效 ID，并且当设置在逻辑上是 SET ROLE NONE 时返回
- *		 InvalidOid。
+ * Report current role id
+ *		This follows the semantics of SET ROLE, ie return the outer-level ID
+ *		not the current effective ID, and return InvalidOid when the setting
+ *		is logically SET ROLE NONE.
  */
 Oid
 GetCurrentRoleId(void)
@@ -988,27 +988,27 @@ GetCurrentRoleId(void)
 }
 
 /*
- * 运行中更改角色 ID（SET ROLE）
+ * Change Role ID while running (SET ROLE)
  *
- * 若 roleid 为 InvalidOid，我们执行的是 SET ROLE NONE：
- * 恢复为会话用户授权。此时 is_superuser 参数被忽
-略。 * 。
+ * If roleid is InvalidOid, we are doing SET ROLE NONE: revert to the
+ * session user authorization.  In this case the is_superuser argument
+ * is ignored.
  *
- * 当 roleid 不是 InvalidOid 时，调用者必须已经检查过
- * 会话用户是否有权成为该角色。（这里无法检查，
- * 因为本例程必须能在失败的事务中执行，以恢复 ROLE
- * GUC 变量的先前值。
+ * When roleid is not InvalidOid, the caller must have checked whether
+ * the session user has permission to become that role.  (We cannot check
+ * here because this routine must be able to execute in a failed transaction
+ * to restore a prior value of the ROLE GUC variable.)
  */
 void
 SetCurrentRoleId(Oid roleid, bool is_superuser)
 {
 	/*
-	 * 若为 SET ROLE NONE 则取信息
+	 * Get correct info if it's SET ROLE NONE
 	 *
-	 * 如果 SessionUserId 尚未设置，除了更新 SetRoleIsActive
-	 * 之外什么都不做 —— 随后的 SetSessionAuthorization
-	 * 调用会更新派生状态。GUC 初始化期间就会
-	 * 我们就会被调用。
+	 * If SessionUserId hasn't been set yet, do nothing beyond updating
+	 * SetRoleIsActive --- the eventual SetSessionAuthorization call will
+	 * update the derived state.  This is needed since we will get called
+	 * during GUC initialization.
 	 */
 	if (!OidIsValid(roleid))
 	{
@@ -1028,8 +1028,8 @@ SetCurrentRoleId(Oid roleid, bool is_superuser)
 
 
 /*
- * 从用户 OID 取用户名；若 noerr 为真，角色不存在时
- * 。
+ * Get user name from user oid, returns NULL for nonexistent roleid if noerr
+ * is true.
  */
 char *
 GetUserNameFromId(Oid roleid, bool noerr)
@@ -1055,28 +1055,28 @@ GetUserNameFromId(Oid roleid, bool noerr)
 }
 
 /* ------------------------------------------------------------------------
- *				与并行 worker 共享的客户端连接状态
+ *				Client connection state shared with parallel workers
  *
- * ClientConnectionInfo 包含若干关于客户端的信息，需要在
- * 并行 worker 初始化时同步给它们。
+ * ClientConnectionInfo contains pieces of information about the client that
+ * need to be synced to parallel workers when they initialize.
  *-------------------------------------------------------------------------
  */
 
 ClientConnectionInfo MyClientConnectionInfo;
 
 /*
- * ClientConnectionInfo 的中间表示，便于序列化。
- * 变长字段紧接在此头部之后分配。
- * 
+ * Intermediate representation of ClientConnectionInfo for easier
+ * serialization.  Variable-length fields are allocated right after this
+ * header.
  */
 typedef struct SerializedClientConnectionInfo
 {
-	int32		authn_id_len;	/* strlen(authn_id) 或 -1 */
+	int32		authn_id_len;	/* strlen(authn_id), or -1 if NULL */
 	UserAuth	auth_method;
 } SerializedClientConnectionInfo;
 
 /*
- * 计算序列化 MyClientConnectionInfo 所需的空间。
+ * Calculate the space needed to serialize MyClientConnectionInfo.
  */
 Size
 EstimateClientConnectionInfoSpace(void)
@@ -1092,7 +1092,7 @@ EstimateClientConnectionInfoSpace(void)
 }
 
 /*
- * 序列化 MyClientConnectionInfo 供并行 worker 使用。
+ * Serialize MyClientConnectionInfo for use by parallel workers.
  */
 void
 SerializeClientConnectionInfo(Size maxsize PG_USED_FOR_ASSERTS_ONLY,
@@ -1106,26 +1106,26 @@ SerializeClientConnectionInfo(Size maxsize PG_USED_FOR_ASSERTS_ONLY,
 	if (MyClientConnectionInfo.authn_id)
 		serialized.authn_id_len = strlen(MyClientConnectionInfo.authn_id);
 
-	/* 把序列化表示复制进缓冲区 */
+	/* Copy serialized representation to buffer */
 	Assert(maxsize >= sizeof(serialized));
 	memcpy(start_address, &serialized, sizeof(serialized));
 
 	maxsize -= sizeof(serialized);
 	start_address += sizeof(serialized);
 
-	/* 把 authn_id 复制到其后 */
+	/* Copy authn_id into the space after the struct */
 	if (serialized.authn_id_len >= 0)
 	{
 		Assert(maxsize >= (serialized.authn_id_len + 1));
 		memcpy(start_address,
 			   MyClientConnectionInfo.authn_id,
-		/* 包含 NULL 终止符以便反序列化 */
+		/* include the NULL terminator to ease deserialization */
 			   serialized.authn_id_len + 1);
 	}
 }
 
 /*
- * 从序列化表示恢复 MyClientConnectionInfo。
+ * Restore MyClientConnectionInfo from its serialized representation.
  */
 void
 RestoreClientConnectionInfo(char *conninfo)
@@ -1134,7 +1134,7 @@ RestoreClientConnectionInfo(char *conninfo)
 
 	memcpy(&serialized, conninfo, sizeof(serialized));
 
-	/* 把字段复制回原位 */
+	/* Copy the fields back into place */
 	MyClientConnectionInfo.authn_id = NULL;
 	MyClientConnectionInfo.auth_method = serialized.auth_method;
 
@@ -1150,22 +1150,22 @@ RestoreClientConnectionInfo(char *conninfo)
 
 
 /*-------------------------------------------------------------------------
- *				互锁文件支持
+ *				Interlock-file support
  *
- * 这些例程既用于创建数据目录锁文件
- * （$DATADIR/postmaster.pid），也用于创建 Unix 套接字
- * 文件锁文件（$SOCKFILE.lock）。两种文件最初包含相同
- * 的信息，不过数据目录锁文件创建之后还可以用
- * AddToDataDirLockFile() 添加更多信息。内容说明见
- * 信息可后补
+ * These routines are used to create both a data-directory lockfile
+ * ($DATADIR/postmaster.pid) and Unix-socket-file lockfiles ($SOCKFILE.lock).
+ * Both kinds of files contain the same info initially, although we can add
+ * more information to a data-directory lockfile after it's created, using
+ * AddToDataDirLockFile().  See pidfile.h for documentation of the contents
+ * of these lockfiles.
  *
- * 锁文件创建成功时，会自动创建一个移除该锁文
-件的 * proc_exit 回调。
+ * On successful lockfile creation, a proc_exit callback to remove the
+ * lockfile is automatically created.
  *-------------------------------------------------------------------------
  */
 
 /*
- * 移除锁文件的 proc_exit 回调。
+ * proc_exit callback to remove lockfiles.
  */
 static void
 UnlinkLockFiles(int status, Datum arg)
@@ -1177,30 +1177,30 @@ UnlinkLockFiles(int status, Datum arg)
 		char	   *curfile = (char *) lfirst(l);
 
 		unlink(curfile);
-		/* unlink 失败要抱怨？ */
+		/* Should we complain if the unlink fails? */
 	}
-	/* 反正马上就要退出了，无需回收存储 */
+	/* Since we're about to exit, no need to reclaim storage */
 	lock_files = NIL;
 
 	/*
-	 * 锁文件移除应当总是 postmaster 或独立 backend 最后的
-	 * 对外可见动作，而退出 postmaster 子进程时根本不会走
-	 * 到这里。故这里是记录关机完成的好地方。另一
-	 * 是教 proc_exit() 来做，但那似乎更丑。独立 backend
- 中	 * 用 NOTICE 级别，少些聒噪。
-	 * 。
+	 * Lock file removal should always be the last externally visible action
+	 * of a postmaster or standalone backend, while we won't come here at all
+	 * when exiting postmaster child processes.  Therefore, this is a good
+	 * place to log completion of shutdown.  We could alternatively teach
+	 * proc_exit() to do it, but that seems uglier.  In a standalone backend,
+	 * use NOTICE elevel to be less chatty.
 	 */
 	ereport(IsPostmasterEnvironment ? LOG : NOTICE,
 			(errmsg("database system is shut down")));
 }
 
 /*
- * 创建锁文件。
+ * Create a lockfile.
  *
- * filename 是要创建的锁文件的路径名。
- * amPostmaster 用于决定输出 PID 的编码方式。
- * socketDir 是要写入的 Unix 套接字目录路径（可能为
-空）。 * isDDLock 和 refName 用于决定产生什么错误消息。
+ * filename is the path name of the lockfile to create.
+ * amPostmaster is used to determine how to encode the output PID.
+ * socketDir is the Unix socket directory path to include (possibly empty).
+ * isDDLock and refName are used to determine what error message to produce.
  */
 static void
 CreateLockFile(const char *filename, bool amPostmaster,
@@ -1219,22 +1219,22 @@ CreateLockFile(const char *filename, bool amPostmaster,
 	const char *envvar;
 
 	/*
-	 * 若锁文件中的 PID 是我们自己、父进程或祖父
-	 * 进程的 PID，则该文件必然失效（多半是上次系
-	 * 统启动周期所留）。须做此检查，因重启后很可
-	 * 能分配出与上次相同的 PID，或只大一两个数，
-	 * 于是锁文件的 PID 现在指向的是某个祖先
-	 * shell 进程。我们允许 pg_ctl 通过环境变量
-	 * PID 传下它的父 shell PID（我们的祖父）；
-	 * 让经 pg_ctl 启动 postmaster 与直启一样可靠。
-	 * 没有机制检测更远祖先；但 init 脚本若写得仔
-	 * 细，除直接父 shell 外的进程都归 root 所有，
-	 * shell 之外的进程都会归 root 所有，kill 测试
-	 * 会以 EPERM 失败。注意这种方法不会有假阴性：
-	 * 现存 postmaster 绝不会直接启动竞争进程。
-	 * 
-	 * 
-	 * 
+	 * If the PID in the lockfile is our own PID or our parent's or
+	 * grandparent's PID, then the file must be stale (probably left over from
+	 * a previous system boot cycle).  We need to check this because of the
+	 * likelihood that a reboot will assign exactly the same PID as we had in
+	 * the previous reboot, or one that's only one or two counts larger and
+	 * hence the lockfile's PID now refers to an ancestor shell process.  We
+	 * allow pg_ctl to pass down its parent shell PID (our grandparent PID)
+	 * via the environment variable PG_GRANDPARENT_PID; this is so that
+	 * launching the postmaster via pg_ctl can be just as reliable as
+	 * launching it directly.  There is no provision for detecting
+	 * further-removed ancestor processes, but if the init script is written
+	 * carefully then all but the immediate parent shell will be root-owned
+	 * processes and so the kill test will fail with EPERM.  Note that we
+	 * cannot get a false negative this way, because an existing postmaster
+	 * would surely never launch a competing postmaster or pg_ctl process
+	 * directly.
 	 */
 	my_pid = getpid();
 
@@ -1243,8 +1243,8 @@ CreateLockFile(const char *filename, bool amPostmaster,
 #else
 
 	/*
-	 * Windows 没有 getppid()，但它也不需要，因为它同样
-	 * 不用真 kill() ...
+	 * Windows hasn't got getppid(), but doesn't need it since it's not using
+	 * real kill() either...
 	 */
 	my_p_pid = 0;
 #endif
@@ -1256,24 +1256,24 @@ CreateLockFile(const char *filename, bool amPostmaster,
 		my_gp_pid = 0;
 
 	/*
-	 * 这里需要循环，因为有竞态。但别无限循环（如
-	 * 不可写的 $PGDATA 目录可能导致无法消除的失败）。
-	 * 100 次尝试应该足够了。
+	 * We need a loop here because of race conditions.  But don't loop forever
+	 * (for example, a non-writable $PGDATA directory might cause a failure
+	 * that won't go away).  100 tries seems like plenty.
 	 */
 	for (ntries = 0;; ntries++)
 	{
 		/*
-		 * 尝试创建锁文件 —— O_EXCL 保证原子。
+		 * Try to create the lock file --- O_EXCL makes this atomic.
 		 *
-		 * 不要想把文件保护改得比 0600/0640 更弱，见下
-		 * 。
+		 * Think not to make the file protection weaker than 0600/0640.  See
+		 * comments below.
 		 */
 		fd = open(filename, O_RDWR | O_CREAT | O_EXCL, pg_file_create_mode);
 		if (fd >= 0)
-			break;				/* 成功；退出重试循环 */
+			break;				/* Success; exit the retry loop */
 
 		/*
-		 * 无法创建 pid 文件。多半是它已存在。
+		 * Couldn't create the pid file. Probably it already exists.
 		 */
 		if ((errno != EEXIST && errno != EACCES) || ntries > 100)
 			ereport(FATAL,
@@ -1282,14 +1282,14 @@ CreateLockFile(const char *filename, bool amPostmaster,
 							filename)));
 
 		/*
-		 * 读该文件以取得旧所有者的 PID。注意这里有
-竞态：		 * 自我们尝试创建以来文件可能已被删除。
+		 * Read the file to get the old owner's PID.  Note race condition
+		 * here: file might have been deleted since we tried to create it.
 		 */
 		fd = open(filename, O_RDONLY, pg_file_create_mode);
 		if (fd < 0)
 		{
 			if (errno == ENOENT)
-				continue;		/* 竞态；重试 */
+				continue;		/* race condition; try again */
 			ereport(FATAL,
 					(errcode_for_file_access(),
 					 errmsg("could not open lock file \"%s\": %m",
@@ -1315,7 +1315,7 @@ CreateLockFile(const char *filename, bool amPostmaster,
 		buffer[len] = '\0';
 		encoded_pid = atoi(buffer);
 
-		/* 若 pid < 0，属 postgres */
+		/* if pid < 0, the pid is for postgres, not postmaster */
 		other_pid = (pid_t) (encoded_pid < 0 ? -encoded_pid : encoded_pid);
 
 		if (other_pid <= 0)
@@ -1323,26 +1323,26 @@ CreateLockFile(const char *filename, bool amPostmaster,
 				 filename, buffer);
 
 		/*
-		 * 检查另一进程是否还存在
+		 * Check to see if the other process still exists
 		 *
-		 * 按上文讨论，my_pid、my_p_pid 和 my_gp_pid 可作为
-		 * 假匹配而忽略。
+		 * Per discussion above, my_pid, my_p_pid, and my_gp_pid can be
+		 * ignored as false matches.
 		 *
-		 * 通常若给定 PID 不存在，kill() 会以 ESRCH 失败。
-		 * 。
+		 * Normally kill() will fail with ESRCH if the given PID doesn't
+		 * exist.
 		 *
-		 * EPERM 错误情形可视为没问题，因为该错误
-		 * 意味着现存进程用户 ID 与我们不同，即它不可
-		 * 能是竞争的 postmaster。postmaster 无法成功附加
-		 * 属于其用户 ID 的数据目录，checkDataDir() 强制。
-		 * 另外，我们以 0600/0640 模式建锁文件，若锁
-		 * 文件属于其他用户 ID，上面就已失败 —— 即
-		 * kill() 报告的进程并非造锁文件者。（注意：
-		 * 最后这点是唯一能防止我们删掉他人运行的
-		 * Postgres 实例的 Unix 套接字文件的因素，
-		 * 的因素，至少在没有 sticky 位的 /tmp 上
-		 * 是如此。
-		 * 。
+		 * We can treat the EPERM-error case as okay because that error
+		 * implies that the existing process has a different userid than we
+		 * do, which means it cannot be a competing postmaster.  A postmaster
+		 * cannot successfully attach to a data directory owned by a userid
+		 * other than its own, as enforced in checkDataDir(). Also, since we
+		 * create the lockfiles mode 0600/0640, we'd have failed above if the
+		 * lockfile belonged to another userid --- which means that whatever
+		 * process kill() is reporting about isn't the one that made the
+		 * lockfile.  (NOTE: this last consideration is the only one that
+		 * keeps us from blowing away a Unix socket file belonging to an
+		 * instance of Postgres being run by someone else, at least on
+		 * machines where /tmp hasn't got a stickybit.)
 		 */
 		if (other_pid != my_pid && other_pid != my_p_pid &&
 			other_pid != my_gp_pid)
@@ -1350,7 +1350,7 @@ CreateLockFile(const char *filename, bool amPostmaster,
 			if (kill(other_pid, 0) == 0 ||
 				(errno != ESRCH && errno != EPERM))
 			{
-				/* 锁文件属存活进程 */
+				/* lockfile belongs to a live process */
 				ereport(FATAL,
 						(errcode(ERRCODE_LOCK_FILE_EXISTS),
 						 errmsg("lock file \"%s\" already exists",
@@ -1370,15 +1370,15 @@ CreateLockFile(const char *filename, bool amPostmaster,
 		}
 
 		/*
-		 * 不，创建进程已不存在。但也可能 postmaster
-		 * 崩溃了（更可能是被管理员 kill -9），却留下
-		 * 了孤儿 backend。为此要检查是否存在仍在使用
-的关联		 * 共享内存段。
-		 * 。
+		 * No, the creating process did not exist.  However, it could be that
+		 * the postmaster crashed (or more likely was kill -9'd by a clueless
+		 * admin) but has left orphan backends behind.  Check for this by
+		 * looking to see if there is an associated shmem segment that is
+		 * still in use.
 		 *
-		 * 注意：因为 postmaster.pid 分多步写入，我们可能找不
-		 * 到其中的共享内存 ID 值；不能把这当作错误。
-		 * 。
+		 * Note: because postmaster.pid is written in multiple steps, we might
+		 * not find the shmem ID values in it; we can't treat that as an
+		 * error.
 		 */
 		if (isDDLock)
 		{
@@ -1408,9 +1408,9 @@ CreateLockFile(const char *filename, bool amPostmaster,
 		}
 
 		/*
-		 * 看起来没人在家。解除链接并再次尝试创建。
-		 * 需要循环，因为与其他可能的创建者之间存在
-竞态。		 * 。
+		 * Looks like nobody's home.  Unlink the file and try again to create
+		 * it.  Need a loop because of possible race condition against other
+		 * would-be creators.
 		 */
 		if (unlink(filename) < 0)
 			ereport(FATAL,
@@ -1423,10 +1423,10 @@ CreateLockFile(const char *filename, bool amPostmaster,
 	}
 
 	/*
-	 * 文件已成功创建，现在填写。内容见 pidfile.h
-	 *  中的注释。注意我们把相同的前五行写入数据目录和
-	 * 套接字锁文件两处；之后可能还有更多内容加进
-	 * 数据目录锁文件。
+	 * Successfully created the file, now fill it.  See comment in pidfile.h
+	 * about the contents.  Note that we write the same first five lines into
+	 * both datadir and socket lockfiles; although more stuff may get added to
+	 * the datadir lockfile later.
 	 */
 	snprintf(buffer, sizeof(buffer), "%d\n%s\n" INT64_FORMAT "\n%d\n%s\n",
 			 amPostmaster ? (int) my_pid : -((int) my_pid),
@@ -1436,8 +1436,8 @@ CreateLockFile(const char *filename, bool amPostmaster,
 			 socketDir);
 
 	/*
-	 * 在独立 backend 中，下一行（LOCK_FILE_LINE_LISTEN_
-	 * ADDR）永远不会有数据，故现在填成空。
+	 * In a standalone backend, the next line (LOCK_FILE_LINE_LISTEN_ADDR)
+	 * will never receive data, so fill it in as empty now.
 	 */
 	if (isDDLock && !amPostmaster)
 		strlcat(buffer, "\n", sizeof(buffer));
@@ -1450,7 +1450,7 @@ CreateLockFile(const char *filename, bool amPostmaster,
 
 		close(fd);
 		unlink(filename);
-		/* 写操作未设 errno 时，假定是磁盘空间不足 */
+		/* if write didn't set errno, assume problem is no disk space */
 		errno = save_errno ? save_errno : ENOSPC;
 		ereport(FATAL,
 				(errcode_for_file_access(),
@@ -1483,29 +1483,29 @@ CreateLockFile(const char *filename, bool amPostmaster,
 	}
 
 	/*
-	 * 安排在 proc_exit 时解除锁文件的链接。如果这是第一
-	 * 个，就设置好做这件事的 on_proc_exit 函数；然后把这个
-	 * 锁文件加入待解列表。
+	 * Arrange to unlink the lock file(s) at proc_exit.  If this is the first
+	 * one, set up the on_proc_exit function to do it; then add this lock file
+	 * to the list of files to unlink.
 	 */
 	if (lock_files == NIL)
 		on_proc_exit(UnlinkLockFiles, 0);
 
 	/*
-	 * 使用 lcons 使锁文件按创建的逆序解除链接；这
-一点	 * 至关重要！
+	 * Use lcons so that the lock files are unlinked in reverse order of
+	 * creation; this is critical!
 	 */
 	lock_files = lcons(pstrdup(filename), lock_files);
 }
 
 /*
- * 创建数据目录锁文件。
+ * Create the data directory lockfile.
  *
- * 被调用时必须已把工作目录切到 DataDir，
- * 直接用相对路径即可。这有助于确保我们锁的
-就是该锁 * 的目录。
+ * When this is called, we must have already switched the working
+ * directory to DataDir, so we can just use a relative path.  This
+ * helps ensure that we are locking the directory we should be.
  *
- * 注意套接字目录路径行最初写为空。postmaster.c 会在
- * 创建第一个 Unix 套接字时重写它。
+ * Note that the socket directory path line is initially written as empty.
+ * postmaster.c will rewrite it upon creating the first Unix socket.
  */
 void
 CreateDataDirLockFile(bool amPostmaster)
@@ -1514,7 +1514,7 @@ CreateDataDirLockFile(bool amPostmaster)
 }
 
 /*
- * 为指定的 Unix 套接字文件创建锁文件。
+ * Create a lockfile for the specified Unix socket file.
  */
 void
 CreateSocketLockFile(const char *socketfile, bool amPostmaster,
@@ -1527,12 +1527,12 @@ CreateSocketLockFile(const char *socketfile, bool amPostmaster,
 }
 
 /*
- * TouchSocketLockFiles —— 标记套接字锁文件
+ * TouchSocketLockFiles -- mark socket lock files as recently accessed
  *
- * 应时常调用本例程，确保套接字锁文件的修改/
- * 访问时间较新。这能防止它们被过分热情的
- * /tmp 目录清理守护进程删除。（这也说明我们本不
-该把 * 套接字文件放进 /tmp ...）
+ * This routine should be called every so often to ensure that the socket
+ * lock files have a recent mod or access date.  That saves them
+ * from being removed by overenthusiastic /tmp-directory-cleaner daemons.
+ * (Another reason we should never have put the socket file in /tmp...)
  */
 void
 TouchSocketLockFiles(void)
@@ -1543,25 +1543,25 @@ TouchSocketLockFiles(void)
 	{
 		char	   *socketLockFile = (char *) lfirst(l);
 
-		/* 数据目录锁文件不必碰，我们信得过它 */
+		/* No need to touch the data directory lock file, we trust */
 		if (strcmp(socketLockFile, DIRECTORY_LOCK_FILE) == 0)
 			continue;
 
-		/* 这里错误都直接忽略 */
+		/* we just ignore any error here */
 		(void) utime(socketLockFile, NULL);
 	}
 }
 
 
 /*
- * 在数据目录锁文件中添加（或替换）一
-行。 * 给定字符串不应包含行尾换行符。
+ * Add (or replace) a line in the data directory lock file.
+ * The given string should not include a trailing newline.
  *
- * 注意：因不截断文件，若重写某行时数据比
- * 原来少，最后一行之后就会有垃圾。虽然可以加一个
- * truncate 调用来修，但那会让文件更新变成非原子，我们
- * 宁可避免。因此调用者应努力保证行一旦写入就不缩
-短。 * 。
+ * Note: because we don't truncate the file, if we were to rewrite a line
+ * with less data than it had before, there would be garbage after the last
+ * line.  While we could fix that by adding a truncate call, that would make
+ * the file update non-atomic, which we'd rather avoid.  Therefore, callers
+ * should endeavor never to shorten a line once it's been written.
  */
 void
 AddToDataDirLockFile(int target_line, const char *str)
@@ -1598,8 +1598,8 @@ AddToDataDirLockFile(int target_line, const char *str)
 	srcbuffer[len] = '\0';
 
 	/*
-	 * 跳过那些不打算重写的行，然后把它们复制到
-	 * destbuffer
+	 * Advance over lines we are not supposed to rewrite, then copy them to
+	 * destbuffer.
 	 */
 	srcptr = srcbuffer;
 	for (lineno = 1; lineno < target_line; lineno++)
@@ -1607,15 +1607,15 @@ AddToDataDirLockFile(int target_line, const char *str)
 		char	   *eol = strchr(srcptr, '\n');
 
 		if (eol == NULL)
-			break;				/* 文件中的行还不够 */
+			break;				/* not enough lines in file yet */
 		srcptr = eol + 1;
 	}
 	memcpy(destbuffer, srcbuffer, srcptr - srcbuffer);
 	destptr = destbuffer + (srcptr - srcbuffer);
 
 	/*
-	 * 在目标行之前补齐任何缺失的行，以防各行乱序
-加入	 * 文件。
+	 * Fill in any missing lines before the target line, in case lines are
+	 * added to the file out of order.
 	 */
 	for (; lineno < target_line; lineno++)
 	{
@@ -1624,13 +1624,13 @@ AddToDataDirLockFile(int target_line, const char *str)
 	}
 
 	/*
-	 * 写入或重写目标行。
+	 * Write or rewrite the target line.
 	 */
 	snprintf(destptr, destbuffer + sizeof(destbuffer) - destptr, "%s\n", str);
 	destptr += strlen(destptr);
 
 	/*
-	 * 若旧文件还有更多行，追加到 destbuffer。
+	 * If there are more lines in the old file, append them to destbuffer.
 	 */
 	if ((srcptr = strchr(srcptr, '\n')) != NULL)
 	{
@@ -1640,8 +1640,8 @@ AddToDataDirLockFile(int target_line, const char *str)
 	}
 
 	/*
-	 * 然后重写数据。由于用单次内核调用写入，旁观
-者看到的	 * 更新应是原子的。
+	 * And rewrite the data.  Since we write in a single kernel call, this
+	 * update should appear atomic to onlookers.
 	 */
 	len = strlen(destbuffer);
 	errno = 0;
@@ -1649,7 +1649,7 @@ AddToDataDirLockFile(int target_line, const char *str)
 	if (pg_pwrite(fd, destbuffer, len, 0) != len)
 	{
 		pgstat_report_wait_end();
-		/* 写操作未设 errno 时，假定是磁盘空间不足 */
+		/* if write didn't set errno, assume problem is no disk space */
 		if (errno == 0)
 			errno = ENOSPC;
 		ereport(LOG,
@@ -1680,15 +1680,15 @@ AddToDataDirLockFile(int target_line, const char *str)
 
 
 /*
- * 复查数据目录锁文件是否仍以预期内容存在。若
-锁文件 * 看起来正常则返回真，否则返回假。
+ * Recheck that the data directory lock file still exists with expected
+ * content.  Return true if the lock file appears OK, false if it isn't.
  *
- * postmaster 中我们会周期性地调用它。思路是：如果锁
- * 文件被删除或被另一个 postmaster 替换，我们就应做
- * panic 级数据库关机。因此任何有疑虑的情况都应返回
- * 真：我们不想造成不必要的 panic 关机。EINTR 或
- * ENFILE 之类的瞬态失败不应导致我们失败。（如果
-真有 * 问题，未来的复查会发现的。）
+ * We call this periodically in the postmaster.  The idea is that if the
+ * lock file has been removed or replaced by another postmaster, we should
+ * do a panic database shutdown.  Therefore, we should return true if there
+ * is any doubt: we do not want to cause a panic shutdown unnecessarily.
+ * Transient failures like EINTR or ENFILE should not cause us to fail.
+ * (If there really is something wrong, we'll detect it on a future recheck.)
  */
 bool
 RecheckDataDirLockFile(void)
@@ -1702,22 +1702,22 @@ RecheckDataDirLockFile(void)
 	if (fd < 0)
 	{
 		/*
-		 * 有许多可预见的假阳性错误。为安全起见，只在
-		 * 列举出的明显有问题的情形上失败。
-		 * 
+		 * There are many foreseeable false-positive error conditions.  For
+		 * safety, fail only on enumerated clearly-something-is-wrong
+		 * conditions.
 		 */
 		switch (errno)
 		{
 			case ENOENT:
 			case ENOTDIR:
-				/* 灾难 */
+				/* disaster */
 				ereport(LOG,
 						(errcode_for_file_access(),
 						 errmsg("could not open file \"%s\": %m",
 								DIRECTORY_LOCK_FILE)));
 				return false;
 			default:
-				/* 非致命（目前） */
+				/* non-fatal, at least for now */
 				ereport(LOG,
 						(errcode_for_file_access(),
 						 errmsg("could not open file \"%s\": %m; continuing anyway",
@@ -1735,15 +1735,15 @@ RecheckDataDirLockFile(void)
 				 errmsg("could not read from file \"%s\": %m",
 						DIRECTORY_LOCK_FILE)));
 		close(fd);
-		return true;			/* 读失败视为非致命 */
+		return true;			/* treat read failure as nonfatal */
 	}
 	buffer[len] = '\0';
 	close(fd);
 	file_pid = atol(buffer);
 	if (file_pid == getpid())
-		return true;			/* 正常 */
+		return true;			/* all is well */
 
-	/* 麻烦了：有人覆写了锁文件 */
+	/* Trouble: someone's overwritten the lock file */
 	ereport(LOG,
 			(errmsg("lock file \"%s\" contains wrong PID: %ld instead of %ld",
 					DIRECTORY_LOCK_FILE, file_pid, (long) getpid())));
@@ -1752,15 +1752,15 @@ RecheckDataDirLockFile(void)
 
 
 /*-------------------------------------------------------------------------
- *				版本检查支持
+ *				Version checking support
  *-------------------------------------------------------------------------
  */
 
 /*
- * 判断目录 `path' 中的 PG_VERSION 文件是否表明数据
- * 版本与本程序版本兼容。
+ * Determine whether the PG_VERSION file in directory `path' indicates
+ * a data version compatible with the version of this program.
  *
- * 若兼容则返回。否则 ereport(FATAL)。
+ * If compatible, return. Otherwise, ereport(FATAL).
  */
 void
 ValidatePgVersion(const char *path)
@@ -1818,19 +1818,19 @@ ValidatePgVersion(const char *path)
 }
 
 /*-------------------------------------------------------------------------
- *				库预加载支持
+ *				Library preload support
  *-------------------------------------------------------------------------
  */
 
 /*
- * GUC 变量：postmaster 启动时与 backend 启动时要预
- * 加载的库名列表
+ * GUC variables: lists of library names to be preloaded at postmaster
+ * start and at backend start
  */
 char	   *session_preload_libraries_string = NULL;
 char	   *shared_preload_libraries_string = NULL;
 char	   *local_preload_libraries_string = NULL;
 
-/* 标志：我们正在加载 shared_preload_libraries */
+/* Flag telling that we are loading shared_preload_libraries */
 bool		process_shared_preload_libraries_in_progress = false;
 bool		process_shared_preload_libraries_done = false;
 
@@ -1838,10 +1838,10 @@ shmem_request_hook_type shmem_request_hook = NULL;
 bool		process_shmem_requests_in_progress = false;
 
 /*
- * 加载 'libraries' 中列出的共享库。
+ * load the shared libraries listed in 'libraries'
  *
- * 'gucname'：GUC 变量名，用于错误报告。
- * 'restricted'：为真时强制库位于 $libdir/plugins/。
+ * 'gucname': name of GUC variable, for error reports
+ * 'restricted': if true, force libraries to be in $libdir/plugins/
  */
 static void
 load_libraries(const char *libraries, const char *gucname, bool restricted)
@@ -1851,15 +1851,15 @@ load_libraries(const char *libraries, const char *gucname, bool restricted)
 	ListCell   *l;
 
 	if (libraries == NULL || libraries[0] == '\0')
-		return;					/* 无事可做 */
+		return;					/* nothing to do */
 
-	/* 需要可改的字符串副本 */
+	/* Need a modifiable copy of string */
 	rawstring = pstrdup(libraries);
 
-	/* 把字符串解析成路径列表 */
+	/* Parse string into list of filename paths */
 	if (!SplitDirectoriesString(rawstring, ',', &elemlist))
 	{
-		/* 列表有语法错 */
+		/* syntax error in list */
 		list_free_deep(elemlist);
 		pfree(rawstring);
 		ereport(LOG,
@@ -1871,11 +1871,11 @@ load_libraries(const char *libraries, const char *gucname, bool restricted)
 
 	foreach(l, elemlist)
 	{
-		/* 注意 filename 已被规范化 */
+		/* Note that filename was already canonicalized */
 		char	   *filename = (char *) lfirst(l);
 		char	   *expanded = NULL;
 
-		/* 若在限制模式下且未提及，则插入 $libdir/plugins */
+		/* If restricting, insert $libdir/plugins if not mentioned already */
 		if (restricted && first_dir_separator(filename) == NULL)
 		{
 			expanded = psprintf("$libdir/plugins/%s", filename);
@@ -1893,7 +1893,7 @@ load_libraries(const char *libraries, const char *gucname, bool restricted)
 }
 
 /*
- * 处理 postmaster 启动时应预加载的库
+ * process any libraries that should be preloaded at postmaster start
  */
 void
 process_shared_preload_libraries(void)
@@ -1907,7 +1907,7 @@ process_shared_preload_libraries(void)
 }
 
 /*
- * 处理 backend 启动时应预加载的库
+ * process any libraries that should be preloaded at backend start
  */
 void
 process_session_preload_libraries(void)
@@ -1921,7 +1921,7 @@ process_session_preload_libraries(void)
 }
 
 /*
- * 处理预加载库发来的共享内存请求
+ * process any shared memory requests from preloaded libraries
  */
 void
 process_shmem_requests(void)

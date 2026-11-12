@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0367-review-fix",
+ "title": "revert miscinit.c to EN baseline: redistribution corruption too pervasive for surgical fix",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "1915547e3ec3de116370657e5e8f1ca4a9371e7e",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0367-review-fix.json",
+   "kind": "manifest",
+   "note": "this fixup manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "register fixup manifest path (S6)"
+  },
+  {
+   "pattern": "src/backend/utils/init/miscinit.c",
+   "kind": "c_comment",
+   "note": "revert to REL_16_11 EN baseline; miscinit will be re-translated in a future batch with per-line budget discipline (no cross-line redistribution)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0367-review-fix.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this fixup manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "register fixup manifest path (S6)"
+  },
+  {
+   "path": "src/backend/utils/init/miscinit.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 148,
+   "translated": 0,
+   "preserved": 148,
+   "preserved_reasons": [
+    "revert: redistribution corruption (27 frame breaks + 6 broken sentences + code line contamination) too pervasive for surgical fix"
+   ],
+   "note": "revert to EN; re-translate in future batch using strict per-line budget discipline"
+  }
+ ],
+ "notes": "batch-0367-review-fix (2026-11-13, parent batch-0367=1915547e3ec). Review found the run-level greedy budget redistribution produced: B1 27 comment frame breaks (zh text placed at column 0), B2 6 broken sentences/lost content, B3 4 cross-line word duplicates, B4 2 ASCII identifier splits. These are too pervasive for surgical fix — redistributor fundamentally violates comment frame integrity by moving text across prefix boundaries. Reverted miscinit.c to EN baseline. miscinit will be re-translated in a future batch using strict per-line budget discipline (no cross-line text movement). globals.c and usercontext.c (batch-0366) are unaffected and remain translated. Gates: verify_c_comments 0 violations after revert."
+}

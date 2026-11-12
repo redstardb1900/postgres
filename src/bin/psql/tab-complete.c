@@ -1946,7 +1946,7 @@ psql_completion(const char *text, int start, int end)
 	/* ALTER SUBSCRIPTION <name> SET PUBLICATION */
 	else if (HeadMatches("ALTER", "SUBSCRIPTION", MatchAny) && TailMatches("SET", "PUBLICATION"))
 	{
-		/* complete with nothing here as this refers to remote publications */
+		/* 此处不补全任何内容——它指的是远程出版物 */
 	}
 	/* ALTER SUBSCRIPTION <name> ADD|DROP|SET PUBLICATION <name> */
 	else if (HeadMatches("ALTER", "SUBSCRIPTION", MatchAny) &&
@@ -2128,7 +2128,7 @@ psql_completion(const char *text, int start, int end)
 
 	/* ALTER USER,ROLE <name> WITH */
 	else if (Matches("ALTER", "USER|ROLE", MatchAny, "WITH"))
-		/* Similar to the above, but don't complete "WITH" again. */
+		/* 与上文类似，但不再次补全 "WITH"。 */
 		COMPLETE_WITH("BYPASSRLS", "CONNECTION LIMIT", "CREATEDB", "CREATEROLE",
 					  "ENCRYPTED PASSWORD", "INHERIT", "LOGIN", "NOBYPASSRLS",
 					  "NOCREATEDB", "NOCREATEROLE", "NOINHERIT",
@@ -2270,7 +2270,7 @@ psql_completion(const char *text, int start, int end)
 		set_completion_reference(prev2_wd);
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_tables_for_policy);
 	}
-	/* ALTER POLICY <name> ON <table> - show options */
+	/* ALTER POLICY <name> ON <table> - 显示选项 */
 	else if (Matches("ALTER", "POLICY", MatchAny, "ON", MatchAny))
 		COMPLETE_WITH("RENAME TO", "TO", "USING (", "WITH CHECK (");
 	/* ALTER POLICY <name> ON <table> TO <role> */
@@ -2284,11 +2284,11 @@ psql_completion(const char *text, int start, int end)
 	else if (Matches("ALTER", "POLICY", MatchAny, "ON", MatchAny, "WITH", "CHECK"))
 		COMPLETE_WITH("(");
 
-	/* ALTER RULE <name>, add ON */
+	/* ALTER RULE <name> 补 ON */
 	else if (Matches("ALTER", "RULE", MatchAny))
 		COMPLETE_WITH("ON");
 
-	/* If we have ALTER RULE <name> ON, then add the correct tablename */
+	/* 若有 ALTER RULE <name> ON，则补上正确的表名 */
 	else if (Matches("ALTER", "RULE", MatchAny, "ON"))
 	{
 		set_completion_reference(prev2_wd);
@@ -2306,7 +2306,7 @@ psql_completion(const char *text, int start, int end)
 	else if (Matches("ALTER", "STATISTICS", MatchAny, "SET"))
 		COMPLETE_WITH("SCHEMA", "STATISTICS");
 
-	/* ALTER TRIGGER <name>, add ON */
+	/* ALTER TRIGGER <name> 补 ON */
 	else if (Matches("ALTER", "TRIGGER", MatchAny))
 		COMPLETE_WITH("ON");
 
@@ -2334,7 +2334,7 @@ psql_completion(const char *text, int start, int end)
 	/* ALTER TABLE xxx ADD */
 	else if (Matches("ALTER", "TABLE", MatchAny, "ADD"))
 	{
-		/* make sure to keep this list and the !Matches() below in sync */
+		/* 确保此列表与下方 !Matches() 保持同步 */
 		COMPLETE_WITH("COLUMN", "CONSTRAINT", "CHECK", "UNIQUE", "PRIMARY KEY",
 					  "EXCLUDE", "FOREIGN KEY");
 	}
@@ -2542,7 +2542,7 @@ psql_completion(const char *text, int start, int end)
 	 */
 	else if (Matches("ALTER", "TABLE", MatchAny, "SET", "TABLESPACE"))
 		COMPLETE_WITH_QUERY(Query_for_list_of_tablespaces);
-	/* If we have ALTER TABLE <sth> SET WITHOUT provide CLUSTER or OIDS */
+	/* 若有 ALTER TABLE <sth> SET WITHOUT，则补 CLUSTER 或 OIDS */
 	else if (Matches("ALTER", "TABLE", MatchAny, "SET", "WITHOUT"))
 		COMPLETE_WITH("CLUSTER", "OIDS");
 	/* ALTER TABLE <foo> RESET */
@@ -2614,12 +2614,12 @@ psql_completion(const char *text, int start, int end)
 					  "DROP MAPPING FOR",
 					  "OWNER TO", "RENAME TO", "SET SCHEMA");
 
-	/* complete ALTER TYPE <foo> with actions */
+	/* 补全 ALTER TYPE <foo> 的动作 */
 	else if (Matches("ALTER", "TYPE", MatchAny))
 		COMPLETE_WITH("ADD ATTRIBUTE", "ADD VALUE", "ALTER ATTRIBUTE",
 					  "DROP ATTRIBUTE",
 					  "OWNER TO", "RENAME", "SET SCHEMA", "SET (");
-	/* complete ALTER TYPE <foo> ADD with actions */
+	/* 补全 ALTER TYPE <foo> ADD 的动作 */
 	else if (Matches("ALTER", "TYPE", MatchAny, "ADD"))
 		COMPLETE_WITH("ATTRIBUTE", "VALUE");
 	/* ALTER TYPE <foo> RENAME	*/
@@ -2638,13 +2638,13 @@ psql_completion(const char *text, int start, int end)
 	/* ALTER TYPE ALTER ATTRIBUTE <foo> */
 	else if (Matches("ALTER", "TYPE", MatchAny, "ALTER", "ATTRIBUTE", MatchAny))
 		COMPLETE_WITH("TYPE");
-	/* complete ALTER TYPE <sth> RENAME VALUE with list of enum values */
+	/* 补全 ALTER TYPE <sth> RENAME VALUE 的枚举值清单 */
 	else if (Matches("ALTER", "TYPE", MatchAny, "RENAME", "VALUE"))
 		COMPLETE_WITH_ENUM_VALUE(prev3_wd);
 	/* ALTER TYPE <foo> SET */
 	else if (Matches("ALTER", "TYPE", MatchAny, "SET"))
 		COMPLETE_WITH("(", "SCHEMA");
-	/* complete ALTER TYPE <foo> SET ( with settable properties */
+	/* 补全 ALTER TYPE <foo> SET ( 的可设置属性 */
 	else if (Matches("ALTER", "TYPE", MatchAny, "SET", "("))
 		COMPLETE_WITH("ANALYZE", "RECEIVE", "SEND", "STORAGE", "SUBSCRIPT",
 					  "TYPMOD_IN", "TYPMOD_OUT");
@@ -2652,10 +2652,10 @@ psql_completion(const char *text, int start, int end)
 	/* complete ALTER GROUP <foo> */
 	else if (Matches("ALTER", "GROUP", MatchAny))
 		COMPLETE_WITH("ADD USER", "DROP USER", "RENAME TO");
-	/* complete ALTER GROUP <foo> ADD|DROP with USER */
+	/* 补全 ALTER GROUP <foo> ADD|DROP 为 USER */
 	else if (Matches("ALTER", "GROUP", MatchAny, "ADD|DROP"))
 		COMPLETE_WITH("USER");
-	/* complete ALTER GROUP <foo> ADD|DROP USER with a user name */
+	/* 补全 ALTER GROUP <foo> ADD|DROP USER 为用户名 */
 	else if (Matches("ALTER", "GROUP", MatchAny, "ADD|DROP", "USER"))
 		COMPLETE_WITH_QUERY(Query_for_list_of_roles);
 
@@ -2680,7 +2680,7 @@ psql_completion(const char *text, int start, int end)
 			COMPLETE_WITH("ON", "OFF");
 	}
 	else if (HeadMatches("ANALYZE") && TailMatches("("))
-		/* "ANALYZE (" should be caught above, so assume we want columns */
+		/* "ANALYZE (" 上方应已捕获，故假定想要的是列 */
 		COMPLETE_WITH_ATTR(prev2_wd);
 	else if (HeadMatches("ANALYZE"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_analyzables);
@@ -2718,13 +2718,13 @@ psql_completion(const char *text, int start, int end)
 	else if (Matches("CLUSTER", "VERBOSE") ||
 			 Matches("CLUSTER", "(*)"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_clusterables);
-	/* If we have CLUSTER <sth>, then add "USING" */
+	/* 若有 CLUSTER <sth>，则补 "USING" */
 	else if (Matches("CLUSTER", MatchAnyExcept("VERBOSE|ON|(|(*)")))
 		COMPLETE_WITH("USING");
-	/* If we have CLUSTER VERBOSE <sth>, then add "USING" */
+	/* 若有 CLUSTER VERBOSE <sth>，则补 "USING" */
 	else if (Matches("CLUSTER", "VERBOSE|(*)", MatchAny))
 		COMPLETE_WITH("USING");
-	/* If we have CLUSTER <sth> USING, then add the index as well */
+	/* 若有 CLUSTER <sth> USING，则连索引一并补上 */
 	else if (Matches("CLUSTER", MatchAny, "USING") ||
 			 Matches("CLUSTER", "VERBOSE|(*)", MatchAny, "USING"))
 	{
@@ -2841,7 +2841,7 @@ psql_completion(const char *text, int start, int end)
 	/* 补全 COPY (为合法查询命令        */
 	else if (Matches("COPY|\\copy", "("))
 		COMPLETE_WITH("SELECT", "TABLE", "VALUES", "INSERT INTO", "UPDATE", "DELETE FROM", "WITH");
-	/* Complete COPY <sth> */
+	/* 补全 COPY <sth> */
 	else if (Matches("COPY|\\copy", MatchAny))
 		COMPLETE_WITH("FROM", "TO");
 	/* 补全 COPY <sth> FROM|TO 为 filename    */
@@ -2858,27 +2858,27 @@ psql_completion(const char *text, int start, int end)
 		matches = rl_completion_matches(text, complete_from_files);
 	}
 
-	/* Complete COPY <sth> TO <sth> */
+	/* 补全 COPY <sth> TO <sth> */
 	else if (Matches("COPY|\\copy", MatchAny, "TO", MatchAny))
 		COMPLETE_WITH("WITH (");
 
-	/* Complete COPY <sth> FROM <sth> */
+	/* 补全 COPY <sth> FROM <sth> */
 	else if (Matches("COPY|\\copy", MatchAny, "FROM", MatchAny))
 		COMPLETE_WITH("WITH (", "WHERE");
 
-	/* Complete COPY <sth> FROM filename WITH ( */
+	/* 补全 COPY <sth> FROM filename WITH ( */
 	else if (Matches("COPY|\\copy", MatchAny, "FROM", MatchAny, "WITH", "("))
 		COMPLETE_WITH(Copy_from_options);
 
-	/* Complete COPY <sth> TO filename WITH ( */
+	/* 补全 COPY <sth> TO filename WITH ( */
 	else if (Matches("COPY|\\copy", MatchAny, "TO", MatchAny, "WITH", "("))
 		COMPLETE_WITH(Copy_to_options);
 
-	/* Complete COPY <sth> FROM|TO filename WITH (FORMAT */
+	/* 补全 COPY <sth> FROM|TO filename WITH (FORMAT */
 	else if (Matches("COPY|\\copy", MatchAny, "FROM|TO", MatchAny, "WITH", "(", "FORMAT"))
 		COMPLETE_WITH("binary", "csv", "text");
 
-	/* Complete COPY <sth> FROM <sth> WITH (<options>) */
+	/* 补全 COPY <sth> FROM <sth> WITH (<options>) */
 	else if (Matches("COPY|\\copy", MatchAny, "FROM", MatchAny, "WITH", MatchAny))
 		COMPLETE_WITH("WHERE");
 
@@ -2934,7 +2934,7 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_collations);
 
 	/* CREATE EXTENSION */
-	/* Complete with available extensions rather than installed ones. */
+	/* 补全为可用扩展而非已安装扩展。 */
 	else if (Matches("CREATE", "EXTENSION"))
 		COMPLETE_WITH_QUERY(Query_for_list_of_available_extensions);
 	/* CREATE EXTENSION <name> */
@@ -2960,7 +2960,7 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("(", "PARTITION OF");
 
 	/* CREATE INDEX --- is allowed inside CREATE SCHEMA, so use TailMatches */
-	/* First off we complete CREATE UNIQUE with "INDEX" */
+	/* 首先把 CREATE UNIQUE 补全为 "INDEX" */
 	else if (TailMatches("CREATE", "UNIQUE"))
 		COMPLETE_WITH("INDEX");
 
@@ -3002,7 +3002,7 @@ psql_completion(const char *text, int start, int end)
 	else if (TailMatches("INDEX", MatchAny, "ON", MatchAny, "(") ||
 			 TailMatches("INDEX|CONCURRENTLY", "ON", MatchAny, "("))
 		COMPLETE_WITH_ATTR(prev2_wd);
-	/* same if you put in USING */
+	/* 写 USING 时同理 */
 	else if (TailMatches("ON", MatchAny, "USING", MatchAny, "("))
 		COMPLETE_WITH_ATTR(prev4_wd);
 	/* 补全 USING 为索引方法        */
@@ -3132,7 +3132,7 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH(" WITH (");
 
 	/*
-	 * Complete "CREATE PUBLICATION <name> FOR TABLES IN SCHEMA <schema>, ..."
+	 * 补全 "CREATE PUBLICATION <name> FOR TABLES IN SCHEMA <schema>, ..."
 	 */
 	else if (Matches("CREATE", "PUBLICATION", MatchAny, "FOR", "TABLES", "IN", "SCHEMA"))
 		COMPLETE_WITH_QUERY_PLUS(Query_for_list_of_schemas
@@ -3208,7 +3208,7 @@ psql_completion(const char *text, int start, int end)
 	/* 如果检测到 xxx PARTITION OF，提供分区表清单          */
 	else if (TailMatches("PARTITION", "OF"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_partitioned_tables);
-	/* Limited completion support for partition bound specification */
+	/* 对分区边界说明的补全支持有限 */
 	else if (TailMatches("PARTITION", "OF", MatchAny))
 		COMPLETE_WITH("FOR VALUES", "DEFAULT");
 	/* 补全 CREATE TABLE <name>为 '(', OF or PARTITION OF */
@@ -3276,7 +3276,7 @@ psql_completion(const char *text, int start, int end)
 	else if (Matches("CREATE", "SUBSCRIPTION", MatchAny, "CONNECTION",
 					 MatchAny, "PUBLICATION"))
 	{
-		/* complete with nothing here as this refers to remote publications */
+		/* 此处不补全任何内容——它指的是远程出版物 */
 	}
 	else if (HeadMatches("CREATE", "SUBSCRIPTION") && TailMatches("PUBLICATION", MatchAny))
 		COMPLETE_WITH("WITH (");
@@ -3454,7 +3454,7 @@ psql_completion(const char *text, int start, int end)
 
 /* CREATE ROLE,USER,GROUP <name> WITH */
 	else if (Matches("CREATE", "ROLE|GROUP|USER", MatchAny, "WITH"))
-		/* Similar to the above, but don't complete "WITH" again. */
+		/* 与上文类似，但不再次补全 "WITH"。 */
 		COMPLETE_WITH("ADMIN", "BYPASSRLS", "CONNECTION LIMIT", "CREATEDB",
 					  "CREATEROLE", "ENCRYPTED PASSWORD", "IN", "INHERIT",
 					  "LOGIN", "NOBYPASSRLS",
@@ -3463,7 +3463,7 @@ psql_completion(const char *text, int start, int end)
 					  "REPLICATION", "ROLE", "SUPERUSER", "SYSID",
 					  "VALID UNTIL");
 
-	/* complete CREATE ROLE,USER,GROUP <name> IN with ROLE,GROUP */
+	/* 补全 CREATE ROLE,USER,GROUP <name> IN 为 ROLE,GROUP */
 	else if (Matches("CREATE", "ROLE|USER|GROUP", MatchAny, "IN"))
 		COMPLETE_WITH("GROUP", "ROLE");
 
@@ -3512,7 +3512,7 @@ psql_completion(const char *text, int start, int end)
 	else if (TailMatches("CREATE", "VIEW", MatchAny) ||
 			 TailMatches("CREATE", "OR", "REPLACE", "VIEW", MatchAny))
 		COMPLETE_WITH("AS");
-	/* Complete "CREATE [ OR REPLACE ] VIEW <sth> AS with "SELECT" */
+	/* 补全 "CREATE [ OR REPLACE ] VIEW <sth> AS" 为 "SELECT" */
 	else if (TailMatches("CREATE", "VIEW", MatchAny, "AS") ||
 			 TailMatches("CREATE", "OR", "REPLACE", "VIEW", MatchAny, "AS"))
 		COMPLETE_WITH("SELECT");
@@ -3523,7 +3523,7 @@ psql_completion(const char *text, int start, int end)
 	/* 补全 CREATE MATERIALIZED VIEW <name>为 AS */
 	else if (Matches("CREATE", "MATERIALIZED", "VIEW", MatchAny))
 		COMPLETE_WITH("AS");
-	/* Complete "CREATE MATERIALIZED VIEW <sth> AS with "SELECT" */
+	/* 补全 "CREATE MATERIALIZED VIEW <sth> AS" 为 "SELECT" */
 	else if (Matches("CREATE", "MATERIALIZED", "VIEW", MatchAny, "AS"))
 		COMPLETE_WITH("SELECT");
 
@@ -3614,10 +3614,10 @@ psql_completion(const char *text, int start, int end)
 	/* 补全 DELETE FROM 为表清单            */
 	else if (TailMatches("DELETE", "FROM"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_updatables);
-	/* Complete DELETE FROM <table> */
+	/* 补全 DELETE FROM <table> */
 	else if (TailMatches("DELETE", "FROM", MatchAny))
 		COMPLETE_WITH("USING", "WHERE");
-	/* XXX: implement tab completion for DELETE ... USING */
+	/* XXX: 为 DELETE ... USING 实现 TAB 补全 */
 
 /* DISCARD */
 	else if (Matches("DISCARD"))
@@ -3641,7 +3641,7 @@ psql_completion(const char *text, int start, int end)
 			 Matches("DROP", "TEXT", "SEARCH", "CONFIGURATION|DICTIONARY|PARSER|TEMPLATE", MatchAny))
 		COMPLETE_WITH("CASCADE", "RESTRICT");
 
-	/* help completing some of the variants */
+	/* 帮助补全其中一些变体 */
 	else if (Matches("DROP", "AGGREGATE|FUNCTION|PROCEDURE|ROUTINE", MatchAny))
 		COMPLETE_WITH("(");
 	else if (Matches("DROP", "AGGREGATE|FUNCTION|PROCEDURE|ROUTINE", MatchAny, "("))
@@ -4104,7 +4104,7 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("OPTIONS (");
 
 /* INSERT --- 可以出现在 EXPLAIN, RULE, etc 中 */
-	/* Complete NOT MATCHED THEN INSERT */
+	/* 补全 NOT MATCHED THEN INSERT */
 	else if (TailMatches("NOT", "MATCHED", "THEN", "INSERT"))
 		COMPLETE_WITH("VALUES", "(");
 	/* 补全 INSERT 为 "INTO" */
@@ -4132,15 +4132,15 @@ psql_completion(const char *text, int start, int end)
 			 ends_with(prev_wd, ')'))
 		COMPLETE_WITH("SELECT", "TABLE", "VALUES", "OVERRIDING");
 
-	/* Complete OVERRIDING */
+	/* 补全 OVERRIDING */
 	else if (TailMatches("OVERRIDING"))
 		COMPLETE_WITH("SYSTEM VALUE", "USER VALUE");
 
-	/* Complete after OVERRIDING clause */
+	/* 补全 OVERRIDING 子句后 */
 	else if (TailMatches("OVERRIDING", MatchAny, "VALUE"))
 		COMPLETE_WITH("SELECT", "TABLE", "VALUES");
 
-	/* Insert an open parenthesis after "VALUES" */
+	/* 在 "VALUES" 之后插入一个开括号 */
 	else if (TailMatches("VALUES") && !TailMatches("DEFAULT", "VALUES"))
 		COMPLETE_WITH("(");
 
@@ -4154,7 +4154,7 @@ psql_completion(const char *text, int start, int end)
 										"ONLY");
 	else if (Matches("LOCK", "TABLE", "ONLY") || Matches("LOCK", "ONLY"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_tables);
-	/* For the following, handle the case of a single table only for now */
+	/* 以下暂时只处理单表的情形 */
 
 	/* 补全 LOCK [TABLE] [ONLY] <table>为 IN or NOWAIT */
 	else if (Matches("LOCK", MatchAnyExcept("TABLE|ONLY")) ||
@@ -4253,16 +4253,16 @@ psql_completion(const char *text, int start, int end)
 			 TailMatches("USING", MatchAny, MatchAny, "ON", MatchAny, MatchAny, MatchAny, "WHEN"))
 		COMPLETE_WITH("MATCHED", "NOT MATCHED");
 
-	/* Complete ... WHEN [NOT] MATCHED with THEN/AND */
+	/* 补全 ... WHEN [NOT] MATCHED 为 THEN/AND */
 	else if (TailMatches("WHEN", "MATCHED") ||
 			 TailMatches("WHEN", "NOT", "MATCHED"))
 		COMPLETE_WITH("THEN", "AND");
 
-	/* Complete ... WHEN MATCHED THEN with UPDATE SET/DELETE/DO NOTHING */
+	/* 补全 ... WHEN MATCHED THEN 为 UPDATE SET/DELETE/DO NOTHING */
 	else if (TailMatches("WHEN", "MATCHED", "THEN"))
 		COMPLETE_WITH("UPDATE SET", "DELETE", "DO NOTHING");
 
-	/* Complete ... WHEN NOT MATCHED THEN with INSERT/DO NOTHING */
+	/* 补全 ... WHEN NOT MATCHED THEN 为 INSERT/DO NOTHING */
 	else if (TailMatches("WHEN", "NOT", "MATCHED", "THEN"))
 		COMPLETE_WITH("INSERT", "DO NOTHING");
 
@@ -4274,7 +4274,7 @@ psql_completion(const char *text, int start, int end)
 	else if (TailMatches("OPTIONS"))
 		COMPLETE_WITH("(");
 
-/* OWNER TO  - complete with available roles */
+/* OWNER TO - 补全为可用角色 */
 	else if (TailMatches("OWNER", "TO"))
 		COMPLETE_WITH_QUERY_PLUS(Query_for_list_of_roles,
 								 "CURRENT_ROLE",
@@ -4398,7 +4398,7 @@ psql_completion(const char *text, int start, int end)
 	/* 算了 . . . */
 
 /* SET, RESET, SHOW */
-	/* Complete with a variable name */
+	/* 补全为一个变量名 */
 	else if (TailMatches("SET|RESET") && !TailMatches("UPDATE", MatchAny, "SET"))
 		COMPLETE_WITH_QUERY_VERBATIM_PLUS(Query_for_list_of_set_vars,
 										  "CONSTRAINTS",
@@ -4452,7 +4452,7 @@ psql_completion(const char *text, int start, int end)
 	/* 补全 SET CONSTRAINTS <foo>为 DEFERRED|IMMEDIATE */
 	else if (Matches("SET", "CONSTRAINTS", MatchAny))
 		COMPLETE_WITH("DEFERRED", "IMMEDIATE");
-	/* Complete SET ROLE */
+	/* 补全 SET ROLE */
 	else if (Matches("SET", "ROLE"))
 		COMPLETE_WITH_QUERY(Query_for_list_of_roles);
 	/* 补全 SET SESSION 为 AUTHORIZATION or CHARACTERISTICS... */
@@ -4493,7 +4493,7 @@ psql_completion(const char *text, int start, int end)
 						  "DEFAULT");
 		else if (TailMatches("search_path", "TO|="))
 		{
-			/* Here, we want to allow pg_catalog, so use narrower exclusion */
+			/* 此处要允许 pg_catalog，故用更窄的排除 */
 			COMPLETE_WITH_QUERY_PLUS(Query_for_list_of_schemas
 									 " AND nspname NOT LIKE E'pg\\\\_toast%%'"
 									 " AND nspname NOT LIKE E'pg\\\\_temp%%'",
@@ -4639,7 +4639,7 @@ psql_completion(const char *text, int start, int end)
 			COMPLETE_WITH("AUTO", "ON", "OFF");
 	}
 	else if (HeadMatches("VACUUM") && TailMatches("("))
-		/* "VACUUM (" should be caught above, so assume we want columns */
+		/* "VACUUM (" 上方应已捕获，故假定想要的是列 */
 		COMPLETE_WITH_ATTR(prev2_wd);
 	else if (HeadMatches("VACUUM"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_vacuumables);
@@ -4654,7 +4654,7 @@ psql_completion(const char *text, int start, int end)
 		COMPLETE_WITH("RECURSIVE");
 
 /* WHERE */
-	/* Simple case of the word before the where being the table name */
+	/* 简单情形：where 之前的词就是表名 */
 	else if (TailMatches(MatchAny, "WHERE"))
 		COMPLETE_WITH_ATTR(prev2_wd);
 

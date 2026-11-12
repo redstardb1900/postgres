@@ -1,0 +1,65 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0354",
+ "title": "tab-complete part 2 tranche 3: 52 prose one-liners translated",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "a23c5041b66593b50552f78cb99a746db28dd8e4",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0354-tabcomplete-p2t3.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0354 manifest path (S6 registration)"
+  },
+  {
+   "pattern": "src/bin/psql/tab-complete.c",
+   "kind": "c_comment",
+   "note": "part 2 tranche 3: 52 prose one-liner comments translated (Complete X -> 补全 X, If we have X then add Y -> 若有 X 则补 Y, sent"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0354-tabcomplete-p2t3.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0354 manifest path (S6 registration)"
+  },
+  {
+   "path": "src/bin/psql/tab-complete.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 52,
+   "translated": 52,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "part 2 tranche 3: 52 prose one-liner comments translated (Complete X -> 补全 X, If we have X then add Y -> 若有 X 则补 Y, sentence comments naturalized); all lines within EN byte budgets (8 tightened rewordings disclosed in notes)"
+  }
+ ],
+ "notes": "batch-0354 tranche 3 (2026-11-12, parent batch-0353=a23c5041b66). 52 prose one-liner comments in tab-complete.c translated (inventory /tmp/tc_p2_oneliners.txt 145 - ~93 pure ALTER/CREATE keyword skeletons KEEP per 0336/0341 = this batch's 52 real-prose sites + cross-checked). Patterns: Complete X -> 补全 X; If we have X then add Y -> 若有 X 则补 Y; sentence comments naturalized. 8 tightened rewordings to fit EN byte budgets (L2287/2309 drop ，before 补 ON; L2545 提供->补; L2683/4642 condensed; L3005 写 USING 时同理; L4139 dropped 的部分; L4496 condensed; L3135 mid-line of the 3-line PUBLICATION SCHEMA block). All 52 lines within REL_16_11 EN byte budgets (0 over; the 27 over-budget hits in L1900-4700 are pre-existing 0257-era lines outside this batch's site list). Gates (pre-commit, batch scope --paths tab-complete.c): verify_c_comments --worktree REL_16_11 . --paths = 1 ok 0 violations changed=372; term_lint --paths dual-state bare 0/0 and --pgnls 0 errors + 1 pre-existing P17 warning (L4294); scan_halfen full-worktree default 0; raw 422 == HEAD 422 identical (0 new MIXED); check_scope incremental PASS (S6: batch-0354 registered in cumulative.json 1219 entries) + default cumulative PASS. Tests 229 = 222 + 7 ScopeEndToEnd umask failures (no tool change). Remaining in tab-complete after this batch: ~60 multi-line prose blocks (syntax-listing blocks ANALYZE/VACUUM/EXPLAIN/POLICY-grammar KEEP per 0336; the rest prose, later tranches) + ~290 skeleton labels KEEP (closing-batch ledger).",
+ "post_review": {
+  "combined": "PASS, zero D: 52/52 changed lines == spec key set; all within EN byte budgets (0 over, incl. tightened L3135 73/75); indent byte-identical; line count 6375 invariant; 30-pair content sample faithful (house conventions 补全/若有-则补/为 verified; 8 tightened rewordings all meaning-preserving; L3515 upstream unbalanced-quote typo sensibly handled); skeleton-KEEP lines untouched; ledger/registration intact. Gates reproduced: verify 1 ok 0 violations changed=372; term bare 0/0 (pgnls not locally re-derivable — baseline pgnls_path is a mac path; accepted via L4294-untouched argument, A1); halfen default 0; raw 422==422 three-way verified; check_scope incremental PASS 3 + cumulative PASS 1219 (files[] exactly 1219); tests 229=222+7 ScopeEndToEnd. Advisories: 6375-not-6376 line count (caller miscount, invariant holds); L4277 EN double-space collapsed in zh (harmless). PROCEED to commit.",
+  "delta_applied": false,
+  "delta_script": "none - zero findings on first review.",
+  "re_ack": "单代理合并审查制（0348/0352/0353 先例延续）。PASS 零缺陷，批可进入提交."
+ }
+}

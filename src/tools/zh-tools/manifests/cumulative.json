@@ -5873,6 +5873,11 @@
    "note": "this batch manifest"
   },
   {
+   "pattern": "src/tools/zh-tools/manifests/batch-0354-tabcomplete-p2t3.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
    "pattern": "src/tools/zh-tools/manifests/cumulative.json",
    "kind": "tool",
    "note": "cumulative manifest since REL_16_11 for check_scope.py (non-incremental)"
@@ -19495,6 +19500,16 @@
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0353-tabcomplete-p2t2.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0354-tabcomplete-p2t3.json",
    "kind": "manifest",
    "action": "add",
    "segments_total": 0,

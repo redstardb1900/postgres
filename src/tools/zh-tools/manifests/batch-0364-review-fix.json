@@ -1,0 +1,89 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0364-review-fix",
+ "title": "hash dir review fixes: header dup line, leading punctuation x3, halfen exemption, notes corrections",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "2247878d45bd975c2a587a08807be6755844aa6e",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0364-review-fix.json",
+   "kind": "manifest",
+   "note": "this fixup manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0364-hash-dir.json",
+   "kind": "manifest",
+   "note": "notes corrections per review (W7 count, term_lint disclosure, exemption, A4 fixes)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "register fixup manifest path (S6)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "note": "exemption for EN author attribution lines (margo/sullivan@postgres.berkeley.edu) in dynahash.c L89/L91"
+  },
+  {
+   "pattern": "src/backend/utils/hash/dynahash.c",
+   "kind": "c_comment",
+   "note": "12 comment lines fixed per review: header dup line blocker B1, leading punctuation x3 (A4)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0364-review-fix.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this fixup manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0364-hash-dir.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "notes corrections (A1/A2) + review-round record"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "register fixup manifest path (S6)"
+  },
+  {
+   "path": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 new exemption: postgres.berkeley.edu EN attribution lines in dynahash.c (A3)"
+  },
+  {
+   "path": "src/backend/utils/hash/dynahash.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 12,
+   "translated": 12,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "B1: header block L14-L18 rewritten, duplicate sentence removed, line-aligned to EN; A4: leading punctuation at L1320/L1321/L1812/L1884 moved to previous line ends"
+  }
+ ],
+ "notes": "batch-0364-review-fix (2026-11-13, parent batch-0364=2247878d45b). Dual-agent review round: BLOCKER B1 dynahash.c L15 was a duplicated re-arranged copy of L14 (cross-line LCS=20) in the file-header block; L13-L18 rewritten line-aligned to EN, duplicate removed. ADVISORY A4 leading punctuation (avoid-head-of-line comma/period/semicolon) fixed at 4 sites (L1320/1321/1812/1884) by moving the punctuation to the previous line end. ADVISORY A3 registered halfen exemption for the EN author attribution lines (margo@/sullivan@postgres.berkeley.edu) inside the translated original-comments block (MIXED run=4); scan_halfen 0 findings after exemption. Corrections to batch-0364 notes: W7_IDENT_LOST advisories are 9 (not 7: +LWLocks at L1, +WARNING at L65); term_lint adds 7 reproducible advisory warnings on this dir (P02 x2 at L108/L1261, P07 x2 at L928/L1287, P22 x2 at L313/L435, P24 x1 at L313). Gates re-run: verify_c_comments 0 violations (215/215); term_lint 0 errors; scan_halfen 0 findings; cross-line repeated-char self-scan 0 hits. No code changes."
+}

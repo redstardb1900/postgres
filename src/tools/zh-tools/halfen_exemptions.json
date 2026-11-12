@@ -1718,5 +1718,10 @@
   "path": "src/bin/psql/tab-complete.c",
   "pattern": "WORD_BREAKS",
   "reason": "WORD_BREAKS macro name kept EN in batch-0355 translated prose per identifier-keep convention"
+ },
+ {
+  "path": "src/backend/utils/hash/dynahash.c",
+  "pattern": "postgres.berkeley.edu",
+  "reason": "EN author attribution lines (margo@/sullivan@postgres.berkeley.edu, 1990 modification credits) kept EN inside the translated original-comments block in batch-0364; they form a 4-run MIXED with surrounding zh prose"
  }
 ]

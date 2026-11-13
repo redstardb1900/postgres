@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * jsonlog.c
- *	  JSON logging
+ *	  JSON 日志
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -37,9 +37,9 @@ static void appendJSONKeyValueFmt(StringInfo buf, const char *key,
 /*
  * appendJSONKeyValue
  *
- * Append to a StringInfo a comma followed by a JSON key and a value.
- * The key is always escaped.  The value can be escaped optionally, that
- * is dependent on the data type of the key.
+ * 向 StringInfo 追加一个逗号、一个 JSON 键及其值。
+ * 键总是被转义。值可选择是否转义，这
+ * 取决于键的数据类型。
  */
 static void
 appendJSONKeyValue(StringInfo buf, const char *key, const char *value,
@@ -64,16 +64,16 @@ appendJSONKeyValue(StringInfo buf, const char *key, const char *value,
 /*
  * appendJSONKeyValueFmt
  *
- * Evaluate the fmt string and then invoke appendJSONKeyValue() as the
- * value of the JSON property.  Both the key and value will be escaped by
- * appendJSONKeyValue().
+ * 先求值 fmt 字符串，然后把结果交给
+ * appendJSONKeyValue() 来生成 JSON 属性的值。
+ * 两者均被转义。
  */
 static void
 appendJSONKeyValueFmt(StringInfo buf, const char *key,
 					  bool escape_key, const char *fmt,...)
 {
 	int			save_errno = errno;
-	size_t		len = 128;		/* initial assumption about buffer size */
+	size_t		len = 128;		/* 对缓冲区大小的初始假设 */
 	char	   *value;
 
 	for (;;)
@@ -81,31 +81,31 @@ appendJSONKeyValueFmt(StringInfo buf, const char *key,
 		va_list		args;
 		size_t		newlen;
 
-		/* Allocate result buffer */
+		/* 分配结果缓冲区 */
 		value = (char *) palloc(len);
 
-		/* Try to format the data. */
+		/* 尝试格式化数据 */
 		errno = save_errno;
 		va_start(args, fmt);
 		newlen = pvsnprintf(value, len, fmt, args);
 		va_end(args);
 
 		if (newlen < len)
-			break;				/* success */
+			break;				/* 成功 */
 
-		/* Release buffer and loop around to try again with larger len. */
+		/* 释放缓冲区并循环，用更大的 len 重试。 */
 		pfree(value);
 		len = newlen;
 	}
 
 	appendJSONKeyValue(buf, key, value, escape_key);
 
-	/* Clean up */
+	/* 清理 */
 	pfree(value);
 }
 
 /*
- * Write logs in json format.
+ * 以 JSON 格式写日志
  */
 void
 write_jsonlog(ErrorData *edata)
@@ -114,16 +114,16 @@ write_jsonlog(ErrorData *edata)
 	char	   *start_time;
 	char	   *log_time;
 
-	/* static counter for line numbers */
+	/* 行号的静态计数器 */
 	static long log_line_number = 0;
 
-	/* Has the counter been reset in the current process? */
+	/* 计数器是否已在当前进程中重置过？ */
 	static int	log_my_pid = 0;
 
 	/*
-	 * This is one of the few places where we'd rather not inherit a static
-	 * variable's value from the postmaster.  But since we will, reset it when
-	 * MyProcPid changes.
+	 * 这是少数几个我们不希望从 postmaster 继承静态
+	 * 变量值的场所之一。但我们既然会继承，就在 MyProcPid
+	 * 变化时重置。
 	 */
 	if (log_my_pid != MyProcPid)
 	{
@@ -135,33 +135,33 @@ write_jsonlog(ErrorData *edata)
 
 	initStringInfo(&buf);
 
-	/* Initialize string */
+	/* 初始化字符串*/
 	appendStringInfoChar(&buf, '{');
 
-	/* timestamp with milliseconds */
+	/* 带毫秒的时间戳 */
 	log_time = get_formatted_log_time();
 
 	/*
-	 * First property does not use appendJSONKeyValue as it does not have
-	 * comma prefix.
+	 * 第一个属性不使用 appendJSONKeyValue，因为它没有
+	 * 逗号前缀
 	 */
 	escape_json(&buf, "timestamp");
 	appendStringInfoChar(&buf, ':');
 	escape_json(&buf, log_time);
 
-	/* username */
+	/* 用户名*/
 	if (MyProcPort)
 		appendJSONKeyValue(&buf, "user", MyProcPort->user_name, true);
 
-	/* database name */
+	/* 数据库名 */
 	if (MyProcPort)
 		appendJSONKeyValue(&buf, "dbname", MyProcPort->database_name, true);
 
-	/* Process ID */
+	/* 进程 ID */
 	if (MyProcPid != 0)
 		appendJSONKeyValueFmt(&buf, "pid", false, "%d", MyProcPid);
 
-	/* Remote host and port */
+	/* 远程主机与端口*/
 	if (MyProcPort && MyProcPort->remote_host)
 	{
 		appendJSONKeyValue(&buf, "remote_host", MyProcPort->remote_host, true);
@@ -169,14 +169,14 @@ write_jsonlog(ErrorData *edata)
 			appendJSONKeyValue(&buf, "remote_port", MyProcPort->remote_port, false);
 	}
 
-	/* Session id */
+	/* 会话 id */
 	appendJSONKeyValueFmt(&buf, "session_id", true, "%" INT64_MODIFIER "x.%x",
 						  MyStartTime, MyProcPid);
 
-	/* Line number */
+	/* 行号 */
 	appendJSONKeyValueFmt(&buf, "line_num", false, "%ld", log_line_number);
 
-	/* PS display */
+	/* PS 显示 */
 	if (MyProcPort)
 	{
 		StringInfoData msgbuf;
@@ -191,26 +191,26 @@ write_jsonlog(ErrorData *edata)
 		pfree(msgbuf.data);
 	}
 
-	/* session start timestamp */
+	/* 会话启动时间戳 */
 	start_time = get_formatted_start_time();
 	appendJSONKeyValue(&buf, "session_start", start_time, true);
 
-	/* Virtual transaction id */
-	/* keep VXID format in sync with lockfuncs.c */
+	/* 虚拟事务 id */
+	/* VXID 格式与 lockfuncs.c 保持一致 */
 	if (MyProc != NULL && MyProc->backendId != InvalidBackendId)
 		appendJSONKeyValueFmt(&buf, "vxid", true, "%d/%u", MyProc->backendId,
 							  MyProc->lxid);
 
-	/* Transaction id */
+	/* 事务 id */
 	appendJSONKeyValueFmt(&buf, "txid", false, "%u",
 						  GetTopTransactionIdIfAny());
 
-	/* Error severity */
+	/* 严重级别 */
 	if (edata->elevel)
 		appendJSONKeyValue(&buf, "error_severity",
 						   (char *) error_severity(edata->elevel), true);
 
-	/* SQL state code */
+	/* SQL 状态码 */
 	if (edata->sqlerrcode)
 		appendJSONKeyValue(&buf, "state_code",
 						   unpack_sql_state(edata->sqlerrcode), true);
@@ -218,7 +218,7 @@ write_jsonlog(ErrorData *edata)
 	/* errmessage */
 	appendJSONKeyValue(&buf, "message", edata->message, true);
 
-	/* errdetail or error_detail log */
+	/*errdetail/error_detail 日志 */
 	if (edata->detail_log)
 		appendJSONKeyValue(&buf, "detail", edata->detail_log, true);
 	else
@@ -228,12 +228,12 @@ write_jsonlog(ErrorData *edata)
 	if (edata->hint)
 		appendJSONKeyValue(&buf, "hint", edata->hint, true);
 
-	/* internal query */
+	/* 内部查询 */
 	if (edata->internalquery)
 		appendJSONKeyValue(&buf, "internal_query", edata->internalquery,
 						   true);
 
-	/* if printed internal query, print internal pos too */
+	/* 已打印内部查询时，也打印内部位置 */
 	if (edata->internalpos > 0 && edata->internalquery != NULL)
 		appendJSONKeyValueFmt(&buf, "internal_position", false, "%d",
 							  edata->internalpos);
@@ -242,7 +242,7 @@ write_jsonlog(ErrorData *edata)
 	if (edata->context && !edata->hide_ctx)
 		appendJSONKeyValue(&buf, "context", edata->context, true);
 
-	/* user query --- only reported if not disabled by the caller */
+	/* 用户查询 --- 仅在调用方未禁用时才报告 */
 	if (check_log_of_query(edata))
 	{
 		appendJSONKeyValue(&buf, "statement", debug_query_string, true);
@@ -251,7 +251,7 @@ write_jsonlog(ErrorData *edata)
 								  edata->cursorpos);
 	}
 
-	/* file error location */
+	/* 文件错误位置 */
 	if (Log_error_verbosity >= PGERROR_VERBOSE)
 	{
 		if (edata->funcname)
@@ -264,36 +264,36 @@ write_jsonlog(ErrorData *edata)
 		}
 	}
 
-	/* Application name */
+	/* 应用名 */
 	if (application_name && application_name[0] != '\0')
 		appendJSONKeyValue(&buf, "application_name", application_name, true);
 
-	/* backend type */
+	/* 后端类型 */
 	appendJSONKeyValue(&buf, "backend_type", get_backend_type_for_log(), true);
 
-	/* leader PID */
+	/*领导者PID*/
 	if (MyProc)
 	{
 		PGPROC	   *leader = MyProc->lockGroupLeader;
 
 		/*
-		 * Show the leader only for active parallel workers.  This leaves out
-		 * the leader of a parallel group.
+		 * 仅对活跃的并行 worker 显示领导者。这会略去
+		 * 并行组的领导者。
 		 */
 		if (leader && leader->pid != MyProcPid)
 			appendJSONKeyValueFmt(&buf, "leader_pid", false, "%d",
 								  leader->pid);
 	}
 
-	/* query id */
+	/*查询 id */
 	appendJSONKeyValueFmt(&buf, "query_id", false, "%lld",
 						  (long long) pgstat_get_my_query_id());
 
-	/* Finish string */
+	/* 收尾 */
 	appendStringInfoChar(&buf, '}');
 	appendStringInfoChar(&buf, '\n');
 
-	/* If in the syslogger process, try to write messages direct to file */
+	/* 若处于 syslogger 进程，则尝试把消息直接写入文件 */
 	if (MyBackendType == B_LOGGER)
 		write_syslogger_file(buf.data, buf.len, LOG_DESTINATION_JSONLOG);
 	else

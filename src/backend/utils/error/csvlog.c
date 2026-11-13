@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * csvlog.c
- *	  CSV logging
+ *	  CSV 日志
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -31,9 +31,9 @@
 
 
 /*
- * append a CSV'd version of a string to a StringInfo
- * We use the PostgreSQL defaults for CSV, i.e. quote = escape = '"'
- * If it's NULL, append nothing.
+ * 把字符串的 CSV 形式追加到 StringInfo
+ * CSV 使用 PostgreSQL 默认值，即 quote = escape = '"'
+ * 若为 NULL 则不追加。
  */
 static inline void
 appendCSVLiteral(StringInfo buf, const char *data)
@@ -41,7 +41,7 @@ appendCSVLiteral(StringInfo buf, const char *data)
 	const char *p = data;
 	char		c;
 
-	/* avoid confusing an empty string with NULL */
+	/* 避免把空字符串与 NULL 混淆 */
 	if (p == NULL)
 		return;
 
@@ -56,10 +56,10 @@ appendCSVLiteral(StringInfo buf, const char *data)
 }
 
 /*
- * write_csvlog -- Generate and write CSV log entry
+ * write_csvlog -- 生成并写入 CSV 日志条目
  *
- * Constructs the error message, depending on the Errordata it gets, in a CSV
- * format which is described in doc/src/sgml/config.sgml.
+ * 根据传入的 Errordata 构造错误消息，采用 CSV
+ * 格式，详见 doc/src/sgml/config.sgml。
  */
 void
 write_csvlog(ErrorData *edata)
@@ -67,16 +67,16 @@ write_csvlog(ErrorData *edata)
 	StringInfoData buf;
 	bool		print_stmt = false;
 
-	/* static counter for line numbers */
+	/* 行号的静态计数器 */
 	static long log_line_number = 0;
 
-	/* has counter been reset in current process? */
+	/* 计数器在当前进程是否已重置？ */
 	static int	log_my_pid = 0;
 
 	/*
-	 * This is one of the few places where we'd rather not inherit a static
-	 * variable's value from the postmaster.  But since we will, reset it when
-	 * MyProcPid changes.
+	 * 这是少数几个我们不希望从 postmaster 继承静态
+	 * 变量值的场所之一。但我们既然会继承，就在 MyProcPid
+	 * 变化时重置。
 	 */
 	if (log_my_pid != MyProcPid)
 	{
@@ -88,26 +88,26 @@ write_csvlog(ErrorData *edata)
 
 	initStringInfo(&buf);
 
-	/* timestamp with milliseconds */
+	/* 带毫秒的时间戳 */
 	appendStringInfoString(&buf, get_formatted_log_time());
 	appendStringInfoChar(&buf, ',');
 
-	/* username */
+	/* 用户名*/
 	if (MyProcPort)
 		appendCSVLiteral(&buf, MyProcPort->user_name);
 	appendStringInfoChar(&buf, ',');
 
-	/* database name */
+	/* 数据库名 */
 	if (MyProcPort)
 		appendCSVLiteral(&buf, MyProcPort->database_name);
 	appendStringInfoChar(&buf, ',');
 
-	/* Process id  */
+	/* 进程 ID */
 	if (MyProcPid != 0)
 		appendStringInfo(&buf, "%d", MyProcPid);
 	appendStringInfoChar(&buf, ',');
 
-	/* Remote host and port */
+	/* 远程主机与端口*/
 	if (MyProcPort && MyProcPort->remote_host)
 	{
 		appendStringInfoChar(&buf, '"');
@@ -121,15 +121,15 @@ write_csvlog(ErrorData *edata)
 	}
 	appendStringInfoChar(&buf, ',');
 
-	/* session id */
+	/* 会话 id */
 	appendStringInfo(&buf, "%" INT64_MODIFIER "x.%x", MyStartTime, MyProcPid);
 	appendStringInfoChar(&buf, ',');
 
-	/* Line number */
+	/* 行号 */
 	appendStringInfo(&buf, "%ld", log_line_number);
 	appendStringInfoChar(&buf, ',');
 
-	/* PS display */
+	/* PS 显示 */
 	if (MyProcPort)
 	{
 		StringInfoData msgbuf;
@@ -146,25 +146,25 @@ write_csvlog(ErrorData *edata)
 	}
 	appendStringInfoChar(&buf, ',');
 
-	/* session start timestamp */
+	/* 会话启动时间戳 */
 	appendStringInfoString(&buf, get_formatted_start_time());
 	appendStringInfoChar(&buf, ',');
 
-	/* Virtual transaction id */
-	/* keep VXID format in sync with lockfuncs.c */
+	/* 虚拟事务 id */
+	/* VXID 格式与 lockfuncs.c 保持一致 */
 	if (MyProc != NULL && MyProc->backendId != InvalidBackendId)
 		appendStringInfo(&buf, "%d/%u", MyProc->backendId, MyProc->lxid);
 	appendStringInfoChar(&buf, ',');
 
-	/* Transaction id */
+	/* 事务 id */
 	appendStringInfo(&buf, "%u", GetTopTransactionIdIfAny());
 	appendStringInfoChar(&buf, ',');
 
-	/* Error severity */
+	/* 严重级别 */
 	appendStringInfoString(&buf, _(error_severity(edata->elevel)));
 	appendStringInfoChar(&buf, ',');
 
-	/* SQL state code */
+	/* SQL 状态码 */
 	appendStringInfoString(&buf, unpack_sql_state(edata->sqlerrcode));
 	appendStringInfoChar(&buf, ',');
 
@@ -172,7 +172,7 @@ write_csvlog(ErrorData *edata)
 	appendCSVLiteral(&buf, edata->message);
 	appendStringInfoChar(&buf, ',');
 
-	/* errdetail or errdetail_log */
+	/* errdetail 或 errdetail_log*/
 	if (edata->detail_log)
 		appendCSVLiteral(&buf, edata->detail_log);
 	else
@@ -183,11 +183,11 @@ write_csvlog(ErrorData *edata)
 	appendCSVLiteral(&buf, edata->hint);
 	appendStringInfoChar(&buf, ',');
 
-	/* internal query */
+	/* 内部查询 */
 	appendCSVLiteral(&buf, edata->internalquery);
 	appendStringInfoChar(&buf, ',');
 
-	/* if printed internal query, print internal pos too */
+	/* 已打印内部查询时，也打印内部位置 */
 	if (edata->internalpos > 0 && edata->internalquery != NULL)
 		appendStringInfo(&buf, "%d", edata->internalpos);
 	appendStringInfoChar(&buf, ',');
@@ -197,7 +197,7 @@ write_csvlog(ErrorData *edata)
 		appendCSVLiteral(&buf, edata->context);
 	appendStringInfoChar(&buf, ',');
 
-	/* user query --- only reported if not disabled by the caller */
+	/* 用户查询 --- 仅在调用方未禁用时才报告 */
 	print_stmt = check_log_of_query(edata);
 	if (print_stmt)
 		appendCSVLiteral(&buf, debug_query_string);
@@ -206,7 +206,7 @@ write_csvlog(ErrorData *edata)
 		appendStringInfo(&buf, "%d", edata->cursorpos);
 	appendStringInfoChar(&buf, ',');
 
-	/* file error location */
+	/* 文件错误位置 */
 	if (Log_error_verbosity >= PGERROR_VERBOSE)
 	{
 		StringInfoData msgbuf;
@@ -225,36 +225,36 @@ write_csvlog(ErrorData *edata)
 	}
 	appendStringInfoChar(&buf, ',');
 
-	/* application name */
+	/* 应用名 */
 	if (application_name)
 		appendCSVLiteral(&buf, application_name);
 
 	appendStringInfoChar(&buf, ',');
 
-	/* backend type */
+	/* 后端类型 */
 	appendCSVLiteral(&buf, get_backend_type_for_log());
 	appendStringInfoChar(&buf, ',');
 
-	/* leader PID */
+	/*领导者PID*/
 	if (MyProc)
 	{
 		PGPROC	   *leader = MyProc->lockGroupLeader;
 
 		/*
-		 * Show the leader only for active parallel workers.  This leaves out
-		 * the leader of a parallel group.
+		 * 仅对活跃的并行 worker 显示领导者。这会略去
+		 * 并行组的领导者。
 		 */
 		if (leader && leader->pid != MyProcPid)
 			appendStringInfo(&buf, "%d", leader->pid);
 	}
 	appendStringInfoChar(&buf, ',');
 
-	/* query id */
+	/*查询 id */
 	appendStringInfo(&buf, "%lld", (long long) pgstat_get_my_query_id());
 
 	appendStringInfoChar(&buf, '\n');
 
-	/* If in the syslogger process, try to write messages direct to file */
+	/* 若处于 syslogger 进程，则尝试把消息直接写入文件 */
 	if (MyBackendType == B_LOGGER)
 		write_syslogger_file(buf.data, buf.len, LOG_DESTINATION_CSVLOG);
 	else

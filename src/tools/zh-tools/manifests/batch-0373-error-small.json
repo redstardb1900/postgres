@@ -1,0 +1,93 @@
+{
+    "schema_version": 1,
+    "batch_id": "batch-0373",
+    "title": "error dir small files: assert.c/csvlog.c/jsonlog.c whole-file translation (85 blocks, 99/122 lines)",
+    "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+    "parent_commit": "ba056b8cb6dd05265089414a917d26c2e230a023",
+    "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+    "require_file_entries": true,
+    "allowed_paths": [
+        {
+            "pattern": "src/tools/zh-tools/manifests/batch-0373-error-small.json",
+            "kind": "manifest",
+            "note": "this batch manifest"
+        },
+        {
+            "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+            "kind": "manifest",
+            "note": "append batch-0373 manifest path and assert.c/csvlog.c/jsonlog.c entries (S6 registration)"
+        },
+        {
+            "pattern": "src/backend/utils/error/assert.c",
+            "kind": "c_comment",
+            "note": "whole-file translation: 11/16 content lines translated (5 EN kept)"
+        },
+        {
+            "pattern": "src/backend/utils/error/csvlog.c",
+            "kind": "c_comment",
+            "note": "whole-file translation: 39/47 content lines translated (8 EN kept)"
+        },
+        {
+            "pattern": "src/backend/utils/error/jsonlog.c",
+            "kind": "c_comment",
+            "note": "whole-file translation: 49/59 content lines translated (10 EN kept)"
+        }
+    ],
+    "files": [
+        {
+            "path": "src/tools/zh-tools/manifests/batch-0373-error-small.json",
+            "kind": "manifest",
+            "action": "add",
+            "segments_total": 0,
+            "translated": 0,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "this batch manifest"
+        },
+        {
+            "path": "src/tools/zh-tools/manifests/cumulative.json",
+            "kind": "manifest",
+            "action": "modify",
+            "segments_total": 0,
+            "translated": 0,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "append batch-0373 manifest path and assert.c/csvlog.c/jsonlog.c entries (S6 registration)"
+        },
+        {
+            "path": "src/backend/utils/error/assert.c",
+            "kind": "c_comment",
+            "action": "modify",
+            "segments_total": 6,
+            "translated": 6,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "whole-file translation: 11/16 content lines translated, 5 EN kept (L3 filename, L6/L7 copyright, L10 IDENTIFICATION, L11 path - campaign header precedent)"
+        },
+        {
+            "path": "src/backend/utils/error/csvlog.c",
+            "kind": "c_comment",
+            "action": "modify",
+            "segments_total": 35,
+            "translated": 32,
+            "preserved": 3,
+            "preserved_reasons": [
+                "L171 /* errmessage */, L182 /* errhint */, L195 /* errcontext */ - bare field-identifier labels (explain.c /* lefttree */ precedent); budget too tight for identifier+gloss anyway"
+            ],
+            "note": "whole-file translation: 39/47 content lines translated, 8 EN kept (5 header + 3 identifier labels)"
+        },
+        {
+            "path": "src/backend/utils/error/jsonlog.c",
+            "kind": "c_comment",
+            "action": "modify",
+            "segments_total": 44,
+            "translated": 41,
+            "preserved": 3,
+            "preserved_reasons": [
+                "L218 /* errmessage */, L227 /* errhint */, L241 /* errcontext */ - bare field-identifier labels (explain.c /* lefttree */ precedent)"
+            ],
+            "note": "whole-file translation: 49/59 content lines translated, 10 EN kept (5 header + L38 appendJSONKeyValue / L65 appendJSONKeyValueFmt function-name banner lines + 3 identifier labels)"
+        }
+    ],
+    "notes": "batch-0373 (error dir small files, 2026-11-13, parent batch-0372=ba056b8cb6d). assert.c 6 blocks/16 content lines: 11 translated, 5 EN kept (header); csvlog.c 35 blocks/47 lines: 39 translated, 8 kept; jsonlog.c 44 blocks/59 lines: 49 translated, 10 kept. Kept-EN rationale: file headers (L3 filename / copyright x2 / IDENTIFICATION / path - explain.c precedent, not halfen-registered), bare field-identifier labels errmessage/errhint/errcontext (csvlog L171/L182/L195, jsonlog L218/L227/L241; 17/14/17-byte budgets cannot fit identifier+gloss; single-identifier label precedent explain.c /* lefttree */), jsonlog function-name banner lines L38/L65. Line-number-keyed apply, no cross-line movement; jsonlog L67-69 restructured per-line to keep appendJSONKeyValue() off the adjacent-line near-duplicate path; assert.c L25-27 rephrased at review (N1) to 'reason ... to reduce the amount of infrastructure that must be working to report an assertion failure to the minimum' landing 'the amount' on the exact-fit 63-byte L26 and 'reduced to the minimum.' on L27; two trailing comments (jsonlog L76 buffer-size, L94 success) rendered with byte-verbatim code prefixes via trailing-branch-first matching. Budget trims disclosed: csvlog L4 assert-style header 'CSV 日志'; L34 drops 'version of'; L36 drops 'it's'; L61/L62 split the CSV-format sentence; L78 '变化时重置。' lands on the 22-byte L79 continuation; several raw-mode tight lines drop a space before */ (csvlog L95 用户名, L110 远程主机与端口, L175 errdetail 或 errdetail_log, L238 领导者PID; jsonlog L138 初始化字符串, L146 逗号前缀 without 。, L152/L164/L274 same pattern); per review N3, csvlog L252 and jsonlog L288 render '\t/*查询 id */' (space moved to the front, 15=15 exact) and jsonlog L221 renders '\t/*errdetail/error_detail 日志 */' (36<=36), restoring the space before */ on those three lines; csvlog L163/jsonlog L208 '严重级别' (severity) - '错误严重级别' exceeds the 21-byte budget; jsonlog L292 '收尾' for 'Finish string' (20-byte budget); jsonlog L69 '两者均被转义。' exact-fit 24 bytes. Quotes in zh ASCII throughout (TL11; csvlog L35 keeps quote = escape = '\"'). Term discipline: no ops/operator occurrences; error=错误, severity=严重级别, backtrace=回溯, log=日志, parallel workers=并行 worker, leader=领导者 (variable.c precedent), identifiers (Errordata/StringInfo/postmaster/syslogger/MyProcPid/lockfuncs.c/OID etc.) kept EN; CSV/JSON field-name strings untouched. Gates (all scoped --paths src/backend/utils/error unless noted): verify_c_comments 0 violations, 0 parse errors, W7 warnings 0 in scope (85 comments, 79 changed vs REL_16_11 baseline); post-review fixup re-verified with /tmp/v0373b.json (same 0/0/0 result) plus per-line budget, line-count (67/264/303) and code-byte-zero assertions; term_lint 0 hits in the three files (with --pgnls; tree-wide 740 advisory hits + 1 pre-existing postinit.c L1428 TL01 error disclosed in batch-0369 are outside this batch); scan_halfen 0 findings in the three files (tree-wide 42 findings all pre-existing: dfmgr.c 4 batch-0370, postinit.c 38 batch-0369). Frame terminator integrity: comment-delimiter counts asserted balanced per file post-apply and all 85 blocks re-extracted intact; only comment lines differ from HEAD (per-line assertion), line count conserved. Self-checks asserted in apply script before write: cross-line seam repeat char, adjacent-line CJK LCS>=8 near-duplicate, line-leading punctuation, curly quotes (none). No commit made in this batch; commit is handled by the main session."
+}

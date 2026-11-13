@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0370",
+ "title": "fmgr dir part 1: dfmgr.c whole-file translation (56 blocks, 91/102 lines)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "3a5d8651d5b757e043700c4b9b8855838346f23f",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0370-dfmgr.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0370 manifest path and dfmgr entry (S6 registration)"
+  },
+  {
+   "pattern": "src/backend/utils/fmgr/dfmgr.c",
+   "kind": "c_comment",
+   "note": "whole-file translation: 91/102 content lines translated (11 skipped for budget)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0370-dfmgr.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0370 manifest path and dfmgr entry (S6 registration)"
+  },
+  {
+   "path": "src/backend/utils/fmgr/dfmgr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 56,
+   "translated": 56,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "strict per-line budget; 91/102 lines translated, 11 skipped (over budget, EN kept)"
+  }
+ ],
+ "notes": "batch-0370 (fmgr dir part 1, 2026-11-13, parent batch-0369=3a5d8651d5b). dfmgr.c 56 blocks, 102 content lines: 91 translated, 11 EN kept (over budget). Strategy: line-number-keyed apply, strict per-line budget, no cross-line text movement. Advisories: scan_halfen mixed findings expected (partial translation within blocks). Gates: verify_c_comments 0 violations; code bytes unchanged (700 lines). fmgr.c (297 lines) and funcapi.c (299 lines) follow in batch-0371+."
+}

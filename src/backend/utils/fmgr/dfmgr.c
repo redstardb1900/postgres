@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * dfmgr.c
- *	  Dynamic function manager code.
+ *	  动态函数管理器代码
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -20,8 +20,8 @@
 #include <dlfcn.h>
 
 /*
- * On macOS, <dlfcn.h> insists on including <stdbool.h>.  If we're not
- * using stdbool, undef bool to undo the damage.
+ * 在 macOS 上，<dlfcn.h> 强制包含 <stdbool.h>。如果使用
+ * stdbool，undef bool 以消除其影响。
  */
 #ifndef PG_USE_STDBOOL
 #ifdef bool
@@ -40,7 +40,7 @@
 /* signature for PostgreSQL-specific library init function */
 typedef void (*PG_init_t) (void);
 
-/* hashtable entry for rendezvous variables */
+/* 汇聚变量的哈希表条目 */
 typedef struct
 {
 	char		varName[NAMEDATALEN];	/* hash key (must be first) */
@@ -48,7 +48,7 @@ typedef struct
 } rendezvousHashEntry;
 
 /*
- * List of dynamically loaded files (kept in malloc'd memory).
+ * 已动态加载文件的列表（保存在 malloc 内存中）
  */
 
 typedef struct df_files
@@ -56,7 +56,7 @@ typedef struct df_files
 	struct df_files *next;		/* List link */
 	dev_t		device;			/* Device file is on */
 #ifndef WIN32					/* ensures we never again depend on this under
-								 * win32 */
+								 * win32
 	ino_t		inode;			/* Inode number of file */
 #endif
 	void	   *handle;			/* a handle for pg_dl* functions */
@@ -66,7 +66,7 @@ typedef struct df_files
 static DynamicFileList *file_list = NULL;
 static DynamicFileList *file_tail = NULL;
 
-/* stat() call under Win32 returns an st_ino field, but it has no meaning */
+/* Win32 下的 stat() 调用返回 st_ino 字段，但它没有 */
 #ifndef WIN32
 #define SAME_INODE(A,B) ((A).st_ino == (B).inode && (A).st_dev == (B).device)
 #else
@@ -84,22 +84,22 @@ static void check_restricted_library_name(const char *name);
 static char *substitute_libpath_macro(const char *name);
 static char *find_in_dynamic_libpath(const char *basename);
 
-/* Magic structure that module needs to match to be accepted */
+/* 模块需匹配的魔数结构才能被接受加载 */
 static const Pg_magic_struct magic_data = PG_MODULE_MAGIC_DATA;
 
 
 /*
- * Load the specified dynamic-link library file, and look for a function
- * named funcname in it.
+ * 加载指定的动态链接库文件，并在其中查找名为 funcn
+ * 的函数。
  *
- * If the function is not found, we raise an error if signalNotFound is true,
- * else return NULL.  Note that errors in loading the library
- * will provoke ereport() regardless of signalNotFound.
+ * 如果未找到该函数，signalNotFound 为真则报错，否则返回
+ * NULL。注意加载库时的错误不管 signalNotFound 
+ * 触发 ereport()。
  *
- * If filehandle is not NULL, then *filehandle will be set to a handle
- * identifying the library file.  The filehandle can be used with
- * lookup_external_function to lookup additional functions in the same file
- * at less cost than repeating load_external_function.
+ * 如果 filehandle 非 NULL，则 *filehandle 会被设置为标识
+ * 库文件的句柄。该句柄可传给 internal_load_library 
+ * lookup_external_function 来查找其他函数，开销低于重复调
+ * 用 load_external_function。
  */
 void *
 load_external_function(const char *filename, const char *funcname,
@@ -109,17 +109,17 @@ load_external_function(const char *filename, const char *funcname,
 	void	   *lib_handle;
 	void	   *retval;
 
-	/* Expand the possibly-abbreviated filename to an exact path name */
+	/* 将可能缩写的文件名展开为精确路径 */
 	fullname = expand_dynamic_library_name(filename);
 
-	/* Load the shared library, unless we already did */
+	/* 加载共享库（如果尚未加载） */
 	lib_handle = internal_load_library(fullname);
 
-	/* Return handle if caller wants it */
+	/* 调用者需要则返回句柄 */
 	if (filehandle)
 		*filehandle = lib_handle;
 
-	/* Look up the function within the library. */
+	/* 在库中查找该函数。 */
 	retval = dlsym(lib_handle, funcname);
 
 	if (retval == NULL && signalNotFound)
@@ -133,34 +133,34 @@ load_external_function(const char *filename, const char *funcname,
 }
 
 /*
- * This function loads a shlib file without looking up any particular
- * function in it.  If the same shlib has previously been loaded,
- * unload and reload it.
+ * 本函数加载一个 shlib 文件而不查找其中的任何具
+ * 函数。如果同一 shlib 此前已加载，则不会卸载
+ * 新加载它。
  *
- * When 'restricted' is true, only libraries in the presumed-secure
- * directory $libdir/plugins may be referenced.
+ * 当 restricted 为真时，只能引用假定可信目录
+ * $libdir/plugins 中的库。
  */
 void
 load_file(const char *filename, bool restricted)
 {
 	char	   *fullname;
 
-	/* Apply security restriction if requested */
+	/* 如果需要则施加安全限制 */
 	if (restricted)
 		check_restricted_library_name(filename);
 
-	/* Expand the possibly-abbreviated filename to an exact path name */
+	/* 将可能缩写的文件名展开为精确路径 */
 	fullname = expand_dynamic_library_name(filename);
 
-	/* Load the shared library */
+	/* 加载共享库 */
 	(void) internal_load_library(fullname);
 
 	pfree(fullname);
 }
 
 /*
- * Lookup a function whose library file is already loaded.
- * Return NULL if not found.
+ * 查找其库文件已加载的函数。
+ * 未找到则返回 NULL
  */
 void *
 lookup_external_function(void *filehandle, const char *funcname)
@@ -170,15 +170,15 @@ lookup_external_function(void *filehandle, const char *funcname)
 
 
 /*
- * Load the specified dynamic-link library file, unless it already is
- * loaded.  Return the pg_dl* handle for the file.
+ * 加载指定的动态链接库文件（除非已加载）。返回
+ * pg_dl* 句柄。
  *
- * Note: libname is expected to be an exact name for the library file.
+ * 注意：libname 应为库文件的精确名称。
  *
- * NB: There is presently no way to unload a dynamically loaded file.  We might
- * add one someday if we can convince ourselves we have safe protocols for un-
- * hooking from hook function pointers, releasing custom GUC variables, and
- * perhaps other things that are definitely unsafe currently.
+ * 注意：目前没有办法卸载动态加载的库。如果我们确信已
+ * 的卸载方法，也许有一天可以添加：从钩子函数指针解除
+ * 释放自定义 GUC，以及
+ * 其他目前明显不安全的操作。
  */
 static void *
 internal_load_library(const char *libname)
@@ -190,7 +190,7 @@ internal_load_library(const char *libname)
 	PG_init_t	PG_init;
 
 	/*
-	 * Scan the list of loaded FILES to see if the file has been loaded.
+	 * 扫描已加载文件的列表，看该文件是否已加载。
 	 */
 	for (file_scanner = file_list;
 		 file_scanner != NULL &&
@@ -201,7 +201,7 @@ internal_load_library(const char *libname)
 	if (file_scanner == NULL)
 	{
 		/*
-		 * Check for same files - different paths (ie, symlink or link)
+		 * 检查相同文件的不同路径（如符号链接或硬链接）
 		 */
 		if (stat(libname, &stat_buf) == -1)
 			ereport(ERROR,
@@ -219,7 +219,7 @@ internal_load_library(const char *libname)
 	if (file_scanner == NULL)
 	{
 		/*
-		 * File not loaded yet.
+		 * 文件尚未加载
 		 */
 		file_scanner = (DynamicFileList *)
 			malloc(offsetof(DynamicFileList, filename) + strlen(libname) + 1);
@@ -241,14 +241,14 @@ internal_load_library(const char *libname)
 		{
 			load_error = dlerror();
 			free(file_scanner);
-			/* errcode_for_file_access might not be appropriate here? */
+			/* errcode_for_file_access 在这里可能不适用？ */
 			ereport(ERROR,
 					(errcode_for_file_access(),
 					 errmsg("could not load library \"%s\": %s",
 							libname, load_error)));
 		}
 
-		/* Check the magic function to determine compatibility */
+		/* 检查魔数函数以确定兼容性 */
 		magic_func = (PGModuleMagicFunction)
 			dlsym(file_scanner->handle, PG_MAGIC_FUNCTION_NAME_STRING);
 		if (magic_func)
@@ -258,23 +258,23 @@ internal_load_library(const char *libname)
 			if (magic_data_ptr->len != magic_data.len ||
 				memcmp(magic_data_ptr, &magic_data, magic_data.len) != 0)
 			{
-				/* copy data block before unlinking library */
+				/* 在解除库链接前复制数据块 */
 				Pg_magic_struct module_magic_data = *magic_data_ptr;
 
-				/* try to close library */
+				/* 尝试关闭库 */
 				dlclose(file_scanner->handle);
 				free(file_scanner);
 
-				/* issue suitable complaint */
+				/* 发出适当的抱怨 */
 				incompatible_module_error(libname, &module_magic_data);
 			}
 		}
 		else
 		{
-			/* try to close library */
+			/* 尝试关闭库 */
 			dlclose(file_scanner->handle);
 			free(file_scanner);
-			/* complain */
+			/* 抱怨 */
 			ereport(ERROR,
 					(errmsg("incompatible library \"%s\": missing magic block",
 							libname),
@@ -282,13 +282,13 @@ internal_load_library(const char *libname)
 		}
 
 		/*
-		 * If the library has a _PG_init() function, call it.
+		 * 如果库有 _PG_init() 函数，就调用它。
 		 */
 		PG_init = (PG_init_t) dlsym(file_scanner->handle, "_PG_init");
 		if (PG_init)
 			(*PG_init) ();
 
-		/* OK to link it into list */
+		/* 可以把它链接进列表了 */
 		if (file_list == NULL)
 			file_list = file_scanner;
 		else
@@ -300,7 +300,7 @@ internal_load_library(const char *libname)
 }
 
 /*
- * Report a suitable error for an incompatible magic block.
+ * 为不兼容的魔数块报告适当的错误。
  */
 static void
 incompatible_module_error(const char *libname,
@@ -309,8 +309,8 @@ incompatible_module_error(const char *libname,
 	StringInfoData details;
 
 	/*
-	 * If the version doesn't match, just report that, because the rest of the
-	 * block might not even have the fields we expect.
+	 * 如果版本不匹配，只报告版本不匹配，因为魔数
+	 * 块可能连我们期望的字段都没有。
 	 */
 	if (magic_data.version != module_magic_data->version)
 	{
@@ -331,9 +331,9 @@ incompatible_module_error(const char *libname,
 	}
 
 	/*
-	 * Similarly, if the ABI extra field doesn't match, error out.  Other
-	 * fields below might also mismatch, but that isn't useful information if
-	 * you're using the wrong product altogether.
+	 * 类似地，如果 ABI extra 字段不匹配，则报错，因为
+	 * 字段也可能不匹配，但那没有参考价值——你用的是
+	 * 完全错误的产品。
 	 */
 	if (strcmp(module_magic_data->abi_extra, magic_data.abi_extra) != 0)
 	{
@@ -346,9 +346,9 @@ incompatible_module_error(const char *libname,
 	}
 
 	/*
-	 * Otherwise, spell out which fields don't agree.
+	 * 否则，详细说明哪些字段不一致。
 	 *
-	 * XXX this code has to be adjusted any time the set of fields in a magic
+	 * XXX 每当块中字段集变化时都必须调整此代码！
 	 * block change!
 	 */
 	initStringInfo(&details);
@@ -419,13 +419,13 @@ file_exists(const char *name)
 
 
 /*
- * If name contains a slash, check if the file exists, if so return
- * the name.  Else (no slash) try to expand using search path (see
- * find_in_dynamic_libpath below); if that works, return the fully
- * expanded file name.  If the previous failed, append DLSUFFIX and
- * try again.  If all fails, just return the original name.
+ * 如果名称含斜杠，检查文件是否存在，存在则返
+ * 该名称。否则（无斜杠）尝试用搜索路径展开（
+ * 下面的 find_in_dynamic_libpath）；如果成功，返回展
+ * 后的文件名。如果都失败了，追加 DLSUFFIX 再试一
+ * 如果全部失败，就返回原始名称。
  *
- * The result will always be freshly palloc'd.
+ * 结果总是新分配的内存。
  */
 static char *
 expand_dynamic_library_name(const char *name)
@@ -471,15 +471,15 @@ expand_dynamic_library_name(const char *name)
 	}
 
 	/*
-	 * If we can't find the file, just return the string as-is. The ensuing
-	 * load attempt will fail and report a suitable message.
+	 * 如果找不到文件，就按原样返回字符串。后续的加
+	 * 尝试会失败并给出适当的错误消息。
 	 */
 	return pstrdup(name);
 }
 
 /*
- * Check a restricted library name.  It must begin with "$libdir/plugins/"
- * and there must not be any directory separators after that (this is
+ * 检查受限的库名。必须以 "$libdir/" 开头，之后不得有
+ * 目录分隔符（这足以阻止".."风格的攻击）。
  * sufficient to prevent ".." style attacks).
  */
 static void
@@ -494,8 +494,8 @@ check_restricted_library_name(const char *name)
 }
 
 /*
- * Substitute for any macros appearing in the given string.
- * Result is always freshly palloc'd.
+ * 替换给定字符串中出现的任何宏。
+ * 结果总是新分配的内存。
  */
 static char *
 substitute_libpath_macro(const char *name)
@@ -504,7 +504,7 @@ substitute_libpath_macro(const char *name)
 
 	Assert(name != NULL);
 
-	/* Currently, we only recognize $libdir at the start of the string */
+	/* 目前只识别字符串开头的 $libdir。 */
 	if (name[0] != '$')
 		return pstrdup(name);
 
@@ -523,10 +523,10 @@ substitute_libpath_macro(const char *name)
 
 
 /*
- * Search for a file called 'basename' in the colon-separated search
- * path Dynamic_library_path.  If the file is found, the full file name
- * is returned in freshly palloc'd memory.  If the file is not found,
- * return NULL.
+ * 在冒号分隔的路径 Dynamic_library_path 中搜索名为
+ * 'basename' 的文件。如果找到，完整路径
+ * 在新分配的内存中返回。如果找不到文件，则
+ * 返回 NULL
  */
 static char *
 find_in_dynamic_libpath(const char *basename)
@@ -570,7 +570,7 @@ find_in_dynamic_libpath(const char *basename)
 
 		canonicalize_path(mangled);
 
-		/* only absolute paths */
+		/* 只处理绝对路径 */
 		if (!is_absolute_path(mangled))
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_NAME),
@@ -598,18 +598,18 @@ find_in_dynamic_libpath(const char *basename)
 
 
 /*
- * Find (or create) a rendezvous variable that one dynamically
- * loaded library can use to meet up with another.
+ * 查找（或创建）一个汇聚变量，供某个动态
+ * 载库用来与另一个库会合。
  *
- * On the first call of this function for a particular varName,
- * a "rendezvous variable" is created with the given name.
- * The value of the variable is a void pointer (initially set to NULL).
- * Subsequent calls with the same varName just return the address of
- * the existing variable.  Once created, a rendezvous variable lasts
+ * 首次对特定 varName 调用此函数时，会创建一个
+ * "汇聚变量"。
+ * 变量的值是一个 void 指针（初始设为 NULL）。
+ * 后续以相同 varName 调用只返回现有变量的地址。
+ * 汇聚变量一旦创建，其生命周期与进程相同。
  * for the life of the process.
  *
- * Dynamically loaded libraries can use rendezvous variables
- * to find each other and share information: they just need to agree
+ * 动态加载的库可以用汇聚变量相互查找和共
+ * 变量名和它将指向的数据上达成一致即可。
  * on the variable name and the data it will point to.
  */
 void	  **
@@ -620,7 +620,7 @@ find_rendezvous_variable(const char *varName)
 	rendezvousHashEntry *hentry;
 	bool		found;
 
-	/* Create a hashtable if we haven't already done so in this process */
+	/* 如果本次尚未创建哈希表则创建 */
 	if (rendezvousHash == NULL)
 	{
 		HASHCTL		ctl;
@@ -633,13 +633,13 @@ find_rendezvous_variable(const char *varName)
 									 HASH_ELEM | HASH_STRINGS);
 	}
 
-	/* Find or create the hashtable entry for this varName */
+	/* 查找或创建该 varName 的哈希表条目 */
 	hentry = (rendezvousHashEntry *) hash_search(rendezvousHash,
 												 varName,
 												 HASH_ENTER,
 												 &found);
 
-	/* Initialize to NULL if first time */
+	/* 首次则初始化为 NULL */
 	if (!found)
 		hentry->varValue = NULL;
 
@@ -647,7 +647,7 @@ find_rendezvous_variable(const char *varName)
 }
 
 /*
- * Estimate the amount of space needed to serialize the list of libraries
+ * 估算序列化我们已加载的库列表所需的内存量。
  * we have loaded.
  */
 Size
@@ -665,7 +665,7 @@ EstimateLibraryStateSpace(void)
 }
 
 /*
- * Serialize the list of libraries we have loaded to a chunk of memory.
+ * 将已加载的库列表序列化到一个内存块中。
  */
 void
 SerializeLibraryState(Size maxsize, char *start_address)
@@ -687,7 +687,7 @@ SerializeLibraryState(Size maxsize, char *start_address)
 }
 
 /*
- * Load every library the serializing backend had loaded.
+ * 加载序列化 backend 已加载的每一个库。
  */
 void
 RestoreLibraryState(char *start_address)

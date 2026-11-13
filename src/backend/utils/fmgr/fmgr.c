@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * fmgr.c
- *	  The Postgres function manager.
+ *	Postgres 函数管理器。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -34,22 +34,22 @@
 #include "utils/syscache.h"
 
 /*
- * Hooks for function calls
+ * 函数调用钩子
  */
 PGDLLIMPORT needs_fmgr_hook_type needs_fmgr_hook = NULL;
 PGDLLIMPORT fmgr_hook_type fmgr_hook = NULL;
 
 /*
- * Hashtable for fast lookup of external C functions
+ * 用于快速查找外部 C 函数的哈希表
  */
 typedef struct
 {
-	/* fn_oid is the hash key and so must be first! */
-	Oid			fn_oid;			/* OID of an external C function */
-	TransactionId fn_xmin;		/* for checking up-to-dateness */
+	/* fn_oid 是哈希键，必须放在首位 */
+	Oid			fn_oid;			/* 外部 C 函数的 OID */
+	TransactionId fn_xmin;		/* 用于检查是否最新 */
 	ItemPointerData fn_tid;
-	PGFunction	user_fn;		/* the function's address */
-	const Pg_finfo_record *inforec; /* address of its info record */
+	PGFunction	user_fn;		/* 函数的地址 */
+	const Pg_finfo_record *inforec; /* 其信息记录的地址 */
 } CFuncHashTabEntry;
 
 static HTAB *CFuncHash = NULL;
@@ -63,13 +63,13 @@ static CFuncHashTabEntry *lookup_C_func(HeapTuple procedureTuple);
 static void record_C_func(HeapTuple procedureTuple,
 						  PGFunction user_fn, const Pg_finfo_record *inforec);
 
-/* extern so it's callable via JIT */
+/* extern 便可经 JIT 调用 */
 extern Datum fmgr_security_definer(PG_FUNCTION_ARGS);
 
 
 /*
- * Lookup routines for builtin-function table.  We can search by either Oid
- * or name, but search by Oid is much faster.
+ * 内置函数表的查找例程。可按 Oid 或名称搜索，
+ * 但按 Oid 搜索快得多。
  */
 
 static const FmgrBuiltin *
@@ -77,13 +77,13 @@ fmgr_isbuiltin(Oid id)
 {
 	uint16		index;
 
-	/* fast lookup only possible if original oid still assigned */
+	/* 仅当原 oid 仍有效时才可快速查找 */
 	if (id > fmgr_last_builtin_oid)
 		return NULL;
 
 	/*
-	 * Lookup function data. If there's a miss in that range it's likely a
-	 * nonexistent function, returning NULL here will trigger an ERROR later.
+	 * 查找函数数据。若该范围内未命中，则很可能是
+	 * 不存在的函数；此处返回 NULL 稍后会触发 ERROR。
 	 */
 	index = fmgr_builtin_oid_index[id];
 	if (index == InvalidOidBuiltinMapping)
@@ -93,9 +93,9 @@ fmgr_isbuiltin(Oid id)
 }
 
 /*
- * Lookup a builtin by name.  Note there can be more than one entry in
- * the array with the same name, but they should all point to the same
- * routine.
+ * 按名称查找内置项。数组中可能有多条同名条目，
+ * 但它们都应指向同一个
+ * 例程
  */
 static const FmgrBuiltin *
 fmgr_lookupByName(const char *name)
@@ -111,17 +111,17 @@ fmgr_lookupByName(const char *name)
 }
 
 /*
- * This routine fills a FmgrInfo struct, given the OID
- * of the function to be called.
+ * 本例程填充 FmgrInfo 结构体，其入参为
+ * 待调用函数的 OID。
  *
- * The caller's CurrentMemoryContext is used as the fn_mcxt of the info
- * struct; this means that any subsidiary data attached to the info struct
- * (either by fmgr_info itself, or later on by a function call handler)
- * will be allocated in that context.  The caller must ensure that this
- * context is at least as long-lived as the info struct itself.  This is
- * not a problem in typical cases where the info struct is on the stack or
- * in freshly-palloc'd space.  However, if one intends to store an info
- * struct in a long-lived table, it's better to use fmgr_info_cxt.
+ * 调用者的 CurrentMemoryContext 被用作 fn_mcxt，
+ * 这意味着附加到信息结构体的任何辅助数据（无论是
+ * fmgr_info 本身或之后由调用处理程序附加的）
+ * 都会分配在该上下文中。调用者必须确保此上下文
+ * 的寿命至少与信息结构体本身相当。典型情况下这
+ * 不是问题，因为信息结构体通常位于栈上或新近
+ * palloc 的空间中。但如果打算把信息结构体存入长寿
+ * 的表中，最好改用 fmgr_info_cxt。
  */
 void
 fmgr_info(Oid functionId, FmgrInfo *finfo)
@@ -130,8 +130,8 @@ fmgr_info(Oid functionId, FmgrInfo *finfo)
 }
 
 /*
- * Fill a FmgrInfo struct, specifying a memory context in which its
- * subsidiary data should go.
+ * 填充 FmgrInfo 结构体，并指定一个内存上下文存放
+ * 其辅助数据。
  */
 void
 fmgr_info_cxt(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt)
@@ -140,8 +140,8 @@ fmgr_info_cxt(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt)
 }
 
 /*
- * This one does the actual work.  ignore_security is ordinarily false
- * but is set to true when we need to avoid recursion.
+ * 此函数执行实际工作。ignore_security 通常为 false，
+ * 当需要避免递归时才置为 true。
  */
 static void
 fmgr_info_cxt_security(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt,
@@ -154,30 +154,30 @@ fmgr_info_cxt_security(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt,
 	char	   *prosrc;
 
 	/*
-	 * fn_oid *must* be filled in last.  Some code assumes that if fn_oid is
-	 * valid, the whole struct is valid.  Some FmgrInfo struct's do survive
-	 * elogs.
+	 * fn_oid *必须* 最后填充。一些代码假定若 fn_oid 有效，
+	 * 则整个结构体都有效。有些 FmgrInfo 结构体可
+	 * 存活
 	 */
 	finfo->fn_oid = InvalidOid;
 	finfo->fn_extra = NULL;
 	finfo->fn_mcxt = mcxt;
-	finfo->fn_expr = NULL;		/* caller may set this later */
+	finfo->fn_expr = NULL;		/* 调用者稍后设置 */
 
 	if ((fbp = fmgr_isbuiltin(functionId)) != NULL)
 	{
 		/*
-		 * Fast path for builtin functions: don't bother consulting pg_proc
+		 * 内置函数的快速路径：无需查询 pg_proc
 		 */
 		finfo->fn_nargs = fbp->nargs;
 		finfo->fn_strict = fbp->strict;
 		finfo->fn_retset = fbp->retset;
-		finfo->fn_stats = TRACK_FUNC_ALL;	/* ie, never track */
+		finfo->fn_stats = TRACK_FUNC_ALL;	/* 即从不跟踪 */
 		finfo->fn_addr = fbp->func;
 		finfo->fn_oid = functionId;
 		return;
 	}
 
-	/* Otherwise we need the pg_proc entry */
+	/* 否则需要获取 pg_proc 条目 */
 	procedureTuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(functionId));
 	if (!HeapTupleIsValid(procedureTuple))
 		elog(ERROR, "cache lookup failed for function %u", functionId);
@@ -188,18 +188,18 @@ fmgr_info_cxt_security(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt,
 	finfo->fn_retset = procedureStruct->proretset;
 
 	/*
-	 * If it has prosecdef set, non-null proconfig, or if a plugin wants to
-	 * hook function entry/exit, use fmgr_security_definer call handler ---
-	 * unless we are being called again by fmgr_security_definer or
-	 * fmgr_info_other_lang.
+	 * 若设置了 prosecdef、proconfig 非空，或插件想挂钩
+	 * 函数进入/退出，则使用 fmgr_security_definer 调用
+	 * 处理程序——除非是 fmgr_security_definer 或
+	 * fmgr_info_other_lang
 	 *
-	 * When using fmgr_security_definer, function stats tracking is always
-	 * disabled at the outer level, and instead we set the flag properly in
-	 * fmgr_security_definer's private flinfo and implement the tracking
-	 * inside fmgr_security_definer.  This loses the ability to charge the
-	 * overhead of fmgr_security_definer to the function, but gains the
-	 * ability to set the track_functions GUC as a local GUC parameter of an
-	 * interesting function and have the right things happen.
+	 * 使用 fmgr_security_definer 时，函数统计跟踪总是
+	 * 在外层被禁用，而是改为在 fmgr_security_definer
+	 * 的私有 flinfo 中正确设置该标志，并在
+	 * fmgr_security_definer 内部实现跟踪。代价是无法把
+	 * fmgr_security_definer 的开销计入该函数，但换
+	 * 来了将 track_functions GUC 设为某关注函数
+	 * 的本地 GUC 参数，并让正确的事情发生。
 	 */
 	if (!ignore_security &&
 		(procedureStruct->prosecdef ||
@@ -207,7 +207,7 @@ fmgr_info_cxt_security(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt,
 		 FmgrHookIsNeeded(functionId)))
 	{
 		finfo->fn_addr = fmgr_security_definer;
-		finfo->fn_stats = TRACK_FUNC_ALL;	/* ie, never track */
+		finfo->fn_stats = TRACK_FUNC_ALL;	/* 即从不跟踪 */
 		finfo->fn_oid = functionId;
 		ReleaseSysCache(procedureTuple);
 		return;
@@ -218,13 +218,13 @@ fmgr_info_cxt_security(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt,
 		case INTERNALlanguageId:
 
 			/*
-			 * For an ordinary builtin function, we should never get here
-			 * because the fmgr_isbuiltin() search above will have succeeded.
-			 * However, if the user has done a CREATE FUNCTION to create an
-			 * alias for a builtin function, we can end up here.  In that case
-			 * we have to look up the function by name.  The name of the
-			 * internal function is stored in prosrc (it doesn't have to be
-			 * the same as the name of the alias!)
+			 * 对于普通内置函数，绝不应走到这里，
+			 * 因为前面的 fmgr_isbuiltin() 搜索应已成功。
+			 * 但若用户用 CREATE FUNCTION 创建了内置函数的
+			 * 别名，最终就可能走到这里。那种情况下就
+			 * 必须按名称查找该函数。内部函数的名称
+			 * 存放在 prosrc 中（它不必与别名的名称
+			 * 相同！）
 			 */
 			prosrcdatum = SysCacheGetAttrNotNull(PROCOID, procedureTuple,
 												 Anum_pg_proc_prosrc);
@@ -236,25 +236,25 @@ fmgr_info_cxt_security(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt,
 						 errmsg("internal function \"%s\" is not in internal lookup table",
 								prosrc)));
 			pfree(prosrc);
-			/* Should we check that nargs, strict, retset match the table? */
+			/* 是否应检查 nargs、strict、retset 与表匹配？ */
 			finfo->fn_addr = fbp->func;
-			/* note this policy is also assumed in fast path above */
-			finfo->fn_stats = TRACK_FUNC_ALL;	/* ie, never track */
+			/* 注意上面的快速路径也假定此策略 */
+			finfo->fn_stats = TRACK_FUNC_ALL;	/* 即从不跟踪 */
 			break;
 
 		case ClanguageId:
 			fmgr_info_C_lang(functionId, finfo, procedureTuple);
-			finfo->fn_stats = TRACK_FUNC_PL;	/* ie, track if ALL */
+			finfo->fn_stats = TRACK_FUNC_PL;	/* 即 ALL 跟踪 */
 			break;
 
 		case SQLlanguageId:
 			finfo->fn_addr = fmgr_sql;
-			finfo->fn_stats = TRACK_FUNC_PL;	/* ie, track if ALL */
+			finfo->fn_stats = TRACK_FUNC_PL;	/* 即 ALL 跟踪 */
 			break;
 
 		default:
 			fmgr_info_other_lang(functionId, finfo, procedureTuple);
-			finfo->fn_stats = TRACK_FUNC_OFF;	/* ie, track if not OFF */
+			finfo->fn_stats = TRACK_FUNC_OFF;	/* 非 OFF 则跟踪 */
 			break;
 	}
 
@@ -263,19 +263,19 @@ fmgr_info_cxt_security(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt,
 }
 
 /*
- * Return module and C function name providing implementation of functionId.
+ * 返回函数 functionId 的实现所在模块与 C 函数名。
  *
- * If *mod == NULL and *fn == NULL, no C symbol is known to implement
- * function.
+ * 若 *mod 与 *fn 均为 NULL，则无已知
+ * 实现
  *
- * If *mod == NULL and *fn != NULL, the function is implemented by a symbol in
- * the main binary.
+ * 若 *mod == NULL 而 *fn != NULL，则函数由主二进制
+ * 符号实现。
  *
- * If *mod != NULL and *fn != NULL the function is implemented in an extension
- * shared object.
+ * 若 *mod != NULL 且 *fn != NULL，则函数实现在扩展
+ * 共享库。
  *
- * The returned module and function names are pstrdup'ed into the current
- * memory context.
+ * 返回的模块名和函数名会 pstrdup 到当前内存
+ * 上下文。
  */
 void
 fmgr_symbol(Oid functionId, char **mod, char **fn)
@@ -294,20 +294,20 @@ fmgr_symbol(Oid functionId, char **mod, char **fn)
 		!heap_attisnull(procedureTuple, Anum_pg_proc_proconfig, NULL) ||
 		FmgrHookIsNeeded(functionId))
 	{
-		*mod = NULL;			/* core binary */
+		*mod = NULL;			/* 主程序 */
 		*fn = pstrdup("fmgr_security_definer");
 		ReleaseSysCache(procedureTuple);
 		return;
 	}
 
-	/* see fmgr_info_cxt_security for the individual cases */
+	/* 各具体情况见 fmgr_info_cxt_security */
 	switch (procedureStruct->prolang)
 	{
 		case INTERNALlanguageId:
 			prosrcattr = SysCacheGetAttrNotNull(PROCOID, procedureTuple,
 												Anum_pg_proc_prosrc);
 
-			*mod = NULL;		/* core binary */
+			*mod = NULL;		/* 主程序 */
 			*fn = TextDatumGetCString(prosrcattr);
 			break;
 
@@ -319,21 +319,21 @@ fmgr_symbol(Oid functionId, char **mod, char **fn)
 												Anum_pg_proc_probin);
 
 			/*
-			 * No need to check symbol presence / API version here, already
-			 * checked in fmgr_info_cxt_security.
+			 * 无需在此检查符号存在性与 API 版本，
+			 * fmgr_info_cxt_security 已查过
 			 */
 			*mod = TextDatumGetCString(probinattr);
 			*fn = TextDatumGetCString(prosrcattr);
 			break;
 
 		case SQLlanguageId:
-			*mod = NULL;		/* core binary */
+			*mod = NULL;		/* 主程序 */
 			*fn = pstrdup("fmgr_sql");
 			break;
 
 		default:
 			*mod = NULL;
-			*fn = NULL;			/* unknown, pass pointer */
+			*fn = NULL;			/* 未知，传指针 */
 			break;
 	}
 
@@ -342,8 +342,8 @@ fmgr_symbol(Oid functionId, char **mod, char **fn)
 
 
 /*
- * Special fmgr_info processing for C-language functions.  Note that
- * finfo->fn_oid is not valid yet.
+ * 针对 C 语言函数的特殊 fmgr_info 处理。注意
+ * finfo->fn_oid 尚无效。
  */
 static void
 fmgr_info_C_lang(Oid functionId, FmgrInfo *finfo, HeapTuple procedureTuple)
@@ -353,7 +353,7 @@ fmgr_info_C_lang(Oid functionId, FmgrInfo *finfo, HeapTuple procedureTuple)
 	const Pg_finfo_record *inforec;
 
 	/*
-	 * See if we have the function address cached already
+	 * 看看是否已缓存该函数的地址
 	 */
 	hashentry = lookup_C_func(procedureTuple);
 	if (hashentry)
@@ -370,9 +370,9 @@ fmgr_info_C_lang(Oid functionId, FmgrInfo *finfo, HeapTuple procedureTuple)
 		void	   *libraryhandle;
 
 		/*
-		 * Get prosrc and probin strings (link symbol and library filename).
-		 * While in general these columns might be null, that's not allowed
-		 * for C-language functions.
+		 * 获取 prosrc 和 probin 字符串（链接符号、库
+		 * 名）。虽然这些列一般可为空，但 C 语言函数
+		 * 却不得为空。
 		 */
 		prosrcattr = SysCacheGetAttrNotNull(PROCOID, procedureTuple,
 											Anum_pg_proc_prosrc);
@@ -382,14 +382,14 @@ fmgr_info_C_lang(Oid functionId, FmgrInfo *finfo, HeapTuple procedureTuple)
 											Anum_pg_proc_probin);
 		probinstring = TextDatumGetCString(probinattr);
 
-		/* Look up the function itself */
+		/* 查找函数本身 */
 		user_fn = load_external_function(probinstring, prosrcstring, true,
 										 &libraryhandle);
 
-		/* Get the function information record (real or default) */
+		/* 获取函数信息记录（真实的或默认的） */
 		inforec = fetch_finfo_record(libraryhandle, prosrcstring);
 
-		/* Cache the addresses for later calls */
+		/* 缓存地址供后续调用 */
 		record_C_func(procedureTuple, user_fn, inforec);
 
 		pfree(prosrcstring);
@@ -399,11 +399,11 @@ fmgr_info_C_lang(Oid functionId, FmgrInfo *finfo, HeapTuple procedureTuple)
 	switch (inforec->api_version)
 	{
 		case 1:
-			/* New style: call directly */
+			/* 新式：直接调用 */
 			finfo->fn_addr = user_fn;
 			break;
 		default:
-			/* Shouldn't get here if fetch_finfo_record did its job */
+			/* 若 fetch_finfo_record 尽职则不应走到这里 */
 			elog(ERROR, "unrecognized function API version: %d",
 				 inforec->api_version);
 			break;
@@ -411,8 +411,8 @@ fmgr_info_C_lang(Oid functionId, FmgrInfo *finfo, HeapTuple procedureTuple)
 }
 
 /*
- * Special fmgr_info processing for other-language functions.  Note
- * that finfo->fn_oid is not valid yet.
+ * 其他语言函数的专用 fmgr_info 处理。注意
+ * 此时 finfo->fn_oid 尚无效。
  */
 static void
 fmgr_info_other_lang(Oid functionId, FmgrInfo *finfo, HeapTuple procedureTuple)
@@ -429,9 +429,9 @@ fmgr_info_other_lang(Oid functionId, FmgrInfo *finfo, HeapTuple procedureTuple)
 	languageStruct = (Form_pg_language) GETSTRUCT(languageTuple);
 
 	/*
-	 * Look up the language's call handler function, ignoring any attributes
-	 * that would normally cause insertion of fmgr_security_definer.  We need
-	 * to get back a bare pointer to the actual C-language function.
+	 * 查找语言的调用处理程序，忽略任何通常会导致
+	 * 插入 fmgr_security_definer 的属性。我们需要
+	 * 得到指向实际 C 语言函数的裸指针。
 	 */
 	fmgr_info_cxt_security(languageStruct->lanplcallfoid, &plfinfo,
 						   CurrentMemoryContext, true);
@@ -441,15 +441,15 @@ fmgr_info_other_lang(Oid functionId, FmgrInfo *finfo, HeapTuple procedureTuple)
 }
 
 /*
- * Fetch and validate the information record for the given external function.
- * The function is specified by a handle for the containing library
- * (obtained from load_external_function) as well as the function name.
+ * 获取并校验给定外部函数的信息记录。
+ * 该函数由库句柄（经 load_external_function 获得）
+ * 以及函数名来指定。
  *
- * If no info function exists for the given name an error is raised.
+ * 若给定名称没有对应的信息函数，则抛出错误。
  *
- * This function is broken out of fmgr_info_C_lang so that fmgr_c_validator
- * can validate the information record for a function not yet entered into
- * pg_proc.
+ * 本函数从 fmgr_info_C_lang 拆出，以便
+ * fmgr_c_validator 能校验尚未录入 pg_proc 的
+ * 记录
  */
 const Pg_finfo_record *
 fetch_finfo_record(void *filehandle, const char *funcname)
@@ -460,7 +460,7 @@ fetch_finfo_record(void *filehandle, const char *funcname)
 
 	infofuncname = psprintf("pg_finfo_%s", funcname);
 
-	/* Try to look up the info function */
+	/* 尝试查找信息函数 */
 	infofunc = (PGFInfoFunction) lookup_external_function(filehandle,
 														  infofuncname);
 	if (infofunc == NULL)
@@ -470,19 +470,19 @@ fetch_finfo_record(void *filehandle, const char *funcname)
 				 errmsg("could not find function information for function \"%s\"",
 						funcname),
 				 errhint("SQL-callable functions need an accompanying PG_FUNCTION_INFO_V1(funcname).")));
-		return NULL;			/* silence compiler */
+		return NULL;			/* 安抚编译器 */
 	}
 
-	/* Found, so call it */
+	/* 找到即调用 */
 	inforec = (*infofunc) ();
 
-	/* Validate result as best we can */
+	/* 尽可能校验结果 */
 	if (inforec == NULL)
 		elog(ERROR, "null result from info function \"%s\"", infofuncname);
 	switch (inforec->api_version)
 	{
 		case 1:
-			/* OK, no additional fields to validate */
+			/* OK，无其他需校验字段 */
 			break;
 		default:
 			ereport(ERROR,
@@ -498,18 +498,18 @@ fetch_finfo_record(void *filehandle, const char *funcname)
 
 
 /*-------------------------------------------------------------------------
- *		Routines for caching lookup information for external C functions.
+ *	用于缓存外部 C 函数查找信息的例程。
  *
- * The routines in dfmgr.c are relatively slow, so we try to avoid running
- * them more than once per external function per session.  We use a hash table
- * with the function OID as the lookup key.
+ * dfmgr.c 中的例程较慢，因此尽量避免对每个外部
+ * 函数每会话只执行一次。我们使用以函数 OID 为键的
+ * 哈希表来查找。
  *-------------------------------------------------------------------------
  */
 
 /*
- * lookup_C_func: try to find a C function in the hash table
+ * lookup_C_func：尝试在哈希表中查找 C 函数
  *
- * If an entry exists and is up to date, return it; else return NULL
+ * 若存在条目且为最新，则返回它；否则返回 NULL
  */
 static CFuncHashTabEntry *
 lookup_C_func(HeapTuple procedureTuple)
@@ -518,22 +518,22 @@ lookup_C_func(HeapTuple procedureTuple)
 	CFuncHashTabEntry *entry;
 
 	if (CFuncHash == NULL)
-		return NULL;			/* no table yet */
+		return NULL;			/* 尚无表 */
 	entry = (CFuncHashTabEntry *)
 		hash_search(CFuncHash,
 					&fn_oid,
 					HASH_FIND,
 					NULL);
 	if (entry == NULL)
-		return NULL;			/* no such entry */
+		return NULL;			/* 无此条目 */
 	if (entry->fn_xmin == HeapTupleHeaderGetRawXmin(procedureTuple->t_data) &&
 		ItemPointerEquals(&entry->fn_tid, &procedureTuple->t_self))
 		return entry;			/* OK */
-	return NULL;				/* entry is out of date */
+	return NULL;				/* 条目已过期 */
 }
 
 /*
- * record_C_func: enter (or update) info about a C function in the hash table
+ * record_C_func：在哈希表中录入（或更新）C 函数信息
  */
 static void
 record_C_func(HeapTuple procedureTuple,
@@ -543,7 +543,7 @@ record_C_func(HeapTuple procedureTuple,
 	CFuncHashTabEntry *entry;
 	bool		found;
 
-	/* Create the hash table if it doesn't exist yet */
+	/* 若哈希表尚不存在则创建它 */
 	if (CFuncHash == NULL)
 	{
 		HASHCTL		hash_ctl;
@@ -561,7 +561,7 @@ record_C_func(HeapTuple procedureTuple,
 					&fn_oid,
 					HASH_ENTER,
 					&found);
-	/* OID is already filled in */
+	/* OID 已填充完毕 */
 	entry->fn_xmin = HeapTupleHeaderGetRawXmin(procedureTuple->t_data);
 	entry->fn_tid = procedureTuple->t_self;
 	entry->user_fn = user_fn;
@@ -570,11 +570,11 @@ record_C_func(HeapTuple procedureTuple,
 
 
 /*
- * Copy an FmgrInfo struct
+ * 复制 FmgrInfo 结构
  *
- * This is inherently somewhat bogus since we can't reliably duplicate
- * language-dependent subsidiary info.  We cheat by zeroing fn_extra,
- * instead, meaning that subsidiary info will have to be recomputed.
+ * 这本质上就有些不靠谱：语言相关的辅助信息
+ * 无法可靠复制。我们的做法是把 fn_extra 清零，
+ * 意味着辅助信息必须重新计算。
  */
 void
 fmgr_info_copy(FmgrInfo *dstinfo, FmgrInfo *srcinfo,
@@ -587,9 +587,9 @@ fmgr_info_copy(FmgrInfo *dstinfo, FmgrInfo *srcinfo,
 
 
 /*
- * Specialized lookup routine for fmgr_internal_validator: given the alleged
- * name of an internal function, return the OID of the function.
- * If the name is not recognized, return InvalidOid.
+ * fmgr_internal_validator 专用查找例程：给定所称
+ * 的内部函数名，返回该函数的 OID。
+ * 若名称无法识别，则返回 InvalidOid。
  */
 Oid
 fmgr_internal_function(const char *proname)
@@ -603,28 +603,28 @@ fmgr_internal_function(const char *proname)
 
 
 /*
- * Support for security-definer and proconfig-using functions.  We support
- * both of these features using the same call handler, because they are
- * often used together and it would be inefficient (as well as notationally
- * messy) to have two levels of call handler involved.
+ * 对安全定义者函数与使用 proconfig 的函数的支持。
+ * 这两个特性由同一个调用处理程序支持，因为它们
+ * 经常一起使用，两层调用处理程序既低效又（在表示
+ * 上也显得混乱）没有必要。
  */
 struct fmgr_security_definer_cache
 {
-	FmgrInfo	flinfo;			/* lookup info for target function */
-	Oid			userid;			/* userid to set, or InvalidOid */
-	ArrayType  *proconfig;		/* GUC values to set, or NULL */
-	Datum		arg;			/* passthrough argument for plugin modules */
+	FmgrInfo	flinfo;			/* 目标函数的查找信息 */
+	Oid			userid;			/* 待设 userid 或 InvalidOid */
+	ArrayType  *proconfig;		/* 待设的 GUC 值或 NULL */
+	Datum		arg;			/* 传递给插件模块的透传参数 */
 };
 
 /*
- * Function handler for security-definer/proconfig/plugin-hooked functions.
- * We extract the OID of the actual function and do a fmgr lookup again.
- * Then we fetch the pg_proc row and copy the owner ID and proconfig fields.
- * (All this info is cached for the duration of the current query.)
- * To execute a call, we temporarily replace the flinfo with the cached
- * and looked-up one, while keeping the outer fcinfo (which contains all
- * the actual arguments, etc.) intact.  This is not re-entrant, but then
- * the fcinfo itself can't be used reentrantly anyway.
+ * 安全定义者/proconfig/插件挂钩函数的处理函数。
+ * 我们提取实际函数的 OID 并再次执行 fmgr 查找。
+ * 然后获取 pg_proc 行并复制属主 ID 与 proconfig 字段。
+ * （这些信息均在当前查询期间缓存。）
+ * 执行调用时，我们临时将 flinfo 替换为缓存并查找
+ * 得到的那个，同时保持外层 fcinfo（含全部实际参数
+ * 等）完好无损。这不是可重入的，不过 fcinfo 本身
+ * 反正也无法被重入使用。
  */
 extern Datum
 fmgr_security_definer(PG_FUNCTION_ARGS)
@@ -678,12 +678,12 @@ fmgr_security_definer(PG_FUNCTION_ARGS)
 	else
 		fcache = fcinfo->flinfo->fn_extra;
 
-	/* GetUserIdAndSecContext is cheap enough that no harm in a wasted call */
+	/* GetUserIdAndSecContext 足够廉价，浪费一次调用无妨 */
 	GetUserIdAndSecContext(&save_userid, &save_sec_context);
-	if (fcache->proconfig)		/* Need a new GUC nesting level */
+	if (fcache->proconfig)		/* 需要新 GUC 嵌套层级 */
 		save_nestlevel = NewGUCNestLevel();
 	else
-		save_nestlevel = 0;		/* keep compiler quiet */
+		save_nestlevel = 0;		/* 让编译器安静 */
 
 	if (OidIsValid(fcache->userid))
 		SetUserIdAndSecContext(fcache->userid,
@@ -697,14 +697,14 @@ fmgr_security_definer(PG_FUNCTION_ARGS)
 						GUC_ACTION_SAVE);
 	}
 
-	/* function manager hook */
+	/* 函数管理器钩子 */
 	if (fmgr_hook)
 		(*fmgr_hook) (FHET_START, &fcache->flinfo, &fcache->arg);
 
 	/*
-	 * We don't need to restore GUC or userid settings on error, because the
-	 * ensuing xact or subxact abort will do that.  The PG_TRY block is only
-	 * needed to clean up the flinfo link.
+	 * 出错时无需恢复 GUC 或用户设置，因为随之而来的
+	 * 事务或子事务中止会完成恢复。PG_TRY 块只是
+	 * 用于清理 flinfo 链接。
 	 */
 	save_flinfo = fcinfo->flinfo;
 
@@ -712,14 +712,14 @@ fmgr_security_definer(PG_FUNCTION_ARGS)
 	{
 		fcinfo->flinfo = &fcache->flinfo;
 
-		/* See notes in fmgr_info_cxt_security */
+		/* 说明见 fmgr_info_cxt_security */
 		pgstat_init_function_usage(fcinfo, &fcusage);
 
 		result = FunctionCallInvoke(fcinfo);
 
 		/*
-		 * We could be calling either a regular or a set-returning function,
-		 * so we have to test to see what finalize flag to use.
+		 * 我们调用的可能是普通函数或集合返回函数，
+		 * 所以要测试该用哪个 finalize 标志。
 		 */
 		pgstat_end_function_usage(&fcusage,
 								  (fcinfo->resultinfo == NULL ||
@@ -749,15 +749,15 @@ fmgr_security_definer(PG_FUNCTION_ARGS)
 
 
 /*-------------------------------------------------------------------------
- *		Support routines for callers of fmgr-compatible functions
+ *	为 fmgr 兼容函数的调用者提供的支持例程
  *-------------------------------------------------------------------------
  */
 
 /*
- * These are for invocation of a specifically named function with a
- * directly-computed parameter list.  Note that neither arguments nor result
- * are allowed to be NULL.  Also, the function cannot be one that needs to
- * look at FmgrInfo, since there won't be any.
+ * 这些函数用于以直接算得的参数列表调用由名称
+ * 指定的函数。注意参数与结果均不得为 NULL。
+ * 另外，该函数不会是需要查看 FmgrInfo 的函数，
+ * 因为根本不会有 FmgrInfo。
  */
 Datum
 DirectFunctionCall1Coll(PGFunction func, Oid collation, Datum arg1)
@@ -772,7 +772,7 @@ DirectFunctionCall1Coll(PGFunction func, Oid collation, Datum arg1)
 
 	result = (*func) (fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %p returned NULL", (void *) func);
 
@@ -794,7 +794,7 @@ DirectFunctionCall2Coll(PGFunction func, Oid collation, Datum arg1, Datum arg2)
 
 	result = (*func) (fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %p returned NULL", (void *) func);
 
@@ -819,7 +819,7 @@ DirectFunctionCall3Coll(PGFunction func, Oid collation, Datum arg1, Datum arg2,
 
 	result = (*func) (fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %p returned NULL", (void *) func);
 
@@ -846,7 +846,7 @@ DirectFunctionCall4Coll(PGFunction func, Oid collation, Datum arg1, Datum arg2,
 
 	result = (*func) (fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %p returned NULL", (void *) func);
 
@@ -875,7 +875,7 @@ DirectFunctionCall5Coll(PGFunction func, Oid collation, Datum arg1, Datum arg2,
 
 	result = (*func) (fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %p returned NULL", (void *) func);
 
@@ -907,7 +907,7 @@ DirectFunctionCall6Coll(PGFunction func, Oid collation, Datum arg1, Datum arg2,
 
 	result = (*func) (fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %p returned NULL", (void *) func);
 
@@ -941,7 +941,7 @@ DirectFunctionCall7Coll(PGFunction func, Oid collation, Datum arg1, Datum arg2,
 
 	result = (*func) (fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %p returned NULL", (void *) func);
 
@@ -977,7 +977,7 @@ DirectFunctionCall8Coll(PGFunction func, Oid collation, Datum arg1, Datum arg2,
 
 	result = (*func) (fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %p returned NULL", (void *) func);
 
@@ -1016,7 +1016,7 @@ DirectFunctionCall9Coll(PGFunction func, Oid collation, Datum arg1, Datum arg2,
 
 	result = (*func) (fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %p returned NULL", (void *) func);
 
@@ -1024,12 +1024,12 @@ DirectFunctionCall9Coll(PGFunction func, Oid collation, Datum arg1, Datum arg2,
 }
 
 /*
- * These functions work like the DirectFunctionCall functions except that
- * they use the flinfo parameter to initialise the fcinfo for the call.
- * It's recommended that the callee only use the fn_extra and fn_mcxt
- * fields, as other fields will typically describe the calling function
- * not the callee.  Conversely, the calling function should not have
- * used fn_extra, unless its use is known to be compatible with the callee's.
+ * 这些函数与 DirectFunctionCall 系列函数类似，但它们
+ * 使用 flinfo 参数初始化本次调用的 fcinfo。建议
+ * 被调函数只使用 fn_extra 与 fn_mcxt 字段，因为
+ * 其他字段通常描述的是调用方函数而非被调函数。
+ * 反之，调用方函数不应使用 fn_extra，除非已知
+ * 其用法与被调函数的用法兼容。
  */
 
 Datum
@@ -1045,7 +1045,7 @@ CallerFInfoFunctionCall1(PGFunction func, FmgrInfo *flinfo, Oid collation, Datum
 
 	result = (*func) (fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %p returned NULL", (void *) func);
 
@@ -1067,7 +1067,7 @@ CallerFInfoFunctionCall2(PGFunction func, FmgrInfo *flinfo, Oid collation, Datum
 
 	result = (*func) (fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %p returned NULL", (void *) func);
 
@@ -1075,9 +1075,9 @@ CallerFInfoFunctionCall2(PGFunction func, FmgrInfo *flinfo, Oid collation, Datum
 }
 
 /*
- * These are for invocation of a previously-looked-up function with a
- * directly-computed parameter list.  Note that neither arguments nor result
- * are allowed to be NULL.
+ * 这些函数用于以直接算得的参数列表调用之前
+ * 查找过的函数。注意参数与结果均不得为
+ * NULL。
  */
 Datum
 FunctionCall0Coll(FmgrInfo *flinfo, Oid collation)
@@ -1089,7 +1089,7 @@ FunctionCall0Coll(FmgrInfo *flinfo, Oid collation)
 
 	result = FunctionCallInvoke(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
 
@@ -1109,7 +1109,7 @@ FunctionCall1Coll(FmgrInfo *flinfo, Oid collation, Datum arg1)
 
 	result = FunctionCallInvoke(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
 
@@ -1131,7 +1131,7 @@ FunctionCall2Coll(FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2)
 
 	result = FunctionCallInvoke(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
 
@@ -1156,7 +1156,7 @@ FunctionCall3Coll(FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2,
 
 	result = FunctionCallInvoke(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
 
@@ -1183,7 +1183,7 @@ FunctionCall4Coll(FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2,
 
 	result = FunctionCallInvoke(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
 
@@ -1212,7 +1212,7 @@ FunctionCall5Coll(FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2,
 
 	result = FunctionCallInvoke(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
 
@@ -1244,7 +1244,7 @@ FunctionCall6Coll(FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2,
 
 	result = FunctionCallInvoke(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
 
@@ -1278,7 +1278,7 @@ FunctionCall7Coll(FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2,
 
 	result = FunctionCallInvoke(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
 
@@ -1314,7 +1314,7 @@ FunctionCall8Coll(FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2,
 
 	result = FunctionCallInvoke(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
 
@@ -1353,7 +1353,7 @@ FunctionCall9Coll(FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2,
 
 	result = FunctionCallInvoke(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
 
@@ -1362,11 +1362,11 @@ FunctionCall9Coll(FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2,
 
 
 /*
- * These are for invocation of a function identified by OID with a
- * directly-computed parameter list.  Note that neither arguments nor result
- * are allowed to be NULL.  These are essentially fmgr_info() followed
- * by FunctionCallN().  If the same function is to be invoked repeatedly,
- * do the fmgr_info() once and then use FunctionCallN().
+ * 这些函数用于以直接算得的参数列表调用由
+ * OID 标识的函数。注意参数与结果均不得为
+ * NULL。它们本质上就是先 fmgr_info() 再
+ * FunctionCallN()。若同一函数要被反复调用，
+ * 则做一次 fmgr_info() 后用 FunctionCallN()。
  */
 Datum
 OidFunctionCall0Coll(Oid functionId, Oid collation)
@@ -1486,16 +1486,16 @@ OidFunctionCall9Coll(Oid functionId, Oid collation, Datum arg1, Datum arg2,
 
 
 /*
- * Special cases for convenient invocation of datatype I/O functions.
+ * 为方便调用数据类型 I/O 函数的特殊用例。
  */
 
 /*
- * Call a previously-looked-up datatype input function.
+ * 调用之前查找过的数据类型输入函数。
  *
- * "str" may be NULL to indicate we are reading a NULL.  In this case
- * the caller should assume the result is NULL, but we'll call the input
- * function anyway if it's not strict.  So this is almost but not quite
- * the same as FunctionCall3.
+ * "str" 可为 NULL 表示正在读取 NULL。这种情况下
+ * 调用者应假定结果为 NULL，但若输入函数非严格
+ * 我们仍会调用它。所以这与 FunctionCall3 几乎
+ * 一样但不尽相同。
  */
 Datum
 InputFunctionCall(FmgrInfo *flinfo, char *str, Oid typioparam, int32 typmod)
@@ -1504,7 +1504,7 @@ InputFunctionCall(FmgrInfo *flinfo, char *str, Oid typioparam, int32 typmod)
 	Datum		result;
 
 	if (str == NULL && flinfo->fn_strict)
-		return (Datum) 0;		/* just return null result */
+		return (Datum) 0;		/* 直接返回空结果 */
 
 	InitFunctionCallInfoData(*fcinfo, flinfo, 3, InvalidOid, NULL, NULL);
 
@@ -1517,7 +1517,7 @@ InputFunctionCall(FmgrInfo *flinfo, char *str, Oid typioparam, int32 typmod)
 
 	result = FunctionCallInvoke(fcinfo);
 
-	/* Should get null result if and only if str is NULL */
+	/* 当且仅当 str 为 NULL 才得空结果 */
 	if (str == NULL)
 	{
 		if (!fcinfo->isnull)
@@ -1535,22 +1535,22 @@ InputFunctionCall(FmgrInfo *flinfo, char *str, Oid typioparam, int32 typmod)
 }
 
 /*
- * Call a previously-looked-up datatype input function, with non-exception
- * handling of "soft" errors.
+ * 调用之前查找过的数据类型输入函数，以非异常方式
+ * 处理"软"错误。
  *
- * This is basically like InputFunctionCall, but the converted Datum is
- * returned into *result while the function result is true for success or
- * false for failure.  Also, the caller may pass an ErrorSaveContext node.
- * (We declare that as "fmNodePtr" to avoid including nodes.h in fmgr.h.)
+ * 这基本上与 InputFunctionCall 类似，但转换得到的
+ * Datum 被返回到 *result 中，而函数结果在成功时为
+ * true，失败时为 false。此外，调用者可传入
+ * （将其声明为"fmNodePtr"以免在 fmgr.h 中包含 nodes.h。）
  *
- * If escontext points to an ErrorSaveContext, any "soft" errors detected by
- * the input function will be reported by filling the escontext struct and
- * returning false.  (The caller can choose to test SOFT_ERROR_OCCURRED(),
- * but checking the function result instead is usually cheaper.)
+ * 若 escontext 指向 ErrorSaveContext，则输入函数检测
+ * 到的任何"软"错误都会通过填充 escontext 结构体并
+ * 返回 false 来报告。（调用者可以选择测试
+ * SOFT_ERROR_OCCURRED()，但检查结果通常更廉价。）
  *
- * If escontext does not point to an ErrorSaveContext, errors are reported
- * via ereport(ERROR), so that there is no functional difference from
- * InputFunctionCall; the result will always be true if control returns.
+ * 若 escontext 不指向 ErrorSaveContext，则错误经
+ * ereport(ERROR) 报告，因此在功能上与
+ * InputFunctionCall 无差别；控制返回时结果必为 true。
  */
 bool
 InputFunctionCallSafe(FmgrInfo *flinfo, char *str,
@@ -1562,7 +1562,7 @@ InputFunctionCallSafe(FmgrInfo *flinfo, char *str,
 
 	if (str == NULL && flinfo->fn_strict)
 	{
-		*result = (Datum) 0;	/* just return null result */
+		*result = (Datum) 0;	/* 直接返回空结果 */
 		return true;
 	}
 
@@ -1577,11 +1577,11 @@ InputFunctionCallSafe(FmgrInfo *flinfo, char *str,
 
 	*result = FunctionCallInvoke(fcinfo);
 
-	/* Result value is garbage, and could be null, if an error was reported */
+	/* 已报错时结果值是无意义的，且可能为空 */
 	if (SOFT_ERROR_OCCURRED(escontext))
 		return false;
 
-	/* Otherwise, should get null result if and only if str is NULL */
+	/* 否则，当且仅当 str 为 NULL 才得空结果 */
 	if (str == NULL)
 	{
 		if (!fcinfo->isnull)
@@ -1599,13 +1599,13 @@ InputFunctionCallSafe(FmgrInfo *flinfo, char *str,
 }
 
 /*
- * Call a directly-named datatype input function, with non-exception
- * handling of "soft" errors.
+ * 调用直接指名的数据类型输入函数，非异常方式
+ * 处理"软"错误。
  *
- * This is like InputFunctionCallSafe, except that it is given a direct
- * pointer to the C function to call.  We assume that that function is
- * strict.  Also, the function cannot be one that needs to
- * look at FmgrInfo, since there won't be any.
+ * 这与 InputFunctionCallSafe 类似，但给定的是
+ * 指向要调用的 C 函数的直接指针。我们假定该函数
+ * 是严格的。此外，该函数不会是需要查看
+ * FmgrInfo 的函数，因为不会有。
  */
 bool
 DirectInputFunctionCallSafe(PGFunction func, char *str,
@@ -1617,7 +1617,7 @@ DirectInputFunctionCallSafe(PGFunction func, char *str,
 
 	if (str == NULL)
 	{
-		*result = (Datum) 0;	/* just return null result */
+		*result = (Datum) 0;	/* 直接返回空结果 */
 		return true;
 	}
 
@@ -1632,11 +1632,11 @@ DirectInputFunctionCallSafe(PGFunction func, char *str,
 
 	*result = (*func) (fcinfo);
 
-	/* Result value is garbage, and could be null, if an error was reported */
+	/* 已报错时结果值是无意义的，且可能为空 */
 	if (SOFT_ERROR_OCCURRED(escontext))
 		return false;
 
-	/* Otherwise, shouldn't get null result */
+	/* 否则不应得到空结果 */
 	if (fcinfo->isnull)
 		elog(ERROR, "input function %p returned NULL", (void *) func);
 
@@ -1644,11 +1644,11 @@ DirectInputFunctionCallSafe(PGFunction func, char *str,
 }
 
 /*
- * Call a previously-looked-up datatype output function.
+ * 调用之前查找过的数据类型输出函数。
  *
- * Do not call this on NULL datums.
+ * 勿对 NULL 调用此函数。
  *
- * This is currently little more than window dressing for FunctionCall1.
+ * 目前这几乎只是 FunctionCall1 的门面装饰。
  */
 char *
 OutputFunctionCall(FmgrInfo *flinfo, Datum val)
@@ -1657,12 +1657,12 @@ OutputFunctionCall(FmgrInfo *flinfo, Datum val)
 }
 
 /*
- * Call a previously-looked-up datatype binary-input function.
+ * 调用先前查到的数据类型二进制输入函数。
  *
- * "buf" may be NULL to indicate we are reading a NULL.  In this case
- * the caller should assume the result is NULL, but we'll call the receive
- * function anyway if it's not strict.  So this is almost but not quite
- * the same as FunctionCall3.
+ * "buf" 可为 NULL 表示正在读取 NULL。这种情况下
+ * 调用者应假定结果为 NULL，但若接收函数非严格
+ * 我们仍会调用它。所以这与 FunctionCall3 几乎
+ * 一样但不尽相同。
  */
 Datum
 ReceiveFunctionCall(FmgrInfo *flinfo, StringInfo buf,
@@ -1672,7 +1672,7 @@ ReceiveFunctionCall(FmgrInfo *flinfo, StringInfo buf,
 	Datum		result;
 
 	if (buf == NULL && flinfo->fn_strict)
-		return (Datum) 0;		/* just return null result */
+		return (Datum) 0;		/* 直接返回空结果 */
 
 	InitFunctionCallInfoData(*fcinfo, flinfo, 3, InvalidOid, NULL, NULL);
 
@@ -1685,7 +1685,7 @@ ReceiveFunctionCall(FmgrInfo *flinfo, StringInfo buf,
 
 	result = FunctionCallInvoke(fcinfo);
 
-	/* Should get null result if and only if buf is NULL */
+	/* 当且仅当 buf 为 NULL 才得空结果 */
 	if (buf == NULL)
 	{
 		if (!fcinfo->isnull)
@@ -1703,13 +1703,13 @@ ReceiveFunctionCall(FmgrInfo *flinfo, StringInfo buf,
 }
 
 /*
- * Call a previously-looked-up datatype binary-output function.
+ * 调用之前查找过的数据类型二进制输出函数。
  *
- * Do not call this on NULL datums.
+ * 勿对 NULL 调用此函数。
  *
- * This is little more than window dressing for FunctionCall1, but it does
- * guarantee a non-toasted result, which strictly speaking the underlying
- * function doesn't.
+ * 这几乎只是 FunctionCall1 的门面装饰，但它确实
+ * 保证结果非 toast，而底层函数严格来说不
+ * 保证此点。
  */
 bytea *
 SendFunctionCall(FmgrInfo *flinfo, Datum val)
@@ -1718,8 +1718,8 @@ SendFunctionCall(FmgrInfo *flinfo, Datum val)
 }
 
 /*
- * As above, for I/O functions identified by OID.  These are only to be used
- * in seldom-executed code paths.  They are not only slow but leak memory.
+ * 同上，但针对由 OID 标识的 I/O 函数。这些只能用于
+ * 很少执行的代码路径。它们不仅慢还会泄漏内存。
  */
 Datum
 OidInputFunctionCall(Oid functionId, char *str, Oid typioparam, int32 typmod)
@@ -1760,19 +1760,19 @@ OidSendFunctionCall(Oid functionId, Datum val)
 
 
 /*-------------------------------------------------------------------------
- *		Support routines for standard maybe-pass-by-reference datatypes
+ *	标准可能按引用传递数据类型的支持例程
  *
- * int8 and float8 can be passed by value if Datum is wide enough.
- * (For backwards-compatibility reasons, we allow pass-by-ref to be chosen
- * at compile time even if pass-by-val is possible.)
+ * 若 Datum 足够宽，int8 与 float8 可按值传递。
+ * （出于向后兼容的原因，即使在可能按值传递时，也
+ * 允许在编译期选择按引用传递。）
  *
- * Note: there is only one switch controlling the pass-by-value option for
- * both int8 and float8; this is to avoid making things unduly complicated
- * for the timestamp types, which might have either representation.
+ * 注意：只有一个开关同时控制 int8 与 float8 的
+ * 按值传递选项；这是为了避免让 timestamp 类型
+ * 的情况过于复杂，因为它们可能有两种表示。
  *-------------------------------------------------------------------------
  */
 
-#ifndef USE_FLOAT8_BYVAL		/* controls int8 too */
+#ifndef USE_FLOAT8_BYVAL		/* 也控制 int8 */
 
 Datum
 Int64GetDatum(int64 X)
@@ -1795,7 +1795,7 @@ Float8GetDatum(float8 X)
 
 
 /*-------------------------------------------------------------------------
- *		Support routines for toastable datatypes
+ *	可 toast 数据类型的支持例程
  *-------------------------------------------------------------------------
  */
 
@@ -1815,7 +1815,7 @@ pg_detoast_datum_copy(struct varlena *datum)
 		return detoast_attr(datum);
 	else
 	{
-		/* Make a modifiable copy of the varlena object */
+		/* 制作 varlena 对象的可修改副本 */
 		Size		len = VARSIZE(datum);
 		struct varlena *result = (struct varlena *) palloc(len);
 
@@ -1827,7 +1827,7 @@ pg_detoast_datum_copy(struct varlena *datum)
 struct varlena *
 pg_detoast_datum_slice(struct varlena *datum, int32 first, int32 count)
 {
-	/* Only get the specified portion from the toast rel */
+	/* 只从 toast 表获取指定部分 */
 	return detoast_attr_slice(datum, first, count);
 }
 
@@ -1841,19 +1841,19 @@ pg_detoast_datum_packed(struct varlena *datum)
 }
 
 /*-------------------------------------------------------------------------
- *		Support routines for extracting info from fn_expr parse tree
+ *	从 fn_expr 语法树提取信息的支持例程
  *
- * These are needed by polymorphic functions, which accept multiple possible
- * input types and need help from the parser to know what they've got.
- * Also, some functions might be interested in whether a parameter is constant.
- * Functions taking VARIADIC ANY also need to know about the VARIADIC keyword.
+ * 多态函数需要这些例程；多态函数接受多种可能的
+ * 输入类型，需要解析器帮忙判断收到的是什么。
+ * 此外，有些函数可能想知道某参数是否为常量。
+ * 接受 VARIADIC ANY 的函数还需要知道 VARIADIC 关键字。
  *-------------------------------------------------------------------------
  */
 
 /*
- * Get the actual type OID of the function return type
+ * 获取函数返回类型的实际类型 OID
  *
- * Returns InvalidOid if information is not available
+ * 若信息不可用则返回 InvalidOid
  */
 Oid
 get_fn_expr_rettype(FmgrInfo *flinfo)
@@ -1861,8 +1861,8 @@ get_fn_expr_rettype(FmgrInfo *flinfo)
 	Node	   *expr;
 
 	/*
-	 * can't return anything useful if we have no FmgrInfo or if its fn_expr
-	 * node has not been initialized
+	 * 若没有 FmgrInfo 或其 fn_expr 节点尚未初始化，
+	 * 则无法返回有用信息
 	 */
 	if (!flinfo || !flinfo->fn_expr)
 		return InvalidOid;
@@ -1873,16 +1873,16 @@ get_fn_expr_rettype(FmgrInfo *flinfo)
 }
 
 /*
- * Get the actual type OID of a specific function argument (counting from 0)
+ * 获取指定函数参数（从 0 计）的实际类型 OID
  *
- * Returns InvalidOid if information is not available
+ * 若信息不可用则返回 InvalidOid
  */
 Oid
 get_fn_expr_argtype(FmgrInfo *flinfo, int argnum)
 {
 	/*
-	 * can't return anything useful if we have no FmgrInfo or if its fn_expr
-	 * node has not been initialized
+	 * 若没有 FmgrInfo 或其 fn_expr 节点尚未初始化，
+	 * 则无法返回有用信息
 	 */
 	if (!flinfo || !flinfo->fn_expr)
 		return InvalidOid;
@@ -1891,10 +1891,10 @@ get_fn_expr_argtype(FmgrInfo *flinfo, int argnum)
 }
 
 /*
- * Get the actual type OID of a specific function argument (counting from 0),
- * but working from the calling expression tree instead of FmgrInfo
+ * 获取指定函数参数（从 0 计）的实际类型 OID，
+ * 但改为从调用表达式树入手而非 FmgrInfo
  *
- * Returns InvalidOid if information is not available
+ * 若信息不可用则返回 InvalidOid
  */
 Oid
 get_call_expr_argtype(Node *expr, int argnum)
@@ -1926,8 +1926,8 @@ get_call_expr_argtype(Node *expr, int argnum)
 	argtype = exprType((Node *) list_nth(args, argnum));
 
 	/*
-	 * special hack for ScalarArrayOpExpr: what the underlying function will
-	 * actually get passed is the element type of the array.
+	 * ScalarArrayOpExpr 的特殊处理：底层函数实际
+	 * 收到的是数组的元素类型。
 	 */
 	if (IsA(expr, ScalarArrayOpExpr) &&
 		argnum == 1)
@@ -1937,17 +1937,17 @@ get_call_expr_argtype(Node *expr, int argnum)
 }
 
 /*
- * Find out whether a specific function argument is constant for the
- * duration of a query
+ * 判断某个特定函数参数在查询期间
+ * 是否为常量
  *
- * Returns false if information is not available
+ * 若信息不可用则返回 false
  */
 bool
 get_fn_expr_arg_stable(FmgrInfo *flinfo, int argnum)
 {
 	/*
-	 * can't return anything useful if we have no FmgrInfo or if its fn_expr
-	 * node has not been initialized
+	 * 若没有 FmgrInfo 或其 fn_expr 节点尚未初始化，
+	 * 则无法返回有用信息
 	 */
 	if (!flinfo || !flinfo->fn_expr)
 		return false;
@@ -1956,10 +1956,10 @@ get_fn_expr_arg_stable(FmgrInfo *flinfo, int argnum)
 }
 
 /*
- * Find out whether a specific function argument is constant for the
- * duration of a query, but working from the calling expression tree
+ * 判断某个特定函数参数在查询期间是否为常量，
+ * 但改为从调用表达式树入手
  *
- * Returns false if information is not available
+ * 若信息不可用则返回 false
  */
 bool
 get_call_expr_arg_stable(Node *expr, int argnum)
@@ -1991,9 +1991,9 @@ get_call_expr_arg_stable(Node *expr, int argnum)
 	arg = (Node *) list_nth(args, argnum);
 
 	/*
-	 * Either a true Const or an external Param will have a value that doesn't
-	 * change during the execution of the query.  In future we might want to
-	 * consider other cases too, e.g. now().
+	 * 真正的 Const 或外部 Param 的值在查询执行期间
+	 * 不会变化。将来我们可能还想考虑其他情形，
+	 * 例如 now()。
 	 */
 	if (IsA(arg, Const))
 		return true;
@@ -2005,11 +2005,11 @@ get_call_expr_arg_stable(Node *expr, int argnum)
 }
 
 /*
- * Get the VARIADIC flag from the function invocation
+ * 从函数调用中获取 VARIADIC 标志
  *
- * Returns false (the default assumption) if information is not available
+ * 若信息不可用则返回 false（默认假定）
  *
- * Note this is generally only of interest to VARIADIC ANY functions
+ * 注意这通常只有 VARIADIC ANY 函数会关心
  */
 bool
 get_fn_expr_variadic(FmgrInfo *flinfo)
@@ -2017,8 +2017,8 @@ get_fn_expr_variadic(FmgrInfo *flinfo)
 	Node	   *expr;
 
 	/*
-	 * can't return anything useful if we have no FmgrInfo or if its fn_expr
-	 * node has not been initialized
+	 * 若没有 FmgrInfo 或其 fn_expr 节点尚未初始化，
+	 * 则无法返回有用信息
 	 */
 	if (!flinfo || !flinfo->fn_expr)
 		return false;
@@ -2032,10 +2032,10 @@ get_fn_expr_variadic(FmgrInfo *flinfo)
 }
 
 /*
- * Set options to FmgrInfo of opclass support function.
+ * 设置 opclass 支持函数的 FmgrInfo 选项
  *
- * Opclass support functions are called outside of expressions.  Thanks to that
- * we can use fn_expr to store opclass options as bytea constant.
+ * opclass 支持函数在表达式之外被调用。正因如此，
+ * 我们可以用 fn_expr 把 opclass 选项存为 bytea 常量
  */
 void
 set_fn_opclass_options(FmgrInfo *flinfo, bytea *options)
@@ -2046,7 +2046,7 @@ set_fn_opclass_options(FmgrInfo *flinfo, bytea *options)
 }
 
 /*
- * Check if options are defined for opclass support function.
+ * 检查 opclass 支持函数是否定义了选项。
  */
 bool
 has_fn_opclass_options(FmgrInfo *flinfo)
@@ -2062,7 +2062,7 @@ has_fn_opclass_options(FmgrInfo *flinfo)
 }
 
 /*
- * Get options for opclass support function.
+ * 获取 opclass 支持函数选项。
  */
 bytea *
 get_fn_opclass_options(FmgrInfo *flinfo)
@@ -2083,34 +2083,34 @@ get_fn_opclass_options(FmgrInfo *flinfo)
 }
 
 /*-------------------------------------------------------------------------
- *		Support routines for procedural language implementations
+ *	面向过程语言实现的支持例程
  *-------------------------------------------------------------------------
  */
 
 /*
- * Verify that a validator is actually associated with the language of a
- * particular function and that the user has access to both the language and
- * the function.  All validators should call this before doing anything
- * substantial.  Doing so ensures a user cannot achieve anything with explicit
- * calls to validators that he could not achieve with CREATE FUNCTION or by
- * simply calling an existing function.
+ * 校验验证器确实与特定函数的语言相关联，且用户
+ * 对该语言和该函数都有访问权限。所有验证器都应在
+ * 做任何实质性工作之前调用此函数。这样做能确保
+ * 用户无法通过显式调用验证器做到任何
+ * 用 CREATE FUNCTION 或简单调用现有函数
+ * 都做不到的事。
  *
- * When this function returns false, callers should skip all validation work
- * and call PG_RETURN_VOID().  This never happens at present; it is reserved
- * for future expansion.
+ * 本函数返回 false 时，调用者应跳过全部校验工作
+ * 并调用 PG_RETURN_VOID()。目前这从不发生；保留
+ * 供将来扩展。
  *
- * In particular, checking that the validator corresponds to the function's
- * language allows untrusted language validators to assume they process only
- * superuser-chosen source code.  (Untrusted language call handlers, by
- * definition, do assume that.)  A user lacking the USAGE language privilege
- * would be unable to reach the validator through CREATE FUNCTION, so we check
- * that to block explicit calls as well.  Checking the EXECUTE privilege on
- * the function is often superfluous, because most users can clone the
- * function to get an executable copy.  It is meaningful against users with no
- * database TEMP right and no permanent schema CREATE right, thereby unable to
- * create any function.  Also, if the function tracks persistent state by
- * function OID or name, validating the original function might permit more
- * mischief than creating and validating a clone thereof.
+ * 尤其是校验验证器与函数语言相对应，可以让非可信
+ * 语言的验证器假定自己只处理超级用户选择的源码。
+ * （非可信语言的调用处理程序按定义也如此假定）
+ * 缺少语言 USAGE 特权者无法经 CREATE FUNCTION 到达
+ * 验证器，所以我们也要检查这一点以阻止显式调用。
+ * 检查函数上的 EXECUTE 特权常常是多余的，因为多数
+ * 用户都能克隆函数得到可执行的副本。这一检查对
+ * 没有数据库 TEMP 权限且没有永久模式 CREATE 权限的
+ * 用户才有意义，因为这类用户无法创建任何函数。
+ * 另外，若函数通过函数 OID 或名称跟踪持久状态，
+ * 校验原函数可能比创建并校验其克隆允许
+ * 更多的恶作剧。
  */
 bool
 CheckFunctionValidatorAccess(Oid validatorOid, Oid functionOid)
@@ -2122,8 +2122,8 @@ CheckFunctionValidatorAccess(Oid validatorOid, Oid functionOid)
 	AclResult	aclresult;
 
 	/*
-	 * Get the function's pg_proc entry.  Throw a user-facing error for bad
-	 * OID, because validators can be called with user-specified OIDs.
+	 * 获取函数的 pg_proc 条目。对坏 OID 抛出面向用户
+	 * 的错误，因为验证器可能收到用户指定的 OIDs。
 	 */
 	procTup = SearchSysCache1(PROCOID, ObjectIdGetDatum(functionOid));
 	if (!HeapTupleIsValid(procTup))
@@ -2133,8 +2133,8 @@ CheckFunctionValidatorAccess(Oid validatorOid, Oid functionOid)
 	procStruct = (Form_pg_proc) GETSTRUCT(procTup);
 
 	/*
-	 * Fetch pg_language entry to know if this is the correct validation
-	 * function for that pg_proc entry.
+	 * 获取 pg_language 条目，确认这是该 pg_proc
+	 * 条目对应的校验函数。
 	 */
 	langTup = SearchSysCache1(LANGOID, ObjectIdGetDatum(procStruct->prolang));
 	if (!HeapTupleIsValid(langTup))
@@ -2148,7 +2148,7 @@ CheckFunctionValidatorAccess(Oid validatorOid, Oid functionOid)
 						validatorOid, procStruct->prolang,
 						langStruct->lanvalidator)));
 
-	/* first validate that we have permissions to use the language */
+	/* 先校验我们有权使用该语言 */
 	aclresult = object_aclcheck(LanguageRelationId, procStruct->prolang, GetUserId(),
 								ACL_USAGE);
 	if (aclresult != ACLCHECK_OK)
@@ -2156,9 +2156,9 @@ CheckFunctionValidatorAccess(Oid validatorOid, Oid functionOid)
 					   NameStr(langStruct->lanname));
 
 	/*
-	 * Check whether we are allowed to execute the function itself. If we can
-	 * execute it, there should be no possible side-effect of
-	 * compiling/validation that execution can't have.
+	 * 检查我们是否被允许执行函数本身。如果能执行它，
+	 * 则编译/校验不应有执行做不到的
+	 * 副作用。
 	 */
 	aclresult = object_aclcheck(ProcedureRelationId, functionOid, GetUserId(), ACL_EXECUTE);
 	if (aclresult != ACLCHECK_OK)

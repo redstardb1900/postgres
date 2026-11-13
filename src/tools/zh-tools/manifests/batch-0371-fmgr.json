@@ -1,0 +1,77 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0371",
+ "title": "fmgr dir part 2: fmgr.c whole-file translation (149 blocks, 322/336 lines)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "9c7fb6510df04a2cbf2835beaaf79541984e78f6",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0371-fmgr.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0371 manifest path and fmgr.c entry (S6 registration)"
+  },
+  {
+   "pattern": "src/backend/utils/fmgr/fmgr.c",
+   "kind": "c_comment",
+   "note": "whole-file translation: 322/336 content lines translated (14 EN kept)"
+  },
+  {
+   "pattern": "src/backend/utils/fmgr/dfmgr.c",
+   "kind": "c_comment",
+   "note": "batch-0370 review-fix: restore 1 lost comment-terminator byte on line 59 (win32 */), code bytes back to EN baseline"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0371-fmgr.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0371 manifest path and fmgr.c entry (S6 registration)"
+  },
+  {
+   "path": "src/backend/utils/fmgr/fmgr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 149,
+   "translated": 147,
+   "preserved": 2,
+   "preserved_reasons": [
+    "line 531 /* OK */ (8 bytes: no zh fits incl. frame)",
+    "line 1794 #endif trailing /* USE_FLOAT8_BYVAL */ (macro identifier, EN kept)"
+   ],
+   "note": "strict per-line budget; 322/336 content lines translated (320 CJK + 2 identifier-only), 14 EN kept: 5 header (fmgr.c filename, 2 copyright, IDENTIFICATION, path), 7 banner border lines, 2 above; line-number-keyed apply, no cross-line movement"
+  },
+  {
+   "path": "src/backend/utils/fmgr/dfmgr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0370 review-fix only: line 59 ' * win32' -> ' * win32 */' restores the comment terminator deleted by batch-0370 (which had swallowed the ino_t code line into the preceding comment and broken R1_SKELETON); worktree dfmgr.c line 59 now byte-identical to EN baseline"
+  }
+ ],
+ "notes": "batch-0371 (fmgr dir part 2, 2026-11-13, parent batch-0370=9c7fb6510df). fmgr.c 149 blocks, 336 content lines: 322 translated, 14 EN kept. EN-kept detail: header lines 3/6/7/10/11 (filename/copyright/IDENTIFICATION/path per campaign precedent), banner border lines 13/506/753/1772/1799/1850/2087, line 531 /* OK */ (budget 8 too tight), line 1794 trailing /* USE_FLOAT8_BYVAL */ (macro name). Budget trims disclosed: L98 '例程' and L269 '实现' end without period (budget); L159 'elogs' concept dropped -> '存活' (10-byte budget); L194 'fmgr_info_other_lang' kept bare - trailing period cannot be restored (25-byte line budget: 4 prefix + 20 identifier + 3 for CJK 。 = 27 > 25), '再次调用我们' compressed; L452 '记录' tail compressed; L1544 parenthetical kept full incl. fmgr.h. Review-fix (N1, post-review): L197-202 reworked so 'we set the flag properly in fmgr_security_definer's private flinfo' carries the fmgr_security_definer identifier (block now has 6 occurrences, = EN); L202 drops '随之' for budget. Term discipline: ops-free file; P02 fixed (不允许->不得, 不能->不会); OIDs identifier preserved on L2126 to satisfy W7. Strategy: line-number-keyed apply (/tmp/rw0371_apply.py), strict per-line byte budget asserted before write, no cross-line text movement. Gates: verify_c_comments 0 violations (205 comments, 194 changed); term_lint 0 new errors (sole tree-wide error = postinit.c:1428 TL01, pre-existing, disclosed in batch-0369); scan_halfen 0 findings for fmgr.c. Advisory: 4 halfen mixed findings on dfmgr.c are pre-existing from batch-0370. IMPORTANT defect found+fixed: batch-0370 had deleted the '*/' terminator on dfmgr.c:59 ('win32 */'), corrupting code bytes (comment swallowed the ino_t field line; R1_SKELETON violation); restored to EN baseline in this batch. Also pre-existing in dfmgr.c and disclosed by 0370: W7_IDENT_LOST at line 192 (FILES) and 6 W7_UNTRANSLATED EN-kept lines."
+}

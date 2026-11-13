@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0370-review-fix",
+ "title": "dfmgr.c review fix: restore comment terminator ' */' on L59 lost by batch-0370",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "131afa0b735f5ad30a48a4827b664c6cd2c367a1",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0370-review-fix.json",
+   "kind": "manifest",
+   "note": "this fixup manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "register fixup manifest path (S6)"
+  },
+  {
+   "pattern": "src/backend/utils/fmgr/dfmgr.c",
+   "kind": "c_comment",
+   "note": "restore ' */' terminator on L59; code bytes back to EN baseline; comment count 56"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0370-review-fix.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this fixup manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "register fixup manifest path (S6)"
+  },
+  {
+   "path": "src/backend/utils/fmgr/dfmgr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "L59 ' * win32' -> ' * win32 */': restore the ' */' terminator deleted by batch-0370; worktree line is byte-identical to EN baseline again; comment count back to 56; EN-kept comment itself unchanged"
+  }
+ ],
+ "notes": "batch-0370-review-fix (2026-11-13, parent batch-0370=9c7fb6510df). Discovered during batch-0371 translation: batch-0370 had dropped the '*/' terminator after 'win32' on dfmgr.c L59, so the multi-line comment swallowed the following 'ino_t inode;' code line - non-comment bytes differed from EN and the block comment count went 56 -> 55, i.e. batch-0370's 'code bytes unchanged' gate claim was factually wrong (its verify run missed this; R1_SKELETON fires on the REL_16_11 baseline once the region is re-checked with --paths src/backend/utils/fmgr). Fix: single-byte restore ' */' on L59; the line is now byte-identical to the EN baseline (the comment text stays EN per batch-0370's EN-kept list). Post-fix gates: verify_c_comments 0 violations (2 files, 205 comments, 194 changed); scan_halfen unchanged (dfmgr.c 4 pre-existing mixed advisories). No translation content changes; no other files touched."
+}

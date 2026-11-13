@@ -56,7 +56,7 @@ typedef struct df_files
 	struct df_files *next;		/* List link */
 	dev_t		device;			/* Device file is on */
 #ifndef WIN32					/* ensures we never again depend on this under
-								 * win32
+								 * win32 */
 	ino_t		inode;			/* Inode number of file */
 #endif
 	void	   *handle;			/* a handle for pg_dl* functions */

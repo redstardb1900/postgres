@@ -6306,6 +6306,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0373-error-small.json",
    "kind": "manifest",
    "note": "batch-0373 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0374-elog.json",
+   "kind": "manifest",
+   "note": "batch-0374 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/error/elog.c",
+   "kind": "c_comment",
+   "note": "elog.c whole-file translation (batch-0374); 798/815 lines, 17 EN kept"
   }
  ],
  "files": [
@@ -20567,6 +20577,28 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0373 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0374-elog.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0374 manifest"
+  },
+  {
+   "path": "src/backend/utils/error/elog.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 353,
+   "translated": 341,
+   "preserved": 12,
+   "preserved_reasons": [
+    "12 blocks contain kept-EN lines (L1-54 header, L220, L322-329, L823-828, L1626-1643, L2458, L2568, L3324, L3332, L3337-3341, L3351-3355, L3707-3712); 17 kept lines total: 5 header (L3 filename, L46/L47 copyright, L50 IDENTIFICATION, L51 path per campaign precedent) + 9 identifier/skeleton lines (L220 /* elevel != LOG */, L323/L3708 function-name banners, L825, L1632 code-convention skeleton, L2458/L3324 /* HAVE_SYSLOG */ + L2568/L3332 /* WIN32 */ #endif markers) + 3 budget-forced (L827, L3340, L3354)"
+   ],
+   "note": "whole-file translation (batch-0374): 353 blocks = 341 translated + 12 blocks with kept-EN lines (17 kept lines of 815 content lines: 5 header + 9 identifier/skeleton + 3 budget-forced); line detail in batch-0374-elog.json"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

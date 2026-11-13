@@ -1,0 +1,68 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0374",
+ "title": "error dir elog.c whole-file comment translation (353 blocks, 798/815 content lines translated, 17 EN kept)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "977bacacc2244de9b05324148fc7361075ce03b6",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0374-elog.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0374 manifest path and elog.c entry (S6 registration)"
+  },
+  {
+   "pattern": "src/backend/utils/error/elog.c",
+   "kind": "c_comment",
+   "note": "whole-file translation: 353 blocks = 341 translated + 12 with kept-EN lines; 798/815 content lines translated (17 EN kept)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0374-elog.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0374 manifest path and elog.c entry (S6 registration)"
+  },
+  {
+   "path": "src/backend/utils/error/elog.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 353,
+   "translated": 341,
+   "preserved": 12,
+   "preserved_reasons": [
+    "L3 * elog.c filename, L46/L47 copyright, L50 IDENTIFICATION, L51 path - campaign header precedent",
+    "L220 /* elevel != LOG */ pure identifier expression (no translatable prose)",
+    "L323 * errstart_cold, L3708 * append_with_tabs bare function-name banner lines (identifiers, funcapi.c precedent)",
+    "L825 * backtrace_functions identifier-only continuation of L824 heading",
+    "L827 * See check_backtrace_functions. - zh needs 30 bytes, line budget 28, identifier unshortenable",
+    "L1632 * pre_format_elog_string(errno, domain), var = format_elog_string(format,...) code-convention skeleton (pure identifiers)",
+    "L2458/L3324 #endif /* HAVE_SYSLOG */, L2568/L3332 #endif /* WIN32 */ preprocessor markers (identifier labels)",
+    "L3340/L3354 * stderr. - budget 4 bytes after frame prefix, stderr is 6 bytes; zh sentence closes at L3339/L3353"
+   ],
+   "note": "whole-file translation, line-number-keyed apply: 353 blocks total; 341 blocks fully translated, 12 blocks contain kept-EN lines (L1-54 header, L220, L322-329, L823-828, L1626-1643, L2458, L2568, L3324, L3332, L3337-3341, L3351-3355, L3707-3712; 341+12=353). Line-level detail: 815 comment content lines, 798 translated (792 S-keyed + 6 macro-body comment lines RAW-replaced to preserve trailing backslash), 17 EN kept (breakdown in preserved_reasons); per-line byte budget asserted against the EN whole-line before write; 59 trailing-comment lines handled via the trailing branch (rule 9: tried before doc-prefix regex); frame/block terminators verified unchanged (359 /* and 359 */ before and after), LF count 3831 preserved, non-comment bytes after comment-strip identical to REL_16_11"
+  }
+ ],
+ "notes": "batch-0374 (error dir finale, 2026-11-14, parent batch-0373=977bacacc22). elog.c 3831 lines, dump 353 untranslated blocks / 815 true comment content lines (the naive dump listed ~53 extra macro-body code lines as pseudo-content; those code bytes are untouched - verified by comment-strip comparison). 798 lines translated, 17 EN kept (see preserved_reasons). Notable handling: 6 comment lines inside the EVALUATE_MESSAGE / EVALUATE_MESSAGE_PLURAL macro bodies end with ' */ \\' continuation backslashes and were RAW-replaced whole-line so the backslash survives; zh inside them stays within the EN whole-line budget. Budget trims disclosed (per-line, no cross-line movement): L42/L43 'PANIC）' without trailing period (13-byte line), L601 '子进程' ellipsis dropped (16-byte line), L631 '收尾' period dropped (11-byte line), L878/L953 restructured to put %m at end of L877/L952 so L878/L953 read '当使用它时。' (avoids line-leading % after the old split), L1365 '状态' period dropped (10-byte line), L1703 '受支持' period dropped (14-byte line), L2191 '费事' period dropped (12-byte line), L2858/L2859 '移/过' split on the 12-byte line, L2868 '填充' period dropped (15-byte line), L3420/L3421 '闭嘴。' continuation, L3470-3472 '禁用了/本地化/以确保这一点。）' redistribution, L3711 '插tab' (7-byte budget), L3744/L3745 open/close paren rendered ASCII to stay in budget, L1024-1026 plural-macro signature kept as quoted C literals. Quotes in zh are ASCII throughout (TL11). Term discipline: error=错误, warning=警告, log=日志, severity=严重级别, stack entry=栈条目, backtrace=回溯, recursion=递归, re-entrant=重入, memory context=内存上下文, handler=处理器, ereport/errcode/errmsg/errdetail/errhint/errcontext/errsave/syslogger/GUC names/OID-class identifiers kept EN; no ops/operator tokens in file. Term fixes during gate rounds: 不能→无法 (L1388), 后台工作者进程→后台工作进程 (L1882), 并行工作者→并行工作进程 (L2962), EACCES label 权限被拒绝→权限不足 (L892). Gates: verify_c_comments 0 violations, 0 parse errors (--paths src/backend/utils/error: 4 files, comments=444 changed=433; 9 W7_IDENT_LOST advisory warnings, all on elog.c - L469 'report', L769 'NULLs', L2148/L2223 'check_hook', L2214/L2285/L2294/L2326 'assign_hook', L2377 'newline' - zh equivalents 报告/NULL/检查钩子/赋值钩子/换行符 are present in prose, no code identifier lost; scope note: this W7 count is within --paths src/backend/utils/error only). term_lint: 0 errors on elog.c; 15 advisory warnings remain on elog.c - P70 'primary' x5 (L871/L946/L1063/L1148/L1178: 'primary error message' rendered 主要错误消息, not the pgdoc primary-server sense, judged FP), TL08 x4 (L667/L1112/L2640/L3403: zh already uses 需要 per the rule text, FP), P23 x2 (L667/L2640: zh already matches the recommended 需要一个值 rendering), P24 x2 (L1626/L2523: 预期的 in a different context than the expected-X-got-Y pattern), P07 x2 (L1/L923, empty note), all advisory and disclosed. Tree-wide scan shows 1 error TL01 at src/backend/utils/init/postinit.c:1428 (pre-existing, disclosed in batch-0369, untouched here) plus historical-batch warning noise outside this batch's scope. scan_halfen: 3 findings on elog.c, all class=mixed runs that are quoted C signature literals kept verbatim (L983 \"const char *fmt, ...\", L1025 plural signature, L1632 kept-EN convention line; zh prose complete around them) - disclosed rather than exempted, same treatment as the 42 pre-existing tree-wide findings (dfmgr.c 4, postinit.c 38). Self-checks: seam repeat (prev[-1]==zh[0]) and near-duplicate (CJK LCS>=8) asserted in the apply script; line-leading closing punctuation asserted; LF count and comment-delimiter counts asserted unchanged post-apply. No commit made in this batch; commit is handled by the main session."
+}

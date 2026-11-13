@@ -1,46 +1,46 @@
 /*-------------------------------------------------------------------------
  *
  * elog.c
- *	  error logging and reporting
+ *	  错误日志记录与报告
  *
- * Because of the extremely high rate at which log messages can be generated,
- * we need to be mindful of the performance cost of obtaining any information
- * that may be logged.  Also, it's important to keep in mind that this code may
- * get called from within an aborted transaction, in which case operations
- * such as syscache lookups are unsafe.
+ * 日志消息产生速率极高，
+ * 因此获取任何可能被记录的信息都须注意性能成本，
+ * 另外须谨记，此代码可能在已中止的事务中被调用，
+ * 此时，像 syscache 查找这类操作
+ * 是不安全的。
  *
- * Some notes about recursion and errors during error processing:
+ * 错误处理期间递归与错误的若干说明：
  *
- * We need to be robust about recursive-error scenarios --- for example,
- * if we run out of memory, it's important to be able to report that fact.
- * There are a number of considerations that go into this.
+ * 我们需要对递归错误场景保持健壮 --- 例如，
+ * 如果内存耗尽，我们必须能够报告这一事实。
+ * 这其中有诸多考量因素。
  *
- * First, distinguish between re-entrant use and actual recursion.  It
- * is possible for an error or warning message to be emitted while the
- * parameters for an error message are being computed.  In this case
- * errstart has been called for the outer message, and some field values
- * may have already been saved, but we are not actually recursing.  We handle
- * this by providing a (small) stack of ErrorData records.  The inner message
- * can be computed and sent without disturbing the state of the outer message.
- * (If the inner message is actually an error, this isn't very interesting
- * because control won't come back to the outer message generator ... but
- * if the inner message is only debug or log data, this is critical.)
+ * 首先，区分重入使用与真正的递归。
+ * 在计算某条错误消息的参数期间，也可能发出
+ * 错误或警告消息。在这种情况下，
+ * 外层消息的 errstart 已被调用，且某些字段值
+ * 可能已被保存，但我们并非真正在递归。我们的
+ * 处理办法是提供一个（小的）ErrorData 记录栈。内层
+ * 消息可以在不干扰外层消息状态的情况下计算并发送。
+ * （若内层消息实际是错误，这一点无关紧要，
+ * 因为控制权不会返回外层消息的生成器 ... 但若
+ * 内层消息只是调试或日志数据，这就是关键了。）
  *
- * Second, actual recursion will occur if an error is reported by one of
- * the elog.c routines or something they call.  By far the most probable
- * scenario of this sort is "out of memory"; and it's also the nastiest
- * to handle because we'd likely also run out of memory while trying to
- * report this error!  Our escape hatch for this case is to reset the
- * ErrorContext to empty before trying to process the inner error.  Since
- * ErrorContext is guaranteed to have at least 8K of space in it (see mcxt.c),
- * we should be able to process an "out of memory" message successfully.
- * Since we lose the prior error state due to the reset, we won't be able
- * to return to processing the original error, but we wouldn't have anyway.
- * (NOTE: the escape hatch is not used for recursive situations where the
- * inner message is of less than ERROR severity; in that case we just
- * try to process it and return normally.  Usually this will work, but if
- * it ends up in infinite recursion, we will PANIC due to error stack
- * overflow.)
+ * 其次，如果错误由 elog.c 中的例程或其调用的代码
+ * 报告，则会发生真正的递归。迄今最常见的此类场景
+ * 是"内存耗尽"；这也是最难处理的情况，
+ * 因为尝试报告该错误时很可能同样内存耗尽！
+ * 对此情形，逃生通道是在尝试处理内层错误前
+ * 将 ErrorContext 重置为空。由于
+ * ErrorContext 保证至少有 8K 空间（见 mcxt.c），
+ * 我们应当能成功处理"内存耗尽"消息。
+ * 由于重置会丢失先前的错误状态，我们将无法
+ * 回到对原始错误的处理，反正本来也回不去了。
+ * （注意：对于内层消息严重级别低于 ERROR 的递归
+ * 情况，该逃生通道不被使用；此时我们只管尝试
+ * 处理并正常返回。这通常会奏效，但如果
+ * 最终陷入无限递归，我们将因错误栈溢出而
+ * PANIC）
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -86,12 +86,12 @@
 #include "utils/varlena.h"
 
 
-/* In this module, access gettext() via err_gettext() */
+/* 本模块中经 err_gettext() 访问 gettext() */
 #undef _
 #define _(x) err_gettext(x)
 
 
-/* Global variables */
+/* 全局变量 */
 ErrorContextCallback *error_context_stack = NULL;
 
 sigjmp_buf *PG_exception_stack = NULL;
@@ -99,33 +99,33 @@ sigjmp_buf *PG_exception_stack = NULL;
 extern bool redirection_done;
 
 /*
- * Hook for intercepting messages before they are sent to the server log.
- * Note that the hook will not get called for messages that are suppressed
- * by log_min_messages.  Also note that logging hooks implemented in preload
- * libraries will miss any log messages that are generated before the
- * library is loaded.
+ * 在消息被发送到服务器日志之前拦截消息的钩子。
+ * 注意：被 log_min_messages 抑制的消息不会调用
+ * 该钩子。另注意，预加载库中实现的日志钩子将错过
+ * 库加载之前生成的任何日志
+ * 消息。
  */
 emit_log_hook_type emit_log_hook = NULL;
 
-/* GUC parameters */
+/* GUC 参数 */
 int			Log_error_verbosity = PGERROR_DEFAULT;
-char	   *Log_line_prefix = NULL; /* format for extra log line info */
+char	   *Log_line_prefix = NULL; /* 额外日志行信息的格式 */
 int			Log_destination = LOG_DESTINATION_STDERR;
 char	   *Log_destination_string = NULL;
 bool		syslog_sequence_numbers = true;
 bool		syslog_split_messages = true;
 
-/* Processed form of backtrace_symbols GUC */
+/* backtrace_symbols GUC 处理形式 */
 static char *backtrace_symbol_list;
 
 #ifdef HAVE_SYSLOG
 
 /*
- * Max string length to send to syslog().  Note that this doesn't count the
- * sequence-number prefix we add, and of course it doesn't count the prefix
- * added by syslog itself.  Solaris and sysklogd truncate the final message
- * at 1024 bytes, so this value leaves 124 bytes for those prefixes.  (Most
- * other syslog implementations seem to have limits of 2KB or so.)
+ * 发送给 syslog() 的字符串最大长度。注意这不计入
+ * 我们添加的序号前缀，当然也不计入 syslog 自身
+ * 添加的前缀。Solaris 和 sysklogd 会把最终消息
+ * 截断到 1024 字节，因此该值给这些前缀留出 124 字节。
+ * （其他 syslog 实现的上限似乎在 2KB 左右。）
  */
 #ifndef PG_SYSLOG_LIMIT
 #define PG_SYSLOG_LIMIT 900
@@ -144,18 +144,18 @@ extern char *event_source;
 static void write_eventlog(int level, const char *line, int len);
 #endif
 
-/* We provide a small stack of ErrorData records for re-entrant cases */
+/* 为重入场景提供一个小型 ErrorData 记录栈 */
 #define ERRORDATA_STACK_SIZE  5
 
 static ErrorData errordata[ERRORDATA_STACK_SIZE];
 
-static int	errordata_stack_depth = -1; /* index of topmost active frame */
+static int	errordata_stack_depth = -1; /* 最顶活动帧的索引 */
 
-static int	recursion_depth = 0;	/* to detect actual recursion */
+static int	recursion_depth = 0;	/* 检测真正的递归 */
 
 /*
- * Saved timeval and buffers for formatted timestamps that might be used by
- * both log_line_prefix and csv logs.
+ * 已格式化时间戳的保存 timeval 与缓冲区，可能被
+ * log_line_prefix 与 csvlog 共用
  */
 static struct timeval saved_timeval;
 static bool saved_timeval_set = false;
@@ -165,7 +165,7 @@ static char formatted_start_time[FORMATTED_TS_LEN];
 static char formatted_log_time[FORMATTED_TS_LEN];
 
 
-/* Macro for checking errordata_stack_depth is reasonable */
+/* 检查 errordata_stack_depth 是否合理的宏 */
 #define CHECK_STACK_DEPTH() \
 	do { \
 		if (errordata_stack_depth < 0) \
@@ -195,12 +195,12 @@ static void append_with_tabs(StringInfo buf, const char *str);
 
 
 /*
- * is_log_level_output -- is elevel logically >= log_min_level?
+ * is_log_level_output -- elevel 逻辑上 >= log_min_level？
  *
- * We use this for tests that should consider LOG to sort out-of-order,
- * between ERROR and FATAL.  Generally this is the right thing for testing
- * whether a message should go to the postmaster log, whereas a simple >=
- * test is correct for testing whether the message should go to the client.
+ * 我们把此函数用于认为 LOG 乱序排序的测试，
+ * 即 LOG 排在 ERROR 与 FATAL 之间。通常对测试
+ * 消息是否应进入 postmaster 日志，这是正确做法；
+ * 而测试消息是否应发往客户端时，简单的 >= 测试
  */
 static inline bool
 is_log_level_output(int elevel, int log_min_level)
@@ -212,7 +212,7 @@ is_log_level_output(int elevel, int log_min_level)
 	}
 	else if (elevel == WARNING_CLIENT_ONLY)
 	{
-		/* never sent to log, regardless of log_min_level */
+		/* 不管 log_min_level，均不入日志 */
 		return false;
 	}
 	else if (log_min_level == LOG)
@@ -221,7 +221,7 @@ is_log_level_output(int elevel, int log_min_level)
 		if (elevel >= FATAL)
 			return true;
 	}
-	/* Neither is LOG */
+	/* LOG 亦然 */
 	else if (elevel >= log_min_level)
 		return true;
 
@@ -229,12 +229,12 @@ is_log_level_output(int elevel, int log_min_level)
 }
 
 /*
- * Policy-setting subroutines.  These are fairly simple, but it seems wise
- * to have the code in just one place.
+ * 策略设定子例程。都很简单，但把代码集中在一处
+ * 似乎是明智之举。
  */
 
 /*
- * should_output_to_server --- should message of given elevel go to the log?
+ * should_output_to_server --- 给定 elevel 的消息应进日志吗？
  */
 static inline bool
 should_output_to_server(int elevel)
@@ -243,7 +243,7 @@ should_output_to_server(int elevel)
 }
 
 /*
- * should_output_to_client --- should message of given elevel go to the client?
+ * should_output_to_client --- 给定 elevel 的消息应发给客户端吗？
  */
 static inline bool
 should_output_to_client(int elevel)
@@ -251,10 +251,10 @@ should_output_to_client(int elevel)
 	if (whereToSendOutput == DestRemote && elevel != LOG_SERVER_ONLY)
 	{
 		/*
-		 * client_min_messages is honored only after we complete the
-		 * authentication handshake.  This is required both for security
-		 * reasons and because many clients can't handle NOTICE messages
-		 * during authentication.
+		 * client_min_messages 仅在完成身份认证
+		 * 握手之后才被遵守。这既是出于安全原因，
+		 * 也是因为许多客户端无法处理认证期间的
+		 * NOTICE 消息。
 		 */
 		if (ClientAuthInProgress)
 			return (elevel >= ERROR);
@@ -266,18 +266,18 @@ should_output_to_client(int elevel)
 
 
 /*
- * message_level_is_interesting --- would ereport/elog do anything?
+ * message_level_is_interesting --- ereport/elog 会做事吗？
  *
- * Returns true if ereport/elog with this elevel will not be a no-op.
- * This is useful to short-circuit any expensive preparatory work that
- * might be needed for a logging message.  There is no point in
- * prepending this to a bare ereport/elog call, however.
+ * 若此 elevel 的 ereport/elog 非空操作则返回 true。
+ * 这对于短路日志消息所需的任何昂贵的准备工作
+ * 很有用。但把它前置到裸 ereport/elog 调用之前
+ * 则毫无意义。
  */
 bool
 message_level_is_interesting(int elevel)
 {
 	/*
-	 * Keep this in sync with the decision-making in errstart().
+	 * 保持与 errstart() 中的决策逻辑同步。
 	 */
 	if (elevel >= ERROR ||
 		should_output_to_server(elevel) ||
@@ -288,23 +288,23 @@ message_level_is_interesting(int elevel)
 
 
 /*
- * in_error_recursion_trouble --- are we at risk of infinite error recursion?
+ * in_error_recursion_trouble --- 是否面临无限错误递归之险？
  *
- * This function exists to provide common control of various fallback steps
- * that we take if we think we are facing infinite error recursion.  See the
- * callers for details.
+ * 此函数的存在旨在对各种回退步骤提供共同的控制，
+ * 前提是我们认为自己正面临无限错误递归。
+ * 详见调用方。
  */
 bool
 in_error_recursion_trouble(void)
 {
-	/* Pull the plug if recurse more than once */
+	/* 若再递归则立即中止 */
 	return (recursion_depth > 2);
 }
 
 /*
- * One of those fallback steps is to stop trying to localize the error
- * message, since there's a significant probability that that's exactly
- * what's causing the recursion.
+ * 其中一个回退步骤是停止尝试本地化错误消息，
+ * 因为它本身恰恰很可能就是
+ * 引发递归的原因。
  */
 static inline const char *
 err_gettext(const char *str)
@@ -321,11 +321,11 @@ err_gettext(const char *str)
 
 /*
  * errstart_cold
- *		A simple wrapper around errstart, but hinted to be "cold".  Supporting
- *		compilers are more likely to move code for branches containing this
- *		function into an area away from the calling function's code.  This can
- *		result in more commonly executed code being more compact and fitting
- *		on fewer cache lines.
+ *		对 errstart 的简单包装，但提示为"冷门"。支持
+ *		带此提示的编译器更倾向将含此函数的分支代码
+ *		移到远离调用函数代码的区域。这能让更常执行的
+ *		代码更加紧凑，并占用
+ *		更少缓存行。
  */
 pg_attribute_cold bool
 errstart_cold(int elevel, const char *domain)
@@ -334,14 +334,14 @@ errstart_cold(int elevel, const char *domain)
 }
 
 /*
- * errstart --- begin an error-reporting cycle
+ * errstart --- 开始错误报告周期
  *
- * Create and initialize error stack entry.  Subsequently, errmsg() and
- * perhaps other routines will be called to further populate the stack entry.
- * Finally, errfinish() will be called to actually process the error report.
+ * 创建并初始化错误栈条目。随后将调用 errmsg() 及
+ * 可能还有其他例程来进一步填充该栈条目。最后将调用
+ * errfinish() 来实际处理该错误报告。
  *
- * Returns true in normal case.  Returns false to short-circuit the error
- * report (if it's a warning or lower and not to be reported anywhere).
+ * 正常情况下返回 true。返回 false 则短路错误报告
+ * （若为警告或更低级别且无处可报告）。
  */
 bool
 errstart(int elevel, const char *domain)
@@ -352,29 +352,29 @@ errstart(int elevel, const char *domain)
 	int			i;
 
 	/*
-	 * Check some cases in which we want to promote an error into a more
-	 * severe error.  None of this logic applies for non-error messages.
+	 * 检查想把错误提升为更严重错误的某些情形。
+	 * 这些逻辑均不适用于非错误消息。
 	 */
 	if (elevel >= ERROR)
 	{
 		/*
-		 * If we are inside a critical section, all errors become PANIC
-		 * errors.  See miscadmin.h.
+		 * 若正处于临界区内，所有错误都变成 PANIC
+		 * 错误，见 miscadmin.h
 		 */
 		if (CritSectionCount > 0)
 			elevel = PANIC;
 
 		/*
-		 * Check reasons for treating ERROR as FATAL:
+		 * 检查将 ERROR 视为 FATAL 原因：
 		 *
-		 * 1. we have no handler to pass the error to (implies we are in the
-		 * postmaster or in backend startup).
+		 * 1. 我们没有可传错误的处理器（意味着我们处于
+		 * postmaster 或后端启动中）
 		 *
-		 * 2. ExitOnAnyError mode switch is set (initdb uses this).
+		 * 2. ExitOnAnyError 开关已设置（initdb 用）。
 		 *
-		 * 3. the error occurred after proc_exit has begun to run.  (It's
-		 * proc_exit's responsibility to see that this doesn't turn into
-		 * infinite recursion!)
+		 * 3. 错误发生在 proc_exit 已开始运行之后。（
+		 * proc_exit 有责任确保这不会演变成
+		 * 无限递归！）
 		 */
 		if (elevel == ERROR)
 		{
@@ -385,21 +385,21 @@ errstart(int elevel, const char *domain)
 		}
 
 		/*
-		 * If the error level is ERROR or more, errfinish is not going to
-		 * return to caller; therefore, if there is any stacked error already
-		 * in progress it will be lost.  This is more or less okay, except we
-		 * do not want to have a FATAL or PANIC error downgraded because the
-		 * reporting process was interrupted by a lower-grade error.  So check
-		 * the stack and make sure we panic if panic is warranted.
+		 * 如果错误级别为 ERROR 或更高，errfinish 不会
+		 * 返回调用者；因此若已有栈中错误正在处理，它
+		 * 将会丢失。这基本没问题，只是我们不希望
+		 * 因为报告进程被较低级别的错误中断，而导致
+		 * FATAL 或 PANIC 错误被降级。所以要检查栈，
+		 * 确有必要时确保发生 panic。
 		 */
 		for (i = 0; i <= errordata_stack_depth; i++)
 			elevel = Max(elevel, errordata[i].elevel);
 	}
 
 	/*
-	 * Now decide whether we need to process this report at all; if it's
-	 * warning or less and not enabled for logging, just return false without
-	 * starting up any error logging machinery.
+	 * 现在决定是否真的需要处理此报告；如果它是
+	 * 警告或更低级别且未启用日志记录，直接返回 false，
+	 * 不启动任何错误日志机制。
 	 */
 	output_to_server = should_output_to_server(elevel);
 	output_to_client = should_output_to_client(elevel);
@@ -407,34 +407,34 @@ errstart(int elevel, const char *domain)
 		return false;
 
 	/*
-	 * We need to do some actual work.  Make sure that memory context
-	 * initialization has finished, else we can't do anything useful.
+	 * 需要做些实际工作了。确保内存上下文初始化
+	 * 已经完成，否则我们做不了任何有用的事。
 	 */
 	if (ErrorContext == NULL)
 	{
-		/* Oops, hard crash time; very little we can do safely here */
+		/* 硬崩溃时刻；这里几乎无法安全行事 */
 		write_stderr("error occurred before error message processing is available\n");
 		exit(2);
 	}
 
 	/*
-	 * Okay, crank up a stack entry to store the info in.
+	 * 好，建一个栈条目来存储这些信息。
 	 */
 
 	if (recursion_depth++ > 0 && elevel >= ERROR)
 	{
 		/*
-		 * Oops, error during error processing.  Clear ErrorContext as
-		 * discussed at top of file.  We will not return to the original
-		 * error's reporter or handler, so we don't need it.
+		 * 糟了，错误处理中又出错。按文件头清空
+		 * ErrorContext。我们不会回到原始错误的
+		 * 报告者或处理器，所以不再需要它。
 		 */
 		MemoryContextReset(ErrorContext);
 
 		/*
-		 * Infinite error recursion might be due to something broken in a
-		 * context traceback routine.  Abandon them too.  We also abandon
-		 * attempting to print the error statement (which, if long, could
-		 * itself be the source of the recursive failure).
+		 * 无限错误递归可能因上下文回溯例程损坏。
+		 * 同样放弃它们。我们也放弃尝试打印错误语句
+		 * （如果语句很长，它本身就可能是递归失败的
+		 * 根源）。
 		 */
 		if (in_error_recursion_trouble())
 		{
@@ -443,13 +443,13 @@ errstart(int elevel, const char *domain)
 		}
 	}
 
-	/* Initialize data for this error frame */
+	/* 初始化此错误帧的数据 */
 	edata = get_error_stack_entry();
 	edata->elevel = elevel;
 	edata->output_to_server = output_to_server;
 	edata->output_to_client = output_to_client;
 	set_stack_entry_domain(edata, domain);
-	/* Select default errcode based on elevel */
+	/* 基于 elevel 选择默认 errcode */
 	if (elevel >= ERROR)
 		edata->sqlerrcode = ERRCODE_INTERNAL_ERROR;
 	else if (elevel >= WARNING)
@@ -458,7 +458,7 @@ errstart(int elevel, const char *domain)
 		edata->sqlerrcode = ERRCODE_SUCCESSFUL_COMPLETION;
 
 	/*
-	 * Any allocations for this error state level should go into ErrorContext
+	 * 此错误状态级别下的所有分配都应放入 ErrorContext
 	 */
 	edata->assoc_context = ErrorContext;
 
@@ -467,12 +467,12 @@ errstart(int elevel, const char *domain)
 }
 
 /*
- * errfinish --- end an error-reporting cycle
+ * errfinish --- 结束错误报告周期
  *
- * Produce the appropriate error report(s) and pop the error stack.
+ * 产生适当的错误报告并弹出错误栈。
  *
- * If elevel, as passed to errstart(), is ERROR or worse, control does not
- * return to the caller.  See elog.h for the error level definitions.
+ * 如果传递给 errstart() 的 elevel 为 ERROR 或更严重，
+ * 控制权不会返回调用者。错误级别定义见 elog.h。
  */
 void
 errfinish(const char *filename, int lineno, const char *funcname)
@@ -485,18 +485,18 @@ errfinish(const char *filename, int lineno, const char *funcname)
 	recursion_depth++;
 	CHECK_STACK_DEPTH();
 
-	/* Save the last few bits of error state into the stack entry */
+	/* 将错误状态的最后几位信息存入栈条目 */
 	set_stack_entry_location(edata, filename, lineno, funcname);
 
 	elevel = edata->elevel;
 
 	/*
-	 * Do processing in ErrorContext, which we hope has enough reserved space
-	 * to report an error.
+	 * 在 ErrorContext 中处理，期望其预留空间足以
+	 * 报告错误。
 	 */
 	oldcontext = MemoryContextSwitchTo(ErrorContext);
 
-	/* Collect backtrace, if enabled and we didn't already */
+	/* 若启用且尚未收集，则收集回溯 */
 	if (!edata->backtrace &&
 		edata->funcname &&
 		backtrace_functions &&
@@ -504,9 +504,9 @@ errfinish(const char *filename, int lineno, const char *funcname)
 		set_backtrace(edata, 2);
 
 	/*
-	 * Call any context callback functions.  Errors occurring in callback
-	 * functions will be treated as recursive errors --- this ensures we will
-	 * avoid infinite recursion (see errstart).
+	 * 调用所有上下文回调函数。回调函数中发生的错误
+	 * 将按递归错误处理 --- 这确保我们能避免无限递归
+	 * （见 errstart）。
 	 */
 	for (econtext = error_context_stack;
 		 econtext != NULL;
@@ -514,79 +514,79 @@ errfinish(const char *filename, int lineno, const char *funcname)
 		econtext->callback(econtext->arg);
 
 	/*
-	 * If ERROR (not more nor less) we pass it off to the current handler.
-	 * Printing it and popping the stack is the responsibility of the handler.
+	 * 若为 ERROR（不多不少），则交给当前处理器。
+	 * 打印它并弹出栈是处理器的职责。
 	 */
 	if (elevel == ERROR)
 	{
 		/*
-		 * We do some minimal cleanup before longjmp'ing so that handlers can
-		 * execute in a reasonably sane state.
+		 * 在 longjmp 之前做些最小的清理，以便处理器
+		 * 在较正常的状态下执行。
 		 *
-		 * Reset InterruptHoldoffCount in case we ereport'd from inside an
-		 * interrupt holdoff section.  (We assume here that no handler will
-		 * itself be inside a holdoff section.  If necessary, such a handler
-		 * could save and restore InterruptHoldoffCount for itself, but this
-		 * should make life easier for most.)
+		 * 重置 InterruptHoldoffCount，以防我们从
+		 * 中断保持区内 ereport。此处假设处理器本身
+		 * 不会处于保持区内。必要时，此类处理器可自行
+		 * 保存和恢复 InterruptHoldoffCount，但这应该能让
+		 * 大多数情形更轻松。）
 		 */
 		InterruptHoldoffCount = 0;
 		QueryCancelHoldoffCount = 0;
 
-		CritSectionCount = 0;	/* should be unnecessary, but... */
+		CritSectionCount = 0;	/* 应该不必要，但... */
 
 		/*
-		 * Note that we leave CurrentMemoryContext set to ErrorContext. The
-		 * handler should reset it to something else soon.
+		 * 注意，我们将 CurrentMemoryContext 保持设置为
+		 * ErrorContext。处理器应尽快重置它。
 		 */
 
 		recursion_depth--;
 		PG_RE_THROW();
 	}
 
-	/* Emit the message to the right places */
+	/* 把消息发送到正确的地方 */
 	EmitErrorReport();
 
-	/* Now free up subsidiary data attached to stack entry, and release it */
+	/* 现在释放栈条目附属的数据并释放该条目 */
 	FreeErrorDataContents(edata);
 	errordata_stack_depth--;
 
-	/* Exit error-handling context */
+	/* 退出错误处理上下文 */
 	MemoryContextSwitchTo(oldcontext);
 	recursion_depth--;
 
 	/*
-	 * Perform error recovery action as specified by elevel.
+	 * 按 elevel 的指定执行错误恢复动作。
 	 */
 	if (elevel == FATAL)
 	{
 		/*
-		 * For a FATAL error, we let proc_exit clean up and exit.
+		 * FATAL 错误交给 proc_exit 清理并退出。
 		 *
-		 * If we just reported a startup failure, the client will disconnect
-		 * on receiving it, so don't send any more to the client.
+		 * 若刚报告了启动失败，客户端收到后会断开，
+		 * 所以不要再向客户端发送任何消息。
 		 */
 		if (PG_exception_stack == NULL && whereToSendOutput == DestRemote)
 			whereToSendOutput = DestNone;
 
 		/*
-		 * fflush here is just to improve the odds that we get to see the
-		 * error message, in case things are so hosed that proc_exit crashes.
-		 * Any other code you might be tempted to add here should probably be
-		 * in an on_proc_exit or on_shmem_exit callback instead.
+		 * 这里的 fflush 只是为了提高我们能看到错误消息
+		 * 的几率，以防情况糟糕到 proc_exit 都会崩溃。
+		 * 你可能想在此添加的任何其他代码多半都应该放在
+		 * on_proc_exit 或 on_shmem_exit 回调中。
 		 */
 		fflush(NULL);
 
 		/*
-		 * Let the cumulative stats system know. Only mark the session as
-		 * terminated by fatal error if there is no other known cause.
+		 * 让累计统计系统知情。仅无其他已知原因时，
+		 * 才把会话标记为被致命错误终止。
 		 */
 		if (pgStatSessionEndCause == DISCONNECT_NORMAL)
 			pgStatSessionEndCause = DISCONNECT_FATAL;
 
 		/*
-		 * Do normal process-exit cleanup, then return exit code 1 to indicate
-		 * FATAL termination.  The postmaster may or may not consider this
-		 * worthy of panic, depending on which subprocess returns it.
+		 * 做正常的进程退出清理，然后返回退出码 1 表明
+		 * FATAL 终止。postmaster 可能会也可能不会认为
+		 * 这值得 panic，取决于哪个子进程返回它。
 		 */
 		proc_exit(1);
 	}
@@ -594,41 +594,41 @@ errfinish(const char *filename, int lineno, const char *funcname)
 	if (elevel >= PANIC)
 	{
 		/*
-		 * Serious crash time. Postmaster will observe SIGABRT process exit
-		 * status and kill the other backends too.
+		 * 严重崩溃。postmaster 会观察 SIGABRT 进程退出
+		 * 状态并杀死其余后端。
 		 *
-		 * XXX: what if we are *in* the postmaster?  abort() won't kill our
-		 * children...
+		 * XXX: 若我们就在 postmaster 内呢？abort() 杀不死
+		 * 子进程
 		 */
 		fflush(NULL);
 		abort();
 	}
 
 	/*
-	 * Check for cancel/die interrupt first --- this is so that the user can
-	 * stop a query emitting tons of notice or warning messages, even if it's
-	 * in a loop that otherwise fails to check for interrupts.
+	 * 先检查 cancel/die 中断 --- 这样用户就可以停止
+	 * 一条发出大量通知或警告消息的查询，即使它所在的
+	 * 循环通常未能检查中断。
 	 */
 	CHECK_FOR_INTERRUPTS();
 }
 
 
 /*
- * errsave_start --- begin a "soft" error-reporting cycle
+ * errsave_start --- 开始"软"错误报告周期
  *
- * If "context" isn't an ErrorSaveContext node, this behaves as
- * errstart(ERROR, domain), and the errsave() macro ends up acting
- * exactly like ereport(ERROR, ...).
+ * 若"context"不是 ErrorSaveContext 节点，行为同
+ * errstart(ERROR, domain)，errsave() 宏最终表现得
+ * 完全等同 ereport(ERROR, ...)
  *
- * If "context" is an ErrorSaveContext node, but the node creator only wants
- * notification of the fact of a soft error without any details, we just set
- * the error_occurred flag in the ErrorSaveContext node and return false,
- * which will cause us to skip the remaining error processing steps.
+ * 若"context"是 ErrorSaveContext 节点，但节点创建者只想
+ * 获知软错误事实的通知而不要任何细节，我们只需
+ * 设置 ErrorSaveContext 节点中的 error_occurred 标志并返回
+ * false，这将使我们跳过其余的错误处理步骤。
  *
- * Otherwise, create and initialize error stack entry and return true.
- * Subsequently, errmsg() and perhaps other routines will be called to further
- * populate the stack entry.  Finally, errsave_finish() will be called to
- * tidy up.
+ * 否则，创建并初始化错误栈条目并返回 true。
+ * 随后将调用 errmsg() 或许还有其他例程来进一步
+ * 填充该栈条目。最后将调用 errsave_finish() 来
+ * 收尾
  */
 bool
 errsave_start(struct Node *context, const char *domain)
@@ -637,37 +637,37 @@ errsave_start(struct Node *context, const char *domain)
 	ErrorData  *edata;
 
 	/*
-	 * Do we have a context for soft error reporting?  If not, just punt to
-	 * errstart().
+	 * 我们有软错误报告的 context 吗？若无，直接转给
+	 * errstart()
 	 */
 	if (context == NULL || !IsA(context, ErrorSaveContext))
 		return errstart(ERROR, domain);
 
-	/* Report that a soft error was detected */
+	/* 报告检测到软错误 */
 	escontext = (ErrorSaveContext *) context;
 	escontext->error_occurred = true;
 
-	/* Nothing else to do if caller wants no further details */
+	/* 若调用者不需要更多细节，则无事可做 */
 	if (!escontext->details_wanted)
 		return false;
 
 	/*
-	 * Okay, crank up a stack entry to store the info in.
+	 * 好，建一个栈条目来存储这些信息。
 	 */
 
 	recursion_depth++;
 
-	/* Initialize data for this error frame */
+	/* 初始化此错误帧的数据 */
 	edata = get_error_stack_entry();
-	edata->elevel = LOG;		/* signal all is well to errsave_finish */
+	edata->elevel = LOG;		/* 告知 errsave_finish 一切正常 */
 	set_stack_entry_domain(edata, domain);
-	/* Select default errcode based on the assumed elevel of ERROR */
+	/* 基于假定的 ERROR elevel 选择默认 errcode */
 	edata->sqlerrcode = ERRCODE_INTERNAL_ERROR;
 
 	/*
-	 * Any allocations for this error state level should go into the caller's
-	 * context.  We don't need to pollute ErrorContext, or even require it to
-	 * exist, in this code path.
+	 * 此错误状态级别的所有分配都应放入调用者上下文。
+	 * 我们不需要污染 ErrorContext，甚至在此代码路径中
+	 * 也不要求它存在。
 	 */
 	edata->assoc_context = CurrentMemoryContext;
 
@@ -676,11 +676,11 @@ errsave_start(struct Node *context, const char *domain)
 }
 
 /*
- * errsave_finish --- end a "soft" error-reporting cycle
+ * errsave_finish --- 结束"软"错误报告周期
  *
- * If errsave_start() decided this was a regular error, behave as
- * errfinish().  Otherwise, package up the error details and save
- * them in the ErrorSaveContext node.
+ * 若 errsave_start() 判定这是常规错误，则行为同
+ * errfinish()。否则，打包错误细节并将其保存
+ * 至 ErrorSaveContext 节点。
  */
 void
 errsave_finish(struct Node *context, const char *filename, int lineno,
@@ -689,12 +689,12 @@ errsave_finish(struct Node *context, const char *filename, int lineno,
 	ErrorSaveContext *escontext = (ErrorSaveContext *) context;
 	ErrorData  *edata = &errordata[errordata_stack_depth];
 
-	/* verify stack depth before accessing *edata */
+	/* 访问 *edata 前验证栈深度 */
 	CHECK_STACK_DEPTH();
 
 	/*
-	 * If errsave_start punted to errstart, then elevel will be ERROR or
-	 * perhaps even PANIC.  Punt likewise to errfinish.
+	 * 若 errsave_start 转给了 errstart，则 elevel 将是
+	 * ERROR 甚或 PANIC。同样转给 errfinish
 	 */
 	if (edata->elevel >= ERROR)
 	{
@@ -703,98 +703,98 @@ errsave_finish(struct Node *context, const char *filename, int lineno,
 	}
 
 	/*
-	 * Else, we should package up the stack entry contents and deliver them to
-	 * the caller.
+	 * 否则，我们应打包栈条目内容并将其交付给
+	 * 调用方
 	 */
 	recursion_depth++;
 
-	/* Save the last few bits of error state into the stack entry */
+	/* 将错误状态的最后几位信息存入栈条目 */
 	set_stack_entry_location(edata, filename, lineno, funcname);
 
-	/* Replace the LOG value that errsave_start inserted */
+	/* 替换 errsave_start 插入的 LOG 值 */
 	edata->elevel = ERROR;
 
 	/*
-	 * We skip calling backtrace and context functions, which are more likely
-	 * to cause trouble than provide useful context; they might act on the
-	 * assumption that a transaction abort is about to occur.
+	 * 我们跳过回溯与上下文函数的调用，它们惹麻烦的
+	 * 可能性比提供有用上下文更大；它们可能基于
+	 * 事务即将中止的假设而行动。
 	 */
 
 	/*
-	 * Make a copy of the error info for the caller.  All the subsidiary
-	 * strings are already in the caller's context, so it's sufficient to
-	 * flat-copy the stack entry.
+	 * 为调用者复制一份错误信息。所有附属字符串都
+	 * 已在调用者的上下文中，因此对栈条目做平拷贝
+	 * 就够了。
 	 */
 	escontext->error_data = palloc_object(ErrorData);
 	memcpy(escontext->error_data, edata, sizeof(ErrorData));
 
-	/* Exit error-handling context */
+	/* 退出错误处理上下文 */
 	errordata_stack_depth--;
 	recursion_depth--;
 }
 
 
 /*
- * get_error_stack_entry --- allocate and initialize a new stack entry
+ * get_error_stack_entry --- 分配并初始化新的栈条目
  *
- * The entry should be freed, when we're done with it, by calling
- * FreeErrorDataContents() and then decrementing errordata_stack_depth.
+ * 用完后应通过调用 FreeErrorDataContents() 并递减
+ * errordata_stack_depth 来释放该条目。
  *
- * Returning the entry's address is just a notational convenience,
- * since it had better be errordata[errordata_stack_depth].
+ * 返回条目的地址只是记法上的便利，
+ * 其最好是 errordata[errordata_stack_depth]。
  *
- * Although the error stack is not large, we don't expect to run out of space.
- * Using more than one entry implies a new error report during error recovery,
- * which is possible but already suggests we're in trouble.  If we exhaust the
- * stack, almost certainly we are in an infinite loop of errors during error
- * recovery, so we give up and PANIC.
+ * 虽然错误栈不大，但我们不预期会耗尽空间。使用多个
+ * 条目意味着错误恢复期间又产生了新的错误报告，
+ * 这有可能但已表明我们有麻烦了。如果耗尽了栈，
+ * 几乎可以肯定我们陷入了错误恢复期间的错误无限
+ * 循环，放弃并 PANIC。
  *
- * (Note that this is distinct from the recursion_depth checks, which
- * guard against recursion while handling a single stack entry.)
+ * （注意这不同于 recursion_depth 检查，后者防范
+ * 的是处理单个栈条目期间的递归。）
  */
 static ErrorData *
 get_error_stack_entry(void)
 {
 	ErrorData  *edata;
 
-	/* Allocate error frame */
+	/* 分配错误帧 */
 	errordata_stack_depth++;
 	if (unlikely(errordata_stack_depth >= ERRORDATA_STACK_SIZE))
 	{
-		/* Wups, stack not big enough */
-		errordata_stack_depth = -1; /* make room on stack */
+		/* 糟了，栈不够大 */
+		errordata_stack_depth = -1; /* 在栈上腾空间 */
 		ereport(PANIC, (errmsg_internal("ERRORDATA_STACK_SIZE exceeded")));
 	}
 
-	/* Initialize error frame to all zeroes/NULLs */
+	/* 将错误帧初始化为全零/NULL */
 	edata = &errordata[errordata_stack_depth];
 	memset(edata, 0, sizeof(ErrorData));
 
-	/* Save errno immediately to ensure error parameter eval can't change it */
+	/* 立即保存 errno，确保错误参数求值无法改变它 */
 	edata->saved_errno = errno;
 
 	return edata;
 }
 
 /*
- * set_stack_entry_domain --- fill in the internationalization domain
+ * set_stack_entry_domain --- 填入国际化域
  */
 static void
 set_stack_entry_domain(ErrorData *edata, const char *domain)
 {
-	/* the default text domain is the backend's */
+	/* 默认文本域是后端的 */
 	edata->domain = domain ? domain : PG_TEXTDOMAIN("postgres");
-	/* initialize context_domain the same way (see set_errcontext_domain()) */
+	/* 同法初始化 context_domain（见 set_errcontext_domain()） */
 	edata->context_domain = edata->domain;
 }
 
 /*
- * set_stack_entry_location --- fill in code-location details
+ * set_stack_entry_location --- 填入代码位置细节
  *
- * Store the values of __FILE__, __LINE__, and __func__ from the call site.
- * We make an effort to normalize __FILE__, since compilers are inconsistent
- * about how much of the path they'll include, and we'd prefer that the
- * behavior not depend on that (especially, that it not vary with build path).
+ * 保存调用点的 __FILE__、__LINE__ 和 __func__ 值。
+ * 我们尽力规范化 __FILE__，因为各编译器包含多少
+ * 路径成分并不一致，而我们希望行为不依赖于此
+ * （尤其是不随构建路径而变）。
  */
 static void
 set_stack_entry_location(ErrorData *edata,
@@ -805,11 +805,11 @@ set_stack_entry_location(ErrorData *edata,
 	{
 		const char *slash;
 
-		/* keep only base name, useful especially for vpath builds */
+		/* 只保留基本名，对 vpath 构建尤其有用 */
 		slash = strrchr(filename, '/');
 		if (slash)
 			filename = slash + 1;
-		/* Some Windows compilers use backslashes in __FILE__ strings */
+		/* 一些 Windows 编译器在 __FILE__ 串中使用反斜杠 */
 		slash = strrchr(filename, '\\');
 		if (slash)
 			filename = slash + 1;
@@ -821,7 +821,7 @@ set_stack_entry_location(ErrorData *edata,
 }
 
 /*
- * matches_backtrace_functions --- checks whether the given funcname matches
+ * matches_backtrace_functions --- 检查给定 funcname 是否
  * backtrace_functions
  *
  * See check_backtrace_functions.
@@ -837,7 +837,7 @@ matches_backtrace_functions(const char *funcname)
 	p = backtrace_symbol_list;
 	for (;;)
 	{
-		if (*p == '\0')			/* end of backtrace_symbol_list */
+		if (*p == '\0')			/* backtrace_symbol_list 结束 */
 			break;
 
 		if (strcmp(funcname, p) == 0)
@@ -850,149 +850,149 @@ matches_backtrace_functions(const char *funcname)
 
 
 /*
- * errcode --- add SQLSTATE error code to the current error
+ * errcode --- 给错误添加 SQLSTATE 错误码
  *
- * The code is expected to be represented as per MAKE_SQLSTATE().
+ * 该码应按 MAKE_SQLSTATE() 的表示形式给出。
  */
 int
 errcode(int sqlerrcode)
 {
 	ErrorData  *edata = &errordata[errordata_stack_depth];
 
-	/* we don't bother incrementing recursion_depth */
+	/* 不必费心递增 recursion_depth */
 	CHECK_STACK_DEPTH();
 
 	edata->sqlerrcode = sqlerrcode;
 
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 
 /*
- * errcode_for_file_access --- add SQLSTATE error code to the current error
+ * errcode_for_file_access --- 给错误添加 SQLSTATE 错误码
  *
- * The SQLSTATE code is chosen based on the saved errno value.  We assume
- * that the failing operation was some type of disk file access.
+ * SQLSTATE 码根据保存的 errno 值选择。我们假定
+ * 失败的操作是某种磁盘文件访问。
  *
- * NOTE: the primary error message string should generally include %m
- * when this is used.
+ * 注意：主要错误消息串一般应包含 %m，
+ * 当使用它时。
  */
 int
 errcode_for_file_access(void)
 {
 	ErrorData  *edata = &errordata[errordata_stack_depth];
 
-	/* we don't bother incrementing recursion_depth */
+	/* 不必费心递增 recursion_depth */
 	CHECK_STACK_DEPTH();
 
 	switch (edata->saved_errno)
 	{
-			/* Permission-denied failures */
-		case EPERM:				/* Not super-user */
-		case EACCES:			/* Permission denied */
+			/* 权限被拒类失败 */
+		case EPERM:				/* 非root用户 */
+		case EACCES:			/* 权限不足 */
 #ifdef EROFS
-		case EROFS:				/* Read only file system */
+		case EROFS:				/* 只读文件系统 */
 #endif
 			edata->sqlerrcode = ERRCODE_INSUFFICIENT_PRIVILEGE;
 			break;
 
-			/* File not found */
-		case ENOENT:			/* No such file or directory */
+			/* 无此文件 */
+		case ENOENT:			/* 无此文件或目录 */
 			edata->sqlerrcode = ERRCODE_UNDEFINED_FILE;
 			break;
 
-			/* Duplicate file */
-		case EEXIST:			/* File exists */
+			/* 文件重复 */
+		case EEXIST:			/* 已存在 */
 			edata->sqlerrcode = ERRCODE_DUPLICATE_FILE;
 			break;
 
-			/* Wrong object type or state */
-		case ENOTDIR:			/* Not a directory */
-		case EISDIR:			/* Is a directory */
-#if defined(ENOTEMPTY) && (ENOTEMPTY != EEXIST) /* same code on AIX */
-		case ENOTEMPTY:			/* Directory not empty */
+			/* 对象类型/状态错误 */
+		case ENOTDIR:			/* 非目录 */
+		case EISDIR:			/* 是目录 */
+#if defined(ENOTEMPTY) && (ENOTEMPTY != EEXIST) /* AIX 上同码 */
+		case ENOTEMPTY:			/* 目录非空 */
 #endif
 			edata->sqlerrcode = ERRCODE_WRONG_OBJECT_TYPE;
 			break;
 
-			/* Insufficient resources */
-		case ENOSPC:			/* No space left on device */
+			/* 资源不足 */
+		case ENOSPC:			/* 设备无剩余空间 */
 			edata->sqlerrcode = ERRCODE_DISK_FULL;
 			break;
 
-		case ENOMEM:			/* Out of memory */
+		case ENOMEM:			/* 内存耗尽 */
 			edata->sqlerrcode = ERRCODE_OUT_OF_MEMORY;
 			break;
 
-		case ENFILE:			/* File table overflow */
-		case EMFILE:			/* Too many open files */
+		case ENFILE:			/* 文件表溢出 */
+		case EMFILE:			/* 打开文件过多 */
 			edata->sqlerrcode = ERRCODE_INSUFFICIENT_RESOURCES;
 			break;
 
-			/* Hardware failure */
-		case EIO:				/* I/O error */
+			/* 硬件故障 */
+		case EIO:				/* I/O错误 */
 			edata->sqlerrcode = ERRCODE_IO_ERROR;
 			break;
 
-			/* All else is classified as internal errors */
+			/* 其余全部归类为内部错误 */
 		default:
 			edata->sqlerrcode = ERRCODE_INTERNAL_ERROR;
 			break;
 	}
 
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 /*
- * errcode_for_socket_access --- add SQLSTATE error code to the current error
+ * errcode_for_socket_access --- 给错误添加 SQLSTATE 错误码
  *
- * The SQLSTATE code is chosen based on the saved errno value.  We assume
- * that the failing operation was some type of socket access.
+ * SQLSTATE 码根据保存的 errno 值选择。我们假定
+ * 失败的操作是某种套接字访问。
  *
- * NOTE: the primary error message string should generally include %m
- * when this is used.
+ * 注意：主要错误消息串一般应包含 %m，
+ * 当使用它时。
  */
 int
 errcode_for_socket_access(void)
 {
 	ErrorData  *edata = &errordata[errordata_stack_depth];
 
-	/* we don't bother incrementing recursion_depth */
+	/* 不必费心递增 recursion_depth */
 	CHECK_STACK_DEPTH();
 
 	switch (edata->saved_errno)
 	{
-			/* Loss of connection */
+			/* 连接丢失 */
 		case ALL_CONNECTION_FAILURE_ERRNOS:
 			edata->sqlerrcode = ERRCODE_CONNECTION_FAILURE;
 			break;
 
-			/* All else is classified as internal errors */
+			/* 其余全部归类为内部错误 */
 		default:
 			edata->sqlerrcode = ERRCODE_INTERNAL_ERROR;
 			break;
 	}
 
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 
 /*
- * This macro handles expansion of a format string and associated parameters;
- * it's common code for errmsg(), errdetail(), etc.  Must be called inside
- * a routine that is declared like "const char *fmt, ..." and has an edata
- * pointer set up.  The message is assigned to edata->targetfield, or
- * appended to it if appendval is true.  The message is subject to translation
- * if translateit is true.
+ * 该宏处理格式串及其相关参数的展开；
+ * 它是 errmsg()、errdetail() 等的公共代码。必须在
+ * 声明类似 "const char *fmt, ..." 且已设置 edata
+ * 指针例程内调用。消息被赋给 edata->targetfield，
+ * 或当 appendval 为 true 时追加到其上。若 translateit
+ * 为 true 则翻译
  *
- * Note: we pstrdup the buffer rather than just transferring its storage
- * to the edata field because the buffer might be considerably larger than
- * really necessary.
+ * 注意：我们 pstrdup 缓冲区而不是直接移交其存储，
+ * 到 edata 字段，因为缓冲区可能远大于
+ * 所需大小。
  */
 #define EVALUATE_MESSAGE(domain, targetfield, appendval, translateit)	\
 	{ \
 		StringInfoData	buf; \
-		/* Internationalize the error format string */ \
+		/* 国际化错误格式串 */ \
 		if ((translateit) && !in_error_recursion_trouble()) \
 			fmt = dgettext((domain), fmt);				  \
 		initStringInfo(&buf); \
@@ -1000,7 +1000,7 @@ errcode_for_socket_access(void)
 			appendStringInfoString(&buf, edata->targetfield); \
 			appendStringInfoChar(&buf, '\n'); \
 		} \
-		/* Generate actual output --- have to use appendStringInfoVA */ \
+		/* 生成实际输出 --- 必须使用 appendStringInfoVA */ \
 		for (;;) \
 		{ \
 			va_list		args; \
@@ -1013,7 +1013,7 @@ errcode_for_socket_access(void)
 				break; \
 			enlargeStringInfo(&buf, needed); \
 		} \
-		/* Save the completed message into the stack item */ \
+		/* 将完成的消息保存到栈条目中 */ \
 		if (edata->targetfield) \
 			pfree(edata->targetfield); \
 		edata->targetfield = pstrdup(buf.data); \
@@ -1021,15 +1021,15 @@ errcode_for_socket_access(void)
 	}
 
 /*
- * Same as above, except for pluralized error messages.  The calling routine
- * must be declared like "const char *fmt_singular, const char *fmt_plural,
- * unsigned long n, ...".  Translation is assumed always wanted.
+ * 同上，但用于复数形式的错误消息。调用例程必须声明
+ * 成 "const char *fmt_singular, const char *fmt_plural,
+ * unsigned long n, ..."。假定总是需要翻译。
  */
 #define EVALUATE_MESSAGE_PLURAL(domain, targetfield, appendval)  \
 	{ \
 		const char	   *fmt; \
 		StringInfoData	buf; \
-		/* Internationalize the error format string */ \
+		/* 国际化错误格式串 */ \
 		if (!in_error_recursion_trouble()) \
 			fmt = dngettext((domain), fmt_singular, fmt_plural, n); \
 		else \
@@ -1039,7 +1039,7 @@ errcode_for_socket_access(void)
 			appendStringInfoString(&buf, edata->targetfield); \
 			appendStringInfoChar(&buf, '\n'); \
 		} \
-		/* Generate actual output --- have to use appendStringInfoVA */ \
+		/* 生成实际输出 --- 必须使用 appendStringInfoVA */ \
 		for (;;) \
 		{ \
 			va_list		args; \
@@ -1052,7 +1052,7 @@ errcode_for_socket_access(void)
 				break; \
 			enlargeStringInfo(&buf, needed); \
 		} \
-		/* Save the completed message into the stack item */ \
+		/* 将完成的消息保存到栈条目中 */ \
 		if (edata->targetfield) \
 			pfree(edata->targetfield); \
 		edata->targetfield = pstrdup(buf.data); \
@@ -1061,13 +1061,13 @@ errcode_for_socket_access(void)
 
 
 /*
- * errmsg --- add a primary error message text to the current error
+ * errmsg --- 向当前错误添加主要错误消息文本
  *
- * In addition to the usual %-escapes recognized by printf, "%m" in
- * fmt is replaced by the error message for the caller's value of errno.
+ * 除了 printf 识别的常规 %-转义之外，fmt 中的
+ * "%m" 将替换为调用者 errno 对应的错误消息。
  *
- * Note: no newline is needed at the end of the fmt string, since
- * ereport will provide one for the output methods that need it.
+ * 注意：fmt 串尾不需要换行符，因为 ereport 会
+ * 为需要它的输出方法提供换行。
  */
 int
 errmsg(const char *fmt,...)
@@ -1084,12 +1084,12 @@ errmsg(const char *fmt,...)
 
 	MemoryContextSwitchTo(oldcontext);
 	recursion_depth--;
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 /*
- * Add a backtrace to the containing ereport() call.  This is intended to be
- * added temporarily during debugging.
+ * 向所在 ereport() 调用添加回溯。旨在调试期间
+ * 临时添加。
  */
 int
 errbacktrace(void)
@@ -1110,10 +1110,10 @@ errbacktrace(void)
 }
 
 /*
- * Compute backtrace data and add it to the supplied ErrorData.  num_skip
- * specifies how many inner frames to skip.  Use this to avoid showing the
- * internal backtrace support functions in the backtrace.  This requires that
- * this and related functions are not inlined.
+ * 计算回溯数据并将其添加到给定的 ErrorData。num_skip
+ * 指定要跳过的内层帧数。用它来避免在回溯中显示
+ * 内部回溯支持函数。这要求本函数及相关函数
+ * 不被内联。
  */
 static void
 set_backtrace(ErrorData *edata, int num_skip)
@@ -1146,15 +1146,15 @@ set_backtrace(ErrorData *edata, int num_skip)
 }
 
 /*
- * errmsg_internal --- add a primary error message text to the current error
+ * errmsg_internal --- 向当前错误添加主要错误消息文本
  *
- * This is exactly like errmsg() except that strings passed to errmsg_internal
- * are not translated, and are customarily left out of the
- * internationalization message dictionary.  This should be used for "can't
- * happen" cases that are probably not worth spending translation effort on.
- * We also use this for certain cases where we *must* not try to translate
- * the message because the translation would fail and result in infinite
- * error recursion.
+ * 这与 errmsg() 完全相同，但传给 errmsg_internal 的
+ * 字符串不被翻译，且通常被排除在
+ * 国际化消息字典之外。这应用于"不可能发生"的
+ * 情形，这些情形可能不值得花费翻译精力。我们也将其
+ * 用于某些我们*绝*不能尝试翻译消息的情形，因为
+ * 翻译会失败并导致无限的
+ * 错误递归。
  */
 int
 errmsg_internal(const char *fmt,...)
@@ -1171,13 +1171,13 @@ errmsg_internal(const char *fmt,...)
 
 	MemoryContextSwitchTo(oldcontext);
 	recursion_depth--;
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 
 /*
- * errmsg_plural --- add a primary error message text to the current error,
- * with support for pluralization of the message text
+ * errmsg_plural --- 向当前错误添加主要错误消息文本，
+ * 并支持消息文本的复数形式
  */
 int
 errmsg_plural(const char *fmt_singular, const char *fmt_plural,
@@ -1195,12 +1195,12 @@ errmsg_plural(const char *fmt_singular, const char *fmt_plural,
 
 	MemoryContextSwitchTo(oldcontext);
 	recursion_depth--;
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 
 /*
- * errdetail --- add a detail error message text to the current error
+ * errdetail --- 向当前错误添加细节错误消息文本
  */
 int
 errdetail(const char *fmt,...)
@@ -1216,18 +1216,18 @@ errdetail(const char *fmt,...)
 
 	MemoryContextSwitchTo(oldcontext);
 	recursion_depth--;
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 
 /*
- * errdetail_internal --- add a detail error message text to the current error
+ * errdetail_internal --- 向当前错误添加细节错误消息文本
  *
- * This is exactly like errdetail() except that strings passed to
- * errdetail_internal are not translated, and are customarily left out of the
- * internationalization message dictionary.  This should be used for detail
- * messages that seem not worth translating for one reason or another
- * (typically, that they don't seem to be useful to average users).
+ * 这与 errdetail() 完全相同，但传给
+ * errdetail_internal 的串不被翻译，通常被排除在
+ * 国际化消息字典之外。这应用于因某种原因似乎不值
+ * 得翻译的细节消息
+ * （通常是对普通用户没什么用处）。
  */
 int
 errdetail_internal(const char *fmt,...)
@@ -1243,12 +1243,12 @@ errdetail_internal(const char *fmt,...)
 
 	MemoryContextSwitchTo(oldcontext);
 	recursion_depth--;
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 
 /*
- * errdetail_log --- add a detail_log error message text to the current error
+ * errdetail_log --- 向当前错误添加 detail_log 错误消息文本
  */
 int
 errdetail_log(const char *fmt,...)
@@ -1264,12 +1264,12 @@ errdetail_log(const char *fmt,...)
 
 	MemoryContextSwitchTo(oldcontext);
 	recursion_depth--;
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 /*
- * errdetail_log_plural --- add a detail_log error message text to the current error
- * with support for pluralization of the message text
+ * errdetail_log_plural --- 向当前错误添加 detail_log 错误消息文本，
+ * 并支持消息文本的复数形式
  */
 int
 errdetail_log_plural(const char *fmt_singular, const char *fmt_plural,
@@ -1286,13 +1286,13 @@ errdetail_log_plural(const char *fmt_singular, const char *fmt_plural,
 
 	MemoryContextSwitchTo(oldcontext);
 	recursion_depth--;
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 
 /*
- * errdetail_plural --- add a detail error message text to the current error,
- * with support for pluralization of the message text
+ * errdetail_plural --- 向当前错误添加细节错误消息文本，
+ * 并支持消息文本的复数形式
  */
 int
 errdetail_plural(const char *fmt_singular, const char *fmt_plural,
@@ -1309,12 +1309,12 @@ errdetail_plural(const char *fmt_singular, const char *fmt_plural,
 
 	MemoryContextSwitchTo(oldcontext);
 	recursion_depth--;
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 
 /*
- * errhint --- add a hint error message text to the current error
+ * errhint --- 向当前错误添加提示错误消息文本
  */
 int
 errhint(const char *fmt,...)
@@ -1330,13 +1330,13 @@ errhint(const char *fmt,...)
 
 	MemoryContextSwitchTo(oldcontext);
 	recursion_depth--;
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 
 /*
- * errhint_plural --- add a hint error message text to the current error,
- * with support for pluralization of the message text
+ * errhint_plural --- 向当前错误添加提示错误消息文本，
+ * 并支持消息文本的复数形式
  */
 int
 errhint_plural(const char *fmt_singular, const char *fmt_plural,
@@ -1353,16 +1353,16 @@ errhint_plural(const char *fmt_singular, const char *fmt_plural,
 
 	MemoryContextSwitchTo(oldcontext);
 	recursion_depth--;
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 
 /*
- * errcontext_msg --- add a context error message text to the current error
+ * errcontext_msg --- 向当前错误添加上下文错误消息文本
  *
- * Unlike other cases, multiple calls are allowed to build up a stack of
- * context information.  We assume earlier calls represent more-closely-nested
- * states.
+ * 与其他情形不同，这里允许多次调用以构建一个
+ * 上下文信息栈。我们假定较早的调用代表更深层
+ * 状态
  */
 int
 errcontext_msg(const char *fmt,...)
@@ -1378,115 +1378,115 @@ errcontext_msg(const char *fmt,...)
 
 	MemoryContextSwitchTo(oldcontext);
 	recursion_depth--;
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 /*
- * set_errcontext_domain --- set message domain to be used by errcontext()
+ * set_errcontext_domain --- 设置 errcontext() 使用的
  *
- * errcontext_msg() can be called from a different module than the original
- * ereport(), so we cannot use the message domain passed in errstart() to
- * translate it.  Instead, each errcontext_msg() call should be preceded by
- * a set_errcontext_domain() call to specify the domain.  This is usually
- * done transparently by the errcontext() macro.
+ * errcontext_msg() 可由与原始 ereport() 不同的模块
+ * 调用，所以我们无法用 errstart() 传入的消息域来
+ * 翻译它。相反，每个 errcontext_msg() 调用之前都应
+ * 由 set_errcontext_domain() 调用指定域。这通常
+ * 由 errcontext() 宏透明完成。
  */
 int
 set_errcontext_domain(const char *domain)
 {
 	ErrorData  *edata = &errordata[errordata_stack_depth];
 
-	/* we don't bother incrementing recursion_depth */
+	/* 不必费心递增 recursion_depth */
 	CHECK_STACK_DEPTH();
 
-	/* the default text domain is the backend's */
+	/* 默认文本域是后端的 */
 	edata->context_domain = domain ? domain : PG_TEXTDOMAIN("postgres");
 
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 
 /*
- * errhidestmt --- optionally suppress STATEMENT: field of log entry
+ * errhidestmt --- 可抑制日志条目的 STATEMENT: 字段
  *
- * This should be called if the message text already includes the statement.
+ * 如果消息文本已包含该语句，则应调用此函数。
  */
 int
 errhidestmt(bool hide_stmt)
 {
 	ErrorData  *edata = &errordata[errordata_stack_depth];
 
-	/* we don't bother incrementing recursion_depth */
+	/* 不必费心递增 recursion_depth */
 	CHECK_STACK_DEPTH();
 
 	edata->hide_stmt = hide_stmt;
 
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 /*
- * errhidecontext --- optionally suppress CONTEXT: field of log entry
+ * errhidecontext --- 可抑制日志条目的 CONTEXT: 字段
  *
- * This should only be used for verbose debugging messages where the repeated
- * inclusion of context would bloat the log volume too much.
+ * 这仅应适用于冗长的调试消息，因为反复包含上下文会
+ * 使日志量过度膨胀。
  */
 int
 errhidecontext(bool hide_ctx)
 {
 	ErrorData  *edata = &errordata[errordata_stack_depth];
 
-	/* we don't bother incrementing recursion_depth */
+	/* 不必费心递增 recursion_depth */
 	CHECK_STACK_DEPTH();
 
 	edata->hide_ctx = hide_ctx;
 
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 /*
- * errposition --- add cursor position to the current error
+ * errposition --- 向当前错误添加光标位置
  */
 int
 errposition(int cursorpos)
 {
 	ErrorData  *edata = &errordata[errordata_stack_depth];
 
-	/* we don't bother incrementing recursion_depth */
+	/* 不必费心递增 recursion_depth */
 	CHECK_STACK_DEPTH();
 
 	edata->cursorpos = cursorpos;
 
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 /*
- * internalerrposition --- add internal cursor position to the current error
+ * internalerrposition --- 向当前错误添加内部光标位置
  */
 int
 internalerrposition(int cursorpos)
 {
 	ErrorData  *edata = &errordata[errordata_stack_depth];
 
-	/* we don't bother incrementing recursion_depth */
+	/* 不必费心递增 recursion_depth */
 	CHECK_STACK_DEPTH();
 
 	edata->internalpos = cursorpos;
 
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 /*
- * internalerrquery --- add internal query text to the current error
+ * internalerrquery --- 向当前错误添加内部查询文本
  *
- * Can also pass NULL to drop the internal query text entry.  This case
- * is intended for use in error callback subroutines that are editorializing
- * on the layout of the error report.
+ * 可传 NULL 以丢弃内部查询文本条目。此情形用于
+ * 那些在对错误报告的版面进行编辑加工的错误回调
+ * 子例程中使用。
  */
 int
 internalerrquery(const char *query)
 {
 	ErrorData  *edata = &errordata[errordata_stack_depth];
 
-	/* we don't bother incrementing recursion_depth */
+	/* 不必费心递增 recursion_depth */
 	CHECK_STACK_DEPTH();
 
 	if (edata->internalquery)
@@ -1498,25 +1498,25 @@ internalerrquery(const char *query)
 	if (query)
 		edata->internalquery = MemoryContextStrdup(edata->assoc_context, query);
 
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 /*
- * err_generic_string -- used to set individual ErrorData string fields
- * identified by PG_DIAG_xxx codes.
+ * err_generic_string -- 用于设置由 PG_DIAG_xxx 码标识的
+ * ErrorData 各串字段
  *
- * This intentionally only supports fields that don't use localized strings,
- * so that there are no translation considerations.
+ * 这有意只支持不使用本地化字符串的字段，
+ * 从而无需考虑翻译问题。
  *
- * Most potential callers should not use this directly, but instead prefer
- * higher-level abstractions, such as errtablecol() (see relcache.c).
+ * 大多数潜在调用者不应直接使用它，而应优先选用
+ * 如 errtablecol() 之类（见 relcache.c）。
  */
 int
 err_generic_string(int field, const char *str)
 {
 	ErrorData  *edata = &errordata[errordata_stack_depth];
 
-	/* we don't bother incrementing recursion_depth */
+	/* 不必费心递增 recursion_depth */
 	CHECK_STACK_DEPTH();
 
 	switch (field)
@@ -1541,11 +1541,11 @@ err_generic_string(int field, const char *str)
 			break;
 	}
 
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 /*
- * set_errdata_field --- set an ErrorData string field
+ * set_errdata_field --- 设置 ErrorData 字段
  */
 static void
 set_errdata_field(MemoryContextData *cxt, char **ptr, const char *str)
@@ -1555,68 +1555,68 @@ set_errdata_field(MemoryContextData *cxt, char **ptr, const char *str)
 }
 
 /*
- * geterrcode --- return the currently set SQLSTATE error code
+ * geterrcode --- 返回现设 SQLSTATE 错误码
  *
- * This is only intended for use in error callback subroutines, since there
- * is no other place outside elog.c where the concept is meaningful.
+ * 它仅打算用于错误回调子例程，因为在 elog.c 之外
+ * 没有其他地方该概念是有意义的。
  */
 int
 geterrcode(void)
 {
 	ErrorData  *edata = &errordata[errordata_stack_depth];
 
-	/* we don't bother incrementing recursion_depth */
+	/* 不必费心递增 recursion_depth */
 	CHECK_STACK_DEPTH();
 
 	return edata->sqlerrcode;
 }
 
 /*
- * geterrlevel --- return the currently set SQLSTATE error level
+ * geterrlevel --- 返回现设 SQLSTATE 错误级别
  *
- * This is only intended for use in error callback subroutines, since there
- * is no other place outside elog.c where the concept is meaningful.
+ * 它仅打算用于错误回调子例程，因为在 elog.c 之外
+ * 没有其他地方该概念是有意义的。
  */
 int
 geterrlevel(void)
 {
 	ErrorData  *edata = &errordata[errordata_stack_depth];
 
-	/* we don't bother incrementing recursion_depth */
+	/* 不必费心递增 recursion_depth */
 	CHECK_STACK_DEPTH();
 
 	return edata->elevel;
 }
 
 /*
- * geterrposition --- return the currently set error position (0 if none)
+ * geterrposition --- 返回现设错误位置（无则为 0）
  *
- * This is only intended for use in error callback subroutines, since there
- * is no other place outside elog.c where the concept is meaningful.
+ * 它仅打算用于错误回调子例程，因为在 elog.c 之外
+ * 没有其他地方该概念是有意义的。
  */
 int
 geterrposition(void)
 {
 	ErrorData  *edata = &errordata[errordata_stack_depth];
 
-	/* we don't bother incrementing recursion_depth */
+	/* 不必费心递增 recursion_depth */
 	CHECK_STACK_DEPTH();
 
 	return edata->cursorpos;
 }
 
 /*
- * getinternalerrposition --- same for internal error position
+ * getinternalerrposition --- 内部错误位置同理
  *
- * This is only intended for use in error callback subroutines, since there
- * is no other place outside elog.c where the concept is meaningful.
+ * 它仅打算用于错误回调子例程，因为在 elog.c 之外
+ * 没有其他地方该概念是有意义的。
  */
 int
 getinternalerrposition(void)
 {
 	ErrorData  *edata = &errordata[errordata_stack_depth];
 
-	/* we don't bother incrementing recursion_depth */
+	/* 不必费心递增 recursion_depth */
 	CHECK_STACK_DEPTH();
 
 	return edata->internalpos;
@@ -1624,22 +1624,22 @@ getinternalerrposition(void)
 
 
 /*
- * Functions to allow construction of error message strings separately from
- * the ereport() call itself.
+ * 这些函数允许独立于 ereport() 调用本身来构建错误
+ * 消息字符串。
  *
- * The expected calling convention is
+ * 预期的调用约定是
  *
  *	pre_format_elog_string(errno, domain), var = format_elog_string(format,...)
  *
- * which can be hidden behind a macro such as GUC_check_errdetail().  We
- * assume that any functions called in the arguments of format_elog_string()
- * cannot result in re-entrant use of these functions --- otherwise the wrong
- * text domain might be used, or the wrong errno substituted for %m.  This is
- * okay for the current usage with GUC check hooks, but might need further
- * effort someday.
+ * 可隐藏在诸如 GUC_check_errdetail() 的宏之后。我们
+ * 假定在 format_elog_string() 参数中调用的任何函数
+ * 都不会导致这些函数被重入 --- 否则可能用错文本域，
+ * 或者为 %m 代入错误的 errno。对当前配合 GUC 检查钩子
+ * 的使用没问题，但未来某天可能需要
+ * 更多努力
  *
- * The result of format_elog_string() is stored in ErrorContext, and will
- * therefore survive until FlushErrorState() is called.
+ * format_elog_string() 结果存于 ErrorContext，
+ * 故在调用 FlushErrorState() 前一直存续。
  */
 static int	save_format_errnumber;
 static const char *save_format_domain;
@@ -1647,9 +1647,9 @@ static const char *save_format_domain;
 void
 pre_format_elog_string(int errnumber, const char *domain)
 {
-	/* Save errno before evaluation of argument functions can change it */
+	/* 在参数函数求值可能改变它之前保存 errno */
 	save_format_errnumber = errnumber;
-	/* Save caller's text domain */
+	/* 存调用者文本域 */
 	save_format_domain = domain;
 }
 
@@ -1660,12 +1660,12 @@ format_elog_string(const char *fmt,...)
 	ErrorData  *edata;
 	MemoryContext oldcontext;
 
-	/* Initialize a mostly-dummy error frame */
+	/* 初始化近似虚设的错误帧 */
 	edata = &errdata;
 	MemSet(edata, 0, sizeof(ErrorData));
-	/* the default text domain is the backend's */
+	/* 默认文本域是后端的 */
 	edata->domain = save_format_domain ? save_format_domain : PG_TEXTDOMAIN("postgres");
-	/* set the errno to be used to interpret %m */
+	/* 设置用于解释 %m 的 errno */
 	edata->saved_errno = save_format_errnumber;
 
 	oldcontext = MemoryContextSwitchTo(ErrorContext);
@@ -1680,11 +1680,11 @@ format_elog_string(const char *fmt,...)
 
 
 /*
- * Actual output of the top-of-stack error message
+ * 栈顶错误消息的实际输出
  *
- * In the ereport(ERROR) case this is called from PostgresMain (or not at all,
- * if the error is caught by somebody).  For all other severity levels this
- * is called by errfinish.
+ * 在 ereport(ERROR) 情形下由 PostgresMain 调用（或根本
+ * 不调用，若错误被他人捕获）。对所有其他严重级别，
+ * 由 errfinish 调用
  */
 void
 EmitErrorReport(void)
@@ -1697,32 +1697,32 @@ EmitErrorReport(void)
 	oldcontext = MemoryContextSwitchTo(edata->assoc_context);
 
 	/*
-	 * Call hook before sending message to log.  The hook function is allowed
-	 * to turn off edata->output_to_server, so we must recheck that afterward.
-	 * Making any other change in the content of edata is not considered
-	 * supported.
+	 * 在向日志发送消息之前调用钩子。钩子函数可以把
+	 * edata->output_to_server 关闭，所以事后必须复查。
+	 * 对 edata 内容的其他任何更改都不被视为
+	 * 受支持
 	 *
-	 * Note: the reason why the hook can only turn off output_to_server, and
-	 * not turn it on, is that it'd be unreliable: we will never get here at
-	 * all if errstart() deems the message uninteresting.  A hook that could
-	 * make decisions in that direction would have to hook into errstart(),
-	 * where it would have much less information available.  emit_log_hook is
-	 * intended for custom log filtering and custom log message transmission
-	 * mechanisms.
+	 * 注意：钩子之所以只能关闭 output_to_server 而不能
+	 * 打开它，是因为那不可靠：如果 errstart() 判定消息
+	 * 无趣，我们根本不会到这里。能朝那个方向做决策的
+	 * 钩子必须挂接到 errstart() 中，而那里可用的信息要
+	 * 少得多。emit_log_hook 旨在用于自定义日志过滤和自定
+	 * 义日志消息传输
+	 * 机制。
 	 *
-	 * The log hook has access to both the translated and original English
-	 * error message text, which is passed through to allow it to be used as a
-	 * message identifier. Note that the original text is not available for
-	 * detail, detail_log, hint and context text elements.
+	 * 日志钩子可以访问翻译后的和原始英文的错误消息
+	 * 文本，传递后者是为了让它能用作消息标识符。注意
+	 * 原始文本对 detail、detail_log、hint 和 context 文本
+	 * 元素不可用。
 	 */
 	if (edata->output_to_server && emit_log_hook)
 		(*emit_log_hook) (edata);
 
-	/* Send to server log, if enabled */
+	/* 启用时送服务器日志 */
 	if (edata->output_to_server)
 		send_message_to_server_log(edata);
 
-	/* Send to client, if enabled */
+	/* 启用时送客户端 */
 	if (edata->output_to_client)
 		send_message_to_frontend(edata);
 
@@ -1731,11 +1731,11 @@ EmitErrorReport(void)
 }
 
 /*
- * CopyErrorData --- obtain a copy of the topmost error stack entry
+ * CopyErrorData --- 获取最顶错误栈条目的副本
  *
- * This is only for use in error handler code.  The data is copied into the
- * current memory context, so callers should always switch away from
- * ErrorContext first; otherwise it will be lost when FlushErrorState is done.
+ * 这仅用于错误处理器代码中。数据被复制到当前内存
+ * 上下文，故调用者应始终先离开 ErrorContext；
+ * 否则当 FlushErrorState 完成时数据将丢失。
  */
 ErrorData *
 CopyErrorData(void)
@@ -1744,23 +1744,23 @@ CopyErrorData(void)
 	ErrorData  *newedata;
 
 	/*
-	 * we don't increment recursion_depth because out-of-memory here does not
-	 * indicate a problem within the error subsystem.
+	 * 我们不递增 recursion_depth，因这里内存耗尽并
+	 * 不表示错误子系统内部有问题。
 	 */
 	CHECK_STACK_DEPTH();
 
 	Assert(CurrentMemoryContext != ErrorContext);
 
-	/* Copy the struct itself */
+	/* 复制结构体本身 */
 	newedata = (ErrorData *) palloc(sizeof(ErrorData));
 	memcpy(newedata, edata, sizeof(ErrorData));
 
 	/*
-	 * Make copies of separately-allocated strings.  Note that we copy even
-	 * theoretically-constant strings such as filename.  This is because those
-	 * could point into JIT-created code segments that might get unloaded at
-	 * transaction cleanup.  In some cases we need the copied ErrorData to
-	 * survive transaction boundaries, so we'd better copy those strings too.
+	 * 为单独分配的字符串制作副本。注意我们连理论
+	 * 常量字符串（如 filename）也复制。这是因为它们可能
+	 * 指向 JIT 建的代码段，其可能在事务清理时卸载
+	 * 某些情况下需复制的 ErrorData 存活过事务边界，
+	 * 所以最好也复制那些字符串。
 	 */
 	if (newedata->filename)
 		newedata->filename = pstrdup(newedata->filename);
@@ -1797,17 +1797,17 @@ CopyErrorData(void)
 	if (newedata->internalquery)
 		newedata->internalquery = pstrdup(newedata->internalquery);
 
-	/* Use the calling context for string allocation */
+	/* 用调用者上下文进行字符串分配 */
 	newedata->assoc_context = CurrentMemoryContext;
 
 	return newedata;
 }
 
 /*
- * FreeErrorData --- free the structure returned by CopyErrorData.
+ * FreeErrorData --- 释放 CopyErrorData 返回的结构。
  *
- * Error handlers should use this in preference to assuming they know all
- * the separately-allocated fields.
+ * 错误处理器应优先使用它，而不是假定自己知道
+ * 所有单独分配字段。
  */
 void
 FreeErrorData(ErrorData *edata)
@@ -1817,9 +1817,9 @@ FreeErrorData(ErrorData *edata)
 }
 
 /*
- * FreeErrorDataContents --- free the subsidiary data of an ErrorData.
+ * FreeErrorDataContents --- 释放 ErrorData 的附属数据。
  *
- * This can be used on either an error stack entry or a copied ErrorData.
+ * 它既可用于错误栈条目，也可用于复制的 ErrorData。
  */
 static void
 FreeErrorDataContents(ErrorData *edata)
@@ -1851,37 +1851,37 @@ FreeErrorDataContents(ErrorData *edata)
 }
 
 /*
- * FlushErrorState --- flush the error state after error recovery
+ * FlushErrorState --- 错误恢复后冲刷错误状态
  *
- * This should be called by an error handler after it's done processing
- * the error; or as soon as it's done CopyErrorData, if it intends to
- * do stuff that is likely to provoke another error.  You are not "out" of
- * the error subsystem until you have done this.
+ * 错误处理器处理完错误后应调用它；或者一旦完成
+ * CopyErrorData，若打算做可能再引发错误的事情时
+ * 就调用。做完之前你尚未"脱离"
+ * 错误子系统。
  */
 void
 FlushErrorState(void)
 {
 	/*
-	 * Reset stack to empty.  The only case where it would be more than one
-	 * deep is if we serviced an error that interrupted construction of
-	 * another message.  We assume control escaped out of that message
-	 * construction and won't ever go back.
+	 * 把栈重置为空。深度超过一层的唯一情形，是我们
+	 * 处理过某个打断了另一条消息构建的错误。假定
+	 * 控制权已逃离该消息构建且永不
+	 * 会再回来。
 	 */
 	errordata_stack_depth = -1;
 	recursion_depth = 0;
-	/* Delete all data in ErrorContext */
+	/* 删除 ErrorContext 数据 */
 	MemoryContextResetAndDeleteChildren(ErrorContext);
 }
 
 /*
- * ThrowErrorData --- report an error described by an ErrorData structure
+ * ThrowErrorData --- 报告一个 ErrorData 结构描述的错误
  *
- * This is somewhat like ReThrowError, but it allows elevels besides ERROR,
- * and the boolean flags such as output_to_server are computed via the
- * default rules rather than being copied from the given ErrorData.
- * This is primarily used to re-report errors originally reported by
- * background worker processes and then propagated (with or without
- * modification) to the backend responsible for them.
+ * 这有点像 ReThrowError，但它允许 ERROR 以外的 elevel，
+ * 且 output_to_server 等布尔标志按默认规则计算，
+ * 而不是从给定的 ErrorData 复制。
+ * 主要用于重新报告最初由后台工作进程报告、
+ * 然后（经修改或不经修改）传播到负责它们的
+ * 后端的错误。
  */
 void
 ThrowErrorData(ErrorData *edata)
@@ -1890,13 +1890,13 @@ ThrowErrorData(ErrorData *edata)
 	MemoryContext oldcontext;
 
 	if (!errstart(edata->elevel, edata->domain))
-		return;					/* error is not to be reported at all */
+		return;					/* 错误完全不予报告 */
 
 	newedata = &errordata[errordata_stack_depth];
 	recursion_depth++;
 	oldcontext = MemoryContextSwitchTo(newedata->assoc_context);
 
-	/* Copy the supplied fields to the error stack entry. */
+	/* 把给定的字段复制到错误栈条目。 */
 	if (edata->sqlerrcode != 0)
 		newedata->sqlerrcode = edata->sqlerrcode;
 	if (edata->message)
@@ -1911,7 +1911,7 @@ ThrowErrorData(ErrorData *edata)
 		newedata->context = pstrdup(edata->context);
 	if (edata->backtrace)
 		newedata->backtrace = pstrdup(edata->backtrace);
-	/* assume message_id is not available */
+	/* 假定 message_id 不可用 */
 	if (edata->schema_name)
 		newedata->schema_name = pstrdup(edata->schema_name);
 	if (edata->table_name)
@@ -1930,17 +1930,17 @@ ThrowErrorData(ErrorData *edata)
 	MemoryContextSwitchTo(oldcontext);
 	recursion_depth--;
 
-	/* Process the error. */
+	/* 处理该错误 */
 	errfinish(edata->filename, edata->lineno, edata->funcname);
 }
 
 /*
- * ReThrowError --- re-throw a previously copied error
+ * ReThrowError --- 重抛先前复制的错误
  *
- * A handler can do CopyErrorData/FlushErrorState to get out of the error
- * subsystem, then do some processing, and finally ReThrowError to re-throw
- * the original error.  This is slower than just PG_RE_THROW() but should
- * be used if the "some processing" is likely to incur another error.
+ * 处理器可以执行 CopyErrorData/FlushErrorState 以离开
+ * 错误子系统，然后做些处理，最后用 ReThrowError 重抛
+ * 原始错误。这比 PG_RE_THROW() 慢，但若"某些处理"
+ * 很可能引发另一个错误，就应使用它。
  */
 void
 ReThrowError(ErrorData *edata)
@@ -1949,14 +1949,14 @@ ReThrowError(ErrorData *edata)
 
 	Assert(edata->elevel == ERROR);
 
-	/* Push the data back into the error context */
+	/* 把数据推回错误上下文 */
 	recursion_depth++;
 	MemoryContextSwitchTo(ErrorContext);
 
 	newedata = get_error_stack_entry();
 	memcpy(newedata, edata, sizeof(ErrorData));
 
-	/* Make copies of separately-allocated fields */
+	/* 复制单独分配的字段 */
 	if (newedata->message)
 		newedata->message = pstrdup(newedata->message);
 	if (newedata->detail)
@@ -1982,7 +1982,7 @@ ReThrowError(ErrorData *edata)
 	if (newedata->internalquery)
 		newedata->internalquery = pstrdup(newedata->internalquery);
 
-	/* Reset the assoc_context to be ErrorContext */
+	/* 把 assoc_context 重置为 ErrorContext */
 	newedata->assoc_context = ErrorContext;
 
 	recursion_depth--;
@@ -1990,23 +1990,23 @@ ReThrowError(ErrorData *edata)
 }
 
 /*
- * pg_re_throw --- out-of-line implementation of PG_RE_THROW() macro
+ * pg_re_throw --- PG_RE_THROW() 宏的非内联实现
  */
 void
 pg_re_throw(void)
 {
-	/* If possible, throw the error to the next outer setjmp handler */
+	/* 如有可能，把错误抛给下一外层 setjmp 处理器 */
 	if (PG_exception_stack != NULL)
 		siglongjmp(*PG_exception_stack, 1);
 	else
 	{
 		/*
-		 * If we get here, elog(ERROR) was thrown inside a PG_TRY block, which
-		 * we have now exited only to discover that there is no outer setjmp
-		 * handler to pass the error to.  Had the error been thrown outside
-		 * the block to begin with, we'd have promoted the error to FATAL, so
-		 * the correct behavior is to make it FATAL now; that is, emit it and
-		 * then call proc_exit.
+		 * 到这里说明 elog(ERROR) 在 PG_TRY 块内抛出，
+		 * 而现在退出了块却发现无外层 setjmp 处理器
+		 * 可接收错误。若错误起初在块外抛出，
+		 * 我们本会把它提升为 FATAL，故现在正确的做法
+		 * 是将其变为 FATAL：即发出它并调用
+		 * proc_exit。
 		 */
 		ErrorData  *edata = &errordata[errordata_stack_depth];
 
@@ -2015,37 +2015,37 @@ pg_re_throw(void)
 		edata->elevel = FATAL;
 
 		/*
-		 * At least in principle, the increase in severity could have changed
-		 * where-to-output decisions, so recalculate.
+		 * 至少原则上，严重级别提升可能改变输出去向
+		 * 的决策，所以重新计算。
 		 */
 		edata->output_to_server = should_output_to_server(FATAL);
 		edata->output_to_client = should_output_to_client(FATAL);
 
 		/*
-		 * We can use errfinish() for the rest, but we don't want it to call
-		 * any error context routines a second time.  Since we know we are
-		 * about to exit, it should be OK to just clear the context stack.
+		 * 其余可用 errfinish()，但不想让它二次调用
+		 * 任何错误上下文例程。既知即将退出，
+		 * 直接清空上下文栈应该没问题。
 		 */
 		error_context_stack = NULL;
 
 		errfinish(edata->filename, edata->lineno, edata->funcname);
 	}
 
-	/* Doesn't return ... */
+	/* 不返回 ... */
 	ExceptionalCondition("pg_re_throw tried to return", __FILE__, __LINE__);
 }
 
 
 /*
- * GetErrorContextStack - Return the context stack, for display/diags
+ * GetErrorContextStack - 返回上下文栈供显示/诊断
  *
- * Returns a pstrdup'd string in the caller's context which includes the PG
- * error call stack.  It is the caller's responsibility to ensure this string
- * is pfree'd (or its context cleaned up) when done.
+ * 在调用者的上下文中返回一个 pstrdup 的字符串，其中
+ * 包含 PG 错误调用栈。调用者有责确保用完后此串
+ * 被 pfree（或其上下文被清理）。
  *
- * This information is collected by traversing the error contexts and calling
- * each context's callback function, each of which is expected to call
- * errcontext() to return a string which can be presented to the user.
+ * 这些信息通过遍历错误上下文并调用每个上下文的
+ * 回调函数来收集，每个回调都应调用 errcontext()
+ * 返回一个可呈现给用户的字符串。
  */
 char *
 GetErrorContextStack(void)
@@ -2054,25 +2054,25 @@ GetErrorContextStack(void)
 	ErrorContextCallback *econtext;
 
 	/*
-	 * Crank up a stack entry to store the info in.
+	 * 建一个栈条目来存储这些信息。
 	 */
 	recursion_depth++;
 
 	edata = get_error_stack_entry();
 
 	/*
-	 * Set up assoc_context to be the caller's context, so any allocations
-	 * done (which will include edata->context) will use their context.
+	 * 把 assoc_context 设为调用者的上下文，这样任何
+	 * 分配（含 edata->context）都将用其上下文。
 	 */
 	edata->assoc_context = CurrentMemoryContext;
 
 	/*
-	 * Call any context callback functions to collect the context information
-	 * into edata->context.
+	 * 调用所有上下文回调函数以把上下文信息收集到
+	 * edata->context
 	 *
-	 * Errors occurring in callback functions should go through the regular
-	 * error handling code which should handle any recursive errors, though we
-	 * double-check above, just in case.
+	 * 回调函数中发生的错误应走常规错误处理代码，
+	 * 它应处理任何递归错误，不过为保险起见我们在上方
+	 * 做了双重检查。
 	 */
 	for (econtext = error_context_stack;
 		 econtext != NULL;
@@ -2080,24 +2080,24 @@ GetErrorContextStack(void)
 		econtext->callback(econtext->arg);
 
 	/*
-	 * Clean ourselves off the stack, any allocations done should have been
-	 * using edata->assoc_context, which we set up earlier to be the caller's
-	 * context, so we're free to just remove our entry off the stack and
-	 * decrement recursion depth and exit.
+	 * 把自己从栈上清除。已做的任何分配本应使用
+	 * edata->assoc_context，即我们先前设为调用者上下文的
+	 * 那个，所以可直接把条目从栈上移除并递减
+	 * 递归深度后退出。
 	 */
 	errordata_stack_depth--;
 	recursion_depth--;
 
 	/*
-	 * Return a pointer to the string the caller asked for, which should have
-	 * been allocated in their context.
+	 * 返回指向调用者所请求字符串的指针，它应已分配
+	 * 在其上下文中。
 	 */
 	return edata->context;
 }
 
 
 /*
- * Initialization of error output file
+ * 错误输出文件的初始化
  */
 void
 DebugFileOpen(void)
@@ -2108,9 +2108,9 @@ DebugFileOpen(void)
 	if (OutputFileName[0])
 	{
 		/*
-		 * A debug-output file name was given.
+		 * 给定了调试输出文件名
 		 *
-		 * Make sure we can write the file, and find out if it's a tty.
+		 * 确保可写该文件，并查明它是否 tty。
 		 */
 		if ((fd = open(OutputFileName, O_CREAT | O_APPEND | O_WRONLY,
 					   0666)) < 0)
@@ -2121,7 +2121,7 @@ DebugFileOpen(void)
 		close(fd);
 
 		/*
-		 * Redirect our stderr to the debug output file.
+		 * 将 stderr 重定向到调试输出文件
 		 */
 		if (!freopen(OutputFileName, "a", stderr))
 			ereport(FATAL,
@@ -2130,10 +2130,10 @@ DebugFileOpen(void)
 							OutputFileName)));
 
 		/*
-		 * If the file is a tty and we're running under the postmaster, try to
-		 * send stdout there as well (if it isn't a tty then stderr will block
-		 * out stdout, so we may as well let stdout go wherever it was going
-		 * before).
+		 * 若文件是 tty 且运行在 postmaster 下，则尝试
+		 * 把 stdout 也发到那里（若它不是 tty，stderr 会
+		 * 挡住 stdout，所以不妨让 stdout 照旧流
+		 * 动
 		 */
 		if (istty && IsUnderPostmaster)
 			if (!freopen(OutputFileName, "a", stdout))
@@ -2146,14 +2146,14 @@ DebugFileOpen(void)
 
 
 /*
- * GUC check_hook for backtrace_functions
+ * backtrace_functions 的检查钩子
  *
- * We split the input string, where commas separate function names
- * and certain whitespace chars are ignored, into a \0-separated (and
- * \0\0-terminated) list of function names.  This formulation allows
- * easy scanning when an error is thrown while avoiding the use of
- * non-reentrant strtok(), as well as keeping the output data in a
- * single palloc() chunk.
+ * 我们拆分输入串，其中逗号分隔函数名，
+ * 某些空白字符被忽略，拆成以 \0 分隔（并以
+ * \0\0 结尾）的名字列表。此形式便于抛错时
+ * 扫描，同时避免使用不可重入的 strtok()，
+ * 并把输出数据保持在单个 palloc()
+ * 块中。
  */
 bool
 check_backtrace_functions(char **newval, void **extra, GucSource source)
@@ -2165,8 +2165,8 @@ check_backtrace_functions(char **newval, void **extra, GucSource source)
 	int			j;
 
 	/*
-	 * Allow characters that can be C identifiers and commas as separators, as
-	 * well as some whitespace for readability.
+	 * 允许可作为 C 标识符的字符和逗号作分隔符，
+	 * 也可以一些空白增进可读性。
 	 */
 	validlen = strspn(*newval,
 					  "0123456789_"
@@ -2186,24 +2186,24 @@ check_backtrace_functions(char **newval, void **extra, GucSource source)
 	}
 
 	/*
-	 * Allocate space for the output and create the copy.  We could discount
-	 * whitespace chars to save some memory, but it doesn't seem worth the
-	 * trouble.
+	 * 为输出分配空间并创建副本。本可不计空白字符
+	 * 以节省一些内存，但似乎不值得
+	 * 费事
 	 */
 	someval = guc_malloc(ERROR, newvallen + 1 + 1);
 	for (i = 0, j = 0; i < newvallen; i++)
 	{
 		if ((*newval)[i] == ',')
-			someval[j++] = '\0';	/* next item */
+			someval[j++] = '\0';	/* 下一项 */
 		else if ((*newval)[i] == ' ' ||
 				 (*newval)[i] == '\n' ||
 				 (*newval)[i] == '\t')
-			;					/* ignore these */
+			;					/* 忽略这些 */
 		else
-			someval[j++] = (*newval)[i];	/* copy anything else */
+			someval[j++] = (*newval)[i];	/* 复制其他一切 */
 	}
 
-	/* two \0s end the setting */
+	/* 双 \0 结束设置 */
 	someval[j] = '\0';
 	someval[j + 1] = '\0';
 
@@ -2212,7 +2212,7 @@ check_backtrace_functions(char **newval, void **extra, GucSource source)
 }
 
 /*
- * GUC assign_hook for backtrace_functions
+ * backtrace_functions 的赋值钩子
  */
 void
 assign_backtrace_functions(const char *newval, void *extra)
@@ -2221,7 +2221,7 @@ assign_backtrace_functions(const char *newval, void *extra)
 }
 
 /*
- * GUC check_hook for log_destination
+ * log_destination 检查钩子
  */
 bool
 check_log_destination(char **newval, void **extra, GucSource source)
@@ -2232,13 +2232,13 @@ check_log_destination(char **newval, void **extra, GucSource source)
 	int			newlogdest = 0;
 	int		   *myextra;
 
-	/* Need a modifiable copy of string */
+	/* 需字符串的可修改副本 */
 	rawstring = pstrdup(*newval);
 
-	/* Parse string into list of identifiers */
+	/* 把字符串解析为标识符列表 */
 	if (!SplitIdentifierString(rawstring, ',', &elemlist))
 	{
-		/* syntax error in list */
+		/* 列表语法错误 */
 		GUC_check_errdetail("List syntax is invalid.");
 		pfree(rawstring);
 		list_free(elemlist);
@@ -2283,7 +2283,7 @@ check_log_destination(char **newval, void **extra, GucSource source)
 }
 
 /*
- * GUC assign_hook for log_destination
+ * log_destination 的赋值钩子
  */
 void
 assign_log_destination(const char *newval, void *extra)
@@ -2292,21 +2292,21 @@ assign_log_destination(const char *newval, void *extra)
 }
 
 /*
- * GUC assign_hook for syslog_ident
+ * syslog_ident 的赋值钩子
  */
 void
 assign_syslog_ident(const char *newval, void *extra)
 {
 #ifdef HAVE_SYSLOG
 	/*
-	 * guc.c is likely to call us repeatedly with same parameters, so don't
-	 * thrash the syslog connection unnecessarily.  Also, we do not re-open
-	 * the connection until needed, since this routine will get called whether
-	 * or not Log_destination actually mentions syslog.
+	 * guc.c 很可能以相同参数反复调用我们，所以不要
+	 * 不必要地折腾 syslog 连接。另外，我们直到需要时
+	 * 才重新打开连接，因为不管 Log_destination 是否真的
+	 * 提到 syslog，本例程都会被调用。
 	 *
-	 * Note that we make our own copy of the ident string rather than relying
-	 * on guc.c's.  This may be overly paranoid, but it ensures that we cannot
-	 * accidentally free a string that syslog is still using.
+	 * 注意我们自己制作 ident 串副本而不依赖 guc.c。
+	 * 可能过分谨慎，但这确保不会意外释放 syslog
+	 * 仍在使用的字符串。
 	 */
 	if (syslog_ident == NULL || strcmp(syslog_ident, newval) != 0)
 	{
@@ -2317,21 +2317,21 @@ assign_syslog_ident(const char *newval, void *extra)
 		}
 		free(syslog_ident);
 		syslog_ident = strdup(newval);
-		/* if the strdup fails, we will cope in write_syslog() */
+		/* 若 strdup 失败，将在 write_syslog() 中应对 */
 	}
 #endif
-	/* Without syslog support, just ignore it */
+	/* 无 syslog 支持时直接忽略 */
 }
 
 /*
- * GUC assign_hook for syslog_facility
+ * syslog_facility 的赋值钩子
  */
 void
 assign_syslog_facility(int newval, void *extra)
 {
 #ifdef HAVE_SYSLOG
 	/*
-	 * As above, don't thrash the syslog connection unnecessarily.
+	 * 同上，不要不必要地折腾 syslog 连接。
 	 */
 	if (syslog_facility != newval)
 	{
@@ -2343,13 +2343,13 @@ assign_syslog_facility(int newval, void *extra)
 		syslog_facility = newval;
 	}
 #endif
-	/* Without syslog support, just ignore it */
+	/* 无 syslog 支持时直接忽略 */
 }
 
 #ifdef HAVE_SYSLOG
 
 /*
- * Write a message line to syslog
+ * 写一行消息到 syslog
  */
 static void
 write_syslog(int level, const char *line)
@@ -2359,7 +2359,7 @@ write_syslog(int level, const char *line)
 	int			len;
 	const char *nlpos;
 
-	/* Open syslog connection if not done yet */
+	/* 若未打开则打开 syslog 连接 */
 	if (!openlog_done)
 	{
 		openlog(syslog_ident ? syslog_ident : "postgres",
@@ -2369,18 +2369,18 @@ write_syslog(int level, const char *line)
 	}
 
 	/*
-	 * We add a sequence number to each log message to suppress "same"
-	 * messages.
+	 * 我们给每条日志消息加序号以抑制"相同"
+	 * 消息
 	 */
 	seq++;
 
 	/*
-	 * Our problem here is that many syslog implementations don't handle long
-	 * messages in an acceptable manner. While this function doesn't help that
-	 * fact, it does work around by splitting up messages into smaller pieces.
+	 * 我们的问题在于许多 syslog 实现不能以可接受的
+	 * 方式处理长消息。虽然此函数无助于改变这一事实，
+	 * 但它通过把消息拆成较小的片段来绕过。
 	 *
-	 * We divide into multiple syslog() calls if message is too long or if the
-	 * message contains embedded newline(s).
+	 * 如果消息太长或包含内嵌换行符，我们就分成多次
+	 * syslog() 调用。
 	 */
 	len = strlen(line);
 	nlpos = strchr(line, '\n');
@@ -2394,17 +2394,17 @@ write_syslog(int level, const char *line)
 			int			buflen;
 			int			i;
 
-			/* if we start at a newline, move ahead one char */
+			/* 若起点是换行符，则前移一字符 */
 			if (line[0] == '\n')
 			{
 				line++;
 				len--;
-				/* we need to recompute the next newline's position, too */
+				/* 也需重新计算下一换行符的位置 */
 				nlpos = strchr(line, '\n');
 				continue;
 			}
 
-			/* copy one line, or as much as will fit, to buf */
+			/* 复制一行或能放下的量到 buf */
 			if (nlpos != NULL)
 				buflen = nlpos - line;
 			else
@@ -2413,22 +2413,22 @@ write_syslog(int level, const char *line)
 			memcpy(buf, line, buflen);
 			buf[buflen] = '\0';
 
-			/* trim to multibyte letter boundary */
+			/* 修剪到多字节字符边界 */
 			buflen = pg_mbcliplen(buf, buflen, buflen);
 			if (buflen <= 0)
 				return;
 			buf[buflen] = '\0';
 
-			/* already word boundary? */
+			/* 已是词边界吗？  */
 			if (line[buflen] != '\0' &&
 				!isspace((unsigned char) line[buflen]))
 			{
-				/* try to divide at word boundary */
+				/* 尝试在词边界处分割 */
 				i = buflen - 1;
 				while (i > 0 && !isspace((unsigned char) buf[i]))
 					i--;
 
-				if (i > 0)		/* else couldn't divide word boundary */
+				if (i > 0)		/* 否则无法按词边界分割 */
 				{
 					buflen = i;
 					buf[i] = '\0';
@@ -2448,7 +2448,7 @@ write_syslog(int level, const char *line)
 	}
 	else
 	{
-		/* message short enough */
+		/* 消息足够短 */
 		if (syslog_sequence_numbers)
 			syslog(level, "[%lu] %s", seq, line);
 		else
@@ -2459,9 +2459,9 @@ write_syslog(int level, const char *line)
 
 #ifdef WIN32
 /*
- * Get the PostgreSQL equivalent of the Windows ANSI code page.  "ANSI" system
- * interfaces (e.g. CreateFileA()) expect string arguments in this encoding.
- * Every process in a given system will find the same value at all times.
+ * 获取 Windows ANSI 代码页的 PostgreSQL 等价物。"ANSI"
+ * 系统接口（如 CreateFileA()）期望字符串参数采用这种
+ * 编码。给定系统中的每个进程在任何时候都会得到
  */
 static int
 GetACPEncoding(void)
@@ -2475,7 +2475,7 @@ GetACPEncoding(void)
 }
 
 /*
- * Write a message line to the windows event log
+ * 向 Windows 事件日志写一行消息
  */
 static void
 write_eventlog(int level, const char *line, int len)
@@ -2521,17 +2521,17 @@ write_eventlog(int level, const char *line, int len)
 	}
 
 	/*
-	 * If message character encoding matches the encoding expected by
-	 * ReportEventA(), call it to avoid the hazards of conversion.  Otherwise,
-	 * try to convert the message to UTF16 and write it with ReportEventW().
-	 * Fall back on ReportEventA() if conversion failed.
+	 * 若消息字符编码与 ReportEventA() 期望的相符，
+	 * 则调用它以避免转换的风险。否则，尝试把消息转成
+	 * UTF16 并用 ReportEventW() 写出。若转换失败则回退到
+	 * ReportEventA()。
 	 *
-	 * Since we palloc the structure required for conversion, also fall
-	 * through to writing unconverted if we have not yet set up
-	 * CurrentMemoryContext.
+	 * 由于转换所需结构是 palloc 的，若尚未设置
+	 * CurrentMemoryContext，就回退为写
+	 * 未转换内容。
 	 *
-	 * Also verify that we are not on our way into error recursion trouble due
-	 * to error messages thrown deep inside pgwin32_message_to_UTF16().
+	 * 还要验证我们没有正因 pgwin32_message_to_UTF16()
+	 * 深处抛出的错误消息而步入错误递归困境。
 	 */
 	if (!in_error_recursion_trouble() &&
 		CurrentMemoryContext != NULL &&
@@ -2543,13 +2543,13 @@ write_eventlog(int level, const char *line, int len)
 			ReportEventW(evtHandle,
 						 eventlevel,
 						 0,
-						 0,		/* All events are Id 0 */
+						 0,		/* 事件 Id 均为 0 */
 						 NULL,
 						 1,
 						 0,
 						 (LPCWSTR *) &utf16,
 						 NULL);
-			/* XXX Try ReportEventA() when ReportEventW() fails? */
+			/* XXX ReportEventW() 失败时用 ReportEventA()? */
 
 			pfree(utf16);
 			return;
@@ -2558,7 +2558,7 @@ write_eventlog(int level, const char *line, int len)
 	ReportEventA(evtHandle,
 				 eventlevel,
 				 0,
-				 0,				/* All events are Id 0 */
+				 0,				/* 事件 Id 均为 0 */
 				 NULL,
 				 1,
 				 0,
@@ -2575,21 +2575,21 @@ write_console(const char *line, int len)
 #ifdef WIN32
 
 	/*
-	 * Try to convert the message to UTF16 and write it with WriteConsoleW().
-	 * Fall back on write() if anything fails.
+	 * 尝试把消息转成 UTF16 并用 WriteConsoleW() 写出。
+	 * 失败则回退到 write()。
 	 *
-	 * In contrast to write_eventlog(), don't skip straight to write() based
-	 * on the applicable encodings.  Unlike WriteConsoleW(), write() depends
-	 * on the suitability of the console output code page.  Since we put
-	 * stderr into binary mode in SubPostmasterMain(), write() skips the
-	 * necessary translation anyway.
+	 * 与 write_eventlog() 不同，不要基于适用的编码就
+	 * 直接跳到 write()。与 WriteConsoleW() 不同，write()
+	 * 依赖于控制台输出代码页是否合适。由于我们在
+	 * SubPostmasterMain() 中把 stderr 置为二进制模式，
+	 * write() 会跳过翻译。
 	 *
-	 * WriteConsoleW() will fail if stderr is redirected, so just fall through
-	 * to writing unconverted to the logfile in this case.
+	 * WriteConsoleW() 在 stderr 被重定向时会失败，所以
+	 * 此情形就直接写未转换内容到日志文件
 	 *
-	 * Since we palloc the structure required for conversion, also fall
-	 * through to writing unconverted if we have not yet set up
-	 * CurrentMemoryContext.
+	 * 由于转换所需结构是 palloc 的，若尚未设置
+	 * CurrentMemoryContext，就回退为写
+	 * 未转换内容。
 	 */
 	if (!in_error_recursion_trouble() &&
 		!redirection_done &&
@@ -2612,8 +2612,8 @@ write_console(const char *line, int len)
 			}
 
 			/*
-			 * In case WriteConsoleW() failed, fall back to writing the
-			 * message unconverted.
+			 * 万一 WriteConsoleW() 失败，回退为写未
+			 * 转换的消息
 			 */
 			pfree(utf16);
 		}
@@ -2621,29 +2621,29 @@ write_console(const char *line, int len)
 #else
 
 	/*
-	 * Conversion on non-win32 platforms is not implemented yet. It requires
-	 * non-throw version of pg_do_encoding_conversion(), that converts
-	 * unconvertible characters to '?' without errors.
+	 * 非 win32 平台上的转换尚未实现。它需要一个
+	 * pg_do_encoding_conversion() 非抛出版本，把无法
+	 * 转换的字符变成 '?' 且不报错。
 	 *
-	 * XXX: We have a no-throw version now. It doesn't convert to '?' though.
+	 * XXX: 现已有无抛出版本，不过不转换成 '?'。
 	 */
 #endif
 
 	/*
-	 * We ignore any error from write() here.  We have no useful way to report
-	 * it ... certainly whining on stderr isn't likely to be productive.
+	 * 我们忽略 write() 在这里的任何错误。没有
+	 * 缺乏有用的上报手段 ... 向 stderr 抱怨多半无用
 	 */
 	rc = write(fileno(stderr), line, len);
 	(void) rc;
 }
 
 /*
- * get_formatted_log_time -- compute and get the log timestamp.
+ * get_formatted_log_time -- 计算并获取日志时间戳
  *
- * The timestamp is computed if not set yet, so as it is kept consistent
- * among all the log destinations that require it to be consistent.  Note
- * that the computed timestamp is returned in a static buffer, not
- * palloc()'d.
+ * 时间戳若尚未设置则计算，以使其在所有要求一致的
+ * 日志目标中保持一致。注意计算出的时间戳返回在
+ * 静态缓冲区中，并非经 palloc
+ * 分配。
  */
 char *
 get_formatted_log_time(void)
@@ -2651,7 +2651,7 @@ get_formatted_log_time(void)
 	pg_time_t	stamp_time;
 	char		msbuf[13];
 
-	/* leave if already computed */
+	/* 已计算则返回 */
 	if (formatted_log_time[0] != '\0')
 		return formatted_log_time;
 
@@ -2664,16 +2664,16 @@ get_formatted_log_time(void)
 	stamp_time = (pg_time_t) saved_timeval.tv_sec;
 
 	/*
-	 * Note: we expect that guc.c will ensure that log_timezone is set up (at
-	 * least with a minimal GMT value) before Log_line_prefix can become
-	 * nonempty or CSV mode can be selected.
+	 * 注意：我们预期 guc.c 会确保 log_timezone 已设置
+	 * （至少为最小 GMT 值）后，Log_line_prefix 才能变为
+	 * 非空或选择 CSV 模式。
 	 */
 	pg_strftime(formatted_log_time, FORMATTED_TS_LEN,
-	/* leave room for milliseconds... */
+	/* 为毫秒留出空间... */
 				"%Y-%m-%d %H:%M:%S     %Z",
 				pg_localtime(&stamp_time, log_timezone));
 
-	/* 'paste' milliseconds into place... */
+	/* 把毫秒'粘贴'到位... */
 	sprintf(msbuf, ".%03d", (int) (saved_timeval.tv_usec / 1000));
 	memcpy(formatted_log_time + 19, msbuf, 4);
 
@@ -2681,7 +2681,7 @@ get_formatted_log_time(void)
 }
 
 /*
- * reset_formatted_start_time -- reset the start timestamp
+ * reset_formatted_start_time -- 重置启动时间戳
  */
 void
 reset_formatted_start_time(void)
@@ -2690,24 +2690,24 @@ reset_formatted_start_time(void)
 }
 
 /*
- * get_formatted_start_time -- compute and get the start timestamp.
+ * get_formatted_start_time -- 计算并获取启动时间戳。
  *
- * The timestamp is computed if not set yet.  Note that the computed
- * timestamp is returned in a static buffer, not palloc()'d.
+ * 时间戳若尚未设置则计算。注意计算出的时间戳
+ * 返回在静态缓冲区中，而非 palloc() 的。
  */
 char *
 get_formatted_start_time(void)
 {
 	pg_time_t	stamp_time = (pg_time_t) MyStartTime;
 
-	/* leave if already computed */
+	/* 已计算则返回 */
 	if (formatted_start_time[0] != '\0')
 		return formatted_start_time;
 
 	/*
-	 * Note: we expect that guc.c will ensure that log_timezone is set up (at
-	 * least with a minimal GMT value) before Log_line_prefix can become
-	 * nonempty or CSV mode can be selected.
+	 * 注意：我们预期 guc.c 会确保 log_timezone 已设置
+	 * （至少为最小 GMT 值）后，Log_line_prefix 才能变为
+	 * 非空或选择 CSV 模式。
 	 */
 	pg_strftime(formatted_start_time, FORMATTED_TS_LEN,
 				"%Y-%m-%d %H:%M:%S %Z",
@@ -2717,20 +2717,20 @@ get_formatted_start_time(void)
 }
 
 /*
- * check_log_of_query -- check if a query can be logged
+ * check_log_of_query -- 检查查询能否被记录
  */
 bool
 check_log_of_query(ErrorData *edata)
 {
-	/* log required? */
+	/* 需要日志 */
 	if (!is_log_level_output(edata->elevel, log_min_error_statement))
 		return false;
 
-	/* query log wanted? */
+	/* 想记录查询 */
 	if (edata->hide_stmt)
 		return false;
 
-	/* query string available? */
+	/* 查询串可用吗 */
 	if (debug_query_string == NULL)
 		return false;
 
@@ -2738,9 +2738,9 @@ check_log_of_query(ErrorData *edata)
 }
 
 /*
- * get_backend_type_for_log -- backend type for log entries
+ * get_backend_type_for_log -- 日志条目的后端类型
  *
- * Returns a pointer to a static buffer, not palloc()'d.
+ * 返回静态缓冲区指针，并非 palloc 的。
  */
 const char *
 get_backend_type_for_log(void)
@@ -2758,11 +2758,11 @@ get_backend_type_for_log(void)
 }
 
 /*
- * process_log_prefix_padding --- helper function for processing the format
- * string in log_line_prefix
+ * process_log_prefix_padding --- 处理 log_line_prefix 的
+ * 格式串辅助函数
  *
- * Note: This function returns NULL if it finds something which
- * it deems invalid in the format string.
+ * 注意：若在格式串中发现它认为无效的东西，
+ * 则返回 NULL。
  */
 static const char *
 process_log_prefix_padding(const char *p, int *ppadding)
@@ -2774,16 +2774,16 @@ process_log_prefix_padding(const char *p, int *ppadding)
 	{
 		p++;
 
-		if (*p == '\0')			/* Did the buf end in %- ? */
+		if (*p == '\0')			/* buf 是否以 %- 结尾 */
 			return NULL;
 		paddingsign = -1;
 	}
 
-	/* generate an int version of the numerical string */
+	/* 生成数字串的整数形式 */
 	while (*p >= '0' && *p <= '9')
 		padding = padding * 10 + (*p++ - '0');
 
-	/* format is invalid if it ends with the padding number */
+	/* 若格式以填充数字结尾，则该格式无效 */
 	if (*p == '\0')
 		return NULL;
 
@@ -2793,7 +2793,7 @@ process_log_prefix_padding(const char *p, int *ppadding)
 }
 
 /*
- * Format log status information using Log_line_prefix.
+ * 用 Log_line_prefix 格式化日志状态信息
  */
 static void
 log_line_prefix(StringInfo buf, ErrorData *edata)
@@ -2802,24 +2802,24 @@ log_line_prefix(StringInfo buf, ErrorData *edata)
 }
 
 /*
- * Format log status info; append to the provided buffer.
+ * 格式化日志状态信息，追加到缓冲区。
  */
 void
 log_status_format(StringInfo buf, const char *format, ErrorData *edata)
 {
-	/* static counter for line numbers */
+	/* 行号专用静态计数器 */
 	static long log_line_number = 0;
 
-	/* has counter been reset in current process? */
+	/* 计数器当前进程中是否已重置 */
 	static int	log_my_pid = 0;
 	int			padding;
 	const char *p;
 
 	/*
-	 * This is one of the few places where we'd rather not inherit a static
-	 * variable's value from the postmaster.  But since we will, reset it when
-	 * MyProcPid changes. MyStartTime also changes when MyProcPid does, so
-	 * reset the formatted start timestamp too.
+	 * 这是少数我们不愿从 postmaster 继承静态变量值
+	 * 之一。但既然会继承，就在 MyProcPid 变化时
+	 * 重置它。MyProcPid 变化时 MyStartTime 也会变，所以
+	 * 也重置格式化的启动时间戳。
 	 */
 	if (log_my_pid != MyProcPid)
 	{
@@ -2830,49 +2830,49 @@ log_status_format(StringInfo buf, const char *format, ErrorData *edata)
 	log_line_number++;
 
 	if (format == NULL)
-		return;					/* in case guc hasn't run yet */
+		return;					/* 以防 guc 尚未运行 */
 
 	for (p = format; *p != '\0'; p++)
 	{
 		if (*p != '%')
 		{
-			/* literal char, just copy */
+			/* 字面字符，复制 */
 			appendStringInfoChar(buf, *p);
 			continue;
 		}
 
-		/* must be a '%', so skip to the next char */
+		/* 必为 '%'，故跳到下一字符 */
 		p++;
 		if (*p == '\0')
-			break;				/* format error - ignore it */
+			break;				/* 格式错误 - 忽略 */
 		else if (*p == '%')
 		{
-			/* string contains %% */
+			/* 串含 %% */
 			appendStringInfoChar(buf, '%');
 			continue;
 		}
 
 
 		/*
-		 * Process any formatting which may exist after the '%'.  Note that
-		 * process_log_prefix_padding moves p past the padding number if it
-		 * exists.
+		 * 处理 '%' 之后可能存在的任何格式。注意
+		 * 有填充数字时 process_log_prefix_padding 会把 p 移
+		 * 过
 		 *
-		 * Note: Since only '-', '0' to '9' are valid formatting characters we
-		 * can do a quick check here to pre-check for formatting. If the char
-		 * is not formatting then we can skip a useless function call.
+		 * 注意：只有 '-'、'0' 到 '9' 是有效格式字符，
+		 * 可在此快速预检查格式。若字符不是格式字符，
+		 * 那么我们可以跳过无用的函数调用。
 		 *
-		 * Further note: At least on some platforms, passing %*s rather than
-		 * %s to appendStringInfo() is substantially slower, so many of the
-		 * cases below avoid doing that unless non-zero padding is in fact
-		 * specified.
+		 * 另注：至少某些平台上，传 %*s 而非 %s 给
+		 * appendStringInfo() 明显更慢，故下面多数情形
+		 * 都避免这样做，除非实际指定了非零
+		 * 填充
 		 */
 		if (*p > '9')
 			padding = 0;
 		else if ((p = process_log_prefix_padding(p, &padding)) == NULL)
 			break;
 
-		/* process the option */
+		/* 处理该选项 */
 		switch (*p)
 		{
 			case 'a':
@@ -2959,8 +2959,8 @@ log_status_format(StringInfo buf, const char *format, ErrorData *edata)
 					PGPROC	   *leader = MyProc->lockGroupLeader;
 
 					/*
-					 * Show the leader only for active parallel workers. This
-					 * leaves out the leader of a parallel group.
+					 * 仅活跃并行工作进程显示领导者。这
+					 * 漏掉并行组中的领导者。
 					 */
 					if (leader == NULL || leader->pid == MyProcPid)
 						appendStringInfoSpaces(buf,
@@ -2982,7 +2982,7 @@ log_status_format(StringInfo buf, const char *format, ErrorData *edata)
 					appendStringInfo(buf, "%ld", log_line_number);
 				break;
 			case 'm':
-				/* force a log timestamp reset */
+				/* 强制日志时间戳重置 */
 				formatted_log_time[0] = '\0';
 				(void) get_formatted_log_time();
 
@@ -3059,11 +3059,11 @@ log_status_format(StringInfo buf, const char *format, ErrorData *edata)
 						if (MyProcPort->remote_port && MyProcPort->remote_port[0] != '\0')
 						{
 							/*
-							 * This option is slightly special as the port
-							 * number may be appended onto the end. Here we
-							 * need to build 1 string which contains the
-							 * remote_host and optionally the remote_port (if
-							 * set) so we can properly align the string.
+							 * 此选项略特殊，因为端口号
+							 * 可能附加在末尾。这里需构建
+							 * 一个含 remote_host 及可选
+							 * remote_port（若设了）的串，
+							 * 以便正确对齐该字符串。
 							 */
 
 							char	   *hostport;
@@ -3077,7 +3077,7 @@ log_status_format(StringInfo buf, const char *format, ErrorData *edata)
 					}
 					else
 					{
-						/* padding is 0, so we don't need a temp buffer */
+						/* 填充为 0，故无需临时缓冲区 */
 						appendStringInfoString(buf, MyProcPort->remote_host);
 						if (MyProcPort->remote_port &&
 							MyProcPort->remote_port[0] != '\0')
@@ -3102,13 +3102,13 @@ log_status_format(StringInfo buf, const char *format, ErrorData *edata)
 										   padding > 0 ? padding : -padding);
 				break;
 			case 'q':
-				/* in postmaster and friends, stop if %q is seen */
-				/* in a backend, just ignore */
+				/* postmaster 及其同类中见 %q 即停 */
+				/* 后端中直接忽略 */
 				if (MyProcPort == NULL)
 					return;
 				break;
 			case 'v':
-				/* keep VXID format in sync with lockfuncs.c */
+				/* 与 lockfuncs.c 保持 VXID 格式同步 */
 				if (MyProc != NULL && MyProc->backendId != InvalidBackendId)
 				{
 					if (padding != 0)
@@ -3147,15 +3147,15 @@ log_status_format(StringInfo buf, const char *format, ErrorData *edata)
 									 (long long) pgstat_get_my_query_id());
 				break;
 			default:
-				/* format error - ignore it */
+				/* 格式错误 - 忽略 */
 				break;
 		}
 	}
 }
 
 /*
- * Unpack MAKE_SQLSTATE code. Note that this returns a pointer to a
- * static buffer.
+ * 解包 MAKE_SQLSTATE 码。注意返回的是静态缓冲区
+ * 指针。
  */
 char *
 unpack_sql_state(int sql_state)
@@ -3175,7 +3175,7 @@ unpack_sql_state(int sql_state)
 
 
 /*
- * Write error report to server's log
+ * 向服务器日志写错误报告
  */
 static void
 send_message_to_server_log(ErrorData *edata)
@@ -3247,7 +3247,7 @@ send_message_to_server_log(ErrorData *edata)
 		}
 		if (Log_error_verbosity >= PGERROR_VERBOSE)
 		{
-			/* assume no newlines in funcname or filename... */
+			/* 假定 funcname/filename 无换行... */
 			if (edata->funcname && edata->filename)
 			{
 				log_line_prefix(&buf, edata);
@@ -3272,7 +3272,7 @@ send_message_to_server_log(ErrorData *edata)
 	}
 
 	/*
-	 * If the user wants the query that generated this error logged, do it.
+	 * 如果用户想要记录产生此错误的查询，那就做。
 	 */
 	if (check_log_of_query(edata))
 	{
@@ -3283,7 +3283,7 @@ send_message_to_server_log(ErrorData *edata)
 	}
 
 #ifdef HAVE_SYSLOG
-	/* Write to syslog, if enabled */
+	/* 启用时写 syslog */
 	if (Log_destination & LOG_DESTINATION_SYSLOG)
 	{
 		int			syslog_level;
@@ -3324,19 +3324,19 @@ send_message_to_server_log(ErrorData *edata)
 #endif							/* HAVE_SYSLOG */
 
 #ifdef WIN32
-	/* Write to eventlog, if enabled */
+	/* 启用时写事件日志 */
 	if (Log_destination & LOG_DESTINATION_EVENTLOG)
 	{
 		write_eventlog(edata->elevel, buf.data, buf.len);
 	}
 #endif							/* WIN32 */
 
-	/* Write to csvlog, if enabled */
+	/* 启用时写 csvlog */
 	if (Log_destination & LOG_DESTINATION_CSVLOG)
 	{
 		/*
-		 * Send CSV data if it's safe to do so (syslogger doesn't need the
-		 * pipe).  If this is not possible, fallback to an entry written to
+		 * 安全时（syslogger 不需管道）发送 CSV 数据。
+		 * 若做不到，回退为写入一条
 		 * stderr.
 		 */
 		if (redirection_done || MyBackendType == B_LOGGER)
@@ -3345,12 +3345,12 @@ send_message_to_server_log(ErrorData *edata)
 			fallback_to_stderr = true;
 	}
 
-	/* Write to JSON log, if enabled */
+	/* 启用时写 JSON 日志 */
 	if (Log_destination & LOG_DESTINATION_JSONLOG)
 	{
 		/*
-		 * Send JSON data if it's safe to do so (syslogger doesn't need the
-		 * pipe).  If this is not possible, fallback to an entry written to
+		 * 安全时（syslogger 不需管道）发送 JSON 数据。
+		 * 若做不到，回退为写入一条
 		 * stderr.
 		 */
 		if (redirection_done || MyBackendType == B_LOGGER)
@@ -3362,28 +3362,28 @@ send_message_to_server_log(ErrorData *edata)
 	}
 
 	/*
-	 * Write to stderr, if enabled or if required because of a previous
-	 * limitation.
+	 * 若启用，或因先前的限制而需要，
+	 * 写 stderr
 	 */
 	if ((Log_destination & LOG_DESTINATION_STDERR) ||
 		whereToSendOutput == DestDebug ||
 		fallback_to_stderr)
 	{
 		/*
-		 * Use the chunking protocol if we know the syslogger should be
-		 * catching stderr output, and we are not ourselves the syslogger.
-		 * Otherwise, just do a vanilla write to stderr.
+		 * 若已知 syslogger 应捕获 stderr 输出，
+		 * 且我们自己不是 syslogger，则使用分块协议。
+		 * 否则只做普通的 stderr 写入。
 		 */
 		if (redirection_done && MyBackendType != B_LOGGER)
 			write_pipe_chunks(buf.data, buf.len, LOG_DESTINATION_STDERR);
 #ifdef WIN32
 
 		/*
-		 * In a win32 service environment, there is no usable stderr. Capture
-		 * anything going there and write it to the eventlog instead.
+		 * 在 win32 服务环境中没有可用的 stderr。捕获
+		 * 发往那里的内容并改为写事件日志。
 		 *
-		 * If stderr redirection is active, it was OK to write to stderr above
-		 * because that's really a pipe to the syslogger process.
+		 * 若 stderr 重定向在活动，上面写 stderr 没问题，
+		 * 因为那实为通向 syslogger 的管道。
 		 */
 		else if (pgwin32_is_service())
 			write_eventlog(edata->elevel, buf.data, buf.len);
@@ -3392,33 +3392,33 @@ send_message_to_server_log(ErrorData *edata)
 			write_console(buf.data, buf.len);
 	}
 
-	/* If in the syslogger process, try to write messages direct to file */
+	/* 若在 syslogger 进程中，尝试把消息直接写入文件 */
 	if (MyBackendType == B_LOGGER)
 		write_syslogger_file(buf.data, buf.len, LOG_DESTINATION_STDERR);
 
-	/* No more need of the message formatted for stderr */
+	/* 不再需要 stderr 格式化的消息 */
 	pfree(buf.data);
 }
 
 /*
- * Send data to the syslogger using the chunked protocol
+ * 用分块协议把数据发送给 syslogger
  *
- * Note: when there are multiple backends writing into the syslogger pipe,
- * it's critical that each write go into the pipe indivisibly, and not
- * get interleaved with data from other processes.  Fortunately, the POSIX
- * spec requires that writes to pipes be atomic so long as they are not
- * more than PIPE_BUF bytes long.  So we divide long messages into chunks
- * that are no more than that length, and send one chunk per write() call.
- * The collector process knows how to reassemble the chunks.
+ * 注意：当有多个后端写入 syslogger 管道时，每次写
+ * 入都必须不可分割地进入管道，且不与其他进程的
+ * 数据交错。幸运的是，POSIX 规范要求只要不超过
+ * PIPE_BUF 字节，对管道的写入就是原子的。因此
+ * 我们把长消息分成不超过该长度的块，每次 write()
+ * 调用发送一个块。收集器进程知道如何重组
+ * 这些块。
  *
- * Because of the atomic write requirement, there are only two possible
- * results from write() here: -1 for failure, or the requested number of
- * bytes.  There is not really anything we can do about a failure; retry would
- * probably be an infinite loop, and we can't even report the error usefully.
- * (There is noplace else we could send it!)  So we might as well just ignore
- * the result from write().  However, on some platforms you get a compiler
- * warning from ignoring write()'s result, so do a little dance with casting
- * rc to void to shut up the compiler.
+ * 因原子写要求，这里 write() 只可能有两种结果：
+ * -1 表示失败，或请求的字节数。对失败
+ * 无能为力；重试可能是无限循环，而且我们也无法
+ * 有意义地报告它。（也没有别处可发送它！）
+ * 所以不妨干脆忽略 write() 结果。但在某些平台
+ * 上忽略 write() 的结果会得到编译器警告，所以用把
+ * rc 强转成 void 的手法让编译器
+ * 闭嘴。
  */
 void
 write_pipe_chunks(char *data, int len, int dest)
@@ -3439,10 +3439,10 @@ write_pipe_chunks(char *data, int len, int dest)
 	else if (dest == LOG_DESTINATION_JSONLOG)
 		p.proto.flags |= PIPE_PROTO_DEST_JSONLOG;
 
-	/* write all but the last chunk */
+	/* 写出除末块外各块 */
 	while (len > PIPE_MAX_PAYLOAD)
 	{
-		/* no need to set PIPE_PROTO_IS_LAST yet */
+		/* 尚无需设置 PIPE_PROTO_IS_LAST */
 		p.proto.len = PIPE_MAX_PAYLOAD;
 		memcpy(p.proto.data, data, PIPE_MAX_PAYLOAD);
 		rc = write(fd, &p, PIPE_HEADER_SIZE + PIPE_MAX_PAYLOAD);
@@ -3451,7 +3451,7 @@ write_pipe_chunks(char *data, int len, int dest)
 		len -= PIPE_MAX_PAYLOAD;
 	}
 
-	/* write the last chunk */
+	/* 写最后一块 */
 	p.proto.flags |= PIPE_PROTO_IS_LAST;
 	p.proto.len = len;
 	memcpy(p.proto.data, data, len);
@@ -3461,15 +3461,15 @@ write_pipe_chunks(char *data, int len, int dest)
 
 
 /*
- * Append a text string to the error report being built for the client.
+ * 把文本串追加到正在为客户端构建的错误报告中。
  *
- * This is ordinarily identical to pq_sendstring(), but if we are in
- * error recursion trouble we skip encoding conversion, because of the
- * possibility that the problem is a failure in the encoding conversion
- * subsystem itself.  Code elsewhere should ensure that the passed-in
- * strings will be plain 7-bit ASCII, and thus not in need of conversion,
- * in such cases.  (In particular, we disable localization of error messages
- * to help ensure that's true.)
+ * 这通常同 pq_sendstring()，但若我们陷入
+ * 错误递归困境就跳过编码转换，因为问题可能是
+ * 编码转换子系统本身的失败。其他地方的代码应
+ * 确保传入串在此情形下将是纯 7 位 ASCII，
+ * 因而无需转换。（特别地，我们为此禁用了
+ * 错误消息本地化
+ * 以确保这一点。）
  */
 static void
 err_sendstring(StringInfo buf, const char *str)
@@ -3481,7 +3481,7 @@ err_sendstring(StringInfo buf, const char *str)
 }
 
 /*
- * Write error report to client
+ * 错误报告送客户端
  */
 static void
 send_message_to_frontend(ErrorData *edata)
@@ -3489,19 +3489,19 @@ send_message_to_frontend(ErrorData *edata)
 	StringInfoData msgbuf;
 
 	/*
-	 * We no longer support pre-3.0 FE/BE protocol, except here.  If a client
-	 * tries to connect using an older protocol version, it's nice to send the
-	 * "protocol version not supported" error in a format the client
-	 * understands.  If protocol hasn't been set yet, early in backend
-	 * startup, assume modern protocol.
+	 * 除此处外，我们已不支持 3.0 前的 FE/BE 协议。
+	 * 如果客户端尝试用更旧的协议版本连接，那么以
+	 * 客户端懂的形式发送"协议版本不支持"错误是
+	 * 很好的做法。若协议尚未设置，即启动早期，
+	 * 则假定是现代协议。
 	 */
 	if (PG_PROTOCOL_MAJOR(FrontendProtocol) >= 3 || FrontendProtocol == 0)
 	{
-		/* New style with separate fields */
+		/* 带独立字段的新式 */
 		const char *sev;
 		char		tbuf[12];
 
-		/* 'N' (Notice) is for nonfatal conditions, 'E' is for errors */
+		/* 'N'（Notice）用于非致命情形，'E' 用于错误 */
 		pq_beginmessage(&msgbuf, (edata->elevel < ERROR) ? 'N' : 'E');
 
 		sev = error_severity(edata->elevel);
@@ -3513,7 +3513,7 @@ send_message_to_frontend(ErrorData *edata)
 		pq_sendbyte(&msgbuf, PG_DIAG_SQLSTATE);
 		err_sendstring(&msgbuf, unpack_sql_state(edata->sqlerrcode));
 
-		/* M field is required per protocol, so always send something */
+		/* 协议要求 M 字段，所以总要发送些内容 */
 		pq_sendbyte(&msgbuf, PG_DIAG_MESSAGE_PRIMARY);
 		if (edata->message)
 			err_sendstring(&msgbuf, edata->message);
@@ -3526,7 +3526,7 @@ send_message_to_frontend(ErrorData *edata)
 			err_sendstring(&msgbuf, edata->detail);
 		}
 
-		/* detail_log is intentionally not used here */
+		/* 此处有意不使用 detail_log */
 
 		if (edata->hint)
 		{
@@ -3609,13 +3609,13 @@ send_message_to_frontend(ErrorData *edata)
 			err_sendstring(&msgbuf, edata->funcname);
 		}
 
-		pq_sendbyte(&msgbuf, '\0'); /* terminator */
+		pq_sendbyte(&msgbuf, '\0'); /* 终止符 */
 
 		pq_endmessage(&msgbuf);
 	}
 	else
 	{
-		/* Old style --- gin up a backwards-compatible message */
+		/* 旧式 --- 生成一个向后兼容的消息 */
 		StringInfoData buf;
 
 		initStringInfo(&buf);
@@ -3629,34 +3629,34 @@ send_message_to_frontend(ErrorData *edata)
 
 		appendStringInfoChar(&buf, '\n');
 
-		/* 'N' (Notice) is for nonfatal conditions, 'E' is for errors */
+		/* 'N'（Notice）用于非致命情形，'E' 用于错误 */
 		pq_putmessage_v2((edata->elevel < ERROR) ? 'N' : 'E', buf.data, buf.len + 1);
 
 		pfree(buf.data);
 	}
 
 	/*
-	 * This flush is normally not necessary, since postgres.c will flush out
-	 * waiting data when control returns to the main loop. But it seems best
-	 * to leave it here, so that the client has some clue what happened if the
-	 * backend dies before getting back to the main loop ... error/notice
-	 * messages should not be a performance-critical path anyway, so an extra
-	 * flush won't hurt much ...
+	 * 此 flush 通常不必要，因为控制权返回主循环时
+	 * postgres.c 会冲刷待发数据。但留它在此似乎最好，
+	 * 这样，如果后端在回到主循环之前就死了，客户端还
+	 * 能对发生的事情有些线索 ... 错误/通知消息反正
+	 * 不该是性能关键路径，所以额外的 flush 不会
+	 * 有多大影响 ...
 	 */
 	pq_flush();
 }
 
 
 /*
- * Support routines for formatting error messages.
+ * 格式化错误消息的支持例程。
  */
 
 
 /*
- * error_severity --- get string representing elevel
+ * error_severity --- elevel 对应的串
  *
- * The string is not localized here, but we mark the strings for translation
- * so that callers can invoke _() on the result.
+ * 此处的字符串不做本地化，但我们把它们标记为可
+ * 译，便于调用者对结果调 _()。
  */
 const char *
 error_severity(int elevel)
@@ -3707,8 +3707,8 @@ error_severity(int elevel)
 /*
  *	append_with_tabs
  *
- *	Append the string to the StringInfo buffer, inserting a tab after any
- *	newline.
+ *	把串追加到 StringInfo 缓冲区，并在每个换行符后
+ *	插tab
  */
 static void
 append_with_tabs(StringInfo buf, const char *str)
@@ -3725,9 +3725,9 @@ append_with_tabs(StringInfo buf, const char *str)
 
 
 /*
- * Write errors to stderr (or by equal means when stderr is
- * not available). Used before ereport/elog can be used
- * safely (memory context, GUC load etc)
+ * 把错误写到 stderr (或同等手段，
+ * 不可用）。在 ereport/elog 能安全用之前
+ * （内存上下文、GUC 等）
  */
 void
 write_stderr(const char *fmt,...)
@@ -3741,35 +3741,35 @@ write_stderr(const char *fmt,...)
 
 
 /*
- * Write errors to stderr (or by equal means when stderr is
- * not available) - va_list version
+ * 把错误写到 stderr (或同等手段，
+ * stderr 不可用)-va_list 版
  */
 void
 vwrite_stderr(const char *fmt, va_list ap)
 {
 #ifdef WIN32
-	char		errbuf[2048];	/* Arbitrary size? */
+	char		errbuf[2048];	/* 大小随意 */
 #endif
 
 	fmt = _(fmt);
 #ifndef WIN32
-	/* On Unix, we just fprintf to stderr */
+	/* Unix 上只是 fprintf 到 stderr */
 	vfprintf(stderr, fmt, ap);
 	fflush(stderr);
 #else
 	vsnprintf(errbuf, sizeof(errbuf), fmt, ap);
 
 	/*
-	 * On Win32, we print to stderr if running on a console, or write to
-	 * eventlog if running as a service
+	 * 在 Win32 上，若运行在控制台则打印到 stderr，
+	 * 服务运行则写事件日志
 	 */
-	if (pgwin32_is_service())	/* Running as a service */
+	if (pgwin32_is_service())	/* 作为服务运行 */
 	{
 		write_eventlog(ERROR, errbuf, strlen(errbuf));
 	}
 	else
 	{
-		/* Not running as service, write to stderr */
+		/* 非服务运行，写到 stderr */
 		write_console(errbuf, strlen(errbuf));
 		fflush(stderr);
 	}
@@ -3778,11 +3778,11 @@ vwrite_stderr(const char *fmt, va_list ap)
 
 
 /*
- * Write a message to STDERR using only async-signal-safe functions.  This can
- * be used to safely emit a message from a signal handler.
+ * 仅使用异步信号安全函数向 STDERR 写消息。这可以
+ * 用于从信号处理器安全地发出消息。
  *
- * TODO: It is likely possible to safely do a limited amount of string
- * interpolation (e.g., %s and %d), but that is not presently supported.
+ * TODO: 很可能可以安全地做有限量的字符串插值（
+ * 如 %s 和 %d），但目前尚不支持。
  */
 void
 write_stderr_signal_safe(const char *str)
@@ -3796,7 +3796,7 @@ write_stderr_signal_safe(const char *str)
 
 		rc = write(STDERR_FILENO, str + nwritten, ntotal - nwritten);
 
-		/* Just give up on error.  There isn't much else we can do. */
+		/* 出错时干脆放弃。我们也没多少别的办法 */
 		if (rc == -1)
 			return;
 
@@ -3806,19 +3806,19 @@ write_stderr_signal_safe(const char *str)
 
 
 /*
- * Adjust the level of a recovery-related message per trace_recovery_messages.
+ * 按 trace_recovery_messages 调整恢复相关消息的级别。
  *
- * The argument is the default log level of the message, eg, DEBUG2.  (This
- * should only be applied to DEBUGn log messages, otherwise it's a no-op.)
- * If the level is >= trace_recovery_messages, we return LOG, causing the
- * message to be logged unconditionally (for most settings of
- * log_min_messages).  Otherwise, we return the argument unchanged.
- * The message will then be shown based on the setting of log_min_messages.
+ * 参数是消息的默认日志级别，如 DEBUG2。（仅
+ * 适用于 DEBUGn 日志消息，否则它就是空操作。）
+ * 如果级别 >= trace_recovery_messages，我们返回 LOG，
+ * 使消息无条件记录（log_min_messages 多数
+ * 设置而言）。否则，我们原样返回参数。
+ * 之后消息将根据 log_min_messages 的设置来显示。
  *
- * Intention is to keep this for at least the whole of the 9.0 production
- * release, so we can more easily diagnose production problems in the field.
- * It should go away eventually, though, because it's an ugly and
- * hard-to-explain kluge.
+ * 意图是在整个 9.0 生产发布期间保留它，以便我们能
+ * 更容易地诊断现场的生产问题。不过它最终应被移除，
+ * 因为它是一个丑陋且难以解释的
+ * 权宜补丁。
  */
 int
 trace_recovery(int trace_level)

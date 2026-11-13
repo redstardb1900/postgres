@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0372",
+ "title": "fmgr dir part 3: funcapi.c whole-file translation (143 blocks, 295/319 lines)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "4cc895eaf83a87aa9a97e735b5ea28988c69a24c",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0372-funcapi.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0372 manifest path and funcapi.c entry (S6 registration)"
+  },
+  {
+   "pattern": "src/backend/utils/fmgr/funcapi.c",
+   "kind": "c_comment",
+   "note": "whole-file translation: 295/319 content lines translated (24 EN kept)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0372-funcapi.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0372 manifest path and funcapi.c entry (S6 registration)"
+  },
+  {
+   "path": "src/backend/utils/fmgr/funcapi.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 143,
+   "translated": 142,
+   "preserved": 1,
+   "preserved_reasons": [
+    "line 1249 /* Done? */ (budget 5 bytes content after frame: no zh fits, 0371 /* OK */ precedent)"
+   ],
+   "note": "strict per-line budget; 295/319 content lines translated, 24 EN kept: 4 header (L3 filename, L7 copyright, L9 IDENTIFICATION, L10 path per campaign precedent) + 19 bare function-name banner lines (InitMaterializedSRF/init_MultiFuncCall/per_MultiFuncCall/end_MultiFuncCall/shutdown_MultiFuncCall/get_call_result_type/get_expr_result_type/get_func_result_type/get_expr_result_tupdesc/get_type_func_class/get_func_arg_info/get_func_trftypes/get_func_input_arg_names/get_func_result_name/build_function_result_tupdesc_t/build_function_result_tupdesc_d/RelationNameGetTupleDesc/TypeGetTupleDesc/extract_variadic_args; identifiers, postinit.c InitPostgres precedent) + L1249; line-number-keyed apply, no cross-line movement"
+  }
+ ],
+ "notes": "batch-0372 (fmgr dir part 3, 2026-11-13, parent batch-0370-review-fix=4cc895eaf83; batch-0371 fmgr.c is the grandparent commit 131afa0b735). funcapi.c 143 blocks / 319 content lines: 295 lines translated, 24 EN kept (see files entry breakdown; 20 of the translated lines are trailing comments whose code segments are byte-verbatim, incl. L505 whose code starts with *resultTupleDesc - the apply dry-run's delimiter-count guard caught a prefix-regex misclassification there and it was fixed by trying the trailing-comment branch first). Budget trims disclosed: L73 'RECORD类型。' without CJK-EN space (15-byte line budget); L248 drops '本身'; L260-261 drop 'a pointer to' (指针); L456-458 restructured so '参数。' lands on the 10-byte L458; L684 drops '我们' and, per review D1, drops the trailing '类型' so the L684/L685 seam reads '推断范围/类型，' without a double-char repeat (same fix pattern as the L98 '此/须' redistribution); L1323 per review D2 drops the trailing '代码' so the L1323/L1324 seam reads '类型分类/代码。' without a double-char repeat; L938 '处考虑' continuation; L1084 ends '转为公共超类型' (kept the supertype, dropped nothing semantic); L1419 comma dropped (38-byte budget); L1471 'OIDs' rendered as '类型 OID 数组'; L1533 '若' dropped; L1639 '这些' dropped (64-byte avail); L1641-1642 '形如 C 值/数组' split across the 6-byte L1642; L1841 '元组' continuation; L1983 drops '此情形'; L1999 '数据即可' continuation; L2001-2002 'VARIADIC NULL' split across lines with ASCII quotes; L2063 drops '形式'; L543-544 '行类型不定' for 'rowtype can't be determined'. Quotes in zh are ASCII throughout (TL11). Term discipline: ops/operator-free file; result set=结果集, tuple=元组, attribute=属性, slot=槽, catalog=系统目录; identifiers (FunctionCallInfo/ReturnSetInfo/TupleDesc/FmgrInfo/OID etc.) kept EN. Gates: verify_c_comments 0 violations (3 files in --paths src/backend/utils/fmgr; funcapi.c comments=143 changed=142); term_lint 0 new errors - the sole tree-wide error is postinit.c:1428 TL01, pre-existing and disclosed in batch-0369; 3 advisory warnings on funcapi.c (L59 P24 FP on '调用者期望的元组描述符' for 'expected by the caller', L287 P39, L1941 P38 '匿名记录类型'); W7 scope note: within --paths src/backend/utils/fmgr there are 4 W7_IDENT_LOST on funcapi.c (blocks L811 'datatype', L1467 'OIDs', L1662 'argument(s)', L2061 'NULLs' - prose plurals whose zh equivalents 数据类型/类型 OID 数组/参数/NULL are present; advisory, not lost code identifiers) plus 7 pre-existing on dfmgr.c from batch-0370 (6 W7_UNTRANSLATED + L192 IDENT_LOST); tree-wide counts are larger due to historical-batch noise. scan_halfen: 0 findings on funcapi.c; the 42 tree-wide findings are all pre-existing (dfmgr.c 4 from batch-0370, postinit.c 38). Self-checks: cross-line repeat, near-duplicate (CJK LCS>=8) and line-leading-punctuation all asserted in the apply script before write; LF count and comment-delimiter counts asserted unchanged; all untouched/kept lines byte-identical to REL_16_11 baseline (verified post-apply). No commit made in this batch; commit is handled by the main session."
+}

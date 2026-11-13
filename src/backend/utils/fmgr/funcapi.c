@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * funcapi.c
- *	  Utility and convenience functions for fmgr functions that return
- *	  sets and/or composite types, or deal with VARIADIC inputs.
+ *	  为 fmgr 函数提供实用与便利函数，返回集合和/
+ *	  或复合类型，或处理 VARIADIC 输入。
  *
  * Copyright (c) 2002-2023, PostgreSQL Global Development Group
  *
@@ -34,10 +34,10 @@
 
 typedef struct polymorphic_actuals
 {
-	Oid			anyelement_type;	/* anyelement mapping, if known */
-	Oid			anyarray_type;	/* anyarray mapping, if known */
-	Oid			anyrange_type;	/* anyrange mapping, if known */
-	Oid			anymultirange_type; /* anymultirange mapping, if known */
+	Oid			anyelement_type;	/* 若已知 anyelement 映射 */
+	Oid			anyarray_type;	/* 若已知 anyarray 映射 */
+	Oid			anyrange_type;	/* 若已知 anyrange 映射 */
+	Oid			anymultirange_type; /* 若已知 anymultirange 映射 */
 } polymorphic_actuals;
 
 static void shutdown_MultiFuncCall(Datum arg);
@@ -59,18 +59,18 @@ static TypeFuncClass get_type_func_class(Oid typid, Oid *base_typeid);
 /*
  * InitMaterializedSRF
  *
- * Helper function to build the state of a set-returning function used
- * in the context of a single call with materialize mode.  This code
- * includes sanity checks on ReturnSetInfo, creates the Tuplestore and
- * the TupleDesc used with the function and stores them into the
- * function's ReturnSetInfo.
+ * 以物化模式在单次调用语境下构建结果集返回函数
+ * 状态的辅助函数。此代码对 ReturnSetInfo 做
+ * 完整性检查，并创建该函数使用的 Tuplestore 与
+ * TupleDesc，并将它们存入函数的
+ * ReturnSetInfo。
  *
- * "flags" can be set to MAT_SRF_USE_EXPECTED_DESC, to use the tuple
- * descriptor coming from expectedDesc, which is the tuple descriptor
- * expected by the caller.  MAT_SRF_BLESS can be set to complete the
- * information associated to the tuple descriptor, which is necessary
- * in some cases where the tuple descriptor comes from a transient
- * RECORD datatype.
+ * "flags" 可设置为 MAT_SRF_USE_EXPECTED_DESC，
+ * 以使用来自 expectedDesc 的元组描述符，即调用者
+ * 期望的元组描述符。MAT_SRF_BLESS 可置位以补全
+ * 元组描述符的相关信息，某些情况下这是必需的
+ * 即当元组描述符来自瞬态的
+ * RECORD类型。
  */
 void
 InitMaterializedSRF(FunctionCallInfo fcinfo, bits32 flags)
@@ -82,7 +82,7 @@ InitMaterializedSRF(FunctionCallInfo fcinfo, bits32 flags)
 				per_query_ctx;
 	TupleDesc	stored_tupdesc;
 
-	/* check to see if caller supports returning a tuplestore */
+	/* 检查调用者是否支持返回 tuplestore */
 	if (rsinfo == NULL || !IsA(rsinfo, ReturnSetInfo))
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -94,13 +94,13 @@ InitMaterializedSRF(FunctionCallInfo fcinfo, bits32 flags)
 				 errmsg("materialize mode required, but it is not allowed in this context")));
 
 	/*
-	 * Store the tuplestore and the tuple descriptor in ReturnSetInfo.  This
-	 * must be done in the per-query memory context.
+	 * 将 tuplestore 与元组描述符存入 ReturnSetInfo，
+	 * 须在每查询内存上下文中进行
 	 */
 	per_query_ctx = rsinfo->econtext->ecxt_per_query_memory;
 	old_context = MemoryContextSwitchTo(per_query_ctx);
 
-	/* build a tuple descriptor for our result type */
+	/* 为我们结果类型构建元组描述符 */
 	if ((flags & MAT_SRF_USE_EXPECTED_DESC) != 0)
 		stored_tupdesc = CreateTupleDescCopy(rsinfo->expectedDesc);
 	else
@@ -109,7 +109,7 @@ InitMaterializedSRF(FunctionCallInfo fcinfo, bits32 flags)
 			elog(ERROR, "return type must be a row type");
 	}
 
-	/* If requested, bless the tuple descriptor */
+	/* 如请求则 bless 元组描述符 */
 	if ((flags & MAT_SRF_BLESS) != 0)
 		BlessTupleDesc(stored_tupdesc);
 
@@ -125,9 +125,9 @@ InitMaterializedSRF(FunctionCallInfo fcinfo, bits32 flags)
 
 /*
  * init_MultiFuncCall
- * Create an empty FuncCallContext data structure
- * and do some other basic Multi-function call setup
- * and error checking
+ * 创建空的 FuncCallContext 数据结构
+ * 并做一些其他基本的多函数调用设置
+ * 与错误检查
  */
 FuncCallContext *
 init_MultiFuncCall(PG_FUNCTION_ARGS)
@@ -135,7 +135,7 @@ init_MultiFuncCall(PG_FUNCTION_ARGS)
 	FuncCallContext *retval;
 
 	/*
-	 * Bail if we're called in the wrong context
+	 * 若在错误语境中被调用则中止
 	 */
 	if (fcinfo->resultinfo == NULL || !IsA(fcinfo->resultinfo, ReturnSetInfo))
 		ereport(ERROR,
@@ -145,27 +145,27 @@ init_MultiFuncCall(PG_FUNCTION_ARGS)
 	if (fcinfo->flinfo->fn_extra == NULL)
 	{
 		/*
-		 * First call
+		 * 首轮
 		 */
 		ReturnSetInfo *rsi = (ReturnSetInfo *) fcinfo->resultinfo;
 		MemoryContext multi_call_ctx;
 
 		/*
-		 * Create a suitably long-lived context to hold cross-call data
+		 * 创建足够长寿的上下文来保存跨调用数据
 		 */
 		multi_call_ctx = AllocSetContextCreate(fcinfo->flinfo->fn_mcxt,
 											   "SRF multi-call context",
 											   ALLOCSET_SMALL_SIZES);
 
 		/*
-		 * Allocate suitably long-lived space and zero it
+		 * 分配足够长寿的空间并将其清零
 		 */
 		retval = (FuncCallContext *)
 			MemoryContextAllocZero(multi_call_ctx,
 								   sizeof(FuncCallContext));
 
 		/*
-		 * initialize the elements
+		 * 初始化各元素
 		 */
 		retval->call_cntr = 0;
 		retval->max_calls = 0;
@@ -175,13 +175,13 @@ init_MultiFuncCall(PG_FUNCTION_ARGS)
 		retval->multi_call_memory_ctx = multi_call_ctx;
 
 		/*
-		 * save the pointer for cross-call use
+		 * 保存该指针供跨调用使用
 		 */
 		fcinfo->flinfo->fn_extra = retval;
 
 		/*
-		 * Ensure we will get shut down cleanly if the exprcontext is not run
-		 * to completion.
+		 * 确保当 exprcontext 未运行到完成时也能干净地
+		 * 完成。
 		 */
 		RegisterExprContextCallback(rsi->econtext,
 									shutdown_MultiFuncCall,
@@ -189,10 +189,10 @@ init_MultiFuncCall(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* second and subsequent calls */
+		/* 第二次及后续调用 */
 		elog(ERROR, "init_MultiFuncCall cannot be called more than once");
 
-		/* never reached, but keep compiler happy */
+		/* 不会到此，但让编译器满意 */
 		retval = NULL;
 	}
 
@@ -202,7 +202,7 @@ init_MultiFuncCall(PG_FUNCTION_ARGS)
 /*
  * per_MultiFuncCall
  *
- * Do Multi-function per-call setup
+ * 多函数逐调用设置
  */
 FuncCallContext *
 per_MultiFuncCall(PG_FUNCTION_ARGS)
@@ -214,25 +214,25 @@ per_MultiFuncCall(PG_FUNCTION_ARGS)
 
 /*
  * end_MultiFuncCall
- * Clean up after init_MultiFuncCall
+ * init_MultiFuncCall 后清理
  */
 void
 end_MultiFuncCall(PG_FUNCTION_ARGS, FuncCallContext *funcctx)
 {
 	ReturnSetInfo *rsi = (ReturnSetInfo *) fcinfo->resultinfo;
 
-	/* Deregister the shutdown callback */
+	/* 注销关闭回调 */
 	UnregisterExprContextCallback(rsi->econtext,
 								  shutdown_MultiFuncCall,
 								  PointerGetDatum(fcinfo->flinfo));
 
-	/* But use it to do the real work */
+	/* 但用它来做真正的工作 */
 	shutdown_MultiFuncCall(PointerGetDatum(fcinfo->flinfo));
 }
 
 /*
  * shutdown_MultiFuncCall
- * Shutdown function to clean up after init_MultiFuncCall
+ * 关闭函数，清理 init_MultiFuncCall 的产物
  */
 static void
 shutdown_MultiFuncCall(Datum arg)
@@ -240,12 +240,12 @@ shutdown_MultiFuncCall(Datum arg)
 	FmgrInfo   *flinfo = (FmgrInfo *) DatumGetPointer(arg);
 	FuncCallContext *funcctx = (FuncCallContext *) flinfo->fn_extra;
 
-	/* unbind from flinfo */
+	/* 从 flinfo 解绑 */
 	flinfo->fn_extra = NULL;
 
 	/*
-	 * Delete context that holds all multi-call data, including the
-	 * FuncCallContext itself
+	 * 删除持有全部多调用数据的上下文，含
+	 * FuncCallContext
 	 */
 	MemoryContextDelete(funcctx->multi_call_memory_ctx);
 }
@@ -253,24 +253,24 @@ shutdown_MultiFuncCall(Datum arg)
 
 /*
  * get_call_result_type
- *		Given a function's call info record, determine the kind of datatype
- *		it is supposed to return.  If resultTypeId isn't NULL, *resultTypeId
- *		receives the actual datatype OID (this is mainly useful for scalar
- *		result types).  If resultTupleDesc isn't NULL, *resultTupleDesc
- *		receives a pointer to a TupleDesc when the result is of a composite
- *		type, or NULL when it's a scalar result.
+ *		给定函数的调用信息记录，判定其应返回的
+ *		数据类型种类。若 resultTypeId 非 NULL，则
+ *		*resultTypeId 收到实际数据类型 OID（这主要
+ *		对标量结果类型有用）。若 resultTupleDesc 不为
+ *		NULL，则当结果为复合类型时 *resultTupleDesc
+ *		收到 TupleDesc，标量则为 NULL。
  *
- * One hard case that this handles is resolution of actual rowtypes for
- * functions returning RECORD (from either the function's OUT parameter
- * list, or a ReturnSetInfo context node).  TYPEFUNC_RECORD is returned
- * only when we couldn't resolve the actual rowtype for lack of information.
+ * 此处处理的一个难点是解析返回 RECORD 的函数的
+ * 实际行类型（来源为函数的 OUT 参数列表，或
+ * ReturnSetInfo 上下文节点）。仅当我们因信息
+ * 不足而无法解析实际行类型时才返回 TYPEFUNC_RECORD
  *
- * The other hard case that this handles is resolution of polymorphism.
- * We will never return polymorphic pseudotypes (ANYELEMENT etc), either
- * as a scalar result type or as a component of a rowtype.
+ * 此处处理的另一难点是多态解析。我们绝不会
+ * 返回多态伪类型（ANYELEMENT 等），无论是作为
+ * 标量结果类型还是行类型的组成部分
  *
- * This function is relatively expensive --- in a function returning set,
- * try to call it only the first time through.
+ * 此函数开销相对较大 --- 在返回集合的函数中，
+ * 尽量只在首次进入时调用一次
  */
 TypeFuncClass
 get_call_result_type(FunctionCallInfo fcinfo,
@@ -286,14 +286,14 @@ get_call_result_type(FunctionCallInfo fcinfo,
 
 /*
  * get_expr_result_type
- *		As above, but work from a calling expression node tree
+ *		同上，但从调用表达式节点树入手
  *
- * Beware of using this on the funcexpr of a RTE that has a coldeflist.
- * The correct conclusion in such cases is always that the function returns
- * RECORD with the columns defined by the coldeflist fields (funccolnames etc).
- * If it does not, it's the executor's responsibility to catch the discrepancy
- * at runtime; but code processing the query in advance of that point might
- * come to inconsistent conclusions if it checks the actual expression.
+ * 注意：勿对带 coldeflist 的 RTE 使用其 funcexpr
+ * 在此类情形下，正确的结论总是：函数返回 RECORD，
+ * 且其列由 coldeflist 字段（funccolnames 等）定义
+ * 若结论不同，则由执行器负责在运行时捕获这种差异；
+ * 但在该时点之前处理查询的代码若检查实际表达式，
+ * 可能会得出不一致的结论
  */
 TypeFuncClass
 get_expr_result_type(Node *expr,
@@ -317,7 +317,7 @@ get_expr_result_type(Node *expr,
 	else if (expr && IsA(expr, RowExpr) &&
 			 ((RowExpr *) expr)->row_typeid == RECORDOID)
 	{
-		/* We can resolve the record type by generating the tupdesc directly */
+		/* 我们可以直接生成 tupdesc 来解析记录类型 */
 		RowExpr    *rexpr = (RowExpr *) expr;
 		TupleDesc	tupdesc;
 		AttrNumber	i = 1;
@@ -351,9 +351,9 @@ get_expr_result_type(Node *expr,
 			 !((Const *) expr)->constisnull)
 	{
 		/*
-		 * When EXPLAIN'ing some queries with SEARCH/CYCLE clauses, we may
-		 * need to resolve field names of a RECORD-type Const.  The datum
-		 * should contain a typmod that will tell us that.
+		 * 在对带 SEARCH/CYCLE 子句的某些查询做 EXPLAIN
+		 * 时，可能需要解析 RECORD 类型 Const 的字段名。
+		 * datum 应带有能说明此事的 typmod
 		 */
 		HeapTupleHeader rec;
 		Oid			tupType;
@@ -366,7 +366,7 @@ get_expr_result_type(Node *expr,
 			*resultTypeId = tupType;
 		if (tupType != RECORDOID || tupTypmod >= 0)
 		{
-			/* Should be able to look it up */
+			/* 应该能查到它 */
 			if (resultTupleDesc)
 				*resultTupleDesc = lookup_rowtype_tupdesc_copy(tupType,
 															   tupTypmod);
@@ -374,7 +374,7 @@ get_expr_result_type(Node *expr,
 		}
 		else
 		{
-			/* This shouldn't really happen ... */
+			/* 这实际上不应发生…… */
 			if (resultTupleDesc)
 				*resultTupleDesc = NULL;
 			return TYPEFUNC_RECORD;
@@ -382,7 +382,7 @@ get_expr_result_type(Node *expr,
 	}
 	else
 	{
-		/* handle as a generic expression; no chance to resolve RECORD */
+		/* 按通用表达式处理；没有机会解析 RECORD */
 		Oid			typid = exprType(expr);
 		Oid			base_typid;
 
@@ -402,9 +402,9 @@ get_expr_result_type(Node *expr,
 
 /*
  * get_func_result_type
- *		As above, but work from a function's OID only
+ *		同上，但仅从函数的 OID 入手
  *
- * This will not be able to resolve pure-RECORD results nor polymorphism.
+ * 这将无法解析纯 RECORD 结果，也无法解析多态
  */
 TypeFuncClass
 get_func_result_type(Oid functionId,
@@ -419,12 +419,12 @@ get_func_result_type(Oid functionId,
 }
 
 /*
- * internal_get_result_type -- workhorse code implementing all the above
+ * internal_get_result_type -- 实现上述各函数的主力代码
  *
- * funcid must always be supplied.  call_expr and rsinfo can be NULL if not
- * available.  We will return TYPEFUNC_RECORD, and store NULL into
- * *resultTupleDesc, if we cannot deduce the complete result rowtype from
- * the available information.
+ * funcid 必须始终提供。若不可用，call_expr 与
+ * rsinfo 可为 NULL。此时将返回 TYPEFUNC_RECORD，
+ * 并在 *resultTupleDesc 中存入 NULL，若无法据
+ * 现有信息完整推断
  */
 static TypeFuncClass
 internal_get_result_type(Oid funcid,
@@ -440,7 +440,7 @@ internal_get_result_type(Oid funcid,
 	Oid			base_rettype;
 	TupleDesc	tupdesc;
 
-	/* First fetch the function's pg_proc row to inspect its rettype */
+	/* 先取出该函数的 pg_proc 行以查看其 rettype */
 	tp = SearchSysCache1(PROCOID, ObjectIdGetDatum(funcid));
 	if (!HeapTupleIsValid(tp))
 		elog(ERROR, "cache lookup failed for function %u", funcid);
@@ -448,14 +448,14 @@ internal_get_result_type(Oid funcid,
 
 	rettype = procform->prorettype;
 
-	/* Check for OUT parameters defining a RECORD result */
+	/* 检查定义 RECORD 结果的 OUT 参数 */
 	tupdesc = build_function_result_tupdesc_t(tp);
 	if (tupdesc)
 	{
 		/*
-		 * It has OUT parameters, so it's basically like a regular composite
-		 * type, except we have to be able to resolve any polymorphic OUT
-		 * parameters.
+		 * 它有 OUT 参数，故基本如同普通复合类型，但须
+		 * 能够解析任何多态的 OUT
+		 * 参数。
 		 */
 		if (resultTypeId)
 			*resultTypeId = rettype;
@@ -484,13 +484,13 @@ internal_get_result_type(Oid funcid,
 	}
 
 	/*
-	 * If scalar polymorphic result, try to resolve it.
+	 * 若为标量多态结果，尝试解析它。
 	 */
 	if (IsPolymorphicType(rettype))
 	{
 		Oid			newrettype = exprType(call_expr);
 
-		if (newrettype == InvalidOid)	/* this probably should not happen */
+		if (newrettype == InvalidOid)	/* 此情形多半不应发生 */
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
 					 errmsg("could not determine actual result type for function \"%s\" declared to return type %s",
@@ -502,9 +502,9 @@ internal_get_result_type(Oid funcid,
 	if (resultTypeId)
 		*resultTypeId = rettype;
 	if (resultTupleDesc)
-		*resultTupleDesc = NULL;	/* default result */
+		*resultTupleDesc = NULL;	/* 默认结果 */
 
-	/* Classify the result type */
+	/* 对结果类型分类 */
 	result = get_type_func_class(rettype, &base_rettype);
 	switch (result)
 	{
@@ -512,19 +512,19 @@ internal_get_result_type(Oid funcid,
 		case TYPEFUNC_COMPOSITE_DOMAIN:
 			if (resultTupleDesc)
 				*resultTupleDesc = lookup_rowtype_tupdesc_copy(base_rettype, -1);
-			/* Named composite types can't have any polymorphic columns */
+			/* 命名复合类型不能含任何多态列 */
 			break;
 		case TYPEFUNC_SCALAR:
 			break;
 		case TYPEFUNC_RECORD:
-			/* We must get the tupledesc from call context */
+			/* 必须从调用语境获取元组描述符 */
 			if (rsinfo && IsA(rsinfo, ReturnSetInfo) &&
 				rsinfo->expectedDesc != NULL)
 			{
 				result = TYPEFUNC_COMPOSITE;
 				if (resultTupleDesc)
 					*resultTupleDesc = rsinfo->expectedDesc;
-				/* Assume no polymorphic columns here, either */
+				/* 此处同样假定无多态列 */
 			}
 			break;
 		default:
@@ -538,14 +538,14 @@ internal_get_result_type(Oid funcid,
 
 /*
  * get_expr_result_tupdesc
- *		Get a tupdesc describing the result of a composite-valued expression
+ *		获取描述复合值表达式结果的元组描述符
  *
- * If expression is not composite or rowtype can't be determined, returns NULL
- * if noError is true, else throws error.
+ * 若表达式非复合类型或行类型不定，noError 为真
+ * 时返回 NULL，否则抛错
  *
- * This is a simpler version of get_expr_result_type() for use when the caller
- * is only interested in determinate rowtype results.  As with that function,
- * beware of using this on the funcexpr of a RTE that has a coldeflist.
+ * 这是 get_expr_result_type() 的简化版本，适用于
+ * 调用者只关心可确定的行类型结果的场合。与该函数
+ * 一样，勿对带 coldeflist 的 RTE 使用其 funcexpr
  */
 TupleDesc
 get_expr_result_tupdesc(Node *expr, bool noError)
@@ -578,19 +578,19 @@ get_expr_result_tupdesc(Node *expr, bool noError)
 }
 
 /*
- * Resolve actual type of ANYELEMENT from other polymorphic inputs
+ * 从其他多态输入解析 ANYELEMENT 的实际类型
  *
- * Note: the error cases here and in the sibling functions below are not
- * really user-facing; they could only occur if the function signature is
- * incorrect or the parser failed to enforce consistency of the actual
- * argument types.  Hence, we don't sweat too much over the error messages.
+ * 注意：此处及下方同族函数的错误情形并非真正
+ * 面向用户；只有当函数签名不正确，或解析器未能
+ * 强制实参类型一致时才可能发生。因此，对于错误
+ * 消息不必过于讲究
  */
 static void
 resolve_anyelement_from_others(polymorphic_actuals *actuals)
 {
 	if (OidIsValid(actuals->anyarray_type))
 	{
-		/* Use the element type corresponding to actual type */
+		/* 使用与实际类型对应的元素类型 */
 		Oid			array_base_type = getBaseType(actuals->anyarray_type);
 		Oid			array_typelem = get_element_type(array_base_type);
 
@@ -604,7 +604,7 @@ resolve_anyelement_from_others(polymorphic_actuals *actuals)
 	}
 	else if (OidIsValid(actuals->anyrange_type))
 	{
-		/* Use the element type corresponding to actual type */
+		/* 使用与实际类型对应的元素类型 */
 		Oid			range_base_type = getBaseType(actuals->anyrange_type);
 		Oid			range_typelem = get_range_subtype(range_base_type);
 
@@ -618,7 +618,7 @@ resolve_anyelement_from_others(polymorphic_actuals *actuals)
 	}
 	else if (OidIsValid(actuals->anymultirange_type))
 	{
-		/* Use the element type based on the multirange type */
+		/* 依据多范围类型使用对应的元素类型 */
 		Oid			multirange_base_type;
 		Oid			multirange_typelem;
 		Oid			range_base_type;
@@ -649,18 +649,18 @@ resolve_anyelement_from_others(polymorphic_actuals *actuals)
 }
 
 /*
- * Resolve actual type of ANYARRAY from other polymorphic inputs
+ * 从其他多态输入解析 ANYARRAY 的实际类型
  */
 static void
 resolve_anyarray_from_others(polymorphic_actuals *actuals)
 {
-	/* If we don't know ANYELEMENT, resolve that first */
+	/* 若不知 ANYELEMENT，先解析它 */
 	if (!OidIsValid(actuals->anyelement_type))
 		resolve_anyelement_from_others(actuals);
 
 	if (OidIsValid(actuals->anyelement_type))
 	{
-		/* Use the array type corresponding to actual type */
+		/* 使用与实际类型对应的数组类型 */
 		Oid			array_typeid = get_array_type(actuals->anyelement_type);
 
 		if (!OidIsValid(array_typeid))
@@ -675,19 +675,19 @@ resolve_anyarray_from_others(polymorphic_actuals *actuals)
 }
 
 /*
- * Resolve actual type of ANYRANGE from other polymorphic inputs
+ * 从其他多态输入解析 ANYRANGE 的实际类型
  */
 static void
 resolve_anyrange_from_others(polymorphic_actuals *actuals)
 {
 	/*
-	 * We can't deduce a range type from other polymorphic array or base
-	 * types, because there may be multiple range types with the same subtype,
-	 * but we can deduce it from a polymorphic multirange type.
+	 * 无法从其他多态数组或基础类型推断范围
+	 * 类型，因为同一子类型可能存在多个范围类型，
+	 * 但可以从多态多范围类型推断它
 	 */
 	if (OidIsValid(actuals->anymultirange_type))
 	{
-		/* Use the element type based on the multirange type */
+		/* 依据多范围类型使用对应的元素类型 */
 		Oid			multirange_base_type = getBaseType(actuals->anymultirange_type);
 		Oid			multirange_typelem = get_multirange_range(multirange_base_type);
 
@@ -704,15 +704,15 @@ resolve_anyrange_from_others(polymorphic_actuals *actuals)
 }
 
 /*
- * Resolve actual type of ANYMULTIRANGE from other polymorphic inputs
+ * 从其他多态输入解析 ANYMULTIRANGE 的实际类型
  */
 static void
 resolve_anymultirange_from_others(polymorphic_actuals *actuals)
 {
 	/*
-	 * We can't deduce a multirange type from polymorphic array or base types,
-	 * because there may be multiple range types with the same subtype, but we
-	 * can deduce it from a polymorphic range type.
+	 * 我们无法从多态数组或基础类型推断多范围类型，
+	 * 因为同一子类型可能存在多个范围类型，但可以
+	 * 从多态范围类型推断它
 	 */
 	if (OidIsValid(actuals->anyrange_type))
 	{
@@ -731,14 +731,14 @@ resolve_anymultirange_from_others(polymorphic_actuals *actuals)
 }
 
 /*
- * Given the result tuple descriptor for a function with OUT parameters,
- * replace any polymorphic column types (ANYELEMENT etc) in the tupdesc
- * with concrete data types deduced from the input arguments.
- * declared_args is an oidvector of the function's declared input arg types
- * (showing which are polymorphic), and call_expr is the call expression.
+ * 对于带 OUT 参数的函数的结果元组描述符，请将
+ * 其中所有多态列类型（ANYELEMENT 等）替换为从
+ * 输入实参推断出的具体数据类型
+ * declared_args 是函数声明的输入参数类型的
+ * oidvector（指明哪些是多态），call_expr 是调用表达式
  *
- * Returns true if able to deduce all types, false if necessary information
- * is not provided (call_expr is NULL or arg types aren't identifiable).
+ * 若能推断全部类型则返回真；若必要信息缺失
+ * （call_expr 为 NULL 或实参类型无法识别）则返回假
  */
 static bool
 resolve_polymorphic_tupdesc(TupleDesc tupdesc, oidvector *declared_args,
@@ -761,7 +761,7 @@ resolve_polymorphic_tupdesc(TupleDesc tupdesc, oidvector *declared_args,
 	Oid			anycompatcollation = InvalidOid;
 	int			i;
 
-	/* See if there are any polymorphic outputs; quick out if not */
+	/* 看看是否存在多态输出；若否则快速返回 */
 	for (i = 0; i < natts; i++)
 	{
 		switch (TupleDescAttr(tupdesc, i)->atttypid)
@@ -809,14 +809,14 @@ resolve_polymorphic_tupdesc(TupleDesc tupdesc, oidvector *declared_args,
 		return true;
 
 	/*
-	 * Otherwise, extract actual datatype(s) from input arguments.  (We assume
-	 * the parser already validated consistency of the arguments.  Also, for
-	 * the ANYCOMPATIBLE pseudotype family, we expect that all matching
-	 * arguments were coerced to the selected common supertype, so that it
-	 * doesn't matter which one's exposed type we look at.)
+	 * 否则，从输入实参提取实际数据类型。（我们假定
+	 * 解析器已校验过实参的一致性。另外，对于
+	 * ANYCOMPATIBLE 伪类型族，我们预期所有匹配的
+	 * 实参都已被强制转换为选定的公共超类型，因此
+	 * 查看哪一个的暴露类型都无所谓）
 	 */
 	if (!call_expr)
-		return false;			/* no hope */
+		return false;			/* 无望 */
 
 	memset(&poly_actuals, 0, sizeof(poly_actuals));
 	memset(&anyc_actuals, 0, sizeof(anyc_actuals));
@@ -905,7 +905,7 @@ resolve_polymorphic_tupdesc(TupleDesc tupdesc, oidvector *declared_args,
 		}
 	}
 
-	/* If needed, deduce one polymorphic type from others */
+	/* 如有需要，从其余类型推断多态类型 */
 	if (have_anyelement_result && !OidIsValid(poly_actuals.anyelement_type))
 		resolve_anyelement_from_others(&poly_actuals);
 
@@ -931,11 +931,11 @@ resolve_polymorphic_tupdesc(TupleDesc tupdesc, oidvector *declared_args,
 		resolve_anymultirange_from_others(&anyc_actuals);
 
 	/*
-	 * Identify the collation to use for polymorphic OUT parameters. (It'll
-	 * necessarily be the same for both anyelement and anyarray, likewise for
-	 * anycompatible and anycompatiblearray.)  Note that range types are not
-	 * collatable, so any possible internal collation of a range type is not
-	 * considered here.
+	 * 确定为多态 OUT 参数使用的排序规则。（对
+	 * anyelement 与 anyarray 必然相同，anycompatible
+	 * 与 anycompatiblearray 也一样。）注意范围类型
+	 * 不可排序，故范围类型内部的排序规则不在此
+	 * 处考虑
 	 */
 	if (OidIsValid(poly_actuals.anyelement_type))
 		anycollation = get_typcollation(poly_actuals.anyelement_type);
@@ -950,9 +950,9 @@ resolve_polymorphic_tupdesc(TupleDesc tupdesc, oidvector *declared_args,
 	if (OidIsValid(anycollation) || OidIsValid(anycompatcollation))
 	{
 		/*
-		 * The types are collatable, so consider whether to use a nondefault
-		 * collation.  We do so if we can identify the input collation used
-		 * for the function.
+		 * 这些类型可排序，因此考虑是否使用非默认排
+		 * 序规则。若能确定该函数使用的输入排序规则，
+		 * 则使用之
 		 */
 		Oid			inputcollation = exprInputCollation(call_expr);
 
@@ -965,7 +965,7 @@ resolve_polymorphic_tupdesc(TupleDesc tupdesc, oidvector *declared_args,
 		}
 	}
 
-	/* And finally replace the tuple column types as needed */
+	/* 最后按需替换元组列类型 */
 	for (i = 0; i < natts; i++)
 	{
 		Form_pg_attribute att = TupleDescAttr(tupdesc, i);
@@ -996,7 +996,7 @@ resolve_polymorphic_tupdesc(TupleDesc tupdesc, oidvector *declared_args,
 								   poly_actuals.anyrange_type,
 								   -1,
 								   0);
-				/* no collation should be attached to a range type */
+				/* 范围类型不应附加排序规则 */
 				break;
 			case ANYMULTIRANGEOID:
 				TupleDescInitEntry(tupdesc, i + 1,
@@ -1004,7 +1004,7 @@ resolve_polymorphic_tupdesc(TupleDesc tupdesc, oidvector *declared_args,
 								   poly_actuals.anymultirange_type,
 								   -1,
 								   0);
-				/* no collation should be attached to a multirange type */
+				/* 多范围类型不应附加排序规则 */
 				break;
 			case ANYCOMPATIBLEOID:
 			case ANYCOMPATIBLENONARRAYOID:
@@ -1029,7 +1029,7 @@ resolve_polymorphic_tupdesc(TupleDesc tupdesc, oidvector *declared_args,
 								   anyc_actuals.anyrange_type,
 								   -1,
 								   0);
-				/* no collation should be attached to a range type */
+				/* 范围类型不应附加排序规则 */
 				break;
 			case ANYCOMPATIBLEMULTIRANGEOID:
 				TupleDescInitEntry(tupdesc, i + 1,
@@ -1037,7 +1037,7 @@ resolve_polymorphic_tupdesc(TupleDesc tupdesc, oidvector *declared_args,
 								   anyc_actuals.anymultirange_type,
 								   -1,
 								   0);
-				/* no collation should be attached to a multirange type */
+				/* 多范围类型不应附加排序规则 */
 				break;
 			default:
 				break;
@@ -1048,17 +1048,17 @@ resolve_polymorphic_tupdesc(TupleDesc tupdesc, oidvector *declared_args,
 }
 
 /*
- * Given the declared argument types and modes for a function, replace any
- * polymorphic types (ANYELEMENT etc) in argtypes[] with concrete data types
- * deduced from the input arguments found in call_expr.
+ * 给定函数声明的参数类型与模式，将 argtypes[]
+ * 中的多态类型（ANYELEMENT 等）替换为从 call_expr
+ * 中找到的输入实参推断出的具体类型
  *
- * Returns true if able to deduce all types, false if necessary information
- * is not provided (call_expr is NULL or arg types aren't identifiable).
+ * 若能推断全部类型则返回真；若必要信息缺失
+ * （call_expr 为 NULL 或实参类型无法识别）则返回假
  *
- * This is the same logic as resolve_polymorphic_tupdesc, but with a different
- * argument representation, and slightly different output responsibilities.
+ * 与 resolve_polymorphic_tupdesc 逻辑相同，但参数
+ * 表示形式不同，输出职责也略有差异
  *
- * argmodes may be NULL, in which case all arguments are assumed to be IN mode.
+ * argmodes 可为 NULL，此时假定所有参数都是 IN 模式
  */
 bool
 resolve_polymorphic_argtypes(int numargs, Oid *argtypes, char *argmodes,
@@ -1079,9 +1079,9 @@ resolve_polymorphic_argtypes(int numargs, Oid *argtypes, char *argmodes,
 	int			i;
 
 	/*
-	 * First pass: resolve polymorphic inputs, check for outputs.  As in
-	 * resolve_polymorphic_tupdesc, we rely on the parser to have enforced
-	 * type consistency and coerced ANYCOMPATIBLE args to a common supertype.
+	 * 第一遍：解析多态输入，检查输出。与
+	 * resolve_polymorphic_tupdesc 一样，我们依赖解析器
+	 * 强制类型一致并把 ANYCOMPATIBLE 实参转为公共超类型
 	 */
 	memset(&poly_actuals, 0, sizeof(poly_actuals));
 	memset(&anyc_actuals, 0, sizeof(anyc_actuals));
@@ -1250,7 +1250,7 @@ resolve_polymorphic_argtypes(int numargs, Oid *argtypes, char *argmodes,
 	if (!have_polymorphic_result)
 		return true;
 
-	/* If needed, deduce one polymorphic type from others */
+	/* 如有需要，从其余类型推断多态类型 */
 	if (have_anyelement_result && !OidIsValid(poly_actuals.anyelement_type))
 		resolve_anyelement_from_others(&poly_actuals);
 
@@ -1275,7 +1275,7 @@ resolve_polymorphic_argtypes(int numargs, Oid *argtypes, char *argmodes,
 	if (have_anycompatible_multirange_result && !OidIsValid(anyc_actuals.anymultirange_type))
 		resolve_anymultirange_from_others(&anyc_actuals);
 
-	/* And finally replace the output column types as needed */
+	/* 最后按需替换输出列类型 */
 	for (i = 0; i < numargs; i++)
 	{
 		switch (argtypes[i])
@@ -1317,12 +1317,12 @@ resolve_polymorphic_argtypes(int numargs, Oid *argtypes, char *argmodes,
 
 /*
  * get_type_func_class
- *		Given the type OID, obtain its TYPEFUNC classification.
- *		Also, if it's a domain, return the base type OID.
+ *		给定类型 OID，获取其 TYPEFUNC 分类
+ *		另外，若是域，则返回基础类型 OID
  *
- * This is intended to centralize a bunch of formerly ad-hoc code for
- * classifying types.  The categories used here are useful for deciding
- * how to handle functions returning the datatype.
+ * 此函数旨在集中管理过去零散的类型分类
+ * 代码。此处使用的类别有助于决定如何处理
+ * 返回该数据类型的函数
  */
 static TypeFuncClass
 get_type_func_class(Oid typid, Oid *base_typeid)
@@ -1342,23 +1342,23 @@ get_type_func_class(Oid typid, Oid *base_typeid)
 			*base_typeid = typid = getBaseType(typid);
 			if (get_typtype(typid) == TYPTYPE_COMPOSITE)
 				return TYPEFUNC_COMPOSITE_DOMAIN;
-			else				/* domain base type can't be a pseudotype */
+			else				/* 域的基础类型不能是伪类型 */
 				return TYPEFUNC_SCALAR;
 		case TYPTYPE_PSEUDO:
 			if (typid == RECORDOID)
 				return TYPEFUNC_RECORD;
 
 			/*
-			 * We treat VOID and CSTRING as legitimate scalar datatypes,
-			 * mostly for the convenience of the JDBC driver (which wants to
-			 * be able to do "SELECT * FROM foo()" for all legitimately
-			 * user-callable functions).
+			 * 我们将 VOID 与 CSTRING 视为合法的标量数据
+			 * 类型，主要是为了方便 JDBC 驱动（它希望
+			 * 能对所有合法的用户可调用函数执行 "
+			 * SELECT * FROM foo()"）
 			 */
 			if (typid == VOIDOID || typid == CSTRINGOID)
 				return TYPEFUNC_SCALAR;
 			return TYPEFUNC_OTHER;
 	}
-	/* shouldn't get here, probably */
+	/* 多半不应走到这里 */
 	return TYPEFUNC_OTHER;
 }
 
@@ -1366,14 +1366,14 @@ get_type_func_class(Oid typid, Oid *base_typeid)
 /*
  * get_func_arg_info
  *
- * Fetch info about the argument types, names, and IN/OUT modes from the
- * pg_proc tuple.  Return value is the total number of arguments.
- * Other results are palloc'd.  *p_argtypes is always filled in, but
- * *p_argnames and *p_argmodes will be set NULL in the default cases
- * (no names, and all IN arguments, respectively).
+ * 从 pg_proc 元组获取参数类型、名称与 IN/OUT
+ * 模式等信息。返回值为参数总数
+ * 其他结果均为 palloc 分配。*p_argtypes 总会填
+ * 充，但 *p_argnames 与 *p_argmodes 在默认情形
+ * （无名称，全为 IN 参数）下置 NULL
  *
- * Note that this function simply fetches what is in the pg_proc tuple;
- * it doesn't do any interpretation of polymorphic types.
+ * 注意：此函数只是取回 pg_proc 元组中的内容，
+ * 并不对多态类型做任何解释
  */
 int
 get_func_arg_info(HeapTuple procTup,
@@ -1390,19 +1390,19 @@ get_func_arg_info(HeapTuple procTup,
 	int			nelems;
 	int			i;
 
-	/* First discover the total number of parameters and get their types */
+	/* 先查明参数总数并获取其类型 */
 	proallargtypes = SysCacheGetAttr(PROCOID, procTup,
 									 Anum_pg_proc_proallargtypes,
 									 &isNull);
 	if (!isNull)
 	{
 		/*
-		 * We expect the arrays to be 1-D arrays of the right types; verify
-		 * that.  For the OID and char arrays, we don't need to use
-		 * deconstruct_array() since the array data is just going to look like
-		 * a C array of values.
+		 * 期望这些数组是类型正确的 1 维数组；需验证
+		 * 对 OID 与 char 数组无需使用
+		 * deconstruct_array()，因为数组数据只是
+		 * C 值数组。
 		 */
-		arr = DatumGetArrayTypeP(proallargtypes);	/* ensure not toasted */
+		arr = DatumGetArrayTypeP(proallargtypes);	/* 未经TOAST化 */
 		numargs = ARR_DIMS(arr)[0];
 		if (ARR_NDIM(arr) != 1 ||
 			numargs < 0 ||
@@ -1416,7 +1416,7 @@ get_func_arg_info(HeapTuple procTup,
 	}
 	else
 	{
-		/* If no proallargtypes, use proargtypes */
+		/* 若无 proallargtypes 用 proargtypes */
 		numargs = procStruct->proargtypes.dim1;
 		Assert(numargs == procStruct->pronargs);
 		*p_argtypes = (Oid *) palloc(numargs * sizeof(Oid));
@@ -1424,7 +1424,7 @@ get_func_arg_info(HeapTuple procTup,
 			   numargs * sizeof(Oid));
 	}
 
-	/* Get argument names, if available */
+	/* 若可用，获取参数名 */
 	proargnames = SysCacheGetAttr(PROCOID, procTup,
 								  Anum_pg_proc_proargnames,
 								  &isNull);
@@ -1434,14 +1434,14 @@ get_func_arg_info(HeapTuple procTup,
 	{
 		deconstruct_array_builtin(DatumGetArrayTypeP(proargnames), TEXTOID,
 								  &elems, NULL, &nelems);
-		if (nelems != numargs)	/* should not happen */
+		if (nelems != numargs)	/* 不应发生 */
 			elog(ERROR, "proargnames must have the same number of elements as the function has arguments");
 		*p_argnames = (char **) palloc(sizeof(char *) * numargs);
 		for (i = 0; i < numargs; i++)
 			(*p_argnames)[i] = TextDatumGetCString(elems[i]);
 	}
 
-	/* Get argument modes, if available */
+	/* 若可用，获取参数模式 */
 	proargmodes = SysCacheGetAttr(PROCOID, procTup,
 								  Anum_pg_proc_proargmodes,
 								  &isNull);
@@ -1449,7 +1449,7 @@ get_func_arg_info(HeapTuple procTup,
 		*p_argmodes = NULL;
 	else
 	{
-		arr = DatumGetArrayTypeP(proargmodes);	/* ensure not toasted */
+		arr = DatumGetArrayTypeP(proargmodes);	/* 未经TOAST化 */
 		if (ARR_NDIM(arr) != 1 ||
 			ARR_DIMS(arr)[0] != numargs ||
 			ARR_HASNULL(arr) ||
@@ -1467,9 +1467,9 @@ get_func_arg_info(HeapTuple procTup,
 /*
  * get_func_trftypes
  *
- * Returns the number of transformed types used by the function.
- * If there are any, a palloc'd array of the type OIDs is returned
- * into *p_trftypes.
+ * 返回该函数使用的转换类型数量
+ * 若有，则返回一个 palloc 的类型 OID 数组到
+ * *p_trftypes
  */
 int
 get_func_trftypes(HeapTuple procTup,
@@ -1486,12 +1486,12 @@ get_func_trftypes(HeapTuple procTup,
 	if (!isNull)
 	{
 		/*
-		 * We expect the arrays to be 1-D arrays of the right types; verify
-		 * that.  For the OID and char arrays, we don't need to use
-		 * deconstruct_array() since the array data is just going to look like
-		 * a C array of values.
+		 * 期望这些数组是类型正确的 1 维数组；需验证
+		 * 对 OID 与 char 数组无需使用
+		 * deconstruct_array()，因为数组数据只是
+		 * C 值数组。
 		 */
-		arr = DatumGetArrayTypeP(protrftypes);	/* ensure not toasted */
+		arr = DatumGetArrayTypeP(protrftypes);	/* 未经TOAST化 */
 		nelems = ARR_DIMS(arr)[0];
 		if (ARR_NDIM(arr) != 1 ||
 			nelems < 0 ||
@@ -1511,12 +1511,12 @@ get_func_trftypes(HeapTuple procTup,
 /*
  * get_func_input_arg_names
  *
- * Extract the names of input arguments only, given a function's
- * proargnames and proargmodes entries in Datum form.
+ * 仅提取输入参数的名称，给定函数的 Datum 形
+ * 式的 proargnames 与 proargmodes 条目
  *
- * Returns the number of input arguments, which is the length of the
- * palloc'd array returned to *arg_names.  Entries for unnamed args
- * are set to NULL.  You don't get anything if proargnames is NULL.
+ * 返回输入参数的数量，即返回给 *arg_names 的
+ * palloc 数组的长度。未命名参数的条目置为
+ * NULL。若 proargnames 为 NULL 则一无所获
  */
 int
 get_func_input_arg_names(Datum proargnames, Datum proargmodes,
@@ -1530,7 +1530,7 @@ get_func_input_arg_names(Datum proargnames, Datum proargmodes,
 	int			numinargs;
 	int			i;
 
-	/* Do nothing if null proargnames */
+	/* proargnames 为空则跳过 */
 	if (proargnames == PointerGetDatum(NULL))
 	{
 		*arg_names = NULL;
@@ -1538,11 +1538,11 @@ get_func_input_arg_names(Datum proargnames, Datum proargmodes,
 	}
 
 	/*
-	 * We expect the arrays to be 1-D arrays of the right types; verify that.
-	 * For proargmodes, we don't need to use deconstruct_array() since the
-	 * array data is just going to look like a C array of values.
+	 * 期望这些数组是类型正确的 1 维数组；需验证。
+	 * 对于 proargmodes，无需使用 deconstruct_array()
+	 * 因为数组数据看起来就是 C 值数组
 	 */
-	arr = DatumGetArrayTypeP(proargnames);	/* ensure not toasted */
+	arr = DatumGetArrayTypeP(proargnames);	/* 未经TOAST化 */
 	if (ARR_NDIM(arr) != 1 ||
 		ARR_HASNULL(arr) ||
 		ARR_ELEMTYPE(arr) != TEXTOID)
@@ -1550,7 +1550,7 @@ get_func_input_arg_names(Datum proargnames, Datum proargmodes,
 	deconstruct_array_builtin(arr, TEXTOID, &argnames, NULL, &numargs);
 	if (proargmodes != PointerGetDatum(NULL))
 	{
-		arr = DatumGetArrayTypeP(proargmodes);	/* ensure not toasted */
+		arr = DatumGetArrayTypeP(proargmodes);	/* 未经TOAST化 */
 		if (ARR_NDIM(arr) != 1 ||
 			ARR_DIMS(arr)[0] != numargs ||
 			ARR_HASNULL(arr) ||
@@ -1562,14 +1562,14 @@ get_func_input_arg_names(Datum proargnames, Datum proargmodes,
 	else
 		argmodes = NULL;
 
-	/* zero elements probably shouldn't happen, but handle it gracefully */
+	/* 零元素多半不应发生，但也要优雅地处理 */
 	if (numargs <= 0)
 	{
 		*arg_names = NULL;
 		return 0;
 	}
 
-	/* extract input-argument names */
+	/* 提取输入参数名 */
 	inargnames = (char **) palloc(numargs * sizeof(char *));
 	numinargs = 0;
 	for (i = 0; i < numargs; i++)
@@ -1597,11 +1597,11 @@ get_func_input_arg_names(Datum proargnames, Datum proargmodes,
 /*
  * get_func_result_name
  *
- * If the function has exactly one output parameter, and that parameter
- * is named, return the name (as a palloc'd string).  Else return NULL.
+ * 若函数恰好有一个输出参数，且该参数有名字，
+ * 则返回该名字（palloc 字符串）。否则返回 NULL
  *
- * This is used to determine the default output column name for functions
- * returning scalar types.
+ * 此函数用于为返回标量类型的函数确定默认的
+ * 输出列名
  */
 char *
 get_func_result_name(Oid functionId)
@@ -1618,30 +1618,30 @@ get_func_result_name(Oid functionId)
 	int			nargnames;
 	int			i;
 
-	/* First fetch the function's pg_proc row */
+	/* 先取出函数的 pg_proc 行 */
 	procTuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(functionId));
 	if (!HeapTupleIsValid(procTuple))
 		elog(ERROR, "cache lookup failed for function %u", functionId);
 
-	/* If there are no named OUT parameters, return NULL */
+	/* 若没有命名的 OUT 参数，返回 NULL */
 	if (heap_attisnull(procTuple, Anum_pg_proc_proargmodes, NULL) ||
 		heap_attisnull(procTuple, Anum_pg_proc_proargnames, NULL))
 		result = NULL;
 	else
 	{
-		/* Get the data out of the tuple */
+		/* 从元组取出数据 */
 		proargmodes = SysCacheGetAttrNotNull(PROCOID, procTuple,
 											 Anum_pg_proc_proargmodes);
 		proargnames = SysCacheGetAttrNotNull(PROCOID, procTuple,
 											 Anum_pg_proc_proargnames);
 
 		/*
-		 * We expect the arrays to be 1-D arrays of the right types; verify
-		 * that.  For the char array, we don't need to use deconstruct_array()
-		 * since the array data is just going to look like a C array of
-		 * values.
+		 * 期望数组是类型正确的 1 维数组；需加以验证
+		 * 对于 char 数组，无需使用 deconstruct_array()
+		 * 因为数组数据形如 C 值
+		 * 数组
 		 */
-		arr = DatumGetArrayTypeP(proargmodes);	/* ensure not toasted */
+		arr = DatumGetArrayTypeP(proargmodes);	/* 未经TOAST化 */
 		numargs = ARR_DIMS(arr)[0];
 		if (ARR_NDIM(arr) != 1 ||
 			numargs < 0 ||
@@ -1649,7 +1649,7 @@ get_func_result_name(Oid functionId)
 			ARR_ELEMTYPE(arr) != CHAROID)
 			elog(ERROR, "proargmodes is not a 1-D char array or it contains nulls");
 		argmodes = (char *) ARR_DATA_PTR(arr);
-		arr = DatumGetArrayTypeP(proargnames);	/* ensure not toasted */
+		arr = DatumGetArrayTypeP(proargnames);	/* 未经TOAST化 */
 		if (ARR_NDIM(arr) != 1 ||
 			ARR_DIMS(arr)[0] != numargs ||
 			ARR_HASNULL(arr) ||
@@ -1659,7 +1659,7 @@ get_func_result_name(Oid functionId)
 		deconstruct_array_builtin(arr, TEXTOID, &argnames, NULL, &nargnames);
 		Assert(nargnames == numargs);
 
-		/* scan for output argument(s) */
+		/* 扫描输出参数 */
 		result = NULL;
 		numoutargs = 0;
 		for (i = 0; i < numargs; i++)
@@ -1672,14 +1672,14 @@ get_func_result_name(Oid functionId)
 				   argmodes[i] == PROARGMODE_TABLE);
 			if (++numoutargs > 1)
 			{
-				/* multiple out args, so forget it */
+				/* 多个输出参数，故放弃 */
 				result = NULL;
 				break;
 			}
 			result = TextDatumGetCString(argnames[i]);
 			if (result == NULL || result[0] == '\0')
 			{
-				/* Parameter is not named, so forget it */
+				/* 参数未命名，故放弃 */
 				result = NULL;
 				break;
 			}
@@ -1695,11 +1695,11 @@ get_func_result_name(Oid functionId)
 /*
  * build_function_result_tupdesc_t
  *
- * Given a pg_proc row for a function, return a tuple descriptor for the
- * result rowtype, or NULL if the function does not have OUT parameters.
+ * 给定函数的 pg_proc 行，返回结果行类型的元组
+ * 描述符；若函数没有 OUT 参数则返回 NULL
  *
- * Note that this does not handle resolution of polymorphic types;
- * that is deliberate.
+ * 注意此函数不处理多态类型的解析；
+ * 这是有意为之
  */
 TupleDesc
 build_function_result_tupdesc_t(HeapTuple procTuple)
@@ -1710,16 +1710,16 @@ build_function_result_tupdesc_t(HeapTuple procTuple)
 	Datum		proargnames;
 	bool		isnull;
 
-	/* Return NULL if the function isn't declared to return RECORD */
+	/* 若函数未声明返回 RECORD，返回 NULL */
 	if (procform->prorettype != RECORDOID)
 		return NULL;
 
-	/* If there are no OUT parameters, return NULL */
+	/* 若无 OUT 参数，返回 NULL */
 	if (heap_attisnull(procTuple, Anum_pg_proc_proallargtypes, NULL) ||
 		heap_attisnull(procTuple, Anum_pg_proc_proargmodes, NULL))
 		return NULL;
 
-	/* Get the data out of the tuple */
+	/* 从元组取出数据 */
 	proallargtypes = SysCacheGetAttrNotNull(PROCOID, procTuple,
 											Anum_pg_proc_proallargtypes);
 	proargmodes = SysCacheGetAttrNotNull(PROCOID, procTuple,
@@ -1728,7 +1728,7 @@ build_function_result_tupdesc_t(HeapTuple procTuple)
 								  Anum_pg_proc_proargnames,
 								  &isnull);
 	if (isnull)
-		proargnames = PointerGetDatum(NULL);	/* just to be sure */
+		proargnames = PointerGetDatum(NULL);	/* 仅为确认 */
 
 	return build_function_result_tupdesc_d(procform->prokind,
 										   proallargtypes,
@@ -1739,13 +1739,13 @@ build_function_result_tupdesc_t(HeapTuple procTuple)
 /*
  * build_function_result_tupdesc_d
  *
- * Build a RECORD function's tupledesc from the pg_proc proallargtypes,
- * proargmodes, and proargnames arrays.  This is split out for the
- * convenience of ProcedureCreate, which needs to be able to compute the
- * tupledesc before actually creating the function.
+ * 从 pg_proc 的 proallargtypes、proargmodes 与
+ * proargnames 数组构建 RECORD 函数的元组描述符。
+ * 之所以独立出来，是为了方便 ProcedureCreate，
+ * 它需在创建函数前算出元组描述符
  *
- * For functions (but not for procedures), returns NULL if there are not at
- * least two OUT or INOUT arguments.
+ * 对函数（但非过程），若 OUT 或 INOUT 参数不足
+ * 两个，则返回 NULL
  */
 TupleDesc
 build_function_result_tupdesc_d(char prokind,
@@ -1765,17 +1765,17 @@ build_function_result_tupdesc_d(char prokind,
 	int			nargnames;
 	int			i;
 
-	/* Can't have output args if columns are null */
+	/* 列数组为空则不可能有输出参数 */
 	if (proallargtypes == PointerGetDatum(NULL) ||
 		proargmodes == PointerGetDatum(NULL))
 		return NULL;
 
 	/*
-	 * We expect the arrays to be 1-D arrays of the right types; verify that.
-	 * For the OID and char arrays, we don't need to use deconstruct_array()
-	 * since the array data is just going to look like a C array of values.
+	 * 期望这些数组是类型正确的 1 维数组；需验证。
+	 * 对 OID 与 char 数组无需使用 deconstruct_array()
+	 * 因为数组数据只是 C 值数组
 	 */
-	arr = DatumGetArrayTypeP(proallargtypes);	/* ensure not toasted */
+	arr = DatumGetArrayTypeP(proallargtypes);	/* 未经TOAST化 */
 	numargs = ARR_DIMS(arr)[0];
 	if (ARR_NDIM(arr) != 1 ||
 		numargs < 0 ||
@@ -1783,7 +1783,7 @@ build_function_result_tupdesc_d(char prokind,
 		ARR_ELEMTYPE(arr) != OIDOID)
 		elog(ERROR, "proallargtypes is not a 1-D Oid array or it contains nulls");
 	argtypes = (Oid *) ARR_DATA_PTR(arr);
-	arr = DatumGetArrayTypeP(proargmodes);	/* ensure not toasted */
+	arr = DatumGetArrayTypeP(proargmodes);	/* 未经TOAST化 */
 	if (ARR_NDIM(arr) != 1 ||
 		ARR_DIMS(arr)[0] != numargs ||
 		ARR_HASNULL(arr) ||
@@ -1793,7 +1793,7 @@ build_function_result_tupdesc_d(char prokind,
 	argmodes = (char *) ARR_DATA_PTR(arr);
 	if (proargnames != PointerGetDatum(NULL))
 	{
-		arr = DatumGetArrayTypeP(proargnames);	/* ensure not toasted */
+		arr = DatumGetArrayTypeP(proargnames);	/* 未经TOAST化 */
 		if (ARR_NDIM(arr) != 1 ||
 			ARR_DIMS(arr)[0] != numargs ||
 			ARR_HASNULL(arr) ||
@@ -1804,11 +1804,11 @@ build_function_result_tupdesc_d(char prokind,
 		Assert(nargnames == numargs);
 	}
 
-	/* zero elements probably shouldn't happen, but handle it gracefully */
+	/* 零元素多半不应发生，但也要优雅地处理 */
 	if (numargs <= 0)
 		return NULL;
 
-	/* extract output-argument types and names */
+	/* 提取输出参数的类型与名称 */
 	outargtypes = (Oid *) palloc(numargs * sizeof(Oid));
 	outargnames = (char **) palloc(numargs * sizeof(char *));
 	numoutargs = 0;
@@ -1829,7 +1829,7 @@ build_function_result_tupdesc_d(char prokind,
 			pname = NULL;
 		if (pname == NULL || pname[0] == '\0')
 		{
-			/* Parameter is not named, so gin up a column name */
+			/* 参数未命名，故现造一个列名 */
 			pname = psprintf("column%d", numoutargs + 1);
 		}
 		outargnames[numoutargs] = pname;
@@ -1837,8 +1837,8 @@ build_function_result_tupdesc_d(char prokind,
 	}
 
 	/*
-	 * If there is no output argument, or only one, the function does not
-	 * return tuples.
+	 * 若没有输出参数或只有一个，函数将不返回
+	 * 元组
 	 */
 	if (numoutargs < 2 && prokind != PROKIND_PROCEDURE)
 		return NULL;
@@ -1860,11 +1860,11 @@ build_function_result_tupdesc_d(char prokind,
 /*
  * RelationNameGetTupleDesc
  *
- * Given a (possibly qualified) relation name, build a TupleDesc.
+ * 给定（可能带限定符的）关系名，构建 TupleDesc
  *
- * Note: while this works as advertised, it's seldom the best way to
- * build a tupdesc for a function's result type.  It's kept around
- * only for backwards compatibility with existing user-written code.
+ * 注意：虽然此函数确实如宣称的那样可用，但它
+ * 很少是为函数结果类型构建元组描述符的最佳
+ * 方式。保留它只是为了与既有用户代码向后兼容
  */
 TupleDesc
 RelationNameGetTupleDesc(const char *relname)
@@ -1874,7 +1874,7 @@ RelationNameGetTupleDesc(const char *relname)
 	TupleDesc	tupdesc;
 	List	   *relname_list;
 
-	/* Open relation and copy the tuple description */
+	/* 打开关系并复制元组描述 */
 	relname_list = stringToQualifiedNameList(relname, NULL);
 	relvar = makeRangeVarFromNameList(relname_list);
 	rel = relation_openrv(relvar, AccessShareLock);
@@ -1887,17 +1887,17 @@ RelationNameGetTupleDesc(const char *relname)
 /*
  * TypeGetTupleDesc
  *
- * Given a type Oid, build a TupleDesc.  (In most cases you should be
- * using get_call_result_type or one of its siblings instead of this
- * routine, so that you can handle OUT parameters, RECORD result type,
- * and polymorphic results.)
+ * 给定类型 Oid，构建 TupleDesc。（多数情况下应
+ * 改用 get_call_result_type 或其同族函数，以便
+ * 处理 OUT 参数、RECORD 结果类型与多态
+ * 结果）。
  *
- * If the type is composite, *and* a colaliases List is provided, *and*
- * the List is of natts length, use the aliases instead of the relation
- * attnames.  (NB: this usage is deprecated since it may result in
- * creation of unnecessary transient record types.)
+ * 若类型是复合类型 *且* 提供了 colaliases List，
+ * *且* 该 List 长度为 natts，则使用别名而非关系
+ * 的 attnames。（注意：此用法已弃用，因为它可能
+ * 导致创建不必要的瞬态记录类型）
  *
- * If the type is a base type, a single item alias List is required.
+ * 若类型是基础类型，则需要单项别名的 List
  */
 TupleDesc
 TypeGetTupleDesc(Oid typeoid, List *colaliases)
@@ -1907,14 +1907,14 @@ TypeGetTupleDesc(Oid typeoid, List *colaliases)
 	TupleDesc	tupdesc = NULL;
 
 	/*
-	 * Build a suitable tupledesc representing the output rows.  We
-	 * intentionally do not support TYPEFUNC_COMPOSITE_DOMAIN here, as it's
-	 * unlikely that legacy callers of this obsolete function would be
-	 * prepared to apply domain constraints.
+	 * 构建表示输出行的合适元组描述符。我们
+	 * 有意不支持 TYPEFUNC_COMPOSITE_DOMAIN，因为
+	 * 这个废弃函数的遗留调用者多半不准备应用
+	 * 域约束
 	 */
 	if (functypclass == TYPEFUNC_COMPOSITE)
 	{
-		/* Composite data type, e.g. a table's row type */
+		/* 复合数据类型，如表的行类型 */
 		tupdesc = lookup_rowtype_tupdesc_copy(base_typeoid, -1);
 
 		if (colaliases != NIL)
@@ -1922,13 +1922,13 @@ TypeGetTupleDesc(Oid typeoid, List *colaliases)
 			int			natts = tupdesc->natts;
 			int			varattno;
 
-			/* does the list length match the number of attributes? */
+			/* 列表长度是否与属性数量匹配？ */
 			if (list_length(colaliases) != natts)
 				ereport(ERROR,
 						(errcode(ERRCODE_DATATYPE_MISMATCH),
 						 errmsg("number of aliases does not match number of columns")));
 
-			/* OK, use the aliases instead */
+			/* 好，改用别名 */
 			for (varattno = 0; varattno < natts; varattno++)
 			{
 				char	   *label = strVal(list_nth(colaliases, varattno));
@@ -1938,29 +1938,29 @@ TypeGetTupleDesc(Oid typeoid, List *colaliases)
 					namestrcpy(&(attr->attname), label);
 			}
 
-			/* The tuple type is now an anonymous record type */
+			/* 元组类型此时为匿名记录类型 */
 			tupdesc->tdtypeid = RECORDOID;
 			tupdesc->tdtypmod = -1;
 		}
 	}
 	else if (functypclass == TYPEFUNC_SCALAR)
 	{
-		/* Base data type, i.e. scalar */
+		/* 基础类型，即标量 */
 		char	   *attname;
 
-		/* the alias list is required for base types */
+		/* 基础类型需要别名列表 */
 		if (colaliases == NIL)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
 					 errmsg("no column alias was provided")));
 
-		/* the alias list length must be 1 */
+		/* 别名列表长度必须为 1 */
 		if (list_length(colaliases) != 1)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
 					 errmsg("number of aliases does not match number of columns")));
 
-		/* OK, get the column alias */
+		/* 好，取列别名 */
 		attname = strVal(linitial(colaliases));
 
 		tupdesc = CreateTemplateTupleDesc(1);
@@ -1973,14 +1973,14 @@ TypeGetTupleDesc(Oid typeoid, List *colaliases)
 	}
 	else if (functypclass == TYPEFUNC_RECORD)
 	{
-		/* XXX can't support this because typmod wasn't passed in ... */
+		/* XXX 无法支持此情形，因为未传入 typmod…… */
 		ereport(ERROR,
 				(errcode(ERRCODE_DATATYPE_MISMATCH),
 				 errmsg("could not determine row description for function returning record")));
 	}
 	else
 	{
-		/* crummy error message, but parser should have caught this */
+		/* 错误消息很蹩脚，但解析器本应捕获 */
 		elog(ERROR, "function in FROM has unsupported return type");
 	}
 
@@ -1990,16 +1990,16 @@ TypeGetTupleDesc(Oid typeoid, List *colaliases)
 /*
  * extract_variadic_args
  *
- * Extract a set of argument values, types and NULL markers for a given
- * input function which makes use of a VARIADIC input whose argument list
- * depends on the caller context. When doing a VARIADIC call, the caller
- * has provided one argument made of an array of values, so deconstruct the
- * array data before using it for the next processing. If no VARIADIC call
- * is used, just fill in the status data based on all the arguments given
- * by the caller.
+ * 为一组实参提取值、类型与 NULL 标记，给定一
+ * 个使用 VARIADIC 输入且实参列表取决于调用者
+ * 语境的输入函数。做 VARIADIC 调用时，调用者
+ * 提供的是由一组值构成的数组的单个实参，因此
+ * 先解构数组数据再做后续处理。若并非 VARIADIC
+ * 调用，则只需按调用者给定的全部实参填入状态
+ * 数据即可
  *
- * This function returns the number of arguments generated, or -1 in the
- * case of "VARIADIC NULL".
+ * 此函数返回生成的实参数量，若为 "VARIADIC
+ * NULL" 则返回 -1
  */
 int
 extract_variadic_args(FunctionCallInfo fcinfo, int variadic_start,
@@ -2039,7 +2039,7 @@ extract_variadic_args(FunctionCallInfo fcinfo, int variadic_start,
 						  typalign, &args_res, &nulls_res,
 						  &nargs);
 
-		/* All the elements of the array have the same type */
+		/* 数组所有元素类型相同 */
 		types_res = (Oid *) palloc0(nargs * sizeof(Oid));
 		for (i = 0; i < nargs; i++)
 			types_res[i] = element_type;
@@ -2059,11 +2059,11 @@ extract_variadic_args(FunctionCallInfo fcinfo, int variadic_start,
 											   i + variadic_start);
 
 			/*
-			 * Turn a constant (more or less literal) value that's of unknown
-			 * type into text if required. Unknowns come in as a cstring
-			 * pointer. Note: for functions declared as taking type "any", the
-			 * parser will not do any type conversion on unknown-type literals
-			 * (that is, undecorated strings or NULLs).
+			 * 把一个未知类型的（多半是字面）常量值按需
+			 * 转为 text。未知类型以 cstring 指针传入。
+			 * 注意：对声明为接受 "any" 类型的函数，解析器
+			 * 不会对未知类型字面量（即无修饰的字符串或
+			 * NULL）做任何类型转换
 			 */
 			if (convert_unknown &&
 				types_res[i] == UNKNOWNOID &&
@@ -2079,7 +2079,7 @@ extract_variadic_args(FunctionCallInfo fcinfo, int variadic_start,
 			}
 			else
 			{
-				/* no conversion needed, just take the datum as given */
+				/* 无需转换，直接按原样取用该 datum */
 				args_res[i] = PG_GETARG_DATUM(i + variadic_start);
 			}
 
@@ -2092,7 +2092,7 @@ extract_variadic_args(FunctionCallInfo fcinfo, int variadic_start,
 		}
 	}
 
-	/* Fill in results */
+	/* 填入结果 */
 	*args = args_res;
 	*nulls = nulls_res;
 	*types = types_res;

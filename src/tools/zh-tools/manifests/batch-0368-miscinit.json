@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0368",
+ "title": "init dir part 2 rebuild: miscinit.c whole-file translation (148 blocks, strict per-line budgets)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "392d1ded06a7745875e0aa8d004855a0add4642e",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0368-miscinit.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "update miscinit entry (S6 registration)"
+  },
+  {
+   "pattern": "src/backend/utils/init/miscinit.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation rebuild: 148 blocks, strict per-line budgets, 0 overruns"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0368-miscinit.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "update miscinit entry (S6 registration)"
+  },
+  {
+   "path": "src/backend/utils/init/miscinit.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 148,
+   "translated": 148,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "line-number-keyed apply; zero budget overruns after auto-trim; 7 EN keeps (copyright/IDENTIFICATION/path/name)"
+  }
+ ],
+ "notes": "batch-0368 (init dir part 2 rebuild, 2026-11-13, parent batch-0367-review-fix=392d1ded06a). Replaces the reverted batch-0367. miscinit.c 148 blocks translated using strict per-line budget discipline (line-number-keyed apply, no cross-line text movement). Line count 1948 = EN baseline. Zero per-line budget overruns after mechanical trimming (27 initial overs auto-trimmed by dropping trailing chars within each line). 7 EN keeps (copyright x2, miscinit.c name, IDENTIFICATION, path, boot/standalone init line, NOTES line). Advisories: W7_IDENT_LOST (identifiers absorbed into zh phrasing); term_lint 2 warning hits (P70/P71 at L130). Gates: verify_c_comments 0 violations (170/168 changed); term_lint 0 errors; scan_halfen --worktree 0 findings. Code bytes unchanged (1948 lines, non-comment diffs=0)."
+}

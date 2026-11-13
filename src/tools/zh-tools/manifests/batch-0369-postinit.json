@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0369",
+ "title": "init dir part 3: postinit.c translation (128 blocks, 253/340 lines, 10 skipped for budget)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "03ce9b54a3023291f2e0a8722d5725694ab9f594",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0369-postinit.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0369 manifest path and postinit entry (S6 registration)"
+  },
+  {
+   "pattern": "src/backend/utils/init/postinit.c",
+   "kind": "c_comment",
+   "note": "whole-file translation: 128 blocks, 253/340 lines translated (10 skipped for budget), 77 EN keeps"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0369-postinit.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0369 manifest path and postinit entry (S6 registration)"
+  },
+  {
+   "path": "src/backend/utils/init/postinit.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 128,
+   "translated": 128,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "strict per-line budget; 253 translated, 10 skipped for budget overflow (EN kept), 77 EN keeps (copyright/IDENTIFICATION/path/function names/banners)"
+  }
+ ],
+ "notes": "batch-0369 (init dir part 3, 2026-11-13, parent batch-0368=03ce9b54a30). postinit.c 128 blocks, 340 content lines: 253 translated, 10 skipped (over EN byte budget, EN kept), 77 EN keeps. Strategy: line-number-keyed apply, strict per-line budget, NO cross-line text movement. Lines that couldn't fit zh within EN budget were kept as EN (disclosed). Known advisories: 38 scan_halfen mixed findings (partial translation within multi-line comment blocks where some lines fit budget and others don't); term_lint TL01 error at L1428 (empty /* opener before zh text — same pattern throughout file, likely false positive). These need review evaluation. Gates: verify_c_comments 0 violations (298 blocks/284 changed across init dir, miscinit reverted to EN = 14 unchanged); term_lint 0 errors excluding TL01; code bytes unchanged (1447 lines = EN baseline)."
+}

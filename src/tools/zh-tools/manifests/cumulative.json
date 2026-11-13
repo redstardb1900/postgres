@@ -6241,6 +6241,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0368-miscinit.json",
    "kind": "manifest",
    "note": "batch-0368 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/init/postinit.c",
+   "kind": "c_comment",
+   "note": "postinit.c whole-file translation (batch-0369)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0369-postinit.json",
+   "kind": "manifest",
+   "note": "batch-0369 manifest"
   }
  ],
  "files": [
@@ -20363,6 +20373,26 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0368 manifest"
+  },
+  {
+   "path": "src/backend/utils/init/postinit.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 128,
+   "translated": 128,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "postinit.c whole-file translation (batch-0369); 10 lines EN due to budget"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0369-postinit.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0369 manifest"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

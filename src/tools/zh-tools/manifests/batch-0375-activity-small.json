@@ -1,0 +1,182 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0375",
+ "title": "activity dir 8 small files whole-file comment translation (79 blocks: 65 translated + 14 with kept-EN; 186/223 content lines translated, 37 EN kept)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "9605b16c7b78e0a3dfa42e39c928d0ba3cd8fc0f",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0375-activity-small.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0375 manifest path and 8 activity file entries (S6 registration)"
+  },
+  {
+   "pattern": "src/backend/utils/activity/backend_progress.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0375"
+  },
+  {
+   "pattern": "src/backend/utils/activity/pgstat_archiver.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0375"
+  },
+  {
+   "pattern": "src/backend/utils/activity/pgstat_bgwriter.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0375"
+  },
+  {
+   "pattern": "src/backend/utils/activity/pgstat_checkpointer.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0375"
+  },
+  {
+   "pattern": "src/backend/utils/activity/pgstat_subscription.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0375"
+  },
+  {
+   "pattern": "src/backend/utils/activity/pgstat_wal.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0375"
+  },
+  {
+   "pattern": "src/backend/utils/activity/pgstat_replslot.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0375"
+  },
+  {
+   "pattern": "src/backend/utils/activity/pgstat_slru.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0375"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0375-activity-small.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0375 manifest path and 8 activity file entries (S6 registration)"
+  },
+  {
+   "path": "src/backend/utils/activity/backend_progress.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 1,
+   "preserved": 6,
+   "preserved_reasons": [
+    "block L1-10 header: L2 filename, L6 copyright, L8 path - campaign header precedent",
+    "blocks L18-24/L40-45/L61-66/L82-88/L111-117: bare function-name banner lines L19/L41/L62/L83/L112 (identifiers; jsonlog.c/elog.c precedent)"
+   ],
+   "note": "10/18 content lines translated, 8 EN kept; L13 trailing comment via trailing branch; L22 renders st_progress_param as 参数数组 (54-byte budget, W7 advisory)"
+  },
+  {
+   "path": "src/backend/utils/activity/pgstat_archiver.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 4,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-16 header: L3 filename, L11 copyright, L13 IDENTIFICATION, L14 path - campaign header precedent"
+   ],
+   "note": "10/14 content lines translated, 4 EN kept; L70/L97 trailing comments via trailing branch"
+  },
+  {
+   "path": "src/backend/utils/activity/pgstat_bgwriter.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 7,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-16 header: L3 filename, L11 copyright, L13 IDENTIFICATION, L14 path - campaign header precedent"
+   ],
+   "note": "14/18 content lines translated, 4 EN kept; L83/L109 trailing comments via trailing branch; L27 keeps bgwriter identifier EN (33-byte budget) where the 后台写进程 rendering would be 34 bytes"
+  },
+  {
+   "path": "src/backend/utils/activity/pgstat_checkpointer.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 7,
+   "preserved": 2,
+   "preserved_reasons": [
+    "block L1-16 header: L3 filename, L11 copyright, L13 IDENTIFICATION, L14 path - campaign header precedent",
+    "block L72-77: L73 pgstat_fetch_stat_checkpointer() - bare function-name banner (identifier, jsonlog.c precedent)"
+   ],
+   "note": "15/20 content lines translated, 5 EN kept; L32/L91/L116 trailing comments via trailing branch. L76 uses the shared 返回…统计结构的指针 template (48B<=51), aligned with the other fetch-function comments; bgwriter L68 keeps 统计结构指针 (44B budget, 的 will not fit)"
+  },
+  {
+   "path": "src/backend/utils/activity/pgstat_subscription.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 8,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-16 header: L3 filename, L11 copyright, L13 IDENTIFICATION, L14 path - campaign header precedent"
+   ],
+   "note": "17/21 content lines translated, 4 EN kept; L48/L52/L96 trailing comments via trailing branch"
+  },
+  {
+   "path": "src/backend/utils/activity/pgstat_wal.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 14,
+   "translated": 13,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-16 header: L3 filename, L11 copyright, L13 IDENTIFICATION, L14 path - campaign header precedent"
+   ],
+   "note": "41/45 content lines translated, 4 EN kept; L52/L55/L58 trailing comments via trailing branch; L44/L45 刷/写 split and L154-156 涉及数据/页。 split are adjacent-line tail splices to keep every EN line non-empty within budget; L55/L58 刷写WAL统计/刷写IO统计 omit CJK-EN spaces (15/14-byte budgets)"
+  },
+  {
+   "path": "src/backend/utils/activity/pgstat_replslot.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 15,
+   "translated": 14,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-24 header: L3 filename, L19 copyright, L21 IDENTIFICATION, L22 path - campaign header precedent"
+   ],
+   "note": "47/51 content lines translated, 4 EN kept; L29/L49/L65/L89/L195 trailing comments via trailing branch; header para L12-17 and L59/L60, L73/L74, L182/L183 use adjacent-line tail splices (槽名/这一/槽。) so every EN line carries zh within budget; L29 renders 'for namestrcpy()' as namestrcpy() (16-byte budget); L49 drops trailing period (44-byte budget, EN 'exits' typo = exists); L137-138 render pgstat_drop_replslot() would have been called as 否则删除函数/早被调用过 (68B<=76, 20B<=21; identifier paraphrased as 删除函数, W7 advisory)"
+  },
+  {
+   "path": "src/backend/utils/activity/pgstat_slru.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 12,
+   "translated": 11,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-16 header: L3 filename, L11 copyright, L13 IDENTIFICATION, L14 path - campaign header precedent"
+   ],
+   "note": "32/36 content lines translated, 4 EN kept; L142/L185 trailing comments via trailing branch; L41/L42 体系/管理。 and L127-129 精/确 + 供外/部项目使用。 adjacent-line tail splices within budget; L128 renders SLRUs as 各类统计 (W7 advisory)"
+  }
+ ],
+ "notes": "batch-0375 (activity dir 8 small files, 2026-11-14, parent batch-0374=9605b16c7b7). Whole-file comment translation of backend_progress.c, pgstat_archiver.c, pgstat_bgwriter.c, pgstat_checkpointer.c, pgstat_subscription.c, pgstat_wal.c, pgstat_replslot.c, pgstat_slru.c. Block accounting (block units throughout): 79 untranslated blocks total, 65 fully translated, 14 blocks containing kept-EN lines; line-level detail: 223 comment content lines, 186 translated, 37 EN kept (31 header lines: filename/copyright/IDENTIFICATION/path per campaign precedent; 6 bare function-name banners: backend_progress L19/L41/L62/L83/L112, checkpointer L73 - jsonlog.c/elog.c precedent). All 79 blocks verified changed by verify_c_comments (comments=79 changed=79, splices=2 informational on pgstat_wal.c single-line comments, 0 violations, 0 parse errors, 0 protected). Naive dump cross-checked against true comment-block enumeration: the dump missed 8 tail continuation lines (L9 'statistics.' in the 7 pgstat headers, replslot L183 'at the offset.'); caught by the coverage assertion and translated. Per-line byte budget asserted against the EN whole line before write. Exact-budget accounting (whole-line bytes vs the REL_16_11 baseline, both sides counted after the edit): exactly 9 changed lines land at exact budget - backend_progress L43/L115, pgstat_wal L55/L58, pgstat_replslot L11/L60/L135, pgstat_slru L39/L129 - no additions were made on any line. An earlier draft of this note said '10 lines' with a different list: that list mixed a zh-content-vs-remaining-budget reading with the whole-line reading and was wrong; this 9-line whole-line list is the reconciled one. Trailing branch tried before doc-prefix regex (rule 9). Trailing-branch count reconciled: 21 single-line /*...*/ comment lines were rewritten through it - 19 tab-indented standalone single-line comments (whole-line /*...*/ form) + 2 comments trailing code after an #include (backend_progress L13, pgstat_replslot L29); an earlier count of 18 was a handback-report miscount, the diff enumerates 21. Frame terminators verified unchanged (/* and */ counts per file identical before/after), line counts preserved, kept lines asserted byte-identical. Adjacent-line tail splices disclosed (no cross-paragraph movement): 7x header para re-split so the sentence tail lands on L9 ('存储实现和/各类统计的细节之间划清清楚的/界限。'); replslot L12-17 (使用/槽名, 这/一问题), L59/L60 (逻辑/槽。), L73/L74 (本/槽。), L182/L183 (存在/槽。), L137/L138 (否则它/早被调用过); wal L44/L45 (刷/写。), L154-156 (涉及数据/页。); slru L41/L42 (体系/管理。), L127-129 (精/确, 供外/部项目使用。). Budget identifier/prose drops disclosed: backend_progress L22 st_progress_param rendered 参数数组; replslot L137-138 pgstat_drop_replslot() rendered 删除函数 (see splice list); slru L128 SLRUs rendered 各类统计; replslot L29 'for' dropped before namestrcpy(); replslot L49 trailing period dropped. bgwriter L27 heading keeps bgwriter identifier EN (33-byte budget; 后台写进程 rendering = 34). Quotes in zh are ASCII throughout (TL11); zh leading punctuation asserted absent. Term discipline: statistics=统计, stats entry=统计条目, flush=刷写/刷出, pending=待写入, archiver=归档器, bgwriter=后台写进程, checkpointer=检查点进程, subscription=订阅, replication slot=复制槽, shared memory=共享内存, WAL/SLRU/OID/GRANT/lwlock tranche/pgstat_* identifiers kept; no ops/operator tokens occur in these 8 files. Gates: verify_c_comments 0 violations 0 parse errors (--paths src/backend/utils/activity: 8 files, comments=79 changed=79; 3 W7_IDENT_LOST advisories, all deliberate budget drops with zh prose complete: backend_progress L2-block st_progress_param (参数数组), replslot L10-block pgstat_drop_replslot (删除函数), slru L6-block SLRUs (各类统计)). term_lint (--pgnls attached): 0 errors and 0 warnings on the 8 activity files; tree-wide run shows the 1 pre-existing TL01 error at src/backend/utils/init/postinit.c:1428 (disclosed since batch-0369, untouched here) plus historical warning noise outside this batch's scope. scan_halfen: 47 tree-wide findings, 2 on this batch's files, both class=mixed runs of kept-EN technical terms with zh prose complete around them (pgstat_slru.c L215-218 'lwlock tranche', pgstat_wal.c L35-46 'pgstat shmem') - disclosed rather than exempted, same treatment as the 45 pre-existing findings (elog.c 3, dfmgr.c 4, postinit.c 38). Self-checks in the apply script: per-line budget, adjacent seam repeat (prev[-1]==zh[0]), near-duplicate (adjacent CJK LCS>=8), zh leading punctuation, curly quotes, delimiter counts, line counts, kept-line immutability - all pass. No commit made in this batch; commit is handled by the main session."
+}

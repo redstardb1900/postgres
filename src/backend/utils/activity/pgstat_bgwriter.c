@@ -1,12 +1,12 @@
 /* -------------------------------------------------------------------------
  *
  * pgstat_bgwriter.c
- *	  Implementation of bgwriter statistics.
+ *	  后台写进程统计的实现。
  *
- * This file contains the implementation of bgwriter statistics. It is kept
- * separate from pgstat.c to enforce the line between the statistics access /
- * storage implementation and the details about individual types of
- * statistics.
+ * 本文件包含后台写进程统计的实现。与 pgstat.c 分开，
+ * 是为了在统计的访问 / 存储实现和
+ * 各类统计的细节之间划清清楚的
+ * 界限。
  *
  * Copyright (c) 2001-2023, PostgreSQL Global Development Group
  *
@@ -24,7 +24,7 @@ PgStat_BgWriterStats PendingBgWriterStats = {0};
 
 
 /*
- * Report bgwriter and IO statistics
+ * 报告 bgwriter 与 IO 统计
  */
 void
 pgstat_report_bgwriter(void)
@@ -36,8 +36,8 @@ pgstat_report_bgwriter(void)
 	pgstat_assert_is_up();
 
 	/*
-	 * This function can be called even if nothing at all has happened. In
-	 * this case, avoid unnecessarily modifying the stats entry.
+	 * 本函数即使在什么都没发生时也可能被调用。此时
+	 * 应避免不必要地修改统计条目。
 	 */
 	if (memcmp(&PendingBgWriterStats, &all_zeroes, sizeof(all_zeroes)) == 0)
 		return;
@@ -53,19 +53,19 @@ pgstat_report_bgwriter(void)
 	pgstat_end_changecount_write(&stats_shmem->changecount);
 
 	/*
-	 * Clear out the statistics buffer, so it can be re-used.
+	 * 清空统计缓冲区，以便复用。
 	 */
 	MemSet(&PendingBgWriterStats, 0, sizeof(PendingBgWriterStats));
 
 	/*
-	 * Report IO statistics
+	 * 报告 IO 统计
 	 */
 	pgstat_flush_io(false);
 }
 
 /*
- * Support function for the SQL-callable pgstat* functions. Returns
- * a pointer to the bgwriter statistics struct.
+ * 供 SQL 可调用的 pgstat* 函数使用的支持函数。
+ * 返回后台写进程统计结构指针。
  */
 PgStat_BgWriterStats *
 pgstat_fetch_stat_bgwriter(void)
@@ -80,7 +80,7 @@ pgstat_bgwriter_reset_all_cb(TimestampTz ts)
 {
 	PgStatShared_BgWriter *stats_shmem = &pgStatLocal.shmem->bgwriter;
 
-	/* see explanation above PgStatShared_BgWriter for the reset protocol */
+	/* 重置协议见上方 PgStatShared_BgWriter 的说明 */
 	LWLockAcquire(&stats_shmem->lock, LW_EXCLUSIVE);
 	pgstat_copy_changecounted_stats(&stats_shmem->reset_offset,
 									&stats_shmem->stats,
@@ -106,7 +106,7 @@ pgstat_bgwriter_snapshot_cb(void)
 	memcpy(&reset, reset_offset, sizeof(stats_shmem->stats));
 	LWLockRelease(&stats_shmem->lock);
 
-	/* compensate by reset offsets */
+	/* 用重置偏移量补偿 */
 #define BGWRITER_COMP(fld) pgStatLocal.snapshot.bgwriter.fld -= reset.fld;
 	BGWRITER_COMP(buf_written_clean);
 	BGWRITER_COMP(maxwritten_clean);

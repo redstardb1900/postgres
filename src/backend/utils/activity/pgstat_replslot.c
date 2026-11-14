@@ -1,20 +1,20 @@
 /* -------------------------------------------------------------------------
  *
  * pgstat_replslot.c
- *	  Implementation of replication slot statistics.
+ *	  复制槽统计的实现。
  *
- * This file contains the implementation of replication slot statistics. It is kept
- * separate from pgstat.c to enforce the line between the statistics access /
- * storage implementation and the details about individual types of
- * statistics.
+ * 本文件包含复制槽统计的实现。它与 pgstat.c 分开，
+ * 是为了在统计的访问 / 存储实现和
+ * 各类统计的细节之间划清清楚的
+ * 界限。
  *
- * Replication slot stats work a bit different than other variable-numbered
- * stats. Slots do not have oids (so they can be created on physical
- * replicas). Use the slot index as object id while running. However, the slot
- * index can change when restarting. That is addressed by using the name when
- * (de-)serializing. After a restart it is possible for slots to have been
- * dropped while shut down, which is addressed by not restoring stats for
- * slots that cannot be found by name when starting up.
+ * 复制槽统计的工作方式与其他可变编号统计有些差异。
+ * 槽没有 OID，故能在物理备机创建。运行期间以
+ * 槽索引作为对象 ID。然而，槽索引在重启时可能
+ * 改变。针对这一点，办法是在（反）序列化时使用
+ * 槽名。重启之后，槽可能在停机期间被删除，这
+ * 一问题的对策是：不恢复启动时按名称找不到的槽
+ * 的统计信息。
  *
  * Copyright (c) 2001-2023, PostgreSQL Global Development Group
  *
@@ -26,7 +26,7 @@
 #include "postgres.h"
 
 #include "replication/slot.h"
-#include "utils/builtins.h"		/* for namestrcpy() */
+#include "utils/builtins.h"		/* namestrcpy() */
 #include "utils/pgstat_internal.h"
 
 
@@ -34,10 +34,10 @@ static int	get_replslot_index(const char *name);
 
 
 /*
- * Reset counters for a single replication slot.
+ * 重置单个复制槽的计数器。
  *
- * Permission checking for this function is managed through the normal
- * GRANT system.
+ * 本函数的权限检查由常规的 GRANT 体系
+ * 管理。
  */
 void
 pgstat_reset_replslot(const char *name)
@@ -46,7 +46,7 @@ pgstat_reset_replslot(const char *name)
 
 	Assert(name != NULL);
 
-	/* Check if the slot exits with the given name. */
+	/* 检查具有给定名称的槽是否存在 */
 	slot = SearchNamedReplicationSlot(name, true);
 
 	if (!slot)
@@ -56,23 +56,23 @@ pgstat_reset_replslot(const char *name)
 						name)));
 
 	/*
-	 * Nothing to do for physical slots as we collect stats only for logical
-	 * slots.
+	 * 物理槽无需处理，因为统计信息仅收集自逻辑
+	 * 槽。
 	 */
 	if (SlotIsPhysical(slot))
 		return;
 
-	/* reset this one entry */
+	/* 重置该条目 */
 	pgstat_reset(PGSTAT_KIND_REPLSLOT, InvalidOid,
 				 ReplicationSlotIndex(slot));
 }
 
 /*
- * Report replication slot statistics.
+ * 报告复制槽统计。
  *
- * We can rely on the stats for the slot to exist and to belong to this
- * slot. We can only get here if pgstat_create_replslot() or
- * pgstat_acquire_replslot() have already been called.
+ * 可认定该槽的统计必然存在，且必然属于本
+ * 槽。只有已经调用过 pgstat_create_replslot() 或
+ * pgstat_acquire_replslot() 才会到达此处。
  */
 void
 pgstat_report_replslot(ReplicationSlot *slot, const PgStat_StatReplSlotEntry *repSlotStat)
@@ -86,7 +86,7 @@ pgstat_report_replslot(ReplicationSlot *slot, const PgStat_StatReplSlotEntry *re
 	shstatent = (PgStatShared_ReplSlot *) entry_ref->shared_stats;
 	statent = &shstatent->stats;
 
-	/* Update the replication slot statistics */
+	/* 更新复制槽统计 */
 #define REPLSLOT_ACC(fld) statent->fld += repSlotStat->fld
 	REPLSLOT_ACC(spill_txns);
 	REPLSLOT_ACC(spill_count);
@@ -102,10 +102,10 @@ pgstat_report_replslot(ReplicationSlot *slot, const PgStat_StatReplSlotEntry *re
 }
 
 /*
- * Report replication slot creation.
+ * 报告复制槽的创建。
  *
- * NB: This gets called with ReplicationSlotAllocationLock already held, be
- * careful about calling back into slot.c.
+ * 注意：调用本函数时已持有 ReplicationSlotAllocationLock，
+ * 回调 slot.c 时须谨慎。
  */
 void
 pgstat_create_replslot(ReplicationSlot *slot)
@@ -118,8 +118,8 @@ pgstat_create_replslot(ReplicationSlot *slot)
 	shstatent = (PgStatShared_ReplSlot *) entry_ref->shared_stats;
 
 	/*
-	 * NB: need to accept that there might be stats from an older slot, e.g.
-	 * if we previously crashed after dropping a slot.
+	 * 注意：需接受可能存在来自旧槽的统计，例如在
+	 * 删除槽之后曾崩溃的情况下。
 	 */
 	memset(&shstatent->stats, 0, sizeof(shstatent->stats));
 
@@ -127,18 +127,18 @@ pgstat_create_replslot(ReplicationSlot *slot)
 }
 
 /*
- * Report replication slot has been acquired.
+ * 报告复制槽已被获取。
  *
- * This guarantees that a stats entry exists during later
- * pgstat_report_replslot() calls.
+ * 保证后续 pgstat_report_replslot() 调用时存在
+ * 统计条目。
  *
- * If we previously crashed, no stats data exists. But if we did not crash,
- * the stats do belong to this slot:
- * - the stats cannot belong to a dropped slot, pgstat_drop_replslot() would
- *   have been called
- * - if the slot was removed while shut down,
- *   pgstat_replslot_from_serialized_name_cb() returning false would have
- *   caused the stats to be dropped
+ * 如果之前曾崩溃，则不存在统计数据。但如果未崩溃，
+ * 这些统计就属于本槽：
+ * - 这些统计不可能属于已删除的槽，否则删除函数
+ *   早被调用过
+ * - 若槽在停机期间被移除，
+ *   pgstat_replslot_from_serialized_name_cb() 返回假就会
+ *   导致统计被删除。
  */
 void
 pgstat_acquire_replslot(ReplicationSlot *slot)
@@ -148,7 +148,7 @@ pgstat_acquire_replslot(ReplicationSlot *slot)
 }
 
 /*
- * Report replication slot drop.
+ * 报告复制槽的删除。
  */
 void
 pgstat_drop_replslot(ReplicationSlot *slot)
@@ -159,8 +159,8 @@ pgstat_drop_replslot(ReplicationSlot *slot)
 }
 
 /*
- * Support function for the SQL-callable pgstat* functions. Returns
- * a pointer to the replication slot statistics struct.
+ * 供 SQL 可调用的 pgstat* 函数使用的支持函数。
+ * 返回复制槽统计结构的指针。
  */
 PgStat_StatReplSlotEntry *
 pgstat_fetch_replslot(NameData slotname)
@@ -178,9 +178,9 @@ void
 pgstat_replslot_to_serialized_name_cb(const PgStat_HashKey *key, const PgStatShared_Common *header, NameData *name)
 {
 	/*
-	 * This is only called late during shutdown. The set of existing slots
-	 * isn't allowed to change at this point, we can assume that a slot exists
-	 * at the offset.
+	 * 它只在停机过程的后期被调用。此时现有槽的
+	 * 集合不允许改变，因此可以假定该偏移处存在
+	 * 槽。
 	 */
 	if (!ReplicationSlotName(key->objoid, name))
 		elog(ERROR, "could not find name for replication slot index %u",
@@ -192,7 +192,7 @@ pgstat_replslot_from_serialized_name_cb(const NameData *name, PgStat_HashKey *ke
 {
 	int			idx = get_replslot_index(NameStr(*name));
 
-	/* slot might have been deleted */
+	/* 该槽可能已被删除 */
 	if (idx == -1)
 		return false;
 

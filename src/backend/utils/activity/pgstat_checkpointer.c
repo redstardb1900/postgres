@@ -1,12 +1,12 @@
 /* -------------------------------------------------------------------------
  *
  * pgstat_checkpointer.c
- *	  Implementation of checkpoint statistics.
+ *	  检查点统计的实现。
  *
- * This file contains the implementation of checkpoint statistics. It is kept
- * separate from pgstat.c to enforce the line between the statistics access /
- * storage implementation and the details about individual types of
- * statistics.
+ * 本文件包含检查点统计的实现。它与 pgstat.c 分开，
+ * 是为了在统计的访问 / 存储实现和
+ * 各类统计的细节之间划清清楚的
+ * 界限。
  *
  * Copyright (c) 2001-2023, PostgreSQL Global Development Group
  *
@@ -24,12 +24,12 @@ PgStat_CheckpointerStats PendingCheckpointerStats = {0};
 
 
 /*
- * Report checkpointer and IO statistics
+ * 报告检查点进程与 IO 统计
  */
 void
 pgstat_report_checkpointer(void)
 {
-	/* We assume this initializes to zeroes */
+	/* 假定其初始化为零值 */
 	static const PgStat_CheckpointerStats all_zeroes;
 	PgStatShared_Checkpointer *stats_shmem = &pgStatLocal.shmem->checkpointer;
 
@@ -37,8 +37,8 @@ pgstat_report_checkpointer(void)
 	pgstat_assert_is_up();
 
 	/*
-	 * This function can be called even if nothing at all has happened. In
-	 * this case, avoid unnecessarily modifying the stats entry.
+	 * 本函数即使在什么都没发生时也可能被调用。此时
+	 * 应避免不必要地修改统计条目。
 	 */
 	if (memcmp(&PendingCheckpointerStats, &all_zeroes,
 			   sizeof(all_zeroes)) == 0)
@@ -59,12 +59,12 @@ pgstat_report_checkpointer(void)
 	pgstat_end_changecount_write(&stats_shmem->changecount);
 
 	/*
-	 * Clear out the statistics buffer, so it can be re-used.
+	 * 清空统计缓冲区，以便复用。
 	 */
 	MemSet(&PendingCheckpointerStats, 0, sizeof(PendingCheckpointerStats));
 
 	/*
-	 * Report IO statistics
+	 * 报告 IO 统计
 	 */
 	pgstat_flush_io(false);
 }
@@ -72,8 +72,8 @@ pgstat_report_checkpointer(void)
 /*
  * pgstat_fetch_stat_checkpointer() -
  *
- * Support function for the SQL-callable pgstat* functions. Returns
- * a pointer to the checkpointer statistics struct.
+ * 供 SQL 可调用的 pgstat* 函数使用的支持函数。
+ * 返回检查点进程统计结构的指针。
  */
 PgStat_CheckpointerStats *
 pgstat_fetch_stat_checkpointer(void)
@@ -88,7 +88,7 @@ pgstat_checkpointer_reset_all_cb(TimestampTz ts)
 {
 	PgStatShared_Checkpointer *stats_shmem = &pgStatLocal.shmem->checkpointer;
 
-	/* see explanation above PgStatShared_Checkpointer for the reset protocol */
+	/* 重置协议见上方 PgStatShared_Checkpointer 的说明 */
 	LWLockAcquire(&stats_shmem->lock, LW_EXCLUSIVE);
 	pgstat_copy_changecounted_stats(&stats_shmem->reset_offset,
 									&stats_shmem->stats,
@@ -113,7 +113,7 @@ pgstat_checkpointer_snapshot_cb(void)
 	memcpy(&reset, reset_offset, sizeof(stats_shmem->stats));
 	LWLockRelease(&stats_shmem->lock);
 
-	/* compensate by reset offsets */
+	/* 用重置偏移量补偿 */
 #define CHECKPOINTER_COMP(fld) pgStatLocal.snapshot.checkpointer.fld -= reset.fld;
 	CHECKPOINTER_COMP(timed_checkpoints);
 	CHECKPOINTER_COMP(requested_checkpoints);

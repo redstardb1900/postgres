@@ -1,12 +1,12 @@
 /* -------------------------------------------------------------------------
  *
  * pgstat_wal.c
- *	  Implementation of WAL statistics.
+ *	  WAL 统计的实现。
  *
- * This file contains the implementation of WAL statistics. It is kept
- * separate from pgstat.c to enforce the line between the statistics access /
- * storage implementation and the details about individual types of
- * statistics.
+ * 本文件包含 WAL 统计的实现。它与 pgstat.c 分开，
+ * 是为了在统计的访问 / 存储实现和
+ * 各类统计的细节之间划清清楚的
+ * 界限。
  *
  * Copyright (c) 2001-2023, PostgreSQL Global Development Group
  *
@@ -24,44 +24,44 @@
 PgStat_PendingWalStats PendingWalStats = {0};
 
 /*
- * WAL usage counters saved from pgWalUsage at the previous call to
- * pgstat_report_wal(). This is used to calculate how much WAL usage
- * happens between pgstat_report_wal() calls, by subtracting
- * the previous counters from the current ones.
+ * 保存自上次调用 pgstat_report_wal() 时 pgWalUsage 的
+ * WAL 使用计数。用来计算 pgstat_report_wal() 调用
+ * 之间发生的 WAL 使用量，从当前值中减去
+ * 先前计数器而得。
  */
 static WalUsage prevWalUsage;
 
 
 /*
- * Calculate how much WAL usage counters have increased and update
- * shared WAL and IO statistics.
+ * 计算 WAL 使用计数器的增量并更新共享 WAL 与 IO
+ * 统计信息。
  *
- * Must be called by processes that generate WAL, that do not call
- * pgstat_report_stat(), like walwriter.
+ * 必须由生成 WAL 而不调用 pgstat_report_stat() 的
+ * 进程调用，例如 walwriter。
  *
- * "force" set to true ensures that the statistics are flushed; note that
- * this needs to acquire the pgstat shmem LWLock, waiting on it.  When
- * set to false, the statistics may not be flushed if the lock could not
- * be acquired.
+ * "force" 设为真可确保统计被刷写；注意这需要获取
+ * pgstat shmem LWLock，并等待其获取。设为假时，
+ * 若无法获得锁，统计可能不会被刷
+ * 写。
  */
 void
 pgstat_report_wal(bool force)
 {
 	bool		nowait;
 
-	/* like in pgstat.c, don't wait for lock acquisition when !force */
+	/* 与 pgstat.c 中一样，!force 时不等待获取锁 */
 	nowait = !force;
 
-	/* flush wal stats */
+	/* 刷写WAL统计 */
 	pgstat_flush_wal(nowait);
 
-	/* flush IO stats */
+	/* 刷写IO统计 */
 	pgstat_flush_io(nowait);
 }
 
 /*
- * Support function for the SQL-callable pgstat* functions. Returns
- * a pointer to the WAL statistics struct.
+ * 供 SQL 可调用的 pgstat* 函数使用的支持函数。
+ * 返回 WAL 统计结构的指针。
  */
 PgStat_WalStats *
 pgstat_fetch_stat_wal(void)
@@ -72,11 +72,11 @@ pgstat_fetch_stat_wal(void)
 }
 
 /*
- * Calculate how much WAL usage counters have increased by subtracting the
- * previous counters from the current ones.
+ * 通过从当前计数器中减去先前计数器，计算 WAL 使用
+ * 计数器的增量。
  *
- * If nowait is true, this function returns true if the lock could not be
- * acquired. Otherwise return false.
+ * 若 nowait 为真，且无法获得锁，本函数返回真。
+ * 否则返回假。
  */
 bool
 pgstat_flush_wal(bool nowait)
@@ -89,16 +89,16 @@ pgstat_flush_wal(bool nowait)
 		   !pgStatLocal.shmem->is_shutdown);
 
 	/*
-	 * This function can be called even if nothing at all has happened. Avoid
-	 * taking lock for nothing in that case.
+	 * 即使什么都没发生也可能调用本函数。那种情况下
+	 * 就不必白白获取锁。
 	 */
 	if (!pgstat_have_pending_wal())
 		return false;
 
 	/*
-	 * We don't update the WAL usage portion of the local WalStats elsewhere.
-	 * Calculate how much WAL usage counters were increased by subtracting the
-	 * previous counters from the current ones.
+	 * 本地 WalStats 的 WAL 使用部分不会在别处更新。
+	 * 从当前计数器中减去先前计数器，即可算出 WAL 使用
+	 * 计数增加了多少。
 	 */
 	WalUsageAccumDiff(&wal_usage_diff, &pgWalUsage, &prevWalUsage);
 
@@ -125,12 +125,12 @@ pgstat_flush_wal(bool nowait)
 	LWLockRelease(&stats_shmem->lock);
 
 	/*
-	 * Save the current counters for the subsequent calculation of WAL usage.
+	 * 保存当前计数器，供后续计算 WAL 使用量之用。
 	 */
 	prevWalUsage = pgWalUsage;
 
 	/*
-	 * Clear out the statistics buffer, so it can be re-used.
+	 * 清空统计缓冲区，以便复用。
 	 */
 	MemSet(&PendingWalStats, 0, sizeof(PendingWalStats));
 
@@ -141,19 +141,19 @@ void
 pgstat_init_wal(void)
 {
 	/*
-	 * Initialize prevWalUsage with pgWalUsage so that pgstat_flush_wal() can
-	 * calculate how much pgWalUsage counters are increased by subtracting
-	 * prevWalUsage from pgWalUsage.
+	 * 用 pgWalUsage 初始化 prevWalUsage，使 pgstat_flush_wal()
+	 * 能够通过从 pgWalUsage 中减去 prevWalUsage，计算出
+	 * pgWalUsage 的增量。
 	 */
 	prevWalUsage = pgWalUsage;
 }
 
 /*
- * To determine whether any WAL activity has occurred since last time, not
- * only the number of generated WAL records but also the numbers of WAL
- * writes and syncs need to be checked. Because even transaction that
- * generates no WAL records can write or sync WAL data when flushing the
- * data pages.
+ * 要判断上次以来是否发生过 WAL 活动，不仅需要检查
+ * 已生成的 WAL 记录数，还需检查 WAL 写入与同步的
+ * 次数。因为即使不生成 WAL 记录的事务也会在
+ * 刷写时执行写入或同步 WAL 数据，涉及数据
+ * 页。
  */
 bool
 pgstat_have_pending_wal(void)

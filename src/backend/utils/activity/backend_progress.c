@@ -1,7 +1,7 @@
 /* ----------
  * backend_progress.c
  *
- *	Command progress reporting infrastructure.
+ *	命令进度报告基础设施。
  *
  *	Copyright (c) 2001-2023, PostgreSQL Global Development Group
  *
@@ -10,7 +10,7 @@
  */
 #include "postgres.h"
 
-#include "port/atomics.h"		/* for memory barriers */
+#include "port/atomics.h"		/* 用于内存屏障 */
 #include "utils/backend_progress.h"
 #include "utils/backend_status.h"
 
@@ -18,8 +18,8 @@
 /*-----------
  * pgstat_progress_start_command() -
  *
- * Set st_progress_command (and st_progress_command_target) in own backend
- * entry.  Also, zero-initialize st_progress_param array.
+ * 在本后台条目中设置 st_progress_command 与
+ * st_progress_command_target。参数数组清零。
  *-----------
  */
 void
@@ -40,7 +40,7 @@ pgstat_progress_start_command(ProgressCommandType cmdtype, Oid relid)
 /*-----------
  * pgstat_progress_update_param() -
  *
- * Update index'th member in st_progress_param[] of own backend entry.
+ * 更新本后台条目 st_progress_param[] 中第 index 个成员。
  *-----------
  */
 void
@@ -61,7 +61,7 @@ pgstat_progress_update_param(int index, int64 val)
 /*-----------
  * pgstat_progress_incr_param() -
  *
- * Increment index'th member in st_progress_param[] of own backend entry.
+ * 递增本后台条目 st_progress_param[] 中第 index 个成员。
  *-----------
  */
 void
@@ -82,8 +82,8 @@ pgstat_progress_incr_param(int index, int64 incr)
 /*-----------
  * pgstat_progress_update_multi_param() -
  *
- * Update multiple members in st_progress_param[] of own backend entry.
- * This is atomic; readers won't see intermediate states.
+ * 更新本后台条目 st_progress_param[] 中的多个成员。
+ * 本操作原子；读端不会见到中间状态。
  *-----------
  */
 void
@@ -111,8 +111,8 @@ pgstat_progress_update_multi_param(int nparam, const int *index,
 /*-----------
  * pgstat_progress_end_command() -
  *
- * Reset st_progress_command (and st_progress_command_target) in own backend
- * entry.  This signals the end of the command.
+ * 在本后台条目中重置 st_progress_command 与
+ * st_progress_command_target。命令结束。
  *-----------
  */
 void

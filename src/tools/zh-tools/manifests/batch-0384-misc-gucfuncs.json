@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0384",
+ "title": "misc guc_funcs.c whole-file comment translation (127 blocks: 82 translated + 45 preserved; 123/174 content lines rewritten (122 translated + 1 emptied to bare frame), 51 EN kept)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "c9b510c6f94ae4d0e7844da5b421701e21db115c",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/misc/guc_funcs.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0384; 127 blocks"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0384-misc-gucfuncs.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0384 manifest path and guc_funcs.c entry"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/misc/guc_funcs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 127,
+   "translated": 82,
+   "preserved": 45,
+   "preserved_reasons": [
+    "block L1-15 header: 5 lines kept EN per campaign header rule (L3 filename, L8 Copyright, L9 Written-by author line, L11 IDENTIFICATION label + L12 path line); descriptive line L5 translated",
+    "block L142 '/* fall through */' kept byte-identical - GCC -Wimplicit-fallthrough marker, gcc-warning-dependent",
+    "43 attr-label blocks kept EN - pg_settings/pg_file_settings column identifier tokens (name/group/short_desc/extra_desc/context/vartype/source x7; min_val/max_val/enumvals/boot_val/reset_val x30 across PGC_BOOL/INT/REAL/STRING/ENUM/default; sourcefile/seqno/name/setting/applied/error x6); ps_status 0383 inline-identifier precedent"
+   ],
+   "note": "174 content lines: 122 translated + 1 emptied to bare ` *` (L913 'C strings' tail genuinely absorbed into L912's full rendering 生成从原始 C 字符串构造元组所需的属性元数据) + 51 EN kept (header 5 + fall-through 1 + synopsis 2 (L181/L970) + attr labels 43). Review round D1/N1 (post first review): L871-873 rewritten - L872 需要一个元组描述符，代表 NUM_PG_SETTINGS_ATTS 个 / L873 适当类型的列 (描述符 restored; 'of the appropriate types' translated - the earlier manifest claim that L873 was 'absorbed' into L872 was wrong, it was a dropped tail, now corrected); L938 trailing while-comment translated as 还有更多待发送时 (review N1: comment-segment budget is 40B and zh=24B fits; the earlier '3B budget' preserved-EN justification was a whole-line-vs-comment-segment accounting error) - L938 moved out of preserved. Same-EN groups rendered byte-identical: L319=L362, L400=L468, L416=L438, L443=L477, L465=L918, L553=L834, L812=L831, L815=L838 (plus kept-EN label groups L600=L1021 etc.). Tail-period ledger full rescan: 3 entries - L72 ADD (zh sentence boundary restructured: EN sentence spans L71-75, zh closes 情形 sentence at L72 then continues; no content lost), L265 MISS '.' budget-forced (content budget 14B, 考虑 typmod=13B+。16B), L742 MISS '!' budget-forced (content budget 10B, 被支持=9B+！12B). Line counts conserved 1047/1047; frame terminators 127/127; code bytes zero-diff; legal protected lines byte-identical. Gates after review fix: verify rc=0 (0 violations; W7 misc-scope advisories now only 5 standing ps_status lines - this file has none), term_lint misc rc=0 (0 hits), scan_halfen misc rc=1 with 5 pre-existing findings all in ps_status/sampling/tzparser (accepted 0382/0383; guc_funcs 0), check_scope incremental PASS rc=0."
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0384-misc-gucfuncs.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0384 manifest path and guc_funcs.c entry"
+  }
+ ]
+}

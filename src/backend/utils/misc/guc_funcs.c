@@ -2,7 +2,7 @@
  *
  * guc_funcs.c
  *
- * SQL commands and SQL-accessible functions related to GUC variables.
+ * 与 GUC 变量相关的 SQL 命令及可从 SQL 访问的函数。
  *
  *
  * Copyright (c) 2000-2023, PostgreSQL Global Development Group
@@ -37,7 +37,7 @@ static void ShowAllGUCConfig(DestReceiver *dest);
 
 
 /*
- * SET command
+ * SET 命令
  */
 void
 ExecSetVariableStmt(VariableSetStmt *stmt, bool isTopLevel)
@@ -45,8 +45,8 @@ ExecSetVariableStmt(VariableSetStmt *stmt, bool isTopLevel)
 	GucAction	action = stmt->is_local ? GUC_ACTION_LOCAL : GUC_ACTION_SET;
 
 	/*
-	 * Workers synchronize these parameters at the start of the parallel
-	 * operation; then, we block SET during the operation.
+	 * worker 进程会在并行操作开始时同步这些参数；
+	 * 随后在操作期间，我们阻止 SET。
 	 */
 	if (IsInParallelMode())
 		ereport(ERROR,
@@ -68,11 +68,11 @@ ExecSetVariableStmt(VariableSetStmt *stmt, bool isTopLevel)
 		case VAR_SET_MULTI:
 
 			/*
-			 * Special-case SQL syntaxes.  The TRANSACTION and SESSION
-			 * CHARACTERISTICS cases effectively set more than one variable
-			 * per statement.  TRANSACTION SNAPSHOT only takes one argument,
-			 * but we put it here anyway since it's a special case and not
-			 * related to any GUC variable.
+			 * 特殊的 SQL 语法。TRANSACTION 与 SESSION
+			 * CHARACTERISTICS 实际每条语句设置多个变量。
+			 * TRANSACTION SNAPSHOT 只接受一个参数，
+			 * 但我们仍把它放这里，因为它是特殊情形，
+			 * 与 GUC 变量无关。
 			 */
 			if (strcmp(stmt->name, "TRANSACTION") == 0)
 			{
@@ -152,16 +152,16 @@ ExecSetVariableStmt(VariableSetStmt *stmt, bool isTopLevel)
 			break;
 	}
 
-	/* Invoke the post-alter hook for setting this GUC variable, by name. */
+	/* 按名字为本次 GUC 变量设置调用 post-alter 钩子。 */
 	InvokeObjectPostAlterHookArgStr(ParameterAclRelationId, stmt->name,
 									ACL_SET, stmt->kind, false);
 }
 
 /*
- * Get the value to assign for a VariableSetStmt, or NULL if it's RESET.
- * The result is palloc'd.
+ * 获取 VariableSetStmt 要赋的值，RESET 时为 NULL。
+ * 结果是 palloc 的。
  *
- * This is exported for use by actions such as ALTER ROLE SET.
+ * 导出供 ALTER ROLE SET 之类的操作使用。
  */
 char *
 ExtractSetVariableArgs(VariableSetStmt *stmt)
@@ -179,14 +179,14 @@ ExtractSetVariableArgs(VariableSetStmt *stmt)
 
 /*
  * flatten_set_variable_args
- *		Given a parsenode List as emitted by the grammar for SET,
- *		convert to the flat string representation used by GUC.
+ *		给定文法为 SET 产生的 parsenode List，
+ *		转换成 GUC 使用的扁平字符串表示。
  *
- * We need to be told the name of the variable the args are for, because
- * the flattening rules vary (ugh).
+ * 我们需要被告知这些参数所属变量的名字，因为
+ * 扁平化规则各异，唉。
  *
- * The result is NULL if args is NIL (i.e., SET ... TO DEFAULT), otherwise
- * a palloc'd string.
+ * 若 args 为 NIL（即 SET ... TO DEFAULT）则结果为 NULL，否则
+ * 为 palloc 串。
  */
 static char *
 flatten_set_variable_args(const char *name, List *args)
@@ -196,13 +196,13 @@ flatten_set_variable_args(const char *name, List *args)
 	StringInfoData buf;
 	ListCell   *l;
 
-	/* Fast path if just DEFAULT */
+	/* 仅 DEFAULT 快速路径 */
 	if (args == NIL)
 		return NULL;
 
 	/*
-	 * Get flags for the variable; if it's not known, use default flags.
-	 * (Caller might throw error later, but not our business to do so here.)
+	 * 取该变量的标志；若未知，则用默认标志。
+	 * （调用者稍后可能报错，但这不归我们管。）
 	 */
 	record = find_option(name, false, true, WARNING);
 	if (record)
@@ -210,7 +210,7 @@ flatten_set_variable_args(const char *name, List *args)
 	else
 		flags = 0;
 
-	/* Complain if list input and non-list variable */
+	/* 列表输入且变量非列表型时报错 */
 	if ((flags & GUC_LIST_INPUT) == 0 &&
 		list_length(args) != 1)
 		ereport(ERROR,
@@ -220,9 +220,9 @@ flatten_set_variable_args(const char *name, List *args)
 	initStringInfo(&buf);
 
 	/*
-	 * Each list member may be a plain A_Const node, or an A_Const within a
-	 * TypeCast; the latter case is supported only for ConstInterval arguments
-	 * (for SET TIME ZONE).
+	 * 每个列表成员可以是普通 A_Const 节点，
+	 * 或是 TypeCast 内的 A_Const；后者仅对 ConstInterval 参数
+	 * 即 SET TIME ZONE。
 	 */
 	foreach(l, args)
 	{
@@ -252,7 +252,7 @@ flatten_set_variable_args(const char *name, List *args)
 				appendStringInfo(&buf, "%d", intVal(&con->val));
 				break;
 			case T_Float:
-				/* represented as a string, so just copy it */
+				/* 以字符串表示，因此直接复制 */
 				appendStringInfoString(&buf, castNode(Float, &con->val)->fval);
 				break;
 			case T_String:
@@ -260,9 +260,9 @@ flatten_set_variable_args(const char *name, List *args)
 				if (typeName != NULL)
 				{
 					/*
-					 * Must be a ConstInterval argument for TIME ZONE. Coerce
-					 * to interval and back to normalize the value and account
-					 * for any typmod.
+					 * TIME ZONE 情形必须是 ConstInterval 参数。先
+					 * 转成 interval 再转回，以规范化值并
+					 * 考虑 typmod
 					 */
 					Oid			typoid;
 					int32		typmod;
@@ -286,8 +286,8 @@ flatten_set_variable_args(const char *name, List *args)
 				else
 				{
 					/*
-					 * Plain string literal or identifier.  For quote mode,
-					 * quote it if it's not a vanilla identifier.
+					 * 字符串字面量或标识符。引号模式下，
+					 * 若非普通标识符则给它加引号。
 					 */
 					if (flags & GUC_LIST_QUOTE)
 						appendStringInfoString(&buf, quote_identifier(val));
@@ -306,17 +306,17 @@ flatten_set_variable_args(const char *name, List *args)
 }
 
 /*
- * SetPGVariable - SET command exported as an easily-C-callable function.
+ * SetPGVariable - 以易于 C 调用的函数导出的 SET 命令。
  *
- * This provides access to SET TO value, as well as SET TO DEFAULT (expressed
- * by passing args == NIL), but not SET FROM CURRENT functionality.
+ * 它提供 SET TO value 以及 SET TO DEFAULT（通过传递
+ * args == NIL 来表达），但不提供 SET FROM CURRENT。
  */
 void
 SetPGVariable(const char *name, List *args, bool is_local)
 {
 	char	   *argstring = flatten_set_variable_args(name, args);
 
-	/* Note SET DEFAULT (argstring == NULL) is equivalent to RESET */
+	/* 注意 SET DEFAULT（argstring == NULL）等价于 RESET */
 	(void) set_config_option(name,
 							 argstring,
 							 (superuser() ? PGC_SUSET : PGC_USERSET),
@@ -326,7 +326,7 @@ SetPGVariable(const char *name, List *args, bool is_local)
 }
 
 /*
- * SET command wrapped as a SQL callable function.
+ * 封装为 SQL 可调用函数的 SET 命令。
  */
 Datum
 set_config_by_name(PG_FUNCTION_ARGS)
@@ -341,25 +341,25 @@ set_config_by_name(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
 				 errmsg("SET requires parameter name")));
 
-	/* Get the GUC variable name */
+	/* 获取 GUC 变量名 */
 	name = TextDatumGetCString(PG_GETARG_DATUM(0));
 
-	/* Get the desired value or set to NULL for a reset request */
+	/* 获取期望的值；重置请求则设为 NULL */
 	if (PG_ARGISNULL(1))
 		value = NULL;
 	else
 		value = TextDatumGetCString(PG_GETARG_DATUM(1));
 
 	/*
-	 * Get the desired state of is_local. Default to false if provided value
-	 * is NULL
+	 * 获取 is_local 的期望状态。若提供的值是 NULL 则默认
+	 * 为假
 	 */
 	if (PG_ARGISNULL(2))
 		is_local = false;
 	else
 		is_local = PG_GETARG_BOOL(2);
 
-	/* Note SET DEFAULT (argstring == NULL) is equivalent to RESET */
+	/* 注意 SET DEFAULT（argstring == NULL）等价于 RESET */
 	(void) set_config_option(name,
 							 value,
 							 (superuser() ? PGC_SUSET : PGC_USERSET),
@@ -367,16 +367,16 @@ set_config_by_name(PG_FUNCTION_ARGS)
 							 is_local ? GUC_ACTION_LOCAL : GUC_ACTION_SET,
 							 true, 0, false);
 
-	/* get the new current value */
+	/* 取新的当前值 */
 	new_value = GetConfigOptionByName(name, NULL, false);
 
-	/* Convert return string to text */
+	/* 将返回字符串转为 text */
 	PG_RETURN_TEXT_P(cstring_to_text(new_value));
 }
 
 
 /*
- * SHOW command
+ * SHOW 命令
  */
 void
 GetPGVariable(const char *name, DestReceiver *dest)
@@ -388,7 +388,7 @@ GetPGVariable(const char *name, DestReceiver *dest)
 }
 
 /*
- * Get a tuple descriptor for SHOW's result
+ * 为 SHOW 的结果获取元组描述符
  */
 TupleDesc
 GetPGVariableResultDesc(const char *name)
@@ -397,7 +397,7 @@ GetPGVariableResultDesc(const char *name)
 
 	if (guc_name_compare(name, "all") == 0)
 	{
-		/* need a tuple descriptor representing three TEXT columns */
+		/* 需要代表三个 TEXT 列的元组描述符 */
 		tupdesc = CreateTemplateTupleDesc(3);
 		TupleDescInitEntry(tupdesc, (AttrNumber) 1, "name",
 						   TEXTOID, -1, 0);
@@ -410,10 +410,10 @@ GetPGVariableResultDesc(const char *name)
 	{
 		const char *varname;
 
-		/* Get the canonical spelling of name */
+		/* 获取名字的规范拼写 */
 		(void) GetConfigOptionByName(name, &varname, false);
 
-		/* need a tuple descriptor representing a single TEXT column */
+		/* 需要代表单个 TEXT 列的元组描述符 */
 		tupdesc = CreateTemplateTupleDesc(1);
 		TupleDescInitEntry(tupdesc, (AttrNumber) 1, varname,
 						   TEXTOID, -1, 0);
@@ -422,7 +422,7 @@ GetPGVariableResultDesc(const char *name)
 }
 
 /*
- * SHOW one variable
+ * SHOW 单个变量
  */
 static void
 ShowGUCConfigOption(const char *name, DestReceiver *dest)
@@ -432,25 +432,25 @@ ShowGUCConfigOption(const char *name, DestReceiver *dest)
 	const char *varname;
 	char	   *value;
 
-	/* Get the value and canonical spelling of name */
+	/* 获取值以及名字的规范拼写 */
 	value = GetConfigOptionByName(name, &varname, false);
 
-	/* need a tuple descriptor representing a single TEXT column */
+	/* 需要代表单个 TEXT 列的元组描述符 */
 	tupdesc = CreateTemplateTupleDesc(1);
 	TupleDescInitBuiltinEntry(tupdesc, (AttrNumber) 1, varname,
 							  TEXTOID, -1, 0);
 
-	/* prepare for projection of tuples */
+	/* 准备元组的投影输出 */
 	tstate = begin_tup_output_tupdesc(dest, tupdesc, &TTSOpsVirtual);
 
-	/* Send it */
+	/* 发送 */
 	do_text_output_oneline(tstate, value);
 
 	end_tup_output(tstate);
 }
 
 /*
- * SHOW ALL command
+ * SHOW ALL 命令
  */
 static void
 ShowAllGUCConfig(DestReceiver *dest)
@@ -462,10 +462,10 @@ ShowAllGUCConfig(DestReceiver *dest)
 	Datum		values[3];
 	bool		isnull[3] = {false, false, false};
 
-	/* collect the variables, in sorted order */
+	/* 按排序次序收集所有变量 */
 	guc_vars = get_guc_variables(&num_vars);
 
-	/* need a tuple descriptor representing three TEXT columns */
+	/* 需要代表三个 TEXT 列的元组描述符 */
 	tupdesc = CreateTemplateTupleDesc(3);
 	TupleDescInitBuiltinEntry(tupdesc, (AttrNumber) 1, "name",
 							  TEXTOID, -1, 0);
@@ -474,7 +474,7 @@ ShowAllGUCConfig(DestReceiver *dest)
 	TupleDescInitBuiltinEntry(tupdesc, (AttrNumber) 3, "description",
 							  TEXTOID, -1, 0);
 
-	/* prepare for projection of tuples */
+	/* 准备元组的投影输出 */
 	tstate = begin_tup_output_tupdesc(dest, tupdesc, &TTSOpsVirtual);
 
 	for (int i = 0; i < num_vars; i++)
@@ -482,15 +482,15 @@ ShowAllGUCConfig(DestReceiver *dest)
 		struct config_generic *conf = guc_vars[i];
 		char	   *setting;
 
-		/* skip if marked NO_SHOW_ALL */
+		/* NO_SHOW_ALL 则跳过 */
 		if (conf->flags & GUC_NO_SHOW_ALL)
 			continue;
 
-		/* return only options visible to the current user */
+		/* 只返回当前用户可见的选项 */
 		if (!ConfigOptionIsVisible(conf))
 			continue;
 
-		/* assign to the values array */
+		/* 赋给 values 数组 */
 		values[0] = PointerGetDatum(cstring_to_text(conf->name));
 
 		setting = ShowGUCOption(conf, true);
@@ -516,10 +516,10 @@ ShowAllGUCConfig(DestReceiver *dest)
 			isnull[2] = true;
 		}
 
-		/* send it to dest */
+		/* 送往 dest */
 		do_tup_output(tstate, values, isnull);
 
-		/* clean up */
+		/* 清理 */
 		pfree(DatumGetPointer(values[0]));
 		if (setting)
 		{
@@ -534,9 +534,9 @@ ShowAllGUCConfig(DestReceiver *dest)
 }
 
 /*
- * Return some of the flags associated to the specified GUC in the shape of
- * a text array, and NULL if it does not exist.  An empty array is returned
- * if the GUC exists without any meaningful flags to show.
+ * 以文本数组的形式返回指定 GUC 所带的部分标志，
+ * 若 GUC 不存在则返回 NULL。若 GUC 存在但
+ * 无有意义的标志时，返回空数组。
  */
 Datum
 pg_settings_get_flags(PG_FUNCTION_ARGS)
@@ -550,7 +550,7 @@ pg_settings_get_flags(PG_FUNCTION_ARGS)
 
 	record = find_option(varname, false, true, ERROR);
 
-	/* return NULL if no such variable */
+	/* 若无此变量则返回 NULL */
 	if (record == NULL)
 		PG_RETURN_NULL();
 
@@ -569,13 +569,13 @@ pg_settings_get_flags(PG_FUNCTION_ARGS)
 
 	Assert(cnt <= MAX_GUC_FLAGS);
 
-	/* Returns the record as Datum */
+	/* 记录以 Datum 返回 */
 	a = construct_array_builtin(flags, cnt, TEXTOID);
 	PG_RETURN_ARRAYTYPE_P(a);
 }
 
 /*
- * Return whether or not the GUC variable is visible to the current user.
+ * 返回 GUC 变量对当前用户是否可见。
  */
 bool
 ConfigOptionIsVisible(struct config_generic *conf)
@@ -588,22 +588,22 @@ ConfigOptionIsVisible(struct config_generic *conf)
 }
 
 /*
- * Extract fields to show in pg_settings for given variable.
+ * 抽取给定变量在 pg_settings 中显示的字段。
  */
 static void
 GetConfigOptionValues(struct config_generic *conf, const char **values)
 {
 	char		buffer[256];
 
-	/* first get the generic attributes */
+	/* 先获取通用属性 */
 
 	/* name */
 	values[0] = conf->name;
 
-	/* setting: use ShowGUCOption in order to avoid duplicating the logic */
+	/* setting：使用 ShowGUCOption 以避免重复该逻辑 */
 	values[1] = ShowGUCOption(conf, false);
 
-	/* unit, if any (NULL is fine) */
+	/* 单位（如有，NULL） */
 	values[2] = get_config_unit_name(conf->flags);
 
 	/* group */
@@ -624,7 +624,7 @@ GetConfigOptionValues(struct config_generic *conf, const char **values)
 	/* source */
 	values[8] = GucSource_Names[conf->source];
 
-	/* now get the type specific attributes */
+	/* 现在获取特定类型的属性 */
 	switch (conf->vartype)
 	{
 		case PGC_BOOL:
@@ -738,8 +738,8 @@ GetConfigOptionValues(struct config_generic *conf, const char **values)
 				/* enumvals */
 
 				/*
-				 * NOTE! enumvals with double quotes in them are not
-				 * supported!
+				 * 注意！enumvals 内含双引号时不
+				 * 被支持
 				 */
 				values[11] = config_enum_get_options((struct config_enum *) conf,
 													 "{\"", "\"}", "\",\"");
@@ -757,7 +757,7 @@ GetConfigOptionValues(struct config_generic *conf, const char **values)
 		default:
 			{
 				/*
-				 * should never get here, but in case we do, set 'em to NULL
+				 * 应到不了这里，但万一到了，设为 NULL
 				 */
 
 				/* min_val */
@@ -779,9 +779,9 @@ GetConfigOptionValues(struct config_generic *conf, const char **values)
 	}
 
 	/*
-	 * If the setting came from a config file, set the source location. For
-	 * security reasons, we don't show source file/line number for
-	 * insufficiently-privileged users.
+	 * 若设置来自配置文件，则设置其来源位置。出于
+	 * 安全考虑，我们不为权限不足的用户
+	 * 显示源文件/行号。
 	 */
 	if (conf->source == PGC_S_FILE &&
 		has_privs_of_role(GetUserId(), ROLE_PG_READ_ALL_SETTINGS))
@@ -800,8 +800,8 @@ GetConfigOptionValues(struct config_generic *conf, const char **values)
 }
 
 /*
- * show_config_by_name - equiv to SHOW X command but implemented as
- * a function.
+ * show_config_by_name - 等价于 SHOW X 命令，但实现为
+ * 函数。
  */
 Datum
 show_config_by_name(PG_FUNCTION_ARGS)
@@ -809,17 +809,17 @@ show_config_by_name(PG_FUNCTION_ARGS)
 	char	   *varname = TextDatumGetCString(PG_GETARG_DATUM(0));
 	char	   *varval;
 
-	/* Get the value */
+	/* 获取该值 */
 	varval = GetConfigOptionByName(varname, NULL, false);
 
-	/* Convert to text */
+	/* 转成 text */
 	PG_RETURN_TEXT_P(cstring_to_text(varval));
 }
 
 /*
- * show_config_by_name_missing_ok - equiv to SHOW X command but implemented as
- * a function.  If X does not exist, suppress the error and just return NULL
- * if missing_ok is true.
+ * show_config_by_name_missing_ok - 等价于 SHOW X 命令，但实现为
+ * 一个函数。若 X 不存在且 missing_ok 为真，则抑制错误并
+ * 返回 NULL。
  */
 Datum
 show_config_by_name_missing_ok(PG_FUNCTION_ARGS)
@@ -828,20 +828,20 @@ show_config_by_name_missing_ok(PG_FUNCTION_ARGS)
 	bool		missing_ok = PG_GETARG_BOOL(1);
 	char	   *varval;
 
-	/* Get the value */
+	/* 获取该值 */
 	varval = GetConfigOptionByName(varname, NULL, missing_ok);
 
-	/* return NULL if no such variable */
+	/* 若无此变量则返回 NULL */
 	if (varval == NULL)
 		PG_RETURN_NULL();
 
-	/* Convert to text */
+	/* 转成 text */
 	PG_RETURN_TEXT_P(cstring_to_text(varval));
 }
 
 /*
- * show_all_settings - equiv to SHOW ALL command but implemented as
- * a Table Function.
+ * show_all_settings - 等价于 SHOW ALL 命令，但实现为
+ * 表函数。
  */
 #define NUM_PG_SETTINGS_ATTS	17
 
@@ -857,20 +857,20 @@ show_all_settings(PG_FUNCTION_ARGS)
 	AttInMetadata *attinmeta;
 	MemoryContext oldcontext;
 
-	/* stuff done only on the first call of the function */
+	/* 只在函数首次调用时执行的操作 */
 	if (SRF_IS_FIRSTCALL())
 	{
-		/* create a function context for cross-call persistence */
+		/* 创建用于跨调用持久的函数上下文 */
 		funcctx = SRF_FIRSTCALL_INIT();
 
 		/*
-		 * switch to memory context appropriate for multiple function calls
+		 * 切换到适合多次函数调用的内存上下文
 		 */
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
 		/*
-		 * need a tuple descriptor representing NUM_PG_SETTINGS_ATTS columns
-		 * of the appropriate types
+		 * 需要一个元组描述符，代表 NUM_PG_SETTINGS_ATTS 个
+		 * 适当类型的列
 		 */
 		tupdesc = CreateTemplateTupleDesc(NUM_PG_SETTINGS_ATTS);
 		TupleDescInitEntry(tupdesc, (AttrNumber) 1, "name",
@@ -909,25 +909,25 @@ show_all_settings(PG_FUNCTION_ARGS)
 						   BOOLOID, -1, 0);
 
 		/*
-		 * Generate attribute metadata needed later to produce tuples from raw
-		 * C strings
+		 * 生成从原始 C 字符串构造元组所需的属性元数据
+		 *
 		 */
 		attinmeta = TupleDescGetAttInMetadata(tupdesc);
 		funcctx->attinmeta = attinmeta;
 
-		/* collect the variables, in sorted order */
+		/* 按排序次序收集所有变量 */
 		guc_vars = get_guc_variables(&num_vars);
 
-		/* use user_fctx to remember the array location */
+		/* 用 user_fctx 记住数组位置 */
 		funcctx->user_fctx = guc_vars;
 
-		/* total number of tuples to be returned */
+		/* 要返回的元组总数 */
 		funcctx->max_calls = num_vars;
 
 		MemoryContextSwitchTo(oldcontext);
 	}
 
-	/* stuff done on every call of the function */
+	/* 每次调用函数时执行的操作 */
 	funcctx = SRF_PERCALL_SETUP();
 
 	guc_vars = (struct config_generic **) funcctx->user_fctx;
@@ -935,14 +935,14 @@ show_all_settings(PG_FUNCTION_ARGS)
 	max_calls = funcctx->max_calls;
 	attinmeta = funcctx->attinmeta;
 
-	while (call_cntr < max_calls)	/* do when there is more left to send */
+	while (call_cntr < max_calls)	/* 还有更多待发送时 */
 	{
 		struct config_generic *conf = guc_vars[call_cntr];
 		char	   *values[NUM_PG_SETTINGS_ATTS];
 		HeapTuple	tuple;
 		Datum		result;
 
-		/* skip if marked NO_SHOW_ALL or if not visible to current user */
+		/* 若标记 NO_SHOW_ALL 或当前用户不可见则跳过 */
 		if ((conf->flags & GUC_NO_SHOW_ALL) ||
 			!ConfigOptionIsVisible(conf))
 		{
@@ -950,35 +950,35 @@ show_all_settings(PG_FUNCTION_ARGS)
 			continue;
 		}
 
-		/* extract values for the current variable */
+		/* 抽取当前变量的值 */
 		GetConfigOptionValues(conf, (const char **) values);
 
-		/* build a tuple */
+		/* 构建元组 */
 		tuple = BuildTupleFromCStrings(attinmeta, values);
 
-		/* make the tuple into a datum */
+		/* 把元组变成 datum */
 		result = HeapTupleGetDatum(tuple);
 
 		SRF_RETURN_NEXT(funcctx, result);
 	}
 
-	/* do when there is no more left */
+	/* 没有更多剩余时执行 */
 	SRF_RETURN_DONE(funcctx);
 }
 
 /*
  * show_all_file_settings
  *
- * Returns a table of all parameter settings in all configuration files
- * which includes the config file pathname, the line number, a sequence number
- * indicating the order in which the settings were encountered, the parameter
- * name and value, a bool showing if the value could be applied, and possibly
- * an associated error message.  (For problems such as syntax errors, the
- * parameter name/value might be NULL.)
+ * 返回所有配置文件中全部参数设置的一张表，
+ * 包括配置文件路径名、行号、表示设置被遇到次序的
+ * 序号，以及参数名和值、
+ * 一个表示该值能否被应用的布尔值，以及可能有的
+ * 关联的错误消息。（对语法错误之类的问题，
+ * 参数名/值可能为 NULL。）
  *
- * Note: no filtering is done here, instead we depend on the GRANT system
- * to prevent unprivileged users from accessing this function or the view
- * built on top of it.
+ * 注意：这里不做任何过滤，而是依靠 GRANT 系统
+ * 来阻止无特权用户访问此函数或
+ * 其上的视图。
  */
 Datum
 show_all_file_settings(PG_FUNCTION_ARGS)
@@ -988,13 +988,13 @@ show_all_file_settings(PG_FUNCTION_ARGS)
 	ConfigVariable *conf;
 	int			seqno;
 
-	/* Scan the config files using current context as workspace */
+	/* 以当前上下文为工作区扫描配置文件 */
 	conf = ProcessConfigFileInternal(PGC_SIGHUP, false, DEBUG3);
 
-	/* Build a tuplestore to return our results in */
+	/* 构建用于返回结果的元组存储 */
 	InitMaterializedSRF(fcinfo, 0);
 
-	/* Process the results and create a tuplestore */
+	/* 处理结果并创建元组存储 */
 	for (seqno = 1; conf != NULL; conf = conf->next, seqno++)
 	{
 		Datum		values[NUM_PG_FILE_SETTINGS_ATTS];
@@ -1009,7 +1009,7 @@ show_all_file_settings(PG_FUNCTION_ARGS)
 		else
 			nulls[0] = true;
 
-		/* sourceline (not meaningful if no sourcefile) */
+		/* sourceline（无源文件时无意义） */
 		if (conf->filename)
 			values[1] = Int32GetDatum(conf->sourceline);
 		else
@@ -1039,7 +1039,7 @@ show_all_file_settings(PG_FUNCTION_ARGS)
 		else
 			nulls[6] = true;
 
-		/* shove row into tuplestore */
+		/* 把行推入元组存储 */
 		tuplestore_putvalues(rsinfo->setResult, rsinfo->setDesc, values, nulls);
 	}
 

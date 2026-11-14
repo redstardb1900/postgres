@@ -22,47 +22,47 @@
 #include "utils/timestamp.h"
 
 
-/* Data about any one timeout reason */
+/* 任一超时原因的数据 */
 typedef struct timeout_params
 {
-	TimeoutId	index;			/* identifier of timeout reason */
+	TimeoutId	index;			/* 超时原因的标识符 */
 
-	/* volatile because these may be changed from the signal handler */
-	volatile bool active;		/* true if timeout is in active_timeouts[] */
-	volatile bool indicator;	/* true if timeout has occurred */
+	/* volatile 因为信号处理器可能改动它们 */
+	volatile bool active;		/* 在 active_timeouts[] 中则为 true */
+	volatile bool indicator;	/* 超时已发生则为 true */
 
-	/* callback function for timeout, or NULL if timeout not registered */
+	/* 超时的回调函数，超时未注册时为 NULL */
 	timeout_handler_proc timeout_handler;
 
-	TimestampTz start_time;		/* time that timeout was last activated */
-	TimestampTz fin_time;		/* time it is, or was last, due to fire */
-	int			interval_in_ms; /* time between firings, or 0 if just once */
+	TimestampTz start_time;		/* 超时上次被激活的时间 */
+	TimestampTz fin_time;		/* 当前或上次应触发的时间 */
+	int			interval_in_ms; /* 触发间隔，仅一次则为 0 */
 } timeout_params;
 
 /*
- * List of possible timeout reasons in the order of enum TimeoutId.
+ * 按 enum TimeoutId 顺序排列的可能超时原因列表。
  */
 static timeout_params all_timeouts[MAX_TIMEOUTS];
 static bool all_timeouts_initialized = false;
 
 /*
- * List of active timeouts ordered by their fin_time and priority.
- * This list is subject to change by the interrupt handler, so it's volatile.
+ * 按 fin_time 和优先级排序的活动超时列表。
+ * 该列表可能被中断处理器改动，因此它是 volatile。
  */
 static volatile int num_active_timeouts = 0;
 static timeout_params *volatile active_timeouts[MAX_TIMEOUTS];
 
 /*
- * Flag controlling whether the signal handler is allowed to do anything.
- * This is useful to avoid race conditions with the handler.  Note in
- * particular that this lets us make changes in the data structures without
- * tediously disabling and re-enabling the timer signal.  Most of the time,
- * no interrupt would happen anyway during such critical sections, but if
- * one does, this rule ensures it's safe.  Leaving the signal enabled across
- * multiple operations can greatly reduce the number of kernel calls we make,
- * too.  See comments in schedule_alarm() about that.
+ * 控制信号处理器是否允许做任何事的标志。
+ * 这有助于避免与处理器之间的竞态条件。特别
+ * 是它让我们无需繁琐地禁用再重新启用定时器
+ * 信号就能修改数据结构。大多数情况下，这些
+ * 临界区内本来不会发生中断，但若发生了，
+ * 这条规则也保证安全。让信号跨多个操作保持
+ * 启用，可大幅减少我们发起内核调用的次数，
+ * 详见 schedule_alarm() 中的注释。
  *
- * We leave this "false" when we're not expecting interrupts, just in case.
+ * 我们不期望中断时把它留为 "false"，以防万一。
  */
 static volatile sig_atomic_t alarm_enabled = false;
 
@@ -70,27 +70,27 @@ static volatile sig_atomic_t alarm_enabled = false;
 #define enable_alarm()	(alarm_enabled = true)
 
 /*
- * State recording if and when we next expect the interrupt to fire.
- * (signal_due_at is valid only when signal_pending is true.)
- * Note that the signal handler will unconditionally reset signal_pending to
- * false, so that can change asynchronously even when alarm_enabled is false.
+ * 记录我们下次预期中断何时触发的状态。
+ * （signal_pending 为 true 时 signal_due_at 有效。）
+ * 注意信号处理器会无条件地把 signal_pending 重置
+ * 为 false，故即使 alarm_enabled 为 false 它也会异步改变。
  */
 static volatile sig_atomic_t signal_pending = false;
 static volatile TimestampTz signal_due_at = 0;
 
 
 /*****************************************************************************
- * Internal helper functions
+ * 内部辅助函数
  *
- * For all of these, it is caller's responsibility to protect them from
- * interruption by the signal handler.  Generally, call disable_alarm()
- * first to prevent interruption, then update state, and last call
- * schedule_alarm(), which will re-enable the signal handler if needed.
+ * 对所有这些函数，调用方有责任保护它们不
+ * 被信号处理器中断。通常先调用 disable_alarm()
+ * 以阻止中断，然后更新状态，最后调用
+ * schedule_alarm()，它会在需要时重新启用信号处理器。
  *****************************************************************************/
 
 /*
- * Find the index of a given timeout reason in the active array.
- * If it's not there, return -1.
+ * 在活动数组中找到给定超时原因的索引。
+ * 不在其中则返回 -1。
  */
 static int
 find_active_timeout(TimeoutId id)
@@ -107,8 +107,8 @@ find_active_timeout(TimeoutId id)
 }
 
 /*
- * Insert specified timeout reason into the list of active timeouts
- * at the given index.
+ * 把指定的超时原因插入活动超时列表的
+ * 给定索引处。
  */
 static void
 insert_timeout(TimeoutId id, int index)
@@ -131,7 +131,7 @@ insert_timeout(TimeoutId id, int index)
 }
 
 /*
- * Remove the index'th element from the timeout list.
+ * 从超时列表中移除第 index 个元素。
  */
 static void
 remove_timeout_index(int index)
@@ -152,7 +152,7 @@ remove_timeout_index(int index)
 }
 
 /*
- * Enable the specified timeout reason
+ * 启用指定的超时原因
  */
 static void
 enable_timeout(TimeoutId id, TimestampTz now, TimestampTz fin_time,
@@ -160,20 +160,20 @@ enable_timeout(TimeoutId id, TimestampTz now, TimestampTz fin_time,
 {
 	int			i;
 
-	/* Assert request is sane */
+	/* 断言请求合理 */
 	Assert(all_timeouts_initialized);
 	Assert(all_timeouts[id].timeout_handler != NULL);
 
 	/*
-	 * If this timeout was already active, momentarily disable it.  We
-	 * interpret the call as a directive to reschedule the timeout.
+	 * 如果该超时已处于活动状态，先暂时禁用它。
+	 * 该调用被理解为重新调度此超时的指令。
 	 */
 	if (all_timeouts[id].active)
 		remove_timeout_index(find_active_timeout(id));
 
 	/*
-	 * Find out the index where to insert the new timeout.  We sort by
-	 * fin_time, and for equal fin_time by priority.
+	 * 找出新超时的插入位置索引。我们按 fin_time
+	 * 排序，fin_time 相同则按优先级。
 	 */
 	for (i = 0; i < num_active_timeouts; i++)
 	{
@@ -186,7 +186,7 @@ enable_timeout(TimeoutId id, TimestampTz now, TimestampTz fin_time,
 	}
 
 	/*
-	 * Mark the timeout active, and insert it into the active list.
+	 * 把该超时标记为活动，并插入活动列表。
 	 */
 	all_timeouts[id].indicator = false;
 	all_timeouts[id].start_time = now;
@@ -197,14 +197,14 @@ enable_timeout(TimeoutId id, TimestampTz now, TimestampTz fin_time,
 }
 
 /*
- * Schedule alarm for the next active timeout, if any
+ * 为下一个活动超时调度报警（若有）
  *
- * We assume the caller has obtained the current time, or a close-enough
- * approximation.  (It's okay if a tick or two has passed since "now", or
- * if a little more time elapses before we reach the kernel call; that will
- * cause us to ask for an interrupt a tick or two later than the nearest
- * timeout, which is no big deal.  Passing a "now" value that's in the future
- * would be bad though.)
+ * 我们假定调用方已取得当前时间，或足够
+ * 接近的近似值。（若距 "now" 已过了一两个节拍，
+ * 或者在我们到达内核调用前又流逝了一点时间，
+ * 都没关系；那只会让我们请求的中断比最近的
+ * 超时晚一两个节拍而已，无关紧要。但传入未来的 "now"
+ * 值就糟了。）
  */
 static void
 schedule_alarm(TimestampTz now)
@@ -219,28 +219,28 @@ schedule_alarm(TimestampTz now)
 		MemSet(&timeval, 0, sizeof(struct itimerval));
 
 		/*
-		 * If we think there's a signal pending, but current time is more than
-		 * 10ms past when the signal was due, then assume that the timeout
-		 * request got lost somehow; clear signal_pending so that we'll reset
-		 * the interrupt request below.  (10ms corresponds to the worst-case
-		 * timeout granularity on modern systems.)  It won't hurt us if the
-		 * interrupt does manage to fire between now and when we reach the
-		 * setitimer() call.
+		 * 如果我们认为有信号待触发，但当前时间已比
+		 * 信号应触发时间晚了 10ms 以上，则假定超时
+		 * 请求以某种方式丢失了；清除 signal_pending 以便
+		 * 在下面重新设置中断请求。（10ms 对应现代系统
+		 * 上最坏情况的超时粒度。）即使中断碰巧在我
+		 * 们到达 setitimer() 调用之前触发，我们也不会
+		 * 受影响。
 		 */
 		if (signal_pending && now > signal_due_at + 10 * 1000)
 			signal_pending = false;
 
 		/*
-		 * Get the time remaining till the nearest pending timeout.  If it is
-		 * negative, assume that we somehow missed an interrupt, and clear
-		 * signal_pending.  This gives us another chance to recover if the
-		 * kernel drops a timeout request for some reason.
+		 * 获取到最近的待触发超时为止的剩余时间。若
+		 * 为负，则假定我们错过了某次中断，并清除
+		 * signal_pending。这样若内核因某种原因丢失了
+		 * 超时请求，我们就还有机会恢复。
 		 */
 		nearest_timeout = active_timeouts[0]->fin_time;
 		if (now > nearest_timeout)
 		{
 			signal_pending = false;
-			/* force an interrupt as soon as possible */
+			/* 尽快强制产生一次中断 */
 			secs = 0;
 			usecs = 1;
 		}
@@ -250,8 +250,8 @@ schedule_alarm(TimestampTz now)
 								&secs, &usecs);
 
 			/*
-			 * It's possible that the difference is less than a microsecond;
-			 * ensure we don't cancel, rather than set, the interrupt.
+			 * 差值有可能小于一微秒；
+			 * 确保我们是在设置中断而非取消中断。
 			 */
 			if (secs == 0 && usecs == 0)
 				usecs = 1;
@@ -261,87 +261,87 @@ schedule_alarm(TimestampTz now)
 		timeval.it_value.tv_usec = usecs;
 
 		/*
-		 * We must enable the signal handler before calling setitimer(); if we
-		 * did it in the other order, we'd have a race condition wherein the
-		 * interrupt could occur before we can set alarm_enabled, so that the
-		 * signal handler would fail to do anything.
+		 * 我们必须在调用 setitimer() 之前启用信号处理器；
+		 * 若顺序相反，就会有竞态条件：中断可能在
+		 * 我们设置 alarm_enabled 之前发生，导致信号处理
+		 * 器什么也做不了。
 		 *
-		 * Because we didn't bother to disable the timer in disable_alarm(),
-		 * it's possible that a previously-set interrupt will fire between
-		 * enable_alarm() and setitimer().  This is safe, however.  There are
-		 * two possible outcomes:
+		 * 由于没在 disable_alarm() 中禁用定时器，
+		 * 之前设置的定时器中断有可能恰在 enable_alarm()
+		 * 与 setitimer() 之间触发。不过这是安全的。
+		 * 有两种结果：
 		 *
-		 * 1. The signal handler finds nothing to do (because the nearest
-		 * timeout event is still in the future).  It will re-set the timer
-		 * and return.  Then we'll overwrite the timer value with a new one.
-		 * This will mean that the timer fires a little later than we
-		 * intended, but only by the amount of time it takes for the signal
-		 * handler to do nothing useful, which shouldn't be much.
+		 * 1. 信号处理器发现无事可做（因为最近的超时
+		 * 事件尚在未来）。它会重设定时器并返回。
+		 * 之后我们会用一个新值覆盖定时器值。这意味
+		 * 着定时器触发得比我们预期的稍晚，但只晚
+		 * 信号处理器做完无用功所需的那点时间，
+		 * 应该不会太长。
 		 *
-		 * 2. The signal handler executes and removes one or more timeout
-		 * events.  When it returns, either the queue is now empty or the
-		 * frontmost event is later than the one we looked at above.  So we'll
-		 * overwrite the timer value with one that is too soon (plus or minus
-		 * the signal handler's execution time), causing a useless interrupt
-		 * to occur.  But the handler will then re-set the timer and
-		 * everything will still work as expected.
+		 * 2. 信号处理器执行并移除一个或多个超时
+		 * 事件。它返回时，队列要么已空，要么最前
+		 * 面的事件比我们上面看过的更晚。所以我们会
+		 * 用一个过早（±信号处理器执行时间）的值覆盖
+		 * 定时器值，从而导致一次无用的中断。
+		 * 但处理器随后会重设定时器，一切仍会
+		 * 按预期工作。
 		 *
-		 * Since these cases are of very low probability (the window here
-		 * being quite narrow), it's not worth adding cycles to the mainline
-		 * code to prevent occasional wasted interrupts.
+		 * 由于这些情况概率极低（这里的窗口非常
+		 * 窄），不值得在主流程代码中耗费周期去阻止
+		 * 偶发的浪费中断。
 		 */
 		enable_alarm();
 
 		/*
-		 * If there is already an interrupt pending that's at or before the
-		 * needed time, we need not do anything more.  The signal handler will
-		 * do the right thing in the first case, and re-schedule the interrupt
-		 * for later in the second case.  It might seem that the extra
-		 * interrupt is wasted work, but it's not terribly much work, and this
-		 * method has very significant advantages in the common use-case where
-		 * we repeatedly set a timeout that we don't expect to reach and then
-		 * cancel it.  Instead of invoking setitimer() every time the timeout
-		 * is set or canceled, we perform one interrupt and a re-scheduling
-		 * setitimer() call at intervals roughly equal to the timeout delay.
-		 * For example, with statement_timeout = 1s and a throughput of
-		 * thousands of queries per second, this method requires an interrupt
-		 * and setitimer() call roughly once a second, rather than thousands
-		 * of setitimer() calls per second.
+		 * 如果已有一个待触发中断，其时间不晚于所需
+		 * 时间，我们就无需再做任何事。信号处理器会
+		 * 在第一种情况下做出正确处理，在第二种情况
+		 * 下把中断重调度到稍后。多出的中断看似
+		 * 是浪费，但其工作量并不大，而且这种方法在
+		 * 常见的用例（反复设置一个预期到不了的超时
+		 * 再取消它）中优势非常显著。无需在每次超时
+		 * 被设置或取消时调用 setitimer()，只需以大约等于
+		 * 超时延迟的间隔，执行一次中断和一次重新调度
+		 * 的 setitimer() 调用即可。
+		 * 例如，在 statement_timeout = 1s 且吞吐量为每秒
+		 * 数千个查询的情况下，该方法只需要大约每秒
+		 * 一次中断和一次 setitimer() 调用，而不是每秒数千
+		 * 次 setitimer() 调用。
 		 *
-		 * Because of the possible passage of time between when we obtained
-		 * "now" and when we reach setitimer(), the kernel's opinion of when
-		 * to trigger the interrupt is likely to be a bit later than
-		 * signal_due_at.  That's fine, for the same reasons described above.
+		 * 由于从我们取得 "now" 到到达 setitimer() 之间
+		 * 可能还会流逝时间，内核对何时触发中断的判断
+		 * 很可能比 signal_due_at 稍晚。
+		 * 这没关系，理由同上。
 		 */
 		if (signal_pending && nearest_timeout >= signal_due_at)
 			return;
 
 		/*
-		 * As with calling enable_alarm(), we must set signal_pending *before*
-		 * calling setitimer(); if we did it after, the signal handler could
-		 * trigger before we set it, leaving us with a false opinion that a
-		 * signal is still coming.
+		 * 与调用 enable_alarm() 一样，我们必须在调用
+		 * setitimer() *之前* 设置 signal_pending；若其后设置，
+		 * 信号处理器可能在我们设置之前触发，让我们误
+		 * 以为信号会来。
 		 *
-		 * Other race conditions involved with setting/checking signal_pending
-		 * are okay, for the reasons described above.  One additional point is
-		 * that the signal handler could fire after we set signal_due_at, but
-		 * still before the setitimer() call.  Then the handler could
-		 * overwrite signal_due_at with a value it computes, which will be the
-		 * same as or perhaps later than what we just computed.  After we
-		 * perform setitimer(), the net effect would be that signal_due_at
-		 * gives a time later than when the interrupt will really happen;
-		 * which is a safe situation.
+		 * 设置/检查 signal_pending 涉及的其他竞态条件
+		 * 都是安全的，理由如上。还有一点：
+		 * 信号处理器可能在我们设置 signal_due_at 之后、
+		 * 但仍在 setitimer() 前触发。此时处理器可能
+		 * 用它自己计算的值覆盖 signal_due_at，该值与
+		 * 我们刚算出的值相同或更晚。在我们执行
+		 * setitimer() 之后，净效果将是 signal_due_at 给出的
+		 * 时间晚于中断真正发生的时刻；
+		 * 这是安全的情形。
 		 */
 		signal_due_at = nearest_timeout;
 		signal_pending = true;
 
-		/* Set the alarm timer */
+		/* 设报警定时器 */
 		if (setitimer(ITIMER_REAL, &timeval, NULL) != 0)
 		{
 			/*
-			 * Clearing signal_pending here is a bit pro forma, but not
-			 * entirely so, since something in the FATAL exit path could try
-			 * to use timeout facilities.
+			 * 在这里清除 signal_pending 有点走形式，但也
+			 * 不尽然，因为 FATAL 退出路径中的代码可能试图
+			 * 使用超时设施。
 			 */
 			signal_pending = false;
 			elog(FATAL, "could not enable SIGALRM timer: %m");
@@ -351,14 +351,14 @@ schedule_alarm(TimestampTz now)
 
 
 /*****************************************************************************
- * Signal handler
+ *信号处理器
  *****************************************************************************/
 
 /*
- * Signal handler for SIGALRM
+ * SIGALRM 信号处理器
  *
- * Process any active timeout reasons and then reschedule the interrupt
- * as needed.
+ * 处理各活动超时原因，然后按需重新调度中断。
+ *
  */
 static void
 handle_sig_alarm(SIGNAL_ARGS)
@@ -366,33 +366,33 @@ handle_sig_alarm(SIGNAL_ARGS)
 	int			save_errno = errno;
 
 	/*
-	 * Bump the holdoff counter, to make sure nothing we call will process
-	 * interrupts directly. No timeout handler should do that, but these
-	 * failures are hard to debug, so better be sure.
+	 * 递增 holdoff 计数器，确保我们调用的任何函数
+	 * 都不会直接处理中断。超时处理器都不该这么
+	 * 做，这类故障难调试，宁可保险。
 	 */
 	HOLD_INTERRUPTS();
 
 	/*
-	 * SIGALRM is always cause for waking anything waiting on the process
-	 * latch.
+	 * SIGALRM 总是要唤醒在进程锁存器上等待的一切。
+	 *
 	 */
 	SetLatch(MyLatch);
 
 	/*
-	 * Always reset signal_pending, even if !alarm_enabled, since indeed no
-	 * signal is now pending.
+	 * 总是重置 signal_pending，即使 !alarm_enabled，因此时
+	 * 无信号待触发。
 	 */
 	signal_pending = false;
 
 	/*
-	 * Fire any pending timeouts, but only if we're enabled to do so.
+	 * 触发各待触发超时，但仅在我们被启用时。
 	 */
 	if (alarm_enabled)
 	{
 		/*
-		 * Disable alarms, just in case this platform allows signal handlers
-		 * to interrupt themselves.  schedule_alarm() will re-enable if
-		 * appropriate.
+		 * 禁用报警，以防某些平台允许信号处理器
+		 * 中断自身。schedule_alarm() 会酌情重新启用。
+		 *
 		 */
 		disable_alarm();
 
@@ -400,32 +400,32 @@ handle_sig_alarm(SIGNAL_ARGS)
 		{
 			TimestampTz now = GetCurrentTimestamp();
 
-			/* While the first pending timeout has been reached ... */
+			/* 当第一个待触发超时已到期时…… */
 			while (num_active_timeouts > 0 &&
 				   now >= active_timeouts[0]->fin_time)
 			{
 				timeout_params *this_timeout = active_timeouts[0];
 
-				/* Remove it from the active list */
+				/* 把它从活动列表移除 */
 				remove_timeout_index(0);
 
-				/* Mark it as fired */
+				/* 标记已触发 */
 				this_timeout->indicator = true;
 
-				/* And call its handler function */
+				/* 并调用其处理器函数 */
 				this_timeout->timeout_handler();
 
-				/* If it should fire repeatedly, re-enable it. */
+				/* 若应重复触发，则重新启用。 */
 				if (this_timeout->interval_in_ms > 0)
 				{
 					TimestampTz new_fin_time;
 
 					/*
-					 * To guard against drift, schedule the next instance of
-					 * the timeout based on the intended firing time rather
-					 * than the actual firing time. But if the timeout was so
-					 * late that we missed an entire cycle, fall back to
-					 * scheduling based on the actual firing time.
+					 * 为防漂移，超时下实例应基于预期触发
+					 * 时间调度而非实际触发。但若超时过迟
+					 * 以致错过整轮周期，则退回按实际触发
+					 * 时间调度。
+					 *
 					 */
 					new_fin_time =
 						TimestampTzPlusMilliseconds(this_timeout->fin_time,
@@ -439,14 +439,14 @@ handle_sig_alarm(SIGNAL_ARGS)
 				}
 
 				/*
-				 * The handler might not take negligible time (CheckDeadLock
-				 * for instance isn't too cheap), so let's update our idea of
-				 * "now" after each one.
+				 * 处理器耗时可能不可忽略（比如 CheckDeadLock
+				 * 就不算便宜），所以我们每次都更新对
+				 * "now" 的认知。
 				 */
 				now = GetCurrentTimestamp();
 			}
 
-			/* Done firing timeouts, so reschedule next interrupt if any */
+			/* 超时触发完毕，若还有则重新调度下次中断 */
 			schedule_alarm(now);
 		}
 	}
@@ -458,24 +458,24 @@ handle_sig_alarm(SIGNAL_ARGS)
 
 
 /*****************************************************************************
- * Public API
+ * 公共 API
  *****************************************************************************/
 
 /*
- * Initialize timeout module.
+ * 初始化超时模块。
  *
- * This must be called in every process that wants to use timeouts.
+ * 每个想使用超时的进程都必须调用它。
  *
- * If the process was forked from another one that was also using this
- * module, be sure to call this before re-enabling signals; else handlers
- * meant to run in the parent process might get invoked in this one.
+ * 如果本进程是从另一个同样在使用本模块的
+ * 进程分叉出来的，务必在重新启用信号前调用；
+ * 否则本应在父进程运行的处理器可能在此运行。
  */
 void
 InitializeTimeouts(void)
 {
 	int			i;
 
-	/* Initialize, or re-initialize, all local state */
+	/* 初始化或重新初始化所有本地状态 */
 	disable_alarm();
 
 	num_active_timeouts = 0;
@@ -493,28 +493,28 @@ InitializeTimeouts(void)
 
 	all_timeouts_initialized = true;
 
-	/* Now establish the signal handler */
+	/* 现在安装信号处理器 */
 	pqsignal(SIGALRM, handle_sig_alarm);
 }
 
 /*
- * Register a timeout reason
+ * 注册一个超时原因
  *
- * For predefined timeouts, this just registers the callback function.
+ * 对预定义超时，这只是注册回调函数。
  *
- * For user-defined timeouts, pass id == USER_TIMEOUT; we then allocate and
- * return a timeout ID.
+ * 对用户自定义超时，传入 id == USER_TIMEOUT；我们会分配
+ * 出一个 ID。
  */
 TimeoutId
 RegisterTimeout(TimeoutId id, timeout_handler_proc handler)
 {
 	Assert(all_timeouts_initialized);
 
-	/* There's no need to disable the signal handler here. */
+	/* 这里无须禁用信号处理器。 */
 
 	if (id >= USER_TIMEOUT)
 	{
-		/* Allocate a user-defined timeout reason */
+		/* 分配用户自定义超时原因 */
 		for (id = USER_TIMEOUT; id < MAX_TIMEOUTS; id++)
 			if (all_timeouts[id].timeout_handler == NULL)
 				break;
@@ -532,33 +532,33 @@ RegisterTimeout(TimeoutId id, timeout_handler_proc handler)
 }
 
 /*
- * Reschedule any pending SIGALRM interrupt.
+ * 重新调度待触发 SIGALRM 中断。
  *
- * This can be used during error recovery in case query cancel resulted in loss
- * of a SIGALRM event (due to longjmp'ing out of handle_sig_alarm before it
- * could do anything).  But note it's not necessary if any of the public
- * enable_ or disable_timeout functions are called in the same area, since
- * those all do schedule_alarm() internally if needed.
+ * 它可用于错误恢复期间，以防查询取消导致丢失了
+ * SIGALRM 事件（因在 handle_sig_alarm 有机会做任何
+ * 事情前就 longjmp 跳出）。但注意若同一区域调用了
+ * 公共的 enable_ 或 disable_timeout 函数则无必要，
+ * 它们内部都会按需调用 schedule_alarm()。
  */
 void
 reschedule_timeouts(void)
 {
-	/* For flexibility, allow this to be called before we're initialized. */
+	/* 灵活起见，允许在初始化之前调用它。 */
 	if (!all_timeouts_initialized)
 		return;
 
-	/* Disable timeout interrupts for safety. */
+	/* 为安全起见禁用超时中断。 */
 	disable_alarm();
 
-	/* Reschedule the interrupt, if any timeouts remain active. */
+	/* 若仍有活动超时，重新调度中断。 */
 	if (num_active_timeouts > 0)
 		schedule_alarm(GetCurrentTimestamp());
 }
 
 /*
- * Enable the specified timeout to fire after the specified delay.
+ * 启用指定超时在指定延迟后触发。
  *
- * Delay is given in milliseconds.
+ * 延迟以毫秒为单位。
  */
 void
 enable_timeout_after(TimeoutId id, int delay_ms)
@@ -566,69 +566,69 @@ enable_timeout_after(TimeoutId id, int delay_ms)
 	TimestampTz now;
 	TimestampTz fin_time;
 
-	/* Disable timeout interrupts for safety. */
+	/* 为安全起见禁用超时中断。 */
 	disable_alarm();
 
-	/* Queue the timeout at the appropriate time. */
+	/* 在适当时间把超时加入队列。 */
 	now = GetCurrentTimestamp();
 	fin_time = TimestampTzPlusMilliseconds(now, delay_ms);
 	enable_timeout(id, now, fin_time, 0);
 
-	/* Set the timer interrupt. */
+	/* 设置定时器中断。 */
 	schedule_alarm(now);
 }
 
 /*
- * Enable the specified timeout to fire periodically, with the specified
- * delay as the time between firings.
+ * 启用指定超时周期性触发，以指定延迟作为
+ * 两次触发之间的时间。
  *
- * Delay is given in milliseconds.
+ * 延迟以毫秒为单位。
  */
 void
 enable_timeout_every(TimeoutId id, TimestampTz fin_time, int delay_ms)
 {
 	TimestampTz now;
 
-	/* Disable timeout interrupts for safety. */
+	/* 为安全起见禁用超时中断。 */
 	disable_alarm();
 
-	/* Queue the timeout at the appropriate time. */
+	/* 在适当时间把超时加入队列。 */
 	now = GetCurrentTimestamp();
 	enable_timeout(id, now, fin_time, delay_ms);
 
-	/* Set the timer interrupt. */
+	/* 设置定时器中断。 */
 	schedule_alarm(now);
 }
 
 /*
- * Enable the specified timeout to fire at the specified time.
+ * 启用指定超时在指定时刻触发。
  *
- * This is provided to support cases where there's a reason to calculate
- * the timeout by reference to some point other than "now".  If there isn't,
- * use enable_timeout_after(), to avoid calling GetCurrentTimestamp() twice.
+ * 提供它是为了支持需要参照 "now" 以外的时点来
+ * 计算超时的场景。若无此种理由，请改用
+ * enable_timeout_after()，以免调用两次 GetCurrentTimestamp()。
  */
 void
 enable_timeout_at(TimeoutId id, TimestampTz fin_time)
 {
 	TimestampTz now;
 
-	/* Disable timeout interrupts for safety. */
+	/* 为安全起见禁用超时中断。 */
 	disable_alarm();
 
-	/* Queue the timeout at the appropriate time. */
+	/* 在适当时间把超时加入队列。 */
 	now = GetCurrentTimestamp();
 	enable_timeout(id, now, fin_time, 0);
 
-	/* Set the timer interrupt. */
+	/* 设置定时器中断。 */
 	schedule_alarm(now);
 }
 
 /*
- * Enable multiple timeouts at once.
+ * 一次启用多个超时。
  *
- * This works like calling enable_timeout_after() and/or enable_timeout_at()
- * multiple times.  Use this to reduce the number of GetCurrentTimestamp()
- * and setitimer() calls needed to establish multiple timeouts.
+ * 其效果如同调用 enable_timeout_after() 和/或
+ * enable_timeout_at() 多次。用它来减少建立多个超时
+ * 所需的 GetCurrentTimestamp() 和 setitimer() 调用数。
  */
 void
 enable_timeouts(const EnableTimeoutParams *timeouts, int count)
@@ -636,10 +636,10 @@ enable_timeouts(const EnableTimeoutParams *timeouts, int count)
 	TimestampTz now;
 	int			i;
 
-	/* Disable timeout interrupts for safety. */
+	/* 为安全起见禁用超时中断。 */
 	disable_alarm();
 
-	/* Queue the timeout(s) at the appropriate times. */
+	/* 适当时间把各 timeout(s) 入队。 */
 	now = GetCurrentTimestamp();
 
 	for (i = 0; i < count; i++)
@@ -672,51 +672,51 @@ enable_timeouts(const EnableTimeoutParams *timeouts, int count)
 		}
 	}
 
-	/* Set the timer interrupt. */
+	/* 设置定时器中断。 */
 	schedule_alarm(now);
 }
 
 /*
- * Cancel the specified timeout.
+ * 取消指定的超时。
  *
- * The timeout's I've-been-fired indicator is reset,
- * unless keep_indicator is true.
+ * 超时的"已触发"标志会重置，除非
+ * keep_indicator 为 true。
  *
- * When a timeout is canceled, any other active timeout remains in force.
- * It's not an error to disable a timeout that is not enabled.
+ * 取消一个超时时，其他活动超时仍然有效。
+ * 禁用未启用的超时并不是错误。
  */
 void
 disable_timeout(TimeoutId id, bool keep_indicator)
 {
-	/* Assert request is sane */
+	/* 断言请求合理 */
 	Assert(all_timeouts_initialized);
 	Assert(all_timeouts[id].timeout_handler != NULL);
 
-	/* Disable timeout interrupts for safety. */
+	/* 为安全起见禁用超时中断。 */
 	disable_alarm();
 
-	/* Find the timeout and remove it from the active list. */
+	/* 找到该超时并把它从活动列表移除。 */
 	if (all_timeouts[id].active)
 		remove_timeout_index(find_active_timeout(id));
 
-	/* Mark it inactive, whether it was active or not. */
+	/* 标为不活动（无论是否活动过）。 */
 	if (!keep_indicator)
 		all_timeouts[id].indicator = false;
 
-	/* Reschedule the interrupt, if any timeouts remain active. */
+	/* 若仍有活动超时，重新调度中断。 */
 	if (num_active_timeouts > 0)
 		schedule_alarm(GetCurrentTimestamp());
 }
 
 /*
- * Cancel multiple timeouts at once.
+ * 一次取消多个超时。
  *
- * The timeouts' I've-been-fired indicators are reset,
- * unless timeouts[i].keep_indicator is true.
+ * 超时的"已触发"标志会重置，除非
+ * timeouts[i].keep_indicator 为 true。
  *
- * This works like calling disable_timeout() multiple times.
- * Use this to reduce the number of GetCurrentTimestamp()
- * and setitimer() calls needed to cancel multiple timeouts.
+ * 其效果如同多次调用 disable_timeout()。
+ * 用它来减少取消多个超时所需的
+ * GetCurrentTimestamp() 和 setitimer() 调用数。
  */
 void
 disable_timeouts(const DisableTimeoutParams *timeouts, int count)
@@ -725,10 +725,10 @@ disable_timeouts(const DisableTimeoutParams *timeouts, int count)
 
 	Assert(all_timeouts_initialized);
 
-	/* Disable timeout interrupts for safety. */
+	/* 为安全起见禁用超时中断。 */
 	disable_alarm();
 
-	/* Cancel the timeout(s). */
+	/* 取消 timeout(s)。 */
 	for (i = 0; i < count; i++)
 	{
 		TimeoutId	id = timeouts[i].id;
@@ -742,14 +742,14 @@ disable_timeouts(const DisableTimeoutParams *timeouts, int count)
 			all_timeouts[id].indicator = false;
 	}
 
-	/* Reschedule the interrupt, if any timeouts remain active. */
+	/* 若仍有活动超时，重新调度中断。 */
 	if (num_active_timeouts > 0)
 		schedule_alarm(GetCurrentTimestamp());
 }
 
 /*
- * Disable the signal handler, remove all timeouts from the active list,
- * and optionally reset their timeout indicators.
+ * 禁用信号处理器，把所有超时从活动列表移除，
+ * 并可选地重置它们的超时标志。
  */
 void
 disable_all_timeouts(bool keep_indicators)
@@ -759,9 +759,9 @@ disable_all_timeouts(bool keep_indicators)
 	disable_alarm();
 
 	/*
-	 * We used to disable the timer interrupt here, but in common usage
-	 * patterns it's cheaper to leave it enabled; that may save us from having
-	 * to enable it again shortly.  See comments in schedule_alarm().
+	 * 我们过去在这里禁用定时器中断，但在常见
+	 * 的使用模式下让它保持启用反而更省；这可以
+	 * 省得很快又要重新启用。见 schedule_alarm()。
 	 */
 
 	num_active_timeouts = 0;
@@ -775,10 +775,10 @@ disable_all_timeouts(bool keep_indicators)
 }
 
 /*
- * Return true if the timeout is active (enabled and not yet fired)
+ * 若超时处于活动状态（已启用且尚未触发）则
  *
- * This is, of course, subject to race conditions, as the timeout could fire
- * immediately after we look.
+ * 返回 true。当然这受竞态条件影响：超时可能就在我们
+ * 查看后立即触发。
  */
 bool
 get_timeout_active(TimeoutId id)
@@ -787,11 +787,11 @@ get_timeout_active(TimeoutId id)
 }
 
 /*
- * Return the timeout's I've-been-fired indicator
+ * 返回超时的"已触发"标志
  *
- * If reset_indicator is true, reset the indicator when returning true.
- * To avoid missing timeouts due to race conditions, we are careful not to
- * reset the indicator when returning false.
+ * 若 reset_indicator 为 true，返回 true 时重置标志。
+ * 为避免竞态条件导致错过超时，返回 false 时
+ * 我们会小心不重置标志。
  */
 bool
 get_timeout_indicator(TimeoutId id, bool reset_indicator)
@@ -806,12 +806,12 @@ get_timeout_indicator(TimeoutId id, bool reset_indicator)
 }
 
 /*
- * Return the time when the timeout was most recently activated
+ * 返回超时最近一次被激活的时间
  *
- * Note: will return 0 if timeout has never been activated in this process.
- * However, we do *not* reset the start_time when a timeout occurs, so as
- * not to create a race condition if SIGALRM fires just as some code is
- * about to fetch the value.
+ * 注意：若该超时在本进程中从未激活过，将返回 0。
+ * 但我们*绝不*在超时发生时重置 start_time，以免当
+ * 某些代码正要读取该值时 SIGALRM 恰好触发而
+ * 产生竞态条件。
  */
 TimestampTz
 get_timeout_start_time(TimeoutId id)
@@ -820,12 +820,12 @@ get_timeout_start_time(TimeoutId id)
 }
 
 /*
- * Return the time when the timeout is, or most recently was, due to fire
+ * 返回超时当前或最近应触发的时间
  *
- * Note: will return 0 if timeout has never been activated in this process.
- * However, we do *not* reset the fin_time when a timeout occurs, so as
- * not to create a race condition if SIGALRM fires just as some code is
- * about to fetch the value.
+ * 注意：若该超时在本进程中从未激活过，将返回 0。
+ * 但我们*绝不*在超时发生时重置 fin_time，以免当
+ * 某些代码正要读取该值时 SIGALRM 恰好触发而
+ * 产生竞态条件。
  */
 TimestampTz
 get_timeout_finish_time(TimeoutId id)

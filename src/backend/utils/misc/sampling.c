@@ -21,33 +21,33 @@
 
 
 /*
- * BlockSampler_Init -- prepare for random sampling of blocknumbers
+ * BlockSampler_Init —— 为块号随机采样做准备
  *
- * BlockSampler provides algorithm for block level sampling of a relation
- * as discussed on pgsql-hackers 2004-04-02 (subject "Large DB")
- * It selects a random sample of samplesize blocks out of
- * the nblocks blocks in the table. If the table has less than
- * samplesize blocks, all blocks are selected.
+ * BlockSampler 提供对关系进行块级采样的算法
+ * 见 pgsql-hackers 2004-04-02 讨论（主题 "Large DB"）
+ * 它选出由 samplesize 个块组成的随机样本，
+ * 出自表中 nblocks 个块。若表的块数少于
+ * samplesize 个块则全选。
  *
- * Since we know the total number of blocks in advance, we can use the
- * straightforward Algorithm S from Knuth 3.4.2, rather than Vitter's
- * algorithm.
+ * 由于我们预先知道块的总数，可以使用
+ * Knuth 3.4.2 中简单直接的 Algorithm S，而非 Vitter 的
+ * 算法。
  *
- * Returns the number of blocks that BlockSampler_Next will return.
+ * 返回 BlockSampler_Next 将返回的块数。
  */
 BlockNumber
 BlockSampler_Init(BlockSampler bs, BlockNumber nblocks, int samplesize,
 				  uint32 randseed)
 {
-	bs->N = nblocks;			/* measured table size */
+	bs->N = nblocks;			/* 测得的表大小 */
 
 	/*
-	 * If we decide to reduce samplesize for tables that have less or not much
-	 * more than samplesize blocks, here is the place to do it.
+	 * 若决定对块数少于或仅略多于 samplesize 的表减小
+	 * samplesize，就在此处处理。
 	 */
 	bs->n = samplesize;
-	bs->t = 0;					/* blocks scanned so far */
-	bs->m = 0;					/* blocks selected so far */
+	bs->t = 0;					/* 已扫描的块数 */
+	bs->m = 0;					/* 已选中的块数 */
 
 	sampler_random_init_state(randseed, &bs->randstate);
 
@@ -63,39 +63,39 @@ BlockSampler_HasMore(BlockSampler bs)
 BlockNumber
 BlockSampler_Next(BlockSampler bs)
 {
-	BlockNumber K = bs->N - bs->t;	/* remaining blocks */
-	int			k = bs->n - bs->m;	/* blocks still to sample */
-	double		p;				/* probability to skip block */
-	double		V;				/* random */
+	BlockNumber K = bs->N - bs->t;	/* 剩余块数 */
+	int			k = bs->n - bs->m;	/* 尚待采样的块数 */
+	double		p;				/* 跳过块的概率 */
+	double		V;				/* 随机 */
 
-	Assert(BlockSampler_HasMore(bs));	/* hence K > 0 and k > 0 */
+	Assert(BlockSampler_HasMore(bs));	/* 故 K > 0 且 k > 0 */
 
 	if ((BlockNumber) k >= K)
 	{
-		/* need all the rest */
+		/* 取剩余全部 */
 		bs->m++;
 		return bs->t++;
 	}
 
 	/*----------
-	 * It is not obvious that this code matches Knuth's Algorithm S.
-	 * Knuth says to skip the current block with probability 1 - k/K.
-	 * If we are to skip, we should advance t (hence decrease K), and
-	 * repeat the same probabilistic test for the next block.  The naive
-	 * implementation thus requires a sampler_random_fract() call for each
-	 * block number.  But we can reduce this to one sampler_random_fract()
-	 * call per selected block, by noting that each time the while-test
-	 * succeeds, we can reinterpret V as a uniform random number in the range
-	 * 0 to p. Therefore, instead of choosing a new V, we just adjust p to be
-	 * the appropriate fraction of its former value, and our next loop
-	 * makes the appropriate probabilistic test.
+	 * 这段代码与 Knuth 的 Algorithm S 相符并不显然。
+	 * Knuth 说以 1 - k/K 的概率跳过当前块。
+	 * 若要跳过，就应推进 t（从而减小 K），并
+	 * 再对下一块重复同样的概率测试。朴素的
+	 * 实现因此需要对每个
+	 * 块号调用一次 sampler_random_fract()，但可将其降为
+	 * 每个选中块仅一次调用，注意到每次 while 测试
+	 * 成功时，我们都可把 V 重新解释为区间
+	 * 0 到 p 内的均匀随机数。因此不必另选 V，只需把 p
+	 * 调整为原值的适当比例，下一轮循环就会
+	 * 作出相应的概率测试。
 	 *
-	 * We have initially K > k > 0.  If the loop reduces K to equal k,
-	 * the next while-test must fail since p will become exactly zero
-	 * (we assume there will not be roundoff error in the division).
-	 * (Note: Knuth suggests a "<=" loop condition, but we use "<" just
-	 * to be doubly sure about roundoff error.)  Therefore K cannot become
-	 * less than k, which means that we cannot fail to select enough blocks.
+	 * 初始时 K > k > 0。若循环把 K 减到与 k 相等，
+	 * 下轮 while 测试必失败，因为 p 将恰好变为零
+	 * （我们假设除法不会产生舍入误差）。
+	 * （注：Knuth 建议 "<=" 循环条件，但我们用 "<" 仅
+	 * 是为了对舍入误差加倍保险。）因此 K 不会变
+	 * 得小于 k，这意味着我们必定能选够所需的块。
 	 *----------
 	 */
 	V = sampler_random_fract(&bs->randstate);
@@ -104,42 +104,42 @@ BlockSampler_Next(BlockSampler bs)
 	{
 		/* skip */
 		bs->t++;
-		K--;					/* keep K == N - t */
+		K--;					/* 令 K == N - t */
 
-		/* adjust p to be new cutoff point in reduced range */
+		/* 把 p 调整为缩小后区间中的新截断点 */
 		p *= 1.0 - (double) k / (double) K;
 	}
 
-	/* select */
+	/* 选取 */
 	bs->m++;
 	return bs->t++;
 }
 
 /*
- * These two routines embody Algorithm Z from "Random sampling with a
- * reservoir" by Jeffrey S. Vitter, in ACM Trans. Math. Softw. 11, 1
- * (Mar. 1985), Pages 37-57.  Vitter describes his algorithm in terms
- * of the count S of records to skip before processing another record.
- * It is computed primarily based on t, the number of records already read.
- * The only extra state needed between calls is W, a random state variable.
+ * 这两个例程体现了 "Random sampling with a
+ * reservoir"（Jeffrey S. Vitter 著）一文中的 Algorithm Z，
+ * （ACM Trans. Math. Softw. 11, 1，1985 年 3 月），
+ * 第 37-57 页。Vitter 将该算法描述为：处理下一条
+ * 记录前要跳过的记录数 S。它主要依据已读记录数 t。
+ * 调用间唯一需要的额外状态是随机状态变量 W。
  *
- * reservoir_init_selection_state computes the initial W value.
+ * reservoir_init_selection_state 计算初始 W 值。
  *
- * Given that we've already read t records (t >= n), reservoir_get_next_S
- * determines the number of records to skip before the next record is
- * processed.
+ * 设已读取 t 条记录（t >= n），reservoir_get_next_S
+ * 会确定在处理下一条记录之前要跳过的记录数。
+ *
  */
 void
 reservoir_init_selection_state(ReservoirState rs, int n)
 {
 	/*
-	 * Reservoir sampling is not used anywhere where it would need to return
-	 * repeatable results so we can initialize it randomly.
+	 * 凡是需要可重复结果之处均未使用蓄水池采样，
+	 * 因此我们可以随机初始化它。
 	 */
 	sampler_random_init_state(pg_prng_uint32(&pg_global_prng_state),
 							  &rs->randstate);
 
-	/* Initial value of W (for use when Algorithm Z is first applied) */
+	/* W 的初始值（首次应用 Algorithm Z 时使用） */
 	rs->W = exp(-log(sampler_random_fract(&rs->randstate)) / n);
 }
 
@@ -148,19 +148,19 @@ reservoir_get_next_S(ReservoirState rs, double t, int n)
 {
 	double		S;
 
-	/* The magic constant here is T from Vitter's paper */
+	/* 这里的魔数就是 Vitter 论文中的 T */
 	if (t <= (22.0 * n))
 	{
-		/* Process records using Algorithm X until t is large enough */
+		/* 用 Algorithm X 处理记录，直到 t 足够大 */
 		double		V,
 					quot;
 
-		V = sampler_random_fract(&rs->randstate);	/* Generate V */
+		V = sampler_random_fract(&rs->randstate);	/* 生成 V */
 		S = 0;
 		t += 1;
-		/* Note: "num" in Vitter's code is always equal to t - n */
+		/* 注：Vitter 代码中的 "num" 总等于 t - n */
 		quot = (t - (double) n) / t;
-		/* Find min S satisfying (4.1) */
+		/* 求满足 (4.1) 的最小 S */
 		while (quot > V)
 		{
 			S += 1;
@@ -170,7 +170,7 @@ reservoir_get_next_S(ReservoirState rs, double t, int n)
 	}
 	else
 	{
-		/* Now apply Algorithm Z */
+		/* 现改用 Algorithm Z */
 		double		W = rs->W;
 		double		term = t - (double) n + 1;
 
@@ -186,11 +186,11 @@ reservoir_get_next_S(ReservoirState rs, double t, int n)
 						y,
 						tmp;
 
-			/* Generate U and X */
+			/* 生成 U 和 X */
 			U = sampler_random_fract(&rs->randstate);
 			X = t * (W - 1.0);
-			S = floor(X);		/* S is tentatively set to floor(X) */
-			/* Test if U <= h(S)/cg(X) in the manner of (6.3) */
+			S = floor(X);		/* S 暂定为 floor(X) */
+			/* 按 (6.3) 的方式测试 U <= h(S)/cg(X) */
 			tmp = (t + 1) / term;
 			lhs = exp(log(((U * tmp * tmp) * (term + S)) / (t + X)) / n);
 			rhs = (((t + X) / (term + S)) * term) / t;
@@ -199,7 +199,7 @@ reservoir_get_next_S(ReservoirState rs, double t, int n)
 				W = rhs / lhs;
 				break;
 			}
-			/* Test if U <= f(S)/cg(X) */
+			/* 测试 U <= f(S)/cg(X) */
 			y = (((U * (t + 1)) / term) * (t + S + 1)) / (t + X);
 			if ((double) n < S)
 			{
@@ -216,7 +216,7 @@ reservoir_get_next_S(ReservoirState rs, double t, int n)
 				y *= numer / denom;
 				denom -= 1;
 			}
-			W = exp(-log(sampler_random_fract(&rs->randstate)) / n);	/* Generate W in advance */
+			W = exp(-log(sampler_random_fract(&rs->randstate)) / n);	/* 预先生成 W */
 			if (exp(log(y) / n) <= (t + X) / t)
 				break;
 		}
@@ -227,7 +227,7 @@ reservoir_get_next_S(ReservoirState rs, double t, int n)
 
 
 /*----------
- * Random number generator used by sampling
+ * 采样使用的随机数生成器
  *----------
  */
 void
@@ -236,13 +236,13 @@ sampler_random_init_state(uint32 seed, pg_prng_state *randstate)
 	pg_prng_seed(randstate, (uint64) seed);
 }
 
-/* Select a random value R uniformly distributed in (0 - 1) */
+/* 选取均匀分布于 (0 - 1) 的随机值 R */
 double
 sampler_random_fract(pg_prng_state *randstate)
 {
 	double		res;
 
-	/* pg_prng_double returns a value in [0.0 - 1.0), so we must reject 0.0 */
+	/* pg_prng_double 返回 [0.0 - 1.0) 内的值，因此必须拒绝 0.0 */
 	do
 	{
 		res = pg_prng_double(randstate);
@@ -252,12 +252,12 @@ sampler_random_fract(pg_prng_state *randstate)
 
 
 /*
- * Backwards-compatible API for block sampling
+ * 面向块采样的向后兼容 API
  *
- * This code is now deprecated, but since it's still in use by many FDWs,
- * we should keep it for awhile at least.  The functionality is the same as
+ * 这段代码现已弃用，但由于仍有许多 FDWs 在使用，
+ * 我们至少应在一段时间内保留它。其功能与
  * sampler_random_fract/reservoir_init_selection_state/reservoir_get_next_S,
- * except that a common random state is used across all callers.
+ * 只是所有调用方共用同一个随机状态。
  */
 static ReservoirStateData oldrs;
 static bool oldrs_initialized = false;
@@ -265,7 +265,7 @@ static bool oldrs_initialized = false;
 double
 anl_random_fract(void)
 {
-	/* initialize if first time through */
+	/* 首次经过时初始化 */
 	if (unlikely(!oldrs_initialized))
 	{
 		sampler_random_init_state(pg_prng_uint32(&pg_global_prng_state),
@@ -273,14 +273,14 @@ anl_random_fract(void)
 		oldrs_initialized = true;
 	}
 
-	/* and compute a random fraction */
+	/* 并计算一个随机分数 */
 	return sampler_random_fract(&oldrs.randstate);
 }
 
 double
 anl_init_selection_state(int n)
 {
-	/* initialize if first time through */
+	/* 首次经过时初始化 */
 	if (unlikely(!oldrs_initialized))
 	{
 		sampler_random_init_state(pg_prng_uint32(&pg_global_prng_state),
@@ -288,7 +288,7 @@ anl_init_selection_state(int n)
 		oldrs_initialized = true;
 	}
 
-	/* Initial value of W (for use when Algorithm Z is first applied) */
+	/* W 的初始值（首次应用 Algorithm Z 时使用） */
 	return exp(-log(sampler_random_fract(&oldrs.randstate)) / n);
 }
 

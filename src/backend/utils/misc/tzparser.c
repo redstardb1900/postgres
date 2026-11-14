@@ -1,14 +1,14 @@
 /*-------------------------------------------------------------------------
  *
  * tzparser.c
- *	  Functions for parsing timezone offset files
+ *	  用于解析时区偏移文件的函数
  *
- * Note: this code is invoked from the check_hook for the GUC variable
- * timezone_abbreviations.  Therefore, it should report problems using
- * GUC_check_errmsg() and related functions, and try to avoid throwing
- * elog(ERROR).  This is not completely bulletproof at present --- in
- * particular out-of-memory will throw an error.  Could probably fix with
- * PG_TRY if necessary.
+ * 注：本代码从 GUC 变量的 check_hook 中调用，
+ * timezone_abbreviations。因此它应通过 GUC_check_errmsg()
+ * 及其相关函数报告问题，并尽量避免抛出
+ * elog(ERROR)。这在目前还不完全可靠 --- 特别是
+ * 内存耗尽会抛出错误。必要时或许可以用 PG_TRY
+ * 来修复。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -43,9 +43,9 @@ static int	ParseTzFile(const char *filename, int depth,
 
 
 /*
- * Apply additional validation checks to a tzEntry
+ * 对一个 tzEntry 施加额外的验证检查
  *
- * Returns true if OK, else false
+ * OK 返回 true，否则 false
  */
 static bool
 validateTzEntry(tzEntry *tzentry)
@@ -53,7 +53,7 @@ validateTzEntry(tzEntry *tzentry)
 	unsigned char *p;
 
 	/*
-	 * Check restrictions imposed by datetktbl storage format (see datetime.c)
+	 * 检查 datetktbl 存储格式施加的限制（见 datetime.c）
 	 */
 	if (strlen(tzentry->abbrev) > TOKMAXLEN)
 	{
@@ -64,7 +64,7 @@ validateTzEntry(tzEntry *tzentry)
 	}
 
 	/*
-	 * Sanity-check the offset: shouldn't exceed 14 hours
+	 * 合理性检查偏移量：不得超过 14 小时
 	 */
 	if (tzentry->offset > 14 * 60 * 60 ||
 		tzentry->offset < -14 * 60 * 60)
@@ -76,7 +76,7 @@ validateTzEntry(tzEntry *tzentry)
 	}
 
 	/*
-	 * Convert abbrev to lowercase (must match datetime.c's conversion)
+	 * abbrev 转为小写（必须与 datetime.c 的转换匹配）
 	 */
 	for (p = (unsigned char *) tzentry->abbrev; *p; p++)
 		*p = pg_tolower(*p);
@@ -85,13 +85,13 @@ validateTzEntry(tzEntry *tzentry)
 }
 
 /*
- * Attempt to parse the line as a timezone abbrev spec
+ * 尝试把该行解析为时区缩写规格
  *
- * Valid formats are:
+ * 有效格式为：
  *	name  zone
  *	name  offset  dst
  *
- * Returns true if OK, else false; data is stored in *tzentry
+ * 成功返回 true，否则 false；数据存入 *tzentry
  */
 static bool
 splitTzLine(const char *filename, int lineno, char *line, tzEntry *tzentry)
@@ -122,7 +122,7 @@ splitTzLine(const char *filename, int lineno, char *line, tzEntry *tzentry)
 		return false;
 	}
 
-	/* We assume zone names don't begin with a digit or sign */
+	/* 我们假设时区名不以数字或符号开头 */
 	if (isdigit((unsigned char) *offset) || *offset == '+' || *offset == '-')
 	{
 		tzentry->zone = NULL;
@@ -142,7 +142,7 @@ splitTzLine(const char *filename, int lineno, char *line, tzEntry *tzentry)
 		}
 		else
 		{
-			/* there was no 'D' dst specifier */
+			/* 没有 'D' dst 限定符 */
 			tzentry->is_dst = false;
 			remain = is_dst;
 		}
@@ -150,9 +150,9 @@ splitTzLine(const char *filename, int lineno, char *line, tzEntry *tzentry)
 	else
 	{
 		/*
-		 * Assume entry is a zone name.  We do not try to validate it by
-		 * looking up the zone, because that would force loading of a lot of
-		 * zones that probably will never be used in the current session.
+		 * 假定条目是时区名。我们不试图通过查找
+		 * 该时区来验证它，因为那样会强制加载大量
+		 * 当前会话中可能永远用不到的时区。
 		 */
 		tzentry->zone = pstrdup(offset);
 		tzentry->offset = 0;
@@ -160,10 +160,10 @@ splitTzLine(const char *filename, int lineno, char *line, tzEntry *tzentry)
 		remain = strtok(NULL, WHITESPACE);
 	}
 
-	if (!remain)				/* no more non-whitespace chars */
+	if (!remain)				/* 已无非空白字符 */
 		return true;
 
-	if (remain[0] != '#')		/* must be a comment */
+	if (remain[0] != '#')		/* 必是注释 */
 	{
 		GUC_check_errmsg("invalid syntax in time zone file \"%s\", line %d",
 						 filename, lineno);
@@ -173,15 +173,15 @@ splitTzLine(const char *filename, int lineno, char *line, tzEntry *tzentry)
 }
 
 /*
- * Insert entry into sorted array
+ * 把条目插入有序数组
  *
- * *base: base address of array (changeable if must enlarge array)
- * *arraysize: allocated length of array (changeable if must enlarge array)
- * n: current number of valid elements in array
- * entry: new data to insert
- * override: true if OK to override
+ * *base: 数组基址（若需扩容数组则可更改）
+ * *arraysize: 数组已分配长度（须扩容数组时可更改）
+ * n: 数组中当前有效元素的个数
+ * entry: 待插入新数据
+ * override: 可覆盖时为 true
  *
- * Returns the new array length (new value for n), or -1 if error
+ * 返回新数组长度（n 的新值），出错则 -1
  */
 static int
 addToArray(tzEntry **base, int *arraysize, int n,
@@ -192,9 +192,9 @@ addToArray(tzEntry **base, int *arraysize, int n,
 	int			high;
 
 	/*
-	 * Search the array for a duplicate; as a useful side effect, the array is
-	 * maintained in sorted order.  We use strcmp() to ensure we match the
-	 * sort order datetime.c expects.
+	 * 在数组中搜索重复项；一个有用的副作用是数组会
+	 * 保持有序。我们用 strcmp() 来确保与 datetime.c
+	 * 期望的排序一致。
 	 */
 	arrayptr = *base;
 	low = 0;
@@ -213,7 +213,7 @@ addToArray(tzEntry **base, int *arraysize, int n,
 		else
 		{
 			/*
-			 * Found a duplicate entry; complain unless it's the same.
+			 * 发现重复条目；除非相同否则报错。
 			 */
 			if ((midptr->zone == NULL && entry->zone == NULL &&
 				 midptr->offset == entry->offset &&
@@ -221,18 +221,18 @@ addToArray(tzEntry **base, int *arraysize, int n,
 				(midptr->zone != NULL && entry->zone != NULL &&
 				 strcmp(midptr->zone, entry->zone) == 0))
 			{
-				/* return unchanged array */
+				/* 原样返回数组 */
 				return n;
 			}
 			if (override)
 			{
-				/* same abbrev but something is different, override */
+				/* 缩写相同但有不同之处，覆盖 */
 				midptr->zone = entry->zone;
 				midptr->offset = entry->offset;
 				midptr->is_dst = entry->is_dst;
 				return n;
 			}
-			/* same abbrev but something is different, complain */
+			/* 缩写相同但有不同之处，报错 */
 			GUC_check_errmsg("time zone abbreviation \"%s\" is multiply defined",
 							 entry->abbrev);
 			GUC_check_errdetail("Entry in time zone file \"%s\", line %d, conflicts with entry in file \"%s\", line %d.",
@@ -243,7 +243,7 @@ addToArray(tzEntry **base, int *arraysize, int n,
 	}
 
 	/*
-	 * No match, insert at position "low".
+	 * 无匹配，插入于 "low"。
 	 */
 	if (n >= *arraysize)
 	{
@@ -261,15 +261,15 @@ addToArray(tzEntry **base, int *arraysize, int n,
 }
 
 /*
- * Parse a single timezone abbrev file --- can recurse to handle @INCLUDE
+ * 解析单个时区缩写文件 --- 可递归处理 @INCLUDE
  *
- * filename: user-specified file name (does not include path)
- * depth: current recursion depth
- * *base: array for results (changeable if must enlarge array)
- * *arraysize: allocated length of array (changeable if must enlarge array)
- * n: current number of valid elements in array
+ * filename: 用户指定的文件名（不含路径）
+ * depth: 当前递归深度
+ * *base: 结果数组（若必须扩容则可更改）
+ * *arraysize: 数组已分配长度（须扩容数组时可更改）
+ * n: 数组中当前有效元素的个数
  *
- * Returns the new array length (new value for n), or -1 if error
+ * 返回新数组长度（n 的新值），出错则 -1
  */
 static int
 ParseTzFile(const char *filename, int depth,
@@ -286,16 +286,16 @@ ParseTzFile(const char *filename, int depth,
 	const char *p;
 
 	/*
-	 * We enforce that the filename is all alpha characters.  This may be
-	 * overly restrictive, but we don't want to allow access to anything
-	 * outside the timezonesets directory, so for instance '/' *must* be
-	 * rejected.
+	 * 我们强制要求文件名全为字母字符。这可能
+	 * 过于严格，但我们不想允许访问
+	 * timezonesets 目录之外任何东西，比如 '/' *必须*
+	 * 拒绝。
 	 */
 	for (p = filename; *p; p++)
 	{
 		if (!isalpha((unsigned char) *p))
 		{
-			/* at level 0, just use guc.c's regular "invalid value" message */
+			/* 层 0 时就使用 guc.c 的常规 "无效值" 消息 */
 			if (depth > 0)
 				GUC_check_errmsg("invalid time zone file name \"%s\"",
 								 filename);
@@ -304,9 +304,9 @@ ParseTzFile(const char *filename, int depth,
 	}
 
 	/*
-	 * The maximal recursion depth is a pretty arbitrary setting. It is hard
-	 * to imagine that someone needs more than 3 levels so stick with this
-	 * conservative setting until someone complains.
+	 * 最大递归深度是一个相当随意的设定。很难想象
+	 * 有人会需要多于 3 层的深度，所以维持这个
+	 * 保守设定，直到有人抱怨为止。
 	 */
 	if (depth > 3)
 	{
@@ -322,10 +322,10 @@ ParseTzFile(const char *filename, int depth,
 	if (!tzFile)
 	{
 		/*
-		 * Check to see if the problem is not the filename but the directory.
-		 * This is worth troubling over because if the installation share/
-		 * directory is missing or unreadable, this is likely to be the first
-		 * place we notice a problem during postmaster startup.
+		 * 检查问题是否不在文件名而在目录。
+		 * 这值得费心，因为若安装的 share/ 目录不存在或
+		 * 不可读，这很可能是 postmaster 启动期间
+		 * 我们最先注意到问题的地方。
 		 */
 		int			save_errno = errno;
 		DIR		   *tzdir;
@@ -345,8 +345,8 @@ ParseTzFile(const char *filename, int depth,
 		errno = save_errno;
 
 		/*
-		 * otherwise, if file doesn't exist and it's level 0, guc.c's
-		 * complaint is enough
+		 * 否则，若文件不存在且处于层 0，guc.c 的
+		 * 报错就足够了
 		 */
 		if (errno != ENOENT || depth > 0)
 			GUC_check_errmsg("could not read time zone file \"%s\": %m",
@@ -367,31 +367,31 @@ ParseTzFile(const char *filename, int depth,
 				n = -1;
 				break;
 			}
-			/* else we're at EOF after all */
+			/* 否则终究已到 EOF */
 			break;
 		}
 		if (strlen(tzbuf) == sizeof(tzbuf) - 1)
 		{
-			/* the line is too long for tzbuf */
+			/* 该行对 tzbuf 来说太长 */
 			GUC_check_errmsg("line is too long in time zone file \"%s\", line %d",
 							 filename, lineno);
 			n = -1;
 			break;
 		}
 
-		/* skip over whitespace */
+		/* 跳过空白 */
 		line = tzbuf;
 		while (*line && isspace((unsigned char) *line))
 			line++;
 
-		if (*line == '\0')		/* empty line */
+		if (*line == '\0')		/* 空行 */
 			continue;
-		if (*line == '#')		/* comment line */
+		if (*line == '#')		/* 注释行 */
 			continue;
 
 		if (pg_strncasecmp(line, "@INCLUDE", strlen("@INCLUDE")) == 0)
 		{
-			/* pstrdup so we can use filename in result data structure */
+			/* pstrdup 以便在结果数据结构中使用 filename */
 			char	   *includeFile = pstrdup(line + strlen("@INCLUDE"));
 
 			includeFile = strtok(includeFile, WHITESPACE);
@@ -436,11 +436,11 @@ ParseTzFile(const char *filename, int depth,
 }
 
 /*
- * load_tzoffsets --- read and parse the specified timezone offset file
+ * load_tzoffsets --- 读取并解析指定的时区偏移文件
  *
- * On success, return a filled-in TimeZoneAbbrevTable, which must have been
- * guc_malloc'd not palloc'd.  On failure, return NULL, using GUC_check_errmsg
- * and friends to give details of the problem.
+ * 成功时返回一个填好的 TimeZoneAbbrevTable，它必须
+ * 是 guc_malloc'd 而非 palloc'd 的。失败时返回 NULL，用
+ * GUC_check_errmsg 等给出问题详情。
  */
 TimeZoneAbbrevTable *
 load_tzoffsets(const char *filename)
@@ -453,22 +453,22 @@ load_tzoffsets(const char *filename)
 	int			n;
 
 	/*
-	 * Create a temp memory context to work in.  This makes it easy to clean
-	 * up afterwards.
+	 * 创建一个临时内存上下文供工作使用。这样便于
+	 * 清理。
 	 */
 	tmpContext = AllocSetContextCreate(CurrentMemoryContext,
 									   "TZParserMemory",
 									   ALLOCSET_SMALL_SIZES);
 	oldContext = MemoryContextSwitchTo(tmpContext);
 
-	/* Initialize array at a reasonable size */
+	/* 以合理大小初始化数组 */
 	arraysize = 128;
 	array = (tzEntry *) palloc(arraysize * sizeof(tzEntry));
 
-	/* Parse the file(s) */
+	/* 解析 file(s) */
 	n = ParseTzFile(filename, 0, &array, &arraysize, 0);
 
-	/* If no errors so far, let datetime.c allocate memory & convert format */
+	/* 若至今无错，让 datetime.c 分配内存并转换格式 */
 	if (n >= 0)
 	{
 		result = ConvertTimeZoneAbbrevs(array, n);
@@ -476,7 +476,7 @@ load_tzoffsets(const char *filename)
 			GUC_check_errmsg("out of memory");
 	}
 
-	/* Clean up */
+	/* 清理 */
 	MemoryContextSwitchTo(oldContext);
 	MemoryContextDelete(tmpContext);
 

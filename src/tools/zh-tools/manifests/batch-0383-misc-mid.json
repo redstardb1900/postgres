@@ -1,0 +1,113 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0383",
+ "title": "misc dir 4 medium files whole-file comment translation (237 blocks: 221 fully translated + 16 blocks containing kept-EN lines; 497/547 content lines rewritten (490 translated + 7 emptied to bare frames), 50 EN kept)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "b68e32fa6b9de4d14bb28b497b8d62078d355624",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/misc/sampling.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0383; 39 blocks"
+  },
+  {
+   "pattern": "src/backend/utils/misc/tzparser.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0383; 36 blocks"
+  },
+  {
+   "pattern": "src/backend/utils/misc/ps_status.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0383; 71 blocks"
+  },
+  {
+   "pattern": "src/backend/utils/misc/timeout.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0383; 91 blocks"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0383-misc-mid.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0383 manifest path and 4 misc .c entries"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/misc/sampling.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 39,
+   "translated": 36,
+   "preserved": 3,
+   "preserved_reasons": [
+    "block L1-15 header kept EN: filename, Portions Copyright line(s), IDENTIFICATION label, path line - campaign header precedent",
+    "block @118: L130 'processed.' absorbed into L129 。 as bare ` *` frame (budget 10B); L105 'skip' kept EN budget-forced (4B < 跳过 6B); L259 identifier chain sampler_random_fract/reservoir_init_selection_state/reservoir_get_next_S kept EN - identifier tokens"
+   ],
+   "note": "84 content lines: 75 translated + 1 emptied to bare ` *` (L130 tail absorbed) + 8 EN kept (header 6 + L105 budget + L259 identifier chain). D8 review round: journal ref ACM Trans. Math. Softw. 11, 1 backfilled (L121-123 rebalanced). Identical EN pairs L142=L291 and L268=L283 rendered byte-identical. Tail-period ledger: full rescan zero mismatches. Line counts conserved 304/304; frame terminators 8/8."
+  },
+  {
+   "path": "src/backend/utils/misc/tzparser.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 36,
+   "translated": 34,
+   "preserved": 2,
+   "preserved_reasons": [
+    "block L1-21 header: 5 non-translatable lines kept EN (L3 filename, L14/L15 Portions Copyright, L17 IDENTIFICATION label, L18 path line); descriptive lines L4 and L6-11 (GUC check_hook Note) translated in review round D2"
+   ],
+   "note": "81 content lines: 75 translated + 6 EN kept (5 header lines + L91/L92 format-sample tokens 'name zone'/'name offset dst'). D1: L291 '*' must '*' emphasis restored. Identical EN pairs L179=L269, L180=L270, L184=L272 rendered byte-identical (L179 uses 须扩容数组时可更改 to break CJK LCS>=8 with L178 per near-dup guard). Line counts conserved 484/484; frame terminators 18/18. Identical EN pairs L179=L269, L180=L270, L184=L272 rendered byte-identical (L179 uses 须扩容数组时可更改 to break CJK LCS>=8 with L178 per near-dup guard). Line counts conserved 484/484; frame terminators 18/18."
+  },
+  {
+   "path": "src/backend/utils/misc/ps_status.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 71,
+   "translated": 61,
+   "preserved": 10,
+   "preserved_reasons": [
+    "block L1-13 header kept EN: filename, Copyright line(s), path line - campaign header precedent",
+    "blocks @35/@81/@85/@257/@298/@504: PS_USE_* / not PS_USE_NONE / GUC-side identifier comments kept EN - identifier tokens; L40 '(FreeBSD)' and L43 '(other BSDs)' platform tags kept EN budget-forced (12B < (其他 BSDs) 13B); L342/368/421 function-name synopsis identifiers kept EN - 0380/0381 synopsis precedent"
+   ],
+   "note": "136 content lines: 104 translated + 2 emptied to bare ` *` (L250 'so:' tail absorbed into L49 修复：; L308 'line' tail absorbed into L307 前缀) + 30 EN kept (header 7 + PS_USE_* enum identifiers 5 + inline identifier comments 13 + platform tags 2 (L40/L43) + synopsis 3). Same-EN pairs L282=L353, L291=L358=L537, L378=L428, L415=L443 rendered byte-identical. Term: cannot rendered positively here (L164 end_of_area 只能止步于它之前) with must-not as 该设置的值必须保持不变 (L163) - four-file term_lint hits 0 after review round (earlier P04 advisory not reproduced by reviewer and cleared by this rewrite). D3 L164 period restored, D6 L530-531 有效长度存入 *displen rewrap. Line counts conserved 553/553; frame terminators 22/22."
+  },
+  {
+   "path": "src/backend/utils/misc/timeout.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 91,
+   "translated": 90,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-14 header kept EN: filename, Portions Copyright line(s), IDENTIFICATION label, path line - campaign header precedent"
+   ],
+   "note": "246 content lines: 236 translated + 4 emptied to bare ` *` (L361 'as needed.', L377 'latch.', L395 'appropriate.', L428 'scheduling based on the actual firing time.' - tails absorbed into preceding lines) + 6 EN kept (header). Review round: D1 '*' before '*' (L321) and '*never*' (L812/L826) emphasis restored; D4 keep_indicator is true reworded (L682-683/L714-715); D5 subject added (L780-781); D9 banner translated 'Signal handler' via exact-fit 17B=17B (padding space after '*' dropped). Same-EN groups L550=L569=L592=L615=L639=L695, L572=L595=L618, L577=L599=L622, L553=L706=L745, L561=L585, L811=L825, L813=L827, L814=L828, L163=L691 all rendered byte-identical. volatile / timeout(s) / keep_indicator tokens kept. Line counts conserved 834/834; frame terminators 43/43."
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0383-misc-mid.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0383 manifest path and 4 misc .c entries"
+  }
+ ]
+}

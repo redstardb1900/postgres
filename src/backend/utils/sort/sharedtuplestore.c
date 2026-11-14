@@ -1,14 +1,14 @@
 /*-------------------------------------------------------------------------
  *
  * sharedtuplestore.c
- *	  Simple mechanism for sharing tuples between backends.
+ *	  后端之间共享元组的简单机制。
  *
- * This module contains a shared temporary tuple storage mechanism providing
- * a parallel-aware subset of the features of tuplestore.c.  Multiple backends
- * can write to a SharedTuplestore, and then multiple backends can later scan
- * the stored tuples.  Currently, the only scan type supported is a parallel
- * scan where each backend reads an arbitrary subset of the tuples that were
- * written.
+ * 本模块包含一种共享临时元组存储机制，提供
+ * tuplestore.c 各功能中可感知并行的子集。多个后端
+ * 可以写入 SharedTuplestore，随后多个后端可以扫描
+ * 已存储的元组。当前支持的扫描类型只有并行扫描，
+ * 即每个后端读取所写入元组的任意子集。
+ *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -30,76 +30,76 @@
 #include "utils/sharedtuplestore.h"
 
 /*
- * The size of chunks, in pages.  This is somewhat arbitrarily set to match
- * the size of HASH_CHUNK, so that Parallel Hash obtains new chunks of tuples
- * at approximately the same rate as it allocates new chunks of memory to
- * insert them into.
+ * 分块的大小，以页为单位。此值设定得有些随意，以
+ * 匹配 HASH_CHUNK 的大小，使并行哈希获取新元组分块
+ * 的速率与其分配新内存分块的速率大致相同
+ * 以便插入。
  */
 #define STS_CHUNK_PAGES 4
 #define STS_CHUNK_HEADER_SIZE offsetof(SharedTuplestoreChunk, data)
 #define STS_CHUNK_DATA_SIZE (STS_CHUNK_PAGES * BLCKSZ - STS_CHUNK_HEADER_SIZE)
 
-/* Chunk written to disk. */
+/* 已落盘分块。 */
 typedef struct SharedTuplestoreChunk
 {
-	int			ntuples;		/* Number of tuples in this chunk. */
-	int			overflow;		/* If overflow, how many including this one? */
+	int			ntuples;		/* 本分块中的元组数。 */
+	int			overflow;		/* 若溢出，含此共多少？ */
 	char		data[FLEXIBLE_ARRAY_MEMBER];
 } SharedTuplestoreChunk;
 
-/* Per-participant shared state. */
+/* 参与者共享状态。 */
 typedef struct SharedTuplestoreParticipant
 {
 	LWLock		lock;
-	BlockNumber read_page;		/* Page number for next read. */
-	BlockNumber npages;			/* Number of pages written. */
-	bool		writing;		/* Used only for assertions. */
+	BlockNumber read_page;		/* 下次读取页号。 */
+	BlockNumber npages;			/* 已写入页数。 */
+	bool		writing;		/* 仅用于断言。 */
 } SharedTuplestoreParticipant;
 
-/* The control object that lives in shared memory. */
+/* 位于共享内存中的控制对象。 */
 struct SharedTuplestore
 {
-	int			nparticipants;	/* Number of participants that can write. */
-	int			flags;			/* Flag bits from SHARED_TUPLESTORE_XXX */
-	size_t		meta_data_size; /* Size of per-tuple header. */
-	char		name[NAMEDATALEN];	/* A name for this tuplestore. */
+	int			nparticipants;	/* 可写入的参与者数量。 */
+	int			flags;			/* SHARED_TUPLESTORE_XXX 的标志位 */
+	size_t		meta_data_size; /* 元组头部大小。 */
+	char		name[NAMEDATALEN];	/* 此元组存储名。 */
 
-	/* Followed by per-participant shared state. */
+	/* 后面为各参与者共享状态。 */
 	SharedTuplestoreParticipant participants[FLEXIBLE_ARRAY_MEMBER];
 };
 
-/* Per-participant state that lives in backend-local memory. */
+/* 位于后端本地内存中的各参与者状态。 */
 struct SharedTuplestoreAccessor
 {
-	int			participant;	/* My participant number. */
-	SharedTuplestore *sts;		/* The shared state. */
-	SharedFileSet *fileset;		/* The SharedFileSet holding files. */
-	MemoryContext context;		/* Memory context for buffers. */
+	int			participant;	/* 参与者编号。 */
+	SharedTuplestore *sts;		/* 共享状态。 */
+	SharedFileSet *fileset;		/* 持有文件的 SharedFileSet */
+	MemoryContext context;		/* 缓冲内存上下文 */
 
-	/* State for reading. */
-	int			read_participant;	/* The current participant to read from. */
-	BufFile    *read_file;		/* The current file to read from. */
-	int			read_ntuples_available; /* The number of tuples in chunk. */
-	int			read_ntuples;	/* How many tuples have we read from chunk? */
-	size_t		read_bytes;		/* How many bytes have we read from chunk? */
-	char	   *read_buffer;	/* A buffer for loading tuples. */
+	/* 读取状态。 */
+	int			read_participant;	/* 当前读取来源的参与者。 */
+	BufFile    *read_file;		/* 当前读取的文件。 */
+	int			read_ntuples_available; /* 分块中的元组数。 */
+	int			read_ntuples;	/* 本分块已读取了多少元组？ */
+	size_t		read_bytes;		/* 本分块已读取多少字节？ */
+	char	   *read_buffer;	/* 装载元组缓冲区。 */
 	size_t		read_buffer_size;
-	BlockNumber read_next_page; /* Lowest block we'll consider reading. */
+	BlockNumber read_next_page; /* 考虑读取的最低块。 */
 
-	/* State for writing. */
-	SharedTuplestoreChunk *write_chunk; /* Buffer for writing. */
-	BufFile    *write_file;		/* The current file to write to. */
-	BlockNumber write_page;		/* The next page to write to. */
-	char	   *write_pointer;	/* Current write pointer within chunk. */
-	char	   *write_end;		/* One past the end of the current chunk. */
+	/* 写入状态。 */
+	SharedTuplestoreChunk *write_chunk; /* 写入缓冲区。 */
+	BufFile    *write_file;		/* 当前写入的文件。 */
+	BlockNumber write_page;		/* 下个写入页。 */
+	char	   *write_pointer;	/* 分块内的当前写指针。 */
+	char	   *write_end;		/* 当前分块末尾后一位。 */
 };
 
 static void sts_filename(char *name, SharedTuplestoreAccessor *accessor,
 						 int participant);
 
 /*
- * Return the amount of shared memory required to hold SharedTuplestore for a
- * given number of participants.
+ * 返回容纳 SharedTuplestore 所需的共享内存大小，
+ * 对应给定参与者数。
  */
 size_t
 sts_estimate(int participants)
@@ -109,19 +109,19 @@ sts_estimate(int participants)
 }
 
 /*
- * Initialize a SharedTuplestore in existing shared memory.  There must be
- * space for sts_estimate(participants) bytes.  If flags includes the value
- * SHARED_TUPLESTORE_SINGLE_PASS, the files may in future be removed more
- * eagerly (but this isn't yet implemented).
+ * 在现有共享内存中初始化 SharedTuplestore。必须
+ * 有 sts_estimate(participants) 字节的空间。若 flags 含
+ * SHARED_TUPLESTORE_SINGLE_PASS，则这些文件将来可能
+ * 更早被移除（尚未实现）。
  *
- * Tuples that are stored may optionally carry a piece of fixed sized
- * meta-data which will be retrieved along with the tuple.  This is useful for
- * the hash values used in multi-batch hash joins, but could have other
- * applications.
+ * 被存储的元组可选择携带一段定长的
+ * 元数据，它会随元组一起取回。这对多批次哈希
+ * 连接所用的哈希值很有用，但也可能有其他用途。
  *
- * The caller must supply a SharedFileSet, which is essentially a directory
- * that will be cleaned up automatically, and a name which must be unique
- * across all SharedTuplestores created in the same SharedFileSet.
+ *
+ * 调用者必须提供一个 SharedFileSet，它实质上是一个
+ * 会被自动清理的目录，以及一个在同一 SharedFileSet
+ * 中创建的所有 SharedTuplestores 之间唯一的名称。
  */
 SharedTuplestoreAccessor *
 sts_initialize(SharedTuplestore *sts, int participants,
@@ -145,10 +145,10 @@ sts_initialize(SharedTuplestore *sts, int participants,
 	strcpy(sts->name, name);
 
 	/*
-	 * Limit meta-data so it + tuple size always fits into a single chunk.
-	 * sts_puttuple() and sts_read_tuple() could be made to support scenarios
-	 * where that's not the case, but it's not currently required. If so,
-	 * meta-data size probably should be made variable, too.
+	 * 限制元数据，使其加元组大小总能装入单个分块。
+	 * sts_puttuple() 与 sts_read_tuple() 可以被改造为支持
+	 * 不满足该条件的场景，但目前无此需求。若是，
+	 * 元数据大小或许也应改为可变。
 	 */
 	if (meta_data_size + sizeof(uint32) >= STS_CHUNK_DATA_SIZE)
 		elog(ERROR, "meta-data too long");
@@ -172,8 +172,8 @@ sts_initialize(SharedTuplestore *sts, int participants,
 }
 
 /*
- * Attach to a SharedTuplestore that has been initialized by another backend,
- * so that this backend can read and write tuples.
+ * 附加到已由另一后端初始化的 SharedTuplestore，
+ * 以便本后端可以读取和写入元组。
  */
 SharedTuplestoreAccessor *
 sts_attach(SharedTuplestore *sts,
@@ -207,8 +207,8 @@ sts_flush_chunk(SharedTuplestoreAccessor *accessor)
 }
 
 /*
- * Finish writing tuples.  This must be called by all backends that have
- * written data before any backend begins reading it.
+ * 完成元组写入。所有已写入数据的后端都必须
+ * 在任何后端开始读取前调用它。
  */
 void
 sts_end_write(SharedTuplestoreAccessor *accessor)
@@ -225,11 +225,11 @@ sts_end_write(SharedTuplestoreAccessor *accessor)
 }
 
 /*
- * Prepare to rescan.  Only one participant must call this.  After it returns,
- * all participants may call sts_begin_parallel_scan() and then loop over
- * sts_parallel_scan_next().  This function must not be called concurrently
- * with a scan, and synchronization to avoid that is the caller's
- * responsibility.
+ * 准备重新扫描。必须只有一个参与者调用本函数。
+ * 它返回后，所有参与者都可调用 sts_begin_parallel_scan()
+ * 然后循环调用 sts_parallel_scan_next()。本函数不得
+ * 与扫描并发调用，而避免并发的同步由调用者
+ * 负责。
  */
 void
 sts_reinitialize(SharedTuplestoreAccessor *accessor)
@@ -237,9 +237,9 @@ sts_reinitialize(SharedTuplestoreAccessor *accessor)
 	int			i;
 
 	/*
-	 * Reset the shared read head for all participants' files.  Also set the
-	 * initial chunk size to the minimum (any increases from that size will be
-	 * recorded in chunk_expansion_log).
+	 * 重置所有参与者文件的共享读头。同时将初始分
+	 * 块大小设为最小值（任何相对该尺寸的增长都会
+	 * 记录到 chunk_expansion_log）
 	 */
 	for (i = 0; i < accessor->sts->nparticipants; ++i)
 	{
@@ -248,27 +248,27 @@ sts_reinitialize(SharedTuplestoreAccessor *accessor)
 }
 
 /*
- * Begin scanning the contents in parallel.
+ * 开始并行扫描其中内容。
  */
 void
 sts_begin_parallel_scan(SharedTuplestoreAccessor *accessor)
 {
 	int			i PG_USED_FOR_ASSERTS_ONLY;
 
-	/* End any existing scan that was in progress. */
+	/* 结束任何正在进行中的扫描。 */
 	sts_end_parallel_scan(accessor);
 
 	/*
-	 * Any backend that might have written into this shared tuplestore must
-	 * have called sts_end_write(), so that all buffers are flushed and the
-	 * files have stopped growing.
+	 * 任何可能已写入此共享元组存储的后端都必须
+	 * 已调用过 sts_end_write()，从而刷写所有缓冲区，
+	 * 且文件停止增长。
 	 */
 	for (i = 0; i < accessor->sts->nparticipants; ++i)
 		Assert(!accessor->sts->participants[i].writing);
 
 	/*
-	 * We will start out reading the file that THIS backend wrote.  There may
-	 * be some caching locality advantage to that.
+	 * 我们将从本后端自己写入的文件开始读取。这可能
+	 * 存在一些缓存局部性优势。
 	 */
 	accessor->read_participant = accessor->participant;
 	accessor->read_file = NULL;
@@ -276,15 +276,15 @@ sts_begin_parallel_scan(SharedTuplestoreAccessor *accessor)
 }
 
 /*
- * Finish a parallel scan, freeing associated backend-local resources.
+ * 完成一次并行扫描，释放相关的后端本地资源。
  */
 void
 sts_end_parallel_scan(SharedTuplestoreAccessor *accessor)
 {
 	/*
-	 * Here we could delete all files if SHARED_TUPLESTORE_SINGLE_PASS, but
-	 * we'd probably need a reference count of current parallel scanners so we
-	 * could safely do it only when the reference count reaches zero.
+	 * 若为 SHARED_TUPLESTORE_SINGLE_PASS，本可删除全部文件，
+	 * 但那样很可能需要当前并行扫描者的引用计数，
+	 * 以便只在计数归零时才安全地执行。
 	 */
 	if (accessor->read_file != NULL)
 	{
@@ -294,8 +294,8 @@ sts_end_parallel_scan(SharedTuplestoreAccessor *accessor)
 }
 
 /*
- * Write a tuple.  If a meta-data size was provided to sts_initialize, then a
- * pointer to meta data of that size must be provided.
+ * 写入一个元组。若 sts_initialize 被提供了元数据大小，
+ * 则必须提供指向该大小元数据的指针。
  */
 void
 sts_puttuple(SharedTuplestoreAccessor *accessor, void *meta_data,
@@ -303,14 +303,14 @@ sts_puttuple(SharedTuplestoreAccessor *accessor, void *meta_data,
 {
 	size_t		size;
 
-	/* Do we have our own file yet? */
+	/* 有自己的文件了吗？ */
 	if (accessor->write_file == NULL)
 	{
 		SharedTuplestoreParticipant *participant;
 		char		name[MAXPGPATH];
 		MemoryContext oldcxt;
 
-		/* Create one.  Only this backend will write into it. */
+		/* 创建一个。仅本后端会写入其中。 */
 		sts_filename(name, accessor, accessor->participant);
 
 		oldcxt = MemoryContextSwitchTo(accessor->context);
@@ -318,18 +318,18 @@ sts_puttuple(SharedTuplestoreAccessor *accessor, void *meta_data,
 			BufFileCreateFileSet(&accessor->fileset->fs, name);
 		MemoryContextSwitchTo(oldcxt);
 
-		/* Set up the shared state for this backend's file. */
+		/* 为本后端的文件设置共享状态。 */
 		participant = &accessor->sts->participants[accessor->participant];
-		participant->writing = true;	/* for assertions only */
+		participant->writing = true;	/* 仅用于断言 */
 	}
 
-	/* Do we have space? */
+	/* 有空间吗？ */
 	size = accessor->sts->meta_data_size + tuple->t_len;
 	if (accessor->write_pointer + size > accessor->write_end)
 	{
 		if (accessor->write_chunk == NULL)
 		{
-			/* First time through.  Allocate chunk. */
+			/* 首次执行。分配分块。 */
 			accessor->write_chunk = (SharedTuplestoreChunk *)
 				MemoryContextAllocZero(accessor->context,
 									   STS_CHUNK_PAGES * BLCKSZ);
@@ -340,35 +340,35 @@ sts_puttuple(SharedTuplestoreAccessor *accessor, void *meta_data,
 		}
 		else
 		{
-			/* See if flushing helps. */
+			/* 刷写能否奏效 */
 			sts_flush_chunk(accessor);
 		}
 
-		/* It may still not be enough in the case of a gigantic tuple. */
+		/* 在元组巨大时这可能仍不够。 */
 		if (accessor->write_pointer + size > accessor->write_end)
 		{
 			size_t		written;
 
 			/*
-			 * We'll write the beginning of the oversized tuple, and then
-			 * write the rest in some number of 'overflow' chunks.
+			 * 我们将写入超长元组的开头，然后以
+			 * 若干'溢出'分块写入其余部分。
 			 *
-			 * sts_initialize() verifies that the size of the tuple +
-			 * meta-data always fits into a chunk. Because the chunk has been
-			 * flushed above, we can be sure to have all of a chunk's usable
-			 * space available.
+			 * sts_initialize() 会验证元组的大小加
+			 * 元数据总能装入一个分块。由于该分块已被
+			 * 刷写，我们可以确保拥有分块的全部可用空间
+			 * 可供使用。
 			 */
 			Assert(accessor->write_pointer + accessor->sts->meta_data_size +
 				   sizeof(uint32) < accessor->write_end);
 
-			/* Write the meta-data as one chunk. */
+			/* 将元数据整块写入。 */
 			if (accessor->sts->meta_data_size > 0)
 				memcpy(accessor->write_pointer, meta_data,
 					   accessor->sts->meta_data_size);
 
 			/*
-			 * Write as much of the tuple as we can fit. This includes the
-			 * tuple's size at the start.
+			 * 写入尽可能多的元组内容。这包括开头的
+			 * 元组大小。
 			 */
 			written = accessor->write_end - accessor->write_pointer -
 				accessor->sts->meta_data_size;
@@ -377,7 +377,7 @@ sts_puttuple(SharedTuplestoreAccessor *accessor, void *meta_data,
 			++accessor->write_chunk->ntuples;
 			size -= accessor->sts->meta_data_size;
 			size -= written;
-			/* Now write as many overflow chunks as we need for the rest. */
+			/* 接着写入余下所需的溢出分块。 */
 			while (size > 0)
 			{
 				size_t		written_this_chunk;
@@ -385,8 +385,8 @@ sts_puttuple(SharedTuplestoreAccessor *accessor, void *meta_data,
 				sts_flush_chunk(accessor);
 
 				/*
-				 * How many overflow chunks to go?  This will allow readers to
-				 * skip all of them at once instead of reading each one.
+				 * 还剩多少溢出分块？这能让读取者一次
+				 * 跳过所有这些分块，而无需逐个读取。
 				 */
 				accessor->write_chunk->overflow = (size + STS_CHUNK_DATA_SIZE - 1) /
 					STS_CHUNK_DATA_SIZE;
@@ -402,7 +402,7 @@ sts_puttuple(SharedTuplestoreAccessor *accessor, void *meta_data,
 		}
 	}
 
-	/* Copy meta-data and tuple into buffer. */
+	/* 元数据和元组拷入缓冲区。 */
 	if (accessor->sts->meta_data_size > 0)
 		memcpy(accessor->write_pointer, meta_data,
 			   accessor->sts->meta_data_size);
@@ -422,8 +422,8 @@ sts_read_tuple(SharedTuplestoreAccessor *accessor, void *meta_data)
 	char	   *destination;
 
 	/*
-	 * We'll keep track of bytes read from this chunk so that we can detect an
-	 * overflowing tuple and switch to reading overflow pages.
+	 * 我们会跟踪本分块中已读取的字节数，以便检测
+	 * 溢出的元组并切换到读取溢出页。
 	 */
 	if (accessor->sts->meta_data_size > 0)
 	{
@@ -453,10 +453,10 @@ sts_read_tuple(SharedTuplestoreAccessor *accessor, void *meta_data)
 	destination += this_chunk_size;
 	++accessor->read_ntuples;
 
-	/* Check if we need to read any overflow chunks. */
+	/* 检查是否需要读取溢出分块。 */
 	while (remaining_size > 0)
 	{
-		/* We are now positioned at the start of an overflow chunk. */
+		/* 现在位于某个溢出分块的起始处。 */
 		SharedTuplestoreChunk chunk_header;
 
 		BufFileReadExact(accessor->read_file, &chunk_header, STS_CHUNK_HEADER_SIZE);
@@ -476,8 +476,8 @@ sts_read_tuple(SharedTuplestoreAccessor *accessor, void *meta_data)
 		destination += this_chunk_size;
 
 		/*
-		 * These will be used to count regular tuples following the oversized
-		 * tuple that spilled into this overflow chunk.
+		 * 这些将用于统计跟在溢出流入该分块的
+		 * 超长元组之后的常规元组。
 		 */
 		accessor->read_ntuples = 0;
 		accessor->read_ntuples_available = chunk_header.ntuples;
@@ -490,7 +490,7 @@ sts_read_tuple(SharedTuplestoreAccessor *accessor, void *meta_data)
 }
 
 /*
- * Get the next tuple in the current parallel scan.
+ * 在当前并行扫描中获取下一个元组。
  */
 MinimalTuple
 sts_parallel_scan_next(SharedTuplestoreAccessor *accessor, void *meta_data)
@@ -501,23 +501,23 @@ sts_parallel_scan_next(SharedTuplestoreAccessor *accessor, void *meta_data)
 
 	for (;;)
 	{
-		/* Can we read more tuples from the current chunk? */
+		/* 能否从当前分块读取更多元组？ */
 		if (accessor->read_ntuples < accessor->read_ntuples_available)
 			return sts_read_tuple(accessor, meta_data);
 
-		/* Find the location of a new chunk to read. */
+		/* 寻找要读的新分块位置。 */
 		p = &accessor->sts->participants[accessor->read_participant];
 
 		LWLockAcquire(&p->lock, LW_EXCLUSIVE);
-		/* We can skip directly past overflow pages we know about. */
+		/* 我们可以直接跳过已知的溢出页。 */
 		if (p->read_page < accessor->read_next_page)
 			p->read_page = accessor->read_next_page;
 		eof = p->read_page >= p->npages;
 		if (!eof)
 		{
-			/* Claim the next chunk. */
+			/* 认领下一块 */
 			read_page = p->read_page;
-			/* Advance the read head for the next reader. */
+			/* 为下一个读取者推进读头。 */
 			p->read_page += STS_CHUNK_PAGES;
 			accessor->read_next_page = p->read_page;
 		}
@@ -527,7 +527,7 @@ sts_parallel_scan_next(SharedTuplestoreAccessor *accessor, void *meta_data)
 		{
 			SharedTuplestoreChunk chunk_header;
 
-			/* Make sure we have the file open. */
+			/* 确保文件已被打开。 */
 			if (accessor->read_file == NULL)
 			{
 				char		name[MAXPGPATH];
@@ -542,7 +542,7 @@ sts_parallel_scan_next(SharedTuplestoreAccessor *accessor, void *meta_data)
 				MemoryContextSwitchTo(oldcxt);
 			}
 
-			/* Seek and load the chunk header. */
+			/* 寻道并加载块头。 */
 			if (BufFileSeekBlock(accessor->read_file, read_page) != 0)
 				ereport(ERROR,
 						(errcode_for_file_access(),
@@ -551,8 +551,8 @@ sts_parallel_scan_next(SharedTuplestoreAccessor *accessor, void *meta_data)
 			BufFileReadExact(accessor->read_file, &chunk_header, STS_CHUNK_HEADER_SIZE);
 
 			/*
-			 * If this is an overflow chunk, we skip it and any following
-			 * overflow chunks all at once.
+			 * 若这是溢出分块，则连同后续所有溢出分块
+			 * 一起跳过。
 			 */
 			if (chunk_header.overflow > 0)
 			{
@@ -565,7 +565,7 @@ sts_parallel_scan_next(SharedTuplestoreAccessor *accessor, void *meta_data)
 			accessor->read_ntuples_available = chunk_header.ntuples;
 			accessor->read_bytes = STS_CHUNK_HEADER_SIZE;
 
-			/* Go around again, so we can get a tuple from this chunk. */
+			/* 再循环一轮，以便从该分块获取元组。 */
 		}
 		else
 		{
@@ -576,8 +576,8 @@ sts_parallel_scan_next(SharedTuplestoreAccessor *accessor, void *meta_data)
 			}
 
 			/*
-			 * Try the next participant's file.  If we've gone full circle,
-			 * we're done.
+			 * 试下一参与者的文件。若已绕完一圈，即
+			 * 完成。
 			 */
 			accessor->read_participant = (accessor->read_participant + 1) %
 				accessor->sts->nparticipants;
@@ -585,7 +585,7 @@ sts_parallel_scan_next(SharedTuplestoreAccessor *accessor, void *meta_data)
 				break;
 			accessor->read_next_page = 0;
 
-			/* Go around again, so we can get a chunk from this file. */
+			/* 再循环一轮，以便从该文件获取分块。 */
 		}
 	}
 
@@ -593,7 +593,7 @@ sts_parallel_scan_next(SharedTuplestoreAccessor *accessor, void *meta_data)
 }
 
 /*
- * Create the name used for the BufFile that a given participant will write.
+ * 创建给定参与者要写入的 BufFile 所使用的名称。
  */
 static void
 sts_filename(char *name, SharedTuplestoreAccessor *accessor, int participant)

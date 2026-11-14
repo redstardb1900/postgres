@@ -1,0 +1,112 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0379",
+ "title": "sort dir small-four whole-file comment translation (228 blocks: 216 translated + 12 blocks with kept-EN; 551/575 content lines rewritten (548 translated + 3 emptied), 24 EN kept, 3 tails emptied to bare frame); qsort_interruptible + sortsupport + sharedtuplestore + tuplestore",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "af04771a90c8943e167319ec4da550049e341ae5",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0379-sort-small.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0379 manifest path and 4 sort file entries"
+  },
+  {
+   "pattern": "src/backend/utils/sort/qsort_interruptible.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0379; 1/1 line rewritten"
+  },
+  {
+   "pattern": "src/backend/utils/sort/sortsupport.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0379; 38/43 lines rewritten, 5 EN kept (header)"
+  },
+  {
+   "pattern": "src/backend/utils/sort/sharedtuplestore.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0379; 127/132 lines rewritten (125 translated + 2 emptied tails), 5 EN kept (header)"
+  },
+  {
+   "pattern": "src/backend/utils/sort/tuplestore.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0379; 385/399 lines rewritten (384 translated + 1 emptied tail), 14 EN kept (header 5 + 8 function title lines + FALLTHROUGH marker)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0379-sort-small.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0379 manifest path and 4 sort file entries"
+  },
+  {
+   "path": "src/backend/utils/sort/qsort_interruptible.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation, batch-0379; 1 block, 1 content line translated; sort_template.h file banner only - no other comments in file"
+  },
+  {
+   "path": "src/backend/utils/sort/sortsupport.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 18,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-12 header: filename L3, copyright L7/L8, IDENTIFICATION L10, path L11 kept EN - campaign header precedent"
+   ],
+   "note": "whole-file comment translation, batch-0379; 19 blocks (18 fully translated + 1 header block with kept-EN); 43 content lines: 38 translated + 5 EN kept; budget-forced period drop: L41 (PrepareSortSupportComparisonShim identifier occupies the 33B budget exactly, 。 has no room, agent clause 见 folded into L40); identical EN rendered identically: L130=L156=L183 (Caller must previously have zeroed...), L157=L184 (filled in ssup_cxt/ssup_attno/... lines), L159=L186 (comparator function pointer.); ops/operator rendered 算子 per global rule (L128 btree \"<\"/\">\" ordering operator -> 排序算子, L143 -> 在 pg_amop 中查找算子); shim=垫片, comparator=比较器, sort support=排序支持, collation=排序规则"
+  },
+  {
+   "path": "src/backend/utils/sort/sharedtuplestore.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 79,
+   "translated": 78,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-17 header: filename L3, copyright L13/L14, IDENTIFICATION L16, path L17 kept EN - campaign header precedent"
+   ],
+   "note": "whole-file comment translation, batch-0379; 79 blocks (78 fully translated + 1 header block with kept-EN); 132 content lines: 125 translated + 2 emptied to bare `*` frames + 5 EN kept; emptied tails (budget, EN tail word absorbed into previous line): L11 'written.' -> L10 ends 任意子集。, L120 'applications.' -> L119 ends 但也可能有其他用途。; budget-forced period drop: L76 (持有文件的 SharedFileSet, budget 31, 。 needs 32), L343 (刷写能否奏效 21=21 exact), L518 (认领下一块 15, budget 20, 。 needs 21); budget phrasing drops disclosed: L46 compressed to 若溢出，含此共多少？, L123 SharedFileSet placement, L150 若要如此->若是, L229 可以->可, L242 记录于->记录到 (）。 kept); W7_IDENT_LOST round-1 fix: L124 SharedTuplestore->SharedTuplestores (plural identifier restored); term discipline: chunk=分块 (SharedTuplestoreChunk context), page=页, block#=块号, overflow chunk=溢出分块, read head=读头, participant=参与者, backend=后端, meta-data=元数据, flush=刷写, parallel scan=并行扫描, shared tuplestore=共享元组存储, BufFile/SharedFileSet/SHARED_TUPLESTORE_SINGLE_PASS/chunk_expansion_log kept as identifiers"
+  },
+  {
+   "path": "src/backend/utils/sort/tuplestore.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 129,
+   "translated": 119,
+   "preserved": 10,
+   "preserved_reasons": [
+    "block L1-50 header: filename L3, copyright L46/L47, IDENTIFICATION L49, path L50 kept EN - campaign header precedent",
+    "8 function-title blocks (@247 L248 tuplestore_begin_xxx, @298 L299 tuplestore_begin_heap, @340 L341 tuplestore_set_eflags, @411 L412 tuplestore_clear, @447 L448 tuplestore_end, @539 L540 tuplestore_tuple_count, @551 L552 tuplestore_ateof, @1447 L1448 tuplestore_in_memory): identifier-only title lines kept EN - 0378 filename-list label precedent (their block prose lines are translated)",
+    "block L975: /* FALLTHROUGH */ kept EN - marker consumed by gcc -Wimplicit-fallthrough comment matching"
+   ],
+   "note": "whole-file comment translation, batch-0379; 129 blocks (119 fully translated + 10 blocks with kept-EN); 399 content lines: 384 translated + 1 emptied to bare `*` frame + 14 EN kept; emptied tail: L1368 'capability.' -> L1367 若有读指针需要回卷能力，则不许截断。 absorbs it; budget-forced period drops: L702 (定位 6=6 exact, EN 'steps.'), L1357 (指针 6<=8, EN 'pointer.'), L1309 (eof_reached 11<=12, EN 'eof_reached.'); Tail-period ledger additions: tuplestore L900 now carries 。 (EN tail '.', review-fix D3); sts ledger corrected L77->L76 and L518 (认领下一块, budget 20, 。 needs 21) added. Review-fix round (审查返修 6 Major + 3 Minor, all cleared): D1 tuplestore L213 deleted trailing 它们 (seam repeat with L214); D2 L201-202 re-split, L201 ends 它是长度的副本—— and L202 因此磁带总空间实际比存储的长度值多 (kills duplicated 长度——因此 fragment); D3 L899-900 main clause restored - L899 仅当 randomAccess 为真，或向 tuplestore_set_eflags(), L900 传入 EXEC_FLAG_BACKWARD 时才允许反向扫描。 (identifier moved up one line, sanctioned reorder); D4 L1351 补 的元组 (object restored); D5 L611-612 word order fixed per EN leave-space-for semantics: L611 因为需要给新槽位, L612 将要引用的元组留出空间。我们; D6 L650-652 predicate restored: L650 （这目前, L651 不可能发生，因为 guc.c 的 MAX_KILOBYTES 对, L652 work_mem 限制，别依赖它。）; D7 L154 tail 已因 + L155 leading 因 deleted (double passive gone); D8 L351-352 explicit tuplestore_begin_xxx: L351 gains trailing 而, L352 BACKWARD 按 tuplestore_begin_xxx \"randomAccess\" 设定; D9 sts L479-480 attributive re-anchored: L479 这些将用于统计跟在溢出流入该分块的, L480 超长元组之后的常规元组。 Post-fix re-audit: all 9 sites re-asserted against EN budgets (2 first-draft overs caught in dry-run and reworded: L899 为真 compressed, L652 别依赖它), seam/lead-punct/curly rescan clean, FALLTHROUGH L975 byte-identical, line counts conserved (16/211/602/1535), 551 changed lines all <= EN bytes, verify 0 violations (/tmp/v0379b.json), check_scope PASS rc=0. Original text: budget phrasing drops disclosed: L16 rewritten 若数据超出...便使用, L195 compressed 磁带上的->磁带, L315 拿不准时使用->不确定时用, L349/L350 flag list lines keep EN flag names + single tab (需要->需), L470 make...active -> 激活指定的读指针, L736 无需->免, L1348 所有 dropped, L505/L813 temp file(s) kept EN after W7_IDENT_LOST 'file' round-2 fix (L813 temp file(s) 建在合适的临时表空间中。); W7_IDENT_LOST round-1 fixes: L192 NOTES kept EN (0377 wait_event label precedent); term_lint-driven rephrasings (clearing 8 phrasebook warnings on this file): L194 We require -> 必须是 (avoids TL08/P23 要求), L212 需要->必要时 (avoids P24 需要 vs expected), L213 record -> 结构 (avoids P38 记录 vs tuples), L726-727 deprecated -> 已有些弃用了 (TL12/P22), L1394-1395 could require -> 本可以规定; identical EN rendered identically: L491=L1300 (no work -> 无事), L1513=L1532 (need trailing length word? -> 要尾随长度字？), L778=L873 (Update read pointers as needed; see API spec above.), L931/L996 + L932/L997 same sentence split per line budget with consistent phrasing; term discipline: read pointer=读指针, active/inactive=活动/非活动, rewind=回卷, backward/forward scan=反向/正向扫描, truncate/truncation=截断, trim=修剪, tape=磁带, memory array=内存数组, spill=落盘, capability flags=能力标志, length word=长度字, EOF kept, seek=寻道, palloc chunk (L665-667)=内存块/独立块 distinct from sts 分块, LACKMEM/availMem/allowedMem/memtuples/memtupsize/growmemtuples kept as identifiers; ops/operator tokens absent in this file"
+  }
+ ],
+ "notes": "batch-0379 (sort dir small four: qsort_interruptible.c + sortsupport.c + sharedtuplestore.c + tuplestore.c, 2026-11-14, parent batch-0378=af04771a90c). Whole-file comment translation. Block accounting (block units throughout, comment-universe enumerator = verify_c_comments block_comments): 228 untranslated blocks (naive dump 1+19+79+129=228, no dump artifacts this batch), 216 fully translated, 12 blocks containing kept-EN lines (2 headers + 8 identifier-only function-title blocks + 1 FALLTHROUGH marker block + 1 sortsupport header); line-level detail: 575 content lines (1 + 43 + 132 + 399), 551 rewritten (548 translated + 3 emptied to bare `*` frames: sts L11/L120, tuplestore L1368), 24 EN kept (header 0+5+5, tuplestore titles 8 + FALLTHROUGH 1 = qsort 0 / sortsupport 5 / sts 5 / tuplestore 14). Line counts conserved (16/16, 211/211, 602/602, 1535/1535); code bytes zero-changed (git diff 553 insertions = 553 deletions, all inside comments); frame terminator counts match EN blocks per file (1/1, 19/19, 79/79, 129/129); coverage assertion universe==SPEC keys against EN baseline held on every segment run. Segment-wise progression: qsort+sortsupport one pass; sts two passes (<=L200 then full); tuplestore five passes (<=250/550/900/1250/full), each pass dry-run asserted then applied; 6 first-draft budget overs (sts L46/L150/L229/L242, tuplestore L16/L195/L315/L349/L470/L736/L1348) and 1 cross-line repeat (将 L157/L158) caught by dry-run and fixed in spec before write. Tail-period ledger (口径: EN block-tail line ending in '.' keeps 。 in zh whenever budget allows; every deviation enumerated here): 6 bare drops = sortsupport L41 (identifier-only 33B budget), sts L77 (SharedFileSet + 。 overflows by 1), sts L343 (刷写能否奏效 21=21 exact), tuplestore L702 (定位 6=6 exact), L1309 (eof_reached 11<=12), L1357 (指针 6<=8); the 3 emptied tails (sts L11/L120, tuplestore L1368) absorb their EN tail period into the previous line. All other EN-period tails end in 。 in zh (verified line-by-line during drafting; L242 EN ends ')' and keeps ）). Gates (final): verify_c_comments --worktree REL_16_11 --paths src/backend/utils/sort rc=0, 4 files, 0 violations 0 parse errors (comments=228 changed=227; /tmp/v0379.json). First draft had 3 W7_IDENT_LOST (sts L111 SharedTuplestores plural, tuplestore L190 NOTES, tuplestore L811 file) - all eliminated: plural restored, NOTES kept EN per 0377 wait_event NOTES precedent, temp file(s) kept EN on L813. term_lint --pgnls exit code 1 tree-wide, caused solely by the pre-existing TL01 error at src/backend/utils/init/postinit.c:1428 (disclosed since batch-0369, untouched); the four batch files carry 0 errors and 0 warnings: first draft had 8 warnings on tuplestore.c (TL08/P23 require->要求 L190/L1388, P24 expected->需要 L190, P38 tuples->记录 L190, TL12/P22 deprecated->过时 L725) - all cleared by rephrasing (必须/必要时/结构/已有些弃用了/本可以规定). scan_halfen: 53 tree-wide findings = 51 pre-existing (0378 baseline) + 2 on this batch, class=mixed kept-EN run with zh prose complete, disclosed rather than exempted (same treatment as 0375-0378): tuplestore.c L190 (NOTES label amid zh prose) and L811 (temp file(s) identifier). No commit made in this batch; commit is handled by the main session."
+}

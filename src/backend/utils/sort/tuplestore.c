@@ -1,46 +1,46 @@
 /*-------------------------------------------------------------------------
  *
  * tuplestore.c
- *	  Generalized routines for temporary tuple storage.
+ *	  通用临时元组存储例程。
  *
- * This module handles temporary storage of tuples for purposes such
- * as Materialize nodes, hashjoin batch files, etc.  It is essentially
- * a dumbed-down version of tuplesort.c; it does no sorting of tuples
- * but can only store and regurgitate a sequence of tuples.  However,
- * because no sort is required, it is allowed to start reading the sequence
- * before it has all been written.  This is particularly useful for cursors,
- * because it allows random access within the already-scanned portion of
- * a query without having to process the underlying scan to completion.
- * Also, it is possible to support multiple independent read pointers.
+ * 本模块负责元组的临时存储，服务对象包括
+ * Materialize 节点、哈希连接批文件等。它实质上
+ * 是 tuplesort.c 的简化版本；它不对元组做排序，
+ * 只能存储并回吐元组序列。不过，
+ * 因为不需要排序，所以允许在序列尚未全部写完
+ * 之前就开始读取。这对游标特别有用，
+ * 因为它允许在查询中已扫描部分内随机访问，
+ * 而无需将底层扫描处理完毕。
+ * 此外，它还可以支持多个独立的读指针。
  *
- * A temporary file is used to handle the data if it exceeds the
- * space limit specified by the caller.
+ * 若数据超出调用者指定的空间限制，便使用
+ * 一个临时文件来处理。
  *
- * The (approximate) amount of memory allowed to the tuplestore is specified
- * in kilobytes by the caller.  We absorb tuples and simply store them in an
- * in-memory array as long as we haven't exceeded maxKBytes.  If we do exceed
- * maxKBytes, we dump all the tuples into a temp file and then read from that
- * when needed.
+ * 元组存储可用内存的（近似）数量由调用者以
+ * 千字节为单位指定。我们吸纳元组并简单地存入
+ * 内存数组，只要尚未超过 maxKBytes。如果确实超过，
+ * 就把所有元组倾倒进一个临时文件，之后需要时
+ * 再读取。
  *
- * Upon creation, a tuplestore supports a single read pointer, numbered 0.
- * Additional read pointers can be created using tuplestore_alloc_read_pointer.
- * Mark/restore behavior is supported by copying read pointers.
+ * 创建时，元组存储支持一个读指针，编号为 0。
+ * 可以使用 tuplestore_alloc_read_pointer 创建更多读指针。
+ * 通过复制读指针来支持标记/恢复行为。
  *
- * When the caller requests backward-scan capability, we write the temp file
- * in a format that allows either forward or backward scan.  Otherwise, only
- * forward scan is allowed.  A request for backward scan must be made before
- * putting any tuples into the tuplestore.  Rewind is normally allowed but
- * can be turned off via tuplestore_set_eflags; turning off rewind for all
- * read pointers enables truncation of the tuplestore at the oldest read point
- * for minimal memory usage.  (The caller must explicitly call tuplestore_trim
- * at appropriate times for truncation to actually happen.)
+ * 当调用者请求反向扫描能力时，我们会以允许
+ * 正向或反向扫描的格式写入临时文件。否则只允许
+ * 正向扫描。反向扫描的请求必须在向元组存储放
+ * 入任何元组之前提出。回卷通常是允许的，但
+ * 可以通过 tuplestore_set_eflags 关闭；为所有读指针
+ * 关闭回卷即可在最旧的读取点处截断元组存储，
+ * 从而将内存用量降到最低。（调用者必须显式调用
+ * tuplestore_trim，截断才会真正发生。）
  *
- * Note: in TSS_WRITEFILE state, the temp file's seek position is the
- * current write position, and the write-position variables in the tuplestore
- * aren't kept up to date.  Similarly, in TSS_READFILE state the temp file's
- * seek position is the active read pointer's position, and that read pointer
- * isn't kept up to date.  We update the appropriate variables using ftell()
- * before switching to the other state or activating a different read pointer.
+ * 注：在 TSS_WRITEFILE 状态下，临时文件的寻道位置
+ * 就是当前写入位置，而元组存储中的写位置变量
+ * 并不保持最新。类似地，在 TSS_READFILE 状态下临时
+ * 文件的寻道位置就是活动读指针的位置，该读指针
+ * 也不保持最新。我们会使用 ftell() 更新相应的变量，
+ * 然后再切换到另一状态或激活另一读指针。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -66,118 +66,118 @@
 
 
 /*
- * Possible states of a Tuplestore object.  These denote the states that
- * persist between calls of Tuplestore routines.
+ * Tuplestore 对象可能的状态。这些状态表示在
+ * 各 Tuplestore 调用间持续的状态。
  */
 typedef enum
 {
-	TSS_INMEM,					/* Tuples still fit in memory */
-	TSS_WRITEFILE,				/* Writing to temp file */
-	TSS_READFILE				/* Reading from temp file */
+	TSS_INMEM,					/* 元组仍能放入内存 */
+	TSS_WRITEFILE,				/* 写入临时文件 */
+	TSS_READFILE				/* 从临时文件读取 */
 } TupStoreStatus;
 
 /*
- * State for a single read pointer.  If we are in state INMEM then all the
- * read pointers' "current" fields denote the read positions.  In state
- * WRITEFILE, the file/offset fields denote the read positions.  In state
- * READFILE, inactive read pointers have valid file/offset, but the active
- * read pointer implicitly has position equal to the temp file's seek position.
+ * 单个读指针的状态。如果处于 INMEM 状态，则所有
+ * 读指针的 "current" 字段都表示读取位置。在
+ * WRITEFILE 状态下，file/offset 字段表示读取位置。在
+ * READFILE 状态下，非活动读指针拥有有效的
+ * file/offset，而活动读指针的位置隐含等于临时文件
  *
- * Special case: if eof_reached is true, then the pointer's read position is
- * implicitly equal to the write position, and current/file/offset aren't
- * maintained.  This way we need not update all the read pointers each time
- * we write.
+ * 特殊情况：若 eof_reached 为真，则该指针的读取位置
+ * 隐含等于写入位置，而 current/file/offset 不再
+ * 维护。这样我们就不必在每次写入时更新所有读
+ * 指针。
  */
 typedef struct
 {
-	int			eflags;			/* capability flags */
-	bool		eof_reached;	/* read has reached EOF */
-	int			current;		/* next array index to read */
-	int			file;			/* temp file# */
-	off_t		offset;			/* byte offset in file */
+	int			eflags;			/* 能力标志 */
+	bool		eof_reached;	/* 读取已到 EOF */
+	int			current;		/* 下个待读下标 */
+	int			file;			/* 文件号 */
+	off_t		offset;			/* 文件内偏移 */
 } TSReadPointer;
 
 /*
- * Private state of a Tuplestore operation.
+ * Tuplestore 操作的私有状态。
  */
 struct Tuplestorestate
 {
-	TupStoreStatus status;		/* enumerated value as shown above */
-	int			eflags;			/* capability flags (OR of pointers' flags) */
-	bool		backward;		/* store extra length words in file? */
-	bool		interXact;		/* keep open through transactions? */
-	bool		truncated;		/* tuplestore_trim has removed tuples? */
-	int64		availMem;		/* remaining memory available, in bytes */
-	int64		allowedMem;		/* total memory allowed, in bytes */
-	int64		tuples;			/* number of tuples added */
-	BufFile    *myfile;			/* underlying file, or NULL if none */
-	MemoryContext context;		/* memory context for holding tuples */
-	ResourceOwner resowner;		/* resowner for holding temp files */
+	TupStoreStatus status;		/* 如上所示的枚举值 */
+	int			eflags;			/* 能力标志（各指针标志的 OR） */
+	bool		backward;		/* 存额外长度字？ */
+	bool		interXact;		/* 跨事务保持打开？ */
+	bool		truncated;		/* tuplestore_trim 已删元组？ */
+	int64		availMem;		/* 剩余可用内存，以字节计 */
+	int64		allowedMem;		/* 总允许内存（字节） */
+	int64		tuples;			/* 已添加的元组数 */
+	BufFile    *myfile;			/* 底层文件，无则为 NULL */
+	MemoryContext context;		/* 持有元组的内存上下文 */
+	ResourceOwner resowner;		/* 临时文件的 resowner */
 
 	/*
-	 * These function pointers decouple the routines that must know what kind
-	 * of tuple we are handling from the routines that don't need to know it.
-	 * They are set up by the tuplestore_begin_xxx routines.
+	 * 这些函数指针将必须知道所处理元组种类的例程
+	 * 与无需知道这一点的例程解耦。
+	 * 它们由 tuplestore_begin_xxx 例程设置。
 	 *
-	 * (Although tuplestore.c currently only supports heap tuples, I've copied
-	 * this part of tuplesort.c so that extension to other kinds of objects
-	 * will be easy if it's ever needed.)
+	 * （虽然 tuplestore.c 目前只支持堆元组，但我复制了
+	 * tuplesort.c 的这一部分，以便将来需要时能轻松
+	 * 扩展到其他对象。）
 	 *
-	 * Function to copy a supplied input tuple into palloc'd space. (NB: we
-	 * assume that a single pfree() is enough to release the tuple later, so
-	 * the representation must be "flat" in one palloc chunk.) state->availMem
-	 * must be decreased by the amount of space used.
+	 * 把输入元组复制到 palloc 空间的函数。（注：我们
+	 * 假定之后单个 pfree() 就足以释放该元组，因此
+	 * 表示必须"平坦"地处于单个 palloc 块。）state->availMem
+	 * 必须减去所用的空间数量。
 	 */
 	void	   *(*copytup) (Tuplestorestate *state, void *tup);
 
 	/*
-	 * Function to write a stored tuple onto tape.  The representation of the
-	 * tuple on tape need not be the same as it is in memory; requirements on
-	 * the tape representation are given below.  After writing the tuple,
-	 * pfree() it, and increase state->availMem by the amount of memory space
-	 * thereby released.
+	 * 把已存储元组写到磁带上的函数。元组在磁带上
+	 * 的表示形式不必与在内存中相同；对磁带表示形式
+	 * 的要求见下文。写入元组之后，
+	 * 将其 pfree()，并把 state->availMem 增加由此释放的
+	 * 内存空间。
 	 */
 	void		(*writetup) (Tuplestorestate *state, void *tup);
 
 	/*
-	 * Function to read a stored tuple from tape back into memory. 'len' is
-	 * the already-read length of the stored tuple.  Create and return a
-	 * palloc'd copy, and decrease state->availMem by the amount of memory
-	 * space consumed.
+	 * 从磁带把已存储元组读回内存的函数。'len' 是
+	 * 已读取的已存储元组长度。创建并返回一个
+	 * palloc 副本，并把 state->availMem 减去所消耗的
+	 * 内存空间。
 	 */
 	void	   *(*readtup) (Tuplestorestate *state, unsigned int len);
 
 	/*
-	 * This array holds pointers to tuples in memory if we are in state INMEM.
-	 * In states WRITEFILE and READFILE it's not used.
+	 * 如果处于 INMEM 状态，此数组保存指向内存中元组
+	 * 的指针。WRITEFILE 与 READFILE 态不用。
 	 *
-	 * When memtupdeleted > 0, the first memtupdeleted pointers are already
-	 * released due to a tuplestore_trim() operation, but we haven't expended
-	 * the effort to slide the remaining pointers down.  These unused pointers
-	 * are set to NULL to catch any invalid accesses.  Note that memtupcount
-	 * includes the deleted pointers.
+	 * 当 memtupdeleted > 0 时，前 memtupdeleted 个指针已因
+	 * tuplestore_trim() 操作而释放，但我们尚未花费
+	 * 精力把剩余的指针下滑。这些未使用的指针
+	 * 都被设为 NULL 以捕获任何无效访问。注意 memtupcount
+	 * 包含已删除的指针。
 	 */
-	void	  **memtuples;		/* array of pointers to palloc'd tuples */
-	int			memtupdeleted;	/* the first N slots are currently unused */
-	int			memtupcount;	/* number of tuples currently present */
-	int			memtupsize;		/* allocated length of memtuples array */
-	bool		growmemtuples;	/* memtuples' growth still underway? */
+	void	  **memtuples;		/* 指向 palloc 元组的指针数组 */
+	int			memtupdeleted;	/* 前 N 个槽位当前未被使用 */
+	int			memtupcount;	/* 当前存在的元组数 */
+	int			memtupsize;		/* memtuples 数组的已分配长度 */
+	bool		growmemtuples;	/* memtuples 增长仍在进行？ */
 
 	/*
-	 * These variables are used to keep track of the current positions.
+	 * 这些变量用于跟踪当前位置。
 	 *
-	 * In state WRITEFILE, the current file seek position is the write point;
-	 * in state READFILE, the write position is remembered in writepos_xxx.
-	 * (The write position is the same as EOF, but since BufFileSeek doesn't
-	 * currently implement SEEK_END, we have to remember it explicitly.)
+	 * 在 WRITEFILE 状态下，当前文件寻道位置就是写入点；
+	 * 在 READFILE 状态下，写入位置被记录在 writepos_xxx。
+	 * （写入位置与 EOF 相同，但由于 BufFileSeek 目前
+	 * 未实现 SEEK_END，所以必须显式记住它。）
 	 */
-	TSReadPointer *readptrs;	/* array of read pointers */
-	int			activeptr;		/* index of the active read pointer */
-	int			readptrcount;	/* number of pointers currently valid */
-	int			readptrsize;	/* allocated length of readptrs array */
+	TSReadPointer *readptrs;	/* 读指针的数组 */
+	int			activeptr;		/* 活动读指针的下标 */
+	int			readptrcount;	/* 当前有效的指针数量 */
+	int			readptrsize;	/* readptrs 数组的已分配长度 */
 
-	int			writepos_file;	/* file# (valid if READFILE state) */
-	off_t		writepos_offset;	/* offset (valid if READFILE state) */
+	int			writepos_file;	/* 文件号（READFILE 有效） */
+	off_t		writepos_offset;	/* 偏移量（READFILE 有效） */
 };
 
 #define COPYTUP(state,tup)	((*(state)->copytup) (state, tup))
@@ -189,45 +189,45 @@ struct Tuplestorestate
 
 /*--------------------
  *
- * NOTES about on-tape representation of tuples:
+ * NOTES：元组的磁带表示形式
  *
- * We require the first "unsigned int" of a stored tuple to be the total size
- * on-tape of the tuple, including itself (so it is never zero).
- * The remainder of the stored tuple
- * may or may not match the in-memory representation of the tuple ---
- * any conversion needed is the job of the writetup and readtup routines.
+ * 已存储元组的首个 "unsigned int" 必须是整
+ * 个元组磁带总大小（含自身，永不为零）。
+ * 已存储元组的其余部分
+ * 可能与该元组在内存中的表示形式一致，也可能
+ * 不一致；所需转换由 writetup 与 readtup 例程完成。
  *
- * If state->backward is true, then the stored representation of
- * the tuple must be followed by another "unsigned int" that is a copy of the
- * length --- so the total tape space used is actually sizeof(unsigned int)
- * more than the stored length value.  This allows read-backwards.  When
- * state->backward is not set, the write/read routines may omit the extra
- * length word.
+ * 若 state->backward 为真，则已存储表示之后必须
+ * 再跟一个 "unsigned int"，它是长度的副本——
+ * 因此磁带总空间实际比存储的长度值多
+ * 出 sizeof(unsigned int)，这使向后读取成为可能。当
+ * state->backward 未设置时，写入/读取例程可以省略
+ * 长度字。
  *
- * writetup is expected to write both length words as well as the tuple
- * data.  When readtup is called, the tape is positioned just after the
- * front length word; readtup must read the tuple data and advance past
- * the back length word (if present).
+ * writetup 应当写入两个长度字以及元组
+ * 数据。当调用 readtup 时，磁带恰好定位在
+ * 前长度字；readtup 必须读取元组数据并越过
+ * 后长度字（如存在）。
  *
- * The write/read routines can make use of the tuple description data
- * stored in the Tuplestorestate record, if needed. They are also expected
- * to adjust state->availMem by the amount of memory space (not tape space!)
- * released or consumed.  There is no error return from either writetup
- * or readtup; they should ereport() on failure.
+ * 写入/读取例程可以在必要时利用
+ * 存储在 Tuplestorestate 结构中的元组描述数据。
+ * 它们还应调整 state->availMem，幅度为所释放或
+ * 消耗的内存空间量（而非磁带空间！）。writetup
+ * 或 readtup 都应在失败时 ereport()。
  *
  *
- * NOTES about memory consumption calculations:
+ * 关于内存消耗计算的说明：
  *
- * We count space allocated for tuples against the maxKBytes limit,
- * plus the space used by the variable-size array memtuples.
- * Fixed-size space (primarily the BufFile I/O buffer) is not counted.
- * We don't worry about the size of the read pointer array, either.
+ * 我们把为元组分配的空间计入 maxKBytes 限制，
+ * 外加可变大小数组 memtuples 所用的空间。
+ * 固定大小空间（主要是 BufFile I/O 缓冲区）不计入。
+ * 我们也不担心读指针数组的大小。
  *
- * Note that we count actual space used (as shown by GetMemoryChunkSpace)
- * rather than the originally-requested size.  This is important since
- * palloc can add substantial overhead.  It's not a complete answer since
- * we won't count any wasted space in palloc allocation blocks, but it's
- * a lot better than what we were doing before 7.3.
+ * 注意我们统计的是实际使用的空间（如
+ * GetMemoryChunkSpace 所示）而非最初请求的大小。
+ * 这一点很重要，因为 palloc 会增加可观的开销。
+ * 由于我们不计入 palloc 分配块中浪费的空间，这
+ * 仍比 7.3 之前的做法好得多。
  *
  *--------------------
  */
@@ -247,7 +247,7 @@ static void *readtup_heap(Tuplestorestate *state, unsigned int len);
 /*
  *		tuplestore_begin_xxx
  *
- * Initialize for a tuple store operation.
+ * 为元组存储操作做初始化。
  */
 static Tuplestorestate *
 tuplestore_begin_common(int eflags, bool interXact, int maxKBytes)
@@ -271,8 +271,8 @@ tuplestore_begin_common(int eflags, bool interXact, int maxKBytes)
 	state->tuples = 0;
 
 	/*
-	 * Initial size of array must be more than ALLOCSET_SEPARATE_THRESHOLD;
-	 * see comments in grow_memtuples().
+	 * 数组的初始大小必须大于 ALLOCSET_SEPARATE_THRESHOLD；
+	 * 见 grow_memtuples() 的注释。
 	 */
 	state->memtupsize = Max(16384 / sizeof(void *),
 							ALLOCSET_SEPARATE_THRESHOLD / sizeof(void *) + 1);
@@ -284,7 +284,7 @@ tuplestore_begin_common(int eflags, bool interXact, int maxKBytes)
 
 	state->activeptr = 0;
 	state->readptrcount = 1;
-	state->readptrsize = 8;		/* arbitrary */
+	state->readptrsize = 8;		/* 任意 */
 	state->readptrs = (TSReadPointer *)
 		palloc(state->readptrsize * sizeof(TSReadPointer));
 
@@ -298,21 +298,21 @@ tuplestore_begin_common(int eflags, bool interXact, int maxKBytes)
 /*
  * tuplestore_begin_heap
  *
- * Create a new tuplestore; other types of tuple stores (other than
- * "heap" tuple stores, for heap tuples) are possible, but not presently
- * implemented.
+ * 创建新的元组存储；其他类型的元组存储（除了
+ * "堆"元组存储，用于堆元组）是可能的，但目前
+ * 未实现。
  *
- * randomAccess: if true, both forward and backward accesses to the
- * tuple store are allowed.
+ * randomAccess：若为真，允许对元组存储进行正向和
+ * 反向两种访问。
  *
- * interXact: if true, the files used for on-disk storage persist beyond the
- * end of the current transaction.  NOTE: It's the caller's responsibility to
- * create such a tuplestore in a memory context and resource owner that will
- * also survive transaction boundaries, and to ensure the tuplestore is closed
- * when it's no longer wanted.
+ * interXact：若为真，用于磁盘存储的文件会在当前
+ * 事务结束之后继续存在。注意：调用者有责任在
+ * 同样能跨越事务边界的内存上下文和资源所有者
+ * 中创建这样的元组存储，并确保元组存储在不再
+ * 需要时被关闭。
  *
- * maxKBytes: how much data to store in memory (any data beyond this
- * amount is paged to disk).  When in doubt, use work_mem.
+ * maxKBytes：内存中存储多少数据（超出此量的数据
+ * 将被换出到磁盘）。不确定时用 work_mem。
  */
 Tuplestorestate *
 tuplestore_begin_heap(bool randomAccess, bool interXact, int maxKBytes)
@@ -321,8 +321,8 @@ tuplestore_begin_heap(bool randomAccess, bool interXact, int maxKBytes)
 	int			eflags;
 
 	/*
-	 * This interpretation of the meaning of randomAccess is compatible with
-	 * the pre-8.3 behavior of tuplestores.
+	 * 这种对 randomAccess 含义的解读与元组存储在 8.3
+	 * 之前的行为兼容。
 	 */
 	eflags = randomAccess ?
 		(EXEC_FLAG_BACKWARD | EXEC_FLAG_REWIND) :
@@ -340,20 +340,20 @@ tuplestore_begin_heap(bool randomAccess, bool interXact, int maxKBytes)
 /*
  * tuplestore_set_eflags
  *
- * Set the capability flags for read pointer 0 at a finer grain than is
- * allowed by tuplestore_begin_xxx.  This must be called before inserting
- * any data into the tuplestore.
+ * 以比 tuplestore_begin_xxx 所允许的更细粒度设置读
+ * 指针 0 的能力标志。必须在向元组存储插入任何
+ * 数据之前调用它。
  *
- * eflags is a bitmask following the meanings used for executor node
- * startup flags (see executor.h).  tuplestore pays attention to these bits:
- *		EXEC_FLAG_REWIND		need rewind to start
- *		EXEC_FLAG_BACKWARD		need backward fetch
- * If tuplestore_set_eflags is not called, REWIND is allowed, and BACKWARD
- * is set per "randomAccess" in the tuplestore_begin_xxx call.
+ * eflags 是一个位掩码，含义遵循执行器节点启动
+ * 标志的用法（见 executor.h）。元组存储关注以下各位：
+ *		EXEC_FLAG_REWIND	需回卷到开头
+ *		EXEC_FLAG_BACKWARD	需反向抓取
+ * 若未调用 tuplestore_set_eflags，则允许 REWIND，而
+ * BACKWARD 按 tuplestore_begin_xxx "randomAccess" 设定
  *
- * NOTE: setting BACKWARD without REWIND means the pointer can read backwards,
- * but not further than the truncation point (the furthest-back read pointer
- * position at the time of the last tuplestore_trim call).
+ * 注：设置 BACKWARD 而不设 REWIND 意味着指针可以
+ * 向后读取，但不会超过截断点（上次调用
+ * tuplestore_trim 时最靠后读指针的位置）。
  */
 void
 tuplestore_set_eflags(Tuplestorestate *state, int eflags)
@@ -370,26 +370,26 @@ tuplestore_set_eflags(Tuplestorestate *state, int eflags)
 }
 
 /*
- * tuplestore_alloc_read_pointer - allocate another read pointer.
+ * tuplestore_alloc_read_pointer - 分配另一个读指针。
  *
- * Returns the pointer's index.
+ * 返回指针的下标。
  *
- * The new pointer initially copies the position of read pointer 0.
- * It can have its own eflags, but if any data has been inserted into
- * the tuplestore, these eflags must not represent an increase in
- * requirements.
+ * 新指针最初复制读指针 0 的位置。
+ * 它可以有自己的 eflags，但如果已有数据被插入
+ * 元组存储，这些 eflags 就不得表示需求的
+ * 增加。
  */
 int
 tuplestore_alloc_read_pointer(Tuplestorestate *state, int eflags)
 {
-	/* Check for possible increase of requirements */
+	/* 检查是否可能增加需求 */
 	if (state->status != TSS_INMEM || state->memtupcount != 0)
 	{
 		if ((state->eflags | eflags) != state->eflags)
 			elog(ERROR, "too late to require new tuplestore eflags");
 	}
 
-	/* Make room for another read pointer if needed */
+	/* 需要时为新读指针腾出空间 */
 	if (state->readptrcount >= state->readptrsize)
 	{
 		int			newcnt = state->readptrsize * 2;
@@ -399,7 +399,7 @@ tuplestore_alloc_read_pointer(Tuplestorestate *state, int eflags)
 		state->readptrsize = newcnt;
 	}
 
-	/* And set it up */
+	/* 并设置 */
 	state->readptrs[state->readptrcount] = state->readptrs[0];
 	state->readptrs[state->readptrcount].eflags = eflags;
 
@@ -411,8 +411,8 @@ tuplestore_alloc_read_pointer(Tuplestorestate *state, int eflags)
 /*
  * tuplestore_clear
  *
- *	Delete all the contents of a tuplestore, and reset its read pointers
- *	to the start.
+ *	删除元组存储的全部内容，并将它的读指针复位
+ *	到起点。
  */
 void
 tuplestore_clear(Tuplestorestate *state)
@@ -447,7 +447,7 @@ tuplestore_clear(Tuplestorestate *state)
 /*
  * tuplestore_end
  *
- *	Release resources and clean up.
+ *	释放资源并清理。
  */
 void
 tuplestore_end(Tuplestorestate *state)
@@ -467,7 +467,7 @@ tuplestore_end(Tuplestorestate *state)
 }
 
 /*
- * tuplestore_select_read_pointer - make the specified read pointer active
+ * tuplestore_select_read_pointer - 激活指定的读指针
  */
 void
 tuplestore_select_read_pointer(Tuplestorestate *state, int ptr)
@@ -477,7 +477,7 @@ tuplestore_select_read_pointer(Tuplestorestate *state, int ptr)
 
 	Assert(ptr >= 0 && ptr < state->readptrcount);
 
-	/* No work if already active */
+	/* 已活动则免 */
 	if (ptr == state->activeptr)
 		return;
 
@@ -488,13 +488,13 @@ tuplestore_select_read_pointer(Tuplestorestate *state, int ptr)
 	{
 		case TSS_INMEM:
 		case TSS_WRITEFILE:
-			/* no work */
+			/* 无事 */
 			break;
 		case TSS_READFILE:
 
 			/*
-			 * First, save the current read position in the pointer about to
-			 * become inactive.
+			 * 首先，把当前读取位置保存进即将不活动的
+			 * 指针。
 			 */
 			if (!oldptr->eof_reached)
 				BufFileTell(state->myfile,
@@ -502,10 +502,10 @@ tuplestore_select_read_pointer(Tuplestorestate *state, int ptr)
 							&oldptr->offset);
 
 			/*
-			 * We have to make the temp file's seek position equal to the
-			 * logical position of the new read pointer.  In eof_reached
-			 * state, that's the EOF, which we have available from the saved
-			 * write position.
+			 * 必须使临时文件的寻道位置等于新读指针的
+			 * 逻辑位置。eof_reached 状态下即为 EOF，
+			 * 它得自已保存的
+			 * 写入位置。
 			 */
 			if (readptr->eof_reached)
 			{
@@ -539,8 +539,8 @@ tuplestore_select_read_pointer(Tuplestorestate *state, int ptr)
 /*
  * tuplestore_tuple_count
  *
- * Returns the number of tuples added since creation or the last
- * tuplestore_clear().
+ * 返回自创建或上次 tuplestore_clear() 以来添加
+ * 的元组数。
  */
 int64
 tuplestore_tuple_count(Tuplestorestate *state)
@@ -551,7 +551,7 @@ tuplestore_tuple_count(Tuplestorestate *state)
 /*
  * tuplestore_ateof
  *
- * Returns the active read pointer's eof_reached state.
+ * 返回活动读指针的 eof_reached 状态。
  */
 bool
 tuplestore_ateof(Tuplestorestate *state)
@@ -560,19 +560,19 @@ tuplestore_ateof(Tuplestorestate *state)
 }
 
 /*
- * Grow the memtuples[] array, if possible within our memory constraint.  We
- * must not exceed INT_MAX tuples in memory or the caller-provided memory
- * limit.  Return true if we were able to enlarge the array, false if not.
+ * 在内存约束允许时增长 memtuples[] 数组。我们
+ * 不得超过内存中 INT_MAX 个元组或调用者给定的
+ * 内存上限。若能扩大数组则返回真，否则返回假。
  *
- * Normally, at each increment we double the size of the array.  When doing
- * that would exceed a limit, we attempt one last, smaller increase (and then
- * clear the growmemtuples flag so we don't try any more).  That allows us to
- * use memory as fully as permitted; sticking to the pure doubling rule could
- * result in almost half going unused.  Because availMem moves around with
- * tuple addition/removal, we need some rule to prevent making repeated small
- * increases in memtupsize, which would just be useless thrashing.  The
- * growmemtuples flag accomplishes that and also prevents useless
- * recalculations in this function.
+ * 通常，每次增长时我们都把数组大小翻倍。当
+ * 这样做会超出限制时，我们尝试最后一次较小
+ * 的增长（然后清除 growmemtuples 标志以不再
+ * 尝试）。这使我们能用尽允许的全部内存；固守
+ * 纯粹翻倍规则可能导致几乎一半被浪费。由于
+ * availMem 随元组的增删而变动，我们需要某条
+ * 规则来防止反复小幅增加 memtupsize，那只会
+ * 是无谓的抖动。growmemtuples 标志可实现这点，
+ * 也防止函数内重算。
  */
 static bool
 grow_memtuples(Tuplestorestate *state)
@@ -581,16 +581,16 @@ grow_memtuples(Tuplestorestate *state)
 	int			memtupsize = state->memtupsize;
 	int64		memNowUsed = state->allowedMem - state->availMem;
 
-	/* Forget it if we've already maxed out memtuples, per comment above */
+	/* 若 memtuples 已达上限则放弃，见上文注释 */
 	if (!state->growmemtuples)
 		return false;
 
-	/* Select new value of memtupsize */
+	/* 选择 memtupsize 的新值 */
 	if (memNowUsed <= state->availMem)
 	{
 		/*
-		 * We've used no more than half of allowedMem; double our usage,
-		 * clamping at INT_MAX tuples.
+		 * 已用量不超过 allowedMem 的一半；将用量翻倍，
+		 * 以 INT_MAX 封顶。
 		 */
 		if (memtupsize < INT_MAX / 2)
 			newmemtupsize = memtupsize * 2;
@@ -603,30 +603,30 @@ grow_memtuples(Tuplestorestate *state)
 	else
 	{
 		/*
-		 * This will be the last increment of memtupsize.  Abandon doubling
-		 * strategy and instead increase as much as we safely can.
+		 * 这将是 memtupsize 的最后一次增长。放弃翻倍
+		 * 策略，改为在安全范围内尽量增加。
 		 *
-		 * To stay within allowedMem, we can't increase memtupsize by more
-		 * than availMem / sizeof(void *) elements. In practice, we want to
-		 * increase it by considerably less, because we need to leave some
-		 * space for the tuples to which the new array slots will refer.  We
-		 * assume the new tuples will be about the same size as the tuples
-		 * we've already seen, and thus we can extrapolate from the space
-		 * consumption so far to estimate an appropriate new size for the
-		 * memtuples array.  The optimal value might be higher or lower than
-		 * this estimate, but it's hard to know that in advance.  We again
-		 * clamp at INT_MAX tuples.
+		 * 为了不超出 allowedMem，memtupsize 的增量不得
+		 * 超过 availMem / sizeof(void *) 个元素。实际上我们
+		 * 希望它的增量远小于此，因为需要给新槽位
+		 * 将要引用的元组留出空间。我们
+		 * 假定新元组与已见过的元组大小大致相同，
+		 * 从而可以从迄今的
+		 * 空间消耗推算 memtuples 数组的合适新大小。
+		 * 最优值可能高于或低于该估计，
+		 * 但很难事先得知。我们再次以
+		 * INT_MAX 元组封顶。
 		 *
-		 * This calculation is safe against enlarging the array so much that
-		 * LACKMEM becomes true, because the memory currently used includes
-		 * the present array; thus, there would be enough allowedMem for the
-		 * new array elements even if no other memory were currently used.
+		 * 这一计算可以确保不会把数组扩大到令 LACKMEM
+		 * 成真的地步，因为当前使用的内存已包括现
+		 * 有数组；因此即使当前没有使用任何其他内存，
+		 * 也总有足够的 allowedMem 供新数组元素使用。
 		 *
-		 * We do the arithmetic in float8, because otherwise the product of
-		 * memtupsize and allowedMem could overflow.  Any inaccuracy in the
-		 * result should be insignificant; but even if we computed a
-		 * completely insane result, the checks below will prevent anything
-		 * really bad from happening.
+		 * 我们用 float8 做算术，否则 memtupsize 与
+		 * allowedMem 的乘积可能溢出。结果中的任何
+		 * 不准确都应当无关紧要；但即使我们算出了
+		 * 完全离谱的结果，下面的检查也会防止任何
+		 * 糟糕后果发生。
 		 */
 		double		grow_ratio;
 
@@ -636,42 +636,42 @@ grow_memtuples(Tuplestorestate *state)
 		else
 			newmemtupsize = INT_MAX;
 
-		/* We won't make any further enlargement attempts */
+		/* 不再做进一步扩大的尝试 */
 		state->growmemtuples = false;
 	}
 
-	/* Must enlarge array by at least one element, else report failure */
+	/* 必须至少扩大一个元素，否则报告失败 */
 	if (newmemtupsize <= memtupsize)
 		goto noalloc;
 
 	/*
-	 * On a 32-bit machine, allowedMem could exceed MaxAllocHugeSize.  Clamp
-	 * to ensure our request won't be rejected.  Note that we can easily
-	 * exhaust address space before facing this outcome.  (This is presently
-	 * impossible due to guc.c's MAX_KILOBYTES limitation on work_mem, but
-	 * don't rely on that at this distance.)
+	 * 在 32 位机器上，allowedMem 可能超过 MaxAllocHugeSize，
+	 * 需加以钳制以确保请求不被拒绝。注意我们很
+	 * 容易在遭遇这种结果之前耗尽地址空间。（这目前
+	 * 不可能发生，因为 guc.c 的 MAX_KILOBYTES 对
+	 * work_mem 限制，别依赖它。）
 	 */
 	if ((Size) newmemtupsize >= MaxAllocHugeSize / sizeof(void *))
 	{
 		newmemtupsize = (int) (MaxAllocHugeSize / sizeof(void *));
-		state->growmemtuples = false;	/* can't grow any more */
+		state->growmemtuples = false;	/* 无法再增长 */
 	}
 
 	/*
-	 * We need to be sure that we do not cause LACKMEM to become true, else
-	 * the space management algorithm will go nuts.  The code above should
-	 * never generate a dangerous request, but to be safe, check explicitly
-	 * that the array growth fits within availMem.  (We could still cause
-	 * LACKMEM if the memory chunk overhead associated with the memtuples
-	 * array were to increase.  That shouldn't happen because we chose the
-	 * initial array size large enough to ensure that palloc will be treating
-	 * both old and new arrays as separate chunks.  But we'll check LACKMEM
-	 * explicitly below just in case.)
+	 * 我们必须确保不会使 LACKMEM 变成真，否则空间
+	 * 管理算法将会失常。上面的代码绝不应生成危
+	 * 险的请求，但为了安全，还是要显式检查数组
+	 * 增长是否处于 availMem 之内。（如果与 memtuples
+	 * 数组关联的内存块开销增加，仍可能导致
+	 * LACKMEM。这不该发生，因为我们选择的初始数组
+	 * 大小足以确保 palloc 把新旧数组都当作独立块
+	 * 对待。但我们还是会在下方显式检查 LACKMEM，
+	 * 以防万一。）
 	 */
 	if (state->availMem < (int64) ((newmemtupsize - memtupsize) * sizeof(void *)))
 		goto noalloc;
 
-	/* OK, do it */
+	/* 就做 */
 	FREEMEM(state, GetMemoryChunkSpace(state->memtuples));
 	state->memtupsize = newmemtupsize;
 	state->memtuples = (void **)
@@ -683,26 +683,26 @@ grow_memtuples(Tuplestorestate *state)
 	return true;
 
 noalloc:
-	/* If for any reason we didn't realloc, shut off future attempts */
+	/* 若因任何原因未 realloc，则关闭后续尝试 */
 	state->growmemtuples = false;
 	return false;
 }
 
 /*
- * Accept one tuple and append it to the tuplestore.
+ * 接受一个元组，追加到元组存储。
  *
- * Note that the input tuple is always copied; the caller need not save it.
+ * 注意输入元组总是被复制；调用者无需保存它。
  *
- * If the active read pointer is currently "at EOF", it remains so (the read
- * pointer implicitly advances along with the write pointer); otherwise the
- * read pointer is unchanged.  Non-active read pointers do not move, which
- * means they are certain to not be "at EOF" immediately after puttuple.
- * This curious-seeming behavior is for the convenience of nodeMaterial.c and
- * nodeCtescan.c, which would otherwise need to do extra pointer repositioning
- * steps.
+ * 如果活动读指针当前"位于 EOF"，它将保持不变（读
+ * 指针隐含地随写指针一起前进）；否则读指针
+ * 保持不变。非活动读指针不移动，这意味着它们
+ * 在 puttuple 之后必然不"位于 EOF"。
+ * 这一看似奇怪的行为是为了方便 nodeMaterial.c 和
+ * nodeCtescan.c，否则它们将需要额外的指针
+ * 定位
  *
- * tuplestore_puttupleslot() is a convenience routine to collect data from
- * a TupleTableSlot without an extra copy operation.
+ * tuplestore_puttupleslot() 是一个从
+ * TupleTableSlot 收集数据的便利例程。
  */
 void
 tuplestore_puttupleslot(Tuplestorestate *state,
@@ -712,7 +712,7 @@ tuplestore_puttupleslot(Tuplestorestate *state,
 	MemoryContext oldcxt = MemoryContextSwitchTo(state->context);
 
 	/*
-	 * Form a MinimalTuple in working memory
+	 * 在工作内存中构成 MinimalTuple
 	 */
 	tuple = ExecCopySlotMinimalTuple(slot);
 	USEMEM(state, GetMemoryChunkSpace(tuple));
@@ -723,8 +723,8 @@ tuplestore_puttupleslot(Tuplestorestate *state,
 }
 
 /*
- * "Standard" case to copy from a HeapTuple.  This is actually now somewhat
- * deprecated, but not worth getting rid of in view of the number of callers.
+ * 从 HeapTuple 复制的"标准"情形。这实际如今
+ * 已有些弃用了，但鉴于调用者众多，不值得除去。
  */
 void
 tuplestore_puttuple(Tuplestorestate *state, HeapTuple tuple)
@@ -732,8 +732,8 @@ tuplestore_puttuple(Tuplestorestate *state, HeapTuple tuple)
 	MemoryContext oldcxt = MemoryContextSwitchTo(state->context);
 
 	/*
-	 * Copy the tuple.  (Must do this even in WRITEFILE case.  Note that
-	 * COPYTUP includes USEMEM, so we needn't do that here.)
+	 * 复制元组。（即使在 WRITEFILE 情形也必须
+	 * 这样做。COPYTUP 含 USEMEM，故此处免。）
 	 */
 	tuple = COPYTUP(state, tuple);
 
@@ -743,8 +743,8 @@ tuplestore_puttuple(Tuplestorestate *state, HeapTuple tuple)
 }
 
 /*
- * Similar to tuplestore_puttuple(), but work from values + nulls arrays.
- * This avoids an extra tuple-construction operation.
+ * 与 tuplestore_puttuple() 类似，但基于 values +
+ * nulls 数组。省去一次元组构造操作。
  */
 void
 tuplestore_putvalues(Tuplestorestate *state, TupleDesc tdesc,
@@ -775,7 +775,7 @@ tuplestore_puttuple_common(Tuplestorestate *state, void *tuple)
 		case TSS_INMEM:
 
 			/*
-			 * Update read pointers as needed; see API spec above.
+			 * 按需更新读指针；见上文的 API 规范。
 			 */
 			readptr = state->readptrs;
 			for (i = 0; i < state->readptrcount; readptr++, i++)
@@ -788,10 +788,10 @@ tuplestore_puttuple_common(Tuplestorestate *state, void *tuple)
 			}
 
 			/*
-			 * Grow the array as needed.  Note that we try to grow the array
-			 * when there is still one free slot remaining --- if we fail,
-			 * there'll still be room to store the incoming tuple, and then
-			 * we'll switch to tape-based operation.
+			 * 按需增长数组。注意我们在还剩一个空槽时
+			 * 尝试增长数组——若失败，仍有空间存放
+			 * 传入的元组，然后我们会
+			 * 切换到磁带操作。
 			 */
 			if (state->memtupcount >= state->memtupsize - 1)
 			{
@@ -799,22 +799,22 @@ tuplestore_puttuple_common(Tuplestorestate *state, void *tuple)
 				Assert(state->memtupcount < state->memtupsize);
 			}
 
-			/* Stash the tuple in the in-memory array */
+			/* 把元组存入内存数组 */
 			state->memtuples[state->memtupcount++] = tuple;
 
 			/*
-			 * Done if we still fit in available memory and have array slots.
+			 * 若仍能放入可用内存且拥有数组槽位则完成。
 			 */
 			if (state->memtupcount < state->memtupsize && !LACKMEM(state))
 				return;
 
 			/*
-			 * Nope; time to switch to tape-based operation.  Make sure that
-			 * the temp file(s) are created in suitable temp tablespaces.
+			 * 不行；该切换到基于磁带的操作了。确保
+			 * temp file(s) 建在合适的临时表空间中。
 			 */
 			PrepareTempTablespaces();
 
-			/* associate the file with the store's resource owner */
+			/* 把文件与存储的资源所有者关联 */
 			oldowner = CurrentResourceOwner;
 			CurrentResourceOwner = state->resowner;
 
@@ -823,9 +823,9 @@ tuplestore_puttuple_common(Tuplestorestate *state, void *tuple)
 			CurrentResourceOwner = oldowner;
 
 			/*
-			 * Freeze the decision about whether trailing length words will be
-			 * used.  We can't change this choice once data is on tape, even
-			 * though callers might drop the requirement.
+			 * 冻结关于是否使用尾随长度字的决定。一旦
+			 * 数据上带后即无法改变此选择，即使调用者
+			 * 可能放弃该需求。
 			 */
 			state->backward = (state->eflags & EXEC_FLAG_BACKWARD) != 0;
 			state->status = TSS_WRITEFILE;
@@ -834,9 +834,9 @@ tuplestore_puttuple_common(Tuplestorestate *state, void *tuple)
 		case TSS_WRITEFILE:
 
 			/*
-			 * Update read pointers as needed; see API spec above. Note:
-			 * BufFileTell is quite cheap, so not worth trying to avoid
-			 * multiple calls.
+			 * 按需更新读指针；见上文 API 规范。注意：
+			 * BufFileTell 相当廉价，所以不值得设法避免
+			 * 多次调用。
 			 */
 			readptr = state->readptrs;
 			for (i = 0; i < state->readptrcount; readptr++, i++)
@@ -855,7 +855,7 @@ tuplestore_puttuple_common(Tuplestorestate *state, void *tuple)
 		case TSS_READFILE:
 
 			/*
-			 * Switch from reading to writing.
+			 * 从读取切换到写入。
 			 */
 			if (!state->readptrs[state->activeptr].eof_reached)
 				BufFileTell(state->myfile,
@@ -870,7 +870,7 @@ tuplestore_puttuple_common(Tuplestorestate *state, void *tuple)
 			state->status = TSS_WRITEFILE;
 
 			/*
-			 * Update read pointers as needed; see API spec above.
+			 * 按需更新读指针；见上文的 API 规范。
 			 */
 			readptr = state->readptrs;
 			for (i = 0; i < state->readptrcount; readptr++, i++)
@@ -892,12 +892,12 @@ tuplestore_puttuple_common(Tuplestorestate *state, void *tuple)
 }
 
 /*
- * Fetch the next tuple in either forward or back direction.
- * Returns NULL if no more tuples.  If should_free is set, the
- * caller must pfree the returned tuple when done with it.
+ * 以正向或反向任一方向获取下一个元组。
+ * 如果没有更多元组则返回 NULL。若设置了
+ * should_free，则调用者用完后必须 pfree 它。
  *
- * Backward scan is only allowed if randomAccess was set true or
- * EXEC_FLAG_BACKWARD was specified to tuplestore_set_eflags().
+ * 仅当 randomAccess 为真，或向 tuplestore_set_eflags()
+ * 传入 EXEC_FLAG_BACKWARD 时才允许反向扫描。
  */
 static void *
 tuplestore_gettuple(Tuplestorestate *state, bool forward,
@@ -919,7 +919,7 @@ tuplestore_gettuple(Tuplestorestate *state, bool forward,
 					return NULL;
 				if (readptr->current < state->memtupcount)
 				{
-					/* We have another tuple, so return it */
+					/* 还有元组，故返回它 */
 					return state->memtuples[readptr->current++];
 				}
 				readptr->eof_reached = true;
@@ -928,8 +928,8 @@ tuplestore_gettuple(Tuplestorestate *state, bool forward,
 			else
 			{
 				/*
-				 * if all tuples are fetched already then we return last
-				 * tuple, else tuple before last returned.
+				 * 若所有元组已取完，则返回最后
+				 * 元组，否则返回前一个元组。
 				 */
 				if (readptr->eof_reached)
 				{
@@ -943,7 +943,7 @@ tuplestore_gettuple(Tuplestorestate *state, bool forward,
 						Assert(!state->truncated);
 						return NULL;
 					}
-					readptr->current--; /* last returned tuple */
+					readptr->current--; /* 上一返回元组 */
 				}
 				if (readptr->current <= state->memtupdeleted)
 				{
@@ -955,12 +955,12 @@ tuplestore_gettuple(Tuplestorestate *state, bool forward,
 			break;
 
 		case TSS_WRITEFILE:
-			/* Skip state change if we'll just return NULL */
+			/* 若只会返回 NULL 则跳过状态切换 */
 			if (readptr->eof_reached && forward)
 				return NULL;
 
 			/*
-			 * Switch from writing to reading.
+			 * 从写入切换到读取。
 			 */
 			BufFileTell(state->myfile,
 						&state->writepos_file, &state->writepos_offset);
@@ -991,18 +991,18 @@ tuplestore_gettuple(Tuplestorestate *state, bool forward,
 			}
 
 			/*
-			 * Backward.
+			 * 反向。
 			 *
-			 * if all tuples are fetched already then we return last tuple,
-			 * else tuple before last returned.
+			 * 若所有元组已取完，则返回最后返回的元组，
+			 * 否则返回前一个元组。
 			 *
-			 * Back up to fetch previously-returned tuple's ending length
-			 * word. If seek fails, assume we are at start of file.
+			 * 回退去取之前返回元组的结尾长度
+			 * 字。寻道失败则假定在文件开头。
 			 */
 			if (BufFileSeek(state->myfile, 0, -(long) sizeof(unsigned int),
 							SEEK_CUR) != 0)
 			{
-				/* even a failed backwards fetch gets you out of eof state */
+				/* 即使向后抓取失败也能脱离 eof 状态 */
 				readptr->eof_reached = false;
 				Assert(!state->truncated);
 				return NULL;
@@ -1012,22 +1012,22 @@ tuplestore_gettuple(Tuplestorestate *state, bool forward,
 			if (readptr->eof_reached)
 			{
 				readptr->eof_reached = false;
-				/* We will return the tuple returned before returning NULL */
+				/* 将在返回 NULL 前返回先前返回的元组 */
 			}
 			else
 			{
 				/*
-				 * Back up to get ending length word of tuple before it.
+				 * 回退取它前面元组的结尾长度字。
 				 */
 				if (BufFileSeek(state->myfile, 0,
 								-(long) (tuplen + 2 * sizeof(unsigned int)),
 								SEEK_CUR) != 0)
 				{
 					/*
-					 * If that fails, presumably the prev tuple is the first
-					 * in the file.  Back up so that it becomes next to read
-					 * in forward direction (not obviously right, but that is
-					 * what in-memory case does).
+					 * 若那样失败，则前一元组想必是文件中
+					 * 第一个。回退使之成为正向下个要读的
+					 * 元组（未必显然正确，但内存中的情形
+					 * 就是这样）。
 					 */
 					if (BufFileSeek(state->myfile, 0,
 									-(long) (tuplen + sizeof(unsigned int)),
@@ -1042,9 +1042,9 @@ tuplestore_gettuple(Tuplestorestate *state, bool forward,
 			}
 
 			/*
-			 * Now we have the length of the prior tuple, back up and read it.
-			 * Note: READTUP expects we are positioned after the initial
-			 * length word of the tuple, so back up to that point.
+			 * 现在我们有了前一元组的长度，回退并读取它。
+			 * 注：READTUP 预期我们位于元组初始长度字
+			 * 之后，所以回退到该位置。
 			 */
 			if (BufFileSeek(state->myfile, 0,
 							-(long) tuplen,
@@ -1057,22 +1057,22 @@ tuplestore_gettuple(Tuplestorestate *state, bool forward,
 
 		default:
 			elog(ERROR, "invalid tuplestore state");
-			return NULL;		/* keep compiler quiet */
+			return NULL;		/* 安抚编译器 */
 	}
 }
 
 /*
- * tuplestore_gettupleslot - exported function to fetch a MinimalTuple
+ * tuplestore_gettupleslot - 导出的获取 MinimalTuple 函数
  *
- * If successful, put tuple in slot and return true; else, clear the slot
- * and return false.
+ * 若成功，把元组放入槽位并返回真；否则清空槽
+ * 位返回假。
  *
- * If copy is true, the slot receives a copied tuple (allocated in current
- * memory context) that will stay valid regardless of future manipulations of
- * the tuplestore's state.  If copy is false, the slot may just receive a
- * pointer to a tuple held within the tuplestore.  The latter is more
- * efficient but the slot contents may be corrupted if additional writes to
- * the tuplestore occur.  (If using tuplestore_trim, see comments therein.)
+ * 若 copy 为真，槽位收到一个复制的元组（在当前
+ * 内存上下文中分配），无论以后如何操纵元组存
+ * 储的状态它都保持有效。若 copy 为假，槽位可能
+ * 只收到指向元组存储所持元组的指针。后者更
+ * 高效，但如果对元组存储有额外写入，槽位内容
+ * 可能会损坏。（若使用 tuplestore_trim，见其中注释。）
  */
 bool
 tuplestore_gettupleslot(Tuplestorestate *state, bool forward,
@@ -1101,10 +1101,10 @@ tuplestore_gettupleslot(Tuplestorestate *state, bool forward,
 }
 
 /*
- * tuplestore_advance - exported function to adjust position without fetching
+ * tuplestore_advance - 导出的调整位置函数，不取回元组
  *
- * We could optimize this case to avoid palloc/pfree overhead, but for the
- * moment it doesn't seem worthwhile.
+ * 我们可以优化此情形以避免 palloc/pfree 开销，但
+ * 目前似乎不值得。
  */
 bool
 tuplestore_advance(Tuplestorestate *state, bool forward)
@@ -1127,9 +1127,9 @@ tuplestore_advance(Tuplestorestate *state, bool forward)
 }
 
 /*
- * Advance over N tuples in either forward or back direction,
- * without returning any data.  N<=0 is a no-op.
- * Returns true if successful, false if ran out of tuples.
+ * 沿正向或反向任一方向跳过 N 个元组，
+ * 不返回任何数据。N<=0 为无操作。
+ * 成功则返回真，元组用尽则返回假。
  */
 bool
 tuplestore_skiptuples(Tuplestorestate *state, int64 ntuples, bool forward)
@@ -1177,7 +1177,7 @@ tuplestore_skiptuples(Tuplestorestate *state, int64 ntuples, bool forward)
 			break;
 
 		default:
-			/* We don't currently try hard to optimize other cases */
+			/* 我们目前不努力优化其他情形 */
 			while (ntuples-- > 0)
 			{
 				void	   *tuple;
@@ -1196,11 +1196,11 @@ tuplestore_skiptuples(Tuplestorestate *state, int64 ntuples, bool forward)
 }
 
 /*
- * dumptuples - remove tuples from memory and write to tape
+ * dumptuples - 把元组移出内存并写到磁带
  *
- * As a side effect, we must convert each read pointer's position from
- * "current" to file/offset format.  But eof_reached pointers don't
- * need to change state.
+ * 作为副作用，我们必须把每个读指针的位置从
+ * "current" 转换为 file/offset 格式。但 eof_reached
+ * 指针状态不变。
  */
 static void
 dumptuples(Tuplestorestate *state)
@@ -1227,7 +1227,7 @@ dumptuples(Tuplestorestate *state)
 }
 
 /*
- * tuplestore_rescan		- rewind the active read pointer to start
+ * tuplestore_rescan		- 回卷活动读指针到起点
  */
 void
 tuplestore_rescan(Tuplestorestate *state)
@@ -1262,7 +1262,7 @@ tuplestore_rescan(Tuplestorestate *state)
 }
 
 /*
- * tuplestore_copy_read_pointer - copy a read pointer's state to another
+ * tuplestore_copy_read_pointer - 复制读指针的状态到另一个
  */
 void
 tuplestore_copy_read_pointer(Tuplestorestate *state,
@@ -1274,13 +1274,13 @@ tuplestore_copy_read_pointer(Tuplestorestate *state,
 	Assert(srcptr >= 0 && srcptr < state->readptrcount);
 	Assert(destptr >= 0 && destptr < state->readptrcount);
 
-	/* Assigning to self is a no-op */
+	/* 自赋值无操作 */
 	if (srcptr == destptr)
 		return;
 
 	if (dptr->eflags != sptr->eflags)
 	{
-		/* Possible change of overall eflags, so copy and then recompute */
+		/* 整体 eflags 可能变化，故先复制再重算 */
 		int			eflags;
 		int			i;
 
@@ -1297,16 +1297,16 @@ tuplestore_copy_read_pointer(Tuplestorestate *state,
 	{
 		case TSS_INMEM:
 		case TSS_WRITEFILE:
-			/* no work */
+			/* 无事 */
 			break;
 		case TSS_READFILE:
 
 			/*
-			 * This case is a bit tricky since the active read pointer's
-			 * position corresponds to the seek point, not what is in its
-			 * variables.  Assigning to the active requires a seek, and
-			 * assigning from the active requires a tell, except when
-			 * eof_reached.
+			 * 此情形有点棘手，因为活动读指针的位置
+			 * 对应的是寻道点，而非其
+			 * 变量中的值。赋给活动指针需要寻道，而
+			 * 从活动指针赋值则需要 tell，除非处于
+			 * eof_reached
 			 */
 			if (destptr == state->activeptr)
 			{
@@ -1345,16 +1345,16 @@ tuplestore_copy_read_pointer(Tuplestorestate *state,
 }
 
 /*
- * tuplestore_trim	- remove all no-longer-needed tuples
+ * tuplestore_trim	- 移除不再需要的元组。
  *
- * Calling this function authorizes the tuplestore to delete all tuples
- * before the oldest read pointer, if no read pointer is marked as requiring
- * REWIND capability.
+ * 调用本函数即授权元组存储删除所有
+ * 位于最旧读指针之前的元组，若无读指针被标为需要
+ * REWIND 能力。
  *
- * Note: this is obviously safe if no pointer has BACKWARD capability either.
- * If a pointer is marked as BACKWARD but not REWIND capable, it means that
- * the pointer can be moved backward but not before the oldest other read
- * pointer.
+ * 注：如果也没有任何指针拥有 BACKWARD 能力，这
+ * 显然是安全的。若某指针被标为 BACKWARD 但
+ * 无 REWIND，则它能后移，但不能越过最旧的其他
+ * 指针
  */
 void
 tuplestore_trim(Tuplestorestate *state)
@@ -1364,20 +1364,20 @@ tuplestore_trim(Tuplestorestate *state)
 	int			i;
 
 	/*
-	 * Truncation is disallowed if any read pointer requires rewind
-	 * capability.
+	 * 若有读指针需要回卷能力，则不许截断。
+	 *
 	 */
 	if (state->eflags & EXEC_FLAG_REWIND)
 		return;
 
 	/*
-	 * We don't bother trimming temp files since it usually would mean more
-	 * work than just letting them sit in kernel buffers until they age out.
+	 * 我们不费心修剪临时文件，因为这通常比任由
+	 * 它们留在内核缓冲区里直到老化淘汰更费工夫。
 	 */
 	if (state->status != TSS_INMEM)
 		return;
 
-	/* Find the oldest read pointer */
+	/* 找出最旧的读指针 */
 	oldest = state->memtupcount;
 	for (i = 0; i < state->readptrcount; i++)
 	{
@@ -1386,23 +1386,23 @@ tuplestore_trim(Tuplestorestate *state)
 	}
 
 	/*
-	 * Note: you might think we could remove all the tuples before the oldest
-	 * "current", since that one is the next to be returned.  However, since
-	 * tuplestore_gettuple returns a direct pointer to our internal copy of
-	 * the tuple, it's likely that the caller has still got the tuple just
-	 * before "current" referenced in a slot. So we keep one extra tuple
-	 * before the oldest "current".  (Strictly speaking, we could require such
-	 * callers to use the "copy" flag to tuplestore_gettupleslot, but for
-	 * efficiency we allow this one case to not use "copy".)
+	 * 注：你可能认为我们可以删除最旧"当前"位置之前
+	 * 的所有元组，因为那一个就是要返回的下一个。
+	 * 不过，由于 tuplestore_gettuple 返回的是指向我们
+	 * 内部元组副本的直接指针，调用者很可能仍把
+	 * "当前"之前的那个元组引用在槽位中。所以我们
+	 * 在最旧"当前"之前保留一个额外元组。（严格来说，
+	 * 本可以规定这类调用者给 tuplestore_gettupleslot
+	 * 传 "copy" 标志，但出于效率特免此例。）
 	 */
 	nremove = oldest - 1;
 	if (nremove <= 0)
-		return;					/* nothing to do */
+		return;					/* 无事可做 */
 
 	Assert(nremove >= state->memtupdeleted);
 	Assert(nremove <= state->memtupcount);
 
-	/* Release no-longer-needed tuples */
+	/* 释放不再需要的元组 */
 	for (i = state->memtupdeleted; i < nremove; i++)
 	{
 		FREEMEM(state, GetMemoryChunkSpace(state->memtuples[i]));
@@ -1411,23 +1411,23 @@ tuplestore_trim(Tuplestorestate *state)
 	}
 	state->memtupdeleted = nremove;
 
-	/* mark tuplestore as truncated (used for Assert crosschecks only) */
+	/* 标记元组存储已截断（仅用于 Assert 交叉检查） */
 	state->truncated = true;
 
 	/*
-	 * If nremove is less than 1/8th memtupcount, just stop here, leaving the
-	 * "deleted" slots as NULL.  This prevents us from expending O(N^2) time
-	 * repeatedly memmove-ing a large pointer array.  The worst case space
-	 * wastage is pretty small, since it's just pointers and not whole tuples.
+	 * 若 nremove 小于 memtupcount 的 1/8，就到此为止，让
+	 * "已删除"槽位保持为 NULL。这防止我们耗费 O(N^2)
+	 * 的时间反复对一个大型指针数组做 memmove。空间
+	 * 的最坏浪费相当小，因为只是指针而非整个元组。
 	 */
 	if (nremove < state->memtupcount / 8)
 		return;
 
 	/*
-	 * Slide the array down and readjust pointers.
+	 * 把数组下滑并重新调整指针。
 	 *
-	 * In mergejoin's current usage, it's demonstrable that there will always
-	 * be exactly one non-removed tuple; so optimize that case.
+	 * 在合并连接当前的用法中，可以证明总会恰好
+	 * 只有一个未移除元组；故优化该情形。
 	 */
 	if (nremove + 1 == state->memtupcount)
 		state->memtuples[0] = state->memtuples[nremove];
@@ -1447,9 +1447,9 @@ tuplestore_trim(Tuplestorestate *state)
 /*
  * tuplestore_in_memory
  *
- * Returns true if the tuplestore has not spilled to disk.
+ * 如果元组存储尚未落盘则返回真。
  *
- * XXX exposing this is a violation of modularity ... should get rid of it.
+ * XXX 暴露此函数违反模块性……应该除掉它。
  */
 bool
 tuplestore_in_memory(Tuplestorestate *state)
@@ -1459,7 +1459,7 @@ tuplestore_in_memory(Tuplestorestate *state)
 
 
 /*
- * Tape interface routines
+ * 磁带接口例程
  */
 
 static unsigned int
@@ -1477,13 +1477,13 @@ getlen(Tuplestorestate *state, bool eofOK)
 
 
 /*
- * Routines specialized for HeapTuple case
+ * 针对 HeapTuple 情形专用的例程
  *
- * The stored form is actually a MinimalTuple, but for largely historical
- * reasons we allow COPYTUP to work from a HeapTuple.
+ * 存储形式其实是一个 MinimalTuple，但主要出于历史
+ * 原因我们允许 COPYTUP 从 HeapTuple 工作。
  *
- * Since MinimalTuple already has length in its first word, we don't need
- * to write that separately.
+ * 由于 MinimalTuple 的第一个字已有长度，我们无需
+ * 单独写入它。
  */
 
 static void *
@@ -1501,16 +1501,16 @@ writetup_heap(Tuplestorestate *state, void *tup)
 {
 	MinimalTuple tuple = (MinimalTuple) tup;
 
-	/* the part of the MinimalTuple we'll write: */
+	/* 要写入的 MinimalTuple 部分： */
 	char	   *tupbody = (char *) tuple + MINIMAL_TUPLE_DATA_OFFSET;
 	unsigned int tupbodylen = tuple->t_len - MINIMAL_TUPLE_DATA_OFFSET;
 
-	/* total on-disk footprint: */
+	/* 磁盘上总占用： */
 	unsigned int tuplen = tupbodylen + sizeof(int);
 
 	BufFileWrite(state->myfile, &tuplen, sizeof(tuplen));
 	BufFileWrite(state->myfile, tupbody, tupbodylen);
-	if (state->backward)		/* need trailing length word? */
+	if (state->backward)		/* 要尾随长度字？ */
 		BufFileWrite(state->myfile, &tuplen, sizeof(tuplen));
 
 	FREEMEM(state, GetMemoryChunkSpace(tuple));
@@ -1526,10 +1526,10 @@ readtup_heap(Tuplestorestate *state, unsigned int len)
 	char	   *tupbody = (char *) tuple + MINIMAL_TUPLE_DATA_OFFSET;
 
 	USEMEM(state, GetMemoryChunkSpace(tuple));
-	/* read in the tuple proper */
+	/* 读入元组本体 */
 	tuple->t_len = tuplen;
 	BufFileReadExact(state->myfile, tupbody, tupbodylen);
-	if (state->backward)		/* need trailing length word? */
+	if (state->backward)		/* 要尾随长度字？ */
 		BufFileReadExact(state->myfile, &tuplen, sizeof(tuplen));
 	return (void *) tuple;
 }

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * sortsupport.c
- *	  Support routines for accelerated sorting.
+ *	  加速排序的支持例程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -24,21 +24,21 @@
 #include "utils/sortsupport.h"
 
 
-/* Info needed to use an old-style comparison function as a sort comparator */
+/* 将旧式比较函数用作排序比较器所需的信息 */
 typedef struct
 {
-	FmgrInfo	flinfo;			/* lookup data for comparison function */
-	FunctionCallInfoBaseData fcinfo;	/* reusable callinfo structure */
+	FmgrInfo	flinfo;			/* 用于查找比较函数的数据 */
+	FunctionCallInfoBaseData fcinfo;	/* 可复用 callinfo 结构 */
 } SortShimExtra;
 
 #define SizeForSortShimExtra(nargs) (offsetof(SortShimExtra, fcinfo) + SizeForFunctionCallInfo(nargs))
 
 /*
- * Shim function for calling an old-style comparator
+ * 调用旧式比较器的垫片函数
  *
- * This is essentially an inlined version of FunctionCall2Coll(), except
- * we assume that the FunctionCallInfoBaseData was already mostly set up by
- * PrepareSortSupportComparisonShim.
+ * 这实质上是 FunctionCall2Coll() 的内联版本，只不过
+ * 我们假定 FunctionCallInfoBaseData 多半已设置好，见
+ * PrepareSortSupportComparisonShim
  */
 static int
 comparison_shim(Datum x, Datum y, SortSupport ssup)
@@ -49,12 +49,12 @@ comparison_shim(Datum x, Datum y, SortSupport ssup)
 	extra->fcinfo.args[0].value = x;
 	extra->fcinfo.args[1].value = y;
 
-	/* just for paranoia's sake, we reset isnull each time */
+	/* 出于稳妥起见，我们每次都重置 isnull */
 	extra->fcinfo.isnull = false;
 
 	result = FunctionCallInvoke(&extra->fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
+	/* 检查空结果，因为调用者显然不期望 NULL */
 	if (extra->fcinfo.isnull)
 		elog(ERROR, "function %u returned NULL", extra->flinfo.fn_oid);
 
@@ -62,8 +62,8 @@ comparison_shim(Datum x, Datum y, SortSupport ssup)
 }
 
 /*
- * Set up a shim function to allow use of an old-style btree comparison
- * function as if it were a sort support comparator.
+ * 设置垫片函数，以便将旧式 btree 比较函数
+ * 当作排序支持比较器来使用。
  */
 void
 PrepareSortSupportComparisonShim(Oid cmpFunc, SortSupport ssup)
@@ -73,10 +73,10 @@ PrepareSortSupportComparisonShim(Oid cmpFunc, SortSupport ssup)
 	extra = (SortShimExtra *) MemoryContextAlloc(ssup->ssup_cxt,
 												 SizeForSortShimExtra(2));
 
-	/* Lookup the comparison function */
+	/* 查找比较函数 */
 	fmgr_info_cxt(cmpFunc, &extra->flinfo, ssup->ssup_cxt);
 
-	/* We can initialize the callinfo just once and re-use it */
+	/* callinfo 只需初始化一次即可复用 */
 	InitFunctionCallInfoData(extra->fcinfo, &extra->flinfo, 2,
 							 ssup->ssup_collation, NULL, NULL);
 	extra->fcinfo.args[0].isnull = false;
@@ -87,23 +87,23 @@ PrepareSortSupportComparisonShim(Oid cmpFunc, SortSupport ssup)
 }
 
 /*
- * Look up and call sortsupport function to setup SortSupport comparator;
- * or if no such function exists or it declines to set up the appropriate
- * state, prepare a suitable shim.
+ * 查找并调用 sortsupport 函数来设置 SortSupport 比较器；
+ * 若该函数不存在或拒绝设置相应的状态，
+ * 则准备合适的垫片。
  */
 static void
 FinishSortSupportFunction(Oid opfamily, Oid opcintype, SortSupport ssup)
 {
 	Oid			sortSupportFunction;
 
-	/* Look for a sort support function */
+	/* 查找排序支持函数 */
 	sortSupportFunction = get_opfamily_proc(opfamily, opcintype, opcintype,
 											BTSORTSUPPORT_PROC);
 	if (OidIsValid(sortSupportFunction))
 	{
 		/*
-		 * The sort support function can provide a comparator, but it can also
-		 * choose not to so (e.g. based on the selected collation).
+		 * 排序支持函数可以提供比较器，但它也可以
+		 * 选择不提供（如基于所选的排序规则）。
 		 */
 		OidFunctionCall1(sortSupportFunction, PointerGetDatum(ssup));
 	}
@@ -119,17 +119,17 @@ FinishSortSupportFunction(Oid opfamily, Oid opcintype, SortSupport ssup)
 			elog(ERROR, "missing support function %d(%u,%u) in opfamily %u",
 				 BTORDER_PROC, opcintype, opcintype, opfamily);
 
-		/* We'll use a shim to call the old-style btree comparator */
+		/* 我们将使用垫片调用旧式 btree 比较器 */
 		PrepareSortSupportComparisonShim(sortFunction, ssup);
 	}
 }
 
 /*
- * Fill in SortSupport given an ordering operator (btree "<" or ">" operator).
+ * 根据排序算子（btree "<" 或 ">" 算子）填写 SortSupport。
  *
- * Caller must previously have zeroed the SortSupportData structure and then
- * filled in ssup_cxt, ssup_collation, and ssup_nulls_first.  This will fill
- * in ssup_reverse as well as the comparator function pointer.
+ * 调用者必须已将 SortSupportData 结构清零，然后填入
+ * ssup_cxt、ssup_collation 和 ssup_nulls_first。这将
+ * 填入 ssup_reverse 以及比较器函数指针。
  */
 void
 PrepareSortSupportFromOrderingOp(Oid orderingOp, SortSupport ssup)
@@ -140,7 +140,7 @@ PrepareSortSupportFromOrderingOp(Oid orderingOp, SortSupport ssup)
 
 	Assert(ssup->comparator == NULL);
 
-	/* Find the operator in pg_amop */
+	/* 在 pg_amop 中查找算子 */
 	if (!get_ordering_op_properties(orderingOp, &opfamily, &opcintype,
 									&strategy))
 		elog(ERROR, "operator %u is not a valid ordering operator",
@@ -151,12 +151,12 @@ PrepareSortSupportFromOrderingOp(Oid orderingOp, SortSupport ssup)
 }
 
 /*
- * Fill in SortSupport given an index relation, attribute, and strategy.
+ * 根据索引关系、属性和策略填写 SortSupport。
  *
- * Caller must previously have zeroed the SortSupportData structure and then
- * filled in ssup_cxt, ssup_attno, ssup_collation, and ssup_nulls_first.  This
- * will fill in ssup_reverse (based on the supplied strategy), as well as the
- * comparator function pointer.
+ * 调用者必须已将 SortSupportData 结构清零，然后填入
+ * ssup_cxt、ssup_attno、ssup_collation 和 ssup_nulls_first。这将
+ * 会填入 ssup_reverse（依据给定的策略）以及
+ * 比较器函数指针。
  */
 void
 PrepareSortSupportFromIndexRel(Relation indexRel, int16 strategy,
@@ -178,12 +178,12 @@ PrepareSortSupportFromIndexRel(Relation indexRel, int16 strategy,
 }
 
 /*
- * Fill in SortSupport given a GiST index relation
+ * 根据 GiST 索引关系填写 SortSupport
  *
- * Caller must previously have zeroed the SortSupportData structure and then
- * filled in ssup_cxt, ssup_attno, ssup_collation, and ssup_nulls_first.  This
- * will fill in ssup_reverse (always false for GiST index build), as well as
- * the comparator function pointer.
+ * 调用者必须已将 SortSupportData 结构清零，然后填入
+ * ssup_cxt、ssup_attno、ssup_collation 和 ssup_nulls_first。这将
+ * 会填入 ssup_reverse（GiST 索引构建时恒为假）以及
+ * 比较器函数指针。
  */
 void
 PrepareSortSupportFromGistIndexRel(Relation indexRel, SortSupport ssup)
@@ -199,8 +199,8 @@ PrepareSortSupportFromGistIndexRel(Relation indexRel, SortSupport ssup)
 	ssup->ssup_reverse = false;
 
 	/*
-	 * Look up the sort support function. This is simpler than for B-tree
-	 * indexes because we don't support the old-style btree comparators.
+	 * 查找排序支持函数。此处比 B-tree 索引更简单，
+	 * 因为我们不支持旧式 btree 比较器。
 	 */
 	sortSupportFunction = get_opfamily_proc(opfamily, opcintype, opcintype,
 											GIST_SORTSUPPORT_PROC);

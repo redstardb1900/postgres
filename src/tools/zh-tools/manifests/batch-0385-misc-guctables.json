@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0385",
+ "title": "misc guc_tables.c whole-file comment translation (105 blocks: 60 translated + 45 preserved; 109/185 content lines rewritten (106 translated + 3 emptied to bare frame), 76 EN kept)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "fe3f70751917708ec97c131bf814942e33536d25",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/misc/guc_tables.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0385; 105 blocks"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0385-misc-guctables.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0385 manifest path and guc_tables.c entry"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/misc/guc_tables.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 105,
+   "translated": 60,
+   "preserved": 45,
+   "preserved_reasons": [
+    "block L1-20 header: 5 content lines kept EN per campaign header rule (L3 filename, L13 Copyright, L14 Written-by author line, L16 IDENTIFICATION label + L17 path line); descriptive line L5 and Note lines L7-L10 translated",
+    "44 preserved blocks = 70 enum-marker label comments kept EN: GucContext_Names 7 (L619-625) + GucSource_Names 14 (L638-651) + config_group_names 44 (L662-748) + config_type_names 5 (L764-768) - identifier labels matching enum constant names, ps_status 0383 / attr-label 0384 precedent; plus block @2811 trailing comment '/* XXX? */' kept (developer XXX marker, comment-segment budget only 10B)"
+   ],
+   "note": "185 content lines (comment-aware universe rescan; the naive dump merged code glue - names-array string-element lines, StaticAssertDecl, '};' - into blocks @619/@638/@764 and built a 34-line pseudo-block @2811 from a trailing comment; coverage asserted LINEKEY+KEPT == universe): 106 translated + 3 emptied to bare ' *' (L504 'details.', L786 'details.', L789 'applicable), etc.' tails genuinely absorbed, sentence closed on the preceding line) + 76 EN kept (header 5 + enum markers 70 + XXX? 1). Line counts conserved 4987/4987; '/*' and '*/' occurrence counts unchanged (frame terminators 105/105 intact); code bytes zero-diff - GUC short_desc/long_desc gettext_noop string literals untouched (0 in diff; verify_c_comments proves only comments changed). Same-EN same-zh groups byte-identical: Note lines x3 (L615=L634=L760), End-of-list marker x5 (L2001=L3509=L3790=L4564=L4983), 见 max_connections x2 (L2187=L3231), 无法设于 postgresql.conf x3 (L3386=L4134=L4146), 非 DISCARD_CACHES_ENABLED x2 (L3469=L3471), 未写入文档 x2 (L1664=L1678), CheckRequiredParameterValues x2 (L2456=L2595), SET SESSION AUTHORIZATION x2 (L1033=L4170), developer-option 3-line block x2 (L1926-28=L1965-67). The 5 'Although only ...' enum blocks share the EN frame with differing value lists; shared accept-clause rendered 接受 \"on\" 与 \"off\" 的所有常见变体。 (L282=L317=L334; L299/L353 are budget-split variants with 接受 carried on the prior line). Tail-period ledger full rescan: 1 entry - L799 MISS '.' budget-forced (line budget 65B, zh 64B, +。=3B overflows; EN '...dumputils.c.' period dropped); all other EN-final-period blocks close with 。. In-batch fix round: L780 新增选项： -> 新增 OPTION： (W7_IDENT_LOST: restore OPTION identifier); L4782 太多 -> 过多 (P15 phrasebook 'too many'). Gates: verify rc=0 (0 violations; W7 misc-scope advisories: 16 kept enum-marker lines in this file + 5 standing ps_status lines, not this file's debt), term_lint misc rc=0 (0 errors 0 warnings; tree-wide run rc=1 = 1 pre-existing postinit.c TL01 error + 757 pre-existing warnings, guc_tables 0 hits), scan_halfen tree-wide 59 pre-existing findings (guc_tables 0; misc 5 pre-existing ps_status/sampling/tzparser accepted 0382/0383), check_scope incremental PASS rc=0."
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0385-misc-guctables.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0385 manifest path and guc_tables.c entry"
+  }
+ ]
+}

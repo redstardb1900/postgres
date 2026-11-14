@@ -2,12 +2,12 @@
  *
  * guc_tables.c
  *
- * Static tables for the Grand Unified Configuration scheme.
+ * 大一统配置（GUC）机制的各静态表。
  *
- * Many of these tables are const.  However, ConfigureNamesBool[]
- * and so on are not, because the structs in those arrays are actually
- * the live per-variable state data that guc.c manipulates.  While many of
- * their fields are intended to be constant, some fields change at runtime.
+ * 这些表中许多是 const。然而，ConfigureNamesBool[]
+ * 等数组则不然，因为这些数组内的结构体其实正是
+ * guc.c 所操纵的各变量实时状态数据。虽然其众多字段
+ * 本意是常量，但部分字段会在运行时改变。
  *
  *
  * Copyright (c) 2000-2023, PostgreSQL Global Development Group
@@ -84,12 +84,12 @@
 #include "utils/inval.h"
 #include "utils/xml.h"
 
-/* This value is normally passed in from the Makefile */
+/* 此值通常由 Makefile 传入 */
 #ifndef PG_KRB_SRVTAB
 #define PG_KRB_SRVTAB ""
 #endif
 
-/* XXX these should appear in other modules' header files */
+/* XXX 这些本应放入其他模块的头文件 */
 extern bool Log_disconnections;
 extern int	CommitDelay;
 extern int	CommitSiblings;
@@ -106,9 +106,9 @@ extern bool optimize_bounded_sort;
 #endif
 
 /*
- * Options for enum values defined in this module.
+ * 本模块内定义的枚举值选项。
  *
- * NOTE! Option values may not contain double quotes!
+ * 注意！选项值不得含有双引号！
  */
 
 static const struct config_enum_entry bytea_output_options[] = {
@@ -121,9 +121,9 @@ StaticAssertDecl(lengthof(bytea_output_options) == (BYTEA_OUTPUT_HEX + 2),
 				 "array length mismatch");
 
 /*
- * We have different sets for client and server message level options because
- * they sort slightly different (see "log" level), and because "fatal"/"panic"
- * aren't sensible for client_min_messages.
+ * 客户端与服务器消息级别选项之所以各用一套，是因为
+ * 二者的排序略有差异（见 "log" 级别），且 "fatal"/"panic"
+ * 对 client_min_messages 并不合理。
  */
 static const struct config_enum_entry client_message_level_options[] = {
 	{"debug5", DEBUG5, false},
@@ -278,8 +278,8 @@ StaticAssertDecl(lengthof(xmloption_options) == (XMLOPTION_CONTENT + 2),
 				 "array length mismatch");
 
 /*
- * Although only "on", "off", and "safe_encoding" are documented, we
- * accept all the likely variants of "on" and "off".
+ * 虽仅记载 "on"、"off" 和 "safe_encoding"，但我们
+ * 接受 "on" 与 "off" 的所有常见变体。
  */
 static const struct config_enum_entry backslash_quote_options[] = {
 	{"safe_encoding", BACKSLASH_QUOTE_SAFE_ENCODING, false},
@@ -295,8 +295,8 @@ static const struct config_enum_entry backslash_quote_options[] = {
 };
 
 /*
- * Although only "on", "off", and "auto" are documented, we accept
- * all the likely variants of "on" and "off".
+ * 虽仅记载 "on"、"off" 和 "auto"，但我们接受
+ * "on" 与 "off" 的所有常见变体。
  */
 static const struct config_enum_entry compute_query_id_options[] = {
 	{"auto", COMPUTE_QUERY_ID_AUTO, false},
@@ -313,8 +313,8 @@ static const struct config_enum_entry compute_query_id_options[] = {
 };
 
 /*
- * Although only "on", "off", and "partition" are documented, we
- * accept all the likely variants of "on" and "off".
+ * 虽仅记载 "on"、"off" 和 "partition"，但我们
+ * 接受 "on" 与 "off" 的所有常见变体。
  */
 static const struct config_enum_entry constraint_exclusion_options[] = {
 	{"partition", CONSTRAINT_EXCLUSION_PARTITION, false},
@@ -330,8 +330,8 @@ static const struct config_enum_entry constraint_exclusion_options[] = {
 };
 
 /*
- * Although only "on", "off", "remote_apply", "remote_write", and "local" are
- * documented, we accept all the likely variants of "on" and "off".
+ * 虽仅记载 "on"、"off"、"remote_apply"、"remote_write" 和
+ * "local"，但接受 "on" 与 "off" 的所有常见变体。
  */
 static const struct config_enum_entry synchronous_commit_options[] = {
 	{"local", SYNCHRONOUS_COMMIT_LOCAL_FLUSH, false},
@@ -349,8 +349,8 @@ static const struct config_enum_entry synchronous_commit_options[] = {
 };
 
 /*
- * Although only "on", "off", "try" are documented, we accept all the likely
- * variants of "on" and "off".
+ * 虽仅记载 "on"、"off" 和 "try"，但我们接受所有常见
+ * 的 "on"/"off" 变体。
  */
 static const struct config_enum_entry huge_pages_options[] = {
 	{"off", HUGE_PAGES_OFF, false},
@@ -471,7 +471,7 @@ static const struct config_enum_entry wal_compression_options[] = {
 };
 
 /*
- * Options for enum values stored in other modules
+ * 存储于其他模块的枚举值选项
  */
 extern const struct config_enum_entry wal_level_options[];
 extern const struct config_enum_entry archive_mode_options[];
@@ -480,7 +480,7 @@ extern const struct config_enum_entry sync_method_options[];
 extern const struct config_enum_entry dynamic_shared_memory_options[];
 
 /*
- * GUC option variables that are exported from this module
+ * 由本模块导出的 GUC 选项变量
  */
 bool		log_duration = false;
 bool		Debug_print_plan = false;
@@ -491,8 +491,8 @@ bool		Debug_pretty_print = true;
 bool		log_parser_stats = false;
 bool		log_planner_stats = false;
 bool		log_executor_stats = false;
-bool		log_statement_stats = false;	/* this is sort of all three above
-											 * together */
+bool		log_statement_stats = false;	/* 本项大致为上面三项
+											 * 之和 */
 bool		log_btree_build_stats = false;
 char	   *event_source;
 
@@ -500,8 +500,8 @@ bool		row_security;
 bool		check_function_bodies = true;
 
 /*
- * This GUC exists solely for backward compatibility, check its definition for
- * details.
+ * 此 GUC 仅为向后兼容而存在，详情见其定义处。
+ *
  */
 bool		default_with_oids = false;
 bool		session_auth_is_superuser;
@@ -537,24 +537,24 @@ int			tcp_keepalives_count;
 int			tcp_user_timeout;
 
 /*
- * SSL renegotiation was been removed in PostgreSQL 9.5, but we tolerate it
- * being set to zero (meaning never renegotiate) for backward compatibility.
- * This avoids breaking compatibility with clients that have never supported
- * renegotiation and therefore always try to zero it.
+ * SSL 重协商已在 PostgreSQL 9.5 中移除，但我们仍容忍将其
+ * 设为零（即永不重协商）以保持向后兼容。
+ * 这样可避免破坏从不支持重协商的客户端，因为它们
+ * 总是试图将其置零。
  */
 int			ssl_renegotiation_limit;
 
 /*
- * This really belongs in pg_shmem.c, but is defined here so that it doesn't
- * need to be duplicated in all the different implementations of pg_shmem.c.
+ * 本项其实应属于 pg_shmem.c，但在此处定义，可免于在
+ * pg_shmem.c 的各个不同实现中重复编写。
  */
 int			huge_pages = HUGE_PAGES_TRY;
 int			huge_page_size;
 
 /*
- * These variables are all dummies that don't do anything, except in some
- * cases provide the value for SHOW to display.  The real state is elsewhere
- * and is kept in sync by assign_hooks.
+ * 这些变量都是占位符，本身不作任何事，只是在
+ * 某些情况下为 SHOW 提供可显示的值。真实状态在别处，
+ * 由 assign_hooks 保持同步。
  */
 static char *syslog_ident_str;
 static double phony_random_seed;
@@ -602,17 +602,17 @@ static char *recovery_target_xid_string;
 static char *recovery_target_name_string;
 static char *recovery_target_lsn_string;
 
-/* should be static, but commands/variable.c needs to get at this */
+/* 本应设为 static，但 commands/variable.c 需要访问它 */
 char	   *role_string;
 
-/* should be static, but guc.c needs to get at this */
+/* 本应设为 static，但 guc.c 需要访问它 */
 bool		in_hot_standby_guc;
 
 
 /*
- * Displayable names for context types (enum GucContext)
+ * 上下文类型的显示名（GucContext 枚举）
  *
- * Note: these strings are deliberately not localized.
+ * 注意：这些字符串刻意不做本地化。
  */
 const char *const GucContext_Names[] =
 {
@@ -629,9 +629,9 @@ StaticAssertDecl(lengthof(GucContext_Names) == (PGC_USERSET + 1),
 				 "array length mismatch");
 
 /*
- * Displayable names for source types (enum GucSource)
+ * 来源类型的显示名（GucSource 枚举）
  *
- * Note: these strings are deliberately not localized.
+ * 注意：这些字符串刻意不做本地化。
  */
 const char *const GucSource_Names[] =
 {
@@ -655,7 +655,7 @@ StaticAssertDecl(lengthof(GucSource_Names) == (PGC_S_SESSION + 1),
 				 "array length mismatch");
 
 /*
- * Displayable names for the groupings defined in enum config_group
+ * enum config_group 中所定义分组的显示名
  */
 const char *const config_group_names[] =
 {
@@ -747,7 +747,7 @@ const char *const config_group_names[] =
 	gettext_noop("Customized Options"),
 	/* DEVELOPER_OPTIONS */
 	gettext_noop("Developer Options"),
-	/* help_config wants this array to be null-terminated */
+	/* help_config 要求此数组以 NULL 结尾 */
 	NULL
 };
 
@@ -755,9 +755,9 @@ StaticAssertDecl(lengthof(config_group_names) == (DEVELOPER_OPTIONS + 2),
 				 "array length mismatch");
 
 /*
- * Displayable names for GUC variable types (enum config_type)
+ * 各 GUC 变量类型的显示名（config_type 枚举）
  *
- * Note: these strings are deliberately not localized.
+ * 注意：这些字符串刻意不做本地化。
  */
 const char *const config_type_names[] =
 {
@@ -773,30 +773,30 @@ StaticAssertDecl(lengthof(config_type_names) == (PGC_ENUM + 1),
 
 
 /*
- * Contents of GUC tables
+ * GUC 表的内容
  *
- * See src/backend/utils/misc/README for design notes.
+ * 设计说明见 src/backend/utils/misc/README。
  *
- * TO ADD AN OPTION:
+ * 新增 OPTION：
  *
- * 1. Declare a global variable of type bool, int, double, or char*
- *	  and make use of it.
+ * 1. 声明 bool、int、double 或 char* 类型的全局变量
+ *	  并加以使用。
  *
- * 2. Decide at what times it's safe to set the option. See guc.h for
- *	  details.
+ * 2. 决定何时设置该选项是安全的。详见 guc.h。
  *
- * 3. Decide on a name, a default value, upper and lower bounds (if
- *	  applicable), etc.
  *
- * 4. Add a record below.
+ * 3. 确定名称、默认值以及上下界（如适用）等。
  *
- * 5. Add it to src/backend/utils/misc/postgresql.conf.sample, if
- *	  appropriate.
  *
- * 6. Don't forget to document the option (at least in config.sgml).
+ * 4. 加一条记录。
  *
- * 7. If it's a new GUC_LIST_QUOTE option, you must add it to
- *	  variable_is_guc_list_quote() in src/bin/pg_dump/dumputils.c.
+ * 5. 将其加入 src/backend/utils/misc/postgresql.conf.sample
+ *	  如合适。
+ *
+ * 6. 别忘了给选项写文档（至少写入 config.sgml）。
+ *
+ * 7. 若为新的 GUC_LIST_QUOTE 选项，必须将其加入
+ *	  src/bin/pg_dump/dumputils.c 的 variable_is_guc_list_quote()
  */
 
 struct config_bool ConfigureNamesBool[] =
@@ -1030,7 +1030,7 @@ struct config_bool ConfigureNamesBool[] =
 		NULL, NULL, NULL
 	},
 	{
-		/* Not for general use --- used by SET SESSION AUTHORIZATION */
+		/* 非通用 --- 供 SET SESSION AUTHORIZATION 使用 */
 		{"is_superuser", PGC_INTERNAL, UNGROUPED,
 			gettext_noop("Shows whether the current user is a superuser."),
 			NULL,
@@ -1614,9 +1614,9 @@ struct config_bool ConfigureNamesBool[] =
 	},
 
 	/*
-	 * WITH OIDS support, and consequently default_with_oids, was removed in
-	 * PostgreSQL 12, but we tolerate the parameter being set to false to
-	 * avoid unnecessarily breaking older dump files.
+	 * WITH OIDS 支持以及随之的 default_with_oids 已在
+	 * PostgreSQL 12 中移除，但我们容忍将参数设为 false，
+	 * 以免不必要地破坏旧转储文件。
 	 */
 	{
 		{"default_with_oids", PGC_USERSET, COMPAT_OPTIONS_PREVIOUS,
@@ -1661,7 +1661,7 @@ struct config_bool ConfigureNamesBool[] =
 #endif
 
 #ifdef TRACE_SYNCSCAN
-	/* this is undocumented because not exposed in a standard build */
+	/* 未写入文档，因为标准构建中并不暴露该参数 */
 	{
 		{"trace_syncscan", PGC_USERSET, DEVELOPER_OPTIONS,
 			gettext_noop("Generate debugging output for synchronized scanning."),
@@ -1675,7 +1675,7 @@ struct config_bool ConfigureNamesBool[] =
 #endif
 
 #ifdef DEBUG_BOUNDED_SORT
-	/* this is undocumented because not exposed in a standard build */
+	/* 未写入文档，因为标准构建中并不暴露该参数 */
 	{
 		{
 			"optimize_bounded_sort", PGC_USERSET, QUERY_TUNING_METHOD,
@@ -1923,9 +1923,9 @@ struct config_bool ConfigureNamesBool[] =
 		false,
 
 		/*
-		 * This is not guaranteed to be available, but given it's a developer
-		 * oriented option, it doesn't seem worth adding code checking
-		 * availability.
+		 * 这并不保证可用，但鉴于它是面向开发者的选项，
+		 * 为此似乎不值得专门添加代码来检查
+		 * 可用性。
 		 */
 		NULL, NULL, NULL
 	},
@@ -1962,9 +1962,9 @@ struct config_bool ConfigureNamesBool[] =
 		false,
 
 		/*
-		 * This is not guaranteed to be available, but given it's a developer
-		 * oriented option, it doesn't seem worth adding code checking
-		 * availability.
+		 * 这并不保证可用，但鉴于它是面向开发者的选项，
+		 * 为此似乎不值得专门添加代码来检查
+		 * 可用性。
 		 */
 		NULL, NULL, NULL
 	},
@@ -1998,7 +1998,7 @@ struct config_bool ConfigureNamesBool[] =
 		NULL, NULL, NULL
 	},
 
-	/* End-of-list marker */
+	/* 列表结束标记 */
 	{
 		{NULL, 0, 0, NULL, NULL}, NULL, false, NULL, NULL, NULL
 	}
@@ -2107,7 +2107,7 @@ struct config_int ConfigureNamesInt[] =
 	},
 
 	{
-		/* This is PGC_SUSET to prevent hiding from log_lock_waits. */
+		/* 设为 PGC_SUSET 以防逃避 log_lock_waits 记录。 */
 		{"deadlock_timeout", PGC_SUSET, LOCK_MANAGEMENT,
 			gettext_noop("Sets the time to wait on a lock before checking for deadlock."),
 			NULL,
@@ -2184,7 +2184,7 @@ struct config_int ConfigureNamesInt[] =
 	},
 
 	{
-		/* see max_connections */
+		/* 见 max_connections */
 		{"superuser_reserved_connections", PGC_POSTMASTER, CONN_AUTH_SETTINGS,
 			gettext_noop("Sets the number of connection slots reserved for superusers."),
 			NULL
@@ -2217,8 +2217,8 @@ struct config_int ConfigureNamesInt[] =
 	},
 
 	/*
-	 * We sometimes multiply the number of shared buffers by two without
-	 * checking for overflow, so we mustn't allow more than INT_MAX / 2.
+	 * 我们有时会将共享缓冲区数量乘以二，而不
+	 * 做溢出检查，因此绝不允许超过 INT_MAX / 2。
 	 */
 	{
 		{"shared_buffers", PGC_POSTMASTER, RESOURCES_MEM,
@@ -2366,9 +2366,9 @@ struct config_int ConfigureNamesInt[] =
 	},
 
 	/*
-	 * We use the hopefully-safely-small value of 100kB as the compiled-in
-	 * default for max_stack_depth.  InitializeGUCOptions will increase it if
-	 * possible, depending on the actual platform-specific stack limit.
+	 * 我们选用 100kB 这一期望安全偏小的值作为
+	 * max_stack_depth 的编译期内建默认值。若有可能，
+	 * InitializeGUCOptions 会按平台栈上限尽力将其调大。
 	 */
 	{
 		{"max_stack_depth", PGC_SUSET, RESOURCES_MEM,
@@ -2453,7 +2453,7 @@ struct config_int ConfigureNamesInt[] =
 	},
 
 	/*
-	 * See also CheckRequiredParameterValues() if this parameter changes
+	 * 本参数变更时，请参见 CheckRequiredParameterValues()。
 	 */
 	{
 		{"max_prepared_transactions", PGC_POSTMASTER, RESOURCES_MEM,
@@ -2592,7 +2592,7 @@ struct config_int ConfigureNamesInt[] =
 	},
 
 	/*
-	 * See also CheckRequiredParameterValues() if this parameter changes
+	 * 本参数变更时，请参见 CheckRequiredParameterValues()。
 	 */
 	{
 		{"max_locks_per_transaction", PGC_POSTMASTER, LOCK_MANAGEMENT,
@@ -2652,7 +2652,7 @@ struct config_int ConfigureNamesInt[] =
 	},
 
 	{
-		/* Not for general use */
+		/* 非通用 */
 		{"pre_auth_delay", PGC_SIGHUP, DEVELOPER_OPTIONS,
 			gettext_noop("Sets the amount of time to wait before "
 						 "authentication on connection startup."),
@@ -2802,7 +2802,7 @@ struct config_int ConfigureNamesInt[] =
 	},
 
 	{
-		/* see max_wal_senders */
+		/* 见 max_wal_senders */
 		{"max_replication_slots", PGC_POSTMASTER, REPLICATION_SENDING,
 			gettext_noop("Sets the maximum number of simultaneously defined replication slots."),
 			NULL
@@ -2841,7 +2841,7 @@ struct config_int ConfigureNamesInt[] =
 			gettext_noop("Sets the delay in microseconds between transaction commit and "
 						 "flushing WAL to disk."),
 			NULL
-			/* we have no microseconds designation, so can't supply units here */
+			/* 本处无微秒单位标记，故无法在此提供单位 */
 		},
 		&CommitDelay,
 		0, 0, 100000,
@@ -2950,7 +2950,7 @@ struct config_int ConfigureNamesInt[] =
 			NULL
 		},
 		&bgwriter_lru_maxpages,
-		100, 0, INT_MAX / 2,	/* Same upper limit as shared_buffers */
+		100, 0, INT_MAX / 2,	/* 同 shared_buffers 的上限 */
 		NULL, NULL, NULL
 	},
 
@@ -3206,19 +3206,19 @@ struct config_int ConfigureNamesInt[] =
 		NULL, NULL, NULL
 	},
 	{
-		/* see varsup.c for why this is PGC_POSTMASTER not PGC_SIGHUP */
+		/* 为何是 PGC_POSTMASTER 而非 PGC_SIGHUP，见 varsup.c */
 		{"autovacuum_freeze_max_age", PGC_POSTMASTER, AUTOVACUUM,
 			gettext_noop("Age at which to autovacuum a table to prevent transaction ID wraparound."),
 			NULL
 		},
 		&autovacuum_freeze_max_age,
 
-		/* see vacuum_failsafe_age if you change the upper-limit value. */
+		/* 若改动该上限值，请参见 vacuum_failsafe_age。 */
 		200000000, 100000, 2000000000,
 		NULL, NULL, NULL
 	},
 	{
-		/* see multixact.c for why this is PGC_POSTMASTER not PGC_SIGHUP */
+		/* 为何是 PGC_POSTMASTER 而非 PGC_SIGHUP，见 multixact.c */
 		{"autovacuum_multixact_freeze_max_age", PGC_POSTMASTER, AUTOVACUUM,
 			gettext_noop("Multixact age at which to autovacuum a table to prevent multixact wraparound."),
 			NULL
@@ -3228,7 +3228,7 @@ struct config_int ConfigureNamesInt[] =
 		NULL, NULL, NULL
 	},
 	{
-		/* see max_connections */
+		/* 见 max_connections */
 		{"autovacuum_max_workers", PGC_POSTMASTER, AUTOVACUUM,
 			gettext_noop("Sets the maximum number of simultaneously running autovacuum worker processes."),
 			NULL
@@ -3383,7 +3383,7 @@ struct config_int ConfigureNamesInt[] =
 	},
 
 	{
-		/* Can't be set in postgresql.conf */
+		/* 无法设于 postgresql.conf */
 		{"server_version_num", PGC_INTERNAL, PRESET_OPTIONS,
 			gettext_noop("Shows the server version as an integer."),
 			NULL,
@@ -3457,7 +3457,7 @@ struct config_int ConfigureNamesInt[] =
 		},
 		&debug_discard_caches,
 #ifdef DISCARD_CACHES_ENABLED
-		/* Set default based on older compile-time-only cache clobber macros */
+		/* 基于旧的仅编译期缓存清空宏来设置默认值 */
 #if defined(CLOBBER_CACHE_RECURSIVELY)
 		3,
 #elif defined(CLOBBER_CACHE_ALWAYS)
@@ -3466,9 +3466,9 @@ struct config_int ConfigureNamesInt[] =
 		0,
 #endif
 		0, 5,
-#else							/* not DISCARD_CACHES_ENABLED */
+#else							/* 非 DISCARD_CACHES_ENABLED */
 		0, 0, 0,
-#endif							/* not DISCARD_CACHES_ENABLED */
+#endif							/* 非 DISCARD_CACHES_ENABLED */
 		NULL, NULL, NULL
 	},
 
@@ -3506,7 +3506,7 @@ struct config_int ConfigureNamesInt[] =
 		NULL, NULL, NULL
 	},
 
-	/* End-of-list marker */
+	/* 列表结束标记 */
 	{
 		{NULL, 0, 0, NULL, NULL}, NULL, 0, 0, 0, NULL, NULL, NULL
 	}
@@ -3787,7 +3787,7 @@ struct config_real ConfigureNamesReal[] =
 		NULL, NULL, NULL
 	},
 
-	/* End-of-list marker */
+	/* 列表结束标记 */
 	{
 		{NULL, 0, 0, NULL, NULL}, NULL, 0.0, 0.0, 0.0, NULL, NULL, NULL
 	}
@@ -4131,7 +4131,7 @@ struct config_string ConfigureNamesString[] =
 	},
 
 	{
-		/* Can't be set in postgresql.conf */
+		/* 无法设于 postgresql.conf */
 		{"server_encoding", PGC_INTERNAL, PRESET_OPTIONS,
 			gettext_noop("Shows the server (database) character set encoding."),
 			NULL,
@@ -4143,7 +4143,7 @@ struct config_string ConfigureNamesString[] =
 	},
 
 	{
-		/* Can't be set in postgresql.conf */
+		/* 无法设于 postgresql.conf */
 		{"server_version", PGC_INTERNAL, PRESET_OPTIONS,
 			gettext_noop("Shows the server version."),
 			NULL,
@@ -4155,7 +4155,7 @@ struct config_string ConfigureNamesString[] =
 	},
 
 	{
-		/* Not for general use --- used by SET ROLE */
+		/* 非通用 --- 供 SET ROLE 使用 */
 		{"role", PGC_USERSET, UNGROUPED,
 			gettext_noop("Sets the current role."),
 			NULL,
@@ -4167,7 +4167,7 @@ struct config_string ConfigureNamesString[] =
 	},
 
 	{
-		/* Not for general use --- used by SET SESSION AUTHORIZATION */
+		/* 非通用 --- 供 SET SESSION AUTHORIZATION 使用 */
 		{"session_authorization", PGC_USERSET, UNGROUPED,
 			gettext_noop("Sets the session user name."),
 			NULL,
@@ -4289,8 +4289,8 @@ struct config_string ConfigureNamesString[] =
 
 	{
 		/*
-		 * Can't be set by ALTER SYSTEM as it can lead to recursive definition
-		 * of data_directory.
+		 * 无法用 ALTER SYSTEM 设置，因为这会造成递归定义
+		 * data_directory。
 		 */
 		{"data_directory", PGC_POSTMASTER, FILE_LOCATIONS,
 			gettext_noop("Sets the server's data directory."),
@@ -4561,7 +4561,7 @@ struct config_string ConfigureNamesString[] =
 		check_restrict_nonsystem_relation_kind, assign_restrict_nonsystem_relation_kind, NULL
 	},
 
-	/* End-of-list marker */
+	/* 列表结束标记 */
 	{
 		{NULL, 0, 0, NULL, NULL}, NULL, NULL, NULL, NULL, NULL
 	}
@@ -4779,8 +4779,8 @@ struct config_enum ConfigureNamesEnum[] =
 		&trace_recovery_messages,
 
 		/*
-		 * client_message_level_options allows too many values, really, but
-		 * it's not worth having a separate options array for this.
+		 * client_message_level_options 允许的值实在过多，但是
+		 * 为此单独维护一个选项数组并不值得。
 		 */
 		LOG, client_message_level_options,
 		NULL, NULL, NULL
@@ -4942,7 +4942,7 @@ struct config_enum ConfigureNamesEnum[] =
 		},
 		&ssl_min_protocol_version,
 		PG_TLS1_2_VERSION,
-		ssl_protocol_versions_info + 1, /* don't allow PG_TLS_ANY */
+		ssl_protocol_versions_info + 1, /* 不允许 PG_TLS_ANY */
 		NULL, NULL, NULL
 	},
 
@@ -4980,7 +4980,7 @@ struct config_enum ConfigureNamesEnum[] =
 		NULL, NULL, NULL
 	},
 
-	/* End-of-list marker */
+	/* 列表结束标记 */
 	{
 		{NULL, 0, 0, NULL, NULL}, NULL, 0, NULL, NULL, NULL, NULL
 	}
